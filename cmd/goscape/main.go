@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/drone/envsubst"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -39,6 +42,8 @@ func main() {
 
 func init() {
 	rootCmd.Flags().String("config.file", "", "configuration file to load")
+	rootCmd.Flags().Bool("config.expand-env", false, "whether to expand environment variables in the config file")
+	rootCmd.Flags().Bool("config.verify", false, "verify configuration and exit")
 	rootCmd.Flags().String("target", "all", "target module to run")
 }
 
@@ -60,11 +65,22 @@ func loadConfig(cmd *cobra.Command) (*app.Config, error) {
 
 	// 3. Handle the configuration file
 	if configFile := viper.GetString("config.file"); configFile != "" {
-		// Use config file from the flag.
-		viper.SetConfigFile(configFile)
+		buf, err := os.ReadFile(configFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read config file %s: %w", configFile, err)
+		}
 
-		if err := viper.ReadInConfig(); err != nil {
-			return nil, err
+		if viper.GetBool("config.expand-env") {
+			s, err := envsubst.EvalEnv(string(buf))
+			if err != nil {
+				return nil, fmt.Errorf("failed to expand env vars from config file %s: %w", configFile, err)
+			}
+			buf = []byte(s)
+		}
+
+		viper.SetConfigType(strings.TrimPrefix(filepath.Ext(viper.GetString("config.file")), "."))
+		if err := viper.ReadConfig(bytes.NewBuffer(buf)); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal config file %s: %w", configFile, err)
 		}
 	}
 
