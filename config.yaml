@@ -1,0 +1,6 @@
+target: all
+
+asset_server:
+  http_listen_network: tcp
+  http_listen_address: 127.0.0.1
+  http_listen_port: 8080
