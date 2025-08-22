@@ -10,7 +10,7 @@ import (
 	"go.yaml.in/yaml/v2"
 
 	"github.com/zsrv/goscape/cmd/goscape/app"
-	"github.com/zsrv/goscape/internal/flagext"
+	"github.com/zsrv/goscape/internal/dskit/flagext"
 	"github.com/zsrv/goscape/pkg/util/log"
 )
 
@@ -38,10 +38,21 @@ func main() {
 
 	// TODO: OpenTelemetry
 
-	// Start goscape
-
 	fmt.Printf("%+v\n", config) // DEBUG
 
+	// Start goscape
+	g, err := app.New(logger, *config)
+	if err != nil {
+		logger.Error("error initializing goscape", "err", err)
+		os.Exit(1)
+	}
+
+	logger.Info("starting goscape", "target", config.Target) // TODO: add version
+
+	if err := g.Run(); err != nil {
+		logger.Error("error running goscape", "err", err)
+		os.Exit(1)
+	}
 }
 
 // configIsValid warns the user for suspect configurations.
