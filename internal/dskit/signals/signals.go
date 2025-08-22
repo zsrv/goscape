@@ -10,10 +10,7 @@ import (
 	"runtime"
 	"syscall"
 
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
-
-	dskit_log "github.com/grafana/dskit/log"
+	"github.com/zsrv/goscape/pkg/util/log"
 )
 
 // SignalReceiver represents a subsystem/server/... that can be stopped or
@@ -54,19 +51,19 @@ func (h *Handler) Loop() {
 	for {
 		select {
 		case <-h.quit:
-			level.Info(h.log).Log("msg", "=== Handler.Stop()'d ===")
+			h.log.Info("handler stopped")
 			return
 		case sig := <-sigs:
 			switch sig {
 			case syscall.SIGINT, syscall.SIGTERM:
-				level.Info(h.log).Log("msg", "=== received SIGINT/SIGTERM ===\n*** exiting")
+				h.log.Info("received SIGINT/SIGTERM, exiting")
 				for _, subsystem := range h.receivers {
 					_ = subsystem.Stop()
 				}
 				return
 			case syscall.SIGQUIT:
 				stacklen := runtime.Stack(buf, true)
-				level.Info(h.log).Log("msg", dskit_log.LazySprintf("=== received SIGQUIT ===\n*** goroutine dump...\n%s\n*** end", buf[:stacklen]))
+				h.log.Info("received SIGQUIT, dumping goroutine", "stackTrace", string(buf[:stacklen]))
 			}
 		}
 	}
