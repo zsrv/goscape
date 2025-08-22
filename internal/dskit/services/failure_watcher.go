@@ -1,9 +1,9 @@
 package services
 
 import (
+	"errors"
+	"fmt"
 	"sync"
-
-	"github.com/pkg/errors"
 )
 
 var (
@@ -49,7 +49,7 @@ func (w *FailureWatcher) WatchService(service Service) {
 	}
 
 	stop := service.AddListener(NewListener(nil, nil, nil, nil, func(_ State, failure error) {
-		w.ch <- errors.Wrapf(failure, "service %s failed", DescribeService(service))
+		w.ch <- fmt.Errorf("service %s failed: %w", DescribeService(service), failure)
 	}))
 	w.unregisterListeners = append(w.unregisterListeners, stop)
 }
@@ -69,7 +69,7 @@ func (w *FailureWatcher) WatchManager(manager *Manager) {
 	}
 
 	stop := manager.AddListener(NewManagerListener(nil, nil, func(service Service) {
-		w.ch <- errors.Wrapf(service.FailureCase(), "service %s failed", DescribeService(service))
+		w.ch <- fmt.Errorf("service %s failed: %w", DescribeService(service), service.FailureCase())
 	}))
 	w.unregisterListeners = append(w.unregisterListeners, stop)
 }
