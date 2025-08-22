@@ -1,9 +1,8 @@
 package modules
 
 import (
-	"github.com/go-kit/log"
-
-	"github.com/grafana/dskit/services"
+	"github.com/zsrv/goscape/internal/dskit/services"
+	"github.com/zsrv/goscape/pkg/util/log"
 )
 
 // This function wraps module service, and adds waiting for dependencies to start before starting,

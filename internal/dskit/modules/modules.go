@@ -4,10 +4,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/go-kit/log"
-	"github.com/pkg/errors"
-
-	"github.com/grafana/dskit/services"
+	"github.com/zsrv/goscape/internal/dskit/services"
+	"github.com/zsrv/goscape/pkg/util/log"
 )
 
 // module is the basic building block of the application
@@ -135,7 +133,7 @@ func (m *Manager) initModule(name string, initMap map[string]bool, servicesMap m
 		if mod.initFn != nil {
 			s, err := mod.initFn()
 			if err != nil {
-				return errors.Wrap(err, fmt.Sprintf("error initialising module: %s", n))
+				return fmt.Errorf("error initialising module %s: %w", n, err)
 			}
 
 			if s != nil {
