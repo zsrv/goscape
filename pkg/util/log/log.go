@@ -2,16 +2,12 @@ package log
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"runtime"
 	"time"
 )
-
-/*
-var l slog.Level
-l.UnmarshalText(str)
-*/
 
 // Logger is the interface used throughout the project for logging.
 type Logger interface {
@@ -19,6 +15,17 @@ type Logger interface {
 	Info(msg string, args ...any)
 	Warn(msg string, args ...any)
 	Error(msg string, args ...any)
+}
+
+func NewLogger(level slog.Level, format string) (Logger, error) {
+	switch format {
+	case "text":
+		return NewStdLogger(level), nil
+	case "json":
+		return NewStructuredLogger(level), nil
+	default:
+		return nil, fmt.Errorf("invalid log format: %s", format)
+	}
 }
 
 type StdLogger struct {

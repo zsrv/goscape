@@ -1,94 +1,125 @@
 package main
 
 import (
-	"bytes"
+	"flag"
 	"fmt"
+	"io"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/drone/envsubst"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+	"go.yaml.in/yaml/v2"
 
 	"github.com/zsrv/goscape/cmd/goscape/app"
+	"github.com/zsrv/goscape/internal/flagext"
+	"github.com/zsrv/goscape/pkg/util/log"
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "goscape",
-	Short: "An implementation of RuneScape server revision 225",
-
-	RunE: func(cmd *cobra.Command, args []string) error {
-		// TODO: validate config here
-		// TODO: move into its own func
-
-		config, err := loadConfig(cmd)
-		if err != nil {
-			return err
-		}
-
-		fmt.Printf("%+v\n", config)
-
-		return nil
-	},
-}
-
 func main() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+	config, configVerify, err := loadConfig()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to parse config: %v\n", err)
 		os.Exit(1)
 	}
-}
 
-func init() {
-	rootCmd.Flags().String("config.file", "", "configuration file to load")
-	rootCmd.Flags().Bool("config.expand-env", false, "whether to expand environment variables in the config file")
-	rootCmd.Flags().Bool("config.verify", false, "verify configuration and exit")
-	rootCmd.Flags().String("target", "all", "target module to run")
-}
-
-func loadConfig(cmd *cobra.Command) (*app.Config, error) {
-	// Configuration precedence (highest to lowest): command-line flag, environment variable, config file, default value
-
-	// 1. Set up Viper to use environment variables
-	viper.SetEnvPrefix("GOSCAPE")
-	// Allow for nested keys in environment variables (e.g. `MYAPP_DATABASE_HOST`)
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
-	viper.AutomaticEnv() // read in environment variables that match
-
-	// 2. Bind Cobra flags to Viper.
-	// This is the magic that makes the flag values available through Viper.
-	// It binds the full flag set of the command passed in.
-	if err := viper.BindPFlags(cmd.Flags()); err != nil {
-		return nil, err
+	logger, err := log.NewLogger(config.LogLevel, config.LogFormat)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create logger: %v\n", err)
+		os.Exit(1)
 	}
 
-	// 3. Handle the configuration file
-	if configFile := viper.GetString("config.file"); configFile != "" {
+	isValid := configIsValid(logger, config)
+
+	if configVerify {
+		if !isValid {
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
+	// TODO: OpenTelemetry
+
+	// Start goscape
+
+	fmt.Printf("%+v\n", config) // DEBUG
+
+}
+
+// configIsValid warns the user for suspect configurations.
+func configIsValid(logger log.Logger, config *app.Config) bool {
+	if warnings := config.CheckConfig(); len(warnings) > 0 {
+		for _, w := range warnings {
+			output := []any{"msg", w.Message}
+			if w.Explain != "" {
+				output = append(output, "explain", w.Explain)
+			}
+			logger.Warn("configuration warnings exist", output...)
+		}
+		return false
+	}
+	return true
+}
+
+func loadConfig() (*app.Config, bool, error) {
+	const (
+		configFileOption      = "config.file"
+		configExpandEnvOption = "config.expand-env"
+		configVerifyOption    = "config.verify"
+	)
+
+	var (
+		configFile      string
+		configExpandEnv bool
+		configVerify    bool
+	)
+
+	args := os.Args[1:]
+	config := &app.Config{}
+
+	// get the config file
+	fs := flag.NewFlagSet("", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+
+	fs.StringVar(&configFile, configFileOption, "", "")
+	fs.BoolVar(&configExpandEnv, configExpandEnvOption, false, "")
+	fs.BoolVar(&configVerify, configVerifyOption, false, "")
+
+	// Try to find -config.file & -config.expand-env flags. As Parsing stops on the first error, eg. unknown flag,
+	// we simply try remaining parameters until we find config flag, or there are no params left.
+	// (ContinueOnError just means that flag.Parse doesn't call panic or os.Exit, but it returns error, which we ignore)
+	for len(args) > 0 {
+		_ = fs.Parse(args)
+		args = args[1:]
+	}
+
+	// load config defaults and register flags
+	config.RegisterFlagsAndApplyDefaults(flag.CommandLine)
+
+	// overlay with config file if provided
+	if configFile != "" {
 		buf, err := os.ReadFile(configFile)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read config file %s: %w", configFile, err)
+			return nil, false, fmt.Errorf("failed to read configFile %s: %w", configFile, err)
 		}
 
-		if viper.GetBool("config.expand-env") {
+		if configExpandEnv {
 			s, err := envsubst.EvalEnv(string(buf))
 			if err != nil {
-				return nil, fmt.Errorf("failed to expand env vars from config file %s: %w", configFile, err)
+				return nil, false, fmt.Errorf("failed to expand env vars from configFile %s: %w", configFile, err)
 			}
 			buf = []byte(s)
 		}
 
-		viper.SetConfigType(strings.TrimPrefix(filepath.Ext(viper.GetString("config.file")), "."))
-		if err := viper.ReadConfig(bytes.NewBuffer(buf)); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal config file %s: %w", configFile, err)
+		err = yaml.UnmarshalStrict(buf, config)
+		if err != nil {
+			return nil, false, fmt.Errorf("failed to parse configFile %s: %w", configFile, err)
 		}
 	}
 
-	config := &app.Config{}
+	// overlay with cli
+	flagext.IgnoredFlag(flag.CommandLine, configFileOption, "Configuration file to load")
+	flagext.IgnoredFlag(flag.CommandLine, configExpandEnvOption, "Whether to expand environment variables in the config file")
+	flagext.IgnoredFlag(flag.CommandLine, configVerifyOption, "Verify configuration and exit")
+	flag.Parse()
 
-	if err := viper.Unmarshal(config); err != nil {
-		return nil, err
-	}
-
-	return config, nil
+	return config, configVerify, nil
 }
