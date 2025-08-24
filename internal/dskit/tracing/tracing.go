@@ -6,10 +6,8 @@ package tracing
 
 import (
 	"context"
+	"errors"
 
-	"github.com/opentracing/opentracing-go"
-	"github.com/pkg/errors"
-	jaeger "github.com/uber/jaeger-client-go"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -20,9 +18,6 @@ var (
 
 // ExtractTraceID extracts the trace id, if any from the context.
 func ExtractTraceID(ctx context.Context) (string, bool) {
-	if tid, _, ok := extractJaegerContext(ctx); ok {
-		return tid.String(), true
-	}
 	if tid, _, ok := extractOTelContext(ctx); ok {
 		return tid.String(), true
 	}
@@ -31,25 +26,10 @@ func ExtractTraceID(ctx context.Context) (string, bool) {
 
 // ExtractTraceSpanID extracts the trace id, span id if any from the context.
 func ExtractTraceSpanID(ctx context.Context) (string, string, bool) {
-	if tid, sid, ok := extractJaegerContext(ctx); ok {
-		return tid.String(), sid.String(), true
-	}
 	if tid, sid, ok := extractOTelContext(ctx); ok {
 		return tid.String(), sid.String(), true
 	}
 	return "", "", false
-}
-
-func extractJaegerContext(ctx context.Context) (tid jaeger.TraceID, sid jaeger.SpanID, success bool) {
-	sp := opentracing.SpanFromContext(ctx)
-	if sp == nil {
-		return
-	}
-	jsp, ok := sp.Context().(jaeger.SpanContext)
-	if !ok {
-		return
-	}
-	return jsp.TraceID(), jsp.SpanID(), true
 }
 
 func extractOTelContext(ctx context.Context) (tid trace.TraceID, sid trace.SpanID, success bool) {
@@ -64,9 +44,6 @@ func extractOTelContext(ctx context.Context) (tid trace.TraceID, sid trace.SpanI
 // ExtractSampledTraceID works like ExtractTraceID but the returned bool is only
 // true if the returned trace id is sampled.
 func ExtractSampledTraceID(ctx context.Context) (string, bool) {
-	if tid, ok := extractSampledJaegerTraceID(ctx); ok {
-		return tid.String(), true
-	}
 	if tid, ok := extractSampledOTelTraceID(ctx); ok {
 		return tid.String(), true
 	}
@@ -77,17 +54,4 @@ func extractSampledOTelTraceID(ctx context.Context) (traceID trace.TraceID, samp
 	sp := trace.SpanFromContext(ctx)
 	sc := sp.SpanContext()
 	return sc.TraceID(), sc.IsValid() && sc.IsSampled()
-}
-
-func extractSampledJaegerTraceID(ctx context.Context) (traceID jaeger.TraceID, sampled bool) {
-	sp := opentracing.SpanFromContext(ctx)
-	if sp == nil {
-		return
-	}
-	sctx, ok := sp.Context().(jaeger.SpanContext)
-	if !ok {
-		return
-	}
-
-	return sctx.TraceID(), sctx.IsSampled()
 }
