@@ -8,20 +8,17 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
-
-	dskit_log "github.com/grafana/dskit/log"
-	"github.com/grafana/dskit/tracing"
-	"github.com/grafana/dskit/user"
+	"github.com/zsrv/goscape/internal/dskit/tracing"
 )
 
 // Log middleware logs http requests
 type Log struct {
-	Log                      log.Logger
+	Log                      *slog.Logger
 	DisableRequestSuccessLog bool
 	LogRequestHeaders        bool // LogRequestHeaders true -> dump http headers at debug log level
 	LogRequestAtInfoLevel    bool // LogRequestAtInfoLevel true -> log requests at info log level
@@ -35,7 +32,7 @@ var defaultExcludedHeaders = map[string]bool{
 	"Authorization": true,
 }
 
-func NewLogMiddleware(log log.Logger, logRequestHeaders bool, logRequestAtInfoLevel bool, sourceIPs *SourceIPExtractor, headersList []string) Log {
+func NewLogMiddleware(log *slog.Logger, logRequestHeaders bool, logRequestAtInfoLevel bool, sourceIPs *SourceIPExtractor, headersList []string) Log {
 	httpHeadersToExclude := map[string]bool{}
 	for header := range defaultExcludedHeaders {
 		httpHeadersToExclude[header] = true
@@ -54,23 +51,23 @@ func NewLogMiddleware(log log.Logger, logRequestHeaders bool, logRequestAtInfoLe
 }
 
 // logWithRequest information from the request and context as fields.
-func (l Log) logWithRequest(r *http.Request) log.Logger {
+func (l Log) logWithRequest(r *http.Request) *slog.Logger {
 	localLog := l.Log
 	traceID, ok := tracing.ExtractSampledTraceID(r.Context())
 	if ok {
-		localLog = log.With(localLog, "trace_id", traceID)
+		localLog = localLog.With("traceID", traceID)
 	} else if traceID != "" {
-		localLog = log.With(localLog, "trace_id_unsampled", traceID)
+		localLog = localLog.With("traceIDUnsampled", traceID)
 	}
 
 	if l.SourceIPs != nil {
 		ips := l.SourceIPs.Get(r)
 		if ips != "" {
-			localLog = log.With(localLog, "sourceIPs", ips)
+			localLog = localLog.With("sourceIPs", ips)
 		}
 	}
 
-	return user.LogWith(r.Context(), localLog)
+	return localLog
 }
 
 // Wrap implements Middleware
@@ -83,7 +80,7 @@ func (l Log) Wrap(next http.Handler) http.Handler {
 		headers, err := dumpRequest(r, l.HTTPHeadersToExclude)
 		if err != nil {
 			headers = nil
-			level.Error(requestLog).Log("msg", "could not dump request headers", "err", err)
+			l.Log.Error("could not dump request headers", "err", err)
 		}
 		var buf bytes.Buffer
 		wrapped := newBadResponseLoggingWriter(w, &buf)
@@ -95,22 +92,61 @@ func (l Log) Wrap(next http.Handler) http.Handler {
 			if errors.Is(writeErr, context.Canceled) {
 				if l.LogRequestAtInfoLevel {
 					if l.LogRequestHeaders && headers != nil {
-						level.Info(requestLog).Log("msg", dskit_log.LazySprintf("%s %s %s, request cancelled: %s ws: %v; %s", r.Method, uri, time.Since(begin), writeErr, IsWSHandshakeRequest(r), headers))
+						requestLog.Info("request cancelled",
+							"method", r.Method,
+							"uri", uri,
+							"duration", time.Since(begin),
+							"err", writeErr,
+							"isWSHandshakeRequest", IsWSHandshakeRequest(r),
+							"headers", string(headers),
+						)
 					} else {
-						level.Info(requestLog).Log("msg", dskit_log.LazySprintf("%s %s %s, request cancelled: %s ws: %v", r.Method, uri, time.Since(begin), writeErr, IsWSHandshakeRequest(r)))
+						requestLog.Info("request cancelled",
+							"method", r.Method,
+							"uri", uri,
+							"duration", time.Since(begin),
+							"err", writeErr,
+							"isWSHandshakeRequest", IsWSHandshakeRequest(r),
+						)
 					}
 				} else {
 					if l.LogRequestHeaders && headers != nil {
-						level.Debug(requestLog).Log("msg", dskit_log.LazySprintf("%s %s %s, request cancelled: %s ws: %v; %s", r.Method, uri, time.Since(begin), writeErr, IsWSHandshakeRequest(r), headers))
+						requestLog.Debug("request cancelled",
+							"method", r.Method,
+							"uri", uri,
+							"duration", time.Since(begin),
+							"err", writeErr,
+							"isWSHandshakeRequest", IsWSHandshakeRequest(r),
+							"headers", string(headers),
+						)
 					} else {
-						level.Debug(requestLog).Log("msg", dskit_log.LazySprintf("%s %s %s, request cancelled: %s ws: %v", r.Method, uri, time.Since(begin), writeErr, IsWSHandshakeRequest(r)))
+						requestLog.Debug("request cancelled",
+							"method", r.Method,
+							"uri", uri,
+							"duration", time.Since(begin),
+							"err", writeErr,
+							"isWSHandshakeRequest", IsWSHandshakeRequest(r),
+						)
 					}
 				}
 			} else {
 				if l.LogRequestHeaders && headers != nil {
-					level.Warn(requestLog).Log("msg", dskit_log.LazySprintf("%s %s %s, error: %s ws: %v; %s", r.Method, uri, time.Since(begin), writeErr, IsWSHandshakeRequest(r), headers))
+					requestLog.Warn("error",
+						"method", r.Method,
+						"uri", uri,
+						"duration", time.Since(begin),
+						"err", writeErr,
+						"isWSHandshakeRequest", IsWSHandshakeRequest(r),
+						"headers", string(headers),
+					)
 				} else {
-					level.Warn(requestLog).Log("msg", dskit_log.LazySprintf("%s %s %s, error: %s ws: %v", r.Method, uri, time.Since(begin), writeErr, IsWSHandshakeRequest(r)))
+					requestLog.Warn("error",
+						"method", r.Method,
+						"uri", uri,
+						"duration", time.Since(begin),
+						"err", writeErr,
+						"isWSHandshakeRequest", IsWSHandshakeRequest(r),
+					)
 				}
 			}
 			return
@@ -124,22 +160,60 @@ func (l Log) Wrap(next http.Handler) http.Handler {
 		case 100 <= statusCode && statusCode < 500 || statusCode == http.StatusBadGateway || statusCode == http.StatusServiceUnavailable:
 			if l.LogRequestAtInfoLevel {
 				if l.LogRequestHeaders && headers != nil {
-					level.Info(requestLog).Log("msg", dskit_log.LazySprintf("%s %s (%d) %s ws: %v; %s", r.Method, uri, statusCode, time.Since(begin), IsWSHandshakeRequest(r), string(headers)))
+					requestLog.Info("request",
+						"method", r.Method,
+						"uri", uri,
+						"statusCode", statusCode,
+						"duration", time.Since(begin),
+						"isWSHandshakeRequest", IsWSHandshakeRequest(r),
+						"headers", string(headers),
+					)
 				} else {
-					level.Info(requestLog).Log("msg", dskit_log.LazySprintf("%s %s (%d) %s", r.Method, uri, statusCode, time.Since(begin)))
+					requestLog.Info("request",
+						"method", r.Method,
+						"uri", uri,
+						"statusCode", statusCode,
+						"duration", time.Since(begin),
+					)
 				}
 			} else {
 				if l.LogRequestHeaders && headers != nil {
-					level.Debug(requestLog).Log("msg", dskit_log.LazySprintf("%s %s (%d) %s ws: %v; %s", r.Method, uri, statusCode, time.Since(begin), IsWSHandshakeRequest(r), string(headers)))
+					requestLog.Debug("request",
+						"method", r.Method,
+						"uri", uri,
+						"statusCode", statusCode,
+						"duration", time.Since(begin),
+						"isWSHandshakeRequest", IsWSHandshakeRequest(r),
+						"headers", string(headers),
+					)
 				} else {
-					level.Debug(requestLog).Log("msg", dskit_log.LazySprintf("%s %s (%d) %s", r.Method, uri, statusCode, time.Since(begin)))
+					requestLog.Debug("request",
+						"method", r.Method,
+						"uri", uri,
+						"statusCode", statusCode,
+						"duration", time.Since(begin),
+					)
 				}
 			}
 		default:
 			if l.LogRequestHeaders && headers != nil {
-				level.Warn(requestLog).Log("msg", dskit_log.LazySprintf("%s %s (%d) %s Response: %q ws: %v; %s", r.Method, uri, statusCode, time.Since(begin), buf.Bytes(), IsWSHandshakeRequest(r), headers))
+				requestLog.Warn("request",
+					"method", r.Method,
+					"uri", uri,
+					"statusCode", statusCode,
+					"duration", time.Since(begin),
+					"response", buf.Bytes(),
+					"isWSHandshakeRequest", IsWSHandshakeRequest(r),
+					"headers", string(headers),
+				)
 			} else {
-				level.Warn(requestLog).Log("msg", dskit_log.LazySprintf("%s %s (%d) %s Response: %q", r.Method, uri, statusCode, time.Since(begin), buf.Bytes()))
+				requestLog.Warn("request",
+					"method", r.Method,
+					"uri", uri,
+					"statusCode", statusCode,
+					"duration", time.Since(begin),
+					"response", buf.Bytes(),
+				)
 			}
 		}
 	})
@@ -160,4 +234,18 @@ func dumpRequest(req *http.Request, httpHeadersToExclude map[string]bool) ([]byt
 
 	ret := bytes.ReplaceAll(b.Bytes(), []byte("\r\n"), []byte("; "))
 	return ret, nil
+}
+
+// IsWSHandshakeRequest returns true if the given request is a websocket handshake request.
+func IsWSHandshakeRequest(req *http.Request) bool {
+	if strings.ToLower(req.Header.Get("Upgrade")) == "websocket" {
+		// Connection header values can be of form "foo, bar, ..."
+		parts := strings.Split(strings.ToLower(req.Header.Get("Connection")), ",")
+		for _, part := range parts {
+			if strings.TrimSpace(part) == "upgrade" {
+				return true
+			}
+		}
+	}
+	return false
 }

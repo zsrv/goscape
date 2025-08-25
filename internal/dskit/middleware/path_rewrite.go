@@ -5,24 +5,23 @@
 package middleware
 
 import (
+	"log/slog"
 	"net/http"
 	"net/url"
 	"regexp"
-
-	"github.com/go-kit/log/level"
-
-	"github.com/grafana/dskit/log"
 )
 
 // PathRewrite supports regex matching and replace on Request URIs
-func PathRewrite(regexp *regexp.Regexp, replacement string) Interface {
+func PathRewrite(log *slog.Logger, regexp *regexp.Regexp, replacement string) Interface {
 	return pathRewrite{
+		log:         log,
 		regexp:      regexp,
 		replacement: replacement,
 	}
 }
 
 type pathRewrite struct {
+	log         *slog.Logger
 	regexp      *regexp.Regexp
 	replacement string
 }
@@ -33,7 +32,12 @@ func (p pathRewrite) Wrap(next http.Handler) http.Handler {
 		r.URL.RawPath = p.regexp.ReplaceAllString(r.URL.EscapedPath(), p.replacement)
 		path, err := url.PathUnescape(r.URL.RawPath)
 		if err != nil {
-			level.Error(log.Global()).Log("msg", log.LazySprintf("got invalid url-encoded path %v after applying path rewrite %v", r.URL.RawPath, p), "err", err)
+			p.log.Error("got invalid url-encoded path after applying path rewrite",
+				"path", r.URL.RawPath,
+				"regexp", p.regexp.String(),
+				"replacement", p.replacement,
+				"error", err,
+			)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -42,7 +46,7 @@ func (p pathRewrite) Wrap(next http.Handler) http.Handler {
 	})
 }
 
-// PathReplace replcase Request.RequestURI with the specified string.
+// PathReplace replaces [http.Request.Method] with the specified string.
 func PathReplace(replacement string) Interface {
 	return pathReplace(replacement)
 }

@@ -1,11 +1,9 @@
 package middleware
 
 import (
+	"log/slog"
 	"net/http"
 	"time"
-
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 )
 
 // NewTimeoutMiddleware returns a new timeout middleware that returns a 503 Service Unavailable
@@ -24,7 +22,7 @@ import (
 //   - cancels context allowing downstream code to abandon the request
 //   - returns a 503 Service Unavailable with the provided message
 //   - buffers response in memory which may be undesirable for large responses
-func NewTimeoutMiddleware(dt time.Duration, msg string, log log.Logger) Func {
+func NewTimeoutMiddleware(dt time.Duration, msg string, log *slog.Logger) Func {
 	return func(next http.Handler) http.Handler {
 		return &timeoutHandler{
 			log:     log,
@@ -34,7 +32,7 @@ func NewTimeoutMiddleware(dt time.Duration, msg string, log log.Logger) Func {
 }
 
 type timeoutHandler struct {
-	log     log.Logger
+	log     *slog.Logger
 	handler http.Handler
 }
 
@@ -43,7 +41,7 @@ func (t timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// setting the write deadline to the zero time disables it
 	err := rc.SetWriteDeadline(time.Time{})
 	if err != nil {
-		level.Warn(t.log).Log("msg", "failed to set write deadline in timeout handler. server WriteTimeout is still enforced", "err", err)
+		t.log.Warn("failed to set write deadline in timeout handler. server WriteTimeout is still enforced", "err", err)
 	}
 
 	t.handler.ServeHTTP(w, r)
