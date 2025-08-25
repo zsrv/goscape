@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/zsrv/goscape/internal/dskit/services"
 	"github.com/zsrv/goscape/pkg/util/log"
@@ -19,7 +20,7 @@ type moduleService struct {
 
 	service services.Service
 	name    string
-	logger  log.Logger
+	logger  *slog.Logger
 
 	// startDeps, stopDeps return map of service names to services
 	startDeps, stopDeps func(string) map[string]services.Service
@@ -38,7 +39,7 @@ func (n delegatedNamedService) ServiceName() string {
 // NewModuleService wraps a module service, and makes sure that dependencies are started/stopped before module service starts or stops.
 // If any dependency fails to start, this service fails as well.
 // On stop, errors from failed dependencies are ignored.
-func NewModuleService(name string, logger log.Logger, service services.Service, startDeps, stopDeps func(string) map[string]services.Service) services.Service {
+func NewModuleService(name string, logger *slog.Logger, service services.Service, startDeps, stopDeps func(string) map[string]services.Service) services.Service {
 	w := &moduleService{
 		name:      name,
 		logger:    logger,

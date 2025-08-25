@@ -23,13 +23,13 @@ type SignalReceiver interface {
 // On SIGINT or SIGTERM it will exit, on SIGQUIT it
 // will dump goroutine stacks to the Logger.
 type Handler struct {
-	log       log.Logger
+	log       *slog.Logger
 	receivers []SignalReceiver
 	quit      chan struct{}
 }
 
 // NewHandler makes a new Handler.
-func NewHandler(log log.Logger, receivers ...SignalReceiver) *Handler {
+func NewHandler(log *slog.Logger, receivers ...SignalReceiver) *Handler {
 	return &Handler{
 		log:       log,
 		receivers: receivers,
@@ -72,6 +72,6 @@ func (h *Handler) Loop() {
 // SignalHandlerLoop blocks until it receives a SIGINT, SIGTERM or SIGQUIT.
 // For SIGINT and SIGTERM, it exits; for SIGQUIT is print a goroutine stack
 // dump.
-func SignalHandlerLoop(log log.Logger, ss ...SignalReceiver) {
+func SignalHandlerLoop(log *slog.Logger, ss ...SignalReceiver) {
 	NewHandler(log, ss...).Loop()
 }

@@ -3,9 +3,9 @@ package asset
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/zsrv/goscape/internal/dskit/services"
-	"github.com/zsrv/goscape/pkg/util/log"
 )
 
 // TODO: tracer
@@ -15,15 +15,14 @@ type Asset struct {
 	services.Service
 
 	cfg Config
+	log *slog.Logger
 
 	// Manager for subservices
 	subservices        *services.Manager
 	subservicesWatcher *services.FailureWatcher
-
-	logger log.Logger
 }
 
-func New(cfg Config, logger log.Logger) (*Asset, error) {
+func New(cfg Config, logger *slog.Logger) (*Asset, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}

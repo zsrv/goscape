@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 
 	"github.com/drone/envsubst"
@@ -56,7 +57,7 @@ func main() {
 }
 
 // configIsValid warns the user for suspect configurations.
-func configIsValid(logger log.Logger, config *app.Config) bool {
+func configIsValid(logger *slog.Logger, config *app.Config) bool {
 	if warnings := config.CheckConfig(); len(warnings) > 0 {
 		for _, w := range warnings {
 			output := []any{"msg", w.Message}

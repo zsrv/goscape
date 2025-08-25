@@ -27,7 +27,7 @@ type module struct {
 // in the right order of dependencies.
 type Manager struct {
 	modules map[string]*module
-	logger  log.Logger
+	logger  *slog.Logger
 }
 
 // UserInvisibleModule is an option for `RegisterModule` that marks module not visible to user. Modules are user visible by default.
@@ -48,7 +48,7 @@ func UserInvisibleTargetableModule(m *module) {
 }
 
 // NewManager creates a new Manager
-func NewManager(logger log.Logger) *Manager {
+func NewManager(logger *slog.Logger) *Manager {
 	return &Manager{
 		modules: make(map[string]*module),
 		logger:  logger,
