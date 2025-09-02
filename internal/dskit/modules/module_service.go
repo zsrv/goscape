@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	"github.com/zsrv/goscape/internal/dskit/services"
-	"github.com/zsrv/goscape/pkg/util/log"
 )
 
 // ErrStopProcess is the error returned by a service as a hint to stop the server entirely.

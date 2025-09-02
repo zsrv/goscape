@@ -2,10 +2,10 @@ package modules
 
 import (
 	"fmt"
+	"log/slog"
 	"sort"
 
 	"github.com/zsrv/goscape/internal/dskit/services"
-	"github.com/zsrv/goscape/pkg/util/log"
 )
 
 // module is the basic building block of the application

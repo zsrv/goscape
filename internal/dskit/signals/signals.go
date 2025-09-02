@@ -5,12 +5,11 @@
 package signals
 
 import (
+	"log/slog"
 	"os"
 	"os/signal"
 	"runtime"
 	"syscall"
-
-	"github.com/zsrv/goscape/pkg/util/log"
 )
 
 // SignalReceiver represents a subsystem/server/... that can be stopped or
