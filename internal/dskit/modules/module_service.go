@@ -88,8 +88,10 @@ func (w *moduleService) start(serviceContext context.Context) error {
 		// Make sure that underlying service is stopped before returning
 		// (e.g. in case of context cancellation, AwaitRunning returns early, but service may still be starting).
 		_ = services.StopAndAwaitTerminated(context.Background(), w.service)
+		return fmt.Errorf("starting module %s: %w", w.name, err)
 	}
-	return fmt.Errorf("starting module %s: %w", w.name, err)
+
+	return nil
 }
 
 func (w *moduleService) run(serviceContext context.Context) error {
