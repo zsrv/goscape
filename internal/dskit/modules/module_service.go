@@ -114,7 +114,7 @@ func (w *moduleService) stop(_ error) error {
 		err = w.service.FailureCase()
 	}
 
-	if err != nil && err != ErrStopProcess {
+	if err != nil && !errors.Is(err, ErrStopProcess) {
 		w.logger.Warn("module failed with error", "module", w.name, "err", err)
 	} else {
 		w.logger.Info("module stopped", "module", w.name)
