@@ -55,7 +55,7 @@ func (h *Handler) Loop() {
 		case sig := <-sigs:
 			switch sig {
 			case syscall.SIGINT, syscall.SIGTERM:
-				h.log.Info("received SIGINT/SIGTERM, exiting")
+				h.log.Info("received SIGINT/SIGTERM, exiting", "signal", sig)
 				for _, subsystem := range h.receivers {
 					_ = subsystem.Stop()
 				}
