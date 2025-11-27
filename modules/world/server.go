@@ -1,7 +1,6 @@
 package world
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +9,7 @@ import (
 	"net"
 	"slices"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/zsrv/goscape/internal/dskit/signals"
@@ -37,6 +37,8 @@ type Server struct {
 	cfg         Config // TODO: make a TCP/WS server specific config struct later? or one for each?
 	handler     SignalHandler
 	tcpListener net.Listener
+	quit        chan interface{}
+	tcpWg       sync.WaitGroup
 
 	log *slog.Logger
 }
@@ -54,13 +56,17 @@ func NewServer(cfg Config, logger *slog.Logger) (*Server, error) {
 		handler = signals.NewHandler(logger)
 	}
 
-	return &Server{
+	s := &Server{
 		cfg:         cfg,
 		handler:     handler,
 		tcpListener: tcpListener,
+		quit:        make(chan interface{}),
 
 		log: logger,
-	}, nil
+	}
+	s.tcpWg.Add(1)
+
+	return s, nil
 }
 
 func (s *Server) Run() error {
@@ -96,27 +102,48 @@ func (s *Server) Stop() {
 	s.handler.Stop()
 }
 
+// Shutdown will block until the TCP listener has stopped accepting new clients and
+// all handlers have returned.
 func (s *Server) Shutdown() {
-	_, cancel := context.WithTimeout(context.Background(), s.cfg.ServerGracefulShutdownTimeout)
-	defer cancel() // releases resources if httpServer.Shutdown completes before timeout elapses. TODO: revisit this statement
-	// TODO: can we even use ctx here if tcplistener doesn't accept one and this is the proper way to shut down?
-	_ = s.tcpListener.Close() // TODO: revisit, compare to what http server shutdown does
-	// TODO: need to close listener but also close client connections
-	// https://eli.thegreenplace.net/2020/graceful-shutdown-of-a-tcp-server-in-go/
+	close(s.quit)
+	s.log.Debug("closing tcp listener")
+	s.tcpListener.Close()
+	s.log.Debug("waiting for tcp connections to close")
+	s.tcpWg.Wait()
+	s.log.Debug("all tcp connections closed")
+
+	//_, cancel := context.WithTimeout(context.Background(), s.cfg.ServerGracefulShutdownTimeout)
+	//defer cancel() // releases resources if httpServer.Shutdown completes before timeout elapses. TODO: revisit this statement
+	//// TODO: can we even use ctx here if tcplistener doesn't accept one and this is the proper way to shut down?
+	//_ = s.tcpListener.Close() // TODO: revisit, compare to what http server shutdown does
+	//// TODO: need to close listener but also close client connections
+	//// https://eli.thegreenplace.net/2020/graceful-shutdown-of-a-tcp-server-in-go/
 }
 
 func (s *Server) serveTCP() error {
-	defer s.tcpListener.Close()
+	defer s.tcpListener.Close() // TODO: put somewhere else?
+	defer s.tcpWg.Done()
 
 	// Accept incoming connections in a loop
 	for {
 		conn, err := s.tcpListener.Accept()
 		if err != nil {
-			return fmt.Errorf("failed to accept connection: %w", err)
+			select {
+			case <-s.quit:
+				s.log.Debug("tcp listener closed")
+				return nil
+			default:
+				return fmt.Errorf("failed to accept connection: %w", err)
+			}
 		}
 
+		s.tcpWg.Add(1)
+
 		// Handle the connection in a new goroutine for concurrency
-		go s.handleTCPConn(conn)
+		go func() {
+			s.handleTCPConn(conn)
+			s.tcpWg.Done()
+		}()
 	}
 }
 
@@ -138,6 +165,8 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 
 	buf := make([]byte, 64<<10) // TODO: sync.Pool, release after writing to c.in
 	for {
+		// TODO: https://eli.thegreenplace.net/2020/graceful-shutdown-of-a-tcp-server-in-go/
+
 		// Set a deadline to avoid hanging goroutines if clients disappear
 		if err := c.conn.SetReadDeadline(time.Now().Add(s.cfg.TCPServerReadTimeout)); err != nil {
 			s.log.Error("failed to set deadline", "error", err)
