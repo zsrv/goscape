@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/zsrv/goscape/internal/dskit/server"
 	"github.com/zsrv/goscape/internal/dskit/services"
 )
 
@@ -12,17 +13,20 @@ import (
 
 // Asset serves assets to game clients.
 type Asset struct {
-	services.Service
+	//services.Service
 
 	cfg Config
 	log *slog.Logger
 
-	// Manager for subservices
+	// Subservices manager
 	subservices        *services.Manager
 	subservicesWatcher *services.FailureWatcher
+
+	Server *server.Server // TODO: mine
 }
 
-func New(cfg Config, logger *slog.Logger) (*Asset, error) {
+// TODO: unused - reuse the code for other modules though
+func New(cfg Config, logger *slog.Logger, serv *server.Server) (*Asset, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -30,8 +34,10 @@ func New(cfg Config, logger *slog.Logger) (*Asset, error) {
 	//subservices := []services.Service(nil)
 
 	a := &Asset{
-		cfg:    cfg,
-		logger: logger,
+		cfg: cfg,
+		log: logger,
+
+		Server: serv,
 	}
 
 	// NOTE: Asset server doesn't have any subservices
@@ -43,7 +49,8 @@ func New(cfg Config, logger *slog.Logger) (*Asset, error) {
 	//a.subservicesWatcher = services.NewFailureWatcher()
 	//a.subservicesWatcher.WatchManager(a.subservices)
 
-	a.Service = services.NewBasicService(a.starting, a.running, a.stopping)
+	//a.Service = services.NewBasicService(a.starting, a.running, a.stopping)
+	//a.Service = services.NewBasicService(nil, runFn, stoppingFn)
 	return a, nil
 }
 
@@ -63,6 +70,7 @@ func (a *Asset) running(ctx context.Context) error {
 	case <-ctx.Done():
 		return nil
 	case err := <-a.subservicesWatcher.Chan():
+		// TODO: NewServerService does this differently in tempo
 		return fmt.Errorf("asset subservices failed: %w", err)
 	}
 }

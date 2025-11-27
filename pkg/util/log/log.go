@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 )
 
 func NewLogger(level slog.Level, format string) (*slog.Logger, error) {
-	switch format {
+	switch strings.ToLower(format) {
 	case "text":
 		return NewStdLogger(level), nil
 	case "json":
