@@ -1,0 +1,494 @@
+package login
+
+import (
+	"os"
+	"path/filepath"
+	"runtime"
+	"testing"
+	"time"
+
+	"github.com/zsrv/goscape/pkg/loginpb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
+)
+
+// newTestHandler creates a handler with an in-memory DB and a temp save directory.
+// Returns the handler and the save path.
+func newTestHandler(t *testing.T) (*handler, string) {
+	t.Helper()
+	db := createTestDB(t)
+	savePath := t.TempDir()
+	h := &handler{
+		db: db,
+		cfg: Config{
+			SavePath:             savePath,
+			NodeProfile:          "main",
+			AutoRegister:         true,
+			AutoSubscribeMembers: true,
+			BCryptCost:           4,
+		},
+		log: noopLogger(),
+	}
+	return h, savePath
+}
+
+func TestPlayerLogin_NewPlayer_AutoRegister(t *testing.T) {
+	h, _ := newTestHandler(t)
+
+	resp, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId:        1,
+		Profile:       "main",
+		NodeMembers:   true,
+		Username:      "newplayer",
+		Password:      "hunter2",
+		Uid:           42,
+		Socket:        "session-uuid-1",
+		RemoteAddress: "192.168.1.1:12345",
+	})
+	if err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+	if resp.Result != loginpb.LoginResult_LOGIN_RESULT_NEW_PLAYER {
+		t.Errorf("Result: got %v, want LOGIN_RESULT_NEW_PLAYER", resp.Result)
+	}
+
+	// Account should have been created
+	acc, err := accountByUsername(t.Context(), h.db, "newplayer", "main")
+	if err != nil {
+		t.Fatalf("accountByUsername: %v", err)
+	}
+	if acc == nil {
+		t.Fatal("expected account to be created")
+	}
+}
+
+func TestPlayerLogin_ExistingPlayer(t *testing.T) {
+	h, savePath := newTestHandler(t)
+	insertTestAccount(t, h.db, "testuser", "pw")
+
+	// Create save file
+	saveDir := filepath.Join(savePath, "main")
+	if err := os.MkdirAll(saveDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	saveBytes := []byte("savegame-contents")
+	saveFile := filepath.Join(saveDir, "testuser.sav")
+	if err := os.WriteFile(saveFile, saveBytes, 0o644); err != nil {
+		t.Fatalf("write save: %v", err)
+	}
+
+	resp, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId:        1,
+		Profile:       "main",
+		NodeMembers:   true,
+		Username:      "testuser",
+		Password:      "pw",
+		Uid:           42,
+		Socket:        "session-uuid-1",
+		RemoteAddress: "192.168.1.1:12345",
+	})
+	if err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+	if resp.Result != loginpb.LoginResult_LOGIN_RESULT_OK {
+		t.Errorf("Result: got %v, want LOGIN_RESULT_OK", resp.Result)
+	}
+	if string(resp.Save) != string(saveBytes) {
+		t.Errorf("Save: got %q, want %q", resp.Save, saveBytes)
+	}
+}
+
+func TestPlayerLogin_InvalidCredentials(t *testing.T) {
+	h, _ := newTestHandler(t)
+	insertTestAccount(t, h.db, "creduser", "rightpw")
+
+	resp, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId:        1,
+		Profile:       "main",
+		NodeMembers:   true,
+		Username:      "creduser",
+		Password:      "wrongpw",
+		Uid:           42,
+		Socket:        "session-uuid-1",
+		RemoteAddress: "192.168.1.1:12345",
+	})
+	if err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+	if resp.Result != loginpb.LoginResult_LOGIN_RESULT_INVALID_CREDENTIALS {
+		t.Errorf("Result: got %v, want LOGIN_RESULT_INVALID_CREDENTIALS", resp.Result)
+	}
+}
+
+func TestPlayerLogin_IPBanned(t *testing.T) {
+	h, _ := newTestHandler(t)
+	_, err := h.db.ExecContext(t.Context(),
+		`INSERT INTO ipban (ip, added_by, added_on) VALUES (?, ?, ?)`,
+		"10.0.0.7", "admin", "2026-01-01 00:00:00",
+	)
+	if err != nil {
+		t.Fatalf("insert ipban: %v", err)
+	}
+
+	resp, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId:        1,
+		Profile:       "main",
+		NodeMembers:   true,
+		Username:      "someuser",
+		Password:      "pw",
+		Uid:           42,
+		Socket:        "session-uuid-1",
+		RemoteAddress: "10.0.0.7:12345",
+	})
+	if err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+	if resp.Result != loginpb.LoginResult_LOGIN_RESULT_TRY_AGAIN {
+		t.Errorf("Result: got %v, want LOGIN_RESULT_TRY_AGAIN", resp.Result)
+	}
+}
+
+func TestPlayerLogin_AccountDisabled(t *testing.T) {
+	h, _ := newTestHandler(t)
+	insertTestAccount(t, h.db, "banneduser", "pw")
+	// Set banned_until in the future
+	until := time.Now().Add(24 * time.Hour).UTC().Format(dbTimeFormat)
+	_, err := h.db.ExecContext(t.Context(),
+		`UPDATE account SET banned_until = ? WHERE username = ?`,
+		until, "banneduser",
+	)
+	if err != nil {
+		t.Fatalf("set banned_until: %v", err)
+	}
+
+	resp, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId:        1,
+		Profile:       "main",
+		NodeMembers:   true,
+		Username:      "banneduser",
+		Password:      "pw",
+		Uid:           42,
+		Socket:        "session-uuid-1",
+		RemoteAddress: "192.168.1.1:12345",
+	})
+	if err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+	if resp.Result != loginpb.LoginResult_LOGIN_RESULT_ACCOUNT_DISABLED {
+		t.Errorf("Result: got %v, want LOGIN_RESULT_ACCOUNT_DISABLED", resp.Result)
+	}
+}
+
+func TestPlayerLogin_AlreadyLoggedIn(t *testing.T) {
+	h, _ := newTestHandler(t)
+	id := insertTestAccount(t, h.db, "loggeduser", "pw")
+	// Insert login row on a *different* node
+	_, err := h.db.ExecContext(t.Context(),
+		`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`,
+		id, "main", 2, 1,
+	)
+	if err != nil {
+		t.Fatalf("insert account_login: %v", err)
+	}
+
+	resp, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId:        1, // different from the 2 stored above
+		Profile:       "main",
+		NodeMembers:   true,
+		Username:      "loggeduser",
+		Password:      "pw",
+		Uid:           42,
+		Socket:        "session-uuid-1",
+		RemoteAddress: "192.168.1.1:12345",
+	})
+	if err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+	if resp.Result != loginpb.LoginResult_LOGIN_RESULT_ALREADY_LOGGED_IN {
+		t.Errorf("Result: got %v, want LOGIN_RESULT_ALREADY_LOGGED_IN", resp.Result)
+	}
+}
+
+func TestPlayerLogin_DuplicateInFlight(t *testing.T) {
+	h, _ := newTestHandler(t)
+	insertTestAccount(t, h.db, "dupuser", "pw")
+
+	// Pre-store username in loginRequests to simulate an in-flight login
+	h.loginRequests.Store("dupuser", struct{}{})
+	defer h.loginRequests.Delete("dupuser")
+
+	resp, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId:        1,
+		Profile:       "main",
+		NodeMembers:   true,
+		Username:      "dupuser",
+		Password:      "pw",
+		Uid:           42,
+		Socket:        "session-uuid-1",
+		RemoteAddress: "192.168.1.1:12345",
+	})
+	if err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+	if resp.Result != loginpb.LoginResult_LOGIN_RESULT_LOGIN_IN_PROGRESS {
+		t.Errorf("Result: got %v, want LOGIN_RESULT_LOGIN_IN_PROGRESS", resp.Result)
+	}
+}
+
+func TestPlayerLogin_Reconnect(t *testing.T) {
+	h, _ := newTestHandler(t)
+	id := insertTestAccount(t, h.db, "reconuser", "pw")
+	// Insert login row on the SAME node we'll log in from
+	_, err := h.db.ExecContext(t.Context(),
+		`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`,
+		id, "main", 1, 1,
+	)
+	if err != nil {
+		t.Fatalf("insert account_login: %v", err)
+	}
+
+	resp, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId:        1,
+		Profile:       "main",
+		NodeMembers:   true,
+		Username:      "reconuser",
+		Password:      "pw",
+		Uid:           42,
+		Socket:        "session-uuid-1",
+		RemoteAddress: "192.168.1.1:12345",
+		Reconnecting:  true,
+		HasSave:       true,
+	})
+	if err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+	if resp.Result != loginpb.LoginResult_LOGIN_RESULT_RECONNECT_OK {
+		t.Errorf("Result: got %v, want LOGIN_RESULT_RECONNECT_OK", resp.Result)
+	}
+}
+
+func TestPlayerLogout_HappyPath(t *testing.T) {
+	h, savePath := newTestHandler(t)
+	insertTestAccount(t, h.db, "logoutuser", "pw")
+
+	// Log in first so account exists and login row is set
+	_, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId:        1,
+		Profile:       "main",
+		NodeMembers:   true,
+		Username:      "logoutuser",
+		Password:      "pw",
+		Uid:           42,
+		Socket:        "session-uuid-1",
+		RemoteAddress: "192.168.1.1:12345",
+	})
+	if err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+
+	saveBytes := []byte("logout-save-data")
+	resp, err := h.PlayerLogout(t.Context(), &loginpb.PlayerLogoutRequest{
+		NodeId:   1,
+		Profile:  "main",
+		Username: "logoutuser",
+		Save:     saveBytes,
+	})
+	if err != nil {
+		t.Fatalf("PlayerLogout: %v", err)
+	}
+	if !resp.Success {
+		t.Error("expected Success=true")
+	}
+
+	// Verify save file was written
+	saveFile := filepath.Join(savePath, "main", "logoutuser.sav")
+	got, err := os.ReadFile(saveFile)
+	if err != nil {
+		t.Fatalf("read save file: %v", err)
+	}
+	if string(got) != string(saveBytes) {
+		t.Errorf("save file: got %q, want %q", got, saveBytes)
+	}
+}
+
+func TestPlayerLogout_SaveWriteFailure(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("read-only dir semantics differ on Windows")
+	}
+	// On Linux, chmod 0 on the savePath root won't stop root users.
+	// Instead, make the savePath a file so MkdirAll fails.
+	tmp := t.TempDir()
+	savePathFile := filepath.Join(tmp, "savepath-as-file")
+	if err := os.WriteFile(savePathFile, []byte("x"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	db := createTestDB(t)
+	insertTestAccount(t, db, "logoutfail", "pw")
+	h := &handler{
+		db: db,
+		cfg: Config{
+			SavePath:     savePathFile, // file, not dir
+			NodeProfile:  "main",
+			AutoRegister: true,
+			BCryptCost:   4,
+		},
+		log: noopLogger(),
+	}
+
+	_, err := h.PlayerLogout(t.Context(), &loginpb.PlayerLogoutRequest{
+		NodeId:   1,
+		Profile:  "main",
+		Username: "logoutfail",
+		Save:     []byte("data"),
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	st, ok := status.FromError(err)
+	if !ok {
+		t.Fatalf("error is not a gRPC status: %v", err)
+	}
+	if st.Code() != codes.Internal {
+		t.Errorf("code: got %v, want Internal", st.Code())
+	}
+}
+
+func TestWorldStartup(t *testing.T) {
+	h, _ := newTestHandler(t)
+	id := insertTestAccount(t, h.db, "wsuser", "pw")
+	// Pre-insert login row as logged_in=1 on node 7
+	err := upsertAccountLogin(t.Context(), h.db, int(id), "main", false, 7)
+	if err != nil {
+		t.Fatalf("upsertAccountLogin: %v", err)
+	}
+
+	_, err = h.WorldStartup(t.Context(), &loginpb.WorldStartupRequest{
+		NodeId:  7,
+		Profile: "main",
+	})
+	if err != nil {
+		t.Fatalf("WorldStartup: %v", err)
+	}
+
+	var loggedIn int
+	err = h.db.QueryRowContext(t.Context(),
+		`SELECT logged_in FROM account_login WHERE account_id = ? AND profile = ?`,
+		id, "main",
+	).Scan(&loggedIn)
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if loggedIn != 0 {
+		t.Errorf("logged_in: got %d, want 0", loggedIn)
+	}
+}
+
+func TestPlayerBan(t *testing.T) {
+	h, _ := newTestHandler(t)
+	insertTestAccount(t, h.db, "banme", "pw")
+
+	until := time.Date(2030, 1, 15, 12, 0, 0, 0, time.UTC)
+	_, err := h.PlayerBan(t.Context(), &loginpb.PlayerBanRequest{
+		Staff:    "mod1",
+		Username: "banme",
+		Until:    timestamppb.New(until),
+	})
+	if err != nil {
+		t.Fatalf("PlayerBan: %v", err)
+	}
+
+	acc, err := accountByUsername(t.Context(), h.db, "banme", "main")
+	if err != nil {
+		t.Fatalf("accountByUsername: %v", err)
+	}
+	if !acc.BannedUntil.Valid {
+		t.Fatal("BannedUntil should be set")
+	}
+	expected := until.Format(dbTimeFormat)
+	if acc.BannedUntil.String != expected {
+		t.Errorf("BannedUntil: got %q, want %q", acc.BannedUntil.String, expected)
+	}
+}
+
+func TestPlayerMute(t *testing.T) {
+	h, _ := newTestHandler(t)
+	insertTestAccount(t, h.db, "muteme", "pw")
+
+	until := time.Date(2030, 6, 1, 0, 0, 0, 0, time.UTC)
+	_, err := h.PlayerMute(t.Context(), &loginpb.PlayerMuteRequest{
+		Staff:    "mod1",
+		Username: "muteme",
+		Until:    timestamppb.New(until),
+	})
+	if err != nil {
+		t.Fatalf("PlayerMute: %v", err)
+	}
+
+	acc, err := accountByUsername(t.Context(), h.db, "muteme", "main")
+	if err != nil {
+		t.Fatalf("accountByUsername: %v", err)
+	}
+	if !acc.MutedUntil.Valid {
+		t.Fatal("MutedUntil should be set")
+	}
+	expected := until.Format(dbTimeFormat)
+	if acc.MutedUntil.String != expected {
+		t.Errorf("MutedUntil: got %q, want %q", acc.MutedUntil.String, expected)
+	}
+}
+
+func TestPlayerForceLogout(t *testing.T) {
+	h, _ := newTestHandler(t)
+	id := insertTestAccount(t, h.db, "forceout", "pw")
+	err := upsertAccountLogin(t.Context(), h.db, int(id), "main", false, 1)
+	if err != nil {
+		t.Fatalf("upsertAccountLogin: %v", err)
+	}
+
+	_, err = h.PlayerForceLogout(t.Context(), &loginpb.PlayerForceLogoutRequest{
+		NodeId:   1,
+		Profile:  "main",
+		Username: "forceout",
+	})
+	if err != nil {
+		t.Fatalf("PlayerForceLogout: %v", err)
+	}
+
+	var loggedIn int
+	err = h.db.QueryRowContext(t.Context(),
+		`SELECT logged_in FROM account_login WHERE account_id = ? AND profile = ?`,
+		id, "main",
+	).Scan(&loggedIn)
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if loggedIn != 0 {
+		t.Errorf("logged_in: got %d, want 0", loggedIn)
+	}
+}
+
+func TestPlayerAutosave(t *testing.T) {
+	h, savePath := newTestHandler(t)
+	insertTestAccount(t, h.db, "autosaveuser", "pw")
+
+	saveBytes := []byte("autosaved-bytes")
+	_, err := h.PlayerAutosave(t.Context(), &loginpb.PlayerAutosaveRequest{
+		Profile:  "main",
+		Username: "autosaveuser",
+		Save:     saveBytes,
+	})
+	if err != nil {
+		t.Fatalf("PlayerAutosave: %v", err)
+	}
+
+	saveFile := filepath.Join(savePath, "main", "autosaveuser.sav")
+	got, err := os.ReadFile(saveFile)
+	if err != nil {
+		t.Fatalf("read save file: %v", err)
+	}
+	if string(got) != string(saveBytes) {
+		t.Errorf("save: got %q, want %q", got, saveBytes)
+	}
+}

@@ -19,6 +19,7 @@ type accountRow struct {
 	StaffModLevel int
 	Members       int
 	LoggedIn      int
+	NodeID        int
 	BannedUntil   sql.NullString
 	MutedUntil    sql.NullString
 	LogoutTime    sql.NullString
@@ -46,6 +47,7 @@ func accountByUsername(ctx context.Context, db *sql.DB, username, profile string
 SELECT a.id, a.username, a.password, a.staff_mod_level, a.members,
        a.banned_until, a.muted_until, a.logout_time,
        COALESCE(al.logged_in, 0),
+       COALESCE(al.node_id, 0),
        CASE WHEN al.account_id IS NOT NULL THEN 1 ELSE 0 END as has_login_row
 FROM account a
 LEFT JOIN account_login al ON al.account_id = a.id AND al.profile = ?
@@ -63,6 +65,7 @@ WHERE a.username = ?`
 		&row.MutedUntil,
 		&row.LogoutTime,
 		&row.LoggedIn,
+		&row.NodeID,
 		&hasLoginRow,
 	)
 	if errors.Is(err, sql.ErrNoRows) {

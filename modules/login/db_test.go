@@ -149,6 +149,9 @@ func TestAccountByUsername_WithLoginRow(t *testing.T) {
 	if row.LoggedIn != 1 {
 		t.Errorf("LoggedIn: got %d, want 1", row.LoggedIn)
 	}
+	if row.NodeID != 3 {
+		t.Errorf("NodeID: got %d, want 3", row.NodeID)
+	}
 }
 
 func TestIPBanned_NotBanned(t *testing.T) {
