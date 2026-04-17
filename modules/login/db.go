@@ -3,12 +3,19 @@ package login
 import (
 	"context"
 	"database/sql"
+	"embed"
 	"errors"
 	"fmt"
 	"time"
 
+	"github.com/golang-migrate/migrate/v4"
+	sqlitedriver "github.com/golang-migrate/migrate/v4/database/sqlite"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	_ "modernc.org/sqlite"
 )
+
+//go:embed migrations/*.sql
+var migrations embed.FS
 
 const dbTimeFormat = "2006-01-02 15:04:05"
 
@@ -39,7 +46,30 @@ func openDB(dsn string) (*sql.DB, error) {
 		db.Close()
 		return nil, fmt.Errorf("sqlite pragma foreign_keys: %w", err)
 	}
+	if err = migrateDB(db); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("migrate: %w", err)
+	}
 	return db, nil
+}
+
+func migrateDB(db *sql.DB) error {
+	src, err := iofs.New(migrations, "migrations")
+	if err != nil {
+		return fmt.Errorf("iofs source: %w", err)
+	}
+	drv, err := sqlitedriver.WithInstance(db, &sqlitedriver.Config{})
+	if err != nil {
+		return fmt.Errorf("sqlite driver: %w", err)
+	}
+	m, err := migrate.NewWithInstance("iofs", src, "sqlite", drv)
+	if err != nil {
+		return fmt.Errorf("migrate instance: %w", err)
+	}
+	if err = m.Up(); errors.Is(err, migrate.ErrNoChange) {
+		return nil
+	}
+	return err
 }
 
 func accountByUsername(ctx context.Context, db *sql.DB, username, profile string) (*accountRow, error) {

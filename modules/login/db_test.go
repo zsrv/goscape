@@ -12,58 +12,14 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const testSchema = `
-CREATE TABLE IF NOT EXISTS account (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT NOT NULL UNIQUE,
-    password TEXT NOT NULL,
-    registration_ip TEXT NOT NULL DEFAULT '',
-    staff_mod_level INTEGER NOT NULL DEFAULT 0,
-    members INTEGER NOT NULL DEFAULT 0,
-    banned_until TEXT,
-    muted_until TEXT,
-    logout_time TEXT
-);
-
-CREATE TABLE IF NOT EXISTS account_login (
-    account_id INTEGER NOT NULL REFERENCES account(id),
-    profile TEXT NOT NULL,
-    node_id INTEGER NOT NULL DEFAULT 0,
-    logged_in INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY (account_id, profile)
-);
-
-CREATE TABLE IF NOT EXISTS session (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_uuid TEXT NOT NULL,
-    account_id INTEGER NOT NULL REFERENCES account(id),
-    profile TEXT NOT NULL,
-    world INTEGER NOT NULL DEFAULT 0,
-    uid INTEGER NOT NULL DEFAULT 0,
-    login_time TEXT NOT NULL,
-    remote_address TEXT NOT NULL DEFAULT ''
-);
-
-CREATE TABLE IF NOT EXISTS ipban (
-    ip TEXT NOT NULL PRIMARY KEY,
-    added_by TEXT NOT NULL DEFAULT '',
-    added_on TEXT NOT NULL DEFAULT ''
-);
-`
-
-// createTestDB opens an in-memory SQLite DB, applies WAL+foreign keys pragmas, and runs testSchema.
-// Uses a unique DSN per test so parallel tests don't share state.
 func createTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", url.PathEscape(t.Name()))
 	db, err := openDB(dsn)
 	if err != nil {
-		t.Fatalf("createTestDB: openDB: %v", err)
+		t.Fatalf("createTestDB: %v", err)
 	}
 	t.Cleanup(func() { db.Close() })
-	if _, err := db.ExecContext(t.Context(), testSchema); err != nil {
-		t.Fatalf("createTestDB: apply schema: %v", err)
-	}
 	return db
 }
 
