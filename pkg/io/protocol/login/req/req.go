@@ -8,15 +8,15 @@ import (
 )
 
 var (
-	Op16 = protocol.Operation{
+	OpReqInitGameConnection = protocol.Operation{
 		Opcode:      16,
 		PayloadSize: -1,
-		Name:        "Op16",
+		Name:        "OpReqInitGameConnection",
 	}
-	Op18 = protocol.Operation{
+	OpReqGameReconnect = protocol.Operation{
 		Opcode:      18,
 		PayloadSize: -1,
-		Name:        "Op18",
+		Name:        "OpReqGameReconnect",
 	}
 )
 
@@ -37,7 +37,7 @@ func (q *GameLogin) MarshalBinary() ([]byte, error) {
 
 	b := packet.NewPacket(make([]byte, 0, bCap))
 
-	b.P1(Op16.Opcode)
+	b.P1(OpReqInitGameConnection.Opcode)
 	b.P1(0) // length placeholder
 
 	start := b.Len()
@@ -72,7 +72,7 @@ func (q *GameLogin) UnmarshalBinary(data []byte) error {
 	}
 
 	code := r.G1()
-	if code != Op16.Opcode && code != Op18.Opcode {
+	if code != OpReqInitGameConnection.Opcode && code != OpReqGameReconnect.Opcode {
 		return protocol.ErrIncorrectOpcode
 	}
 
