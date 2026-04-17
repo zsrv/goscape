@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/url"
 	"testing"
 	"time"
 
@@ -54,7 +55,7 @@ CREATE TABLE IF NOT EXISTS ipban (
 // Uses a unique DSN per test so parallel tests don't share state.
 func createTestDB(t *testing.T) *sql.DB {
 	t.Helper()
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", t.Name())
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", url.PathEscape(t.Name()))
 	db, err := openDB(dsn)
 	if err != nil {
 		t.Fatalf("createTestDB: openDB: %v", err)

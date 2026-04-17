@@ -3,6 +3,7 @@ package login
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -29,9 +30,13 @@ func openDB(dsn string) (*sql.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
-	if _, err = db.Exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;`); err != nil {
+	if _, err = db.Exec(`PRAGMA journal_mode=WAL`); err != nil {
 		db.Close()
-		return nil, fmt.Errorf("sqlite pragmas: %w", err)
+		return nil, fmt.Errorf("sqlite pragma journal_mode: %w", err)
+	}
+	if _, err = db.Exec(`PRAGMA foreign_keys=ON`); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("sqlite pragma foreign_keys: %w", err)
 	}
 	return db, nil
 }
@@ -60,7 +65,7 @@ WHERE a.username = ?`
 		&row.LoggedIn,
 		&hasLoginRow,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
