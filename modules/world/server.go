@@ -17,7 +17,8 @@ import (
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/io/protocol"
-	"github.com/zsrv/goscape/pkg/io/protocol/login"
+	loginreq "github.com/zsrv/goscape/pkg/io/protocol/login/req"
+	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
 	util "github.com/zsrv/goscape/pkg/util/jstring"
 )
 
@@ -121,13 +122,18 @@ func (s *Server) Shutdown() {
 }
 
 func (s *Server) serveTCP() error {
-	defer s.tcpListener.Close() // TODO: put somewhere else?
+	defer s.tcpListener.Close() // TODO: put somewhere else? is this in the greenplace example?
 	defer s.tcpWg.Done()
 
 	// Accept incoming connections in a loop
+	// Use a for loop so the server will accept each incoming connection,
+	// handle it in a goroutine, and loop back around, ready to accept
+	// the next connection
 	for {
+		// conn underlying type is net.TCPConn
 		conn, err := s.tcpListener.Accept()
 		if err != nil {
+			// handshake between server and client failed, or the listener closed
 			select {
 			case <-s.quit:
 				s.log.Debug("tcp listener closed")
@@ -148,29 +154,51 @@ func (s *Server) serveTCP() error {
 }
 
 func (s *Server) handleTCPConn(conn net.Conn) {
+	//c := newClient(conn, s, s.log)
+	c := newClient(conn, s.cfg.TCPServerWriteTimeout, s.log)
+
+	// Fix 1: disable Nagle's algorithm so small game packets are sent immediately.
+	if tcpConn, ok := conn.(*net.TCPConn); ok {
+		if err := tcpConn.SetNoDelay(true); err != nil {
+			s.log.Warn("failed to set TCP_NODELAY", "error", err)
+		}
+	}
+
 	defer func() {
+		// Fix 7: log flush errors instead of silently discarding them.
+		if err := c.flushWrite(); err != nil {
+			s.log.Warn("failed to flush on connection close", "error", err, "remote_addr", conn.RemoteAddr())
+		}
+		c.in.Release()
+		putBufioReader64k(c.bufr)
+		putBufioWriter64k(c.bufw)
 		conn.Close()
 		s.log.Info("connection closed", "remote_addr", conn.RemoteAddr())
 	}()
 
-	//c := newClient(conn, s, s.log)
-	c := newClient(conn, s.log)
-
-	seed := packet.NewPacket(make([]byte, 8))
+	seed := packet.NewPacket(make([]byte, 0, 8))
 	seed.P4(rand.Uint32())
 	seed.P4(rand.Uint32())
 
 	c.bufw.Write(seed.Bytes())
-	c.bufw.Flush()
+	// Fix 2: apply write deadline when flushing.
+	if err := c.flushWrite(); err != nil {
+		s.log.Error("failed to send seed", "error", err)
+		return
+	}
 
-	buf := make([]byte, 64<<10) // TODO: sync.Pool, release after writing to c.in
+	buf := getReadBuf64k()
+	defer putReadBuf64k(buf)
 	for {
 		// TODO: https://eli.thegreenplace.net/2020/graceful-shutdown-of-a-tcp-server-in-go/
 
-		// Set a deadline to avoid hanging goroutines if clients disappear
-		if err := c.conn.SetReadDeadline(time.Now().Add(s.cfg.TCPServerReadTimeout)); err != nil {
-			s.log.Error("failed to set deadline", "error", err)
-			return
+		// Fix 6: skip the read deadline in debug-socket mode so long-running
+		// bot/integration tests aren't killed by the normal timeout.
+		if !s.cfg.NodeDebugSocket {
+			if err := c.conn.SetReadDeadline(time.Now().Add(s.cfg.TCPServerReadTimeout)); err != nil {
+				s.log.Error("failed to set read deadline", "error", err)
+				return
+			}
 		}
 
 		n, err := c.bufr.Read(buf)
@@ -183,7 +211,12 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 
 		msg := buf[:n]
 		c.log.Info("received data", "num_bytes", len(msg), "data", fmt.Sprintf("%v", msg))
-		c.in.Write(msg)
+
+		// Fix 3: close the connection if incoming data would overflow the buffer.
+		if !c.bufferData(msg) {
+			c.log.Warn("incoming buffer overflow, closing connection", "remote_addr", conn.RemoteAddr())
+			return
+		}
 
 		//c.readRequest(msg)
 		err = c.handleData()
@@ -191,6 +224,10 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 			if errors.Is(err, protocol.ErrPayloadTooSmall) {
 				c.log.Info("payload too small, waiting for more data2", "error", err)
 				continue
+			}
+			// Fix 5: errCloseConn means a rejection was already sent — close quietly.
+			if errors.Is(err, errCloseConn) {
+				return
 			}
 			c.log.Error("handleData error, closing connection", "error", err)
 			return
@@ -216,32 +253,33 @@ func (c *client) handleLogin() error {
 	}
 
 	switch opcode[0] {
-	case login.Op16.Opcode, login.Op18.Opcode:
-		var req login.GameLogin
+	default:
+		return fmt.Errorf("unexpected opcode in login state: %d", opcode[0])
+	case loginreq.OpReqInitGameConnection.Opcode, loginreq.OpReqGameReconnect.Opcode:
+		var req loginreq.GameLogin
 
-		pLen, ok := protocol.CheckPacketLength(c.in, login.Op16)
+		pLen, ok := protocol.CheckPacketLength(c.in, loginreq.OpReqInitGameConnection)
 		if !ok {
-			c.log.Info("partial packet data received, waiting for more", "opcode", login.Op16, "length", pLen)
+			c.log.Info("partial packet data received, waiting for more", "opcode", loginreq.OpReqInitGameConnection, "length", pLen)
 			return protocol.ErrPayloadTooSmall
 		}
 
 		b := c.in.Next(pLen)
 		if err := req.UnmarshalBinary(b); err != nil {
-			return err
+			// RSA failure or malformed packet — tell client it's out of date.
+			return c.sendLoginError(loginresp.OpClientOutOfDate.Opcode)
 		}
 
-		c.log.Info("unmarshalled Op16", "req", req)
+		c.log.Info("unmarshalled OpReqInitGameConnection", "req", req)
 
-		if req.Revision != 225 {
-			// send 6, close conn
-			return nil
+		if req.Revision != expectedRevision {
+			return c.sendLoginError(loginresp.OpClientOutOfDate.Opcode)
 		}
 
 		if !slices.Equal(cache.CrcTable, req.ArchiveChecksums[:]) {
 			//if cache.CrcBuffer32 != packet.GetCRC(req.ArchiveChecksums[:], 0, len(req.ArchiveChecksums)) {
-			// send 6, close conn
 			c.log.Info("invalid checksum", "crctable", cache.CrcTable, "reqsums", req.ArchiveChecksums)
-			return nil
+			return c.sendLoginError(loginresp.OpClientOutOfDate.Opcode)
 		}
 
 		c.decryptor = io2.New(req.ISAACSeed)
@@ -251,13 +289,11 @@ func (c *client) handleLogin() error {
 		c.encryptor = io2.New(req.ISAACSeed)
 
 		if len(req.Username) < 1 || len(req.Username) > 12 {
-			// send 3, close conn
-			return nil
+			return c.sendLoginError(loginresp.OpInvalidUsernameOrPassword.Opcode)
 		}
 
 		if len(req.Password) < 1 || len(req.Password) > 20 {
-			// send 3, close conn
-			return nil
+			return c.sendLoginError(loginresp.OpInvalidUsernameOrPassword.Opcode)
 		}
 
 		// TODO: check num of total players on world
@@ -287,9 +323,63 @@ func (c *client) handleLogin() error {
 
 		//c.log.Info("loginResp", "loginResp", loginResp)
 
+		// TODO: fake response below - replace with real call/response
+		reply := 6
+
+		// from World.ts onLoginMessage
+		switch reply {
+		case -1:
+			// login server offline
+			return c.sendLoginError(loginresp.OpLoginServerOffline.Opcode)
+		case 1:
+			// invalid username or password
+			return c.sendLoginError(loginresp.OpInvalidUsernameOrPassword.Opcode)
+		case 3:
+			// already logged in (on another world)
+			return c.sendLoginError(loginresp.OpDuplicate.Opcode)
+		case 5:
+			// account has been disabled (banned)
+			return c.sendLoginError(loginresp.OpBanned.Opcode)
+		case 6:
+			// login limit exceeded
+			return c.sendLoginError(loginresp.OpIPLimit.Opcode)
+		case 7:
+			// rejected
+			return c.sendLoginError(loginresp.OpLoginServerRejected.Opcode)
+		case 8:
+			// too many attempts
+			return c.sendLoginError(loginresp.OpTooManyAttempts.Opcode)
+		case 9:
+			// logging into p2p on a f2p account
+			return c.sendLoginError(loginresp.OpNeedMembersAccount.Opcode)
+		}
+
+		// TODO: save var from msg
+
+		// TODO: save + reconnecting check
+
 		c.log.Info("END OF LOGIN", "safename", safeName)
 
 	}
 
 	return nil
+}
+
+const expectedRevision = 225
+
+// TODO: move this somewhere else
+type LoginResponse struct {
+	Type          string
+	Username      string
+	Socket        string
+	Reply         int
+	LowMemory     bool
+	Reconnecting  bool
+	StaffModLevel int
+	MutedUntil    int
+	Save          []uint8
+	AccountID     int
+	Members       bool
+	MessageCount  int
+	Remaining     int
 }
