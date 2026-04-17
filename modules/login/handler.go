@@ -154,14 +154,14 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 		}
 	}
 
+	// 9. Reconnect short-circuits — no session insert, no save read, no login-row upsert.
+	if reconnect {
+		return buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_RECONNECT_OK, account, nil), nil
+	}
+
 	// 8. Record session.
 	if err := insertSession(ctx, h.db, req.Socket, account.ID, req.Profile, int(req.NodeId), int(req.Uid), req.RemoteAddress); err != nil {
 		return nil, status.Errorf(codes.Internal, "insertSession: %v", err)
-	}
-
-	// 9. Reconnect short-circuits — no save read, no login-row upsert.
-	if reconnect {
-		return buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_RECONNECT_OK, account, nil), nil
 	}
 
 	// 10. Read save file.
