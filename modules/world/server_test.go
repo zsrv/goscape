@@ -24,6 +24,7 @@ func newTestClient(t *testing.T) (*client, net.Conn) {
 		clientConn.Close()
 	})
 	c := newClient(serverConn, time.Second, discardLogger())
+	t.Cleanup(func() { c.in.Release() })
 	return c, clientConn
 }
 
