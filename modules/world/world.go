@@ -69,11 +69,21 @@ func New(cfg Config, logger *slog.Logger) (*World, error) {
 	return w, nil
 }
 
+// GetLoginClient returns the LoginClient for this world (may be nil if disabled).
+func (w *World) GetLoginClient() *LoginClient { return w.loginClient }
+
 // NewWorldService constructs a services.Service from a Server component.
 // The Server should not react to signals. Early return from Run function
 // is considered to be an error.
-func NewWorldService(serv *Server, servicesToWaitFor func() []services.Service) services.Service {
+func NewWorldService(serv *Server, lc *LoginClient, servicesToWaitFor func() []services.Service) services.Service {
 	serverDone := make(chan error, 1)
+
+	startingFn := func(ctx context.Context) error {
+		if lc != nil {
+			lc.WorldStartup(ctx, int32(serv.cfg.NodeID), serv.cfg.NodeProfile)
+		}
+		return nil
+	}
 
 	runFn := func(ctx context.Context) error {
 		go func() {
@@ -104,10 +114,16 @@ func NewWorldService(serv *Server, servicesToWaitFor func() []services.Service) 
 		// if not closed yet, wait until the server stops
 		<-serverDone
 		serv.log.Info("world server stopped")
+
+		if lc != nil {
+			if err := lc.Close(); err != nil {
+				serv.log.Warn("failed to close login client", slog.Any("err", err))
+			}
+		}
 		return nil
 	}
 
-	return services.NewBasicService(nil, runFn, stoppingFn)
+	return services.NewBasicService(startingFn, runFn, stoppingFn)
 }
 
 // DisableSignalHandling puts a dummy signal handler

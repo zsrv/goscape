@@ -390,8 +390,10 @@ func loginResultToRS2(result loginpb.LoginResult) byte {
 		return loginresp.OpNeedMembersAccount.Opcode
 	case loginpb.LoginResult_LOGIN_RESULT_LOGIN_IN_PROGRESS:
 		return loginresp.OpLoginServerOffline.Opcode
+	case loginpb.LoginResult_LOGIN_RESULT_TRY_AGAIN:
+		return loginresp.OpTryAgain.Opcode
 	default:
-		// LOGIN_RESULT_TRY_AGAIN / UNSPECIFIED / anything else
+		// UNSPECIFIED / unknown future values
 		return loginresp.OpIPLimit.Opcode
 	}
 }
