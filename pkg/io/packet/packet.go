@@ -48,29 +48,30 @@ var (
 	}
 )
 
-func packetPool(typ int) *sync.Pool {
-	switch typ {
-	case 0:
+// poolForCapacity returns the pool whose capacity tier covers size,
+// or nil if size exceeds all tiers.
+func poolForCapacity(size int) *sync.Pool {
+	switch {
+	case size <= 100:
 		return &packet100Pool
-	case 1:
+	case size <= 5_000:
 		return &packet5000Pool
-	case 2:
+	case size <= 30_000:
 		return &packet30000Pool
-	case 3:
+	case size <= 100_000:
 		return &packet100000Pool
-	case 4:
+	case size <= 500_000:
 		return &packet500000Pool
-	case 5:
+	case size <= 2_000_000:
 		return &packet2000000Pool
 	}
 	return nil
 }
 
-func Alloc(typ int) *Packet {
-	// TODO: needs test?
-	// TODO: change this func to take the actual size instead of a "type",
-	//  then return smallest pool item that fits that size
-	pool := packetPool(typ)
+// Alloc returns a reset Packet from the pool tier that covers size.
+// If the pool is empty or size exceeds all tiers, a new Packet is allocated.
+func Alloc(size int) *Packet {
+	pool := poolForCapacity(size)
 	if pool != nil {
 		if v := pool.Get(); v != nil {
 			p := v.(*Packet)
@@ -78,8 +79,7 @@ func Alloc(typ int) *Packet {
 			return p
 		}
 	}
-
-	return NewPacket(make([]byte, 0, typ))
+	return NewPacket(make([]byte, 0, size))
 }
 
 func Load(path string) (*Packet, error) {
@@ -105,10 +105,10 @@ func (p *Packet) Length() int {
 	return len(p.Data)
 }
 
+// Release resets the Packet and returns it to the appropriate pool tier.
 func (p *Packet) Release() {
-	// TODO: test
 	p.Reset()
-	if pool := packetPool(p.Unused()); pool != nil {
+	if pool := poolForCapacity(cap(p.Data)); pool != nil {
 		pool.Put(p)
 	}
 }
