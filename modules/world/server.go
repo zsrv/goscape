@@ -392,7 +392,7 @@ func loginResultToRS2(result loginpb.LoginResult) byte {
 		return loginresp.OpLoginServerOffline.Opcode
 	default:
 		// LOGIN_RESULT_TRY_AGAIN / UNSPECIFIED / anything else
-		return loginresp.OpTryAgain.Opcode
+		return loginresp.OpIPLimit.Opcode
 	}
 }
 
