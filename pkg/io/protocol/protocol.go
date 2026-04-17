@@ -14,9 +14,9 @@ var (
 )
 
 type Operation struct {
-	Opcode      uint8
-	PayloadSize int
 	Name        string
+	PayloadSize int
+	Opcode      uint8
 }
 
 func CheckPacketLength(p *packet.Packet, o Operation) (int, bool) {

@@ -21,13 +21,13 @@ var (
 )
 
 type GameLogin struct {
-	Revision         uint8
-	LowMemory        bool
+	Username         string
+	Password         string
 	ArchiveChecksums [9]uint32
 	ISAACSeed        [4]uint32
 	UID              uint32
-	Username         string
-	Password         string
+	Revision         uint8
+	LowMemory        bool
 }
 
 func (q *GameLogin) MarshalBinary() ([]byte, error) {

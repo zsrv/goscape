@@ -14,15 +14,11 @@ import (
 // World represents an instance of a game world.
 type World struct {
 	services.Service
-
-	cfg Config
-	log *slog.Logger
-
-	// Subservices manager
+	log                *slog.Logger
 	subservices        *services.Manager
 	subservicesWatcher *services.FailureWatcher
-
-	Server *Server // TODO: merge it into the World struct?
+	Server             *Server
+	cfg                Config
 }
 
 func New(cfg Config, logger *slog.Logger) (*World, error) {

@@ -33,15 +33,12 @@ type SignalHandler interface {
 }
 
 type Server struct {
-	// TODO: put WS server here too
-
-	cfg         Config // TODO: make a TCP/WS server specific config struct later? or one for each?
 	handler     SignalHandler
 	tcpListener net.Listener
 	quit        chan interface{}
+	log         *slog.Logger
+	cfg         Config
 	tcpWg       sync.WaitGroup
-
-	log *slog.Logger
 }
 
 func NewServer(cfg Config, logger *slog.Logger) (*Server, error) {
@@ -372,14 +369,14 @@ type LoginResponse struct {
 	Type          string
 	Username      string
 	Socket        string
-	Reply         int
-	LowMemory     bool
-	Reconnecting  bool
+	Save          []uint8
 	StaffModLevel int
 	MutedUntil    int
-	Save          []uint8
+	Reply         int
 	AccountID     int
-	Members       bool
 	MessageCount  int
 	Remaining     int
+	Reconnecting  bool
+	LowMemory     bool
+	Members       bool
 }

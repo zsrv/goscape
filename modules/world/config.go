@@ -9,77 +9,37 @@ import (
 )
 
 type Config struct {
-	Enable bool `yaml:"enable"`
-
-	EnableTCPServer bool `yaml:"enable_tcp_server"`
-
-	// If not set, default signal handler is used.
-	SignalHandler SignalHandler `yaml:"-"`
-
-	TCPListenNetwork string `yaml:"tcp_listen_network"`
-	TCPListenAddress string `yaml:"tcp_listen_address"`
-	TCPListenPort    int    `yaml:"tcp_listen_port"`
-
-	ServerGracefulShutdownTimeout time.Duration `yaml:"graceful_shutdown_timeout"`
-	TCPServerReadTimeout          time.Duration `yaml:"tcp_server_read_timeout"`
-	TCPServerReadHeaderTimeout    time.Duration `yaml:"tcp_server_read_header_timeout"`
-	TCPServerWriteTimeout         time.Duration `yaml:"tcp_server_write_timeout"`
-	TCPServerIdleTimeout          time.Duration `yaml:"tcp_server_idle_timeout"`
-
-	LogFormat string      `yaml:"log_format"`
-	LogLevel  *slog.Level `yaml:"log_level"`
-	//Log       *slog.Logger `yaml:"-"`
-
-	// World ID - offset by 9, so 10 = world 1, 11 = world 2, etc.
-	NodeID int `yaml:"node_id"`
-
-	// Whether members content is available on this world
-	NodeMembers bool `yaml:"node_members"`
-
-	// Automatically upgrade accounts to members on successful login to this world
-	NodeAutoSubscribeMembers bool `yaml:"node_auto_subscribe_members"`
-
-	// addxp multiplier
-	NodeXPRate int `yaml:"node_xp_rate"`
-
-	// Production mode
-	NodeProduction bool `yaml:"node_production"`
-
-	// Whether clients should be instructed to submit detailed tracking events to the server
-	NodeSubmitInput bool `yaml:"node_submit_input"`
-
-	// Maximum approximate number of bytes allowed per single input tracking session.
-	// It does not seem remotely possible to get near this amount under normal conditions
-	NodeLimitBytesPerTrackingSession int `yaml:"node_limit_bytes_per_tracking_session"`
-
-	NodeMinimumWealthValueEvent int `yaml:"node_minimum_wealth_value_event"`
-
-	// Extra debug info, e.g. missing triggers
-	NodeDebug bool `yaml:"node_debug"`
-
-	// Measuring script execution
-	NodeDebugProfile bool `yaml:"node_debug_profile"`
-
-	// For headless bot testing
-	NodeDebugSocket bool `yaml:"node_debug_socket"`
-
-	// No server routefinding until 2009
-	NodeClientRoutefinder bool `yaml:"node_client_routefinder"`
-
-	// Yellow-x walktriggers in osrs went from: in packet handler -> in player setup -> player movement
-	//
-	// 0 = processed in packet handler, 1 = processed in player setup (client input), 2 = processed in player movement
-	NodeWalktriggerSetting int `yaml:"node_walktrigger_setting"`
-
-	// Separate save directory
-	NodeProfile string `yaml:"node_profile"`
-
-	// Entities cap
-	NodeMaxPlayers   int `yaml:"node_max_players"`
-	NodeMaxConnected int `yaml:"node_max_connected"`
-	NodeMaxNPCs      int `yaml:"node_max_npcs"`
-
-	NodeDebugprocChar string `yaml:"node_debugproc_char"`
+	SignalHandler                    SignalHandler `yaml:"-"`
+	LogLevel                         *slog.Level   `yaml:"log_level"`
+	LogFormat                        string        `yaml:"log_format"`
+	NodeDebugprocChar                string        `yaml:"node_debugproc_char"`
+	TCPListenNetwork                 string        `yaml:"tcp_listen_network"`
+	TCPListenAddress                 string        `yaml:"tcp_listen_address"`
+	NodeProfile                      string        `yaml:"node_profile"`
+	TCPServerIdleTimeout             time.Duration `yaml:"tcp_server_idle_timeout"`
+	NodeMaxNPCs                      int           `yaml:"node_max_npcs"`
+	TCPServerWriteTimeout            time.Duration `yaml:"tcp_server_write_timeout"`
+	NodeWalktriggerSetting           int           `yaml:"node_walktrigger_setting"`
+	TCPServerReadTimeout             time.Duration `yaml:"tcp_server_read_timeout"`
+	ServerGracefulShutdownTimeout    time.Duration `yaml:"graceful_shutdown_timeout"`
+	NodeID                           int           `yaml:"node_id"`
+	TCPServerReadHeaderTimeout       time.Duration `yaml:"tcp_server_read_header_timeout"`
+	NodeMaxConnected                 int           `yaml:"node_max_connected"`
+	NodeXPRate                       int           `yaml:"node_xp_rate"`
+	NodeMaxPlayers                   int           `yaml:"node_max_players"`
+	TCPListenPort                    int           `yaml:"tcp_listen_port"`
+	NodeLimitBytesPerTrackingSession int           `yaml:"node_limit_bytes_per_tracking_session"`
+	NodeMinimumWealthValueEvent      int           `yaml:"node_minimum_wealth_value_event"`
+	NodeMembers                      bool          `yaml:"node_members"`
+	NodeDebugProfile                 bool          `yaml:"node_debug_profile"`
+	NodeDebugSocket                  bool          `yaml:"node_debug_socket"`
+	NodeClientRoutefinder            bool          `yaml:"node_client_routefinder"`
+	NodeDebug                        bool          `yaml:"node_debug"`
+	NodeSubmitInput                  bool          `yaml:"node_submit_input"`
+	NodeProduction                   bool          `yaml:"node_production"`
+	NodeAutoSubscribeMembers         bool          `yaml:"node_auto_subscribe_members"`
+	Enable                           bool          `yaml:"enable"`
+	EnableTCPServer                  bool          `yaml:"enable_tcp_server"`
 }
 
 // RegisterFlagsAndApplyDefaults registers flags and applies defaults.

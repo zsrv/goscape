@@ -30,22 +30,17 @@ const (
 )
 
 type client struct {
-	log *slog.Logger
-
-	//server *World
 	conn         net.Conn
+	log          *slog.Logger
 	bufr         *bufio.Reader
 	bufw         *bufio.Writer
+	in           *packet.Packet
+	encryptor    *io2.Isaac
+	decryptor    *io2.Isaac
 	writeTimeout time.Duration
-
-	in *packet.Packet
-
-	state     ClientState
-	encryptor *io2.Isaac
-	decryptor *io2.Isaac
-
-	opcode  int // current opcode being read
-	waiting int // number of bytes to wait for (if any)
+	state        ClientState
+	opcode       int
+	waiting      int
 }
 
 func newClient(conn net.Conn, writeTimeout time.Duration /*server *World,*/, logger *slog.Logger) *client {
