@@ -1,4 +1,4 @@
-package login
+package req
 
 import (
 	"errors"
@@ -91,7 +91,7 @@ func (q *GameLogin) UnmarshalBinary(data []byte) error {
 		q.ArchiveChecksums[i] = r.G4()
 	}
 
-	decrypted, err := r.RSADec()
+	decrypted, err := r.RSADec(protocol.Modulus, protocol.PrivateExponent)
 	if err != nil {
 		return err
 	}

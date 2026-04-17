@@ -1881,3 +1881,153 @@ func TestPacket_RSAEnc(t *testing.T) {
 		})
 	}
 }
+
+// --- Zero-alloc tests (readers) ---
+
+func TestG1NoAlloc(t *testing.T) {
+	p := &Packet{Data: []byte{0x42}}
+	allocs := testing.AllocsPerRun(1000, func() {
+		p.Pos = 0
+		_ = p.G1()
+	})
+	if allocs > 0 {
+		t.Fatalf("G1: want 0 allocs/op, got %.1f", allocs)
+	}
+}
+
+func TestG2NoAlloc(t *testing.T) {
+	p := &Packet{Data: []byte{0x01, 0x02}}
+	allocs := testing.AllocsPerRun(1000, func() {
+		p.Pos = 0
+		_ = p.G2()
+	})
+	if allocs > 0 {
+		t.Fatalf("G2: want 0 allocs/op, got %.1f", allocs)
+	}
+}
+
+func TestG4NoAlloc(t *testing.T) {
+	p := &Packet{Data: []byte{0x01, 0x02, 0x03, 0x04}}
+	allocs := testing.AllocsPerRun(1000, func() {
+		p.Pos = 0
+		_ = p.G4()
+	})
+	if allocs > 0 {
+		t.Fatalf("G4: want 0 allocs/op, got %.1f", allocs)
+	}
+}
+
+func TestGDataNoAlloc(t *testing.T) {
+	p := &Packet{Data: []byte{1, 2, 3, 4, 5, 6, 7, 8}}
+	dest := make([]byte, 8)
+	allocs := testing.AllocsPerRun(1000, func() {
+		p.Pos = 0
+		p.GData(dest, 8)
+	})
+	if allocs > 0 {
+		t.Fatalf("GData: want 0 allocs/op, got %.1f", allocs)
+	}
+}
+
+// --- Benchmarks (readers) ---
+
+func BenchmarkG1(b *testing.B) {
+	p := &Packet{Data: []byte{0x42}}
+	b.ReportAllocs()
+	for range b.N {
+		p.Pos = 0
+		_ = p.G1()
+	}
+}
+
+func BenchmarkG2(b *testing.B) {
+	p := &Packet{Data: []byte{0x01, 0x02}}
+	b.ReportAllocs()
+	for range b.N {
+		p.Pos = 0
+		_ = p.G2()
+	}
+}
+
+func BenchmarkG4(b *testing.B) {
+	p := &Packet{Data: []byte{0x01, 0x02, 0x03, 0x04}}
+	b.ReportAllocs()
+	for range b.N {
+		p.Pos = 0
+		_ = p.G4()
+	}
+}
+
+func BenchmarkGData(b *testing.B) {
+	p := &Packet{Data: []byte{1, 2, 3, 4, 5, 6, 7, 8}}
+	dest := make([]byte, 8)
+	b.ReportAllocs()
+	for range b.N {
+		p.Pos = 0
+		p.GData(dest, 8)
+	}
+}
+
+// --- Zero-alloc tests (writers) ---
+
+func TestP1NoAlloc(t *testing.T) {
+	p := NewPacket(make([]byte, 0, 64))
+	allocs := testing.AllocsPerRun(1000, func() {
+		p.Reset()
+		p.P1(0x42)
+	})
+	if allocs > 0 {
+		t.Fatalf("P1: want 0 allocs/op, got %.1f", allocs)
+	}
+}
+
+func TestP4NoAlloc(t *testing.T) {
+	p := NewPacket(make([]byte, 0, 64))
+	allocs := testing.AllocsPerRun(1000, func() {
+		p.Reset()
+		p.P4(0xDEADBEEF)
+	})
+	if allocs > 0 {
+		t.Fatalf("P4: want 0 allocs/op, got %.1f", allocs)
+	}
+}
+
+func TestPJStrNoAlloc(t *testing.T) {
+	p := NewPacket(make([]byte, 0, 64))
+	allocs := testing.AllocsPerRun(1000, func() {
+		p.Reset()
+		p.PJStr("hello", 0)
+	})
+	if allocs > 0 {
+		t.Fatalf("PJStr: want 0 allocs/op, got %.1f", allocs)
+	}
+}
+
+// --- Benchmarks (writers) ---
+
+func BenchmarkP1(b *testing.B) {
+	p := NewPacket(make([]byte, 0, 64))
+	b.ReportAllocs()
+	for range b.N {
+		p.Reset()
+		p.P1(0x42)
+	}
+}
+
+func BenchmarkP4(b *testing.B) {
+	p := NewPacket(make([]byte, 0, 64))
+	b.ReportAllocs()
+	for range b.N {
+		p.Reset()
+		p.P4(0xDEADBEEF)
+	}
+}
+
+func BenchmarkPJStr(b *testing.B) {
+	p := NewPacket(make([]byte, 0, 64))
+	b.ReportAllocs()
+	for range b.N {
+		p.Reset()
+		p.PJStr("username", 0)
+	}
+}

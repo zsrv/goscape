@@ -2,7 +2,6 @@ package packet
 
 import (
 	"bufio"
-	"errors"
 	"hash/crc32"
 	"io"
 	"log"
@@ -152,13 +151,12 @@ func (p *Packet) Save(filePath string, length int, start int) error {
 // G1 gets 1 unsigned byte.
 // TODO: error isn't returned if there are no bytes to read sometimes. handle this for all getters somehow
 func (p *Packet) G1() uint8 {
-	b := make([]byte, 1)
-	_, err := p.Read(b)
-	if err != nil {
-		panic(err)
-		//fmt.Println("ERROR: EOF") // this is hit sometimes with js5
+	if p.Pos >= len(p.Data) {
+		panic(io.EOF)
 	}
-	return b[0]
+	b := p.Data[p.Pos]
+	p.Pos++
+	return b
 }
 
 // G1B gets 1 signed byte.
@@ -168,13 +166,12 @@ func (p *Packet) G1B() int8 {
 
 // G2 gets 2 unsigned bytes.
 func (p *Packet) G2() uint16 {
-	b := make([]byte, 2)
-	_, err := p.Read(b)
-	if err != nil {
-		panic(err)
-		//fmt.Println("ERROR: G2 EOF")
+	if p.Pos+2 > len(p.Data) {
+		panic(io.EOF)
 	}
-	return uint16(b[0])<<8 | uint16(b[1])
+	v := uint16(p.Data[p.Pos])<<8 | uint16(p.Data[p.Pos+1])
+	p.Pos += 2
+	return v
 }
 
 // G2S gets 2 signed bytes.
@@ -184,43 +181,44 @@ func (p *Packet) G2S() int16 {
 
 // IG2 gets 2 unsigned bytes represented in little-endian byte order.
 func (p *Packet) IG2() uint16 {
-	b := make([]byte, 2)
-	_, err := p.Read(b)
-	if err != nil {
-		panic(err)
+	if p.Pos+2 > len(p.Data) {
+		panic(io.EOF)
 	}
-	return uint16(b[0]) | uint16(b[1])<<8
+	v := uint16(p.Data[p.Pos]) | uint16(p.Data[p.Pos+1])<<8
+	p.Pos += 2
+	return v
 }
 
 // G3 gets 3 unsigned bytes.
 func (p *Packet) G3() uint32 {
-	b := make([]byte, 3)
-	_, err := p.Read(b)
-	if err != nil {
-		panic(err)
+	if p.Pos+3 > len(p.Data) {
+		panic(io.EOF)
 	}
-	return uint32(b[0])<<16 | uint32(b[1])<<8 | uint32(b[2])
+	v := uint32(p.Data[p.Pos])<<16 | uint32(p.Data[p.Pos+1])<<8 | uint32(p.Data[p.Pos+2])
+	p.Pos += 3
+	return v
 }
 
 // G4 gets 4 unsigned bytes.
 func (p *Packet) G4() uint32 {
-	b := make([]byte, 4)
-	_, err := p.Read(b)
-	if err != nil {
-		panic(err)
-		//fmt.Println("ERROR: G4 PANIC")
+	if p.Pos+4 > len(p.Data) {
+		panic(io.EOF)
 	}
-	return uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3])
+	v := uint32(p.Data[p.Pos])<<24 | uint32(p.Data[p.Pos+1])<<16 |
+		uint32(p.Data[p.Pos+2])<<8 | uint32(p.Data[p.Pos+3])
+	p.Pos += 4
+	return v
 }
 
 // IG4 gets 4 unsigned bytes represented in little-endian byte order.
 func (p *Packet) IG4() uint32 {
-	b := make([]byte, 4)
-	_, err := p.Read(b)
-	if err != nil {
-		panic(err)
+	if p.Pos+4 > len(p.Data) {
+		panic(io.EOF)
 	}
-	return uint32(b[3])<<24 | uint32(b[2])<<16 | uint32(b[1])<<8 | uint32(b[0])
+	v := uint32(p.Data[p.Pos+3])<<24 | uint32(p.Data[p.Pos+2])<<16 |
+		uint32(p.Data[p.Pos+1])<<8 | uint32(p.Data[p.Pos])
+	p.Pos += 4
+	return v
 }
 
 // G8 gets 8 unsigned bytes.
@@ -244,8 +242,13 @@ func (p *Packet) GJStr(terminator byte) string {
 	}
 	// TODO: review the Packet.java version for charset
 	start := p.Pos
-	for p.Data[p.Pos] != terminator {
+	for p.Pos < len(p.Data) && p.Data[p.Pos] != terminator {
 		p.Pos++
+	}
+	if p.Pos >= len(p.Data) {
+		// terminator not found; consume remaining bytes and return what we have
+		length := p.Pos - start
+		return string(p.Data[start : start+length])
 	}
 	p.Pos++
 	length := p.Pos - start - 1
@@ -264,11 +267,8 @@ func (p *Packet) GJStrNUL() string {
 
 // GData gets data.
 func (p *Packet) GData(dest []byte, length int) {
-	// TODO: optimize
-	for i := 0; i < length; i++ {
-		dest[i] = p.Data[p.Pos]
-		p.Pos++
-	}
+	copy(dest, p.Data[p.Pos:p.Pos+length])
+	p.Pos += length
 }
 
 // GSmart gets a Smart value (range 0 to 32767).
@@ -294,90 +294,89 @@ func (p *Packet) GSmartS() int32 {
 
 // P1 puts 1 unsigned byte.
 func (p *Packet) P1(value uint8) {
-	_, err := p.Write([]byte{value})
-	if err != nil {
+	if err := p.WriteByte(value); err != nil {
 		panic(err)
 	}
 }
 
 // P2 puts 2 unsigned bytes.
 func (p *Packet) P2(value uint16) {
-	_, err := p.Write([]byte{
-		uint8(value >> 8),
-		uint8(value),
-	})
-	if err != nil {
-		panic(err)
+	p.lastRead = opInvalid
+	i, ok := p.tryGrowByReslice(2)
+	if !ok {
+		i = p.grow(2)
 	}
+	p.Data[i] = uint8(value >> 8)
+	p.Data[i+1] = uint8(value)
 }
 
 // IP2 puts 2 unsigned bytes represented in little-endian byte order.
 func (p *Packet) IP2(value uint16) {
-	_, err := p.Write([]byte{
-		uint8(value),
-		uint8(value >> 8),
-	})
-	if err != nil {
-		panic(err)
+	p.lastRead = opInvalid
+	i, ok := p.tryGrowByReslice(2)
+	if !ok {
+		i = p.grow(2)
 	}
+	p.Data[i] = uint8(value)
+	p.Data[i+1] = uint8(value >> 8)
 }
 
 // P3 puts 3 unsigned bytes.
 func (p *Packet) P3(value uint32) {
-	_, err := p.Write([]byte{
-		uint8(value >> 16),
-		uint8(value >> 8),
-		uint8(value),
-	})
-	if err != nil {
-		panic(err)
+	p.lastRead = opInvalid
+	i, ok := p.tryGrowByReslice(3)
+	if !ok {
+		i = p.grow(3)
 	}
+	p.Data[i] = uint8(value >> 16)
+	p.Data[i+1] = uint8(value >> 8)
+	p.Data[i+2] = uint8(value)
 }
 
 // P4 puts 4 unsigned bytes.
 // TODO: 2004scape has this as int32
 func (p *Packet) P4(value uint32) {
-	_, err := p.Write([]byte{
-		uint8(value >> 24),
-		uint8(value >> 16),
-		uint8(value >> 8),
-		uint8(value),
-	})
-	if err != nil {
-		panic(err)
+	p.lastRead = opInvalid
+	i, ok := p.tryGrowByReslice(4)
+	if !ok {
+		i = p.grow(4)
 	}
+	p.Data[i] = uint8(value >> 24)
+	p.Data[i+1] = uint8(value >> 16)
+	p.Data[i+2] = uint8(value >> 8)
+	p.Data[i+3] = uint8(value)
 }
 
 // IP4 puts 4 unsigned bytes represented in little-endian byte order.
 // TODO: 2004scape has this as int32
 func (p *Packet) IP4(value uint32) {
-	_, err := p.Write([]byte{
-		uint8(value),
-		uint8(value >> 8),
-		uint8(value >> 16),
-		uint8(value >> 24),
-	})
-	if err != nil {
-		panic(err)
+	p.lastRead = opInvalid
+	i, ok := p.tryGrowByReslice(4)
+	if !ok {
+		i = p.grow(4)
 	}
+	p.Data[i] = uint8(value)
+	p.Data[i+1] = uint8(value >> 8)
+	p.Data[i+2] = uint8(value >> 16)
+	p.Data[i+3] = uint8(value >> 24)
 }
 
 // P8 puts 8 unsigned bytes.
 // TODO: 2004scape has this as int64
 func (p *Packet) P8(value uint64) {
-	_, err := p.Write([]byte{
-		uint8(value >> 56),
-		uint8(value >> 48),
-		uint8(value >> 40),
-		uint8(value >> 32),
-		uint8(value >> 24),
-		uint8(value >> 16),
-		uint8(value >> 8),
-		uint8(value),
-	})
-	if err != nil {
-		panic(err)
+	p.lastRead = opInvalid
+	i, ok := p.tryGrowByReslice(8)
+	if !ok {
+		i = p.grow(8)
 	}
+	p.Data[i] = uint8(value >> 56)
+	p.Data[i+1] = uint8(value >> 48)
+	p.Data[i+2] = uint8(value >> 40)
+	p.Data[i+3] = uint8(value >> 32)
+	p.Data[i+4] = uint8(value >> 24)
+	p.Data[i+5] = uint8(value >> 16)
+	p.Data[i+6] = uint8(value >> 8)
+	p.Data[i+7] = uint8(value)
 }
 
 // PBool puts 1 if the value is true, or 0 if the value is false.
@@ -394,19 +393,8 @@ func (p *Packet) PBool(value bool) {
 
 // PJStr puts a JagString, terminated by terminator.
 func (p *Packet) PJStr(str string, terminator byte) {
-	//if firstNul := strings.IndexByte(str, 0); firstNul >= 0 {
-	//	panic(fmt.Sprintf("NUL character at %v - cannot PJStr", firstNul))
-	//}
-
-	// TODO: Use client Cp1252Charset
-	for _, r := range str {
-		_, err := p.Write([]byte{uint8(r)})
-		if err != nil {
-			panic(err)
-		}
-	}
-	_, err := p.Write([]byte{terminator})
-	if err != nil {
+	p.WriteString(str)
+	if err := p.WriteByte(terminator); err != nil {
 		panic(err)
 	}
 }
@@ -496,7 +484,9 @@ func (p *Packet) RSAEnc(modulus *big.Int, exponent *big.Int) {
 	p.PData(ciphertextBytes)
 }
 
-func (p *Packet) RSADec() (*Packet, error) {
+// RSADec RSA-decrypts the next block in the buffer using the provided modulus and
+// private exponent, mirroring the RSAEnc signature.
+func (p *Packet) RSADec(modulus *big.Int, exponent *big.Int) (*Packet, error) {
 	// TODO: add a test for this
 	// TODO: make two funcs: one that can use raw key components (for the original key)
 	// and one that can use a PEM/DER key from disk or something (normal keys for later)
@@ -517,30 +507,14 @@ func (p *Packet) RSADec() (*Packet, error) {
 		rsax = temp
 	}
 
-	// TODO: move this into an init() or something, and make key a package-level var?
-	// private exponent
-	keyD, ok := new(big.Int).SetString("571fb062048b61721ebfcf1e877153241b70c3aa26edb0f9f06a1b2be07c4e45eaba4fc356ea806cbed298d38613590a53fde0383c3a411758516293240925e5", 16)
-	if !ok {
-		return nil, errors.New("bad keyD")
-	}
-	// modulus
-	keyN, ok := new(big.Int).SetString("0088c38748a58228f7261cdc340b5691d7d0975dee0ecdb717609e6bf971eb3fe723ef9d130e4686813739768ad9472eb46d8bfcc042c1a5fcb05e931f632eea5d", 16)
-	if !ok {
-		return nil, errors.New("bad keyN")
-	}
-
 	// RSA raw decryption (no padding)
 	// better: take decrypt() from crypto/rsa/rsa.go
 	c := new(big.Int).SetBytes(rsax)
-	decrypted := c.Exp(c, keyD, keyN).Bytes()
-	//decryptedBuf := NewBuffer(decrypted)
+	decrypted := c.Exp(c, exponent, modulus).Bytes()
 	decryptedBuf := NewPacket(decrypted)
 
 	// BigInteger would also remove all the preceding 0s, so we seek past them
-	//for decryptedBuf.Peek1() == 0 {
-	//	decryptedBuf.Seek(1)
-	//}
-	for decryptedBuf.Data[decryptedBuf.Pos] == 0 {
+	for decryptedBuf.Pos < len(decryptedBuf.Data) && decryptedBuf.Data[decryptedBuf.Pos] == 0 {
 		decryptedBuf.G1()
 	}
 
