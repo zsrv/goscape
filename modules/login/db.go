@@ -53,6 +53,9 @@ func openDB(dsn string) (*sql.DB, error) {
 	return db, nil
 }
 
+// migrateDB applies all pending up-migrations. m.Close() is intentionally
+// omitted: the sqlite driver's Close() closes the *sql.DB passed to
+// WithInstance, which would invalidate all subsequent queries.
 func migrateDB(db *sql.DB) error {
 	src, err := iofs.New(migrations, "migrations")
 	if err != nil {
