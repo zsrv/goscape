@@ -19,6 +19,7 @@ type Config struct {
 	TCPServerIdleTimeout             time.Duration `yaml:"tcp_server_idle_timeout"`
 	NodeMaxNPCs                      int           `yaml:"node_max_npcs"`
 	TCPServerWriteTimeout            time.Duration `yaml:"tcp_server_write_timeout"`
+	TCPKeepAlivePeriod               time.Duration `yaml:"tcp_keepalive_period"`
 	NodeWalktriggerSetting           int           `yaml:"node_walktrigger_setting"`
 	TCPServerReadTimeout             time.Duration `yaml:"tcp_server_read_timeout"`
 	ServerGracefulShutdownTimeout    time.Duration `yaml:"graceful_shutdown_timeout"`
@@ -58,6 +59,8 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.DurationVar(&c.TCPServerReadTimeout, "world.tcp-read-timeout", 5*time.Second, "Read timeout for TCP server")
 	f.DurationVar(&c.TCPServerWriteTimeout, "world.tcp-write-timeout", 30*time.Second, "Write timeout for TCP server")
 	f.DurationVar(&c.TCPServerIdleTimeout, "world.tcp-idle-timeout", 120*time.Second, "Idle timeout for TCP server")
+	f.DurationVar(&c.TCPKeepAlivePeriod, "world.tcp-keepalive-period", 30*time.Second,
+		"TCP keepalive idle period before first probe; set to 0 to disable")
 
 	f.IntVar(&c.NodeID, "world.node-id", 10, "World ID, offset by 9")
 	f.BoolVar(&c.NodeMembers, "world.node-members", true, "Whether members content is available on this world")

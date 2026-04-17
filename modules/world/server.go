@@ -159,6 +159,13 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 		if err := tcpConn.SetNoDelay(true); err != nil {
 			s.log.Warn("failed to set TCP_NODELAY", "error", err)
 		}
+		if s.cfg.TCPKeepAlivePeriod > 0 {
+			if err := tcpConn.SetKeepAlive(true); err != nil {
+				s.log.Warn("failed to enable TCP keepalive", "error", err)
+			} else if err := tcpConn.SetKeepAlivePeriod(s.cfg.TCPKeepAlivePeriod); err != nil {
+				s.log.Warn("failed to set TCP keepalive period", "error", err)
+			}
+		}
 	}
 
 	defer func() {
