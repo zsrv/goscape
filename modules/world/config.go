@@ -16,6 +16,7 @@ type Config struct {
 	TCPListenNetwork                 string        `yaml:"tcp_listen_network"`
 	TCPListenAddress                 string        `yaml:"tcp_listen_address"`
 	NodeProfile                      string        `yaml:"node_profile"`
+	LoginServerAddress               string        `yaml:"login_server_address"`
 	TCPServerIdleTimeout             time.Duration `yaml:"tcp_server_idle_timeout"`
 	NodeMaxNPCs                      int           `yaml:"node_max_npcs"`
 	TCPServerWriteTimeout            time.Duration `yaml:"tcp_server_write_timeout"`
@@ -32,6 +33,7 @@ type Config struct {
 	NodeLimitBytesPerTrackingSession int           `yaml:"node_limit_bytes_per_tracking_session"`
 	NodeMinimumWealthValueEvent      int           `yaml:"node_minimum_wealth_value_event"`
 	NodeMembers                      bool          `yaml:"node_members"`
+	LoginServerEnabled               bool          `yaml:"login_server_enabled"`
 	NodeDebugProfile                 bool          `yaml:"node_debug_profile"`
 	NodeDebugSocket                  bool          `yaml:"node_debug_socket"`
 	NodeClientRoutefinder            bool          `yaml:"node_client_routefinder"`
@@ -80,6 +82,9 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.IntVar(&c.NodeMaxConnected, "world.node-max-connected", 1000, "")
 	f.IntVar(&c.NodeMaxNPCs, "world.node-max-npcs", 8191, "")
 	f.StringVar(&c.NodeDebugprocChar, "world.node-debugproc-char", "~", "")
+
+	f.StringVar(&c.LoginServerAddress, "world.login-server-address", "127.0.0.1:2004", "Login server gRPC address.")
+	f.BoolVar(&c.LoginServerEnabled, "world.login-server-enabled", true, "Whether to connect to the login server.")
 }
 
 func (c *Config) Validate() error {

@@ -18,6 +18,7 @@ type World struct {
 	subservices        *services.Manager
 	subservicesWatcher *services.FailureWatcher
 	Server             *Server
+	loginClient        *LoginClient
 	cfg                Config
 }
 
@@ -47,7 +48,19 @@ func New(cfg Config, logger *slog.Logger) (*World, error) {
 		handler = signals.NewHandler(logger)
 	}
 
-	server, err := NewServer(cfg, logger)
+	var loginClient *LoginClient
+	if cfg.LoginServerEnabled {
+		lc, err := NewLoginClient(cfg.LoginServerAddress, logger)
+		if err != nil {
+			// Log the error but don't fail startup — the world should run even if login is unreachable.
+			logger.Warn("failed to create login client", slog.Any("err", err))
+		} else {
+			loginClient = lc
+		}
+	}
+	w.loginClient = loginClient
+
+	server, err := NewServer(cfg, loginClient, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create server: %w", err)
 	}

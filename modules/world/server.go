@@ -1,6 +1,7 @@
 package world
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -19,6 +20,7 @@ import (
 	"github.com/zsrv/goscape/pkg/io/protocol"
 	loginreq "github.com/zsrv/goscape/pkg/io/protocol/login/req"
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
+	"github.com/zsrv/goscape/pkg/loginpb"
 	util "github.com/zsrv/goscape/pkg/util/jstring"
 )
 
@@ -37,11 +39,12 @@ type Server struct {
 	tcpListener net.Listener
 	quit        chan interface{}
 	log         *slog.Logger
+	loginClient *LoginClient
 	cfg         Config
 	tcpWg       sync.WaitGroup
 }
 
-func NewServer(cfg Config, logger *slog.Logger) (*Server, error) {
+func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Server, error) {
 	tcpListener, err := net.Listen(cfg.TCPListenNetwork, net.JoinHostPort(cfg.TCPListenAddress, strconv.Itoa(cfg.TCPListenPort)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create tcp listener: %w", err)
@@ -58,6 +61,7 @@ func NewServer(cfg Config, logger *slog.Logger) (*Server, error) {
 		cfg:         cfg,
 		handler:     handler,
 		tcpListener: tcpListener,
+		loginClient: loginClient,
 		quit:        make(chan interface{}),
 
 		log: logger,
@@ -153,6 +157,7 @@ func (s *Server) serveTCP() error {
 func (s *Server) handleTCPConn(conn net.Conn) {
 	//c := newClient(conn, s, s.log)
 	c := newClient(conn, s.cfg.TCPServerWriteTimeout, s.log)
+	c.server = s
 
 	// Fix 1: disable Nagle's algorithm so small game packets are sent immediately.
 	if tcpConn, ok := conn.(*net.TCPConn); ok {
@@ -306,67 +311,89 @@ func (c *client) handleLogin() error {
 
 		safeName := util.ToSafeName(req.Username)
 
-		// TODO
+		reconnecting := opcode[0] == loginreq.OpReqGameReconnect.Opcode
 
-		//loginReq := loginserver.LoginReq{
-		//	Username: safeName,
-		//	Password: req.Password,
-		//	UID:      int(req.UID),
-		//	//Socket:        "",
-		//	RemoteAddress: c.conn.RemoteAddr().String(),
-		//	Reconnecting:  c.opcode == 18,
-		//	HasSave:       c.opcode == 18, // TODO
-		//}
+		var reply byte
+		if c.server != nil && c.server.loginClient != nil {
+			loginReq := &loginpb.PlayerLoginRequest{
+				NodeId:        int32(c.server.cfg.NodeID),
+				Profile:       c.server.cfg.NodeProfile,
+				NodeMembers:   c.server.cfg.NodeMembers,
+				Username:      safeName,
+				Password:      req.Password,
+				Uid:           int32(req.UID),
+				Socket:        c.conn.RemoteAddr().String(),
+				RemoteAddress: c.conn.RemoteAddr().String(),
+				Reconnecting:  reconnecting,
+				HasSave:       false,
+			}
 
-		//loginResp, err := c.LoginClient.PlayerLogin(safeName, req.Password, int(req.UID), "", c.conn.RemoteAddr().String(), c.opcode == 18,
-		//	c.opcode == 18, // TODO
-		//)
-		//if err != nil {
-		//	return err
-		//}
+			resp, err := c.server.loginClient.PlayerLogin(context.TODO(), loginReq)
+			if err != nil {
+				c.log.Warn("PlayerLogin RPC failed", "error", err)
+				return c.sendLoginError(loginresp.OpLoginServerOffline.Opcode)
+			}
 
-		//c.log.Info("loginResp", "loginResp", loginResp)
+			c.log.Info("PlayerLogin RPC response", "result", resp.GetResult())
 
-		// TODO: fake response below - replace with real call/response
-		reply := 6
+			result := resp.GetResult()
+			reply = loginResultToRS2(result)
 
-		// from World.ts onLoginMessage
+			// Only cache session details if the login was accepted.
+			if result == loginpb.LoginResult_LOGIN_RESULT_OK ||
+				result == loginpb.LoginResult_LOGIN_RESULT_NEW_PLAYER ||
+				result == loginpb.LoginResult_LOGIN_RESULT_RECONNECT_OK {
+				c.staffModLevel = resp.GetStaffModLevel()
+				c.members = resp.GetMembers()
+			}
+		} else {
+			// login server not configured — reject with try again
+			reply = loginresp.OpTryAgain.Opcode
+		}
+
+		// Non-accepting replies: send the byte and close the connection.
 		switch reply {
-		case -1:
-			// login server offline
-			return c.sendLoginError(loginresp.OpLoginServerOffline.Opcode)
-		case 1:
-			// invalid username or password
-			return c.sendLoginError(loginresp.OpInvalidUsernameOrPassword.Opcode)
-		case 3:
-			// already logged in (on another world)
-			return c.sendLoginError(loginresp.OpDuplicate.Opcode)
-		case 5:
-			// account has been disabled (banned)
-			return c.sendLoginError(loginresp.OpBanned.Opcode)
-		case 6:
-			// login limit exceeded
-			return c.sendLoginError(loginresp.OpIPLimit.Opcode)
-		case 7:
-			// rejected
-			return c.sendLoginError(loginresp.OpLoginServerRejected.Opcode)
-		case 8:
-			// too many attempts
-			return c.sendLoginError(loginresp.OpTooManyAttempts.Opcode)
-		case 9:
-			// logging into p2p on a f2p account
-			return c.sendLoginError(loginresp.OpNeedMembersAccount.Opcode)
+		case loginresp.OpOK.Opcode, loginresp.OpReconnectOK.Opcode, loginresp.OpLoginOKWithRights.Opcode:
+			// accepted — fall through to post-login handling below
+		default:
+			return c.sendLoginError(reply)
 		}
 
 		// TODO: save var from msg
 
 		// TODO: save + reconnecting check
 
-		c.log.Info("END OF LOGIN", "safename", safeName)
+		c.log.Info("END OF LOGIN", "safename", safeName, "reply", reply, "reconnecting", reconnecting)
 
 	}
 
 	return nil
+}
+
+// loginResultToRS2 maps a gRPC LoginResult enum to the RS2 wire response byte
+// that the Java client understands.
+func loginResultToRS2(result loginpb.LoginResult) byte {
+	switch result {
+	case loginpb.LoginResult_LOGIN_RESULT_OK:
+		return loginresp.OpOK.Opcode
+	case loginpb.LoginResult_LOGIN_RESULT_NEW_PLAYER:
+		return loginresp.OpOK.Opcode
+	case loginpb.LoginResult_LOGIN_RESULT_RECONNECT_OK:
+		return loginresp.OpReconnectOK.Opcode
+	case loginpb.LoginResult_LOGIN_RESULT_INVALID_CREDENTIALS:
+		return loginresp.OpInvalidUsernameOrPassword.Opcode
+	case loginpb.LoginResult_LOGIN_RESULT_ALREADY_LOGGED_IN:
+		return loginresp.OpDuplicate.Opcode
+	case loginpb.LoginResult_LOGIN_RESULT_ACCOUNT_DISABLED:
+		return loginresp.OpBanned.Opcode
+	case loginpb.LoginResult_LOGIN_RESULT_NOT_A_MEMBER:
+		return loginresp.OpNeedMembersAccount.Opcode
+	case loginpb.LoginResult_LOGIN_RESULT_LOGIN_IN_PROGRESS:
+		return loginresp.OpLoginServerOffline.Opcode
+	default:
+		// LOGIN_RESULT_TRY_AGAIN / UNSPECIFIED / anything else
+		return loginresp.OpTryAgain.Opcode
+	}
 }
 
 const expectedRevision = 225
