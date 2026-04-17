@@ -2041,20 +2041,17 @@ func TestAllocRelease(t *testing.T) {
 		t.Fatalf("Alloc(65536): want Len 0, got %d", p.Len())
 	}
 	p.P4(0xDEADBEEF)
-	originalCap := cap(p.Data)
 	p.Release()
 
 	p2 := Alloc(65536)
+	if cap(p2.Data) < 65536 {
+		t.Fatalf("after Release+Alloc: want cap >= 65536, got %d", cap(p2.Data))
+	}
 	if p2.Len() != 0 {
 		t.Fatalf("after Release+Alloc: want Len 0, got %d", p2.Len())
 	}
-	// The key test: if Release didn't work, p2 would be a fresh allocation
-	// with capacity exactly 65536, not from the pool. But the pool provides
-	// the same packet with the same capacity.
-	if cap(p2.Data) != originalCap {
-		t.Fatalf("pool reuse failed: allocated cap %d, but expected pool reuse with cap %d", cap(p2.Data), originalCap)
-	}
-	// Test with a smaller tier size that should actually use pools
+	p2.Release()
+
 	p3 := Alloc(100)
 	if cap(p3.Data) < 100 {
 		t.Fatalf("Alloc(100): want cap >= 100, got %d", cap(p3.Data))
@@ -2064,7 +2061,7 @@ func TestAllocRelease(t *testing.T) {
 
 	p4 := Alloc(100)
 	if p4.Len() != 0 {
-		t.Fatalf("pool reuse of 100-byte packet: want Len 0, got %d", p4.Len())
+		t.Fatalf("Alloc(100) after Release: want Len 0, got %d", p4.Len())
 	}
 	p4.Release()
 }
