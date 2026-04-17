@@ -359,7 +359,7 @@ func TestWorldStartup(t *testing.T) {
 	h, _ := newTestHandler(t)
 	id := insertTestAccount(t, h.db, "wsuser", "pw")
 	// Pre-insert login row as logged_in=1 on node 7
-	err := upsertAccountLogin(t.Context(), h.db, int(id), "main", false, 7)
+	err := upsertAccountLogin(t.Context(), h.db, int(id), "main", 7)
 	if err != nil {
 		t.Fatalf("upsertAccountLogin: %v", err)
 	}
@@ -442,7 +442,7 @@ func TestPlayerMute(t *testing.T) {
 func TestPlayerForceLogout(t *testing.T) {
 	h, _ := newTestHandler(t)
 	id := insertTestAccount(t, h.db, "forceout", "pw")
-	err := upsertAccountLogin(t.Context(), h.db, int(id), "main", false, 1)
+	err := upsertAccountLogin(t.Context(), h.db, int(id), "main", 1)
 	if err != nil {
 		t.Fatalf("upsertAccountLogin: %v", err)
 	}

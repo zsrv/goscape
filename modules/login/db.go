@@ -110,19 +110,12 @@ func setAccountMembers(ctx context.Context, db *sql.DB, accountID int) error {
 	return nil
 }
 
-func upsertAccountLogin(ctx context.Context, db *sql.DB, accountID int, profile string, hasLoginRow bool, nodeID int) error {
-	var err error
-	if hasLoginRow {
-		_, err = db.ExecContext(ctx,
-			`UPDATE account_login SET logged_in = 1, node_id = ? WHERE account_id = ? AND profile = ?`,
-			nodeID, accountID, profile,
-		)
-	} else {
-		_, err = db.ExecContext(ctx,
-			`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, 1)`,
-			accountID, profile, nodeID,
-		)
-	}
+func upsertAccountLogin(ctx context.Context, db *sql.DB, accountID int, profile string, nodeID int) error {
+	_, err := db.ExecContext(ctx, `
+		INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, 1)
+		ON CONFLICT(account_id, profile) DO UPDATE SET logged_in = 1, node_id = excluded.node_id`,
+		accountID, profile, nodeID,
+	)
 	if err != nil {
 		return fmt.Errorf("upsertAccountLogin: %w", err)
 	}

@@ -9,7 +9,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -45,11 +44,7 @@ func extractIP(remoteAddr string) string {
 	if host, _, err := net.SplitHostPort(remoteAddr); err == nil {
 		return host
 	}
-	// Fall back to a naive last-colon split in case SplitHostPort fails
-	// (e.g. bare IP with no port).
-	if i := strings.LastIndex(remoteAddr, ":"); i >= 0 {
-		return remoteAddr[:i]
-	}
+	// SplitHostPort failed — address is already a bare IP with no port.
 	return remoteAddr
 }
 
@@ -159,8 +154,8 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 		return buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_RECONNECT_OK, account, nil), nil
 	}
 
-	// 8. Record session.
-	if err := insertSession(ctx, h.db, req.Socket, account.ID, req.Profile, int(req.NodeId), int(req.Uid), req.RemoteAddress); err != nil {
+	// 8. Record session (store the extracted IP for consistency with ipBanned lookups).
+	if err := insertSession(ctx, h.db, req.Socket, account.ID, req.Profile, int(req.NodeId), int(req.Uid), ip); err != nil {
 		return nil, status.Errorf(codes.Internal, "insertSession: %v", err)
 	}
 
@@ -178,7 +173,7 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 	}
 
 	// 11. Upsert login row.
-	if err := upsertAccountLogin(ctx, h.db, account.ID, req.Profile, account.HasLoginRow, int(req.NodeId)); err != nil {
+	if err := upsertAccountLogin(ctx, h.db, account.ID, req.Profile, int(req.NodeId)); err != nil {
 		return nil, status.Errorf(codes.Internal, "upsertAccountLogin: %v", err)
 	}
 
@@ -250,16 +245,30 @@ func (h *handler) PlayerMute(ctx context.Context, req *loginpb.PlayerMuteRequest
 	return &loginpb.PlayerMuteResponse{}, nil
 }
 
-// writeSave writes save bytes to {savePath}/{profile}/{username}.sav, creating
-// the directory tree as needed.
+// writeSave atomically writes save bytes to {basePath}/{profile}/{username}.sav.
+// It writes to a temp file first, then renames so a crash never leaves a partial save.
 func writeSave(basePath, profile, username string, save []byte) error {
 	dir := filepath.Join(basePath, profile)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("mkdir %s: %w", dir, err)
 	}
-	path := filepath.Join(dir, username+".sav")
-	if err := os.WriteFile(path, save, 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", path, err)
+	tmp, err := os.CreateTemp(dir, "."+username+".sav.tmp*")
+	if err != nil {
+		return fmt.Errorf("create temp save: %w", err)
+	}
+	tmpName := tmp.Name()
+	if _, err = tmp.Write(save); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return fmt.Errorf("write temp save: %w", err)
+	}
+	if err = tmp.Close(); err != nil {
+		os.Remove(tmpName)
+		return fmt.Errorf("close temp save: %w", err)
+	}
+	if err = os.Rename(tmpName, filepath.Join(dir, username+".sav")); err != nil {
+		os.Remove(tmpName)
+		return fmt.Errorf("rename save: %w", err)
 	}
 	return nil
 }

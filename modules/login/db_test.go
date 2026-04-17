@@ -215,7 +215,7 @@ func TestUpsertAccountLogin_Insert(t *testing.T) {
 	db := createTestDB(t)
 	id := insertTestAccount(t, db, "upsertuser", "pass")
 
-	err := upsertAccountLogin(t.Context(), db, int(id), "main", false, 5)
+	err := upsertAccountLogin(t.Context(), db, int(id), "main", 5)
 	if err != nil {
 		t.Fatalf("upsertAccountLogin: %v", err)
 	}
@@ -249,7 +249,7 @@ func TestUpsertAccountLogin_Update(t *testing.T) {
 		t.Fatalf("insert account_login: %v", err)
 	}
 
-	err = upsertAccountLogin(t.Context(), db, int(id), "main", true, 7)
+	err = upsertAccountLogin(t.Context(), db, int(id), "main", 7)
 	if err != nil {
 		t.Fatalf("upsertAccountLogin: %v", err)
 	}
@@ -340,7 +340,7 @@ func TestSetLoggedOut(t *testing.T) {
 	id := insertTestAccount(t, db, "logoutuser", "pass")
 
 	// Insert login row with logged_in=1
-	err := upsertAccountLogin(t.Context(), db, int(id), "main", false, 3)
+	err := upsertAccountLogin(t.Context(), db, int(id), "main", 3)
 	if err != nil {
 		t.Fatalf("upsertAccountLogin: %v", err)
 	}
