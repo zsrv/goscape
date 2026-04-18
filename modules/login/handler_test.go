@@ -7,10 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zsrv/goscape/pkg/loginpb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/zsrv/goscape/pkg/loginpb"
 )
 
 // newTestHandler creates a handler with an in-memory DB and a temp save directory.
@@ -144,8 +145,8 @@ func TestPlayerLogin_IPBanned(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PlayerLogin: %v", err)
 	}
-	if resp.Result != loginpb.LoginResult_LOGIN_RESULT_TRY_AGAIN {
-		t.Errorf("Result: got %v, want LOGIN_RESULT_TRY_AGAIN", resp.Result)
+	if resp.Result != loginpb.LoginResult_LOGIN_RESULT_IP_BANNED {
+		t.Errorf("Result: got %v, want LOGIN_RESULT_IP_BANNED", resp.Result)
 	}
 }
 

@@ -35,7 +35,7 @@ const (
 	LoginResult_LOGIN_RESULT_ACCOUNT_DISABLED    LoginResult = 6
 	LoginResult_LOGIN_RESULT_NOT_A_MEMBER        LoginResult = 7
 	LoginResult_LOGIN_RESULT_LOGIN_IN_PROGRESS   LoginResult = 8
-	LoginResult_LOGIN_RESULT_TRY_AGAIN           LoginResult = 9
+	LoginResult_LOGIN_RESULT_IP_BANNED           LoginResult = 9
 )
 
 // Enum value maps for LoginResult.
@@ -50,7 +50,7 @@ var (
 		6: "LOGIN_RESULT_ACCOUNT_DISABLED",
 		7: "LOGIN_RESULT_NOT_A_MEMBER",
 		8: "LOGIN_RESULT_LOGIN_IN_PROGRESS",
-		9: "LOGIN_RESULT_TRY_AGAIN",
+		9: "LOGIN_RESULT_IP_BANNED",
 	}
 	LoginResult_value = map[string]int32{
 		"LOGIN_RESULT_UNSPECIFIED":         0,
@@ -62,7 +62,7 @@ var (
 		"LOGIN_RESULT_ACCOUNT_DISABLED":    6,
 		"LOGIN_RESULT_NOT_A_MEMBER":        7,
 		"LOGIN_RESULT_LOGIN_IN_PROGRESS":   8,
-		"LOGIN_RESULT_TRY_AGAIN":           9,
+		"LOGIN_RESULT_IP_BANNED":           9,
 	}
 )
 
@@ -844,7 +844,7 @@ const file_login_login_proto_rawDesc = "" +
 	"\x1dLOGIN_RESULT_ACCOUNT_DISABLED\x10\x06\x12\x1d\n" +
 	"\x19LOGIN_RESULT_NOT_A_MEMBER\x10\a\x12\"\n" +
 	"\x1eLOGIN_RESULT_LOGIN_IN_PROGRESS\x10\b\x12\x1a\n" +
-	"\x16LOGIN_RESULT_TRY_AGAIN\x10\t2\x9b\x04\n" +
+	"\x16LOGIN_RESULT_IP_BANNED\x10\t2\x9b\x04\n" +
 	"\fLoginService\x12E\n" +
 	"\fWorldStartup\x12\x1d.login.v1.WorldStartupRequest\x1a\x16.google.protobuf.Empty\x12J\n" +
 	"\vPlayerLogin\x12\x1c.login.v1.PlayerLoginRequest\x1a\x1d.login.v1.PlayerLoginResponse\x12M\n" +

@@ -74,7 +74,7 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 	}
 	if banned {
 		return &loginpb.PlayerLoginResponse{
-			Result: loginpb.LoginResult_LOGIN_RESULT_TRY_AGAIN,
+			Result: loginpb.LoginResult_LOGIN_RESULT_IP_BANNED,
 		}, nil
 	}
 
