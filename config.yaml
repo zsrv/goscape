@@ -8,6 +8,17 @@ asset:
   http_listen_address: 127.0.0.1
   http_listen_port: 8888
 
+login:
+  enable: true
+  grpc_listen_address: 127.0.0.1
+  grpc_listen_port: 2004
+  sqlite_dsn: dataplayers/login.db
+  save_path: dataplayers/players
+  node_profile: main
+  auto_register: true
+  auto_subscribe_members: true
+  graceful_shutdown_timeout: 30s
+
 world:
   enable: true
   tcp_keepalive_period: 30s

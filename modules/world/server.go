@@ -287,7 +287,7 @@ func (c *client) handleLogin() error {
 
 		if !slices.Equal(cache.CrcTable, req.ArchiveChecksums[:]) {
 			//if cache.CrcBuffer32 != packet.GetCRC(req.ArchiveChecksums[:], 0, len(req.ArchiveChecksums)) {
-			c.log.Info("invalid checksum", "crctable", cache.CrcTable, "reqsums", req.ArchiveChecksums)
+			c.log.Info("invalid checksum", "crc_table", cache.CrcTable, "req_checksums", req.ArchiveChecksums)
 			return c.sendLoginError(loginresp.OpClientOutOfDate.Opcode)
 		}
 
@@ -296,6 +296,8 @@ func (c *client) handleLogin() error {
 			req.ISAACSeed[i] += 50
 		}
 		c.encryptor = io2.New(req.ISAACSeed)
+
+		// TODO: rate limit
 
 		if len(req.Username) < 1 || len(req.Username) > 12 {
 			return c.sendLoginError(loginresp.OpInvalidUsernameOrPassword.Opcode)
@@ -389,7 +391,7 @@ func loginResultToRS2(result loginpb.LoginResult) byte {
 	case loginpb.LoginResult_LOGIN_RESULT_NOT_A_MEMBER:
 		return loginresp.OpNeedMembersAccount.Opcode
 	case loginpb.LoginResult_LOGIN_RESULT_LOGIN_IN_PROGRESS:
-		return loginresp.OpLoginServerOffline.Opcode
+		return loginresp.OpTooManyAttempts.Opcode
 	case loginpb.LoginResult_LOGIN_RESULT_IP_BANNED:
 		return loginresp.OpLoginServerRejected.Opcode
 	default:

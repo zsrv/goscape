@@ -8,6 +8,9 @@ import (
 	"github.com/zsrv/goscape/internal/dskit/services"
 )
 
+// TODO: make the login server report started only once it's fully started and listening
+//  tempo waits for services to start before starting others, see how it does it
+
 // Login is the login server module. It owns the SQLite DB and the gRPC server.
 type Login struct {
 	services.Service
