@@ -4,6 +4,7 @@ import (
 	"math/rand/v2"
 
 	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
+	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 )
 
 const (
@@ -45,6 +46,25 @@ type Player struct {
 	modalState        int
 	refreshModal      bool
 	refreshModalClose bool
+}
+
+// writeOut ISAAC-encrypts op.Opcode, writes any length prefix, then writes
+// payload to c.bufw. Does NOT flush — processOut calls flushWrite() once per tick.
+func (p *Player) writeOut(op gameserver.Op, payload []byte) {
+	c := p.client
+	encrypted := byte((int(op.Opcode) + int(c.encryptor.GetNext())) & 0xff)
+	c.bufw.WriteByte(encrypted)
+
+	switch op.PayloadSize {
+	case -1:
+		c.bufw.WriteByte(byte(len(payload)))
+	case -2:
+		n := len(payload)
+		c.bufw.WriteByte(byte(n >> 8))
+		c.bufw.WriteByte(byte(n))
+	}
+
+	c.bufw.Write(payload)
 }
 
 func newPlayer(c *client) *Player {

@@ -6,6 +6,8 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 )
 
 func newTestPlayer(t *testing.T) (*Player, net.Conn) {
@@ -265,5 +267,119 @@ func TestProcessInSkipsDisconnectedClient(t *testing.T) {
 	}
 }
 
-// Ensure io is used (io.ReadFull is used in later tasks in this file).
-var _ = io.Discard
+func TestWriteOutFixedSize(t *testing.T) {
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	wantEnc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+
+	p, clientConn := newTestPlayer(t)
+	p.client.encryptor = enc
+
+	op := gameserver.Op{Opcode: 42, PayloadSize: 2}
+	payload := []byte{0xAB, 0xCD}
+
+	received := make(chan []byte, 1)
+	go func() {
+		buf := make([]byte, 3)
+		clientConn.SetReadDeadline(time.Now().Add(time.Second))
+		if _, err := io.ReadFull(clientConn, buf); err == nil {
+			received <- buf
+		}
+	}()
+
+	p.writeOut(op, payload)
+	p.client.flushWrite()
+
+	expectedOpByte := byte((int(op.Opcode) + int(wantEnc.GetNext())) & 0xff)
+
+	select {
+	case got := <-received:
+		if got[0] != expectedOpByte {
+			t.Errorf("encrypted opcode: got %d, want %d", got[0], expectedOpByte)
+		}
+		if got[1] != 0xAB || got[2] != 0xCD {
+			t.Errorf("payload: got [%d %d], want [0xAB 0xCD]", got[1], got[2])
+		}
+	case <-time.After(time.Second):
+		t.Error("timed out waiting for writeOut bytes")
+	}
+}
+
+func TestWriteOutOneByteLenPrefix(t *testing.T) {
+	enc, _ := isaacPair([4]uint32{2, 3, 4, 5})
+	wantEnc, _ := isaacPair([4]uint32{2, 3, 4, 5})
+
+	p, clientConn := newTestPlayer(t)
+	p.client.encryptor = enc
+
+	op := gameserver.Op{Opcode: 50, PayloadSize: -1}
+	payload := []byte{0x01, 0x02, 0x03}
+
+	received := make(chan []byte, 1)
+	go func() {
+		buf := make([]byte, 5) // 1 opcode + 1 len-prefix + 3 payload
+		clientConn.SetReadDeadline(time.Now().Add(time.Second))
+		if _, err := io.ReadFull(clientConn, buf); err == nil {
+			received <- buf
+		}
+	}()
+
+	p.writeOut(op, payload)
+	p.client.flushWrite()
+
+	expectedOpByte := byte((int(op.Opcode) + int(wantEnc.GetNext())) & 0xff)
+
+	select {
+	case got := <-received:
+		if got[0] != expectedOpByte {
+			t.Errorf("encrypted opcode: got %d, want %d", got[0], expectedOpByte)
+		}
+		if got[1] != byte(len(payload)) {
+			t.Errorf("length prefix: got %d, want %d", got[1], len(payload))
+		}
+		if got[2] != 0x01 || got[3] != 0x02 || got[4] != 0x03 {
+			t.Errorf("payload: got %v, want [1 2 3]", got[2:])
+		}
+	case <-time.After(time.Second):
+		t.Error("timed out")
+	}
+}
+
+func TestWriteOutTwoByteLenPrefix(t *testing.T) {
+	enc, _ := isaacPair([4]uint32{3, 4, 5, 6})
+	wantEnc, _ := isaacPair([4]uint32{3, 4, 5, 6})
+
+	p, clientConn := newTestPlayer(t)
+	p.client.encryptor = enc
+
+	op := gameserver.Op{Opcode: 60, PayloadSize: -2}
+	payload := []byte{0xDE, 0xAD}
+
+	received := make(chan []byte, 1)
+	go func() {
+		buf := make([]byte, 5) // 1 opcode + 2 len-prefix + 2 payload
+		clientConn.SetReadDeadline(time.Now().Add(time.Second))
+		if _, err := io.ReadFull(clientConn, buf); err == nil {
+			received <- buf
+		}
+	}()
+
+	p.writeOut(op, payload)
+	p.client.flushWrite()
+
+	expectedOpByte := byte((int(op.Opcode) + int(wantEnc.GetNext())) & 0xff)
+
+	select {
+	case got := <-received:
+		if got[0] != expectedOpByte {
+			t.Errorf("encrypted opcode: got %d, want %d", got[0], expectedOpByte)
+		}
+		if got[1] != 0x00 || got[2] != 0x02 {
+			t.Errorf("length prefix: got [%d %d], want [0 2]", got[1], got[2])
+		}
+		if got[3] != 0xDE || got[4] != 0xAD {
+			t.Errorf("payload: got [%d %d], want [0xDE 0xAD]", got[3], got[4])
+		}
+	case <-time.After(time.Second):
+		t.Error("timed out")
+	}
+}
