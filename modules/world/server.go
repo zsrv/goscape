@@ -189,7 +189,7 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 	seed.P4(rand.Uint32())
 	seed.P4(rand.Uint32())
 
-	c.bufw.Write(seed.Bytes())
+	c.write(seed.Bytes())
 	// Fix 2: apply write deadline when flushing.
 	if err := c.flushWrite(); err != nil {
 		s.log.Error("failed to send seed", "error", err)

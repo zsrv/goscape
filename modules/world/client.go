@@ -3,6 +3,7 @@ package world
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -74,6 +75,12 @@ func (c *client) bufferData(data []byte) bool {
 	return true
 }
 
+func (c *client) write(data []byte) {
+	// TODO: return error?
+	c.bufw.Write(data)
+	c.log.Debug("sent data", "opcode", c.opcode, "num_bytes", len(data), "data", fmt.Sprintf("%v", data))
+}
+
 // flushWrite sets the write deadline and flushes the buffered writer.
 func (c *client) flushWrite() error {
 	if c.writeTimeout > 0 {
@@ -88,6 +95,7 @@ func (c *client) flushWrite() error {
 // flushes it, and returns errCloseConn to signal the connection should close.
 func (c *client) sendLoginError(code byte) error {
 	c.bufw.WriteByte(code)
+	c.log.Debug("send login error", "opcode", c.opcode, "num_bytes", c.in.Len(), "data", code)
 	c.flushWrite() // best-effort; connection is closing regardless
 	return errCloseConn
 }

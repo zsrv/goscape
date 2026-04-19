@@ -44,7 +44,7 @@ func TestSeedPacketIsExactly8Bytes(t *testing.T) {
 	seed := packet.NewPacket(make([]byte, 0, 8))
 	seed.P4(0xDEADBEEF)
 	seed.P4(0xCAFEBABE)
-	c.bufw.Write(seed.Bytes())
+	c.write(seed.Bytes())
 	c.flushWrite()
 
 	select {
