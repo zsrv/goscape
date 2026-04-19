@@ -18,6 +18,7 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		}
 
 		s.processClientsIn()
+		s.processPathing()
 		s.processClientsOut()
 		s.currentTick++
 
@@ -43,6 +44,17 @@ func (s *Server) processClientsIn() {
 
 	for _, p := range players {
 		p.processIn(s.currentTick)
+	}
+}
+
+func (s *Server) processPathing() {
+	s.playersMu.RLock()
+	players := make([]*Player, len(s.playerLoop))
+	copy(players, s.playerLoop)
+	s.playersMu.RUnlock()
+
+	for _, p := range players {
+		p.resolveMovement()
 	}
 }
 
