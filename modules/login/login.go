@@ -2,14 +2,13 @@ package login
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
+	"net"
 
 	"github.com/zsrv/goscape/internal/dskit/services"
 )
-
-// TODO: make the login server report started only once it's fully started and listening
-//  tempo waits for services to start before starting others, see how it does it
 
 // Login is the login server module. It owns the SQLite DB and the gRPC server.
 type Login struct {
@@ -17,6 +16,10 @@ type Login struct {
 
 	cfg Config
 	log *slog.Logger
+
+	db  *sql.DB
+	srv *grpcServer
+	lis net.Listener
 }
 
 // New validates the config and constructs the Login module.
@@ -34,29 +37,37 @@ func NewLoginService(cfg Config, logger *slog.Logger) (services.Service, error) 
 	return New(cfg, logger)
 }
 
-func (l *Login) starting(ctx context.Context) error {
-	_ = ctx
-	return nil
-}
-
-func (l *Login) running(ctx context.Context) error {
+func (l *Login) starting(_ context.Context) error {
 	db, err := openDB(l.cfg.SQLiteDSN)
 	if err != nil {
 		return fmt.Errorf("open login db: %w", err)
 	}
 
 	srv := newGRPCServer(l.cfg, db, l.log)
+	lis, err := srv.listen(l.cfg)
+	if err != nil {
+		db.Close()
+		return err
+	}
+
+	l.db = db
+	l.srv = srv
+	l.lis = lis
+	return nil
+}
+
+func (l *Login) running(ctx context.Context) error {
 	serverDone := make(chan error, 1)
-	go func() { serverDone <- srv.run(l.cfg) }()
+	lis := l.lis
+	l.lis = nil // gRPC now owns the listener
+	go func() { serverDone <- l.srv.serve(lis) }()
 
 	select {
 	case <-ctx.Done():
-		srv.shutdown()
+		l.srv.shutdown()
 		<-serverDone
-		db.Close()
 		return nil
 	case err := <-serverDone:
-		db.Close()
 		if err != nil {
 			return fmt.Errorf("grpc server: %w", err)
 		}
@@ -65,5 +76,13 @@ func (l *Login) running(ctx context.Context) error {
 }
 
 func (l *Login) stopping(_ error) error {
+	// Covers the edge case where StopAsync is called between starting() returning
+	// and running() being invoked — gRPC never took ownership of the listener.
+	if l.lis != nil {
+		l.lis.Close()
+	}
+	if l.db != nil {
+		l.db.Close()
+	}
 	return nil
 }
