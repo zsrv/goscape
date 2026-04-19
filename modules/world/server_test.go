@@ -8,7 +8,9 @@ import (
 	"testing"
 	"time"
 
+	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/io/packet"
+	"github.com/zsrv/goscape/pkg/io/protocol"
 	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
 )
@@ -259,6 +261,44 @@ func TestGameProtTableHasExpectedOpcodes(t *testing.T) {
 		if op.PayloadSize != tc.payloadSize {
 			t.Errorf("Ops[%d].PayloadSize = %d, want %d", tc.opcode, op.PayloadSize, tc.payloadSize)
 		}
+	}
+}
+
+// isaacPair returns two independent ISAAC instances with identical initial state.
+// Use enc to encrypt opcodes in the test, dec to give to the client under test.
+func isaacPair(seed [4]uint32) (enc, dec *io2.Isaac) {
+	return io2.New(seed), io2.New(seed)
+}
+
+// encryptOpcode produces the wire byte the Java client sends for realOpcode.
+func encryptOpcode(enc *io2.Isaac, realOpcode byte) byte {
+	return byte((int(realOpcode) + int(enc.GetNext())) & 0xff)
+}
+
+func TestHandleGameEmptyBufferReturnsErrPayloadTooSmall(t *testing.T) {
+	_, dec := isaacPair([4]uint32{1, 2, 3, 4})
+	c, _ := newTestClient(t)
+	c.state = ClientStateGame
+	c.decryptor = dec
+
+	err := c.handleGame()
+	if !errors.Is(err, protocol.ErrPayloadTooSmall) {
+		t.Errorf("empty buffer: got %v, want ErrPayloadTooSmall", err)
+	}
+}
+
+func TestHandleGameUnknownOpcodeReturnsErrCloseConn(t *testing.T) {
+	// Opcode 0 is not registered in the Ops table.
+	enc, dec := isaacPair([4]uint32{5, 6, 7, 8})
+	c, _ := newTestClient(t)
+	c.state = ClientStateGame
+	c.decryptor = dec
+
+	c.in.Write([]byte{encryptOpcode(enc, 0)})
+
+	err := c.handleGame()
+	if !errors.Is(err, errCloseConn) {
+		t.Errorf("unknown opcode: got %v, want errCloseConn", err)
 	}
 }
 

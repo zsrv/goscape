@@ -248,6 +248,8 @@ func (c *client) handleData() error {
 	switch c.state {
 	case ClientStateLogin:
 		return c.handleLogin()
+	case ClientStateGame:
+		return c.handleGame()
 	default:
 		c.log.Info("unhandled client state", "state", c.state)
 		return errors.New("unhandled client state")
