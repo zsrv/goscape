@@ -4,9 +4,18 @@ import (
 	"math/rand/v2"
 	"time"
 
+	"github.com/zsrv/goscape/pkg/buildarea"
+	"github.com/zsrv/goscape/pkg/inventory"
 	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 )
+
+// InventoryListener associates a player-visible UI component with an inventory.
+type InventoryListener struct {
+	Type   int // InvType id
+	Com    int // UI component id
+	Source int // player slot of the inv's owner
+}
 
 const (
 	userEventLimit       = 5
@@ -122,6 +131,18 @@ type Player struct {
 
 	// === last* fields — for echo suppression ===
 	lastItem, lastSlot, lastUseItem, lastUseSlot, lastTargetSlot, lastCom int
+
+	// === inventory (sub-spec 3a) ===
+	invs         map[int]*inventory.Inventory
+	invListeners []InventoryListener
+
+	// === build area (sub-spec 3a) ===
+	buildArea *buildarea.BuildArea
+
+	// === BAS (basic animation set) — sub-spec 3a ===
+	readyanim, turnanim                          int
+	walkanim, walkanim_b, walkanim_l, walkanim_r int
+	runanim                                      int
 }
 
 // encodeOut mirrors TS NetworkPlayer.encodeOut(). It sends modal open/close
@@ -225,6 +246,13 @@ func newPlayer(c *client) *Player {
 		lastCom:        -1,
 		lastConnected:  -1,
 		lastResponse:   -1,
+		readyanim:      -1,
+		turnanim:       -1,
+		walkanim:       -1,
+		walkanim_b:     -1,
+		walkanim_l:     -1,
+		walkanim_r:     -1,
+		runanim:        -1,
 	}
 }
 
