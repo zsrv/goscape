@@ -357,7 +357,7 @@ func TestAddPlayerConcurrentSafety(t *testing.T) {
 	<-done
 }
 
-func TestSendLoginOKRegistersPlayer(t *testing.T) {
+func TestSendLoginOKQueuesPlayer(t *testing.T) {
 	s := newTestServer(t)
 	c, clientConn := newTestClient(t)
 	c.server = s
@@ -370,30 +370,14 @@ func TestSendLoginOKRegistersPlayer(t *testing.T) {
 	if c.player == nil {
 		t.Fatal("c.player should be set after sendLoginOK")
 	}
-	if c.player.slot < 1 {
-		t.Errorf("player slot: got %d, want >= 1", c.player.slot)
+	s.playersMu.RLock()
+	queued := len(s.newPlayers)
+	s.playersMu.RUnlock()
+	if queued != 1 {
+		t.Errorf("newPlayers queue: got %d, want 1", queued)
 	}
-	if s.players[c.player.slot] != c.player {
-		t.Error("player not found in server registry")
-	}
-}
-
-func TestSendLoginOKWorldFullReturnsError(t *testing.T) {
-	s := newTestServer(t)
-	c, clientConn := newTestClient(t)
-	c.server = s
-
-	for i := 1; i < len(s.players); i++ {
-		s.players[i] = &Player{slot: i}
-	}
-
-	go io.Copy(io.Discard, clientConn)
-	err := c.sendLoginOK()
-	if err == nil {
-		t.Error("expected error when world is full")
-	}
-	if c.state == ClientStateGame {
-		t.Error("state should not be ClientStateGame when world is full")
+	if c.state != ClientStateGame {
+		t.Errorf("state: got %v, want ClientStateGame", c.state)
 	}
 }
 

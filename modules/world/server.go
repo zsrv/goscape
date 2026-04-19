@@ -46,10 +46,18 @@ type Server struct {
 
 	players     [2048]*Player
 	playerLoop  []*Player
+	newPlayers  []*Player // guarded by playersMu; drained by processLogins
 	playersMu   sync.RWMutex
 	currentTick int
 
 	gamemap *gamemap.GameMap
+}
+
+// appendNewPlayer queues a player for registration on the next tick.
+func (s *Server) appendNewPlayer(p *Player) {
+	s.playersMu.Lock()
+	s.newPlayers = append(s.newPlayers, p)
+	s.playersMu.Unlock()
 }
 
 func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Server, error) {

@@ -95,15 +95,13 @@ func (c *client) flushWrite() error {
 	return c.bufw.Flush()
 }
 
-// sendLoginOK registers the player in the world, sends the appropriate
-// login-accepted byte, and transitions to ClientStateGame.
-// Player registration happens before sending to avoid sending OK then failing.
+// sendLoginOK queues the player for world registration on the next tick,
+// sends the login-accepted byte, and transitions to ClientStateGame.
+// Actual slot assignment happens in processLogins (next tick).
 func (c *client) sendLoginOK() error {
 	if c.server != nil {
 		p := newPlayer(c)
-		if err := c.server.addPlayer(p); err != nil {
-			return c.sendLoginError(loginresp.OpServerFull.Opcode)
-		}
+		c.server.appendNewPlayer(p)
 		c.player = p
 	}
 
@@ -113,10 +111,6 @@ func (c *client) sendLoginOK() error {
 		c.bufw.WriteByte(loginresp.OpOK.Opcode)
 	}
 	if err := c.flushWrite(); err != nil {
-		if c.server != nil && c.player != nil {
-			c.server.removePlayer(c.player)
-			c.player = nil
-		}
 		return fmt.Errorf("failed to flush login OK: %w", err)
 	}
 	c.state = ClientStateGame
