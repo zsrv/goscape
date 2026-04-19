@@ -124,6 +124,28 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 	s.renderer = rsbuf.NewRenderer()
 	s.grid = grid.New()
 
+	npcTypes, err := objtype.LoadNPCTypes(cfg.CachePath)
+	if err != nil {
+		return nil, fmt.Errorf("load npc types: %w", err)
+	}
+	s.npcTypes = npcTypes
+
+	for _, spawn := range s.gamemap.NpcSpawns() {
+		if spawn.TypeID < 0 || spawn.TypeID >= len(npcTypes.Configs) {
+			continue
+		}
+		typ := npcTypes.Configs[spawn.TypeID]
+		if typ == nil {
+			continue
+		}
+		n := NewNpc(0, spawn.TypeID, spawn.X, spawn.Z, spawn.Level, typ)
+		if err := s.addNpc(n); err != nil {
+			s.log.Warn("npc registry full; dropping remaining spawns", "err", err)
+			break
+		}
+		s.grid.AddNpc(n.nid, n.x, n.z, n.level)
+	}
+
 	return s, nil
 }
 
