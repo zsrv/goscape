@@ -37,3 +37,78 @@ func TestQueueWaypointsReplacesExisting(t *testing.T) {
 func packTestCoord(level, x, z int) int {
 	return (z & 0x3fff) | ((x & 0x3fff) << 14) | ((level & 0x3) << 28)
 }
+
+func TestResolveMovementAdvancesOneTileWalking(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.x, p.z, p.level = 3094, 3106, 0
+	p.moveSpeed = MoveSpeedWalk
+	p.queueWaypoint(3094, 3107)
+
+	p.resolveMovement()
+
+	if p.z != 3107 {
+		t.Errorf("after walk step z: got %d, want 3107", p.z)
+	}
+	if p.walkDir == -1 {
+		t.Error("walkDir should be set after a step")
+	}
+	if p.runDir != -1 {
+		t.Errorf("runDir: got %d, want -1 (walking)", p.runDir)
+	}
+	if p.lastTickX != 3094 || p.lastTickZ != 3106 {
+		t.Errorf("lastTick: got (%d,%d), want (3094,3106)", p.lastTickX, p.lastTickZ)
+	}
+}
+
+func TestResolveMovementAdvancesTwoTilesRunning(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.x, p.z, p.level = 3094, 3106, 0
+	p.moveSpeed = MoveSpeedRun
+	p.runenergy = 10000
+	p.waypoints[0] = packTestCoord(0, 3094, 3108)
+	p.waypointIndex = 0
+
+	p.resolveMovement()
+
+	if p.z != 3108 {
+		t.Errorf("after run z: got %d, want 3108 (two steps)", p.z)
+	}
+	if p.walkDir == -1 {
+		t.Error("walkDir should be set")
+	}
+	if p.runDir == -1 {
+		t.Error("runDir should be set when running")
+	}
+}
+
+func TestResolveMovementNoPathClearsDirections(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.waypointIndex = -1
+	p.walkDir = 5
+	p.runDir = 3
+
+	p.resolveMovement()
+
+	if p.walkDir != -1 {
+		t.Errorf("walkDir with no path: got %d, want -1", p.walkDir)
+	}
+	if p.runDir != -1 {
+		t.Errorf("runDir with no path: got %d, want -1", p.runDir)
+	}
+}
+
+func TestResolveMovementDrainsRunEnergy(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.x, p.z, p.level = 3094, 3106, 0
+	p.moveSpeed = MoveSpeedRun
+	p.runenergy = 10000
+	p.runweight = 0
+	p.waypoints[0] = packTestCoord(0, 3094, 3108)
+	p.waypointIndex = 0
+
+	p.resolveMovement()
+
+	if p.runenergy >= 10000 {
+		t.Errorf("run energy should have drained, got %d", p.runenergy)
+	}
+}
