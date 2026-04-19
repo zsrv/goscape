@@ -105,6 +105,32 @@ func (p *Player) drainRunEnergy() {
 	}
 }
 
+// pathToMoveClick translates a MOVE_GAMECLICK / MOVE_OPCLICK waypoint list
+// into the player's movement queue. If needsFinding is true and moveStrategy
+// is SMART, the server runs its own pathfinder; otherwise it trusts the
+// client-supplied coords.
+func (p *Player) pathToMoveClick(packed []int, needsFinding bool) {
+	if len(packed) == 0 {
+		return
+	}
+
+	switch p.moveStrategy {
+	case MoveStrategySmart:
+		if needsFinding && p.client != nil && p.client.server != nil && p.client.server.gamemap != nil {
+			dest := coordgrid.UnpackCoord(packed[0])
+			route := p.client.server.gamemap.Pathfinder.FindPathDefault(p.level, p.x, p.z, dest.X, dest.Z)
+			if coords := routeToPacked(route); len(coords) > 0 {
+				p.queueWaypoints(coords)
+			}
+		} else {
+			p.queueWaypoints(packed)
+		}
+	case MoveStrategyNaive:
+		dest := coordgrid.UnpackCoord(packed[len(packed)-1])
+		p.queueWaypoint(dest.X, dest.Z)
+	}
+}
+
 // routeToPacked converts a pathfinder.Route into packed coord ints.
 func routeToPacked(route routefinder.Route) []int {
 	if !route.Success || len(route.Waypoints) == 0 {

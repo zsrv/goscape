@@ -97,6 +97,37 @@ func TestResolveMovementNoPathClearsDirections(t *testing.T) {
 	}
 }
 
+func TestPathToMoveClickSmartTrustClient(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.x, p.z, p.level = 3094, 3106, 0
+	p.moveStrategy = MoveStrategySmart
+
+	packed := []int{packTestCoord(0, 3100, 3110)}
+	p.pathToMoveClick(packed, false)
+
+	if p.waypointIndex != 0 {
+		t.Errorf("waypointIndex: got %d, want 0", p.waypointIndex)
+	}
+	if p.waypoints[0] != packed[0] {
+		t.Error("waypoints[0] should equal input")
+	}
+}
+
+func TestPathToMoveClickNaiveTakesLastCoord(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.x, p.z, p.level = 3094, 3106, 0
+	p.moveStrategy = MoveStrategyNaive
+
+	packed := []int{packTestCoord(0, 3100, 3110), packTestCoord(0, 3105, 3115)}
+	p.pathToMoveClick(packed, false)
+
+	gotX := (p.waypoints[0] >> 14) & 0x3FFF
+	gotZ := p.waypoints[0] & 0x3FFF
+	if gotX != 3105 || gotZ != 3115 {
+		t.Errorf("NAIVE should take input[-1]: got (%d,%d), want (3105,3115)", gotX, gotZ)
+	}
+}
+
 func TestResolveMovementDrainsRunEnergy(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.x, p.z, p.level = 3094, 3106, 0
