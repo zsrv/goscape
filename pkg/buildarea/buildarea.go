@@ -14,6 +14,7 @@ type BuildArea struct {
 	Mapsquares  map[uint16]bool
 	Players     map[int]struct{}
 	Appearance  map[int]uint64
+	Npcs        map[int]struct{}
 }
 
 func New() *BuildArea {
@@ -25,6 +26,7 @@ func New() *BuildArea {
 		Mapsquares:  map[uint16]bool{},
 		Players:     map[int]struct{}{},
 		Appearance:  map[int]uint64{},
+		Npcs:        map[int]struct{}{},
 	}
 }
 

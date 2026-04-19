@@ -93,3 +93,18 @@ func TestAppearanceHasRecord(t *testing.T) {
 		t.Error("different hash should miss")
 	}
 }
+
+func TestNpcsSetAddRemove(t *testing.T) {
+	ba := New()
+	if _, ok := ba.Npcs[7]; ok {
+		t.Error("new BuildArea should have empty Npcs")
+	}
+	ba.Npcs[7] = struct{}{}
+	if _, ok := ba.Npcs[7]; !ok {
+		t.Error("add should succeed")
+	}
+	delete(ba.Npcs, 7)
+	if _, ok := ba.Npcs[7]; ok {
+		t.Error("remove should succeed")
+	}
+}
