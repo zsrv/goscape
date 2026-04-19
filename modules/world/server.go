@@ -22,6 +22,7 @@ import (
 	loginreq "github.com/zsrv/goscape/pkg/io/protocol/login/req"
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
 	"github.com/zsrv/goscape/pkg/loginpb"
+	"github.com/zsrv/goscape/pkg/objtype"
 	util "github.com/zsrv/goscape/pkg/util/jstring"
 )
 
@@ -51,6 +52,10 @@ type Server struct {
 	currentTick int
 
 	gamemap *gamemap.GameMap
+
+	paramTypes *objtype.ParamTypeConfigs
+	objTypes   *objtype.ObjTypeConfigs
+	invTypes   *objtype.InvTypeConfigs
 }
 
 // appendNewPlayer queues a player for registration on the next tick.
@@ -89,6 +94,22 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 		return nil, fmt.Errorf("failed to load game map: %w", err)
 	}
 	s.gamemap = gm
+
+	params, err := objtype.LoadParams(cfg.CachePath)
+	if err != nil {
+		return nil, fmt.Errorf("load params: %w", err)
+	}
+	objTypes, err := objtype.LoadObjTypes(cfg.CachePath, params)
+	if err != nil {
+		return nil, fmt.Errorf("load obj types: %w", err)
+	}
+	invTypes, err := objtype.LoadInvTypes(cfg.CachePath)
+	if err != nil {
+		return nil, fmt.Errorf("load inv types: %w", err)
+	}
+	s.paramTypes = params
+	s.objTypes = objTypes
+	s.invTypes = invTypes
 
 	return s, nil
 }
