@@ -31,6 +31,7 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 
 		s.processClientsIn()
 		s.processPathing()
+		s.processNpcs()
 		s.processLogouts()
 		s.processLogins()
 		s.processInfo()
@@ -174,6 +175,23 @@ func (s *Server) processInfo() {
 		sources[i] = p
 	}
 	s.renderer.ComputePlayers(sources)
+
+	npcSources := make([]rsbuf.NpcSource, len(s.npcLoop))
+	for i, n := range s.npcLoop {
+		npcSources[i] = n
+	}
+	s.renderer.ComputeNpcs(npcSources)
+}
+
+func (s *Server) processNpcs() {
+	for _, n := range s.npcLoop {
+		prevX, prevZ, prevLevel := n.x, n.z, n.level
+		n.turn(s)
+		if n.x != prevX || n.z != prevZ || n.level != prevLevel {
+			s.grid.RemoveNpc(n.nid, prevX, prevZ, prevLevel)
+			s.grid.AddNpc(n.nid, n.x, n.z, n.level)
+		}
+	}
 }
 
 func (s *Server) processCleanup() {
@@ -183,5 +201,8 @@ func (s *Server) processCleanup() {
 	s.playersMu.RUnlock()
 	for _, p := range players {
 		p.ResetMasks()
+	}
+	for _, n := range s.npcLoop {
+		n.ResetMasks()
 	}
 }
