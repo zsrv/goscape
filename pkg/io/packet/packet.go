@@ -82,14 +82,6 @@ func Alloc(size int) *Packet {
 	return NewPacket(make([]byte, 0, size))
 }
 
-func Load(path string) (*Packet, error) {
-	f, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	return NewPacket(f), nil
-}
-
 func (p *Packet) Peek(n int) ([]byte, error) {
 	if p.Len() < n {
 		return nil, io.EOF

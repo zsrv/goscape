@@ -319,7 +319,7 @@ func NewJagfile(src *packet.Packet) (*Jagfile, error) {
 }
 
 func LoadJagfile(path string) (*Jagfile, error) {
-	p, err := packet.Load(path)
+	p, err := packet.Load(path, false)
 	if err != nil {
 		return nil, err
 	}

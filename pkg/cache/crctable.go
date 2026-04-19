@@ -17,7 +17,7 @@ func makeCrc(path string) {
 		return
 	}
 
-	p, err := packet.Load(path)
+	p, err := packet.Load(path, false)
 	if err != nil {
 		return
 	}
