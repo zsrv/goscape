@@ -42,6 +42,11 @@ type Server struct {
 	loginClient *LoginClient
 	cfg         Config
 	tcpWg       sync.WaitGroup
+
+	players     [2048]*Player
+	playerLoop  []*Player
+	playersMu   sync.RWMutex
+	currentTick int
 }
 
 func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Server, error) {
@@ -396,6 +401,40 @@ func loginResultToRS2(result loginpb.LoginResult) byte {
 	default:
 		// UNSPECIFIED / unknown future values
 		return loginresp.OpIPLimit.Opcode
+	}
+}
+
+var errWorldFull = errors.New("world full")
+
+func (s *Server) addPlayer(p *Player) error {
+	s.playersMu.Lock()
+	defer s.playersMu.Unlock()
+
+	for i := 1; i < len(s.players); i++ {
+		if s.players[i] == nil {
+			p.slot = i
+			s.players[i] = p
+			s.playerLoop = append(s.playerLoop, p)
+			return nil
+		}
+	}
+	return errWorldFull
+}
+
+func (s *Server) removePlayer(p *Player) {
+	s.playersMu.Lock()
+	defer s.playersMu.Unlock()
+
+	if p.slot < 1 || p.slot >= len(s.players) || s.players[p.slot] != p {
+		return
+	}
+	s.players[p.slot] = nil
+
+	for i, lp := range s.playerLoop {
+		if lp == p {
+			s.playerLoop = append(s.playerLoop[:i], s.playerLoop[i+1:]...)
+			break
+		}
 	}
 }
 

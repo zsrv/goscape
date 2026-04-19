@@ -274,6 +274,89 @@ func encryptOpcode(enc *io2.Isaac, realOpcode byte) byte {
 	return byte((int(realOpcode) + int(enc.GetNext())) & 0xff)
 }
 
+func newTestServer(t *testing.T) *Server {
+	t.Helper()
+	return &Server{
+		quit: make(chan interface{}),
+		log:  discardLogger(),
+	}
+}
+
+func TestAddPlayerAssignsSlot(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	if p.slot < 1 || p.slot > 2047 {
+		t.Errorf("slot out of range: %d", p.slot)
+	}
+	if s.players[p.slot] != p {
+		t.Error("players[slot] should point to p")
+	}
+	if len(s.playerLoop) != 1 {
+		t.Errorf("playerLoop len: got %d, want 1", len(s.playerLoop))
+	}
+}
+
+func TestRemovePlayerClearsSlot(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+
+	_ = s.addPlayer(p)
+	slot := p.slot
+
+	s.removePlayer(p)
+
+	if s.players[slot] != nil {
+		t.Error("players[slot] should be nil after remove")
+	}
+	if len(s.playerLoop) != 0 {
+		t.Errorf("playerLoop len: got %d, want 0", len(s.playerLoop))
+	}
+}
+
+func TestAddPlayerWorldFull(t *testing.T) {
+	s := newTestServer(t)
+
+	for i := 1; i <= 2047; i++ {
+		s.players[i] = &Player{slot: i}
+	}
+
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	if err := s.addPlayer(p); err == nil {
+		t.Error("expected error when world is full")
+	}
+}
+
+func TestAddPlayerConcurrentSafety(t *testing.T) {
+	s := newTestServer(t)
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+		for range 50 {
+			c, _ := newTestClient(t)
+			p := newPlayer(c)
+			if err := s.addPlayer(p); err == nil {
+				s.removePlayer(p)
+			}
+		}
+	}()
+
+	for range 50 {
+		s.playersMu.RLock()
+		_ = len(s.playerLoop)
+		s.playersMu.RUnlock()
+	}
+
+	<-done
+}
+
 func BenchmarkClientSetup(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
