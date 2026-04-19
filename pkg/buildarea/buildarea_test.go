@@ -64,3 +64,32 @@ func TestRebuildPopulatesMapsquares(t *testing.T) {
 		t.Errorf("expected (48,48) in mapsquare list; got %v", ms)
 	}
 }
+
+func TestPlayersSetAddRemove(t *testing.T) {
+	ba := New()
+	if _, ok := ba.Players[5]; ok {
+		t.Error("new BuildArea should have empty Players")
+	}
+	ba.Players[5] = struct{}{}
+	if _, ok := ba.Players[5]; !ok {
+		t.Error("add should succeed")
+	}
+	delete(ba.Players, 5)
+	if _, ok := ba.Players[5]; ok {
+		t.Error("remove should succeed")
+	}
+}
+
+func TestAppearanceHasRecord(t *testing.T) {
+	ba := New()
+	if ba.HasAppearance(5, 0x12345) {
+		t.Error("fresh BuildArea should not have appearance cached")
+	}
+	ba.RecordAppearance(5, 0x12345)
+	if !ba.HasAppearance(5, 0x12345) {
+		t.Error("RecordAppearance did not stick")
+	}
+	if ba.HasAppearance(5, 0xdeadbeef) {
+		t.Error("different hash should miss")
+	}
+}

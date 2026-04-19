@@ -12,6 +12,8 @@ type BuildArea struct {
 	LoadedZones map[int]bool
 	ActiveZones map[int]bool
 	Mapsquares  map[uint16]bool
+	Players     map[int]struct{}
+	Appearance  map[int]uint64
 }
 
 func New() *BuildArea {
@@ -21,7 +23,21 @@ func New() *BuildArea {
 		LoadedZones: map[int]bool{},
 		ActiveZones: map[int]bool{},
 		Mapsquares:  map[uint16]bool{},
+		Players:     map[int]struct{}{},
+		Appearance:  map[int]uint64{},
 	}
+}
+
+// HasAppearance returns true if the given appearance hash has already been
+// recorded for the given slot.
+func (ba *BuildArea) HasAppearance(slot int, hash uint64) bool {
+	stored, ok := ba.Appearance[slot]
+	return ok && stored == hash
+}
+
+// RecordAppearance caches the appearance hash for the given slot.
+func (ba *BuildArea) RecordAppearance(slot int, hash uint64) {
+	ba.Appearance[slot] = hash
 }
 
 // ShouldRebuild reports whether the player has crossed the 13x13 zone window
