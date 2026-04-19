@@ -1,7 +1,10 @@
 package gamemap
 
 import (
+	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
 
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/pathfinder/loc"
@@ -65,4 +68,62 @@ func (gm *GameMap) CanTravel(level, x, z, offsetX, offsetZ int) bool {
 	return gm.Pathfinder.StepValidator.CanTravel(
 		level, x, z, offsetX, offsetZ, 1, 0, collision.TypeNormal,
 	)
+}
+
+// Init reads map-pack files from cacheDir/maps/ and populates the collision map.
+// Missing files and missing CSVs are treated as warnings, not errors.
+func (gm *GameMap) Init(cacheDir string) error {
+	mapsDir := filepath.Join(cacheDir, "maps")
+
+	// Load multimap and freemap CSVs (non-fatal if missing).
+	if err := loadCsvMap(filepath.Join(mapsDir, "multiway.csv"), gm.multimap); err != nil {
+		gm.log.Warn("failed to load multiway.csv", "err", err)
+	}
+	if err := loadCsvMap(filepath.Join(mapsDir, "free2play.csv"), gm.freemap); err != nil {
+		gm.log.Warn("failed to load free2play.csv", "err", err)
+	}
+
+	// Enumerate m{X}_{Z} files and load each mapsquare.
+	mMatches, err := filepath.Glob(filepath.Join(mapsDir, "m*_*"))
+	if err != nil {
+		return fmt.Errorf("glob mapsquare files: %w", err)
+	}
+
+	loaded := 0
+	for _, mPath := range mMatches {
+		base := filepath.Base(mPath)
+		if len(base) < 2 || base[0] != 'm' {
+			continue
+		}
+		var sqX, sqZ int
+		if _, err := fmt.Sscanf(base, "m%d_%d", &sqX, &sqZ); err != nil {
+			gm.log.Warn("invalid mapsquare filename", "name", base, "err", err)
+			continue
+		}
+
+		mData, err := os.ReadFile(mPath)
+		if err != nil {
+			gm.log.Warn("failed to read mapsquare data", "path", mPath, "err", err)
+			continue
+		}
+		gm.loadGround(mData, sqX, sqZ)
+
+		lPath := filepath.Join(mapsDir, fmt.Sprintf("l%d_%d", sqX, sqZ))
+		if lData, err := os.ReadFile(lPath); err == nil {
+			gm.loadLocs(lData, sqX, sqZ)
+		}
+		nPath := filepath.Join(mapsDir, fmt.Sprintf("n%d_%d", sqX, sqZ))
+		if nData, err := os.ReadFile(nPath); err == nil {
+			gm.loadNPCs(nData, sqX, sqZ)
+		}
+		oPath := filepath.Join(mapsDir, fmt.Sprintf("o%d_%d", sqX, sqZ))
+		if oData, err := os.ReadFile(oPath); err == nil {
+			gm.loadObjs(oData, sqX, sqZ)
+		}
+
+		loaded++
+	}
+
+	gm.log.Info("game map loaded", "mapsquares", loaded)
+	return nil
 }
