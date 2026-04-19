@@ -28,6 +28,7 @@ type ClientState int
 const (
 	ClientStateClosed ClientState = -1
 	ClientStateLogin  ClientState = 0
+	ClientStateGame   ClientState = 1
 )
 
 type client struct {

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/zsrv/goscape/pkg/io/packet"
+	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
 )
 
@@ -179,9 +180,34 @@ func TestSendLoginErrorVariousCodes(t *testing.T) {
 	}
 }
 
+func TestGameProtTableHasExpectedOpcodes(t *testing.T) {
+	cases := []struct {
+		opcode      int
+		name        string
+		payloadSize int
+	}{
+		{108, "NO_TIMEOUT", 0},
+		{70, "IDLE_TIMER", 0},
+		{181, "MOVE_GAMECLICK", -1},
+		{93, "MOVE_OPCLICK", -1},
+		{165, "MOVE_MINIMAPCLICK", -1},
+		{150, "REBUILD_GETMAPS", -1},
+		{81, "EVENT_TRACKING", -2},
+	}
+	for _, tc := range cases {
+		op := gameclient.Ops[tc.opcode]
+		if op.Name != tc.name {
+			t.Errorf("Ops[%d].Name = %q, want %q", tc.opcode, op.Name, tc.name)
+		}
+		if op.PayloadSize != tc.payloadSize {
+			t.Errorf("Ops[%d].PayloadSize = %d, want %d", tc.opcode, op.PayloadSize, tc.payloadSize)
+		}
+	}
+}
+
 func BenchmarkClientSetup(b *testing.B) {
 	b.ReportAllocs()
-	for range b.N {
+	for b.Loop() {
 		c := newClient(nil, 30*time.Second, slog.Default())
 		c.in.Release()
 		putBufioReader64k(c.bufr)
