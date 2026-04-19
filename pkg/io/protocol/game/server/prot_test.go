@@ -53,3 +53,12 @@ func TestSubSpec3BOpcodes(t *testing.T) {
 		t.Errorf("OpPlayerInfo.PayloadSize = %d, want -2", OpPlayerInfo.PayloadSize)
 	}
 }
+
+func TestSubSpec3COpcodes(t *testing.T) {
+	if OpNpcInfo.Opcode != 1 {
+		t.Errorf("OpNpcInfo.Opcode = %d, want 1", OpNpcInfo.Opcode)
+	}
+	if OpNpcInfo.PayloadSize != -2 {
+		t.Errorf("OpNpcInfo.PayloadSize = %d, want -2", OpNpcInfo.PayloadSize)
+	}
+}

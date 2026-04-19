@@ -20,4 +20,5 @@ var (
 	OpUpdateInvFull    = Op{Opcode: 98, PayloadSize: -2}
 	OpUpdateInvPartial = Op{Opcode: 213, PayloadSize: -2}
 	OpPlayerInfo       = Op{Opcode: 184, PayloadSize: -2}
+	OpNpcInfo          = Op{Opcode: 1, PayloadSize: -2}
 )
