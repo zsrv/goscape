@@ -3,6 +3,8 @@ package world
 import (
 	"time"
 
+	"github.com/zsrv/goscape/pkg/buildarea"
+	"github.com/zsrv/goscape/pkg/inventory"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 )
 
@@ -76,6 +78,19 @@ func (s *Server) processLogins() {
 		p.lastResponse = s.currentTick
 		p.originX = p.x
 		p.originZ = p.z
+
+		// sub-spec 3a: initialise buildarea, worn inventory, and appearance dirty flag
+		p.buildArea = buildarea.New()
+		p.invs = map[int]*inventory.Inventory{}
+		if s.invTypes != nil && s.invTypes.Worn >= 0 && s.invTypes.Worn < len(s.invTypes.Configs) {
+			wornType := s.invTypes.Configs[s.invTypes.Worn]
+			if wornType != nil {
+				worn := inventory.FromType(wornType)
+				worn.Update = true
+				p.invs[s.invTypes.Worn] = worn
+			}
+		}
+		p.masks |= MaskAppearance
 	}
 }
 
