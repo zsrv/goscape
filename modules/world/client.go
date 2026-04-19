@@ -38,6 +38,8 @@ type client struct {
 	bufr          *bufio.Reader
 	bufw          *bufio.Writer
 	in            *packet.Packet
+	inMu          sync.Mutex // guards in, opcode, waiting between reader goroutine and tick goroutine
+	player        *Player    // nil until sendLoginOK; owned exclusively by tick goroutine after login
 	encryptor     *io2.Isaac
 	decryptor     *io2.Isaac
 	server        *Server
