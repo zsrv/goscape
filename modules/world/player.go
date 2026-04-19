@@ -262,7 +262,17 @@ func (p *Player) Slot() int { return p.slot }
 // Coords returns the player's current absolute coordinates.
 func (p *Player) Coords() (x, z, level int) { return p.x, p.z, p.level }
 
-func (p *Player) updateMap()      {}
+func (p *Player) updateMap() {
+	if p.buildArea == nil || p.client == nil || p.client.server == nil {
+		return
+	}
+	if !p.buildArea.ShouldRebuild(p.x, p.z, p.reconnecting) {
+		return
+	}
+	ms := p.buildArea.Rebuild(p.x, p.z, p.client.server.currentTick)
+	p.reconnecting = false
+	sendRebuildNormal(p, ms)
+}
 func (p *Player) updatePlayers()  {}
 func (p *Player) updateNpcs()     {}
 func (p *Player) updateZones()    {}
