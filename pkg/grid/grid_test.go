@@ -52,3 +52,33 @@ func TestRadiusBoundary(t *testing.T) {
 		t.Errorf("radius 2 should exclude: got %v", out)
 	}
 }
+
+func TestAddNpcAndNearby(t *testing.T) {
+	g := New()
+	g.AddNpc(7, 3094, 3106, 0)
+	near := g.NearbyNpcs(3094, 3106, 0, 1)
+	if len(near) != 1 || near[0] != 7 {
+		t.Errorf("NearbyNpcs: got %v, want [7]", near)
+	}
+}
+
+func TestRemoveNpc(t *testing.T) {
+	g := New()
+	g.AddNpc(7, 3094, 3106, 0)
+	g.RemoveNpc(7, 3094, 3106, 0)
+	if got := g.NearbyNpcs(3094, 3106, 0, 1); len(got) != 0 {
+		t.Errorf("after remove: got %v, want empty", got)
+	}
+}
+
+func TestPlayerAndNpcSeparateIndexes(t *testing.T) {
+	g := New()
+	g.Add(5, 3094, 3106, 0)
+	g.AddNpc(7, 3094, 3106, 0)
+	if p := g.NearbyPlayers(3094, 3106, 0, 1); len(p) != 1 || p[0] != 5 {
+		t.Errorf("players: got %v, want [5]", p)
+	}
+	if n := g.NearbyNpcs(3094, 3106, 0, 1); len(n) != 1 || n[0] != 7 {
+		t.Errorf("npcs: got %v, want [7]", n)
+	}
+}
