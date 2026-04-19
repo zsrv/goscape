@@ -79,7 +79,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.BoolVar(&c.NodeClientRoutefinder, "world.node-client-route-finder", true, "")
 	f.IntVar(&c.NodeWalktriggerSetting, "world.node-walk-trigger-setting", 0, "") // TODO: replace default with enum
 	f.StringVar(&c.NodeProfile, "world.node-profile", "main", "")
-	f.StringVar(&c.CachePath, "world.cache-path", "./data/pack/client", "Cache root; gamemap loads map-pack files from <path>/maps/")
+	f.StringVar(&c.CachePath, "world.cache-path", "./data/pack", "Cache root; gamemap loads map-pack files from <path>/maps/")
 	f.IntVar(&c.NodeMaxPlayers, "world.node-max-players", 2047, "")
 	f.IntVar(&c.NodeMaxConnected, "world.node-max-connected", 1000, "")
 	f.IntVar(&c.NodeMaxNPCs, "world.node-max-npcs", 8191, "")
