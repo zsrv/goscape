@@ -8,6 +8,9 @@ type Renderer struct {
 	highDef     [2048][]byte
 	lowDefFull  [2048][]byte // includes forced APPEARANCE + FACE_COORD
 	lowDefNoApp [2048][]byte // forces FACE_COORD but NOT APPEARANCE
+
+	npcHighDef [8192][]byte
+	npcLowDef  [8192][]byte // forces FACE_COORD baseline
 }
 
 // NewRenderer returns an empty renderer.
@@ -62,6 +65,47 @@ func (r *Renderer) LowDefNoAppOf(slot int) []byte {
 		return nil
 	}
 	return r.lowDefNoApp[slot]
+}
+
+// ComputeNpcs builds per-nid NPC payload caches for the current tick.
+func (r *Renderer) ComputeNpcs(npcs []NpcSource) {
+	for _, n := range npcs {
+		nid := n.Nid()
+		if nid < 1 || nid >= len(r.npcHighDef) {
+			continue
+		}
+		masks := n.Masks()
+		if masks == 0 && n.EntityMask() == 0 {
+			r.npcHighDef[nid] = nil
+		} else {
+			buf := packet.NewPacket(nil)
+			writeNpcMaskHeader(buf, masks)
+			writeNpcMaskPayloads(buf, n, masks)
+			r.npcHighDef[nid] = append([]byte(nil), buf.Data...)
+		}
+		// Low-def: force FACE_COORD baseline so new observers know where to look.
+		lowMasks := masks | NpcMaskFaceCoord
+		buf := packet.NewPacket(nil)
+		writeNpcMaskHeader(buf, lowMasks)
+		writeNpcMaskPayloads(buf, n, lowMasks)
+		r.npcLowDef[nid] = append([]byte(nil), buf.Data...)
+	}
+}
+
+// NpcHighDefOf returns cached NPC high-def bytes (nil if no masks).
+func (r *Renderer) NpcHighDefOf(nid int) []byte {
+	if nid < 1 || nid >= len(r.npcHighDef) {
+		return nil
+	}
+	return r.npcHighDef[nid]
+}
+
+// NpcLowDefOf returns cached NPC low-def bytes (FACE_COORD always included).
+func (r *Renderer) NpcLowDefOf(nid int) []byte {
+	if nid < 1 || nid >= len(r.npcLowDef) {
+		return nil
+	}
+	return r.npcLowDef[nid]
 }
 
 func buildPayload(p PlayerSource, masks int, suppressChat bool) []byte {
