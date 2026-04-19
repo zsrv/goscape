@@ -1,6 +1,7 @@
 package world
 
 import (
+	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/io/packet"
 )
 
@@ -10,8 +11,8 @@ import (
 var gameHandlers [256]func(*Player, []byte) error
 
 func init() {
-	gameHandlers[108] = handleNoTimeout  // NO_TIMEOUT
-	gameHandlers[70] = handleNoTimeout   // IDLE_TIMER
+	gameHandlers[108] = handleNoTimeout // NO_TIMEOUT
+	gameHandlers[70] = handleNoTimeout  // IDLE_TIMER
 
 	gameHandlers[181] = handleMoveClick        // MOVE_GAMECLICK
 	gameHandlers[93] = handleMoveClick         // MOVE_OPCLICK
@@ -28,19 +29,24 @@ func handleMoveClick(p *Player, payload []byte) error {
 	}
 	r := packet.NewPacket(payload)
 	ctrlHeld := r.G1()
-	startX := r.G2()
-	startZ := r.G2()
+	startX := int(r.G2())
+	startZ := int(r.G2())
 
-	type point struct{ x, z int }
-	path := make([]point, 0, min((len(payload)-5)/2, 24)+1)
-	path = append(path, point{int(startX), int(startZ)})
+	pathLen := min((len(payload)-5)/2, 24) + 1
+	packed := make([]int, 0, pathLen)
+	packed = append(packed, coordgrid.PackCoord(p.level, startX, startZ))
 	for range min((len(payload)-5)/2, 24) {
-		dx := r.G1B()
-		dz := r.G1B()
-		path = append(path, point{int(startX) + int(dx), int(startZ) + int(dz)})
+		dx := int(r.G1B())
+		dz := int(r.G1B())
+		packed = append(packed, coordgrid.PackCoord(p.level, startX+dx, startZ+dz))
 	}
 
-	p.client.log.Info("move click", "ctrl_held", ctrlHeld, "path", path)
+	p.client.log.Debug("move click", "ctrl_held", ctrlHeld, "dest_packed", packed[0])
+	needsFinding := false
+	if p.client.server != nil {
+		needsFinding = !p.client.server.cfg.NodeClientRoutefinder
+	}
+	p.pathToMoveClick(packed, needsFinding)
 	return nil
 }
 
@@ -51,18 +57,23 @@ func handleMoveMinimapClick(p *Player, payload []byte) error {
 	}
 	r := packet.NewPacket(payload)
 	ctrlHeld := r.G1()
-	startX := r.G2()
-	startZ := r.G2()
+	startX := int(r.G2())
+	startZ := int(r.G2())
 
-	type point struct{ x, z int }
-	path := make([]point, 0, min((len(payload)-5-trailingBytes)/2, 24)+1)
-	path = append(path, point{int(startX), int(startZ)})
+	pathLen := min((len(payload)-5-trailingBytes)/2, 24) + 1
+	packed := make([]int, 0, pathLen)
+	packed = append(packed, coordgrid.PackCoord(p.level, startX, startZ))
 	for range min((len(payload)-5-trailingBytes)/2, 24) {
-		dx := r.G1B()
-		dz := r.G1B()
-		path = append(path, point{int(startX) + int(dx), int(startZ) + int(dz)})
+		dx := int(r.G1B())
+		dz := int(r.G1B())
+		packed = append(packed, coordgrid.PackCoord(p.level, startX+dx, startZ+dz))
 	}
 
-	p.client.log.Info("minimap click", "ctrl_held", ctrlHeld, "path", path)
+	p.client.log.Debug("minimap click", "ctrl_held", ctrlHeld, "dest_packed", packed[0])
+	needsFinding := false
+	if p.client.server != nil {
+		needsFinding = !p.client.server.cfg.NodeClientRoutefinder
+	}
+	p.pathToMoveClick(packed, needsFinding)
 	return nil
 }
