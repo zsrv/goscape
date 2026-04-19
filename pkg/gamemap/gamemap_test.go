@@ -40,7 +40,7 @@ func TestInitHandlesMissingCsv(t *testing.T) {
 
 func TestInitLoadsCsvMaps(t *testing.T) {
 	tmp := t.TempDir()
-	mapsDir := filepath.Join(tmp, "maps")
+	mapsDir := filepath.Join(tmp, "client", "maps")
 	if err := os.MkdirAll(mapsDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +112,7 @@ func TestMapsquareCRCReturnsZeroForMissing(t *testing.T) {
 
 func TestMapsquareCRCCachedFromInit(t *testing.T) {
 	tmp := t.TempDir()
-	mapsDir := filepath.Join(tmp, "maps")
+	mapsDir := filepath.Join(tmp, "client", "maps")
 	if err := os.MkdirAll(mapsDir, 0755); err != nil {
 		t.Fatal(err)
 	}
