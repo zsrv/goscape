@@ -95,15 +95,28 @@ func (c *client) flushWrite() error {
 	return c.bufw.Flush()
 }
 
-// sendLoginOK sends the appropriate login-accepted byte based on staff level,
-// flushes the write buffer, and transitions the client to ClientStateGame.
+// sendLoginOK registers the player in the world, sends the appropriate
+// login-accepted byte, and transitions to ClientStateGame.
+// Player registration happens before sending to avoid sending OK then failing.
 func (c *client) sendLoginOK() error {
+	if c.server != nil {
+		p := newPlayer(c)
+		if err := c.server.addPlayer(p); err != nil {
+			return c.sendLoginError(loginresp.OpServerFull.Opcode)
+		}
+		c.player = p
+	}
+
 	if c.staffModLevel >= 1 {
 		c.bufw.WriteByte(loginresp.OpLoginOKWithRights.Opcode)
 	} else {
 		c.bufw.WriteByte(loginresp.OpOK.Opcode)
 	}
 	if err := c.flushWrite(); err != nil {
+		if c.server != nil && c.player != nil {
+			c.server.removePlayer(c.player)
+			c.player = nil
+		}
 		return fmt.Errorf("failed to flush login OK: %w", err)
 	}
 	c.state = ClientStateGame

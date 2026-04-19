@@ -179,7 +179,10 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 	}
 
 	defer func() {
-		// Fix 7: log flush errors instead of silently discarding them.
+		if c.player != nil {
+			s.removePlayer(c.player)
+			c.player = nil
+		}
 		if err := c.flushWrite(); err != nil {
 			s.log.Warn("failed to flush on connection close", "error", err, "remote_addr", conn.RemoteAddr())
 		}
@@ -226,25 +229,31 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 		msg := buf[:n]
 		c.log.Info("received data", "num_bytes", len(msg), "data", fmt.Sprintf("%v", msg))
 
-		// Fix 3: close the connection if incoming data would overflow the buffer.
-		if !c.bufferData(msg) {
-			c.log.Warn("incoming buffer overflow, closing connection", "remote_addr", conn.RemoteAddr())
-			return
-		}
-
-		//c.readRequest(msg)
-		err = c.handleData()
-		if err != nil {
-			if errors.Is(err, protocol.ErrPayloadTooSmall) {
-				//c.log.Info("payload too small, waiting for more data2", "error", err)
-				continue
-			}
-			// Fix 5: errCloseConn means a rejection was already sent — close quietly.
-			if errors.Is(err, errCloseConn) {
+		switch c.state {
+		case ClientStateLogin:
+			if !c.bufferData(msg) {
+				c.log.Warn("incoming buffer overflow, closing connection", "remote_addr", conn.RemoteAddr())
 				return
 			}
-			c.log.Error("handleData error, closing connection", "error", err)
-			return
+			err = c.handleData()
+			if err != nil {
+				if errors.Is(err, protocol.ErrPayloadTooSmall) {
+					continue
+				}
+				if errors.Is(err, errCloseConn) {
+					return
+				}
+				c.log.Error("handleData error, closing connection", "error", err)
+				return
+			}
+		case ClientStateGame:
+			c.inMu.Lock()
+			ok := c.bufferData(msg)
+			c.inMu.Unlock()
+			if !ok {
+				c.log.Warn("incoming buffer overflow, closing connection", "remote_addr", conn.RemoteAddr())
+				return
+			}
 		}
 	}
 }

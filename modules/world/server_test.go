@@ -357,6 +357,46 @@ func TestAddPlayerConcurrentSafety(t *testing.T) {
 	<-done
 }
 
+func TestSendLoginOKRegistersPlayer(t *testing.T) {
+	s := newTestServer(t)
+	c, clientConn := newTestClient(t)
+	c.server = s
+
+	go io.Copy(io.Discard, clientConn)
+
+	if err := c.sendLoginOK(); err != nil {
+		t.Fatalf("sendLoginOK: %v", err)
+	}
+	if c.player == nil {
+		t.Fatal("c.player should be set after sendLoginOK")
+	}
+	if c.player.slot < 1 {
+		t.Errorf("player slot: got %d, want >= 1", c.player.slot)
+	}
+	if s.players[c.player.slot] != c.player {
+		t.Error("player not found in server registry")
+	}
+}
+
+func TestSendLoginOKWorldFullReturnsError(t *testing.T) {
+	s := newTestServer(t)
+	c, clientConn := newTestClient(t)
+	c.server = s
+
+	for i := 1; i < len(s.players); i++ {
+		s.players[i] = &Player{slot: i}
+	}
+
+	go io.Copy(io.Discard, clientConn)
+	err := c.sendLoginOK()
+	if err == nil {
+		t.Error("expected error when world is full")
+	}
+	if c.state == ClientStateGame {
+		t.Error("state should not be ClientStateGame when world is full")
+	}
+}
+
 func BenchmarkClientSetup(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
