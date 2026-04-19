@@ -8,6 +8,7 @@ import (
 	"github.com/zsrv/goscape/pkg/inventory"
 	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
 // InventoryListener associates a player-visible UI component with an inventory.
@@ -143,6 +144,28 @@ type Player struct {
 	readyanim, turnanim                          int
 	walkanim, walkanim_b, walkanim_l, walkanim_r int
 	runanim                                      int
+
+	// === visibility + active flag (sub-spec 3b) ===
+	visibility rsbuf.Visibility
+	active     bool
+
+	// === mask state (sub-spec 3b) ===
+	animID, animDelay int
+
+	sayText []byte
+
+	chatBytes []byte
+
+	damageAmt, damageType int
+	curHP, baseHP         int
+
+	spotanimID, spotanimHeight, spotanimDelay int
+
+	exactStartX, exactStartZ, exactEndX, exactEndZ int
+	exactBegin, exactFinish, exactDir              int
+
+	faceEntity               int
+	faceSquareX, faceSquareZ int
 }
 
 // encodeOut mirrors TS NetworkPlayer.encodeOut(). It sends modal open/close
@@ -253,6 +276,30 @@ func newPlayer(c *client) *Player {
 		walkanim_l:     -1,
 		walkanim_r:     -1,
 		runanim:        -1,
+		visibility:     rsbuf.VisibilityDefault,
+		active:         false,
+		animID:         -1,
+		animDelay:      -1,
+		chatColour:     -1,
+		chatEffect:     -1,
+		chatRights:     -1,
+		damageAmt:      -1,
+		damageType:     -1,
+		curHP:          -1,
+		baseHP:         -1,
+		spotanimID:     -1,
+		spotanimHeight: -1,
+		spotanimDelay:  -1,
+		exactStartX:    -1,
+		exactStartZ:    -1,
+		exactEndX:      -1,
+		exactEndZ:      -1,
+		exactBegin:     -1,
+		exactFinish:    -1,
+		exactDir:       -1,
+		faceEntity:     -1,
+		faceSquareX:    -1,
+		faceSquareZ:    -1,
 	}
 }
 
