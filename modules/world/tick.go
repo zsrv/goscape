@@ -1,8 +1,17 @@
 package world
 
-import "time"
+import (
+	"time"
+
+	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+)
 
 const tickRate = 600 * time.Millisecond
+
+const (
+	timeoutNoResponse   = 100 // ticks = 60s at 600ms
+	timeoutNoConnection = 50  // ticks = 30s at 600ms
+)
 
 func (s *Server) runTickLoop() {
 	s.runTickLoopWithRate(tickRate)
@@ -19,6 +28,7 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 
 		s.processClientsIn()
 		s.processPathing()
+		s.processLogouts()
 		s.processClientsOut()
 		s.currentTick++
 
@@ -44,6 +54,38 @@ func (s *Server) processClientsIn() {
 
 	for _, p := range players {
 		p.processIn(s.currentTick)
+	}
+}
+
+func (s *Server) processLogouts() {
+	s.playersMu.RLock()
+	players := make([]*Player, len(s.playerLoop))
+	copy(players, s.playerLoop)
+	s.playersMu.RUnlock()
+
+	for _, p := range players {
+		force := false
+		if s.currentTick-p.lastResponse >= timeoutNoResponse {
+			p.loggingOut = true
+			force = true
+		} else if s.currentTick-p.lastConnected >= timeoutNoConnection {
+			p.requestIdleLogout = true
+		}
+
+		if p.requestLogout || p.requestIdleLogout {
+			if s.currentTick >= p.preventLogoutUntil {
+				p.loggingOut = true
+			}
+			p.requestLogout = false
+			p.requestIdleLogout = false
+		}
+
+		if p.loggingOut && (force || s.currentTick >= p.preventLogoutUntil) {
+			p.writeOut(gameserver.OpLogout, nil)
+			_ = p.client.flushWrite()
+			_ = p.client.conn.Close()
+			s.removePlayer(p)
+		}
 	}
 }
 

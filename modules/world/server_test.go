@@ -397,6 +397,37 @@ func TestSendLoginOKWorldFullReturnsError(t *testing.T) {
 	}
 }
 
+func TestProcessLogoutsTimeoutMarksLoggingOut(t *testing.T) {
+	s := newTestServer(t)
+	c, clientConn := newTestClient(t)
+	c.server = s
+	c.state = ClientStateGame
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	c.encryptor = enc
+	go io.Copy(io.Discard, clientConn)
+
+	p := newPlayer(c)
+	c.player = p
+	if err := s.addPlayer(p); err != nil {
+		t.Fatal(err)
+	}
+	p.lastResponse = 0
+	p.lastConnected = 0
+	s.currentTick = timeoutNoResponse
+
+	s.processLogouts()
+
+	if !p.loggingOut {
+		t.Error("loggingOut should be true after lastResponse timeout")
+	}
+	s.playersMu.RLock()
+	still := len(s.playerLoop)
+	s.playersMu.RUnlock()
+	if still != 0 {
+		t.Errorf("playerLoop should be empty after logout, got %d", still)
+	}
+}
+
 func TestTickLoopIncrementsCurrentTick(t *testing.T) {
 	s := newTestServer(t)
 
