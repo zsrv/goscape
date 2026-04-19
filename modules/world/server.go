@@ -59,6 +59,11 @@ type Server struct {
 	objTypes   *objtype.ObjTypeConfigs
 	invTypes   *objtype.InvTypeConfigs
 
+	npcTypes    *objtype.NPCTypeConfigs
+	npcs        [8192]*Npc
+	npcLoop     []*Npc
+	nextNpcSlot int
+
 	renderer *rsbuf.Renderer
 	grid     *grid.Grid
 }
