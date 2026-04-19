@@ -2,6 +2,7 @@ package gamemap
 
 import (
 	"fmt"
+	"hash/crc32"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -14,8 +15,10 @@ import (
 // GameMap holds collision data for the game world.
 type GameMap struct {
 	Pathfinder *routefinder.PathFinderAPI
-	multimap   map[int]bool // packed zone coord -> multi combat
-	freemap    map[int]bool // packed zone coord -> F2P
+	multimap   map[int]bool      // packed zone coord -> multi combat
+	freemap    map[int]bool      // packed zone coord -> F2P
+	mapCRC     map[uint16]uint32 // (mapX<<8)|mapZ -> CRC32 of m{x}_{z} file
+	locCRC     map[uint16]uint32
 	log        *slog.Logger
 }
 
@@ -25,6 +28,8 @@ func New(log *slog.Logger) *GameMap {
 		Pathfinder: &pf,
 		multimap:   make(map[int]bool),
 		freemap:    make(map[int]bool),
+		mapCRC:     map[uint16]uint32{},
+		locCRC:     map[uint16]uint32{},
 		log:        log,
 	}
 }
@@ -106,10 +111,12 @@ func (gm *GameMap) Init(cacheDir string) error {
 			gm.log.Warn("failed to read mapsquare data", "path", mPath, "err", err)
 			continue
 		}
+		gm.mapCRC[uint16((sqX<<8)|sqZ)] = crc32.ChecksumIEEE(mData)
 		gm.loadGround(mData, sqX, sqZ)
 
 		lPath := filepath.Join(mapsDir, fmt.Sprintf("l%d_%d", sqX, sqZ))
 		if lData, err := os.ReadFile(lPath); err == nil {
+			gm.locCRC[uint16((sqX<<8)|sqZ)] = crc32.ChecksumIEEE(lData)
 			gm.loadLocs(lData, sqX, sqZ)
 		}
 		nPath := filepath.Join(mapsDir, fmt.Sprintf("n%d_%d", sqX, sqZ))
@@ -126,4 +133,11 @@ func (gm *GameMap) Init(cacheDir string) error {
 
 	gm.log.Info("game map loaded", "mapsquares", loaded)
 	return nil
+}
+
+// MapsquareCRC returns the CRC32 of the m and l files for a mapsquare, or 0 if
+// the file was absent during Init.
+func (gm *GameMap) MapsquareCRC(mapX, mapZ int) (mCRC, lCRC uint32) {
+	key := uint16((mapX << 8) | mapZ)
+	return gm.mapCRC[key], gm.locCRC[key]
 }
