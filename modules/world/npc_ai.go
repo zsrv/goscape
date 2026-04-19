@@ -1,0 +1,127 @@
+package world
+
+import (
+	"math/rand/v2"
+
+	"github.com/zsrv/goscape/pkg/coordgrid"
+	"github.com/zsrv/goscape/pkg/rsbuf"
+)
+
+// turn runs once per tick from processNpcs.
+func (n *Npc) turn(s *Server) {
+	if n.dead {
+		n.lifecycleTick--
+		if n.lifecycleTick <= 0 && n.lifecycle == NpcLifecycleRespawn {
+			n.dead = false
+			n.x, n.z, n.level = n.startX, n.startZ, n.startLevel
+			n.tele = true
+			n.masks |= rsbuf.NpcMaskChangeType
+		}
+		return
+	}
+	if n.moveRestrict == MoveRestrictNoMove {
+		return
+	}
+
+	n.lastTickX, n.lastTickZ, n.lastLevel = n.x, n.z, n.level
+	n.tele = false
+
+	if n.waypointIndex >= 0 {
+		n.advanceWaypoint(s)
+		n.wanderCounter = 0
+	} else {
+		n.wanderCounter++
+		switch n.targetOp {
+		case NpcModeWander:
+			n.wanderMode(s)
+		case NpcModePatrol:
+			n.patrolMode(s)
+		}
+		if n.wanderCounter > 500 && (n.x != n.startX || n.z != n.startZ) {
+			n.x, n.z, n.level = n.startX, n.startZ, n.startLevel
+			n.tele = true
+			n.wanderCounter = 0
+		}
+	}
+}
+
+// wanderMode picks a random destination within WanderRange of spawn (12.5%/tick).
+func (n *Npc) wanderMode(s *Server) {
+	if n.typ.WanderRange == 0 {
+		return
+	}
+	if rand.IntN(8) != 0 {
+		return
+	}
+	rng := int(n.typ.WanderRange)
+	dx := rand.IntN(rng*2+1) - rng
+	dz := rand.IntN(rng*2+1) - rng
+	n.queueWaypoint(n.startX+dx, n.startZ+dz)
+}
+
+// patrolMode advances through PatrolCoord with PatrolDelay between steps.
+func (n *Npc) patrolMode(s *Server) {
+	if len(n.typ.PatrolCoord) == 0 {
+		return
+	}
+	if s.currentTick < n.nextPatrolTick {
+		return
+	}
+	coord := int(n.typ.PatrolCoord[n.nextPatrolPoint])
+	pos := coordgrid.UnpackCoord(coord)
+	n.queueWaypoint(pos.X, pos.Z)
+	delay := 0
+	if n.nextPatrolPoint < len(n.typ.PatrolDelay) {
+		delay = int(n.typ.PatrolDelay[n.nextPatrolPoint])
+	}
+	n.nextPatrolTick = s.currentTick + delay
+	n.nextPatrolPoint = (n.nextPatrolPoint + 1) % len(n.typ.PatrolCoord)
+}
+
+// queueWaypoint clears any existing path and sets a single destination.
+func (n *Npc) queueWaypoint(x, z int) {
+	n.waypoints[0] = coordgrid.PackCoord(n.level, x, z)
+	n.waypointIndex = 0
+}
+
+// advanceWaypoint moves one tile toward the current waypoint.
+func (n *Npc) advanceWaypoint(s *Server) {
+	dest := coordgrid.UnpackCoord(n.waypoints[n.waypointIndex])
+	dir := coordgrid.Face(n.x, n.z, dest.X, dest.Z)
+	if dir == -1 {
+		n.waypointIndex--
+		n.walkDir = -1
+		n.runDir = -1
+		return
+	}
+	dx := coordgrid.DeltaX(dir)
+	dz := coordgrid.DeltaZ(dir)
+
+	if s != nil && s.gamemap != nil {
+		if !s.gamemap.CanTravel(n.level, n.x, n.z, dx, dz) {
+			n.waypointIndex = -1
+			n.walkDir = -1
+			n.runDir = -1
+			return
+		}
+	}
+
+	n.x += dx
+	n.z += dz
+	n.walkDir = int(dir)
+	n.runDir = -1
+	n.stepsTaken++
+
+	if n.x == dest.X && n.z == dest.Z {
+		n.waypointIndex--
+	}
+}
+
+// Kill is a test-only helper that marks the NPC dead and schedules respawn.
+func (n *Npc) Kill() {
+	n.dead = true
+	n.lifecycleTick = n.respawnRate
+	if n.lifecycleTick <= 0 {
+		n.lifecycleTick = 50
+	}
+}
