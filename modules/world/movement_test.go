@@ -128,6 +128,39 @@ func TestPathToMoveClickNaiveTakesLastCoord(t *testing.T) {
 	}
 }
 
+func TestMoveGameClickAdvancesPlayer(t *testing.T) {
+	enc, dec := isaacPair([4]uint32{1, 2, 3, 4})
+	p, _ := newTestPlayer(t)
+	p.client.decryptor = dec
+	p.client.encryptor = enc
+	p.x, p.z, p.level = 3094, 3106, 0
+	p.moveSpeed = MoveSpeedWalk
+
+	// MOVE_GAMECLICK: opcode 181, 1-byte length prefix.
+	// Payload: ctrlHeld(1) + startX G2(2) + startZ G2(2) = 5 bytes
+	// Move to (3094, 3107) — one tile north.
+	payload := []byte{
+		0,          // ctrlHeld
+		0x0C, 0x16, // startX = 3094
+		0x0C, 0x23, // startZ = 3107
+	}
+	buf := []byte{encryptOpcode(enc, 181), byte(len(payload))}
+	buf = append(buf, payload...)
+	p.client.in.Write(buf)
+
+	p.processIn(0)
+
+	if p.waypointIndex < 0 {
+		t.Fatal("pathToMoveClick should have queued a waypoint")
+	}
+
+	p.resolveMovement()
+
+	if p.z != 3107 {
+		t.Errorf("after tick, z: got %d, want 3107", p.z)
+	}
+}
+
 func TestResolveMovementDrainsRunEnergy(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.x, p.z, p.level = 3094, 3106, 0
