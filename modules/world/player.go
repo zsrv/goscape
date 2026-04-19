@@ -276,7 +276,15 @@ func (p *Player) updateMap() {
 func (p *Player) updatePlayers()  {}
 func (p *Player) updateNpcs()     {}
 func (p *Player) updateZones()    {}
-func (p *Player) updateInvs()     {}
+func (p *Player) updateInvs() {
+	for invId, inv := range p.invs {
+		if !inv.Update {
+			continue
+		}
+		sendUpdateInvFull(p, invId, inv)
+		inv.Update = false
+	}
+}
 func (p *Player) updateStats()    {}
 func (p *Player) updateAfkZones() {}
 
