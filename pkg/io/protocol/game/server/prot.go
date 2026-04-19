@@ -15,4 +15,8 @@ var (
 	OpIfOpenSide     = Op{Opcode: 195, PayloadSize: 2}
 	OpIfOpenMainSide = Op{Opcode: 28, PayloadSize: 4}
 	OpLogout         = Op{Opcode: 142, PayloadSize: 0}
+
+	OpRebuildNormal    = Op{Opcode: 237, PayloadSize: -2}
+	OpUpdateInvFull    = Op{Opcode: 98, PayloadSize: -2}
+	OpUpdateInvPartial = Op{Opcode: 213, PayloadSize: -2}
 )

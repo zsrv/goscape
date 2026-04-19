@@ -24,3 +24,23 @@ func TestServerOpValues(t *testing.T) {
 		}
 	}
 }
+
+func TestSubSpec3AOpcodes(t *testing.T) {
+	cases := []struct {
+		op     Op
+		opcode byte
+		size   int
+	}{
+		{OpRebuildNormal, 237, -2},
+		{OpUpdateInvFull, 98, -2},
+		{OpUpdateInvPartial, 213, -2},
+	}
+	for _, tc := range cases {
+		if tc.op.Opcode != tc.opcode {
+			t.Errorf("%+v: Opcode = %d, want %d", tc.op, tc.op.Opcode, tc.opcode)
+		}
+		if tc.op.PayloadSize != tc.size {
+			t.Errorf("%+v: PayloadSize = %d, want %d", tc.op, tc.op.PayloadSize, tc.size)
+		}
+	}
+}
