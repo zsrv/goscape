@@ -247,11 +247,7 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 func (c *client) handleData() error {
 	switch c.state {
 	case ClientStateLogin:
-		//c.log.Debug("handleData ClientStateLogin")
 		return c.handleLogin()
-	case ClientStateGame:
-		//c.log.Debug("handleData ClientStateGame")
-		return c.handleGame()
 	default:
 		c.log.Info("unhandled client state", "state", c.state)
 		return errors.New("unhandled client state")

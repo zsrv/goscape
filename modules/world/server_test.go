@@ -10,7 +10,6 @@ import (
 
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/io/packet"
-	"github.com/zsrv/goscape/pkg/io/protocol"
 	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
 )
@@ -273,99 +272,6 @@ func isaacPair(seed [4]uint32) (enc, dec *io2.Isaac) {
 // encryptOpcode produces the wire byte the Java client sends for realOpcode.
 func encryptOpcode(enc *io2.Isaac, realOpcode byte) byte {
 	return byte((int(realOpcode) + int(enc.GetNext())) & 0xff)
-}
-
-func TestHandleGameEmptyBufferReturnsErrPayloadTooSmall(t *testing.T) {
-	_, dec := isaacPair([4]uint32{1, 2, 3, 4})
-	c, _ := newTestClient(t)
-	c.state = ClientStateGame
-	c.decryptor = dec
-
-	err := c.handleGame()
-	if !errors.Is(err, protocol.ErrPayloadTooSmall) {
-		t.Errorf("empty buffer: got %v, want ErrPayloadTooSmall", err)
-	}
-}
-
-func TestHandleGameUnknownOpcodeReturnsErrCloseConn(t *testing.T) {
-	// Opcode 0 is not registered in the Ops table.
-	enc, dec := isaacPair([4]uint32{5, 6, 7, 8})
-	c, _ := newTestClient(t)
-	c.state = ClientStateGame
-	c.decryptor = dec
-
-	c.in.Write([]byte{encryptOpcode(enc, 0)})
-
-	err := c.handleGame()
-	if !errors.Is(err, errCloseConn) {
-		t.Errorf("unknown opcode: got %v, want errCloseConn", err)
-	}
-}
-
-func TestHandleGameNoTimeoutCompletesAndResetsOpcode(t *testing.T) {
-	enc, dec := isaacPair([4]uint32{10, 20, 30, 40})
-	c, _ := newTestClient(t)
-	c.state = ClientStateGame
-	c.decryptor = dec
-
-	// NO_TIMEOUT: opcode 108, payload size 0 — only the encrypted opcode byte
-	c.in.Write([]byte{encryptOpcode(enc, 108)})
-
-	err := c.handleGame()
-	if !errors.Is(err, protocol.ErrPayloadTooSmall) {
-		t.Errorf("after NO_TIMEOUT: got %v, want ErrPayloadTooSmall", err)
-	}
-	if c.opcode != -1 {
-		t.Errorf("opcode after NO_TIMEOUT: got %d, want -1", c.opcode)
-	}
-}
-
-func TestHandleGameMoveGameClickFullPacket(t *testing.T) {
-	enc, dec := isaacPair([4]uint32{11, 22, 33, 44})
-	c, _ := newTestClient(t)
-	c.state = ClientStateGame
-	c.decryptor = dec
-
-	// MOVE_GAMECLICK: opcode 181, 1-byte length prefix
-	// Payload: ctrlHeld(1) + startX G2(2) + startZ G2(2) = 5 bytes, no waypoints
-	payload := []byte{
-		0,          // ctrlHeld = 0
-		0x0C, 0xA4, // startX = 3236
-		0x0C, 0x8B, // startZ = 3211
-	}
-	var buf []byte
-	buf = append(buf, encryptOpcode(enc, 181))
-	buf = append(buf, byte(len(payload)))
-	buf = append(buf, payload...)
-	c.in.Write(buf)
-
-	err := c.handleGame()
-	if !errors.Is(err, protocol.ErrPayloadTooSmall) {
-		t.Errorf("after MOVE_GAMECLICK: got %v, want ErrPayloadTooSmall", err)
-	}
-	if c.opcode != -1 {
-		t.Errorf("opcode after MOVE_GAMECLICK: got %d, want -1", c.opcode)
-	}
-}
-
-func TestHandleGamePartialPayloadPreservesOpcode(t *testing.T) {
-	enc, dec := isaacPair([4]uint32{55, 66, 77, 88})
-	c, _ := newTestClient(t)
-	c.state = ClientStateGame
-	c.decryptor = dec
-
-	// Send opcode 181 + length byte claiming 10 payload bytes, but only 3 arrive
-	buf := []byte{encryptOpcode(enc, 181), 10, 0x01, 0x02, 0x03}
-	c.in.Write(buf)
-
-	err := c.handleGame()
-	if !errors.Is(err, protocol.ErrPayloadTooSmall) {
-		t.Errorf("partial payload: got %v, want ErrPayloadTooSmall", err)
-	}
-	// c.opcode must be preserved so the next handleData() call resumes correctly
-	if c.opcode != 181 {
-		t.Errorf("opcode after partial read: got %d, want 181", c.opcode)
-	}
 }
 
 func BenchmarkClientSetup(b *testing.B) {
