@@ -180,6 +180,63 @@ func TestSendLoginErrorVariousCodes(t *testing.T) {
 	}
 }
 
+func TestSendLoginOKSendsOpOKAndTransitionsState(t *testing.T) {
+	c, clientConn := newTestClient(t)
+
+	received := make(chan byte, 1)
+	go func() {
+		buf := make([]byte, 1)
+		clientConn.SetReadDeadline(time.Now().Add(time.Second))
+		if _, err := io.ReadFull(clientConn, buf); err == nil {
+			received <- buf[0]
+		}
+	}()
+
+	if err := c.sendLoginOK(); err != nil {
+		t.Fatalf("sendLoginOK: %v", err)
+	}
+
+	select {
+	case got := <-received:
+		if got != loginresp.OpOK.Opcode {
+			t.Errorf("login OK byte: got %d, want %d", got, loginresp.OpOK.Opcode)
+		}
+	case <-time.After(time.Second):
+		t.Error("timed out waiting for login OK byte")
+	}
+
+	if c.state != ClientStateGame {
+		t.Errorf("state after sendLoginOK: got %v, want ClientStateGame", c.state)
+	}
+}
+
+func TestSendLoginOKStaffSendsRightsByte(t *testing.T) {
+	c, clientConn := newTestClient(t)
+	c.staffModLevel = 1
+
+	received := make(chan byte, 1)
+	go func() {
+		buf := make([]byte, 1)
+		clientConn.SetReadDeadline(time.Now().Add(time.Second))
+		if _, err := io.ReadFull(clientConn, buf); err == nil {
+			received <- buf[0]
+		}
+	}()
+
+	if err := c.sendLoginOK(); err != nil {
+		t.Fatalf("sendLoginOK: %v", err)
+	}
+
+	select {
+	case got := <-received:
+		if got != loginresp.OpLoginOKWithRights.Opcode {
+			t.Errorf("staff login OK byte: got %d, want %d", got, loginresp.OpLoginOKWithRights.Opcode)
+		}
+	case <-time.After(time.Second):
+		t.Error("timed out waiting for staff login OK byte")
+	}
+}
+
 func TestGameProtTableHasExpectedOpcodes(t *testing.T) {
 	cases := []struct {
 		opcode      int

@@ -365,11 +365,10 @@ func (c *client) handleLogin() error {
 
 		// TODO: save + reconnecting check
 
-		c.log.Info("END OF LOGIN", "safename", safeName, "reply", reply, "reconnecting", reconnecting)
+		c.log.Info("login accepted", "safename", safeName, "reply", reply, "reconnecting", reconnecting)
+		return c.sendLoginOK()
 
 	}
-
-	return nil
 }
 
 // loginResultToRS2 maps a gRPC LoginResult enum to the RS2 wire response byte

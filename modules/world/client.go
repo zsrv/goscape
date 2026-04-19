@@ -12,6 +12,7 @@ import (
 
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/io/packet"
+	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
 )
 
 // errCloseConn signals that the connection should be closed cleanly after a
@@ -90,6 +91,21 @@ func (c *client) flushWrite() error {
 		}
 	}
 	return c.bufw.Flush()
+}
+
+// sendLoginOK sends the appropriate login-accepted byte based on staff level,
+// flushes the write buffer, and transitions the client to ClientStateGame.
+func (c *client) sendLoginOK() error {
+	if c.staffModLevel >= 1 {
+		c.bufw.WriteByte(loginresp.OpLoginOKWithRights.Opcode)
+	} else {
+		c.bufw.WriteByte(loginresp.OpOK.Opcode)
+	}
+	if err := c.flushWrite(); err != nil {
+		return fmt.Errorf("failed to flush login OK: %w", err)
+	}
+	c.state = ClientStateGame
+	return nil
 }
 
 // sendLoginError writes a single-byte login rejection code to the client,
