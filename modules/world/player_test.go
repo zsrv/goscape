@@ -173,5 +173,97 @@ func TestReadPacketOversizedTwoByteLenClosesConn(t *testing.T) {
 	}
 }
 
+func TestProcessInIncrementsPlaytime(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.playtime = 0
+	p.processIn(0)
+	if p.playtime != 1 {
+		t.Errorf("playtime: got %d, want 1", p.playtime)
+	}
+}
+
+func TestProcessInUserEventRateLimit(t *testing.T) {
+	enc, dec := isaacPair([4]uint32{10, 20, 30, 40})
+	p, _ := newTestPlayer(t)
+	p.client.decryptor = dec
+
+	// CLOSE_MODAL: opcode 231, USER_EVENT, 0-byte payload — just the opcode byte
+	var buf []byte
+	for range 6 {
+		buf = append(buf, encryptOpcode(enc, 231))
+	}
+	p.client.in.Write(buf)
+
+	p.processIn(0)
+
+	if p.userLimit != 5 {
+		t.Errorf("userLimit: got %d, want 5", p.userLimit)
+	}
+	// 6th packet remains in the buffer
+	if p.client.in.Len() != 1 {
+		t.Errorf("remaining bytes: got %d, want 1", p.client.in.Len())
+	}
+}
+
+func TestProcessInClientEventRateLimit(t *testing.T) {
+	enc, dec := isaacPair([4]uint32{11, 22, 33, 44})
+	p, _ := newTestPlayer(t)
+	p.client.decryptor = dec
+
+	// NO_TIMEOUT: opcode 108, CLIENT_EVENT, 0-byte payload
+	var buf []byte
+	for range 21 {
+		buf = append(buf, encryptOpcode(enc, 108))
+	}
+	p.client.in.Write(buf)
+
+	p.processIn(0)
+
+	if p.clientLimit != 20 {
+		t.Errorf("clientLimit: got %d, want 20", p.clientLimit)
+	}
+	if p.client.in.Len() != 1 {
+		t.Errorf("remaining bytes: got %d, want 1", p.client.in.Len())
+	}
+}
+
+func TestProcessInRestrictedEventRateLimit(t *testing.T) {
+	enc, dec := isaacPair([4]uint32{55, 44, 33, 22})
+	p, _ := newTestPlayer(t)
+	p.client.decryptor = dec
+
+	// EVENT_TRACKING: opcode 81, RESTRICTED_EVENT, -2 (2-byte length prefix), 0 payload bytes
+	var buf []byte
+	for range 3 {
+		buf = append(buf, encryptOpcode(enc, 81))
+		buf = append(buf, 0x00, 0x00) // 2-byte length = 0
+	}
+	p.client.in.Write(buf)
+
+	p.processIn(0)
+
+	if p.restrictedLimit != 2 {
+		t.Errorf("restrictedLimit: got %d, want 2", p.restrictedLimit)
+	}
+	// 3rd packet (3 bytes) remains
+	if p.client.in.Len() != 3 {
+		t.Errorf("remaining bytes: got %d, want 3", p.client.in.Len())
+	}
+}
+
+func TestProcessInSkipsDisconnectedClient(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.client.state = ClientStateClosed
+
+	p.processIn(0)
+
+	if p.playtime != 1 {
+		t.Errorf("playtime: got %d, want 1", p.playtime)
+	}
+	if p.userLimit != 0 {
+		t.Errorf("userLimit: got %d, want 0", p.userLimit)
+	}
+}
+
 // Ensure io is used (io.ReadFull is used in later tasks in this file).
 var _ = io.Discard

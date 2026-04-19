@@ -1,6 +1,8 @@
 package world
 
 import (
+	"math/rand/v2"
+
 	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
 )
 
@@ -47,6 +49,47 @@ type Player struct {
 
 func newPlayer(c *client) *Player {
 	return &Player{client: c}
+}
+
+func (p *Player) processIn(currentTick int) {
+	p.playtime++
+
+	if currentTick%afkEventRate == 0 {
+		p.afkEventReady = rand.Float64() < 0.0167 // AFK_CHANCE1 from TS
+	}
+
+	c := p.client
+	if c.state != ClientStateGame {
+		return
+	}
+
+	p.userLimit = 0
+	p.clientLimit = 0
+	p.restrictedLimit = 0
+
+	c.inMu.Lock()
+	defer c.inMu.Unlock()
+
+	for p.userLimit < userEventLimit &&
+		p.clientLimit < clientEventLimit &&
+		p.restrictedLimit < restrictedEventLimit {
+
+		opcode, ok, err := p.readPacket()
+		if err != nil {
+			return
+		}
+		if !ok {
+			break
+		}
+		switch gameclient.Ops[opcode].Category {
+		case gameclient.CategoryUserEvent:
+			p.userLimit++
+		case gameclient.CategoryRestrictedEvent:
+			p.restrictedLimit++
+		default:
+			p.clientLimit++
+		}
+	}
 }
 
 // readPacket reads, ISAAC-decrypts, and dispatches one complete packet from c.in.
