@@ -15,6 +15,7 @@ import (
 
 	"github.com/zsrv/goscape/internal/dskit/signals"
 	"github.com/zsrv/goscape/pkg/cache"
+	"github.com/zsrv/goscape/pkg/gamemap"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/io/protocol"
@@ -47,6 +48,8 @@ type Server struct {
 	playerLoop  []*Player
 	playersMu   sync.RWMutex
 	currentTick int
+
+	gamemap *gamemap.GameMap
 }
 
 func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Server, error) {
@@ -72,6 +75,12 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 		log: logger,
 	}
 	s.tcpWg.Add(1)
+
+	gm := gamemap.New(logger)
+	if err := gm.Init(cfg.CachePath); err != nil {
+		return nil, fmt.Errorf("failed to load game map: %w", err)
+	}
+	s.gamemap = gm
 
 	return s, nil
 }
