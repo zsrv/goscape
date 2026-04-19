@@ -1,0 +1,125 @@
+package world
+
+import (
+	"github.com/zsrv/goscape/pkg/objtype"
+)
+
+// NPC lifecycle constants.
+const (
+	NpcLifecycleForever = 0
+	NpcLifecycleRespawn = 1
+	NpcLifecycleDespawn = 2
+)
+
+// NPC AI mode constants (sub-spec 3c).
+const (
+	NpcModeNone   = -1
+	NpcModeWander = 0
+	NpcModePatrol = 1
+)
+
+// Npc is a non-player game entity.
+type Npc struct {
+	nid    int
+	typeId int
+	typ    *objtype.NpcType
+
+	// === lifecycle ===
+	lifecycle                  int
+	lifecycleTick              int
+	respawnRate                int
+	dead                       bool
+	startX, startZ, startLevel int
+
+	// === coords ===
+	x, z, level                     int
+	lastTickX, lastTickZ, lastLevel int
+	originX, originZ                int
+
+	// === movement ===
+	moveSpeed       MoveSpeed
+	moveRestrict    MoveRestrict
+	moveStrategy   MoveStrategy
+	walkDir, runDir int
+	waypointIndex   int
+	waypoints       [25]int
+	tele            bool
+	stepsTaken      int
+
+	// === AI ===
+	targetOp        int
+	wanderCounter   int
+	nextPatrolTick  int
+	nextPatrolPoint int
+	delayedPatrol   bool
+
+	// === interaction ===
+	target     entity
+	faceEntity int
+
+	// === masks ===
+	masks      int
+	entitymask int
+
+	// === mask state ===
+	animID, animDelay                         int
+	sayText                                   []byte
+	damageAmt, damageType                     int
+	curHP, baseHP                             int
+	spotanimID, spotanimHeight, spotanimDelay int
+	faceSquareX, faceSquareZ                  int
+	changeTypeID                              int
+}
+
+// NewNpc constructs an Npc at the given coord, anchoring its spawn point.
+func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
+	mode := NpcModeNone
+	if len(typ.PatrolCoord) > 0 {
+		mode = NpcModePatrol
+	} else if typ.WanderRange > 0 {
+		mode = NpcModeWander
+	}
+
+	return &Npc{
+		nid:             nid,
+		typeId:          typeId,
+		typ:             typ,
+		lifecycle:       NpcLifecycleRespawn,
+		respawnRate:     int(typ.RespawnRate),
+		startX:          x,
+		startZ:          z,
+		startLevel:      level,
+		x:               x,
+		z:               z,
+		level:           level,
+		originX:         x,
+		originZ:         z,
+		lastTickX:       -1,
+		lastTickZ:       -1,
+		lastLevel:       -1,
+		moveSpeed:       MoveSpeedInstant,
+		moveStrategy:    MoveStrategyNaive,
+		moveRestrict:    MoveRestrict(typ.MoveRestrict),
+		walkDir:         -1,
+		runDir:          -1,
+		waypointIndex:   -1,
+		targetOp:        mode,
+		nextPatrolPoint: 0,
+		faceEntity:      -1,
+		animID:          -1,
+		animDelay:       -1,
+		damageAmt:       -1,
+		damageType:      -1,
+		curHP:           -1,
+		baseHP:          -1,
+		spotanimID:      -1,
+		spotanimHeight:  -1,
+		spotanimDelay:   -1,
+		faceSquareX:     -1,
+		faceSquareZ:     -1,
+		changeTypeID:    -1,
+	}
+}
+
+// Slot returns the NPC's nid for the entity interface.
+func (n *Npc) Slot() int { return n.nid }
