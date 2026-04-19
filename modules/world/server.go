@@ -101,6 +101,8 @@ func (s *Server) Run() error {
 		}
 	}()
 
+	go s.runTickLoop()
+
 	return <-errChan
 }
 

@@ -397,6 +397,24 @@ func TestSendLoginOKWorldFullReturnsError(t *testing.T) {
 	}
 }
 
+func TestTickLoopIncrementsCurrentTick(t *testing.T) {
+	s := newTestServer(t)
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.runTickLoopWithRate(3 * time.Millisecond)
+	}()
+
+	time.Sleep(50 * time.Millisecond)
+	close(s.quit)
+	<-done
+
+	if s.currentTick < 5 {
+		t.Errorf("currentTick: got %d, want >= 5 after 50ms with 3ms tick rate", s.currentTick)
+	}
+}
+
 func BenchmarkClientSetup(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
