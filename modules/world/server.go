@@ -231,7 +231,7 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 		err = c.handleData()
 		if err != nil {
 			if errors.Is(err, protocol.ErrPayloadTooSmall) {
-				c.log.Info("payload too small, waiting for more data2", "error", err)
+				//c.log.Info("payload too small, waiting for more data2", "error", err)
 				continue
 			}
 			// Fix 5: errCloseConn means a rejection was already sent — close quietly.
@@ -247,8 +247,10 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 func (c *client) handleData() error {
 	switch c.state {
 	case ClientStateLogin:
+		//c.log.Debug("handleData ClientStateLogin")
 		return c.handleLogin()
 	case ClientStateGame:
+		//c.log.Debug("handleData ClientStateGame")
 		return c.handleGame()
 	default:
 		c.log.Info("unhandled client state", "state", c.state)
