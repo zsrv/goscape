@@ -60,7 +60,7 @@ func TestFaceCoordMultipliesBy2Plus1(t *testing.T) {
 
 func TestFaceEntity(t *testing.T) {
 	p, _ := newTestPlayer(t)
-	p.FaceEntity(0x8005)
+	p.SetFaceEntity(0x8005)
 	if p.masks&rsbuf.MaskFaceEntity == 0 {
 		t.Error("MaskFaceEntity bit should be set")
 	}

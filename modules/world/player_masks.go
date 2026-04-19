@@ -53,7 +53,7 @@ func (p *Player) FaceCoord(x, z int) {
 	p.masks |= rsbuf.MaskFaceCoord
 }
 
-func (p *Player) FaceEntity(entityIndex int) {
+func (p *Player) SetFaceEntity(entityIndex int) {
 	p.faceEntity = entityIndex
 	p.masks |= rsbuf.MaskFaceEntity
 }
