@@ -109,6 +109,26 @@ func newPlayer(c *client) *Player {
 	return &Player{client: c}
 }
 
+func (p *Player) updateMap()      {}
+func (p *Player) updatePlayers()  {}
+func (p *Player) updateNpcs()     {}
+func (p *Player) updateZones()    {}
+func (p *Player) updateInvs()     {}
+func (p *Player) updateStats()    {}
+func (p *Player) updateAfkZones() {}
+
+func (p *Player) processOut() {
+	p.updateMap()
+	p.updatePlayers()
+	p.updateNpcs()
+	p.updateZones()
+	p.updateInvs()
+	p.updateStats()
+	p.updateAfkZones()
+	p.encodeOut()
+	p.client.flushWrite()
+}
+
 func (p *Player) processIn(currentTick int) {
 	p.playtime++
 
