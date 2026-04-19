@@ -16,6 +16,7 @@ type Config struct {
 	TCPListenNetwork                 string        `yaml:"tcp_listen_network"`
 	TCPListenAddress                 string        `yaml:"tcp_listen_address"`
 	NodeProfile                      string        `yaml:"node_profile"`
+	CachePath                        string        `yaml:"cache_path"`
 	LoginServerAddress               string        `yaml:"login_server_address"`
 	TCPServerIdleTimeout             time.Duration `yaml:"tcp_server_idle_timeout"`
 	NodeMaxNPCs                      int           `yaml:"node_max_npcs"`
@@ -78,6 +79,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.BoolVar(&c.NodeClientRoutefinder, "world.node-client-route-finder", true, "")
 	f.IntVar(&c.NodeWalktriggerSetting, "world.node-walk-trigger-setting", 0, "") // TODO: replace default with enum
 	f.StringVar(&c.NodeProfile, "world.node-profile", "main", "")
+	f.StringVar(&c.CachePath, "world.cache-path", "./data/pack/client", "Cache root; gamemap loads map-pack files from <path>/maps/")
 	f.IntVar(&c.NodeMaxPlayers, "world.node-max-players", 2047, "")
 	f.IntVar(&c.NodeMaxConnected, "world.node-max-connected", 1000, "")
 	f.IntVar(&c.NodeMaxNPCs, "world.node-max-npcs", 8191, "")
