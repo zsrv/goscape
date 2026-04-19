@@ -6,6 +6,7 @@ import (
 	"github.com/zsrv/goscape/pkg/buildarea"
 	"github.com/zsrv/goscape/pkg/inventory"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
 const tickRate = 600 * time.Millisecond
@@ -32,7 +33,9 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		s.processPathing()
 		s.processLogouts()
 		s.processLogins()
+		s.processInfo()
 		s.processClientsOut()
+		s.processCleanup()
 		s.currentTick++
 
 		nextTick = nextTick.Add(rate)
@@ -145,5 +148,40 @@ func (s *Server) processClientsOut() {
 
 	for _, p := range players {
 		p.processOut()
+	}
+}
+
+func (s *Server) processInfo() {
+	s.playersMu.RLock()
+	players := make([]*Player, len(s.playerLoop))
+	copy(players, s.playerLoop)
+	s.playersMu.RUnlock()
+
+	// Update grid when players cross zone boundaries.
+	for _, p := range players {
+		curZX, curZZ := p.x>>3, p.z>>3
+		prevZX, prevZZ := p.lastTickX>>3, p.lastTickZ>>3
+		if prevZX != curZX || prevZZ != curZZ || p.lastLevel != p.level {
+			if p.lastTickX >= 0 {
+				s.grid.Remove(p.slot, p.lastTickX, p.lastTickZ, p.lastLevel)
+			}
+			s.grid.Add(p.slot, p.x, p.z, p.level)
+		}
+	}
+
+	sources := make([]rsbuf.PlayerSource, len(players))
+	for i, p := range players {
+		sources[i] = p
+	}
+	s.renderer.ComputePlayers(sources)
+}
+
+func (s *Server) processCleanup() {
+	s.playersMu.RLock()
+	players := make([]*Player, len(s.playerLoop))
+	copy(players, s.playerLoop)
+	s.playersMu.RUnlock()
+	for _, p := range players {
+		p.ResetMasks()
 	}
 }

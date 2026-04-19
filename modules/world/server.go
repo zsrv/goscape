@@ -16,6 +16,7 @@ import (
 	"github.com/zsrv/goscape/internal/dskit/signals"
 	"github.com/zsrv/goscape/pkg/cache"
 	"github.com/zsrv/goscape/pkg/gamemap"
+	"github.com/zsrv/goscape/pkg/grid"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/io/protocol"
@@ -23,6 +24,7 @@ import (
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
 	"github.com/zsrv/goscape/pkg/loginpb"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/rsbuf"
 	util "github.com/zsrv/goscape/pkg/util/jstring"
 )
 
@@ -56,6 +58,9 @@ type Server struct {
 	paramTypes *objtype.ParamTypeConfigs
 	objTypes   *objtype.ObjTypeConfigs
 	invTypes   *objtype.InvTypeConfigs
+
+	renderer *rsbuf.Renderer
+	grid     *grid.Grid
 }
 
 // appendNewPlayer queues a player for registration on the next tick.
@@ -110,6 +115,9 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 	s.paramTypes = params
 	s.objTypes = objTypes
 	s.invTypes = invTypes
+
+	s.renderer = rsbuf.NewRenderer()
+	s.grid = grid.New()
 
 	return s, nil
 }
@@ -464,6 +472,7 @@ func (s *Server) addPlayer(p *Player) error {
 			p.slot = i
 			s.players[i] = p
 			s.playerLoop = append(s.playerLoop, p)
+			p.active = true
 			return nil
 		}
 	}
@@ -471,6 +480,7 @@ func (s *Server) addPlayer(p *Player) error {
 }
 
 func (s *Server) removePlayer(p *Player) {
+	p.active = false
 	s.playersMu.Lock()
 	defer s.playersMu.Unlock()
 
