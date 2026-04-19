@@ -194,6 +194,8 @@ func (ot *ObjType) Decode(code uint8, dat *packet2.Packet) error {
 		ot.WearPos = int(dat.G1())
 	case 14:
 		ot.WearPos2 = int(dat.G1())
+	case 15:
+		ot.Tradeable = false
 	case 16:
 		ot.Members = true
 	case 23:
