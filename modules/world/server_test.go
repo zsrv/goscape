@@ -381,6 +381,62 @@ func TestSendLoginOKQueuesPlayer(t *testing.T) {
 	}
 }
 
+func TestProcessLoginsDrainsNewPlayers(t *testing.T) {
+	s := newTestServer(t)
+	c, clientConn := newTestClient(t)
+	c.server = s
+	go io.Copy(io.Discard, clientConn)
+
+	p := newPlayer(c)
+	c.player = p
+	s.appendNewPlayer(p)
+
+	s.processLogins()
+
+	s.playersMu.RLock()
+	queued := len(s.newPlayers)
+	inLoop := len(s.playerLoop)
+	s.playersMu.RUnlock()
+
+	if queued != 0 {
+		t.Errorf("newPlayers: got %d, want 0", queued)
+	}
+	if inLoop != 1 {
+		t.Errorf("playerLoop: got %d, want 1", inLoop)
+	}
+	if p.slot < 1 {
+		t.Errorf("slot: got %d, want >= 1", p.slot)
+	}
+}
+
+func TestProcessLoginsWorldFullRejectsCleanly(t *testing.T) {
+	s := newTestServer(t)
+
+	for i := 1; i < len(s.players); i++ {
+		s.players[i] = &Player{slot: i}
+		s.playerLoop = append(s.playerLoop, s.players[i])
+	}
+
+	c, clientConn := newTestClient(t)
+	c.server = s
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	c.encryptor = enc
+	go io.Copy(io.Discard, clientConn)
+	p := newPlayer(c)
+	c.player = p
+	s.appendNewPlayer(p)
+
+	s.processLogins()
+
+	s.playersMu.RLock()
+	queued := len(s.newPlayers)
+	s.playersMu.RUnlock()
+
+	if queued != 0 {
+		t.Errorf("newPlayers should be drained even on world-full: got %d", queued)
+	}
+}
+
 func TestProcessLogoutsTimeoutMarksLoggingOut(t *testing.T) {
 	s := newTestServer(t)
 	c, clientConn := newTestClient(t)

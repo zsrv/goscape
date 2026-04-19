@@ -29,6 +29,7 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		s.processClientsIn()
 		s.processPathing()
 		s.processLogouts()
+		s.processLogins()
 		s.processClientsOut()
 		s.currentTick++
 
@@ -54,6 +55,27 @@ func (s *Server) processClientsIn() {
 
 	for _, p := range players {
 		p.processIn(s.currentTick)
+	}
+}
+
+func (s *Server) processLogins() {
+	s.playersMu.Lock()
+	batch := s.newPlayers
+	s.newPlayers = nil
+	s.playersMu.Unlock()
+
+	for _, p := range batch {
+		if err := s.addPlayer(p); err != nil {
+			// world full — reject cleanly
+			p.writeOut(gameserver.OpLogout, nil)
+			_ = p.client.flushWrite()
+			_ = p.client.conn.Close()
+			continue
+		}
+		p.lastConnected = s.currentTick
+		p.lastResponse = s.currentTick
+		p.originX = p.x
+		p.originZ = p.z
 	}
 }
 
