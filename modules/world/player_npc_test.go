@@ -1,0 +1,91 @@
+package world
+
+import (
+	"bytes"
+	"testing"
+
+	"github.com/zsrv/goscape/pkg/buildarea"
+	"github.com/zsrv/goscape/pkg/gamemap"
+	"github.com/zsrv/goscape/pkg/grid"
+	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/rsbuf"
+)
+
+func setupNpcInfoPlayer(t *testing.T, s *Server, slot, x, z, level int) *Player {
+	t.Helper()
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	enc, dec := isaacPair([4]uint32{uint32(slot), 2, 3, 4})
+	p.client.encryptor = enc
+	p.client.decryptor = dec
+	p.x, p.z, p.level = x, z, level
+	p.originX, p.originZ = x, z
+	p.lastTickX, p.lastTickZ, p.lastLevel = x, z, level
+	p.buildArea = buildarea.New()
+	p.slot = slot
+	s.players[slot] = p
+	s.playerLoop = append(s.playerLoop, p)
+	p.active = true
+	s.grid.Add(slot, x, z, level)
+	return p
+}
+
+func setupNpc(t *testing.T, s *Server, x, z, level int) *Npc {
+	t.Helper()
+	typ := &objtype.NpcType{
+		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "test_npc"},
+		WanderRange: 0, // stationary so coords don't drift
+		RespawnRate: 50,
+	}
+	n := NewNpc(0, 0, x, z, level, typ)
+	if err := s.addNpc(n); err != nil {
+		t.Fatal(err)
+	}
+	s.grid.AddNpc(n.nid, x, z, level)
+	return n
+}
+
+func TestPlayerSeesNearbyNpc(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	if err := s.gamemap.Init(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	s.renderer = rsbuf.NewRenderer()
+	s.grid = grid.New()
+
+	p := setupNpcInfoPlayer(t, s, 1, 3094, 3106, 0)
+	npc := setupNpc(t, s, 3095, 3106, 0)
+
+	s.processInfo()
+	p.updateNpcs()
+
+	if _, ok := p.buildArea.Npcs[npc.nid]; !ok {
+		t.Errorf("player should track npc after updateNpcs; got %v", p.buildArea.Npcs)
+	}
+}
+
+func TestNpcSayProducesSayMaskInRenderer(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	if err := s.gamemap.Init(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	s.renderer = rsbuf.NewRenderer()
+	s.grid = grid.New()
+
+	npc := setupNpc(t, s, 3095, 3106, 0)
+	npc.Say([]byte("hello"))
+	s.processInfo()
+
+	highDef := s.renderer.NpcHighDefOf(npc.nid)
+	if len(highDef) == 0 {
+		t.Fatal("NpcHighDefOf should be non-empty after Say()")
+	}
+	if highDef[0]&rsbuf.NpcMaskSay == 0 {
+		t.Errorf("header byte: NpcMaskSay (0x8) should be set; got %d", highDef[0])
+	}
+	if !bytes.Contains(highDef, []byte("hello")) {
+		t.Errorf("expected 'hello' bytes in payload; got %v", highDef)
+	}
+}
