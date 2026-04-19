@@ -320,7 +320,6 @@ func (p *Player) updateMap() {
 	p.reconnecting = false
 	sendRebuildNormal(p, ms)
 }
-func (p *Player) updateNpcs()     {}
 func (p *Player) updateZones()    {}
 func (p *Player) updateInvs() {
 	for invId, inv := range p.invs {
