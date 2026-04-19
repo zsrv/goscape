@@ -267,6 +267,98 @@ func TestProcessInSkipsDisconnectedClient(t *testing.T) {
 	}
 }
 
+func TestEncodeOutNoopWhenModalUnchanged(t *testing.T) {
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p, clientConn := newTestPlayer(t)
+	p.client.encryptor = enc
+
+	p.encodeOut()
+	p.client.flushWrite()
+
+	clientConn.SetReadDeadline(time.Now().Add(30 * time.Millisecond))
+	buf := make([]byte, 16)
+	n, _ := clientConn.Read(buf)
+	if n != 0 {
+		t.Errorf("expected 0 bytes from encodeOut no-op, got %d", n)
+	}
+}
+
+func TestEncodeOutSendsIfCloseOnRefreshModalClose(t *testing.T) {
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	wantEnc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+
+	p, clientConn := newTestPlayer(t)
+	p.client.encryptor = enc
+	p.refreshModalClose = true
+
+	received := make(chan []byte, 1)
+	go func() {
+		buf := make([]byte, 1) // IF_CLOSE has no payload
+		clientConn.SetReadDeadline(time.Now().Add(time.Second))
+		if _, err := io.ReadFull(clientConn, buf); err == nil {
+			received <- buf
+		}
+	}()
+
+	p.encodeOut()
+	p.client.flushWrite()
+
+	expectedByte := byte((int(gameserver.OpIfClose.Opcode) + int(wantEnc.GetNext())) & 0xff)
+
+	select {
+	case got := <-received:
+		if got[0] != expectedByte {
+			t.Errorf("IF_CLOSE encrypted opcode: got %d, want %d", got[0], expectedByte)
+		}
+		if p.refreshModalClose {
+			t.Error("refreshModalClose should be false after encodeOut")
+		}
+	case <-time.After(time.Second):
+		t.Error("timed out waiting for IF_CLOSE")
+	}
+}
+
+func TestEncodeOutSendsIfOpenMain(t *testing.T) {
+	enc, _ := isaacPair([4]uint32{5, 6, 7, 8})
+	wantEnc, _ := isaacPair([4]uint32{5, 6, 7, 8})
+
+	p, clientConn := newTestPlayer(t)
+	p.client.encryptor = enc
+	p.refreshModal = true
+	p.modalState = modalStateMain
+	p.modalMain = 1234
+
+	received := make(chan []byte, 1)
+	go func() {
+		buf := make([]byte, 3) // 1 encrypted opcode + 2 payload bytes
+		clientConn.SetReadDeadline(time.Now().Add(time.Second))
+		if _, err := io.ReadFull(clientConn, buf); err == nil {
+			received <- buf
+		}
+	}()
+
+	p.encodeOut()
+	p.client.flushWrite()
+
+	expectedByte := byte((int(gameserver.OpIfOpenMain.Opcode) + int(wantEnc.GetNext())) & 0xff)
+
+	select {
+	case got := <-received:
+		if got[0] != expectedByte {
+			t.Errorf("IF_OPENMAIN encrypted opcode: got %d, want %d", got[0], expectedByte)
+		}
+		component := int(got[1])<<8 | int(got[2])
+		if component != 1234 {
+			t.Errorf("IF_OPENMAIN component: got %d, want 1234", component)
+		}
+		if p.refreshModal {
+			t.Error("refreshModal should be false after encodeOut")
+		}
+	case <-time.After(time.Second):
+		t.Error("timed out waiting for IF_OPENMAIN")
+	}
+}
+
 func TestWriteOutFixedSize(t *testing.T) {
 	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
 	wantEnc, _ := isaacPair([4]uint32{1, 2, 3, 4})

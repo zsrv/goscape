@@ -48,6 +48,44 @@ type Player struct {
 	refreshModalClose bool
 }
 
+// encodeOut mirrors TS NetworkPlayer.encodeOut(). It sends modal open/close
+// packets for any state changes since the last tick. All modal fields default
+// to zero on a new Player, so this is a no-op until sub-spec 2 populates them.
+func (p *Player) encodeOut() {
+	modalChanged := p.modalMain != p.lastModalMain ||
+		p.modalChat != p.lastModalChat ||
+		p.modalSide != p.lastModalSide ||
+		p.refreshModalClose
+
+	if modalChanged {
+		if p.refreshModalClose {
+			p.writeOut(gameserver.OpIfClose, nil)
+		}
+		p.refreshModalClose = false
+		p.lastModalMain = p.modalMain
+		p.lastModalChat = p.modalChat
+		p.lastModalSide = p.modalSide
+	}
+
+	if p.refreshModal {
+		switch {
+		case p.modalState&modalStateMain != modalStateNone && p.modalState&modalStateSide != modalStateNone:
+			payload := []byte{byte(p.modalMain >> 8), byte(p.modalMain), byte(p.modalSide >> 8), byte(p.modalSide)}
+			p.writeOut(gameserver.OpIfOpenMainSide, payload)
+		case p.modalState&modalStateMain != modalStateNone:
+			payload := []byte{byte(p.modalMain >> 8), byte(p.modalMain)}
+			p.writeOut(gameserver.OpIfOpenMain, payload)
+		case p.modalState&modalStateChat != modalStateNone:
+			payload := []byte{byte(p.modalChat >> 8), byte(p.modalChat)}
+			p.writeOut(gameserver.OpIfOpenChat, payload)
+		case p.modalState&modalStateSide != modalStateNone:
+			payload := []byte{byte(p.modalSide >> 8), byte(p.modalSide)}
+			p.writeOut(gameserver.OpIfOpenSide, payload)
+		}
+		p.refreshModal = false
+	}
+}
+
 // writeOut ISAAC-encrypts op.Opcode, writes any length prefix, then writes
 // payload to c.bufw. Does NOT flush — processOut calls flushWrite() once per tick.
 func (p *Player) writeOut(op gameserver.Op, payload []byte) {
