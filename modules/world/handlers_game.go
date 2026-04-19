@@ -1,6 +1,8 @@
 package world
 
 import (
+	"strings"
+
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/io/packet"
 )
@@ -17,6 +19,8 @@ func init() {
 	gameHandlers[181] = handleMoveClick        // MOVE_GAMECLICK
 	gameHandlers[93] = handleMoveClick         // MOVE_OPCLICK
 	gameHandlers[165] = handleMoveMinimapClick // MOVE_MINIMAPCLICK
+
+	gameHandlers[4] = handleClientCheat // CLIENT_CHEAT
 }
 
 func handleNoTimeout(_ *Player, _ []byte) error {
@@ -47,6 +51,24 @@ func handleMoveClick(p *Player, payload []byte) error {
 		needsFinding = !p.client.server.cfg.NodeClientRoutefinder
 	}
 	p.pathToMoveClick(packed, needsFinding)
+	return nil
+}
+
+func handleClientCheat(p *Player, payload []byte) error {
+	r := packet.NewPacket(payload)
+	_ = r.G1() // unused ctrlHeld-style byte per TS ClientCheat handler
+	raw := r.GJStrLF()
+	if !strings.HasPrefix(raw, "::") {
+		return nil
+	}
+	cmd := strings.TrimPrefix(raw, "::")
+	parts := strings.SplitN(cmd, " ", 2)
+	switch parts[0] {
+	case "say":
+		if len(parts) == 2 {
+			p.Say([]byte(parts[1]))
+		}
+	}
 	return nil
 }
 
