@@ -2,6 +2,7 @@ package world
 
 import (
 	"math/rand/v2"
+	"time"
 
 	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
@@ -22,30 +23,105 @@ const (
 // Player is the game-side representation of a connected player.
 // All fields except client and slot are owned exclusively by the tick goroutine.
 type Player struct {
-	slot   int     // RS2 player slot 1–2047; assigned by addPlayer
-	client *client // network handle; never nil while the player is registered
+	// === network (from sub-spec 1) ===
+	slot   int
+	client *client
 
-	// per-tick tracking
-	playtime      int
-	afkEventReady bool
-	lastConnected int
-	lastResponse  int
+	// === identity ===
+	username      string
+	username37    uint64
+	hash64        uint64
+	displayName   string
+	uid           int
+	members       bool
+	staffModLevel int32
 
-	// per-tick rate-limit counters (reset at start of each processIn call)
-	userLimit       int
-	clientLimit     int
-	restrictedLimit int
+	// === coordinates & level (Entity) ===
+	x, z, level                     int
+	originX, originZ                int
+	lastTickX, lastTickZ, lastLevel int
+	lastStepX, lastStepZ            int
 
-	// modal state — drives encodeOut
-	modalMain         int
-	modalChat         int
-	modalSide         int
-	lastModalMain     int
-	lastModalChat     int
-	lastModalSide     int
-	modalState        int
-	refreshModal      bool
-	refreshModalClose bool
+	// === movement (PathingEntity) ===
+	moveSpeed              MoveSpeed
+	moveRestrict           MoveRestrict
+	moveStrategy           MoveStrategy
+	blockWalk              BlockWalk
+	walkDir, runDir        int
+	waypointIndex          int
+	waypoints              [25]int
+	tele, jump             bool
+	stepsTaken             int
+	followX, followZ       int
+	targetX, targetZ       int
+	faceAngleX, faceAngleZ int
+
+	// === interaction target ===
+	target        entity
+	targetOp      int
+	targetSubject struct{ typ, com int }
+	apRange       int
+	apRangeCalled bool
+	interacted    bool
+	repathed      bool
+	delayed       bool
+	delayedUntil  int
+
+	// === masks ===
+	masks      int
+	entitymask int
+
+	// === appearance ===
+	body           [7]int
+	colors         [5]int
+	gender         int
+	combatLevel    int
+	headicons      int
+	appearanceInv  int
+	appearanceBuf  []byte
+	lastAppearance int
+
+	// === stats & vars ===
+	stats      [21]int32
+	levels     [21]uint8
+	baseLevels [21]uint8
+	lastStats  [21]int32
+	lastLevels [21]uint8
+	vars       []int32
+	varsString []string
+
+	// === run energy ===
+	run, tempRun             int
+	runenergy, lastRunEnergy int
+	runweight                int
+
+	// === chat state ===
+	publicChat, privateChat, tradeDuel int
+	chatMessage                        []byte
+	chatColour, chatEffect, chatRights int
+	mutedUntil                         time.Time
+	messageCount                       int
+
+	// === session flags ===
+	playtime                                     int
+	lastResponse, lastConnected                  int
+	requestLogout, requestIdleLogout, loggingOut bool
+	preventLogoutMessage                         string
+	preventLogoutUntil                           int
+	reconnecting, lowMemory, webClient           bool
+	afkEventReady, moveClickRequest              bool
+
+	// === modal (from sub-spec 1) ===
+	modalMain, modalChat, modalSide             int
+	lastModalMain, lastModalChat, lastModalSide int
+	modalState                                  int
+	refreshModal, refreshModalClose             bool
+
+	// === per-tick rate limits (from sub-spec 1) ===
+	userLimit, clientLimit, restrictedLimit int
+
+	// === last* fields — for echo suppression ===
+	lastItem, lastSlot, lastUseItem, lastUseSlot, lastTargetSlot, lastCom int
 }
 
 // encodeOut mirrors TS NetworkPlayer.encodeOut(). It sends modal open/close
@@ -106,8 +182,57 @@ func (p *Player) writeOut(op gameserver.Op, payload []byte) {
 }
 
 func newPlayer(c *client) *Player {
-	return &Player{client: c}
+	return &Player{
+		client:         c,
+		slot:           -1,
+		uid:            -1,
+		x:              3094,
+		z:              3106,
+		level:          0,
+		originX:        -1,
+		originZ:        -1,
+		lastTickX:      -1,
+		lastTickZ:      -1,
+		lastLevel:      -1,
+		lastStepX:      -1,
+		lastStepZ:      -1,
+		walkDir:        -1,
+		runDir:         -1,
+		waypointIndex:  -1,
+		runenergy:      10000,
+		lastRunEnergy:  -1,
+		moveSpeed:      MoveSpeedInstant,
+		moveStrategy:   MoveStrategySmart,
+		moveRestrict:   MoveRestrictNormal,
+		blockWalk:      BlockWalkNpc,
+		combatLevel:    3,
+		colors:         [5]int{0, 0, 0, 0, 0},
+		body:           [7]int{0, 10, 18, 26, 33, 36, 42},
+		appearanceInv:  -1,
+		targetOp:       -1,
+		apRange:        10,
+		followX:        -1,
+		followZ:        -1,
+		targetX:        -1,
+		targetZ:        -1,
+		faceAngleX:     -1,
+		faceAngleZ:     -1,
+		lastItem:       -1,
+		lastSlot:       -1,
+		lastUseItem:    -1,
+		lastUseSlot:    -1,
+		lastTargetSlot: -1,
+		lastCom:        -1,
+		lastConnected:  -1,
+		lastResponse:   -1,
+	}
 }
+
+// Slot returns the RS2 slot of this player.
+func (p *Player) Slot() int { return p.slot }
+
+// Coords returns the player's current absolute coordinates.
+func (p *Player) Coords() (x, z, level int) { return p.x, p.z, p.level }
 
 func (p *Player) updateMap()      {}
 func (p *Player) updatePlayers()  {}
