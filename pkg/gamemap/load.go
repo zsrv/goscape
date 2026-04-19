@@ -75,12 +75,27 @@ func (gm *GameMap) loadLocs(data []byte, mapSquareX, mapSquareZ int) {
 }
 
 // loadNPCs records NPC spawn positions from the n{X}_{Z} file.
-// Sub-spec 2 does not instantiate NPCs; later sub-specs will populate a
-// spawn list here.
+//
+// Layout (from rs-server-225/engine/gamemap.go): each record is a 2-byte
+// packed position (top 2 bits level, next 6 bits local X, low 6 bits local Z),
+// followed by a 1-byte count and that many 2-byte NPC type IDs.
 func (gm *GameMap) loadNPCs(data []byte, mapSquareX, mapSquareZ int) {
-	_ = data
-	_ = mapSquareX
-	_ = mapSquareZ
+	p := packet.NewPacket(data)
+	for p.Len() >= 3 {
+		packed := int(p.G2())
+		count := int(p.G1())
+		level := (packed >> 12) & 0x3
+		localX := (packed >> 6) & 0x3F
+		localZ := packed & 0x3F
+		absX := mapSquareX*mapSquareSize + localX
+		absZ := mapSquareZ*mapSquareSize + localZ
+		for i := 0; i < count && p.Len() >= 2; i++ {
+			typeID := int(p.G2())
+			gm.npcSpawns = append(gm.npcSpawns, NpcSpawn{
+				TypeID: typeID, X: absX, Z: absZ, Level: level,
+			})
+		}
+	}
 }
 
 // loadObjs records ground-object positions from the o{X}_{Z} file.

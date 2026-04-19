@@ -12,6 +12,12 @@ import (
 	"github.com/zsrv/goscape/pkg/pathfinder/routefinder"
 )
 
+// NpcSpawn records an NPC spawn position from a mapsquare's n-file.
+type NpcSpawn struct {
+	TypeID      int
+	X, Z, Level int
+}
+
 // GameMap holds collision data for the game world.
 type GameMap struct {
 	Pathfinder *routefinder.PathFinderAPI
@@ -19,6 +25,7 @@ type GameMap struct {
 	freemap    map[int]bool      // packed zone coord -> F2P
 	mapCRC     map[uint16]uint32 // (mapX<<8)|mapZ -> CRC32 of m{x}_{z} file
 	locCRC     map[uint16]uint32
+	npcSpawns  []NpcSpawn
 	log        *slog.Logger
 }
 
@@ -78,7 +85,7 @@ func (gm *GameMap) CanTravel(level, x, z, offsetX, offsetZ int) bool {
 // Init reads map-pack files from cacheDir/maps/ and populates the collision map.
 // Missing files and missing CSVs are treated as warnings, not errors.
 func (gm *GameMap) Init(cacheDir string) error {
-	mapsDir := filepath.Join(cacheDir, "maps")
+	mapsDir := filepath.Join(cacheDir, "client", "maps")
 
 	// Load multimap and freemap CSVs (non-fatal if missing).
 	if err := loadCsvMap(filepath.Join(mapsDir, "multiway.csv"), gm.multimap); err != nil {
@@ -141,3 +148,6 @@ func (gm *GameMap) MapsquareCRC(mapX, mapZ int) (mCRC, lCRC uint32) {
 	key := uint16((mapX << 8) | mapZ)
 	return gm.mapCRC[key], gm.locCRC[key]
 }
+
+// NpcSpawns returns the list of NPC spawn records collected during Init.
+func (gm *GameMap) NpcSpawns() []NpcSpawn { return gm.npcSpawns }
