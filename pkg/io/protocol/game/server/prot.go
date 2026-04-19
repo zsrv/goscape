@@ -19,4 +19,5 @@ var (
 	OpRebuildNormal    = Op{Opcode: 237, PayloadSize: -2}
 	OpUpdateInvFull    = Op{Opcode: 98, PayloadSize: -2}
 	OpUpdateInvPartial = Op{Opcode: 213, PayloadSize: -2}
+	OpPlayerInfo       = Op{Opcode: 184, PayloadSize: -2}
 )
