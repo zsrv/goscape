@@ -181,3 +181,14 @@ func (gm *GameMap) LandBytes(mapX, mapZ int) []byte {
 func (gm *GameMap) LocBytes(mapX, mapZ int) []byte {
 	return gm.lData[uint16((mapX<<8)|mapZ)]
 }
+
+// SetLandBytesForTest seeds raw m{mapX}_{mapZ} bytes for tests that want
+// to exercise serving without real cache files.
+func (gm *GameMap) SetLandBytesForTest(mapX, mapZ int, b []byte) {
+	gm.mData[uint16((mapX<<8)|mapZ)] = b
+}
+
+// SetLocBytesForTest seeds raw l{mapX}_{mapZ} bytes for tests.
+func (gm *GameMap) SetLocBytesForTest(mapX, mapZ int, b []byte) {
+	gm.lData[uint16((mapX<<8)|mapZ)] = b
+}
