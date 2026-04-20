@@ -52,4 +52,7 @@ var (
 
 	// Interaction (sub-spec 6a).
 	OpUnsetMapFlag = Op{Opcode: 19, PayloadSize: 0}
+
+	// RuneScript S2 — chat output emitted by the MES opcode.
+	OpMessageGame = Op{Opcode: 4, PayloadSize: -1}
 )
