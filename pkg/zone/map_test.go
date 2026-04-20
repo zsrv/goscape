@@ -3,24 +3,9 @@ package zone
 import (
 	"testing"
 
+	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/entity"
 )
-
-func TestZoneIndexRoundTrip(t *testing.T) {
-	// Tile coord (3094, 3106, 0) → zone (386, 388, 0) → index.
-	// UnpackIndex returns tile-unit coords at the zone's SW corner: (386<<3, 388<<3, 0) = (3088, 3104, 0).
-	idx := ZoneIndex(3094, 3106, 0)
-	x, z, level := UnpackIndex(idx)
-	if x != 3088 || z != 3104 || level != 0 {
-		t.Errorf("roundtrip: got (%d,%d,%d), want (3088,3104,0)", x, z, level)
-	}
-}
-
-func TestZoneIndexLevelMatters(t *testing.T) {
-	if ZoneIndex(0, 0, 0) == ZoneIndex(0, 0, 1) {
-		t.Error("zones at different levels must have different indexes")
-	}
-}
 
 func TestZoneMapGetCreatesOnce(t *testing.T) {
 	m := NewZoneMap()
@@ -39,7 +24,7 @@ func TestZoneMapGetCreatesOnce(t *testing.T) {
 
 func TestZoneMapGetByIndex(t *testing.T) {
 	m := NewZoneMap()
-	idx := ZoneIndex(3094, 3106, 0)
+	idx := coordgrid.ZoneIndex(3094, 3106, 0)
 	z := m.GetByIndex(idx)
 	if z.Index != idx {
 		t.Errorf("zone.Index: got %d, want %d", z.Index, idx)

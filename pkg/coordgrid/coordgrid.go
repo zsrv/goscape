@@ -175,3 +175,21 @@ func FormatString(level, x, z int, separator string) string {
 	lz := z & 0x3F
 	return fmt.Sprintf("%d%s%d%s%d%s%d%s%d", level, separator, mx, separator, mz, separator, lx, separator, lz)
 }
+
+// ZoneIndex packs (worldX, worldZ, level) into a single int using the
+// layout shared with the TS reference's ZoneMap.zoneIndex:
+//
+//	zone_x = worldX >> 3, zone_z = worldZ >> 3
+//	index  = (zone_x & 0x7FF) | ((zone_z & 0x7FF) << 11) | ((level & 0x3) << 22)
+func ZoneIndex(worldX, worldZ, level int) int {
+	return ((worldX >> 3) & 0x7FF) | (((worldZ >> 3) & 0x7FF) << 11) | ((level & 0x3) << 22)
+}
+
+// UnpackZoneIndex reverses ZoneIndex. Returns TILE-unit coordinates at
+// the zone's SW corner (zoneX<<3, zoneZ<<3).
+func UnpackZoneIndex(index int) (worldX, worldZ, level int) {
+	worldX = (index & 0x7FF) << 3
+	worldZ = ((index >> 11) & 0x7FF) << 3
+	level = (index >> 22) & 0x3
+	return
+}

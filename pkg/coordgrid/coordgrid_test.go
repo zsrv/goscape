@@ -73,3 +73,18 @@ func TestPackZoneCoordDiscardsHighBits(t *testing.T) {
 		t.Error("PackZoneCoord should only look at the low 3 bits of x and z")
 	}
 }
+
+func TestZoneIndexRoundTrip(t *testing.T) {
+	// (3094, 3106, 0) → zone (386, 388) → packs; unpacks to tile SW corner (3088, 3104).
+	idx := ZoneIndex(3094, 3106, 0)
+	x, z, level := UnpackZoneIndex(idx)
+	if x != 3088 || z != 3104 || level != 0 {
+		t.Errorf("roundtrip: got (%d,%d,%d), want (3088,3104,0)", x, z, level)
+	}
+}
+
+func TestZoneIndexDistinguishesLevels(t *testing.T) {
+	if ZoneIndex(0, 0, 0) == ZoneIndex(0, 0, 1) {
+		t.Error("same x/z at different levels must have distinct indexes")
+	}
+}
