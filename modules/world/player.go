@@ -185,6 +185,14 @@ func (p *Player) encodeOut() {
 	if modalChanged {
 		if p.refreshModalClose {
 			p.writeOut(gameserver.OpIfClose, nil)
+			// Stop transmitting every currently-registered inv.
+			// Approximation: TS only stops listeners bound to the closing
+			// modal's components; we don't yet have a component-to-modal
+			// mapping, so clear all. Re-registered on next modal open.
+			for _, l := range p.invListeners {
+				sendUpdateInvStopTransmit(p, l.Com)
+			}
+			p.invListeners = p.invListeners[:0]
 		}
 		p.refreshModalClose = false
 		p.lastModalMain = p.modalMain
