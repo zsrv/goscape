@@ -29,4 +29,18 @@ var (
 	OpUpdateZonePartialFollows  = Op{Opcode: 7, PayloadSize: 2}
 	OpUpdateZoneFullFollows     = Op{Opcode: 135, PayloadSize: 2}
 	OpUpdateZonePartialEnclosed = Op{Opcode: 162, PayloadSize: -2}
+
+	// Zone-nested opcodes, reused as top-level packets for per-player
+	// UpdateZonePartialFollows delivery. Sizes match the Java client's
+	// SERVERPROT_SIZES at the matching indices.
+	OpLocAddChange = Op{Opcode: 59, PayloadSize: 4}
+	OpLocAnim      = Op{Opcode: 42, PayloadSize: 4}
+	OpLocDel       = Op{Opcode: 76, PayloadSize: 2}
+	OpLocMerge     = Op{Opcode: 23, PayloadSize: 14}
+	OpMapAnim      = Op{Opcode: 191, PayloadSize: 6}
+	OpMapProjAnim  = Op{Opcode: 69, PayloadSize: 15}
+	OpObjAdd       = Op{Opcode: 223, PayloadSize: 5}
+	OpObjCount     = Op{Opcode: 151, PayloadSize: 7}
+	OpObjDel       = Op{Opcode: 49, PayloadSize: 3}
+	OpObjReveal    = Op{Opcode: 50, PayloadSize: 7}
 )
