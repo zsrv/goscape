@@ -8,6 +8,7 @@ import (
 	"github.com/zsrv/goscape/pkg/inventory"
 	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
@@ -343,7 +344,37 @@ func (p *Player) updateMap() {
 	p.reconnecting = false
 	sendRebuildNormal(p, ms)
 }
-func (p *Player) updateZones()    {}
+func (p *Player) updateZones() {
+	if p.buildArea == nil || p.client == nil || p.client.server == nil {
+		return
+	}
+	s := p.client.server
+
+	// Unload zones no longer active.
+	for idx := range p.buildArea.LoadedZones {
+		if !p.buildArea.ActiveZones[idx] {
+			delete(p.buildArea.LoadedZones, idx)
+		}
+	}
+
+	// Deliver each active zone.
+	for idx := range p.buildArea.ActiveZones {
+		z := s.zoneMap.GetByIndex(idx)
+
+		if !p.buildArea.LoadedZones[idx] {
+			p.writeFullFollows(z, s.currentTick)
+		}
+
+		if shared := z.Shared(); len(shared) > 0 {
+			buf := packet.NewPacket(nil)
+			rsbuf.EncodeZonePartialEnclosed(buf, z.X, z.Z, p.originX, p.originZ, shared)
+			p.writeOut(gameserver.OpUpdateZonePartialEnclosed, buf.Bytes())
+		}
+
+		p.writePartialFollows(z)
+		p.buildArea.LoadedZones[idx] = true
+	}
+}
 func (p *Player) updateInvs() {
 	if p.client == nil || p.client.server == nil {
 		return
