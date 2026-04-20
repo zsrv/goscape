@@ -171,6 +171,18 @@ func (s *Server) processInfo() {
 		}
 	}
 
+	// Regenerate appearance buffer for any player whose MaskAppearance is set
+	// (set on login, and when equipment changes). Without this pass, the client
+	// allocates a zero-length appearance buffer and throws
+	// ArrayIndexOutOfBoundsException when parsing gender/headicons/body slots.
+	if s.objTypes != nil && s.invTypes != nil {
+		for _, p := range players {
+			if p.masks&MaskAppearance != 0 {
+				p.generateAppearance(s.objTypes, s.invTypes, s.currentTick)
+			}
+		}
+	}
+
 	sources := make([]rsbuf.PlayerSource, len(players))
 	for i, p := range players {
 		sources[i] = p
