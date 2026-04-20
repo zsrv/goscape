@@ -152,6 +152,14 @@ func PackCoord(level, x, z int) int {
 	return (z & 0x3fff) | ((x & 0x3fff) << 14) | ((level & 0x3) << 28)
 }
 
+// PackZoneCoord packs the zone-local low bits of a world-absolute (x, z)
+// into a single byte: (x&7)<<4 | (z&7). Used inside every zone-nested
+// packet encoder to identify which tile within the 8x8 zone an event
+// refers to.
+func PackZoneCoord(x, z int) byte {
+	return byte((x&0x7)<<4 | (z & 0x7))
+}
+
 func Intersects(srcX, srcZ, srcWidth, srcHeight, destX, destZ, destWidth, destHeight int) bool {
 	srcHorizontal := srcX + srcWidth
 	srcVertical := srcZ + srcHeight

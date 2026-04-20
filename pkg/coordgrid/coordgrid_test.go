@@ -51,3 +51,25 @@ func TestDeltaXZ(t *testing.T) {
 		t.Error("DeltaZ wrong")
 	}
 }
+
+func TestPackZoneCoordCorners(t *testing.T) {
+	if got := PackZoneCoord(0, 0); got != 0x00 {
+		t.Errorf("(0,0): got %#x, want 0x00", got)
+	}
+	if got := PackZoneCoord(7, 7); got != 0x77 {
+		t.Errorf("(7,7): got %#x, want 0x77", got)
+	}
+}
+
+func TestPackZoneCoordWorldAbsolute(t *testing.T) {
+	// (3094 & 7) == 6; (3106 & 7) == 2; byte = (6<<4) | 2 = 0x62.
+	if got := PackZoneCoord(3094, 3106); got != 0x62 {
+		t.Errorf("(3094,3106): got %#x, want 0x62", got)
+	}
+}
+
+func TestPackZoneCoordDiscardsHighBits(t *testing.T) {
+	if PackZoneCoord(3200, 3200) != PackZoneCoord(0, 0) {
+		t.Error("PackZoneCoord should only look at the low 3 bits of x and z")
+	}
+}
