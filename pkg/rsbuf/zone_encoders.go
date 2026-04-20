@@ -1,6 +1,9 @@
 package rsbuf
 
-import "github.com/zsrv/goscape/pkg/io/packet"
+import (
+	"github.com/zsrv/goscape/pkg/coordgrid"
+	"github.com/zsrv/goscape/pkg/io/packet"
+)
 
 // Zone-nested opcode constants. Written by the zone subsystem (sub-spec 4b-3)
 // as a single byte before each encoder's payload when composing the shared
@@ -143,4 +146,34 @@ func EncodeObjReveal(buf *packet.Packet, coord byte, obj, count, receiverID int)
 	buf.P2(uint16(obj))
 	buf.P2(clampU16(count))
 	buf.P2(uint16(receiverID))
+}
+
+// --- Outer zone packets ---
+
+// zoneRelHeader writes the 2-byte zone-relative header: the first byte is
+// (zoneX<<3) - ZoneOrigin(originX) and the second is the same for z.
+// ZoneOrigin produces the build-area origin's mapsquare base, so the result
+// is a small signed offset that fits in one byte.
+func zoneRelHeader(buf *packet.Packet, zoneX, zoneZ, originX, originZ int) {
+	buf.P1(byte((zoneX << 3) - coordgrid.ZoneOrigin(originX)))
+	buf.P1(byte((zoneZ << 3) - coordgrid.ZoneOrigin(originZ)))
+}
+
+// EncodeZoneFullFollows writes the 2-byte header for the outer UpdateZoneFullFollows
+// packet (opcode 135, -2). The opcode and length prefix are emitted by writeOut.
+func EncodeZoneFullFollows(buf *packet.Packet, zoneX, zoneZ, originX, originZ int) {
+	zoneRelHeader(buf, zoneX, zoneZ, originX, originZ)
+}
+
+// EncodeZonePartialFollows writes the 2-byte header for the outer
+// UpdateZonePartialFollows packet (opcode 7, -2).
+func EncodeZonePartialFollows(buf *packet.Packet, zoneX, zoneZ, originX, originZ int) {
+	zoneRelHeader(buf, zoneX, zoneZ, originX, originZ)
+}
+
+// EncodeZonePartialEnclosed writes the 2-byte header followed by the
+// precomputed shared-data bytes for UpdateZonePartialEnclosed (opcode 162, -2).
+func EncodeZonePartialEnclosed(buf *packet.Packet, zoneX, zoneZ, originX, originZ int, data []byte) {
+	zoneRelHeader(buf, zoneX, zoneZ, originX, originZ)
+	buf.PData(data)
 }

@@ -187,3 +187,42 @@ func TestCountClampingAtBoundary(t *testing.T) {
 		t.Errorf("ObjReveal count clamp: got %v", buf4.Data)
 	}
 }
+
+// Outer-encoder header math: dx = (zoneX<<3) - ZoneOrigin(originX).
+// For originX=3094: Zone(3094)=386; ZoneCenter(386)=380; ZoneOrigin=380<<3=3040.
+// For zoneX=386: dx = (386<<3) - 3040 = 3088 - 3040 = 48.
+// (Previously the spec guessed 16 — recompute from the actual ZoneOrigin formula.)
+
+func TestEncodeZoneFullFollowsHeader(t *testing.T) {
+	buf := packet.NewPacket(nil)
+	EncodeZoneFullFollows(buf, 386, 388, 3094, 3106)
+	// originX=3094 → ZoneOrigin = (((3094>>3) - 6) << 3) = ((386-6)<<3) = 380<<3 = 3040
+	// dx = (386<<3) - 3040 = 3088 - 3040 = 48
+	// originZ=3106 → ZoneOrigin = (((3106>>3) - 6) << 3) = ((388-6)<<3) = 382<<3 = 3056
+	// dz = (388<<3) - 3056 = 3104 - 3056 = 48
+	want := []byte{48, 48}
+	if !bytes.Equal(buf.Data, want) {
+		t.Errorf("got %v, want %v", buf.Data, want)
+	}
+}
+
+func TestEncodeZonePartialFollowsHeader(t *testing.T) {
+	buf := packet.NewPacket(nil)
+	EncodeZonePartialFollows(buf, 386, 388, 3094, 3106)
+	if len(buf.Data) != 2 {
+		t.Errorf("len: got %d, want 2", len(buf.Data))
+	}
+	if buf.Data[0] != 48 || buf.Data[1] != 48 {
+		t.Errorf("bytes: got %v, want [48 48]", buf.Data)
+	}
+}
+
+func TestEncodeZonePartialEnclosedAppendsData(t *testing.T) {
+	buf := packet.NewPacket(nil)
+	data := []byte{0xAA, 0xBB, 0xCC}
+	EncodeZonePartialEnclosed(buf, 386, 388, 3094, 3106, data)
+	want := []byte{48, 48, 0xAA, 0xBB, 0xCC}
+	if !bytes.Equal(buf.Data, want) {
+		t.Errorf("got %v, want %v", buf.Data, want)
+	}
+}
