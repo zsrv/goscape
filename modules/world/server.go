@@ -27,6 +27,7 @@ import (
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	util "github.com/zsrv/goscape/pkg/util/jstring"
+	"github.com/zsrv/goscape/pkg/zone"
 )
 
 // SignalHandler used by Server.
@@ -71,6 +72,9 @@ type Server struct {
 
 	renderer *rsbuf.Renderer
 	grid     *grid.Grid
+
+	zoneMap       *zone.ZoneMap
+	zonesTracking map[*zone.Zone]struct{}
 }
 
 // appendNewPlayer queues a player for registration on the next tick.
@@ -100,8 +104,10 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 		loginClient: loginClient,
 		quit:        make(chan interface{}),
 
-		log:  logger,
-		invs: make(map[int]*inventory.Inventory),
+		log:           logger,
+		invs:          make(map[int]*inventory.Inventory),
+		zoneMap:       zone.NewZoneMap(),
+		zonesTracking: map[*zone.Zone]struct{}{},
 	}
 	s.tcpWg.Add(1)
 
@@ -531,6 +537,11 @@ func (s *Server) removePlayer(p *Player) {
 }
 
 const expectedRevision = 225
+
+// TrackZone marks a zone as modified this tick. Idempotent (map semantics).
+// processZones will call ComputeShared on each tracked zone; processCleanup
+// will Reset them and clear the set.
+func (s *Server) TrackZone(z *zone.Zone) { s.zonesTracking[z] = struct{}{} }
 
 // TODO: move this somewhere else
 type LoginResponse struct {
