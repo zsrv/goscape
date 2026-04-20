@@ -14,7 +14,7 @@ var _ script.ActivePlayer = (*Player)(nil)
 // JagString payload. Used by the MES script opcode.
 func (p *Player) MessageGame(msg string) {
 	buf := packet.NewPacket(nil)
-	buf.PJStrNUL(msg)
+	buf.PJStrLF(msg)
 	p.writeOut(gameserver.OpMessageGame, buf.Bytes())
 }
 

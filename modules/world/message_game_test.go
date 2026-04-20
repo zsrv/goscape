@@ -13,12 +13,13 @@ func TestMessageGameWireFormat(t *testing.T) {
 	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 
-	// MessageGame("hello") payload = PJStrNUL("hello") = 'h','e','l','l','o',0x00 (6 bytes).
-	// Wire: [encrypted_opcode, len=6, 'h','e','l','l','o', 0x00].
+	// MessageGame("hello") payload = PJStrLF("hello") = 'h','e','l','l','o',0x0a (6 bytes).
+	// Wire: [encrypted_opcode, len=6, 'h','e','l','l','o', 0x0a].
+	// The rev-225 client's gjstr() reads until byte 10 (line feed), not NUL.
 	want := []byte{
 		byte((int(gameserver.OpMessageGame.Opcode) + int(enc.GetNext())) & 0xff),
 		6,
-		'h', 'e', 'l', 'l', 'o', 0x00,
+		'h', 'e', 'l', 'l', 'o', 0x0a,
 	}
 
 	received := drainConn(t, cc)

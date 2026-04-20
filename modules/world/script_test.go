@@ -60,14 +60,14 @@ func TestRunScriptExecutesMesScript(t *testing.T) {
 	p.client.flushWrite()
 	got := <-received
 
-	// Expect OpMessageGame (opcode 4, -1) with payload PJStrNUL("hi") = 3 bytes.
+	// Expect OpMessageGame (opcode 4, -1) with payload PJStrLF("hi") = 3 bytes.
 	// Wire = opcode(1) + len(1) + payload(3) = 5 bytes.
 	if len(got) != 5 {
-		t.Errorf("got %d bytes, want 5 (opcode + len prefix + 'hi\\0')", len(got))
+		t.Errorf("got %d bytes, want 5 (opcode + len prefix + 'hi\\n')", len(got))
 	}
-	// Payload bytes 2..4 should be 'h','i',0x00.
-	if string(got[2:4]) != "hi" || got[4] != 0x00 {
-		t.Errorf("payload: got %v, want 'hi\\0'", got[2:])
+	// Payload bytes 2..4 should be 'h','i',0x0a.
+	if string(got[2:4]) != "hi" || got[4] != 0x0a {
+		t.Errorf("payload: got %v, want 'hi\\n'", got[2:])
 	}
 }
 
