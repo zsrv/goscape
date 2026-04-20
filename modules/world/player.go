@@ -69,15 +69,16 @@ type Player struct {
 	faceAngleX, faceAngleZ int
 
 	// === interaction target ===
-	target        entity
-	targetOp      int
-	targetSubject struct{ typ, com int }
-	apRange       int
-	apRangeCalled bool
-	interacted    bool
-	repathed      bool
-	delayed       bool
-	delayedUntil  int
+	target          entity
+	targetOp        int
+	targetSubject   struct{ typ, com int }
+	interactionKind InteractionKind
+	apRange         int
+	apRangeCalled   bool
+	interacted      bool
+	repathed        bool
+	delayed         bool
+	delayedUntil    int
 
 	// === masks ===
 	masks      int

@@ -49,4 +49,7 @@ var (
 	OpDataLoc      = Op{Opcode: 220, PayloadSize: -2}
 	OpDataLandDone = Op{Opcode: 80, PayloadSize: 2}
 	OpDataLocDone  = Op{Opcode: 20, PayloadSize: 2}
+
+	// Interaction (sub-spec 6a).
+	OpUnsetMapFlag = Op{Opcode: 19, PayloadSize: 0}
 )

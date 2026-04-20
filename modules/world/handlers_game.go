@@ -23,6 +23,12 @@ func init() {
 	gameHandlers[4] = handleClientCheat // CLIENT_CHEAT
 
 	gameHandlers[150] = handleRebuildGetMaps // REBUILD_GETMAPS
+
+	gameHandlers[194] = handleOpNpc1 // OPNPC1
+	gameHandlers[8] = handleOpNpc2   // OPNPC2
+	gameHandlers[27] = handleOpNpc3  // OPNPC3
+	gameHandlers[113] = handleOpNpc4 // OPNPC4
+	gameHandlers[100] = handleOpNpc5 // OPNPC5
 }
 
 func handleNoTimeout(_ *Player, _ []byte) error {

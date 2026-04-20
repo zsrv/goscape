@@ -31,6 +31,7 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 
 		s.processClientsIn()
 		s.processPathing()
+		s.processInteractions()
 		s.processNpcs()
 		s.processLogouts()
 		s.processLogins()
@@ -217,6 +218,16 @@ func (s *Server) processNpcs() {
 func (s *Server) processZones() {
 	for z := range s.zonesTracking {
 		z.ComputeShared()
+	}
+}
+
+func (s *Server) processInteractions() {
+	s.playersMu.RLock()
+	players := make([]*Player, len(s.playerLoop))
+	copy(players, s.playerLoop)
+	s.playersMu.RUnlock()
+	for _, p := range players {
+		p.processInteraction()
 	}
 }
 
