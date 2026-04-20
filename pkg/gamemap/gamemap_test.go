@@ -1,11 +1,14 @@
 package gamemap
 
 import (
+	"bytes"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/zsrv/goscape/pkg/entity"
 )
 
 func discardLogger() *slog.Logger {
@@ -127,5 +130,42 @@ func TestMapsquareCRCCachedFromInit(t *testing.T) {
 	mCRC, _ := gm.MapsquareCRC(50, 50)
 	if mCRC == 0 {
 		t.Error("expected non-zero CRC after Init")
+	}
+}
+
+func TestGameMapRetainsRawBytes(t *testing.T) {
+	dir := t.TempDir()
+	mapsDir := filepath.Join(dir, "client", "maps")
+	if err := os.MkdirAll(mapsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(mapsDir, "m50_51"), []byte{0xDE, 0xAD}, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(mapsDir, "l50_51"), []byte{0xBE, 0xEF}, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	gm := New(discardLogger())
+	if err := gm.Init(dir); err != nil {
+		t.Fatal(err)
+	}
+	if got := gm.LandBytes(50, 51); !bytes.Equal(got, []byte{0xDE, 0xAD}) {
+		t.Errorf("LandBytes: got %v, want [0xDE, 0xAD]", got)
+	}
+	if got := gm.LocBytes(50, 51); !bytes.Equal(got, []byte{0xBE, 0xEF}) {
+		t.Errorf("LocBytes: got %v, want [0xBE, 0xEF]", got)
+	}
+	if gm.LandBytes(0, 0) != nil {
+		t.Errorf("LandBytes(0,0) unloaded should return nil; got %v", gm.LandBytes(0, 0))
+	}
+}
+
+func TestAddStaticLocPublicAPI(t *testing.T) {
+	gm := New(discardLogger())
+	loc := entity.NewLoc(0, 100, 200, 1, 1, entity.LifecycleRespawn, 42, 0, 0)
+	gm.AddStaticLoc(loc)
+	if got := gm.StaticLocs(); len(got) != 1 || got[0] != loc {
+		t.Errorf("StaticLocs after Add: got %v, want [loc]", got)
 	}
 }

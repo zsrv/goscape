@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/pathfinder/loc"
 	"github.com/zsrv/goscape/pkg/pathfinder/routefinder"
@@ -25,6 +26,9 @@ type GameMap struct {
 	freemap    map[int]bool      // packed zone coord -> F2P
 	mapCRC     map[uint16]uint32 // (mapX<<8)|mapZ -> CRC32 of m{x}_{z} file
 	locCRC     map[uint16]uint32
+	mData      map[uint16][]byte // (mapX<<8)|mapZ -> raw m{x}_{z} bytes (sub-spec 5b)
+	lData      map[uint16][]byte // (mapX<<8)|mapZ -> raw l{x}_{z} bytes (sub-spec 5b)
+	staticLocs []*entity.Loc     // parsed static locs with absolute world coords
 	npcSpawns  []NpcSpawn
 	log        *slog.Logger
 }
@@ -37,6 +41,8 @@ func New(log *slog.Logger) *GameMap {
 		freemap:    make(map[int]bool),
 		mapCRC:     map[uint16]uint32{},
 		locCRC:     map[uint16]uint32{},
+		mData:      map[uint16][]byte{},
+		lData:      map[uint16][]byte{},
 		log:        log,
 	}
 }
@@ -118,12 +124,15 @@ func (gm *GameMap) Init(cacheDir string) error {
 			gm.log.Warn("failed to read mapsquare data", "path", mPath, "err", err)
 			continue
 		}
-		gm.mapCRC[uint16((sqX<<8)|sqZ)] = crc32.ChecksumIEEE(mData)
+		key := uint16((sqX << 8) | sqZ)
+		gm.mapCRC[key] = crc32.ChecksumIEEE(mData)
+		gm.mData[key] = mData
 		gm.loadGround(mData, sqX, sqZ)
 
 		lPath := filepath.Join(mapsDir, fmt.Sprintf("l%d_%d", sqX, sqZ))
 		if lData, err := os.ReadFile(lPath); err == nil {
-			gm.locCRC[uint16((sqX<<8)|sqZ)] = crc32.ChecksumIEEE(lData)
+			gm.locCRC[key] = crc32.ChecksumIEEE(lData)
+			gm.lData[key] = lData
 			gm.loadLocs(lData, sqX, sqZ)
 		}
 		nPath := filepath.Join(mapsDir, fmt.Sprintf("n%d_%d", sqX, sqZ))
@@ -151,3 +160,24 @@ func (gm *GameMap) MapsquareCRC(mapX, mapZ int) (mCRC, lCRC uint32) {
 
 // NpcSpawns returns the list of NPC spawn records collected during Init.
 func (gm *GameMap) NpcSpawns() []NpcSpawn { return gm.npcSpawns }
+
+// StaticLocs returns the parsed static locs accumulated during Init.
+// Pointers are stable for the lifetime of GameMap.
+func (gm *GameMap) StaticLocs() []*entity.Loc { return gm.staticLocs }
+
+// AddStaticLoc appends a pre-built loc to the static-loc list. Used by
+// the Server at startup (indirectly via StaticLocs) and by tests that
+// need to seed a synthetic map.
+func (gm *GameMap) AddStaticLoc(loc *entity.Loc) {
+	gm.staticLocs = append(gm.staticLocs, loc)
+}
+
+// LandBytes returns the raw (on-disk) bytes of m{X}_{Z}, or nil if unloaded.
+func (gm *GameMap) LandBytes(mapX, mapZ int) []byte {
+	return gm.mData[uint16((mapX<<8)|mapZ)]
+}
+
+// LocBytes returns the raw (on-disk) bytes of l{X}_{Z}, or nil if unloaded.
+func (gm *GameMap) LocBytes(mapX, mapZ int) []byte {
+	return gm.lData[uint16((mapX<<8)|mapZ)]
+}
