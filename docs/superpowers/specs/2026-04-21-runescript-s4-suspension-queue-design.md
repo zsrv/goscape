@@ -88,17 +88,14 @@ type ActivePlayer interface {
 
 The existing `MessageGame`/`Username` methods are preserved. The interface grows — `modules/world/message_game.go` still has its `var _ script.ActivePlayer = (*Player)(nil)` compile-time assertion, which will fail-fast if either side drifts.
 
-### 2. `pkg/script/opcode.go` — opcode constants
+### 2. `pkg/script/opcode.go` — no changes
 
-```go
-// RuneScript S4: suspension + queue opcodes.
-const (
-    OpPDelay Opcode = 3408 // TS ScriptOpcode.P_DELAY — verify exact value
-    OpQueue  Opcode = 3605 // TS ScriptOpcode.QUEUE   — verify exact value
-)
-```
+Both opcodes already exist in `pkg/script/opcode.go` from S1:
 
-The implementer MUST open `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/lostcity/engine/script/ScriptOpcode.ts`, find the `P_DELAY` and `QUEUE` symbolic names, and substitute the correct numeric values. Do NOT trust the 3408 / 3605 placeholders above.
+- `OpPDelay Opcode = 2071`
+- `OpQueue  Opcode = 2092`
+
+No new constants needed. Both have disasm names (`P_DELAY`, `QUEUE`) already registered.
 
 ### 3. `pkg/script/handlers.go` — two new handlers
 
@@ -121,18 +118,19 @@ func handlePDelay(s *ScriptState) error {
 }
 
 // handleQueue implements QUEUE: enqueue a fresh-run request on the
-// active player. TS opcode operand is the target script ID; the stack
-// holds (arg, delay) in some order — verify from the TS handler.
-// For MVP we support exactly one int arg.
+// active player. TS verified (engine/script/handlers/PlayerOps.ts:148):
+//   const [scriptId, delay, arg] = state.popInts(3);
+// popInts fills i=n-1 down to 0 via PopInt, so the stack top is `arg`,
+// then `delay`, then `scriptId`. Stack push order upstream is therefore
+// scriptId, delay, arg. For MVP we support exactly one int arg.
 func handleQueue(s *ScriptState) error {
     if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
         return errors.New("QUEUE: no active player")
     }
-    // Verify stack pop order from TS CorePlayerOps.QUEUE implementation.
-    intArg := int(s.PopInt())
-    delay  := int(s.PopInt())
-    scriptID := uint32(s.Script.IntOperands[s.PC])
-    s.Self.EnqueueScript(scriptID, delay, intArg)
+    arg := int(s.PopInt())
+    delay := int(s.PopInt())
+    scriptID := uint32(s.PopInt())
+    s.Self.EnqueueScript(scriptID, delay, arg)
     return nil
 }
 ```
@@ -444,7 +442,6 @@ Existing infrastructure (`newTestServer`, `newTestPlayer`, `drainConn`, `buildLo
 | File | LOC |
 |---|---|
 | `pkg/script/active.go` | +24 |
-| `pkg/script/opcode.go` | +3 |
 | `pkg/script/handlers.go` | +35 |
 | `pkg/script/provider.go` | +5 |
 | `pkg/script/handlers_test.go` | +75 |
@@ -471,10 +468,10 @@ One sub-spec, implementable in one pass.
 
 - **`+1` in `SetDelayed`**: `delayedUntil = currentTick + 1 + ticks`. Off-by-one produces one-tick-early resumes.
 - **`Execution = Running` before resume**: the dispatch loop exits immediately on anything other than `Running`. A resumed state MUST have its execution flipped back to `Running` before `Execute` is called again.
-- **Opcode numeric values**: the exact `OpPDelay` and `OpQueue` numeric values in this spec are placeholders. Verify against TS `ScriptOpcode.ts` during implementation.
-- **QUEUE pop order**: verify pop order (delay vs arg) from TS `CorePlayerOps.QUEUE`. The spec lists a guess that should be confirmed.
+- **Opcode numeric values**: `OpPDelay = 2071`, `OpQueue = 2092` — both verified in our `pkg/script/opcode.go`.
+- **QUEUE pop order**: verified against TS `PlayerOps.ts:148` — `popInts(3)` fills top-down, so the Go handler pops `arg`, then `delay`, then `scriptID`.
 - **`p.client.server` nil in tests**: `SetDelayed` reaches through `p.client.server` for the current tick. Tests must use `newTestPlayer` which wires these up, or the test must set them manually.
-- **`isLargeOperand` return for OpPDelay / OpQueue**: both opcodes have ID > 100 (if placeholders hold), so `isLargeOperand` returns true for both, meaning the decoder reads a 4-byte int operand. If the verified IDs drop below 100, confirm with TS.
+- **`isLargeOperand` for OpPDelay / OpQueue**: both opcodes (2071, 2092) are > 100, so `isLargeOperand` returns true for both — the decoder reads a 4-byte int operand. Neither handler reads from `IntOperands` (P_DELAY ignores its operand; QUEUE pops its scriptID from the stack).
 
 ## Demo
 
