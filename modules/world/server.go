@@ -17,6 +17,7 @@ import (
 	"github.com/zsrv/goscape/pkg/cache"
 	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/grid"
+	"github.com/zsrv/goscape/pkg/inventory"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/io/protocol"
@@ -54,6 +55,10 @@ type Server struct {
 	currentTick int
 
 	gamemap *gamemap.GameMap
+
+	// invs is world-shared inventories (banks, shops) keyed by InvType id.
+	// Empty until populated by non-4a code. Listeners with Source==-1 read from here.
+	invs map[int]*inventory.Inventory
 
 	paramTypes *objtype.ParamTypeConfigs
 	objTypes   *objtype.ObjTypeConfigs
@@ -95,7 +100,8 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 		loginClient: loginClient,
 		quit:        make(chan interface{}),
 
-		log: logger,
+		log:  logger,
+		invs: make(map[int]*inventory.Inventory),
 	}
 	s.tcpWg.Add(1)
 

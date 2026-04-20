@@ -13,9 +13,10 @@ import (
 
 // InventoryListener associates a player-visible UI component with an inventory.
 type InventoryListener struct {
-	Type   int // InvType id
-	Com    int // UI component id
-	Source int // player slot of the inv's owner
+	Type      int  // InvType id
+	Com       int  // UI component id
+	Source    int  // -1 = world-shared inventory, else owning player's slot
+	FirstSeen bool // true until the first UpdateInvFull; then false
 }
 
 const (
@@ -120,6 +121,10 @@ type Player struct {
 	preventLogoutUntil                           int
 	reconnecting, lowMemory, webClient           bool
 	afkEventReady, moveClickRequest              bool
+
+	// === AFK zones (sub-spec 4a) ===
+	afkZones    [2]int32
+	lastAfkZone int
 
 	// === modal (from sub-spec 1) ===
 	modalMain, modalChat, modalSide             int
@@ -226,7 +231,7 @@ func (p *Player) writeOut(op gameserver.Op, payload []byte) {
 }
 
 func newPlayer(c *client) *Player {
-	return &Player{
+	p := &Player{
 		client:         c,
 		slot:           -1,
 		uid:            -1,
@@ -301,6 +306,14 @@ func newPlayer(c *client) *Player {
 		faceSquareX:    -1,
 		faceSquareZ:    -1,
 	}
+	// Sentinel values so the first tick of updateStats emits all 21 UpdateStat
+	// packets. stats[i] is int32 (always >= 0 in gameplay); levels[i] is uint8
+	// (max real value 99). -1 and 255 are unreachable legitimate values.
+	for i := 0; i < 21; i++ {
+		p.lastStats[i] = -1
+		p.lastLevels[i] = 255
+	}
+	return p
 }
 
 // Slot returns the RS2 slot of this player.
