@@ -281,8 +281,6 @@ func (z *Zone) RemoveObj(obj *entity.Obj, currentTick int) {
 // tradeable/members flags.
 // TODO(beyond-4b): wire tradeability gating.
 func (z *Zone) RevealObj(obj *entity.Obj, receiverSlot int) {
-	initialReceiver := obj.ReceiverID
-	_ = initialReceiver // retained for future filtering logic
 	obj.ReceiverID = PublicReceiver
 	obj.Reveal = -1
 	obj.LastChange = -1
