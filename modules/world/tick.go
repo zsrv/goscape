@@ -35,6 +35,7 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		s.processLogouts()
 		s.processLogins()
 		s.processInfo()
+		s.processZones()       // compute ComputeShared before delivery
 		s.processClientsOut()
 		s.processCleanup()
 		s.currentTick++
@@ -194,6 +195,12 @@ func (s *Server) processNpcs() {
 	}
 }
 
+func (s *Server) processZones() {
+	for z := range s.zonesTracking {
+		z.ComputeShared()
+	}
+}
+
 func (s *Server) processCleanup() {
 	s.playersMu.RLock()
 	players := make([]*Player, len(s.playerLoop))
@@ -205,4 +212,8 @@ func (s *Server) processCleanup() {
 	for _, n := range s.npcLoop {
 		n.ResetMasks()
 	}
+	for z := range s.zonesTracking {
+		z.Reset()
+	}
+	clear(s.zonesTracking)
 }
