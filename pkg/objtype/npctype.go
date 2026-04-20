@@ -72,14 +72,14 @@ type NpcType struct {
 	// server-side
 	RegenRate    int
 	Category     int
-	WanderRange  uint8
-	MaxRange     uint8
+	WanderRange  uint16
+	MaxRange     uint16
 	HuntRange    uint8
 	Timer        int
 	RespawnRate  uint16
 	Stats        []uint16
 	MoveRestrict int
-	AttackRange  uint8
+	AttackRange  uint16
 	HuntMode     int
 	DefaultMode  int
 	Members      bool
@@ -172,9 +172,9 @@ func (t *NpcType) Decode(code uint8, dat *packet2.Packet) error {
 	case 98:
 		t.ResizeV = dat.G2()
 	case 200:
-		t.WanderRange = dat.G1()
+		t.WanderRange = dat.G2()
 	case 201:
-		t.MaxRange = dat.G1()
+		t.MaxRange = dat.G2()
 	case 202:
 		t.HuntRange = dat.G1()
 	case 203:
@@ -184,7 +184,7 @@ func (t *NpcType) Decode(code uint8, dat *packet2.Packet) error {
 	case 206:
 		t.MoveRestrict = int(dat.G1())
 	case 207:
-		t.AttackRange = dat.G1()
+		t.AttackRange = dat.G2()
 	case 208:
 		t.BlockWalk = int(dat.G1())
 	case 209:
