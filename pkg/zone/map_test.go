@@ -1,6 +1,10 @@
 package zone
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/zsrv/goscape/pkg/entity"
+)
 
 func TestZoneIndexRoundTrip(t *testing.T) {
 	// Tile coord (3094, 3106, 0) → zone (386, 388, 0) → index.
@@ -47,8 +51,28 @@ func TestZoneMapGridPerLevel(t *testing.T) {
 	if m.Grid(0) == m.Grid(1) {
 		t.Error("Grid(0) and Grid(1) should be distinct instances")
 	}
-	if m.Grid(0) != m.Grid(0) {
-		t.Error("Grid(0) called twice should return the same instance")
+	g0a := m.Grid(0)
+	g0b := m.Grid(0)
+	if g0a != g0b {
+		t.Error("Grid(0) called twice should return the same cached instance")
+	}
+}
+
+func TestZoneMapCountsAggregateAcrossZones(t *testing.T) {
+	m := NewZoneMap()
+	zA := m.Get(0, 0, 0)
+	zB := m.Get(0, 100, 100)
+	// Inject Locs/Objs directly; we're testing aggregation, not mutation APIs.
+	zA.Locs = make([]*entity.Loc, 2)
+	zB.Objs = make([]*entity.Obj, 3)
+	if got := m.ZoneCount(); got != 2 {
+		t.Errorf("ZoneCount: got %d, want 2", got)
+	}
+	if got := m.LocCount(); got != 2 {
+		t.Errorf("LocCount: got %d, want 2", got)
+	}
+	if got := m.ObjCount(); got != 3 {
+		t.Errorf("ObjCount: got %d, want 3", got)
 	}
 }
 
