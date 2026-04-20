@@ -35,8 +35,8 @@
 Inside the existing `var (...)` block (after `OpUpdateInvStopTransmit`), append:
 
 ```go
-OpUpdateZonePartialFollows  = Op{Opcode: 7,   PayloadSize: -2}
-OpUpdateZoneFullFollows     = Op{Opcode: 135, PayloadSize: -2}
+OpUpdateZonePartialFollows  = Op{Opcode: 7,   PayloadSize: 2}
+OpUpdateZoneFullFollows     = Op{Opcode: 135, PayloadSize: 2}
 OpUpdateZonePartialEnclosed = Op{Opcode: 162, PayloadSize: -2}
 ```
 
@@ -56,9 +56,13 @@ Expected: PASS (nothing behavioural changed yet).
 git add pkg/io/protocol/game/server/prot.go
 git commit --no-gpg-sign -m "feat(server-prot): add 3 outer zone-update opcodes
 
-OpUpdateZonePartialFollows  (7,   -2)
-OpUpdateZoneFullFollows     (135, -2)
+OpUpdateZonePartialFollows  (7,    2)
+OpUpdateZoneFullFollows     (135,  2)
 OpUpdateZonePartialEnclosed (162, -2)
+
+Sizes verified against the Java client's SERVERPROT_SIZES table. 7 and 135
+are fixed 2-byte (just the zone-relative header); 162 is length-prefixed
+because the payload carries variable-length zone-event bytes.
 
 Prerequisite for the zone-subsystem sender wrappers landing in sub-spec 4b-4."
 ```

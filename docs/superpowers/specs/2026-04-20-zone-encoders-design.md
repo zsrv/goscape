@@ -28,12 +28,12 @@ All encoder functions write directly to a caller-supplied `*packet.Packet`, matc
 
 Add to the existing `var (...)` block:
 ```go
-OpUpdateZonePartialFollows  = Op{Opcode: 7,   PayloadSize: -2}
-OpUpdateZoneFullFollows     = Op{Opcode: 135, PayloadSize: -2}
+OpUpdateZonePartialFollows  = Op{Opcode: 7,   PayloadSize: 2}
+OpUpdateZoneFullFollows     = Op{Opcode: 135, PayloadSize: 2}
 OpUpdateZonePartialEnclosed = Op{Opcode: 162, PayloadSize: -2}
 ```
 
-All three use a 2-byte length prefix (`-2`) because `Enclosed` carries variable-length data; `Full` and `PartialFollows` share the same prefix by protocol convention.
+Sizes verified against the Java client's `SERVERPROT_SIZES` table (`Client-Java/src/main/java/jagex2/io/Protocol.java`): opcodes 7 and 135 are **fixed 2-byte** (header-only — no length prefix on the wire); opcode 162 is `-2` because it carries variable-length data.
 
 ### 2. Nested opcode constants — `pkg/rsbuf/zone_encoders.go`
 
