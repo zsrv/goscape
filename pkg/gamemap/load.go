@@ -1,6 +1,7 @@
 package gamemap
 
 import (
+	"github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/io/packet"
 )
 
@@ -61,17 +62,75 @@ func (gm *GameMap) loadGround(data []byte, mapSquareX, mapSquareZ int) {
 	}
 }
 
-// loadLocs parses a mapsquare's l{X}_{Z} file.
+// loadLocs parses a mapsquare's l{X}_{Z} file into LifecycleRespawn Loc
+// entities accumulated in gm.staticLocs.
 //
-// Sub-spec 2 scope: does not invoke loc collision because LocType config
-// isn't ported yet. The function simply advances through the stream so future
-// sub-specs can hook in. Ground-floor collision from loadGround already covers
-// the bulk of static obstacles (water, map edges, solid terrain).
+// Stream format (from TS GameMap.ts::loadLocations):
+//
+//	locID = -1
+//	loop:
+//	  delta = gsmart(); if delta == 0: end.
+//	  locID += delta
+//	  coord = 0
+//	  loop:
+//	    coordDelta = gsmart(); if coordDelta == 0: next locID.
+//	    coord += coordDelta - 1
+//	    level  = (coord >> 12) & 0x3
+//	    localX = (coord >>  6) & 0x3F
+//	    localZ =  coord         & 0x3F
+//	    info   = g1()
+//	    shape  = info >> 2
+//	    angle  = info & 0x3
+//	    instantiate LifecycleRespawn loc at absolute (mapX*64+localX, mapZ*64+localZ)
+//
+// Footprint is hardcoded to 1x1 until LocType config loading lands. Multi-tile
+// locs (trees, large buildings) render correctly client-side because the client
+// has its own LocType cache; server-side positional queries (pathing, aggro)
+// will be wrong for those until LocType arrives.
+// TODO(loctype): use LocType.Width/Length.
+// TODO(bridged-levels): honour LINK_BELOW for bridge tiles (see TS reference).
 func (gm *GameMap) loadLocs(data []byte, mapSquareX, mapSquareZ int) {
-	// Intentionally unused: sub-spec 2 doesn't have LocType yet.
-	_ = data
-	_ = mapSquareX
-	_ = mapSquareZ
+	p := packet.NewPacket(data)
+	locID := -1
+	for {
+		if p.Len() == 0 {
+			return
+		}
+		delta := int(p.GSmart())
+		if delta == 0 {
+			return
+		}
+		locID += delta
+		coord := 0
+		for {
+			if p.Len() == 0 {
+				return
+			}
+			coordDelta := int(p.GSmart())
+			if coordDelta == 0 {
+				break
+			}
+			coord += coordDelta - 1
+			localZ := coord & 0x3F
+			localX := (coord >> 6) & 0x3F
+			level := (coord >> 12) & 0x3
+
+			if p.Len() == 0 {
+				return
+			}
+			info := p.G1()
+			shape := int(info >> 2)
+			angle := int(info & 0x3)
+
+			absX := mapSquareX*mapSquareSize + localX
+			absZ := mapSquareZ*mapSquareSize + localZ
+
+			loc := entity.NewLoc(level, absX, absZ, 1, 1,
+				entity.LifecycleRespawn,
+				locID, shape, angle)
+			gm.staticLocs = append(gm.staticLocs, loc)
+		}
+	}
 }
 
 // loadNPCs records NPC spawn positions from the n{X}_{Z} file.

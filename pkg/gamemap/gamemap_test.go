@@ -169,3 +169,82 @@ func TestAddStaticLocPublicAPI(t *testing.T) {
 		t.Errorf("StaticLocs after Add: got %v, want [loc]", got)
 	}
 }
+
+func TestLoadLocsParsesKnownFixture(t *testing.T) {
+	// gsmart(101)=0x65; gsmart(200)=0x80 0xC8; info=(5<<2)|2=0x16.
+	// coord packed = 199 = (level=0<<12) | (localX=3<<6) | (localZ=7).
+	fixture := []byte{
+		0x65,       // locID delta 101 -> locID = 100
+		0x80, 0xC8, // coord delta 200 -> coord = 199
+		0x16, // info: shape 5, angle 2
+		0x00, // end inner
+		0x00, // end outer
+	}
+	gm := New(discardLogger())
+	gm.loadLocs(fixture, 50, 51)
+
+	statics := gm.StaticLocs()
+	if len(statics) != 1 {
+		t.Fatalf("StaticLocs: got %d, want 1", len(statics))
+	}
+	loc := statics[0]
+	if loc.Level != 0 {
+		t.Errorf("Level: got %d, want 0", loc.Level)
+	}
+	if loc.X != 50*64+3 {
+		t.Errorf("X: got %d, want %d", loc.X, 50*64+3)
+	}
+	if loc.Z != 51*64+7 {
+		t.Errorf("Z: got %d, want %d", loc.Z, 51*64+7)
+	}
+	if loc.Type() != 100 {
+		t.Errorf("Type: got %d, want 100", loc.Type())
+	}
+	if loc.Shape() != 5 {
+		t.Errorf("Shape: got %d, want 5", loc.Shape())
+	}
+	if loc.Angle() != 2 {
+		t.Errorf("Angle: got %d, want 2", loc.Angle())
+	}
+	if loc.Lifecycle != entity.LifecycleRespawn {
+		t.Errorf("Lifecycle: got %v, want Respawn", loc.Lifecycle)
+	}
+}
+
+func TestLoadLocsMultipleLocIDs(t *testing.T) {
+	fixture := []byte{
+		0x0B, // locID delta 11 -> locID = 10
+		0x01, // coord delta 1 -> coord = 0
+		0x00, // info
+		0x00, // end inner
+		0x0B, // locID delta 11 -> locID = 21
+		0x01, // coord delta 1 -> coord = 0
+		0x00, // info
+		0x00, // end inner
+		0x00, // end outer
+	}
+	gm := New(discardLogger())
+	gm.loadLocs(fixture, 0, 0)
+	if got := len(gm.StaticLocs()); got != 2 {
+		t.Errorf("StaticLocs count: got %d, want 2", got)
+	}
+	if gm.StaticLocs()[0].Type() != 10 {
+		t.Errorf("first loc type: got %d, want 10", gm.StaticLocs()[0].Type())
+	}
+	if gm.StaticLocs()[1].Type() != 21 {
+		t.Errorf("second loc type: got %d, want 21", gm.StaticLocs()[1].Type())
+	}
+}
+
+func TestLoadLocsEmptyFile(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("loadLocs panicked on empty input: %v", r)
+		}
+	}()
+	gm := New(discardLogger())
+	gm.loadLocs([]byte{}, 0, 0)
+	if got := len(gm.StaticLocs()); got != 0 {
+		t.Errorf("empty input should produce 0 locs; got %d", got)
+	}
+}
