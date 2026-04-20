@@ -541,6 +541,9 @@ const expectedRevision = 225
 // TrackZone marks a zone as modified this tick. Idempotent (map semantics).
 // processZones will call ComputeShared on each tracked zone; processCleanup
 // will Reset them and clear the set.
+//
+// Must only be called from the tick goroutine — the zonesTracking map is
+// unguarded.
 func (s *Server) TrackZone(z *zone.Zone) { s.zonesTracking[z] = struct{}{} }
 
 // TODO: move this somewhere else

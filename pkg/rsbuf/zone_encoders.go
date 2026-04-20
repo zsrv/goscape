@@ -160,13 +160,13 @@ func zoneRelHeader(buf *packet.Packet, zoneX, zoneZ, originX, originZ int) {
 }
 
 // EncodeZoneFullFollows writes the 2-byte header for the outer UpdateZoneFullFollows
-// packet (opcode 135, -2). The opcode and length prefix are emitted by writeOut.
+// packet (opcode 135, fixed 2). The opcode is emitted by writeOut.
 func EncodeZoneFullFollows(buf *packet.Packet, zoneX, zoneZ, originX, originZ int) {
 	zoneRelHeader(buf, zoneX, zoneZ, originX, originZ)
 }
 
 // EncodeZonePartialFollows writes the 2-byte header for the outer
-// UpdateZonePartialFollows packet (opcode 7, -2).
+// UpdateZonePartialFollows packet (opcode 7, fixed 2).
 func EncodeZonePartialFollows(buf *packet.Packet, zoneX, zoneZ, originX, originZ int) {
 	zoneRelHeader(buf, zoneX, zoneZ, originX, originZ)
 }
