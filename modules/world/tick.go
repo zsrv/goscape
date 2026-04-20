@@ -7,6 +7,7 @@ import (
 	"github.com/zsrv/goscape/pkg/inventory"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/rsbuf"
+	"github.com/zsrv/goscape/pkg/script"
 )
 
 const tickRate = 600 * time.Millisecond
@@ -104,6 +105,12 @@ func (s *Server) processLogins() {
 		// absolute X = -(sceneBaseTileX * 128) and crashes in getHeightmapY.
 		p.tele = true
 		p.jump = true
+
+		// Fire the LOGIN trigger if the cache has one. Sub-spec RuneScript S3.
+		if s.scriptProvider != nil {
+			sf := s.scriptProvider.GetByTrigger(script.TriggerLogin, -1, -1)
+			s.runScript(sf, p, true, nil, nil)
+		}
 	}
 }
 

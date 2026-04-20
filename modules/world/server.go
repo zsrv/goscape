@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"net"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"sync"
@@ -26,6 +27,7 @@ import (
 	"github.com/zsrv/goscape/pkg/loginpb"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
+	"github.com/zsrv/goscape/pkg/script"
 	util "github.com/zsrv/goscape/pkg/util/jstring"
 	"github.com/zsrv/goscape/pkg/zone"
 )
@@ -75,6 +77,8 @@ type Server struct {
 
 	zoneMap       *zone.ZoneMap
 	zonesTracking map[*zone.Zone]struct{}
+
+	scriptProvider *script.Provider
 }
 
 // appendNewPlayer queues a player for registration on the next tick.
@@ -141,6 +145,12 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 		return nil, fmt.Errorf("load npc types: %w", err)
 	}
 	s.npcTypes = npcTypes
+
+	s.scriptProvider = script.NewProvider()
+	if err := s.scriptProvider.Load(filepath.Join(cfg.CachePath, "server")); err != nil {
+		s.log.Warn("script provider load failed; scripts will not run", "err", err)
+		s.scriptProvider = nil
+	}
 
 	for _, spawn := range s.gamemap.NpcSpawns() {
 		if spawn.TypeID < 0 || spawn.TypeID >= len(npcTypes.Configs) {

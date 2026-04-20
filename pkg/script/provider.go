@@ -131,6 +131,19 @@ func (p *Provider) GetByName(name string) *ScriptFile {
 	return p.byName[name]
 }
 
+// Register adds a pre-built ScriptFile to the provider. Intended for tests
+// that want to exercise the provider without loading a real cache.
+// Duplicate names/keys overwrite; the caller is responsible.
+func (p *Provider) Register(f *ScriptFile) {
+	p.scripts = append(p.scripts, f)
+	if f.Name != "" {
+		p.byName[f.Name] = f
+	}
+	if f.LookupKey != 0xFFFFFFFF {
+		p.byKey[f.LookupKey] = f
+	}
+}
+
 // Count returns the number of successfully loaded scripts.
 func (p *Provider) Count() int {
 	count := 0
