@@ -89,7 +89,7 @@ func writeSpotAnim(buf *packet.Packet, p PlayerSource) {
 func writeAppearance(buf *packet.Packet, p PlayerSource) {
 	app := p.AppearanceBytes()
 	buf.P1(uint8(len(app)))
-	buf.PDataAlt1(app)
+	buf.PData(app)
 }
 
 func writeDamage(buf *packet.Packet, p PlayerSource) {

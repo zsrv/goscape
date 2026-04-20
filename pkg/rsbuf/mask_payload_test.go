@@ -107,7 +107,11 @@ func TestAppearancePayload(t *testing.T) {
 	buf := packet.NewPacket(nil)
 	writeMaskPayloads(buf, p, MaskAppearance, false)
 	got := bytesWritten(buf)
-	want := []byte{3, 129, 130, 131}
+	// rev 225 sends appearance as plain pdata (no +128 scrambling) — client's
+	// PlayerEntity.read uses plain g1/g2 and relies on the empty-slot sentinel
+	// 0x00 being transmitted literally. See the T2 crash reproducer in the
+	// earlier commit message for this file.
+	want := []byte{3, 1, 2, 3}
 	for i := range want {
 		if got[i] != want[i] {
 			t.Errorf("byte[%d]: got %#x, want %#x", i, got[i], want[i])
