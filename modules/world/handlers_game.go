@@ -21,6 +21,8 @@ func init() {
 	gameHandlers[165] = handleMoveMinimapClick // MOVE_MINIMAPCLICK
 
 	gameHandlers[4] = handleClientCheat // CLIENT_CHEAT
+
+	gameHandlers[150] = handleRebuildGetMaps // REBUILD_GETMAPS
 }
 
 func handleNoTimeout(_ *Player, _ []byte) error {

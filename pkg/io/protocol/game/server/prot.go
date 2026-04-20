@@ -43,4 +43,10 @@ var (
 	OpObjCount     = Op{Opcode: 151, PayloadSize: 7}
 	OpObjDel       = Op{Opcode: 49, PayloadSize: 3}
 	OpObjReveal    = Op{Opcode: 50, PayloadSize: 7}
+
+	// Map-data streaming (sub-spec 5b). 991-byte chunk size per DATA_LAND/LOC.
+	OpDataLand     = Op{Opcode: 132, PayloadSize: -2}
+	OpDataLoc      = Op{Opcode: 220, PayloadSize: -2}
+	OpDataLandDone = Op{Opcode: 80, PayloadSize: 2}
+	OpDataLocDone  = Op{Opcode: 20, PayloadSize: 2}
 )
