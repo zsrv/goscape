@@ -25,4 +25,8 @@ var (
 	OpUpdateStat            = Op{Opcode: 44, PayloadSize: 6}
 	OpUpdateRunEnergy       = Op{Opcode: 68, PayloadSize: 1}
 	OpUpdateInvStopTransmit = Op{Opcode: 15, PayloadSize: 2}
+
+	OpUpdateZonePartialFollows  = Op{Opcode: 7,   PayloadSize: -2}
+	OpUpdateZoneFullFollows     = Op{Opcode: 135, PayloadSize: -2}
+	OpUpdateZonePartialEnclosed = Op{Opcode: 162, PayloadSize: -2}
 )
