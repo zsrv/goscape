@@ -113,6 +113,14 @@ func encodeNested(opcode byte, fn func(*packet.Packet)) []byte {
 
 // ---- loc mutations ----
 
+// AddStaticLoc appends a static (LifecycleRespawn) loc to z.Locs WITHOUT
+// queuing a zone event. Statics are delivered to clients via the mapsquare
+// download (sub-spec 5b), not via zone events. Called once per loc during
+// world init.
+func (z *Zone) AddStaticLoc(loc *entity.Loc) {
+	z.Locs = append(z.Locs, loc)
+}
+
 // AddLoc activates a loc and queues a LOC_ADD_CHANGE Enclosed event. For
 // dynamic (Despawn-lifecycle) locs the pointer is appended to z.Locs so
 // the full-follows replay in 4b-4 can iterate active dynamics.

@@ -327,3 +327,39 @@ func TestEventOrderPreserved(t *testing.T) {
 		t.Errorf("first shared opcode: got %d, want LocAnim=%d", shared[0], rsbuf.ZoneOpLocAnim)
 	}
 }
+
+func TestAddStaticLocAppendsToLocs(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	loc := entity.NewLoc(0, 3094, 3106, 1, 1, entity.LifecycleRespawn, 100, 5, 2)
+	z.AddStaticLoc(loc)
+	if len(z.Locs) != 1 || z.Locs[0] != loc {
+		t.Errorf("Locs: got %v, want [loc]", z.Locs)
+	}
+	if len(z.Events()) != 0 {
+		t.Errorf("AddStaticLoc should not queue events; got %d", len(z.Events()))
+	}
+}
+
+func TestAddStaticLocNoEntityEvents(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	loc := entity.NewLoc(0, 0, 0, 1, 1, entity.LifecycleRespawn, 1, 0, 0)
+	z.AddStaticLoc(loc)
+	if len(z.entityEvents) != 0 {
+		t.Errorf("AddStaticLoc should not register entityEvents; got %d entries", len(z.entityEvents))
+	}
+}
+
+func TestResetPreservesStaticLocs(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	loc := entity.NewLoc(0, 0, 0, 1, 1, entity.LifecycleRespawn, 1, 0, 0)
+	z.AddStaticLoc(loc)
+	z.events = []ZoneEvent{{Type: ZoneEventEnclosed, Bytes: []byte{1}}}
+	z.ComputeShared()
+	z.Reset()
+	if len(z.Locs) != 1 {
+		t.Errorf("Locs should survive Reset; got %d", len(z.Locs))
+	}
+	if len(z.Events()) != 0 || z.Shared() != nil {
+		t.Errorf("per-tick state should be cleared; events=%d shared=%v", len(z.Events()), z.Shared())
+	}
+}
