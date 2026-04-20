@@ -3,6 +3,9 @@ package zone
 import (
 	"bytes"
 	"testing"
+
+	"github.com/zsrv/goscape/pkg/entity"
+	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
 func TestNewZoneFields(t *testing.T) {
@@ -83,5 +86,244 @@ func TestResetClearsEverything(t *testing.T) {
 	}
 	if len(z.entityEvents) != 0 {
 		t.Error("entityEvents should be empty after Reset")
+	}
+}
+
+// --- Loc mutations ---
+
+func TestAddLocQueuesEnclosedLocAddChange(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	loc := entity.NewLoc(0, 0, 0, 1, 1, entity.LifecycleDespawn, 100, 5, 2)
+	z.AddLoc(loc)
+
+	if len(z.Events()) != 1 {
+		t.Fatalf("events len: got %d, want 1", len(z.Events()))
+	}
+	e := z.Events()[0]
+	if e.Type != ZoneEventEnclosed {
+		t.Errorf("Type: got %v, want Enclosed", e.Type)
+	}
+	if e.ReceiverID != PublicReceiver {
+		t.Errorf("ReceiverID: got %d, want -1", e.ReceiverID)
+	}
+	if len(e.Bytes) == 0 || e.Bytes[0] != rsbuf.ZoneOpLocAddChange {
+		t.Errorf("Bytes[0]: got %v, want ZoneOpLocAddChange=%d", e.Bytes, rsbuf.ZoneOpLocAddChange)
+	}
+}
+
+func TestAddLocDespawnAppendsToLocs(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	loc := entity.NewLoc(0, 0, 0, 1, 1, entity.LifecycleDespawn, 100, 0, 0)
+	z.AddLoc(loc)
+	if len(z.Locs) != 1 || z.Locs[0] != loc {
+		t.Errorf("Locs: got %v, want [loc]", z.Locs)
+	}
+}
+
+func TestAddLocRespawnDoesNotAppendToLocs(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	loc := entity.NewLoc(0, 0, 0, 1, 1, entity.LifecycleRespawn, 100, 0, 0)
+	z.AddLoc(loc)
+	if len(z.Locs) != 0 {
+		t.Errorf("Locs: got %d entries, want 0 (Respawn lifecycle)", len(z.Locs))
+	}
+	// But event still queued.
+	if len(z.Events()) != 1 {
+		t.Errorf("events: got %d, want 1", len(z.Events()))
+	}
+}
+
+func TestChangeLocEmitsLocAddChange(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	loc := entity.NewLoc(0, 0, 0, 1, 1, entity.LifecycleDespawn, 100, 0, 0)
+	z.ChangeLoc(loc)
+	if z.Events()[0].Bytes[0] != rsbuf.ZoneOpLocAddChange {
+		t.Errorf("opcode: got %d, want %d", z.Events()[0].Bytes[0], rsbuf.ZoneOpLocAddChange)
+	}
+}
+
+func TestRemoveLocEmitsLocDelAndPurges(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	loc := entity.NewLoc(0, 0, 0, 1, 1, entity.LifecycleDespawn, 100, 0, 0)
+	z.AddLoc(loc)    // queues LocAddChange
+	z.RemoveLoc(loc) // tombstones LocAddChange + queues LocDel
+
+	if len(z.Locs) != 0 {
+		t.Errorf("Locs after remove: got %d, want 0", len(z.Locs))
+	}
+	z.ComputeShared()
+	// After tombstoning the add, only the LocDel bytes should be in shared.
+	if len(z.Shared()) == 0 {
+		t.Fatal("Shared should include LocDel bytes")
+	}
+	if z.Shared()[0] != rsbuf.ZoneOpLocDel {
+		t.Errorf("first shared opcode: got %d, want LocDel=%d", z.Shared()[0], rsbuf.ZoneOpLocDel)
+	}
+	// The original AddChange opcode should NOT appear in shared (tombstoned).
+	// (Can't rely on byte equality of 59 in payload; check length).
+	// LocDel payload is 2 bytes (coord + packed) + 1 opcode = 3 bytes.
+	if len(z.Shared()) != 3 {
+		t.Errorf("Shared len: got %d, want 3 (just the LocDel)", len(z.Shared()))
+	}
+}
+
+func TestAnimLocDoesNotTouchLocs(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	loc := entity.NewLoc(0, 0, 0, 1, 1, entity.LifecycleDespawn, 100, 0, 0)
+	z.AnimLoc(loc, 42)
+	if len(z.Locs) != 0 {
+		t.Errorf("AnimLoc should not append to Locs; got %d", len(z.Locs))
+	}
+	if z.Events()[0].Bytes[0] != rsbuf.ZoneOpLocAnim {
+		t.Errorf("opcode: want LocAnim=%d", rsbuf.ZoneOpLocAnim)
+	}
+}
+
+func TestMergeLocEmitsLocMerge(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	loc := entity.NewLoc(0, 5, 5, 2, 2, entity.LifecycleDespawn, 100, 0, 0)
+	z.MergeLoc(loc, 3, 10, 20, 6, 4, 4, 6)
+	if z.Events()[0].Bytes[0] != rsbuf.ZoneOpLocMerge {
+		t.Errorf("opcode: want LocMerge=%d", rsbuf.ZoneOpLocMerge)
+	}
+}
+
+// --- Obj mutations ---
+
+func TestAddObjPublicIsEnclosed(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	obj := entity.NewObj(0, 0, 0, entity.LifecycleDespawn, 995, 10)
+	z.AddObj(obj, PublicReceiver)
+	e := z.Events()[0]
+	if e.Type != ZoneEventEnclosed {
+		t.Errorf("public drop should be Enclosed; got %v", e.Type)
+	}
+	if e.Bytes[0] != rsbuf.ZoneOpObjAdd {
+		t.Errorf("opcode: want ObjAdd=%d", rsbuf.ZoneOpObjAdd)
+	}
+	if len(z.Objs) != 1 {
+		t.Errorf("Objs: got %d, want 1", len(z.Objs))
+	}
+}
+
+func TestAddObjPrivateIsFollows(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	obj := entity.NewObj(0, 0, 0, entity.LifecycleDespawn, 995, 10)
+	z.AddObj(obj, 5)
+	e := z.Events()[0]
+	if e.Type != ZoneEventFollows {
+		t.Errorf("private drop should be Follows; got %v", e.Type)
+	}
+	if e.ReceiverID != 5 {
+		t.Errorf("ReceiverID: got %d, want 5", e.ReceiverID)
+	}
+}
+
+func TestChangeObjEmitsFollowsObjCount(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	obj := entity.NewObj(0, 0, 0, entity.LifecycleDespawn, 995, 10)
+	obj.ReceiverID = 7
+	z.ChangeObj(obj, 10, 25, 100)
+	e := z.Events()[0]
+	if e.Type != ZoneEventFollows {
+		t.Errorf("ChangeObj should be Follows; got %v", e.Type)
+	}
+	if e.Bytes[0] != rsbuf.ZoneOpObjCount {
+		t.Errorf("opcode: want ObjCount=%d", rsbuf.ZoneOpObjCount)
+	}
+	if obj.Count != 25 {
+		t.Errorf("Count after ChangeObj: got %d, want 25", obj.Count)
+	}
+	if obj.LastChange != 100 {
+		t.Errorf("LastChange: got %d, want 100", obj.LastChange)
+	}
+}
+
+func TestRemoveObjPurgesPendingAdd(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	obj := entity.NewObj(0, 0, 0, entity.LifecycleDespawn, 995, 10)
+	z.AddObj(obj, PublicReceiver)
+	z.RemoveObj(obj, 100)
+
+	if len(z.Objs) != 0 {
+		t.Errorf("Objs after remove: got %d, want 0", len(z.Objs))
+	}
+	z.ComputeShared()
+	// The add was tombstoned; only the del remains.
+	if len(z.Shared()) == 0 {
+		t.Fatal("Shared should include ObjDel bytes")
+	}
+	if z.Shared()[0] != rsbuf.ZoneOpObjDel {
+		t.Errorf("first shared opcode: got %d, want ObjDel=%d", z.Shared()[0], rsbuf.ZoneOpObjDel)
+	}
+}
+
+func TestRemoveObjSkipsEventIfLifecycleTransitionedThisTick(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	obj := entity.NewObj(0, 0, 0, entity.LifecycleDespawn, 995, 10)
+	obj.LastLifecycleTick = 100
+	z.RemoveObj(obj, 100) // lastLifecycleTick == currentTick → skip queuing
+	if len(z.Events()) != 0 {
+		t.Errorf("events: got %d, want 0 (skip because lifecycle transition this tick)", len(z.Events()))
+	}
+}
+
+func TestRevealObjEmitsEnclosedObjReveal(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	obj := entity.NewObj(0, 0, 0, entity.LifecycleDespawn, 995, 10)
+	obj.ReceiverID = 5
+	obj.Reveal = 50
+	z.RevealObj(obj, 5)
+
+	e := z.Events()[0]
+	if e.Type != ZoneEventEnclosed {
+		t.Errorf("RevealObj should be Enclosed; got %v", e.Type)
+	}
+	if e.Bytes[0] != rsbuf.ZoneOpObjReveal {
+		t.Errorf("opcode: want ObjReveal=%d", rsbuf.ZoneOpObjReveal)
+	}
+	if obj.ReceiverID != PublicReceiver {
+		t.Errorf("ReceiverID after reveal: got %d, want -1", obj.ReceiverID)
+	}
+	if obj.Reveal != -1 {
+		t.Errorf("Reveal after reveal: got %d, want -1", obj.Reveal)
+	}
+}
+
+// --- Non-entity events ---
+
+func TestAnimMapEnclosed(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	z.AnimMap(3, 4, 200, 5, 50)
+	e := z.Events()[0]
+	if e.Type != ZoneEventEnclosed {
+		t.Errorf("AnimMap should be Enclosed")
+	}
+	if e.Bytes[0] != rsbuf.ZoneOpMapAnim {
+		t.Errorf("opcode: want MapAnim=%d", rsbuf.ZoneOpMapAnim)
+	}
+}
+
+func TestMapProjAnimEnclosed(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	z.MapProjAnim(3, 4, 5, 7, 0, 100, 10, 0, 0, 50, 40, 30)
+	e := z.Events()[0]
+	if e.Type != ZoneEventEnclosed {
+		t.Errorf("MapProjAnim should be Enclosed")
+	}
+	if e.Bytes[0] != rsbuf.ZoneOpMapProjAnim {
+		t.Errorf("opcode: want MapProjAnim=%d", rsbuf.ZoneOpMapProjAnim)
+	}
+}
+
+func TestEventOrderPreserved(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	loc := entity.NewLoc(0, 0, 0, 1, 1, entity.LifecycleDespawn, 100, 0, 0)
+	z.AnimLoc(loc, 1) // event 0: LocAnim
+	z.AddLoc(loc)     // event 1: LocAddChange
+	z.ComputeShared()
+	shared := z.Shared()
+	if len(shared) == 0 || shared[0] != rsbuf.ZoneOpLocAnim {
+		t.Errorf("first shared opcode: got %d, want LocAnim=%d", shared[0], rsbuf.ZoneOpLocAnim)
 	}
 }
