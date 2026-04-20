@@ -313,6 +313,8 @@ func newPlayer(c *client) *Player {
 		p.lastStats[i] = -1
 		p.lastLevels[i] = 255
 	}
+	// Initialize AFK zones at player spawn position
+	p.afkZones[0] = packAfkCoord(0, p.x-10, p.z-10)
 	return p
 }
 
@@ -381,7 +383,7 @@ func (p *Player) updateStats() {
 		p.lastRunEnergy = p.runenergy
 	}
 }
-func (p *Player) updateAfkZones() {}
+
 
 func (p *Player) processOut() {
 	p.updateMap()
