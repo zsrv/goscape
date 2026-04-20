@@ -343,7 +343,19 @@ func (p *Player) updateInvs() {
 		inv.Update = false
 	}
 }
-func (p *Player) updateStats()    {}
+func (p *Player) updateStats() {
+	for i := 0; i < 21; i++ {
+		if p.stats[i] != p.lastStats[i] || p.levels[i] != p.lastLevels[i] {
+			sendUpdateStat(p, i, int(p.stats[i]), int(p.levels[i]))
+			p.lastStats[i] = p.stats[i]
+			p.lastLevels[i] = p.levels[i]
+		}
+	}
+	if p.runenergy/100 != p.lastRunEnergy/100 {
+		sendUpdateRunEnergy(p, p.runenergy)
+		p.lastRunEnergy = p.runenergy
+	}
+}
 func (p *Player) updateAfkZones() {}
 
 func (p *Player) processOut() {
