@@ -1,0 +1,148 @@
+package script
+
+import "fmt"
+
+const (
+	// StackCapacity is the maximum depth of the int and string stacks.
+	// Exceeding it is a compiler bug and panics.
+	StackCapacity = 1024
+
+	// OpCountLimit is the maximum number of opcodes that may execute in a
+	// single Execute call. Prevents infinite loops from hanging the server.
+	OpCountLimit = 500_000
+
+	// FrameCapacity is the maximum GOSUB nesting depth.
+	FrameCapacity = 50
+)
+
+// Frame holds a suspended call frame for GOSUB / RETURN.
+type Frame struct {
+	Script       *ScriptFile
+	PC           int
+	IntLocals    []int
+	StringLocals []string
+}
+
+// ScriptState is the mutable execution context for one running script.
+type ScriptState struct {
+	Script   *ScriptFile
+	Provider *Provider // for GOSUB target lookup by LookupKey
+
+	PC      int
+	OpCount int
+
+	Execution Execution
+
+	IntStack    []int
+	StringStack []string
+	ISP         int // int stack pointer: next free slot
+	SSP         int // string stack pointer: next free slot
+
+	IntLocals    []int
+	StringLocals []string
+
+	Frames  []Frame
+	FrameSP int // frame stack pointer: next free slot
+
+	Pointers Pointer
+	Self     ActivePlayer
+	Target   ActivePlayer
+
+	Protect bool
+}
+
+// PushInt pushes v onto the int stack.
+// Panics if the stack is full (programming error / compiler bug).
+func (s *ScriptState) PushInt(v int) {
+	if s.ISP >= StackCapacity {
+		panic(fmt.Sprintf("script: int stack overflow at pc=%d in %q", s.PC, s.Script.Name))
+	}
+	s.IntStack[s.ISP] = v
+	s.ISP++
+}
+
+// PopInt pops and returns the top of the int stack.
+// Returns 0 on underflow (matches TS toInt32(null) === 0 behaviour).
+func (s *ScriptState) PopInt() int {
+	if s.ISP <= 0 {
+		return 0
+	}
+	s.ISP--
+	return s.IntStack[s.ISP]
+}
+
+// PushString pushes v onto the string stack.
+// Panics if the stack is full.
+func (s *ScriptState) PushString(v string) {
+	if s.SSP >= StackCapacity {
+		panic(fmt.Sprintf("script: string stack overflow at pc=%d in %q", s.PC, s.Script.Name))
+	}
+	s.StringStack[s.SSP] = v
+	s.SSP++
+}
+
+// PopString pops and returns the top of the string stack.
+// Returns "" on underflow (matches TS popString returning '' on null).
+func (s *ScriptState) PopString() string {
+	if s.SSP <= 0 {
+		return ""
+	}
+	s.SSP--
+	return s.StringStack[s.SSP]
+}
+
+// GosubCall saves the current frame onto the frame stack and sets up execution
+// of target. intArgs and stringArgs are pre-popped by the caller in reverse
+// order so that intArgs[0] is the first argument.
+//
+// The new frame's PC is set to -1 so that the runner's post-handler PC++
+// lands at 0 (the first instruction of the callee). This mirrors TS
+// ScriptState.setupNewScript setting pc = -1 before the loop's ++pc.
+func (s *ScriptState) GosubCall(target *ScriptFile, intArgs []int, stringArgs []string) {
+	if s.FrameSP >= FrameCapacity {
+		panic(fmt.Sprintf("script: frame stack overflow in %q", s.Script.Name))
+	}
+
+	// Save current frame.
+	s.Frames[s.FrameSP] = Frame{
+		Script:       s.Script,
+		PC:           s.PC,
+		IntLocals:    s.IntLocals,
+		StringLocals: s.StringLocals,
+	}
+	s.FrameSP++
+
+	// Allocate new locals for the callee.
+	intLocals := make([]int, max(int(target.IntLocalCount), len(intArgs)))
+	for i, v := range intArgs {
+		intLocals[i] = v
+	}
+
+	stringLocals := make([]string, max(int(target.StringLocalCount), len(stringArgs)))
+	for i, v := range stringArgs {
+		stringLocals[i] = v
+	}
+
+	// Switch to callee context. PC = -1 so runner's PC++ lands at 0.
+	s.Script = target
+	s.PC = -1
+	s.IntLocals = intLocals
+	s.StringLocals = stringLocals
+}
+
+// Return pops the most recent call frame and restores execution context.
+// If the frame stack is empty, sets Execution = Finished.
+func (s *ScriptState) Return() error {
+	if s.FrameSP == 0 {
+		s.Execution = Finished
+		return nil
+	}
+
+	s.FrameSP--
+	frame := s.Frames[s.FrameSP]
+	s.Script = frame.Script
+	s.PC = frame.PC
+	s.IntLocals = frame.IntLocals
+	s.StringLocals = frame.StringLocals
+	return nil
+}
