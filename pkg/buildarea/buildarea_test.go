@@ -1,6 +1,10 @@
 package buildarea
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/zsrv/goscape/pkg/coordgrid"
+)
 
 func TestNewNeedsFirstRebuild(t *testing.T) {
 	ba := New()
@@ -106,5 +110,19 @@ func TestNpcsSetAddRemove(t *testing.T) {
 	delete(ba.Npcs, 7)
 	if _, ok := ba.Npcs[7]; ok {
 		t.Error("remove should succeed")
+	}
+}
+
+func TestRebuildPopulatesActiveZones(t *testing.T) {
+	ba := New()
+	_ = ba.Rebuild(3094, 3106, 100)
+	// 13×13 window (for dx := -6; dx <= 6).
+	if got := len(ba.ActiveZones); got != 169 {
+		t.Errorf("ActiveZones: got %d, want 169 (13x13)", got)
+	}
+	// Zone containing (3094, 3106) itself should be present.
+	idx := coordgrid.ZoneIndex(3094, 3106, 0)
+	if !ba.ActiveZones[idx] {
+		t.Errorf("ActiveZones missing origin zone index %d", idx)
 	}
 }

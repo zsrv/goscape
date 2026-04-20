@@ -1,6 +1,10 @@
 package buildarea
 
-import "sort"
+import (
+	"sort"
+
+	"github.com/zsrv/goscape/pkg/coordgrid"
+)
 
 // BuildArea tracks a player's 13x13 mapsquare window centred on the last
 // anchor point (OriginX, OriginZ). Mirrors the TS BuildArea from
@@ -86,6 +90,7 @@ func (ba *BuildArea) Rebuild(playerX, playerZ, currentTick int) []uint16 {
 				continue
 			}
 			ba.Mapsquares[uint16((mapX<<8)|mapZ)] = true
+			ba.ActiveZones[coordgrid.ZoneIndex(zx<<3, zz<<3, 0)] = true // NEW
 		}
 	}
 
