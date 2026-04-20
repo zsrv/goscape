@@ -60,9 +60,12 @@ func (p *Player) SetFaceEntity(entityIndex int) {
 
 // ResetMasks clears mask bits and ephemeral mask state for the next tick.
 // Persistent fields (animID, faceEntity, faceSquareX/Z) retained so new
-// observers still see them.
+// observers still see them. Also clears one-shot movement intents (tele,
+// jump) so a single-tick teleport emission doesn't repeat next tick.
 func (p *Player) ResetMasks() {
 	p.masks = 0
+	p.tele = false
+	p.jump = false
 	p.sayText = nil
 	p.chatBytes = nil
 	p.damageAmt = -1

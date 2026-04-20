@@ -96,6 +96,13 @@ func (s *Server) processLogins() {
 			}
 		}
 		p.masks |= MaskAppearance
+
+		// First-tick PlayerInfo must emit a teleport block so the client can
+		// set localPlayer to a real scene-local position. Without this the
+		// client's RebuildNormal adjustment drops localPlayer to negative
+		// absolute X = -(sceneBaseTileX * 128) and crashes in getHeightmapY.
+		p.tele = true
+		p.jump = true
 	}
 }
 
