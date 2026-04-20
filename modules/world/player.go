@@ -335,11 +335,36 @@ func (p *Player) updateMap() {
 }
 func (p *Player) updateZones()    {}
 func (p *Player) updateInvs() {
-	for invId, inv := range p.invs {
-		if !inv.Update {
+	if p.client == nil || p.client.server == nil {
+		return
+	}
+	// Collect all observed invs so we can clear Update after all listeners fire.
+	observed := make([]*inventory.Inventory, 0, len(p.invListeners))
+	for i := range p.invListeners {
+		l := &p.invListeners[i]
+
+		var inv *inventory.Inventory
+		if l.Source == -1 {
+			inv = p.client.server.invs[l.Type]
+		} else {
+			other := p.client.server.players[l.Source]
+			if other == nil {
+				continue
+			}
+			inv = other.invs[l.Type]
+		}
+		if inv == nil {
 			continue
 		}
-		sendUpdateInvFull(p, invId, inv)
+
+		if inv.Update || l.FirstSeen {
+			sendUpdateInvFullCom(p, l.Com, inv)
+			l.FirstSeen = false
+		}
+		observed = append(observed, inv)
+	}
+	// Clear inv.Update AFTER all listeners (multiple listeners can share an inv).
+	for _, inv := range observed {
 		inv.Update = false
 	}
 }

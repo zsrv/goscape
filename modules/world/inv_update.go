@@ -6,17 +6,14 @@ import (
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 )
 
-// sendUpdateInvFull writes an UpdateInvFull packet for a single inventory.
-// Mirrors TS UpdateInvFullEncoder: p2(component), p1(size), per slot either
-// p2(id+1)+p1(count) (small counts fit in 1 byte; larger use p1(255)+p4(count))
-// or p2(0)+p1(0) for empty slots.
+// sendUpdateInvFullCom writes an UpdateInvFull packet for a single inventory
+// routed to the given UI component. Matches TS UpdateInvFullEncoder:
 //
-// Sub-spec 3a uses invId as the component placeholder; sub-spec 3b+ consults
-// p.invListeners to route updates to each subscriber's component id.
-func sendUpdateInvFull(p *Player, invId int, inv *inventory.Inventory) {
+//	p2(com) p1(size)
+//	per slot: p2(id+1) p1(count) OR p1(255)+p4(count) for count >= 255,
+//	          or p2(0)+p1(0) for empty slots.
+func sendUpdateInvFullCom(p *Player, com int, inv *inventory.Inventory) {
 	buf := packet.NewPacket(nil)
-
-	com := invId
 
 	buf.P2(uint16(com))
 	size := inv.Capacity
@@ -24,7 +21,7 @@ func sendUpdateInvFull(p *Player, invId int, inv *inventory.Inventory) {
 		size = 0xff
 	}
 	buf.P1(uint8(size))
-	for slot := 0; slot < size; slot++ {
+	for slot := range size {
 		item := inv.Get(slot)
 		if item == nil {
 			buf.P2(0)
