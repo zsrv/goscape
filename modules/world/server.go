@@ -158,7 +158,19 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 		s.grid.AddNpc(n.nid, n.x, n.z, n.level)
 	}
 
+	s.populateStaticLocsIntoZones()
+
 	return s, nil
+}
+
+// populateStaticLocsIntoZones pushes each parsed static loc from the gamemap
+// into its owning Zone via Zone.AddStaticLoc. Called once at server startup,
+// adjacent to the NPC-spawn pass.
+func (s *Server) populateStaticLocsIntoZones() {
+	for _, loc := range s.gamemap.StaticLocs() {
+		z := s.zoneMap.Get(loc.Level, loc.X, loc.Z)
+		z.AddStaticLoc(loc)
+	}
 }
 
 func (s *Server) Run() error {
