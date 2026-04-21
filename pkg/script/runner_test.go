@@ -143,6 +143,9 @@ type mockPlayer struct {
 	lastIfSetTabActive  int // just tab
 
 	lastSetResumeButtons [5]int
+
+	lastComValue         int
+	sendCountDialogCalls int
 }
 
 type mockEnqueue struct {
@@ -293,3 +296,6 @@ func (m *mockPlayer) IfSetTabActive(tab int) { m.lastIfSetTabActive = tab }
 func (m *mockPlayer) SetResumeButtons(b1, b2, b3, b4, b5 int) {
 	m.lastSetResumeButtons = [5]int{b1, b2, b3, b4, b5}
 }
+
+func (m *mockPlayer) LastCom() int     { return m.lastComValue }
+func (m *mockPlayer) SendCountDialog() { m.sendCountDialogCalls++ }

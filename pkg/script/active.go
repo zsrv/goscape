@@ -188,6 +188,17 @@ type ActivePlayer interface {
 	// SetResumeButtons stores the 5 resume-button interface ids for
 	// later consumption by P_PAUSEBUTTON. No wire op is emitted.
 	SetResumeButtons(b1, b2, b3, b4, b5 int)
+
+	// S5g: dialog suspension.
+
+	// LastCom returns the component id most recently clicked on the client.
+	// Used by LAST_COM opcode and pause-button resume gating.
+	LastCom() int
+
+	// SendCountDialog writes a P_COUNTDIALOG wire packet to the active
+	// player's client, prompting an "enter a number" dialog. Called by
+	// the P_COUNTDIALOG script opcode before suspension.
+	SendCountDialog()
 }
 
 // Stubs for later sub-specs; defined now to avoid interface churn in S6.
