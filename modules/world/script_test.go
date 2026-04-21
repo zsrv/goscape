@@ -3,6 +3,7 @@ package world
 import (
 	"testing"
 
+	"github.com/zsrv/goscape/pkg/inventory"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
@@ -582,5 +583,71 @@ func TestOcNameViaScript(t *testing.T) {
 	}
 	if got := state.PopString(); got != "Coins" {
 		t.Errorf("OC_NAME(995): got %q, want %q", got, "Coins")
+	}
+}
+
+// TestInvAddGrantsItemsViaScript is the S5e end-to-end pipeline test:
+// handler -> InvLookup -> *Player downcast -> inventory.Add. It runs a
+// 4-instruction inv_add(main_inv, 995, 42) script against a freshly
+// allocated main inventory and asserts GetItemCount(995) == 42.
+func TestInvAddGrantsItemsViaScript(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+
+	// Seed a synthetic InvType at id 0 ("inv") with StackAll=true so a
+	// count of 42 collapses into a single slot regardless of ObjType
+	// stackability (INV_ADD consults inv.StackType only). Size matches
+	// the real main_inv capacity.
+	mainID := 0
+	s.invTypes = &objtype.InvTypeConfigs{
+		ConfigNames: map[string]int{"inv": mainID},
+		Configs:     make([]*objtype.InvType, 1),
+		Inv:         mainID,
+		Worn:        -1,
+	}
+	s.invTypes.Configs[mainID] = &objtype.InvType{
+		ConfigType: objtype.ConfigType{ID: mainID, DebugName: "inv"},
+		Scope:      objtype.InvTypeScopeTemp,
+		Size:       28,
+		StackAll:   true,
+	}
+	s.invLookup = invLookupView{s: s}
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	invType := s.invTypes.Configs[mainID]
+	if invType == nil {
+		t.Fatalf("InvType %d not loaded", mainID)
+	}
+	if p.invs == nil {
+		p.invs = make(map[int]*inventory.Inventory)
+	}
+	p.invs[mainID] = inventory.FromType(invType)
+
+	// Script: push mainID, push 995 (coins), push 42, inv_add, return.
+	sf := &script.ScriptFile{
+		Name: "[invadd,test]",
+		Opcodes: []script.Opcode{
+			script.OpPushConstantInt,
+			script.OpPushConstantInt,
+			script.OpPushConstantInt,
+			script.OpInvAdd,
+			script.OpReturn,
+		},
+		IntOperands:      []int32{int32(mainID), 995, 42, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+
+	s.runScript(sf, p, true, nil, nil)
+
+	inv := p.invs[mainID]
+	if inv == nil {
+		t.Fatal("main inv not present after runScript")
+	}
+	if got := inv.GetItemCount(995); got != 42 {
+		t.Errorf("inv.GetItemCount(995): got %d, want 42", got)
 	}
 }
