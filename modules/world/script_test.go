@@ -923,6 +923,69 @@ func TestClearTimerStopsFiring(t *testing.T) {
 	}
 }
 
+// TestNpcNameViaScript drives the full NPC_NAME -> MES pipeline against a
+// real *Npc. Builds an NpcType at id 7 named "Hans", binds it as the
+// active NPC on a ScriptState, runs NPC_NAME + MES + RETURN, and asserts
+// "Hans\n" reaches the client wire.
+func TestNpcNameViaScript(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+
+	// Seed an NpcType at id 7 named "Hans".
+	s.npcTypes = &objtype.NPCTypeConfigs{
+		Configs: make([]*objtype.NpcType, 8),
+	}
+	s.npcTypes.Configs[7] = &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 7, DebugName: "hans"},
+		Name:       "Hans",
+	}
+
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	// Build an Npc instance of type 7.
+	npc := NewNpc(0 /* nid */, 7 /* typeId */, 3222, 3222, 0, s.npcTypes.Configs[7])
+
+	// Script: npc_name -> mes -> return.
+	sf := &script.ScriptFile{
+		Name: "[npcname,test]",
+		Opcodes: []script.Opcode{
+			script.OpNpcName,
+			script.OpMes,
+			script.OpReturn,
+		},
+		IntOperands:      []int32{0, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+
+	received := drainConn(t, cc)
+
+	// Inline runScript steps so we can set ActiveNpc.
+	state := script.Init(sf, p, false, nil, nil)
+	state.Provider = s.scriptProvider
+	state.World = s.worldVars
+	state.Configs = s.configsView
+	state.Inv = s.invLookup
+	state.ActiveNpc = npc
+	if err := script.Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	p.client.flushWrite()
+	got := <-received
+
+	// Wire = opcode(1) + len(1) + PJStrLF("Hans") = 7 bytes.
+	if len(got) != 7 {
+		t.Fatalf("wire: got %d bytes, want 7", len(got))
+	}
+	if string(got[2:6]) != "Hans" || got[6] != 0x0a {
+		t.Errorf("payload: got %q, want 'Hans\\n'", got[2:])
+	}
+}
+
 // TestNormalQueueWaitsForIdle verifies NORMAL-tagged queue entries do
 // NOT fire while the player is delayed — they wait for idle.
 func TestNormalQueueWaitsForIdle(t *testing.T) {

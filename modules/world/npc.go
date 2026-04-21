@@ -24,6 +24,11 @@ type Npc struct {
 	typeId int
 	typ    *objtype.NpcType
 
+	// uid = (typeId << 16) | nid; computed in NewNpc and exposed via NpcUID.
+	uid int
+	// varns is per-NPC vars; nil until first SetNpcVarN write.
+	varns []int32
+
 	// === lifecycle ===
 	lifecycle                  int
 	lifecycleTick              int
@@ -84,6 +89,7 @@ func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
 		nid:             nid,
 		typeId:          typeId,
 		typ:             typ,
+		uid:             (typeId << 16) | nid,
 		lifecycle:       NpcLifecycleRespawn,
 		respawnRate:     int(typ.RespawnRate),
 		startX:          x,
