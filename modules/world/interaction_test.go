@@ -447,3 +447,79 @@ type fakeEntity struct{ x, z, level int }
 
 func (f fakeEntity) Slot() int                 { return -1 }
 func (f fakeEntity) Coords() (x, z, level int) { return f.x, f.z, f.level }
+
+// TestEffectiveApRangeNpcUsesTypeAttackrange verifies that when the
+// player's target is an *Npc, effectiveApRange returns the NPC's
+// per-type AttackRange — NOT the Player's mutable apRange field.
+func TestEffectiveApRangeNpcUsesTypeAttackrange(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.apRange = 10 // Player-side mutable default — should be IGNORED for NPC
+
+	npcType := &objtype.NpcType{
+		ConfigType:  objtype.ConfigType{ID: 7, DebugName: "rat"},
+		AttackRange: 5,
+	}
+	npc := NewNpc(0, 7, 100, 100, 0, npcType)
+	p.target = npc
+
+	if got := effectiveApRange(p); got != 5 {
+		t.Errorf("effectiveApRange: got %d, want 5 (npc.typ.AttackRange)", got)
+	}
+}
+
+// TestEffectiveApRangeLocUsesPlayerApRange verifies that for non-NPC
+// targets (e.g. *Loc), effectiveApRange falls back to p.apRange.
+func TestEffectiveApRangeLocUsesPlayerApRange(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.apRange = 7 // custom, simulating a p_aprange call
+
+	loc := entitypkg.NewLoc(0, 100, 100, 1, 1, entitypkg.LifecycleForever, 42, 10, 0)
+	p.target = loc
+
+	if got := effectiveApRange(p); got != 7 {
+		t.Errorf("effectiveApRange: got %d, want 7 (p.apRange for Loc target)", got)
+	}
+}
+
+// TestEffectiveApRangeNilNpcTypeReturnsZero verifies the defensive
+// guard: an NPC with a nil typ pointer returns 0.
+func TestEffectiveApRangeNilNpcTypeReturnsZero(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.apRange = 10
+
+	// Construct directly: NewNpc dereferences typ, so pass nil via struct literal.
+	npc := &Npc{nid: 0, typeId: 7, typ: nil}
+	p.target = npc
+
+	if got := effectiveApRange(p); got != 0 {
+		t.Errorf("effectiveApRange: got %d, want 0 (nil typ defensive)", got)
+	}
+}
+
+// TestProcessInteractionNpcUsesAttackrange is an integration test:
+// NPC with AttackRange=5 at dx=6 from the player, with p.apRange=10.
+// Without the swap, processInteraction sees dx=6 <= p.apRange=10 and
+// takes AP branch. With the swap, dx=6 > AttackRange=5 so pathing fires.
+func TestProcessInteractionNpcUsesAttackrange(t *testing.T) {
+	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.x, p.z, p.level = 100, 100, 0
+	p.apRange = 10
+
+	npcType := &objtype.NpcType{
+		ConfigType:  objtype.ConfigType{ID: 7, DebugName: "rat"},
+		AttackRange: 5,
+	}
+	npc := NewNpc(0, 7, 106, 100, 0, npcType) // dx=6
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
+
+	p.processInteraction()
+
+	if p.interacted {
+		t.Error("p.interacted: got true, want false — AP branch should NOT fire (dx=6 > AttackRange=5)")
+	}
+	if !p.repathed {
+		t.Error("p.repathed: got false, want true — pathing branch should fire when out of AP range")
+	}
+}

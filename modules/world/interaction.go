@@ -96,7 +96,7 @@ func (p *Player) processInteraction() {
 		return
 	}
 
-	if inApproachDistance(p.x, p.z, tx, tz, p.apRange) {
+	if inApproachDistance(p.x, p.z, tx, tz, effectiveApRange(p)) {
 		// Approach range — fire AP. Matches TS Player.ts:1139-1170.
 		// DEVIATION S6l-D1: goscape skips TS's apRange=-1 sentinel
 		// optimization; each tick does a fresh provider lookup.
@@ -153,6 +153,33 @@ func inApproachDistance(px, pz, tx, tz, apRange int) bool {
 		return false
 	}
 	return !(dx == 0 && dz == 0)
+}
+
+// effectiveApRange returns the approach-range in tiles the player's
+// current target should be checked against by inApproachDistance.
+// For *Npc targets: the NPC's NpcType.AttackRange (fixed per-type,
+// never mutated). For *Loc and all other targets: p.apRange (the
+// mutable Player field, defaulted to 10 in SetInteraction and
+// settable via p_aprange per S6l).
+//
+// Matches TS Npc.checkApTrigger (Npc.ts:~876) which reads
+// type.attackrange, diverging from Player.tryInteract (Player.ts:~1139)
+// which reads player.apRange.
+//
+// Returns 0 (which inApproachDistance rejects) if the target is an
+// NPC with a nil NpcType — defensive guard; production cache always
+// registers NpcType for any spawned NPC. Edge case: NpcType with
+// AttackRange == 0 (uninitialized) will also yield 0 here, meaning
+// APNPC never fires for that NPC. Intentional — production cache
+// always sets attackrange for NPCs that have AP scripts.
+func effectiveApRange(p *Player) int {
+	if npc, ok := p.target.(*Npc); ok {
+		if npc.typ == nil {
+			return 0
+		}
+		return int(npc.typ.AttackRange)
+	}
+	return p.apRange
 }
 
 // pathToTarget sets a waypoint to (tx, tz) via the existing move-click
