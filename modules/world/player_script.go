@@ -210,8 +210,14 @@ func (p *Player) SetCurLevel(id int, level int) {
 // slot when a cache script is registered. Enqueued as QueueNormal so it
 // runs asynchronously through processPlayerQueue, not inline with the
 // triggering action. Matches TS Player.changeStat (Player.ts:1816-1821)
-// which uses PlayerQueueType.ENGINE — goscape's closest match is
-// QueueNormal (same tick-later semantics, same delayed-player gating).
+// which uses PlayerQueueType.ENGINE.
+//
+// QueueNormal is goscape's closest available approximation: it runs on
+// the next tick (matching ENGINE's async semantic) but is gated by the
+// shared queue's STRONG-override delayed-player check, whereas TS's
+// engineQueue uses canAccess() at fire time. A dedicated QueueEngine
+// variant is a deferred follow-up — fine until a consumer needs the
+// distinction.
 //
 // Silent no-op if no script is registered (GetByTrigger returns nil →
 // EnqueueScriptFile's nil-check short-circuits). Called from AddXP's
