@@ -39,6 +39,11 @@ type ScriptState struct {
 	Provider *Provider // for GOSUB target lookup by LookupKey
 	World    WorldVars // for PUSH_VARS / POP_VARS; nil if the script uses no VARS
 
+	// Configs is the config lookup surface. Callers set this after Init
+	// if the script uses config-read opcodes (OC_*, NC_*, LC_*, ENUM,
+	// STRUCT_PARAM).
+	Configs Configs
+
 	PC      int
 	OpCount int
 
