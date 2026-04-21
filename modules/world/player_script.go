@@ -62,6 +62,13 @@ func (p *Player) ClearActiveScript() {
 // is incremented in processIn each tick.
 func (p *Player) Playtime() int { return int(p.playtime) }
 
+// S5m: last-input queries. Return the matching Player field.
+func (p *Player) LastItem() int       { return p.lastItem }
+func (p *Player) LastSlot() int       { return p.lastSlot }
+func (p *Player) LastUseItem() int    { return p.lastUseItem }
+func (p *Player) LastUseSlot() int    { return p.lastUseSlot }
+func (p *Player) LastTargetSlot() int { return p.lastTargetSlot }
+
 // Varp implements script.ActivePlayer.Varp.
 func (p *Player) Varp(id int) int32 {
 	if id < 0 || id >= len(p.varps) {

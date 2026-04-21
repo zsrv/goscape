@@ -34,3 +34,55 @@ func handleLastCom(s *ScriptState) error {
 	s.PushInt(s.Self.LastCom())
 	return nil
 }
+
+// handleLastInt pushes ScriptState.LastInt — the int injected by a
+// resume event (RESUME_P_COUNTDIALOG passes the count via this field).
+func handleLastInt(s *ScriptState) error {
+	s.PushInt(s.LastInt)
+	return nil
+}
+
+// handleLastItem / Slot / UseItem / UseSlot / TargetSlot push fields
+// captured from recent OPHELD / OPUSE / INV_BUTTOND client packets.
+// TS gates these behind a trigger-type whitelist; S5m skips the gate
+// and always returns the stored value.
+
+func handleLastItem(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("LAST_ITEM: no active player")
+	}
+	s.PushInt(s.Self.LastItem())
+	return nil
+}
+
+func handleLastSlot(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("LAST_SLOT: no active player")
+	}
+	s.PushInt(s.Self.LastSlot())
+	return nil
+}
+
+func handleLastUseItem(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("LAST_USEITEM: no active player")
+	}
+	s.PushInt(s.Self.LastUseItem())
+	return nil
+}
+
+func handleLastUseSlot(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("LAST_USESLOT: no active player")
+	}
+	s.PushInt(s.Self.LastUseSlot())
+	return nil
+}
+
+func handleLastTargetSlot(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("LAST_TARGETSLOT: no active player")
+	}
+	s.PushInt(s.Self.LastTargetSlot())
+	return nil
+}

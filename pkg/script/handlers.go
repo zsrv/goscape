@@ -87,6 +87,14 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpPlayerCount: handlePlayerCount,
 	OpMoveCoord:   handleMoveCoord,
 
+	// S5m: last-input queries.
+	OpLastInt:        handleLastInt,
+	OpLastItem:       handleLastItem,
+	OpLastSlot:       handleLastSlot,
+	OpLastUseItem:    handleLastUseItem,
+	OpLastUseSlot:    handleLastUseSlot,
+	OpLastTargetSlot: handleLastTargetSlot,
+
 	// S5a: string ops.
 	OpAppend:              handleAppend,
 	OpAppendNum:           handleAppendNum,

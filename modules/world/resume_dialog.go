@@ -33,8 +33,9 @@ func (s *Server) handleResumePauseButton(p *Player, buf *packet.Packet) error {
 }
 
 // handleResumeCountDialog handles client opcode 237 (RESUME_P_COUNTDIALOG).
-// Body: i32 count (signed). The count is pushed onto the active script's
-// int stack so the next opcode can pop it, then execution resumes.
+// Body: i32 count (signed). The count is stored as state.LastInt so the
+// next LAST_INT opcode can read it, then execution resumes (S5m: matches
+// TS semantics where RESUME_P_COUNTDIALOG writes state.lastInt).
 func (s *Server) handleResumeCountDialog(p *Player, buf *packet.Packet) error {
 	count := int32(buf.G4())
 
@@ -42,7 +43,7 @@ func (s *Server) handleResumeCountDialog(p *Player, buf *packet.Packet) error {
 		return nil
 	}
 
-	p.activeScript.PushInt(int(count))
+	p.activeScript.LastInt = int(count)
 	p.activeScript.Execution = script.Running
 	s.resumeOrFinish(p.activeScript, p)
 	return nil

@@ -68,6 +68,10 @@ type ScriptState struct {
 	PC      int
 	OpCount int
 
+	// LastInt is the int value injected by a resume event (e.g. the count
+	// from RESUME_P_COUNTDIALOG). Scripts read it via LAST_INT opcode.
+	LastInt int
+
 	Execution Execution
 
 	IntStack    []int

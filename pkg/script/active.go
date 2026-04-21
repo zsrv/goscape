@@ -228,6 +228,17 @@ type ActivePlayer interface {
 	// fires next, or -1 if no such timer exists. May be negative if
 	// overdue but not yet processed.
 	GetTimer(scriptID uint32) int
+
+	// S5m: "last-input" queries. Each pushes the player's stored field
+	// captured during the most recent matching client packet — item
+	// slots from OPHELD/OPUSE/INV_BUTTOND events. Scripts running
+	// outside those triggers can still read these fields; we skip the
+	// TS trigger-whitelist gate for MVP.
+	LastItem() int
+	LastSlot() int
+	LastUseItem() int
+	LastUseSlot() int
+	LastTargetSlot() int
 }
 
 // ActiveNpc is the per-NPC surface that NPC_* opcodes and VARN

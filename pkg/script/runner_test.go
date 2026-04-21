@@ -157,6 +157,13 @@ type mockPlayer struct {
 	lastClearTimer  uint32
 	clearTimerCalls int
 	getTimerValue   int // pre-seed for GetTimer return
+
+	// S5m: last-input captures (pre-seed these for the Last* queries).
+	lastItemValue       int
+	lastSlotValue       int
+	lastUseItemValue    int
+	lastUseSlotValue    int
+	lastTargetSlotValue int
 }
 
 type mockEnqueue struct {
@@ -328,3 +335,10 @@ func (m *mockPlayer) ClearTimer(scriptID uint32) {
 	m.clearTimerCalls++
 }
 func (m *mockPlayer) GetTimer(scriptID uint32) int { return m.getTimerValue }
+
+// S5m: last-input query captures.
+func (m *mockPlayer) LastItem() int       { return m.lastItemValue }
+func (m *mockPlayer) LastSlot() int       { return m.lastSlotValue }
+func (m *mockPlayer) LastUseItem() int    { return m.lastUseItemValue }
+func (m *mockPlayer) LastUseSlot() int    { return m.lastUseSlotValue }
+func (m *mockPlayer) LastTargetSlot() int { return m.lastTargetSlotValue }
