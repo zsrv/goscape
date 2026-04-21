@@ -167,6 +167,9 @@ type mockPlayer struct {
 
 	// Camera control capture.
 	camResetCalls int
+
+	// Staff-mod level (pre-seed for STAFFMODLEVEL query).
+	staffModLevelValue int
 }
 
 type mockEnqueue struct {
@@ -348,3 +351,6 @@ func (m *mockPlayer) LastTargetSlot() int { return m.lastTargetSlotValue }
 
 // CamReset capture for handler tests.
 func (m *mockPlayer) CamReset() { m.camResetCalls++ }
+
+// StaffModLevel returns the seeded staff level for tests.
+func (m *mockPlayer) StaffModLevel() int32 { return int32(m.staffModLevelValue) }

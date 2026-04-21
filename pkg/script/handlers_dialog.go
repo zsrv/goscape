@@ -97,3 +97,14 @@ func handleCamReset(s *ScriptState) error {
 	s.Self.CamReset()
 	return nil
 }
+
+// handleStaffModLevel pushes the active player's staff moderation
+// level (0 for regular players, >0 for mods/admins). Used by update_all
+// and other login procs that branch on mod status.
+func handleStaffModLevel(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("STAFFMODLEVEL: no active player")
+	}
+	s.PushInt(int(s.Self.StaffModLevel()))
+	return nil
+}

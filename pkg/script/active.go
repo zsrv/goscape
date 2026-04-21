@@ -243,6 +243,13 @@ type ActivePlayer interface {
 	// CamReset sends a CAM_RESET wire packet to the client, resetting
 	// any custom camera state. Called by the CAM_RESET script opcode.
 	CamReset()
+
+	// StaffModLevel returns the player's staff moderation level.
+	// 0 for regular players; >0 for mods/admins. Used by STAFFMODLEVEL
+	// opcode to gate mod-only behaviour. Matches the rsbuf.PlayerSource
+	// signature so *Player can satisfy both interfaces without a
+	// duplicate method.
+	StaffModLevel() int32
 }
 
 // ActiveNpc is the per-NPC surface that NPC_* opcodes and VARN

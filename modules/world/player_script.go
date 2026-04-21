@@ -75,6 +75,9 @@ func (p *Player) CamReset() {
 	p.writeOut(gameserver.OpCamReset, nil)
 }
 
+// StaffModLevel is provided by player_source.go (returns int32 per
+// rsbuf.PlayerSource). Re-used here to satisfy script.ActivePlayer.
+
 // Varp implements script.ActivePlayer.Varp.
 func (p *Player) Varp(id int) int32 {
 	if id < 0 || id >= len(p.varps) {
