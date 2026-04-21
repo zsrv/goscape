@@ -116,8 +116,8 @@ func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
 		animDelay:       -1,
 		damageAmt:       -1,
 		damageType:      -1,
-		curHP:           -1,
-		baseHP:          -1,
+		curHP:           initialHP(typ),
+		baseHP:          initialHP(typ),
 		spotanimID:      -1,
 		spotanimHeight:  -1,
 		spotanimDelay:   -1,
@@ -125,6 +125,20 @@ func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
 		faceSquareZ:     -1,
 		changeTypeID:    -1,
 	}
+}
+
+// initialHP returns the max HP stored in an NpcType, defaulting to 0 when
+// typ is nil or Stats doesn't cover the Hitpoints slot. Called from NewNpc
+// (to seed curHP + baseHP) and from *Npc.ResetHP.
+func initialHP(typ *objtype.NpcType) int {
+	if typ == nil || len(typ.Stats) <= objtype.NpcStatHitpoints {
+		return 0
+	}
+	hp := int(typ.Stats[objtype.NpcStatHitpoints])
+	if hp < 0 {
+		return 0
+	}
+	return hp
 }
 
 // Slot returns the NPC's nid for the entity interface.

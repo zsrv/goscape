@@ -51,24 +51,19 @@ func (n *Npc) SetFaceEntity(entityIndex int) {
 // actually dealt — matches TS Npc.applyDamage (Npc.ts:472-485). Negative
 // amount is coerced to 0 defensively so a script bug cannot heal the NPC.
 //
-// baseHP is seeded from NpcType.Stats[3] (the unexported npcStatHitpoints
-// index in pkg/objtype/npctype.go) the first time it's needed this tick —
-// ResetMasks zeroes it to -1 at tick end, so the next Damage call refills
-// it. This is idempotent per tick and leaves room for a future AI sub-spec
-// to mutate baseHP between ticks without getting clobbered.
+// baseHP is seeded at NPC construction (NewNpc) and refilled by ResetHP;
+// Damage no longer touches it. curHP is persistent state (S6d); scripts
+// calling NPC_STAT(0) on later ticks see real decremented HP.
 //
 // This method is a pure output op — no death / auto-retaliate / aggro logic.
 // Scripts that need death handling should check NPC_STAT(0) and fire their
 // own despawn flow. The AI sub-spec will later ship a real combat loop.
-//
-// curHP is ephemeral per-tick state in S6c (ResetMasks clears it); persistent
-// NPC HP storage lands with the AI sub-spec.
 func (n *Npc) Damage(amount, dmgType int) {
 	if amount < 0 {
 		amount = 0
 	}
 	prevHP := n.curHP
-	if amount > prevHP && prevHP >= 0 {
+	if amount > prevHP {
 		n.damageAmt = prevHP
 	} else {
 		n.damageAmt = amount
@@ -78,28 +73,29 @@ func (n *Npc) Damage(amount, dmgType int) {
 	if n.curHP < 0 {
 		n.curHP = 0
 	}
-	if n.baseHP < 0 && n.typ != nil {
-		// Stats[3] is the Hitpoints slot (npcStatHitpoints=3 in
-		// pkg/objtype/npctype.go; unexported, so we use the literal index).
-		if len(n.typ.Stats) > 3 {
-			if hp := int(n.typ.Stats[3]); hp > 0 {
-				n.baseHP = hp
-			}
-		}
-	}
 	n.masks |= rsbuf.NpcMaskDamage
 }
 
-// ResetMasks clears mask bits + ephemeral state. Persistent fields (animID,
-// faceEntity, faceSquareX/Z, changeTypeID) retained.
+// ResetMasks clears mask bits + ephemeral per-tick state. Persistent fields
+// (animID, faceEntity, faceSquareX/Z, changeTypeID, curHP, baseHP) are
+// retained across ticks — S6d promoted curHP/baseHP from ephemeral to
+// persistent. damageAmt / damageType remain per-tick hitsplat payload.
 func (n *Npc) ResetMasks() {
 	n.masks = 0
 	n.sayText = nil
 	n.damageAmt = -1
 	n.damageType = -1
-	n.curHP = -1
-	n.baseHP = -1
 	n.spotanimID = -1
 	n.spotanimHeight = -1
 	n.spotanimDelay = -1
+}
+
+// ResetHP re-seeds curHP + baseHP from the NPC's current NpcType.Stats
+// Hitpoints slot. Called by respawn paths (on NPC death-and-respawn) and by
+// AI sub-spec code that needs to restore max HP on some trigger. Safe on
+// nil typ (leaves both at 0).
+func (n *Npc) ResetHP() {
+	hp := initialHP(n.typ)
+	n.curHP = hp
+	n.baseHP = hp
 }
