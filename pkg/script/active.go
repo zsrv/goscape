@@ -250,6 +250,10 @@ type ActivePlayer interface {
 	// signature so *Player can satisfy both interfaces without a
 	// duplicate method.
 	StaffModLevel() int32
+
+	// UID returns the player's persistent account uid (from the login
+	// RPC). Used by the UID script opcode for mod/account-state checks.
+	UID() int
 }
 
 // ActiveNpc is the per-NPC surface that NPC_* opcodes and VARN

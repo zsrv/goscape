@@ -170,6 +170,7 @@ type mockPlayer struct {
 
 	// Staff-mod level (pre-seed for STAFFMODLEVEL query).
 	staffModLevelValue int
+	uidValue           int
 }
 
 type mockEnqueue struct {
@@ -354,3 +355,4 @@ func (m *mockPlayer) CamReset() { m.camResetCalls++ }
 
 // StaffModLevel returns the seeded staff level for tests.
 func (m *mockPlayer) StaffModLevel() int32 { return int32(m.staffModLevelValue) }
+func (m *mockPlayer) UID() int              { return m.uidValue }

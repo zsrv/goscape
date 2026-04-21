@@ -108,3 +108,14 @@ func handleStaffModLevel(s *ScriptState) error {
 	s.PushInt(int(s.Self.StaffModLevel()))
 	return nil
 }
+
+// handleUID pushes the active player's persistent account uid (from
+// login RPC). Used by update_all and other procs that branch on
+// per-account state. Matches TS: state.pushInt(state.activePlayer.uid).
+func handleUID(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("UID: no active player")
+	}
+	s.PushInt(s.Self.UID())
+	return nil
+}

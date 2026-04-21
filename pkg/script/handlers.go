@@ -104,6 +104,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// Staff / moderator state.
 	OpStaffModLevel: handleStaffModLevel,
 
+	// Account identity — persistent uid from login RPC.
+	OpUID: handleUID,
+
 	// LOC lookup — stub (always "not found"). Real impl ships with S6.
 	OpLocFind: handleLocFind,
 
