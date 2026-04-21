@@ -283,7 +283,8 @@ func fireApTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 		// clears the interaction.
 		p.ClearInteraction()
 	}
-	// Suspended (P_DELAY etc.): keep interaction anchored; resume flow
-	// re-enters on the resume tick.
+	// Reached by: (a) Finished/Aborted + !apRangeCalled (after
+	// ClearInteraction above), or (b) Suspended/P_DELAY/P_PAUSEBUTTON/
+	// P_COUNTDIALOG (anchor intact, resume flow re-enters on resume tick).
 	p.interactionFired = true
 }

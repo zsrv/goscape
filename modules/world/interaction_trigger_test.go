@@ -467,8 +467,9 @@ func scriptFileWithApRangeCall(t *testing.T, trigger script.ServerTriggerType, t
 			script.OpPushConstantInt,
 			script.OpPApRange,
 		},
-		IntOperands:    []int32{int32(newApRange), 0},
-		StringOperands: []string{"", ""},
+		IntOperands:      []int32{int32(newApRange), 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
 	}
 }
 
