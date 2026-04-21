@@ -7,6 +7,7 @@ import (
 	"github.com/zsrv/goscape/pkg/buildarea"
 	"github.com/zsrv/goscape/pkg/inventory"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -103,6 +104,14 @@ func (s *Server) processLogins() {
 				p.invs[s.invTypes.Worn] = worn
 			}
 		}
+		// Seed Hitpoints to 10 (RS2 default starting HP) before any code
+		// reads p.levels[PlayerStatHitpoints]. Matches TS PlayerLoading.ts:49-51.
+		// Full skill initialization (all 21 skills with persisted XP) is a
+		// future sub-spec; S6e covers Hitpoints only because the persistent-HP
+		// design requires it.
+		p.baseLevels[objtype.PlayerStatHitpoints] = 10
+		p.levels[objtype.PlayerStatHitpoints] = 10
+
 		p.masks |= MaskAppearance
 
 		// First-tick PlayerInfo must emit a teleport block so the client can
