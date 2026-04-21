@@ -825,6 +825,104 @@ func TestStrongQueueFiresWhileDelayed(t *testing.T) {
 	}
 }
 
+// TestSetTimerFiresAfterInterval verifies a timer set with interval 5
+// does not fire in ticks 0..4 and fires on tick 5.
+func TestSetTimerFiresAfterInterval(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildGreetScript(0xA1, "t"))
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	s.playerLoop = append(s.playerLoop, p)
+
+	// Register a timer at interval=5, starting at current tick 0.
+	p.SetTimer(0xA1, 5, 0, script.TimerNormal)
+
+	received := drainConn(t, cc)
+
+	// Tick 0..4: no fire.
+	for i := 0; i < 5; i++ {
+		s.processPlayerTimers()
+		s.currentTick++
+	}
+	// Now currentTick = 5, timer fires.
+	s.processPlayerTimers()
+	p.client.flushWrite()
+	got := <-received
+	if len(got) != 4 {
+		t.Fatalf("fire at interval: got %d bytes, want 4", len(got))
+	}
+	if string(got[2:3]) != "t" {
+		t.Errorf("payload: got %q, want 't'", got[2:])
+	}
+}
+
+// TestSoftTimerFiresWhileDelayed verifies SOFT-typed timers fire
+// regardless of p.delayed.
+func TestSoftTimerFiresWhileDelayed(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildGreetScript(0xB2, "s"))
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	s.playerLoop = append(s.playerLoop, p)
+	p.delayed = true
+	p.delayedUntil = s.currentTick + 99
+
+	p.SetTimer(0xB2, 1, 0, script.TimerSoft)
+
+	received := drainConn(t, cc)
+	s.currentTick = 1
+	s.processPlayerTimers()
+	p.client.flushWrite()
+	got := <-received
+	if len(got) != 4 {
+		t.Errorf("Soft timer while delayed: got %d bytes, want 4 (fire)", len(got))
+	}
+}
+
+// TestClearTimerStopsFiring verifies clearing a timer removes it from
+// the registration map so it does not fire.
+func TestClearTimerStopsFiring(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildGreetScript(0xC3, "x"))
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	s.playerLoop = append(s.playerLoop, p)
+
+	p.SetTimer(0xC3, 1, 0, script.TimerNormal)
+	p.ClearTimer(0xC3)
+
+	received := drainConn(t, cc)
+	for i := 0; i < 10; i++ {
+		s.currentTick++
+		s.processPlayerTimers()
+	}
+	p.client.flushWrite()
+
+	select {
+	case got := <-received:
+		if len(got) > 0 {
+			t.Errorf("cleared timer fired: got %d bytes, want 0", len(got))
+		}
+	case <-time.After(50 * time.Millisecond):
+		// expected
+	}
+}
+
 // TestNormalQueueWaitsForIdle verifies NORMAL-tagged queue entries do
 // NOT fire while the player is delayed — they wait for idle.
 func TestNormalQueueWaitsForIdle(t *testing.T) {

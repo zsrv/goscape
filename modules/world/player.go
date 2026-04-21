@@ -33,6 +33,17 @@ const (
 	modalStateSide = 0x4
 )
 
+// playerTimer is a per-player repeating script registration.
+// S5i: identified by target scriptID (TS semantics: setTimer at same
+// id overwrites).
+type playerTimer struct {
+	ScriptID uint32
+	Type     script.PlayerTimerType
+	Interval int
+	Clock    int
+	IntArg   int
+}
+
 // Player is the game-side representation of a connected player.
 // All fields except client and slot are owned exclusively by the tick goroutine.
 type Player struct {
@@ -82,6 +93,10 @@ type Player struct {
 	delayedUntil    int
 	activeScript    *script.ScriptState
 	queue           []playerQueueRequest
+
+	// timers is a per-player repeating-script map keyed by script lookup
+	// key. Allocated lazily on first SetTimer call.
+	timers map[uint32]*playerTimer
 
 	// varps holds the per-player int values for every registered VarPlayerType.
 	// Allocated in processLogins after VarpTypeConfigs is available.

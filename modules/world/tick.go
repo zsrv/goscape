@@ -1,6 +1,7 @@
 package world
 
 import (
+	"sort"
 	"time"
 
 	"github.com/zsrv/goscape/pkg/buildarea"
@@ -32,6 +33,7 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 
 		s.processClientsIn()
 		s.processActiveScripts()
+		s.processPlayerTimers()
 		s.processPathing()
 		s.processInteractions()
 		s.processNpcs()
@@ -224,6 +226,49 @@ func (s *Server) processPlayerQueue(p *Player) {
 		}
 		// Don't advance i: we just removed the current element, so i
 		// now points to what was the next element (or past end).
+	}
+}
+
+// processPlayerTimers fires any ready timers. Soft timers fire even
+// while p.delayed; normal timers wait for idle.
+func (s *Server) processPlayerTimers() {
+	s.playersMu.RLock()
+	players := make([]*Player, len(s.playerLoop))
+	copy(players, s.playerLoop)
+	s.playersMu.RUnlock()
+
+	for _, p := range players {
+		if len(p.timers) == 0 {
+			continue
+		}
+		// Deterministic fire order (maps are unordered).
+		ids := make([]uint32, 0, len(p.timers))
+		for id := range p.timers {
+			ids = append(ids, id)
+		}
+		sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+
+		for _, id := range ids {
+			t, ok := p.timers[id]
+			if !ok {
+				continue
+			}
+			if s.currentTick < t.Clock+t.Interval {
+				continue
+			}
+			if t.Type == script.TimerNormal && p.delayed {
+				continue
+			}
+			t.Clock = s.currentTick
+			if s.scriptProvider == nil {
+				continue
+			}
+			sf := s.scriptProvider.GetByLookupKey(id)
+			if sf == nil {
+				continue
+			}
+			s.runScript(sf, p, false, []int{t.IntArg}, nil)
+		}
 	}
 }
 
