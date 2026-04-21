@@ -59,6 +59,45 @@ func TestJumpClearsFrameStack(t *testing.T) {
 	}
 }
 
+// TestGosubBasic verifies the no-params GOSUB pops a script id and
+// invokes the target with a saved frame. After the target's RETURN,
+// control resumes the caller's next instruction.
+func TestGosubBasic(t *testing.T) {
+	target := &ScriptFile{
+		Name:             "[gosub_target]",
+		LookupKey:        0x4321,
+		Opcodes:          []Opcode{OpPushConstantString, OpMes, OpReturn},
+		IntOperands:      []int32{0, 0, 0},
+		StringOperands:   []string{"sub", "", ""},
+		InstructionCount: 3,
+	}
+	caller := &ScriptFile{
+		Name: "[gosub_caller]",
+		Opcodes: []Opcode{
+			OpPushConstantInt,    // push target id
+			OpGosub,              // GOSUB target
+			OpPushConstantString, // push "main"
+			OpMes,                // emit "main" after return
+			OpReturn,
+		},
+		IntOperands:      []int32{int32(0x4321), 0, 0, 0, 0},
+		StringOperands:   []string{"", "", "main", "", ""},
+		InstructionCount: 5,
+	}
+	prov := NewProvider()
+	prov.Register(target)
+
+	mp := &mockPlayer{}
+	state := Init(caller, mp, false, nil, nil)
+	state.Provider = prov
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(mp.messages) != 2 || mp.messages[0] != "sub" || mp.messages[1] != "main" {
+		t.Errorf("messages: got %v, want [sub main]", mp.messages)
+	}
+}
+
 // TestJumpBasic verifies JUMP works without GOSUB wrapping.
 func TestJumpBasic(t *testing.T) {
 	target := &ScriptFile{

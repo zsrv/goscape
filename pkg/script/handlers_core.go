@@ -5,6 +5,22 @@ import (
 	"fmt"
 )
 
+// handleGosub pops the target script id from the int stack and gosub-
+// calls it with no args. The frame is saved so RETURN can resume the
+// caller. Counterpart to handleJump (tail-call).
+func handleGosub(s *ScriptState) error {
+	if s.Provider == nil {
+		return errors.New("GOSUB: no provider")
+	}
+	scriptID := uint32(s.PopInt())
+	target := s.Provider.GetByLookupKey(scriptID)
+	if target == nil {
+		return fmt.Errorf("GOSUB: unknown script id %d", scriptID)
+	}
+	s.GosubCall(target, nil, nil)
+	return nil
+}
+
 // handleJump pops the target script id from the int stack and tail-
 // calls it with no args. TS CoreOps.ts JUMP.
 func handleJump(s *ScriptState) error {

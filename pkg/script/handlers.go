@@ -75,6 +75,13 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpAtan2Deg:    handleAtan2Deg,
 	OpInterpolate: handleInterpolate,
 
+	// S5k: coord unpack + distance + GOSUB-no-params.
+	OpCoordX:   handleCoordX,
+	OpCoordY:   handleCoordY,
+	OpCoordZ:   handleCoordZ,
+	OpDistance: handleDistance,
+	OpGosub:    handleGosub,
+
 	// S5a: string ops.
 	OpAppend:              handleAppend,
 	OpAppendNum:           handleAppendNum,

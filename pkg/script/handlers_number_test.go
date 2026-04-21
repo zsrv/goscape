@@ -222,3 +222,49 @@ func TestInterpolateDivZeroReturnsY0(t *testing.T) {
 		t.Errorf("INTERPOLATE div-zero: got %d, want 42", got)
 	}
 }
+
+// -- S5k: coord unpack + distance --
+
+func TestCoordX(t *testing.T) {
+	// pack (level=0, x=3222, z=999)
+	c := (0 << 28) | (3222 << 14) | 999
+	got := runSingleOp(t, OpCoordX, []int{c})
+	if got != 3222 {
+		t.Errorf("COORDX: got %d, want 3222", got)
+	}
+}
+
+func TestCoordY(t *testing.T) {
+	// COORDY returns the level (TS calls plane "y").
+	c := (3 << 28) | (3222 << 14) | 999
+	got := runSingleOp(t, OpCoordY, []int{c})
+	if got != 3 {
+		t.Errorf("COORDY: got %d, want 3 (level)", got)
+	}
+}
+
+func TestCoordZ(t *testing.T) {
+	c := (0 << 28) | (3222 << 14) | 999
+	got := runSingleOp(t, OpCoordZ, []int{c})
+	if got != 999 {
+		t.Errorf("COORDZ: got %d, want 999", got)
+	}
+}
+
+func TestDistance(t *testing.T) {
+	// Two coords at same level: (3222, 999) and (3220, 1004) → max(2, 5) = 5.
+	c1 := (0 << 28) | (3222 << 14) | 999
+	c2 := (0 << 28) | (3220 << 14) | 1004
+	got := runSingleOp(t, OpDistance, []int{c1, c2})
+	if got != 5 {
+		t.Errorf("DISTANCE: got %d, want 5", got)
+	}
+}
+
+func TestDistanceSameCoord(t *testing.T) {
+	c := (0 << 28) | (3222 << 14) | 999
+	got := runSingleOp(t, OpDistance, []int{c, c})
+	if got != 0 {
+		t.Errorf("DISTANCE same: got %d, want 0", got)
+	}
+}

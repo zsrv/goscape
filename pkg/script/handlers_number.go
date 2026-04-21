@@ -354,3 +354,55 @@ func handleInterpolate(s *ScriptState) error {
 	s.PushInt(floorDiv((y1-y0)*(x-x0), x1-x0) + y0)
 	return nil
 }
+
+// -- S5k: coord unpack + distance --
+//
+// Coords pack as (level << 28) | (x << 14) | z with 14-bit x/z and 4-bit
+// level. TS calls the level "y" (so COORDY returns the level). All three
+// COORD* handlers pop a packed coord and push one component.
+
+func handleCoordX(s *ScriptState) error {
+	c := s.PopInt()
+	s.PushInt((c >> 14) & 0x3fff)
+	return nil
+}
+
+// handleCoordY pushes the level. TS naming convention: "y" = vertical
+// plane (level 0..3), not the world-space Y axis.
+func handleCoordY(s *ScriptState) error {
+	c := s.PopInt()
+	s.PushInt((c >> 28) & 0x3)
+	return nil
+}
+
+func handleCoordZ(s *ScriptState) error {
+	c := s.PopInt()
+	s.PushInt(c & 0x3fff)
+	return nil
+}
+
+// handleDistance pops two packed coords and pushes the king-move
+// (Chebyshev) distance — max(|dx|, |dz|). Matches TS CoordGrid.distanceToSW.
+// Pop order: popInts(2) = [c1, c2] with c2 on top.
+func handleDistance(s *ScriptState) error {
+	c2 := s.PopInt()
+	c1 := s.PopInt()
+	x1 := (c1 >> 14) & 0x3fff
+	z1 := c1 & 0x3fff
+	x2 := (c2 >> 14) & 0x3fff
+	z2 := c2 & 0x3fff
+	dx := x1 - x2
+	if dx < 0 {
+		dx = -dx
+	}
+	dz := z1 - z2
+	if dz < 0 {
+		dz = -dz
+	}
+	if dx > dz {
+		s.PushInt(dx)
+	} else {
+		s.PushInt(dz)
+	}
+	return nil
+}
