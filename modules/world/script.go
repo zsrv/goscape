@@ -37,11 +37,10 @@ func (s *Server) resumeOrFinish(state *script.ScriptState, self script.ActivePla
 	switch state.Execution {
 	case script.Finished, script.Aborted:
 		self.ClearActiveScript()
-	case script.Suspended:
+	case script.Suspended, script.PauseButton, script.CountDialog:
 		self.StoreActiveScript(state)
 	default:
-		// CountDialog, PauseButton, NpcSuspended, WorldSuspended are
-		// handled by later sub-specs; drop the state for now.
+		// NpcSuspended / WorldSuspended — future sub-specs.
 		s.log.Warn("script in unsupported execution state",
 			"script", state.Script.Name, "execution", state.Execution)
 		self.ClearActiveScript()

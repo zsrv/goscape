@@ -142,6 +142,9 @@ func (s *Server) processLogouts() {
 		}
 
 		if p.loggingOut && (force || s.currentTick >= p.preventLogoutUntil) {
+			// Clear any suspended script so a late RESUME_* packet doesn't
+			// reference a player that's logged out.
+			p.activeScript = nil
 			p.writeOut(gameserver.OpLogout, nil)
 			_ = p.client.flushWrite()
 			_ = p.client.conn.Close()

@@ -1,6 +1,7 @@
 package world
 
 import (
+	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -270,4 +271,12 @@ func (p *Player) OpenMainSide(mainCom, sideCom int) {
 // consumption by P_PAUSEBUTTON. No wire op is emitted.
 func (p *Player) SetResumeButtons(b1, b2, b3, b4, b5 int) {
 	p.resumeButtons = [5]int{b1, b2, b3, b4, b5}
+}
+
+// S5g: dialog suspension.
+
+func (p *Player) LastCom() int { return p.lastCom }
+
+func (p *Player) SendCountDialog() {
+	p.writeOut(gameserver.OpPCountDialog, nil)
 }
