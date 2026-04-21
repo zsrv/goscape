@@ -31,6 +31,7 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		}
 
 		s.processClientsIn()
+		s.processActiveScripts()
 		s.processPathing()
 		s.processInteractions()
 		s.processNpcs()
@@ -154,6 +155,64 @@ func (s *Server) processPathing() {
 
 	for _, p := range players {
 		p.resolveMovement()
+	}
+}
+
+// processActiveScripts expires any elapsed delay, resumes suspended
+// scripts, and fires ready queue entries. Runs between processClientsIn
+// and processPathing so that a resumed or queued script that sets up
+// movement has its movement applied this tick.
+func (s *Server) processActiveScripts() {
+	s.playersMu.RLock()
+	players := make([]*Player, len(s.playerLoop))
+	copy(players, s.playerLoop)
+	s.playersMu.RUnlock()
+
+	for _, p := range players {
+		// (1) Expire delay.
+		if p.delayed && s.currentTick >= p.delayedUntil {
+			p.delayed = false
+		}
+		// (2) Resume suspended activeScript if delay has expired.
+		if !p.delayed && p.activeScript != nil &&
+			p.activeScript.Execution == script.Suspended {
+			state := p.activeScript
+			state.Execution = script.Running
+			s.resumeOrFinish(state, p)
+		}
+		// (3) Process queue (fresh runs).
+		s.processPlayerQueue(p)
+	}
+}
+
+// processPlayerQueue walks the player's queue, decrementing delays and
+// firing ready entries as fresh script runs. Iterates by index so an
+// entry appended mid-pass (via a fired script calling EnqueueScript
+// again) is visible in the same iteration — this preserves TS's
+// authentic "speedup quirk" where queue-chain reactions cascade.
+//
+// Removal happens BEFORE firing so a re-entrant EnqueueScript doesn't
+// collide with the index pointer.
+func (s *Server) processPlayerQueue(p *Player) {
+	i := 0
+	for i < len(p.queue) {
+		req := &p.queue[i]
+		req.Delay--
+		if req.Delay > 0 || p.delayed {
+			i++
+			continue
+		}
+		scriptID := req.ScriptID
+		intArg := req.IntArg
+		p.queue = append(p.queue[:i], p.queue[i+1:]...)
+
+		if s.scriptProvider != nil {
+			if sf := s.scriptProvider.GetByLookupKey(scriptID); sf != nil {
+				s.runScript(sf, p, false, []int{intArg}, nil)
+			}
+		}
+		// Don't advance i: we just removed the current element, so i
+		// now points to what was the next element (or past end).
 	}
 }
 
