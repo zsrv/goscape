@@ -204,3 +204,70 @@ func (p *Player) SetWalkAnimR(seqID int) { p.walkanim_r = seqID }
 
 // SetRunAnim sets the player's run animation.
 func (p *Player) SetRunAnim(seqID int) { p.runanim = seqID }
+
+// S5f: interface / modal control.
+//
+// Modal mutex rules mirror LostCityRS/Engine-TS Player.ts:1928-2022:
+//   - openMainModal  closes CHAT + SIDE.
+//   - openChatModal  closes MAIN + SIDE.
+//   - openSideModal  closes MAIN + CHAT.
+//   - openMainSideModal closes CHAT (keeps main/side by definition).
+//
+// All methods set refreshModal so the next encodeOut() emits the matching
+// IF_OPEN* (and any IF_CLOSE) packets.
+
+// CloseModal clears every modal slot and flags the client to emit
+// IF_CLOSE on the next encodeOut pass.
+func (p *Player) CloseModal() {
+	p.modalMain = -1
+	p.modalChat = -1
+	p.modalSide = -1
+	p.modalState = modalStateNone
+	p.refreshModalClose = true
+}
+
+// OpenMain opens com as the main modal. Per TS, opening main closes any
+// currently-open chat and side modals.
+func (p *Player) OpenMain(com int) {
+	p.modalMain = com
+	p.modalChat = -1
+	p.modalSide = -1
+	p.modalState = modalStateMain
+	p.refreshModal = true
+}
+
+// OpenChat opens com as the chat modal. Per TS, opening chat closes any
+// currently-open main and side modals.
+func (p *Player) OpenChat(com int) {
+	p.modalMain = -1
+	p.modalChat = com
+	p.modalSide = -1
+	p.modalState = modalStateChat
+	p.refreshModal = true
+}
+
+// OpenSide opens com as the side modal. Per TS, opening side closes any
+// currently-open main and chat modals.
+func (p *Player) OpenSide(com int) {
+	p.modalMain = -1
+	p.modalChat = -1
+	p.modalSide = com
+	p.modalState = modalStateSide
+	p.refreshModal = true
+}
+
+// OpenMainSide opens mainCom as the main modal and sideCom as the side
+// modal simultaneously. Per TS, this closes any currently-open chat modal.
+func (p *Player) OpenMainSide(mainCom, sideCom int) {
+	p.modalMain = mainCom
+	p.modalChat = -1
+	p.modalSide = sideCom
+	p.modalState = modalStateMain | modalStateSide
+	p.refreshModal = true
+}
+
+// SetResumeButtons stores the 5 resume-button interface ids for later
+// consumption by P_PAUSEBUTTON. No wire op is emitted.
+func (p *Player) SetResumeButtons(b1, b2, b3, b4, b5 int) {
+	p.resumeButtons = [5]int{b1, b2, b3, b4, b5}
+}

@@ -141,6 +141,10 @@ type Player struct {
 	modalState                                  int
 	refreshModal, refreshModalClose             bool
 
+	// === resume buttons (sub-spec 5f) ===
+	// Stored by IF_SETRESUMEBUTTONS; consumed by P_PAUSEBUTTON (future sub-spec).
+	resumeButtons [5]int
+
 	// === per-tick rate limits (from sub-spec 1) ===
 	userLimit, clientLimit, restrictedLimit int
 
