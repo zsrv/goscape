@@ -189,3 +189,80 @@ func TestEnqueueScriptFileNilIsNoop(t *testing.T) {
 		t.Errorf("queue len after nil enqueue: got %d, want 0", len(p.queue))
 	}
 }
+
+func TestAddXPFiresChangeStatOnLevelUp(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	// Register [changestat,attack=0] — keyed by trigger(165) | (0x2<<8) | (0<<10).
+	key := uint32(script.TriggerChangeStat) | (0x2 << 8) | (uint32(objtype.PlayerStatAttack) << 10)
+	sf := &script.ScriptFile{
+		Name:      "[changestat,attack]",
+		LookupKey: key,
+	}
+	s.scriptProvider.Register(sf)
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.stats[objtype.PlayerStatAttack] = 800
+	p.baseLevels[objtype.PlayerStatAttack] = 2
+	p.levels[objtype.PlayerStatAttack] = 2
+
+	before := len(p.queue)
+	p.AddXP(objtype.PlayerStatAttack, 1000) // → level 3
+
+	if len(p.queue) != before+1 {
+		t.Fatalf("queue len: got %d, want %d (+1 changestat)", len(p.queue), before+1)
+	}
+	req := p.queue[before]
+	if req.Script != sf {
+		t.Errorf("queue[%d].Script: got %v, want [changestat,attack] (%v)", before, req.Script, sf)
+	}
+	if req.Type != script.QueueNormal {
+		t.Errorf("queue[%d].Type: got %v, want QueueNormal (TS ENGINE equivalent)", before, req.Type)
+	}
+}
+
+func TestAddXPDoesNotFireChangeStatWithoutLevelUp(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	key := uint32(script.TriggerChangeStat) | (0x2 << 8) | (uint32(objtype.PlayerStatAttack) << 10)
+	s.scriptProvider.Register(&script.ScriptFile{Name: "[changestat,attack]", LookupKey: key})
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.stats[objtype.PlayerStatAttack] = 100 // below level-2 threshold (830)
+	p.baseLevels[objtype.PlayerStatAttack] = 1
+	p.levels[objtype.PlayerStatAttack] = 1
+
+	before := len(p.queue)
+	p.AddXP(objtype.PlayerStatAttack, 100) // → 200, still level 1 (< 830)
+
+	if len(p.queue) != before {
+		t.Errorf("queue len: got %d, want %d (no level-up = no changestat fire)",
+			len(p.queue), before)
+	}
+}
+
+func TestAddXPChangeStatNoScriptIsNoop(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider() // empty — no changestat script registered
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.stats[objtype.PlayerStatAttack] = 800
+	p.baseLevels[objtype.PlayerStatAttack] = 2
+	p.levels[objtype.PlayerStatAttack] = 2
+
+	before := len(p.queue)
+	p.AddXP(objtype.PlayerStatAttack, 1000) // level up, but no script registered
+
+	if len(p.queue) != before {
+		t.Errorf("queue len: got %d, want %d (no registered script = silent no-op)",
+			len(p.queue), before)
+	}
+	// Verify the level-up math still happened.
+	if p.baseLevels[objtype.PlayerStatAttack] != 3 {
+		t.Errorf("baseLevels: got %d, want 3 (level-up math independent of changeStat)",
+			p.baseLevels[objtype.PlayerStatAttack])
+	}
+}

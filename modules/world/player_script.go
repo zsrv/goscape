@@ -206,6 +206,24 @@ func (p *Player) SetCurLevel(id int, level int) {
 	p.levels[id] = uint8(level)
 }
 
+// changeStat fires the [changestat,<skill>] trigger for the given stat
+// slot when a cache script is registered. Enqueued as QueueNormal so it
+// runs asynchronously through processPlayerQueue, not inline with the
+// triggering action. Matches TS Player.changeStat (Player.ts:1816-1821)
+// which uses PlayerQueueType.ENGINE — goscape's closest match is
+// QueueNormal (same tick-later semantics, same delayed-player gating).
+//
+// Silent no-op if no script is registered (GetByTrigger returns nil →
+// EnqueueScriptFile's nil-check short-circuits). Called from AddXP's
+// level-up branch.
+func (p *Player) changeStat(stat int) {
+	if p.client == nil || p.client.server == nil || p.client.server.scriptProvider == nil {
+		return
+	}
+	sf := p.client.server.scriptProvider.GetByTrigger(script.TriggerChangeStat, stat, -1)
+	p.EnqueueScriptFile(sf, 0, 0, script.QueueNormal)
+}
+
 // AddXP adds xp (scaled ×10) to the player's stored XP for skill id and
 // recomputes baseLevels from the XP curve. Matches TS Player.advanceStat
 // (Player.ts:1752-1772) in three branches:
@@ -249,6 +267,11 @@ func (p *Player) AddXP(id int, xp int) {
 		// Drained + level-up: replenish levels by the level delta.
 		// Matches TS Player.ts:1767-1770.
 		p.levels[id] = uint8(min(int(p.levels[id])+(afterBase-beforeBase), 255))
+	}
+	if afterBase > beforeBase {
+		// Level-up: fire the [changestat,<skill>] trigger if registered.
+		// Matches TS Player.ts:1772.
+		p.changeStat(id)
 	}
 }
 
