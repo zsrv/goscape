@@ -89,6 +89,38 @@ type mockPlayer struct {
 
 	// S5b: per-player varp storage for tests.
 	varps map[int]int32
+
+	// S5c: read-side storage. Tests pre-seed these; the getter methods
+	// return the corresponding slot. 21 is the authentic stat count.
+	levels      [21]int
+	baseLevels  [21]int
+	statXP      [21]int
+	coordPacked int
+
+	// S5c: captured calls from the mutation methods. Tests inspect these
+	// to verify a handler made the expected call.
+	lastTeleJump  struct{ x, z, level int }
+	teleJumpCalls int
+	lastTeleport  struct{ x, z, level int }
+	teleportCalls int
+	lastFaceSquare struct{ x, z int }
+	faceSquareCalls int
+
+	setCurLevelCalls []struct{ id, level int }
+	addXPCalls       []struct{ id, xp int }
+
+	lastPlayAnim     struct{ seqID, delay int }
+	playAnimCalls    int
+	lastPlaySpotAnim struct{ id, height, delay int }
+	playSpotAnimCalls int
+
+	lastReadyAnim  int
+	lastTurnAnim   int
+	lastWalkAnim   int
+	lastWalkAnimB  int
+	lastWalkAnimL  int
+	lastWalkAnimR  int
+	lastRunAnim    int
 }
 
 type mockEnqueue struct {
@@ -122,3 +154,73 @@ func (m *mockPlayer) SetVarp(id int, val int32) {
 	}
 	m.varps[id] = val
 }
+
+// S5c: position / facing / teleport.
+
+func (m *mockPlayer) CoordPacked() int { return m.coordPacked }
+
+func (m *mockPlayer) TeleJump(x, z, level int) {
+	m.lastTeleJump = struct{ x, z, level int }{x, z, level}
+	m.teleJumpCalls++
+}
+
+func (m *mockPlayer) Teleport(x, z, level int) {
+	m.lastTeleport = struct{ x, z, level int }{x, z, level}
+	m.teleportCalls++
+}
+
+func (m *mockPlayer) FaceSquare(x, z int) {
+	m.lastFaceSquare = struct{ x, z int }{x, z}
+	m.faceSquareCalls++
+}
+
+// S5c: stats.
+
+func (m *mockPlayer) Stat(id int) int {
+	if id < 0 || id >= len(m.levels) {
+		return 0
+	}
+	return m.levels[id]
+}
+
+func (m *mockPlayer) StatBase(id int) int {
+	if id < 0 || id >= len(m.baseLevels) {
+		return 0
+	}
+	return m.baseLevels[id]
+}
+
+func (m *mockPlayer) StatXP(id int) int {
+	if id < 0 || id >= len(m.statXP) {
+		return 0
+	}
+	return m.statXP[id]
+}
+
+func (m *mockPlayer) SetCurLevel(id int, level int) {
+	m.setCurLevelCalls = append(m.setCurLevelCalls, struct{ id, level int }{id, level})
+}
+
+func (m *mockPlayer) AddXP(id int, xp int) {
+	m.addXPCalls = append(m.addXPCalls, struct{ id, xp int }{id, xp})
+}
+
+// S5c: animation.
+
+func (m *mockPlayer) PlayAnim(seqID, delay int) {
+	m.lastPlayAnim = struct{ seqID, delay int }{seqID, delay}
+	m.playAnimCalls++
+}
+
+func (m *mockPlayer) PlaySpotAnim(id, height, delay int) {
+	m.lastPlaySpotAnim = struct{ id, height, delay int }{id, height, delay}
+	m.playSpotAnimCalls++
+}
+
+func (m *mockPlayer) SetReadyAnim(seqID int) { m.lastReadyAnim = seqID }
+func (m *mockPlayer) SetTurnAnim(seqID int)  { m.lastTurnAnim = seqID }
+func (m *mockPlayer) SetWalkAnim(seqID int)  { m.lastWalkAnim = seqID }
+func (m *mockPlayer) SetWalkAnimB(seqID int) { m.lastWalkAnimB = seqID }
+func (m *mockPlayer) SetWalkAnimL(seqID int) { m.lastWalkAnimL = seqID }
+func (m *mockPlayer) SetWalkAnimR(seqID int) { m.lastWalkAnimR = seqID }
+func (m *mockPlayer) SetRunAnim(seqID int)   { m.lastRunAnim = seqID }
