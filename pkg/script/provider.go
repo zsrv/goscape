@@ -126,6 +126,32 @@ func (p *Provider) GetByTrigger(trigger ServerTriggerType, typeID, categoryID in
 	return nil
 }
 
+// GetByTriggerSpecific returns the script for a single tier without the
+// 3-level fallback that GetByTrigger does. Caller picks which tier by
+// passing -1 for the others:
+//   - typeID != -1: returns only the type-specific lookup (no fallback)
+//   - else categoryID != -1: returns only the category lookup
+//   - else: returns the global lookup
+//
+// Returns nil if the chosen tier has no registered script. Matches TS
+// ScriptProvider.getByTriggerSpecific (ScriptProvider.ts:147-154).
+//
+// Used by Player.advanceStat to enforce the contract that
+// [advancestat,<skill>] scripts must skill-key — a global [advancestat,_]
+// script would fire on every stat advance regardless of which skill,
+// which is almost certainly a bug not a feature. ChangeStat keeps the
+// 3-tier GetByTrigger fallback because "any stat changed" handlers
+// (combat-level recompute, regen) are meaningful.
+func (p *Provider) GetByTriggerSpecific(trigger ServerTriggerType, typeID, categoryID int) *ScriptFile {
+	if typeID != -1 {
+		return p.byKey[uint32(trigger)|(0x2<<8)|(uint32(typeID)<<10)]
+	}
+	if categoryID != -1 {
+		return p.byKey[uint32(trigger)|(0x1<<8)|(uint32(categoryID)<<10)]
+	}
+	return p.byKey[uint32(trigger)]
+}
+
 // GetByName returns the script with the given identifier, or nil if not found.
 func (p *Provider) GetByName(name string) *ScriptFile {
 	return p.byName[name]

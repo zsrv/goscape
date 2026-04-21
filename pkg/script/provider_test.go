@@ -176,3 +176,71 @@ func TestGetByLookupKey(t *testing.T) {
 		t.Errorf("GetByLookupKey(missing): got %v, want nil", got)
 	}
 }
+
+func TestGetByTriggerSpecificTypeOnly(t *testing.T) {
+	p := NewProvider()
+	typeKey := uint32(TriggerAdvanceStat) | (0x2 << 8) | (uint32(0) << 10) // stat 0 = Attack
+	sf := &ScriptFile{Name: "[advancestat,attack]", LookupKey: typeKey}
+	p.Register(sf)
+
+	got := p.GetByTriggerSpecific(TriggerAdvanceStat, 0, -1)
+	if got != sf {
+		t.Errorf("type-specific lookup: got %v, want %v", got, sf)
+	}
+}
+
+func TestGetByTriggerSpecificCategoryOnly(t *testing.T) {
+	p := NewProvider()
+	catKey := uint32(TriggerChangeStat) | (0x1 << 8) | (uint32(7) << 10) // category 7
+	sf := &ScriptFile{Name: "[changestat,_cat7]", LookupKey: catKey}
+	p.Register(sf)
+
+	got := p.GetByTriggerSpecific(TriggerChangeStat, -1, 7)
+	if got != sf {
+		t.Errorf("category-only lookup: got %v, want %v", got, sf)
+	}
+}
+
+func TestGetByTriggerSpecificGlobalOnly(t *testing.T) {
+	p := NewProvider()
+	globalKey := uint32(TriggerChangeStat)
+	sf := &ScriptFile{Name: "[changestat,_]", LookupKey: globalKey}
+	p.Register(sf)
+
+	got := p.GetByTriggerSpecific(TriggerChangeStat, -1, -1)
+	if got != sf {
+		t.Errorf("global-only lookup: got %v, want %v", got, sf)
+	}
+}
+
+func TestGetByTriggerSpecificNoFallback(t *testing.T) {
+	// Register ONLY the global tier; specific lookup must NOT fall through.
+	p := NewProvider()
+	globalKey := uint32(TriggerAdvanceStat)
+	p.Register(&ScriptFile{Name: "[advancestat,_]", LookupKey: globalKey})
+
+	got := p.GetByTriggerSpecific(TriggerAdvanceStat, 0, -1)
+	if got != nil {
+		t.Errorf("type-specific lookup with only-global registered: got %v, want nil (no fallback)", got)
+	}
+}
+
+func TestGetByTriggerSpecificTypeShortCircuitsCategory(t *testing.T) {
+	// type=5, cat=3 — only category script registered. Specific must return nil
+	// because typeID != -1 picks the type tier and ignores the cat tier.
+	p := NewProvider()
+	catKey := uint32(TriggerChangeStat) | (0x1 << 8) | (uint32(3) << 10)
+	p.Register(&ScriptFile{Name: "[changestat,_cat3]", LookupKey: catKey})
+
+	got := p.GetByTriggerSpecific(TriggerChangeStat, 5, 3)
+	if got != nil {
+		t.Errorf("type-tier short-circuit: got %v, want nil (cat ignored when type set)", got)
+	}
+}
+
+func TestGetByTriggerSpecificMissingReturnsNil(t *testing.T) {
+	p := NewProvider() // empty
+	if got := p.GetByTriggerSpecific(TriggerChangeStat, 0, -1); got != nil {
+		t.Errorf("empty provider: got %v, want nil", got)
+	}
+}
