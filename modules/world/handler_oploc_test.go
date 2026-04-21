@@ -31,7 +31,10 @@ func makeOpLocFixture(t *testing.T) (*Server, *Player, *entitypkg.Loc, net.Conn)
 	s.locTypes.Configs[42] = &objtype.LocType{
 		ConfigType: objtype.ConfigType{ID: 42, DebugName: "test_loc"},
 		Category:   7,
-		Op:         []string{"op1", "op2", "op3", "op4", "op5"},
+		// All 5 slots populated so pre-S6k tests (delayed, viewport,
+		// boundary, etc.) don't regress under the S6k op-validation gate.
+		// Tests that want to exercise the gate override individual slots.
+		Op: []string{"op1", "op2", "op3", "op4", "op5"},
 	}
 
 	loc := entitypkg.NewLoc(0, 100, 100, 1, 1, entitypkg.LifecycleForever, 42, 10, 0)
