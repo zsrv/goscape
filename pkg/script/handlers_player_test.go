@@ -1,0 +1,761 @@
+package script
+
+import "testing"
+
+// newSingleOp builds a single-opcode script plus its trailing OpReturn,
+// so handler tests can run a handler in isolation and observe the state
+// after.
+func newSingleOp(name string, op Opcode) *ScriptFile {
+	return &ScriptFile{
+		Name:             name,
+		Opcodes:          []Opcode{op, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+}
+
+// -- Stat read tests -----------------------------------------------------
+
+func TestStatReadsSeededLevel(t *testing.T) {
+	mp := &mockPlayer{}
+	mp.levels[3] = 50
+
+	sf := &ScriptFile{
+		Name: "stat",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push stat id = 3
+			OpStat,
+			OpReturn,
+		},
+		IntOperands:      []int32{3, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopInt(); got != 50 {
+		t.Errorf("STAT: got %d, want 50", got)
+	}
+}
+
+func TestStatBaseReadsSeededBase(t *testing.T) {
+	mp := &mockPlayer{}
+	mp.baseLevels[0] = 7
+
+	sf := &ScriptFile{
+		Name: "stat_base",
+		Opcodes: []Opcode{
+			OpPushConstantInt,
+			OpStatBase,
+			OpReturn,
+		},
+		IntOperands:      []int32{0, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopInt(); got != 7 {
+		t.Errorf("STAT_BASE: got %d, want 7", got)
+	}
+}
+
+func TestStatTotalSumsAllBases(t *testing.T) {
+	mp := &mockPlayer{}
+	for i := 0; i < NumStats; i++ {
+		mp.baseLevels[i] = i + 1 // 1..21 → total 231
+	}
+	state := Init(newSingleOp("stat_total", OpStatTotal), mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got, want := state.PopInt(), 231; got != want {
+		t.Errorf("STAT_TOTAL: got %d, want %d", got, want)
+	}
+}
+
+// -- Stat mutation tests -------------------------------------------------
+
+func TestStatAddFormula(t *testing.T) {
+	// TS: added = current + constant + (base*percent)/100, capped at 255.
+	// Seed: id=2, base=80, current=50, constant=10, percent=25
+	// → 50 + (10 + 80*25/100) = 50 + (10 + 20) = 80
+	mp := &mockPlayer{}
+	mp.levels[2] = 50
+	mp.baseLevels[2] = 80
+
+	sf := &ScriptFile{
+		Name: "stat_add",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // stat id
+			OpPushConstantInt, // constant
+			OpPushConstantInt, // percent (top)
+			OpStatAdd,
+			OpReturn,
+		},
+		IntOperands:      []int32{2, 10, 25, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(mp.setCurLevelCalls) != 1 {
+		t.Fatalf("setCurLevelCalls: got %d, want 1", len(mp.setCurLevelCalls))
+	}
+	if got := mp.setCurLevelCalls[0]; got.id != 2 || got.level != 80 {
+		t.Errorf("STAT_ADD: got %+v, want {id:2,level:80}", got)
+	}
+}
+
+func TestStatAddCapsAt255(t *testing.T) {
+	mp := &mockPlayer{}
+	mp.levels[1] = 250
+	mp.baseLevels[1] = 250
+
+	sf := &ScriptFile{
+		Name: "stat_add_cap",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpStatAdd, OpReturn,
+		},
+		IntOperands:      []int32{1, 100, 0, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.setCurLevelCalls[0].level; got != 255 {
+		t.Errorf("STAT_ADD cap: got %d, want 255", got)
+	}
+}
+
+func TestStatSubFormula(t *testing.T) {
+	// subbed = current - (constant + (base*percent)/100), clamped >=0.
+	// id=4, current=60, base=50, constant=5, percent=20 → 60 - (5 + 10) = 45.
+	mp := &mockPlayer{}
+	mp.levels[4] = 60
+	mp.baseLevels[4] = 50
+
+	sf := &ScriptFile{
+		Name: "stat_sub",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpStatSub, OpReturn,
+		},
+		IntOperands:      []int32{4, 5, 20, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.setCurLevelCalls[0]; got.id != 4 || got.level != 45 {
+		t.Errorf("STAT_SUB: got %+v, want {id:4,level:45}", got)
+	}
+}
+
+func TestStatSubFloorsAtZero(t *testing.T) {
+	mp := &mockPlayer{}
+	mp.levels[5] = 3
+	mp.baseLevels[5] = 50
+
+	sf := &ScriptFile{
+		Name: "stat_sub_floor",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpStatSub, OpReturn,
+		},
+		IntOperands:      []int32{5, 100, 0, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.setCurLevelCalls[0].level; got != 0 {
+		t.Errorf("STAT_SUB floor: got %d, want 0", got)
+	}
+}
+
+func TestStatBoostClampsToBasePlusBoost(t *testing.T) {
+	// TS: boost=10, boosted = max(min(cur+boost, base+boost), cur).
+	// id=0, cur=50, base=80, constant=10, percent=0 → boost=10.
+	// cur+boost=60; base+boost=90; min=60; max(60, 50)=60.
+	mp := &mockPlayer{}
+	mp.levels[0] = 50
+	mp.baseLevels[0] = 80
+
+	sf := &ScriptFile{
+		Name: "stat_boost",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpStatBoost, OpReturn,
+		},
+		IntOperands:      []int32{0, 10, 0, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.setCurLevelCalls[0].level; got != 60 {
+		t.Errorf("STAT_BOOST: got %d, want 60", got)
+	}
+}
+
+func TestStatBoostNeverLowersCurrent(t *testing.T) {
+	// If cur is already above base+boost, the max(cur,...) clamp keeps cur.
+	// id=0, cur=120, base=80, boost=10 → cur+boost=130, base+boost=90,
+	// min(130,90)=90, max(90, 120)=120.
+	mp := &mockPlayer{}
+	mp.levels[0] = 120
+	mp.baseLevels[0] = 80
+
+	sf := &ScriptFile{
+		Name: "stat_boost_noop",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpStatBoost, OpReturn,
+		},
+		IntOperands:      []int32{0, 10, 0, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.setCurLevelCalls[0].level; got != 120 {
+		t.Errorf("STAT_BOOST noop: got %d, want 120", got)
+	}
+}
+
+func TestStatDrainUsesCurrentNotBase(t *testing.T) {
+	// TS: drain uses current, not base.
+	// id=2, cur=80, base=20, constant=0, percent=25 → 80 - (0 + 80*25/100) = 80 - 20 = 60.
+	mp := &mockPlayer{}
+	mp.levels[2] = 80
+	mp.baseLevels[2] = 20 // deliberately different from cur to catch the bug
+
+	sf := &ScriptFile{
+		Name: "stat_drain",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpStatDrain, OpReturn,
+		},
+		IntOperands:      []int32{2, 0, 25, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.setCurLevelCalls[0].level; got != 60 {
+		t.Errorf("STAT_DRAIN: got %d, want 60", got)
+	}
+}
+
+func TestStatHealCapsAtBase(t *testing.T) {
+	// healed = cur + (constant + (base*percent)/100), capped at base.
+	// id=3, cur=10, base=50, constant=100, percent=0 → healed=110, capped to 50.
+	mp := &mockPlayer{}
+	mp.levels[3] = 10
+	mp.baseLevels[3] = 50
+
+	sf := &ScriptFile{
+		Name: "stat_heal",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpStatHeal, OpReturn,
+		},
+		IntOperands:      []int32{3, 100, 0, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.setCurLevelCalls[0].level; got != 50 {
+		t.Errorf("STAT_HEAL cap: got %d, want 50", got)
+	}
+}
+
+func TestStatHealNeverLowersCurrent(t *testing.T) {
+	// If cur > base (boosted), max(min(healed, base), cur) keeps cur.
+	// id=3, cur=99, base=50 → min(99+const, 50)=50, max(50, 99)=99.
+	mp := &mockPlayer{}
+	mp.levels[3] = 99
+	mp.baseLevels[3] = 50
+
+	sf := &ScriptFile{
+		Name: "stat_heal_noop",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpStatHeal, OpReturn,
+		},
+		IntOperands:      []int32{3, 10, 0, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.setCurLevelCalls[0].level; got != 99 {
+		t.Errorf("STAT_HEAL noop: got %d, want 99", got)
+	}
+}
+
+func TestStatAdvanceForwardsToAddXP(t *testing.T) {
+	// TS popInts(2) = [stat, xp]; stack top = xp.
+	mp := &mockPlayer{}
+
+	sf := &ScriptFile{
+		Name: "stat_advance",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // stat
+			OpPushConstantInt, // xp (top)
+			OpStatAdvance,
+			OpReturn,
+		},
+		IntOperands:      []int32{7, 250, 0, 0},
+		StringOperands:   []string{"", "", "", ""},
+		InstructionCount: 4,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(mp.addXPCalls) != 1 {
+		t.Fatalf("addXPCalls: got %d, want 1", len(mp.addXPCalls))
+	}
+	if got := mp.addXPCalls[0]; got.id != 7 || got.xp != 250 {
+		t.Errorf("STAT_ADVANCE: got %+v, want {id:7,xp:250}", got)
+	}
+}
+
+func TestStatRandomPushesZeroOrOne(t *testing.T) {
+	// Can't assert the exact value without reseeding rand; just confirm
+	// it's 0 or 1.
+	mp := &mockPlayer{}
+	mp.levels[6] = 50
+
+	sf := &ScriptFile{
+		Name: "stat_random",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // stat
+			OpPushConstantInt, // low
+			OpPushConstantInt, // high (top)
+			OpStatRandom,
+			OpReturn,
+		},
+		IntOperands:      []int32{6, 10, 200, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopInt(); got != 0 && got != 1 {
+		t.Errorf("STAT_RANDOM: got %d, want 0 or 1", got)
+	}
+}
+
+// -- OOB stat id tests ---------------------------------------------------
+
+// Covers STAT, STAT_BASE, STAT_ADD, STAT_SUB, STAT_BOOST, STAT_DRAIN,
+// STAT_HEAL, STAT_ADVANCE, STAT_RANDOM with both -1 and NumStats=21.
+func TestStatOpsRejectOOBStatID(t *testing.T) {
+	type opCase struct {
+		name      string
+		op        Opcode
+		intsBelow []int32 // additional ints pushed below the stat id
+	}
+	ops := []opCase{
+		{"STAT", OpStat, nil},
+		{"STAT_BASE", OpStatBase, nil},
+		{"STAT_ADD", OpStatAdd, []int32{0, 0}},     // constant, percent
+		{"STAT_SUB", OpStatSub, []int32{0, 0}},
+		{"STAT_BOOST", OpStatBoost, []int32{0, 0}},
+		{"STAT_DRAIN", OpStatDrain, []int32{0, 0}},
+		{"STAT_HEAL", OpStatHeal, []int32{0, 0}},
+		{"STAT_ADVANCE", OpStatAdvance, []int32{0}}, // xp
+		{"STAT_RANDOM", OpStatRandom, []int32{0, 0}}, // low, high
+	}
+	badIDs := []int32{-1, int32(NumStats)} // 21 is OOB
+
+	for _, tc := range ops {
+		for _, badID := range badIDs {
+			t.Run(tc.name+"/id="+itoa(int(badID)), func(t *testing.T) {
+				// Build a script: push stat id, push the "below" ints, then the op.
+				pushes := 1 + len(tc.intsBelow)
+				opcodes := make([]Opcode, 0, pushes+2)
+				operands := make([]int32, 0, pushes+2)
+				opcodes = append(opcodes, OpPushConstantInt)
+				operands = append(operands, badID)
+				for _, v := range tc.intsBelow {
+					opcodes = append(opcodes, OpPushConstantInt)
+					operands = append(operands, v)
+				}
+				opcodes = append(opcodes, tc.op, OpReturn)
+				operands = append(operands, 0, 0)
+
+				sf := &ScriptFile{
+					Name:             "oob_" + tc.name,
+					Opcodes:          opcodes,
+					IntOperands:      operands,
+					StringOperands:   make([]string, len(opcodes)),
+					InstructionCount: uint32(len(opcodes)),
+				}
+				state := Init(sf, &mockPlayer{}, false, nil, nil)
+				if err := Execute(state); err == nil {
+					t.Fatalf("%s id=%d: Execute returned nil, want error", tc.name, badID)
+				}
+				if state.Execution != Aborted {
+					t.Errorf("%s id=%d: Execution = %v, want Aborted", tc.name, badID, state.Execution)
+				}
+			})
+		}
+	}
+}
+
+// -- Coord / facing / teleport tests ------------------------------------
+
+func TestCoordPushesPacked(t *testing.T) {
+	mp := &mockPlayer{coordPacked: 0x1234_5678}
+	state := Init(newSingleOp("coord", OpCoord), mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopInt(); got != 0x1234_5678 {
+		t.Errorf("COORD: got %#x, want %#x", got, 0x1234_5678)
+	}
+}
+
+func packCoord(level, x, z int) int {
+	return ((level & 0x3) << 28) | ((x & 0x3fff) << 14) | (z & 0x3fff)
+}
+
+func TestPTeleJumpUnpacksCoord(t *testing.T) {
+	// Lumbridge-style test: (3222, 3222, 0).
+	mp := &mockPlayer{}
+	packed := packCoord(0, 3222, 3222)
+	sf := &ScriptFile{
+		Name: "p_telejump",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPTeleJump, OpReturn,
+		},
+		IntOperands:      []int32{int32(packed), 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if mp.teleJumpCalls != 1 {
+		t.Fatalf("teleJumpCalls: got %d, want 1", mp.teleJumpCalls)
+	}
+	if mp.lastTeleJump != (struct{ x, z, level int }{3222, 3222, 0}) {
+		t.Errorf("P_TELEJUMP: got %+v, want {3222, 3222, 0}", mp.lastTeleJump)
+	}
+}
+
+func TestPTeleJumpRoundTripsLevel(t *testing.T) {
+	// Level 3 (the 2-bit max) exercises the level mask.
+	mp := &mockPlayer{}
+	packed := packCoord(3, 3222, 3222)
+	sf := &ScriptFile{
+		Name: "p_telejump_level3",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPTeleJump, OpReturn,
+		},
+		IntOperands:      []int32{int32(packed), 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if mp.lastTeleJump != (struct{ x, z, level int }{3222, 3222, 3}) {
+		t.Errorf("P_TELEJUMP level=3: got %+v, want {3222, 3222, 3}", mp.lastTeleJump)
+	}
+}
+
+func TestPTeleportUnpacksCoord(t *testing.T) {
+	mp := &mockPlayer{}
+	packed := packCoord(2, 1000, 2000)
+	sf := &ScriptFile{
+		Name: "p_teleport",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPTeleport, OpReturn,
+		},
+		IntOperands:      []int32{int32(packed), 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if mp.teleportCalls != 1 {
+		t.Fatalf("teleportCalls: got %d, want 1", mp.teleportCalls)
+	}
+	if mp.lastTeleport != (struct{ x, z, level int }{1000, 2000, 2}) {
+		t.Errorf("P_TELEPORT: got %+v, want {1000, 2000, 2}", mp.lastTeleport)
+	}
+}
+
+func TestFaceSquareIgnoresLevelComponent(t *testing.T) {
+	// FaceSquare takes (x, z) only — the level bits are discarded.
+	mp := &mockPlayer{}
+	packed := packCoord(2, 3200, 3250)
+	sf := &ScriptFile{
+		Name: "facesquare",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpFaceSquare, OpReturn,
+		},
+		IntOperands:      []int32{int32(packed), 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if mp.faceSquareCalls != 1 {
+		t.Fatalf("faceSquareCalls: got %d, want 1", mp.faceSquareCalls)
+	}
+	if mp.lastFaceSquare != (struct{ x, z int }{3200, 3250}) {
+		t.Errorf("FACESQUARE: got %+v, want {3200, 3250}", mp.lastFaceSquare)
+	}
+}
+
+func TestPWalkStubPopsAndLogs(t *testing.T) {
+	// Stub: pop one int, log.Debug, return nil. No captured state.
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "p_walk",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPWalk, OpReturn,
+		},
+		IntOperands:      []int32{0x12345, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.Execution != Finished {
+		t.Errorf("P_WALK stub: Execution = %v, want Finished", state.Execution)
+	}
+	// Stack should be empty (arg was popped, nothing pushed).
+	if state.ISP != 0 {
+		t.Errorf("P_WALK stub: ISP = %d, want 0", state.ISP)
+	}
+}
+
+// -- Animation tests -----------------------------------------------------
+
+func TestAnimCapturesSeqAndDelay(t *testing.T) {
+	// TS pops (seq, delay); stack top is delay.
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "anim",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // seq
+			OpPushConstantInt, // delay (top)
+			OpAnim,
+			OpReturn,
+		},
+		IntOperands:      []int32{808, 5, 0, 0},
+		StringOperands:   []string{"", "", "", ""},
+		InstructionCount: 4,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if mp.playAnimCalls != 1 {
+		t.Fatalf("playAnimCalls: got %d, want 1", mp.playAnimCalls)
+	}
+	if mp.lastPlayAnim != (struct{ seqID, delay int }{808, 5}) {
+		t.Errorf("ANIM: got %+v, want {seqID:808, delay:5}", mp.lastPlayAnim)
+	}
+}
+
+func TestSpotAnimPlCapturesTriple(t *testing.T) {
+	// TS pops (spotanim, height, delay); stack top is delay.
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "spotanim_pl",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // spotanim id
+			OpPushConstantInt, // height
+			OpPushConstantInt, // delay (top)
+			OpSpotAnimPl,
+			OpReturn,
+		},
+		IntOperands:      []int32{42, 100, 3, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if mp.playSpotAnimCalls != 1 {
+		t.Fatalf("playSpotAnimCalls: got %d, want 1", mp.playSpotAnimCalls)
+	}
+	want := struct{ id, height, delay int }{42, 100, 3}
+	if mp.lastPlaySpotAnim != want {
+		t.Errorf("SPOTANIM_PL: got %+v, want %+v", mp.lastPlaySpotAnim, want)
+	}
+}
+
+// Table-driven test covering every BAS setter. All seven take (seqID)
+// and call the corresponding SetXxxAnim on mockPlayer.
+func TestBASSetters(t *testing.T) {
+	cases := []struct {
+		name string
+		op   Opcode
+		get  func(*mockPlayer) int
+	}{
+		{"READYANIM", OpReadyAnim, func(m *mockPlayer) int { return m.lastReadyAnim }},
+		{"TURNANIM", OpTurnAnim, func(m *mockPlayer) int { return m.lastTurnAnim }},
+		{"WALKANIM", OpWalkAnim, func(m *mockPlayer) int { return m.lastWalkAnim }},
+		{"WALKANIM_B", OpWalkAnimB, func(m *mockPlayer) int { return m.lastWalkAnimB }},
+		{"WALKANIM_L", OpWalkAnimL, func(m *mockPlayer) int { return m.lastWalkAnimL }},
+		{"WALKANIM_R", OpWalkAnimR, func(m *mockPlayer) int { return m.lastWalkAnimR }},
+		{"RUNANIM", OpRunAnim, func(m *mockPlayer) int { return m.lastRunAnim }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mp := &mockPlayer{}
+			sf := &ScriptFile{
+				Name: tc.name,
+				Opcodes: []Opcode{
+					OpPushConstantInt, tc.op, OpReturn,
+				},
+				IntOperands:      []int32{1234, 0, 0},
+				StringOperands:   []string{"", "", ""},
+				InstructionCount: 3,
+			}
+			state := Init(sf, mp, false, nil, nil)
+			if err := Execute(state); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+			if got := tc.get(mp); got != 1234 {
+				t.Errorf("%s: got %d, want 1234", tc.name, got)
+			}
+		})
+	}
+}
+
+func TestRunAnimAcceptsMinusOne(t *testing.T) {
+	// TS-behaviour check: -1 clears the run animation. The handler
+	// forwards it unconditionally to SetRunAnim.
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "runanim_clear",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpRunAnim, OpReturn,
+		},
+		IntOperands:      []int32{-1, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if mp.lastRunAnim != -1 {
+		t.Errorf("RUNANIM -1: got %d, want -1", mp.lastRunAnim)
+	}
+}
+
+// -- Active-player-required negative tests -------------------------------
+
+// Every handler that dereferences Self must return an error when
+// Self == nil (no active player). Runs one representative handler from
+// each category.
+func TestHandlersRequireActivePlayer(t *testing.T) {
+	cases := []struct {
+		name string
+		op   Opcode
+	}{
+		{"STAT", OpStat},
+		{"STAT_BASE", OpStatBase},
+		{"STAT_TOTAL", OpStatTotal},
+		{"STAT_ADD", OpStatAdd},
+		{"STAT_SUB", OpStatSub},
+		{"STAT_BOOST", OpStatBoost},
+		{"STAT_DRAIN", OpStatDrain},
+		{"STAT_HEAL", OpStatHeal},
+		{"STAT_ADVANCE", OpStatAdvance},
+		{"STAT_RANDOM", OpStatRandom},
+		{"COORD", OpCoord},
+		{"FACESQUARE", OpFaceSquare},
+		{"P_TELEPORT", OpPTeleport},
+		{"P_TELEJUMP", OpPTeleJump},
+		{"ANIM", OpAnim},
+		{"SPOTANIM_PL", OpSpotAnimPl},
+		{"READYANIM", OpReadyAnim},
+		{"TURNANIM", OpTurnAnim},
+		{"WALKANIM", OpWalkAnim},
+		{"WALKANIM_B", OpWalkAnimB},
+		{"WALKANIM_L", OpWalkAnimL},
+		{"WALKANIM_R", OpWalkAnimR},
+		{"RUNANIM", OpRunAnim},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			state := Init(newSingleOp(tc.name, tc.op), nil, false, nil, nil)
+			if err := Execute(state); err == nil {
+				t.Fatalf("%s with nil Self: Execute returned nil, want error", tc.name)
+			}
+		})
+	}
+}
+
+// -- Small helpers -------------------------------------------------------
+
+// itoa without importing strconv at test scope; just for sub-test names.
+func itoa(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	neg := n < 0
+	if neg {
+		n = -n
+	}
+	var buf [12]byte
+	i := len(buf)
+	for n > 0 {
+		i--
+		buf[i] = byte('0' + n%10)
+		n /= 10
+	}
+	if neg {
+		i--
+		buf[i] = '-'
+	}
+	return string(buf[i:])
+}

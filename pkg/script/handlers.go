@@ -107,6 +107,36 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpPopVars:  handlePopVars,
 	OpPushVarn: handlePushVarn, // stub until S6
 	OpPopVarn:  handlePopVarn,  // stub until S6
+
+	// S5c: player stat/coord/facing/anim.
+	// Stat read + mutation ops.
+	OpStat:        handleStat,
+	OpStatBase:    handleStatBase,
+	OpStatTotal:   handleStatTotal,
+	OpStatAdd:     handleStatAdd,
+	OpStatSub:     handleStatSub,
+	OpStatBoost:   handleStatBoost,
+	OpStatDrain:   handleStatDrain,
+	OpStatHeal:    handleStatHeal,
+	OpStatAdvance: handleStatAdvance,
+	OpStatRandom:  handleStatRandom,
+	// Coord / facing / teleport.
+	OpCoord:      handleCoord,
+	OpFaceSquare: handleFaceSquare,
+	OpPTeleport:  handlePTeleport,
+	OpPTeleJump:  handlePTeleJump,
+	// Animation.
+	OpAnim:       handleAnim,
+	OpSpotAnimPl: handleSpotAnimPl,
+	OpReadyAnim:  handleReadyAnim,
+	OpTurnAnim:   handleTurnAnim,
+	OpWalkAnim:   handleWalkAnim,
+	OpWalkAnimB:  handleWalkAnimB,
+	OpWalkAnimL:  handleWalkAnimL,
+	OpWalkAnimR:  handleWalkAnimR,
+	OpRunAnim:    handleRunAnim,
+	// P_WALK stub — real impl needs pathfinder + waypoint integration.
+	OpPWalk: handlePWalk,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.
