@@ -16,6 +16,20 @@ var (
 	OpIfOpenMainSide = Op{Opcode: 28, PayloadSize: 4}
 	OpLogout         = Op{Opcode: 142, PayloadSize: 0}
 
+	// S5f: per-component setters (fire-and-forget wire ops used by IF_SET* opcodes).
+	OpIfSetText       = Op{Opcode: 201, PayloadSize: -2}
+	OpIfSetModel      = Op{Opcode: 87, PayloadSize: 4}
+	OpIfSetNpcHead    = Op{Opcode: 204, PayloadSize: 4}
+	OpIfSetPlayerHead = Op{Opcode: 197, PayloadSize: 2}
+	OpIfSetAnim       = Op{Opcode: 146, PayloadSize: 4}
+	OpIfSetHide       = Op{Opcode: 26, PayloadSize: 3}
+	OpIfSetObject     = Op{Opcode: 46, PayloadSize: 6}
+	OpIfSetColour     = Op{Opcode: 2, PayloadSize: 4}
+	OpIfSetPosition   = Op{Opcode: 209, PayloadSize: 6}
+	OpIfSetRecol      = Op{Opcode: 103, PayloadSize: 6}
+	OpIfSetTab        = Op{Opcode: 167, PayloadSize: 3}
+	OpIfSetTabActive  = Op{Opcode: 84, PayloadSize: 1}
+
 	OpRebuildNormal    = Op{Opcode: 237, PayloadSize: -2}
 	OpUpdateInvFull    = Op{Opcode: 98, PayloadSize: -2}
 	OpUpdateInvPartial = Op{Opcode: 213, PayloadSize: -2}
