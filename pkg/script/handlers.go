@@ -99,6 +99,14 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpPushArrayInt: handlePushArrayInt,
 	OpPopArrayInt:  handlePopArrayInt,
 	OpSwitch:       handleSwitch,
+
+	// S5b: VAR ops.
+	OpPushVarp: handlePushVarp,
+	OpPopVarp:  handlePopVarp,
+	OpPushVars: handlePushVars,
+	OpPopVars:  handlePopVars,
+	OpPushVarn: handlePushVarn, // stub until S6
+	OpPopVarn:  handlePopVarn,  // stub until S6
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.
