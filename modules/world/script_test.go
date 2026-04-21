@@ -273,6 +273,48 @@ func TestQueueZeroDelayFiresSameTick(t *testing.T) {
 	}
 }
 
+func TestPlaytimeViaScriptMessageGame(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	p.playtime = 42
+
+	// Script:
+	//   pushstr "n="
+	//   timespent       (pushes 42)
+	//   append_num      (pops 42 + "n=", pushes "n=42")
+	//   mes             (sends "n=42" on the wire)
+	//   return
+	sf := &script.ScriptFile{
+		Name: "[timespent,test]",
+		Opcodes: []script.Opcode{
+			script.OpPushConstantString,
+			script.OpTimeSpent,
+			script.OpAppendNum,
+			script.OpMes,
+			script.OpReturn,
+		},
+		IntOperands:      []int32{0, 0, 0, 0, 0},
+		StringOperands:   []string{"n=", "", "", "", ""},
+		InstructionCount: 5,
+	}
+
+	received := drainConn(t, cc)
+	s.runScript(sf, p, false, nil, nil)
+	p.client.flushWrite()
+	got := <-received
+
+	// Wire = opcode(1) + len(1) + PJStrLF("n=42") = 1+1+5 = 7 bytes.
+	if len(got) != 7 {
+		t.Fatalf("wire: got %d bytes, want 7", len(got))
+	}
+	if string(got[2:6]) != "n=42" || got[6] != 0x0a {
+		t.Errorf("payload: got %q, want 'n=42\\n'", got[2:])
+	}
+}
+
 func TestQueueMultipleEntriesPreservesOrder(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
