@@ -230,14 +230,11 @@ func (s *Server) processPlayerQueue(p *Player) {
 			i++
 			continue
 		}
-		scriptID := req.ScriptID
+		sf := req.Script
 		intArg := req.IntArg
 		p.queue = append(p.queue[:i], p.queue[i+1:]...)
-
-		if s.scriptProvider != nil {
-			if sf := s.scriptProvider.GetByID(scriptID); sf != nil {
-				s.runScript(sf, p, false, []int{intArg}, nil)
-			}
+		if sf != nil {
+			s.runScript(sf, p, false, []int{intArg}, nil)
 		}
 		// Don't advance i: we just removed the current element, so i
 		// now points to what was the next element (or past end).

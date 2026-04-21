@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/script"
 )
 
 func TestAddXPNormalGainNoLevelUp(t *testing.T) {
@@ -156,5 +157,35 @@ func TestAddXPOOBIsNoop(t *testing.T) {
 		if p.stats[i] != before[i] {
 			t.Errorf("OOB AddXP mutated stats[%d]: got %d, want %d", i, p.stats[i], before[i])
 		}
+	}
+}
+
+func TestEnqueueScriptFileDirectPath(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	sf := &script.ScriptFile{Name: "[test_direct]"}
+	p.EnqueueScriptFile(sf, 3, 42, script.QueueNormal)
+	if len(p.queue) != 1 {
+		t.Fatalf("queue len: got %d, want 1", len(p.queue))
+	}
+	req := p.queue[0]
+	if req.Script != sf {
+		t.Errorf("queue[0].Script: got %v, want %v", req.Script, sf)
+	}
+	if req.Delay != 3 {
+		t.Errorf("queue[0].Delay: got %d, want 3", req.Delay)
+	}
+	if req.IntArg != 42 {
+		t.Errorf("queue[0].IntArg: got %d, want 42", req.IntArg)
+	}
+	if req.Type != script.QueueNormal {
+		t.Errorf("queue[0].Type: got %v, want %v", req.Type, script.QueueNormal)
+	}
+}
+
+func TestEnqueueScriptFileNilIsNoop(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.EnqueueScriptFile(nil, 0, 0, script.QueueNormal)
+	if len(p.queue) != 0 {
+		t.Errorf("queue len after nil enqueue: got %d, want 0", len(p.queue))
 	}
 }

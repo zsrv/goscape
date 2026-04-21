@@ -8,16 +8,20 @@ import (
 )
 
 // playerQueueRequest is one queued fresh-run script request with a
-// single int arg. Queue entries are processed in processActiveScripts;
+// single int arg. Queue entries are processed in processPlayerQueue;
 // when Delay reaches zero (or below) the target script runs as a brand-
 // new ScriptState. Type selects the queue variant (NORMAL/WEAK/LONG/
 // STRONG); STRONG fires even when the player is delayed, the others
 // wait for idle.
+//
+// As of S6h, Script holds the pre-resolved *ScriptFile directly. ID →
+// ScriptFile resolution happens at enqueue time via Player.EnqueueScriptTyped;
+// engine-dispatch paths (e.g. changeStat) use Player.EnqueueScriptFile.
 type playerQueueRequest struct {
-	ScriptID uint32
-	Delay    int
-	IntArg   int
-	Type     script.PlayerQueueType
+	Script *script.ScriptFile
+	Delay  int
+	IntArg int
+	Type   script.PlayerQueueType
 }
 
 // SetDelayed marks the player as suspended for `ticks` ticks starting
@@ -34,17 +38,36 @@ func (p *Player) SetDelayed(ticks int) {
 	p.delayedUntil = p.client.server.currentTick + 1 + ticks
 }
 
-// EnqueueScriptTyped implements script.ActivePlayer.EnqueueScriptTyped.
-// Appends a queued fresh-run request tagged with qtype. Delay=0 fires on
-// the next processActiveScripts pass (subject to the STRONG/NORMAL gate
-// in processPlayerQueue).
-func (p *Player) EnqueueScriptTyped(scriptID uint32, delay, intArg int, qtype script.PlayerQueueType) {
+// EnqueueScriptFile appends a queued fresh-run request for a specific
+// ScriptFile. Delay=0 fires on the next processPlayerQueue pass (subject
+// to the STRONG/NORMAL gate). Nil sf is a silent no-op — engine
+// dispatchers (e.g. changeStat) call GetByTrigger and may legitimately
+// pass nil when no cache script is registered for the event.
+func (p *Player) EnqueueScriptFile(sf *script.ScriptFile, delay, intArg int, qtype script.PlayerQueueType) {
+	if sf == nil {
+		return
+	}
 	p.queue = append(p.queue, playerQueueRequest{
-		ScriptID: scriptID,
-		Delay:    delay,
-		IntArg:   intArg,
-		Type:     qtype,
+		Script: sf,
+		Delay:  delay,
+		IntArg: intArg,
+		Type:   qtype,
 	})
+}
+
+// EnqueueScriptTyped implements script.ActivePlayer.EnqueueScriptTyped by
+// resolving scriptID → *ScriptFile via scriptProvider.GetByID and
+// delegating to EnqueueScriptFile. Silent no-op on missing script or
+// unwired server — same observable contract as the pre-S6h impl, where
+// processPlayerQueue's GetByID check served the same role.
+//
+// Resolution shifts from fire-time (pre-S6h) to enqueue-time (S6h).
+// Same tick boundary in practice; simpler codepath.
+func (p *Player) EnqueueScriptTyped(scriptID uint32, delay, intArg int, qtype script.PlayerQueueType) {
+	if p.client == nil || p.client.server == nil || p.client.server.scriptProvider == nil {
+		return
+	}
+	p.EnqueueScriptFile(p.client.server.scriptProvider.GetByID(scriptID), delay, intArg, qtype)
 }
 
 // StoreActiveScript saves a Suspended ScriptState so the tick loop can
