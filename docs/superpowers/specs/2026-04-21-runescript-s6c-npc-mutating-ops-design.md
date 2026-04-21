@@ -52,6 +52,9 @@ Append 4 methods inside the `ActiveNpc` interface, immediately after `Say(text [
 	// ChangeType morphs the NPC to `newType`. The client swaps the model on
 	// the next NPC-info flush; server-side fields beyond typeId are not
 	// re-initialized (stats, category, etc. still reference the old config).
+	// The script op NPC_CHANGETYPE also carries a `duration` parameter for
+	// timed revert, but S6c discards it (method takes type only); future
+	// AI sub-spec wires a revert timer.
 	ChangeType(newType int)
 
 	// Damage applies `amount` damage of `dmgType` to the NPC this tick,
@@ -126,32 +129,41 @@ func handleNpcFaceSquare(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcChangeType pops (newType) and morphs the NPC. Single-arg op.
+// handleNpcChangeType pops (duration, newType) in TS order (duration on top)
+// and morphs the NPC. Duration = ticks until the NPC reverts to its original
+// type; 0 = permanent. S6c ignores duration (timed revert deferred to a
+// future sub-spec) and always applies a permanent change; NPC_CHANGETYPE
+// with a non-zero duration will silently NOT revert.
 func handleNpcChangeType(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_CHANGETYPE"); err != nil {
 		return err
 	}
+	_ = s.PopInt() // duration — deferred; see spec §6c Gotchas
 	newType := s.PopInt()
 	s.ActiveNpc.ChangeType(newType)
 	return nil
 }
 
-// handleNpcDamage pops (type, amount) in TS order (type on top) and applies
-// damage. The concrete Npc impl manages HP; this handler stays thin.
+// handleNpcDamage pops (type, amount) in TS order (amount on top) and
+// applies damage. The concrete Npc impl manages HP; this handler stays thin.
 func handleNpcDamage(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_DAMAGE"); err != nil {
 		return err
 	}
-	dmgType := s.PopInt()
 	amount := s.PopInt()
+	dmgType := s.PopInt()
 	s.ActiveNpc.Damage(amount, dmgType)
 	return nil
 }
 ```
 
-**Pop-order note** — NPC_FACESQUARE in TS takes a single packed `coord` operand (level<<28 | x<<14 | z), not separate x/z pops. Our handler unpacks at the call site. NPC_ANIM pops (delay, id) with id on top (matches TS). NPC_DAMAGE pops (type, amount) with type on top. These orderings are tested explicitly.
+**Pop-order note** (verified against `LostCityRS/Engine-TS/src/engine/script/handlers/NpcOps.ts`):
+- **NPC_FACESQUARE**: single packed coord pop (`level<<28 | x<<14 | z`). Handler unpacks x/z at call site.
+- **NPC_ANIM**: pops (seq, delay) with `delay` on top.
+- **NPC_CHANGETYPE**: pops (newType, duration) with `duration` on top. S6c discards duration — see Gotchas.
+- **NPC_DAMAGE**: pops (type, amount) with `amount` on top.
 
-Verify the NPC_FACESQUARE TS pop order during implementation by reading `LostCityRS/Engine-TS/src/engine/script/handlers/NpcOps.ts` — if it's two separate int pops rather than one packed coord, drop the unpack and pop both directly.
+All four orderings are tested explicitly so a future refactor can't silently swap them.
 
 ### 4. Registration — `pkg/script/handlers.go`
 
@@ -218,7 +230,8 @@ Identical shape for NPC_FACESQUARE / NPC_CHANGETYPE / NPC_DAMAGE — they only d
 | `TestNpcAnim` | `push id + push delay + NPC_ANIM` → `mockNpc.animCalls == [{id, delay}]` |
 | `TestNpcFaceSquare` | `push packed(x, z) + NPC_FACESQUARE` → `mockNpc.faceCoordCalls == [{x, z}]` |
 | `TestNpcChangeType` | `push newType + NPC_CHANGETYPE` → `mockNpc.changeTypeCalls == [newType]` |
-| `TestNpcDamage` | `push amount + push type + NPC_DAMAGE` → `mockNpc.damageCalls == [{amount, type}]` (asserts TS pop order) |
+| `TestNpcDamage` | `push type + push amount + NPC_DAMAGE` (amount on top per TS) → `mockNpc.damageCalls == [{amount, type}]` |
+| `TestNpcChangeTypeDiscardsDuration` | `push newType + push duration + NPC_CHANGETYPE` → `mockNpc.changeTypeCalls == [newType]`; asserts duration is popped but ignored |
 | `TestNpcMutatingOpsRequireActiveNpc` | Table-driven over all 4 ops; each returns `"<OP>: no active npc"` error with nil ActiveNpc |
 
 ### HP integration — `modules/world/npc_masks_test.go` (create if absent)
@@ -280,3 +293,4 @@ Proves compound masks flow cleanly through a single-tick script.
 - **`NPC_FACESQUARE` pop-order assumption.** Spec writes the handler as if it pops a single packed coord; verify against TS `NpcOps.ts` during implementation. If TS pops two separate ints, drop the unpack and pop x + z directly.
 - **`ResetMasks` zeroes `curHP / baseHP` to -1 at tick end.** `Damage` re-asserts baseHP from the type config; curHP must be set by AI/combat logic or by scripts before the next Damage call, otherwise the wire sends `cur=-1` which the client may render as full or empty depending on version.
 - **`ActiveNpc` interface now has 16 methods** (after S6a=11, S6b=+1, S6c=+4). Still cohesive — all are "what scripts can read/write on an NPC." No split warranted yet; revisit around 30.
+- **NPC_CHANGETYPE duration is popped-and-discarded.** Cache scripts calling `npc_changetype <id>, 0` (permanent change) behave correctly. `npc_changetype <id>, 50` (50-tick revert) stays permanently changed — the revert timer is unimplemented in S6c. Future AI sub-spec ships a revert timer. The opcode handler itself is correctly shaped (pops both args, TS-matching) so the revert can be added without a handler-signature change.
