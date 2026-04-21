@@ -165,9 +165,7 @@ func handleNpcFaceSquare(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_FACESQUARE"); err != nil {
 		return err
 	}
-	coord := s.PopInt()
-	x := (coord >> 14) & 0x3fff
-	z := coord & 0x3fff
+	_, x, z := unpackCoord(s.PopInt())
 	s.ActiveNpc.FaceCoord(x, z)
 	return nil
 }
