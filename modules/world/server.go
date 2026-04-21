@@ -72,6 +72,7 @@ type Server struct {
 	structTypes *objtype.StructTypeConfigs
 	locTypes    *objtype.LocTypeConfigs
 	configsView serverConfigsView
+	invLookup   invLookupView
 
 	// world-scoped var state for PUSH_VARS / POP_VARS.
 	vars        []int32
@@ -178,6 +179,7 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 	s.structTypes = structTypes
 	s.locTypes = locTypes
 	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
 
 	s.renderer = rsbuf.NewRenderer()
 	s.grid = grid.New()
