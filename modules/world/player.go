@@ -10,6 +10,7 @@ import (
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/rsbuf"
+	"github.com/zsrv/goscape/pkg/script"
 )
 
 // InventoryListener associates a player-visible UI component with an inventory.
@@ -79,6 +80,8 @@ type Player struct {
 	repathed        bool
 	delayed         bool
 	delayedUntil    int
+	activeScript    *script.ScriptState
+	queue           []playerQueueRequest
 
 	// === masks ===
 	masks      int
