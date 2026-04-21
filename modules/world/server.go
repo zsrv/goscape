@@ -63,11 +63,15 @@ type Server struct {
 	// Empty until populated by non-4a code. Listeners with Source==-1 read from here.
 	invs map[int]*inventory.Inventory
 
-	paramTypes *objtype.ParamTypeConfigs
-	objTypes   *objtype.ObjTypeConfigs
-	invTypes   *objtype.InvTypeConfigs
-	varpTypes  *objtype.VarpTypeConfigs
-	varsTypes  *objtype.VarsTypeConfigs
+	paramTypes  *objtype.ParamTypeConfigs
+	objTypes    *objtype.ObjTypeConfigs
+	invTypes    *objtype.InvTypeConfigs
+	varpTypes   *objtype.VarpTypeConfigs
+	varsTypes   *objtype.VarsTypeConfigs
+	enumTypes   *objtype.EnumTypeConfigs
+	structTypes *objtype.StructTypeConfigs
+	locTypes    *objtype.LocTypeConfigs
+	configsView serverConfigsView
 
 	// world-scoped var state for PUSH_VARS / POP_VARS.
 	vars        []int32
@@ -157,6 +161,23 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 	s.vars = make([]int32, len(varsTypes.Configs))
 	s.varsStrings = make([]string, len(varsTypes.Configs))
 	s.worldVars = worldVarsView{s: s}
+
+	enumTypes, err := objtype.LoadEnumTypes(cfg.CachePath)
+	if err != nil {
+		return nil, fmt.Errorf("load enum types: %w", err)
+	}
+	structTypes, err := objtype.LoadStructTypes(cfg.CachePath)
+	if err != nil {
+		return nil, fmt.Errorf("load struct types: %w", err)
+	}
+	locTypes, err := objtype.LoadLocTypes(cfg.CachePath)
+	if err != nil {
+		return nil, fmt.Errorf("load loc types: %w", err)
+	}
+	s.enumTypes = enumTypes
+	s.structTypes = structTypes
+	s.locTypes = locTypes
+	s.configsView = serverConfigsView{s: s}
 
 	s.renderer = rsbuf.NewRenderer()
 	s.grid = grid.New()

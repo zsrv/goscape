@@ -535,3 +535,52 @@ func TestStatAdvanceViaScript(t *testing.T) {
 		t.Errorf("p.stats[3]: got %d, want 150", int(p.stats[3]))
 	}
 }
+
+func TestOcNameViaScript(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+
+	// Seed a fake ObjType at id 995 named "Coins". Override whatever
+	// the real cache loaded.
+	s.objTypes = &objtype.ObjTypeConfigs{
+		ConfigNames: map[string]int{"coins": 995},
+		Configs:     make([]*objtype.ObjType, 996),
+	}
+	s.objTypes.Configs[995] = &objtype.ObjType{
+		ConfigType: objtype.ConfigType{ID: 995, DebugName: "coins"},
+		Name:       "Coins",
+	}
+	s.configsView = serverConfigsView{s: s}
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	// Script: push_constant_int 995, oc_name, return
+	// After OC_NAME pops the id and pushes the name string, we need
+	// to verify the string stack got "Coins".
+	sf := &script.ScriptFile{
+		Name: "[ocname,test]",
+		Opcodes: []script.Opcode{
+			script.OpPushConstantInt,
+			script.OpOcName,
+			script.OpReturn,
+		},
+		IntOperands:      []int32{995, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+
+	// runScript owns the state; we can't pop from it. Instead, inline
+	// Init+Execute so we can inspect the string stack afterwards.
+	state := script.Init(sf, p, false, nil, nil)
+	state.Provider = s.scriptProvider
+	state.World = s.worldVars
+	state.Configs = s.configsView
+	if err := script.Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopString(); got != "Coins" {
+		t.Errorf("OC_NAME(995): got %q, want %q", got, "Coins")
+	}
+}

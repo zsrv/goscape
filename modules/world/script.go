@@ -18,6 +18,7 @@ func (s *Server) runScript(sf *script.ScriptFile, self script.ActivePlayer, prot
 	state := script.Init(sf, self, protect, intArgs, stringArgs)
 	state.Provider = s.scriptProvider
 	state.World = s.worldVars
+	state.Configs = s.configsView
 	s.resumeOrFinish(state, self)
 }
 
