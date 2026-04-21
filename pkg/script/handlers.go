@@ -239,6 +239,13 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// S5h: action-clear.
 	OpPStopAction:         handlePStopAction,
 	OpPClearPendingAction: handlePClearPendingAction,
+
+	// S5i: timer ops.
+	OpSetTimer:       handleSetTimer,
+	OpSoftTimer:      handleSoftTimer,
+	OpClearTimer:     handleClearTimer,
+	OpClearSoftTimer: handleClearSoftTimer,
+	OpGetTimer:       handleGetTimer,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.
