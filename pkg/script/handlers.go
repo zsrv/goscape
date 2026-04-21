@@ -467,6 +467,6 @@ func handleQueue(s *ScriptState) error {
 	arg := int(s.PopInt())
 	delay := int(s.PopInt())
 	scriptID := uint32(s.PopInt())
-	s.Self.EnqueueScript(scriptID, delay, arg)
+	s.Self.EnqueueScriptTyped(scriptID, delay, arg, QueueNormal)
 	return nil
 }

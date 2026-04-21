@@ -146,12 +146,17 @@ type mockPlayer struct {
 
 	lastComValue         int
 	sendCountDialogCalls int
+
+	// S5h: action-clear capture counters.
+	stopActionCalls         int
+	clearPendingActionCalls int
 }
 
 type mockEnqueue struct {
 	ScriptID uint32
 	Delay    int
 	IntArg   int
+	Type     PlayerQueueType
 }
 
 func (m *mockPlayer) MessageGame(msg string) { m.messages = append(m.messages, msg) }
@@ -160,8 +165,8 @@ func (m *mockPlayer) Username() string       { return m.username }
 func (m *mockPlayer) SetDelayed(ticks int) {
 	m.setDelayedCalls = append(m.setDelayedCalls, ticks)
 }
-func (m *mockPlayer) EnqueueScript(id uint32, delay, arg int) {
-	m.enqueueCalls = append(m.enqueueCalls, mockEnqueue{ScriptID: id, Delay: delay, IntArg: arg})
+func (m *mockPlayer) EnqueueScriptTyped(id uint32, delay, arg int, qtype PlayerQueueType) {
+	m.enqueueCalls = append(m.enqueueCalls, mockEnqueue{ScriptID: id, Delay: delay, IntArg: arg, Type: qtype})
 }
 func (m *mockPlayer) StoreActiveScript(s *ScriptState) { m.stored = s }
 func (m *mockPlayer) ClearActiveScript()               { m.cleared++ }
@@ -299,3 +304,8 @@ func (m *mockPlayer) SetResumeButtons(b1, b2, b3, b4, b5 int) {
 
 func (m *mockPlayer) LastCom() int     { return m.lastComValue }
 func (m *mockPlayer) SendCountDialog() { m.sendCountDialogCalls++ }
+
+// S5h: action-clear.
+
+func (m *mockPlayer) StopAction()         { m.stopActionCalls++ }
+func (m *mockPlayer) ClearPendingAction() { m.clearPendingActionCalls++ }

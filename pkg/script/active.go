@@ -12,9 +12,11 @@ type ActivePlayer interface {
 	// resumeTick = currentTick + 1 + ticks.
 	SetDelayed(ticks int)
 
-	// EnqueueScript appends a queued fresh-run request with one int arg.
-	// delay=0 fires same tick (authentic TS behavior).
-	EnqueueScript(scriptID uint32, delay int, intArg int)
+	// EnqueueScriptTyped appends a queued fresh-run request with the
+	// given queue type. Delay=0 fires same tick. STRONG-type entries
+	// fire even if the player is busy; others wait until idle.
+	// (S5h: renamed from EnqueueScript to carry type.)
+	EnqueueScriptTyped(scriptID uint32, delay int, intArg int, qtype PlayerQueueType)
 
 	// StoreActiveScript saves a Suspended ScriptState so the tick loop
 	// can resume it when the player's delay expires.
@@ -199,6 +201,16 @@ type ActivePlayer interface {
 	// player's client, prompting an "enter a number" dialog. Called by
 	// the P_COUNTDIALOG script opcode before suspension.
 	SendCountDialog()
+
+	// S5h: action-clear ops.
+
+	// StopAction clears the current interaction target + pending action.
+	// Matches TS Player.stopAction().
+	StopAction()
+
+	// ClearPendingAction clears the current interaction + pending action
+	// + closes any open modal. Walk queue is preserved.
+	ClearPendingAction()
 }
 
 // Stubs for later sub-specs; defined now to avoid interface churn in S6.
