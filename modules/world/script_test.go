@@ -1074,3 +1074,69 @@ func TestOpNpc1FiresScriptAndEmitsSay(t *testing.T) {
 		t.Error("interactionFired: expected true after dispatch")
 	}
 }
+
+func TestOpNpc1FiresScriptAndEmitsAnimPlusSay(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+
+	// [opnpc1, type=7]: push seq=42 + push delay=3 + NPC_ANIM +
+	//                   push "cluck" + NPC_SAY + RETURN.
+	key := uint32(script.TriggerOpNpc1) | (0x2 << 8) | (uint32(7) << 10)
+	s.scriptProvider.Register(&script.ScriptFile{
+		Name:      "[opnpc1,chicken]",
+		LookupKey: key,
+		Opcodes: []script.Opcode{
+			script.OpPushConstantInt,    // seq
+			script.OpPushConstantInt,    // delay
+			script.OpNpcAnim,            // consume (seq, delay)
+			script.OpPushConstantString, // "cluck"
+			script.OpNpcSay,             // consume string
+			script.OpReturn,
+		},
+		IntOperands:      []int32{42, 3, 0, 0, 0, 0},
+		StringOperands:   []string{"", "", "", "cluck", "", ""},
+		InstructionCount: 6,
+	})
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+
+	npcType := &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 7, DebugName: "chicken"},
+		Op:         []string{"Talk-to", "", "", "", ""},
+	}
+	npc := NewNpc(0, 7, p.x+1, p.z, p.level, npcType)
+	s.npcs[0] = npc
+
+	// Fire OPNPC1 click.
+	payload := []byte{0x00, 0x00}
+	if err := handleOpNpc1(p, payload); err != nil {
+		t.Fatalf("handleOpNpc1: %v", err)
+	}
+
+	// Drive one tick — player is already adjacent, reach succeeds,
+	// tryFireOpTrigger dispatches the compound script.
+	p.processInteraction()
+
+	if npc.animID != 42 {
+		t.Errorf("animID: got %d, want 42", npc.animID)
+	}
+	if npc.animDelay != 3 {
+		t.Errorf("animDelay: got %d, want 3", npc.animDelay)
+	}
+	if string(npc.sayText) != "cluck" {
+		t.Errorf("sayText: got %q, want 'cluck'", npc.sayText)
+	}
+	if npc.masks&rsbuf.NpcMaskAnim == 0 {
+		t.Error("NpcMaskAnim bit: not set — compound mask writes may be broken")
+	}
+	if npc.masks&rsbuf.NpcMaskSay == 0 {
+		t.Error("NpcMaskSay bit: not set — compound mask writes may be broken")
+	}
+	if p.target != nil {
+		t.Error("target: expected cleared after script Finished")
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: expected true after dispatch")
+	}
+}
