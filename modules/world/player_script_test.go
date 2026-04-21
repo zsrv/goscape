@@ -266,3 +266,118 @@ func TestAddXPChangeStatNoScriptIsNoop(t *testing.T) {
 			p.baseLevels[objtype.PlayerStatAttack])
 	}
 }
+
+func TestAddXPFiresAdvanceStatOnLevelUp(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	// Register [advancestat,attack=0] at the type-specific lookup key.
+	key := uint32(script.TriggerAdvanceStat) | (0x2 << 8) | (uint32(objtype.PlayerStatAttack) << 10)
+	sf := &script.ScriptFile{
+		Name:      "[advancestat,attack]",
+		LookupKey: key,
+	}
+	s.scriptProvider.Register(sf)
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.stats[objtype.PlayerStatAttack] = 800
+	p.baseLevels[objtype.PlayerStatAttack] = 2
+	p.levels[objtype.PlayerStatAttack] = 2
+
+	before := len(p.queue)
+	p.AddXP(objtype.PlayerStatAttack, 1000) // → level 3
+
+	if len(p.queue) != before+1 {
+		t.Fatalf("queue len: got %d, want %d (+1 advancestat)", len(p.queue), before+1)
+	}
+	req := p.queue[before]
+	if req.Script != sf {
+		t.Errorf("queue[%d].Script: got %v, want [advancestat,attack] (%v)", before, req.Script, sf)
+	}
+}
+
+func TestAddXPDoesNotFireAdvanceStatWithoutLevelUp(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	key := uint32(script.TriggerAdvanceStat) | (0x2 << 8) | (uint32(objtype.PlayerStatAttack) << 10)
+	s.scriptProvider.Register(&script.ScriptFile{Name: "[advancestat,attack]", LookupKey: key})
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.stats[objtype.PlayerStatAttack] = 100 // below level-2 threshold
+	p.baseLevels[objtype.PlayerStatAttack] = 1
+	p.levels[objtype.PlayerStatAttack] = 1
+
+	before := len(p.queue)
+	p.AddXP(objtype.PlayerStatAttack, 100) // → 200, still level 1
+
+	if len(p.queue) != before {
+		t.Errorf("queue len: got %d, want %d (no level-up = no advancestat fire)",
+			len(p.queue), before)
+	}
+}
+
+func TestAddXPAdvanceStatNoFallbackToGlobal(t *testing.T) {
+	// Register a GLOBAL [advancestat,_] script. AdvanceStat uses
+	// GetByTriggerSpecific which does NOT fall back, so the global script
+	// should NOT fire on a per-skill level-up.
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	globalKey := uint32(script.TriggerAdvanceStat)
+	s.scriptProvider.Register(&script.ScriptFile{Name: "[advancestat,_]", LookupKey: globalKey})
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.stats[objtype.PlayerStatAttack] = 800
+	p.baseLevels[objtype.PlayerStatAttack] = 2
+	p.levels[objtype.PlayerStatAttack] = 2
+
+	before := len(p.queue)
+	p.AddXP(objtype.PlayerStatAttack, 1000) // level up
+
+	if len(p.queue) != before {
+		t.Errorf("queue len: got %d, want %d (global script must NOT fire — advancestat is type-specific only)",
+			len(p.queue), before)
+	}
+	// Verify level-up math still happened.
+	if p.baseLevels[objtype.PlayerStatAttack] != 3 {
+		t.Errorf("baseLevels: got %d, want 3 (level-up math independent of advancestat fire)",
+			p.baseLevels[objtype.PlayerStatAttack])
+	}
+}
+
+func TestAddXPFiresBothChangeAndAdvanceStatOnLevelUp(t *testing.T) {
+	// Both triggers should enqueue when both scripts are registered.
+	// Validates that S6h's changeStat and S6i's advanceStat coexist
+	// AND that they fire in TS order (changeStat first, advanceStat second).
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+
+	changeKey := uint32(script.TriggerChangeStat) | (0x2 << 8) | (uint32(objtype.PlayerStatAttack) << 10)
+	advKey := uint32(script.TriggerAdvanceStat) | (0x2 << 8) | (uint32(objtype.PlayerStatAttack) << 10)
+	changeSF := &script.ScriptFile{Name: "[changestat,attack]", LookupKey: changeKey}
+	advSF := &script.ScriptFile{Name: "[advancestat,attack]", LookupKey: advKey}
+	s.scriptProvider.Register(changeSF)
+	s.scriptProvider.Register(advSF)
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.stats[objtype.PlayerStatAttack] = 800
+	p.baseLevels[objtype.PlayerStatAttack] = 2
+	p.levels[objtype.PlayerStatAttack] = 2
+
+	before := len(p.queue)
+	p.AddXP(objtype.PlayerStatAttack, 1000) // level up
+
+	if len(p.queue) != before+2 {
+		t.Fatalf("queue len: got %d, want %d (+2 — both changestat and advancestat)",
+			len(p.queue), before+2)
+	}
+	// Order: changeStat before advanceStat (matches TS Player.ts:1772, 1804).
+	if p.queue[before].Script != changeSF {
+		t.Errorf("queue[%d].Script: got %v, want changestat first", before, p.queue[before].Script)
+	}
+	if p.queue[before+1].Script != advSF {
+		t.Errorf("queue[%d].Script: got %v, want advancestat second", before+1, p.queue[before+1].Script)
+	}
+}

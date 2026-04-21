@@ -230,6 +230,28 @@ func (p *Player) changeStat(stat int) {
 	p.EnqueueScriptFile(sf, 0, 0, script.QueueNormal)
 }
 
+// advanceStat fires the [advancestat,<skill>] trigger for the given stat
+// slot when a cache script is registered for that exact stat. Unlike
+// changeStat (which uses the 3-level fallback via GetByTrigger), this
+// uses GetByTriggerSpecific — type-specific only, no category or global
+// fallback. A global [advancestat,_] script would be wrong here: cache
+// scripts that say "Congratulations, you just advanced an Attack level!"
+// must be skill-keyed.
+//
+// Enqueued as QueueNormal so it runs asynchronously through
+// processPlayerQueue. Matches TS Player.ts:1804-1807 exactly.
+//
+// Silent no-op if no specific script is registered (GetByTriggerSpecific
+// returns nil → EnqueueScriptFile's nil-check short-circuits). Called
+// from AddXP's level-up branch after changeStat.
+func (p *Player) advanceStat(stat int) {
+	if p.client == nil || p.client.server == nil || p.client.server.scriptProvider == nil {
+		return
+	}
+	sf := p.client.server.scriptProvider.GetByTriggerSpecific(script.TriggerAdvanceStat, stat, -1)
+	p.EnqueueScriptFile(sf, 0, 0, script.QueueNormal)
+}
+
 // AddXP adds xp (scaled ×10) to the player's stored XP for skill id and
 // recomputes baseLevels from the XP curve. Matches TS Player.advanceStat
 // (Player.ts:1752-1772) in three branches:
@@ -248,7 +270,8 @@ func (p *Player) changeStat(stat int) {
 // Player.Damage / *Npc.Damage negative-amount clamps.
 //
 // On level-up (baseLevels increases), fires the [changestat,<skill>] trigger
-// via changeStat — matches TS Player.ts:1772. Does NOT recompute combat
+// via changeStat (TS Player.ts:1772) then the [advancestat,<skill>] trigger
+// via advanceStat (TS Player.ts:1804-1807). Does NOT recompute combat
 // level (future combat sub-spec).
 func (p *Player) AddXP(id int, xp int) {
 	if !statBounds(id) {
@@ -276,9 +299,10 @@ func (p *Player) AddXP(id int, xp int) {
 		p.levels[id] = uint8(min(int(p.levels[id])+(afterBase-beforeBase), 255))
 	}
 	if afterBase > beforeBase {
-		// Level-up: fire the [changestat,<skill>] trigger if registered.
-		// Matches TS Player.ts:1772.
+		// Level-up: fire [changestat,<skill>] then [advancestat,<skill>]
+		// triggers if registered. Matches TS Player.ts:1772, 1804-1807.
 		p.changeStat(id)
+		p.advanceStat(id)
 	}
 }
 
