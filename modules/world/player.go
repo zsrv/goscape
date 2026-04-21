@@ -6,9 +6,9 @@ import (
 
 	"github.com/zsrv/goscape/pkg/buildarea"
 	"github.com/zsrv/goscape/pkg/inventory"
+	"github.com/zsrv/goscape/pkg/io/packet"
 	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
-	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -81,19 +81,19 @@ type Player struct {
 	faceAngleX, faceAngleZ int
 
 	// === interaction target ===
-	target          entity
-	targetOp        int
-	targetSubject   struct{ typ, com int }
-	interactionKind InteractionKind
-	apRange         int
-	apRangeCalled   bool
+	target           entity
+	targetOp         int
+	targetSubject    struct{ typ, com int }
+	interactionKind  InteractionKind
+	apRange          int
+	apRangeCalled    bool
 	interacted       bool
 	repathed         bool
 	interactionFired bool
 	delayed          bool
-	delayedUntil    int
-	activeScript    *script.ScriptState
-	queue           []playerQueueRequest
+	delayedUntil     int
+	activeScript     *script.ScriptState
+	queue            []playerQueueRequest
 
 	// timers is a per-player repeating-script map keyed by script lookup
 	// key. Allocated lazily on first SetTimer call.
@@ -455,7 +455,6 @@ func (p *Player) updateStats() {
 		p.lastRunEnergy = p.runenergy
 	}
 }
-
 
 func (p *Player) processOut() {
 	p.updateMap()

@@ -44,7 +44,7 @@ type Npc struct {
 	// === movement ===
 	moveSpeed       MoveSpeed
 	moveRestrict    MoveRestrict
-	moveStrategy   MoveStrategy
+	moveStrategy    MoveStrategy
 	walkDir, runDir int
 	waypointIndex   int
 	waypoints       [25]int

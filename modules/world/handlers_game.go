@@ -30,8 +30,8 @@ func init() {
 	gameHandlers[113] = handleOpNpc4 // OPNPC4
 	gameHandlers[100] = handleOpNpc5 // OPNPC5
 
-	gameHandlers[235] = handleResumePauseButton  // RESUME_PAUSEBUTTON
-	gameHandlers[237] = handleResumeCountDialog  // RESUME_P_COUNTDIALOG
+	gameHandlers[235] = handleResumePauseButton // RESUME_PAUSEBUTTON
+	gameHandlers[237] = handleResumeCountDialog // RESUME_P_COUNTDIALOG
 }
 
 // handleResumePauseButton is the package-level adapter that wires the

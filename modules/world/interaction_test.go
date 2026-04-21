@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/grid"
-	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
+	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 

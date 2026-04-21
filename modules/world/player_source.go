@@ -12,8 +12,8 @@ func (p *Player) Active() bool                 { return p.active }
 func (p *Player) Visibility() rsbuf.Visibility { return p.visibility }
 func (p *Player) StaffModLevel() int32         { return p.staffModLevel }
 
-func (p *Player) Masks() int             { return p.masks }
-func (p *Player) EntityMask() int        { return p.entitymask }
+func (p *Player) Masks() int              { return p.masks }
+func (p *Player) EntityMask() int         { return p.entitymask }
 func (p *Player) AppearanceBytes() []byte { return p.appearanceBuf }
 
 func (p *Player) AppearanceHash() uint64 {

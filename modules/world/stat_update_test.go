@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
+	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 )
 
 func TestSendUpdateStatWireFormat(t *testing.T) {
@@ -67,7 +67,6 @@ func drainConn(t *testing.T, c net.Conn) <-chan []byte {
 	}()
 	return received
 }
-
 
 func TestUpdateStatsFiresOnChange(t *testing.T) {
 	p, cc := newTestPlayer(t)

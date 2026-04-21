@@ -40,7 +40,7 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		s.processLogouts()
 		s.processLogins()
 		s.processInfo()
-		s.processZones()       // compute ComputeShared before delivery
+		s.processZones() // compute ComputeShared before delivery
 		s.processClientsOut()
 		s.processCleanup()
 		s.currentTick++

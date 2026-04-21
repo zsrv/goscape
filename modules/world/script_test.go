@@ -12,8 +12,9 @@ import (
 )
 
 // buildLoginScript returns a synthetic ScriptFile equivalent to:
-//   mes "hi"
-//   return
+//
+//	mes "hi"
+//	return
 func buildLoginScript() *script.ScriptFile {
 	return &script.ScriptFile{
 		Name:             "[login,test]",
