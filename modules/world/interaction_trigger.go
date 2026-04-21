@@ -180,3 +180,21 @@ func locStillValid(srv *Server, loc *entitypkg.Loc, wantType, wantX, wantZ, want
 	zn := srv.zoneMap.Get(wantLevel, wantX, wantZ)
 	return slices.Contains(zn.Locs, loc)
 }
+
+// tryFireApTrigger fires the [aploc<op>,<locType>] approach-trigger
+// for the player's anchored target. Full implementation lands in
+// Task 3 (S6l-3); Task 2 ships this stub so processInteraction's
+// new AP branch compiles.
+//
+// Preconditions (guaranteed by caller — Player.processInteraction):
+//   - p.interacted == true
+//   - p.interactionKind == InteractionEngine
+//   - p.target != nil
+//   - p.interactionFired == false
+//   - player is in approach range but NOT operable distance
+func tryFireApTrigger(p *Player) {
+	// STUB: mark fired so the same-tick caller doesn't loop. Real
+	// implementation (Task 3) does the type-switch + APLOC lookup +
+	// script dispatch + apRangeCalled-driven persistence.
+	p.interactionFired = true
+}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/grid"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
@@ -149,11 +150,13 @@ func TestProcessInteractionInRangeFacesTarget(t *testing.T) {
 }
 
 // TestProcessInteractionOutOfRangePaths verifies a distant target causes pathing.
+// The NPC is placed 15 tiles away — beyond the default apRange of 10 — so the
+// interaction falls through to the pathing branch (not the AP branch).
 func TestProcessInteractionOutOfRangePaths(t *testing.T) {
 	s := newTestServer(t)
 	s.cfg.NodeClientRoutefinder = true // use direct-step mode
 	s.grid = grid.New()
-	npc := makeInteractionNpc(t, s, 1, 105, 100, 0) // 5 tiles away
+	npc := makeInteractionNpc(t, s, 1, 115, 100, 0) // 15 tiles away — beyond apRange=10
 
 	p, cc := newTestPlayer(t)
 	p.client.server = s
@@ -303,5 +306,90 @@ func TestSendUnsetMapFlagWireFormat(t *testing.T) {
 	}
 	if !bytes.Equal(got, []byte{want}) {
 		t.Errorf("UnsetMapFlag wire: got %v, want %v", got, []byte{want})
+	}
+}
+
+// TestInApproachDistanceSameTile verifies same-tile coordinates return
+// false (can't "approach" your own tile). Mirrors inOperableDistance
+// (which also excludes same-tile).
+func TestInApproachDistanceSameTile(t *testing.T) {
+	if inApproachDistance(100, 100, 100, 100, 10) {
+		t.Error("same tile: got true, want false")
+	}
+}
+
+// TestInApproachDistanceAtRange verifies Chebyshev distance exactly
+// apRange is accepted.
+func TestInApproachDistanceAtRange(t *testing.T) {
+	if !inApproachDistance(100, 100, 110, 100, 10) {
+		t.Error("dx=10 apRange=10: got false, want true")
+	}
+	if !inApproachDistance(100, 100, 107, 107, 10) {
+		t.Error("dx=dz=7 apRange=10: got false, want true")
+	}
+}
+
+// TestInApproachDistanceBeyondRange verifies one tile past apRange
+// is rejected.
+func TestInApproachDistanceBeyondRange(t *testing.T) {
+	if inApproachDistance(100, 100, 111, 100, 10) {
+		t.Error("dx=11 apRange=10: got true, want false")
+	}
+	if inApproachDistance(100, 100, 105, 111, 10) {
+		t.Error("dz=11 apRange=10: got true, want false")
+	}
+}
+
+// TestInApproachDistanceZeroRange verifies apRange <= 0 is always
+// rejected (even for adjacent tiles).
+func TestInApproachDistanceZeroRange(t *testing.T) {
+	if inApproachDistance(100, 100, 101, 100, 0) {
+		t.Error("apRange=0: got true, want false")
+	}
+	if inApproachDistance(100, 100, 101, 100, -5) {
+		t.Error("apRange=-5: got true, want false")
+	}
+}
+
+// TestClearInteractionResetsApRange verifies ClearInteraction resets
+// apRange to 10 (the default), preventing stale values from leaking
+// between interactions. Matches TS PathingEntity.ts:554-555.
+func TestClearInteractionResetsApRange(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.apRange = 3
+	p.apRangeCalled = true
+
+	p.ClearInteraction()
+
+	if p.apRange != 10 {
+		t.Errorf("apRange after clear: got %d, want 10", p.apRange)
+	}
+	if p.apRangeCalled {
+		t.Error("apRangeCalled after clear: got true, want false")
+	}
+}
+
+// TestProcessInteractionRoutesToApBranch verifies processInteraction
+// fires the AP-branch (tryFireApTrigger → interactionFired=true via
+// stub) when the player is within apRange but not at contact.
+func TestProcessInteractionRoutesToApBranch(t *testing.T) {
+	s := newTestServer(t)
+	s.grid = grid.New()
+	p, wait := makeInteractionPlayer(t, s, 100, 100, 0)
+	defer wait()
+
+	loc := entitypkg.NewLoc(0, 105, 100, 1, 1, entitypkg.LifecycleForever, 0, 10, 0)
+	p.target = loc
+	p.interactionKind = InteractionEngine
+	p.interactionFired = false
+	p.apRange = 10
+
+	p.processInteraction()
+
+	if !p.interactionFired {
+		t.Error("interactionFired after AP-branch: got false, want true (stub should mark it)")
+	}
+	if !p.interacted {
+		t.Error("interacted after AP-branch: got false, want true")
 	}
 }
