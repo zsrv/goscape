@@ -104,11 +104,17 @@ func (s *Server) processLogins() {
 				p.invs[s.invTypes.Worn] = worn
 			}
 		}
-		// Seed Hitpoints to 10 (RS2 default starting HP) before any code
-		// reads p.levels[PlayerStatHitpoints]. Matches TS PlayerLoading.ts:49-51.
-		// Full skill initialization (all 21 skills with persisted XP) is a
-		// future sub-spec; S6e covers Hitpoints only because the persistent-HP
-		// design requires it.
+		// Default-player skill init — 21 skills at level 1 with 0 XP, then
+		// Hitpoints overridden to level 10 with the matching XP. Matches TS
+		// PlayerLoading.ts:41-53 (the "no save data" branch). Save-file load
+		// + restore is a future sub-spec; this default becomes the no-save
+		// fallback when that lands.
+		for i := range objtype.PlayerStatCount {
+			p.stats[i] = 0
+			p.baseLevels[i] = 1
+			p.levels[i] = 1
+		}
+		p.stats[objtype.PlayerStatHitpoints] = int32(objtype.GetExpByLevel(10))
 		p.baseLevels[objtype.PlayerStatHitpoints] = 10
 		p.levels[objtype.PlayerStatHitpoints] = 10
 
