@@ -137,6 +137,46 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpRunAnim:    handleRunAnim,
 	// P_WALK stub — real impl needs pathfinder + waypoint integration.
 	OpPWalk: handlePWalk,
+
+	// S5d: config-read ops (enum/struct/loc/npc/obj).
+	// EnumOps (2).
+	OpEnum:               handleEnum,
+	OpEnumGetOutputCount: handleEnumGetOutputCount,
+	// StructOps (1).
+	OpStructParam: handleStructParam,
+	// LocConfigOps (7).
+	OpLcName:      handleLcName,
+	OpLcParam:     handleLcParam,
+	OpLcCategory:  handleLcCategory,
+	OpLcDesc:      handleLcDesc,
+	OpLcDebugName: handleLcDebugName,
+	OpLcWidth:     handleLcWidth,
+	OpLcLength:    handleLcLength,
+	// NpcConfigOps (8).
+	OpNcName:      handleNcName,
+	OpNcParam:     handleNcParam,
+	OpNcCategory:  handleNcCategory,
+	OpNcDesc:      handleNcDesc,
+	OpNcDebugName: handleNcDebugName,
+	OpNcOp:        handleNcOp,
+	OpNcSize:      handleNcSize,
+	OpNcVisLevel:  handleNcVisLevel,
+	// ObjConfigOps (15).
+	OpOcName:      handleOcName,
+	OpOcParam:     handleOcParam,
+	OpOcCategory:  handleOcCategory,
+	OpOcDesc:      handleOcDesc,
+	OpOcMembers:   handleOcMembers,
+	OpOcWeight:    handleOcWeight,
+	OpOcWearPos:   handleOcWearPos,
+	OpOcWearPos2:  handleOcWearPos2,
+	OpOcWearPos3:  handleOcWearPos3,
+	OpOcCost:      handleOcCost,
+	OpOcTradeable: handleOcTradeable,
+	OpOcDebugName: handleOcDebugName,
+	OpOcCert:      handleOcCert,
+	OpOcUncert:    handleOcUncert,
+	OpOcStackable: handleOcStackable,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.
