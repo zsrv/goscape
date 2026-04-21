@@ -247,3 +247,139 @@ func TestProcessInteractionInteractionScriptKindSkipsDispatch(t *testing.T) {
 		t.Error("interactionFired: expected false (dispatch skipped, not consumed)")
 	}
 }
+
+// newNoopScriptFile creates a *script.ScriptFile with a single OpReturn opcode,
+// keyed at the type-specific lookup for (trigger, typeID). categoryID is unused
+// (pass -1 to indicate "type-level key only"); matches the pattern used by
+// TestTryFireOpTrigger_HappyPath but for arbitrary triggers.
+func newNoopScriptFile(t *testing.T, trigger script.ServerTriggerType, typeID, _ int) *script.ScriptFile {
+	t.Helper()
+	key := uint32(trigger) | (0x2 << 8) | (uint32(typeID) << 10)
+	return &script.ScriptFile{
+		Name:             "[trigger,noop]",
+		LookupKey:        key,
+		Opcodes:          []script.Opcode{script.OpReturn},
+		IntOperands:      []int32{0},
+		StringOperands:   []string{""},
+		InstructionCount: 1,
+	}
+}
+
+// makeOpLocTriggerFixture creates a fixture for tryFireOpTrigger Loc-branch
+// tests: server + player anchored on a loc with valid targetSubject.
+// Returns (server, player, loc).
+func makeOpLocTriggerFixture(t *testing.T) (*Server, *Player, *entitypkg.Loc) {
+	t.Helper()
+	s, p, loc, _ := makeOpLocFixture(t)
+	p.SetInteraction(InteractionEngine, loc, 1)
+	p.targetSubject.typ = loc.Type()
+	p.targetSubject.x = loc.X
+	p.targetSubject.z = loc.Z
+	p.targetSubject.level = loc.Level
+	return s, p, loc
+}
+
+// TestTryFireOpTriggerLocNoScript verifies a Loc target with no registered
+// trigger silently clears the interaction.
+func TestTryFireOpTriggerLocNoScript(t *testing.T) {
+	_, p, _ := makeOpLocTriggerFixture(t)
+
+	tryFireOpTrigger(p)
+
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil after silent clear", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after no-script clear")
+	}
+}
+
+// TestTryFireOpTriggerLocScriptFires verifies a registered [oploc1,<typeID>]
+// script fires, ActiveLoc is set, and ClearInteraction runs after Finished.
+func TestTryFireOpTriggerLocScriptFires(t *testing.T) {
+	s, p, loc := makeOpLocTriggerFixture(t)
+
+	// Register a no-op script for [oploc1, locType=42].
+	sf := newNoopScriptFile(t, script.TriggerOpLoc1, loc.Type(), -1)
+	s.scriptProvider.Register(sf)
+
+	tryFireOpTrigger(p)
+
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil after Finished", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after script fire")
+	}
+}
+
+// TestTryFireOpTriggerLocDeferredOnDelay verifies a delayed player defers
+// fire (no state change, interactionFired stays false).
+func TestTryFireOpTriggerLocDeferredOnDelay(t *testing.T) {
+	s, p, loc := makeOpLocTriggerFixture(t)
+	p.delayed = true
+	p.delayedUntil = 999
+	s.currentTick = 0
+
+	tryFireOpTrigger(p)
+
+	if p.target != loc {
+		t.Errorf("target: got %v, want loc (deferred)", p.target)
+	}
+	if p.interactionFired {
+		t.Error("interactionFired: want false (deferred)")
+	}
+}
+
+// TestTryFireOpTriggerLocTypeChanged verifies in-place type mutation
+// (loc.Info changed via packLocInfo) clears interaction silently.
+func TestTryFireOpTriggerLocTypeChanged(t *testing.T) {
+	_, p, loc := makeOpLocTriggerFixture(t)
+
+	// Mutate the loc's type in-place by overwriting Info. New type 99
+	// differs from p.targetSubject.typ (42).
+	loc.Info = (99 & 0x3FFF) | (10&0x1F)<<14 | (0&0x3)<<19
+
+	tryFireOpTrigger(p)
+
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil (type changed)", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after type-change clear")
+	}
+}
+
+// TestTryFireOpTriggerLocRemoved verifies removing the loc from its zone
+// (axed-tree case) clears interaction silently.
+func TestTryFireOpTriggerLocRemoved(t *testing.T) {
+	s, p, loc := makeOpLocTriggerFixture(t)
+
+	// Remove the loc from its zone.
+	zn := s.zoneMap.Get(loc.Level, loc.X, loc.Z)
+	zn.Locs = nil
+
+	tryFireOpTrigger(p)
+
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil (loc removed)", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after removal clear")
+	}
+}
+
+// TestTryFireOpTriggerLocOpOutOfRange verifies targetOp=0 silently clears.
+func TestTryFireOpTriggerLocOpOutOfRange(t *testing.T) {
+	_, p, _ := makeOpLocTriggerFixture(t)
+	p.targetOp = 0 // invalid
+
+	tryFireOpTrigger(p)
+
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil (invalid op)", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after invalid-op clear")
+	}
+}
