@@ -345,3 +345,78 @@ func TestExecuteOpcountLimitHit(t *testing.T) {
 		t.Errorf("OpCount: got %d want >= %d", s.OpCount, OpCountLimit)
 	}
 }
+
+func TestPDelaySuspends(t *testing.T) {
+	sf := &ScriptFile{
+		Name: "test_pdelay",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push 5
+			OpPDelay,
+			OpReturn,
+		},
+		IntOperands:      []int32{5, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.Execution != Suspended {
+		t.Errorf("Execution: got %v, want Suspended", state.Execution)
+	}
+	if len(mp.setDelayedCalls) != 1 || mp.setDelayedCalls[0] != 5 {
+		t.Errorf("setDelayedCalls: got %v, want [5]", mp.setDelayedCalls)
+	}
+}
+
+func TestPDelayRequiresActivePlayer(t *testing.T) {
+	sf := &ScriptFile{
+		Name: "test_pdelay_noself",
+		Opcodes: []Opcode{
+			OpPushConstantInt,
+			OpPDelay,
+			OpReturn,
+		},
+		IntOperands:      []int32{0, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	if err := Execute(state); err == nil {
+		t.Fatal("Execute: want error, got nil")
+	}
+}
+
+func TestQueueOpcode(t *testing.T) {
+	sf := &ScriptFile{
+		Name: "test_queue",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push scriptID 77
+			OpPushConstantInt, // push delay 3
+			OpPushConstantInt, // push arg 42
+			OpQueue,
+			OpReturn,
+		},
+		IntOperands:      []int32{77, 3, 42, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.Execution != Finished {
+		t.Errorf("Execution: got %v, want Finished", state.Execution)
+	}
+	if len(mp.enqueueCalls) != 1 {
+		t.Fatalf("enqueueCalls: got %d, want 1", len(mp.enqueueCalls))
+	}
+	got := mp.enqueueCalls[0]
+	want := mockEnqueue{ScriptID: 77, Delay: 3, IntArg: 42}
+	if got != want {
+		t.Errorf("enqueue: got %+v, want %+v", got, want)
+	}
+}

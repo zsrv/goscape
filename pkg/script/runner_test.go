@@ -79,7 +79,28 @@ func TestInitSetsFields(t *testing.T) {
 type mockPlayer struct {
 	messages []string
 	username string
+
+	// S4: captured calls from the suspension + queue methods.
+	setDelayedCalls []int
+	enqueueCalls    []mockEnqueue
+	stored          *ScriptState
+	cleared         int
+}
+
+type mockEnqueue struct {
+	ScriptID uint32
+	Delay    int
+	IntArg   int
 }
 
 func (m *mockPlayer) MessageGame(msg string) { m.messages = append(m.messages, msg) }
 func (m *mockPlayer) Username() string       { return m.username }
+
+func (m *mockPlayer) SetDelayed(ticks int) {
+	m.setDelayedCalls = append(m.setDelayedCalls, ticks)
+}
+func (m *mockPlayer) EnqueueScript(id uint32, delay, arg int) {
+	m.enqueueCalls = append(m.enqueueCalls, mockEnqueue{ScriptID: id, Delay: delay, IntArg: arg})
+}
+func (m *mockPlayer) StoreActiveScript(s *ScriptState) { m.stored = s }
+func (m *mockPlayer) ClearActiveScript()               { m.cleared++ }

@@ -31,6 +31,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpMes:                handleMes,
 	OpName:               handleName,
 	OpConsole:            handleConsole,
+	OpPDelay:             handlePDelay,
+	OpQueue:              handleQueue,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.
@@ -237,5 +239,41 @@ func handleName(s *ScriptState) error {
 // silently dropped; a logger will be wired in S2/S3.
 func handleConsole(s *ScriptState) error {
 	_ = s.PopString()
+	return nil
+}
+
+// handlePDelay implements P_DELAY (opcode 2071): pop int n, delay the
+// active player by n+1 ticks, and suspend execution. TS PlayerOps.ts
+// sets state.delayedUntil = currentTick + 1 + n; we push the whole
+// calculation into the ActivePlayer.SetDelayed implementation so
+// pkg/script stays decoupled from the server's current-tick counter.
+func handlePDelay(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("P_DELAY: no active player")
+	}
+	n := int(s.PopInt())
+	s.Self.SetDelayed(n)
+	s.Execution = Suspended
+	return nil
+}
+
+// handleQueue implements QUEUE (opcode 2092): enqueue a fresh-run
+// script request on the active player.
+//
+// TS (engine/script/handlers/PlayerOps.ts:148):
+//
+//	const [scriptId, delay, arg] = state.popInts(3);
+//
+// popInts(n) fills ints[n-1] down to ints[0] via PopInt, so the stack
+// top is `arg`, then `delay`, then `scriptId`. For S4 we support only
+// the single-int-arg variant (QUEUEVARARG is deferred).
+func handleQueue(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("QUEUE: no active player")
+	}
+	arg := int(s.PopInt())
+	delay := int(s.PopInt())
+	scriptID := uint32(s.PopInt())
+	s.Self.EnqueueScript(scriptID, delay, arg)
 	return nil
 }
