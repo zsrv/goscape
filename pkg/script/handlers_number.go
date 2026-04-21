@@ -1,0 +1,300 @@
+package script
+
+import (
+	"errors"
+	"math/bits"
+	"math/rand/v2"
+)
+
+// floorDiv returns floor(a / b), matching TS's Math.floor(a/b). Panics
+// on zero divisor; callers must pre-check and return an error.
+func floorDiv(a, b int) int {
+	q := a / b
+	// Go truncates toward zero; floor division rounds toward -inf.
+	// Adjust when the quotient is negative and there is a non-zero
+	// remainder.
+	if (a%b != 0) && ((a < 0) != (b < 0)) {
+		q--
+	}
+	return q
+}
+
+// posMod returns a mathematical modulus that is always non-negative
+// when b > 0, matching TS's ((a%b)+b)%b idiom.
+func posMod(a, b int) int {
+	r := a % b
+	if r < 0 && b > 0 {
+		r += b
+	} else if r > 0 && b < 0 {
+		r += b
+	}
+	return r
+}
+
+// bitMask returns a mask covering bits [start..end] inclusive.
+func bitMask(start, end int) int {
+	width := end - start + 1
+	if width <= 0 {
+		return 0
+	}
+	return ((1 << width) - 1) << start
+}
+
+// -- Comparison branches --
+
+func handleBranchLessThan(s *ScriptState) error {
+	rhs := s.PopInt()
+	lhs := s.PopInt()
+	if lhs < rhs {
+		s.PC += int(s.Script.IntOperands[s.PC])
+	}
+	return nil
+}
+
+func handleBranchGreaterThan(s *ScriptState) error {
+	rhs := s.PopInt()
+	lhs := s.PopInt()
+	if lhs > rhs {
+		s.PC += int(s.Script.IntOperands[s.PC])
+	}
+	return nil
+}
+
+func handleBranchLessThanOrEquals(s *ScriptState) error {
+	rhs := s.PopInt()
+	lhs := s.PopInt()
+	if lhs <= rhs {
+		s.PC += int(s.Script.IntOperands[s.PC])
+	}
+	return nil
+}
+
+func handleBranchGreaterThanOrEquals(s *ScriptState) error {
+	rhs := s.PopInt()
+	lhs := s.PopInt()
+	if lhs >= rhs {
+		s.PC += int(s.Script.IntOperands[s.PC])
+	}
+	return nil
+}
+
+// -- Arithmetic --
+
+func handleMultiply(s *ScriptState) error {
+	rhs := s.PopInt()
+	lhs := s.PopInt()
+	// 32-bit wraparound to match TS Math.imul semantics.
+	s.PushInt(int(int32(lhs) * int32(rhs)))
+	return nil
+}
+
+func handleDivide(s *ScriptState) error {
+	rhs := s.PopInt()
+	lhs := s.PopInt()
+	if rhs == 0 {
+		return errors.New("DIVIDE: division by zero")
+	}
+	s.PushInt(floorDiv(lhs, rhs))
+	return nil
+}
+
+func handleModulo(s *ScriptState) error {
+	rhs := s.PopInt()
+	lhs := s.PopInt()
+	if rhs == 0 {
+		return errors.New("MODULO: division by zero")
+	}
+	s.PushInt(posMod(lhs, rhs))
+	return nil
+}
+
+func handleAbs(s *ScriptState) error {
+	x := s.PopInt()
+	if x < 0 {
+		x = -x
+	}
+	s.PushInt(x)
+	return nil
+}
+
+func handleAddPercent(s *ScriptState) error {
+	rhs := s.PopInt()
+	lhs := s.PopInt()
+	s.PushInt(lhs + (lhs*rhs)/100)
+	return nil
+}
+
+func handleScale(s *ScriptState) error {
+	c := s.PopInt()
+	b := s.PopInt()
+	a := s.PopInt()
+	if c == 0 {
+		return errors.New("SCALE: division by zero")
+	}
+	s.PushInt(floorDiv(a*b, c))
+	return nil
+}
+
+func handleMin(s *ScriptState) error {
+	rhs := s.PopInt()
+	lhs := s.PopInt()
+	s.PushInt(min(lhs, rhs))
+	return nil
+}
+
+func handleMax(s *ScriptState) error {
+	rhs := s.PopInt()
+	lhs := s.PopInt()
+	s.PushInt(max(lhs, rhs))
+	return nil
+}
+
+func handlePow(s *ScriptState) error {
+	exp := s.PopInt()
+	base := s.PopInt()
+	if exp < 0 {
+		s.PushInt(0)
+		return nil
+	}
+	result := int32(1)
+	b32 := int32(base)
+	for range exp {
+		result *= b32
+	}
+	s.PushInt(int(result))
+	return nil
+}
+
+func handleInvPow(s *ScriptState) error {
+	// invpow(value, base) = floor(log_base(value)).
+	base := s.PopInt()
+	value := s.PopInt()
+	if value <= 0 || base <= 1 {
+		s.PushInt(0)
+		return nil
+	}
+	n := 0
+	for value >= base {
+		value /= base
+		n++
+	}
+	s.PushInt(n)
+	return nil
+}
+
+// -- Bitwise --
+
+func handleAnd(s *ScriptState) error {
+	rhs := s.PopInt()
+	lhs := s.PopInt()
+	s.PushInt(lhs & rhs)
+	return nil
+}
+
+func handleOr(s *ScriptState) error {
+	rhs := s.PopInt()
+	lhs := s.PopInt()
+	s.PushInt(lhs | rhs)
+	return nil
+}
+
+func handleBitCount(s *ScriptState) error {
+	x := uint32(s.PopInt())
+	s.PushInt(bits.OnesCount32(x))
+	return nil
+}
+
+func handleTestBit(s *ScriptState) error {
+	bit := s.PopInt()
+	value := s.PopInt()
+	s.PushInt((value >> bit) & 1)
+	return nil
+}
+
+func handleSetBit(s *ScriptState) error {
+	bit := s.PopInt()
+	value := s.PopInt()
+	s.PushInt(value | (1 << bit))
+	return nil
+}
+
+func handleClearBit(s *ScriptState) error {
+	bit := s.PopInt()
+	value := s.PopInt()
+	s.PushInt(value &^ (1 << bit))
+	return nil
+}
+
+func handleToggleBit(s *ScriptState) error {
+	bit := s.PopInt()
+	value := s.PopInt()
+	s.PushInt(value ^ (1 << bit))
+	return nil
+}
+
+func handleGetBitRange(s *ScriptState) error {
+	end := s.PopInt()
+	start := s.PopInt()
+	value := s.PopInt()
+	width := end - start + 1
+	if width <= 0 {
+		s.PushInt(0)
+		return nil
+	}
+	s.PushInt((value >> start) & ((1 << width) - 1))
+	return nil
+}
+
+func handleSetBitRange(s *ScriptState) error {
+	end := s.PopInt()
+	start := s.PopInt()
+	value := s.PopInt()
+	s.PushInt(value | bitMask(start, end))
+	return nil
+}
+
+func handleClearBitRange(s *ScriptState) error {
+	end := s.PopInt()
+	start := s.PopInt()
+	value := s.PopInt()
+	s.PushInt(value &^ bitMask(start, end))
+	return nil
+}
+
+func handleSetBitRangeToInt(s *ScriptState) error {
+	end := s.PopInt()
+	start := s.PopInt()
+	bitsVal := s.PopInt()
+	value := s.PopInt()
+	mask := bitMask(start, end)
+	width := end - start + 1
+	if width <= 0 {
+		s.PushInt(value)
+		return nil
+	}
+	low := bitsVal & ((1 << width) - 1)
+	s.PushInt((value &^ mask) | (low << start))
+	return nil
+}
+
+// -- Random --
+
+func handleRandom(s *ScriptState) error {
+	n := s.PopInt()
+	if n <= 0 {
+		s.PushInt(0)
+		return nil
+	}
+	s.PushInt(rand.IntN(n))
+	return nil
+}
+
+func handleRandomInc(s *ScriptState) error {
+	n := s.PopInt()
+	if n < 0 {
+		s.PushInt(0)
+		return nil
+	}
+	s.PushInt(rand.IntN(n + 1))
+	return nil
+}

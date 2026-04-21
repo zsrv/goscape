@@ -33,6 +33,41 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpConsole:            handleConsole,
 	OpPDelay:             handlePDelay,
 	OpQueue:              handleQueue,
+
+	// S5a: comparison branches.
+	OpBranchLessThan:            handleBranchLessThan,
+	OpBranchGreaterThan:         handleBranchGreaterThan,
+	OpBranchLessThanOrEquals:    handleBranchLessThanOrEquals,
+	OpBranchGreaterThanOrEquals: handleBranchGreaterThanOrEquals,
+
+	// S5a: arithmetic.
+	OpMultiply:   handleMultiply,
+	OpDivide:     handleDivide,
+	OpModulo:     handleModulo,
+	OpAbs:        handleAbs,
+	OpAddPercent: handleAddPercent,
+	OpScale:      handleScale,
+	OpMin:        handleMin,
+	OpMax:        handleMax,
+	OpPow:        handlePow,
+	OpInvPow:     handleInvPow,
+
+	// S5a: bitwise.
+	OpAnd:              handleAnd,
+	OpOr:               handleOr,
+	OpBitCount:         handleBitCount,
+	OpTestBit:          handleTestBit,
+	OpSetBit:           handleSetBit,
+	OpClearBit:         handleClearBit,
+	OpToggleBit:        handleToggleBit,
+	OpGetBitRange:      handleGetBitRange,
+	OpSetBitRange:      handleSetBitRange,
+	OpClearBitRange:    handleClearBitRange,
+	OpSetBitRangeToInt: handleSetBitRangeToInt,
+
+	// S5a: random.
+	OpRandom:    handleRandom,
+	OpRandomInc: handleRandomInc,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.
