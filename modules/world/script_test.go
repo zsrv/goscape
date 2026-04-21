@@ -5,6 +5,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/inventory"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
+	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -729,5 +730,64 @@ func TestIfSetTextEmitsWire(t *testing.T) {
 	}
 	if string(got[5:7]) != "hi" || got[7] != 0x0a {
 		t.Errorf("text: got %q", got[5:])
+	}
+}
+
+func TestPauseButtonResumesAfterClick(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	p.resumeButtons = [5]int{7, 0, 0, 0, 0}
+
+	// Script: push "before", mes, p_pausebutton, push "after", mes, return
+	sf := &script.ScriptFile{
+		Name: "[pausebutton,test]",
+		Opcodes: []script.Opcode{
+			script.OpPushConstantString,
+			script.OpMes,
+			script.OpPPauseButton,
+			script.OpPushConstantString,
+			script.OpMes,
+			script.OpReturn,
+		},
+		IntOperands:      []int32{0, 0, 0, 0, 0, 0},
+		StringOperands:   []string{"before", "", "", "after", "", ""},
+		InstructionCount: 6,
+	}
+
+	received := drainConn(t, cc)
+	s.runScript(sf, p, true, nil, nil)
+	p.client.flushWrite()
+	first := <-received
+
+	if p.activeScript == nil {
+		t.Fatal("expected activeScript to be set after p_pausebutton")
+	}
+	if p.activeScript.Execution != script.PauseButton {
+		t.Errorf("Execution: got %v, want PauseButton", p.activeScript.Execution)
+	}
+
+	// Simulate RESUME_PAUSEBUTTON with com=7.
+	received2 := drainConn(t, cc)
+	buf := packet.NewPacket([]byte{0, 7})
+	if err := s.handleResumePauseButton(p, buf); err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+	p.client.flushWrite()
+	second := <-received2
+
+	// first payload bytes 2..7 = "before" then 0x0a (newline)
+	if string(first[2:8]) != "before" {
+		t.Errorf("first payload: got %q", first[2:])
+	}
+	if string(second[2:7]) != "after" {
+		t.Errorf("second payload: got %q", second[2:])
+	}
+	if p.activeScript != nil {
+		t.Errorf("activeScript after resume-and-finish: got %v, want nil", p.activeScript)
 	}
 }

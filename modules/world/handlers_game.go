@@ -29,6 +29,27 @@ func init() {
 	gameHandlers[27] = handleOpNpc3  // OPNPC3
 	gameHandlers[113] = handleOpNpc4 // OPNPC4
 	gameHandlers[100] = handleOpNpc5 // OPNPC5
+
+	gameHandlers[235] = handleResumePauseButton  // RESUME_PAUSEBUTTON
+	gameHandlers[237] = handleResumeCountDialog  // RESUME_P_COUNTDIALOG
+}
+
+// handleResumePauseButton is the package-level adapter that wires the
+// []byte-payload gameHandlers dispatch into the Server method of the
+// same name (see resume_dialog.go). Looks up the Server via
+// p.client.server, matching existing handlers in this file.
+func handleResumePauseButton(p *Player, payload []byte) error {
+	if p.client == nil || p.client.server == nil {
+		return nil
+	}
+	return p.client.server.handleResumePauseButton(p, packet.NewPacket(payload))
+}
+
+func handleResumeCountDialog(p *Player, payload []byte) error {
+	if p.client == nil || p.client.server == nil {
+		return nil
+	}
+	return p.client.server.handleResumeCountDialog(p, packet.NewPacket(payload))
 }
 
 func handleNoTimeout(_ *Player, _ []byte) error {
