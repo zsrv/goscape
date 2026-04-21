@@ -221,6 +221,11 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// Misc (2).
 	OpIfSetTabActive:     handleIfSetTabActive,
 	OpIfSetResumeButtons: handleIfSetResumeButtons,
+
+	// S5g: dialog suspension.
+	OpPPauseButton: handlePPauseButton,
+	OpPCountDialog: handlePCountDialog,
+	OpLastCom:      handleLastCom,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.
