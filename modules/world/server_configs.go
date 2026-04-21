@@ -67,3 +67,13 @@ func (c serverConfigsView) ParamType(id int) *objtype.ParamType {
 	}
 	return c.s.paramTypes.Configs[id]
 }
+
+func (c serverConfigsView) InvType(id int) *objtype.InvType {
+	if c.s == nil || c.s.invTypes == nil {
+		return nil
+	}
+	if id < 0 || id >= len(c.s.invTypes.Configs) {
+		return nil
+	}
+	return c.s.invTypes.Configs[id]
+}

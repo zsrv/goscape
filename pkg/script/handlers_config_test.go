@@ -15,6 +15,7 @@ type mockConfigs struct {
 	enums   map[int]*objtype.EnumType
 	structs map[int]*objtype.StructType
 	params  map[int]*objtype.ParamType
+	invs    map[int]*objtype.InvType
 }
 
 func (m *mockConfigs) ObjType(id int) *objtype.ObjType       { return m.objs[id] }
@@ -23,6 +24,7 @@ func (m *mockConfigs) LocType(id int) *objtype.LocType       { return m.locs[id]
 func (m *mockConfigs) EnumType(id int) *objtype.EnumType     { return m.enums[id] }
 func (m *mockConfigs) StructType(id int) *objtype.StructType { return m.structs[id] }
 func (m *mockConfigs) ParamType(id int) *objtype.ParamType   { return m.params[id] }
+func (m *mockConfigs) InvType(id int) *objtype.InvType       { return m.invs[id] }
 
 // newTestConfigs seeds a fresh mockConfigs with the canonical fixture used
 // across handler tests.

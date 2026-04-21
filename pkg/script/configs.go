@@ -12,4 +12,5 @@ type Configs interface {
 	EnumType(id int) *objtype.EnumType
 	StructType(id int) *objtype.StructType
 	ParamType(id int) *objtype.ParamType
+	InvType(id int) *objtype.InvType
 }

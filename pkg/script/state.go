@@ -1,6 +1,10 @@
 package script
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/zsrv/goscape/pkg/inventory"
+)
 
 const (
 	// StackCapacity is the maximum depth of the int and string stacks.
@@ -25,6 +29,15 @@ type WorldVars interface {
 	SetVarsString(id int, val string)
 }
 
+// InvLookup is the inventory resolution surface for INV_* handlers.
+// Implementations route between player-owned and world-shared
+// inventories based on InvType.Scope.
+type InvLookup interface {
+	// Get returns the inventory at typeID for the given active player,
+	// or nil if the type is invalid or the player has no such inv.
+	Get(self ActivePlayer, typeID int) *inventory.Inventory
+}
+
 // Frame holds a suspended call frame for GOSUB / RETURN.
 type Frame struct {
 	Script       *ScriptFile
@@ -43,6 +56,10 @@ type ScriptState struct {
 	// if the script uses config-read opcodes (OC_*, NC_*, LC_*, ENUM,
 	// STRUCT_PARAM).
 	Configs Configs
+
+	// Inv is the inventory resolution surface. Callers set this after
+	// Init if the script uses INV_* opcodes.
+	Inv InvLookup
 
 	PC      int
 	OpCount int
