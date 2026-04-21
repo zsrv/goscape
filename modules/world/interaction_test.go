@@ -9,6 +9,7 @@ import (
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/zone"
 )
 
 // makeInteractionNpc builds a live NPC registered in s.npcs at the given slot.
@@ -370,24 +371,38 @@ func TestClearInteractionResetsApRange(t *testing.T) {
 }
 
 // TestProcessInteractionRoutesToApBranch verifies processInteraction
-// fires the AP-branch (tryFireApTrigger → interactionFired=true via
-// stub) when the player is within apRange but not at contact.
+// fires the AP-branch (tryFireApTrigger → interactionFired=true) when
+// the player is within apRange but not at contact. The full
+// tryFireApTrigger impl requires zoneMap, locTypes, and targetSubject.
+// No APLOC script is registered so fireApTriggerLoc falls through to
+// the no-script path and sets interactionFired=true — the routing
+// assertion still holds.
 func TestProcessInteractionRoutesToApBranch(t *testing.T) {
 	s := newTestServer(t)
 	s.grid = grid.New()
+	s.zoneMap = zone.NewZoneMap()
+	s.locTypes = &objtype.LocTypeConfigs{
+		Configs: make([]*objtype.LocType, 1), // type 0 slot only
+	}
 	p, wait := makeInteractionPlayer(t, s, 100, 100, 0)
 	defer wait()
 
 	loc := entitypkg.NewLoc(0, 105, 100, 1, 1, entitypkg.LifecycleForever, 0, 10, 0)
-	p.target = loc
-	p.interactionKind = InteractionEngine
+	zn := s.zoneMap.Get(loc.Level, loc.X, loc.Z)
+	zn.Locs = append(zn.Locs, loc)
+
+	p.SetInteraction(InteractionEngine, loc, 1)
+	p.targetSubject.typ = loc.Type()
+	p.targetSubject.x = loc.X
+	p.targetSubject.z = loc.Z
+	p.targetSubject.level = loc.Level
 	p.interactionFired = false
 	p.apRange = 10
 
 	p.processInteraction()
 
 	if !p.interactionFired {
-		t.Error("interactionFired after AP-branch: got false, want true (stub should mark it)")
+		t.Error("interactionFired after AP-branch: got false, want true")
 	}
 	if !p.interacted {
 		t.Error("interacted after AP-branch: got false, want true")

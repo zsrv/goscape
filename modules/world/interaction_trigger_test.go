@@ -398,3 +398,177 @@ func TestTryFireOpTriggerLocOpOutOfRange(t *testing.T) {
 		t.Error("interactionFired: want true after invalid-op clear")
 	}
 }
+
+// makeApTriggerFixture creates a fixture for tryFireApTrigger tests:
+// server + player anchored on a loc with valid targetSubject, positioned
+// within apRange=10 but NOT at contact. Returns (server, player, loc, conn).
+func makeApTriggerFixture(t *testing.T) (*Server, *Player, *entitypkg.Loc, net.Conn) {
+	t.Helper()
+	// makeOpLocFixture places the loc at (100, 100) and the player at
+	// (99, 100) — at contact. For AP tests we move the player farther.
+	s, p, loc, cc := makeOpLocFixture(t)
+	p.x, p.z = 95, 100 // 5 tiles away — within apRange=10, not contact
+	p.SetInteraction(InteractionEngine, loc, 1)
+	p.targetSubject.typ = loc.Type()
+	p.targetSubject.x = loc.X
+	p.targetSubject.z = loc.Z
+	p.targetSubject.level = loc.Level
+	return s, p, loc, cc
+}
+
+// TestTryFireApTriggerLocNoScript verifies a Loc target with no APLOC
+// trigger registered leaves the interaction anchored (no clear), just
+// sets interactionFired=true.
+// DEVIATION S6l-D1: goscape skips TS's apRange=-1 sentinel. The
+// observable effect is the same — player keeps walking toward contact
+// on subsequent ticks, at which point OPLOC/defaultOp takes over.
+func TestTryFireApTriggerLocNoScript(t *testing.T) {
+	_, p, loc, _ := makeApTriggerFixture(t)
+
+	tryFireApTrigger(p)
+
+	if p.target != loc {
+		t.Errorf("target: got %v, want loc (no-AP-script should not clear)", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after no-AP-script mark")
+	}
+}
+
+// TestTryFireApTriggerLocScriptFiresNoApRangeCalled verifies an APLOC
+// script that runs but doesn't call p_aprange causes ClearInteraction
+// per TS Player.ts:1261 (if interacted && !apRangeCalled: clear).
+func TestTryFireApTriggerLocScriptFiresNoApRangeCalled(t *testing.T) {
+	s, p, loc, _ := makeApTriggerFixture(t)
+
+	// Register a no-op APLOC1 script for locType=42.
+	sf := newNoopScriptFile(t, script.TriggerApLoc1, loc.Type(), -1)
+	s.scriptProvider.Register(sf)
+
+	tryFireApTrigger(p)
+
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil after no-p_aprange clear", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after clear")
+	}
+}
+
+// scriptFileWithApRangeCall creates a ScriptFile whose only opcode is
+// P_APRANGE(N), simulating an APLOC script that calls p_aprange.
+// Reuses the newNoopScriptFile key-packing convention (type-tier key).
+func scriptFileWithApRangeCall(t *testing.T, trigger script.ServerTriggerType, typeID, newApRange int) *script.ScriptFile {
+	t.Helper()
+	return &script.ScriptFile{
+		Name:      "aploc_aprange_test",
+		LookupKey: uint32(trigger) | (0x2 << 8) | (uint32(typeID) << 10),
+		Opcodes: []script.Opcode{
+			script.OpPushConstantInt,
+			script.OpPApRange,
+		},
+		IntOperands:    []int32{int32(newApRange), 0},
+		StringOperands: []string{"", ""},
+	}
+}
+
+// TestTryFireApTriggerLocScriptCallsPApRange verifies an APLOC script
+// that calls p_aprange sets apRangeCalled=true, which causes the
+// interaction to PERSIST past the tick (no ClearInteraction). repathed
+// is reset to force a fresh path on the next tick.
+func TestTryFireApTriggerLocScriptCallsPApRange(t *testing.T) {
+	s, p, loc, _ := makeApTriggerFixture(t)
+
+	// Register an APLOC1 script that calls p_aprange(5).
+	sf := scriptFileWithApRangeCall(t, script.TriggerApLoc1, loc.Type(), 5)
+	s.scriptProvider.Register(sf)
+
+	p.repathed = true // verify it gets reset to false post-fire
+
+	tryFireApTrigger(p)
+
+	if p.target != loc {
+		t.Errorf("target: got %v, want loc (p_aprange should persist interaction)", p.target)
+	}
+	if p.apRange != 5 {
+		t.Errorf("apRange: got %d, want 5 (p_aprange argument)", p.apRange)
+	}
+	if !p.apRangeCalled {
+		t.Error("apRangeCalled: want true after p_aprange fire")
+	}
+	if p.repathed {
+		t.Error("repathed: want false (reset post-p_aprange for fresh path)")
+	}
+	if p.interactionFired {
+		t.Error("interactionFired: want false (allow re-fire next tick)")
+	}
+}
+
+// TestTryFireApTriggerLocDeferredOnDelay verifies a delayed player defers
+// the fire (no state change, interactionFired stays false).
+func TestTryFireApTriggerLocDeferredOnDelay(t *testing.T) {
+	s, p, loc, _ := makeApTriggerFixture(t)
+	p.delayed = true
+	p.delayedUntil = 999
+	s.currentTick = 0
+
+	tryFireApTrigger(p)
+
+	if p.target != loc {
+		t.Errorf("target: got %v, want loc (deferred)", p.target)
+	}
+	if p.interactionFired {
+		t.Error("interactionFired: want false (deferred)")
+	}
+}
+
+// TestTryFireApTriggerLocTypeChanged verifies in-place type mutation
+// (loc.Info changed) clears interaction silently.
+func TestTryFireApTriggerLocTypeChanged(t *testing.T) {
+	_, p, loc, _ := makeApTriggerFixture(t)
+
+	// Mutate loc.Info to a different type (99 ≠ 42 recorded in targetSubject).
+	loc.Info = (99 & 0x3FFF) | (10&0x1F)<<14 | (0&0x3)<<19
+
+	tryFireApTrigger(p)
+
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil (lifecycle gate)", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after lifecycle clear")
+	}
+}
+
+// TestTryFireApTriggerLocRemoved verifies removing the loc from its zone
+// (axed-tree case) clears interaction silently.
+func TestTryFireApTriggerLocRemoved(t *testing.T) {
+	s, p, loc, _ := makeApTriggerFixture(t)
+
+	zn := s.zoneMap.Get(loc.Level, loc.X, loc.Z)
+	zn.Locs = nil
+
+	tryFireApTrigger(p)
+
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil (removed from zone)", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after removal clear")
+	}
+}
+
+// TestTryFireApTriggerLocOpOutOfRange verifies targetOp=0 silently clears.
+func TestTryFireApTriggerLocOpOutOfRange(t *testing.T) {
+	_, p, _, _ := makeApTriggerFixture(t)
+	p.targetOp = 0
+
+	tryFireApTrigger(p)
+
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil (invalid op)", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after invalid-op clear")
+	}
+}

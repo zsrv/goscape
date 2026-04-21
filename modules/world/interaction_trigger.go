@@ -182,9 +182,9 @@ func locStillValid(srv *Server, loc *entitypkg.Loc, wantType, wantX, wantZ, want
 }
 
 // tryFireApTrigger fires the [aploc<op>,<locType>] approach-trigger
-// for the player's anchored target. Full implementation lands in
-// Task 3 (S6l-3); Task 2 ships this stub so processInteraction's
-// new AP branch compiles.
+// for the player's anchored target when the player has just reached
+// apRange. Matches TS Player.ts:1139-1170 for the Loc branch.
+// DEVIATION S6l-D2: APNPC branch intentionally deferred.
 //
 // Preconditions (guaranteed by caller — Player.processInteraction):
 //   - p.interacted == true
@@ -193,8 +193,97 @@ func locStillValid(srv *Server, loc *entitypkg.Loc, wantType, wantX, wantZ, want
 //   - p.interactionFired == false
 //   - player is in approach range but NOT operable distance
 func tryFireApTrigger(p *Player) {
-	// STUB: mark fired so the same-tick caller doesn't loop. Real
-	// implementation (Task 3) does the type-switch + APLOC lookup +
-	// script dispatch + apRangeCalled-driven persistence.
+	srv := p.client.server
+
+	switch tgt := p.target.(type) {
+	case *entitypkg.Loc:
+		fireApTriggerLoc(p, srv, tgt)
+	default:
+		// *Npc, *Obj, etc. — AP branch not yet wired. Mark fired to
+		// prevent same-tick retry; processInteraction's branch ordering
+		// ensures OP still fires if player reaches contact next tick.
+		p.interactionFired = true
+	}
+}
+
+// fireApTriggerLoc fires the [aploc<op>,<locType>] trigger with the
+// persistence contract: apRangeCalled=true keeps the interaction
+// anchored across ticks; apRangeCalled=false clears it after a
+// terminal Execution. Matches TS Player.ts:1139-1170 + :1261.
+//
+// Lifecycle gate: locStillValid (same helper from S6j) — catches
+// in-place Info mutation and zone removal.
+//
+// Script lookup: TriggerApLoc1 + (op-1). No APLOC→OPLOC fallthrough
+// at approach distance — OPLOC fires only when the player reaches
+// contact on a later processInteraction tick.
+//
+// DEVIATION S6l-D2: APNPC not wired. Non-*Loc targets fall through
+// to tryFireApTrigger's default branch above.
+func fireApTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
+	if p.delayed && srv.currentTick < p.delayedUntil {
+		return
+	}
+
+	if !locStillValid(srv, loc, p.targetSubject.typ, p.targetSubject.x, p.targetSubject.z, p.targetSubject.level) {
+		p.ClearInteraction()
+		p.interactionFired = true
+		return
+	}
+
+	op := p.targetOp
+	if op < 1 || op > 5 {
+		p.ClearInteraction()
+		p.interactionFired = true
+		return
+	}
+
+	trigger := script.TriggerApLoc1 + script.ServerTriggerType(op-1)
+	category := 0
+	if locId := loc.Type(); locId >= 0 && locId < len(srv.locTypes.Configs) {
+		if lt := srv.locTypes.Configs[locId]; lt != nil {
+			category = lt.Category
+		}
+	}
+
+	sf := srv.scriptProvider.GetByTrigger(trigger, loc.Type(), category)
+	if sf == nil {
+		// No AP script registered. DEVIATION S6l-D1: skip TS apRange=-1
+		// sentinel. Interaction stays anchored; next tick re-evaluates.
+		// If player has reached contact, OP/defaultOp takes over.
+		p.interactionFired = true
+		return
+	}
+
+	// Reset apRangeCalled BEFORE exec (TS Player.ts:1141). Each AP fire
+	// is a fresh evaluation — script must actively call p_aprange to
+	// persist the interaction.
+	p.apRangeCalled = false
+
+	state := script.Init(sf, p, false, nil, nil)
+	state.ActiveLoc = loc
+	state.Pointers |= script.PtrActiveLoc
+	state.Provider = srv.scriptProvider
+	state.World = srv.worldVars
+	state.Configs = srv.configsView
+	state.Inv = srv.invLookup
+
+	srv.resumeOrFinish(state, p)
+
+	if state.Execution == script.Finished || state.Execution == script.Aborted {
+		if p.apRangeCalled {
+			// Script requested a new approach range. Persist interaction
+			// for next-tick re-evaluation at updated apRange.
+			p.repathed = false
+			// interactionFired stays false → processInteraction re-enters
+			// next tick; APLOC re-fires if still in range.
+			return
+		}
+		// apRangeCalled=false → script didn't extend range; TS line 1261
+		// clears the interaction.
+		p.ClearInteraction()
+	}
+	// Suspended (P_DELAY etc.): keep interaction anchored; resume flow
+	// re-enters on the resume tick.
 	p.interactionFired = true
 }
