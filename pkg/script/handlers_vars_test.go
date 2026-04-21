@@ -9,6 +9,8 @@ import (
 type mockWorld struct {
 	ints    map[int]int32
 	strings map[int]string
+	tick    int
+	players int
 }
 
 func newMockWorld() *mockWorld {
@@ -22,6 +24,8 @@ func (m *mockWorld) VarsInt(id int) int32             { return m.ints[id] }
 func (m *mockWorld) SetVarsInt(id int, val int32)     { m.ints[id] = val }
 func (m *mockWorld) VarsString(id int) string         { return m.strings[id] }
 func (m *mockWorld) SetVarsString(id int, val string) { m.strings[id] = val }
+func (m *mockWorld) CurrentTick() int                 { return m.tick }
+func (m *mockWorld) PlayerCount() int                 { return m.players }
 
 func TestPushVarp(t *testing.T) {
 	sf := &ScriptFile{

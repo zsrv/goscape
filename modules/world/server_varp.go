@@ -33,3 +33,24 @@ func (w worldVarsView) SetVarsString(id int, val string) {
 	}
 	w.s.varsStrings[id] = val
 }
+
+// CurrentTick returns the server's current tick counter. Used by
+// MAP_CLOCK opcode.
+func (w worldVarsView) CurrentTick() int {
+	if w.s == nil {
+		return 0
+	}
+	return w.s.currentTick
+}
+
+// PlayerCount returns the number of players currently in the world.
+// Used by PLAYERCOUNT opcode.
+func (w worldVarsView) PlayerCount() int {
+	if w.s == nil {
+		return 0
+	}
+	w.s.playersMu.RLock()
+	n := len(w.s.playerLoop)
+	w.s.playersMu.RUnlock()
+	return n
+}

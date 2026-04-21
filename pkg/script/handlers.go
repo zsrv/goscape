@@ -82,6 +82,11 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpDistance: handleDistance,
 	OpGosub:    handleGosub,
 
+	// S5l: server/world ops.
+	OpMapClock:    handleMapClock,
+	OpPlayerCount: handlePlayerCount,
+	OpMoveCoord:   handleMoveCoord,
+
 	// S5a: string ops.
 	OpAppend:              handleAppend,
 	OpAppendNum:           handleAppendNum,

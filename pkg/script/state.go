@@ -27,6 +27,10 @@ type WorldVars interface {
 	SetVarsInt(id int, val int32)
 	VarsString(id int) string
 	SetVarsString(id int, val string)
+
+	// S5l: world-state queries used by MAP_CLOCK / PLAYERCOUNT.
+	CurrentTick() int
+	PlayerCount() int
 }
 
 // InvLookup is the inventory resolution surface for INV_* handlers.

@@ -1,0 +1,44 @@
+package script
+
+import "errors"
+
+// handleMapClock pushes the server's current tick counter. TS:
+// state.pushInt(World.currentTick).
+func handleMapClock(s *ScriptState) error {
+	if s.World == nil {
+		return errors.New("MAP_CLOCK: no world")
+	}
+	s.PushInt(s.World.CurrentTick())
+	return nil
+}
+
+// handlePlayerCount pushes the number of players currently in the world.
+// TS: state.pushInt(World.getTotalPlayers()).
+func handlePlayerCount(s *ScriptState) error {
+	if s.World == nil {
+		return errors.New("PLAYERCOUNT: no world")
+	}
+	s.PushInt(s.World.PlayerCount())
+	return nil
+}
+
+// handleMoveCoord pops [coord, x, y, z] (z on top) and pushes a new
+// packed coord with the original level/x/z offset by (y, x, z) where TS
+// uses y for the level delta. Matches TS ServerOps.ts MOVECOORD.
+func handleMoveCoord(s *ScriptState) error {
+	z := s.PopInt()
+	y := s.PopInt()
+	x := s.PopInt()
+	coord := s.PopInt()
+
+	level := (coord >> 28) & 0x3
+	cx := (coord >> 14) & 0x3fff
+	cz := coord & 0x3fff
+
+	level += y
+	cx += x
+	cz += z
+
+	s.PushInt((level << 28) | (cx << 14) | cz)
+	return nil
+}
