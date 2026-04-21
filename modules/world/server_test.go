@@ -284,6 +284,11 @@ func defaultTestProvider() *script.Provider {
 	// Suspends (P_DELAY) so processInteraction leaves interacted=true and target
 	// intact — allowing reach/face tests written before script dispatch existed to
 	// keep passing without modification.
+	//
+	// Side effect: tests that reach in-range dispatch via this fixture will see
+	// p.delayed=true and p.activeScript!=nil after processInteraction runs, since
+	// P_DELAY suspends the player for currentTick+1. Tests asserting the absence
+	// of those fields must seed an empty provider (s.scriptProvider = script.NewProvider()).
 	globalScript := &script.ScriptFile{
 		Name:      "[opnpc1,_default]",
 		LookupKey: uint32(script.TriggerOpNpc1),
