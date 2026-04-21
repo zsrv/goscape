@@ -86,6 +86,9 @@ type mockPlayer struct {
 	enqueueCalls    []mockEnqueue
 	stored          *ScriptState
 	cleared         int
+
+	// S5b: per-player varp storage for tests.
+	varps map[int]int32
 }
 
 type mockEnqueue struct {
@@ -106,3 +109,16 @@ func (m *mockPlayer) EnqueueScript(id uint32, delay, arg int) {
 func (m *mockPlayer) StoreActiveScript(s *ScriptState) { m.stored = s }
 func (m *mockPlayer) ClearActiveScript()               { m.cleared++ }
 func (m *mockPlayer) Playtime() int                    { return m.playtime }
+
+func (m *mockPlayer) Varp(id int) int32 {
+	if m.varps == nil {
+		return 0
+	}
+	return m.varps[id]
+}
+func (m *mockPlayer) SetVarp(id int, val int32) {
+	if m.varps == nil {
+		m.varps = make(map[int]int32)
+	}
+	m.varps[id] = val
+}

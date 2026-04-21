@@ -15,6 +15,16 @@ const (
 	FrameCapacity = 50
 )
 
+// WorldVars is the minimal surface that pkg/script needs from the
+// hosting world to resolve PUSH_VARS / POP_VARS. Decouples the VM
+// from concrete server types.
+type WorldVars interface {
+	VarsInt(id int) int32
+	SetVarsInt(id int, val int32)
+	VarsString(id int) string
+	SetVarsString(id int, val string)
+}
+
 // Frame holds a suspended call frame for GOSUB / RETURN.
 type Frame struct {
 	Script       *ScriptFile
@@ -27,6 +37,7 @@ type Frame struct {
 type ScriptState struct {
 	Script   *ScriptFile
 	Provider *Provider // for GOSUB target lookup by LookupKey
+	World    WorldVars // for PUSH_VARS / POP_VARS; nil if the script uses no VARS
 
 	PC      int
 	OpCount int

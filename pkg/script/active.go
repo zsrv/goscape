@@ -27,6 +27,16 @@ type ActivePlayer interface {
 	// Playtime returns the number of ticks the player has been online
 	// this session, used by the TIMESPENT / GETTIMESPENT opcodes.
 	Playtime() int
+
+	// S5b: VARP read/write.
+
+	// Varp returns the player's current value for varp id. Returns 0 on OOB.
+	Varp(id int) int32
+
+	// SetVarp writes val to the player's varp storage. If the varp type
+	// has transmit=true the write is also sent to the client via
+	// VARP_SMALL / VARP_LARGE. OOB writes are dropped silently.
+	SetVarp(id int, val int32)
 }
 
 // Stubs for later sub-specs; defined now to avoid interface churn in S6.
