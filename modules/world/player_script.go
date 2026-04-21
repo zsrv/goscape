@@ -9,11 +9,14 @@ import (
 // playerQueueRequest is one queued fresh-run script request with a
 // single int arg. Queue entries are processed in processActiveScripts;
 // when Delay reaches zero (or below) the target script runs as a brand-
-// new ScriptState.
+// new ScriptState. Type selects the queue variant (NORMAL/WEAK/LONG/
+// STRONG); STRONG fires even when the player is delayed, the others
+// wait for idle.
 type playerQueueRequest struct {
 	ScriptID uint32
 	Delay    int
 	IntArg   int
+	Type     script.PlayerQueueType
 }
 
 // SetDelayed marks the player as suspended for `ticks` ticks starting
@@ -30,13 +33,16 @@ func (p *Player) SetDelayed(ticks int) {
 	p.delayedUntil = p.client.server.currentTick + 1 + ticks
 }
 
-// EnqueueScript appends a queued fresh-run request to the player's
-// normal queue. Delay=0 fires on the next processActiveScripts pass.
-func (p *Player) EnqueueScript(scriptID uint32, delay int, intArg int) {
+// EnqueueScriptTyped implements script.ActivePlayer.EnqueueScriptTyped.
+// Appends a queued fresh-run request tagged with qtype. Delay=0 fires on
+// the next processActiveScripts pass (subject to the STRONG/NORMAL gate
+// in processPlayerQueue).
+func (p *Player) EnqueueScriptTyped(scriptID uint32, delay, intArg int, qtype script.PlayerQueueType) {
 	p.queue = append(p.queue, playerQueueRequest{
 		ScriptID: scriptID,
 		Delay:    delay,
 		IntArg:   intArg,
+		Type:     qtype,
 	})
 }
 
@@ -279,4 +285,24 @@ func (p *Player) LastCom() int { return p.lastCom }
 
 func (p *Player) SendCountDialog() {
 	p.writeOut(gameserver.OpPCountDialog, nil)
+}
+
+// S5h: action-clear.
+
+// StopAction implements script.ActivePlayer.StopAction. Clears any
+// anchored interaction target plus any pending-action state (modals,
+// interaction kind). Walk queue is preserved.
+func (p *Player) StopAction() {
+	p.ClearInteraction()
+	p.ClearPendingAction()
+}
+
+// ClearPendingAction implements script.ActivePlayer.ClearPendingAction.
+// Resets interaction kind/target/op to idle and closes any open modal.
+// Walk queue is preserved.
+func (p *Player) ClearPendingAction() {
+	p.interactionKind = InteractionEngine
+	p.target = nil
+	p.targetOp = -1
+	p.CloseModal()
 }

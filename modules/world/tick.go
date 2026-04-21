@@ -204,7 +204,12 @@ func (s *Server) processPlayerQueue(p *Player) {
 	for i < len(p.queue) {
 		req := &p.queue[i]
 		req.Delay--
-		if req.Delay > 0 || p.delayed {
+		if req.Delay > 0 {
+			i++
+			continue
+		}
+		// STRONG queue fires even when delayed; others wait for idle.
+		if p.delayed && req.Type != script.QueueStrong {
 			i++
 			continue
 		}

@@ -2,6 +2,7 @@ package world
 
 import (
 	"testing"
+	"time"
 
 	"github.com/zsrv/goscape/pkg/inventory"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
@@ -233,7 +234,7 @@ func TestQueueFiresAtDelayExpiry(t *testing.T) {
 	s.playerLoop = append(s.playerLoop, p)
 
 	received := drainConn(t, cc)
-	p.EnqueueScript(0xAAAA, 1, 0)
+	p.EnqueueScriptTyped(0xAAAA, 1, 0, script.QueueNormal)
 
 	// Pre-decrement semantics: delay 1 -> 0, 0 <= 0 fires immediately.
 	s.processActiveScripts()
@@ -263,7 +264,7 @@ func TestQueueZeroDelayFiresSameTick(t *testing.T) {
 	s.playerLoop = append(s.playerLoop, p)
 
 	received := drainConn(t, cc)
-	p.EnqueueScript(0xBBBB, 0, 0)
+	p.EnqueueScriptTyped(0xBBBB, 0, 0, script.QueueNormal)
 	s.processActiveScripts()
 	p.client.flushWrite()
 	got := <-received
@@ -330,8 +331,8 @@ func TestQueueMultipleEntriesPreservesOrder(t *testing.T) {
 	s.playerLoop = append(s.playerLoop, p)
 
 	received := drainConn(t, cc)
-	p.EnqueueScript(0xCCC1, 0, 0)
-	p.EnqueueScript(0xCCC2, 0, 0)
+	p.EnqueueScriptTyped(0xCCC1, 0, 0, script.QueueNormal)
+	p.EnqueueScriptTyped(0xCCC2, 0, 0, script.QueueNormal)
 	s.processActiveScripts()
 	p.client.flushWrite()
 	got := <-received
@@ -789,5 +790,70 @@ func TestPauseButtonResumesAfterClick(t *testing.T) {
 	}
 	if p.activeScript != nil {
 		t.Errorf("activeScript after resume-and-finish: got %v, want nil", p.activeScript)
+	}
+}
+
+// TestStrongQueueFiresWhileDelayed verifies STRONG-tagged queue entries
+// fire through processPlayerQueue even when p.delayed=true. This gates
+// the STRONG queue variant introduced in sub-spec S5h.
+func TestStrongQueueFiresWhileDelayed(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildGreetScript(0xBEEF, "s"))
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	s.playerLoop = append(s.playerLoop, p)
+
+	// Force the player into a busy (delayed) state.
+	p.delayed = true
+	p.delayedUntil = s.currentTick + 99
+
+	received := drainConn(t, cc)
+
+	// Enqueue a STRONG script with delay=0 — should fire even though delayed.
+	p.EnqueueScriptTyped(0xBEEF, 0, 0, script.QueueStrong)
+	s.processActiveScripts()
+	p.client.flushWrite()
+	got := <-received
+
+	if len(got) != 4 {
+		t.Fatalf("STRONG fire: got %d bytes, want 4", len(got))
+	}
+}
+
+// TestNormalQueueWaitsForIdle verifies NORMAL-tagged queue entries do
+// NOT fire while the player is delayed — they wait for idle.
+func TestNormalQueueWaitsForIdle(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildGreetScript(0xBEE2, "n"))
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	s.playerLoop = append(s.playerLoop, p)
+
+	p.delayed = true
+	p.delayedUntil = s.currentTick + 99
+
+	received := drainConn(t, cc)
+	p.EnqueueScriptTyped(0xBEE2, 0, 0, script.QueueNormal)
+	s.processActiveScripts()
+	p.client.flushWrite()
+
+	// Expect nothing fired — read with timeout.
+	select {
+	case got := <-received:
+		if len(got) > 0 {
+			t.Errorf("NORMAL: got %d bytes fired while delayed; want 0", len(got))
+		}
+	case <-time.After(50 * time.Millisecond):
+		// expected: nothing fired
 	}
 }

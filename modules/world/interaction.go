@@ -40,12 +40,6 @@ func (p *Player) ClearInteraction() {
 	p.repathed = false
 }
 
-// ClearPendingAction cancels any queued action before a fresh interaction
-// is set. For 6a it's an alias for ClearInteraction.
-func (p *Player) ClearPendingAction() {
-	p.ClearInteraction()
-}
-
 // processInteraction runs once per tick per player after pathing.
 //   - No target: no-op.
 //   - Delayed: no-op.
