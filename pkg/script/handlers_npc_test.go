@@ -1,6 +1,7 @@
 package script
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -14,6 +15,9 @@ type mockNpc struct {
 	curHP, baseHP                      int
 	varns                              map[int]int32
 	sayCalls                           []string
+	animCalls                          []struct{ id, delay int }
+	faceCoordCalls                     []struct{ x, z int }
+	changeTypeCalls                    []int
 }
 
 func (m *mockNpc) NpcType() int     { return m.typeID }
@@ -53,6 +57,16 @@ func (m *mockNpc) SetNpcVarN(id int, val int32) {
 
 func (m *mockNpc) Say(text []byte) {
 	m.sayCalls = append(m.sayCalls, string(text))
+}
+
+func (m *mockNpc) Animate(id, delay int) {
+	m.animCalls = append(m.animCalls, struct{ id, delay int }{id, delay})
+}
+func (m *mockNpc) FaceCoord(x, z int) {
+	m.faceCoordCalls = append(m.faceCoordCalls, struct{ x, z int }{x, z})
+}
+func (m *mockNpc) ChangeType(newType int) {
+	m.changeTypeCalls = append(m.changeTypeCalls, newType)
 }
 
 // runNpcOp executes a single-opcode script against npc + optional mc,
@@ -322,6 +336,106 @@ func TestNpcOpsRequireActiveNpc(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), tc.wantMsg) {
 				t.Errorf("%s: error %q does not contain %q", tc.name, err.Error(), tc.wantMsg)
+			}
+		})
+	}
+}
+
+func TestNpcAnim(t *testing.T) {
+	npc := &mockNpc{typeID: 7}
+	// Push seq=42, push delay=3, NPC_ANIM. delay is on top per TS.
+	sf := &ScriptFile{
+		Name:             "[npcanim,test]",
+		Opcodes:          []Opcode{OpPushConstantInt, OpPushConstantInt, OpNpcAnim, OpReturn},
+		IntOperands:      []int32{42, 3, 0, 0},
+		StringOperands:   []string{"", "", "", ""},
+		InstructionCount: 4,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	state.Pointers |= PtrActiveNpc
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	want := []struct{ id, delay int }{{42, 3}}
+	if !reflect.DeepEqual(npc.animCalls, want) {
+		t.Errorf("animCalls: got %v, want %v", npc.animCalls, want)
+	}
+}
+
+func TestNpcFaceSquare(t *testing.T) {
+	npc := &mockNpc{typeID: 7}
+	// Packed coord: level=0, x=3222, z=3218 → (0<<28)|(3222<<14)|3218
+	coord := int32((3222 << 14) | 3218)
+	sf := &ScriptFile{
+		Name:             "[npcfacesquare,test]",
+		Opcodes:          []Opcode{OpPushConstantInt, OpNpcFaceSquare, OpReturn},
+		IntOperands:      []int32{coord, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	state.Pointers |= PtrActiveNpc
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	want := []struct{ x, z int }{{3222, 3218}}
+	if !reflect.DeepEqual(npc.faceCoordCalls, want) {
+		t.Errorf("faceCoordCalls: got %v, want %v", npc.faceCoordCalls, want)
+	}
+}
+
+func TestNpcChangeTypeDiscardsDuration(t *testing.T) {
+	npc := &mockNpc{typeID: 7}
+	// Push newType=9, push duration=50, NPC_CHANGETYPE. duration on top.
+	sf := &ScriptFile{
+		Name:             "[npcchangetype,test]",
+		Opcodes:          []Opcode{OpPushConstantInt, OpPushConstantInt, OpNpcChangeType, OpReturn},
+		IntOperands:      []int32{9, 50, 0, 0},
+		StringOperands:   []string{"", "", "", ""},
+		InstructionCount: 4,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	state.Pointers |= PtrActiveNpc
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	want := []int{9}
+	if !reflect.DeepEqual(npc.changeTypeCalls, want) {
+		t.Errorf("changeTypeCalls: got %v, want %v", npc.changeTypeCalls, want)
+	}
+}
+
+func TestNpcMutatingOpsRequireActiveNpc_S6c(t *testing.T) {
+	cases := []struct {
+		op   Opcode
+		name string
+	}{
+		{OpNpcAnim, "NPC_ANIM"},
+		{OpNpcFaceSquare, "NPC_FACESQUARE"},
+		{OpNpcChangeType, "NPC_CHANGETYPE"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			sf := &ScriptFile{
+				Name: "[noactive," + tc.name + "]",
+				// Push enough ints so the handler's pops don't underflow:
+				// NPC_FACESQUARE needs 1, NPC_ANIM/NPC_CHANGETYPE need 2.
+				Opcodes:          []Opcode{OpPushConstantInt, OpPushConstantInt, tc.op, OpReturn},
+				IntOperands:      []int32{0, 0, 0, 0},
+				StringOperands:   []string{"", "", "", ""},
+				InstructionCount: 4,
+			}
+			state := Init(sf, nil, false, nil, nil)
+			// ActiveNpc intentionally nil.
+			err := Execute(state)
+			if err == nil {
+				t.Fatalf("Execute: got nil err, want %q: no active npc", tc.name)
+			}
+			if !strings.Contains(err.Error(), tc.name+": no active npc") {
+				t.Errorf("err: got %q, want substring %q", err, tc.name+": no active npc")
 			}
 		})
 	}

@@ -145,3 +145,42 @@ func handleNpcSay(s *ScriptState) error {
 	s.ActiveNpc.Say([]byte(text))
 	return nil
 }
+
+// handleNpcAnim pops (seq, delay) in TS order (delay on top) and schedules
+// the animation on the active NPC this tick.
+func handleNpcAnim(s *ScriptState) error {
+	if err := requireActiveNpc(s, "NPC_ANIM"); err != nil {
+		return err
+	}
+	delay := s.PopInt()
+	id := s.PopInt()
+	s.ActiveNpc.Animate(id, delay)
+	return nil
+}
+
+// handleNpcFaceSquare pops a single packed coord (level<<28 | x<<14 | z)
+// and rotates the NPC to face that absolute square. Level bits are unused
+// here (the NPC's own level always matches its face target in practice).
+func handleNpcFaceSquare(s *ScriptState) error {
+	if err := requireActiveNpc(s, "NPC_FACESQUARE"); err != nil {
+		return err
+	}
+	coord := s.PopInt()
+	x := (coord >> 14) & 0x3fff
+	z := coord & 0x3fff
+	s.ActiveNpc.FaceCoord(x, z)
+	return nil
+}
+
+// handleNpcChangeType pops (newType, duration) in TS order (duration on
+// top) and morphs the NPC. S6c discards duration — timed revert is
+// deferred to a future AI sub-spec.
+func handleNpcChangeType(s *ScriptState) error {
+	if err := requireActiveNpc(s, "NPC_CHANGETYPE"); err != nil {
+		return err
+	}
+	_ = s.PopInt() // duration; see spec S6c Gotchas
+	newType := s.PopInt()
+	s.ActiveNpc.ChangeType(newType)
+	return nil
+}

@@ -260,7 +260,7 @@ type ActivePlayer interface {
 // handlers read/write. Set on ScriptState before Execute by callers
 // that target a specific NPC (test fixtures, OPNPC routing, etc.).
 type ActiveNpc interface {
-	NpcType() int             // returns NpcType.id
+	NpcType() int // returns NpcType.id
 	NpcX() int
 	NpcZ() int
 	NpcLevel() int
@@ -275,6 +275,22 @@ type ActiveNpc interface {
 	// allowed (produces an empty bubble that clears itself next tick via
 	// ResetMasks).
 	Say(text []byte)
+
+	// Animate schedules sequence `id` with client-side `delay` on the NPC's
+	// primary animation slot this tick. id = -1 clears.
+	Animate(id, delay int)
+
+	// FaceCoord rotates the NPC to face absolute square (x, z). Wire coords
+	// are doubled + 1 (face-center convention).
+	FaceCoord(x, z int)
+
+	// ChangeType morphs the NPC to `newType`. The client swaps the model on
+	// the next NPC-info flush; server-side fields beyond typeId are not
+	// re-initialized (stats, category, etc. still reference the old config).
+	// The script op NPC_CHANGETYPE also carries a `duration` parameter for
+	// timed revert, but S6c discards it (method takes type only); future
+	// AI sub-spec wires a revert timer.
+	ChangeType(newType int)
 }
 
 // Stubs for later sub-specs; defined now to avoid interface churn in S6.
