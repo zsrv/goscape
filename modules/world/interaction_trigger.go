@@ -141,6 +141,13 @@ func fireOpTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 
 	sf := srv.scriptProvider.GetByTrigger(trigger, loc.Type(), category)
 	if sf == nil {
+		// S6j-D7 closed in S6k: defaultOp fallback. TS Player.ts:~1095
+		// fires "Nothing interesting happens." when the player reaches
+		// contact range and no op-trigger is registered for this loc.
+		// Message infra was already in place (Player.MessageGame at
+		// modules/world/message_game.go); S6j's "needs message infra"
+		// concern was spurious.
+		p.MessageGame("Nothing interesting happens.")
 		p.ClearInteraction()
 		p.interactionFired = true
 		return

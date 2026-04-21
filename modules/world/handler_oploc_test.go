@@ -31,6 +31,7 @@ func makeOpLocFixture(t *testing.T) (*Server, *Player, *entitypkg.Loc, net.Conn)
 	s.locTypes.Configs[42] = &objtype.LocType{
 		ConfigType: objtype.ConfigType{ID: 42, DebugName: "test_loc"},
 		Category:   7,
+		Op:         []string{"op1", "op2", "op3", "op4", "op5"},
 	}
 
 	loc := entitypkg.NewLoc(0, 100, 100, 1, 1, entitypkg.LifecycleForever, 42, 10, 0)
@@ -230,6 +231,46 @@ func TestHandleOpLocAllFiveOpsRouteIndependently(t *testing.T) {
 				t.Errorf("targetOp: got %d, want %d", p.targetOp, c.op)
 			}
 		})
+	}
+}
+
+// TestHandleOpLocRejectsEmptyOpSlot verifies that clicking an op slot
+// whose Op string is "" emits UnsetMapFlag and leaves state untouched.
+// Closes S6j-D1 coverage.
+func TestHandleOpLocRejectsEmptyOpSlot(t *testing.T) {
+	s, p, _, cc := makeOpLocFixture(t)
+	// Clear Op[0] so op=1 should reject.
+	s.locTypes.Configs[42].Op[0] = ""
+
+	received := drainConn(t, cc)
+	_ = handleOpLoc1(p, p2x3Payload(100, 100, 42))
+	p.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag for empty Op slot, got nothing")
+	}
+	if p.target != nil {
+		t.Error("target should remain nil when Op slot is empty")
+	}
+}
+
+// TestHandleOpLocAcceptsPopulatedOpSlot verifies that clicking a
+// populated Op slot proceeds through the handler normally. Provides
+// positive coverage for the S6k gate.
+func TestHandleOpLocAcceptsPopulatedOpSlot(t *testing.T) {
+	s, p, loc, _ := makeOpLocFixture(t)
+	s.locTypes.Configs[42].Op[0] = "Chop"
+
+	if err := handleOpLoc1(p, p2x3Payload(100, 100, 42)); err != nil {
+		t.Fatalf("handleOpLoc1: %v", err)
+	}
+
+	if p.target != loc {
+		t.Errorf("target: got %v, want loc", p.target)
+	}
+	if p.targetOp != 1 {
+		t.Errorf("targetOp: got %d, want 1", p.targetOp)
 	}
 }
 

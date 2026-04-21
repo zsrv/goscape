@@ -1,6 +1,8 @@
 package world
 
 import (
+	"bytes"
+	"net"
 	"testing"
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
@@ -267,37 +269,50 @@ func newNoopScriptFile(t *testing.T, trigger script.ServerTriggerType, typeID, _
 
 // makeOpLocTriggerFixture creates a fixture for tryFireOpTrigger Loc-branch
 // tests: server + player anchored on a loc with valid targetSubject.
-// Returns (server, player, loc).
-func makeOpLocTriggerFixture(t *testing.T) (*Server, *Player, *entitypkg.Loc) {
+// Returns (server, player, loc, clientConn) — pass clientConn to drainConn
+// when the test needs to observe bytes written to the player.
+func makeOpLocTriggerFixture(t *testing.T) (*Server, *Player, *entitypkg.Loc, net.Conn) {
 	t.Helper()
-	s, p, loc, _ := makeOpLocFixture(t)
+	s, p, loc, cc := makeOpLocFixture(t)
 	p.SetInteraction(InteractionEngine, loc, 1)
 	p.targetSubject.typ = loc.Type()
 	p.targetSubject.x = loc.X
 	p.targetSubject.z = loc.Z
 	p.targetSubject.level = loc.Level
-	return s, p, loc
+	return s, p, loc, cc
 }
 
 // TestTryFireOpTriggerLocNoScript verifies a Loc target with no registered
-// trigger silently clears the interaction.
+// trigger emits "Nothing interesting happens." and clears the interaction.
 func TestTryFireOpTriggerLocNoScript(t *testing.T) {
-	_, p, _ := makeOpLocTriggerFixture(t)
+	_, p, _, cc := makeOpLocTriggerFixture(t)
 
+	received := drainConn(t, cc)
 	tryFireOpTrigger(p)
+	p.client.flushWrite()
+	got := <-received
 
+	if len(got) == 0 {
+		t.Fatal("expected MessageGame packet for defaultOp, got nothing")
+	}
 	if p.target != nil {
-		t.Errorf("target: got %v, want nil after silent clear", p.target)
+		t.Errorf("target: got %v, want nil after default-op clear", p.target)
 	}
 	if !p.interactionFired {
-		t.Error("interactionFired: want true after no-script clear")
+		t.Error("interactionFired: want true after default-op clear")
+	}
+	// Assert the message text appears in the drained bytes. The
+	// wire format is [opcode][length][text+10]; we check the text
+	// substring to stay robust to framing details.
+	if !bytes.Contains(got, []byte("Nothing interesting happens.")) {
+		t.Errorf("drained bytes: expected \"Nothing interesting happens.\" substring, got %x", got)
 	}
 }
 
 // TestTryFireOpTriggerLocScriptFires verifies a registered [oploc1,<typeID>]
 // script fires, ActiveLoc is set, and ClearInteraction runs after Finished.
 func TestTryFireOpTriggerLocScriptFires(t *testing.T) {
-	s, p, loc := makeOpLocTriggerFixture(t)
+	s, p, loc, _ := makeOpLocTriggerFixture(t)
 
 	// Register a no-op script for [oploc1, locType=42].
 	sf := newNoopScriptFile(t, script.TriggerOpLoc1, loc.Type(), -1)
@@ -316,7 +331,7 @@ func TestTryFireOpTriggerLocScriptFires(t *testing.T) {
 // TestTryFireOpTriggerLocDeferredOnDelay verifies a delayed player defers
 // fire (no state change, interactionFired stays false).
 func TestTryFireOpTriggerLocDeferredOnDelay(t *testing.T) {
-	s, p, loc := makeOpLocTriggerFixture(t)
+	s, p, loc, _ := makeOpLocTriggerFixture(t)
 	p.delayed = true
 	p.delayedUntil = 999
 	s.currentTick = 0
@@ -334,7 +349,7 @@ func TestTryFireOpTriggerLocDeferredOnDelay(t *testing.T) {
 // TestTryFireOpTriggerLocTypeChanged verifies in-place type mutation
 // (loc.Info changed via packLocInfo) clears interaction silently.
 func TestTryFireOpTriggerLocTypeChanged(t *testing.T) {
-	_, p, loc := makeOpLocTriggerFixture(t)
+	_, p, loc, _ := makeOpLocTriggerFixture(t)
 
 	// Mutate the loc's type in-place by overwriting Info. New type 99
 	// differs from p.targetSubject.typ (42).
@@ -353,7 +368,7 @@ func TestTryFireOpTriggerLocTypeChanged(t *testing.T) {
 // TestTryFireOpTriggerLocRemoved verifies removing the loc from its zone
 // (axed-tree case) clears interaction silently.
 func TestTryFireOpTriggerLocRemoved(t *testing.T) {
-	s, p, loc := makeOpLocTriggerFixture(t)
+	s, p, loc, _ := makeOpLocTriggerFixture(t)
 
 	// Remove the loc from its zone.
 	zn := s.zoneMap.Get(loc.Level, loc.X, loc.Z)
@@ -371,7 +386,7 @@ func TestTryFireOpTriggerLocRemoved(t *testing.T) {
 
 // TestTryFireOpTriggerLocOpOutOfRange verifies targetOp=0 silently clears.
 func TestTryFireOpTriggerLocOpOutOfRange(t *testing.T) {
-	_, p, _ := makeOpLocTriggerFixture(t)
+	_, p, _, _ := makeOpLocTriggerFixture(t)
 	p.targetOp = 0 // invalid
 
 	tryFireOpTrigger(p)

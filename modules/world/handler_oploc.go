@@ -15,12 +15,8 @@ import (
 //  4. Server.GetLoc returns nil → UnsetMapFlag
 //  5. LocType not registered → UnsetMapFlag
 //
-// DEVIATION (S6j-D1): TS gate 6 — `locType.op[op-1] != null && != "hidden"`
-// (OpLocHandler.ts:38-42) — is skipped here because LocType.Op []string is
-// not yet a field on LocType. Effective behavior: trigger registration
-// absence becomes the gate (no trigger → silent no-op on next tick instead
-// of TS's UnsetMapFlag at click time). Follow-up: "LocType.Op + loc_op
-// script opcode" sub-spec.
+// S6j-D1 closed in S6k: per-op validation gate (locType.Op[op-1])
+// restored below, mirroring handler_opnpc.go:38-44 for consistency.
 //
 // On success: ClearPendingAction → SetInteraction(Engine, loc, op) →
 // snapshot loc identity into p.targetSubject for tryFireOpTrigger's
@@ -69,7 +65,21 @@ func handleOpLoc(p *Player, payload []byte, op int) error {
 		return nil
 	}
 
-	if s.locTypes == nil || locId < 0 || locId >= len(s.locTypes.Configs) || s.locTypes.Configs[locId] == nil {
+	if s.locTypes == nil || locId < 0 || locId >= len(s.locTypes.Configs) {
+		sendUnsetMapFlag(p)
+		return nil
+	}
+	locType := s.locTypes.Configs[locId]
+	if locType == nil {
+		sendUnsetMapFlag(p)
+		return nil
+	}
+	// S6j-D1 closed in S6k: per-op validation gate. TS OpLocHandler.ts:38-42
+	// rejects clicks where locType.op is nil, too short, or the slot
+	// is empty. The decoder coerces "hidden" to "" at load time
+	// (pkg/objtype/loctype.go cases 30-34), so the runtime check is
+	// just `== ""`.
+	if len(locType.Op) < op || locType.Op[op-1] == "" {
 		sendUnsetMapFlag(p)
 		return nil
 	}
