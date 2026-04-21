@@ -3,6 +3,7 @@ package world
 import (
 	"hash/fnv"
 
+	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
@@ -29,8 +30,8 @@ func (p *Player) FaceEntity() int     { return p.faceEntity }
 func (p *Player) SayText() []byte     { return p.sayText }
 func (p *Player) DamageAmt() int      { return p.damageAmt }
 func (p *Player) DamageType() int     { return p.damageType }
-func (p *Player) CurHP() int          { return p.curHP }
-func (p *Player) BaseHP() int         { return p.baseHP }
+func (p *Player) CurHP() int          { return int(p.levels[objtype.PlayerStatHitpoints]) }
+func (p *Player) BaseHP() int         { return int(p.baseLevels[objtype.PlayerStatHitpoints]) }
 func (p *Player) FaceSquareX() int    { return p.faceSquareX }
 func (p *Player) FaceSquareZ() int    { return p.faceSquareZ }
 func (p *Player) ChatColour() int     { return p.chatColour }

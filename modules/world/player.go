@@ -191,7 +191,6 @@ type Player struct {
 	chatBytes []byte
 
 	damageAmt, damageType int
-	curHP, baseHP         int
 
 	spotanimID, spotanimHeight, spotanimDelay int
 
@@ -327,8 +326,6 @@ func newPlayer(c *client) *Player {
 		chatRights:     -1,
 		damageAmt:      -1,
 		damageType:     -1,
-		curHP:          -1,
-		baseHP:         -1,
 		spotanimID:     -1,
 		spotanimHeight: -1,
 		spotanimDelay:  -1,
