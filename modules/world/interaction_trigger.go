@@ -186,6 +186,24 @@ func apLocTriggerForOp(op int) (script.ServerTriggerType, bool) {
 	}
 }
 
+// apNpcTriggerForOp returns the APNPC trigger for the player's
+// targetOp. Returns ok=false if op is outside [1, 5]. fireOpTriggerNpc
+// derives the OPNPC trigger by adding 7 to the returned APNPC (TS
+// Player.ts:~997 offset convention):
+//
+//	APNPC1..5 (3..7) + 7 → OPNPC1..5 (10..14)
+//
+// NPC variant of apLocTriggerForOp. Does NOT handle T/U sentinels
+// (DEVIATION S6n-D1) because OpNpcT/OpNpcU handlers are not wired
+// in goscape yet — if those land, this helper's switch extends with
+// matching cases.
+func apNpcTriggerForOp(op int) (script.ServerTriggerType, bool) {
+	if op >= 1 && op <= 5 {
+		return script.TriggerApNpc1 + script.ServerTriggerType(op-1), true
+	}
+	return 0, false
+}
+
 // locStillValid checks whether the held *Loc pointer still represents
 // the same loc the player clicked. Two checks combined — both required
 // because each defends against a different mutation:
@@ -201,10 +219,10 @@ func locStillValid(srv *Server, loc *entitypkg.Loc, wantType, wantX, wantZ, want
 	return slices.Contains(zn.Locs, loc)
 }
 
-// tryFireApTrigger fires the [aploc<op>,<locType>] approach-trigger
-// for the player's anchored target when the player has just reached
-// apRange. Matches TS Player.ts:1139-1170 for the Loc branch.
-// DEVIATION S6l-D2: APNPC branch intentionally deferred.
+// tryFireApTrigger fires the approach-trigger for the player's anchored
+// target when the player has just reached apRange. Dispatches to the
+// correct fire helper by concrete target type. Matches TS
+// Player.ts:1139-1170 (Loc branch) and Npc.ts:~861-883 (Npc branch).
 //
 // Preconditions (guaranteed by caller — Player.processInteraction):
 //   - p.interacted == true
@@ -218,12 +236,85 @@ func tryFireApTrigger(p *Player) {
 	switch tgt := p.target.(type) {
 	case *entitypkg.Loc:
 		fireApTriggerLoc(p, srv, tgt)
+	case *Npc:
+		fireApTriggerNpc(p, srv, tgt)
 	default:
-		// *Npc, *Obj, etc. — AP branch not yet wired. Mark fired to
-		// prevent same-tick retry; processInteraction's branch ordering
-		// ensures OP still fires if player reaches contact next tick.
+		// *Obj, etc. — AP branch not yet wired. Mark fired to prevent
+		// same-tick retry. Follow-up: APOBJ sub-spec.
 		p.interactionFired = true
 	}
+}
+
+// fireApTriggerNpc fires the [apnpc<op>,<npcType>] approach-trigger
+// for the player's anchored NPC target when the player has reached
+// the NPC's per-type attackrange. Matches TS Npc.ts:~861-883
+// (checkApTrigger).
+//
+// Three divergences from fireApTriggerLoc (S6l):
+//
+//  1. Lifecycle gate is `npc.dead` (not locStillValid). NPCs have a
+//     dedicated dead flag — no zone-membership pointer-stale check
+//     needed because the *Npc reference itself is authoritative.
+//
+//  2. Category read from npc.typ.Category directly (the cached
+//     pointer). fireApTriggerLoc does a locTypes.Configs[locId]
+//     lookup because Loc has no cached LocType pointer, only a
+//     packed Info bitfield.
+//
+//  3. NO apRangeCalled persistence contract. Per TS
+//     (Npc.ts:~1064-1080): NPC AP scripts complete and clear
+//     interaction unconditionally. The p_aprange persistence is
+//     Player-side only; NPC attackrange is fixed per-type so
+//     "extend the range" has no meaning. Simpler post-fire logic.
+//
+// DEVIATION S6n-D1: APNPC T/U sentinels not wired. OpNpcT/OpNpcU
+// handlers don't exist in goscape yet; when they land,
+// apNpcTriggerForOp gains matching cases and this fire function
+// needs a sentinel-aware op-range gate update.
+func fireApTriggerNpc(p *Player, srv *Server, npc *Npc) {
+	if p.delayed && srv.currentTick < p.delayedUntil {
+		return
+	}
+
+	if npc.dead {
+		p.ClearInteraction()
+		p.interactionFired = true
+		return
+	}
+
+	trigger, ok := apNpcTriggerForOp(p.targetOp)
+	if !ok {
+		p.ClearInteraction()
+		p.interactionFired = true
+		return
+	}
+
+	category := 0
+	if npc.typ != nil {
+		category = npc.typ.Category
+	}
+
+	sf := srv.scriptProvider.GetByTrigger(trigger, npc.typeId, category)
+	if sf == nil {
+		p.ClearInteraction()
+		p.interactionFired = true
+		return
+	}
+
+	state := script.Init(sf, p, false, nil, nil)
+	state.ActiveNpc = npc
+	state.Pointers |= script.PtrActiveNpc
+	state.Provider = srv.scriptProvider
+	state.World = srv.worldVars
+	state.Configs = srv.configsView
+	state.Inv = srv.invLookup
+
+	srv.resumeOrFinish(state, p)
+
+	if state.Execution == script.Finished || state.Execution == script.Aborted {
+		p.ClearInteraction()
+	}
+	p.interactionFired = true
 }
 
 // fireApTriggerLoc fires the [aploc<op>,<locType>] trigger with the
@@ -237,9 +328,6 @@ func tryFireApTrigger(p *Player) {
 // Script lookup: TriggerApLoc1 + (op-1). No APLOC→OPLOC fallthrough
 // at approach distance — OPLOC fires only when the player reaches
 // contact on a later processInteraction tick.
-//
-// DEVIATION S6l-D2: APNPC not wired. Non-*Loc targets fall through
-// to tryFireApTrigger's default branch above.
 func fireApTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 	if p.delayed && srv.currentTick < p.delayedUntil {
 		return

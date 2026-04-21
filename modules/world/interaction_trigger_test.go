@@ -708,3 +708,160 @@ func TestFireApTriggerLocFiresApLocUTrigger(t *testing.T) {
 		t.Error("interactionFired: want true after APLOCU fire")
 	}
 }
+
+// TestApNpcTriggerForOpValidValues table-tests the 1..5 op mapping:
+//
+//	1..5 → TriggerApNpc1..5 (3..7)
+//
+// fireOpTriggerNpc derives OPNPC triggers by adding 7 (10..14).
+func TestApNpcTriggerForOpValidValues(t *testing.T) {
+	cases := []struct {
+		op   int
+		want script.ServerTriggerType
+		name string
+	}{
+		{1, script.TriggerApNpc1, "OpNpc1"},
+		{2, script.TriggerApNpc2, "OpNpc2"},
+		{3, script.TriggerApNpc3, "OpNpc3"},
+		{4, script.TriggerApNpc4, "OpNpc4"},
+		{5, script.TriggerApNpc5, "OpNpc5"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, ok := apNpcTriggerForOp(c.op)
+			if !ok {
+				t.Fatalf("op=%d: ok=false, want true", c.op)
+			}
+			if got != c.want {
+				t.Errorf("op=%d: got %d, want %d", c.op, got, c.want)
+			}
+		})
+	}
+}
+
+// TestApNpcTriggerForOpInvalidValues verifies out-of-range op values
+// return ok=false. DEVIATION S6n-D1: APNPC T/U sentinels (6, 7 if
+// eventually added) not wired — returns false for those too.
+func TestApNpcTriggerForOpInvalidValues(t *testing.T) {
+	invalid := []int{0, 6, 7, 8, -1, 100, -100}
+	for _, op := range invalid {
+		t.Run(fmt.Sprintf("op_%d", op), func(t *testing.T) {
+			_, ok := apNpcTriggerForOp(op)
+			if ok {
+				t.Errorf("op=%d: ok=true, want false", op)
+			}
+		})
+	}
+}
+
+// newApTriggerNpcFixture creates a fixture for fireApTriggerNpc tests:
+// Server + Player + live Npc with typeID=7, AttackRange=5, Category=0.
+// Player at (100, 100); NPC at (105, 100) — dx=5, within AttackRange.
+// targetOp=1. No APNPC script pre-registered; callers register per-test.
+func newApTriggerNpcFixture(t *testing.T) (*Server, *Player, *Npc) {
+	t.Helper()
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.x, p.z, p.level = 100, 100, 0
+
+	npcType := &objtype.NpcType{
+		ConfigType:  objtype.ConfigType{ID: 7, DebugName: "rat"},
+		AttackRange: 5,
+		Category:    0,
+	}
+	npc := NewNpc(0, 7, 105, 100, 0, npcType)
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
+	p.interacted = true // simulate reach (as processInteraction would)
+	return s, p, npc
+}
+
+// TestFireApTriggerNpcNoScript verifies that when no APNPC script is
+// registered, fireApTriggerNpc clears the interaction silently and
+// marks interactionFired=true.
+func TestFireApTriggerNpcNoScript(t *testing.T) {
+	s, p, _ := newApTriggerNpcFixture(t)
+
+	fireApTriggerNpc(p, s, p.target.(*Npc))
+
+	if p.target != nil {
+		t.Error("target: expected cleared after no-script path")
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: expected true")
+	}
+}
+
+// TestFireApTriggerNpcScriptFires verifies that with an APNPC1 script
+// registered at (TriggerApNpc1, typeID=7, categoryID=-1), fireApTriggerNpc
+// runs the script, binds ActiveNpc, and clears the interaction after
+// Finished (no apRangeCalled persistence — TS divergence #3).
+func TestFireApTriggerNpcScriptFires(t *testing.T) {
+	s, p, npc := newApTriggerNpcFixture(t)
+
+	sf := newNoopScriptFile(t, script.TriggerApNpc1, 7, -1)
+	s.scriptProvider.Register(sf)
+
+	fireApTriggerNpc(p, s, npc)
+
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil after Finished clear", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after script fire")
+	}
+}
+
+// TestFireApTriggerNpcDeadNpc verifies the lifecycle gate: a dead NPC
+// clears interaction silently (no script runs). Mirrors the S6j
+// TestTryFireOpTrigger_DeadNpc pattern but on the AP path.
+func TestFireApTriggerNpcDeadNpc(t *testing.T) {
+	s, p, npc := newApTriggerNpcFixture(t)
+	npc.dead = true
+
+	fireApTriggerNpc(p, s, npc)
+
+	if p.target != nil {
+		t.Error("target: expected cleared for dead npc")
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after dead-clear")
+	}
+}
+
+// TestFireApTriggerNpcDeferredOnDelay verifies that a delayed player
+// short-circuits before any state change (no clear, no fire).
+// Matches S6l's TestTryFireApTriggerLocDeferredOnDelay pattern.
+func TestFireApTriggerNpcDeferredOnDelay(t *testing.T) {
+	s, p, npc := newApTriggerNpcFixture(t)
+	p.delayed = true
+	p.delayedUntil = s.currentTick + 3
+
+	fireApTriggerNpc(p, s, npc)
+
+	if p.target == nil {
+		t.Error("target: expected preserved while delayed")
+	}
+	if p.interactionFired {
+		t.Error("interactionFired: expected false so next tick retries")
+	}
+}
+
+// TestFireApTriggerNpcOpOutOfRange verifies that an invalid targetOp
+// (e.g., 0 or 99) causes a silent interaction clear via the
+// apNpcTriggerForOp gate.
+func TestFireApTriggerNpcOpOutOfRange(t *testing.T) {
+	s, p, npc := newApTriggerNpcFixture(t)
+	p.targetOp = 99 // out of [1, 5]
+
+	fireApTriggerNpc(p, s, npc)
+
+	if p.target != nil {
+		t.Error("target: expected cleared for out-of-range op")
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after silent clear")
+	}
+}
