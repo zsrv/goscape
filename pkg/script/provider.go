@@ -131,6 +131,14 @@ func (p *Provider) GetByName(name string) *ScriptFile {
 	return p.byName[name]
 }
 
+// GetByLookupKey returns a script by its raw uint32 key (as stored in
+// byKey). Returns nil if unknown. Used by the world tick loop's queue
+// dispatch, where the scriptID comes from the bytecode stream as a raw
+// key.
+func (p *Provider) GetByLookupKey(key uint32) *ScriptFile {
+	return p.byKey[key]
+}
+
 // Register adds a pre-built ScriptFile to the provider. Intended for tests
 // that want to exercise the provider without loading a real cache.
 // Duplicate names/keys overwrite; the caller is responsible.

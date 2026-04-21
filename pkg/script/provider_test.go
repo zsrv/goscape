@@ -163,3 +163,16 @@ func TestProviderByNameUnique(t *testing.T) {
 		t.Errorf("name: got %q want %q", f.Name, "[proc,x]")
 	}
 }
+
+func TestGetByLookupKey(t *testing.T) {
+	p := NewProvider()
+	f := &ScriptFile{Name: "[test,key]", LookupKey: 0x1234}
+	p.Register(f)
+
+	if got := p.GetByLookupKey(0x1234); got != f {
+		t.Errorf("GetByLookupKey(0x1234): got %v, want %v", got, f)
+	}
+	if got := p.GetByLookupKey(0x9999); got != nil {
+		t.Errorf("GetByLookupKey(missing): got %v, want nil", got)
+	}
+}
