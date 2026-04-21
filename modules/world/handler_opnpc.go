@@ -44,7 +44,7 @@ func handleOpNpc(p *Player, payload []byte, op int) error {
 	}
 
 	p.ClearPendingAction()
-	p.SetInteraction(InteractionEngine, npc, op)
+	p.SetInteraction(InteractionEngine, npc, op, -1)
 	return nil
 }
 

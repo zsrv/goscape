@@ -47,7 +47,7 @@ func TestSetInteractionPopulatesFields(t *testing.T) {
 	p, wait := makeInteractionPlayer(t, s, 99, 100, 0)
 	defer wait()
 
-	p.SetInteraction(InteractionEngine, npc, 3)
+	p.SetInteraction(InteractionEngine, npc, 3, -1)
 
 	if p.target != npc {
 		t.Errorf("target: got %v, want npc", p.target)
@@ -80,7 +80,7 @@ func TestClearInteractionResetsAll(t *testing.T) {
 	p, wait := makeInteractionPlayer(t, s, 99, 100, 0)
 	defer wait()
 
-	p.SetInteraction(InteractionEngine, npc, 1)
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
 	p.interacted = true
 	p.repathed = true
 	p.apRangeCalled = true
@@ -132,7 +132,7 @@ func TestProcessInteractionInRangeFacesTarget(t *testing.T) {
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	p.x, p.z, p.level = 100, 100, 0
 
-	p.SetInteraction(InteractionEngine, npc, 1)
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
 
 	received := drainConn(t, cc)
 	p.processInteraction()
@@ -164,7 +164,7 @@ func TestProcessInteractionOutOfRangePaths(t *testing.T) {
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	p.x, p.z, p.level = 100, 100, 0
 
-	p.SetInteraction(InteractionEngine, npc, 1)
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
 
 	received := drainConn(t, cc)
 	p.processInteraction()
@@ -195,7 +195,7 @@ func TestProcessInteractionDifferentLevelClears(t *testing.T) {
 	p.client.encryptor = enc
 	p.x, p.z, p.level = 100, 100, 0 // player on level 0
 
-	p.SetInteraction(InteractionEngine, npc, 1)
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
 
 	received := drainConn(t, cc)
 	p.processInteraction()
@@ -226,7 +226,7 @@ func TestProcessInteractionDelayedPlayerSkipped(t *testing.T) {
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	p.x, p.z, p.level = 100, 100, 0
 
-	p.SetInteraction(InteractionEngine, npc, 1)
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
 	p.delayed = true
 	p.delayedUntil = 999 // far future
 	s.currentTick = 0
@@ -248,7 +248,7 @@ func TestSetInteractionResetsInteractionFired(t *testing.T) {
 	p := &Player{}
 	p.interactionFired = true
 	npc := &Npc{nid: 0, typeId: 7}
-	p.SetInteraction(InteractionEngine, npc, 1)
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
 	if p.interactionFired {
 		t.Error("SetInteraction: interactionFired should be reset to false")
 	}
@@ -391,7 +391,7 @@ func TestProcessInteractionRoutesToApBranch(t *testing.T) {
 	zn := s.zoneMap.Get(loc.Level, loc.X, loc.Z)
 	zn.Locs = append(zn.Locs, loc)
 
-	p.SetInteraction(InteractionEngine, loc, 1)
+	p.SetInteraction(InteractionEngine, loc, 1, -1)
 	p.targetSubject.typ = loc.Type()
 	p.targetSubject.x = loc.X
 	p.targetSubject.z = loc.Z
@@ -408,3 +408,42 @@ func TestProcessInteractionRoutesToApBranch(t *testing.T) {
 		t.Error("interacted after AP-branch: got false, want true")
 	}
 }
+
+// TestSetInteractionStoresComField verifies that SetInteraction's
+// new com parameter writes through to p.targetSubject.com.
+// S6m: proves the spellCom slot is carried end-to-end.
+func TestSetInteractionStoresComField(t *testing.T) {
+	p, _ := newTestPlayer(t)
+
+	fake := fakeEntity{x: 100, z: 100, level: 0}
+	p.SetInteraction(InteractionEngine, fake, 6, 12345)
+
+	if p.targetSubject.com != 12345 {
+		t.Errorf("targetSubject.com: got %d, want 12345", p.targetSubject.com)
+	}
+	if p.targetOp != 6 {
+		t.Errorf("targetOp: got %d, want 6", p.targetOp)
+	}
+}
+
+// TestSetInteractionPassesMinusOneForNonComOps verifies backwards-compat
+// behavior: the S6j/S6k/S6l call sites that pass -1 correctly clear any
+// prior com state.
+func TestSetInteractionPassesMinusOneForNonComOps(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.targetSubject.com = 999 // simulate stale prior value
+
+	fake := fakeEntity{x: 100, z: 100, level: 0}
+	p.SetInteraction(InteractionEngine, fake, 1, -1)
+
+	if p.targetSubject.com != -1 {
+		t.Errorf("targetSubject.com: got %d, want -1 (S6j-era callers pass -1)", p.targetSubject.com)
+	}
+}
+
+// fakeEntity is a minimal entity implementation for tests that need a
+// non-nil, non-specific target.
+type fakeEntity struct{ x, z, level int }
+
+func (f fakeEntity) Slot() int                 { return -1 }
+func (f fakeEntity) Coords() (x, z, level int) { return f.x, f.z, f.level }

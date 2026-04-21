@@ -31,7 +31,7 @@ func TestProcessInteractionsRunsPerPlayer(t *testing.T) {
 	p1.client.server = s
 	p1.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	p1.x, p1.z, p1.level = 100, 100, 0
-	p1.SetInteraction(InteractionEngine, npc1, 1)
+	p1.SetInteraction(InteractionEngine, npc1, 1, -1)
 	s.playersMu.Lock()
 	s.playerLoop = append(s.playerLoop, p1)
 	s.playersMu.Unlock()
@@ -46,7 +46,7 @@ func TestProcessInteractionsRunsPerPlayer(t *testing.T) {
 	p2.client.server = s
 	p2.client.encryptor = io2.New([4]uint32{5, 6, 7, 8})
 	p2.x, p2.z, p2.level = 199, 200, 0
-	p2.SetInteraction(InteractionEngine, npc2, 1)
+	p2.SetInteraction(InteractionEngine, npc2, 1, -1)
 	s.playersMu.Lock()
 	s.playerLoop = append(s.playerLoop, p2)
 	s.playersMu.Unlock()

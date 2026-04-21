@@ -18,7 +18,7 @@ import (
 // S6j-D1 closed in S6k: per-op validation gate (locType.Op[op-1])
 // restored below, mirroring handler_opnpc.go:38-44 for consistency.
 //
-// On success: ClearPendingAction → SetInteraction(Engine, loc, op) →
+// On success: ClearPendingAction → SetInteraction(Engine, loc, op, -1) →
 // snapshot loc identity into p.targetSubject for tryFireOpTrigger's
 // lifecycle gate.
 func handleOpLoc(p *Player, payload []byte, op int) error {
@@ -85,7 +85,7 @@ func handleOpLoc(p *Player, payload []byte, op int) error {
 	}
 
 	p.ClearPendingAction()
-	p.SetInteraction(InteractionEngine, loc, op)
+	p.SetInteraction(InteractionEngine, loc, op, -1)
 	p.targetSubject.typ = loc.Type()
 	p.targetSubject.x = loc.X
 	p.targetSubject.z = loc.Z

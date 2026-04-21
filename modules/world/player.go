@@ -83,12 +83,14 @@ type Player struct {
 	// === interaction target ===
 	target           entity
 	targetOp         int
-	// targetSubject snapshots the initial type/coords of the interaction
-	// target at click time. tryFireOpTrigger reads (typ, x, z, level) to
-	// detect mid-tick mutation/despawn (a tree changing into a stump
-	// between click and tick processing). The previous (typ, com) shape
-	// was unused; expanding it is safe because no code reads .com.
-	targetSubject struct{ typ, x, z, level int }
+	// targetSubject snapshots the identity of the interaction target at
+	// click time. Components:
+	//   typ, x, z, level — loc identity for tryFireXxxTriggerLoc's
+	//     lifecycle gate (set by OpLoc handlers after SetInteraction).
+	//   com — spell-component ID for OpLocT; -1 for OpLoc1..5 and OpLocU.
+	//     Scripts read via ActivePlayer.TargetSubjectCom() (S6m).
+	// S6m: com field resurrected from S6j shrink to carry spellCom.
+	targetSubject struct{ typ, x, z, level, com int }
 	interactionKind  InteractionKind
 	apRange          int
 	apRangeCalled    bool

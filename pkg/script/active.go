@@ -262,6 +262,14 @@ type ActivePlayer interface {
 	// PlayerOps.ts:P_APRANGE — both fields are set in a single call
 	// (tick-serialized by the engine; no lock needed).
 	SetApRange(n int)
+
+	// TargetSubjectCom returns the com-component value stored at click
+	// time by OpLocT-style handlers. For OpLocT it's spellCom; for
+	// OpLoc1..5 and OpLocU it's -1. Allows APLOCT scripts to read
+	// which spell the player cast via future @spellcom-style script
+	// variables. S6m: interface method added ahead of the script-opcode
+	// consumer that reads it.
+	TargetSubjectCom() int
 }
 
 // ActiveNpc is the per-NPC surface that NPC_* opcodes and VARN

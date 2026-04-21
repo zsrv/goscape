@@ -176,6 +176,9 @@ type mockPlayer struct {
 	lastApRange       int
 	lastApRangeCalled bool
 	setApRangeCalls   int
+
+	// S6m: spellCom pre-seed for TargetSubjectCom query.
+	targetSubjectComValue int
 }
 
 type mockEnqueue struct {
@@ -368,3 +371,6 @@ func (m *mockPlayer) SetApRange(n int) {
 	m.lastApRangeCalled = true
 	m.setApRangeCalls++
 }
+
+// S6m: spellCom slot read.
+func (m *mockPlayer) TargetSubjectCom() int { return m.targetSubjectComValue }

@@ -15,15 +15,30 @@ const (
 	InteractionScript
 )
 
+// Sentinel targetOp values for non-op-numbered Loc interaction types.
+// OpLoc1..5 use op = 1..5 (the op slot clicked); T and U variants use
+// these sentinels so fireXxxTriggerLoc can dispatch to the correct
+// single-trigger (APLOCT/OPLOCT or APLOCU/OPLOCU). Matches TS's model
+// where setInteraction stores the APLOC trigger value directly;
+// goscape uses sentinel integers instead (see S6j-D3 convention).
+const (
+	targetOpLocT = 6 // APLOCT / OPLOCT dispatch marker
+	targetOpLocU = 7 // APLOCU / OPLOCU dispatch marker
+)
+
 // sendUnsetMapFlag clears the client's pending map-click indicator.
 func sendUnsetMapFlag(p *Player) {
 	p.writeOut(gameserver.OpUnsetMapFlag, nil)
 }
 
 // SetInteraction anchors the interaction state machine on a target entity.
-func (p *Player) SetInteraction(kind InteractionKind, target entity, op int) {
+// For OpLocT the com parameter carries the spell-component ID; for OpLocU
+// pass -1 (item tracking uses lastUseItem/lastUseSlot instead). For
+// OpLoc1..5 and OpNpc1..5, callers pass -1.
+func (p *Player) SetInteraction(kind InteractionKind, target entity, op, com int) {
 	p.target = target
 	p.targetOp = op
+	p.targetSubject.com = com
 	p.interactionKind = kind
 	p.apRange = 10
 	p.apRangeCalled = false

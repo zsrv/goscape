@@ -286,7 +286,7 @@ func TestHandleOpLocClearsExistingInteraction(t *testing.T) {
 	npc := NewNpc(1, 0, 100, 100, 0, typ)
 	npc.nid = 1
 	s.npcs[1] = npc
-	p.SetInteraction(InteractionEngine, npc, 3)
+	p.SetInteraction(InteractionEngine, npc, 3, -1)
 	if p.target != npc {
 		t.Fatal("setup: pre-existing target should be npc")
 	}

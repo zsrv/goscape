@@ -39,7 +39,7 @@ func newTriggerFixture(t *testing.T) (*Server, *Player, *Npc) {
 		Category:   0,
 	}
 	npc := NewNpc(0, 7, p.x, p.z, p.level, npcType)
-	p.SetInteraction(InteractionEngine, npc, 1)
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
 	p.interacted = true // simulate reach
 	return s, p, npc
 }
@@ -65,7 +65,7 @@ func TestTryFireOpTrigger_NoScript(t *testing.T) {
 	p.client.server = s
 	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Op: []string{"Talk-to"}}
 	npc := NewNpc(0, 7, p.x, p.z, p.level, npcType)
-	p.SetInteraction(InteractionEngine, npc, 1)
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
 	p.interacted = true
 	tryFireOpTrigger(p)
 	if p.target != nil {
@@ -99,7 +99,7 @@ func TestTryFireOpTrigger_WrongTargetType(t *testing.T) {
 	s.scriptProvider = script.NewProvider()
 	p, _ := newTestPlayer(t)
 	p.client.server = s
-	p.SetInteraction(InteractionEngine, nonNpcEntity{}, 1)
+	p.SetInteraction(InteractionEngine, nonNpcEntity{}, 1, -1)
 	p.interacted = true
 	tryFireOpTrigger(p)
 	if p.target == nil {
@@ -136,7 +136,7 @@ func TestTryFireOpTrigger_ScriptSuspends(t *testing.T) {
 	p.client.server = s
 	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Op: []string{"Talk-to"}}
 	npc := NewNpc(0, 7, p.x, p.z, p.level, npcType)
-	p.SetInteraction(InteractionEngine, npc, 1)
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
 	p.interacted = true
 	tryFireOpTrigger(p)
 	if p.target == nil {
@@ -171,7 +171,7 @@ func TestTryFireOpTrigger_ReClickResetsFired(t *testing.T) {
 	}
 	npc2Type := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 8}, Op: []string{"Talk-to"}}
 	npc2 := NewNpc(1, 8, p.x, p.z, p.level, npc2Type)
-	p.SetInteraction(InteractionEngine, npc2, 1)
+	p.SetInteraction(InteractionEngine, npc2, 1, -1)
 	if p.interactionFired {
 		t.Error("interactionFired: expected false after SetInteraction")
 	}
@@ -195,7 +195,7 @@ func TestTryFireOpTrigger_CategoryFallback(t *testing.T) {
 	p.client.server = s
 	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Op: []string{"Talk-to"}, Category: 3}
 	npc := NewNpc(0, 7, p.x, p.z, p.level, npcType)
-	p.SetInteraction(InteractionEngine, npc, 1)
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
 	p.interacted = true
 	tryFireOpTrigger(p)
 	if string(npc.sayText) != "category" {
@@ -224,7 +224,7 @@ func TestTryFireOpTrigger_GlobalFallback(t *testing.T) {
 	p.client.server = s
 	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Op: []string{"Talk-to"}}
 	npc := NewNpc(0, 7, p.x, p.z, p.level, npcType)
-	p.SetInteraction(InteractionEngine, npc, 1)
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
 	p.interacted = true
 	tryFireOpTrigger(p)
 	if string(npc.sayText) != "global" {
@@ -240,7 +240,7 @@ func TestProcessInteractionInteractionScriptKindSkipsDispatch(t *testing.T) {
 	_, p, npc := newTriggerFixture(t)
 	// Re-anchor as script-kind instead of engine-kind. SetInteraction resets
 	// interactionFired to false so the gate's other condition matches.
-	p.SetInteraction(InteractionScript, npc, 1)
+	p.SetInteraction(InteractionScript, npc, 1, -1)
 	p.processInteraction()
 	if len(npc.sayText) != 0 {
 		t.Errorf("sayText: expected empty (dispatch skipped for script-kind), got %q", npc.sayText)
@@ -274,7 +274,7 @@ func newNoopScriptFile(t *testing.T, trigger script.ServerTriggerType, typeID, _
 func makeOpLocTriggerFixture(t *testing.T) (*Server, *Player, *entitypkg.Loc, net.Conn) {
 	t.Helper()
 	s, p, loc, cc := makeOpLocFixture(t)
-	p.SetInteraction(InteractionEngine, loc, 1)
+	p.SetInteraction(InteractionEngine, loc, 1, -1)
 	p.targetSubject.typ = loc.Type()
 	p.targetSubject.x = loc.X
 	p.targetSubject.z = loc.Z
@@ -408,7 +408,7 @@ func makeApTriggerFixture(t *testing.T) (*Server, *Player, *entitypkg.Loc, net.C
 	// (99, 100) — at contact. For AP tests we move the player farther.
 	s, p, loc, cc := makeOpLocFixture(t)
 	p.x, p.z = 95, 100 // 5 tiles away — within apRange=10, not contact
-	p.SetInteraction(InteractionEngine, loc, 1)
+	p.SetInteraction(InteractionEngine, loc, 1, -1)
 	p.targetSubject.typ = loc.Type()
 	p.targetSubject.x = loc.X
 	p.targetSubject.z = loc.Z

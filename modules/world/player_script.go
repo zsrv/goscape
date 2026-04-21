@@ -450,3 +450,8 @@ func (p *Player) SetApRange(n int) {
 	p.apRange = n
 	p.apRangeCalled = true
 }
+
+// TargetSubjectCom implements script.ActivePlayer.TargetSubjectCom.
+// Returns p.targetSubject.com which was set by OpLocT's SetInteraction
+// call (spellCom) or -1 for non-com callers.
+func (p *Player) TargetSubjectCom() int { return p.targetSubject.com }
