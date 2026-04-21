@@ -26,6 +26,11 @@ var (
 	OpUpdateRunEnergy       = Op{Opcode: 68, PayloadSize: 1}
 	OpUpdateInvStopTransmit = Op{Opcode: 15, PayloadSize: 2}
 
+	// Per-player VARP sync. VARP_SMALL fits values in [-128, 127];
+	// VARP_LARGE carries full int32 range.
+	OpVarpSmall = Op{Opcode: 150, PayloadSize: 3}
+	OpVarpLarge = Op{Opcode: 175, PayloadSize: 6}
+
 	OpUpdateZonePartialFollows  = Op{Opcode: 7, PayloadSize: 2}
 	OpUpdateZoneFullFollows     = Op{Opcode: 135, PayloadSize: 2}
 	OpUpdateZonePartialEnclosed = Op{Opcode: 162, PayloadSize: -2}
