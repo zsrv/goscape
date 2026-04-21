@@ -300,6 +300,7 @@ const (
 	OpLocParam       Opcode = 3011
 	OpLocShape       Opcode = 3012
 	OpLocType        Opcode = 3013
+	OpLocOp          Opcode = 3014
 )
 
 // Obj ops (3500–4000)

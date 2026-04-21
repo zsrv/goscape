@@ -109,6 +109,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 
 	// LOC lookup — stub (always "not found"). Real impl ships with S6.
 	OpLocFind: handleLocFind,
+	// LOC active-loc reads.
+	OpLocOp: handleLocOp,
 
 	// DB ops — stub (empty table). Real impl ships with a DB sub-spec.
 	OpDbGetFieldCount: handleDbGetFieldCount,

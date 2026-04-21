@@ -33,6 +33,11 @@ func (l *Loc) Shape() int { return (l.Info >> 14) & 0x1F }
 // Angle returns the loc rotation (bits 19..20).
 func (l *Loc) Angle() int { return (l.Info >> 19) & 0x3 }
 
+// LocType returns the LocType ID for this loc. Satisfies the
+// pkg/script.ActiveLoc interface. Alias for Type() with a
+// less-ambiguous name when the loc is bound to script state.
+func (l *Loc) LocType() int { return l.Type() }
+
 // Slot returns -1 because locs are not slot-indexed (unlike Players and Npcs
 // which live in server-wide slot registries). Required for the world.entity
 // interface so locs can be assigned to Player.target.

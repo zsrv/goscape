@@ -299,6 +299,12 @@ type ActiveNpc interface {
 	Damage(amount, dmgType int)
 }
 
-// Stubs for later sub-specs; defined now to avoid interface churn in S6.
-type ActiveLoc interface{}
+// ActiveLoc is the surface that LOC_* opcodes use to read the loc
+// bound to the script's execution. Set by OPLOC trigger routing
+// (S6j fireOpTriggerLoc) and LOC_FIND (future).
+type ActiveLoc interface {
+	LocType() int // returns the LocType ID (from packed Loc.Info bitfield)
+}
+
+// ActiveObj is a stub for later sub-specs; defined now to avoid interface churn in S6.
 type ActiveObj interface{}
