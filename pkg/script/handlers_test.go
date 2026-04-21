@@ -257,7 +257,7 @@ func TestHandleGosubWithParams(t *testing.T) {
 	}
 
 	p := NewProvider()
-	p.byKey[subLookupKey] = sub
+	p.RegisterAt(subLookupKey, sub)
 
 	s := Init(main, nil, false, nil, nil)
 	s.Provider = p

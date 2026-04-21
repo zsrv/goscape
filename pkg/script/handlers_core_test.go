@@ -37,9 +37,9 @@ func TestJumpClearsFrameStack(t *testing.T) {
 	}
 
 	prov := NewProvider()
-	prov.Register(scriptA)
-	prov.Register(scriptB)
-	prov.Register(scriptC)
+	prov.RegisterAt(0xAAAA, scriptA)
+	prov.RegisterAt(0xBBBB, scriptB)
+	prov.RegisterAt(0xCCCC, scriptC)
 
 	mp := &mockPlayer{}
 	state := Init(scriptA, mp, false, nil, nil)
@@ -85,7 +85,7 @@ func TestGosubBasic(t *testing.T) {
 		InstructionCount: 5,
 	}
 	prov := NewProvider()
-	prov.Register(target)
+	prov.RegisterAt(0x4321, target)
 
 	mp := &mockPlayer{}
 	state := Init(caller, mp, false, nil, nil)
@@ -116,7 +116,7 @@ func TestJumpBasic(t *testing.T) {
 		InstructionCount: 3,
 	}
 	prov := NewProvider()
-	prov.Register(target)
+	prov.RegisterAt(0x1234, target)
 
 	mp := &mockPlayer{}
 	state := Init(caller, mp, false, nil, nil)
@@ -155,7 +155,7 @@ func TestJumpWithParams(t *testing.T) {
 	}
 
 	prov := NewProvider()
-	prov.Register(target)
+	prov.RegisterAt(0x5678, target)
 
 	state := Init(caller, nil, false, nil, nil)
 	state.Provider = prov

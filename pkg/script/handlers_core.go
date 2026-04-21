@@ -13,9 +13,9 @@ func handleGosub(s *ScriptState) error {
 		return errors.New("GOSUB: no provider")
 	}
 	scriptID := uint32(s.PopInt())
-	target := s.Provider.GetByLookupKey(scriptID)
+	target := s.Provider.GetByID(scriptID)
 	if target == nil {
-		return fmt.Errorf("GOSUB: unknown script id %d", scriptID)
+		return fmt.Errorf("GOSUB: no script with id %d", scriptID)
 	}
 	s.GosubCall(target, nil, nil)
 	return nil
@@ -28,9 +28,9 @@ func handleJump(s *ScriptState) error {
 		return errors.New("JUMP: no provider")
 	}
 	scriptID := uint32(s.PopInt())
-	target := s.Provider.GetByLookupKey(scriptID)
+	target := s.Provider.GetByID(scriptID)
 	if target == nil {
-		return fmt.Errorf("JUMP: unknown script id %d", scriptID)
+		return fmt.Errorf("JUMP: no script with id %d", scriptID)
 	}
 	s.JumpCall(target, nil, nil)
 	return nil
@@ -44,9 +44,9 @@ func handleJumpWithParams(s *ScriptState) error {
 		return errors.New("JUMP_WITH_PARAMS: no provider")
 	}
 	scriptID := uint32(s.Script.IntOperands[s.PC])
-	target := s.Provider.GetByLookupKey(scriptID)
+	target := s.Provider.GetByID(scriptID)
 	if target == nil {
-		return fmt.Errorf("JUMP_WITH_PARAMS: unknown script id %d", scriptID)
+		return fmt.Errorf("JUMP_WITH_PARAMS: no script with id %d", scriptID)
 	}
 	intArgs, stringArgs := popArgsForTarget(s, target)
 	s.JumpCall(target, intArgs, stringArgs)

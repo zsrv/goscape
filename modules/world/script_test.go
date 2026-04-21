@@ -226,7 +226,7 @@ func TestResumedScriptEmitsMessageGame(t *testing.T) {
 func TestQueueFiresAtDelayExpiry(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
-	s.scriptProvider.Register(buildGreetScript(0xAAAA, "g"))
+	s.scriptProvider.RegisterAt(0xAAAA, buildGreetScript(0xAAAA, "g"))
 
 	p, cc := newTestPlayer(t)
 	p.client.server = s
@@ -256,7 +256,7 @@ func TestQueueFiresAtDelayExpiry(t *testing.T) {
 func TestQueueZeroDelayFiresSameTick(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
-	s.scriptProvider.Register(buildGreetScript(0xBBBB, "g"))
+	s.scriptProvider.RegisterAt(0xBBBB, buildGreetScript(0xBBBB, "g"))
 
 	p, cc := newTestPlayer(t)
 	p.client.server = s
@@ -322,8 +322,8 @@ func TestPlaytimeViaScriptMessageGame(t *testing.T) {
 func TestQueueMultipleEntriesPreservesOrder(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
-	s.scriptProvider.Register(buildGreetScript(0xCCC1, "1"))
-	s.scriptProvider.Register(buildGreetScript(0xCCC2, "2"))
+	s.scriptProvider.RegisterAt(0xCCC1, buildGreetScript(0xCCC1, "1"))
+	s.scriptProvider.RegisterAt(0xCCC2, buildGreetScript(0xCCC2, "2"))
 
 	p, cc := newTestPlayer(t)
 	p.client.server = s
@@ -799,7 +799,7 @@ func TestPauseButtonResumesAfterClick(t *testing.T) {
 func TestStrongQueueFiresWhileDelayed(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
-	s.scriptProvider.Register(buildGreetScript(0xBEEF, "s"))
+	s.scriptProvider.RegisterAt(0xBEEF, buildGreetScript(0xBEEF, "s"))
 	s.configsView = serverConfigsView{s: s}
 	s.invLookup = invLookupView{s: s}
 
@@ -830,7 +830,7 @@ func TestStrongQueueFiresWhileDelayed(t *testing.T) {
 func TestSetTimerFiresAfterInterval(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
-	s.scriptProvider.Register(buildGreetScript(0xA1, "t"))
+	s.scriptProvider.RegisterAt(0xA1, buildGreetScript(0xA1, "t"))
 	s.configsView = serverConfigsView{s: s}
 	s.invLookup = invLookupView{s: s}
 
@@ -866,7 +866,7 @@ func TestSetTimerFiresAfterInterval(t *testing.T) {
 func TestSoftTimerFiresWhileDelayed(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
-	s.scriptProvider.Register(buildGreetScript(0xB2, "s"))
+	s.scriptProvider.RegisterAt(0xB2, buildGreetScript(0xB2, "s"))
 	s.configsView = serverConfigsView{s: s}
 	s.invLookup = invLookupView{s: s}
 
@@ -894,7 +894,7 @@ func TestSoftTimerFiresWhileDelayed(t *testing.T) {
 func TestClearTimerStopsFiring(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
-	s.scriptProvider.Register(buildGreetScript(0xC3, "x"))
+	s.scriptProvider.RegisterAt(0xC3, buildGreetScript(0xC3, "x"))
 	s.configsView = serverConfigsView{s: s}
 	s.invLookup = invLookupView{s: s}
 
@@ -991,7 +991,7 @@ func TestNpcNameViaScript(t *testing.T) {
 func TestNormalQueueWaitsForIdle(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
-	s.scriptProvider.Register(buildGreetScript(0xBEE2, "n"))
+	s.scriptProvider.RegisterAt(0xBEE2, buildGreetScript(0xBEE2, "n"))
 	s.configsView = serverConfigsView{s: s}
 	s.invLookup = invLookupView{s: s}
 

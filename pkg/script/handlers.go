@@ -466,10 +466,10 @@ func handleGosubWithParams(s *ScriptState) error {
 	if s.Provider == nil {
 		return errors.New("GOSUB_WITH_PARAMS: Provider not set on ScriptState")
 	}
-	targetKey := uint32(s.Script.IntOperands[s.PC])
-	target, ok := s.Provider.byKey[targetKey]
-	if !ok {
-		return fmt.Errorf("GOSUB_WITH_PARAMS: no script with lookup key %#x", targetKey)
+	targetID := uint32(s.Script.IntOperands[s.PC])
+	target := s.Provider.GetByID(targetID)
+	if target == nil {
+		return fmt.Errorf("GOSUB_WITH_PARAMS: no script with id %d", targetID)
 	}
 
 	intArgs, stringArgs := popArgsForTarget(s, target)

@@ -220,7 +220,7 @@ func (s *Server) processPlayerQueue(p *Player) {
 		p.queue = append(p.queue[:i], p.queue[i+1:]...)
 
 		if s.scriptProvider != nil {
-			if sf := s.scriptProvider.GetByLookupKey(scriptID); sf != nil {
+			if sf := s.scriptProvider.GetByID(scriptID); sf != nil {
 				s.runScript(sf, p, false, []int{intArg}, nil)
 			}
 		}
@@ -263,7 +263,7 @@ func (s *Server) processPlayerTimers() {
 			if s.scriptProvider == nil {
 				continue
 			}
-			sf := s.scriptProvider.GetByLookupKey(id)
+			sf := s.scriptProvider.GetByID(id)
 			if sf == nil {
 				continue
 			}

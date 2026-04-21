@@ -132,11 +132,22 @@ func (p *Provider) GetByName(name string) *ScriptFile {
 }
 
 // GetByLookupKey returns a script by its raw uint32 key (as stored in
-// byKey). Returns nil if unknown. Used by the world tick loop's queue
-// dispatch, where the scriptID comes from the bytecode stream as a raw
-// key.
+// byKey). Returns nil if unknown. Used for trigger-based dispatch
+// where the scriptID comes from an encoded (trigger | typeID) key.
 func (p *Provider) GetByLookupKey(key uint32) *ScriptFile {
 	return p.byKey[key]
+}
+
+// GetByID returns the script at the given script-id slot (the zero-
+// based index in the loaded scripts array). Used by GOSUB_WITH_PARAMS,
+// JUMP_WITH_PARAMS, QUEUE and similar opcodes whose operand is a raw
+// script id, matching TS ScriptProvider.get(id). Returns nil if id is
+// out of range or the script at that slot failed to decode.
+func (p *Provider) GetByID(id uint32) *ScriptFile {
+	if int(id) < 0 || int(id) >= len(p.scripts) {
+		return nil
+	}
+	return p.scripts[id]
 }
 
 // Register adds a pre-built ScriptFile to the provider. Intended for tests
@@ -144,6 +155,23 @@ func (p *Provider) GetByLookupKey(key uint32) *ScriptFile {
 // Duplicate names/keys overwrite; the caller is responsible.
 func (p *Provider) Register(f *ScriptFile) {
 	p.scripts = append(p.scripts, f)
+	if f.Name != "" {
+		p.byName[f.Name] = f
+	}
+	if f.LookupKey != 0xFFFFFFFF {
+		p.byKey[f.LookupKey] = f
+	}
+}
+
+// RegisterAt places a pre-built ScriptFile at the given script-id slot,
+// growing the scripts slice as needed. Used by tests that target
+// specific script ids via GOSUB/JUMP/QUEUE/TIMER ops which look up by
+// id, not by LookupKey.
+func (p *Provider) RegisterAt(id uint32, f *ScriptFile) {
+	for uint32(len(p.scripts)) <= id {
+		p.scripts = append(p.scripts, nil)
+	}
+	p.scripts[id] = f
 	if f.Name != "" {
 		p.byName[f.Name] = f
 	}
