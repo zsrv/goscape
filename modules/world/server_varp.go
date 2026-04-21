@@ -54,3 +54,21 @@ func (w worldVarsView) PlayerCount() int {
 	w.s.playersMu.RUnlock()
 	return n
 }
+
+// MapMembers returns 1 if the server is a members world, else 0.
+// Matches TS Environment.NODE_MEMBERS. Used by MAP_MEMBERS opcode.
+func (w worldVarsView) MapMembers() int {
+	if w.s == nil || !w.s.cfg.NodeMembers {
+		return 0
+	}
+	return 1
+}
+
+// MapLive returns 1 if the server is in production mode, else 0.
+// Matches TS Environment.NODE_PRODUCTION. Used by MAP_LIVE opcode.
+func (w worldVarsView) MapLive() int {
+	if w.s == nil || !w.s.cfg.NodeProduction {
+		return 0
+	}
+	return 1
+}

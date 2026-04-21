@@ -31,6 +31,10 @@ type WorldVars interface {
 	// S5l: world-state queries used by MAP_CLOCK / PLAYERCOUNT.
 	CurrentTick() int
 	PlayerCount() int
+
+	// World-config queries: MAP_MEMBERS / MAP_LIVE. Pushed as 0/1.
+	MapMembers() int
+	MapLive() int
 }
 
 // InvLookup is the inventory resolution surface for INV_* handlers.

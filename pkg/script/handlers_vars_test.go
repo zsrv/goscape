@@ -7,10 +7,12 @@ import (
 
 // mockWorld implements WorldVars for tests.
 type mockWorld struct {
-	ints    map[int]int32
-	strings map[int]string
-	tick    int
-	players int
+	ints       map[int]int32
+	strings    map[int]string
+	tick       int
+	players    int
+	mapMembers int
+	mapLive    int
 }
 
 func newMockWorld() *mockWorld {
@@ -26,6 +28,8 @@ func (m *mockWorld) VarsString(id int) string         { return m.strings[id] }
 func (m *mockWorld) SetVarsString(id int, val string) { m.strings[id] = val }
 func (m *mockWorld) CurrentTick() int                 { return m.tick }
 func (m *mockWorld) PlayerCount() int                 { return m.players }
+func (m *mockWorld) MapMembers() int                  { return m.mapMembers }
+func (m *mockWorld) MapLive() int                     { return m.mapLive }
 
 func TestPushVarp(t *testing.T) {
 	sf := &ScriptFile{

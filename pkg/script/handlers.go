@@ -86,6 +86,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpMapClock:    handleMapClock,
 	OpPlayerCount: handlePlayerCount,
 	OpMoveCoord:   handleMoveCoord,
+	OpMapMembers:  handleMapMembers,
+	OpMapLive:     handleMapLive,
 
 	// S5m: last-input queries.
 	OpLastInt:        handleLastInt,
