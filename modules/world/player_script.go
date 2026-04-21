@@ -2,6 +2,7 @@ package world
 
 import (
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -182,14 +183,43 @@ func (p *Player) SetCurLevel(id int, level int) {
 	p.levels[id] = uint8(level)
 }
 
-// AddXP adds xp (scaled * 10) to the player's stored XP for skill id.
-// OOB ids are dropped silently.
-// TODO: recompute baseLevels from getLevelByExp table and clamp at XP cap.
+// AddXP adds xp (scaled ×10) to the player's stored XP for skill id and
+// recomputes baseLevels from the XP curve. On level-up (baseLevels
+// increases), if levels[id] was drained below the previous base, replenish
+// by the level delta — matches TS Player.advanceStat (Player.ts:1758-1772).
+// XP is clamped at objtype.MaxSkillXP (level-99 cap). OOB id drops silently.
+//
+// Negative xp is clamped to keep stats[id] >= 0 defensively — deviation
+// from TS where a bug could reduce stored XP. Matches the convention from
+// Player.Damage / *Npc.Damage negative-amount clamps.
+//
+// Does NOT fire the ChangeStat trigger (S-future sub-spec — no cache-script
+// consumer yet). Does NOT recompute combat level (future combat sub-spec).
 func (p *Player) AddXP(id int, xp int) {
 	if !statBounds(id) {
 		return
 	}
-	p.stats[id] += int32(xp)
+	next := int64(p.stats[id]) + int64(xp)
+	if next > int64(objtype.MaxSkillXP) {
+		next = int64(objtype.MaxSkillXP)
+	}
+	if next < 0 {
+		next = 0
+	}
+	beforeBase := int(p.baseLevels[id])
+	p.stats[id] = int32(next)
+	p.baseLevels[id] = uint8(objtype.GetLevelByExp(int(p.stats[id])))
+	afterBase := int(p.baseLevels[id])
+
+	if afterBase > beforeBase && int(p.levels[id]) < beforeBase {
+		// Level-up while drained: replenish by the level delta.
+		// Matches TS Player.ts:1767-1770.
+		newLevel := int(p.levels[id]) + (afterBase - beforeBase)
+		if newLevel > 255 {
+			newLevel = 255
+		}
+		p.levels[id] = uint8(newLevel)
+	}
 }
 
 // PlayAnim schedules sequence seqID with the given client-side delay on
