@@ -24,11 +24,24 @@ func (v invLookupView) Get(self script.ActivePlayer, typeID int) *inventory.Inve
 		return nil
 	}
 	if cfg.Scope == objtype.InvTypeScopeShared {
+		// World-shared invs are lazily allocated on first access.
+		if v.s.invs[typeID] == nil {
+			v.s.invs[typeID] = inventory.FromType(cfg)
+		}
 		return v.s.invs[typeID]
 	}
 	p, ok := self.(*Player)
 	if !ok {
 		return nil
+	}
+	// Per-player invs are lazily allocated on first access so scripts
+	// can read/write any declared per-player inv type without
+	// processLogins having to pre-populate every slot.
+	if p.invs == nil {
+		p.invs = map[int]*inventory.Inventory{}
+	}
+	if p.invs[typeID] == nil {
+		p.invs[typeID] = inventory.FromType(cfg)
 	}
 	return p.invs[typeID]
 }
