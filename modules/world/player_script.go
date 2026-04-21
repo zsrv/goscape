@@ -199,10 +199,7 @@ func (p *Player) AddXP(id int, xp int) {
 	if !statBounds(id) {
 		return
 	}
-	next := int64(p.stats[id]) + int64(xp)
-	if next > int64(objtype.MaxSkillXP) {
-		next = int64(objtype.MaxSkillXP)
-	}
+	next := min(int64(p.stats[id])+int64(xp), int64(objtype.MaxSkillXP))
 	if next < 0 {
 		next = 0
 	}
@@ -214,11 +211,7 @@ func (p *Player) AddXP(id int, xp int) {
 	if afterBase > beforeBase && int(p.levels[id]) < beforeBase {
 		// Level-up while drained: replenish by the level delta.
 		// Matches TS Player.ts:1767-1770.
-		newLevel := int(p.levels[id]) + (afterBase - beforeBase)
-		if newLevel > 255 {
-			newLevel = 255
-		}
-		p.levels[id] = uint8(newLevel)
+		p.levels[id] = uint8(min(int(p.levels[id])+(afterBase-beforeBase), 255))
 	}
 }
 
