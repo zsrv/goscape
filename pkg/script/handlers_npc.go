@@ -134,3 +134,14 @@ func handleNpcCategory(s *ScriptState) error {
 	s.PushInt(cfg.Category)
 	return nil
 }
+
+// handleNpcSay pops a string and sets it as the active NPC's speech
+// bubble for this tick. Empty strings are legal (clears the bubble).
+func handleNpcSay(s *ScriptState) error {
+	if err := requireActiveNpc(s, "NPC_SAY"); err != nil {
+		return err
+	}
+	text := s.PopString()
+	s.ActiveNpc.Say([]byte(text))
+	return nil
+}

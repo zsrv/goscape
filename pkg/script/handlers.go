@@ -300,6 +300,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpNpcHasOp:    handleNpcHasOp,
 	OpNpcUID:      handleNpcUID,
 	OpNpcCategory: handleNpcCategory,
+
+	// S6b: NPC mutating ops.
+	OpNpcSay: handleNpcSay,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.

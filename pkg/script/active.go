@@ -270,6 +270,11 @@ type ActiveNpc interface {
 	NpcUID() int // (typeId << 16) | nid
 	NpcVarN(id int) int32
 	SetNpcVarN(id int, val int32)
+	// Say buffers text as the NPC's speech bubble for the current tick,
+	// flagging NpcMaskSay so the NPC-info encoder emits it. Empty text is
+	// allowed (produces an empty bubble that clears itself next tick via
+	// ResetMasks).
+	Say(text []byte)
 }
 
 // Stubs for later sub-specs; defined now to avoid interface churn in S6.

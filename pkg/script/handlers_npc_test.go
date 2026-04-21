@@ -13,6 +13,7 @@ type mockNpc struct {
 	typeID, x, z, level, uid, category int
 	curHP, baseHP                      int
 	varns                              map[int]int32
+	sayCalls                           []string
 }
 
 func (m *mockNpc) NpcType() int     { return m.typeID }
@@ -48,6 +49,10 @@ func (m *mockNpc) SetNpcVarN(id int, val int32) {
 		m.varns = make(map[int]int32)
 	}
 	m.varns[id] = val
+}
+
+func (m *mockNpc) Say(text []byte) {
+	m.sayCalls = append(m.sayCalls, string(text))
 }
 
 // runNpcOp executes a single-opcode script against npc + optional mc,
@@ -240,6 +245,45 @@ func TestNpcHasOpOutOfRange(t *testing.T) {
 	state = runNpcOp(t, npc, mc, OpNpcHasOp, []int{99})
 	if got := state.PopInt(); got != 0 {
 		t.Errorf("NPC_HASOP(99 OOB high): got %d, want 0", got)
+	}
+}
+
+func TestNpcSay(t *testing.T) {
+	npc := &mockNpc{typeID: 7}
+	sf := &ScriptFile{
+		Name:             "[npcsay,test]",
+		Opcodes:          []Opcode{OpPushConstantString, OpNpcSay, OpReturn},
+		IntOperands:      []int32{0, 0, 0},
+		StringOperands:   []string{"hello", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	state.Pointers |= PtrActiveNpc
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got, want := npc.sayCalls, []string{"hello"}; len(got) != 1 || got[0] != want[0] {
+		t.Errorf("sayCalls: got %v, want %v", got, want)
+	}
+}
+
+func TestNpcSayRequiresActiveNpc(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "[npcsay_noactive,test]",
+		Opcodes:          []Opcode{OpPushConstantString, OpNpcSay, OpReturn},
+		IntOperands:      []int32{0, 0, 0},
+		StringOperands:   []string{"hello", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	// state.ActiveNpc intentionally left nil.
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: got nil err, want NPC_SAY: no active npc")
+	}
+	if got := err.Error(); !strings.Contains(got, "NPC_SAY: no active npc") {
+		t.Errorf("err: got %q, want substring 'NPC_SAY: no active npc'", got)
 	}
 }
 
