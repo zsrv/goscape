@@ -457,3 +457,81 @@ func TestVarpTransmitFalseNoWire(t *testing.T) {
 		t.Errorf("server varps[0]: got %d, want 42 (server-side write must still happen)", p.varps[0])
 	}
 }
+
+func TestTelejumpViaScript(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	// Packed coord: (level=0, x=3222, z=3222) -> (0<<28) | (3222<<14) | 3222.
+	packed := int32((0 << 28) | (3222 << 14) | 3222)
+
+	// Script:
+	//   push_constant_int <packed_coord>
+	//   p_telejump
+	//   return
+	sf := &script.ScriptFile{
+		Name: "[telejump,test]",
+		Opcodes: []script.Opcode{
+			script.OpPushConstantInt,
+			script.OpPTeleJump,
+			script.OpReturn,
+		},
+		IntOperands:      []int32{packed, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+
+	s.runScript(sf, p, true, nil, nil)
+
+	if p.x != 3222 {
+		t.Errorf("p.x: got %d, want 3222", p.x)
+	}
+	if p.z != 3222 {
+		t.Errorf("p.z: got %d, want 3222", p.z)
+	}
+	if p.level != 0 {
+		t.Errorf("p.level: got %d, want 0", p.level)
+	}
+	if p.tele == false {
+		t.Error("p.tele: got false, want true")
+	}
+	if p.jump == false {
+		t.Error("p.jump: got false, want true")
+	}
+}
+
+func TestStatAdvanceViaScript(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	p.stats[3] = 100
+
+	// Script:
+	//   push_constant_int 3    (stat id)
+	//   push_constant_int 50   (xp to add)
+	//   stat_advance
+	//   return
+	sf := &script.ScriptFile{
+		Name: "[stat_advance,test]",
+		Opcodes: []script.Opcode{
+			script.OpPushConstantInt,
+			script.OpPushConstantInt,
+			script.OpStatAdvance,
+			script.OpReturn,
+		},
+		IntOperands:      []int32{3, 50, 0, 0},
+		StringOperands:   []string{"", "", "", ""},
+		InstructionCount: 4,
+	}
+
+	s.runScript(sf, p, true, nil, nil)
+
+	if int(p.stats[3]) != 150 {
+		t.Errorf("p.stats[3]: got %d, want 150", int(p.stats[3]))
+	}
+}
