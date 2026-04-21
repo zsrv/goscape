@@ -65,3 +65,29 @@ func GetExpByLevel(level int) int {
 	}
 	return levelExperience[level-2]
 }
+
+// MaxSkillXP is the XP threshold to reach level 99 (the game's max level).
+// Equal to levelExperience[98] = GetExpByLevel(99) = 130344310. XP is
+// stored as fixed-point tenths (×10), so this represents 13,034,431 "real"
+// XP — the canonical RS2 level-99 XP value.
+const MaxSkillXP = 130344310
+
+// GetLevelByExp returns the highest level whose XP threshold is <= xp, or 1
+// if xp is below any threshold. Clamped at level 99. Matches TS
+// Player.getLevelByExp (Player.ts:87-95). xp is the fixed-point tenths
+// value (scaled ×10), consistent with GetExpByLevel.
+//
+// Negative xp returns 1 (defensive — no threshold is negative, so the loop
+// falls through to the `return 1` tail).
+func GetLevelByExp(xp int) int {
+	for i := 98; i >= 0; i-- {
+		if xp >= levelExperience[i] {
+			level := i + 2
+			if level > 99 {
+				level = 99
+			}
+			return level
+		}
+	}
+	return 1
+}

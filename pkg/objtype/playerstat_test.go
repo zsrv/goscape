@@ -48,3 +48,53 @@ func TestPlayerStatHitpointsIsThree(t *testing.T) {
 		t.Errorf("PlayerStatHitpoints: got %d, want 3", PlayerStatHitpoints)
 	}
 }
+
+func TestGetLevelByExpKnownValues(t *testing.T) {
+	cases := []struct {
+		xp, want int
+	}{
+		{0, 1},          // below any threshold
+		{82, 1},         // just below level-2 (830) threshold
+		{830, 2},        // exactly at level-2 threshold
+		{831, 2},        // just above
+		{11539, 9},      // just below level-10
+		{11540, 10},     // exactly at level-10
+		{1013329, 49},   // just below level-50
+		{1013330, 50},   // exactly at level-50
+		{130344309, 98}, // just below level-99
+		{130344310, 99}, // exactly at level-99 (cap)
+		{999999999, 99}, // way above cap → still 99
+	}
+	for _, tc := range cases {
+		if got := GetLevelByExp(tc.xp); got != tc.want {
+			t.Errorf("GetLevelByExp(%d): got %d, want %d", tc.xp, got, tc.want)
+		}
+	}
+}
+
+func TestGetLevelByExpNegativeClampsToOne(t *testing.T) {
+	for _, xp := range []int{-1, -100, -999999} {
+		if got := GetLevelByExp(xp); got != 1 {
+			t.Errorf("GetLevelByExp(%d): got %d, want 1", xp, got)
+		}
+	}
+}
+
+func TestGetLevelByExpInverseOfGetExpByLevel(t *testing.T) {
+	// Round-trip: for every valid level, GetLevelByExp(GetExpByLevel(level)) == level.
+	for level := 2; level <= 99; level++ {
+		xp := GetExpByLevel(level)
+		if got := GetLevelByExp(xp); got != level {
+			t.Errorf("roundtrip level=%d xp=%d GetLevelByExp=%d", level, xp, got)
+		}
+	}
+}
+
+func TestMaxSkillXP(t *testing.T) {
+	if MaxSkillXP != 130344310 {
+		t.Errorf("MaxSkillXP: got %d, want 130344310", MaxSkillXP)
+	}
+	if MaxSkillXP != GetExpByLevel(99) {
+		t.Errorf("MaxSkillXP (%d) must equal GetExpByLevel(99) (%d)", MaxSkillXP, GetExpByLevel(99))
+	}
+}
