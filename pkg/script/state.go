@@ -49,6 +49,12 @@ type ScriptState struct {
 	Target   ActivePlayer
 
 	Protect bool
+
+	// Arrays holds script-local int[] arrays defined via DEFINE_ARRAY.
+	// Index = array slot (0..4); length set at DEFINE_ARRAY, fixed
+	// thereafter. A nil slice at a slot means "undefined"; OOB reads
+	// return 0 and OOB writes are dropped.
+	Arrays [5][]int32
 }
 
 // PushInt pushes v onto the int stack.
