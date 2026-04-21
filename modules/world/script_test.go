@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
+	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
 )
 
@@ -349,5 +350,110 @@ func TestQueueMultipleEntriesPreservesOrder(t *testing.T) {
 		}
 	default:
 		t.Fatalf("unexpected packet length: %d", len(got))
+	}
+}
+
+// seedVarpTypes installs a minimal VarpTypeConfigs on s with a single
+// varp (id 0, debugname "test", transmit as given) so player_varp.go
+// wire logic has a config to consult.
+func seedVarpTypes(s *Server, transmit bool) {
+	t0 := objtype.NewVarPlayerType(0)
+	t0.DebugName = "test"
+	t0.Transmit = transmit
+	s.varpTypes = &objtype.VarpTypeConfigs{
+		ConfigNames: map[string]int{"test": 0},
+		Configs:     []*objtype.VarPlayerType{t0},
+	}
+}
+
+// popVarpScript builds: push_constant_int N, pop_varp 0, return.
+func popVarpScript(value int32) *script.ScriptFile {
+	return &script.ScriptFile{
+		Name: "[popvarp,test]",
+		Opcodes: []script.Opcode{
+			script.OpPushConstantInt,
+			script.OpPopVarp,
+			script.OpReturn,
+		},
+		IntOperands:      []int32{value, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+}
+
+func TestVarpWireSyncSmall(t *testing.T) {
+	s := newTestServer(t)
+	seedVarpTypes(s, true)
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	p.varps = make([]int32, 1)
+
+	received := drainConn(t, cc)
+	s.runScript(popVarpScript(42), p, false, nil, nil)
+	p.client.flushWrite()
+	got := <-received
+
+	// VARP_SMALL wire = opcode(1) + P2(id=0)(2) + P1(val=42)(1) = 4 bytes.
+	if len(got) != 4 {
+		t.Fatalf("VARP_SMALL wire: got %d bytes, want 4", len(got))
+	}
+	if got[1] != 0 || got[2] != 0 {
+		t.Errorf("varp id bytes: got %v, want [0 0]", got[1:3])
+	}
+	if got[3] != 42 {
+		t.Errorf("varp value byte: got %d, want 42", got[3])
+	}
+	if p.varps[0] != 42 {
+		t.Errorf("server varps[0]: got %d, want 42", p.varps[0])
+	}
+}
+
+func TestVarpWireSyncLarge(t *testing.T) {
+	s := newTestServer(t)
+	seedVarpTypes(s, true)
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	p.varps = make([]int32, 1)
+
+	received := drainConn(t, cc)
+	s.runScript(popVarpScript(10000), p, false, nil, nil)
+	p.client.flushWrite()
+	got := <-received
+
+	// VARP_LARGE wire = opcode(1) + P2(id=0)(2) + P4(val=10000)(4) = 7 bytes.
+	if len(got) != 7 {
+		t.Fatalf("VARP_LARGE wire: got %d bytes, want 7", len(got))
+	}
+	if got[1] != 0 || got[2] != 0 {
+		t.Errorf("varp id bytes: got %v, want [0 0]", got[1:3])
+	}
+	want := []byte{0x00, 0x00, 0x27, 0x10}
+	for i, b := range want {
+		if got[3+i] != b {
+			t.Errorf("varp value byte %d: got %#x, want %#x", i, got[3+i], b)
+		}
+	}
+}
+
+func TestVarpTransmitFalseNoWire(t *testing.T) {
+	s := newTestServer(t)
+	seedVarpTypes(s, false)
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	p.varps = make([]int32, 1)
+
+	received := drainConn(t, cc)
+	s.runScript(popVarpScript(42), p, false, nil, nil)
+	p.client.flushWrite()
+	got := <-received
+
+	if len(got) != 0 {
+		t.Errorf("transmit=false varp: got %d wire bytes, want 0", len(got))
+	}
+	if p.varps[0] != 42 {
+		t.Errorf("server varps[0]: got %d, want 42 (server-side write must still happen)", p.varps[0])
 	}
 }
