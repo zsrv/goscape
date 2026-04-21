@@ -150,6 +150,13 @@ type mockPlayer struct {
 	// S5h: action-clear capture counters.
 	stopActionCalls         int
 	clearPendingActionCalls int
+
+	// S5i capture fields
+	lastSetTimer    struct{ scriptID uint32; interval, intArg int; ttype PlayerTimerType }
+	setTimerCalls   int
+	lastClearTimer  uint32
+	clearTimerCalls int
+	getTimerValue   int // pre-seed for GetTimer return
 }
 
 type mockEnqueue struct {
@@ -309,3 +316,15 @@ func (m *mockPlayer) SendCountDialog() { m.sendCountDialogCalls++ }
 
 func (m *mockPlayer) StopAction()         { m.stopActionCalls++ }
 func (m *mockPlayer) ClearPendingAction() { m.clearPendingActionCalls++ }
+
+// S5i: timer ops.
+
+func (m *mockPlayer) SetTimer(scriptID uint32, interval, intArg int, ttype PlayerTimerType) {
+	m.lastSetTimer = struct{ scriptID uint32; interval, intArg int; ttype PlayerTimerType }{scriptID, interval, intArg, ttype}
+	m.setTimerCalls++
+}
+func (m *mockPlayer) ClearTimer(scriptID uint32) {
+	m.lastClearTimer = scriptID
+	m.clearTimerCalls++
+}
+func (m *mockPlayer) GetTimer(scriptID uint32) int { return m.getTimerValue }

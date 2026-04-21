@@ -211,6 +211,23 @@ type ActivePlayer interface {
 	// ClearPendingAction clears the current interaction + pending action
 	// + closes any open modal. Walk queue is preserved.
 	ClearPendingAction()
+
+	// S5i: timer ops.
+
+	// SetTimer registers a timer that re-runs the script at scriptID every
+	// `interval` ticks with `intArg` as the single int arg. Overwrites any
+	// existing timer at the same scriptID. type = TimerNormal (waits for
+	// idle) or TimerSoft (fires while busy).
+	SetTimer(scriptID uint32, interval int, intArg int, ttype PlayerTimerType)
+
+	// ClearTimer cancels the timer at scriptID, regardless of type.
+	// Silent no-op if no such timer.
+	ClearTimer(scriptID uint32)
+
+	// GetTimer returns the number of ticks until the timer at scriptID
+	// fires next, or -1 if no such timer exists. May be negative if
+	// overdue but not yet processed.
+	GetTimer(scriptID uint32) int
 }
 
 // Stubs for later sub-specs; defined now to avoid interface churn in S6.
