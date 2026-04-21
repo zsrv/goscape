@@ -2,6 +2,7 @@ package script
 
 import (
 	"errors"
+	"math"
 	"math/bits"
 	"math/rand/v2"
 )
@@ -296,5 +297,60 @@ func handleRandomInc(s *ScriptState) error {
 		return nil
 	}
 	s.PushInt(rand.IntN(n + 1))
+	return nil
+}
+
+// -- Trig + INTERPOLATE (S5j) --
+//
+// Trig uses 16384-step "RuneScript degrees" (a full circle = 16384).
+// Sin/cos return values are scaled by 16384 to give integer fixed-point
+// output. Atan2 returns the same 16384-step degree representation.
+
+const trigScale = 16384.0
+
+// atan2Scale = 16384 / (2π) — converts radians to RuneScript degrees.
+var atan2Scale = trigScale / (2 * math.Pi)
+
+// handleSinDeg pops a 16384-step angle and pushes int(round(sin(angle) * 16384)).
+func handleSinDeg(s *ScriptState) error {
+	angle := s.PopInt() & 0x3fff
+	rad := float64(angle) / trigScale * 2 * math.Pi
+	s.PushInt(int(math.Round(math.Sin(rad) * trigScale)))
+	return nil
+}
+
+// handleCosDeg pops a 16384-step angle and pushes int(round(cos(angle) * 16384)).
+func handleCosDeg(s *ScriptState) error {
+	angle := s.PopInt() & 0x3fff
+	rad := float64(angle) / trigScale * 2 * math.Pi
+	s.PushInt(int(math.Round(math.Cos(rad) * trigScale)))
+	return nil
+}
+
+// handleAtan2Deg pops (y, x) (x on top), pushes the 16384-step
+// representation of atan2(y, x), masked to the [0, 16383] range.
+func handleAtan2Deg(s *ScriptState) error {
+	x := s.PopInt()
+	y := s.PopInt()
+	res := int(math.Round(math.Atan2(float64(y), float64(x))*atan2Scale)) & 0x3fff
+	s.PushInt(res)
+	return nil
+}
+
+// handleInterpolate pops [y0, y1, x0, x1, x] (x on top) and pushes the
+// linear interpolation y = y0 + (y1-y0) * (x-x0) / (x1-x0). Floor division
+// is used to match TS Math.floor semantics. Returns y0 if x1==x0 to avoid
+// div-by-zero (TS doesn't guard but cache scripts shouldn't hit this).
+func handleInterpolate(s *ScriptState) error {
+	x := s.PopInt()
+	x1 := s.PopInt()
+	x0 := s.PopInt()
+	y1 := s.PopInt()
+	y0 := s.PopInt()
+	if x1 == x0 {
+		s.PushInt(y0)
+		return nil
+	}
+	s.PushInt(floorDiv((y1-y0)*(x-x0), x1-x0) + y0)
 	return nil
 }

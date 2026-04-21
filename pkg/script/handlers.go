@@ -69,6 +69,12 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpRandom:    handleRandom,
 	OpRandomInc: handleRandomInc,
 
+	// S5j: math completion (trig + interpolate).
+	OpSinDeg:      handleSinDeg,
+	OpCosDeg:      handleCosDeg,
+	OpAtan2Deg:    handleAtan2Deg,
+	OpInterpolate: handleInterpolate,
+
 	// S5a: string ops.
 	OpAppend:              handleAppend,
 	OpAppendNum:           handleAppendNum,

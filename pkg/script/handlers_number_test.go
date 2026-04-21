@@ -158,3 +158,67 @@ func TestComparisonBranches(t *testing.T) {
 		})
 	}
 }
+
+// -- S5j: trig + INTERPOLATE --
+
+func TestSinDegZero(t *testing.T) {
+	got := runSingleOp(t, OpSinDeg, []int{0})
+	if got != 0 {
+		t.Errorf("SIN_DEG(0): got %d, want 0", got)
+	}
+}
+
+func TestSinDegQuarter(t *testing.T) {
+	// 90° in 16384-units = 4096; sin(90°)*16384 = 16384.
+	got := runSingleOp(t, OpSinDeg, []int{4096})
+	if got != 16384 {
+		t.Errorf("SIN_DEG(4096): got %d, want 16384", got)
+	}
+}
+
+func TestCosDegZero(t *testing.T) {
+	got := runSingleOp(t, OpCosDeg, []int{0})
+	if got != 16384 {
+		t.Errorf("COS_DEG(0): got %d, want 16384", got)
+	}
+}
+
+func TestAtan2DegRight(t *testing.T) {
+	// atan2(0, 1) = 0 → 0 (pointing along +x axis).
+	got := runSingleOp(t, OpAtan2Deg, []int{0, 1}) // y=0 (bottom), x=1 (top)
+	if got != 0 {
+		t.Errorf("ATAN2(0,1): got %d, want 0", got)
+	}
+}
+
+func TestAtan2DegUp(t *testing.T) {
+	// atan2(1, 0) = π/2 → 4096
+	got := runSingleOp(t, OpAtan2Deg, []int{1, 0})
+	if got != 4096 {
+		t.Errorf("ATAN2(1,0): got %d, want 4096", got)
+	}
+}
+
+func TestInterpolateLinear(t *testing.T) {
+	// y0=0, y1=10, x0=0, x1=10, x=5 → 5
+	got := runSingleOp(t, OpInterpolate, []int{0, 10, 0, 10, 5})
+	if got != 5 {
+		t.Errorf("INTERPOLATE(0,10,0,10,5): got %d, want 5", got)
+	}
+}
+
+func TestInterpolateAtEnd(t *testing.T) {
+	// y0=0, y1=100, x0=0, x1=10, x=10 → 100
+	got := runSingleOp(t, OpInterpolate, []int{0, 100, 0, 10, 10})
+	if got != 100 {
+		t.Errorf("INTERPOLATE(0,100,0,10,10): got %d, want 100", got)
+	}
+}
+
+func TestInterpolateDivZeroReturnsY0(t *testing.T) {
+	// x1==x0; spec falls back to y0.
+	got := runSingleOp(t, OpInterpolate, []int{42, 99, 5, 5, 5})
+	if got != 42 {
+		t.Errorf("INTERPOLATE div-zero: got %d, want 42", got)
+	}
+}
