@@ -2,6 +2,7 @@ package world
 
 import (
 	"bytes"
+	"fmt"
 	"net"
 	"testing"
 
@@ -571,5 +572,139 @@ func TestTryFireApTriggerLocOpOutOfRange(t *testing.T) {
 	}
 	if !p.interactionFired {
 		t.Error("interactionFired: want true after invalid-op clear")
+	}
+}
+
+// TestApLocTriggerForOpValidValues table-tests all valid targetOp
+// mappings:
+//
+//	1..5 → TriggerApLoc1..5 (existing OpLoc1..5 behavior)
+//	6 (targetOpLocT) → TriggerApLocT (single)
+//	7 (targetOpLocU) → TriggerApLocU (single)
+func TestApLocTriggerForOpValidValues(t *testing.T) {
+	cases := []struct {
+		op   int
+		want script.ServerTriggerType
+		name string
+	}{
+		{1, script.TriggerApLoc1, "OpLoc1"},
+		{2, script.TriggerApLoc2, "OpLoc2"},
+		{3, script.TriggerApLoc3, "OpLoc3"},
+		{4, script.TriggerApLoc4, "OpLoc4"},
+		{5, script.TriggerApLoc5, "OpLoc5"},
+		{targetOpLocT, script.TriggerApLocT, "OpLocT"},
+		{targetOpLocU, script.TriggerApLocU, "OpLocU"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, ok := apLocTriggerForOp(c.op)
+			if !ok {
+				t.Fatalf("op=%d: ok=false, want true", c.op)
+			}
+			if got != c.want {
+				t.Errorf("op=%d: got %d, want %d", c.op, got, c.want)
+			}
+		})
+	}
+}
+
+// TestApLocTriggerForOpInvalidValues verifies out-of-range op values
+// return ok=false (caller silent-clears). Covers the gap between 5 and
+// targetOpLocT (none currently) and below 1 / above 7.
+func TestApLocTriggerForOpInvalidValues(t *testing.T) {
+	invalid := []int{0, -1, 8, 100, -100}
+	for _, op := range invalid {
+		t.Run(fmt.Sprintf("op_%d", op), func(t *testing.T) {
+			_, ok := apLocTriggerForOp(op)
+			if ok {
+				t.Errorf("op=%d: ok=true, want false", op)
+			}
+		})
+	}
+}
+
+// TestFireOpTriggerLocFiresOpLocTTrigger verifies that when p.targetOp
+// is targetOpLocT (6) and an OPLOCT script is registered, fireOpTriggerLoc
+// dispatches to it. Player positioned at contact distance.
+func TestFireOpTriggerLocFiresOpLocTTrigger(t *testing.T) {
+	s, p, loc, _ := makeOpLocFixture(t)
+	p.SetInteraction(InteractionEngine, loc, targetOpLocT, 7777)
+	p.targetSubject.typ = loc.Type()
+	p.targetSubject.x = loc.X
+	p.targetSubject.z = loc.Z
+	p.targetSubject.level = loc.Level
+
+	sf := newNoopScriptFile(t, script.TriggerOpLocT, loc.Type(), -1)
+	s.scriptProvider.Register(sf)
+
+	tryFireOpTrigger(p)
+
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil after Finished clear", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after OPLOCT fire")
+	}
+}
+
+// TestFireOpTriggerLocFiresOpLocUTrigger verifies targetOpLocU (7) →
+// OPLOCU dispatch at contact.
+func TestFireOpTriggerLocFiresOpLocUTrigger(t *testing.T) {
+	s, p, loc, _ := makeOpLocFixture(t)
+	p.SetInteraction(InteractionEngine, loc, targetOpLocU, -1)
+	p.targetSubject.typ = loc.Type()
+	p.targetSubject.x = loc.X
+	p.targetSubject.z = loc.Z
+	p.targetSubject.level = loc.Level
+
+	sf := newNoopScriptFile(t, script.TriggerOpLocU, loc.Type(), -1)
+	s.scriptProvider.Register(sf)
+
+	tryFireOpTrigger(p)
+
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil after Finished clear", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after OPLOCU fire")
+	}
+}
+
+// TestFireApTriggerLocFiresApLocTTrigger verifies targetOpLocT (6) →
+// APLOCT dispatch at approach distance.
+func TestFireApTriggerLocFiresApLocTTrigger(t *testing.T) {
+	s, p, loc, _ := makeApTriggerFixture(t)
+	// Override targetOp from fixture's default 1 → targetOpLocT.
+	p.targetOp = targetOpLocT
+
+	sf := newNoopScriptFile(t, script.TriggerApLocT, loc.Type(), -1)
+	s.scriptProvider.Register(sf)
+
+	tryFireApTrigger(p)
+
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil after no-p_aprange clear", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after APLOCT fire")
+	}
+}
+
+// TestFireApTriggerLocFiresApLocUTrigger verifies targetOpLocU (7) →
+// APLOCU dispatch at approach distance.
+func TestFireApTriggerLocFiresApLocUTrigger(t *testing.T) {
+	s, p, loc, _ := makeApTriggerFixture(t)
+	p.targetOp = targetOpLocU
+
+	sf := newNoopScriptFile(t, script.TriggerApLocU, loc.Type(), -1)
+	s.scriptProvider.Register(sf)
+
+	tryFireApTrigger(p)
+
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil after no-p_aprange clear", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after APLOCU fire")
 	}
 }

@@ -120,14 +120,13 @@ func fireOpTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 		return
 	}
 
-	op := p.targetOp
-	if op < 1 || op > 5 {
+	apTrigger, ok := apLocTriggerForOp(p.targetOp)
+	if !ok {
 		p.ClearInteraction()
 		p.interactionFired = true
 		return
 	}
-
-	trigger := script.TriggerOpLoc1 + script.ServerTriggerType(op-1)
+	trigger := apTrigger + 7 // APLOC→OPLOC offset per TS Player.ts:~997
 	// Loc has no cached LocType pointer (only packed Info bitfield);
 	// resolve category through the LocType registry. Use direct slice
 	// access matching the server_configs.go pattern (LocTypeConfigs has
@@ -164,6 +163,27 @@ func fireOpTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 		p.ClearInteraction()
 	}
 	p.interactionFired = true
+}
+
+// apLocTriggerForOp returns the APLOC trigger for the player's
+// targetOp sentinel. Returns ok=false if op is neither 1..5 nor a T/U
+// sentinel. fireOpTriggerLoc derives the OPLOC trigger by adding 7 to
+// the returned APLOC (TS Player.ts:~997 offset convention):
+//
+//	APLOC1..5 (59..63) + 7 → OPLOC1..5 (66..70)
+//	APLOCT    (65)     + 7 → OPLOCT    (72)
+//	APLOCU    (64)     + 7 → OPLOCU    (71)
+func apLocTriggerForOp(op int) (script.ServerTriggerType, bool) {
+	switch {
+	case op >= 1 && op <= 5:
+		return script.TriggerApLoc1 + script.ServerTriggerType(op-1), true
+	case op == targetOpLocT:
+		return script.TriggerApLocT, true
+	case op == targetOpLocU:
+		return script.TriggerApLocU, true
+	default:
+		return 0, false
+	}
 }
 
 // locStillValid checks whether the held *Loc pointer still represents
@@ -231,14 +251,12 @@ func fireApTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 		return
 	}
 
-	op := p.targetOp
-	if op < 1 || op > 5 {
+	trigger, ok := apLocTriggerForOp(p.targetOp)
+	if !ok {
 		p.ClearInteraction()
 		p.interactionFired = true
 		return
 	}
-
-	trigger := script.TriggerApLoc1 + script.ServerTriggerType(op-1)
 	category := 0
 	if locId := loc.Type(); locId >= 0 && locId < len(srv.locTypes.Configs) {
 		if lt := srv.locTypes.Configs[locId]; lt != nil {
