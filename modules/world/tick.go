@@ -90,6 +90,9 @@ func (s *Server) processLogins() {
 		// sub-spec 3a: initialise buildarea, worn inventory, and appearance dirty flag
 		p.buildArea = buildarea.New()
 		p.invs = map[int]*inventory.Inventory{}
+		if s.varpTypes != nil {
+			p.varps = make([]int32, len(s.varpTypes.Configs))
+		}
 		if s.invTypes != nil && s.invTypes.Worn >= 0 && s.invTypes.Worn < len(s.invTypes.Configs) {
 			wornType := s.invTypes.Configs[s.invTypes.Worn]
 			if wornType != nil {

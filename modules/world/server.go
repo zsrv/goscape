@@ -66,6 +66,13 @@ type Server struct {
 	paramTypes *objtype.ParamTypeConfigs
 	objTypes   *objtype.ObjTypeConfigs
 	invTypes   *objtype.InvTypeConfigs
+	varpTypes  *objtype.VarpTypeConfigs
+	varsTypes  *objtype.VarsTypeConfigs
+
+	// world-scoped var state for PUSH_VARS / POP_VARS.
+	vars        []int32
+	varsStrings []string
+	worldVars   worldVarsView
 
 	npcTypes    *objtype.NPCTypeConfigs
 	npcs        [8192]*Npc
@@ -136,6 +143,20 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 	s.paramTypes = params
 	s.objTypes = objTypes
 	s.invTypes = invTypes
+
+	varpTypes, err := objtype.LoadVarpTypes(cfg.CachePath)
+	if err != nil {
+		return nil, fmt.Errorf("load varp types: %w", err)
+	}
+	varsTypes, err := objtype.LoadVarsTypes(cfg.CachePath)
+	if err != nil {
+		return nil, fmt.Errorf("load vars types: %w", err)
+	}
+	s.varpTypes = varpTypes
+	s.varsTypes = varsTypes
+	s.vars = make([]int32, len(varsTypes.Configs))
+	s.varsStrings = make([]string, len(varsTypes.Configs))
+	s.worldVars = worldVarsView{s: s}
 
 	s.renderer = rsbuf.NewRenderer()
 	s.grid = grid.New()
