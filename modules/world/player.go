@@ -83,7 +83,12 @@ type Player struct {
 	// === interaction target ===
 	target           entity
 	targetOp         int
-	targetSubject    struct{ typ, com int }
+	// targetSubject snapshots the initial type/coords of the interaction
+	// target at click time. tryFireOpTrigger reads (typ, x, z, level) to
+	// detect mid-tick mutation/despawn (a tree changing into a stump
+	// between click and tick processing). The previous (typ, com) shape
+	// was unused; expanding it is safe because no code reads .com.
+	targetSubject struct{ typ, x, z, level int }
 	interactionKind  InteractionKind
 	apRange          int
 	apRangeCalled    bool

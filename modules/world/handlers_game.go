@@ -30,6 +30,12 @@ func init() {
 	gameHandlers[113] = handleOpNpc4 // OPNPC4
 	gameHandlers[100] = handleOpNpc5 // OPNPC5
 
+	gameHandlers[245] = handleOpLoc1 // OPLOC1
+	gameHandlers[172] = handleOpLoc2 // OPLOC2
+	gameHandlers[96] = handleOpLoc3  // OPLOC3
+	gameHandlers[97] = handleOpLoc4  // OPLOC4
+	gameHandlers[116] = handleOpLoc5 // OPLOC5
+
 	gameHandlers[235] = handleResumePauseButton // RESUME_PAUSEBUTTON
 	gameHandlers[237] = handleResumeCountDialog // RESUME_P_COUNTDIALOG
 }
