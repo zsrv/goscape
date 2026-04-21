@@ -651,3 +651,83 @@ func TestInvAddGrantsItemsViaScript(t *testing.T) {
 		t.Errorf("inv.GetItemCount(995): got %d, want 42", got)
 	}
 }
+
+func TestIfOpenMainSetsModalState(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	sf := &script.ScriptFile{
+		Name: "[ifopen,test]",
+		Opcodes: []script.Opcode{
+			script.OpPushConstantInt,
+			script.OpIfOpenMain,
+			script.OpReturn,
+		},
+		IntOperands:      []int32{1234, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	s.runScript(sf, p, true, nil, nil)
+
+	if p.modalMain != 1234 {
+		t.Errorf("modalMain: got %d, want 1234", p.modalMain)
+	}
+	if p.modalState&modalStateMain == 0 {
+		t.Error("modalState: main bit not set")
+	}
+	if !p.refreshModal {
+		t.Error("refreshModal: want true")
+	}
+}
+
+func TestIfSetTextEmitsWire(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	// Script: push "hi" (string), push 7 (com), if_settext, return
+	// TS pop order: text = popString(), com = popInt() — so push
+	// string first then int, making each the top of its respective stack.
+	sf := &script.ScriptFile{
+		Name: "[ifsettext,test]",
+		Opcodes: []script.Opcode{
+			script.OpPushConstantString,
+			script.OpPushConstantInt,
+			script.OpIfSetText,
+			script.OpReturn,
+		},
+		IntOperands:      []int32{0, 7, 0, 0},
+		StringOperands:   []string{"hi", "", "", ""},
+		InstructionCount: 4,
+	}
+
+	received := drainConn(t, cc)
+	s.runScript(sf, p, true, nil, nil)
+	p.client.flushWrite()
+	got := <-received
+
+	// OpIfSetText has PayloadSize -2 (2-byte length prefix).
+	// Wire = opcode(1) + len2(2) + P2(com=7)(2) + PJStrLF("hi")(3) = 8 bytes.
+	if len(got) != 8 {
+		t.Fatalf("wire: got %d bytes, want 8", len(got))
+	}
+	// got[1..2] = 2-byte payload length (= 5)
+	// got[3..4] = P2(7)
+	// got[5..6] = "hi"
+	// got[7]    = 0x0a
+	if got[3] != 0 || got[4] != 7 {
+		t.Errorf("com: got %d, want 7", (int(got[3])<<8)|int(got[4]))
+	}
+	if string(got[5:7]) != "hi" || got[7] != 0x0a {
+		t.Errorf("text: got %q", got[5:])
+	}
+}
