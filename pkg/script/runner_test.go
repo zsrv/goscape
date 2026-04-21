@@ -171,6 +171,11 @@ type mockPlayer struct {
 	// Staff-mod level (pre-seed for STAFFMODLEVEL query).
 	staffModLevelValue int
 	uidValue           int
+
+	// S6l: p_aprange capture fields.
+	lastApRange       int
+	lastApRangeCalled bool
+	setApRangeCalls   int
 }
 
 type mockEnqueue struct {
@@ -356,3 +361,10 @@ func (m *mockPlayer) CamReset() { m.camResetCalls++ }
 // StaffModLevel returns the seeded staff level for tests.
 func (m *mockPlayer) StaffModLevel() int32 { return int32(m.staffModLevelValue) }
 func (m *mockPlayer) UID() int              { return m.uidValue }
+
+// S6l: p_aprange.
+func (m *mockPlayer) SetApRange(n int) {
+	m.lastApRange = n
+	m.lastApRangeCalled = true
+	m.setApRangeCalls++
+}

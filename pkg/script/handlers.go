@@ -286,6 +286,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpPStopAction:         handlePStopAction,
 	OpPClearPendingAction: handlePClearPendingAction,
 
+	// S6l: APLOC approach-range opcode.
+	OpPApRange: handlePApRange,
+
 	// S5i: timer ops.
 	OpSetTimer:       handleSetTimer,
 	OpSoftTimer:      handleSoftTimer,

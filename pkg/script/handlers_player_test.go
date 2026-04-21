@@ -795,3 +795,84 @@ func TestPClearPendingAction(t *testing.T) {
 		t.Errorf("clearPendingActionCalls: got %d, want 1", mp.clearPendingActionCalls)
 	}
 }
+
+// -- P_APRANGE tests -----------------------------------------------------
+
+func TestHandlePApRangeSetsBothFields(t *testing.T) {
+	fake := &mockPlayer{}
+	s := &ScriptState{
+		IntStack: make([]int, StackCapacity),
+		Self:     fake,
+	}
+	s.Pointers |= PtrActivePlayer
+	s.PushInt(5)
+
+	if err := handlePApRange(s); err != nil {
+		t.Fatalf("handlePApRange: %v", err)
+	}
+
+	if fake.lastApRange != 5 {
+		t.Errorf("lastApRange: got %d, want 5", fake.lastApRange)
+	}
+	if !fake.lastApRangeCalled {
+		t.Error("lastApRangeCalled: want true")
+	}
+	if fake.setApRangeCalls != 1 {
+		t.Errorf("setApRangeCalls: got %d, want 1", fake.setApRangeCalls)
+	}
+}
+
+func TestHandlePApRangeRequiresActivePlayer(t *testing.T) {
+	s := &ScriptState{
+		IntStack: make([]int, StackCapacity),
+	}
+	s.PushInt(5)
+
+	err := handlePApRange(s)
+	if err == nil {
+		t.Fatal("handlePApRange: expected error, got nil")
+	}
+	if got := err.Error(); got != "P_APRANGE: no active player" {
+		t.Errorf("error: got %q, want \"P_APRANGE: no active player\"", got)
+	}
+}
+
+func TestHandlePApRangeAcceptsNegative(t *testing.T) {
+	fake := &mockPlayer{}
+	s := &ScriptState{
+		IntStack: make([]int, StackCapacity),
+		Self:     fake,
+	}
+	s.Pointers |= PtrActivePlayer
+	s.PushInt(-1)
+
+	if err := handlePApRange(s); err != nil {
+		t.Fatalf("handlePApRange: %v", err)
+	}
+	if fake.lastApRange != -1 {
+		t.Errorf("lastApRange: got %d, want -1", fake.lastApRange)
+	}
+	if !fake.lastApRangeCalled {
+		t.Error("lastApRangeCalled: want true even for negative apRange")
+	}
+}
+
+func TestHandlePApRangeAcceptsZero(t *testing.T) {
+	fake := &mockPlayer{}
+	s := &ScriptState{
+		IntStack: make([]int, StackCapacity),
+		Self:     fake,
+	}
+	s.Pointers |= PtrActivePlayer
+	s.PushInt(0)
+
+	if err := handlePApRange(s); err != nil {
+		t.Fatalf("handlePApRange: %v", err)
+	}
+	if fake.lastApRange != 0 {
+		t.Errorf("lastApRange: got %d, want 0", fake.lastApRange)
+	}
+	if !fake.lastApRangeCalled {
+		t.Error("lastApRangeCalled: want true for zero apRange")
+	}
+}

@@ -254,6 +254,13 @@ type ActivePlayer interface {
 	// UID returns the player's persistent account uid (from the login
 	// RPC). Used by the UID script opcode for mod/account-state checks.
 	UID() int
+
+	// SetApRange sets the approach-range-in-tiles for the active
+	// interaction AND marks apRangeCalled=true. Called by p_aprange
+	// script opcode when an APLOC trigger wants to extend the range
+	// the player should approach before re-firing. Matches TS
+	// PlayerOps.ts:P_APRANGE — both fields are set atomically.
+	SetApRange(n int)
 }
 
 // ActiveNpc is the per-NPC surface that NPC_* opcodes and VARN

@@ -437,3 +437,24 @@ func handlePClearPendingAction(s *ScriptState) error {
 	s.Self.ClearPendingAction()
 	return nil
 }
+
+// handlePApRange pops the approach range (in tiles) and sets it on
+// the active player along with apRangeCalled=true. Called from APLOC
+// trigger scripts to extend the approach-distance at which the trigger
+// re-fires. Matches TS PlayerOps.ts:P_APRANGE.
+//
+// No clamping or bounds check: TS is permissive (any int accepted).
+// Negative values functionally disable the trigger
+// (inApproachDistance returns false for apRange<=0) — scripts passing
+// negative are misconfigured, not a security concern.
+//
+// DEVIATION S6l-D3: no ProtectedActivePlayer gate; goscape has no
+// protected-access model yet.
+func handlePApRange(s *ScriptState) error {
+	if err := requireActivePlayer(s, "P_APRANGE"); err != nil {
+		return err
+	}
+	n := s.PopInt()
+	s.Self.SetApRange(n)
+	return nil
+}
