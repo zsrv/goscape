@@ -230,7 +230,22 @@ type ActivePlayer interface {
 	GetTimer(scriptID uint32) int
 }
 
+// ActiveNpc is the per-NPC surface that NPC_* opcodes and VARN
+// handlers read/write. Set on ScriptState before Execute by callers
+// that target a specific NPC (test fixtures, OPNPC routing, etc.).
+type ActiveNpc interface {
+	NpcType() int             // returns NpcType.id
+	NpcX() int
+	NpcZ() int
+	NpcLevel() int
+	NpcStat(stat int) int     // current (boosted) level — S6a: only HP (id 0) is real
+	NpcBaseStat(stat int) int // base level — S6a: only HP (id 0) is real
+	NpcCategory() int
+	NpcUID() int // (typeId << 16) | nid
+	NpcVarN(id int) int32
+	SetNpcVarN(id int, val int32)
+}
+
 // Stubs for later sub-specs; defined now to avoid interface churn in S6.
-type ActiveNpc interface{}
 type ActiveLoc interface{}
 type ActiveObj interface{}

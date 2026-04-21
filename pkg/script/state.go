@@ -81,6 +81,11 @@ type ScriptState struct {
 	Self     ActivePlayer
 	Target   ActivePlayer
 
+	// ActiveNpc is the NPC that NPC_* and VARN ops target. Nil if no
+	// NPC is bound to this script's execution. Set by callers (test
+	// fixtures, OPNPC trigger routing in a future sub-spec).
+	ActiveNpc ActiveNpc
+
 	Protect bool
 
 	// Arrays holds script-local int[] arrays defined via DEFINE_ARRAY.
