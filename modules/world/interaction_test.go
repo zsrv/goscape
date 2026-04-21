@@ -240,6 +240,25 @@ func TestProcessInteractionDelayedPlayerSkipped(t *testing.T) {
 	}
 }
 
+func TestSetInteractionResetsInteractionFired(t *testing.T) {
+	p := &Player{}
+	p.interactionFired = true
+	npc := &Npc{nid: 0, typeId: 7}
+	p.SetInteraction(InteractionEngine, npc, 1)
+	if p.interactionFired {
+		t.Error("SetInteraction: interactionFired should be reset to false")
+	}
+}
+
+func TestClearInteractionResetsInteractionFired(t *testing.T) {
+	p := &Player{}
+	p.interactionFired = true
+	p.ClearInteraction()
+	if p.interactionFired {
+		t.Error("ClearInteraction: interactionFired should be reset to false")
+	}
+}
+
 // TestInOperableDistanceTable checks adjacency logic for various offsets.
 func TestInOperableDistanceTable(t *testing.T) {
 	cases := []struct {

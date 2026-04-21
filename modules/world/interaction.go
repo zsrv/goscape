@@ -29,6 +29,7 @@ func (p *Player) SetInteraction(kind InteractionKind, target entity, op int) {
 	p.apRangeCalled = false
 	p.interacted = false
 	p.repathed = false
+	p.interactionFired = false
 }
 
 // ClearInteraction resets interaction state to idle.
@@ -38,6 +39,7 @@ func (p *Player) ClearInteraction() {
 	p.apRangeCalled = false
 	p.interacted = false
 	p.repathed = false
+	p.interactionFired = false
 }
 
 // processInteraction runs once per tick per player after pathing.

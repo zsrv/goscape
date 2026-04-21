@@ -87,9 +87,10 @@ type Player struct {
 	interactionKind InteractionKind
 	apRange         int
 	apRangeCalled   bool
-	interacted      bool
-	repathed        bool
-	delayed         bool
+	interacted       bool
+	repathed         bool
+	interactionFired bool
+	delayed          bool
 	delayedUntil    int
 	activeScript    *script.ScriptState
 	queue           []playerQueueRequest
