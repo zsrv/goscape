@@ -51,3 +51,22 @@ func (p *Player) ClearActiveScript() {
 // Playtime implements script.ActivePlayer.Playtime. The playtime field
 // is incremented in processIn each tick.
 func (p *Player) Playtime() int { return int(p.playtime) }
+
+// Varp implements script.ActivePlayer.Varp.
+func (p *Player) Varp(id int) int32 {
+	if id < 0 || id >= len(p.varps) {
+		return 0
+	}
+	return p.varps[id]
+}
+
+// SetVarp implements script.ActivePlayer.SetVarp. Writes the server-
+// side value then wire-sends via VARP_SMALL / VARP_LARGE if the varp
+// type is transmit=true.
+func (p *Player) SetVarp(id int, val int32) {
+	if id < 0 || id >= len(p.varps) {
+		return
+	}
+	p.varps[id] = val
+	p.writeVarp(id, val)
+}

@@ -83,6 +83,10 @@ type Player struct {
 	activeScript    *script.ScriptState
 	queue           []playerQueueRequest
 
+	// varps holds the per-player int values for every registered VarPlayerType.
+	// Allocated in processLogins after VarpTypeConfigs is available.
+	varps []int32
+
 	// === masks ===
 	masks      int
 	entitymask int
