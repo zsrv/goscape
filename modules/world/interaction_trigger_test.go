@@ -223,3 +223,21 @@ func TestTryFireOpTrigger_GlobalFallback(t *testing.T) {
 		t.Errorf("sayText: got %q, want %q", npc.sayText, "global")
 	}
 }
+
+// TestProcessInteractionInteractionScriptKindSkipsDispatch verifies that the
+// processInteraction hook gates tryFireOpTrigger on InteractionEngine. A future
+// sub-spec introducing InteractionScript anchors should not see engine-style
+// trigger dispatch.
+func TestProcessInteractionInteractionScriptKindSkipsDispatch(t *testing.T) {
+	_, p, npc := newTriggerFixture(t)
+	// Re-anchor as script-kind instead of engine-kind. SetInteraction resets
+	// interactionFired to false so the gate's other condition matches.
+	p.SetInteraction(InteractionScript, npc, 1)
+	p.processInteraction()
+	if len(npc.sayText) != 0 {
+		t.Errorf("sayText: expected empty (dispatch skipped for script-kind), got %q", npc.sayText)
+	}
+	if p.interactionFired {
+		t.Error("interactionFired: expected false (dispatch skipped, not consumed)")
+	}
+}

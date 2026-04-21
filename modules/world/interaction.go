@@ -72,7 +72,7 @@ func (p *Player) processInteraction() {
 			p.SetFaceEntity(npc.nid)
 		}
 		p.interacted = true
-		if !p.interactionFired {
+		if p.interactionKind == InteractionEngine && !p.interactionFired {
 			tryFireOpTrigger(p)
 		}
 		return
