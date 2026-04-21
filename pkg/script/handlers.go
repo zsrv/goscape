@@ -98,6 +98,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// Camera control — minimal stub set for login-script compatibility.
 	OpCamReset: handleCamReset,
 
+	// LOC lookup — stub (always "not found"). Real impl ships with S6.
+	OpLocFind: handleLocFind,
+
 	// S5a: string ops.
 	OpAppend:              handleAppend,
 	OpAppendNum:           handleAppendNum,
