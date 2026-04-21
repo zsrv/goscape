@@ -47,3 +47,7 @@ func (p *Player) StoreActiveScript(state *script.ScriptState) {
 func (p *Player) ClearActiveScript() {
 	p.activeScript = nil
 }
+
+// Playtime implements script.ActivePlayer.Playtime. The playtime field
+// is incremented in processIn each tick.
+func (p *Player) Playtime() int { return int(p.playtime) }

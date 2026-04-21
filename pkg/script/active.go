@@ -23,6 +23,10 @@ type ActivePlayer interface {
 	// ClearActiveScript discards any stored ScriptState. Called after
 	// Finished/Aborted runs and on logout/cleanup.
 	ClearActiveScript()
+
+	// Playtime returns the number of ticks the player has been online
+	// this session, used by the TIMESPENT / GETTIMESPENT opcodes.
+	Playtime() int
 }
 
 // Stubs for later sub-specs; defined now to avoid interface churn in S6.
