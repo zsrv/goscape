@@ -28,17 +28,21 @@ func TestAddXPNormalGainNoLevelUp(t *testing.T) {
 	}
 }
 
-func TestAddXPLevelUpNotDrained(t *testing.T) {
+func TestAddXPLevelUpUnbuffedAdvancesLevels(t *testing.T) {
+	// Un-buffed (levels == baseLevels) player levels up: TS advances BOTH
+	// levels and baseLevels in lockstep so the stat display updates.
+	// Matches TS Player.ts:1760-1763.
 	p, _ := newTestPlayer(t)
 	p.stats[objtype.PlayerStatAttack] = 800
 	p.baseLevels[objtype.PlayerStatAttack] = 2
-	p.levels[objtype.PlayerStatAttack] = 2
+	p.levels[objtype.PlayerStatAttack] = 2  // un-buffed
 	p.AddXP(objtype.PlayerStatAttack, 1000) // → 1800, crosses 1740 = level 3
 	if p.baseLevels[objtype.PlayerStatAttack] != 3 {
 		t.Errorf("baseLevels: got %d, want 3", p.baseLevels[objtype.PlayerStatAttack])
 	}
-	if p.levels[objtype.PlayerStatAttack] != 2 {
-		t.Errorf("levels: got %d, want 2 (not drained, no replenish)", p.levels[objtype.PlayerStatAttack])
+	if p.levels[objtype.PlayerStatAttack] != 3 {
+		t.Errorf("levels: got %d, want 3 (un-buffed, advanced with baseLevels)",
+			p.levels[objtype.PlayerStatAttack])
 	}
 }
 
@@ -57,33 +61,73 @@ func TestAddXPLevelUpWhileDrained(t *testing.T) {
 	}
 }
 
-func TestAddXPMultiLevelUpNotDrained(t *testing.T) {
+func TestAddXPMultiLevelUpUnbuffed(t *testing.T) {
+	// Un-buffed player jumps 9 levels in one call: both stats advance in
+	// lockstep to the new level. Matches TS Player.ts:1760-1763.
 	p, _ := newTestPlayer(t)
 	p.stats[objtype.PlayerStatAttack] = 0
 	p.baseLevels[objtype.PlayerStatAttack] = 1
-	p.levels[objtype.PlayerStatAttack] = 1
+	p.levels[objtype.PlayerStatAttack] = 1   // un-buffed
 	p.AddXP(objtype.PlayerStatAttack, 11540) // GetExpByLevel(10)
 	if p.baseLevels[objtype.PlayerStatAttack] != 10 {
 		t.Errorf("baseLevels: got %d, want 10", p.baseLevels[objtype.PlayerStatAttack])
 	}
-	// levels[Attack] == beforeBase (1), NOT less — so no replenish.
-	if p.levels[objtype.PlayerStatAttack] != 1 {
-		t.Errorf("levels: got %d, want 1 (equal, not less — no replenish)", p.levels[objtype.PlayerStatAttack])
+	if p.levels[objtype.PlayerStatAttack] != 10 {
+		t.Errorf("levels: got %d, want 10 (un-buffed, advanced with baseLevels)",
+			p.levels[objtype.PlayerStatAttack])
 	}
 }
 
-func TestAddXPClampsAtCap(t *testing.T) {
+func TestAddXPClampsAtMaxXP(t *testing.T) {
+	// XP accumulation cap is MaxXP (200m real = 2B ×10), NOT MaxSkillXP
+	// (the level-99 threshold, 13m real). Matches TS Player.ts:1754-1757.
 	p, _ := newTestPlayer(t)
-	p.stats[objtype.PlayerStatAttack] = int32(objtype.MaxSkillXP - 10)
+	p.stats[objtype.PlayerStatAttack] = int32(objtype.MaxXP - 10)
 	p.baseLevels[objtype.PlayerStatAttack] = 99
 	p.levels[objtype.PlayerStatAttack] = 99
 	p.AddXP(objtype.PlayerStatAttack, 1000)
-	if int(p.stats[objtype.PlayerStatAttack]) != objtype.MaxSkillXP {
-		t.Errorf("stats: got %d, want MaxSkillXP %d",
-			p.stats[objtype.PlayerStatAttack], objtype.MaxSkillXP)
+	if int(p.stats[objtype.PlayerStatAttack]) != objtype.MaxXP {
+		t.Errorf("stats: got %d, want MaxXP %d",
+			p.stats[objtype.PlayerStatAttack], objtype.MaxXP)
 	}
 	if p.baseLevels[objtype.PlayerStatAttack] != 99 {
 		t.Errorf("baseLevels: got %d, want 99 (capped)", p.baseLevels[objtype.PlayerStatAttack])
+	}
+}
+
+func TestAddXPAccumulatesPastLevel99ThresholdUpToMaxXP(t *testing.T) {
+	// A level-99 player keeps accumulating XP past MaxSkillXP up to MaxXP.
+	// Prestige / XP-chase gameplay depends on this.
+	p, _ := newTestPlayer(t)
+	p.stats[objtype.PlayerStatAttack] = int32(objtype.MaxSkillXP) // at level-99 threshold
+	p.baseLevels[objtype.PlayerStatAttack] = 99
+	p.levels[objtype.PlayerStatAttack] = 99
+	p.AddXP(objtype.PlayerStatAttack, 1000000) // 100k real XP past level 99
+	want := int32(objtype.MaxSkillXP + 1000000)
+	if p.stats[objtype.PlayerStatAttack] != want {
+		t.Errorf("stats: got %d, want %d (accumulation past level-99 threshold)",
+			p.stats[objtype.PlayerStatAttack], want)
+	}
+	// Level stays at 99.
+	if p.baseLevels[objtype.PlayerStatAttack] != 99 {
+		t.Errorf("baseLevels: got %d, want 99", p.baseLevels[objtype.PlayerStatAttack])
+	}
+}
+
+func TestAddXPBuffedLevelUpPreservesBuff(t *testing.T) {
+	// Buffed player (levels > baseLevels, e.g. super-strength) levels up:
+	// TS only advances baseLevels; levels stays (buff preserved).
+	p, _ := newTestPlayer(t)
+	p.stats[objtype.PlayerStatAttack] = 800
+	p.baseLevels[objtype.PlayerStatAttack] = 2
+	p.levels[objtype.PlayerStatAttack] = 5  // buffed by +3
+	p.AddXP(objtype.PlayerStatAttack, 1000) // → level 3
+	if p.baseLevels[objtype.PlayerStatAttack] != 3 {
+		t.Errorf("baseLevels: got %d, want 3", p.baseLevels[objtype.PlayerStatAttack])
+	}
+	if p.levels[objtype.PlayerStatAttack] != 5 {
+		t.Errorf("levels: got %d, want 5 (buff preserved across level-up)",
+			p.levels[objtype.PlayerStatAttack])
 	}
 }
 

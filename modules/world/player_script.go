@@ -184,13 +184,20 @@ func (p *Player) SetCurLevel(id int, level int) {
 }
 
 // AddXP adds xp (scaled ×10) to the player's stored XP for skill id and
-// recomputes baseLevels from the XP curve. On level-up (baseLevels
-// increases), if levels[id] was drained below the previous base, replenish
-// by the level delta — matches TS Player.advanceStat (Player.ts:1758-1772).
-// XP is clamped at objtype.MaxSkillXP (level-99 cap). OOB id drops silently.
+// recomputes baseLevels from the XP curve. Matches TS Player.advanceStat
+// (Player.ts:1752-1772) in three branches:
 //
-// Negative xp is clamped to keep stats[id] >= 0 defensively — deviation
-// from TS where a bug could reduce stored XP. Matches the convention from
+//   - Un-buffed (levels[id] == baseLevels[id]): advance BOTH levels and
+//     baseLevels together. This is the common case — every fresh-player
+//     training session. TS line 1760-1763.
+//   - Buffed (levels[id] > baseLevels[id]): update baseLevels only;
+//     preserve the buff on levels. Level-ups don't strip active potions.
+//   - Drained (levels[id] < baseLevels[id]): update baseLevels; on
+//     level-up replenish levels by the level delta. TS line 1767-1770.
+//
+// XP is clamped at objtype.MaxXP (200m real, stored as 2B ×10). Negative
+// xp is clamped to keep stats[id] >= 0 defensively — deviation from TS
+// where a bug could reduce stored XP. Matches the convention from
 // Player.Damage / *Npc.Damage negative-amount clamps.
 //
 // Does NOT fire the ChangeStat trigger (S-future sub-spec — no cache-script
@@ -199,17 +206,24 @@ func (p *Player) AddXP(id int, xp int) {
 	if !statBounds(id) {
 		return
 	}
-	next := min(int64(p.stats[id])+int64(xp), int64(objtype.MaxSkillXP))
+	next := min(int64(p.stats[id])+int64(xp), int64(objtype.MaxXP))
 	if next < 0 {
 		next = 0
 	}
 	beforeBase := int(p.baseLevels[id])
 	p.stats[id] = int32(next)
-	p.baseLevels[id] = uint8(objtype.GetLevelByExp(int(p.stats[id])))
-	afterBase := int(p.baseLevels[id])
+	newBase := objtype.GetLevelByExp(int(p.stats[id]))
+
+	// Un-buffed branch: advance levels in lockstep with baseLevels so a
+	// fresh-player level-up is visible on the stat display. TS Player.ts:1760-1763.
+	if int(p.levels[id]) == beforeBase {
+		p.levels[id] = uint8(newBase)
+	}
+	p.baseLevels[id] = uint8(newBase)
+	afterBase := newBase
 
 	if afterBase > beforeBase && int(p.levels[id]) < beforeBase {
-		// Level-up while drained: replenish by the level delta.
+		// Drained + level-up: replenish levels by the level delta.
 		// Matches TS Player.ts:1767-1770.
 		p.levels[id] = uint8(min(int(p.levels[id])+(afterBase-beforeBase), 255))
 	}

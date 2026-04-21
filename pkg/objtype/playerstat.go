@@ -70,7 +70,22 @@ func GetExpByLevel(level int) int {
 // Equal to levelExperience[98] = GetExpByLevel(99) = 130344310. XP is
 // stored as fixed-point tenths (×10), so this represents 13,034,431 "real"
 // XP — the canonical RS2 level-99 XP value.
+//
+// NOTE: this is the THRESHOLD for reaching level 99, NOT the XP accumulation
+// ceiling. Players can accumulate XP beyond this up to MaxXP. Use MaxSkillXP
+// for level-up derivation and combat-level inputs; use MaxXP for XP-cap
+// clamps in AddXP and similar accumulation paths.
 const MaxSkillXP = 130344310
+
+// MaxXP is the engine-level XP accumulation ceiling — 200,000,000 "real" XP
+// stored as 2,000,000,000 in ×10 fixed-point (fits in int32 with headroom).
+// Matches TS Player.ts:1754-1757 comment: "cap to 200m, this is represented
+// as '2 billion' because we use 32-bit signed integers and divide by 10 to
+// give us a decimal point."
+//
+// Use this for AddXP's clamp, NOT MaxSkillXP. A level-99 player still
+// accumulates XP up to MaxXP for prestige / XP-chase gameplay.
+const MaxXP = 2_000_000_000
 
 // GetLevelByExp returns the highest level whose XP threshold is <= xp, or 1
 // if xp is below any threshold. Clamped at level 99. Matches TS
