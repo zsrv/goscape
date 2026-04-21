@@ -12,6 +12,7 @@ import (
 	"github.com/zsrv/goscape/pkg/io/packet"
 	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
+	"github.com/zsrv/goscape/pkg/script"
 )
 
 func discardLogger() *slog.Logger {
@@ -274,12 +275,39 @@ func encryptOpcode(enc *io2.Isaac, realOpcode byte) byte {
 	return byte((int(realOpcode) + int(enc.GetNext())) & 0xff)
 }
 
+// defaultTestProvider returns a Provider with a global [opnpc1] no-op script
+// that suspends via P_DELAY(0). Tests that need a real provider seed their
+// own via s.scriptProvider = script.NewProvider() after calling newTestServer.
+func defaultTestProvider() *script.Provider {
+	p := script.NewProvider()
+	// Global catch-all: matches any NPC + op1 when no type/category script exists.
+	// Suspends (P_DELAY) so processInteraction leaves interacted=true and target
+	// intact — allowing reach/face tests written before script dispatch existed to
+	// keep passing without modification.
+	globalScript := &script.ScriptFile{
+		Name:      "[opnpc1,_default]",
+		LookupKey: uint32(script.TriggerOpNpc1),
+		Opcodes: []script.Opcode{
+			script.OpPushConstantInt,
+			script.OpPDelay,
+			script.OpReturn,
+		},
+		IntOperands:      []int32{0, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	p.Register(globalScript)
+	return p
+}
+
 func newTestServer(t *testing.T) *Server {
 	t.Helper()
-	return &Server{
-		quit: make(chan interface{}),
-		log:  discardLogger(),
+	s := &Server{
+		quit:           make(chan interface{}),
+		log:            discardLogger(),
+		scriptProvider: defaultTestProvider(),
 	}
+	return s
 }
 
 func TestAddPlayerAssignsSlot(t *testing.T) {

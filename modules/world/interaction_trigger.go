@@ -27,10 +27,6 @@ import (
 //   - Script finishes / aborts: clear interaction.
 func tryFireOpTrigger(p *Player) {
 	srv := p.client.server
-	if srv.scriptProvider == nil {
-		p.interactionFired = true
-		return
-	}
 
 	npc, ok := p.target.(*Npc)
 	if !ok {
