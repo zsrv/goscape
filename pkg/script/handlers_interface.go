@@ -1,0 +1,244 @@
+package script
+
+import "errors"
+
+// S5f interface / modal opcodes. Pop orders are reverse-engineered from
+// LostCityRS/Engine-TS src/engine/script/handlers/PlayerOps.ts — the TS
+// helper popInts(n) fills the destructured slice top-down, so in
+// `const [a, b, c] = state.popInts(3)` the stack top is `c`. We mirror
+// that pop order by popping from right to left.
+
+// -- Modal management ---------------------------------------------------
+
+// handleIfClose implements IF_CLOSE.
+// TS PlayerOps.ts:245 — no pops; just delegates to closeModal().
+func handleIfClose(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("IF_CLOSE: no active player")
+	}
+	s.Self.CloseModal()
+	return nil
+}
+
+// handleIfOpenMain implements IF_OPENMAIN.
+// TS PlayerOps.ts:719-721 — pops a single int (com).
+func handleIfOpenMain(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("IF_OPENMAIN: no active player")
+	}
+	com := s.PopInt()
+	s.Self.OpenMain(com)
+	return nil
+}
+
+// handleIfOpenChat implements IF_OPENCHAT.
+// TS PlayerOps.ts:641-643 — pops a single int (com).
+func handleIfOpenChat(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("IF_OPENCHAT: no active player")
+	}
+	com := s.PopInt()
+	s.Self.OpenChat(com)
+	return nil
+}
+
+// handleIfOpenSide implements IF_OPENSIDE.
+// TS PlayerOps.ts:727-729 — pops a single int (com).
+func handleIfOpenSide(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("IF_OPENSIDE: no active player")
+	}
+	com := s.PopInt()
+	s.Self.OpenSide(com)
+	return nil
+}
+
+// handleIfOpenMainSide implements IF_OPENMAIN_SIDE.
+// TS PlayerOps.ts:645-652 — popInts(2) → [main, side], so side is on
+// stack top. We pop side first, then main.
+func handleIfOpenMainSide(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("IF_OPENMAIN_SIDE: no active player")
+	}
+	side := s.PopInt()
+	main := s.PopInt()
+	s.Self.OpenMainSide(main, side)
+	return nil
+}
+
+// -- Per-component setters ----------------------------------------------
+
+// handleIfSetText implements IF_SETTEXT.
+// TS PlayerOps.ts:735-740 — `const text = state.popString(); const com =
+// state.popInt();` — text is popped from the string stack first, then
+// com from the int stack. The two stacks are independent, so order
+// relative to each other only matters for script generation.
+func handleIfSetText(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("IF_SETTEXT: no active player")
+	}
+	text := s.PopString()
+	com := s.PopInt()
+	s.Self.IfSetText(com, text)
+	return nil
+}
+
+// handleIfSetModel implements IF_SETMODEL.
+// TS PlayerOps.ts:677-684 — popInts(2) → [com, model], model on top.
+func handleIfSetModel(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("IF_SETMODEL: no active player")
+	}
+	model := s.PopInt()
+	com := s.PopInt()
+	s.Self.IfSetModel(com, model)
+	return nil
+}
+
+// handleIfSetNpcHead implements IF_SETNPCHEAD.
+// TS PlayerOps.ts:742-749 — popInts(2) → [com, npc], npc on top.
+func handleIfSetNpcHead(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("IF_SETNPCHEAD: no active player")
+	}
+	npc := s.PopInt()
+	com := s.PopInt()
+	s.Self.IfSetNpcHead(com, npc)
+	return nil
+}
+
+// handleIfSetPlayerHead implements IF_SETPLAYERHEAD.
+// TS PlayerOps.ts:731-733 — pops a single int (com).
+func handleIfSetPlayerHead(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("IF_SETPLAYERHEAD: no active player")
+	}
+	com := s.PopInt()
+	s.Self.IfSetPlayerHead(com)
+	return nil
+}
+
+// handleIfSetAnim implements IF_SETANIM.
+// TS PlayerOps.ts:698-709 — popInts(2) → [com, seq], seq on top. TS
+// short-circuits when seq == -1 ("client crashes"); we preserve that
+// guard so the wire op is suppressed.
+func handleIfSetAnim(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("IF_SETANIM: no active player")
+	}
+	seq := s.PopInt()
+	com := s.PopInt()
+	if seq == -1 {
+		return nil
+	}
+	s.Self.IfSetAnim(com, seq)
+	return nil
+}
+
+// handleIfSetHide implements IF_SETHIDE.
+// TS PlayerOps.ts:654-661 — popInts(2) → [com, hide], hide on top. The
+// hide int is treated as 0/1 boolean (TS uses `hide === 1`).
+func handleIfSetHide(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("IF_SETHIDE: no active player")
+	}
+	hide := s.PopInt()
+	com := s.PopInt()
+	s.Self.IfSetHide(com, hide == 1)
+	return nil
+}
+
+// handleIfSetTab implements IF_SETTAB.
+// TS PlayerOps.ts:711-717 — popInts(2) → [com, tab], tab on top.
+func handleIfSetTab(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("IF_SETTAB: no active player")
+	}
+	tab := s.PopInt()
+	com := s.PopInt()
+	s.Self.IfSetTab(com, tab)
+	return nil
+}
+
+// handleIfSetObject implements IF_SETOBJECT.
+// TS PlayerOps.ts:663-671 — popInts(3) → [com, obj, scale], scale on top.
+func handleIfSetObject(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("IF_SETOBJECT: no active player")
+	}
+	scale := s.PopInt()
+	obj := s.PopInt()
+	com := s.PopInt()
+	s.Self.IfSetObject(com, obj, scale)
+	return nil
+}
+
+// handleIfSetColour implements IF_SETCOLOUR.
+// TS PlayerOps.ts:632-639 — popInts(2) → [com, colour], colour on top.
+// The TS handler converts rgb24→rgb15 before writing the wire op; that
+// conversion is the Player impl's responsibility in this codebase.
+func handleIfSetColour(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("IF_SETCOLOUR: no active player")
+	}
+	colour := s.PopInt()
+	com := s.PopInt()
+	s.Self.IfSetColour(com, colour)
+	return nil
+}
+
+// handleIfSetPosition implements IF_SETPOSITION.
+// TS PlayerOps.ts:751-757 — popInts(3) → [com, x, y], y on top.
+func handleIfSetPosition(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("IF_SETPOSITION: no active player")
+	}
+	y := s.PopInt()
+	x := s.PopInt()
+	com := s.PopInt()
+	s.Self.IfSetPosition(com, x, y)
+	return nil
+}
+
+// handleIfSetRecol implements IF_SETRECOL.
+// TS PlayerOps.ts:686-692 — popInts(3) → [com, src, dest], dest on top.
+func handleIfSetRecol(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("IF_SETRECOL: no active player")
+	}
+	dest := s.PopInt()
+	src := s.PopInt()
+	com := s.PopInt()
+	s.Self.IfSetRecol(com, src, dest)
+	return nil
+}
+
+// -- Misc ---------------------------------------------------------------
+
+// handleIfSetTabActive implements IF_SETTABACTIVE.
+// TS PlayerOps.ts:673-675 — pops a single int (tab).
+func handleIfSetTabActive(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("IF_SETTABACTIVE: no active player")
+	}
+	tab := s.PopInt()
+	s.Self.IfSetTabActive(tab)
+	return nil
+}
+
+// handleIfSetResumeButtons implements IF_SETRESUMEBUTTONS.
+// TS PlayerOps.ts:781-785 — popInts(5) → [b1, b2, b3, b4, b5], b5 on top.
+// No wire op is emitted; the Player stores the 5 ids for later
+// consumption by P_PAUSEBUTTON.
+func handleIfSetResumeButtons(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("IF_SETRESUMEBUTTONS: no active player")
+	}
+	b5 := s.PopInt()
+	b4 := s.PopInt()
+	b3 := s.PopInt()
+	b2 := s.PopInt()
+	b1 := s.PopInt()
+	s.Self.SetResumeButtons(b1, b2, b3, b4, b5)
+	return nil
+}

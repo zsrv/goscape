@@ -198,6 +198,29 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpInvMoveItem:     handleInvMoveItem,
 	OpInvMoveFromSlot: handleInvMoveFromSlot,
 	OpInvMoveToSlot:   handleInvMoveToSlot,
+
+	// S5f: interface / modal.
+	// Modal management (5).
+	OpIfClose:        handleIfClose,
+	OpIfOpenMain:     handleIfOpenMain,
+	OpIfOpenChat:     handleIfOpenChat,
+	OpIfOpenSide:     handleIfOpenSide,
+	OpIfOpenMainSide: handleIfOpenMainSide,
+	// Per-component setters (12).
+	OpIfSetText:       handleIfSetText,
+	OpIfSetModel:      handleIfSetModel,
+	OpIfSetNpcHead:    handleIfSetNpcHead,
+	OpIfSetPlayerHead: handleIfSetPlayerHead,
+	OpIfSetAnim:       handleIfSetAnim,
+	OpIfSetHide:       handleIfSetHide,
+	OpIfSetTab:        handleIfSetTab,
+	OpIfSetObject:     handleIfSetObject,
+	OpIfSetColour:     handleIfSetColour,
+	OpIfSetPosition:   handleIfSetPosition,
+	OpIfSetRecol:      handleIfSetRecol,
+	// Misc (2).
+	OpIfSetTabActive:     handleIfSetTabActive,
+	OpIfSetResumeButtons: handleIfSetResumeButtons,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.
