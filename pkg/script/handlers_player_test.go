@@ -759,3 +759,39 @@ func itoa(n int) string {
 	}
 	return string(buf[i:])
 }
+
+func TestPStopAction(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "stop",
+		Opcodes:          []Opcode{OpPStopAction, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if mp.stopActionCalls != 1 {
+		t.Errorf("stopActionCalls: got %d, want 1", mp.stopActionCalls)
+	}
+}
+
+func TestPClearPendingAction(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "clear",
+		Opcodes:          []Opcode{OpPClearPendingAction, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if mp.clearPendingActionCalls != 1 {
+		t.Errorf("clearPendingActionCalls: got %d, want 1", mp.clearPendingActionCalls)
+	}
+}

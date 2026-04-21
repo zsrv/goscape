@@ -230,6 +230,15 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// S5h: tail-call.
 	OpJump:           handleJump,
 	OpJumpWithParams: handleJumpWithParams,
+
+	// S5h: queue variants.
+	OpWeakQueue:   handleWeakQueue,
+	OpStrongQueue: handleStrongQueue,
+	OpLongQueue:   handleLongQueue,
+
+	// S5h: action-clear.
+	OpPStopAction:         handlePStopAction,
+	OpPClearPendingAction: handlePClearPendingAction,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.
@@ -465,23 +474,39 @@ func handlePDelay(s *ScriptState) error {
 	return nil
 }
 
-// handleQueue implements QUEUE (opcode 2092): enqueue a fresh-run
-// script request on the active player.
+// enqueueTyped is the shared body for QUEUE / WEAKQUEUE / STRONGQUEUE /
+// LONGQUEUE. Pops (scriptID, delay, arg) and calls Self.EnqueueScriptTyped
+// with the requested type.
 //
 // TS (engine/script/handlers/PlayerOps.ts:148):
 //
 //	const [scriptId, delay, arg] = state.popInts(3);
 //
 // popInts(n) fills ints[n-1] down to ints[0] via PopInt, so the stack
-// top is `arg`, then `delay`, then `scriptId`. For S4 we support only
-// the single-int-arg variant (QUEUEVARARG is deferred).
-func handleQueue(s *ScriptState) error {
+// top is `arg`, then `delay`, then `scriptId`. The VARARG variants are
+// deferred.
+func enqueueTyped(s *ScriptState, qtype PlayerQueueType, op string) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("QUEUE: no active player")
+		return fmt.Errorf("%s: no active player", op)
 	}
 	arg := int(s.PopInt())
 	delay := int(s.PopInt())
 	scriptID := uint32(s.PopInt())
-	s.Self.EnqueueScriptTyped(scriptID, delay, arg, QueueNormal)
+	s.Self.EnqueueScriptTyped(scriptID, delay, arg, qtype)
 	return nil
 }
+
+// handleQueue implements QUEUE (opcode 2092): enqueue a fresh-run
+// script request on the active player with QueueNormal type.
+func handleQueue(s *ScriptState) error { return enqueueTyped(s, QueueNormal, "QUEUE") }
+
+// handleWeakQueue implements WEAKQUEUE.
+func handleWeakQueue(s *ScriptState) error { return enqueueTyped(s, QueueWeak, "WEAKQUEUE") }
+
+// handleStrongQueue implements STRONGQUEUE.
+func handleStrongQueue(s *ScriptState) error {
+	return enqueueTyped(s, QueueStrong, "STRONGQUEUE")
+}
+
+// handleLongQueue implements LONGQUEUE.
+func handleLongQueue(s *ScriptState) error { return enqueueTyped(s, QueueLong, "LONGQUEUE") }

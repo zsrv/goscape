@@ -419,3 +419,21 @@ func handleRunAnim(s *ScriptState) error {
 	s.Self.SetRunAnim(s.PopInt())
 	return nil
 }
+
+// S5h: action-clear.
+
+func handlePStopAction(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("P_STOPACTION: no active player")
+	}
+	s.Self.StopAction()
+	return nil
+}
+
+func handlePClearPendingAction(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("P_CLEARPENDINGACTION: no active player")
+	}
+	s.Self.ClearPendingAction()
+	return nil
+}

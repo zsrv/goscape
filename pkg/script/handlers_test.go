@@ -420,3 +420,44 @@ func TestQueueOpcode(t *testing.T) {
 		t.Errorf("enqueue: got %+v, want %+v", got, want)
 	}
 }
+
+func TestQueueVariants(t *testing.T) {
+	cases := []struct {
+		name  string
+		op    Opcode
+		qtype PlayerQueueType
+	}{
+		{"weak", OpWeakQueue, QueueWeak},
+		{"strong", OpStrongQueue, QueueStrong},
+		{"long", OpLongQueue, QueueLong},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			sf := &ScriptFile{
+				Name: "q_" + tc.name,
+				Opcodes: []Opcode{
+					OpPushConstantInt,
+					OpPushConstantInt,
+					OpPushConstantInt,
+					tc.op,
+					OpReturn,
+				},
+				IntOperands:      []int32{77, 3, 42, 0, 0},
+				StringOperands:   []string{"", "", "", "", ""},
+				InstructionCount: 5,
+			}
+			mp := &mockPlayer{}
+			state := Init(sf, mp, false, nil, nil)
+			if err := Execute(state); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+			if len(mp.enqueueCalls) != 1 {
+				t.Fatalf("enqueueCalls: got %d, want 1", len(mp.enqueueCalls))
+			}
+			got := mp.enqueueCalls[0]
+			if got.ScriptID != 77 || got.Delay != 3 || got.IntArg != 42 || got.Type != tc.qtype {
+				t.Errorf("enqueue: got %+v, want type=%v", got, tc.qtype)
+			}
+		})
+	}
+}
