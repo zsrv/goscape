@@ -110,6 +110,84 @@ type ActivePlayer interface {
 
 	// SetRunAnim sets the player's run animation.
 	SetRunAnim(seqID int)
+
+	// S5f: interface / modal control.
+
+	// CloseModal closes any currently open main/chat/side interface and
+	// flags the client to refresh modal state.
+	CloseModal()
+
+	// OpenMain opens the given interface component as the main modal,
+	// closing any chat/side modals per authentic TS rules.
+	OpenMain(com int)
+
+	// OpenChat opens the given interface component as the chat modal,
+	// leaving any main modal open.
+	OpenChat(com int)
+
+	// OpenSide opens the given interface component as the side modal,
+	// leaving any main modal open.
+	OpenSide(com int)
+
+	// OpenMainSide opens mainCom as the main modal and sideCom as the
+	// side modal simultaneously.
+	OpenMainSide(mainCom, sideCom int)
+
+	// IfSetText emits an IF_SETTEXT wire op setting the text of interface
+	// component com. Fire-and-forget; no server-side persistence.
+	IfSetText(com int, text string)
+
+	// IfSetModel emits an IF_SETMODEL wire op binding modelID to component
+	// com. Fire-and-forget; no server-side persistence.
+	IfSetModel(com, modelID int)
+
+	// IfSetNpcHead emits an IF_SETNPCHEAD wire op binding the head of
+	// npcID to component com. Fire-and-forget; no server-side persistence.
+	IfSetNpcHead(com, npcID int)
+
+	// IfSetPlayerHead emits an IF_SETPLAYERHEAD wire op binding the local
+	// player's head to component com. Fire-and-forget; no server-side
+	// persistence.
+	IfSetPlayerHead(com int)
+
+	// IfSetAnim emits an IF_SETANIM wire op binding sequence seqID to
+	// component com. Fire-and-forget; no server-side persistence.
+	IfSetAnim(com, seqID int)
+
+	// IfSetHide emits an IF_SETHIDE wire op setting the hide flag on
+	// component com. Fire-and-forget; no server-side persistence.
+	IfSetHide(com int, hide bool)
+
+	// IfSetTab emits an IF_SETTAB wire op binding component com to tab
+	// slot tab. Fire-and-forget; no server-side persistence.
+	IfSetTab(com, tab int)
+
+	// IfSetObject emits an IF_SETOBJECT wire op binding objID at the
+	// given scale to component com. Fire-and-forget; no server-side
+	// persistence.
+	IfSetObject(com, objID, scale int)
+
+	// IfSetColour emits an IF_SETCOLOUR wire op setting the text colour
+	// of component com. Fire-and-forget; no server-side persistence.
+	IfSetColour(com, colour int)
+
+	// IfSetPosition emits an IF_SETPOSITION wire op setting the (x, y)
+	// position of component com. Fire-and-forget; no server-side
+	// persistence.
+	IfSetPosition(com, x, y int)
+
+	// IfSetRecol emits an IF_SETRECOL wire op remapping srcColour to
+	// dstColour on component com. Fire-and-forget; no server-side
+	// persistence.
+	IfSetRecol(com, srcColour, dstColour int)
+
+	// IfSetTabActive emits an IF_SETTABACTIVE wire op making tab the
+	// currently-active tab. Fire-and-forget; no server-side persistence.
+	IfSetTabActive(tab int)
+
+	// SetResumeButtons stores the 5 resume-button interface ids for
+	// later consumption by P_PAUSEBUTTON. No wire op is emitted.
+	SetResumeButtons(b1, b2, b3, b4, b5 int)
 }
 
 // Stubs for later sub-specs; defined now to avoid interface churn in S6.

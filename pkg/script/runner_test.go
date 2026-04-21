@@ -121,6 +121,28 @@ type mockPlayer struct {
 	lastWalkAnimL  int
 	lastWalkAnimR  int
 	lastRunAnim    int
+
+	// S5f: captured calls from the interface / modal-control methods.
+	lastCloseModalCalls int
+	lastOpenMain        int
+	lastOpenChat        int
+	lastOpenSide        int
+	lastOpenMainSide    struct{ main, side int }
+
+	lastIfSetText       struct{ com int; text string }
+	lastIfSetModel      struct{ com, modelID int }
+	lastIfSetNpcHead    struct{ com, npcID int }
+	lastIfSetPlayerHead int // just com
+	lastIfSetAnim       struct{ com, seqID int }
+	lastIfSetHide       struct{ com int; hide bool }
+	lastIfSetTab        struct{ com, tab int }
+	lastIfSetObject     struct{ com, objID, scale int }
+	lastIfSetColour     struct{ com, colour int }
+	lastIfSetPosition   struct{ com, x, y int }
+	lastIfSetRecol      struct{ com, src, dst int }
+	lastIfSetTabActive  int // just tab
+
+	lastSetResumeButtons [5]int
 }
 
 type mockEnqueue struct {
@@ -224,3 +246,50 @@ func (m *mockPlayer) SetWalkAnimB(seqID int) { m.lastWalkAnimB = seqID }
 func (m *mockPlayer) SetWalkAnimL(seqID int) { m.lastWalkAnimL = seqID }
 func (m *mockPlayer) SetWalkAnimR(seqID int) { m.lastWalkAnimR = seqID }
 func (m *mockPlayer) SetRunAnim(seqID int)   { m.lastRunAnim = seqID }
+
+// S5f: interface / modal control.
+
+func (m *mockPlayer) CloseModal()            { m.lastCloseModalCalls++ }
+func (m *mockPlayer) OpenMain(com int)       { m.lastOpenMain = com }
+func (m *mockPlayer) OpenChat(com int)       { m.lastOpenChat = com }
+func (m *mockPlayer) OpenSide(com int)       { m.lastOpenSide = com }
+func (m *mockPlayer) OpenMainSide(mainCom, sideCom int) {
+	m.lastOpenMainSide = struct{ main, side int }{mainCom, sideCom}
+}
+
+func (m *mockPlayer) IfSetText(com int, text string) {
+	m.lastIfSetText = struct{ com int; text string }{com, text}
+}
+func (m *mockPlayer) IfSetModel(com, modelID int) {
+	m.lastIfSetModel = struct{ com, modelID int }{com, modelID}
+}
+func (m *mockPlayer) IfSetNpcHead(com, npcID int) {
+	m.lastIfSetNpcHead = struct{ com, npcID int }{com, npcID}
+}
+func (m *mockPlayer) IfSetPlayerHead(com int) { m.lastIfSetPlayerHead = com }
+func (m *mockPlayer) IfSetAnim(com, seqID int) {
+	m.lastIfSetAnim = struct{ com, seqID int }{com, seqID}
+}
+func (m *mockPlayer) IfSetHide(com int, hide bool) {
+	m.lastIfSetHide = struct{ com int; hide bool }{com, hide}
+}
+func (m *mockPlayer) IfSetTab(com, tab int) {
+	m.lastIfSetTab = struct{ com, tab int }{com, tab}
+}
+func (m *mockPlayer) IfSetObject(com, objID, scale int) {
+	m.lastIfSetObject = struct{ com, objID, scale int }{com, objID, scale}
+}
+func (m *mockPlayer) IfSetColour(com, colour int) {
+	m.lastIfSetColour = struct{ com, colour int }{com, colour}
+}
+func (m *mockPlayer) IfSetPosition(com, x, y int) {
+	m.lastIfSetPosition = struct{ com, x, y int }{com, x, y}
+}
+func (m *mockPlayer) IfSetRecol(com, srcColour, dstColour int) {
+	m.lastIfSetRecol = struct{ com, src, dst int }{com, srcColour, dstColour}
+}
+func (m *mockPlayer) IfSetTabActive(tab int) { m.lastIfSetTabActive = tab }
+
+func (m *mockPlayer) SetResumeButtons(b1, b2, b3, b4, b5 int) {
+	m.lastSetResumeButtons = [5]int{b1, b2, b3, b4, b5}
+}
