@@ -10,7 +10,7 @@ import (
 // Validation gates (mirrors TS OpLocHandler.ts:14-42):
 //  1. p.delayed → UnsetMapFlag
 //  2. payload too short → UnsetMapFlag
-//  3. coords outside player's build-area viewport (104 tiles each axis
+//  3. coords outside player's render viewport (52 tiles each axis
 //     from p.originX/originZ) → UnsetMapFlag
 //  4. Server.GetLoc returns nil → UnsetMapFlag
 //  5. LocType not registered → UnsetMapFlag
@@ -46,9 +46,10 @@ func handleOpLoc(p *Player, payload []byte, op int) error {
 	z := int(r.G2())
 	locId := int(r.G2())
 
-	// Viewport gate. Build area is ~13 zones × 8 tiles per side from
-	// origin; 104 tiles is the half-extent. Mirrors TS OpLocHandler.ts:20-28
-	// scene-bounds rejection.
+	// Viewport gate. 52 tiles is the player's render half-distance from
+	// origin (TS OpLocHandler.ts:20-28). NOT to be confused with the
+	// 104-tile build-area diameter — the player sits at scene center,
+	// so the rendered radius is half the diameter.
 	dx := x - p.originX
 	if dx < 0 {
 		dx = -dx
@@ -57,7 +58,7 @@ func handleOpLoc(p *Player, payload []byte, op int) error {
 	if dz < 0 {
 		dz = -dz
 	}
-	if dx > 104 || dz > 104 {
+	if dx > 52 || dz > 52 {
 		sendUnsetMapFlag(p)
 		return nil
 	}

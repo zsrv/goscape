@@ -15,7 +15,7 @@ import (
 // with a LocType registered, ready for handleOpLoc tests.
 // Player at (99, 100, 0); loc at (100, 100, 0) — Chebyshev=1 (adjacent).
 // Player originX/originZ = (100, 100) so viewport gate accepts coords
-// within [-104, +104] of (100, 100).
+// within [-52, +52] of (100, 100).
 // Returns (server, player, loc, clientConn) — pass clientConn to drainConn
 // when the test needs to observe bytes written to the player.
 func makeOpLocFixture(t *testing.T) (*Server, *Player, *entitypkg.Loc, net.Conn) {
@@ -118,12 +118,12 @@ func TestHandleOpLocShortPayloadRejected(t *testing.T) {
 	}
 }
 
-// TestHandleOpLocOutOfViewportRejected verifies coords > 104 tiles from origin emits UnsetMapFlag.
+// TestHandleOpLocOutOfViewportRejected verifies coords > 52 tiles from origin emits UnsetMapFlag.
 func TestHandleOpLocOutOfViewportRejected(t *testing.T) {
 	_, p, _, cc := makeOpLocFixture(t) // origin = (100, 100)
 
 	received := drainConn(t, cc)
-	_ = handleOpLoc1(p, p2x3Payload(250, 100, 42)) // dx = 150 > 104
+	_ = handleOpLoc1(p, p2x3Payload(250, 100, 42)) // dx = 150 > 52
 	p.client.flushWrite()
 	got := <-received
 
@@ -135,34 +135,34 @@ func TestHandleOpLocOutOfViewportRejected(t *testing.T) {
 	}
 }
 
-// TestHandleOpLocCoordValidationBoundary verifies exactly 104-tile distance accepted, 105 rejected.
+// TestHandleOpLocCoordValidationBoundary verifies exactly 52-tile distance accepted, 53 rejected.
 func TestHandleOpLocCoordValidationBoundary(t *testing.T) {
 	s, p, _, cc := makeOpLocFixture(t) // origin = (100, 100)
 
-	// Extend locTypes to cover id 42 at index 204 is not needed — we reuse type 42.
-	// Place a loc at (204, 100, 0), exactly 104 tiles from origin.
-	boundaryLoc := entitypkg.NewLoc(0, 204, 100, 1, 1, entitypkg.LifecycleForever, 42, 10, 0)
-	zn := s.zoneMap.Get(0, 204, 100)
+	// Extend locTypes to cover id 42 at index 152 is not needed — we reuse type 42.
+	// Place a loc at (152, 100, 0), exactly 52 tiles from origin.
+	boundaryLoc := entitypkg.NewLoc(0, 152, 100, 1, 1, entitypkg.LifecycleForever, 42, 10, 0)
+	zn := s.zoneMap.Get(0, 152, 100)
 	zn.Locs = append(zn.Locs, boundaryLoc)
 
-	if err := handleOpLoc1(p, p2x3Payload(204, 100, 42)); err != nil {
+	if err := handleOpLoc1(p, p2x3Payload(152, 100, 42)); err != nil {
 		t.Fatalf("handleOpLoc1 at boundary: %v", err)
 	}
 	if p.target != boundaryLoc {
-		t.Errorf("dx=104 should be accepted; target = %v, want boundaryLoc", p.target)
+		t.Errorf("dx=52 should be accepted; target = %v, want boundaryLoc", p.target)
 	}
 
-	// Reset and try dx = 105 → reject.
+	// Reset and try dx = 53 → reject.
 	p.ClearInteraction()
 	received := drainConn(t, cc)
-	_ = handleOpLoc1(p, p2x3Payload(205, 100, 42))
+	_ = handleOpLoc1(p, p2x3Payload(153, 100, 42))
 	p.client.flushWrite()
 	got := <-received
 	if len(got) == 0 {
-		t.Fatal("expected UnsetMapFlag for dx=105")
+		t.Fatal("expected UnsetMapFlag for dx=53")
 	}
 	if p.target != nil {
-		t.Error("target should remain nil for dx=105")
+		t.Error("target should remain nil for dx=53")
 	}
 }
 
