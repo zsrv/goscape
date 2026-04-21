@@ -226,6 +226,10 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpPPauseButton: handlePPauseButton,
 	OpPCountDialog: handlePCountDialog,
 	OpLastCom:      handleLastCom,
+
+	// S5h: tail-call.
+	OpJump:           handleJump,
+	OpJumpWithParams: handleJumpWithParams,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.
@@ -377,6 +381,24 @@ func handleToString(s *ScriptState) error {
 	return nil
 }
 
+// popArgsForTarget pops int + string args in reverse order based on
+// target.IntArgCount / StringArgCount. Returns (intArgs, stringArgs)
+// ordered so index 0 is the first declared arg, ready to pass to
+// GosubCall / JumpCall. The last-pushed argument is popped first;
+// args are placed back-to-front so their declaration order is
+// preserved.
+func popArgsForTarget(s *ScriptState, target *ScriptFile) (intArgs []int, stringArgs []string) {
+	intArgs = make([]int, target.IntArgCount)
+	for i := int(target.IntArgCount) - 1; i >= 0; i-- {
+		intArgs[i] = s.PopInt()
+	}
+	stringArgs = make([]string, target.StringArgCount)
+	for i := int(target.StringArgCount) - 1; i >= 0; i-- {
+		stringArgs[i] = s.PopString()
+	}
+	return intArgs, stringArgs
+}
+
 // handleGosubWithParams calls a sub-script identified by its LookupKey (the operand).
 //
 // The int and string arguments are popped from the stacks in reverse order before
@@ -395,14 +417,7 @@ func handleGosubWithParams(s *ScriptState) error {
 		return fmt.Errorf("GOSUB_WITH_PARAMS: no script with lookup key %#x", targetKey)
 	}
 
-	intArgs := make([]int, target.IntArgCount)
-	for i := int(target.IntArgCount) - 1; i >= 0; i-- {
-		intArgs[i] = s.PopInt()
-	}
-	stringArgs := make([]string, target.StringArgCount)
-	for i := int(target.StringArgCount) - 1; i >= 0; i-- {
-		stringArgs[i] = s.PopString()
-	}
+	intArgs, stringArgs := popArgsForTarget(s, target)
 
 	s.GosubCall(target, intArgs, stringArgs)
 	return nil

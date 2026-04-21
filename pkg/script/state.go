@@ -169,6 +169,27 @@ func (s *ScriptState) GosubCall(target *ScriptFile, intArgs []int, stringArgs []
 	s.StringLocals = stringLocals
 }
 
+// JumpCall performs a tail-call to target, discarding all saved frames.
+// Distinct from GosubCall which saves the caller frame. TS reference:
+// ScriptState.gotoFrame → setupNewScript.
+func (s *ScriptState) JumpCall(target *ScriptFile, intArgs []int, stringArgs []string) {
+	s.FrameSP = 0
+
+	intLocals := make([]int, max(int(target.IntLocalCount), len(intArgs)))
+	for i, v := range intArgs {
+		intLocals[i] = v
+	}
+	stringLocals := make([]string, max(int(target.StringLocalCount), len(stringArgs)))
+	for i, v := range stringArgs {
+		stringLocals[i] = v
+	}
+
+	s.Script = target
+	s.PC = -1
+	s.IntLocals = intLocals
+	s.StringLocals = stringLocals
+}
+
 // Return pops the most recent call frame and restores execution context.
 // If the frame stack is empty, sets Execution = Finished.
 func (s *ScriptState) Return() error {
