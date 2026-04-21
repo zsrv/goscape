@@ -18,6 +18,7 @@ type mockNpc struct {
 	animCalls                          []struct{ id, delay int }
 	faceCoordCalls                     []struct{ x, z int }
 	changeTypeCalls                    []int
+	damageCalls                        []struct{ amount, dmgType int }
 }
 
 func (m *mockNpc) NpcType() int     { return m.typeID }
@@ -67,6 +68,10 @@ func (m *mockNpc) FaceCoord(x, z int) {
 }
 func (m *mockNpc) ChangeType(newType int) {
 	m.changeTypeCalls = append(m.changeTypeCalls, newType)
+}
+
+func (m *mockNpc) Damage(amount, dmgType int) {
+	m.damageCalls = append(m.damageCalls, struct{ amount, dmgType int }{amount, dmgType})
 }
 
 // runNpcOp executes a single-opcode script against npc + optional mc,
@@ -438,5 +443,45 @@ func TestNpcMutatingOpsRequireActiveNpc_S6c(t *testing.T) {
 				t.Errorf("err: got %q, want substring %q", err, tc.name+": no active npc")
 			}
 		})
+	}
+}
+
+func TestNpcDamage(t *testing.T) {
+	npc := &mockNpc{typeID: 7}
+	// Push type=1, push amount=3, NPC_DAMAGE. amount is on top per TS.
+	sf := &ScriptFile{
+		Name:             "[npcdamage,test]",
+		Opcodes:          []Opcode{OpPushConstantInt, OpPushConstantInt, OpNpcDamage, OpReturn},
+		IntOperands:      []int32{1, 3, 0, 0},
+		StringOperands:   []string{"", "", "", ""},
+		InstructionCount: 4,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	state.Pointers |= PtrActiveNpc
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	want := []struct{ amount, dmgType int }{{3, 1}}
+	if !reflect.DeepEqual(npc.damageCalls, want) {
+		t.Errorf("damageCalls: got %v, want %v", npc.damageCalls, want)
+	}
+}
+
+func TestNpcDamageRequiresActiveNpc(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "[npcdamage_noactive,test]",
+		Opcodes:          []Opcode{OpPushConstantInt, OpPushConstantInt, OpNpcDamage, OpReturn},
+		IntOperands:      []int32{0, 0, 0, 0},
+		StringOperands:   []string{"", "", "", ""},
+		InstructionCount: 4,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: got nil err, want NPC_DAMAGE no-active-npc error")
+	}
+	if !strings.Contains(err.Error(), "NPC_DAMAGE: no active npc") {
+		t.Errorf("err: got %q, want substring 'NPC_DAMAGE: no active npc'", err)
 	}
 }

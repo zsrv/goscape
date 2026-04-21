@@ -291,6 +291,12 @@ type ActiveNpc interface {
 	// timed revert, but S6c discards it (method takes type only); future
 	// AI sub-spec wires a revert timer.
 	ChangeType(newType int)
+
+	// Damage applies `amount` damage of `dmgType` to the NPC this tick,
+	// flagging NpcMaskDamage. Decrements curHP (clamped at 0). Does NOT
+	// trigger death handling or auto-retaliate — those belong in a future
+	// NPC AI sub-spec.
+	Damage(amount, dmgType int)
 }
 
 // Stubs for later sub-specs; defined now to avoid interface churn in S6.

@@ -182,3 +182,15 @@ func handleNpcChangeType(s *ScriptState) error {
 	s.ActiveNpc.ChangeType(newType)
 	return nil
 }
+
+// handleNpcDamage pops (type, amount) in TS order (amount on top) and
+// applies damage. The concrete Npc impl manages HP; this handler stays thin.
+func handleNpcDamage(s *ScriptState) error {
+	if err := requireActiveNpc(s, "NPC_DAMAGE"); err != nil {
+		return err
+	}
+	amount := s.PopInt()
+	dmgType := s.PopInt()
+	s.ActiveNpc.Damage(amount, dmgType)
+	return nil
+}
