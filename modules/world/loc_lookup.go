@@ -13,9 +13,6 @@ import (
 // a coord-keyed map can replace the slice.
 func (s *Server) GetLoc(level, x, z, locId int) *entitypkg.Loc {
 	zn := s.zoneMap.Get(level, x, z)
-	if zn == nil {
-		return nil
-	}
 	for _, l := range zn.Locs {
 		if l == nil {
 			continue
