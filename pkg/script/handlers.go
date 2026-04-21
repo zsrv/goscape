@@ -88,6 +88,11 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpSplitGetAnim:   handleSplitGetAnim,
 	OpSplitLineCount: handleSplitLineCount,
 	OpSplitPageCount: handleSplitPageCount,
+
+	// S5a: debug ops.
+	OpError:        handleError,
+	OpGetTimeSpent: handleGetTimeSpent,
+	OpTimeSpent:    handleTimeSpent,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.
