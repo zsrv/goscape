@@ -21,6 +21,7 @@ type LocType struct {
 	Desc     string
 	Width    int
 	Length   int
+	Op       []string // S6k: 5 click-option names, nil until decoded
 	Params   ParamMap
 }
 
@@ -32,6 +33,20 @@ func (lt *LocType) Decode(code uint8, dat *packet2.Packet) error {
 		lt.Width = int(dat.G1())
 	case 15:
 		lt.Length = int(dat.G1())
+	case 30, 31, 32, 33, 34:
+		// S6k: op-name slots. Lazy 5-slot init mirrors NpcType.Op
+		// (npctype.go:124-132). TS LocType.ts:152-157 uses
+		// `code >= 30 && < 35`. The "hidden" keyword in the cache
+		// marks a disabled op slot; we coerce to "" here so the
+		// handler gate in modules/world/handler_oploc.go can do a
+		// single empty-string check at runtime.
+		if lt.Op == nil {
+			lt.Op = make([]string, 5)
+		}
+		lt.Op[code-30] = dat.GJStrLF()
+		if lt.Op[code-30] == "hidden" {
+			lt.Op[code-30] = ""
+		}
 	case 61:
 		lt.Category = int(dat.G2())
 	case 249:

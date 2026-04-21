@@ -14,6 +14,7 @@ type locEntry struct {
 	width     int
 	length    int
 	intParams map[uint32]uint32
+	op        []string // NEW — S6k: op-name slots (codes 30-34)
 }
 
 // buildLocDat assembles a server/loc.dat wire blob:
@@ -48,6 +49,14 @@ func buildLocDat(entries []locEntry) []byte {
 				pkt.PBool(false)
 				pkt.P4(v)
 			}
+		}
+		// Op entries (codes 30-34). S6k: emit one code per non-empty slot.
+		for i, name := range e.op {
+			if name == "" {
+				continue
+			}
+			pkt.P1(uint8(30 + i))
+			pkt.PJStrLF(name)
 		}
 		if e.debugName != "" {
 			pkt.P1(250)
@@ -120,6 +129,74 @@ func TestLocUnknownCode(t *testing.T) {
 	_, err := parseLocTypes(packet2.NewPacket(pkt.Bytes()))
 	if err == nil {
 		t.Fatal("expected error on unknown loc code, got nil")
+	}
+}
+
+func TestLocTypeDecodeOpSingleEntry(t *testing.T) {
+	dat := buildLocDat([]locEntry{
+		{debugName: "tree", op: []string{"Chop", "", "", "", ""}},
+	})
+	pkt := packet2.NewPacket(dat)
+
+	cfgs, err := parseLocTypes(pkt)
+	if err != nil {
+		t.Fatalf("parseLocTypes: %v", err)
+	}
+	if got := len(cfgs.Configs); got != 1 {
+		t.Fatalf("Configs len: got %d, want 1", got)
+	}
+
+	tree := cfgs.Configs[0]
+	if tree.Op == nil {
+		t.Fatal("Op: got nil, want 5-slot slice")
+	}
+	if got := tree.Op[0]; got != "Chop" {
+		t.Errorf("Op[0]: got %q, want \"Chop\"", got)
+	}
+	for i := 1; i < 5; i++ {
+		if tree.Op[i] != "" {
+			t.Errorf("Op[%d]: got %q, want \"\"", i, tree.Op[i])
+		}
+	}
+}
+
+func TestLocTypeDecodeOpAllFive(t *testing.T) {
+	dat := buildLocDat([]locEntry{
+		{debugName: "multi", op: []string{"op0", "op1", "op2", "op3", "op4"}},
+	})
+	pkt := packet2.NewPacket(dat)
+
+	cfgs, err := parseLocTypes(pkt)
+	if err != nil {
+		t.Fatalf("parseLocTypes: %v", err)
+	}
+
+	multi := cfgs.Configs[0]
+	want := []string{"op0", "op1", "op2", "op3", "op4"}
+	for i, w := range want {
+		if got := multi.Op[i]; got != w {
+			t.Errorf("Op[%d]: got %q, want %q", i, got, w)
+		}
+	}
+}
+
+func TestLocTypeDecodeOpHiddenCoercedToEmpty(t *testing.T) {
+	dat := buildLocDat([]locEntry{
+		{debugName: "hidden_test", op: []string{"visible", "hidden", "", "", ""}},
+	})
+	pkt := packet2.NewPacket(dat)
+
+	cfgs, err := parseLocTypes(pkt)
+	if err != nil {
+		t.Fatalf("parseLocTypes: %v", err)
+	}
+
+	entry := cfgs.Configs[0]
+	if got := entry.Op[0]; got != "visible" {
+		t.Errorf("Op[0]: got %q, want \"visible\"", got)
+	}
+	if got := entry.Op[1]; got != "" {
+		t.Errorf("Op[1] (hidden-coerced): got %q, want \"\"", got)
 	}
 }
 
