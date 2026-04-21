@@ -21,16 +21,6 @@ const (
 	NpcStatMagic     = 5
 )
 
-// PlayerStat* are indices into Player.levels and Player.baseLevels for
-// player-skill slots. Only Hitpoints is exported here; other stats
-// (Attack, Defence, Strength, Ranged, Prayer, Magic, Cooking, ...) get
-// added as their first consumer ships. Index values match TS PlayerStat
-// enum (PlayerStat.ts) — Hitpoints is 3, sharing the slot with
-// NpcStatHitpoints since both represent the same skill index.
-const (
-	PlayerStatHitpoints = 3
-)
-
 // MoveRestrict values (mirror of rs-server-225/entity.MoveRestrict).
 const (
 	MoveRestrictNormal        = 0
