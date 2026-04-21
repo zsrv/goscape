@@ -241,8 +241,9 @@ func (p *Player) changeStat(stat int) {
 // where a bug could reduce stored XP. Matches the convention from
 // Player.Damage / *Npc.Damage negative-amount clamps.
 //
-// Does NOT fire the ChangeStat trigger (S-future sub-spec — no cache-script
-// consumer yet). Does NOT recompute combat level (future combat sub-spec).
+// On level-up (baseLevels increases), fires the [changestat,<skill>] trigger
+// via changeStat — matches TS Player.ts:1772. Does NOT recompute combat
+// level (future combat sub-spec).
 func (p *Player) AddXP(id int, xp int) {
 	if !statBounds(id) {
 		return
