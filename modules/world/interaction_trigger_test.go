@@ -3,6 +3,7 @@ package world
 import (
 	"testing"
 
+	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -199,6 +200,11 @@ func TestTryFireOpTrigger_CategoryFallback(t *testing.T) {
 		t.Errorf("sayText: got %q, want %q", npc.sayText, "category")
 	}
 }
+
+// Compile-time assertion that *entitypkg.Loc satisfies the package-local
+// entity interface (Slot() int + Coords() (x, z, level int)). Required
+// for p.target = loc to type-check when handler_oploc sets the target.
+var _ entity = (*entitypkg.Loc)(nil)
 
 func TestTryFireOpTrigger_GlobalFallback(t *testing.T) {
 	s := newTestServer(t)

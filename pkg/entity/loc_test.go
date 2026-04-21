@@ -53,3 +53,18 @@ func TestLocCarriesEntityFields(t *testing.T) {
 		t.Errorf("lifecycle: got %v, want Despawn", l.Lifecycle)
 	}
 }
+
+func TestLocSlotReturnsMinusOne(t *testing.T) {
+	l := NewLoc(0, 100, 100, 1, 1, LifecycleForever, 0, 10, 0)
+	if got := l.Slot(); got != -1 {
+		t.Errorf("Loc.Slot(): got %d, want -1", got)
+	}
+}
+
+func TestLocCoordsReturnsXZLevel(t *testing.T) {
+	l := NewLoc(2, 3245, 3198, 1, 1, LifecycleForever, 0, 10, 0)
+	x, z, level := l.Coords()
+	if x != 3245 || z != 3198 || level != 2 {
+		t.Errorf("Loc.Coords(): got (%d, %d, %d), want (3245, 3198, 2)", x, z, level)
+	}
+}

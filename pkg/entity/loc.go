@@ -32,3 +32,15 @@ func (l *Loc) Shape() int { return (l.Info >> 14) & 0x1F }
 
 // Angle returns the loc rotation (bits 19..20).
 func (l *Loc) Angle() int { return (l.Info >> 19) & 0x3 }
+
+// Slot returns -1 because locs are not slot-indexed (unlike Players and Npcs
+// which live in server-wide slot registries). Required for the world.entity
+// interface so locs can be assigned to Player.target.
+func (l *Loc) Slot() int { return -1 }
+
+// Coords returns the loc's tile position. Required for the world.entity
+// interface. Reads X/Z/Level from the embedded entity.Entity (see
+// entity.go:6-12 for the field layout); no allocation.
+func (l *Loc) Coords() (x, z, level int) {
+	return l.X, l.Z, l.Level
+}

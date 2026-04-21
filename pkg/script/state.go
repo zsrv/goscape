@@ -95,8 +95,15 @@ type ScriptState struct {
 
 	// ActiveNpc is the NPC that NPC_* and VARN ops target. Nil if no
 	// NPC is bound to this script's execution. Set by callers (test
-	// fixtures, OPNPC trigger routing in a future sub-spec).
+	// fixtures, OPNPC trigger routing).
 	ActiveNpc ActiveNpc
+
+	// ActiveLoc is the Loc that LOC_* ops target. Nil if no Loc is
+	// bound to this script's execution. Set by callers (test fixtures,
+	// OPLOC trigger routing). Type is the package-local ActiveLoc
+	// interface (currently empty — handlers_loc.go will populate
+	// methods in a follow-up sub-spec).
+	ActiveLoc ActiveLoc
 
 	Protect bool
 
