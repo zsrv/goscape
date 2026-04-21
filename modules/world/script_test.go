@@ -8,6 +8,7 @@ import (
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 )
 
@@ -1017,5 +1018,59 @@ func TestNormalQueueWaitsForIdle(t *testing.T) {
 		}
 	case <-time.After(50 * time.Millisecond):
 		// expected: nothing fired
+	}
+}
+
+func TestOpNpc1FiresScriptAndEmitsSay(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+
+	// Register [opnpc1, type=7] = push "cluck cluck" + NPC_SAY + RETURN.
+	key := uint32(script.TriggerOpNpc1) | (0x2 << 8) | (uint32(7) << 10)
+	s.scriptProvider.Register(&script.ScriptFile{
+		Name:             "[opnpc1,chicken]",
+		LookupKey:        key,
+		Opcodes:          []script.Opcode{script.OpPushConstantString, script.OpNpcSay, script.OpReturn},
+		IntOperands:      []int32{0, 0, 0},
+		StringOperands:   []string{"cluck cluck", "", ""},
+		InstructionCount: 3,
+	})
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+
+	// Place an NPC of type 7 adjacent to the player so reach is immediate.
+	npcType := &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 7, DebugName: "chicken"},
+		Op:         []string{"Talk-to", "", "", "", ""},
+	}
+	npc := NewNpc(0, 7, p.x+1, p.z, p.level, npcType)
+	// s.npcs is a fixed-size array; slot 0 is always valid.
+	s.npcs[0] = npc
+
+	// Build the OPNPC1 payload (p2(slot=0)) and fire it through the handler.
+	payload := []byte{0x00, 0x00}
+	if err := handleOpNpc1(p, payload); err != nil {
+		t.Fatalf("handleOpNpc1: %v", err)
+	}
+	if p.target != npc {
+		t.Fatalf("post-click: target=%v, want npc", p.target)
+	}
+
+	// Drive one processInteraction tick — player is already adjacent, so
+	// reach succeeds immediately and tryFireOpTrigger runs.
+	p.processInteraction()
+
+	if string(npc.sayText) != "cluck cluck" {
+		t.Errorf("sayText: got %q, want 'cluck cluck'", npc.sayText)
+	}
+	if npc.masks&rsbuf.NpcMaskSay == 0 {
+		t.Error("NpcMaskSay bit: not set on npc.masks")
+	}
+	if p.target != nil {
+		t.Error("target: expected cleared after script Finished")
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: expected true after dispatch")
 	}
 }
