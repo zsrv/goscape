@@ -68,6 +68,26 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// S5a: random.
 	OpRandom:    handleRandom,
 	OpRandomInc: handleRandomInc,
+
+	// S5a: string ops.
+	OpAppend:              handleAppend,
+	OpAppendNum:           handleAppendNum,
+	OpAppendChar:          handleAppendChar,
+	OpAppendSignNum:       handleAppendSignNum,
+	OpLowercase:           handleLowercase,
+	OpCompare:             handleCompare,
+	OpStringLength:        handleStringLength,
+	OpSubstring:           handleSubstring,
+	OpStringIndexOfChar:   handleStringIndexOfChar,
+	OpStringIndexOfString: handleStringIndexOfString,
+	OpTextSwitch:          handleTextSwitch,
+
+	// S5a: SPLIT_* stubs (dialog pagination deferred).
+	OpSplitInit:      handleSplitInit,
+	OpSplitGet:       handleSplitGet,
+	OpSplitGetAnim:   handleSplitGetAnim,
+	OpSplitLineCount: handleSplitLineCount,
+	OpSplitPageCount: handleSplitPageCount,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.
