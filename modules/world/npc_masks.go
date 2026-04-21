@@ -62,12 +62,7 @@ func (n *Npc) Damage(amount, dmgType int) {
 	if amount < 0 {
 		amount = 0
 	}
-	prevHP := n.curHP
-	if amount > prevHP {
-		n.damageAmt = prevHP
-	} else {
-		n.damageAmt = amount
-	}
+	n.damageAmt = min(amount, n.curHP)
 	n.damageType = dmgType
 	n.curHP -= amount
 	if n.curHP < 0 {
