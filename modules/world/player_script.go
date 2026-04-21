@@ -442,10 +442,10 @@ func (p *Player) ClearPendingAction() {
 	p.CloseModal()
 }
 
-// SetApRange implements script.ActivePlayer.SetApRange. Atomically
-// sets apRange and marks apRangeCalled=true to persist the
-// interaction past the current tick. Matches TS
-// PlayerOps.ts:P_APRANGE.
+// SetApRange implements script.ActivePlayer.SetApRange. Sets apRange
+// and marks apRangeCalled=true in a single call (tick-serialized by
+// the engine; no lock needed) to persist the interaction past the
+// current tick. Matches TS PlayerOps.ts:P_APRANGE.
 func (p *Player) SetApRange(n int) {
 	p.apRange = n
 	p.apRangeCalled = true

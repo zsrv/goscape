@@ -259,7 +259,8 @@ type ActivePlayer interface {
 	// interaction AND marks apRangeCalled=true. Called by p_aprange
 	// script opcode when an APLOC trigger wants to extend the range
 	// the player should approach before re-firing. Matches TS
-	// PlayerOps.ts:P_APRANGE — both fields are set atomically.
+	// PlayerOps.ts:P_APRANGE — both fields are set in a single call
+	// (tick-serialized by the engine; no lock needed).
 	SetApRange(n int)
 }
 
