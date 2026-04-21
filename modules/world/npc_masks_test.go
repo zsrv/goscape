@@ -47,8 +47,10 @@ func TestNpcDamageClampsAtZero(t *testing.T) {
 	if npc.curHP != 0 {
 		t.Errorf("curHP: got %d, want 0 (clamped)", npc.curHP)
 	}
-	if npc.damageAmt != 5 {
-		t.Errorf("damageAmt: got %d, want 5 (actual requested amount, not floored)", npc.damageAmt)
+	// damageAmt clamps to prev curHP on overkill — matches TS
+	// Npc.applyDamage (hitmarkDamage = current), not the raw requested amount.
+	if npc.damageAmt != 2 {
+		t.Errorf("damageAmt: got %d, want 2 (clamped to prev curHP on overkill)", npc.damageAmt)
 	}
 }
 

@@ -46,25 +46,39 @@ func (n *Npc) SetFaceEntity(entityIndex int) {
 
 // Damage applies `amount` damage of `dmgType` to the NPC this tick, flagging
 // NpcMaskDamage so the NPC-info encoder emits the hitsplat. curHP decrements
-// by amount (clamped at 0); baseHP is set from NpcType.Stats[3] (the
-// unexported npcStatHitpoints index in pkg/objtype/npctype.go) if available,
-// otherwise left at its current value. Negative amount is coerced to 0
-// defensively so a script bug cannot heal the NPC.
+// by amount (clamped at 0). On overkill (amount > curHP), the emitted
+// damageAmt is clamped to the pre-hit curHP so the client shows only damage
+// actually dealt — matches TS Npc.applyDamage (Npc.ts:472-485). Negative
+// amount is coerced to 0 defensively so a script bug cannot heal the NPC.
+//
+// baseHP is seeded from NpcType.Stats[3] (the unexported npcStatHitpoints
+// index in pkg/objtype/npctype.go) the first time it's needed this tick —
+// ResetMasks zeroes it to -1 at tick end, so the next Damage call refills
+// it. This is idempotent per tick and leaves room for a future AI sub-spec
+// to mutate baseHP between ticks without getting clobbered.
 //
 // This method is a pure output op — no death / auto-retaliate / aggro logic.
 // Scripts that need death handling should check NPC_STAT(0) and fire their
 // own despawn flow. The AI sub-spec will later ship a real combat loop.
+//
+// curHP is ephemeral per-tick state in S6c (ResetMasks clears it); persistent
+// NPC HP storage lands with the AI sub-spec.
 func (n *Npc) Damage(amount, dmgType int) {
 	if amount < 0 {
 		amount = 0
 	}
-	n.damageAmt = amount
+	prevHP := n.curHP
+	if amount > prevHP && prevHP >= 0 {
+		n.damageAmt = prevHP
+	} else {
+		n.damageAmt = amount
+	}
 	n.damageType = dmgType
 	n.curHP -= amount
 	if n.curHP < 0 {
 		n.curHP = 0
 	}
-	if n.typ != nil {
+	if n.baseHP < 0 && n.typ != nil {
 		// Stats[3] is the Hitpoints slot (npcStatHitpoints=3 in
 		// pkg/objtype/npctype.go; unexported, so we use the literal index).
 		if len(n.typ.Stats) > 3 {
