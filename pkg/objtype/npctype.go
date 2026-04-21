@@ -8,14 +8,17 @@ import (
 	packet2 "github.com/zsrv/goscape/pkg/io/packet"
 )
 
-// NPC stat indices (attack, defence, strength, hitpoints, ranged, magic).
+// NpcStat* are indices into NpcType.Stats for combat-relevant attributes
+// (attack, defence, strength, hitpoints, ranged, magic). Exported so that
+// modules/world and other callers can reference stat slots by name rather
+// than magic index.
 const (
-	npcStatAttack    = 0
-	npcStatDefence   = 1
-	npcStatStrength  = 2
-	npcStatHitpoints = 3
-	npcStatRanged    = 4
-	npcStatMagic     = 5
+	NpcStatAttack    = 0
+	NpcStatDefence   = 1
+	NpcStatStrength  = 2
+	NpcStatHitpoints = 3
+	NpcStatRanged    = 4
+	NpcStatMagic     = 5
 )
 
 // MoveRestrict values (mirror of rs-server-225/entity.MoveRestrict).
@@ -146,17 +149,17 @@ func (t *NpcType) Decode(code uint8, dat *packet2.Packet) error {
 			t.Heads[i] = dat.G2()
 		}
 	case 74:
-		t.Stats[npcStatAttack] = dat.G2()
+		t.Stats[NpcStatAttack] = dat.G2()
 	case 75:
-		t.Stats[npcStatDefence] = dat.G2()
+		t.Stats[NpcStatDefence] = dat.G2()
 	case 76:
-		t.Stats[npcStatStrength] = dat.G2()
+		t.Stats[NpcStatStrength] = dat.G2()
 	case 77:
-		t.Stats[npcStatHitpoints] = dat.G2()
+		t.Stats[NpcStatHitpoints] = dat.G2()
 	case 78:
-		t.Stats[npcStatRanged] = dat.G2()
+		t.Stats[NpcStatRanged] = dat.G2()
 	case 79:
-		t.Stats[npcStatMagic] = dat.G2()
+		t.Stats[NpcStatMagic] = dat.G2()
 	case 90:
 		t.ResizeX = int(dat.G2())
 	case 91:
