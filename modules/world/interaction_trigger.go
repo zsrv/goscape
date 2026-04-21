@@ -1,6 +1,8 @@
 package world
 
 import (
+	"slices"
+
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -172,10 +174,5 @@ func locStillValid(srv *Server, loc *entitypkg.Loc, wantType, wantX, wantZ, want
 		return false
 	}
 	zn := srv.zoneMap.Get(wantLevel, wantX, wantZ)
-	for _, l := range zn.Locs {
-		if l == loc {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(zn.Locs, loc)
 }
