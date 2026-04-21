@@ -86,3 +86,14 @@ func handleLastTargetSlot(s *ScriptState) error {
 	s.PushInt(s.Self.LastTargetSlot())
 	return nil
 }
+
+// handleCamReset sends a CAM_RESET wire packet via the active player.
+// Takes no args. Used by the LOGIN script and teleport-spell scripts
+// to restore the default camera after cutscene-style manipulations.
+func handleCamReset(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("CAM_RESET: no active player")
+	}
+	s.Self.CamReset()
+	return nil
+}

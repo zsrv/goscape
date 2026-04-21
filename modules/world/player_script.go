@@ -69,6 +69,12 @@ func (p *Player) LastUseItem() int    { return p.lastUseItem }
 func (p *Player) LastUseSlot() int    { return p.lastUseSlot }
 func (p *Player) LastTargetSlot() int { return p.lastTargetSlot }
 
+// CamReset sends an OpCamReset wire packet to the client. Called by
+// the CAM_RESET script opcode (e.g. from the LOGIN script).
+func (p *Player) CamReset() {
+	p.writeOut(gameserver.OpCamReset, nil)
+}
+
 // Varp implements script.ActivePlayer.Varp.
 func (p *Player) Varp(id int) int32 {
 	if id < 0 || id >= len(p.varps) {

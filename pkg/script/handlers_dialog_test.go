@@ -59,8 +59,26 @@ func TestLastCom(t *testing.T) {
 	}
 }
 
+func TestCamReset(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "cam_reset",
+		Opcodes:          []Opcode{OpCamReset, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if mp.camResetCalls != 1 {
+		t.Errorf("camResetCalls: got %d, want 1", mp.camResetCalls)
+	}
+}
+
 func TestDialogOpsRequireActivePlayer(t *testing.T) {
-	for _, op := range []Opcode{OpPPauseButton, OpPCountDialog, OpLastCom} {
+	for _, op := range []Opcode{OpPPauseButton, OpPCountDialog, OpLastCom, OpCamReset} {
 		t.Run(op.String(), func(t *testing.T) {
 			sf := &ScriptFile{
 				Name:             "no_self",

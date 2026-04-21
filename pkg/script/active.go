@@ -239,6 +239,10 @@ type ActivePlayer interface {
 	LastUseItem() int
 	LastUseSlot() int
 	LastTargetSlot() int
+
+	// CamReset sends a CAM_RESET wire packet to the client, resetting
+	// any custom camera state. Called by the CAM_RESET script opcode.
+	CamReset()
 }
 
 // ActiveNpc is the per-NPC surface that NPC_* opcodes and VARN

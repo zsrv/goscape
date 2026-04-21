@@ -34,6 +34,10 @@ var (
 	// prompt the client to open an "enter a number" count dialog.
 	OpPCountDialog = Op{Opcode: 243, PayloadSize: 0}
 
+	// Camera control. TS ServerGameProt.CAM_RESET = 239, payload 0.
+	// Sent by the CAM_RESET script opcode to reset the client's camera.
+	OpCamReset = Op{Opcode: 239, PayloadSize: 0}
+
 	OpRebuildNormal    = Op{Opcode: 237, PayloadSize: -2}
 	OpUpdateInvFull    = Op{Opcode: 98, PayloadSize: -2}
 	OpUpdateInvPartial = Op{Opcode: 213, PayloadSize: -2}

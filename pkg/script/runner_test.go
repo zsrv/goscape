@@ -164,6 +164,9 @@ type mockPlayer struct {
 	lastUseItemValue    int
 	lastUseSlotValue    int
 	lastTargetSlotValue int
+
+	// Camera control capture.
+	camResetCalls int
 }
 
 type mockEnqueue struct {
@@ -342,3 +345,6 @@ func (m *mockPlayer) LastSlot() int       { return m.lastSlotValue }
 func (m *mockPlayer) LastUseItem() int    { return m.lastUseItemValue }
 func (m *mockPlayer) LastUseSlot() int    { return m.lastUseSlotValue }
 func (m *mockPlayer) LastTargetSlot() int { return m.lastTargetSlotValue }
+
+// CamReset capture for handler tests.
+func (m *mockPlayer) CamReset() { m.camResetCalls++ }
