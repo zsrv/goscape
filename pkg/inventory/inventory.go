@@ -138,6 +138,14 @@ func (inv *Inventory) Set(slot int, item *Item) {
 
 func (inv *Inventory) Delete(slot int) { inv.Set(slot, nil) }
 
+// Clear removes every item slot and dirty-flags for wire sync.
+func (inv *Inventory) Clear() {
+	for j := range inv.Items {
+		inv.Items[j] = nil
+	}
+	inv.Update = true
+}
+
 func (inv *Inventory) Swap(from, to int) {
 	if from < 0 || from >= inv.Capacity || to < 0 || to >= inv.Capacity {
 		return

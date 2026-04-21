@@ -1,0 +1,446 @@
+package script
+
+import (
+	"fmt"
+
+	"github.com/zsrv/goscape/pkg/inventory"
+	"github.com/zsrv/goscape/pkg/objtype"
+)
+
+// resolveInv looks up the inventory for typeID via the script's
+// InvLookup. Returns nil if InvLookup is unset, the typeID is invalid,
+// or the active player has no such inv. All INV_* handlers start with a
+// resolveInv nil-check so they never dereference a missing container.
+func resolveInv(s *ScriptState, typeID int) *inventory.Inventory {
+	if s.Inv == nil {
+		return nil
+	}
+	return s.Inv.Get(s.Self, typeID)
+}
+
+// -- Reads --
+
+// handleInvTotal (INV_TOTAL) pops [inv, obj] and pushes the total count
+// of obj across all slots of inv. Matches TS popInts(2) order — obj on
+// top, inv below.
+func handleInvTotal(s *ScriptState) error {
+	obj := s.PopInt()
+	typeID := s.PopInt()
+	// TS INV_TOTAL short-circuits with obj == -1 → push 0.
+	if obj == -1 {
+		s.PushInt(0)
+		return nil
+	}
+	inv := resolveInv(s, typeID)
+	if inv == nil {
+		return fmt.Errorf("INV_TOTAL: no inv for type %d", typeID)
+	}
+	s.PushInt(inv.GetItemCount(obj))
+	return nil
+}
+
+// handleInvGetObj (INV_GETOBJ) pops [inv, slot] and pushes the obj id
+// at that slot, or -1 if the slot is empty / out of range.
+func handleInvGetObj(s *ScriptState) error {
+	slot := s.PopInt()
+	typeID := s.PopInt()
+	inv := resolveInv(s, typeID)
+	if inv == nil {
+		return fmt.Errorf("INV_GETOBJ: no inv for type %d", typeID)
+	}
+	it := inv.Get(slot)
+	if it == nil {
+		s.PushInt(-1)
+		return nil
+	}
+	s.PushInt(it.Id)
+	return nil
+}
+
+// handleInvGetNum (INV_GETNUM) pops [inv, slot] and pushes the count at
+// that slot, or 0 if the slot is empty / out of range.
+func handleInvGetNum(s *ScriptState) error {
+	slot := s.PopInt()
+	typeID := s.PopInt()
+	inv := resolveInv(s, typeID)
+	if inv == nil {
+		return fmt.Errorf("INV_GETNUM: no inv for type %d", typeID)
+	}
+	it := inv.Get(slot)
+	if it == nil {
+		s.PushInt(0)
+		return nil
+	}
+	s.PushInt(it.Count)
+	return nil
+}
+
+// handleInvSize (INV_SIZE) pops an inv id and pushes its Capacity.
+func handleInvSize(s *ScriptState) error {
+	typeID := s.PopInt()
+	inv := resolveInv(s, typeID)
+	if inv == nil {
+		return fmt.Errorf("INV_SIZE: no inv for type %d", typeID)
+	}
+	s.PushInt(inv.Capacity)
+	return nil
+}
+
+// handleInvFreeSpace (INV_FREESPACE) pops an inv id and pushes the
+// number of empty slots.
+func handleInvFreeSpace(s *ScriptState) error {
+	typeID := s.PopInt()
+	inv := resolveInv(s, typeID)
+	if inv == nil {
+		return fmt.Errorf("INV_FREESPACE: no inv for type %d", typeID)
+	}
+	s.PushInt(inv.FreeSlotCount())
+	return nil
+}
+
+// invItemSpaceRemaining computes the overflow count — how many of
+// `count` units of `obj` would NOT fit into `inv` given stacking +
+// size. Mirrors TS Player.invItemSpace.
+//
+//   - If obj is stackable (or an uncerted link, or the inv always
+//     stacks), overflow = max(0, count - (StackLimit - currentTotal)),
+//     with the special case that a zero-total + no-free-slots + no
+//     stock-slot returns full count.
+//   - Otherwise (non-stackable), overflow = max(0, count -
+//     (freeSlots - (capacity - size))). `size` is a caller-supplied
+//     max-reserved-slot count.
+func invItemSpaceRemaining(s *ScriptState, inv *inventory.Inventory, obj, count, size int) int {
+	var ot *objtype.ObjType
+	if s.Configs != nil {
+		ot = s.Configs.ObjType(obj)
+	}
+
+	// oc_uncert: a note/cert variant points back at its base. Treat
+	// note as "stackable-equivalent" when link >= 0 and template >= 0.
+	uncert := obj
+	if ot != nil && ot.CertTemplate >= 0 && ot.CertLink >= 0 {
+		uncert = ot.CertLink
+	}
+
+	stackable := ot != nil && ot.Stackable
+	alwaysStack := inv.StackType == inventory.StackAlways
+
+	if stackable || uncert != obj || alwaysStack {
+		total := inv.GetItemCount(obj)
+		free := inv.FreeSlotCount()
+		// Check stock-obj membership via InvType configs.
+		stockObj := false
+		if s.Configs != nil {
+			if it := s.Configs.InvType(inv.Type); it != nil {
+				for _, id := range it.StockObj {
+					if int(id) == obj {
+						stockObj = true
+						break
+					}
+				}
+			}
+		}
+		if total == 0 && free == 0 && !stockObj {
+			return count
+		}
+		room := inventory.StackLimit - total
+		if room < 0 {
+			room = 0
+		}
+		rem := count - room
+		if rem < 0 {
+			rem = 0
+		}
+		return rem
+	}
+
+	// Non-stackable: size is a reserved-slot count. If size >=
+	// capacity, no reservation. If size < capacity, only
+	// (free - (capacity - size)) slots are usable for this obj.
+	free := inv.FreeSlotCount()
+	avail := free - (inv.Capacity - size)
+	if avail < 0 {
+		avail = 0
+	}
+	rem := count - avail
+	if rem < 0 {
+		rem = 0
+	}
+	return rem
+}
+
+// handleInvItemSpace (INV_ITEMSPACE) pops [inv, obj, count, size] and
+// pushes 1 if the inv can fit `count` of `obj` (overflow == 0), else 0.
+// If count == 0, pushes 0 (matches TS).
+func handleInvItemSpace(s *ScriptState) error {
+	size := s.PopInt()
+	count := s.PopInt()
+	obj := s.PopInt()
+	typeID := s.PopInt()
+	if count == 0 {
+		s.PushInt(0)
+		return nil
+	}
+	inv := resolveInv(s, typeID)
+	if inv == nil {
+		return fmt.Errorf("INV_ITEMSPACE: no inv for type %d", typeID)
+	}
+	if size < 0 || size > inv.Capacity {
+		return fmt.Errorf("INV_ITEMSPACE: size %d out of range for inv %d", size, typeID)
+	}
+	if invItemSpaceRemaining(s, inv, obj, count, size) == 0 {
+		s.PushInt(1)
+	} else {
+		s.PushInt(0)
+	}
+	return nil
+}
+
+// handleInvItemSpace2 (INV_ITEMSPACE2) pops [inv, obj, count, size] and
+// pushes the overflow count (how many of `count` units would NOT fit).
+// If count == 0, pushes 0 (matches TS).
+func handleInvItemSpace2(s *ScriptState) error {
+	size := s.PopInt()
+	count := s.PopInt()
+	obj := s.PopInt()
+	typeID := s.PopInt()
+	if count == 0 {
+		s.PushInt(0)
+		return nil
+	}
+	inv := resolveInv(s, typeID)
+	if inv == nil {
+		return fmt.Errorf("INV_ITEMSPACE2: no inv for type %d", typeID)
+	}
+	s.PushInt(invItemSpaceRemaining(s, inv, obj, count, size))
+	return nil
+}
+
+// handleInvTotalParam (INV_TOTALPARAM) pops [inv, param] and sums the
+// per-slot ObjType.Params[param] across every non-empty slot. Missing
+// params fall back to ParamType.DefaultInt. Matches TS
+// Player._invTotalParam(..., stack=false) — does NOT multiply by slot
+// count (that's INV_TOTALPARAM_STACK).
+func handleInvTotalParam(s *ScriptState) error {
+	param := s.PopInt()
+	typeID := s.PopInt()
+	inv := resolveInv(s, typeID)
+	if inv == nil {
+		return fmt.Errorf("INV_TOTALPARAM: no inv for type %d", typeID)
+	}
+	if s.Configs == nil {
+		return fmt.Errorf("INV_TOTALPARAM: Configs not set on ScriptState")
+	}
+	pt := s.Configs.ParamType(param)
+	if pt == nil {
+		return fmt.Errorf("INV_TOTALPARAM: unknown param id %d", param)
+	}
+	total := 0
+	for _, it := range inv.Items {
+		if it == nil || it.Id < 0 {
+			continue
+		}
+		ot := s.Configs.ObjType(it.Id)
+		if ot == nil {
+			continue
+		}
+		if v, ok := ot.Params[uint32(param)]; ok {
+			if iv, ok := v.(uint32); ok {
+				total += int(iv)
+				continue
+			}
+		}
+		total += int(pt.DefaultInt)
+	}
+	s.PushInt(total)
+	return nil
+}
+
+// handleInvTotalCat (INV_TOTALCAT) pops [inv, category] and sums the
+// counts across non-empty slots whose ObjType.Category == category.
+func handleInvTotalCat(s *ScriptState) error {
+	category := s.PopInt()
+	typeID := s.PopInt()
+	inv := resolveInv(s, typeID)
+	if inv == nil {
+		return fmt.Errorf("INV_TOTALCAT: no inv for type %d", typeID)
+	}
+	if s.Configs == nil {
+		return fmt.Errorf("INV_TOTALCAT: Configs not set on ScriptState")
+	}
+	total := 0
+	for _, it := range inv.Items {
+		if it == nil {
+			continue
+		}
+		ot := s.Configs.ObjType(it.Id)
+		if ot == nil {
+			continue
+		}
+		if ot.Category == category {
+			total += it.Count
+		}
+	}
+	s.PushInt(total)
+	return nil
+}
+
+// -- Mutations --
+
+// handleInvAdd (INV_ADD) pops [inv, obj, count] and adds count units of
+// obj to the inv via inventory.Add. Overflow-to-world drop is NOT
+// implemented; the overflow is silently discarded (documented
+// limitation — needs active_obj plumbing).
+func handleInvAdd(s *ScriptState) error {
+	count := s.PopInt()
+	obj := s.PopInt()
+	typeID := s.PopInt()
+	inv := resolveInv(s, typeID)
+	if inv == nil {
+		return fmt.Errorf("INV_ADD: no inv for type %d", typeID)
+	}
+	inv.Add(obj, count, inventory.AddOpts{BeginSlot: -1})
+	return nil
+}
+
+// handleInvDel (INV_DEL) pops [inv, obj, count] and removes count units
+// of obj from the inv.
+func handleInvDel(s *ScriptState) error {
+	count := s.PopInt()
+	obj := s.PopInt()
+	typeID := s.PopInt()
+	inv := resolveInv(s, typeID)
+	if inv == nil {
+		return fmt.Errorf("INV_DEL: no inv for type %d", typeID)
+	}
+	inv.Remove(obj, count, inventory.RemoveOpts{BeginSlot: -1})
+	return nil
+}
+
+// handleInvDelSlot (INV_DELSLOT) pops [inv, slot] and clears that slot.
+// Out-of-range slots are silently ignored by inventory.Delete.
+func handleInvDelSlot(s *ScriptState) error {
+	slot := s.PopInt()
+	typeID := s.PopInt()
+	inv := resolveInv(s, typeID)
+	if inv == nil {
+		return fmt.Errorf("INV_DELSLOT: no inv for type %d", typeID)
+	}
+	inv.Delete(slot)
+	return nil
+}
+
+// handleInvSetSlot (INV_SETSLOT) pops [inv, slot, obj, count] and
+// replaces the slot with {obj, count}. Matches TS popInts(4) order —
+// count on top. Out-of-range slot is silently ignored.
+func handleInvSetSlot(s *ScriptState) error {
+	count := s.PopInt()
+	obj := s.PopInt()
+	slot := s.PopInt()
+	typeID := s.PopInt()
+	inv := resolveInv(s, typeID)
+	if inv == nil {
+		return fmt.Errorf("INV_SETSLOT: no inv for type %d", typeID)
+	}
+	inv.Set(slot, &inventory.Item{Id: obj, Count: count})
+	return nil
+}
+
+// handleInvClear (INV_CLEAR) pops an inv id and empties every slot.
+func handleInvClear(s *ScriptState) error {
+	typeID := s.PopInt()
+	inv := resolveInv(s, typeID)
+	if inv == nil {
+		return fmt.Errorf("INV_CLEAR: no inv for type %d", typeID)
+	}
+	inv.Clear()
+	return nil
+}
+
+// handleInvMoveItem (INV_MOVEITEM) pops [fromInv, toInv, obj, count]
+// and moves up to `count` of `obj` from fromInv to toInv. Remove is
+// performed first, then Add with the removed count (matches TS). Both
+// invs must resolve before any mutation.
+func handleInvMoveItem(s *ScriptState) error {
+	count := s.PopInt()
+	obj := s.PopInt()
+	toTypeID := s.PopInt()
+	fromTypeID := s.PopInt()
+	fromInv := resolveInv(s, fromTypeID)
+	if fromInv == nil {
+		return fmt.Errorf("INV_MOVEITEM: no inv for from-type %d", fromTypeID)
+	}
+	toInv := resolveInv(s, toTypeID)
+	if toInv == nil {
+		return fmt.Errorf("INV_MOVEITEM: no inv for to-type %d", toTypeID)
+	}
+	tx := fromInv.Remove(obj, count, inventory.RemoveOpts{BeginSlot: -1})
+	if tx.Completed == 0 {
+		return nil
+	}
+	toInv.Add(obj, tx.Completed, inventory.AddOpts{BeginSlot: -1})
+	return nil
+}
+
+// handleInvMoveFromSlot (INV_MOVEFROMSLOT) pops [fromInv, toInv,
+// fromSlot] and moves the entire slot contents from fromInv to toInv.
+func handleInvMoveFromSlot(s *ScriptState) error {
+	fromSlot := s.PopInt()
+	toTypeID := s.PopInt()
+	fromTypeID := s.PopInt()
+	fromInv := resolveInv(s, fromTypeID)
+	if fromInv == nil {
+		return fmt.Errorf("INV_MOVEFROMSLOT: no inv for from-type %d", fromTypeID)
+	}
+	toInv := resolveInv(s, toTypeID)
+	if toInv == nil {
+		return fmt.Errorf("INV_MOVEFROMSLOT: no inv for to-type %d", toTypeID)
+	}
+	it := fromInv.Get(fromSlot)
+	if it == nil {
+		return fmt.Errorf("INV_MOVEFROMSLOT: from slot %d empty", fromSlot)
+	}
+	// Capture before mutating — Delete nulls the slot pointer.
+	id, cnt := it.Id, it.Count
+	fromInv.Delete(fromSlot)
+	toInv.Add(id, cnt, inventory.AddOpts{BeginSlot: -1})
+	return nil
+}
+
+// handleInvMoveToSlot (INV_MOVETOSLOT) pops [fromInv, toInv, fromSlot,
+// toSlot] and swaps the two slot contents (nil-safe both directions).
+// Matches TS Player.invMoveToSlot.
+func handleInvMoveToSlot(s *ScriptState) error {
+	toSlot := s.PopInt()
+	fromSlot := s.PopInt()
+	toTypeID := s.PopInt()
+	fromTypeID := s.PopInt()
+	fromInv := resolveInv(s, fromTypeID)
+	if fromInv == nil {
+		return fmt.Errorf("INV_MOVETOSLOT: no inv for from-type %d", fromTypeID)
+	}
+	toInv := resolveInv(s, toTypeID)
+	if toInv == nil {
+		return fmt.Errorf("INV_MOVETOSLOT: no inv for to-type %d", toTypeID)
+	}
+	// Snapshot both ends; Set/Delete may rewrite the original slot when
+	// from == to, so copy the item fields out first.
+	var fromCopy, toCopy *inventory.Item
+	if src := fromInv.Get(fromSlot); src != nil {
+		fromCopy = &inventory.Item{Id: src.Id, Count: src.Count}
+	}
+	if dst := toInv.Get(toSlot); dst != nil {
+		toCopy = &inventory.Item{Id: dst.Id, Count: dst.Count}
+	}
+	if fromCopy != nil {
+		toInv.Set(toSlot, fromCopy)
+	} else {
+		toInv.Delete(toSlot)
+	}
+	if toCopy != nil {
+		fromInv.Set(fromSlot, toCopy)
+	} else {
+		fromInv.Delete(fromSlot)
+	}
+	return nil
+}

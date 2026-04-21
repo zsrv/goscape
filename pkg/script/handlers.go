@@ -177,6 +177,27 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpOcCert:      handleOcCert,
 	OpOcUncert:    handleOcUncert,
 	OpOcStackable: handleOcStackable,
+
+	// S5e: inventory.
+	// Reads (9).
+	OpInvTotal:      handleInvTotal,
+	OpInvGetObj:     handleInvGetObj,
+	OpInvGetNum:     handleInvGetNum,
+	OpInvSize:       handleInvSize,
+	OpInvFreeSpace:  handleInvFreeSpace,
+	OpInvItemSpace:  handleInvItemSpace,
+	OpInvItemSpace2: handleInvItemSpace2,
+	OpInvTotalParam: handleInvTotalParam,
+	OpInvTotalCat:   handleInvTotalCat,
+	// Mutations (8).
+	OpInvAdd:          handleInvAdd,
+	OpInvDel:          handleInvDel,
+	OpInvDelSlot:      handleInvDelSlot,
+	OpInvSetSlot:      handleInvSetSlot,
+	OpInvClear:        handleInvClear,
+	OpInvMoveItem:     handleInvMoveItem,
+	OpInvMoveFromSlot: handleInvMoveFromSlot,
+	OpInvMoveToSlot:   handleInvMoveToSlot,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.
