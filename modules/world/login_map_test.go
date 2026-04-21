@@ -49,3 +49,58 @@ func TestLoginSendsRebuildNormal(t *testing.T) {
 		t.Error("timed out waiting for RebuildNormal")
 	}
 }
+
+// TestUpdateMapAnchorsOriginToPlayer verifies that updateMap()'s rebuild
+// path refreshes p.originX/Z to match the player's current position.
+// Without this, a subsequent teleport-triggered PlayerInfo tele block
+// would compute localX relative to the stale origin and overflow the
+// 7-bit PBit(7, localX) encoding — visible on the Java client as the
+// player landing at the wrong local-scene position after far teleport.
+func TestUpdateMapAnchorsOriginToPlayer(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	if err := s.gamemap.Init(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = enc
+	p.buildArea = buildarea.New()
+
+	// Seed: player at login position, origin matches (as processLogins sets).
+	p.x, p.z, p.level = 3094, 3106, 0
+	p.originX, p.originZ = 3094, 3106
+
+	// First rebuild is a no-op on origin (already matches).
+	p.updateMap()
+	p.client.flushWrite()
+	if p.originX != 3094 || p.originZ != 3106 {
+		t.Errorf("initial rebuild: originX/Z = (%d, %d), want (3094, 3106)",
+			p.originX, p.originZ)
+	}
+	if p.buildArea.OriginX != 3094 || p.buildArea.OriginZ != 3106 {
+		t.Errorf("buildArea origin: (%d, %d), want (3094, 3106)",
+			p.buildArea.OriginX, p.buildArea.OriginZ)
+	}
+
+	// Simulate a far teleport — player's coord jumps but p.originX/Z is
+	// NOT pre-updated by the teleport handler (TeleJump only writes
+	// p.x/z/level and the tele/jump flags). ShouldRebuild will trigger
+	// because the new position is outside the 13x13 reload window.
+	p.x, p.z = 5000, 5000
+	p.reconnecting = false
+
+	p.updateMap()
+	p.client.flushWrite()
+
+	if p.originX != 5000 || p.originZ != 5000 {
+		t.Errorf("after teleport rebuild: originX/Z = (%d, %d), want (5000, 5000)",
+			p.originX, p.originZ)
+	}
+	if p.buildArea.OriginX != 5000 || p.buildArea.OriginZ != 5000 {
+		t.Errorf("buildArea origin after teleport: (%d, %d), want (5000, 5000)",
+			p.buildArea.OriginX, p.buildArea.OriginZ)
+	}
+}

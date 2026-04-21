@@ -368,6 +368,11 @@ func (p *Player) updateMap() {
 		return
 	}
 	ms := p.buildArea.Rebuild(p.x, p.z, p.client.server.currentTick)
+	// Anchor the player's scene-base origin to the new rebuild position
+	// so the next PlayerInfo teleport block produces local coords in range
+	// [0, 104]. Staleness would overflow the 7-bit PBit(7, localX) encoding.
+	p.originX = p.x
+	p.originZ = p.z
 	p.reconnecting = false
 	sendRebuildNormal(p, ms)
 }
