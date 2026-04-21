@@ -1,0 +1,284 @@
+package script
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/zsrv/goscape/pkg/objtype"
+)
+
+// mockNpc is a test fixture implementing ActiveNpc. Pre-seed fields then
+// assign to state.ActiveNpc before Execute.
+type mockNpc struct {
+	typeID, x, z, level, uid, category int
+	curHP, baseHP                      int
+	varns                              map[int]int32
+}
+
+func (m *mockNpc) NpcType() int     { return m.typeID }
+func (m *mockNpc) NpcX() int        { return m.x }
+func (m *mockNpc) NpcZ() int        { return m.z }
+func (m *mockNpc) NpcLevel() int    { return m.level }
+func (m *mockNpc) NpcUID() int      { return m.uid }
+func (m *mockNpc) NpcCategory() int { return m.category }
+
+func (m *mockNpc) NpcStat(stat int) int {
+	if stat == 0 {
+		return m.curHP
+	}
+	return 0
+}
+
+func (m *mockNpc) NpcBaseStat(stat int) int {
+	if stat == 0 {
+		return m.baseHP
+	}
+	return 0
+}
+
+func (m *mockNpc) NpcVarN(id int) int32 {
+	if m.varns == nil {
+		return 0
+	}
+	return m.varns[id]
+}
+
+func (m *mockNpc) SetNpcVarN(id int, val int32) {
+	if m.varns == nil {
+		m.varns = make(map[int]int32)
+	}
+	m.varns[id] = val
+}
+
+// runNpcOp executes a single-opcode script against npc + optional mc,
+// with pre-pushed int inputs, and returns the resulting state.
+func runNpcOp(t *testing.T, npc ActiveNpc, mc *mockConfigs, op Opcode, intInputs []int) *ScriptState {
+	t.Helper()
+	sf := &ScriptFile{
+		Name:             "test_" + op.String(),
+		Opcodes:          []Opcode{op, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	if mc != nil {
+		state.Configs = mc
+	}
+	for _, v := range intInputs {
+		state.PushInt(v)
+	}
+	if err := Execute(state); err != nil {
+		t.Fatalf("%s: unexpected error: %v", op.String(), err)
+	}
+	return state
+}
+
+func TestNpcType(t *testing.T) {
+	npc := &mockNpc{typeID: 42}
+	state := runNpcOp(t, npc, nil, OpNpcType, nil)
+	if got := state.PopInt(); got != 42 {
+		t.Errorf("NPC_TYPE: got %d, want 42", got)
+	}
+}
+
+func TestNpcCoord(t *testing.T) {
+	// level=1, x=3222, z=3222 → (1<<28) | (3222<<14) | 3222
+	npc := &mockNpc{x: 3222, z: 3222, level: 1}
+	state := runNpcOp(t, npc, nil, OpNpcCoord, nil)
+	want := (1 << 28) | (3222 << 14) | 3222
+	if got := state.PopInt(); got != want {
+		t.Errorf("NPC_COORD: got %d, want %d", got, want)
+	}
+}
+
+func TestNpcCoordLevelZero(t *testing.T) {
+	npc := &mockNpc{x: 3222, z: 3222, level: 0}
+	state := runNpcOp(t, npc, nil, OpNpcCoord, nil)
+	want := (3222 << 14) | 3222
+	if got := state.PopInt(); got != want {
+		t.Errorf("NPC_COORD(level 0): got %d, want %d", got, want)
+	}
+}
+
+func TestNpcStatHP(t *testing.T) {
+	npc := &mockNpc{curHP: 99}
+	state := runNpcOp(t, npc, nil, OpNpcStat, []int{0})
+	if got := state.PopInt(); got != 99 {
+		t.Errorf("NPC_STAT(0): got %d, want 99", got)
+	}
+}
+
+func TestNpcStatOtherReturnsZero(t *testing.T) {
+	npc := &mockNpc{curHP: 99}
+	state := runNpcOp(t, npc, nil, OpNpcStat, []int{5})
+	if got := state.PopInt(); got != 0 {
+		t.Errorf("NPC_STAT(5): got %d, want 0", got)
+	}
+}
+
+func TestNpcBaseStat(t *testing.T) {
+	npc := &mockNpc{baseHP: 75}
+	state := runNpcOp(t, npc, nil, OpNpcBaseStat, []int{0})
+	if got := state.PopInt(); got != 75 {
+		t.Errorf("NPC_BASESTAT(0): got %d, want 75", got)
+	}
+}
+
+func TestNpcUID(t *testing.T) {
+	// (7 << 16) | 3 = 458755
+	npc := &mockNpc{uid: (7 << 16) | 3}
+	state := runNpcOp(t, npc, nil, OpNpcUID, nil)
+	want := (7 << 16) | 3
+	if got := state.PopInt(); got != want {
+		t.Errorf("NPC_UID: got %d, want %d", got, want)
+	}
+}
+
+func TestNpcCategory(t *testing.T) {
+	mc := newTestConfigs()
+	mc.npcs[7] = &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 7},
+		Name:       "Hans",
+		Category:   99,
+		Op:         []string{"Talk-to", "", ""},
+	}
+	npc := &mockNpc{typeID: 7}
+	state := runNpcOp(t, npc, mc, OpNpcCategory, nil)
+	if got := state.PopInt(); got != 99 {
+		t.Errorf("NPC_CATEGORY: got %d, want 99", got)
+	}
+}
+
+func TestNpcCategoryUnknownTypeReturnsMinusOne(t *testing.T) {
+	mc := newTestConfigs()
+	npc := &mockNpc{typeID: 9999}
+	state := runNpcOp(t, npc, mc, OpNpcCategory, nil)
+	if got := state.PopInt(); got != -1 {
+		t.Errorf("NPC_CATEGORY(unknown): got %d, want -1", got)
+	}
+}
+
+func TestNpcName(t *testing.T) {
+	mc := newTestConfigs()
+	mc.npcs[7] = &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 7},
+		Name:       "Hans",
+		Category:   99,
+		Op:         []string{"Talk-to", "", ""},
+	}
+	npc := &mockNpc{typeID: 7}
+	state := runNpcOp(t, npc, mc, OpNpcName, nil)
+	if got := state.PopString(); got != "Hans" {
+		t.Errorf("NPC_NAME: got %q, want %q", got, "Hans")
+	}
+}
+
+func TestNpcNameFallsBackToDebugName(t *testing.T) {
+	mc := newTestConfigs()
+	// mc.npcs[1] has only DebugName = "unnamed_npc"
+	npc := &mockNpc{typeID: 1}
+	state := runNpcOp(t, npc, mc, OpNpcName, nil)
+	if got := state.PopString(); got != "unnamed_npc" {
+		t.Errorf("NPC_NAME(debugname fallback): got %q, want %q", got, "unnamed_npc")
+	}
+}
+
+func TestNpcNameUnknownTypeReturnsNull(t *testing.T) {
+	mc := newTestConfigs()
+	npc := &mockNpc{typeID: 9999}
+	state := runNpcOp(t, npc, mc, OpNpcName, nil)
+	if got := state.PopString(); got != "null" {
+		t.Errorf("NPC_NAME(unknown): got %q, want %q", got, "null")
+	}
+}
+
+func TestNpcHasOpExisting(t *testing.T) {
+	mc := newTestConfigs()
+	mc.npcs[7] = &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 7},
+		Name:       "Hans",
+		Category:   99,
+		Op:         []string{"Talk-to", "", ""},
+	}
+	npc := &mockNpc{typeID: 7}
+	state := runNpcOp(t, npc, mc, OpNpcHasOp, []int{1})
+	if got := state.PopInt(); got != 1 {
+		t.Errorf("NPC_HASOP(1 existing): got %d, want 1", got)
+	}
+}
+
+func TestNpcHasOpMissing(t *testing.T) {
+	mc := newTestConfigs()
+	mc.npcs[7] = &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 7},
+		Name:       "Hans",
+		Category:   99,
+		Op:         []string{"Talk-to", "", ""},
+	}
+	npc := &mockNpc{typeID: 7}
+	state := runNpcOp(t, npc, mc, OpNpcHasOp, []int{2})
+	if got := state.PopInt(); got != 0 {
+		t.Errorf("NPC_HASOP(2 empty): got %d, want 0", got)
+	}
+}
+
+func TestNpcHasOpOutOfRange(t *testing.T) {
+	mc := newTestConfigs()
+	mc.npcs[7] = &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 7},
+		Op:         []string{"Talk-to", "", ""},
+	}
+	npc := &mockNpc{typeID: 7}
+	// op=0 is below 1-based range → 0.
+	state := runNpcOp(t, npc, mc, OpNpcHasOp, []int{0})
+	if got := state.PopInt(); got != 0 {
+		t.Errorf("NPC_HASOP(0 OOB low): got %d, want 0", got)
+	}
+	// op=99 is far above range → 0.
+	state = runNpcOp(t, npc, mc, OpNpcHasOp, []int{99})
+	if got := state.PopInt(); got != 0 {
+		t.Errorf("NPC_HASOP(99 OOB high): got %d, want 0", got)
+	}
+}
+
+func TestNpcOpsRequireActiveNpc(t *testing.T) {
+	cases := []struct {
+		name    string
+		op      Opcode
+		inputs  []int // pre-pushed int inputs
+		wantMsg string
+	}{
+		{"NPC_TYPE", OpNpcType, nil, "NPC_TYPE: no active npc"},
+		{"NPC_COORD", OpNpcCoord, nil, "NPC_COORD: no active npc"},
+		{"NPC_STAT", OpNpcStat, []int{0}, "NPC_STAT: no active npc"},
+		{"NPC_BASESTAT", OpNpcBaseStat, []int{0}, "NPC_BASESTAT: no active npc"},
+		{"NPC_NAME", OpNpcName, nil, "NPC_NAME: no active npc"},
+		{"NPC_HASOP", OpNpcHasOp, []int{1}, "NPC_HASOP: no active npc"},
+		{"NPC_UID", OpNpcUID, nil, "NPC_UID: no active npc"},
+		{"NPC_CATEGORY", OpNpcCategory, nil, "NPC_CATEGORY: no active npc"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			sf := &ScriptFile{
+				Name:             "test_noactive_" + tc.name,
+				Opcodes:          []Opcode{tc.op, OpReturn},
+				IntOperands:      []int32{0, 0},
+				StringOperands:   []string{"", ""},
+				InstructionCount: 2,
+			}
+			state := Init(sf, nil, false, nil, nil)
+			for _, v := range tc.inputs {
+				state.PushInt(v)
+			}
+			err := Execute(state)
+			if err == nil {
+				t.Fatalf("%s: expected error, got nil", tc.name)
+			}
+			if !strings.Contains(err.Error(), tc.wantMsg) {
+				t.Errorf("%s: error %q does not contain %q", tc.name, err.Error(), tc.wantMsg)
+			}
+		})
+	}
+}

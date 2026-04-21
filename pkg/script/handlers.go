@@ -246,6 +246,16 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpClearTimer:     handleClearTimer,
 	OpClearSoftTimer: handleClearSoftTimer,
 	OpGetTimer:       handleGetTimer,
+
+	// S6a: NPC reads.
+	OpNpcType:     handleNpcType,
+	OpNpcCoord:    handleNpcCoord,
+	OpNpcStat:     handleNpcStat,
+	OpNpcBaseStat: handleNpcBaseStat,
+	OpNpcName:     handleNpcName,
+	OpNpcHasOp:    handleNpcHasOp,
+	OpNpcUID:      handleNpcUID,
+	OpNpcCategory: handleNpcCategory,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.

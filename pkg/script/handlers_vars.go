@@ -46,14 +46,24 @@ func handlePopVars(s *ScriptState) error {
 	return nil
 }
 
-// handlePushVarn is a stub until S6's active_npc lands.
+// handlePushVarn reads per-NPC variable `id` from the active NPC and
+// pushes it. Returns an error if no ActiveNpc is bound. High operand bit
+// (secondary-NPC flag) is ignored — same convention as VARP.
 func handlePushVarn(s *ScriptState) error {
-	s.PushInt(0)
+	if s.ActiveNpc == nil {
+		return errors.New("PUSH_VARN: no active npc")
+	}
+	s.PushInt(int(s.ActiveNpc.NpcVarN(varOperandID(s))))
 	return nil
 }
 
-// handlePopVarn is a stub until S6's active_npc lands.
+// handlePopVarn pops an int and writes it to per-NPC variable `id` on
+// the active NPC. Returns an error if no ActiveNpc is bound.
 func handlePopVarn(s *ScriptState) error {
-	_ = s.PopInt()
+	if s.ActiveNpc == nil {
+		return errors.New("POP_VARN: no active npc")
+	}
+	val := int32(s.PopInt())
+	s.ActiveNpc.SetNpcVarN(varOperandID(s), val)
 	return nil
 }
