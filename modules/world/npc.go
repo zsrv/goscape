@@ -164,3 +164,11 @@ func (n *Npc) StoreActiveScript(state *script.ScriptState) {
 func (n *Npc) ClearActiveScript() {
 	n.activeScript = nil
 }
+
+// SetDelayed marks the NPC as suspended for `ticks` more ticks starting
+// next tick. delayedUntil = currentTick + 1 + ticks, matching TS
+// Npc.delay() and ActivePlayer.SetDelayed semantics.
+func (n *Npc) SetDelayed(ticks int) {
+	n.delayed = true
+	n.delayedUntil = n.server.currentTick + 1 + ticks
+}

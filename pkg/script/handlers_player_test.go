@@ -31,6 +31,10 @@ func (m *mockActiveNpc) FaceCoord(x, z int)         {}
 func (m *mockActiveNpc) ChangeType(newType int)     {}
 func (m *mockActiveNpc) Damage(amount, dmgType int) {}
 
+func (m *mockActiveNpc) StoreActiveScript(_ *ScriptState) {}
+func (m *mockActiveNpc) ClearActiveScript()               {}
+func (m *mockActiveNpc) SetDelayed(_ int)                 {}
+
 // newSingleOp builds a single-opcode script plus its trailing OpReturn,
 // so handler tests can run a handler in isolation and observe the state
 // after.

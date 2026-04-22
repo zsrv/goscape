@@ -74,6 +74,10 @@ func (m *mockNpc) Damage(amount, dmgType int) {
 	m.damageCalls = append(m.damageCalls, struct{ amount, dmgType int }{amount, dmgType})
 }
 
+func (m *mockNpc) StoreActiveScript(_ *ScriptState) {}
+func (m *mockNpc) ClearActiveScript()               {}
+func (m *mockNpc) SetDelayed(_ int)                 {}
+
 // runNpcOp executes a single-opcode script against npc + optional mc,
 // with pre-pushed int inputs, and returns the resulting state.
 func runNpcOp(t *testing.T, npc ActiveNpc, mc *mockConfigs, op Opcode, intInputs []int) *ScriptState {

@@ -29,3 +29,20 @@ func TestNpcStoreAndClearActiveScript(t *testing.T) {
 		t.Errorf("ClearActiveScript: got %v, want nil", n.activeScript)
 	}
 }
+
+func TestNpcSetDelayed(t *testing.T) {
+	n := newNpcForScriptTest(t)
+	s := &Server{}
+	s.currentTick = 100
+	n.server = s
+
+	n.SetDelayed(5)
+
+	if !n.delayed {
+		t.Errorf("delayed: got false, want true")
+	}
+	want := 100 + 1 + 5
+	if n.delayedUntil != want {
+		t.Errorf("delayedUntil: got %d, want %d", n.delayedUntil, want)
+	}
+}

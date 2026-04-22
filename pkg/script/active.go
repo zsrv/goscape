@@ -345,6 +345,21 @@ type ActiveNpc interface {
 	// trigger death handling or auto-retaliate — those belong in a future
 	// NPC AI sub-spec.
 	Damage(amount, dmgType int)
+
+	// StoreActiveScript saves a NpcSuspended ScriptState so Npc.turn()
+	// can resume it when the NPC's delay expires. Mirrors
+	// ActivePlayer.StoreActiveScript at active.go:22-24.
+	StoreActiveScript(state *ScriptState)
+
+	// ClearActiveScript discards any stored ScriptState. Called after
+	// Finished/Aborted runs. Mirrors ActivePlayer.ClearActiveScript.
+	ClearActiveScript()
+
+	// SetDelayed marks the NPC as suspended for `ticks` more ticks
+	// starting next tick. Implementations compute delayedUntil =
+	// currentTick + 1 + ticks. Mirrors ActivePlayer.SetDelayed at
+	// active.go:13-14.
+	SetDelayed(ticks int)
 }
 
 // ActiveLoc is the surface that LOC_* opcodes use to read the loc
