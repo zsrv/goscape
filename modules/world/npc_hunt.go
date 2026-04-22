@@ -4,16 +4,18 @@ import (
 	"math/rand/v2"
 
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
 // processNpcHunt runs the per-tick hunt pass. Matches TS
 // Npc.ts:158-171.
 //
-// Observer gate: TS checks rsbuf.getNpcObservers(this.nid); Go
-// has no equivalent observer-count API yet, so we inline
-// `observers := 1` (always observed). PAUSEHUNT semantics are
-// currently unobservable — tracked as follow-up in nai_followups
-// memory. TS NobodyNear values:
+// Observer gate: calls rsbuf.GetNpcObservers(n.nid) — the counter
+// maintained by pkg/rsbuf's NpcInfo encoder (subscription add/remove)
+// and by processLogouts's bulk-decrement. Mirrors TS rsbuf.getNpcObservers
+// public API.
+//
+// TS NobodyNear values:
 //   - HuntNobodyNearKeepHunting: gate always passes
 //   - HuntNobodyNearPauseHunt: gate passes iff observers > 0 OR
 //     type == HuntModePlayer
@@ -34,7 +36,7 @@ func (s *Server) processNpcHunt(n *Npc) {
 	if hunt == nil {
 		return
 	}
-	observers := 1 // TODO: rsbuf.GetNpcObservers(n.nid) when available
+	observers := rsbuf.GetNpcObservers(n.nid)
 	if hunt.NobodyNear == objtype.HuntNobodyNearPauseHunt &&
 		observers <= 0 &&
 		hunt.Type != objtype.HuntModePlayer {

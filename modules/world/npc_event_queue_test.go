@@ -378,9 +378,15 @@ func TestProcessNpcHuntIncrementsClockWhenHuntModeValid(t *testing.T) {
 // gate passes even without real observers. When real observer
 // tracking lands, this test's expected value changes to 0 and its
 // assertion reverses.
-func TestProcessNpcHuntPauseHuntRunsWithObserverStub(t *testing.T) {
+func TestProcessNpcHuntPauseHuntBailsWithNoObservers(t *testing.T) {
+	rsbuf.SetObserverForTest(0, 0) // n.nid = 0 for this test
 	s := newServerForScriptTest(t)
-	s.currentTick = 100
+	n := newNpcForLifecycleTest(t) // nid = 1 per NewNpc's arg
+	rsbuf.SetObserverForTest(n.nid, 0)
+	n.server = s
+	n.huntMode = 0 // index into huntTypes
+	n.huntRange = 10
+	n.huntClock = 0
 	s.huntTypes = &objtype.HuntTypeConfigs{
 		Configs: []*objtype.HuntType{
 			{
@@ -390,15 +396,37 @@ func TestProcessNpcHuntPauseHuntRunsWithObserverStub(t *testing.T) {
 			},
 		},
 	}
+
+	s.processNpcHunt(n)
+
+	if n.huntClock != 0 {
+		t.Errorf("huntClock: got %d, want 0 (PAUSEHUNT gate short-circuited)", n.huntClock)
+	}
+}
+
+func TestProcessNpcHuntPauseHuntRunsWithObservers(t *testing.T) {
+	s := newServerForScriptTest(t)
 	n := newNpcForLifecycleTest(t)
+	rsbuf.SetObserverForTest(n.nid, 1)       // seed one observer
+	defer rsbuf.SetObserverForTest(n.nid, 0) // cleanup
 	n.server = s
 	n.huntMode = 0
+	n.huntRange = 10
 	n.huntClock = 0
+	s.huntTypes = &objtype.HuntTypeConfigs{
+		Configs: []*objtype.HuntType{
+			{
+				Type:       objtype.HuntModeNpc,
+				NobodyNear: objtype.HuntNobodyNearPauseHunt,
+				Rate:       1,
+			},
+		},
+	}
 
 	s.processNpcHunt(n)
 
 	if n.huntClock != 1 {
-		t.Errorf("huntClock: got %d, want 1 (observer stub = 1 means PAUSEHUNT gate passes)", n.huntClock)
+		t.Errorf("huntClock: got %d, want 1 (gate passed, huntClock advanced)", n.huntClock)
 	}
 }
 
