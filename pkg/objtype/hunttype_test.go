@@ -1,6 +1,8 @@
 package objtype
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	packet2 "github.com/zsrv/goscape/pkg/io/packet"
@@ -342,5 +344,108 @@ func TestHuntTypeDecodeCheckVarsAppend(t *testing.T) {
 		if v.VarID != wantID || v.Condition != "=" || v.Val != wantVal {
 			t.Errorf("CheckVars[%d]: got %+v, want {VarID:%d Cond:= Val:%d}", i, v, wantID, wantVal)
 		}
+	}
+}
+
+// buildHuntDat assembles a hunt.dat wire blob: u16 count, then for each
+// record a sequence of (code, payload) pairs terminated by code 0.
+func buildHuntDat(records []func(*packet2.Packet)) []byte {
+	pkt := packet2.NewPacket(nil)
+	pkt.P2(uint16(len(records)))
+	for _, r := range records {
+		r(pkt)
+		pkt.P1(0) // record terminator
+	}
+	return pkt.Bytes()
+}
+
+func TestLoadHuntTypesTwoRecords(t *testing.T) {
+	blob := buildHuntDat([]func(*packet2.Packet){
+		func(p *packet2.Packet) {
+			p.P1(1)
+			p.P1(uint8(HuntModePlayer))
+			p.P1(11)
+			p.P2(4)
+			p.P1(250)
+			p.PJStrLF("player_hunt")
+		},
+		func(p *packet2.Packet) {
+			p.P1(1)
+			p.P1(uint8(HuntModeNpc))
+			p.P1(250)
+			p.PJStrLF("npc_hunt")
+		},
+	})
+
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "server"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "server", "hunt.dat"), blob, 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	cfgs, err := LoadHuntTypes(dir)
+	if err != nil {
+		t.Fatalf("LoadHuntTypes: %v", err)
+	}
+	if len(cfgs.Configs) != 2 {
+		t.Fatalf("Configs: got %d, want 2", len(cfgs.Configs))
+	}
+	if cfgs.Configs[0].Type != HuntModePlayer {
+		t.Errorf("Configs[0].Type: got %d", cfgs.Configs[0].Type)
+	}
+	if cfgs.Configs[0].Rate != 4 {
+		t.Errorf("Configs[0].Rate: got %d", cfgs.Configs[0].Rate)
+	}
+	if cfgs.Configs[0].DebugName != "player_hunt" {
+		t.Errorf("Configs[0].DebugName: got %q", cfgs.Configs[0].DebugName)
+	}
+	if cfgs.Configs[1].Type != HuntModeNpc {
+		t.Errorf("Configs[1].Type: got %d", cfgs.Configs[1].Type)
+	}
+	if cfgs.ConfigNames["player_hunt"] != 0 {
+		t.Errorf("ConfigNames[player_hunt]: got %d, want 0", cfgs.ConfigNames["player_hunt"])
+	}
+	if cfgs.ConfigNames["npc_hunt"] != 1 {
+		t.Errorf("ConfigNames[npc_hunt]: got %d, want 1", cfgs.ConfigNames["npc_hunt"])
+	}
+}
+
+func TestLoadHuntTypesMissingFile(t *testing.T) {
+	dir := t.TempDir() // no server/hunt.dat created
+
+	cfgs, err := LoadHuntTypes(dir)
+	if err != nil {
+		t.Fatalf("LoadHuntTypes: got error %v, want nil", err)
+	}
+	if cfgs == nil {
+		t.Fatalf("LoadHuntTypes: cfgs is nil, want empty registry")
+	}
+	if len(cfgs.Configs) != 0 {
+		t.Errorf("Configs: got %d, want 0", len(cfgs.Configs))
+	}
+	if cfgs.ConfigNames == nil {
+		t.Errorf("ConfigNames: got nil, want empty map")
+	}
+}
+
+func TestLoadHuntTypesParseError(t *testing.T) {
+	// count=1 but no record bytes → Decode will read past end.
+	pkt := packet2.NewPacket(nil)
+	pkt.P2(1)
+	pkt.P1(1)
+	// missing payload byte for code 1
+
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "server"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "server", "hunt.dat"), pkt.Bytes(), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	if _, err := LoadHuntTypes(dir); err == nil {
+		t.Fatalf("LoadHuntTypes: got nil error, want parse error")
 	}
 }

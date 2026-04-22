@@ -1,7 +1,10 @@
 package objtype
 
 import (
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/zsrv/goscape/pkg/io/packet"
 )
@@ -155,4 +158,50 @@ func (t *HuntType) Decode(code uint8, dat *packet.Packet) error {
 		return fmt.Errorf("unrecognized hunt config code %d", code)
 	}
 	return nil
+}
+
+// LoadHuntTypes parses server/hunt.dat at dir into a HuntTypeConfigs
+// registry. Silent on missing hunt.dat: returns an empty registry with
+// nil error. Matches TS HuntType.load at
+// Engine-TS/src/cache/config/HuntType.ts:16-22 — hunt-less caches are a
+// supported scenario in the reference implementation.
+func LoadHuntTypes(dir string) (*HuntTypeConfigs, error) {
+	server, err := packet.Load(filepath.Join(dir, "server", "hunt.dat"), false)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return &HuntTypeConfigs{
+				ConfigNames: map[string]int{},
+			}, nil
+		}
+		return nil, err
+	}
+	return parseHuntTypes(server)
+}
+
+func parseHuntTypes(server *packet.Packet) (cfgs *HuntTypeConfigs, retErr error) {
+	defer func() {
+		if r := recover(); r != nil {
+			retErr = fmt.Errorf("hunt.dat parse error: %v", r)
+		}
+	}()
+
+	count := int(server.G2())
+	configs := make([]*HuntType, count)
+	configNames := make(map[string]int, count)
+
+	for id := range count {
+		config := NewHuntType(id)
+		if err := DecodeType(server, config); err != nil {
+			return nil, err
+		}
+		configs[id] = config
+		if config.DebugName != "" {
+			configNames[config.DebugName] = id
+		}
+	}
+
+	return &HuntTypeConfigs{
+		ConfigNames: configNames,
+		Configs:     configs,
+	}, nil
 }
