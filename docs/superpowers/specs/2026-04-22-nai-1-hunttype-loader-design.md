@@ -175,9 +175,14 @@ Port of TS switch at `HuntType.ts:99-147`:
 | 13 | `CheckNpc` | `G2` |
 | 14 | `CheckObj` | `G2` |
 | 15 | `CheckLoc` | `G2` |
-| 16 | `CheckInv`, `CheckObj`, `CheckInvCondition`, `CheckInvVal` | `G2, G2, GJStrLF, G4S` |
-| 17 | `CheckInv`, `CheckObjParam`, `CheckInvCondition`, `CheckInvVal` | `G2, G2, GJStrLF, G4S` |
-| 18, 19, 20 | append `HuntCheckVar{G2, GJStrLF, G4S}` to `CheckVars` | `G2, GJStrLF, G4S` |
+| 16 | `CheckInv`, `CheckObj`, `CheckInvCondition`, `CheckInvVal` | `G2, G2, GJStrLF, int32(G4())` |
+| 17 | `CheckInv`, `CheckObjParam`, `CheckInvCondition`, `CheckInvVal` | `G2, G2, GJStrLF, int32(G4())` |
+| 18, 19, 20 | append `HuntCheckVar{G2, GJStrLF, int32(G4())}` to `CheckVars` | `G2, GJStrLF, int32(G4())` |
+
+**Note:** The TS loader uses `g4s()` (signed read) but the Go `packet` package
+has no `G4S`; established precedent at `pkg/objtype/enumtype.go:31, 35, 41, 42`
+and `pkg/objtype/invtype.go:49` is `int32(dat.G4())`. Matches TS bit-for-bit
+(both are a 4-byte big-endian read reinterpreted as signed).
 | 250 | `DebugName` (via embedded `ConfigType`) | `GJStrLF` |
 | default | `return fmt.Errorf("unrecognized hunt config code %d", code)` | — |
 
@@ -255,7 +260,8 @@ File: `pkg/objtype/hunttype_test.go`.
    but truncated body, asserts load returns an error.
 
 Test data uses the existing `packet.Packet` builder methods (`P1`, `P2`,
-`PJStrLF`, `P4S`) per the npctype_test.go pattern.
+`PJStrLF`, `P4`) per the `varptype_test.go:19-37` `buildVarpDat` helper
+pattern. Signed writes use `pkt.P4(uint32(signedVal))`.
 
 ## Server wiring
 
