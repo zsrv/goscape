@@ -9,6 +9,7 @@ package rsbuf
 //   - incNpcObserver on subscription-add (line ~108)
 //   - decNpcObserver on subscription-remove (inactive-path, ~line 39)
 //   - decNpcObserver on subscription-remove (out-of-range, ~line 46)
+//
 // And in bulk via RemovePlayer on player logout.
 //
 // Read by consumers via GetNpcObservers — currently called from
