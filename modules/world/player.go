@@ -581,3 +581,31 @@ func (p *Player) readPacket() (int, bool, error) {
 
 	return opcode, true, nil
 }
+
+// invListenOnCom registers an inventory listener at the given interface
+// component ID. If a listener already exists at com, it's replaced and
+// FirstSeen resets to true (matches TS Player.ts:1441-1462 add-or-
+// replace semantics).
+//
+// Source = -1 → world-shared inventory (Server.invs[Type]).
+// Source >= 0 → another player's slot (Server.players[Source].invs[Type]).
+//
+// Lazy-initializes the invListeners map on first call.
+func (p *Player) invListenOnCom(invType, com, source int) {
+	if p.invListeners == nil {
+		p.invListeners = make(map[int]InventoryListener)
+	}
+	p.invListeners[com] = InventoryListener{
+		Type:      invType,
+		Com:       com,
+		Source:    source,
+		FirstSeen: true,
+	}
+}
+
+// invStopListenOnCom unregisters the listener at the given component
+// ID. No-op if no listener exists there, including when the map itself
+// is nil (Go's delete-on-nil is safe). Matches TS Player.ts:1464-1471.
+func (p *Player) invStopListenOnCom(com int) {
+	delete(p.invListeners, com)
+}
