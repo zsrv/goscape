@@ -6,8 +6,11 @@ import (
 )
 
 // InteractionKind distinguishes engine-triggered from script-queued
-// interactions. Only InteractionEngine is used in sub-spec 6a;
-// InteractionScript is reserved for the RuneScript integration.
+// interactions. S6a wired InteractionEngine for wire clicks (OpLoc,
+// OpNpc, etc.). S6v wired InteractionScript as the kind set by
+// p_op_loc / p_op_npc script opcodes. Both kinds fire the same AP/OP
+// trigger dispatch via processInteraction — the kind is metadata for
+// provenance, not a gate on trigger-firing.
 type InteractionKind int
 
 const (
@@ -94,7 +97,7 @@ func (p *Player) processInteraction() {
 			p.SetFaceEntity(npc.nid)
 		}
 		p.interacted = true
-		if p.interactionKind == InteractionEngine && !p.interactionFired {
+		if !p.interactionFired {
 			tryFireOpTrigger(p)
 		}
 		return
@@ -106,7 +109,7 @@ func (p *Player) processInteraction() {
 		// it sets p.apRange = -1. Next tick's inApproachDistance sees
 		// apRange <= 0 and returns false, skipping re-lookup.
 		p.interacted = true
-		if p.interactionKind == InteractionEngine && !p.interactionFired {
+		if !p.interactionFired {
 			tryFireApTrigger(p)
 		}
 		return

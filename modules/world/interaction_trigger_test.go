@@ -233,21 +233,25 @@ func TestTryFireOpTrigger_GlobalFallback(t *testing.T) {
 	}
 }
 
-// TestProcessInteractionInteractionScriptKindSkipsDispatch verifies that the
-// processInteraction hook gates tryFireOpTrigger on InteractionEngine. A future
-// sub-spec introducing InteractionScript anchors should not see engine-style
-// trigger dispatch.
-func TestProcessInteractionInteractionScriptKindSkipsDispatch(t *testing.T) {
+// TestProcessInteractionInteractionScriptKindFiresDispatch verifies that
+// processInteraction fires AP/OP triggers for script-kind interactions
+// just like engine-kind. S6v closed the placeholder-skip behavior that
+// was previously codified as "reserved for RuneScript integration."
+func TestProcessInteractionInteractionScriptKindFiresDispatch(t *testing.T) {
 	_, p, npc := newTriggerFixture(t)
-	// Re-anchor as script-kind instead of engine-kind. SetInteraction resets
-	// interactionFired to false so the gate's other condition matches.
+	// Move the npc one tile east so inOperableDistance(player, npc) returns
+	// true (dx=1, dz=0 — adjacent but not same tile). The fixture places the
+	// npc at player coords; same-tile fails both OP and AP distance checks.
+	npc.x = p.x + 1
+	// Anchor as script-kind. The npc is now in operable distance, so
+	// processInteraction should hit the OP branch and fire the trigger.
 	p.SetInteraction(InteractionScript, npc, 1, -1)
 	p.processInteraction()
-	if len(npc.sayText) != 0 {
-		t.Errorf("sayText: expected empty (dispatch skipped for script-kind), got %q", npc.sayText)
+	if string(npc.sayText) == "" {
+		t.Error("sayText: expected script-kind dispatch to fire the trigger, got empty")
 	}
-	if p.interactionFired {
-		t.Error("interactionFired: expected false (dispatch skipped, not consumed)")
+	if !p.interactionFired {
+		t.Error("interactionFired: expected true (dispatch consumed for script-kind)")
 	}
 }
 
