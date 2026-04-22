@@ -1,0 +1,194 @@
+package world
+
+import (
+	"testing"
+
+	"github.com/zsrv/goscape/pkg/grid"
+	"github.com/zsrv/goscape/pkg/objtype"
+)
+
+// addNpcToServerAt seeds s.npcs[nid], registers the NPC's type in
+// s.npcTypes.Configs, and indexes into s.grid. Returns the *Npc
+// so tests can further mutate fields. Slot 0 is reserved; use 1+.
+// nid must be < 8192 (fixed Server.npcs array size).
+func addNpcToServerAt(t *testing.T, s *Server, nid, typeId, category, x, z, level int) *Npc {
+	t.Helper()
+	if s.grid == nil {
+		s.grid = grid.New()
+	}
+	if s.npcTypes == nil {
+		s.npcTypes = &objtype.NPCTypeConfigs{Configs: make([]*objtype.NpcType, 100)}
+	}
+	if typeId < len(s.npcTypes.Configs) && s.npcTypes.Configs[typeId] == nil {
+		s.npcTypes.Configs[typeId] = &objtype.NpcType{
+			ConfigType: objtype.ConfigType{ID: typeId},
+			Category:   category,
+		}
+	}
+	n := NewNpc(nid, typeId, x, z, level, s.npcTypes.Configs[typeId])
+	s.npcs[nid] = n
+	s.grid.AddNpc(nid, x, z, level)
+	return n
+}
+
+func TestHuntNpcsInRangeSameLevel(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	tIn := addNpcToServerAt(t, s, 10, 1, -1, n.x+3, n.z+3, n.level)
+	_ = addNpcToServerAt(t, s, 11, 1, -1, n.x+20, n.z+20, n.level) // out of range
+
+	hunt := &objtype.HuntType{CheckNpc: -1, CheckCategory: -1}
+	hunted := n.huntNpcs(s, hunt)
+
+	if len(hunted) != 1 {
+		t.Fatalf("hunted: got %d, want 1 (in-range only)", len(hunted))
+	}
+	if hunted[0].Slot() != tIn.nid {
+		t.Errorf("hunted[0]: got nid %d, want %d", hunted[0].Slot(), tIn.nid)
+	}
+}
+
+func TestHuntNpcsDifferentLevelExcluded(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	_ = addNpcToServerAt(t, s, 20, 1, -1, n.x, n.z, n.level+1) // different level
+
+	hunted := n.huntNpcs(s, &objtype.HuntType{CheckNpc: -1, CheckCategory: -1})
+	if len(hunted) != 0 {
+		t.Errorf("hunted: got %d, want 0 (level mismatch)", len(hunted))
+	}
+}
+
+func TestHuntNpcsCheckNpcFilter(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	_ = addNpcToServerAt(t, s, 30, 5, -1, n.x+2, n.z+2, n.level)      // typeId 5
+	match := addNpcToServerAt(t, s, 31, 7, -1, n.x+3, n.z+3, n.level) // typeId 7 (target)
+
+	hunt := &objtype.HuntType{CheckNpc: 7, CheckCategory: -1}
+	hunted := n.huntNpcs(s, hunt)
+
+	if len(hunted) != 1 {
+		t.Fatalf("hunted: got %d, want 1 (CheckNpc=7 only)", len(hunted))
+	}
+	if hunted[0].Slot() != match.nid {
+		t.Errorf("hunted[0]: got nid %d, want %d", hunted[0].Slot(), match.nid)
+	}
+}
+
+func TestHuntNpcsCheckNpcNegativeOneAllowsAll(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	_ = addNpcToServerAt(t, s, 40, 5, -1, n.x+2, n.z+2, n.level)
+	_ = addNpcToServerAt(t, s, 41, 7, -1, n.x+3, n.z+3, n.level)
+
+	hunted := n.huntNpcs(s, &objtype.HuntType{CheckNpc: -1, CheckCategory: -1})
+	if len(hunted) != 2 {
+		t.Errorf("hunted: got %d, want 2 (CheckNpc=-1 allows all)", len(hunted))
+	}
+}
+
+func TestHuntNpcsCheckCategoryFilter(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	_ = addNpcToServerAt(t, s, 50, 1, 42, n.x+2, n.z+2, n.level)      // cat 42
+	match := addNpcToServerAt(t, s, 51, 2, 99, n.x+3, n.z+3, n.level) // cat 99 (target)
+
+	hunt := &objtype.HuntType{CheckNpc: -1, CheckCategory: 99}
+	hunted := n.huntNpcs(s, hunt)
+
+	if len(hunted) != 1 {
+		t.Fatalf("hunted: got %d, want 1", len(hunted))
+	}
+	if hunted[0].Slot() != match.nid {
+		t.Errorf("hunted[0]: got nid %d, want %d", hunted[0].Slot(), match.nid)
+	}
+}
+
+func TestHuntNpcsChebyshevDistanceBoundary(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	// At dx = dz = 10: included (|dx|, |dz| both <= 10).
+	in1 := addNpcToServerAt(t, s, 60, 1, -1, n.x+10, n.z+10, n.level)
+	// At dx = 11, dz = 0: excluded.
+	_ = addNpcToServerAt(t, s, 61, 1, -1, n.x+11, n.z, n.level)
+
+	hunted := n.huntNpcs(s, &objtype.HuntType{CheckNpc: -1, CheckCategory: -1})
+	if len(hunted) != 1 || hunted[0].Slot() != in1.nid {
+		t.Errorf("boundary: got %v, want [nid=%d]", hunted, in1.nid)
+	}
+}
+
+func TestHuntNpcsMissingTypeConfigSkipsOnCategoryFilter(t *testing.T) {
+	// When an NPC has a typeId that's out of bounds of npcTypes.Configs,
+	// and CheckCategory is active, the entry should be silently skipped
+	// rather than crashing.
+	s := newServerForScriptTest(t)
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	// Create an NPC whose typeId exceeds the Configs length.
+	s.npcTypes = &objtype.NPCTypeConfigs{Configs: make([]*objtype.NpcType, 3)}
+	s.npcTypes.Configs[1] = &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 1},
+		Category:   -1,
+	}
+	// Create NPC with a type that exists (for NewNpc), but set its typeId
+	// to something out of bounds.
+	other := NewNpc(70, 1, n.x+3, n.z+3, n.level, s.npcTypes.Configs[1])
+	other.typeId = 99 // Now typeId is out of bounds.
+	s.npcs[70] = other
+	s.grid = grid.New()
+	s.grid.AddNpc(70, other.x, other.z, other.level)
+
+	hunted := n.huntNpcs(s, &objtype.HuntType{CheckNpc: -1, CheckCategory: 42})
+	if len(hunted) != 0 {
+		t.Errorf("hunted: got %d, want 0 (oob typeId + category filter → skip)", len(hunted))
+	}
+}
+
+func TestHuntNpcsNilRegistriesReturnsNil(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.huntRange = 10
+
+	// s.grid is nil per newServerForScriptTest.
+	hunted := n.huntNpcs(s, &objtype.HuntType{})
+	if hunted != nil {
+		t.Errorf("hunted: got %v, want nil (grid nil)", hunted)
+	}
+
+	s.grid = grid.New()
+	// s.npcTypes is nil.
+	hunted = n.huntNpcs(s, &objtype.HuntType{})
+	if hunted != nil {
+		t.Errorf("hunted: got %v, want nil (npcTypes nil)", hunted)
+	}
+}
