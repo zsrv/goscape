@@ -5,6 +5,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
+	"github.com/zsrv/goscape/pkg/script"
 )
 
 // processNpcHunt runs the per-tick hunt pass. Matches TS
@@ -169,14 +170,26 @@ func (s *Server) consumeHuntTarget(n *Npc) {
 	if hunt == nil || hunt.Type == objtype.HuntModeOff {
 		return
 	}
-	// Interaction branch: write target + targetOp for NAI-11 consumption.
-	// Task 4 wraps this in an if/else and adds the QUEUE1..QUEUE20 branch.
-	//
-	// DEVIATION: TS setInteraction also writes apRange, apRangeCalled,
-	// targetSubject.com/type. Those fields don't yet exist on *Npc and
-	// have zero NAI-10 consumers; NAI-11 adds them.
-	n.target = n.huntTarget
-	n.targetOp = hunt.FindNewMode
+	if hunt.FindNewMode >= objtype.NPCModeQueue1 &&
+		hunt.FindNewMode <= objtype.NPCModeQueue20 {
+		// QUEUE1..QUEUE20 branch: fire TriggerAiQueueN directly (not
+		// enqueued). target/targetOp NOT written — the script owns
+		// subsequent state. Matches TS Npc.ts:896-903.
+		if n.typ != nil && s.scriptProvider != nil {
+			trigger := script.TriggerAiQueue1 +
+				script.ServerTriggerType(hunt.FindNewMode-objtype.NPCModeQueue1)
+			sf := s.scriptProvider.GetByTrigger(trigger, n.typeId, n.typ.Category)
+			s.runNpcScript(sf, n, nil, nil)
+		}
+	} else {
+		// Interaction branch: write target + targetOp for NAI-11 consumption.
+		//
+		// DEVIATION: TS setInteraction also writes apRange, apRangeCalled,
+		// targetSubject.com/type. Those fields don't yet exist on *Npc and
+		// have zero NAI-10 consumers; NAI-11 adds them.
+		n.target = n.huntTarget
+		n.targetOp = hunt.FindNewMode
+	}
 
 	// Common tail: clear huntTarget and reset huntClock.
 	n.huntTarget = nil

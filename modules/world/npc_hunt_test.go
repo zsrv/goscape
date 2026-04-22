@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/script"
 )
 
 // newConsumeHuntTargetFixture builds a Server + Npc ready to exercise
@@ -125,5 +126,104 @@ func TestConsumeHuntTargetInteractionBranchClearsHuntState(t *testing.T) {
 	}
 	if n.huntClock != 0 {
 		t.Errorf("huntClock: got %d, want 0 (reset after consume)", n.huntClock)
+	}
+}
+
+// newQueueBranchFixture extends the consumeHuntTarget fixture with
+// a scriptProvider wired for AI_QUEUE dispatch. Returns (s, n, hunt,
+// provider) so the test can register specific trigger scripts.
+//
+// The NPC's type (created by newNpcForLifecycleTest) has typeId=0
+// and category=-1; scripts must be registered at (trigger, 0)
+// specifically for GetByTrigger to find them.
+func newQueueBranchFixture(t *testing.T) (
+	*Server, *Npc, *objtype.HuntType, *script.Provider,
+) {
+	t.Helper()
+	s, n, hunt := newConsumeHuntTargetFixture(t)
+	s.scriptProvider = script.NewProvider()
+	return s, n, hunt, s.scriptProvider
+}
+
+// buildTimerSetScript creates a script that sets n.timerInterval to a
+// specific value — used as a dispatch observer. Post-run, asserting
+// n.timerInterval equals `val` proves the script fired (and therefore
+// that the correct TriggerAiQueueN was dispatched).
+//
+// Body: OpPushConstantInt (push val), OpNpcSetTimer (pop, set timer),
+// OpReturn. Registered at (trigger, typeID) via LookupKeyForType.
+func buildTimerSetScript(t *testing.T, trigger script.ServerTriggerType, typeID int, val int32) *script.ScriptFile {
+	t.Helper()
+	return &script.ScriptFile{
+		Name:             "[queue_branch_observer]",
+		LookupKey:        script.LookupKeyForType(trigger, typeID),
+		Opcodes:          []script.Opcode{script.OpPushConstantInt, script.OpNpcSetTimer, script.OpReturn},
+		IntOperands:      []int32{val, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+}
+
+func TestConsumeHuntTargetQueueBranchFiresScript(t *testing.T) {
+	s, n, hunt, provider := newQueueBranchFixture(t)
+	other := newNpcForLifecycleTest(t)
+	n.huntTarget = other
+	hunt.FindNewMode = objtype.NPCModeQueue3 // 49 → should fire TriggerAiQueue3
+
+	const observerVal int32 = 12345
+	provider.Register(buildTimerSetScript(t, script.TriggerAiQueue3, n.typeId, observerVal))
+
+	s.consumeHuntTarget(n)
+
+	if int32(n.timerInterval) != observerVal {
+		t.Errorf("timerInterval: got %d, want %d (script should have fired)",
+			n.timerInterval, observerVal)
+	}
+	if n.huntTarget != nil {
+		t.Errorf("huntTarget: got %v, want nil (common-tail cleanup)", n.huntTarget)
+	}
+}
+
+func TestConsumeHuntTargetQueueBranchDoesNotSetTarget(t *testing.T) {
+	s, n, hunt, _ := newQueueBranchFixture(t)
+	preexisting := newNpcForLifecycleTest(t)
+	other := newNpcForLifecycleTest(t)
+	n.target = preexisting
+	n.targetOp = 999
+	n.huntTarget = other
+	hunt.FindNewMode = objtype.NPCModeQueue3
+
+	// Note: no script registered for TriggerAiQueue3 — runNpcScript is
+	// a no-op on nil sf. This is the "happy-path with no registered
+	// handler" case; huntTarget cleanup still runs.
+
+	s.consumeHuntTarget(n)
+
+	if n.target != preexisting {
+		t.Errorf("target: got %v, want %v (QUEUE branch must NOT set target)",
+			n.target, preexisting)
+	}
+	if n.targetOp != 999 {
+		t.Errorf("targetOp: got %d, want 999 (unchanged)", n.targetOp)
+	}
+	if n.huntTarget != nil {
+		t.Errorf("huntTarget: got %v, want nil (common tail)", n.huntTarget)
+	}
+}
+
+func TestConsumeHuntTargetQueueBranchBoundaryQueue20(t *testing.T) {
+	s, n, hunt, provider := newQueueBranchFixture(t)
+	other := newNpcForLifecycleTest(t)
+	n.huntTarget = other
+	hunt.FindNewMode = objtype.NPCModeQueue20 // 66 → should fire TriggerAiQueue20
+
+	const observerVal int32 = 77777
+	provider.Register(buildTimerSetScript(t, script.TriggerAiQueue20, n.typeId, observerVal))
+
+	s.consumeHuntTarget(n)
+
+	if int32(n.timerInterval) != observerVal {
+		t.Errorf("timerInterval: got %d, want %d (Queue20 dispatch)",
+			n.timerInterval, observerVal)
 	}
 }
