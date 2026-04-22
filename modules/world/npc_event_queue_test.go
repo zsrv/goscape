@@ -373,11 +373,10 @@ func TestProcessNpcHuntIncrementsClockWhenHuntModeValid(t *testing.T) {
 	}
 }
 
-// TestProcessNpcHuntPauseHuntRunsWithObserverStub — regression guard
-// for the observer stub. Currently `observers := 1` means PAUSEHUNT
-// gate passes even without real observers. When real observer
-// tracking lands, this test's expected value changes to 0 and its
-// assertion reverses.
+// TestProcessNpcHuntPauseHuntBailsWithNoObservers validates that
+// PAUSEHUNT gates short-circuit (skip huntAll and clock increment)
+// when observer count is zero and hunt type is not HuntModePlayer.
+// Observer count is seeded via rsbuf.SetObserverForTest.
 func TestProcessNpcHuntPauseHuntBailsWithNoObservers(t *testing.T) {
 	rsbuf.SetObserverForTest(0, 0) // n.nid = 0 for this test
 	s := newServerForScriptTest(t)
