@@ -122,3 +122,63 @@ func (n *Npc) huntObjs(s *Server, hunt *objtype.HuntType) []entity {
 	}
 	return hunted
 }
+
+// huntLocs iterates locs in zone-radius and returns those passing
+// the filter chain. Matches TS Npc.huntLocs at
+// Engine-TS/.../Npc.ts:983-985 (HuntIterator SCENERY branch at
+// ScriptIterators.ts:145-167).
+//
+// Zone.Locs contains both static (Respawn) and dynamic (Despawn)
+// locs — matches TS getAllLocsSafe(true).
+//
+// Multi-tile locs use SW corner for distance (l.X/l.Z ARE the SW
+// corner by goscape entity.Entity convention, matching TS which
+// passes {x: loc.x, z: loc.z} to distanceToSW).
+//
+// Filter coverage (NAI-9):
+//   - Range: Chebyshev distance <= n.huntRange
+//   - CheckLoc: loc.Type() filter (-1 == allow all)
+//   - CheckCategory: LocType.Category filter (-1 == allow all)
+//
+// DEFERRED to audit pass:
+//   - CheckVis (TS ScriptIterators.ts:160-165) — LoS/LoW gate.
+func (n *Npc) huntLocs(s *Server, hunt *objtype.HuntType) []entity {
+	if s.zoneMap == nil || s.locTypes == nil {
+		return nil
+	}
+	zoneRadius := 1 + n.huntRange/8
+	var hunted []entity
+	for _, zn := range s.zoneMap.NearbyZones(n.level, n.x, n.z, zoneRadius) {
+		for _, l := range zn.Locs {
+			if l == nil {
+				continue
+			}
+			if hunt.CheckLoc != -1 && l.Type() != hunt.CheckLoc {
+				continue
+			}
+			if hunt.CheckCategory != -1 {
+				if l.Type() < 0 || l.Type() >= len(s.locTypes.Configs) {
+					continue
+				}
+				lt := s.locTypes.Configs[l.Type()]
+				if lt == nil || lt.Category != hunt.CheckCategory {
+					continue
+				}
+			}
+			dx := l.X - n.x
+			if dx < 0 {
+				dx = -dx
+			}
+			dz := l.Z - n.z
+			if dz < 0 {
+				dz = -dz
+			}
+			if dx > n.huntRange || dz > n.huntRange {
+				continue
+			}
+			// TODO: CheckVis gate — TS ScriptIterators.ts:160-165.
+			hunted = append(hunted, l)
+		}
+	}
+	return hunted
+}

@@ -359,3 +359,160 @@ func TestHuntObjsNilRegistriesReturnsNil(t *testing.T) {
 		t.Errorf("hunted: got %v, want nil (objTypes nil)", hunted)
 	}
 }
+
+// addLocToZone seeds an *entity.Loc at (level, x, z) in the
+// containing zone, registers its type in s.locTypes.Configs, and
+// appends to zone.Locs. Returns the Loc for test assertions.
+func addLocToZone(t *testing.T, s *Server, level, x, z, typeId, category int) *entitypkg.Loc {
+	t.Helper()
+	if s.zoneMap == nil {
+		s.zoneMap = zone.NewZoneMap()
+	}
+	if s.locTypes == nil {
+		s.locTypes = &objtype.LocTypeConfigs{Configs: make([]*objtype.LocType, 5200)}
+	}
+	if typeId < len(s.locTypes.Configs) && s.locTypes.Configs[typeId] == nil {
+		s.locTypes.Configs[typeId] = &objtype.LocType{
+			ConfigType: objtype.ConfigType{ID: typeId},
+			Category:   category,
+		}
+	}
+	l := entitypkg.NewLoc(level, x, z, 1, 1, entitypkg.LifecycleForever, typeId, 10, 0)
+	zn := s.zoneMap.Get(level, x, z)
+	zn.AddStaticLoc(l)
+	return l
+}
+
+func TestHuntLocsInRangeSameLevel(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	lIn := addLocToZone(t, s, n.level, n.x+3, n.z+3, 1000, -1)
+	_ = addLocToZone(t, s, n.level, n.x+20, n.z+20, 1000, -1)
+
+	hunted := n.huntLocs(s, &objtype.HuntType{CheckLoc: -1, CheckCategory: -1})
+	if len(hunted) != 1 {
+		t.Fatalf("hunted: got %d, want 1", len(hunted))
+	}
+	if hunted[0] != lIn {
+		t.Errorf("hunted[0]: got %v, want lIn", hunted[0])
+	}
+}
+
+func TestHuntLocsDifferentLevelExcluded(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	_ = addLocToZone(t, s, n.level+1, n.x, n.z, 1000, -1)
+
+	hunted := n.huntLocs(s, &objtype.HuntType{CheckLoc: -1, CheckCategory: -1})
+	if len(hunted) != 0 {
+		t.Errorf("hunted: got %d, want 0", len(hunted))
+	}
+}
+
+func TestHuntLocsCheckLocFilter(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	_ = addLocToZone(t, s, n.level, n.x+2, n.z+2, 1000, -1)
+	match := addLocToZone(t, s, n.level, n.x+3, n.z+3, 2000, -1)
+
+	hunted := n.huntLocs(s, &objtype.HuntType{CheckLoc: 2000, CheckCategory: -1})
+	if len(hunted) != 1 || hunted[0] != match {
+		t.Errorf("hunted: got %v, want [match]", hunted)
+	}
+}
+
+func TestHuntLocsCheckLocNegativeOneAllowsAll(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	_ = addLocToZone(t, s, n.level, n.x+2, n.z+2, 1000, -1)
+	_ = addLocToZone(t, s, n.level, n.x+3, n.z+3, 2000, -1)
+
+	hunted := n.huntLocs(s, &objtype.HuntType{CheckLoc: -1, CheckCategory: -1})
+	if len(hunted) != 2 {
+		t.Errorf("hunted: got %d, want 2", len(hunted))
+	}
+}
+
+func TestHuntLocsCheckCategoryFilter(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	_ = addLocToZone(t, s, n.level, n.x+2, n.z+2, 1000, 42)
+	match := addLocToZone(t, s, n.level, n.x+3, n.z+3, 2000, 99)
+
+	hunted := n.huntLocs(s, &objtype.HuntType{CheckLoc: -1, CheckCategory: 99})
+	if len(hunted) != 1 || hunted[0] != match {
+		t.Errorf("hunted: got %v, want [match]", hunted)
+	}
+}
+
+func TestHuntLocsChebyshevDistanceBoundary(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	in1 := addLocToZone(t, s, n.level, n.x+10, n.z+10, 1000, -1)
+	_ = addLocToZone(t, s, n.level, n.x+11, n.z, 1000, -1)
+
+	hunted := n.huntLocs(s, &objtype.HuntType{CheckLoc: -1, CheckCategory: -1})
+	if len(hunted) != 1 || hunted[0] != in1 {
+		t.Errorf("boundary: got %v, want [in1]", hunted)
+	}
+}
+
+func TestHuntLocsMissingTypeConfigSkipsOnCategoryFilter(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	s.zoneMap = zone.NewZoneMap()
+	s.locTypes = &objtype.LocTypeConfigs{Configs: make([]*objtype.LocType, 3)}
+	l := entitypkg.NewLoc(n.level, n.x+3, n.z+3, 1, 1, entitypkg.LifecycleForever, 99, 10, 0)
+	s.zoneMap.Get(n.level, l.X, l.Z).AddStaticLoc(l)
+
+	hunted := n.huntLocs(s, &objtype.HuntType{CheckLoc: -1, CheckCategory: 42})
+	if len(hunted) != 0 {
+		t.Errorf("hunted: got %d, want 0", len(hunted))
+	}
+}
+
+func TestHuntLocsNilRegistriesReturnsNil(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.huntRange = 10
+
+	hunted := n.huntLocs(s, &objtype.HuntType{})
+	if hunted != nil {
+		t.Errorf("hunted: got %v, want nil (zoneMap nil)", hunted)
+	}
+
+	s.zoneMap = zone.NewZoneMap()
+	hunted = n.huntLocs(s, &objtype.HuntType{})
+	if hunted != nil {
+		t.Errorf("hunted: got %v, want nil (locTypes nil)", hunted)
+	}
+}
