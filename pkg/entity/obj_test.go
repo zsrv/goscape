@@ -41,7 +41,6 @@ func TestObjRevealConstantValue(t *testing.T) {
 	}
 }
 
-
 // TestObjSatisfiesEntityInterface locks in the Slot() + Coords()
 // methods required for *Obj to be used as a huntTarget in
 // modules/world. The interface assertion is compile-time; the test

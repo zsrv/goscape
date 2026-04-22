@@ -30,7 +30,6 @@ func NewObj(level, x, z int, lc Lifecycle, typ, count int) *Obj {
 	return o
 }
 
-
 // Slot returns -1 because objs are not slot-indexed (unlike Players
 // and Npcs which live in server-wide slot registries). Mirrors
 // *entity.Loc.Slot. Required for the world.entity interface so
