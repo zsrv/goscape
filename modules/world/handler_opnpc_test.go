@@ -517,6 +517,59 @@ func TestHandleOpNpcUHappyPathWithOtherPlayerInv(t *testing.T) {
 	}
 }
 
+// TestHandleOpNpcUMembersOnFreeWorldRejected — S6z closes S6o-D4.
+func TestHandleOpNpcUMembersOnFreeWorldRejected(t *testing.T) {
+	s, p, _ := makeOpNpcFixture(t)
+	s.cfg.NodeMembers = false
+	if s.objTypes == nil {
+		s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 2000)}
+	}
+	s.objTypes.Configs[1511] = &objtype.ObjType{
+		ConfigType: objtype.ConfigType{ID: 1511, DebugName: "members_item"},
+		Members:    true,
+	}
+	if s.invs == nil {
+		s.invs = make(map[int]*inventory.Inventory)
+	}
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Items[3] = &inventory.Item{Id: 1511, Count: 1}
+	s.invs[93] = inv
+	p.invListenOnCom(93, 149, -1)
+
+	_ = handleOpNpcU(p, p2x4NpcUPayload(1, 1511, 3, 149))
+
+	if p.target != nil {
+		t.Error("target should remain nil for members-on-free rejection")
+	}
+}
+
+// TestHandleOpNpcUMembersOnMembersWorldAllowed — gate only fires on free.
+func TestHandleOpNpcUMembersOnMembersWorldAllowed(t *testing.T) {
+	s, p, npc := makeOpNpcFixture(t)
+	s.cfg.NodeMembers = true
+	if s.objTypes == nil {
+		s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 2000)}
+	}
+	s.objTypes.Configs[1511] = &objtype.ObjType{
+		ConfigType: objtype.ConfigType{ID: 1511, DebugName: "members_item"},
+		Members:    true,
+	}
+	if s.invs == nil {
+		s.invs = make(map[int]*inventory.Inventory)
+	}
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Items[3] = &inventory.Item{Id: 1511, Count: 1}
+	s.invs[93] = inv
+	p.invListenOnCom(93, 149, -1)
+
+	if err := handleOpNpcU(p, p2x4NpcUPayload(1, 1511, 3, 149)); err != nil {
+		t.Fatalf("handleOpNpcU: %v", err)
+	}
+	if p.target != npc {
+		t.Errorf("target: got %v, want npc (members world should allow)", p.target)
+	}
+}
+
 // TestHandleOpNpcOpIndexOutOfRange verifies NpcType with fewer Op entries emits UnsetMapFlag.
 func TestHandleOpNpcOpIndexOutOfRange(t *testing.T) {
 	s := newTestServer(t)

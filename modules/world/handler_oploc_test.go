@@ -709,3 +709,62 @@ func TestHandleOpLocUHappyPathWithOtherPlayerInv(t *testing.T) {
 		t.Errorf("target: got %v, want loc", p.target)
 	}
 }
+
+// TestHandleOpLocUMembersOnFreeWorldRejected — S6z closes S6m-D4.
+func TestHandleOpLocUMembersOnFreeWorldRejected(t *testing.T) {
+	s, p, _, cc := makeOpLocFixture(t)
+	s.cfg.NodeMembers = false
+	if s.objTypes == nil {
+		s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 2000)}
+	}
+	s.objTypes.Configs[1511] = &objtype.ObjType{
+		ConfigType: objtype.ConfigType{ID: 1511, DebugName: "members_item"},
+		Members:    true,
+	}
+	if s.invs == nil {
+		s.invs = make(map[int]*inventory.Inventory)
+	}
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Items[3] = &inventory.Item{Id: 1511, Count: 1}
+	s.invs[93] = inv
+	p.invListenOnCom(93, 149, -1)
+
+	received := drainConn(t, cc)
+	_ = handleOpLocU(p, p2x6Payload(100, 100, 42, 1511, 3, 149))
+	p.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag/MessageGame packet; got nothing")
+	}
+	if p.target != nil {
+		t.Error("target should remain nil for members-on-free rejection")
+	}
+}
+
+// TestHandleOpLocUMembersOnMembersWorldAllowed — gate only fires on free.
+func TestHandleOpLocUMembersOnMembersWorldAllowed(t *testing.T) {
+	s, p, loc, _ := makeOpLocFixture(t)
+	s.cfg.NodeMembers = true
+	if s.objTypes == nil {
+		s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 2000)}
+	}
+	s.objTypes.Configs[1511] = &objtype.ObjType{
+		ConfigType: objtype.ConfigType{ID: 1511, DebugName: "members_item"},
+		Members:    true,
+	}
+	if s.invs == nil {
+		s.invs = make(map[int]*inventory.Inventory)
+	}
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Items[3] = &inventory.Item{Id: 1511, Count: 1}
+	s.invs[93] = inv
+	p.invListenOnCom(93, 149, -1)
+
+	if err := handleOpLocU(p, p2x6Payload(100, 100, 42, 1511, 3, 149)); err != nil {
+		t.Fatalf("handleOpLocU: %v", err)
+	}
+	if p.target != loc {
+		t.Errorf("target: got %v, want loc (members world should allow)", p.target)
+	}
+}

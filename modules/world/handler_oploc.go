@@ -188,6 +188,7 @@ func handleOpLocT(p *Player, payload []byte) error {
 //  5. LocType not registered → UnsetMapFlag
 //  6. useCom not in invListeners → UnsetMapFlag (S6p)
 //  7. listener's inventory unresolved or slot/item mismatch → UnsetMapFlag (S6p)
+//  8. members-only item on free world → MessageGame + UnsetMapFlag (S6z)
 //
 // DEVIATION (S6m-D2): TS validates useCom references a usable, visible
 // interface component (OpLocUHandler.ts:~25-35). Skipped — no component
@@ -196,10 +197,9 @@ func handleOpLocT(p *Player, payload []byte) error {
 // S6m-D3 closed in S6p: per-op useCom listener lookup + slot/item
 // validation gates added below, mirroring TS OpLocUHandler.ts:50-66.
 //
-// DEVIATION (S6m-D4): TS checks members-only items against NODE_MEMBERS
-// server config (OpLocUHandler.ts:~71-77). Skipped because goscape has
-// no members-config surface yet. Follow-up: "members-config + item-
-// gating" sub-spec.
+// S6m-D4 closed in S6z: members-only items on free-to-play worlds
+// are now rejected via the gate below, matching TS
+// OpLocUHandler.ts:70-73.
 //
 // On success: set p.lastUseItem = useObj, p.lastUseSlot = useSlot →
 // ClearPendingAction → SetInteraction(Engine, loc, targetOpLocU, -1) →
@@ -268,6 +268,16 @@ func handleOpLocU(p *Player, payload []byte) error {
 	if !inv.HasAt(useSlot, useObj) {
 		sendUnsetMapFlag(p)
 		return nil
+	}
+
+	// S6m-D4 closed in S6z: reject members-only items on
+	// free-to-play worlds. Matches TS OpLocUHandler.ts:70-73.
+	if s.objTypes != nil && useObj >= 0 && useObj < len(s.objTypes.Configs) {
+		if useObjType := s.objTypes.Configs[useObj]; useObjType != nil && useObjType.Members && !s.cfg.NodeMembers {
+			p.MessageGame("To use this item please login to a members' server.")
+			sendUnsetMapFlag(p)
+			return nil
+		}
 	}
 
 	p.lastUseItem = useObj
