@@ -186,19 +186,15 @@ func handleOpLocT(p *Player, payload []byte) error {
 //  3. coords outside viewport → UnsetMapFlag
 //  4. Server.GetLoc returns nil → UnsetMapFlag
 //  5. LocType not registered → UnsetMapFlag
+//  6. useCom not in invListeners → UnsetMapFlag (S6p)
+//  7. listener's inventory unresolved or slot/item mismatch → UnsetMapFlag (S6p)
 //
 // DEVIATION (S6m-D2): TS validates useCom references a usable, visible
 // interface component (OpLocUHandler.ts:~25-35). Skipped — no component
 // registry yet.
 //
-// DEVIATION (S6m-D3): TS does an inventory-listener lookup by useCom to
-// verify the player has an inv listening at that interface, plus
-// slot-bounds + item-at-slot-matches-useObj validation
-// (OpLocUHandler.ts:~45-70). The keyed-map refactor landed in S6p-1;
-// the validation gate itself lands in S6p-3. Until then scripts
-// reading p.LastUseItem()/p.LastUseSlot() get raw wire values.
-// Security risk: client can claim any item/slot. Real scripts
-// defensively re-check via inv_getobj-style opcodes.
+// S6m-D3 closed in S6p: per-op useCom listener lookup + slot/item
+// validation gates added below, mirroring TS OpLocUHandler.ts:50-66.
 //
 // DEVIATION (S6m-D4): TS checks members-only items against NODE_MEMBERS
 // server config (OpLocUHandler.ts:~71-77). Skipped because goscape has
@@ -230,7 +226,7 @@ func handleOpLocU(p *Player, payload []byte) error {
 	locId := int(r.G2())
 	useObj := int(r.G2())
 	useSlot := int(r.G2())
-	_ = int(r.G2()) // useCom — deliberately discarded (S6m-D2/D3)
+	useCom := int(r.G2())
 
 	dx := x - p.originX
 	if dx < 0 {
@@ -252,6 +248,24 @@ func handleOpLocU(p *Player, payload []byte) error {
 	}
 
 	if s.locTypes == nil || locId < 0 || locId >= len(s.locTypes.Configs) || s.locTypes.Configs[locId] == nil {
+		sendUnsetMapFlag(p)
+		return nil
+	}
+
+	// S6m-D3 closed: verify the player has an inv listener at useCom
+	// and that the claimed item lives at the claimed slot (TS
+	// OpLocUHandler.ts:50-66).
+	listener, ok := p.invListeners[useCom]
+	if !ok {
+		sendUnsetMapFlag(p)
+		return nil
+	}
+	inv := resolveListenerInv(s, listener)
+	if inv == nil {
+		sendUnsetMapFlag(p)
+		return nil
+	}
+	if !inv.HasAt(useSlot, useObj) {
 		sendUnsetMapFlag(p)
 		return nil
 	}

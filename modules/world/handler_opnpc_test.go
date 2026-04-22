@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/grid"
+	"github.com/zsrv/goscape/pkg/inventory"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
@@ -330,7 +331,16 @@ func p2x4NpcUPayload(a, b, c, d int) []byte {
 // interaction state with targetOp=targetOpNpcU, stores useObj/useSlot
 // in p.lastUseItem/lastUseSlot, and passes -1 for com (useCom discarded).
 func TestHandleOpNpcUSetsInteraction(t *testing.T) {
-	_, p, npc := makeOpNpcFixture(t)
+	s, p, npc := makeOpNpcFixture(t)
+
+	// Register listener + populate the inv with the claimed item.
+	if s.invs == nil {
+		s.invs = make(map[int]*inventory.Inventory)
+	}
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Items[3] = &inventory.Item{Id: 1511, Count: 1}
+	s.invs[93] = inv
+	p.invListenOnCom(93, 149, -1)
 
 	if err := handleOpNpcU(p, p2x4NpcUPayload(1, 1511, 3, 149)); err != nil {
 		t.Fatalf("handleOpNpcU: %v", err)
@@ -416,6 +426,82 @@ func TestHandleOpNpcUMissingNpcTypeRejected(t *testing.T) {
 
 	if p.target != nil {
 		t.Error("target should remain nil when NpcType is nil")
+	}
+}
+
+// TestHandleOpNpcUMissingListenerRejected — S6p closes S6o-D3. A useCom
+// with no registered listener rejects with UnsetMapFlag.
+func TestHandleOpNpcUMissingListenerRejected(t *testing.T) {
+	s, p, _ := makeOpNpcFixture(t)
+	if s.invs == nil {
+		s.invs = make(map[int]*inventory.Inventory)
+	}
+	s.invs[93] = inventory.New(93, 28, inventory.StackNormal)
+	// NO invListenOnCom.
+
+	_ = handleOpNpcU(p, p2x4NpcUPayload(1, 1511, 3, 149))
+
+	if p.target != nil {
+		t.Error("target should remain nil for missing listener")
+	}
+}
+
+// TestHandleOpNpcUInvalidInvSlotRejected verifies useSlot OOB of the
+// registered inv → UnsetMapFlag.
+func TestHandleOpNpcUInvalidInvSlotRejected(t *testing.T) {
+	s, p, _ := makeOpNpcFixture(t)
+	if s.invs == nil {
+		s.invs = make(map[int]*inventory.Inventory)
+	}
+	s.invs[93] = inventory.New(93, 28, inventory.StackNormal)
+	p.invListenOnCom(93, 149, -1)
+
+	// useSlot=99, OOB.
+	_ = handleOpNpcU(p, p2x4NpcUPayload(1, 1511, 99, 149))
+
+	if p.target != nil {
+		t.Error("target should remain nil for invalid slot")
+	}
+}
+
+// TestHandleOpNpcUItemMismatchRejected verifies slot N holds a
+// different id than useObj → UnsetMapFlag.
+func TestHandleOpNpcUItemMismatchRejected(t *testing.T) {
+	s, p, _ := makeOpNpcFixture(t)
+	if s.invs == nil {
+		s.invs = make(map[int]*inventory.Inventory)
+	}
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Items[3] = &inventory.Item{Id: 9999, Count: 1} // NOT 1511
+	s.invs[93] = inv
+	p.invListenOnCom(93, 149, -1)
+
+	_ = handleOpNpcU(p, p2x4NpcUPayload(1, 1511, 3, 149))
+
+	if p.target != nil {
+		t.Error("target should remain nil for item mismatch")
+	}
+}
+
+// TestHandleOpNpcUHappyPathWithOtherPlayerInv verifies Source != -1
+// path works through resolveListenerInv.
+func TestHandleOpNpcUHappyPathWithOtherPlayerInv(t *testing.T) {
+	s, p, npc := makeOpNpcFixture(t)
+
+	other, _ := newTestPlayer(t)
+	other.invs = map[int]*inventory.Inventory{}
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Items[3] = &inventory.Item{Id: 1511, Count: 1}
+	other.invs[93] = inv
+	s.players[2] = other
+
+	p.invListenOnCom(93, 149, 2)
+
+	if err := handleOpNpcU(p, p2x4NpcUPayload(1, 1511, 3, 149)); err != nil {
+		t.Fatalf("handleOpNpcU: %v", err)
+	}
+	if p.target != npc {
+		t.Errorf("target: got %v, want npc", p.target)
 	}
 }
 

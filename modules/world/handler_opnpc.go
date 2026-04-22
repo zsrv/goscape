@@ -1,8 +1,28 @@
 package world
 
 import (
+	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/io/packet"
 )
+
+// resolveListenerInv returns the inventory the given listener observes,
+// or nil if it can't be resolved. Source = -1 → world-shared inventory
+// (Server.invs[Type]); otherwise the source is another player's slot,
+// and the inventory is that player's local invs[Type]. Mirrors TS
+// getInventoryFromListener in Player.ts.
+func resolveListenerInv(s *Server, listener InventoryListener) *inventory.Inventory {
+	if listener.Source == -1 {
+		return s.invs[listener.Type]
+	}
+	if listener.Source < 0 || listener.Source >= len(s.players) {
+		return nil
+	}
+	other := s.players[listener.Source]
+	if other == nil {
+		return nil
+	}
+	return other.invs[listener.Type]
+}
 
 // handleOpNpc is the shared implementation for OPNPC1..OPNPC5.
 // op is 1..5. Payload = p2(slot).
@@ -132,15 +152,14 @@ func handleOpNpcT(p *Player, payload []byte) error {
 //  3. slot out of range → UnsetMapFlag
 //  4. NPC nil or dead → UnsetMapFlag
 //  5. NpcType nil → UnsetMapFlag
+//  6. useCom not in invListeners → UnsetMapFlag (S6p)
+//  7. listener's inventory unresolved or slot/item mismatch → UnsetMapFlag (S6p)
 //
 // DEVIATION S6o-D2: TS validates useCom references a usable, visible
 // interface component. Skipped — no component registry. (Mirrors S6m-D2.)
 //
-// DEVIATION S6o-D3: TS does an inventory-listener lookup by useCom +
-// slot-bounds + item-at-slot-matches-useObj validation. The keyed-map
-// refactor landed in S6p-1; the validation gate itself lands in S6p-3.
-// Until then scripts reading p.LastUseItem()/p.LastUseSlot() get raw
-// wire values. (Mirrors S6m-D3.)
+// S6o-D3 closed in S6p: per-op useCom listener lookup + slot/item
+// validation gates added below, mirroring TS OpNpcUHandler.ts:35-50.
 //
 // DEVIATION S6o-D4: TS checks members-only items against NODE_MEMBERS
 // config. Skipped — no members-config surface. (Mirrors S6m-D4.)
@@ -167,7 +186,7 @@ func handleOpNpcU(p *Player, payload []byte) error {
 	slot := int(r.G2())
 	useObj := int(r.G2())
 	useSlot := int(r.G2())
-	_ = int(r.G2()) // useCom — deliberately discarded (S6o-D2/D3)
+	useCom := int(r.G2())
 
 	if slot < 0 || slot >= len(s.npcs) {
 		sendUnsetMapFlag(p)
@@ -179,6 +198,24 @@ func handleOpNpcU(p *Player, payload []byte) error {
 		return nil
 	}
 	if npc.typ == nil {
+		sendUnsetMapFlag(p)
+		return nil
+	}
+
+	// S6o-D3 closed: verify the player has an inv listener at useCom
+	// and that the claimed item lives at the claimed slot (TS
+	// OpNpcUHandler.ts:35-50).
+	listener, ok := p.invListeners[useCom]
+	if !ok {
+		sendUnsetMapFlag(p)
+		return nil
+	}
+	inv := resolveListenerInv(s, listener)
+	if inv == nil {
+		sendUnsetMapFlag(p)
+		return nil
+	}
+	if !inv.HasAt(useSlot, useObj) {
 		sendUnsetMapFlag(p)
 		return nil
 	}

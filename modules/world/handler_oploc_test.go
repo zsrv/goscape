@@ -6,6 +6,7 @@ import (
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/grid"
+	"github.com/zsrv/goscape/pkg/inventory"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/zone"
@@ -430,7 +431,18 @@ func p2x6Payload(x, z, locId, useObj, useSlot, useCom int) []byte {
 // and useSlot land on p.lastUseItem/lastUseSlot; useCom is discarded
 // (S6m-D2/D3).
 func TestHandleOpLocUSetsInteraction(t *testing.T) {
-	_, p, loc, _ := makeOpLocFixture(t)
+	s, p, loc, _ := makeOpLocFixture(t)
+
+	// Register listener at com=149 pointing at world-shared inv type 93,
+	// and populate that inv with the claimed item (1511) at the claimed
+	// slot (3). Required after S6p-3's validation gate.
+	if s.invs == nil {
+		s.invs = make(map[int]*inventory.Inventory)
+	}
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Items[3] = &inventory.Item{Id: 1511, Count: 1}
+	s.invs[93] = inv
+	p.invListenOnCom(93, 149, -1)
 
 	if err := handleOpLocU(p, p2x6Payload(100, 100, 42, 1511, 3, 149)); err != nil {
 		t.Fatalf("handleOpLocU: %v", err)
@@ -581,5 +593,107 @@ func TestHandleOpLocClearsExistingInteraction(t *testing.T) {
 	}
 	if p.targetOp != 1 {
 		t.Errorf("targetOp: got %d, want 1", p.targetOp)
+	}
+}
+
+// TestHandleOpLocUMissingListenerRejected verifies that a useCom with no
+// registered listener → UnsetMapFlag, no state change.
+// S6p closes S6m-D3: per TS OpLocUHandler.ts:50-66, the handler must
+// reject wire tuples whose useCom isn't in the player's registered
+// listeners.
+func TestHandleOpLocUMissingListenerRejected(t *testing.T) {
+	s, p, _, cc := makeOpLocFixture(t)
+	// NO invListenOnCom — the map stays empty.
+	if s.invs == nil {
+		s.invs = make(map[int]*inventory.Inventory)
+	}
+	s.invs[93] = inventory.New(93, 28, inventory.StackNormal)
+
+	received := drainConn(t, cc)
+	_ = handleOpLocU(p, p2x6Payload(100, 100, 42, 1511, 3, 149))
+	p.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag for missing listener, got nothing")
+	}
+	if p.target != nil {
+		t.Error("target should remain nil for missing listener")
+	}
+}
+
+// TestHandleOpLocUInvalidSlotRejected verifies useSlot outside the
+// registered inv's capacity → UnsetMapFlag. HasAt returns false when
+// slot is OOB (pkg/inventory.Inventory.Get bounds-checks).
+func TestHandleOpLocUInvalidSlotRejected(t *testing.T) {
+	s, p, _, cc := makeOpLocFixture(t)
+	if s.invs == nil {
+		s.invs = make(map[int]*inventory.Inventory)
+	}
+	s.invs[93] = inventory.New(93, 28, inventory.StackNormal) // capacity 28
+	p.invListenOnCom(93, 149, -1)
+
+	received := drainConn(t, cc)
+	// useSlot = 99, OOB for a capacity-28 inv.
+	_ = handleOpLocU(p, p2x6Payload(100, 100, 42, 1511, 99, 149))
+	p.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag for invalid slot, got nothing")
+	}
+	if p.target != nil {
+		t.Error("target should remain nil for invalid slot")
+	}
+}
+
+// TestHandleOpLocUItemMismatchRejected verifies that when slot 3 holds
+// a different item id than useObj, the handler rejects.
+func TestHandleOpLocUItemMismatchRejected(t *testing.T) {
+	s, p, _, cc := makeOpLocFixture(t)
+	if s.invs == nil {
+		s.invs = make(map[int]*inventory.Inventory)
+	}
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Items[3] = &inventory.Item{Id: 9999, Count: 1} // NOT 1511
+	s.invs[93] = inv
+	p.invListenOnCom(93, 149, -1)
+
+	received := drainConn(t, cc)
+	_ = handleOpLocU(p, p2x6Payload(100, 100, 42, 1511, 3, 149)) // claims 1511
+	p.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag for item mismatch, got nothing")
+	}
+	if p.target != nil {
+		t.Error("target should remain nil for item mismatch")
+	}
+}
+
+// TestHandleOpLocUHappyPathWithOtherPlayerInv verifies Source != -1
+// (other-player-inv, e.g., bank/trade viewer) also works through
+// resolveListenerInv.
+func TestHandleOpLocUHappyPathWithOtherPlayerInv(t *testing.T) {
+	s, p, loc, _ := makeOpLocFixture(t)
+
+	// Create a second player at slot 2 with inv type 93 containing
+	// the claimed item at the claimed slot.
+	other, _ := newTestPlayer(t)
+	other.invs = map[int]*inventory.Inventory{}
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Items[3] = &inventory.Item{Id: 1511, Count: 1}
+	other.invs[93] = inv
+	s.players[2] = other
+
+	// Register listener pointing at slot 2's inv type 93.
+	p.invListenOnCom(93, 149, 2)
+
+	if err := handleOpLocU(p, p2x6Payload(100, 100, 42, 1511, 3, 149)); err != nil {
+		t.Fatalf("handleOpLocU: %v", err)
+	}
+	if p.target != loc {
+		t.Errorf("target: got %v, want loc", p.target)
 	}
 }
