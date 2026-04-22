@@ -64,3 +64,61 @@ func (n *Npc) huntNpcs(s *Server, hunt *objtype.HuntType) []entity {
 	}
 	return hunted
 }
+
+// huntObjs iterates dynamic objs in zone-radius and returns those
+// passing the filter chain. Matches TS Npc.huntObjs at
+// Engine-TS/.../Npc.ts:979-981 (HuntIterator OBJ branch at
+// ScriptIterators.ts:121-144).
+//
+// goscape Zone.Objs contains only LifecycleDespawn (dynamic) objs
+// by construction (pkg/zone/zone.go:221). Matches TS comment
+// "scripting only cares about dynamic objs??" at
+// ScriptIterators.ts:122.
+//
+// Filter coverage (NAI-9):
+//   - Range: Chebyshev distance <= n.huntRange
+//   - CheckObj: obj.Type filter (-1 == allow all)
+//   - CheckCategory: ObjType.Category filter (-1 == allow all)
+//
+// DEFERRED to audit pass:
+//   - CheckVis (TS ScriptIterators.ts:137-142) — LoS/LoW gate.
+func (n *Npc) huntObjs(s *Server, hunt *objtype.HuntType) []entity {
+	if s.zoneMap == nil || s.objTypes == nil {
+		return nil
+	}
+	zoneRadius := 1 + n.huntRange/8
+	var hunted []entity
+	for _, zn := range s.zoneMap.NearbyZones(n.level, n.x, n.z, zoneRadius) {
+		for _, o := range zn.Objs {
+			if o == nil {
+				continue
+			}
+			if hunt.CheckObj != -1 && o.Type != hunt.CheckObj {
+				continue
+			}
+			if hunt.CheckCategory != -1 {
+				if o.Type < 0 || o.Type >= len(s.objTypes.Configs) {
+					continue
+				}
+				ot := s.objTypes.Configs[o.Type]
+				if ot == nil || ot.Category != hunt.CheckCategory {
+					continue
+				}
+			}
+			dx := o.X - n.x
+			if dx < 0 {
+				dx = -dx
+			}
+			dz := o.Z - n.z
+			if dz < 0 {
+				dz = -dz
+			}
+			if dx > n.huntRange || dz > n.huntRange {
+				continue
+			}
+			// TODO: CheckVis gate — TS ScriptIterators.ts:137-142.
+			hunted = append(hunted, o)
+		}
+	}
+	return hunted
+}

@@ -139,8 +139,5 @@ func (n *Npc) huntPlayers(s *Server, hunt *objtype.HuntType) []entity {
 	return hunted
 }
 
-// huntObjs is stubbed at NAI-7; NAI-9 fills the body.
-func (n *Npc) huntObjs(s *Server, hunt *objtype.HuntType) []entity { return nil }
-
 // huntLocs is stubbed at NAI-7; NAI-9 fills the body.
 func (n *Npc) huntLocs(s *Server, hunt *objtype.HuntType) []entity { return nil }
