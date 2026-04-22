@@ -242,3 +242,26 @@ func handleNpcSetTimer(s *ScriptState) error {
 	s.ActiveNpc.SetTimer(interval)
 	return nil
 }
+
+// handleNpcSetHunt (NPC_SETHUNT, opcode 2533) sets the NPC's hunt
+// search range. Despite the opcode name, this sets RANGE only —
+// hunt mode is set via the separate NPC_SETHUNTMODE opcode.
+// Mirrors TS NpcOps.ts:174-176.
+func handleNpcSetHunt(s *ScriptState) error {
+	if err := requireActiveNpc(s, "NPC_SETHUNT"); err != nil {
+		return err
+	}
+	s.ActiveNpc.SetHuntRange(s.PopInt())
+	return nil
+}
+
+// handleNpcSetHuntMode (NPC_SETHUNTMODE, opcode 2534) sets the NPC's
+// HuntType id. -1 clears the hunt mode (valid input). Mirrors TS
+// NpcOps.ts:178-185.
+func handleNpcSetHuntMode(s *ScriptState) error {
+	if err := requireActiveNpc(s, "NPC_SETHUNTMODE"); err != nil {
+		return err
+	}
+	s.ActiveNpc.SetHuntMode(s.PopInt())
+	return nil
+}

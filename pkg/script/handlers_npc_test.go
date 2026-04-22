@@ -696,3 +696,109 @@ func TestHandleNpcSetTimerWithoutActiveNpcErrors(t *testing.T) {
 		t.Errorf("error: got %q, want %q", got, want)
 	}
 }
+
+// TestHandleNpcSetHunt — NPC_SETHUNT pops range and calls
+// ActiveNpc.SetHuntRange. Mirrors TS NpcOps.ts:174-176.
+func TestHandleNpcSetHunt(t *testing.T) {
+	npc := &mockNpc{}
+	sf := &ScriptFile{
+		Name: "test_npc_sethunt",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push range (15)
+			OpNpcSetHunt,
+			OpReturn,
+		},
+		IntOperands: []int32{15, 0, 0},
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	state.Pointers |= PtrActiveNpc
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	if len(npc.setHuntRangeCalls) != 1 {
+		t.Fatalf("setHuntRangeCalls: got %d, want 1", len(npc.setHuntRangeCalls))
+	}
+	if npc.setHuntRangeCalls[0] != 15 {
+		t.Errorf("setHuntRangeCalls[0]: got %d, want 15", npc.setHuntRangeCalls[0])
+	}
+}
+
+// TestHandleNpcSetHuntWithoutActiveNpcErrors — defensive nil check.
+func TestHandleNpcSetHuntWithoutActiveNpcErrors(t *testing.T) {
+	sf := &ScriptFile{
+		Name: "npc_sethunt_no_npc",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpNpcSetHunt, OpReturn,
+		},
+		IntOperands: []int32{5, 0, 0},
+	}
+	state := Init(sf, nil, false, nil, nil)
+	// state.ActiveNpc intentionally nil.
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error, got nil")
+	}
+	want := "NPC_SETHUNT: no active npc"
+	if got := err.Error(); got != want {
+		t.Errorf("error: got %q, want %q", got, want)
+	}
+}
+
+// TestHandleNpcSetHuntMode — NPC_SETHUNTMODE with both positive and
+// -1 (clear) values. Mirrors TS NpcOps.ts:178-185.
+func TestHandleNpcSetHuntMode(t *testing.T) {
+	npc := &mockNpc{}
+	sf := &ScriptFile{
+		Name: "test_npc_sethuntmode",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push mode (3)
+			OpNpcSetHuntMode,
+			OpPushConstantInt, // push mode (-1, clear)
+			OpNpcSetHuntMode,
+			OpReturn,
+		},
+		IntOperands: []int32{3, 0, -1, 0, 0},
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	state.Pointers |= PtrActiveNpc
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	if len(npc.setHuntModeCalls) != 2 {
+		t.Fatalf("setHuntModeCalls: got %d, want 2", len(npc.setHuntModeCalls))
+	}
+	if npc.setHuntModeCalls[0] != 3 {
+		t.Errorf("setHuntModeCalls[0]: got %d, want 3", npc.setHuntModeCalls[0])
+	}
+	if npc.setHuntModeCalls[1] != -1 {
+		t.Errorf("setHuntModeCalls[1]: got %d, want -1 (clear)", npc.setHuntModeCalls[1])
+	}
+}
+
+// TestHandleNpcSetHuntModeWithoutActiveNpcErrors — defensive nil check.
+func TestHandleNpcSetHuntModeWithoutActiveNpcErrors(t *testing.T) {
+	sf := &ScriptFile{
+		Name: "npc_sethuntmode_no_npc",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpNpcSetHuntMode, OpReturn,
+		},
+		IntOperands: []int32{3, 0, 0},
+	}
+	state := Init(sf, nil, false, nil, nil)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error, got nil")
+	}
+	want := "NPC_SETHUNTMODE: no active npc"
+	if got := err.Error(); got != want {
+		t.Errorf("error: got %q, want %q", got, want)
+	}
+}
