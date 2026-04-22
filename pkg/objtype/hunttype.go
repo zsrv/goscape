@@ -178,13 +178,7 @@ func LoadHuntTypes(dir string) (*HuntTypeConfigs, error) {
 	return parseHuntTypes(server)
 }
 
-func parseHuntTypes(server *packet.Packet) (cfgs *HuntTypeConfigs, retErr error) {
-	defer func() {
-		if r := recover(); r != nil {
-			retErr = fmt.Errorf("hunt.dat parse error: %v", r)
-		}
-	}()
-
+func parseHuntTypes(server *packet.Packet) (*HuntTypeConfigs, error) {
 	count := int(server.G2())
 	configs := make([]*HuntType, count)
 	configNames := make(map[string]int, count)

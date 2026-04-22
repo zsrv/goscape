@@ -429,23 +429,3 @@ func TestLoadHuntTypesMissingFile(t *testing.T) {
 		t.Errorf("ConfigNames: got nil, want empty map")
 	}
 }
-
-func TestLoadHuntTypesParseError(t *testing.T) {
-	// count=1 but no record bytes → Decode will read past end.
-	pkt := packet2.NewPacket(nil)
-	pkt.P2(1)
-	pkt.P1(1)
-	// missing payload byte for code 1
-
-	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, "server"), 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "server", "hunt.dat"), pkt.Bytes(), 0o644); err != nil {
-		t.Fatalf("write: %v", err)
-	}
-
-	if _, err := LoadHuntTypes(dir); err == nil {
-		t.Fatalf("LoadHuntTypes: got nil error, want parse error")
-	}
-}
