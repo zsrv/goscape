@@ -29,3 +29,17 @@ func NewObj(level, x, z int, lc Lifecycle, typ, count int) *Obj {
 	o.Entity = NewEntity(level, x, z, 1, 1, lc)
 	return o
 }
+
+
+// Slot returns -1 because objs are not slot-indexed (unlike Players
+// and Npcs which live in server-wide slot registries). Mirrors
+// *entity.Loc.Slot. Required for the world.entity interface so
+// objs can be assigned to Npc.huntTarget.
+func (o *Obj) Slot() int { return -1 }
+
+// Coords returns the obj's tile position. Reads X/Z/Level from the
+// embedded entity.Entity (see entity.go:6-12). Required for the
+// world.entity interface.
+func (o *Obj) Coords() (x, z, level int) {
+	return o.X, o.Z, o.Level
+}

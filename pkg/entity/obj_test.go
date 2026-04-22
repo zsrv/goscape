@@ -40,3 +40,25 @@ func TestObjRevealConstantValue(t *testing.T) {
 		t.Errorf("ObjReveal: got %d, want 100", ObjReveal)
 	}
 }
+
+
+// TestObjSatisfiesEntityInterface locks in the Slot() + Coords()
+// methods required for *Obj to be used as a huntTarget in
+// modules/world. The interface assertion is compile-time; the test
+// itself just confirms values.
+func TestObjSatisfiesEntityInterface(t *testing.T) {
+	type entityLike interface {
+		Slot() int
+		Coords() (x, z, level int)
+	}
+	var _ entityLike = (*Obj)(nil) // compile-time assertion
+
+	o := NewObj(2, 3094, 3106, LifecycleDespawn, 995, 100)
+	if o.Slot() != -1 {
+		t.Errorf("Slot: got %d, want -1 (objs are not slot-indexed)", o.Slot())
+	}
+	x, z, level := o.Coords()
+	if x != 3094 || z != 3106 || level != 2 {
+		t.Errorf("Coords: got (%d,%d,%d), want (3094,3106,2)", x, z, level)
+	}
+}
