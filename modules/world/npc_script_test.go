@@ -350,3 +350,30 @@ func TestResumeOrFinishNpcDefaultBranchClearsScript(t *testing.T) {
 		t.Errorf("activeScript: got %v, want nil (cleared on default branch)", n.activeScript)
 	}
 }
+
+func TestNpcSetTimer(t *testing.T) {
+	n := newNpcForScriptTest(t)
+
+	n.SetTimer(5)
+	if n.timerInterval != 5 {
+		t.Errorf("timerInterval after SetTimer(5): got %d, want 5", n.timerInterval)
+	}
+
+	// -1 is a TS-faithful no-op: must leave timerInterval at 5.
+	n.SetTimer(-1)
+	if n.timerInterval != 5 {
+		t.Errorf("timerInterval after SetTimer(-1): got %d, want 5 (no-op expected)", n.timerInterval)
+	}
+}
+
+func TestNewNpcSeedsTimerIntervalFromType(t *testing.T) {
+	typ := &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 0, DebugName: "test_npc"},
+		Timer:      7,
+	}
+	n := NewNpc(1, 0, 3094, 3106, 0, typ)
+
+	if n.timerInterval != 7 {
+		t.Errorf("timerInterval from NewNpc: got %d, want 7 (seeded from typ.Timer)", n.timerInterval)
+	}
+}

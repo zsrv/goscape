@@ -367,6 +367,12 @@ type ActiveNpc interface {
 	// script runs; lookup happens at fire time via
 	// scriptProvider.GetByTrigger keyed on the NPC's type + category.
 	EnqueueScriptForTrigger(trigger ServerTriggerType, delay int, intArg int)
+
+	// SetTimer sets the tick interval between ai_timer trigger fires
+	// on the active NPC. interval == -1 is a silent no-op, matching
+	// TS Npc.setTimer at Engine-TS/.../Npc.ts:210-214. Called by the
+	// NPC_SETTIMER opcode.
+	SetTimer(interval int)
 }
 
 // ActiveLoc is the surface that LOC_* opcodes use to read the loc

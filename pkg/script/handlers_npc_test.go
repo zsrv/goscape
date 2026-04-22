@@ -26,6 +26,7 @@ type mockNpc struct {
 	changeTypeCalls                    []int
 	damageCalls                        []struct{ amount, dmgType int }
 	enqueueCalls                       []mockEnqueueCall
+	setTimerCalls                      []int
 }
 
 func (m *mockNpc) NpcType() int     { return m.typeID }
@@ -91,6 +92,10 @@ func (m *mockNpc) EnqueueScriptForTrigger(trigger ServerTriggerType, delay, intA
 		delay:   delay,
 		intArg:  intArg,
 	})
+}
+
+func (m *mockNpc) SetTimer(interval int) {
+	m.setTimerCalls = append(m.setTimerCalls, interval)
 }
 
 // runNpcOp executes a single-opcode script against npc + optional mc,

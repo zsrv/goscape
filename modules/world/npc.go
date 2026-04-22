@@ -53,11 +53,13 @@ type Npc struct {
 	stepsTaken      int
 
 	// === script state ===
-	server       *Server          // back-reference; set by Server.addNpc
-	activeScript *script.ScriptState
-	delayed      bool
-	delayedUntil int
-	queue        []script.NpcQueueRequest
+	server        *Server // back-reference; set by Server.addNpc
+	activeScript  *script.ScriptState
+	delayed       bool
+	delayedUntil  int
+	queue         []script.NpcQueueRequest
+	timerInterval int
+	timerClock    int
 
 	// === AI ===
 	targetOp        int
@@ -100,6 +102,7 @@ func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
 		uid:             (typeId << 16) | nid,
 		lifecycle:       NpcLifecycleRespawn,
 		respawnRate:     int(typ.RespawnRate),
+		timerInterval:   int(typ.Timer),
 		startX:          x,
 		startZ:          z,
 		startLevel:      level,
@@ -184,4 +187,14 @@ func (n *Npc) EnqueueScriptForTrigger(trigger script.ServerTriggerType, delay, i
 		Delay:   delay,
 		IntArg:  intArg,
 	})
+}
+
+// SetTimer sets the tick interval between ai_timer trigger fires.
+// interval == -1 is a silent no-op, matching TS Npc.setTimer at
+// Engine-TS/.../Npc.ts:210-214. Implements script.ActiveNpc.SetTimer.
+func (n *Npc) SetTimer(interval int) {
+	if interval == -1 {
+		return
+	}
+	n.timerInterval = interval
 }
