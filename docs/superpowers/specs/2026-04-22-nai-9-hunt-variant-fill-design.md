@@ -48,23 +48,27 @@ After NAI-9 ships:
    neighbourhood of the zone containing (x, z) at the given level.
    Unmaterialised zones skipped (read-path, avoids lazy creation).
 
-3. **Per-NPC observer counter** stored on `*modules/world.Npc` as
-   `observers int`. Maintained via three new methods on the
-   `pkg/rsbuf.NpcSource` interface:
-   - `IncObservers()` — called by `EncodeNpc` at the subscription-add
-     site (`pkg/rsbuf/npcinfo.go:108`).
-   - `DecObservers()` — called at the two subscription-remove sites
-     (`:39`, `:46`), and by the engine-side logout cleanup.
-   - `Observers() int` — read accessor; consumed by
-     `processNpcHunt` in place of the current `:= 1` stub.
+3. **rsbuf-owned observer counter**, keyed by nid, exposed as
+   `rsbuf.GetNpcObservers(nid int) int` — mirrors the
+   `@2004scape/rsbuf` public API at
+   `Engine-TS/node_modules/@2004scape/rsbuf/dist/rsbuf.d.ts:13`
+   (`export function getNpcObservers(nid: number): number`). Storage
+   is a new file `pkg/rsbuf/npc_observers.go` holding a package-level
+   `map[int]int` + accessor functions. Maintained at three sites in
+   `pkg/rsbuf/npcinfo.go` (one subscription-add, two
+   subscription-remove).
 
-4. **Engine-side logout cleanup** in `modules/world/tick.go`'s
-   `processLogouts`: for each exiting player, iterate
-   `p.buildArea.Npcs` and call `DecObservers()` on every subscribed
-   NPC before clearing the build area. Implements the contract
-   `rsbuf.removePlayer(pid)` exposes in Engine-TS (whose WASM
-   internals are not in Engine-TS source; contract observable from
-   `World.ts`'s call site).
+4. **rsbuf-owned logout cleanup**, exposed as
+   `rsbuf.RemovePlayer(pid int, subscribedNpcs map[int]struct{})` —
+   mirrors the `@2004scape/rsbuf` public API at
+   `rsbuf.d.ts:6` (`export function removePlayer(pid: number): void`).
+   Iterates the player's subscription set and decrements each NPC's
+   observer count. Called from `modules/world/tick.go`'s
+   `processLogouts` with `p.buildArea.Npcs` as the subscription set.
+   The `subscribedNpcs` parameter is goscape-specific (TS's
+   removePlayer accesses `PLAYERS[pid].build.npcs` internally;
+   goscape's rsbuf doesn't own the player-build-area state, so the
+   caller supplies it — see D5).
 
 5. **`*entity.Obj` entity-interface satisfaction** — add `Slot()` and
    `Coords()` methods on `*Obj`, mirroring `*entity.Loc`'s existing
@@ -76,7 +80,8 @@ After NAI-9 ships:
      `TestProcessNpcHuntPauseHuntBailsWithNoObservers` and invert:
      expect `huntClock == 0` (gate short-circuits).
    - Add companion `TestProcessNpcHuntPauseHuntRunsWithObservers`
-     that seeds `n.observers = 1` directly, expects `huntClock == 1`.
+     that seeds `rsbuf.SetObserverForTest(n.nid, 1)` via the
+     test-only export, expects `huntClock == 1`.
 
 7. **`nai_followups.md` updates** — fold in the NAI-8 fidelity-audit
    findings surfaced during this brainstorm:
@@ -138,11 +143,11 @@ After NAI-9 ships:
 | Path | Change |
 |---|---|
 | `modules/world/npc_hunt_entities.go` | **New** — three variant bodies (~140 LOC prod) |
-| `modules/world/npc_hunt.go` | Modify — delete the three one-line stubs; replace `observers := 1` with `observers := n.Observers()` |
-| `modules/world/npc.go` | Modify — add `observers int` field; add `IncObservers()`, `DecObservers()`, `Observers() int` methods |
-| `modules/world/tick.go` | Modify — in `processLogouts`, iterate `p.buildArea.Npcs` and call `DecObservers` on each subscribed NPC before build-area cleanup |
+| `modules/world/npc_hunt.go` | Modify — delete the three one-line stubs; replace `observers := 1` with `observers := rsbuf.GetNpcObservers(n.nid)` |
+| `modules/world/tick.go` | Modify — in `processLogouts`, call `rsbuf.RemovePlayer(p.slot, p.buildArea.Npcs)` before build-area cleanup |
 | `modules/world/npc_event_queue_test.go` | Modify — flip `TestProcessNpcHuntPauseHuntRunsWithObserverStub` + add companion |
-| `pkg/rsbuf/npc_source.go` | Modify — extend `NpcSource` interface with three observer methods |
+| `pkg/rsbuf/npc_observers.go` | **New** — package-level `map[int]int` + `GetNpcObservers`, `RemovePlayer`, unexported add/remove helpers. Matches `@2004scape/rsbuf` public API |
+| `pkg/rsbuf/npc_observers_test.go` | **New** — direct tests for inc/dec/floor/clear semantics |
 | `pkg/rsbuf/npcinfo.go` | Modify — 3 new call-sites (inc on add, dec on two removes) |
 | `pkg/zone/map.go` | Modify — add `NearbyZones(level, x, z, zoneRadius int) []*Zone` helper |
 | `pkg/zone/map_test.go` | Modify — tests for `NearbyZones` |
@@ -355,79 +360,102 @@ func (m *ZoneMap) NearbyZones(level, x, z, zoneRadius int) []*Zone {
 }
 ```
 
-### Observer counter — interface + implementation
+### Observer counter — rsbuf-owned storage
 
-`pkg/rsbuf/npc_source.go` interface addition:
-
-```go
-type NpcSource interface {
-    // ... existing methods ...
-
-    // Observer count maintenance. Inc/Dec are called by EncodeNpc as
-    // the NPC enters/leaves a player's subscription set; Observers()
-    // is read by the engine-side PAUSEHUNT gate.
-    IncObservers()
-    DecObservers()
-    Observers() int
-}
-```
-
-`modules/world/npc.go` implementation:
+`pkg/rsbuf/npc_observers.go` (new file):
 
 ```go
-// observers is the count of players currently subscribed to this NPC
-// via NpcInfo. Maintained by pkg/rsbuf.EncodeNpc's add/remove sites
-// and by processLogouts bulk-decrement. Read by processNpcHunt's
-// PAUSEHUNT gate.
+package rsbuf
+
+// npcObservers counts per-NPC subscribers across all player
+// BuildAreas. Mirrors the @2004scape/rsbuf WASM internal state
+// that backs the getNpcObservers(nid) public API.
 //
-// Implements the contract of TS rsbuf.getNpcObservers (World.ts:581,
-// Npc.ts:162) whose WASM internals are not in Engine-TS source.
+// Maintained at three sites in npcinfo.go:
+//   - incNpcObserver on subscription-add
+//   - decNpcObserver on subscription-remove (inactive path)
+//   - decNpcObserver on subscription-remove (out-of-range path)
+// And by RemovePlayer for bulk-decrement on player logout.
 //
-// Observer count is floored at 0 on decrement (matches TS
-// Math.max(x-1, 0) pattern at index.ts:159 — mirrored here by the
-// > 0 guard).
-func (n *Npc) IncObservers() { n.observers++ }
-func (n *Npc) DecObservers() {
-    if n.observers > 0 {
-        n.observers--
+// Read by consumers via GetNpcObservers (public API; currently
+// called from modules/world/npc_hunt.go's PAUSEHUNT gate).
+var npcObservers = map[int]int{}
+
+// GetNpcObservers returns the number of players currently subscribed
+// to this NPC via NpcInfo. Returns 0 for any nid never observed or
+// whose count floored at zero. Public API; mirrors
+// @2004scape/rsbuf's getNpcObservers(nid) at rsbuf.d.ts:13.
+func GetNpcObservers(nid int) int { return npcObservers[nid] }
+
+// RemovePlayer performs bulk-decrement of observer counts for every
+// NPC in the player's subscription set. Mirrors @2004scape/rsbuf's
+// removePlayer(pid) at rsbuf.d.ts:6, whose WASM internals iterate
+// the player's build.npcs set and decrement each NPC's observer
+// count. Caller supplies the subscription set because goscape's
+// pkg/rsbuf doesn't own the per-player BuildArea.
+//
+// Safe to call with a nil or empty set.
+func RemovePlayer(pid int, subscribedNpcs map[int]struct{}) {
+    for nid := range subscribedNpcs {
+        decNpcObserver(nid)
     }
 }
-func (n *Npc) Observers() int { return n.observers }
+
+// incNpcObserver increments nid's observer count. Unexported;
+// called only from EncodeNpc.
+func incNpcObserver(nid int) { npcObservers[nid]++ }
+
+// decNpcObserver decrements nid's observer count, flooring at 0.
+// Matches @2004scape/rsbuf semantics (Math.max(x - 1, 0) in the TS
+// shim wrapper). Unexported; called from EncodeNpc remove sites
+// and RemovePlayer.
+func decNpcObserver(nid int) {
+    if v := npcObservers[nid]; v > 0 {
+        npcObservers[nid] = v - 1
+    }
+}
 ```
+
+Why package-level state, not per-NPC field:
+- The `@2004scape/rsbuf` public API takes an `nid` (not an Npc pointer),
+  so the storage is nid-keyed internally. Mirroring the API shape forces
+  nid-keyed storage on the goscape side too.
+- Keeps pkg/rsbuf self-contained (no interface extension, no cross-package
+  field writes).
+- Per-test state reset via `cleanup` helper in `npc_observers_test.go`
+  that does `clear(npcObservers)` — matches the `@2004scape/rsbuf`
+  `cleanup()` function at `rsbuf.d.ts:14`.
 
 `pkg/rsbuf/npcinfo.go` hook sites — 3 additions:
 
 - At the first delete (`:39`, inside the `!ok || !n.Active()` branch):
-  before `delete(ba.Npcs, nid)`, call `n.DecObservers()` **only if
-  `n != nil`**. The `!ok` sub-case hits when the subscribed nid is
-  missing from `byNid` entirely — `n` is the zero value of
-  `NpcSource` (nil), so unconditional deref would panic. Inactive-path
-  with non-nil `n` decrements normally. The nil sub-case is a
-  counter leak for that nid; rare (nid vanished from server-side
-  npcs without the subscription being cleaned up first) and flagged
-  as a plan-phase audit item.
-- At the second delete (`:46`, inside the level-mismatch /
-  out-of-zone-range branch): `n.DecObservers()` before
-  `delete(ba.Npcs, nid)`. `n` is guaranteed non-nil here (prior
-  branch handled the missing case).
-- At the add (`:108`): `n.IncObservers()` after
+  `decNpcObserver(nid)` before `delete(ba.Npcs, nid)`. Fires for both
+  the `!ok` (server-side NPC gone) and `!n.Active()` (despawning)
+  sub-cases — both are observer-losing transitions. The nid is known
+  regardless of whether the NpcSource lookup succeeded.
+- At the second delete (`:46`, level-mismatch / out-of-zone-range
+  branch): `decNpcObserver(nid)` before `delete(ba.Npcs, nid)`.
+- At the add (`:108`): `incNpcObserver(nid)` after
   `ba.Npcs[nid] = struct{}{}`.
+
+Because storage is nid-keyed rather than pointer-keyed, the nil-guard
+concern from the earlier draft evaporates — we use the nid directly,
+which is always available in the encode loop regardless of whether
+the server-side NpcSource exists.
 
 ### `processLogouts` hook
 
 ```go
 // Inside processLogouts, before tearing down the player:
 if p.buildArea != nil {
-    for nid := range p.buildArea.Npcs {
-        if nid >= 0 && nid < len(s.npcs) && s.npcs[nid] != nil {
-            s.npcs[nid].DecObservers()
-        }
-    }
+    rsbuf.RemovePlayer(p.slot, p.buildArea.Npcs)
 }
 ```
 
 Lives in `modules/world/tick.go` next to the existing `processLogouts`
-body.
+body. Mirrors the TS call shape (`rsbuf.removePlayer(pid)`); the
+BuildArea set is a goscape-specific second argument because goscape's
+rsbuf doesn't own per-player build-area state (see D5).
 
 ### `*entity.Obj` interface methods
 
@@ -452,13 +480,13 @@ func (o *Obj) Coords() (x, z, level int) {
 Tick N:
   processNpcs
     processNpcHunt(n)
-      observers := n.Observers()          ← reads counter maintained in tick N-1
+      observers := rsbuf.GetNpcObservers(n.nid)   ← reads counter maintained in tick N-1
       ... PAUSEHUNT gate ...
   ...
   processInfo
-    EncodeNpc(p, ...)                     ← writes counter for tick N+1's read
-      phase-1 remove branches: n.DecObservers()
-      phase-2 add branch:      n.IncObservers()
+    EncodeNpc(p, ...)                             ← writes counter for tick N+1's read
+      phase-1 remove branches: decNpcObserver(nid)
+      phase-2 add branch:      incNpcObserver(nid)
 ```
 
 One-tick lag is inherent to `processNpcs` running before `processInfo`
@@ -491,8 +519,9 @@ Npc.turn()
    with `l.Type() >= len(s.locTypes.Configs)`) when `CheckCategory`
    filter is active — skip the entity. Matches TS `NpcType.get(type)`
    returning a default if missing, which then fails category compare.
-4. **Observer-count underflow** — floored at 0 in `DecObservers`.
-   Matches TS `Math.max(x-1, 0)`.
+4. **Observer-count underflow** — floored at 0 in `decNpcObserver`.
+   Matches `@2004scape/rsbuf` semantics observable via the shim's
+   `Math.max(x-1, 0)` pattern.
 5. **Re-subscription during mid-tick** — not possible; NpcInfo encode
    is monotonic within a single `processInfo` pass per player.
 
@@ -512,16 +541,25 @@ Npc.turn()
   at ScriptIterators.ts:81, :100, :124, :147) not ported. Go
   iteration is synchronous per-tick; the TS premise (lazy generator
   outliving the tick) doesn't apply. No-op divergence.
-- **D4**: Observer-counter storage shape — per-NPC field on
-  `modules/world.Npc` accessed via `NpcSource` interface methods.
-  TS stores `observers` as a field on the rsbuf-side Npc mirror
-  struct. Semantically identical; storage-location divergence is a
-  goscape-layout artefact (rsbuf doesn't own an Npc mirror here).
-- **D5**: Logout cleanup (`processLogouts` bulk-decrement) is
-  engine-side in goscape. In Engine-TS, `rsbuf.removePlayer(pid)` is
-  the single call-shape; its WASM internals (presumably iterating
-  subscribed NPCs and decrementing) are not in Engine-TS source.
-  goscape's engine-side hook implements the observable contract.
+- **D4**: Observer-counter storage matches the `@2004scape/rsbuf`
+  public API shape (nid-keyed, rsbuf-owned) via
+  `rsbuf.GetNpcObservers(nid) int`. Internal representation is a
+  package-level `map[int]int` rather than the WASM's internal
+  per-NPC field (not source-available from
+  `Engine-TS/node_modules/@2004scape/rsbuf/dist/`). Semantically
+  identical; storage-representation divergence is an
+  implementation-language artefact.
+- **D5**: Logout cleanup API signature diverges from
+  `@2004scape/rsbuf`. TS public API is `removePlayer(pid: number): void`
+  (rsbuf.d.ts:6) — the WASM accesses `PLAYERS[pid].build.npcs`
+  internally. goscape's `pkg/rsbuf` doesn't own per-player BuildArea
+  state (the stateless-encoder pattern established by prior ports
+  pre-dates this sub-spec), so `rsbuf.RemovePlayer` takes the
+  subscription set as a second argument:
+  `rsbuf.RemovePlayer(pid int, subscribedNpcs map[int]struct{})`.
+  Called from `modules/world.processLogouts` with
+  `p.buildArea.Npcs`. Observable behaviour matches TS; API shape
+  differs only in the caller-supplied BuildArea reference.
 - **D6**: `huntObjs` iterates `Zone.Objs` which by construction
   contains only `LifecycleDespawn` (dynamic) objs
   (`pkg/zone/zone.go:221`). Matches TS intent (inline comment
@@ -550,20 +588,45 @@ Npc.turn()
    `Slot() int` + `Coords() (x, z, level int)`.
 2. `TestObjSlotReturnsNegativeOne` and `TestObjCoords`.
 
+### `pkg/rsbuf/npc_observers_test.go` (new file)
+
+Unit tests for the counter in isolation:
+
+1. `TestGetNpcObserversDefaultZero` — fresh map; any nid returns 0.
+2. `TestIncNpcObserverIncrements` — after two inc calls for same
+   nid, `GetNpcObservers` returns 2.
+3. `TestDecNpcObserverFloorsAtZero` — dec with zero count stays at
+   0 (no underflow, no negative).
+4. `TestDecNpcObserverDecrementsPositiveCount` — inc twice, dec
+   once, expect 1.
+5. `TestRemovePlayerDecrementsEachSubscribedNid` — seed counts;
+   call `RemovePlayer(pid, {nidA, nidB})`; assert both decremented
+   by 1.
+6. `TestRemovePlayerEmptySetIsNoOp` — empty map; call RemovePlayer;
+   assert no panic and no counts changed.
+7. `TestRemovePlayerNilSetIsNoOp` — nil map; call RemovePlayer;
+   assert no panic.
+
+All tests must `clear(npcObservers)` at top (either via a helper or
+direct access since they're in the same package).
+
 ### `pkg/rsbuf/npcinfo_test.go` additions
 
-Three tests exercising the observer counter through the real
-EncodeNpc path using a mock `NpcSource` that tracks inc/dec calls:
+Three tests exercising the counter through the real EncodeNpc path:
 
 1. `TestEncodeNpcAddIncrementsObservers` — empty subscription; one
-   nearby active NPC; assert `IncObservers` called once on that
-   NPC.
-2. `TestEncodeNpcRemoveOnInactiveDecrementsObservers` — prior
-   subscription; NPC becomes `Active() == false`; assert
-   `DecObservers` called once.
-3. `TestEncodeNpcRemoveOnOutOfRangeDecrementsObservers` — prior
-   subscription; NPC moves to zone-distance > 15; assert
-   `DecObservers` called once.
+   nearby active NPC; assert `GetNpcObservers(nid) == 1` after
+   encode.
+2. `TestEncodeNpcRemoveOnInactiveDecrementsObservers` — pre-seed
+   subscription + observer count = 1; NPC becomes
+   `Active() == false`; assert count decrements to 0 after encode.
+3. `TestEncodeNpcRemoveOnOutOfRangeDecrementsObservers` — pre-seed
+   subscription + count = 1; NPC moves to zone-distance > 15;
+   assert count decrements to 0 after encode.
+
+Tests must reset package state (`clear(npcObservers)`) before each
+run to avoid cross-test pollution. Add a `TestMain` helper if not
+already present.
 
 ### `modules/world/npc_hunt_entities_test.go` (new file)
 
@@ -602,13 +665,18 @@ Plus one integration:
    `TestProcessNpcHuntPauseHuntBailsWithNoObservers`. Change
    assertion from `huntClock == 1` to `huntClock == 0`. Rationale:
    no observers seeded; PAUSEHUNT gate short-circuits.
-2. Add `TestProcessNpcHuntPauseHuntRunsWithObservers` — seed
-   `n.observers = 1` directly (via `n.IncObservers()`), run tick,
-   assert `huntClock == 1`.
+2. Add `TestProcessNpcHuntPauseHuntRunsWithObservers` — seed the
+   rsbuf package state (`rsbuf.SetObserverForTest(n.nid, 1)` — a
+   `_test.go`-only export helper lives in
+   `pkg/rsbuf/npc_observers_test_export_test.go` with the
+   `export_test.go` suffix convention), run tick, assert
+   `huntClock == 1`.
 3. Add `TestProcessLogoutsDecrementsSubscribedNpcObservers` —
    set up a player with `p.buildArea.Npcs = {nid1: {}, nid2: {}}`
-   and both NPCs seeded `observers = 1`; run `processLogouts`;
-   assert both decremented to 0.
+   and seed `rsbuf.SetObserverForTest(nid1, 1)` +
+   `rsbuf.SetObserverForTest(nid2, 1)`; run `processLogouts`;
+   assert `rsbuf.GetNpcObservers(nid1) == 0` and
+   `rsbuf.GetNpcObservers(nid2) == 0`.
 
 ### Fixtures
 
@@ -625,13 +693,12 @@ Plus one integration:
 
 | Area | Prod | Test |
 |---|---|---|
-| `pkg/rsbuf` observer counter (interface + 3 hook sites) | ~10 | ~60 |
+| `pkg/rsbuf/npc_observers.go` + 3 hook sites in npcinfo.go | ~50 | ~120 |
 | `pkg/zone/map.go` NearbyZones + helper test | ~20 | ~60 |
 | `pkg/entity/obj.go` Slot/Coords + test | ~10 | ~20 |
 | `modules/world/npc_hunt_entities.go` (3 variants) | ~140 | ~280 |
-| `modules/world/npc.go` (observers field + 3 methods) | ~15 | (via integration) |
 | `modules/world/npc_hunt.go` edits (stub deletion + gate read) | ~2 | — |
-| `processLogouts` hook | ~8 | ~40 |
+| `processLogouts` hook (single rsbuf.RemovePlayer call) | ~3 | ~40 |
 | `npc_event_queue_test.go` flip + 2 companions | — | ~60 |
 | `nai_followups.md` edits | — (prose) | — |
 | **Total** | **~205** | **~520** |
@@ -639,9 +706,10 @@ Plus one integration:
 Combined ~725 LOC. Over the roadmap's ~180 estimate because the
 observer-counter infrastructure was underscoped in the roadmap —
 NAI-7 inlined the stub, NAI-9 was charged with the fix, but the
-fix is a real subsystem: storage shape, NpcSource interface
-extension, three hook sites in EncodeNpc, logout cleanup, and
-tests for each of those edges.
+fix is a real subsystem: a new `pkg/rsbuf/npc_observers.go` file
+that mirrors `@2004scape/rsbuf`'s public observer API, three hook
+sites in `EncodeNpc`, a logout cleanup API, and tests for each of
+those edges.
 
 ## Dependencies
 
@@ -653,19 +721,17 @@ tests for each of those edges.
 ## Verifications to resolve during plan-write
 
 1. Confirm `processLogouts` exact location and cleanup order — the
-   observer-decrement must run BEFORE `p.buildArea` is cleared or
-   the player struct is invalidated.
-2. Confirm `byNid` lookup in `EncodeNpc` at `:39` and `:46` can
-   return a non-nil `NpcSource` on the inactive-path; if `n` is
-   nil-but-still-subscribed, `DecObservers` must be skipped
-   (counter stays stuck; a follow-up audit item, not a NAI-9
-   blocker).
-3. Confirm `NpcType.Category`, `ObjType.Category`, `LocType.Category`
+   `rsbuf.RemovePlayer` call must run BEFORE `p.buildArea` is
+   cleared or the player struct is invalidated.
+2. Confirm `NpcType.Category`, `ObjType.Category`, `LocType.Category`
    all use `-1` as the "uncategorised" sentinel (already verified for
    NpcType/ObjType/LocType defaults in brainstorm).
-4. Confirm whether `objtype.NPCTypeConfigs` is the correct type name
+3. Confirm whether `objtype.NPCTypeConfigs` is the correct type name
    (spec-reference is case-inconsistent elsewhere in the codebase:
    `NPCTypeConfigs` vs `NpcTypeConfigs`).
-5. Confirm `Zone.Locs` iteration is safe during a hunt pass (no
+4. Confirm `Zone.Locs` iteration is safe during a hunt pass (no
    concurrent zone mutation; NPC hunt runs inside `processNpcs` —
    zone events fire in `processZones` later in the tick).
+5. Package-state leak between test runs in `pkg/rsbuf` — existing
+   tests may or may not run in `-parallel`. `clear(npcObservers)` in
+   a per-test setup helper is the fix; plan must include it.
