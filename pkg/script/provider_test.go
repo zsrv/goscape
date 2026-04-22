@@ -88,8 +88,8 @@ func TestProviderGetByTriggerFallback(t *testing.T) {
 	typeID := 10
 	catID := 3
 
-	specificKey := uint32(trigger) | (0x2 << 8) | (uint32(typeID) << 10)
-	categoryKey := uint32(trigger) | (0x1 << 8) | (uint32(catID) << 10)
+	specificKey := LookupKeyForType(trigger, typeID)
+	categoryKey := LookupKeyForCategory(trigger, catID)
 	globalKey := uint32(trigger)
 
 	p := NewProvider()
@@ -179,7 +179,7 @@ func TestGetByLookupKey(t *testing.T) {
 
 func TestGetByTriggerSpecificTypeOnly(t *testing.T) {
 	p := NewProvider()
-	typeKey := uint32(TriggerAdvanceStat) | (0x2 << 8) | (uint32(0) << 10) // stat 0 = Attack
+	typeKey := LookupKeyForType(TriggerAdvanceStat, 0) // stat 0 = Attack
 	sf := &ScriptFile{Name: "[advancestat,attack]", LookupKey: typeKey}
 	p.Register(sf)
 
@@ -191,7 +191,7 @@ func TestGetByTriggerSpecificTypeOnly(t *testing.T) {
 
 func TestGetByTriggerSpecificCategoryOnly(t *testing.T) {
 	p := NewProvider()
-	catKey := uint32(TriggerChangeStat) | (0x1 << 8) | (uint32(7) << 10) // category 7
+	catKey := LookupKeyForCategory(TriggerChangeStat, 7) // category 7
 	sf := &ScriptFile{Name: "[changestat,_cat7]", LookupKey: catKey}
 	p.Register(sf)
 
@@ -229,7 +229,7 @@ func TestGetByTriggerSpecificTypeShortCircuitsCategory(t *testing.T) {
 	// type=5, cat=3 — only category script registered. Specific must return nil
 	// because typeID != -1 picks the type tier and ignores the cat tier.
 	p := NewProvider()
-	catKey := uint32(TriggerChangeStat) | (0x1 << 8) | (uint32(3) << 10)
+	catKey := LookupKeyForCategory(TriggerChangeStat, 3)
 	p.Register(&ScriptFile{Name: "[changestat,_cat3]", LookupKey: catKey})
 
 	got := p.GetByTriggerSpecific(TriggerChangeStat, 5, 3)

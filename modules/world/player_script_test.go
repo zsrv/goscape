@@ -194,7 +194,7 @@ func TestAddXPFiresChangeStatOnLevelUp(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
 	// Register [changestat,attack=0] — keyed by trigger(165) | (0x2<<8) | (0<<10).
-	key := uint32(script.TriggerChangeStat) | (0x2 << 8) | (uint32(objtype.PlayerStatAttack) << 10)
+	key := script.LookupKeyForType(script.TriggerChangeStat, objtype.PlayerStatAttack)
 	sf := &script.ScriptFile{
 		Name:      "[changestat,attack]",
 		LookupKey: key,
@@ -225,7 +225,7 @@ func TestAddXPFiresChangeStatOnLevelUp(t *testing.T) {
 func TestAddXPDoesNotFireChangeStatWithoutLevelUp(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
-	key := uint32(script.TriggerChangeStat) | (0x2 << 8) | (uint32(objtype.PlayerStatAttack) << 10)
+	key := script.LookupKeyForType(script.TriggerChangeStat, objtype.PlayerStatAttack)
 	s.scriptProvider.Register(&script.ScriptFile{Name: "[changestat,attack]", LookupKey: key})
 
 	p, _ := newTestPlayer(t)
@@ -271,7 +271,7 @@ func TestAddXPFiresAdvanceStatOnLevelUp(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
 	// Register [advancestat,attack=0] at the type-specific lookup key.
-	key := uint32(script.TriggerAdvanceStat) | (0x2 << 8) | (uint32(objtype.PlayerStatAttack) << 10)
+	key := script.LookupKeyForType(script.TriggerAdvanceStat, objtype.PlayerStatAttack)
 	sf := &script.ScriptFile{
 		Name:      "[advancestat,attack]",
 		LookupKey: key,
@@ -299,7 +299,7 @@ func TestAddXPFiresAdvanceStatOnLevelUp(t *testing.T) {
 func TestAddXPDoesNotFireAdvanceStatWithoutLevelUp(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
-	key := uint32(script.TriggerAdvanceStat) | (0x2 << 8) | (uint32(objtype.PlayerStatAttack) << 10)
+	key := script.LookupKeyForType(script.TriggerAdvanceStat, objtype.PlayerStatAttack)
 	s.scriptProvider.Register(&script.ScriptFile{Name: "[advancestat,attack]", LookupKey: key})
 
 	p, _ := newTestPlayer(t)
@@ -353,8 +353,8 @@ func TestAddXPFiresBothChangeAndAdvanceStatOnLevelUp(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
 
-	changeKey := uint32(script.TriggerChangeStat) | (0x2 << 8) | (uint32(objtype.PlayerStatAttack) << 10)
-	advKey := uint32(script.TriggerAdvanceStat) | (0x2 << 8) | (uint32(objtype.PlayerStatAttack) << 10)
+	changeKey := script.LookupKeyForType(script.TriggerChangeStat, objtype.PlayerStatAttack)
+	advKey := script.LookupKeyForType(script.TriggerAdvanceStat, objtype.PlayerStatAttack)
 	changeSF := &script.ScriptFile{Name: "[changestat,attack]", LookupKey: changeKey}
 	advSF := &script.ScriptFile{Name: "[advancestat,attack]", LookupKey: advKey}
 	s.scriptProvider.Register(changeSF)

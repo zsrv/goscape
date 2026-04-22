@@ -1026,7 +1026,7 @@ func TestOpNpc1FiresScriptAndEmitsSay(t *testing.T) {
 	s.scriptProvider = script.NewProvider()
 
 	// Register [opnpc1, type=7] = push "cluck cluck" + NPC_SAY + RETURN.
-	key := uint32(script.TriggerOpNpc1) | (0x2 << 8) | (uint32(7) << 10)
+	key := script.LookupKeyForType(script.TriggerOpNpc1, 7)
 	s.scriptProvider.Register(&script.ScriptFile{
 		Name:             "[opnpc1,chicken]",
 		LookupKey:        key,
@@ -1081,7 +1081,7 @@ func TestOpNpc1FiresScriptAndEmitsAnimPlusSay(t *testing.T) {
 
 	// [opnpc1, type=7]: push seq=42 + push delay=3 + NPC_ANIM +
 	//                   push "cluck" + NPC_SAY + RETURN.
-	key := uint32(script.TriggerOpNpc1) | (0x2 << 8) | (uint32(7) << 10)
+	key := script.LookupKeyForType(script.TriggerOpNpc1, 7)
 	s.scriptProvider.Register(&script.ScriptFile{
 		Name:      "[opnpc1,chicken]",
 		LookupKey: key,

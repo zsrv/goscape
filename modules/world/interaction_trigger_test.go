@@ -14,7 +14,7 @@ import (
 // buildNpcSayScript produces a tiny [push "hello", NPC_SAY, RETURN] script
 // keyed at the trigger+typeID-specific lookup key.
 func buildNpcSayScript(trigger script.ServerTriggerType, typeID int, text string) *script.ScriptFile {
-	key := uint32(trigger) | (0x2 << 8) | (uint32(typeID) << 10)
+	key := script.LookupKeyForType(trigger, typeID)
 	return &script.ScriptFile{
 		Name:             "[opnpc1,test]",
 		LookupKey:        key,
@@ -126,7 +126,7 @@ func TestTryFireOpTrigger_ScriptSuspends(t *testing.T) {
 	// Script: P_DELAY(5) + RETURN. Operands layout per S4 reference.
 	suspendScript := &script.ScriptFile{
 		Name:             "[opnpc1,suspend]",
-		LookupKey:        uint32(script.TriggerOpNpc1) | (0x2 << 8) | (uint32(7) << 10),
+		LookupKey:        script.LookupKeyForType(script.TriggerOpNpc1, 7),
 		Opcodes:          []script.Opcode{script.OpPushConstantInt, script.OpPDelay, script.OpReturn},
 		IntOperands:      []int32{5, 0, 0},
 		StringOperands:   []string{"", "", ""},
@@ -182,7 +182,7 @@ func TestTryFireOpTrigger_CategoryFallback(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
 	// Script registered at category-level, not type-level.
-	categoryKey := uint32(script.TriggerOpNpc1) | (0x1 << 8) | (uint32(3) << 10)
+	categoryKey := script.LookupKeyForCategory(script.TriggerOpNpc1, 3)
 	catScript := &script.ScriptFile{
 		Name:             "[opnpc1,_cat3]",
 		LookupKey:        categoryKey,
@@ -257,7 +257,7 @@ func TestProcessInteractionInteractionScriptKindSkipsDispatch(t *testing.T) {
 // TestTryFireOpTrigger_HappyPath but for arbitrary triggers.
 func newNoopScriptFile(t *testing.T, trigger script.ServerTriggerType, typeID, _ int) *script.ScriptFile {
 	t.Helper()
-	key := uint32(trigger) | (0x2 << 8) | (uint32(typeID) << 10)
+	key := script.LookupKeyForType(trigger, typeID)
 	return &script.ScriptFile{
 		Name:             "[trigger,noop]",
 		LookupKey:        key,
@@ -463,7 +463,7 @@ func scriptFileWithApRangeCall(t *testing.T, trigger script.ServerTriggerType, t
 	t.Helper()
 	return &script.ScriptFile{
 		Name:      "aploc_aprange_test",
-		LookupKey: uint32(trigger) | (0x2 << 8) | (uint32(typeID) << 10),
+		LookupKey: script.LookupKeyForType(trigger, typeID),
 		Opcodes: []script.Opcode{
 			script.OpPushConstantInt,
 			script.OpPApRange,
