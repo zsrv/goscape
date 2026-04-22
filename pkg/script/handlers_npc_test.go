@@ -27,6 +27,8 @@ type mockNpc struct {
 	damageCalls                        []struct{ amount, dmgType int }
 	enqueueCalls                       []mockEnqueueCall
 	setTimerCalls                      []int
+	setHuntRangeCalls                  []int
+	setHuntModeCalls                   []int
 }
 
 func (m *mockNpc) NpcType() int     { return m.typeID }
@@ -96,6 +98,14 @@ func (m *mockNpc) EnqueueScriptForTrigger(trigger ServerTriggerType, delay, intA
 
 func (m *mockNpc) SetTimer(interval int) {
 	m.setTimerCalls = append(m.setTimerCalls, interval)
+}
+
+func (m *mockNpc) SetHuntRange(r int) {
+	m.setHuntRangeCalls = append(m.setHuntRangeCalls, r)
+}
+
+func (m *mockNpc) SetHuntMode(mode int) {
+	m.setHuntModeCalls = append(m.setHuntModeCalls, mode)
 }
 
 // runNpcOp executes a single-opcode script against npc + optional mc,

@@ -65,6 +65,12 @@ type Npc struct {
 	timerInterval int
 	timerClock    int
 
+	// === hunt ===
+	huntMode   int
+	huntRange  int
+	huntClock  int
+	huntTarget entity
+
 	// === AI ===
 	targetOp        int
 	wanderCounter   int
@@ -109,6 +115,8 @@ func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
 		respawnRate:     int(typ.RespawnRate),
 		timerInterval:   int(typ.Timer),
 		regenInterval:   int(typ.RegenRate),
+		huntMode:        typ.HuntMode,
+		huntRange:       int(typ.HuntRange),
 		startX:          x,
 		startZ:          z,
 		startLevel:      level,
@@ -205,6 +213,21 @@ func (n *Npc) SetTimer(interval int) {
 	n.timerInterval = interval
 }
 
+// SetHuntRange sets the NPC's hunt search radius. Called by the
+// NPC_SETHUNT opcode. Implements script.ActiveNpc.SetHuntRange.
+func (n *Npc) SetHuntRange(r int) {
+	n.huntRange = r
+}
+
+// SetHuntMode sets the NPC's HuntType id. -1 clears the hunt mode
+// (unlike SetTimer's -1 no-op — SetHuntMode accepts -1 as a valid
+// "clear" command). Callers do no bounds validation; the consumer
+// (processNpcHunt) validates when looking up the HuntType. Mirrors
+// TS NpcOps.ts:178-185. Implements script.ActiveNpc.SetHuntMode.
+func (n *Npc) SetHuntMode(mode int) {
+	n.huntMode = mode
+}
+
 // revertType restores the NPC to its baseline type and resets state
 // that should not persist across a respawn or revert-from-changetype.
 // Matches TS Npc.resetEntity at Engine-TS/.../Npc.ts:280-317, minus
@@ -241,4 +264,12 @@ func (n *Npc) revertType() {
 	n.waypointIndex = -1
 	n.tele = true
 	n.masks |= rsbuf.NpcMaskChangeType
+	// NAI-7: hunt-field resets. Matches TS resetEntity at
+	// Engine-TS/.../Npc.ts:309-312.
+	n.huntClock = 0
+	n.huntTarget = nil
+	if n.typ != nil {
+		n.huntRange = int(n.typ.HuntRange)
+		n.huntMode = n.typ.HuntMode
+	}
 }

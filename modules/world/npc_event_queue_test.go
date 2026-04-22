@@ -252,6 +252,77 @@ func TestProcessNpcRegenDecrementsWhenAboveBase(t *testing.T) {
 	}
 }
 
+func TestNewNpcSeedsHuntFromType(t *testing.T) {
+	typ := &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 0, DebugName: "test_npc"},
+		HuntMode:   3,
+		HuntRange:  5,
+	}
+	n := NewNpc(1, 0, 3094, 3106, 0, typ)
+
+	if n.huntMode != 3 {
+		t.Errorf("huntMode: got %d, want 3 (seeded from typ.HuntMode)", n.huntMode)
+	}
+	if n.huntRange != 5 {
+		t.Errorf("huntRange: got %d, want 5 (seeded from typ.HuntRange)", n.huntRange)
+	}
+}
+
+func TestNpcSetHuntRangeAndMode(t *testing.T) {
+	n := newNpcForLifecycleTest(t)
+
+	n.SetHuntRange(7)
+	if n.huntRange != 7 {
+		t.Errorf("huntRange after SetHuntRange(7): got %d, want 7", n.huntRange)
+	}
+
+	n.SetHuntMode(2)
+	if n.huntMode != 2 {
+		t.Errorf("huntMode after SetHuntMode(2): got %d, want 2", n.huntMode)
+	}
+
+	// -1 is a valid clear value (not a no-op like SetTimer).
+	n.SetHuntMode(-1)
+	if n.huntMode != -1 {
+		t.Errorf("huntMode after SetHuntMode(-1): got %d, want -1 (clear)", n.huntMode)
+	}
+}
+
+func TestNpcRevertTypeResetsHuntFields(t *testing.T) {
+	// Use a typ with explicit HuntMode=2, HuntRange=4 so we can
+	// verify the reset brings fields BACK to those values after
+	// scripts mutate them.
+	typ := &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 0, DebugName: "test_npc"},
+		Stats:      []uint16{0, 0, 0, 10, 0, 0},
+		Category:   -1,
+		HuntMode:   2,
+		HuntRange:  4,
+	}
+	n := NewNpc(1, 0, 3094, 3106, 0, typ)
+
+	// Mutate all 4 hunt fields (simulating live hunt state).
+	n.huntRange = 99
+	n.huntMode = 0
+	n.huntClock = 42
+	n.huntTarget = nil // already nil; just documenting the expected reset
+
+	n.revertType()
+
+	if n.huntRange != 4 {
+		t.Errorf("huntRange: got %d, want 4 (reset from typ.HuntRange)", n.huntRange)
+	}
+	if n.huntMode != 2 {
+		t.Errorf("huntMode: got %d, want 2 (reset from typ.HuntMode)", n.huntMode)
+	}
+	if n.huntClock != 0 {
+		t.Errorf("huntClock: got %d, want 0 (reset)", n.huntClock)
+	}
+	if n.huntTarget != nil {
+		t.Errorf("huntTarget: got %v, want nil (reset)", n.huntTarget)
+	}
+}
+
 func TestProcessNpcEventQueueSkipsDelayedNpcs(t *testing.T) {
 	s := newServerForScriptTest(t)
 	s.currentTick = 100

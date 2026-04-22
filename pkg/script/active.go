@@ -373,6 +373,16 @@ type ActiveNpc interface {
 	// TS Npc.setTimer at Engine-TS/.../Npc.ts:210-214. Called by the
 	// NPC_SETTIMER opcode.
 	SetTimer(interval int)
+
+	// SetHuntRange sets the NPC's hunt search radius. Called by
+	// the NPC_SETHUNT opcode. Matches TS NpcOps.ts:174-176 — despite
+	// the opcode name, this sets RANGE only; mode uses SetHuntMode.
+	SetHuntRange(r int)
+
+	// SetHuntMode sets the NPC's HuntType id. -1 clears. Callers
+	// do no bounds validation; the hunt processor validates when
+	// looking up the HuntType. Mirrors TS NpcOps.ts:178-185.
+	SetHuntMode(mode int)
 }
 
 // ActiveLoc is the surface that LOC_* opcodes use to read the loc
