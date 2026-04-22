@@ -9,9 +9,9 @@ import (
 func TestModalCloseEmitsStopTransmit(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	p.invListeners = []InventoryListener{
-		{Type: 93, Com: 149, Source: 2, FirstSeen: false},
-		{Type: 93, Com: 150, Source: -1, FirstSeen: false},
+	p.invListeners = map[int]InventoryListener{
+		149: {Type: 93, Com: 149, Source: 2, FirstSeen: false},
+		150: {Type: 93, Com: 150, Source: -1, FirstSeen: false},
 	}
 	p.refreshModalClose = true
 
@@ -35,8 +35,8 @@ func TestModalCloseEmitsStopTransmit(t *testing.T) {
 func TestNoStopTransmitWithoutModalClose(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	p.invListeners = []InventoryListener{
-		{Type: 93, Com: 149, Source: 2, FirstSeen: false},
+	p.invListeners = map[int]InventoryListener{
+		149: {Type: 93, Com: 149, Source: 2, FirstSeen: false},
 	}
 	p.refreshModalClose = false
 

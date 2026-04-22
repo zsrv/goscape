@@ -29,8 +29,8 @@ func TestUpdateInvsFirstSeenFires(t *testing.T) {
 	owner.invs[93] = inv
 
 	viewer, vcc := newInvListenerTestPlayer(t, s, 3)
-	viewer.invListeners = []InventoryListener{
-		{Type: 93, Com: 149, Source: 2, FirstSeen: true},
+	viewer.invListeners = map[int]InventoryListener{
+		149: {Type: 93, Com: 149, Source: 2, FirstSeen: true},
 	}
 
 	received := drainConn(t, vcc)
@@ -40,7 +40,7 @@ func TestUpdateInvsFirstSeenFires(t *testing.T) {
 	if len(got) == 0 {
 		t.Fatal("FirstSeen should fire a packet; got none")
 	}
-	if viewer.invListeners[0].FirstSeen {
+	if viewer.invListeners[149].FirstSeen {
 		t.Error("FirstSeen should flip to false after first send")
 	}
 }
@@ -54,8 +54,8 @@ func TestUpdateInvsRespectsDirty(t *testing.T) {
 	owner.invs[93] = inv
 
 	viewer, vcc := newInvListenerTestPlayer(t, s, 3)
-	viewer.invListeners = []InventoryListener{
-		{Type: 93, Com: 149, Source: 2, FirstSeen: false},
+	viewer.invListeners = map[int]InventoryListener{
+		149: {Type: 93, Com: 149, Source: 2, FirstSeen: false},
 	}
 	inv.Update = false
 
@@ -86,8 +86,8 @@ func TestUpdateInvsWorldSource(t *testing.T) {
 	s.invs[0] = inventory.New(0, 1, inventory.StackAlways)
 
 	viewer, vcc := newInvListenerTestPlayer(t, s, 3)
-	viewer.invListeners = []InventoryListener{
-		{Type: 0, Com: 200, Source: -1, FirstSeen: true},
+	viewer.invListeners = map[int]InventoryListener{
+		200: {Type: 0, Com: 200, Source: -1, FirstSeen: true},
 	}
 
 	received := drainConn(t, vcc)
@@ -105,8 +105,8 @@ func TestUpdateInvsSkipsMissingSource(t *testing.T) {
 
 	viewer, vcc := newInvListenerTestPlayer(t, s, 3)
 	// source=99 doesn't exist in s.players.
-	viewer.invListeners = []InventoryListener{
-		{Type: 93, Com: 149, Source: 99, FirstSeen: true},
+	viewer.invListeners = map[int]InventoryListener{
+		149: {Type: 93, Com: 149, Source: 99, FirstSeen: true},
 	}
 
 	received := drainConn(t, vcc)

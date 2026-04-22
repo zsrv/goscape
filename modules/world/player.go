@@ -176,7 +176,13 @@ type Player struct {
 
 	// === inventory (sub-spec 3a) ===
 	invs         map[int]*inventory.Inventory
-	invListeners []InventoryListener
+	// invListeners maps UI component ID (Com) to an InventoryListener.
+	// Registered via invListenOnCom (S6p); unregistered via
+	// invStopListenOnCom or cleared on modal close. Keyed structure
+	// enables O(1) lookup in handleOpLocU / handleOpNpcU's item-match
+	// validation (S6p closure of S6m-D3 / S6o-D3). Nil until first
+	// listener registers; safe to read, range, len-check while nil.
+	invListeners map[int]InventoryListener
 
 	// === build area (sub-spec 3a) ===
 	buildArea *buildarea.BuildArea
@@ -227,7 +233,7 @@ func (p *Player) encodeOut() {
 			for _, l := range p.invListeners {
 				sendUpdateInvStopTransmit(p, l.Com)
 			}
-			p.invListeners = p.invListeners[:0]
+			clear(p.invListeners) // Go 1.21+ map reset; keeps allocated buckets
 		}
 		p.refreshModalClose = false
 		p.lastModalMain = p.modalMain
@@ -418,9 +424,7 @@ func (p *Player) updateInvs() {
 	}
 	// Collect all observed invs so we can clear Update after all listeners fire.
 	observed := make([]*inventory.Inventory, 0, len(p.invListeners))
-	for i := range p.invListeners {
-		l := &p.invListeners[i]
-
+	for com, l := range p.invListeners {
 		var inv *inventory.Inventory
 		if l.Source == -1 {
 			inv = p.client.server.invs[l.Type]
@@ -437,7 +441,11 @@ func (p *Player) updateInvs() {
 
 		if inv.Update || l.FirstSeen {
 			sendUpdateInvFullCom(p, l.Com, inv)
-			l.FirstSeen = false
+			if l.FirstSeen {
+				// Flip via read-modify-write — map values are not addressable.
+				l.FirstSeen = false
+				p.invListeners[com] = l
+			}
 		}
 		observed = append(observed, inv)
 	}
