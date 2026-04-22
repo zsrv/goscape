@@ -45,6 +45,30 @@ const (
 	NPCModeNull   = -1
 	NPCModeNone   = 0
 	NPCModeWander = 1
+
+	// QUEUE1..QUEUE20 are `ai_queueN`-dispatch modes, consumed by
+	// consumeHuntTarget (NAI-10) to fire TriggerAiQueueN directly when
+	// HuntType.FindNewMode falls in this range. See TS NpcMode.ts:76-95.
+	NPCModeQueue1  = 47
+	NPCModeQueue2  = 48
+	NPCModeQueue3  = 49
+	NPCModeQueue4  = 50
+	NPCModeQueue5  = 51
+	NPCModeQueue6  = 52
+	NPCModeQueue7  = 53
+	NPCModeQueue8  = 54
+	NPCModeQueue9  = 55
+	NPCModeQueue10 = 56
+	NPCModeQueue11 = 57
+	NPCModeQueue12 = 58
+	NPCModeQueue13 = 59
+	NPCModeQueue14 = 60
+	NPCModeQueue15 = 61
+	NPCModeQueue16 = 62
+	NPCModeQueue17 = 63
+	NPCModeQueue18 = 64
+	NPCModeQueue19 = 65
+	NPCModeQueue20 = 66
 )
 
 type NpcType struct {
