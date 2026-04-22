@@ -146,6 +146,18 @@ func TestNpcTurnEventsDespawnEnqueuesEvent(t *testing.T) {
 	}
 }
 
+func TestNewNpcSeedsRegenInterval(t *testing.T) {
+	typ := &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 0, DebugName: "test_npc"},
+		RegenRate:  7,
+	}
+	n := NewNpc(1, 0, 3094, 3106, 0, typ)
+
+	if n.regenInterval != 7 {
+		t.Errorf("regenInterval: got %d, want 7 (seeded from typ.RegenRate)", n.regenInterval)
+	}
+}
+
 func TestProcessNpcEventQueueSkipsDelayedNpcs(t *testing.T) {
 	s := newServerForScriptTest(t)
 	s.currentTick = 100

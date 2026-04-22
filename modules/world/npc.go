@@ -38,6 +38,8 @@ type Npc struct {
 	dead                       bool
 	startX, startZ, startLevel int
 	baseType                   int
+	regenInterval              int
+	regenClock                 int
 
 	// === coords ===
 	x, z, level                     int
@@ -106,6 +108,7 @@ func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
 		lifecycle:       NpcLifecycleRespawn,
 		respawnRate:     int(typ.RespawnRate),
 		timerInterval:   int(typ.Timer),
+		regenInterval:   int(typ.RegenRate),
 		startX:          x,
 		startZ:          z,
 		startLevel:      level,
