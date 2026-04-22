@@ -140,3 +140,34 @@ func (n *Npc) huntPlayers(s *Server, hunt *objtype.HuntType) []entity {
 	}
 	return hunted
 }
+
+// consumeHuntTarget converts a hunt-phase result (n.huntTarget) into
+// interaction state. Matches TS Npc.consumeHuntTarget at
+// Engine-TS/.../Npc.ts:887-919.
+//
+// Control flow (fully implemented across NAI-10 Tasks 2-5):
+//   - Entry guards: huntTarget non-nil, huntMode in bounds, hunt config
+//     non-nil, hunt.Type != HuntModeOff. Any guard fires → no-op.
+//   - Branch on hunt.FindNewMode:
+//       QUEUE1..QUEUE20 → fire TriggerAiQueueN directly via runNpcScript.
+//       else           → n.target = n.huntTarget; n.targetOp = FindNewMode.
+//   - Common tail (both branches): n.huntTarget = nil, n.huntClock = 0.
+//   - If !hunt.FindKeepHunting: n.huntMode = -1.
+//
+// DEVIATION from TS setInteraction: apRange, apRangeCalled, and
+// targetSubject fields are not written — NAI-11 scope, not yet on *Npc.
+func (s *Server) consumeHuntTarget(n *Npc) {
+	if n.huntTarget == nil {
+		return
+	}
+	if s.huntTypes == nil ||
+		n.huntMode < 0 ||
+		n.huntMode >= len(s.huntTypes.Configs) {
+		return
+	}
+	hunt := s.huntTypes.Configs[n.huntMode]
+	if hunt == nil || hunt.Type == objtype.HuntModeOff {
+		return
+	}
+	// Branch dispatch + common tail land in Tasks 3-5.
+}
