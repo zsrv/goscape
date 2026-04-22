@@ -77,8 +77,65 @@ func (n *Npc) huntAll(s *Server, hunt *objtype.HuntType) {
 	}
 }
 
-// huntPlayers is stubbed at NAI-7; NAI-8 fills the body.
-func (n *Npc) huntPlayers(s *Server, hunt *objtype.HuntType) []entity { return nil }
+// huntPlayers iterates the player grid in huntRange and returns
+// players passing the filter chain. Matches TS Npc.huntPlayers at
+// Engine-TS/.../Npc.ts:921-973.
+//
+// Filter coverage (NAI-8):
+//   - Range + level match: always
+//   - checkAfk: via p.IsZonesAfk (TS:935-937)
+//
+// Filters DEFERRED to future audit pass (Go infrastructure
+// missing; each TS line cited):
+//   - checkNotBusy (TS:931-933)       — no Player.Busy()
+//   - checkNotTooStrong (TS:939-941)  — wilderness + combat
+//   - checkNotCombat (TS:943-945)     — varp+8-tick window
+//   - checkNotCombatSelf (TS:946-948) — varp+8-tick window
+//   - checkVars (TS:950-957)          — varp condition chain
+//   - checkInv (TS:959-969)           — inventory queries
+//
+// NAI-8 dispatches NO scripts. TS huntPlayers is a config-driven
+// filter pipeline, not a script runner.
+func (n *Npc) huntPlayers(s *Server, hunt *objtype.HuntType) []entity {
+	if s.grid == nil {
+		return nil
+	}
+	// TS HuntIterator zone-radius formula at ScriptIterators.ts:57:
+	// radius = (1 + distance/8) | 0.
+	zoneRadius := 1 + n.huntRange/8
+	slots := s.grid.NearbyPlayers(n.x, n.z, n.level, zoneRadius)
+	var hunted []entity
+	for _, slot := range slots {
+		if slot < 0 || slot >= len(s.players) {
+			continue
+		}
+		p := s.players[slot]
+		if p == nil {
+			continue
+		}
+		if p.level != n.level {
+			continue
+		}
+		dx := p.x - n.x
+		if dx < 0 {
+			dx = -dx
+		}
+		dz := p.z - n.z
+		if dz < 0 {
+			dz = -dz
+		}
+		if dx > n.huntRange || dz > n.huntRange {
+			continue
+		}
+		// checkAfk (TS:935-937): filter players who've gone AFK
+		// (1000-tick same-zone threshold).
+		if hunt.CheckAfk && p.IsZonesAfk() {
+			continue
+		}
+		hunted = append(hunted, p)
+	}
+	return hunted
+}
 
 // huntNpcs is stubbed at NAI-7; NAI-9 fills the body.
 func (n *Npc) huntNpcs(s *Server, hunt *objtype.HuntType) []entity { return nil }

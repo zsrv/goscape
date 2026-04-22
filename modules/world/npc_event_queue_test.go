@@ -3,6 +3,7 @@ package world
 import (
 	"testing"
 
+	"github.com/zsrv/goscape/pkg/grid"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
@@ -418,5 +419,110 @@ func TestProcessNpcEventQueueSkipsDelayedNpcs(t *testing.T) {
 
 	if len(s.npcEventQueue) != 1 {
 		t.Errorf("npcEventQueue: got len %d, want 1 (delayed NPC's event must be skipped, not removed)", len(s.npcEventQueue))
+	}
+}
+
+// addPlayerToServer seeds s.players[slot] + s.grid with a minimal
+// *Player at the given coords. Used by NAI-8 huntPlayers tests.
+// Slot 0 is reserved per existing convention.
+func addPlayerToServer(t *testing.T, s *Server, slot, x, z, level int) *Player {
+	t.Helper()
+	if s.grid == nil {
+		s.grid = grid.New()
+	}
+	p := &Player{
+		slot:  slot,
+		x:     x,
+		z:     z,
+		level: level,
+	}
+	s.players[slot] = p
+	s.grid.Add(slot, x, z, level)
+	return p
+}
+
+func TestHuntPlayersInRange(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	pInRange := addPlayerToServer(t, s, 1, n.x+3, n.z+3, n.level)
+	_ = addPlayerToServer(t, s, 2, n.x+20, n.z+20, n.level) // out of range
+
+	hunt := &objtype.HuntType{}
+	hunted := n.huntPlayers(s, hunt)
+
+	if len(hunted) != 1 {
+		t.Fatalf("hunted: got %d players, want 1 (in-range only)", len(hunted))
+	}
+	if hunted[0].Slot() != pInRange.slot {
+		t.Errorf("hunted[0]: got slot %d, want slot %d", hunted[0].Slot(), pInRange.slot)
+	}
+}
+
+func TestHuntPlayersFiltersByLevel(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	pSameLevel := addPlayerToServer(t, s, 1, n.x+2, n.z+2, n.level)
+	_ = addPlayerToServer(t, s, 2, n.x+2, n.z+2, n.level+1) // wrong level
+
+	hunt := &objtype.HuntType{}
+	hunted := n.huntPlayers(s, hunt)
+
+	if len(hunted) != 1 {
+		t.Fatalf("hunted: got %d, want 1 (same-level only)", len(hunted))
+	}
+	if hunted[0].Slot() != pSameLevel.slot {
+		t.Errorf("hunted[0]: got slot %d, want slot %d", hunted[0].Slot(), pSameLevel.slot)
+	}
+}
+
+func TestHuntPlayersSkipsAfkZonedPlayers(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	pActive := addPlayerToServer(t, s, 1, n.x+2, n.z+2, n.level)
+	pAfk := addPlayerToServer(t, s, 2, n.x+3, n.z+3, n.level)
+	pAfk.lastAfkZone = 1000 // IsZonesAfk saturates at 1000
+
+	// With CheckAfk=true, AFK player is filtered.
+	huntWithAfk := &objtype.HuntType{CheckAfk: true}
+	hunted := n.huntPlayers(s, huntWithAfk)
+	if len(hunted) != 1 {
+		t.Fatalf("CheckAfk=true: got %d, want 1 (AFK filtered)", len(hunted))
+	}
+	if hunted[0].Slot() != pActive.slot {
+		t.Errorf("CheckAfk=true: got slot %d, want slot %d (active)", hunted[0].Slot(), pActive.slot)
+	}
+
+	// With CheckAfk=false, both players returned.
+	huntNoAfk := &objtype.HuntType{CheckAfk: false}
+	hunted = n.huntPlayers(s, huntNoAfk)
+	if len(hunted) != 2 {
+		t.Errorf("CheckAfk=false: got %d, want 2 (filter inactive, both returned)", len(hunted))
+	}
+}
+
+func TestHuntPlayersReturnsEmptyWhenNoCandidates(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.grid = grid.New()
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.huntRange = 10
+
+	hunt := &objtype.HuntType{}
+	hunted := n.huntPlayers(s, hunt)
+
+	if len(hunted) != 0 {
+		t.Errorf("hunted: got %d, want 0 (empty grid)", len(hunted))
 	}
 }
