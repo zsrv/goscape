@@ -76,7 +76,7 @@ func fireOpTriggerNpc(p *Player, srv *Server, npc *Npc) {
 		return
 	}
 
-	state := script.Init(sf, p, false, nil, nil)
+	state := script.Init(sf, p, true, nil, nil)
 	state.ActiveNpc = npc
 	state.Pointers |= script.PtrActiveNpc
 	state.Provider = srv.scriptProvider
@@ -301,7 +301,7 @@ func fireApTriggerNpc(p *Player, srv *Server, npc *Npc) {
 		return
 	}
 
-	state := script.Init(sf, p, false, nil, nil)
+	state := script.Init(sf, p, true, nil, nil)
 	state.ActiveNpc = npc
 	state.Pointers |= script.PtrActiveNpc
 	state.Provider = srv.scriptProvider
