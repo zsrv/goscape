@@ -194,12 +194,11 @@ func handleOpLocT(p *Player, payload []byte) error {
 // DEVIATION (S6m-D3): TS does an inventory-listener lookup by useCom to
 // verify the player has an inv listening at that interface, plus
 // slot-bounds + item-at-slot-matches-useObj validation
-// (OpLocUHandler.ts:~45-70). Goscape's invListeners is a slice, not a
-// keyed map, so this lookup shape doesn't translate directly. Skip;
-// scripts reading p.LastUseItem()/p.LastUseSlot() get raw wire values.
+// (OpLocUHandler.ts:~45-70). The keyed-map refactor landed in S6p-1;
+// the validation gate itself lands in S6p-3. Until then scripts
+// reading p.LastUseItem()/p.LastUseSlot() get raw wire values.
 // Security risk: client can claim any item/slot. Real scripts
-// defensively re-check via inv_getobj-style opcodes. Follow-up:
-// "InvListener keyed-map refactor + OpLocU item validation" sub-spec.
+// defensively re-check via inv_getobj-style opcodes.
 //
 // DEVIATION (S6m-D4): TS checks members-only items against NODE_MEMBERS
 // server config (OpLocUHandler.ts:~71-77). Skipped because goscape has

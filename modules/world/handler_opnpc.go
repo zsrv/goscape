@@ -137,10 +137,10 @@ func handleOpNpcT(p *Player, payload []byte) error {
 // interface component. Skipped — no component registry. (Mirrors S6m-D2.)
 //
 // DEVIATION S6o-D3: TS does an inventory-listener lookup by useCom +
-// slot-bounds + item-at-slot-matches-useObj validation. Goscape's
-// invListeners is a slice not keyed map, so this lookup shape doesn't
-// translate. Skip; scripts reading p.LastUseItem()/p.LastUseSlot() get
-// raw wire values. (Mirrors S6m-D3.)
+// slot-bounds + item-at-slot-matches-useObj validation. The keyed-map
+// refactor landed in S6p-1; the validation gate itself lands in S6p-3.
+// Until then scripts reading p.LastUseItem()/p.LastUseSlot() get raw
+// wire values. (Mirrors S6m-D3.)
 //
 // DEVIATION S6o-D4: TS checks members-only items against NODE_MEMBERS
 // config. Skipped — no members-config surface. (Mirrors S6m-D4.)
