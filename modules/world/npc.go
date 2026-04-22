@@ -230,8 +230,7 @@ func (n *Npc) SetHuntMode(mode int) {
 
 // revertType restores the NPC to its baseline type and resets state
 // that should not persist across a respawn or revert-from-changetype.
-// Matches TS Npc.resetEntity at Engine-TS/.../Npc.ts:280-317, minus
-// hunt-field resets (deferred to NAI-7 per the NAI roadmap).
+// Matches TS Npc.resetEntity at Engine-TS/.../Npc.ts:280-317.
 //
 // What revertType does:
 //   - restores typeId to baseType (for changetype'd NPCs)
@@ -242,9 +241,10 @@ func (n *Npc) SetHuntMode(mode int) {
 //   - clears the script queue
 //   - clears waypoints
 //   - sets tele = true + raises NpcMaskChangeType
+//   - resets hunt fields (NAI-7): huntRange/huntMode from typ,
+//     huntClock=0, huntTarget=nil. Matches TS Npc.ts:309-312.
 //
 // What revertType does NOT do (intentional):
-//   - hunt-field resets (NAI-7 scope; those fields don't exist yet)
 //   - varn resets (future; VarNpc subsystem not yet wired)
 //   - activeScript clear (TS behaviour: a revert does not cancel an
 //     in-flight script)
