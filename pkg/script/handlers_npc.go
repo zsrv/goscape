@@ -194,3 +194,18 @@ func handleNpcDamage(s *ScriptState) error {
 	s.ActiveNpc.Damage(amount, dmgType)
 	return nil
 }
+
+// handleNpcDelay (NPC_DELAY, opcode 2511) suspends the active NPC's
+// script for N ticks. Transitions the script to NpcSuspended and
+// records the wake tick on the NPC via SetDelayed. The tick loop
+// resumes the script from Npc.turn() when delayedUntil expires.
+// Mirrors TS NpcOps.ts NPC_DELAY.
+func handleNpcDelay(s *ScriptState) error {
+	if s.ActiveNpc == nil {
+		return fmt.Errorf("NPC_DELAY: no active npc")
+	}
+	ticks := s.PopInt()
+	s.ActiveNpc.SetDelayed(ticks)
+	s.Execution = NpcSuspended
+	return nil
+}

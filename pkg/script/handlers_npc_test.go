@@ -489,3 +489,25 @@ func TestNpcDamageRequiresActiveNpc(t *testing.T) {
 		t.Errorf("err: got %q, want substring 'NPC_DAMAGE: no active npc'", err)
 	}
 }
+
+// TestHandleNpcDelayWithoutActiveNpcErrors — defensive check when
+// NPC_DELAY runs with no active npc anchored.
+func TestHandleNpcDelayWithoutActiveNpcErrors(t *testing.T) {
+	sf := &ScriptFile{
+		Name:        "npc_delay_no_npc",
+		Opcodes:     []Opcode{OpPushConstantInt, OpNpcDelay, OpReturn},
+		IntOperands: []int32{3},
+	}
+
+	state := Init(sf, nil, false, nil, nil)
+	// state.ActiveNpc intentionally left nil.
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error, got nil")
+	}
+	want := "NPC_DELAY: no active npc"
+	if got := err.Error(); got != want {
+		t.Errorf("error: got %q, want %q", got, want)
+	}
+}
