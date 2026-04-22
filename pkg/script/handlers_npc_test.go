@@ -635,3 +635,54 @@ func TestHandleNpcDelayWithoutActiveNpcErrors(t *testing.T) {
 		t.Errorf("error: got %q, want %q", got, want)
 	}
 }
+
+// TestHandleNpcSetTimer — NPC_SETTIMER pops interval and calls
+// ActiveNpc.SetTimer. Mirrors TS NpcOps.ts:278-280.
+func TestHandleNpcSetTimer(t *testing.T) {
+	npc := &mockNpc{}
+	sf := &ScriptFile{
+		Name: "test_npc_settimer",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push interval (42)
+			OpNpcSetTimer,
+			OpReturn,
+		},
+		IntOperands: []int32{42, 0, 0},
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	state.Pointers |= PtrActiveNpc
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	if len(npc.setTimerCalls) != 1 {
+		t.Fatalf("setTimerCalls: got %d, want 1", len(npc.setTimerCalls))
+	}
+	if npc.setTimerCalls[0] != 42 {
+		t.Errorf("setTimerCalls[0]: got %d, want 42", npc.setTimerCalls[0])
+	}
+}
+
+// TestHandleNpcSetTimerWithoutActiveNpcErrors — defensive nil check.
+func TestHandleNpcSetTimerWithoutActiveNpcErrors(t *testing.T) {
+	sf := &ScriptFile{
+		Name: "npc_settimer_no_npc",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpNpcSetTimer, OpReturn,
+		},
+		IntOperands: []int32{5, 0, 0},
+	}
+	state := Init(sf, nil, false, nil, nil)
+	// state.ActiveNpc intentionally nil.
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error, got nil")
+	}
+	want := "NPC_SETTIMER: no active npc"
+	if got := err.Error(); got != want {
+		t.Errorf("error: got %q, want %q", got, want)
+	}
+}
