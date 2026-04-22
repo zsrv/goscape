@@ -169,5 +169,16 @@ func (s *Server) consumeHuntTarget(n *Npc) {
 	if hunt == nil || hunt.Type == objtype.HuntModeOff {
 		return
 	}
-	// Branch dispatch + common tail land in Tasks 3-5.
+	// Interaction branch: write target + targetOp for NAI-11 consumption.
+	// Task 4 wraps this in an if/else and adds the QUEUE1..QUEUE20 branch.
+	//
+	// DEVIATION: TS setInteraction also writes apRange, apRangeCalled,
+	// targetSubject.com/type. Those fields don't yet exist on *Npc and
+	// have zero NAI-10 consumers; NAI-11 adds them.
+	n.target = n.huntTarget
+	n.targetOp = hunt.FindNewMode
+
+	// Common tail: clear huntTarget and reset huntClock.
+	n.huntTarget = nil
+	n.huntClock = 0
 }

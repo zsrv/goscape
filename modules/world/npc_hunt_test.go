@@ -94,3 +94,36 @@ func TestConsumeHuntTargetInvalidHuntModeNoOp(t *testing.T) {
 		t.Errorf("huntMode=OOB: huntTarget should be unchanged, got %v", n.huntTarget)
 	}
 }
+
+func TestConsumeHuntTargetInteractionBranchSetsTarget(t *testing.T) {
+	s, n, hunt := newConsumeHuntTargetFixture(t)
+	other := newNpcForLifecycleTest(t)
+	n.huntTarget = other
+	hunt.FindNewMode = 4 // PLAYERFOLLOW — not in QUEUE1..20 range
+
+	s.consumeHuntTarget(n)
+
+	if n.target != other {
+		t.Errorf("target: got %v, want %v (interaction branch)", n.target, other)
+	}
+	if n.targetOp != 4 {
+		t.Errorf("targetOp: got %d, want 4 (PLAYERFOLLOW)", n.targetOp)
+	}
+}
+
+func TestConsumeHuntTargetInteractionBranchClearsHuntState(t *testing.T) {
+	s, n, hunt := newConsumeHuntTargetFixture(t)
+	other := newNpcForLifecycleTest(t)
+	n.huntTarget = other
+	n.huntClock = 5
+	hunt.FindNewMode = 4
+
+	s.consumeHuntTarget(n)
+
+	if n.huntTarget != nil {
+		t.Errorf("huntTarget: got %v, want nil (cleared after consume)", n.huntTarget)
+	}
+	if n.huntClock != 0 {
+		t.Errorf("huntClock: got %d, want 0 (reset after consume)", n.huntClock)
+	}
+}
