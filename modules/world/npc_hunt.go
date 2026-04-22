@@ -194,4 +194,11 @@ func (s *Server) consumeHuntTarget(n *Npc) {
 	// Common tail: clear huntTarget and reset huntClock.
 	n.huntTarget = nil
 	n.huntClock = 0
+
+	// Stop-hunting clause: once an NPC finds a huntTarget, it won't
+	// hunt again until its interactions are cleared — unless the hunt
+	// config explicitly opts into keep-hunting. Matches TS Npc.ts:913-918.
+	if !hunt.FindKeepHunting {
+		n.huntMode = -1
+	}
 }

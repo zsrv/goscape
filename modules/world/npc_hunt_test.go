@@ -227,3 +227,33 @@ func TestConsumeHuntTargetQueueBranchBoundaryQueue20(t *testing.T) {
 			n.timerInterval, observerVal)
 	}
 }
+
+func TestConsumeHuntTargetFindKeepHuntingFalseClearsHuntMode(t *testing.T) {
+	s, n, hunt := newConsumeHuntTargetFixture(t)
+	other := newNpcForLifecycleTest(t)
+	n.huntTarget = other
+	hunt.FindKeepHunting = false
+	hunt.FindNewMode = 4
+	n.huntMode = 0 // pointing at Configs[0], valid entry
+
+	s.consumeHuntTarget(n)
+
+	if n.huntMode != -1 {
+		t.Errorf("huntMode: got %d, want -1 (!FindKeepHunting clears it)", n.huntMode)
+	}
+}
+
+func TestConsumeHuntTargetFindKeepHuntingTrueKeepsHuntMode(t *testing.T) {
+	s, n, hunt := newConsumeHuntTargetFixture(t)
+	other := newNpcForLifecycleTest(t)
+	n.huntTarget = other
+	hunt.FindKeepHunting = true
+	hunt.FindNewMode = 4
+	n.huntMode = 0
+
+	s.consumeHuntTarget(n)
+
+	if n.huntMode != 0 {
+		t.Errorf("huntMode: got %d, want 0 (FindKeepHunting preserves it)", n.huntMode)
+	}
+}
