@@ -165,3 +165,38 @@ func TestNpcTurnDoesNotResumeWhileDelayed(t *testing.T) {
 		t.Errorf("delayed: got false, want true (still within delay window)")
 	}
 }
+
+func TestNpcTurnDeadNpcDoesNotResumeScript(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.currentTick = 100
+	n := newNpcForScriptTest(t)
+	n.server = s
+
+	sf := &script.ScriptFile{
+		Name:        "npc_delay_3_return",
+		Opcodes:     []script.Opcode{script.OpPushConstantInt, script.OpNpcDelay, script.OpReturn},
+		IntOperands: []int32{3},
+	}
+
+	// Suspend the script: delayedUntil = 104.
+	s.runNpcScript(sf, n, nil, nil)
+	if n.activeScript == nil || !n.delayed {
+		t.Fatalf("setup: expected suspended state")
+	}
+
+	// NPC dies before the delay expires.
+	n.dead = true
+
+	// Advance past delayedUntil and call turn.
+	s.currentTick = 105
+	n.turn(s)
+
+	// Script must NOT have resumed — it stays suspended on the dead
+	// NPC per TS Npc.ts:112 isActive guard.
+	if n.activeScript == nil {
+		t.Errorf("activeScript: got nil, want stored (dead NPC should not resume)")
+	}
+	if n.activeScript != nil && n.activeScript.Execution != script.NpcSuspended {
+		t.Errorf("Execution: got %v, want still NpcSuspended", n.activeScript.Execution)
+	}
+}

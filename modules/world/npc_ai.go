@@ -10,16 +10,20 @@ import (
 
 // turn runs once per tick from processNpcs.
 func (n *Npc) turn(s *Server) {
-	// Delayed expiration. Matches TS Npc.ts:113.
-	if n.delayed && s.currentTick >= n.delayedUntil {
-		n.delayed = false
-	}
-	// Resume suspended script. Matches TS Npc.ts:116-118.
-	if !n.delayed && n.activeScript != nil &&
-		n.activeScript.Execution == script.NpcSuspended {
-		state := n.activeScript
-		state.Execution = script.Running
-		s.resumeOrFinishNpc(state, n)
+	// Script-lifecycle prefix runs only for active (non-dead) NPCs —
+	// matches TS Npc.ts:112 `if (this.isActive)` guard.
+	if !n.dead {
+		// Delayed expiration. Matches TS Npc.ts:113.
+		if n.delayed && s.currentTick >= n.delayedUntil {
+			n.delayed = false
+		}
+		// Resume suspended script. Matches TS Npc.ts:116-118.
+		if !n.delayed && n.activeScript != nil &&
+			n.activeScript.Execution == script.NpcSuspended {
+			state := n.activeScript
+			state.Execution = script.Running
+			s.resumeOrFinishNpc(state, n)
+		}
 	}
 
 	if n.dead {
