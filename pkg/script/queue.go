@@ -31,3 +31,16 @@ func (q PlayerQueueType) String() string {
 		return "Unknown"
 	}
 }
+
+// NpcQueueRequest is an NPC-side enqueue entry. Unlike
+// PlayerQueueRequest, it has no queue-type distinction — TS's NPC
+// queue has no strong/weak/long variants. The Trigger is one of
+// TriggerAiQueue1..TriggerAiQueue20 and identifies which script runs
+// at fire time (resolved via scriptProvider.GetByTrigger on the
+// NPC's type + category). Matches TS NpcQueueRequest at
+// Engine-TS/src/engine/entity/NpcQueueRequest.ts.
+type NpcQueueRequest struct {
+	Trigger ServerTriggerType
+	Delay   int
+	IntArg  int
+}

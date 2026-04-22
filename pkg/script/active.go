@@ -360,6 +360,13 @@ type ActiveNpc interface {
 	// currentTick + 1 + ticks. Mirrors ActivePlayer.SetDelayed at
 	// active.go:13-14.
 	SetDelayed(ticks int)
+
+	// EnqueueScriptForTrigger appends a queued ai_queueN dispatch to
+	// the NPC. Matches TS Npc.enqueueScript at Npc.ts:241-245 — the
+	// trigger (TriggerAiQueue1..TriggerAiQueue20) identifies which
+	// script runs; lookup happens at fire time via
+	// scriptProvider.GetByTrigger keyed on the NPC's type + category.
+	EnqueueScriptForTrigger(trigger ServerTriggerType, delay int, intArg int)
 }
 
 // ActiveLoc is the surface that LOC_* opcodes use to read the loc

@@ -57,6 +57,7 @@ type Npc struct {
 	activeScript *script.ScriptState
 	delayed      bool
 	delayedUntil int
+	queue        []script.NpcQueueRequest
 
 	// === AI ===
 	targetOp        int
@@ -171,4 +172,16 @@ func (n *Npc) ClearActiveScript() {
 func (n *Npc) SetDelayed(ticks int) {
 	n.delayed = true
 	n.delayedUntil = n.server.currentTick + 1 + ticks
+}
+
+// EnqueueScriptForTrigger appends a queued ai_queueN dispatch.
+// Implements script.ActiveNpc.EnqueueScriptForTrigger. Script
+// resolution is deferred to fire time via
+// scriptProvider.GetByTrigger — matches TS Npc.enqueueScript.
+func (n *Npc) EnqueueScriptForTrigger(trigger script.ServerTriggerType, delay, intArg int) {
+	n.queue = append(n.queue, script.NpcQueueRequest{
+		Trigger: trigger,
+		Delay:   delay,
+		IntArg:  intArg,
+	})
 }

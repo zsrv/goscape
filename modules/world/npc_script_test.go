@@ -166,6 +166,26 @@ func TestNpcTurnDoesNotResumeWhileDelayed(t *testing.T) {
 	}
 }
 
+func TestNpcEnqueueScriptForTrigger(t *testing.T) {
+	n := newNpcForScriptTest(t)
+
+	n.EnqueueScriptForTrigger(script.TriggerAiQueue3, 5, 42)
+
+	if len(n.queue) != 1 {
+		t.Fatalf("queue len: got %d, want 1", len(n.queue))
+	}
+	req := n.queue[0]
+	if req.Trigger != script.TriggerAiQueue3 {
+		t.Errorf("Trigger: got %v, want TriggerAiQueue3", req.Trigger)
+	}
+	if req.Delay != 5 {
+		t.Errorf("Delay: got %d, want 5", req.Delay)
+	}
+	if req.IntArg != 42 {
+		t.Errorf("IntArg: got %d, want 42", req.IntArg)
+	}
+}
+
 func TestNpcTurnDeadNpcDoesNotResumeScript(t *testing.T) {
 	s := newServerForScriptTest(t)
 	s.currentTick = 100

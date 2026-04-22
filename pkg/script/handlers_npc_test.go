@@ -8,6 +8,12 @@ import (
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
+type mockEnqueueCall struct {
+	trigger ServerTriggerType
+	delay   int
+	intArg  int
+}
+
 // mockNpc is a test fixture implementing ActiveNpc. Pre-seed fields then
 // assign to state.ActiveNpc before Execute.
 type mockNpc struct {
@@ -19,6 +25,7 @@ type mockNpc struct {
 	faceCoordCalls                     []struct{ x, z int }
 	changeTypeCalls                    []int
 	damageCalls                        []struct{ amount, dmgType int }
+	enqueueCalls                       []mockEnqueueCall
 }
 
 func (m *mockNpc) NpcType() int     { return m.typeID }
@@ -77,6 +84,14 @@ func (m *mockNpc) Damage(amount, dmgType int) {
 func (m *mockNpc) StoreActiveScript(_ *ScriptState) {}
 func (m *mockNpc) ClearActiveScript()               {}
 func (m *mockNpc) SetDelayed(_ int)                 {}
+
+func (m *mockNpc) EnqueueScriptForTrigger(trigger ServerTriggerType, delay, intArg int) {
+	m.enqueueCalls = append(m.enqueueCalls, mockEnqueueCall{
+		trigger: trigger,
+		delay:   delay,
+		intArg:  intArg,
+	})
+}
 
 // runNpcOp executes a single-opcode script against npc + optional mc,
 // with pre-pushed int inputs, and returns the resulting state.
