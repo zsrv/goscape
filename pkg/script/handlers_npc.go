@@ -201,8 +201,8 @@ func handleNpcDamage(s *ScriptState) error {
 // resumes the script from Npc.turn() when delayedUntil expires.
 // Mirrors TS NpcOps.ts NPC_DELAY.
 func handleNpcDelay(s *ScriptState) error {
-	if s.ActiveNpc == nil {
-		return fmt.Errorf("NPC_DELAY: no active npc")
+	if err := requireActiveNpc(s, "NPC_DELAY"); err != nil {
+		return err
 	}
 	ticks := s.PopInt()
 	s.ActiveNpc.SetDelayed(ticks)
