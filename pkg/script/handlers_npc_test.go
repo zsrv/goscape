@@ -505,6 +505,110 @@ func TestNpcDamageRequiresActiveNpc(t *testing.T) {
 	}
 }
 
+// TestHandleNpcQueueEnqueues — NPC_QUEUE pops (delay, arg, queueID)
+// in that order (top of stack = delay) and maps queueID (1-20) to
+// TriggerAiQueue1 + queueID - 1.
+func TestHandleNpcQueueEnqueues(t *testing.T) {
+	npc := &mockNpc{}
+	sf := &ScriptFile{
+		Name: "test_npc_queue",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push queueID (3)
+			OpPushConstantInt, // push arg (42)
+			OpPushConstantInt, // push delay (5)
+			OpNpcQueue,
+			OpReturn,
+		},
+		IntOperands: []int32{3, 42, 5, 0, 0},
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	state.Pointers |= PtrActiveNpc
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	if len(npc.enqueueCalls) != 1 {
+		t.Fatalf("enqueueCalls: got %d, want 1", len(npc.enqueueCalls))
+	}
+	call := npc.enqueueCalls[0]
+	if call.trigger != TriggerAiQueue3 {
+		t.Errorf("trigger: got %v, want TriggerAiQueue3", call.trigger)
+	}
+	if call.delay != 5 {
+		t.Errorf("delay: got %d, want 5", call.delay)
+	}
+	if call.intArg != 42 {
+		t.Errorf("intArg: got %d, want 42", call.intArg)
+	}
+}
+
+// TestHandleNpcQueueWithoutActiveNpcErrors — defensive nil check.
+func TestHandleNpcQueueWithoutActiveNpcErrors(t *testing.T) {
+	sf := &ScriptFile{
+		Name: "npc_queue_no_npc",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpNpcQueue, OpReturn,
+		},
+		IntOperands: []int32{1, 0, 0, 0, 0},
+	}
+	state := Init(sf, nil, false, nil, nil)
+	// state.ActiveNpc intentionally nil.
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error, got nil")
+	}
+	want := "NPC_QUEUE: no active npc"
+	if got := err.Error(); got != want {
+		t.Errorf("error: got %q, want %q", got, want)
+	}
+}
+
+// TestHandleNpcQueueInvalidQueueIDErrors — queueID out of [1,20].
+func TestHandleNpcQueueInvalidQueueIDErrors(t *testing.T) {
+	cases := []struct {
+		name    string
+		queueID int32
+		wantErr string
+	}{
+		{"zero", 0, "NPC_QUEUE: invalid queueId 0 (want 1..20)"},
+		{"twentyone", 21, "NPC_QUEUE: invalid queueId 21 (want 1..20)"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			npc := &mockNpc{}
+			sf := &ScriptFile{
+				Name: "npc_queue_invalid_id",
+				Opcodes: []Opcode{
+					OpPushConstantInt, // queueID
+					OpPushConstantInt, // arg
+					OpPushConstantInt, // delay
+					OpNpcQueue,
+					OpReturn,
+				},
+				IntOperands: []int32{tc.queueID, 0, 0, 0, 0},
+			}
+			state := Init(sf, nil, false, nil, nil)
+			state.ActiveNpc = npc
+			state.Pointers |= PtrActiveNpc
+
+			err := Execute(state)
+			if err == nil {
+				t.Fatalf("Execute: want error, got nil")
+			}
+			if got := err.Error(); got != tc.wantErr {
+				t.Errorf("error: got %q, want %q", got, tc.wantErr)
+			}
+			if len(npc.enqueueCalls) != 0 {
+				t.Errorf("enqueueCalls: got %d, want 0 (enqueue must not fire on invalid id)", len(npc.enqueueCalls))
+			}
+		})
+	}
+}
+
 // TestHandleNpcDelayWithoutActiveNpcErrors — defensive check when
 // NPC_DELAY runs with no active npc anchored.
 func TestHandleNpcDelayWithoutActiveNpcErrors(t *testing.T) {

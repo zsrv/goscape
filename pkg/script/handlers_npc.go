@@ -209,3 +209,23 @@ func handleNpcDelay(s *ScriptState) error {
 	s.Execution = NpcSuspended
 	return nil
 }
+
+// handleNpcQueue (NPC_QUEUE, opcode 2530) enqueues an ai_queueN
+// dispatch on the active NPC. Pop order: delay (top), arg, queueId
+// (bottom). queueId ∈ [1, 20] maps to TriggerAiQueue1..20 via
+// arithmetic: trigger = TriggerAiQueue1 + queueId - 1. Mirrors TS
+// NpcOps.ts:144-150.
+func handleNpcQueue(s *ScriptState) error {
+	if err := requireActiveNpc(s, "NPC_QUEUE"); err != nil {
+		return err
+	}
+	delay := s.PopInt()
+	arg := s.PopInt()
+	queueID := s.PopInt()
+	if queueID < 1 || queueID > 20 {
+		return fmt.Errorf("NPC_QUEUE: invalid queueId %d (want 1..20)", queueID)
+	}
+	trigger := TriggerAiQueue1 + ServerTriggerType(queueID-1)
+	s.ActiveNpc.EnqueueScriptForTrigger(trigger, delay, arg)
+	return nil
+}

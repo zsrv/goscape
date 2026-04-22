@@ -323,6 +323,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpNpcDamage:     handleNpcDamage,
 	OpNpcDelay:      handleNpcDelay,
 	OpNpcFaceSquare: handleNpcFaceSquare,
+	OpNpcQueue:      handleNpcQueue,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.
