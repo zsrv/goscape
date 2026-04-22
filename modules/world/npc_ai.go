@@ -24,6 +24,8 @@ func (n *Npc) turn(s *Server) {
 			state.Execution = script.Running
 			s.resumeOrFinishNpc(state, n)
 		}
+		// Timer pass. Matches TS Npc.ts:178 (turn calls processTimers).
+		s.processNpcTimer(n)
 		// Queue pass. Matches TS Npc.ts:180 (turn calls processQueue).
 		s.processNpcQueue(n)
 	}

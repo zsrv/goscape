@@ -123,6 +123,39 @@ func (s *Server) resumeOrFinishNpc(state *script.ScriptState, npc script.ActiveN
 	}
 }
 
+// processNpcTimer fires the ai_timer trigger script when timerClock
+// reaches timerInterval. Matches TS Npc.processTimers at
+// Engine-TS/.../Npc.ts:527-536.
+//
+// Behaviour:
+//   - No-op while delayed (TS gates via the isValid return in
+//     turn(); Go gates internally).
+//   - No-op when timerInterval <= 0 (unset or explicitly disabled
+//     via SetTimer with a non-positive value).
+//   - timerClock increments once per call when conditions pass.
+//   - timerClock resets to 0 ONLY after a successful script fire.
+//     If no ai_timer trigger script is registered for the NPC's
+//     type, timerClock stays at threshold and retries every tick —
+//     matches TS's "script may be registered later" semantics.
+func (s *Server) processNpcTimer(n *Npc) {
+	if n.delayed || n.timerInterval <= 0 {
+		return
+	}
+	n.timerClock++
+	if n.timerClock < n.timerInterval {
+		return
+	}
+	if n.typ == nil || s.scriptProvider == nil {
+		return
+	}
+	sf := s.scriptProvider.GetByTrigger(script.TriggerAiTimer, n.typeId, n.typ.Category)
+	if sf == nil {
+		return
+	}
+	s.runNpcScript(sf, n, nil, nil)
+	n.timerClock = 0
+}
+
 // processNpcQueue walks the NPC's queue, decrementing delays and
 // firing ready entries as fresh NPC-anchored script runs. Iterates
 // by index so a request appended mid-pass (via a fired script calling

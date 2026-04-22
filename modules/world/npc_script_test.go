@@ -377,3 +377,22 @@ func TestNewNpcSeedsTimerIntervalFromType(t *testing.T) {
 		t.Errorf("timerInterval from NewNpc: got %d, want 7 (seeded from typ.Timer)", n.timerInterval)
 	}
 }
+
+// TestNpcTurnDoesNotTickTimerWhileDelayed — timer must not increment
+// while the NPC is delayed. TS gates via the isValid early-return in
+// turn(); Go gates internally inside processNpcTimer. Matches TS
+// Npc.ts:154 (isValid) + :527-536 (processTimers).
+func TestNpcTurnDoesNotTickTimerWhileDelayed(t *testing.T) {
+	s, n := buildNpcForIntegration(t)
+	n.timerInterval = 3
+	n.delayed = true
+	n.delayedUntil = s.currentTick + 100 // far future
+
+	n.turn(s)
+	n.turn(s)
+	n.turn(s)
+
+	if n.timerClock != 0 {
+		t.Errorf("timerClock after 3 turns while delayed: got %d, want 0 (no tick while delayed)", n.timerClock)
+	}
+}
