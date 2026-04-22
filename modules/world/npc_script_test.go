@@ -220,3 +220,76 @@ func TestNpcTurnDeadNpcDoesNotResumeScript(t *testing.T) {
 		t.Errorf("Execution: got %v, want still NpcSuspended", n.activeScript.Execution)
 	}
 }
+
+// buildNpcForIntegration builds an NPC wired to a server, with typ
+// set so processNpcQueue can read n.typ.Category.
+func buildNpcForIntegration(t *testing.T) (*Server, *Npc) {
+	t.Helper()
+	s := newServerForScriptTest(t)
+	s.currentTick = 100
+	typ := &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 0, DebugName: "test_npc"},
+		Category:   -1,
+	}
+	n := NewNpc(1, 0, 3094, 3106, 0, typ)
+	n.server = s
+	return s, n
+}
+
+// TestNpcTurnFiresQueuedEntryWhenDelayZero — enqueue at delay=1,
+// advance one tick. TS Npc.ts:544-549: decrement THEN fire if delay<=0.
+// So at delay=1, the same tick that decrements also fires. Queue empty.
+func TestNpcTurnFiresQueuedEntryWhenDelayZero(t *testing.T) {
+	s, n := buildNpcForIntegration(t)
+
+	n.EnqueueScriptForTrigger(script.TriggerAiQueue1, 1, 0)
+	if len(n.queue) != 1 {
+		t.Fatalf("setup: queue should have 1 entry, got %d", len(n.queue))
+	}
+
+	n.turn(s)
+
+	if len(n.queue) != 0 {
+		t.Fatalf("after first turn: queue should be empty (delay went 1→0 and fired), got %d", len(n.queue))
+	}
+}
+
+// TestNpcTurnDoesNotDecrementQueueWhileDelayed — NPC delayed; queue
+// delay must not decrement. Matches TS Npc.ts:544-547.
+func TestNpcTurnDoesNotDecrementQueueWhileDelayed(t *testing.T) {
+	s, n := buildNpcForIntegration(t)
+
+	n.EnqueueScriptForTrigger(script.TriggerAiQueue1, 3, 0)
+	n.delayed = true
+	n.delayedUntil = s.currentTick + 100 // far future
+
+	n.turn(s)
+	n.turn(s)
+	n.turn(s)
+
+	if len(n.queue) != 1 {
+		t.Fatalf("queue len: got %d, want 1 (no fire while delayed)", len(n.queue))
+	}
+	if n.queue[0].Delay != 3 {
+		t.Errorf("queue[0].Delay: got %d, want 3 (no decrement while delayed)", n.queue[0].Delay)
+	}
+}
+
+// TestNpcTurnReentryQueueAppendDuringIteration — multiple ready
+// entries (delay=0) fire in one processNpcQueue pass.
+// Weaker form of the "speedup quirk" test — doesn't prove mid-fire
+// append, only multi-entry same-pass drain.
+func TestNpcTurnReentryQueueAppendDuringIteration(t *testing.T) {
+	s, n := buildNpcForIntegration(t)
+
+	// Two entries, both ready (delay=0). The iteration should
+	// process both in one turn() call.
+	n.EnqueueScriptForTrigger(script.TriggerAiQueue1, 0, 0)
+	n.EnqueueScriptForTrigger(script.TriggerAiQueue2, 0, 0)
+
+	n.turn(s)
+
+	if len(n.queue) != 0 {
+		t.Errorf("queue len: got %d, want 0 (both entries should fire in one pass)", len(n.queue))
+	}
+}

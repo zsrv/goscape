@@ -122,3 +122,40 @@ func (s *Server) resumeOrFinishNpc(state *script.ScriptState, npc script.ActiveN
 		npc.ClearActiveScript()
 	}
 }
+
+// processNpcQueue walks the NPC's queue, decrementing delays and
+// firing ready entries as fresh NPC-anchored script runs. Iterates
+// by index so a request appended mid-pass (via a fired script calling
+// EnqueueScriptForTrigger again) is visible in the same iteration —
+// preserves TS's "speedup quirk" at Npc.ts:538-560.
+//
+// Delay only decrements when the NPC is not delayed (TS Npc.ts:544-547
+// "purposely only decrements the delay when the npc is not delayed").
+// Removal happens BEFORE firing so a re-entrant enqueue doesn't
+// collide with the index pointer. Matches the player-side pattern at
+// modules/world/tick.go:219-242.
+func (s *Server) processNpcQueue(n *Npc) {
+	if n.typ == nil {
+		return
+	}
+	i := 0
+	for i < len(n.queue) {
+		req := &n.queue[i]
+		if !n.delayed {
+			req.Delay--
+		}
+		if n.delayed || req.Delay > 0 {
+			i++
+			continue
+		}
+		trigger := req.Trigger
+		intArg := req.IntArg
+		n.queue = append(n.queue[:i], n.queue[i+1:]...)
+		if s.scriptProvider == nil {
+			continue
+		}
+		sf := s.scriptProvider.GetByTrigger(trigger, n.typeId, n.typ.Category)
+		s.runNpcScript(sf, n, []int{intArg}, nil)
+		// Don't advance i — removed current element.
+	}
+}

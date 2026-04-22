@@ -24,6 +24,8 @@ func (n *Npc) turn(s *Server) {
 			state.Execution = script.Running
 			s.resumeOrFinishNpc(state, n)
 		}
+		// Queue pass. Matches TS Npc.ts:180 (turn calls processQueue).
+		s.processNpcQueue(n)
 	}
 
 	if n.dead {
