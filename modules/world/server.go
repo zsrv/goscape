@@ -80,6 +80,7 @@ type Server struct {
 	worldVars   worldVarsView
 
 	npcTypes    *objtype.NPCTypeConfigs
+	huntTypes   *objtype.HuntTypeConfigs
 	npcs        [8192]*Npc
 	npcLoop     []*Npc
 	nextNpcSlot int
@@ -189,6 +190,12 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 		return nil, fmt.Errorf("load npc types: %w", err)
 	}
 	s.npcTypes = npcTypes
+
+	huntTypes, err := objtype.LoadHuntTypes(cfg.CachePath)
+	if err != nil {
+		return nil, fmt.Errorf("load hunt types: %w", err)
+	}
+	s.huntTypes = huntTypes
 
 	s.scriptProvider = script.NewProvider()
 	if err := s.scriptProvider.Load(filepath.Join(cfg.CachePath, "server")); err != nil {
