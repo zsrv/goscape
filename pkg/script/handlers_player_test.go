@@ -2,6 +2,35 @@ package script
 
 import "testing"
 
+// -- mock active entity stubs (S6v) -------------------------------------
+
+type mockActiveLoc struct {
+	locType int
+}
+
+func (m *mockActiveLoc) LocType() int { return m.locType }
+
+type mockActiveNpc struct {
+	typeId, x, z, level int
+	stats               [8]int
+}
+
+func (m *mockActiveNpc) NpcType() int               { return m.typeId }
+func (m *mockActiveNpc) NpcX() int                  { return m.x }
+func (m *mockActiveNpc) NpcZ() int                  { return m.z }
+func (m *mockActiveNpc) NpcLevel() int              { return m.level }
+func (m *mockActiveNpc) NpcStat(stat int) int       { return m.stats[stat] }
+func (m *mockActiveNpc) NpcBaseStat(stat int) int   { return 0 }
+func (m *mockActiveNpc) NpcCategory() int           { return 0 }
+func (m *mockActiveNpc) NpcUID() int                { return 0 }
+func (m *mockActiveNpc) NpcVarN(id int) int32       { return 0 }
+func (m *mockActiveNpc) SetNpcVarN(id int, val int32) {}
+func (m *mockActiveNpc) Say(text []byte)            {}
+func (m *mockActiveNpc) Animate(id, delay int)      {}
+func (m *mockActiveNpc) FaceCoord(x, z int)         {}
+func (m *mockActiveNpc) ChangeType(newType int)     {}
+func (m *mockActiveNpc) Damage(amount, dmgType int) {}
+
 // newSingleOp builds a single-opcode script plus its trailing OpReturn,
 // so handler tests can run a handler in isolation and observe the state
 // after.
@@ -874,5 +903,140 @@ func TestHandlePApRangeAcceptsZero(t *testing.T) {
 	}
 	if !fake.lastApRangeCalled {
 		t.Error("lastApRangeCalled: want true for zero apRange")
+	}
+}
+
+// -- S6v: p_op* tests ----------------------------------------------------
+
+// TestPOpLocAnchorsOnActiveLoc — happy path for P_OPLOC.
+func TestPOpLocAnchorsOnActiveLoc(t *testing.T) {
+	mp := &mockPlayer{}
+	loc := &mockActiveLoc{locType: 42}
+
+	sf := &ScriptFile{
+		Name:             "p_op_loc",
+		Opcodes:          []Opcode{OpPushConstantInt, OpPOpLoc, OpReturn},
+		IntOperands:      []int32{3, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	state.ActiveLoc = loc
+	state.Pointers |= PtrActiveLoc
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(mp.lastSetInteractionScriptLoc) != 1 {
+		t.Fatalf("expected 1 SetInteractionScriptLoc call, got %d", len(mp.lastSetInteractionScriptLoc))
+	}
+	got := mp.lastSetInteractionScriptLoc[0]
+	if got.Loc != loc || got.Op != 3 {
+		t.Errorf("args: got %+v, want {Loc:%p, Op:3}", got, loc)
+	}
+}
+
+// TestPOpLocNoActivePlayerErrors — requireActivePlayer gate fires.
+func TestPOpLocNoActivePlayerErrors(t *testing.T) {
+	sf := newSingleOp("p_op_loc_no_player", OpPOpLoc)
+	state := Init(sf, nil, false, nil, nil)
+	state.PushInt(3)
+
+	err := Execute(state)
+	if err == nil || err.Error() != "P_OPLOC: no active player" {
+		t.Errorf("expected 'P_OPLOC: no active player', got %v", err)
+	}
+}
+
+// TestPOpLocNoActiveLocErrors — nil ActiveLoc.
+func TestPOpLocNoActiveLocErrors(t *testing.T) {
+	mp := &mockPlayer{}
+
+	sf := newSingleOp("p_op_loc_no_loc", OpPOpLoc)
+	state := Init(sf, mp, false, nil, nil)
+	state.PushInt(3)
+
+	err := Execute(state)
+	if err == nil || err.Error() != "P_OPLOC: no active loc" {
+		t.Errorf("expected 'P_OPLOC: no active loc', got %v", err)
+	}
+}
+
+// TestPOpLocInvalidOpErrors — op out of [1,5] range.
+func TestPOpLocInvalidOpErrors(t *testing.T) {
+	for _, op := range []int32{0, 6, -1, 100} {
+		mp := &mockPlayer{}
+		loc := &mockActiveLoc{locType: 42}
+
+		sf := &ScriptFile{
+			Name:             "p_op_loc_invalid",
+			Opcodes:          []Opcode{OpPushConstantInt, OpPOpLoc, OpReturn},
+			IntOperands:      []int32{op, 0, 0},
+			StringOperands:   []string{"", "", ""},
+			InstructionCount: 3,
+		}
+		state := Init(sf, mp, false, nil, nil)
+		state.ActiveLoc = loc
+		state.Pointers |= PtrActiveLoc
+
+		err := Execute(state)
+		if err == nil {
+			t.Errorf("op=%d: expected error, got nil", op)
+			continue
+		}
+		wantPrefix := "P_OPLOC: invalid op"
+		if len(err.Error()) < len(wantPrefix) || err.Error()[:len(wantPrefix)] != wantPrefix {
+			t.Errorf("op=%d: expected error starting with %q, got %v", op, wantPrefix, err)
+		}
+	}
+}
+
+// TestPOpNpcAnchorsOnActiveNpc — happy path for P_OPNPC.
+func TestPOpNpcAnchorsOnActiveNpc(t *testing.T) {
+	mp := &mockPlayer{}
+	npc := &mockActiveNpc{typeId: 7}
+
+	sf := &ScriptFile{
+		Name:             "p_op_npc",
+		Opcodes:          []Opcode{OpPushConstantInt, OpPOpNpc, OpReturn},
+		IntOperands:      []int32{2, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	state.ActiveNpc = npc
+	state.Pointers |= PtrActiveNpc
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(mp.lastSetInteractionScriptNpc) != 1 {
+		t.Fatalf("expected 1 SetInteractionScriptNpc call, got %d", len(mp.lastSetInteractionScriptNpc))
+	}
+	got := mp.lastSetInteractionScriptNpc[0]
+	if got.Npc != npc || got.Op != 2 {
+		t.Errorf("args: got %+v, want {Npc:%p, Op:2}", got, npc)
+	}
+}
+
+// TestPOpNpcInvalidOpErrors — op out of range.
+func TestPOpNpcInvalidOpErrors(t *testing.T) {
+	for _, op := range []int32{0, 6} {
+		mp := &mockPlayer{}
+		npc := &mockActiveNpc{typeId: 7}
+
+		sf := &ScriptFile{
+			Name:             "p_op_npc_invalid",
+			Opcodes:          []Opcode{OpPushConstantInt, OpPOpNpc, OpReturn},
+			IntOperands:      []int32{op, 0, 0},
+			StringOperands:   []string{"", "", ""},
+			InstructionCount: 3,
+		}
+		state := Init(sf, mp, false, nil, nil)
+		state.ActiveNpc = npc
+		state.Pointers |= PtrActiveNpc
+
+		err := Execute(state)
+		if err == nil {
+			t.Errorf("op=%d: expected error, got nil", op)
+		}
 	}
 }

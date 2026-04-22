@@ -80,6 +80,16 @@ type mockInvListen struct {
 	Source  int
 }
 
+type mockLocOp struct {
+	Loc ActiveLoc
+	Op  int
+}
+
+type mockNpcOp struct {
+	Npc ActiveNpc
+	Op  int
+}
+
 // mockPlayer is defined here for use in runner_test and handlers_test.
 // It is also used in handlers_test.go in the same package.
 type mockPlayer struct {
@@ -189,6 +199,10 @@ type mockPlayer struct {
 	// S6u: inv listener registration captures.
 	lastInvListenOnCom     []mockInvListen
 	lastInvStopListenOnCom []int
+
+	// S6v: p_op* script-queued interaction captures.
+	lastSetInteractionScriptLoc []mockLocOp
+	lastSetInteractionScriptNpc []mockNpcOp
 }
 
 type mockEnqueue struct {
@@ -392,4 +406,13 @@ func (m *mockPlayer) InvListenOnCom(invType, com, source int) {
 
 func (m *mockPlayer) InvStopListenOnCom(com int) {
 	m.lastInvStopListenOnCom = append(m.lastInvStopListenOnCom, com)
+}
+
+// S6v: p_op* script-queued interaction captures.
+func (m *mockPlayer) SetInteractionScriptLoc(loc ActiveLoc, op int) {
+	m.lastSetInteractionScriptLoc = append(m.lastSetInteractionScriptLoc, mockLocOp{Loc: loc, Op: op})
+}
+
+func (m *mockPlayer) SetInteractionScriptNpc(npc ActiveNpc, op int) {
+	m.lastSetInteractionScriptNpc = append(m.lastSetInteractionScriptNpc, mockNpcOp{Npc: npc, Op: op})
 }

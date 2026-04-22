@@ -2,6 +2,7 @@ package world
 
 import (
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
@@ -466,4 +467,27 @@ func (p *Player) InvListenOnCom(invType, com, source int) {
 // delegating to the internal unexported method landed in S6p-2.
 func (p *Player) InvStopListenOnCom(com int) {
 	p.invStopListenOnCom(com)
+}
+
+// SetInteractionScriptLoc implements script.ActivePlayer. Type-asserts
+// the narrow script.ActiveLoc back to *entity.Loc and anchors the
+// player with trigger ApLoc<op> + InteractionScript. Matches TS
+// PlayerOps.ts P_OPLOC terminal setInteraction. Silently no-ops if the
+// loc isn't a real *entity.Loc (defensive — only goscape's OPLOC
+// routing sets ScriptState.ActiveLoc with this concrete type).
+func (p *Player) SetInteractionScriptLoc(loc script.ActiveLoc, op int) {
+	realLoc, ok := loc.(*entitypkg.Loc)
+	if !ok {
+		return
+	}
+	p.SetInteraction(InteractionScript, realLoc, op, -1)
+}
+
+// SetInteractionScriptNpc implements script.ActivePlayer.
+func (p *Player) SetInteractionScriptNpc(npc script.ActiveNpc, op int) {
+	realNpc, ok := npc.(*Npc)
+	if !ok {
+		return
+	}
+	p.SetInteraction(InteractionScript, realNpc, op, -1)
 }

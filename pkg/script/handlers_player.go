@@ -2,6 +2,7 @@ package script
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"math/rand/v2"
 )
@@ -456,5 +457,48 @@ func handlePApRange(s *ScriptState) error {
 	}
 	n := s.PopInt()
 	s.Self.SetApRange(n)
+	return nil
+}
+
+// -- p_op* script-queued interaction anchoring (S6v) --------------------
+
+// handleP_OpLoc (P_OPLOC, opcode 2077) re-anchors the active player on
+// the active loc with AP trigger APLOC<op>. Matches TS
+// PlayerOps.ts:386-402.
+//
+// DEVIATION S6v-D1: TS wraps this in checkedHandler(ProtectedActivePlayer);
+// goscape uses requireActivePlayer until a ProtectedActivePlayer gate
+// sub-spec lands.
+func handleP_OpLoc(s *ScriptState) error {
+	if err := requireActivePlayer(s, "P_OPLOC"); err != nil {
+		return err
+	}
+	if s.ActiveLoc == nil {
+		return errors.New("P_OPLOC: no active loc")
+	}
+	op := s.PopInt()
+	if op < 1 || op > 5 {
+		return fmt.Errorf("P_OPLOC: invalid op %d (must be 1..5)", op)
+	}
+	s.Self.StopAction()
+	s.Self.SetInteractionScriptLoc(s.ActiveLoc, op)
+	return nil
+}
+
+// handleP_OpNpc (P_OPNPC, opcode 2078) re-anchors on the active npc.
+// Matches TS PlayerOps.ts:404-415. DEVIATION S6v-D1 applies (see above).
+func handleP_OpNpc(s *ScriptState) error {
+	if err := requireActivePlayer(s, "P_OPNPC"); err != nil {
+		return err
+	}
+	if s.ActiveNpc == nil {
+		return errors.New("P_OPNPC: no active npc")
+	}
+	op := s.PopInt()
+	if op < 1 || op > 5 {
+		return fmt.Errorf("P_OPNPC: invalid op %d (must be 1..5)", op)
+	}
+	s.Self.StopAction()
+	s.Self.SetInteractionScriptNpc(s.ActiveNpc, op)
 	return nil
 }

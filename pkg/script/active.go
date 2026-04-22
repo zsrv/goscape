@@ -286,6 +286,22 @@ type ActivePlayer interface {
 	// No-op when no listener exists there. Must be safe when the listener
 	// map is nil.
 	InvStopListenOnCom(com int)
+
+	// S6v: p_op* script-queued interaction methods.
+
+	// SetInteractionScriptLoc anchors the player on `loc` with trigger
+	// ApLoc<op> as a script-queued interaction (TS Interaction.SCRIPT).
+	// op is 1-indexed (1..5). Matches TS PlayerOps.ts:386-402 terminal
+	// setInteraction call.
+	//
+	// Implementations must type-assert the narrow ActiveLoc interface to
+	// their concrete loc type. Caller pre-validates op ∈ [1,5].
+	SetInteractionScriptLoc(loc ActiveLoc, op int)
+
+	// SetInteractionScriptNpc anchors the player on `npc` with trigger
+	// ApNpc<op> as a script-queued interaction. Matches TS
+	// PlayerOps.ts:404-415.
+	SetInteractionScriptNpc(npc ActiveNpc, op int)
 }
 
 // ActiveNpc is the per-NPC surface that NPC_* opcodes and VARN
