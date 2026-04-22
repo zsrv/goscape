@@ -71,7 +71,6 @@ func TestZoneMapZoneCount(t *testing.T) {
 	}
 }
 
-
 func TestNearbyZonesRadius0ReturnsCenter(t *testing.T) {
 	m := NewZoneMap()
 	center := m.Get(0, 3094, 3106) // materialise center zone

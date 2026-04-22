@@ -46,7 +46,6 @@ func (m *ZoneMap) Grid(level int) *ZoneGrid {
 // ZoneCount returns the number of materialised zones.
 func (m *ZoneMap) ZoneCount() int { return len(m.zones) }
 
-
 // NearbyZones returns all materialised zones whose (zoneX, zoneZ) is
 // within zoneRadius Chebyshev distance of the zone containing
 // (x, z) at the given level. Unmaterialised zones are skipped —
@@ -72,8 +71,8 @@ func (m *ZoneMap) NearbyZones(level, x, z, zoneRadius int) []*Zone {
 				continue
 			}
 			idx := coordgrid.ZoneIndex(zx<<3, zz<<3, level)
-			if z, ok := m.zones[idx]; ok {
-				out = append(out, z)
+			if zn, ok := m.zones[idx]; ok {
+				out = append(out, zn)
 			}
 		}
 	}
