@@ -214,7 +214,7 @@ func TestTryFireOpTrigger_GlobalFallback(t *testing.T) {
 	s.scriptProvider = script.NewProvider()
 	globalScript := &script.ScriptFile{
 		Name:             "[opnpc1,_]",
-		LookupKey:        uint32(script.TriggerOpNpc1),
+		LookupKey:        script.LookupKeyForGlobal(script.TriggerOpNpc1),
 		Opcodes:          []script.Opcode{script.OpPushConstantString, script.OpNpcSay, script.OpReturn},
 		IntOperands:      []int32{0, 0, 0},
 		StringOperands:   []string{"global", "", ""},

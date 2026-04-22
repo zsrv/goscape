@@ -291,7 +291,7 @@ func defaultTestProvider() *script.Provider {
 	// of those fields must seed an empty provider (s.scriptProvider = script.NewProvider()).
 	globalScript := &script.ScriptFile{
 		Name:      "[opnpc1,_default]",
-		LookupKey: uint32(script.TriggerOpNpc1),
+		LookupKey: script.LookupKeyForGlobal(script.TriggerOpNpc1),
 		Opcodes: []script.Opcode{
 			script.OpPushConstantInt,
 			script.OpPDelay,

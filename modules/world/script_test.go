@@ -19,7 +19,7 @@ import (
 func buildLoginScript() *script.ScriptFile {
 	return &script.ScriptFile{
 		Name:             "[login,test]",
-		LookupKey:        uint32(script.TriggerLogin), // global key
+		LookupKey:        script.LookupKeyForGlobal(script.TriggerLogin), // global key
 		Opcodes:          []script.Opcode{script.OpPushConstantString, script.OpMes, script.OpReturn},
 		IntOperands:      []int32{0, 0, 0},
 		StringOperands:   []string{"hi", "", ""},

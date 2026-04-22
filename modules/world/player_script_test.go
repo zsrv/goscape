@@ -323,7 +323,7 @@ func TestAddXPAdvanceStatNoFallbackToGlobal(t *testing.T) {
 	// should NOT fire on a per-skill level-up.
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
-	globalKey := uint32(script.TriggerAdvanceStat)
+	globalKey := script.LookupKeyForGlobal(script.TriggerAdvanceStat)
 	s.scriptProvider.Register(&script.ScriptFile{Name: "[advancestat,_]", LookupKey: globalKey})
 
 	p, _ := newTestPlayer(t)
