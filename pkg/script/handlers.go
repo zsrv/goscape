@@ -547,8 +547,8 @@ func handleConsole(s *ScriptState) error {
 // calculation into the ActivePlayer.SetDelayed implementation so
 // pkg/script stays decoupled from the server's current-tick counter.
 func handlePDelay(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("P_DELAY: no active player")
+	if err := requireProtectedActivePlayer(s, "P_DELAY"); err != nil {
+		return err
 	}
 	n := int(s.PopInt())
 	s.Self.SetDelayed(n)

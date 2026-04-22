@@ -320,7 +320,7 @@ func handleFaceSquare(s *ScriptState) error {
 
 // handlePTeleport pops a packed coord and calls Self.Teleport(x, z, level).
 func handlePTeleport(s *ScriptState) error {
-	if err := requireActivePlayer(s, "P_TELEPORT"); err != nil {
+	if err := requireProtectedActivePlayer(s, "P_TELEPORT"); err != nil {
 		return err
 	}
 	level, x, z := unpackCoord(s.PopInt())
@@ -330,7 +330,7 @@ func handlePTeleport(s *ScriptState) error {
 
 // handlePTeleJump pops a packed coord and calls Self.TeleJump(x, z, level).
 func handlePTeleJump(s *ScriptState) error {
-	if err := requireActivePlayer(s, "P_TELEJUMP"); err != nil {
+	if err := requireProtectedActivePlayer(s, "P_TELEJUMP"); err != nil {
 		return err
 	}
 	level, x, z := unpackCoord(s.PopInt())
@@ -440,16 +440,16 @@ func handleRunAnim(s *ScriptState) error {
 // S5h: action-clear.
 
 func handlePStopAction(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("P_STOPACTION: no active player")
+	if err := requireProtectedActivePlayer(s, "P_STOPACTION"); err != nil {
+		return err
 	}
 	s.Self.StopAction()
 	return nil
 }
 
 func handlePClearPendingAction(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("P_CLEARPENDINGACTION: no active player")
+	if err := requireProtectedActivePlayer(s, "P_CLEARPENDINGACTION"); err != nil {
+		return err
 	}
 	s.Self.ClearPendingAction()
 	return nil
@@ -464,11 +464,8 @@ func handlePClearPendingAction(s *ScriptState) error {
 // Negative values functionally disable the trigger
 // (inApproachDistance returns false for apRange<=0) — scripts passing
 // negative are misconfigured, not a security concern.
-//
-// DEVIATION S6l-D3: no ProtectedActivePlayer gate; goscape has no
-// protected-access model yet.
 func handlePApRange(s *ScriptState) error {
-	if err := requireActivePlayer(s, "P_APRANGE"); err != nil {
+	if err := requireProtectedActivePlayer(s, "P_APRANGE"); err != nil {
 		return err
 	}
 	n := s.PopInt()

@@ -148,7 +148,7 @@ func fireOpTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 		return
 	}
 
-	state := script.Init(sf, p, false, nil, nil)
+	state := script.Init(sf, p, true, nil, nil)
 	state.ActiveLoc = loc
 	state.Pointers |= script.PtrActiveLoc
 	state.Provider = srv.scriptProvider
@@ -370,7 +370,7 @@ func fireApTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 	// persist the interaction.
 	p.apRangeCalled = false
 
-	state := script.Init(sf, p, false, nil, nil)
+	state := script.Init(sf, p, true, nil, nil)
 	state.ActiveLoc = loc
 	state.Pointers |= script.PtrActiveLoc
 	state.Provider = srv.scriptProvider

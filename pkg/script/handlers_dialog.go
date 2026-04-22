@@ -7,8 +7,8 @@ import "errors"
 // resumeButtons array. The tick / client handler sets Execution=Running
 // and re-enters Execute.
 func handlePPauseButton(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("P_PAUSEBUTTON: no active player")
+	if err := requireProtectedActivePlayer(s, "P_PAUSEBUTTON"); err != nil {
+		return err
 	}
 	s.Execution = PauseButton
 	return nil
@@ -17,8 +17,8 @@ func handlePPauseButton(s *ScriptState) error {
 // handlePCountDialog writes the P_COUNTDIALOG wire packet and suspends
 // the script until the client sends a RESUME_P_COUNTDIALOG packet.
 func handlePCountDialog(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("P_COUNTDIALOG: no active player")
+	if err := requireProtectedActivePlayer(s, "P_COUNTDIALOG"); err != nil {
+		return err
 	}
 	s.Self.SendCountDialog()
 	s.Execution = CountDialog

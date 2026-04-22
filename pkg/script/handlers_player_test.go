@@ -493,7 +493,7 @@ func TestPTeleJumpUnpacksCoord(t *testing.T) {
 		StringOperands:   []string{"", "", ""},
 		InstructionCount: 3,
 	}
-	state := Init(sf, mp, false, nil, nil)
+	state := Init(sf, mp, true, nil, nil)
 	if err := Execute(state); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
@@ -518,7 +518,7 @@ func TestPTeleJumpRoundTripsLevel(t *testing.T) {
 		StringOperands:   []string{"", "", ""},
 		InstructionCount: 3,
 	}
-	state := Init(sf, mp, false, nil, nil)
+	state := Init(sf, mp, true, nil, nil)
 	if err := Execute(state); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
@@ -539,7 +539,7 @@ func TestPTeleportUnpacksCoord(t *testing.T) {
 		StringOperands:   []string{"", "", ""},
 		InstructionCount: 3,
 	}
-	state := Init(sf, mp, false, nil, nil)
+	state := Init(sf, mp, true, nil, nil)
 	if err := Execute(state); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
@@ -798,7 +798,7 @@ func TestPStopAction(t *testing.T) {
 		InstructionCount: 2,
 	}
 	mp := &mockPlayer{}
-	state := Init(sf, mp, false, nil, nil)
+	state := Init(sf, mp, true, nil, nil)
 	if err := Execute(state); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
@@ -816,7 +816,7 @@ func TestPClearPendingAction(t *testing.T) {
 		InstructionCount: 2,
 	}
 	mp := &mockPlayer{}
-	state := Init(sf, mp, false, nil, nil)
+	state := Init(sf, mp, true, nil, nil)
 	if err := Execute(state); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
@@ -832,6 +832,7 @@ func TestHandlePApRangeSetsBothFields(t *testing.T) {
 	s := &ScriptState{
 		IntStack: make([]int, StackCapacity),
 		Self:     fake,
+		Protect:  true,
 	}
 	s.Pointers |= PtrActivePlayer
 	s.PushInt(5)
@@ -871,6 +872,7 @@ func TestHandlePApRangeAcceptsNegative(t *testing.T) {
 	s := &ScriptState{
 		IntStack: make([]int, StackCapacity),
 		Self:     fake,
+		Protect:  true,
 	}
 	s.Pointers |= PtrActivePlayer
 	s.PushInt(-1)
@@ -891,6 +893,7 @@ func TestHandlePApRangeAcceptsZero(t *testing.T) {
 	s := &ScriptState{
 		IntStack: make([]int, StackCapacity),
 		Self:     fake,
+		Protect:  true,
 	}
 	s.Pointers |= PtrActivePlayer
 	s.PushInt(0)
@@ -1072,5 +1075,78 @@ func TestPOpNpcUnprotectedRejected(t *testing.T) {
 	err := Execute(state)
 	if err == nil || err.Error() != "P_OPNPC: script not protected" {
 		t.Errorf("expected 'P_OPNPC: script not protected', got %v", err)
+	}
+}
+
+// TestPTeleportUnprotectedRejected verifies that a script started without
+// protection gets the "script not protected" error. Closes S6l-D3 for
+// P_TELEPORT (matches TS checkedHandler(ProtectedActivePlayer, ...)).
+func TestPTeleportUnprotectedRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := newSingleOp("p_teleport_unprotected", OpPTeleport)
+	state := Init(sf, mp, false, nil, nil) // protect=false
+	state.PushInt(123)
+
+	err := Execute(state)
+	if err == nil || err.Error() != "P_TELEPORT: script not protected" {
+		t.Errorf("expected 'P_TELEPORT: script not protected', got %v", err)
+	}
+}
+
+// TestPTeleJumpUnprotectedRejected verifies that a script started without
+// protection gets the "script not protected" error. Closes S6l-D3 for
+// P_TELEJUMP (matches TS checkedHandler(ProtectedActivePlayer, ...)).
+func TestPTeleJumpUnprotectedRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := newSingleOp("p_telejump_unprotected", OpPTeleJump)
+	state := Init(sf, mp, false, nil, nil) // protect=false
+	state.PushInt(123)
+
+	err := Execute(state)
+	if err == nil || err.Error() != "P_TELEJUMP: script not protected" {
+		t.Errorf("expected 'P_TELEJUMP: script not protected', got %v", err)
+	}
+}
+
+// TestPApRangeUnprotectedRejected verifies that a script started without
+// protection gets the "script not protected" error. Closes S6l-D3 for
+// P_APRANGE (matches TS checkedHandler(ProtectedActivePlayer, ...)).
+func TestPApRangeUnprotectedRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := newSingleOp("p_aprange_unprotected", OpPApRange)
+	state := Init(sf, mp, false, nil, nil) // protect=false
+	state.PushInt(5)
+
+	err := Execute(state)
+	if err == nil || err.Error() != "P_APRANGE: script not protected" {
+		t.Errorf("expected 'P_APRANGE: script not protected', got %v", err)
+	}
+}
+
+// TestPStopActionUnprotectedRejected verifies that a script started without
+// protection gets the "script not protected" error. Closes S6l-D3 for
+// P_STOPACTION (matches TS checkedHandler(ProtectedActivePlayer, ...)).
+func TestPStopActionUnprotectedRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := newSingleOp("p_stopaction_unprotected", OpPStopAction)
+	state := Init(sf, mp, false, nil, nil) // protect=false
+
+	err := Execute(state)
+	if err == nil || err.Error() != "P_STOPACTION: script not protected" {
+		t.Errorf("expected 'P_STOPACTION: script not protected', got %v", err)
+	}
+}
+
+// TestPClearPendingActionUnprotectedRejected verifies that a script started
+// without protection gets the "script not protected" error. Closes S6l-D3
+// for P_CLEARPENDINGACTION (matches TS checkedHandler(ProtectedActivePlayer, ...)).
+func TestPClearPendingActionUnprotectedRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := newSingleOp("p_clearpendingaction_unprotected", OpPClearPendingAction)
+	state := Init(sf, mp, false, nil, nil) // protect=false
+
+	err := Execute(state)
+	if err == nil || err.Error() != "P_CLEARPENDINGACTION: script not protected" {
+		t.Errorf("expected 'P_CLEARPENDINGACTION: script not protected', got %v", err)
 	}
 }

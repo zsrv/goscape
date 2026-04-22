@@ -11,7 +11,7 @@ func TestPPauseButtonSuspends(t *testing.T) {
 		InstructionCount: 2,
 	}
 	mp := &mockPlayer{}
-	state := Init(sf, mp, false, nil, nil)
+	state := Init(sf, mp, true, nil, nil)
 	if err := Execute(state); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
@@ -29,7 +29,7 @@ func TestPCountDialogSuspends(t *testing.T) {
 		InstructionCount: 2,
 	}
 	mp := &mockPlayer{}
-	state := Init(sf, mp, false, nil, nil)
+	state := Init(sf, mp, true, nil, nil)
 	if err := Execute(state); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
@@ -74,6 +74,34 @@ func TestCamReset(t *testing.T) {
 	}
 	if mp.camResetCalls != 1 {
 		t.Errorf("camResetCalls: got %d, want 1", mp.camResetCalls)
+	}
+}
+
+// TestPPauseButtonUnprotectedRejected verifies that a script started without
+// protection gets the "script not protected" error. Closes S6l-D3 for
+// P_PAUSEBUTTON (matches TS checkedHandler(ProtectedActivePlayer, ...)).
+func TestPPauseButtonUnprotectedRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := newSingleOp("ppb_unprotected", OpPPauseButton)
+	state := Init(sf, mp, false, nil, nil) // protect=false
+
+	err := Execute(state)
+	if err == nil || err.Error() != "P_PAUSEBUTTON: script not protected" {
+		t.Errorf("expected 'P_PAUSEBUTTON: script not protected', got %v", err)
+	}
+}
+
+// TestPCountDialogUnprotectedRejected verifies that a script started without
+// protection gets the "script not protected" error. Closes S6l-D3 for
+// P_COUNTDIALOG (matches TS checkedHandler(ProtectedActivePlayer, ...)).
+func TestPCountDialogUnprotectedRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := newSingleOp("pcd_unprotected", OpPCountDialog)
+	state := Init(sf, mp, false, nil, nil) // protect=false
+
+	err := Execute(state)
+	if err == nil || err.Error() != "P_COUNTDIALOG: script not protected" {
+		t.Errorf("expected 'P_COUNTDIALOG: script not protected', got %v", err)
 	}
 }
 

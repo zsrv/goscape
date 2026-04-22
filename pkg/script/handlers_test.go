@@ -359,7 +359,7 @@ func TestPDelaySuspends(t *testing.T) {
 		InstructionCount: 3,
 	}
 	mp := &mockPlayer{}
-	state := Init(sf, mp, false, nil, nil)
+	state := Init(sf, mp, true, nil, nil)
 	if err := Execute(state); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
@@ -368,6 +368,21 @@ func TestPDelaySuspends(t *testing.T) {
 	}
 	if len(mp.setDelayedCalls) != 1 || mp.setDelayedCalls[0] != 5 {
 		t.Errorf("setDelayedCalls: got %v, want [5]", mp.setDelayedCalls)
+	}
+}
+
+// TestPDelayUnprotectedRejected verifies that a script started without
+// protection gets the "script not protected" error. Closes S6l-D3 for
+// P_DELAY (matches TS checkedHandler(ProtectedActivePlayer, ...)).
+func TestPDelayUnprotectedRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := newSingleOp("p_delay_unprotected", OpPDelay)
+	state := Init(sf, mp, false, nil, nil) // protect=false
+	state.PushInt(1)
+
+	err := Execute(state)
+	if err == nil || err.Error() != "P_DELAY: script not protected" {
+		t.Errorf("expected 'P_DELAY: script not protected', got %v", err)
 	}
 }
 
