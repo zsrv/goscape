@@ -112,11 +112,11 @@ func (p *Provider) Load(cacheDir string) error {
 //
 // Returns nil if no script is found at any level.
 func (p *Provider) GetByTrigger(trigger ServerTriggerType, typeID, categoryID int) *ScriptFile {
-	specific := uint32(trigger) | (0x2 << 8) | (uint32(typeID) << 10)
+	specific := LookupKeyForType(trigger, typeID)
 	if f, ok := p.byKey[specific]; ok {
 		return f
 	}
-	category := uint32(trigger) | (0x1 << 8) | (uint32(categoryID) << 10)
+	category := LookupKeyForCategory(trigger, categoryID)
 	if f, ok := p.byKey[category]; ok {
 		return f
 	}
@@ -144,10 +144,10 @@ func (p *Provider) GetByTrigger(trigger ServerTriggerType, typeID, categoryID in
 // (combat-level recompute, regen) are meaningful.
 func (p *Provider) GetByTriggerSpecific(trigger ServerTriggerType, typeID, categoryID int) *ScriptFile {
 	if typeID != -1 {
-		return p.byKey[uint32(trigger)|(0x2<<8)|(uint32(typeID)<<10)]
+		return p.byKey[LookupKeyForType(trigger, typeID)]
 	}
 	if categoryID != -1 {
-		return p.byKey[uint32(trigger)|(0x1<<8)|(uint32(categoryID)<<10)]
+		return p.byKey[LookupKeyForCategory(trigger, categoryID)]
 	}
 	return p.byKey[uint32(trigger)]
 }
