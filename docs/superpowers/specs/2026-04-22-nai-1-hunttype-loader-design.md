@@ -256,8 +256,17 @@ File: `pkg/objtype/hunttype_test.go`.
    asserts `LoadHuntTypes` returns `(cfgs, nil)` where
    `cfgs.Configs == nil` and `cfgs.ConfigNames` is empty (not nil, not
    error).
-7. **`TestLoadHuntTypesParseError`** — write a `hunt.dat` with count=1
-   but truncated body, asserts load returns an error.
+
+**Note on parse-error testing:** An earlier revision of this spec
+included a seventh test for truncated-payload parse errors, which
+required `parseHuntTypes` to recover from `packet.Packet` EOF panics
+via `defer recover()`. This was removed after discovery during
+implementation (commit `36df706`): no other loader in `pkg/objtype`
+does panic recovery, and TS `HuntType.load` at
+`cache/config/HuntType.ts:16-22` has no equivalent. `parseHuntTypes`
+matches the straight-through shape of `parseVarpTypes` /
+`parseEnumTypes`; truncated input will panic, which is consistent
+with project convention.
 
 Test data uses the existing `packet.Packet` builder methods (`P1`, `P2`,
 `PJStrLF`, `P4`) per the `varptype_test.go:19-37` `buildVarpDat` helper
