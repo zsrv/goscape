@@ -609,6 +609,7 @@ func TestHandleOpLocUMissingListenerRejected(t *testing.T) {
 	}
 	s.invs[93] = inventory.New(93, 28, inventory.StackNormal)
 
+	p.lastUseItem = 77 // sentinel: must stay unchanged
 	received := drainConn(t, cc)
 	_ = handleOpLocU(p, p2x6Payload(100, 100, 42, 1511, 3, 149))
 	p.client.flushWrite()
@@ -619,6 +620,9 @@ func TestHandleOpLocUMissingListenerRejected(t *testing.T) {
 	}
 	if p.target != nil {
 		t.Error("target should remain nil for missing listener")
+	}
+	if p.lastUseItem != 77 {
+		t.Errorf("lastUseItem leaked through rejected handler: got %d, want 77", p.lastUseItem)
 	}
 }
 
@@ -633,6 +637,7 @@ func TestHandleOpLocUInvalidSlotRejected(t *testing.T) {
 	s.invs[93] = inventory.New(93, 28, inventory.StackNormal) // capacity 28
 	p.invListenOnCom(93, 149, -1)
 
+	p.lastUseItem = 77 // sentinel: must stay unchanged
 	received := drainConn(t, cc)
 	// useSlot = 99, OOB for a capacity-28 inv.
 	_ = handleOpLocU(p, p2x6Payload(100, 100, 42, 1511, 99, 149))
@@ -644,6 +649,9 @@ func TestHandleOpLocUInvalidSlotRejected(t *testing.T) {
 	}
 	if p.target != nil {
 		t.Error("target should remain nil for invalid slot")
+	}
+	if p.lastUseItem != 77 {
+		t.Errorf("lastUseItem leaked through rejected handler: got %d, want 77", p.lastUseItem)
 	}
 }
 
@@ -659,6 +667,7 @@ func TestHandleOpLocUItemMismatchRejected(t *testing.T) {
 	s.invs[93] = inv
 	p.invListenOnCom(93, 149, -1)
 
+	p.lastUseItem = 77 // sentinel: must stay unchanged
 	received := drainConn(t, cc)
 	_ = handleOpLocU(p, p2x6Payload(100, 100, 42, 1511, 3, 149)) // claims 1511
 	p.client.flushWrite()
@@ -669,6 +678,9 @@ func TestHandleOpLocUItemMismatchRejected(t *testing.T) {
 	}
 	if p.target != nil {
 		t.Error("target should remain nil for item mismatch")
+	}
+	if p.lastUseItem != 77 {
+		t.Errorf("lastUseItem leaked through rejected handler: got %d, want 77", p.lastUseItem)
 	}
 }
 

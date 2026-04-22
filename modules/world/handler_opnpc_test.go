@@ -439,10 +439,14 @@ func TestHandleOpNpcUMissingListenerRejected(t *testing.T) {
 	s.invs[93] = inventory.New(93, 28, inventory.StackNormal)
 	// NO invListenOnCom.
 
+	p.lastUseItem = 77 // sentinel: must stay unchanged
 	_ = handleOpNpcU(p, p2x4NpcUPayload(1, 1511, 3, 149))
 
 	if p.target != nil {
 		t.Error("target should remain nil for missing listener")
+	}
+	if p.lastUseItem != 77 {
+		t.Errorf("lastUseItem leaked through rejected handler: got %d, want 77", p.lastUseItem)
 	}
 }
 
@@ -456,11 +460,15 @@ func TestHandleOpNpcUInvalidInvSlotRejected(t *testing.T) {
 	s.invs[93] = inventory.New(93, 28, inventory.StackNormal)
 	p.invListenOnCom(93, 149, -1)
 
+	p.lastUseItem = 77 // sentinel: must stay unchanged
 	// useSlot=99, OOB.
 	_ = handleOpNpcU(p, p2x4NpcUPayload(1, 1511, 99, 149))
 
 	if p.target != nil {
 		t.Error("target should remain nil for invalid slot")
+	}
+	if p.lastUseItem != 77 {
+		t.Errorf("lastUseItem leaked through rejected handler: got %d, want 77", p.lastUseItem)
 	}
 }
 
@@ -476,10 +484,14 @@ func TestHandleOpNpcUItemMismatchRejected(t *testing.T) {
 	s.invs[93] = inv
 	p.invListenOnCom(93, 149, -1)
 
+	p.lastUseItem = 77 // sentinel: must stay unchanged
 	_ = handleOpNpcU(p, p2x4NpcUPayload(1, 1511, 3, 149))
 
 	if p.target != nil {
 		t.Error("target should remain nil for item mismatch")
+	}
+	if p.lastUseItem != 77 {
+		t.Errorf("lastUseItem leaked through rejected handler: got %d, want 77", p.lastUseItem)
 	}
 }
 
