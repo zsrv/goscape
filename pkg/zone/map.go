@@ -46,6 +46,40 @@ func (m *ZoneMap) Grid(level int) *ZoneGrid {
 // ZoneCount returns the number of materialised zones.
 func (m *ZoneMap) ZoneCount() int { return len(m.zones) }
 
+
+// NearbyZones returns all materialised zones whose (zoneX, zoneZ) is
+// within zoneRadius Chebyshev distance of the zone containing
+// (x, z) at the given level. Unmaterialised zones are skipped —
+// callers don't need to nil-check entries.
+//
+// Iteration order is dx ascending (outer) then dz ascending (inner),
+// matching the grid.NearbyPlayers/NearbyNpcs convention (not the TS
+// HuntIterator's descending order — order is distribution-neutral
+// for the random picker in huntAll; logged as deviation D1 in
+// 2026-04-22-nai-9-hunt-variant-fill-design.md).
+//
+// Used by modules/world/npc_hunt_entities.go for huntObjs/huntLocs
+// zone-iteration.
+func (m *ZoneMap) NearbyZones(level, x, z, zoneRadius int) []*Zone {
+	zoneX := x >> 3
+	zoneZ := z >> 3
+	out := make([]*Zone, 0, (2*zoneRadius+1)*(2*zoneRadius+1))
+	for dx := -zoneRadius; dx <= zoneRadius; dx++ {
+		for dz := -zoneRadius; dz <= zoneRadius; dz++ {
+			zx := zoneX + dx
+			zz := zoneZ + dz
+			if zx < 0 || zz < 0 {
+				continue
+			}
+			idx := coordgrid.ZoneIndex(zx<<3, zz<<3, level)
+			if z, ok := m.zones[idx]; ok {
+				out = append(out, z)
+			}
+		}
+	}
+	return out
+}
+
 // LocCount sums len(Locs) across all materialised zones.
 func (m *ZoneMap) LocCount() int {
 	total := 0
