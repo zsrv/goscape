@@ -462,3 +462,47 @@ func TestInvStopTransmitNoActivePlayerErrors(t *testing.T) {
 		t.Errorf("expected 'INV_STOPTRANSMIT: no active player' error, got %v", err)
 	}
 }
+
+// TestInvOtherTransmitRegistersListenerWithUid — happy path for
+// OpInvOtherTransmit. Closes S6u-SB1.
+func TestInvOtherTransmitRegistersListenerWithUid(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "invother_transmit",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // uid
+			OpPushConstantInt, // inv
+			OpPushConstantInt, // com (top)
+			OpInvOtherTransmit,
+			OpReturn,
+		},
+		IntOperands:      []int32{42, 93, 149, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(mp.lastInvListenOnCom) != 1 {
+		t.Fatalf("expected 1 call, got %d", len(mp.lastInvListenOnCom))
+	}
+	got := mp.lastInvListenOnCom[0]
+	if got.InvType != 93 || got.Com != 149 || got.Source != 42 {
+		t.Errorf("args: got %+v, want {InvType:93, Com:149, Source:42}", got)
+	}
+}
+
+// TestInvOtherTransmitNoActivePlayerErrors verifies requireActivePlayer gate.
+func TestInvOtherTransmitNoActivePlayerErrors(t *testing.T) {
+	sf := newSingleOp("invother_transmit_no_player", OpInvOtherTransmit)
+	state := Init(sf, nil, false, nil, nil)
+	state.PushInt(42)  // uid
+	state.PushInt(93)  // inv
+	state.PushInt(149) // com
+
+	err := Execute(state)
+	if err == nil || err.Error() != "INVOTHER_TRANSMIT: no active player" {
+		t.Errorf("expected 'INVOTHER_TRANSMIT: no active player', got %v", err)
+	}
+}

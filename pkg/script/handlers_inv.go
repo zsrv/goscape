@@ -439,6 +439,25 @@ func handleInvStopTransmit(s *ScriptState) error {
 	return nil
 }
 
+// handleInvOtherTransmit implements INVOTHER_TRANSMIT (opcode 4332).
+// 3-arg variant of INV_TRANSMIT: registers a listener on the active
+// player at UI component `com` tracking inv type `invType` with source
+// = `uid` (another player's server slot). Used by trade/shop/bank-view
+// flows where the viewer watches another player's inventory.
+//
+// TS: InvOps.ts INVOTHER_TRANSMIT — popInts(3) → [uid, inv, com];
+// activePlayer.invListenOnCom(invType.id, com, uid). Closes S6u-SB1.
+func handleInvOtherTransmit(s *ScriptState) error {
+	if err := requireActivePlayer(s, "INVOTHER_TRANSMIT"); err != nil {
+		return err
+	}
+	com := s.PopInt()
+	invType := s.PopInt()
+	uid := s.PopInt()
+	s.Self.InvListenOnCom(invType, com, uid)
+	return nil
+}
+
 // handleInvMoveToSlot (INV_MOVETOSLOT) pops [fromInv, toInv, fromSlot,
 // toSlot] and swaps the two slot contents (nil-safe both directions).
 // Matches TS Player.invMoveToSlot.
