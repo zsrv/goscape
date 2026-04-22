@@ -158,6 +158,100 @@ func TestNewNpcSeedsRegenInterval(t *testing.T) {
 	}
 }
 
+func TestProcessNpcRegenIncrementsClock(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.currentTick = 100
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.regenInterval = 100
+	n.regenClock = 0
+	n.curHP, n.baseHP = 8, 10
+
+	s.processNpcRegen(n)
+
+	if n.regenClock != 1 {
+		t.Errorf("regenClock: got %d, want 1", n.regenClock)
+	}
+	if n.curHP != 8 {
+		t.Errorf("curHP: got %d, want 8 (no regen fire yet)", n.curHP)
+	}
+}
+
+func TestProcessNpcRegenFiresAtInterval(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.currentTick = 100
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.regenInterval = 3
+	n.regenClock = 0
+	n.curHP, n.baseHP = 5, 10
+
+	// Simulate a type-change that would set RegenRate=99 — the
+	// Vorkath quirk means this new rate only takes effect on the
+	// regen fire, not here. Before the fire, regenInterval is
+	// still 3.
+	n.typ.RegenRate = 99
+
+	// 2 ticks: clock goes 0→1→2; no fire yet.
+	s.processNpcRegen(n)
+	s.processNpcRegen(n)
+	if n.regenClock != 2 {
+		t.Fatalf("regenClock after 2 ticks: got %d, want 2", n.regenClock)
+	}
+	if n.curHP != 5 {
+		t.Fatalf("curHP after 2 ticks: got %d, want 5 (pre-fire)", n.curHP)
+	}
+
+	// 3rd tick: clock 2→3, fires. Interval reloads to 99; clock
+	// resets to 0; curHP increments 5→6.
+	s.processNpcRegen(n)
+	if n.regenClock != 0 {
+		t.Errorf("regenClock after fire: got %d, want 0 (reset)", n.regenClock)
+	}
+	if n.regenInterval != 99 {
+		t.Errorf("regenInterval after fire: got %d, want 99 (reloaded from typ.RegenRate)", n.regenInterval)
+	}
+	if n.curHP != 6 {
+		t.Errorf("curHP after fire: got %d, want 6 (incremented toward baseHP=10)", n.curHP)
+	}
+}
+
+func TestProcessNpcRegenClampsAtBaseHP(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.currentTick = 100
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.regenInterval = 3
+	n.regenClock = 0
+	n.curHP, n.baseHP = 10, 10
+
+	for i := 0; i < 3; i++ {
+		s.processNpcRegen(n)
+	}
+
+	if n.curHP != 10 {
+		t.Errorf("curHP: got %d, want 10 (no change at equal)", n.curHP)
+	}
+}
+
+func TestProcessNpcRegenDecrementsWhenAboveBase(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.currentTick = 100
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.regenInterval = 3
+	n.regenClock = 0
+	n.curHP, n.baseHP = 12, 10
+
+	for i := 0; i < 3; i++ {
+		s.processNpcRegen(n)
+	}
+
+	if n.curHP != 11 {
+		t.Errorf("curHP: got %d, want 11 (decremented toward baseHP=10)", n.curHP)
+	}
+}
+
 func TestProcessNpcEventQueueSkipsDelayedNpcs(t *testing.T) {
 	s := newServerForScriptTest(t)
 	s.currentTick = 100

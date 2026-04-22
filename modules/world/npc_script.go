@@ -156,6 +156,37 @@ func (s *Server) processNpcTimer(n *Npc) {
 	n.timerClock = 0
 }
 
+// processNpcRegen ticks the regen clock and, on interval elapse,
+// reloads the interval from NpcType.RegenRate and moves curHP one
+// step toward baseHP. Matches TS Npc.processRegen at
+// Engine-TS/.../Npc.ts:505-525.
+//
+// Behaviour:
+//   - regenClock increments unconditionally when called (TS has no
+//     internal delayed gate; the caller's isValid check handles it).
+//   - When regenClock hits regenInterval: reload regenInterval from
+//     n.typ.RegenRate (Vorkath-changetype quirk: new rate takes
+//     effect on fire, not on changetype), reset clock to 0, and
+//     move curHP one step toward baseHP.
+//   - HP-only for now; full 6-stat array regen deferred until stat
+//     arrays land on *Npc.
+func (s *Server) processNpcRegen(n *Npc) {
+	n.regenClock++
+	if n.regenClock < n.regenInterval {
+		return
+	}
+	if n.typ != nil {
+		n.regenInterval = int(n.typ.RegenRate)
+	}
+	n.regenClock = 0
+	switch {
+	case n.curHP < n.baseHP:
+		n.curHP++
+	case n.curHP > n.baseHP:
+		n.curHP--
+	}
+}
+
 // processNpcQueue walks the NPC's queue, decrementing delays and
 // firing ready entries as fresh NPC-anchored script runs. Iterates
 // by index so a request appended mid-pass (via a fired script calling
