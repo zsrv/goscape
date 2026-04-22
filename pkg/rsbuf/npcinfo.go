@@ -36,6 +36,7 @@ func EncodeNpc(self PlayerSource, all []NpcSource, ba *buildarea.BuildArea, g *g
 		if !ok || !n.Active() {
 			main.PBit(1, 1)
 			main.PBit(2, 3) // remove
+			decNpcObserver(nid)
 			delete(ba.Npcs, nid)
 			continue
 		}
@@ -43,6 +44,7 @@ func EncodeNpc(self PlayerSource, all []NpcSource, ba *buildarea.BuildArea, g *g
 		if nl != selfLevel || zoneDist(selfX, selfZ, nx, nz) > NpcViewDistanceZones {
 			main.PBit(1, 1)
 			main.PBit(2, 3)
+			decNpcObserver(nid)
 			delete(ba.Npcs, nid)
 			continue
 		}
@@ -106,6 +108,7 @@ func EncodeNpc(self PlayerSource, all []NpcSource, ba *buildarea.BuildArea, g *g
 		main.PBit(1, boolToInt(len(payload) > 0))
 
 		ba.Npcs[nid] = struct{}{}
+		incNpcObserver(nid)
 		if len(payload) > 0 {
 			for _, b := range payload {
 				updates.P1(b)
