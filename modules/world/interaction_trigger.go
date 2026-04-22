@@ -354,9 +354,13 @@ func fireApTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 
 	sf := srv.scriptProvider.GetByTrigger(trigger, loc.Type(), category)
 	if sf == nil {
-		// No AP script registered. DEVIATION S6l-D1: skip TS apRange=-1
-		// sentinel. Interaction stays anchored; next tick re-evaluates.
-		// If player has reached contact, OP/defaultOp takes over.
+		// S6l-D1 closed in S6r: cache "no AP script for this (trigger,
+		// locType, category) triple" via the apRange=-1 sentinel so
+		// inApproachDistance short-circuits on subsequent ticks.
+		// Matches TS Player.ts:~1139-1170 behavior: apRange=-1 means
+		// "AP path permanently disabled for this interaction;
+		// anchor stays — contact (OP) takes over on a later tick."
+		p.apRange = -1
 		p.interactionFired = true
 		return
 	}

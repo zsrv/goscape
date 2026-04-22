@@ -418,11 +418,10 @@ func makeApTriggerFixture(t *testing.T) (*Server, *Player, *entitypkg.Loc, net.C
 }
 
 // TestTryFireApTriggerLocNoScript verifies a Loc target with no APLOC
-// trigger registered leaves the interaction anchored (no clear), just
-// sets interactionFired=true.
-// DEVIATION S6l-D1: goscape skips TS's apRange=-1 sentinel. The
-// observable effect is the same — player keeps walking toward contact
-// on subsequent ticks, at which point OPLOC/defaultOp takes over.
+// trigger registered leaves the interaction anchored (no clear), sets
+// interactionFired=true, and sets apRange=-1 (S6l-D1 sentinel, closed
+// in S6r). Subsequent ticks see apRange<=0 in inApproachDistance and
+// skip the AP path; OPLOC/defaultOp takes over on contact.
 func TestTryFireApTriggerLocNoScript(t *testing.T) {
 	_, p, loc, _ := makeApTriggerFixture(t)
 
@@ -959,5 +958,63 @@ func TestFireApTriggerNpcFiresApNpcUTrigger(t *testing.T) {
 	}
 	if string(npc.sayText) != "apnpcu-fired" {
 		t.Errorf("npc.sayText: got %q, want %q", npc.sayText, "apnpcu-fired")
+	}
+}
+
+// TestFireApTriggerLocNoScriptSetsApRangeSentinel verifies that when
+// fireApTriggerLoc finds no registered AP script for (trigger,
+// locType, category), it sets p.apRange = -1 as a sentinel. Closes
+// S6l-D1: matches TS Player.ts:~1139-1170 apRange=-1 semantics.
+func TestFireApTriggerLocNoScriptSetsApRangeSentinel(t *testing.T) {
+	s, p, loc, _ := makeOpLocFixture(t)
+	// Anchor an OpLoc1 interaction. makeOpLocFixture registers
+	// LocType 42 but NO AP script for it.
+	p.SetInteraction(InteractionEngine, loc, 1, -1)
+	p.targetSubject.typ = loc.Type()
+	p.targetSubject.x = loc.X
+	p.targetSubject.z = loc.Z
+	p.targetSubject.level = loc.Level
+
+	// Sanity: apRange starts at 10 (SetInteraction default).
+	if p.apRange != 10 {
+		t.Fatalf("apRange pre-fire: got %d, want 10", p.apRange)
+	}
+
+	fireApTriggerLoc(p, s, loc)
+
+	if p.apRange != -1 {
+		t.Errorf("apRange post no-script fire: got %d, want -1 (S6l-D1 sentinel)", p.apRange)
+	}
+}
+
+// TestApRangeSentinelShortCircuitsApproachGate verifies that with
+// p.apRange = -1, inApproachDistance returns false regardless of
+// actual player-to-target distance. This is how the sentinel skips
+// re-lookup on subsequent ticks.
+func TestApRangeSentinelShortCircuitsApproachGate(t *testing.T) {
+	// Player at (100, 100), target at (101, 100) — distance 1 tile.
+	// With apRange=-1, should return false even though distance <
+	// any positive apRange.
+	if inApproachDistance(100, 100, 101, 100, -1) {
+		t.Error("inApproachDistance should return false when apRange=-1 (sentinel)")
+	}
+
+	// Control: with apRange=5, same positions should return true.
+	if !inApproachDistance(100, 100, 101, 100, 5) {
+		t.Error("control: inApproachDistance should return true when apRange=5 and distance=1")
+	}
+}
+
+// TestSetInteractionResetsApRangeSentinel verifies that starting a
+// fresh interaction clears the -1 sentinel. Codifies the contract
+// so future refactors can't regress it silently.
+func TestSetInteractionResetsApRangeSentinel(t *testing.T) {
+	_, p, loc, _ := makeOpLocFixture(t)
+	p.apRange = -1 // simulate a prior sentinel state
+
+	p.SetInteraction(InteractionEngine, loc, 3, -1)
+
+	if p.apRange != 10 {
+		t.Errorf("apRange post SetInteraction: got %d, want 10 (sentinel should be reset)", p.apRange)
 	}
 }

@@ -102,8 +102,9 @@ func (p *Player) processInteraction() {
 
 	if inApproachDistance(p.x, p.z, tx, tz, effectiveApRange(p)) {
 		// Approach range — fire AP. Matches TS Player.ts:1139-1170.
-		// DEVIATION S6l-D1: goscape skips TS's apRange=-1 sentinel
-		// optimization; each tick does a fresh provider lookup.
+		// S6l-D1 closed in S6r: when fireApTriggerLoc finds no script,
+		// it sets p.apRange = -1. Next tick's inApproachDistance sees
+		// apRange <= 0 and returns false, skipping re-lookup.
 		p.interacted = true
 		if p.interactionKind == InteractionEngine && !p.interactionFired {
 			tryFireApTrigger(p)
