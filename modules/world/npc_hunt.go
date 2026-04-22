@@ -134,6 +134,8 @@ func (n *Npc) huntPlayers(s *Server, hunt *objtype.HuntType) []entity {
 		if hunt.CheckAfk && p.IsZonesAfk() {
 			continue
 		}
+		// TODO: CheckVis gate — TS ScriptIterators.ts:88-94.
+		// Deferred; see nai_followups.md.
 		hunted = append(hunted, p)
 	}
 	return hunted

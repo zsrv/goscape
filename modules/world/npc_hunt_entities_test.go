@@ -516,3 +516,82 @@ func TestHuntLocsNilRegistriesReturnsNil(t *testing.T) {
 		t.Errorf("hunted: got %v, want nil (locTypes nil)", hunted)
 	}
 }
+
+func TestHuntNpcsCheckCategoryNegativeOneAllowsAll(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	_ = addNpcToServerAt(t, s, 80, 1, 42, n.x+2, n.z+2, n.level)
+	_ = addNpcToServerAt(t, s, 81, 2, 99, n.x+3, n.z+3, n.level)
+
+	hunted := n.huntNpcs(s, &objtype.HuntType{CheckNpc: -1, CheckCategory: -1})
+	if len(hunted) != 2 {
+		t.Errorf("hunted: got %d, want 2 (CheckCategory=-1 allows all)", len(hunted))
+	}
+}
+
+func TestHuntObjsCheckCategoryNegativeOneAllowsAll(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	_ = addObjToZone(t, s, n.level, n.x+2, n.z+2, 1, 42)
+	_ = addObjToZone(t, s, n.level, n.x+3, n.z+3, 2, 99)
+
+	hunted := n.huntObjs(s, &objtype.HuntType{CheckObj: -1, CheckCategory: -1})
+	if len(hunted) != 2 {
+		t.Errorf("hunted: got %d, want 2 (CheckCategory=-1 allows all)", len(hunted))
+	}
+}
+
+func TestHuntLocsCheckCategoryNegativeOneAllowsAll(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	_ = addLocToZone(t, s, n.level, n.x+2, n.z+2, 1000, 42)
+	_ = addLocToZone(t, s, n.level, n.x+3, n.z+3, 2000, 99)
+
+	hunted := n.huntLocs(s, &objtype.HuntType{CheckLoc: -1, CheckCategory: -1})
+	if len(hunted) != 2 {
+		t.Errorf("hunted: got %d, want 2 (CheckCategory=-1 allows all)", len(hunted))
+	}
+}
+
+// TestHuntAllPicksFromVariantResult is the cross-variant integration
+// test from the NAI-9 spec: when huntAll dispatches to a variant
+// that returns candidates, n.huntTarget is set to one of them.
+func TestHuntAllPicksFromVariantResult(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+	n.huntClock = 0
+
+	// Seed exactly one candidate NPC in range so the rand.IntN pick
+	// is deterministic — it must be the only candidate.
+	candidate := addNpcToServerAt(t, s, 90, 1, -1, n.x+3, n.z+3, n.level)
+
+	hunt := &objtype.HuntType{
+		Type:          objtype.HuntModeNpc,
+		Rate:          1,
+		CheckNpc:      -1,
+		CheckCategory: -1,
+	}
+	n.huntAll(s, hunt)
+
+	if n.huntTarget == nil {
+		t.Fatalf("huntTarget: got nil, want candidate NPC")
+	}
+	if n.huntTarget.Slot() != candidate.nid {
+		t.Errorf("huntTarget: got nid %d, want %d", n.huntTarget.Slot(), candidate.nid)
+	}
+}

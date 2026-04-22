@@ -378,10 +378,10 @@ func TestProcessNpcHuntIncrementsClockWhenHuntModeValid(t *testing.T) {
 // when observer count is zero and hunt type is not HuntModePlayer.
 // Observer count is seeded via rsbuf.SetObserverForTest.
 func TestProcessNpcHuntPauseHuntBailsWithNoObservers(t *testing.T) {
-	rsbuf.SetObserverForTest(0, 0) // n.nid = 0 for this test
 	s := newServerForScriptTest(t)
 	n := newNpcForLifecycleTest(t) // nid = 1 per NewNpc's arg
 	rsbuf.SetObserverForTest(n.nid, 0)
+	defer rsbuf.SetObserverForTest(n.nid, 0)
 	n.server = s
 	n.huntMode = 0 // index into huntTypes
 	n.huntRange = 10
