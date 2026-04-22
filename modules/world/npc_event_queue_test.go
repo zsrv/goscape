@@ -323,6 +323,79 @@ func TestNpcRevertTypeResetsHuntFields(t *testing.T) {
 	}
 }
 
+func TestProcessNpcHuntSkipsWhenHuntModeNegative(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.currentTick = 100
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.huntMode = -1
+	n.huntClock = 0
+
+	s.processNpcHunt(n)
+
+	if n.huntClock != 0 {
+		t.Errorf("huntClock: got %d, want 0 (no-op when huntMode=-1)", n.huntClock)
+	}
+}
+
+func TestProcessNpcHuntIncrementsClockWhenHuntModeValid(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.currentTick = 100
+	// Seed a HuntTypeConfigs with index 0 being a "always-gate-open"
+	// HuntType. Type=Off means huntAll short-circuits at the
+	// `HuntModeOff || huntRange < 1` check; NobodyNear=KeepHunting
+	// means the observer gate passes. Net effect: gate passes, clock
+	// increments, huntAll is a no-op.
+	s.huntTypes = &objtype.HuntTypeConfigs{
+		Configs: []*objtype.HuntType{
+			{
+				Type:       objtype.HuntModeOff,
+				NobodyNear: objtype.HuntNobodyNearKeepHunting,
+				Rate:       1,
+			},
+		},
+	}
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.huntMode = 0
+	n.huntClock = 0
+
+	s.processNpcHunt(n)
+
+	if n.huntClock != 1 {
+		t.Errorf("huntClock: got %d, want 1 (gate passes, clock increments)", n.huntClock)
+	}
+}
+
+// TestProcessNpcHuntPauseHuntRunsWithObserverStub — regression guard
+// for the observer stub. Currently `observers := 1` means PAUSEHUNT
+// gate passes even without real observers. When real observer
+// tracking lands, this test's expected value changes to 0 and its
+// assertion reverses.
+func TestProcessNpcHuntPauseHuntRunsWithObserverStub(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.currentTick = 100
+	s.huntTypes = &objtype.HuntTypeConfigs{
+		Configs: []*objtype.HuntType{
+			{
+				Type:       objtype.HuntModeNpc,
+				NobodyNear: objtype.HuntNobodyNearPauseHunt,
+				Rate:       1,
+			},
+		},
+	}
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.huntMode = 0
+	n.huntClock = 0
+
+	s.processNpcHunt(n)
+
+	if n.huntClock != 1 {
+		t.Errorf("huntClock: got %d, want 1 (observer stub = 1 means PAUSEHUNT gate passes)", n.huntClock)
+	}
+}
+
 func TestProcessNpcEventQueueSkipsDelayedNpcs(t *testing.T) {
 	s := newServerForScriptTest(t)
 	s.currentTick = 100
