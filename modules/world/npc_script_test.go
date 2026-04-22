@@ -293,3 +293,60 @@ func TestNpcTurnReentryQueueAppendDuringIteration(t *testing.T) {
 		t.Errorf("queue len: got %d, want 0 (both entries should fire in one pass)", len(n.queue))
 	}
 }
+
+// TestResumeOrFinishNpcErrorPathClearsScript — NAI-2 follow-up.
+// When script.Execute returns an error, resumeOrFinishNpc must
+// clear n.activeScript (matching the player-side resumeOrFinish
+// error-path at modules/world/script.go:31-35).
+func TestResumeOrFinishNpcErrorPathClearsScript(t *testing.T) {
+	s, n := buildNpcForIntegration(t)
+
+	// Pre-store a dummy script to prove it gets cleared.
+	n.activeScript = &script.ScriptState{}
+
+	// Build a state whose Execute will error. Opcode 0xFFFF has no
+	// registered handler; Execute returns "no handler for ..." error.
+	sf := &script.ScriptFile{
+		Name:    "err_script",
+		Opcodes: []script.Opcode{script.Opcode(0xFFFF)},
+	}
+	errState := script.Init(sf, nil, false, nil, nil)
+	errState.ActiveNpc = n
+
+	s.resumeOrFinishNpc(errState, n)
+
+	if n.activeScript != nil {
+		t.Errorf("activeScript: got %v, want nil (cleared on Execute error)", n.activeScript)
+	}
+}
+
+// TestResumeOrFinishNpcDefaultBranchClearsScript — NAI-2 follow-up.
+// Synthetic: pre-set Execution to a value that hits the default:
+// branch (not Finished/Aborted/NpcSuspended). Execute's hot loop
+// exits immediately when Execution != Running, so the pre-set value
+// survives untouched.
+//
+// This path is unreachable from authentic content (all non-
+// NpcSuspended non-terminal Execution values require an ActivePlayer,
+// and runNpcScript passes nil Self), but the test proves the
+// defensive clear fires if future code accidentally drives an NPC-
+// anchored script into one of these states.
+func TestResumeOrFinishNpcDefaultBranchClearsScript(t *testing.T) {
+	s, n := buildNpcForIntegration(t)
+
+	n.activeScript = &script.ScriptState{}
+
+	sf := &script.ScriptFile{
+		Name:    "default_branch_script",
+		Opcodes: []script.Opcode{script.OpReturn},
+	}
+	state := script.Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = n
+	state.Execution = script.CountDialog // synthetic non-Running, non-terminal state
+
+	s.resumeOrFinishNpc(state, n)
+
+	if n.activeScript != nil {
+		t.Errorf("activeScript: got %v, want nil (cleared on default branch)", n.activeScript)
+	}
+}
