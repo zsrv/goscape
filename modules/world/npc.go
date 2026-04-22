@@ -2,6 +2,7 @@ package world
 
 import (
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 )
 
@@ -36,6 +37,7 @@ type Npc struct {
 	respawnRate                int
 	dead                       bool
 	startX, startZ, startLevel int
+	baseType                   int
 
 	// === coords ===
 	x, z, level                     int
@@ -98,6 +100,7 @@ func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
 	return &Npc{
 		nid:             nid,
 		typeId:          typeId,
+		baseType:        typeId,
 		typ:             typ,
 		uid:             (typeId << 16) | nid,
 		lifecycle:       NpcLifecycleRespawn,
@@ -197,4 +200,42 @@ func (n *Npc) SetTimer(interval int) {
 		return
 	}
 	n.timerInterval = interval
+}
+
+// revertType restores the NPC to its baseline type and resets state
+// that should not persist across a respawn or revert-from-changetype.
+// Matches TS Npc.resetEntity at Engine-TS/.../Npc.ts:280-317, minus
+// hunt-field resets (deferred to NAI-7 per the NAI roadmap).
+//
+// What revertType does:
+//   - restores typeId to baseType (for changetype'd NPCs)
+//   - recomputes uid from the restored typeId
+//   - resets the typ pointer to the baseType's NpcType config (when
+//     server + npcTypes are wired)
+//   - reseeds curHP/baseHP from typ.Stats via initialHP
+//   - clears the script queue
+//   - clears waypoints
+//   - sets tele = true + raises NpcMaskChangeType
+//
+// What revertType does NOT do (intentional):
+//   - hunt-field resets (NAI-7 scope; those fields don't exist yet)
+//   - varn resets (future; VarNpc subsystem not yet wired)
+//   - activeScript clear (TS behaviour: a revert does not cancel an
+//     in-flight script)
+func (n *Npc) revertType() {
+	if n.typeId != n.baseType {
+		n.typeId = n.baseType
+		n.uid = (n.typeId << 16) | n.nid
+		if n.server != nil && n.server.npcTypes != nil {
+			if n.baseType >= 0 && n.baseType < len(n.server.npcTypes.Configs) {
+				n.typ = n.server.npcTypes.Configs[n.baseType]
+			}
+		}
+	}
+	n.curHP = initialHP(n.typ)
+	n.baseHP = initialHP(n.typ)
+	n.queue = nil
+	n.waypointIndex = -1
+	n.tele = true
+	n.masks |= rsbuf.NpcMaskChangeType
 }
