@@ -33,6 +33,7 @@ func (s *Server) addNpc(n *Npc) error {
 		return errNpcsFull
 	}
 	n.nid = nid
+	n.server = s
 	s.npcs[nid] = n
 	s.npcLoop = append(s.npcLoop, n)
 	return nil

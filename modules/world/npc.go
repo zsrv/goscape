@@ -2,6 +2,7 @@ package world
 
 import (
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/script"
 )
 
 // NPC lifecycle constants.
@@ -50,6 +51,12 @@ type Npc struct {
 	waypoints       [25]int
 	tele            bool
 	stepsTaken      int
+
+	// === script state ===
+	server       *Server          // back-reference; set by Server.addNpc
+	activeScript *script.ScriptState
+	delayed      bool
+	delayedUntil int
 
 	// === AI ===
 	targetOp        int
@@ -143,3 +150,17 @@ func initialHP(typ *objtype.NpcType) int {
 
 // Slot returns the NPC's nid for the entity interface.
 func (n *Npc) Slot() int { return n.nid }
+
+// StoreActiveScript saves a Suspended ScriptState so Npc.turn() can
+// resume it when the NPC's delay expires. Part of the ActiveNpc
+// interface; mirrors *Player.StoreActiveScript.
+func (n *Npc) StoreActiveScript(state *script.ScriptState) {
+	n.activeScript = state
+}
+
+// ClearActiveScript discards any stored ScriptState. Called after
+// Finished/Aborted runs. Part of the ActiveNpc interface; mirrors
+// *Player.ClearActiveScript.
+func (n *Npc) ClearActiveScript() {
+	n.activeScript = nil
+}
