@@ -15,15 +15,19 @@ const (
 	InteractionScript
 )
 
-// Sentinel targetOp values for non-op-numbered Loc interaction types.
-// OpLoc1..5 use op = 1..5 (the op slot clicked); T and U variants use
-// these sentinels so fireXxxTriggerLoc can dispatch to the correct
-// single-trigger (APLOCT/OPLOCT or APLOCU/OPLOCU). Matches TS's model
-// where setInteraction stores the APLOC trigger value directly;
-// goscape uses sentinel integers instead (see S6j-D3 convention).
+// Sentinel targetOp values for non-op-numbered T/U interaction variants.
+// OpLoc1..5/OpNpc1..5 use op = 1..5 (the op slot clicked); T/U variants
+// use these sentinels so fireXxxTriggerYyy can dispatch to the correct
+// single-trigger (e.g. APLOCT, OPNPCU). The targetOp interpretation is
+// per-entity-type: tryFireXxxTrigger type-switches on p.target first,
+// then each branch reads targetOp independently. Distinct NPC values
+// (8, 9) chosen for clarity — reusing 6, 7 is safe via type-switch
+// but less self-documenting.
 const (
 	targetOpLocT = 6 // APLOCT / OPLOCT dispatch marker
 	targetOpLocU = 7 // APLOCU / OPLOCU dispatch marker
+	targetOpNpcT = 8 // APNPCT / OPNPCT dispatch marker (S6o)
+	targetOpNpcU = 9 // APNPCU / OPNPCU dispatch marker (S6o)
 )
 
 // sendUnsetMapFlag clears the client's pending map-click indicator.

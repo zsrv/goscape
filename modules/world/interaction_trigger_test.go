@@ -725,6 +725,8 @@ func TestApNpcTriggerForOpValidValues(t *testing.T) {
 		{3, script.TriggerApNpc3, "OpNpc3"},
 		{4, script.TriggerApNpc4, "OpNpc4"},
 		{5, script.TriggerApNpc5, "OpNpc5"},
+		{targetOpNpcT, script.TriggerApNpcT, "OpNpcT"}, // NEW (S6o)
+		{targetOpNpcU, script.TriggerApNpcU, "OpNpcU"}, // NEW (S6o)
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -740,10 +742,10 @@ func TestApNpcTriggerForOpValidValues(t *testing.T) {
 }
 
 // TestApNpcTriggerForOpInvalidValues verifies out-of-range op values
-// return ok=false. DEVIATION S6n-D1: APNPC T/U sentinels (6, 7 if
-// eventually added) not wired — returns false for those too.
+// return ok=false. Values 6 and 7 are Loc sentinels (not Npc) and
+// remain invalid. 8 and 9 are now valid (targetOpNpcT/targetOpNpcU).
 func TestApNpcTriggerForOpInvalidValues(t *testing.T) {
-	invalid := []int{0, 6, 7, 8, -1, 100, -100}
+	invalid := []int{0, 6, 7, -1, 100, -100}
 	for _, op := range invalid {
 		t.Run(fmt.Sprintf("op_%d", op), func(t *testing.T) {
 			_, ok := apNpcTriggerForOp(op)
@@ -863,5 +865,99 @@ func TestFireApTriggerNpcOpOutOfRange(t *testing.T) {
 	}
 	if !p.interactionFired {
 		t.Error("interactionFired: want true after silent clear")
+	}
+}
+
+// TestFireOpTriggerNpcFiresOpNpcTTrigger verifies that when p.targetOp
+// is targetOpNpcT (8) and an OPNPCT script is registered, fireOpTriggerNpc
+// dispatches to it via apNpcTriggerForOp + 7. Mirrors S6m's
+// TestFireOpTriggerLocFiresOpLocTTrigger.
+func TestFireOpTriggerNpcFiresOpNpcTTrigger(t *testing.T) {
+	s, p, npc := makeOpNpcFixture(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerOpNpcT, 0, "opnpct-fired"))
+
+	p.SetInteraction(InteractionEngine, npc, targetOpNpcT, 7777)
+	p.interacted = true
+
+	tryFireOpTrigger(p)
+
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil after Finished clear", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after OPNPCT fire")
+	}
+	if string(npc.sayText) != "opnpct-fired" {
+		t.Errorf("npc.sayText: got %q, want %q", npc.sayText, "opnpct-fired")
+	}
+}
+
+// TestFireOpTriggerNpcFiresOpNpcUTrigger verifies targetOpNpcU (9) →
+// OPNPCU dispatch at contact.
+func TestFireOpTriggerNpcFiresOpNpcUTrigger(t *testing.T) {
+	s, p, npc := makeOpNpcFixture(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerOpNpcU, 0, "opnpcu-fired"))
+
+	p.SetInteraction(InteractionEngine, npc, targetOpNpcU, -1)
+	p.interacted = true
+
+	tryFireOpTrigger(p)
+
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil after Finished clear", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after OPNPCU fire")
+	}
+	if string(npc.sayText) != "opnpcu-fired" {
+		t.Errorf("npc.sayText: got %q, want %q", npc.sayText, "opnpcu-fired")
+	}
+}
+
+// TestFireApTriggerNpcFiresApNpcTTrigger verifies targetOpNpcT (8) →
+// APNPCT dispatch at approach distance.
+func TestFireApTriggerNpcFiresApNpcTTrigger(t *testing.T) {
+	s, p, npc := makeOpNpcFixture(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerApNpcT, 0, "apnpct-fired"))
+
+	p.SetInteraction(InteractionEngine, npc, targetOpNpcT, 7777)
+	p.interacted = true
+
+	fireApTriggerNpc(p, s, npc)
+
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil after Finished clear", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after APNPCT fire")
+	}
+	if string(npc.sayText) != "apnpct-fired" {
+		t.Errorf("npc.sayText: got %q, want %q", npc.sayText, "apnpct-fired")
+	}
+}
+
+// TestFireApTriggerNpcFiresApNpcUTrigger verifies targetOpNpcU (9) →
+// APNPCU dispatch at approach distance.
+func TestFireApTriggerNpcFiresApNpcUTrigger(t *testing.T) {
+	s, p, npc := makeOpNpcFixture(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerApNpcU, 0, "apnpcu-fired"))
+
+	p.SetInteraction(InteractionEngine, npc, targetOpNpcU, -1)
+	p.interacted = true
+
+	fireApTriggerNpc(p, s, npc)
+
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil after Finished clear", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after APNPCU fire")
+	}
+	if string(npc.sayText) != "apnpcu-fired" {
+		t.Errorf("npc.sayText: got %q, want %q", npc.sayText, "apnpcu-fired")
 	}
 }

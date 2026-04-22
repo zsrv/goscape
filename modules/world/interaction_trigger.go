@@ -57,14 +57,13 @@ func fireOpTriggerNpc(p *Player, srv *Server, npc *Npc) {
 		return
 	}
 
-	op := p.targetOp
-	if op < 1 || op > 5 {
+	apTrigger, ok := apNpcTriggerForOp(p.targetOp)
+	if !ok {
 		p.ClearInteraction()
 		p.interactionFired = true
 		return
 	}
-
-	trigger := script.TriggerOpNpc1 + script.ServerTriggerType(op-1)
+	trigger := apTrigger + 7 // APNPC→OPNPC offset per TS Player.ts:~997
 	category := 0
 	if npc.typ != nil {
 		category = npc.typ.Category
@@ -187,21 +186,26 @@ func apLocTriggerForOp(op int) (script.ServerTriggerType, bool) {
 }
 
 // apNpcTriggerForOp returns the APNPC trigger for the player's
-// targetOp. Returns ok=false if op is outside [1, 5]. fireOpTriggerNpc
-// derives the OPNPC trigger by adding 7 to the returned APNPC (TS
-// Player.ts:~997 offset convention):
+// targetOp. fireOpTriggerNpc derives the OPNPC trigger by adding 7
+// (TS Player.ts:~997 offset convention):
 //
 //	APNPC1..5 (3..7) + 7 → OPNPC1..5 (10..14)
+//	APNPCT    (9)    + 7 → OPNPCT    (16)
+//	APNPCU    (8)    + 7 → OPNPCU    (15)
 //
-// NPC variant of apLocTriggerForOp. Does NOT handle T/U sentinels
-// (DEVIATION S6n-D1) because OpNpcT/OpNpcU handlers are not wired
-// in goscape yet — if those land, this helper's switch extends with
-// matching cases.
+// NPC variant of apLocTriggerForOp. Parallel shape after S6o: 1..5
+// ops + T/U sentinels. Returns ok=false for invalid op.
 func apNpcTriggerForOp(op int) (script.ServerTriggerType, bool) {
-	if op >= 1 && op <= 5 {
+	switch {
+	case op >= 1 && op <= 5:
 		return script.TriggerApNpc1 + script.ServerTriggerType(op-1), true
+	case op == targetOpNpcT:
+		return script.TriggerApNpcT, true
+	case op == targetOpNpcU:
+		return script.TriggerApNpcU, true
+	default:
+		return 0, false
 	}
-	return 0, false
 }
 
 // locStillValid checks whether the held *Loc pointer still represents
@@ -267,10 +271,6 @@ func tryFireApTrigger(p *Player) {
 //     Player-side only; NPC attackrange is fixed per-type so
 //     "extend the range" has no meaning. Simpler post-fire logic.
 //
-// DEVIATION S6n-D1: APNPC T/U sentinels not wired. OpNpcT/OpNpcU
-// handlers don't exist in goscape yet; when they land,
-// apNpcTriggerForOp gains matching cases and this fire function
-// needs a sentinel-aware op-range gate update.
 func fireApTriggerNpc(p *Player, srv *Server, npc *Npc) {
 	if p.delayed && srv.currentTick < p.delayedUntil {
 		return
