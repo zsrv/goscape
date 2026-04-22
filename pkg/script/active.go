@@ -270,6 +270,22 @@ type ActivePlayer interface {
 	// variables. S6m: interface method added ahead of the script-opcode
 	// consumer that reads it.
 	TargetSubjectCom() int
+
+	// S6u: inventory listener registration opcodes (inv_transmit /
+	// inv_stoptransmit).
+
+	// InvListenOnCom registers an inventory listener at UI component id
+	// `com` tracking inv type `invType`. `source == -1` means the
+	// world-shared inventory; `source >= 0` means the player at that server
+	// slot. Replaces any existing listener at com; resets FirstSeen=true
+	// on replace. Safe when the implementation's listener map is still nil
+	// — it must lazy-init.
+	InvListenOnCom(invType, com, source int)
+
+	// InvStopListenOnCom unregisters the listener at UI component id com.
+	// No-op when no listener exists there. Must be safe when the listener
+	// map is nil.
+	InvStopListenOnCom(com int)
 }
 
 // ActiveNpc is the per-NPC surface that NPC_* opcodes and VARN

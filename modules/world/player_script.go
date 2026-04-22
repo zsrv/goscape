@@ -455,3 +455,15 @@ func (p *Player) SetApRange(n int) {
 // Returns p.targetSubject.com which was set by OpLocT's SetInteraction
 // call (spellCom) or -1 for non-com callers.
 func (p *Player) TargetSubjectCom() int { return p.targetSubject.com }
+
+// InvListenOnCom implements script.ActivePlayer. Thin wrapper
+// delegating to the internal unexported method landed in S6p-2.
+func (p *Player) InvListenOnCom(invType, com, source int) {
+	p.invListenOnCom(invType, com, source)
+}
+
+// InvStopListenOnCom implements script.ActivePlayer. Thin wrapper
+// delegating to the internal unexported method landed in S6p-2.
+func (p *Player) InvStopListenOnCom(com int) {
+	p.invStopListenOnCom(com)
+}

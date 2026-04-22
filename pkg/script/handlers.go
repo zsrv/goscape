@@ -244,6 +244,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpInvMoveItem:     handleInvMoveItem,
 	OpInvMoveFromSlot: handleInvMoveFromSlot,
 	OpInvMoveToSlot:   handleInvMoveToSlot,
+	// S6u: listener registration (2).
+	OpInvTransmit:     handleInvTransmit,
+	OpInvStopTransmit: handleInvStopTransmit,
 
 	// S5f: interface / modal.
 	// Modal management (5).

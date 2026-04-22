@@ -407,6 +407,38 @@ func handleInvMoveFromSlot(s *ScriptState) error {
 	return nil
 }
 
+// -- Listener registration (S6u) -----------------------------------------
+
+// handleInvTransmit implements INV_TRANSMIT. Registers a listener on
+// the active player for UI component `com` tracking world-shared
+// inventory type `invType` (source=-1).
+//
+// TS: InvOps.ts INV_TRANSMIT — popInt(inv), popInt(com),
+// activePlayer.invListenOnCom(inv, com, -1).
+func handleInvTransmit(s *ScriptState) error {
+	if err := requireActivePlayer(s, "INV_TRANSMIT"); err != nil {
+		return err
+	}
+	invType := s.PopInt()
+	com := s.PopInt()
+	s.Self.InvListenOnCom(invType, com, -1)
+	return nil
+}
+
+// handleInvStopTransmit implements INV_STOPTRANSMIT. Unregisters the
+// listener at UI component `com`. Safe when no listener exists there.
+//
+// TS: InvOps.ts INV_STOPTRANSMIT — popInt(com),
+// activePlayer.invStopListenOnCom(com).
+func handleInvStopTransmit(s *ScriptState) error {
+	if err := requireActivePlayer(s, "INV_STOPTRANSMIT"); err != nil {
+		return err
+	}
+	com := s.PopInt()
+	s.Self.InvStopListenOnCom(com)
+	return nil
+}
+
 // handleInvMoveToSlot (INV_MOVETOSLOT) pops [fromInv, toInv, fromSlot,
 // toSlot] and swaps the two slot contents (nil-safe both directions).
 // Matches TS Player.invMoveToSlot.

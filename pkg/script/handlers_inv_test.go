@@ -379,3 +379,86 @@ func TestInvLookupNilReturnsError(t *testing.T) {
 	runInvOpExpectErr(t, OpInvAdd, []int{testInvMain, testObjCoin, 1}, nil, mc, "no inv for type")
 	runInvOpExpectErr(t, OpInvClear, []int{testInvMain}, nil, mc, "no inv for type")
 }
+
+// TestInvTransmitRegistersListener runs a script pushing (com, inv) then
+// OpInvTransmit; asserts the mock player recorded
+// InvListenOnCom(invType, com, -1). Matches TS InvOps.ts INV_TRANSMIT.
+func TestInvTransmitRegistersListener(t *testing.T) {
+	mp := &mockPlayer{}
+
+	sf := &ScriptFile{
+		Name: "inv_transmit",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // com
+			OpPushConstantInt, // inv (top)
+			OpInvTransmit,
+			OpReturn,
+		},
+		IntOperands:      []int32{149, 93, 0, 0},
+		StringOperands:   []string{"", "", "", ""},
+		InstructionCount: 4,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(mp.lastInvListenOnCom) != 1 {
+		t.Fatalf("expected 1 call to InvListenOnCom, got %d", len(mp.lastInvListenOnCom))
+	}
+	got := mp.lastInvListenOnCom[0]
+	if got.InvType != 93 || got.Com != 149 || got.Source != -1 {
+		t.Errorf("InvListenOnCom args: got %+v, want {InvType:93, Com:149, Source:-1}", got)
+	}
+}
+
+// TestInvTransmitNoActivePlayerErrors verifies INV_TRANSMIT returns
+// an error when PtrActivePlayer is not set.
+func TestInvTransmitNoActivePlayerErrors(t *testing.T) {
+	sf := newSingleOp("inv_transmit_no_player", OpInvTransmit)
+	state := Init(sf, nil, false, nil, nil)
+	state.PushInt(93)
+	state.PushInt(149)
+
+	err := Execute(state)
+	if err == nil || err.Error() != "INV_TRANSMIT: no active player" {
+		t.Errorf("expected 'INV_TRANSMIT: no active player' error, got %v", err)
+	}
+}
+
+// TestInvStopTransmitUnregistersListener runs a script pushing com then
+// OpInvStopTransmit; asserts mockPlayer recorded InvStopListenOnCom(com).
+func TestInvStopTransmitUnregistersListener(t *testing.T) {
+	mp := &mockPlayer{}
+
+	sf := &ScriptFile{
+		Name: "inv_stoptransmit",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // com
+			OpInvStopTransmit,
+			OpReturn,
+		},
+		IntOperands:      []int32{149, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(mp.lastInvStopListenOnCom) != 1 || mp.lastInvStopListenOnCom[0] != 149 {
+		t.Errorf("InvStopListenOnCom: got %v, want [149]", mp.lastInvStopListenOnCom)
+	}
+}
+
+// TestInvStopTransmitNoActivePlayerErrors verifies INV_STOPTRANSMIT
+// returns an error when PtrActivePlayer is not set.
+func TestInvStopTransmitNoActivePlayerErrors(t *testing.T) {
+	sf := newSingleOp("inv_stoptransmit_no_player", OpInvStopTransmit)
+	state := Init(sf, nil, false, nil, nil)
+	state.PushInt(149)
+
+	err := Execute(state)
+	if err == nil || err.Error() != "INV_STOPTRANSMIT: no active player" {
+		t.Errorf("expected 'INV_STOPTRANSMIT: no active player' error, got %v", err)
+	}
+}

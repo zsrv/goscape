@@ -74,6 +74,12 @@ func TestInitSetsFields(t *testing.T) {
 	}
 }
 
+type mockInvListen struct {
+	InvType int
+	Com     int
+	Source  int
+}
+
 // mockPlayer is defined here for use in runner_test and handlers_test.
 // It is also used in handlers_test.go in the same package.
 type mockPlayer struct {
@@ -179,6 +185,10 @@ type mockPlayer struct {
 
 	// S6m: spellCom pre-seed for TargetSubjectCom query.
 	targetSubjectComValue int
+
+	// S6u: inv listener registration captures.
+	lastInvListenOnCom     []mockInvListen
+	lastInvStopListenOnCom []int
 }
 
 type mockEnqueue struct {
@@ -374,3 +384,12 @@ func (m *mockPlayer) SetApRange(n int) {
 
 // S6m: spellCom slot read.
 func (m *mockPlayer) TargetSubjectCom() int { return m.targetSubjectComValue }
+
+// S6u: inv listener registration.
+func (m *mockPlayer) InvListenOnCom(invType, com, source int) {
+	m.lastInvListenOnCom = append(m.lastInvListenOnCom, mockInvListen{InvType: invType, Com: com, Source: source})
+}
+
+func (m *mockPlayer) InvStopListenOnCom(com int) {
+	m.lastInvStopListenOnCom = append(m.lastInvStopListenOnCom, com)
+}
