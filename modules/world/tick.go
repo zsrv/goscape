@@ -166,6 +166,14 @@ func (s *Server) processLogouts() {
 			p.writeOut(gameserver.OpLogout, nil)
 			_ = p.client.flushWrite()
 			_ = p.client.conn.Close()
+
+			// NAI-9: bulk-decrement observer counts for every NPC this player
+			// was subscribed to. Mirrors @2004scape/rsbuf's removePlayer(pid)
+			// contract. Must run BEFORE buildArea is cleared.
+			if p.buildArea != nil {
+				rsbuf.RemovePlayer(p.slot, p.buildArea.Npcs)
+			}
+
 			s.removePlayer(p)
 		}
 	}

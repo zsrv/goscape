@@ -1,8 +1,13 @@
 package world
 
 import (
+	"io"
+	"log/slog"
+	"net"
 	"testing"
+	"time"
 
+	"github.com/zsrv/goscape/pkg/buildarea"
 	"github.com/zsrv/goscape/pkg/grid"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
@@ -524,5 +529,55 @@ func TestHuntPlayersReturnsEmptyWhenNoCandidates(t *testing.T) {
 
 	if len(hunted) != 0 {
 		t.Errorf("hunted: got %d, want 0 (empty grid)", len(hunted))
+	}
+}
+
+func TestProcessLogoutsDecrementsSubscribedNpcObservers(t *testing.T) {
+	rsbuf.SetObserverForTest(101, 0) // cleanup — ensure clean state
+	rsbuf.SetObserverForTest(102, 0)
+
+	s := newServerForScriptTest(t)
+	s.currentTick = 1
+
+	// Create a minimal player with a client and buildArea.
+	// This mirrors the server_test pattern.
+	serverConn, clientConn := net.Pipe()
+	t.Cleanup(func() {
+		serverConn.Close()
+		clientConn.Close()
+	})
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	c := newClient(serverConn, time.Second, logger)
+	t.Cleanup(func() { c.in.Release() })
+	c.server = s
+	c.state = ClientStateGame
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	c.encryptor = enc
+	go io.Copy(io.Discard, clientConn)
+
+	p := newPlayer(c)
+	c.player = p
+	if err := s.addPlayer(p); err != nil {
+		t.Fatal(err)
+	}
+
+	// Seed a buildArea subscribing to two NPCs and set observer counts to 1.
+	p.buildArea = buildarea.New()
+	p.buildArea.Npcs[101] = struct{}{}
+	p.buildArea.Npcs[102] = struct{}{}
+	rsbuf.SetObserverForTest(101, 1)
+	rsbuf.SetObserverForTest(102, 1)
+
+	// Trigger logout: set loggingOut flag (force logout regardless of timing).
+	p.loggingOut = true
+	p.preventLogoutUntil = 0
+
+	s.processLogouts()
+
+	if got := rsbuf.GetNpcObservers(101); got != 0 {
+		t.Errorf("GetNpcObservers(101) after logout: got %d, want 0", got)
+	}
+	if got := rsbuf.GetNpcObservers(102); got != 0 {
+		t.Errorf("GetNpcObservers(102) after logout: got %d, want 0", got)
 	}
 }
