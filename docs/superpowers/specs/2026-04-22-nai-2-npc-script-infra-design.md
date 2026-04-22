@@ -387,17 +387,24 @@ tests for the vertical slice both add weight. Still well within the
 - **Blocked by:** nothing. NAI-1 (HuntType loader) already landed
   but is orthogonal — NAI-2 does not depend on it.
 
-## Open verification during plan
+## Verifications resolved during implementation
 
-1. Does `script.Execute` or the OpReturn handler already drop
-   `ProtectedActivePlayer` bits on exit? If not, note as follow-up
-   (not NAI-2 scope).
-2. Does the `handleNpcDelay` handler need a `Protect` check (does
-   `npc_delay` require a protected script context)? Check
-   `handlers_player.go`'s `handlePDelay` for precedent.
-3. Confirm `Server.addNpc` is the single entry point for NPC
-   registration; if alt paths exist (e.g., test-only registration),
-   the `n.server = s` assignment needs to happen there too.
-
-These become concrete verification steps in the NAI-2 implementation
-plan.
+1. **Protected-pointer cleanup (TS `Npc.ts:230-238`).** Not needed
+   within NAI-2's scope. `runNpcScript` passes `protect=false` to
+   `script.Init`, which is followed by `state.ActiveNpc = npc` but
+   NO `state.Self` (nil) and NO protected-player anchoring. The TS
+   cleanup at `:230-238` exists for scripts that carry both an
+   active player *and* an NPC-suspend transition — a scenario only
+   reachable once player-triggered OpNpc paths (NAI-8+) route
+   player-anchored scripts through NPC suspension. This is tracked
+   as a **NAI-8 prerequisite**: the first sub-spec that exposes a
+   player-anchored script to NPC suspension must add the cleanup to
+   `resumeOrFinishNpc` *and* extend `runNpcScript`'s signature to
+   accept an active player. No action needed in NAI-2.
+2. **`handleNpcDelay` does not need a `Protect` check.** TS's
+   `NumberNotNull` check on the popped tick count (rejects negatives)
+   is a separate concern; tracked as a low-priority follow-up for a
+   future fidelity-audit sub-spec (neither runtime-critical nor
+   blocking — scripts don't pass negatives in practice).
+3. **`Server.addNpc` is the single entry point.** No alternate
+   registration path exists. Task 1 wired `n.server = s` here.
