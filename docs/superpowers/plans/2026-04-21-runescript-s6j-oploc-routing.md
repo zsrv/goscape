@@ -513,9 +513,10 @@ func handleOpLoc(p *Player, payload []byte, op int) error {
 	z := int(r.G2())
 	locId := int(r.G2())
 
-	// Viewport gate. Build area is ~13 zones × 8 tiles per side from
-	// origin; 104 tiles is the half-extent. Mirrors TS OpLocHandler.ts:20-28
-	// scene-bounds rejection.
+	// Viewport gate. 52 tiles is the player's render half-distance from
+	// origin (TS OpLocHandler.ts:20-28). NOT to be confused with the
+	// 104-tile build-area diameter — the player sits at scene center,
+	// so the rendered radius is half the diameter.
 	dx := x - p.originX
 	if dx < 0 {
 		dx = -dx
@@ -524,7 +525,7 @@ func handleOpLoc(p *Player, payload []byte, op int) error {
 	if dz < 0 {
 		dz = -dz
 	}
-	if dx > 104 || dz > 104 {
+	if dx > 52 || dz > 52 {
 		sendUnsetMapFlag(p)
 		return nil
 	}
@@ -604,12 +605,12 @@ func TestHandleOpLocShortPayloadRejected(t *testing.T) {
 	}
 }
 
-// TestHandleOpLocOutOfViewportRejected verifies coords > 104 tiles from origin emits UnsetMapFlag.
+// TestHandleOpLocOutOfViewportRejected verifies coords > 52 tiles from origin emits UnsetMapFlag.
 func TestHandleOpLocOutOfViewportRejected(t *testing.T) {
 	_, p, _ := makeOpLocFixture(t) // origin = (100, 100)
 
 	cc := drainConn(t, p.client.conn)
-	_ = handleOpLoc1(p, p2x3Payload(250, 100, 42)) // dx = 150 > 104
+	_ = handleOpLoc1(p, p2x3Payload(250, 100, 42)) // dx = 150 > 52
 	p.client.flushWrite()
 	got := <-cc
 
@@ -621,33 +622,33 @@ func TestHandleOpLocOutOfViewportRejected(t *testing.T) {
 	}
 }
 
-// TestHandleOpLocCoordValidationBoundary verifies exactly 104-tile distance accepted, 105 rejected.
+// TestHandleOpLocCoordValidationBoundary verifies exactly 52-tile distance accepted, 53 rejected.
 func TestHandleOpLocCoordValidationBoundary(t *testing.T) {
 	s, p, _ := makeOpLocFixture(t) // origin = (100, 100)
 
-	// Place a loc at (204, 100, 0), exactly 104 tiles from origin.
-	boundaryLoc := entity.NewLoc(0, 204, 100, 1, 1, entity.LifecycleForever, 42, 10, 0)
-	zn := s.zoneMap.Get(0, 204, 100)
+	// Place a loc at (152, 100, 0), exactly 52 tiles from origin.
+	boundaryLoc := entity.NewLoc(0, 152, 100, 1, 1, entity.LifecycleForever, 42, 10, 0)
+	zn := s.zoneMap.Get(0, 152, 100)
 	zn.Locs = append(zn.Locs, boundaryLoc)
 
-	if err := handleOpLoc1(p, p2x3Payload(204, 100, 42)); err != nil {
+	if err := handleOpLoc1(p, p2x3Payload(152, 100, 42)); err != nil {
 		t.Fatalf("handleOpLoc1 at boundary: %v", err)
 	}
 	if p.target != boundaryLoc {
-		t.Errorf("dx=104 should be accepted; target = %v, want boundaryLoc", p.target)
+		t.Errorf("dx=52 should be accepted; target = %v, want boundaryLoc", p.target)
 	}
 
-	// Reset and try dx = 105 → reject.
+	// Reset and try dx = 53 → reject.
 	p.ClearInteraction()
 	cc := drainConn(t, p.client.conn)
-	_ = handleOpLoc1(p, p2x3Payload(205, 100, 42))
+	_ = handleOpLoc1(p, p2x3Payload(153, 100, 42))
 	p.client.flushWrite()
 	got := <-cc
 	if len(got) == 0 {
-		t.Fatal("expected UnsetMapFlag for dx=105")
+		t.Fatal("expected UnsetMapFlag for dx=53")
 	}
 	if p.target != nil {
-		t.Error("target should remain nil for dx=105")
+		t.Error("target should remain nil for dx=53")
 	}
 }
 
