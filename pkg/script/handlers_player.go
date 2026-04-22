@@ -39,6 +39,22 @@ func requireActivePlayer(s *ScriptState, op string) error {
 	return nil
 }
 
+// requireProtectedActivePlayer is requireActivePlayer plus a check that
+// the script was started with protect=true. Used by opcodes that TS
+// wraps in checkedHandler(ProtectedActivePlayer, ...) — currently
+// P_OPLOC and P_OPNPC (S6w closure of S6v-D1). Chains through to
+// requireActivePlayer first so the "no active player" error message
+// matches the unprotected variant.
+func requireProtectedActivePlayer(s *ScriptState, op string) error {
+	if err := requireActivePlayer(s, op); err != nil {
+		return err
+	}
+	if !s.Protect {
+		return errors.New(op + ": script not protected")
+	}
+	return nil
+}
+
 // -- Stat read ops -------------------------------------------------------
 
 // handleStat pushes the active player's current (boosted/drained) level
@@ -466,11 +482,10 @@ func handlePApRange(s *ScriptState) error {
 // the active loc with AP trigger APLOC<op>. Matches TS
 // PlayerOps.ts:386-402.
 //
-// DEVIATION S6v-D1: TS wraps this in checkedHandler(ProtectedActivePlayer);
-// goscape uses requireActivePlayer until a ProtectedActivePlayer gate
-// sub-spec lands.
+// S6v-D1 closed in S6w: gates on ScriptState.Protect via
+// requireProtectedActivePlayer, matching TS checkedHandler(ProtectedActivePlayer).
 func handleP_OpLoc(s *ScriptState) error {
-	if err := requireActivePlayer(s, "P_OPLOC"); err != nil {
+	if err := requireProtectedActivePlayer(s, "P_OPLOC"); err != nil {
 		return err
 	}
 	if s.ActiveLoc == nil {
@@ -486,9 +501,12 @@ func handleP_OpLoc(s *ScriptState) error {
 }
 
 // handleP_OpNpc (P_OPNPC, opcode 2078) re-anchors on the active npc.
-// Matches TS PlayerOps.ts:404-415. DEVIATION S6v-D1 applies (see above).
+// Matches TS PlayerOps.ts:404-415.
+//
+// S6v-D1 closed in S6w: gates on ScriptState.Protect via
+// requireProtectedActivePlayer, matching TS checkedHandler(ProtectedActivePlayer).
 func handleP_OpNpc(s *ScriptState) error {
-	if err := requireActivePlayer(s, "P_OPNPC"); err != nil {
+	if err := requireProtectedActivePlayer(s, "P_OPNPC"); err != nil {
 		return err
 	}
 	if s.ActiveNpc == nil {

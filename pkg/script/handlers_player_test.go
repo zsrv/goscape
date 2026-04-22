@@ -920,7 +920,7 @@ func TestPOpLocAnchorsOnActiveLoc(t *testing.T) {
 		StringOperands:   []string{"", "", ""},
 		InstructionCount: 3,
 	}
-	state := Init(sf, mp, false, nil, nil)
+	state := Init(sf, mp, true, nil, nil)
 	state.ActiveLoc = loc
 	state.Pointers |= PtrActiveLoc
 	if err := Execute(state); err != nil {
@@ -952,7 +952,7 @@ func TestPOpLocNoActiveLocErrors(t *testing.T) {
 	mp := &mockPlayer{}
 
 	sf := newSingleOp("p_op_loc_no_loc", OpPOpLoc)
-	state := Init(sf, mp, false, nil, nil)
+	state := Init(sf, mp, true, nil, nil)
 	state.PushInt(3)
 
 	err := Execute(state)
@@ -974,7 +974,7 @@ func TestPOpLocInvalidOpErrors(t *testing.T) {
 			StringOperands:   []string{"", "", ""},
 			InstructionCount: 3,
 		}
-		state := Init(sf, mp, false, nil, nil)
+		state := Init(sf, mp, true, nil, nil)
 		state.ActiveLoc = loc
 		state.Pointers |= PtrActiveLoc
 
@@ -1002,7 +1002,7 @@ func TestPOpNpcAnchorsOnActiveNpc(t *testing.T) {
 		StringOperands:   []string{"", "", ""},
 		InstructionCount: 3,
 	}
-	state := Init(sf, mp, false, nil, nil)
+	state := Init(sf, mp, true, nil, nil)
 	state.ActiveNpc = npc
 	state.Pointers |= PtrActiveNpc
 	if err := Execute(state); err != nil {
@@ -1030,7 +1030,7 @@ func TestPOpNpcInvalidOpErrors(t *testing.T) {
 			StringOperands:   []string{"", "", ""},
 			InstructionCount: 3,
 		}
-		state := Init(sf, mp, false, nil, nil)
+		state := Init(sf, mp, true, nil, nil)
 		state.ActiveNpc = npc
 		state.Pointers |= PtrActiveNpc
 
@@ -1038,5 +1038,39 @@ func TestPOpNpcInvalidOpErrors(t *testing.T) {
 		if err == nil {
 			t.Errorf("op=%d: expected error, got nil", op)
 		}
+	}
+}
+
+// TestPOpLocUnprotectedRejected verifies that a script started without
+// protection (protect=false) gets an error from P_OPLOC. Matches TS
+// checkedHandler(ProtectedActivePlayer, ...) semantics. Closes S6v-D1.
+func TestPOpLocUnprotectedRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	loc := &mockActiveLoc{locType: 42}
+	sf := newSingleOp("p_op_loc_unprotected", OpPOpLoc)
+	state := Init(sf, mp, false, nil, nil) // protect=false
+	state.ActiveLoc = loc
+	state.Pointers |= PtrActiveLoc
+	state.PushInt(3)
+
+	err := Execute(state)
+	if err == nil || err.Error() != "P_OPLOC: script not protected" {
+		t.Errorf("expected 'P_OPLOC: script not protected', got %v", err)
+	}
+}
+
+// TestPOpNpcUnprotectedRejected — symmetric.
+func TestPOpNpcUnprotectedRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	npc := &mockActiveNpc{typeId: 7}
+	sf := newSingleOp("p_op_npc_unprotected", OpPOpNpc)
+	state := Init(sf, mp, false, nil, nil) // protect=false
+	state.ActiveNpc = npc
+	state.Pointers |= PtrActiveNpc
+	state.PushInt(2)
+
+	err := Execute(state)
+	if err == nil || err.Error() != "P_OPNPC: script not protected" {
+		t.Errorf("expected 'P_OPNPC: script not protected', got %v", err)
 	}
 }
