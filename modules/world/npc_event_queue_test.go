@@ -78,3 +78,28 @@ func TestNpcRevertTypeRaisesTeleAndMask(t *testing.T) {
 		t.Errorf("masks: NpcMaskChangeType bit not set")
 	}
 }
+
+func TestProcessNpcEventQueueSkipsDelayedNpcs(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.currentTick = 100
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.delayed = true
+	n.delayedUntil = s.currentTick + 999
+
+	sf := &script.ScriptFile{
+		Name:    "ai_despawn_stub",
+		Opcodes: []script.Opcode{script.OpReturn},
+	}
+	s.npcEventQueue = append(s.npcEventQueue, NpcEventRequest{
+		Type:   NpcEventDespawn,
+		Script: sf,
+		Npc:    n,
+	})
+
+	s.processNpcEventQueue()
+
+	if len(s.npcEventQueue) != 1 {
+		t.Errorf("npcEventQueue: got len %d, want 1 (delayed NPC's event must be skipped, not removed)", len(s.npcEventQueue))
+	}
+}

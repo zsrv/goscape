@@ -39,16 +39,14 @@ func (s *Server) addNpc(n *Npc) error {
 	return nil
 }
 
-// removeNpc clears the npc's slot and removes from npcLoop.
+// removeNpc marks n as logically absent from the world by setting
+// n.dead = true. Does NOT remove n from s.npcs[] or s.npcLoop —
+// that registry manipulation is deferred to a future sub-spec
+// when script-driven NPC creation/deletion lands. The old
+// registry-manipulation body was unused pre-NAI-5 and was
+// mid-tick-iteration-unsafe (spliced npcLoop during processNpcs
+// iteration), so replacing it with the dead-bool model is also a
+// correctness improvement.
 func (s *Server) removeNpc(n *Npc) {
-	if n.nid < 1 || n.nid >= len(s.npcs) || s.npcs[n.nid] != n {
-		return
-	}
-	s.npcs[n.nid] = nil
-	for i, ln := range s.npcLoop {
-		if ln == n {
-			s.npcLoop = append(s.npcLoop[:i], s.npcLoop[i+1:]...)
-			return
-		}
-	}
+	n.dead = true
 }

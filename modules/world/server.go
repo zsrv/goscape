@@ -79,11 +79,12 @@ type Server struct {
 	varsStrings []string
 	worldVars   worldVarsView
 
-	npcTypes    *objtype.NPCTypeConfigs
-	huntTypes   *objtype.HuntTypeConfigs
-	npcs        [8192]*Npc
-	npcLoop     []*Npc
-	nextNpcSlot int
+	npcTypes      *objtype.NPCTypeConfigs
+	huntTypes     *objtype.HuntTypeConfigs
+	npcs          [8192]*Npc
+	npcLoop       []*Npc
+	npcEventQueue []NpcEventRequest
+	nextNpcSlot   int
 
 	renderer *rsbuf.Renderer
 	grid     *grid.Grid
