@@ -241,6 +241,8 @@ families (HuntModeType, HuntVis, HuntNobodyNear, HuntCheckNotTooStrong)
 as top-level consts, the HuntType struct with ConfigType embed, and
 NewHuntType factory seeding TS defaults. Defaults test covers every
 non-zero default explicitly.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF
 )"
 ```
@@ -643,6 +645,8 @@ a signed int32 (int(int32(dat.G4())) matches the enumtype.go/invtype.go
 pattern for signed reads). Cases 18/19/20 share a single append into
 CheckVars. Unknown opcodes return a formatted error matching the
 existing npctype.go convention.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF
 )"
 ```
@@ -871,6 +875,8 @@ Add LoadHuntTypes + parseHuntTypes following the parseVarpTypes pattern
 HuntTypeConfigs with nil error, matching TS HuntType.load at
 cache/config/HuntType.ts:16-22 — hunt-less caches are a supported
 scenario in the reference.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF
 )"
 ```
@@ -960,6 +966,8 @@ Load HuntTypeConfigs at world startup alongside existing NPC-type load.
 Field is unreferenced until NAI-7 adds the hunt dispatcher, by design:
 the roadmap calls for data-layer-first ordering so hunt behaviour has
 its lookup backing ready by the time NAI-7 lands.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF
 )"
 ```
