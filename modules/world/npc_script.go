@@ -75,3 +75,49 @@ func (n *Npc) SetNpcVarN(id int, val int32) {
 	}
 	n.varns[id] = val
 }
+
+// runNpcScript initialises a ScriptState anchored on npc (not a
+// player) and routes the result via resumeOrFinishNpc. Safe to call
+// with a nil scriptFile (no-op) so callers don't have to nil-check
+// the trigger lookup. Mirrors runScript at modules/world/script.go:14.
+//
+// If the script suspends (Execution == NpcSuspended), the state is
+// stored on the NPC and Npc.turn() resumes it when the NPC's delay
+// expires via the prefix block added in NAI-2.
+func (s *Server) runNpcScript(sf *script.ScriptFile, npc script.ActiveNpc, intArgs []int, stringArgs []string) {
+	if sf == nil {
+		return
+	}
+	state := script.Init(sf, nil, false, intArgs, stringArgs)
+	state.ActiveNpc = npc
+	state.Provider = s.scriptProvider
+	state.World = s.worldVars
+	state.Configs = s.configsView
+	state.Inv = s.invLookup
+	s.resumeOrFinishNpc(state, npc)
+}
+
+// resumeOrFinishNpc is the shared post-Execute handler for both fresh
+// NPC-anchored runs (from runNpcScript) and resumed runs (from
+// Npc.turn()). Mirrors resumeOrFinish at modules/world/script.go:30
+// but routes via the ActiveNpc interface instead of ActivePlayer.
+func (s *Server) resumeOrFinishNpc(state *script.ScriptState, npc script.ActiveNpc) {
+	if err := script.Execute(state); err != nil {
+		s.log.Warn("npc script execute error",
+			"script", state.Script.Name, "err", err)
+		npc.ClearActiveScript()
+		return
+	}
+	switch state.Execution {
+	case script.Finished, script.Aborted:
+		npc.ClearActiveScript()
+	case script.NpcSuspended:
+		npc.StoreActiveScript(state)
+	default:
+		// Suspended / PauseButton / CountDialog / WorldSuspended —
+		// not reachable via npc_delay alone, but defensively clear.
+		s.log.Warn("npc script in unexpected execution state",
+			"script", state.Script.Name, "execution", state.Execution)
+		npc.ClearActiveScript()
+	}
+}
