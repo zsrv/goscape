@@ -5,10 +5,23 @@ import (
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/rsbuf"
+	"github.com/zsrv/goscape/pkg/script"
 )
 
 // turn runs once per tick from processNpcs.
 func (n *Npc) turn(s *Server) {
+	// Delayed expiration. Matches TS Npc.ts:113.
+	if n.delayed && s.currentTick >= n.delayedUntil {
+		n.delayed = false
+	}
+	// Resume suspended script. Matches TS Npc.ts:116-118.
+	if !n.delayed && n.activeScript != nil &&
+		n.activeScript.Execution == script.NpcSuspended {
+		state := n.activeScript
+		state.Execution = script.Running
+		s.resumeOrFinishNpc(state, n)
+	}
+
 	if n.dead {
 		n.lifecycleTick--
 		if n.lifecycleTick <= 0 && n.lifecycle == NpcLifecycleRespawn {

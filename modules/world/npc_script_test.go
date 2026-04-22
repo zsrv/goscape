@@ -105,3 +105,63 @@ func TestRunNpcScriptSuspendsOnNpcDelay(t *testing.T) {
 		t.Errorf("delayedUntil: got %d, want %d", n.delayedUntil, want)
 	}
 }
+
+func TestNpcTurnResumesSuspendedScriptAfterDelay(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.currentTick = 100
+	n := newNpcForScriptTest(t)
+	n.server = s
+
+	sf := &script.ScriptFile{
+		Name:        "npc_delay_3_return",
+		Opcodes:     []script.Opcode{script.OpPushConstantInt, script.OpNpcDelay, script.OpReturn},
+		IntOperands: []int32{3},
+	}
+
+	// Suspend: after this, delayedUntil = 104.
+	s.runNpcScript(sf, n, nil, nil)
+	if n.activeScript == nil || !n.delayed {
+		t.Fatalf("setup: expected suspended state")
+	}
+
+	// Advance to delayedUntil and call turn.
+	s.currentTick = 104
+	n.turn(s)
+
+	if n.activeScript != nil {
+		t.Errorf("activeScript: got %v, want nil (resumed and finished)", n.activeScript)
+	}
+	if n.delayed {
+		t.Errorf("delayed: got true, want false (delay expired)")
+	}
+}
+
+func TestNpcTurnDoesNotResumeWhileDelayed(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.currentTick = 100
+	n := newNpcForScriptTest(t)
+	n.server = s
+
+	sf := &script.ScriptFile{
+		Name:        "npc_delay_3_return",
+		Opcodes:     []script.Opcode{script.OpPushConstantInt, script.OpNpcDelay, script.OpReturn},
+		IntOperands: []int32{3},
+	}
+
+	// Suspend: delayedUntil = 104.
+	s.runNpcScript(sf, n, nil, nil)
+
+	// Advance to one tick BEFORE delayedUntil.
+	s.currentTick = 103
+	n.turn(s)
+
+	if n.activeScript == nil {
+		t.Errorf("activeScript: got nil, want still-suspended state")
+	}
+	if n.activeScript != nil && n.activeScript.Execution != script.NpcSuspended {
+		t.Errorf("Execution: got %v, want still NpcSuspended", n.activeScript.Execution)
+	}
+	if !n.delayed {
+		t.Errorf("delayed: got false, want true (still within delay window)")
+	}
+}
