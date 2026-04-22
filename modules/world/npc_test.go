@@ -61,7 +61,7 @@ func TestNpcResetMasksClearsEphemerals(t *testing.T) {
 	n := newTestNpc(1)
 	n.Animate(123, 5)
 	n.Say([]byte("hi"))
-	n.ShowHit(10, 1, 40, 50)
+	n.Damage(10, 1)
 	n.ResetMasks()
 
 	if n.masks != 0 {

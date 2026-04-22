@@ -13,14 +13,6 @@ func (n *Npc) Say(msg []byte) {
 	n.masks |= rsbuf.NpcMaskSay
 }
 
-func (n *Npc) ShowHit(amount, dmgType, cur, base int) {
-	n.damageAmt = amount
-	n.damageType = dmgType
-	n.curHP = cur
-	n.baseHP = base
-	n.masks |= rsbuf.NpcMaskDamage
-}
-
 func (n *Npc) ChangeType(newType int) {
 	n.changeTypeID = newType
 	n.masks |= rsbuf.NpcMaskChangeType
