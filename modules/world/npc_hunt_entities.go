@@ -128,8 +128,12 @@ func (n *Npc) huntObjs(s *Server, hunt *objtype.HuntType) []entity {
 // Engine-TS/.../Npc.ts:983-985 (HuntIterator SCENERY branch at
 // ScriptIterators.ts:145-167).
 //
-// Zone.Locs contains both static (Respawn) and dynamic (Despawn)
-// locs — matches TS getAllLocsSafe(true).
+// Zone.Locs contains both static (Forever) and dynamic (Despawn)
+// locs — matches TS getAllLocsSafe(true). The "static" label follows
+// pkg/entity/lifecycle.go:8, where LifecycleForever is documented as
+// "statics — never despawn" (pkg/zone's AddStaticLoc docstring uses
+// "Respawn" for the same concept — a pre-existing terminology drift
+// that NAI-9 doesn't attempt to resolve).
 //
 // Multi-tile locs use SW corner for distance (l.X/l.Z ARE the SW
 // corner by goscape entity.Entity convention, matching TS which
