@@ -37,6 +37,7 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		s.processPlayerTimers()
 		s.processPathing()
 		s.processInteractions()
+		s.processNpcEventQueue() // NAI-5: matches TS World.ts:356
 		s.processNpcs()
 		s.processLogouts()
 		s.processLogins()
