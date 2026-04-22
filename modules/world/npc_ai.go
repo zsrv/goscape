@@ -4,14 +4,13 @@ import (
 	"math/rand/v2"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
-	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 )
 
 // turn runs once per tick from processNpcs.
 func (n *Npc) turn(s *Server) {
-	// Script-lifecycle prefix runs only for active (non-dead) NPCs —
-	// matches TS Npc.ts:112 `if (this.isActive)` guard.
+	// === Script-lifecycle prefix (NAI-2..NAI-4) ===
+	// Matches TS Npc.ts:112 "if (this.isActive)" guard.
 	if !n.dead {
 		// Delayed expiration. Matches TS Npc.ts:113.
 		if n.delayed && s.currentTick >= n.delayedUntil {
@@ -24,26 +23,60 @@ func (n *Npc) turn(s *Server) {
 			state.Execution = script.Running
 			s.resumeOrFinishNpc(state, n)
 		}
-		// Timer pass. Matches TS Npc.ts:178 (turn calls processTimers).
-		s.processNpcTimer(n)
-		// Queue pass. Matches TS Npc.ts:180 (turn calls processQueue).
-		s.processNpcQueue(n)
 	}
 
-	if n.dead {
+	// === Events block (NAI-5 — matches TS Npc.ts:121-151) ===
+	if !n.delayed {
 		n.lifecycleTick--
-		if n.lifecycleTick <= 0 && n.lifecycle == NpcLifecycleRespawn {
-			n.dead = false
-			n.x, n.z, n.level = n.startX, n.startZ, n.startLevel
-			n.tele = true
-			n.masks |= rsbuf.NpcMaskChangeType
+		if n.lifecycleTick == 0 {
+			switch n.lifecycle {
+			case NpcLifecycleRespawn:
+				if n.dead {
+					// Respawn: flip dead, reset position, revert type.
+					n.dead = false
+					n.x, n.z, n.level = n.startX, n.startZ, n.startLevel
+					n.revertType()
+				} else {
+					// Revert morphed NPC (post-changetype).
+					n.revertType()
+				}
+				// Lifecycle event fired this tick — skip movement so tele is
+				// visible to the renderer and not overwritten by the walk path.
+				return
+			case NpcLifecycleDespawn:
+				if !n.dead {
+					s.removeNpc(n)
+					if s.scriptProvider != nil && n.typ != nil {
+						sf := s.scriptProvider.GetByTrigger(
+							script.TriggerAiDespawn, n.typeId, n.typ.Category)
+						if sf != nil {
+							s.npcEventQueue = append(s.npcEventQueue,
+								NpcEventRequest{
+									Type:   NpcEventDespawn,
+									Script: sf,
+									Npc:    n,
+								})
+						}
+					}
+				}
+				return
+			}
 		}
+	}
+
+	// === isValid gate (NAI-5 — matches TS Npc.ts:154) ===
+	if n.dead || n.delayed {
 		return
 	}
+
+	// === Timer + queue (NAI-3, NAI-4) ===
+	s.processNpcTimer(n)
+	s.processNpcQueue(n)
+
+	// === Movement / wander / patrol ===
 	if n.moveRestrict == MoveRestrictNoMove {
 		return
 	}
-
 	n.lastTickX, n.lastTickZ, n.lastLevel = n.x, n.z, n.level
 	n.tele = false
 

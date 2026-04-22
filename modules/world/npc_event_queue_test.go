@@ -79,6 +79,73 @@ func TestNpcRevertTypeRaisesTeleAndMask(t *testing.T) {
 	}
 }
 
+func TestNpcTurnEventsRespawnPathAfterKill(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.currentTick = 100
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.respawnRate = 5
+	n.lifecycle = NpcLifecycleRespawn
+	n.x, n.z = n.startX+3, n.startZ+3 // moved away from spawn before death
+
+	n.Kill() // sets n.dead=true, n.lifecycleTick=respawnRate=5
+
+	// Tick respawnRate times; lifecycleTick goes 5→4→3→2→1→0 on the 5th call.
+	for i := 0; i < 5; i++ {
+		n.turn(s)
+	}
+
+	if n.dead {
+		t.Errorf("dead: got true, want false (should have respawned)")
+	}
+	if n.x != n.startX || n.z != n.startZ {
+		t.Errorf("pos: got (%d,%d), want (%d,%d) (should reset to spawn)", n.x, n.z, n.startX, n.startZ)
+	}
+	if !n.tele {
+		t.Errorf("tele: got false, want true (revertType raises it)")
+	}
+}
+
+func TestNpcTurnEventsDoesNotFireWhileDelayed(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.currentTick = 100
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.delayed = true
+	n.delayedUntil = s.currentTick + 999
+	n.lifecycleTick = 1
+	n.lifecycle = NpcLifecycleRespawn
+
+	for i := 0; i < 5; i++ {
+		n.turn(s)
+	}
+
+	if n.lifecycleTick != 1 {
+		t.Errorf("lifecycleTick: got %d, want 1 (no decrement while delayed)", n.lifecycleTick)
+	}
+}
+
+func TestNpcTurnEventsDespawnEnqueuesEvent(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.currentTick = 100
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.lifecycle = NpcLifecycleDespawn
+	n.lifecycleTick = 2
+
+	// No scriptProvider registered → GetByTrigger returns nil → no enqueue,
+	// but n.dead must flip true.
+	n.turn(s)
+	n.turn(s)
+
+	if !n.dead {
+		t.Errorf("dead: got false, want true (DESPAWN should have fired removeNpc)")
+	}
+	if len(s.npcEventQueue) != 0 {
+		t.Errorf("npcEventQueue: got len %d, want 0 (no ai_despawn script registered)", len(s.npcEventQueue))
+	}
+}
+
 func TestProcessNpcEventQueueSkipsDelayedNpcs(t *testing.T) {
 	s := newServerForScriptTest(t)
 	s.currentTick = 100
