@@ -90,6 +90,7 @@ func (s *Server) runNpcScript(sf *script.ScriptFile, npc script.ActiveNpc, intAr
 	}
 	state := script.Init(sf, nil, false, intArgs, stringArgs)
 	state.ActiveNpc = npc
+	state.Pointers |= script.PtrActiveNpc
 	state.Provider = s.scriptProvider
 	state.World = s.worldVars
 	state.Configs = s.configsView

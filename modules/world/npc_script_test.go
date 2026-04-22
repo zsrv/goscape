@@ -1,18 +1,11 @@
 package world
 
 import (
-	"io"
-	"log/slog"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
 )
-
-func newTestLogger(t *testing.T) *slog.Logger {
-	t.Helper()
-	return slog.New(slog.NewTextHandler(io.Discard, nil))
-}
 
 func newNpcForScriptTest(t *testing.T) *Npc {
 	t.Helper()
@@ -59,7 +52,7 @@ func TestNpcSetDelayed(t *testing.T) {
 func newServerForScriptTest(t *testing.T) *Server {
 	t.Helper()
 	return &Server{
-		log: newTestLogger(t),
+		log: discardLogger(),
 	}
 }
 
