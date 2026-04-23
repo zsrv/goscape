@@ -39,6 +39,49 @@ func TestCheckOpTrigger(t *testing.T) {
 	}
 }
 
+func TestNpcTargetWithinMaxRange(t *testing.T) {
+	typ := &objtype.NpcType{MaxRange: 5, AttackRange: 2}
+
+	tests := []struct {
+		name     string
+		targetOp int
+		tx, tz   int
+		want     bool
+	}{
+		// OP branch (maxrange+1=6, with corner-removal)
+		{"OP within +1", objtype.NPCModeOpNpc1, 106, 100, true},
+		{"OP at +2", objtype.NPCModeOpNpc1, 107, 100, false},
+		{"OP corner at (+1,+1)", objtype.NPCModeOpNpc1, 106, 106, false},
+		{"OP non-corner edge (+1,0)", objtype.NPCModeOpNpc1, 106, 100, true},
+
+		// AP branch (maxrange + attackrange = 7)
+		{"AP at +7", objtype.NPCModeApNpc1, 107, 100, true},
+		{"AP at +8", objtype.NPCModeApNpc1, 108, 100, false},
+
+		// Default branch (targetless targeted mode — maxrange+1)
+		{"Default at +6", objtype.NPCModePlayerFollow, 106, 100, true},
+		{"Default at +7", objtype.NPCModePlayerFollow, 107, 100, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			n := NewNpc(1, 42, 100, 100, 0, typ)
+			n.targetOp = tc.targetOp
+			n.target = &Npc{x: tc.tx, z: tc.tz, level: 0}
+			if got := n.targetWithinMaxRange(); got != tc.want {
+				t.Errorf("got %t, want %t", got, tc.want)
+			}
+		})
+	}
+
+	t.Run("nil target returns true", func(t *testing.T) {
+		n := NewNpc(1, 42, 100, 100, 0, typ)
+		n.target = nil
+		if !n.targetWithinMaxRange() {
+			t.Error("nil target: got false, want true")
+		}
+	})
+}
+
 func TestNpcInOperableDistance(t *testing.T) {
 	typ := &objtype.NpcType{}
 	n := NewNpc(1, 42, 100, 100, 0, typ)

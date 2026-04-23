@@ -46,6 +46,58 @@ func (n *Npc) clearInteraction() {
 	n.targetSubject = npcTargetSubject{com: -1, typ: -1}
 }
 
+// targetWithinMaxRange enforces the per-mode maxrange rules on n.target.
+// Three branches: OP (maxrange+1 with corner-removal quirk), AP
+// (maxrange + attackrange SW-distance), default (maxrange+1 SW-distance).
+// Matches TS Npc.targetWithinMaxRange at Engine-TS/.../Npc.ts:629-680.
+//
+// DEVIATION: PLAYERESCAPE branch (TS :657-673) dropped with the other
+// PLAYER* modes; scope defers the player-escape maxrange semantics to
+// a future sub-spec.
+func (n *Npc) targetWithinMaxRange() bool {
+	if n.target == nil {
+		return true
+	}
+	if n.typ == nil {
+		return false
+	}
+	maxrng := int(n.typ.MaxRange)
+	attackrng := int(n.typ.AttackRange)
+
+	tx, tz, _ := n.target.Coords()
+	dx := tx - n.startX
+	if dx < 0 {
+		dx = -dx
+	}
+	dz := tz - n.startZ
+	if dz < 0 {
+		dz = -dz
+	}
+
+	switch {
+	case checkOpTrigger(n.targetOp):
+		// TS :640-648 — maxrange+1 with corner-removal quirk.
+		maxAxis := max(dx, dz)
+		if maxAxis > maxrng+1 {
+			return false
+		}
+		if dx == maxrng+1 && dz == maxrng+1 {
+			return false
+		}
+		return true
+
+	case checkApTrigger(n.targetOp):
+		// TS :651-654 — SW-distance up to maxrange + attackrange.
+		d := coordgrid.DistanceToSW(tx, tz, n.startX, n.startZ)
+		return d <= maxrng+attackrng
+
+	default:
+		// TS :676 — SW-distance up to maxrange + 1.
+		d := coordgrid.DistanceToSW(tx, tz, n.startX, n.startZ)
+		return d <= maxrng+1
+	}
+}
+
 // inOperableDistance checks whether target is in contact range
 // (Chebyshev ≤ 1, excluding same tile). Mirrors the player-side shape
 // at interaction.go:128-141.
