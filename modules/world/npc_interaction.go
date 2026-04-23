@@ -46,6 +46,20 @@ func (n *Npc) clearInteraction() {
 	n.targetSubject = npcTargetSubject{com: -1, typ: -1}
 }
 
+// pathToTarget queues a single waypoint at the target's current tile.
+// Naive-only port — TS's pathToTarget at PathingEntity.ts:457-508 has
+// a full SMART branch using findPath / findPathToEntity / findPathToLoc.
+//
+// DEVIATION: SMART branch deferred. NAI-11 uses naive pathing for
+// every mode; a full route-finder port is a separate sub-spec.
+func (n *Npc) pathToTarget() {
+	if n.target == nil {
+		return
+	}
+	tx, tz, _ := n.target.Coords()
+	n.queueWaypoint(tx, tz)
+}
+
 // validateTarget enforces per-tick target validity. Four gates matching
 // TS Npc.validateTarget at Engine-TS/.../Npc.ts:606-627:
 //  1. Same-level.

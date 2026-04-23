@@ -39,6 +39,34 @@ func TestCheckOpTrigger(t *testing.T) {
 	}
 }
 
+func TestNpcPathToTarget(t *testing.T) {
+	typ := &objtype.NpcType{}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+	n.target = &Npc{x: 105, z: 108, level: 0}
+
+	n.pathToTarget()
+
+	if n.waypointIndex < 0 {
+		t.Fatal("waypointIndex: got < 0, want >= 0 after path set")
+	}
+	got := coordgrid.UnpackCoord(n.waypoints[n.waypointIndex])
+	if got.X != 105 || got.Z != 108 {
+		t.Errorf("waypoint: got (%d,%d), want (105,108)", got.X, got.Z)
+	}
+}
+
+func TestNpcPathToTargetNilTargetNoOp(t *testing.T) {
+	typ := &objtype.NpcType{}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+	n.target = nil
+
+	n.pathToTarget()
+
+	if n.waypointIndex != -1 {
+		t.Errorf("waypointIndex: got %d, want -1 (no-op)", n.waypointIndex)
+	}
+}
+
 func TestNpcValidateTarget(t *testing.T) {
 	typ := &objtype.NpcType{MaxRange: 10, AttackRange: 2}
 
