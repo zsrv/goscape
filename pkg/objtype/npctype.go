@@ -40,10 +40,6 @@ const (
 )
 
 // NPCMode values. Full enum mirroring Engine-TS/src/engine/entity/NpcMode.ts.
-// Will supersede the Go-ad-hoc NpcMode* constants in modules/world/npc.go
-// once NAI-11 Task 2 migrates remaining consumers — the two sets coexist
-// with conflicting values (e.g. NpcModeWander=0 vs NPCModeWander=1) until
-// that cleanup lands.
 const (
 	NPCModeNull            = -1
 	NPCModeNone            = 0

@@ -13,12 +13,6 @@ const (
 	NpcLifecycleDespawn = 2
 )
 
-// NPC AI mode constants (sub-spec 3c).
-const (
-	NpcModeNone   = -1
-	NpcModeWander = 0
-	NpcModePatrol = 1
-)
 
 // Npc is a non-player game entity.
 type Npc struct {
@@ -98,11 +92,11 @@ type Npc struct {
 
 // NewNpc constructs an Npc at the given coord, anchoring its spawn point.
 func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
-	mode := NpcModeNone
+	mode := objtype.NPCModeNone
 	if len(typ.PatrolCoord) > 0 {
-		mode = NpcModePatrol
+		mode = objtype.NPCModePatrol
 	} else if typ.WanderRange > 0 {
-		mode = NpcModeWander
+		mode = objtype.NPCModeWander
 	}
 
 	return &Npc{

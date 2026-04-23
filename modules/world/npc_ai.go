@@ -4,6 +4,7 @@ import (
 	"math/rand/v2"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
+	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
 )
 
@@ -89,9 +90,9 @@ func (n *Npc) turn(s *Server) {
 	} else {
 		n.wanderCounter++
 		switch n.targetOp {
-		case NpcModeWander:
+		case objtype.NPCModeWander:
 			n.wanderMode(s)
-		case NpcModePatrol:
+		case objtype.NPCModePatrol:
 			n.patrolMode(s)
 		}
 		if n.wanderCounter > 500 && (n.x != n.startX || n.z != n.startZ) {
