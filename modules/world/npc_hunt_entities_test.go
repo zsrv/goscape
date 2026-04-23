@@ -598,24 +598,21 @@ func TestHuntAllPicksFromVariantResult(t *testing.T) {
 	}
 }
 
-// withBlockingWall installs a FlagLoc at (level, x, z) on the given
-// Server's gamemap so the straight-line ray traversing that tile is
-// blocked by both HasLineOfSight and HasLineOfWalk. FlagLoc is the
-// shared bit checked by both raycasts (LoS via flagLocation; LoW via
-// FlagWalkBlocked = FlagLoc|FlagBlockWalk|FlagGroundDecor) — and per
-// FlagMap.Add, this also implicitly allocates the zone so adjacent
-// path tiles read FlagOpen instead of FlagNull.
+// withBlockingWall installs a blocking wall at (level, x, z) on the
+// given Server's gamemap so the straight-line ray traversing that tile
+// is blocked by both HasLineOfSight and HasLineOfWalk. Per FlagMap.Add,
+// this also implicitly allocates the zone so adjacent path tiles read
+// FlagOpen instead of FlagNull.
 //
 // Pre-condition: s.gamemap has been constructed via gamemap.New(...).
 //
-// Spec divergence: NAI-12 plan prescribed FlagLocProjBlocker, but
-// that bit only short-circuits HasLineOfSight (los-mode RayCast).
-// The spec § Testing strategy used FlagLoc; the plan's rewrite
-// would have left TestHuntNpcsCheckVisLineOfWalkBlocks unable to
-// fail. Following the spec.
+// Install both bits: FlagLocProjBlocker blocks LoS (via LineSightBlocked* masks);
+// FlagLoc blocks LoW (via LineWalkBlocked* / FlagWalkBlocked). A real wall-loc
+// would set both, so the helper mirrors that reality and is universal across
+// Tasks 2-5's LoS and LoW block tests.
 func withBlockingWall(t *testing.T, s *Server, level, x, z int) {
 	t.Helper()
-	s.gamemap.Pathfinder.Flags.Add(x, z, level, collision.FlagLoc)
+	s.gamemap.Pathfinder.Flags.Add(x, z, level, collision.FlagLoc|collision.FlagLocProjBlocker)
 }
 
 func TestHuntNpcsCheckVisLineOfSightPasses(t *testing.T) {
