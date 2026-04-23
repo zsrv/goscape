@@ -135,8 +135,21 @@ func (n *Npc) huntPlayers(s *Server, hunt *objtype.HuntType) []entity {
 		if hunt.CheckAfk && p.IsZonesAfk() {
 			continue
 		}
-		// TODO: CheckVis gate — TS ScriptIterators.ts:88-94.
-		// Deferred; see nai_followups.md.
+		// CheckVis gate — TS ScriptIterators.ts:88-94.
+		// FIDELITY: TS huntPlayers swaps src/dest vs other three variants —
+		// player-as-source (p.x, p.z) → NPC-as-dest (n.x, n.z). Preserve
+		// the asymmetry verbatim. See NAI-12 spec § Architecture.
+		// gamemap==nil short-circuits to gate-pass; see NAI-12 spec § error handling.
+		if hunt.CheckVis == objtype.HuntVisLineOfSight && s.gamemap != nil &&
+			!s.gamemap.Pathfinder.LineValidator.HasLineOfSight(
+				n.level, p.x, p.z, n.x, n.z, 1, 1, 1, 0) {
+			continue
+		}
+		if hunt.CheckVis == objtype.HuntVisLineOfWalk && s.gamemap != nil &&
+			!s.gamemap.Pathfinder.LineValidator.HasLineOfWalk(
+				n.level, p.x, p.z, n.x, n.z, 1, 1, 1, 0) {
+			continue
+		}
 		hunted = append(hunted, p)
 	}
 	return hunted

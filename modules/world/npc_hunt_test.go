@@ -3,7 +3,9 @@ package world
 import (
 	"testing"
 
+	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/script"
 )
 
@@ -339,5 +341,84 @@ func TestConsumeHuntTargetInteractionBranchCallsSetInteraction(t *testing.T) {
 	if n.faceEntity != target.nid {
 		t.Errorf("faceEntity: got %d, want %d (NAI-10 deferral #5 closed)",
 			n.faceEntity, target.nid)
+	}
+}
+
+func TestHuntPlayersCheckVisLineOfSightPasses(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.gamemap = gamemap.New(discardLogger())
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	_ = addPlayerToServer(t, s, 1, n.x, n.z+2, n.level)
+
+	// Task 1 fixture-ordering convention: seed entity, THEN AllocateIfAbsent.
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(n.x, n.z, n.level)
+
+	hunt := &objtype.HuntType{CheckVis: objtype.HuntVisLineOfSight}
+	hunted := n.huntPlayers(s, hunt)
+
+	if len(hunted) != 1 {
+		t.Fatalf("hunted: got %d, want 1 (LoS clear path)", len(hunted))
+	}
+}
+
+func TestHuntPlayersCheckVisLineOfSightBlocks(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.gamemap = gamemap.New(discardLogger())
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	_ = addPlayerToServer(t, s, 1, n.x, n.z+2, n.level)
+	withBlockingWall(t, s, 3094, 3107, 0) // mid-tile blocker
+
+	hunt := &objtype.HuntType{CheckVis: objtype.HuntVisLineOfSight}
+	hunted := n.huntPlayers(s, hunt)
+
+	if len(hunted) != 0 {
+		t.Fatalf("hunted: got %d, want 0 (LoS blocked by mid-tile)", len(hunted))
+	}
+}
+
+// TestHuntPlayersCheckVisArgumentOrderSwapQuirk guards the TS
+// player-as-source swap at ScriptIterators.ts:88-94. TS huntPlayers
+// uses player-as-source (opposite of the other three variants'
+// NPC-as-source). An asymmetric directional wall blocks the TS-prescribed
+// direction but would pass the un-swap — proving the Go call uses
+// HasLineOfSight(p.x, p.z, n.x, n.z), NOT the swapped NPC-as-source order.
+//
+// Fixture rationale (player at n.z+2, NPC at n.z):
+//
+//	Player→NPC direction: travelSouth — ray checks FlagWallNorth-bit
+//	when entering each new tile. FlagWallNorthProjBlocker at mid-tile
+//	(3094, 3107) blocks this direction.
+//	NPC→player (un-swap): travelNorth — checks FlagWallSouth-bit.
+//	FlagWallNorthProjBlocker is NOT in the south mask, so un-swap
+//	direction would pass. Test asserts player is FILTERED (want 0).
+//
+//	If implementer reverts to NPC-as-source, ray passes → player hunted
+//	→ test flips red.
+func TestHuntPlayersCheckVisArgumentOrderSwapQuirk(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.gamemap = gamemap.New(discardLogger())
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	_ = addPlayerToServer(t, s, 1, n.x, n.z+2, n.level)
+	// DIRECTIONAL blocker (not withBlockingWall which is bidirectional).
+	s.gamemap.Pathfinder.Flags.Add(3094, 3107, 0, collision.FlagWallNorthProjBlocker)
+
+	hunt := &objtype.HuntType{CheckVis: objtype.HuntVisLineOfSight}
+	hunted := n.huntPlayers(s, hunt)
+
+	if len(hunted) != 0 {
+		t.Fatalf("hunted: got %d, want 0 — player-as-source LoS blocked; "+
+			"if 1, the src/dest swap is reverted (bug)", len(hunted))
 	}
 }
