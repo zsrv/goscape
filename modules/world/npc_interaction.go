@@ -34,11 +34,12 @@ func checkApTrigger(op int) bool {
 // Npc.resetDefaults at Engine-TS/.../Npc.ts:411-425 — specifically the
 // `faceEntity = -1` at :415 and `this.masks |= this.entitymask` at :416.
 //
-// INTENTIONALLY does NOT clear apRange, apRangeCalled, or targetSubject
-// — those are overwritten only by the next SetInteraction call. This is
-// a deliberate NAI-11-era deviation from TS resetDefaults, which delegates
-// through clearInteraction; Go keeps the flat shape as a tracked deviation
-// (see docs/superpowers/specs/2026-04-23-nai-14-face-entity-clearing-design.md).
+// INTENTIONALLY retains NAI-11's stripped-flat shape — apRange,
+// apRangeCalled, targetSubject, huntMode, huntrange, huntClock,
+// huntTarget, and timerInterval are all non-cleared (TS clears them via
+// clearInteraction + :418-424; Go keeps the flat shape as a tracked
+// deviation). See spec § Scope — what's OUT §4 for the full deviation
+// tree at docs/superpowers/specs/2026-04-23-nai-14-face-entity-clearing-design.md.
 func (n *Npc) resetDefaults() {
 	n.target = nil
 	n.targetOp = n.defaultMode()
