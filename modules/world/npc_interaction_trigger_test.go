@@ -127,6 +127,95 @@ func newNpcWithType(typeId, category int) *Npc {
 	return NewNpc(2, typeId, 101, 100, 0, typ)
 }
 
+// Loc-target fire helper tests --------------------------------------------
+// addLocToZone is defined in npc_hunt_entities_test.go and reused here.
+
+func TestFireAiOpTriggerLocHappyPath(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpLoc1, 77, "aiop-loc"))
+
+	n := newNpcForScriptTest(t)
+	n.server = s
+	n.targetOp = objtype.NPCModeOpLoc1
+
+	loc := addLocToZone(t, s, 0, 101, 100, 77, 0)
+	n.target = loc
+	n.targetSubject.typ = loc.Type()
+
+	n.fireAiOpTriggerLoc(s, loc)
+
+	if string(n.sayText) != "aiop-loc" {
+		t.Errorf("sayText: got %q, want %q", n.sayText, "aiop-loc")
+	}
+}
+
+func TestFireAiOpTriggerLocNoScriptClears(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+
+	n := newNpcForScriptTest(t)
+	n.server = s
+	n.targetOp = objtype.NPCModeOpLoc1
+
+	loc := addLocToZone(t, s, 0, 101, 100, 77, 0)
+	n.target = loc
+	n.targetSubject.typ = loc.Type()
+
+	n.fireAiOpTriggerLoc(s, loc)
+
+	if n.target != nil {
+		t.Error("target: expected nil after no-script-found clearInteraction")
+	}
+}
+
+func TestFireAiOpTriggerLocZoneStaleClears(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpLoc1, 77, "aiop-loc"))
+
+	n := newNpcForScriptTest(t)
+	n.server = s
+	n.targetOp = objtype.NPCModeOpLoc1
+
+	loc := addLocToZone(t, s, 0, 101, 100, 77, 0)
+	n.target = loc
+	n.targetSubject.typ = loc.Type()
+
+	// Evict from zone to simulate stale pointer.
+	zn := s.zoneMap.Get(0, 101, 100)
+	zn.Locs = nil
+
+	n.fireAiOpTriggerLoc(s, loc)
+
+	if n.target != nil {
+		t.Error("target: expected nil after zone-stale clearInteraction")
+	}
+	if string(n.sayText) == "aiop-loc" {
+		t.Error("sayText: script ran despite zone-stale target")
+	}
+}
+
+func TestFireAiApTriggerLocHappyPath(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiApLoc1, 77, "aiap-loc"))
+
+	n := newNpcForScriptTest(t)
+	n.server = s
+	n.targetOp = objtype.NPCModeApLoc1
+
+	loc := addLocToZone(t, s, 0, 101, 100, 77, 0)
+	n.target = loc
+	n.targetSubject.typ = loc.Type()
+
+	n.fireAiApTriggerLoc(s, loc)
+
+	if string(n.sayText) != "aiap-loc" {
+		t.Errorf("sayText: got %q, want %q", n.sayText, "aiap-loc")
+	}
+}
+
 // Npc-target fire helper tests --------------------------------------------
 
 func TestFireAiOpTriggerNpcHappyPath(t *testing.T) {

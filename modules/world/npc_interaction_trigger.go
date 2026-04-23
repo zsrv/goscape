@@ -1,9 +1,72 @@
 package world
 
 import (
+	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
 )
+
+// fireAiOpTriggerLoc fires AI_OPLOC1..5 for a Loc target. Lifecycle
+// gate via locStillValid (zone-membership + type match). Category
+// resolved through the LocType registry (Loc carries only a packed
+// Info bitfield, so category is a separate lookup).
+func (n *Npc) fireAiOpTriggerLoc(s *Server, target *entitypkg.Loc) {
+	tx, tz, tlevel := target.Coords()
+	if !locStillValid(s, target, n.targetSubject.typ, tx, tz, tlevel) {
+		n.clearInteraction()
+		return
+	}
+	trigger := aiOpLocTriggerForOp(n.targetOp)
+	if trigger == 0 {
+		n.clearInteraction()
+		return
+	}
+	locId := target.Type()
+	category := locCategory(s, locId)
+	sf := s.scriptProvider.GetByTrigger(trigger, locId, category)
+	if sf == nil {
+		n.clearInteraction()
+		return
+	}
+	s.runNpcScript(sf, n, target, nil, nil)
+}
+
+// fireAiApTriggerLoc fires AI_APLOC1..5 for a Loc target — approach-
+// range counterpart.
+func (n *Npc) fireAiApTriggerLoc(s *Server, target *entitypkg.Loc) {
+	tx, tz, tlevel := target.Coords()
+	if !locStillValid(s, target, n.targetSubject.typ, tx, tz, tlevel) {
+		n.clearInteraction()
+		return
+	}
+	trigger := aiApLocTriggerForOp(n.targetOp)
+	if trigger == 0 {
+		n.clearInteraction()
+		return
+	}
+	locId := target.Type()
+	category := locCategory(s, locId)
+	sf := s.scriptProvider.GetByTrigger(trigger, locId, category)
+	if sf == nil {
+		n.clearInteraction()
+		return
+	}
+	s.runNpcScript(sf, n, target, nil, nil)
+}
+
+// locCategory resolves a loc's category through the server's LocType
+// registry. Returns 0 if the registry is nil or the id is out of range
+// — matches the defensive access pattern at handler_oploc.go:68-72.
+func locCategory(s *Server, locId int) int {
+	if s.locTypes == nil || locId < 0 || locId >= len(s.locTypes.Configs) {
+		return 0
+	}
+	lt := s.locTypes.Configs[locId]
+	if lt == nil {
+		return 0
+	}
+	return lt.Category
+}
 
 // fireAiOpTriggerNpc fires AI_OPNPC1..5 for an NPC target. Lifecycle
 // gate is target.dead (the "isActive" half handled by validateTarget).
