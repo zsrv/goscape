@@ -2,7 +2,6 @@ package world
 
 import (
 	"github.com/zsrv/goscape/pkg/coordgrid"
-	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
 )
 
@@ -75,69 +74,14 @@ func (n *Npc) turn(s *Server) {
 	s.processNpcTimer(n)
 	s.processNpcQueue(n)
 
-	// === Movement / wander / patrol ===
-	if n.moveRestrict == MoveRestrictNoMove {
-		return
-	}
-	n.lastTickX, n.lastTickZ, n.lastLevel = n.x, n.z, n.level
-	n.tele = false
-
-	if n.waypointIndex >= 0 {
-		n.advanceWaypoint(s)
-		n.wanderCounter = 0
-	} else {
-		n.wanderCounter++
-		switch n.targetOp {
-		case objtype.NPCModeWander:
-			n.wanderMode(s)
-		case objtype.NPCModePatrol:
-			n.patrolMode(s)
-		}
-		if n.wanderCounter > 500 && (n.x != n.startX || n.z != n.startZ) {
-			n.x, n.z, n.level = n.startX, n.startZ, n.startLevel
-			n.tele = true
-			n.wanderCounter = 0
-		}
-	}
+	// === Movement / interaction (NAI-11) ===
+	n.processMovementInteraction(s)
 }
 
 // queueWaypoint clears any existing path and sets a single destination.
 func (n *Npc) queueWaypoint(x, z int) {
 	n.waypoints[0] = coordgrid.PackCoord(n.level, x, z)
 	n.waypointIndex = 0
-}
-
-// advanceWaypoint moves one tile toward the current waypoint.
-func (n *Npc) advanceWaypoint(s *Server) {
-	dest := coordgrid.UnpackCoord(n.waypoints[n.waypointIndex])
-	dir := coordgrid.Face(n.x, n.z, dest.X, dest.Z)
-	if dir == -1 {
-		n.waypointIndex--
-		n.walkDir = -1
-		n.runDir = -1
-		return
-	}
-	dx := coordgrid.DeltaX(dir)
-	dz := coordgrid.DeltaZ(dir)
-
-	if s != nil && s.gamemap != nil {
-		if !s.gamemap.CanTravel(n.level, n.x, n.z, dx, dz) {
-			n.waypointIndex = -1
-			n.walkDir = -1
-			n.runDir = -1
-			return
-		}
-	}
-
-	n.x += dx
-	n.z += dz
-	n.walkDir = int(dir)
-	n.runDir = -1
-	n.stepsTaken++
-
-	if n.x == dest.X && n.z == dest.Z {
-		n.waypointIndex--
-	}
 }
 
 // Kill is a test-only helper that marks the NPC dead and schedules respawn.

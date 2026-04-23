@@ -268,34 +268,32 @@ func TestNpcTurnHuntAndConsumeSetsTarget(t *testing.T) {
 	n.x, n.z, n.level = 3094, 3106, 0
 	n.huntRange = 10
 
-	// Configure the hunt for NPC-type hunt (HuntModePlayer is skipped by
-	// the turn() path per TS Npc.ts:164, so we exercise huntNpcs here).
+	// Configure the hunt for NPC-type hunt.
 	hunt.Type = objtype.HuntModeNpc
 	hunt.Rate = 1
 	hunt.FindNewMode = 4 // PLAYERFOLLOW (interaction branch)
 	hunt.FindKeepHunting = true
-	hunt.NobodyNear = objtype.HuntNobodyNearKeepHunting // bypass observer gate
+	hunt.NobodyNear = objtype.HuntNobodyNearKeepHunting
 	hunt.CheckNpc = -1
 	hunt.CheckCategory = -1
 
-	// Seed the grid with a target NPC in range.
-	target := addNpcToServerAt(t, s, 10, 1, -1, n.x+3, n.z+3, n.level)
-
-	// Install the hunting NPC into s.npcs so the tick fixture is internally
-	// consistent (some helpers expect it); nid=1 reserved by fixture.
+	addNpcToServerAt(t, s, 10, 1, -1, n.x+3, n.z+3, n.level)
 	s.npcs[1] = n
 
 	// Run the full tick.
 	n.turn(s)
 
-	if n.target == nil {
-		t.Fatal("target: got nil, want the hunted NPC (proves consumeHuntTarget ran after processNpcHunt)")
-	}
-	if n.target.Slot() != target.nid {
-		t.Errorf("target.Slot(): got %d, want %d", n.target.Slot(), target.nid)
-	}
-	if n.targetOp != 4 {
-		t.Errorf("targetOp: got %d, want 4 (PLAYERFOLLOW from FindNewMode)", n.targetOp)
+	// NAI-11 shift: consumeHuntTarget still sets target+targetOp=4
+	// intermediately, but processMovementInteraction (now wired via
+	// npc_ai.go:turn) immediately routes PLAYERFOLLOW through the
+	// deferred-PLAYER*-mode branch → resetDefaults → target cleared.
+	// So the observable post-turn state is target==nil + targetOp back
+	// at defaultMode (Wander for a WanderRange-only NpcType).
+	//
+	// Tracked: nai_followups.md — when PLAYER* modes are implemented,
+	// this assertion should flip back to "target is the hunted NPC".
+	if n.target != nil {
+		t.Errorf("target: got %v, want nil (PLAYER* mode is deferred → resetDefaults)", n.target)
 	}
 	if n.huntTarget != nil {
 		t.Errorf("huntTarget: got %v, want nil (cleared by consumeHuntTarget)", n.huntTarget)
