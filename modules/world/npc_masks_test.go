@@ -140,3 +140,53 @@ func TestNpcResetHPWithNilTypDirectConstruction(t *testing.T) {
 		t.Errorf("after ResetHP on nil-typ npc: got %d/%d, want 0/0", npc.curHP, npc.baseHP)
 	}
 }
+
+// TestNewNpcSetsEntityMaskToFaceEntity — NAI-13 Task 1.
+// Mirrors TS PathingEntity.ts:107 where `this.entitymask = entitymask` is
+// set at construction. For NPC, this is NpcMaskFaceEntity; the consumer
+// is SetInteraction / resetDefaults which emit the faceEntity bit via
+// `n.masks |= n.entitymask`. Before this change the field was always 0
+// and the `|=` lines were no-ops.
+func TestNewNpcSetsEntityMaskToFaceEntity(t *testing.T) {
+	n := newTestNpc(1)
+	if n.entitymask != rsbuf.NpcMaskFaceEntity {
+		t.Errorf("entitymask: got %d, want %d (NpcMaskFaceEntity)", n.entitymask, rsbuf.NpcMaskFaceEntity)
+	}
+}
+
+// TestResetDefaultsEmitsEntityMask — NAI-13 Task 1.
+// Mirrors TS Npc.ts:416 where resetDefaults ends with `this.masks |=
+// this.entitymask`. Before NAI-13 the `|=` line in resetDefaults did
+// not exist; this test guards the new line + proves entitymask is
+// non-zero post-construction.
+func TestResetDefaultsEmitsEntityMask(t *testing.T) {
+	n := newTestNpc(1)
+	n.masks = 0 // clear any construction-time bits
+	n.resetDefaults()
+	if n.masks&rsbuf.NpcMaskFaceEntity == 0 {
+		t.Errorf("masks & NpcMaskFaceEntity: got 0, want nonzero (resetDefaults should emit faceEntity bit)")
+	}
+}
+
+// TestSetInteractionEmitsEntityMask — NAI-13 Task 1.
+// The line `n.masks |= n.entitymask` at npc_interaction.go SetInteraction
+// was a no-op before NAI-13 because entitymask was 0. With entitymask
+// now wired in NewNpc (Step 1.3), that line emits the faceEntity bit.
+// Uses an *Npc target to avoid Player construction overhead — SetInteraction's
+// target branch that sets faceEntity fires for both Player and Npc targets.
+func TestSetInteractionEmitsEntityMask(t *testing.T) {
+	n := newTestNpc(1)
+	n.masks = 0
+	n.server = &Server{log: discardLogger()} // SetInteraction does not touch log on happy path
+
+	// Use a live *Npc target (has Coords, IsValid via !dead). Npc is an entity.
+	target := newTestNpc(2)
+
+	ok := n.SetInteraction(InteractionScript, target, objtype.NPCModeOpNpc1, 0)
+	if !ok {
+		t.Fatal("SetInteraction returned false (target.IsValid failed?)")
+	}
+	if n.masks&rsbuf.NpcMaskFaceEntity == 0 {
+		t.Errorf("masks & NpcMaskFaceEntity: got 0, want nonzero (SetInteraction should emit faceEntity bit for *Npc target)")
+	}
+}

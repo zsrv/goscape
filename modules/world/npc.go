@@ -156,6 +156,7 @@ func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
 		faceSquareX:     -1,
 		faceSquareZ:     -1,
 		changeTypeID:    -1,
+		entitymask:      rsbuf.NpcMaskFaceEntity,
 	}
 	n.targetOp = n.defaultMode()
 	return n

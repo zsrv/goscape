@@ -29,13 +29,16 @@ func checkApTrigger(op int) bool {
 		(op >= objtype.NPCModeApNpc1 && op <= objtype.NPCModeApNpc5)
 }
 
-// resetDefaults clears target/targetOp to defaultMode baseline. Matches
-// TS Npc.resetDefaults — INTENTIONALLY does NOT clear apRange,
-// apRangeCalled, faceEntity, or masks. Those are overwritten only by
-// the next SetInteraction call.
+// resetDefaults clears target/targetOp to defaultMode baseline and re-emits
+// the faceEntity mask bit. Matches TS Npc.resetDefaults at
+// Engine-TS/.../Npc.ts:411-425 (the `this.masks |= this.entitymask` at
+// :416). INTENTIONALLY does NOT clear apRange, apRangeCalled, faceEntity,
+// or the rest of masks — those are overwritten only by the next
+// SetInteraction call.
 func (n *Npc) resetDefaults() {
 	n.target = nil
 	n.targetOp = n.defaultMode()
+	n.masks |= n.entitymask
 }
 
 // clearInteraction resets interaction state to idle, including apRange
