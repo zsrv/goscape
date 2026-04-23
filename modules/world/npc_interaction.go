@@ -38,7 +38,7 @@ func checkApTrigger(op int) bool {
 // apRangeCalled, targetSubject, huntMode, huntrange, huntClock,
 // huntTarget, and timerInterval are all non-cleared (TS clears them via
 // clearInteraction + :418-424; Go keeps the flat shape as a tracked
-// deviation). See spec § Scope — what's OUT §4 for the full deviation
+// deviation). See spec § Scope — what's OUT §1 for the full deviation
 // tree at docs/superpowers/specs/2026-04-23-nai-14-face-entity-clearing-design.md.
 func (n *Npc) resetDefaults() {
 	n.target = nil
