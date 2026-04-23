@@ -3,7 +3,7 @@ package world
 import (
 	"testing"
 
-	gameentity "github.com/zsrv/goscape/pkg/entity"
+	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -426,7 +426,7 @@ func TestBuildNpcScriptStateDispatchesActivePlayer(t *testing.T) {
 func TestBuildNpcScriptStateDispatchesActiveLoc(t *testing.T) {
 	s := newServerForScriptTest(t)
 	n := newNpcForScriptTest(t)
-	loc := gameentity.NewLoc(0, 100, 100, 1, 1, gameentity.LifecycleRespawn, 42, 10, 0)
+	loc := entitypkg.NewLoc(0, 100, 100, 1, 1, entitypkg.LifecycleRespawn, 42, 10, 0)
 	sf := &script.ScriptFile{Name: "noop"}
 
 	state := s.buildNpcScriptState(sf, n, loc, nil, nil)
@@ -444,7 +444,7 @@ func TestBuildNpcScriptStateDispatchesActiveLoc(t *testing.T) {
 func TestBuildNpcScriptStateDispatchesActiveObj(t *testing.T) {
 	s := newServerForScriptTest(t)
 	n := newNpcForScriptTest(t)
-	obj := gameentity.NewObj(0, 100, 100, gameentity.LifecycleRespawn, 42, 1)
+	obj := entitypkg.NewObj(0, 100, 100, entitypkg.LifecycleRespawn, 42, 1)
 	sf := &script.ScriptFile{Name: "noop"}
 
 	state := s.buildNpcScriptState(sf, n, obj, nil, nil)
@@ -487,6 +487,9 @@ func TestBuildNpcScriptStateNilTargetSetsNoSecondaryPointer(t *testing.T) {
 	state := s.buildNpcScriptState(sf, n, nil, nil, nil)
 
 	// ActiveNpc (primary) is set by buildNpcScriptState itself, not target-dispatch.
+	if state.Pointers&script.PtrActiveNpc == 0 {
+		t.Error("Pointers: PtrActiveNpc not set (primary NPC wiring missing)")
+	}
 	secondaryMask := script.PtrActivePlayer | script.PtrActiveLoc |
 		script.PtrActiveObj | script.PtrOtherActiveNpc
 	if state.Pointers&secondaryMask != 0 {
