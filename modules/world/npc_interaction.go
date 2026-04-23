@@ -398,13 +398,10 @@ func (n *Npc) validateTarget() bool {
 }
 
 // targetWithinMaxRange enforces the per-mode maxrange rules on n.target.
-// Three branches: OP (maxrange+1 with corner-removal quirk), AP
-// (maxrange + attackrange SW-distance), default (maxrange+1 SW-distance).
+// Five branches: PLAYERFOLLOW (always true), PLAYERESCAPE (retreat-maxrange
+// with corner-removal quirk), OP (maxrange+1 with corner-removal quirk),
+// AP (maxrange + attackrange SW-distance), default (maxrange+1 SW-distance).
 // Matches TS Npc.targetWithinMaxRange at Engine-TS/.../Npc.ts:629-680.
-//
-// DEVIATION: PLAYERESCAPE branch (TS :657-673) dropped with the other
-// PLAYER* modes; scope defers the player-escape maxrange semantics to
-// a future sub-spec.
 func (n *Npc) targetWithinMaxRange() bool {
 	if n.target == nil {
 		return true
@@ -412,6 +409,12 @@ func (n *Npc) targetWithinMaxRange() bool {
 	if n.typ == nil {
 		return false
 	}
+
+	// TS :633-635 — PLAYERFOLLOW has no retreat bound.
+	if n.targetOp == objtype.NPCModePlayerFollow {
+		return true
+	}
+
 	maxrng := int(n.typ.MaxRange)
 	attackrng := int(n.typ.AttackRange)
 
@@ -423,6 +426,20 @@ func (n *Npc) targetWithinMaxRange() bool {
 	dz := tz - n.startZ
 	if dz < 0 {
 		dz = -dz
+	}
+
+	// TS :657-673 — PLAYERESCAPE retreat maxrange. Same shape as OP branch
+	// (maxrange+1 with corner-removal) so the NPC can't escape beyond its
+	// retreat box.
+	if n.targetOp == objtype.NPCModePlayerEscape {
+		maxAxis := max(dx, dz)
+		if maxAxis > maxrng+1 {
+			return false
+		}
+		if dx == maxrng+1 && dz == maxrng+1 {
+			return false
+		}
+		return true
 	}
 
 	switch {

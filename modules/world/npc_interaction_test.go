@@ -532,9 +532,11 @@ func TestNpcTargetWithinMaxRange(t *testing.T) {
 		{"AP at +7", objtype.NPCModeApNpc1, 107, 100, true},
 		{"AP at +8", objtype.NPCModeApNpc1, 108, 100, false},
 
-		// Default branch (targetless targeted mode — maxrange+1)
-		{"Default at +6", objtype.NPCModePlayerFollow, 106, 100, true},
-		{"Default at +7", objtype.NPCModePlayerFollow, 107, 100, false},
+		// Default branch (targetless targeted mode — maxrange+1).
+		// Uses PLAYERFACE (not PLAYERFOLLOW) because PLAYERFOLLOW now
+		// short-circuits to always-true per TS Npc.ts:633-635 (NAI-13 Task 2).
+		{"Default at +6", objtype.NPCModePlayerFace, 106, 100, true},
+		{"Default at +7", objtype.NPCModePlayerFace, 107, 100, false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
