@@ -658,3 +658,66 @@ func TestHuntNpcsCheckVisLineOfWalkBlocks(t *testing.T) {
 		t.Fatalf("hunted: got %d, want 0 (LoW blocked by mid-tile)", len(hunted))
 	}
 }
+
+// addObjToZoneAt seeds a dynamic Obj in the Server's zone map.
+// Returns the *Obj so callers can mutate further.
+func addObjToZoneAt(t *testing.T, s *Server, objType, x, z, level int) *entitypkg.Obj {
+	t.Helper()
+	if s.zoneMap == nil {
+		s.zoneMap = zone.NewZoneMap()
+	}
+	if s.objTypes == nil {
+		s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 100)}
+	}
+	if objType < len(s.objTypes.Configs) && s.objTypes.Configs[objType] == nil {
+		s.objTypes.Configs[objType] = &objtype.ObjType{
+			ConfigType: objtype.ConfigType{ID: objType},
+			Category:   -1,
+		}
+	}
+	o := entitypkg.NewObj(level, x, z, entitypkg.LifecycleDespawn, objType, 1)
+	z2 := s.zoneMap.Get(level, x, z)
+	z2.Objs = append(z2.Objs, o)
+	return o
+}
+
+func TestHuntObjsCheckVisLineOfSightPasses(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.gamemap = gamemap.New(discardLogger())
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	// Allocate the source zone — unallocated zones return FlagNull=-1 which
+	// IsFlagged treats as blocked. See Task 1 LoS-pass test for full context.
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(n.x, n.z, n.level)
+
+	_ = addObjToZoneAt(t, s, 1, n.x, n.z+2, n.level) // 2 tiles north, clear path
+
+	hunt := &objtype.HuntType{CheckObj: -1, CheckCategory: -1, CheckVis: objtype.HuntVisLineOfSight}
+	hunted := n.huntObjs(s, hunt)
+
+	if len(hunted) != 1 {
+		t.Fatalf("hunted: got %d, want 1 (LoS clear path)", len(hunted))
+	}
+}
+
+func TestHuntObjsCheckVisLineOfSightBlocks(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.gamemap = gamemap.New(discardLogger())
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	_ = addObjToZoneAt(t, s, 1, n.x, n.z+2, n.level)
+	withBlockingWall(t, s, 3094, 3107, 0) // mid-tile blocker; (x, z, level)
+
+	hunt := &objtype.HuntType{CheckObj: -1, CheckCategory: -1, CheckVis: objtype.HuntVisLineOfSight}
+	hunted := n.huntObjs(s, hunt)
+
+	if len(hunted) != 0 {
+		t.Fatalf("hunted: got %d, want 0 (LoS blocked by mid-tile)", len(hunted))
+	}
+}
