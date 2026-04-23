@@ -5,7 +5,9 @@ import (
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
+	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -860,5 +862,84 @@ func TestCheckApTrigger(t *testing.T) {
 				t.Errorf("checkApTrigger(%d) = %t, want %t", tc.op, got, tc.want)
 			}
 		})
+	}
+}
+
+// approachDistanceFixture builds a *Server + *Npc + target *Player
+// positioned 2 tiles apart on level 0, ready to exercise
+// inApproachDistance. NPC at (3094, 3106); target player at (3094, 3108).
+// s.gamemap is wired. n.server is set. Returns everything the caller
+// needs. The target Player is registered via addPlayerToServer which
+// also indexes into s.grid; grid registration is harmless for
+// inApproachDistance (only target.Coords() and target.level are read).
+func approachDistanceFixture(t *testing.T) (*Server, *Npc, *Player) {
+	t.Helper()
+	s := newServerForScriptTest(t)
+	s.gamemap = gamemap.New(discardLogger())
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	p := addPlayerToServer(t, s, 1, 3094, 3108, 0)
+	return s, n, p
+}
+
+func TestNpcInApproachDistanceLosPasses(t *testing.T) {
+	s, n, p := approachDistanceFixture(t)
+	// Seed entity (implicit via fixture), then allocate so empty tiles
+	// read FlagOpen instead of FlagNull.
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(n.x, n.z, n.level)
+
+	if !n.inApproachDistance(5, p) {
+		t.Error("inApproachDistance: got false, want true (range ok + LoS clear)")
+	}
+}
+
+func TestNpcInApproachDistanceLosBlocks(t *testing.T) {
+	s, n, p := approachDistanceFixture(t)
+	withBlockingWall(t, s, 3094, 3107, 0) // mid-tile blocker
+
+	if n.inApproachDistance(5, p) {
+		t.Error("inApproachDistance: got true, want false (LoS blocked by mid-tile)")
+	}
+}
+
+// TestNpcInApproachDistanceNpcBackwardArgsQuirk guards the TS
+// target-as-source + self-as-dest ordering at PathingEntity.ts:402-405.
+// Uses an asymmetric directional wall flag that blocks target->NPC
+// direction but would pass NPC->target.
+//
+// Fixture rationale (target north of NPC at +2 z):
+//
+//	Target->NPC direction: travelSouth — ray checks FlagWallNorth-bit
+//	when entering each new tile. FlagWallNorthProjBlocker at mid-tile
+//	(3094, 3107) blocks this direction.
+//	NPC->target (un-swap): travelNorth — checks FlagWallSouth-bit.
+//	FlagWallNorthProjBlocker is NOT in the south mask, so un-swap
+//	would pass.
+//
+//	If implementer reverses to self-as-source (forward LoS), the ray
+//	passes and inApproachDistance returns true; this test flips red.
+func TestNpcInApproachDistanceNpcBackwardArgsQuirk(t *testing.T) {
+	s, n, p := approachDistanceFixture(t)
+	s.gamemap.Pathfinder.Flags.Add(3094, 3107, 0, collision.FlagWallNorthProjBlocker)
+
+	if n.inApproachDistance(5, p) {
+		t.Error("inApproachDistance: got true, want false — target-as-source LoS " +
+			"blocked; if true, the TS NPC-backward arg order is reverted (bug)")
+	}
+}
+
+// TestNpcInApproachDistancePlayerFlagIsRespected guards the
+// CollisionFlag.PLAYER extraFlag wiring at GameMap.ts:433-435. Places
+// only FlagBlockPlayers at a mid-tile (no wall, no proj-blocker). The
+// ray would PASS if extraFlag=0, but BLOCK if extraFlag=FlagBlockPlayers.
+// Proves inApproachDistance actually passes FlagBlockPlayers through.
+func TestNpcInApproachDistancePlayerFlagIsRespected(t *testing.T) {
+	s, n, p := approachDistanceFixture(t)
+	s.gamemap.Pathfinder.Flags.Add(3094, 3107, 0, collision.FlagBlockPlayers)
+
+	if n.inApproachDistance(5, p) {
+		t.Error("inApproachDistance: got true, want false — FlagBlockPlayers " +
+			"mid-tile; if true, extraFlag=FlagBlockPlayers is not wired (bug)")
 	}
 }

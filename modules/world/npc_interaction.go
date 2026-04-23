@@ -6,6 +6,7 @@ import (
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 )
 
 // checkOpTrigger reports whether targetOp falls in any OP-trigger band
@@ -473,12 +474,23 @@ func (n *Npc) inOperableDistance(target entity) bool {
 }
 
 // inApproachDistance checks whether target is within rng tiles
-// (Chebyshev, excluding same tile). Mirrors the player-side shape at
-// interaction.go:148-164.
+// (Chebyshev, excluding same tile) AND within TS-style line-of-sight.
+// Mirrors TS PathingEntity.inApproachDistance at
+// PathingEntity.ts:392-406 (NPC branch at :402-403).
 //
-// DEVIATION from TS (PathingEntity.ts:392-406): no LoS gating. TS's
-// isApproached walks the collision map; NAI-11 inherits player-side's
-// S6l-D4 no-LoS posture. Tracked follow-up.
+// NAI-12 closes the NAI-11 "no LoS gating" deferral.
+//
+// FIDELITY: "Los for Npcs is always calculated backwards for all Entity
+// types" — source is target, dest is self. TS's isApproached
+// (GameMap.ts:433-435) dispatches to hasLineOfSight with
+// CollisionFlag.PLAYER as extraFlag — Go equivalent
+// collision.FlagBlockPlayers.
+//
+// DEVIATION: TS passes target.width+target.length and this.width+this.length
+// (four size args). Go's HasLineOfSight collapses src to scalar srcSize;
+// NAI-12 approximates with srcSize=1, destWidth=1, destLength=1 matching
+// the hunt-variant convention. Tracked as size-aware follow-up in
+// nai_followups.md.
 func (n *Npc) inApproachDistance(rng int, target entity) bool {
 	if rng <= 0 {
 		return false
@@ -496,6 +508,14 @@ func (n *Npc) inApproachDistance(rng int, target entity) bool {
 		dz = -dz
 	}
 	if dx > rng || dz > rng {
+		return false
+	}
+	// LoS gate — TS PathingEntity.ts:402-405. Target-as-source + self-as-dest
+	// (NPC-backward quirk); FlagBlockPlayers as extraFlag (GameMap.ts:433-435).
+	// gamemap==nil short-circuits to gate-pass; see NAI-12 spec § error handling.
+	if n.server != nil && n.server.gamemap != nil &&
+		!n.server.gamemap.Pathfinder.LineValidator.HasLineOfSight(
+			n.level, tx, tz, n.x, n.z, 1, 1, 1, collision.FlagBlockPlayers) {
 		return false
 	}
 	return !(dx == 0 && dz == 0)
