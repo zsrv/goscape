@@ -69,7 +69,8 @@ func TestNPCModeFullEnum(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.got != tc.want {
-				t.Errorf("%s: got %d, want %d", tc.name, tc.got, tc.want)
+				// t.Run already prefixes failures with tc.name.
+				t.Errorf("got %d, want %d", tc.got, tc.want)
 			}
 		})
 	}
