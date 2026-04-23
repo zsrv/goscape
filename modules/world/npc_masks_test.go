@@ -190,3 +190,19 @@ func TestSetInteractionEmitsEntityMask(t *testing.T) {
 		t.Errorf("masks & NpcMaskFaceEntity: got 0, want nonzero (SetInteraction should emit faceEntity bit for *Npc target)")
 	}
 }
+
+// TestNpcResetDefaultsClearsFaceEntity — NAI-14 Task 1.
+// Named companion for the faceEntity-clear half of resetDefaults that
+// lands with NAI-14. Separated from TestResetDefaultsEmitsEntityMask
+// (NAI-13 mask-bit assertion) and from
+// TestNpcResetDefaultsClearsTargetKeepsOtherState (the regression guard
+// for the stripped NAI-11 shape). Mirrors TS Npc.ts:415:
+// `this.faceEntity = -1;`.
+func TestNpcResetDefaultsClearsFaceEntity(t *testing.T) {
+	n := newTestNpc(1)
+	n.faceEntity = 42
+	n.resetDefaults()
+	if n.faceEntity != -1 {
+		t.Errorf("faceEntity: got %d, want -1 (resetDefaults should clear per TS Npc.ts:415)", n.faceEntity)
+	}
+}

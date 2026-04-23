@@ -29,15 +29,20 @@ func checkApTrigger(op int) bool {
 		(op >= objtype.NPCModeApNpc1 && op <= objtype.NPCModeApNpc5)
 }
 
-// resetDefaults clears target/targetOp to defaultMode baseline and re-emits
-// the faceEntity mask bit. Matches TS Npc.resetDefaults at
-// Engine-TS/.../Npc.ts:411-425 (the `this.masks |= this.entitymask` at
-// :416). INTENTIONALLY does NOT clear apRange, apRangeCalled, faceEntity,
-// or the rest of masks — those are overwritten only by the next
-// SetInteraction call.
+// resetDefaults clears target/targetOp to defaultMode baseline, clears
+// faceEntity, and emits the faceEntity mask bit. Matches TS
+// Npc.resetDefaults at Engine-TS/.../Npc.ts:411-425 — specifically the
+// `faceEntity = -1` at :415 and `this.masks |= this.entitymask` at :416.
+//
+// INTENTIONALLY does NOT clear apRange, apRangeCalled, or targetSubject
+// — those are overwritten only by the next SetInteraction call. This is
+// a deliberate NAI-11-era deviation from TS resetDefaults, which delegates
+// through clearInteraction; Go keeps the flat shape as a tracked deviation
+// (see docs/superpowers/specs/2026-04-23-nai-14-face-entity-clearing-design.md).
 func (n *Npc) resetDefaults() {
 	n.target = nil
 	n.targetOp = n.defaultMode()
+	n.faceEntity = -1
 	n.masks |= n.entitymask
 }
 

@@ -753,9 +753,11 @@ func TestNpcResetDefaultsClearsTargetKeepsOtherState(t *testing.T) {
 	if n.targetOp != objtype.NPCModeWander {
 		t.Errorf("targetOp: got %d, want NPCModeWander", n.targetOp)
 	}
-	// These stay untouched — next SetInteraction call will overwrite.
-	if n.faceEntity != 99 {
-		t.Errorf("faceEntity: got %d, want 99 (resetDefaults must not clear)", n.faceEntity)
+	// NAI-14: resetDefaults now clears faceEntity per TS Npc.ts:415.
+	// apRange/apRangeCalled/targetSubject deliberately stay untouched
+	// (NAI-11 stripped shape — next SetInteraction call overwrites).
+	if n.faceEntity != -1 {
+		t.Errorf("faceEntity: got %d, want -1 (resetDefaults should clear per TS Npc.ts:415)", n.faceEntity)
 	}
 	if n.masks != 0xff {
 		t.Errorf("masks: got 0x%x, want 0xff (resetDefaults must not clear)", n.masks)
