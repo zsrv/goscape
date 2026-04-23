@@ -40,6 +40,98 @@ func TestCheckOpTrigger(t *testing.T) {
 	}
 }
 
+func TestProcessMovementInteractionDelayedBails(t *testing.T) {
+	s := newServerForScriptTest(t)
+	typ := &objtype.NpcType{WanderRange: 5}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+	n.server = s
+	n.delayed = true
+
+	n.processMovementInteraction(s)
+
+	if n.x != 100 {
+		t.Error("delayed bail: npc moved")
+	}
+}
+
+func TestProcessMovementInteractionDeadBails(t *testing.T) {
+	s := newServerForScriptTest(t)
+	typ := &objtype.NpcType{WanderRange: 5}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+	n.server = s
+	n.dead = true
+
+	n.processMovementInteraction(s)
+
+	if n.x != 100 {
+		t.Error("dead bail: npc moved")
+	}
+}
+
+func TestProcessMovementInteractionNullFailsafeFallsToDefault(t *testing.T) {
+	s := newServerForScriptTest(t)
+	typ := &objtype.NpcType{WanderRange: 5}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+	n.server = s
+	n.targetOp = objtype.NPCModeNull
+
+	n.processMovementInteraction(s)
+
+	if n.targetOp != objtype.NPCModeWander {
+		t.Errorf("Null failsafe: targetOp %d, want NPCModeWander", n.targetOp)
+	}
+}
+
+func TestProcessMovementInteractionWanderInvokesWanderMode(t *testing.T) {
+	s := newServerForScriptTest(t)
+	typ := &objtype.NpcType{WanderRange: 5}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+	n.server = s
+	n.targetOp = objtype.NPCModeWander
+
+	before := n.wanderCounter
+	n.processMovementInteraction(s)
+	if n.wanderCounter != before+1 {
+		t.Errorf("wanderCounter: got %d, want %d", n.wanderCounter, before+1)
+	}
+}
+
+func TestProcessMovementInteractionPlayerModesResetToDefault(t *testing.T) {
+	s := newServerForScriptTest(t)
+	typ := &objtype.NpcType{WanderRange: 5, MaxRange: 50}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+	n.server = s
+
+	target := &Npc{nid: 7, typeId: 99, x: 101, z: 100, level: 0}
+	n.target = target
+	n.targetOp = objtype.NPCModePlayerFollow
+	n.targetSubject.typ = target.typeId
+
+	n.processMovementInteraction(s)
+
+	if n.targetOp != objtype.NPCModeWander {
+		t.Errorf("PLAYER* mode: targetOp=%d, want NPCModeWander (resetDefaults)", n.targetOp)
+	}
+	if n.target != nil {
+		t.Error("PLAYER* mode: target not cleared")
+	}
+}
+
+func TestProcessMovementInteractionNilTargetResetsDefaults(t *testing.T) {
+	s := newServerForScriptTest(t)
+	typ := &objtype.NpcType{WanderRange: 5}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+	n.server = s
+	n.target = nil
+	n.targetOp = objtype.NPCModeOpNpc1
+
+	n.processMovementInteraction(s)
+
+	if n.targetOp != objtype.NPCModeWander {
+		t.Errorf("nil target with targeted mode: targetOp=%d, want NPCModeWander", n.targetOp)
+	}
+}
+
 func TestNpcAiModeFiresOpBeforeMoveWhenInRange(t *testing.T) {
 	s := newServerForScriptTest(t)
 	s.scriptProvider = script.NewProvider()

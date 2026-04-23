@@ -122,6 +122,67 @@ func (n *Npc) patrolMode(s *Server) {
 	n.queueWaypoint(dest.X, dest.Z)
 }
 
+// processMovementInteraction is the NPC's per-tick movement + interaction
+// dispatcher. Replaces the inline wander/patrol/advanceWaypoint block
+// that NAI-2..NAI-10 kept in npc_ai.go (the block is collapsed to a
+// single call by Task 30). Mirrors TS Npc.processMovementInteraction
+// at Engine-TS/.../Npc.ts:562-603.
+//
+// Dispatch order matches TS:
+//  1. delayed / dead bail.
+//  2. Last-tick coord bookkeeping + tele flag reset.
+//  3. Null-targetOp failsafe → defaultMode.
+//  4. Targetless modes (None / Wander / Patrol).
+//  5. Targeted-mode prelude (target-nil or validateTarget-fail → resetDefaults).
+//  6. Targeted-mode dispatch: PLAYER* modes reset to default (deferred);
+//     everything else routes to aiMode.
+//
+// DEVIATION: PLAYERESCAPE / PLAYERFOLLOW / PLAYERFACE / PLAYERFACECLOSE
+// modes are out of scope for NAI-11 (Q1 scope decision) and fall through
+// to resetDefaults. Tracked follow-up.
+func (n *Npc) processMovementInteraction(s *Server) {
+	if n.delayed || n.dead {
+		return
+	}
+
+	n.lastTickX, n.lastTickZ, n.lastLevel = n.x, n.z, n.level
+	n.tele = false
+
+	if n.targetOp == objtype.NPCModeNull {
+		n.targetOp = n.defaultMode()
+	}
+
+	// Targetless modes.
+	switch n.targetOp {
+	case objtype.NPCModeNone:
+		n.noMode(s)
+		return
+	case objtype.NPCModeWander:
+		n.wanderMode(s)
+		return
+	case objtype.NPCModePatrol:
+		n.patrolMode(s)
+		return
+	}
+
+	// Targeted-mode prelude.
+	if n.target == nil || !n.validateTarget() {
+		n.resetDefaults()
+		return
+	}
+
+	// Targeted-mode dispatch.
+	switch n.targetOp {
+	case objtype.NPCModePlayerEscape,
+		objtype.NPCModePlayerFollow,
+		objtype.NPCModePlayerFace,
+		objtype.NPCModePlayerFaceClose:
+		n.resetDefaults()
+	default:
+		n.aiMode(s)
+	}
+}
+
 // aiMode is the interactive-target branch of processMovementInteraction.
 // Mirrors TS aiMode at Engine-TS/.../Npc.ts:832-858.
 //
