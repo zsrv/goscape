@@ -223,6 +223,15 @@ func locStillValid(srv *Server, loc *entitypkg.Loc, wantType, wantX, wantZ, want
 	return slices.Contains(zn.Locs, loc)
 }
 
+// objStillValid checks whether the held *Obj pointer still represents
+// an obj present in the zone at (wantX, wantZ, wantLevel). Mirrors
+// locStillValid for Obj targets. Consumed by NAI-11's validateTarget
+// when an NPC's interaction target is an Obj.
+func objStillValid(srv *Server, obj *entitypkg.Obj, wantX, wantZ, wantLevel int) bool {
+	zn := srv.zoneMap.Get(wantLevel, wantX, wantZ)
+	return slices.Contains(zn.Objs, obj)
+}
+
 // tryFireApTrigger fires the approach-trigger for the player's anchored
 // target when the player has just reached apRange. Dispatches to the
 // correct fire helper by concrete target type. Matches TS
@@ -270,7 +279,6 @@ func tryFireApTrigger(p *Player) {
 //     interaction unconditionally. The p_aprange persistence is
 //     Player-side only; NPC attackrange is fixed per-type so
 //     "extend the range" has no meaning. Simpler post-fire logic.
-//
 func fireApTriggerNpc(p *Player, srv *Server, npc *Npc) {
 	if p.delayed && srv.currentTick < p.delayedUntil {
 		return

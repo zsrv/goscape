@@ -1023,3 +1023,21 @@ func TestSetInteractionResetsApRangeSentinel(t *testing.T) {
 		t.Errorf("apRange post SetInteraction: got %d, want 10 (sentinel should be reset)", p.apRange)
 	}
 }
+
+// TestObjStillValid verifies the helper returns true when the obj is
+// present in the target zone and false after it's cleared — parallels
+// locStillValid for Obj targets.
+func TestObjStillValid(t *testing.T) {
+	s := newServerForScriptTest(t)
+	o := addObjToZone(t, s, 0, 100, 100, 42, 0)
+
+	if !objStillValid(s, o, 100, 100, 0) {
+		t.Error("present obj: objStillValid = false, want true")
+	}
+
+	zn := s.zoneMap.Get(0, 100, 100)
+	zn.Objs = nil
+	if objStillValid(s, o, 100, 100, 0) {
+		t.Error("removed obj: objStillValid = true, want false")
+	}
+}
