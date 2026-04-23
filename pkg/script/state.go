@@ -153,7 +153,7 @@ func (s *ScriptState) PushString(v string) {
 }
 
 // PopString pops and returns the top of the string stack.
-// Returns "" on underflow (matches TS popString returning ” on null).
+// Returns "" on underflow (matches TS popString returning '' on null).
 func (s *ScriptState) PopString() string {
 	if s.SSP <= 0 {
 		return ""
