@@ -39,6 +39,100 @@ func TestCheckOpTrigger(t *testing.T) {
 	}
 }
 
+func TestNpcUpdateMovementWalk(t *testing.T) {
+	s := newServerForScriptTest(t)
+	typ := &objtype.NpcType{}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+	n.server = s
+	n.moveSpeed = MoveSpeedWalk
+	n.waypoints[0] = coordgrid.PackCoord(0, 103, 100)
+	n.waypointIndex = 0
+
+	moved := n.updateMovement(s)
+
+	if !moved {
+		t.Error("moved: false, want true")
+	}
+	if n.x != 101 {
+		t.Errorf("x: got %d, want 101 (one step east)", n.x)
+	}
+	if n.walkDir < 0 {
+		t.Errorf("walkDir: got %d, want set", n.walkDir)
+	}
+	if n.runDir != -1 {
+		t.Errorf("runDir: got %d, want -1 (walk mode)", n.runDir)
+	}
+}
+
+func TestNpcUpdateMovementRunConsumesTwoSteps(t *testing.T) {
+	s := newServerForScriptTest(t)
+	typ := &objtype.NpcType{}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+	n.server = s
+	n.moveSpeed = MoveSpeedRun
+	n.waypoints[0] = coordgrid.PackCoord(0, 105, 100)
+	n.waypointIndex = 0
+
+	moved := n.updateMovement(s)
+
+	if !moved {
+		t.Error("moved: false, want true")
+	}
+	if n.x != 102 {
+		t.Errorf("x: got %d, want 102 (two steps east in run mode)", n.x)
+	}
+	if n.walkDir < 0 {
+		t.Error("walkDir: not set")
+	}
+	if n.runDir < 0 {
+		t.Error("runDir: not set (run mode with multi-step waypoint)")
+	}
+}
+
+func TestNpcUpdateMovementRunWithOneWaypointStep(t *testing.T) {
+	s := newServerForScriptTest(t)
+	typ := &objtype.NpcType{}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+	n.server = s
+	n.moveSpeed = MoveSpeedRun
+	n.waypoints[0] = coordgrid.PackCoord(0, 101, 100) // arrives after 1 step
+	n.waypointIndex = 0
+
+	moved := n.updateMovement(s)
+
+	if !moved {
+		t.Error("moved: false, want true")
+	}
+	if n.x != 101 {
+		t.Errorf("x: got %d, want 101", n.x)
+	}
+	if n.runDir != -1 {
+		t.Errorf("runDir: got %d, want -1 (no second step available)", n.runDir)
+	}
+}
+
+func TestNpcUpdateMovementNoMoveRestrict(t *testing.T) {
+	s := newServerForScriptTest(t)
+	typ := &objtype.NpcType{}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+	n.server = s
+	n.moveRestrict = MoveRestrictNoMove
+	n.waypoints[0] = coordgrid.PackCoord(0, 105, 100)
+	n.waypointIndex = 0
+
+	moved := n.updateMovement(s)
+
+	if moved {
+		t.Error("moved: true, want false (NoMove restrict)")
+	}
+	if n.x != 100 {
+		t.Errorf("x: got %d, want 100 (no step)", n.x)
+	}
+	if n.walkDir != -1 || n.runDir != -1 {
+		t.Errorf("dirs: walkDir=%d runDir=%d, want both -1", n.walkDir, n.runDir)
+	}
+}
+
 func TestNpcPathToTarget(t *testing.T) {
 	typ := &objtype.NpcType{}
 	n := NewNpc(1, 42, 100, 100, 0, typ)

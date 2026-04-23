@@ -46,6 +46,73 @@ func (n *Npc) clearInteraction() {
 	n.targetSubject = npcTargetSubject{com: -1, typ: -1}
 }
 
+// updateMovement consumes up to 1 waypoint step (walk) or 2 (run) per
+// tick. Returns true if the NPC moved. Writes walkDir (step 1) and
+// runDir (step 2 when running). Replaces npc_ai.go advanceWaypoint
+// (migrated into stepOnce below).
+func (n *Npc) updateMovement(s *Server) bool {
+	if n.moveRestrict == MoveRestrictNoMove {
+		n.walkDir = -1
+		n.runDir = -1
+		return false
+	}
+	if n.waypointIndex < 0 {
+		n.walkDir = -1
+		n.runDir = -1
+		return false
+	}
+
+	advanced1, dir1 := n.stepOnce(s)
+	if !advanced1 {
+		n.walkDir = -1
+		n.runDir = -1
+		return false
+	}
+	n.walkDir = dir1
+
+	if n.moveSpeed == MoveSpeedRun && n.waypointIndex >= 0 {
+		advanced2, dir2 := n.stepOnce(s)
+		if advanced2 {
+			n.runDir = dir2
+		} else {
+			n.runDir = -1
+		}
+	} else {
+		n.runDir = -1
+	}
+	return true
+}
+
+// stepOnce walks one tile toward the current waypoint and returns
+// (advanced, dir). Factors the shared step logic from the old
+// advanceWaypoint at npc_ai.go:145-175. Decrements waypointIndex when
+// the destination is reached; sets it to -1 when a CanTravel gate
+// blocks the step.
+func (n *Npc) stepOnce(s *Server) (bool, int) {
+	if n.waypointIndex < 0 {
+		return false, -1
+	}
+	dest := coordgrid.UnpackCoord(n.waypoints[n.waypointIndex])
+	dir := coordgrid.Face(n.x, n.z, dest.X, dest.Z)
+	if dir == -1 {
+		n.waypointIndex--
+		return false, -1
+	}
+	dx := coordgrid.DeltaX(dir)
+	dz := coordgrid.DeltaZ(dir)
+	if s != nil && s.gamemap != nil && !s.gamemap.CanTravel(n.level, n.x, n.z, dx, dz) {
+		n.waypointIndex = -1
+		return false, -1
+	}
+	n.x += dx
+	n.z += dz
+	n.stepsTaken++
+	if n.x == dest.X && n.z == dest.Z {
+		n.waypointIndex--
+	}
+	return true, int(dir)
+}
+
 // pathToTarget queues a single waypoint at the target's current tile.
 // Naive-only port — TS's pathToTarget at PathingEntity.ts:457-508 has
 // a full SMART branch using findPath / findPathToEntity / findPathToLoc.
