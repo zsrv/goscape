@@ -194,3 +194,73 @@ func TestPlayerFaceNonPlayerTargetLogsAndReturns(t *testing.T) {
 		t.Error("target: mutated on non-Player input — expected log-and-return")
 	}
 }
+
+// TestPlayerFaceCloseWithinRangeNoops — NAI-13 Task 4.
+// Chebyshev distance ≤ 1 → state unchanged, target preserved. TS Npc.ts:826
+// inverts this: `> 1 → resetDefaults`.
+func TestPlayerFaceCloseWithinRangeNoops(t *testing.T) {
+	s, n, p := playerModeFixture(t)
+	p.x, p.z = 3095, 3106 // Chebyshev 1
+	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerFaceClose, 0)
+	origTarget := n.target
+
+	n.playerFaceCloseMode(s)
+
+	if n.target != origTarget {
+		t.Error("target: mutated despite within-range (Chebyshev=1)")
+	}
+	if n.targetOp != objtype.NPCModePlayerFaceClose {
+		t.Errorf("targetOp: got %d, want NPCModePlayerFaceClose", n.targetOp)
+	}
+}
+
+// TestPlayerFaceCloseBeyondRangeResetsDefaults — NAI-13 Task 4.
+// TS Npc.ts:826-828: `distanceTo(this, target) > 1 → resetDefaults`.
+func TestPlayerFaceCloseBeyondRangeResetsDefaults(t *testing.T) {
+	s, n, p := playerModeFixture(t)
+	p.x, p.z = 3096, 3106 // Chebyshev 2
+	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerFaceClose, 0)
+
+	n.playerFaceCloseMode(s)
+
+	if n.target != nil {
+		t.Errorf("target: got %v, want nil (resetDefaults should clear target)", n.target)
+	}
+	if n.targetOp != n.defaultMode() {
+		t.Errorf("targetOp: got %d, want defaultMode (%d)", n.targetOp, n.defaultMode())
+	}
+}
+
+// TestPlayerFaceCloseAsymmetricAxisQuirk — NAI-13 Task 4.
+// Quirk guard: the Chebyshev gate MUST reject targets that are "far on
+// one axis but same on the other" (i.e. dx=2, dz=0). This catches a bug
+// where someone might write `if dx > 1 && dz > 1` (with AND instead of
+// using max) — that form would let (+2, 0) through.
+func TestPlayerFaceCloseAsymmetricAxisQuirk(t *testing.T) {
+	s, n, p := playerModeFixture(t)
+	p.x, p.z = 3096, 3106 // dx=2, dz=0 — single-axis beyond-range
+	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerFaceClose, 0)
+
+	n.playerFaceCloseMode(s)
+
+	if n.target != nil {
+		t.Errorf("target: got %v, want nil — single-axis dx=2 must be beyond Chebyshev-1 range", n.target)
+	}
+}
+
+// TestProcessMovementInteractionDispatchPlayerFaceClose — NAI-13 Task 4.
+// Player beyond Chebyshev-1 → the mode resetDefaults-clears target.
+// Proves the dispatch switch routes to playerFaceCloseMode (not the
+// resetDefaults stub — which would also nil target but wouldn't trigger
+// the distance-gate logic we just wrote).
+func TestProcessMovementInteractionDispatchPlayerFaceClose(t *testing.T) {
+	s, n, p := playerModeFixture(t)
+	p.x, p.z = 3094, 3109 // Chebyshev 3 — beyond face-close range
+	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerFaceClose, 0)
+
+	n.processMovementInteraction(s)
+
+	if n.target != nil {
+		t.Errorf("target: got %v, want nil (playerFaceCloseMode distance gate should fire)", n.target)
+	}
+}

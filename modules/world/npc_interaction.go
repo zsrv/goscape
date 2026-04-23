@@ -178,13 +178,13 @@ func (n *Npc) processMovementInteraction(s *Server) {
 	// Targeted-mode dispatch.
 	switch n.targetOp {
 	case objtype.NPCModePlayerEscape,
-		objtype.NPCModePlayerFollow,
-		objtype.NPCModePlayerFaceClose:
-		// NAI-13: PLAYERESCAPE / PLAYERFOLLOW / PLAYERFACECLOSE land in
-		// later tasks. Until then they still fall through to resetDefaults.
+		objtype.NPCModePlayerFollow:
+		// NAI-13: PLAYERESCAPE / PLAYERFOLLOW land in later tasks.
 		n.resetDefaults()
 	case objtype.NPCModePlayerFace:
 		n.playerFaceMode(s)
+	case objtype.NPCModePlayerFaceClose:
+		n.playerFaceCloseMode(s)
 	default:
 		n.aiMode(s)
 	}
