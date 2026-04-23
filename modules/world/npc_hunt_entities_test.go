@@ -738,7 +738,7 @@ func addLocToZoneAt(t *testing.T, s *Server, locType, x, z, level int) *entitypk
 			Category:   -1,
 		}
 	}
-	l := entitypkg.NewLoc(level, x, z, 1, 1, entitypkg.LifecycleDespawn, locType, 0, 0)
+	l := entitypkg.NewLoc(level, x, z, 1, 1, entitypkg.LifecycleForever, locType, 0, 0)
 	z2 := s.zoneMap.Get(level, x, z)
 	z2.Locs = append(z2.Locs, l)
 	return l
