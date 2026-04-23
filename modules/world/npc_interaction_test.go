@@ -40,6 +40,69 @@ func TestCheckOpTrigger(t *testing.T) {
 	}
 }
 
+func TestNpcAiModeFiresOpBeforeMoveWhenInRange(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpNpc1, 99, "aimode-op"))
+
+	n := newNpcAt100(t)
+	n.server = s
+	n.typ = &objtype.NpcType{AttackRange: 5, GiveChase: true}
+	n.targetOp = objtype.NPCModeOpNpc1
+
+	target := newNpcWithType(99, 0)
+	target.x, target.z, target.level = 101, 100, 0
+	n.target = target
+
+	n.aiMode(s)
+
+	if string(n.sayText) != "aimode-op" {
+		t.Errorf("sayText: got %q, want %q (expected OP fire in contact range)", n.sayText, "aimode-op")
+	}
+}
+
+func TestNpcAiModeGivechaseFalseClearsTargetAfterMove(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+
+	n := newNpcAt100(t)
+	n.server = s
+	n.moveSpeed = MoveSpeedWalk
+	n.typ = &objtype.NpcType{AttackRange: 5, GiveChase: false}
+	n.targetOp = objtype.NPCModeOpNpc1
+
+	target := newNpcWithType(99, 0)
+	target.x, target.z, target.level = 110, 100, 0 // far — not in range pre-move
+	n.target = target
+
+	n.aiMode(s)
+
+	if n.target != nil {
+		t.Error("givechase=false + moved: target not cleared (resetDefaults should have run)")
+	}
+}
+
+func TestNpcAiModeGivechaseTrueKeepsTarget(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+
+	n := newNpcAt100(t)
+	n.server = s
+	n.moveSpeed = MoveSpeedWalk
+	n.typ = &objtype.NpcType{AttackRange: 5, GiveChase: true}
+	n.targetOp = objtype.NPCModeOpNpc1
+
+	target := newNpcWithType(99, 0)
+	target.x, target.z, target.level = 110, 100, 0
+	n.target = target
+
+	n.aiMode(s)
+
+	if n.target == nil {
+		t.Error("givechase=true + moved: target cleared (should persist)")
+	}
+}
+
 func TestNpcNoModeCallsUpdateMovement(t *testing.T) {
 	s := newServerForScriptTest(t)
 	typ := &objtype.NpcType{}

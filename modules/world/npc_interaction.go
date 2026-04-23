@@ -122,6 +122,43 @@ func (n *Npc) patrolMode(s *Server) {
 	n.queueWaypoint(dest.X, dest.Z)
 }
 
+// aiMode is the interactive-target branch of processMovementInteraction.
+// Mirrors TS aiMode at Engine-TS/.../Npc.ts:832-858.
+//
+// Try-twice pattern: tryInteract runs before AND after updateMovement
+// so that stepping into range fires the trigger same-tick. The two
+// calls differ in allowOpScenery: true pre-move (click-to-interact on
+// scenery), false post-move (prevents scenery OP from firing on a
+// walk-in that wasn't click-initiated).
+//
+// The givechase clause: if the NPC took a step but its NpcType forbids
+// chasing, clear the interaction so it doesn't walk any further.
+func (n *Npc) aiMode(s *Server) {
+	if n.typ == nil {
+		return
+	}
+	n.wanderCounter = 0
+
+	// Pre-move attempt.
+	if n.tryInteract(s, true) {
+		return
+	}
+
+	// Not in range — path toward target and step.
+	n.pathToTarget()
+	moved := n.updateMovement(s)
+
+	if moved && !n.typ.GiveChase {
+		n.resetDefaults()
+		return
+	}
+
+	// Post-move attempt (OP-scenery gated off).
+	if n.target != nil {
+		n.tryInteract(s, false)
+	}
+}
+
 // tryInteract evaluates whether an AP or OP trigger should fire this tick.
 // OP is checked first (contact range); AP second (approach range).
 // allowOpScenery gates whether Loc/Obj OP fires — true on the pre-move
