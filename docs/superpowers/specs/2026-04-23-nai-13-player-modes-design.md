@@ -108,8 +108,10 @@ After NAI-13 ships:
    - Quadrant pick: one of four SW/NW/SE/NE directions based on the sign of
      `(tx - n.x, tz - n.z)`. Each direction carries a specific wall-flag pair.
    - Candidate tile: `mx = n.x + direction.dx`, `mz = n.z + direction.dz`.
-   - Wall check: `s.gamemap.Pathfinder.FlagMap.IsFlagged(mx, mz, n.level,
-     flagPair)` → `resetDefaults()`; return.
+   - Wall check: when `n.server.gamemap != nil`,
+     `s.gamemap.Pathfinder.FlagMap.IsFlagged(mx, mz, n.level, flagPair)` →
+     `resetDefaults()`; return. (On nil gamemap the wall check is skipped
+     — same NAI-12 convention for test-fixture compatibility.)
    - Maxrange check: if `coordgrid.DistanceToSW(mx, mz, n.startX, n.startZ) <
      n.typ.MaxRange` → `queueWaypoint(mx, mz)`; `updateMovement()`; return.
    - Axis fallback: for NE/NW → `queueWaypoint(n.x, mz)`; for SE/SW →
@@ -194,9 +196,10 @@ After NAI-13 ships:
     comment removal).
 - **`modules/world/npc_hunt_test.go`** — 1 test assertion flipped + NAI-11
   memorial comment removed.
-- **`modules/world/npc_masks_test.go`** — 1 new test for the mask emission
-  from `resetDefaults`. (Alternative location: `npc_test.go` — pick
-  whichever already has the closer NPC-construction fixture surface.)
+- **`modules/world/npc_masks_test.go`** — 3 new mask-plumbing tests. This
+  file already hosts the analogous `TestNewNpcSeedsHPFromStats` +
+  `TestNpcDamageDecrementsHPAndSetsMask` shape, so the fixture surface
+  and test patterns match directly.
 
 ### Type additions — none
 
@@ -220,15 +223,22 @@ After NAI-13 ships:
 - `n.typ.MaxRange` (`objtype.NpcType.MaxRange`).
 - `rsbuf.NpcMaskFaceEntity` (already used at `npc_masks.go:36`).
 
-### Chebyshev distance helper (audit)
+### Chebyshev distance helper
 
 TS `playerFaceCloseMode` uses `CoordGrid.distanceTo` (Chebyshev); TS
-`playerEscapeMode`'s abandon gate uses `CoordGrid.distanceToSW`. The Go side
-has `coordgrid.DistanceToSW`; if a `coordgrid.DistanceToChebyshev` (or
-equivalent name — `DistanceTo`, `ChebyshevDistance`) helper exists, reuse it.
-If it doesn't exist, inline the calculation as `max(abs(dx), abs(dz))` in
-`playerFaceCloseMode` — a one-liner not worth promoting to a new
-package-level helper until a second consumer appears.
+`playerEscapeMode`'s abandon gate uses `CoordGrid.distanceToSW`. Both
+helpers exist on the Go side:
+
+- `coordgrid.DistanceToSW(posX, posZ, otherX, otherZ) int` at
+  `pkg/coordgrid/coordgrid.go:131` — exact TS parity, use as-is.
+- `coordgrid.DistanceTo(posX, posZ, posWidth, posLength, otherX, otherZ,
+  otherWidth, otherLength) int` at `pkg/coordgrid/coordgrid.go:118` —
+  size-aware Chebyshev via `Closest` + `max(|dx|, |dz|)`. For PLAYERFACECLOSE
+  the call is `DistanceTo(n.x, n.z, 1, 1, tx, tz, 1, 1)`. The 1,1,1,1 sizes
+  match NAI-12's established convention for single-tile NPC/Player LoS
+  (same approximation tracked in the NAI-12 deviation "size-aware
+  inApproachDistance LoS"); if NAI-13 lands before the size-aware port, it
+  inherits that deviation without adding a new one.
 
 ## Error handling
 
@@ -371,9 +381,8 @@ func (n *Npc) targetWithinMaxRange() bool {
 
 - **`modules/world/npc_player_modes_test.go`** (new) — per-mode behavior +
   quirk guards + `targetWithinMaxRange` new branches.
-- **`modules/world/npc_masks_test.go`** or **`npc_test.go`** — mask
-  plumbing tests (pick the file that already has the closer NPC-construction
-  fixture surface).
+- **`modules/world/npc_masks_test.go`** — mask plumbing tests (file
+  already hosts `TestNewNpcSeedsHPFromStats` + `TestNpcDamage*`).
 - **`modules/world/npc_hunt_test.go`** — flip one existing assertion in
   `TestNpcTurnHuntAndConsumeSetsTarget`.
 
@@ -480,29 +489,57 @@ All reuse NAI-11 / NAI-12 patterns. No new mocks.
   `FlagMap`.
 - `newTestNpc(t, server, typ, x, z, level)` — NPC construction.
 - `newTestPlayer(t, server, x, z, level)` — Player target.
-- Wall-flag seeding — NAI-12 Task 1 introduced `withBlockingWall`
-  (`modules/world/npc_hunt_entities_test.go` scope). If it's reusable
-  directly: reuse. If it's too opinionated about flag composition: add a
-  small `withWallFlag(m, x, z, level, flag int)` helper local to
-  `npc_player_modes_test.go`.
+- Wall-flag seeding — NAI-12's `withBlockingWall` at
+  `modules/world/npc_hunt_entities_test.go:613` is **bidirectional**
+  (confirmed by the DIRECTIONAL-blocker note at
+  `modules/world/npc_hunt_test.go:414`). PLAYERESCAPE's wall check requires
+  blocking a **single direction pair** (e.g., `FlagWallSouth | FlagWallWest`
+  for the SW-quadrant candidate tile). Add a small directional helper local
+  to `npc_player_modes_test.go`:
+
+  ```go
+  // withWallFlag installs `flag` at (x, z, level) via FlagMap.Add.
+  // Directional — unlike withBlockingWall which installs both sides.
+  func withWallFlag(t *testing.T, s *Server, x, z, level, flag int) {
+      t.Helper()
+      s.gamemap.Pathfinder.FlagMap.Add(x, z, level, flag)
+  }
+  ```
 
 ### Plan ordering
 
-The plan doc should sequence tasks as:
+The plan doc should sequence tasks as follows. Each task adds one case to
+the `processMovementInteraction` dispatch switch when it lands its mode
+method — dispatch wiring is **incremental**, not a separate task. This
+keeps every step TDD-executable (the method and its dispatch-routing test
+land together).
 
-1. Mask plumbing (`NewNpc` entitymask + `resetDefaults` emit) — smallest.
-   Unblocks face-mode tests.
-2. Dispatch wiring (`processMovementInteraction` switch expansion) —
-   smallest production change. Unblocks per-mode dispatch tests.
-3. `playerFaceMode` — trivial, validates mask-plumbing end-to-end.
-4. `playerFaceCloseMode` — trivial + Chebyshev quirk test.
-5. `targetWithinMaxRange` new branches — unblocks movement modes'
-   maxrange tests.
-6. `playerFollowMode` — simplest movement; lands the NAI-11 flipped-test
-   restoration as part of this task.
-7. `playerEscapeMode` — largest. All five quirk-guard tests land here.
-8. NAI-13 close commit: `nai_followups.md` memory update + final verification
-   sweep.
+1. **Mask plumbing** — `NewNpc` entitymask assignment + `resetDefaults` mask
+   emission. Smallest. Three mask-plumbing tests. Independent of dispatch.
+2. **`targetWithinMaxRange` new branches** — PLAYERFOLLOW early-return +
+   PLAYERESCAPE retreat-maxrange + corner-removal. Four
+   `TestTargetWithinMaxRange*` tests. Independent of dispatch; needed before
+   movement modes are wired.
+3. **`playerFaceMode` + dispatch case** — trivial method body (type guard
+   only) + one-case switch expansion + two face-mode tests + dispatch-routing
+   test for PlayerFace. Validates mask-plumbing end-to-end via the dispatch
+   test.
+4. **`playerFaceCloseMode` + dispatch case** — body + switch expansion +
+   three face-close tests + dispatch-routing test. Exercises Chebyshev quirk.
+5. **`playerFollowMode` + dispatch case + NAI-11 flipped-test restoration** —
+   body (`pathToTarget` + `updateMovement`) + switch expansion + three
+   follow-mode tests + dispatch-routing test + the flipped assertion in
+   `TestNpcTurnHuntAndConsumeSetsTarget`. This task is the concrete
+   visible-regression repair.
+6. **`playerEscapeMode` + dispatch case** — the largest task. Body with the
+   quadrant table + wall check + maxrange + axis-fallback, plus switch
+   expansion, plus the 10-test quirk-guard suite. At commit close,
+   `processMovementInteraction` dispatch is fully wired; the DEVIATION
+   comment at lines 141-143 is removed here.
+7. **NAI-13 close commit** — `nai_followups.md` memory update ("Resolved
+   2026-04-23 (NAI-13)" for the PLAYER\* deferral), final verification
+   sweep (full `go test ./...`, grep for stale DEVIATION references,
+   confirm the NAI-11 flipped-test comment is actually gone).
 
 ## Files changed
 
