@@ -35,8 +35,10 @@ After NAI-15 ships:
    three new filter stages between the existing CheckVis gate (line
    157) and the final `append` (line 158), in TS order:
    - **Outer combat guard** (TS:942): `applyCombatGuard := entity(p) !=
-     n.target && s.gamemap != nil && !s.gamemap.IsMulti(p.x, p.z,
-     p.level)`. Gates the two inner combat-var filters.
+     n.target && (s.gamemap == nil || !s.gamemap.IsMulti(p.x, p.z,
+     p.level))`. Gates the two inner combat-var filters. Nil-gamemap
+     short-circuits to "treat as not-multi" so the guard applies and
+     the combat filter fires — matches the § error-handling table below.
    - **`checkNotCombat`** (TS:943-945): when guard applies and
      `hunt.CheckNotCombat != -1`, skip the player if
      `int(p.Varp(hunt.CheckNotCombat)) + 8 > s.currentTick`.
@@ -118,10 +120,13 @@ Pseudocode (exact code comes with the plan):
 
 // Outer combat guard — TS:942. Only when the candidate is not the NPC's
 // current target AND not in a multi-combat zone.
-// FIDELITY: gamemap == nil mirrors the CheckVis short-circuit above —
-// treat as not-multi so the guard applies and combat filters fire.
+// FIDELITY: when s.gamemap is nil, IsMulti can't be called. Treat as
+// not-multi (safe default consistent with CheckVis's nil-handling in
+// the same file), so the guard APPLIES and the combat filter fires.
+// Note the polarity: the predicate here is "not multi" (guard wants
+// that to be true), the opposite of CheckVis's "not obstructed".
 applyCombatGuard := entity(p) != n.target &&
-    s.gamemap != nil && !s.gamemap.IsMulti(p.x, p.z, p.level)
+    (s.gamemap == nil || !s.gamemap.IsMulti(p.x, p.z, p.level))
 if applyCombatGuard {
     // checkNotCombat (TS:943-945): skip players whose last-combat varp
     // was written within the past 8 ticks.
