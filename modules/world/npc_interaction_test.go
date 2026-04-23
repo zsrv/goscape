@@ -36,6 +36,67 @@ func TestCheckOpTrigger(t *testing.T) {
 	}
 }
 
+func TestNpcResetDefaultsClearsTargetKeepsOtherState(t *testing.T) {
+	typ := &objtype.NpcType{WanderRange: 5}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+	n.target = &Npc{nid: 99}
+	n.targetOp = objtype.NPCModeOpNpc1
+	n.faceEntity = 99
+	n.masks = 0xff
+	n.apRange = 5
+	n.apRangeCalled = true
+
+	n.resetDefaults()
+
+	if n.target != nil {
+		t.Error("target: not nil")
+	}
+	if n.targetOp != objtype.NPCModeWander {
+		t.Errorf("targetOp: got %d, want NPCModeWander", n.targetOp)
+	}
+	// These stay untouched — next SetInteraction call will overwrite.
+	if n.faceEntity != 99 {
+		t.Errorf("faceEntity: got %d, want 99 (resetDefaults must not clear)", n.faceEntity)
+	}
+	if n.masks != 0xff {
+		t.Errorf("masks: got 0x%x, want 0xff (resetDefaults must not clear)", n.masks)
+	}
+	if n.apRange != 5 {
+		t.Errorf("apRange: got %d, want 5 (resetDefaults must not clear)", n.apRange)
+	}
+	if !n.apRangeCalled {
+		t.Error("apRangeCalled: not preserved")
+	}
+}
+
+func TestNpcClearInteractionResetsState(t *testing.T) {
+	typ := &objtype.NpcType{WanderRange: 5}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+	n.target = &Npc{nid: 99}
+	n.targetOp = objtype.NPCModeOpNpc1
+	n.apRange = 5
+	n.apRangeCalled = true
+	n.targetSubject = npcTargetSubject{com: 42, typ: 1}
+
+	n.clearInteraction()
+
+	if n.target != nil {
+		t.Error("target: not nil")
+	}
+	if n.targetOp != -1 {
+		t.Errorf("targetOp: got %d, want -1", n.targetOp)
+	}
+	if n.apRange != 10 {
+		t.Errorf("apRange: got %d, want 10 (reset to default)", n.apRange)
+	}
+	if n.apRangeCalled {
+		t.Error("apRangeCalled: got true, want false")
+	}
+	if n.targetSubject.com != -1 || n.targetSubject.typ != -1 {
+		t.Errorf("targetSubject: got %+v, want {-1,-1}", n.targetSubject)
+	}
+}
+
 func TestNpcDefaultMode(t *testing.T) {
 	tests := []struct {
 		name string

@@ -24,6 +24,26 @@ func checkApTrigger(op int) bool {
 		(op >= objtype.NPCModeApNpc1 && op <= objtype.NPCModeApNpc5)
 }
 
+// resetDefaults clears target/targetOp to defaultMode baseline. Matches
+// TS Npc.resetDefaults — INTENTIONALLY does NOT clear apRange,
+// apRangeCalled, faceEntity, or masks. Those are overwritten only by
+// the next SetInteraction call.
+func (n *Npc) resetDefaults() {
+	n.target = nil
+	n.targetOp = n.defaultMode()
+}
+
+// clearInteraction resets interaction state to idle, including apRange
+// fields. Matches TS PathingEntity.clearInteraction. Does NOT touch
+// faceEntity/masks — those are cleared by the masks frame-pass, not here.
+func (n *Npc) clearInteraction() {
+	n.target = nil
+	n.targetOp = -1
+	n.apRange = 10
+	n.apRangeCalled = false
+	n.targetSubject = npcTargetSubject{com: -1, typ: -1}
+}
+
 // defaultMode returns the NPC's baseline mode based on its NpcType
 // config. Patrol if PatrolCoord is set; else Wander if WanderRange>0;
 // else None. Single source of truth used by NewNpc (initial targetOp)
