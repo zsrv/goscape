@@ -46,15 +46,20 @@ func (n *Npc) resetDefaults() {
 	n.masks |= n.entitymask
 }
 
-// clearInteraction resets interaction state to idle, including apRange
-// fields. Matches TS PathingEntity.clearInteraction. Does NOT touch
-// faceEntity/masks — those are cleared by the masks frame-pass, not here.
+// clearInteraction resets interaction state to idle: target, targetOp,
+// apRange, apRangeCalled, targetSubject, faceEntity. Emits the
+// faceEntity mask bit so clients see the NPC stop facing its old target.
+// Matches TS Npc.clearInteraction at Engine-TS/.../Npc.ts:402-409,
+// which overrides PathingEntity.clearInteraction (PathingEntity.ts:550-556)
+// with the `faceEntity = -1` and `masks |= FACE_ENTITY` tail at :407-408.
 func (n *Npc) clearInteraction() {
 	n.target = nil
 	n.targetOp = -1
 	n.apRange = 10
 	n.apRangeCalled = false
 	n.targetSubject = npcTargetSubject{com: -1, typ: -1}
+	n.faceEntity = -1
+	n.masks |= n.entitymask
 }
 
 // noMode is the NPCMode.NONE branch — just walks the existing path if

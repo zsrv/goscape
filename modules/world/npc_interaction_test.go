@@ -778,6 +778,8 @@ func TestNpcClearInteractionResetsState(t *testing.T) {
 	n.apRange = 5
 	n.apRangeCalled = true
 	n.targetSubject = npcTargetSubject{com: 42, typ: 1}
+	n.faceEntity = 42
+	n.masks = 0
 
 	n.clearInteraction()
 
@@ -795,6 +797,14 @@ func TestNpcClearInteractionResetsState(t *testing.T) {
 	}
 	if n.targetSubject.com != -1 || n.targetSubject.typ != -1 {
 		t.Errorf("targetSubject: got %+v, want {-1,-1}", n.targetSubject)
+	}
+	// NAI-14: clearInteraction now clears faceEntity and emits the
+	// entitymask bit per TS Npc.ts:407-408.
+	if n.faceEntity != -1 {
+		t.Errorf("faceEntity: got %d, want -1 (clearInteraction should clear per TS Npc.ts:407)", n.faceEntity)
+	}
+	if n.masks&rsbuf.NpcMaskFaceEntity == 0 {
+		t.Error("masks & NpcMaskFaceEntity: got 0, want nonzero (clearInteraction should emit per TS Npc.ts:408)")
 	}
 }
 
