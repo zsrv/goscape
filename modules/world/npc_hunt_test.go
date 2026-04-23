@@ -257,3 +257,53 @@ func TestConsumeHuntTargetFindKeepHuntingTrueKeepsHuntMode(t *testing.T) {
 		t.Errorf("huntMode: got %d, want 0 (FindKeepHunting preserves it)", n.huntMode)
 	}
 }
+
+func TestNpcTurnHuntAndConsumeSetsTarget(t *testing.T) {
+	s, n, hunt := newConsumeHuntTargetFixture(t)
+
+	// Prepare the NPC to run a full turn() and reach consumeHuntTarget:
+	//   - Avoid the Events block by setting lifecycle to Forever.
+	//   - Place the NPC at a known coord with a configured huntRange.
+	n.lifecycle = NpcLifecycleForever
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	// Configure the hunt for NPC-type hunt (HuntModePlayer is skipped by
+	// the turn() path per TS Npc.ts:164, so we exercise huntNpcs here).
+	hunt.Type = objtype.HuntModeNpc
+	hunt.Rate = 1
+	hunt.FindNewMode = 4 // PLAYERFOLLOW (interaction branch)
+	hunt.FindKeepHunting = true
+	hunt.NobodyNear = objtype.HuntNobodyNearKeepHunting // bypass observer gate
+	hunt.CheckNpc = -1
+	hunt.CheckCategory = -1
+
+	// Seed the grid with a target NPC in range.
+	target := addNpcToServerAt(t, s, 10, 1, -1, n.x+3, n.z+3, n.level)
+
+	// Install the hunting NPC into s.npcs so the tick fixture is internally
+	// consistent (some helpers expect it); nid=1 reserved by fixture.
+	s.npcs[1] = n
+
+	// Run the full tick.
+	n.turn(s)
+
+	if n.target == nil {
+		t.Fatal("target: got nil, want the hunted NPC (proves consumeHuntTarget ran after processNpcHunt)")
+	}
+	if n.target.Slot() != target.nid {
+		t.Errorf("target.Slot(): got %d, want %d", n.target.Slot(), target.nid)
+	}
+	if n.targetOp != 4 {
+		t.Errorf("targetOp: got %d, want 4 (PLAYERFOLLOW from FindNewMode)", n.targetOp)
+	}
+	if n.huntTarget != nil {
+		t.Errorf("huntTarget: got %v, want nil (cleared by consumeHuntTarget)", n.huntTarget)
+	}
+	if n.huntClock != 0 {
+		t.Errorf("huntClock: got %d, want 0 (reset by consumeHuntTarget)", n.huntClock)
+	}
+	if n.huntMode != 0 {
+		t.Errorf("huntMode: got %d, want 0 (FindKeepHunting=true preserves it)", n.huntMode)
+	}
+}

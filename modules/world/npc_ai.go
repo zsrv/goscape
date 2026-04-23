@@ -69,9 +69,10 @@ func (n *Npc) turn(s *Server) {
 		return
 	}
 
-	// === Hunt + regen + timer + queue (NAI-7, NAI-6, NAI-4, NAI-3) ===
-	s.processNpcHunt(n)  // NAI-7 — matches TS Npc.ts:158-171
-	s.processNpcRegen(n) // NAI-6 — matches TS Npc.ts:176
+	// === Hunt + consume + regen + timer + queue (NAI-7..10, NAI-6, NAI-4, NAI-3) ===
+	s.processNpcHunt(n)      // NAI-7 — matches TS Npc.ts:158-171
+	s.consumeHuntTarget(n)   // NAI-10 — matches TS Npc.ts:174
+	s.processNpcRegen(n)     // NAI-6 — matches TS Npc.ts:176
 	s.processNpcTimer(n)
 	s.processNpcQueue(n)
 
