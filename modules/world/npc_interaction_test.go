@@ -7,6 +7,7 @@ import (
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
+	"github.com/zsrv/goscape/pkg/script"
 )
 
 func TestCheckOpTrigger(t *testing.T) {
@@ -36,6 +37,113 @@ func TestCheckOpTrigger(t *testing.T) {
 				t.Errorf("checkOpTrigger(%d) = %t, want %t", tc.op, got, tc.want)
 			}
 		})
+	}
+}
+
+// newNpcAt100 builds a test NPC positioned at (100,100,0) — convenient
+// for tryInteract range tests where the target sits at 101/103/etc.
+func newNpcAt100(t *testing.T) *Npc {
+	t.Helper()
+	n := newNpcForScriptTest(t)
+	n.x, n.z, n.level = 100, 100, 0
+	n.startX, n.startZ, n.startLevel = 100, 100, 0
+	return n
+}
+
+func TestNpcTryInteractOpBranchPlayer(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpPlayer1, 0, "op-fired"))
+
+	n := newNpcAt100(t)
+	n.server = s
+	n.typ = &objtype.NpcType{AttackRange: 5}
+	n.targetOp = objtype.NPCModeOpPlayer1
+
+	p := newActivePlayer(3)
+	p.x, p.z, p.level = 101, 100, 0 // adjacent
+	n.target = p
+
+	if !n.tryInteract(s, true) {
+		t.Error("tryInteract: false, want true (OP in contact range)")
+	}
+	if string(n.sayText) != "op-fired" {
+		t.Errorf("sayText: got %q, want %q", n.sayText, "op-fired")
+	}
+}
+
+func TestNpcTryInteractApBranchPlayer(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiApPlayer1, 0, "ap-fired"))
+
+	n := newNpcAt100(t)
+	n.server = s
+	n.typ = &objtype.NpcType{AttackRange: 5}
+	n.targetOp = objtype.NPCModeApPlayer1
+
+	p := newActivePlayer(3)
+	p.x, p.z, p.level = 103, 100, 0 // AP range (not contact)
+	n.target = p
+
+	if !n.tryInteract(s, false) {
+		t.Error("tryInteract: false, want true (AP in approach range)")
+	}
+	if string(n.sayText) != "ap-fired" {
+		t.Errorf("sayText: got %q, want %q", n.sayText, "ap-fired")
+	}
+}
+
+func TestNpcTryInteractOutOfRange(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpPlayer1, 0, "op-fired"))
+
+	n := newNpcAt100(t)
+	n.server = s
+	n.typ = &objtype.NpcType{AttackRange: 5}
+	n.targetOp = objtype.NPCModeOpPlayer1
+
+	p := newActivePlayer(3)
+	p.x, p.z, p.level = 200, 100, 0 // far out
+	n.target = p
+
+	if n.tryInteract(s, true) {
+		t.Error("tryInteract: true, want false (target out of range)")
+	}
+	if string(n.sayText) == "op-fired" {
+		t.Error("sayText: script ran despite out-of-range target")
+	}
+}
+
+func TestNpcTryInteractOpLocRequiresAllowOpScenery(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpLoc1, 77, "loc-fired"))
+
+	n := newNpcAt100(t)
+	n.server = s
+	n.typ = &objtype.NpcType{AttackRange: 5}
+	n.targetOp = objtype.NPCModeOpLoc1
+
+	loc := addLocToZone(t, s, 0, 101, 100, 77, 0)
+	n.target = loc
+	n.targetSubject.typ = loc.Type()
+
+	// allowOpScenery=false — short-circuit, no fire.
+	if n.tryInteract(s, false) {
+		t.Error("Loc OP fired with allowOpScenery=false")
+	}
+	if string(n.sayText) == "loc-fired" {
+		t.Error("Loc script ran despite allowOpScenery=false")
+	}
+
+	// allowOpScenery=true — should fire.
+	if !n.tryInteract(s, true) {
+		t.Error("Loc OP did not fire with allowOpScenery=true")
+	}
+	if string(n.sayText) != "loc-fired" {
+		t.Errorf("sayText: got %q, want %q", n.sayText, "loc-fired")
 	}
 }
 

@@ -46,6 +46,41 @@ func (n *Npc) clearInteraction() {
 	n.targetSubject = npcTargetSubject{com: -1, typ: -1}
 }
 
+// tryInteract evaluates whether an AP or OP trigger should fire this tick.
+// OP is checked first (contact range); AP second (approach range).
+// allowOpScenery gates whether Loc/Obj OP fires — true on the pre-move
+// call, false on the post-move call so scenery OP can't fire twice.
+// Mirrors TS Npc.tryInteract at Engine-TS/.../Npc.ts:861-883.
+//
+// Returns true if a trigger fired (or would have fired, in the Loc/Obj
+// + !allowOpScenery short-circuit case — caller treats both as "did
+// something this tick").
+func (n *Npc) tryInteract(s *Server, allowOpScenery bool) bool {
+	if n.target == nil || n.typ == nil {
+		return false
+	}
+
+	// OP branch — contact range.
+	if checkOpTrigger(n.targetOp) && n.inOperableDistance(n.target) {
+		_, isPlayer := n.target.(*Player)
+		_, isNpc := n.target.(*Npc)
+		isPathing := isPlayer || isNpc
+		if isPathing || allowOpScenery {
+			n.fireAiOpTrigger(s)
+			return true
+		}
+		return false
+	}
+
+	// AP branch — approach range.
+	if checkApTrigger(n.targetOp) && n.inApproachDistance(int(n.typ.AttackRange), n.target) {
+		n.fireAiApTrigger(s)
+		return true
+	}
+
+	return false
+}
+
 // updateMovement consumes up to 1 waypoint step (walk) or 2 (run) per
 // tick. Returns true if the NPC moved. Writes walkDir (step 1) and
 // runDir (step 2 when running). Replaces npc_ai.go advanceWaypoint
