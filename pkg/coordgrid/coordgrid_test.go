@@ -88,3 +88,24 @@ func TestZoneIndexDistinguishesLevels(t *testing.T) {
 		t.Error("same x/z at different levels must have distinct indexes")
 	}
 }
+
+func TestFine(t *testing.T) {
+	// TS CoordGrid.fine(coord, size): coord*64 + (size*64 - 1) / 2.
+	// For a 1x1 entity at tile 100: fine = 100*64 + 31 = 6431.
+	tests := []struct {
+		name       string
+		coord, siz int
+		want       int
+	}{
+		{"1x1 at 0", 0, 1, 31},
+		{"1x1 at 100", 100, 1, 6431},
+		{"2x2 at 0", 0, 2, 63},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := Fine(tc.coord, tc.siz); got != tc.want {
+				t.Errorf("Fine(%d,%d) = %d, want %d", tc.coord, tc.siz, got, tc.want)
+			}
+		})
+	}
+}

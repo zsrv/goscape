@@ -121,6 +121,13 @@ func DistanceTo(posX, posZ, posWidth, posLength, otherX, otherZ, otherWidth, oth
 	return int(max(math.Abs(float64(p1X-p2X)), math.Abs(float64(p1Z-p2Z))))
 }
 
+// Fine converts a coarse-grained tile coord + size to the fine-grained
+// centre coord used by the face-angle mask. Mirrors TS CoordGrid.fine:
+// coord*64 + (size*64 - 1) / 2.
+func Fine(coord, size int) int {
+	return coord*64 + (size*64-1)/2
+}
+
 func DistanceToSW(posX, posZ, otherX, otherZ int) int {
 	dx := math.Abs(float64(posX - otherX))
 	dz := math.Abs(float64(posZ - otherZ))
