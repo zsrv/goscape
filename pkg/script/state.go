@@ -105,6 +105,14 @@ type ScriptState struct {
 	// methods in a follow-up sub-spec).
 	ActiveLoc ActiveLoc
 
+	// ActiveObj is the Obj that OBJ_* and AI_*OBJ handlers target. Nil
+	// if no Obj is bound. NAI-11.
+	ActiveObj ActiveObj
+
+	// OtherActiveNpc is the secondary NPC slot used by AI_*NPC handlers
+	// when `Self` (an NPC) targets another NPC. NAI-11.
+	OtherActiveNpc ActiveNpc
+
 	Protect bool
 
 	// Arrays holds script-local int[] arrays defined via DEFINE_ARRAY.
@@ -145,7 +153,7 @@ func (s *ScriptState) PushString(v string) {
 }
 
 // PopString pops and returns the top of the string stack.
-// Returns "" on underflow (matches TS popString returning '' on null).
+// Returns "" on underflow (matches TS popString returning ” on null).
 func (s *ScriptState) PopString() string {
 	if s.SSP <= 0 {
 		return ""

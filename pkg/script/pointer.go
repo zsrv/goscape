@@ -14,3 +14,11 @@ const (
 	PtrActiveObj     Pointer = 1 << 6
 	PtrActiveObj2    Pointer = 1 << 7
 )
+
+// NAI-11 aliases for the reserved *2 slot flags, named after TS's
+// runNpcScript semantics.
+const (
+	// PtrOtherActiveNpc aliases PtrActiveNpc2. Used by NAI-11's
+	// runNpcScript target type-dispatch for NPC→NPC AI targets.
+	PtrOtherActiveNpc = PtrActiveNpc2
+)

@@ -48,3 +48,8 @@ func (o *Obj) Coords() (x, z, level int) {
 func (o *Obj) IsValid() bool {
 	return true
 }
+
+// ObjType returns the obj's type id. Method wrapper around the public
+// Type field so *Obj satisfies script.ActiveObj (Go disallows same-name
+// field + method, so the method is spelled ObjType).
+func (o *Obj) ObjType() int { return o.Type }

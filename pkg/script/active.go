@@ -392,5 +392,10 @@ type ActiveLoc interface {
 	LocType() int // returns the LocType ID (from packed Loc.Info bitfield)
 }
 
-// ActiveObj is a stub for later sub-specs; defined now to avoid interface churn in S6.
-type ActiveObj interface{}
+// ActiveObj is the surface that OBJ_* and AI_APOBJ/AI_OPOBJ handlers
+// use to read obj state. Narrow by design — extend as future sub-specs
+// wire more obj script opcodes.
+type ActiveObj interface {
+	ObjType() int              // underlying ObjType id
+	Coords() (x, z, level int) // world position
+}
