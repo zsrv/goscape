@@ -179,9 +179,12 @@ func (n *Npc) processMovementInteraction(s *Server) {
 	switch n.targetOp {
 	case objtype.NPCModePlayerEscape,
 		objtype.NPCModePlayerFollow,
-		objtype.NPCModePlayerFace,
 		objtype.NPCModePlayerFaceClose:
+		// NAI-13: PLAYERESCAPE / PLAYERFOLLOW / PLAYERFACECLOSE land in
+		// later tasks. Until then they still fall through to resetDefaults.
 		n.resetDefaults()
+	case objtype.NPCModePlayerFace:
+		n.playerFaceMode(s)
 	default:
 		n.aiMode(s)
 	}

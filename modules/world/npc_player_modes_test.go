@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
 // TestTargetWithinMaxRangePlayerFollowAlwaysTrue — NAI-13 Task 2.
@@ -125,5 +126,71 @@ func TestTargetWithinMaxRangeOpTriggerUnchanged(t *testing.T) {
 
 	if !n.targetWithinMaxRange() {
 		t.Errorf("targetWithinMaxRange (OP, dx=5): got false, want true — OP-branch regression")
+	}
+}
+
+// playerModeFixture builds a minimal Server + Npc + Player target ready
+// for processMovementInteraction dispatch tests. NPC at (3094, 3106);
+// player at same tile (caller should move as needed). Players and NPCs
+// are registered in s.grid / s.npcs / s.players. The returned Player has
+// p.active = true so Player.IsValid() returns true and validateTarget's
+// Gate 4 passes. s.gamemap is NOT wired by default — callers that need
+// wall-flag seeding for PLAYERESCAPE add it via
+// `s.gamemap = gamemap.New(...)` after calling this helper.
+func playerModeFixture(t *testing.T) (*Server, *Npc, *Player) {
+	t.Helper()
+	s := newServerForScriptTest(t)
+	typ := &objtype.NpcType{
+		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "test_npc"},
+		MaxRange:    10,
+		AttackRange: 1,
+		WanderRange: 1, // so defaultMode() returns NPCModeWander (not None)
+	}
+	n := NewNpc(1, 0, 3094, 3106, 0, typ)
+	n.server = s
+	p := addPlayerToServer(t, s, 1, 3094, 3106, 0)
+	p.active = true // required for Player.IsValid() → validateTarget Gate 4
+	return s, n, p
+}
+
+// TestProcessMovementInteractionDispatchPlayerFace — NAI-13 Task 3.
+// PLAYERFACE is a no-op mode (type guard only) — after dispatch, the NPC's
+// target MUST still be set (resetDefaults-stub behavior from NAI-11 clears
+// target; NAI-13 dispatch must route to playerFaceMode which leaves state
+// alone). Mask-wise, the faceEntity bit comes from the earlier
+// SetInteraction call, not from playerFaceMode itself.
+func TestProcessMovementInteractionDispatchPlayerFace(t *testing.T) {
+	s, n, p := playerModeFixture(t)
+	p.x, p.z = 3094, 3108 // close enough for validateTarget
+	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerFace, 0)
+
+	n.processMovementInteraction(s)
+
+	if n.target == nil {
+		t.Error("target: got nil, want non-nil — PLAYERFACE dispatch must NOT reset (this is the NAI-11 stub behavior)")
+	}
+	if n.targetOp != objtype.NPCModePlayerFace {
+		t.Errorf("targetOp: got %d, want NPCModePlayerFace (%d)", n.targetOp, objtype.NPCModePlayerFace)
+	}
+	if n.masks&rsbuf.NpcMaskFaceEntity == 0 {
+		t.Error("masks & NpcMaskFaceEntity: got 0, want nonzero (was set by SetInteraction earlier)")
+	}
+}
+
+// TestPlayerFaceNonPlayerTargetLogsAndReturns — NAI-13 Task 3.
+// TS throws on type mismatch (Npc.ts:816-818); Go logs + returns.
+// Verifies the method does not panic and leaves state unchanged when
+// the target is unexpectedly non-Player.
+func TestPlayerFaceNonPlayerTargetLogsAndReturns(t *testing.T) {
+	s, n, _ := playerModeFixture(t)
+	other := newTestNpc(2)
+	n.target = other
+	n.targetOp = objtype.NPCModePlayerFace
+
+	// Direct method call — not via dispatch.
+	n.playerFaceMode(s)
+
+	if n.target != other {
+		t.Error("target: mutated on non-Player input — expected log-and-return")
 	}
 }
