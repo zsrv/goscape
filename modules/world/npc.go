@@ -106,14 +106,7 @@ type Npc struct {
 
 // NewNpc constructs an Npc at the given coord, anchoring its spawn point.
 func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
-	mode := objtype.NPCModeNone
-	if len(typ.PatrolCoord) > 0 {
-		mode = objtype.NPCModePatrol
-	} else if typ.WanderRange > 0 {
-		mode = objtype.NPCModeWander
-	}
-
-	return &Npc{
+	n := &Npc{
 		nid:             nid,
 		typeId:          typeId,
 		baseType:        typeId,
@@ -142,7 +135,6 @@ func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
 		walkDir:         -1,
 		runDir:          -1,
 		waypointIndex:   -1,
-		targetOp:        mode,
 		nextPatrolPoint: 0,
 		faceEntity:      -1,
 		apRange:         10,
@@ -165,6 +157,8 @@ func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
 		faceSquareZ:     -1,
 		changeTypeID:    -1,
 	}
+	n.targetOp = n.defaultMode()
+	return n
 }
 
 // initialHP returns the max HP stored in an NpcType, defaulting to 0 when

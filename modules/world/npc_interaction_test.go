@@ -36,6 +36,28 @@ func TestCheckOpTrigger(t *testing.T) {
 	}
 }
 
+func TestNpcDefaultMode(t *testing.T) {
+	tests := []struct {
+		name string
+		typ  *objtype.NpcType
+		want int
+	}{
+		{"patrol config", &objtype.NpcType{PatrolCoord: []uint32{100}}, objtype.NPCModePatrol},
+		{"wander config", &objtype.NpcType{WanderRange: 5}, objtype.NPCModeWander},
+		{"neither", &objtype.NpcType{}, objtype.NPCModeNone},
+		{"both — patrol wins", &objtype.NpcType{PatrolCoord: []uint32{100}, WanderRange: 5}, objtype.NPCModePatrol},
+		{"nil typ", nil, objtype.NPCModeNone},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			n := &Npc{typ: tc.typ}
+			if got := n.defaultMode(); got != tc.want {
+				t.Errorf("defaultMode: got %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestCheckApTrigger(t *testing.T) {
 	ops := []struct {
 		name string

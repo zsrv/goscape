@@ -23,3 +23,20 @@ func checkApTrigger(op int) bool {
 		(op >= objtype.NPCModeApObj1 && op <= objtype.NPCModeApObj5) ||
 		(op >= objtype.NPCModeApNpc1 && op <= objtype.NPCModeApNpc5)
 }
+
+// defaultMode returns the NPC's baseline mode based on its NpcType
+// config. Patrol if PatrolCoord is set; else Wander if WanderRange>0;
+// else None. Single source of truth used by NewNpc (initial targetOp)
+// and resetDefaults (revert targetOp). Matches TS NpcType.defaultmode.
+func (n *Npc) defaultMode() int {
+	if n.typ == nil {
+		return objtype.NPCModeNone
+	}
+	if len(n.typ.PatrolCoord) > 0 {
+		return objtype.NPCModePatrol
+	}
+	if n.typ.WanderRange > 0 {
+		return objtype.NPCModeWander
+	}
+	return objtype.NPCModeNone
+}
