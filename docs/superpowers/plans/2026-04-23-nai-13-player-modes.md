@@ -1125,9 +1125,8 @@ func TestPlayerEscapeQuadrantPosXPosZ(t *testing.T) {
 
 	n.playerEscapeMode(s)
 
-	if n.waypointIndex != 0 {
-		t.Fatalf("waypointIndex: got %d, want 0 (waypoint should be queued)", n.waypointIndex)
-	}
+	// updateMovement consumes the single-tile waypoint (decrementing
+	// waypointIndex to -1), but waypoints[0] retains the packed tile.
 	pos := coordgrid.UnpackCoord(n.waypoints[0])
 	if pos.X != 3099 || pos.Z != 3099 {
 		t.Errorf("waypoint: got (%d, %d), want (3099, 3099) [NE target → SW flee delta (-1, -1)]", pos.X, pos.Z)
