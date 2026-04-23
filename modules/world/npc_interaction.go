@@ -398,10 +398,11 @@ func (n *Npc) validateTarget() bool {
 }
 
 // targetWithinMaxRange enforces the per-mode maxrange rules on n.target.
-// Five branches: PLAYERFOLLOW (always true), PLAYERESCAPE (retreat-maxrange
-// with corner-removal quirk), OP (maxrange+1 with corner-removal quirk),
-// AP (maxrange + attackrange SW-distance), default (maxrange+1 SW-distance).
-// Matches TS Npc.targetWithinMaxRange at Engine-TS/.../Npc.ts:629-680.
+// Five branches: PLAYERFOLLOW (always true), PLAYERESCAPE (AND-gated
+// retreat using NPC-to-start AND target-to-start), OP (maxrange+1 with
+// corner-removal quirk), AP (maxrange + attackrange SW-distance), default
+// (maxrange+1 SW-distance). Matches TS Npc.targetWithinMaxRange at
+// Engine-TS/.../Npc.ts:629-680.
 func (n *Npc) targetWithinMaxRange() bool {
 	if n.target == nil {
 		return true
@@ -428,15 +429,16 @@ func (n *Npc) targetWithinMaxRange() bool {
 		dz = -dz
 	}
 
-	// TS :657-673 — PLAYERESCAPE retreat maxrange. Same shape as OP branch
-	// (maxrange+1 with corner-removal) so the NPC can't escape beyond its
-	// retreat box.
+	// TS :657-673 — PLAYERESCAPE retreat. Size-aware distanceTo from BOTH
+	// NPC and target to (startX, startZ); rejects only when BOTH exceed
+	// maxrange. No +1, no corner-removal — shape is distinct from the OP
+	// branch. For size-1 NPC/Player (the only case this era supports),
+	// DistanceToSW is equivalent to the TS size-aware distanceTo; the
+	// size-approximation inherits NAI-12's tracked follow-up.
 	if n.targetOp == objtype.NPCModePlayerEscape {
-		maxAxis := max(dx, dz)
-		if maxAxis > maxrng+1 {
-			return false
-		}
-		if dx == maxrng+1 && dz == maxrng+1 {
+		distanceToEscape := coordgrid.DistanceToSW(n.x, n.z, n.startX, n.startZ)
+		targetDistanceFromStart := coordgrid.DistanceToSW(tx, tz, n.startX, n.startZ)
+		if targetDistanceFromStart > maxrng && distanceToEscape > maxrng {
 			return false
 		}
 		return true

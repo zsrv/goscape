@@ -233,53 +233,18 @@ func TestTargetWithinMaxRangePlayerFollowAlwaysTrue(t *testing.T) {
 Run: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/world/ -run TestTargetWithinMaxRangePlayerFollowAlwaysTrue -v`
 Expected: FAIL — existing `targetWithinMaxRange` falls through to the `default` branch (SW-distance ≤ maxrange+1 = 3) which rejects a target at distance 100.
 
-- [ ] **Step 2.3: Write the failing test — PLAYERESCAPE retreat bound**
+- [ ] **Step 2.3: Write the failing test — PLAYERESCAPE rejects only when BOTH exceed**
 
 Append to `modules/world/npc_player_modes_test.go`:
 
 ```go
-// TestTargetWithinMaxRangePlayerEscapeRetreatBound — NAI-13 Task 2.
-// Mirrors TS Npc.ts:657-673: when targetOp is PLAYERESCAPE, the range
-// test uses the same Chebyshev `maxAxis > maxrange+1` shape as the
-// OP-trigger branch. Tests both pass (at maxrange+1) and fail (at
-// maxrange+2) on a single axis.
-func TestTargetWithinMaxRangePlayerEscapeRetreatBound(t *testing.T) {
-	typ := &objtype.NpcType{
-		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "escape_npc"},
-		MaxRange:    5,
-		AttackRange: 1,
-	}
-
-	// Case 1: target at +5 on one axis from start → maxAxis = 5 < maxrange+1 = 6 → true.
-	n := NewNpc(1, 0, 100, 100, 0, typ)
-	n.startX, n.startZ = 100, 100
-	t1 := &Npc{nid: 2, x: 105, z: 100, level: 0, typ: typ}
-	n.target = t1
-	n.targetOp = objtype.NPCModePlayerEscape
-	if !n.targetWithinMaxRange() {
-		t.Errorf("targetWithinMaxRange (dx=5): got false, want true (within maxrange+1)")
-	}
-
-	// Case 2: target at +7 on one axis → maxAxis = 7 > maxrange+1 = 6 → false.
-	t2 := &Npc{nid: 3, x: 107, z: 100, level: 0, typ: typ}
-	n.target = t2
-	if n.targetWithinMaxRange() {
-		t.Errorf("targetWithinMaxRange (dx=7): got true, want false (exceeds maxrange+1)")
-	}
-}
-```
-
-- [ ] **Step 2.4: Write the failing test — PLAYERESCAPE corner quirk**
-
-Append to `modules/world/npc_player_modes_test.go`:
-
-```go
-// TestTargetWithinMaxRangePlayerEscapeCornerQuirk — NAI-13 Task 2.
-// Mirrors TS Npc.ts:670-672 corner-removal quirk (shared with OP-trigger
-// branch at :645-648): when both dx AND dz equal maxrange+1, the target
-// is rejected. This excludes the exact diagonal-corner tile of the
-// retreat box even though its max-axis value is within maxrange+1.
-func TestTargetWithinMaxRangePlayerEscapeCornerQuirk(t *testing.T) {
+// TestTargetWithinMaxRangePlayerEscapeRejectsOnlyWhenBothExceed — NAI-13 Task 2.
+// Mirrors TS Npc.ts:657-673: PLAYERESCAPE rejects only when BOTH the NPC's
+// and the target's distance-from-start exceed maxrange. Threshold is `>
+// maxrange` (strict, no +1, no corner quirk). This lets the NPC flee away
+// from start while the target is still inside the retreat box, and vice
+// versa.
+func TestTargetWithinMaxRangePlayerEscapeRejectsOnlyWhenBothExceed(t *testing.T) {
 	typ := &objtype.NpcType{
 		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "escape_npc"},
 		MaxRange:    5,
@@ -287,13 +252,68 @@ func TestTargetWithinMaxRangePlayerEscapeCornerQuirk(t *testing.T) {
 	}
 	n := NewNpc(1, 0, 100, 100, 0, typ)
 	n.startX, n.startZ = 100, 100
-	// Target at (+6, +6) from start: dx = dz = 6 = maxrange+1 → corner-reject.
-	target := &Npc{nid: 2, x: 106, z: 106, level: 0, typ: typ}
+	// NPC at (107, 100) — distanceToEscape = 7 > maxrange (5).
+	n.x, n.z = 107, 100
+	// Target at (108, 100) — targetDistanceFromStart = 8 > maxrange (5).
+	target := &Npc{nid: 2, x: 108, z: 100, level: 0, typ: typ}
 	n.target = target
 	n.targetOp = objtype.NPCModePlayerEscape
 
 	if n.targetWithinMaxRange() {
-		t.Errorf("targetWithinMaxRange (dx=dz=maxrange+1): got true, want false (corner-removal quirk per TS :670-672)")
+		t.Errorf("targetWithinMaxRange: got true, want false — BOTH NPC(d=7) AND target(d=8) exceed maxrange=5")
+	}
+}
+```
+
+- [ ] **Step 2.4: Write the two asymmetric-allowance tests (AND-gate semantics)**
+
+Append to `modules/world/npc_player_modes_test.go`:
+
+```go
+// TestTargetWithinMaxRangePlayerEscapeAllowsWhenOnlyTargetExceeds — NAI-13 Task 2.
+// TS :671: `targetDistanceFromStart > maxrange && distanceToEscape >
+// maxrange`. AND-gated — if the NPC is still inside its retreat box,
+// validateTarget lets the interaction continue even though the target
+// drifted outside. This is the critical semantic difference vs. OP/default
+// branches which reject on EITHER side exceeding.
+func TestTargetWithinMaxRangePlayerEscapeAllowsWhenOnlyTargetExceeds(t *testing.T) {
+	typ := &objtype.NpcType{
+		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "escape_npc"},
+		MaxRange:    5,
+		AttackRange: 1,
+	}
+	n := NewNpc(1, 0, 100, 100, 0, typ)
+	n.startX, n.startZ = 100, 100
+	n.x, n.z = 100, 100 // NPC on its spawn tile → distanceToEscape = 0 (not > 5)
+	// Target at (108, 100) — targetDistanceFromStart = 8 > maxrange (5).
+	target := &Npc{nid: 2, x: 108, z: 100, level: 0, typ: typ}
+	n.target = target
+	n.targetOp = objtype.NPCModePlayerEscape
+
+	if !n.targetWithinMaxRange() {
+		t.Errorf("targetWithinMaxRange: got false, want true — only target exceeds; NPC still in retreat box")
+	}
+}
+
+// TestTargetWithinMaxRangePlayerEscapeAllowsWhenOnlyNpcExceeds — NAI-13 Task 2.
+// Mirror of the above: NPC has fled outside the retreat box but the target
+// is still nearby. AND-gate keeps the interaction alive.
+func TestTargetWithinMaxRangePlayerEscapeAllowsWhenOnlyNpcExceeds(t *testing.T) {
+	typ := &objtype.NpcType{
+		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "escape_npc"},
+		MaxRange:    5,
+		AttackRange: 1,
+	}
+	n := NewNpc(1, 0, 100, 100, 0, typ)
+	n.startX, n.startZ = 100, 100
+	n.x, n.z = 107, 100 // NPC fled 7 tiles → distanceToEscape = 7 > 5
+	// Target at (102, 100) — targetDistanceFromStart = 2 (not > 5)
+	target := &Npc{nid: 2, x: 102, z: 100, level: 0, typ: typ}
+	n.target = target
+	n.targetOp = objtype.NPCModePlayerEscape
+
+	if !n.targetWithinMaxRange() {
+		t.Errorf("targetWithinMaxRange: got false, want true — only NPC exceeds; target still in retreat box")
 	}
 }
 ```
@@ -326,13 +346,14 @@ func TestTargetWithinMaxRangeOpTriggerUnchanged(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2.6: Run tests — verify the 4 new tests (3 fail, 1 pass)**
+- [ ] **Step 2.6: Run tests — verify the 5 new tests (4 fail, 1 pass)**
 
 Run: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/world/ -run "TestTargetWithinMaxRange" -v`
 Expected:
 - `TestTargetWithinMaxRangePlayerFollowAlwaysTrue` FAIL
-- `TestTargetWithinMaxRangePlayerEscapeRetreatBound` FAIL
-- `TestTargetWithinMaxRangePlayerEscapeCornerQuirk` FAIL (or may pass incidentally due to default branch rejection — we'll handle this by still adding the explicit branch)
+- `TestTargetWithinMaxRangePlayerEscapeRejectsOnlyWhenBothExceed` FAIL
+- `TestTargetWithinMaxRangePlayerEscapeAllowsWhenOnlyTargetExceeds` FAIL
+- `TestTargetWithinMaxRangePlayerEscapeAllowsWhenOnlyNpcExceeds` FAIL
 - `TestTargetWithinMaxRangeOpTriggerUnchanged` PASS (regression guard on existing behavior)
 
 - [ ] **Step 2.7: Implement the two new branches**
@@ -371,15 +392,16 @@ func (n *Npc) targetWithinMaxRange() bool {
 		dz = -dz
 	}
 
-	// TS :657-673 — PLAYERESCAPE retreat maxrange. Same shape as OP branch
-	// (maxrange+1 with corner-removal) so the NPC can't escape beyond its
-	// retreat box.
+	// TS :657-673 — PLAYERESCAPE retreat. Size-aware distanceTo from BOTH
+	// NPC and target to (startX, startZ); rejects only when BOTH exceed
+	// maxrange. No +1, no corner-removal — shape is distinct from the OP
+	// branch. For size-1 NPC/Player (the only case this era supports),
+	// DistanceToSW is equivalent to the TS size-aware distanceTo; the
+	// size-approximation inherits NAI-12's tracked follow-up.
 	if n.targetOp == objtype.NPCModePlayerEscape {
-		maxAxis := max(dx, dz)
-		if maxAxis > maxrng+1 {
-			return false
-		}
-		if dx == maxrng+1 && dz == maxrng+1 {
+		distanceToEscape := coordgrid.DistanceToSW(n.x, n.z, n.startX, n.startZ)
+		targetDistanceFromStart := coordgrid.DistanceToSW(tx, tz, n.startX, n.startZ)
+		if targetDistanceFromStart > maxrng && distanceToEscape > maxrng {
 			return false
 		}
 		return true
@@ -412,10 +434,10 @@ func (n *Npc) targetWithinMaxRange() bool {
 
 Note: the previous DEVIATION comment at the old function header (lines 402-404) is removed by this rewrite.
 
-- [ ] **Step 2.8: Run tests — verify all 4 pass**
+- [ ] **Step 2.8: Run tests — verify all 5 pass**
 
 Run: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/world/ -run "TestTargetWithinMaxRange" -v`
-Expected: 4 PASS.
+Expected: 5 PASS.
 
 - [ ] **Step 2.9: Run full package — verify no regression**
 

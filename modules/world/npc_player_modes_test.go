@@ -29,42 +29,13 @@ func TestTargetWithinMaxRangePlayerFollowAlwaysTrue(t *testing.T) {
 	}
 }
 
-// TestTargetWithinMaxRangePlayerEscapeRetreatBound — NAI-13 Task 2.
-// Mirrors TS Npc.ts:657-673: when targetOp is PLAYERESCAPE, the range
-// test uses the same Chebyshev `maxAxis > maxrange+1` shape as the
-// OP-trigger branch. Tests both pass (at maxrange+1) and fail (at
-// maxrange+2) on a single axis.
-func TestTargetWithinMaxRangePlayerEscapeRetreatBound(t *testing.T) {
-	typ := &objtype.NpcType{
-		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "escape_npc"},
-		MaxRange:    5,
-		AttackRange: 1,
-	}
-
-	// Case 1: target at +5 on one axis from start → maxAxis = 5 < maxrange+1 = 6 → true.
-	n := NewNpc(1, 0, 100, 100, 0, typ)
-	n.startX, n.startZ = 100, 100
-	t1 := &Npc{nid: 2, x: 105, z: 100, level: 0, typ: typ}
-	n.target = t1
-	n.targetOp = objtype.NPCModePlayerEscape
-	if !n.targetWithinMaxRange() {
-		t.Errorf("targetWithinMaxRange (dx=5): got false, want true (within maxrange+1)")
-	}
-
-	// Case 2: target at +7 on one axis → maxAxis = 7 > maxrange+1 = 6 → false.
-	t2 := &Npc{nid: 3, x: 107, z: 100, level: 0, typ: typ}
-	n.target = t2
-	if n.targetWithinMaxRange() {
-		t.Errorf("targetWithinMaxRange (dx=7): got true, want false (exceeds maxrange+1)")
-	}
-}
-
-// TestTargetWithinMaxRangePlayerEscapeCornerQuirk — NAI-13 Task 2.
-// Mirrors TS Npc.ts:670-672 corner-removal quirk (shared with OP-trigger
-// branch at :645-648): when both dx AND dz equal maxrange+1, the target
-// is rejected. This excludes the exact diagonal-corner tile of the
-// retreat box even though its max-axis value is within maxrange+1.
-func TestTargetWithinMaxRangePlayerEscapeCornerQuirk(t *testing.T) {
+// TestTargetWithinMaxRangePlayerEscapeRejectsOnlyWhenBothExceed — NAI-13 Task 2.
+// Mirrors TS Npc.ts:657-673: PLAYERESCAPE rejects only when BOTH the NPC's
+// and the target's distance-from-start exceed maxrange. Threshold is `>
+// maxrange` (strict, no +1, no corner quirk). This lets the NPC flee away
+// from start while the target is still inside the retreat box, and vice
+// versa.
+func TestTargetWithinMaxRangePlayerEscapeRejectsOnlyWhenBothExceed(t *testing.T) {
 	typ := &objtype.NpcType{
 		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "escape_npc"},
 		MaxRange:    5,
@@ -72,13 +43,62 @@ func TestTargetWithinMaxRangePlayerEscapeCornerQuirk(t *testing.T) {
 	}
 	n := NewNpc(1, 0, 100, 100, 0, typ)
 	n.startX, n.startZ = 100, 100
-	// Target at (+6, +6) from start: dx = dz = 6 = maxrange+1 → corner-reject.
-	target := &Npc{nid: 2, x: 106, z: 106, level: 0, typ: typ}
+	// NPC at (107, 100) — distanceToEscape = 7 > maxrange (5).
+	n.x, n.z = 107, 100
+	// Target at (108, 100) — targetDistanceFromStart = 8 > maxrange (5).
+	target := &Npc{nid: 2, x: 108, z: 100, level: 0, typ: typ}
 	n.target = target
 	n.targetOp = objtype.NPCModePlayerEscape
 
 	if n.targetWithinMaxRange() {
-		t.Errorf("targetWithinMaxRange (dx=dz=maxrange+1): got true, want false (corner-removal quirk per TS :670-672)")
+		t.Errorf("targetWithinMaxRange: got true, want false — BOTH NPC(d=7) AND target(d=8) exceed maxrange=5")
+	}
+}
+
+// TestTargetWithinMaxRangePlayerEscapeAllowsWhenOnlyTargetExceeds — NAI-13 Task 2.
+// TS :671: `targetDistanceFromStart > maxrange && distanceToEscape >
+// maxrange`. AND-gated — if the NPC is still inside its retreat box,
+// validateTarget lets the interaction continue even though the target
+// drifted outside. This is the critical semantic difference vs. OP/default
+// branches which reject on EITHER side exceeding.
+func TestTargetWithinMaxRangePlayerEscapeAllowsWhenOnlyTargetExceeds(t *testing.T) {
+	typ := &objtype.NpcType{
+		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "escape_npc"},
+		MaxRange:    5,
+		AttackRange: 1,
+	}
+	n := NewNpc(1, 0, 100, 100, 0, typ)
+	n.startX, n.startZ = 100, 100
+	n.x, n.z = 100, 100 // NPC on its spawn tile → distanceToEscape = 0 (not > 5)
+	// Target at (108, 100) — targetDistanceFromStart = 8 > maxrange (5).
+	target := &Npc{nid: 2, x: 108, z: 100, level: 0, typ: typ}
+	n.target = target
+	n.targetOp = objtype.NPCModePlayerEscape
+
+	if !n.targetWithinMaxRange() {
+		t.Errorf("targetWithinMaxRange: got false, want true — only target exceeds; NPC still in retreat box")
+	}
+}
+
+// TestTargetWithinMaxRangePlayerEscapeAllowsWhenOnlyNpcExceeds — NAI-13 Task 2.
+// Mirror of the above: NPC has fled outside the retreat box but the target
+// is still nearby. AND-gate keeps the interaction alive.
+func TestTargetWithinMaxRangePlayerEscapeAllowsWhenOnlyNpcExceeds(t *testing.T) {
+	typ := &objtype.NpcType{
+		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "escape_npc"},
+		MaxRange:    5,
+		AttackRange: 1,
+	}
+	n := NewNpc(1, 0, 100, 100, 0, typ)
+	n.startX, n.startZ = 100, 100
+	n.x, n.z = 107, 100 // NPC fled 7 tiles → distanceToEscape = 7 > 5
+	// Target at (102, 100) — targetDistanceFromStart = 2 (not > 5)
+	target := &Npc{nid: 2, x: 102, z: 100, level: 0, typ: typ}
+	n.target = target
+	n.targetOp = objtype.NPCModePlayerEscape
+
+	if !n.targetWithinMaxRange() {
+		t.Errorf("targetWithinMaxRange: got false, want true — only NPC exceeds; target still in retreat box")
 	}
 }
 
