@@ -707,20 +707,21 @@ func TestPlayerFaceCloseBeyondRangeResetsDefaults(t *testing.T) {
 	}
 }
 
-// TestPlayerFaceCloseAsymmetricAxisQuirk — NAI-13 Task 4.
-// Quirk guard: the Chebyshev gate MUST reject targets that are "far on
-// one axis but same on the other" (i.e. dx=2, dz=0). This catches a bug
-// where someone might write `if dx > 1 && dz > 1` (with AND instead of
-// using max) — that form would let (+2, 0) through.
-func TestPlayerFaceCloseAsymmetricAxisQuirk(t *testing.T) {
+// TestPlayerFaceCloseSymmetricDiagonalQuirk — NAI-13 Task 4.
+// Quirk guard: the Chebyshev gate MUST reject targets that exceed on
+// BOTH axes simultaneously (dx=2, dz=2). Complements
+// TestPlayerFaceCloseBeyondRangeResetsDefaults (dx=2, dz=0) — together
+// the two cover the single-axis and symmetric-diagonal branches of the
+// `max(|dx|, |dz|) > 1` gate.
+func TestPlayerFaceCloseSymmetricDiagonalQuirk(t *testing.T) {
 	s, n, p := playerModeFixture(t)
-	p.x, p.z = 3096, 3106 // dx=2, dz=0 — single-axis beyond-range
+	p.x, p.z = 3096, 3108 // dx=2, dz=2 — symmetric diagonal beyond-range
 	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerFaceClose, 0)
 
 	n.playerFaceCloseMode(s)
 
 	if n.target != nil {
-		t.Errorf("target: got %v, want nil — single-axis dx=2 must be beyond Chebyshev-1 range", n.target)
+		t.Errorf("target: got %v, want nil — symmetric diagonal dx=dz=2 must be beyond Chebyshev-1 range", n.target)
 	}
 }
 ```
