@@ -39,6 +39,77 @@ func TestCheckOpTrigger(t *testing.T) {
 	}
 }
 
+func TestNpcValidateTarget(t *testing.T) {
+	typ := &objtype.NpcType{MaxRange: 10, AttackRange: 2}
+
+	t.Run("different level", func(t *testing.T) {
+		n := NewNpc(1, 42, 100, 100, 0, typ)
+		n.targetOp = objtype.NPCModeOpNpc1
+		n.target = &Npc{x: 101, z: 100, level: 1}
+		n.targetSubject.typ = n.target.(*Npc).typeId
+		if n.validateTarget() {
+			t.Error("different level: got true, want false")
+		}
+	})
+
+	t.Run("out of maxrange", func(t *testing.T) {
+		n := NewNpc(1, 42, 100, 100, 0, typ)
+		n.targetOp = objtype.NPCModeOpNpc1
+		n.target = &Npc{x: 200, z: 100, level: 0}
+		n.targetSubject.typ = n.target.(*Npc).typeId
+		if n.validateTarget() {
+			t.Error("far target: got true, want false")
+		}
+	})
+
+	t.Run("npc typeId changed mid-interaction", func(t *testing.T) {
+		n := NewNpc(1, 42, 100, 100, 0, typ)
+		n.targetOp = objtype.NPCModeOpNpc1
+		target := &Npc{nid: 7, typeId: 99, x: 105, z: 100, level: 0}
+		n.target = target
+		n.targetSubject.typ = 99
+
+		target.typeId = 100 // simulate changetype
+
+		if n.validateTarget() {
+			t.Error("changetyped target: got true, want false")
+		}
+	})
+
+	t.Run("dead npc target", func(t *testing.T) {
+		n := NewNpc(1, 42, 100, 100, 0, typ)
+		n.targetOp = objtype.NPCModeOpNpc1
+		target := &Npc{nid: 7, typeId: 99, x: 105, z: 100, level: 0, dead: true}
+		n.target = target
+		n.targetSubject.typ = 99
+		if n.validateTarget() {
+			t.Error("dead target: got true, want false")
+		}
+	})
+
+	t.Run("delayed npc target", func(t *testing.T) {
+		n := NewNpc(1, 42, 100, 100, 0, typ)
+		n.targetOp = objtype.NPCModeOpNpc1
+		target := &Npc{nid: 7, typeId: 99, x: 105, z: 100, level: 0, delayed: true}
+		n.target = target
+		n.targetSubject.typ = 99
+		if n.validateTarget() {
+			t.Error("delayed target: got true, want false (TS isActive = !dead && !delayed)")
+		}
+	})
+
+	t.Run("valid npc target", func(t *testing.T) {
+		n := NewNpc(1, 42, 100, 100, 0, typ)
+		n.targetOp = objtype.NPCModeOpNpc1
+		target := &Npc{nid: 7, typeId: 99, x: 105, z: 100, level: 0}
+		n.target = target
+		n.targetSubject.typ = 99
+		if !n.validateTarget() {
+			t.Error("valid target: got false, want true")
+		}
+	})
+}
+
 func TestNpcTargetWithinMaxRange(t *testing.T) {
 	typ := &objtype.NpcType{MaxRange: 5, AttackRange: 2}
 

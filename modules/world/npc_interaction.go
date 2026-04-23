@@ -46,6 +46,63 @@ func (n *Npc) clearInteraction() {
 	n.targetSubject = npcTargetSubject{com: -1, typ: -1}
 }
 
+// validateTarget enforces per-tick target validity. Four gates matching
+// TS Npc.validateTarget at Engine-TS/.../Npc.ts:606-627:
+//  1. Same-level.
+//  2. targetWithinMaxRange (per-mode maxrange math).
+//  3. targetSubject.typ equality (catches changetype mid-interaction)
+//     for Npc/Loc targets.
+//  4. Concrete lifecycle: *Npc → isActive (!dead && !delayed);
+//     *Loc/*Obj → intrinsic + zone-membership; *Player → IsValid.
+//
+// The *Npc branch's `!dead && !delayed` check is the TS "isActive"
+// predicate — stricter than Go's Npc.IsValid() which is only `!dead`.
+// See the Npc.IsValid DEVIATION note for the layering rationale.
+func (n *Npc) validateTarget() bool {
+	if n.target == nil {
+		return false
+	}
+
+	// Gate 1: level.
+	_, _, tlevel := n.target.Coords()
+	if tlevel != n.level {
+		return false
+	}
+
+	// Gate 2: maxrange.
+	if !n.targetWithinMaxRange() {
+		return false
+	}
+
+	// Gate 3: type-changed check for Npc/Loc (TS :618).
+	switch t := n.target.(type) {
+	case *Npc:
+		if n.targetSubject.typ != t.typeId {
+			return false
+		}
+	case *entitypkg.Loc:
+		if n.targetSubject.typ != t.Type() {
+			return false
+		}
+	}
+
+	// Gate 4: concrete lifecycle.
+	switch t := n.target.(type) {
+	case *Npc:
+		return !t.dead && !t.delayed
+	case *entitypkg.Loc:
+		tx, tz, lvl := t.Coords()
+		return t.IsValid() && locStillValid(n.server, t, n.targetSubject.typ, tx, tz, lvl)
+	case *entitypkg.Obj:
+		tx, tz, lvl := t.Coords()
+		return t.IsValid() && objStillValid(n.server, t, tx, tz, lvl)
+	case *Player:
+		return t.IsValid()
+	default:
+		return n.target.IsValid()
+	}
+}
+
 // targetWithinMaxRange enforces the per-mode maxrange rules on n.target.
 // Three branches: OP (maxrange+1 with corner-removal quirk), AP
 // (maxrange + attackrange SW-distance), default (maxrange+1 SW-distance).
