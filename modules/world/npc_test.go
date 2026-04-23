@@ -57,6 +57,36 @@ func TestNpcFaceCoord(t *testing.T) {
 	}
 }
 
+func TestNewNpcInitialisesInteractionFields(t *testing.T) {
+	typ := &objtype.NpcType{WanderRange: 5}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+
+	if n.apRange != 10 {
+		t.Errorf("apRange: got %d, want 10", n.apRange)
+	}
+	if n.apRangeCalled != false {
+		t.Errorf("apRangeCalled: got %t, want false", n.apRangeCalled)
+	}
+	if n.targetSubject.com != -1 {
+		t.Errorf("targetSubject.com: got %d, want -1", n.targetSubject.com)
+	}
+	if n.targetSubject.typ != -1 {
+		t.Errorf("targetSubject.typ: got %d, want -1", n.targetSubject.typ)
+	}
+	if n.targetX != -1 {
+		t.Errorf("targetX: got %d, want -1", n.targetX)
+	}
+	if n.targetZ != -1 {
+		t.Errorf("targetZ: got %d, want -1", n.targetZ)
+	}
+	if n.faceAngleX != -1 {
+		t.Errorf("faceAngleX: got %d, want -1", n.faceAngleX)
+	}
+	if n.faceAngleZ != -1 {
+		t.Errorf("faceAngleZ: got %d, want -1", n.faceAngleZ)
+	}
+}
+
 func TestNpcResetMasksClearsEphemerals(t *testing.T) {
 	n := newTestNpc(1)
 	n.Animate(123, 5)

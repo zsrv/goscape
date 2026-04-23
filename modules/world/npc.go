@@ -13,6 +13,14 @@ const (
 	NpcLifecycleDespawn = 2
 )
 
+// npcTargetSubject captures the "initial target snapshot" fields TS
+// Npc uses in validateTarget to detect mid-interaction changetypes.
+// Mirrors TS targetSubject = { com: number, type: number }.
+type npcTargetSubject struct {
+	com int // -1 when unset (TS truthy-coerced from falsy values)
+	typ int // -1 when unset or when target is a Player
+}
+
 // Npc is a non-player game entity.
 type Npc struct {
 	nid    int
@@ -72,8 +80,15 @@ type Npc struct {
 	delayedPatrol   bool
 
 	// === interaction ===
-	target     entity
-	faceEntity int
+	target         entity
+	faceEntity     int
+	apRange        int              // NAI-11: default 10; -1 sentinel = "no AP script"
+	apRangeCalled  bool             // NAI-11
+	targetSubject  npcTargetSubject // NAI-11
+	targetX        int              // NAI-11: fine-grained coord for non-PathingEntity targets
+	targetZ        int
+	faceAngleX     int              // NAI-11: fine-grained coord, mask-emitted via faceSquare
+	faceAngleZ     int
 
 	// === masks ===
 	masks      int
@@ -130,6 +145,13 @@ func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
 		targetOp:        mode,
 		nextPatrolPoint: 0,
 		faceEntity:      -1,
+		apRange:        10,
+		apRangeCalled:  false,
+		targetSubject:  npcTargetSubject{com: -1, typ: -1},
+		targetX:        -1,
+		targetZ:        -1,
+		faceAngleX:     -1,
+		faceAngleZ:     -1,
 		animID:          -1,
 		animDelay:       -1,
 		damageAmt:       -1,
