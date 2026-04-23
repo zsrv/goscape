@@ -39,16 +39,76 @@ const (
 	BlockWalkAll  = 2
 )
 
-// NPCMode values (subset of rs-server-225/entity.NPCMode constants relevant
-// for config defaults).
+// NPCMode values. Full enum mirroring Engine-TS/src/engine/entity/NpcMode.ts.
+// Single source of truth — supersedes the Go-ad-hoc NpcMode* constants
+// that previously lived in modules/world/npc.go.
 const (
-	NPCModeNull   = -1
-	NPCModeNone   = 0
-	NPCModeWander = 1
+	NPCModeNull            = -1
+	NPCModeNone            = 0
+	NPCModeWander          = 1
+	NPCModePatrol          = 2
+	NPCModePlayerEscape    = 3
+	NPCModePlayerFollow    = 4
+	NPCModePlayerFace      = 5
+	NPCModePlayerFaceClose = 6
 
-	// QUEUE1..QUEUE20 are `ai_queueN`-dispatch modes, consumed by
-	// consumeHuntTarget (NAI-10) to fire TriggerAiQueueN directly when
-	// HuntType.FindNewMode falls in this range. See TS NpcMode.ts:76-95.
+	// OPPLAYER — [ai_opplayerN,npc]
+	NPCModeOpPlayer1 = 7
+	NPCModeOpPlayer2 = 8
+	NPCModeOpPlayer3 = 9
+	NPCModeOpPlayer4 = 10
+	NPCModeOpPlayer5 = 11
+
+	// APPLAYER — [ai_applayerN,npc]
+	NPCModeApPlayer1 = 12
+	NPCModeApPlayer2 = 13
+	NPCModeApPlayer3 = 14
+	NPCModeApPlayer4 = 15
+	NPCModeApPlayer5 = 16
+
+	// OPLOC — [ai_oplocN,npc]
+	NPCModeOpLoc1 = 17
+	NPCModeOpLoc2 = 18
+	NPCModeOpLoc3 = 19
+	NPCModeOpLoc4 = 20
+	NPCModeOpLoc5 = 21
+
+	// APLOC — [ai_aplocN,npc]
+	NPCModeApLoc1 = 22
+	NPCModeApLoc2 = 23
+	NPCModeApLoc3 = 24
+	NPCModeApLoc4 = 25
+	NPCModeApLoc5 = 26
+
+	// OPOBJ — [ai_opobjN,npc]
+	NPCModeOpObj1 = 27
+	NPCModeOpObj2 = 28
+	NPCModeOpObj3 = 29
+	NPCModeOpObj4 = 30
+	NPCModeOpObj5 = 31
+
+	// APOBJ — [ai_apobjN,npc]
+	NPCModeApObj1 = 32
+	NPCModeApObj2 = 33
+	NPCModeApObj3 = 34
+	NPCModeApObj4 = 35
+	NPCModeApObj5 = 36
+
+	// OPNPC — [ai_opnpcN,npc]
+	NPCModeOpNpc1 = 37
+	NPCModeOpNpc2 = 38
+	NPCModeOpNpc3 = 39
+	NPCModeOpNpc4 = 40
+	NPCModeOpNpc5 = 41
+
+	// APNPC — [ai_apnpcN,npc]
+	NPCModeApNpc1 = 42
+	NPCModeApNpc2 = 43
+	NPCModeApNpc3 = 44
+	NPCModeApNpc4 = 45
+	NPCModeApNpc5 = 46
+
+	// QUEUE — [ai_queueN,npc] dispatched by Npc.consumeHuntTarget.
 	NPCModeQueue1  = 47
 	NPCModeQueue2  = 48
 	NPCModeQueue3  = 49

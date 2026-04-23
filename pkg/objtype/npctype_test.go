@@ -31,3 +31,46 @@ func TestNPCModeQueueConstants(t *testing.T) {
 			NPCModeQueue20-NPCModeQueue1)
 	}
 }
+
+func TestNPCModeFullEnum(t *testing.T) {
+	// Mirrors Engine-TS/src/engine/entity/NpcMode.ts:1-96.
+	tests := []struct {
+		name string
+		got  int
+		want int
+	}{
+		{"NPCModeNull", NPCModeNull, -1},
+		{"NPCModeNone", NPCModeNone, 0},
+		{"NPCModeWander", NPCModeWander, 1},
+		{"NPCModePatrol", NPCModePatrol, 2},
+		{"NPCModePlayerEscape", NPCModePlayerEscape, 3},
+		{"NPCModePlayerFollow", NPCModePlayerFollow, 4},
+		{"NPCModePlayerFace", NPCModePlayerFace, 5},
+		{"NPCModePlayerFaceClose", NPCModePlayerFaceClose, 6},
+		{"NPCModeOpPlayer1", NPCModeOpPlayer1, 7},
+		{"NPCModeOpPlayer5", NPCModeOpPlayer5, 11},
+		{"NPCModeApPlayer1", NPCModeApPlayer1, 12},
+		{"NPCModeApPlayer5", NPCModeApPlayer5, 16},
+		{"NPCModeOpLoc1", NPCModeOpLoc1, 17},
+		{"NPCModeOpLoc5", NPCModeOpLoc5, 21},
+		{"NPCModeApLoc1", NPCModeApLoc1, 22},
+		{"NPCModeApLoc5", NPCModeApLoc5, 26},
+		{"NPCModeOpObj1", NPCModeOpObj1, 27},
+		{"NPCModeOpObj5", NPCModeOpObj5, 31},
+		{"NPCModeApObj1", NPCModeApObj1, 32},
+		{"NPCModeApObj5", NPCModeApObj5, 36},
+		{"NPCModeOpNpc1", NPCModeOpNpc1, 37},
+		{"NPCModeOpNpc5", NPCModeOpNpc5, 41},
+		{"NPCModeApNpc1", NPCModeApNpc1, 42},
+		{"NPCModeApNpc5", NPCModeApNpc5, 46},
+		{"NPCModeQueue1", NPCModeQueue1, 47},
+		{"NPCModeQueue20", NPCModeQueue20, 66},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.got != tc.want {
+				t.Errorf("%s: got %d, want %d", tc.name, tc.got, tc.want)
+			}
+		})
+	}
+}
