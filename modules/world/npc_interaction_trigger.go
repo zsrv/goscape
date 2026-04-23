@@ -5,6 +5,55 @@ import (
 	"github.com/zsrv/goscape/pkg/script"
 )
 
+// fireAiOpTriggerNpc fires AI_OPNPC1..5 for an NPC target. Lifecycle
+// gate is target.dead (the "isActive" half handled by validateTarget).
+// Category read from target.typ.Category (TS parity).
+func (n *Npc) fireAiOpTriggerNpc(s *Server, target *Npc) {
+	if target.dead {
+		n.clearInteraction()
+		return
+	}
+	trigger := aiOpNpcTriggerForOp(n.targetOp)
+	if trigger == 0 {
+		n.clearInteraction()
+		return
+	}
+	category := 0
+	if target.typ != nil {
+		category = target.typ.Category
+	}
+	sf := s.scriptProvider.GetByTrigger(trigger, target.typeId, category)
+	if sf == nil {
+		n.clearInteraction()
+		return
+	}
+	s.runNpcScript(sf, n, target, nil, nil)
+}
+
+// fireAiApTriggerNpc fires AI_APNPC1..5 for an NPC target — approach-
+// range counterpart.
+func (n *Npc) fireAiApTriggerNpc(s *Server, target *Npc) {
+	if target.dead {
+		n.clearInteraction()
+		return
+	}
+	trigger := aiApNpcTriggerForOp(n.targetOp)
+	if trigger == 0 {
+		n.clearInteraction()
+		return
+	}
+	category := 0
+	if target.typ != nil {
+		category = target.typ.Category
+	}
+	sf := s.scriptProvider.GetByTrigger(trigger, target.typeId, category)
+	if sf == nil {
+		n.clearInteraction()
+		return
+	}
+	s.runNpcScript(sf, n, target, nil, nil)
+}
+
 // fireAiOpTriggerPlayer fires AI_OPPLAYER1..5 for a Player target.
 // Called by tryInteract when targetOp is OPPLAYER + in operable range.
 // Mirrors TS Npc.tryInteract → executeScript branch. Clears the

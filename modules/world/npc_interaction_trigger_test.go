@@ -116,6 +116,98 @@ func TestAiOpObjTriggerForOp(t *testing.T) {
 	runTriggerMapTest(t, "aiOpObjTriggerForOp", aiOpObjTriggerForOp, cases)
 }
 
+// newNpcWithType builds a fresh target NPC with a given typeId and
+// category (category defaults to 0). Mirrors the setup pattern used
+// by the Npc-target fire tests.
+func newNpcWithType(typeId, category int) *Npc {
+	typ := &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: typeId},
+		Category:   category,
+	}
+	return NewNpc(2, typeId, 101, 100, 0, typ)
+}
+
+// Npc-target fire helper tests --------------------------------------------
+
+func TestFireAiOpTriggerNpcHappyPath(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpNpc1, 99, "aiop-npc"))
+
+	n := newNpcForScriptTest(t)
+	n.server = s
+	n.targetOp = objtype.NPCModeOpNpc1
+
+	target := newNpcWithType(99, 0)
+	n.target = target
+
+	n.fireAiOpTriggerNpc(s, target)
+
+	if string(n.sayText) != "aiop-npc" {
+		t.Errorf("sayText: got %q, want %q", n.sayText, "aiop-npc")
+	}
+}
+
+func TestFireAiOpTriggerNpcNoScriptClears(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+
+	n := newNpcForScriptTest(t)
+	n.server = s
+	n.targetOp = objtype.NPCModeOpNpc1
+
+	target := newNpcWithType(99, 0)
+	n.target = target
+
+	n.fireAiOpTriggerNpc(s, target)
+
+	if n.target != nil {
+		t.Error("target: expected nil after no-script-found clearInteraction")
+	}
+}
+
+func TestFireAiOpTriggerNpcDeadTargetClears(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpNpc1, 99, "aiop-npc"))
+
+	n := newNpcForScriptTest(t)
+	n.server = s
+	n.targetOp = objtype.NPCModeOpNpc1
+
+	target := newNpcWithType(99, 0)
+	target.dead = true
+	n.target = target
+
+	n.fireAiOpTriggerNpc(s, target)
+
+	if n.target != nil {
+		t.Error("target: expected nil after dead-target clearInteraction")
+	}
+	if string(n.sayText) == "aiop-npc" {
+		t.Error("sayText: script ran despite dead target")
+	}
+}
+
+func TestFireAiApTriggerNpcHappyPath(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiApNpc1, 99, "aiap-npc"))
+
+	n := newNpcForScriptTest(t)
+	n.server = s
+	n.targetOp = objtype.NPCModeApNpc1
+
+	target := newNpcWithType(99, 0)
+	n.target = target
+
+	n.fireAiApTriggerNpc(s, target)
+
+	if string(n.sayText) != "aiap-npc" {
+		t.Errorf("sayText: got %q, want %q", n.sayText, "aiap-npc")
+	}
+}
+
 // Player-target fire helper tests ------------------------------------------
 
 func TestFireAiOpTriggerPlayerHappyPath(t *testing.T) {
