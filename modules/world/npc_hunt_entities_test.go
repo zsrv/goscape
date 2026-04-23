@@ -4,8 +4,10 @@ import (
 	"testing"
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
+	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/grid"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/zone"
 )
 
@@ -593,5 +595,69 @@ func TestHuntAllPicksFromVariantResult(t *testing.T) {
 	}
 	if n.huntTarget.Slot() != candidate.nid {
 		t.Errorf("huntTarget: got nid %d, want %d", n.huntTarget.Slot(), candidate.nid)
+	}
+}
+
+// withBlockingWall installs a FlagLoc at (level, x, z) on the given
+// Server's gamemap so the straight-line ray traversing that tile is
+// blocked by both HasLineOfSight and HasLineOfWalk. FlagLoc is the
+// shared bit checked by both raycasts (LoS via flagLocation; LoW via
+// FlagWalkBlocked = FlagLoc|FlagBlockWalk|FlagGroundDecor) — and per
+// FlagMap.Add, this also implicitly allocates the zone so adjacent
+// path tiles read FlagOpen instead of FlagNull.
+//
+// Pre-condition: s.gamemap has been constructed via gamemap.New(...).
+//
+// Spec divergence: NAI-12 plan prescribed FlagLocProjBlocker, but
+// that bit only short-circuits HasLineOfSight (los-mode RayCast).
+// The spec § Testing strategy used FlagLoc; the plan's rewrite
+// would have left TestHuntNpcsCheckVisLineOfWalkBlocks unable to
+// fail. Following the spec.
+func withBlockingWall(t *testing.T, s *Server, level, x, z int) {
+	t.Helper()
+	s.gamemap.Pathfinder.Flags.Add(x, z, level, collision.FlagLoc)
+}
+
+func TestHuntNpcsCheckVisLineOfSightPasses(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.gamemap = gamemap.New(discardLogger())
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	tIn := addNpcToServerAt(t, s, 10, 1, -1, n.x, n.z+2, n.level) // 2 tiles north, clear path
+	// Allocate the path's zone so empty tiles read FlagOpen instead of
+	// FlagNull (-1). FlagMap.IsFlagged treats unallocated zones as fully
+	// blocked; in production all map-loaded zones are allocated.
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(n.x, n.z, n.level)
+
+	hunt := &objtype.HuntType{CheckNpc: -1, CheckCategory: -1, CheckVis: objtype.HuntVisLineOfSight}
+	hunted := n.huntNpcs(s, hunt)
+
+	if len(hunted) != 1 {
+		t.Fatalf("hunted: got %d, want 1 (LoS clear path)", len(hunted))
+	}
+	if hunted[0].Slot() != tIn.nid {
+		t.Errorf("hunted[0]: got nid %d, want %d", hunted[0].Slot(), tIn.nid)
+	}
+}
+
+func TestHuntNpcsCheckVisLineOfWalkBlocks(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.gamemap = gamemap.New(discardLogger())
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	_ = addNpcToServerAt(t, s, 10, 1, -1, n.x, n.z+2, n.level) // 2 tiles north
+	withBlockingWall(t, s, 0, 3094, 3107)                      // mid-tile blocker
+
+	hunt := &objtype.HuntType{CheckNpc: -1, CheckCategory: -1, CheckVis: objtype.HuntVisLineOfWalk}
+	hunted := n.huntNpcs(s, hunt)
+
+	if len(hunted) != 0 {
+		t.Fatalf("hunted: got %d, want 0 (LoW blocked by mid-tile)", len(hunted))
 	}
 }

@@ -58,8 +58,18 @@ func (n *Npc) huntNpcs(s *Server, hunt *objtype.HuntType) []entity {
 		if dx > n.huntRange || dz > n.huntRange {
 			continue
 		}
-		// TODO: CheckVis gate — TS ScriptIterators.ts:113-118.
-		// Deferred; see nai_followups.md.
+		// CheckVis gate — TS ScriptIterators.ts:113-118.
+		// gamemap==nil short-circuits to gate-pass; see NAI-12 spec § error handling.
+		if hunt.CheckVis == objtype.HuntVisLineOfSight && s.gamemap != nil &&
+			!s.gamemap.Pathfinder.LineValidator.HasLineOfSight(
+				n.level, n.x, n.z, other.x, other.z, 1, 1, 1, 0) {
+			continue
+		}
+		if hunt.CheckVis == objtype.HuntVisLineOfWalk && s.gamemap != nil &&
+			!s.gamemap.Pathfinder.LineValidator.HasLineOfWalk(
+				n.level, n.x, n.z, other.x, other.z, 1, 1, 1, 0) {
+			continue
+		}
 		hunted = append(hunted, other)
 	}
 	return hunted
