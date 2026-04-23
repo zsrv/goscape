@@ -391,3 +391,7 @@ and all directional wall blockers.
 - Memory: `nai_followups.md` entries "Deferred: CheckVis (LoS/LoW) gate on
   all four hunt variants" (NAI-8) and "Deferred: LoS gating in
   inApproachDistance" (NAI-11)
+
+---
+
+**Status:** Closed 2026-04-23. See plan at `docs/superpowers/plans/2026-04-23-nai-12-checkvis-unified.md`.
