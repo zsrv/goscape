@@ -39,6 +39,62 @@ func TestCheckOpTrigger(t *testing.T) {
 	}
 }
 
+func TestNpcInOperableDistance(t *testing.T) {
+	typ := &objtype.NpcType{}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+
+	tests := []struct {
+		name   string
+		tx, tz int
+		want   bool
+	}{
+		{"same tile", 100, 100, false},
+		{"adjacent N", 100, 101, true},
+		{"adjacent NE (diagonal)", 101, 101, true},
+		{"two tiles away", 102, 100, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			target := &Npc{x: tc.tx, z: tc.tz, level: 0}
+			if got := n.inOperableDistance(target); got != tc.want {
+				t.Errorf("got %t, want %t", got, tc.want)
+			}
+		})
+	}
+
+	t.Run("different level", func(t *testing.T) {
+		target := &Npc{x: 101, z: 100, level: 1}
+		if n.inOperableDistance(target) {
+			t.Error("different level should return false")
+		}
+	})
+}
+
+func TestNpcInApproachDistance(t *testing.T) {
+	typ := &objtype.NpcType{}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+
+	tests := []struct {
+		name   string
+		rng    int
+		tx, tz int
+		want   bool
+	}{
+		{"range 5, at 103", 5, 103, 100, true},
+		{"range 5, at 106", 5, 106, 100, false},
+		{"range 0 — always false", 0, 101, 100, false},
+		{"same tile — false", 5, 100, 100, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			target := &Npc{x: tc.tx, z: tc.tz, level: 0}
+			if got := n.inApproachDistance(tc.rng, target); got != tc.want {
+				t.Errorf("got %t, want %t", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestNpcSetInteraction(t *testing.T) {
 	typ := &objtype.NpcType{}
 	targetNpc := &Npc{nid: 7, typeId: 99, x: 105, z: 105, level: 0}

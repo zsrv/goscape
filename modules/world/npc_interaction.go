@@ -46,6 +46,62 @@ func (n *Npc) clearInteraction() {
 	n.targetSubject = npcTargetSubject{com: -1, typ: -1}
 }
 
+// inOperableDistance checks whether target is in contact range
+// (Chebyshev ≤ 1, excluding same tile). Mirrors the player-side shape
+// at interaction.go:128-141.
+//
+// DEVIATION from TS (PathingEntity.ts:378-389): does not dispatch to
+// reachedEntity / reachedLoc / reachedObj — uses Chebyshev for all
+// target types. Loc shape/angle/forceapproach and Obj size reach logic
+// is deferred; inherits player-side's S6l-D4 posture. Tracked follow-up.
+func (n *Npc) inOperableDistance(target entity) bool {
+	tx, tz, tlevel := target.Coords()
+	if tlevel != n.level {
+		return false
+	}
+	dx := n.x - tx
+	if dx < 0 {
+		dx = -dx
+	}
+	dz := n.z - tz
+	if dz < 0 {
+		dz = -dz
+	}
+	if dx > 1 || dz > 1 {
+		return false
+	}
+	return !(dx == 0 && dz == 0)
+}
+
+// inApproachDistance checks whether target is within rng tiles
+// (Chebyshev, excluding same tile). Mirrors the player-side shape at
+// interaction.go:148-164.
+//
+// DEVIATION from TS (PathingEntity.ts:392-406): no LoS gating. TS's
+// isApproached walks the collision map; NAI-11 inherits player-side's
+// S6l-D4 no-LoS posture. Tracked follow-up.
+func (n *Npc) inApproachDistance(rng int, target entity) bool {
+	if rng <= 0 {
+		return false
+	}
+	tx, tz, tlevel := target.Coords()
+	if tlevel != n.level {
+		return false
+	}
+	dx := n.x - tx
+	if dx < 0 {
+		dx = -dx
+	}
+	dz := n.z - tz
+	if dz < 0 {
+		dz = -dz
+	}
+	if dx > rng || dz > rng {
+		return false
+	}
+	return !(dx == 0 && dz == 0)
+}
+
 // SetInteraction anchors the NPC's interaction on target. Mirrors TS
 // PathingEntity.setInteraction at Engine-TS/.../PathingEntity.ts:510-548.
 // Closes the seven NAI-10 deferred setInteraction fields:
