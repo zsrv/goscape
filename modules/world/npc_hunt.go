@@ -84,23 +84,23 @@ func (n *Npc) huntAll(s *Server, hunt *objtype.HuntType) {
 // players passing the filter chain. Matches TS Npc.huntPlayers at
 // Engine-TS/.../Npc.ts:921-973.
 //
-// Filter coverage (NAI-8):
-//   - Range + level match: always
-//   - checkAfk: via p.IsZonesAfk (TS:935-937)
+// Filter coverage:
+//   - Range + level match:     always
+//   - checkAfk                 (NAI-8,  TS:935-937)
+//   - CheckVis LoS/LoW         (NAI-12, TS per ScriptIterators.ts:88-94)
+//   - Outer combat guard       (NAI-15, TS:942)
+//   - checkNotCombat           (NAI-15, TS:943-945)
+//   - checkVars                (NAI-15, TS:950-957)
 //
-// CheckVis (NAI-12): LoS/LoW gate wired per TS
-// ScriptIterators.ts:88-94 with the TS player-as-source /
-// NPC-as-dest argument swap quirk preserved — see gate at the
-// filter chain below.
+// CheckVis (NAI-12) preserves the TS player-as-source / NPC-as-dest
+// argument swap quirk — see FIDELITY note at the gate below.
 //
-// Filters DEFERRED to future audit pass (Go infrastructure
-// missing; each TS line cited):
-//   - checkNotBusy (TS:931-933)       — no Player.Busy()
-//   - checkNotTooStrong (TS:939-941)  — wilderness + combat
-//   - checkNotCombat (TS:943-945)     — varp+8-tick window
-//   - checkNotCombatSelf (TS:946-948) — varp+8-tick window
-//   - checkVars (TS:950-957)          — varp condition chain
-//   - checkInv (TS:959-969)           — inventory queries
+// Filters DEFERRED (infra missing; each TS line cited):
+//   - checkNotBusy             (TS:931-933)       — no Player.Busy()
+//   - checkNotTooStrong        (TS:939-941)       — wilderness + combat-level
+//   - checkNotCombatSelf       (TS:946-948)       — needs NPC-vars infra
+//                                                   (VarNpcType, Npc.vars, Npc.Varp)
+//   - checkInv                 (TS:959-969)       — inventory queries
 //
 // NAI-8 dispatches NO scripts. TS huntPlayers is a config-driven
 // filter pipeline, not a script runner.
@@ -155,6 +155,28 @@ func (n *Npc) huntPlayers(s *Server, hunt *objtype.HuntType) []entity {
 				n.level, p.x, p.z, n.x, n.z, 1, 1, 1, 0) {
 			continue
 		}
+
+		// Outer combat guard — TS:942. Only when the candidate is not the
+		// NPC's current target AND not in a multi-combat zone.
+		// FIDELITY: when s.gamemap is nil, IsMulti can't be called. Treat
+		// as not-multi (safe default consistent with CheckVis's nil-handling
+		// in the same file), so the guard APPLIES and the combat filter
+		// fires. Note the polarity: the predicate here is "not multi"
+		// (guard wants that to be true), the opposite of CheckVis's
+		// "not obstructed".
+		applyCombatGuard := entity(p) != n.target &&
+			(s.gamemap == nil || !s.gamemap.IsMulti(p.x, p.z, p.level))
+		if applyCombatGuard {
+			// checkNotCombat (TS:943-945): skip players whose last-combat
+			// varp was written within the past 8 ticks.
+			if hunt.CheckNotCombat != -1 &&
+				int(p.Varp(hunt.CheckNotCombat))+8 > s.currentTick {
+				continue
+			}
+			// checkNotCombatSelf (TS:946-948) — DEFERRED: requires NPC-vars
+			// infra (VarNpcType, Npc.vars, Npc.Varp). See nai_followups.md.
+		}
+
 		// checkVars (TS:950-957): AND-chain of varp/operator/value predicates.
 		// Nil/empty CheckVars → no-op (ranging nil slice yields zero iterations,
 		// matching TS empty-`every` → true semantics).

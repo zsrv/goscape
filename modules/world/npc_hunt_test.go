@@ -354,7 +354,7 @@ func TestHuntPlayersCheckVisLineOfSightPasses(t *testing.T) {
 	// Task 1 fixture-ordering convention: seed entity, THEN AllocateIfAbsent.
 	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(n.x, n.z, n.level)
 
-	hunt := &objtype.HuntType{CheckVis: objtype.HuntVisLineOfSight}
+	hunt := &objtype.HuntType{CheckVis: objtype.HuntVisLineOfSight, CheckNotCombat: -1}
 	hunted := n.huntPlayers(s, hunt)
 
 	if len(hunted) != 1 {
@@ -373,7 +373,7 @@ func TestHuntPlayersCheckVisLineOfSightBlocks(t *testing.T) {
 	_ = addPlayerToServer(t, s, 1, n.x, n.z+2, n.level)
 	withBlockingWall(t, s, 3094, 3107, 0) // mid-tile blocker
 
-	hunt := &objtype.HuntType{CheckVis: objtype.HuntVisLineOfSight}
+	hunt := &objtype.HuntType{CheckVis: objtype.HuntVisLineOfSight, CheckNotCombat: -1}
 	hunted := n.huntPlayers(s, hunt)
 
 	if len(hunted) != 0 {
@@ -411,7 +411,7 @@ func TestHuntPlayersCheckVisArgumentOrderSwapQuirk(t *testing.T) {
 	// DIRECTIONAL blocker (not withBlockingWall which is bidirectional).
 	s.gamemap.Pathfinder.Flags.Add(3094, 3107, 0, collision.FlagWallNorthProjBlocker)
 
-	hunt := &objtype.HuntType{CheckVis: objtype.HuntVisLineOfSight}
+	hunt := &objtype.HuntType{CheckVis: objtype.HuntVisLineOfSight, CheckNotCombat: -1}
 	hunted := n.huntPlayers(s, hunt)
 
 	if len(hunted) != 0 {
@@ -439,7 +439,7 @@ func TestHuntPlayersCheckVars(t *testing.T) {
 
 	t.Run("nil-checkvars-no-filter", func(t *testing.T) {
 		_, n, _ := setup(t, []int32{0})
-		hunt := &objtype.HuntType{} // CheckVars nil
+		hunt := &objtype.HuntType{CheckNotCombat: -1} // CheckVars nil
 		hunted := n.huntPlayers(n.server, hunt)
 		if len(hunted) != 1 {
 			t.Fatalf("got %d, want 1 (nil CheckVars → no filter)", len(hunted))
@@ -448,7 +448,7 @@ func TestHuntPlayersCheckVars(t *testing.T) {
 
 	t.Run("single-entry-passes", func(t *testing.T) {
 		_, n, _ := setup(t, []int32{5})
-		hunt := &objtype.HuntType{CheckVars: []objtype.HuntCheckVar{
+		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckVars: []objtype.HuntCheckVar{
 			{VarID: 0, Condition: ">", Val: 3},
 		}}
 		hunted := n.huntPlayers(n.server, hunt)
@@ -459,7 +459,7 @@ func TestHuntPlayersCheckVars(t *testing.T) {
 
 	t.Run("single-entry-fails", func(t *testing.T) {
 		_, n, _ := setup(t, []int32{5})
-		hunt := &objtype.HuntType{CheckVars: []objtype.HuntCheckVar{
+		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckVars: []objtype.HuntCheckVar{
 			{VarID: 0, Condition: ">", Val: 10},
 		}}
 		hunted := n.huntPlayers(n.server, hunt)
@@ -470,7 +470,7 @@ func TestHuntPlayersCheckVars(t *testing.T) {
 
 	t.Run("two-entries-both-pass", func(t *testing.T) {
 		_, n, _ := setup(t, []int32{5, 7})
-		hunt := &objtype.HuntType{CheckVars: []objtype.HuntCheckVar{
+		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckVars: []objtype.HuntCheckVar{
 			{VarID: 0, Condition: ">", Val: 3},
 			{VarID: 1, Condition: "=", Val: 7},
 		}}
@@ -482,7 +482,7 @@ func TestHuntPlayersCheckVars(t *testing.T) {
 
 	t.Run("two-entries-second-fails", func(t *testing.T) {
 		_, n, _ := setup(t, []int32{5, 7})
-		hunt := &objtype.HuntType{CheckVars: []objtype.HuntCheckVar{
+		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckVars: []objtype.HuntCheckVar{
 			{VarID: 0, Condition: ">", Val: 3}, // pass
 			{VarID: 1, Condition: "=", Val: 9}, // fail
 		}}
@@ -494,7 +494,7 @@ func TestHuntPlayersCheckVars(t *testing.T) {
 
 	t.Run("varid-minus-one-short-circuits", func(t *testing.T) {
 		_, n, _ := setup(t, []int32{5})
-		hunt := &objtype.HuntType{CheckVars: []objtype.HuntCheckVar{
+		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckVars: []objtype.HuntCheckVar{
 			// VarID == -1 must pass without reading any varp, regardless of
 			// the Condition/Val. TS Npc.ts:953 `checkVar.varId === -1 ||` short-circuit.
 			{VarID: -1, Condition: ">", Val: 999},
@@ -503,6 +503,155 @@ func TestHuntPlayersCheckVars(t *testing.T) {
 		hunted := n.huntPlayers(n.server, hunt)
 		if len(hunted) != 1 {
 			t.Fatalf("got %d, want 1 (VarID=-1 entry skipped, second passes)", len(hunted))
+		}
+	})
+}
+
+// TestHuntPlayersCheckNotCombat guards the 8-tick combat-window filter
+// at TS Npc.ts:943-945. When the outer guard applies (see
+// TestHuntPlayersCombatGuard), a player whose last-combat varp was
+// written within [currentTick-7, currentTick] is filtered; at
+// currentTick-8 and earlier, they pass.
+func TestHuntPlayersCheckNotCombat(t *testing.T) {
+	// Helper: build a Server/Npc/Player with gamemap+non-multi guard so
+	// the outer combat guard APPLIES (i.e., the checkNotCombat filter
+	// actually runs). varpVal seeds p.varps[0].
+	setup := func(t *testing.T, currentTick int, varpVal int32) (*Server, *Npc, *Player) {
+		t.Helper()
+		s := newServerForScriptTest(t)
+		s.gamemap = gamemap.New(discardLogger())
+		s.currentTick = currentTick
+		n := newNpcForLifecycleTest(t)
+		n.server = s
+		n.x, n.z, n.level = 3094, 3106, 0
+		n.huntRange = 10
+		n.target = nil // guard applies (target != p) → filter fires
+		p := addPlayerToServer(t, s, 1, n.x+2, n.z+2, n.level)
+		p.varps = []int32{varpVal}
+		return s, n, p
+	}
+
+	t.Run("default-minus-one-disables", func(t *testing.T) {
+		_, n, _ := setup(t, 100, 100) // varp written this tick
+		hunt := &objtype.HuntType{CheckNotCombat: -1}
+		hunted := n.huntPlayers(n.server, hunt)
+		if len(hunted) != 1 {
+			t.Fatalf("got %d, want 1 (CheckNotCombat=-1 disables filter)", len(hunted))
+		}
+	})
+
+	t.Run("varp-this-tick-excluded", func(t *testing.T) {
+		_, n, _ := setup(t, 100, 100) // 100+8 > 100 → fire
+		hunt := &objtype.HuntType{CheckNotCombat: 0}
+		hunted := n.huntPlayers(n.server, hunt)
+		if len(hunted) != 0 {
+			t.Fatalf("got %d, want 0 (varp==currentTick → within 8-tick window)", len(hunted))
+		}
+	})
+
+	t.Run("varp-minus-seven-excluded", func(t *testing.T) {
+		_, n, _ := setup(t, 100, 93) // 93+8 = 101 > 100 → fire
+		hunt := &objtype.HuntType{CheckNotCombat: 0}
+		hunted := n.huntPlayers(n.server, hunt)
+		if len(hunted) != 0 {
+			t.Fatalf("got %d, want 0 (varp==currentTick-7 → window-inclusive, filter fires)", len(hunted))
+		}
+	})
+
+	t.Run("varp-minus-eight-included", func(t *testing.T) {
+		_, n, _ := setup(t, 100, 92) // 92+8 = 100, 100 > 100 is false → pass
+		hunt := &objtype.HuntType{CheckNotCombat: 0}
+		hunted := n.huntPlayers(n.server, hunt)
+		if len(hunted) != 1 {
+			t.Fatalf("got %d, want 1 (varp==currentTick-8 → exclusive boundary, filter passes)", len(hunted))
+		}
+	})
+
+	t.Run("varp-zero-well-past-window-included", func(t *testing.T) {
+		_, n, _ := setup(t, 100, 0) // fresh player, no combat recorded
+		hunt := &objtype.HuntType{CheckNotCombat: 0}
+		hunted := n.huntPlayers(n.server, hunt)
+		if len(hunted) != 1 {
+			t.Fatalf("got %d, want 1 (varp==0, currentTick=100 → well past window)", len(hunted))
+		}
+	})
+}
+
+// TestHuntPlayersCombatGuard guards the outer multi-zone/target-equality
+// guard at TS Npc.ts:942. When the guard is SKIPPED (target==p OR
+// IsMulti(p) returns true), the inner combat filters (checkNotCombat
+// and the deferred checkNotCombatSelf) do NOT run — even if they would
+// otherwise fire. When the guard APPLIES, the combat filters run.
+//
+// All sub-cases use a CheckNotCombat setup that WOULD filter the player
+// (varp written at currentTick) to make the guard's effect observable.
+func TestHuntPlayersCombatGuard(t *testing.T) {
+	setup := func(t *testing.T) (*Server, *Npc, *Player) {
+		t.Helper()
+		s := newServerForScriptTest(t)
+		s.gamemap = gamemap.New(discardLogger())
+		s.currentTick = 100
+		n := newNpcForLifecycleTest(t)
+		n.server = s
+		n.x, n.z, n.level = 3094, 3106, 0
+		n.huntRange = 10
+		n.target = nil
+		p := addPlayerToServer(t, s, 1, n.x+2, n.z+2, n.level)
+		p.varps = []int32{100} // varp==currentTick → filter would fire if guard applies
+		return s, n, p
+	}
+
+	hunt := &objtype.HuntType{CheckNotCombat: 0}
+
+	t.Run("target-equals-player-skips-guard", func(t *testing.T) {
+		_, n, p := setup(t)
+		n.target = p // guard SKIPPED (target == p)
+		hunted := n.huntPlayers(n.server, hunt)
+		if len(hunted) != 1 {
+			t.Fatalf("got %d, want 1 (target==p → guard skipped, filter does not fire)", len(hunted))
+		}
+	})
+
+	t.Run("ismulti-true-skips-guard", func(t *testing.T) {
+		s, n, p := setup(t)
+		s.gamemap.SetMulti(p.x, p.z, p.level, true) // guard SKIPPED (multi-combat zone)
+		hunted := n.huntPlayers(s, hunt)
+		if len(hunted) != 1 {
+			t.Fatalf("got %d, want 1 (IsMulti=true → guard skipped, filter does not fire)", len(hunted))
+		}
+	})
+
+	t.Run("target-nil-applies-guard", func(t *testing.T) {
+		_, n, _ := setup(t)
+		n.target = nil
+		hunted := n.huntPlayers(n.server, hunt)
+		if len(hunted) != 0 {
+			t.Fatalf("got %d, want 0 (target==nil → guard applies, filter fires)", len(hunted))
+		}
+	})
+
+	t.Run("target-is-different-player-applies-guard", func(t *testing.T) {
+		s, n, _ := setup(t)
+		other := addPlayerToServer(t, s, 2, n.x+5, n.z+5, n.level)
+		n.target = other
+		hunted := n.huntPlayers(s, hunt)
+		// Candidate (slot 1) filtered; the other (slot 2) is the NPC's
+		// current target AND passes the combat guard-skip, so it bypasses
+		// the combat filter. Expected: exactly slot 2 returned.
+		if len(hunted) != 1 {
+			t.Fatalf("got %d, want 1 (target=other → candidate filtered, other passes)", len(hunted))
+		}
+		if hunted[0].Slot() != other.slot {
+			t.Errorf("hunted[0]: got slot %d, want slot %d (the target-player)", hunted[0].Slot(), other.slot)
+		}
+	})
+
+	t.Run("gamemap-nil-applies-guard", func(t *testing.T) {
+		_, n, _ := setup(t)
+		n.server.gamemap = nil // fidelity: nil gamemap treats as not-multi
+		hunted := n.huntPlayers(n.server, hunt)
+		if len(hunted) != 0 {
+			t.Fatalf("got %d, want 0 (gamemap==nil → guard applies, filter fires)", len(hunted))
 		}
 	})
 }
