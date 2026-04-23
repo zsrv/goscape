@@ -429,3 +429,30 @@ func TestLoadHuntTypesMissingFile(t *testing.T) {
 		t.Errorf("ConfigNames: got nil, want empty map")
 	}
 }
+
+func TestHuntTypeCheckHuntCondition(t *testing.T) {
+	ht := &HuntType{}
+
+	cases := []struct {
+		name      string
+		value     int
+		condition string
+		check     int
+		want      bool
+	}{
+		{name: "greater-than-true", value: 5, condition: ">", check: 3, want: true},
+		{name: "less-than-false", value: 5, condition: "<", check: 3, want: false},
+		{name: "equal-true", value: 7, condition: "=", check: 7, want: true},
+		{name: "not-equal-true", value: 7, condition: "!", check: 8, want: true},
+		{name: "unknown-operator-false", value: 5, condition: "??", check: 5, want: false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := ht.CheckHuntCondition(tc.value, tc.condition, tc.check); got != tc.want {
+				t.Errorf("CheckHuntCondition(%d, %q, %d): got %v, want %v",
+					tc.value, tc.condition, tc.check, got, tc.want)
+			}
+		})
+	}
+}

@@ -199,3 +199,24 @@ func parseHuntTypes(server *packet.Packet) (*HuntTypeConfigs, error) {
 		Configs:     configs,
 	}, nil
 }
+
+// CheckHuntCondition evaluates condition against (value, checkValue) using the
+// hunt-config operator string. Mirrors TS HuntType.checkHuntCondition at
+// Engine-TS/src/cache/config/HuntType.ts:63-75. Unknown operators return
+// false (TS default-case behavior — fail-closed for malformed hunt data).
+//
+// Used by huntPlayers's CheckVars filter (TS Npc.ts:950-957) and, once
+// inventory infra lands, CheckInv (TS Npc.ts:959-969).
+func (t *HuntType) CheckHuntCondition(value int, condition string, checkValue int) bool {
+	switch condition {
+	case ">":
+		return value > checkValue
+	case "<":
+		return value < checkValue
+	case "=":
+		return value == checkValue
+	case "!":
+		return value != checkValue
+	}
+	return false
+}
