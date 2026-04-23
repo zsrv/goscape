@@ -127,6 +127,89 @@ func newNpcWithType(typeId, category int) *Npc {
 	return NewNpc(2, typeId, 101, 100, 0, typ)
 }
 
+// Obj-target fire helper tests --------------------------------------------
+// addObjToZone is defined in npc_hunt_entities_test.go and reused here.
+
+func TestFireAiOpTriggerObjHappyPath(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpObj1, 88, "aiop-obj"))
+
+	n := newNpcForScriptTest(t)
+	n.server = s
+	n.targetOp = objtype.NPCModeOpObj1
+
+	obj := addObjToZone(t, s, 0, 101, 100, 88, 0)
+	n.target = obj
+	n.targetSubject.typ = obj.Type
+
+	n.fireAiOpTriggerObj(s, obj)
+
+	if string(n.sayText) != "aiop-obj" {
+		t.Errorf("sayText: got %q, want %q", n.sayText, "aiop-obj")
+	}
+}
+
+func TestFireAiOpTriggerObjNoScriptClears(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+
+	n := newNpcForScriptTest(t)
+	n.server = s
+	n.targetOp = objtype.NPCModeOpObj1
+
+	obj := addObjToZone(t, s, 0, 101, 100, 88, 0)
+	n.target = obj
+
+	n.fireAiOpTriggerObj(s, obj)
+
+	if n.target != nil {
+		t.Error("target: expected nil after no-script-found clearInteraction")
+	}
+}
+
+func TestFireAiOpTriggerObjZoneStaleClears(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpObj1, 88, "aiop-obj"))
+
+	n := newNpcForScriptTest(t)
+	n.server = s
+	n.targetOp = objtype.NPCModeOpObj1
+
+	obj := addObjToZone(t, s, 0, 101, 100, 88, 0)
+	n.target = obj
+
+	// Evict from zone.
+	zn := s.zoneMap.Get(0, 101, 100)
+	zn.Objs = nil
+
+	n.fireAiOpTriggerObj(s, obj)
+
+	if n.target != nil {
+		t.Error("target: expected nil after zone-stale clearInteraction")
+	}
+}
+
+func TestFireAiApTriggerObjHappyPath(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiApObj1, 88, "aiap-obj"))
+
+	n := newNpcForScriptTest(t)
+	n.server = s
+	n.targetOp = objtype.NPCModeApObj1
+
+	obj := addObjToZone(t, s, 0, 101, 100, 88, 0)
+	n.target = obj
+
+	n.fireAiApTriggerObj(s, obj)
+
+	if string(n.sayText) != "aiap-obj" {
+		t.Errorf("sayText: got %q, want %q", n.sayText, "aiap-obj")
+	}
+}
+
 // Loc-target fire helper tests --------------------------------------------
 // addLocToZone is defined in npc_hunt_entities_test.go and reused here.
 

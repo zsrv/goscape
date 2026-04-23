@@ -6,6 +6,65 @@ import (
 	"github.com/zsrv/goscape/pkg/script"
 )
 
+// fireAiOpTriggerObj fires AI_OPOBJ1..5 for an Obj target. Lifecycle
+// gate via objStillValid (zone-membership). Category resolved through
+// the ObjType registry when available; defaults to 0.
+func (n *Npc) fireAiOpTriggerObj(s *Server, target *entitypkg.Obj) {
+	tx, tz, tlevel := target.Coords()
+	if !objStillValid(s, target, tx, tz, tlevel) {
+		n.clearInteraction()
+		return
+	}
+	trigger := aiOpObjTriggerForOp(n.targetOp)
+	if trigger == 0 {
+		n.clearInteraction()
+		return
+	}
+	category := objCategory(s, target.Type)
+	sf := s.scriptProvider.GetByTrigger(trigger, target.Type, category)
+	if sf == nil {
+		n.clearInteraction()
+		return
+	}
+	s.runNpcScript(sf, n, target, nil, nil)
+}
+
+// fireAiApTriggerObj fires AI_APOBJ1..5 for an Obj target — approach-
+// range counterpart.
+func (n *Npc) fireAiApTriggerObj(s *Server, target *entitypkg.Obj) {
+	tx, tz, tlevel := target.Coords()
+	if !objStillValid(s, target, tx, tz, tlevel) {
+		n.clearInteraction()
+		return
+	}
+	trigger := aiApObjTriggerForOp(n.targetOp)
+	if trigger == 0 {
+		n.clearInteraction()
+		return
+	}
+	category := objCategory(s, target.Type)
+	sf := s.scriptProvider.GetByTrigger(trigger, target.Type, category)
+	if sf == nil {
+		n.clearInteraction()
+		return
+	}
+	s.runNpcScript(sf, n, target, nil, nil)
+}
+
+// objCategory resolves an obj's category through the server's ObjType
+// registry. Returns 0 if the registry is nil or the id is out of range
+// — matches the defensive access pattern at handler_oploc.go:275-276.
+func objCategory(s *Server, objType int) int {
+	if s.objTypes == nil || objType < 0 || objType >= len(s.objTypes.Configs) {
+		return 0
+	}
+	ot := s.objTypes.Configs[objType]
+	if ot == nil {
+		return 0
+	}
+	return ot.Category
+}
+
 // fireAiOpTriggerLoc fires AI_OPLOC1..5 for a Loc target. Lifecycle
 // gate via locStillValid (zone-membership + type match). Category
 // resolved through the LocType registry (Loc carries only a packed
