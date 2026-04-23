@@ -98,30 +98,6 @@ func TestProcessMovementInteractionWanderInvokesWanderMode(t *testing.T) {
 	}
 }
 
-func TestProcessMovementInteractionPlayerModesResetToDefault(t *testing.T) {
-	s := newServerForScriptTest(t)
-	typ := &objtype.NpcType{WanderRange: 5, MaxRange: 50}
-	n := NewNpc(1, 42, 100, 100, 0, typ)
-	n.server = s
-
-	target := &Npc{nid: 7, typeId: 99, x: 101, z: 100, level: 0}
-	n.target = target
-	// PLAYERESCAPE is the sole remaining deferred PLAYER* mode after
-	// NAI-13 Tasks 3-5 landed PLAYERFACE / PLAYERFACECLOSE / PLAYERFOLLOW.
-	// It still routes to resetDefaults until NAI-13 Task 6.
-	n.targetOp = objtype.NPCModePlayerEscape
-	n.targetSubject.typ = target.typeId
-
-	n.processMovementInteraction(s)
-
-	if n.targetOp != objtype.NPCModeWander {
-		t.Errorf("PLAYER* mode: targetOp=%d, want NPCModeWander (resetDefaults)", n.targetOp)
-	}
-	if n.target != nil {
-		t.Error("PLAYER* mode: target not cleared")
-	}
-}
-
 func TestProcessMovementInteractionNilTargetResetsDefaults(t *testing.T) {
 	s := newServerForScriptTest(t)
 	typ := &objtype.NpcType{WanderRange: 5}

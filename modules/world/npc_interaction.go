@@ -138,12 +138,8 @@ func (n *Npc) patrolMode(s *Server) {
 //  3. Null-targetOp failsafe → defaultMode.
 //  4. Targetless modes (None / Wander / Patrol).
 //  5. Targeted-mode prelude (target-nil or validateTarget-fail → resetDefaults).
-//  6. Targeted-mode dispatch: PLAYER* modes reset to default (deferred);
+//  6. Targeted-mode dispatch: PLAYER* modes → dedicated methods (NAI-13);
 //     everything else routes to aiMode.
-//
-// DEVIATION: PLAYERESCAPE / PLAYERFOLLOW / PLAYERFACE / PLAYERFACECLOSE
-// modes are out of scope for NAI-11 (Q1 scope decision) and fall through
-// to resetDefaults. Tracked follow-up.
 func (n *Npc) processMovementInteraction(s *Server) {
 	if n.delayed || n.dead {
 		return
@@ -178,8 +174,7 @@ func (n *Npc) processMovementInteraction(s *Server) {
 	// Targeted-mode dispatch.
 	switch n.targetOp {
 	case objtype.NPCModePlayerEscape:
-		// NAI-13: PLAYERESCAPE lands in Task 6.
-		n.resetDefaults()
+		n.playerEscapeMode(s)
 	case objtype.NPCModePlayerFollow:
 		n.playerFollowMode(s)
 	case objtype.NPCModePlayerFace:

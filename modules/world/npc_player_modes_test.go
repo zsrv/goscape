@@ -8,7 +8,9 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
+	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
@@ -343,5 +345,249 @@ func TestProcessMovementInteractionDispatchPlayerFollow(t *testing.T) {
 	}
 	if n.waypointIndex != 0 {
 		t.Errorf("waypointIndex: got %d, want 0 (pathToTarget should have queued a waypoint)", n.waypointIndex)
+	}
+}
+
+// TestPlayerEscapeQuadrantPosXPosZ — NAI-13 Task 6.
+// TS Npc.ts:758-760: when target.x >= npc.x AND target.z >= npc.z,
+// direction = SOUTH_WEST; NPC candidate tile is (nx-1, nz-1).
+// In RS coord semantics this is: target is NE of NPC → NPC flees SW.
+func TestPlayerEscapeQuadrantPosXPosZ(t *testing.T) {
+	s, n, p := playerModeFixture(t)
+	n.x, n.z = 3100, 3100
+	n.startX, n.startZ = 3100, 3100
+	p.x, p.z = 3101, 3101 // target at (npc.x+1, npc.z+1)
+	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerEscape, 0)
+
+	n.playerEscapeMode(s)
+
+	// Note: waypointIndex may be -1 here if updateMovement consumed the
+	// single-tile diagonal step — waypoints[0] retains the packed coord
+	// regardless. Other quadrant tests below omit the waypointIndex check
+	// for the same reason.
+	pos := coordgrid.UnpackCoord(n.waypoints[0])
+	if pos.X != 3099 || pos.Z != 3099 {
+		t.Errorf("waypoint: got (%d, %d), want (3099, 3099) [NE target → SW flee delta (-1, -1)]", pos.X, pos.Z)
+	}
+}
+
+// TestPlayerEscapeQuadrantPosXNegZ — NAI-13 Task 6. TS :761-763.
+// target.x >= npc.x AND target.z < npc.z → direction = NORTH_WEST;
+// candidate (nx-1, nz+1). Target SE of NPC → NPC flees NW.
+func TestPlayerEscapeQuadrantPosXNegZ(t *testing.T) {
+	s, n, p := playerModeFixture(t)
+	n.x, n.z = 3100, 3100
+	n.startX, n.startZ = 3100, 3100
+	p.x, p.z = 3101, 3099 // target at (npc.x+1, npc.z-1)
+	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerEscape, 0)
+
+	n.playerEscapeMode(s)
+
+	pos := coordgrid.UnpackCoord(n.waypoints[0])
+	if pos.X != 3099 || pos.Z != 3101 {
+		t.Errorf("waypoint: got (%d, %d), want (3099, 3101) [SE target → NW flee delta (-1, +1)]", pos.X, pos.Z)
+	}
+}
+
+// TestPlayerEscapeQuadrantNegXPosZ — NAI-13 Task 6. TS :764-766.
+// target.x < npc.x AND target.z >= npc.z → direction = SOUTH_EAST;
+// candidate (nx+1, nz-1). Target NW of NPC → NPC flees SE.
+func TestPlayerEscapeQuadrantNegXPosZ(t *testing.T) {
+	s, n, p := playerModeFixture(t)
+	n.x, n.z = 3100, 3100
+	n.startX, n.startZ = 3100, 3100
+	p.x, p.z = 3099, 3101
+	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerEscape, 0)
+
+	n.playerEscapeMode(s)
+
+	pos := coordgrid.UnpackCoord(n.waypoints[0])
+	if pos.X != 3101 || pos.Z != 3099 {
+		t.Errorf("waypoint: got (%d, %d), want (3101, 3099) [NW target → SE flee delta (+1, -1)]", pos.X, pos.Z)
+	}
+}
+
+// TestPlayerEscapeQuadrantNegXNegZ — NAI-13 Task 6. TS :767-770.
+// target.x < npc.x AND target.z < npc.z → direction = NORTH_EAST;
+// candidate (nx+1, nz+1). Target SW of NPC → NPC flees NE.
+func TestPlayerEscapeQuadrantNegXNegZ(t *testing.T) {
+	s, n, p := playerModeFixture(t)
+	n.x, n.z = 3100, 3100
+	n.startX, n.startZ = 3100, 3100
+	p.x, p.z = 3099, 3099
+	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerEscape, 0)
+
+	n.playerEscapeMode(s)
+
+	pos := coordgrid.UnpackCoord(n.waypoints[0])
+	if pos.X != 3101 || pos.Z != 3101 {
+		t.Errorf("waypoint: got (%d, %d), want (3101, 3101) [SW target → NE flee delta (+1, +1)]", pos.X, pos.Z)
+	}
+}
+
+// TestPlayerEscapeDistanceGateAbandons — NAI-13 Task 6. TS Npc.ts:751-754.
+// When the NPC is already 25+ SW-tiles from the target, resetDefaults fires
+// (interaction ends). SW-distance = max(|dx|, |dz|) per coordgrid.DistanceToSW.
+func TestPlayerEscapeDistanceGateAbandons(t *testing.T) {
+	s, n, p := playerModeFixture(t)
+	n.x, n.z = 3100, 3100
+	n.startX, n.startZ = 3100, 3100
+	p.x, p.z = 3126, 3100 // dx=26 > 25
+	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerEscape, 0)
+
+	n.playerEscapeMode(s)
+
+	if n.target != nil {
+		t.Errorf("target: got %v, want nil (distance-gate should have resetDefaults'd)", n.target)
+	}
+	if n.waypointIndex != -1 {
+		t.Errorf("waypointIndex: got %d, want -1 (no waypoint on abandon)", n.waypointIndex)
+	}
+}
+
+// withWallFlag installs a single directional wall flag at (x, z, level).
+// Unlike withBlockingWall (which is bidirectional LoS+LoW), this seeds
+// exactly one flag bit — the PLAYERESCAPE wall-check test requires a
+// direction-pair match against the quadrant's WALL_{N|S}|WALL_{E|W} mask.
+// The NPC's own tile's zone must be allocated so Get() returns tile-level
+// flags (not FlagNull).
+func withWallFlag(t *testing.T, s *Server, x, z, level, flag int) {
+	t.Helper()
+	s.gamemap.Pathfinder.Flags.Add(x, z, level, flag)
+}
+
+// TestPlayerEscapeBlockedByWallResetsDefaults — NAI-13 Task 6.
+// TS Npc.ts:775-778: when the candidate flee tile's wall flags match the
+// quadrant's direction-pair, resetDefaults fires instead of a waypoint.
+// Setup: target at (+1, +1) → direction SW → candidate tile (nx-1, nz-1) →
+// flags WALL_SOUTH | WALL_WEST must trigger the reject.
+func TestPlayerEscapeBlockedByWallResetsDefaults(t *testing.T) {
+	s, n, p := playerModeFixture(t)
+	s.gamemap = gamemap.New(discardLogger())
+	n.x, n.z = 3100, 3100
+	n.startX, n.startZ = 3100, 3100
+	p.x, p.z = 3101, 3101 // target at (+1, +1) → flee to (3099, 3099)
+
+	// Seed the candidate tile with WALL_SOUTH|WALL_WEST so IsFlagged returns true.
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3099, 3099, 0)
+	withWallFlag(t, s, 3099, 3099, 0, collision.FlagWallSouth|collision.FlagWallWest)
+
+	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerEscape, 0)
+
+	n.playerEscapeMode(s)
+
+	if n.target != nil {
+		t.Errorf("target: got %v, want nil (wall-check should resetDefaults)", n.target)
+	}
+	if n.waypointIndex != -1 {
+		t.Errorf("waypointIndex: got %d, want -1 (no waypoint on wall block)", n.waypointIndex)
+	}
+}
+
+// TestPlayerEscapeWithinMaxRangeQueuesDiagonal — NAI-13 Task 6.
+// TS Npc.ts:780-790: candidate tile within DistanceToSW of startXZ <
+// typ.MaxRange → queue the diagonal waypoint and stop.
+// Setup: startX,Z = 3100,3100; MaxRange = 10; target at (+1, +1) →
+// candidate (3099, 3099); distance from start = max(|nx-1-startX|, |nz-1-startZ|)
+// = 1 < 10 → diagonal waypoint.
+func TestPlayerEscapeWithinMaxRangeQueuesDiagonal(t *testing.T) {
+	s, n, p := playerModeFixture(t)
+	n.x, n.z = 3100, 3100
+	n.startX, n.startZ = 3100, 3100
+	n.typ.MaxRange = 10
+	p.x, p.z = 3101, 3101
+	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerEscape, 0)
+
+	n.playerEscapeMode(s)
+
+	pos := coordgrid.UnpackCoord(n.waypoints[0])
+	if pos.X != 3099 || pos.Z != 3099 {
+		t.Errorf("waypoint: got (%d, %d), want (3099, 3099) [within-maxrange diagonal]", pos.X, pos.Z)
+	}
+}
+
+// TestPlayerEscapeBeyondMaxRangeNorthAxisFallback — NAI-13 Task 6.
+// TS Npc.ts:793-794: direction NE or NW + candidate beyond MaxRange of
+// startXZ → single-axis fallback on Z (queue at (n.x, mz) — keep X fixed).
+// Setup: NPC at startXZ; target at (-5, -5) so direction is NE;
+// candidate is (nx+1, nz+1) = (3101, 3101). MaxRange = 0 forces the
+// fallback. Fallback waypoint: (n.x, mz) = (3100, 3101).
+func TestPlayerEscapeBeyondMaxRangeNorthAxisFallback(t *testing.T) {
+	s, n, p := playerModeFixture(t)
+	n.x, n.z = 3100, 3100
+	n.startX, n.startZ = 3100, 3100
+	n.typ.MaxRange = 0 // candidate's distance-from-start (=1) >= MaxRange → fallback
+	p.x, p.z = 3095, 3095 // target to NE direction (tx < nx && tz < nz)
+	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerEscape, 0)
+
+	n.playerEscapeMode(s)
+
+	pos := coordgrid.UnpackCoord(n.waypoints[0])
+	if pos.X != 3100 || pos.Z != 3101 {
+		t.Errorf("waypoint: got (%d, %d), want (3100, 3101) [NE/NW fallback on Z axis]", pos.X, pos.Z)
+	}
+}
+
+// TestPlayerEscapeBeyondMaxRangeSouthAxisFallback — NAI-13 Task 6.
+// TS Npc.ts:795-796: direction SE or SW + beyond MaxRange → fallback on
+// X axis (queue at (mx, n.z)). Setup: target at (+5, +5) → direction SW
+// → candidate (nx-1, nz-1). MaxRange = 0 forces fallback: (3099, 3100).
+func TestPlayerEscapeBeyondMaxRangeSouthAxisFallback(t *testing.T) {
+	s, n, p := playerModeFixture(t)
+	n.x, n.z = 3100, 3100
+	n.startX, n.startZ = 3100, 3100
+	n.typ.MaxRange = 0
+	p.x, p.z = 3105, 3105 // SW direction
+	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerEscape, 0)
+
+	n.playerEscapeMode(s)
+
+	pos := coordgrid.UnpackCoord(n.waypoints[0])
+	if pos.X != 3099 || pos.Z != 3100 {
+		t.Errorf("waypoint: got (%d, %d), want (3099, 3100) [SE/SW fallback on X axis]", pos.X, pos.Z)
+	}
+}
+
+// TestPlayerEscapeNonPlayerTargetLogsAndReturns — NAI-13 Task 6.
+// Type-guard. TS Npc.ts:748 throws; Go logs + returns.
+func TestPlayerEscapeNonPlayerTargetLogsAndReturns(t *testing.T) {
+	s, n, _ := playerModeFixture(t)
+	other := newTestNpc(2)
+	n.target = other
+	n.targetOp = objtype.NPCModePlayerEscape
+
+	n.playerEscapeMode(s)
+
+	if n.waypointIndex != -1 {
+		t.Errorf("waypointIndex: got %d, want -1 (no waypoint on non-Player target)", n.waypointIndex)
+	}
+	if n.target != other {
+		t.Error("target: mutated on non-Player input")
+	}
+}
+
+// TestProcessMovementInteractionDispatchPlayerEscape — NAI-13 Task 6.
+// Target within retreat-maxrange (so validateTarget passes) but past the
+// 25-tile abandon gate (so playerEscapeMode's first check fires and
+// resetDefaults). Proves the dispatch switch routes to playerEscapeMode
+// (not the fallback resetDefaults stub which would also nil target but
+// wouldn't require the specific geometry).
+//
+// Math: NPC at (3100, 3100) with startXZ = (3100, 3100) and MaxRange = 30.
+// Player at (3127, 3100): dx = 27. Retreat maxrange accepts maxAxis <=
+// maxrange+1 = 31, so validateTarget passes. NPC-to-player SW-distance
+// = 27 > 25, so playerEscapeMode's abandon gate fires.
+func TestProcessMovementInteractionDispatchPlayerEscape(t *testing.T) {
+	s, n, p := playerModeFixture(t)
+	n.x, n.z = 3100, 3100
+	n.startX, n.startZ = 3100, 3100
+	n.typ.MaxRange = 30
+	p.x, p.z = 3127, 3100
+	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerEscape, 0)
+
+	n.processMovementInteraction(s)
+
+	if n.target != nil {
+		t.Errorf("target: got %v, want nil (playerEscapeMode abandon-gate should fire)", n.target)
 	}
 }
