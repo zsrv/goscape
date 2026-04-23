@@ -127,6 +127,92 @@ func newNpcWithType(typeId, category int) *Npc {
 	return NewNpc(2, typeId, 101, 100, 0, typ)
 }
 
+// Top-level dispatcher tests ----------------------------------------------
+
+func TestFireAiOpTriggerDispatchesPlayer(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpPlayer1, 0, "disp-player"))
+
+	n := newNpcForScriptTest(t)
+	n.server = s
+	n.targetOp = objtype.NPCModeOpPlayer1
+	p := newActivePlayer(3)
+	n.target = p
+
+	n.fireAiOpTrigger(s)
+
+	if string(n.sayText) != "disp-player" {
+		t.Errorf("sayText: got %q, want %q (player branch)", n.sayText, "disp-player")
+	}
+}
+
+func TestFireAiApTriggerDispatchesNpc(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiApNpc1, 99, "disp-npc"))
+
+	n := newNpcForScriptTest(t)
+	n.server = s
+	n.targetOp = objtype.NPCModeApNpc1
+	target := newNpcWithType(99, 0)
+	n.target = target
+
+	n.fireAiApTrigger(s)
+
+	if string(n.sayText) != "disp-npc" {
+		t.Errorf("sayText: got %q, want %q (npc branch)", n.sayText, "disp-npc")
+	}
+}
+
+func TestFireAiOpTriggerDispatchesLoc(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpLoc1, 77, "disp-loc"))
+
+	n := newNpcForScriptTest(t)
+	n.server = s
+	n.targetOp = objtype.NPCModeOpLoc1
+
+	loc := addLocToZone(t, s, 0, 101, 100, 77, 0)
+	n.target = loc
+	n.targetSubject.typ = loc.Type()
+
+	n.fireAiOpTrigger(s)
+
+	if string(n.sayText) != "disp-loc" {
+		t.Errorf("sayText: got %q, want %q (loc branch)", n.sayText, "disp-loc")
+	}
+}
+
+func TestFireAiApTriggerDispatchesObj(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiApObj1, 88, "disp-obj"))
+
+	n := newNpcForScriptTest(t)
+	n.server = s
+	n.targetOp = objtype.NPCModeApObj1
+
+	obj := addObjToZone(t, s, 0, 101, 100, 88, 0)
+	n.target = obj
+
+	n.fireAiApTrigger(s)
+
+	if string(n.sayText) != "disp-obj" {
+		t.Errorf("sayText: got %q, want %q (obj branch)", n.sayText, "disp-obj")
+	}
+}
+
+func TestFireAiOpTriggerNilTargetNoOp(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForScriptTest(t)
+	n.server = s
+	n.target = nil // no crash expected
+
+	n.fireAiOpTrigger(s)
+}
+
 // Obj-target fire helper tests --------------------------------------------
 // addObjToZone is defined in npc_hunt_entities_test.go and reused here.
 

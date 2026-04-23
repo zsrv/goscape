@@ -6,6 +6,37 @@ import (
 	"github.com/zsrv/goscape/pkg/script"
 )
 
+// fireAiOpTrigger dispatches to the per-target-category OP fire helper
+// based on n.target's concrete type. Called by tryInteract when
+// targetOp is in an OP band and target is in operable distance.
+// Unknown target types silently no-op.
+func (n *Npc) fireAiOpTrigger(s *Server) {
+	switch t := n.target.(type) {
+	case *Player:
+		n.fireAiOpTriggerPlayer(s, t)
+	case *Npc:
+		n.fireAiOpTriggerNpc(s, t)
+	case *entitypkg.Loc:
+		n.fireAiOpTriggerLoc(s, t)
+	case *entitypkg.Obj:
+		n.fireAiOpTriggerObj(s, t)
+	}
+}
+
+// fireAiApTrigger — same shape as fireAiOpTrigger for the AP band.
+func (n *Npc) fireAiApTrigger(s *Server) {
+	switch t := n.target.(type) {
+	case *Player:
+		n.fireAiApTriggerPlayer(s, t)
+	case *Npc:
+		n.fireAiApTriggerNpc(s, t)
+	case *entitypkg.Loc:
+		n.fireAiApTriggerLoc(s, t)
+	case *entitypkg.Obj:
+		n.fireAiApTriggerObj(s, t)
+	}
+}
+
 // fireAiOpTriggerObj fires AI_OPOBJ1..5 for an Obj target. Lifecycle
 // gate via objStillValid (zone-membership). Category resolved through
 // the ObjType registry when available; defaults to 0.
