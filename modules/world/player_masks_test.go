@@ -215,3 +215,21 @@ func TestPlayerDamageOnZeroHP(t *testing.T) {
 		t.Error("MaskDamage bit should still flip on zero damage")
 	}
 }
+
+// TestNewPlayerSetsEntityMaskToMaskFaceEntity — NAI-14 Task 3.
+// Mirrors TS PathingEntity.ts:107 where `this.entitymask = entitymask`
+// is set at construction. For Player, this is rsbuf.MaskFaceEntity.
+// Parallel of NAI-13's TestNewNpcSetsEntityMaskToFaceEntity on the NPC
+// side — closes the Player-side latent-no-op where p.entitymask was
+// declared at player.go:115 but never assigned.
+//
+// No `p.masks |= p.entitymask` sites exist today on the Player side
+// (grep-verified), so this assignment is structural future-proofing.
+// Future Player-interaction port sub-specs that need the face-entity
+// mask bit should use `p.entitymask` (not hardcode `rsbuf.MaskFaceEntity`).
+func TestNewPlayerSetsEntityMaskToMaskFaceEntity(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	if p.entitymask != rsbuf.MaskFaceEntity {
+		t.Errorf("entitymask: got %d, want %d (MaskFaceEntity)", p.entitymask, rsbuf.MaskFaceEntity)
+	}
+}

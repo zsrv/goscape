@@ -350,6 +350,7 @@ func newPlayer(c *client) *Player {
 		exactFinish:    -1,
 		exactDir:       -1,
 		faceEntity:     -1,
+		entitymask:     rsbuf.MaskFaceEntity,
 		faceSquareX:    -1,
 		faceSquareZ:    -1,
 	}
