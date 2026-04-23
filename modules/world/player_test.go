@@ -8,6 +8,7 @@ import (
 	"time"
 
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
 func newTestPlayer(t *testing.T) (*Player, net.Conn) {
@@ -477,12 +478,33 @@ func TestWriteOutTwoByteLenPrefix(t *testing.T) {
 }
 
 func TestPlayerIsValid(t *testing.T) {
-	p := &Player{client: &client{}}
-	if !p.IsValid() {
-		t.Error("player with client: IsValid = false, want true")
+	base := func() *Player {
+		return &Player{
+			active:     true,
+			visibility: rsbuf.VisibilityDefault,
+			// loggingOut defaults false
+		}
 	}
-	p.client = nil
+
+	if !base().IsValid() {
+		t.Error("active + default-visibility + not-logging-out: IsValid = false, want true")
+	}
+
+	p := base()
+	p.loggingOut = true
 	if p.IsValid() {
-		t.Error("player without client: IsValid = true, want false")
+		t.Error("loggingOut=true: IsValid = true, want false")
+	}
+
+	p = base()
+	p.visibility = rsbuf.VisibilityHard
+	if p.IsValid() {
+		t.Error("non-default visibility: IsValid = true, want false")
+	}
+
+	p = base()
+	p.active = false
+	if p.IsValid() {
+		t.Error("active=false: IsValid = true, want false")
 	}
 }

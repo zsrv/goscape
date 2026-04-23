@@ -610,12 +610,16 @@ func (p *Player) invStopListenOnCom(com int) {
 	delete(p.invListeners, com)
 }
 
-// IsValid returns whether the player's session is live. TS Player.isValid
-// takes an optional hash64 for cross-server session checking; Go's
-// single-server case collapses to "has an attached client".
-//
-// DEVIATION: TS also checks an "online" predicate; Go has no such field
-// — the client pointer is the single source of truth for session state.
+// IsValid returns whether the player's session is live per TS semantics:
+// not logging out, default visibility, and the active flag set. Mirrors
+// TS Player.isValid (loggingOut → visibility → super.isValid() which
+// returns isActive).
 func (p *Player) IsValid() bool {
-	return p.client != nil
+	if p.loggingOut {
+		return false
+	}
+	if p.visibility != rsbuf.VisibilityDefault {
+		return false
+	}
+	return p.active
 }

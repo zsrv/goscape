@@ -289,10 +289,15 @@ func (n *Npc) revertType() {
 	}
 }
 
-// IsValid returns whether the NPC is intrinsically alive. Matches the
-// "lifecycle" half of TS Npc.isValid. The stronger TS isActive
-// additionally checks !delayed; validateTarget handles that separately
-// when the target is an *Npc.
+// IsValid returns whether the NPC's session slot is alive (!n.dead).
+// This maps to TS Entity.isActive — the base liveness flag. TS
+// Npc.isValid is the stricter predicate (additionally checks !delayed);
+// in Go that delayed-gate lives in validateTarget at the target's call
+// site.
+//
+// DEVIATION: TS isValid is a single method; in Go the "not delayed"
+// half is enforced externally rather than inline, to keep the layering
+// rule "pkg/entity knows nothing about scheduling state".
 func (n *Npc) IsValid() bool {
 	return !n.dead
 }
