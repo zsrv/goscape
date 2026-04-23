@@ -536,11 +536,6 @@ func (n *Npc) inApproachDistance(rng int, target entity) bool {
 //  7. target.IsValid() pre-check
 //
 // TS quirk preserved: `com ? com : -1` coerces 0 → -1 on subject.com.
-//
-// DEVIATION: n.entitymask is currently always 0 (the mask-plumbing
-// sub-spec will wire it), so `n.masks |= n.entitymask` is a harmless
-// no-op. The statement is kept for structural parity with TS so the
-// mask-plumbing port is a one-line change rather than a body rewrite.
 func (n *Npc) SetInteraction(kind InteractionKind, target entity, op, com int) bool {
 	if !target.IsValid() {
 		return false
