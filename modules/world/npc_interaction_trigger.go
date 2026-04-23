@@ -5,6 +5,49 @@ import (
 	"github.com/zsrv/goscape/pkg/script"
 )
 
+// fireAiOpTriggerPlayer fires AI_OPPLAYER1..5 for a Player target.
+// Called by tryInteract when targetOp is OPPLAYER + in operable range.
+// Mirrors TS Npc.tryInteract → executeScript branch. Clears the
+// interaction on lifecycle-invalid target, out-of-range targetOp, or
+// no-script-found.
+func (n *Npc) fireAiOpTriggerPlayer(s *Server, target *Player) {
+	if !target.IsValid() {
+		n.clearInteraction()
+		return
+	}
+	trigger := aiOpPlayerTriggerForOp(n.targetOp)
+	if trigger == 0 {
+		n.clearInteraction()
+		return
+	}
+	sf := s.scriptProvider.GetByTrigger(trigger, 0, 0)
+	if sf == nil {
+		n.clearInteraction()
+		return
+	}
+	s.runNpcScript(sf, n, target, nil, nil)
+}
+
+// fireAiApTriggerPlayer fires AI_APPLAYER1..5 for a Player target —
+// approach-range counterpart of fireAiOpTriggerPlayer.
+func (n *Npc) fireAiApTriggerPlayer(s *Server, target *Player) {
+	if !target.IsValid() {
+		n.clearInteraction()
+		return
+	}
+	trigger := aiApPlayerTriggerForOp(n.targetOp)
+	if trigger == 0 {
+		n.clearInteraction()
+		return
+	}
+	sf := s.scriptProvider.GetByTrigger(trigger, 0, 0)
+	if sf == nil {
+		n.clearInteraction()
+		return
+	}
+	s.runNpcScript(sf, n, target, nil, nil)
+}
+
 // aiApPlayerTriggerForOp maps an APPLAYER targetOp (12..16) to the
 // matching TriggerAiApPlayer{1..5}. Returns 0 for out-of-range.
 func aiApPlayerTriggerForOp(op int) script.ServerTriggerType {

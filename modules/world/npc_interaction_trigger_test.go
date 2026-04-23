@@ -5,8 +5,21 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 )
+
+// newActivePlayer builds a Player in the "live session" state for use as
+// an npc-target: active, default visibility, attached client. Mirrors
+// the post-NAI-11-Task-4 IsValid semantics.
+func newActivePlayer(slot int) *Player {
+	return &Player{
+		slot:       slot,
+		active:     true,
+		visibility: rsbuf.VisibilityDefault,
+		client:     &client{},
+	}
+}
 
 type triggerMapCase struct {
 	op   int
@@ -101,4 +114,98 @@ func TestAiOpObjTriggerForOp(t *testing.T) {
 		{objtype.NPCModeOpObj5 + 1, 0},
 	}
 	runTriggerMapTest(t, "aiOpObjTriggerForOp", aiOpObjTriggerForOp, cases)
+}
+
+// Player-target fire helper tests ------------------------------------------
+
+func TestFireAiOpTriggerPlayerHappyPath(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpPlayer1, 0, "aiop-fired"))
+
+	n := newNpcForScriptTest(t)
+	n.server = s
+	n.targetOp = objtype.NPCModeOpPlayer1
+	p := newActivePlayer(3)
+	n.target = p
+
+	n.fireAiOpTriggerPlayer(s, p)
+
+	if string(n.sayText) != "aiop-fired" {
+		t.Errorf("sayText: got %q, want %q", n.sayText, "aiop-fired")
+	}
+}
+
+func TestFireAiOpTriggerPlayerNoScriptClears(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider() // empty
+
+	n := newNpcForScriptTest(t)
+	n.server = s
+	n.targetOp = objtype.NPCModeOpPlayer1
+	p := newActivePlayer(3)
+	n.target = p
+
+	n.fireAiOpTriggerPlayer(s, p)
+
+	if n.target != nil {
+		t.Error("target: expected nil after no-script-found clearInteraction")
+	}
+}
+
+func TestFireAiOpTriggerPlayerInvalidClears(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpPlayer1, 0, "aiop-fired"))
+
+	n := newNpcForScriptTest(t)
+	n.server = s
+	n.targetOp = objtype.NPCModeOpPlayer1
+	p := newActivePlayer(3)
+	p.active = false // makes IsValid return false
+	n.target = p
+
+	n.fireAiOpTriggerPlayer(s, p)
+
+	if n.target != nil {
+		t.Error("target: expected nil after IsValid-false clearInteraction")
+	}
+	if string(n.sayText) == "aiop-fired" {
+		t.Error("sayText: script ran despite invalid target")
+	}
+}
+
+func TestFireAiOpTriggerPlayerOutOfRangeOpClears(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+
+	n := newNpcForScriptTest(t)
+	n.server = s
+	n.targetOp = objtype.NPCModeApPlayer1 // wrong category for the Op helper
+	p := newActivePlayer(3)
+	n.target = p
+
+	n.fireAiOpTriggerPlayer(s, p)
+
+	if n.target != nil {
+		t.Error("target: expected nil after out-of-range-op clearInteraction")
+	}
+}
+
+func TestFireAiApTriggerPlayerHappyPath(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiApPlayer1, 0, "aiap-fired"))
+
+	n := newNpcForScriptTest(t)
+	n.server = s
+	n.targetOp = objtype.NPCModeApPlayer1
+	p := newActivePlayer(3)
+	n.target = p
+
+	n.fireAiApTriggerPlayer(s, p)
+
+	if string(n.sayText) != "aiap-fired" {
+		t.Errorf("sayText: got %q, want %q", n.sayText, "aiap-fired")
+	}
 }
