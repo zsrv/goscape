@@ -158,12 +158,14 @@ func (n *Npc) huntPlayers(s *Server, hunt *objtype.HuntType) []entity {
 
 		// Outer combat guard — TS:942. Only when the candidate is not the
 		// NPC's current target AND not in a multi-combat zone.
-		// FIDELITY: when s.gamemap is nil, IsMulti can't be called. Treat
-		// as not-multi (safe default consistent with CheckVis's nil-handling
-		// in the same file), so the guard APPLIES and the combat filter
-		// fires. Note the polarity: the predicate here is "not multi"
-		// (guard wants that to be true), the opposite of CheckVis's
-		// "not obstructed".
+		// FIDELITY: when s.gamemap is nil, IsMulti can't be called — treat
+		// as not-multi, so the guard APPLIES and the combat filter fires.
+		// This nil-short-circuit direction is the OPPOSITE of CheckVis's
+		// in the same file (CheckVis's nil → filter skipped; here nil →
+		// filter runs). Do NOT "simplify" to
+		// `s.gamemap != nil && !s.gamemap.IsMulti(...)` — that inverts the
+		// guard's nil behavior and flips TestHuntPlayersCombatGuard's
+		// `gamemap-nil-applies-guard` sub-case red.
 		applyCombatGuard := entity(p) != n.target &&
 			(s.gamemap == nil || !s.gamemap.IsMulti(p.x, p.z, p.level))
 		if applyCombatGuard {
