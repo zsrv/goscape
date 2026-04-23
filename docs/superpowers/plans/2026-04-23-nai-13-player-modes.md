@@ -362,10 +362,11 @@ Modify `modules/world/npc_interaction.go`. Replace the entire `targetWithinMaxRa
 
 ```go
 // targetWithinMaxRange enforces the per-mode maxrange rules on n.target.
-// Five branches: PLAYERFOLLOW (always true), PLAYERESCAPE (retreat-maxrange
-// with corner-removal quirk), OP (maxrange+1 with corner-removal quirk),
-// AP (maxrange + attackrange SW-distance), default (maxrange+1 SW-distance).
-// Matches TS Npc.targetWithinMaxRange at Engine-TS/.../Npc.ts:629-680.
+// Five branches: PLAYERFOLLOW (always true), PLAYERESCAPE (AND-gated
+// retreat using NPC-to-start AND target-to-start), OP (maxrange+1 with
+// corner-removal quirk), AP (maxrange + attackrange SW-distance), default
+// (maxrange+1 SW-distance). Matches TS Npc.targetWithinMaxRange at
+// Engine-TS/.../Npc.ts:629-680.
 func (n *Npc) targetWithinMaxRange() bool {
 	if n.target == nil {
 		return true
