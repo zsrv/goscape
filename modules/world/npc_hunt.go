@@ -155,6 +155,23 @@ func (n *Npc) huntPlayers(s *Server, hunt *objtype.HuntType) []entity {
 				n.level, p.x, p.z, n.x, n.z, 1, 1, 1, 0) {
 			continue
 		}
+		// checkVars (TS:950-957): AND-chain of varp/operator/value predicates.
+		// Nil/empty CheckVars → no-op (ranging nil slice yields zero iterations,
+		// matching TS empty-`every` → true semantics).
+		passCheckVars := true
+		for _, cv := range hunt.CheckVars {
+			if cv.VarID == -1 {
+				// TS:953 `checkVar.varId === -1 ||` short-circuit.
+				continue
+			}
+			if !hunt.CheckHuntCondition(int(p.Varp(cv.VarID)), cv.Condition, cv.Val) {
+				passCheckVars = false
+				break
+			}
+		}
+		if !passCheckVars {
+			continue
+		}
 		hunted = append(hunted, p)
 	}
 	return hunted

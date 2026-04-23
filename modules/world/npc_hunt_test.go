@@ -419,3 +419,90 @@ func TestHuntPlayersCheckVisArgumentOrderSwapQuirk(t *testing.T) {
 			"if 1, the src/dest swap is reverted (bug)", len(hunted))
 	}
 }
+
+// TestHuntPlayersCheckVars guards the CheckVars AND-chain filter at
+// TS Npc.ts:950-957. Each entry passes if VarID==-1 OR
+// CheckHuntCondition(p.Varp(VarID), Condition, Val). Any failing entry
+// excludes the player. Nil/empty CheckVars → no-op.
+func TestHuntPlayersCheckVars(t *testing.T) {
+	setup := func(t *testing.T, varps []int32) (*Server, *Npc, *Player) {
+		t.Helper()
+		s := newServerForScriptTest(t)
+		n := newNpcForLifecycleTest(t)
+		n.server = s
+		n.x, n.z, n.level = 3094, 3106, 0
+		n.huntRange = 10
+		p := addPlayerToServer(t, s, 1, n.x+2, n.z+2, n.level)
+		p.varps = varps
+		return s, n, p
+	}
+
+	t.Run("nil-checkvars-no-filter", func(t *testing.T) {
+		_, n, _ := setup(t, []int32{0})
+		hunt := &objtype.HuntType{} // CheckVars nil
+		hunted := n.huntPlayers(n.server, hunt)
+		if len(hunted) != 1 {
+			t.Fatalf("got %d, want 1 (nil CheckVars → no filter)", len(hunted))
+		}
+	})
+
+	t.Run("single-entry-passes", func(t *testing.T) {
+		_, n, _ := setup(t, []int32{5})
+		hunt := &objtype.HuntType{CheckVars: []objtype.HuntCheckVar{
+			{VarID: 0, Condition: ">", Val: 3},
+		}}
+		hunted := n.huntPlayers(n.server, hunt)
+		if len(hunted) != 1 {
+			t.Fatalf("got %d, want 1 (5 > 3 → pass)", len(hunted))
+		}
+	})
+
+	t.Run("single-entry-fails", func(t *testing.T) {
+		_, n, _ := setup(t, []int32{5})
+		hunt := &objtype.HuntType{CheckVars: []objtype.HuntCheckVar{
+			{VarID: 0, Condition: ">", Val: 10},
+		}}
+		hunted := n.huntPlayers(n.server, hunt)
+		if len(hunted) != 0 {
+			t.Fatalf("got %d, want 0 (5 > 10 → fail)", len(hunted))
+		}
+	})
+
+	t.Run("two-entries-both-pass", func(t *testing.T) {
+		_, n, _ := setup(t, []int32{5, 7})
+		hunt := &objtype.HuntType{CheckVars: []objtype.HuntCheckVar{
+			{VarID: 0, Condition: ">", Val: 3},
+			{VarID: 1, Condition: "=", Val: 7},
+		}}
+		hunted := n.huntPlayers(n.server, hunt)
+		if len(hunted) != 1 {
+			t.Fatalf("got %d, want 1 (both pass)", len(hunted))
+		}
+	})
+
+	t.Run("two-entries-second-fails", func(t *testing.T) {
+		_, n, _ := setup(t, []int32{5, 7})
+		hunt := &objtype.HuntType{CheckVars: []objtype.HuntCheckVar{
+			{VarID: 0, Condition: ">", Val: 3}, // pass
+			{VarID: 1, Condition: "=", Val: 9}, // fail
+		}}
+		hunted := n.huntPlayers(n.server, hunt)
+		if len(hunted) != 0 {
+			t.Fatalf("got %d, want 0 (AND-fail: first passes, second fails)", len(hunted))
+		}
+	})
+
+	t.Run("varid-minus-one-short-circuits", func(t *testing.T) {
+		_, n, _ := setup(t, []int32{5})
+		hunt := &objtype.HuntType{CheckVars: []objtype.HuntCheckVar{
+			// VarID == -1 must pass without reading any varp, regardless of
+			// the Condition/Val. TS Npc.ts:953 `checkVar.varId === -1 ||` short-circuit.
+			{VarID: -1, Condition: ">", Val: 999},
+			{VarID: 0, Condition: ">", Val: 3}, // real gate: 5 > 3 → pass
+		}}
+		hunted := n.huntPlayers(n.server, hunt)
+		if len(hunted) != 1 {
+			t.Fatalf("got %d, want 1 (VarID=-1 entry skipped, second passes)", len(hunted))
+		}
+	})
+}
