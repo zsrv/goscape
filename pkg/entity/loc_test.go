@@ -68,3 +68,10 @@ func TestLocCoordsReturnsXZLevel(t *testing.T) {
 		t.Errorf("Loc.Coords(): got (%d, %d, %d), want (3245, 3198, 2)", x, z, level)
 	}
 }
+
+func TestLocIsValid(t *testing.T) {
+	l := NewLoc(0, 100, 100, 1, 1, LifecycleRespawn, 42, 10, 0)
+	if !l.IsValid() {
+		t.Error("fresh loc: IsValid = false, want true")
+	}
+}

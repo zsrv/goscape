@@ -107,3 +107,16 @@ func TestNpcResetMasksClearsEphemerals(t *testing.T) {
 		t.Errorf("animID should persist: got %d, want 123", n.animID)
 	}
 }
+
+func TestNpcIsValid(t *testing.T) {
+	typ := &objtype.NpcType{}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+
+	if !n.IsValid() {
+		t.Error("fresh npc: IsValid = false, want true")
+	}
+	n.dead = true
+	if n.IsValid() {
+		t.Error("dead npc: IsValid = true, want false")
+	}
+}

@@ -49,3 +49,11 @@ func (l *Loc) Slot() int { return -1 }
 func (l *Loc) Coords() (x, z, level int) {
 	return l.X, l.Z, l.Level
 }
+
+// IsValid returns the loc's intrinsic validity. Zone-membership
+// (pointer still in zoneMap.Get(level,x,z).Locs) is checked
+// separately by world-module helpers at the validateTarget call site,
+// because pkg/entity cannot depend on modules/world.
+func (l *Loc) IsValid() bool {
+	return true // intrinsic lifecycle check; world-module helper does zone lookup
+}

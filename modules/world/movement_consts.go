@@ -45,4 +45,5 @@ const (
 type entity interface {
 	Slot() int
 	Coords() (x, z, level int)
+	IsValid() bool // NAI-11 — intrinsic validity; zone-membership is checked separately
 }

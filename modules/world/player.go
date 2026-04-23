@@ -81,8 +81,8 @@ type Player struct {
 	faceAngleX, faceAngleZ int
 
 	// === interaction target ===
-	target           entity
-	targetOp         int
+	target   entity
+	targetOp int
 	// targetSubject snapshots the identity of the interaction target at
 	// click time. Components:
 	//   typ, x, z, level — loc identity for tryFireXxxTriggerLoc's
@@ -90,7 +90,7 @@ type Player struct {
 	//   com — spell-component ID for OpLocT; -1 for OpLoc1..5 and OpLocU.
 	//     Scripts read via ActivePlayer.TargetSubjectCom() (S6m).
 	// S6m: com field resurrected from S6j shrink to carry spellCom.
-	targetSubject struct{ typ, x, z, level, com int }
+	targetSubject    struct{ typ, x, z, level, com int }
 	interactionKind  InteractionKind
 	apRange          int
 	apRangeCalled    bool
@@ -175,7 +175,7 @@ type Player struct {
 	lastItem, lastSlot, lastUseItem, lastUseSlot, lastTargetSlot, lastCom int
 
 	// === inventory (sub-spec 3a) ===
-	invs         map[int]*inventory.Inventory
+	invs map[int]*inventory.Inventory
 	// invListeners maps UI component ID (Com) to an InventoryListener.
 	// Registered via invListenOnCom (S6p); unregistered via
 	// invStopListenOnCom or cleared on modal close. Keyed structure
@@ -608,4 +608,14 @@ func (p *Player) invListenOnCom(invType, com, source int) {
 // is nil (Go's delete-on-nil is safe). Matches TS Player.ts:1464-1471.
 func (p *Player) invStopListenOnCom(com int) {
 	delete(p.invListeners, com)
+}
+
+// IsValid returns whether the player's session is live. TS Player.isValid
+// takes an optional hash64 for cross-server session checking; Go's
+// single-server case collapses to "has an attached client".
+//
+// DEVIATION: TS also checks an "online" predicate; Go has no such field
+// — the client pointer is the single source of truth for session state.
+func (p *Player) IsValid() bool {
+	return p.client != nil
 }

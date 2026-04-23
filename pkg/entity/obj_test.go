@@ -61,3 +61,10 @@ func TestObjSatisfiesEntityInterface(t *testing.T) {
 		t.Errorf("Coords: got (%d,%d,%d), want (3094,3106,2)", x, z, level)
 	}
 }
+
+func TestObjIsValid(t *testing.T) {
+	o := NewObj(0, 100, 100, LifecycleRespawn, 42, 1)
+	if !o.IsValid() {
+		t.Error("fresh obj: IsValid = false, want true")
+	}
+}

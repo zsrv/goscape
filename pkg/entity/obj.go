@@ -42,3 +42,9 @@ func (o *Obj) Slot() int { return -1 }
 func (o *Obj) Coords() (x, z, level int) {
 	return o.X, o.Z, o.Level
 }
+
+// IsValid returns the obj's intrinsic validity. Same layering as Loc:
+// zone-membership check lives in the world module.
+func (o *Obj) IsValid() bool {
+	return true
+}

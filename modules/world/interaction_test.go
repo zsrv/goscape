@@ -447,6 +447,7 @@ type fakeEntity struct{ x, z, level int }
 
 func (f fakeEntity) Slot() int                 { return -1 }
 func (f fakeEntity) Coords() (x, z, level int) { return f.x, f.z, f.level }
+func (f fakeEntity) IsValid() bool             { return true }
 
 // TestEffectiveApRangeNpcUsesTypeAttackrange verifies that when the
 // player's target is an *Npc, effectiveApRange returns the NPC's

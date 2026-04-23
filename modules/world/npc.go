@@ -288,3 +288,11 @@ func (n *Npc) revertType() {
 		n.huntMode = n.typ.HuntMode
 	}
 }
+
+// IsValid returns whether the NPC is intrinsically alive. Matches the
+// "lifecycle" half of TS Npc.isValid. The stronger TS isActive
+// additionally checks !delayed; validateTarget handles that separately
+// when the target is an *Npc.
+func (n *Npc) IsValid() bool {
+	return !n.dead
+}

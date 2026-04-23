@@ -475,3 +475,14 @@ func TestWriteOutTwoByteLenPrefix(t *testing.T) {
 		t.Error("timed out")
 	}
 }
+
+func TestPlayerIsValid(t *testing.T) {
+	p := &Player{client: &client{}}
+	if !p.IsValid() {
+		t.Error("player with client: IsValid = false, want true")
+	}
+	p.client = nil
+	if p.IsValid() {
+		t.Error("player without client: IsValid = true, want false")
+	}
+}

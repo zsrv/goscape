@@ -94,6 +94,7 @@ type nonNpcEntity struct{}
 
 func (nonNpcEntity) Slot() int                 { return 0 }
 func (nonNpcEntity) Coords() (x, z, level int) { return 0, 0, 0 }
+func (nonNpcEntity) IsValid() bool             { return true }
 
 func TestTryFireOpTrigger_WrongTargetType(t *testing.T) {
 	s := newTestServer(t)
