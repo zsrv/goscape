@@ -13,7 +13,6 @@ const (
 	NpcLifecycleDespawn = 2
 )
 
-
 // Npc is a non-player game entity.
 type Npc struct {
 	nid    int
