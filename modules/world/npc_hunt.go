@@ -151,21 +151,16 @@ func (n *Npc) huntPlayers(s *Server, hunt *objtype.HuntType) []entity {
 //     non-nil, hunt.Type != HuntModeOff. Any guard fires → no-op.
 //   - Branch on hunt.FindNewMode:
 //     QUEUE1..QUEUE20 → fire TriggerAiQueueN directly via runNpcScript.
-//     else           → n.target = n.huntTarget; n.targetOp = FindNewMode.
+//     else           → n.SetInteraction(InteractionScript, huntTarget,
+//     FindNewMode, -1). Closes the full setInteraction side-effect set
+//     (apRange, apRangeCalled, targetSubject, focus, faceEntity+masks,
+//     targetX/Z, isValid pre-check) atomically.
 //   - Common tail (both branches): n.huntTarget = nil, n.huntClock = 0.
 //   - If !hunt.FindKeepHunting: n.huntMode = -1.
 //
-// DEVIATION from TS setInteraction (PathingEntity.ts:510-548): only
-// target + targetOp are written. All of the following are deferred to
-// NAI-11, which owns NPC interaction processing:
-//   - apRange = 10, apRangeCalled = false.
-//   - targetSubject.com / targetSubject.type.
-//   - focus() update → faceAngleX/Z (fields not yet on *Npc).
-//   - faceEntity update + masks |= entitymask (faceEntity exists on
-//     *Npc but intentionally not written here — NAI-11 gates the write
-//     behind the full Player/Npc/Obj/Loc type switch TS uses).
-//   - targetX / targetZ (non-Player/non-Npc branch; fields not yet on
-//     *Npc).
+// The NAI-10 DEVIATION block (listing apRange/targetSubject/focus/etc.
+// as deferred) is closed by the NAI-11 migration — see Npc.SetInteraction
+// for the full side-effect contract.
 func (s *Server) consumeHuntTarget(n *Npc) {
 	if n.huntTarget == nil {
 		return
@@ -191,11 +186,9 @@ func (s *Server) consumeHuntTarget(n *Npc) {
 			s.runNpcScript(sf, n, nil, nil, nil)
 		}
 	} else {
-		// Interaction branch: write target + targetOp for NAI-11 consumption.
-		// All other TS setInteraction side effects are deferred — see the
-		// method-level DEVIATION block for the full list.
-		n.target = n.huntTarget
-		n.targetOp = hunt.FindNewMode
+		// Interaction branch: full SetInteraction port closes the NAI-10
+		// setInteraction-deferral set (7 fields) atomically.
+		n.SetInteraction(InteractionScript, n.huntTarget, hunt.FindNewMode, -1)
 	}
 
 	// Common tail: clear huntTarget and reset huntClock.

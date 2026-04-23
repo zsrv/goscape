@@ -305,3 +305,39 @@ func TestNpcTurnHuntAndConsumeSetsTarget(t *testing.T) {
 		t.Errorf("huntMode: got %d, want 0 (FindKeepHunting=true preserves it)", n.huntMode)
 	}
 }
+
+// TestConsumeHuntTargetInteractionBranchCallsSetInteraction verifies the
+// NAI-11 closure: consumeHuntTarget's interaction branch now dispatches
+// through SetInteraction, writing all seven previously-deferred fields.
+func TestConsumeHuntTargetInteractionBranchCallsSetInteraction(t *testing.T) {
+	s, n, hunt := newConsumeHuntTargetFixture(t)
+
+	// Use an OP NPC mode so no PLAYER* deferral is triggered downstream.
+	hunt.FindNewMode = objtype.NPCModeOpNpc1
+
+	target := &Npc{nid: 7, typeId: 99, x: 105, z: 105, level: 0}
+	n.huntTarget = target
+
+	s.consumeHuntTarget(n)
+
+	if n.target != target {
+		t.Error("target: not set via SetInteraction")
+	}
+	if n.targetOp != objtype.NPCModeOpNpc1 {
+		t.Errorf("targetOp: got %d, want NPCModeOpNpc1", n.targetOp)
+	}
+	if n.apRange != 10 {
+		t.Errorf("apRange: got %d, want 10 (NAI-10 deferral #1 closed)", n.apRange)
+	}
+	if n.apRangeCalled {
+		t.Error("apRangeCalled: got true, want false (NAI-10 deferral #2 closed)")
+	}
+	if n.targetSubject.typ != target.typeId {
+		t.Errorf("targetSubject.typ: got %d, want %d (NAI-10 deferral #3 closed)",
+			n.targetSubject.typ, target.typeId)
+	}
+	if n.faceEntity != target.nid {
+		t.Errorf("faceEntity: got %d, want %d (NAI-10 deferral #5 closed)",
+			n.faceEntity, target.nid)
+	}
+}
