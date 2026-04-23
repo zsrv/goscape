@@ -40,6 +40,22 @@ func TestCheckOpTrigger(t *testing.T) {
 	}
 }
 
+func TestNpcNoModeCallsUpdateMovement(t *testing.T) {
+	s := newServerForScriptTest(t)
+	typ := &objtype.NpcType{}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+	n.server = s
+	n.moveSpeed = MoveSpeedWalk
+	n.waypoints[0] = coordgrid.PackCoord(0, 103, 100)
+	n.waypointIndex = 0
+
+	n.noMode(s)
+
+	if n.x != 101 {
+		t.Errorf("noMode did not advance: x=%d, want 101", n.x)
+	}
+}
+
 // newNpcAt100 builds a test NPC positioned at (100,100,0) — convenient
 // for tryInteract range tests where the target sits at 101/103/etc.
 func newNpcAt100(t *testing.T) *Npc {

@@ -1,8 +1,6 @@
 package world
 
 import (
-	"math/rand/v2"
-
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
@@ -71,9 +69,9 @@ func (n *Npc) turn(s *Server) {
 	}
 
 	// === Hunt + consume + regen + timer + queue (NAI-7..10, NAI-6, NAI-4, NAI-3) ===
-	s.processNpcHunt(n)      // NAI-7 — matches TS Npc.ts:158-171
-	s.consumeHuntTarget(n)   // NAI-10 — matches TS Npc.ts:174
-	s.processNpcRegen(n)     // NAI-6 — matches TS Npc.ts:176
+	s.processNpcHunt(n)    // NAI-7 — matches TS Npc.ts:158-171
+	s.consumeHuntTarget(n) // NAI-10 — matches TS Npc.ts:174
+	s.processNpcRegen(n)   // NAI-6 — matches TS Npc.ts:176
 	s.processNpcTimer(n)
 	s.processNpcQueue(n)
 
@@ -101,39 +99,6 @@ func (n *Npc) turn(s *Server) {
 			n.wanderCounter = 0
 		}
 	}
-}
-
-// wanderMode picks a random destination within WanderRange of spawn (12.5%/tick).
-func (n *Npc) wanderMode(s *Server) {
-	if n.typ.WanderRange == 0 {
-		return
-	}
-	if rand.IntN(8) != 0 {
-		return
-	}
-	rng := int(n.typ.WanderRange)
-	dx := rand.IntN(rng*2+1) - rng
-	dz := rand.IntN(rng*2+1) - rng
-	n.queueWaypoint(n.startX+dx, n.startZ+dz)
-}
-
-// patrolMode advances through PatrolCoord with PatrolDelay between steps.
-func (n *Npc) patrolMode(s *Server) {
-	if len(n.typ.PatrolCoord) == 0 {
-		return
-	}
-	if s.currentTick < n.nextPatrolTick {
-		return
-	}
-	coord := int(n.typ.PatrolCoord[n.nextPatrolPoint])
-	pos := coordgrid.UnpackCoord(coord)
-	n.queueWaypoint(pos.X, pos.Z)
-	delay := 0
-	if n.nextPatrolPoint < len(n.typ.PatrolDelay) {
-		delay = int(n.typ.PatrolDelay[n.nextPatrolPoint])
-	}
-	n.nextPatrolTick = s.currentTick + delay
-	n.nextPatrolPoint = (n.nextPatrolPoint + 1) % len(n.typ.PatrolCoord)
 }
 
 // queueWaypoint clears any existing path and sets a single destination.

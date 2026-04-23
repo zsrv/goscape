@@ -1,6 +1,8 @@
 package world
 
 import (
+	"math/rand/v2"
+
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/objtype"
@@ -44,6 +46,80 @@ func (n *Npc) clearInteraction() {
 	n.apRange = 10
 	n.apRangeCalled = false
 	n.targetSubject = npcTargetSubject{com: -1, typ: -1}
+}
+
+// noMode is the NPCMode.NONE branch — just walks the existing path if
+// any. Matches TS noMode at Engine-TS/.../Npc.ts:693-695.
+func (n *Npc) noMode(s *Server) {
+	n.updateMovement(s)
+}
+
+// wanderMode is the NPCMode.WANDER branch — a 1/8-tick random walk
+// within WanderRange of spawn plus movement + a 500-tick
+// teleport-to-spawn counter. Matches TS wanderMode at Npc.ts:697-715.
+//
+// The queueWaypoint skip-if-equal-to-current guard mirrors the TS
+// "if we rolled our own tile, don't queue a null path" check.
+func (n *Npc) wanderMode(s *Server) {
+	if n.typ == nil {
+		return
+	}
+	if n.moveRestrict != MoveRestrictNoMove && n.typ.WanderRange > 0 && rand.IntN(8) == 0 {
+		rng := int(n.typ.WanderRange)
+		dx := rand.IntN(rng*2+1) - rng
+		dz := rand.IntN(rng*2+1) - rng
+		if n.startX+dx != n.x || n.startZ+dz != n.z {
+			n.queueWaypoint(n.startX+dx, n.startZ+dz)
+		}
+	}
+	n.updateMovement(s)
+	onSpawn := n.x == n.startX && n.z == n.startZ && n.level == n.startLevel
+	n.wanderCounter++
+	if n.wanderCounter >= 500 {
+		if !onSpawn {
+			n.x, n.z, n.level = n.startX, n.startZ, n.startLevel
+			n.tele = true
+		}
+		n.wanderCounter = 0
+	}
+}
+
+// patrolMode is the NPCMode.PATROL branch — advance through PatrolCoord
+// with per-waypoint PatrolDelay, 30-tick stuck-teleport horizon, and a
+// delayedPatrol latch so the at-waypoint delay doesn't double-trigger.
+// Matches TS patrolMode at Engine-TS/.../Npc.ts:717-744.
+func (n *Npc) patrolMode(s *Server) {
+	if n.typ == nil || len(n.typ.PatrolCoord) == 0 {
+		return
+	}
+	patrolDelay := 0
+	if n.nextPatrolPoint < len(n.typ.PatrolDelay) {
+		patrolDelay = int(n.typ.PatrolDelay[n.nextPatrolPoint])
+	}
+	dest := coordgrid.UnpackCoord(int(n.typ.PatrolCoord[n.nextPatrolPoint]))
+
+	n.updateMovement(s)
+
+	if n.waypointIndex < 0 && n.target == nil {
+		n.queueWaypoint(dest.X, dest.Z)
+	}
+	if (n.x != dest.X || n.z != dest.Z) && n.nextPatrolTick > -1 && s.currentTick >= n.nextPatrolTick {
+		n.x, n.z, n.level = dest.X, dest.Z, 0
+		n.tele = true
+	}
+	if n.x == dest.X && n.z == dest.Z && !n.delayedPatrol {
+		n.nextPatrolTick = s.currentTick + patrolDelay
+		n.delayedPatrol = true
+	}
+	if n.nextPatrolTick > s.currentTick {
+		return
+	}
+
+	n.nextPatrolPoint = (n.nextPatrolPoint + 1) % len(n.typ.PatrolCoord)
+	n.nextPatrolTick = s.currentTick + 30
+	n.delayedPatrol = false
+	dest = coordgrid.UnpackCoord(int(n.typ.PatrolCoord[n.nextPatrolPoint]))
+	n.queueWaypoint(dest.X, dest.Z)
 }
 
 // tryInteract evaluates whether an AP or OP trigger should fire this tick.
