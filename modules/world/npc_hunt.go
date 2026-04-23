@@ -150,8 +150,8 @@ func (n *Npc) huntPlayers(s *Server, hunt *objtype.HuntType) []entity {
 //   - Entry guards: huntTarget non-nil, huntMode in bounds, hunt config
 //     non-nil, hunt.Type != HuntModeOff. Any guard fires → no-op.
 //   - Branch on hunt.FindNewMode:
-//       QUEUE1..QUEUE20 → fire TriggerAiQueueN directly via runNpcScript.
-//       else           → n.target = n.huntTarget; n.targetOp = FindNewMode.
+//     QUEUE1..QUEUE20 → fire TriggerAiQueueN directly via runNpcScript.
+//     else           → n.target = n.huntTarget; n.targetOp = FindNewMode.
 //   - Common tail (both branches): n.huntTarget = nil, n.huntClock = 0.
 //   - If !hunt.FindKeepHunting: n.huntMode = -1.
 //
@@ -188,7 +188,7 @@ func (s *Server) consumeHuntTarget(n *Npc) {
 			trigger := script.TriggerAiQueue1 +
 				script.ServerTriggerType(hunt.FindNewMode-objtype.NPCModeQueue1)
 			sf := s.scriptProvider.GetByTrigger(trigger, n.typeId, n.typ.Category)
-			s.runNpcScript(sf, n, nil, nil)
+			s.runNpcScript(sf, n, nil, nil, nil)
 		}
 	} else {
 		// Interaction branch: write target + targetOp for NAI-11 consumption.

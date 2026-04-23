@@ -42,7 +42,7 @@ func (s *Server) processNpcEventQueue() {
 			continue
 		}
 		s.npcEventQueue = append(s.npcEventQueue[:i], s.npcEventQueue[i+1:]...)
-		s.runNpcScript(req.Script, req.Npc, nil, nil)
+		s.runNpcScript(req.Script, req.Npc, nil, nil, nil)
 		// don't advance i — removed current entry
 	}
 }

@@ -76,18 +76,24 @@ func (n *Npc) SetNpcVarN(id int, val int32) {
 	n.varns[id] = val
 }
 
-// runNpcScript initialises a ScriptState anchored on npc (not a
-// player) and routes the result via resumeOrFinishNpc. Safe to call
-// with a nil scriptFile (no-op) so callers don't have to nil-check
-// the trigger lookup. Mirrors runScript at modules/world/script.go:14.
+// buildNpcScriptState initialises a ScriptState for an NPC-anchored
+// script run. Pure — no side effects on server state — so callers can
+// test the target-dispatch logic in isolation.
 //
-// If the script suspends (Execution == NpcSuspended), the state is
-// stored on the NPC and Npc.turn() resumes it when the NPC's delay
-// expires via the prefix block added in NAI-2.
-func (s *Server) runNpcScript(sf *script.ScriptFile, npc script.ActiveNpc, intArgs []int, stringArgs []string) {
-	if sf == nil {
-		return
-	}
+// NAI-11: target may be nil (AI_TIMER/DESPAWN/QUEUE* paths), or a
+// concrete value satisfying one of the Active* interfaces. The
+// type-switch wires the matching ScriptState field and pointer flag.
+// Check order matters: ActivePlayer first (most specific), ActiveNpc
+// last (so a Player target doesn't accidentally fall into the
+// OtherActiveNpc branch via interface promotion). This mirrors the TS
+// ScriptRunner.init target-dispatch at Engine-TS/.../ScriptRunner.ts:84-116.
+func (s *Server) buildNpcScriptState(
+	sf *script.ScriptFile,
+	npc script.ActiveNpc,
+	target any,
+	intArgs []int,
+	stringArgs []string,
+) *script.ScriptState {
 	state := script.Init(sf, nil, false, intArgs, stringArgs)
 	state.ActiveNpc = npc
 	state.Pointers |= script.PtrActiveNpc
@@ -95,6 +101,54 @@ func (s *Server) runNpcScript(sf *script.ScriptFile, npc script.ActiveNpc, intAr
 	state.World = s.worldVars
 	state.Configs = s.configsView
 	state.Inv = s.invLookup
+
+	switch t := target.(type) {
+	case nil:
+		// No secondary pointer.
+	case script.ActivePlayer:
+		// TS: self=Npc, target=Player → _activePlayer = target, PtrActivePlayer.
+		state.Self = t
+		state.Pointers |= script.PtrActivePlayer
+	case script.ActiveLoc:
+		state.ActiveLoc = t
+		state.Pointers |= script.PtrActiveLoc
+	case script.ActiveObj:
+		state.ActiveObj = t
+		state.Pointers |= script.PtrActiveObj
+	case script.ActiveNpc:
+		state.OtherActiveNpc = t
+		state.Pointers |= script.PtrOtherActiveNpc
+	}
+
+	return state
+}
+
+// runNpcScript initialises a ScriptState anchored on npc (not a
+// player) and routes the result via resumeOrFinishNpc. Safe to call
+// with a nil scriptFile (no-op) so callers don't have to nil-check
+// the trigger lookup. Mirrors runScript at modules/world/script.go:14.
+//
+// NAI-11: target is the interaction target for AI_*PLAYER / AI_*NPC /
+// AI_*LOC / AI_*OBJ triggers. Pass nil for AI_TIMER, DESPAWN, and
+// QUEUE* paths (no secondary entity). The type-switch in
+// buildNpcScriptState wires the matching ScriptState field and pointer
+// flag; ActivePlayer is checked first so a *Player target never
+// accidentally falls into the OtherActiveNpc branch.
+//
+// If the script suspends (Execution == NpcSuspended), the state is
+// stored on the NPC and Npc.turn() resumes it when the NPC's delay
+// expires via the prefix block added in NAI-2.
+func (s *Server) runNpcScript(
+	sf *script.ScriptFile,
+	npc script.ActiveNpc,
+	target any,
+	intArgs []int,
+	stringArgs []string,
+) {
+	if sf == nil {
+		return
+	}
+	state := s.buildNpcScriptState(sf, npc, target, intArgs, stringArgs)
 	s.resumeOrFinishNpc(state, npc)
 }
 
@@ -152,7 +206,7 @@ func (s *Server) processNpcTimer(n *Npc) {
 	if sf == nil {
 		return
 	}
-	s.runNpcScript(sf, n, nil, nil)
+	s.runNpcScript(sf, n, nil, nil, nil)
 	n.timerClock = 0
 }
 
@@ -219,7 +273,7 @@ func (s *Server) processNpcQueue(n *Npc) {
 			continue
 		}
 		sf := s.scriptProvider.GetByTrigger(trigger, n.typeId, n.typ.Category)
-		s.runNpcScript(sf, n, []int{intArg}, nil)
+		s.runNpcScript(sf, n, nil, []int{intArg}, nil)
 		// Don't advance i — removed current element.
 	}
 }

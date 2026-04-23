@@ -3,6 +3,7 @@ package world
 import (
 	"testing"
 
+	gameentity "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -67,7 +68,7 @@ func TestRunNpcScriptFiresAndFinishes(t *testing.T) {
 		Opcodes: []script.Opcode{script.OpReturn},
 	}
 
-	s.runNpcScript(sf, n, nil, nil)
+	s.runNpcScript(sf, n, nil, nil, nil)
 
 	if n.activeScript != nil {
 		t.Errorf("activeScript: got %v, want nil (script finished)", n.activeScript)
@@ -89,7 +90,7 @@ func TestRunNpcScriptSuspendsOnNpcDelay(t *testing.T) {
 		IntOperands: []int32{3},
 	}
 
-	s.runNpcScript(sf, n, nil, nil)
+	s.runNpcScript(sf, n, nil, nil, nil)
 
 	if n.activeScript == nil {
 		t.Fatalf("activeScript: got nil, want stored state")
@@ -119,7 +120,7 @@ func TestNpcTurnResumesSuspendedScriptAfterDelay(t *testing.T) {
 	}
 
 	// Suspend: after this, delayedUntil = 104.
-	s.runNpcScript(sf, n, nil, nil)
+	s.runNpcScript(sf, n, nil, nil, nil)
 	if n.activeScript == nil || !n.delayed {
 		t.Fatalf("setup: expected suspended state")
 	}
@@ -149,7 +150,7 @@ func TestNpcTurnDoesNotResumeWhileDelayed(t *testing.T) {
 	}
 
 	// Suspend: delayedUntil = 104.
-	s.runNpcScript(sf, n, nil, nil)
+	s.runNpcScript(sf, n, nil, nil, nil)
 
 	// Advance to one tick BEFORE delayedUntil.
 	s.currentTick = 103
@@ -199,7 +200,7 @@ func TestNpcTurnDeadNpcDoesNotResumeScript(t *testing.T) {
 	}
 
 	// Suspend the script: delayedUntil = 104.
-	s.runNpcScript(sf, n, nil, nil)
+	s.runNpcScript(sf, n, nil, nil, nil)
 	if n.activeScript == nil || !n.delayed {
 		t.Fatalf("setup: expected suspended state")
 	}
@@ -394,5 +395,101 @@ func TestNpcTurnDoesNotTickTimerWhileDelayed(t *testing.T) {
 
 	if n.timerClock != 0 {
 		t.Errorf("timerClock after 3 turns while delayed: got %d, want 0 (no tick while delayed)", n.timerClock)
+	}
+}
+
+// NAI-11 target type-dispatch tests: call buildNpcScriptState directly
+// (the pure test seam) and assert that the correct ScriptState field
+// and pointer flag are set for each target type.
+
+// TestBuildNpcScriptStateDispatchesActivePlayer — a *Player target
+// must land in state.Self with PtrActivePlayer set. Mirrors TS
+// ScriptRunner.init: self=Npc, target=Player → _activePlayer=target.
+func TestBuildNpcScriptStateDispatchesActivePlayer(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForScriptTest(t)
+	p := &Player{} // *Player satisfies script.ActivePlayer
+	sf := &script.ScriptFile{Name: "noop"}
+
+	state := s.buildNpcScriptState(sf, n, p, nil, nil)
+
+	if state.Self == nil {
+		t.Error("Self: nil, want set (ActivePlayer target)")
+	}
+	if state.Pointers&script.PtrActivePlayer == 0 {
+		t.Error("Pointers: PtrActivePlayer flag not set")
+	}
+}
+
+// TestBuildNpcScriptStateDispatchesActiveLoc — a *entity.Loc target
+// must land in state.ActiveLoc with PtrActiveLoc set.
+func TestBuildNpcScriptStateDispatchesActiveLoc(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForScriptTest(t)
+	loc := gameentity.NewLoc(0, 100, 100, 1, 1, gameentity.LifecycleRespawn, 42, 10, 0)
+	sf := &script.ScriptFile{Name: "noop"}
+
+	state := s.buildNpcScriptState(sf, n, loc, nil, nil)
+
+	if state.ActiveLoc == nil {
+		t.Error("ActiveLoc: nil, want set")
+	}
+	if state.Pointers&script.PtrActiveLoc == 0 {
+		t.Error("Pointers: PtrActiveLoc flag not set")
+	}
+}
+
+// TestBuildNpcScriptStateDispatchesActiveObj — a *entity.Obj target
+// must land in state.ActiveObj with PtrActiveObj set.
+func TestBuildNpcScriptStateDispatchesActiveObj(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForScriptTest(t)
+	obj := gameentity.NewObj(0, 100, 100, gameentity.LifecycleRespawn, 42, 1)
+	sf := &script.ScriptFile{Name: "noop"}
+
+	state := s.buildNpcScriptState(sf, n, obj, nil, nil)
+
+	if state.ActiveObj == nil {
+		t.Error("ActiveObj: nil, want set")
+	}
+	if state.Pointers&script.PtrActiveObj == 0 {
+		t.Error("Pointers: PtrActiveObj flag not set")
+	}
+}
+
+// TestBuildNpcScriptStateDispatchesOtherActiveNpc — a *Npc target
+// must land in state.OtherActiveNpc with PtrOtherActiveNpc set.
+// Mirrors TS ScriptRunner.init: self=Npc, target=Npc → _activeNpc2.
+func TestBuildNpcScriptStateDispatchesOtherActiveNpc(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForScriptTest(t)
+	other := newNpcForScriptTest(t)
+	sf := &script.ScriptFile{Name: "noop"}
+
+	state := s.buildNpcScriptState(sf, n, other, nil, nil)
+
+	if state.OtherActiveNpc == nil {
+		t.Error("OtherActiveNpc: nil, want set")
+	}
+	if state.Pointers&script.PtrOtherActiveNpc == 0 {
+		t.Error("Pointers: PtrOtherActiveNpc flag not set")
+	}
+}
+
+// TestBuildNpcScriptStateNilTargetSetsNoSecondaryPointer — nil target
+// must leave all secondary pointer flags clear (only PtrActiveNpc is
+// set by the primary NPC wiring). Covers AI_TIMER/DESPAWN/QUEUE* paths.
+func TestBuildNpcScriptStateNilTargetSetsNoSecondaryPointer(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForScriptTest(t)
+	sf := &script.ScriptFile{Name: "noop"}
+
+	state := s.buildNpcScriptState(sf, n, nil, nil, nil)
+
+	// ActiveNpc (primary) is set by buildNpcScriptState itself, not target-dispatch.
+	secondaryMask := script.PtrActivePlayer | script.PtrActiveLoc |
+		script.PtrActiveObj | script.PtrOtherActiveNpc
+	if state.Pointers&secondaryMask != 0 {
+		t.Errorf("secondary Pointers: got %x, want 0", state.Pointers&secondaryMask)
 	}
 }
