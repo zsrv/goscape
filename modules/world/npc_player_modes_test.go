@@ -7,6 +7,7 @@ package world
 import (
 	"testing"
 
+	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 )
@@ -263,5 +264,84 @@ func TestProcessMovementInteractionDispatchPlayerFaceClose(t *testing.T) {
 
 	if n.target != nil {
 		t.Errorf("target: got %v, want nil (playerFaceCloseMode distance gate should fire)", n.target)
+	}
+}
+
+// TestPlayerFollowQueuesWaypointAtTarget — NAI-13 Task 5.
+// TS Npc.ts:801-812: `pathToTarget(); updateMovement()`. Naive-path port
+// inherited from NAI-11: pathToTarget queues a single waypoint at the
+// player's current tile. The SMART branch is still deferred (NAI-11).
+func TestPlayerFollowQueuesWaypointAtTarget(t *testing.T) {
+	s, n, p := playerModeFixture(t)
+	p.x, p.z = 3100, 3112
+	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerFollow, 0)
+
+	n.playerFollowMode(s)
+
+	// queueWaypoint writes waypoints[0] = coordgrid.PackCoord(level, x, z).
+	// Round-trip via UnpackCoord for a clean assertion.
+	if n.waypointIndex != 0 {
+		t.Fatalf("waypointIndex: got %d, want 0 (waypoint should be queued)", n.waypointIndex)
+	}
+	pos := coordgrid.UnpackCoord(n.waypoints[0])
+	if pos.X != p.x || pos.Z != p.z || pos.Level != p.level {
+		t.Errorf("waypoint: got (level=%d, x=%d, z=%d), want (level=%d, x=%d, z=%d)",
+			pos.Level, pos.X, pos.Z, p.level, p.x, p.z)
+	}
+}
+
+// TestPlayerFollowAdvancesOneTile — NAI-13 Task 5.
+// Proves updateMovement actually runs (not just pathToTarget). After one
+// tick the NPC should be one tile closer to the player (typ.MoveSpeed
+// defaults to Instant/Walk = 1 step/tick via NpcType.MoveRestrict).
+func TestPlayerFollowAdvancesOneTile(t *testing.T) {
+	s, n, p := playerModeFixture(t)
+	n.x, n.z = 3094, 3106
+	p.x, p.z = 3094, 3112 // +6 Z
+	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerFollow, 0)
+
+	startZ := n.z
+	n.playerFollowMode(s)
+
+	if n.z == startZ {
+		t.Errorf("z: got %d, want != %d (updateMovement should have stepped)", n.z, startZ)
+	}
+}
+
+// TestPlayerFollowNonPlayerTargetLogsAndReturns — NAI-13 Task 5.
+// Type-guard behavior. TS throws (Npc.ts:804-806); Go logs + returns.
+func TestPlayerFollowNonPlayerTargetLogsAndReturns(t *testing.T) {
+	s, n, _ := playerModeFixture(t)
+	other := newTestNpc(2)
+	n.target = other
+	n.targetOp = objtype.NPCModePlayerFollow
+
+	n.playerFollowMode(s)
+
+	// No waypoint should have been queued.
+	if n.waypointIndex != -1 {
+		t.Errorf("waypointIndex: got %d, want -1 (no waypoint on non-Player target)", n.waypointIndex)
+	}
+	if n.target != other {
+		t.Error("target: mutated on non-Player input")
+	}
+}
+
+// TestProcessMovementInteractionDispatchPlayerFollow — NAI-13 Task 5.
+// Proves the dispatch switch now routes PLAYERFOLLOW to playerFollowMode
+// (rather than the resetDefaults stub). Observable effect: waypoint
+// queued at the player's tile.
+func TestProcessMovementInteractionDispatchPlayerFollow(t *testing.T) {
+	s, n, p := playerModeFixture(t)
+	p.x, p.z = 3099, 3111
+	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerFollow, 0)
+
+	n.processMovementInteraction(s)
+
+	if n.target == nil {
+		t.Fatal("target: got nil, want non-nil (PLAYERFOLLOW should preserve target, not resetDefaults-stub)")
+	}
+	if n.waypointIndex != 0 {
+		t.Errorf("waypointIndex: got %d, want 0 (pathToTarget should have queued a waypoint)", n.waypointIndex)
 	}
 }

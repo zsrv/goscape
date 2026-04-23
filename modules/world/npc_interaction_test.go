@@ -106,7 +106,10 @@ func TestProcessMovementInteractionPlayerModesResetToDefault(t *testing.T) {
 
 	target := &Npc{nid: 7, typeId: 99, x: 101, z: 100, level: 0}
 	n.target = target
-	n.targetOp = objtype.NPCModePlayerFollow
+	// PLAYERESCAPE is the sole remaining deferred PLAYER* mode after
+	// NAI-13 Tasks 3-5 landed PLAYERFACE / PLAYERFACECLOSE / PLAYERFOLLOW.
+	// It still routes to resetDefaults until NAI-13 Task 6.
+	n.targetOp = objtype.NPCModePlayerEscape
 	n.targetSubject.typ = target.typeId
 
 	n.processMovementInteraction(s)

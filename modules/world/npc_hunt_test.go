@@ -279,23 +279,20 @@ func TestNpcTurnHuntAndConsumeSetsTarget(t *testing.T) {
 	hunt.CheckNpc = -1
 	hunt.CheckCategory = -1
 
-	addNpcToServerAt(t, s, 10, 1, -1, n.x+3, n.z+3, n.level)
+	hunted := addNpcToServerAt(t, s, 10, 1, -1, n.x+3, n.z+3, n.level)
 	s.npcs[1] = n
 
 	// Run the full tick.
 	n.turn(s)
 
-	// NAI-11 shift: consumeHuntTarget still sets target+targetOp=4
-	// intermediately, but processMovementInteraction (now wired via
-	// npc_ai.go:turn) immediately routes PLAYERFOLLOW through the
-	// deferred-PLAYER*-mode branch → resetDefaults → target cleared.
-	// So the observable post-turn state is target==nil + targetOp back
-	// at defaultMode (Wander for a WanderRange-only NpcType).
-	//
-	// Tracked: nai_followups.md — when PLAYER* modes are implemented,
-	// this assertion should flip back to "target is the hunted NPC".
-	if n.target != nil {
-		t.Errorf("target: got %v, want nil (PLAYER* mode is deferred → resetDefaults)", n.target)
+	// NAI-13 (restored): PLAYERFOLLOW now dispatches to playerFollowMode
+	// (TS Npc.ts:801-812) instead of the NAI-11 resetDefaults stub. The
+	// target is preserved across the turn. This is the original pre-NAI-11
+	// assertion shape, restored by NAI-13 Task 5.
+	if n.target == nil {
+		t.Errorf("target: got nil, want the hunted NPC (PLAYERFOLLOW should preserve target)")
+	} else if n.target.Slot() != hunted.nid {
+		t.Errorf("target: got nid %d, want %d (hunted NPC)", n.target.Slot(), hunted.nid)
 	}
 	if n.huntTarget != nil {
 		t.Errorf("huntTarget: got %v, want nil (cleared by consumeHuntTarget)", n.huntTarget)

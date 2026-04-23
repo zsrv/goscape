@@ -177,10 +177,11 @@ func (n *Npc) processMovementInteraction(s *Server) {
 
 	// Targeted-mode dispatch.
 	switch n.targetOp {
-	case objtype.NPCModePlayerEscape,
-		objtype.NPCModePlayerFollow:
-		// NAI-13: PLAYERESCAPE / PLAYERFOLLOW land in later tasks.
+	case objtype.NPCModePlayerEscape:
+		// NAI-13: PLAYERESCAPE lands in Task 6.
 		n.resetDefaults()
+	case objtype.NPCModePlayerFollow:
+		n.playerFollowMode(s)
 	case objtype.NPCModePlayerFace:
 		n.playerFaceMode(s)
 	case objtype.NPCModePlayerFaceClose:
