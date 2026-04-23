@@ -201,7 +201,20 @@ func (n *Npc) huntLocs(s *Server, hunt *objtype.HuntType) []entity {
 			if dx > n.huntRange || dz > n.huntRange {
 				continue
 			}
-			// TODO: CheckVis gate — TS ScriptIterators.ts:160-165.
+			// CheckVis gate — TS ScriptIterators.ts:160-165.
+			// gamemap==nil short-circuits to gate-pass; see NAI-12 spec § error handling.
+			// FIDELITY: TS passes {loc.x, loc.z} (1×1), not multi-tile width/length;
+			// goscape preserves that quirk.
+			if hunt.CheckVis == objtype.HuntVisLineOfSight && s.gamemap != nil &&
+				!s.gamemap.Pathfinder.LineValidator.HasLineOfSight(
+					n.level, n.x, n.z, l.X, l.Z, 1, 1, 1, 0) {
+				continue
+			}
+			if hunt.CheckVis == objtype.HuntVisLineOfWalk && s.gamemap != nil &&
+				!s.gamemap.Pathfinder.LineValidator.HasLineOfWalk(
+					n.level, n.x, n.z, l.X, l.Z, 1, 1, 1, 0) {
+				continue
+			}
 			hunted = append(hunted, l)
 		}
 	}
