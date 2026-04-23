@@ -44,6 +44,21 @@ func (n *Npc) clearInteraction() {
 	n.targetSubject = npcTargetSubject{com: -1, typ: -1}
 }
 
+// focus records the fine-grained face-angle target. Called from
+// SetInteraction with CoordGrid.fine of the target's width/length.
+// Matches TS PathingEntity.focus.
+//
+// DEVIATION: TS takes an `instant` flag distinguishing engine-face
+// from script-face, which selects between two wire-protocol paths.
+// Go's current protocol doesn't branch on it, so the flag is accepted
+// for signature parity but currently stored write-only. Follow-up:
+// "face-instant wire protocol" sub-spec.
+func (n *Npc) focus(fx, fz int, instant bool) {
+	n.faceAngleX = fx
+	n.faceAngleZ = fz
+	_ = instant
+}
+
 // defaultMode returns the NPC's baseline mode based on its NpcType
 // config. Patrol if PatrolCoord is set; else Wander if WanderRange>0;
 // else None. Single source of truth used by NewNpc (initial targetOp)

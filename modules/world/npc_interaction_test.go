@@ -36,6 +36,26 @@ func TestCheckOpTrigger(t *testing.T) {
 	}
 }
 
+func TestNpcFocusSetsFaceAngleCoords(t *testing.T) {
+	typ := &objtype.NpcType{}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+
+	n.focus(6431, 6431, false)
+	if n.faceAngleX != 6431 {
+		t.Errorf("faceAngleX: got %d, want 6431", n.faceAngleX)
+	}
+	if n.faceAngleZ != 6431 {
+		t.Errorf("faceAngleZ: got %d, want 6431", n.faceAngleZ)
+	}
+
+	// instant flag is write-only (per the DEVIATION note) — test merely
+	// confirms no panic and that coords still update on a subsequent call.
+	n.focus(1000, 2000, true)
+	if n.faceAngleX != 1000 || n.faceAngleZ != 2000 {
+		t.Errorf("focus(instant=true) did not update coords: got (%d,%d)", n.faceAngleX, n.faceAngleZ)
+	}
+}
+
 func TestNpcResetDefaultsClearsTargetKeepsOtherState(t *testing.T) {
 	typ := &objtype.NpcType{WanderRange: 5}
 	n := NewNpc(1, 42, 100, 100, 0, typ)
