@@ -248,3 +248,23 @@ func TestLoadLocsEmptyFile(t *testing.T) {
 		t.Errorf("empty input should produce 0 locs; got %d", got)
 	}
 }
+
+func TestSetMulti(t *testing.T) {
+	gm := New(discardLogger())
+	if gm.IsMulti(3094, 3107, 0) {
+		t.Fatalf("pre-set: IsMulti(3094,3107,0) = true, want false (fresh GameMap)")
+	}
+	gm.SetMulti(3094, 3107, 0, true)
+	if !gm.IsMulti(3094, 3107, 0) {
+		t.Errorf("post-set: IsMulti(3094,3107,0) = false, want true")
+	}
+	// Different coord must remain unaffected.
+	if gm.IsMulti(3094, 3108, 0) {
+		t.Errorf("adjacent coord: IsMulti(3094,3108,0) = true, want false")
+	}
+	// Clearing works.
+	gm.SetMulti(3094, 3107, 0, false)
+	if gm.IsMulti(3094, 3107, 0) {
+		t.Errorf("post-clear: IsMulti(3094,3107,0) = true, want false")
+	}
+}

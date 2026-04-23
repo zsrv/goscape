@@ -24,6 +24,14 @@ func (gm *GameMap) IsFreeToPlay(x, z int) bool {
 	return gm.freemap[packZoneCoord(x, z, 0)]
 }
 
+// SetMulti marks (or clears) the given tile as multi-combat. Intended for
+// tests — production data flows from multiway.csv via Init. Exposing a
+// setter avoids having to stand up a tempdir + CSV + Init for every
+// cross-package test that needs a single multi-combat coord.
+func (gm *GameMap) SetMulti(x, z, level int, multi bool) {
+	gm.multimap[packZoneCoord(x, z, level)] = multi
+}
+
 // loadCsvMap parses a CSV of "level,x,z" rows and inserts into dst.
 // Missing files are not errors.
 func loadCsvMap(path string, dst map[int]bool) error {
