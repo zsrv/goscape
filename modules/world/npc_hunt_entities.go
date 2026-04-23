@@ -15,8 +15,8 @@ import (
 //   - CheckNpc: type-ID filter (-1 == allow all)
 //   - CheckCategory: NpcType.Category filter (-1 == allow all)
 //
-// DEFERRED to audit pass:
-//   - CheckVis (TS ScriptIterators.ts:113-118) — LoS/LoW gate.
+// CheckVis (NAI-12): LoS/LoW gate wired per TS
+// ScriptIterators.ts:113-118 — see gate at the filter chain below.
 //
 // Does NOT exclude self (TS doesn't either — NPC can appear in its
 // own zone's NPC list and pass all filters). Preserves TS quirk.
@@ -90,8 +90,8 @@ func (n *Npc) huntNpcs(s *Server, hunt *objtype.HuntType) []entity {
 //   - CheckObj: obj.Type filter (-1 == allow all)
 //   - CheckCategory: ObjType.Category filter (-1 == allow all)
 //
-// DEFERRED to audit pass:
-//   - CheckVis (TS ScriptIterators.ts:137-142) — LoS/LoW gate.
+// CheckVis (NAI-12): LoS/LoW gate wired per TS
+// ScriptIterators.ts:137-142 — see gate at the filter chain below.
 func (n *Npc) huntObjs(s *Server, hunt *objtype.HuntType) []entity {
 	if s.zoneMap == nil || s.objTypes == nil {
 		return nil
@@ -165,8 +165,8 @@ func (n *Npc) huntObjs(s *Server, hunt *objtype.HuntType) []entity {
 //   - CheckLoc: loc.Type() filter (-1 == allow all)
 //   - CheckCategory: LocType.Category filter (-1 == allow all)
 //
-// DEFERRED to audit pass:
-//   - CheckVis (TS ScriptIterators.ts:160-165) — LoS/LoW gate.
+// CheckVis (NAI-12): LoS/LoW gate wired per TS
+// ScriptIterators.ts:160-165 — see gate at the filter chain below.
 func (n *Npc) huntLocs(s *Server, hunt *objtype.HuntType) []entity {
 	if s.zoneMap == nil || s.locTypes == nil {
 		return nil

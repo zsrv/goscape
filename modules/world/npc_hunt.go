@@ -88,6 +88,11 @@ func (n *Npc) huntAll(s *Server, hunt *objtype.HuntType) {
 //   - Range + level match: always
 //   - checkAfk: via p.IsZonesAfk (TS:935-937)
 //
+// CheckVis (NAI-12): LoS/LoW gate wired per TS
+// ScriptIterators.ts:88-94 with the TS player-as-source /
+// NPC-as-dest argument swap quirk preserved — see gate at the
+// filter chain below.
+//
 // Filters DEFERRED to future audit pass (Go infrastructure
 // missing; each TS line cited):
 //   - checkNotBusy (TS:931-933)       — no Player.Busy()
