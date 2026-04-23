@@ -146,7 +146,7 @@ func (n *Npc) huntPlayers(s *Server, hunt *objtype.HuntType) []entity {
 // interaction state. Matches TS Npc.consumeHuntTarget at
 // Engine-TS/.../Npc.ts:887-919.
 //
-// Control flow (fully implemented across NAI-10 Tasks 2-5):
+// Control flow:
 //   - Entry guards: huntTarget non-nil, huntMode in bounds, hunt config
 //     non-nil, hunt.Type != HuntModeOff. Any guard fires → no-op.
 //   - Branch on hunt.FindNewMode:
@@ -155,8 +155,17 @@ func (n *Npc) huntPlayers(s *Server, hunt *objtype.HuntType) []entity {
 //   - Common tail (both branches): n.huntTarget = nil, n.huntClock = 0.
 //   - If !hunt.FindKeepHunting: n.huntMode = -1.
 //
-// DEVIATION from TS setInteraction: apRange, apRangeCalled, and
-// targetSubject fields are not written — NAI-11 scope, not yet on *Npc.
+// DEVIATION from TS setInteraction (PathingEntity.ts:510-548): only
+// target + targetOp are written. All of the following are deferred to
+// NAI-11, which owns NPC interaction processing:
+//   - apRange = 10, apRangeCalled = false.
+//   - targetSubject.com / targetSubject.type.
+//   - focus() update → faceAngleX/Z (fields not yet on *Npc).
+//   - faceEntity update + masks |= entitymask (faceEntity exists on
+//     *Npc but intentionally not written here — NAI-11 gates the write
+//     behind the full Player/Npc/Obj/Loc type switch TS uses).
+//   - targetX / targetZ (non-Player/non-Npc branch; fields not yet on
+//     *Npc).
 func (s *Server) consumeHuntTarget(n *Npc) {
 	if n.huntTarget == nil {
 		return
@@ -183,10 +192,8 @@ func (s *Server) consumeHuntTarget(n *Npc) {
 		}
 	} else {
 		// Interaction branch: write target + targetOp for NAI-11 consumption.
-		//
-		// DEVIATION: TS setInteraction also writes apRange, apRangeCalled,
-		// targetSubject.com/type. Those fields don't yet exist on *Npc and
-		// have zero NAI-10 consumers; NAI-11 adds them.
+		// All other TS setInteraction side effects are deferred — see the
+		// method-level DEVIATION block for the full list.
 		n.target = n.huntTarget
 		n.targetOp = hunt.FindNewMode
 	}
