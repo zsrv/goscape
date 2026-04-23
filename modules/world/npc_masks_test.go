@@ -225,3 +225,55 @@ func TestNpcClearInteractionEmitsEntityMaskAndClearsFaceEntity(t *testing.T) {
 		t.Error("masks & NpcMaskFaceEntity: got 0, want nonzero (clearInteraction should emit per TS Npc.ts:408)")
 	}
 }
+
+// TestResetMasksTrailingClearFires — NAI-14 Task 2.
+// When target is nil but faceEntity is still set, ResetMasks emits the
+// entitymask bit and clears faceEntity. Mirrors TS
+// PathingEntity.ts:611-614 with one-tick-lag deviation (Go's ResetMasks
+// runs at tick end, so the mask bit is consumed by the next tick's
+// info-pass).
+func TestResetMasksTrailingClearFires(t *testing.T) {
+	n := newTestNpc(1)
+	n.target = nil
+	n.faceEntity = 42
+	n.masks = 0
+	n.ResetMasks()
+	if n.faceEntity != -1 {
+		t.Errorf("faceEntity: got %d, want -1 (trailing clear should run)", n.faceEntity)
+	}
+	if n.masks&rsbuf.NpcMaskFaceEntity == 0 {
+		t.Error("masks & NpcMaskFaceEntity: got 0, want nonzero (trailing clear should emit)")
+	}
+}
+
+// TestResetMasksTrailingClearSkippedWhenTargetPresent — NAI-14 Task 2.
+// Quirk guard: trailing clear must not fire when target is non-nil
+// (the NPC is still facing someone, by design).
+func TestResetMasksTrailingClearSkippedWhenTargetPresent(t *testing.T) {
+	n := newTestNpc(1)
+	other := newTestNpc(2)
+	n.target = other
+	n.faceEntity = 42
+	n.masks = 0
+	n.ResetMasks()
+	if n.faceEntity != 42 {
+		t.Errorf("faceEntity: got %d, want 42 (trailing clear should be skipped — target present)", n.faceEntity)
+	}
+	if n.masks&rsbuf.NpcMaskFaceEntity != 0 {
+		t.Error("masks & NpcMaskFaceEntity: got nonzero, want 0 (trailing clear should not emit — target present)")
+	}
+}
+
+// TestResetMasksTrailingClearSkippedWhenFaceEntityAlreadyMinusOne — NAI-14 Task 2.
+// Quirk guard: trailing clear must not fire when faceEntity is already
+// -1 (no pending clear to sync).
+func TestResetMasksTrailingClearSkippedWhenFaceEntityAlreadyMinusOne(t *testing.T) {
+	n := newTestNpc(1)
+	n.target = nil
+	n.faceEntity = -1
+	n.masks = 0
+	n.ResetMasks()
+	if n.masks != 0 {
+		t.Errorf("masks: got 0x%x, want 0 (trailing clear should be skipped — faceEntity already -1)", n.masks)
+	}
+}
