@@ -598,7 +598,7 @@ func TestHuntAllPicksFromVariantResult(t *testing.T) {
 	}
 }
 
-// withBlockingWall installs a blocking wall at (level, x, z) on the
+// withBlockingWall installs a blocking wall at (x, z, level) on the
 // given Server's gamemap so the straight-line ray traversing that tile
 // is blocked by both HasLineOfSight and HasLineOfWalk. Per FlagMap.Add,
 // this also implicitly allocates the zone so adjacent path tiles read
@@ -610,7 +610,7 @@ func TestHuntAllPicksFromVariantResult(t *testing.T) {
 // FlagLoc blocks LoW (via LineWalkBlocked* / FlagWalkBlocked). A real wall-loc
 // would set both, so the helper mirrors that reality and is universal across
 // Tasks 2-5's LoS and LoW block tests.
-func withBlockingWall(t *testing.T, s *Server, level, x, z int) {
+func withBlockingWall(t *testing.T, s *Server, x, z, level int) {
 	t.Helper()
 	s.gamemap.Pathfinder.Flags.Add(x, z, level, collision.FlagLoc|collision.FlagLocProjBlocker)
 }
@@ -649,7 +649,7 @@ func TestHuntNpcsCheckVisLineOfWalkBlocks(t *testing.T) {
 	n.huntRange = 10
 
 	_ = addNpcToServerAt(t, s, 10, 1, -1, n.x, n.z+2, n.level) // 2 tiles north
-	withBlockingWall(t, s, 0, 3094, 3107)                      // mid-tile blocker
+	withBlockingWall(t, s, 3094, 3107, 0)                      // mid-tile blocker
 
 	hunt := &objtype.HuntType{CheckNpc: -1, CheckCategory: -1, CheckVis: objtype.HuntVisLineOfWalk}
 	hunted := n.huntNpcs(s, hunt)
