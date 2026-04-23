@@ -3,7 +3,10 @@ package world
 import (
 	"testing"
 
+	"github.com/zsrv/goscape/pkg/coordgrid"
+	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
 func TestCheckOpTrigger(t *testing.T) {
@@ -33,6 +36,128 @@ func TestCheckOpTrigger(t *testing.T) {
 				t.Errorf("checkOpTrigger(%d) = %t, want %t", tc.op, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestNpcSetInteraction(t *testing.T) {
+	typ := &objtype.NpcType{}
+	targetNpc := &Npc{nid: 7, typeId: 99, x: 105, z: 105, level: 0}
+	targetPlayer := &Player{
+		slot:       3,
+		active:     true,
+		visibility: rsbuf.VisibilityDefault,
+		client:     &client{},
+		x:          105, z: 105, level: 0,
+	}
+	targetLoc := entitypkg.NewLoc(0, 105, 105, 1, 1, entitypkg.LifecycleRespawn, 42, 10, 0)
+	targetObj := entitypkg.NewObj(0, 105, 105, entitypkg.LifecycleRespawn, 88, 1)
+
+	type row struct {
+		name       string
+		target     entity
+		kind       InteractionKind
+		op         int
+		com        int
+		wantOK     bool
+		wantFace   int // faceEntity; -1 if not applicable
+		wantTX     int // targetX; -1 if not applicable
+		wantTZ     int
+		wantSubCom int
+		wantSubTyp int
+	}
+
+	rows := []row{
+		{
+			name: "Player target", target: targetPlayer, kind: InteractionScript,
+			op: objtype.NPCModeOpPlayer1, com: -1, wantOK: true,
+			wantFace: 3 + 32768, wantTX: -1, wantTZ: -1,
+			wantSubCom: -1, wantSubTyp: -1,
+		},
+		{
+			name: "Npc target", target: targetNpc, kind: InteractionScript,
+			op: objtype.NPCModeOpNpc1, com: -1, wantOK: true,
+			wantFace: 7, wantTX: -1, wantTZ: -1,
+			wantSubCom: -1, wantSubTyp: 99,
+		},
+		{
+			name: "Loc target", target: targetLoc, kind: InteractionEngine,
+			op: objtype.NPCModeOpLoc1, com: 5, wantOK: true,
+			wantFace:   -1,
+			wantTX:     coordgrid.Fine(105, 1),
+			wantTZ:     coordgrid.Fine(105, 1),
+			wantSubCom: 5, wantSubTyp: 42,
+		},
+		{
+			name: "Obj target", target: targetObj, kind: InteractionEngine,
+			op: objtype.NPCModeOpObj1, com: -1, wantOK: true,
+			wantFace:   -1,
+			wantTX:     coordgrid.Fine(105, 1),
+			wantTZ:     coordgrid.Fine(105, 1),
+			wantSubCom: -1, wantSubTyp: 88,
+		},
+		{
+			name: "com==0 → subject.com==-1 (TS quirk)", target: targetNpc, kind: InteractionScript,
+			op: objtype.NPCModeOpNpc1, com: 0, wantOK: true,
+			wantFace: 7, wantTX: -1, wantTZ: -1,
+			wantSubCom: -1, wantSubTyp: 99,
+		},
+	}
+
+	for _, r := range rows {
+		t.Run(r.name, func(t *testing.T) {
+			n := NewNpc(1, 42, 100, 100, 0, typ)
+			ok := n.SetInteraction(r.kind, r.target, r.op, r.com)
+			if ok != r.wantOK {
+				t.Errorf("return: got %t, want %t", ok, r.wantOK)
+			}
+			if n.target != r.target {
+				t.Error("target not set")
+			}
+			if n.targetOp != r.op {
+				t.Errorf("targetOp: got %d, want %d", n.targetOp, r.op)
+			}
+			if n.apRange != 10 {
+				t.Errorf("apRange: got %d, want 10", n.apRange)
+			}
+			if n.apRangeCalled {
+				t.Error("apRangeCalled: got true, want false")
+			}
+			if n.targetSubject.com != r.wantSubCom {
+				t.Errorf("subject.com: got %d, want %d", n.targetSubject.com, r.wantSubCom)
+			}
+			if n.targetSubject.typ != r.wantSubTyp {
+				t.Errorf("subject.typ: got %d, want %d", n.targetSubject.typ, r.wantSubTyp)
+			}
+			if r.wantFace != -1 && n.faceEntity != r.wantFace {
+				t.Errorf("faceEntity: got %d, want %d", n.faceEntity, r.wantFace)
+			}
+			if r.wantTX != -1 && n.targetX != r.wantTX {
+				t.Errorf("targetX: got %d, want %d", n.targetX, r.wantTX)
+			}
+			if r.wantTZ != -1 && n.targetZ != r.wantTZ {
+				t.Errorf("targetZ: got %d, want %d", n.targetZ, r.wantTZ)
+			}
+		})
+	}
+}
+
+func TestNpcSetInteractionTargetInvalidReturnsFalse(t *testing.T) {
+	typ := &objtype.NpcType{}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+
+	deadNpc := &Npc{nid: 7, typeId: 99, dead: true}
+	originalTarget := n.target
+
+	ok := n.SetInteraction(InteractionScript, deadNpc, objtype.NPCModeOpNpc1, -1)
+
+	if ok {
+		t.Error("return: got true, want false")
+	}
+	if n.target != originalTarget {
+		t.Error("target changed despite IsValid()==false")
+	}
+	if n.targetOp != n.defaultMode() {
+		t.Errorf("targetOp changed: got %d, want %d", n.targetOp, n.defaultMode())
 	}
 }
 

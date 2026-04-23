@@ -1,6 +1,8 @@
 package world
 
 import (
+	"github.com/zsrv/goscape/pkg/coordgrid"
+	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
@@ -42,6 +44,96 @@ func (n *Npc) clearInteraction() {
 	n.apRange = 10
 	n.apRangeCalled = false
 	n.targetSubject = npcTargetSubject{com: -1, typ: -1}
+}
+
+// SetInteraction anchors the NPC's interaction on target. Mirrors TS
+// PathingEntity.setInteraction at Engine-TS/.../PathingEntity.ts:510-548.
+// Closes the seven NAI-10 deferred setInteraction fields:
+//  1. apRange = 10
+//  2. apRangeCalled = false
+//  3. targetSubject.com/typ snapshot
+//  4. focus() → faceAngleX/Z
+//  5. faceEntity + masks|=entitymask (Player/Npc targets)
+//  6. targetX/targetZ (Loc/Obj targets)
+//  7. target.IsValid() pre-check
+//
+// TS quirk preserved: `com ? com : -1` coerces 0 → -1 on subject.com.
+//
+// DEVIATION: n.entitymask is currently always 0 (the mask-plumbing
+// sub-spec will wire it), so `n.masks |= n.entitymask` is a harmless
+// no-op. The statement is kept for structural parity with TS so the
+// mask-plumbing port is a one-line change rather than a body rewrite.
+func (n *Npc) SetInteraction(kind InteractionKind, target entity, op, com int) bool {
+	if !target.IsValid() {
+		return false
+	}
+
+	n.target = target
+	n.targetOp = op
+	n.apRange = 10
+	n.apRangeCalled = false
+
+	// TS "com ? com : -1": 0 coerces to -1.
+	if com == 0 {
+		n.targetSubject.com = -1
+	} else {
+		n.targetSubject.com = com
+	}
+
+	// targetSubject.typ snapshot for changetype-detection in validateTarget.
+	switch t := target.(type) {
+	case *Npc:
+		n.targetSubject.typ = t.typeId
+	case *entitypkg.Loc:
+		n.targetSubject.typ = t.Type()
+	case *entitypkg.Obj:
+		n.targetSubject.typ = t.Type
+	default:
+		n.targetSubject.typ = -1
+	}
+
+	// focus — fine-grained face-angle coord. Non-pathing targets
+	// (Loc/Obj) use the engine-face path when the kind is engine;
+	// pathing targets (Player/Npc) never set instant.
+	tx, tz, _ := target.Coords()
+	tw, tl := targetWidthLength(target)
+	fx := coordgrid.Fine(tx, tw)
+	fz := coordgrid.Fine(tz, tl)
+	isNonPathing := false
+	switch target.(type) {
+	case *entitypkg.Loc, *entitypkg.Obj:
+		isNonPathing = true
+	}
+	n.focus(fx, fz, isNonPathing && kind == InteractionEngine)
+
+	// faceEntity (Player/Npc) or targetX/Z (Loc/Obj) dispatch.
+	switch t := target.(type) {
+	case *Player:
+		slot := t.slot + 32768
+		if n.faceEntity != slot {
+			n.faceEntity = slot
+			n.masks |= n.entitymask
+		}
+	case *Npc:
+		if n.faceEntity != t.nid {
+			n.faceEntity = t.nid
+			n.masks |= n.entitymask
+		}
+	default:
+		n.targetX = fx
+		n.targetZ = fz
+	}
+
+	return true
+}
+
+// targetWidthLength returns the target's (width, length) for fine-grained
+// coord math. 1x1 for PathingEntity; real dimensions for Loc; 1x1 for Obj.
+func targetWidthLength(target entity) (width, length int) {
+	if l, ok := target.(*entitypkg.Loc); ok {
+		return l.Width, l.Length
+	}
+	return 1, 1
 }
 
 // focus records the fine-grained face-angle target. Called from
