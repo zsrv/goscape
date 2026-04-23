@@ -1,5 +1,9 @@
 package world
 
+// Player-mode-specific targeting behavior tests (PLAYERFOLLOW / PLAYERESCAPE /
+// PLAYERFACE / PLAYERFACECLOSE). Cross-mode matrix tests that exercise the
+// default branch or the OP/AP bands stay in npc_interaction_test.go.
+
 import (
 	"testing"
 

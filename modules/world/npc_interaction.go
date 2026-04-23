@@ -418,16 +418,7 @@ func (n *Npc) targetWithinMaxRange() bool {
 
 	maxrng := int(n.typ.MaxRange)
 	attackrng := int(n.typ.AttackRange)
-
 	tx, tz, _ := n.target.Coords()
-	dx := tx - n.startX
-	if dx < 0 {
-		dx = -dx
-	}
-	dz := tz - n.startZ
-	if dz < 0 {
-		dz = -dz
-	}
 
 	// TS :657-673 — PLAYERESCAPE retreat. Size-aware distanceTo from BOTH
 	// NPC and target to (startX, startZ); rejects only when BOTH exceed
@@ -446,7 +437,16 @@ func (n *Npc) targetWithinMaxRange() bool {
 
 	switch {
 	case checkOpTrigger(n.targetOp):
-		// TS :640-648 — maxrange+1 with corner-removal quirk.
+		// TS :640-648 — maxrange+1 with corner-removal quirk. dx/dz
+		// locality matches TS (:640-641 computes them inside this branch).
+		dx := tx - n.startX
+		if dx < 0 {
+			dx = -dx
+		}
+		dz := tz - n.startZ
+		if dz < 0 {
+			dz = -dz
+		}
 		maxAxis := max(dx, dz)
 		if maxAxis > maxrng+1 {
 			return false
