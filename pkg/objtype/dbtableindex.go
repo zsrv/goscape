@@ -82,10 +82,14 @@ func BuildDbTableIndex(tables *DbTableTypeConfigs, rows *DbRowTypeConfigs) *DbTa
 // number of stored field-records per column; index lookup uses
 // typeID + fieldID*len(types).
 func (x *DbTableIndex) indexTuple(tableID, col int, types []ScriptVarType, row *DbRowType, rowID int) {
+	// IntValues length is authoritative for fieldCount: decodeDbValues
+	// (dbtabletype.go) allocates both IntValues and StringValues to
+	// fieldCount*len(types), so a pure-string tuple column still has
+	// an IntValues[col] slice of the right length (zero-filled).
 	fieldCount := len(row.IntValues[col]) / len(types)
 	for fieldID := range fieldCount {
 		for typeID, t := range types {
-			packed := (tableID << 12) | (col << 4) | typeID
+			packed := ((tableID & 0xffff) << 12) | ((col & 0x7f) << 4) | (typeID & 0xf)
 			valueIdx := typeID + fieldID*len(types)
 			if t == ScriptVarTypeString {
 				x.addStr(packed, row.StringValues[col][valueIdx], rowID)
@@ -100,7 +104,7 @@ func (x *DbTableIndex) indexTuple(tableID, col int, types []ScriptVarType, row *
 // columns with multiple stored values). packed key has tuple nibble = 0.
 // Every stored value indexes to the same bucket.
 func (x *DbTableIndex) indexList(tableID, col int, t ScriptVarType, row *DbRowType, rowID int) {
-	packed := (tableID << 12) | (col << 4)
+	packed := ((tableID & 0xffff) << 12) | ((col & 0x7f) << 4)
 	if t == ScriptVarTypeString {
 		for _, v := range row.StringValues[col] {
 			x.addStr(packed, v, rowID)
@@ -147,7 +151,9 @@ func (x *DbTableIndex) FindInt(query int32, packed int) []int {
 	return bucket[query]
 }
 
-// FindStr — symmetric to FindInt, over string-valued columns.
+// FindStr — symmetric to FindInt, over string-valued columns. Same
+// aliasing contract: the returned slice is the map's underlying
+// storage and must be treated as read-only.
 func (x *DbTableIndex) FindStr(query string, packed int) []int {
 	key := packed
 	if packed&0xf != 0 {
