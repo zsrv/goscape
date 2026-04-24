@@ -55,6 +55,32 @@ func requireProtectedActivePlayer(s *ScriptState, op string) error {
 	return nil
 }
 
+// checkNotNull mirrors TS NumberNotNull (ScriptValidators.ts:36-41) — rejects
+// the script "null number" sentinel -1, accepts every other int. Used by
+// handlers wrapping a popInt result with TS check(..., NumberNotNull).
+func checkNotNull(v int, op string) error {
+	if v == -1 {
+		return fmt.Errorf("%s: input number was null(-1)", op)
+	}
+	return nil
+}
+
+// handlePAnimProtect (P_ANIMPROTECT, opcode 2066) sets the active player's
+// animProtect flag. While nonzero, in-engine animation requests should be
+// suppressed (TS Player.ts:1842 — reader path not yet ported in goscape;
+// tracked as S7b-D1). Mirrors TS PlayerOps.ts:1171-1172.
+func handlePAnimProtect(s *ScriptState) error {
+	if err := requireProtectedActivePlayer(s, "P_ANIMPROTECT"); err != nil {
+		return err
+	}
+	v := s.PopInt()
+	if err := checkNotNull(v, "P_ANIMPROTECT"); err != nil {
+		return err
+	}
+	s.Self.SetAnimProtect(v)
+	return nil
+}
+
 // -- Stat read ops -------------------------------------------------------
 
 // handleStat pushes the active player's current (boosted/drained) level

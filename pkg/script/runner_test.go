@@ -207,6 +207,10 @@ type mockPlayer struct {
 	// S7a: canAccess return value. Defaults to false; tests that exercise
 	// P_FINDUID positive paths set this to true explicitly.
 	canAccessValue bool
+
+	// S7b: anim-protect flag. Tests pre-seed to a sentinel (e.g. -2) so
+	// they can assert "unchanged" vs. "set to 0".
+	animProtectValue int
 }
 
 type mockEnqueue struct {
@@ -395,6 +399,9 @@ func (m *mockPlayer) UID() int              { return m.uidValue }
 
 // CanAccess returns the seeded accessibility flag for P_FINDUID tests.
 func (m *mockPlayer) CanAccess() bool { return m.canAccessValue }
+
+// S7b: SetAnimProtect stores the anim-protect flag for P_ANIMPROTECT tests.
+func (m *mockPlayer) SetAnimProtect(v int) { m.animProtectValue = v }
 
 // S6l: p_aprange.
 func (m *mockPlayer) SetApRange(n int) {

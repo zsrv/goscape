@@ -1,6 +1,10 @@
 package script
 
-import "testing"
+import (
+	"math"
+	"strings"
+	"testing"
+)
 
 // -- mock active entity stubs (S6v) -------------------------------------
 
@@ -1347,5 +1351,137 @@ func TestPFindUIDNotFound(t *testing.T) {
 	}
 	if state.Self != origSelf {
 		t.Errorf("Self should be unchanged")
+	}
+}
+
+// -- S7b: checkNotNull + handlePAnimProtect tests -------------------------
+
+// TestCheckNotNull validates the shared NumberNotNull helper.
+// Mirrors TS ScriptValidators.ts:36-41.
+func TestCheckNotNull(t *testing.T) {
+	cases := []struct {
+		name    string
+		v       int
+		wantErr bool
+	}{
+		{"null sentinel", -1, true},
+		{"zero", 0, false},
+		{"positive", 1, false},
+		{"min int32", math.MinInt32, false},
+		{"max int32", math.MaxInt32, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := checkNotNull(tc.v, "OP")
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("checkNotNull(%d): want error, got nil", tc.v)
+				}
+				if !strings.Contains(err.Error(), "OP: input number was null(-1)") {
+					t.Errorf("error message: got %q, want contains %q", err.Error(), "OP: input number was null(-1)")
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("checkNotNull(%d): want nil, got %v", tc.v, err)
+				}
+			}
+		})
+	}
+}
+
+// TestPAnimProtectHappyPathZero — protect=true, push 0 → no error,
+// animProtectValue set to 0.
+func TestPAnimProtectHappyPathZero(t *testing.T) {
+	player := &mockPlayer{animProtectValue: -2} // sentinel
+	sf := newSingleOp("panimprotect_zero", OpPAnimProtect)
+	state := Init(sf, player, true, nil, nil)
+	state.PushInt(0)
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if player.animProtectValue != 0 {
+		t.Errorf("animProtectValue: got %d, want 0", player.animProtectValue)
+	}
+	if state.Self != player {
+		t.Errorf("Self should be unchanged")
+	}
+}
+
+// TestPAnimProtectHappyPathNonzero — protect=true, push 1 → no error,
+// animProtectValue set to 1.
+func TestPAnimProtectHappyPathNonzero(t *testing.T) {
+	player := &mockPlayer{animProtectValue: -2} // sentinel
+	sf := newSingleOp("panimprotect_nonzero", OpPAnimProtect)
+	state := Init(sf, player, true, nil, nil)
+	state.PushInt(1)
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if player.animProtectValue != 1 {
+		t.Errorf("animProtectValue: got %d, want 1", player.animProtectValue)
+	}
+}
+
+// TestPAnimProtectNullRejected — protect=true, push -1 → error containing
+// "P_ANIMPROTECT: input number was null(-1)"; animProtectValue unchanged.
+func TestPAnimProtectNullRejected(t *testing.T) {
+	player := &mockPlayer{animProtectValue: -2} // sentinel
+	sf := newSingleOp("panimprotect_null", OpPAnimProtect)
+	state := Init(sf, player, true, nil, nil)
+	state.PushInt(-1)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error, got nil")
+	}
+	want := "P_ANIMPROTECT: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want contains %q", err.Error(), want)
+	}
+	if player.animProtectValue != -2 {
+		t.Errorf("animProtectValue should be unchanged sentinel -2, got %d", player.animProtectValue)
+	}
+}
+
+// TestPAnimProtectNotProtected — protect=false, push 0 → error containing
+// "P_ANIMPROTECT: script not protected"; animProtectValue unchanged.
+func TestPAnimProtectNotProtected(t *testing.T) {
+	player := &mockPlayer{animProtectValue: -2} // sentinel
+	sf := newSingleOp("panimprotect_notprotected", OpPAnimProtect)
+	state := Init(sf, player, false, nil, nil) // protect=false
+	state.PushInt(0)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error, got nil")
+	}
+	want := "P_ANIMPROTECT: script not protected"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want contains %q", err.Error(), want)
+	}
+	if player.animProtectValue != -2 {
+		t.Errorf("animProtectValue should be unchanged sentinel -2, got %d", player.animProtectValue)
+	}
+}
+
+// TestPAnimProtectNoActivePlayer — Self=nil → error from requireActivePlayer
+// chain containing "P_ANIMPROTECT"; animProtectValue unchanged.
+func TestPAnimProtectNoActivePlayer(t *testing.T) {
+	player := &mockPlayer{animProtectValue: -2} // sentinel (not wired into state)
+	sf := newSingleOp("panimprotect_noactive", OpPAnimProtect)
+	state := Init(sf, nil, true, nil, nil) // Self=nil
+	state.PushInt(0)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "P_ANIMPROTECT") {
+		t.Errorf("error: got %q, want contains %q", err.Error(), "P_ANIMPROTECT")
+	}
+	if player.animProtectValue != -2 {
+		t.Errorf("animProtectValue should be unchanged sentinel -2, got %d", player.animProtectValue)
 	}
 }

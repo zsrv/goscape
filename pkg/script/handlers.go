@@ -332,6 +332,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// S7a: player UID lookup.
 	OpFindUID:  handleFindUID,
 	OpPFindUID: handlePFindUID,
+
+	// S7b: anim-protect flag.
+	OpPAnimProtect: handlePAnimProtect,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.

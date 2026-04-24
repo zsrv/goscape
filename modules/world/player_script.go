@@ -511,6 +511,12 @@ func (p *Player) SetInteractionScriptLoc(loc script.ActiveLoc, op int) {
 	p.SetInteraction(InteractionScript, realLoc, op, -1)
 }
 
+// SetAnimProtect implements script.ActivePlayer.SetAnimProtect. Stores the
+// anim-protect flag; when nonzero, in-engine animation requests should be
+// suppressed (reader path unported — S7b-D1; paid down when anim playback
+// is ported). Matches TS Player.ts:321 (field) + PlayerOps.ts:1171-1172.
+func (p *Player) SetAnimProtect(v int) { p.animProtect = v }
+
 // SetInteractionScriptNpc implements script.ActivePlayer.
 func (p *Player) SetInteractionScriptNpc(npc script.ActiveNpc, op int) {
 	realNpc, ok := npc.(*Npc)

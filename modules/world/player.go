@@ -145,6 +145,11 @@ type Player struct {
 	mutedUntil                         time.Time
 	messageCount                       int
 
+	// === anim-protect (S7b) ===
+	// animProtect gates in-engine animation requests when nonzero.
+	// Set by the P_ANIMPROTECT script opcode. Reader path unported (S7b-D1).
+	animProtect int
+
 	// === session flags ===
 	playtime                                     int
 	lastResponse, lastConnected                  int
