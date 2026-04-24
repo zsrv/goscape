@@ -505,6 +505,34 @@ func TestNewPlayerCopiesLowMemoryFromClient(t *testing.T) {
 	}
 }
 
+func TestNewPlayerCopiesReconnectingFromClient(t *testing.T) {
+	// reconnecting=true case
+	serverConn, clientConn := net.Pipe()
+	defer serverConn.Close()
+	defer clientConn.Close()
+	c := newClient(serverConn, time.Second, discardLogger())
+	defer c.in.Release()
+	c.state = ClientStateGame
+	c.reconnecting = true
+	p := newPlayer(c)
+	if !p.reconnecting {
+		t.Errorf("reconnecting=true on client: want p.reconnecting=true, got false")
+	}
+
+	// reconnecting=false (default) case
+	serverConn2, clientConn2 := net.Pipe()
+	defer serverConn2.Close()
+	defer clientConn2.Close()
+	c2 := newClient(serverConn2, time.Second, discardLogger())
+	defer c2.in.Release()
+	c2.state = ClientStateGame
+	// c2.reconnecting defaults to false
+	p2 := newPlayer(c2)
+	if p2.reconnecting {
+		t.Errorf("reconnecting=false on client: want p.reconnecting=false, got true")
+	}
+}
+
 func TestPlayerIsValid(t *testing.T) {
 	base := func() *Player {
 		return &Player{

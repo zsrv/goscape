@@ -54,6 +54,11 @@ type client struct {
 	// req.UnmarshalBinary). Copied onto Player at newPlayer(). Read by
 	// script opcodes that trigger client audio loads (MIDI_SONG, MIDI_JINGLE).
 	lowMemory bool
+	// reconnecting carries whether the client used OpReqGameReconnect (opcode 18)
+	// vs. OpReqInitGameConnection (opcode 16). Set at server.go's login-opcode
+	// branch. Copied onto Player at newPlayer(). Read by buildArea.ShouldRebuild
+	// to skip a full rebuild on actual reconnects.
+	reconnecting bool
 }
 
 func newClient(conn net.Conn, writeTimeout time.Duration /*server *World,*/, logger *slog.Logger) *client {

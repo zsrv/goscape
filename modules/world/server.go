@@ -508,6 +508,7 @@ func (c *client) handleLogin() error {
 		safeName := util.ToSafeName(req.Username)
 
 		reconnecting := opcode[0] == loginreq.OpReqGameReconnect.Opcode
+		c.reconnecting = reconnecting
 
 		var reply byte
 		if c.server != nil && c.server.loginClient != nil {
