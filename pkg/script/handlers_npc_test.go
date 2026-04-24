@@ -2,6 +2,7 @@ package script
 
 import (
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -1080,7 +1081,7 @@ func TestNpcFind_SingleMatch(t *testing.T) {
 	}
 	// Cross-check: handler passed (level, x, z, dist, typeID, huntvis).
 	wantArgs := []int{2, 3200, 3300, 10, 7, 0}
-	if !intSliceEqual(lookup.lastArgs, wantArgs) {
+	if !slices.Equal(lookup.lastArgs, wantArgs) {
 		t.Errorf("lastArgs: got %v, want %v", lookup.lastArgs, wantArgs)
 	}
 }
@@ -1120,6 +1121,22 @@ func TestNpcFind_NilNpcLookup(t *testing.T) {
 	}
 }
 
+// TestNpcFind_NilNpcLookupStillValidates pins the invariant that
+// validators run BEFORE the nil-Npcs short-circuit. A regression that
+// checked s.Npcs first and pushed 0 without validating would pass
+// TestNpcFind_NilNpcLookup but fail here (passes invalid coord with
+// nil Npcs and expects the validator error, not a silent push-0).
+func TestNpcFind_NilNpcLookupStillValidates(t *testing.T) {
+	s := newNpcFindState(t, 0, -1, 7, 10, 0, map[int]bool{7: true}, nil)
+	s.Npcs = nil
+
+	if err := handleNpcFind(s); err == nil {
+		t.Fatal("expected validator error for coord=-1 even with nil Npcs")
+	} else if !strings.Contains(err.Error(), "NPC_FIND: coord out of range") {
+		t.Errorf("wrong error: %v", err)
+	}
+}
+
 func TestNpcFind_IntOperandZero(t *testing.T) {
 	foundNpc := &mockNpc{typeID: 7}
 	lookup := &mockNpcLookup{byType: foundNpc}
@@ -1133,6 +1150,12 @@ func TestNpcFind_IntOperandZero(t *testing.T) {
 	}
 	if s.OtherActiveNpc != nil {
 		t.Errorf("operand=0 should leave OtherActiveNpc nil, got %v", s.OtherActiveNpc)
+	}
+	if s.Pointers&PtrActiveNpc == 0 {
+		t.Error("operand=0 should set PtrActiveNpc")
+	}
+	if s.Pointers&PtrActiveNpc2 != 0 {
+		t.Error("operand=0 should NOT set PtrActiveNpc2")
 	}
 }
 
@@ -1210,19 +1233,6 @@ func TestNpcFind_InvalidHuntVis(t *testing.T) {
 	}
 }
 
-// intSliceEqual is a test helper for comparing []int.
-func intSliceEqual(a, b []int) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
 // --- S7f Task 2: NPC_FINDCAT handler tests -----------------------------
 
 // newNpcFindCatState is the NPC_FINDCAT analogue of newNpcFindState.
@@ -1262,11 +1272,14 @@ func TestNpcFindCat_SingleMatch(t *testing.T) {
 	if s.ActiveNpc != foundNpc {
 		t.Error("ActiveNpc should be the found NPC")
 	}
+	if s.Pointers&PtrActiveNpc == 0 {
+		t.Error("PtrActiveNpc should be set on hit")
+	}
 	if lookup.byCategoryCalls != 1 {
 		t.Errorf("byCategoryCalls: got %d, want 1", lookup.byCategoryCalls)
 	}
 	wantArgs := []int{1, 1000, 1000, 15, 5, 1} // level, x, z, dist, cat, huntvis
-	if !intSliceEqual(lookup.lastArgs, wantArgs) {
+	if !slices.Equal(lookup.lastArgs, wantArgs) {
 		t.Errorf("lastArgs: got %v, want %v", lookup.lastArgs, wantArgs)
 	}
 }
@@ -1347,8 +1360,14 @@ func TestNpcFindExact_Match(t *testing.T) {
 	if s.ActiveNpc != foundNpc {
 		t.Error("ActiveNpc should be the found NPC")
 	}
+	if s.Pointers&PtrActiveNpc == 0 {
+		t.Error("PtrActiveNpc should be set on hit")
+	}
+	if lookup.atCoordCalls != 1 {
+		t.Errorf("atCoordCalls: got %d, want 1", lookup.atCoordCalls)
+	}
 	wantArgs := []int{0, 3200, 3300, 7}
-	if !intSliceEqual(lookup.lastArgs, wantArgs) {
+	if !slices.Equal(lookup.lastArgs, wantArgs) {
 		t.Errorf("lastArgs: got %v, want %v", lookup.lastArgs, wantArgs)
 	}
 }
