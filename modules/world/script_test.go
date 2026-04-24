@@ -616,6 +616,7 @@ func TestInvAddGrantsItemsViaScript(t *testing.T) {
 		StackAll:   true,
 	}
 	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
 
 	p, _ := newTestPlayer(t)
 	p.client.server = s
@@ -661,6 +662,7 @@ func TestIfOpenMainSetsModalState(t *testing.T) {
 	s.scriptProvider = script.NewProvider()
 	s.configsView = serverConfigsView{s: s}
 	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
 	p, _ := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
@@ -694,6 +696,7 @@ func TestIfSetTextEmitsWire(t *testing.T) {
 	s.scriptProvider = script.NewProvider()
 	s.configsView = serverConfigsView{s: s}
 	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
 	p, cc := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
@@ -741,6 +744,7 @@ func TestPauseButtonResumesAfterClick(t *testing.T) {
 	s.scriptProvider = script.NewProvider()
 	s.configsView = serverConfigsView{s: s}
 	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
 	p, cc := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
@@ -804,6 +808,7 @@ func TestStrongQueueFiresWhileDelayed(t *testing.T) {
 	s.scriptProvider.RegisterAt(0xBEEF, buildGreetScript(0xBEEF, "s"))
 	s.configsView = serverConfigsView{s: s}
 	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
 
 	p, cc := newTestPlayer(t)
 	p.client.server = s
@@ -835,6 +840,7 @@ func TestSetTimerFiresAfterInterval(t *testing.T) {
 	s.scriptProvider.RegisterAt(0xA1, buildGreetScript(0xA1, "t"))
 	s.configsView = serverConfigsView{s: s}
 	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
 
 	p, cc := newTestPlayer(t)
 	p.client.server = s
@@ -871,6 +877,7 @@ func TestSoftTimerFiresWhileDelayed(t *testing.T) {
 	s.scriptProvider.RegisterAt(0xB2, buildGreetScript(0xB2, "s"))
 	s.configsView = serverConfigsView{s: s}
 	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
 
 	p, cc := newTestPlayer(t)
 	p.client.server = s
@@ -899,6 +906,7 @@ func TestClearTimerStopsFiring(t *testing.T) {
 	s.scriptProvider.RegisterAt(0xC3, buildGreetScript(0xC3, "x"))
 	s.configsView = serverConfigsView{s: s}
 	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
 
 	p, cc := newTestPlayer(t)
 	p.client.server = s
@@ -934,6 +942,7 @@ func TestNpcNameViaScript(t *testing.T) {
 	s.scriptProvider = script.NewProvider()
 	s.configsView = serverConfigsView{s: s}
 	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
 
 	// Seed an NpcType at id 7 named "Hans".
 	s.npcTypes = &objtype.NPCTypeConfigs{
@@ -972,6 +981,7 @@ func TestNpcNameViaScript(t *testing.T) {
 	state.World = s.worldVars
 	state.Configs = s.configsView
 	state.Inv = s.invLookup
+	state.Npcs = s.npcLookup
 	state.ActiveNpc = npc
 	if err := script.Execute(state); err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -996,6 +1006,7 @@ func TestNormalQueueWaitsForIdle(t *testing.T) {
 	s.scriptProvider.RegisterAt(0xBEE2, buildGreetScript(0xBEE2, "n"))
 	s.configsView = serverConfigsView{s: s}
 	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
 
 	p, cc := newTestPlayer(t)
 	p.client.server = s

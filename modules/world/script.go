@@ -20,6 +20,7 @@ func (s *Server) runScript(sf *script.ScriptFile, self script.ActivePlayer, prot
 	state.World = s.worldVars
 	state.Configs = s.configsView
 	state.Inv = s.invLookup
+	state.Npcs = s.npcLookup
 	state.PlayerLookup = s
 	s.resumeOrFinish(state, self)
 }

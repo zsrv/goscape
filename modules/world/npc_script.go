@@ -108,6 +108,7 @@ func (s *Server) buildNpcScriptState(
 	state.World = s.worldVars
 	state.Configs = s.configsView
 	state.Inv = s.invLookup
+	state.Npcs = s.npcLookup
 
 	switch t := target.(type) {
 	case nil:

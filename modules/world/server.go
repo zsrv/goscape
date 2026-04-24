@@ -75,6 +75,7 @@ type Server struct {
 	locTypes     *objtype.LocTypeConfigs
 	configsView  serverConfigsView
 	invLookup    invLookupView
+	npcLookup    serverNpcLookup
 
 	// world-scoped var state for PUSH_VARS / POP_VARS.
 	vars        []int32
@@ -196,6 +197,7 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 	s.locTypes = locTypes
 	s.configsView = serverConfigsView{s: s}
 	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
 
 	s.renderer = rsbuf.NewRenderer()
 	s.grid = grid.New()

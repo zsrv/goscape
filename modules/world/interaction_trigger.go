@@ -83,6 +83,7 @@ func fireOpTriggerNpc(p *Player, srv *Server, npc *Npc) {
 	state.World = srv.worldVars
 	state.Configs = srv.configsView
 	state.Inv = srv.invLookup
+	state.Npcs = srv.npcLookup
 
 	srv.resumeOrFinish(state, p)
 
@@ -155,6 +156,7 @@ func fireOpTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 	state.World = srv.worldVars
 	state.Configs = srv.configsView
 	state.Inv = srv.invLookup
+	state.Npcs = srv.npcLookup
 
 	srv.resumeOrFinish(state, p)
 
@@ -316,6 +318,7 @@ func fireApTriggerNpc(p *Player, srv *Server, npc *Npc) {
 	state.World = srv.worldVars
 	state.Configs = srv.configsView
 	state.Inv = srv.invLookup
+	state.Npcs = srv.npcLookup
 
 	srv.resumeOrFinish(state, p)
 
@@ -385,6 +388,7 @@ func fireApTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 	state.World = srv.worldVars
 	state.Configs = srv.configsView
 	state.Inv = srv.invLookup
+	state.Npcs = srv.npcLookup
 
 	srv.resumeOrFinish(state, p)
 
