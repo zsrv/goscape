@@ -90,3 +90,285 @@ func TestCheckDbRow(t *testing.T) {
 		t.Error("nil Configs: want error, got nil")
 	}
 }
+
+// buildDbFixture builds a tiny fakeDbConfigs with one table (id=7, columns
+// [INT, STRING]) and two rows (id=0 and id=1, both in table 7).
+func buildDbFixture() *fakeDbConfigs {
+	tbl := objtype.NewDbTableType(7)
+	tbl.Types = [][]objtype.ScriptVarType{
+		{objtype.ScriptVarTypeInt},
+		{objtype.ScriptVarTypeString},
+	}
+	tbl.DefaultInts = [][]int32{nil, {0}}
+	tbl.DefaultStrs = [][]string{{""}, {"default_name"}}
+
+	row0 := objtype.NewDbRowType(0)
+	row0.TableID = 7
+	row0.Types = [][]objtype.ScriptVarType{
+		{objtype.ScriptVarTypeInt},
+		{objtype.ScriptVarTypeString},
+	}
+	row0.IntValues = [][]int32{{42}, {0}}
+	row0.StringValues = [][]string{{""}, {"hello"}}
+
+	row1 := objtype.NewDbRowType(1)
+	row1.TableID = 7
+	row1.Types = [][]objtype.ScriptVarType{
+		{objtype.ScriptVarTypeInt},
+	}
+	row1.IntValues = [][]int32{{99}}
+	row1.StringValues = [][]string{{""}}
+
+	return &fakeDbConfigs{
+		tables:  map[int]*objtype.DbTableType{7: tbl},
+		rows:    map[int]*objtype.DbRowType{0: row0, 1: row1},
+		rowsByT: map[int][]int{7: {0, 1}},
+	}
+}
+
+// pack builds the DB_GETFIELD/GETFIELDCOUNT packed key. tupleIndex=-1
+// (i.e. "no tuple") maps to low-4-bits=0.
+func pack(table, column, tupleIndex int) int {
+	low := 0
+	if tupleIndex >= 0 {
+		low = (tupleIndex + 1) & 0xf
+	}
+	return (table&0xffff)<<12 | (column&0x7f)<<4 | low
+}
+
+// TestHandleDbGetField_Int verifies the INT column push path.
+func TestHandleDbGetField_Int(t *testing.T) {
+	s := newDbState(buildDbFixture())
+	s.PushInt(0)              // row
+	s.PushInt(pack(7, 0, -1)) // packed: table 7, column 0, no tuple
+	s.PushInt(0)              // listIndex
+
+	if err := handleDbGetField(s); err != nil {
+		t.Fatalf("handleDbGetField: %v", err)
+	}
+	if s.ISP != 1 || s.IntStack[0] != 42 {
+		t.Errorf("int stack: got ISP=%d, top=%d; want ISP=1, top=42", s.ISP, s.IntStack[0])
+	}
+}
+
+// TestHandleDbGetField_String verifies the STRING column push path.
+func TestHandleDbGetField_String(t *testing.T) {
+	s := newDbState(buildDbFixture())
+	s.PushInt(0)
+	s.PushInt(pack(7, 1, -1))
+	s.PushInt(0)
+
+	if err := handleDbGetField(s); err != nil {
+		t.Fatalf("handleDbGetField: %v", err)
+	}
+	if s.SSP != 1 || s.StringStack[0] != "hello" {
+		t.Errorf("string stack: got SSP=%d, top=%q; want SSP=1, top=\"hello\"", s.SSP, s.StringStack[0])
+	}
+}
+
+// TestHandleDbGetField_CrossTableFallsBackToDefault verifies the fallback
+// when the row's TableID differs from the packed table.
+func TestHandleDbGetField_CrossTableFallsBackToDefault(t *testing.T) {
+	cfg := buildDbFixture()
+	// Make row 0 belong to a different table.
+	cfg.rows[0].TableID = 99
+
+	s := newDbState(cfg)
+	s.PushInt(0)
+	s.PushInt(pack(7, 1, -1)) // STRING column 1
+	s.PushInt(0)
+
+	if err := handleDbGetField(s); err != nil {
+		t.Fatalf("handleDbGetField: %v", err)
+	}
+	if s.SSP != 1 || s.StringStack[0] != "default_name" {
+		t.Errorf("string stack: got SSP=%d, top=%q; want default fallback \"default_name\"", s.SSP, s.StringStack[0])
+	}
+}
+
+// TestHandleDbGetField_ListIndexOutOfRangeFallsBack verifies that an
+// out-of-range listIndex falls back to the table default (via GetValue).
+func TestHandleDbGetField_ListIndexOutOfRangeFallsBack(t *testing.T) {
+	s := newDbState(buildDbFixture())
+	s.PushInt(0)
+	s.PushInt(pack(7, 1, -1)) // STRING column 1
+	s.PushInt(5)              // listIndex way out of range
+
+	if err := handleDbGetField(s); err != nil {
+		t.Fatalf("handleDbGetField: %v", err)
+	}
+	if s.SSP != 1 || s.StringStack[0] != "default_name" {
+		t.Errorf("expected fallback to \"default_name\", got %q", s.StringStack[0])
+	}
+}
+
+// TestHandleDbGetField_TupleIndex_SingleSlot verifies that a valid tupleIndex
+// selects one slot only.
+func TestHandleDbGetField_TupleIndex_SingleSlot(t *testing.T) {
+	// Reshape: table 7 column 0 becomes a [INT, INT] tuple. Row 0 has
+	// IntValues[0] = [10, 20].
+	cfg := buildDbFixture()
+	cfg.tables[7].Types[0] = []objtype.ScriptVarType{objtype.ScriptVarTypeInt, objtype.ScriptVarTypeInt}
+	cfg.rows[0].Types[0] = []objtype.ScriptVarType{objtype.ScriptVarTypeInt, objtype.ScriptVarTypeInt}
+	cfg.rows[0].IntValues[0] = []int32{10, 20}
+	cfg.rows[0].StringValues[0] = []string{"", ""}
+
+	s := newDbState(cfg)
+	s.PushInt(0)
+	s.PushInt(pack(7, 0, 1)) // tupleIndex=1 → low 4 bits = 2
+	s.PushInt(0)
+
+	if err := handleDbGetField(s); err != nil {
+		t.Fatalf("handleDbGetField: %v", err)
+	}
+	if s.ISP != 1 || s.IntStack[0] != 20 {
+		t.Errorf("expected single-slot push of 20, got ISP=%d top=%d", s.ISP, s.IntStack[0])
+	}
+}
+
+// TestHandleDbGetField_TupleIndex_OutOfBounds returns an error.
+func TestHandleDbGetField_TupleIndex_OutOfBounds(t *testing.T) {
+	cfg := buildDbFixture()
+	// Column 0 is still [INT] (length 1); packing tupleIndex=1 is OOB.
+	s := newDbState(cfg)
+	s.PushInt(0)
+	s.PushInt(pack(7, 0, 1)) // tupleIndex=1 in a length-1 tuple
+	s.PushInt(0)
+
+	err := handleDbGetField(s)
+	if err == nil {
+		t.Fatal("expected tuple-out-of-bounds error, got nil")
+	}
+	if !strings.Contains(err.Error(), "tuple index out-of-bounds") {
+		t.Errorf("error message %q missing \"tuple index out-of-bounds\"", err.Error())
+	}
+}
+
+// TestHandleDbGetField_InvalidRow returns the validator error.
+func TestHandleDbGetField_InvalidRow(t *testing.T) {
+	s := newDbState(buildDbFixture())
+	s.PushInt(99) // no such row
+	s.PushInt(pack(7, 0, -1))
+	s.PushInt(0)
+
+	err := handleDbGetField(s)
+	if err == nil {
+		t.Fatal("expected validator error, got nil")
+	}
+	if !strings.Contains(err.Error(), "DB_GETFIELD: no DbRowType") {
+		t.Errorf("error: %q", err.Error())
+	}
+}
+
+// TestHandleDbGetField_InvalidTable returns the validator error.
+func TestHandleDbGetField_InvalidTable(t *testing.T) {
+	s := newDbState(buildDbFixture())
+	s.PushInt(0)
+	s.PushInt(pack(999, 0, -1)) // no such table
+	s.PushInt(0)
+
+	err := handleDbGetField(s)
+	if err == nil {
+		t.Fatal("expected validator error, got nil")
+	}
+	if !strings.Contains(err.Error(), "DB_GETFIELD: no DbTableType") {
+		t.Errorf("error: %q", err.Error())
+	}
+}
+
+// TestHandleDbGetField_MixedTupleFullPush verifies full-tuple push across a
+// mixed INT/STRING column (both kinds of push in one call).
+func TestHandleDbGetField_MixedTupleFullPush(t *testing.T) {
+	cfg := buildDbFixture()
+	cfg.tables[7].Types[0] = []objtype.ScriptVarType{objtype.ScriptVarTypeInt, objtype.ScriptVarTypeString}
+	cfg.rows[0].Types[0] = []objtype.ScriptVarType{objtype.ScriptVarTypeInt, objtype.ScriptVarTypeString}
+	cfg.rows[0].IntValues[0] = []int32{7, 0}
+	cfg.rows[0].StringValues[0] = []string{"", "mixed"}
+
+	s := newDbState(cfg)
+	s.PushInt(0)
+	s.PushInt(pack(7, 0, -1)) // whole-tuple push
+	s.PushInt(0)
+
+	if err := handleDbGetField(s); err != nil {
+		t.Fatalf("handleDbGetField: %v", err)
+	}
+	if s.ISP != 1 || s.IntStack[0] != 7 {
+		t.Errorf("int slot: got ISP=%d top=%d; want ISP=1 top=7", s.ISP, s.IntStack[0])
+	}
+	if s.SSP != 1 || s.StringStack[0] != "mixed" {
+		t.Errorf("string slot: got SSP=%d top=%q; want SSP=1 top=\"mixed\"", s.SSP, s.StringStack[0])
+	}
+}
+
+// TestHandleDbGetFieldCount_Basic verifies fieldCount=1 → push 1.
+func TestHandleDbGetFieldCount_Basic(t *testing.T) {
+	s := newDbState(buildDbFixture())
+	s.PushInt(0)
+	s.PushInt(pack(7, 0, -1))
+
+	if err := handleDbGetFieldCount(s); err != nil {
+		t.Fatalf("handleDbGetFieldCount: %v", err)
+	}
+	if s.ISP != 1 || s.IntStack[0] != 1 {
+		t.Errorf("got ISP=%d top=%d; want ISP=1 top=1", s.ISP, s.IntStack[0])
+	}
+}
+
+// TestHandleDbGetFieldCount_MultiTuple_Field3 verifies fieldCount=3 → push 3
+// where the column's type count is 2 (total flat length 6, /2 = 3).
+func TestHandleDbGetFieldCount_MultiTuple_Field3(t *testing.T) {
+	cfg := buildDbFixture()
+	cfg.tables[7].Types[0] = []objtype.ScriptVarType{objtype.ScriptVarTypeInt, objtype.ScriptVarTypeString}
+	cfg.rows[0].Types[0] = []objtype.ScriptVarType{objtype.ScriptVarTypeInt, objtype.ScriptVarTypeString}
+	cfg.rows[0].IntValues[0] = []int32{1, 0, 2, 0, 3, 0} // 6 entries, fieldCount=3
+	cfg.rows[0].StringValues[0] = []string{"", "a", "", "b", "", "c"}
+
+	s := newDbState(cfg)
+	s.PushInt(0)
+	s.PushInt(pack(7, 0, -1))
+
+	if err := handleDbGetFieldCount(s); err != nil {
+		t.Fatalf("handleDbGetFieldCount: %v", err)
+	}
+	if s.ISP != 1 || s.IntStack[0] != 3 {
+		t.Errorf("got ISP=%d top=%d; want ISP=1 top=3", s.ISP, s.IntStack[0])
+	}
+}
+
+// TestHandleDbGetFieldCount_CrossTableZero returns 0 when row.TableID !=
+// packed table.
+func TestHandleDbGetFieldCount_CrossTableZero(t *testing.T) {
+	cfg := buildDbFixture()
+	cfg.rows[0].TableID = 99
+	s := newDbState(cfg)
+	s.PushInt(0)
+	s.PushInt(pack(7, 0, -1))
+
+	if err := handleDbGetFieldCount(s); err != nil {
+		t.Fatalf("handleDbGetFieldCount: %v", err)
+	}
+	if s.ISP != 1 || s.IntStack[0] != 0 {
+		t.Errorf("got ISP=%d top=%d; want ISP=1 top=0", s.ISP, s.IntStack[0])
+	}
+}
+
+// TestHandleDbGetFieldCount_InvalidRow returns validator error.
+func TestHandleDbGetFieldCount_InvalidRow(t *testing.T) {
+	s := newDbState(buildDbFixture())
+	s.PushInt(99)
+	s.PushInt(pack(7, 0, -1))
+	if err := handleDbGetFieldCount(s); err == nil {
+		t.Fatal("expected validator error, got nil")
+	}
+}
+
+// TestHandleDbGetFieldCount_InvalidTable returns validator error.
+func TestHandleDbGetFieldCount_InvalidTable(t *testing.T) {
+	s := newDbState(buildDbFixture())
+	s.PushInt(0)
+	s.PushInt(pack(999, 0, -1))
+	if err := handleDbGetFieldCount(s); err == nil {
+		t.Fatal("expected validator error, got nil")
+	}
+}
