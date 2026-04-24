@@ -86,13 +86,10 @@ func (n *Npc) lookupType(typeId int) *objtype.NpcType {
 //
 // Iterates over min(NpcStatCount, len(newTyp.Stats)) slots.
 func (n *Npc) resetStatsForType(newTyp *objtype.NpcType) {
-	for i := 0; i < objtype.NpcStatCount && i < len(newTyp.Stats); i++ {
+	for i := range min(objtype.NpcStatCount, len(newTyp.Stats)) {
 		newBase := int(newTyp.Stats[i])
 		drain := n.baseLevels[i] - n.levels[i]
-		v := newBase - drain
-		if v < 0 {
-			v = 0
-		}
+		v := max(newBase-drain, 0)
 		n.levels[i] = v
 		n.baseLevels[i] = newBase
 	}
