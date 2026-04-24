@@ -47,10 +47,6 @@ func TestServerNpcLookup_FindClosestByType(t *testing.T) {
 	wrong := setupNpc(t, s, 51, 50, 0)
 	wrong.typeId = 8
 
-	// Suppress unused-variable complaints in non-assertion branches.
-	_ = far
-	_ = wrong
-
 	lookup := s.npcLookup
 	got := lookup.FindClosestNpcByType(0, 50, 50, 30, 7, 0)
 	if got == nil {
@@ -79,9 +75,6 @@ func TestServerNpcLookup_FindClosestByCategory(t *testing.T) {
 	catFar.typeId = 7
 	catMiss := setupNpc(t, s, 51, 50, 0)
 	catMiss.typeId = 8
-
-	_ = catFar
-	_ = catMiss
 
 	lookup := s.npcLookup
 	got := lookup.FindClosestNpcByCategory(0, 50, 50, 30, 5, 0)
