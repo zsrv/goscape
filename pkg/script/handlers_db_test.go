@@ -513,7 +513,7 @@ func TestHandleDbFindNext_AtEnd_PushesNegativeOne(t *testing.T) {
 func TestHandleDbFindNext_NoTableSelected(t *testing.T) {
 	s := newDbState(buildDbFixture())
 	if err := handleDbFindNext(s); err == nil {
-		t.Fatal("expected \"no table selected\" error, got nil")
+		t.Fatal("expected \"find_db pointer not set\" error, got nil")
 	}
 }
 
