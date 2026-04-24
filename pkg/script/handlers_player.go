@@ -95,6 +95,23 @@ func handlePAnimProtect(s *ScriptState) error {
 	return nil
 }
 
+// handleAllowDesign (ALLOWDESIGN, opcode 2001) sets the active player's
+// allowDesign flag. Pops one int, rejects -1 via NumberNotNull, and stores
+// (v == 1) as a bool. Gate is ActivePlayer (not Protected). Mirrors TS
+// PlayerOps.ts:1022-1024. The gate permits `IdkSaveDesign` inbound packets
+// (character-design recustomise) — reader path unported, see S7e-D1.
+func handleAllowDesign(s *ScriptState) error {
+	if err := requireActivePlayer(s, "ALLOWDESIGN"); err != nil {
+		return err
+	}
+	v := s.PopInt()
+	if err := checkNotNull(v, "ALLOWDESIGN"); err != nil {
+		return err
+	}
+	s.Self.SetAllowDesign(v == 1)
+	return nil
+}
+
 // handleBuildAppearance (BUILDAPPEARANCE, opcode 2004) validates the popped
 // InvType id and stages an appearance refresh on the active player. Mirrors
 // TS PlayerOps.ts:202-204. Gate is ActivePlayer (not Protected). Validator

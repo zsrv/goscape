@@ -220,6 +220,12 @@ type mockPlayer struct {
 	lastAppearanceInv  int
 	appearanceInvCalls int
 	appearanceMaskSet  bool
+
+	// S7e: SetAllowDesign stores the coerced-bool flag for ALLOWDESIGN tests.
+	// allowDesignCalls counts invocations so error-path tests can assert the
+	// setter was NOT called.
+	allowDesignValue bool
+	allowDesignCalls int
 }
 
 type mockEnqueue struct {
@@ -419,6 +425,14 @@ func (m *mockPlayer) SetAppearanceInv(id int) {
 	m.lastAppearanceInv = id
 	m.appearanceInvCalls++
 	m.appearanceMaskSet = true
+}
+
+// S7e: SetAllowDesign stores the coerced-bool flag for ALLOWDESIGN tests.
+// allowDesignCalls counts invocations so error-path tests can assert the
+// setter was NOT called.
+func (m *mockPlayer) SetAllowDesign(v bool) {
+	m.allowDesignValue = v
+	m.allowDesignCalls++
 }
 
 // S6l: p_aprange.

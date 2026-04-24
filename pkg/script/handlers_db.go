@@ -175,10 +175,10 @@ func handleDbFindNext(s *ScriptState) error {
 // cursor (random-access semantics). Errors when no table is selected.
 // Mirrors TS DbOps.ts:152.
 func handleDbFindByIndex(s *ScriptState) error {
-	index := s.PopInt()
 	if s.DbTable == nil {
 		return fmt.Errorf("DB_FINDBYINDEX: no table selected")
 	}
+	index := s.PopInt()
 	if index < 0 || index >= len(s.DbRowQuery) {
 		s.PushInt(-1)
 		return nil

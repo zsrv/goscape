@@ -112,7 +112,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// LOC active-loc reads.
 	OpLocOp: handleLocOp,
 
-	// DB ops (7501-7510).
+	// DB ops (7501-7506, 7510; 7500/7507-7509 deferred).
 	OpDbFindNext:         handleDbFindNext,
 	OpDbGetField:         handleDbGetField,
 	OpDbGetFieldCount:    handleDbGetFieldCount,
@@ -344,6 +344,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 
 	// S7c: BUILDAPPEARANCE dispatch.
 	OpBuildAppearance: handleBuildAppearance,
+
+	// Player flag setters.
+	OpAllowDesign: handleAllowDesign,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.

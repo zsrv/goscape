@@ -527,6 +527,11 @@ func (p *Player) SetInteractionScriptLoc(loc script.ActiveLoc, op int) {
 // is ported). Matches TS Player.ts:321 (field) + PlayerOps.ts:1171-1172.
 func (p *Player) SetAnimProtect(v int) { p.animProtect = v }
 
+// SetAllowDesign implements script.ActivePlayer.SetAllowDesign. Stores the
+// flag; ALLOWDESIGN (opcode 2001) is the sole writer. Reader path unported
+// per S7e-D1.
+func (p *Player) SetAllowDesign(v bool) { p.allowDesign = v }
+
 // SetInteractionScriptNpc implements script.ActivePlayer.
 func (p *Player) SetInteractionScriptNpc(npc script.ActiveNpc, op int) {
 	realNpc, ok := npc.(*Npc)

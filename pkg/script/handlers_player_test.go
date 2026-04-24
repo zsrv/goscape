@@ -1679,3 +1679,83 @@ func TestBuildAppearanceNotProtectedOK(t *testing.T) {
 		t.Errorf("appearanceMaskSet: got false, want true")
 	}
 }
+
+// -- S7e: handleAllowDesign tests ------------------------------------------
+
+// TestAllowDesign is a table-driven test covering the three value-coercion
+// paths (5.1 true, 5.2 false, 5.3 non-one coerces to false). All three
+// exercise the happy path: ActivePlayer set, valid int (not -1), setter
+// called exactly once. Pins the exact v==1 coercion shape — a truthy
+// v!=0 mistake would fail the 5.3 sub-case.
+func TestAllowDesign(t *testing.T) {
+	cases := []struct {
+		name    string
+		push    int
+		wantVal bool
+	}{
+		{"True", 1, true},
+		{"False", 0, false},
+		{"NonOneCoercesToFalse_2", 2, false},
+		{"NonOneCoercesToFalse_neg2", -2, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			player := &mockPlayer{}
+			sf := newSingleOp("allowdesign_"+tc.name, OpAllowDesign)
+			state := Init(sf, player, false, nil, nil)
+			state.PushInt(tc.push)
+
+			if err := Execute(state); err != nil {
+				t.Fatalf("Execute: unexpected error %v", err)
+			}
+			if player.allowDesignValue != tc.wantVal {
+				t.Errorf("allowDesignValue: got %v, want %v", player.allowDesignValue, tc.wantVal)
+			}
+			if player.allowDesignCalls != 1 {
+				t.Errorf("allowDesignCalls: got %d, want 1", player.allowDesignCalls)
+			}
+		})
+	}
+}
+
+// TestAllowDesignNullInput — push -1 → checkNotNull rejects with
+// "input number was null(-1)". Setter must NOT be called (S7e §5.4).
+func TestAllowDesignNullInput(t *testing.T) {
+	player := &mockPlayer{}
+	sf := newSingleOp("allowdesign_null", OpAllowDesign)
+	state := Init(sf, player, false, nil, nil)
+	state.PushInt(-1)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatal("Execute: want error for null input, got nil")
+	}
+	if !strings.Contains(err.Error(), "input number was null(-1)") {
+		t.Errorf("error: got %q, want contains %q", err.Error(), "input number was null(-1)")
+	}
+	if player.allowDesignCalls != 0 {
+		t.Errorf("allowDesignCalls: got %d, want 0 (setter must not be called on validator failure)", player.allowDesignCalls)
+	}
+}
+
+// TestAllowDesignRequiresActivePlayer — Self=nil → error from
+// requireActivePlayer containing "no active player". Setter must NOT
+// be called (S7e §5.5). Gate is ActivePlayer (not Protected) — mirrors
+// TestBuildAppearanceNoActivePlayer structure.
+func TestAllowDesignRequiresActivePlayer(t *testing.T) {
+	player := &mockPlayer{}
+	sf := newSingleOp("allowdesign_noactive", OpAllowDesign)
+	state := Init(sf, nil, false, nil, nil) // Self=nil
+	state.PushInt(1)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatal("Execute: want error for missing active player, got nil")
+	}
+	if !strings.Contains(err.Error(), "no active player") {
+		t.Errorf("error: got %q, want contains %q", err.Error(), "no active player")
+	}
+	if player.allowDesignCalls != 0 {
+		t.Errorf("allowDesignCalls: got %d, want 0 (setter must not be called when gate fails)", player.allowDesignCalls)
+	}
+}

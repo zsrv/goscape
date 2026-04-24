@@ -150,6 +150,12 @@ type Player struct {
 	// Set by the P_ANIMPROTECT script opcode. Reader path unported (S7b-D1).
 	animProtect int
 
+	// === character-design gate (S7e) ===
+	// allowDesign permits IdkSaveDesign inbound packets (character-design
+	// recustomise) when true. Set by the ALLOWDESIGN script opcode. Reader
+	// path unported (S7e-D1).
+	allowDesign bool
+
 	// === session flags ===
 	playtime                                     int
 	lastResponse, lastConnected                  int

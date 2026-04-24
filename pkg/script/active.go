@@ -330,6 +330,16 @@ type ActivePlayer interface {
 	// from invs.Worn rather than this field — deviation S7c-D1. Callers
 	// pre-validate id via checkInvType.
 	SetAppearanceInv(id int)
+
+	// S7e: character-design save gate.
+
+	// SetAllowDesign updates the active player's allowDesign flag. When true,
+	// the client's IdkSaveDesign inbound packet (character-design recustomise)
+	// is permitted to apply. Mirrors TS Player.allowDesign
+	// (Engine-TS/src/engine/entity/Player.ts:323). The handler coerces the
+	// popped int via v==1 before calling. Reader path (IdkSaveDesignHandler)
+	// unported — deviation S7e-D1.
+	SetAllowDesign(v bool)
 }
 
 // ActiveNpc is the per-NPC surface that NPC_* opcodes and VARN
