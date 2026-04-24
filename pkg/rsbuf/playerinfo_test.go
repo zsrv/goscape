@@ -5,6 +5,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/buildarea"
 	"github.com/zsrv/goscape/pkg/grid"
+	"github.com/zsrv/goscape/pkg/io/packet"
 )
 
 func TestEncodeIdlePlayer(t *testing.T) {
@@ -29,6 +30,115 @@ func TestEncodeIdlePlayer(t *testing.T) {
 	// This first bit is the MSB of byte[0], so top bit should be 0.
 	if payload[0]&0x80 != 0 {
 		t.Errorf("first bit (idle flag): got 1, want 0; payload=%v", payload)
+	}
+}
+
+// TestEncodeLocalPlayerTeleBitLayout pins the bit order of the local-player
+// tele block against what the Java client (rev 225) decodes in getPlayerLocal.
+// Client expects: has_update(1) | type=3(2) | level(2) | localX(7) | localZ(7)
+// | jump(1) | extend(1), followed by 8 bits of oldVis count. Any other order
+// garbles the client's localPlayer coords and crashes it with "packet size
+// mismatch in getplayer" downstream.
+func TestEncodeLocalPlayerTeleBitLayout(t *testing.T) {
+	self := &fakeSource{
+		slot:    1,
+		x:       3094, z: 3106, level: 0,
+		originX: 3094, originZ: 3106,
+		tele: true, jump: true,
+	}
+	// Scene base: ((3094>>3)-6)<<3 = 3040, ((3106>>3)-6)<<3 = 3056.
+	// So localX = 3094-3040 = 54 (0b0110110), localZ = 3106-3056 = 50 (0b0110010).
+	all := []PlayerSource{self}
+	ba := buildarea.New()
+	g := grid.New()
+	g.Add(self.Slot(), self.x, self.z, self.level)
+	r := NewRenderer()
+	r.ComputePlayers(all)
+
+	got := Encode(self, all, ba, g, r)
+
+	// Bit stream (MSB-first, 21 local + 8 oldVis count = 29 bits, padded to 4):
+	//   1 | 11 | 00 | 0110110 | 0110010 | 1 | 0 | 00000000 | 000
+	// = 11100011 01100110 01010000 00000000
+	// = 0xE3     0x66     0x50     0x00
+	want := []byte{0xE3, 0x66, 0x50, 0x00}
+	if len(got) != len(want) {
+		t.Fatalf("payload length: got %d, want %d; payload=% x", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("payload[%d]: got %#02x, want %#02x (full got=% x, want=% x)",
+				i, got[i], want[i], got, want)
+		}
+	}
+}
+
+// TestEncodeNewPlayerAddBitLayout pins the bit order of the new-player add
+// block against getPlayerNewVis in the Java client (rev 225):
+//   slot(11) | dx(5) | dz(5) | jump(1) | extend=1(1)
+// Client reads var6 as the X delta (line 3945) and var7 as the Z delta; jump
+// precedes the always-1 extend bit. Any other order causes the client to
+// teleport newly-visible players to garbage coordinates.
+func TestEncodeNewPlayerAddBitLayout(t *testing.T) {
+	// Self at (3094, 3106); other at (3097, 3104) → dx=+3, dz=-2.
+	self := &fakeSource{
+		slot:    1,
+		x:       3094, z: 3106, level: 0,
+		originX: 3094, originZ: 3106,
+	}
+	other := &fakeSource{
+		slot:    2,
+		x:       3097, z: 3104, level: 0,
+		originX: 3097, originZ: 3104,
+		jump: true,
+	}
+	all := []PlayerSource{self, other}
+	ba := buildarea.New()
+	g := grid.New()
+	g.Add(self.Slot(), self.x, self.z, self.level)
+	g.Add(other.Slot(), other.x, other.z, other.level)
+	r := NewRenderer()
+	r.ComputePlayers(all)
+
+	payload := Encode(self, all, ba, g, r)
+
+	// Decode the bit stream in the order the Java client reads it and verify
+	// each field. This is a round-trip assertion: if fields come out right,
+	// encoding matches the client's expectations.
+	p := packet.NewPacket(payload)
+	p.AccessBits()
+	// Skip local player "idle" block (1 bit, value 0 — no masks, no movement).
+	if got := p.GBit(1); got != 0 {
+		t.Fatalf("local-player idle flag: got %d, want 0 (payload=% x)", got, payload)
+	}
+	// oldVis count for tracked-players list; self tracks nobody on first encode.
+	if got := p.GBit(8); got != 0 {
+		t.Fatalf("oldVis player count: got %d, want 0", got)
+	}
+	// Now the new-player add block for `other`.
+	slot := int(p.GBit(11))
+	if slot != other.slot {
+		t.Errorf("add slot: got %d, want %d", slot, other.slot)
+	}
+	dx := int(p.GBit(5))
+	if dx >= 16 {
+		dx -= 32
+	}
+	if dx != 3 {
+		t.Errorf("add dx: got %d, want 3", dx)
+	}
+	dz := int(p.GBit(5))
+	if dz >= 16 {
+		dz -= 32
+	}
+	if dz != -2 {
+		t.Errorf("add dz: got %d, want -2", dz)
+	}
+	if got := p.GBit(1); got != 1 {
+		t.Errorf("add jump: got %d, want 1", got)
+	}
+	if got := p.GBit(1); got != 1 {
+		t.Errorf("add extend (constant 1): got %d, want 1", got)
 	}
 }
 

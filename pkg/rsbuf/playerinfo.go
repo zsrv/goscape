@@ -57,10 +57,10 @@ func writeLocalPlayer(main, updates *packet.Packet, self PlayerSource, r *Render
 		localZ := z - (((originZ >> 3) - 6) << 3)
 		main.PBit(1, 1)
 		main.PBit(2, 3)
-		main.PBit(1, boolToInt(self.Jump()))
 		main.PBit(2, level)
-		main.PBit(7, localZ)
 		main.PBit(7, localX)
+		main.PBit(7, localZ)
+		main.PBit(1, boolToInt(self.Jump()))
 		main.PBit(1, extend)
 	case self.RunDir() != -1:
 		main.PBit(1, 1)
@@ -187,10 +187,10 @@ func writeNewPlayers(main, updates *packet.Packet, self PlayerSource, bySlot map
 		dz := clamp(oz-selfZ, -15, 15)
 
 		main.PBit(11, slot)
-		main.PBit(5, dz&0x1f)
-		main.PBit(1, 1)
-		main.PBit(1, boolToInt(other.Jump()))
 		main.PBit(5, dx&0x1f)
+		main.PBit(5, dz&0x1f)
+		main.PBit(1, boolToInt(other.Jump()))
+		main.PBit(1, 1)
 
 		ba.Players[slot] = struct{}{}
 

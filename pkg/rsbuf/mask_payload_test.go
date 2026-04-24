@@ -23,6 +23,7 @@ type fakeSource struct {
 	exactBegin, exactFinish, exactDir              int
 	originX, originZ                               int
 	x, z, level                                    int
+	tele, jump                                     bool
 }
 
 func (f *fakeSource) Slot() int               { return f.slot }
@@ -60,8 +61,8 @@ func (f *fakeSource) ExactFinish() int          { return f.exactFinish }
 func (f *fakeSource) ExactDir() int             { return f.exactDir }
 func (f *fakeSource) WalkDir() int              { return -1 }
 func (f *fakeSource) RunDir() int               { return -1 }
-func (f *fakeSource) Tele() bool                { return false }
-func (f *fakeSource) Jump() bool                { return false }
+func (f *fakeSource) Tele() bool                { return f.tele }
+func (f *fakeSource) Jump() bool                { return f.jump }
 func (f *fakeSource) LastTickX() int            { return -1 }
 func (f *fakeSource) LastTickZ() int            { return -1 }
 func (f *fakeSource) LastLevel() int            { return -1 }
