@@ -335,6 +335,11 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpNpcSetHuntMode:       handleNpcSetHuntMode,
 	OpNpcSetTimer:          handleNpcSetTimer,
 
+	// NPC find (S7f) — closest-single cluster.
+	OpNpcFind:      handleNpcFind,
+	OpNpcFindCat:   handleNpcFindCat,
+	OpNpcFindExact: handleNpcFindExact,
+
 	// S7a: player UID lookup.
 	OpFindUID:  handleFindUID,
 	OpPFindUID: handlePFindUID,
@@ -345,7 +350,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// S7c: BUILDAPPEARANCE dispatch.
 	OpBuildAppearance: handleBuildAppearance,
 
-	// Player flag setters.
+	// S7e: character-design flag setter.
 	OpAllowDesign: handleAllowDesign,
 }
 

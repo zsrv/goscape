@@ -1029,3 +1029,366 @@ func TestHandleNpcSetHuntModeWithoutActiveNpcErrors(t *testing.T) {
 		t.Errorf("error: got %q, want %q", got, want)
 	}
 }
+
+// --- S7f Task 2: NPC_FIND handler tests --------------------------------
+
+// newNpcFindState constructs a ScriptState with IntOperands[PC]=operand,
+// pushes (coord, npcTypeID, distance, huntvis) onto the int stack in
+// the order the handler expects, wires a Configs that treats every id
+// in loaded as a valid NpcType, and binds a mockNpcLookup as state.Npcs.
+func newNpcFindState(t *testing.T, operand int32, coord, npcTypeID, distance, huntvis int, loaded map[int]bool, lookup *mockNpcLookup) *ScriptState {
+	t.Helper()
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{operand}},
+		PC:          0,
+		Configs:     newTestConfigsWithNpcTypes(loaded),
+		Npcs:        lookup,
+		Pointers:    0,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	// Push in the order: coord, npcType, distance, huntvis (matches
+	// TS popInts(4) = [coord, npc, distance, checkVis] where coord
+	// was pushed first).
+	s.PushInt(coord)
+	s.PushInt(npcTypeID)
+	s.PushInt(distance)
+	s.PushInt(huntvis)
+	return s
+}
+
+func TestNpcFind_SingleMatch(t *testing.T) {
+	foundNpc := &mockNpc{typeID: 7}
+	lookup := &mockNpcLookup{byType: foundNpc}
+	coord := (2 << 28) | (3200 << 14) | 3300
+	s := newNpcFindState(t, 0, coord, 7, 10, 0, map[int]bool{7: true}, lookup)
+
+	if err := handleNpcFind(s); err != nil {
+		t.Fatalf("handleNpcFind: %v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("push: got %d, want 1", got)
+	}
+	if s.ActiveNpc != foundNpc {
+		t.Errorf("ActiveNpc: got %v, want %v", s.ActiveNpc, foundNpc)
+	}
+	if s.Pointers&PtrActiveNpc == 0 {
+		t.Error("PtrActiveNpc should be set")
+	}
+	if lookup.byTypeCalls != 1 {
+		t.Errorf("byTypeCalls: got %d, want 1", lookup.byTypeCalls)
+	}
+	// Cross-check: handler passed (level, x, z, dist, typeID, huntvis).
+	wantArgs := []int{2, 3200, 3300, 10, 7, 0}
+	if !intSliceEqual(lookup.lastArgs, wantArgs) {
+		t.Errorf("lastArgs: got %v, want %v", lookup.lastArgs, wantArgs)
+	}
+}
+
+func TestNpcFind_NoMatch(t *testing.T) {
+	lookup := &mockNpcLookup{byType: nil} // no match
+	coord := (0 << 28) | (50 << 14) | 50
+	s := newNpcFindState(t, 0, coord, 7, 10, 0, map[int]bool{7: true}, lookup)
+
+	if err := handleNpcFind(s); err != nil {
+		t.Fatalf("handleNpcFind: %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("push: got %d, want 0", got)
+	}
+	if s.ActiveNpc != nil {
+		t.Errorf("ActiveNpc should be nil, got %v", s.ActiveNpc)
+	}
+	if s.Pointers&PtrActiveNpc != 0 {
+		t.Error("PtrActiveNpc should NOT be set on miss")
+	}
+}
+
+func TestNpcFind_NilNpcLookup(t *testing.T) {
+	coord := (0 << 28) | (50 << 14) | 50
+	s := newNpcFindState(t, 0, coord, 7, 10, 0, map[int]bool{7: true}, nil)
+	s.Npcs = nil // explicit
+
+	if err := handleNpcFind(s); err != nil {
+		t.Fatalf("handleNpcFind with nil Npcs: %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("nil Npcs should degrade to not-found (push 0); got %d", got)
+	}
+	if s.Pointers&PtrActiveNpc != 0 {
+		t.Error("PtrActiveNpc should NOT be set when Npcs is nil")
+	}
+}
+
+func TestNpcFind_IntOperandZero(t *testing.T) {
+	foundNpc := &mockNpc{typeID: 7}
+	lookup := &mockNpcLookup{byType: foundNpc}
+	s := newNpcFindState(t, 0, 0, 7, 10, 0, map[int]bool{7: true}, lookup)
+
+	if err := handleNpcFind(s); err != nil {
+		t.Fatal(err)
+	}
+	if s.ActiveNpc != foundNpc {
+		t.Errorf("operand=0 should set ActiveNpc, got %v", s.ActiveNpc)
+	}
+	if s.OtherActiveNpc != nil {
+		t.Errorf("operand=0 should leave OtherActiveNpc nil, got %v", s.OtherActiveNpc)
+	}
+}
+
+func TestNpcFind_IntOperandOne(t *testing.T) {
+	foundNpc := &mockNpc{typeID: 7}
+	lookup := &mockNpcLookup{byType: foundNpc}
+	s := newNpcFindState(t, 1, 0, 7, 10, 0, map[int]bool{7: true}, lookup)
+
+	if err := handleNpcFind(s); err != nil {
+		t.Fatal(err)
+	}
+	if s.OtherActiveNpc != foundNpc {
+		t.Errorf("operand=1 should set OtherActiveNpc, got %v", s.OtherActiveNpc)
+	}
+	if s.ActiveNpc != nil {
+		t.Errorf("operand=1 should leave ActiveNpc nil, got %v", s.ActiveNpc)
+	}
+	if s.Pointers&PtrActiveNpc2 == 0 {
+		t.Error("operand=1 should set PtrActiveNpc2")
+	}
+	if s.Pointers&PtrActiveNpc != 0 {
+		t.Error("operand=1 should NOT set PtrActiveNpc")
+	}
+}
+
+func TestNpcFind_InvalidCoord(t *testing.T) {
+	lookup := &mockNpcLookup{}
+	s := newNpcFindState(t, 0, -1, 7, 10, 0, map[int]bool{7: true}, lookup)
+	if err := handleNpcFind(s); err == nil {
+		t.Fatal("expected error for coord=-1")
+	} else if !strings.Contains(err.Error(), "NPC_FIND: coord out of range") {
+		t.Errorf("wrong error: %v", err)
+	}
+	if lookup.byTypeCalls != 0 {
+		t.Errorf("lookup should NOT be called on validator failure; calls=%d", lookup.byTypeCalls)
+	}
+}
+
+func TestNpcFind_InvalidNpcType(t *testing.T) {
+	lookup := &mockNpcLookup{}
+	s := newNpcFindState(t, 0, 0, 999, 10, 0, map[int]bool{7: true}, lookup) // 999 not loaded
+	if err := handleNpcFind(s); err == nil {
+		t.Fatal("expected error for unloaded npcType")
+	} else if !strings.Contains(err.Error(), "NPC_FIND: no NpcType") {
+		t.Errorf("wrong error: %v", err)
+	}
+	if lookup.byTypeCalls != 0 {
+		t.Errorf("lookup should NOT be called; calls=%d", lookup.byTypeCalls)
+	}
+}
+
+func TestNpcFind_NullDistance(t *testing.T) {
+	lookup := &mockNpcLookup{}
+	s := newNpcFindState(t, 0, 0, 7, -1, 0, map[int]bool{7: true}, lookup)
+	if err := handleNpcFind(s); err == nil {
+		t.Fatal("expected error for distance=-1 (NumberNotNull)")
+	} else if !strings.Contains(err.Error(), "NPC_FIND") {
+		t.Errorf("error should carry op prefix: %v", err)
+	}
+	if lookup.byTypeCalls != 0 {
+		t.Errorf("lookup should NOT be called; calls=%d", lookup.byTypeCalls)
+	}
+}
+
+func TestNpcFind_InvalidHuntVis(t *testing.T) {
+	lookup := &mockNpcLookup{}
+	s := newNpcFindState(t, 0, 0, 7, 10, 3, map[int]bool{7: true}, lookup) // 3 out of range
+	if err := handleNpcFind(s); err == nil {
+		t.Fatal("expected error for huntvis=3")
+	} else if !strings.Contains(err.Error(), "NPC_FIND: huntvis out of range") {
+		t.Errorf("wrong error: %v", err)
+	}
+	if lookup.byTypeCalls != 0 {
+		t.Errorf("lookup should NOT be called; calls=%d", lookup.byTypeCalls)
+	}
+}
+
+// intSliceEqual is a test helper for comparing []int.
+func intSliceEqual(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// --- S7f Task 2: NPC_FINDCAT handler tests -----------------------------
+
+// newNpcFindCatState is the NPC_FINDCAT analogue of newNpcFindState.
+// Pushes (coord, category, distance, huntvis). Loaded is the NpcType map
+// — NPC_FINDCAT does NOT validate NpcType (it validates CategoryType)
+// but the ScriptState still needs a Configs field.
+func newNpcFindCatState(t *testing.T, operand int32, coord, category, distance, huntvis int, loaded map[int]bool, lookup *mockNpcLookup) *ScriptState {
+	t.Helper()
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{operand}},
+		PC:          0,
+		Configs:     newTestConfigsWithNpcTypes(loaded),
+		Npcs:        lookup,
+		Pointers:    0,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(coord)
+	s.PushInt(category)
+	s.PushInt(distance)
+	s.PushInt(huntvis)
+	return s
+}
+
+func TestNpcFindCat_SingleMatch(t *testing.T) {
+	foundNpc := &mockNpc{typeID: 12}
+	lookup := &mockNpcLookup{byCategory: foundNpc}
+	coord := (1 << 28) | (1000 << 14) | 1000
+	s := newNpcFindCatState(t, 0, coord, 5, 15, 1, nil, lookup)
+
+	if err := handleNpcFindCat(s); err != nil {
+		t.Fatalf("handleNpcFindCat: %v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("push: got %d, want 1", got)
+	}
+	if s.ActiveNpc != foundNpc {
+		t.Error("ActiveNpc should be the found NPC")
+	}
+	if lookup.byCategoryCalls != 1 {
+		t.Errorf("byCategoryCalls: got %d, want 1", lookup.byCategoryCalls)
+	}
+	wantArgs := []int{1, 1000, 1000, 15, 5, 1} // level, x, z, dist, cat, huntvis
+	if !intSliceEqual(lookup.lastArgs, wantArgs) {
+		t.Errorf("lastArgs: got %v, want %v", lookup.lastArgs, wantArgs)
+	}
+}
+
+func TestNpcFindCat_NoMatch(t *testing.T) {
+	lookup := &mockNpcLookup{byCategory: nil}
+	s := newNpcFindCatState(t, 0, 0, 5, 10, 0, nil, lookup)
+
+	if err := handleNpcFindCat(s); err != nil {
+		t.Fatal(err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("push: got %d, want 0", got)
+	}
+}
+
+func TestNpcFindCat_NullCategory(t *testing.T) {
+	lookup := &mockNpcLookup{}
+	s := newNpcFindCatState(t, 0, 0, -1, 10, 0, nil, lookup)
+
+	if err := handleNpcFindCat(s); err == nil {
+		t.Fatal("expected error for category=-1")
+	} else if !strings.Contains(err.Error(), "NPC_FINDCAT: category null(-1)") {
+		t.Errorf("wrong error: %v", err)
+	}
+	if lookup.byCategoryCalls != 0 {
+		t.Errorf("lookup should NOT be called; calls=%d", lookup.byCategoryCalls)
+	}
+}
+
+// TestNpcFindCat_PartialValidatorAcceptsNonNegative pins S7f-D3:
+// checkCategoryType accepts any non-(-1) value even if no CategoryType
+// count is loaded. The handler MUST call the lookup with the raw cat.
+func TestNpcFindCat_PartialValidatorAcceptsNonNegative(t *testing.T) {
+	foundNpc := &mockNpc{typeID: 12}
+	lookup := &mockNpcLookup{byCategory: foundNpc}
+	s := newNpcFindCatState(t, 0, 0, 999999, 10, 0, nil, lookup)
+
+	if err := handleNpcFindCat(s); err != nil {
+		t.Fatalf("partial validator should accept 999999 (S7f-D3): %v", err)
+	}
+	if lookup.byCategoryCalls != 1 {
+		t.Errorf("byCategoryCalls: got %d, want 1", lookup.byCategoryCalls)
+	}
+}
+
+// --- S7f Task 2: NPC_FINDEXACT handler tests ---------------------------
+
+// newNpcFindExactState pushes (coord, npcTypeID) — only 2 args.
+func newNpcFindExactState(t *testing.T, operand int32, coord, npcTypeID int, loaded map[int]bool, lookup *mockNpcLookup) *ScriptState {
+	t.Helper()
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{operand}},
+		PC:          0,
+		Configs:     newTestConfigsWithNpcTypes(loaded),
+		Npcs:        lookup,
+		Pointers:    0,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(coord)
+	s.PushInt(npcTypeID)
+	return s
+}
+
+func TestNpcFindExact_Match(t *testing.T) {
+	foundNpc := &mockNpc{typeID: 7}
+	lookup := &mockNpcLookup{atCoord: foundNpc}
+	coord := (0 << 28) | (3200 << 14) | 3300
+	s := newNpcFindExactState(t, 0, coord, 7, map[int]bool{7: true}, lookup)
+
+	if err := handleNpcFindExact(s); err != nil {
+		t.Fatalf("handleNpcFindExact: %v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("push: got %d, want 1", got)
+	}
+	if s.ActiveNpc != foundNpc {
+		t.Error("ActiveNpc should be the found NPC")
+	}
+	wantArgs := []int{0, 3200, 3300, 7}
+	if !intSliceEqual(lookup.lastArgs, wantArgs) {
+		t.Errorf("lastArgs: got %v, want %v", lookup.lastArgs, wantArgs)
+	}
+}
+
+func TestNpcFindExact_NoNpcAtCoord(t *testing.T) {
+	lookup := &mockNpcLookup{atCoord: nil}
+	s := newNpcFindExactState(t, 0, 0, 7, map[int]bool{7: true}, lookup)
+
+	if err := handleNpcFindExact(s); err != nil {
+		t.Fatal(err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("push: got %d, want 0", got)
+	}
+}
+
+func TestNpcFindExact_InvalidCoord(t *testing.T) {
+	lookup := &mockNpcLookup{}
+	s := newNpcFindExactState(t, 0, -1, 7, map[int]bool{7: true}, lookup)
+
+	if err := handleNpcFindExact(s); err == nil {
+		t.Fatal("expected error for coord=-1")
+	} else if !strings.Contains(err.Error(), "NPC_FINDEXACT: coord out of range") {
+		t.Errorf("wrong error: %v", err)
+	}
+	if lookup.atCoordCalls != 0 {
+		t.Errorf("lookup should NOT be called; calls=%d", lookup.atCoordCalls)
+	}
+}
+
+func TestNpcFindExact_InvalidNpcType(t *testing.T) {
+	lookup := &mockNpcLookup{}
+	s := newNpcFindExactState(t, 0, 0, 999, map[int]bool{7: true}, lookup)
+
+	if err := handleNpcFindExact(s); err == nil {
+		t.Fatal("expected error for unloaded npcType")
+	} else if !strings.Contains(err.Error(), "NPC_FINDEXACT: no NpcType") {
+		t.Errorf("wrong error: %v", err)
+	}
+	if lookup.atCoordCalls != 0 {
+		t.Errorf("lookup should NOT be called; calls=%d", lookup.atCoordCalls)
+	}
+}

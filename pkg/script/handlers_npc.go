@@ -345,3 +345,107 @@ func handleNpcSetHuntMode(s *ScriptState) error {
 	s.ActiveNpc.SetHuntMode(s.PopInt())
 	return nil
 }
+
+// handleNpcFind (NPC_FIND, opcode 2513) pops (coord, npc, distance,
+// huntvis), validates each, asks NpcLookup for the closest NPC of that
+// type within square-bounded distance, and either sets the active NPC
+// slot + pushes 1 or pushes 0. Mirrors TS NpcOps.ts:336-367. Gate:
+// none (ActivePlayer-agnostic — the opcode only depends on the world).
+// Pointer-set is conditional on hit (TS ScriptOpcodePointers.ts:579).
+func handleNpcFind(s *ScriptState) error {
+	checkVis := s.PopInt()
+	distance := s.PopInt()
+	npcTypeID := s.PopInt()
+	coord := s.PopInt()
+
+	level, x, z, err := checkCoord(coord, "NPC_FIND")
+	if err != nil {
+		return err
+	}
+	if err := checkNpcType(s, npcTypeID, "NPC_FIND"); err != nil {
+		return err
+	}
+	if err := checkNotNull(distance, "NPC_FIND"); err != nil {
+		return err
+	}
+	if err := checkHuntVis(checkVis, "NPC_FIND"); err != nil {
+		return err
+	}
+
+	var npc ActiveNpc
+	if s.Npcs != nil {
+		npc = s.Npcs.FindClosestNpcByType(level, x, z, distance, npcTypeID, checkVis)
+	}
+	if npc == nil {
+		s.PushInt(0)
+		return nil
+	}
+	setActiveNpcSlot(s, npc)
+	s.PushInt(1)
+	return nil
+}
+
+// handleNpcFindCat (NPC_FINDCAT, opcode 2517) pops (coord, category,
+// distance, huntvis). Same spine as handleNpcFind but filter is by
+// NpcType.Category == category (handled in the world-side impl).
+// checkCategoryType is partial (S7f-D3). Mirrors TS NpcOps.ts:369-400.
+func handleNpcFindCat(s *ScriptState) error {
+	checkVis := s.PopInt()
+	distance := s.PopInt()
+	category := s.PopInt()
+	coord := s.PopInt()
+
+	level, x, z, err := checkCoord(coord, "NPC_FINDCAT")
+	if err != nil {
+		return err
+	}
+	if err := checkCategoryType(category, "NPC_FINDCAT"); err != nil {
+		return err
+	}
+	if err := checkNotNull(distance, "NPC_FINDCAT"); err != nil {
+		return err
+	}
+	if err := checkHuntVis(checkVis, "NPC_FINDCAT"); err != nil {
+		return err
+	}
+
+	var npc ActiveNpc
+	if s.Npcs != nil {
+		npc = s.Npcs.FindClosestNpcByCategory(level, x, z, distance, category, checkVis)
+	}
+	if npc == nil {
+		s.PushInt(0)
+		return nil
+	}
+	setActiveNpcSlot(s, npc)
+	s.PushInt(1)
+	return nil
+}
+
+// handleNpcFindExact (NPC_FINDEXACT, opcode 2518) pops (coord, npcType).
+// Iterates NPCs at exactly (level, x, z) of the popped coord whose type
+// matches. Mirrors TS NpcOps.ts:94-112. Pointer-set conditional on hit.
+func handleNpcFindExact(s *ScriptState) error {
+	npcTypeID := s.PopInt()
+	coord := s.PopInt()
+
+	level, x, z, err := checkCoord(coord, "NPC_FINDEXACT")
+	if err != nil {
+		return err
+	}
+	if err := checkNpcType(s, npcTypeID, "NPC_FINDEXACT"); err != nil {
+		return err
+	}
+
+	var npc ActiveNpc
+	if s.Npcs != nil {
+		npc = s.Npcs.FindNpcAtExactCoord(level, x, z, npcTypeID)
+	}
+	if npc == nil {
+		s.PushInt(0)
+		return nil
+	}
+	setActiveNpcSlot(s, npc)
+	s.PushInt(1)
+	return nil
+}

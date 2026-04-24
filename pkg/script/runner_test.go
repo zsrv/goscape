@@ -427,9 +427,7 @@ func (m *mockPlayer) SetAppearanceInv(id int) {
 	m.appearanceMaskSet = true
 }
 
-// S7e: SetAllowDesign stores the coerced-bool flag for ALLOWDESIGN tests.
-// allowDesignCalls counts invocations so error-path tests can assert the
-// setter was NOT called.
+// SetAllowDesign — see mockPlayer struct (runner_test.go:224) for field semantics.
 func (m *mockPlayer) SetAllowDesign(v bool) {
 	m.allowDesignValue = v
 	m.allowDesignCalls++
