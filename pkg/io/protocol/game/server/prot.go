@@ -82,4 +82,12 @@ var (
 
 	// RuneScript S2 — chat output emitted by the MES opcode.
 	OpMessageGame = Op{Opcode: 4, PayloadSize: -1}
+
+	// MIDI client-audio packets (verified against TS ServerGameProt.ts:81-82).
+	// MIDI_SONG streams a song reference (name + crc + length so the client
+	// can fetch the .mid blob from the asset server); MIDI_JINGLE streams
+	// an inline jingle payload. Wired from the MIDI_SONG (2064) / MIDI_JINGLE
+	// (2063) script opcodes via (*Player).PlaySong / PlayJingle.
+	OpMidiSong   = Op{Opcode: 54, PayloadSize: -1}
+	OpMidiJingle = Op{Opcode: 212, PayloadSize: -2}
 )
