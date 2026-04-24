@@ -1,6 +1,8 @@
 package world
 
 import (
+	"strings"
+
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/objtype"
@@ -545,3 +547,32 @@ func (p *Player) SetInteractionScriptNpc(npc script.ActiveNpc, op int) {
 // RS2 login request (req.LowMemory) through client.lowMemory and
 // copied onto the Player at newPlayer().
 func (p *Player) LowMemory() bool { return p.lowMemory }
+
+// normalizeSongName mirrors TS Player.playSong's normalization step
+// (Engine-TS/src/engine/entity/Player.ts:1903) — lowercase + spaces
+// replaced by underscores. Extracted for direct testability given
+// PlaySong's current no-op write body (S7h-D1). Asymmetric with
+// normalizeJingleName (spaces→underscores vs. underscores→spaces);
+// the asymmetry is TS-intentional — songs key into disk with
+// underscore filenames; jingles key into a space-separated title map.
+func normalizeSongName(name string) string {
+	return strings.ReplaceAll(strings.ToLower(name), " ", "_")
+}
+
+// PlaySong normalizes the song name per TS Player.playSong
+// (Engine-TS/src/engine/entity/Player.ts:1902-1914) and early-returns
+// on empty.
+//
+// S7h-D1: the subsequent TS PRELOADED + PRELOADED_CRC lookup and
+// MidiSong(name, crc, length) write from TS is not yet ported.
+// goscape lacks the PRELOADED music registry (zero rg hits at
+// HEAD=25bef29). No client packet is sent. The TestPlaySongNoWriteOut
+// absence-pin (player_script_test.go) escalates this deviation when
+// the write path is wired; retirement tracked as NAI-16-midi-encoders.
+func (p *Player) PlaySong(name string) {
+	name = normalizeSongName(name)
+	if name == "" {
+		return
+	}
+	// deferred (S7h-D1): PRELOADED lookup + p.writeOut(gameserver.OpMidiSong, ...)
+}

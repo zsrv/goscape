@@ -346,6 +346,15 @@ type ActivePlayer interface {
 	// Script opcodes that trigger client audio loads gate on this flag —
 	// see handleMidiSong / handleMidiJingle in handlers_player.go.
 	LowMemory() bool
+
+	// PlaySong sends a MIDI song by name to the client. Called by the
+	// MIDI_SONG script opcode (PlayerOps.ts:796-804).
+	//
+	// S7h-D1: actual MidiSong client packet is deferred pending PRELOADED
+	// music + CRC infrastructure; current impl performs TS name
+	// normalization (lowercase + spaces→underscores) and early-returns
+	// on empty without writing.
+	PlaySong(name string)
 }
 
 // ActiveNpc is the per-NPC surface that NPC_* opcodes and VARN

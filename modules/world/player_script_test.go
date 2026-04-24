@@ -392,3 +392,47 @@ func TestPlayerLowMemoryGetter(t *testing.T) {
 		t.Errorf("after set: want LowMemory()=true, got false")
 	}
 }
+
+func TestNormalizeSongNameLowercaseAndSpacesToUnderscores(t *testing.T) {
+	cases := []struct {
+		in, want string
+	}{
+		{"Harmony 1", "harmony_1"},
+		{"already_lower", "already_lower"},
+		{"ALLCAPS", "allcaps"},
+		{"Mixed CASE With Spaces", "mixed_case_with_spaces"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.in, func(t *testing.T) {
+			if got := normalizeSongName(tc.in); got != tc.want {
+				t.Errorf("normalizeSongName(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestNormalizeSongNameEmptyReturnsEmpty(t *testing.T) {
+	if got := normalizeSongName(""); got != "" {
+		t.Errorf("normalizeSongName(\"\") = %q, want \"\"", got)
+	}
+}
+
+// TestPlaySongNoWriteOut pins S7h-D1: (*Player).PlaySong must NOT
+// issue a writeOut until PRELOADED music / CRC infra lands (tracked as
+// NAI-16-midi-encoders). When the encoder ports, this test fails —
+// the failure is the escalation signal to retire S7h-D1.
+func TestPlaySongNoWriteOut(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.PlaySong("harmony1")
+	if n := p.client.bufw.Buffered(); n != 0 {
+		t.Errorf("PlaySong wrote %d bytes to c.bufw; want 0 (S7h-D1 absence-pin)", n)
+	}
+}
+
+func TestPlaySongEmptyNameReturnsSilently(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.PlaySong("")
+	if n := p.client.bufw.Buffered(); n != 0 {
+		t.Errorf("empty name: PlaySong wrote %d bytes; want 0", n)
+	}
+}

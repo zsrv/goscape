@@ -1775,3 +1775,78 @@ func TestCheckStringNotNullNonEmpty(t *testing.T) {
 		t.Errorf("non-empty string: want nil, got %v", err)
 	}
 }
+
+func TestMidiSongHappyPath(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        &mockPlayer{},
+		Pointers:    PtrActivePlayer,
+	}
+	s.PushString("harmony1")
+	mp := s.Self.(*mockPlayer)
+
+	if err := handleMidiSong(s); err != nil {
+		t.Fatalf("handleMidiSong: %v", err)
+	}
+	if len(mp.playSongCalls) != 1 {
+		t.Fatalf("playSongCalls: got %d, want 1", len(mp.playSongCalls))
+	}
+	if mp.playSongCalls[0].name != "harmony1" {
+		t.Errorf("playSongCalls[0].name: got %q, want %q", mp.playSongCalls[0].name, "harmony1")
+	}
+}
+
+func TestMidiSongLowMemoryBails(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        &mockPlayer{lowMemoryValue: true},
+		Pointers:    PtrActivePlayer,
+	}
+	s.PushString("harmony1")
+	mp := s.Self.(*mockPlayer)
+
+	if err := handleMidiSong(s); err != nil {
+		t.Fatalf("handleMidiSong: %v", err)
+	}
+	if len(mp.playSongCalls) != 0 {
+		t.Errorf("lowMemory=true: playSongCalls=%d, want 0", len(mp.playSongCalls))
+	}
+}
+
+func TestMidiSongNullStringRejects(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        &mockPlayer{},
+		Pointers:    PtrActivePlayer,
+	}
+	s.PushString("")
+
+	err := handleMidiSong(s)
+	if err == nil {
+		t.Fatal("empty name: want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "MIDI_SONG: input string was null") {
+		t.Errorf("error %q does not contain %q", err.Error(), "MIDI_SONG: input string was null")
+	}
+}
+
+func TestMidiSongNoActivePlayerRejects(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        nil,
+		Pointers:    0, // PtrActivePlayer unset
+	}
+	s.PushString("harmony1")
+
+	err := handleMidiSong(s)
+	if err == nil {
+		t.Fatal("no active player: want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "MIDI_SONG: no active player") {
+		t.Errorf("error %q does not contain %q", err.Error(), "MIDI_SONG: no active player")
+	}
+}

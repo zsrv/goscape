@@ -664,3 +664,27 @@ func handlePFindUID(s *ScriptState) error {
 	s.PushInt(1)
 	return nil
 }
+
+// handleMidiSong (MIDI_SONG, opcode 2064) plays a MIDI song by name to
+// the active player. Silent no-op if the player has lowMemory set.
+// Mirrors TS PlayerOps.ts:796-804.
+//
+// Pointer gate: require active_player (TS ScriptOpcodePointers.ts:272
+// require: ['active_player']).
+//
+// S7h-D1: downstream (*Player).PlaySong currently performs TS name
+// normalization + early-return only; no MidiSong client packet is sent.
+func handleMidiSong(s *ScriptState) error {
+	name := s.PopString()
+	if err := checkStringNotNull(name, "MIDI_SONG"); err != nil {
+		return err
+	}
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("MIDI_SONG: no active player")
+	}
+	if s.Self.LowMemory() {
+		return nil
+	}
+	s.Self.PlaySong(name)
+	return nil
+}

@@ -229,6 +229,11 @@ type mockPlayer struct {
 
 	// S7h: lowMemory pre-seed for MIDI_SONG / MIDI_JINGLE lowMemory-gate tests.
 	lowMemoryValue bool
+
+	// S7h: captured MIDI_SONG plays. Each entry records the normalized-name
+	// argument as seen by the mock; the mock does not perform TS
+	// normalization (that's (*Player).PlaySong's responsibility).
+	playSongCalls []struct{ name string }
 }
 
 type mockEnqueue struct {
@@ -439,6 +444,11 @@ func (m *mockPlayer) SetAllowDesign(v bool) {
 // S7h: LowMemory returns the seeded value for MIDI_SONG / MIDI_JINGLE
 // handler tests that exercise the lowMemory bail path.
 func (m *mockPlayer) LowMemory() bool { return m.lowMemoryValue }
+
+// S7h: PlaySong captures the MIDI_SONG name for handler tests.
+func (m *mockPlayer) PlaySong(name string) {
+	m.playSongCalls = append(m.playSongCalls, struct{ name string }{name})
+}
 
 // S6l: p_aprange.
 func (m *mockPlayer) SetApRange(n int) {
