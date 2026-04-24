@@ -1850,3 +1850,104 @@ func TestMidiSongNoActivePlayerRejects(t *testing.T) {
 		t.Errorf("error %q does not contain %q", err.Error(), "MIDI_SONG: no active player")
 	}
 }
+
+func TestMidiJingleHappyPath(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        &mockPlayer{},
+		Pointers:    PtrActivePlayer,
+	}
+	// Pop order in handler: delay first (top-of-stack), then name.
+	// Push order: name (deepest), delay (topmost).
+	s.PushString("fanfare")
+	s.PushInt(3)
+	mp := s.Self.(*mockPlayer)
+
+	if err := handleMidiJingle(s); err != nil {
+		t.Fatalf("handleMidiJingle: %v", err)
+	}
+	if len(mp.playJingleCalls) != 1 {
+		t.Fatalf("playJingleCalls: got %d, want 1", len(mp.playJingleCalls))
+	}
+	if mp.playJingleCalls[0].delay != 3 || mp.playJingleCalls[0].name != "fanfare" {
+		t.Errorf("playJingleCalls[0]: got {delay:%d, name:%q}, want {delay:3, name:\"fanfare\"}",
+			mp.playJingleCalls[0].delay, mp.playJingleCalls[0].name)
+	}
+}
+
+func TestMidiJingleLowMemoryBails(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        &mockPlayer{lowMemoryValue: true},
+		Pointers:    PtrActivePlayer,
+	}
+	s.PushString("fanfare")
+	s.PushInt(3)
+	mp := s.Self.(*mockPlayer)
+
+	if err := handleMidiJingle(s); err != nil {
+		t.Fatalf("handleMidiJingle: %v", err)
+	}
+	if len(mp.playJingleCalls) != 0 {
+		t.Errorf("lowMemory=true: playJingleCalls=%d, want 0", len(mp.playJingleCalls))
+	}
+}
+
+func TestMidiJingleNullStringRejects(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        &mockPlayer{},
+		Pointers:    PtrActivePlayer,
+	}
+	s.PushString("")
+	s.PushInt(3)
+
+	err := handleMidiJingle(s)
+	if err == nil {
+		t.Fatal("empty name: want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "MIDI_JINGLE: input string was null") {
+		t.Errorf("error %q does not contain %q", err.Error(), "MIDI_JINGLE: input string was null")
+	}
+}
+
+func TestMidiJingleNullDelayRejects(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        &mockPlayer{},
+		Pointers:    PtrActivePlayer,
+	}
+	s.PushString("fanfare")
+	s.PushInt(-1)
+
+	err := handleMidiJingle(s)
+	if err == nil {
+		t.Fatal("delay=-1: want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "MIDI_JINGLE: input number was null(-1)") {
+		t.Errorf("error %q does not contain %q", err.Error(), "MIDI_JINGLE: input number was null(-1)")
+	}
+}
+
+func TestMidiJingleNoActivePlayerRejects(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        nil,
+		Pointers:    0,
+	}
+	s.PushString("fanfare")
+	s.PushInt(3)
+
+	err := handleMidiJingle(s)
+	if err == nil {
+		t.Fatal("no active player: want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "MIDI_JINGLE: no active player") {
+		t.Errorf("error %q does not contain %q", err.Error(), "MIDI_JINGLE: no active player")
+	}
+}

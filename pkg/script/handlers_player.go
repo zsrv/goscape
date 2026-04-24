@@ -688,3 +688,35 @@ func handleMidiSong(s *ScriptState) error {
 	s.Self.PlaySong(name)
 	return nil
 }
+
+// handleMidiJingle (MIDI_JINGLE, opcode 2063) plays a short MIDI jingle
+// by name and delay to the active player. Silent no-op if the player
+// has lowMemory set. Mirrors TS PlayerOps.ts:806-816.
+//
+// Pointer gate: require active_player (TS ScriptOpcodePointers.ts:269
+// require: ['active_player']).
+//
+// Pop order (top-of-stack first): delay (NumberNotNull), then name
+// (StringNotNull). Matches TS `check(state.popInt(), NumberNotNull)` /
+// `check(state.popString(), StringNotNull)` evaluation order.
+//
+// S7h-D1: downstream (*Player).PlayJingle currently performs TS name
+// normalization + early-return only; no MidiJingle client packet is sent.
+func handleMidiJingle(s *ScriptState) error {
+	delay := s.PopInt()
+	if err := checkNotNull(delay, "MIDI_JINGLE"); err != nil {
+		return err
+	}
+	name := s.PopString()
+	if err := checkStringNotNull(name, "MIDI_JINGLE"); err != nil {
+		return err
+	}
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("MIDI_JINGLE: no active player")
+	}
+	if s.Self.LowMemory() {
+		return nil
+	}
+	s.Self.PlayJingle(delay, name)
+	return nil
+}

@@ -234,6 +234,13 @@ type mockPlayer struct {
 	// argument as seen by the mock; the mock does not perform TS
 	// normalization (that's (*Player).PlaySong's responsibility).
 	playSongCalls []struct{ name string }
+
+	// S7h: captured MIDI_JINGLE plays. Each entry records the delay and
+	// the normalized-name argument as seen by the mock.
+	playJingleCalls []struct {
+		delay int
+		name  string
+	}
 }
 
 type mockEnqueue struct {
@@ -448,6 +455,14 @@ func (m *mockPlayer) LowMemory() bool { return m.lowMemoryValue }
 // S7h: PlaySong captures the MIDI_SONG name for handler tests.
 func (m *mockPlayer) PlaySong(name string) {
 	m.playSongCalls = append(m.playSongCalls, struct{ name string }{name})
+}
+
+// S7h: PlayJingle captures the MIDI_JINGLE delay + name for handler tests.
+func (m *mockPlayer) PlayJingle(delay int, name string) {
+	m.playJingleCalls = append(m.playJingleCalls, struct {
+		delay int
+		name  string
+	}{delay, name})
 }
 
 // S6l: p_aprange.

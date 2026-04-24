@@ -355,6 +355,15 @@ type ActivePlayer interface {
 	// normalization (lowercase + spaces→underscores) and early-returns
 	// on empty without writing.
 	PlaySong(name string)
+
+	// PlayJingle sends a short MIDI jingle by name to the client. Called
+	// by the MIDI_JINGLE script opcode (PlayerOps.ts:806-816).
+	//
+	// S7h-D1: actual MidiJingle client packet is deferred pending
+	// PRELOADED music infrastructure; current impl performs TS name
+	// normalization (lowercase + underscores→spaces) and early-returns
+	// on empty without writing.
+	PlayJingle(delay int, name string)
 }
 
 // ActiveNpc is the per-NPC surface that NPC_* opcodes and VARN

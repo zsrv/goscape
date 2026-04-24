@@ -358,8 +358,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// S7e: character-design flag setter.
 	OpAllowDesign: handleAllowDesign,
 
-	// S7h: audio — MIDI_SONG (MIDI_JINGLE lands in Task 4).
-	OpMidiSong: handleMidiSong,
+	// S7h: audio — MIDI_SONG + MIDI_JINGLE.
+	OpMidiJingle: handleMidiJingle,
+	OpMidiSong:   handleMidiSong,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.

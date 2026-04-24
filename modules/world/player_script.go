@@ -576,3 +576,32 @@ func (p *Player) PlaySong(name string) {
 	}
 	// deferred (S7h-D1): PRELOADED lookup + p.writeOut(gameserver.OpMidiSong, ...)
 }
+
+// normalizeJingleName mirrors TS Player.playJingle's normalization step
+// (Engine-TS/src/engine/entity/Player.ts:1917) — lowercase + underscores
+// replaced by spaces. Extracted for direct testability given
+// PlayJingle's current no-op write body (S7h-D1). Asymmetric with
+// normalizeSongName (underscores→spaces vs. spaces→underscores);
+// the asymmetry is TS-intentional — jingles key into a space-separated
+// title map; songs key into underscore-filename disk paths.
+func normalizeJingleName(name string) string {
+	return strings.ReplaceAll(strings.ToLower(name), "_", " ")
+}
+
+// PlayJingle normalizes the jingle name per TS Player.playJingle
+// (Engine-TS/src/engine/entity/Player.ts:1916-1926) and early-returns
+// on empty.
+//
+// S7h-D1: the subsequent TS PRELOADED lookup and MidiJingle(delay, data)
+// write from TS is not yet ported. No client packet is sent. The
+// TestPlayJingleNoWriteOut absence-pin (player_script_test.go)
+// escalates this deviation when the write path is wired; retirement
+// tracked as NAI-16-midi-encoders.
+func (p *Player) PlayJingle(delay int, name string) {
+	_ = delay // preserved for future MidiJingle encoder wiring
+	name = normalizeJingleName(name)
+	if name == "" {
+		return
+	}
+	// deferred (S7h-D1): PRELOADED lookup + p.writeOut(gameserver.OpMidiJingle, ...)
+}
