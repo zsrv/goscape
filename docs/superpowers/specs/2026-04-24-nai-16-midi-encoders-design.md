@@ -406,7 +406,7 @@ Called at the start of every test in this file. The Cleanup registration is belt
     // broken." Replaces the prior absence-pin (which was the S7h-D1
     // escalation signal — now satisfied).
     func TestPlaySongWritesOut(t *testing.T) {
-        seedCachedSong(t, "adventure.mid", []byte{0x01, 0x02, 0x03}, 0xDEADBEEF)
+        seedCachedMidi(t, "adventure.mid", []byte{0x01, 0x02, 0x03}, 0xDEADBEEF)
         p, _ := newTestPlayer(t)
         p.PlaySong("adventure")
         if n := p.client.bufw.Buffered(); n == 0 {
@@ -415,7 +415,7 @@ Called at the start of every test in this file. The Cleanup registration is belt
     }
     ```
 
-17. **RENAME** `TestPlayJingleNoWriteOut` → `TestPlayJingleWritesOut`. Symmetric seeding + assertion (seed `"fanfare.mid"` → non-nil bytes; call `p.PlayJingle(3, "fanfare")`; assert `Buffered() > 0`).
+17. **RENAME** `TestPlayJingleNoWriteOut` → `TestPlayJingleWritesOut`. Symmetric seeding + assertion (via `seedCachedMidi(t, "fanfare.mid", ...)`; call `p.PlayJingle(3, "fanfare")`; assert `Buffered() > 0`). The PRELOADED_CRC entry the helper seeds is unused by PlayJingle's lookup but costs nothing.
 
 **New miss-path tests (silent-no-op per § Error handling):**
 
@@ -428,11 +428,12 @@ Called at the start of every test in this file. The Cleanup registration is belt
 **Shared helper:**
 
 ```go
-// seedCachedSong seeds both cache.Preloaded and cache.PreloadedCRC under
+// seedCachedMidi seeds both cache.Preloaded and cache.PreloadedCRC under
 // `name` and registers a t.Cleanup to remove both entries after the test.
 // Mirrors the production PreloadClient write shape without touching
-// the filesystem.
-func seedCachedSong(t *testing.T, name string, data []byte, crc uint32) {
+// the filesystem. Usable for both song and jingle test paths (PlayJingle
+// ignores the CRC entry; the wasted write is harmless).
+func seedCachedMidi(t *testing.T, name string, data []byte, crc uint32) {
     t.Helper()
     cache.Preloaded[name] = data
     cache.PreloadedCRC[name] = crc
