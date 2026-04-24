@@ -528,3 +528,87 @@ func BenchmarkClientSetup(b *testing.B) {
 		putBufioWriter64k(c.bufw)
 	}
 }
+
+// TestPlayerCanAccess asserts the four-case truth table for S7a:
+// delayed, modal main/chat open, or protected activeScript → false;
+// otherwise → true. Mirrors TS Player.canAccess.
+func TestPlayerCanAccess(t *testing.T) {
+	cases := []struct {
+		name            string
+		delayed         bool
+		modalState      int
+		protectedScript bool
+		want            bool
+	}{
+		{"idle_no_modal_no_script", false, modalStateNone, false, true},
+		{"delayed", true, modalStateNone, false, false},
+		{"modal_main_open", false, modalStateMain, false, false},
+		{"modal_chat_open", false, modalStateChat, false, false},
+		{"modal_side_only_ok", false, modalStateSide, false, true},
+		{"protected_script_stored", false, modalStateNone, true, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c, _ := newTestClient(t)
+			p := newPlayer(c)
+			p.delayed = tc.delayed
+			p.modalState = tc.modalState
+			if tc.protectedScript {
+				p.activeScript = &script.ScriptState{Protect: true}
+			}
+			if got := p.CanAccess(); got != tc.want {
+				t.Errorf("CanAccess() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestLookupPlayerByUIDFound: a single logged-in player with a matching
+// uid is returned.
+func TestLookupPlayerByUIDFound(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.uid = 12345
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+
+	got := s.LookupPlayerByUID(12345)
+	if got != p {
+		t.Errorf("LookupPlayerByUID(12345) = %v, want %v", got, p)
+	}
+}
+
+// TestLookupPlayerByUIDNotFound: returns nil for an unknown uid.
+func TestLookupPlayerByUIDNotFound(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.uid = 1
+	_ = s.addPlayer(p)
+
+	got := s.LookupPlayerByUID(999)
+	if got != nil {
+		t.Errorf("LookupPlayerByUID(999) = %v, want nil", got)
+	}
+}
+
+// TestLookupPlayerByUIDSkipsInactive: an entry in playerLoop whose
+// active flag is false is not returned even on uid match. This defends
+// against stale references during the add/remove race window — the
+// tick loop drains newPlayers and addPlayer flips active=true; removal
+// flips active=false before the slot reassignment. See server.go:586-596.
+func TestLookupPlayerByUIDSkipsInactive(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.uid = 7
+	_ = s.addPlayer(p)
+	p.active = false
+
+	got := s.LookupPlayerByUID(7)
+	if got != nil {
+		t.Errorf("LookupPlayerByUID(7) on inactive player = %v, want nil", got)
+	}
+}

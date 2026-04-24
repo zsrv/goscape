@@ -620,6 +620,27 @@ const expectedRevision = 225
 // unguarded.
 func (s *Server) TrackZone(z *zone.Zone) { s.zonesTracking[z] = struct{}{} }
 
+// LookupPlayerByUID returns the logged-in player whose uid field matches
+// the argument, or nil if no such player is active. Intended to be
+// called from the tick goroutine (playerLoop is unguarded there).
+// Implements the script.PlayerLookup interface consumed by
+// FINDUID / P_FINDUID (S7a).
+//
+// Does NOT filter on CanAccess — callers that need the protected
+// variant consult the returned player's CanAccess() separately. Mirrors
+// TS World.getPlayerByUid which is a pure lookup.
+func (s *Server) LookupPlayerByUID(uid int) script.ActivePlayer {
+	for _, p := range s.playerLoop {
+		if p == nil || !p.active {
+			continue
+		}
+		if p.uid == uid {
+			return p
+		}
+	}
+	return nil
+}
+
 // TODO: move this somewhere else
 type LoginResponse struct {
 	Type          string
