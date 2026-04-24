@@ -454,6 +454,41 @@ func TestProcessNpcEventQueueSkipsDelayedNpcs(t *testing.T) {
 	}
 }
 
+// TestProcessNpcEventQueueHappyPathFire guards the fire+remove path
+// of processNpcEventQueue at modules/world/npc_event_queue.go:36-48.
+// A non-delayed NPC with a queued event runs through runNpcScript →
+// resumeOrFinishNpc → (on Finished) ClearActiveScript. Observability:
+// queue drained + activeScript cleared.
+//
+// Closes NAI-5 test-gap #1. Complement to
+// TestProcessNpcEventQueueSkipsDelayedNpcs (skip branch) and
+// TestNpcTurnEventsDespawnEnqueuesEvent (enqueue-no-fire).
+func TestProcessNpcEventQueueHappyPathFire(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.currentTick = 100
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+
+	sf := &script.ScriptFile{
+		Name:    "ai_despawn_stub",
+		Opcodes: []script.Opcode{script.OpReturn},
+	}
+	s.npcEventQueue = append(s.npcEventQueue, NpcEventRequest{
+		Type:   NpcEventDespawn,
+		Script: sf,
+		Npc:    n,
+	})
+
+	s.processNpcEventQueue()
+
+	if len(s.npcEventQueue) != 0 {
+		t.Errorf("npcEventQueue: got len %d, want 0 (queue drained after fire)", len(s.npcEventQueue))
+	}
+	if n.activeScript != nil {
+		t.Error("activeScript: got non-nil, want nil (Finished execution should ClearActiveScript)")
+	}
+}
+
 // addPlayerToServer seeds s.players[slot] + s.grid with a minimal
 // *Player at the given coords. Used by NAI-8 huntPlayers tests.
 // Slot 0 is reserved per existing convention.
