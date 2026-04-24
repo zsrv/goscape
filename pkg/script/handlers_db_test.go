@@ -459,3 +459,170 @@ func TestHandleDbListAllWithCount_PushesCount(t *testing.T) {
 		t.Errorf("count push: got ISP=%d top=%d; want ISP=1 top=2", s.ISP, s.IntStack[0])
 	}
 }
+
+// TestHandleDbFindNext_AfterListAll_Advances verifies FINDNEXT advances
+// the cursor from -1 → 0 and pushes the first row id.
+func TestHandleDbFindNext_AfterListAll_Advances(t *testing.T) {
+	s := newDbState(buildDbFixture())
+	s.PushInt(7)
+	if err := handleDbListAll(s); err != nil {
+		t.Fatalf("handleDbListAll: %v", err)
+	}
+
+	if err := handleDbFindNext(s); err != nil {
+		t.Fatalf("handleDbFindNext: %v", err)
+	}
+	if s.DbRow != 0 {
+		t.Errorf("DbRow: got %d, want 0", s.DbRow)
+	}
+	if s.ISP != 1 || s.IntStack[0] != 0 {
+		t.Errorf("push: got ISP=%d top=%d; want ISP=1 top=0", s.ISP, s.IntStack[0])
+	}
+}
+
+// TestHandleDbFindNext_AtEnd_PushesNegativeOne verifies -1 is pushed when
+// the cursor is past the last row.
+func TestHandleDbFindNext_AtEnd_PushesNegativeOne(t *testing.T) {
+	s := newDbState(buildDbFixture())
+	s.PushInt(7)
+	_ = handleDbListAll(s)
+	s.DbRow = len(s.DbRowQuery) - 1 // simulate cursor at last row
+
+	if err := handleDbFindNext(s); err != nil {
+		t.Fatalf("handleDbFindNext: %v", err)
+	}
+	if s.ISP != 1 || s.IntStack[0] != -1 {
+		t.Errorf("got ISP=%d top=%d; want ISP=1 top=-1", s.ISP, s.IntStack[0])
+	}
+}
+
+// TestHandleDbFindNext_NoTableSelected returns an error.
+func TestHandleDbFindNext_NoTableSelected(t *testing.T) {
+	s := newDbState(buildDbFixture())
+	if err := handleDbFindNext(s); err == nil {
+		t.Fatal("expected \"no table selected\" error, got nil")
+	}
+}
+
+// TestHandleDbFindNext_InvalidRowID returns the validator error.
+func TestHandleDbFindNext_InvalidRowID(t *testing.T) {
+	s := newDbState(buildDbFixture())
+	s.PushInt(7)
+	_ = handleDbListAll(s)
+	s.DbRowQuery = []int{99} // inject an invalid id
+	s.DbRow = -1
+
+	if err := handleDbFindNext(s); err == nil {
+		t.Fatal("expected validator error, got nil")
+	}
+}
+
+// TestHandleDbFindByIndex_Basic pushes the row id at the given index.
+func TestHandleDbFindByIndex_Basic(t *testing.T) {
+	s := newDbState(buildDbFixture())
+	s.PushInt(7)
+	_ = handleDbListAll(s)
+
+	s.PushInt(1)
+	if err := handleDbFindByIndex(s); err != nil {
+		t.Fatalf("handleDbFindByIndex: %v", err)
+	}
+	if s.ISP != 1 || s.IntStack[0] != 1 {
+		t.Errorf("got ISP=%d top=%d; want ISP=1 top=1", s.ISP, s.IntStack[0])
+	}
+}
+
+// TestHandleDbFindByIndex_Negative pushes -1.
+func TestHandleDbFindByIndex_Negative(t *testing.T) {
+	s := newDbState(buildDbFixture())
+	s.PushInt(7)
+	_ = handleDbListAll(s)
+
+	s.PushInt(-1)
+	if err := handleDbFindByIndex(s); err != nil {
+		t.Fatalf("handleDbFindByIndex: %v", err)
+	}
+	if s.ISP != 1 || s.IntStack[0] != -1 {
+		t.Errorf("got ISP=%d top=%d; want ISP=1 top=-1", s.ISP, s.IntStack[0])
+	}
+}
+
+// TestHandleDbFindByIndex_BeyondEnd pushes -1.
+func TestHandleDbFindByIndex_BeyondEnd(t *testing.T) {
+	s := newDbState(buildDbFixture())
+	s.PushInt(7)
+	_ = handleDbListAll(s)
+
+	s.PushInt(99)
+	if err := handleDbFindByIndex(s); err != nil {
+		t.Fatalf("handleDbFindByIndex: %v", err)
+	}
+	if s.ISP != 1 || s.IntStack[0] != -1 {
+		t.Errorf("got ISP=%d top=%d; want ISP=1 top=-1", s.ISP, s.IntStack[0])
+	}
+}
+
+// TestHandleDbFindByIndex_NoTableSelected returns an error.
+func TestHandleDbFindByIndex_NoTableSelected(t *testing.T) {
+	s := newDbState(buildDbFixture())
+	s.PushInt(0)
+	if err := handleDbFindByIndex(s); err == nil {
+		t.Fatal("expected \"no table selected\" error, got nil")
+	}
+}
+
+// TestHandleDbFindByIndex_InvalidRowID returns validator error.
+func TestHandleDbFindByIndex_InvalidRowID(t *testing.T) {
+	s := newDbState(buildDbFixture())
+	s.PushInt(7)
+	_ = handleDbListAll(s)
+	s.DbRowQuery = []int{99}
+
+	s.PushInt(0)
+	if err := handleDbFindByIndex(s); err == nil {
+		t.Fatal("expected validator error, got nil")
+	}
+}
+
+// TestCursorReuse_FindByIndexDoesNotMoveFindNextCursor pins the invariant
+// that FINDBYINDEX is random-access and doesn't advance the FINDNEXT cursor.
+func TestCursorReuse_FindByIndexDoesNotMoveFindNextCursor(t *testing.T) {
+	s := newDbState(buildDbFixture())
+	s.PushInt(7)
+	if err := handleDbListAll(s); err != nil {
+		t.Fatalf("handleDbListAll: %v", err)
+	}
+
+	// FINDNEXT → 0
+	if err := handleDbFindNext(s); err != nil {
+		t.Fatalf("FINDNEXT #1: %v", err)
+	}
+	if s.DbRow != 0 {
+		t.Fatalf("after FINDNEXT #1: DbRow=%d want 0", s.DbRow)
+	}
+
+	// FINDBYINDEX(1) → pushes 1; cursor unchanged
+	s.PushInt(1)
+	if err := handleDbFindByIndex(s); err != nil {
+		t.Fatalf("FINDBYINDEX: %v", err)
+	}
+	if s.DbRow != 0 {
+		t.Errorf("FINDBYINDEX moved DbRow: got %d, want 0 (unchanged)", s.DbRow)
+	}
+
+	// FINDNEXT → 1 (continues where prior FINDNEXT left off)
+	if err := handleDbFindNext(s); err != nil {
+		t.Fatalf("FINDNEXT #2: %v", err)
+	}
+	if s.DbRow != 1 {
+		t.Errorf("FINDNEXT #2: DbRow=%d want 1", s.DbRow)
+	}
+
+	// FINDNEXT → -1 (past end)
+	if err := handleDbFindNext(s); err != nil {
+		t.Fatalf("FINDNEXT #3: %v", err)
+	}
+	if top := s.IntStack[s.ISP-1]; top != -1 {
+		t.Errorf("FINDNEXT #3 top: got %d, want -1", top)
+	}
+}

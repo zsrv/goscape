@@ -147,3 +147,46 @@ func handleDbListAll(s *ScriptState) error { return dbListAll(s, false) }
 
 // handleDbListAllWithCount (DB_LISTALL_WITH_COUNT, opcode 7504).
 func handleDbListAllWithCount(s *ScriptState) error { return dbListAll(s, true) }
+
+// handleDbFindNext (DB_FINDNEXT, opcode 7501) advances the DB cursor to
+// the next row in DbRowQuery and pushes its id. Pushes -1 when the cursor
+// is past the end. Errors when no table has been selected by a prior
+// DB_LISTALL* (or, later, DB_FIND*). Mirrors TS DbOps.ts:82.
+func handleDbFindNext(s *ScriptState) error {
+	if s.DbTable == nil {
+		return fmt.Errorf("DB_FINDNEXT: no table selected")
+	}
+	if s.DbRow+1 >= len(s.DbRowQuery) {
+		s.PushInt(-1)
+		return nil
+	}
+	s.DbRow++
+	rowID := s.DbRowQuery[s.DbRow]
+	if err := checkDbRow(s, rowID, "DB_FINDNEXT"); err != nil {
+		return err
+	}
+	s.PushInt(rowID)
+	return nil
+}
+
+// handleDbFindByIndex (DB_FINDBYINDEX, opcode 7506) pops a non-negative
+// index and pushes the row id at DbRowQuery[index]. Pushes -1 for any
+// out-of-range index (negative or >= len). Does NOT move the DbRow
+// cursor (random-access semantics). Errors when no table is selected.
+// Mirrors TS DbOps.ts:152.
+func handleDbFindByIndex(s *ScriptState) error {
+	index := s.PopInt()
+	if s.DbTable == nil {
+		return fmt.Errorf("DB_FINDBYINDEX: no table selected")
+	}
+	if index < 0 || index >= len(s.DbRowQuery) {
+		s.PushInt(-1)
+		return nil
+	}
+	rowID := s.DbRowQuery[index]
+	if err := checkDbRow(s, rowID, "DB_FINDBYINDEX"); err != nil {
+		return err
+	}
+	s.PushInt(rowID)
+	return nil
+}

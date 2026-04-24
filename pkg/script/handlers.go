@@ -112,11 +112,13 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// LOC active-loc reads.
 	OpLocOp: handleLocOp,
 
-	// DB ops — stub (empty table). Real impl ships with a DB sub-spec.
+	// DB ops (7501-7510).
+	OpDbFindNext:         handleDbFindNext,
 	OpDbGetField:         handleDbGetField,
 	OpDbGetFieldCount:    handleDbGetFieldCount,
 	OpDbListAllWithCount: handleDbListAllWithCount,
 	OpDbGetRowTable:      handleDbGetRowTable,
+	OpDbFindByIndex:      handleDbFindByIndex,
 	OpDbListAll:          handleDbListAll,
 
 	// S5a: string ops.
