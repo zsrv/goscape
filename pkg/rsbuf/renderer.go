@@ -24,14 +24,25 @@ func (r *Renderer) ComputePlayers(players []PlayerSource) {
 			continue
 		}
 		masks := p.Masks()
-		zeroMask := masks == 0 && p.EntityMask() == 0
 
-		if zeroMask {
+		// High-def carries only the player's live mask updates. When masks
+		// is 0, leave highDef nil so the encoder takes the idle path with
+		// no extend bit and no orphan mask-header byte leaking into the
+		// packet (mirrors TS PlayerRenderer.computeInfo: `if masks === 0
+		// return;`, renderer.ts:41-43).
+		if masks == 0 {
 			r.highDef[slot] = nil
-			r.lowDefFull[slot] = nil
 		} else {
 			r.highDef[slot] = buildPayload(p, masks, true)
+		}
 
+		// Low-def carries baselines for newly-visible players (appearance
+		// + face). Kept alive by EntityMask so a player with no live masks
+		// but a persistent face-entity target is still fully describable
+		// to new observers.
+		if masks == 0 && p.EntityMask() == 0 {
+			r.lowDefFull[slot] = nil
+		} else {
 			fullMasks := masks | MaskAppearance | MaskFaceCoord
 			r.lowDefFull[slot] = buildPayload(p, fullMasks, true)
 		}

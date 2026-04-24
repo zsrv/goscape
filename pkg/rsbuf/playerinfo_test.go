@@ -142,6 +142,58 @@ func TestEncodeNewPlayerAddBitLayout(t *testing.T) {
 	}
 }
 
+// TestEncodeIdleWithCachedFaceEntityNoOrphanMaskByte pins the bug where an
+// idle player (masks=0) but with a non-zero EntityMask field caused the
+// renderer to cache a 1-byte mask header and the encoder to append it after
+// the 2047 sentinel — producing a 4-byte packet whose bit-stream content
+// only filled 3 bytes. The Java client's getPlayer ended at pos:3 with
+// psize:4 and crashed with "Error packet size mismatch in getplayer".
+//
+// Expected idle payload: 1 bit (idle flag) + 8 bits (oldVis count=0)
+// = 9 bits, byte-aligned to 2 bytes [0x00, 0x00]. No 2047 sentinel
+// (no extends), no mask-update bytes.
+func TestEncodeIdleWithCachedFaceEntityNoOrphanMaskByte(t *testing.T) {
+	self := &fakeSourceWithEntityMask{
+		fakeSource: fakeSource{
+			slot:    1,
+			x:       3094, z: 3106, level: 0,
+			originX: 3094, originZ: 3106,
+			masks: 0, // idle: no movement, no fresh masks
+		},
+		// EntityMask non-zero mirrors Player.entitymask = MaskFaceEntity in
+		// newPlayer — the original trigger for the orphan-byte bug.
+		entityMaskOverride: MaskFaceEntity,
+	}
+	all := []PlayerSource{self}
+	ba := buildarea.New()
+	g := grid.New()
+	g.Add(self.Slot(), self.x, self.z, self.level)
+	r := NewRenderer()
+	r.ComputePlayers(all)
+
+	got := Encode(self, all, ba, g, r)
+
+	want := []byte{0x00, 0x00}
+	if len(got) != len(want) {
+		t.Fatalf("idle payload length: got %d, want %d (got=% x)", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("byte[%d]: got %#02x, want %#02x (full=% x)", i, got[i], want[i], got)
+		}
+	}
+}
+
+// fakeSourceWithEntityMask overrides EntityMask() so we can test the
+// Player.entitymask = MaskFaceEntity scenario without altering the shared
+// fakeSource type.
+type fakeSourceWithEntityMask struct {
+	fakeSource
+	entityMaskOverride int
+}
+
+func (f *fakeSourceWithEntityMask) EntityMask() int { return f.entityMaskOverride }
+
 func TestEncodeTwoPlayersAddsOther(t *testing.T) {
 	a := &fakeSource{
 		slot:    1,
