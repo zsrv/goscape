@@ -135,6 +135,7 @@ func dbListAll(s *ScriptState, withCount bool) error {
 	s.DbTable = s.Configs.DbTableType(table)
 	s.DbRow = -1
 	s.DbRowQuery = append(s.DbRowQuery[:0], s.Configs.DbRowsInTable(table)...)
+	s.Pointers |= PtrFindDb // S7g: TS DB_LISTALL / DB_LISTALL_WITH_COUNT set find_db.
 
 	if withCount {
 		s.PushInt(len(s.DbRowQuery))
@@ -150,11 +151,11 @@ func handleDbListAllWithCount(s *ScriptState) error { return dbListAll(s, true) 
 
 // handleDbFindNext (DB_FINDNEXT, opcode 7501) advances the DB cursor to
 // the next row in DbRowQuery and pushes its id. Pushes -1 when the cursor
-// is past the end. Errors when no table has been selected by a prior
-// DB_LISTALL* (or, later, DB_FIND*). Mirrors TS DbOps.ts:82.
+// is past the end. Errors when PtrFindDb is not set (i.e., no prior
+// DB_LISTALL* / DB_FIND has populated the cursor). Mirrors TS DbOps.ts:82.
 func handleDbFindNext(s *ScriptState) error {
-	if s.DbTable == nil {
-		return fmt.Errorf("DB_FINDNEXT: no table selected")
+	if s.Pointers&PtrFindDb == 0 {
+		return fmt.Errorf("DB_FINDNEXT: find_db pointer not set")
 	}
 	if s.DbRow+1 >= len(s.DbRowQuery) {
 		s.PushInt(-1)

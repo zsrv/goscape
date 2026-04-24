@@ -639,3 +639,101 @@ func TestCursorReuse_FindByIndexDoesNotMoveFindNextCursor(t *testing.T) {
 		t.Errorf("FINDNEXT #3 top: got %d, want -1", top)
 	}
 }
+
+// TestListAllSetsFindDbPointer pins that DB_LISTALL sets PtrFindDb on
+// success (S7g retrofit — previously unset).
+func TestListAllSetsFindDbPointer(t *testing.T) {
+	tbl := objtype.NewDbTableType(1)
+	cfg := &fakeDbConfigs{
+		tables:  map[int]*objtype.DbTableType{1: tbl},
+		rowsByT: map[int][]int{1: {10, 11}},
+	}
+	s := newDbState(cfg)
+	s.PushInt(1) // table id
+
+	if err := handleDbListAll(s); err != nil {
+		t.Fatalf("handleDbListAll: unexpected error %v", err)
+	}
+	if s.Pointers&PtrFindDb == 0 {
+		t.Error("DB_LISTALL: want PtrFindDb set, got unset")
+	}
+	if s.DbTable == nil {
+		t.Error("DB_LISTALL: want DbTable set, got nil")
+	}
+}
+
+// TestListAllWithCountSetsFindDbPointer — same for DB_LISTALL_WITH_COUNT.
+func TestListAllWithCountSetsFindDbPointer(t *testing.T) {
+	tbl := objtype.NewDbTableType(1)
+	cfg := &fakeDbConfigs{
+		tables:  map[int]*objtype.DbTableType{1: tbl},
+		rowsByT: map[int][]int{1: {20, 21, 22}},
+	}
+	s := newDbState(cfg)
+	s.PushInt(1)
+
+	if err := handleDbListAllWithCount(s); err != nil {
+		t.Fatalf("handleDbListAllWithCount: unexpected error %v", err)
+	}
+	if s.Pointers&PtrFindDb == 0 {
+		t.Error("DB_LISTALL_WITH_COUNT: want PtrFindDb set, got unset")
+	}
+	if n := s.PopInt(); n != 3 {
+		t.Errorf("count: want 3, got %d", n)
+	}
+}
+
+// TestFindNextRequiresFindDbPointer pins that DB_FINDNEXT errors when
+// PtrFindDb is unset — the S7g gate replacing S7d's DbTable-nil proxy.
+func TestFindNextRequiresFindDbPointer(t *testing.T) {
+	s := newDbState(&fakeDbConfigs{})
+	// Pointers zero; DbTable nil.
+	err := handleDbFindNext(s)
+	if err == nil {
+		t.Fatal("DB_FINDNEXT without PtrFindDb: want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "find_db pointer not set") {
+		t.Errorf("error message %q: want mention of find_db pointer", err.Error())
+	}
+}
+
+// TestFindNextChainsFromListAll pins that after DB_LISTALL sets the flag,
+// a chained DB_FINDNEXT advances the cursor. This is the regression-pin
+// for S7d's cross-handler cursor-reuse test expanded to the new gate.
+func TestFindNextChainsFromListAll(t *testing.T) {
+	tbl := objtype.NewDbTableType(1)
+	row10 := objtype.NewDbRowType(10)
+	row10.TableID = 1
+	row11 := objtype.NewDbRowType(11)
+	row11.TableID = 1
+	cfg := &fakeDbConfigs{
+		tables:  map[int]*objtype.DbTableType{1: tbl},
+		rows:    map[int]*objtype.DbRowType{10: row10, 11: row11},
+		rowsByT: map[int][]int{1: {10, 11}},
+	}
+	s := newDbState(cfg)
+
+	s.PushInt(1)
+	if err := handleDbListAll(s); err != nil {
+		t.Fatalf("handleDbListAll: %v", err)
+	}
+	if err := handleDbFindNext(s); err != nil {
+		t.Fatalf("handleDbFindNext #1: %v", err)
+	}
+	if n := s.PopInt(); n != 10 {
+		t.Errorf("FINDNEXT #1: want 10, got %d", n)
+	}
+	if err := handleDbFindNext(s); err != nil {
+		t.Fatalf("handleDbFindNext #2: %v", err)
+	}
+	if n := s.PopInt(); n != 11 {
+		t.Errorf("FINDNEXT #2: want 11, got %d", n)
+	}
+	// Past end → -1.
+	if err := handleDbFindNext(s); err != nil {
+		t.Fatalf("handleDbFindNext #3: %v", err)
+	}
+	if n := s.PopInt(); n != -1 {
+		t.Errorf("FINDNEXT past end: want -1, got %d", n)
+	}
+}

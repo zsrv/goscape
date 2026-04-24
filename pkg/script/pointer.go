@@ -13,6 +13,7 @@ const (
 	PtrActiveLoc2    Pointer = 1 << 5
 	PtrActiveObj     Pointer = 1 << 6
 	PtrActiveObj2    Pointer = 1 << 7
+	PtrFindDb        Pointer = 1 << 8 // S7g: DB_FIND* / DB_LISTALL* set; DB_FINDNEXT / DB_FIND_REFINE require.
 )
 
 // NAI-11 aliases for the reserved *2 slot flags, named after TS's
