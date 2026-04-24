@@ -210,7 +210,7 @@ func handleDbFindByIndex(s *ScriptState) error {
 // sets PtrFindDb. For DB_FIND_WITH_COUNT, also pushes len(DbRowQuery).
 // Pointer-set is asymmetric — DB_FIND_WITH_COUNT omits it per TS.
 // Mirrors TS DbOps.ts:10-23.
-func dbFind(s *ScriptState, withCount bool, op string) error {
+func dbFind(s *ScriptState, withCount, setsPointer bool, op string) error {
 	isString := s.PopInt() == 2
 
 	var rowIDs []int
@@ -237,7 +237,7 @@ func dbFind(s *ScriptState, withCount bool, op string) error {
 	s.DbRow = -1
 	s.DbRowQuery = append(s.DbRowQuery[:0], rowIDs...)
 
-	if op == "DB_FIND" {
+	if setsPointer {
 		s.Pointers |= PtrFindDb // TS: set: ['find_db']
 	}
 	// DB_FIND_WITH_COUNT intentionally omits the set (TS asymmetry — see preamble).
@@ -249,10 +249,12 @@ func dbFind(s *ScriptState, withCount bool, op string) error {
 }
 
 // handleDbFind (DB_FIND, opcode 7508).
-func handleDbFind(s *ScriptState) error { return dbFind(s, false, "DB_FIND") }
+func handleDbFind(s *ScriptState) error { return dbFind(s, false, true, "DB_FIND") }
 
 // handleDbFindWithCount (DB_FIND_WITH_COUNT, opcode 7500).
-func handleDbFindWithCount(s *ScriptState) error { return dbFind(s, true, "DB_FIND_WITH_COUNT") }
+func handleDbFindWithCount(s *ScriptState) error {
+	return dbFind(s, true, false, "DB_FIND_WITH_COUNT")
+}
 
 // dbFindRefine is the shared implementation of DB_FIND_REFINE /
 // DB_FIND_REFINE_WITH_COUNT. Requires PtrFindDb (for the plain variant
@@ -263,8 +265,8 @@ func handleDbFindWithCount(s *ScriptState) error { return dbFind(s, true, "DB_FI
 // Allocates a fresh slice to avoid an aliasing trap on
 // `append(s.DbRowQuery[:0], ...)` while iterating the same backing array.
 // Resets DbRow to -1; pushes count if withCount. Mirrors TS DbOps.ts:42-63.
-func dbFindRefine(s *ScriptState, withCount bool, op string) error {
-	if op == "DB_FIND_REFINE" && s.Pointers&PtrFindDb == 0 {
+func dbFindRefine(s *ScriptState, withCount, requiresPointer bool, op string) error {
+	if requiresPointer && s.Pointers&PtrFindDb == 0 {
 		return fmt.Errorf("%s: find_db pointer not set", op)
 	}
 	// DB_FIND_REFINE_WITH_COUNT intentionally omits the require (TS asymmetry — see preamble).
@@ -306,9 +308,11 @@ func dbFindRefine(s *ScriptState, withCount bool, op string) error {
 }
 
 // handleDbFindRefine (DB_FIND_REFINE, opcode 7509).
-func handleDbFindRefine(s *ScriptState) error { return dbFindRefine(s, false, "DB_FIND_REFINE") }
+func handleDbFindRefine(s *ScriptState) error {
+	return dbFindRefine(s, false, true, "DB_FIND_REFINE")
+}
 
 // handleDbFindRefineWithCount (DB_FIND_REFINE_WITH_COUNT, opcode 7507).
 func handleDbFindRefineWithCount(s *ScriptState) error {
-	return dbFindRefine(s, true, "DB_FIND_REFINE_WITH_COUNT")
+	return dbFindRefine(s, true, false, "DB_FIND_REFINE_WITH_COUNT")
 }
