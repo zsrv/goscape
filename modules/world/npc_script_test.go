@@ -12,6 +12,7 @@ func newNpcForScriptTest(t *testing.T) *Npc {
 	t.Helper()
 	typ := &objtype.NpcType{
 		ConfigType: objtype.ConfigType{ID: 0, DebugName: "test_npc"},
+		Size:       1, // match production NewNpcType default (NAI-18).
 	}
 	return NewNpc(1, 0, 3094, 3106, 0, typ)
 }

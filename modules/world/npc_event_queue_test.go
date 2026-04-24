@@ -18,8 +18,12 @@ func newNpcForLifecycleTest(t *testing.T) *Npc {
 	t.Helper()
 	typ := &objtype.NpcType{
 		ConfigType: objtype.ConfigType{ID: 0, DebugName: "test_npc"},
-		Stats:      []uint16{0, 0, 0, 10, 0, 0}, // HP=10 at NpcStatHitpoints (3)
-		Category:   -1,
+		Size:       1, // match production NewNpcType default (npctype.go:310);
+		// NAI-18: fixture was silently Size=0 (uint8 zero value), which will
+		// collide with HasLineOfSight's lineCoordinate(a, b, 0) → a-1 off-by-one
+		// once inApproachDistance threads int(n.typ.Size) in Task 3.
+		Stats:    []uint16{0, 0, 0, 10, 0, 0}, // HP=10 at NpcStatHitpoints (3)
+		Category: -1,
 	}
 	return NewNpc(1, 0, 3094, 3106, 0, typ)
 }
