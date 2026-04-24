@@ -496,3 +496,50 @@ func TestBuildNpcScriptStateNilTargetSetsNoSecondaryPointer(t *testing.T) {
 		t.Errorf("secondary Pointers: got %x, want 0", state.Pointers&secondaryMask)
 	}
 }
+
+// TestNpcStatOutOfRange verifies defensive bounds checking on the
+// production *Npc.NpcStat (NAI-17-D2 deviation). Calls with stat id
+// < 0 or >= NpcStatCount return 0 instead of panicking on array
+// out-of-bounds.
+func TestNpcStatOutOfRange(t *testing.T) {
+	typ := &objtype.NpcType{Stats: []uint16{7, 11, 13, 17, 19, 23}}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+
+	cases := []struct {
+		name string
+		id   int
+	}{
+		{"negative", -1},
+		{"at-count", objtype.NpcStatCount},
+		{"way-beyond", 100},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := n.NpcStat(tc.id); got != 0 {
+				t.Errorf("NpcStat(%d): got %d, want 0 (out of range)", tc.id, got)
+			}
+		})
+	}
+}
+
+// TestNpcBaseStatOutOfRange mirrors TestNpcStatOutOfRange for NpcBaseStat.
+func TestNpcBaseStatOutOfRange(t *testing.T) {
+	typ := &objtype.NpcType{Stats: []uint16{7, 11, 13, 17, 19, 23}}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+
+	cases := []struct {
+		name string
+		id   int
+	}{
+		{"negative", -1},
+		{"at-count", objtype.NpcStatCount},
+		{"way-beyond", 100},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := n.NpcBaseStat(tc.id); got != 0 {
+				t.Errorf("NpcBaseStat(%d): got %d, want 0 (out of range)", tc.id, got)
+			}
+		})
+	}
+}
