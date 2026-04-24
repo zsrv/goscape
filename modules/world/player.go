@@ -292,9 +292,9 @@ func (p *Player) writeOut(op gameserver.Op, payload []byte) {
 
 func newPlayer(c *client) *Player {
 	p := &Player{
-		client:    c,
-		lowMemory: c.lowMemory,
-		slot:      -1,
+		client:         c,
+		lowMemory:      c.lowMemory,
+		slot:           -1,
 		uid:            -1,
 		x:              3094,
 		z:              3106,

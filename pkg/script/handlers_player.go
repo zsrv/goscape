@@ -679,8 +679,8 @@ func handleMidiSong(s *ScriptState) error {
 	if err := checkStringNotNull(name, "MIDI_SONG"); err != nil {
 		return err
 	}
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("MIDI_SONG: no active player")
+	if err := requireActivePlayer(s, "MIDI_SONG"); err != nil {
+		return err
 	}
 	if s.Self.LowMemory() {
 		return nil
@@ -711,8 +711,8 @@ func handleMidiJingle(s *ScriptState) error {
 	if err := checkStringNotNull(name, "MIDI_JINGLE"); err != nil {
 		return err
 	}
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("MIDI_JINGLE: no active player")
+	if err := requireActivePlayer(s, "MIDI_JINGLE"); err != nil {
+		return err
 	}
 	if s.Self.LowMemory() {
 		return nil
