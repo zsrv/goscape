@@ -505,6 +505,29 @@ func (n *Npc) inOperableDistance(target entity) bool {
 	return !(dx == 0 && dz == 0)
 }
 
+// approachEntitySize returns target (width, length) for the NPC-side
+// LoS sizing call in inApproachDistance. Mirrors TS PathingEntity.width
+// and .length per concrete entity type:
+//
+//	*Player → (1, 1)           players are always square size-1
+//	*Npc    → (typ.Size, typ.Size)  NPCs are square; typ.Size is side length
+//	default → (1, 1)           test doubles / future non-pathing entities
+//
+// Length is returned for API symmetry with TS; current callers consume
+// only width because Go's HasLineOfSight collapses src to scalar srcSize
+// (see FIDELITY note on inApproachDistance).
+func approachEntitySize(e entity) (width, length int) {
+	switch t := e.(type) {
+	case *Player:
+		return 1, 1
+	case *Npc:
+		size := int(t.typ.Size)
+		return size, size
+	default:
+		return 1, 1
+	}
+}
+
 // inApproachDistance checks whether target is within rng tiles
 // (Chebyshev, excluding same tile) AND within TS-style line-of-sight.
 // Mirrors TS PathingEntity.inApproachDistance at

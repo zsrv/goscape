@@ -936,3 +936,61 @@ func TestNpcInApproachDistancePlayerFlagIsRespected(t *testing.T) {
 			"mid-tile; if true, extraFlag=FlagBlockPlayers is not wired (bug)")
 	}
 }
+
+// TestApproachEntitySize verifies the type-switch returns TS-equivalent
+// width/length pairs per concrete entity type. Mirrors TS
+// PathingEntity.width / .length semantics (NAI-18).
+func TestApproachEntitySize(t *testing.T) {
+	tests := []struct {
+		name       string
+		build      func() entity
+		wantWidth  int
+		wantLength int
+	}{
+		{
+			name:       "player",
+			build:      func() entity { return newActivePlayer(1) },
+			wantWidth:  1,
+			wantLength: 1,
+		},
+		{
+			name: "npc_size_1",
+			build: func() entity {
+				return NewNpc(1, 0, 3094, 3106, 0, &objtype.NpcType{Size: 1})
+			},
+			wantWidth:  1,
+			wantLength: 1,
+		},
+		{
+			name: "npc_size_2",
+			build: func() entity {
+				return NewNpc(1, 0, 3094, 3106, 0, &objtype.NpcType{Size: 2})
+			},
+			wantWidth:  2,
+			wantLength: 2,
+		},
+		{
+			name: "npc_size_3",
+			build: func() entity {
+				return NewNpc(1, 0, 3094, 3106, 0, &objtype.NpcType{Size: 3})
+			},
+			wantWidth:  3,
+			wantLength: 3,
+		},
+		{
+			name:       "default_fake_entity",
+			build:      func() entity { return fakeEntity{} },
+			wantWidth:  1,
+			wantLength: 1,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			w, l := approachEntitySize(tc.build())
+			if w != tc.wantWidth || l != tc.wantLength {
+				t.Errorf("approachEntitySize: got (%d, %d), want (%d, %d)",
+					w, l, tc.wantWidth, tc.wantLength)
+			}
+		})
+	}
+}
