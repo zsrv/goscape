@@ -6,6 +6,17 @@ import (
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
+// TS ScriptOpcodePointers.ts gates find_db asymmetrically: DB_LISTALL,
+// DB_LISTALL_WITH_COUNT, and DB_FIND set the flag; DB_FINDNEXT and
+// DB_FIND_REFINE require it. Conspicuously omitted from the gate table:
+// DB_FIND_WITH_COUNT, DB_FIND_REFINE_WITH_COUNT, DB_FINDBYINDEX. The
+// WITH_COUNT variants mutate DbRowQuery identically to their plain
+// counterparts but never set the flag, so a refine after a with-count find
+// fails the gate despite having valid cursor state. This may be a TS bug,
+// but per the project's TS-faithfulness gate we preserve the asymmetry;
+// tests pin it. If upstream ever fixes it, remove this comment and the
+// asymmetric branches in dbFind / dbFindRefine.
+
 // checkDbTable mirrors TS DbTableTypeValid (ScriptValidators.ts:135) — a
 // ScriptInputConfigTypeValidator over DbTableType. Range + presence checks
 // both collapse into "s.Configs.DbTableType(id) != nil" per the Configs
@@ -191,3 +202,54 @@ func handleDbFindByIndex(s *ScriptState) error {
 	s.PushInt(rowID)
 	return nil
 }
+
+// dbFind is the shared implementation of DB_FIND / DB_FIND_WITH_COUNT.
+// Pops an isString marker (==2 means string query), a query (int or
+// string), and a packed tableColumnPacked; selects the table, resets
+// DbRow to -1, populates DbRowQuery via DbTableIndex, and (for DB_FIND)
+// sets PtrFindDb. For DB_FIND_WITH_COUNT, also pushes len(DbRowQuery).
+// Pointer-set is asymmetric — DB_FIND_WITH_COUNT omits it per TS.
+// Mirrors TS DbOps.ts:10-23.
+func dbFind(s *ScriptState, withCount bool, op string) error {
+	isString := s.PopInt() == 2
+
+	var rowIDs []int
+	if isString {
+		q := s.PopString()
+		packed := s.PopInt()
+		tableID := (packed >> 12) & 0xffff
+		if err := checkDbTable(s, tableID, op); err != nil {
+			return err
+		}
+		s.DbTable = s.Configs.DbTableType(tableID)
+		rowIDs = s.Configs.FindDbRowsStr(q, packed)
+	} else {
+		q := s.PopInt()
+		packed := s.PopInt()
+		tableID := (packed >> 12) & 0xffff
+		if err := checkDbTable(s, tableID, op); err != nil {
+			return err
+		}
+		s.DbTable = s.Configs.DbTableType(tableID)
+		rowIDs = s.Configs.FindDbRowsInt(int32(q), packed)
+	}
+
+	s.DbRow = -1
+	s.DbRowQuery = append(s.DbRowQuery[:0], rowIDs...)
+
+	if op == "DB_FIND" {
+		s.Pointers |= PtrFindDb // TS: set: ['find_db']
+	}
+	// DB_FIND_WITH_COUNT intentionally omits the set (TS asymmetry — see preamble).
+
+	if withCount {
+		s.PushInt(len(s.DbRowQuery))
+	}
+	return nil
+}
+
+// handleDbFind (DB_FIND, opcode 7508).
+func handleDbFind(s *ScriptState) error { return dbFind(s, false, "DB_FIND") }
+
+// handleDbFindWithCount (DB_FIND_WITH_COUNT, opcode 7500).
+func handleDbFindWithCount(s *ScriptState) error { return dbFind(s, true, "DB_FIND_WITH_COUNT") }

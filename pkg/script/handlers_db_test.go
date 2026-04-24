@@ -737,3 +737,204 @@ func TestFindNextChainsFromListAll(t *testing.T) {
 		t.Errorf("FINDNEXT past end: want -1, got %d", n)
 	}
 }
+
+// buildTestDbIndex constructs a fakeDbConfigs + real *DbTableIndex for
+// the DB_FIND* test matrix. Table 1 has two INDEXED columns:
+//   - col 0 (INT): row 10 → 100, row 11 → 200, row 12 → 100 (duplicate)
+//   - col 1 (STRING): row 10 → "a", row 11 → "b"
+//
+// Used by DB_FIND / DB_FIND_WITH_COUNT / DB_FIND_REFINE* tests.
+func buildTestDbIndex(t *testing.T) *fakeDbConfigs {
+	t.Helper()
+	tbl := objtype.NewDbTableType(1)
+	tbl.Types = [][]objtype.ScriptVarType{
+		{objtype.ScriptVarTypeInt},
+		{objtype.ScriptVarTypeString},
+	}
+	tbl.Props = []uint8{objtype.DbTableFlagIndexed, objtype.DbTableFlagIndexed}
+
+	mkRow := func(id int, intVal int32, strVal string) *objtype.DbRowType {
+		r := objtype.NewDbRowType(id)
+		r.TableID = 1
+		r.Types = [][]objtype.ScriptVarType{
+			{objtype.ScriptVarTypeInt},
+			{objtype.ScriptVarTypeString},
+		}
+		r.IntValues = [][]int32{{intVal}, {0}}
+		r.StringValues = [][]string{{""}, {strVal}}
+		return r
+	}
+	r10 := mkRow(10, 100, "a")
+	r11 := mkRow(11, 200, "b")
+	r12 := mkRow(12, 100, "c")
+
+	tables := &objtype.DbTableTypeConfigs{Configs: []*objtype.DbTableType{nil, tbl}}
+	rows := &objtype.DbRowTypeConfigs{
+		Configs:     []*objtype.DbRowType{nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, r10, r11, r12},
+		RowsByTable: map[int][]int{1: {10, 11, 12}},
+	}
+	idx := objtype.BuildDbTableIndex(tables, rows)
+
+	return &fakeDbConfigs{
+		tables:  map[int]*objtype.DbTableType{1: tbl},
+		rows:    map[int]*objtype.DbRowType{10: r10, 11: r11, 12: r12},
+		rowsByT: map[int][]int{1: {10, 11, 12}},
+		index:   idx,
+	}
+}
+
+// pushDbFindArgs pushes the three DB_FIND args in RS2 stack order:
+// packed (deepest), query, isString (topmost). Matches TS DbOps.ts:10-14.
+func pushDbFindArgs(s *ScriptState, packed int, queryInt int, queryStr string, isString bool) {
+	s.PushInt(packed)
+	if isString {
+		s.PushString(queryStr)
+		s.PushInt(2) // TS: isString marker is 2
+	} else {
+		s.PushInt(queryInt)
+		s.PushInt(1) // anything != 2 means int path
+	}
+}
+
+// TestDbFindIntHit pins DB_FIND INT happy path: one-match query.
+func TestDbFindIntHit(t *testing.T) {
+	cfg := buildTestDbIndex(t)
+	s := newDbState(cfg)
+
+	packedCol0 := (1 << 12) | (0 << 4) // table 1, col 0, tuple=0
+	pushDbFindArgs(s, packedCol0, 200, "", false)
+
+	if err := handleDbFind(s); err != nil {
+		t.Fatalf("handleDbFind: %v", err)
+	}
+	if len(s.DbRowQuery) != 1 || s.DbRowQuery[0] != 11 {
+		t.Errorf("DbRowQuery: want [11], got %v", s.DbRowQuery)
+	}
+	if s.DbRow != -1 {
+		t.Errorf("DbRow: want -1, got %d", s.DbRow)
+	}
+	if s.DbTable == nil || s.DbTable.ID != 1 {
+		t.Errorf("DbTable: want id=1, got %v", s.DbTable)
+	}
+	if s.Pointers&PtrFindDb == 0 {
+		t.Error("DB_FIND: want PtrFindDb set, got unset")
+	}
+	// No value pushed.
+	if s.ISP != 0 {
+		t.Errorf("int stack pointer: want 0 pushed, got ISP=%d", s.ISP)
+	}
+}
+
+// TestDbFindStringPath pins isString=2 routing + FindDbRowsStr delegation.
+func TestDbFindStringPath(t *testing.T) {
+	cfg := buildTestDbIndex(t)
+	s := newDbState(cfg)
+
+	packedCol1 := (1 << 12) | (1 << 4)
+	pushDbFindArgs(s, packedCol1, 0, "a", true)
+
+	if err := handleDbFind(s); err != nil {
+		t.Fatalf("handleDbFind: %v", err)
+	}
+	if len(s.DbRowQuery) != 1 || s.DbRowQuery[0] != 10 {
+		t.Errorf("DbRowQuery: want [10], got %v", s.DbRowQuery)
+	}
+	if s.Pointers&PtrFindDb == 0 {
+		t.Error("DB_FIND: want PtrFindDb set")
+	}
+}
+
+// TestDbFindMultipleMatches pins that duplicate query values return all
+// matching rows in RowsByTable ascending order.
+func TestDbFindMultipleMatches(t *testing.T) {
+	cfg := buildTestDbIndex(t)
+	s := newDbState(cfg)
+
+	packedCol0 := 1 << 12
+	pushDbFindArgs(s, packedCol0, 100, "", false) // rows 10 + 12 share value 100
+
+	if err := handleDbFind(s); err != nil {
+		t.Fatalf("handleDbFind: %v", err)
+	}
+	want := []int{10, 12}
+	if len(s.DbRowQuery) != len(want) {
+		t.Fatalf("DbRowQuery: want %v, got %v", want, s.DbRowQuery)
+	}
+	for i := range want {
+		if s.DbRowQuery[i] != want[i] {
+			t.Errorf("DbRowQuery[%d]: want %d, got %d", i, want[i], s.DbRowQuery[i])
+		}
+	}
+}
+
+// TestDbFindInvalidTable pins that an unloaded table id errors and
+// leaves state untouched (DbTable remains nil, PtrFindDb unset).
+func TestDbFindInvalidTable(t *testing.T) {
+	cfg := buildTestDbIndex(t)
+	s := newDbState(cfg)
+
+	packedBadTable := (99 << 12)
+	pushDbFindArgs(s, packedBadTable, 100, "", false)
+
+	err := handleDbFind(s)
+	if err == nil {
+		t.Fatal("DB_FIND with invalid table: want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "DB_FIND") || !strings.Contains(err.Error(), "99") {
+		t.Errorf("error %q: want mention of DB_FIND and id 99", err.Error())
+	}
+	if s.Pointers&PtrFindDb != 0 {
+		t.Error("DB_FIND failed: PtrFindDb must NOT be set")
+	}
+	if s.DbTable != nil {
+		t.Error("DB_FIND failed: DbTable must remain nil")
+	}
+}
+
+// TestDbFindWithCountHappyPath pins DB_FIND_WITH_COUNT populates state
+// AND pushes count. Crucially, does NOT set PtrFindDb (TS asymmetry).
+func TestDbFindWithCountHappyPath(t *testing.T) {
+	cfg := buildTestDbIndex(t)
+	s := newDbState(cfg)
+
+	packedCol0 := 1 << 12
+	pushDbFindArgs(s, packedCol0, 100, "", false)
+
+	if err := handleDbFindWithCount(s); err != nil {
+		t.Fatalf("handleDbFindWithCount: %v", err)
+	}
+	if n := s.PopInt(); n != 2 {
+		t.Errorf("count: want 2, got %d", n)
+	}
+	if len(s.DbRowQuery) != 2 {
+		t.Errorf("DbRowQuery: want len 2, got %v", s.DbRowQuery)
+	}
+	// TS-asymmetry pin: DB_FIND_WITH_COUNT mutates state but does NOT set the flag.
+	if s.Pointers&PtrFindDb != 0 {
+		t.Error("DB_FIND_WITH_COUNT: TS omits set find_db; goscape must match")
+	}
+}
+
+// TestDbFindWithCountFollowedByFindNextFails pins the TS-asymmetry quirk:
+// even though DB_FIND_WITH_COUNT populated the cursor, DB_FINDNEXT fails
+// because the flag is not set.
+func TestDbFindWithCountFollowedByFindNextFails(t *testing.T) {
+	cfg := buildTestDbIndex(t)
+	s := newDbState(cfg)
+
+	packedCol0 := 1 << 12
+	pushDbFindArgs(s, packedCol0, 100, "", false)
+	if err := handleDbFindWithCount(s); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	_ = s.PopInt() // discard count
+
+	// DB_FINDNEXT should fail the gate despite valid cursor state.
+	err := handleDbFindNext(s)
+	if err == nil {
+		t.Fatal("DB_FINDNEXT after DB_FIND_WITH_COUNT: want gate error, got nil")
+	}
+	if !strings.Contains(err.Error(), "find_db pointer not set") {
+		t.Errorf("error %q: want mention of find_db pointer", err.Error())
+	}
+}

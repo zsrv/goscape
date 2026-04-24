@@ -112,14 +112,17 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// LOC active-loc reads.
 	OpLocOp: handleLocOp,
 
-	// DB ops (7501-7506, 7510; 7500/7507-7509 deferred).
-	OpDbFindNext:         handleDbFindNext,
-	OpDbGetField:         handleDbGetField,
-	OpDbGetFieldCount:    handleDbGetFieldCount,
-	OpDbListAllWithCount: handleDbListAllWithCount,
-	OpDbGetRowTable:      handleDbGetRowTable,
-	OpDbFindByIndex:      handleDbFindByIndex,
-	OpDbListAll:          handleDbListAll,
+	// DB ops (7500-7510).
+	// Pointer-gate asymmetry across this family — see preamble comment on handlers_db.go.
+	OpDbFindWithCount:    handleDbFindWithCount,    // 7500
+	OpDbFindNext:         handleDbFindNext,         // 7501
+	OpDbGetField:         handleDbGetField,         // 7502
+	OpDbGetFieldCount:    handleDbGetFieldCount,    // 7503
+	OpDbListAllWithCount: handleDbListAllWithCount, // 7504
+	OpDbGetRowTable:      handleDbGetRowTable,      // 7505
+	OpDbFindByIndex:      handleDbFindByIndex,      // 7506
+	OpDbFind:             handleDbFind,             // 7508
+	OpDbListAll:          handleDbListAll,          // 7510
 
 	// S5a: string ops.
 	OpAppend:              handleAppend,
