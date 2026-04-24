@@ -727,6 +727,37 @@ func TestHandleNpcSetTimerWithoutActiveNpcErrors(t *testing.T) {
 	}
 }
 
+// TestHandleNpcSetTimerNullRejected — interval=-1 must return error
+// (S7b back-fill of NumberNotNull check). mockNpc.SetTimer must NOT be
+// called. Mirrors TS NpcOps.ts:278-280 with check(..., NumberNotNull).
+func TestHandleNpcSetTimerNullRejected(t *testing.T) {
+	npc := &mockNpc{}
+	sf := &ScriptFile{
+		Name: "npc_settimer_null",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push interval (-1)
+			OpNpcSetTimer,
+			OpReturn,
+		},
+		IntOperands: []int32{-1, 0, 0},
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	state.Pointers |= PtrActiveNpc
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for interval=-1, got nil")
+	}
+	want := "NPC_SETTIMER: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want contains %q", err.Error(), want)
+	}
+	if len(npc.setTimerCalls) != 0 {
+		t.Errorf("SetTimer should not be called on null input, got %d calls", len(npc.setTimerCalls))
+	}
+}
+
 // TestHandleNpcSetHunt — NPC_SETHUNT pops range and calls
 // ActiveNpc.SetHuntRange. Mirrors TS NpcOps.ts:174-176.
 func TestHandleNpcSetHunt(t *testing.T) {

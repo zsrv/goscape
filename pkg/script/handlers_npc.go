@@ -246,13 +246,15 @@ func handleNpcQueue(s *ScriptState) error {
 
 // handleNpcSetTimer (NPC_SETTIMER, opcode 2536) sets the active
 // NPC's ai_timer tick interval. Pop order: interval. Mirrors TS
-// NpcOps.ts:278-280. No NumberNotNull check — tracked as future
-// fidelity-audit item in nai_followups memory.
+// NpcOps.ts:278-280, including the NumberNotNull check (closed in S7b).
 func handleNpcSetTimer(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_SETTIMER"); err != nil {
 		return err
 	}
 	interval := s.PopInt()
+	if err := checkNotNull(interval, "NPC_SETTIMER"); err != nil {
+		return err
+	}
 	s.ActiveNpc.SetTimer(interval)
 	return nil
 }
