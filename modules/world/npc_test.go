@@ -428,10 +428,15 @@ func TestChangeTypeKeepAllDeadNoOp(t *testing.T) {
 	n := newNpcForLifecycleTest(t)
 	n.dead = true
 	origTypeId := n.typeId
+	origResetOnRevert := n.resetOnRevert
 
 	n.ChangeTypeKeepAll(42, 100)
 
 	if n.typeId != origTypeId {
 		t.Errorf("typeId: got %d, want %d (dead NPC no-op)", n.typeId, origTypeId)
+	}
+	if n.resetOnRevert != origResetOnRevert {
+		t.Errorf("resetOnRevert: got %v, want %v (dead NPC no-op)",
+			n.resetOnRevert, origResetOnRevert)
 	}
 }
