@@ -218,9 +218,9 @@ func (s *Server) processNpcTimer(n *Npc) {
 }
 
 // processNpcRegen ticks the regen clock and, on interval elapse,
-// reloads the interval from NpcType.RegenRate and moves curHP one
-// step toward baseHP. Matches TS Npc.processRegen at
-// Engine-TS/.../Npc.ts:505-525.
+// reloads the interval from NpcType.RegenRate and converges every
+// levels[i] one step toward baseLevels[i]. Matches TS Npc.processRegen
+// at Engine-TS/.../Npc.ts:505-525.
 //
 // Behaviour:
 //   - regenClock increments unconditionally when called (TS has no
@@ -228,9 +228,8 @@ func (s *Server) processNpcTimer(n *Npc) {
 //   - When regenClock hits regenInterval: reload regenInterval from
 //     n.typ.RegenRate (Vorkath-changetype quirk: new rate takes
 //     effect on fire, not on changetype), reset clock to 0, and
-//     move curHP one step toward baseHP.
-//   - HP-only for now; full 6-stat array regen deferred until stat
-//     arrays land on *Npc.
+//     iterate all 6 stat slots, moving each one step toward its base
+//     (TS Npc.ts:515-523).
 func (s *Server) processNpcRegen(n *Npc) {
 	n.regenClock++
 	if n.regenClock < n.regenInterval {
@@ -240,11 +239,15 @@ func (s *Server) processNpcRegen(n *Npc) {
 		n.regenInterval = int(n.typ.RegenRate)
 	}
 	n.regenClock = 0
-	switch {
-	case n.levels[objtype.NpcStatHitpoints] < n.baseLevels[objtype.NpcStatHitpoints]:
-		n.levels[objtype.NpcStatHitpoints]++
-	case n.levels[objtype.NpcStatHitpoints] > n.baseLevels[objtype.NpcStatHitpoints]:
-		n.levels[objtype.NpcStatHitpoints]--
+	// NAI-17: iterate all 6 stats, converging levels[i] toward
+	// baseLevels[i]. Mirrors TS Npc.ts:515-523.
+	for i := range objtype.NpcStatCount {
+		switch {
+		case n.levels[i] < n.baseLevels[i]:
+			n.levels[i]++
+		case n.levels[i] > n.baseLevels[i]:
+			n.levels[i]--
+		}
 	}
 }
 

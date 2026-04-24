@@ -543,3 +543,58 @@ func TestNpcBaseStatOutOfRange(t *testing.T) {
 		})
 	}
 }
+
+// TestNpcRegenIteratesAllSixStats verifies that the regen loop
+// converges levels[i] toward baseLevels[i] for ALL 6 stats, not
+// just HP. Mirrors TS Npc.ts:515-523.
+func TestNpcRegenIteratesAllSixStats(t *testing.T) {
+	t.Run("drain-converges-up", func(t *testing.T) {
+		s := newServerForScriptTest(t)
+		typ := &objtype.NpcType{
+			ConfigType: objtype.ConfigType{ID: 0, DebugName: "test_npc"},
+			Stats:      []uint16{10, 10, 10, 10, 10, 10},
+			RegenRate:  1,
+		}
+		n := NewNpc(1, 0, 3094, 3106, 0, typ)
+		n.server = s
+		n.regenInterval = 1
+		n.regenClock = 1 // will tick to 2 >= 1 → fires
+		// Seed drains on non-HP slots.
+		n.levels[objtype.NpcStatStrength] = 5
+		n.levels[objtype.NpcStatMagic] = 8
+
+		s.processNpcRegen(n)
+
+		if got := n.levels[objtype.NpcStatStrength]; got != 6 {
+			t.Errorf("levels[STR]: got %d, want 6 (regen increment)", got)
+		}
+		if got := n.levels[objtype.NpcStatMagic]; got != 9 {
+			t.Errorf("levels[MAG]: got %d, want 9 (regen increment)", got)
+		}
+	})
+
+	t.Run("boost-converges-down", func(t *testing.T) {
+		s := newServerForScriptTest(t)
+		typ := &objtype.NpcType{
+			ConfigType: objtype.ConfigType{ID: 0, DebugName: "test_npc"},
+			Stats:      []uint16{10, 10, 10, 10, 10, 10},
+			RegenRate:  1,
+		}
+		n := NewNpc(1, 0, 3094, 3106, 0, typ)
+		n.server = s
+		n.regenInterval = 1
+		n.regenClock = 1
+		// Seed boosts on non-HP slots.
+		n.levels[objtype.NpcStatRanged] = 12
+		n.levels[objtype.NpcStatDefence] = 15
+
+		s.processNpcRegen(n)
+
+		if got := n.levels[objtype.NpcStatRanged]; got != 11 {
+			t.Errorf("levels[RNG]: got %d, want 11 (regen decrement)", got)
+		}
+		if got := n.levels[objtype.NpcStatDefence]; got != 14 {
+			t.Errorf("levels[DEF]: got %d, want 14 (regen decrement)", got)
+		}
+	})
+}
