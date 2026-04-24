@@ -90,6 +90,7 @@ func (n *Npc) huntAll(s *Server, hunt *objtype.HuntType) {
 //   - CheckVis LoS/LoW         (NAI-12, TS per ScriptIterators.ts:88-94)
 //   - Outer combat guard       (NAI-15, TS:942)
 //   - checkNotCombat           (NAI-15, TS:943-945)
+//   - checkNotCombatSelf       (NAI-16, TS:946-948)
 //   - checkVars                (NAI-15, TS:950-957)
 //
 // CheckVis (NAI-12) preserves the TS player-as-source / NPC-as-dest
@@ -98,8 +99,6 @@ func (n *Npc) huntAll(s *Server, hunt *objtype.HuntType) {
 // Filters DEFERRED (infra missing; each TS line cited):
 //   - checkNotBusy             (TS:931-933)       — no Player.Busy()
 //   - checkNotTooStrong        (TS:939-941)       — wilderness + combat-level
-//   - checkNotCombatSelf       (TS:946-948)       — needs NPC-vars infra
-//                                                   (VarNpcType, Npc.vars, Npc.Varp)
 //   - checkInv                 (TS:959-969)       — inventory queries
 //
 // NAI-8 dispatches NO scripts. TS huntPlayers is a config-driven
@@ -175,8 +174,14 @@ func (n *Npc) huntPlayers(s *Server, hunt *objtype.HuntType) []entity {
 				int(p.Varp(hunt.CheckNotCombat))+8 > s.currentTick {
 				continue
 			}
-			// checkNotCombatSelf (TS:946-948) — DEFERRED: requires NPC-vars
-			// infra (VarNpcType, Npc.vars, Npc.Varp). See nai_followups.md.
+			// checkNotCombatSelf (TS:946-948): skip candidate if this NPC's
+			// own combat-tracker varn was written within the past 8 ticks.
+			// Symmetric to checkNotCombat above, but reads the NPC side
+			// (n.NpcVarN) instead of the player side (p.Varp).
+			if hunt.CheckNotCombatSelf != -1 &&
+				int(n.NpcVarN(hunt.CheckNotCombatSelf))+8 > s.currentTick {
+				continue
+			}
 		}
 
 		// checkVars (TS:950-957): AND-chain of varp/operator/value predicates.

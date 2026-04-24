@@ -483,7 +483,7 @@ func TestHuntPlayersInRange(t *testing.T) {
 	pInRange := addPlayerToServer(t, s, 1, n.x+3, n.z+3, n.level)
 	_ = addPlayerToServer(t, s, 2, n.x+20, n.z+20, n.level) // out of range
 
-	hunt := &objtype.HuntType{CheckNotCombat: -1}
+	hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: -1}
 	hunted := n.huntPlayers(s, hunt)
 
 	if len(hunted) != 1 {
@@ -504,7 +504,7 @@ func TestHuntPlayersFiltersByLevel(t *testing.T) {
 	pSameLevel := addPlayerToServer(t, s, 1, n.x+2, n.z+2, n.level)
 	_ = addPlayerToServer(t, s, 2, n.x+2, n.z+2, n.level+1) // wrong level
 
-	hunt := &objtype.HuntType{CheckNotCombat: -1}
+	hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: -1}
 	hunted := n.huntPlayers(s, hunt)
 
 	if len(hunted) != 1 {
@@ -527,7 +527,7 @@ func TestHuntPlayersSkipsAfkZonedPlayers(t *testing.T) {
 	pAfk.lastAfkZone = 1000 // IsZonesAfk saturates at 1000
 
 	// With CheckAfk=true, AFK player is filtered.
-	huntWithAfk := &objtype.HuntType{CheckAfk: true, CheckNotCombat: -1}
+	huntWithAfk := &objtype.HuntType{CheckAfk: true, CheckNotCombat: -1, CheckNotCombatSelf: -1}
 	hunted := n.huntPlayers(s, huntWithAfk)
 	if len(hunted) != 1 {
 		t.Fatalf("CheckAfk=true: got %d, want 1 (AFK filtered)", len(hunted))
@@ -537,7 +537,7 @@ func TestHuntPlayersSkipsAfkZonedPlayers(t *testing.T) {
 	}
 
 	// With CheckAfk=false, both players returned.
-	huntNoAfk := &objtype.HuntType{CheckAfk: false, CheckNotCombat: -1}
+	huntNoAfk := &objtype.HuntType{CheckAfk: false, CheckNotCombat: -1, CheckNotCombatSelf: -1}
 	hunted = n.huntPlayers(s, huntNoAfk)
 	if len(hunted) != 2 {
 		t.Errorf("CheckAfk=false: got %d, want 2 (filter inactive, both returned)", len(hunted))
@@ -551,7 +551,7 @@ func TestHuntPlayersReturnsEmptyWhenNoCandidates(t *testing.T) {
 	n.server = s
 	n.huntRange = 10
 
-	hunt := &objtype.HuntType{CheckNotCombat: -1}
+	hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: -1}
 	hunted := n.huntPlayers(s, hunt)
 
 	if len(hunted) != 0 {
