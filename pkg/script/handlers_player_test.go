@@ -15,29 +15,30 @@ type mockActiveNpc struct {
 	stats               [8]int
 }
 
-func (m *mockActiveNpc) NpcType() int               { return m.typeId }
-func (m *mockActiveNpc) NpcX() int                  { return m.x }
-func (m *mockActiveNpc) NpcZ() int                  { return m.z }
-func (m *mockActiveNpc) NpcLevel() int              { return m.level }
-func (m *mockActiveNpc) NpcStat(stat int) int       { return m.stats[stat] }
-func (m *mockActiveNpc) NpcBaseStat(stat int) int   { return 0 }
-func (m *mockActiveNpc) NpcCategory() int           { return 0 }
-func (m *mockActiveNpc) NpcUID() int                { return 0 }
-func (m *mockActiveNpc) NpcVarN(id int) int32       { return 0 }
-func (m *mockActiveNpc) SetNpcVarN(id int, val int32) {}
-func (m *mockActiveNpc) Say(text []byte)            {}
-func (m *mockActiveNpc) Animate(id, delay int)      {}
-func (m *mockActiveNpc) FaceCoord(x, z int)         {}
-func (m *mockActiveNpc) ChangeType(newType, duration int) {}
-func (m *mockActiveNpc) Damage(amount, dmgType int) {}
+func (m *mockActiveNpc) NpcType() int                            { return m.typeId }
+func (m *mockActiveNpc) NpcX() int                               { return m.x }
+func (m *mockActiveNpc) NpcZ() int                               { return m.z }
+func (m *mockActiveNpc) NpcLevel() int                           { return m.level }
+func (m *mockActiveNpc) NpcStat(stat int) int                    { return m.stats[stat] }
+func (m *mockActiveNpc) NpcBaseStat(stat int) int                { return 0 }
+func (m *mockActiveNpc) NpcCategory() int                        { return 0 }
+func (m *mockActiveNpc) NpcUID() int                             { return 0 }
+func (m *mockActiveNpc) NpcVarN(id int) int32                    { return 0 }
+func (m *mockActiveNpc) SetNpcVarN(id int, val int32)            {}
+func (m *mockActiveNpc) Say(text []byte)                         {}
+func (m *mockActiveNpc) Animate(id, delay int)                   {}
+func (m *mockActiveNpc) FaceCoord(x, z int)                      {}
+func (m *mockActiveNpc) ChangeType(newType, duration int)        {}
+func (m *mockActiveNpc) ChangeTypeKeepAll(newType, duration int) {}
+func (m *mockActiveNpc) Damage(amount, dmgType int)              {}
 
-func (m *mockActiveNpc) StoreActiveScript(_ *ScriptState) {}
-func (m *mockActiveNpc) ClearActiveScript()               {}
-func (m *mockActiveNpc) SetDelayed(_ int)                 {}
+func (m *mockActiveNpc) StoreActiveScript(_ *ScriptState)                      {}
+func (m *mockActiveNpc) ClearActiveScript()                                    {}
+func (m *mockActiveNpc) SetDelayed(_ int)                                      {}
 func (m *mockActiveNpc) EnqueueScriptForTrigger(_ ServerTriggerType, _, _ int) {}
-func (m *mockActiveNpc) SetTimer(_ int)                                         {}
-func (m *mockActiveNpc) SetHuntRange(_ int)                                     {}
-func (m *mockActiveNpc) SetHuntMode(_ int)                                      {}
+func (m *mockActiveNpc) SetTimer(_ int)                                        {}
+func (m *mockActiveNpc) SetHuntRange(_ int)                                    {}
+func (m *mockActiveNpc) SetHuntMode(_ int)                                     {}
 
 // newSingleOp builds a single-opcode script plus its trailing OpReturn,
 // so handler tests can run a handler in isolation and observe the state
@@ -426,12 +427,12 @@ func TestStatOpsRejectOOBStatID(t *testing.T) {
 	ops := []opCase{
 		{"STAT", OpStat, nil},
 		{"STAT_BASE", OpStatBase, nil},
-		{"STAT_ADD", OpStatAdd, []int32{0, 0}},     // constant, percent
+		{"STAT_ADD", OpStatAdd, []int32{0, 0}}, // constant, percent
 		{"STAT_SUB", OpStatSub, []int32{0, 0}},
 		{"STAT_BOOST", OpStatBoost, []int32{0, 0}},
 		{"STAT_DRAIN", OpStatDrain, []int32{0, 0}},
 		{"STAT_HEAL", OpStatHeal, []int32{0, 0}},
-		{"STAT_ADVANCE", OpStatAdvance, []int32{0}}, // xp
+		{"STAT_ADVANCE", OpStatAdvance, []int32{0}},  // xp
 		{"STAT_RANDOM", OpStatRandom, []int32{0, 0}}, // low, high
 	}
 	badIDs := []int32{-1, int32(NumStats)} // 21 is OOB

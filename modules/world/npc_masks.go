@@ -25,6 +25,15 @@ func (n *Npc) ChangeType(newType, duration int) {
 	n.changeTypeImpl(newType, duration, true)
 }
 
+// ChangeTypeKeepAll morphs the NPC to newType and schedules a revert
+// after `duration` ticks without resetting stats. Dispatched from
+// NPC_CHANGETYPE_KEEPALL (opcode 2506). Mirrors TS Npc.changeType at
+// Engine-TS/.../Npc.ts:427-449 with reset=false. The revert, when it
+// fires, takes the light path (resetOnRevert=false → Task 4 branch).
+func (n *Npc) ChangeTypeKeepAll(newType, duration int) {
+	n.changeTypeImpl(newType, duration, false)
+}
+
 // changeTypeImpl is the shared body behind ChangeType and the
 // Task 3 ChangeTypeKeepAll. Mirrors TS Npc.changeType at
 // Engine-TS/.../Npc.ts:427-449.

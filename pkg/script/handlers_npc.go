@@ -172,10 +172,8 @@ func handleNpcFaceSquare(s *ScriptState) error {
 
 // handleNpcChangeType pops (newType, duration) in TS order (duration
 // on top) and morphs the NPC. Matches TS NpcOps.ts:457-462.
-//
-// DEFERRED: NPC_CHANGETYPE_KEEPALL (opcode 2506) has a reserved
-// constant at pkg/script/opcode.go:243 but no handler yet — requires
-// the `reset=false` variant of ChangeType, see active.go.
+// The full body (guard + typeId/uid/mask + stats-reset +
+// lifecycleTick fast-path) lives in *Npc.changeTypeImpl.
 func handleNpcChangeType(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_CHANGETYPE"); err != nil {
 		return err
@@ -183,6 +181,19 @@ func handleNpcChangeType(s *ScriptState) error {
 	duration := s.PopInt()
 	newType := s.PopInt()
 	s.ActiveNpc.ChangeType(newType, duration)
+	return nil
+}
+
+// handleNpcChangeTypeKeepAll pops (newType, duration) in TS order
+// (duration on top) and morphs the NPC preserving all current stats.
+// Matches TS NpcOps.ts:465-471.
+func handleNpcChangeTypeKeepAll(s *ScriptState) error {
+	if err := requireActiveNpc(s, "NPC_CHANGETYPE_KEEPALL"); err != nil {
+		return err
+	}
+	duration := s.PopInt()
+	newType := s.PopInt()
+	s.ActiveNpc.ChangeTypeKeepAll(newType, duration)
 	return nil
 }
 

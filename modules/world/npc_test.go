@@ -357,3 +357,81 @@ func TestChangeTypeResetsStatsClampedAtZero(t *testing.T) {
 		t.Errorf("baseLevels[ATK]: got %d, want 5", got)
 	}
 }
+
+// TestChangeTypeKeepAllPreservesStats verifies that ChangeTypeKeepAll
+// morphs typeId/uid/mask but leaves levels[]/baseLevels[] unchanged
+// and writes resetOnRevert=false.
+func TestChangeTypeKeepAllPreservesStats(t *testing.T) {
+	s := newServerForScriptTest(t)
+	baseTyp := &objtype.NpcType{Stats: []uint16{10, 10, 10, 10, 10, 10}}
+	newTyp := &objtype.NpcType{Stats: []uint16{99, 99, 99, 99, 99, 99}}
+	s.npcTypes = &objtype.NPCTypeConfigs{Configs: []*objtype.NpcType{baseTyp, newTyp}}
+
+	n := NewNpc(1, 0, 100, 100, 0, baseTyp)
+	n.server = s
+	// Seed some deltas.
+	n.levels[objtype.NpcStatAttack] = 5
+	n.levels[objtype.NpcStatHitpoints] = 5
+	n.levels[objtype.NpcStatDefence] = 15 // boosted
+
+	n.ChangeTypeKeepAll(1, 100)
+
+	// levels and baseLevels UNCHANGED.
+	wantLevels := []int{5, 15, 10, 5, 10, 10}
+	wantBase := []int{10, 10, 10, 10, 10, 10}
+	for i := range objtype.NpcStatCount {
+		if n.levels[i] != wantLevels[i] {
+			t.Errorf("levels[%d]: got %d, want %d (KEEPALL preserves)", i, n.levels[i], wantLevels[i])
+		}
+		if n.baseLevels[i] != wantBase[i] {
+			t.Errorf("baseLevels[%d]: got %d, want %d (KEEPALL preserves)", i, n.baseLevels[i], wantBase[i])
+		}
+	}
+	// Morph state applied.
+	if n.typeId != 1 {
+		t.Errorf("typeId: got %d, want 1", n.typeId)
+	}
+	if n.uid != (1<<16)|n.nid {
+		t.Errorf("uid: got %d, want %d", n.uid, (1<<16)|n.nid)
+	}
+	if n.masks&rsbuf.NpcMaskChangeType == 0 {
+		t.Errorf("mask: CHANGE_TYPE bit not set")
+	}
+	if n.resetOnRevert {
+		t.Errorf("resetOnRevert: got true, want false (KEEPALL)")
+	}
+	if n.lifecycleTick != 100 {
+		t.Errorf("lifecycleTick: got %d, want 100", n.lifecycleTick)
+	}
+}
+
+// TestChangeTypeKeepAllDurationZeroNoOp verifies duration<1 guard.
+func TestChangeTypeKeepAllDurationZeroNoOp(t *testing.T) {
+	n := newNpcForLifecycleTest(t)
+	n.levels[objtype.NpcStatHitpoints] = 5
+	origTypeId := n.typeId
+	origResetOnRevert := n.resetOnRevert
+
+	n.ChangeTypeKeepAll(42, 0)
+
+	if n.typeId != origTypeId {
+		t.Errorf("typeId: got %d, want %d (duration=0 no-op)", n.typeId, origTypeId)
+	}
+	if n.resetOnRevert != origResetOnRevert {
+		t.Errorf("resetOnRevert: got %v, want %v (duration=0 no-op)",
+			n.resetOnRevert, origResetOnRevert)
+	}
+}
+
+// TestChangeTypeKeepAllDeadNoOp verifies dead-NPC guard.
+func TestChangeTypeKeepAllDeadNoOp(t *testing.T) {
+	n := newNpcForLifecycleTest(t)
+	n.dead = true
+	origTypeId := n.typeId
+
+	n.ChangeTypeKeepAll(42, 100)
+
+	if n.typeId != origTypeId {
+		t.Errorf("typeId: got %d, want %d (dead NPC no-op)", n.typeId, origTypeId)
+	}
+}

@@ -339,6 +339,15 @@ type ActiveNpc interface {
 	// No-op when duration < 1 OR when the NPC is dead.
 	ChangeType(newType, duration int)
 
+	// ChangeTypeKeepAll morphs the NPC to newType and schedules a revert
+	// after `duration` ticks, preserving all current stat values (no
+	// reset). The revert, when it fires, takes the light path
+	// (resetOnRevert=false → typeId + uid + CHANGE_TYPE mask only).
+	// Mirrors TS Npc.changeType at Engine-TS/.../Npc.ts:427-449 with
+	// reset=false, dispatched from NPC_CHANGETYPE_KEEPALL (opcode 2506,
+	// TS NpcOps.ts:465-471). No-op when duration < 1 OR when the NPC is dead.
+	ChangeTypeKeepAll(newType, duration int)
+
 	// Damage applies `amount` damage of `dmgType` to the NPC this tick,
 	// flagging NpcMaskDamage. Decrements curHP (clamped at 0). Does NOT
 	// trigger death handling or auto-retaliate — those belong in a future

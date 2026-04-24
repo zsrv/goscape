@@ -24,6 +24,7 @@ type mockNpc struct {
 	animCalls                          []struct{ id, delay int }
 	faceCoordCalls                     []struct{ x, z int }
 	changeTypeCalls                    []struct{ newType, duration int }
+	changeTypeKeepAllCalls             []struct{ newType, duration int }
 	damageCalls                        []struct{ amount, dmgType int }
 	enqueueCalls                       []mockEnqueueCall
 	setTimerCalls                      []int
@@ -78,6 +79,10 @@ func (m *mockNpc) FaceCoord(x, z int) {
 }
 func (m *mockNpc) ChangeType(newType, duration int) {
 	m.changeTypeCalls = append(m.changeTypeCalls, struct{ newType, duration int }{newType, duration})
+}
+
+func (m *mockNpc) ChangeTypeKeepAll(newType, duration int) {
+	m.changeTypeKeepAllCalls = append(m.changeTypeKeepAllCalls, struct{ newType, duration int }{newType, duration})
 }
 
 func (m *mockNpc) Damage(amount, dmgType int) {
@@ -451,6 +456,26 @@ func TestHandleNpcChangeTypePassesDuration(t *testing.T) {
 	}
 }
 
+// TestHandleNpcChangeTypeKeepAllDispatch verifies that opcode 2506
+// pops (newType, duration) in TS order and calls ChangeTypeKeepAll.
+func TestHandleNpcChangeTypeKeepAllDispatch(t *testing.T) {
+	npc := &mockNpc{typeID: 7}
+	state := runNpcOp(t, npc, nil, OpNpcChangeTypeKeepAll, []int{42, 100}) // id=42, duration=100
+	_ = state
+
+	if len(npc.changeTypeKeepAllCalls) != 1 {
+		t.Fatalf("changeTypeKeepAllCalls: got %d entries, want 1", len(npc.changeTypeKeepAllCalls))
+	}
+	got := npc.changeTypeKeepAllCalls[0]
+	if got.newType != 42 || got.duration != 100 {
+		t.Errorf("call: got {newType=%d, duration=%d}, want {42, 100}", got.newType, got.duration)
+	}
+	if len(npc.changeTypeCalls) != 0 {
+		t.Errorf("changeTypeCalls: got %d, want 0 (KEEPALL should not dispatch through ChangeType)",
+			len(npc.changeTypeCalls))
+	}
+}
+
 func TestNpcMutatingOpsRequireActiveNpc_S6c(t *testing.T) {
 	cases := []struct {
 		op   Opcode
@@ -459,6 +484,7 @@ func TestNpcMutatingOpsRequireActiveNpc_S6c(t *testing.T) {
 		{OpNpcAnim, "NPC_ANIM"},
 		{OpNpcFaceSquare, "NPC_FACESQUARE"},
 		{OpNpcChangeType, "NPC_CHANGETYPE"},
+		{OpNpcChangeTypeKeepAll, "NPC_CHANGETYPE_KEEPALL"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -806,4 +832,3 @@ func TestHandleNpcSetHuntModeWithoutActiveNpcErrors(t *testing.T) {
 		t.Errorf("error: got %q, want %q", got, want)
 	}
 }
-

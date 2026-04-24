@@ -318,15 +318,16 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpNpcSay: handleNpcSay,
 
 	// S6c: NPC mutating ops batch.
-	OpNpcAnim:       handleNpcAnim,
-	OpNpcChangeType: handleNpcChangeType,
-	OpNpcDamage:     handleNpcDamage,
-	OpNpcDelay:      handleNpcDelay,
-	OpNpcFaceSquare: handleNpcFaceSquare,
-	OpNpcQueue:       handleNpcQueue,
-	OpNpcSetHunt:     handleNpcSetHunt,
-	OpNpcSetHuntMode: handleNpcSetHuntMode,
-	OpNpcSetTimer:    handleNpcSetTimer,
+	OpNpcAnim:              handleNpcAnim,
+	OpNpcChangeType:        handleNpcChangeType,
+	OpNpcChangeTypeKeepAll: handleNpcChangeTypeKeepAll,
+	OpNpcDamage:            handleNpcDamage,
+	OpNpcDelay:             handleNpcDelay,
+	OpNpcFaceSquare:        handleNpcFaceSquare,
+	OpNpcQueue:             handleNpcQueue,
+	OpNpcSetHunt:           handleNpcSetHunt,
+	OpNpcSetHuntMode:       handleNpcSetHuntMode,
+	OpNpcSetTimer:          handleNpcSetTimer,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.
