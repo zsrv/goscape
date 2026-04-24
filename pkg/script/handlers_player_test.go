@@ -28,7 +28,7 @@ func (m *mockActiveNpc) SetNpcVarN(id int, val int32) {}
 func (m *mockActiveNpc) Say(text []byte)            {}
 func (m *mockActiveNpc) Animate(id, delay int)      {}
 func (m *mockActiveNpc) FaceCoord(x, z int)         {}
-func (m *mockActiveNpc) ChangeType(newType int)     {}
+func (m *mockActiveNpc) ChangeType(newType, duration int) {}
 func (m *mockActiveNpc) Damage(amount, dmgType int) {}
 
 func (m *mockActiveNpc) StoreActiveScript(_ *ScriptState) {}

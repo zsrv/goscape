@@ -332,13 +332,16 @@ type ActiveNpc interface {
 	// are doubled + 1 (face-center convention).
 	FaceCoord(x, z int)
 
-	// ChangeType morphs the NPC to `newType`. The client swaps the model on
-	// the next NPC-info flush; server-side fields beyond typeId are not
-	// re-initialized (stats, category, etc. still reference the old config).
-	// The script op NPC_CHANGETYPE also carries a `duration` parameter for
-	// timed revert, but S6c discards it (method takes type only); future
-	// AI sub-spec wires a revert timer.
-	ChangeType(newType int)
+	// ChangeType morphs the NPC to newType and schedules a revert to
+	// baseType after `duration` ticks. No-op when duration < 1 OR when
+	// the NPC is dead. Mirrors TS Npc.changeType at
+	// Engine-TS/.../Npc.ts:427-449.
+	//
+	// DEFERRED: the optional `reset=false` variant (NPC_CHANGETYPE_KEEPALL
+	// opcode 2506) and the stats-reset branch at TS:436-443 require
+	// baseLevels/levels arrays not yet on *Npc. See the NAI-16 spec's
+	// Out-of-scope section.
+	ChangeType(newType, duration int)
 
 	// Damage applies `amount` damage of `dmgType` to the NPC this tick,
 	// flagging NpcMaskDamage. Decrements curHP (clamped at 0). Does NOT

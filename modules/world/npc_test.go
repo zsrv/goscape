@@ -40,12 +40,62 @@ func TestNpcSaySetsMask(t *testing.T) {
 
 func TestNpcChangeTypeSetsMask(t *testing.T) {
 	n := newTestNpc(1)
-	n.ChangeType(42)
+	n.ChangeType(42, 100)
 	if n.masks&rsbuf.NpcMaskChangeType == 0 {
 		t.Error("NpcMaskChangeType should be set")
 	}
 	if n.changeTypeID != 42 {
 		t.Errorf("changeTypeID: got %d, want 42", n.changeTypeID)
+	}
+	if n.typeId != 42 {
+		t.Errorf("typeId: got %d, want 42 (NAI-16 — ChangeType now writes typeId)", n.typeId)
+	}
+	wantUID := (42 << 16) | n.nid
+	if n.uid != wantUID {
+		t.Errorf("uid: got %d, want %d (recomputed from new typeId)", n.uid, wantUID)
+	}
+	if n.lifecycleTick != 100 {
+		t.Errorf("lifecycleTick: got %d, want 100 (schedules revert)", n.lifecycleTick)
+	}
+}
+
+func TestNpcChangeTypeDurationZeroNoOp(t *testing.T) {
+	n := newTestNpc(1)
+	// Seed known state so "no-op" is observable.
+	origTypeID := n.typeId
+	origUID := n.uid
+	origLifecycleTick := n.lifecycleTick
+	origMasks := n.masks
+
+	n.ChangeType(42, 0) // TS guard: duration < 1 → total no-op
+
+	if n.typeId != origTypeID {
+		t.Errorf("typeId: got %d, want %d (duration=0 should not write)", n.typeId, origTypeID)
+	}
+	if n.uid != origUID {
+		t.Errorf("uid: got %d, want %d (duration=0 should not recompute)", n.uid, origUID)
+	}
+	if n.lifecycleTick != origLifecycleTick {
+		t.Errorf("lifecycleTick: got %d, want %d (duration=0 should not write)", n.lifecycleTick, origLifecycleTick)
+	}
+	if n.masks != origMasks {
+		t.Errorf("masks: got %d, want %d (duration=0 should not raise mask)", n.masks, origMasks)
+	}
+}
+
+func TestNpcChangeTypeDeadNoOp(t *testing.T) {
+	n := newTestNpc(1)
+	n.dead = true
+	origTypeID := n.typeId
+	origMasks := n.masks
+
+	n.ChangeType(42, 100) // TS guard: !isActive → total no-op
+
+	if n.typeId != origTypeID {
+		t.Errorf("typeId: got %d, want %d (dead NPC should not morph)", n.typeId, origTypeID)
+	}
+	if n.masks != origMasks {
+		t.Errorf("masks: got %d, want %d (dead NPC should not raise mask)", n.masks, origMasks)
 	}
 }
 

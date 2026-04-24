@@ -170,16 +170,19 @@ func handleNpcFaceSquare(s *ScriptState) error {
 	return nil
 }
 
-// handleNpcChangeType pops (newType, duration) in TS order (duration on
-// top) and morphs the NPC. S6c discards duration — timed revert is
-// deferred to a future AI sub-spec.
+// handleNpcChangeType pops (newType, duration) in TS order (duration
+// on top) and morphs the NPC. Matches TS NpcOps.ts:457-462.
+//
+// DEFERRED: NPC_CHANGETYPE_KEEPALL (opcode 2506) has a reserved
+// constant at pkg/script/opcode.go:243 but no handler yet — requires
+// the `reset=false` variant of ChangeType, see active.go.
 func handleNpcChangeType(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_CHANGETYPE"); err != nil {
 		return err
 	}
-	_ = s.PopInt() // duration; see spec S6c Gotchas
+	duration := s.PopInt()
 	newType := s.PopInt()
-	s.ActiveNpc.ChangeType(newType)
+	s.ActiveNpc.ChangeType(newType, duration)
 	return nil
 }
 

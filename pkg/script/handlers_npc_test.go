@@ -23,7 +23,7 @@ type mockNpc struct {
 	sayCalls                           []string
 	animCalls                          []struct{ id, delay int }
 	faceCoordCalls                     []struct{ x, z int }
-	changeTypeCalls                    []int
+	changeTypeCalls                    []struct{ newType, duration int }
 	damageCalls                        []struct{ amount, dmgType int }
 	enqueueCalls                       []mockEnqueueCall
 	setTimerCalls                      []int
@@ -76,8 +76,8 @@ func (m *mockNpc) Animate(id, delay int) {
 func (m *mockNpc) FaceCoord(x, z int) {
 	m.faceCoordCalls = append(m.faceCoordCalls, struct{ x, z int }{x, z})
 }
-func (m *mockNpc) ChangeType(newType int) {
-	m.changeTypeCalls = append(m.changeTypeCalls, newType)
+func (m *mockNpc) ChangeType(newType, duration int) {
+	m.changeTypeCalls = append(m.changeTypeCalls, struct{ newType, duration int }{newType, duration})
 }
 
 func (m *mockNpc) Damage(amount, dmgType int) {
@@ -425,13 +425,14 @@ func TestNpcFaceSquare(t *testing.T) {
 	}
 }
 
-func TestNpcChangeTypeDiscardsDuration(t *testing.T) {
+func TestHandleNpcChangeTypePassesDuration(t *testing.T) {
 	npc := &mockNpc{typeID: 7}
-	// Push newType=9, push duration=50, NPC_CHANGETYPE. duration on top.
+	// Push newType=42, push duration=100, NPC_CHANGETYPE. duration on top
+	// (TS order: popInts(2) returns [id, duration]).
 	sf := &ScriptFile{
 		Name:             "[npcchangetype,test]",
 		Opcodes:          []Opcode{OpPushConstantInt, OpPushConstantInt, OpNpcChangeType, OpReturn},
-		IntOperands:      []int32{9, 50, 0, 0},
+		IntOperands:      []int32{42, 100, 0, 0},
 		StringOperands:   []string{"", "", "", ""},
 		InstructionCount: 4,
 	}
@@ -441,9 +442,12 @@ func TestNpcChangeTypeDiscardsDuration(t *testing.T) {
 	if err := Execute(state); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	want := []int{9}
-	if !reflect.DeepEqual(npc.changeTypeCalls, want) {
-		t.Errorf("changeTypeCalls: got %v, want %v", npc.changeTypeCalls, want)
+	if len(npc.changeTypeCalls) != 1 {
+		t.Fatalf("changeTypeCalls: got %d, want 1", len(npc.changeTypeCalls))
+	}
+	if got := npc.changeTypeCalls[0]; got.newType != 42 || got.duration != 100 {
+		t.Errorf("changeTypeCalls[0]: got (newType=%d, duration=%d), want (42, 100)",
+			got.newType, got.duration)
 	}
 }
 
