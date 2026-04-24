@@ -114,15 +114,17 @@ var handlers = map[Opcode]func(*ScriptState) error{
 
 	// DB ops (7500-7510).
 	// Pointer-gate asymmetry across this family — see preamble comment on handlers_db.go.
-	OpDbFindWithCount:    handleDbFindWithCount,    // 7500
-	OpDbFindNext:         handleDbFindNext,         // 7501
-	OpDbGetField:         handleDbGetField,         // 7502
-	OpDbGetFieldCount:    handleDbGetFieldCount,    // 7503
-	OpDbListAllWithCount: handleDbListAllWithCount, // 7504
-	OpDbGetRowTable:      handleDbGetRowTable,      // 7505
-	OpDbFindByIndex:      handleDbFindByIndex,      // 7506
-	OpDbFind:             handleDbFind,             // 7508
-	OpDbListAll:          handleDbListAll,          // 7510
+	OpDbFindWithCount:       handleDbFindWithCount,       // 7500
+	OpDbFindNext:            handleDbFindNext,            // 7501
+	OpDbGetField:            handleDbGetField,            // 7502
+	OpDbGetFieldCount:       handleDbGetFieldCount,       // 7503
+	OpDbListAllWithCount:    handleDbListAllWithCount,    // 7504
+	OpDbGetRowTable:         handleDbGetRowTable,         // 7505
+	OpDbFindByIndex:         handleDbFindByIndex,         // 7506
+	OpDbFindRefineWithCount: handleDbFindRefineWithCount, // 7507
+	OpDbFind:                handleDbFind,                // 7508
+	OpDbFindRefine:          handleDbFindRefine,          // 7509
+	OpDbListAll:             handleDbListAll,             // 7510
 
 	// S5a: string ops.
 	OpAppend:              handleAppend,

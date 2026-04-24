@@ -253,3 +253,60 @@ func handleDbFind(s *ScriptState) error { return dbFind(s, false, "DB_FIND") }
 
 // handleDbFindWithCount (DB_FIND_WITH_COUNT, opcode 7500).
 func handleDbFindWithCount(s *ScriptState) error { return dbFind(s, true, "DB_FIND_WITH_COUNT") }
+
+// dbFindRefine is the shared implementation of DB_FIND_REFINE /
+// DB_FIND_REFINE_WITH_COUNT. Requires PtrFindDb (for the plain variant
+// only — DB_FIND_REFINE_WITH_COUNT omits the require per TS). Pops the
+// same three args as dbFind, looks up the match set, intersects with
+// the prev query (DbRowQuery). Intersection preserves prev-order:
+// iteration is over prev, membership check against the found set.
+// Allocates a fresh slice to avoid an aliasing trap on
+// `append(s.DbRowQuery[:0], ...)` while iterating the same backing array.
+// Resets DbRow to -1; pushes count if withCount. Mirrors TS DbOps.ts:42-63.
+func dbFindRefine(s *ScriptState, withCount bool, op string) error {
+	if op == "DB_FIND_REFINE" && s.Pointers&PtrFindDb == 0 {
+		return fmt.Errorf("%s: find_db pointer not set", op)
+	}
+	// DB_FIND_REFINE_WITH_COUNT intentionally omits the require (TS asymmetry — see preamble).
+
+	isString := s.PopInt() == 2
+	var found []int
+	if isString {
+		q := s.PopString()
+		packed := s.PopInt()
+		found = s.Configs.FindDbRowsStr(q, packed)
+	} else {
+		q := s.PopInt()
+		packed := s.PopInt()
+		found = s.Configs.FindDbRowsInt(int32(q), packed)
+	}
+
+	foundSet := make(map[int]struct{}, len(found))
+	for _, id := range found {
+		foundSet[id] = struct{}{}
+	}
+
+	prev := s.DbRowQuery
+	refined := make([]int, 0, len(prev)) // fresh slice — prev aliases DbRowQuery backing array
+	for _, id := range prev {
+		if _, ok := foundSet[id]; ok {
+			refined = append(refined, id)
+		}
+	}
+
+	s.DbRow = -1
+	s.DbRowQuery = refined
+
+	if withCount {
+		s.PushInt(len(refined))
+	}
+	return nil
+}
+
+// handleDbFindRefine (DB_FIND_REFINE, opcode 7509).
+func handleDbFindRefine(s *ScriptState) error { return dbFindRefine(s, false, "DB_FIND_REFINE") }
+
+// handleDbFindRefineWithCount (DB_FIND_REFINE_WITH_COUNT, opcode 7507).
+func handleDbFindRefineWithCount(s *ScriptState) error {
+	return dbFindRefine(s, true, "DB_FIND_REFINE_WITH_COUNT")
+}

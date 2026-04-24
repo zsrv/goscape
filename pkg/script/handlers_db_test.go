@@ -741,7 +741,7 @@ func TestFindNextChainsFromListAll(t *testing.T) {
 // buildTestDbIndex constructs a fakeDbConfigs + real *DbTableIndex for
 // the DB_FIND* test matrix. Table 1 has two INDEXED columns:
 //   - col 0 (INT): row 10 → 100, row 11 → 200, row 12 → 100 (duplicate)
-//   - col 1 (STRING): row 10 → "a", row 11 → "b"
+//   - col 1 (STRING): row 10 → "a", row 11 → "b", row 12 → "c"
 //
 // Used by DB_FIND / DB_FIND_WITH_COUNT / DB_FIND_REFINE* tests.
 func buildTestDbIndex(t *testing.T) *fakeDbConfigs {
@@ -936,5 +936,170 @@ func TestDbFindWithCountFollowedByFindNextFails(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "find_db pointer not set") {
 		t.Errorf("error %q: want mention of find_db pointer", err.Error())
+	}
+}
+
+// TestDbFindRefineRequiresFindDbPointer pins the gate on DB_FIND_REFINE.
+func TestDbFindRefineRequiresFindDbPointer(t *testing.T) {
+	cfg := buildTestDbIndex(t)
+	s := newDbState(cfg)
+
+	packedCol0 := 1 << 12
+	pushDbFindArgs(s, packedCol0, 100, "", false)
+
+	err := handleDbFindRefine(s)
+	if err == nil {
+		t.Fatal("DB_FIND_REFINE without prior find: want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "find_db pointer not set") {
+		t.Errorf("error %q: want mention of find_db pointer", err.Error())
+	}
+}
+
+// TestDbFindRefineIntersects pins basic refine behavior: after DB_FIND,
+// a refining query returns the intersection of match-sets.
+func TestDbFindRefineIntersects(t *testing.T) {
+	cfg := buildTestDbIndex(t)
+	s := newDbState(cfg)
+
+	// First: DB_FIND on col 0 = 100 → rows {10, 12}.
+	packedCol0 := 1 << 12
+	pushDbFindArgs(s, packedCol0, 100, "", false)
+	if err := handleDbFind(s); err != nil {
+		t.Fatalf("setup DB_FIND: %v", err)
+	}
+
+	// Refine: col 1 = "c" → bucket has {12}; intersection with {10,12} = {12}.
+	packedCol1 := (1 << 12) | (1 << 4)
+	pushDbFindArgs(s, packedCol1, 0, "c", true)
+	if err := handleDbFindRefine(s); err != nil {
+		t.Fatalf("DB_FIND_REFINE: %v", err)
+	}
+	if len(s.DbRowQuery) != 1 || s.DbRowQuery[0] != 12 {
+		t.Errorf("refined query: want [12], got %v", s.DbRowQuery)
+	}
+	if s.DbRow != -1 {
+		t.Error("DbRow: want -1 after refine")
+	}
+}
+
+// TestDbFindRefineDisjoint pins empty intersection produces empty query.
+func TestDbFindRefineDisjoint(t *testing.T) {
+	cfg := buildTestDbIndex(t)
+	s := newDbState(cfg)
+
+	// DB_FIND col 0 = 100 → rows {10, 12}.
+	packedCol0 := 1 << 12
+	pushDbFindArgs(s, packedCol0, 100, "", false)
+	if err := handleDbFind(s); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
+	// Refine: col 1 = "b" → bucket has {11}; intersection = {}.
+	packedCol1 := (1 << 12) | (1 << 4)
+	pushDbFindArgs(s, packedCol1, 0, "b", true)
+	if err := handleDbFindRefine(s); err != nil {
+		t.Fatalf("DB_FIND_REFINE: %v", err)
+	}
+	if len(s.DbRowQuery) != 0 {
+		t.Errorf("disjoint refine: want empty, got %v", s.DbRowQuery)
+	}
+}
+
+// TestDbFindRefineFromListAll pins that DB_LISTALL's set flag enables
+// DB_FIND_REFINE — the full gate path through the "listall" populator.
+func TestDbFindRefineFromListAll(t *testing.T) {
+	cfg := buildTestDbIndex(t)
+	s := newDbState(cfg)
+
+	s.PushInt(1)
+	if err := handleDbListAll(s); err != nil {
+		t.Fatalf("setup DB_LISTALL: %v", err)
+	}
+	// DbRowQuery = {10, 11, 12}; flag set.
+
+	packedCol0 := 1 << 12
+	pushDbFindArgs(s, packedCol0, 200, "", false)
+	if err := handleDbFindRefine(s); err != nil {
+		t.Fatalf("DB_FIND_REFINE: %v", err)
+	}
+	if len(s.DbRowQuery) != 1 || s.DbRowQuery[0] != 11 {
+		t.Errorf("refine after listall: want [11], got %v", s.DbRowQuery)
+	}
+}
+
+// TestDbFindRefinePreservesOrder pins: refined output retains prev-order,
+// not found-order. Here prev is {12, 10, 11} (manually set to diverge from
+// ascending); found is {11, 12} (also non-ascending). Intersection
+// preserves prev order: {12, 11}.
+func TestDbFindRefinePreservesOrder(t *testing.T) {
+	cfg := buildTestDbIndex(t)
+	s := newDbState(cfg)
+	s.Pointers |= PtrFindDb // satisfy gate
+	s.DbTable = cfg.tables[1]
+	s.DbRowQuery = []int{12, 10, 11}
+
+	// col 0 = 100 → found {10, 12} (ascending from index); intersect with
+	// prev {12, 10, 11}: walking prev, keep {12, 10}.
+	packedCol0 := 1 << 12
+	pushDbFindArgs(s, packedCol0, 100, "", false)
+	if err := handleDbFindRefine(s); err != nil {
+		t.Fatalf("DB_FIND_REFINE: %v", err)
+	}
+	want := []int{12, 10}
+	if len(s.DbRowQuery) != len(want) {
+		t.Fatalf("refined: want %v, got %v", want, s.DbRowQuery)
+	}
+	for i := range want {
+		if s.DbRowQuery[i] != want[i] {
+			t.Errorf("refined[%d]: want %d, got %d (full: %v)", i, want[i], s.DbRowQuery[i], s.DbRowQuery)
+		}
+	}
+}
+
+// TestDbFindRefineWithCountAsymmetry pins the TS asymmetry: the
+// _WITH_COUNT variant does NOT require PtrFindDb. Calling it on empty
+// state operates on empty prev, pushes 0, no error.
+func TestDbFindRefineWithCountAsymmetry(t *testing.T) {
+	cfg := buildTestDbIndex(t)
+	s := newDbState(cfg)
+	// No prior find; Pointers zero; DbRowQuery nil.
+
+	packedCol0 := 1 << 12
+	pushDbFindArgs(s, packedCol0, 100, "", false)
+
+	err := handleDbFindRefineWithCount(s)
+	if err != nil {
+		t.Fatalf("DB_FIND_REFINE_WITH_COUNT on empty: want no error (TS asymmetry), got %v", err)
+	}
+	if n := s.PopInt(); n != 0 {
+		t.Errorf("count: want 0, got %d", n)
+	}
+}
+
+// TestDbFindRefineWithCountHappyPath pins _WITH_COUNT variant matches
+// DB_FIND_REFINE's state mutation AND pushes count.
+func TestDbFindRefineWithCountHappyPath(t *testing.T) {
+	cfg := buildTestDbIndex(t)
+	s := newDbState(cfg)
+
+	// Setup: DB_FIND col 0 = 100 → {10, 12}.
+	packedCol0 := 1 << 12
+	pushDbFindArgs(s, packedCol0, 100, "", false)
+	if err := handleDbFind(s); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
+	// Refine col 1 = "c" → {12}, count = 1.
+	packedCol1 := (1 << 12) | (1 << 4)
+	pushDbFindArgs(s, packedCol1, 0, "c", true)
+	if err := handleDbFindRefineWithCount(s); err != nil {
+		t.Fatalf("DB_FIND_REFINE_WITH_COUNT: %v", err)
+	}
+	if n := s.PopInt(); n != 1 {
+		t.Errorf("count: want 1, got %d", n)
+	}
+	if len(s.DbRowQuery) != 1 || s.DbRowQuery[0] != 12 {
+		t.Errorf("refined: want [12], got %v", s.DbRowQuery)
 	}
 }
