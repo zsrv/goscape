@@ -25,6 +25,9 @@ func (m *mockConfigs) EnumType(id int) *objtype.EnumType     { return m.enums[id
 func (m *mockConfigs) StructType(id int) *objtype.StructType { return m.structs[id] }
 func (m *mockConfigs) ParamType(id int) *objtype.ParamType   { return m.params[id] }
 func (m *mockConfigs) InvType(id int) *objtype.InvType       { return m.invs[id] }
+func (m *mockConfigs) DbTableType(id int) *objtype.DbTableType { return nil }
+func (m *mockConfigs) DbRowType(id int) *objtype.DbRowType     { return nil }
+func (m *mockConfigs) DbRowsInTable(tableID int) []int         { return nil }
 
 // newTestConfigs seeds a fresh mockConfigs with the canonical fixture used
 // across handler tests.

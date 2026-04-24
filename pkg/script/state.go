@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/zsrv/goscape/pkg/inventory"
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 const (
@@ -125,6 +126,14 @@ type ScriptState struct {
 	// OtherActiveNpc is the secondary NPC slot used by AI_*NPC handlers
 	// when `Self` (an NPC) targets another NPC. NAI-11.
 	OtherActiveNpc ActiveNpc
+
+	// DB cursor state — populated by DB_LISTALL* (and DB_FIND*, deferred to a
+	// later sub-spec); consumed by DB_FINDNEXT, DB_FINDBYINDEX. DbTable == nil
+	// means no LISTALL/FIND has selected a table yet; DbRow is the cursor index
+	// into DbRowQuery (-1 after LISTALL before the first FINDNEXT advance).
+	DbTable    *objtype.DbTableType
+	DbRow      int
+	DbRowQuery []int
 
 	Protect bool
 
