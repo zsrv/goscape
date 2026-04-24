@@ -222,7 +222,7 @@ func TestNewNpcSeedsStatsFromType(t *testing.T) {
 	n := NewNpc(1, 42, 100, 100, 0, typ)
 
 	want := []int{7, 11, 13, 17, 19, 23}
-	for i := 0; i < objtype.NpcStatCount; i++ {
+	for i := range objtype.NpcStatCount {
 		if got := n.NpcStat(i); got != want[i] {
 			t.Errorf("NpcStat(%d): got %d, want %d", i, got, want[i])
 		}
@@ -241,7 +241,7 @@ func TestNewNpcWithNilStatsStaysZero(t *testing.T) {
 	typ := &objtype.NpcType{Stats: nil}
 	n := NewNpc(1, 42, 100, 100, 0, typ)
 
-	for i := 0; i < objtype.NpcStatCount; i++ {
+	for i := range objtype.NpcStatCount {
 		if got := n.NpcStat(i); got != 0 {
 			t.Errorf("NpcStat(%d): got %d, want 0", i, got)
 		}
@@ -261,10 +261,10 @@ func TestNewNpcWithNilStatsStaysZero(t *testing.T) {
 // slots after direct array writes.
 func TestNpcStatAllSlots(t *testing.T) {
 	n := newNpcForLifecycleTest(t) // existing fixture
-	for i := 0; i < objtype.NpcStatCount; i++ {
+	for i := range objtype.NpcStatCount {
 		n.levels[i] = 100 + i
 	}
-	for i := 0; i < objtype.NpcStatCount; i++ {
+	for i := range objtype.NpcStatCount {
 		if got, want := n.NpcStat(i), 100+i; got != want {
 			t.Errorf("NpcStat(%d): got %d, want %d", i, got, want)
 		}
@@ -275,10 +275,10 @@ func TestNpcStatAllSlots(t *testing.T) {
 // n.baseLevels for all 6 slots after direct array writes.
 func TestNpcBaseStatAllSlots(t *testing.T) {
 	n := newNpcForLifecycleTest(t)
-	for i := 0; i < objtype.NpcStatCount; i++ {
+	for i := range objtype.NpcStatCount {
 		n.baseLevels[i] = 200 + i
 	}
-	for i := 0; i < objtype.NpcStatCount; i++ {
+	for i := range objtype.NpcStatCount {
 		if got, want := n.NpcBaseStat(i), 200+i; got != want {
 			t.Errorf("NpcBaseStat(%d): got %d, want %d", i, got, want)
 		}

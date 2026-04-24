@@ -39,6 +39,9 @@ func (n *Npc) NpcCategory() int {
 // Reads n.levels[stat] — seeded from typ.Stats at NewNpc time and maintained
 // by ChangeType / Damage / processNpcRegen.
 func (n *Npc) NpcStat(stat int) int {
+	// DEVIATION NAI-17-D2: defensive bounds check — TS returns undefined
+	// on OOB which coerces to NaN downstream; Go would panic, so we
+	// clamp to 0.
 	if stat < 0 || stat >= objtype.NpcStatCount {
 		return 0
 	}
@@ -47,6 +50,7 @@ func (n *Npc) NpcStat(stat int) int {
 
 // NpcBaseStat returns the base stat level for the given stat id.
 func (n *Npc) NpcBaseStat(stat int) int {
+	// DEVIATION NAI-17-D2: see NpcStat above.
 	if stat < 0 || stat >= objtype.NpcStatCount {
 		return 0
 	}
