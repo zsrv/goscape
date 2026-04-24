@@ -19,6 +19,14 @@ const (
 	FrameCapacity = 50
 )
 
+// PlayerLookup resolves a UID to an ActivePlayer if a player with that UID
+// is currently logged in. Handlers decide whether the result is usable:
+// FINDUID accepts any match; P_FINDUID additionally gates on CanAccess.
+// Returns nil if no logged-in player has that UID.
+type PlayerLookup interface {
+	LookupPlayerByUID(uid int) ActivePlayer
+}
+
 // WorldVars is the minimal surface that pkg/script needs from the
 // hosting world to resolve PUSH_VARS / POP_VARS. Decouples the VM
 // from concrete server types.
@@ -68,6 +76,11 @@ type ScriptState struct {
 	// Inv is the inventory resolution surface. Callers set this after
 	// Init if the script uses INV_* opcodes.
 	Inv InvLookup
+
+	// PlayerLookup is the player-resolution surface for FINDUID / P_FINDUID.
+	// Callers set this after Init if the script uses UID-keyed player
+	// ops. Nil disables the lookup (handlers degrade to "not found").
+	PlayerLookup PlayerLookup
 
 	PC      int
 	OpCount int

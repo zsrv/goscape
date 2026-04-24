@@ -302,6 +302,16 @@ type ActivePlayer interface {
 	// ApNpc<op> as a script-queued interaction. Matches TS
 	// PlayerOps.ts:404-415.
 	SetInteractionScriptNpc(npc ActiveNpc, op int)
+
+	// S7a: protected-binding gate.
+
+	// CanAccess reports whether the player can be bound as the active
+	// player by P_FINDUID. Returns false when delayed, when a modal
+	// main/chat is open, or when a suspended protected script is
+	// stored on the player. Mirrors TS Player.canAccess
+	// (Engine-TS/src/engine/entity/Player.ts:805-812). FINDUID does
+	// NOT consult this — only P_FINDUID does.
+	CanAccess() bool
 }
 
 // ActiveNpc is the per-NPC surface that NPC_* opcodes and VARN

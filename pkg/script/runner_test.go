@@ -203,6 +203,10 @@ type mockPlayer struct {
 	// S6v: p_op* script-queued interaction captures.
 	lastSetInteractionScriptLoc []mockLocOp
 	lastSetInteractionScriptNpc []mockNpcOp
+
+	// S7a: canAccess return value. Defaults to false; tests that exercise
+	// P_FINDUID positive paths set this to true explicitly.
+	canAccessValue bool
 }
 
 type mockEnqueue struct {
@@ -388,6 +392,9 @@ func (m *mockPlayer) CamReset() { m.camResetCalls++ }
 // StaffModLevel returns the seeded staff level for tests.
 func (m *mockPlayer) StaffModLevel() int32 { return int32(m.staffModLevelValue) }
 func (m *mockPlayer) UID() int              { return m.uidValue }
+
+// CanAccess returns the seeded accessibility flag for P_FINDUID tests.
+func (m *mockPlayer) CanAccess() bool { return m.canAccessValue }
 
 // S6l: p_aprange.
 func (m *mockPlayer) SetApRange(n int) {
