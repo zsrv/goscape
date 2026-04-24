@@ -19,6 +19,7 @@ const (
 	NpcStatHitpoints = 3
 	NpcStatRanged    = 4
 	NpcStatMagic     = 5
+	NpcStatCount     = 6 // Total number of stat slots; matches TS NpcStat enum.
 )
 
 // MoveRestrict values (mirror of rs-server-225/entity.MoveRestrict).

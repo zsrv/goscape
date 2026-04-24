@@ -211,3 +211,76 @@ func TestNpcIsValid(t *testing.T) {
 		t.Error("dead npc: IsValid = true, want false")
 	}
 }
+
+// TestNewNpcSeedsStatsFromType verifies that NewNpc seeds both
+// n.levels[] and n.baseLevels[] from typ.Stats for all 6 slots.
+// Mirrors TS Npc.ts:90-94 ctor loop.
+func TestNewNpcSeedsStatsFromType(t *testing.T) {
+	typ := &objtype.NpcType{
+		Stats: []uint16{7, 11, 13, 17, 19, 23}, // distinct per slot
+	}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+
+	want := []int{7, 11, 13, 17, 19, 23}
+	for i := 0; i < objtype.NpcStatCount; i++ {
+		if got := n.NpcStat(i); got != want[i] {
+			t.Errorf("NpcStat(%d): got %d, want %d", i, got, want[i])
+		}
+		if got := n.NpcBaseStat(i); got != want[i] {
+			t.Errorf("NpcBaseStat(%d): got %d, want %d", i, got, want[i])
+		}
+	}
+	if !n.resetOnRevert {
+		t.Errorf("resetOnRevert: got false, want true (default)")
+	}
+}
+
+// TestNewNpcWithNilStatsStaysZero verifies that a zero-length Stats
+// slice leaves both arrays zero-valued (no out-of-bounds panic).
+func TestNewNpcWithNilStatsStaysZero(t *testing.T) {
+	typ := &objtype.NpcType{Stats: nil}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+
+	for i := 0; i < objtype.NpcStatCount; i++ {
+		if got := n.NpcStat(i); got != 0 {
+			t.Errorf("NpcStat(%d): got %d, want 0", i, got)
+		}
+		if got := n.NpcBaseStat(i); got != 0 {
+			t.Errorf("NpcBaseStat(%d): got %d, want 0", i, got)
+		}
+	}
+	if got := n.CurHP(); got != 0 {
+		t.Errorf("CurHP: got %d, want 0 (nil Stats)", got)
+	}
+	if got := n.BaseHP(); got != 0 {
+		t.Errorf("BaseHP: got %d, want 0 (nil Stats)", got)
+	}
+}
+
+// TestNpcStatAllSlots verifies NpcStat reads from n.levels for all 6
+// slots after direct array writes.
+func TestNpcStatAllSlots(t *testing.T) {
+	n := newNpcForLifecycleTest(t) // existing fixture
+	for i := 0; i < objtype.NpcStatCount; i++ {
+		n.levels[i] = 100 + i
+	}
+	for i := 0; i < objtype.NpcStatCount; i++ {
+		if got, want := n.NpcStat(i), 100+i; got != want {
+			t.Errorf("NpcStat(%d): got %d, want %d", i, got, want)
+		}
+	}
+}
+
+// TestNpcBaseStatAllSlots verifies NpcBaseStat reads from
+// n.baseLevels for all 6 slots after direct array writes.
+func TestNpcBaseStatAllSlots(t *testing.T) {
+	n := newNpcForLifecycleTest(t)
+	for i := 0; i < objtype.NpcStatCount; i++ {
+		n.baseLevels[i] = 200 + i
+	}
+	for i := 0; i < objtype.NpcStatCount; i++ {
+		if got, want := n.NpcBaseStat(i), 200+i; got != want {
+			t.Errorf("NpcBaseStat(%d): got %d, want %d", i, got, want)
+		}
+	}
+}

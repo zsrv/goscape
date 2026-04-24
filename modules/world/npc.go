@@ -98,7 +98,9 @@ type Npc struct {
 	animID, animDelay                         int
 	sayText                                   []byte
 	damageAmt, damageType                     int
-	curHP, baseHP                             int
+	levels                                    [objtype.NpcStatCount]int // NAI-17: current (boosted) stat values
+	baseLevels                                [objtype.NpcStatCount]int // NAI-17: base values (regen convergence target)
+	resetOnRevert                             bool                      // NAI-17: TS Npc.ts:72; CHANGETYPE→true, KEEPALL→false
 	spotanimID, spotanimHeight, spotanimDelay int
 	faceSquareX, faceSquareZ                  int
 	changeTypeID                              int
@@ -148,8 +150,6 @@ func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
 		animDelay:       -1,
 		damageAmt:       -1,
 		damageType:      -1,
-		curHP:           initialHP(typ),
-		baseHP:          initialHP(typ),
 		spotanimID:      -1,
 		spotanimHeight:  -1,
 		spotanimDelay:   -1,
@@ -159,21 +159,16 @@ func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
 		entitymask:      rsbuf.NpcMaskFaceEntity,
 	}
 	n.targetOp = n.defaultMode()
+	// NAI-17: seed levels[]/baseLevels[] from typ.Stats (mirrors TS Npc.ts:90-94).
+	if typ != nil {
+		for i := 0; i < objtype.NpcStatCount && i < len(typ.Stats); i++ {
+			v := int(typ.Stats[i])
+			n.levels[i] = v
+			n.baseLevels[i] = v
+		}
+	}
+	n.resetOnRevert = true
 	return n
-}
-
-// initialHP returns the max HP stored in an NpcType, defaulting to 0 when
-// typ is nil or Stats doesn't cover the Hitpoints slot. Called from NewNpc
-// (to seed curHP + baseHP) and from *Npc.ResetHP.
-func initialHP(typ *objtype.NpcType) int {
-	if typ == nil || len(typ.Stats) <= objtype.NpcStatHitpoints {
-		return 0
-	}
-	hp := int(typ.Stats[objtype.NpcStatHitpoints])
-	if hp < 0 {
-		return 0
-	}
-	return hp
 }
 
 // Slot returns the NPC's nid for the entity interface.
@@ -247,7 +242,8 @@ func (n *Npc) SetHuntMode(mode int) {
 //   - recomputes uid from the restored typeId
 //   - resets the typ pointer to the baseType's NpcType config (when
 //     server + npcTypes are wired)
-//   - reseeds curHP/baseHP from typ.Stats via initialHP
+//   - reseeds levels[HP]/baseLevels[HP] from typ.Stats (NAI-17; Task 4
+//     expands this to the full 6-stat array + resetOnRevert branching)
 //   - clears the script queue
 //   - clears waypoints
 //   - sets tele = true + raises NpcMaskChangeType
@@ -268,8 +264,14 @@ func (n *Npc) revertType() {
 			}
 		}
 	}
-	n.curHP = initialHP(n.typ)
-	n.baseHP = initialHP(n.typ)
+	// NAI-17: reseed HP slot from typ.Stats (temporary single-slot form;
+	// Task 4 expands this to a 6-slot loop and adds the resetOnRevert
+	// light-path branching).
+	if n.typ != nil && len(n.typ.Stats) > objtype.NpcStatHitpoints {
+		hp := int(n.typ.Stats[objtype.NpcStatHitpoints])
+		n.levels[objtype.NpcStatHitpoints] = hp
+		n.baseLevels[objtype.NpcStatHitpoints] = hp
+	}
 	n.queue = nil
 	n.waypointIndex = -1
 	n.tele = true

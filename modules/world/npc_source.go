@@ -1,6 +1,9 @@
 package world
 
-import "github.com/zsrv/goscape/pkg/rsbuf"
+import (
+	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/rsbuf"
+)
 
 // Slot already defined in npc.go.
 
@@ -17,8 +20,8 @@ func (n *Npc) FaceEntity() int     { return n.faceEntity }
 func (n *Npc) SayText() []byte     { return n.sayText }
 func (n *Npc) DamageAmt() int      { return n.damageAmt }
 func (n *Npc) DamageType() int     { return n.damageType }
-func (n *Npc) CurHP() int          { return n.curHP }
-func (n *Npc) BaseHP() int         { return n.baseHP }
+func (n *Npc) CurHP() int          { return n.levels[objtype.NpcStatHitpoints] }
+func (n *Npc) BaseHP() int         { return n.baseLevels[objtype.NpcStatHitpoints] }
 func (n *Npc) ChangeTypeID() int   { return n.changeTypeID }
 func (n *Npc) SpotAnimID() int     { return n.spotanimID }
 func (n *Npc) SpotAnimHeight() int { return n.spotanimHeight }

@@ -171,15 +171,15 @@ func TestProcessNpcRegenIncrementsClock(t *testing.T) {
 	n.server = s
 	n.regenInterval = 100
 	n.regenClock = 0
-	n.curHP, n.baseHP = 8, 10
+	n.levels[objtype.NpcStatHitpoints], n.baseLevels[objtype.NpcStatHitpoints] = 8, 10
 
 	s.processNpcRegen(n)
 
 	if n.regenClock != 1 {
 		t.Errorf("regenClock: got %d, want 1", n.regenClock)
 	}
-	if n.curHP != 8 {
-		t.Errorf("curHP: got %d, want 8 (no regen fire yet)", n.curHP)
+	if n.CurHP() != 8 {
+		t.Errorf("curHP: got %d, want 8 (no regen fire yet)", n.CurHP())
 	}
 }
 
@@ -190,7 +190,7 @@ func TestProcessNpcRegenFiresAtInterval(t *testing.T) {
 	n.server = s
 	n.regenInterval = 3
 	n.regenClock = 0
-	n.curHP, n.baseHP = 5, 10
+	n.levels[objtype.NpcStatHitpoints], n.baseLevels[objtype.NpcStatHitpoints] = 5, 10
 
 	// Simulate a type-change that would set RegenRate=99 — the
 	// Vorkath quirk means this new rate only takes effect on the
@@ -204,8 +204,8 @@ func TestProcessNpcRegenFiresAtInterval(t *testing.T) {
 	if n.regenClock != 2 {
 		t.Fatalf("regenClock after 2 ticks: got %d, want 2", n.regenClock)
 	}
-	if n.curHP != 5 {
-		t.Fatalf("curHP after 2 ticks: got %d, want 5 (pre-fire)", n.curHP)
+	if n.CurHP() != 5 {
+		t.Fatalf("curHP after 2 ticks: got %d, want 5 (pre-fire)", n.CurHP())
 	}
 
 	// 3rd tick: clock 2→3, fires. Interval reloads to 99; clock
@@ -217,8 +217,8 @@ func TestProcessNpcRegenFiresAtInterval(t *testing.T) {
 	if n.regenInterval != 99 {
 		t.Errorf("regenInterval after fire: got %d, want 99 (reloaded from typ.RegenRate)", n.regenInterval)
 	}
-	if n.curHP != 6 {
-		t.Errorf("curHP after fire: got %d, want 6 (incremented toward baseHP=10)", n.curHP)
+	if n.CurHP() != 6 {
+		t.Errorf("curHP after fire: got %d, want 6 (incremented toward baseHP=10)", n.CurHP())
 	}
 }
 
@@ -229,14 +229,14 @@ func TestProcessNpcRegenClampsAtBaseHP(t *testing.T) {
 	n.server = s
 	n.regenInterval = 3
 	n.regenClock = 0
-	n.curHP, n.baseHP = 10, 10
+	n.levels[objtype.NpcStatHitpoints], n.baseLevels[objtype.NpcStatHitpoints] = 10, 10
 
 	for i := 0; i < 3; i++ {
 		s.processNpcRegen(n)
 	}
 
-	if n.curHP != 10 {
-		t.Errorf("curHP: got %d, want 10 (no change at equal)", n.curHP)
+	if n.CurHP() != 10 {
+		t.Errorf("curHP: got %d, want 10 (no change at equal)", n.CurHP())
 	}
 }
 
@@ -247,14 +247,14 @@ func TestProcessNpcRegenDecrementsWhenAboveBase(t *testing.T) {
 	n.server = s
 	n.regenInterval = 3
 	n.regenClock = 0
-	n.curHP, n.baseHP = 12, 10
+	n.levels[objtype.NpcStatHitpoints], n.baseLevels[objtype.NpcStatHitpoints] = 12, 10
 
 	for i := 0; i < 3; i++ {
 		s.processNpcRegen(n)
 	}
 
-	if n.curHP != 11 {
-		t.Errorf("curHP: got %d, want 11 (decremented toward baseHP=10)", n.curHP)
+	if n.CurHP() != 11 {
+		t.Errorf("curHP: got %d, want 11 (decremented toward baseHP=10)", n.CurHP())
 	}
 }
 

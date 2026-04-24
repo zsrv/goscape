@@ -1,6 +1,9 @@
 package world
 
-import "github.com/zsrv/goscape/pkg/rsbuf"
+import (
+	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/rsbuf"
+)
 
 func (n *Npc) Animate(id, delay int) {
 	n.animID = id
@@ -76,15 +79,17 @@ func (n *Npc) SetFaceEntity(entityIndex int) {
 }
 
 // Damage applies `amount` damage of `dmgType` to the NPC this tick, flagging
-// NpcMaskDamage so the NPC-info encoder emits the hitsplat. curHP decrements
-// by amount (clamped at 0). On overkill (amount > curHP), the emitted
-// damageAmt is clamped to the pre-hit curHP so the client shows only damage
-// actually dealt — matches TS Npc.applyDamage (Npc.ts:472-485). Negative
-// amount is coerced to 0 defensively so a script bug cannot heal the NPC.
+// NpcMaskDamage so the NPC-info encoder emits the hitsplat. levels[HP]
+// decrements by amount (clamped at 0). On overkill (amount > cur HP), the
+// emitted damageAmt is clamped to the pre-hit HP so the client shows only
+// damage actually dealt — matches TS Npc.applyDamage (Npc.ts:472-485).
+// Negative amount is coerced to 0 defensively so a script bug cannot heal
+// the NPC.
 //
-// baseHP is seeded at NPC construction (NewNpc) and refilled by ResetHP;
-// Damage no longer touches it. curHP is persistent state (S6d); scripts
-// calling NPC_STAT(0) on later ticks see real decremented HP.
+// baseLevels[HP] is seeded at NPC construction (NewNpc) and refilled by
+// ResetHP; Damage no longer touches it. levels[HP] is persistent state
+// (S6d; extended to the full array in NAI-17); scripts calling NPC_STAT(0)
+// on later ticks see real decremented HP.
 //
 // This method is a pure output op — no death / auto-retaliate / aggro logic.
 // Scripts that need death handling should check NPC_STAT(0) and fire their
@@ -93,18 +98,21 @@ func (n *Npc) Damage(amount, dmgType int) {
 	if amount < 0 {
 		amount = 0
 	}
-	n.damageAmt = min(amount, n.curHP)
+	cur := n.levels[objtype.NpcStatHitpoints]
+	n.damageAmt = min(amount, cur)
 	n.damageType = dmgType
-	n.curHP -= amount
-	if n.curHP < 0 {
-		n.curHP = 0
+	cur -= amount
+	if cur < 0 {
+		cur = 0
 	}
+	n.levels[objtype.NpcStatHitpoints] = cur
 	n.masks |= rsbuf.NpcMaskDamage
 }
 
 // ResetMasks clears mask bits + ephemeral per-tick state. Persistent fields
-// (animID, faceSquareX/Z, changeTypeID, curHP, baseHP) are retained across
-// ticks — S6d promoted curHP/baseHP from ephemeral to persistent.
+// (animID, faceSquareX/Z, changeTypeID, and the levels[]/baseLevels[]
+// arrays) are retained across ticks — S6d promoted HP to persistent, NAI-17
+// extended that to all 6 stats via the array migration.
 // damageAmt / damageType remain per-tick hitsplat payload. faceEntity is
 // retained unless the trailing-clear condition below fires.
 //
@@ -131,12 +139,18 @@ func (n *Npc) ResetMasks() {
 	}
 }
 
-// ResetHP re-seeds curHP + baseHP from the NPC's current NpcType.Stats
-// Hitpoints slot. Called by respawn paths (on NPC death-and-respawn) and by
-// AI sub-spec code that needs to restore max HP on some trigger. Safe on
-// nil typ (leaves both at 0).
+// ResetHP re-seeds the levels/baseLevels Hitpoints slot from the NPC's
+// current NpcType.Stats. Called by respawn paths (on NPC death-and-respawn)
+// and by AI sub-spec code that needs to restore max HP on some trigger.
+// Safe on nil typ or a Stats slice that doesn't cover the Hitpoints slot
+// (leaves both at 0).
 func (n *Npc) ResetHP() {
-	hp := initialHP(n.typ)
-	n.curHP = hp
-	n.baseHP = hp
+	if n.typ == nil || len(n.typ.Stats) <= objtype.NpcStatHitpoints {
+		n.levels[objtype.NpcStatHitpoints] = 0
+		n.baseLevels[objtype.NpcStatHitpoints] = 0
+		return
+	}
+	hp := int(n.typ.Stats[objtype.NpcStatHitpoints])
+	n.levels[objtype.NpcStatHitpoints] = hp
+	n.baseLevels[objtype.NpcStatHitpoints] = hp
 }

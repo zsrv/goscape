@@ -8,9 +8,10 @@ import (
 )
 
 // npcWithHP builds an Npc whose NpcType.Stats[NpcStatHitpoints] = maxHP,
-// then overrides curHP if needed. NewNpc seeds both curHP and baseHP from
-// Stats[NpcStatHitpoints] as of S6d, so the override is only meaningful
-// when the caller wants a starting curHP distinct from max.
+// then overrides levels[HP] if needed. NewNpc seeds both levels[HP] and
+// baseLevels[HP] from Stats[NpcStatHitpoints] as of S6d (NAI-17 extends
+// the array to all 6 stats), so the override is only meaningful when the
+// caller wants a starting HP distinct from max.
 func npcWithHP(t *testing.T, maxHP, curHP int) *Npc {
 	t.Helper()
 	typ := &objtype.NpcType{
@@ -18,18 +19,18 @@ func npcWithHP(t *testing.T, maxHP, curHP int) *Npc {
 	}
 	typ.Stats = []uint16{0, 0, 0, uint16(maxHP), 0, 0}
 	npc := NewNpc(0, 7, 3222, 3218, 0, typ)
-	npc.curHP = curHP
+	npc.levels[objtype.NpcStatHitpoints] = curHP
 	return npc
 }
 
 func TestNpcDamageDecrementsHPAndSetsMask(t *testing.T) {
 	npc := npcWithHP(t, 10, 10)
 	npc.Damage(3, 1)
-	if npc.curHP != 7 {
-		t.Errorf("curHP: got %d, want 7", npc.curHP)
+	if npc.CurHP() != 7 {
+		t.Errorf("curHP: got %d, want 7", npc.CurHP())
 	}
-	if npc.baseHP != 10 {
-		t.Errorf("baseHP: got %d, want 10", npc.baseHP)
+	if npc.BaseHP() != 10 {
+		t.Errorf("baseHP: got %d, want 10", npc.BaseHP())
 	}
 	if npc.damageAmt != 3 {
 		t.Errorf("damageAmt: got %d, want 3", npc.damageAmt)
@@ -45,8 +46,8 @@ func TestNpcDamageDecrementsHPAndSetsMask(t *testing.T) {
 func TestNpcDamageClampsAtZero(t *testing.T) {
 	npc := npcWithHP(t, 10, 2)
 	npc.Damage(5, 1)
-	if npc.curHP != 0 {
-		t.Errorf("curHP: got %d, want 0 (clamped)", npc.curHP)
+	if npc.CurHP() != 0 {
+		t.Errorf("curHP: got %d, want 0 (clamped)", npc.CurHP())
 	}
 	// damageAmt clamps to prev curHP on overkill — matches TS
 	// Npc.applyDamage (hitmarkDamage = current), not the raw requested amount.
@@ -58,8 +59,8 @@ func TestNpcDamageClampsAtZero(t *testing.T) {
 func TestNpcDamageNegativeAmountClampsToZero(t *testing.T) {
 	npc := npcWithHP(t, 10, 10)
 	npc.Damage(-3, 1)
-	if npc.curHP != 10 {
-		t.Errorf("curHP: got %d, want 10 (negative amount must not heal)", npc.curHP)
+	if npc.CurHP() != 10 {
+		t.Errorf("curHP: got %d, want 10 (negative amount must not heal)", npc.CurHP())
 	}
 	if npc.damageAmt != 0 {
 		t.Errorf("damageAmt: got %d, want 0 (negative amount clamped)", npc.damageAmt)
@@ -73,32 +74,33 @@ func TestNewNpcSeedsHPFromStats(t *testing.T) {
 	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}}
 	typ.Stats = []uint16{0, 0, 0, 20, 0, 0} // NpcStatHitpoints = 3
 	npc := NewNpc(0, 7, 3222, 3218, 0, typ)
-	if npc.curHP != 20 {
-		t.Errorf("curHP: got %d, want 20", npc.curHP)
+	if npc.CurHP() != 20 {
+		t.Errorf("curHP: got %d, want 20", npc.CurHP())
 	}
-	if npc.baseHP != 20 {
-		t.Errorf("baseHP: got %d, want 20", npc.baseHP)
+	if npc.BaseHP() != 20 {
+		t.Errorf("baseHP: got %d, want 20", npc.BaseHP())
 	}
 }
 
 func TestNewNpcWithEmptyStatsSeedsZeroHP(t *testing.T) {
-	// &NpcType{} has nil Stats, so initialHP returns 0.
+	// &NpcType{} has nil Stats, so the NAI-17 seeding loop runs zero
+	// iterations and levels[HP]/baseLevels[HP] stay zero-valued.
 	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}}
 	npc := NewNpc(0, 7, 3222, 3218, 0, typ)
-	if npc.curHP != 0 || npc.baseHP != 0 {
-		t.Errorf("curHP/baseHP: got %d/%d, want 0/0", npc.curHP, npc.baseHP)
+	if npc.CurHP() != 0 || npc.BaseHP() != 0 {
+		t.Errorf("curHP/baseHP: got %d/%d, want 0/0", npc.CurHP(), npc.BaseHP())
 	}
 }
 
 func TestNpcDamagePersistsAcrossResetMasks(t *testing.T) {
 	npc := npcWithHP(t, 10, 10)
 	npc.Damage(3, 1)
-	if npc.curHP != 7 {
-		t.Fatalf("pre-reset curHP: got %d, want 7", npc.curHP)
+	if npc.CurHP() != 7 {
+		t.Fatalf("pre-reset curHP: got %d, want 7", npc.CurHP())
 	}
 	npc.ResetMasks()
-	if npc.curHP != 7 {
-		t.Errorf("post-reset curHP: got %d, want 7 (persistent)", npc.curHP)
+	if npc.CurHP() != 7 {
+		t.Errorf("post-reset curHP: got %d, want 7 (persistent)", npc.CurHP())
 	}
 	if npc.damageAmt != -1 {
 		t.Errorf("damageAmt: got %d, want -1 (per-tick cleared)", npc.damageAmt)
@@ -109,35 +111,35 @@ func TestNpcBaseHPPersistsAcrossResetMasks(t *testing.T) {
 	npc := npcWithHP(t, 10, 10)
 	npc.Damage(3, 1)
 	npc.ResetMasks()
-	if npc.baseHP != 10 {
-		t.Errorf("post-reset baseHP: got %d, want 10 (persistent)", npc.baseHP)
+	if npc.BaseHP() != 10 {
+		t.Errorf("post-reset baseHP: got %d, want 10 (persistent)", npc.BaseHP())
 	}
 }
 
 func TestNpcResetHP(t *testing.T) {
 	npc := npcWithHP(t, 10, 10)
 	npc.Damage(7, 1)
-	if npc.curHP != 3 {
-		t.Fatalf("pre-reset curHP: got %d, want 3", npc.curHP)
+	if npc.CurHP() != 3 {
+		t.Fatalf("pre-reset curHP: got %d, want 3", npc.CurHP())
 	}
 	npc.ResetHP()
-	if npc.curHP != 10 {
-		t.Errorf("curHP after ResetHP: got %d, want 10", npc.curHP)
+	if npc.CurHP() != 10 {
+		t.Errorf("curHP after ResetHP: got %d, want 10", npc.CurHP())
 	}
-	if npc.baseHP != 10 {
-		t.Errorf("baseHP after ResetHP: got %d, want 10", npc.baseHP)
+	if npc.BaseHP() != 10 {
+		t.Errorf("baseHP after ResetHP: got %d, want 10", npc.BaseHP())
 	}
 }
 
 func TestNpcResetHPWithNilTypDirectConstruction(t *testing.T) {
 	// NewNpc would panic on nil typ (PatrolCoord / WanderRange / etc.), so
-	// build *Npc directly to exercise the initialHP nil-guard path via
-	// ResetHP. Any future caller that manually constructs an Npc must
-	// survive ResetHP cleanly.
+	// build *Npc directly to exercise the nil-typ guard in ResetHP. Any
+	// future caller that manually constructs an Npc must survive ResetHP
+	// cleanly.
 	npc := &Npc{}
 	npc.ResetHP()
-	if npc.curHP != 0 || npc.baseHP != 0 {
-		t.Errorf("after ResetHP on nil-typ npc: got %d/%d, want 0/0", npc.curHP, npc.baseHP)
+	if npc.CurHP() != 0 || npc.BaseHP() != 0 {
+		t.Errorf("after ResetHP on nil-typ npc: got %d/%d, want 0/0", npc.CurHP(), npc.BaseHP())
 	}
 }
 

@@ -1,6 +1,9 @@
 package world
 
-import "github.com/zsrv/goscape/pkg/script"
+import (
+	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/script"
+)
 
 // Compile-time check: *Npc satisfies script.ActiveNpc.
 var _ script.ActiveNpc = (*Npc)(nil)
@@ -33,21 +36,21 @@ func (n *Npc) NpcCategory() int {
 }
 
 // NpcStat returns the current (boosted) stat level for the given stat id.
-// S6a: only HP (id 0) is real; other stat ids return 0 (TODO: full NPC stats).
+// Reads n.levels[stat] — seeded from typ.Stats at NewNpc time and maintained
+// by ChangeType / Damage / processNpcRegen.
 func (n *Npc) NpcStat(stat int) int {
-	if stat == 0 {
-		return n.curHP
+	if stat < 0 || stat >= objtype.NpcStatCount {
+		return 0
 	}
-	return 0
+	return n.levels[stat]
 }
 
 // NpcBaseStat returns the base stat level for the given stat id.
-// S6a: only HP (id 0) is real; other stat ids return 0 (TODO: full NPC stats).
 func (n *Npc) NpcBaseStat(stat int) int {
-	if stat == 0 {
-		return n.baseHP
+	if stat < 0 || stat >= objtype.NpcStatCount {
+		return 0
 	}
-	return 0
+	return n.baseLevels[stat]
 }
 
 // NpcVarN reads the per-NPC var at id. Returns 0 for out-of-range ids
@@ -234,10 +237,10 @@ func (s *Server) processNpcRegen(n *Npc) {
 	}
 	n.regenClock = 0
 	switch {
-	case n.curHP < n.baseHP:
-		n.curHP++
-	case n.curHP > n.baseHP:
-		n.curHP--
+	case n.levels[objtype.NpcStatHitpoints] < n.baseLevels[objtype.NpcStatHitpoints]:
+		n.levels[objtype.NpcStatHitpoints]++
+	case n.levels[objtype.NpcStatHitpoints] > n.baseLevels[objtype.NpcStatHitpoints]:
+		n.levels[objtype.NpcStatHitpoints]--
 	}
 }
 

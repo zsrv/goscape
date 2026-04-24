@@ -806,3 +806,49 @@ func TestHandleNpcSetHuntModeWithoutActiveNpcErrors(t *testing.T) {
 		t.Errorf("error: got %q, want %q", got, want)
 	}
 }
+
+// TestNpcStatOutOfRange verifies defensive bounds checking on
+// NpcStat's stat parameter (Go-side; NAI-17-D2 deviation). Mock
+// returns 0 for any non-zero stat id, which covers the out-of-range
+// ids below. The production *Npc.NpcStat bounds check is exercised
+// via modules/world tests (TestNewNpcWithNilStatsStaysZero etc).
+func TestNpcStatOutOfRange(t *testing.T) {
+	npc := &mockNpc{curHP: 99} // populate so stat=0 would return non-zero
+	cases := []struct {
+		name string
+		id   int
+	}{
+		{"negative", -1},
+		{"at-count", 6},
+		{"way-beyond", 100},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			state := runNpcOp(t, npc, nil, OpNpcStat, []int{tc.id})
+			if got := state.PopInt(); got != 0 {
+				t.Errorf("NpcStat(%d): got %d, want 0 (out of range)", tc.id, got)
+			}
+		})
+	}
+}
+
+// TestNpcBaseStatOutOfRange mirrors TestNpcStatOutOfRange for NpcBaseStat.
+func TestNpcBaseStatOutOfRange(t *testing.T) {
+	npc := &mockNpc{baseHP: 99}
+	cases := []struct {
+		name string
+		id   int
+	}{
+		{"negative", -1},
+		{"at-count", 6},
+		{"way-beyond", 100},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			state := runNpcOp(t, npc, nil, OpNpcBaseStat, []int{tc.id})
+			if got := state.PopInt(); got != 0 {
+				t.Errorf("NpcBaseStat(%d): got %d, want 0 (out of range)", tc.id, got)
+			}
+		})
+	}
+}
