@@ -3,8 +3,10 @@ package world
 import (
 	"strings"
 
-	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
+	"github.com/zsrv/goscape/pkg/cache"
+	"github.com/zsrv/goscape/pkg/io/packet"
+	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
@@ -560,21 +562,28 @@ func normalizeSongName(name string) string {
 }
 
 // PlaySong normalizes the song name per TS Player.playSong
-// (Engine-TS/src/engine/entity/Player.ts:1902-1914) and early-returns
-// on empty.
+// (Engine-TS/src/engine/entity/Player.ts:1902-1914), looks up the
+// preloaded blob + CRC, and writes MidiSong to the client. Silent
+// no-op on empty name or missing PRELOADED entry (mirrors TS's
+// `if (song && crc)` guard at Player.ts:1910).
 //
-// S7h-D1: the subsequent TS PRELOADED + PRELOADED_CRC lookup and
-// MidiSong(name, crc, length) write from TS is not yet ported.
-// goscape lacks the PRELOADED music registry (zero rg hits at
-// HEAD=25bef29). No client packet is sent. The TestPlaySongNoWriteOut
-// absence-pin (player_script_test.go) escalates this deviation when
-// the write path is wired; retirement tracked as NAI-16-midi-encoders.
+// NAI-16 retires S7h-D1: the PRELOADED lookup and MidiSong write are
+// now wired. TestPlaySongWritesOut is the positive-pin; the miss-path
+// pins (TestPlaySong*ReturnsSilently) verify the silent-no-op guards.
 func (p *Player) PlaySong(name string) {
 	name = normalizeSongName(name)
 	if name == "" {
 		return
 	}
-	// deferred (S7h-D1): PRELOADED lookup + p.writeOut(gameserver.OpMidiSong, ...)
+	key := name + ".mid"
+	song, okSong := cache.Preloaded[key]
+	crc, okCRC := cache.PreloadedCRC[key]
+	if !okSong || !okCRC {
+		return
+	}
+	buf := packet.NewPacket(make([]byte, 0, 16+len(song)))
+	encodeMidiSong(buf, name, crc, uint32(len(song)))
+	p.writeOut(gameserver.OpMidiSong, buf.Bytes())
 }
 
 // normalizeJingleName mirrors TS Player.playJingle's normalization step
@@ -589,19 +598,24 @@ func normalizeJingleName(name string) string {
 }
 
 // PlayJingle normalizes the jingle name per TS Player.playJingle
-// (Engine-TS/src/engine/entity/Player.ts:1916-1926) and early-returns
-// on empty.
+// (Engine-TS/src/engine/entity/Player.ts:1916-1926), looks up the
+// preloaded blob, and writes MidiJingle to the client. Silent no-op
+// on empty name or missing PRELOADED entry (mirrors TS's `if (jingle)`
+// guard at Player.ts:1923).
 //
-// S7h-D1: the subsequent TS PRELOADED lookup and MidiJingle(delay, data)
-// write from TS is not yet ported. No client packet is sent. The
-// TestPlayJingleNoWriteOut absence-pin (player_script_test.go)
-// escalates this deviation when the write path is wired; retirement
-// tracked as NAI-16-midi-encoders.
+// NAI-16 retires S7h-D1 (jingle side). TestPlayJingleWritesOut pins
+// the positive path; TestPlayJingleMissingFromPreloadedReturnsSilently
+// pins the silent-no-op guard.
 func (p *Player) PlayJingle(delay int, name string) {
-	_ = delay // preserved for future MidiJingle encoder wiring
 	name = normalizeJingleName(name)
 	if name == "" {
 		return
 	}
-	// deferred (S7h-D1): PRELOADED lookup + p.writeOut(gameserver.OpMidiJingle, ...)
+	jingle, ok := cache.Preloaded[name+".mid"]
+	if !ok {
+		return
+	}
+	buf := packet.NewPacket(make([]byte, 0, 2+len(jingle)))
+	encodeMidiJingle(buf, uint16(delay), jingle)
+	p.writeOut(gameserver.OpMidiJingle, buf.Bytes())
 }

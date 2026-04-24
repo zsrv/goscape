@@ -3,6 +3,7 @@ package world
 import (
 	"testing"
 
+	"github.com/zsrv/goscape/pkg/cache"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -417,15 +418,63 @@ func TestNormalizeSongNameEmptyReturnsEmpty(t *testing.T) {
 	}
 }
 
-// TestPlaySongNoWriteOut pins S7h-D1: (*Player).PlaySong must NOT
-// issue a writeOut until PRELOADED music / CRC infra lands (tracked as
-// NAI-16-midi-encoders). When the encoder ports, this test fails —
-// the failure is the escalation signal to retire S7h-D1.
-func TestPlaySongNoWriteOut(t *testing.T) {
+// seedCachedMidi seeds both cache.Preloaded and cache.PreloadedCRC under
+// `name` and registers a t.Cleanup to remove both entries after the test.
+// Mirrors the production PreloadClient write shape without touching the
+// filesystem. Usable for both song and jingle test paths (PlayJingle
+// ignores the CRC entry; the wasted write is harmless).
+func seedCachedMidi(t *testing.T, name string, data []byte, crc uint32) {
+	t.Helper()
+	cache.Preloaded[name] = data
+	cache.PreloadedCRC[name] = crc
+	t.Cleanup(func() {
+		delete(cache.Preloaded, name)
+		delete(cache.PreloadedCRC, name)
+	})
+}
+
+// TestPlaySongWritesOut pins NAI-16's retirement of S7h-D1:
+// (*Player).PlaySong now issues a writeOut after the PRELOADED lookup.
+// Failure signal = "write-path broken or PRELOADED seeding broken."
+// Replaces the prior absence-pin (which was the S7h-D1 escalation
+// signal — now satisfied by NAI-16).
+func TestPlaySongWritesOut(t *testing.T) {
+	seedCachedMidi(t, "adventure.mid", []byte{0x01, 0x02, 0x03}, 0xDEADBEEF)
 	p, _ := newTestPlayer(t)
-	p.PlaySong("harmony1")
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = enc
+	p.PlaySong("adventure")
+	if n := p.client.bufw.Buffered(); n == 0 {
+		t.Errorf("PlaySong wrote 0 bytes to c.bufw; want >0 (NAI-16 positive pin)")
+	}
+}
+
+// TestPlaySongMissingFromPreloadedReturnsSilently pins TS's
+// `if (song && crc)` guard at Player.ts:1910. PlaySong with a name that
+// is not in PRELOADED must be a silent no-op.
+func TestPlaySongMissingFromPreloadedReturnsSilently(t *testing.T) {
+	// Do NOT seed the cache for "missing.mid".
+	p, _ := newTestPlayer(t)
+	p.PlaySong("missing")
 	if n := p.client.bufw.Buffered(); n != 0 {
-		t.Errorf("PlaySong wrote %d bytes to c.bufw; want 0 (S7h-D1 absence-pin)", n)
+		t.Errorf("PlaySong with missing PRELOADED key wrote %d bytes; want 0 (silent no-op)", n)
+	}
+}
+
+// TestPlaySongSongSeededButCRCMissingReturnsSilently pins the `||`
+// conjunction in the (*Player).PlaySong guard: both Preloaded AND
+// PreloadedCRC must be populated for the write to fire. Defensive
+// guard against future test seeding that populates only one map.
+func TestPlaySongSongSeededButCRCMissingReturnsSilently(t *testing.T) {
+	// Seed Preloaded but not PreloadedCRC.
+	cache.Preloaded["orphan.mid"] = []byte{0xAA}
+	t.Cleanup(func() {
+		delete(cache.Preloaded, "orphan.mid")
+	})
+	p, _ := newTestPlayer(t)
+	p.PlaySong("orphan")
+	if n := p.client.bufw.Buffered(); n != 0 {
+		t.Errorf("PlaySong with PRELOADED-only seed wrote %d bytes; want 0", n)
 	}
 }
 
@@ -461,14 +510,26 @@ func TestNormalizeJingleNameEmptyReturnsEmpty(t *testing.T) {
 	}
 }
 
-// TestPlayJingleNoWriteOut pins S7h-D1: (*Player).PlayJingle must NOT
-// issue a writeOut until PRELOADED music infra lands (NAI-16). When
-// the encoder ports, this test fails — signal to retire S7h-D1.
-func TestPlayJingleNoWriteOut(t *testing.T) {
+// TestPlayJingleWritesOut pins NAI-16's retirement of S7h-D1 (jingle side):
+// (*Player).PlayJingle now issues a writeOut after the PRELOADED lookup.
+func TestPlayJingleWritesOut(t *testing.T) {
+	seedCachedMidi(t, "fanfare.mid", []byte{0xAB, 0xCD}, 0)
 	p, _ := newTestPlayer(t)
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = enc
 	p.PlayJingle(3, "fanfare")
+	if n := p.client.bufw.Buffered(); n == 0 {
+		t.Errorf("PlayJingle wrote 0 bytes to c.bufw; want >0 (NAI-16 positive pin)")
+	}
+}
+
+// TestPlayJingleMissingFromPreloadedReturnsSilently pins TS's
+// `if (jingle)` guard at Player.ts:1923.
+func TestPlayJingleMissingFromPreloadedReturnsSilently(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.PlayJingle(3, "missing")
 	if n := p.client.bufw.Buffered(); n != 0 {
-		t.Errorf("PlayJingle wrote %d bytes to c.bufw; want 0 (S7h-D1 absence-pin)", n)
+		t.Errorf("PlayJingle with missing PRELOADED key wrote %d bytes; want 0 (silent no-op)", n)
 	}
 }
 
