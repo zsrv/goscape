@@ -465,9 +465,13 @@ func TestProcessNpcEventQueueSkipsDelayedNpcs(t *testing.T) {
 // TestNpcTurnEventsDespawnEnqueuesEvent (enqueue-no-fire).
 func TestProcessNpcEventQueueHappyPathFire(t *testing.T) {
 	s := newServerForScriptTest(t)
-	s.currentTick = 100
 	n := newNpcForLifecycleTest(t)
 	n.server = s
+	// Pre-seed activeScript so the post-call nil check is a positive
+	// witness that ClearActiveScript dispatched (matches the pattern
+	// in TestResumeOrFinishNpcErrorPathClearsScript at
+	// modules/world/npc_script_test.go:306).
+	n.activeScript = &script.ScriptState{}
 
 	sf := &script.ScriptFile{
 		Name:    "ai_despawn_stub",
@@ -485,7 +489,7 @@ func TestProcessNpcEventQueueHappyPathFire(t *testing.T) {
 		t.Errorf("npcEventQueue: got len %d, want 0 (queue drained after fire)", len(s.npcEventQueue))
 	}
 	if n.activeScript != nil {
-		t.Error("activeScript: got non-nil, want nil (Finished execution should ClearActiveScript)")
+		t.Error("activeScript: got non-nil, want nil (Finished execution should have cleared the pre-seeded state via ClearActiveScript)")
 	}
 }
 
