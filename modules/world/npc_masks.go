@@ -20,10 +20,19 @@ func (n *Npc) Say(msg []byte) {
 // Semantics:
 //   - No-op when duration < 1 (TS guard; rejects 0 and negatives in
 //     one check) OR when the NPC is dead (TS `!this.isActive`).
-//   - On success: writes typeId, recomputes uid, writes lifecycleTick
-//     (consumed by the Events block at npc_ai.go:27-43 to fire
-//     revertType when it hits 0 on RESPAWN+alive), writes the mask
-//     payload field changeTypeID, raises NpcMaskChangeType.
+//   - On success: writes typeId, writes the mask payload field
+//     changeTypeID, raises NpcMaskChangeType, recomputes uid. Then:
+//   - If newType == baseType AND lifecycle == RESPAWN, sets
+//     lifecycleTick = -1 (TS `setLifeCycle(-1)` fast-path at
+//     TS:444-445). This suppresses the Events-block revert, which
+//     is what TS does — AND, crucially for Go fidelity, prevents
+//     revertType()'s unconditional tail from wiping queue /
+//     waypoints / hunt state / HP N ticks later (revertType at
+//     modules/world/npc.go:261-285 only gates the typeId/uid/typ
+//     write on typeId != baseType; the rest runs every call).
+//   - Otherwise, lifecycleTick = duration (TS `setLifeCycle(duration)`
+//     at TS:447), feeds the Events block at npc_ai.go:27-43 to
+//     fire revertType when it hits 0 on RESPAWN+alive.
 //
 // DEFERRED (TS parity gaps, left for a follow-up sub-spec):
 //   - Stats-reset branch (TS:436-443) — requires baseLevels/levels
@@ -33,20 +42,19 @@ func (n *Npc) Say(msg []byte) {
 //     opcode (opcode 2506 is a reserved constant at
 //     pkg/script/opcode.go:243 with no handler). Wiring KEEPALL
 //     requires the stats-array infra above, so both land together.
-//   - The `type === baseType && RESPAWN → setLifeCycle(-1)` fast-path
-//     (TS:444-445) — minor corner case; current behavior writes
-//     lifecycleTick=duration unconditionally, which fires a harmless
-//     no-op revert at tick 0 (revertType is idempotent when
-//     typeId == baseType).
 func (n *Npc) ChangeType(newType, duration int) {
 	if duration < 1 || n.dead {
 		return
 	}
 	n.typeId = newType
-	n.uid = (n.typeId << 16) | n.nid
-	n.lifecycleTick = duration
 	n.changeTypeID = newType
 	n.masks |= rsbuf.NpcMaskChangeType
+	n.uid = (newType << 16) | n.nid
+	if newType == n.baseType && n.lifecycle == NpcLifecycleRespawn {
+		n.lifecycleTick = -1
+	} else {
+		n.lifecycleTick = duration
+	}
 }
 
 func (n *Npc) SpotAnim(id, height, delay int) {

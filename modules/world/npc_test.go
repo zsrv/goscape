@@ -99,6 +99,47 @@ func TestNpcChangeTypeDeadNoOp(t *testing.T) {
 	}
 }
 
+// TestNpcChangeTypeBaseTypeRespawnFastPath guards the TS:444-445
+// fast-path: morphing a RESPAWN NPC to its own baseType must set
+// lifecycleTick to -1 (never-fires), NOT duration. Without this
+// fast-path, the Events block would fire revertType N ticks later,
+// and revertType()'s unconditional tail (queue/waypoints/hunt/HP
+// resets) would wipe state that the caller didn't ask to lose.
+func TestNpcChangeTypeBaseTypeRespawnFastPath(t *testing.T) {
+	n := newTestNpc(1)
+	n.baseType = 7
+	n.typeId = 42 // simulate a prior changetype to a non-base type
+	n.lifecycle = NpcLifecycleRespawn
+
+	n.ChangeType(7, 100) // morphing BACK to baseType
+
+	if n.typeId != 7 {
+		t.Errorf("typeId: got %d, want 7 (writes still happen)", n.typeId)
+	}
+	if n.lifecycleTick != -1 {
+		t.Errorf("lifecycleTick: got %d, want -1 (fast-path must suppress revert schedule)", n.lifecycleTick)
+	}
+	if n.masks&rsbuf.NpcMaskChangeType == 0 {
+		t.Error("NpcMaskChangeType should still be set (fast-path only skips lifecycle schedule)")
+	}
+}
+
+// TestNpcChangeTypeBaseTypeDespawnNoFastPath guards that the fast-path
+// is gated on lifecycle == RESPAWN. A Despawn NPC morphing to baseType
+// still gets the normal lifecycleTick = duration.
+func TestNpcChangeTypeBaseTypeDespawnNoFastPath(t *testing.T) {
+	n := newTestNpc(1)
+	n.baseType = 7
+	n.typeId = 42
+	n.lifecycle = NpcLifecycleDespawn
+
+	n.ChangeType(7, 100)
+
+	if n.lifecycleTick != 100 {
+		t.Errorf("lifecycleTick: got %d, want 100 (fast-path is RESPAWN-only)", n.lifecycleTick)
+	}
+}
+
 func TestNpcFaceCoord(t *testing.T) {
 	n := newTestNpc(1)
 	n.FaceCoord(100, 200)
