@@ -77,3 +77,32 @@ func (c serverConfigsView) InvType(id int) *objtype.InvType {
 	}
 	return c.s.invTypes.Configs[id]
 }
+
+func (c serverConfigsView) DbTableType(id int) *objtype.DbTableType {
+	if c.s == nil || c.s.dbTableTypes == nil {
+		return nil
+	}
+	if id < 0 || id >= len(c.s.dbTableTypes.Configs) {
+		return nil
+	}
+	return c.s.dbTableTypes.Configs[id]
+}
+
+func (c serverConfigsView) DbRowType(id int) *objtype.DbRowType {
+	if c.s == nil || c.s.dbRowTypes == nil {
+		return nil
+	}
+	if id < 0 || id >= len(c.s.dbRowTypes.Configs) {
+		return nil
+	}
+	return c.s.dbRowTypes.Configs[id]
+}
+
+// DbRowsInTable returns the pre-computed row IDs for the given table
+// (S7d-D4). Returns nil when the catalogue is absent or no rows match.
+func (c serverConfigsView) DbRowsInTable(tableID int) []int {
+	if c.s == nil || c.s.dbRowTypes == nil {
+		return nil
+	}
+	return c.s.dbRowTypes.RowsByTable[tableID]
+}

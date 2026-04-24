@@ -63,16 +63,18 @@ type Server struct {
 	// Empty until populated by non-4a code. Listeners with Source==-1 read from here.
 	invs map[int]*inventory.Inventory
 
-	paramTypes  *objtype.ParamTypeConfigs
-	objTypes    *objtype.ObjTypeConfigs
-	invTypes    *objtype.InvTypeConfigs
-	varpTypes   *objtype.VarpTypeConfigs
-	varsTypes   *objtype.VarsTypeConfigs
-	enumTypes   *objtype.EnumTypeConfigs
-	structTypes *objtype.StructTypeConfigs
-	locTypes    *objtype.LocTypeConfigs
-	configsView serverConfigsView
-	invLookup   invLookupView
+	paramTypes   *objtype.ParamTypeConfigs
+	objTypes     *objtype.ObjTypeConfigs
+	invTypes     *objtype.InvTypeConfigs
+	dbTableTypes *objtype.DbTableTypeConfigs
+	dbRowTypes   *objtype.DbRowTypeConfigs
+	varpTypes    *objtype.VarpTypeConfigs
+	varsTypes    *objtype.VarsTypeConfigs
+	enumTypes    *objtype.EnumTypeConfigs
+	structTypes  *objtype.StructTypeConfigs
+	locTypes     *objtype.LocTypeConfigs
+	configsView  serverConfigsView
+	invLookup    invLookupView
 
 	// world-scoped var state for PUSH_VARS / POP_VARS.
 	vars        []int32
@@ -147,9 +149,21 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 	if err != nil {
 		return nil, fmt.Errorf("load inv types: %w", err)
 	}
+
+	dbTableTypes, err := objtype.LoadDbTableTypes(cfg.CachePath)
+	if err != nil {
+		return nil, fmt.Errorf("load dbtable types: %w", err)
+	}
+
+	dbRowTypes, err := objtype.LoadDbRowTypes(cfg.CachePath)
+	if err != nil {
+		return nil, fmt.Errorf("load dbrow types: %w", err)
+	}
 	s.paramTypes = params
 	s.objTypes = objTypes
 	s.invTypes = invTypes
+	s.dbTableTypes = dbTableTypes
+	s.dbRowTypes = dbRowTypes
 
 	varpTypes, err := objtype.LoadVarpTypes(cfg.CachePath)
 	if err != nil {
