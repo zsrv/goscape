@@ -55,6 +55,30 @@ type InvLookup interface {
 	Get(self ActivePlayer, typeID int) *inventory.Inventory
 }
 
+// NpcLookup is the script→world bridge for NPC_FIND family opcodes. All
+// methods return the matching NPC as script.ActiveNpc or nil when no
+// match. Implementations iterate the world NPC registry; see
+// serverNpcLookup (modules/world/npc_script_lookup.go) for the
+// production impl.
+//
+// huntvis accepts HuntVisOff/LineOfSight/LineOfWalk (pkg/objtype.HuntVis*)
+// but the current impl does not filter on it (deviation S7f-D1).
+// Callers must still validate via checkHuntVis.
+type NpcLookup interface {
+	// FindClosestNpcByType: NPC_FIND semantics. Square-bounded by dist
+	// from (level, x, z); filter by typeID; closest by euclidean-squared
+	// with later-match-wins on ties.
+	FindClosestNpcByType(level, x, z, dist, typeID, huntvis int) ActiveNpc
+
+	// FindClosestNpcByCategory: NPC_FINDCAT semantics. Same shape as
+	// FindClosestNpcByType but filter via NpcType.Category == cat.
+	FindClosestNpcByCategory(level, x, z, dist, cat, huntvis int) ActiveNpc
+
+	// FindNpcAtExactCoord: NPC_FINDEXACT semantics. Returns the first
+	// NPC at exactly (level, x, z) whose type matches typeID, or nil.
+	FindNpcAtExactCoord(level, x, z, typeID int) ActiveNpc
+}
+
 // Frame holds a suspended call frame for GOSUB / RETURN.
 type Frame struct {
 	Script       *ScriptFile
@@ -82,6 +106,11 @@ type ScriptState struct {
 	// Callers set this after Init if the script uses UID-keyed player
 	// ops. Nil disables the lookup (handlers degrade to "not found").
 	PlayerLookup PlayerLookup
+
+	// Npcs is the NPC-lookup surface for NPC_FIND family opcodes.
+	// Callers set this after Init if the script uses find opcodes.
+	// Nil disables (handlers treat a nil surface as "no match", push 0).
+	Npcs NpcLookup
 
 	PC      int
 	OpCount int

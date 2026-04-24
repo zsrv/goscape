@@ -462,3 +462,38 @@ func (m *mockPlayer) SetInteractionScriptLoc(loc ActiveLoc, op int) {
 func (m *mockPlayer) SetInteractionScriptNpc(npc ActiveNpc, op int) {
 	m.lastSetInteractionScriptNpc = append(m.lastSetInteractionScriptNpc, mockNpcOp{Npc: npc, Op: op})
 }
+
+// mockNpcLookup is a test double for script.NpcLookup. Tests set the
+// per-method return fields and assert call-capture afterwards. Mirrors
+// the mockPlayer "value + counter" pattern (runner_test.go:224-228,
+// S7e precedent). lastArgs captures the most recent call's args as an
+// []int so handler tests can cross-check arg ordering.
+type mockNpcLookup struct {
+	byType     ActiveNpc
+	byCategory ActiveNpc
+	atCoord    ActiveNpc
+
+	byTypeCalls     int
+	byCategoryCalls int
+	atCoordCalls    int
+
+	lastArgs []int
+}
+
+func (m *mockNpcLookup) FindClosestNpcByType(level, x, z, dist, typeID, huntvis int) ActiveNpc {
+	m.byTypeCalls++
+	m.lastArgs = []int{level, x, z, dist, typeID, huntvis}
+	return m.byType
+}
+
+func (m *mockNpcLookup) FindClosestNpcByCategory(level, x, z, dist, cat, huntvis int) ActiveNpc {
+	m.byCategoryCalls++
+	m.lastArgs = []int{level, x, z, dist, cat, huntvis}
+	return m.byCategory
+}
+
+func (m *mockNpcLookup) FindNpcAtExactCoord(level, x, z, typeID int) ActiveNpc {
+	m.atCoordCalls++
+	m.lastArgs = []int{level, x, z, typeID}
+	return m.atCoord
+}

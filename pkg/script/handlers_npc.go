@@ -5,6 +5,70 @@ import (
 	"fmt"
 )
 
+// checkCoord mirrors TS CoordValid (ScriptValidators.ts:109) — validates
+// the packed int is in [0, 2147483647] and unpacks to (level, x, z).
+// Uses the package-local unpackCoord helper at handlers_player.go:18.
+func checkCoord(v int, op string) (level, x, z int, err error) {
+	if v < 0 || v > 2147483647 {
+		return 0, 0, 0, fmt.Errorf("%s: coord out of range (%d)", op, v)
+	}
+	level, x, z = unpackCoord(v)
+	return
+}
+
+// checkNpcType mirrors TS NpcTypeValid (ScriptValidators.ts:111) — range
+// + registry presence check, collapsed into a single Configs.NpcType(id)
+// nil check per the S7c checkInvType pattern at handlers_player.go:75.
+func checkNpcType(s *ScriptState, id int, op string) error {
+	if s.Configs == nil || s.Configs.NpcType(id) == nil {
+		return fmt.Errorf("%s: no NpcType with value (%d) found", op, id)
+	}
+	return nil
+}
+
+// checkHuntVis mirrors TS HuntVisValid (ScriptValidators.ts:125) — range
+// [HuntVisOff=0, HuntVisLineOfWalk=2]. Constants live in
+// pkg/objtype/hunttype.go:22-26 and match TS values.
+func checkHuntVis(v int, op string) error {
+	if v < 0 || v > 2 {
+		return fmt.Errorf("%s: huntvis out of range (%d)", op, v)
+	}
+	return nil
+}
+
+// checkCategoryType partially mirrors TS CategoryTypeValid
+// (ScriptValidators.ts:123). Goscape has no CategoryType config loader,
+// so the count-bound check is absent — only null-sentinel rejection
+// survives. Deviation S7f-D3. Follow-up: count-bound check when the
+// CategoryType loader lands.
+func checkCategoryType(v int, op string) error {
+	if v == -1 {
+		return fmt.Errorf("%s: category null(-1)", op)
+	}
+	return nil
+}
+
+// setActiveNpcSlot writes the found NPC to either ActiveNpc (primary) or
+// OtherActiveNpc (secondary) based on the handler's IntOperand and sets
+// the corresponding Pointer flag. Mirrors TS
+// state.pointerAdd(ActiveNpc[state.intOperand]) at NpcOps.ts:365, 398, 105.
+// IntOperand==0 → ActiveNpc/PtrActiveNpc (.npc syntax).
+// IntOperand==1 → OtherActiveNpc/PtrActiveNpc2 (.npc2 syntax).
+// Any other value panics (compiler invariant — bytecode only emits 0/1).
+func setActiveNpcSlot(s *ScriptState, npc ActiveNpc) {
+	operand := s.Script.IntOperands[s.PC]
+	switch operand {
+	case 0:
+		s.ActiveNpc = npc
+		s.Pointers |= PtrActiveNpc
+	case 1:
+		s.OtherActiveNpc = npc
+		s.Pointers |= PtrActiveNpc2
+	default:
+		panic(fmt.Sprintf("setActiveNpcSlot: invalid IntOperand %d", operand))
+	}
+}
+
 // requireActiveNpc returns an error tagged with the opcode name if the
 // script has no ActiveNpc bound. All NPC_* read handlers start with this
 // check to mirror TS `checkedHandler(ActiveNpc, ...)`.

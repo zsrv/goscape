@@ -8,6 +8,171 @@ import (
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
+// --- S7f: validator unit tests -----------------------------------------
+
+func TestCheckCoord(t *testing.T) {
+	cases := []struct {
+		name    string
+		in      int
+		wantErr bool
+		wantL   int
+		wantX   int
+		wantZ   int
+	}{
+		{"zero", 0, false, 0, 0, 0},
+		{"valid packed", (2 << 28) | (3200 << 14) | 3300, false, 2, 3200, 3300},
+		{"max valid", 2147483647, false, 3, 0x3fff, 0x3fff},
+		{"negative", -1, true, 0, 0, 0},
+		{"beyond max", -2147483648, true, 0, 0, 0}, // int overflow wrap
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			level, x, z, err := checkCoord(tc.in, "TEST")
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("checkCoord(%d): want error, got nil", tc.in)
+				}
+				if !strings.Contains(err.Error(), "TEST:") {
+					t.Errorf("error should carry op prefix: %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("checkCoord(%d): unexpected error: %v", tc.in, err)
+			}
+			if level != tc.wantL || x != tc.wantX || z != tc.wantZ {
+				t.Errorf("checkCoord(%d) = (%d, %d, %d), want (%d, %d, %d)",
+					tc.in, level, x, z, tc.wantL, tc.wantX, tc.wantZ)
+			}
+		})
+	}
+}
+
+func TestCheckNpcType(t *testing.T) {
+	// Build a minimal ScriptState with a Configs that reports NpcType 7 as present.
+	s := &ScriptState{Configs: newTestConfigsWithNpcTypes(map[int]bool{7: true})}
+
+	if err := checkNpcType(s, 7, "TEST"); err != nil {
+		t.Errorf("checkNpcType(7) with loaded type: unexpected error %v", err)
+	}
+	if err := checkNpcType(s, 8, "TEST"); err == nil {
+		t.Errorf("checkNpcType(8) with unloaded type: want error")
+	} else if !strings.Contains(err.Error(), "TEST:") || !strings.Contains(err.Error(), "8") {
+		t.Errorf("error should carry op prefix and offending id: %v", err)
+	}
+	if err := checkNpcType(s, -1, "TEST"); err == nil {
+		t.Errorf("checkNpcType(-1): want error")
+	}
+
+	// Nil Configs: always errors.
+	s2 := &ScriptState{}
+	if err := checkNpcType(s2, 7, "TEST"); err == nil {
+		t.Errorf("checkNpcType with nil Configs: want error")
+	}
+}
+
+func TestCheckHuntVis(t *testing.T) {
+	for _, v := range []int{0, 1, 2} {
+		if err := checkHuntVis(v, "TEST"); err != nil {
+			t.Errorf("checkHuntVis(%d): unexpected error %v", v, err)
+		}
+	}
+	for _, v := range []int{-1, 3, 99} {
+		if err := checkHuntVis(v, "TEST"); err == nil {
+			t.Errorf("checkHuntVis(%d): want error", v)
+		}
+	}
+}
+
+func TestCheckCategoryType(t *testing.T) {
+	// Partial validator: only -1 rejected (S7f-D3).
+	if err := checkCategoryType(-1, "TEST"); err == nil {
+		t.Errorf("checkCategoryType(-1): want error (null sentinel)")
+	}
+	for _, v := range []int{0, 1, 100, 999999} {
+		if err := checkCategoryType(v, "TEST"); err != nil {
+			t.Errorf("checkCategoryType(%d): partial validator should accept; got %v", v, err)
+		}
+	}
+}
+
+// newTestConfigsWithNpcTypes builds a Configs that reports any id in present
+// as a valid NpcType. Uses the shared mockConfigs type from handlers_config_test.go.
+func newTestConfigsWithNpcTypes(present map[int]bool) Configs {
+	mc := &mockConfigs{
+		npcs: make(map[int]*objtype.NpcType),
+	}
+	for id := range present {
+		mc.npcs[id] = &objtype.NpcType{ConfigType: objtype.ConfigType{ID: id}}
+	}
+	return mc
+}
+
+func TestSetActiveNpcSlot_OperandZero(t *testing.T) {
+	s := &ScriptState{
+		Script: &ScriptFile{IntOperands: []int32{0}},
+		PC:     0,
+	}
+	npc := &mockNpc{typeID: 42}
+	setActiveNpcSlot(s, npc)
+	if s.ActiveNpc != npc {
+		t.Errorf("ActiveNpc: got %v, want %v", s.ActiveNpc, npc)
+	}
+	if s.OtherActiveNpc != nil {
+		t.Errorf("OtherActiveNpc: got %v, want nil", s.OtherActiveNpc)
+	}
+	if s.Pointers&PtrActiveNpc == 0 {
+		t.Error("PtrActiveNpc should be set")
+	}
+	if s.Pointers&PtrActiveNpc2 != 0 {
+		t.Error("PtrActiveNpc2 should NOT be set")
+	}
+}
+
+func TestSetActiveNpcSlot_OperandOne(t *testing.T) {
+	s := &ScriptState{
+		Script: &ScriptFile{IntOperands: []int32{1}},
+		PC:     0,
+	}
+	npc := &mockNpc{typeID: 42}
+	setActiveNpcSlot(s, npc)
+	if s.OtherActiveNpc != npc {
+		t.Errorf("OtherActiveNpc: got %v, want %v", s.OtherActiveNpc, npc)
+	}
+	if s.ActiveNpc != nil {
+		t.Errorf("ActiveNpc: got %v, want nil", s.ActiveNpc)
+	}
+	if s.Pointers&PtrActiveNpc2 == 0 {
+		t.Error("PtrActiveNpc2 should be set")
+	}
+	if s.Pointers&PtrActiveNpc != 0 {
+		t.Error("PtrActiveNpc should NOT be set")
+	}
+}
+
+func TestSetActiveNpcSlot_InvalidOperand(t *testing.T) {
+	s := &ScriptState{
+		Script: &ScriptFile{IntOperands: []int32{2}},
+		PC:     0,
+	}
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("setActiveNpcSlot with operand=2 should panic")
+		}
+	}()
+	setActiveNpcSlot(s, &mockNpc{typeID: 42})
+}
+
+// TestNpcLookupInterfaceShape is a compile-time assertion that the
+// NpcLookup interface has the three expected methods. If this test
+// compiles, the interface is correctly defined.
+func TestNpcLookupInterfaceShape(t *testing.T) {
+	var _ NpcLookup = (*mockNpcLookup)(nil)
+	s := &ScriptState{}
+	s.Npcs = &mockNpcLookup{}
+	_ = s.Npcs
+}
+
 type mockEnqueueCall struct {
 	trigger ServerTriggerType
 	delay   int
