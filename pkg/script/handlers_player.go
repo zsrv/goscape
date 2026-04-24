@@ -671,9 +671,6 @@ func handlePFindUID(s *ScriptState) error {
 //
 // Pointer gate: require active_player (TS ScriptOpcodePointers.ts:272
 // require: ['active_player']).
-//
-// S7h-D1: downstream (*Player).PlaySong currently performs TS name
-// normalization + early-return only; no MidiSong client packet is sent.
 func handleMidiSong(s *ScriptState) error {
 	name := s.PopString()
 	if err := checkStringNotNull(name, "MIDI_SONG"); err != nil {
@@ -699,9 +696,6 @@ func handleMidiSong(s *ScriptState) error {
 // Pop order (top-of-stack first): delay (NumberNotNull), then name
 // (StringNotNull). Matches TS `check(state.popInt(), NumberNotNull)` /
 // `check(state.popString(), StringNotNull)` evaluation order.
-//
-// S7h-D1: downstream (*Player).PlayJingle currently performs TS name
-// normalization + early-return only; no MidiJingle client packet is sent.
 func handleMidiJingle(s *ScriptState) error {
 	delay := s.PopInt()
 	if err := checkNotNull(delay, "MIDI_JINGLE"); err != nil {

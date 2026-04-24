@@ -581,7 +581,7 @@ func (p *Player) PlaySong(name string) {
 	if !okSong || !okCRC {
 		return
 	}
-	buf := packet.NewPacket(make([]byte, 0, 16+len(song)))
+	buf := packet.NewPacket(make([]byte, 0, len(name)+10))
 	encodeMidiSong(buf, name, crc, uint32(len(song)))
 	p.writeOut(gameserver.OpMidiSong, buf.Bytes())
 }
