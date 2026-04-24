@@ -559,6 +559,10 @@ func TestNpcRegenIteratesAllSixStats(t *testing.T) {
 		n.server = s
 		n.regenInterval = 1
 		n.regenClock = 1 // will tick to 2 >= 1 → fires
+		// Direct writes to non-HP slots: no production opcode currently
+		// mutates levels[0..2,4,5]. This simulates what a future stat-boost
+		// or stat-drain opcode would do, so we can assert the regen loop
+		// iterates beyond HP per TS Npc.ts:515-523.
 		// Seed drains on non-HP slots.
 		n.levels[objtype.NpcStatStrength] = 5
 		n.levels[objtype.NpcStatMagic] = 8
