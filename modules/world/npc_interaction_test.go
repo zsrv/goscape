@@ -569,7 +569,7 @@ func TestNpcInOperableDistance(t *testing.T) {
 }
 
 func TestNpcInApproachDistance(t *testing.T) {
-	typ := &objtype.NpcType{}
+	typ := &objtype.NpcType{Size: 1}
 	n := NewNpc(1, 42, 100, 100, 0, typ)
 
 	tests := []struct {
@@ -585,7 +585,7 @@ func TestNpcInApproachDistance(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			target := &Npc{x: tc.tx, z: tc.tz, level: 0}
+			target := &Npc{x: tc.tx, z: tc.tz, level: 0, typ: &objtype.NpcType{Size: 1}}
 			if got := n.inApproachDistance(tc.rng, target); got != tc.want {
 				t.Errorf("got %t, want %t", got, tc.want)
 			}
@@ -993,4 +993,97 @@ func TestApproachEntitySize(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestNpcInApproachDistanceMultiTileTargetShiftsLoSStartTile guards the
+// target-size flow through approachEntitySize → HasLineOfSight's srcSize
+// arg (NAI-18). Fixture exploits lineCoordinate's size-2 start-tile
+// shift: target-as-src at srcZ=3106 with srcSize=2 starts the ray at
+// startZ=3107 (target's N-edge); with srcSize=1, start=3106.
+//
+// FlagLoc placed at (3094, 3107) — this flag is checked only at the
+// ray start tile (linevalidator.go:54), NOT in traversal masks. So
+// size=2 fails immediately (start tile flagged) and size=1 passes
+// (ray walks through 3107 without a FlagLoc check).
+func TestNpcInApproachDistanceMultiTileTargetShiftsLoSStartTile(t *testing.T) {
+	build := func(t *testing.T, targetSize uint8) (*Npc, *Npc) {
+		t.Helper()
+		s := newServerForScriptTest(t)
+		s.gamemap = gamemap.New(discardLogger())
+		s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3094, 3106, 0)
+		s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3094, 3107, 0)
+		s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3094, 3108, 0)
+		s.gamemap.Pathfinder.Flags.Add(3094, 3107, 0, collision.FlagLoc)
+
+		self := NewNpc(1, 0, 3094, 3108, 0, &objtype.NpcType{Size: 1})
+		self.server = s
+
+		target := NewNpc(2, 0, 3094, 3106, 0, &objtype.NpcType{Size: targetSize})
+		return self, target
+	}
+
+	t.Run("size2_start_tile_flagged", func(t *testing.T) {
+		self, target := build(t, 2)
+		if self.inApproachDistance(5, target) {
+			t.Error("inApproachDistance: got true, want false — target Size=2 " +
+				"should shift ray start to FlagLoc'd tile (3094, 3107)")
+		}
+	})
+
+	t.Run("size1_start_tile_clear", func(t *testing.T) {
+		self, target := build(t, 1)
+		if !self.inApproachDistance(5, target) {
+			t.Error("inApproachDistance: got false, want true — target Size=1 " +
+				"should start ray at (3094, 3106); FlagLoc at 3107 is not " +
+				"in traversal masks")
+		}
+	})
+}
+
+// TestNpcInApproachDistanceMultiTileSelfShiftsLoSEndTile guards the
+// self-size flow through int(n.typ.Size) → HasLineOfSight's destWidth
+// AND destLength args (NAI-18). Fixture exploits lineCoordinate's
+// size-2 end-tile shift: self-as-dest at destZ=3106 with destLength=2
+// ends the ray at endZ=3107; with destLength=1, end=3106.
+//
+// FlagWallNorthProjBlocker placed at (3094, 3106). Travelling south
+// (dest is south of src), the zFlags mask is LineSightBlockedNorth =
+// FlagLocProjBlocker | FlagWallNorthProjBlocker. Only FlagLocProjBlocker
+// is cleared at the end tile (linevalidator.go:112), so
+// FlagWallNorthProjBlocker blocks traversal when the ray enters 3106.
+// Size=2 ray stops at 3107 → passes. Size=1 ray enters 3106 → blocked.
+func TestNpcInApproachDistanceMultiTileSelfShiftsLoSEndTile(t *testing.T) {
+	build := func(t *testing.T, selfSize uint8) (*Npc, *Player) {
+		t.Helper()
+		s := newServerForScriptTest(t)
+		s.gamemap = gamemap.New(discardLogger())
+		s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3094, 3106, 0)
+		s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3094, 3107, 0)
+		s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3094, 3108, 0)
+		s.gamemap.Pathfinder.Flags.Add(3094, 3106, 0, collision.FlagWallNorthProjBlocker)
+
+		self := NewNpc(1, 0, 3094, 3106, 0, &objtype.NpcType{Size: selfSize})
+		self.server = s
+
+		target := addPlayerToServer(t, s, 1, 3094, 3108, 0)
+		return self, target
+	}
+
+	t.Run("size2_end_tile_clear", func(t *testing.T) {
+		self, target := build(t, 2)
+		if !self.inApproachDistance(5, target) {
+			t.Error("inApproachDistance: got false, want true — self Size=2 " +
+				"should terminate ray at (3094, 3107), not reach " +
+				"FlagWallNorthProjBlocker at (3094, 3106)")
+		}
+	})
+
+	t.Run("size1_end_tile_blocked", func(t *testing.T) {
+		self, target := build(t, 1)
+		if self.inApproachDistance(5, target) {
+			t.Error("inApproachDistance: got true, want false — self Size=1 " +
+				"should terminate ray at (3094, 3106), where " +
+				"FlagWallNorthProjBlocker blocks entry from the north")
+		}
+	})
 }

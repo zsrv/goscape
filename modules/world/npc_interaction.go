@@ -568,9 +568,12 @@ func (n *Npc) inApproachDistance(rng int, target entity) bool {
 	// LoS gate — TS PathingEntity.ts:402-405. Target-as-source + self-as-dest
 	// (NPC-backward quirk); FlagBlockPlayers as extraFlag (GameMap.ts:433-435).
 	// gamemap==nil short-circuits to gate-pass; see NAI-12 spec § error handling.
+	targetSize, _ := approachEntitySize(target)
+	selfSize := int(n.typ.Size)
 	if n.server != nil && n.server.gamemap != nil &&
 		!n.server.gamemap.Pathfinder.LineValidator.HasLineOfSight(
-			n.level, tx, tz, n.x, n.z, 1, 1, 1, collision.FlagBlockPlayers) {
+			n.level, tx, tz, n.x, n.z, targetSize, selfSize, selfSize,
+			collision.FlagBlockPlayers) {
 		return false
 	}
 	return !(dx == 0 && dz == 0)
