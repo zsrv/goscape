@@ -284,3 +284,76 @@ func TestNpcBaseStatAllSlots(t *testing.T) {
 		}
 	}
 }
+
+// TestChangeTypeResetsStatsWithBoostPreservation verifies the TS
+// Npc.ts:436-443 boost/drain-preserving formula:
+//
+//	levels[i] = max(newBase - (baseLevels[i] - levels[i]), 0)
+//	baseLevels[i] = newBase
+//
+// When the pre-morph NPC has stat boosts/drains, the morph preserves
+// the SAME delta against the new type's base.
+func TestChangeTypeResetsStatsWithBoostPreservation(t *testing.T) {
+	s := newServerForScriptTest(t)
+	baseTyp := &objtype.NpcType{Stats: []uint16{10, 10, 10, 10, 10, 10}}
+	newTyp := &objtype.NpcType{Stats: []uint16{20, 15, 25, 20, 12, 30}}
+	s.npcTypes = &objtype.NPCTypeConfigs{Configs: []*objtype.NpcType{baseTyp, newTyp}}
+
+	n := NewNpc(1, 0, 100, 100, 0, baseTyp)
+	n.server = s
+	// Seed deltas: ATK drain=2 (levels=8), DEF boost=2 (levels=12),
+	// STR level (no delta), HP drain=5 (levels=5), RNG boost=3 (levels=13),
+	// MAG (no delta).
+	n.levels[objtype.NpcStatAttack] = 8
+	n.levels[objtype.NpcStatDefence] = 12
+	n.levels[objtype.NpcStatStrength] = 10
+	n.levels[objtype.NpcStatHitpoints] = 5
+	n.levels[objtype.NpcStatRanged] = 13
+	n.levels[objtype.NpcStatMagic] = 10
+
+	n.ChangeType(1, 100) // morph to newTyp
+
+	// Expected: newBase − drain  (drain positive = drained; negative = boosted)
+	//   ATK: 20 − 2 = 18
+	//   DEF: 15 − (−2) = 17
+	//   STR: 25 − 0 = 25
+	//   HP:  20 − 5 = 15
+	//   RNG: 12 − (−3) = 15
+	//   MAG: 30 − 0 = 30
+	wantLevels := []int{18, 17, 25, 15, 15, 30}
+	wantBase := []int{20, 15, 25, 20, 12, 30}
+	for i := range objtype.NpcStatCount {
+		if n.levels[i] != wantLevels[i] {
+			t.Errorf("levels[%d]: got %d, want %d", i, n.levels[i], wantLevels[i])
+		}
+		if n.baseLevels[i] != wantBase[i] {
+			t.Errorf("baseLevels[%d]: got %d, want %d", i, n.baseLevels[i], wantBase[i])
+		}
+	}
+	if !n.resetOnRevert {
+		t.Errorf("resetOnRevert: got false, want true (ChangeType default)")
+	}
+}
+
+// TestChangeTypeResetsStatsClampedAtZero verifies that an oversize drain
+// against a smaller new base clamps to zero via TS's Math.max(..., 0).
+func TestChangeTypeResetsStatsClampedAtZero(t *testing.T) {
+	s := newServerForScriptTest(t)
+	baseTyp := &objtype.NpcType{Stats: []uint16{100, 10, 10, 10, 10, 10}}
+	newTyp := &objtype.NpcType{Stats: []uint16{5, 10, 10, 10, 10, 10}}
+	s.npcTypes = &objtype.NPCTypeConfigs{Configs: []*objtype.NpcType{baseTyp, newTyp}}
+
+	n := NewNpc(1, 0, 100, 100, 0, baseTyp)
+	n.server = s
+	// ATK drain=90 (base=100, level=10). New base=5. 5 − 90 = −85 → clamp 0.
+	n.levels[objtype.NpcStatAttack] = 10
+
+	n.ChangeType(1, 100)
+
+	if got := n.levels[objtype.NpcStatAttack]; got != 0 {
+		t.Errorf("levels[ATK]: got %d, want 0 (clamped from -85)", got)
+	}
+	if got := n.baseLevels[objtype.NpcStatAttack]; got != 5 {
+		t.Errorf("baseLevels[ATK]: got %d, want 5", got)
+	}
+}

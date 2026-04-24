@@ -17,35 +17,31 @@ func (n *Npc) Say(msg []byte) {
 }
 
 // ChangeType morphs the NPC to newType and schedules a revert to
-// baseType after `duration` ticks. Mirrors TS Npc.changeType at
+// baseType after `duration` ticks. Resets all 6 stats onto the new
+// type's base values using a boost/drain-preserving formula. Mirrors
+// TS Npc.changeType at Engine-TS/.../Npc.ts:427-449 with reset=true.
+// No-op when duration < 1 OR when the NPC is dead.
+func (n *Npc) ChangeType(newType, duration int) {
+	n.changeTypeImpl(newType, duration, true)
+}
+
+// changeTypeImpl is the shared body behind ChangeType and the
+// Task 3 ChangeTypeKeepAll. Mirrors TS Npc.changeType at
 // Engine-TS/.../Npc.ts:427-449.
 //
 // Semantics:
-//   - No-op when duration < 1 (TS guard; rejects 0 and negatives in
-//     one check) OR when the NPC is dead (TS `!this.isActive`).
-//   - On success: writes typeId, writes the mask payload field
-//     changeTypeID, raises NpcMaskChangeType, recomputes uid. Then:
-//   - If newType == baseType AND lifecycle == RESPAWN, sets
-//     lifecycleTick = -1 (TS `setLifeCycle(-1)` fast-path at
-//     TS:444-445). This suppresses the Events-block revert, which
-//     is what TS does — AND, crucially for Go fidelity, prevents
-//     revertType()'s unconditional tail from wiping queue /
-//     waypoints / hunt state / HP N ticks later (revertType at
-//     modules/world/npc.go:261-285 only gates the typeId/uid/typ
-//     write on typeId != baseType; the rest runs every call).
-//   - Otherwise, lifecycleTick = duration (TS `setLifeCycle(duration)`
-//     at TS:447), feeds the Events block at npc_ai.go:27-43 to
-//     fire revertType when it hits 0 on RESPAWN+alive.
-//
-// DEFERRED (TS parity gaps, left for a follow-up sub-spec):
-//   - Stats-reset branch (TS:436-443) — requires baseLevels/levels
-//     arrays on *Npc which don't exist yet. Current engine has only
-//     curHP/baseHP; a full 6-stat array port is a separate concern.
-//   - The optional `reset=false` flag and its NPC_CHANGETYPE_KEEPALL
-//     opcode (opcode 2506 is a reserved constant at
-//     pkg/script/opcode.go:243 with no handler). Wiring KEEPALL
-//     requires the stats-array infra above, so both land together.
-func (n *Npc) ChangeType(newType, duration int) {
+//   - No-op when duration < 1 (TS guard; rejects 0 and negatives) OR
+//     when the NPC is dead (TS `!this.isActive`).
+//   - On success: writes typeId, changeTypeID, CHANGE_TYPE mask,
+//     recomputes uid, writes resetOnRevert=reset.
+//   - If reset: runs the TS:436-443 stats-reset loop against the new
+//     type's stats (lookupType returns nil when the server/registry
+//     is unavailable, in which case the reset silently skips — same
+//     tolerance revertType already exhibits).
+//   - Fast-path TS:444-445: if newType==baseType && lifecycle==RESPAWN,
+//     lifecycleTick=-1 (suppresses Events-block revert). Otherwise
+//     lifecycleTick=duration.
+func (n *Npc) changeTypeImpl(newType, duration int, reset bool) {
 	if duration < 1 || n.dead {
 		return
 	}
@@ -53,10 +49,52 @@ func (n *Npc) ChangeType(newType, duration int) {
 	n.changeTypeID = newType
 	n.masks |= rsbuf.NpcMaskChangeType
 	n.uid = (newType << 16) | n.nid
+	n.resetOnRevert = reset
+
+	if reset {
+		if newTyp := n.lookupType(newType); newTyp != nil {
+			n.resetStatsForType(newTyp)
+		}
+	}
+
 	if newType == n.baseType && n.lifecycle == NpcLifecycleRespawn {
 		n.lifecycleTick = -1
 	} else {
 		n.lifecycleTick = duration
+	}
+}
+
+// lookupType returns the NpcType config for typeId, or nil if server
+// or registry is unavailable or typeId is out of bounds. Mirrors the
+// guard shape revertType already uses (npc.go pre-NAI-17 lines 265-268).
+func (n *Npc) lookupType(typeId int) *objtype.NpcType {
+	if n.server == nil || n.server.npcTypes == nil {
+		return nil
+	}
+	if typeId < 0 || typeId >= len(n.server.npcTypes.Configs) {
+		return nil
+	}
+	return n.server.npcTypes.Configs[typeId]
+}
+
+// resetStatsForType applies the TS Npc.ts:436-443 boost/drain-preserving
+// stats reset against newTyp's Stats. For each slot i:
+//
+//	drain := baseLevels[i] - levels[i]     // positive: drained; negative: boosted
+//	levels[i] = max(newBase - drain, 0)
+//	baseLevels[i] = newBase
+//
+// Iterates over min(NpcStatCount, len(newTyp.Stats)) slots.
+func (n *Npc) resetStatsForType(newTyp *objtype.NpcType) {
+	for i := 0; i < objtype.NpcStatCount && i < len(newTyp.Stats); i++ {
+		newBase := int(newTyp.Stats[i])
+		drain := n.baseLevels[i] - n.levels[i]
+		v := newBase - drain
+		if v < 0 {
+			v = 0
+		}
+		n.levels[i] = v
+		n.baseLevels[i] = newBase
 	}
 }
 
