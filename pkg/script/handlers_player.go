@@ -65,6 +65,19 @@ func checkNotNull(v int, op string) error {
 	return nil
 }
 
+// checkStringNotNull mirrors TS StringNotNull
+// (ScriptInputStringNotNullValidator at ScriptValidators.ts:50-55) —
+// rejects empty strings, accepts any non-empty string. Used by handlers
+// wrapping a popString result with TS check(..., StringNotNull). TS
+// error literal: "An input string was null(-1)." — goscape drops the
+// "(-1)" suffix since strings have no -1 sentinel (the sentinel is "").
+func checkStringNotNull(v, op string) error {
+	if v == "" {
+		return fmt.Errorf("%s: input string was null", op)
+	}
+	return nil
+}
+
 // checkInvType mirrors TS InvTypeValid (ScriptValidators.ts:122) — a
 // ScriptInputConfigTypeValidator over InvType. Both the range check
 // (0 <= id < InvType.count) and the registry-present check collapse

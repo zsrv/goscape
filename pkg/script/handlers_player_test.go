@@ -1759,3 +1759,19 @@ func TestAllowDesignRequiresActivePlayer(t *testing.T) {
 		t.Errorf("allowDesignCalls: got %d, want 0 (setter must not be called when gate fails)", player.allowDesignCalls)
 	}
 }
+
+func TestCheckStringNotNullEmpty(t *testing.T) {
+	err := checkStringNotNull("", "MIDI_SONG")
+	if err == nil {
+		t.Fatal("empty string: want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "MIDI_SONG: input string was null") {
+		t.Errorf("error message %q does not contain %q", err.Error(), "MIDI_SONG: input string was null")
+	}
+}
+
+func TestCheckStringNotNullNonEmpty(t *testing.T) {
+	if err := checkStringNotNull("harmony1", "MIDI_SONG"); err != nil {
+		t.Errorf("non-empty string: want nil, got %v", err)
+	}
+}
