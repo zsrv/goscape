@@ -23,7 +23,8 @@ func TestCheckCoord(t *testing.T) {
 		{"valid packed", (2 << 28) | (3200 << 14) | 3300, false, 2, 3200, 3300},
 		{"max valid", 2147483647, false, 3, 0x3fff, 0x3fff},
 		{"negative", -1, true, 0, 0, 0},
-		{"beyond max", -2147483648, true, 0, 0, 0}, // int overflow wrap
+		{"beyond max", 2147483648, true, 0, 0, 0}, // one past upper bound (requires int >= 64-bit)
+		{"very negative", -2147483648, true, 0, 0, 0},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
