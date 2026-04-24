@@ -28,6 +28,8 @@ func (m *mockConfigs) InvType(id int) *objtype.InvType       { return m.invs[id]
 func (m *mockConfigs) DbTableType(id int) *objtype.DbTableType { return nil }
 func (m *mockConfigs) DbRowType(id int) *objtype.DbRowType     { return nil }
 func (m *mockConfigs) DbRowsInTable(tableID int) []int         { return nil }
+func (m *mockConfigs) FindDbRowsInt(query int32, packed int) []int { return nil }
+func (m *mockConfigs) FindDbRowsStr(query string, packed int) []int { return nil }
 
 // newTestConfigs seeds a fresh mockConfigs with the canonical fixture used
 // across handler tests.

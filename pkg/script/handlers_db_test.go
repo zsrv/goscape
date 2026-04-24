@@ -13,6 +13,7 @@ type fakeDbConfigs struct {
 	tables  map[int]*objtype.DbTableType
 	rows    map[int]*objtype.DbRowType
 	rowsByT map[int][]int
+	index   *objtype.DbTableIndex // nil-safe; nil means DB_FIND* tests can't run
 }
 
 func (f *fakeDbConfigs) ObjType(id int) *objtype.ObjType       { return nil }
@@ -27,6 +28,18 @@ func (f *fakeDbConfigs) DbTableType(id int) *objtype.DbTableType {
 }
 func (f *fakeDbConfigs) DbRowType(id int) *objtype.DbRowType { return f.rows[id] }
 func (f *fakeDbConfigs) DbRowsInTable(tableID int) []int     { return f.rowsByT[tableID] }
+func (f *fakeDbConfigs) FindDbRowsInt(query int32, packed int) []int {
+	if f.index == nil {
+		return nil
+	}
+	return f.index.FindInt(query, packed)
+}
+func (f *fakeDbConfigs) FindDbRowsStr(query string, packed int) []int {
+	if f.index == nil {
+		return nil
+	}
+	return f.index.FindStr(query, packed)
+}
 
 // newDbState builds a ScriptState with Configs wired for DB tests.
 func newDbState(cfg *fakeDbConfigs) *ScriptState {

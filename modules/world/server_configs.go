@@ -106,3 +106,20 @@ func (c serverConfigsView) DbRowsInTable(tableID int) []int {
 	}
 	return c.s.dbRowTypes.RowsByTable[tableID]
 }
+
+// FindDbRowsInt delegates to the DbTableIndex built at world bootstrap.
+// Returns nil if the server or index is uninitialized.
+func (c serverConfigsView) FindDbRowsInt(query int32, packed int) []int {
+	if c.s == nil || c.s.dbTableIndex == nil {
+		return nil
+	}
+	return c.s.dbTableIndex.FindInt(query, packed)
+}
+
+// FindDbRowsStr — string-valued variant of FindDbRowsInt.
+func (c serverConfigsView) FindDbRowsStr(query string, packed int) []int {
+	if c.s == nil || c.s.dbTableIndex == nil {
+		return nil
+	}
+	return c.s.dbTableIndex.FindStr(query, packed)
+}

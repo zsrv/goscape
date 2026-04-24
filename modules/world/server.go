@@ -68,6 +68,7 @@ type Server struct {
 	invTypes     *objtype.InvTypeConfigs
 	dbTableTypes *objtype.DbTableTypeConfigs
 	dbRowTypes   *objtype.DbRowTypeConfigs
+	dbTableIndex *objtype.DbTableIndex
 	varpTypes    *objtype.VarpTypeConfigs
 	varsTypes    *objtype.VarsTypeConfigs
 	enumTypes    *objtype.EnumTypeConfigs
@@ -165,6 +166,7 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 	s.invTypes = invTypes
 	s.dbTableTypes = dbTableTypes
 	s.dbRowTypes = dbRowTypes
+	s.dbTableIndex = objtype.BuildDbTableIndex(dbTableTypes, dbRowTypes)
 
 	varpTypes, err := objtype.LoadVarpTypes(cfg.CachePath)
 	if err != nil {

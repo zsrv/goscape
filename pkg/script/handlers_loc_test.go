@@ -27,6 +27,8 @@ func (f *fakeConfigs) InvType(id int) *objtype.InvType       { return nil }
 func (f *fakeConfigs) DbTableType(id int) *objtype.DbTableType { return nil }
 func (f *fakeConfigs) DbRowType(id int) *objtype.DbRowType     { return nil }
 func (f *fakeConfigs) DbRowsInTable(tableID int) []int         { return nil }
+func (f *fakeConfigs) FindDbRowsInt(query int32, packed int) []int { return nil }
+func (f *fakeConfigs) FindDbRowsStr(query string, packed int) []int { return nil }
 
 // newLocOpState builds a ScriptState with ActiveLoc bound, Configs wired,
 // and a single int on the stack (the op index).
