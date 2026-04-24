@@ -287,7 +287,9 @@ func dbFindRefine(s *ScriptState, withCount bool, op string) error {
 	}
 
 	prev := s.DbRowQuery
-	refined := make([]int, 0, len(prev)) // fresh slice — prev aliases DbRowQuery backing array
+	// fresh slice; do NOT use append(s.DbRowQuery[:0], ...) here — prev
+	// aliases the same backing array and writes would corrupt the iteration.
+	refined := make([]int, 0, len(prev))
 	for _, id := range prev {
 		if _, ok := foundSet[id]; ok {
 			refined = append(refined, id)
