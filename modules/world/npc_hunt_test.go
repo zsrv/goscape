@@ -698,6 +698,15 @@ func TestHuntPlayersCheckNotCombatSelf(t *testing.T) {
 		}
 	})
 
+	t.Run("varn-minus-seven-excluded", func(t *testing.T) {
+		_, n, _ := setup(t, 100, 93) // 93+8 = 101 > 100 → fire
+		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: 0}
+		hunted := n.huntPlayers(n.server, hunt)
+		if len(hunted) != 0 {
+			t.Fatalf("got %d, want 0 (varn==currentTick-7 → window-inclusive, filter fires)", len(hunted))
+		}
+	})
+
 	t.Run("varn-minus-eight-included", func(t *testing.T) {
 		_, n, _ := setup(t, 100, 92) // 92+8 = 100, 100 > 100 is false → pass
 		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: 0}
@@ -706,12 +715,25 @@ func TestHuntPlayersCheckNotCombatSelf(t *testing.T) {
 			t.Fatalf("got %d, want 1 (varn==currentTick-8 → exclusive boundary, filter passes)", len(hunted))
 		}
 	})
+
+	t.Run("varn-zero-well-past-window-included", func(t *testing.T) {
+		_, n, _ := setup(t, 100, 0) // fresh NPC, no combat recorded
+		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: 0}
+		hunted := n.huntPlayers(n.server, hunt)
+		if len(hunted) != 1 {
+			t.Fatalf("got %d, want 1 (varn==0, currentTick=100 → well past window)", len(hunted))
+		}
+	})
 }
 
 // TestHuntPlayersCheckNotCombatSelfOutsideGuard guards that the filter
 // does NOT fire when the outer combat guard is skipped (target == p OR
 // multi-combat zone). Mirrors TestHuntPlayersCombatGuard but with the
-// self-side filter.
+// self-side filter. The guard's other asymmetric cases
+// (ismulti-true-skips-guard, gamemap-nil-applies-guard,
+// target-differs-applies-guard) are covered transitively by NAI-15's
+// TestHuntPlayersCombatGuard; this test only exercises the one case
+// needed to prove the new filter shares the same guard.
 func TestHuntPlayersCheckNotCombatSelfOutsideGuard(t *testing.T) {
 	s := newServerForScriptTest(t)
 	s.gamemap = gamemap.New(discardLogger())
