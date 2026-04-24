@@ -372,3 +372,90 @@ func TestHandleDbGetFieldCount_InvalidTable(t *testing.T) {
 		t.Fatal("expected validator error, got nil")
 	}
 }
+
+// TestHandleDbGetRowTable_Basic verifies a valid row pushes its TableID.
+func TestHandleDbGetRowTable_Basic(t *testing.T) {
+	s := newDbState(buildDbFixture())
+	s.PushInt(0)
+
+	if err := handleDbGetRowTable(s); err != nil {
+		t.Fatalf("handleDbGetRowTable: %v", err)
+	}
+	if s.ISP != 1 || s.IntStack[0] != 7 {
+		t.Errorf("got ISP=%d top=%d; want ISP=1 top=7", s.ISP, s.IntStack[0])
+	}
+}
+
+// TestHandleDbGetRowTable_InvalidRow returns validator error.
+func TestHandleDbGetRowTable_InvalidRow(t *testing.T) {
+	s := newDbState(buildDbFixture())
+	s.PushInt(99)
+	if err := handleDbGetRowTable(s); err == nil {
+		t.Fatal("expected validator error, got nil")
+	}
+}
+
+// TestHandleDbListAll_PopulatesState verifies state is set and no count
+// is pushed.
+func TestHandleDbListAll_PopulatesState(t *testing.T) {
+	s := newDbState(buildDbFixture())
+	s.PushInt(7)
+
+	if err := handleDbListAll(s); err != nil {
+		t.Fatalf("handleDbListAll: %v", err)
+	}
+	if s.DbTable == nil || s.DbTable.ID != 7 {
+		t.Errorf("DbTable: got %v, want table id=7", s.DbTable)
+	}
+	if s.DbRow != -1 {
+		t.Errorf("DbRow: got %d, want -1", s.DbRow)
+	}
+	if len(s.DbRowQuery) != 2 || s.DbRowQuery[0] != 0 || s.DbRowQuery[1] != 1 {
+		t.Errorf("DbRowQuery: got %v, want [0 1]", s.DbRowQuery)
+	}
+	if s.ISP != 0 {
+		t.Errorf("ISP: got %d, want 0 (no count pushed for DB_LISTALL)", s.ISP)
+	}
+}
+
+// TestHandleDbListAll_EmptyTable verifies an empty table leaves the query
+// empty and the cursor reset.
+func TestHandleDbListAll_EmptyTable(t *testing.T) {
+	cfg := buildDbFixture()
+	cfg.rowsByT[7] = nil // make table 7 empty
+	s := newDbState(cfg)
+	s.PushInt(7)
+
+	if err := handleDbListAll(s); err != nil {
+		t.Fatalf("handleDbListAll: %v", err)
+	}
+	if len(s.DbRowQuery) != 0 {
+		t.Errorf("DbRowQuery: got %v, want empty", s.DbRowQuery)
+	}
+}
+
+// TestHandleDbListAll_InvalidTable returns validator error.
+func TestHandleDbListAll_InvalidTable(t *testing.T) {
+	s := newDbState(buildDbFixture())
+	s.PushInt(999)
+	if err := handleDbListAll(s); err == nil {
+		t.Fatal("expected validator error, got nil")
+	}
+}
+
+// TestHandleDbListAllWithCount_PushesCount verifies state population and
+// count push.
+func TestHandleDbListAllWithCount_PushesCount(t *testing.T) {
+	s := newDbState(buildDbFixture())
+	s.PushInt(7)
+
+	if err := handleDbListAllWithCount(s); err != nil {
+		t.Fatalf("handleDbListAllWithCount: %v", err)
+	}
+	if s.DbTable == nil || s.DbRow != -1 {
+		t.Errorf("state: got DbTable=%v DbRow=%d", s.DbTable, s.DbRow)
+	}
+	if s.ISP != 1 || s.IntStack[0] != 2 {
+		t.Errorf("count push: got ISP=%d top=%d; want ISP=1 top=2", s.ISP, s.IntStack[0])
+	}
+}

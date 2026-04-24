@@ -113,8 +113,11 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpLocOp: handleLocOp,
 
 	// DB ops — stub (empty table). Real impl ships with a DB sub-spec.
-	OpDbGetField:      handleDbGetField,
-	OpDbGetFieldCount: handleDbGetFieldCount,
+	OpDbGetField:         handleDbGetField,
+	OpDbGetFieldCount:    handleDbGetFieldCount,
+	OpDbListAllWithCount: handleDbListAllWithCount,
+	OpDbGetRowTable:      handleDbGetRowTable,
+	OpDbListAll:          handleDbListAll,
 
 	// S5a: string ops.
 	OpAppend:              handleAppend,

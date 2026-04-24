@@ -109,3 +109,41 @@ func handleDbGetField(s *ScriptState) error {
 	}
 	return nil
 }
+
+// handleDbGetRowTable (DB_GETROWTABLE, opcode 7505) pops a row id and
+// pushes the row's TableID. Mirrors TS DbOps.ts:175.
+func handleDbGetRowTable(s *ScriptState) error {
+	row := s.PopInt()
+	if err := checkDbRow(s, row, "DB_GETROWTABLE"); err != nil {
+		return err
+	}
+	s.PushInt(s.Configs.DbRowType(row).TableID)
+	return nil
+}
+
+// dbListAll is the shared helper behind DB_LISTALL / DB_LISTALL_WITH_COUNT.
+// Selects the given table as the cursor's current DbTable, resets DbRow
+// to -1, and populates DbRowQuery with all row IDs in ascending order.
+// When withCount is true, also pushes len(DbRowQuery). Mirrors TS
+// DbOps.ts:25.
+func dbListAll(s *ScriptState, withCount bool) error {
+	table := s.PopInt()
+	if err := checkDbTable(s, table, "DB_LISTALL"); err != nil {
+		return err
+	}
+
+	s.DbTable = s.Configs.DbTableType(table)
+	s.DbRow = -1
+	s.DbRowQuery = append(s.DbRowQuery[:0], s.Configs.DbRowsInTable(table)...)
+
+	if withCount {
+		s.PushInt(len(s.DbRowQuery))
+	}
+	return nil
+}
+
+// handleDbListAll (DB_LISTALL, opcode 7510).
+func handleDbListAll(s *ScriptState) error { return dbListAll(s, false) }
+
+// handleDbListAllWithCount (DB_LISTALL_WITH_COUNT, opcode 7504).
+func handleDbListAllWithCount(s *ScriptState) error { return dbListAll(s, true) }
