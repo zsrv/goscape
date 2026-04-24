@@ -233,44 +233,63 @@ func (n *Npc) SetHuntMode(mode int) {
 	n.huntMode = mode
 }
 
-// revertType restores the NPC to its baseline type and resets state
-// that should not persist across a respawn or revert-from-changetype.
-// Matches TS Npc.resetEntity at Engine-TS/.../Npc.ts:280-317.
+// revertType restores the NPC to its baseline type. Called from the
+// Events block (npc_ai.go:37-40) when lifecycleTick hits 0 on
+// RESPAWN+alive, and from the respawn path on revival.
 //
-// What revertType does:
-//   - restores typeId to baseType (for changetype'd NPCs)
-//   - recomputes uid from the restored typeId
-//   - resets the typ pointer to the baseType's NpcType config (when
-//     server + npcTypes are wired)
-//   - reseeds levels[HP]/baseLevels[HP] from typ.Stats (NAI-17; Task 4
-//     expands this to the full 6-stat array + resetOnRevert branching)
-//   - clears the script queue
-//   - clears waypoints
-//   - sets tele = true + raises NpcMaskChangeType
-//   - resets hunt fields (NAI-7): huntRange/huntMode from typ,
-//     huntClock=0, huntTarget=nil. Matches TS Npc.ts:309-312.
+// Branches on resetOnRevert (written by changeTypeImpl):
+//   - resetOnRevert=false (KEEPALL path): TS Npc.ts:1086-1090 light path.
+//     Restore typeId/uid + raise CHANGE_TYPE mask. No stats reset, no
+//     queue clear, no waypoint clear, no hunt-field reset. Intended
+//     for short-lived morphs that must preserve combat state.
+//   - resetOnRevert=true (default, CHANGETYPE path): heavy-path behavior
+//     matching TS resetEntity at Engine-TS/.../Npc.ts:280-317 —
+//     inline reset of typeId/uid/typ, full 6-slot stats reseed
+//     (TS resetEntity:287-290; expanded from S6d's HP-only reseed),
+//     queue clear, waypoint clear, tele flag + CHANGE_TYPE mask, and
+//     hunt-field reset (NAI-7; TS Npc.ts:309-312).
 //
-// What revertType does NOT do (intentional):
+// What revertType does NOT do on either branch (intentional):
 //   - varn resets (future; VarNpc subsystem not yet wired)
 //   - activeScript clear (TS behaviour: a revert does not cancel an
 //     in-flight script)
+//
+// NAI-17-D1 (tracked deviation): TS's heavy path is World.removeNpc +
+// World.addNpc — a despawn+respawn that re-runs the constructor. Go
+// does an INLINE reset instead, pre-existing since S6d. See spec §8.
+//
+// Tail re-arm: sets resetOnRevert = true on BOTH branches so a
+// subsequent CHANGETYPE on the same NPC starts from the default. TS
+// gets this for free via the ctor rerun; Go must re-arm explicitly.
 func (n *Npc) revertType() {
+	if !n.resetOnRevert {
+		// Light path — TS Npc.ts:1086-1090.
+		if n.typeId != n.baseType {
+			n.typeId = n.baseType
+			n.uid = (n.typeId << 16) | n.nid
+		}
+		n.masks |= rsbuf.NpcMaskChangeType
+		n.resetOnRevert = true
+		return
+	}
+
+	// DEVIATION NAI-17-D1: inline reset; see doc comment above.
+	// Heavy path — inline reset matching TS resetEntity:280-317 semantics
+	// (minus the World.removeNpc/addNpc structural call).
 	if n.typeId != n.baseType {
 		n.typeId = n.baseType
 		n.uid = (n.typeId << 16) | n.nid
-		if n.server != nil && n.server.npcTypes != nil {
-			if n.baseType >= 0 && n.baseType < len(n.server.npcTypes.Configs) {
-				n.typ = n.server.npcTypes.Configs[n.baseType]
-			}
+		if newTyp := n.lookupType(n.baseType); newTyp != nil {
+			n.typ = newTyp
 		}
 	}
-	// NAI-17: reseed HP slot from typ.Stats (temporary single-slot form;
-	// Task 4 expands this to a 6-slot loop and adds the resetOnRevert
-	// light-path branching).
-	if n.typ != nil && len(n.typ.Stats) > objtype.NpcStatHitpoints {
-		hp := int(n.typ.Stats[objtype.NpcStatHitpoints])
-		n.levels[objtype.NpcStatHitpoints] = hp
-		n.baseLevels[objtype.NpcStatHitpoints] = hp
+	// Full 6-slot stats reseed (TS resetEntity:287-290).
+	if n.typ != nil {
+		for i := range min(objtype.NpcStatCount, len(n.typ.Stats)) {
+			v := int(n.typ.Stats[i])
+			n.levels[i] = v
+			n.baseLevels[i] = v
+		}
 	}
 	n.queue = nil
 	n.waypointIndex = -1
@@ -284,6 +303,7 @@ func (n *Npc) revertType() {
 		n.huntRange = int(n.typ.HuntRange)
 		n.huntMode = n.typ.HuntMode
 	}
+	n.resetOnRevert = true // re-arm default for next morph cycle
 }
 
 // IsValid returns whether the NPC's session slot is alive (!n.dead).

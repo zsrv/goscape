@@ -5,6 +5,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
+	"github.com/zsrv/goscape/pkg/script"
 )
 
 func newTestNpc(nid int) *Npc {
@@ -438,5 +439,129 @@ func TestChangeTypeKeepAllDeadNoOp(t *testing.T) {
 	if n.resetOnRevert != origResetOnRevert {
 		t.Errorf("resetOnRevert: got %v, want %v (dead NPC no-op)",
 			n.resetOnRevert, origResetOnRevert)
+	}
+}
+
+// TestRevertTypeHonorsResetOnRevertFalse verifies the light path
+// (TS Npc.ts:1086-1090): typeId + uid + CHANGE_TYPE mask only;
+// stats/queue/waypoints/hunt fields unchanged.
+func TestRevertTypeHonorsResetOnRevertFalse(t *testing.T) {
+	s := newServerForScriptTest(t)
+	baseTyp := &objtype.NpcType{Stats: []uint16{10, 10, 10, 10, 10, 10}}
+	s.npcTypes = &objtype.NPCTypeConfigs{Configs: []*objtype.NpcType{baseTyp}}
+
+	n := NewNpc(1, 0, 100, 100, 0, baseTyp)
+	n.server = s
+	// Simulate post-KEEPALL state: typeId != baseType, resetOnRevert=false,
+	// stats have survived a morph, queue/waypoints/hunt fields populated.
+	n.typeId = 99
+	n.uid = (99 << 16) | n.nid
+	n.resetOnRevert = false
+	n.levels[objtype.NpcStatAttack] = 5 // drained
+	n.levels[objtype.NpcStatHitpoints] = 7
+	n.baseLevels[objtype.NpcStatAttack] = 20 // not from baseTyp
+	n.baseLevels[objtype.NpcStatHitpoints] = 20
+	n.queue = []script.NpcQueueRequest{{Trigger: 0, Delay: 5, IntArg: 42}}
+	n.waypointIndex = 3
+	n.huntClock = 7
+	n.huntRange = 99
+
+	n.revertType()
+
+	// Light path: typeId reverted, uid recomputed, mask raised.
+	if n.typeId != n.baseType {
+		t.Errorf("typeId: got %d, want %d (baseType)", n.typeId, n.baseType)
+	}
+	if n.uid != (n.baseType<<16)|n.nid {
+		t.Errorf("uid: got %d, want %d", n.uid, (n.baseType<<16)|n.nid)
+	}
+	if n.masks&rsbuf.NpcMaskChangeType == 0 {
+		t.Errorf("mask: CHANGE_TYPE bit not set")
+	}
+	// Light path: stats/queue/waypoints/hunt UNCHANGED.
+	if n.levels[objtype.NpcStatAttack] != 5 {
+		t.Errorf("levels[ATK]: got %d, want 5 (light path preserves)", n.levels[objtype.NpcStatAttack])
+	}
+	if n.baseLevels[objtype.NpcStatAttack] != 20 {
+		t.Errorf("baseLevels[ATK]: got %d, want 20 (light path preserves)", n.baseLevels[objtype.NpcStatAttack])
+	}
+	if len(n.queue) != 1 {
+		t.Errorf("queue: got len=%d, want 1 (light path preserves)", len(n.queue))
+	}
+	if n.waypointIndex != 3 {
+		t.Errorf("waypointIndex: got %d, want 3 (light path preserves)", n.waypointIndex)
+	}
+	if n.huntClock != 7 {
+		t.Errorf("huntClock: got %d, want 7 (light path preserves)", n.huntClock)
+	}
+	if n.huntRange != 99 {
+		t.Errorf("huntRange: got %d, want 99 (light path preserves)", n.huntRange)
+	}
+	// Re-arm tail.
+	if !n.resetOnRevert {
+		t.Errorf("resetOnRevert: got false, want true (re-armed after revert)")
+	}
+}
+
+// TestRevertTypeHonorsResetOnRevertTrue verifies the heavy path
+// reseeds all 6 stats from n.typ.Stats (expands S6d's HP-only reseed).
+func TestRevertTypeHonorsResetOnRevertTrue(t *testing.T) {
+	s := newServerForScriptTest(t)
+	baseTyp := &objtype.NpcType{
+		Stats:     []uint16{7, 11, 13, 17, 19, 23},
+		HuntRange: 8,
+		HuntMode:  -1,
+	}
+	morphTyp := &objtype.NpcType{Stats: []uint16{50, 50, 50, 50, 50, 50}}
+	s.npcTypes = &objtype.NPCTypeConfigs{Configs: []*objtype.NpcType{baseTyp, morphTyp}}
+
+	n := NewNpc(1, 0, 100, 100, 0, baseTyp)
+	n.server = s
+	// Simulate post-CHANGETYPE state: morphed + stats-reset to morphTyp.
+	n.typeId = 1
+	n.typ = morphTyp
+	n.uid = (1 << 16) | n.nid
+	n.resetOnRevert = true
+	for i := range objtype.NpcStatCount {
+		n.levels[i] = 50
+		n.baseLevels[i] = 50
+	}
+	n.queue = []script.NpcQueueRequest{{Trigger: 0, Delay: 5, IntArg: 42}}
+
+	n.revertType()
+
+	// Heavy path: stats reseeded to baseTyp, queue cleared.
+	want := []int{7, 11, 13, 17, 19, 23}
+	for i := range objtype.NpcStatCount {
+		if n.levels[i] != want[i] {
+			t.Errorf("levels[%d]: got %d, want %d (reseed from baseTyp)", i, n.levels[i], want[i])
+		}
+		if n.baseLevels[i] != want[i] {
+			t.Errorf("baseLevels[%d]: got %d, want %d", i, n.baseLevels[i], want[i])
+		}
+	}
+	if n.queue != nil {
+		t.Errorf("queue: got %v, want nil (heavy path clears)", n.queue)
+	}
+	if n.typeId != n.baseType {
+		t.Errorf("typeId: got %d, want baseType=%d", n.typeId, n.baseType)
+	}
+	if !n.resetOnRevert {
+		t.Errorf("resetOnRevert: got false, want true (re-armed)")
+	}
+}
+
+// TestRevertTypeReArmsResetOnRevert is a dedicated assertion of the
+// re-arm tail on the light path (the heavy-path test above also
+// asserts this, but re-arm regression is worth pinning in a named test).
+func TestRevertTypeReArmsResetOnRevert(t *testing.T) {
+	n := newNpcForLifecycleTest(t)
+	n.resetOnRevert = false
+	n.typeId = 42 // != baseType so the typeId write path runs
+
+	n.revertType()
+
+	if !n.resetOnRevert {
+		t.Errorf("resetOnRevert: got false, want true (re-armed after revert)")
 	}
 }
