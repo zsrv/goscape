@@ -211,6 +211,15 @@ type mockPlayer struct {
 	// S7b: anim-protect flag. Tests pre-seed to a sentinel (e.g. -2) so
 	// they can assert "unchanged" vs. "set to 0".
 	animProtectValue int
+
+	// S7c: BUILDAPPEARANCE captures. lastAppearanceInv is the last id passed
+	// to SetAppearanceInv; appearanceInvCalls counts invocations (0 verifies
+	// the setter was NOT reached for error paths); appearanceMaskSet tracks
+	// whether the setter flipped the mask side-effect (mockPlayer has no real
+	// masks field, so we capture intent as a bool).
+	lastAppearanceInv  int
+	appearanceInvCalls int
+	appearanceMaskSet  bool
 }
 
 type mockEnqueue struct {
@@ -402,6 +411,15 @@ func (m *mockPlayer) CanAccess() bool { return m.canAccessValue }
 
 // S7b: SetAnimProtect stores the anim-protect flag for P_ANIMPROTECT tests.
 func (m *mockPlayer) SetAnimProtect(v int) { m.animProtectValue = v }
+
+// S7c: SetAppearanceInv stores the id + mask-set intent for BUILDAPPEARANCE
+// tests. The bool captures the TS two-side-effects guarantee without porting
+// real mask semantics into the mock.
+func (m *mockPlayer) SetAppearanceInv(id int) {
+	m.lastAppearanceInv = id
+	m.appearanceInvCalls++
+	m.appearanceMaskSet = true
+}
 
 // S6l: p_aprange.
 func (m *mockPlayer) SetApRange(n int) {

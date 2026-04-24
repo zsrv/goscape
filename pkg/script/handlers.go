@@ -335,6 +335,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 
 	// S7b: anim-protect flag.
 	OpPAnimProtect: handlePAnimProtect,
+
+	// S7c: BUILDAPPEARANCE dispatch.
+	OpBuildAppearance: handleBuildAppearance,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.

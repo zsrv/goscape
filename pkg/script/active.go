@@ -319,6 +319,17 @@ type ActivePlayer interface {
 	// the engine should suppress in-engine animation requests (gated reader
 	// unported, see PAnimProtect handler comment and deviation S7b-D1).
 	SetAnimProtect(v int)
+
+	// S7c: appearance refresh.
+
+	// SetAppearanceInv updates the active player's appearanceInv field AND
+	// flags MaskAppearance so the next tick regenerates the appearance buffer
+	// (tick.go:325-335). Mirrors TS Player.buildAppearance at
+	// Engine-TS/src/engine/entity/Player.ts:1836-1839 — both side-effects are
+	// required; tests assert both. Note: goscape's generateAppearance reads
+	// from invs.Worn rather than this field — deviation S7c-D1. Callers
+	// pre-validate id via checkInvType.
+	SetAppearanceInv(id int)
 }
 
 // ActiveNpc is the per-NPC surface that NPC_* opcodes and VARN

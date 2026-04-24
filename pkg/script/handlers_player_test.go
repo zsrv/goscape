@@ -4,6 +4,8 @@ import (
 	"math"
 	"strings"
 	"testing"
+
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 // -- mock active entity stubs (S6v) -------------------------------------
@@ -1483,5 +1485,197 @@ func TestPAnimProtectNoActivePlayer(t *testing.T) {
 	}
 	if player.animProtectValue != -2 {
 		t.Errorf("animProtectValue should be unchanged sentinel -2, got %d", player.animProtectValue)
+	}
+}
+
+// -- S7c: checkInvType + handleBuildAppearance tests ----------------------
+
+// TestCheckInvType validates the state-aware InvType validator.
+// Mirrors TS InvTypeValid (ScriptValidators.ts:122). Both the range check
+// and the registry-present check collapse into a single Configs.InvType
+// lookup per the Configs interface contract.
+func TestCheckInvType(t *testing.T) {
+	tests := []struct {
+		name      string
+		id        int
+		setup     func() *mockConfigs
+		wantErr   bool
+		wantSubst string
+	}{
+		{
+			name:    "valid id",
+			id:      5,
+			setup:   func() *mockConfigs { return &mockConfigs{invs: map[int]*objtype.InvType{5: {}}} },
+			wantErr: false,
+		},
+		{
+			name:      "unknown id",
+			id:        100,
+			setup:     func() *mockConfigs { return &mockConfigs{invs: map[int]*objtype.InvType{}} },
+			wantErr:   true,
+			wantSubst: "OP: no InvType with value (100) found",
+		},
+		{
+			name:      "negative id",
+			id:        -1,
+			setup:     func() *mockConfigs { return &mockConfigs{invs: map[int]*objtype.InvType{}} },
+			wantErr:   true,
+			wantSubst: "OP: no InvType with value (-1) found",
+		},
+		{
+			name:      "nil Configs",
+			id:        0,
+			setup:     func() *mockConfigs { return nil },
+			wantErr:   true,
+			wantSubst: "OP: no InvType with value (0) found",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &ScriptState{}
+			if cfg := tc.setup(); cfg != nil {
+				s.Configs = cfg
+			}
+			err := checkInvType(s, tc.id, "OP")
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("checkInvType(%d): want error, got nil", tc.id)
+				}
+				if !strings.Contains(err.Error(), tc.wantSubst) {
+					t.Errorf("error message: got %q, want contains %q", err.Error(), tc.wantSubst)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("checkInvType(%d): want nil, got %v", tc.id, err)
+				}
+			}
+		})
+	}
+}
+
+// TestBuildAppearanceHappyPath — Self != nil, Configs.invs has id=5,
+// push 5 → no error; lastAppearanceInv == 5, appearanceInvCalls == 1,
+// appearanceMaskSet == true.
+func TestBuildAppearanceHappyPath(t *testing.T) {
+	player := &mockPlayer{}
+	sf := newSingleOp("buildappearance_happy", OpBuildAppearance)
+	state := Init(sf, player, false, nil, nil)
+	state.Configs = &mockConfigs{invs: map[int]*objtype.InvType{5: {}}}
+	state.PushInt(5)
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if player.lastAppearanceInv != 5 {
+		t.Errorf("lastAppearanceInv: got %d, want 5", player.lastAppearanceInv)
+	}
+	if player.appearanceInvCalls != 1 {
+		t.Errorf("appearanceInvCalls: got %d, want 1", player.appearanceInvCalls)
+	}
+	if !player.appearanceMaskSet {
+		t.Errorf("appearanceMaskSet: got false, want true")
+	}
+}
+
+// TestBuildAppearanceInvalidInvRejected — Self != nil, Configs.invs empty,
+// push 999 → error message contains "BUILDAPPEARANCE: no InvType with
+// value (999) found"; appearanceInvCalls == 0, appearanceMaskSet == false.
+func TestBuildAppearanceInvalidInvRejected(t *testing.T) {
+	player := &mockPlayer{}
+	sf := newSingleOp("buildappearance_invalid", OpBuildAppearance)
+	state := Init(sf, player, false, nil, nil)
+	state.Configs = &mockConfigs{invs: map[int]*objtype.InvType{}}
+	state.PushInt(999)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error, got nil")
+	}
+	want := "BUILDAPPEARANCE: no InvType with value (999) found"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want contains %q", err.Error(), want)
+	}
+	if player.appearanceInvCalls != 0 {
+		t.Errorf("appearanceInvCalls: got %d, want 0", player.appearanceInvCalls)
+	}
+	if player.appearanceMaskSet {
+		t.Errorf("appearanceMaskSet: got true, want false")
+	}
+}
+
+// TestBuildAppearanceNegativeIdRejected — Self != nil, Configs.invs empty,
+// push -1 → error; setter not called. Covers the TS `input >= 0` branch
+// via nil lookup since goscape collapses both checks.
+func TestBuildAppearanceNegativeIdRejected(t *testing.T) {
+	player := &mockPlayer{}
+	sf := newSingleOp("buildappearance_negative", OpBuildAppearance)
+	state := Init(sf, player, false, nil, nil)
+	state.Configs = &mockConfigs{invs: map[int]*objtype.InvType{}}
+	state.PushInt(-1)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error, got nil")
+	}
+	want := "BUILDAPPEARANCE: no InvType with value (-1) found"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want contains %q", err.Error(), want)
+	}
+	if player.appearanceInvCalls != 0 {
+		t.Errorf("appearanceInvCalls: got %d, want 0", player.appearanceInvCalls)
+	}
+	if player.appearanceMaskSet {
+		t.Errorf("appearanceMaskSet: got true, want false")
+	}
+}
+
+// TestBuildAppearanceNoActivePlayer — Self=nil → error from
+// requireActivePlayer chain containing "BUILDAPPEARANCE". The gate runs
+// before PopInt so the int stack should retain the pushed value.
+func TestBuildAppearanceNoActivePlayer(t *testing.T) {
+	player := &mockPlayer{}
+	sf := newSingleOp("buildappearance_noactive", OpBuildAppearance)
+	state := Init(sf, nil, false, nil, nil) // Self=nil
+	state.Configs = &mockConfigs{invs: map[int]*objtype.InvType{5: {}}}
+	state.PushInt(5)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "BUILDAPPEARANCE") {
+		t.Errorf("error: got %q, want contains %q", err.Error(), "BUILDAPPEARANCE")
+	}
+	if player.appearanceInvCalls != 0 {
+		t.Errorf("appearanceInvCalls: got %d, want 0", player.appearanceInvCalls)
+	}
+	// Gate runs before PopInt — the pushed value should still be on the stack.
+	if got := state.PopInt(); got != 5 {
+		t.Errorf("int stack top: got %d, want 5 (gate should run before PopInt)", got)
+	}
+}
+
+// TestBuildAppearanceNotProtectedOK — Protect=false, Self != nil,
+// Configs.invs has id=3, push 3 → no error. BUILDAPPEARANCE uses
+// ActivePlayer (not ProtectedActivePlayer). Gate-regression guard:
+// catches a future edit that copy-pastes requireProtectedActivePlayer.
+func TestBuildAppearanceNotProtectedOK(t *testing.T) {
+	player := &mockPlayer{}
+	sf := newSingleOp("buildappearance_unprotected", OpBuildAppearance)
+	state := Init(sf, player, false, nil, nil) // protect=false
+	state.Configs = &mockConfigs{invs: map[int]*objtype.InvType{3: {}}}
+	state.PushInt(3)
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: unexpected error %v (BUILDAPPEARANCE should not require Protect)", err)
+	}
+	if player.lastAppearanceInv != 3 {
+		t.Errorf("lastAppearanceInv: got %d, want 3", player.lastAppearanceInv)
+	}
+	if player.appearanceInvCalls != 1 {
+		t.Errorf("appearanceInvCalls: got %d, want 1", player.appearanceInvCalls)
+	}
+	if !player.appearanceMaskSet {
+		t.Errorf("appearanceMaskSet: got false, want true")
 	}
 }

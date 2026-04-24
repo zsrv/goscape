@@ -353,6 +353,16 @@ func (p *Player) PlaySpotAnim(id, height, delay int) {
 	p.masks |= rsbuf.MaskSpotAnim
 }
 
+// SetAppearanceInv stores id on Player.appearanceInv and flags
+// MaskAppearance. Mirrors TS Player.buildAppearance (the literal
+// two-liner at Engine-TS/src/engine/entity/Player.ts:1836-1839). The
+// mask triggers generateAppearance regeneration on the next tick in
+// tick.go:325-335.
+func (p *Player) SetAppearanceInv(id int) {
+	p.appearanceInv = id
+	p.masks |= rsbuf.MaskAppearance
+}
+
 // SetReadyAnim sets the player's idle/stand animation. BAS anims are
 // persistent and flow through the appearance buffer, which regenerates
 // on MaskAppearance — no per-call mask flip needed.

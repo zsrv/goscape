@@ -65,6 +65,20 @@ func checkNotNull(v int, op string) error {
 	return nil
 }
 
+// checkInvType mirrors TS InvTypeValid (ScriptValidators.ts:122) — a
+// ScriptInputConfigTypeValidator over InvType. Both the range check
+// (0 <= id < InvType.count) and the registry-present check collapse
+// into "s.Configs.InvType(id) != nil" per the Configs interface contract
+// at configs.go:7 ("return nil when the type isn't loaded or the id is
+// out of range"). State-aware signature diverges from sibling check
+// helpers because the bound is runtime-loaded.
+func checkInvType(s *ScriptState, id int, op string) error {
+	if s.Configs == nil || s.Configs.InvType(id) == nil {
+		return fmt.Errorf("%s: no InvType with value (%d) found", op, id)
+	}
+	return nil
+}
+
 // handlePAnimProtect (P_ANIMPROTECT, opcode 2066) sets the active player's
 // animProtect flag. While nonzero, in-engine animation requests should be
 // suppressed (TS Player.ts:1842 — reader path not yet ported in goscape;
@@ -78,6 +92,26 @@ func handlePAnimProtect(s *ScriptState) error {
 		return err
 	}
 	s.Self.SetAnimProtect(v)
+	return nil
+}
+
+// handleBuildAppearance (BUILDAPPEARANCE, opcode 2004) validates the popped
+// InvType id and stages an appearance refresh on the active player. Mirrors
+// TS PlayerOps.ts:202-204. Gate is ActivePlayer (not Protected). Validator
+// mirrors TS InvTypeValid. The setter writes both Player.appearanceInv and
+// flags MaskAppearance — MaskAppearance is consumed by tick.go:325-335 which
+// regenerates the appearance buffer. Note: goscape's generateAppearance
+// currently reads from invs.Worn rather than p.appearanceInv — tracked as
+// S7c-D1.
+func handleBuildAppearance(s *ScriptState) error {
+	if err := requireActivePlayer(s, "BUILDAPPEARANCE"); err != nil {
+		return err
+	}
+	id := s.PopInt()
+	if err := checkInvType(s, id, "BUILDAPPEARANCE"); err != nil {
+		return err
+	}
+	s.Self.SetAppearanceInv(id)
 	return nil
 }
 
