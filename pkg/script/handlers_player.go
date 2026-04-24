@@ -541,3 +541,36 @@ func handleFindUID(s *ScriptState) error {
 	s.PushInt(1)
 	return nil
 }
+
+// handlePFindUID (opcode 2073) is P_FINDUID — the protected variant of
+// FINDUID. Pops a uid, tries to rebind Self with protected access.
+// Three outcomes:
+//   - Self-reacquire fast-path: script already runs protected on a
+//     player whose UID matches → push 1, no state change, no lookup.
+//   - Lookup miss OR target.CanAccess()==false → push 0.
+//   - Success → Self rebinds, PtrActivePlayer set, Protect=true, push 1.
+//
+// Mirrors TS PlayerOps.ts:75-94 with goscape's collapsed pointer model
+// (single PtrActivePlayer + ScriptState.Protect bool).
+func handlePFindUID(s *ScriptState) error {
+	uid := s.PopInt()
+	// Self-reacquire fast-path: already protected on this player.
+	if s.Protect && s.Self != nil && s.Self.UID() == uid {
+		s.PushInt(1)
+		return nil
+	}
+	if s.PlayerLookup == nil {
+		s.PushInt(0)
+		return nil
+	}
+	target := s.PlayerLookup.LookupPlayerByUID(uid)
+	if target == nil || !target.CanAccess() {
+		s.PushInt(0)
+		return nil
+	}
+	s.Self = target
+	s.Pointers |= PtrActivePlayer
+	s.Protect = true
+	s.PushInt(1)
+	return nil
+}

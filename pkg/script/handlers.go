@@ -330,7 +330,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpNpcSetTimer:          handleNpcSetTimer,
 
 	// S7a: player UID lookup.
-	OpFindUID: handleFindUID,
+	OpFindUID:  handleFindUID,
+	OpPFindUID: handlePFindUID,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.

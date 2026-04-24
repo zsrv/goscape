@@ -1244,3 +1244,108 @@ func TestFindUIDNoLookupConfigured(t *testing.T) {
 		t.Errorf("Self should be unchanged")
 	}
 }
+
+// TestPFindUIDSelfReacquire: script already runs protected on the target
+// uid → push 1 with no state mutation, no lookup call (fast-path).
+// Mirrors TS PlayerOps.ts:79-83.
+func TestPFindUIDSelfReacquire(t *testing.T) {
+	self := &mockPlayer{username: "Self", uidValue: 42}
+	lookup := &mockPlayerLookup{byUID: map[int]ActivePlayer{}}
+
+	sf := newSingleOp("pfinduid_self", OpPFindUID)
+	state := Init(sf, self, true, nil, nil) // protect=true
+	state.PlayerLookup = lookup
+	state.PushInt(42)
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.ISP != 1 || state.IntStack[0] != 1 {
+		t.Errorf("stack: got [%v], want [1]", state.IntStack[:state.ISP])
+	}
+	if state.Self != self {
+		t.Errorf("Self should be unchanged on self-reacquire")
+	}
+	if lookup.calls != 0 {
+		t.Errorf("fast-path should skip lookup, calls=%d", lookup.calls)
+	}
+	if !state.Protect {
+		t.Errorf("Protect should remain true")
+	}
+}
+
+// TestPFindUIDFoundCanAccess: target is reachable and CanAccess=true →
+// push 1, Self rebinds, Protect=true, PtrActivePlayer set.
+func TestPFindUIDFoundCanAccess(t *testing.T) {
+	target := &mockPlayer{username: "Target", uidValue: 99, canAccessValue: true}
+	origSelf := &mockPlayer{username: "Orig", uidValue: 1}
+	lookup := &mockPlayerLookup{byUID: map[int]ActivePlayer{99: target}}
+
+	sf := newSingleOp("pfinduid_ok", OpPFindUID)
+	state := Init(sf, origSelf, false, nil, nil) // protect=false initially
+	state.PlayerLookup = lookup
+	state.PushInt(99)
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.ISP != 1 || state.IntStack[0] != 1 {
+		t.Errorf("stack: got [%v], want [1]", state.IntStack[:state.ISP])
+	}
+	if state.Self != target {
+		t.Errorf("Self: got %v, want target", state.Self)
+	}
+	if state.Pointers&PtrActivePlayer == 0 {
+		t.Errorf("PtrActivePlayer should be set")
+	}
+	if !state.Protect {
+		t.Errorf("Protect should be true after successful P_FINDUID")
+	}
+}
+
+// TestPFindUIDFoundCannotAccess: target exists but CanAccess=false →
+// push 0, Self unchanged, Protect unchanged.
+func TestPFindUIDFoundCannotAccess(t *testing.T) {
+	target := &mockPlayer{username: "Target", uidValue: 99, canAccessValue: false}
+	origSelf := &mockPlayer{username: "Orig", uidValue: 1}
+	lookup := &mockPlayerLookup{byUID: map[int]ActivePlayer{99: target}}
+
+	sf := newSingleOp("pfinduid_busy", OpPFindUID)
+	state := Init(sf, origSelf, false, nil, nil)
+	state.PlayerLookup = lookup
+	state.PushInt(99)
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.ISP != 1 || state.IntStack[0] != 0 {
+		t.Errorf("stack: got [%v], want [0]", state.IntStack[:state.ISP])
+	}
+	if state.Self != origSelf {
+		t.Errorf("Self should be unchanged when CanAccess=false")
+	}
+	if state.Protect {
+		t.Errorf("Protect should remain false")
+	}
+}
+
+// TestPFindUIDNotFound: lookup returns nil → push 0, Self unchanged.
+func TestPFindUIDNotFound(t *testing.T) {
+	origSelf := &mockPlayer{username: "Orig", uidValue: 1}
+	lookup := &mockPlayerLookup{byUID: map[int]ActivePlayer{}}
+
+	sf := newSingleOp("pfinduid_notfound", OpPFindUID)
+	state := Init(sf, origSelf, false, nil, nil)
+	state.PlayerLookup = lookup
+	state.PushInt(999)
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.ISP != 1 || state.IntStack[0] != 0 {
+		t.Errorf("stack: got [%v], want [0]", state.IntStack[:state.ISP])
+	}
+	if state.Self != origSelf {
+		t.Errorf("Self should be unchanged")
+	}
+}
