@@ -517,3 +517,27 @@ func handleP_OpNpc(s *ScriptState) error {
 	s.Self.SetInteractionScriptNpc(s.ActiveNpc, op)
 	return nil
 }
+
+// handleFindUID (opcode 2019) pops a uid, looks up the logged-in player
+// with that uid, and rebinds Self on success. Pushes 1 if found, 0 if
+// the lookup returned nil or no PlayerLookup is configured.
+//
+// Does NOT check CanAccess — that's P_FINDUID's job. Does NOT set
+// Protect. Mirrors TS PlayerOps.ts:60-72 with goscape's collapsed
+// pointer model (single PtrActivePlayer).
+func handleFindUID(s *ScriptState) error {
+	uid := s.PopInt()
+	if s.PlayerLookup == nil {
+		s.PushInt(0)
+		return nil
+	}
+	target := s.PlayerLookup.LookupPlayerByUID(uid)
+	if target == nil {
+		s.PushInt(0)
+		return nil
+	}
+	s.Self = target
+	s.Pointers |= PtrActivePlayer
+	s.PushInt(1)
+	return nil
+}

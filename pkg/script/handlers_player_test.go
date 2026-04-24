@@ -1159,3 +1159,88 @@ func TestPClearPendingActionUnprotectedRejected(t *testing.T) {
 		t.Errorf("expected 'P_CLEARPENDINGACTION: script not protected', got %v", err)
 	}
 }
+
+// -- S7a FINDUID tests ---------------------------------------------------
+
+// mockPlayerLookup resolves UIDs via a pre-seeded map. Introduced in S7a.
+type mockPlayerLookup struct {
+	byUID map[int]ActivePlayer
+	calls int
+}
+
+func (m *mockPlayerLookup) LookupPlayerByUID(uid int) ActivePlayer {
+	m.calls++
+	return m.byUID[uid]
+}
+
+// TestFindUIDFound: lookup returns a target → push 1, Self rebinds,
+// PtrActivePlayer set, Protect stays false (FINDUID is unprotected).
+func TestFindUIDFound(t *testing.T) {
+	target := &mockPlayer{username: "Target", uidValue: 99}
+	origSelf := &mockPlayer{username: "Orig", uidValue: 1}
+	lookup := &mockPlayerLookup{byUID: map[int]ActivePlayer{99: target}}
+
+	sf := newSingleOp("finduid_found", OpFindUID)
+	state := Init(sf, origSelf, false, nil, nil)
+	state.PlayerLookup = lookup
+	state.PushInt(99)
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.ISP != 1 || state.IntStack[0] != 1 {
+		t.Errorf("stack: got [%v], want [1]", state.IntStack[:state.ISP])
+	}
+	if state.Self != target {
+		t.Errorf("Self: got %v, want target", state.Self)
+	}
+	if state.Pointers&PtrActivePlayer == 0 {
+		t.Errorf("PtrActivePlayer should be set, pointers=%b", state.Pointers)
+	}
+	if state.Protect {
+		t.Errorf("Protect should remain false for FINDUID")
+	}
+}
+
+// TestFindUIDNotFound: lookup returns nil → push 0, Self unchanged.
+func TestFindUIDNotFound(t *testing.T) {
+	origSelf := &mockPlayer{username: "Orig", uidValue: 1}
+	lookup := &mockPlayerLookup{byUID: map[int]ActivePlayer{}}
+
+	sf := newSingleOp("finduid_notfound", OpFindUID)
+	state := Init(sf, origSelf, false, nil, nil)
+	state.PlayerLookup = lookup
+	state.PushInt(999)
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.ISP != 1 || state.IntStack[0] != 0 {
+		t.Errorf("stack: got [%v], want [0]", state.IntStack[:state.ISP])
+	}
+	if state.Self != origSelf {
+		t.Errorf("Self should be unchanged, got %v", state.Self)
+	}
+}
+
+// TestFindUIDNoLookupConfigured: PlayerLookup nil → push 0.
+// Host configurations that don't wire a lookup degrade to "not found"
+// rather than erroring, matching the LAST_INT / LAST_COM precedent.
+func TestFindUIDNoLookupConfigured(t *testing.T) {
+	origSelf := &mockPlayer{username: "Orig"}
+
+	sf := newSingleOp("finduid_nolookup", OpFindUID)
+	state := Init(sf, origSelf, false, nil, nil)
+	// state.PlayerLookup left nil
+	state.PushInt(1)
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.ISP != 1 || state.IntStack[0] != 0 {
+		t.Errorf("stack: got [%v], want [0]", state.IntStack[:state.ISP])
+	}
+	if state.Self != origSelf {
+		t.Errorf("Self should be unchanged")
+	}
+}
