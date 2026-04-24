@@ -70,7 +70,7 @@ func (r *DbRowType) GetValue(column, listIndex int, table *DbTableType) (ints []
 	start := listIndex * tupLen
 	end := start + tupLen
 
-	if start < 0 || end > len(r.IntValues[column]) {
+	if tupLen == 0 || end > len(r.IntValues[column]) {
 		return table.GetDefault(column)
 	}
 	return r.IntValues[column][start:end], r.StringValues[column][start:end], types

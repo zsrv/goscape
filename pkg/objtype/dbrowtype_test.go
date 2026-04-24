@@ -61,18 +61,15 @@ func buildDbRowDat(entries []dbRowEntry) []byte {
 	return pkt.Bytes()
 }
 
-// numColumnsFor returns the total declared column slot count for a row;
-// in the real cache this is the highest column index + 1 or equal to the
-// table's columnCount. For test simplicity we use len(columns) when every
-// column index is contiguous, else max+1.
+// numColumnsFor returns the highest declared column index + 1 for a row.
 func numColumnsFor(e dbRowEntry) int {
-	max := -1
+	highest := -1
 	for _, c := range e.columns {
-		if c.column > max {
-			max = c.column
+		if c.column > highest {
+			highest = c.column
 		}
 	}
-	return max + 1
+	return highest + 1
 }
 
 // TestParseDbRowTypes exercises a two-row fixture covering codes 3, 4, 250.
@@ -192,6 +189,35 @@ func TestDbRowGetValue_InRange(t *testing.T) {
 	}
 	if len(types) != 2 {
 		t.Errorf("types: got %v", types)
+	}
+}
+
+// TestDbRowGetValue_UndeclaredColumn_FallsBack verifies the fallback path
+// when a row omits a column the table declares (sparse row). TS
+// DbRowType.ts:95 throws in this case; Go falls back to the table
+// default since the DB_GETFIELD handler iterates using the table's
+// type count and would otherwise index nil slices.
+func TestDbRowGetValue_UndeclaredColumn_FallsBack(t *testing.T) {
+	tbl := NewDbTableType(0)
+	tbl.Types = [][]ScriptVarType{{ScriptVarTypeInt}, {ScriptVarTypeString}}
+	tbl.DefaultInts = [][]int32{nil, {0}}
+	tbl.DefaultStrs = [][]string{nil, {"fallback"}}
+
+	row := NewDbRowType(0)
+	row.TableID = 0
+	row.Types = [][]ScriptVarType{{ScriptVarTypeInt}, nil} // column 1 undeclared
+	row.IntValues = [][]int32{{42}, nil}
+	row.StringValues = [][]string{{""}, nil}
+
+	ints, strs, types := row.GetValue(1, 0, tbl)
+	if len(strs) != 1 || strs[0] != "fallback" {
+		t.Errorf("strs: got %v, want [fallback]", strs)
+	}
+	if len(ints) != 1 {
+		t.Errorf("ints: got len %d, want 1", len(ints))
+	}
+	if len(types) != 1 || types[0] != ScriptVarTypeString {
+		t.Errorf("types: got %v, want [STRING]", types)
 	}
 }
 
