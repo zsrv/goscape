@@ -624,23 +624,3 @@ func (p *Player) IsValid() bool {
 	}
 	return p.active
 }
-
-// CanAccess reports whether this player can be bound as the active
-// player by P_FINDUID. False when delayed, when a modal main/chat is
-// open, or when a suspended protected script is stored. Mirrors TS
-// Player.canAccess at Engine-TS/src/engine/entity/Player.ts:805-812.
-//
-// The World-shutdown early-return from TS is omitted — goscape has
-// no global shutdown flag to consult and rejects lookups uniformly.
-func (p *Player) CanAccess() bool {
-	if p.delayed {
-		return false
-	}
-	if p.modalState&(modalStateMain|modalStateChat) != 0 {
-		return false
-	}
-	if p.activeScript != nil && p.activeScript.Protect {
-		return false
-	}
-	return true
-}

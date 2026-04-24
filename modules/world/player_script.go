@@ -107,6 +107,34 @@ func (p *Player) CamReset() {
 // account uid captured during login.
 func (p *Player) UID() int { return p.uid }
 
+// CanAccess implements script.ActivePlayer.CanAccess — the P_FINDUID
+// protected-binding gate. False when delayed, when a modal main/chat
+// is open, or when a suspended protected script is stored. Mirrors TS
+// Player.canAccess at Engine-TS/src/engine/entity/Player.ts:805-812.
+//
+// The World-shutdown early-return from TS is omitted — goscape has
+// no global shutdown flag to consult and rejects lookups uniformly.
+//
+// The third branch derives what TS expresses as a single Player.protect
+// bool from activeScript.Protect. They are equivalent: TS persists the
+// flag onto the player at script suspension (Player.ts:2141) and clears
+// it at script completion (:2103-2114), so "is the player in a stored
+// protected script?" and "is the player-level protect flag set?" are
+// the same condition — goscape just reads it from the stored state
+// instead of a redundant bool field.
+func (p *Player) CanAccess() bool {
+	if p.delayed {
+		return false
+	}
+	if p.modalState&(modalStateMain|modalStateChat) != 0 {
+		return false
+	}
+	if p.activeScript != nil && p.activeScript.Protect {
+		return false
+	}
+	return true
+}
+
 // Varp implements script.ActivePlayer.Varp.
 func (p *Player) Varp(id int) int32 {
 	if id < 0 || id >= len(p.varps) {
