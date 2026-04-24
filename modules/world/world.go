@@ -7,6 +7,7 @@ import (
 
 	"github.com/zsrv/goscape/internal/dskit/services"
 	"github.com/zsrv/goscape/internal/dskit/signals"
+	"github.com/zsrv/goscape/pkg/cache"
 )
 
 // TODO: tracer
@@ -79,6 +80,9 @@ func NewWorldService(serv *Server, lc *LoginClient, servicesToWaitFor func() []s
 	serverDone := make(chan error, 1)
 
 	startingFn := func(ctx context.Context) error {
+		if err := cache.PreloadClient("data/pack/client"); err != nil {
+			return fmt.Errorf("world: preload client assets: %w", err)
+		}
 		if lc != nil {
 			lc.WorldStartup(ctx, int32(serv.cfg.NodeID), serv.cfg.NodeProfile)
 		}
