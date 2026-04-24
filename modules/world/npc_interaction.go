@@ -541,11 +541,12 @@ func approachEntitySize(e entity) (width, length int) {
 // CollisionFlag.PLAYER as extraFlag — Go equivalent
 // collision.FlagBlockPlayers.
 //
-// DEVIATION: TS passes target.width+target.length and this.width+this.length
-// (four size args). Go's HasLineOfSight collapses src to scalar srcSize;
-// NAI-12 approximates with srcSize=1, destWidth=1, destLength=1 matching
-// the hunt-variant convention. Tracked as size-aware follow-up in
-// nai_followups.md.
+// FIDELITY: LoS sizing uses approachEntitySize per target concrete
+// type (*Player → 1, *Npc → typ.Size; all current pathing entities
+// are square). Go's HasLineOfSight collapses src to scalar srcSize
+// (linevalidator.go:21 forces srcLength = srcWidth in the underlying
+// RayCast), which is lossless for square entities. NAI-18 closed the
+// NAI-12 tracked size-aware deferral.
 func (n *Npc) inApproachDistance(rng int, target entity) bool {
 	if rng <= 0 {
 		return false

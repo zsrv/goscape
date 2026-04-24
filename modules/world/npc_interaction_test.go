@@ -1048,8 +1048,9 @@ func TestNpcInApproachDistanceMultiTileTargetShiftsLoSStartTile(t *testing.T) {
 //
 // FlagWallNorthProjBlocker placed at (3094, 3106). Travelling south
 // (dest is south of src), the zFlags mask is LineSightBlockedNorth =
-// FlagLocProjBlocker | FlagWallNorthProjBlocker. Only FlagLocProjBlocker
-// is cleared at the end tile (linevalidator.go:112), so
+// FlagLocProjBlocker | FlagWallNorthProjBlocker. Only `FlagLocProjBlocker`
+// (and the `FlagBlockPlayers` extraFlag) are cleared at the end tile
+// (linevalidator.go:141-142); `FlagWallNorthProjBlocker` is not.
 // FlagWallNorthProjBlocker blocks traversal when the ray enters 3106.
 // Size=2 ray stops at 3107 → passes. Size=1 ray enters 3106 → blocked.
 func TestNpcInApproachDistanceMultiTileSelfShiftsLoSEndTile(t *testing.T) {
