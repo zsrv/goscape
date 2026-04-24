@@ -49,6 +49,11 @@ type client struct {
 	waiting       int
 	staffModLevel int32
 	members       bool
+	// lowMemory carries the client's low-memory capability bit from the
+	// RS2 login packet (LoginRequest.LowMemory, parsed at server.go's
+	// req.UnmarshalBinary). Copied onto Player at newPlayer(). Read by
+	// script opcodes that trigger client audio loads (MIDI_SONG, MIDI_JINGLE).
+	lowMemory bool
 }
 
 func newClient(conn net.Conn, writeTimeout time.Duration /*server *World,*/, logger *slog.Logger) *client {

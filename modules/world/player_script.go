@@ -540,3 +540,8 @@ func (p *Player) SetInteractionScriptNpc(npc script.ActiveNpc, op int) {
 	}
 	p.SetInteraction(InteractionScript, realNpc, op, -1)
 }
+
+// LowMemory returns the player's low-memory flag as plumbed from the
+// RS2 login request (req.LowMemory) through client.lowMemory and
+// copied onto the Player at newPlayer().
+func (p *Player) LowMemory() bool { return p.lowMemory }

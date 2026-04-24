@@ -471,6 +471,7 @@ func (c *client) handleLogin() error {
 			// RSA failure or malformed packet — tell client it's out of date.
 			return c.sendLoginError(loginresp.OpClientOutOfDate.Opcode)
 		}
+		c.lowMemory = req.LowMemory
 
 		c.log.Info("unmarshalled OpReqInitGameConnection", "req", req)
 

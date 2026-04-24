@@ -381,3 +381,14 @@ func TestAddXPFiresBothChangeAndAdvanceStatOnLevelUp(t *testing.T) {
 		t.Errorf("queue[%d].Script: got %v, want advancestat second", before+1, p.queue[before+1].Script)
 	}
 }
+
+func TestPlayerLowMemoryGetter(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	if p.LowMemory() {
+		t.Errorf("default: want LowMemory()=false, got true")
+	}
+	p.lowMemory = true
+	if !p.LowMemory() {
+		t.Errorf("after set: want LowMemory()=true, got false")
+	}
+}

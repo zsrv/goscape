@@ -340,6 +340,12 @@ type ActivePlayer interface {
 	// popped int via v==1 before calling. Reader path (IdkSaveDesignHandler)
 	// unported — deviation S7e-D1.
 	SetAllowDesign(v bool)
+
+	// LowMemory reports whether the player's client requested low-memory
+	// mode at login (carried on the RS2 login request's LowMemory bit).
+	// Script opcodes that trigger client audio loads gate on this flag —
+	// see handleMidiSong / handleMidiJingle in handlers_player.go.
+	LowMemory() bool
 }
 
 // ActiveNpc is the per-NPC surface that NPC_* opcodes and VARN

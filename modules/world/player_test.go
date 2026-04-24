@@ -477,6 +477,34 @@ func TestWriteOutTwoByteLenPrefix(t *testing.T) {
 	}
 }
 
+func TestNewPlayerCopiesLowMemoryFromClient(t *testing.T) {
+	// lowMemory=true case
+	serverConn, clientConn := net.Pipe()
+	defer serverConn.Close()
+	defer clientConn.Close()
+	c := newClient(serverConn, time.Second, discardLogger())
+	defer c.in.Release()
+	c.state = ClientStateGame
+	c.lowMemory = true
+	p := newPlayer(c)
+	if !p.lowMemory {
+		t.Errorf("lowMemory=true on client: want p.lowMemory=true, got false")
+	}
+
+	// lowMemory=false (default) case
+	serverConn2, clientConn2 := net.Pipe()
+	defer serverConn2.Close()
+	defer clientConn2.Close()
+	c2 := newClient(serverConn2, time.Second, discardLogger())
+	defer c2.in.Release()
+	c2.state = ClientStateGame
+	// c2.lowMemory defaults to false
+	p2 := newPlayer(c2)
+	if p2.lowMemory {
+		t.Errorf("lowMemory=false on client: want p.lowMemory=false, got true")
+	}
+}
+
 func TestPlayerIsValid(t *testing.T) {
 	base := func() *Player {
 		return &Player{

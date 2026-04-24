@@ -226,6 +226,9 @@ type mockPlayer struct {
 	// setter was NOT called.
 	allowDesignValue bool
 	allowDesignCalls int
+
+	// S7h: lowMemory pre-seed for MIDI_SONG / MIDI_JINGLE lowMemory-gate tests.
+	lowMemoryValue bool
 }
 
 type mockEnqueue struct {
@@ -432,6 +435,10 @@ func (m *mockPlayer) SetAllowDesign(v bool) {
 	m.allowDesignValue = v
 	m.allowDesignCalls++
 }
+
+// S7h: LowMemory returns the seeded value for MIDI_SONG / MIDI_JINGLE
+// handler tests that exercise the lowMemory bail path.
+func (m *mockPlayer) LowMemory() bool { return m.lowMemoryValue }
 
 // S6l: p_aprange.
 func (m *mockPlayer) SetApRange(n int) {
