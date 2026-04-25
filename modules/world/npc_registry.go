@@ -58,7 +58,7 @@ func (s *Server) removeNpc(n *Npc, duration int) {
 	// DEVIATION NAI-19-D1: zone.leave omitted — Zone abstraction
 	// not ported. See spec § Tracked deviations.
 	n.dead = true
-	if n.typ != nil {
+	if n.typ != nil && s.gamemap != nil {
 		switch n.typ.BlockWalk {
 		case objtype.BlockWalkNPC:
 			s.gamemap.ChangeNPCCollision(int(n.typ.Size), n.x, n.z, n.level, false)
