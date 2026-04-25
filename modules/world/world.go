@@ -83,6 +83,7 @@ func NewWorldService(serv *Server, lc *LoginClient, servicesToWaitFor func() []s
 		if err := cache.PreloadClient("data/pack/client"); err != nil {
 			return fmt.Errorf("world: preload client assets: %w", err)
 		}
+		cache.MakeCRCs()
 		if lc != nil {
 			lc.WorldStartup(ctx, int32(serv.cfg.NodeID), serv.cfg.NodeProfile)
 		}

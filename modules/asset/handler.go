@@ -21,7 +21,6 @@ func (a *Asset) RootHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		// would have to use bytes.Reader (implements ReadSeeker)
 		//http.ServeContent(w, r, "", nil, cache.CrcBuffer)
-		cache.MakeCRCs() // TEST - belongs in world
 		io.Copy(w, cache.CrcBuffer)
 		return
 	}
