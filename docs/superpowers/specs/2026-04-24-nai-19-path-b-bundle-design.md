@@ -2,7 +2,7 @@
 
 - **Sub-spec**: NAI-19
 - **Date**: 2026-04-24
-- **Scope label**: C (cross-package bundle — `pkg/gamemap`, `pkg/cache`, `modules/asset`, `modules/world`; ~280-380 LOC production + ~120-180 LOC tests)
+- **Scope label**: C (cross-package bundle — `pkg/gamemap`, `pkg/cache`, `modules/asset`, `modules/world`; ~270-370 LOC production + ~120-180 LOC tests; revised down ~10 LOC after plan-time discovery that `gm.ChangeNPCCollision` already exists)
 - **Predecessors**: NAI-16 (MIDI encoders + PRELOADED registry) — last on `main` as `a3c4323`
 - **TS source root**: `LostCityRS/Engine-TS`
 
@@ -60,13 +60,9 @@ Switch the consumer side of map CRCs from `gamemap` to `cache.PreloadedCRC` (sin
 - `modules/world/rebuildmap_test.go` and `modules/world/login_map_test.go`: rewrite the CRC-seeding setup. Add a shared test helper `seedCachedMapCRC(t *testing.T, mx, mz int, mCRC, lCRC uint32)` at a sensible test-shared location (likely `modules/world/rebuildmap_test.go` so both files in the same package use it; pattern mirrors NAI-16's `seedCachedMidi` helper). The helper writes to `cache.PreloadedCRC` and registers a `t.Cleanup` to delete on test end.
 - Verify wire-format unchanged: `TestSendRebuildNormalWireFormat` (`rebuildmap_test.go:11`) and `TestLoginSendsRebuildNormal` (`login_map_test.go:13`) MUST pass with byte-identical output (only the CRC-seed source changes).
 
-### Task 5 — B5 α′ revertType respawn alignment (~150-200 LOC + tests)
+### Task 5 — B5 α′ revertType respawn alignment (~140-190 LOC + tests)
 
-Five sub-pieces, sequenced for safe TDD (each is one commit):
-
-#### 5a — `gamemap.ChangeNpcCollision` helper (~10 LOC)
-
-Add `(gm *GameMap) ChangeNpcCollision(size, x, z, level int, add bool)` at `pkg/gamemap/gamemap.go` mirroring the existing `ChangePlayerCollision(size, x, z, level int, add bool)` at line 74. Per TS `gridcollider.changeNpcCollision`. Uses the same flag-bit application pattern; the only delta is which collision flag bits.
+Four sub-pieces, sequenced for safe TDD (each is one commit). Original 5-piece structure dropped sub-piece 5a after plan-time discovery: `gm.ChangeNPCCollision(size, x, z, level int, add bool)` **already exists** at `pkg/gamemap/gamemap.go:69`. Note the actual name uses uppercase `NPC` (not `Npc`); use the existing name in 5c/5d bodies.
 
 #### 5b — `(*Server).scaleByPlayerCount` helper (~10 LOC)
 
@@ -84,9 +80,9 @@ func (s *Server) removeNpc(n *Npc, duration int) {
     if n.typ != nil {
         switch n.typ.BlockWalk {
         case objtype.BlockWalkNPC:
-            s.gamemap.ChangeNpcCollision(int(n.typ.Size), n.x, n.z, n.level, false)
+            s.gamemap.ChangeNPCCollision(int(n.typ.Size), n.x, n.z, n.level, false)
         case objtype.BlockWalkAll:
-            s.gamemap.ChangeNpcCollision(int(n.typ.Size), n.x, n.z, n.level, false)
+            s.gamemap.ChangeNPCCollision(int(n.typ.Size), n.x, n.z, n.level, false)
             s.gamemap.ChangePlayerCollision(int(n.typ.Size), n.x, n.z, n.level, false)
         }
     }
@@ -128,9 +124,9 @@ func (s *Server) addNpc(n *Npc, duration int, firstSpawn bool) error {
     if n.typ != nil {
         switch n.typ.BlockWalk {
         case objtype.BlockWalkNPC:
-            s.gamemap.ChangeNpcCollision(int(n.typ.Size), n.x, n.z, n.level, true)
+            s.gamemap.ChangeNPCCollision(int(n.typ.Size), n.x, n.z, n.level, true)
         case objtype.BlockWalkAll:
-            s.gamemap.ChangeNpcCollision(int(n.typ.Size), n.x, n.z, n.level, true)
+            s.gamemap.ChangeNPCCollision(int(n.typ.Size), n.x, n.z, n.level, true)
             s.gamemap.ChangePlayerCollision(int(n.typ.Size), n.x, n.z, n.level, true)
         }
     }
@@ -222,7 +218,7 @@ Update the 3 production/test callers to the new signatures:
 - `modules/world/npc.go` — Task 1 (loop modernization, lines 163-168); Task 5e (heavy-path body replacement at 276-307; comment deletion at 257-259).
 - `modules/world/npc_masks.go` — Task 3 (changeTypeImpl refactor, lines 53-74).
 - `modules/world/rebuildmap.go` — Task 4 (CRC read source switch).
-- `pkg/gamemap/gamemap.go` — Task 4 (delete mapCRC/locCRC fields, populate sites, MapsquareCRC method); Task 5a (add ChangeNpcCollision).
+- `pkg/gamemap/gamemap.go` — Task 4 (delete mapCRC/locCRC fields, populate sites, MapsquareCRC method). [Plan-time correction: sub-piece 5a dropped — `ChangeNPCCollision` already exists at line 69.]
 - `modules/world/npc_registry.go` — Task 5c+5d (extend addNpc / removeNpc signatures + bodies).
 - `modules/world/npc_ai.go` — Task 5e (caller update at line 46).
 - `modules/world/server.go` — Task 5e (caller update at line 234); Task 5b (scaleByPlayerCount helper).
@@ -237,7 +233,7 @@ Update the 3 production/test callers to the new signatures:
 - `modules/world/world_test.go` (new or existing) — Task 2 (assert `cache.CrcBuffer` populated after world startingFn).
 - `modules/world/npc_test.go` (or `npc_revert_test.go`) — Task 5 (new tests):
   - `TestRevertTypeHeavyPathTeles` — pin `n.x == n.startX`, `n.z == n.startZ` post-revert.
-  - `TestRevertTypeHeavyPathRunsCollisionToggles` — fixture gamemap, assert ChangeNpcCollision off-then-on.
+  - `TestRevertTypeHeavyPathRunsCollisionToggles` — fixture gamemap, assert ChangeNPCCollision off-then-on (name confirmed at `pkg/gamemap/gamemap.go:69`).
   - `TestRevertTypeHeavyPathReseedsStats` — preserve existing coverage.
   - `TestRevertTypeHeavyPathClearsQueueWaypoints` — preserve existing coverage.
   - `TestRevertTypeLightPathUnchanged` — regression pin (KEEPALL revert path body byte-identical).
