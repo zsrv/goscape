@@ -1,6 +1,9 @@
 package script
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // Mock-based tests for S5f interface opcodes. Each test assembles a
 // minimal script that pushes operands in the order expected by the
@@ -529,5 +532,570 @@ func TestIfSetResumeButtonsNoActivePlayer(t *testing.T) {
 	}
 	if state.Execution != Aborted {
 		t.Errorf("Execution: got %v, want Aborted", state.Execution)
+	}
+}
+
+// -- NAI-23 Bundle 4c: NumberNotNull null-pin tests ----------------------
+//
+// Each test below corresponds to a popInt site where the TS counterpart
+// (PlayerOps.ts) wraps with check(..., NumberNotNull). A value of -1
+// must be rejected before any side-effect occurs.
+
+// TestHandleIfOpenMainNullRejected pins IF_OPENMAIN: TS wraps com with
+// NumberNotNull (PlayerOps.ts:720).
+func TestHandleIfOpenMainNullRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "if_openmain_null_com",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // com = -1
+			OpIfOpenMain,
+			OpReturn,
+		},
+		IntOperands: []int32{-1, 0, 0},
+	}
+	state := Init(sf, mp, false, nil, nil)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for com=-1, got nil")
+	}
+	want := "IF_OPENMAIN: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if mp.lastOpenMain != 0 {
+		t.Errorf("OpenMain: should not have been called, got %d", mp.lastOpenMain)
+	}
+}
+
+// TestHandleIfOpenChatNullRejected pins IF_OPENCHAT: TS wraps com with
+// NumberNotNull (PlayerOps.ts:642).
+func TestHandleIfOpenChatNullRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "if_openchat_null_com",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // com = -1
+			OpIfOpenChat,
+			OpReturn,
+		},
+		IntOperands: []int32{-1, 0, 0},
+	}
+	state := Init(sf, mp, false, nil, nil)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for com=-1, got nil")
+	}
+	want := "IF_OPENCHAT: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if mp.lastOpenChat != 0 {
+		t.Errorf("OpenChat: should not have been called, got %d", mp.lastOpenChat)
+	}
+}
+
+// TestHandleIfOpenSideNullRejected pins IF_OPENSIDE: TS wraps com with
+// NumberNotNull (PlayerOps.ts:728).
+func TestHandleIfOpenSideNullRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "if_openside_null_com",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // com = -1
+			OpIfOpenSide,
+			OpReturn,
+		},
+		IntOperands: []int32{-1, 0, 0},
+	}
+	state := Init(sf, mp, false, nil, nil)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for com=-1, got nil")
+	}
+	want := "IF_OPENSIDE: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if mp.lastOpenSide != 0 {
+		t.Errorf("OpenSide: should not have been called, got %d", mp.lastOpenSide)
+	}
+}
+
+// TestHandleIfOpenMainSideNullRejected pins IF_OPENMAIN_SIDE: TS wraps both
+// main and side with NumberNotNull (PlayerOps.ts:648-649). Table-driven:
+// one sub-test per null slot.
+func TestHandleIfOpenMainSideNullRejected(t *testing.T) {
+	tests := []struct {
+		name       string
+		main, side int
+		wantSubstr string
+	}{
+		{
+			name:       "null_main",
+			main:       -1,
+			side:       200,
+			wantSubstr: "IF_OPENMAIN_SIDE: input number was null(-1)",
+		},
+		{
+			name:       "null_side",
+			main:       100,
+			side:       -1,
+			wantSubstr: "IF_OPENMAIN_SIDE: input number was null(-1)",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mp := &mockPlayer{}
+			sf := &ScriptFile{
+				Name: "if_openmainside_" + tc.name,
+				Opcodes: []Opcode{
+					OpPushConstantInt, // push main (bottom)
+					OpPushConstantInt, // push side (top)
+					OpIfOpenMainSide,
+					OpReturn,
+				},
+				IntOperands: []int32{int32(tc.main), int32(tc.side), 0, 0},
+			}
+			state := Init(sf, mp, false, nil, nil)
+
+			err := Execute(state)
+			if err == nil {
+				t.Fatalf("Execute: want error for %s, got nil", tc.name)
+			}
+			if !strings.Contains(err.Error(), tc.wantSubstr) {
+				t.Errorf("error: got %q, want substring %q", err.Error(), tc.wantSubstr)
+			}
+		})
+	}
+}
+
+// TestHandleIfSetTextNullComRejected pins IF_SETTEXT: TS wraps com with
+// NumberNotNull (PlayerOps.ts:737).
+func TestHandleIfSetTextNullComRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "if_settext_null_com",
+		Opcodes: []Opcode{
+			OpPushConstantInt,    // com = -1
+			OpPushConstantString, // text (valid)
+			OpIfSetText,
+			OpReturn,
+		},
+		IntOperands:    []int32{-1, 0, 0, 0},
+		StringOperands: []string{"", "hello", "", ""},
+	}
+	state := Init(sf, mp, false, nil, nil)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for com=-1, got nil")
+	}
+	want := "IF_SETTEXT: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+}
+
+// TestHandleIfSetModelNullRejected pins IF_SETMODEL: TS wraps both com and
+// model with NumberNotNull (PlayerOps.ts:680-681). Table-driven.
+func TestHandleIfSetModelNullRejected(t *testing.T) {
+	tests := []struct {
+		name       string
+		com, model int
+		wantSubstr string
+	}{
+		{
+			name:       "null_com",
+			com:        -1,
+			model:      20,
+			wantSubstr: "IF_SETMODEL: input number was null(-1)",
+		},
+		{
+			name:       "null_model",
+			com:        10,
+			model:      -1,
+			wantSubstr: "IF_SETMODEL: input number was null(-1)",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mp := &mockPlayer{}
+			sf := &ScriptFile{
+				Name: "if_setmodel_" + tc.name,
+				Opcodes: []Opcode{
+					OpPushConstantInt, // push com (bottom)
+					OpPushConstantInt, // push model (top)
+					OpIfSetModel,
+					OpReturn,
+				},
+				IntOperands: []int32{int32(tc.com), int32(tc.model), 0, 0},
+			}
+			state := Init(sf, mp, false, nil, nil)
+
+			err := Execute(state)
+			if err == nil {
+				t.Fatalf("Execute: want error for %s, got nil", tc.name)
+			}
+			if !strings.Contains(err.Error(), tc.wantSubstr) {
+				t.Errorf("error: got %q, want substring %q", err.Error(), tc.wantSubstr)
+			}
+		})
+	}
+}
+
+// TestHandleIfSetNpcHeadNullComRejected pins IF_SETNPCHEAD: TS wraps com with
+// NumberNotNull (PlayerOps.ts:745). npc uses NpcTypeValid (not NumberNotNull)
+// so only com is covered here.
+func TestHandleIfSetNpcHeadNullComRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "if_setnpchead_null_com",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push com = -1 (bottom)
+			OpPushConstantInt, // push npc (top)
+			OpIfSetNpcHead,
+			OpReturn,
+		},
+		IntOperands: []int32{-1, 22, 0, 0},
+	}
+	state := Init(sf, mp, false, nil, nil)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for com=-1, got nil")
+	}
+	want := "IF_SETNPCHEAD: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if mp.lastIfSetNpcHead != (struct{ com, npcID int }{0, 0}) {
+		t.Errorf("IfSetNpcHead: should not have been called, got %+v", mp.lastIfSetNpcHead)
+	}
+}
+
+// TestHandleIfSetPlayerHeadNullRejected pins IF_SETPLAYERHEAD: TS wraps com
+// with NumberNotNull (PlayerOps.ts:732).
+func TestHandleIfSetPlayerHeadNullRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "if_setplayerhead_null_com",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // com = -1
+			OpIfSetPlayerHead,
+			OpReturn,
+		},
+		IntOperands: []int32{-1, 0, 0},
+	}
+	state := Init(sf, mp, false, nil, nil)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for com=-1, got nil")
+	}
+	want := "IF_SETPLAYERHEAD: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if mp.lastIfSetPlayerHead != 0 {
+		t.Errorf("IfSetPlayerHead: should not have been called, got %d", mp.lastIfSetPlayerHead)
+	}
+}
+
+// TestHandleIfSetAnimNullComRejected pins IF_SETANIM: TS wraps com with
+// NumberNotNull (PlayerOps.ts:701). seq=-1 is a valid sentinel (client-crash
+// guard) and is NOT wrapped, so only com is covered here.
+func TestHandleIfSetAnimNullComRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "if_setanim_null_com",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push com = -1 (bottom)
+			OpPushConstantInt, // push seq (top)
+			OpIfSetAnim,
+			OpReturn,
+		},
+		IntOperands: []int32{-1, 5, 0, 0},
+	}
+	state := Init(sf, mp, false, nil, nil)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for com=-1, got nil")
+	}
+	want := "IF_SETANIM: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if mp.lastIfSetAnim != (struct{ com, seqID int }{0, 0}) {
+		t.Errorf("IfSetAnim: should not have been called, got %+v", mp.lastIfSetAnim)
+	}
+}
+
+// TestHandleIfSetHideNullRejected pins IF_SETHIDE: TS wraps both com and hide
+// with NumberNotNull (PlayerOps.ts:657-658). Table-driven.
+func TestHandleIfSetHideNullRejected(t *testing.T) {
+	tests := []struct {
+		name       string
+		com, hide  int
+		wantSubstr string
+	}{
+		{
+			name:       "null_com",
+			com:        -1,
+			hide:       1,
+			wantSubstr: "IF_SETHIDE: input number was null(-1)",
+		},
+		{
+			name:       "null_hide",
+			com:        8,
+			hide:       -1,
+			wantSubstr: "IF_SETHIDE: input number was null(-1)",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mp := &mockPlayer{}
+			sf := &ScriptFile{
+				Name: "if_sethide_" + tc.name,
+				Opcodes: []Opcode{
+					OpPushConstantInt, // push com (bottom)
+					OpPushConstantInt, // push hide (top)
+					OpIfSetHide,
+					OpReturn,
+				},
+				IntOperands: []int32{int32(tc.com), int32(tc.hide), 0, 0},
+			}
+			state := Init(sf, mp, false, nil, nil)
+
+			err := Execute(state)
+			if err == nil {
+				t.Fatalf("Execute: want error for %s, got nil", tc.name)
+			}
+			if !strings.Contains(err.Error(), tc.wantSubstr) {
+				t.Errorf("error: got %q, want substring %q", err.Error(), tc.wantSubstr)
+			}
+		})
+	}
+}
+
+// TestHandleIfSetTabNullTabRejected pins IF_SETTAB: TS wraps tab with
+// NumberNotNull (PlayerOps.ts:714). com is NOT wrapped in TS so only tab
+// is covered here.
+func TestHandleIfSetTabNullTabRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "if_settab_null_tab",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push com (bottom)
+			OpPushConstantInt, // push tab = -1 (top)
+			OpIfSetTab,
+			OpReturn,
+		},
+		IntOperands: []int32{100, -1, 0, 0},
+	}
+	state := Init(sf, mp, false, nil, nil)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for tab=-1, got nil")
+	}
+	want := "IF_SETTAB: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if mp.lastIfSetTab != (struct{ com, tab int }{0, 0}) {
+		t.Errorf("IfSetTab: should not have been called, got %+v", mp.lastIfSetTab)
+	}
+}
+
+// TestHandleIfSetObjectNullRejected pins IF_SETOBJECT: TS wraps com and scale
+// with NumberNotNull (PlayerOps.ts:666, 668). obj uses ObjTypeValid (not
+// NumberNotNull) and is not covered here. Table-driven: one sub-test per null slot.
+func TestHandleIfSetObjectNullRejected(t *testing.T) {
+	tests := []struct {
+		name            string
+		com, obj, scale int
+		wantSubstr      string
+	}{
+		{
+			name:       "null_com",
+			com:        -1,
+			obj:        2,
+			scale:      3,
+			wantSubstr: "IF_SETOBJECT: input number was null(-1)",
+		},
+		{
+			name:       "null_scale",
+			com:        1,
+			obj:        2,
+			scale:      -1,
+			wantSubstr: "IF_SETOBJECT: input number was null(-1)",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mp := &mockPlayer{}
+			sf := &ScriptFile{
+				Name: "if_setobject_" + tc.name,
+				Opcodes: []Opcode{
+					OpPushConstantInt, // push com (bottom)
+					OpPushConstantInt, // push obj
+					OpPushConstantInt, // push scale (top)
+					OpIfSetObject,
+					OpReturn,
+				},
+				IntOperands: []int32{int32(tc.com), int32(tc.obj), int32(tc.scale), 0, 0},
+			}
+			state := Init(sf, mp, false, nil, nil)
+
+			err := Execute(state)
+			if err == nil {
+				t.Fatalf("Execute: want error for %s, got nil", tc.name)
+			}
+			if !strings.Contains(err.Error(), tc.wantSubstr) {
+				t.Errorf("error: got %q, want substring %q", err.Error(), tc.wantSubstr)
+			}
+		})
+	}
+}
+
+// TestHandleIfSetColourNullRejected pins IF_SETCOLOUR: TS wraps both com and
+// colour with NumberNotNull (PlayerOps.ts:635-636). Table-driven.
+func TestHandleIfSetColourNullRejected(t *testing.T) {
+	tests := []struct {
+		name        string
+		com, colour int
+		wantSubstr  string
+	}{
+		{
+			name:       "null_com",
+			com:        -1,
+			colour:     0xff0000,
+			wantSubstr: "IF_SETCOLOUR: input number was null(-1)",
+		},
+		{
+			name:       "null_colour",
+			com:        12,
+			colour:     -1,
+			wantSubstr: "IF_SETCOLOUR: input number was null(-1)",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mp := &mockPlayer{}
+			sf := &ScriptFile{
+				Name: "if_setcolour_" + tc.name,
+				Opcodes: []Opcode{
+					OpPushConstantInt, // push com (bottom)
+					OpPushConstantInt, // push colour (top)
+					OpIfSetColour,
+					OpReturn,
+				},
+				IntOperands: []int32{int32(tc.com), int32(tc.colour), 0, 0},
+			}
+			state := Init(sf, mp, false, nil, nil)
+
+			err := Execute(state)
+			if err == nil {
+				t.Fatalf("Execute: want error for %s, got nil", tc.name)
+			}
+			if !strings.Contains(err.Error(), tc.wantSubstr) {
+				t.Errorf("error: got %q, want substring %q", err.Error(), tc.wantSubstr)
+			}
+		})
+	}
+}
+
+// TestHandleIfSetPositionNullComRejected pins IF_SETPOSITION: TS wraps com
+// with NumberNotNull (PlayerOps.ts:754). x and y are NOT wrapped in TS so
+// only com is covered here.
+func TestHandleIfSetPositionNullComRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "if_setposition_null_com",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push com = -1 (bottom)
+			OpPushConstantInt, // push x
+			OpPushConstantInt, // push y (top)
+			OpIfSetPosition,
+			OpReturn,
+		},
+		IntOperands: []int32{-1, 10, 20, 0, 0},
+	}
+	state := Init(sf, mp, false, nil, nil)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for com=-1, got nil")
+	}
+	want := "IF_SETPOSITION: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if mp.lastIfSetPosition != (struct{ com, x, y int }{0, 0, 0}) {
+		t.Errorf("IfSetPosition: should not have been called, got %+v", mp.lastIfSetPosition)
+	}
+}
+
+// TestHandleIfSetRecolNullComRejected pins IF_SETRECOL: TS wraps com with
+// NumberNotNull (PlayerOps.ts:689). src and dest are NOT wrapped in TS so
+// only com is covered here.
+func TestHandleIfSetRecolNullComRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "if_setrecol_null_com",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push com = -1 (bottom)
+			OpPushConstantInt, // push src
+			OpPushConstantInt, // push dest (top)
+			OpIfSetRecol,
+			OpReturn,
+		},
+		IntOperands: []int32{-1, 0x123, 0x456, 0, 0},
+	}
+	state := Init(sf, mp, false, nil, nil)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for com=-1, got nil")
+	}
+	want := "IF_SETRECOL: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if mp.lastIfSetRecol != (struct{ com, src, dst int }{0, 0, 0}) {
+		t.Errorf("IfSetRecol: should not have been called, got %+v", mp.lastIfSetRecol)
+	}
+}
+
+// TestHandleIfSetTabActiveNullRejected pins IF_SETTABACTIVE: TS wraps tab with
+// NumberNotNull (PlayerOps.ts:674).
+func TestHandleIfSetTabActiveNullRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "if_settabactive_null_tab",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // tab = -1
+			OpIfSetTabActive,
+			OpReturn,
+		},
+		IntOperands: []int32{-1, 0, 0},
+	}
+	state := Init(sf, mp, false, nil, nil)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for tab=-1, got nil")
+	}
+	want := "IF_SETTABACTIVE: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if mp.lastIfSetTabActive != 0 {
+		t.Errorf("IfSetTabActive: should not have been called, got %d", mp.lastIfSetTabActive)
 	}
 }

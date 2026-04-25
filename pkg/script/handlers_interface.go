@@ -27,6 +27,9 @@ func handleIfOpenMain(s *ScriptState) error {
 		return errors.New("IF_OPENMAIN: no active player")
 	}
 	com := s.PopInt()
+	if err := checkNotNull(com, "IF_OPENMAIN"); err != nil {
+		return err
+	}
 	s.Self.OpenMain(com)
 	return nil
 }
@@ -38,6 +41,9 @@ func handleIfOpenChat(s *ScriptState) error {
 		return errors.New("IF_OPENCHAT: no active player")
 	}
 	com := s.PopInt()
+	if err := checkNotNull(com, "IF_OPENCHAT"); err != nil {
+		return err
+	}
 	s.Self.OpenChat(com)
 	return nil
 }
@@ -49,6 +55,9 @@ func handleIfOpenSide(s *ScriptState) error {
 		return errors.New("IF_OPENSIDE: no active player")
 	}
 	com := s.PopInt()
+	if err := checkNotNull(com, "IF_OPENSIDE"); err != nil {
+		return err
+	}
 	s.Self.OpenSide(com)
 	return nil
 }
@@ -62,6 +71,12 @@ func handleIfOpenMainSide(s *ScriptState) error {
 	}
 	side := s.PopInt()
 	main := s.PopInt()
+	if err := checkNotNull(side, "IF_OPENMAIN_SIDE"); err != nil {
+		return err
+	}
+	if err := checkNotNull(main, "IF_OPENMAIN_SIDE"); err != nil {
+		return err
+	}
 	s.Self.OpenMainSide(main, side)
 	return nil
 }
@@ -79,6 +94,9 @@ func handleIfSetText(s *ScriptState) error {
 	}
 	text := s.PopString()
 	com := s.PopInt()
+	if err := checkNotNull(com, "IF_SETTEXT"); err != nil {
+		return err
+	}
 	s.Self.IfSetText(com, text)
 	return nil
 }
@@ -91,6 +109,12 @@ func handleIfSetModel(s *ScriptState) error {
 	}
 	model := s.PopInt()
 	com := s.PopInt()
+	if err := checkNotNull(com, "IF_SETMODEL"); err != nil {
+		return err
+	}
+	if err := checkNotNull(model, "IF_SETMODEL"); err != nil {
+		return err
+	}
 	s.Self.IfSetModel(com, model)
 	return nil
 }
@@ -103,6 +127,10 @@ func handleIfSetNpcHead(s *ScriptState) error {
 	}
 	npc := s.PopInt()
 	com := s.PopInt()
+	if err := checkNotNull(com, "IF_SETNPCHEAD"); err != nil {
+		return err
+	}
+	// npc uses NpcTypeValid in TS (not NumberNotNull); no checkNotNull here.
 	s.Self.IfSetNpcHead(com, npc)
 	return nil
 }
@@ -114,6 +142,9 @@ func handleIfSetPlayerHead(s *ScriptState) error {
 		return errors.New("IF_SETPLAYERHEAD: no active player")
 	}
 	com := s.PopInt()
+	if err := checkNotNull(com, "IF_SETPLAYERHEAD"); err != nil {
+		return err
+	}
 	s.Self.IfSetPlayerHead(com)
 	return nil
 }
@@ -128,6 +159,10 @@ func handleIfSetAnim(s *ScriptState) error {
 	}
 	seq := s.PopInt()
 	com := s.PopInt()
+	if err := checkNotNull(com, "IF_SETANIM"); err != nil {
+		return err
+	}
+	// seq=-1 is a valid sentinel in TS (client crashes on -1); no checkNotNull.
 	if seq == -1 {
 		return nil
 	}
@@ -144,6 +179,12 @@ func handleIfSetHide(s *ScriptState) error {
 	}
 	hide := s.PopInt()
 	com := s.PopInt()
+	if err := checkNotNull(com, "IF_SETHIDE"); err != nil {
+		return err
+	}
+	if err := checkNotNull(hide, "IF_SETHIDE"); err != nil {
+		return err
+	}
 	s.Self.IfSetHide(com, hide == 1)
 	return nil
 }
@@ -156,6 +197,10 @@ func handleIfSetTab(s *ScriptState) error {
 	}
 	tab := s.PopInt()
 	com := s.PopInt()
+	if err := checkNotNull(tab, "IF_SETTAB"); err != nil {
+		return err
+	}
+	// com is NOT wrapped with NumberNotNull in TS (PlayerOps.ts:711-717).
 	s.Self.IfSetTab(com, tab)
 	return nil
 }
@@ -169,6 +214,13 @@ func handleIfSetObject(s *ScriptState) error {
 	scale := s.PopInt()
 	obj := s.PopInt()
 	com := s.PopInt()
+	if err := checkNotNull(com, "IF_SETOBJECT"); err != nil {
+		return err
+	}
+	// obj uses ObjTypeValid in TS (not NumberNotNull); no checkNotNull here.
+	if err := checkNotNull(scale, "IF_SETOBJECT"); err != nil {
+		return err
+	}
 	s.Self.IfSetObject(com, obj, scale)
 	return nil
 }
@@ -183,6 +235,12 @@ func handleIfSetColour(s *ScriptState) error {
 	}
 	colour := s.PopInt()
 	com := s.PopInt()
+	if err := checkNotNull(com, "IF_SETCOLOUR"); err != nil {
+		return err
+	}
+	if err := checkNotNull(colour, "IF_SETCOLOUR"); err != nil {
+		return err
+	}
 	s.Self.IfSetColour(com, colour)
 	return nil
 }
@@ -196,6 +254,10 @@ func handleIfSetPosition(s *ScriptState) error {
 	y := s.PopInt()
 	x := s.PopInt()
 	com := s.PopInt()
+	if err := checkNotNull(com, "IF_SETPOSITION"); err != nil {
+		return err
+	}
+	// x and y are NOT wrapped with NumberNotNull in TS (PlayerOps.ts:751-757).
 	s.Self.IfSetPosition(com, x, y)
 	return nil
 }
@@ -209,6 +271,10 @@ func handleIfSetRecol(s *ScriptState) error {
 	dest := s.PopInt()
 	src := s.PopInt()
 	com := s.PopInt()
+	if err := checkNotNull(com, "IF_SETRECOL"); err != nil {
+		return err
+	}
+	// src and dest are NOT wrapped with NumberNotNull in TS (PlayerOps.ts:686-692).
 	s.Self.IfSetRecol(com, src, dest)
 	return nil
 }
@@ -222,6 +288,9 @@ func handleIfSetTabActive(s *ScriptState) error {
 		return errors.New("IF_SETTABACTIVE: no active player")
 	}
 	tab := s.PopInt()
+	if err := checkNotNull(tab, "IF_SETTABACTIVE"); err != nil {
+		return err
+	}
 	s.Self.IfSetTabActive(tab)
 	return nil
 }
