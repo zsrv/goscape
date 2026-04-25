@@ -504,6 +504,14 @@ func TestNcOpNilOpSliceReturnsEmpty(t *testing.T) {
 	}
 }
 
+// TestHandleNcOpNullRejected pins NC_OP: TS wraps op with NumberNotNull
+// (NpcConfigOps.ts:43). An op value of -1 (the null sentinel) must return an
+// error rather than silently returning an empty string.
+func TestHandleNcOpNullRejected(t *testing.T) {
+	mc := newTestConfigs()
+	runConfigOpExpectErr(t, mc, OpNcOp, []int{0, -1}, "NC_OP: input number was null(-1)")
+}
+
 func TestNcSize(t *testing.T) {
 	mc := newTestConfigs()
 	state := runConfigOp(t, mc, OpNcSize, []int{0})

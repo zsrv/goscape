@@ -347,6 +347,9 @@ func handleNcOp(s *ScriptState) error {
 		return err
 	}
 	op := s.PopInt()
+	if err := checkNotNull(op, "NC_OP"); err != nil {
+		return err
+	}
 	npcID := s.PopInt()
 	nt := s.Configs.NpcType(npcID)
 	if nt == nil {
