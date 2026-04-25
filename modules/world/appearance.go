@@ -22,9 +22,19 @@ var slotToBodyTable = map[int]int{
 func (p *Player) generateAppearance(objs *objtype.ObjTypeConfigs, invs *objtype.InvTypeConfigs, currentTick int) {
 	buf := packet.NewPacket(nil)
 
+	// NAI-21-D1: TS init binds appearanceInv to Worn at ctor; goscape uses
+	// -1 sentinel and maps it here for behavioral parity. Internal mechanism
+	// only — observationally identical for production callers because every
+	// production caller either (i) passes through SetAppearanceInv before
+	// generateAppearance fires, or (ii) is a fresh player whose first read
+	// must surface worn-inv items.
 	var worn *inventory.Inventory
 	if p.invs != nil {
-		worn = p.invs[invs.Worn]
+		inventoryId := p.appearanceInv
+		if inventoryId < 0 {
+			inventoryId = invs.Worn
+		}
+		worn = p.invs[inventoryId]
 	}
 
 	skipped := map[int]bool{}

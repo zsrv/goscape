@@ -529,7 +529,7 @@ func approachEntitySize(e entity) (width, length int) {
 	case *Player:
 		return 1, 1
 	case *Npc:
-		size := int(t.typ.Size)
+		size := int(t.size)
 		return size, size
 	default:
 		return 1, 1
@@ -578,7 +578,7 @@ func (n *Npc) inApproachDistance(rng int, target entity) bool {
 	// (NPC-backward quirk); FlagBlockPlayers as extraFlag (GameMap.ts:433-435).
 	// gamemap==nil short-circuits to gate-pass; see NAI-12 spec § error handling.
 	targetSize, _ := approachEntitySize(target)
-	selfSize := int(n.typ.Size)
+	selfSize := int(n.size)
 	if n.server != nil && n.server.gamemap != nil &&
 		!n.server.gamemap.Pathfinder.LineValidator.HasLineOfSight(
 			n.level, tx, tz, n.x, n.z, targetSize, selfSize, selfSize,

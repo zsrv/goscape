@@ -1242,3 +1242,132 @@ func TestTargetWithinMaxRangePlayerEscapeStartCoordUsesTargetSizeQuirk(t *testin
 			"n.size or scalar (1,1). See TS Npc.ts:664-669.")
 	}
 }
+
+// TestInApproachDistanceUsesSelfSizeSnapshotNotTyp pins NAI-21 Task (a):
+// after a size-morph, inApproachDistance must read self size from the
+// NAI-20 snapshot (n.size) rather than live config (n.typ.Size). Mirrors
+// TS PathingEntity.width ctor-snapshot semantics (PathingEntity.ts:402-405).
+//
+// Setup: NPC at base size=2; morph to size=1. n.size stays 2 (snapshot);
+// n.typ.Size becomes 1 (live).
+//
+// LoS scenario (mirrors TestNpcInApproachDistanceMultiTileSelfShiftsLoSEndTile):
+// target *Player 2 tiles north of self at (n.x, n.z+2); target-as-source +
+// self-as-dest LoS (TS NPC-backward arg order). FlagWallNorthProjBlocker
+// at the self tile (n.x, n.z) blocks ray entry from the north.
+//   - destLength=2 (snapshot): endZ=lineCoordinate(n.z, srcZ, 2)=n.z+1 →
+//     ray terminates at z=n.z+1 (clear) → returns TRUE.
+//   - destLength=1 (typ live):  endZ=lineCoordinate(n.z, srcZ, 1)=n.z   →
+//     ray enters z=n.z, FlagWallNorthProjBlocker still in zFlags at endpoint
+//     (only FlagLocProjBlocker is masked) → returns FALSE.
+// Assert TRUE — the snapshot-honoring behavior.
+func TestInApproachDistanceUsesSelfSizeSnapshotNotTyp(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.gamemap = gamemap.New(discardLogger())
+
+	baseTyp := &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 1, DebugName: "base_size2"},
+		Size:       2,
+		BlockWalk:  objtype.BlockWalkAll,
+		Category:   -1,
+	}
+	morphTyp := &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 2, DebugName: "morph_size1"},
+		Size:       1,
+		BlockWalk:  objtype.BlockWalkAll,
+		Category:   -1,
+	}
+	s.npcTypes = &objtype.NPCTypeConfigs{
+		Configs: []*objtype.NpcType{nil, baseTyp, morphTyp},
+	}
+
+	// Bare NPC (not registered via addNpc) so collision flags from
+	// addNpc don't leak into the LoS scenario; tests directly assert
+	// LoS behavior under controlled flag layout.
+	n := NewNpc(1, 1, 3094, 3106, 0, baseTyp)
+	n.server = s
+	if n.size != 2 {
+		t.Fatalf("setup: NewNpc should seed n.size=2 from baseTyp.Size, got %d", n.size)
+	}
+
+	// Morph to size-1 type — n.typ swaps; n.size (snapshot) MUST stay 2.
+	n.ChangeType(2, 100)
+	if n.size != 2 {
+		t.Fatalf("setup: n.size should still be 2 (snapshot), got %d", n.size)
+	}
+	if n.typ.Size != 1 {
+		t.Fatalf("setup: n.typ.Size should be 1 (post-morph), got %d", n.typ.Size)
+	}
+
+	// Target 2 tiles north (target-as-src LoS direction = south).
+	target := addPlayerToServer(t, s, 1, 3094, 3108, 0)
+
+	// FlagWallNorthProjBlocker at self's tile blocks size-1 ray (which
+	// terminates AT n.z and enters from the north) but lets size-2 ray
+	// pass (terminates at n.z+1).
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(n.x, n.z, n.level)
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(n.x, n.z+1, n.level)
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(n.x, n.z+2, n.level)
+	s.gamemap.Pathfinder.Flags.Add(n.x, n.z, n.level, collision.FlagWallNorthProjBlocker)
+
+	got := n.inApproachDistance(5, target)
+
+	// Snapshot (selfSize=2) → endZ=n.z+1 → clear → TRUE.
+	// Typ-following (selfSize=1) → endZ=n.z → FlagWallNorthProjBlocker → FALSE.
+	if !got {
+		t.Errorf("inApproachDistance: got false, want true — selfSize must read " +
+			"from n.size snapshot (=2, ray terminates at n.z+1, clear), not " +
+			"n.typ.Size (=1, ray enters n.z and is blocked by " +
+			"FlagWallNorthProjBlocker)")
+	}
+}
+
+// TestApproachEntitySizeUsesNpcSizeSnapshotNotTyp pins NAI-21 Task (a)
+// target side: after a size-morph, approachEntitySize must read target
+// size from the NAI-20 snapshot (t.size) rather than live config
+// (t.typ.Size). Mirrors TS PathingEntity.width ctor-snapshot semantics.
+//
+// Setup: target NPC at base size=2; morph to size=1. t.size stays 2;
+// t.typ.Size becomes 1. Assert approachEntitySize returns (2, 2).
+func TestApproachEntitySizeUsesNpcSizeSnapshotNotTyp(t *testing.T) {
+	s := newServerForScriptTest(t)
+
+	baseTyp := &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 1, DebugName: "base_size2"},
+		Size:       2,
+		BlockWalk:  objtype.BlockWalkAll,
+		Category:   -1,
+	}
+	morphTyp := &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 2, DebugName: "morph_size1"},
+		Size:       1,
+		BlockWalk:  objtype.BlockWalkAll,
+		Category:   -1,
+	}
+	s.npcTypes = &objtype.NPCTypeConfigs{
+		Configs: []*objtype.NpcType{nil, baseTyp, morphTyp},
+	}
+
+	target := NewNpc(1, 1, 3094, 3106, 0, baseTyp)
+	target.server = s
+	if target.size != 2 {
+		t.Fatalf("setup: NewNpc should seed target.size=2 from baseTyp.Size, got %d",
+			target.size)
+	}
+
+	// Morph to size-1 type — target.typ swaps; target.size (snapshot) MUST stay 2.
+	target.ChangeType(2, 100)
+	if target.size != 2 {
+		t.Fatalf("setup: target.size should still be 2 (snapshot), got %d", target.size)
+	}
+	if target.typ.Size != 1 {
+		t.Fatalf("setup: target.typ.Size should be 1 (post-morph), got %d", target.typ.Size)
+	}
+
+	w, l := approachEntitySize(target)
+
+	if w != 2 || l != 2 {
+		t.Errorf("approachEntitySize: got (%d, %d), want (2, 2) — must read "+
+			"t.size snapshot, not t.typ.Size live", w, l)
+	}
+}
