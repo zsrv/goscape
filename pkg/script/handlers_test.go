@@ -1,7 +1,9 @@
 package script
 
 import (
+	"fmt"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -455,8 +457,6 @@ func TestQueueVariants(t *testing.T) {
 		qtype PlayerQueueType
 	}{
 		{"weak", OpWeakQueue, QueueWeak},
-		{"strong", OpStrongQueue, QueueStrong},
-		{"long", OpLongQueue, QueueLong},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -491,6 +491,399 @@ func TestQueueVariants(t *testing.T) {
 			}
 			if got.StringArgs != nil {
 				t.Errorf("StringArgs: got %v, want nil", got.StringArgs)
+			}
+		})
+	}
+}
+
+// TestPopScriptArgs_Empty pins the empty-tags case: an empty type-tags
+// string yields nil/nil. Mirrors TS PlayerOps.ts:1248-1263 with count=0.
+func TestPopScriptArgs_Empty(t *testing.T) {
+	state := Init(&ScriptFile{Name: "popscriptargs_empty"}, nil, false, nil, nil)
+	state.PushString("")
+
+	intArgs, stringArgs := popScriptArgs(state)
+
+	if intArgs != nil {
+		t.Errorf("intArgs: got %v, want nil", intArgs)
+	}
+	if stringArgs != nil {
+		t.Errorf("stringArgs: got %v, want nil", stringArgs)
+	}
+	if state.SSP != 0 {
+		t.Errorf("SSP after pop: got %d, want 0", state.SSP)
+	}
+}
+
+// TestPopScriptArgs_AllInt pins the all-int case: tags="iii" with stack-
+// pushed ints [1, 2, 3] (top of stack is 3) yields intArgs=[1, 2, 3],
+// stringArgs=nil. Verifies tag-position order is preserved.
+func TestPopScriptArgs_AllInt(t *testing.T) {
+	state := Init(&ScriptFile{Name: "popscriptargs_allint"}, nil, false, nil, nil)
+	state.PushInt(1)
+	state.PushInt(2)
+	state.PushInt(3)
+	state.PushString("iii")
+
+	intArgs, stringArgs := popScriptArgs(state)
+
+	if !slices.Equal(intArgs, []int{1, 2, 3}) {
+		t.Errorf("intArgs: got %v, want [1 2 3]", intArgs)
+	}
+	if stringArgs != nil {
+		t.Errorf("stringArgs: got %v, want nil", stringArgs)
+	}
+	if state.ISP != 0 {
+		t.Errorf("ISP after pop: got %d, want 0", state.ISP)
+	}
+}
+
+// TestPopScriptArgs_AllString pins the all-string case: tags="sss" with
+// stack-pushed strings ["a", "b", "c"] (top of stack is "c") yields
+// stringArgs=["a", "b", "c"], intArgs=nil.
+func TestPopScriptArgs_AllString(t *testing.T) {
+	state := Init(&ScriptFile{Name: "popscriptargs_allstring"}, nil, false, nil, nil)
+	state.PushString("a")
+	state.PushString("b")
+	state.PushString("c")
+	state.PushString("sss")
+
+	intArgs, stringArgs := popScriptArgs(state)
+
+	if intArgs != nil {
+		t.Errorf("intArgs: got %v, want nil", intArgs)
+	}
+	if !slices.Equal(stringArgs, []string{"a", "b", "c"}) {
+		t.Errorf("stringArgs: got %v, want [a b c]", stringArgs)
+	}
+	if state.SSP != 0 {
+		t.Errorf("SSP after pop: got %d, want 0", state.SSP)
+	}
+}
+
+// TestPopScriptArgs_Mixed pins the mixed-type case from spec § Bundle 2
+// § "Order semantics": tags="isi" with stack-pushed [1, "two", 3]
+// yields intArgs=[1, 3] (tag-relative-int-order: i0 then i2), and
+// stringArgs=["two"] (tag-relative-string-order: s1).
+//
+// Stack push order: PushInt(1), PushString("two"), PushInt(3),
+// PushString("isi"). Top of int stack is 3; top of string stack is
+// "isi". popScriptArgs first pops "isi" off the string stack, then
+// loop i=2 (tag 'i') pops 3 off the int stack into intArgs[1], loop
+// i=1 (tag 's') pops "two" off the string stack into stringArgs[0],
+// loop i=0 (tag 'i') pops 1 off the int stack into intArgs[0].
+func TestPopScriptArgs_Mixed(t *testing.T) {
+	state := Init(&ScriptFile{Name: "popscriptargs_mixed"}, nil, false, nil, nil)
+	state.PushInt(1)
+	state.PushString("two")
+	state.PushInt(3)
+	state.PushString("isi")
+
+	intArgs, stringArgs := popScriptArgs(state)
+
+	if !slices.Equal(intArgs, []int{1, 3}) {
+		t.Errorf("intArgs: got %v, want [1 3]", intArgs)
+	}
+	if !slices.Equal(stringArgs, []string{"two"}) {
+		t.Errorf("stringArgs: got %v, want [two]", stringArgs)
+	}
+	if state.ISP != 0 {
+		t.Errorf("ISP after pop: got %d, want 0", state.ISP)
+	}
+	if state.SSP != 0 {
+		t.Errorf("SSP after pop: got %d, want 0", state.SSP)
+	}
+}
+
+// TestPopScriptArgs_ReverseOrder pins the reverse-pop semantics that
+// distinguish popScriptArgs from a naive forward-iteration: with
+// tags="iii" and stack-pushed [10, 20, 30] (i.e. PushInt(10),
+// PushInt(20), PushInt(30)), the result is intArgs=[10, 20, 30] —
+// NOT [30, 20, 10]. The TS i=count-1→0 loop combined with the
+// intIdx=intCount-1→0 decrementer preserves tag-position order even
+// though pops are last-in-first-out. This test pins the inversion.
+func TestPopScriptArgs_ReverseOrder(t *testing.T) {
+	state := Init(&ScriptFile{Name: "popscriptargs_reverseorder"}, nil, false, nil, nil)
+	state.PushInt(10)
+	state.PushInt(20)
+	state.PushInt(30)
+	state.PushString("iii")
+
+	intArgs, _ := popScriptArgs(state)
+
+	if !slices.Equal(intArgs, []int{10, 20, 30}) {
+		t.Errorf("intArgs: got %v, want [10 20 30] (tag-position order, not LIFO order)", intArgs)
+	}
+}
+
+// TestStrongQueueDelayNullRejected pins divergence α: TS
+// PlayerOps.ts:99 wraps the popped delay with check(..., NumberNotNull).
+// goscape's pre-NAI-26 enqueueTyped helper missed this wrap. This test
+// pushes tags="" (empty popScriptArgs), delay=-1 (NULL), scriptID=77
+// and expects "STRONGQUEUE: input number was null(-1)".
+func TestStrongQueueDelayNullRejected(t *testing.T) {
+	sf := newSingleOp("strongqueue_delay_null", OpStrongQueue)
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	state.PushInt(77)    // scriptID
+	state.PushInt(-1)    // delay (NULL)
+	state.PushString("") // type-tags (no script args)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for delay=-1, got nil")
+	}
+	want := "STRONGQUEUE: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if len(mp.enqueueCalls) != 0 {
+		t.Errorf("enqueueCalls: got %d, want 0 (rejection should not enqueue)", len(mp.enqueueCalls))
+	}
+}
+
+// TestStrongQueueEmptyScriptArgs pins divergence β with an empty
+// type-tags string: STRONGQUEUE with tags="", delay=3, scriptID=77
+// enqueues with IntArgs=nil, StringArgs=nil.
+func TestStrongQueueEmptyScriptArgs(t *testing.T) {
+	sf := newSingleOp("strongqueue_empty_args", OpStrongQueue)
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	state.PushInt(77)    // scriptID
+	state.PushInt(3)     // delay
+	state.PushString("") // type-tags (no script args)
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(mp.enqueueCalls) != 1 {
+		t.Fatalf("enqueueCalls: got %d, want 1", len(mp.enqueueCalls))
+	}
+	got := mp.enqueueCalls[0]
+	if got.ScriptID != 77 || got.Delay != 3 || got.Type != QueueStrong {
+		t.Errorf("enqueue header: got ScriptID=%d Delay=%d Type=%v, want 77/3/QueueStrong",
+			got.ScriptID, got.Delay, got.Type)
+	}
+	if got.IntArgs != nil {
+		t.Errorf("IntArgs: got %v, want nil", got.IntArgs)
+	}
+	if got.StringArgs != nil {
+		t.Errorf("StringArgs: got %v, want nil", got.StringArgs)
+	}
+}
+
+// TestStrongQueueAllIntScriptArgs pins divergence β with an all-int
+// type-tags string: STRONGQUEUE with tags="iii", three int args
+// (10, 20, 30), delay=5, scriptID=77 enqueues with
+// IntArgs=[10, 20, 30], StringArgs=nil.
+func TestStrongQueueAllIntScriptArgs(t *testing.T) {
+	sf := newSingleOp("strongqueue_allint_args", OpStrongQueue)
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	state.PushInt(77)       // scriptID (deepest int)
+	state.PushInt(5)        // delay
+	state.PushInt(10)       // arg0
+	state.PushInt(20)       // arg1
+	state.PushInt(30)       // arg2 (top of int stack)
+	state.PushString("iii") // type-tags
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(mp.enqueueCalls) != 1 {
+		t.Fatalf("enqueueCalls: got %d, want 1", len(mp.enqueueCalls))
+	}
+	got := mp.enqueueCalls[0]
+	if got.ScriptID != 77 || got.Delay != 5 || got.Type != QueueStrong {
+		t.Errorf("enqueue header: got ScriptID=%d Delay=%d Type=%v, want 77/5/QueueStrong",
+			got.ScriptID, got.Delay, got.Type)
+	}
+	if !slices.Equal(got.IntArgs, []int{10, 20, 30}) {
+		t.Errorf("IntArgs: got %v, want [10 20 30]", got.IntArgs)
+	}
+	if got.StringArgs != nil {
+		t.Errorf("StringArgs: got %v, want nil", got.StringArgs)
+	}
+}
+
+// TestStrongQueuePopsMixedScriptArgs pins divergence β with a mixed-
+// type type-tags string: STRONGQUEUE with tags="is", arg-int=99,
+// arg-string="hello", delay=2, scriptID=77 enqueues with IntArgs=[99],
+// StringArgs=["hello"]. Pin shape lifts directly from spec § Bundle 2 §
+// "Order semantics".
+func TestStrongQueuePopsMixedScriptArgs(t *testing.T) {
+	sf := newSingleOp("strongqueue_mixed_args", OpStrongQueue)
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	// Stack push order — caller pre-loads the typed-arg block in
+	// tag-position order, so for tags="is": int arg first (deepest),
+	// then string arg, then delay, then scriptID — but ordering on
+	// the int and string stacks is independent.
+	//
+	// Int stack from bottom: [scriptID=77, delay=2, intArg=99].
+	// String stack from bottom: [stringArg="hello", tags="is"].
+	state.PushInt(77)
+	state.PushInt(2)
+	state.PushInt(99)
+	state.PushString("hello")
+	state.PushString("is")
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(mp.enqueueCalls) != 1 {
+		t.Fatalf("enqueueCalls: got %d, want 1", len(mp.enqueueCalls))
+	}
+	got := mp.enqueueCalls[0]
+	if got.ScriptID != 77 || got.Delay != 2 || got.Type != QueueStrong {
+		t.Errorf("enqueue header: got ScriptID=%d Delay=%d Type=%v, want 77/2/QueueStrong",
+			got.ScriptID, got.Delay, got.Type)
+	}
+	if !slices.Equal(got.IntArgs, []int{99}) {
+		t.Errorf("IntArgs: got %v, want [99]", got.IntArgs)
+	}
+	if !slices.Equal(got.StringArgs, []string{"hello"}) {
+		t.Errorf("StringArgs: got %v, want [hello]", got.StringArgs)
+	}
+}
+
+// TestLongQueuePopsFourInts pins divergences ζ + η: LONGQUEUE pops 4
+// ints (scriptID, delay, arg, logoutAction — the 4th distinguishes it
+// from QUEUE/WEAKQUEUE/STRONGQUEUE) and enqueues with the 2-element
+// args array [logoutAction, arg] (logoutAction-first per TS
+// PlayerOps.ts:179, even though logoutAction is the last-pushed and
+// first-popped int).
+func TestLongQueuePopsFourInts(t *testing.T) {
+	sf := newSingleOp("longqueue_4ints", OpLongQueue)
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	// Stack push order: scriptID first (deepest), then delay, then arg,
+	// then logoutAction (top). PopInt order at handler entry:
+	// logoutAction → arg → delay → scriptID.
+	state.PushInt(77) // scriptID
+	state.PushInt(3)  // delay
+	state.PushInt(99) // arg
+	state.PushInt(42) // logoutAction (top)
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(mp.enqueueCalls) != 1 {
+		t.Fatalf("enqueueCalls: got %d, want 1", len(mp.enqueueCalls))
+	}
+	got := mp.enqueueCalls[0]
+	if got.ScriptID != 77 || got.Delay != 3 || got.Type != QueueLong {
+		t.Errorf("enqueue header: got ScriptID=%d Delay=%d Type=%v, want 77/3/QueueLong",
+			got.ScriptID, got.Delay, got.Type)
+	}
+	if !slices.Equal(got.IntArgs, []int{42, 99}) {
+		t.Errorf("IntArgs: got %v, want [42 99] (logoutAction, arg per TS PlayerOps.ts:179)",
+			got.IntArgs)
+	}
+	if got.StringArgs != nil {
+		t.Errorf("StringArgs: got %v, want nil", got.StringArgs)
+	}
+}
+
+// TestPDelayNullRejected pins divergence κ: TS PlayerOps.ts:377 wraps
+// the popped n with check(..., NumberNotNull). Pushes -1 (NULL) → the
+// handler returns "P_DELAY: input number was null(-1)" without
+// calling SetDelayed.
+func TestPDelayNullRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := newSingleOp("p_delay_null", OpPDelay)
+	state := Init(sf, mp, true, nil, nil) // protect=true (P_DELAY needs protection)
+	state.PushInt(-1)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error, got nil")
+	}
+	want := "P_DELAY: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if len(mp.setDelayedCalls) != 0 {
+		t.Errorf("setDelayedCalls: got %v, want [] (rejection should not call SetDelayed)",
+			mp.setDelayedCalls)
+	}
+}
+
+// TestQueueScriptNotFound pins divergences γ + δ + ε + θ:
+// STRONGQUEUE / WEAKQUEUE / QUEUE / LONGQUEUE all propagate the
+// EnqueueScriptArgs script-missing error to their caller via the
+// handler's error return. Mirrors TS PlayerOps.ts:103-105 (STRONG),
+// :127-129 (WEAK), :152-154 (NORMAL), :175-177 (LONG). The mock
+// player is pre-configured to return the script-missing error;
+// the handler must propagate it up.
+func TestQueueScriptNotFound(t *testing.T) {
+	cases := []struct {
+		name  string
+		op    Opcode
+		setup func(state *ScriptState) // pushes scriptID/delay/[arg|tags...] in op-specific order
+	}{
+		{
+			name: "STRONGQUEUE",
+			op:   OpStrongQueue,
+			setup: func(state *ScriptState) {
+				state.PushInt(77)    // scriptID
+				state.PushInt(3)     // delay
+				state.PushString("") // tags=""
+			},
+		},
+		{
+			name: "WEAKQUEUE",
+			op:   OpWeakQueue,
+			setup: func(state *ScriptState) {
+				state.PushInt(77) // scriptID
+				state.PushInt(3)  // delay
+				state.PushInt(42) // arg
+			},
+		},
+		{
+			name: "QUEUE",
+			op:   OpQueue,
+			setup: func(state *ScriptState) {
+				state.PushInt(77) // scriptID
+				state.PushInt(3)  // delay
+				state.PushInt(42) // arg
+			},
+		},
+		{
+			name: "LONGQUEUE",
+			op:   OpLongQueue,
+			setup: func(state *ScriptState) {
+				state.PushInt(77) // scriptID
+				state.PushInt(3)  // delay
+				state.PushInt(42) // arg
+				state.PushInt(99) // logoutAction
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mp := &mockPlayer{
+				enqueueScriptArgsReturnErr: fmt.Errorf("unable to find queue script: 77"),
+			}
+			sf := newSingleOp(tc.name+"_notfound", tc.op)
+			state := Init(sf, mp, false, nil, nil)
+			tc.setup(state)
+
+			err := Execute(state)
+			if err == nil {
+				t.Fatalf("Execute: want error, got nil")
+			}
+			want := "unable to find queue script: 77"
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("error: got %q, want substring %q", err.Error(), want)
+			}
+			// The mock records the call (the error happens inside the
+			// real (*Player).EnqueueScriptArgs in production; the mock
+			// records the call AND returns the configured error to the
+			// handler).
+			if len(mp.enqueueCalls) != 1 {
+				t.Errorf("enqueueCalls: got %d, want 1 (mock should record before returning)",
+					len(mp.enqueueCalls))
 			}
 		})
 	}

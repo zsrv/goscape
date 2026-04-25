@@ -103,6 +103,11 @@ type mockPlayer struct {
 	stored          *ScriptState
 	cleared         int
 
+	// NAI-26 Bundle 2: opt-in error return for EnqueueScriptArgs,
+	// configured by tests that pin script-missing error propagation.
+	// Default zero-value (nil error) preserves Bundle-1 mock behavior.
+	enqueueScriptArgsReturnErr error
+
 	// S5b: per-player varp storage for tests.
 	varps map[int]int32
 
@@ -244,12 +249,11 @@ type mockPlayer struct {
 }
 
 type mockEnqueue struct {
-	ScriptID    uint32
-	Delay       int
-	IntArgs     []int
-	StringArgs  []string
-	Type        PlayerQueueType
-	ReturnError error // Bundle 2: tests opting into error-return set this; default nil.
+	ScriptID   uint32
+	Delay      int
+	IntArgs    []int
+	StringArgs []string
+	Type       PlayerQueueType
 }
 
 func (m *mockPlayer) MessageGame(msg string) { m.messages = append(m.messages, msg) }
@@ -260,7 +264,7 @@ func (m *mockPlayer) SetDelayed(ticks int) {
 }
 func (m *mockPlayer) EnqueueScriptArgs(id uint32, delay int, intArgs []int, stringArgs []string, qtype PlayerQueueType) error {
 	m.enqueueCalls = append(m.enqueueCalls, mockEnqueue{ScriptID: id, Delay: delay, IntArgs: intArgs, StringArgs: stringArgs, Type: qtype})
-	return nil
+	return m.enqueueScriptArgsReturnErr
 }
 func (m *mockPlayer) StoreActiveScript(s *ScriptState) { m.stored = s }
 func (m *mockPlayer) ClearActiveScript()               { m.cleared++ }

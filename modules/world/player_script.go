@@ -1,6 +1,7 @@
 package world
 
 import (
+	"fmt"
 	"strings"
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
@@ -83,12 +84,13 @@ func (p *Player) EnqueueScriptFile(sf *script.ScriptFile, delay int, intArgs []i
 // scriptID does not resolve to a registered script — mirrors TS
 // PlayerOps.ts:103-105 throw shape ("Unable to find queue script: ${id}").
 //
-// NAI-26 Bundle 1 NOTE: this Bundle 1 placeholder body returns nil
-// (preserving silent no-op) when GetByID returns nil. The error return
-// is activated in Bundle 2 (Task 6 Step 1) once the per-opcode handlers
-// have un-shared bodies that propagate the error explicitly. Splitting
-// the rollout keeps Bundle 1's mechanical signature widening separate
-// from the Bundle 2 behavioral change for review-surface isolation.
+// NAI-26 Bundle 2: this implementation now returns a non-nil error
+// when GetByID returns nil — TS-faithful to PlayerOps.ts:103-105
+// (and the parallel sites in :127-129, :152-154, :175-177). Bundle 1
+// shipped a placeholder body returning nil; the rollout of the error
+// activation was deferred to Bundle 2 to keep the mechanical signature
+// widening separate from the behavior change for review-surface
+// isolation.
 //
 // Silent no-op on unwired server (p.client / p.client.server /
 // p.client.server.scriptProvider nil) is preserved across both bundles
@@ -103,10 +105,13 @@ func (p *Player) EnqueueScriptArgs(scriptID uint32, delay int, intArgs []int, st
 	}
 	sf := p.client.server.scriptProvider.GetByID(scriptID)
 	if sf == nil {
-		// NAI-26 Bundle 1 placeholder: returns nil to preserve pre-NAI-26
-		// silent-no-op behavior. Bundle 2 (Task 6 Step 1) replaces this
-		// with `return fmt.Errorf("unable to find queue script: %d", scriptID)`.
-		return nil
+		// NAI-26 Bundle 2: surfaces script-author errors that pre-NAI-26
+		// silent-no-op masked. Mirrors TS PlayerOps.ts:103-105
+		// (STRONGQUEUE), :127-129 (WEAKQUEUE), :152-154 (QUEUE),
+		// :175-177 (LONGQUEUE) — all four queue handlers throw
+		// `Unable to find queue script: ${scriptId}` when the
+		// scriptProvider lookup fails.
+		return fmt.Errorf("unable to find queue script: %d", scriptID)
 	}
 	p.EnqueueScriptFile(sf, delay, intArgs, stringArgs, qtype)
 	return nil

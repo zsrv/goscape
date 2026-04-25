@@ -1,6 +1,7 @@
 package world
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -1149,5 +1150,55 @@ func TestOpNpc1FiresScriptAndEmitsAnimPlusSay(t *testing.T) {
 	}
 	if !p.interactionFired {
 		t.Error("interactionFired: expected true after dispatch")
+	}
+}
+
+// TestProcessPlayerQueueDeliversAllArgs validates the NAI-26 Bundle 1
+// plumbing under realistic queue-fire conditions: a queue request
+// carrying IntArgs=[100, 200] is fired through processPlayerQueue and
+// the target script runs (proven by the queue draining + the script's
+// wire-output landing). The integration test confirms that the
+// parallel-slice plumbing reaches runScript.
+//
+// Spec § Bundle 2 § "Integration test".
+func TestProcessPlayerQueueDeliversAllArgs(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	// Register a 2-int-arg script that emits a fixed "ok\n" mes —
+	// confirms execution; the args themselves are validated by the
+	// pkg/script-level TestQueueOpcode + TestStrongQueue* tests.
+	s.scriptProvider.RegisterAt(0xD1D1, buildGreetScript(0xD1D1, "k"))
+
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	s.playerLoop = append(s.playerLoop, p)
+
+	received := drainConn(t, cc)
+	// Enqueue with 2 int args via the new parallel-slice signature.
+	if err := p.EnqueueScriptArgs(0xD1D1, 0, []int{100, 200}, nil, script.QueueNormal); err != nil {
+		t.Fatalf("EnqueueScriptArgs: %v", err)
+	}
+	// Verify the queue entry carries both args (Bundle 1 plumbing pin).
+	if len(p.queue) != 1 {
+		t.Fatalf("queue len after enqueue: got %d, want 1", len(p.queue))
+	}
+	if !slices.Equal(p.queue[0].IntArgs, []int{100, 200}) {
+		t.Errorf("queue[0].IntArgs: got %v, want [100 200]", p.queue[0].IntArgs)
+	}
+	if p.queue[0].StringArgs != nil {
+		t.Errorf("queue[0].StringArgs: got %v, want nil", p.queue[0].StringArgs)
+	}
+
+	s.processActiveScripts()
+	p.client.flushWrite()
+	got := <-received
+
+	// Drain confirms the script fired through the parallel-slice path.
+	if len(got) != 4 {
+		t.Fatalf("queue fire: got %d bytes, want 4", len(got))
+	}
+	if len(p.queue) != 0 {
+		t.Errorf("queue after fire: len=%d, want 0", len(p.queue))
 	}
 }

@@ -581,60 +581,160 @@ func handleConsole(s *ScriptState) error {
 	return nil
 }
 
-// handlePDelay implements P_DELAY (opcode 2071): pop int n, delay the
-// active player by n+1 ticks, and suspend execution. TS PlayerOps.ts
-// sets state.delayedUntil = currentTick + 1 + n; we push the whole
-// calculation into the ActivePlayer.SetDelayed implementation so
-// pkg/script stays decoupled from the server's current-tick counter.
+// handlePDelay implements P_DELAY (opcode 2071): pop int n
+// (NumberNotNull-checked), delay the active player by n+1 ticks, and
+// suspend execution. TS PlayerOps.ts:375-379 sets
+// state.delayedUntil = currentTick + 1 + check(state.popInt(),
+// NumberNotNull); we push the +1 calculation into the
+// ActivePlayer.SetDelayed implementation so pkg/script stays decoupled
+// from the server's current-tick counter.
+//
+// NAI-26 Bundle 2: NumberNotNull wrap added to fix divergence κ — TS
+// PlayerOps.ts:377 wraps the popped n with check(..., NumberNotNull).
 func handlePDelay(s *ScriptState) error {
 	if err := requireProtectedActivePlayer(s, "P_DELAY"); err != nil {
 		return err
 	}
-	n := int(s.PopInt())
+	n := s.PopInt()
+	if err := checkNotNull(n, "P_DELAY"); err != nil {
+		return err
+	}
 	s.Self.SetDelayed(n)
 	s.Execution = Suspended
 	return nil
 }
 
-// enqueueTyped is the temporary Bundle-1 shared adapter for QUEUE /
-// WEAKQUEUE / STRONGQUEUE / LONGQUEUE. Pops (scriptID, delay, arg) and
-// calls Self.EnqueueScriptArgs with the requested type, wrapping the
-// single popped int into a 1-element IntArgs slice + nil StringArgs.
+// popScriptArgs pops a type-tags string from the stack, then pops typed
+// args in reverse tag order (i = count-1 down to 0): tag char 's' pops
+// a string into stringArgs; any other tag pops an int into intArgs.
+// Mirrors TS PlayerOps.ts:1248-1263.
 //
-// TS (engine/script/handlers/PlayerOps.ts:148):
+// TS returns []ScriptArgument (a single ordered slice with mixed types
+// indexed by tag position). Goscape's parallel-slice convention encodes
+// the same data with two slices: each tag's value lands in the slice
+// for its type, in tag-position order. The caller does not need to
+// reconstruct positional access — runScript consumes intArgs and
+// stringArgs separately, and ScriptState.Init unpacks each into its
+// own typed local-variable slot per IntArgCount / StringArgCount.
 //
-//	const [scriptId, delay, arg] = state.popInts(3);
-//
-// popInts(n) fills ints[n-1] down to ints[0] via PopInt, so the stack
-// top is `arg`, then `delay`, then `scriptId`. The VARARG variants are
-// deferred (separate TS opcodes; see spec § Out-of-scope #5).
-//
-// NAI-26 Bundle 1 NOTE: this adapter is mechanically equivalent to the
-// pre-NAI-26 body — the parallel-slice widening is transparent. Bundle
-// 2 un-shares each of the 4 queue handlers (STRONGQUEUE adds
-// popScriptArgs + NumberNotNull; LONGQUEUE adds a 4th popInt and a
-// 2-element args ordering) and removes this adapter.
-func enqueueTyped(s *ScriptState, qtype PlayerQueueType, op string) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("%s: no active player", op)
+// Returns nil/nil for an empty type-tags string. The caller is
+// responsible for ensuring the stack has the popped values in TS-faithful
+// order (last tag's value on top of the typed block; tags string on the
+// very top — popped first).
+func popScriptArgs(s *ScriptState) (intArgs []int, stringArgs []string) {
+	types := s.PopString()
+	count := len(types)
+	if count == 0 {
+		return nil, nil
 	}
-	arg := int(s.PopInt())
-	delay := int(s.PopInt())
+	// Pre-pass: count int and string tags to size the slices.
+	var intCount, stringCount int
+	for _, t := range types {
+		if t == 's' {
+			stringCount++
+		} else {
+			intCount++
+		}
+	}
+	if intCount > 0 {
+		intArgs = make([]int, intCount)
+	}
+	if stringCount > 0 {
+		stringArgs = make([]string, stringCount)
+	}
+	// Reverse-pop pass: TS iterates i = count-1 down to 0.
+	intIdx := intCount - 1
+	stringIdx := stringCount - 1
+	for i := count - 1; i >= 0; i-- {
+		if types[i] == 's' {
+			stringArgs[stringIdx] = s.PopString()
+			stringIdx--
+		} else {
+			intArgs[intIdx] = s.PopInt()
+			intIdx--
+		}
+	}
+	return intArgs, stringArgs
+}
+
+// handleQueue implements QUEUE (opcode 2092): pop scriptID, delay, arg
+// (3 ints) and enqueue a NORMAL-typed queue request with [arg] as the
+// args array. Mirrors TS PlayerOps.ts:148-157 line-by-line.
+//
+// NAI-26 Bundle 2: un-shared from the pre-NAI-26 enqueueTyped helper.
+// The body here is mechanically equivalent to the old shared helper for
+// QUEUE; un-sharing exists to enable per-handler script-missing error
+// propagation (divergence ε — TS PlayerOps.ts:152-154) via the
+// EnqueueScriptArgs return (Task 6 Step 1 activates the error).
+func handleQueue(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return fmt.Errorf("QUEUE: no active player")
+	}
+	arg := s.PopInt()
+	delay := s.PopInt()
 	scriptID := uint32(s.PopInt())
-	return s.Self.EnqueueScriptArgs(scriptID, delay, []int{arg}, nil, qtype)
+	return s.Self.EnqueueScriptArgs(scriptID, delay, []int{arg}, nil, QueueNormal)
 }
 
-// handleQueue implements QUEUE (opcode 2092): enqueue a fresh-run
-// script request on the active player with QueueNormal type.
-func handleQueue(s *ScriptState) error { return enqueueTyped(s, QueueNormal, "QUEUE") }
+// handleWeakQueue implements WEAKQUEUE (opcode 2129): pop scriptID,
+// delay, arg (3 ints) and enqueue a WEAK-typed queue request with [arg]
+// as the args array. Mirrors TS PlayerOps.ts:123-132 line-by-line.
+//
+// NAI-26 Bundle 2: un-shared from the pre-NAI-26 enqueueTyped helper
+// to enable per-handler script-missing error propagation
+// (divergence δ — TS PlayerOps.ts:127-129) via the EnqueueScriptArgs
+// return (Task 6 Step 1 activates the error).
+func handleWeakQueue(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return fmt.Errorf("WEAKQUEUE: no active player")
+	}
+	arg := s.PopInt()
+	delay := s.PopInt()
+	scriptID := uint32(s.PopInt())
+	return s.Self.EnqueueScriptArgs(scriptID, delay, []int{arg}, nil, QueueWeak)
+}
 
-// handleWeakQueue implements WEAKQUEUE.
-func handleWeakQueue(s *ScriptState) error { return enqueueTyped(s, QueueWeak, "WEAKQUEUE") }
-
-// handleStrongQueue implements STRONGQUEUE.
+// handleStrongQueue implements STRONGQUEUE (opcode 2117): pop variadic
+// typed args via popScriptArgs (which itself first pops the type-tags
+// string and then pops each typed value in tag-reverse order), then
+// pop delay (NumberNotNull-checked), then pop scriptID, and enqueue a
+// STRONG-typed queue request. Mirrors TS PlayerOps.ts:97-108
+// line-by-line.
+//
+// NAI-26 Bundle 2: un-shared from the pre-NAI-26 enqueueTyped helper
+// to fix divergences α (NumberNotNull on delay, missing) + β
+// (popScriptArgs, missing — the helper popped only a single arg int,
+// silently using the QUEUE shape for a variadic opcode).
 func handleStrongQueue(s *ScriptState) error {
-	return enqueueTyped(s, QueueStrong, "STRONGQUEUE")
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return fmt.Errorf("STRONGQUEUE: no active player")
+	}
+	intArgs, stringArgs := popScriptArgs(s)
+	delay := s.PopInt()
+	if err := checkNotNull(delay, "STRONGQUEUE"); err != nil {
+		return err
+	}
+	scriptID := uint32(s.PopInt())
+	return s.Self.EnqueueScriptArgs(scriptID, delay, intArgs, stringArgs, QueueStrong)
 }
 
-// handleLongQueue implements LONGQUEUE.
-func handleLongQueue(s *ScriptState) error { return enqueueTyped(s, QueueLong, "LONGQUEUE") }
+// handleLongQueue implements LONGQUEUE (opcode 2059): pop scriptID,
+// delay, arg, logoutAction (4 ints) and enqueue a LONG-typed queue
+// request with [logoutAction, arg] as the args array (logoutAction-
+// first per TS PlayerOps.ts:179). Mirrors TS PlayerOps.ts:171-180
+// line-by-line.
+//
+// NAI-26 Bundle 2: un-shared from the pre-NAI-26 enqueueTyped helper
+// to fix divergences ζ (4-popInt missing — helper popped only 3) and
+// η (2-element args array missing — helper passed [arg] not
+// [logoutAction, arg]).
+func handleLongQueue(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return fmt.Errorf("LONGQUEUE: no active player")
+	}
+	logoutAction := s.PopInt()
+	arg := s.PopInt()
+	delay := s.PopInt()
+	scriptID := uint32(s.PopInt())
+	return s.Self.EnqueueScriptArgs(scriptID, delay, []int{logoutAction, arg}, nil, QueueLong)
+}
