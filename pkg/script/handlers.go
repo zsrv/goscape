@@ -33,7 +33,6 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpConsole:            handleConsole,
 	OpPDelay:             handlePDelay,
 	OpQueue:              handleQueue,
-	OpQueueVarArg:        handleQueueVarArg,
 
 	// S5a: comparison branches.
 	OpBranchLessThan:            handleBranchLessThan,
@@ -293,7 +292,10 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpJump:           handleJump,
 	OpJumpWithParams: handleJumpWithParams,
 
-	// S5h: queue variants.
+	// S5h: queue variants. (NAI-26 added STRONG/WEAK/LONG; NAI-27 added
+	// the four VARARG siblings; OpQueue itself remains in the MVP block
+	// above as the original S1 opcode.)
+	OpQueueVarArg:       handleQueueVarArg,
 	OpWeakQueue:         handleWeakQueue,
 	OpWeakQueueVarArg:   handleWeakQueueVarArg,
 	OpStrongQueue:       handleStrongQueue,
