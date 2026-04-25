@@ -3,6 +3,7 @@ package cache
 import (
 	"bytes"
 	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/io/packet"
@@ -50,10 +51,10 @@ func TestMakeCrcWarnsOnMissingFile(t *testing.T) {
 	if out == "" {
 		t.Fatalf("expected slog.Warn output, got empty buffer")
 	}
-	if !bytes.Contains([]byte(out), []byte("makeCrc Stat failed")) {
+	if !strings.Contains(out, "makeCrc Stat failed") {
 		t.Errorf("expected 'makeCrc Stat failed' in output; got: %s", out)
 	}
-	if !bytes.Contains([]byte(out), []byte("/nonexistent/path/that/should/never/exist")) {
+	if !strings.Contains(out, "/nonexistent/path/that/should/never/exist") {
 		t.Errorf("expected path in output; got: %s", out)
 	}
 }

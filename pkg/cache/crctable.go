@@ -25,14 +25,14 @@ func ResetCRCState() {
 
 func makeCrc(path string) {
 	if _, err := os.Stat(path); err != nil {
-		slog.Default().Warn("cache: makeCrc Stat failed",
+		slog.Warn("cache: makeCrc Stat failed",
 			"path", path, "err", err)
 		return
 	}
 
 	p, err := packet.Load(path, false)
 	if err != nil {
-		slog.Default().Warn("cache: makeCrc Load failed",
+		slog.Warn("cache: makeCrc Load failed",
 			"path", path, "err", err)
 		return
 	}
