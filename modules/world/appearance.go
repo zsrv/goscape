@@ -22,12 +22,14 @@ var slotToBodyTable = map[int]int{
 func (p *Player) generateAppearance(objs *objtype.ObjTypeConfigs, invs *objtype.InvTypeConfigs, currentTick int) {
 	buf := packet.NewPacket(nil)
 
-	// NAI-21-D1: TS init binds appearanceInv to Worn at ctor; goscape uses
-	// -1 sentinel and maps it here for behavioral parity. Internal mechanism
-	// only — observationally identical for production callers because every
-	// production caller either (i) passes through SetAppearanceInv before
-	// generateAppearance fires, or (ii) is a fresh player whose first read
-	// must surface worn-inv items.
+	// Production flow: client.go's sendLoginOK calls
+	// p.SetAppearanceInv(invs.Worn) immediately after newPlayer, so by the
+	// time any tick runs, p.appearanceInv is already bound. The -1 sentinel
+	// default in newPlayer is retained as test-only safety: tests that build
+	// a Player via newPlayer(c) without going through sendLoginOK have
+	// appearanceInv == -1, and the fallback below maps that to invs.Worn for
+	// byte-equivalent behavior. Mirrors TS Player.ts:1318:
+	// `let worn = this.getInventory(this.appearanceInv);`.
 	var worn *inventory.Inventory
 	if p.invs != nil {
 		inventoryId := p.appearanceInv

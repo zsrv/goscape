@@ -327,10 +327,8 @@ type ActivePlayer interface {
 	// (tick.go:325-335). Mirrors TS Player.buildAppearance at
 	// Engine-TS/src/engine/entity/Player.ts:1836-1839 — both side-effects are
 	// required; tests assert both. NAI-21 Bundle 1 closed S7c-D1:
-	// generateAppearance now reads p.invs[p.appearanceInv] (with the -1
-	// sentinel mapping to invs.Worn for behavioral parity with TS's ctor
-	// init; tracked as NAI-21-D1, internal-mechanism only). Callers
-	// pre-validate id via checkInvType.
+	// generateAppearance reads p.invs[p.appearanceInv]. Callers pre-validate
+	// id via checkInvType.
 	SetAppearanceInv(id int)
 
 	// S7e: character-design save gate.

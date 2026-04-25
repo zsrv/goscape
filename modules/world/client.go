@@ -111,6 +111,9 @@ func (c *client) flushWrite() error {
 func (c *client) sendLoginOK() error {
 	if c.server != nil {
 		p := newPlayer(c)
+		if c.server.invTypes != nil {
+			p.SetAppearanceInv(c.server.invTypes.Worn)
+		}
 		c.server.appendNewPlayer(p)
 		c.player = p
 	}

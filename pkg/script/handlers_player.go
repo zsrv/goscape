@@ -131,9 +131,7 @@ func handleAllowDesign(s *ScriptState) error {
 // mirrors TS InvTypeValid. The setter writes both Player.appearanceInv and
 // flags MaskAppearance — MaskAppearance is consumed by tick.go:325-335 which
 // regenerates the appearance buffer. NAI-21 Bundle 1 closed S7c-D1:
-// generateAppearance now honors p.appearanceInv (with the -1 sentinel
-// mapping to invs.Worn for behavioral parity with TS's ctor init; tracked
-// as NAI-21-D1, internal-mechanism only).
+// generateAppearance now honors p.appearanceInv.
 func handleBuildAppearance(s *ScriptState) error {
 	if err := requireActivePlayer(s, "BUILDAPPEARANCE"); err != nil {
 		return err

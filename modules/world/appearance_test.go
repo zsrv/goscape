@@ -1,10 +1,12 @@
 package world
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
 func synthesizeTypes(t *testing.T) (*objtype.ObjTypeConfigs, *objtype.InvTypeConfigs) {
@@ -75,11 +77,12 @@ func TestGenerateAppearancePlatebodyEquipped(t *testing.T) {
 	}
 }
 
-// TestGenerateAppearanceSentinelDefaultReadsWorn pins NAI-21 Task (d) /
-// NAI-21-D1: when p.appearanceInv == -1 (the default sentinel from
-// newPlayer), the reader must fall back to invs.Worn — preserving
-// pre-fix behavior for production callers that haven't yet invoked
-// SetAppearanceInv (initial login, fresh players).
+// TestGenerateAppearanceSentinelDefaultReadsWorn pins NAI-21 Task (d):
+// when p.appearanceInv == -1 (the default sentinel from newPlayer), the
+// reader must fall back to invs.Worn. Production callers always go through
+// sendLoginOK → SetAppearanceInv before any tick fires (NAI-22 Bundle 3),
+// so this sentinel-fallback path exists as test-only safety for fixtures
+// that build a Player via newPlayer(c) directly without login wiring.
 func TestGenerateAppearanceSentinelDefaultReadsWorn(t *testing.T) {
 	objs, invs := synthesizeTypes(t)
 	p, _ := newTestPlayer(t)
@@ -102,14 +105,7 @@ func TestGenerateAppearanceSentinelDefaultReadsWorn(t *testing.T) {
 	}
 	wantSlot4Hi := byte((0x200 | (1 & 0x1FF)) >> 8)
 	wantSlot4Lo := byte((0x200 | (1 & 0x1FF)) & 0xFF)
-	found := false
-	for i := 0; i < len(p.appearanceBuf)-1; i++ {
-		if p.appearanceBuf[i] == wantSlot4Hi && p.appearanceBuf[i+1] == wantSlot4Lo {
-			found = true
-			break
-		}
-	}
-	if !found {
+	if !bytes.Contains(p.appearanceBuf, []byte{wantSlot4Hi, wantSlot4Lo}) {
 		t.Errorf("appearanceBuf missing platebody encoded bytes (0x%02x 0x%02x); "+
 			"sentinel mapping to Worn appears broken", wantSlot4Hi, wantSlot4Lo)
 	}
@@ -183,15 +179,29 @@ func TestGenerateAppearanceCustomInvIdHonored(t *testing.T) {
 	// reader read from p.invs[customInvId], NOT from p.invs[invs.Worn].
 	wantSlot4Hi := byte((0x200 | (1 & 0x1FF)) >> 8)
 	wantSlot4Lo := byte((0x200 | (1 & 0x1FF)) & 0xFF)
-	found := false
-	for i := 0; i < len(p.appearanceBuf)-1; i++ {
-		if p.appearanceBuf[i] == wantSlot4Hi && p.appearanceBuf[i+1] == wantSlot4Lo {
-			found = true
-			break
-		}
-	}
-	if !found {
+	if !bytes.Contains(p.appearanceBuf, []byte{wantSlot4Hi, wantSlot4Lo}) {
 		t.Errorf("appearanceBuf missing platebody from custom inv; reader is "+
 			"still reading from invs.Worn (S7c-D1 NOT closed)")
+	}
+}
+
+// TestSetAppearanceInvBindsId pins NAI-22 Bundle 3: SetAppearanceInv
+// writes the id to Player.appearanceInv and flips MaskAppearance.
+// This is the existing setter (player_script.go:365); the test pins
+// its contract independently of integration through client.go login
+// wiring (which is harder to unit-test).
+func TestSetAppearanceInvBindsId(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	if p.appearanceInv != -1 {
+		t.Fatalf("setup: p.appearanceInv should default to -1, got %d", p.appearanceInv)
+	}
+
+	p.SetAppearanceInv(42)
+
+	if p.appearanceInv != 42 {
+		t.Errorf("p.appearanceInv: got %d, want 42 (setter must bind id)", p.appearanceInv)
+	}
+	if p.masks&rsbuf.MaskAppearance == 0 {
+		t.Errorf("p.masks: MaskAppearance bit unset (setter must flag for regeneration)")
 	}
 }
