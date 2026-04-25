@@ -130,9 +130,10 @@ func handleAllowDesign(s *ScriptState) error {
 // TS PlayerOps.ts:202-204. Gate is ActivePlayer (not Protected). Validator
 // mirrors TS InvTypeValid. The setter writes both Player.appearanceInv and
 // flags MaskAppearance — MaskAppearance is consumed by tick.go:325-335 which
-// regenerates the appearance buffer. Note: goscape's generateAppearance
-// currently reads from invs.Worn rather than p.appearanceInv — tracked as
-// S7c-D1.
+// regenerates the appearance buffer. NAI-21 Bundle 1 closed S7c-D1:
+// generateAppearance now honors p.appearanceInv (with the -1 sentinel
+// mapping to invs.Worn for behavioral parity with TS's ctor init; tracked
+// as NAI-21-D1, internal-mechanism only).
 func handleBuildAppearance(s *ScriptState) error {
 	if err := requireActivePlayer(s, "BUILDAPPEARANCE"); err != nil {
 		return err
