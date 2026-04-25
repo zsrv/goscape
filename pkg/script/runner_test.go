@@ -181,6 +181,7 @@ type mockPlayer struct {
 		ttype      PlayerTimerType
 	}
 	setTimerCalls   int
+	setTimerErr     error // NAI-27 Bundle 2: pre-seed for SetTimer error return
 	lastClearTimer  uint32
 	clearTimerCalls int
 	getTimerValue   int // pre-seed for GetTimer return
@@ -416,7 +417,7 @@ func (m *mockPlayer) ClearPendingAction() { m.clearPendingActionCalls++ }
 
 // S5i: timer ops.
 
-func (m *mockPlayer) SetTimer(scriptID uint32, interval int, intArgs []int, stringArgs []string, ttype PlayerTimerType) {
+func (m *mockPlayer) SetTimer(scriptID uint32, interval int, intArgs []int, stringArgs []string, ttype PlayerTimerType) error {
 	m.lastSetTimer = struct {
 		scriptID   uint32
 		interval   int
@@ -425,6 +426,7 @@ func (m *mockPlayer) SetTimer(scriptID uint32, interval int, intArgs []int, stri
 		ttype      PlayerTimerType
 	}{scriptID, interval, intArgs, stringArgs, ttype}
 	m.setTimerCalls++
+	return m.setTimerErr
 }
 func (m *mockPlayer) ClearTimer(scriptID uint32) {
 	m.lastClearTimer = scriptID

@@ -233,10 +233,11 @@ type ActivePlayer interface {
 	// Overwrites any existing timer at the same scriptID. type = TimerNormal
 	// (waits for idle) or TimerSoft (fires while busy).
 	//
-	// NAI-27 Bundle 1: signature widened from single intArg int to parallel
-	// IntArgs []int + StringArgs []string. Bundle 2 adds an `error` return
-	// for the script-missing check.
-	SetTimer(scriptID uint32, interval int, intArgs []int, stringArgs []string, ttype PlayerTimerType)
+	// NAI-27 Bundle 2: returns a non-nil error when the scriptID does not
+	// resolve to a registered script (mirrors TS PlayerOps.ts:822-824 +
+	// :838-840 throw shape). Engine-dispatch paths with no provider
+	// configured are tolerant and return nil unchanged.
+	SetTimer(scriptID uint32, interval int, intArgs []int, stringArgs []string, ttype PlayerTimerType) error
 
 	// ClearTimer cancels the timer at scriptID, regardless of type.
 	// Silent no-op if no such timer.
