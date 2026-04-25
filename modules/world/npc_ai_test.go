@@ -59,8 +59,11 @@ func TestRespawnAfterKill(t *testing.T) {
 	if n.x != n.startX || n.z != n.startZ {
 		t.Errorf("respawn coords: got (%d,%d), want (%d,%d)", n.x, n.z, n.startX, n.startZ)
 	}
-	if n.masks&rsbuf.NpcMaskChangeType == 0 {
-		t.Error("respawn should raise NpcMaskChangeType")
+	// NAI-20 Task 2: NpcMaskChangeType is only raised when typeId != baseType
+	// (morph-revert path). Normal respawn after kill (typeId == baseType) does
+	// NOT raise the mask per TS resetEntity(true) semantics.
+	if n.masks&rsbuf.NpcMaskChangeType != 0 {
+		t.Error("normal respawn (no changetype) must NOT raise NpcMaskChangeType (NAI-20 gate)")
 	}
 }
 

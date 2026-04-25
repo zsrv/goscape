@@ -90,6 +90,14 @@ type Npc struct {
 	faceAngleX    int // NAI-11: fine-grained coord, mask-emitted via faceSquare
 	faceAngleZ    int
 
+	// === geometry snapshot (NAI-20) ===
+	// Captured at NewNpc; UNCHANGED by changetype to mirror TS PathingEntity
+	// (World.ts:1271, 1302). Read by addNpc/removeNpc collision toggles
+	// instead of n.typ.Size / n.typ.BlockWalk so a size-changing morph→revert
+	// cycle leaves base-size collision flags rather than morph-size flags.
+	blockWalk int
+	size      int
+
 	// === masks ===
 	masks      int
 	entitymask int
@@ -120,6 +128,8 @@ func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
 		regenInterval:   int(typ.RegenRate),
 		huntMode:        typ.HuntMode,
 		huntRange:       int(typ.HuntRange),
+		blockWalk:       typ.BlockWalk,
+		size:            int(typ.Size),
 		startX:          x,
 		startZ:          z,
 		startLevel:      level,

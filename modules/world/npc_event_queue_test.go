@@ -90,8 +90,12 @@ func TestNpcRevertTypeRaisesTeleAndMask(t *testing.T) {
 	if !n.tele {
 		t.Errorf("tele: got false, want true")
 	}
-	if n.masks&rsbuf.NpcMaskChangeType == 0 {
-		t.Errorf("masks: NpcMaskChangeType bit not set")
+	// NAI-20 Task 2: NpcMaskChangeType is only raised when typeId != baseType
+	// (morph-revert path). When typeId == baseType (normal respawn), the mask
+	// is NOT raised per TS resetEntity(true) semantics. This NPC has not been
+	// morphed so the mask should remain clear.
+	if n.masks&rsbuf.NpcMaskChangeType != 0 {
+		t.Errorf("masks: NpcMaskChangeType should NOT be set on non-morphed respawn (NAI-20 gate)")
 	}
 }
 

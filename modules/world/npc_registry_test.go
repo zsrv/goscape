@@ -6,6 +6,8 @@ import (
 
 	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/pathfinder/collision"
+	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
 // TestRemoveNpcCollisionTogglesOff verifies that removeNpc(n, duration)
@@ -169,5 +171,81 @@ func TestAddNpcRespawnSetsLifecycleTickWhenDurationGT0(t *testing.T) {
 	}
 	if n.lifecycleTick != 25 {
 		t.Errorf("n.lifecycleTick: got %d, want 25", n.lifecycleTick)
+	}
+}
+
+// TestSizeMorphRevertRestoresBaseFootprint pins NAI-20 Task 2: when a
+// size-1 NPC morphs to size-2 then reverts via the heavy path
+// (s.removeNpc(n,-1); s.addNpc(n,-1,false)), collision flags reflect
+// the base-size-1 footprint, not the morph-size-2 footprint.
+func TestSizeMorphRevertRestoresBaseFootprint(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+
+	baseTyp := &objtype.NpcType{Size: 1, BlockWalk: objtype.BlockWalkAll}
+	morphTyp := &objtype.NpcType{Size: 2, BlockWalk: objtype.BlockWalkAll}
+	s.npcTypes = &objtype.NPCTypeConfigs{
+		Configs: []*objtype.NpcType{nil, baseTyp, morphTyp},
+	}
+
+	n := newRegisteredNpc(t, s, baseTyp, true) // first-spawn
+
+	n.ChangeType(2, -1) // morph; n.typ swaps to morphTyp; n.size stays 1
+
+	// Heavy revert path: removeNpc clears flags using SNAPSHOT (size=1),
+	// addNpc(false) re-sets flags using SNAPSHOT (size=1).
+	s.removeNpc(n, -1)
+	if err := s.addNpc(n, -1, false); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+
+	// Verify size=1 footprint at (3200, 3200): SW corner flagged, neighbors NOT.
+	flagMask := collision.FlagBlockNPCs | collision.FlagBlockPlayers
+	if !s.gamemap.Pathfinder.Flags.IsFlagged(3200, 3200, 0, flagMask) {
+		t.Errorf("(3200, 3200) should have NPC+Player flags after revert, got none")
+	}
+	for _, off := range []struct{ dx, dz int }{{1, 0}, {0, 1}, {1, 1}} {
+		if s.gamemap.Pathfinder.Flags.IsFlagged(3200+off.dx, 3200+off.dz, 0, flagMask) {
+			t.Errorf("(%d, %d) should NOT have flags after revert (size=1 footprint)",
+				3200+off.dx, 3200+off.dz)
+		}
+	}
+}
+
+// TestResetEntityForRespawnFirstSpawnDoesNotRaiseChangeTypeMask pins
+// NAI-20 Task 2 item 5: first-spawn (n.typeId == n.baseType) MUST NOT
+// raise NpcMaskChangeType.
+func TestResetEntityForRespawnFirstSpawnDoesNotRaiseChangeTypeMask(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{Size: 1, BlockWalk: objtype.BlockWalkNPC}
+	n := newRegisteredNpc(t, s, typ, true) // addNpc → resetEntityForRespawn
+
+	if n.masks&rsbuf.NpcMaskChangeType != 0 {
+		t.Errorf("first-spawn raised NpcMaskChangeType (masks=%d); should remain clear",
+			n.masks)
+	}
+}
+
+// TestResetEntityForRespawnRevertRaisesChangeTypeMask pins NAI-20
+// Task 2 item 5 inverse: when n.typeId != n.baseType (the morph-revert
+// case), resetEntityForRespawn DOES raise NpcMaskChangeType.
+func TestResetEntityForRespawnRevertRaisesChangeTypeMask(t *testing.T) {
+	s := newTestServer(t)
+	baseTyp := &objtype.NpcType{Size: 1}
+	morphTyp := &objtype.NpcType{Size: 1}
+	s.npcTypes = &objtype.NPCTypeConfigs{
+		Configs: []*objtype.NpcType{nil, baseTyp, morphTyp},
+	}
+	n := newRegisteredNpc(t, s, baseTyp, false)
+	n.typeId = 2 // simulate post-morph
+	n.masks = 0  // start clean
+
+	s.resetEntityForRespawn(n)
+
+	if n.masks&rsbuf.NpcMaskChangeType == 0 {
+		t.Errorf("revert path did NOT raise NpcMaskChangeType (masks=%d)", n.masks)
+	}
+	if n.typeId != n.baseType {
+		t.Errorf("typeId=%d after reset, want baseType=%d", n.typeId, n.baseType)
 	}
 }

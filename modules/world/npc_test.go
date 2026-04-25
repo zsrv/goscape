@@ -713,6 +713,46 @@ func TestRevertTypeLightPathUnchanged(t *testing.T) {
 	}
 }
 
+// TestChangeTypeDoesNotMutateBlockWalkOrSize pins NAI-20 Task 2:
+// ChangeType updates n.typeId and n.typ but MUST NOT mutate the
+// geometry snapshot fields. TS PathingEntity ctor-snapshot semantic.
+func TestChangeTypeDoesNotMutateBlockWalkOrSize(t *testing.T) {
+	s := newTestServer(t)
+	baseTyp := &objtype.NpcType{Size: 1, BlockWalk: objtype.BlockWalkNPC}
+	morphTyp := &objtype.NpcType{Size: 2, BlockWalk: objtype.BlockWalkAll}
+	s.npcTypes = &objtype.NPCTypeConfigs{
+		Configs: []*objtype.NpcType{nil, baseTyp, morphTyp},
+	}
+
+	n := newRegisteredNpc(t, s, baseTyp, false)
+	wantBlockWalk := n.blockWalk
+	wantSize := n.size
+
+	n.ChangeType(2, -1) // morph to typeId=2 (size=2)
+
+	if n.blockWalk != wantBlockWalk {
+		t.Errorf("blockWalk after ChangeType: got %v, want %v",
+			n.blockWalk, wantBlockWalk)
+	}
+	if n.size != wantSize {
+		t.Errorf("size after ChangeType: got %d, want %d",
+			n.size, wantSize)
+	}
+}
+
+// TestNewNpcSnapshotsBlockWalkAndSize pins NAI-20 Task 2: NewNpc copies
+// blockWalk + size from typ at construction time.
+func TestNewNpcSnapshotsBlockWalkAndSize(t *testing.T) {
+	typ := &objtype.NpcType{Size: 2, BlockWalk: objtype.BlockWalkAll}
+	n := NewNpc(1, 1, 3200, 3200, 0, typ)
+	if n.blockWalk != objtype.BlockWalkAll {
+		t.Errorf("blockWalk: got %v, want BlockWalkAll", n.blockWalk)
+	}
+	if n.size != 2 {
+		t.Errorf("size: got %d, want 2", n.size)
+	}
+}
+
 // TestRevertTypeUsesScaledRespawnDuration pins that revertType's heavy
 // path goes through removeNpc(n, -1) which would normally consult
 // scaleByPlayerCount; -1 short-circuits the RESPAWN-branch lifecycleTick

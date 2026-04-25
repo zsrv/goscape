@@ -62,13 +62,13 @@ func (s *Server) addNpc(n *Npc, duration int, firstSpawn bool) error {
 	n.dead = false
 	// DEVIATION NAI-19-D1: zone.enter omitted — Zone abstraction
 	// not ported. See spec § Tracked deviations.
-	if n.typ != nil && s.gamemap != nil {
-		switch n.typ.BlockWalk {
+	if s.gamemap != nil {
+		switch n.blockWalk {
 		case objtype.BlockWalkNPC:
-			s.gamemap.ChangeNPCCollision(int(n.typ.Size), n.x, n.z, n.level, true)
+			s.gamemap.ChangeNPCCollision(n.size, n.x, n.z, n.level, true)
 		case objtype.BlockWalkAll:
-			s.gamemap.ChangeNPCCollision(int(n.typ.Size), n.x, n.z, n.level, true)
-			s.gamemap.ChangePlayerCollision(int(n.typ.Size), n.x, n.z, n.level, true)
+			s.gamemap.ChangeNPCCollision(n.size, n.x, n.z, n.level, true)
+			s.gamemap.ChangePlayerCollision(n.size, n.x, n.z, n.level, true)
 		}
 	}
 	s.resetEntityForRespawn(n)
@@ -102,6 +102,7 @@ func (s *Server) resetEntityForRespawn(n *Npc) {
 		if newTyp := n.lookupType(n.baseType); newTyp != nil {
 			n.typ = newTyp
 		}
+		n.masks |= rsbuf.NpcMaskChangeType
 	}
 	if n.typ != nil {
 		for i := range min(objtype.NpcStatCount, len(n.typ.Stats)) {
@@ -113,7 +114,6 @@ func (s *Server) resetEntityForRespawn(n *Npc) {
 	n.queue = nil
 	n.waypointIndex = -1
 	n.tele = true
-	n.masks |= rsbuf.NpcMaskChangeType
 	n.huntClock = 0
 	n.huntTarget = nil
 	if n.typ != nil {
@@ -137,13 +137,13 @@ func (s *Server) removeNpc(n *Npc, duration int) {
 	// DEVIATION NAI-19-D1: zone.leave omitted — Zone abstraction
 	// not ported. See spec § Tracked deviations.
 	n.dead = true
-	if n.typ != nil && s.gamemap != nil {
-		switch n.typ.BlockWalk {
+	if s.gamemap != nil {
+		switch n.blockWalk {
 		case objtype.BlockWalkNPC:
-			s.gamemap.ChangeNPCCollision(int(n.typ.Size), n.x, n.z, n.level, false)
+			s.gamemap.ChangeNPCCollision(n.size, n.x, n.z, n.level, false)
 		case objtype.BlockWalkAll:
-			s.gamemap.ChangeNPCCollision(int(n.typ.Size), n.x, n.z, n.level, false)
-			s.gamemap.ChangePlayerCollision(int(n.typ.Size), n.x, n.z, n.level, false)
+			s.gamemap.ChangeNPCCollision(n.size, n.x, n.z, n.level, false)
+			s.gamemap.ChangePlayerCollision(n.size, n.x, n.z, n.level, false)
 		}
 	}
 	if n.lifecycle == NpcLifecycleDespawn {
