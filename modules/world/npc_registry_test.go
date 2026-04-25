@@ -1,6 +1,7 @@
 package world
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/gamemap"
@@ -103,14 +104,7 @@ func TestAddNpcFirstSpawnAllocsSlot(t *testing.T) {
 	if s.npcs[n.nid] != n {
 		t.Error("s.npcs[n.nid]: not registered")
 	}
-	foundInLoop := false
-	for _, np := range s.npcLoop {
-		if np == n {
-			foundInLoop = true
-			break
-		}
-	}
-	if !foundInLoop {
+	if !slices.Contains(s.npcLoop, n) {
 		t.Error("s.npcLoop: not appended")
 	}
 }
