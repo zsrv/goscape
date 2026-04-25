@@ -19,9 +19,9 @@ func newNpcForLifecycleTest(t *testing.T) *Npc {
 	typ := &objtype.NpcType{
 		ConfigType: objtype.ConfigType{ID: 0, DebugName: "test_npc"},
 		Size:       1, // match production NewNpcType default (npctype.go:310);
-		// NAI-18: fixture was silently Size=0 (uint8 zero value), which will
+		// NAI-18: fixture was silently Size=0 (uint8 zero value), which would
 		// collide with HasLineOfSight's lineCoordinate(a, b, 0) → a-1 off-by-one
-		// once inApproachDistance threads int(n.typ.Size) in Task 3.
+		// in inApproachDistance's LoS gate. Production NPCs always have Size>=1.
 		Stats:    []uint16{0, 0, 0, 10, 0, 0}, // HP=10 at NpcStatHitpoints (3)
 		Category: -1,
 	}
@@ -79,7 +79,14 @@ func TestNpcRevertTypeClearsWaypoints(t *testing.T) {
 	}
 }
 
-func TestNpcRevertTypeRaisesTeleAndMask(t *testing.T) {
+// TestNpcRevertTypeNonMorphedRaisesTeleNotMask: revertType on an NPC
+// where typeId == baseType (non-morphed) raises tele but NOT
+// NpcMaskChangeType. NAI-20 Task 2 gated the mask raise inside
+// resetEntityForRespawn's morph-detect block per TS resetEntity(true)
+// semantics; the morph-revert mask-positive case is pinned by
+// TestResetEntityForRespawnRevertRaisesChangeTypeMask in
+// npc_registry_test.go.
+func TestNpcRevertTypeNonMorphedRaisesTeleNotMask(t *testing.T) {
 	n := newNpcForLifecycleTest(t)
 	n.server = newTestServer(t) // NAI-19 Task 5e: heavy path needs server.
 	n.tele = false

@@ -724,11 +724,14 @@ func TestChangeTypeDoesNotMutateBlockWalkOrSize(t *testing.T) {
 		Configs: []*objtype.NpcType{nil, baseTyp, morphTyp},
 	}
 
-	n := newRegisteredNpc(t, s, baseTyp, false)
+	n := newRegisteredNpc(t, s, baseTyp, true)
 	wantBlockWalk := n.blockWalk
 	wantSize := n.size
 
-	n.ChangeType(2, -1) // morph to typeId=2 (size=2)
+	n.ChangeType(2, -1) // morph to typeId=2 (size=2); register=true so
+	// changeTypeImpl's lookupType (via n.server) succeeds and n.typ
+	// actually swaps to morphTyp — exercising the realistic post-morph
+	// state rather than the lookupType-returns-nil short-circuit.
 
 	if n.blockWalk != wantBlockWalk {
 		t.Errorf("blockWalk after ChangeType: got %v, want %v",
