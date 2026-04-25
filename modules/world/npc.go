@@ -161,7 +161,7 @@ func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
 	n.targetOp = n.defaultMode()
 	// NAI-17: seed levels[]/baseLevels[] from typ.Stats (mirrors TS Npc.ts:90-94).
 	if typ != nil {
-		for i := 0; i < objtype.NpcStatCount && i < len(typ.Stats); i++ {
+		for i := range min(objtype.NpcStatCount, len(typ.Stats)) {
 			v := int(typ.Stats[i])
 			n.levels[i] = v
 			n.baseLevels[i] = v
