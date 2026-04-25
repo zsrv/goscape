@@ -610,14 +610,12 @@ func TestPlayerFaceCloseModeUsesSizeAwareDistance(t *testing.T) {
 	target.x, target.z = 3202, 3200
 	n.target = target
 
-	preTarget := n.target
-
 	n.playerFaceCloseMode(s)
 
 	// Size-aware distance is 1; within faceclose's > 1 threshold →
 	// interaction PRESERVED.
-	if n.target != preTarget {
-		t.Errorf("playerFaceCloseMode cleared interaction; size-aware " +
+	if n.target == nil {
+		t.Errorf("interaction was reset; should not have been — size-aware " +
 			"distance to target should be 1 (within range)")
 	}
 }

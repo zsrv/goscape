@@ -1143,10 +1143,102 @@ func TestTargetWithinMaxRangePlayerEscapeSize1Parity(t *testing.T) {
 	n.target = target
 
 	// Manual SW-distance (size-1): max(|3203-3200|, |3204-3200|) = 4.
-	// Manual SW-distance (size-1): max(|3203-3206|, |3204-3208|) = 4.
+	// Manual SW-distance target-to-start (size-1): max(|3203-3206|, |3204-3208|) = 4.
 	// Both ≤ maxrange=5 → returns true.
 	got := n.targetWithinMaxRange()
 	if !got {
 		t.Errorf("PLAYERESCAPE size-1 parity: got false; want true")
+	}
+}
+
+// TestTargetWithinMaxRangePlayerEscapeStartCoordUsesNpcSizeQuirk pins
+// NAI-20 Task 5 TS quirk: at TS Npc.ts:658-663, the NPC-leg
+// CoordGrid.distanceTo passes `width: this.width, length: this.length`
+// on BOTH the entity rect AND the start-coord rect (the start coord
+// adopts the SUBJECT's size, not (1,1) and not the target's size).
+// Per ts_asymmetry_dual_pin memory pattern, a future maintainer
+// "fixing" the start-coord args to use scalar (1,1) or target's size
+// would silently re-introduce the NAI-12 size-approximation. This
+// test fails loudly under such a "fix".
+//
+// Setup: NPC=(3215,3200) size=3, target=(3216,3200) size=1,
+// start=(3200,3200), maxrange=14. Distances under TS-correct:
+//
+//	NPC-leg = 13 (start rect adopts size=3, occupied=(3200..3202,
+//	            3200..3202); NPC rect occupied=(3215..3217, 3200..3202);
+//	            closest pair x=3215↔3202, dx=13)
+//	target-leg = 16 (both rects size=1)
+//
+// AND-guard: 16>14 && 13>14 = true && false → return TRUE.
+// Under hypothetical "fix" (start-coord uses size=1 instead of n.size):
+//
+//	NPC-leg = 15 (closest=3200), AND-guard = true && true → return FALSE.
+func TestTargetWithinMaxRangePlayerEscapeStartCoordUsesNpcSizeQuirk(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{
+		Size:      3,
+		BlockWalk: objtype.BlockWalkNPC,
+		MaxRange:  14,
+	}
+	n := newRegisteredNpc(t, s, typ, false)
+	n.x, n.z = 3215, 3200
+	n.startX, n.startZ = 3200, 3200
+	n.targetOp = objtype.NPCModePlayerEscape
+
+	target := &Player{}
+	target.x, target.z = 3216, 3200
+	n.target = target
+
+	got := n.targetWithinMaxRange()
+	if !got {
+		t.Errorf("got false; want true. Site-1 quirk regression: " +
+			"NPC-leg start-coord must use n.size (=3), not (1,1) or " +
+			"target's size. See TS Npc.ts:658-663.")
+	}
+}
+
+// TestTargetWithinMaxRangePlayerEscapeStartCoordUsesTargetSizeQuirk
+// pins NAI-20 Task 5 TS quirk: at TS Npc.ts:664-669, the target-leg
+// CoordGrid.distanceTo passes `width: this.target.width, length:
+// this.target.length` on BOTH the target rect AND the start-coord
+// rect. The start coord adopts the TARGET's size — NOT the NPC's
+// size, NOT scalar (1,1). A "fix" using n.size on the start-coord
+// would silently change behavior in a way the basic asymmetry test
+// doesn't catch. Per ts_asymmetry_dual_pin pattern.
+//
+// Setup: NPC=(3220,3200) size=4, target=(3204,3200) size=1,
+// start=(3200,3200), maxrange=3. Distances under TS-correct:
+//
+//	NPC-leg = 17 (both rects size=4; closest 3220↔3203)
+//	target-leg = 4 (both rects size=1; |3204-3200|)
+//
+// AND-guard: 4>3 && 17>3 = true && true → return FALSE.
+// Under hypothetical "fix" (target-leg start uses n.size=4):
+//
+//	target-leg = 1 (start adopts size=4, occupied=(3200..3203);
+//	               closest from start to (3204,3200) = (3203,3200);
+//	               distance = |3204-3203| = 1)
+//	AND-guard: 1>3 && 17>3 = false && true → return TRUE.
+func TestTargetWithinMaxRangePlayerEscapeStartCoordUsesTargetSizeQuirk(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{
+		Size:      4,
+		BlockWalk: objtype.BlockWalkNPC,
+		MaxRange:  3,
+	}
+	n := newRegisteredNpc(t, s, typ, false)
+	n.x, n.z = 3220, 3200
+	n.startX, n.startZ = 3200, 3200
+	n.targetOp = objtype.NPCModePlayerEscape
+
+	target := &Player{}
+	target.x, target.z = 3204, 3200
+	n.target = target
+
+	got := n.targetWithinMaxRange()
+	if got {
+		t.Errorf("got true; want false. Site-2 quirk regression: " +
+			"target-leg start-coord must use target's size (=1), not " +
+			"n.size or scalar (1,1). See TS Npc.ts:664-669.")
 	}
 }
