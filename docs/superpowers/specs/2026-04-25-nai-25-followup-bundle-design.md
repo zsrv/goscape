@@ -2,7 +2,7 @@
 
 - **Sub-spec**: NAI-25
 - **Date**: 2026-04-25
-- **Scope label**: B (logical-grouping follow-up bundle — `modules/world` (1 method body + 1 docstring + 1 test helper) + `pkg/script/handlers_*.go` audit sweep across 13 unaudited handler files; ~35-50 LOC production + ~80-150 LOC tests across 2 bundles; resolves From-NAI-24 `Source = -1` API-surface deferral and From-NAI-23 NumberNotNull-sweep tracker; introduces 0 new deviations by default; net deviation count 14 → 14)
+- **Scope label**: B (logical-grouping follow-up bundle — `modules/world` (1 method body + 2 docstrings + 4 new tests + 1 existing-test docstring tighten + 1 test helper) + `pkg/script/handlers_*.go` audit sweep across 13 unaudited handler files; ~35-50 LOC production + ~80-150 LOC tests across 2 bundles; resolves From-NAI-24 `Source = -1` API-surface deferral and From-NAI-23 NumberNotNull-sweep tracker; introduces 0 new deviations by default; net deviation count 14 → 14)
 - **Predecessors**: NAI-24 (follow-up bundle) — last on `main` as `20fb72a`
 - **TS source root**: `LostCityRS/Engine-TS`
 
@@ -191,8 +191,8 @@ No signature change. Doc-only.
    - Tighten `TestInvListenOnComReplacesExisting` docstring at `:36-38` to clarify it tests the same-com-DIFFERENT-type splice (which (β) does not affect): replace "matches TS Player.ts:1441-1462 add-or-replace semantics" with "matches TS Player.ts:1457-1460 same-com-different-type splice (β dedup does not apply when types differ)."
    - Add 4 new tests per the test strategy below.
 
-3. **`modules/world/server_test.go`** (or co-located in player_inv_test.go if smaller):
-   - Add `newTestPlayerWithInvTypes(t *testing.T, configs []*objtype.InvType) (*Player, net.Conn)` helper that wires a Player to a test Server populated with the given InvType configs. Uses existing `newTestPlayer` and `newTestServer` patterns.
+3. **`modules/world/server_test.go`**:
+   - Add `newTestPlayerWithInvTypes(t *testing.T, configs []*objtype.InvType) (*Player, net.Conn)` helper that wires a Player to a test Server populated with the given InvType configs. Co-located with `newTestServer` (its primary infrastructure dependency); uses existing `newTestPlayer` and `newTestServer` patterns.
 
 4. **`pkg/script/active.go`**:
    - Lines `:277-283`: replace `ActivePlayer.InvListenOnCom` doc-comment per spec above.
@@ -269,7 +269,7 @@ Math: PlayerOps.ts has 56 NumberNotNull; NAI-24 Bundle 1 audited **47 popInt sit
 The Bundle 2 plan task codifies this enumeration step:
 1. Re-grep `PlayerOps.ts` for `NumberNotNull` and enumerate all 56 sites with their opcode names (`grep -n "check(.*NumberNotNull" Engine-TS/src/engine/script/handlers/PlayerOps.ts`).
 2. Cross-reference NAI-24 Bundle 1's audit table in commit `85da016` for the 47 wrapped/skipped sites.
-3. The delta opcodes (9 sites) get assigned to the correct goscape handler file via opcode-to-handler mapping (`grep -n "func handle<OpName>" pkg/script/handlers_*.go` plus the registration table in `pkg/script/handlers.go` if applicable).
+3. The delta opcodes (9 sites) get assigned to the correct goscape handler file via opcode-to-handler mapping: grep `pkg/script/handlers.go` for the `Opcode → handler-fn` registration table, then resolve each handler's home file via `grep -n "func handle<OpName>" pkg/script/handlers_*.go`.
 4. Each delta opcode's audit decision lands in the correct Bundle 2 file commit (handlers_dialog.go, handlers_timer.go, or — if a delta opcode maps to a handler that doesn't fit dialog/timer — that file gets the audit row instead).
 
 If after the enumeration zero delta opcodes land in dialog/timer (i.e., all 9 sites are popObj-equivalents or live elsewhere), those files fold into the confirm-zero rollup commit.
