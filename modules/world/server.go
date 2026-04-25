@@ -636,10 +636,7 @@ func (s *Server) getTotalPlayers() int {
 //
 // Empty world returns rate unchanged; 2000+ players halves it.
 func (s *Server) scaleByPlayerCount(rate int) int {
-	playerCount := s.getTotalPlayers()
-	if playerCount > 2000 {
-		playerCount = 2000
-	}
+	playerCount := min(s.getTotalPlayers(), 2000)
 	return ((4000 - playerCount) * rate) / 4000
 }
 
