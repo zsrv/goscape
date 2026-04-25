@@ -33,6 +33,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpConsole:            handleConsole,
 	OpPDelay:             handlePDelay,
 	OpQueue:              handleQueue,
+	OpQueueVarArg:        handleQueueVarArg,
 
 	// S5a: comparison branches.
 	OpBranchLessThan:            handleBranchLessThan,
@@ -293,9 +294,12 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpJumpWithParams: handleJumpWithParams,
 
 	// S5h: queue variants.
-	OpWeakQueue:   handleWeakQueue,
-	OpStrongQueue: handleStrongQueue,
-	OpLongQueue:   handleLongQueue,
+	OpWeakQueue:         handleWeakQueue,
+	OpWeakQueueVarArg:   handleWeakQueueVarArg,
+	OpStrongQueue:       handleStrongQueue,
+	OpStrongQueueVarArg: handleStrongQueueVarArg,
+	OpLongQueue:         handleLongQueue,
+	OpLongQueueVarArg:   handleLongQueueVarArg,
 
 	// S5h: action-clear.
 	OpPStopAction:         handlePStopAction,
