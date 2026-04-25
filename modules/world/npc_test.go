@@ -643,11 +643,13 @@ func TestRevertTypeHeavyPathClearsQueueWaypoints(t *testing.T) {
 	}
 }
 
-// TestRevertTypeHeavyPathRunsCollisionToggles pins that revertType's
-// heavy path toggles collision flags off-then-on (via removeNpc + addNpc).
-// Asserted indirectly through n.dead transitions: removeNpc sets dead=true,
-// addNpc sets dead=false. Collision-flag observability is fixture-limited;
-// this test pins the dead-flag round-trip as a proxy.
+// TestRevertTypeHeavyPathRunsCollisionToggles pins the dead-flag round-trip
+// (removeNpc sets dead=true; addNpc clears it) as a proxy for the collision
+// toggle cycle. The pre-condition n.dead = true forces revertType's heavy
+// path to actually clear the flag via addNpc — without this, the assertion
+// would trivially pass (addNpc runs in both pre- and post-revert states).
+// Collision-flag observability directly would require Pathfinder fixture
+// plumbing that this test doesn't set up.
 func TestRevertTypeHeavyPathRunsCollisionToggles(t *testing.T) {
 	s := newTestServer(t)
 	s.npcTypes = &objtype.NPCTypeConfigs{Configs: make([]*objtype.NpcType, 9)}
@@ -662,6 +664,7 @@ func TestRevertTypeHeavyPathRunsCollisionToggles(t *testing.T) {
 	if err := s.addNpc(n, -1, true); err != nil {
 		t.Fatalf("addNpc: %v", err)
 	}
+	n.dead = true // pre-condition: force the round-trip to do real work
 	n.resetOnRevert = true
 
 	n.revertType()
