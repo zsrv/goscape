@@ -277,22 +277,85 @@ func TestNpcTurnDoesNotDecrementQueueWhileDelayed(t *testing.T) {
 	}
 }
 
-// TestNpcTurnReentryQueueAppendDuringIteration — multiple ready
-// entries (delay=0) fire in one processNpcQueue pass.
-// Weaker form of the "speedup quirk" test — doesn't prove mid-fire
-// append, only multi-entry same-pass drain.
+// TestNpcTurnReentryQueueAppendDuringIteration — strong form: a
+// script fired mid-iteration of processNpcQueue can append a new
+// entry that is visible to the same iteration. Mirrors TS Npc.ts:538-560
+// "speedup quirk" semantics.
+//
+// Setup: register an "amplifier" script for TriggerAiQueue1 whose
+// bytecode (i) calls OpNpcQueue to enqueue a TriggerAiQueue2 entry,
+// and (ii) calls OpNpcSetTimer with interval=42 as an observable
+// side-effect proving the amplifier actually executed (distinguishes
+// from a silent dispatch failure).
+//
+// Pre-enqueue ONE entry: TriggerAiQueue1 (delay=0). Call turn(). Assert:
+//   - len(n.queue) == 0 — proves both the original AND the amplifier-
+//     appended TriggerAiQueue2 entry drained in the same pass.
+//   - n.timerInterval == 42 — proves the amplifier actually ran.
+//
+// Failure modes covered:
+//
+//	A: processNpcQueue switches to snapshot-len iteration → queue len = 1 after turn.
+//	B: amplifier silently no-ops (dispatch wired wrong) → timerInterval unchanged.
 func TestNpcTurnReentryQueueAppendDuringIteration(t *testing.T) {
 	s, n := buildNpcForIntegration(t)
 
-	// Two entries, both ready (delay=0). The iteration should
-	// process both in one turn() call.
+	// buildNpcForIntegration returns a server with scriptProvider == nil
+	// (newServerForScriptTest only sets `log`). Seed an empty provider so
+	// processNpcQueue can dispatch.
+	s.scriptProvider = script.NewProvider()
+
+	// Amplifier: bytecode = OpNpcQueue(TriggerAiQueue2, 0, 0) + OpNpcSetTimer(42) + OpReturn.
+	// Pop order for OpNpcQueue: delay (top), arg, queueID (bottom).
+	// Bytecode push order: queueID, arg, delay (matching handlers_npc_test.go:734).
+	// queueID=2 maps to TriggerAiQueue2 via TriggerAiQueue1 + queueID - 1.
+	amplifier := &script.ScriptFile{
+		Name:      "nai21_amplifier_aiqueue1",
+		LookupKey: uint32(script.TriggerAiQueue1),
+		Opcodes: []script.Opcode{
+			script.OpPushConstantInt, // push queueID (2 → TriggerAiQueue2)
+			script.OpPushConstantInt, // push arg (0)
+			script.OpPushConstantInt, // push delay (0)
+			script.OpNpcQueue,
+			script.OpPushConstantInt, // push interval (42)
+			script.OpNpcSetTimer,
+			script.OpReturn,
+		},
+		IntOperands:      []int32{2, 0, 0, 0, 42, 0, 0},
+		StringOperands:   []string{"", "", "", "", "", "", ""},
+		InstructionCount: 7,
+	}
+	s.scriptProvider.Register(amplifier)
+
+	// Pre-flight wiring guard: ensure the lookup actually resolves to the amplifier.
+	// Without this, a wrong LookupKey computation would silently fall through to
+	// nil-script handling and the queue would still drain (Bundle 3 spec § failure
+	// modes), masking the wiring bug.
+	if got := s.scriptProvider.GetByTrigger(script.TriggerAiQueue1, n.typeId, n.typ.Category); got != amplifier {
+		t.Fatalf("setup: GetByTrigger(TriggerAiQueue1, ...) = %v, want amplifier", got)
+	}
+
+	// Pre-enqueue ONE entry. Amplifier will append the second mid-iteration.
 	n.EnqueueScriptForTrigger(script.TriggerAiQueue1, 0, 0)
-	n.EnqueueScriptForTrigger(script.TriggerAiQueue2, 0, 0)
+	if len(n.queue) != 1 {
+		t.Fatalf("setup: queue should have 1 entry, got %d", len(n.queue))
+	}
 
 	n.turn(s)
 
+	// Assertion 1: queue fully drained — proves mid-iteration append visible.
 	if len(n.queue) != 0 {
-		t.Errorf("queue len: got %d, want 0 (both entries should fire in one pass)", len(n.queue))
+		t.Errorf("queue len: got %d, want 0 — amplifier-appended TriggerAiQueue2 "+
+			"entry did not drain in same pass (regression to snapshot-len iteration?)",
+			len(n.queue))
+	}
+
+	// Assertion 2: amplifier side-effect fired — proves amplifier actually ran
+	// (not silent dispatch failure).
+	if n.timerInterval != 42 {
+		t.Errorf("n.timerInterval: got %d, want 42 — amplifier did not execute "+
+			"(scriptProvider lookup or runNpcScript may be silently no-op'ing)",
+			n.timerInterval)
 	}
 }
 
