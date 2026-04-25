@@ -145,6 +145,7 @@ func playerModeFixture(t *testing.T) (*Server, *Npc, *Player) {
 	s := newServerForScriptTest(t)
 	typ := &objtype.NpcType{
 		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "test_npc"},
+		Size:        1, // minimum valid NPC size; required for size-aware DistanceTo
 		MaxRange:    10,
 		AttackRange: 1,
 		WanderRange: 1, // so defaultMode() returns NPCModeWander (not None)
@@ -589,5 +590,58 @@ func TestProcessMovementInteractionDispatchPlayerEscape(t *testing.T) {
 
 	if n.target != nil {
 		t.Errorf("target: got %v, want nil (playerEscapeMode abandon-gate should fire)", n.target)
+	}
+}
+
+// TestPlayerFaceCloseModeUsesSizeAwareDistance pins NAI-20 Task 5:
+// playerFaceCloseMode uses coordgrid.DistanceTo (size-aware) per TS
+// Npc.ts:826, NOT inline max(|dx|,|dz|). With size=2 NPC at (3200,3200)
+// and target at (3202,3200), the inline approximation returns 2 (>1,
+// would clear interaction); size-aware returns 1 (occupiedX=3201 to
+// 3202 = 1, keeps interaction).
+func TestPlayerFaceCloseModeUsesSizeAwareDistance(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{Size: 2, BlockWalk: objtype.BlockWalkNPC}
+	n := newRegisteredNpc(t, s, typ, false)
+	n.x, n.z = 3200, 3200
+	n.targetOp = objtype.NPCModePlayerFaceClose
+
+	target := &Player{}
+	target.x, target.z = 3202, 3200
+	n.target = target
+
+	preTarget := n.target
+
+	n.playerFaceCloseMode(s)
+
+	// Size-aware distance is 1; within faceclose's > 1 threshold →
+	// interaction PRESERVED.
+	if n.target != preTarget {
+		t.Errorf("playerFaceCloseMode cleared interaction; size-aware " +
+			"distance to target should be 1 (within range)")
+	}
+}
+
+// TestPlayerFaceCloseModeSize1Parity pins NAI-20 Task 5: for size=1
+// NPC + size=1 target (dominant production data), DistanceTo result
+// equals the prior inline max(|dx|,|dz|) result. No regression.
+func TestPlayerFaceCloseModeSize1Parity(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{Size: 1, BlockWalk: objtype.BlockWalkNPC}
+	n := newRegisteredNpc(t, s, typ, false)
+	n.x, n.z = 3200, 3200
+	n.targetOp = objtype.NPCModePlayerFaceClose
+
+	// Target 2 tiles east — distance 2 > 1 → interaction MUST clear.
+	target := &Player{}
+	target.x, target.z = 3202, 3200
+	n.target = target
+
+	n.playerFaceCloseMode(s)
+
+	// Per TS Npc.ts:826-829, distance > 1 calls resetDefaults → n.target = nil.
+	if n.target != nil {
+		t.Errorf("playerFaceCloseMode did NOT clear interaction; " +
+			"size-1 distance to (3202,3200) is 2 > 1, should reset")
 	}
 }

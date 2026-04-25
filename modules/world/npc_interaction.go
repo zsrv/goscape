@@ -432,13 +432,18 @@ func (n *Npc) targetWithinMaxRange() bool {
 
 	// TS :657-673 — PLAYERESCAPE retreat. Size-aware distanceTo from BOTH
 	// NPC and target to (startX, startZ); rejects only when BOTH exceed
-	// maxrange. No +1, no corner-removal — shape is distinct from the OP
-	// branch. For size-1 NPC/Player (the only case this era supports),
-	// DistanceToSW is equivalent to the TS size-aware distanceTo; the
-	// size-approximation inherits NAI-12's tracked follow-up.
+	// maxrange. TS quirk: the start-coord rectangle adopts the SUBJECT's
+	// width/length on each call (n's size for the n-call, target's size
+	// for the target-call). NAI-20 closes the NAI-12 size-approximation
+	// follow-up at this site.
 	if n.targetOp == objtype.NPCModePlayerEscape {
-		distanceToEscape := coordgrid.DistanceToSW(n.x, n.z, n.startX, n.startZ)
-		targetDistanceFromStart := coordgrid.DistanceToSW(tx, tz, n.startX, n.startZ)
+		tw, tl := approachEntitySize(n.target)
+		distanceToEscape := coordgrid.DistanceTo(
+			n.x, n.z, n.size, n.size,
+			n.startX, n.startZ, n.size, n.size)
+		targetDistanceFromStart := coordgrid.DistanceTo(
+			tx, tz, tw, tl,
+			n.startX, n.startZ, tw, tl)
 		if targetDistanceFromStart > maxrng && distanceToEscape > maxrng {
 			return false
 		}
@@ -467,12 +472,15 @@ func (n *Npc) targetWithinMaxRange() bool {
 		return true
 
 	case checkApTrigger(n.targetOp):
-		// TS :651-654 — SW-distance up to maxrange + attackrange.
+		// TS :651-654 — SW-distance up to maxrange + attackrange. Per TS,
+		// this branch uses distanceToSW (no size); NAI-20 audit confirmed
+		// TS does not size this comparison. KEEP DistanceToSW.
 		d := coordgrid.DistanceToSW(tx, tz, n.startX, n.startZ)
 		return d <= maxrng+attackrng
 
 	default:
-		// TS :676 — SW-distance up to maxrange + 1.
+		// TS :676 — SW-distance up to maxrange + 1. Per TS, this branch
+		// uses distanceToSW (no size); KEEP DistanceToSW (NAI-20 audit).
 		d := coordgrid.DistanceToSW(tx, tz, n.startX, n.startZ)
 		return d <= maxrng+1
 	}

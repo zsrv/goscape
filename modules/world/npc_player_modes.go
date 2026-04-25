@@ -47,19 +47,10 @@ func (n *Npc) playerFaceCloseMode(s *Server) {
 	}
 
 	// TS CoordGrid.distanceTo(this, target) — size-aware Chebyshev.
-	// NAI-13 inherits the 1,1,1,1 size approximation tracked as the
-	// NAI-12 "size-aware LoS" follow-up; single-tile NPCs + single-tile
-	// Players reduce this to plain max(|dx|, |dz|).
+	// NAI-20 closes the size-approximation follow-up at this site.
 	tx, tz, _ := p.Coords()
-	dx := n.x - tx
-	if dx < 0 {
-		dx = -dx
-	}
-	dz := n.z - tz
-	if dz < 0 {
-		dz = -dz
-	}
-	if max(dx, dz) > 1 {
+	tw, tl := approachEntitySize(n.target)
+	if coordgrid.DistanceTo(n.x, n.z, n.size, n.size, tx, tz, tw, tl) > 1 {
 		n.resetDefaults()
 		return
 	}
@@ -150,7 +141,8 @@ func (n *Npc) playerEscapeMode(s *Server) {
 
 	tx, tz, _ := p.Coords()
 
-	// TS :751-754 — abandon if already > 25 tiles SW-distance.
+	// TS :751-754 — abandon if already > 25 tiles SW-distance. TS uses
+	// distanceToSW here (NOT distanceTo); KEEP DistanceToSW (NAI-20 audit).
 	if coordgrid.DistanceToSW(n.x, n.z, tx, tz) > 25 {
 		n.resetDefaults()
 		return
@@ -168,7 +160,9 @@ func (n *Npc) playerEscapeMode(s *Server) {
 		return
 	}
 
-	// TS :780-790 — within-maxrange diagonal waypoint.
+	// TS :780-790 — within-maxrange diagonal waypoint. TS uses distanceToSW
+	// here (the start-coord arg has no width/length); KEEP DistanceToSW
+	// (NAI-20 audit).
 	if coordgrid.DistanceToSW(mx, mz, n.startX, n.startZ) < int(n.typ.MaxRange) {
 		n.queueWaypoint(mx, mz)
 		n.updateMovement(s)

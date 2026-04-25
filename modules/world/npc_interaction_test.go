@@ -1088,3 +1088,65 @@ func TestNpcInApproachDistanceMultiTileSelfShiftsLoSEndTile(t *testing.T) {
 		}
 	})
 }
+
+// TestTargetWithinMaxRangePlayerEscapeUsesSizeAwareDistance pins NAI-20
+// Task 5: the PLAYERESCAPE branch in (*Npc).targetWithinMaxRange uses
+// coordgrid.DistanceTo (size-aware) per TS Npc.ts:658-669, NOT
+// DistanceToSW. With size=2 NPC at (3200,3200) and start at (3203,3200),
+// the SW-only NPC distance is 3 but the size-aware distance is 2 (closest
+// tile pair: occupiedX=3201 vs 3203). For maxrange=2:
+//   - With DistanceToSW: npcDist=3>2 AND targetDist=5>2 → return false.
+//   - With DistanceTo:   npcDist=2≤2 → AND fails → return true.
+func TestTargetWithinMaxRangePlayerEscapeUsesSizeAwareDistance(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{
+		Size:      2,
+		BlockWalk: objtype.BlockWalkNPC,
+		MaxRange:  2,
+	}
+	n := newRegisteredNpc(t, s, typ, false)
+	n.x, n.z = 3200, 3200
+	n.startX, n.startZ = 3203, 3200
+	n.targetOp = objtype.NPCModePlayerEscape
+
+	// Player 5 tiles east of start — both SW and size-aware agree (size=1).
+	// targetDistanceFromStart=5>2; npcDist differs: SW=3 vs DistanceTo=2.
+	target := &Player{}
+	target.x, target.z = 3208, 3200
+	n.target = target
+
+	got := n.targetWithinMaxRange()
+	if !got {
+		t.Errorf("PLAYERESCAPE targetWithinMaxRange = false; want true (size=2 NPC " +
+			"closest tile is 2 from startX=3203, within maxrange=2; DistanceTo " +
+			"must be used, not DistanceToSW which would return 3>2)")
+	}
+}
+
+// TestTargetWithinMaxRangePlayerEscapeSize1Parity pins NAI-20 Task 5:
+// for size=1 NPC + size=1 target (the dominant production data),
+// DistanceTo's result equals DistanceToSW's. No regression on existing
+// cases.
+func TestTargetWithinMaxRangePlayerEscapeSize1Parity(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{
+		Size:      1,
+		BlockWalk: objtype.BlockWalkNPC,
+		MaxRange:  5,
+	}
+	n := newRegisteredNpc(t, s, typ, false)
+	n.x, n.z = 3200, 3200
+	n.startX, n.startZ = 3203, 3204
+	n.targetOp = objtype.NPCModePlayerEscape
+	target := &Player{}
+	target.x, target.z = 3206, 3208
+	n.target = target
+
+	// Manual SW-distance (size-1): max(|3203-3200|, |3204-3200|) = 4.
+	// Manual SW-distance (size-1): max(|3203-3206|, |3204-3208|) = 4.
+	// Both ≤ maxrange=5 → returns true.
+	got := n.targetWithinMaxRange()
+	if !got {
+		t.Errorf("PLAYERESCAPE size-1 parity: got false; want true")
+	}
+}
