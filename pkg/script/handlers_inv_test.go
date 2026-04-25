@@ -582,10 +582,10 @@ func TestHandleInvStopTransmitNullComRejected(t *testing.T) {
 // Table-driven: one sub-test per null slot.
 func TestHandleInvOtherTransmitNullRejected(t *testing.T) {
 	tests := []struct {
-		name        string
+		name string
 		// Push order: bottom → top == uid, invType, com.
 		uid, invType, com int
-		wantSubstr  string
+		wantSubstr        string
 	}{
 		{
 			name:       "null_com",

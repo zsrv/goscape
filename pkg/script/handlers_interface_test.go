@@ -669,6 +669,9 @@ func TestHandleIfOpenMainSideNullRejected(t *testing.T) {
 			if !strings.Contains(err.Error(), tc.wantSubstr) {
 				t.Errorf("error: got %q, want substring %q", err.Error(), tc.wantSubstr)
 			}
+			if mp.lastOpenMainSide != (struct{ main, side int }{}) {
+				t.Errorf("lastOpenMainSide: got %+v, want zero (mock should not have been called on null-input rejection)", mp.lastOpenMainSide)
+			}
 		})
 	}
 }
@@ -742,6 +745,9 @@ func TestHandleIfSetModelNullRejected(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), tc.wantSubstr) {
 				t.Errorf("error: got %q, want substring %q", err.Error(), tc.wantSubstr)
+			}
+			if mp.lastIfSetModel != (struct{ com, modelID int }{}) {
+				t.Errorf("lastIfSetModel: got %+v, want zero (mock should not have been called on null-input rejection)", mp.lastIfSetModel)
 			}
 		})
 	}
@@ -878,6 +884,12 @@ func TestHandleIfSetHideNullRejected(t *testing.T) {
 			if !strings.Contains(err.Error(), tc.wantSubstr) {
 				t.Errorf("error: got %q, want substring %q", err.Error(), tc.wantSubstr)
 			}
+			if mp.lastIfSetHide != (struct {
+				com  int
+				hide bool
+			}{}) {
+				t.Errorf("lastIfSetHide: got %+v, want zero (mock should not have been called on null-input rejection)", mp.lastIfSetHide)
+			}
 		})
 	}
 }
@@ -959,6 +971,9 @@ func TestHandleIfSetObjectNullRejected(t *testing.T) {
 			if !strings.Contains(err.Error(), tc.wantSubstr) {
 				t.Errorf("error: got %q, want substring %q", err.Error(), tc.wantSubstr)
 			}
+			if mp.lastIfSetObject != (struct{ com, objID, scale int }{}) {
+				t.Errorf("lastIfSetObject: got %+v, want zero (mock should not have been called on null-input rejection)", mp.lastIfSetObject)
+			}
 		})
 	}
 }
@@ -1005,6 +1020,9 @@ func TestHandleIfSetColourNullRejected(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), tc.wantSubstr) {
 				t.Errorf("error: got %q, want substring %q", err.Error(), tc.wantSubstr)
+			}
+			if mp.lastIfSetColour != (struct{ com, colour int }{}) {
+				t.Errorf("lastIfSetColour: got %+v, want zero (mock should not have been called on null-input rejection)", mp.lastIfSetColour)
 			}
 		})
 	}
