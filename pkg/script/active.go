@@ -24,8 +24,7 @@ type ActivePlayer interface {
 	// Returns a non-nil error when scriptID does not resolve to a
 	// registered script (mirrors TS PlayerOps.ts:103-105 throw). The
 	// goscape error is `fmt.Errorf("unable to find queue script: %d",
-	// scriptID)`. NAI-26 Bundle 1 placeholder implementations may
-	// temporarily return nil instead; Bundle 2 activates the error.
+	// scriptID)`.
 	//
 	// (S5h: renamed from EnqueueScript to carry type. NAI-26 Bundle 1:
 	// renamed from EnqueueScriptTyped to carry parallel-slice args and

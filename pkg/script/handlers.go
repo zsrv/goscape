@@ -621,6 +621,12 @@ func handlePDelay(s *ScriptState) error {
 // responsible for ensuring the stack has the popped values in TS-faithful
 // order (last tag's value on top of the typed block; tags string on the
 // very top — popped first).
+//
+// Example: type-tags "isi" with stack values pushed in tag order
+// [1, "two", 3] (rightmost = top of stack at popScriptArgs entry, just
+// below the tags string) yields intArgs=[1, 3] and stringArgs=["two"].
+// Each typed value lands at its tag-relative position in the type-specific
+// output slice.
 func popScriptArgs(s *ScriptState) (intArgs []int, stringArgs []string) {
 	types := s.PopString()
 	count := len(types)
@@ -667,8 +673,8 @@ func popScriptArgs(s *ScriptState) (intArgs []int, stringArgs []string) {
 // propagation (divergence ε — TS PlayerOps.ts:152-154) via the
 // EnqueueScriptArgs return (Task 6 Step 1 activates the error).
 func handleQueue(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("QUEUE: no active player")
+	if err := requireActivePlayer(s, "QUEUE"); err != nil {
+		return err
 	}
 	arg := s.PopInt()
 	delay := s.PopInt()
@@ -685,8 +691,8 @@ func handleQueue(s *ScriptState) error {
 // (divergence δ — TS PlayerOps.ts:127-129) via the EnqueueScriptArgs
 // return (Task 6 Step 1 activates the error).
 func handleWeakQueue(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("WEAKQUEUE: no active player")
+	if err := requireActivePlayer(s, "WEAKQUEUE"); err != nil {
+		return err
 	}
 	arg := s.PopInt()
 	delay := s.PopInt()
@@ -706,8 +712,8 @@ func handleWeakQueue(s *ScriptState) error {
 // (popScriptArgs, missing — the helper popped only a single arg int,
 // silently using the QUEUE shape for a variadic opcode).
 func handleStrongQueue(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("STRONGQUEUE: no active player")
+	if err := requireActivePlayer(s, "STRONGQUEUE"); err != nil {
+		return err
 	}
 	intArgs, stringArgs := popScriptArgs(s)
 	delay := s.PopInt()
@@ -729,8 +735,8 @@ func handleStrongQueue(s *ScriptState) error {
 // η (2-element args array missing — helper passed [arg] not
 // [logoutAction, arg]).
 func handleLongQueue(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("LONGQUEUE: no active player")
+	if err := requireActivePlayer(s, "LONGQUEUE"); err != nil {
+		return err
 	}
 	logoutAction := s.PopInt()
 	arg := s.PopInt()
