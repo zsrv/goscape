@@ -701,6 +701,12 @@ func TestHandleIfSetTextNullComRejected(t *testing.T) {
 	if !strings.Contains(err.Error(), want) {
 		t.Errorf("error: got %q, want substring %q", err.Error(), want)
 	}
+	if mp.lastIfSetText != (struct {
+		com  int
+		text string
+	}{}) {
+		t.Errorf("lastIfSetText: got %+v, want zero (mock should not have been called on null-input rejection)", mp.lastIfSetText)
+	}
 }
 
 // TestHandleIfSetModelNullRejected pins IF_SETMODEL: TS wraps both com and

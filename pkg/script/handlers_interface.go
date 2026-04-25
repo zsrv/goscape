@@ -21,7 +21,7 @@ func handleIfClose(s *ScriptState) error {
 }
 
 // handleIfOpenMain implements IF_OPENMAIN.
-// TS PlayerOps.ts:719-721 — pops a single int (com).
+// TS PlayerOps.ts:719-721 — pops a single int (com); check(com, NumberNotNull) (NAI-23 Bundle 4c).
 func handleIfOpenMain(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return errors.New("IF_OPENMAIN: no active player")
@@ -35,7 +35,7 @@ func handleIfOpenMain(s *ScriptState) error {
 }
 
 // handleIfOpenChat implements IF_OPENCHAT.
-// TS PlayerOps.ts:641-643 — pops a single int (com).
+// TS PlayerOps.ts:641-643 — pops a single int (com); check(com, NumberNotNull) (NAI-23 Bundle 4c).
 func handleIfOpenChat(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return errors.New("IF_OPENCHAT: no active player")
@@ -49,7 +49,7 @@ func handleIfOpenChat(s *ScriptState) error {
 }
 
 // handleIfOpenSide implements IF_OPENSIDE.
-// TS PlayerOps.ts:727-729 — pops a single int (com).
+// TS PlayerOps.ts:727-729 — pops a single int (com); check(com, NumberNotNull) (NAI-23 Bundle 4c).
 func handleIfOpenSide(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return errors.New("IF_OPENSIDE: no active player")
@@ -64,7 +64,8 @@ func handleIfOpenSide(s *ScriptState) error {
 
 // handleIfOpenMainSide implements IF_OPENMAIN_SIDE.
 // TS PlayerOps.ts:645-652 — popInts(2) → [main, side], so side is on
-// stack top. We pop side first, then main.
+// stack top. We pop side first, then main. Both wrapped with
+// check(_, NumberNotNull) (NAI-23 Bundle 4c).
 func handleIfOpenMainSide(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return errors.New("IF_OPENMAIN_SIDE: no active player")
@@ -88,6 +89,7 @@ func handleIfOpenMainSide(s *ScriptState) error {
 // state.popInt();` — text is popped from the string stack first, then
 // com from the int stack. The two stacks are independent, so order
 // relative to each other only matters for script generation.
+// com is wrapped with check(com, NumberNotNull) (NAI-23 Bundle 4c).
 func handleIfSetText(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return errors.New("IF_SETTEXT: no active player")
@@ -103,6 +105,7 @@ func handleIfSetText(s *ScriptState) error {
 
 // handleIfSetModel implements IF_SETMODEL.
 // TS PlayerOps.ts:677-684 — popInts(2) → [com, model], model on top.
+// Both com and model wrapped with check(_, NumberNotNull) (NAI-23 Bundle 4c).
 func handleIfSetModel(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return errors.New("IF_SETMODEL: no active player")
@@ -121,6 +124,7 @@ func handleIfSetModel(s *ScriptState) error {
 
 // handleIfSetNpcHead implements IF_SETNPCHEAD.
 // TS PlayerOps.ts:742-749 — popInts(2) → [com, npc], npc on top.
+// com wrapped with check(com, NumberNotNull) (NAI-23 Bundle 4c).
 func handleIfSetNpcHead(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return errors.New("IF_SETNPCHEAD: no active player")
@@ -130,13 +134,13 @@ func handleIfSetNpcHead(s *ScriptState) error {
 	if err := checkNotNull(com, "IF_SETNPCHEAD"); err != nil {
 		return err
 	}
-	// npc uses NpcTypeValid in TS (not NumberNotNull); no checkNotNull here.
+	// npc uses NpcTypeValid in TS (not NumberNotNull); no checkNotNull here (NAI-23 Bundle 4c).
 	s.Self.IfSetNpcHead(com, npc)
 	return nil
 }
 
 // handleIfSetPlayerHead implements IF_SETPLAYERHEAD.
-// TS PlayerOps.ts:731-733 — pops a single int (com).
+// TS PlayerOps.ts:731-733 — pops a single int (com); check(com, NumberNotNull) (NAI-23 Bundle 4c).
 func handleIfSetPlayerHead(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return errors.New("IF_SETPLAYERHEAD: no active player")
@@ -152,7 +156,8 @@ func handleIfSetPlayerHead(s *ScriptState) error {
 // handleIfSetAnim implements IF_SETANIM.
 // TS PlayerOps.ts:698-709 — popInts(2) → [com, seq], seq on top. TS
 // short-circuits when seq == -1 ("client crashes"); we preserve that
-// guard so the wire op is suppressed.
+// guard so the wire op is suppressed. com wrapped with
+// check(com, NumberNotNull); seq uses -1 sentinel (NAI-23 Bundle 4c).
 func handleIfSetAnim(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return errors.New("IF_SETANIM: no active player")
@@ -162,7 +167,7 @@ func handleIfSetAnim(s *ScriptState) error {
 	if err := checkNotNull(com, "IF_SETANIM"); err != nil {
 		return err
 	}
-	// seq=-1 is a valid sentinel in TS (client crashes on -1); no checkNotNull.
+	// seq=-1 is a valid sentinel in TS (client crashes on -1); no checkNotNull (NAI-23 Bundle 4c).
 	if seq == -1 {
 		return nil
 	}
@@ -172,7 +177,8 @@ func handleIfSetAnim(s *ScriptState) error {
 
 // handleIfSetHide implements IF_SETHIDE.
 // TS PlayerOps.ts:654-661 — popInts(2) → [com, hide], hide on top. The
-// hide int is treated as 0/1 boolean (TS uses `hide === 1`).
+// hide int is treated as 0/1 boolean (TS uses `hide === 1`). Both com
+// and hide wrapped with check(_, NumberNotNull) (NAI-23 Bundle 4c).
 func handleIfSetHide(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return errors.New("IF_SETHIDE: no active player")
@@ -191,6 +197,7 @@ func handleIfSetHide(s *ScriptState) error {
 
 // handleIfSetTab implements IF_SETTAB.
 // TS PlayerOps.ts:711-717 — popInts(2) → [com, tab], tab on top.
+// tab wrapped with check(tab, NumberNotNull); com is NOT wrapped (NAI-23 Bundle 4c).
 func handleIfSetTab(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return errors.New("IF_SETTAB: no active player")
@@ -200,13 +207,14 @@ func handleIfSetTab(s *ScriptState) error {
 	if err := checkNotNull(tab, "IF_SETTAB"); err != nil {
 		return err
 	}
-	// com is NOT wrapped with NumberNotNull in TS (PlayerOps.ts:711-717).
+	// com is NOT wrapped with NumberNotNull in TS (PlayerOps.ts:711-717) (NAI-23 Bundle 4c).
 	s.Self.IfSetTab(com, tab)
 	return nil
 }
 
 // handleIfSetObject implements IF_SETOBJECT.
 // TS PlayerOps.ts:663-671 — popInts(3) → [com, obj, scale], scale on top.
+// com and scale wrapped with check(_, NumberNotNull); obj uses ObjTypeValid (NAI-23 Bundle 4c).
 func handleIfSetObject(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return errors.New("IF_SETOBJECT: no active player")
@@ -217,7 +225,7 @@ func handleIfSetObject(s *ScriptState) error {
 	if err := checkNotNull(com, "IF_SETOBJECT"); err != nil {
 		return err
 	}
-	// obj uses ObjTypeValid in TS (not NumberNotNull); no checkNotNull here.
+	// obj uses ObjTypeValid in TS (not NumberNotNull); no checkNotNull here (NAI-23 Bundle 4c).
 	if err := checkNotNull(scale, "IF_SETOBJECT"); err != nil {
 		return err
 	}
@@ -229,6 +237,7 @@ func handleIfSetObject(s *ScriptState) error {
 // TS PlayerOps.ts:632-639 — popInts(2) → [com, colour], colour on top.
 // The TS handler converts rgb24→rgb15 before writing the wire op; that
 // conversion is the Player impl's responsibility in this codebase.
+// Both com and colour wrapped with check(_, NumberNotNull) (NAI-23 Bundle 4c).
 func handleIfSetColour(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return errors.New("IF_SETCOLOUR: no active player")
@@ -247,6 +256,7 @@ func handleIfSetColour(s *ScriptState) error {
 
 // handleIfSetPosition implements IF_SETPOSITION.
 // TS PlayerOps.ts:751-757 — popInts(3) → [com, x, y], y on top.
+// com wrapped with check(com, NumberNotNull); x and y NOT wrapped (NAI-23 Bundle 4c).
 func handleIfSetPosition(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return errors.New("IF_SETPOSITION: no active player")
@@ -257,13 +267,14 @@ func handleIfSetPosition(s *ScriptState) error {
 	if err := checkNotNull(com, "IF_SETPOSITION"); err != nil {
 		return err
 	}
-	// x and y are NOT wrapped with NumberNotNull in TS (PlayerOps.ts:751-757).
+	// x and y are NOT wrapped with NumberNotNull in TS (PlayerOps.ts:751-757) (NAI-23 Bundle 4c).
 	s.Self.IfSetPosition(com, x, y)
 	return nil
 }
 
 // handleIfSetRecol implements IF_SETRECOL.
 // TS PlayerOps.ts:686-692 — popInts(3) → [com, src, dest], dest on top.
+// com wrapped with check(com, NumberNotNull); src and dest NOT wrapped (NAI-23 Bundle 4c).
 func handleIfSetRecol(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return errors.New("IF_SETRECOL: no active player")
@@ -274,7 +285,7 @@ func handleIfSetRecol(s *ScriptState) error {
 	if err := checkNotNull(com, "IF_SETRECOL"); err != nil {
 		return err
 	}
-	// src and dest are NOT wrapped with NumberNotNull in TS (PlayerOps.ts:686-692).
+	// src and dest are NOT wrapped with NumberNotNull in TS (PlayerOps.ts:686-692) (NAI-23 Bundle 4c).
 	s.Self.IfSetRecol(com, src, dest)
 	return nil
 }
@@ -282,7 +293,7 @@ func handleIfSetRecol(s *ScriptState) error {
 // -- Misc ---------------------------------------------------------------
 
 // handleIfSetTabActive implements IF_SETTABACTIVE.
-// TS PlayerOps.ts:673-675 — pops a single int (tab).
+// TS PlayerOps.ts:673-675 — pops a single int (tab); check(tab, NumberNotNull) (NAI-23 Bundle 4c).
 func handleIfSetTabActive(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return errors.New("IF_SETTABACTIVE: no active player")
