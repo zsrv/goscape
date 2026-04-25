@@ -243,9 +243,15 @@ type ActivePlayer interface {
 	// Silent no-op if no such timer.
 	ClearTimer(scriptID uint32)
 
-	// GetTimer returns the number of ticks until the timer at scriptID
-	// fires next, or -1 if no such timer exists. May be negative if
-	// overdue but not yet processed.
+	// GetTimer returns the absolute clock tick at which the timer at
+	// scriptID was last set or fired (TS-faithful per Player.ts:910 /
+	// PlayerOps.ts:858), or -1 if no such timer is registered.
+	//
+	// NAI-27 Bundle 2: doc-comment updated alongside the (*Player).GetTimer
+	// semantic flip from "(Clock+Interval)-now" remaining-ticks to absolute
+	// Clock. Pre-Bundle-2 tests asserting non-Clock arithmetic on this
+	// return are broken; the entity-level pin is at
+	// modules/world/player_timer_test.go.
 	GetTimer(scriptID uint32) int
 
 	// S5m: "last-input" queries. Each pushes the player's stored field
