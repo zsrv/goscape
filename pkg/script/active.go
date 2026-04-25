@@ -275,11 +275,16 @@ type ActivePlayer interface {
 	// inv_stoptransmit).
 
 	// InvListenOnCom registers an inventory listener at UI component id
-	// `com` tracking inv type `invType`. `source == -1` means the
-	// world-shared inventory; `source >= 0` means the player at that server
-	// slot. Replaces any existing listener at com; resets FirstSeen=true
-	// on replace. Safe when the implementation's listener map is still nil
-	// — it must lazy-init.
+	// `com` tracking inv type `invType`. Callers pass the player's own
+	// UID (via ActivePlayer.UID()) or a popped uid for INV_OTHERTRANSMIT
+	// scenarios; the implementation rewrites source to -1 internally
+	// when invType has SCOPE_SHARED scope (matches TS Player.ts:1456-1459).
+	// On the dispatch side, source == -1 routes to the world-shared
+	// inventory; source >= 0 routes to the player at that server slot.
+	// Replaces any existing listener at com unless the existing entry
+	// has the same type (in which case the call is a no-op preserving
+	// FirstSeen state). Safe when the implementation's listener map is
+	// still nil — it must lazy-init.
 	InvListenOnCom(invType, com, source int)
 
 	// InvStopListenOnCom unregisters the listener at UI component id com.

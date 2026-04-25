@@ -12,6 +12,7 @@ import (
 	"github.com/zsrv/goscape/pkg/io/packet"
 	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
+	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
 )
 
@@ -313,6 +314,19 @@ func newTestServer(t *testing.T) *Server {
 		scriptProvider: defaultTestProvider(),
 	}
 	return s
+}
+
+// newTestPlayerWithInvTypes constructs a Player wired to a Server whose
+// invTypes is populated with the given configs. Used by scope-aware tests
+// of (*Player).invListenOnCom that exercise the SCOPE_SHARED rewrite
+// branch (γ). For tests that don't need invTypes wiring, use newTestPlayer.
+func newTestPlayerWithInvTypes(t *testing.T, configs []*objtype.InvType) (*Player, net.Conn) {
+	t.Helper()
+	p, conn := newTestPlayer(t)
+	s := newTestServer(t)
+	s.invTypes = &objtype.InvTypeConfigs{Configs: configs}
+	p.client.server = s
+	return p, conn
 }
 
 func TestAddPlayerAssignsSlot(t *testing.T) {

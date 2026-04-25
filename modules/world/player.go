@@ -9,6 +9,7 @@ import (
 	"github.com/zsrv/goscape/pkg/io/packet"
 	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -625,15 +626,38 @@ func (p *Player) readPacket() (int, bool, error) {
 }
 
 // invListenOnCom registers an inventory listener at the given interface
-// component ID. If a listener already exists at com, it's replaced and
-// FirstSeen resets to true (matches TS Player.ts:1441-1462 add-or-
-// replace semantics).
+// component ID, matching TS Player.ts:1441-1462 line-by-line.
+//
+// Behavior:
+//   - invType == -1 → no-op (early-out matches TS).
+//   - existing listener at com with same Type → no-op (preserves
+//     FirstSeen state across redundant inv_transmit calls).
+//   - SCOPE_SHARED inv-type → source rewritten to -1 (world-shared
+//     dispatch); requires p.client.server.invTypes wired. Graceful
+//     no-op when wiring is absent (test-direct-call paths).
+//   - Otherwise → store {Type, Com, Source, FirstSeen=true}; the map
+//     overwrite naturally implements TS's same-com-different-type
+//     splice.
 //
 // Source = -1 → world-shared inventory (Server.invs[Type]).
 // Source >= 0 → another player's slot (Server.players[Source].invs[Type]).
 //
 // Lazy-initializes the invListeners map on first call.
 func (p *Player) invListenOnCom(invType, com, source int) {
+	if invType == -1 {
+		return
+	}
+	if existing, ok := p.invListeners[com]; ok && existing.Type == invType {
+		return
+	}
+	if p.client != nil && p.client.server != nil && p.client.server.invTypes != nil {
+		configs := p.client.server.invTypes.Configs
+		if invType < len(configs) {
+			if cfg := configs[invType]; cfg != nil && cfg.Scope == objtype.InvTypeScopeShared {
+				source = -1
+			}
+		}
+	}
 	if p.invListeners == nil {
 		p.invListeners = make(map[int]InventoryListener)
 	}
