@@ -410,13 +410,15 @@ func handleInvMoveFromSlot(s *ScriptState) error {
 // -- Listener registration (S6u) -----------------------------------------
 
 // handleInvTransmit implements INV_TRANSMIT. Registers a listener on
-// the active player for UI component `com` tracking world-shared
-// inventory type `invType` (source=-1).
+// the active player for UI component `com` tracking the active
+// player's own inventory of type `invType` (source = activePlayer.UID()).
 //
 // TS: InvOps.ts INV_TRANSMIT — popInt(inv), popInt(com),
-// activePlayer.invListenOnCom(inv, com, -1).
-// com is wrapped with check(com, NumberNotNull) in TS; invType uses
+// activePlayer.invListenOnCom(inv, com, activePlayer.uid). com is
+// wrapped with check(com, NumberNotNull) in TS; invType uses
 // InvTypeValid (not NumberNotNull) — stays raw (NAI-23 Bundle 4b).
+// Source porting fix landed in NAI-24 Bundle 2 — origin commit
+// fa57ee4 (S6u) erroneously hard-coded -1.
 func handleInvTransmit(s *ScriptState) error {
 	if err := requireActivePlayer(s, "INV_TRANSMIT"); err != nil {
 		return err
@@ -426,7 +428,7 @@ func handleInvTransmit(s *ScriptState) error {
 	if err := checkNotNull(com, "INV_TRANSMIT"); err != nil {
 		return err
 	}
-	s.Self.InvListenOnCom(invType, com, -1)
+	s.Self.InvListenOnCom(invType, com, s.Self.UID())
 	return nil
 }
 

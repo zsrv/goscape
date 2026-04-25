@@ -382,9 +382,9 @@ func TestInvLookupNilReturnsError(t *testing.T) {
 
 // TestInvTransmitRegistersListener runs a script pushing (com, inv) then
 // OpInvTransmit; asserts the mock player recorded
-// InvListenOnCom(invType, com, -1). Matches TS InvOps.ts INV_TRANSMIT.
+// InvListenOnCom(invType, com, activePlayer.uid). Matches TS InvOps.ts INV_TRANSMIT.
 func TestInvTransmitRegistersListener(t *testing.T) {
-	mp := &mockPlayer{}
+	mp := &mockPlayer{uidValue: 42}
 
 	sf := &ScriptFile{
 		Name: "inv_transmit",
@@ -406,8 +406,8 @@ func TestInvTransmitRegistersListener(t *testing.T) {
 		t.Fatalf("expected 1 call to InvListenOnCom, got %d", len(mp.lastInvListenOnCom))
 	}
 	got := mp.lastInvListenOnCom[0]
-	if got.InvType != 93 || got.Com != 149 || got.Source != -1 {
-		t.Errorf("InvListenOnCom args: got %+v, want {InvType:93, Com:149, Source:-1}", got)
+	if got.InvType != 93 || got.Com != 149 || got.Source != 42 {
+		t.Errorf("InvListenOnCom args: got %+v, want {InvType:93, Com:149, Source:42}", got)
 	}
 }
 
