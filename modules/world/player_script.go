@@ -12,21 +12,30 @@ import (
 	"github.com/zsrv/goscape/pkg/script"
 )
 
-// playerQueueRequest is one queued fresh-run script request with a
-// single int arg. Queue entries are processed in processPlayerQueue;
-// when Delay reaches zero (or below) the target script runs as a brand-
-// new ScriptState. Type selects the queue variant (NORMAL/WEAK/LONG/
-// STRONG); STRONG fires even when the player is delayed, the others
-// wait for idle.
+// playerQueueRequest is one queued fresh-run script request carrying its
+// caller-supplied parallel arg slices (IntArgs + StringArgs). Queue
+// entries are processed in processPlayerQueue; when Delay reaches zero
+// (or below) the target script runs as a brand-new ScriptState. Type
+// selects the queue variant (NORMAL/WEAK/LONG/STRONG); STRONG fires
+// even when the player is delayed, the others wait for idle.
 //
 // As of S6h, Script holds the pre-resolved *ScriptFile directly. ID →
-// ScriptFile resolution happens at enqueue time via Player.EnqueueScriptTyped;
+// ScriptFile resolution happens at enqueue time via Player.EnqueueScriptArgs;
 // engine-dispatch paths (e.g. changeStat) use Player.EnqueueScriptFile.
+//
+// As of NAI-26 Bundle 1, the single IntArg int field is widened to
+// parallel IntArgs []int + StringArgs []string slices to match the TS
+// PlayerQueueRequest.args ScriptArgument[] shape (TS
+// Engine-TS/src/engine/entity/PlayerQueueRequest.ts:15). The widening
+// is required for STRONGQUEUE's variadic popScriptArgs body
+// (PlayerOps.ts:98) and LONGQUEUE's 2-element [logoutAction, arg]
+// args array (PlayerOps.ts:179), neither of which fit a single-int field.
 type playerQueueRequest struct {
-	Script *script.ScriptFile
-	Delay  int
-	IntArg int
-	Type   script.PlayerQueueType
+	Script     *script.ScriptFile
+	Delay      int
+	IntArgs    []int
+	StringArgs []string
+	Type       script.PlayerQueueType
 }
 
 // SetDelayed marks the player as suspended for `ticks` ticks starting
@@ -48,31 +57,59 @@ func (p *Player) SetDelayed(ticks int) {
 // to the STRONG/NORMAL gate). Nil sf is a silent no-op — engine
 // dispatchers (e.g. changeStat) call GetByTrigger and may legitimately
 // pass nil when no cache script is registered for the event.
-func (p *Player) EnqueueScriptFile(sf *script.ScriptFile, delay, intArg int, qtype script.PlayerQueueType) {
+//
+// intArgs and stringArgs are the parallel-slice args the target script
+// will read from its IntArgCount / StringArgCount-sized prelude slots
+// (matches TS ScriptArgument[] shape per
+// Engine-TS/src/engine/entity/PlayerQueueRequest.ts:15). nil/nil
+// expresses "no args" — the TS-faithful default for engine-dispatch
+// paths (TS Engine-TS/src/engine/entity/Player.ts:821 args=[] default).
+func (p *Player) EnqueueScriptFile(sf *script.ScriptFile, delay int, intArgs []int, stringArgs []string, qtype script.PlayerQueueType) {
 	if sf == nil {
 		return
 	}
 	p.queue = append(p.queue, playerQueueRequest{
-		Script: sf,
-		Delay:  delay,
-		IntArg: intArg,
-		Type:   qtype,
+		Script:     sf,
+		Delay:      delay,
+		IntArgs:    intArgs,
+		StringArgs: stringArgs,
+		Type:       qtype,
 	})
 }
 
-// EnqueueScriptTyped implements script.ActivePlayer.EnqueueScriptTyped by
+// EnqueueScriptArgs implements script.ActivePlayer.EnqueueScriptArgs by
 // resolving scriptID → *ScriptFile via scriptProvider.GetByID and
-// delegating to EnqueueScriptFile. Silent no-op on missing script or
-// unwired server — same observable contract as the pre-S6h impl, where
-// processPlayerQueue's GetByID check served the same role.
+// delegating to EnqueueScriptFile. Returns a non-nil error when the
+// scriptID does not resolve to a registered script — mirrors TS
+// PlayerOps.ts:103-105 throw shape ("Unable to find queue script: ${id}").
+//
+// NAI-26 Bundle 1 NOTE: this Bundle 1 placeholder body returns nil
+// (preserving silent no-op) when GetByID returns nil. The error return
+// is activated in Bundle 2 (Task 6 Step 1) once the per-opcode handlers
+// have un-shared bodies that propagate the error explicitly. Splitting
+// the rollout keeps Bundle 1's mechanical signature widening separate
+// from the Bundle 2 behavioral change for review-surface isolation.
+//
+// Silent no-op on unwired server (p.client / p.client.server /
+// p.client.server.scriptProvider nil) is preserved across both bundles
+// — that path corresponds to test fixtures that don't wire a Server,
+// not to a script-author error worth surfacing.
 //
 // Resolution shifts from fire-time (pre-S6h) to enqueue-time (S6h).
 // Same tick boundary in practice; simpler codepath.
-func (p *Player) EnqueueScriptTyped(scriptID uint32, delay, intArg int, qtype script.PlayerQueueType) {
+func (p *Player) EnqueueScriptArgs(scriptID uint32, delay int, intArgs []int, stringArgs []string, qtype script.PlayerQueueType) error {
 	if p.client == nil || p.client.server == nil || p.client.server.scriptProvider == nil {
-		return
+		return nil
 	}
-	p.EnqueueScriptFile(p.client.server.scriptProvider.GetByID(scriptID), delay, intArg, qtype)
+	sf := p.client.server.scriptProvider.GetByID(scriptID)
+	if sf == nil {
+		// NAI-26 Bundle 1 placeholder: returns nil to preserve pre-NAI-26
+		// silent-no-op behavior. Bundle 2 (Task 6 Step 1) replaces this
+		// with `return fmt.Errorf("unable to find queue script: %d", scriptID)`.
+		return nil
+	}
+	p.EnqueueScriptFile(sf, delay, intArgs, stringArgs, qtype)
+	return nil
 }
 
 // StoreActiveScript saves a Suspended ScriptState so the tick loop can
@@ -260,7 +297,7 @@ func (p *Player) changeStat(stat int) {
 		return
 	}
 	sf := p.client.server.scriptProvider.GetByTrigger(script.TriggerChangeStat, stat, -1)
-	p.EnqueueScriptFile(sf, 0, 0, script.QueueNormal)
+	p.EnqueueScriptFile(sf, 0, nil, nil, script.QueueNormal)
 }
 
 // advanceStat fires the [advancestat,<skill>] trigger for the given stat
@@ -282,7 +319,7 @@ func (p *Player) advanceStat(stat int) {
 		return
 	}
 	sf := p.client.server.scriptProvider.GetByTriggerSpecific(script.TriggerAdvanceStat, stat, -1)
-	p.EnqueueScriptFile(sf, 0, 0, script.QueueNormal)
+	p.EnqueueScriptFile(sf, 0, nil, nil, script.QueueNormal)
 }
 
 // AddXP adds xp (scaled ×10) to the player's stored XP for skill id and

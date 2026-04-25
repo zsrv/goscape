@@ -1,6 +1,7 @@
 package script
 
 import (
+	"slices"
 	"testing"
 )
 
@@ -430,9 +431,20 @@ func TestQueueOpcode(t *testing.T) {
 		t.Fatalf("enqueueCalls: got %d, want 1", len(mp.enqueueCalls))
 	}
 	got := mp.enqueueCalls[0]
-	want := mockEnqueue{ScriptID: 77, Delay: 3, IntArg: 42}
-	if got != want {
-		t.Errorf("enqueue: got %+v, want %+v", got, want)
+	if got.ScriptID != 77 {
+		t.Errorf("ScriptID: got %d, want 77", got.ScriptID)
+	}
+	if got.Delay != 3 {
+		t.Errorf("Delay: got %d, want 3", got.Delay)
+	}
+	if !slices.Equal(got.IntArgs, []int{42}) {
+		t.Errorf("IntArgs: got %v, want [42]", got.IntArgs)
+	}
+	if got.StringArgs != nil {
+		t.Errorf("StringArgs: got %v, want nil", got.StringArgs)
+	}
+	if got.Type != QueueNormal {
+		t.Errorf("Type: got %v, want QueueNormal", got.Type)
 	}
 }
 
@@ -470,8 +482,15 @@ func TestQueueVariants(t *testing.T) {
 				t.Fatalf("enqueueCalls: got %d, want 1", len(mp.enqueueCalls))
 			}
 			got := mp.enqueueCalls[0]
-			if got.ScriptID != 77 || got.Delay != 3 || got.IntArg != 42 || got.Type != tc.qtype {
-				t.Errorf("enqueue: got %+v, want type=%v", got, tc.qtype)
+			if got.ScriptID != 77 || got.Delay != 3 || got.Type != tc.qtype {
+				t.Errorf("enqueue header: got ScriptID=%d Delay=%d Type=%v, want ScriptID=77 Delay=3 Type=%v",
+					got.ScriptID, got.Delay, got.Type, tc.qtype)
+			}
+			if !slices.Equal(got.IntArgs, []int{42}) {
+				t.Errorf("IntArgs: got %v, want [42]", got.IntArgs)
+			}
+			if got.StringArgs != nil {
+				t.Errorf("StringArgs: got %v, want nil", got.StringArgs)
 			}
 		})
 	}

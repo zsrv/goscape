@@ -596,9 +596,10 @@ func handlePDelay(s *ScriptState) error {
 	return nil
 }
 
-// enqueueTyped is the shared body for QUEUE / WEAKQUEUE / STRONGQUEUE /
-// LONGQUEUE. Pops (scriptID, delay, arg) and calls Self.EnqueueScriptTyped
-// with the requested type.
+// enqueueTyped is the temporary Bundle-1 shared adapter for QUEUE /
+// WEAKQUEUE / STRONGQUEUE / LONGQUEUE. Pops (scriptID, delay, arg) and
+// calls Self.EnqueueScriptArgs with the requested type, wrapping the
+// single popped int into a 1-element IntArgs slice + nil StringArgs.
 //
 // TS (engine/script/handlers/PlayerOps.ts:148):
 //
@@ -606,7 +607,13 @@ func handlePDelay(s *ScriptState) error {
 //
 // popInts(n) fills ints[n-1] down to ints[0] via PopInt, so the stack
 // top is `arg`, then `delay`, then `scriptId`. The VARARG variants are
-// deferred.
+// deferred (separate TS opcodes; see spec § Out-of-scope #5).
+//
+// NAI-26 Bundle 1 NOTE: this adapter is mechanically equivalent to the
+// pre-NAI-26 body — the parallel-slice widening is transparent. Bundle
+// 2 un-shares each of the 4 queue handlers (STRONGQUEUE adds
+// popScriptArgs + NumberNotNull; LONGQUEUE adds a 4th popInt and a
+// 2-element args ordering) and removes this adapter.
 func enqueueTyped(s *ScriptState, qtype PlayerQueueType, op string) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return fmt.Errorf("%s: no active player", op)
@@ -614,8 +621,7 @@ func enqueueTyped(s *ScriptState, qtype PlayerQueueType, op string) error {
 	arg := int(s.PopInt())
 	delay := int(s.PopInt())
 	scriptID := uint32(s.PopInt())
-	s.Self.EnqueueScriptTyped(scriptID, delay, arg, qtype)
-	return nil
+	return s.Self.EnqueueScriptArgs(scriptID, delay, []int{arg}, nil, qtype)
 }
 
 // handleQueue implements QUEUE (opcode 2092): enqueue a fresh-run

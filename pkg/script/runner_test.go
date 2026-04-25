@@ -244,10 +244,12 @@ type mockPlayer struct {
 }
 
 type mockEnqueue struct {
-	ScriptID uint32
-	Delay    int
-	IntArg   int
-	Type     PlayerQueueType
+	ScriptID    uint32
+	Delay       int
+	IntArgs     []int
+	StringArgs  []string
+	Type        PlayerQueueType
+	ReturnError error // Bundle 2: tests opting into error-return set this; default nil.
 }
 
 func (m *mockPlayer) MessageGame(msg string) { m.messages = append(m.messages, msg) }
@@ -256,8 +258,9 @@ func (m *mockPlayer) Username() string       { return m.username }
 func (m *mockPlayer) SetDelayed(ticks int) {
 	m.setDelayedCalls = append(m.setDelayedCalls, ticks)
 }
-func (m *mockPlayer) EnqueueScriptTyped(id uint32, delay, arg int, qtype PlayerQueueType) {
-	m.enqueueCalls = append(m.enqueueCalls, mockEnqueue{ScriptID: id, Delay: delay, IntArg: arg, Type: qtype})
+func (m *mockPlayer) EnqueueScriptArgs(id uint32, delay int, intArgs []int, stringArgs []string, qtype PlayerQueueType) error {
+	m.enqueueCalls = append(m.enqueueCalls, mockEnqueue{ScriptID: id, Delay: delay, IntArgs: intArgs, StringArgs: stringArgs, Type: qtype})
+	return nil
 }
 func (m *mockPlayer) StoreActiveScript(s *ScriptState) { m.stored = s }
 func (m *mockPlayer) ClearActiveScript()               { m.cleared++ }

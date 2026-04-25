@@ -12,11 +12,25 @@ type ActivePlayer interface {
 	// resumeTick = currentTick + 1 + ticks.
 	SetDelayed(ticks int)
 
-	// EnqueueScriptTyped appends a queued fresh-run request with the
-	// given queue type. Delay=0 fires same tick. STRONG-type entries
-	// fire even if the player is busy; others wait until idle.
-	// (S5h: renamed from EnqueueScript to carry type.)
-	EnqueueScriptTyped(scriptID uint32, delay int, intArg int, qtype PlayerQueueType)
+	// EnqueueScriptArgs appends a queued fresh-run request with the
+	// given queue type and the caller-supplied parallel arg slices
+	// (IntArgs + StringArgs — matches TS PlayerQueueRequest.args
+	// ScriptArgument[] shape per
+	// Engine-TS/src/engine/entity/PlayerQueueRequest.ts:15). Delay=0
+	// fires same tick. STRONG-type entries fire even if the player is
+	// busy; others wait until idle. nil/nil expresses "no args" — the
+	// TS-faithful empty-args default (Player.ts:821 args=[]).
+	//
+	// Returns a non-nil error when scriptID does not resolve to a
+	// registered script (mirrors TS PlayerOps.ts:103-105 throw). The
+	// goscape error is `fmt.Errorf("unable to find queue script: %d",
+	// scriptID)`. NAI-26 Bundle 1 placeholder implementations may
+	// temporarily return nil instead; Bundle 2 activates the error.
+	//
+	// (S5h: renamed from EnqueueScript to carry type. NAI-26 Bundle 1:
+	// renamed from EnqueueScriptTyped to carry parallel-slice args and
+	// error return.)
+	EnqueueScriptArgs(scriptID uint32, delay int, intArgs []int, stringArgs []string, qtype PlayerQueueType) error
 
 	// StoreActiveScript saves a Suspended ScriptState so the tick loop
 	// can resume it when the player's delay expires.

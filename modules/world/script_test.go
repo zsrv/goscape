@@ -236,7 +236,7 @@ func TestQueueFiresAtDelayExpiry(t *testing.T) {
 	s.playerLoop = append(s.playerLoop, p)
 
 	received := drainConn(t, cc)
-	p.EnqueueScriptTyped(0xAAAA, 1, 0, script.QueueNormal)
+	p.EnqueueScriptArgs(0xAAAA, 1, nil, nil, script.QueueNormal)
 
 	// Pre-decrement semantics: delay 1 -> 0, 0 <= 0 fires immediately.
 	s.processActiveScripts()
@@ -266,7 +266,7 @@ func TestQueueZeroDelayFiresSameTick(t *testing.T) {
 	s.playerLoop = append(s.playerLoop, p)
 
 	received := drainConn(t, cc)
-	p.EnqueueScriptTyped(0xBBBB, 0, 0, script.QueueNormal)
+	p.EnqueueScriptArgs(0xBBBB, 0, nil, nil, script.QueueNormal)
 	s.processActiveScripts()
 	p.client.flushWrite()
 	got := <-received
@@ -333,8 +333,8 @@ func TestQueueMultipleEntriesPreservesOrder(t *testing.T) {
 	s.playerLoop = append(s.playerLoop, p)
 
 	received := drainConn(t, cc)
-	p.EnqueueScriptTyped(0xCCC1, 0, 0, script.QueueNormal)
-	p.EnqueueScriptTyped(0xCCC2, 0, 0, script.QueueNormal)
+	p.EnqueueScriptArgs(0xCCC1, 0, nil, nil, script.QueueNormal)
+	p.EnqueueScriptArgs(0xCCC2, 0, nil, nil, script.QueueNormal)
 	s.processActiveScripts()
 	p.client.flushWrite()
 	got := <-received
@@ -822,7 +822,7 @@ func TestStrongQueueFiresWhileDelayed(t *testing.T) {
 	received := drainConn(t, cc)
 
 	// Enqueue a STRONG script with delay=0 — should fire even though delayed.
-	p.EnqueueScriptTyped(0xBEEF, 0, 0, script.QueueStrong)
+	p.EnqueueScriptArgs(0xBEEF, 0, nil, nil, script.QueueStrong)
 	s.processActiveScripts()
 	p.client.flushWrite()
 	got := <-received
@@ -1017,7 +1017,7 @@ func TestNormalQueueWaitsForIdle(t *testing.T) {
 	p.delayedUntil = s.currentTick + 99
 
 	received := drainConn(t, cc)
-	p.EnqueueScriptTyped(0xBEE2, 0, 0, script.QueueNormal)
+	p.EnqueueScriptArgs(0xBEE2, 0, nil, nil, script.QueueNormal)
 	s.processActiveScripts()
 	p.client.flushWrite()
 

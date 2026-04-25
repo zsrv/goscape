@@ -1,6 +1,7 @@
 package world
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/cache"
@@ -164,7 +165,7 @@ func TestAddXPOOBIsNoop(t *testing.T) {
 func TestEnqueueScriptFileDirectPath(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	sf := &script.ScriptFile{Name: "[test_direct]"}
-	p.EnqueueScriptFile(sf, 3, 42, script.QueueNormal)
+	p.EnqueueScriptFile(sf, 3, []int{42}, nil, script.QueueNormal)
 	if len(p.queue) != 1 {
 		t.Fatalf("queue len: got %d, want 1", len(p.queue))
 	}
@@ -175,8 +176,11 @@ func TestEnqueueScriptFileDirectPath(t *testing.T) {
 	if req.Delay != 3 {
 		t.Errorf("queue[0].Delay: got %d, want 3", req.Delay)
 	}
-	if req.IntArg != 42 {
-		t.Errorf("queue[0].IntArg: got %d, want 42", req.IntArg)
+	if !slices.Equal(req.IntArgs, []int{42}) {
+		t.Errorf("queue[0].IntArgs: got %v, want [42]", req.IntArgs)
+	}
+	if req.StringArgs != nil {
+		t.Errorf("queue[0].StringArgs: got %v, want nil", req.StringArgs)
 	}
 	if req.Type != script.QueueNormal {
 		t.Errorf("queue[0].Type: got %v, want %v", req.Type, script.QueueNormal)
@@ -185,7 +189,7 @@ func TestEnqueueScriptFileDirectPath(t *testing.T) {
 
 func TestEnqueueScriptFileNilIsNoop(t *testing.T) {
 	p, _ := newTestPlayer(t)
-	p.EnqueueScriptFile(nil, 0, 0, script.QueueNormal)
+	p.EnqueueScriptFile(nil, 0, nil, nil, script.QueueNormal)
 	if len(p.queue) != 0 {
 		t.Errorf("queue len after nil enqueue: got %d, want 0", len(p.queue))
 	}

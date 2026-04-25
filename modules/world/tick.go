@@ -240,10 +240,11 @@ func (s *Server) processPlayerQueue(p *Player) {
 			continue
 		}
 		sf := req.Script
-		intArg := req.IntArg
+		intArgs := req.IntArgs
+		stringArgs := req.StringArgs
 		p.queue = append(p.queue[:i], p.queue[i+1:]...)
 		if sf != nil {
-			s.runScript(sf, p, false, []int{intArg}, nil)
+			s.runScript(sf, p, false, intArgs, stringArgs)
 		}
 		// Don't advance i: we just removed the current element, so i
 		// now points to what was the next element (or past end).
