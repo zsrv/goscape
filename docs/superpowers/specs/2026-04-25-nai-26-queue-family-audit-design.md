@@ -38,8 +38,8 @@ The two new TS-faithfulness disciplines from NAI-25 close (`audit_full_method_ag
 - Existing packages touched:
   - `pkg/script/handlers.go` (un-share `enqueueTyped` → 4 own handlers; new `popScriptArgs` helper; NumberNotNull wraps on STRONGQUEUE delay + P_DELAY n)
   - `pkg/script/active.go` (`EnqueueScriptTyped` → `EnqueueScriptArgs(scriptID, delay, intArgs, stringArgs, qtype) error` — signature change + error return)
-  - `modules/world/player.go` (`playerQueueRequest` field rename: `IntArg int` → `IntArgs []int` + `StringArgs []string`)
-  - `modules/world/player_script.go` (`EnqueueScriptFile` signature widening; `EnqueueScriptTyped` → `EnqueueScriptArgs` rename + error-returning body; engine-dispatch sites at `:263, :285` migrate from `intArg=0` to `nil, nil`)
+  - `modules/world/player_script.go` (`playerQueueRequest` struct field rename at `:25-30` (`IntArg int` → `IntArgs []int` + `StringArgs []string`); `EnqueueScriptFile` signature widening; `EnqueueScriptTyped` → `EnqueueScriptArgs` rename + error-returning body; engine-dispatch sites at `:263, :285` migrate from `intArg=0` to `nil, nil`)
+  - `modules/world/player.go` is **not** touched. The `IntArg int` at `player.go:45` belongs to `playerTimer` (a sibling struct for `SetTimer` requests, out of scope per the timer-family deferral in §Out-of-scope)
   - `modules/world/tick.go` (`processPlayerQueue`: pass `req.IntArgs, req.StringArgs` to `s.runScript`)
 - Test files touched:
   - `pkg/script/handlers_test.go` (`TestQueueOpcode`, `TestQueueVariants` updated; new tests for STRONGQUEUE popScriptArgs / LONGQUEUE 4-popInt / null-pin / script-missing)
@@ -60,46 +60,42 @@ The two new TS-faithfulness disciplines from NAI-25 close (`audit_full_method_ag
 
 #### Touch points
 
-1. **`modules/world/player.go`** (struct field rename):
-   - Line `:45` (`IntArg int`) → replace with `IntArgs []int` + `StringArgs []string` on the `playerQueueRequest` struct (which lives in `player_script.go:25-30` per the grep — verify at controller pre-flight).
-   - **Verify struct location**: per the grep, `playerQueueRequest` is defined in `modules/world/player_script.go:25-30`, not `player.go`. The `:45 IntArg int` reference at `player.go:45` is a separate struct (likely `playerTimerRequest` or similar). Controller pre-flight resolves via `grep -n "type.*Request struct" modules/world/`.
-
-2. **`modules/world/player_script.go`**:
-   - `playerQueueRequest` struct (~`:25-30`): `IntArg int` → `IntArgs []int` + `StringArgs []string`.
+1. **`modules/world/player_script.go`**:
+   - `playerQueueRequest` struct (`:25-30` per HEAD `f0d1ed9`): `IntArg int` (line `:28`) → `IntArgs []int` + `StringArgs []string`. Verify struct location at controller pre-flight via `grep -n "type playerQueueRequest" modules/world/`.
    - `EnqueueScriptFile` signature (`:51`): `(sf *script.ScriptFile, delay, intArg int, qtype script.PlayerQueueType)` → `(sf *script.ScriptFile, delay int, intArgs []int, stringArgs []string, qtype script.PlayerQueueType)`. Body assigns `IntArgs: intArgs, StringArgs: stringArgs` to the queue request.
-   - `EnqueueScriptTyped` rename → `EnqueueScriptArgs`, signature `(scriptID uint32, delay int, intArgs []int, stringArgs []string, qtype script.PlayerQueueType) error`. Body resolves script via `scriptProvider.GetByID`; if nil, returns `fmt.Errorf("unable to find queue script: %d", scriptID)` (TS-faithful error message, mirrors PlayerOps.ts:104). Otherwise delegates to `EnqueueScriptFile` with the parallel slices.
+   - `EnqueueScriptTyped` rename → `EnqueueScriptArgs`, signature `(scriptID uint32, delay int, intArgs []int, stringArgs []string, qtype script.PlayerQueueType) error`. **Bundle 1 body** (silent-no-op preserved): resolves script via `scriptProvider.GetByID`; if nil, returns `nil` (Bundle 1 placeholder; Bundle 2 activates the `fmt.Errorf("unable to find queue script: %d", scriptID)` return per the sequencing decision in touch point #4 below). Otherwise delegates to `EnqueueScriptFile` with the parallel slices.
    - Engine-dispatch sites at `:263` and `:285`: migrate from `p.EnqueueScriptFile(sf, 0, 0, script.QueueNormal)` → `p.EnqueueScriptFile(sf, 0, nil, nil, script.QueueNormal)` (TS-faithful: engine dispatch passes `args=[]` per Player.ts:821 default).
 
-3. **`pkg/script/active.go`**:
+2. **`pkg/script/active.go`**:
    - Line `:19`: `EnqueueScriptTyped(scriptID uint32, delay int, intArg int, qtype PlayerQueueType)` → `EnqueueScriptArgs(scriptID uint32, delay int, intArgs []int, stringArgs []string, qtype PlayerQueueType) error`.
    - Update interface contract docstring at `:15-19` to narrate the parallel-slice arg passing and the error-return contract (`error` is non-nil when `scriptID` does not resolve to a registered script — mirrors TS PlayerOps.ts:103-105).
 
-4. **`modules/world/tick.go`**:
+3. **`modules/world/tick.go`**:
    - Line `:243-246`: `intArg := req.IntArg; ... s.runScript(sf, p, false, []int{intArg}, nil)` → `s.runScript(sf, p, false, req.IntArgs, req.StringArgs)`.
    - Verify the surrounding processPlayerQueue body's other field reads (delay, type, script lookup) remain unchanged.
 
-5. **`pkg/script/handlers.go`**:
+4. **`pkg/script/handlers.go`**:
    - `enqueueTyped` (line `:599-619`): retained as a temporary adapter; body changes from `s.Self.EnqueueScriptTyped(scriptID, delay, arg, qtype)` to `return s.Self.EnqueueScriptArgs(scriptID, delay, []int{arg}, nil, qtype)`. Returns the error from `EnqueueScriptArgs` directly. Behavior preserved (silent no-op on missing script preserved if EnqueueScriptArgs returns nil for that case in Bundle 1; **see Bundle 2 plan for the script-missing error rollout**).
    - **Critical sequencing decision**: in Bundle 1, `EnqueueScriptArgs` returns nil instead of the script-missing error to keep behavior unchanged for the 6 `script_test.go` integration tests that intentionally enqueue non-existent scripts (`0xAAAA`, `0xBBBB`, etc.). Bundle 2 flips the error-return on once the per-opcode handlers are unwired from `enqueueTyped` and the integration tests can be migrated to expect-or-handle the error. Alternative considered (return error in Bundle 1, migrate integration tests in Bundle 1): rejected — couples mechanical signature widening to behavior changes, increases Bundle 1 review surface.
 
-6. **`pkg/script/runner_test.go`**:
+5. **`pkg/script/runner_test.go`**:
    - Line `:259`: `mockPlayer.EnqueueScriptTyped(id, delay, arg, qtype)` → `mockPlayer.EnqueueScriptArgs(id, delay, intArgs, stringArgs, qtype) error`.
    - Mock body records `IntArgs []int`, `StringArgs []string`, returns nil error.
    - Update `mockEnqueue` struct (`:249`): `IntArg int` → `IntArgs []int` + `StringArgs []string`.
 
-7. **`modules/world/script_test.go`** (6 call sites):
+6. **`modules/world/script_test.go`** (6 call sites):
    - Lines `:239, :269, :336, :337, :825, :1020`: `p.EnqueueScriptTyped(id, delay, 0, script.QueueX)` → `p.EnqueueScriptArgs(id, delay, nil, nil, script.QueueX)`. The integration tests don't exercise args; nil/nil expresses "no args" and matches the TS-faithful engine-dispatch convention.
    - Each call site is in a test that intentionally enqueues a non-existent scriptID — these tests verify the silent-no-op behavior (Bundle 1 preserves; Bundle 2 evaluates per-opcode whether to migrate to expect-error).
 
-8. **`modules/world/player_script_test.go`**:
+7. **`modules/world/player_script_test.go`**:
    - Line `:167`: `p.EnqueueScriptFile(sf, 3, 42, script.QueueNormal)` → `p.EnqueueScriptFile(sf, 3, []int{42}, nil, script.QueueNormal)`. Assertion at `:178` (`req.IntArg != 42`) → `len(req.IntArgs) != 1 || req.IntArgs[0] != 42`.
    - Line `:188`: `p.EnqueueScriptFile(nil, 0, 0, script.QueueNormal)` → `p.EnqueueScriptFile(nil, 0, nil, nil, script.QueueNormal)`. Nil-short-circuit semantics preserved.
 
-9. **`pkg/script/handlers_test.go`** (existing tests):
+8. **`pkg/script/handlers_test.go`** (existing tests):
    - `TestQueueOpcode` (`:407`): assertion at `:432-435` (`mockEnqueue{ScriptID: 77, Delay: 3, IntArg: 42}`) → `mockEnqueue{ScriptID: 77, Delay: 3, IntArgs: []int{42}, StringArgs: nil}`. Use `slices.Equal` or per-field assertions for slice comparison (per `use-modern-go` Go 1.21+ `slices.Equal`).
    - `TestQueueVariants` (`:439`): same per-variant assertion update.
 
-10. **`modules/world/npc_event_queue_test.go`** + `modules/world/npc_test.go`:
+9. **`modules/world/npc_event_queue_test.go`** + `modules/world/npc_test.go`:
     - **Verify out-of-scope at controller pre-flight**: NPC queue path is `NpcQueueRequest` (separate struct), not `playerQueueRequest`. The `IntArg int` references at `npc_event_queue_test.go:61`, `npc_test.go:465, :530` are NPC queue, not player queue. NPC queue family is **not** in NAI-26 scope. (TS NPC-queue ops live in NpcOps.ts; their TS-faithfulness audit is a separate sub-spec if/when needed.)
 
 #### Bundle 1 deviation impact
