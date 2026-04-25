@@ -38,7 +38,7 @@ func setupNpc(t *testing.T, s *Server, x, z, level int) *Npc {
 		RespawnRate: 50,
 	}
 	n := NewNpc(0, 0, x, z, level, typ)
-	if err := s.addNpc(n); err != nil {
+	if err := s.addNpc(n, -1, true); err != nil {
 		t.Fatal(err)
 	}
 	s.grid.AddNpc(n.nid, x, z, level)

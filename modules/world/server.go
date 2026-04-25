@@ -231,7 +231,7 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 			continue
 		}
 		n := NewNpc(0, spawn.TypeID, spawn.X, spawn.Z, spawn.Level, typ)
-		if err := s.addNpc(n); err != nil {
+		if err := s.addNpc(n, -1, true); err != nil {
 			s.log.Warn("npc registry full; dropping remaining spawns", "err", err)
 			break
 		}
