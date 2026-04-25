@@ -47,6 +47,9 @@ func TestRespawnAfterKill(t *testing.T) {
 	n.x, n.z = 3094+5, 3106+5
 	n.Kill()
 	s := &Server{}
+	// NAI-19 Task 5e: revertType's heavy path now calls through
+	// n.server.removeNpc + n.server.addNpc, so n.server must be wired.
+	n.server = s
 	for range n.respawnRate {
 		n.turn(s)
 	}

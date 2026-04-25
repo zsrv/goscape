@@ -37,6 +37,9 @@ func TestNewNpcSeedsBaseType(t *testing.T) {
 
 func TestNpcRevertTypeRestoresBaseType(t *testing.T) {
 	n := newNpcForLifecycleTest(t)
+	// NAI-19 Task 5e: revertType's heavy path now calls through
+	// n.server.removeNpc + n.server.addNpc; wire the server.
+	n.server = newTestServer(t)
 	// Simulate a prior changetype: typeId now 99, uid recomputed.
 	n.typeId = 99
 	n.uid = (99 << 16) | n.nid
@@ -54,6 +57,7 @@ func TestNpcRevertTypeRestoresBaseType(t *testing.T) {
 
 func TestNpcRevertTypeClearsQueue(t *testing.T) {
 	n := newNpcForLifecycleTest(t)
+	n.server = newTestServer(t) // NAI-19 Task 5e: heavy path needs server.
 	n.queue = []script.NpcQueueRequest{{Trigger: script.TriggerAiQueue1, Delay: 5, IntArg: 0}}
 
 	n.revertType()
@@ -65,6 +69,7 @@ func TestNpcRevertTypeClearsQueue(t *testing.T) {
 
 func TestNpcRevertTypeClearsWaypoints(t *testing.T) {
 	n := newNpcForLifecycleTest(t)
+	n.server = newTestServer(t) // NAI-19 Task 5e: heavy path needs server.
 	n.waypointIndex = 3
 
 	n.revertType()
@@ -76,6 +81,7 @@ func TestNpcRevertTypeClearsWaypoints(t *testing.T) {
 
 func TestNpcRevertTypeRaisesTeleAndMask(t *testing.T) {
 	n := newNpcForLifecycleTest(t)
+	n.server = newTestServer(t) // NAI-19 Task 5e: heavy path needs server.
 	n.tele = false
 	n.masks = 0
 
@@ -310,6 +316,7 @@ func TestNpcRevertTypeResetsHuntFields(t *testing.T) {
 		HuntRange:  4,
 	}
 	n := NewNpc(1, 0, 3094, 3106, 0, typ)
+	n.server = newTestServer(t) // NAI-19 Task 5e: heavy path needs server.
 
 	// Mutate all 4 hunt fields (simulating live hunt state).
 	n.huntRange = 99

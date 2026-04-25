@@ -233,30 +233,26 @@ func (n *Npc) SetHuntMode(mode int) {
 	n.huntMode = mode
 }
 
-// revertType restores the NPC to its baseline type. Called from the
-// Events block (npc_ai.go:37-40) when lifecycleTick hits 0 on
-// RESPAWN+alive, and from the respawn path on revival.
+// revertType restores the NPC to its baseType after a temporary CHANGETYPE
+// or KEEPALL morph.
 //
 // Branches on resetOnRevert (written by changeTypeImpl):
 //   - resetOnRevert=false (KEEPALL path): TS Npc.ts:1086-1090 light path.
 //     Restore typeId/uid + raise CHANGE_TYPE mask. No stats reset, no
 //     queue clear, no waypoint clear, no hunt-field reset. Intended
 //     for short-lived morphs that must preserve combat state.
-//   - resetOnRevert=true (default, CHANGETYPE path): heavy-path behavior
-//     matching TS resetEntity at Engine-TS/.../Npc.ts:280-317 —
-//     inline reset of typeId/uid/typ, full 6-slot stats reseed
-//     (TS resetEntity:287-290; expanded from S6d's HP-only reseed),
-//     queue clear, waypoint clear, tele flag + CHANGE_TYPE mask, and
-//     hunt-field reset (NAI-7; TS Npc.ts:309-312).
+//   - resetOnRevert=true (default, CHANGETYPE path): structural TS port
+//     per Npc.ts:1083-1085 — World.removeNpc(this, -1) + World.addNpc(
+//     this, -1, false). The addNpc respawn cycle reseeds typeId/uid/typ,
+//     reseeds all 6 stats, clears queue/waypoints, teles to
+//     (startX, startZ), and re-arms collision flags. Goscape carries two
+//     deviations (NAI-19-D1: no zone state, NAI-19-D2: no AI_SPAWN re-trigger)
+//     against this structural form.
 //
 // What revertType does NOT do on either branch (intentional):
 //   - varn resets (future; VarNpc subsystem not yet wired)
 //   - activeScript clear (TS behaviour: a revert does not cancel an
 //     in-flight script)
-//
-// NAI-17-D1 (tracked deviation): TS's heavy path is World.removeNpc +
-// World.addNpc — a despawn+respawn that re-runs the constructor. Go
-// does an INLINE reset instead, pre-existing since S6d. See spec §8.
 //
 // Tail re-arm: sets resetOnRevert = true on BOTH branches so a
 // subsequent CHANGETYPE on the same NPC starts from the default. TS
@@ -273,37 +269,12 @@ func (n *Npc) revertType() {
 		return
 	}
 
-	// DEVIATION NAI-17-D1: inline reset; see doc comment above.
-	// Heavy path — inline reset matching TS resetEntity:280-317 semantics
-	// (minus the World.removeNpc/addNpc structural call).
-	if n.typeId != n.baseType {
-		n.typeId = n.baseType
-		n.uid = (n.typeId << 16) | n.nid
-		if newTyp := n.lookupType(n.baseType); newTyp != nil {
-			n.typ = newTyp
-		}
-	}
-	// Full 6-slot stats reseed (TS resetEntity:287-290).
-	if n.typ != nil {
-		for i := range min(objtype.NpcStatCount, len(n.typ.Stats)) {
-			v := int(n.typ.Stats[i])
-			n.levels[i] = v
-			n.baseLevels[i] = v
-		}
-	}
-	n.queue = nil
-	n.waypointIndex = -1
-	n.tele = true
-	n.masks |= rsbuf.NpcMaskChangeType
-	// NAI-7: hunt-field resets. Matches TS resetEntity at
-	// Engine-TS/.../Npc.ts:309-312.
-	n.huntClock = 0
-	n.huntTarget = nil
-	if n.typ != nil {
-		n.huntRange = int(n.typ.HuntRange)
-		n.huntMode = n.typ.HuntMode
-	}
-	n.resetOnRevert = true // re-arm default for next morph cycle
+	// Heavy path — structural TS port per Npc.ts:1083-1085.
+	// Goscape deviations NAI-19-D1 / NAI-19-D2 are documented at the
+	// omission sites in s.removeNpc / s.addNpc.
+	n.server.removeNpc(n, -1)
+	_ = n.server.addNpc(n, -1, false) // err only on slot-full; firstSpawn=false skips alloc
+	n.resetOnRevert = true             // re-arm default for next morph cycle
 }
 
 // IsValid returns whether the NPC's session slot is alive (!n.dead).

@@ -3,6 +3,7 @@ package world
 import (
 	"testing"
 
+	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
@@ -563,5 +564,172 @@ func TestRevertTypeReArmsResetOnRevert(t *testing.T) {
 
 	if !n.resetOnRevert {
 		t.Errorf("resetOnRevert: got false, want true (re-armed after revert)")
+	}
+}
+
+// TestRevertTypeHeavyPathTeles pins that revertType's heavy path teles the
+// NPC back to (startX, startZ) per TS Npc.ts:1083-1085 → World.addNpc:1264.
+func TestRevertTypeHeavyPathTeles(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Size: 1}
+	n := NewNpc(0, 7, 100, 100, 0, typ)
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+	n.x = 150
+	n.z = 150
+	n.resetOnRevert = true
+
+	n.revertType()
+
+	if n.x != 100 || n.z != 100 {
+		t.Errorf("n.(x,z): got (%d,%d), want (100,100) (startX/startZ)", n.x, n.z)
+	}
+}
+
+// TestRevertTypeHeavyPathReseedsStats pins that revertType's heavy path
+// reseeds all 6 stats from n.typ.Stats (via resetEntityForRespawn).
+func TestRevertTypeHeavyPathReseedsStats(t *testing.T) {
+	s := newTestServer(t)
+	s.npcTypes = &objtype.NPCTypeConfigs{Configs: make([]*objtype.NpcType, 9)}
+	typ := &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 7},
+		Size:       1,
+		Stats:      []uint16{10, 20, 30, 40, 50, 60},
+	}
+	s.npcTypes.Configs[7] = typ
+	n := NewNpc(0, 7, 100, 100, 0, typ)
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+	// Drain stats.
+	for i := range objtype.NpcStatCount {
+		n.levels[i] = 0
+	}
+	n.resetOnRevert = true
+
+	n.revertType()
+
+	want := []int{10, 20, 30, 40, 50, 60}
+	for i := range objtype.NpcStatCount {
+		if n.levels[i] != want[i] {
+			t.Errorf("n.levels[%d]: got %d, want %d", i, n.levels[i], want[i])
+		}
+	}
+}
+
+// TestRevertTypeHeavyPathClearsQueueWaypoints pins that revertType's
+// heavy path clears n.queue and n.waypointIndex.
+func TestRevertTypeHeavyPathClearsQueueWaypoints(t *testing.T) {
+	s := newTestServer(t)
+	s.npcTypes = &objtype.NPCTypeConfigs{Configs: make([]*objtype.NpcType, 9)}
+	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Size: 1}
+	s.npcTypes.Configs[7] = typ
+	n := NewNpc(0, 7, 100, 100, 0, typ)
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+	n.queue = []script.NpcQueueRequest{{Trigger: script.TriggerAiQueue1}}
+	n.waypointIndex = 5
+	n.resetOnRevert = true
+
+	n.revertType()
+
+	if n.queue != nil {
+		t.Errorf("n.queue: got %v, want nil", n.queue)
+	}
+	if n.waypointIndex != -1 {
+		t.Errorf("n.waypointIndex: got %d, want -1", n.waypointIndex)
+	}
+}
+
+// TestRevertTypeHeavyPathRunsCollisionToggles pins that revertType's
+// heavy path toggles collision flags off-then-on (via removeNpc + addNpc).
+// Asserted indirectly through n.dead transitions: removeNpc sets dead=true,
+// addNpc sets dead=false. Collision-flag observability is fixture-limited;
+// this test pins the dead-flag round-trip as a proxy.
+func TestRevertTypeHeavyPathRunsCollisionToggles(t *testing.T) {
+	s := newTestServer(t)
+	s.npcTypes = &objtype.NPCTypeConfigs{Configs: make([]*objtype.NpcType, 9)}
+	s.gamemap = gamemap.New(discardLogger())
+	typ := &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 7},
+		Size:       1,
+		BlockWalk:  objtype.BlockWalkNPC,
+	}
+	s.npcTypes.Configs[7] = typ
+	n := NewNpc(0, 7, 100, 100, 0, typ)
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+	n.resetOnRevert = true
+
+	n.revertType()
+
+	if n.dead {
+		t.Error("n.dead post-revert: got true, want false (addNpc must clear)")
+	}
+}
+
+// TestRevertTypeLightPathUnchanged pins that the !resetOnRevert (KEEPALL)
+// branch is unchanged: typeId restored to baseType, uid recomputed,
+// CHANGE_TYPE mask raised, resetOnRevert re-armed to true. No tele,
+// no stats reseed, no queue clear.
+func TestRevertTypeLightPathUnchanged(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Size: 1}
+	n := NewNpc(0, 7, 100, 100, 0, typ)
+	n.server = s
+	// Simulate KEEPALL changetype: typeId moved, resetOnRevert=false.
+	n.typeId = 99
+	n.uid = (99 << 16) | n.nid
+	n.resetOnRevert = false
+	n.x = 150
+	n.z = 150
+	n.queue = []script.NpcQueueRequest{{Trigger: script.TriggerAiQueue1}}
+
+	n.revertType()
+
+	if n.typeId != n.baseType {
+		t.Errorf("n.typeId: got %d, want baseType=%d", n.typeId, n.baseType)
+	}
+	if n.uid != (n.baseType<<16)|n.nid {
+		t.Errorf("n.uid: got %d, want recomputed for baseType", n.uid)
+	}
+	if n.masks&rsbuf.NpcMaskChangeType == 0 {
+		t.Error("NpcMaskChangeType bit not set")
+	}
+	if !n.resetOnRevert {
+		t.Error("n.resetOnRevert: got false, want true (re-armed)")
+	}
+	if n.x != 150 || n.z != 150 {
+		t.Errorf("n.(x,z): got (%d,%d), want (150,150) (light path must not tele)", n.x, n.z)
+	}
+	if len(n.queue) != 1 {
+		t.Errorf("n.queue: light path must not clear; got len %d, want 1", len(n.queue))
+	}
+}
+
+// TestRevertTypeUsesScaledRespawnDuration pins that revertType's heavy
+// path goes through removeNpc(n, -1) which would normally consult
+// scaleByPlayerCount; -1 short-circuits the RESPAWN-branch lifecycleTick
+// write so we expect lifecycleTick UNCHANGED post-revert (TS removeNpc
+// 1316-1318: only writes lifecycleTick when duration > -1).
+func TestRevertTypeUsesScaledRespawnDuration(t *testing.T) {
+	s := newTestServer(t)
+	s.npcTypes = &objtype.NPCTypeConfigs{Configs: make([]*objtype.NpcType, 9)}
+	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Size: 1}
+	s.npcTypes.Configs[7] = typ
+	n := NewNpc(0, 7, 100, 100, 0, typ)
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+	n.lifecycleTick = 99 // any prior value
+	n.resetOnRevert = true
+
+	n.revertType()
+
+	if n.lifecycleTick != 99 {
+		t.Errorf("n.lifecycleTick: got %d, want 99 (revertType's duration=-1 must not write)", n.lifecycleTick)
 	}
 }
