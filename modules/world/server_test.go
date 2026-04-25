@@ -320,12 +320,18 @@ func newTestServer(t *testing.T) *Server {
 // invTypes is populated with the given configs. Used by scope-aware tests
 // of (*Player).invListenOnCom that exercise the SCOPE_SHARED rewrite
 // branch (γ). For tests that don't need invTypes wiring, use newTestPlayer.
+//
+// Builds a minimal Server inline (only invTypes + log) rather than calling
+// newTestServer — the (γ) lookup chain reads only invTypes; the
+// quit-channel / scriptProvider scaffolding from newTestServer is unneeded
+// here.
 func newTestPlayerWithInvTypes(t *testing.T, configs []*objtype.InvType) (*Player, net.Conn) {
 	t.Helper()
 	p, conn := newTestPlayer(t)
-	s := newTestServer(t)
-	s.invTypes = &objtype.InvTypeConfigs{Configs: configs}
-	p.client.server = s
+	p.client.server = &Server{
+		log:      discardLogger(),
+		invTypes: &objtype.InvTypeConfigs{Configs: configs},
+	}
 	return p, conn
 }
 

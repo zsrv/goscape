@@ -342,6 +342,9 @@ func handleNcDebugName(s *ScriptState) error {
 
 // handleNcOp (NC_OP) pops [npcID, op] where op is 1-based, and pushes
 // npc.Op[op-1] if in range, otherwise "".
+//
+// op==-1 (null sentinel) returns an error per TS NumberNotNull
+// (NpcConfigOps.ts:43).
 func handleNcOp(s *ScriptState) error {
 	if err := requireConfigs(s, "NC_OP"); err != nil {
 		return err

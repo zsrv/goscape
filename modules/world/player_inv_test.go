@@ -179,16 +179,25 @@ func TestInvListenOnComDedupsSameTypeSameCom(t *testing.T) {
 	}
 }
 
+// Test fixture constants for the scope-rewrite tests. The InvTypeID is the
+// slot used in the configs slice; testInvTypesLen is comfortably larger so
+// indexing is safe and the bounds-check in (γ) is exercised on a populated
+// slot rather than out-of-range.
+const (
+	testInvTypeID   = 42
+	testInvTypesLen = 50
+)
+
 // TestInvListenOnComRewritesSourceForSharedScope pins the TS Player.ts:1456-1459
 // scope-rewrite: when invType has SCOPE_SHARED scope, the registration method
 // rewrites source = -1 internally regardless of what the caller passed.
 func TestInvListenOnComRewritesSourceForSharedScope(t *testing.T) {
-	configs := make([]*objtype.InvType, 50)
-	configs[42] = &objtype.InvType{Scope: objtype.InvTypeScopeShared}
+	configs := make([]*objtype.InvType, testInvTypesLen)
+	configs[testInvTypeID] = &objtype.InvType{Scope: objtype.InvTypeScopeShared}
 	p, _ := newTestPlayerWithInvTypes(t, configs)
 
 	// Caller passes source=99; the SCOPE_SHARED rewrite should override to -1.
-	p.invListenOnCom(42, 149, 99)
+	p.invListenOnCom(testInvTypeID, 149, 99)
 
 	if len(p.invListeners) != 1 {
 		t.Fatalf("len: got %d, want 1", len(p.invListeners))
@@ -197,8 +206,8 @@ func TestInvListenOnComRewritesSourceForSharedScope(t *testing.T) {
 	if got.Source != -1 {
 		t.Errorf("Source: got %d, want -1 (SCOPE_SHARED should rewrite)", got.Source)
 	}
-	if got.Type != 42 {
-		t.Errorf("Type: got %d, want 42", got.Type)
+	if got.Type != testInvTypeID {
+		t.Errorf("Type: got %d, want %d", got.Type, testInvTypeID)
 	}
 }
 
@@ -206,11 +215,11 @@ func TestInvListenOnComRewritesSourceForSharedScope(t *testing.T) {
 // scope-rewrite: when invType has non-SCOPE_SHARED scope (perm/temp), the
 // caller-passed source is preserved.
 func TestInvListenOnComKeepsSourceForNonSharedScope(t *testing.T) {
-	configs := make([]*objtype.InvType, 50)
-	configs[42] = &objtype.InvType{Scope: objtype.InvTypeScopePerm}
+	configs := make([]*objtype.InvType, testInvTypesLen)
+	configs[testInvTypeID] = &objtype.InvType{Scope: objtype.InvTypeScopePerm}
 	p, _ := newTestPlayerWithInvTypes(t, configs)
 
-	p.invListenOnCom(42, 149, 99)
+	p.invListenOnCom(testInvTypeID, 149, 99)
 
 	if len(p.invListeners) != 1 {
 		t.Fatalf("len: got %d, want 1", len(p.invListeners))
@@ -218,5 +227,8 @@ func TestInvListenOnComKeepsSourceForNonSharedScope(t *testing.T) {
 	got := p.invListeners[149]
 	if got.Source != 99 {
 		t.Errorf("Source: got %d, want 99 (SCOPE_PERM should preserve caller source)", got.Source)
+	}
+	if got.Type != testInvTypeID {
+		t.Errorf("Type: got %d, want %d (Type should be preserved alongside Source)", got.Type, testInvTypeID)
 	}
 }
