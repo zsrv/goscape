@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/gamemap"
+	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/script"
@@ -354,7 +355,7 @@ func TestHuntPlayersCheckVisLineOfSightPasses(t *testing.T) {
 	// Task 1 fixture-ordering convention: seed entity, THEN AllocateIfAbsent.
 	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(n.x, n.z, n.level)
 
-	hunt := &objtype.HuntType{CheckVis: objtype.HuntVisLineOfSight, CheckNotCombat: -1, CheckNotCombatSelf: -1}
+	hunt := &objtype.HuntType{CheckVis: objtype.HuntVisLineOfSight, CheckNotCombat: -1, CheckNotCombatSelf: -1, CheckInv: -1}
 	hunted := n.huntPlayers(s, hunt)
 
 	if len(hunted) != 1 {
@@ -373,7 +374,7 @@ func TestHuntPlayersCheckVisLineOfSightBlocks(t *testing.T) {
 	_ = addPlayerToServer(t, s, 1, n.x, n.z+2, n.level)
 	withBlockingWall(t, s, 3094, 3107, 0) // mid-tile blocker
 
-	hunt := &objtype.HuntType{CheckVis: objtype.HuntVisLineOfSight, CheckNotCombat: -1, CheckNotCombatSelf: -1}
+	hunt := &objtype.HuntType{CheckVis: objtype.HuntVisLineOfSight, CheckNotCombat: -1, CheckNotCombatSelf: -1, CheckInv: -1}
 	hunted := n.huntPlayers(s, hunt)
 
 	if len(hunted) != 0 {
@@ -411,7 +412,7 @@ func TestHuntPlayersCheckVisArgumentOrderSwapQuirk(t *testing.T) {
 	// DIRECTIONAL blocker (not withBlockingWall which is bidirectional).
 	s.gamemap.Pathfinder.Flags.Add(3094, 3107, 0, collision.FlagWallNorthProjBlocker)
 
-	hunt := &objtype.HuntType{CheckVis: objtype.HuntVisLineOfSight, CheckNotCombat: -1, CheckNotCombatSelf: -1}
+	hunt := &objtype.HuntType{CheckVis: objtype.HuntVisLineOfSight, CheckNotCombat: -1, CheckNotCombatSelf: -1, CheckInv: -1}
 	hunted := n.huntPlayers(s, hunt)
 
 	if len(hunted) != 0 {
@@ -439,7 +440,7 @@ func TestHuntPlayersCheckVars(t *testing.T) {
 
 	t.Run("nil-checkvars-no-filter", func(t *testing.T) {
 		_, n, _ := setup(t, []int32{0})
-		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: -1} // CheckVars nil
+		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: -1, CheckInv: -1} // CheckVars nil
 		hunted := n.huntPlayers(n.server, hunt)
 		if len(hunted) != 1 {
 			t.Fatalf("got %d, want 1 (nil CheckVars → no filter)", len(hunted))
@@ -448,7 +449,7 @@ func TestHuntPlayersCheckVars(t *testing.T) {
 
 	t.Run("single-entry-passes", func(t *testing.T) {
 		_, n, _ := setup(t, []int32{5})
-		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: -1, CheckVars: []objtype.HuntCheckVar{
+		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: -1, CheckInv: -1, CheckVars: []objtype.HuntCheckVar{
 			{VarID: 0, Condition: ">", Val: 3},
 		}}
 		hunted := n.huntPlayers(n.server, hunt)
@@ -459,7 +460,7 @@ func TestHuntPlayersCheckVars(t *testing.T) {
 
 	t.Run("single-entry-fails", func(t *testing.T) {
 		_, n, _ := setup(t, []int32{5})
-		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: -1, CheckVars: []objtype.HuntCheckVar{
+		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: -1, CheckInv: -1, CheckVars: []objtype.HuntCheckVar{
 			{VarID: 0, Condition: ">", Val: 10},
 		}}
 		hunted := n.huntPlayers(n.server, hunt)
@@ -470,7 +471,7 @@ func TestHuntPlayersCheckVars(t *testing.T) {
 
 	t.Run("two-entries-both-pass", func(t *testing.T) {
 		_, n, _ := setup(t, []int32{5, 7})
-		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: -1, CheckVars: []objtype.HuntCheckVar{
+		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: -1, CheckInv: -1, CheckVars: []objtype.HuntCheckVar{
 			{VarID: 0, Condition: ">", Val: 3},
 			{VarID: 1, Condition: "=", Val: 7},
 		}}
@@ -482,7 +483,7 @@ func TestHuntPlayersCheckVars(t *testing.T) {
 
 	t.Run("two-entries-second-fails", func(t *testing.T) {
 		_, n, _ := setup(t, []int32{5, 7})
-		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: -1, CheckVars: []objtype.HuntCheckVar{
+		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: -1, CheckInv: -1, CheckVars: []objtype.HuntCheckVar{
 			{VarID: 0, Condition: ">", Val: 3}, // pass
 			{VarID: 1, Condition: "=", Val: 9}, // fail
 		}}
@@ -494,7 +495,7 @@ func TestHuntPlayersCheckVars(t *testing.T) {
 
 	t.Run("varid-minus-one-short-circuits", func(t *testing.T) {
 		_, n, _ := setup(t, []int32{5})
-		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: -1, CheckVars: []objtype.HuntCheckVar{
+		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: -1, CheckInv: -1, CheckVars: []objtype.HuntCheckVar{
 			// VarID == -1 must pass without reading any varp, regardless of
 			// the Condition/Val. TS Npc.ts:953 `checkVar.varId === -1 ||` short-circuit.
 			{VarID: -1, Condition: ">", Val: 999},
@@ -533,7 +534,7 @@ func TestHuntPlayersCheckNotCombat(t *testing.T) {
 
 	t.Run("default-minus-one-disables", func(t *testing.T) {
 		_, n, _ := setup(t, 100, 100) // varp written this tick
-		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: -1}
+		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: -1, CheckInv: -1}
 		hunted := n.huntPlayers(n.server, hunt)
 		if len(hunted) != 1 {
 			t.Fatalf("got %d, want 1 (CheckNotCombat=-1 disables filter)", len(hunted))
@@ -542,7 +543,7 @@ func TestHuntPlayersCheckNotCombat(t *testing.T) {
 
 	t.Run("varp-this-tick-excluded", func(t *testing.T) {
 		_, n, _ := setup(t, 100, 100) // 100+8 > 100 → fire
-		hunt := &objtype.HuntType{CheckNotCombat: 0, CheckNotCombatSelf: -1}
+		hunt := &objtype.HuntType{CheckNotCombat: 0, CheckNotCombatSelf: -1, CheckInv: -1}
 		hunted := n.huntPlayers(n.server, hunt)
 		if len(hunted) != 0 {
 			t.Fatalf("got %d, want 0 (varp==currentTick → within 8-tick window)", len(hunted))
@@ -551,7 +552,7 @@ func TestHuntPlayersCheckNotCombat(t *testing.T) {
 
 	t.Run("varp-minus-seven-excluded", func(t *testing.T) {
 		_, n, _ := setup(t, 100, 93) // 93+8 = 101 > 100 → fire
-		hunt := &objtype.HuntType{CheckNotCombat: 0, CheckNotCombatSelf: -1}
+		hunt := &objtype.HuntType{CheckNotCombat: 0, CheckNotCombatSelf: -1, CheckInv: -1}
 		hunted := n.huntPlayers(n.server, hunt)
 		if len(hunted) != 0 {
 			t.Fatalf("got %d, want 0 (varp==currentTick-7 → window-inclusive, filter fires)", len(hunted))
@@ -560,7 +561,7 @@ func TestHuntPlayersCheckNotCombat(t *testing.T) {
 
 	t.Run("varp-minus-eight-included", func(t *testing.T) {
 		_, n, _ := setup(t, 100, 92) // 92+8 = 100, 100 > 100 is false → pass
-		hunt := &objtype.HuntType{CheckNotCombat: 0, CheckNotCombatSelf: -1}
+		hunt := &objtype.HuntType{CheckNotCombat: 0, CheckNotCombatSelf: -1, CheckInv: -1}
 		hunted := n.huntPlayers(n.server, hunt)
 		if len(hunted) != 1 {
 			t.Fatalf("got %d, want 1 (varp==currentTick-8 → exclusive boundary, filter passes)", len(hunted))
@@ -569,7 +570,7 @@ func TestHuntPlayersCheckNotCombat(t *testing.T) {
 
 	t.Run("varp-zero-well-past-window-included", func(t *testing.T) {
 		_, n, _ := setup(t, 100, 0) // fresh player, no combat recorded
-		hunt := &objtype.HuntType{CheckNotCombat: 0, CheckNotCombatSelf: -1}
+		hunt := &objtype.HuntType{CheckNotCombat: 0, CheckNotCombatSelf: -1, CheckInv: -1}
 		hunted := n.huntPlayers(n.server, hunt)
 		if len(hunted) != 1 {
 			t.Fatalf("got %d, want 1 (varp==0, currentTick=100 → well past window)", len(hunted))
@@ -601,7 +602,7 @@ func TestHuntPlayersCombatGuard(t *testing.T) {
 		return s, n, p
 	}
 
-	hunt := &objtype.HuntType{CheckNotCombat: 0, CheckNotCombatSelf: -1}
+	hunt := &objtype.HuntType{CheckNotCombat: 0, CheckNotCombatSelf: -1, CheckInv: -1}
 
 	t.Run("target-equals-player-skips-guard", func(t *testing.T) {
 		_, n, p := setup(t)
@@ -682,7 +683,7 @@ func TestHuntPlayersCheckNotCombatSelf(t *testing.T) {
 
 	t.Run("default-minus-one-disables", func(t *testing.T) {
 		_, n, _ := setup(t, 100, 100) // varn written this tick
-		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: -1}
+		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: -1, CheckInv: -1}
 		hunted := n.huntPlayers(n.server, hunt)
 		if len(hunted) != 1 {
 			t.Fatalf("got %d, want 1 (CheckNotCombatSelf=-1 disables filter)", len(hunted))
@@ -691,7 +692,7 @@ func TestHuntPlayersCheckNotCombatSelf(t *testing.T) {
 
 	t.Run("varn-this-tick-excluded", func(t *testing.T) {
 		_, n, _ := setup(t, 100, 100) // 100+8 > 100 → fire
-		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: 0}
+		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: 0, CheckInv: -1}
 		hunted := n.huntPlayers(n.server, hunt)
 		if len(hunted) != 0 {
 			t.Fatalf("got %d, want 0 (varn written this tick → filter fires)", len(hunted))
@@ -700,7 +701,7 @@ func TestHuntPlayersCheckNotCombatSelf(t *testing.T) {
 
 	t.Run("varn-minus-seven-excluded", func(t *testing.T) {
 		_, n, _ := setup(t, 100, 93) // 93+8 = 101 > 100 → fire
-		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: 0}
+		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: 0, CheckInv: -1}
 		hunted := n.huntPlayers(n.server, hunt)
 		if len(hunted) != 0 {
 			t.Fatalf("got %d, want 0 (varn==currentTick-7 → window-inclusive, filter fires)", len(hunted))
@@ -709,7 +710,7 @@ func TestHuntPlayersCheckNotCombatSelf(t *testing.T) {
 
 	t.Run("varn-minus-eight-included", func(t *testing.T) {
 		_, n, _ := setup(t, 100, 92) // 92+8 = 100, 100 > 100 is false → pass
-		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: 0}
+		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: 0, CheckInv: -1}
 		hunted := n.huntPlayers(n.server, hunt)
 		if len(hunted) != 1 {
 			t.Fatalf("got %d, want 1 (varn==currentTick-8 → exclusive boundary, filter passes)", len(hunted))
@@ -718,7 +719,7 @@ func TestHuntPlayersCheckNotCombatSelf(t *testing.T) {
 
 	t.Run("varn-zero-well-past-window-included", func(t *testing.T) {
 		_, n, _ := setup(t, 100, 0) // fresh NPC, no combat recorded
-		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: 0}
+		hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: 0, CheckInv: -1}
 		hunted := n.huntPlayers(n.server, hunt)
 		if len(hunted) != 1 {
 			t.Fatalf("got %d, want 1 (varn==0, currentTick=100 → well past window)", len(hunted))
@@ -746,10 +747,214 @@ func TestHuntPlayersCheckNotCombatSelfOutsideGuard(t *testing.T) {
 	p := addPlayerToServer(t, s, 1, n.x+2, n.z+2, n.level)
 	n.target = p // guard SKIPPED (target == p)
 
-	hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: 0}
+	hunt := &objtype.HuntType{CheckNotCombat: -1, CheckNotCombatSelf: 0, CheckInv: -1}
 	hunted := n.huntPlayers(s, hunt)
 
 	if len(hunted) != 1 {
 		t.Fatalf("got %d, want 1 (target==p → guard skipped, filter does not fire)", len(hunted))
+	}
+}
+
+// newHuntPlayersCheckInvFixture wires the minimum a CheckInv test needs:
+// Server with empty objTypes/paramTypes registries and one in-range Player
+// at the standard NPC coords. The HuntType is left to each test to build.
+//
+// Mirrors the in-package test idiom from npc_hunt_entities_test.go's
+// addObjToZone (registry sized to 100; tests grow on demand).
+func newHuntPlayersCheckInvFixture(t *testing.T) (*Server, *Npc, *Player) {
+	t.Helper()
+	s := newServerForScriptTest(t)
+	s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 200)}
+	s.paramTypes = &objtype.ParamTypeConfigs{Configs: make([]*objtype.ParamType, 300)}
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+	p := addPlayerToServer(t, s, 1, n.x+2, n.z+2, n.level)
+	return s, n, p
+}
+
+// TestHuntPlayersCheckInvDisabled pins NAI-22 Bundle 2: when CheckInv
+// is -1 (the TS default), the filter is a no-op. Mirrors the implicit
+// TS short-circuit at Npc.ts:959.
+func TestHuntPlayersCheckInvDisabled(t *testing.T) {
+	_, n, _ := newHuntPlayersCheckInvFixture(t)
+	hunt := &objtype.HuntType{
+		CheckNotCombat:     -1,
+		CheckNotCombatSelf: -1,
+		CheckInv:           -1, // disabled
+		CheckObj:           -1,
+		CheckObjParam:      -1,
+	}
+
+	hunted := n.huntPlayers(n.server, hunt)
+
+	if len(hunted) != 1 {
+		t.Errorf("huntPlayers: got %d players, want 1 (CheckInv disabled, player must pass)", len(hunted))
+	}
+}
+
+// TestHuntPlayersCheckInvObjPasses pins NAI-22 Bundle 2: with CheckInv
+// set, CheckObj branch evaluates inv.GetItemCount(obj) and compares
+// against CheckInvVal via CheckHuntCondition. Player has 5 of obj X,
+// hunt requires >=3 (encoded as ">" + Val=2 since CheckHuntCondition
+// has no ">=" operator) → player included. Mirrors TS Npc.ts:961-962.
+func TestHuntPlayersCheckInvObjPasses(t *testing.T) {
+	_, n, p := newHuntPlayersCheckInvFixture(t)
+	const invID, objID = 0, 100
+	inv := inventory.New(invID, 28, inventory.StackNormal)
+	inv.Items[0] = &inventory.Item{Id: objID, Count: 5}
+	p.invs = map[int]*inventory.Inventory{invID: inv}
+
+	hunt := &objtype.HuntType{
+		CheckNotCombat:     -1,
+		CheckNotCombatSelf: -1,
+		CheckInv:           invID,
+		CheckObj:           objID,
+		CheckObjParam:      -1,
+		CheckInvCondition:  ">",
+		CheckInvVal:        2,
+	}
+
+	hunted := n.huntPlayers(n.server, hunt)
+
+	if len(hunted) != 1 {
+		t.Errorf("huntPlayers: got %d, want 1 (5 > 2 must pass)", len(hunted))
+	}
+}
+
+// TestHuntPlayersCheckInvObjFails pins NAI-22 Bundle 2: condition fails
+// → player excluded. 1 of obj X, hunt requires >2 → player NOT included.
+func TestHuntPlayersCheckInvObjFails(t *testing.T) {
+	_, n, p := newHuntPlayersCheckInvFixture(t)
+	const invID, objID = 0, 100
+	inv := inventory.New(invID, 28, inventory.StackNormal)
+	inv.Items[0] = &inventory.Item{Id: objID, Count: 1}
+	p.invs = map[int]*inventory.Inventory{invID: inv}
+
+	hunt := &objtype.HuntType{
+		CheckNotCombat:     -1,
+		CheckNotCombatSelf: -1,
+		CheckInv:           invID,
+		CheckObj:           objID,
+		CheckObjParam:      -1,
+		CheckInvCondition:  ">",
+		CheckInvVal:        2,
+	}
+
+	hunted := n.huntPlayers(n.server, hunt)
+
+	if len(hunted) != 0 {
+		t.Errorf("huntPlayers: got %d, want 0 (1 > 2 must fail)", len(hunted))
+	}
+}
+
+// TestHuntPlayersCheckInvObjParamPasses pins NAI-22 Bundle 2: CheckObjParam
+// branch sums per-slot ObjType.Params[param] across non-empty slots,
+// falling back to ParamType.DefaultInt for missing params. Mirrors TS
+// Npc.ts:963-964 + Player.ts:1668-1697 (stack=false).
+func TestHuntPlayersCheckInvObjParamPasses(t *testing.T) {
+	s, n, p := newHuntPlayersCheckInvFixture(t)
+	const invID, paramID = 0, 200
+	objA, objB, objC := 100, 101, 102
+
+	// Wire ParamType: DefaultInt = 0 (zero-value matches uint32 default).
+	s.paramTypes.Configs[paramID] = &objtype.ParamType{
+		ConfigType: objtype.ConfigType{ID: paramID},
+		DefaultInt: 0,
+	}
+	// Wire 3 ObjTypes each with Params[paramID]=10. Mirrors handle-side
+	// shape at pkg/script/handlers_inv.go:247-252 (uint32 value).
+	for _, id := range []int{objA, objB, objC} {
+		s.objTypes.Configs[id] = &objtype.ObjType{
+			ConfigType: objtype.ConfigType{ID: id},
+			Params:     objtype.ParamMap{uint32(paramID): uint32(10)},
+		}
+	}
+
+	inv := inventory.New(invID, 28, inventory.StackNormal)
+	inv.Items[0] = &inventory.Item{Id: objA, Count: 1}
+	inv.Items[1] = &inventory.Item{Id: objB, Count: 1}
+	inv.Items[2] = &inventory.Item{Id: objC, Count: 1}
+	p.invs = map[int]*inventory.Inventory{invID: inv}
+
+	hunt := &objtype.HuntType{
+		CheckNotCombat:     -1,
+		CheckNotCombatSelf: -1,
+		CheckInv:           invID,
+		CheckObj:           -1,
+		CheckObjParam:      paramID,
+		CheckInvCondition:  ">",
+		CheckInvVal:        20,
+	}
+
+	hunted := n.huntPlayers(s, hunt)
+
+	if len(hunted) != 1 {
+		t.Errorf("huntPlayers: got %d, want 1 (sum=30 > 20 must pass)", len(hunted))
+	}
+}
+
+// TestHuntPlayersCheckInvObjParamFails pins NAI-22 Bundle 2: param-sum
+// below threshold → player excluded.
+func TestHuntPlayersCheckInvObjParamFails(t *testing.T) {
+	s, n, p := newHuntPlayersCheckInvFixture(t)
+	const invID, paramID = 0, 200
+	objA := 100
+
+	s.paramTypes.Configs[paramID] = &objtype.ParamType{
+		ConfigType: objtype.ConfigType{ID: paramID},
+		DefaultInt: 0,
+	}
+	s.objTypes.Configs[objA] = &objtype.ObjType{
+		ConfigType: objtype.ConfigType{ID: objA},
+		Params:     objtype.ParamMap{uint32(paramID): uint32(10)},
+	}
+
+	inv := inventory.New(invID, 28, inventory.StackNormal)
+	inv.Items[0] = &inventory.Item{Id: objA, Count: 1}
+	p.invs = map[int]*inventory.Inventory{invID: inv}
+
+	hunt := &objtype.HuntType{
+		CheckNotCombat:     -1,
+		CheckNotCombatSelf: -1,
+		CheckInv:           invID,
+		CheckObj:           -1,
+		CheckObjParam:      paramID,
+		CheckInvCondition:  ">",
+		CheckInvVal:        20,
+	}
+
+	hunted := n.huntPlayers(s, hunt)
+
+	if len(hunted) != 0 {
+		t.Errorf("huntPlayers: got %d, want 0 (sum=10 > 20 must fail)", len(hunted))
+	}
+}
+
+// TestHuntPlayersCheckInvMissingInvDefensive pins NAI-22 Bundle 2:
+// when p.invs[CheckInv] is nil, quantity defaults to 0 and
+// CheckHuntCondition decides. This is the goscape-vs-TS divergence
+// (TS throws here; goscape iterates with quantity=0). Documented in
+// code comment, no deviation tag — TS path is dead in practice.
+func TestHuntPlayersCheckInvMissingInvDefensive(t *testing.T) {
+	_, n, p := newHuntPlayersCheckInvFixture(t)
+	const invID, objID = 0, 100
+	p.invs = map[int]*inventory.Inventory{} // EMPTY — no inv at invID
+
+	hunt := &objtype.HuntType{
+		CheckNotCombat:     -1,
+		CheckNotCombatSelf: -1,
+		CheckInv:           invID,
+		CheckObj:           objID,
+		CheckObjParam:      -1,
+		CheckInvCondition:  "=",
+		CheckInvVal:        0,
+	}
+
+	hunted := n.huntPlayers(n.server, hunt)
+
+	if len(hunted) != 1 {
+		t.Errorf("huntPlayers: got %d, want 1 (missing inv → quantity=0; 0 == 0 must pass)", len(hunted))
 	}
 }

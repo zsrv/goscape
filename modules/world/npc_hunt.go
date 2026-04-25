@@ -3,6 +3,7 @@ package world
 import (
 	"math/rand/v2"
 
+	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
@@ -92,6 +93,7 @@ func (n *Npc) huntAll(s *Server, hunt *objtype.HuntType) {
 //   - checkNotCombat           (NAI-15, TS:943-945)
 //   - checkNotCombatSelf       (NAI-16, TS:946-948)
 //   - checkVars                (NAI-15, TS:950-957)
+//   - checkInv                 (NAI-22, TS:959-969)
 //
 // CheckVis (NAI-12) preserves the TS player-as-source / NPC-as-dest
 // argument swap quirk — see FIDELITY note at the gate below.
@@ -99,7 +101,6 @@ func (n *Npc) huntAll(s *Server, hunt *objtype.HuntType) {
 // Filters DEFERRED (infra missing; each TS line cited):
 //   - checkNotBusy             (TS:931-933)       — no Player.Busy()
 //   - checkNotTooStrong        (TS:939-941)       — wilderness + combat-level
-//   - checkInv                 (TS:959-969)       — inventory queries
 //
 // NAI-8 dispatches NO scripts. TS huntPlayers is a config-driven
 // filter pipeline, not a script runner.
@@ -201,9 +202,74 @@ func (n *Npc) huntPlayers(s *Server, hunt *objtype.HuntType) []entity {
 		if !passCheckVars {
 			continue
 		}
+
+		// checkInv (TS Npc.ts:959-969): if CheckInv is set, compute quantity
+		// per CheckObj or CheckObjParam branch, then evaluate CheckHuntCondition.
+		// Defensive: missing inv → quantity=0 (TS Player._invTotalParam throws
+		// 'Invalid inventory type' here, but goscape huntPlayers must continue
+		// iteration on one bad player; live players have all standard invs in
+		// practice, so this divergence is dead-path. No deviation tag tracked.
+		if hunt.CheckInv != -1 {
+			quantity := 0
+			if pInv := p.invs[hunt.CheckInv]; pInv != nil {
+				if hunt.CheckObj != -1 {
+					quantity = pInv.GetItemCount(hunt.CheckObj)
+				} else if hunt.CheckObjParam != -1 {
+					quantity = invTotalParam(pInv, hunt.CheckObjParam,
+						s.objTypes, s.paramTypes)
+				}
+			}
+			if !hunt.CheckHuntCondition(quantity,
+				hunt.CheckInvCondition, hunt.CheckInvVal) {
+				continue
+			}
+		}
+
 		hunted = append(hunted, p)
 	}
 	return hunted
+}
+
+// invTotalParam mirrors handleInvTotalParam (pkg/script/handlers_inv.go:224)
+// for non-ScriptState callers. Sums per-slot ObjType.Params[param] across
+// every non-empty slot of inv, falling back to ParamType.DefaultInt for
+// missing params. Returns 0 if any required config is nil — defensive,
+// huntPlayers cannot abort iteration on a single param-resolution failure.
+//
+// TS source: Player._invTotalParam at Player.ts:1668-1697 (stack=false branch).
+func invTotalParam(inv *inventory.Inventory, param int,
+	objs *objtype.ObjTypeConfigs, params *objtype.ParamTypeConfigs) int {
+	if inv == nil || objs == nil || params == nil {
+		return 0
+	}
+	if param < 0 || param >= len(params.Configs) {
+		return 0
+	}
+	pt := params.Configs[param]
+	if pt == nil {
+		return 0
+	}
+	total := 0
+	for _, it := range inv.Items {
+		if it == nil || it.Id < 0 {
+			continue
+		}
+		if it.Id >= len(objs.Configs) {
+			continue
+		}
+		ot := objs.Configs[it.Id]
+		if ot == nil {
+			continue
+		}
+		if v, ok := ot.Params[uint32(param)]; ok {
+			if iv, ok := v.(uint32); ok {
+				total += int(iv)
+				continue
+			}
+		}
+		total += int(pt.DefaultInt)
+	}
+	return total
 }
 
 // consumeHuntTarget converts a hunt-phase result (n.huntTarget) into
