@@ -394,6 +394,25 @@ func (p *Player) Busy() bool {
 	return p.delayed || p.modalState&(modalStateMain|modalStateChat) != 0
 }
 
+// IsInWilderness returns true when the player is inside one of the two
+// hardcoded wilderness rectangles. Mirrors TS Player.isInWilderness()
+// at Engine-TS/.../Player.ts:2082-2090.
+//
+// South wilderness: x in [2944, 3392), z in [3520, 6400).
+// North wilderness: x in [2944, 3392), z in [9920, 12800).
+//
+// Bounds are inclusive on the lower edge and exclusive on the upper —
+// preserve verbatim: `<=` would shift the boundary by one tile vs TS.
+func (p *Player) IsInWilderness() bool {
+	if p.x >= 2944 && p.x < 3392 && p.z >= 3520 && p.z < 6400 {
+		return true
+	}
+	if p.x >= 2944 && p.x < 3392 && p.z >= 9920 && p.z < 12800 {
+		return true
+	}
+	return false
+}
+
 func (p *Player) updateMap() {
 	if p.buildArea == nil || p.client == nil || p.client.server == nil {
 		return

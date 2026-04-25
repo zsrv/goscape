@@ -612,3 +612,55 @@ func TestPlayerBusyDelayedAndModalCombined(t *testing.T) {
 		t.Error("Busy: got false, want true (both delayed and modal)")
 	}
 }
+
+func TestPlayerIsInWildernessSouthRectInside(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.x, p.z = 3000, 5000
+	if !p.IsInWilderness() {
+		t.Error("IsInWilderness: got false, want true (3000,5000 inside south rect)")
+	}
+}
+
+func TestPlayerIsInWildernessNorthRectInside(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.x, p.z = 3000, 11000
+	if !p.IsInWilderness() {
+		t.Error("IsInWilderness: got false, want true (3000,11000 inside north rect)")
+	}
+}
+
+func TestPlayerIsInWildernessOutsideAllRects(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.x, p.z = 3000, 3500
+	if p.IsInWilderness() {
+		t.Error("IsInWilderness: got true, want false (3000,3500 outside south rect)")
+	}
+}
+
+// TestPlayerIsInWildernessBoundaries pins TS Player.ts:2082-2090 boundary
+// asymmetry: lower-edge inclusive (>=), upper-edge exclusive (<). A
+// future "fix" to <= would flip these red.
+func TestPlayerIsInWildernessBoundaries(t *testing.T) {
+	cases := []struct {
+		name string
+		x, z int
+		want bool
+	}{
+		{"south_lower_corner_inclusive", 2944, 3520, true},
+		{"south_just_below_x_lower", 2943, 5000, false},
+		{"south_upper_x_exclusive", 3392, 5000, false},
+		{"south_upper_z_exclusive", 3000, 6400, false},
+		{"north_lower_z_inclusive", 3000, 9920, true},
+		{"north_upper_z_exclusive", 3000, 12800, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p, _ := newTestPlayer(t)
+			p.x, p.z = tc.x, tc.z
+			got := p.IsInWilderness()
+			if got != tc.want {
+				t.Errorf("IsInWilderness(%d,%d): got %v, want %v", tc.x, tc.z, got, tc.want)
+			}
+		})
+	}
+}

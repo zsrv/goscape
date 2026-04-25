@@ -90,17 +90,18 @@ func (n *Npc) huntAll(s *Server, hunt *objtype.HuntType) {
 //   - checkNotBusy             (NAI-23, TS:931-933)
 //   - checkAfk                 (NAI-8,  TS:935-937)
 //   - CheckVis LoS/LoW         (NAI-12, TS per ScriptIterators.ts:88-94)
+//   - checkNotTooStrong        (NAI-23, TS:939-941)
 //   - Outer combat guard       (NAI-15, TS:942)
 //   - checkNotCombat           (NAI-15, TS:943-945)
 //   - checkNotCombatSelf       (NAI-16, TS:946-948)
 //   - checkVars                (NAI-15, TS:950-957)
 //   - checkInv                 (NAI-22, TS:959-969)
 //
+// All NAI-8 deferred filters now ported (NAI-23 closes checkNotBusy +
+// checkNotTooStrong).
+//
 // CheckVis (NAI-12) preserves the TS player-as-source / NPC-as-dest
 // argument swap quirk — see FIDELITY note at the gate below.
-//
-// Filters DEFERRED (infra missing; each TS line cited):
-//   - checkNotTooStrong        (TS:939-941)       — wilderness + combat-level
 //
 // NAI-8 dispatches NO scripts. TS huntPlayers is a config-driven
 // filter pipeline, not a script runner.
@@ -158,6 +159,17 @@ func (n *Npc) huntPlayers(s *Server, hunt *objtype.HuntType) []entity {
 		if hunt.CheckVis == objtype.HuntVisLineOfWalk && s.gamemap != nil &&
 			!s.gamemap.Pathfinder.LineValidator.HasLineOfWalk(
 				n.level, p.x, p.z, n.x, n.z, 1, 1, 1, 0) {
+			continue
+		}
+
+		// checkNotTooStrong (TS:939-941): skip players whose combatLevel
+		// is more than 2x the NPC's vislevel when they are OUTSIDE the
+		// wilderness (the wilderness disables this protection). Filter
+		// only applies when CheckNotTooStrong is OutsideWilderness;
+		// Off → filter skipped.
+		if hunt.CheckNotTooStrong == objtype.HuntCheckNotTooStrongOutsideWilderness &&
+			!p.IsInWilderness() &&
+			p.combatLevel > n.typ.VisLevel*2 {
 			continue
 		}
 

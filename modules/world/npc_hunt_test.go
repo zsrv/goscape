@@ -1023,3 +1023,143 @@ func TestHuntPlayersCheckNotBusyDisabled(t *testing.T) {
 		t.Errorf("hunted: got %d, want 1 (filter disabled — busy must pass)", len(hunted))
 	}
 }
+
+// TestHuntPlayersCheckNotTooStrongFiltersStrongPlayerOutsideWilderness pins
+// NAI-23 Bundle 3: when CheckNotTooStrong is OutsideWilderness AND the
+// player is outside wilderness AND combatLevel > vislevel*2, the player
+// is filtered. Mirrors TS Npc.ts:939-941.
+//
+// NPC and player are both at z=3500 (outside south wilderness rect which
+// starts at z=3520) and within huntRange=5 of each other.
+func TestHuntPlayersCheckNotTooStrongFiltersStrongPlayerOutsideWilderness(t *testing.T) {
+	s := newTestServer(t)
+	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 1}, Size: 1, Category: -1, VisLevel: 30}
+	s.npcTypes = &objtype.NPCTypeConfigs{Configs: []*objtype.NpcType{nil, npcType}}
+	n := NewNpc(1, 1, 3200, 3500, 0, npcType)
+	n.server = s
+	n.huntRange = 5
+
+	p := addPlayerToServer(t, s, 1, 3203, 3500, 0)
+	p.combatLevel = 100
+
+	hunt := &objtype.HuntType{
+		CheckNotTooStrong:  objtype.HuntCheckNotTooStrongOutsideWilderness,
+		CheckAfk:           false,
+		CheckVis:           objtype.HuntVisOff,
+		CheckInv:           -1,
+		CheckNotCombat:     -1,
+		CheckNotCombatSelf: -1,
+	}
+	hunted := n.huntPlayers(s, hunt)
+
+	if len(hunted) != 0 {
+		t.Errorf("hunted: got %d, want 0 (strong player outside wilderness must be filtered)", len(hunted))
+	}
+}
+
+func TestHuntPlayersCheckNotTooStrongIgnoresStrongPlayerInWilderness(t *testing.T) {
+	s := newTestServer(t)
+	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 1}, Size: 1, Category: -1, VisLevel: 30}
+	s.npcTypes = &objtype.NPCTypeConfigs{Configs: []*objtype.NpcType{nil, npcType}}
+	n := NewNpc(1, 1, 3000, 5000, 0, npcType) // NPC inside south wilderness
+	n.server = s
+	n.huntRange = 5
+
+	p := addPlayerToServer(t, s, 1, 3003, 5000, 0)
+	p.combatLevel = 100
+
+	hunt := &objtype.HuntType{
+		CheckNotTooStrong:  objtype.HuntCheckNotTooStrongOutsideWilderness,
+		CheckAfk:           false,
+		CheckVis:           objtype.HuntVisOff,
+		CheckInv:           -1,
+		CheckNotCombat:     -1,
+		CheckNotCombatSelf: -1,
+	}
+	hunted := n.huntPlayers(s, hunt)
+
+	if len(hunted) != 1 {
+		t.Errorf("hunted: got %d, want 1 (filter disabled inside wilderness)", len(hunted))
+	}
+}
+
+func TestHuntPlayersCheckNotTooStrongAllowsWeakPlayer(t *testing.T) {
+	s := newTestServer(t)
+	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 1}, Size: 1, Category: -1, VisLevel: 30}
+	s.npcTypes = &objtype.NPCTypeConfigs{Configs: []*objtype.NpcType{nil, npcType}}
+	n := NewNpc(1, 1, 3200, 3500, 0, npcType)
+	n.server = s
+	n.huntRange = 5
+
+	p := addPlayerToServer(t, s, 1, 3203, 3500, 0)
+	p.combatLevel = 50 // NOT > 60
+
+	hunt := &objtype.HuntType{
+		CheckNotTooStrong:  objtype.HuntCheckNotTooStrongOutsideWilderness,
+		CheckAfk:           false,
+		CheckVis:           objtype.HuntVisOff,
+		CheckInv:           -1,
+		CheckNotCombat:     -1,
+		CheckNotCombatSelf: -1,
+	}
+	hunted := n.huntPlayers(s, hunt)
+
+	if len(hunted) != 1 {
+		t.Errorf("hunted: got %d, want 1 (combatLevel <= vislevel*2 must pass)", len(hunted))
+	}
+}
+
+func TestHuntPlayersCheckNotTooStrongDisabled(t *testing.T) {
+	s := newTestServer(t)
+	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 1}, Size: 1, Category: -1, VisLevel: 30}
+	s.npcTypes = &objtype.NPCTypeConfigs{Configs: []*objtype.NpcType{nil, npcType}}
+	n := NewNpc(1, 1, 3200, 3500, 0, npcType)
+	n.server = s
+	n.huntRange = 5
+
+	p := addPlayerToServer(t, s, 1, 3203, 3500, 0)
+	p.combatLevel = 100
+
+	hunt := &objtype.HuntType{
+		CheckNotTooStrong:  objtype.HuntCheckNotTooStrongOff,
+		CheckAfk:           false,
+		CheckVis:           objtype.HuntVisOff,
+		CheckInv:           -1,
+		CheckNotCombat:     -1,
+		CheckNotCombatSelf: -1,
+	}
+	hunted := n.huntPlayers(s, hunt)
+
+	if len(hunted) != 1 {
+		t.Errorf("hunted: got %d, want 1 (filter disabled — strong player must pass)", len(hunted))
+	}
+}
+
+// TestHuntPlayersCheckNotTooStrongBoundaryComparison pins the strict-`>`
+// comparison: combatLevel exactly equal to 2*vislevel passes (TS uses `>`,
+// not `>=`).
+func TestHuntPlayersCheckNotTooStrongBoundaryComparison(t *testing.T) {
+	s := newTestServer(t)
+	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 1}, Size: 1, Category: -1, VisLevel: 30}
+	s.npcTypes = &objtype.NPCTypeConfigs{Configs: []*objtype.NpcType{nil, npcType}}
+	n := NewNpc(1, 1, 3200, 3500, 0, npcType)
+	n.server = s
+	n.huntRange = 5
+
+	p := addPlayerToServer(t, s, 1, 3203, 3500, 0)
+	p.combatLevel = 60 // exactly 2*vislevel
+
+	hunt := &objtype.HuntType{
+		CheckNotTooStrong:  objtype.HuntCheckNotTooStrongOutsideWilderness,
+		CheckAfk:           false,
+		CheckVis:           objtype.HuntVisOff,
+		CheckInv:           -1,
+		CheckNotCombat:     -1,
+		CheckNotCombatSelf: -1,
+	}
+	hunted := n.huntPlayers(s, hunt)
+
+	if len(hunted) != 1 {
+		t.Errorf("hunted: got %d, want 1 (combatLevel == 2*vislevel must pass; > not >=)", len(hunted))
+	}
+}
