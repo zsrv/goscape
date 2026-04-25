@@ -133,7 +133,6 @@ func (s *Server) resetEntityForRespawn(n *Npc) {
 //     by the existing npc_registry.go header comment).
 //   - RESPAWN+duration>-1: writes n.lifecycleTick = scaledDuration.
 func (s *Server) removeNpc(n *Npc, duration int) {
-	adjustedDuration := s.scaleByPlayerCount(duration)
 	// DEVIATION NAI-19-D1: zone.leave omitted — Zone abstraction
 	// not ported. See spec § Tracked deviations.
 	n.dead = true
@@ -152,6 +151,6 @@ func (s *Server) removeNpc(n *Npc, duration int) {
 		// splice s.npcLoop) remains deferred per pre-existing dead-bool
 		// model — see npc_registry.go header history.
 	} else if n.lifecycle == NpcLifecycleRespawn && duration > -1 {
-		n.lifecycleTick = adjustedDuration
+		n.lifecycleTick = s.scaleByPlayerCount(duration)
 	}
 }

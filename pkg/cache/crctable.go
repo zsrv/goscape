@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"log/slog"
 	"os"
 
 	"github.com/zsrv/goscape/pkg/io/packet"
@@ -12,13 +13,27 @@ var (
 	CrcBuffer32 uint32
 )
 
+// ResetCRCState restores CrcBuffer, CrcTable, and CrcBuffer32 to their
+// package-init shape. Test-only convenience to avoid drift between
+// init expressions and inline test resets. Mirrors the var declarations
+// at the top of this file.
+func ResetCRCState() {
+	CrcBuffer = packet.NewPacket(make([]byte, 0, 4*9))
+	CrcTable = nil
+	CrcBuffer32 = 0
+}
+
 func makeCrc(path string) {
 	if _, err := os.Stat(path); err != nil {
+		slog.Default().Warn("cache: makeCrc Stat failed",
+			"path", path, "err", err)
 		return
 	}
 
 	p, err := packet.Load(path, false)
 	if err != nil {
+		slog.Default().Warn("cache: makeCrc Load failed",
+			"path", path, "err", err)
 		return
 	}
 

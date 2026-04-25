@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/cache"
-	"github.com/zsrv/goscape/pkg/io/packet"
 )
 
 // TestStartingFnPopulatesCrcBuffer asserts that the production sequence
@@ -19,11 +18,9 @@ func TestStartingFnPopulatesCrcBuffer(t *testing.T) {
 	// Reset to a fresh empty packet (mirrors pkg/cache init expression).
 	// MakeCRCs mutates CrcBuffer.Pos in place rather than reassigning, so
 	// CrcBuffer must be non-nil before the call.
-	cache.CrcBuffer = packet.NewPacket(make([]byte, 0, 4*9))
-	cache.CrcTable = nil
+	cache.ResetCRCState()
 	t.Cleanup(func() {
-		cache.CrcBuffer = packet.NewPacket(make([]byte, 0, 4*9))
-		cache.CrcTable = nil
+		cache.ResetCRCState()
 	})
 
 	// The world startingFn closure is built inside NewWorldService.
