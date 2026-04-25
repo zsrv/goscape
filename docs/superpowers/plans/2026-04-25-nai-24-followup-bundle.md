@@ -19,8 +19,8 @@
 - Test: `pkg/script/handlers_player_test.go` (per-handler null-pin tests; one per newly added WRAP)
 
 **Pre-flight context:**
-- File enters NAI-24 with 5 pre-existing `checkNotNull` wraps. The implementer reads them as templates: `handleAnimProtect` (line ~103, op `"P_ANIMPROTECT"`), `handleAllowDesign` (line ~120, op `"ALLOWDESIGN"`), `handleMidiJingle` (line ~699, op `"MIDI_JINGLE"`), and two more (the implementer enumerates the remaining 2 via `grep -n "checkNotNull" pkg/script/handlers_player.go`).
-- 49 total `s.PopInt()` sites in the file. The audit covers all 49; the 5 pre-existing wraps appear in the audit table as `WRAP (pre-existing)` rows confirming they're TS-faithful.
+- File enters NAI-24 with **3** pre-existing `checkNotNull` wraps at lines 104, 121, 700. The implementer reads them as templates: `handleAnimProtect` (line 104, op `"P_ANIMPROTECT"`), `handleAllowDesign` (line 121, op `"ALLOWDESIGN"`), `handleMidiJingle` (line 700, op `"MIDI_JINGLE"`). Verified against HEAD `50a39a5` via `grep -n "checkNotNull" pkg/script/handlers_player.go` — the only 5 occurrences are line 58 (doc-comment), line 61 (helper definition), and the 3 wrap call sites at 104/121/700.
+- 49 total `s.PopInt()` sites in the file. The audit covers all 49; the 3 pre-existing wraps appear in the audit table as `WRAP (pre-existing)` rows confirming they're TS-faithful.
 - Test fixture pattern: existing tests in this file use `mp := &mockPlayer{}` + `sf := &ScriptFile{...}` + `state := Init(sf, mp, false, nil, nil)` + `Execute(state)` (no helper builder; tests inline the ScriptFile construction). `newSingleOp` helper exists at line 49 for trivial single-opcode scripts but most existing tests inline the ScriptFile.
 - Null-pin test naming convention (verified across `handlers_inv_test.go` and `handlers_interface_test.go`): `TestHandle<OpName>NullRejected` — the project standard. Use this exact form, not `RejectsNullSentinel` (which the spec drafted but does not match codebase precedent per `plan_grep_helper_patterns` memory).
 - Op-name string convention (verified in pre-existing wraps): underscored uppercase, e.g., `"P_ANIMPROTECT"`, `"ALLOWDESIGN"`, `"MIDI_JINGLE"`. The implementer's WRAP additions follow this case-shape — match the corresponding RuneScript opcode mnemonic for each handler.
@@ -153,9 +153,9 @@ PlayerOps.ts. Sites where TS wraps with check(state.popInt(),
 NumberNotNull) gain a goscape checkNotNull wrap; signed-value sites
 and TS-unwrapped sites stay raw with recorded rationale.
 
-File entered audit with 5 pre-existing wraps (handleAnimProtect,
-handleAllowDesign, handleMidiJingle, plus two more — see audit
-table). N net new wraps across M handlers; K sites SKIPped (rationale
+File entered audit with 3 pre-existing wraps (handleAnimProtect at
+line 104, handleAllowDesign at line 121, handleMidiJingle at line
+700). N net new wraps across M handlers; K sites SKIPped (rationale
 per audit table). N new TestHandle<OpName>NullRejected tests follow
 the handlers_interface_test.go shape.
 
