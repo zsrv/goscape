@@ -60,8 +60,14 @@ func (n *Npc) changeTypeImpl(newType, duration int, reset bool) {
 	n.uid = (newType << 16) | n.nid
 	n.resetOnRevert = reset
 
-	if reset {
-		if newTyp := n.lookupType(newType); newTyp != nil {
+	// NAI-19 (B2): refresh n.typ snapshot on BOTH paths so post-changetype
+	// geometry reads (NAI-18 inApproachDistance LoS via n.typ.Size, future
+	// combat / wander reads) see the new type. TS fetches type fresh on
+	// every access via NpcType.get(this.type); Go's snapshot model needs
+	// explicit refresh.
+	if newTyp := n.lookupType(newType); newTyp != nil {
+		n.typ = newTyp
+		if reset {
 			n.resetStatsForType(newTyp)
 		}
 	}

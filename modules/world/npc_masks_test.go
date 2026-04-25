@@ -279,3 +279,62 @@ func TestResetMasksTrailingClearSkippedWhenFaceEntityAlreadyMinusOne(t *testing.
 		t.Errorf("masks: got 0x%x, want 0 (trailing clear should be skipped — faceEntity already -1)", n.masks)
 	}
 }
+
+// TestChangeTypeRefreshesTypSnapshot verifies that ChangeType (CHANGETYPE
+// path with reset=true) refreshes n.typ from the npcTypes registry, so
+// post-changetype geometry reads (NAI-18 inApproachDistance LoS via
+// n.typ.Size, future combat / wander reads) see the new type.
+//
+// Pre-NAI-19 bug: changeTypeImpl wrote n.typeId but did NOT reassign n.typ,
+// leaving stale typ snapshots (see nai_followups.md § "From NAI-18 → Stale
+// *Npc.typ snapshot after changetype").
+func TestChangeTypeRefreshesTypSnapshot(t *testing.T) {
+	s := newTestServer(t)
+	sourceTyp := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Size: 1}
+	morphTyp := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 8}, Size: 2}
+	s.npcTypes = &objtype.NPCTypeConfigs{Configs: make([]*objtype.NpcType, 9)}
+	s.npcTypes.Configs[7] = sourceTyp
+	s.npcTypes.Configs[8] = morphTyp
+
+	n := NewNpc(0, 7, 100, 100, 0, sourceTyp)
+	n.server = s
+	n.lifecycle = NpcLifecycleRespawn
+
+	n.ChangeType(8, 50)
+
+	if n.typ == nil {
+		t.Fatal("n.typ: got nil, want morphTyp")
+	}
+	if n.typ.Size != 2 {
+		t.Errorf("n.typ.Size: got %d, want 2 (post-changetype must reflect morphTyp)", n.typ.Size)
+	}
+	if n.typeId != 8 {
+		t.Errorf("n.typeId: got %d, want 8", n.typeId)
+	}
+}
+
+// TestChangeTypeKeepAllRefreshesTypSnapshot verifies that ChangeTypeKeepAll
+// (KEEPALL path with reset=false) ALSO refreshes n.typ. The staleness bug
+// affects both reset and keepall paths — geometry reads are
+// reset-orthogonal.
+func TestChangeTypeKeepAllRefreshesTypSnapshot(t *testing.T) {
+	s := newTestServer(t)
+	sourceTyp := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Size: 1}
+	morphTyp := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 8}, Size: 3}
+	s.npcTypes = &objtype.NPCTypeConfigs{Configs: make([]*objtype.NpcType, 9)}
+	s.npcTypes.Configs[7] = sourceTyp
+	s.npcTypes.Configs[8] = morphTyp
+
+	n := NewNpc(0, 7, 100, 100, 0, sourceTyp)
+	n.server = s
+	n.lifecycle = NpcLifecycleRespawn
+
+	n.ChangeTypeKeepAll(8, 50)
+
+	if n.typ == nil {
+		t.Fatal("n.typ: got nil, want morphTyp")
+	}
+	if n.typ.Size != 3 {
+		t.Errorf("n.typ.Size: got %d, want 3 (KEEPALL path must also refresh)", n.typ.Size)
+	}
+}
