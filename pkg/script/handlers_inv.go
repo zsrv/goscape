@@ -415,12 +415,17 @@ func handleInvMoveFromSlot(s *ScriptState) error {
 //
 // TS: InvOps.ts INV_TRANSMIT — popInt(inv), popInt(com),
 // activePlayer.invListenOnCom(inv, com, -1).
+// com is wrapped with check(com, NumberNotNull) in TS; invType uses
+// InvTypeValid (not NumberNotNull) — stays raw (NAI-23 Bundle 4b).
 func handleInvTransmit(s *ScriptState) error {
 	if err := requireActivePlayer(s, "INV_TRANSMIT"); err != nil {
 		return err
 	}
 	invType := s.PopInt()
 	com := s.PopInt()
+	if err := checkNotNull(com, "INV_TRANSMIT"); err != nil {
+		return err
+	}
 	s.Self.InvListenOnCom(invType, com, -1)
 	return nil
 }
@@ -428,13 +433,17 @@ func handleInvTransmit(s *ScriptState) error {
 // handleInvStopTransmit implements INV_STOPTRANSMIT. Unregisters the
 // listener at UI component `com`. Safe when no listener exists there.
 //
-// TS: InvOps.ts INV_STOPTRANSMIT — popInt(com),
-// activePlayer.invStopListenOnCom(com).
+// TS: InvOps.ts INV_STOPTRANSMIT — check(state.popInt(), NumberNotNull),
+// activePlayer.invStopListenOnCom(com). com is wrapped with NumberNotNull
+// (NAI-23 Bundle 4b).
 func handleInvStopTransmit(s *ScriptState) error {
 	if err := requireActivePlayer(s, "INV_STOPTRANSMIT"); err != nil {
 		return err
 	}
 	com := s.PopInt()
+	if err := checkNotNull(com, "INV_STOPTRANSMIT"); err != nil {
+		return err
+	}
 	s.Self.InvStopListenOnCom(com)
 	return nil
 }
@@ -446,14 +455,23 @@ func handleInvStopTransmit(s *ScriptState) error {
 // flows where the viewer watches another player's inventory.
 //
 // TS: InvOps.ts INVOTHER_TRANSMIT — popInts(3) → [uid, inv, com];
-// activePlayer.invListenOnCom(invType.id, com, uid). Closes S6u-SB1.
+// check(uid, NumberNotNull), check(inv, InvTypeValid),
+// check(com, NumberNotNull); activePlayer.invListenOnCom(invType.id, com, uid).
+// uid and com are wrapped with NumberNotNull; invType uses InvTypeValid
+// (not NumberNotNull) — stays raw (NAI-23 Bundle 4b). Closes S6u-SB1.
 func handleInvOtherTransmit(s *ScriptState) error {
 	if err := requireActivePlayer(s, "INVOTHER_TRANSMIT"); err != nil {
 		return err
 	}
 	com := s.PopInt()
+	if err := checkNotNull(com, "INVOTHER_TRANSMIT"); err != nil {
+		return err
+	}
 	invType := s.PopInt()
 	uid := s.PopInt()
+	if err := checkNotNull(uid, "INVOTHER_TRANSMIT"); err != nil {
+		return err
+	}
 	s.Self.InvListenOnCom(invType, com, uid)
 	return nil
 }

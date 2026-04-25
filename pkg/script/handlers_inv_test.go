@@ -506,3 +506,129 @@ func TestInvOtherTransmitNoActivePlayerErrors(t *testing.T) {
 		t.Errorf("expected 'INVOTHER_TRANSMIT: no active player', got %v", err)
 	}
 }
+
+// -- NAI-23 Bundle 4b: NumberNotNull null-pin tests --------------------------
+
+// TestHandleInvTransmitNullComRejected pins NAI-23 Bundle 4b: INV_TRANSMIT
+// rejects com=-1 via checkNotNull (TS InvOps.ts INV_TRANSMIT:
+// check(com, NumberNotNull)). invType is wrapped with InvTypeValid (not
+// NumberNotNull) and stays raw. The InvListenOnCom side-effect must NOT occur.
+//
+// Pop order: invType first (top of stack), com second (bottom of stack).
+// Push com=-1 first (bottom), then invType=93 on top.
+func TestHandleInvTransmitNullComRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "inv_transmit_null_com",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push com (-1, bottom)
+			OpPushConstantInt, // push invType (93, top)
+			OpInvTransmit,
+			OpReturn,
+		},
+		IntOperands: []int32{-1, 93, 0, 0},
+	}
+	state := Init(sf, mp, false, nil, nil)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for com=-1, got nil")
+	}
+	want := "INV_TRANSMIT: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if len(mp.lastInvListenOnCom) != 0 {
+		t.Errorf("lastInvListenOnCom: got %d calls, want 0 (must not register on rejection)", len(mp.lastInvListenOnCom))
+	}
+}
+
+// TestHandleInvStopTransmitNullComRejected pins NAI-23 Bundle 4b:
+// INV_STOPTRANSMIT rejects com=-1 via checkNotNull (TS InvOps.ts
+// INV_STOPTRANSMIT: check(state.popInt(), NumberNotNull)). The
+// InvStopListenOnCom side-effect must NOT occur.
+func TestHandleInvStopTransmitNullComRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "inv_stoptransmit_null_com",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push com (-1)
+			OpInvStopTransmit,
+			OpReturn,
+		},
+		IntOperands: []int32{-1, 0, 0},
+	}
+	state := Init(sf, mp, false, nil, nil)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for com=-1, got nil")
+	}
+	want := "INV_STOPTRANSMIT: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if len(mp.lastInvStopListenOnCom) != 0 {
+		t.Errorf("lastInvStopListenOnCom: got %d calls, want 0 (must not unregister on rejection)", len(mp.lastInvStopListenOnCom))
+	}
+}
+
+// TestHandleInvOtherTransmitNullRejected pins NAI-23 Bundle 4b: INVOTHER_TRANSMIT
+// rejects com=-1 and uid=-1 via checkNotNull (TS InvOps.ts INVOTHER_TRANSMIT:
+// check(uid, NumberNotNull) and check(com, NumberNotNull)).
+// invType is wrapped with InvTypeValid (not NumberNotNull) and stays raw.
+//
+// Pop order: com (top, first pop), invType (second pop), uid (bottom, third pop).
+// Table-driven: one sub-test per null slot.
+func TestHandleInvOtherTransmitNullRejected(t *testing.T) {
+	tests := []struct {
+		name        string
+		// Push order: bottom → top == uid, invType, com.
+		uid, invType, com int
+		wantSubstr  string
+	}{
+		{
+			name:       "null_com",
+			uid:        42,
+			invType:    93,
+			com:        -1,
+			wantSubstr: "INVOTHER_TRANSMIT: input number was null(-1)",
+		},
+		{
+			name:       "null_uid",
+			uid:        -1,
+			invType:    93,
+			com:        149,
+			wantSubstr: "INVOTHER_TRANSMIT: input number was null(-1)",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mp := &mockPlayer{}
+			sf := &ScriptFile{
+				Name: "invother_transmit_" + tc.name,
+				Opcodes: []Opcode{
+					OpPushConstantInt, // push uid (bottom)
+					OpPushConstantInt, // push invType
+					OpPushConstantInt, // push com (top)
+					OpInvOtherTransmit,
+					OpReturn,
+				},
+				IntOperands: []int32{int32(tc.uid), int32(tc.invType), int32(tc.com), 0, 0},
+			}
+			state := Init(sf, mp, false, nil, nil)
+
+			err := Execute(state)
+			if err == nil {
+				t.Fatalf("Execute: want error for %s, got nil", tc.name)
+			}
+			if !strings.Contains(err.Error(), tc.wantSubstr) {
+				t.Errorf("error: got %q, want substring %q", err.Error(), tc.wantSubstr)
+			}
+			if len(mp.lastInvListenOnCom) != 0 {
+				t.Errorf("lastInvListenOnCom: got %d calls, want 0", len(mp.lastInvListenOnCom))
+			}
+		})
+	}
+}
