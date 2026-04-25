@@ -15,9 +15,12 @@ import (
 // production first-spawn path. The caller-passed nid=1 is overwritten
 // by s.allocNpcSlot inside addNpc; n.nid post-call reflects the
 // allocated slot. NB: n.uid is computed at NewNpc time as
-// (typeId<<16)|1; addNpc does not recompute it. This matches existing
-// production behavior — tests that care about uid invariants must
-// recompute or read n.nid after the call.
+// (typeId<<16)|nid (here: (1<<16)|1). addNpc reassigns n.nid via
+// allocNpcSlot, but because the helper sets typeId == baseType,
+// resetEntityForRespawn's uid-recompute branch (npc_registry.go:99-105,
+// gated on n.typeId != n.baseType) is skipped — n.uid stays at the
+// NewNpc value. Tests that care about uid invariants must recompute
+// after the call (or pass typeId != baseType to exercise the branch).
 //
 // When register=false, returns a bare *Npc with nid=1, suitable for
 // unit tests of constructor / mask / stats behavior that don't need
