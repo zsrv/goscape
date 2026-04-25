@@ -7,10 +7,14 @@ import (
 	"github.com/zsrv/goscape/pkg/io/packet"
 )
 
-// TestStartingFnPopulatesCrcBuffer asserts that world.startingFn
-// invokes cache.MakeCRCs() so the asset module's /crc HTTP handler
-// can serve the buffer without itself touching cache state.
-// Closes the asset/handler.go:24 "TEST - belongs in world" smell.
+// TestStartingFnPopulatesCrcBuffer asserts that the production sequence
+// (cache.PreloadClient → cache.MakeCRCs, as invoked by world.startingFn)
+// populates cache.CrcBuffer and cache.CrcTable. The test mirrors
+// startingFn's prefix rather than invoking NewWorldService directly,
+// because the latter requires a full Server + LoginClient fixture.
+// Pairs with cmd/goscape/app/modules_test.go's TestAssetDependsOnWorld
+// which pins the asset→world dep-edge that makes the sequence visible
+// to /crc requests at request time.
 func TestStartingFnPopulatesCrcBuffer(t *testing.T) {
 	// Reset to a fresh empty packet (mirrors pkg/cache init expression).
 	// MakeCRCs mutates CrcBuffer.Pos in place rather than reassigning, so
