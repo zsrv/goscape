@@ -148,11 +148,15 @@ func handleNpcName(s *ScriptState) error {
 
 // handleNpcHasOp pops a 1-indexed op slot and pushes 1 if the NPC's
 // NpcType has a non-empty op string at that slot, else 0.
+// Mirrors TS NpcOps.ts NPC_HASOP: check(op, NumberNotNull) (NAI-23 Bundle 4a).
 func handleNpcHasOp(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_HASOP"); err != nil {
 		return err
 	}
 	op := s.PopInt()
+	if err := checkNotNull(op, "NPC_HASOP"); err != nil {
+		return err
+	}
 	if s.Configs == nil {
 		s.PushInt(0)
 		return nil
@@ -212,11 +216,16 @@ func handleNpcSay(s *ScriptState) error {
 
 // handleNpcAnim pops (seq, delay) in TS order (delay on top) and schedules
 // the animation on the active NPC this tick.
+// Mirrors TS NpcOps.ts NPC_ANIM: check(delay, NumberNotNull); seq is NOT
+// wrapped per TS (NAI-23 Bundle 4a).
 func handleNpcAnim(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_ANIM"); err != nil {
 		return err
 	}
 	delay := s.PopInt()
+	if err := checkNotNull(delay, "NPC_ANIM"); err != nil {
+		return err
+	}
 	id := s.PopInt()
 	s.ActiveNpc.Animate(id, delay)
 	return nil
@@ -263,11 +272,16 @@ func handleNpcChangeTypeKeepAll(s *ScriptState) error {
 
 // handleNpcDamage pops (type, amount) in TS order (amount on top) and
 // applies damage. The concrete Npc impl manages HP; this handler stays thin.
+// Mirrors TS NpcOps.ts NPC_DAMAGE: check(amount, NumberNotNull); dmgType is
+// wrapped with HitTypeValid (not NumberNotNull) and stays raw (NAI-23 Bundle 4a).
 func handleNpcDamage(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_DAMAGE"); err != nil {
 		return err
 	}
 	amount := s.PopInt()
+	if err := checkNotNull(amount, "NPC_DAMAGE"); err != nil {
+		return err
+	}
 	dmgType := s.PopInt()
 	s.ActiveNpc.Damage(amount, dmgType)
 	return nil

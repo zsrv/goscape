@@ -1516,3 +1516,105 @@ func TestNpcFindExact_InvalidNpcType(t *testing.T) {
 		t.Errorf("lookup should NOT be called; calls=%d", lookup.atCoordCalls)
 	}
 }
+
+// TestHandleNpcHasOpNullRejected pins NAI-23 Bundle 4a: NPC_HASOP rejects
+// op=-1 via checkNotNull (TS NpcOps.ts NPC_HASOP: check(op, NumberNotNull)).
+// The TS handler explicitly wraps op with NumberNotNull before the op-slot
+// lookup, so -1 must be rejected before any side-effects.
+func TestHandleNpcHasOpNullRejected(t *testing.T) {
+	mc := newTestConfigs()
+	mc.npcs[7] = &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 7},
+		Op:         []string{"Attack", "", "", "", ""},
+	}
+	sf := &ScriptFile{
+		Name: "npc_hasop_null",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push op (-1)
+			OpNpcHasOp,
+			OpReturn,
+		},
+		IntOperands: []int32{-1, 0, 0},
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.Configs = mc
+	state.ActiveNpc = &mockNpc{typeID: 7}
+	state.Pointers |= PtrActiveNpc
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for input=-1, got nil")
+	}
+	want := "NPC_HASOP: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+}
+
+// TestHandleNpcAnimNullDelayRejected pins NAI-23 Bundle 4a: NPC_ANIM rejects
+// delay=-1 via checkNotNull (TS NpcOps.ts NPC_ANIM: check(delay, NumberNotNull)).
+// seq is NOT wrapped per TS; only delay must be rejected. The Animate side-
+// effect must NOT occur when delay is null.
+func TestHandleNpcAnimNullDelayRejected(t *testing.T) {
+	npc := &mockNpc{}
+	// Pop order: delay (top), id. Push id=42 first, then delay=-1 on top.
+	sf := &ScriptFile{
+		Name: "npc_anim_null_delay",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push id (42)
+			OpPushConstantInt, // push delay (-1)
+			OpNpcAnim,
+			OpReturn,
+		},
+		IntOperands: []int32{42, -1, 0, 0},
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	state.Pointers |= PtrActiveNpc
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for delay=-1, got nil")
+	}
+	want := "NPC_ANIM: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if len(npc.animCalls) != 0 {
+		t.Errorf("animCalls: got %d, want 0 (must not animate on rejection)", len(npc.animCalls))
+	}
+}
+
+// TestHandleNpcDamageNullAmountRejected pins NAI-23 Bundle 4a: NPC_DAMAGE
+// rejects amount=-1 via checkNotNull (TS NpcOps.ts NPC_DAMAGE:
+// check(amount, NumberNotNull)). dmgType is wrapped with HitTypeValid (not
+// NumberNotNull) and stays raw here. The Damage side-effect must NOT occur.
+func TestHandleNpcDamageNullAmountRejected(t *testing.T) {
+	npc := &mockNpc{}
+	// Pop order: amount (top), dmgType. Push dmgType=1 first, then amount=-1.
+	sf := &ScriptFile{
+		Name: "npc_damage_null_amount",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push dmgType (1)
+			OpPushConstantInt, // push amount (-1)
+			OpNpcDamage,
+			OpReturn,
+		},
+		IntOperands: []int32{1, -1, 0, 0},
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	state.Pointers |= PtrActiveNpc
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for amount=-1, got nil")
+	}
+	want := "NPC_DAMAGE: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if len(npc.damageCalls) != 0 {
+		t.Errorf("damageCalls: got %d, want 0 (must not damage on rejection)", len(npc.damageCalls))
+	}
+}
