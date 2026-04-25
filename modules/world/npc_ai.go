@@ -43,7 +43,7 @@ func (n *Npc) turn(s *Server) {
 				return
 			case NpcLifecycleDespawn:
 				if !n.dead {
-					s.removeNpc(n)
+					s.removeNpc(n, -1)
 					if s.scriptProvider != nil && n.typ != nil {
 						sf := s.scriptProvider.GetByTrigger(
 							script.TriggerAiDespawn, n.typeId, n.typ.Category)

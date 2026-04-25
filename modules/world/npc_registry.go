@@ -1,6 +1,10 @@
 package world
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/zsrv/goscape/pkg/objtype"
+)
 
 var errNpcsFull = errors.New("npc registry full")
 
@@ -39,14 +43,36 @@ func (s *Server) addNpc(n *Npc) error {
 	return nil
 }
 
-// removeNpc marks n as logically absent from the world by setting
-// n.dead = true. Does NOT remove n from s.npcs[] or s.npcLoop —
-// that registry manipulation is deferred to a future sub-spec
-// when script-driven NPC creation/deletion lands. The old
-// registry-manipulation body was unused pre-NAI-5 and was
-// mid-tick-iteration-unsafe (spliced npcLoop during processNpcs
-// iteration), so replacing it with the dead-bool model is also a
-// correctness improvement.
-func (s *Server) removeNpc(n *Npc) {
+// removeNpc marks n as logically absent from the world. Mirrors TS
+// World.removeNpc at World.ts:1296-1319.
+//
+// Per TS: scales `duration` by player count, runs zone.leave (DEFERRED
+// per NAI-19-D1), flips isActive=false (n.dead=true in goscape), toggles
+// collision flags off per n.typ.BlockWalk, and branches on lifecycle:
+//   - DESPAWN: TS removes from rsbuf + registry + cleanup. Goscape
+//     keeps the dead-bool model (registry cleanup is orthogonal; tracked
+//     by the existing npc_registry.go header comment).
+//   - RESPAWN+duration>-1: writes n.lifecycleTick = scaledDuration.
+func (s *Server) removeNpc(n *Npc, duration int) {
+	adjustedDuration := s.scaleByPlayerCount(duration)
+	// DEVIATION NAI-19-D1: zone.leave omitted — Zone abstraction
+	// not ported. See spec § Tracked deviations.
 	n.dead = true
+	if n.typ != nil {
+		switch n.typ.BlockWalk {
+		case objtype.BlockWalkNPC:
+			s.gamemap.ChangeNPCCollision(int(n.typ.Size), n.x, n.z, n.level, false)
+		case objtype.BlockWalkAll:
+			s.gamemap.ChangeNPCCollision(int(n.typ.Size), n.x, n.z, n.level, false)
+			s.gamemap.ChangePlayerCollision(int(n.typ.Size), n.x, n.z, n.level, false)
+		}
+	}
+	if n.lifecycle == NpcLifecycleDespawn {
+		// TODO(NAI-19): rsbuf.RemoveNpc(n.nid) when rsbuf API surface lands.
+		// TODO(NAI-19): full registry cleanup (delete from s.npcs[],
+		// splice s.npcLoop) remains deferred per pre-existing dead-bool
+		// model — see npc_registry.go header history.
+	} else if n.lifecycle == NpcLifecycleRespawn && duration > -1 {
+		n.lifecycleTick = adjustedDuration
+	}
 }
