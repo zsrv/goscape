@@ -2318,7 +2318,7 @@ func TestHandlePApRangeNullRejected(t *testing.T) {
 
 	err := handlePApRange(s)
 	if err == nil {
-		t.Fatal("Execute: want error for n=-1, got nil")
+		t.Fatal("handlePApRange: want error for n=-1, got nil")
 	}
 	want := "P_APRANGE: input number was null(-1)"
 	if !strings.Contains(err.Error(), want) {

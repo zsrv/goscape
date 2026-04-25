@@ -382,7 +382,9 @@ func TestInvLookupNilReturnsError(t *testing.T) {
 
 // TestInvTransmitRegistersListener runs a script pushing (com, inv) then
 // OpInvTransmit; asserts the mock player recorded
-// InvListenOnCom(invType, com, activePlayer.uid). Matches TS InvOps.ts INV_TRANSMIT.
+// InvListenOnCom(invType, com, activePlayer.uid). Matches TS InvOps.ts
+// INV_TRANSMIT. Pins post-NAI-24-Bundle-2 behavior; pre-fix this test
+// asserted Source: -1 (S6u porting bug at commit fa57ee4).
 func TestInvTransmitRegistersListener(t *testing.T) {
 	mp := &mockPlayer{uidValue: 42}
 

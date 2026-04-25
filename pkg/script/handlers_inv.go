@@ -411,14 +411,14 @@ func handleInvMoveFromSlot(s *ScriptState) error {
 
 // handleInvTransmit implements INV_TRANSMIT. Registers a listener on
 // the active player for UI component `com` tracking the active
-// player's own inventory of type `invType` (source = activePlayer.UID()).
+// player's own inventory of type `invType` (source = activePlayer.uid).
 //
 // TS: InvOps.ts INV_TRANSMIT — popInt(inv), popInt(com),
 // activePlayer.invListenOnCom(inv, com, activePlayer.uid). com is
 // wrapped with check(com, NumberNotNull) in TS; invType uses
 // InvTypeValid (not NumberNotNull) — stays raw (NAI-23 Bundle 4b).
 // Source porting fix landed in NAI-24 Bundle 2 — origin commit
-// fa57ee4 (S6u) erroneously hard-coded -1.
+// fa57ee4 (S6u) erroneously hard-coded -1. Closes NAI-24 Bundle 2.
 func handleInvTransmit(s *ScriptState) error {
 	if err := requireActivePlayer(s, "INV_TRANSMIT"); err != nil {
 		return err
