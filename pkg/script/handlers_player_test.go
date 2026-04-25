@@ -883,6 +883,8 @@ func TestHandlePApRangeRequiresActivePlayer(t *testing.T) {
 }
 
 func TestHandlePApRangeAcceptsNegative(t *testing.T) {
+	// NAI-24 Bundle 1: TS NumberNotNull only rejects -1; other negatives
+	// are accepted. Use -2 to verify negative-but-not-null still passes.
 	fake := &mockPlayer{}
 	s := &ScriptState{
 		IntStack: make([]int, StackCapacity),
@@ -890,13 +892,13 @@ func TestHandlePApRangeAcceptsNegative(t *testing.T) {
 		Protect:  true,
 	}
 	s.Pointers |= PtrActivePlayer
-	s.PushInt(-1)
+	s.PushInt(-2)
 
 	if err := handlePApRange(s); err != nil {
 		t.Fatalf("handlePApRange: %v", err)
 	}
-	if fake.lastApRange != -1 {
-		t.Errorf("lastApRange: got %d, want -1", fake.lastApRange)
+	if fake.lastApRange != -2 {
+		t.Errorf("lastApRange: got %d, want -2", fake.lastApRange)
 	}
 	if !fake.lastApRangeCalled {
 		t.Error("lastApRangeCalled: want true even for negative apRange")
@@ -981,7 +983,11 @@ func TestPOpLocNoActiveLocErrors(t *testing.T) {
 
 // TestPOpLocInvalidOpErrors — op out of [1,5] range.
 func TestPOpLocInvalidOpErrors(t *testing.T) {
-	for _, op := range []int32{0, 6, -1, 100} {
+	// NAI-24 Bundle 1: -1 is now caught by the NumberNotNull wrap (TS
+	// PlayerOps.ts:387) before reaching the [1..5] range check; covered
+	// separately by TestHandlePOpLocNullRejected. Other out-of-range
+	// values still produce "invalid op".
+	for _, op := range []int32{0, 6, 100} {
 		mp := &mockPlayer{}
 		loc := &mockActiveLoc{locType: 42}
 
@@ -1949,5 +1955,431 @@ func TestMidiJingleNoActivePlayerRejects(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "MIDI_JINGLE: no active player") {
 		t.Errorf("error %q does not contain %q", err.Error(), "MIDI_JINGLE: no active player")
+	}
+}
+
+// -- NAI-24 Bundle 1: NumberNotNull audit null-pin tests -----------------
+//
+// Each test below corresponds to a popInt site in handlers_player.go where
+// the TS counterpart (PlayerOps.ts) wraps with check(..., NumberNotNull).
+// A value of -1 must be rejected before any side-effect occurs. Tests
+// follow the TestHandle<OpName>NullRejected naming convention from
+// handlers_interface_test.go.
+
+// TestHandleStatAddNullRejected pins STAT_ADD: TS wraps both constant and
+// percent with NumberNotNull (PlayerOps.ts:505-506). Stat id is wrapped
+// with PlayerStatValid (separate gate via checkStatID); only constant and
+// percent get the NumberNotNull pin here.
+func TestHandleStatAddNullRejected(t *testing.T) {
+	tests := []struct {
+		name                      string
+		statID, constant, percent int32
+		wantSubstr                string
+	}{
+		{
+			name:       "null_constant",
+			statID:     2,
+			constant:   -1,
+			percent:    0,
+			wantSubstr: "STAT_ADD: input number was null(-1)",
+		},
+		{
+			name:       "null_percent",
+			statID:     2,
+			constant:   0,
+			percent:    -1,
+			wantSubstr: "STAT_ADD: input number was null(-1)",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mp := &mockPlayer{}
+			sf := &ScriptFile{
+				Name: "stat_add_" + tc.name,
+				Opcodes: []Opcode{
+					OpPushConstantInt, // stat id (bottom)
+					OpPushConstantInt, // constant
+					OpPushConstantInt, // percent (top)
+					OpStatAdd,
+					OpReturn,
+				},
+				IntOperands: []int32{tc.statID, tc.constant, tc.percent, 0, 0},
+			}
+			state := Init(sf, mp, false, nil, nil)
+
+			err := Execute(state)
+			if err == nil {
+				t.Fatalf("Execute: want error for %s, got nil", tc.name)
+			}
+			if !strings.Contains(err.Error(), tc.wantSubstr) {
+				t.Errorf("error: got %q, want substring %q", err.Error(), tc.wantSubstr)
+			}
+			if len(mp.setCurLevelCalls) != 0 {
+				t.Errorf("setCurLevelCalls: should not have been called, got %d", len(mp.setCurLevelCalls))
+			}
+		})
+	}
+}
+
+// TestHandleStatSubNullRejected pins STAT_SUB: TS wraps both constant and
+// percent with NumberNotNull (PlayerOps.ts:525-526).
+func TestHandleStatSubNullRejected(t *testing.T) {
+	tests := []struct {
+		name                      string
+		statID, constant, percent int32
+		wantSubstr                string
+	}{
+		{
+			name:       "null_constant",
+			statID:     2,
+			constant:   -1,
+			percent:    0,
+			wantSubstr: "STAT_SUB: input number was null(-1)",
+		},
+		{
+			name:       "null_percent",
+			statID:     2,
+			constant:   0,
+			percent:    -1,
+			wantSubstr: "STAT_SUB: input number was null(-1)",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mp := &mockPlayer{}
+			sf := &ScriptFile{
+				Name: "stat_sub_" + tc.name,
+				Opcodes: []Opcode{
+					OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+					OpStatSub, OpReturn,
+				},
+				IntOperands: []int32{tc.statID, tc.constant, tc.percent, 0, 0},
+			}
+			state := Init(sf, mp, false, nil, nil)
+
+			err := Execute(state)
+			if err == nil {
+				t.Fatalf("Execute: want error for %s, got nil", tc.name)
+			}
+			if !strings.Contains(err.Error(), tc.wantSubstr) {
+				t.Errorf("error: got %q, want substring %q", err.Error(), tc.wantSubstr)
+			}
+			if len(mp.setCurLevelCalls) != 0 {
+				t.Errorf("setCurLevelCalls: should not have been called, got %d", len(mp.setCurLevelCalls))
+			}
+		})
+	}
+}
+
+// TestHandleStatBoostNullRejected pins STAT_BOOST: TS wraps both constant
+// and percent with NumberNotNull (PlayerOps.ts:542-543).
+func TestHandleStatBoostNullRejected(t *testing.T) {
+	tests := []struct {
+		name                      string
+		statID, constant, percent int32
+		wantSubstr                string
+	}{
+		{
+			name:       "null_constant",
+			statID:     2,
+			constant:   -1,
+			percent:    0,
+			wantSubstr: "STAT_BOOST: input number was null(-1)",
+		},
+		{
+			name:       "null_percent",
+			statID:     2,
+			constant:   0,
+			percent:    -1,
+			wantSubstr: "STAT_BOOST: input number was null(-1)",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mp := &mockPlayer{}
+			sf := &ScriptFile{
+				Name: "stat_boost_" + tc.name,
+				Opcodes: []Opcode{
+					OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+					OpStatBoost, OpReturn,
+				},
+				IntOperands: []int32{tc.statID, tc.constant, tc.percent, 0, 0},
+			}
+			state := Init(sf, mp, false, nil, nil)
+
+			err := Execute(state)
+			if err == nil {
+				t.Fatalf("Execute: want error for %s, got nil", tc.name)
+			}
+			if !strings.Contains(err.Error(), tc.wantSubstr) {
+				t.Errorf("error: got %q, want substring %q", err.Error(), tc.wantSubstr)
+			}
+			if len(mp.setCurLevelCalls) != 0 {
+				t.Errorf("setCurLevelCalls: should not have been called, got %d", len(mp.setCurLevelCalls))
+			}
+		})
+	}
+}
+
+// TestHandleStatDrainNullRejected pins STAT_DRAIN: TS wraps both constant
+// and percent with NumberNotNull (PlayerOps.ts:565-566).
+func TestHandleStatDrainNullRejected(t *testing.T) {
+	tests := []struct {
+		name                      string
+		statID, constant, percent int32
+		wantSubstr                string
+	}{
+		{
+			name:       "null_constant",
+			statID:     2,
+			constant:   -1,
+			percent:    0,
+			wantSubstr: "STAT_DRAIN: input number was null(-1)",
+		},
+		{
+			name:       "null_percent",
+			statID:     2,
+			constant:   0,
+			percent:    -1,
+			wantSubstr: "STAT_DRAIN: input number was null(-1)",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mp := &mockPlayer{}
+			sf := &ScriptFile{
+				Name: "stat_drain_" + tc.name,
+				Opcodes: []Opcode{
+					OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+					OpStatDrain, OpReturn,
+				},
+				IntOperands: []int32{tc.statID, tc.constant, tc.percent, 0, 0},
+			}
+			state := Init(sf, mp, false, nil, nil)
+
+			err := Execute(state)
+			if err == nil {
+				t.Fatalf("Execute: want error for %s, got nil", tc.name)
+			}
+			if !strings.Contains(err.Error(), tc.wantSubstr) {
+				t.Errorf("error: got %q, want substring %q", err.Error(), tc.wantSubstr)
+			}
+			if len(mp.setCurLevelCalls) != 0 {
+				t.Errorf("setCurLevelCalls: should not have been called, got %d", len(mp.setCurLevelCalls))
+			}
+		})
+	}
+}
+
+// TestHandleStatHealNullRejected pins STAT_HEAL: TS wraps both constant
+// and percent with NumberNotNull (PlayerOps.ts:600-601).
+func TestHandleStatHealNullRejected(t *testing.T) {
+	tests := []struct {
+		name                      string
+		statID, constant, percent int32
+		wantSubstr                string
+	}{
+		{
+			name:       "null_constant",
+			statID:     2,
+			constant:   -1,
+			percent:    0,
+			wantSubstr: "STAT_HEAL: input number was null(-1)",
+		},
+		{
+			name:       "null_percent",
+			statID:     2,
+			constant:   0,
+			percent:    -1,
+			wantSubstr: "STAT_HEAL: input number was null(-1)",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mp := &mockPlayer{}
+			sf := &ScriptFile{
+				Name: "stat_heal_" + tc.name,
+				Opcodes: []Opcode{
+					OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+					OpStatHeal, OpReturn,
+				},
+				IntOperands: []int32{tc.statID, tc.constant, tc.percent, 0, 0},
+			}
+			state := Init(sf, mp, false, nil, nil)
+
+			err := Execute(state)
+			if err == nil {
+				t.Fatalf("Execute: want error for %s, got nil", tc.name)
+			}
+			if !strings.Contains(err.Error(), tc.wantSubstr) {
+				t.Errorf("error: got %q, want substring %q", err.Error(), tc.wantSubstr)
+			}
+			if len(mp.setCurLevelCalls) != 0 {
+				t.Errorf("setCurLevelCalls: should not have been called, got %d", len(mp.setCurLevelCalls))
+			}
+		})
+	}
+}
+
+// TestHandleStatAdvanceNullRejected pins STAT_ADVANCE: TS wraps BOTH stat
+// and xp with NumberNotNull (PlayerOps.ts:762-763) — NOT PlayerStatValid
+// for stat (this is a TS asymmetry vs. sibling stat ops). Both ints are
+// pinned here.
+func TestHandleStatAdvanceNullRejected(t *testing.T) {
+	tests := []struct {
+		name       string
+		statID, xp int32
+		wantSubstr string
+	}{
+		{
+			name:       "null_stat",
+			statID:     -1,
+			xp:         100,
+			wantSubstr: "STAT_ADVANCE: input number was null(-1)",
+		},
+		{
+			name:       "null_xp",
+			statID:     2,
+			xp:         -1,
+			wantSubstr: "STAT_ADVANCE: input number was null(-1)",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mp := &mockPlayer{}
+			sf := &ScriptFile{
+				Name: "stat_advance_" + tc.name,
+				Opcodes: []Opcode{
+					OpPushConstantInt, // stat id (bottom)
+					OpPushConstantInt, // xp (top)
+					OpStatAdvance,
+					OpReturn,
+				},
+				IntOperands: []int32{tc.statID, tc.xp, 0, 0},
+			}
+			state := Init(sf, mp, false, nil, nil)
+
+			err := Execute(state)
+			if err == nil {
+				t.Fatalf("Execute: want error for %s, got nil", tc.name)
+			}
+			if !strings.Contains(err.Error(), tc.wantSubstr) {
+				t.Errorf("error: got %q, want substring %q", err.Error(), tc.wantSubstr)
+			}
+			if len(mp.addXPCalls) != 0 {
+				t.Errorf("addXPCalls: should not have been called, got %d", len(mp.addXPCalls))
+			}
+		})
+	}
+}
+
+// TestHandleSpotAnimPlNullRejected pins SPOTANIM_PL: TS wraps delay (top
+// of stack) with NumberNotNull (PlayerOps.ts:589). height and spotanim
+// are NOT wrapped; only delay is pinned here.
+func TestHandleSpotAnimPlNullRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "spotanim_pl_null_delay",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // spotanim (bottom)
+			OpPushConstantInt, // height
+			OpPushConstantInt, // delay (top) = -1
+			OpSpotAnimPl,
+			OpReturn,
+		},
+		IntOperands: []int32{100, 0, -1, 0, 0},
+	}
+	state := Init(sf, mp, false, nil, nil)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for delay=-1, got nil")
+	}
+	want := "SPOTANIM_PL: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if mp.playSpotAnimCalls != 0 {
+		t.Errorf("playSpotAnimCalls: should not have been called, got %d", mp.playSpotAnimCalls)
+	}
+}
+
+// TestHandlePApRangeNullRejected pins P_APRANGE: TS wraps with
+// NumberNotNull (PlayerOps.ts:353).
+func TestHandlePApRangeNullRejected(t *testing.T) {
+	fake := &mockPlayer{}
+	s := &ScriptState{
+		IntStack: make([]int, StackCapacity),
+		Self:     fake,
+		Protect:  true,
+	}
+	s.Pointers |= PtrActivePlayer
+	s.PushInt(-1)
+
+	err := handlePApRange(s)
+	if err == nil {
+		t.Fatal("Execute: want error for n=-1, got nil")
+	}
+	want := "P_APRANGE: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if fake.setApRangeCalls != 0 {
+		t.Errorf("setApRangeCalls: should not have been called, got %d", fake.setApRangeCalls)
+	}
+}
+
+// TestHandlePOpLocNullRejected pins P_OPLOC: TS wraps op with
+// NumberNotNull (PlayerOps.ts:387). The wrap fires before the [1..5]
+// range check, so -1 produces the NumberNotNull error.
+func TestHandlePOpLocNullRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	loc := &mockActiveLoc{locType: 42}
+	sf := &ScriptFile{
+		Name:        "p_op_loc_null",
+		Opcodes:     []Opcode{OpPushConstantInt, OpPOpLoc, OpReturn},
+		IntOperands: []int32{-1, 0, 0},
+	}
+	state := Init(sf, mp, true, nil, nil)
+	state.ActiveLoc = loc
+	state.Pointers |= PtrActiveLoc
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatal("Execute: want error for op=-1, got nil")
+	}
+	want := "P_OPLOC: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if len(mp.lastSetInteractionScriptLoc) != 0 {
+		t.Errorf("lastSetInteractionScriptLoc: should not have been called, got %d", len(mp.lastSetInteractionScriptLoc))
+	}
+}
+
+// TestHandlePOpNpcNullRejected pins P_OPNPC: TS wraps op with
+// NumberNotNull (PlayerOps.ts:404).
+func TestHandlePOpNpcNullRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	npc := &mockActiveNpc{typeId: 7}
+	sf := &ScriptFile{
+		Name:        "p_op_npc_null",
+		Opcodes:     []Opcode{OpPushConstantInt, OpPOpNpc, OpReturn},
+		IntOperands: []int32{-1, 0, 0},
+	}
+	state := Init(sf, mp, true, nil, nil)
+	state.ActiveNpc = npc
+	state.Pointers |= PtrActiveNpc
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatal("Execute: want error for op=-1, got nil")
+	}
+	want := "P_OPNPC: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if len(mp.lastSetInteractionScriptNpc) != 0 {
+		t.Errorf("lastSetInteractionScriptNpc: should not have been called, got %d", len(mp.lastSetInteractionScriptNpc))
 	}
 }

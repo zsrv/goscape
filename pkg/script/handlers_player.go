@@ -203,7 +203,13 @@ func handleStatAdd(s *ScriptState) error {
 		return err
 	}
 	percent := s.PopInt()
+	if err := checkNotNull(percent, "STAT_ADD"); err != nil {
+		return err
+	}
 	constant := s.PopInt()
+	if err := checkNotNull(constant, "STAT_ADD"); err != nil {
+		return err
+	}
 	id := s.PopInt()
 	if err := checkStatID(id, "STAT_ADD"); err != nil {
 		return err
@@ -228,7 +234,13 @@ func handleStatSub(s *ScriptState) error {
 		return err
 	}
 	percent := s.PopInt()
+	if err := checkNotNull(percent, "STAT_SUB"); err != nil {
+		return err
+	}
 	constant := s.PopInt()
+	if err := checkNotNull(constant, "STAT_SUB"); err != nil {
+		return err
+	}
 	id := s.PopInt()
 	if err := checkStatID(id, "STAT_SUB"); err != nil {
 		return err
@@ -257,7 +269,13 @@ func handleStatBoost(s *ScriptState) error {
 		return err
 	}
 	percent := s.PopInt()
+	if err := checkNotNull(percent, "STAT_BOOST"); err != nil {
+		return err
+	}
 	constant := s.PopInt()
+	if err := checkNotNull(constant, "STAT_BOOST"); err != nil {
+		return err
+	}
 	id := s.PopInt()
 	if err := checkStatID(id, "STAT_BOOST"); err != nil {
 		return err
@@ -291,7 +309,13 @@ func handleStatDrain(s *ScriptState) error {
 		return err
 	}
 	percent := s.PopInt()
+	if err := checkNotNull(percent, "STAT_DRAIN"); err != nil {
+		return err
+	}
 	constant := s.PopInt()
+	if err := checkNotNull(constant, "STAT_DRAIN"); err != nil {
+		return err
+	}
 	id := s.PopInt()
 	if err := checkStatID(id, "STAT_DRAIN"); err != nil {
 		return err
@@ -318,7 +342,13 @@ func handleStatHeal(s *ScriptState) error {
 		return err
 	}
 	percent := s.PopInt()
+	if err := checkNotNull(percent, "STAT_HEAL"); err != nil {
+		return err
+	}
 	constant := s.PopInt()
+	if err := checkNotNull(constant, "STAT_HEAL"); err != nil {
+		return err
+	}
 	id := s.PopInt()
 	if err := checkStatID(id, "STAT_HEAL"); err != nil {
 		return err
@@ -339,12 +369,23 @@ func handleStatHeal(s *ScriptState) error {
 // handleStatAdvance implements STAT_ADVANCE. TS pops (stat, xp); stack
 // top is xp. The handler just forwards to Self.AddXP — scaling is the
 // Player implementation's responsibility.
+//
+// TS asymmetry: STAT_ADVANCE wraps stat with NumberNotNull (not
+// PlayerStatValid like sibling stat ops); both stat and xp get NumberNotNull
+// (PlayerOps.ts:762-763). goscape mirrors that — the NumberNotNull wraps
+// fire before checkStatID, which then enforces the [0, NumStats) bound.
 func handleStatAdvance(s *ScriptState) error {
 	if err := requireActivePlayer(s, "STAT_ADVANCE"); err != nil {
 		return err
 	}
 	xp := s.PopInt()
+	if err := checkNotNull(xp, "STAT_ADVANCE"); err != nil {
+		return err
+	}
 	id := s.PopInt()
+	if err := checkNotNull(id, "STAT_ADVANCE"); err != nil {
+		return err
+	}
 	if err := checkStatID(id, "STAT_ADVANCE"); err != nil {
 		return err
 	}
@@ -450,12 +491,17 @@ func handleAnim(s *ScriptState) error {
 }
 
 // handleSpotAnimPl implements SPOTANIM_PL. TS pops three ints; stack
-// top is delay, then height, then spotanim id at bottom.
+// top is delay, then height, then spotanim id at bottom. TS wraps only
+// delay with NumberNotNull (PlayerOps.ts:589); height and spotanim are
+// raw popInts.
 func handleSpotAnimPl(s *ScriptState) error {
 	if err := requireActivePlayer(s, "SPOTANIM_PL"); err != nil {
 		return err
 	}
 	delay := s.PopInt()
+	if err := checkNotNull(delay, "SPOTANIM_PL"); err != nil {
+		return err
+	}
 	height := s.PopInt()
 	spotanim := s.PopInt()
 	s.Self.PlaySpotAnim(spotanim, height, delay)
@@ -547,17 +593,20 @@ func handlePClearPendingAction(s *ScriptState) error {
 // handlePApRange pops the approach range (in tiles) and sets it on
 // the active player along with apRangeCalled=true. Called from APLOC
 // trigger scripts to extend the approach-distance at which the trigger
-// re-fires. Matches TS PlayerOps.ts:P_APRANGE.
+// re-fires. Matches TS PlayerOps.ts:352-355.
 //
-// No clamping or bounds check: TS is permissive (any int accepted).
-// Negative values functionally disable the trigger
-// (inApproachDistance returns false for apRange<=0) — scripts passing
+// TS wraps with NumberNotNull (PlayerOps.ts:353); -1 is rejected.
+// Other negatives functionally disable the trigger (inApproachDistance
+// returns false for apRange<=0) but TS accepts them — scripts passing
 // negative are misconfigured, not a security concern.
 func handlePApRange(s *ScriptState) error {
 	if err := requireProtectedActivePlayer(s, "P_APRANGE"); err != nil {
 		return err
 	}
 	n := s.PopInt()
+	if err := checkNotNull(n, "P_APRANGE"); err != nil {
+		return err
+	}
 	s.Self.SetApRange(n)
 	return nil
 }
@@ -578,6 +627,9 @@ func handleP_OpLoc(s *ScriptState) error {
 		return errors.New("P_OPLOC: no active loc")
 	}
 	op := s.PopInt()
+	if err := checkNotNull(op, "P_OPLOC"); err != nil {
+		return err
+	}
 	if op < 1 || op > 5 {
 		return fmt.Errorf("P_OPLOC: invalid op %d (must be 1..5)", op)
 	}
@@ -599,6 +651,9 @@ func handleP_OpNpc(s *ScriptState) error {
 		return errors.New("P_OPNPC: no active npc")
 	}
 	op := s.PopInt()
+	if err := checkNotNull(op, "P_OPNPC"); err != nil {
+		return err
+	}
 	if op < 1 || op > 5 {
 		return fmt.Errorf("P_OPNPC: invalid op %d (must be 1..5)", op)
 	}
