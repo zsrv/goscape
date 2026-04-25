@@ -385,6 +385,15 @@ func (p *Player) Slot() int { return p.slot }
 // Coords returns the player's current absolute coordinates.
 func (p *Player) Coords() (x, z, level int) { return p.x, p.z, p.level }
 
+// Busy returns true when the player cannot accept new interactions —
+// either delayed (suspended by script delay) or has a main/chat modal
+// open. Mirrors TS Player.busy() at Engine-TS/.../Player.ts:801-803
+// (which composes containsModalInterface at Player.ts:796-799 — the
+// SIDE bit is intentionally excluded).
+func (p *Player) Busy() bool {
+	return p.delayed || p.modalState&(modalStateMain|modalStateChat) != 0
+}
+
 func (p *Player) updateMap() {
 	if p.buildArea == nil || p.client == nil || p.client.server == nil {
 		return

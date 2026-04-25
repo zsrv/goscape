@@ -958,3 +958,68 @@ func TestHuntPlayersCheckInvMissingInvDefensive(t *testing.T) {
 		t.Errorf("huntPlayers: got %d, want 1 (missing inv → quantity=0; 0 == 0 must pass)", len(hunted))
 	}
 }
+
+// TestHuntPlayersCheckNotBusyFiltersBusyPlayer pins NAI-23 Bundle 2: when
+// hunt.CheckNotBusy is true and the candidate player is busy (delayed or
+// main/chat modal open), the player is filtered out. Mirrors TS
+// Npc.ts:931-933.
+func TestHuntPlayersCheckNotBusyFiltersBusyPlayer(t *testing.T) {
+	s := newTestServer(t)
+	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 1}, Size: 1, Category: -1}
+	s.npcTypes = &objtype.NPCTypeConfigs{Configs: []*objtype.NpcType{nil, npcType}}
+	n := NewNpc(1, 1, 3200, 3200, 0, npcType)
+	n.server = s
+	n.huntRange = 5
+
+	// Busy player at (3203, 3200).
+	pBusy := addPlayerToServer(t, s, 1, 3203, 3200, 0)
+	pBusy.delayed = true
+	// Fresh player at (3197, 3200).
+	pFresh := addPlayerToServer(t, s, 2, 3197, 3200, 0)
+
+	hunt := &objtype.HuntType{
+		CheckNotBusy:       true,
+		CheckAfk:           false,
+		CheckVis:           objtype.HuntVisOff,
+		CheckNotCombat:     -1,
+		CheckNotCombatSelf: -1,
+		CheckInv:           -1,
+	}
+	hunted := n.huntPlayers(s, hunt)
+
+	if len(hunted) != 1 {
+		t.Fatalf("hunted: got %d, want 1 (busy player must be filtered out)", len(hunted))
+	}
+	if hunted[0] != pFresh {
+		t.Errorf("hunted[0]: got busy player, want fresh player")
+	}
+}
+
+// TestHuntPlayersCheckNotBusyDisabled pins NAI-23 Bundle 2: when
+// hunt.CheckNotBusy is false, busy players are NOT filtered (the filter
+// is gated on the bool flag).
+func TestHuntPlayersCheckNotBusyDisabled(t *testing.T) {
+	s := newTestServer(t)
+	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 1}, Size: 1, Category: -1}
+	s.npcTypes = &objtype.NPCTypeConfigs{Configs: []*objtype.NpcType{nil, npcType}}
+	n := NewNpc(1, 1, 3200, 3200, 0, npcType)
+	n.server = s
+	n.huntRange = 5
+
+	p := addPlayerToServer(t, s, 1, 3203, 3200, 0)
+	p.delayed = true
+
+	hunt := &objtype.HuntType{
+		CheckNotBusy:       false,
+		CheckAfk:           false,
+		CheckVis:           objtype.HuntVisOff,
+		CheckNotCombat:     -1,
+		CheckNotCombatSelf: -1,
+		CheckInv:           -1,
+	}
+	hunted := n.huntPlayers(s, hunt)
+
+	if len(hunted) != 1 {
+		t.Errorf("hunted: got %d, want 1 (filter disabled — busy must pass)", len(hunted))
+	}
+}

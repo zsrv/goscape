@@ -87,6 +87,7 @@ func (n *Npc) huntAll(s *Server, hunt *objtype.HuntType) {
 //
 // Filter coverage:
 //   - Range + level match:     always
+//   - checkNotBusy             (NAI-23, TS:931-933)
 //   - checkAfk                 (NAI-8,  TS:935-937)
 //   - CheckVis LoS/LoW         (NAI-12, TS per ScriptIterators.ts:88-94)
 //   - Outer combat guard       (NAI-15, TS:942)
@@ -99,7 +100,6 @@ func (n *Npc) huntAll(s *Server, hunt *objtype.HuntType) {
 // argument swap quirk — see FIDELITY note at the gate below.
 //
 // Filters DEFERRED (infra missing; each TS line cited):
-//   - checkNotBusy             (TS:931-933)       — no Player.Busy()
 //   - checkNotTooStrong        (TS:939-941)       — wilderness + combat-level
 //
 // NAI-8 dispatches NO scripts. TS huntPlayers is a config-driven
@@ -133,6 +133,11 @@ func (n *Npc) huntPlayers(s *Server, hunt *objtype.HuntType) []entity {
 			dz = -dz
 		}
 		if dx > n.huntRange || dz > n.huntRange {
+			continue
+		}
+		// checkNotBusy (TS:931-933): skip players whose state cannot
+		// accept a hunt interaction (delayed or main/chat modal open).
+		if hunt.CheckNotBusy && p.Busy() {
 			continue
 		}
 		// checkAfk (TS:935-937): filter players who've gone AFK

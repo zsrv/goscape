@@ -564,3 +564,51 @@ func TestPlayerIsValid(t *testing.T) {
 		t.Error("active=false: IsValid = true, want false")
 	}
 }
+
+func TestPlayerBusyNotDelayedNoModal(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	if p.Busy() {
+		t.Error("Busy: got true, want false (fresh player has neither delayed nor modal)")
+	}
+}
+
+func TestPlayerBusyDelayedOnly(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.delayed = true
+	if !p.Busy() {
+		t.Error("Busy: got false, want true (delayed=true)")
+	}
+}
+
+func TestPlayerBusyModalMainOnly(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.modalState = modalStateMain
+	if !p.Busy() {
+		t.Error("Busy: got false, want true (modalStateMain set)")
+	}
+}
+
+func TestPlayerBusyModalChatOnly(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.modalState = modalStateChat
+	if !p.Busy() {
+		t.Error("Busy: got false, want true (modalStateChat set)")
+	}
+}
+
+func TestPlayerBusyModalSideOnlyNotBusy(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.modalState = modalStateSide
+	if p.Busy() {
+		t.Error("Busy: got true, want false (modalStateSide alone — TS containsModalInterface excludes side per Player.ts:796-799)")
+	}
+}
+
+func TestPlayerBusyDelayedAndModalCombined(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.delayed = true
+	p.modalState = modalStateMain
+	if !p.Busy() {
+		t.Error("Busy: got false, want true (both delayed and modal)")
+	}
+}
