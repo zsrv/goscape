@@ -194,6 +194,7 @@ type mockNpc struct {
 	changeTypeKeepAllCalls             []struct{ newType, duration int }
 	damageCalls                        []struct{ amount, dmgType int }
 	enqueueCalls                       []mockEnqueueCall
+	setDelayedCalls                    []int
 	setTimerCalls                      []int
 	setHuntRangeCalls                  []int
 	setHuntModeCalls                   []int
@@ -258,7 +259,9 @@ func (m *mockNpc) Damage(amount, dmgType int) {
 
 func (m *mockNpc) StoreActiveScript(_ *ScriptState) {}
 func (m *mockNpc) ClearActiveScript()               {}
-func (m *mockNpc) SetDelayed(_ int)                 {}
+func (m *mockNpc) SetDelayed(d int) {
+	m.setDelayedCalls = append(m.setDelayedCalls, d)
+}
 
 func (m *mockNpc) EnqueueScriptForTrigger(trigger ServerTriggerType, delay, intArg int) {
 	m.enqueueCalls = append(m.enqueueCalls, mockEnqueueCall{
@@ -1395,6 +1398,108 @@ func TestNpcFindExact_InvalidCoord(t *testing.T) {
 	}
 	if lookup.atCoordCalls != 0 {
 		t.Errorf("lookup should NOT be called; calls=%d", lookup.atCoordCalls)
+	}
+}
+
+// TestHandleNpcDelayNullRejected pins NAI-20 Task 4: NPC_DELAY rejects
+// ticks=-1 via checkNotNull (TS NumberNotNull). Mirrors TS NpcOps.ts
+// NPC_DELAY shape and the S7b back-fill on NPC_SETTIMER.
+func TestHandleNpcDelayNullRejected(t *testing.T) {
+	npc := &mockNpc{}
+	sf := &ScriptFile{
+		Name: "npc_delay_null",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push ticks (-1)
+			OpNpcDelay,
+			OpReturn,
+		},
+		IntOperands: []int32{-1, 0, 0},
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	state.Pointers |= PtrActiveNpc
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for ticks=-1, got nil")
+	}
+	want := "NPC_DELAY: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if len(npc.setDelayedCalls) != 0 {
+		t.Errorf("setDelayedCalls: got %d, want 0 (must not call on rejection)",
+			len(npc.setDelayedCalls))
+	}
+}
+
+// TestHandleNpcQueueNullDelayRejected pins NAI-20 Task 4: NPC_QUEUE
+// rejects delay=-1 via checkNotNull. The queueId 1..20 range check is
+// orthogonal (covered by TestHandleNpcQueueInvalidQueueIDErrors).
+func TestHandleNpcQueueNullDelayRejected(t *testing.T) {
+	npc := &mockNpc{}
+	// Pop order: delay (top), arg, queueID (bottom). IntOperands push
+	// in left-to-right order; the rightmost int is on top of the stack
+	// when the opcode runs. So we want delay on top → IntOperands ends
+	// with -1.
+	sf := &ScriptFile{
+		Name: "npc_queue_null_delay",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push queueID (5)
+			OpPushConstantInt, // push arg (0)
+			OpPushConstantInt, // push delay (-1)
+			OpNpcQueue,
+			OpReturn,
+		},
+		IntOperands: []int32{5, 0, -1, 0, 0},
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	state.Pointers |= PtrActiveNpc
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for delay=-1, got nil")
+	}
+	want := "NPC_QUEUE: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if len(npc.enqueueCalls) != 0 {
+		t.Errorf("enqueueCalls: got %d, want 0 (must not enqueue on rejection)",
+			len(npc.enqueueCalls))
+	}
+}
+
+// TestHandleNpcSetHuntNullRejected pins NAI-20 Task 4: NPC_SETHUNT
+// rejects range=-1 via checkNotNull (TS NumberNotNull). Mirrors TS
+// NpcOps.ts:174-176.
+func TestHandleNpcSetHuntNullRejected(t *testing.T) {
+	npc := &mockNpc{}
+	sf := &ScriptFile{
+		Name: "npc_sethunt_null",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push range (-1)
+			OpNpcSetHunt,
+			OpReturn,
+		},
+		IntOperands: []int32{-1, 0, 0},
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	state.Pointers |= PtrActiveNpc
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for range=-1, got nil")
+	}
+	want := "NPC_SETHUNT: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if len(npc.setHuntRangeCalls) != 0 {
+		t.Errorf("setHuntRangeCalls: got %d, want 0 (must not call on rejection)",
+			len(npc.setHuntRangeCalls))
 	}
 }
 

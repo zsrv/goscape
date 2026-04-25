@@ -283,6 +283,9 @@ func handleNpcDelay(s *ScriptState) error {
 		return err
 	}
 	ticks := s.PopInt()
+	if err := checkNotNull(ticks, "NPC_DELAY"); err != nil {
+		return err
+	}
 	s.ActiveNpc.SetDelayed(ticks)
 	s.Execution = NpcSuspended
 	return nil
@@ -298,6 +301,9 @@ func handleNpcQueue(s *ScriptState) error {
 		return err
 	}
 	delay := s.PopInt()
+	if err := checkNotNull(delay, "NPC_QUEUE"); err != nil {
+		return err
+	}
 	arg := s.PopInt()
 	queueID := s.PopInt()
 	if queueID < 1 || queueID > 20 {
@@ -331,7 +337,11 @@ func handleNpcSetHunt(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_SETHUNT"); err != nil {
 		return err
 	}
-	s.ActiveNpc.SetHuntRange(s.PopInt())
+	huntRange := s.PopInt()
+	if err := checkNotNull(huntRange, "NPC_SETHUNT"); err != nil {
+		return err
+	}
+	s.ActiveNpc.SetHuntRange(huntRange)
 	return nil
 }
 
