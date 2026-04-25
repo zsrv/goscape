@@ -669,3 +669,134 @@ func TestProcessLogoutsDecrementsSubscribedNpcObservers(t *testing.T) {
 		t.Errorf("GetNpcObservers(102) after logout: got %d, want 0", got)
 	}
 }
+
+// TestAddNpcQueuesSpawnEventOnFirstSpawn pins NAI-22 Bundle 1: addNpc
+// queues an NpcEventSpawn entry when a SPAWN script is registered for
+// the NPC's typeId/category. Mirrors TS World.ts:1284-1289.
+func TestAddNpcQueuesSpawnEventOnFirstSpawn(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+
+	spawnScript := &script.ScriptFile{
+		Name:      "ai_spawn_global",
+		LookupKey: script.LookupKeyForGlobal(script.TriggerAiSpawn),
+	}
+	s.scriptProvider.Register(spawnScript)
+
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+
+	if len(s.npcEventQueue) != 1 {
+		t.Fatalf("npcEventQueue: got len %d, want 1 (SPAWN script registered, must enqueue)", len(s.npcEventQueue))
+	}
+	got := s.npcEventQueue[0]
+	if got.Type != NpcEventSpawn {
+		t.Errorf("npcEventQueue[0].Type: got %d, want NpcEventSpawn (%d)", got.Type, NpcEventSpawn)
+	}
+	if got.Script != spawnScript {
+		t.Errorf("npcEventQueue[0].Script: got %p, want %p", got.Script, spawnScript)
+	}
+	if got.Npc != n {
+		t.Errorf("npcEventQueue[0].Npc: got %p, want %p", got.Npc, n)
+	}
+}
+
+// TestAddNpcQueuesSpawnEventOnRespawn pins NAI-22 Bundle 1: addNpc with
+// firstSpawn=false (revertType heavy path) ALSO queues SPAWN. Matches TS
+// World.ts:1258-1294, which has no firstSpawn guard around the queue
+// insertion (lines 1284-1289).
+func TestAddNpcQueuesSpawnEventOnRespawn(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	// Pre-register the NPC at a slot (firstSpawn=true would do this; here
+	// we simulate revertType path: NPC keeps its slot, addNpc(firstSpawn=false)).
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("first addNpc setup: %v", err)
+	}
+	s.npcEventQueue = nil // reset queue from setup; we only want to observe the second call
+
+	spawnScript := &script.ScriptFile{
+		Name:      "ai_spawn_global",
+		LookupKey: script.LookupKeyForGlobal(script.TriggerAiSpawn),
+	}
+	s.scriptProvider.Register(spawnScript)
+
+	if err := s.addNpc(n, -1, false); err != nil {
+		t.Fatalf("addNpc(firstSpawn=false): %v", err)
+	}
+
+	if len(s.npcEventQueue) != 1 {
+		t.Fatalf("npcEventQueue: got len %d, want 1 (SPAWN must fire on respawn too)", len(s.npcEventQueue))
+	}
+}
+
+// TestAddNpcNoSpawnScriptNoQueue pins the script != nil short-circuit:
+// when no SPAWN script is registered, addNpc must NOT enqueue.
+func TestAddNpcNoSpawnScriptNoQueue(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider() // empty provider
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+
+	if len(s.npcEventQueue) != 0 {
+		t.Errorf("npcEventQueue: got len %d, want 0 (no SPAWN script registered)", len(s.npcEventQueue))
+	}
+}
+
+// TestAddNpcNilScriptProviderNoQueue pins the s.scriptProvider != nil
+// defensive guard. The DESPAWN producer at npc_ai.go:47 uses the same
+// guard; SPAWN must mirror.
+func TestAddNpcNilScriptProviderNoQueue(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = nil // explicit
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+
+	if len(s.npcEventQueue) != 0 {
+		t.Errorf("npcEventQueue: got len %d, want 0 (nil scriptProvider must short-circuit)", len(s.npcEventQueue))
+	}
+}
+
+// TestProcessNpcEventQueueDispatchesSpawn pins end-to-end SPAWN dispatch:
+// addNpc enqueues, processNpcEventQueue drains AND fires the script. The
+// type-agnostic processor at npc_event_queue.go:36-48 already handles
+// SPAWN identically to DESPAWN; this test pins that contract.
+func TestProcessNpcEventQueueDispatchesSpawn(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.scriptProvider = script.NewProvider()
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+
+	spawnScript := &script.ScriptFile{
+		Name:      "ai_spawn_stub",
+		Opcodes:   []script.Opcode{script.OpReturn},
+		LookupKey: script.LookupKeyForGlobal(script.TriggerAiSpawn),
+	}
+	s.scriptProvider.Register(spawnScript)
+
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+	if len(s.npcEventQueue) != 1 {
+		t.Fatalf("setup: queue len %d, want 1", len(s.npcEventQueue))
+	}
+
+	s.processNpcEventQueue()
+
+	if len(s.npcEventQueue) != 0 {
+		t.Errorf("npcEventQueue: got len %d, want 0 (queue must drain after dispatch)", len(s.npcEventQueue))
+	}
+}

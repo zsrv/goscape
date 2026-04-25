@@ -255,9 +255,9 @@ func (n *Npc) SetHuntMode(mode int) {
 //     per Npc.ts:1083-1085 — World.removeNpc(this, -1) + World.addNpc(
 //     this, -1, false). The addNpc respawn cycle reseeds typeId/uid/typ,
 //     reseeds all 6 stats, clears queue/waypoints, teles to
-//     (startX, startZ), and re-arms collision flags. Goscape carries two
-//     deviations (NAI-19-D1: no zone state, NAI-19-D2: no AI_SPAWN re-trigger)
-//     against this structural form.
+//     (startX, startZ), and re-arms collision flags. Goscape carries one
+//     deviation against this structural form (NAI-19-D1: no zone state;
+//     Zone abstraction not ported).
 //
 // What revertType does NOT do on either branch (intentional):
 //   - varn resets (future; VarNpc subsystem not yet wired)
@@ -280,8 +280,8 @@ func (n *Npc) revertType() {
 	}
 
 	// Heavy path — structural TS port per Npc.ts:1083-1085.
-	// Goscape deviations NAI-19-D1 / NAI-19-D2 are documented at the
-	// omission sites in s.removeNpc / s.addNpc.
+	// Goscape deviation NAI-19-D1 (no zone state) is documented at the
+	// omission site in s.removeNpc / s.addNpc.
 	n.server.removeNpc(n, -1)
 	_ = n.server.addNpc(n, -1, false) // err only on slot-full; firstSpawn=false skips alloc
 	n.resetOnRevert = true             // re-arm default for next morph cycle

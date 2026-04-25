@@ -4,9 +4,10 @@ import "github.com/zsrv/goscape/pkg/script"
 
 // NpcEventType mirrors TS NpcEventType at
 // Engine-TS/src/engine/entity/NpcEventRequest.ts.
-// NpcEventSpawn is reserved for TS fidelity but has no producer in
-// NAI-5 (no script-driven NPC creation yet); NpcEventDespawn is
-// queued by the DESPAWN branch of the Npc.turn() Events block.
+// NpcEventSpawn is queued by Server.addNpc (NAI-22 Bundle 1, mirroring
+// TS World.ts:1284-1289); NpcEventDespawn is queued by the DESPAWN
+// branch of the Npc.turn() Events block (NAI-5, mirroring TS
+// World.ts:580+).
 type NpcEventType int
 
 const (

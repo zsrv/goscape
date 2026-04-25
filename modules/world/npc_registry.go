@@ -5,6 +5,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
+	"github.com/zsrv/goscape/pkg/script"
 )
 
 var errNpcsFull = errors.New("npc registry full")
@@ -74,12 +75,24 @@ func (s *Server) addNpc(n *Npc, duration int, firstSpawn bool) error {
 	s.resetEntityForRespawn(n)
 	n.animID = -1
 	n.animDelay = 0
-	// DEVIATION NAI-19-D2: AI_SPAWN trigger queue omitted —
-	// script.TriggerAiSpawn (script/trigger.go:171) declared but no
-	// spawn-flow consumer wiring. Activating here would change
-	// first-spawn behavior across all existing NPCs at server boot.
-	// Tracked for closure in a future "AI_SPAWN dispatch wiring"
-	// sub-spec.
+	// AI_SPAWN trigger queue (matches TS World.ts:1284-1289). Fires
+	// unconditionally — for both firstSpawn=true (server boot) and
+	// firstSpawn=false (revertType respawn). NPCs without a registered
+	// AI_SPAWN script never enter the queue (the script != nil guard).
+	// processNpcEventQueue dispatches at tick.go:40. Mirrors the
+	// existing AI_DESPAWN producer pattern at npc_ai.go:47-58.
+	if s.scriptProvider != nil && n.typ != nil {
+		sf := s.scriptProvider.GetByTrigger(
+			script.TriggerAiSpawn, n.typeId, n.typ.Category)
+		if sf != nil {
+			s.npcEventQueue = append(s.npcEventQueue,
+				NpcEventRequest{
+					Type:   NpcEventSpawn,
+					Script: sf,
+					Npc:    n,
+				})
+		}
+	}
 	if duration > -1 {
 		n.lifecycleTick = duration
 	}
