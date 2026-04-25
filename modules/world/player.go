@@ -37,12 +37,20 @@ const (
 // playerTimer is a per-player repeating script registration.
 // S5i: identified by target scriptID (TS semantics: setTimer at same
 // id overwrites).
+//
+// As of NAI-27 Bundle 1, the single IntArg int field is widened to
+// parallel IntArgs []int + StringArgs []string slices to match the TS
+// PlayerTimer.args ScriptArgument[] shape (TS
+// Engine-TS/src/engine/entity/Player.ts:910 args field). The widening
+// is required for SETTIMER/SOFTTIMER's variadic popScriptArgs body
+// (PlayerOps.ts:826,834), which Bundle 2 activates.
 type playerTimer struct {
-	ScriptID uint32
-	Type     script.PlayerTimerType
-	Interval int
-	Clock    int
-	IntArg   int
+	ScriptID   uint32
+	Type       script.PlayerTimerType
+	Interval   int
+	Clock      int
+	IntArgs    []int
+	StringArgs []string
 }
 
 // Player is the game-side representation of a connected player.

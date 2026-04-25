@@ -173,7 +173,13 @@ type mockPlayer struct {
 	clearPendingActionCalls int
 
 	// S5i capture fields
-	lastSetTimer    struct{ scriptID uint32; interval, intArg int; ttype PlayerTimerType }
+	lastSetTimer    struct {
+		scriptID   uint32
+		interval   int
+		intArgs    []int
+		stringArgs []string
+		ttype      PlayerTimerType
+	}
 	setTimerCalls   int
 	lastClearTimer  uint32
 	clearTimerCalls int
@@ -410,8 +416,14 @@ func (m *mockPlayer) ClearPendingAction() { m.clearPendingActionCalls++ }
 
 // S5i: timer ops.
 
-func (m *mockPlayer) SetTimer(scriptID uint32, interval, intArg int, ttype PlayerTimerType) {
-	m.lastSetTimer = struct{ scriptID uint32; interval, intArg int; ttype PlayerTimerType }{scriptID, interval, intArg, ttype}
+func (m *mockPlayer) SetTimer(scriptID uint32, interval int, intArgs []int, stringArgs []string, ttype PlayerTimerType) {
+	m.lastSetTimer = struct {
+		scriptID   uint32
+		interval   int
+		intArgs    []int
+		stringArgs []string
+		ttype      PlayerTimerType
+	}{scriptID, interval, intArgs, stringArgs, ttype}
 	m.setTimerCalls++
 }
 func (m *mockPlayer) ClearTimer(scriptID uint32) {

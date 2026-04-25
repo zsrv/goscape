@@ -849,7 +849,7 @@ func TestSetTimerFiresAfterInterval(t *testing.T) {
 	s.playerLoop = append(s.playerLoop, p)
 
 	// Register a timer at interval=5, starting at current tick 0.
-	p.SetTimer(0xA1, 5, 0, script.TimerNormal)
+	p.SetTimer(0xA1, 5, nil, nil, script.TimerNormal)
 
 	received := drainConn(t, cc)
 
@@ -887,7 +887,7 @@ func TestSoftTimerFiresWhileDelayed(t *testing.T) {
 	p.delayed = true
 	p.delayedUntil = s.currentTick + 99
 
-	p.SetTimer(0xB2, 1, 0, script.TimerSoft)
+	p.SetTimer(0xB2, 1, nil, nil, script.TimerSoft)
 
 	received := drainConn(t, cc)
 	s.currentTick = 1
@@ -914,7 +914,7 @@ func TestClearTimerStopsFiring(t *testing.T) {
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	s.playerLoop = append(s.playerLoop, p)
 
-	p.SetTimer(0xC3, 1, 0, script.TimerNormal)
+	p.SetTimer(0xC3, 1, nil, nil, script.TimerNormal)
 	p.ClearTimer(0xC3)
 
 	received := drainConn(t, cc)

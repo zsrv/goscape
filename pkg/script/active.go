@@ -228,10 +228,15 @@ type ActivePlayer interface {
 	// S5i: timer ops.
 
 	// SetTimer registers a timer that re-runs the script at scriptID every
-	// `interval` ticks with `intArg` as the single int arg. Overwrites any
-	// existing timer at the same scriptID. type = TimerNormal (waits for
-	// idle) or TimerSoft (fires while busy).
-	SetTimer(scriptID uint32, interval int, intArg int, ttype PlayerTimerType)
+	// `interval` ticks with `intArgs`/`stringArgs` as parallel-slice typed
+	// args (matching TS PlayerOps.ts:826,834 popScriptArgs convention).
+	// Overwrites any existing timer at the same scriptID. type = TimerNormal
+	// (waits for idle) or TimerSoft (fires while busy).
+	//
+	// NAI-27 Bundle 1: signature widened from single intArg int to parallel
+	// IntArgs []int + StringArgs []string. Bundle 2 adds an `error` return
+	// for the script-missing check.
+	SetTimer(scriptID uint32, interval int, intArgs []int, stringArgs []string, ttype PlayerTimerType)
 
 	// ClearTimer cancels the timer at scriptID, regardless of type.
 	// Silent no-op if no such timer.

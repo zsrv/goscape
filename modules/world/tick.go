@@ -289,7 +289,7 @@ func (s *Server) processPlayerTimers() {
 			if sf == nil {
 				continue
 			}
-			s.runScript(sf, p, false, []int{t.IntArg}, nil)
+			s.runScript(sf, p, false, t.IntArgs, t.StringArgs)
 		}
 	}
 }

@@ -6,14 +6,17 @@ import (
 )
 
 // enqueueTimer is the shared body for SETTIMER / SOFTTIMER.
+//
+// NAI-27 Bundle 1: passes nil/nil placeholder slices to the widened
+// SetTimer signature. Bundle 2 swaps the placeholders for popScriptArgs
+// and adds the script-missing error propagation.
 func enqueueTimer(s *ScriptState, ttype PlayerTimerType, op string) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return fmt.Errorf("%s: no active player", op)
 	}
-	arg := int(s.PopInt())
-	interval := int(s.PopInt())
+	interval := s.PopInt()
 	scriptID := uint32(s.PopInt())
-	s.Self.SetTimer(scriptID, interval, arg, ttype)
+	s.Self.SetTimer(scriptID, interval, nil, nil, ttype)
 	return nil
 }
 

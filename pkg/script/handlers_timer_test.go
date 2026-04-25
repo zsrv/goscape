@@ -3,18 +3,19 @@ package script
 import "testing"
 
 func TestSetTimerCapturesArgs(t *testing.T) {
+	// NAI-27 Bundle 1: placeholder shape pre-popScriptArgs. Bundle 2
+	// re-pins this with real popScriptArgs args after activation.
 	sf := &ScriptFile{
 		Name: "set_timer",
 		Opcodes: []Opcode{
 			OpPushConstantInt, // scriptID
 			OpPushConstantInt, // interval
-			OpPushConstantInt, // arg
 			OpSetTimer,
 			OpReturn,
 		},
-		IntOperands:      []int32{0x12345678, 5, 42, 0, 0},
-		StringOperands:   []string{"", "", "", "", ""},
-		InstructionCount: 5,
+		IntOperands:      []int32{0x12345678, 5, 0, 0},
+		StringOperands:   []string{"", "", "", ""},
+		InstructionCount: 4,
 	}
 	mp := &mockPlayer{}
 	state := Init(sf, mp, false, nil, nil)
@@ -25,21 +26,22 @@ func TestSetTimerCapturesArgs(t *testing.T) {
 		t.Fatalf("setTimerCalls: got %d, want 1", mp.setTimerCalls)
 	}
 	got := mp.lastSetTimer
-	if got.scriptID != 0x12345678 || got.interval != 5 || got.intArg != 42 || got.ttype != TimerNormal {
-		t.Errorf("lastSetTimer: got %+v, want scriptID=0x12345678 interval=5 intArg=42 type=Normal", got)
+	if got.scriptID != 0x12345678 || got.interval != 5 || got.intArgs != nil || got.stringArgs != nil || got.ttype != TimerNormal {
+		t.Errorf("lastSetTimer: got %+v, want scriptID=0x12345678 interval=5 intArgs=nil stringArgs=nil type=Normal", got)
 	}
 }
 
 func TestSoftTimerSetsSoftType(t *testing.T) {
+	// NAI-27 Bundle 1: placeholder shape pre-popScriptArgs.
 	sf := &ScriptFile{
 		Name: "soft_timer",
 		Opcodes: []Opcode{
-			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpPushConstantInt, OpPushConstantInt,
 			OpSoftTimer, OpReturn,
 		},
-		IntOperands:      []int32{0x7BCDEF00, 3, 7, 0, 0},
-		StringOperands:   []string{"", "", "", "", ""},
-		InstructionCount: 5,
+		IntOperands:      []int32{0x7BCDEF00, 3, 0, 0},
+		StringOperands:   []string{"", "", "", ""},
+		InstructionCount: 4,
 	}
 	mp := &mockPlayer{}
 	state := Init(sf, mp, false, nil, nil)

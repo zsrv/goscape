@@ -3,7 +3,11 @@ package world
 import "github.com/zsrv/goscape/pkg/script"
 
 // SetTimer implements script.ActivePlayer.SetTimer.
-func (p *Player) SetTimer(scriptID uint32, interval, intArg int, ttype script.PlayerTimerType) {
+//
+// NAI-27 Bundle 1: signature widens to carry parallel IntArgs + StringArgs
+// slices. The error return is added in Bundle 2 alongside the script-missing
+// check; for now the method is non-fallible and returns nothing.
+func (p *Player) SetTimer(scriptID uint32, interval int, intArgs []int, stringArgs []string, ttype script.PlayerTimerType) {
 	if p.timers == nil {
 		p.timers = make(map[uint32]*playerTimer)
 	}
@@ -12,11 +16,12 @@ func (p *Player) SetTimer(scriptID uint32, interval, intArg int, ttype script.Pl
 		now = p.client.server.currentTick
 	}
 	p.timers[scriptID] = &playerTimer{
-		ScriptID: scriptID,
-		Type:     ttype,
-		Interval: interval,
-		Clock:    now,
-		IntArg:   intArg,
+		ScriptID:   scriptID,
+		Type:       ttype,
+		Interval:   interval,
+		Clock:      now,
+		IntArgs:    intArgs,
+		StringArgs: stringArgs,
 	}
 }
 
