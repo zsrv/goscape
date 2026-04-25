@@ -92,12 +92,9 @@ func TestRemoveNpcDespawnLifecycleSkipsLifecycleTick(t *testing.T) {
 // Mirrors TS World.addNpc firstSpawn=true branch at World.ts:1259-1262.
 func TestAddNpcFirstSpawnAllocsSlot(t *testing.T) {
 	s := newTestServer(t)
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Size: 1}
-	n := NewNpc(0, 7, 100, 100, 0, typ)
+	typ := &objtype.NpcType{Size: 1}
+	n := newRegisteredNpc(t, s, typ, true)
 
-	if err := s.addNpc(n, -1, true); err != nil {
-		t.Fatalf("addNpc: %v", err)
-	}
 	if n.nid <= 0 || n.nid >= len(s.npcs) {
 		t.Errorf("n.nid: got %d, want valid slot", n.nid)
 	}
@@ -115,11 +112,8 @@ func TestAddNpcFirstSpawnAllocsSlot(t *testing.T) {
 // at World.ts:1258-1262.
 func TestAddNpcRespawnSpawnSkipsSlotAlloc(t *testing.T) {
 	s := newTestServer(t)
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Size: 1}
-	n := NewNpc(0, 7, 100, 100, 0, typ)
-	if err := s.addNpc(n, -1, true); err != nil {
-		t.Fatalf("first addNpc: %v", err)
-	}
+	typ := &objtype.NpcType{Size: 1}
+	n := newRegisteredNpc(t, s, typ, true)
 	nidBefore := n.nid
 	loopLenBefore := len(s.npcLoop)
 
@@ -167,11 +161,8 @@ func TestAddNpcTeleportsToStart(t *testing.T) {
 // Mirrors TS World.addNpc at World.ts:1291-1293.
 func TestAddNpcRespawnSetsLifecycleTickWhenDurationGT0(t *testing.T) {
 	s := newTestServer(t)
-	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Size: 1}
-	n := NewNpc(0, 7, 100, 100, 0, typ)
-	if err := s.addNpc(n, -1, true); err != nil {
-		t.Fatalf("first addNpc: %v", err)
-	}
+	typ := &objtype.NpcType{Size: 1}
+	n := newRegisteredNpc(t, s, typ, true)
 
 	if err := s.addNpc(n, 25, false); err != nil {
 		t.Fatalf("respawn with duration: %v", err)
