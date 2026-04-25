@@ -612,3 +612,48 @@ func TestLookupPlayerByUIDSkipsInactive(t *testing.T) {
 		t.Errorf("LookupPlayerByUID(7) on inactive player = %v, want nil", got)
 	}
 }
+
+// setPlayerCountForTest is a test-only helper that fills the first playerCount
+// slots of s.players with non-nil placeholder entries, zeroing the rest.
+// s.players is a fixed-size [2048]*Player array, so we iterate-and-assign
+// rather than reassigning the field.
+func setPlayerCountForTest(t *testing.T, s *Server, playerCount int) {
+	t.Helper()
+	for i := range s.players {
+		if i < playerCount {
+			s.players[i] = &Player{}
+		} else {
+			s.players[i] = nil
+		}
+	}
+}
+
+// TestScaleByPlayerCountFormula pins the TS World.scaleByPlayerCount
+// formula at TS World.ts:1715-1719:
+//
+//	playerCount := min(getTotalPlayers(), 2000)
+//	return ((4000 - playerCount) * rate) / 4000  // int truncation
+//
+// Cap at 2000 players; rate=100, count=0 → 100; rate=100, count=2000 → 50;
+// rate=100, count=2048 (capped to 2000) → 50.
+func TestScaleByPlayerCountFormula(t *testing.T) {
+	cases := []struct {
+		playerCount, rate, want int
+	}{
+		{0, 100, 100},   // empty world: full rate
+		{2000, 100, 50}, // cap point: half rate
+		{2048, 100, 50}, // beyond cap (full array): still half rate
+		{1000, 100, 75}, // mid: 3/4 rate
+		{0, 0, 0},       // zero rate
+		{0, -1, -1},     // negative rate passes through
+	}
+	s := &Server{}
+	for _, c := range cases {
+		setPlayerCountForTest(t, s, c.playerCount)
+		got := s.scaleByPlayerCount(c.rate)
+		if got != c.want {
+			t.Errorf("scaleByPlayerCount(rate=%d, players=%d): got %d, want %d",
+				c.rate, c.playerCount, got, c.want)
+		}
+	}
+}

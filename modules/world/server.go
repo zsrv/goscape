@@ -612,6 +612,37 @@ func (s *Server) addPlayer(p *Player) error {
 	return errWorldFull
 }
 
+// getTotalPlayers returns the count of live (non-nil) players in the
+// server's player slot table. Lock-free read — matches existing read
+// patterns at npc_hunt.go:116, handler_opnpc.go:17 (playersMu guards
+// writes only).
+func (s *Server) getTotalPlayers() int {
+	n := 0
+	for _, p := range s.players {
+		if p != nil {
+			n++
+		}
+	}
+	return n
+}
+
+// scaleByPlayerCount scales a tick rate (typically a respawn duration)
+// by the current live-player count. Mirrors TS
+// World.scaleByPlayerCount at World.ts:1715-1719.
+//
+// Formula: playerCount = min(getTotalPlayers(), 2000)
+//
+//	return ((4000 - playerCount) * rate) / 4000  // int truncation
+//
+// Empty world returns rate unchanged; 2000+ players halves it.
+func (s *Server) scaleByPlayerCount(rate int) int {
+	playerCount := s.getTotalPlayers()
+	if playerCount > 2000 {
+		playerCount = 2000
+	}
+	return ((4000 - playerCount) * rate) / 4000
+}
+
 func (s *Server) removePlayer(p *Player) {
 	p.active = false
 	s.playersMu.Lock()
