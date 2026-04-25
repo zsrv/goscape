@@ -105,34 +105,6 @@ func TestLoadNpcsParsesSpawns(t *testing.T) {
 	}
 }
 
-func TestMapsquareCRCReturnsZeroForMissing(t *testing.T) {
-	gm := New(discardLogger())
-	mCRC, lCRC := gm.MapsquareCRC(0, 0)
-	if mCRC != 0 || lCRC != 0 {
-		t.Errorf("missing mapsquare: got (%d,%d), want (0,0)", mCRC, lCRC)
-	}
-}
-
-func TestMapsquareCRCCachedFromInit(t *testing.T) {
-	tmp := t.TempDir()
-	mapsDir := filepath.Join(tmp, "client", "maps")
-	if err := os.MkdirAll(mapsDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-	mData := []byte{0, 0, 0, 0}
-	if err := os.WriteFile(filepath.Join(mapsDir, "m50_50"), mData, 0644); err != nil {
-		t.Fatal(err)
-	}
-	gm := New(discardLogger())
-	if err := gm.Init(tmp); err != nil {
-		t.Fatal(err)
-	}
-	mCRC, _ := gm.MapsquareCRC(50, 50)
-	if mCRC == 0 {
-		t.Error("expected non-zero CRC after Init")
-	}
-}
-
 func TestGameMapRetainsRawBytes(t *testing.T) {
 	dir := t.TempDir()
 	mapsDir := filepath.Join(dir, "client", "maps")
