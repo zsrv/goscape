@@ -277,7 +277,8 @@ func handleNpcDamage(s *ScriptState) error {
 // script for N ticks. Transitions the script to NpcSuspended and
 // records the wake tick on the NPC via SetDelayed. The tick loop
 // resumes the script from Npc.turn() when delayedUntil expires.
-// Mirrors TS NpcOps.ts NPC_DELAY.
+// Mirrors TS NpcOps.ts:82-84, including the NumberNotNull check
+// (closed in NAI-20).
 func handleNpcDelay(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_DELAY"); err != nil {
 		return err
@@ -295,7 +296,9 @@ func handleNpcDelay(s *ScriptState) error {
 // dispatch on the active NPC. Pop order: delay (top), arg, queueId
 // (bottom). queueId ∈ [1, 20] maps to TriggerAiQueue1..20 via
 // arithmetic: trigger = TriggerAiQueue1 + queueId - 1. Mirrors TS
-// NpcOps.ts:144-150.
+// NpcOps.ts:144-150, including the NumberNotNull check on delay
+// (closed in NAI-20). The Go-side queueId 1..20 range check
+// corresponds to TS QueueValid; the arg pop is unwrapped per TS.
 func handleNpcQueue(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_QUEUE"); err != nil {
 		return err
@@ -332,7 +335,8 @@ func handleNpcSetTimer(s *ScriptState) error {
 // handleNpcSetHunt (NPC_SETHUNT, opcode 2533) sets the NPC's hunt
 // search range. Despite the opcode name, this sets RANGE only —
 // hunt mode is set via the separate NPC_SETHUNTMODE opcode.
-// Mirrors TS NpcOps.ts:174-176.
+// Mirrors TS NpcOps.ts:174-176, including the NumberNotNull check
+// (closed in NAI-20).
 func handleNpcSetHunt(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_SETHUNT"); err != nil {
 		return err
