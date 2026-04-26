@@ -34,7 +34,6 @@ func (f *fakeSource) StaffModLevel() int32     { return 0 }
 func (f *fakeSource) Masks() int                { return f.masks }
 func (f *fakeSource) EntityMask() int           { return f.entityMask }
 func (f *fakeSource) AppearanceBytes() []byte   { return f.appearance }
-func (f *fakeSource) AppearanceHash() uint64    { return 1 }
 func (f *fakeSource) AnimID() int               { return f.animID }
 func (f *fakeSource) AnimDelay() int            { return f.animDelay }
 func (f *fakeSource) FaceEntity() int           { return f.faceEntity }

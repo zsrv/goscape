@@ -1,8 +1,6 @@
 package world
 
 import (
-	"hash/fnv"
-
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 )
@@ -16,12 +14,6 @@ func (p *Player) StaffModLevel() int32         { return p.staffModLevel }
 func (p *Player) Masks() int              { return p.masks }
 func (p *Player) EntityMask() int         { return p.entitymask }
 func (p *Player) AppearanceBytes() []byte { return p.appearanceBuf }
-
-func (p *Player) AppearanceHash() uint64 {
-	h := fnv.New64a()
-	h.Write(p.appearanceBuf)
-	return h.Sum64()
-}
 
 // Mask payload accessors.
 func (p *Player) AnimID() int         { return p.animID }

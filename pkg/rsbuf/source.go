@@ -17,7 +17,6 @@ type PlayerSource interface {
 
 	// appearance
 	AppearanceBytes() []byte
-	AppearanceHash() uint64
 
 	// mask payload accessors
 	AnimID() int
