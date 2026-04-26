@@ -2,7 +2,7 @@
 
 - **Sub-spec**: NAI-32
 - **Date**: 2026-04-26
-- **Scope label**: Two-bundle feature-port sub-spec — (Bundle 1) ports the upstream `info.rs:289-291` self-CHAT-mask suppression into goscape's eager-cache renderer architecture by adding a second high-def cache variant (`highDefWithChat`) consumed by `writePlayers` + `writeNewPlayers`; tightens `buildPayload` mask consistency by stripping CHAT from the mask set (header AND payload) when chat-suppression is requested rather than gating only the payload write; drops the now-redundant `suppressChat bool` parameter from `writeMaskPayloads`. (Bundle 2) sweeps three unauthorized `rs-server-225` provenance citations from production source files (`pkg/script/file.go:40`, `pkg/zone/grid.go:3`, `pkg/objtype/npctype.go:25,36`) and replaces them with `LostCityRS/Engine-TS` canonical-source citations per `ts_source_canonical_path.md`. Closes NAI-30-D2 (deviation count 14 → 13). Smoke gate: 2-client public-chat exchange in chat range (binding feature-correctness gate).
+- **Scope label**: Two-bundle feature-port sub-spec — (Bundle 1) ports the upstream `info.rs:289-291` self-CHAT-mask suppression into goscape's eager-cache renderer architecture by adding a second high-def cache variant (`highDefWithChat`) consumed by `writePlayers` for tracked-other reads (sole site reading `HighDefOf` for non-self players; `writeNewPlayers` reads only the low-def caches and is unchanged); tightens `buildPayload` mask consistency by stripping CHAT from the mask set (header AND payload) when chat-suppression is requested rather than gating only the payload write; drops the now-redundant `suppressChat bool` parameter from `writeMaskPayloads`. (Bundle 2) sweeps three unauthorized `rs-server-225` provenance citations from production source files (`pkg/script/file.go:40`, `pkg/zone/grid.go:3`, `pkg/objtype/npctype.go:25,36`) and replaces them with `LostCityRS/Engine-TS` canonical-source citations per `ts_source_canonical_path.md`. Closes NAI-30-D2 (deviation count 14 → 13). Smoke gate: 2-client public-chat exchange in chat range (binding feature-correctness gate).
 - **Predecessors**: NAI-31 (NPC render-pipeline investigation + D2 audit + D1 doc-cleanup) — last on `main` as `aaf4acd`
 - **Source root**:
   - `LostCityRS/Engine-TS` (TS canonical for non-`pkg/rsbuf` packages per `ts_source_canonical_path.md`)
@@ -26,7 +26,7 @@ NAI-30-D1 (orientation field plumbed without producer) is **out of scope** for N
   - `pkg/rsbuf/renderer.go` (`Renderer` struct lines 7-14; `ComputePlayers` lines 20-55 with `buildPayload` call sites at lines 36, 47, 53; `HighDefOf` accessor lines 58-63; `buildPayload` helper lines 122-128)
   - `pkg/rsbuf/mask_header.go` (`writeMaskHeader` lines 7-13 — does NOT consult `suppressChat`; writes header bits as-is)
   - `pkg/rsbuf/mask_payload.go` (`writeMaskPayloads` lines 21-49 — `suppressChat` gates only the CHAT body write at line 46-48; per-mask write helpers at lines 51-108)
-  - `pkg/rsbuf/playerinfo.go` (`(*PlayerInfo).Encode` line 61; `writeLocalPlayer` line 125 reading `renderer.HighDefOf(int(self.PID))` at line 128; `writePlayers` line 208 reading `HighDefOf` for tracked others; `writeNewPlayers` line 301 reading `HighDefOf` for newly-visible others; NAI-30-D2 doc-comment block lines 113-124)
+  - `pkg/rsbuf/playerinfo.go` (`(*PlayerInfo).Encode` line 61; `writeLocalPlayer` line 125 reading `renderer.HighDefOf(int(self.PID))` at line 128; `writePlayers` line 208 reading `HighDefOf` at line 246 for tracked others; `writeNewPlayers` line 301 reading `LowDefFullOf` at line 321 + `LowDefNoAppOf` at line 352 for newly-visible others — NO `HighDefOf` consumption, so no swap surface; NAI-30-D2 doc-comment block lines 113-124)
   - `pkg/rsbuf/playerinfo_test.go` (`TestPlayerInfo_LocalPlayer_ChatMaskStripped` line 581 — currently `t.Skip("NAI-30-D2: requires renderer cache port for per-mask suppression; audited NAI-31, deferred to NAI-32")`)
   - `pkg/rsbuf/mask_payload_test.go` line 125 — sole external caller of `writeMaskPayloads(...suppressChat=false)`; signature-change site
   - `pkg/rsbuf/renderer_test.go` (existing `ComputePlayers` test surface — `TestComputePlayersSkipsZeroMask`, `TestComputePlayersHighDef`, `TestComputePlayersLowDefForcesAppearance`, `TestComputePlayersLowDefNoApp`)
@@ -38,7 +38,7 @@ NAI-30-D1 (orientation field plumbed without producer) is **out of scope** for N
   - `renderer.go` — Bundle 1: add `highDefWithChat [2048][]byte` field, populate in `ComputePlayers` (parallel to `highDef`), expose via new `HighDefWithChatOf(slot int) []byte` accessor (mirrors `HighDefOf` shape including bounds check). Fix `buildPayload` consistency: when `suppressChat=true`, strip CHAT from `masks` BEFORE both `writeMaskHeader` and `writeMaskPayloads` (`if suppressChat { masks &^= MaskChat }` at line 122-123 entry).
   - `mask_payload.go` — Bundle 1: drop the now-redundant `suppressChat bool` parameter from `writeMaskPayloads` (lines 19-21 signature) and the `&& !suppressChat` guard at line 46. After Bundle 1's `buildPayload` fix the bit is pre-stripped from `forceMasks`, so the guard is dead.
   - `mask_payload_test.go` line 125 — Bundle 1: update the sole external `writeMaskPayloads` call site to drop the `suppressChat` arg.
-  - `playerinfo.go` — Bundle 1: at `writePlayers` (line 208 region) and `writeNewPlayers` (line 301 region), swap `renderer.HighDefOf(int(other.PID))` to `renderer.HighDefWithChatOf(int(other.PID))` for the tracked-others and new-others byte reads. `writeLocalPlayer` (line 125) keeps `renderer.HighDefOf(int(self.PID))` — chat-stripped, correct for self per `info.rs:289-291`. Strike the NAI-30-D2 doc-comment block at lines 113-124 entirely; replace with a brief inline `// CHAT bit stripped per info.rs:289-291` comment near the new `masks &^= MaskChat` step in `buildPayload`.
+  - `playerinfo.go` — Bundle 1: at `writePlayers` line 246, swap `renderer.HighDefOf(int(otherPid))` to `renderer.HighDefWithChatOf(int(otherPid))` for the tracked-other byte read. `writeLocalPlayer` (line 128) keeps `renderer.HighDefOf(int(self.PID))` — chat-stripped, correct for self per `info.rs:289-291`. `writeNewPlayers` is NOT touched: it reads `LowDefFullOf` / `LowDefNoAppOf` only; new-adds carry low-def baseline (appearance + face) without CHAT per upstream `info.rs::write_new_players`. Strike the NAI-30-D2 doc-comment block at lines 113-124 entirely; replace with a brief inline `// CHAT bit stripped per info.rs:289-291` comment near the new `masks &^= MaskChat` step in `buildPayload`.
   - `renderer_test.go` — Bundle 1: 3 new tests pinning the dual-cache contract.
   - `playerinfo_test.go` — Bundle 1: un-skip `TestPlayerInfo_LocalPlayer_ChatMaskStripped` at line 581 and implement the body (self vs. other dual-pin).
 - Modified files outside `pkg/rsbuf/`:
@@ -57,7 +57,7 @@ In scope:
 - Renderer dual-cache architecture (`highDef` chat-stripped + new `highDefWithChat` chat-preserved) for the high-def variant only. Low-def variants (`lowDefFull`, `lowDefNoApp`) remain single-cache: per upstream `info.rs::lowdefinition()` (starts line 296), low-def is for newly-visible players (always "other"), and the upstream low-def path does not branch on self vs. other for CHAT. Plan-writer should read the full `lowdefinition()` body to confirm before dispatch.
 - `buildPayload` consistency fix: pre-strip CHAT from `masks` when `suppressChat=true` so header AND payload are mutually consistent.
 - `writeMaskPayloads` signature simplification: drop the now-dead `suppressChat` parameter and `&& !suppressChat` guard at line 46.
-- `writePlayers` + `writeNewPlayers` swap to read from the new `HighDefWithChatOf` accessor for OTHER players.
+- `writePlayers` swap to read from the new `HighDefWithChatOf` accessor for tracked OTHER players (sole `HighDefOf` swap site for non-self players). `writeNewPlayers` is unchanged — it reads only `LowDefFullOf` / `LowDefNoAppOf`, so the high-def CHAT-suppression asymmetry does not apply.
 - `writeLocalPlayer` continues to read from `HighDefOf` for SELF (chat-stripped — correct per `info.rs:289-291`).
 - Strike NAI-30-D2 doc-comment block at `playerinfo.go:113-124`; replace with brief inline cite near the new chat-strip step.
 - Un-skip + implement `TestPlayerInfo_LocalPlayer_ChatMaskStripped` per `ts_asymmetry_dual_pin.md` (assert both self has no CHAT in high-def AND other has CHAT in high-def).
@@ -77,7 +77,7 @@ Out of scope:
 
 | Bundle | Surface | Cadence | Reviews | Commits |
 |---|---|---|---|---|
-| 0 | Controller pre-flight: re-grep all 3 citation sites + 5 D2 touchpoint lines vs. HEAD; freeze `writeMaskPayloads` / `writeMaskHeader` / `writeLocalPlayer` / `writePlayers` / `writeNewPlayers` signatures + line numbers; pre-pull canonical TS paths for the 3 citation replacements; verify `info.rs:296-330` low-def-self-vs-other branching (inform low-def-stays-single-cache decision); enumerate ALL `writeMaskPayloads(` call sites at HEAD (expected 1 production + 1 test = 2; fail loud if a third surfaces) per `enumerate_all_sites.md` | n/a (no commits, no subagent) | n/a | 0 |
+| 0 | Controller pre-flight: re-grep all 3 citation sites + 5 D2 touchpoint lines vs. HEAD; freeze `writeMaskPayloads` / `writeMaskHeader` / `writeLocalPlayer` / `writePlayers` / `writeNewPlayers` signatures + line numbers; pre-pull canonical TS paths for the 3 citation replacements; read full `info.rs::lowdefinition()` body (starts line 296) to verify low-def-self-vs-other CHAT branching is absent (inform low-def-stays-single-cache decision); enumerate ALL `writeMaskPayloads(` call sites at HEAD (expected 1 production + 1 test = 2; fail loud if a third surfaces) per `enumerate_all_sites.md` | n/a (no commits, no subagent) | n/a | 0 |
 | 1 | D2 dual-cache + `buildPayload` consistency fix + `writeMaskPayloads` signature cleanup + 5 new/changed tests + strike NAI-30-D2 doc-comment block | Full TDD (red→green→commit) per `runescript_cadence.md`; subagent-driven-development per `execution_mode_default.md` | Two-stage (spec-compliance + code-quality) per `runescript_cadence.md` | 1-3 (one main feature commit; possible follow-up for layered surface if surfaces) |
 | 2 | rs-server-225 citation sweep (3 doc-comment edits) | Compressed per `compressed_cadence.md` (≤~15 LOC, doc-only) | Single pass | 1 |
 | Smoke | 2-client public-chat exchange in chat range; user-launched server per `smoke_test_server_handoff.md` | Binding feature-correctness gate | n/a | 0 (or 1 follow-up if Bundle 3 needed) |
@@ -93,7 +93,7 @@ Out of scope:
 ```go
 type Renderer struct {
     highDef         [2048][]byte // CHAT stripped from header AND payload (consumed by writeLocalPlayer for self)
-    highDefWithChat [2048][]byte // CHAT preserved (consumed by writePlayers + writeNewPlayers for tracked + new others)
+    highDefWithChat [2048][]byte // CHAT preserved (consumed by writePlayers for tracked others; writeNewPlayers reads low-def caches only)
     lowDefFull      [2048][]byte // unchanged (low-def has no self-vs-other CHAT branch per info.rs:296-330)
     lowDefNoApp     [2048][]byte // unchanged
     npcHighDef      [8192][]byte // unchanged (NPC has no CHAT mask)
@@ -156,8 +156,8 @@ func writeMaskPayloads(buf *packet.Packet, p PlayerSource, forceMasks int) {
 `PlayerInfo` (`pkg/rsbuf/playerinfo.go`):
 
 - `writeLocalPlayer` line 128 — keep `renderer.HighDefOf(int(self.PID))` (chat-stripped; correct for self).
-- `writePlayers` (line 208 region) — swap to `renderer.HighDefWithChatOf(int(other.PID))` for tracked others.
-- `writeNewPlayers` (line 301 region) — swap to `renderer.HighDefWithChatOf(int(other.PID))` for newly-visible others.
+- `writePlayers` line 246 — swap to `renderer.HighDefWithChatOf(int(otherPid))` for tracked others.
+- `writeNewPlayers` (line 301) — UNCHANGED. Reads `LowDefFullOf` (line 321) + `LowDefNoAppOf` (line 352) only; no high-def consumption, so no swap surface.
 - Strike doc-comment block at lines 113-124 entirely. Add brief inline `// CHAT bit stripped per info.rs:289-291` near the new `masks &^= MaskChat` step in `buildPayload`.
 
 ### Components touched
@@ -167,7 +167,7 @@ func writeMaskPayloads(buf *packet.Packet, p PlayerSource, forceMasks int) {
 | `pkg/rsbuf/renderer.go` | + `highDefWithChat` field; + `HighDefWithChatOf` accessor; + dual-build in `ComputePlayers`; + `masks &^= MaskChat` in `buildPayload` | +20 / -1 |
 | `pkg/rsbuf/mask_payload.go` | − `suppressChat` arg + guard | +0 / -3 |
 | `pkg/rsbuf/mask_payload_test.go` | call-site update (line 125) | +0 / -1 |
-| `pkg/rsbuf/playerinfo.go` | strike doc-comment block lines 113-124; 2 swap sites (`writePlayers`, `writeNewPlayers`); brief inline cite | +2 / -12 |
+| `pkg/rsbuf/playerinfo.go` | strike doc-comment block lines 113-124; 1 swap site (`writePlayers` line 246); brief inline cite | +1 / -12 |
 | **Production subtotal** | | ~+22 / -17 |
 | `pkg/rsbuf/renderer_test.go` | 3 new tests | +60 |
 | `pkg/rsbuf/mask_payload_test.go` | 1 new test | +20 |
@@ -197,10 +197,10 @@ PlayerInfo.Encode(buf, pid_self, renderer):
     for each tracked_other:
       bytes = renderer.HighDefWithChatOf(other.PID)  # CHAT preserved
       ...
-  writeNewPlayers(self, renderer):
+  writeNewPlayers(self, renderer):                   # UNCHANGED
     for each new_other:
-      bytes = renderer.HighDefWithChatOf(other.PID)  # CHAT preserved
-      ...
+      lowDef = renderer.LowDefFullOf(other.PID)      # baseline payload (no CHAT)
+      ...                                            # appearance-dedup branch reads LowDefNoAppOf
 ```
 
 ### Testing
