@@ -1416,7 +1416,14 @@ func TestPlayerInfo_LocalPlayer_Tele(t *testing.T) {
 	// See upstream info.rs:79-89 for the math.
 }
 
-func TestPlayerInfo_LocalPlayer_ExtendOnly_NoMaskNoMovement(t *testing.T) {
+// TestPlayerInfo_LocalPlayer_Idle pins the writeLocalPlayer default branch
+// after the dispatch is wired in. T2.2's TestPlayerInfo_Encode_LocalIdleNoOthers
+// covers the same path against the stub; this regression-locks the
+// post-writeLocalPlayer behavior. Real extend-only branch coverage (the
+// `case hdLen > 0:` arm) defers to T2.6, where mask-payload pinning makes
+// seeded high-def state natural; reproducing it in T2.3 would force a
+// renderer-internals reach-around (`r.highDef[1] = []byte{...}`).
+func TestPlayerInfo_LocalPlayer_Idle(t *testing.T) {
 	b := New()
 	setupLocalPlayer(b, 1, func(p *Player) {
 		// No movement; no masks. Renderer returns empty payload. Idle path taken.
@@ -1554,9 +1561,12 @@ sequence + appends high-def payload to updates buffer when extend
 flag is set.
 
 Tests pin byte-level output for walk (0xb0 0x00), run (0xd5 0x80),
-tele (4 bytes — bit-stream traced to upstream info.rs:80-89 math),
-idle (0x00 0x00), extend-only (covered by T2.2 idle case via
-hdLen=0 fallback).
+tele (4 bytes — len-only check; bit-stream math traced to info.rs:80-89),
+and idle (0x00 0x00 — regression-locks the default branch after
+dispatch is wired). Real extend-only branch (the `case hdLen > 0:`
+arm) is covered at T2.6 alongside mask-payload pinning, where seeded
+high-def state arrives naturally rather than via renderer-internals
+reach-around.
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF
