@@ -1,6 +1,7 @@
 package world
 
 import (
+	"bytes"
 	"strings"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
@@ -40,6 +41,8 @@ func init() {
 
 	gameHandlers[134] = handleOpNpcT // OPNPCT
 	gameHandlers[202] = handleOpNpcU // OPNPCU
+
+	gameHandlers[158] = handleMessagePublic // MESSAGE_PUBLIC
 
 	gameHandlers[235] = handleResumePauseButton // RESUME_PAUSEBUTTON
 	gameHandlers[237] = handleResumeCountDialog // RESUME_P_COUNTDIALOG
@@ -91,6 +94,32 @@ func handleMoveClick(p *Player, payload []byte) error {
 		needsFinding = !p.client.server.cfg.NodeClientRoutefinder
 	}
 	p.pathToMoveClick(packed, needsFinding)
+	return nil
+}
+
+// handleMessagePublic decodes a MESSAGE_PUBLIC packet (opcode 158) and sets
+// MaskChat on the sender so the per-tick encoder propagates chat to tracked
+// observers via HighDefWithChatOf (NAI-32 Task 3 swap surface).
+//
+// Wire format (per Client-Java client.java:2903-2909):
+//
+//	byte 0: color (0..11)
+//	byte 1: effect (0=none, 1=wave, 2=scroll)
+//	bytes 2+: word-packed text (raw bytes; server transports unchanged,
+//	          receiving Java client decodes via WordPack.unpack).
+//
+// Rights: passed through from p.staffModLevel so staff/admin chat gets
+// the priority bit on the receiving client (var15 > 1 in client.java:10520
+// routes to addMessage type 1 vs type 2).
+func handleMessagePublic(p *Player, payload []byte) error {
+	if len(payload) < 2 {
+		return nil
+	}
+	color := int(payload[0])
+	effect := int(payload[1])
+	// Copy the message bytes — the underlying packet buffer may be reused.
+	msg := bytes.Clone(payload[2:])
+	p.Chat(color, effect, int(p.staffModLevel), msg)
 	return nil
 }
 
