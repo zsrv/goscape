@@ -315,12 +315,8 @@ func (pi *PlayerInfo) Encode(b *Buf, pid int32, renderer *Renderer) []byte {
 	}
 
 	// Reset scratch buffers (mirrors info.rs:53-56 zeroing).
-	pi.buf.Data = pi.buf.Data[:0]
-	pi.buf.Pos = 0
-	pi.buf.BitPos = 0
-	pi.updates.Data = pi.updates.Data[:0]
-	pi.updates.Pos = 0
-	pi.updates.BitPos = 0
+	pi.buf.Reset()
+	pi.updates.Reset()
 
 	pi.buf.AccessBits()
 
