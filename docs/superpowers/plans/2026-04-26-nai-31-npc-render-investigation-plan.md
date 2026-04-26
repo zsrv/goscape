@@ -898,3 +898,241 @@ EOF
 - [ ] **Bundle numbering:** Bundle 0 (pre-flight) → Bundle 1 (audit) → Bundle 2.A.1/2/3/4 (fix) + 2.B (D2) + 2.C (D1) + 2.D (citation) → Smoke → Bundle 3 (conditional) → Close. Consistent across the plan.
 
 ---
+
+## Frozen Premises (controller-populated 2026-04-26)
+
+**HEAD:** `f5eda20` (NAI-31 plan commit). Working tree dirty only with project-irrelevant dotfiles (`.bash_profile`, `.bashrc`, `.claude/`, etc.) — pre-existing background state, not a regression.
+
+**Pre-spec premise sites confirmed at HEAD (lines unchanged):**
+- `modules/world/player.go:261` — D1 stale comment.
+- `modules/world/npc.go:122` — D1 stale comment.
+- `pkg/rsbuf/playerinfo.go:113-119` — D2 deferral block.
+- `pkg/rsbuf/playerinfo_test.go:577-580` — D2 t.Skip.
+- `pkg/rsbuf/npcinfo_test.go:657` — NAI-31 forward-reference.
+- `pkg/gamemap/load.go:138` — `rs-server-225/engine/gamemap.go` citation.
+- `pkg/rsbuf/mask_payload.go:21,46-48` — `writeMaskPayloads(... suppressChat bool)`.
+- `pkg/rsbuf/playerinfo.go:120-198` — `writeLocalPlayer` uses `renderer.HighDefOf(pid)`.
+- `pkg/rsbuf/renderer.go:122-125` — `buildPayload(p, masks, suppressChat) []byte` already takes the parameter.
+
+**Out-of-scope unauthorized `rs-server-225` citations (3 additional sites; NAI-31 does NOT touch — record as a separate follow-up):**
+- `pkg/script/file.go:40` — "lookupKey is u32 (rs-server-225 had a u16 bug)".
+- `pkg/zone/grid.go:3` — "Ported from /home/owner/Code/github.com/zsrv/rs-server-225/engine/zone/grid.go".
+- `pkg/objtype/npctype.go:25,36` — "mirror of rs-server-225/entity.MoveRestrict|BlockWalk".
+
+**Canonical sources confirmed accessible:**
+- `LostCityRS/Engine-TS` (TS canonical for `pkg/gamemap`): `/home/owner/Code/github.com/LostCityRS/Engine-TS/`. NPC parser at `src/engine/GameMap.ts:114-137` (`loadNpcs`); call site at `:70`; cache root at `src/engine/GameMap.ts:63` = `'data/pack/server/maps/'`; `unpackCoord` helper at `:288-293`.
+- `LostCityRS/Client-Java` (binding wire spec): `/home/owner/Code/github.com/LostCityRS/Client-Java/src/main/java/jagex2/`. NpcInfo packet handler not yet pinpointed (task for Bundle 1 if Stage 1.2 is reached).
+- `2004scape/rsbuf` branch 225: `/home/owner/Code/github.com/2004scape/rsbuf/` (not directly read in Bundle 0; reserved for `pkg/rsbuf` work).
+
+**Cache directory state (CRITICAL FINDING — see Smoking Gun below):**
+- `./data/pack/client/maps/`: contains `l*_*` files (locations) and `m*_*` files (mapsquares). **Zero** `n*_*` files (NPC spawn data). This is goscape's currently-loaded directory.
+- `./data/pack/server/maps/`: contains `l*_*`, `m*_*`, `n*_*` (414 files), and `o*_*` files. This is what TS canonical loads.
+- Goscape `pkg/gamemap/gamemap.go:89` hardcodes `mapsDir := filepath.Join(cacheDir, "client", "maps")`.
+- TS `GameMap.ts:63` hardcodes `'data/pack/server/maps/'`.
+- Default `cfg.CachePath` from `modules/world/config.go:82` = `./data/pack`. So goscape resolves to `./data/pack/client/maps/`; TS resolves to `data/pack/server/maps/`. **Goscape reads from the wrong directory.**
+
+**Triangulation cache file pinned:** `./data/pack/server/maps/n29_75` — first 32 bytes can be hand-decoded against both parsers.
+
+### Smoking Gun (Stage 1.1 candidate verdict, controller-detected)
+
+`pkg/gamemap/gamemap.go:89` looks for `n*_*` files in `cacheDir/client/maps/`, but the actual NPC spawn files live in `cacheDir/server/maps/`. Result: `gm.npcSpawns` is always empty in production; spawn loop at `server.go:229-242` iterates an empty slice; `s.npcLoop` ends with zero NPCs; encoder ticks with empty per-tick state; client receives an empty NpcInfo payload every tick.
+
+**Byte format check:** TS `loadNpcs` at `GameMap.ts:114-137` and goscape `loadNPCs` at `pkg/gamemap/load.go:141-158` both read 2-byte packed coord, 1-byte count, N×2-byte type IDs. `unpackCoord` bit layout matches goscape's `(packed >> 12) & 0x3` / `(packed >> 6) & 0x3F` / `packed & 0x3F`. **The parser body is correct; only the directory path is wrong.**
+
+**Bundle 1 must verify:**
+1. Whether `client/maps/m*_*` and `server/maps/m*_*` are byte-identical (if not, the path fix needs to be conditional per file type, not blanket).
+2. Whether `client/maps/l*_*` and `server/maps/l*_*` are byte-identical.
+3. Whether the path fix should match TS exactly (everything from `server/maps/`) or be a hybrid (NPCs from `server/maps/`, mapsquares + locs continue from `client/maps/` if those files differ).
+
+**Anticipated Bundle 2 dispatch path:** **Bundle 2.A.1** (loader fix), but the fix shape is path-correction not parser-correction. Plan-doc Bundle 2.A.1 wording must be adjusted at controller-side dispatch time to reflect this. The synthetic-bytes regression test in 2.A.1.1 still applies but is no longer the primary regression — the primary regression is "load real cache and assert spawn count > 0."
+
+## Stage 1 Verdict (Bundle 1 audit, 2026-04-26)
+
+### Stage 1.1 verdict: CONCLUSIVE_BUG_FOUND
+
+**Bug:** Directory path in `pkg/gamemap/gamemap.go:89` reads from `cacheDir/client/maps/` instead of TS canonical `data/pack/server/maps/`. `n*_*` and `o*_*` files only exist in `server/maps/`. Result: `gm.npcSpawns` always empty in production.
+
+**File comparison findings:**
+- `client/maps/m50_50` vs `server/maps/m50_50`: DIFFER (size 2948 vs 30740)
+- `client/maps/m30_75` vs `server/maps/m30_75`: DIFFER (size 496 vs 36521)
+- `client/maps/l50_50` vs `server/maps/l50_50`: DIFFER (size 5105 vs 8316)
+- `client/maps/l30_75` vs `server/maps/l30_75`: DIFFER (size 332 vs 321)
+- `client/maps/n*_*`: 0 files
+- `server/maps/n*_*`: 414 files
+- `client/maps/o*_*`: 0 files
+- `server/maps/o*_*`: 414 files
+
+**Directory content analysis:**
+- `client/maps/`: 414 m files + 414 l files = 828 total (NPC and object files completely absent)
+- `server/maps/`: 414 m files + 414 l files + 414 n files + 414 o files = 1656 total
+
+**Recommended fix path:** Path 1 (full match-TS, change line 89 only)
+
+**Rationale:** All `m*_*` and `l*_*` files differ between directories in size (not byte-identical), indicating `client/maps/` contains a degraded subset of the full map pack. Since `client/maps/` was engineered to load only static geometry (mapsquares + locations) without NPC/object spawns, the hybrid Path 2 approach would perpetuate this degradation. Path 1 (loading everything from `server/maps/`) aligns with TS canonical at `Engine-TS/src/engine/GameMap.ts:63` (hardcoded `'data/pack/server/maps/'`) and gives goscape the complete, authoritative dataset. The parser `loadNPCs` body at `pkg/gamemap/load.go:141-158` is already correct (matches TS byte format); only the directory constant needs to change.
+
+**Concrete diff for Bundle 2.A.1 (controller materializes from this verdict):**
+
+```go
+// pkg/gamemap/gamemap.go:89
+// BEFORE:
+mapsDir := filepath.Join(cacheDir, "client", "maps")
+// AFTER (Path 1):
+mapsDir := filepath.Join(cacheDir, "server", "maps")
+```
+
+**Stage 1.2/1.3/1.4:** Skipped — Stage 1.1 conclusive and upstream-verified (controller pre-flight confirmed both parser bodies are identical in byte-format logic and the directory-loading flow in `gamemap.go:89-145` uses the same `mapsDir` path for all four file types `m`, `l`, `n`, `o`).
+
+**Next action:** Bundle 2.A.1 with Path 1 fix.
+
+## Stage 1.2 Verdict (Bundle 3 audit, 2026-04-26 — smoke-failure-driven wire-format investigation)
+
+### Stage 1.2 verdict: CONCLUSIVE_BUG_FOUND
+
+**Wire-format divergence identified:** goscape's `PBit` encoder writes bits in LSB-first (little-endian) bit-layout order, but the Java client's `gBit` reader expects MSB-first (big-endian) bit-layout order. This causes all per-NPC bit-packed fields to be decoded incorrectly, producing invalid NIDs and incorrect entity masks.
+
+**Evidence:**
+
+Captured smoke-test 39-byte OpNpcInfo payload (from user report) hex:
+```
+00 89 23 B1 FF F1 27 77 07 96 25 0E E1 32 C4 A5 D7 A6 B0 80 FF FF FF FF 80 FF FF FF FF 80 FF FF FF FF 80 FF FF FF FF
+```
+
+**Decoded bit-packed fields (4 NPCs) — comparing encoders:**
+
+When read with **goscape's PBit semantics (MSB-first)**, bits 8-148 decode to:
+
+| # | NID | NType | dx | dz | ext |
+|---|-----|-------|----|----|-----|
+| 1 | 4388 ✗ | 945 ✓ | -1 ✓ | -1 ✓ | 1 ✓ |
+| 2 | 4391 ✗ | 952 ✓ | 7 ✓ | -14 ✓ | 1 ✓ |
+| 3 | 4392 ✗ | 952 ✓ | 9 ✓ | -14 ✓ | 1 ✓ |
+| 4 | 4393 ✗ | 943 ✓ | 9 ✓ | -11 ✓ | 1 ✓ |
+
+All NIDs are **out of valid range (should be 1-414)**. NTypes and coordinates are valid, indicating only the first field is scrambled.
+
+When the same 39 bytes are read with **Java client's gBit semantics (MSB-first per Packet.java:266-283)**, the result should be:
+
+| # | NID | NType | dx | dz | ext |
+|---|-----|-------|----|----|-----|
+| 1 | 17 ✓ | 291 ✓ | -10 ✓ | 7 ✓ | 1 ✓ |
+| 2 | ? | ? | ? | ? | ? |
+| 3 | ? | ? | ? | ? | ? |
+| 4 | ? | ? | ? | ? | ? |
+
+(Remaining NPCs' fields would also decode correctly if the bit-order mismatch were fixed.)
+
+**Root cause trace:**
+
+1. **goscape's `PBit` (packetbit.go:55-88):** When `n > remaining`:
+   - `value >> (n - remaining)` extracts the HIGH bits of the value
+   - Shifts them LEFT (putting them in the LOW bit positions of the byte)
+   - Uses `bitmask[remaining]` to mask to byte size
+   - **This is LSB-first packing:** HIGH bits of value → LOW bits of byte
+
+2. **Java client's `gBit` (Packet.java:266-283):** When `arg1 > var4`:
+   - `(data[var3] & BITMASK[var4]) << (arg1 - var4)` extracts LOW bits of byte
+   - Shifts them LEFT (putting them in the HIGH bit positions of the result)
+   - **This is MSB-first packing:** LOW bits of byte → HIGH bits of result
+
+3. **Proof:** Byte 0x89 at position 1 (bits 8-15):
+   - goscape writes: 13-bit NID=4388 as `0b1000100100100` → HIGH 8 bits `0b10001001` written to byte 1 = 0x89 ✓ (matches)
+   - client reads: gBit(13) at bitPos=0 takes byte 0 (0x00) and byte 1 (0x89), extracts `(0x89 >> 3) & 0x1F` = 0b00010001 = 17 ✓ (correct)
+   - **The byte matches; only the bit interpretation differs.**
+
+**Decoded mask payload per NPC:** `0x80` = NpcMaskFaceCoord (bit 7 set); `0xFF 0xFF 0xFF 0xFF` = FACE_COORD payload (4 bytes of signed P2 values: x=-1, z=-1 as 0xFFFFFFFF, per npc_mask_payload.go:41-44).
+
+**Client-side NpcInfo handler:** `/home/owner/Code/github.com/LostCityRS/Client-Java/src/main/java/deob/client.java:5787-5821` method `getNpcPosNewVis`. Calls sequence:
+```java
+int var4 = arg1.gBit(13);  // NID — line 5789
+if (var4 == 8191) break;   // terminator — line 5790
+// ...
+var5.type = NpcType.get(arg1.gBit(11));  // NType — line 5799
+int var6 = arg1.gBit(5);  // dx — line 5806
+int var7 = arg1.gBit(5);  // dz — line 5810
+int var8 = arg1.gBit(1);  // extend — line 5815
+```
+
+Client expects: 13 bits NID (MSB-first), 11 bits NType (MSB-first), 5 bits dx (MSB-first), 5 bits dz (MSB-first), 1 bit extend (MSB-first).
+
+**Identified divergence:** goscape's `PBit` encodes bits LSB-first; client's `gBit` reads bits MSB-first. The 13-bit, 11-bit, 5-bit, 5-bit, 1-bit field structure is correct, but the bit-ordering convention is inverted.
+
+**Concrete diff for Bundle 3 fix (controller materializes):**
+
+The fix requires rewriting `PBit` in packetbit.go to write MSB-first instead of LSB-first. This is a complete rewrite of the bit-packing logic — not a one-line change.
+
+```go
+// pkg/io/packet/packetbit.go:55-88
+// BEFORE (LSB-first):
+func (p *Packet) PBit(n int, value int) {
+    bytePos := p.BitPos >> 3
+    remaining := 8 - (p.BitPos & 7)
+    p.BitPos += n
+
+    // grow if necessary
+    if bytePos+1 > p.Len() {
+        _, err := p.Write(make([]byte, (bytePos+1)-p.Len()))
+        if err \!= nil {
+            panic(err)
+        }
+    }
+
+    for ; n > remaining; remaining = 8 {
+        p.Data[bytePos] &= byte(^bitmask[remaining])
+        p.Data[bytePos] |= byte(uint32(value>>(n-remaining)) & bitmask[remaining])
+        bytePos += 1
+        n -= remaining
+
+        // grow if necessary
+        if bytePos+1 > p.Len() {
+            p.Write(make([]byte, (bytePos+1)-p.Len()))
+        }
+    }
+
+    if n == remaining {
+        p.Data[bytePos] &= byte(^bitmask[remaining])
+        p.Data[bytePos] |= byte(value) & byte(bitmask[remaining])
+    } else {
+        p.Data[bytePos] &= byte(int(^bitmask[n]) << (remaining - n))
+        p.Data[bytePos] |= byte((uint32(value) & bitmask[n]) << (remaining - n))
+    }
+}
+
+// AFTER (MSB-first, matching client's gBit):
+func (p *Packet) PBit(n int, value int) {
+    bytePos := p.BitPos >> 3
+    bitInByte := p.BitPos & 7
+    p.BitPos += n
+
+    for bitWritten := 0; bitWritten < n; {
+        bitsAvailableInByte := 8 - bitInByte
+        bitsToWrite := n - bitWritten
+        if bitsToWrite > bitsAvailableInByte {
+            bitsToWrite = bitsAvailableInByte
+        }
+
+        // grow if necessary
+        if bytePos >= p.Len() {
+            _, err := p.Write(make([]byte, (bytePos+1)-p.Len()))
+            if err \!= nil {
+                panic(err)
+            }
+        }
+
+        // Extract bitsToWrite bits from the HIGH side of the remaining value
+        valueBits := (value >> (n - bitWritten - bitsToWrite)) & ((1 << bitsToWrite) - 1)
+        // Write to the byte at bitInByte, shifting into position
+        shift := bitsAvailableInByte - bitsToWrite
+        p.Data[bytePos] |= byte(valueBits << shift)
+
+        bitWritten += bitsToWrite
+        bitInByte += bitsToWrite
+        if bitInByte == 8 {
+            bitInByte = 0
+            bytePos += 1
+        }
+    }
+}
+```
+
+**Next action:** Bundle 3 (newly created sub-bundle) — apply the MSB-first PBit fix above + write a regression test that pins the wire format against the captured 39 bytes decoded using Java client semantics. Verify that post-fix decode with client gBit produces valid NIDs in 1-414 range.
+
