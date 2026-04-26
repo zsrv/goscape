@@ -327,9 +327,12 @@ func (n *Npc) stepOnce(s *Server) (bool, int) {
 		n.waypointIndex = -1
 		return false, -1
 	}
+	prevX, prevZ := n.x, n.z
 	n.x += dx
 	n.z += dz
 	n.stepsTaken++
+	// Per-step refreshZone — mirrors TS PathingEntity.ts:182-183.
+	refreshNpcZone(s, n, prevX, prevZ, n.level)
 	if n.x == dest.X && n.z == dest.Z {
 		n.waypointIndex--
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
+	"github.com/zsrv/goscape/pkg/zone"
 )
 
 func TestCheckOpTrigger(t *testing.T) {
@@ -1370,4 +1371,54 @@ func TestApproachEntitySizeUsesNpcSizeSnapshotNotTyp(t *testing.T) {
 		t.Errorf("approachEntitySize: got (%d, %d), want (2, 2) — must read "+
 			"t.size snapshot, not t.typ.Size live", w, l)
 	}
+}
+
+func TestNpcStepCrossZoneRefreshSubscription(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{Size: 1, BlockWalk: objtype.BlockWalkNone}
+	n := newRegisteredNpc(t, s, typ, true)
+	// Start at (3200, 3200) zone (400, 400). Place at boundary first, then step east.
+	prevZone := s.zoneMap.Get(0, n.x, n.z)
+	prevX, prevZ := n.x, n.z
+	// Manually craft a step: mutate n.x, then simulate the per-step refresh
+	// the same way stepOnce would (via direct call). Real test uses queueWaypoints +
+	// stepOnce; for this commit we exercise the wire-through.
+	n.waypoints[0] = (0 << 28) | ((n.x + 8) << 14) | n.z // east 8 tiles to next zone
+	n.waypointIndex = 0
+	if !nIsInZone(n, prevZone) {
+		t.Fatal("setup: NPC not in expected starting zone")
+	}
+	_ = prevX
+	_ = prevZ
+	// Use a single stepOnce. Since stepOnce moves only 1 tile, we step until
+	// crossing zone (8 tiles). Easier: place at zone-boundary and step once.
+	n.x = 3199
+	n.z = 3200
+	// Re-subscribe to the boundary zone for accurate test setup.
+	prevZone.LeaveNpc(n, n.zoneListElement)
+	prevZone2 := s.zoneMap.Get(0, n.x, n.z)
+	n.zoneListElement = prevZone2.EnterNpc(n)
+	n.waypoints[0] = (0 << 28) | (3200 << 14) | 3200
+	n.waypointIndex = 0
+	ok, _ := n.stepOnce(s)
+	if !ok {
+		t.Fatal("stepOnce returned false")
+	}
+	if prevZone2.NpcsCount() != 0 {
+		t.Errorf("prev zone NpcsCount: got %d, want 0", prevZone2.NpcsCount())
+	}
+	newZ := s.zoneMap.Get(0, 3200, 3200)
+	if newZ.NpcsCount() != 1 {
+		t.Errorf("new zone NpcsCount: got %d, want 1", newZ.NpcsCount())
+	}
+}
+
+// nIsInZone returns true if n is subscribed to z (helper for tests above).
+func nIsInZone(n *Npc, z *zone.Zone) bool {
+	for cn := range z.NpcsSafe(false) {
+		if cn.Nid() == n.Nid() {
+			return true
+		}
+	}
+	return false
 }
