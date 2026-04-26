@@ -5,9 +5,10 @@ import "github.com/zsrv/goscape/pkg/io/packet"
 // Renderer caches per-slot mask-payload byte slices for the current tick.
 // ComputePlayers must run once per tick before any encoder reads.
 type Renderer struct {
-	highDef     [2048][]byte
-	lowDefFull  [2048][]byte // includes forced APPEARANCE + FACE_COORD
-	lowDefNoApp [2048][]byte // forces FACE_COORD but NOT APPEARANCE
+	highDef         [2048][]byte // CHAT stripped from header AND payload (consumed by writeLocalPlayer for self per info.rs:289-291)
+	highDefWithChat [2048][]byte // CHAT preserved (consumed by writePlayers for tracked others)
+	lowDefFull      [2048][]byte // includes forced APPEARANCE + FACE_COORD
+	lowDefNoApp     [2048][]byte // forces FACE_COORD but NOT APPEARANCE
 
 	npcHighDef [8192][]byte
 	npcLowDef  [8192][]byte // forces FACE_COORD baseline
@@ -32,8 +33,10 @@ func (r *Renderer) ComputePlayers(players []PlayerSource) {
 		// return;`, renderer.ts:41-43).
 		if masks == 0 {
 			r.highDef[slot] = nil
+			r.highDefWithChat[slot] = nil
 		} else {
-			r.highDef[slot] = buildPayload(p, masks, true)
+			r.highDef[slot] = buildPayload(p, masks, true)          // CHAT stripped (self per info.rs:289-291)
+			r.highDefWithChat[slot] = buildPayload(p, masks, false) // CHAT preserved (tracked others)
 		}
 
 		// Low-def carries baselines for newly-visible players (appearance
@@ -60,6 +63,17 @@ func (r *Renderer) HighDefOf(slot int) []byte {
 		return nil
 	}
 	return r.highDef[slot]
+}
+
+// HighDefWithChatOf returns the high-def mask payload bytes with CHAT
+// preserved (nil if no masks). Consumed by writePlayers for
+// tracked-other reads — other players' chat is preserved per upstream
+// info.rs::write_blocks (only self strips CHAT per info.rs:289-291).
+func (r *Renderer) HighDefWithChatOf(slot int) []byte {
+	if slot < 1 || slot >= len(r.highDefWithChat) {
+		return nil
+	}
+	return r.highDefWithChat[slot]
 }
 
 // LowDefFullOf returns the low-def payload bytes including APPEARANCE.
