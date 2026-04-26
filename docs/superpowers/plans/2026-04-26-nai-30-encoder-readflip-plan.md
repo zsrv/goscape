@@ -1246,11 +1246,15 @@ func (pi *PlayerInfo) Encode(b *Buf, pid int32, renderer *Renderer) []byte {
 	// Bundle 2 Task 2.5 will fill writeNewPlayers.
 
 	// Mirrors info.rs:62-68: append updates buffer if non-empty,
-	// preceded by the 11-bit `2047` sentinel.
-	if pi.updates.Pos > 0 {
+	// preceded by the 11-bit `2047` sentinel. NB: detect "non-empty"
+	// via `len(pi.updates.Data) > 0`, not `pi.updates.Pos`. In the
+	// project's packet.Packet shape (pkg/io/packet/buffer.go:20),
+	// Pos is the READ pointer; writes append to len(Data). Mirrors
+	// the EncodeLegacy pattern at playerinfo.go:31,37-39.
+	if len(pi.updates.Data) > 0 {
 		pi.buf.PBit(11, 2047)
 		pi.buf.AccessBytes()
-		for _, b2 := range pi.updates.Data[:pi.updates.Pos] {
+		for _, b2 := range pi.updates.Data {
 			pi.buf.P1(b2)
 		}
 	} else {
