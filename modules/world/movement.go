@@ -87,6 +87,10 @@ func (p *Player) stepOnce() (coordgrid.Direction, bool) {
 	p.z += dz
 	p.stepsTaken++
 
+	// Per-step refreshZone — mirrors TS PathingEntity.ts:182-183.
+	// Level cannot change in stepOnce (single-tile delta); pass p.level for both.
+	refreshPlayerZone(p, p.lastStepX, p.lastStepZ, p.level)
+
 	if p.x == dest.X && p.z == dest.Z {
 		p.waypointIndex--
 	}

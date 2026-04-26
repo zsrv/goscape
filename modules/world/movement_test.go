@@ -176,3 +176,49 @@ func TestResolveMovementDrainsRunEnergy(t *testing.T) {
 		t.Errorf("run energy should have drained, got %d", p.runenergy)
 	}
 }
+
+func TestPlayerStepCrossZoneRefreshSubscription(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.client.server = s
+	// Start in zone (399, 400) at (3199, 3200).
+	p.x, p.z, p.level = 3199, 3200, 0
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	// Queue a step east into zone (400, 400).
+	p.queueWaypoint(3200, 3200)
+	dir, ok := p.stepOnce()
+	if !ok {
+		t.Fatalf("stepOnce ok: got false (dir=%d)", dir)
+	}
+	prevZ := s.zoneMap.Get(0, 3199, 3200)
+	newZ := s.zoneMap.Get(0, 3200, 3200)
+	if prevZ.PlayersCount() != 0 {
+		t.Errorf("prev zone PlayersCount: got %d, want 0", prevZ.PlayersCount())
+	}
+	if newZ.PlayersCount() != 1 {
+		t.Errorf("new zone PlayersCount: got %d, want 1", newZ.PlayersCount())
+	}
+}
+
+func TestPlayerStepIntraZoneNoSubscriptionChange(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.client.server = s
+	// Start at (3200, 3200) zone (400, 400). Step to (3201, 3201) — same zone.
+	p.x, p.z, p.level = 3200, 3200, 0
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	p.queueWaypoint(3201, 3201)
+	if _, ok := p.stepOnce(); !ok {
+		t.Fatal("stepOnce ok: got false")
+	}
+	z := s.zoneMap.Get(0, 3200, 3200)
+	if z.PlayersCount() != 1 {
+		t.Errorf("intra-zone step PlayersCount: got %d, want 1", z.PlayersCount())
+	}
+}
