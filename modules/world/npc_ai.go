@@ -32,7 +32,9 @@ func (n *Npc) turn(s *Server) {
 				if n.dead {
 					// Respawn: flip dead, reset position, revert type.
 					n.dead = false
+					prevX, prevZ, prevLevel := n.x, n.z, n.level
 					n.x, n.z, n.level = n.startX, n.startZ, n.startLevel
+					refreshNpcZone(s, n, prevX, prevZ, prevLevel)
 					n.revertType()
 				} else {
 					// Revert morphed NPC (post-changetype).

@@ -92,7 +92,9 @@ func (n *Npc) wanderMode(s *Server) {
 	n.wanderCounter++
 	if n.wanderCounter >= 500 {
 		if !onSpawn {
+			prevX, prevZ, prevLevel := n.x, n.z, n.level
 			n.x, n.z, n.level = n.startX, n.startZ, n.startLevel
+			refreshNpcZone(s, n, prevX, prevZ, prevLevel)
 			n.tele = true
 		}
 		n.wanderCounter = 0
@@ -119,7 +121,9 @@ func (n *Npc) patrolMode(s *Server) {
 		n.queueWaypoint(dest.X, dest.Z)
 	}
 	if (n.x != dest.X || n.z != dest.Z) && n.nextPatrolTick > -1 && s.currentTick >= n.nextPatrolTick {
+		prevX, prevZ, prevLevel := n.x, n.z, n.level
 		n.x, n.z, n.level = dest.X, dest.Z, 0
+		refreshNpcZone(s, n, prevX, prevZ, prevLevel)
 		n.tele = true
 	}
 	if n.x == dest.X && n.z == dest.Z && !n.delayedPatrol {

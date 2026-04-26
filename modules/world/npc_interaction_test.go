@@ -1422,3 +1422,32 @@ func nIsInZone(n *Npc, z *zone.Zone) bool {
 	}
 	return false
 }
+
+func TestNpcStuckTeleportRefreshSubscription(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{Size: 1, BlockWalk: objtype.BlockWalkNone}
+	n := newRegisteredNpc(t, s, typ, true)
+	// startX/startZ are 3200/3200 by default per newRegisteredNpc.
+	// Move NPC to a different zone, then trigger stuck teleport (n.x, n.z, n.level = startX, startZ, startLevel).
+	prevZone := s.zoneMap.Get(0, n.x, n.z)
+	// Manually move NPC to (4000, 4000, 0) to set up the stuck-teleport scenario.
+	n.x, n.z, n.level = 4000, 4000, 0
+	awayZone := s.zoneMap.Get(0, 4000, 4000)
+	prevZone.LeaveNpc(n, n.zoneListElement)
+	n.zoneListElement = awayZone.EnterNpc(n)
+	// Now invoke stuck-teleport via the NPC patrol/wander path. Set startX/Z
+	// for clarity. The actual stuck-teleport site at npc_interaction.go:95
+	// fires when the wander mode reaches its 30-tick stuck horizon — direct
+	// invocation in tests is tricky; a synthetic test calls the helper
+	// directly to exercise the wire-through.
+	prevX, prevZ, prevLevel := n.x, n.z, n.level
+	n.x, n.z, n.level = n.startX, n.startZ, n.startLevel
+	refreshNpcZone(s, n, prevX, prevZ, prevLevel)
+	homeZone := s.zoneMap.Get(0, n.startX, n.startZ)
+	if awayZone.NpcsCount() != 0 {
+		t.Errorf("away zone NpcsCount after stuck-teleport: got %d, want 0", awayZone.NpcsCount())
+	}
+	if homeZone.NpcsCount() != 1 {
+		t.Errorf("home zone NpcsCount after stuck-teleport: got %d, want 1", homeZone.NpcsCount())
+	}
+}
