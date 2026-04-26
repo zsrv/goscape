@@ -426,3 +426,24 @@ func (b *Buf) GetNpcObservers(nid int32) int32 {
 	}
 	return n.Observers
 }
+
+// PlayerForTest returns the *Player at slot pid, or nil if unset.
+// Test-only accessor exposed for cross-package integration tests in
+// modules/world; production code uses PlayerInfo.Encode and the
+// dedicated query methods (HasPlayer, etc.).
+func (b *Buf) PlayerForTest(pid int32) *Player {
+	if pid < 0 || int(pid) >= len(b.players) {
+		return nil
+	}
+	return b.players[pid]
+}
+
+// NpcForTest returns the *Npc at slot nid, or nil if unset.
+// Test-only accessor exposed for cross-package integration tests
+// in modules/world.
+func (b *Buf) NpcForTest(nid int32) *Npc {
+	if nid < 0 || int(nid) >= len(b.npcs) {
+		return nil
+	}
+	return b.npcs[nid]
+}

@@ -91,3 +91,65 @@ func TestProcessCleanup_RsbufCleanupSmoke(t *testing.T) {
 		t.Errorf("post-cleanup GetNpcObservers: got %d, want 0", got)
 	}
 }
+
+// TestProcessInfo_PassesRealOrientationFields — NAI-30 Bundle 1 Task 1.5.
+// Pins that the OrientationX/Z field values set on modules/world.Player
+// propagate through tick.go's ComputePlayer call into b.players[pid]
+// after s.processInfo(). Closes the loop on T1.3 (field plumbing).
+func TestProcessInfo_PassesRealOrientationFields(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	if err := s.gamemap.Init(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	s.renderer = rsbuf.NewRenderer()
+	s.grid = grid.New()
+
+	p := setupInfoPlayer(t, s, 1, 50, 50, 0)
+	s.rsbuf.AddPlayer(int32(p.slot))
+
+	p.OrientationX = 1234
+	p.OrientationZ = 5678
+
+	s.processInfo()
+
+	rp := s.rsbuf.PlayerForTest(int32(p.slot))
+	if rp == nil {
+		t.Fatal("rsbuf player slot not populated after processInfo")
+	}
+	if rp.OrientationX != 1234 {
+		t.Errorf("OrientationX: got %d, want 1234", rp.OrientationX)
+	}
+	if rp.OrientationZ != 5678 {
+		t.Errorf("OrientationZ: got %d, want 5678", rp.OrientationZ)
+	}
+}
+
+// TestProcessInfo_PassesRealLastAppearance — NAI-30 Bundle 1 Task 1.5.
+// Pins that lastAppearance set on modules/world.Player propagates
+// through tick.go's ComputePlayer call into b.players[pid].LastAppearance.
+// Closes the loop on T1.4 (field plumbing + producer).
+func TestProcessInfo_PassesRealLastAppearance(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	if err := s.gamemap.Init(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	s.renderer = rsbuf.NewRenderer()
+	s.grid = grid.New()
+
+	p := setupInfoPlayer(t, s, 1, 50, 50, 0)
+	s.rsbuf.AddPlayer(int32(p.slot))
+
+	p.lastAppearance = 42
+
+	s.processInfo()
+
+	rp := s.rsbuf.PlayerForTest(int32(p.slot))
+	if rp == nil {
+		t.Fatal("rsbuf player slot not populated after processInfo")
+	}
+	if rp.LastAppearance != 42 {
+		t.Errorf("LastAppearance: got %d, want 42", rp.LastAppearance)
+	}
+}

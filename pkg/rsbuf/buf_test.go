@@ -745,3 +745,37 @@ func TestGetNpcObservers_NilSlotIsZero(t *testing.T) {
 		t.Errorf("GetNpcObservers(8192): got %d, want 0", got)
 	}
 }
+
+func TestBuf_PlayerForTest_BoundsAndPresence(t *testing.T) {
+	b := New()
+	if got := b.PlayerForTest(-1); got != nil {
+		t.Errorf("PlayerForTest(-1): got %v, want nil", got)
+	}
+	if got := b.PlayerForTest(2048); got != nil {
+		t.Errorf("PlayerForTest(2048): got %v, want nil", got)
+	}
+	if got := b.PlayerForTest(5); got != nil {
+		t.Errorf("PlayerForTest(5) before AddPlayer: got %v, want nil", got)
+	}
+	b.AddPlayer(5)
+	if got := b.PlayerForTest(5); got == nil {
+		t.Error("PlayerForTest(5) after AddPlayer: got nil, want non-nil")
+	}
+}
+
+func TestBuf_NpcForTest_BoundsAndPresence(t *testing.T) {
+	b := New()
+	if got := b.NpcForTest(-1); got != nil {
+		t.Errorf("NpcForTest(-1): got %v, want nil", got)
+	}
+	if got := b.NpcForTest(8192); got != nil {
+		t.Errorf("NpcForTest(8192): got %v, want nil", got)
+	}
+	if got := b.NpcForTest(5); got != nil {
+		t.Errorf("NpcForTest(5) before AddNpc: got %v, want nil", got)
+	}
+	b.AddNpc(5, 100)
+	if got := b.NpcForTest(5); got == nil {
+		t.Error("NpcForTest(5) after AddNpc: got nil, want non-nil")
+	}
+}
