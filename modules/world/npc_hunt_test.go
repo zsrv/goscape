@@ -1180,6 +1180,10 @@ func TestHuntPlayersUsesZoneSubscriptionExclusive(t *testing.T) {
 	phantom.slot = 99
 	phantom.x, phantom.z, phantom.level = hunter.x+1, hunter.z+1, hunter.level
 	phantom.combatLevel = 50
+	// active=true so any silent grid-fallback regression cannot also be
+	// masked by an IsValid()==false filter — the test must catch grid-fallback
+	// regardless of where IsValid checks land in the filter chain.
+	phantom.active = true
 	s.players[99] = phantom
 	hunt := &objtype.HuntType{
 		CheckNpc:           -1,
@@ -1193,6 +1197,37 @@ func TestHuntPlayersUsesZoneSubscriptionExclusive(t *testing.T) {
 	for _, e := range got {
 		if pl, ok := e.(*Player); ok && pl.slot == 99 {
 			t.Error("huntPlayers returned grid-only player; should be Zone-exclusive")
+		}
+	}
+}
+
+// TestHuntPlayersRespectsIsValidFilter verifies that PlayersSafe's
+// IsValid() gate propagates to huntPlayers — a Zone-subscribed but
+// inactive player must NOT appear. Mirrors TS huntPlayers's reliance
+// on Zone.getAllPlayersSafe.
+func TestHuntPlayersRespectsIsValidFilter(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{Size: 1, VisLevel: 50}
+	hunter := newRegisteredNpc(t, s, typ, true)
+	hunter.huntRange = 5
+	// Spawn a Zone-subscribed player at hunter's tile via addPlayerToServer
+	// (post-NAI-28 it subscribes to Zone AND sets active=true).
+	target := addPlayerToServer(t, s, 1, hunter.x, hunter.z, hunter.level)
+	target.combatLevel = 50
+	// Flip active=false — IsValid() returns false; PlayersSafe must skip.
+	target.active = false
+	hunt := &objtype.HuntType{
+		CheckNpc:           -1,
+		CheckVis:           objtype.HuntVisOff,
+		CheckNotTooStrong:  objtype.HuntCheckNotTooStrongOff,
+		CheckNotCombat:     -1,
+		CheckNotCombatSelf: -1,
+		CheckInv:           -1,
+	}
+	got := hunter.huntPlayers(s, hunt)
+	for _, e := range got {
+		if pl, ok := e.(*Player); ok && pl.slot == target.slot {
+			t.Errorf("huntPlayers returned inactive player slot=%d; IsValid filter should skip it", target.slot)
 		}
 	}
 }

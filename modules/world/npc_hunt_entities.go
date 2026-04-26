@@ -31,6 +31,10 @@ func (n *Npc) huntNpcs(s *Server, hunt *objtype.HuntType) []entity {
 	var hunted []entity
 	for _, zn := range s.zoneMap.NearbyZones(n.level, n.x, n.z, zoneRadius) {
 		for nl := range zn.NpcsSafe(false) {
+			// Type-assertion guard for the NpcLike cyclic-import boundary
+			// (pkg/zone defines NpcLike; modules/world/*Npc satisfies it).
+			// Production EnterNpc only ever receives *Npc, so ok=false is
+			// currently unreachable — kept as forward-compatible safety.
 			other, ok := nl.(*Npc)
 			if !ok {
 				continue

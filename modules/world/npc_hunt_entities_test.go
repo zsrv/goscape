@@ -815,3 +815,26 @@ func TestHuntNpcsUsesZoneSubscriptionExclusive(t *testing.T) {
 		}
 	}
 }
+
+// TestHuntNpcsRespectsIsValidFilter verifies that NpcsSafe's IsValid()
+// gate propagates to huntNpcs results — a Zone-subscribed NPC marked
+// dead must NOT appear in hunt results. Mirrors TS huntNpcs's reliance
+// on Zone.getAllNpcsSafe (which yields only IsValid()==true entities).
+func TestHuntNpcsRespectsIsValidFilter(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{Size: 1, BlockWalk: objtype.BlockWalkNone, Category: -1}
+	hunter := newRegisteredNpc(t, s, typ, true)
+	hunter.huntRange = 5
+	// Spawn a Zone-subscribed neighbor NPC. newRegisteredNpc places it at
+	// the same default tile as hunter, which is fine for an in-range hunt.
+	target := newRegisteredNpc(t, s, typ, true)
+	// Mark target dead — IsValid() returns false; NpcsSafe must skip.
+	target.dead = true
+	hunt := &objtype.HuntType{CheckNpc: -1, CheckCategory: -1, CheckVis: objtype.HuntVisOff}
+	got := hunter.huntNpcs(s, hunt)
+	for _, e := range got {
+		if other, ok := e.(*Npc); ok && other.nid == target.nid {
+			t.Errorf("huntNpcs returned dead NPC nid=%d; IsValid filter should skip it", target.nid)
+		}
+	}
+}

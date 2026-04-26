@@ -118,6 +118,10 @@ func (n *Npc) huntPlayers(s *Server, hunt *objtype.HuntType) []entity {
 	var hunted []entity
 	for _, zn := range s.zoneMap.NearbyZones(n.level, n.x, n.z, zoneRadius) {
 		for pl := range zn.PlayersSafe(false) {
+			// Type-assertion guard for the PlayerLike cyclic-import boundary
+			// (pkg/zone defines PlayerLike; modules/world/*Player satisfies it).
+			// Production EnterPlayer only ever receives *Player, so ok=false is
+			// currently unreachable — kept as forward-compatible safety.
 			p, ok := pl.(*Player)
 			if !ok {
 				continue
