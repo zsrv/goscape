@@ -17,8 +17,9 @@ func writeMaskHeader(buf *packet.Packet, masks int) {
 // APPEARANCE -> DAMAGE -> CHAT.
 //
 // forceMasks is the effective mask set to write (may differ from p.Masks() for
-// low-def variants). suppressChat strips CHAT from the output.
-func writeMaskPayloads(buf *packet.Packet, p PlayerSource, forceMasks int, suppressChat bool) {
+// low-def variants). Callers requesting CHAT suppression must pre-strip
+// MaskChat from forceMasks before calling (see buildPayload at renderer.go:122).
+func writeMaskPayloads(buf *packet.Packet, p PlayerSource, forceMasks int) {
 	if forceMasks&MaskAnim != 0 {
 		writeAnim(buf, p)
 	}
@@ -43,7 +44,7 @@ func writeMaskPayloads(buf *packet.Packet, p PlayerSource, forceMasks int, suppr
 	if forceMasks&MaskDamage != 0 {
 		writeDamage(buf, p)
 	}
-	if forceMasks&MaskChat != 0 && !suppressChat {
+	if forceMasks&MaskChat != 0 {
 		writeChat(buf, p)
 	}
 }

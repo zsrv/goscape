@@ -120,9 +120,12 @@ func (r *Renderer) NpcLowDefOf(nid int) []byte {
 }
 
 func buildPayload(p PlayerSource, masks int, suppressChat bool) []byte {
+	if suppressChat {
+		masks &^= MaskChat // CHAT bit stripped per info.rs:289-291; header AND payload omit CHAT
+	}
 	buf := packet.NewPacket(nil)
 	writeMaskHeader(buf, masks)
-	writeMaskPayloads(buf, p, masks, suppressChat)
+	writeMaskPayloads(buf, p, masks)
 	// packet.Packet writes append to Data; Pos is the read cursor and stays 0.
 	return append([]byte(nil), buf.Data...)
 }

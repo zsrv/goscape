@@ -77,7 +77,7 @@ func bytesWritten(p *packet.Packet) []byte { return p.Data }
 func TestAnimPayload(t *testing.T) {
 	p := &fakeSource{masks: MaskAnim, animID: 0x1234, animDelay: 5}
 	buf := packet.NewPacket(nil)
-	writeMaskPayloads(buf, p, MaskAnim, false)
+	writeMaskPayloads(buf, p, MaskAnim)
 	got := bytesWritten(buf)
 	// ANIM: p2(0x1234) p1_alt3(5) = [0x12, 0x34, 0xfb]  (0xfb = (-5)&0xff)
 	want := []byte{0x12, 0x34, 0xfb}
@@ -92,7 +92,7 @@ func TestAnimPayload(t *testing.T) {
 func TestFaceCoordPayload(t *testing.T) {
 	p := &fakeSource{masks: MaskFaceCoord, faceSquareX: 0x0182, faceSquareZ: 0x0184}
 	buf := packet.NewPacket(nil)
-	writeMaskPayloads(buf, p, MaskFaceCoord, false)
+	writeMaskPayloads(buf, p, MaskFaceCoord)
 	got := bytesWritten(buf)
 	want := []byte{0x01, 0x82, 0x01, 0x84}
 	for i := range want {
@@ -105,7 +105,7 @@ func TestFaceCoordPayload(t *testing.T) {
 func TestAppearancePayload(t *testing.T) {
 	p := &fakeSource{masks: MaskAppearance, appearance: []byte{1, 2, 3}}
 	buf := packet.NewPacket(nil)
-	writeMaskPayloads(buf, p, MaskAppearance, false)
+	writeMaskPayloads(buf, p, MaskAppearance)
 	got := bytesWritten(buf)
 	// rev 225 sends appearance as plain pdata (no +128 scrambling) — client's
 	// PlayerEntity.read uses plain g1/g2 and relies on the empty-slot sentinel
@@ -122,7 +122,7 @@ func TestAppearancePayload(t *testing.T) {
 func TestChatPayload(t *testing.T) {
 	p := &fakeSource{masks: MaskChat, chatColour: 1, chatEffect: 2, chatRights: 3, chatBytes: []byte("yo")}
 	buf := packet.NewPacket(nil)
-	writeMaskPayloads(buf, p, MaskChat, false)
+	writeMaskPayloads(buf, p, MaskChat)
 	got := bytesWritten(buf)
 	// p1(1) p1(2) p1_alt2(3)=125 p1_alt1(len=2)=130 pdata_alt2("yo")
 	// 'y'=121, 128-121=7; 'o'=111, 128-111=17
@@ -138,7 +138,7 @@ func TestChatPayload(t *testing.T) {
 func TestDamagePayload(t *testing.T) {
 	p := &fakeSource{masks: MaskDamage, damageAmt: 10, damageType: 1, curHP: 40, baseHP: 50}
 	buf := packet.NewPacket(nil)
-	writeMaskPayloads(buf, p, MaskDamage, false)
+	writeMaskPayloads(buf, p, MaskDamage)
 	got := bytesWritten(buf)
 	// p1_alt1(10)=138 p1_alt3(1)=255 p1_alt2(40)=88 p1(50)
 	want := []byte{138, 255, 88, 50}
@@ -164,5 +164,52 @@ func TestMaskHeaderLarge(t *testing.T) {
 	got := bytesWritten(buf)
 	if got[0] != 0x82 || got[1] != 0x01 {
 		t.Errorf("large header: got %v, want [0x82 0x01]", got)
+	}
+}
+
+// TestBuildPayload_HeaderPayloadConsistent_ChatStripped pins the
+// invariant that buildPayload's chat-strip path produces a header
+// AND payload that are mutually consistent: when CHAT is stripped
+// from the body, the header byte must NOT advertise the CHAT bit.
+//
+// Without the fix at buildPayload (`if suppressChat { masks &^= MaskChat }`),
+// writeMaskHeader writes the CHAT bit but writeMaskPayloads omits the
+// CHAT body — the receiving client mis-parses (reads CHAT header bit,
+// expects body, consumes the next player's bytes). NAI-32 surfaces and
+// retires this latent bug.
+func TestBuildPayload_HeaderPayloadConsistent_ChatStripped(t *testing.T) {
+	p := &fakeSource{
+		masks:      MaskChat | MaskAnim,
+		animID:     0x1234,
+		animDelay:  5,
+		chatColour: 1,
+		chatEffect: 2,
+		chatRights: 3,
+		chatBytes:  []byte("hello"),
+	}
+	out := buildPayload(p, MaskChat|MaskAnim, true)
+
+	// MaskAnim = 0x2, MaskChat = 0x40. Sum = 0x42 < 0x100 → 1-byte header.
+	// After strip, header byte should be MaskAnim only = 0x2.
+	if len(out) == 0 {
+		t.Fatalf("buildPayload returned empty; expected at least header byte")
+	}
+	if out[0]&byte(MaskChat) != 0 {
+		t.Errorf("header has CHAT bit set: got 0x%02x; want CHAT bit clear", out[0])
+	}
+	if out[0] != byte(MaskAnim) {
+		t.Errorf("header byte: got 0x%02x, want 0x%02x (MaskAnim only)", out[0], MaskAnim)
+	}
+
+	// Payload must be anim-only: P2(0x1234) + P1Alt3(5).
+	// P1Alt3(5) writes (-5)&0xff = 0xfb (per existing TestAnimPayload).
+	want := []byte{byte(MaskAnim), 0x12, 0x34, 0xfb}
+	if len(out) != len(want) {
+		t.Fatalf("payload length: got %d, want %d (header + 3 anim bytes); bytes %#v", len(out), len(want), out)
+	}
+	for i := range want {
+		if out[i] != want[i] {
+			t.Errorf("byte[%d]: got 0x%02x, want 0x%02x (full=%#v)", i, out[i], want[i], out)
+		}
 	}
 }
