@@ -753,6 +753,48 @@ func TestGetNpcObservers_NilSlotIsZero(t *testing.T) {
 	}
 }
 
+func TestSetObserverForTest_HappyPath(t *testing.T) {
+	b := New()
+	b.AddNpc(50, 100)
+	b.SetObserverForTest(50, 7)
+	if got := b.GetNpcObservers(50); got != 7 {
+		t.Errorf("GetNpcObservers(50) after SetObserverForTest(50, 7): got %d, want 7", got)
+	}
+}
+
+func TestSetObserverForTest_FloorsAtZero(t *testing.T) {
+	b := New()
+	b.AddNpc(50, 100)
+	b.SetObserverForTest(50, -3)
+	if got := b.GetNpcObservers(50); got != 0 {
+		t.Errorf("GetNpcObservers(50) after SetObserverForTest(50, -3): got %d, want 0", got)
+	}
+}
+
+func TestSetObserverForTest_NilSlotIsNoOp(t *testing.T) {
+	b := New()
+	// Don't call AddNpc(50, ...) — leave it nil
+	b.SetObserverForTest(50, 5)
+	if got := b.GetNpcObservers(50); got != 0 {
+		t.Errorf("GetNpcObservers(50) on nil slot after SetObserverForTest(50, 5): got %d, want 0", got)
+	}
+}
+
+func TestSetObserverForTest_OutOfRangeIsNoOp(t *testing.T) {
+	b := New()
+	// Test negative nid
+	b.SetObserverForTest(-1, 5)
+	// Test nid >= bounds
+	b.SetObserverForTest(8192, 5)
+	// Should not panic; observer counts should remain zero
+	if got := b.GetNpcObservers(-1); got != 0 {
+		t.Errorf("GetNpcObservers(-1): got %d, want 0", got)
+	}
+	if got := b.GetNpcObservers(8192); got != 0 {
+		t.Errorf("GetNpcObservers(8192): got %d, want 0", got)
+	}
+}
+
 func TestBuf_PlayerForTest_BoundsAndPresence(t *testing.T) {
 	b := New()
 	if got := b.PlayerForTest(-1); got != nil {

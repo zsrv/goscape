@@ -5,6 +5,7 @@ import (
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 )
 
@@ -54,7 +55,8 @@ func TestNpcSetDelayed(t *testing.T) {
 func newServerForScriptTest(t *testing.T) *Server {
 	t.Helper()
 	return &Server{
-		log: discardLogger(),
+		log:    discardLogger(),
+		rsbuf: rsbuf.New(),
 	}
 }
 

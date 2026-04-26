@@ -434,6 +434,23 @@ func (b *Buf) GetNpcObservers(nid int32) int32 {
 	return n.Observers
 }
 
+// SetObserverForTest writes the observer count for nid directly,
+// flooring at 0. Test-only; mirrors the contract of the
+// retired-in-this-bundle package-level rsbuf.SetObserverForTest
+// shim. No-op if nid is out of bounds or slot is unpopulated.
+func (b *Buf) SetObserverForTest(nid, count int32) {
+	if nid < 0 || int(nid) >= len(b.npcs) {
+		return
+	}
+	if b.npcs[nid] == nil {
+		return
+	}
+	if count < 0 {
+		count = 0
+	}
+	b.npcs[nid].Observers = count
+}
+
 // PlayerForTest returns the *Player at slot pid, or nil if unset.
 // Test-only accessor exposed for cross-package integration tests in
 // modules/world; production code uses PlayerInfo.Encode and the

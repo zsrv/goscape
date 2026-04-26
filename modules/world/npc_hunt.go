@@ -5,14 +5,13 @@ import (
 
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
-	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 )
 
 // processNpcHunt runs the per-tick hunt pass. Matches TS
 // Npc.ts:158-171.
 //
-// Observer gate: calls rsbuf.GetNpcObservers(n.nid) — the counter
+// Observer gate: calls s.rsbuf.GetNpcObservers(int32(n.nid)) — the counter
 // maintained by pkg/rsbuf's NpcInfo encoder (subscription add/remove)
 // and by processLogouts's bulk-decrement. Mirrors TS rsbuf.getNpcObservers
 // public API.
@@ -38,7 +37,10 @@ func (s *Server) processNpcHunt(n *Npc) {
 	if hunt == nil {
 		return
 	}
-	observers := rsbuf.GetNpcObservers(n.nid)
+	var observers int32
+	if s.rsbuf != nil {
+		observers = s.rsbuf.GetNpcObservers(int32(n.nid))
+	}
 	if hunt.NobodyNear == objtype.HuntNobodyNearPauseHunt &&
 		observers <= 0 &&
 		hunt.Type != objtype.HuntModePlayer {

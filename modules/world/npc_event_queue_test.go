@@ -399,12 +399,13 @@ func TestProcessNpcHuntIncrementsClockWhenHuntModeValid(t *testing.T) {
 // TestProcessNpcHuntPauseHuntBailsWithNoObservers validates that
 // PAUSEHUNT gates short-circuit (skip huntAll and clock increment)
 // when observer count is zero and hunt type is not HuntModePlayer.
-// Observer count is seeded via rsbuf.SetObserverForTest.
+// Observer count is seeded via s.rsbuf.SetObserverForTest.
 func TestProcessNpcHuntPauseHuntBailsWithNoObservers(t *testing.T) {
 	s := newServerForScriptTest(t)
 	n := newNpcForLifecycleTest(t) // nid = 1 per NewNpc's arg
-	rsbuf.SetObserverForTest(n.nid, 0)
-	defer rsbuf.SetObserverForTest(n.nid, 0)
+	s.rsbuf.AddNpc(int32(n.nid), 0)
+	s.rsbuf.SetObserverForTest(int32(n.nid), 0)
+	defer s.rsbuf.SetObserverForTest(int32(n.nid), 0)
 	n.server = s
 	n.huntMode = 0 // index into huntTypes
 	n.huntRange = 10
@@ -429,8 +430,9 @@ func TestProcessNpcHuntPauseHuntBailsWithNoObservers(t *testing.T) {
 func TestProcessNpcHuntPauseHuntRunsWithObservers(t *testing.T) {
 	s := newServerForScriptTest(t)
 	n := newNpcForLifecycleTest(t)
-	rsbuf.SetObserverForTest(n.nid, 1)       // seed one observer
-	defer rsbuf.SetObserverForTest(n.nid, 0) // cleanup
+	s.rsbuf.AddNpc(int32(n.nid), 0)
+	s.rsbuf.SetObserverForTest(int32(n.nid), 1)       // seed one observer
+	defer s.rsbuf.SetObserverForTest(int32(n.nid), 0) // cleanup
 	n.server = s
 	n.huntMode = 0
 	n.huntRange = 10
@@ -631,10 +633,10 @@ func TestHuntPlayersReturnsEmptyWhenNoCandidates(t *testing.T) {
 }
 
 func TestProcessLogoutsDecrementsSubscribedNpcObservers(t *testing.T) {
-	rsbuf.SetObserverForTest(101, 0) // cleanup — ensure clean state
-	rsbuf.SetObserverForTest(102, 0)
-
 	s := newServerForScriptTest(t)
+	s.rsbuf.AddNpc(101, 0) // cleanup — ensure slots exist
+	s.rsbuf.AddNpc(102, 0)
+
 	s.currentTick = 1
 
 	// Create a minimal player with a client and buildArea.
@@ -663,8 +665,8 @@ func TestProcessLogoutsDecrementsSubscribedNpcObservers(t *testing.T) {
 	p.buildArea = buildarea.New()
 	p.buildArea.Npcs[101] = struct{}{}
 	p.buildArea.Npcs[102] = struct{}{}
-	rsbuf.SetObserverForTest(101, 1)
-	rsbuf.SetObserverForTest(102, 1)
+	s.rsbuf.SetObserverForTest(101, 1)
+	s.rsbuf.SetObserverForTest(102, 1)
 
 	// Trigger logout: set loggingOut flag (force logout regardless of timing).
 	p.loggingOut = true
@@ -672,6 +674,9 @@ func TestProcessLogoutsDecrementsSubscribedNpcObservers(t *testing.T) {
 
 	s.processLogouts()
 
+	// processLogouts calls rsbuf.RemovePlayer, which operates on the
+	// package-level shim (not migrated until T4.5). Verify the decrements
+	// through that shim.
 	if got := rsbuf.GetNpcObservers(101); got != 0 {
 		t.Errorf("GetNpcObservers(101) after logout: got %d, want 0", got)
 	}
