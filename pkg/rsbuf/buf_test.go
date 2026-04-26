@@ -717,6 +717,13 @@ func TestHasNpc_NegativeArgsAreFalse(t *testing.T) {
 	}
 }
 
+func TestHasNpc_NilSlotIsFalse(t *testing.T) {
+	b := New()
+	if b.HasNpc(5, 20) { // pid 5 not added
+		t.Error("HasNpc on nil slot returned true")
+	}
+}
+
 func TestGetNpcObservers_ReadsCounter(t *testing.T) {
 	b := New()
 	b.AddNpc(50, 100)
@@ -731,10 +738,10 @@ func TestGetNpcObservers_NilSlotIsZero(t *testing.T) {
 	if b.GetNpcObservers(50) != 0 {
 		t.Errorf("GetNpcObservers on nil slot: got %d, want 0", b.GetNpcObservers(50))
 	}
-	if b.GetNpcObservers(-1) != 0 {
-		t.Error("GetNpcObservers(-1): got non-zero")
+	if got := b.GetNpcObservers(-1); got != 0 {
+		t.Errorf("GetNpcObservers(-1): got %d, want 0", got)
 	}
-	if b.GetNpcObservers(8192) != 0 {
-		t.Error("GetNpcObservers(8192): got non-zero")
+	if got := b.GetNpcObservers(8192); got != 0 {
+		t.Errorf("GetNpcObservers(8192): got %d, want 0", got)
 	}
 }
