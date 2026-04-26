@@ -105,3 +105,49 @@ func TestEncodeNpcLegacyRemoveOnOutOfRangeDecrementsObservers(t *testing.T) {
 		t.Errorf("GetNpcObservers(%d) after out-of-range-remove: got %d, want 0", npc.nid, got)
 	}
 }
+
+func TestNpcInfo_Encode_Empty(t *testing.T) {
+	b := New()
+	ni := NewNpcInfo()
+	b.AddPlayer(1)
+	// Position self at (3200, 0, 3200) — no NPCs registered, so nearby/tracked
+	// sets are both empty. 42-arg ComputePlayer signature (verify against
+	// (*Buf).ComputePlayer in pkg/rsbuf/buf.go).
+	b.ComputePlayer(
+		1,           // pid
+		3200, 0, 3200, // x, level, z
+		3200, 3200,    // originX, originZ
+		false, false,  // tele, jump
+		-1, -1,        // runDir, walkDir
+		VisibilityDefault, // visibility
+		0,                 // staffModLevel
+		true,              // active
+		0,                 // masks
+		nil,               // appearance
+		-1,                // lastAppearance
+		-1,                // faceEntity
+		-1, -1,            // faceX, faceZ
+		-1, -1,            // orientationX, orientationZ
+		-1, -1,            // damageTaken, damageType
+		-1, -1,            // currentHitpoints, baseHitpoints
+		-1, -1,            // animID, animDelay
+		nil,               // say
+		nil, 0, 0, 0,      // message, color, effect, ignored
+		-1, -1, -1,        // graphicID, graphicHeight, graphicDelay
+		-1, -1,            // exactStartX, exactStartZ
+		-1, -1,            // exactEndX, exactEndZ
+		-1, -1, -1,        // exactMoveStart, exactMoveEnd, exactMoveDirection
+	)
+
+	r := NewRenderer()
+	out := ni.Encode(b, 1, r)
+
+	// Skeleton: writeNpcs emits PBit(8, 0) → 8 bits exactly → 1 byte after AccessBytes.
+	// writeNewNpcs is a no-op; updates buffer empty; no terminator.
+	if len(out) != 1 {
+		t.Errorf("empty NpcInfo: got %d bytes, want 1; payload=% x", len(out), out)
+	}
+	if len(out) >= 1 && out[0] != 0 {
+		t.Errorf("empty NpcInfo first byte: got 0x%02x, want 0x00 (8-bit zero count)", out[0])
+	}
+}

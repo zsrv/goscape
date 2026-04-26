@@ -126,3 +126,97 @@ func EncodeNpcLegacy(self PlayerSource, all []NpcSource, ba *buildarea.BuildArea
 	}
 	return main.Data
 }
+
+// NpcInfo holds reusable scratch buffers for NpcInfo encoding.
+// One instance per *Buf; reset and reused across all per-tick Encode
+// calls (one per player). Mirrors upstream NpcInfo struct at
+// info.rs:411-419 — the rsbuf-internal singleton (`NPC_INFO:
+// Lazy<Mutex<NpcInfo>>` at lib.rs:37) collected onto the *Buf instance.
+type NpcInfo struct {
+	buf     *packet.Packet
+	updates *packet.Packet
+}
+
+// NewNpcInfo allocates fresh scratch buffers sized for typical
+// NpcInfo packets (~5000 bytes upstream Packet::new(5000)).
+// Mirrors NpcInfo::new at info.rs:421-428.
+func NewNpcInfo() *NpcInfo {
+	return &NpcInfo{
+		buf:     packet.NewPacket(make([]byte, 0, 5000)),
+		updates: packet.NewPacket(make([]byte, 0, 5000)),
+	}
+}
+
+// Bit-budget constants for fits() arithmetic. Mirror upstream
+// NpcInfo::BITS_* at info.rs:413-417.
+const (
+	npcBitsAdd      = 13 + 11 + 5 + 5 + 1 // 35
+	npcBitsRun      = 1 + 2 + 3 + 3 + 1   // 10
+	npcBitsWalk     = 1 + 2 + 3 + 1       // 7
+	npcBitsExtend   = 1 + 2               // 3
+	npcTerminator   = 8191
+	maxNpcInfoBytes = 4997
+)
+
+// Encode produces the NpcInfo payload for `pid` as a fresh []byte
+// (no opcode/length prefix; caller wraps with OpNpcInfo).
+// Mirrors upstream NpcInfo::encode at info.rs:430-464.
+//
+// Signature divergences from upstream: same shape as PlayerInfo.Encode
+// (see playerinfo.go:299-308) — the players/grid/zoneMap/renderer args
+// upstream collapse into `b *Buf` + `renderer *Renderer`.
+//
+// T3.2 SKELETON: writeNpcs emits a single 8-bit zero-count and
+// writeNewNpcs is a no-op. T3.3 expands writeNpcs with the tracked-
+// delta loop; T3.4 expands writeNewNpcs with discovery + observers
+// + 8191 terminator.
+//
+// Returns nil if pid is out of range or slot is unpopulated.
+func (ni *NpcInfo) Encode(b *Buf, pid int32, renderer *Renderer) []byte {
+	if pid < 0 || int(pid) >= len(b.players) {
+		return nil
+	}
+	self := b.players[pid]
+	if self == nil {
+		return nil
+	}
+
+	ni.buf.Reset()
+	ni.updates.Reset()
+
+	ni.buf.AccessBits()
+
+	ni.writeNpcs(b, self, renderer)
+	ni.writeNewNpcs(b, self, renderer)
+
+	ni.buf.AccessBytes()
+
+	// NpcInfo has no separate "before-updates" sentinel (unlike PlayerInfo's
+	// 11-bit 2047). The 13-bit 8191 terminator emits inside writeNewNpcs on
+	// byte-budget overflow only — see EncodeNpcLegacy lines 100-101 for the
+	// reference pattern. T3.4 lands that emit site.
+	for _, b2 := range ni.updates.Data {
+		ni.buf.P1(b2)
+	}
+
+	// Return a copy — caller may write more, and ni.buf.Data is reused
+	// next call. Mirrors PlayerInfo.Encode tail (playerinfo.go:350-352).
+	out := make([]byte, len(ni.buf.Data))
+	copy(out, ni.buf.Data)
+	return out
+}
+
+// writeNpcs emits the per-tracked-NPC delta loop. T3.2 SKELETON:
+// emits an 8-bit zero count and returns. T3.3 expands with the
+// 5-remove-condition / 4-mode-branch tracked loop. Mirrors upstream
+// NpcInfo::write_npcs at info.rs:466-509.
+func (ni *NpcInfo) writeNpcs(b *Buf, self *Player, renderer *Renderer) {
+	ni.buf.PBit(8, 0)
+}
+
+// writeNewNpcs discovers nearby NPCs and emits add-leaves until the
+// byte budget or preferredNpcs cap is hit. T3.2 SKELETON: no-op.
+// T3.4 expands with discovery + observers increment + 8191 terminator.
+// Mirrors upstream NpcInfo::write_new_npcs at info.rs:511-585.
+func (ni *NpcInfo) writeNewNpcs(b *Buf, self *Player, renderer *Renderer) {
+}
