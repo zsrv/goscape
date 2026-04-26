@@ -1,6 +1,7 @@
 package rsbuf
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/buildarea"
@@ -799,4 +800,34 @@ func TestPlayerInfo_TrackedOther_KeepsSoftVisWithStaffMod(t *testing.T) {
 // doc-comment in playerinfo.go).
 func TestPlayerInfo_LocalPlayer_ChatMaskStripped(t *testing.T) {
 	t.Skip("NAI-30-D2: requires NAI-31 renderer cache port for per-mask suppression")
+}
+
+// TestPlayerInfo_Encode_OutputBytesAreCopy regression-locks the
+// make+copy pattern at the end of (pi *PlayerInfo).Encode (T2.2).
+// Each Encode call returns an independent byte slice; the next
+// Encode call mutates pi.buf.Data (truncates + rewrites) but must
+// not corrupt the previously-returned slice.
+func TestPlayerInfo_Encode_OutputBytesAreCopy(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil)
+	pi := NewPlayerInfo()
+	r := NewRenderer()
+
+	out1 := pi.Encode(b, 1, r)
+	out1Saved := append([]byte(nil), out1...)
+
+	// Mutate state and re-encode (different branch in writeLocalPlayer →
+	// different bytes in pi.buf.Data).
+	b.players[1].WalkDir = 3
+	out2 := pi.Encode(b, 1, r)
+
+	// out1 must be unchanged after the second Encode rewrote pi.buf.Data.
+	if !bytes.Equal(out1, out1Saved) {
+		t.Errorf("out1 mutated after second Encode: got %x, want %x", out1, out1Saved)
+	}
+	// out2 should differ from out1 (different bytes — sanity that we
+	// actually exercised a re-encode rather than a no-op).
+	if bytes.Equal(out1, out2) {
+		t.Errorf("out2 identical to out1 (expected different branch); both = %x", out1)
+	}
 }
