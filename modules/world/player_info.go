@@ -2,27 +2,16 @@ package world
 
 import (
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
-	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
-// updatePlayers runs during processClientsOut. Snapshots all players, feeds to
-// rsbuf.EncodeLegacy, and writes the result as an OpPlayerInfo packet.
+// updatePlayers runs during processClientsOut. Calls
+// s.rsbuf.PlayerInfo.Encode for the local player's PlayerInfo
+// payload, writes the result as an OpPlayerInfo packet.
 func (p *Player) updatePlayers() {
 	s := p.client.server
-	if s == nil || p.buildArea == nil || s.renderer == nil || s.grid == nil {
+	if s == nil || s.rsbuf == nil || s.renderer == nil {
 		return
 	}
-
-	s.playersMu.RLock()
-	snapshot := make([]*Player, len(s.playerLoop))
-	copy(snapshot, s.playerLoop)
-	s.playersMu.RUnlock()
-
-	sources := make([]rsbuf.PlayerSource, len(snapshot))
-	for i, op := range snapshot {
-		sources[i] = op
-	}
-
-	payload := rsbuf.EncodeLegacy(p, sources, p.buildArea, s.grid, s.renderer)
+	payload := s.rsbuf.PlayerInfo.Encode(s.rsbuf, int32(p.slot), s.renderer)
 	p.writeOut(gameserver.OpPlayerInfo, payload)
 }
