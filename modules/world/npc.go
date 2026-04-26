@@ -4,6 +4,7 @@ import (
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
+	"github.com/zsrv/goscape/pkg/zone"
 )
 
 // NPC lifecycle constants.
@@ -46,6 +47,11 @@ type Npc struct {
 	x, z, level                     int
 	lastTickX, lastTickZ, lastLevel int
 	originX, originZ                int
+
+	// zoneListElement is the NPC's intrusive subscription element in
+	// pkg/zone.Zone.npcs. Set by Zone.EnterNpc; nilled after Zone.LeaveNpc.
+	// Per NAI-28 Bundle 2.
+	zoneListElement *zone.Element[zone.NpcLike]
 
 	// === movement ===
 	moveSpeed       MoveSpeed
