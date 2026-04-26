@@ -4,7 +4,6 @@ import (
 	"net"
 	"testing"
 
-	"github.com/zsrv/goscape/pkg/buildarea"
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 )
@@ -17,9 +16,9 @@ func newZoneTestPlayer(t *testing.T, s *Server, slot, x, z, level int) (*Player,
 	p.slot = slot
 	p.x, p.z, p.level = x, z, level
 	p.originX, p.originZ = x, z
-	ba := buildarea.New()
-	_ = ba.Rebuild(x, z, 0)
-	p.buildArea = ba
+	// Populate the 13x13 active-zone window centered on (x, z); equivalent
+	// to the legacy `ba := buildarea.New(); ba.Rebuild(x, z, 0)` setup.
+	_ = p.rebuildScenery(0)
 	s.players[slot] = p
 	s.playerLoop = append(s.playerLoop, p)
 	return p, cc
@@ -80,11 +79,11 @@ func TestUpdateZonesUnloadsDroppedZones(t *testing.T) {
 	p, _ := newZoneTestPlayer(t, s, 1, 3094, 3106, 0)
 	// Populate LoadedZones with an index NOT in ActiveZones.
 	bogusIdx := 999999
-	p.buildArea.LoadedZones[bogusIdx] = true
+	p.loadedZones[bogusIdx] = true
 
 	p.updateZones()
-	if p.buildArea.LoadedZones[bogusIdx] {
-		t.Error("bogus index not in ActiveZones should have been unloaded")
+	if p.loadedZones[bogusIdx] {
+		t.Error("bogus index not in activeZones should have been unloaded")
 	}
 }
 

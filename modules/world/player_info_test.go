@@ -3,7 +3,6 @@ package world
 import (
 	"testing"
 
-	"github.com/zsrv/goscape/pkg/buildarea"
 	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/grid"
 	"github.com/zsrv/goscape/pkg/rsbuf"
@@ -21,7 +20,6 @@ func setupInfoPlayer(t *testing.T, s *Server, slot, x, z, level int) *Player {
 	p.x, p.z, p.level = x, z, level
 	p.originX, p.originZ = x, z
 	p.lastTickX, p.lastTickZ, p.lastLevel = x, z, level
-	p.buildArea = buildarea.New()
 	p.slot = slot
 	s.players[slot] = p
 	s.playerLoop = append(s.playerLoop, p)

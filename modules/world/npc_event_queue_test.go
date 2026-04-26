@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zsrv/goscape/pkg/buildarea"
 	"github.com/zsrv/goscape/pkg/grid"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
@@ -661,10 +660,9 @@ func TestProcessLogoutsDecrementsSubscribedNpcObservers(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Seed a buildArea subscribing to two NPCs and set observer counts to 1.
-	p.buildArea = buildarea.New()
-	p.buildArea.Npcs[101] = struct{}{}
-	p.buildArea.Npcs[102] = struct{}{}
+	// Subscribe the player's BuildArea to two NPCs and set observer counts to 1.
+	s.rsbuf.SubscribeNpcForTest(int32(p.slot), 101)
+	s.rsbuf.SubscribeNpcForTest(int32(p.slot), 102)
 	s.rsbuf.SetObserverForTest(101, 1)
 	s.rsbuf.SetObserverForTest(102, 1)
 
@@ -674,13 +672,14 @@ func TestProcessLogoutsDecrementsSubscribedNpcObservers(t *testing.T) {
 
 	s.processLogouts()
 
-	// processLogouts calls rsbuf.RemovePlayer, which operates on the
-	// package-level shim (not migrated until T4.5). Verify the decrements
-	// through that shim.
-	if got := rsbuf.GetNpcObservers(101); got != 0 {
+	// processLogouts -> s.removePlayer -> s.rsbuf.RemovePlayer iterates
+	// player.Build.Npcs and decrements per-Buf observer counts. Verify
+	// via the per-Buf accessor (NAI-30 Bundle 4 retired the package-level
+	// rsbuf.GetNpcObservers shim consumer here).
+	if got := s.rsbuf.GetNpcObservers(101); got != 0 {
 		t.Errorf("GetNpcObservers(101) after logout: got %d, want 0", got)
 	}
-	if got := rsbuf.GetNpcObservers(102); got != 0 {
+	if got := s.rsbuf.GetNpcObservers(102); got != 0 {
 		t.Errorf("GetNpcObservers(102) after logout: got %d, want 0", got)
 	}
 }

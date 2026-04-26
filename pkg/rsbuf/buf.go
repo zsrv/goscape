@@ -451,6 +451,17 @@ func (b *Buf) SetObserverForTest(nid, count int32) {
 	b.npcs[nid].Observers = count
 }
 
+// SubscribeNpcForTest adds nid to pid's BuildArea.Npcs tracking set.
+// Test-only; mirrors the manual map-write that the
+// p.buildArea.Npcs[nid] = struct{}{} pattern used pre-NAI-30.
+// No-op if pid is out of bounds or slot is unpopulated.
+func (b *Buf) SubscribeNpcForTest(pid, nid int32) {
+	if pid < 0 || int(pid) >= len(b.players) || b.players[pid] == nil {
+		return
+	}
+	b.players[pid].Build.Npcs.Insert(nid)
+}
+
 // PlayerForTest returns the *Player at slot pid, or nil if unset.
 // Test-only accessor exposed for cross-package integration tests in
 // modules/world; production code uses PlayerInfo.Encode and the

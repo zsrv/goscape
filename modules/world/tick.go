@@ -4,7 +4,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/zsrv/goscape/pkg/buildarea"
 	"github.com/zsrv/goscape/pkg/inventory"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/objtype"
@@ -91,8 +90,9 @@ func (s *Server) processLogins() {
 		p.originX = p.x
 		p.originZ = p.z
 
-		// sub-spec 3a: initialise buildarea, worn inventory, and appearance dirty flag
-		p.buildArea = buildarea.New()
+		// sub-spec 3a: initialise worn inventory, and appearance dirty flag.
+		// (Scenery-window state is initialised in newPlayer as flat fields
+		// since NAI-30 Bundle 4.)
 		p.invs = map[int]*inventory.Inventory{}
 		if s.varpTypes != nil {
 			p.varps = make([]int32, len(s.varpTypes.Configs))
@@ -167,13 +167,11 @@ func (s *Server) processLogouts() {
 			_ = p.client.flushWrite()
 			_ = p.client.conn.Close()
 
-			// NAI-9: bulk-decrement observer counts for every NPC this player
-			// was subscribed to. Mirrors @2004scape/rsbuf's removePlayer(pid)
-			// contract. Must run BEFORE buildArea is cleared.
-			if p.buildArea != nil {
-				rsbuf.RemovePlayer(p.slot, p.buildArea.Npcs)
-			}
-
+			// NAI-30 Bundle 4: per-Buf observer decrement for every NPC this
+			// player tracked is performed inside s.removePlayer →
+			// s.rsbuf.RemovePlayer (server.go), mirroring upstream rsbuf
+			// remove_player(pid) at lib.rs:186-203. The legacy package-level
+			// rsbuf.RemovePlayer + p.buildArea.Npcs producer was retired here.
 			s.removePlayer(p)
 		}
 	}

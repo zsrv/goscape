@@ -5,15 +5,14 @@ import (
 	"net"
 	"testing"
 
-	"github.com/zsrv/goscape/pkg/buildarea"
 	"github.com/zsrv/goscape/pkg/gamemap"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 )
 
 // newMapDataPlayer wires a Player into a Server with a gamemap and
-// buildArea ready to service RebuildGetMaps. Returns the player, the
-// client-side pipe, and the server.
+// scenery-window state ready to service RebuildGetMaps. Returns the
+// player, the client-side pipe, and the server.
 func newMapDataPlayer(t *testing.T) (*Player, net.Conn, *Server) {
 	t.Helper()
 	s := newTestServer(t)
@@ -23,8 +22,7 @@ func newMapDataPlayer(t *testing.T) (*Player, net.Conn, *Server) {
 	p, cc := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	p.buildArea = buildarea.New()
-	p.buildArea.LastBuild = 0 // 5 - 0 = 5 < 10 -> in-window
+	p.lastBuild = 0 // 5 - 0 = 5 < 10 -> in-window
 	return p, cc, s
 }
 
@@ -123,7 +121,7 @@ func packEntry(typ, mapX, mapZ int) uint32 {
 func TestHandleRebuildGetMapsSingleChunk(t *testing.T) {
 	p, cc, s := newMapDataPlayer(t)
 	s.gamemap.SetLandBytesForTest(50, 51, []byte{0x11, 0x22})
-	p.buildArea.Mapsquares[uint16((50<<8)|51)] = true
+	p.mapsquares[uint16((50<<8)|51)] = true
 
 	received := drainConn(t, cc)
 	_ = handleRebuildGetMaps(p, buildGetMapsPayload(packEntry(0, 50, 51)))
@@ -146,7 +144,7 @@ func TestHandleRebuildGetMapsMultiChunk(t *testing.T) {
 		file[i] = byte(i)
 	}
 	s.gamemap.SetLandBytesForTest(10, 20, file)
-	p.buildArea.Mapsquares[uint16((10<<8)|20)] = true
+	p.mapsquares[uint16((10<<8)|20)] = true
 
 	received := drainConn(t, cc)
 	_ = handleRebuildGetMaps(p, buildGetMapsPayload(packEntry(0, 10, 20)))
@@ -168,7 +166,7 @@ func TestHandleRebuildGetMapsExactlyChunkBoundary(t *testing.T) {
 	p, cc, s := newMapDataPlayer(t)
 	file := make([]byte, 991)
 	s.gamemap.SetLandBytesForTest(1, 2, file)
-	p.buildArea.Mapsquares[uint16((1<<8)|2)] = true
+	p.mapsquares[uint16((1<<8)|2)] = true
 
 	received := drainConn(t, cc)
 	_ = handleRebuildGetMaps(p, buildGetMapsPayload(packEntry(0, 1, 2)))
@@ -184,7 +182,7 @@ func TestHandleRebuildGetMapsExactlyChunkBoundary(t *testing.T) {
 func TestHandleRebuildGetMapsRoutesToLoc(t *testing.T) {
 	p, cc, s := newMapDataPlayer(t)
 	s.gamemap.SetLocBytesForTest(3, 4, []byte{0xEE})
-	p.buildArea.Mapsquares[uint16((3<<8)|4)] = true
+	p.mapsquares[uint16((3<<8)|4)] = true
 
 	received := drainConn(t, cc)
 	_ = handleRebuildGetMaps(p, buildGetMapsPayload(packEntry(1, 3, 4)))
@@ -214,7 +212,7 @@ func TestHandleRebuildGetMapsSkipsUnknownMapsquare(t *testing.T) {
 
 func TestHandleRebuildGetMapsSkipsMissingFile(t *testing.T) {
 	p, cc, _ := newMapDataPlayer(t)
-	p.buildArea.Mapsquares[uint16((99<<8)|99)] = true
+	p.mapsquares[uint16((99<<8)|99)] = true
 
 	received := drainConn(t, cc)
 	_ = handleRebuildGetMaps(p, buildGetMapsPayload(packEntry(0, 99, 99)))
@@ -229,9 +227,9 @@ func TestHandleRebuildGetMapsSkipsMissingFile(t *testing.T) {
 func TestHandleRebuildGetMapsRateLimitedDropsEntireRequest(t *testing.T) {
 	p, cc, s := newMapDataPlayer(t)
 	s.currentTick = 100
-	p.buildArea.LastBuild = 0 // 100 > 10 -> stale
+	p.lastBuild = 0 // 100 > 10 -> stale
 	s.gamemap.SetLandBytesForTest(50, 51, []byte{0x11})
-	p.buildArea.Mapsquares[uint16((50<<8)|51)] = true
+	p.mapsquares[uint16((50<<8)|51)] = true
 
 	received := drainConn(t, cc)
 	_ = handleRebuildGetMaps(p, buildGetMapsPayload(packEntry(0, 50, 51)))
@@ -264,8 +262,8 @@ func TestHandleRebuildGetMapsMultipleEntries(t *testing.T) {
 	p, cc, s := newMapDataPlayer(t)
 	s.gamemap.SetLandBytesForTest(1, 1, []byte{0xAA})
 	s.gamemap.SetLocBytesForTest(2, 2, []byte{0xBB})
-	p.buildArea.Mapsquares[uint16((1<<8)|1)] = true
-	p.buildArea.Mapsquares[uint16((2<<8)|2)] = true
+	p.mapsquares[uint16((1<<8)|1)] = true
+	p.mapsquares[uint16((2<<8)|2)] = true
 
 	received := drainConn(t, cc)
 	_ = handleRebuildGetMaps(p, buildGetMapsPayload(

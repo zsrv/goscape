@@ -104,7 +104,7 @@ func streamLoc(p *Player, gm *gamemap.GameMap, mapX, mapZ int) {
 //
 // No error-response opcodes are sent - clients retry on their own.
 func handleRebuildGetMaps(p *Player, payload []byte) error {
-	if p.buildArea == nil || p.client == nil || p.client.server == nil {
+	if p.client == nil || p.client.server == nil {
 		return nil
 	}
 	s := p.client.server
@@ -113,7 +113,7 @@ func handleRebuildGetMaps(p *Player, payload []byte) error {
 		return nil
 	}
 
-	if p.buildArea.LastBuild+rebuildGetMapsLastBuildTicks < s.currentTick {
+	if p.lastBuild+rebuildGetMapsLastBuildTicks < s.currentTick {
 		return nil
 	}
 
@@ -126,7 +126,7 @@ func handleRebuildGetMaps(p *Player, payload []byte) error {
 	for i := 0; i < nEntries; i++ {
 		packed := int(r.G3())
 		mapsquare := uint16(packed & 0xFFFF)
-		if !p.buildArea.Mapsquares[mapsquare] {
+		if !p.mapsquares[mapsquare] {
 			continue
 		}
 		typ := (packed >> 16) & 0x1

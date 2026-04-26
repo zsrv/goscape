@@ -828,3 +828,31 @@ func TestBuf_NpcForTest_BoundsAndPresence(t *testing.T) {
 		t.Error("NpcForTest(5) after AddNpc: got nil, want non-nil")
 	}
 }
+
+func TestSubscribeNpcForTest_HappyPath(t *testing.T) {
+	b := New()
+	b.AddPlayer(5)
+	b.SubscribeNpcForTest(5, 20)
+	if !b.HasNpc(5, 20) {
+		t.Error("HasNpc(5, 20) false after SubscribeNpcForTest(5, 20)")
+	}
+}
+
+func TestSubscribeNpcForTest_NilSlotIsNoOp(t *testing.T) {
+	b := New()
+	// Don't AddPlayer(5) — leave slot nil.
+	b.SubscribeNpcForTest(5, 20)
+	if b.HasNpc(5, 20) {
+		t.Error("HasNpc(5, 20) true after SubscribeNpcForTest on nil slot")
+	}
+}
+
+func TestSubscribeNpcForTest_OutOfRangeIsNoOp(t *testing.T) {
+	b := New()
+	// Should not panic; should be no-op.
+	b.SubscribeNpcForTest(-1, 20)
+	b.SubscribeNpcForTest(2048, 20)
+	if b.HasNpc(-1, 20) {
+		t.Error("HasNpc(-1, 20) returned true")
+	}
+}

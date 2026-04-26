@@ -2,9 +2,10 @@ package world
 
 import (
 	"math/rand/v2"
+	"sort"
 	"time"
 
-	"github.com/zsrv/goscape/pkg/buildarea"
+	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
@@ -211,8 +212,14 @@ type Player struct {
 	// listener registers; safe to read, range, len-check while nil.
 	invListeners map[int]InventoryListener
 
-	// === build area (sub-spec 3a) ===
-	buildArea *buildarea.BuildArea
+	// === scenery-window state (sub-spec 3a; flattened from pkg/buildarea
+	// at NAI-30 Bundle 4) ===
+	// Tracks which mapsquares the client has loaded for LOC/scenery rebuild
+	// purposes. Per-player; mutated by rebuildScenery() at zone-window exit.
+	lastBuild   int
+	loadedZones map[int]bool
+	activeZones map[int]bool
+	mapsquares  map[uint16]bool
 
 	// === BAS (basic animation set) — sub-spec 3a ===
 	readyanim, turnanim                          int
@@ -393,6 +400,10 @@ func newPlayer(c *client) *Player {
 		faceSquareZ:    -1,
 		OrientationX:   -1,
 		OrientationZ:   -1,
+		lastBuild:      0,
+		loadedZones:    map[int]bool{},
+		activeZones:    map[int]bool{},
+		mapsquares:     map[uint16]bool{},
 	}
 	// Sentinel values so the first tick of updateStats emits all 21 UpdateStat
 	// packets. stats[i] is int32 (always >= 0 in gameplay); levels[i] is uint8
@@ -440,40 +451,101 @@ func (p *Player) IsInWilderness() bool {
 	return false
 }
 
-func (p *Player) updateMap() {
-	if p.buildArea == nil || p.client == nil || p.client.server == nil {
-		return
+// shouldRebuild reports whether the player has crossed the 13x13 zone
+// window centered on (originX, originZ), or whether reconnect is true.
+// Mirrors pkg/buildarea.BuildArea.ShouldRebuild (NAI-30 Bundle 4 flatten).
+func (p *Player) shouldRebuild() bool {
+	if p.originX == -1 {
+		return true
 	}
-	if !p.buildArea.ShouldRebuild(p.x, p.z, p.reconnecting) {
-		return
+	if p.reconnecting {
+		return true
 	}
-	ms := p.buildArea.Rebuild(p.x, p.z, p.client.server.currentTick)
-	// Anchor the player's scene-base origin to the new rebuild position
-	// so the next PlayerInfo teleport block produces local coords in range
-	// [0, 104]. Staleness would overflow the 7-bit PBit(7, localX) encoding.
+	originZoneX := p.originX >> 3
+	originZoneZ := p.originZ >> 3
+	reloadLeftX := (originZoneX - 4) << 3
+	reloadRightX := (originZoneX + 5) << 3
+	reloadTopZ := (originZoneZ + 5) << 3
+	reloadBottomZ := (originZoneZ - 4) << 3
+	if p.x < reloadLeftX || p.z < reloadBottomZ ||
+		p.x > reloadRightX-1 || p.z > reloadTopZ-1 {
+		return true
+	}
+	return false
+}
+
+// rebuildScenery resets the player's scenery-window state, recomputes
+// the 13x13 zone window mapsquares centered on (p.x, p.z), and commits
+// the new origin. Returns mapsquare list packed as (mapX<<8)|mapZ.
+// Mirrors pkg/buildarea.BuildArea.Rebuild (NAI-30 Bundle 4 flatten).
+func (p *Player) rebuildScenery(currentTick int) []uint16 {
+	p.loadedZones = map[int]bool{}
+	p.activeZones = map[int]bool{}
+	p.mapsquares = map[uint16]bool{}
+
+	zoneX := p.x >> 3
+	zoneZ := p.z >> 3
+	for dx := -6; dx <= 6; dx++ {
+		for dz := -6; dz <= 6; dz++ {
+			zx := zoneX + dx
+			zz := zoneZ + dz
+			if zx < 0 || zz < 0 {
+				continue
+			}
+			mapX := zx >> 3
+			mapZ := zz >> 3
+			if mapX > 0xff || mapZ > 0xff {
+				continue
+			}
+			p.mapsquares[uint16((mapX<<8)|mapZ)] = true
+			p.activeZones[coordgrid.ZoneIndex(zx<<3, zz<<3, 0)] = true
+		}
+	}
+
 	p.originX = p.x
 	p.originZ = p.z
+	p.lastBuild = currentTick
+
+	out := make([]uint16, 0, len(p.mapsquares))
+	for m := range p.mapsquares {
+		out = append(out, m)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	return out
+}
+
+func (p *Player) updateMap() {
+	if p.client == nil || p.client.server == nil {
+		return
+	}
+	if !p.shouldRebuild() {
+		return
+	}
+	// rebuildScenery anchors p.originX/Z to the new rebuild position so the
+	// next PlayerInfo teleport block produces local coords in range [0, 104].
+	// Staleness would overflow the 7-bit PBit(7, localX) encoding.
+	ms := p.rebuildScenery(p.client.server.currentTick)
 	p.reconnecting = false
 	sendRebuildNormal(p, ms)
 }
 func (p *Player) updateZones() {
-	if p.buildArea == nil || p.client == nil || p.client.server == nil {
+	if p.client == nil || p.client.server == nil {
 		return
 	}
 	s := p.client.server
 
 	// Unload zones no longer active.
-	for idx := range p.buildArea.LoadedZones {
-		if !p.buildArea.ActiveZones[idx] {
-			delete(p.buildArea.LoadedZones, idx)
+	for idx := range p.loadedZones {
+		if !p.activeZones[idx] {
+			delete(p.loadedZones, idx)
 		}
 	}
 
 	// Deliver each active zone.
-	for idx := range p.buildArea.ActiveZones {
+	for idx := range p.activeZones {
 		z := s.zoneMap.GetByIndex(idx)
 
-		if !p.buildArea.LoadedZones[idx] {
+		if !p.loadedZones[idx] {
 			p.writeFullFollows(z, s.currentTick)
 		}
 
@@ -484,7 +556,7 @@ func (p *Player) updateZones() {
 		}
 
 		p.writePartialFollows(z)
-		p.buildArea.LoadedZones[idx] = true
+		p.loadedZones[idx] = true
 	}
 }
 func (p *Player) updateInvs() {

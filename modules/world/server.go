@@ -668,7 +668,12 @@ func (s *Server) removePlayer(p *Player) {
 		p.zoneListElement = nil
 	}
 	if s.rsbuf != nil {
-		s.rsbuf.CleanupPlayerBuildArea(int32(p.slot))
+		// NAI-30 Bundle 4: removed redundant CleanupPlayerBuildArea pre-call.
+		// RemovePlayer follows upstream lib.rs:186-203 ordering: iterate
+		// player.Build.Npcs to decrement observer counts (Step 2), THEN
+		// call Build.Cleanup (Step 3). A pre-call to CleanupPlayerBuildArea
+		// would clear Npcs before the iteration, silently skipping the
+		// observer decrement. The cleanup is performed inside RemovePlayer.
 		s.rsbuf.RemovePlayer(int32(p.slot))
 	}
 	s.players[p.slot] = nil

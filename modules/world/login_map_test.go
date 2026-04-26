@@ -5,13 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zsrv/goscape/pkg/buildarea"
 	"github.com/zsrv/goscape/pkg/gamemap"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 )
 
 // TestLoginSendsRebuildNormal verifies that updateMap() sends a RebuildNormal
-// packet on first call (when buildArea.OriginX is -1).
+// packet on first call (when p.originX is -1, the initial newPlayer sentinel).
 func TestLoginSendsRebuildNormal(t *testing.T) {
 	s := newTestServer(t)
 	s.gamemap = gamemap.New(discardLogger())
@@ -24,7 +23,6 @@ func TestLoginSendsRebuildNormal(t *testing.T) {
 	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
 	wantEnc, _ := isaacPair([4]uint32{1, 2, 3, 4})
 	p.client.encryptor = enc
-	p.buildArea = buildarea.New()
 
 	received := make(chan byte, 1)
 	go func() {
@@ -67,7 +65,6 @@ func TestUpdateMapAnchorsOriginToPlayer(t *testing.T) {
 	p.client.server = s
 	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
 	p.client.encryptor = enc
-	p.buildArea = buildarea.New()
 
 	// Seed: player at login position, origin matches (as processLogins sets).
 	p.x, p.z, p.level = 3094, 3106, 0
@@ -79,10 +76,6 @@ func TestUpdateMapAnchorsOriginToPlayer(t *testing.T) {
 	if p.originX != 3094 || p.originZ != 3106 {
 		t.Errorf("initial rebuild: originX/Z = (%d, %d), want (3094, 3106)",
 			p.originX, p.originZ)
-	}
-	if p.buildArea.OriginX != 3094 || p.buildArea.OriginZ != 3106 {
-		t.Errorf("buildArea origin: (%d, %d), want (3094, 3106)",
-			p.buildArea.OriginX, p.buildArea.OriginZ)
 	}
 
 	// Simulate a far teleport — player's coord jumps but p.originX/Z is
@@ -98,9 +91,5 @@ func TestUpdateMapAnchorsOriginToPlayer(t *testing.T) {
 	if p.originX != 5000 || p.originZ != 5000 {
 		t.Errorf("after teleport rebuild: originX/Z = (%d, %d), want (5000, 5000)",
 			p.originX, p.originZ)
-	}
-	if p.buildArea.OriginX != 5000 || p.buildArea.OriginZ != 5000 {
-		t.Errorf("buildArea origin after teleport: (%d, %d), want (5000, 5000)",
-			p.buildArea.OriginX, p.buildArea.OriginZ)
 	}
 }
