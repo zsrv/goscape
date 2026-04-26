@@ -435,9 +435,9 @@ func (b *Buf) GetNpcObservers(nid int32) int32 {
 }
 
 // SetObserverForTest writes the observer count for nid directly,
-// flooring at 0. Test-only; mirrors the contract of the
-// retired-in-this-bundle package-level rsbuf.SetObserverForTest
-// shim. No-op if nid is out of bounds or slot is unpopulated.
+// flooring at 0. Test-only; replaced the legacy package-level
+// rsbuf.SetObserverForTest shim retired at NAI-30 B4 T4.6.
+// No-op if nid is out of bounds or slot is unpopulated.
 func (b *Buf) SetObserverForTest(nid, count int32) {
 	if nid < 0 || int(nid) >= len(b.npcs) {
 		return
