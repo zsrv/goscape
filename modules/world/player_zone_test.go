@@ -24,6 +24,35 @@ func newZoneTestPlayer(t *testing.T, s *Server, slot, x, z, level int) (*Player,
 	return p, cc
 }
 
+// TestShouldRebuild_FiresOnFirstBuildEvenWithOriginSet pins the
+// rebuiltOnce sentinel against silent regression. Background: tick.go's
+// processLogins sets p.originX = p.x to anchor PlayerInfo zone-relative
+// encoding (which runs in updatePlayers BEFORE updateMap each tick). An
+// earlier draft of NAI-30 B4 T4.5 reused p.originX == -1 as the
+// first-build sentinel, but tick.go consumed that field at login —
+// shouldRebuild then returned false on the first updateMap call, never
+// sending REBUILD_GETMAPS. The map silently failed to render. The fix
+// adds a separate p.rebuiltOnce bool gated only by rebuildScenery's
+// successful completion.
+func TestShouldRebuild_FiresOnFirstBuildEvenWithOriginSet(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	// Mirror tick.go:processLogins setting originX/Z to a real coord at
+	// login, before any updateMap call has run.
+	p.x, p.z, p.level = 3094, 3106, 0
+	p.originX, p.originZ = p.x, p.z
+
+	if !p.shouldRebuild() {
+		t.Fatal("shouldRebuild must return true on first build, even when p.originX is set to a real coord (REBUILD_GETMAPS regression)")
+	}
+
+	// After a rebuildScenery call, shouldRebuild should be quiescent for
+	// a player who hasn't moved out of the 13x13 zone window.
+	_ = p.rebuildScenery(0)
+	if p.shouldRebuild() {
+		t.Error("shouldRebuild must return false after first rebuild when player is still inside the rebuild window")
+	}
+}
+
 func TestUpdateZonesSendsPartialEnclosedForActiveZone(t *testing.T) {
 	s := newZoneTestServer(t)
 	s.currentTick = 10

@@ -216,10 +216,19 @@ type Player struct {
 	// at NAI-30 Bundle 4) ===
 	// Tracks which mapsquares the client has loaded for LOC/scenery rebuild
 	// purposes. Per-player; mutated by rebuildScenery() at zone-window exit.
+	//
+	// rebuiltOnce gates shouldRebuild's first-build trigger. Legacy
+	// pkg/buildarea encoded this via OriginX = -1, but Player.originX is
+	// already set to a real coord in tick.go's processLogins loop (anchor
+	// for PlayerInfo zone-relative encoding, which runs in updatePlayers
+	// BEFORE updateMap each tick). Reusing originX as the sentinel would
+	// be silently consumed at login. A separate bool keeps the two roles
+	// independent.
 	lastBuild   int
 	loadedZones map[int]bool
 	activeZones map[int]bool
 	mapsquares  map[uint16]bool
+	rebuiltOnce bool
 
 	// === BAS (basic animation set) — sub-spec 3a ===
 	readyanim, turnanim                          int
@@ -455,7 +464,7 @@ func (p *Player) IsInWilderness() bool {
 // window centered on (originX, originZ), or whether reconnect is true.
 // Mirrors pkg/buildarea.BuildArea.ShouldRebuild (NAI-30 Bundle 4 flatten).
 func (p *Player) shouldRebuild() bool {
-	if p.originX == -1 {
+	if !p.rebuiltOnce {
 		return true
 	}
 	if p.reconnecting {
@@ -505,6 +514,7 @@ func (p *Player) rebuildScenery(currentTick int) []uint16 {
 	p.originX = p.x
 	p.originZ = p.z
 	p.lastBuild = currentTick
+	p.rebuiltOnce = true
 
 	out := make([]uint16, 0, len(p.mapsquares))
 	for m := range p.mapsquares {
