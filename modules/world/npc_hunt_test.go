@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/gamemap"
+	"github.com/zsrv/goscape/pkg/grid"
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
@@ -1161,5 +1162,37 @@ func TestHuntPlayersCheckNotTooStrongBoundaryComparison(t *testing.T) {
 
 	if len(hunted) != 1 {
 		t.Errorf("hunted: got %d, want 1 (combatLevel == 2*vislevel must pass; > not >=)", len(hunted))
+	}
+}
+
+func TestHuntPlayersUsesZoneSubscriptionExclusive(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{Size: 1, VisLevel: 50}
+	hunter := newRegisteredNpc(t, s, typ, true)
+	hunter.huntRange = 5
+	// Add a phantom player to s.grid only — bypass Zone subscription.
+	if s.grid == nil {
+		s.grid = grid.New()
+	}
+	s.grid.Add(99, hunter.x+1, hunter.z+1, hunter.level)
+	c, _ := newTestClient(t)
+	phantom := newPlayer(c)
+	phantom.slot = 99
+	phantom.x, phantom.z, phantom.level = hunter.x+1, hunter.z+1, hunter.level
+	phantom.combatLevel = 50
+	s.players[99] = phantom
+	hunt := &objtype.HuntType{
+		CheckNpc:           -1,
+		CheckVis:           objtype.HuntVisOff,
+		CheckNotTooStrong:  objtype.HuntCheckNotTooStrongOff,
+		CheckNotCombat:     -1,
+		CheckNotCombatSelf: -1,
+		CheckInv:           -1,
+	}
+	got := hunter.huntPlayers(s, hunt)
+	for _, e := range got {
+		if pl, ok := e.(*Player); ok && pl.slot == 99 {
+			t.Error("huntPlayers returned grid-only player; should be Zone-exclusive")
+		}
 	}
 }

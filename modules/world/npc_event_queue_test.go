@@ -519,6 +519,9 @@ func TestProcessNpcEventQueueHappyPathFire(t *testing.T) {
 // addPlayerToServer seeds s.players[slot], s.grid, and pkg/zone with a
 // minimal *Player at the given coords. Used by NAI-8 huntPlayers tests.
 // Slot 0 is reserved per existing convention.
+//
+// Sets p.active=true so PlayersSafe(false).IsValid() passes (post-NAI-28
+// huntPlayers reads from Zone subscription, not s.grid).
 func addPlayerToServer(t *testing.T, s *Server, slot, x, z, level int) *Player {
 	t.Helper()
 	if s.grid == nil {
@@ -528,10 +531,11 @@ func addPlayerToServer(t *testing.T, s *Server, slot, x, z, level int) *Player {
 		s.zoneMap = zone.NewZoneMap()
 	}
 	p := &Player{
-		slot:  slot,
-		x:     x,
-		z:     z,
-		level: level,
+		slot:   slot,
+		x:      x,
+		z:      z,
+		level:  level,
+		active: true,
 	}
 	s.players[slot] = p
 	s.grid.Add(slot, x, z, level)

@@ -81,9 +81,12 @@ func (n *Npc) huntAll(s *Server, hunt *objtype.HuntType) {
 	}
 }
 
-// huntPlayers iterates the player grid in huntRange and returns
+// huntPlayers iterates players in zone-subscription within huntRange and returns
 // players passing the filter chain. Matches TS Npc.huntPlayers at
 // Engine-TS/.../Npc.ts:921-973.
+//
+// Spatial backend: pkg/zone.Zone.PlayersSafe (NAI-28). Iterates zones in
+// zoneRadius via s.zoneMap.NearbyZones, type-asserts each PlayerLike to *Player.
 //
 // Filter coverage:
 //   - Range + level match:     always
@@ -106,143 +109,142 @@ func (n *Npc) huntAll(s *Server, hunt *objtype.HuntType) {
 // NAI-8 dispatches NO scripts. TS huntPlayers is a config-driven
 // filter pipeline, not a script runner.
 func (n *Npc) huntPlayers(s *Server, hunt *objtype.HuntType) []entity {
-	if s.grid == nil {
+	if s.zoneMap == nil {
 		return nil
 	}
 	// TS HuntIterator zone-radius formula at ScriptIterators.ts:57:
 	// radius = (1 + distance/8) | 0.
 	zoneRadius := 1 + n.huntRange/8
-	slots := s.grid.NearbyPlayers(n.x, n.z, n.level, zoneRadius)
 	var hunted []entity
-	for _, slot := range slots {
-		if slot < 0 || slot >= len(s.players) {
-			continue
-		}
-		p := s.players[slot]
-		if p == nil {
-			continue
-		}
-		if p.level != n.level {
-			continue
-		}
-		dx := p.x - n.x
-		if dx < 0 {
-			dx = -dx
-		}
-		dz := p.z - n.z
-		if dz < 0 {
-			dz = -dz
-		}
-		if dx > n.huntRange || dz > n.huntRange {
-			continue
-		}
-		// checkNotBusy (TS:931-933): skip players whose state cannot
-		// accept a hunt interaction (delayed or main/chat modal open).
-		if hunt.CheckNotBusy && p.Busy() {
-			continue
-		}
-		// checkAfk (TS:935-937): filter players who've gone AFK
-		// (1000-tick same-zone threshold).
-		if hunt.CheckAfk && p.IsZonesAfk() {
-			continue
-		}
-		// CheckVis gate — TS ScriptIterators.ts:88-94.
-		// FIDELITY: TS huntPlayers swaps src/dest vs other three variants —
-		// player-as-source (p.x, p.z) → NPC-as-dest (n.x, n.z). Preserve
-		// the asymmetry verbatim. See NAI-12 spec § Architecture.
-		// gamemap==nil short-circuits to gate-pass; see NAI-12 spec § error handling.
-		if hunt.CheckVis == objtype.HuntVisLineOfSight && s.gamemap != nil &&
-			!s.gamemap.Pathfinder.LineValidator.HasLineOfSight(
-				n.level, p.x, p.z, n.x, n.z, 1, 1, 1, 0) {
-			continue
-		}
-		if hunt.CheckVis == objtype.HuntVisLineOfWalk && s.gamemap != nil &&
-			!s.gamemap.Pathfinder.LineValidator.HasLineOfWalk(
-				n.level, p.x, p.z, n.x, n.z, 1, 1, 1, 0) {
-			continue
-		}
-
-		// checkNotTooStrong (TS:939-941): skip players whose combatLevel
-		// is more than 2x the NPC's vislevel when they are OUTSIDE the
-		// wilderness (the wilderness disables this protection). Filter
-		// only applies when CheckNotTooStrong is OutsideWilderness;
-		// Off → filter skipped.
-		if hunt.CheckNotTooStrong == objtype.HuntCheckNotTooStrongOutsideWilderness &&
-			!p.IsInWilderness() &&
-			p.combatLevel > n.typ.VisLevel*2 {
-			continue
-		}
-
-		// Outer combat guard — TS:942. Only when the candidate is not the
-		// NPC's current target AND not in a multi-combat zone.
-		// FIDELITY: when s.gamemap is nil, IsMulti can't be called — treat
-		// as not-multi, so the guard APPLIES and the combat filter fires.
-		// This nil-short-circuit direction is the OPPOSITE of CheckVis's
-		// in the same file (CheckVis's nil → filter skipped; here nil →
-		// filter runs). Do NOT "simplify" to
-		// `s.gamemap != nil && !s.gamemap.IsMulti(...)` — that inverts the
-		// guard's nil behavior and flips TestHuntPlayersCombatGuard's
-		// `gamemap-nil-applies-guard` sub-case red.
-		applyCombatGuard := entity(p) != n.target &&
-			(s.gamemap == nil || !s.gamemap.IsMulti(p.x, p.z, p.level))
-		if applyCombatGuard {
-			// checkNotCombat (TS:943-945): skip players whose last-combat
-			// varp was written within the past 8 ticks.
-			if hunt.CheckNotCombat != -1 &&
-				int(p.Varp(hunt.CheckNotCombat))+8 > s.currentTick {
+	for _, zn := range s.zoneMap.NearbyZones(n.level, n.x, n.z, zoneRadius) {
+		for pl := range zn.PlayersSafe(false) {
+			p, ok := pl.(*Player)
+			if !ok {
 				continue
 			}
-			// checkNotCombatSelf (TS:946-948): skip candidate if this NPC's
-			// own combat-tracker varn was written within the past 8 ticks.
-			// Symmetric to checkNotCombat above, but reads the NPC side
-			// (n.NpcVarN) instead of the player side (p.Varp).
-			if hunt.CheckNotCombatSelf != -1 &&
-				int(n.NpcVarN(hunt.CheckNotCombatSelf))+8 > s.currentTick {
+			// Level filter is redundant — NearbyZones is already level-filtered —
+			// but kept for defensive symmetry with TS huntPlayers; harmless.
+			if p.level != n.level {
 				continue
 			}
-		}
-
-		// checkVars (TS:950-957): AND-chain of varp/operator/value predicates.
-		// Nil/empty CheckVars → no-op (ranging nil slice yields zero iterations,
-		// matching TS empty-`every` → true semantics).
-		passCheckVars := true
-		for _, cv := range hunt.CheckVars {
-			if cv.VarID == -1 {
-				// TS:953 `checkVar.varId === -1 ||` short-circuit.
+			dx := p.x - n.x
+			if dx < 0 {
+				dx = -dx
+			}
+			dz := p.z - n.z
+			if dz < 0 {
+				dz = -dz
+			}
+			if dx > n.huntRange || dz > n.huntRange {
 				continue
 			}
-			if !hunt.CheckHuntCondition(int(p.Varp(cv.VarID)), cv.Condition, cv.Val) {
-				passCheckVars = false
-				break
+			// checkNotBusy (TS:931-933): skip players whose state cannot
+			// accept a hunt interaction (delayed or main/chat modal open).
+			if hunt.CheckNotBusy && p.Busy() {
+				continue
 			}
-		}
-		if !passCheckVars {
-			continue
-		}
+			// checkAfk (TS:935-937): filter players who've gone AFK
+			// (1000-tick same-zone threshold).
+			if hunt.CheckAfk && p.IsZonesAfk() {
+				continue
+			}
+			// CheckVis gate — TS ScriptIterators.ts:88-94.
+			// FIDELITY: TS huntPlayers swaps src/dest vs other three variants —
+			// player-as-source (p.x, p.z) → NPC-as-dest (n.x, n.z). Preserve
+			// the asymmetry verbatim. See NAI-12 spec § Architecture.
+			// gamemap==nil short-circuits to gate-pass; see NAI-12 spec § error handling.
+			if hunt.CheckVis == objtype.HuntVisLineOfSight && s.gamemap != nil &&
+				!s.gamemap.Pathfinder.LineValidator.HasLineOfSight(
+					n.level, p.x, p.z, n.x, n.z, 1, 1, 1, 0) {
+				continue
+			}
+			if hunt.CheckVis == objtype.HuntVisLineOfWalk && s.gamemap != nil &&
+				!s.gamemap.Pathfinder.LineValidator.HasLineOfWalk(
+					n.level, p.x, p.z, n.x, n.z, 1, 1, 1, 0) {
+				continue
+			}
+			// checkNotTooStrong (TS:939-941): skip players whose combatLevel
+			// is more than 2x the NPC's vislevel when they are OUTSIDE the
+			// wilderness (the wilderness disables this protection). Filter
+			// only applies when CheckNotTooStrong is OutsideWilderness;
+			// Off → filter skipped.
+			if hunt.CheckNotTooStrong == objtype.HuntCheckNotTooStrongOutsideWilderness &&
+				!p.IsInWilderness() &&
+				p.combatLevel > n.typ.VisLevel*2 {
+				continue
+			}
 
-		// checkInv (TS Npc.ts:959-969): if CheckInv is set, compute quantity
-		// per CheckObj or CheckObjParam branch, then evaluate CheckHuntCondition.
-		// Defensive: missing inv → quantity=0 (TS Player._invTotalParam throws
-		// 'Invalid inventory type' here, but goscape huntPlayers must continue
-		// iteration on one bad player; live players have all standard invs in
-		// practice, so this divergence is dead-path. No deviation tag tracked.
-		if hunt.CheckInv != -1 {
-			quantity := 0
-			if pInv := p.invs[hunt.CheckInv]; pInv != nil {
-				if hunt.CheckObj != -1 {
-					quantity = pInv.GetItemCount(hunt.CheckObj)
-				} else if hunt.CheckObjParam != -1 {
-					quantity = invTotalParam(pInv, hunt.CheckObjParam,
-						s.objTypes, s.paramTypes)
+			// Outer combat guard — TS:942. Only when the candidate is not the
+			// NPC's current target AND not in a multi-combat zone.
+			// FIDELITY: when s.gamemap is nil, IsMulti can't be called — treat
+			// as not-multi, so the guard APPLIES and the combat filter fires.
+			// This nil-short-circuit direction is the OPPOSITE of CheckVis's
+			// in the same file (CheckVis's nil → filter skipped; here nil →
+			// filter runs). Do NOT "simplify" to
+			// `s.gamemap != nil && !s.gamemap.IsMulti(...)` — that inverts the
+			// guard's nil behavior and flips TestHuntPlayersCombatGuard's
+			// `gamemap-nil-applies-guard` sub-case red.
+			applyCombatGuard := entity(p) != n.target &&
+				(s.gamemap == nil || !s.gamemap.IsMulti(p.x, p.z, p.level))
+			if applyCombatGuard {
+				// checkNotCombat (TS:943-945): skip players whose last-combat
+				// varp was written within the past 8 ticks.
+				if hunt.CheckNotCombat != -1 &&
+					int(p.Varp(hunt.CheckNotCombat))+8 > s.currentTick {
+					continue
+				}
+				// checkNotCombatSelf (TS:946-948): skip candidate if this NPC's
+				// own combat-tracker varn was written within the past 8 ticks.
+				// Symmetric to checkNotCombat above, but reads the NPC side
+				// (n.NpcVarN) instead of the player side (p.Varp).
+				if hunt.CheckNotCombatSelf != -1 &&
+					int(n.NpcVarN(hunt.CheckNotCombatSelf))+8 > s.currentTick {
+					continue
 				}
 			}
-			if !hunt.CheckHuntCondition(quantity,
-				hunt.CheckInvCondition, hunt.CheckInvVal) {
+
+			// checkVars (TS:950-957): AND-chain of varp/operator/value predicates.
+			// Nil/empty CheckVars → no-op (ranging nil slice yields zero iterations,
+			// matching TS empty-`every` → true semantics).
+			passCheckVars := true
+			for _, cv := range hunt.CheckVars {
+				if cv.VarID == -1 {
+					// TS:953 `checkVar.varId === -1 ||` short-circuit.
+					continue
+				}
+				if !hunt.CheckHuntCondition(int(p.Varp(cv.VarID)), cv.Condition, cv.Val) {
+					passCheckVars = false
+					break
+				}
+			}
+			if !passCheckVars {
 				continue
 			}
-		}
 
-		hunted = append(hunted, p)
+			// checkInv (TS Npc.ts:959-969): if CheckInv is set, compute quantity
+			// per CheckObj or CheckObjParam branch, then evaluate CheckHuntCondition.
+			// Defensive: missing inv → quantity=0 (TS Player._invTotalParam throws
+			// 'Invalid inventory type' here, but goscape huntPlayers must continue
+			// iteration on one bad player; live players have all standard invs in
+			// practice, so this divergence is dead-path. No deviation tag tracked.
+			if hunt.CheckInv != -1 {
+				quantity := 0
+				if pInv := p.invs[hunt.CheckInv]; pInv != nil {
+					if hunt.CheckObj != -1 {
+						quantity = pInv.GetItemCount(hunt.CheckObj)
+					} else if hunt.CheckObjParam != -1 {
+						quantity = invTotalParam(pInv, hunt.CheckObjParam,
+							s.objTypes, s.paramTypes)
+					}
+				}
+				if !hunt.CheckHuntCondition(quantity,
+					hunt.CheckInvCondition, hunt.CheckInvVal) {
+					continue
+				}
+			}
+
+			hunted = append(hunted, p)
+		}
 	}
 	return hunted
 }
