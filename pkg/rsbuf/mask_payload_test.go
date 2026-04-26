@@ -166,6 +166,43 @@ func TestMaskHeaderLarge(t *testing.T) {
 	}
 }
 
+// TestWriteMaskPayloads_CanonicalOrder pins the canonical rsbuf write order
+// (info.rs:362-401, ascending bit-value): APPEARANCE -> ANIM -> FACE_ENTITY ->
+// SAY -> DAMAGE -> FACE_COORD -> CHAT -> SPOT_ANIM -> EXACT_MOVE. Java client
+// getPlayerExtended (client.java:10444-10559) reads in the same order.
+//
+// This is the regression pin for NAI-32 Bundle 3 Stage 4: pre-fix, goscape
+// wrote ANIM before APPEARANCE, FACE_COORD before APPEARANCE, etc., causing
+// the 2-client smoke crash (pos:320 psize:114, 206-byte over-read in
+// getPlayerExtended's appearance-first read consuming a FACE_COORD byte
+// as appearance length).
+func TestWriteMaskPayloads_CanonicalOrder(t *testing.T) {
+	// MaskAppearance (0x1) + MaskFaceCoord (0x20) — exact mask combo that
+	// triggered the 2-client smoke crash. Canonical order writes Appearance
+	// first (1 byte length + 3 bytes data = 4 bytes), then FaceCoord (4 bytes).
+	p := &fakeSource{
+		masks:       MaskAppearance | MaskFaceCoord,
+		appearance:  []byte{0xaa, 0xbb, 0xcc},
+		faceSquareX: 0x1234,
+		faceSquareZ: 0x5678,
+	}
+	buf := packet.NewPacket(nil)
+	writeMaskPayloads(buf, p, MaskAppearance|MaskFaceCoord)
+
+	// Expected: Appearance(len=3, 0xaa, 0xbb, 0xcc) + FaceCoord(P2(0x1234), P2(0x5678))
+	// = [0x03, 0xaa, 0xbb, 0xcc, 0x12, 0x34, 0x56, 0x78]
+	want := []byte{0x03, 0xaa, 0xbb, 0xcc, 0x12, 0x34, 0x56, 0x78}
+	got := bytesWritten(buf)
+	if len(got) != len(want) {
+		t.Fatalf("byte length: got %d, want %d; bytes %#v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("byte[%d]: got 0x%02x, want 0x%02x (full=%#v)", i, got[i], want[i], got)
+		}
+	}
+}
+
 // TestBuildPayload_HeaderPayloadConsistent_ChatStripped pins the
 // invariant that buildPayload's chat-strip path produces a header
 // AND payload that are mutually consistent: when CHAT is stripped

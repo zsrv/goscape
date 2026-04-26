@@ -12,40 +12,42 @@ func writeMaskHeader(buf *packet.Packet, masks int) {
 	}
 }
 
-// writeMaskPayloads writes mask payloads in rsbuf's fixed order:
-// ANIM -> SAY -> EXACT_MOVE -> FACE_ENTITY -> FACE_COORD -> SPOT_ANIM ->
-// APPEARANCE -> DAMAGE -> CHAT.
+// writeMaskPayloads writes mask payloads in canonical rsbuf order
+// (info.rs:362-401), matching Java client `getPlayerExtended` read order
+// (client.java:10444-10559). Order is ascending bit-value:
+// APPEARANCE -> ANIM -> FACE_ENTITY -> SAY -> DAMAGE -> FACE_COORD ->
+// CHAT -> SPOT_ANIM -> EXACT_MOVE.
 //
 // forceMasks is the effective mask set to write (may differ from p.Masks() for
 // low-def variants). Callers requesting CHAT suppression must pre-strip
 // MaskChat from forceMasks before calling (see buildPayload at renderer.go:122).
 func writeMaskPayloads(buf *packet.Packet, p PlayerSource, forceMasks int) {
+	if forceMasks&MaskAppearance != 0 {
+		writeAppearance(buf, p)
+	}
 	if forceMasks&MaskAnim != 0 {
 		writeAnim(buf, p)
-	}
-	if forceMasks&MaskSay != 0 {
-		writeSay(buf, p)
-	}
-	if forceMasks&MaskExactMove != 0 {
-		writeExactMove(buf, p)
 	}
 	if forceMasks&MaskFaceEntity != 0 {
 		writeFaceEntity(buf, p)
 	}
-	if forceMasks&MaskFaceCoord != 0 {
-		writeFaceCoord(buf, p)
-	}
-	if forceMasks&MaskSpotAnim != 0 {
-		writeSpotAnim(buf, p)
-	}
-	if forceMasks&MaskAppearance != 0 {
-		writeAppearance(buf, p)
+	if forceMasks&MaskSay != 0 {
+		writeSay(buf, p)
 	}
 	if forceMasks&MaskDamage != 0 {
 		writeDamage(buf, p)
 	}
+	if forceMasks&MaskFaceCoord != 0 {
+		writeFaceCoord(buf, p)
+	}
 	if forceMasks&MaskChat != 0 {
 		writeChat(buf, p)
+	}
+	if forceMasks&MaskSpotAnim != 0 {
+		writeSpotAnim(buf, p)
+	}
+	if forceMasks&MaskExactMove != 0 {
+		writeExactMove(buf, p)
 	}
 }
 
