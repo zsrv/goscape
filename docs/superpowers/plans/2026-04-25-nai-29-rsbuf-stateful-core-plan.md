@@ -2655,7 +2655,7 @@ func TestCleanup_NilSlotsAreSkipped(t *testing.T) {
 	// No AddPlayer / AddNpc calls — all slots nil.
 	b.ComputePlayer(5, 50, 0, 50, 48, 48, false, false, -1, -1,
 		VisibilityDefault, false, 0, nil, -1, -1, -1, -1, -1, -1, -1,
-		-1, -1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
+		-1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
 		-1, -1, -1, -1, -1, -1, -1)
 	// playerGrid push from ComputePlayer was a no-op (nil slot guard).
 	b.Cleanup() // must not panic on nil-slot iteration

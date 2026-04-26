@@ -624,6 +624,13 @@ func TestCleanup_NilSlotsAreSkipped(t *testing.T) {
 		-1, -1, -1, -1, -1, -1, -1)
 	// playerGrid push from ComputePlayer was a no-op (nil slot guard).
 	b.Cleanup() // must not panic on nil-slot iteration
+	// Falsifiable assertion: Cleanup must not fabricate slots.
+	if b.players[5] != nil {
+		t.Error("nil-slot guard: slot 5 should still be nil after Cleanup")
+	}
+	if len(b.playerGrid) != 0 {
+		t.Errorf("Cleanup: playerGrid not empty after nil-slot run, len=%d", len(b.playerGrid))
+	}
 }
 
 func TestCleanupPlayerBuildArea_ClearsTrackingAndAppearances(t *testing.T) {
@@ -651,5 +658,8 @@ func TestCleanupPlayerBuildArea_NilSlotIsNoop(t *testing.T) {
 	b.CleanupPlayerBuildArea(5) // never added
 	b.CleanupPlayerBuildArea(-1)
 	b.CleanupPlayerBuildArea(2048)
-	// no panic
+	// Falsifiable assertion: must not fabricate a slot via a side-effect.
+	if b.players[5] != nil {
+		t.Error("CleanupPlayerBuildArea(absent): unexpected slot allocation at pid=5")
+	}
 }
