@@ -1313,7 +1313,7 @@ EOF
 
 **Files:**
 - Modify: `pkg/rsbuf/playerinfo.go` (replace stub with `writeLocalPlayer` method)
-- Modify: `pkg/rsbuf/playerinfo_test.go` (add 5 branch tests: idle, walk, run, tele, extend)
+- Modify: `pkg/rsbuf/playerinfo_test.go` (add 4 branch tests: walk, run, tele, idle; extend-branch coverage deferred to T2.6 per renamed test's doc-comment)
 
 - [ ] **Step 1: Write the failing tests**
 

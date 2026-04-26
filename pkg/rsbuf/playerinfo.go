@@ -380,6 +380,10 @@ func (pi *PlayerInfo) writeLocalPlayer(self *Player, renderer *Renderer) int {
 		}
 		pi.buf.PBit(1, 1)
 		pi.buf.PBit(2, 3)
+		// pos.Level (player.coord.y in upstream) — NOT originPos.Level.
+		// info.rs:84. Tele test fixture has both equal to 0, so a swap
+		// would not be caught by the test alone; T2.9 round-trip parity
+		// against EncodeLegacy locks the choice.
 		pi.buf.PBit(2, pos.Level)
 		pi.buf.PBit(7, localX)
 		pi.buf.PBit(7, localZ)
