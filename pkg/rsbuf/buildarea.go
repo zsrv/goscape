@@ -1,5 +1,7 @@
 package rsbuf
 
+import "github.com/zsrv/goscape/pkg/coordgrid"
+
 // Sizing constants mirror upstream build.rs:75-78 BuildArea constants
 // (2004scape/rsbuf branch 225).
 const (
@@ -82,4 +84,98 @@ func (b *BuildArea) HasAppearance(pid int32, tick uint32) bool {
 // at build.rs:155-157.
 func (b *BuildArea) SaveAppearance(pid int32, tick uint32) {
 	b.appearances[pid] = tick
+}
+
+// GetNearbyPlayers returns up to (preferredPlayers - len(b.Players))
+// pids of players within preferredViewDistance zones (Chebyshev) of
+// (x, level, z), excluding the local player (pid) and any player
+// already in the tracking set. Mirrors upstream
+// BuildArea::get_nearby_players_zones at build.rs:178-213 (zone-walk
+// variant; the dispatcher between this and the spiral fallback
+// get_nearby_players_nearest is NAI-32 scope).
+//
+// View distance is fixed at preferredViewDistance in NAI-30; NAI-32
+// will introduce dynamic resize via a parameter.
+func (b *BuildArea) GetNearbyPlayers(players *[2048]*Player, zoneMap *zoneMap, pid int32, x, level, z int) []int32 {
+	distance := int(preferredViewDistance)
+	startZX := (x - distance) >> 3
+	startZZ := (z - distance) >> 3
+	endZX := (x + distance) >> 3
+	endZZ := (z + distance) >> 3
+
+	count := b.Players.Len()
+	remaining := int(preferredPlayers) - count
+	if remaining <= 0 {
+		return nil
+	}
+	nearby := make([]int32, 0, remaining)
+
+	for zx := startZX; zx <= endZX; zx++ {
+		for zz := startZZ; zz <= endZZ; zz++ {
+			if len(nearby)+count >= int(preferredPlayers) {
+				return nearby
+			}
+			zonePlayers := zoneMap.Zone(zx<<3, level, zz<<3).players
+			for candidate := range zonePlayers { // map keys
+				if len(nearby)+count >= int(preferredPlayers) {
+					return nearby
+				}
+				if b.filterPlayer(players, candidate, pid, x, level, z) {
+					nearby = append(nearby, candidate)
+				}
+			}
+		}
+	}
+	return nearby
+}
+
+// filterPlayer reports whether candidate should be added to a
+// nearby-players result. Mirrors upstream BuildArea::filter_player
+// at build.rs:298-312. Five reject conditions: already tracked,
+// out-of-distance (Chebyshev), pid==-1 (empty-slot marker),
+// pid==self (self exclusion), level mismatch.
+func (b *BuildArea) filterPlayer(players *[2048]*Player, candidate, pid int32, x, level, z int) bool {
+	if candidate < 0 || int(candidate) >= len(players) {
+		return false
+	}
+	other := players[candidate]
+	if other == nil {
+		return false
+	}
+	if b.Players.Contains(candidate) {
+		return false
+	}
+	if other.PID == -1 {
+		return false
+	}
+	if other.PID == pid {
+		return false
+	}
+	otherPos := coordgrid.UnpackCoord(other.Coord)
+	if otherPos.Level != level {
+		return false
+	}
+	if !withinDistanceSW(otherPos.X, otherPos.Z, x, z, int(preferredViewDistance)) {
+		return false
+	}
+	return true
+}
+
+// withinDistanceSW returns true if the Chebyshev distance between
+// (ax, az) and (bx, bz) is <= radius. Mirrors upstream
+// CoordGrid::within_distance_sw at coord.rs:50-58 (max of |dx|, |dz|
+// against radius).
+func withinDistanceSW(ax, az, bx, bz, radius int) bool {
+	dx := ax - bx
+	if dx < 0 {
+		dx = -dx
+	}
+	dz := az - bz
+	if dz < 0 {
+		dz = -dz
+	}
+	if dx > dz {
+		return dx <= radius
+	}
+	return dz <= radius
 }
