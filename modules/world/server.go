@@ -652,6 +652,11 @@ func (s *Server) removePlayer(p *Player) {
 	if p.slot < 1 || p.slot >= len(s.players) || s.players[p.slot] != p {
 		return
 	}
+	if s.zoneMap != nil && p.zoneListElement != nil {
+		z := s.zoneMap.Get(p.level, p.x, p.z)
+		z.LeavePlayer(p, p.zoneListElement, s.zoneMap.Grid(p.level))
+		p.zoneListElement = nil
+	}
 	s.players[p.slot] = nil
 
 	for i, lp := range s.playerLoop {

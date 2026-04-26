@@ -700,3 +700,41 @@ func TestAddPlayerEntersZoneAndFlagsGrid(t *testing.T) {
 		t.Error("addPlayer should populate p.zoneListElement")
 	}
 }
+
+func TestRemovePlayerLeavesZoneAndUnflagsGrid(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.x, p.z, p.level = 3200, 3200, 0
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	s.removePlayer(p)
+	z := s.zoneMap.Get(0, 3200, 3200)
+	if z.PlayersCount() != 0 {
+		t.Errorf("after removePlayer, Zone.PlayersCount: got %d, want 0", z.PlayersCount())
+	}
+	if s.zoneMap.Grid(0).IsFlagged(400, 400, 0) {
+		t.Error("after removePlayer (last player gone), grid should be unflagged")
+	}
+	if p.zoneListElement != nil {
+		t.Error("removePlayer should null p.zoneListElement")
+	}
+}
+
+func TestRemovePlayerDoubleCallIsNoop(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.x, p.z, p.level = 3200, 3200, 0
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	s.removePlayer(p)
+	// Second call must not panic.
+	s.removePlayer(p)
+	z := s.zoneMap.Get(0, 3200, 3200)
+	if z.PlayersCount() != 0 {
+		t.Errorf("PlayersCount after double removePlayer: got %d, want 0", z.PlayersCount())
+	}
+}
