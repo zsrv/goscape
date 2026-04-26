@@ -73,13 +73,21 @@ func (ni *NpcInfo) Encode(b *Buf, pid int32, renderer *Renderer) []byte {
 	ni.writeNpcs(b, self, renderer)
 	ni.writeNewNpcs(b, self, renderer)
 
-	ni.buf.AccessBytes()
-
-	// NpcInfo has no separate "before-updates" sentinel (unlike PlayerInfo's
-	// 11-bit 2047). The 13-bit 8191 terminator emits inside writeNewNpcs on
-	// byte-budget overflow only.
-	for _, b2 := range ni.updates.Data {
-		ni.buf.P1(b2)
+	// Mirrors info.rs:456-462: emit the 13-bit 8191 terminator before
+	// AccessBytes when there are pending mask-payload updates, then append
+	// updates after byte alignment. Without the terminator, the Java
+	// client's getNpcPosNewVis (Client-Java client.java:5787-5821) reads
+	// bits past the new-NPCs section into the mask-payload bytes (no
+	// bit-budget exit at first-tick counts) and crashes parsing garbage.
+	// PlayerInfo's analogous pattern at playerinfo.go:89-97 uses 11-bit 2047.
+	if len(ni.updates.Data) > 0 {
+		ni.buf.PBit(13, npcTerminator)
+		ni.buf.AccessBytes()
+		for _, b2 := range ni.updates.Data {
+			ni.buf.P1(b2)
+		}
+	} else {
+		ni.buf.AccessBytes()
 	}
 
 	// Return a copy — caller may write more, and ni.buf.Data is reused

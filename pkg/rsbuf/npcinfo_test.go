@@ -167,8 +167,10 @@ func TestNpcInfo_TrackedNpc_Run(t *testing.T) {
 
 // TestNpcInfo_TrackedNpc_Extend pins the extend-only branch: RunDir=-1,
 // WalkDir=-1, but renderer has non-empty high-def payload for this NPC.
-// writeNpcs emits: PBit(8,1)+PBit(1,1)+PBit(2,0) = 11 bits → 2 bytes,
-// then after AccessBytes the update byte 0xab is appended → 3 bytes total.
+// writeNpcs emits: PBit(8,1)+PBit(1,1)+PBit(2,0) = 11 bits, then
+// (NAI-31 Bundle 3) Encode emits the 13-bit 8191 terminator because
+// ni.updates.Data is non-empty, then after AccessBytes the update byte
+// 0xab is appended → 4 bytes total.
 func TestNpcInfo_TrackedNpc_Extend(t *testing.T) {
 	b := New()
 	setupLocalPlayer(b, 1, nil)
@@ -183,13 +185,18 @@ func TestNpcInfo_TrackedNpc_Extend(t *testing.T) {
 
 	out := ni.Encode(b, 1, r)
 
-	// PBit(8,1)+PBit(1,1)+PBit(2,0) = 11 bits → 2 bytes: 00000001 100_____
-	// byte 0 = 0x01; byte 1 = 10000000 = 0x80; then P1(0xab) → byte 2 = 0xab.
-	if len(out) != 3 {
-		t.Fatalf("tracked-extend: got %d bytes, want 3; bytes: % x", len(out), out)
+	// Bit layout after NAI-31 Bundle 3:
+	//   bits 0-7:   PBit(8,1)              → byte 0 = 0x01
+	//   bits 8-10:  PBit(1,1)+PBit(2,0)    → "100"
+	//   bits 11-23: PBit(13,8191)          → 13 ones (terminator)
+	//   AccessBytes pads to bit 24 (byte 3 boundary)
+	//   byte 3:     P1(0xab)               → 0xab
+	// byte 1 = "100 11111" = 0x9F; byte 2 = 11111111 = 0xFF; byte 3 = 0xab.
+	if len(out) != 4 {
+		t.Fatalf("tracked-extend: got %d bytes, want 4; bytes: % x", len(out), out)
 	}
-	if out[0] != 0x01 || out[1] != 0x80 || out[2] != 0xab {
-		t.Errorf("tracked-extend: got % x, want 01 80 ab", out)
+	if out[0] != 0x01 || out[1] != 0x9F || out[2] != 0xFF || out[3] != 0xab {
+		t.Errorf("tracked-extend: got % x, want 01 9f ff ab", out)
 	}
 }
 
@@ -699,5 +706,77 @@ func TestNpcInfo_FaceEntity_PreservedAcrossEncode(t *testing.T) {
 
 	if got := b.npcs[7].FaceEntity; got != 42 {
 		t.Errorf("FaceEntity mutated by Encode: got %d, want 42", got)
+	}
+}
+
+// readBitsRange extracts a range of bits [start, start+n) from a byte
+// slice MSB-first within each byte. Used for terminator-position
+// assertions where GBit's uint8 return doesn't fit a 13-bit value.
+func readBitsRange(data []byte, start, n int) int {
+	v := 0
+	for i := 0; i < n; i++ {
+		bitIdx := start + i
+		byteIdx := bitIdx >> 3
+		bitInByte := 7 - (bitIdx & 7)
+		bit := (int(data[byteIdx]) >> bitInByte) & 1
+		v = (v << 1) | bit
+	}
+	return v
+}
+
+// TestNpcInfo_Encode_EmitsTerminatorBeforeMaskPayloads is the NAI-31
+// Bundle 3 regression: NpcInfo.Encode must emit the 13-bit 8191
+// terminator after the bit-packed new-NPCs section and before the
+// AccessBytes-aligned mask-payload section.
+//
+// Without the terminator, the Java client's getNpcPosNewVis
+// (Client-Java client.java:5787-5821) loops `bitPos + 21 < packetSize*8`
+// and exits only on `gBit(13) == 8191` OR on bit-budget exhaustion;
+// it reads bits past the new-NPCs section into the mask-payload bytes,
+// parses garbage NTypes, and crashes ("Error: T2").
+//
+// Setup: 1 player at default coord, 1 NPC nid=7 ntype=100 with a small
+// non-nil low-def payload so writeNewNpcs both adds the NPC AND
+// populates ni.updates.Data (forces the terminator branch to fire).
+//
+// Bit layout after Encode:
+//
+//	bits  0-7:   PBit(8,0)        — count
+//	bits  8-20:  PBit(13,7)       — nid
+//	bits 21-31:  PBit(11,100)     — ntype
+//	bits 32-36:  PBit(5,0)        — dx
+//	bits 37-41:  PBit(5,0)        — dz
+//	bit  42:     PBit(1,1)        — extend
+//	bits 43-55:  PBit(13,8191)    — terminator (the bug fix)
+//	bytes 7+:    mask payload bytes (after AccessBytes)
+//
+// Assertion: bits 43-55 must equal 8191.
+func TestNpcInfo_Encode_EmitsTerminatorBeforeMaskPayloads(t *testing.T) {
+	const nid = int32(7)
+	b := New()
+	setupLocalPlayer(b, 1, nil)
+	setupNpc(b, nid, 100, nil)
+
+	ni := NewNpcInfo()
+	r := NewRenderer()
+	// Inject a small non-nil low-def payload so writeNewNpcs's add path
+	// populates ni.updates.Data, forcing Encode through the
+	// terminator-emitting branch (mirrors info.rs:456-462). A nil/empty
+	// low-def would skip the terminator branch entirely.
+	r.npcLowDef[nid] = []byte{0x80, 0xFF, 0xFF, 0xFF, 0xFF}
+
+	out := ni.Encode(b, 1, r)
+
+	// Output must be at least 7 bytes (8 + 35 + 13 = 56 bits packed) +
+	// 5 mask-payload bytes = 12 bytes total.
+	if len(out) < 7 {
+		t.Fatalf("EmitsTerminator: got %d bytes, want >= 7; bytes: % x", len(out), out)
+	}
+
+	// Extract bits 43-55 (13 bits) MSB-first; must equal 8191.
+	got := readBitsRange(out, 43, 13)
+	if got != 8191 {
+		t.Errorf("EmitsTerminator: bits 43-55 = %d (0x%x), want 8191 (0x1FFF); bytes: % x",
+			got, got, out)
 	}
 }
