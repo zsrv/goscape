@@ -12,13 +12,16 @@ import (
 )
 
 // addNpcToServerAt seeds s.npcs[nid], registers the NPC's type in
-// s.npcTypes.Configs, and indexes into s.grid. Returns the *Npc
-// so tests can further mutate fields. Slot 0 is reserved; use 1+.
-// nid must be < 8192 (fixed Server.npcs array size).
+// s.npcTypes.Configs, indexes into s.grid, and subscribes into pkg/zone.
+// Returns the *Npc so tests can further mutate fields.
+// Slot 0 is reserved; use 1+. nid must be < 8192 (fixed Server.npcs array size).
 func addNpcToServerAt(t *testing.T, s *Server, nid, typeId, category, x, z, level int) *Npc {
 	t.Helper()
 	if s.grid == nil {
 		s.grid = grid.New()
+	}
+	if s.zoneMap == nil {
+		s.zoneMap = zone.NewZoneMap()
 	}
 	if s.npcTypes == nil {
 		s.npcTypes = &objtype.NPCTypeConfigs{Configs: make([]*objtype.NpcType, 100)}
@@ -32,6 +35,8 @@ func addNpcToServerAt(t *testing.T, s *Server, nid, typeId, category, x, z, leve
 	n := NewNpc(nid, typeId, x, z, level, s.npcTypes.Configs[typeId])
 	s.npcs[nid] = n
 	s.grid.AddNpc(nid, x, z, level)
+	zn := s.zoneMap.Get(level, x, z)
+	n.zoneListElement = zn.EnterNpc(n)
 	return n
 }
 
@@ -170,6 +175,9 @@ func TestHuntNpcsMissingTypeConfigSkipsOnCategoryFilter(t *testing.T) {
 	s.npcs[70] = other
 	s.grid = grid.New()
 	s.grid.AddNpc(70, other.x, other.z, other.level)
+	s.zoneMap = zone.NewZoneMap()
+	zn := s.zoneMap.Get(other.level, other.x, other.z)
+	other.zoneListElement = zn.EnterNpc(other)
 
 	hunted := n.huntNpcs(s, &objtype.HuntType{CheckNpc: -1, CheckCategory: 42})
 	if len(hunted) != 0 {
@@ -183,13 +191,13 @@ func TestHuntNpcsNilRegistriesReturnsNil(t *testing.T) {
 	n.server = s
 	n.huntRange = 10
 
-	// s.grid is nil per newServerForScriptTest.
+	// s.zoneMap is nil per newServerForScriptTest.
 	hunted := n.huntNpcs(s, &objtype.HuntType{})
 	if hunted != nil {
-		t.Errorf("hunted: got %v, want nil (grid nil)", hunted)
+		t.Errorf("hunted: got %v, want nil (zoneMap nil)", hunted)
 	}
 
-	s.grid = grid.New()
+	s.zoneMap = zone.NewZoneMap()
 	// s.npcTypes is nil.
 	hunted = n.huntNpcs(s, &objtype.HuntType{})
 	if hunted != nil {

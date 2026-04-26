@@ -12,6 +12,7 @@ import (
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
+	"github.com/zsrv/goscape/pkg/zone"
 )
 
 func newNpcForLifecycleTest(t *testing.T) *Npc {
@@ -515,13 +516,16 @@ func TestProcessNpcEventQueueHappyPathFire(t *testing.T) {
 	}
 }
 
-// addPlayerToServer seeds s.players[slot] + s.grid with a minimal
-// *Player at the given coords. Used by NAI-8 huntPlayers tests.
+// addPlayerToServer seeds s.players[slot], s.grid, and pkg/zone with a
+// minimal *Player at the given coords. Used by NAI-8 huntPlayers tests.
 // Slot 0 is reserved per existing convention.
 func addPlayerToServer(t *testing.T, s *Server, slot, x, z, level int) *Player {
 	t.Helper()
 	if s.grid == nil {
 		s.grid = grid.New()
+	}
+	if s.zoneMap == nil {
+		s.zoneMap = zone.NewZoneMap()
 	}
 	p := &Player{
 		slot:  slot,
@@ -531,6 +535,8 @@ func addPlayerToServer(t *testing.T, s *Server, slot, x, z, level int) *Player {
 	}
 	s.players[slot] = p
 	s.grid.Add(slot, x, z, level)
+	zn := s.zoneMap.Get(level, x, z)
+	p.zoneListElement = zn.EnterPlayer(p, nil)
 	return p
 }
 
@@ -607,7 +613,7 @@ func TestHuntPlayersSkipsAfkZonedPlayers(t *testing.T) {
 
 func TestHuntPlayersReturnsEmptyWhenNoCandidates(t *testing.T) {
 	s := newServerForScriptTest(t)
-	s.grid = grid.New()
+	s.zoneMap = zone.NewZoneMap()
 	n := newNpcForLifecycleTest(t)
 	n.server = s
 	n.huntRange = 10
@@ -616,7 +622,7 @@ func TestHuntPlayersReturnsEmptyWhenNoCandidates(t *testing.T) {
 	hunted := n.huntPlayers(s, hunt)
 
 	if len(hunted) != 0 {
-		t.Errorf("hunted: got %d, want 0 (empty grid)", len(hunted))
+		t.Errorf("hunted: got %d, want 0 (empty zone)", len(hunted))
 	}
 }
 
