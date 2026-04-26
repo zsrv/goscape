@@ -22,7 +22,7 @@ const (
 	NpcStatCount     = 6 // Total number of stat slots; matches TS NpcStat enum.
 )
 
-// MoveRestrict values (mirror of rs-server-225/entity.MoveRestrict).
+// MoveRestrict values (mirror of Engine-TS/src/engine/entity/MoveRestrict.ts).
 const (
 	MoveRestrictNormal        = 0
 	MoveRestrictBlocked       = 1
@@ -33,7 +33,7 @@ const (
 	MoveRestrictPassthru      = 6
 )
 
-// BlockWalk values (mirror of rs-server-225/entity.BlockWalk).
+// BlockWalk values (mirror of Engine-TS/src/engine/entity/BlockWalk.ts).
 const (
 	BlockWalkNone = 0
 	BlockWalkNPC  = 1

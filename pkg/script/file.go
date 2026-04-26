@@ -37,7 +37,7 @@ type ScriptFile struct {
 // Decode parses the raw bytes of one script blob.
 //
 // Critical format details (TS ScriptFile.ts is the canonical reference):
-//   - lookupKey is u32 (rs-server-225 had a u16 bug).
+//   - lookupKey is u32 (per Engine-TS/src/engine/script/ScriptFile.ts).
 //   - Trailer position: fileLen - trailerLen - 12 - 2.
 //   - Operand encoding: PUSH_CONSTANT_STRING → NUL-terminated string;
 //     isLargeOperand(op) → u32; else → u8.

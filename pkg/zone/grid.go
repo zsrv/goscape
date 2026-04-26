@@ -1,7 +1,6 @@
 package zone
 
-// Ported from /home/owner/Code/github.com/zsrv/rs-server-225/engine/zone/grid.go,
-// renamed Grid → ZoneGrid for clarity in the package-qualified zone.ZoneGrid form.
+// Ported from /home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/zone/ZoneGrid.ts.
 
 const (
 	// ZoneGridSize is the side length of the world in zones (2048 × 8 = 16384 tiles).
