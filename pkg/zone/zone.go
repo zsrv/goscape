@@ -67,7 +67,9 @@ func New(index, level, x, z int) *Zone {
 }
 
 // Reset clears per-tick state: events, entityEvents, shared. Called from
-// processCleanup at the end of each tick. Locs and Objs persist.
+// processCleanup at the end of each tick. Locs and Objs persist. The
+// players/npcs subscription lists also persist — they are managed via
+// EnterX/LeaveX, not per-tick (mirrors TS Zone.reset at Zone.ts:197-201).
 func (z *Zone) Reset() {
 	z.events = z.events[:0]
 	clear(z.entityEvents)
