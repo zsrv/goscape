@@ -51,7 +51,7 @@ func writeMaskPayloads(buf *packet.Packet, p PlayerSource, forceMasks int) {
 
 func writeAnim(buf *packet.Packet, p PlayerSource) {
 	buf.P2(uint16(p.AnimID()))
-	buf.P1Alt3(uint8(p.AnimDelay()))
+	buf.P1(uint8(p.AnimDelay()))
 }
 
 func writeSay(buf *packet.Packet, p PlayerSource) {
@@ -64,17 +64,17 @@ func writeSay(buf *packet.Packet, p PlayerSource) {
 func writeExactMove(buf *packet.Packet, p PlayerSource) {
 	localOrigin := ((p.OriginX() >> 3) - 6) << 3
 	localZOrigin := ((p.OriginZ() >> 3) - 6) << 3
-	buf.P1Alt1(uint8(p.ExactStartX() - localOrigin))
-	buf.P1Alt2(uint8(p.ExactStartZ() - localZOrigin))
-	buf.P1Alt3(uint8(p.ExactEndX() - localOrigin))
+	buf.P1(uint8(p.ExactStartX() - localOrigin))
+	buf.P1(uint8(p.ExactStartZ() - localZOrigin))
+	buf.P1(uint8(p.ExactEndX() - localOrigin))
 	buf.P1(uint8(p.ExactEndZ() - localZOrigin))
 	buf.P2(uint16(p.ExactBegin()))
-	buf.P2Alt2(uint16(p.ExactFinish()))
+	buf.P2(uint16(p.ExactFinish()))
 	buf.P1(uint8(p.ExactDir()))
 }
 
 func writeFaceEntity(buf *packet.Packet, p PlayerSource) {
-	buf.P2Alt2(uint16(p.FaceEntity()))
+	buf.P2(uint16(p.FaceEntity()))
 }
 
 func writeFaceCoord(buf *packet.Packet, p PlayerSource) {
@@ -83,8 +83,8 @@ func writeFaceCoord(buf *packet.Packet, p PlayerSource) {
 }
 
 func writeSpotAnim(buf *packet.Packet, p PlayerSource) {
-	buf.P2Alt2(uint16(p.SpotAnimID()))
-	buf.P4Alt2(uint32(p.SpotAnimHeight())<<16 | uint32(p.SpotAnimDelay()))
+	buf.P2(uint16(p.SpotAnimID()))
+	buf.P4(uint32(p.SpotAnimHeight())<<16 | uint32(p.SpotAnimDelay()))
 }
 
 func writeAppearance(buf *packet.Packet, p PlayerSource) {
@@ -94,16 +94,16 @@ func writeAppearance(buf *packet.Packet, p PlayerSource) {
 }
 
 func writeDamage(buf *packet.Packet, p PlayerSource) {
-	buf.P1Alt1(uint8(p.DamageAmt()))
-	buf.P1Alt3(uint8(p.DamageType()))
-	buf.P1Alt2(uint8(p.CurHP()))
+	buf.P1(uint8(p.DamageAmt()))
+	buf.P1(uint8(p.DamageType()))
+	buf.P1(uint8(p.CurHP()))
 	buf.P1(uint8(p.BaseHP()))
 }
 
 func writeChat(buf *packet.Packet, p PlayerSource) {
 	buf.P1(uint8(p.ChatColour()))
 	buf.P1(uint8(p.ChatEffect()))
-	buf.P1Alt2(uint8(p.ChatRights()))
-	buf.P1Alt1(uint8(len(p.ChatBytes())))
-	buf.PDataAlt2(p.ChatBytes())
+	buf.P1(uint8(p.ChatRights()))
+	buf.P1(uint8(len(p.ChatBytes())))
+	buf.PData(p.ChatBytes())
 }

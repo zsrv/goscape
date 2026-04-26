@@ -22,9 +22,9 @@ func TestComputePlayersHighDef(t *testing.T) {
 	p := &fakeSource{slot: 5, masks: MaskAnim, animID: 100, animDelay: 2}
 	r.ComputePlayers([]PlayerSource{p})
 	got := r.HighDefOf(5)
-	// header=MaskAnim=2 (1 byte), then p2(100) p1_alt3(2) = [0x00, 0x64, (-2)&0xff=0xfe]
-	// = [2, 0, 100, 254]
-	want := []byte{2, 0, 100, 254}
+	// header=MaskAnim=2 (1 byte), then p2(100) p1(2) = [0x00, 0x64, 0x02]
+	// = [2, 0, 100, 2]
+	want := []byte{2, 0, 100, 2}
 	if len(got) != len(want) {
 		t.Fatalf("length: got %d, want %d (bytes=%v)", len(got), len(want), got)
 	}
@@ -110,7 +110,7 @@ func TestComputePlayers_DualHighDef_ChatPresent(t *testing.T) {
 	// Length: stripped is 1 (header) + 3 (anim) = 4 bytes.
 	// With-chat is 4 + 6 (chat: colour + effect + rights + len + 2 chars) = 10 bytes.
 	// Per existing TestChatPayload at mask_payload_test.go:122 — chat body for "yo" is
-	// p1(1) p1(2) p1_alt2(3)=125 p1_alt1(2)=130 pdata_alt2('y','o')={7,17}.
+	// p1(1) p1(2) p1(3) p1(2) pdata('y','o')={0x79,0x6f}.
 	if len(stripped) != 4 {
 		t.Errorf("HighDefOf length: got %d, want 4 (header + anim); bytes %#v", len(stripped), stripped)
 	}

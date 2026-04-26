@@ -628,23 +628,23 @@ func TestPlayerInfo_LocalPlayer_ChatMaskStripped(t *testing.T) {
 	}
 
 	// Encoder-level dual pin: scan the encoder output for the chat strings.
-	// pdata_alt2 transforms each byte b → (128 - b) & 0xff. So "self" encodes
-	// as (128-'s', 128-'e', 128-'l', 128-'f') = (13, 27, 20, 26).
-	// "other" encodes as (128-'o', 128-'t', 128-'h', 128-'e', 128-'r') = (17, 12, 24, 27, 14).
+	// Per Rust canonical message.rs, chat bytes are written as plain pdata
+	// (no scrambling). So "self" encodes as the literal bytes "self" and
+	// "other" encodes as the literal bytes "other".
 	pi := NewPlayerInfo()
 	out := pi.Encode(b, 1, r)
 	if len(out) == 0 {
 		t.Fatalf("pi.Encode returned empty output")
 	}
 
-	selfChatTransformed := []byte{13, 27, 20, 26}
-	otherChatTransformed := []byte{17, 12, 24, 27, 14}
+	selfChatBytes := []byte("self")
+	otherChatBytes := []byte("other")
 
-	if bytes.Contains(out, selfChatTransformed) {
-		t.Errorf("self chat bytes appear in encoder output: pdata_alt2('self')=%#v found in out=%#v", selfChatTransformed, out)
+	if bytes.Contains(out, selfChatBytes) {
+		t.Errorf("self chat bytes appear in encoder output: pdata('self')=%#v found in out=%#v", selfChatBytes, out)
 	}
-	if !bytes.Contains(out, otherChatTransformed) {
-		t.Errorf("other chat bytes missing from encoder output: pdata_alt2('other')=%#v not found in out=%#v", otherChatTransformed, out)
+	if !bytes.Contains(out, otherChatBytes) {
+		t.Errorf("other chat bytes missing from encoder output: pdata('other')=%#v not found in out=%#v", otherChatBytes, out)
 	}
 }
 

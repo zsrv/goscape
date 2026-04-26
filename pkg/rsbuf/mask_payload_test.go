@@ -79,8 +79,8 @@ func TestAnimPayload(t *testing.T) {
 	buf := packet.NewPacket(nil)
 	writeMaskPayloads(buf, p, MaskAnim)
 	got := bytesWritten(buf)
-	// ANIM: p2(0x1234) p1_alt3(5) = [0x12, 0x34, 0xfb]  (0xfb = (-5)&0xff)
-	want := []byte{0x12, 0x34, 0xfb}
+	// ANIM: p2(0x1234) p1(5) = [0x12, 0x34, 0x05]
+	want := []byte{0x12, 0x34, 0x05}
 	for i := range want {
 		if got[i] != want[i] {
 			t.Errorf("byte[%d]: got %#x, want %#x (full=%v)", i, got[i], want[i], got)
@@ -124,9 +124,8 @@ func TestChatPayload(t *testing.T) {
 	buf := packet.NewPacket(nil)
 	writeMaskPayloads(buf, p, MaskChat)
 	got := bytesWritten(buf)
-	// p1(1) p1(2) p1_alt2(3)=125 p1_alt1(len=2)=130 pdata_alt2("yo")
-	// 'y'=121, 128-121=7; 'o'=111, 128-111=17
-	want := []byte{1, 2, 125, 130, 7, 17}
+	// p1(1) p1(2) p1(3) p1(len=2) pdata("yo") = 'y'=0x79, 'o'=0x6f
+	want := []byte{0x01, 0x02, 0x03, 0x02, 0x79, 0x6f}
 	for i := range want {
 		if got[i] != want[i] {
 			t.Errorf("byte[%d]: got %#x, want %#x (full=%v)", i, got[i], want[i], got)
@@ -140,8 +139,8 @@ func TestDamagePayload(t *testing.T) {
 	buf := packet.NewPacket(nil)
 	writeMaskPayloads(buf, p, MaskDamage)
 	got := bytesWritten(buf)
-	// p1_alt1(10)=138 p1_alt3(1)=255 p1_alt2(40)=88 p1(50)
-	want := []byte{138, 255, 88, 50}
+	// p1(10) p1(1) p1(40) p1(50)
+	want := []byte{0x0a, 0x01, 0x28, 0x32}
 	for i := range want {
 		if got[i] != want[i] {
 			t.Errorf("byte[%d]: got %#x, want %#x", i, got[i], want[i])
@@ -201,9 +200,8 @@ func TestBuildPayload_HeaderPayloadConsistent_ChatStripped(t *testing.T) {
 		t.Errorf("header byte: got 0x%02x, want 0x%02x (MaskAnim only)", out[0], MaskAnim)
 	}
 
-	// Payload must be anim-only: P2(0x1234) + P1Alt3(5).
-	// P1Alt3(5) writes (-5)&0xff = 0xfb (per existing TestAnimPayload).
-	want := []byte{byte(MaskAnim), 0x12, 0x34, 0xfb}
+	// Payload must be anim-only: P2(0x1234) + P1(5) (per existing TestAnimPayload).
+	want := []byte{byte(MaskAnim), 0x12, 0x34, 0x05}
 	if len(out) != len(want) {
 		t.Fatalf("payload length: got %d, want %d (header + 3 anim bytes); bytes %#v", len(out), len(want), out)
 	}
