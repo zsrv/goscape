@@ -432,3 +432,104 @@ func TestComputePlayer_AlwaysPushesPlayerGrid(t *testing.T) {
 		t.Errorf("playerGrid[%d] after second compute: got %v, want [5]", newKey, got)
 	}
 }
+
+func TestComputeNpc_WritesAllFields(t *testing.T) {
+	b := New()
+	b.AddNpc(50, 100)
+	say := "rwar"
+
+	b.ComputeNpc(50, 100,
+		/*x*/ 60, /*level*/ 0, /*z*/ 70,
+		/*tele*/ true,
+		/*runDir*/ 1, /*walkDir*/ 2,
+		/*active*/ true,
+		/*masks*/ 0xff,
+		/*faceEntity*/ 9, /*faceX*/ 10, /*faceZ*/ 11,
+		/*orientationX*/ 12, /*orientationZ*/ 13,
+		/*damageTaken*/ 7, /*damageType*/ 1,
+		/*currentHitpoints*/ 90, /*baseHitpoints*/ 99,
+		/*animID*/ 808, /*animDelay*/ 0,
+		/*say*/ &say,
+		/*graphicID*/ 200, /*graphicHeight*/ 92, /*graphicDelay*/ 0,
+	)
+
+	n := b.npcs[50]
+	if n == nil {
+		t.Fatal("ComputeNpc: slot nilled")
+	}
+	if n.Coord != coordgrid.PackCoord(0, 60, 70) {
+		t.Errorf("Coord: got %d", n.Coord)
+	}
+	if n.NID != 50 || n.NType != 100 {
+		t.Errorf("NID/NType: got (%d, %d)", n.NID, n.NType)
+	}
+	if !n.Tele {
+		t.Error("Tele: got false")
+	}
+	if n.RunDir != 1 || n.WalkDir != 2 {
+		t.Errorf("RunDir/WalkDir: got (%d, %d)", n.RunDir, n.WalkDir)
+	}
+	if !n.Active {
+		t.Error("Active: got false")
+	}
+	if n.Masks != 0xff {
+		t.Errorf("Masks: got %d", n.Masks)
+	}
+	if n.FaceEntity != 9 || n.FaceX != 10 || n.FaceZ != 11 {
+		t.Errorf("Face*: got (%d,%d,%d)", n.FaceEntity, n.FaceX, n.FaceZ)
+	}
+	if n.OrientationX != 12 || n.OrientationZ != 13 {
+		t.Errorf("Orientation*: got (%d,%d)", n.OrientationX, n.OrientationZ)
+	}
+	if n.DamageTaken != 7 || n.DamageType != 1 {
+		t.Errorf("Damage*: got (%d,%d)", n.DamageTaken, n.DamageType)
+	}
+	if n.AnimID != 808 || n.AnimDelay != 0 {
+		t.Errorf("Anim*: got (%d,%d)", n.AnimID, n.AnimDelay)
+	}
+	if n.Say == nil || *n.Say != "rwar" {
+		t.Errorf("Say: got %v", n.Say)
+	}
+	if n.GraphicID != 200 || n.GraphicHeight != 92 || n.GraphicDelay != 0 {
+		t.Errorf("Graphic*: got (%d,%d,%d)", n.GraphicID, n.GraphicHeight, n.GraphicDelay)
+	}
+}
+
+func TestComputeNpc_NilSlotIsNoop(t *testing.T) {
+	b := New()
+	// nid 50 not added.
+	b.ComputeNpc(50, 100, 60, 0, 70, false, -1, -1, false, 0,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1)
+	if b.npcs[50] != nil {
+		t.Error("ComputeNpc on nil slot allocated npc")
+	}
+}
+
+func TestComputeNpc_NegativeIDsAreNoop(t *testing.T) {
+	b := New()
+	b.AddNpc(50, 100)
+	b.ComputeNpc(-1, 100, 60, 0, 70, false, -1, -1, false, 0,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1)
+	b.ComputeNpc(50, -1, 60, 0, 70, false, -1, -1, false, 0,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1)
+	// Both should no-op.
+}
+
+func TestComputeNpc_CrossZoneMoveUpdatesZoneMap(t *testing.T) {
+	b := New()
+	b.AddNpc(50, 100)
+	b.ComputeNpc(50, 100, 50, 0, 50, false, -1, -1, true, 0,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1)
+	if _, ok := b.zoneMap.Zone(50, 0, 50).npcs[50]; !ok {
+		t.Fatal("after first compute: zone (6,0,6) should contain nid 50")
+	}
+
+	b.ComputeNpc(50, 100, 64, 0, 50, false, -1, -1, true, 0,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1)
+	if _, ok := b.zoneMap.Zone(50, 0, 50).npcs[50]; ok {
+		t.Error("after cross-zone: old zone still contains nid 50")
+	}
+	if _, ok := b.zoneMap.Zone(64, 0, 50).npcs[50]; !ok {
+		t.Error("after cross-zone: new zone missing nid 50")
+	}
+}

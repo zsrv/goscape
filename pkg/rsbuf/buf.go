@@ -252,3 +252,86 @@ func (b *Buf) ComputePlayer(
 	key := uint32(newCoord)
 	b.playerGrid[key] = append(b.playerGrid[key], pid)
 }
+
+// ComputeNpc writes ALL per-tick state for nid in one call. Mirrors
+// upstream compute_npc at lib.rs:215-281. Argument order matches
+// upstream verbatim except nid/ntype are promoted to positions 0/1
+// (Go method-receiver convention + symmetry with ComputePlayer;
+// upstream places (x, y, z) at positions 0-2 and nid/ntype at 3/4 —
+// lib.rs:217-221).
+//
+// Side effects:
+//  1. If new coord crosses a zone boundary OR changes level: zoneMap
+//     remove+add (mirrors lib.rs:251).
+//  2. Write 22 fields onto npcs[nid] (note: ntype is overwritten —
+//     mirrors upstream lib.rs:256).
+//  3. (NAI-30) NPC_RENDERER.compute_info(npc) — skipped here.
+//
+// No-op if nid < 0, nid >= 8192, ntype < 0, or slot[nid] is nil.
+// (Upstream guards nid == -1 || ntype == -1; goscape broadens to <0
+// for slice safety.)
+//
+// Note: NPCs do NOT update playerGrid (matches upstream — the
+// tile-keyed grid is player-only). NPCs are spatially indexed only
+// via zoneMap.zones[k].npcs.
+func (b *Buf) ComputeNpc(
+	nid, ntype int32,
+	x, level, z int,
+	tele bool,
+	runDir, walkDir int8,
+	active bool,
+	masks uint32,
+	faceEntity, faceX, faceZ int32,
+	orientationX, orientationZ int32,
+	damageTaken, damageType int32,
+	currentHitpoints, baseHitpoints int32,
+	animID, animDelay int32,
+	say *string,
+	graphicID, graphicHeight, graphicDelay int32,
+) {
+	if nid < 0 || int(nid) >= len(b.npcs) || ntype < 0 {
+		return
+	}
+	n := b.npcs[nid]
+	if n == nil {
+		return
+	}
+
+	newCoord := coordgrid.PackCoord(level, x, z)
+
+	// Step 1: zone-bound check (mirrors lib.rs:251).
+	if newCoord != n.Coord {
+		oldPos := coordgrid.UnpackCoord(n.Coord)
+		// Zone change iff zone-x, zone-z, or level differ.
+		if (oldPos.X>>3) != (x>>3) || (oldPos.Z>>3) != (z>>3) || oldPos.Level != level {
+			b.zoneMap.Zone(oldPos.X, oldPos.Level, oldPos.Z).RemoveNpc(nid)
+			b.zoneMap.Zone(x, level, z).AddNpc(nid)
+		}
+	}
+
+	// Step 2: write fields. NType is overwritten (mirrors lib.rs:256).
+	n.NType = ntype
+	n.Coord = newCoord
+	n.Tele = tele
+	n.RunDir = runDir
+	n.WalkDir = walkDir
+	n.Active = active
+	n.Masks = masks
+	n.FaceEntity = faceEntity
+	n.FaceX = faceX
+	n.FaceZ = faceZ
+	n.OrientationX = orientationX
+	n.OrientationZ = orientationZ
+	n.DamageTaken = damageTaken
+	n.DamageType = damageType
+	n.CurrentHitpoints = currentHitpoints
+	n.BaseHitpoints = baseHitpoints
+	n.AnimID = animID
+	n.AnimDelay = animDelay
+	n.Say = say
+	n.GraphicID = graphicID
+	n.GraphicHeight = graphicHeight
+	n.GraphicDelay = graphicDelay
+
+	// Step 3 (renderer compute_info) deferred to NAI-30/31.
+}
