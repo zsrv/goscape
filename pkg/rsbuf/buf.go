@@ -14,9 +14,10 @@ import (
 // threaded model).
 //
 // NAI-29 lands the entity-state subset (players, npcs, zoneMap,
-// playerGrid). NAI-30 will add Renderer + Encoder fields; NAI-31 will
-// add the renderer-cache compute-info wiring; NAI-32 will add the
-// view-distance / spiral-search optimization hooks.
+// playerGrid). NAI-30 adds Encoder fields (PlayerInfo, NpcInfo);
+// Renderer fields and the renderer-cache compute-info wiring migrate
+// at NAI-31. NAI-32 will add the view-distance / spiral-search
+// optimization hooks.
 type Buf struct {
 	players    [2048]*Player
 	npcs       [8192]*Npc
