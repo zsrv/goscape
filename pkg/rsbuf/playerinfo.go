@@ -327,7 +327,7 @@ func (pi *PlayerInfo) Encode(b *Buf, pid int32, renderer *Renderer) []byte {
 	// Tracked-others delta loop (info.rs:102-134).
 	pi.writePlayers(b, self, renderer)
 
-	// Bundle 2 Task 2.5 will fill writeNewPlayers.
+	pi.writeNewPlayers(b, self, renderer)
 
 	// Mirrors info.rs:62-68: append updates buffer if non-empty,
 	// preceded by the 11-bit `2047` sentinel. NB: detect "non-empty"
@@ -523,4 +523,82 @@ func (pi *PlayerInfo) removeOther(self *Player, otherPid int32) {
 	pi.buf.PBit(1, 1)
 	pi.buf.PBit(2, 3)
 	self.Build.Players.Remove(otherPid)
+}
+
+// writeNewPlayers discovers nearby players and emits add-leaves until
+// the byte budget or preferredPlayers cap is hit. Mirrors upstream
+// PlayerInfo::write_new_players at info.rs:136-166.
+func (pi *PlayerInfo) writeNewPlayers(b *Buf, self *Player, renderer *Renderer) {
+	selfPos := coordgrid.UnpackCoord(self.Coord)
+	candidates := self.Build.GetNearbyPlayers(&b.players, b.zoneMap, self.PID, selfPos.X, selfPos.Level, selfPos.Z)
+
+	for _, otherPid := range candidates {
+		if self.Build.Players.Contains(otherPid) {
+			continue
+		}
+		if self.Build.Players.Len() >= int(preferredPlayers) {
+			return
+		}
+		other := b.players[otherPid]
+		if other == nil || other.Visibility == VisibilityHard {
+			continue
+		}
+
+		// Byte budget: BITS_ADD + low-def payload size.
+		lowDef := renderer.LowDefFullOf(int(otherPid))
+		if !pi.fits(playerBitsAdd, len(lowDef)) {
+			return
+		}
+
+		otherPos := coordgrid.UnpackCoord(other.Coord)
+		dx := clampInt(otherPos.X-selfPos.X, -15, 15)
+		dz := clampInt(otherPos.Z-selfPos.Z, -15, 15)
+		jump := 0
+		if other.Jump {
+			jump = 1
+		}
+
+		pi.buf.PBit(11, int(otherPid))
+		pi.buf.PBit(5, dx&0x1f)
+		pi.buf.PBit(5, dz&0x1f)
+		pi.buf.PBit(1, jump)
+		pi.buf.PBit(1, 1) // extend bit always set for add
+
+		self.Build.Players.Insert(otherPid)
+
+		// Choose low-def variant per appearance dedup.
+		// Mirrors info.rs:296-310: if other.lastAppearance != -1 AND
+		// build's stored tick != lastAppearance, send LowDefFullOf
+		// (includes APPEARANCE block) and save tick.
+		if other.LastAppearance != -1 && !self.Build.HasAppearance(otherPid, uint32(other.LastAppearance)) {
+			self.Build.SaveAppearance(otherPid, uint32(other.LastAppearance))
+			for _, b2 := range lowDef {
+				pi.updates.P1(b2)
+			}
+		} else {
+			noApp := renderer.LowDefNoAppOf(int(otherPid))
+			for _, b2 := range noApp {
+				pi.updates.P1(b2)
+			}
+		}
+	}
+}
+
+// fits reports whether adding bitsToAdd + bytesToAdd will fit within
+// maxPlayerInfoBytes. Mirrors info.rs:404-408.
+func (pi *PlayerInfo) fits(bitsToAdd, bytesToAdd int) bool {
+	totalBits := pi.buf.BitPos + bitsToAdd + 7
+	totalBytes := (totalBits >> 3) + len(pi.updates.Data) + bytesToAdd
+	return totalBytes <= maxPlayerInfoBytes
+}
+
+// clampInt clamps v to [lo, hi].
+func clampInt(v, lo, hi int) int {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
 }
