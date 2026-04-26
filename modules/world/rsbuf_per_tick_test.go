@@ -75,3 +75,19 @@ func TestProcessInfo_ComputeNpcPushSmoke(t *testing.T) {
 		t.Errorf("after 3 processInfo: GetNpcObservers got %d, want 0", got)
 	}
 }
+
+func TestProcessCleanup_RsbufCleanupSmoke(t *testing.T) {
+	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	// Drive the end-of-tick cleanup. Should not panic on the new
+	// s.rsbuf.Cleanup() call.
+	s.processCleanup()
+	s.processCleanup()
+	// Smoke: rsbuf queries post-cleanup must not panic.
+	if got := s.rsbuf.GetNpcObservers(0); got != 0 {
+		t.Errorf("post-cleanup GetNpcObservers: got %d, want 0", got)
+	}
+}

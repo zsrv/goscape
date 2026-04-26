@@ -462,4 +462,13 @@ func (s *Server) processCleanup() {
 		z.Reset()
 	}
 	clear(s.zonesTracking)
+	// NAI-29 Bundle 4 Task 4.6 — clear transient rsbuf state at end of
+	// tick. Mirrors upstream cleanup at lib.rs:348-363: clears playerGrid
+	// (rebuilt fresh each tick from ComputePlayer pushes) and calls
+	// Player.cleanup() / Npc.cleanup() on every populated slot to zero
+	// transient per-tick fields while preserving persistent ones
+	// (Appearance, FaceEntity, OrientationX/Z, Observers).
+	if s.rsbuf != nil {
+		s.rsbuf.Cleanup()
+	}
 }
