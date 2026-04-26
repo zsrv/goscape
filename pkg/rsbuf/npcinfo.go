@@ -1,9 +1,7 @@
 package rsbuf
 
 import (
-	"github.com/zsrv/goscape/pkg/buildarea"
 	"github.com/zsrv/goscape/pkg/coordgrid"
-	"github.com/zsrv/goscape/pkg/grid"
 	"github.com/zsrv/goscape/pkg/io/packet"
 )
 
@@ -12,121 +10,6 @@ const (
 	PreferredNpcs        = 255
 	NpcTerminator        = 8191
 )
-
-// EncodeNpcLegacy is the NAI-29-and-earlier interface-based NpcInfo encoder.
-// Retained during NAI-30 Bundle 3 only as a transition fallback while the
-// new (ni *NpcInfo).Encode method (receiver *NpcInfo, taking *Buf as its
-// first parameter) is being landed and validated. Callers swap to the new
-// method in NAI-30 Bundle 4 Task 4.3; this function deletes in B4 Task 4.6.
-func EncodeNpcLegacy(self PlayerSource, all []NpcSource, ba *buildarea.BuildArea, g *grid.Grid, r *Renderer) []byte {
-	byNid := make(map[int]NpcSource, len(all))
-	for _, n := range all {
-		byNid[n.Nid()] = n
-	}
-
-	main := packet.NewPacket(nil)
-	updates := packet.NewPacket(nil)
-
-	main.AccessBits()
-
-	// Phase 1: tracked-npcs delta loop.
-	main.PBit(8, len(ba.Npcs))
-	slots := make([]int, 0, len(ba.Npcs))
-	for nid := range ba.Npcs {
-		slots = append(slots, nid)
-	}
-	selfX, selfZ, selfLevel := self.Coords()
-	for _, nid := range slots {
-		n, ok := byNid[nid]
-		if !ok || !n.Active() {
-			main.PBit(1, 1)
-			main.PBit(2, 3) // remove
-			decNpcObserver(nid)
-			delete(ba.Npcs, nid)
-			continue
-		}
-		nx, nz, nl := n.Coords()
-		if nl != selfLevel || zoneDist(selfX, selfZ, nx, nz) > NpcViewDistanceZones {
-			main.PBit(1, 1)
-			main.PBit(2, 3)
-			decNpcObserver(nid)
-			delete(ba.Npcs, nid)
-			continue
-		}
-		extend := 0
-		payload := r.NpcHighDefOf(nid)
-		if len(payload) > 0 && fits(main, updates, len(payload)) {
-			extend = 1
-		}
-		switch {
-		case n.RunDir() != -1:
-			main.PBit(1, 1)
-			main.PBit(2, 2)
-			main.PBit(3, n.WalkDir())
-			main.PBit(3, n.RunDir())
-			main.PBit(1, extend)
-		case n.WalkDir() != -1:
-			main.PBit(1, 1)
-			main.PBit(2, 1)
-			main.PBit(3, n.WalkDir())
-			main.PBit(1, extend)
-		case n.Masks() != 0:
-			main.PBit(1, 1)
-			main.PBit(2, 0)
-			extend = 1
-		default:
-			main.PBit(1, 0)
-		}
-		if extend == 1 && len(payload) > 0 {
-			for _, b := range payload {
-				updates.P1(b)
-			}
-		}
-	}
-
-	// Phase 2: new-npcs loop.
-	candidates := g.NearbyNpcs(selfX, selfZ, selfLevel, NpcViewDistanceZones)
-	for _, nid := range candidates {
-		if _, already := ba.Npcs[nid]; already {
-			continue
-		}
-		if len(ba.Npcs) >= PreferredNpcs {
-			break
-		}
-		n, ok := byNid[nid]
-		if !ok || !n.Active() {
-			continue
-		}
-		payload := r.NpcLowDefOf(nid)
-		if !fits(main, updates, len(payload)+5) { // ~5 bytes for the 35-bit add header
-			main.PBit(13, NpcTerminator)
-			break
-		}
-		nx, nz, _ := n.Coords()
-		dx := clamp(nx-selfX, -15, 15)
-		dz := clamp(nz-selfZ, -15, 15)
-
-		main.PBit(13, nid)
-		main.PBit(11, n.TypeID())
-		main.PBit(5, dx&0x1f)
-		main.PBit(5, dz&0x1f)
-		main.PBit(1, boolToInt(len(payload) > 0))
-
-		ba.Npcs[nid] = struct{}{}
-		incNpcObserver(nid)
-		if len(payload) > 0 {
-			for _, b := range payload {
-				updates.P1(b)
-			}
-		}
-	}
-
-	main.AccessBytes()
-	for _, b := range updates.Data {
-		main.P1(b)
-	}
-	return main.Data
-}
 
 // NpcInfo holds reusable scratch buffers for NpcInfo encoding.
 // One instance per *Buf; reset and reused across all per-tick Encode
@@ -194,8 +77,7 @@ func (ni *NpcInfo) Encode(b *Buf, pid int32, renderer *Renderer) []byte {
 
 	// NpcInfo has no separate "before-updates" sentinel (unlike PlayerInfo's
 	// 11-bit 2047). The 13-bit 8191 terminator emits inside writeNewNpcs on
-	// byte-budget overflow only — see EncodeNpcLegacy lines 100-101 for the
-	// reference pattern. T3.4 lands that emit site.
+	// byte-budget overflow only.
 	for _, b2 := range ni.updates.Data {
 		ni.buf.P1(b2)
 	}
@@ -217,7 +99,7 @@ func (ni *NpcInfo) Encode(b *Buf, pid int32, renderer *Renderer) []byte {
 //   - View distance is the package constant preferredViewDistance,
 //     not the per-player self.Build.ViewDistance. NPC view distance
 //     isn't dynamically resized until NAI-32; this matches the
-//     EncodeNpcLegacy behavior at npcinfo.go:48 (NpcViewDistanceZones).
+//     legacy encoder behavior carried over (NpcViewDistanceZones).
 //   - No visibility gate. NPCs have no Visibility field, so
 //     PlayerInfo's HARD/SOFT-with-staff-mod rejects are absent by
 //     design, not oversight.
