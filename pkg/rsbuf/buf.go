@@ -21,7 +21,7 @@ type Buf struct {
 	players    [2048]*Player
 	npcs       [8192]*Npc
 	zoneMap    *zoneMap
-	playerGrid map[uint32][]int32 // tile-keyed (NAI-32 spiral search backing)
+	playerGrid map[uint32][]int32 // tile-keyed; initialized here, populated by NAI-32 spiral search
 }
 
 // New constructs an empty Buf with all slot tables nil-initialized,
@@ -38,8 +38,10 @@ func New() *Buf {
 // sentinel defaults + a fresh BuildArea. Mirrors upstream add_player
 // at lib.rs:178-184.
 //
-// No-op if pid == -1 or pid >= 2048 (slot array bound). Double-add
-// overwrites (matches upstream's unconditional assignment).
+// No-op if pid < 0 or pid >= 2048 (slot array bound). Double-add
+// overwrites (matches upstream's unconditional assignment). Note:
+// upstream guards only pid == -1; goscape broadens to pid < 0 because
+// negative slice indexing panics in Go.
 func (b *Buf) AddPlayer(pid int32) {
 	if pid < 0 || int(pid) >= len(b.players) {
 		return
@@ -57,7 +59,9 @@ func (b *Buf) AddPlayer(pid int32) {
 //  4. (NAI-30) PLAYER_RENDERER.removePermanent(pid) — skipped here
 //  5. Set slot[pid] = nil
 //
-// No-op if pid == -1, pid >= 2048, or slot[pid] is nil.
+// No-op if pid < 0, pid >= 2048, or slot[pid] is nil. (Upstream guards
+// only pid == -1; goscape broadens to pid < 0 — negative slice indexing
+// panics in Go.)
 func (b *Buf) RemovePlayer(pid int32) {
 	if pid < 0 || int(pid) >= len(b.players) {
 		return
