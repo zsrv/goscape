@@ -226,3 +226,53 @@ func TestEncodeTwoPlayersAddsOther(t *testing.T) {
 		t.Errorf("after encode, a's tracked players should include slot 2; got %v", baA.Players)
 	}
 }
+
+func TestPlayerInfo_Encode_LocalIdleNoOthers(t *testing.T) {
+	b := New()
+	pi := NewPlayerInfo()
+	b.AddPlayer(1)
+	// ComputePlayer with all sentinels — local stationary at (3200, 0, 3200), no masks,
+	// no exact move. 41-arg signature; verify against (*Buf).ComputePlayer in pkg/rsbuf/buf.go.
+	b.ComputePlayer(
+		1,           // pid
+		3200, 0, 3200, // x, level, z
+		3200, 3200,    // originX, originZ
+		false, false,  // tele, jump
+		-1, -1,        // runDir, walkDir
+		VisibilityDefault, // visibility
+		true,              // active
+		0,                 // masks
+		nil,               // appearance
+		-1,                // lastAppearance
+		-1,                // faceEntity
+		-1, -1,            // faceX, faceZ
+		-1, -1,            // orientationX, orientationZ
+		-1, -1,            // damageTaken, damageType
+		-1, -1,            // currentHitpoints, baseHitpoints
+		-1, -1,            // animID, animDelay
+		nil,               // say
+		nil, 0, 0, 0,      // message, color, effect, ignored
+		-1, -1, -1,        // graphicID, graphicHeight, graphicDelay
+		-1, -1,            // exactStartX, exactStartZ
+		-1, -1,            // exactEndX, exactEndZ
+		-1, -1, -1,        // exactMoveStart, exactMoveEnd, exactMoveDirection
+	)
+
+	r := NewRenderer()
+	out := pi.Encode(b, 1, r)
+
+	// Local idle: 1 leading bit `0` (not-update flag), then 8-bit "0 other players tracked".
+	// First byte: 0_0000000 (idle local, then top 7 bits of count) — verify the leading byte
+	// is 0 in bit-MSB order. Total 2 bytes when no updates buffer follows.
+	if len(out) < 1 {
+		t.Fatalf("encode produced empty output")
+	}
+	if out[0] != 0 {
+		t.Errorf("local-idle leading byte: got 0x%02x, want 0x00 (idle bit + count high)", out[0])
+	}
+	// No updates buffer payload appended (no extends, no appearance triggers).
+	// Total length is bit-aligned to 9 bits (1 idle + 8 count) → ceil(9/8) = 2 bytes.
+	if len(out) != 2 {
+		t.Errorf("local-idle, no others: total bytes got %d, want 2", len(out))
+	}
+}

@@ -257,3 +257,102 @@ func abs(v int) int {
 	}
 	return v
 }
+
+// PlayerInfo holds reusable scratch buffers for PlayerInfo encoding.
+// One instance per *Buf; reset and reused across all per-tick Encode
+// calls (one per player). Mirrors upstream PlayerInfo struct at
+// info.rs:13-16 — the rsbuf-internal singleton (`PLAYER_INFO:
+// Lazy<Mutex<PlayerInfo>>` at lib.rs:36) collected onto the *Buf
+// instance.
+type PlayerInfo struct {
+	buf     *packet.Packet
+	updates *packet.Packet
+}
+
+// NewPlayerInfo allocates fresh scratch buffers sized for typical
+// PlayerInfo packets (~5000 bytes upstream Packet::new(5000)).
+// Mirrors PlayerInfo::new at info.rs:24-30.
+func NewPlayerInfo() *PlayerInfo {
+	return &PlayerInfo{
+		buf:     packet.NewPacket(make([]byte, 0, 5000)),
+		updates: packet.NewPacket(make([]byte, 0, 5000)),
+	}
+}
+
+// Bit-budget constants for fits() arithmetic. Mirror upstream
+// PlayerInfo::BITS_* at info.rs:19-22.
+const (
+	playerBitsAdd    = 11 + 5 + 5 + 1 + 1 // 23
+	playerBitsRun    = 1 + 2 + 3 + 3 + 1  // 10
+	playerBitsWalk   = 1 + 2 + 3 + 1      // 7
+	playerBitsExtend = 1 + 2              // 3
+
+	// Per-packet byte budget. Mirrors upstream literal at info.rs:407.
+	maxPlayerInfoBytes = 4997
+)
+
+// Encode produces the PlayerInfo payload for `pid` as a fresh []byte
+// (no opcode/length prefix; caller wraps with OpPlayerInfo).
+// Mirrors upstream PlayerInfo::encode at info.rs:32-70.
+//
+// Signature divergences from upstream:
+//   - `pos` upstream param dropped: NAI-30 always starts at byte 0
+//     (each Encode call wraps standalone).
+//   - `dx`, `dz`, `rebuild` upstream params dropped: NAI-30 doesn't
+//     run BuildArea.rebuild_players (view-distance resize is NAI-32).
+//   - `players: &[Option<Player>]`, `grid: &HashMap<...>`,
+//     `map: &mut ZoneMap` collapse into `b *Buf`.
+//   - `player: &mut Player` collapses into `b.players[pid]`.
+//
+// Returns nil if pid is out of range or slot is unpopulated.
+func (pi *PlayerInfo) Encode(b *Buf, pid int32, renderer *Renderer) []byte {
+	if pid < 0 || int(pid) >= len(b.players) {
+		return nil
+	}
+	self := b.players[pid]
+	if self == nil {
+		return nil
+	}
+
+	// Reset scratch buffers (mirrors info.rs:53-56 zeroing).
+	pi.buf.Data = pi.buf.Data[:0]
+	pi.buf.Pos = 0
+	pi.buf.BitPos = 0
+	pi.updates.Data = pi.updates.Data[:0]
+	pi.updates.Pos = 0
+	pi.updates.BitPos = 0
+
+	pi.buf.AccessBits()
+
+	// Bundle 2 Task 2.3 will fill writeLocalPlayer here.
+	// For Task 2.2 skeleton, write idle bit only.
+	pi.buf.PBit(1, 0) // idle
+
+	// Bundle 2 Task 2.4 will fill writePlayers here.
+	// For T2.2 skeleton, emit zero-count.
+	pi.buf.PBit(8, 0)
+
+	// Bundle 2 Task 2.5 will fill writeNewPlayers.
+
+	// Mirrors info.rs:62-68: append updates buffer if non-empty,
+	// preceded by the 11-bit `2047` sentinel. NB: detect "non-empty"
+	// via `len(pi.updates.Data) > 0`, not `pi.updates.Pos`. In the
+	// project's packet.Packet shape (pkg/io/packet/buffer.go:20),
+	// Pos is the READ pointer; writes append to len(Data). Mirrors
+	// the EncodeLegacy pattern at playerinfo.go:31,37-39.
+	if len(pi.updates.Data) > 0 {
+		pi.buf.PBit(11, 2047)
+		pi.buf.AccessBytes()
+		for _, b2 := range pi.updates.Data {
+			pi.buf.P1(b2)
+		}
+	} else {
+		pi.buf.AccessBytes()
+	}
+
+	// Return a copy — the caller may write more to its OpPlayerInfo
+	// wrapper, and pi.buf.Data is reused next call.
+	out := make([]byte, len(pi.buf.Data))
+	copy(out, pi.buf.Data)
+	return out
+}
