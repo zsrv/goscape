@@ -5,7 +5,7 @@ package rsbuf
 // WASM's internal state backing the getNpcObservers(nid) public API
 // (see Engine-TS/node_modules/@2004scape/rsbuf/dist/rsbuf.d.ts:13).
 //
-// Maintained at three sites in npcinfo.go's EncodeNpc:
+// Maintained at three sites in npcinfo.go's EncodeNpcLegacy:
 //   - incNpcObserver on subscription-add (line ~108)
 //   - decNpcObserver on subscription-remove (inactive-path, ~line 39)
 //   - decNpcObserver on subscription-remove (out-of-range, ~line 46)
@@ -43,7 +43,7 @@ func RemovePlayer(pid int, subscribedNpcs map[int]struct{}) {
 // SetObserverForTest is a test-only helper that directly writes an
 // observer count. Used by tests in modules/world that need to seed
 // a specific count (e.g., PAUSEHUNT gate tests) without going
-// through the full EncodeNpc pipeline.
+// through the full EncodeNpcLegacy pipeline.
 //
 // NOT for production use. Present on the public API surface only
 // because cross-package tests in modules/world need to reach it.
