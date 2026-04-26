@@ -346,6 +346,46 @@ func (s *Server) processInfo() {
 		npcSources[i] = n
 	}
 	s.renderer.ComputeNpcs(npcSources)
+
+	// NAI-29 Bundle 4 Task 4.4 — parallel-write to rsbuf state. Existing
+	// Encode/EncodeNpc path doesn't yet read this; NAI-30 does the
+	// read-flip. Pushed AFTER all per-player movement + appearance regen
+	// is finalized so coord/originX/originZ/appearanceBuf are stable.
+	if s.rsbuf != nil {
+		for _, p := range players {
+			if p == nil {
+				continue
+			}
+			var sayPtr *string
+			if len(p.sayText) > 0 {
+				ss := string(p.sayText)
+				sayPtr = &ss
+			}
+			s.rsbuf.ComputePlayer(int32(p.slot),
+				p.x, p.level, p.z,
+				p.originX, p.originZ,
+				p.tele, p.jump,
+				int8(p.runDir), int8(p.walkDir),
+				p.visibility,
+				p.active,
+				uint32(p.masks),
+				p.appearanceBuf,
+				int32(p.AppearanceHash()&0x7fffffff), // NAI-30: revisit lastAppearance semantics (content-hash vs tick-when-changed)
+				int32(p.faceEntity),
+				int32(p.faceSquareX), int32(p.faceSquareZ),
+				int32(0), int32(0), // NAI-30: orientationX/Z not stored on Player today
+				int32(p.damageAmt), int32(p.damageType),
+				int32(p.CurHP()), int32(p.BaseHP()),
+				int32(p.animID), int32(p.animDelay),
+				sayPtr,
+				p.chatBytes, uint8(p.chatColour), uint8(p.chatEffect), uint8(p.chatRights),
+				int32(p.spotanimID), int32(p.spotanimHeight), int32(p.spotanimDelay),
+				int32(p.exactStartX), int32(p.exactStartZ),
+				int32(p.exactEndX), int32(p.exactEndZ),
+				int32(p.exactBegin), int32(p.exactFinish), int32(p.exactDir),
+			)
+		}
+	}
 }
 
 func (s *Server) processNpcs() {
