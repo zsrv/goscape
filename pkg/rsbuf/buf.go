@@ -90,14 +90,36 @@ func (b *Buf) RemovePlayer(pid int32) {
 	b.players[pid] = nil
 }
 
-// AddNpc is a temporary minimal stub. Bundle 3 Task 3.3 replaces this
-// with the full implementation that also wires zoneMap. Allocates the
-// slot only — sufficient to let Task 3.2's RemovePlayer tests run.
+// AddNpc registers nid with NPC type ntype by allocating an *Npc at
+// slot[nid]. Mirrors upstream add_npc at lib.rs:305-311.
 //
-// TEMPORARY: replaced by Bundle 3 Task 3.3.
+// No-op if nid < 0, nid >= 8192, or ntype < 0. (Upstream guards
+// nid == -1 || ntype == -1; goscape broadens to <0 for slice safety.)
 func (b *Buf) AddNpc(nid, ntype int32) {
-	if nid < 0 || int(nid) >= len(b.npcs) {
+	if nid < 0 || int(nid) >= len(b.npcs) || ntype < 0 {
 		return
 	}
 	b.npcs[nid] = newNpc(nid, ntype)
+}
+
+// RemoveNpc unregisters nid. Steps (mirroring upstream remove_npc at
+// lib.rs:313-324):
+//  1. Remove nid from the zoneMap zone at the npc's last coord
+//  2. (NAI-30) NPC_RENDERER.removePermanent(nid) — skipped here
+//  3. Set slot[nid] = nil
+//
+// No-op if nid < 0, nid >= 8192, or slot[nid] is nil. (Upstream guards
+// nid == -1; goscape broadens to nid < 0 for slice safety.)
+func (b *Buf) RemoveNpc(nid int32) {
+	if nid < 0 || int(nid) >= len(b.npcs) {
+		return
+	}
+	n := b.npcs[nid]
+	if n == nil {
+		return
+	}
+	pos := coordgrid.UnpackCoord(n.Coord)
+	b.zoneMap.Zone(pos.X, pos.Level, pos.Z).RemoveNpc(nid)
+	// Step 2 deferred to NAI-30.
+	b.npcs[nid] = nil
 }

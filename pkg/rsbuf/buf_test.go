@@ -156,3 +156,64 @@ func TestRemovePlayer_RemovesFromZoneMap(t *testing.T) {
 		t.Error("RemovePlayer: pid still in zoneMap")
 	}
 }
+
+func TestAddNpc_AllocatesSlot(t *testing.T) {
+	b := New()
+	b.AddNpc(50, 100)
+	if b.npcs[50] == nil {
+		t.Fatal("AddNpc(50, 100): slot nil")
+	}
+	if b.npcs[50].NID != 50 {
+		t.Errorf("AddNpc(50, 100): NID = %d, want 50", b.npcs[50].NID)
+	}
+	if b.npcs[50].NType != 100 {
+		t.Errorf("AddNpc(50, 100): NType = %d, want 100", b.npcs[50].NType)
+	}
+	if b.npcs[50].WalkDir != -1 {
+		t.Errorf("AddNpc(50, 100): WalkDir = %d, want -1 (sentinel)", b.npcs[50].WalkDir)
+	}
+}
+
+func TestAddNpc_NegativeIsNoop(t *testing.T) {
+	b := New()
+	b.AddNpc(-1, 100)
+	b.AddNpc(50, -1)
+	for i := range int32(8192) {
+		if b.npcs[i] != nil {
+			t.Errorf("AddNpc with negative arg populated npcs[%d]", i)
+			break
+		}
+	}
+}
+
+func TestRemoveNpc_NilsSlot(t *testing.T) {
+	b := New()
+	b.AddNpc(50, 100)
+	b.RemoveNpc(50)
+	if b.npcs[50] != nil {
+		t.Error("after RemoveNpc(50): slot still non-nil")
+	}
+}
+
+func TestRemoveNpc_AbsentIsNoop(t *testing.T) {
+	b := New()
+	b.RemoveNpc(50) // never added
+	b.RemoveNpc(-1)
+	if b.npcs[50] != nil {
+		t.Error("RemoveNpc(absent): slot mutated")
+	}
+}
+
+func TestRemoveNpc_RemovesFromZoneMap(t *testing.T) {
+	b := New()
+	b.AddNpc(50, 100)
+	// Hand-set coord so zoneMap remove targets a specific zone.
+	b.npcs[50].Coord = coordgrid.PackCoord(0, 50, 50)
+	b.zoneMap.Zone(50, 0, 50).AddNpc(50)
+
+	b.RemoveNpc(50)
+
+	if _, ok := b.zoneMap.Zone(50, 0, 50).npcs[50]; ok {
+		t.Error("RemoveNpc: nid still in zoneMap")
+	}
+}
