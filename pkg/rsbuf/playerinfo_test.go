@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/buildarea"
+	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/grid"
 	"github.com/zsrv/goscape/pkg/io/packet"
 )
@@ -340,6 +341,156 @@ func TestPlayerInfo_LocalPlayer_Idle(t *testing.T) {
 	// Idle: PBit(1,0) + PBit(8,0) = 9 bits = 2 bytes, both zero.
 	if len(out) != 2 || out[0] != 0 || out[1] != 0 {
 		t.Errorf("idle: got %x, want 00 00", out)
+	}
+}
+
+func setupOtherPlayer(b *Buf, pid int32, modify func(p *Player)) {
+	b.AddPlayer(pid)
+	b.ComputePlayer(
+		pid,
+		3200, 0, 3200,
+		3200, 3200,
+		false, false,
+		-1, -1,
+		VisibilityDefault,
+		true,
+		0,
+		nil,
+		-1,
+		-1,
+		-1, -1,
+		-1, -1,
+		-1, -1,
+		-1, -1,
+		-1, -1,
+		nil,
+		nil, 0, 0, 0,
+		-1, -1, -1,
+		-1, -1,
+		-1, -1,
+		-1, -1, -1,
+	)
+	if modify != nil {
+		modify(b.players[pid])
+	}
+}
+
+func TestPlayerInfo_TrackedOther_Idle(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil)
+	setupOtherPlayer(b, 2, nil)
+	b.players[1].Build.Players.Insert(2)
+
+	pi := NewPlayerInfo()
+	r := NewRenderer()
+	out := pi.Encode(b, 1, r)
+
+	// Local idle (1 bit) + count=1 (8 bits) + other-idle (1 bit) = 10 bits → 2 bytes.
+	// Bytes: 0_0000000 1_0XXXXXX = 0x00, 0x80
+	if len(out) != 2 {
+		t.Errorf("tracked idle: got %d bytes, want 2", len(out))
+	}
+	if out[0] != 0x00 || out[1] != 0x80 {
+		t.Errorf("tracked idle bytes: got %x, want 00 80", out)
+	}
+}
+
+func TestPlayerInfo_TrackedOther_RemoveBecauseSlotEmpty(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil)
+	// Mark slot 2 as observed but NEVER add it (slot stays nil).
+	b.players[1].Build.Players.Insert(2)
+
+	pi := NewPlayerInfo()
+	r := NewRenderer()
+	out := pi.Encode(b, 1, r)
+
+	// remove leaf: PBit(1,1) PBit(2,3) = 3 bits.
+	// Total: 1 + 8 + 3 = 12 bits → 2 bytes.
+	// 0_0000000 1_111_XXXX = 0x00, 0xf0
+	if out[0] != 0x00 || out[1] != 0xf0 {
+		t.Errorf("remove (slot empty): got %x, want 00 f0", out)
+	}
+	if b.players[1].Build.Players.Contains(2) {
+		t.Error("slot 2 should be removed from build.Players after remove")
+	}
+}
+
+func TestPlayerInfo_TrackedOther_RemoveBecauseTele(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil)
+	setupOtherPlayer(b, 2, func(p *Player) { p.Tele = true })
+	b.players[1].Build.Players.Insert(2)
+
+	pi := NewPlayerInfo()
+	r := NewRenderer()
+	out := pi.Encode(b, 1, r)
+
+	if out[0] != 0x00 || out[1] != 0xf0 {
+		t.Errorf("remove (tele): got %x, want 00 f0", out)
+	}
+	if b.players[1].Build.Players.Contains(2) {
+		t.Error("slot 2 should be removed after tele-remove")
+	}
+}
+
+func TestPlayerInfo_TrackedOther_RemoveBecauseLevelMismatch(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil) // level 0
+	setupOtherPlayer(b, 2, func(p *Player) {
+		p.Coord = coordgrid.PackCoord(1, 3200, 3200) // level 1
+	})
+	b.players[1].Build.Players.Insert(2)
+
+	pi := NewPlayerInfo()
+	r := NewRenderer()
+	out := pi.Encode(b, 1, r)
+	if out[0] != 0x00 || out[1] != 0xf0 {
+		t.Errorf("remove (level mismatch): got %x, want 00 f0", out)
+	}
+}
+
+func TestPlayerInfo_TrackedOther_RemoveBecauseOutOfDistance(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil)
+	setupOtherPlayer(b, 2, func(p *Player) {
+		p.Coord = coordgrid.PackCoord(0, 5000, 5000) // far away
+	})
+	b.players[1].Build.Players.Insert(2)
+
+	pi := NewPlayerInfo()
+	r := NewRenderer()
+	out := pi.Encode(b, 1, r)
+	if out[0] != 0x00 || out[1] != 0xf0 {
+		t.Errorf("remove (out of distance): got %x, want 00 f0", out)
+	}
+}
+
+func TestPlayerInfo_TrackedOther_RemoveBecauseInactive(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil)
+	setupOtherPlayer(b, 2, func(p *Player) { p.Active = false })
+	b.players[1].Build.Players.Insert(2)
+
+	pi := NewPlayerInfo()
+	r := NewRenderer()
+	out := pi.Encode(b, 1, r)
+	if out[0] != 0x00 || out[1] != 0xf0 {
+		t.Errorf("remove (inactive): got %x, want 00 f0", out)
+	}
+}
+
+func TestPlayerInfo_TrackedOther_RemoveBecauseHardVisibility(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil)
+	setupOtherPlayer(b, 2, func(p *Player) { p.Visibility = VisibilityHard })
+	b.players[1].Build.Players.Insert(2)
+
+	pi := NewPlayerInfo()
+	r := NewRenderer()
+	out := pi.Encode(b, 1, r)
+	if out[0] != 0x00 || out[1] != 0xf0 {
+		t.Errorf("remove (hard visibility): got %x, want 00 f0", out)
 	}
 }
 

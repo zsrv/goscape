@@ -324,9 +324,8 @@ func (pi *PlayerInfo) Encode(b *Buf, pid int32, renderer *Renderer) []byte {
 	// Local player section (info.rs:72-100).
 	pi.writeLocalPlayer(self, renderer)
 
-	// Bundle 2 Task 2.4 will fill writePlayers here.
-	// For T2.2 skeleton, emit zero-count.
-	pi.buf.PBit(8, 0)
+	// Tracked-others delta loop (info.rs:102-134).
+	pi.writePlayers(b, self, renderer)
 
 	// Bundle 2 Task 2.5 will fill writeNewPlayers.
 
@@ -437,4 +436,86 @@ func (pi *PlayerInfo) writeLocalPlayer(self *Player, renderer *Renderer) int {
 		pi.buf.PBit(1, 0)
 	}
 	return hdLen
+}
+
+// writePlayers emits the per-tracked-other delta loop. Mirrors upstream
+// PlayerInfo::write_players at info.rs:102-134.
+func (pi *PlayerInfo) writePlayers(b *Buf, self *Player, renderer *Renderer) {
+	tracked := self.Build.Players.Iter()
+	pi.buf.PBit(8, len(tracked))
+
+	selfPos := coordgrid.UnpackCoord(self.Coord)
+	for _, otherPid := range tracked {
+		if int(otherPid) >= len(b.players) {
+			pi.removeOther(self, otherPid)
+			continue
+		}
+		other := b.players[otherPid]
+		if other == nil {
+			pi.removeOther(self, otherPid)
+			continue
+		}
+
+		otherPos := coordgrid.UnpackCoord(other.Coord)
+		// Six remove conditions (mirrors info.rs:114).
+		if other.PID == -1 ||
+			other.Tele ||
+			otherPos.Level != selfPos.Level ||
+			!withinDistanceSW(selfPos.X, selfPos.Z, otherPos.X, otherPos.Z, int(self.Build.ViewDistance)) ||
+			!other.Active ||
+			other.Visibility == VisibilityHard {
+			pi.removeOther(self, otherPid)
+			continue
+		}
+
+		highDef := renderer.HighDefOf(int(otherPid))
+		hdLen := len(highDef)
+		switch {
+		case other.RunDir != -1:
+			extend := 0
+			if hdLen > 0 {
+				extend = 1
+			}
+			pi.buf.PBit(1, 1)
+			pi.buf.PBit(2, 2)
+			pi.buf.PBit(3, int(other.WalkDir))
+			pi.buf.PBit(3, int(other.RunDir))
+			pi.buf.PBit(1, extend)
+			if extend == 1 {
+				for _, b2 := range highDef {
+					pi.updates.P1(b2)
+				}
+			}
+		case other.WalkDir != -1:
+			extend := 0
+			if hdLen > 0 {
+				extend = 1
+			}
+			pi.buf.PBit(1, 1)
+			pi.buf.PBit(2, 1)
+			pi.buf.PBit(3, int(other.WalkDir))
+			pi.buf.PBit(1, extend)
+			if extend == 1 {
+				for _, b2 := range highDef {
+					pi.updates.P1(b2)
+				}
+			}
+		case hdLen > 0:
+			pi.buf.PBit(1, 1)
+			pi.buf.PBit(2, 0)
+			for _, b2 := range highDef {
+				pi.updates.P1(b2)
+			}
+		default:
+			pi.buf.PBit(1, 0)
+		}
+	}
+}
+
+// removeOther emits the 3-bit remove leaf and updates the build set.
+// Mirrors PlayerInfo::remove at info.rs:189-197.
+func (pi *PlayerInfo) removeOther(self *Player, otherPid int32) {
+	pi.buf.PBit(1, 1)
+	pi.buf.PBit(2, 3)
+	self.Build.Players.Remove(otherPid)
 }
