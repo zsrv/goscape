@@ -636,6 +636,72 @@ func TestPlayerInfo_NewPlayers_SkipsHardVisibility(t *testing.T) {
 	}
 }
 
+func TestPlayerInfo_LastAppearance_FreshGuardSkipsAppearance(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil)
+	setupOtherPlayer(b, 2, func(p *Player) {
+		p.LastAppearance = -1 // never generated — encoder should skip APPEARANCE
+	})
+
+	pi := NewPlayerInfo()
+	r := NewRenderer()
+	_ = pi.Encode(b, 1, r)
+
+	// pid 2 was added to build set, but no SaveAppearance call
+	// should have triggered for non-zero tick. Negative pin.
+	for tick := uint32(1); tick <= 100; tick++ {
+		if b.players[1].Build.HasAppearance(2, tick) {
+			t.Errorf("lastAppearance=-1: build should not have saved tick %d", tick)
+		}
+	}
+}
+
+func TestPlayerInfo_LastAppearance_BuildSavesOnFirstSend(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil)
+	setupOtherPlayer(b, 2, func(p *Player) {
+		p.LastAppearance = 42
+	})
+
+	pi := NewPlayerInfo()
+	r := NewRenderer()
+	_ = pi.Encode(b, 1, r)
+
+	// First send — build stores tick 42.
+	if !b.players[1].Build.HasAppearance(2, 42) {
+		t.Error("after first encode with lastAppearance=42, build should have saved tick 42")
+	}
+
+	// Second send same tick — no resend.
+	_ = pi.Encode(b, 1, r)
+	if !b.players[1].Build.HasAppearance(2, 42) {
+		t.Error("after second encode same tick, build should still equal 42")
+	}
+}
+
+func TestPlayerInfo_LastAppearance_BuildResendsOnTickChange(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil)
+	setupOtherPlayer(b, 2, func(p *Player) {
+		p.LastAppearance = 42
+	})
+
+	pi := NewPlayerInfo()
+	r := NewRenderer()
+	_ = pi.Encode(b, 1, r) // saves tick 42
+
+	// Bump lastAppearance — equipment changed.
+	b.players[2].LastAppearance = 43
+
+	// To re-trigger discovery, we need pid 2 NOT to be in the tracked set.
+	// Remove and re-add.
+	b.players[1].Build.Players.Remove(2)
+	_ = pi.Encode(b, 1, r)
+	if !b.players[1].Build.HasAppearance(2, 43) {
+		t.Error("after re-discovery with lastAppearance=43, build should have saved tick 43")
+	}
+}
+
 func TestPlayerInfo_Encode_LocalIdleNoOthers(t *testing.T) {
 	b := New()
 	pi := NewPlayerInfo()
