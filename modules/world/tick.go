@@ -385,6 +385,38 @@ func (s *Server) processInfo() {
 				int32(p.exactBegin), int32(p.exactFinish), int32(p.exactDir),
 			)
 		}
+
+		// NAI-29 Bundle 4 Task 4.5 — parallel-write npc state push.
+		// Iterates s.npcLoop (active list, parallel to T4.4's per-player
+		// iteration over playerLoop); skips slots where n is nil or
+		// n.dead is true (goscape "dead-bool divergence" — dead npcs
+		// remain in npcLoop until the existing dead-cleanup pass prunes
+		// them; we don't push their state to rsbuf).
+		for _, n := range s.npcLoop {
+			if n == nil || n.dead {
+				continue
+			}
+			var sayPtr *string
+			if len(n.SayText()) > 0 {
+				ss := string(n.SayText())
+				sayPtr = &ss
+			}
+			s.rsbuf.ComputeNpc(int32(n.nid), int32(n.typeId),
+				n.x, n.level, n.z,
+				n.tele,
+				int8(n.runDir), int8(n.walkDir),
+				!n.dead, // active = !dead
+				uint32(n.Masks()),
+				int32(n.FaceEntity()),
+				int32(n.FaceSquareX()), int32(n.FaceSquareZ()),
+				int32(0), int32(0), // NAI-30: orientationX/Z not stored on Npc today
+				int32(n.DamageAmt()), int32(n.DamageType()),
+				int32(n.CurHP()), int32(n.BaseHP()),
+				int32(n.AnimID()), int32(n.AnimDelay()),
+				sayPtr,
+				int32(n.SpotAnimID()), int32(n.SpotAnimHeight()), int32(n.SpotAnimDelay()),
+			)
+		}
 	}
 }
 
