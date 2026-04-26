@@ -2,6 +2,7 @@ package rsbuf
 
 import (
 	"github.com/zsrv/goscape/pkg/buildarea"
+	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/grid"
 	"github.com/zsrv/goscape/pkg/io/packet"
 )
@@ -206,12 +207,90 @@ func (ni *NpcInfo) Encode(b *Buf, pid int32, renderer *Renderer) []byte {
 	return out
 }
 
-// writeNpcs emits the per-tracked-NPC delta loop. T3.2 SKELETON:
-// emits an 8-bit zero count and returns. T3.3 expands with the
-// 5-remove-condition / 4-mode-branch tracked loop. Mirrors upstream
-// NpcInfo::write_npcs at info.rs:466-509.
+// writeNpcs emits the per-tracked-NPC delta loop. Mirrors upstream
+// NpcInfo::write_npcs at info.rs:466-509. T3.3 replaces T3.2's
+// PBit(8, 0) skeleton with the full 5-remove-condition + 4-mode-branch
+// loop. Observer-decrement on remove mirrors info.rs:480.
 func (ni *NpcInfo) writeNpcs(b *Buf, self *Player, renderer *Renderer) {
-	ni.buf.PBit(8, 0)
+	tracked := self.Build.Npcs.Iter()
+	ni.buf.PBit(8, len(tracked))
+	selfPos := coordgrid.UnpackCoord(self.Coord)
+	for _, nid := range tracked {
+		if int(nid) >= len(b.npcs) || b.npcs[nid] == nil {
+			ni.removeNpc(self, nid)
+			ni.decObservers(b, nid)
+			continue
+		}
+		other := b.npcs[nid]
+		otherPos := coordgrid.UnpackCoord(other.Coord)
+		if other.NID == -1 || other.Tele || otherPos.Level != selfPos.Level ||
+			!withinDistanceSW(selfPos.X, selfPos.Z, otherPos.X, otherPos.Z, int(preferredViewDistance)) ||
+			!other.Active {
+			ni.removeNpc(self, nid)
+			ni.decObservers(b, nid)
+			continue
+		}
+		highDef := renderer.NpcHighDefOf(int(nid))
+		hdLen := len(highDef)
+		switch {
+		case other.RunDir != -1:
+			extend := 0
+			if hdLen > 0 {
+				extend = 1
+			}
+			ni.buf.PBit(1, 1)
+			ni.buf.PBit(2, 2)
+			ni.buf.PBit(3, int(other.WalkDir))
+			ni.buf.PBit(3, int(other.RunDir))
+			ni.buf.PBit(1, extend)
+			if extend == 1 {
+				for _, b2 := range highDef {
+					ni.updates.P1(b2)
+				}
+			}
+		case other.WalkDir != -1:
+			extend := 0
+			if hdLen > 0 {
+				extend = 1
+			}
+			ni.buf.PBit(1, 1)
+			ni.buf.PBit(2, 1)
+			ni.buf.PBit(3, int(other.WalkDir))
+			ni.buf.PBit(1, extend)
+			if extend == 1 {
+				for _, b2 := range highDef {
+					ni.updates.P1(b2)
+				}
+			}
+		case hdLen > 0:
+			ni.buf.PBit(1, 1)
+			ni.buf.PBit(2, 0)
+			for _, b2 := range highDef {
+				ni.updates.P1(b2)
+			}
+		default:
+			ni.buf.PBit(1, 0)
+		}
+	}
+}
+
+// removeNpc emits the 3-bit remove leaf (PBit(1,1)+PBit(2,3) = "1 11")
+// and removes nid from self's tracking set. Mirrors info.rs:478-480.
+func (ni *NpcInfo) removeNpc(self *Player, nid int32) {
+	ni.buf.PBit(1, 1)
+	ni.buf.PBit(2, 3)
+	self.Build.Npcs.Remove(nid)
+}
+
+// decObservers decrements b.npcs[nid].Observers, flooring at 0.
+// Mirrors info.rs:480 `other.observers = (other.observers - 1).max(0)`.
+func (ni *NpcInfo) decObservers(b *Buf, nid int32) {
+	if int(nid) >= len(b.npcs) || b.npcs[nid] == nil {
+		return
+	}
+	if b.npcs[nid].Observers > 0 {
+		b.npcs[nid].Observers--
+	}
 }
 
 // writeNewNpcs discovers nearby NPCs and emits add-leaves until the
