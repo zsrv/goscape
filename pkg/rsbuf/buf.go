@@ -373,3 +373,56 @@ func (b *Buf) CleanupPlayerBuildArea(pid int32) {
 	}
 	p.Build.Cleanup()
 }
+
+// HasPlayer reports whether pid currently observes other (i.e., other
+// is in pid's BuildArea.Players tracking set). Mirrors upstream
+// has_player at lib.rs:205-214.
+//
+// Returns false if pid < 0, other < 0, pid >= 2048, or pid's slot is
+// nil. (Upstream guards pid == -1 || other == -1; goscape broadens to
+// <0 + bounds-check for slice safety.)
+func (b *Buf) HasPlayer(pid, other int32) bool {
+	if pid < 0 || other < 0 || int(pid) >= len(b.players) {
+		return false
+	}
+	p := b.players[pid]
+	if p == nil {
+		return false
+	}
+	return p.Build.Players.Contains(other)
+}
+
+// HasNpc reports whether pid currently observes nid (i.e., nid is in
+// pid's BuildArea.Npcs tracking set). Mirrors upstream has_npc at
+// lib.rs:326-335.
+//
+// Returns false if pid < 0, nid < 0, pid >= 2048, or pid's slot is
+// nil. (Upstream guards pid == -1 || nid == -1; goscape broadens to
+// <0 + bounds-check for slice safety.)
+func (b *Buf) HasNpc(pid, nid int32) bool {
+	if pid < 0 || nid < 0 || int(pid) >= len(b.players) {
+		return false
+	}
+	p := b.players[pid]
+	if p == nil {
+		return false
+	}
+	return p.Build.Npcs.Contains(nid)
+}
+
+// GetNpcObservers returns the count of players currently observing nid.
+// Mirrors upstream get_npc_observers at lib.rs:337-346.
+//
+// Returns 0 if nid < 0, nid >= 8192, or slot[nid] is nil. (Upstream
+// guards nid == -1; goscape broadens to nid < 0 + bounds-check for
+// slice safety.)
+func (b *Buf) GetNpcObservers(nid int32) int32 {
+	if nid < 0 || int(nid) >= len(b.npcs) {
+		return 0
+	}
+	n := b.npcs[nid]
+	if n == nil {
+		return 0
+	}
+	return n.Observers
+}

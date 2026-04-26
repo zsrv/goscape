@@ -663,3 +663,78 @@ func TestCleanupPlayerBuildArea_NilSlotIsNoop(t *testing.T) {
 		t.Error("CleanupPlayerBuildArea(absent): unexpected slot allocation at pid=5")
 	}
 }
+
+func TestHasPlayer_ChecksBuildArea(t *testing.T) {
+	b := New()
+	b.AddPlayer(5)
+	b.players[5].Build.Players.Insert(10)
+	if !b.HasPlayer(5, 10) {
+		t.Error("HasPlayer(5, 10) false after Build.Players.Insert(10)")
+	}
+	if b.HasPlayer(5, 11) {
+		t.Error("HasPlayer(5, 11) true (never inserted)")
+	}
+}
+
+func TestHasPlayer_NegativeArgsAreFalse(t *testing.T) {
+	b := New()
+	b.AddPlayer(5)
+	if b.HasPlayer(-1, 10) {
+		t.Error("HasPlayer(-1, 10) returned true")
+	}
+	if b.HasPlayer(5, -1) {
+		t.Error("HasPlayer(5, -1) returned true")
+	}
+}
+
+func TestHasPlayer_NilSlotIsFalse(t *testing.T) {
+	b := New()
+	if b.HasPlayer(5, 10) { // pid 5 not added
+		t.Error("HasPlayer on nil slot returned true")
+	}
+}
+
+func TestHasNpc_ChecksBuildArea(t *testing.T) {
+	b := New()
+	b.AddPlayer(5)
+	b.players[5].Build.Npcs.Insert(20)
+	if !b.HasNpc(5, 20) {
+		t.Error("HasNpc(5, 20) false after Build.Npcs.Insert(20)")
+	}
+	if b.HasNpc(5, 21) {
+		t.Error("HasNpc(5, 21) true (never inserted)")
+	}
+}
+
+func TestHasNpc_NegativeArgsAreFalse(t *testing.T) {
+	b := New()
+	b.AddPlayer(5)
+	if b.HasNpc(-1, 20) {
+		t.Error("HasNpc(-1, 20) returned true")
+	}
+	if b.HasNpc(5, -1) {
+		t.Error("HasNpc(5, -1) returned true")
+	}
+}
+
+func TestGetNpcObservers_ReadsCounter(t *testing.T) {
+	b := New()
+	b.AddNpc(50, 100)
+	b.npcs[50].Observers = 7
+	if b.GetNpcObservers(50) != 7 {
+		t.Errorf("GetNpcObservers(50): got %d, want 7", b.GetNpcObservers(50))
+	}
+}
+
+func TestGetNpcObservers_NilSlotIsZero(t *testing.T) {
+	b := New()
+	if b.GetNpcObservers(50) != 0 {
+		t.Errorf("GetNpcObservers on nil slot: got %d, want 0", b.GetNpcObservers(50))
+	}
+	if b.GetNpcObservers(-1) != 0 {
+		t.Error("GetNpcObservers(-1): got non-zero")
+	}
+	if b.GetNpcObservers(8192) != 0 {
+		t.Error("GetNpcObservers(8192): got non-zero")
+	}
+}
