@@ -369,9 +369,9 @@ func TestNpcInfo_TrackedNpc_RemoveBecauseNidSentinel(t *testing.T) {
 //
 // This matches the Rust reference behavior (info.rs:478-480 removes;
 // info.rs:511-528 re-adds in the same tick for a teleporting NPC that is
-// still within range and active). The remove-leaf IS emitted (the client
-// uses it to clear the NPC's cached appearance so the add-leaf re-sends
-// it with the new position).
+// still within range and active). The remove-leaf IS emitted (the
+// remove-leaf clears the NPC from the client's tracked set so the
+// add-leaf re-registers it with the new tile position).
 func TestNpcInfo_TrackedNpc_RemoveBecauseTele(t *testing.T) {
 	b := New()
 	setupLocalPlayer(b, 1, nil)
@@ -548,7 +548,7 @@ func TestNpcInfo_NewNpcs_DiscoversAndAdds(t *testing.T) {
 // guard: when Build.Npcs starts empty (count=0), GetNearbyNpcs returns at
 // most 255 candidates regardless of how many NPCs are registered in the zone.
 // The 256th NPC is silently excluded by GetNearbyNpcs, not by writeNewNpcs's
-// own Contains check. The test asserts the observable end-state (255 added),
+// own Len() >= preferredNpcs check. The test asserts the observable end-state (255 added),
 // not which internal check fired.
 func TestNpcInfo_NewNpcs_RespectsPreferredCap(t *testing.T) {
 	b := New()
