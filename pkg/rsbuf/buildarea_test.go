@@ -130,10 +130,13 @@ func TestBuildArea_GetNearbyPlayers_FiltersOutOfDistance(t *testing.T) {
 	zm := newZoneMap()
 	var players [2048]*Player
 	players[5] = newPlayer(5)
-	// Place far outside Chebyshev radius 15: (200, 0, 200) when self at (100, 0, 100).
-	players[5].Coord = packCoordTest(0, 200, 200)
+	// (116, 0, 100): zone 14 is inside the [10,14] zone-walk window for
+	// center (100, 0, 100), so filterPlayer IS called for this candidate.
+	// Tile distance is max(16, 0) = 16 > preferredViewDistance(15), so
+	// the !withinDistanceSW branch in filterPlayer fires.
+	players[5].Coord = packCoordTest(0, 116, 100)
 	players[5].PID = 5
-	zm.Zone(200, 0, 200).AddPlayer(5)
+	zm.Zone(116, 0, 100).AddPlayer(5)
 
 	got := ba.GetNearbyPlayers(&players, zm, 1, 100, 0, 100)
 	if len(got) != 0 {
@@ -200,5 +203,33 @@ func TestBuildArea_GetNearbyPlayers_RespectsPreferredCap(t *testing.T) {
 	got := ba.GetNearbyPlayers(&players, zm, 1, 100, 0, 100)
 	if len(got) != int(preferredPlayers) {
 		t.Errorf("cap respected: got len %d, want %d", len(got), preferredPlayers)
+	}
+}
+
+func TestWithinDistanceSW(t *testing.T) {
+	tests := []struct {
+		name           string
+		ax, az, bx, bz int
+		radius         int
+		want           bool
+	}{
+		{"identical", 100, 100, 100, 100, 15, true},
+		{"dx_eq_radius", 115, 100, 100, 100, 15, true},
+		{"dx_gt_radius", 116, 100, 100, 100, 15, false},
+		{"dz_eq_radius", 100, 115, 100, 100, 15, true},
+		{"dz_gt_radius", 100, 116, 100, 100, 15, false},
+		{"negative_dx_within", 90, 100, 100, 100, 15, true},
+		{"negative_dx_outside", 84, 100, 100, 100, 15, false},
+		{"both_axes_at_limit", 115, 115, 100, 100, 15, true},
+		{"chebyshev_max_governs", 115, 116, 100, 100, 15, false}, // dz=16 > 15 even though dx=15
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := withinDistanceSW(tt.ax, tt.az, tt.bx, tt.bz, tt.radius)
+			if got != tt.want {
+				t.Errorf("withinDistanceSW(%d,%d,%d,%d,%d) = %v, want %v",
+					tt.ax, tt.az, tt.bx, tt.bz, tt.radius, got, tt.want)
+			}
+		})
 	}
 }
