@@ -6,7 +6,7 @@ import (
 )
 
 // updatePlayers runs during processClientsOut. Snapshots all players, feeds to
-// rsbuf.Encode, and writes the result as an OpPlayerInfo packet.
+// rsbuf.EncodeLegacy, and writes the result as an OpPlayerInfo packet.
 func (p *Player) updatePlayers() {
 	s := p.client.server
 	if s == nil || p.buildArea == nil || s.renderer == nil || s.grid == nil {
@@ -23,6 +23,6 @@ func (p *Player) updatePlayers() {
 		sources[i] = op
 	}
 
-	payload := rsbuf.Encode(p, sources, p.buildArea, s.grid, s.renderer)
+	payload := rsbuf.EncodeLegacy(p, sources, p.buildArea, s.grid, s.renderer)
 	p.writeOut(gameserver.OpPlayerInfo, payload)
 }

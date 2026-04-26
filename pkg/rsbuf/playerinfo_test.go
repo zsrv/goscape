@@ -21,9 +21,9 @@ func TestEncodeIdlePlayer(t *testing.T) {
 	r := NewRenderer()
 	r.ComputePlayers(all)
 
-	payload := Encode(self, all, ba, g, r)
+	payload := EncodeLegacy(self, all, ba, g, r)
 	if len(payload) == 0 {
-		t.Fatal("Encode should produce non-empty payload")
+		t.Fatal("EncodeLegacy should produce non-empty payload")
 	}
 	// Idle player, no other players, no masks.
 	// First phase: pbit(1, 0) for idle.
@@ -55,7 +55,7 @@ func TestEncodeLocalPlayerTeleBitLayout(t *testing.T) {
 	r := NewRenderer()
 	r.ComputePlayers(all)
 
-	got := Encode(self, all, ba, g, r)
+	got := EncodeLegacy(self, all, ba, g, r)
 
 	// Bit stream (MSB-first, 21 local + 8 oldVis count = 29 bits, padded to 4):
 	//   1 | 11 | 00 | 0110110 | 0110010 | 1 | 0 | 00000000 | 000
@@ -100,7 +100,7 @@ func TestEncodeNewPlayerAddBitLayout(t *testing.T) {
 	r := NewRenderer()
 	r.ComputePlayers(all)
 
-	payload := Encode(self, all, ba, g, r)
+	payload := EncodeLegacy(self, all, ba, g, r)
 
 	// Decode the bit stream in the order the Java client reads it and verify
 	// each field. This is a round-trip assertion: if fields come out right,
@@ -171,7 +171,7 @@ func TestEncodeIdleWithCachedFaceEntityNoOrphanMaskByte(t *testing.T) {
 	r := NewRenderer()
 	r.ComputePlayers(all)
 
-	got := Encode(self, all, ba, g, r)
+	got := EncodeLegacy(self, all, ba, g, r)
 
 	want := []byte{0x00, 0x00}
 	if len(got) != len(want) {
@@ -217,9 +217,9 @@ func TestEncodeTwoPlayersAddsOther(t *testing.T) {
 	r := NewRenderer()
 	r.ComputePlayers(all)
 
-	payload := Encode(a, all, baA, g, r)
+	payload := EncodeLegacy(a, all, baA, g, r)
 	if len(payload) == 0 {
-		t.Fatal("Encode should produce non-empty payload")
+		t.Fatal("EncodeLegacy should produce non-empty payload")
 	}
 	// After encoding, a's BuildArea.Players should contain b's slot.
 	if _, ok := baA.Players[2]; !ok {
