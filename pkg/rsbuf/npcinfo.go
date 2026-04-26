@@ -211,6 +211,20 @@ func (ni *NpcInfo) Encode(b *Buf, pid int32, renderer *Renderer) []byte {
 // NpcInfo::write_npcs at info.rs:466-509. T3.3 replaces T3.2's
 // PBit(8, 0) skeleton with the full 5-remove-condition + 4-mode-branch
 // loop. Observer-decrement on remove mirrors info.rs:480.
+//
+// Deliberate divergences from PlayerInfo's writePlayers (see
+// playerinfo.go:451-530 for comparison):
+//   - View distance is the package constant preferredViewDistance,
+//     not the per-player self.Build.ViewDistance. NPC view distance
+//     isn't dynamically resized until NAI-32; this matches the
+//     EncodeNpcLegacy behavior at npcinfo.go:48 (NpcViewDistanceZones).
+//   - No visibility gate. NPCs have no Visibility field, so
+//     PlayerInfo's HARD/SOFT-with-staff-mod rejects are absent by
+//     design, not oversight.
+//   - Bounds-check and nil-slot check are combined into a single
+//     defensive branch (lines 219-222), where PlayerInfo splits them
+//     into two branches (playerinfo.go:457-465). Both shapes are
+//     equivalent; the combined form is slightly cleaner.
 func (ni *NpcInfo) writeNpcs(b *Buf, self *Player, renderer *Renderer) {
 	tracked := self.Build.Npcs.Iter()
 	ni.buf.PBit(8, len(tracked))
