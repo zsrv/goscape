@@ -14,9 +14,10 @@ const (
 
 // EncodeLegacy is the NAI-29-and-earlier interface-based encoder.
 // Retained during NAI-30 Bundle 2/3 only as a transition fallback
-// while the new (pi *PlayerInfo).Encode method on *Buf is being
-// landed and validated. Callers swap to the new method in NAI-30
-// Bundle 4 Task 4.2; this function deletes in B4 Task 4.6.
+// while the new (pi *PlayerInfo).Encode method (receiver *PlayerInfo,
+// taking *Buf as its first parameter) is being landed and validated.
+// Callers swap to the new method in NAI-30 Bundle 4 Task 4.2; this
+// function deletes in B4 Task 4.6.
 func EncodeLegacy(self PlayerSource, all []PlayerSource, ba *buildarea.BuildArea, g *grid.Grid, r *Renderer) []byte {
 	bySlot := make(map[int]PlayerSource, len(all))
 	for _, p := range all {
