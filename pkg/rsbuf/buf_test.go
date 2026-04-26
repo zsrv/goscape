@@ -221,3 +221,211 @@ func TestRemoveNpc_RemovesFromZoneMap(t *testing.T) {
 		t.Error("RemoveNpc: nid still in zoneMap")
 	}
 }
+
+func TestComputePlayer_WritesAllFields(t *testing.T) {
+	b := New()
+	b.AddPlayer(5)
+	say := "hello"
+	msgBytes := []byte{0x10, 0x20}
+
+	b.ComputePlayer(5,
+		/*x*/ 50, /*level*/ 0, /*z*/ 60,
+		/*originX*/ 48, /*originZ*/ 56,
+		/*tele*/ true, /*jump*/ false,
+		/*runDir*/ 1, /*walkDir*/ 2,
+		/*visibility*/ VisibilitySoft,
+		/*active*/ true,
+		/*masks*/ 0xff,
+		/*appearance*/ []byte{0x01, 0x02, 0x03},
+		/*lastAppearance*/ 100,
+		/*faceEntity*/ 9, /*faceX*/ 10, /*faceZ*/ 11,
+		/*orientationX*/ 12, /*orientationZ*/ 13,
+		/*damageTaken*/ 7, /*damageType*/ 1,
+		/*currentHitpoints*/ 90, /*baseHitpoints*/ 99,
+		/*animID*/ 808, /*animDelay*/ 0,
+		/*say*/ &say,
+		/*message*/ msgBytes, /*color*/ 1, /*effect*/ 2, /*ignored*/ 3,
+		/*graphicID*/ 200, /*graphicHeight*/ 92, /*graphicDelay*/ 0,
+		/*exactStartX*/ 30, /*exactStartZ*/ 31,
+		/*exactEndX*/ 32, /*exactEndZ*/ 33,
+		/*exactMoveStart*/ 34, /*exactMoveEnd*/ 35, /*exactMoveDirection*/ 36,
+	)
+
+	p := b.players[5]
+	if p == nil {
+		t.Fatal("ComputePlayer: slot nilled")
+	}
+	expectCoord := coordgrid.PackCoord(0, 50, 60)
+	if p.Coord != expectCoord {
+		t.Errorf("Coord: got %d, want %d", p.Coord, expectCoord)
+	}
+	expectOrigin := coordgrid.PackCoord(0, 48, 56)
+	if p.Origin != expectOrigin {
+		t.Errorf("Origin: got %d, want %d", p.Origin, expectOrigin)
+	}
+	if !p.Tele || p.Jump {
+		t.Errorf("Tele/Jump: got (%v, %v), want (true, false)", p.Tele, p.Jump)
+	}
+	if p.RunDir != 1 || p.WalkDir != 2 {
+		t.Errorf("RunDir/WalkDir: got (%d, %d)", p.RunDir, p.WalkDir)
+	}
+	if p.Visibility != VisibilitySoft {
+		t.Errorf("Visibility: got %d, want VisibilitySoft", p.Visibility)
+	}
+	if !p.Active {
+		t.Error("Active: got false, want true")
+	}
+	if p.Masks != 0xff {
+		t.Errorf("Masks: got %d", p.Masks)
+	}
+	if len(p.Appearance) != 3 {
+		t.Errorf("Appearance: got %v", p.Appearance)
+	}
+	if p.LastAppearance != 100 {
+		t.Errorf("LastAppearance: got %d", p.LastAppearance)
+	}
+	if p.FaceEntity != 9 || p.FaceX != 10 || p.FaceZ != 11 {
+		t.Errorf("Face*: got (%d,%d,%d)", p.FaceEntity, p.FaceX, p.FaceZ)
+	}
+	if p.OrientationX != 12 || p.OrientationZ != 13 {
+		t.Errorf("Orientation*: got (%d,%d)", p.OrientationX, p.OrientationZ)
+	}
+	if p.DamageTaken != 7 || p.DamageType != 1 {
+		t.Errorf("Damage*: got (%d,%d)", p.DamageTaken, p.DamageType)
+	}
+	if p.CurrentHitpoints != 90 || p.BaseHitpoints != 99 {
+		t.Errorf("Hitpoints: got (%d/%d)", p.CurrentHitpoints, p.BaseHitpoints)
+	}
+	if p.AnimID != 808 || p.AnimDelay != 0 {
+		t.Errorf("Anim*: got (%d,%d)", p.AnimID, p.AnimDelay)
+	}
+	if p.Say == nil || *p.Say != "hello" {
+		t.Errorf("Say: got %v", p.Say)
+	}
+	if p.Chat == nil || p.Chat.Color != 1 || p.Chat.Effect != 2 || p.Chat.Ignored != 3 {
+		t.Errorf("Chat: got %+v", p.Chat)
+	}
+	if p.GraphicID != 200 || p.GraphicHeight != 92 || p.GraphicDelay != 0 {
+		t.Errorf("Graphic*: got (%d,%d,%d)", p.GraphicID, p.GraphicHeight, p.GraphicDelay)
+	}
+	if p.ExactMove == nil || p.ExactMove.StartX != 30 || p.ExactMove.Dir != 36 {
+		t.Errorf("ExactMove: got %+v", p.ExactMove)
+	}
+}
+
+func TestComputePlayer_NilSlotIsNoop(t *testing.T) {
+	b := New()
+	// pid 5 not added — players[5] is nil.
+	b.ComputePlayer(5, 50, 0, 60, 48, 56,
+		false, false, -1, -1, VisibilityDefault, false, 0,
+		nil, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		nil, nil, 0, 0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1)
+	if b.players[5] != nil {
+		t.Error("ComputePlayer on nil slot allocated player")
+	}
+}
+
+func TestComputePlayer_NegativePIDIsNoop(t *testing.T) {
+	b := New()
+	b.AddPlayer(5)
+	b.ComputePlayer(-1, 50, 0, 60, 48, 56,
+		false, false, -1, -1, VisibilityDefault, false, 0,
+		nil, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		nil, nil, 0, 0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1)
+	// no panic
+}
+
+func TestComputePlayer_NilSayBytesAndMessageProduceNilSubstructs(t *testing.T) {
+	b := New()
+	b.AddPlayer(5)
+	b.ComputePlayer(5, 50, 0, 60, 48, 56,
+		false, false, -1, -1, VisibilityDefault, false, 0,
+		nil, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		nil /*say*/, nil /*message*/, 0, 0, 0, -1, -1, -1,
+		-1 /*exactStartX*/, -1, -1, -1, -1, -1, -1)
+	p := b.players[5]
+	if p.Say != nil {
+		t.Error("nil say argument produced non-nil Say")
+	}
+	if p.Chat != nil {
+		t.Error("nil message argument produced non-nil Chat")
+	}
+	if p.ExactMove != nil {
+		t.Error("exactStartX=-1 sentinel produced non-nil ExactMove (mirrors upstream lib.rs:90-103)")
+	}
+}
+
+func TestComputePlayer_CrossZoneMoveUpdatesZoneMap(t *testing.T) {
+	b := New()
+	b.AddPlayer(5)
+	// Tick 1: place at (50, 0, 50). Zone is (50>>3=6, 0, 50>>3=6).
+	b.ComputePlayer(5, 50, 0, 50, 48, 48, false, false, -1, -1,
+		VisibilityDefault, true, 0, nil, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1)
+	if _, ok := b.zoneMap.Zone(50, 0, 50).players[5]; !ok {
+		t.Fatal("after tick 1: zoneMap zone(50,0,50) should contain pid 5")
+	}
+
+	// Tick 2: cross-zone move to (64, 0, 50). Zone is (64>>3=8, 0, 6).
+	b.ComputePlayer(5, 64, 0, 50, 48, 48, false, false, -1, -1,
+		VisibilityDefault, true, 0, nil, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1)
+
+	if _, ok := b.zoneMap.Zone(50, 0, 50).players[5]; ok {
+		t.Error("after cross-zone move: old zone (50,0,50) still contains pid 5")
+	}
+	if _, ok := b.zoneMap.Zone(64, 0, 50).players[5]; !ok {
+		t.Error("after cross-zone move: new zone (64,0,50) missing pid 5")
+	}
+}
+
+func TestComputePlayer_SameZoneMoveDoesNotTouchZoneMap(t *testing.T) {
+	b := New()
+	b.AddPlayer(5)
+	// Tick 1: place at (50, 0, 50). Zone (6, 0, 6).
+	b.ComputePlayer(5, 50, 0, 50, 48, 48, false, false, -1, -1,
+		VisibilityDefault, true, 0, nil, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1)
+
+	// Tick 2: same-zone move to (55, 0, 50). 55>>3=6 — same zone.
+	b.ComputePlayer(5, 55, 0, 50, 48, 48, false, false, -1, -1,
+		VisibilityDefault, true, 0, nil, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1)
+
+	if _, ok := b.zoneMap.Zone(50, 0, 50).players[5]; !ok {
+		t.Error("after same-zone move: zone (6,0,6) lost pid 5 (zoneMap should be untouched)")
+	}
+	if b.players[5].Coord != coordgrid.PackCoord(0, 55, 50) {
+		t.Errorf("Coord not updated: got %d, want %d", b.players[5].Coord, coordgrid.PackCoord(0, 55, 50))
+	}
+}
+
+func TestComputePlayer_AlwaysPushesPlayerGrid(t *testing.T) {
+	// Mirrors upstream lib.rs:151 — the player_grid push is unconditional;
+	// it happens regardless of whether the move crossed a zone boundary.
+	b := New()
+	b.AddPlayer(5)
+	b.ComputePlayer(5, 50, 0, 50, 48, 48, false, false, -1, -1,
+		VisibilityDefault, true, 0, nil, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1)
+
+	key := uint32(coordgrid.PackCoord(0, 50, 50))
+	if got := b.playerGrid[key]; len(got) != 1 || got[0] != 5 {
+		t.Errorf("playerGrid[%d]: got %v, want [5]", key, got)
+	}
+
+	// Same-zone move pushes the new tile too.
+	b.ComputePlayer(5, 55, 0, 50, 48, 48, false, false, -1, -1,
+		VisibilityDefault, true, 0, nil, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1)
+	newKey := uint32(coordgrid.PackCoord(0, 55, 50))
+	if got := b.playerGrid[newKey]; len(got) != 1 || got[0] != 5 {
+		t.Errorf("playerGrid[%d] after second compute: got %v, want [5]", newKey, got)
+	}
+}
