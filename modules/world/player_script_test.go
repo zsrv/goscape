@@ -544,3 +544,64 @@ func TestPlayJingleEmptyNameReturnsSilently(t *testing.T) {
 		t.Errorf("empty name: PlayJingle wrote %d bytes; want 0", n)
 	}
 }
+
+func TestPlayerTeleportCrossZoneRefreshSubscription(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.client.server = s
+	p.x, p.z, p.level = 3200, 3200, 0
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	prevZone := s.zoneMap.Get(0, 3200, 3200)
+	p.Teleport(4000, 4000, 0)
+	newZone := s.zoneMap.Get(0, 4000, 4000)
+	if prevZone.PlayersCount() != 0 {
+		t.Errorf("prev zone PlayersCount after Teleport: got %d, want 0", prevZone.PlayersCount())
+	}
+	if newZone.PlayersCount() != 1 {
+		t.Errorf("new zone PlayersCount after Teleport: got %d, want 1", newZone.PlayersCount())
+	}
+}
+
+func TestPlayerTeleJumpCrossLevelRefreshSubscription(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.client.server = s
+	p.x, p.z, p.level = 3200, 3200, 0
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	prevZone := s.zoneMap.Get(0, 3200, 3200)
+	p.TeleJump(3200, 3200, 1) // same xy, level=0→1
+	newZone := s.zoneMap.Get(1, 3200, 3200)
+	if prevZone.PlayersCount() != 0 {
+		t.Errorf("prev zone PlayersCount after cross-level TeleJump: got %d, want 0", prevZone.PlayersCount())
+	}
+	if newZone.PlayersCount() != 1 {
+		t.Errorf("new zone PlayersCount after cross-level TeleJump: got %d, want 1", newZone.PlayersCount())
+	}
+}
+
+func TestPlayerTeleportSameZoneNoRefresh(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.client.server = s
+	p.x, p.z, p.level = 3200, 3200, 0
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	z := s.zoneMap.Get(0, 3200, 3200)
+	prevElement := p.zoneListElement
+	p.Teleport(3201, 3201, 0) // same zone (400, 400)
+	if z.PlayersCount() != 1 {
+		t.Errorf("same-zone Teleport PlayersCount: got %d, want 1", z.PlayersCount())
+	}
+	// Same-zone teleport should NOT re-subscribe (no leave/enter dance).
+	if p.zoneListElement != prevElement {
+		t.Error("same-zone Teleport should preserve zoneListElement (no leave/enter)")
+	}
+}

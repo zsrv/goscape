@@ -212,20 +212,24 @@ func (p *Player) CoordPacked() int {
 // interpolation, clearing any pending walk. ResetMasks clears the one-
 // shot tele/jump flags after emission.
 func (p *Player) TeleJump(x, z, level int) {
+	prevX, prevZ, prevLevel := p.x, p.z, p.level
 	p.x = x
 	p.z = z
 	p.level = level
 	p.tele = true
 	p.jump = true
+	refreshPlayerZone(p, prevX, prevZ, prevLevel)
 }
 
 // Teleport moves the player to (x, z, level) and flags the client for a
 // smooth teleport transition (tele without jump).
 func (p *Player) Teleport(x, z, level int) {
+	prevX, prevZ, prevLevel := p.x, p.z, p.level
 	p.x = x
 	p.z = z
 	p.level = level
 	p.tele = true
+	refreshPlayerZone(p, prevX, prevZ, prevLevel)
 }
 
 // FaceSquare rotates the player to face the square at absolute (x, z)
