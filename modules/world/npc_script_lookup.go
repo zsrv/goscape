@@ -6,8 +6,7 @@ import (
 
 // serverNpcLookup implements script.NpcLookup by linearly iterating
 // s.npcs. See S7f spec §3.3 and deviations S7f-D1 (huntvis validated-only
-// at the handler, not filtered here) and S7f-D2 (linear iteration —
-// future: route via s.grid.NearbyNpcs).
+// at the handler, not filtered here) and S7f-D2 (linear iteration).
 type serverNpcLookup struct{ s *Server }
 
 // Compile-time assertion: serverNpcLookup must satisfy script.NpcLookup.

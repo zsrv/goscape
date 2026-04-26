@@ -791,3 +791,27 @@ func TestHuntLocsCheckVisLineOfSightBlocks(t *testing.T) {
 		t.Fatalf("hunted: got %d, want 0 (LoS blocked by mid-tile)", len(hunted))
 	}
 }
+
+func TestHuntNpcsUsesZoneSubscriptionExclusive(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{Size: 1, BlockWalk: objtype.BlockWalkNone, Category: -1}
+	hunter := newRegisteredNpc(t, s, typ, true)
+	hunter.huntRange = 5
+	// Add a phantom NPC to s.grid only — bypass Zone subscription. Post-migration,
+	// huntNpcs reads from Zone, so this NPC must NOT be returned.
+	if s.grid == nil {
+		s.grid = grid.New()
+	}
+	s.grid.AddNpc(99, hunter.x+1, hunter.z+1, hunter.level)
+	if s.npcTypes == nil {
+		s.npcTypes = &objtype.NPCTypeConfigs{Configs: make([]*objtype.NpcType, 100)}
+	}
+	s.npcs[99] = &Npc{nid: 99, x: hunter.x + 1, z: hunter.z + 1, level: hunter.level, typ: typ}
+	hunt := &objtype.HuntType{CheckNpc: -1, CheckCategory: -1, CheckVis: objtype.HuntVisOff}
+	got := hunter.huntNpcs(s, hunt)
+	for _, e := range got {
+		if other, ok := e.(*Npc); ok && other.nid == 99 {
+			t.Error("huntNpcs returned grid-only NPC; should be Zone-exclusive")
+		}
+	}
+}

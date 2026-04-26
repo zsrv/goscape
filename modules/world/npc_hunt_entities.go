@@ -4,14 +4,17 @@ import (
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
-// huntNpcs iterates NPCs in the grid within huntRange and returns
+// huntNpcs iterates NPCs in zone-subscription within huntRange and returns
 // those passing type + category + distance filters. Matches TS
 // Npc.huntNpcs at Engine-TS/.../Npc.ts:975-977, which delegates to
 // HuntIterator's NPC branch at ScriptIterators.ts:98-120.
 //
+// Spatial backend: pkg/zone.Zone.NpcsSafe (NAI-28). Iterates zones in
+// zoneRadius via s.zoneMap.NearbyZones, type-asserts each NpcLike to *Npc.
+//
 // Filter coverage (NAI-9):
 //   - Range: Chebyshev distance <= n.huntRange
-//   - Level match: NearbyNpcs is level-filtered internally
+//   - Level match: NearbyZones is level-filtered internally
 //   - CheckNpc: type-ID filter (-1 == allow all)
 //   - CheckCategory: NpcType.Category filter (-1 == allow all)
 //
@@ -21,56 +24,54 @@ import (
 // Does NOT exclude self (TS doesn't either — NPC can appear in its
 // own zone's NPC list and pass all filters). Preserves TS quirk.
 func (n *Npc) huntNpcs(s *Server, hunt *objtype.HuntType) []entity {
-	if s.grid == nil || s.npcTypes == nil {
+	if s.zoneMap == nil || s.npcTypes == nil {
 		return nil
 	}
 	zoneRadius := 1 + n.huntRange/8
-	nids := s.grid.NearbyNpcs(n.x, n.z, n.level, zoneRadius)
 	var hunted []entity
-	for _, nid := range nids {
-		if nid < 0 || nid >= len(s.npcs) {
-			continue
-		}
-		other := s.npcs[nid]
-		if other == nil {
-			continue
-		}
-		if hunt.CheckNpc != -1 && other.typeId != hunt.CheckNpc {
-			continue
-		}
-		if hunt.CheckCategory != -1 {
-			if other.typeId < 0 || other.typeId >= len(s.npcTypes.Configs) {
+	for _, zn := range s.zoneMap.NearbyZones(n.level, n.x, n.z, zoneRadius) {
+		for nl := range zn.NpcsSafe(false) {
+			other, ok := nl.(*Npc)
+			if !ok {
 				continue
 			}
-			ot := s.npcTypes.Configs[other.typeId]
-			if ot == nil || ot.Category != hunt.CheckCategory {
+			if hunt.CheckNpc != -1 && other.typeId != hunt.CheckNpc {
 				continue
 			}
+			if hunt.CheckCategory != -1 {
+				if other.typeId < 0 || other.typeId >= len(s.npcTypes.Configs) {
+					continue
+				}
+				ot := s.npcTypes.Configs[other.typeId]
+				if ot == nil || ot.Category != hunt.CheckCategory {
+					continue
+				}
+			}
+			dx := other.x - n.x
+			if dx < 0 {
+				dx = -dx
+			}
+			dz := other.z - n.z
+			if dz < 0 {
+				dz = -dz
+			}
+			if dx > n.huntRange || dz > n.huntRange {
+				continue
+			}
+			// CheckVis gate — TS ScriptIterators.ts:113-118.
+			// gamemap==nil short-circuits to gate-pass; see NAI-12 spec § error handling.
+			if hunt.CheckVis == objtype.HuntVisLineOfSight && s.gamemap != nil &&
+				!s.gamemap.Pathfinder.LineValidator.HasLineOfSight(
+					n.level, n.x, n.z, other.x, other.z, 1, 1, 1, 0) {
+				continue
+			}
+			if hunt.CheckVis == objtype.HuntVisLineOfWalk && s.gamemap != nil &&
+				!s.gamemap.Pathfinder.LineValidator.HasLineOfWalk(
+					n.level, n.x, n.z, other.x, other.z, 1, 1, 1, 0) {
+				continue
+			}
+			hunted = append(hunted, other)
 		}
-		dx := other.x - n.x
-		if dx < 0 {
-			dx = -dx
-		}
-		dz := other.z - n.z
-		if dz < 0 {
-			dz = -dz
-		}
-		if dx > n.huntRange || dz > n.huntRange {
-			continue
-		}
-		// CheckVis gate — TS ScriptIterators.ts:113-118.
-		// gamemap==nil short-circuits to gate-pass; see NAI-12 spec § error handling.
-		if hunt.CheckVis == objtype.HuntVisLineOfSight && s.gamemap != nil &&
-			!s.gamemap.Pathfinder.LineValidator.HasLineOfSight(
-				n.level, n.x, n.z, other.x, other.z, 1, 1, 1, 0) {
-			continue
-		}
-		if hunt.CheckVis == objtype.HuntVisLineOfWalk && s.gamemap != nil &&
-			!s.gamemap.Pathfinder.LineValidator.HasLineOfWalk(
-				n.level, n.x, n.z, other.x, other.z, 1, 1, 1, 0) {
-			continue
-		}
-		hunted = append(hunted, other)
 	}
 	return hunted
 }
