@@ -14,6 +14,7 @@ import (
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
+	"github.com/zsrv/goscape/pkg/zone"
 )
 
 func discardLogger() *slog.Logger {
@@ -312,6 +313,7 @@ func newTestServer(t *testing.T) *Server {
 		quit:           make(chan interface{}),
 		log:            discardLogger(),
 		scriptProvider: defaultTestProvider(),
+		zoneMap:        zone.NewZoneMap(),
 	}
 	return s
 }
