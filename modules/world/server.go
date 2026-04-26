@@ -545,6 +545,7 @@ func (c *client) handleLogin() error {
 				result == loginpb.LoginResult_LOGIN_RESULT_RECONNECT_OK {
 				c.staffModLevel = resp.GetStaffModLevel()
 				c.members = resp.GetMembers()
+				c.username = safeName
 			}
 		} else {
 			// login server not configured — reject with try again

@@ -49,6 +49,11 @@ type client struct {
 	waiting       int
 	staffModLevel int32
 	members       bool
+	// username is the safe-form ("snake_case") account name from the RS2 login
+	// packet, set after successful login at server.go's login handler. Copied
+	// onto Player.username at newPlayer(); also drives Player.username37 (the
+	// base37-long encoding consumed by the appearance buffer's name field).
+	username string
 	// lowMemory carries the client's low-memory capability bit from the
 	// RS2 login packet (LoginRequest.LowMemory, parsed at server.go's
 	// req.UnmarshalBinary). Copied onto Player at newPlayer(). Read by

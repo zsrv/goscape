@@ -13,6 +13,7 @@ import (
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
+	util "github.com/zsrv/goscape/pkg/util/jstring"
 	"github.com/zsrv/goscape/pkg/zone"
 )
 
@@ -335,6 +336,8 @@ func newPlayer(c *client) *Player {
 		client:         c,
 		reconnecting:   c.reconnecting,
 		lowMemory:      c.lowMemory,
+		username:       c.username,
+		username37:     util.ToBase37(c.username),
 		slot:           -1,
 		uid:            -1,
 		x:              3094,
