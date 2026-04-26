@@ -135,7 +135,7 @@ func (gm *GameMap) loadLocs(data []byte, mapSquareX, mapSquareZ int) {
 
 // loadNPCs records NPC spawn positions from the n{X}_{Z} file.
 //
-// Layout (from rs-server-225/engine/gamemap.go): each record is a 2-byte
+// Layout (mirrors LostCityRS/Engine-TS at src/engine/GameMap.ts:114-137): each record is a 2-byte
 // packed position (top 2 bits level, next 6 bits local X, low 6 bits local Z),
 // followed by a 1-byte count and that many 2-byte NPC type IDs.
 func (gm *GameMap) loadNPCs(data []byte, mapSquareX, mapSquareZ int) {

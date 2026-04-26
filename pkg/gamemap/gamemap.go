@@ -86,7 +86,7 @@ func (gm *GameMap) CanTravel(level, x, z, offsetX, offsetZ int) bool {
 // Init reads map-pack files from cacheDir/maps/ and populates the collision map.
 // Missing files and missing CSVs are treated as warnings, not errors.
 func (gm *GameMap) Init(cacheDir string) error {
-	mapsDir := filepath.Join(cacheDir, "client", "maps")
+	mapsDir := filepath.Join(cacheDir, "server", "maps")
 
 	// Load multimap and freemap CSVs (non-fatal if missing).
 	if err := loadCsvMap(filepath.Join(mapsDir, "multiway.csv"), gm.multimap); err != nil {

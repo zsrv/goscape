@@ -43,7 +43,7 @@ func TestInitHandlesMissingCsv(t *testing.T) {
 
 func TestInitLoadsCsvMaps(t *testing.T) {
 	tmp := t.TempDir()
-	mapsDir := filepath.Join(tmp, "client", "maps")
+	mapsDir := filepath.Join(tmp, "server", "maps")
 	if err := os.MkdirAll(mapsDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestInitLoadsCsvMaps(t *testing.T) {
 
 func TestLoadNpcsParsesSpawns(t *testing.T) {
 	tmp := t.TempDir()
-	mapsDir := filepath.Join(tmp, "client", "maps") // matches Init's cacheDir/client/maps lookup
+	mapsDir := filepath.Join(tmp, "server", "maps") // matches Init's cacheDir/server/maps lookup
 	if err := os.MkdirAll(mapsDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -105,9 +105,49 @@ func TestLoadNpcsParsesSpawns(t *testing.T) {
 	}
 }
 
+func TestLoadNpcsLoadsFromServerMapsDirectory(t *testing.T) {
+	// Pins that Init reads NPC spawn files from cacheDir/server/maps, mirroring
+	// TS canonical at LostCityRS/Engine-TS/src/engine/GameMap.ts:63 ('data/pack/server/maps/').
+	// The actual cache layout has n*_* and o*_* files only under server/maps/; client/maps/
+	// has only m and l files (and they differ in content from server/maps/m,l). Reading from
+	// the wrong directory leaves npcSpawns empty and NPCs never render in the client.
+	tmp := t.TempDir()
+	mapsDir := filepath.Join(tmp, "server", "maps")
+	if err := os.MkdirAll(mapsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	// Minimal m file (loadGround needs at least an opcode-0 byte).
+	if err := os.WriteFile(filepath.Join(mapsDir, "m50_50"), []byte{0}, 0644); err != nil {
+		t.Fatal(err)
+	}
+	// n50_50: one record at local (10,20) level 0, count=1, type=100.
+	// packed = (0<<12) | (10<<6) | 20 = 660 = 0x0294
+	nData := []byte{0x02, 0x94, 0x01, 0x00, 0x64}
+	if err := os.WriteFile(filepath.Join(mapsDir, "n50_50"), nData, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	gm := New(discardLogger())
+	if err := gm.Init(tmp); err != nil {
+		t.Fatal(err)
+	}
+
+	spawns := gm.NpcSpawns()
+	if len(spawns) != 1 {
+		t.Fatalf("spawns count: got %d, want 1 (got %+v)", len(spawns), spawns)
+	}
+	wantX, wantZ := 50*64+10, 50*64+20
+	if spawns[0].TypeID != 100 {
+		t.Errorf("spawn[0].TypeID: got %d, want 100", spawns[0].TypeID)
+	}
+	if spawns[0].X != wantX || spawns[0].Z != wantZ || spawns[0].Level != 0 {
+		t.Errorf("spawn[0] coords: got (%d,%d,%d), want (%d,%d,0)", spawns[0].X, spawns[0].Z, spawns[0].Level, wantX, wantZ)
+	}
+}
+
 func TestGameMapRetainsRawBytes(t *testing.T) {
 	dir := t.TempDir()
-	mapsDir := filepath.Join(dir, "client", "maps")
+	mapsDir := filepath.Join(dir, "server", "maps")
 	if err := os.MkdirAll(mapsDir, 0755); err != nil {
 		t.Fatal(err)
 	}
