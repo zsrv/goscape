@@ -457,7 +457,12 @@ func (pi *PlayerInfo) writePlayers(b *Buf, self *Player, renderer *Renderer) {
 		}
 
 		otherPos := coordgrid.UnpackCoord(other.Coord)
-		// Six remove conditions (mirrors info.rs:114).
+		// Six remove conditions (mirrors info.rs:114). T2.7 adds a 7th
+		// (Visibility==VisibilitySoft && self.StaffModLevel<1) preserving
+		// EncodeLegacy NAI-9 behavior; absent from upstream Rust by design.
+		// During the T2.4-T2.7 coexistence window, the new method gates
+		// fewer SOFT-vis players than EncodeLegacy does. T2.9 round-trip
+		// parity validates the union remains correct after T2.7 lands.
 		if other.PID == -1 ||
 			other.Tele ||
 			otherPos.Level != selfPos.Level ||

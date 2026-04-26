@@ -445,6 +445,9 @@ func TestPlayerInfo_TrackedOther_RemoveBecauseLevelMismatch(t *testing.T) {
 	pi := NewPlayerInfo()
 	r := NewRenderer()
 	out := pi.Encode(b, 1, r)
+	if len(out) < 2 {
+		t.Fatalf("remove (level mismatch): got %d bytes, want >= 2; bytes: %x", len(out), out)
+	}
 	if out[0] != 0x00 || out[1] != 0xf0 {
 		t.Errorf("remove (level mismatch): got %x, want 00 f0", out)
 	}
@@ -461,6 +464,9 @@ func TestPlayerInfo_TrackedOther_RemoveBecauseOutOfDistance(t *testing.T) {
 	pi := NewPlayerInfo()
 	r := NewRenderer()
 	out := pi.Encode(b, 1, r)
+	if len(out) < 2 {
+		t.Fatalf("remove (out of distance): got %d bytes, want >= 2; bytes: %x", len(out), out)
+	}
 	if out[0] != 0x00 || out[1] != 0xf0 {
 		t.Errorf("remove (out of distance): got %x, want 00 f0", out)
 	}
@@ -475,6 +481,9 @@ func TestPlayerInfo_TrackedOther_RemoveBecauseInactive(t *testing.T) {
 	pi := NewPlayerInfo()
 	r := NewRenderer()
 	out := pi.Encode(b, 1, r)
+	if len(out) < 2 {
+		t.Fatalf("remove (inactive): got %d bytes, want >= 2; bytes: %x", len(out), out)
+	}
 	if out[0] != 0x00 || out[1] != 0xf0 {
 		t.Errorf("remove (inactive): got %x, want 00 f0", out)
 	}
@@ -489,8 +498,85 @@ func TestPlayerInfo_TrackedOther_RemoveBecauseHardVisibility(t *testing.T) {
 	pi := NewPlayerInfo()
 	r := NewRenderer()
 	out := pi.Encode(b, 1, r)
+	if len(out) < 2 {
+		t.Fatalf("remove (hard visibility): got %d bytes, want >= 2; bytes: %x", len(out), out)
+	}
 	if out[0] != 0x00 || out[1] != 0xf0 {
 		t.Errorf("remove (hard visibility): got %x, want 00 f0", out)
+	}
+}
+
+func TestPlayerInfo_TrackedOther_Walk(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil)
+	setupOtherPlayer(b, 2, func(p *Player) { p.WalkDir = 3 })
+	b.players[1].Build.Players.Insert(2)
+
+	pi := NewPlayerInfo()
+	r := NewRenderer()
+	out := pi.Encode(b, 1, r)
+
+	// Bit-stream: PBit(1,0) PBit(8,1) PBit(1,1) PBit(2,1) PBit(3,3) PBit(1,0)
+	//   = 0_00000001_1_01_011_0 = 16 bits → 2 bytes.
+	// byte 0 = b0..b7 = 00000000 = 0x00
+	// byte 1 = b8..b15 = 11010110 = 0xd6
+	if len(out) != 2 {
+		t.Fatalf("tracked-walk: got %d bytes, want 2; bytes: %x", len(out), out)
+	}
+	if out[0] != 0x00 || out[1] != 0xd6 {
+		t.Errorf("tracked-walk: got %x, want 00 d6", out)
+	}
+}
+
+func TestPlayerInfo_TrackedOther_Run(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil)
+	setupOtherPlayer(b, 2, func(p *Player) {
+		p.WalkDir = 5
+		p.RunDir = 3
+	})
+	b.players[1].Build.Players.Insert(2)
+
+	pi := NewPlayerInfo()
+	r := NewRenderer()
+	out := pi.Encode(b, 1, r)
+
+	// Bit-stream: PBit(1,0) PBit(8,1) PBit(1,1) PBit(2,2) PBit(3,5) PBit(3,3) PBit(1,0)
+	//   = 0_00000001_1_10_101_011_0 = 19 bits → 3 bytes (after AccessBytes round-up).
+	// byte 0 = 0x00; byte 1 = 11101010 = 0xea; byte 2 = 11000000 = 0xc0
+	if len(out) != 3 {
+		t.Fatalf("tracked-run: got %d bytes, want 3; bytes: %x", len(out), out)
+	}
+	if out[0] != 0x00 || out[1] != 0xea || out[2] != 0xc0 {
+		t.Errorf("tracked-run: got %x, want 00 ea c0", out)
+	}
+}
+
+// TestPlayerInfo_TrackedOther_Extend pins the per-other extend-only branch
+// (`case hdLen > 0:` inside writePlayers). Seeds renderer high-def directly
+// to avoid coupling the test to ComputePlayers; T2.6 will exercise this
+// branch end-to-end via real mask payloads.
+func TestPlayerInfo_TrackedOther_Extend(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil)
+	setupOtherPlayer(b, 2, nil) // WalkDir=-1, RunDir=-1, so `case hdLen > 0:` arm fires
+	b.players[1].Build.Players.Insert(2)
+
+	pi := NewPlayerInfo()
+	r := NewRenderer()
+	r.highDef[2] = []byte{0xab} // 1 byte; renderer-internals reach-around for branch isolation.
+
+	out := pi.Encode(b, 1, r)
+
+	// Bit-stream: PBit(1,0) PBit(8,1) PBit(1,1) PBit(2,0) [updates non-empty]
+	//   PBit(11,2047) AccessBytes → P1(0xab)
+	// = 0_00000001_1_00_11111111111 = 23 bits + 1-byte append = 4 bytes total.
+	// byte 0 = 0x00; byte 1 = 11001111 = 0xcf; byte 2 = 11111110 = 0xfe; byte 3 = 0xab
+	if len(out) != 4 {
+		t.Fatalf("tracked-extend: got %d bytes, want 4; bytes: %x", len(out), out)
+	}
+	if out[0] != 0x00 || out[1] != 0xcf || out[2] != 0xfe || out[3] != 0xab {
+		t.Errorf("tracked-extend: got %x, want 00 cf fe ab", out)
 	}
 }
 
