@@ -227,6 +227,122 @@ func TestEncodeTwoPlayersAddsOther(t *testing.T) {
 	}
 }
 
+// setupLocalPlayer constructs a player at (3200, 0, 3200) with all sentinels.
+// The modify callback receives the populated *Player and may override fields.
+// 41-arg ComputePlayer call verified against (*Buf).ComputePlayer at pkg/rsbuf/buf.go:153-175.
+func setupLocalPlayer(b *Buf, pid int32, modify func(p *Player)) {
+	b.AddPlayer(pid)
+	b.ComputePlayer(
+		pid,
+		3200, 0, 3200,
+		3200, 3200,
+		false, false,
+		-1, -1,
+		VisibilityDefault,
+		true,
+		0,
+		nil,
+		-1,
+		-1,
+		-1, -1,
+		-1, -1,
+		-1, -1,
+		-1, -1,
+		-1, -1,
+		nil,
+		nil, 0, 0, 0,
+		-1, -1, -1,
+		-1, -1,
+		-1, -1,
+		-1, -1, -1,
+	)
+	if modify != nil {
+		modify(b.players[pid])
+	}
+}
+
+func TestPlayerInfo_LocalPlayer_Walk(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, func(p *Player) {
+		p.WalkDir = 4 // arbitrary walk direction 0-7
+	})
+	pi := NewPlayerInfo()
+	r := NewRenderer()
+	out := pi.Encode(b, 1, r)
+
+	// Walk-leaf: PBit(1,1) PBit(2,1) PBit(3,4) PBit(1,0) PBit(8,0)
+	//   = 1 01 100 0 00000000 = 0xb0 0x00 (15 bits → 2 bytes).
+	if len(out) != 2 {
+		t.Errorf("walk: got %d bytes, want 2; bytes: %x", len(out), out)
+	}
+	if out[0] != 0xb0 {
+		t.Errorf("walk leading byte: got 0x%02x, want 0xb0", out[0])
+	}
+}
+
+func TestPlayerInfo_LocalPlayer_Run(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, func(p *Player) {
+		p.RunDir = 3
+		p.WalkDir = 5
+	})
+	pi := NewPlayerInfo()
+	r := NewRenderer()
+	out := pi.Encode(b, 1, r)
+
+	// Run-leaf: PBit(1,1) PBit(2,2) PBit(3,5) PBit(3,3) PBit(1,0) + PBit(8,0)
+	//   = 1 10 101 011 0 00000000 = 0xd5 0x80 (18 bits → 3 bytes).
+	if len(out) != 3 {
+		t.Errorf("run: got %d bytes, want 3", len(out))
+	}
+	if out[0] != 0xd5 {
+		t.Errorf("run byte[0]: got 0x%02x, want 0xd5", out[0])
+	}
+}
+
+func TestPlayerInfo_LocalPlayer_Tele(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, func(p *Player) {
+		p.Tele = true
+	})
+	pi := NewPlayerInfo()
+	r := NewRenderer()
+	out := pi.Encode(b, 1, r)
+
+	// Tele-leaf: PBit(1,1) PBit(2,3) PBit(2,level=0) PBit(7,localX=48) PBit(7,localZ=48) PBit(1,jump=0) PBit(1,extend=0)
+	// = 1+2+2+7+7+1+1 = 21 bits + 8 count = 29 bits → 4 bytes.
+	// localX = x - (((originX>>3) - 6) << 3) = 3200 - (((3200>>3) - 6) << 3) = 3200 - ((400 - 6)<<3) = 3200 - 3152 = 48
+	// localZ = same logic = 48
+	if len(out) != 4 {
+		t.Errorf("tele: got %d bytes, want 4", len(out))
+	}
+	// Detailed byte-level pins: bit-stream math traces to upstream info.rs:79-89.
+	// We assert length-only here; T2.9 round-trip parity test will catch byte-level
+	// divergence vs EncodeLegacy.
+}
+
+// TestPlayerInfo_LocalPlayer_Idle pins the writeLocalPlayer default branch
+// after the dispatch is wired in. T2.2's TestPlayerInfo_Encode_LocalIdleNoOthers
+// covers the same path against the stub; this regression-locks the
+// post-writeLocalPlayer behavior. Real extend-only branch coverage (the
+// `case hdLen > 0:` arm) defers to T2.6, where mask-payload pinning makes
+// seeded high-def state natural; reproducing it in T2.3 would force a
+// renderer-internals reach-around (`r.highDef[1] = []byte{...}`).
+func TestPlayerInfo_LocalPlayer_Idle(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, func(p *Player) {
+		// No movement; no masks. Renderer returns empty payload. Idle path taken.
+	})
+	pi := NewPlayerInfo()
+	r := NewRenderer()
+	out := pi.Encode(b, 1, r)
+
+	// Idle: PBit(1,0) + PBit(8,0) = 9 bits = 2 bytes, both zero.
+	if len(out) != 2 || out[0] != 0 || out[1] != 0 {
+		t.Errorf("idle: got %x, want 00 00", out)
+	}
+}
+
 func TestPlayerInfo_Encode_LocalIdleNoOthers(t *testing.T) {
 	b := New()
 	pi := NewPlayerInfo()

@@ -2,6 +2,7 @@ package rsbuf
 
 import (
 	"github.com/zsrv/goscape/pkg/buildarea"
+	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/grid"
 	"github.com/zsrv/goscape/pkg/io/packet"
 )
@@ -320,9 +321,8 @@ func (pi *PlayerInfo) Encode(b *Buf, pid int32, renderer *Renderer) []byte {
 
 	pi.buf.AccessBits()
 
-	// Bundle 2 Task 2.3 will fill writeLocalPlayer here.
-	// For Task 2.2 skeleton, write idle bit only.
-	pi.buf.PBit(1, 0) // idle
+	// Local player section (info.rs:72-100).
+	pi.writeLocalPlayer(self, renderer)
 
 	// Bundle 2 Task 2.4 will fill writePlayers here.
 	// For T2.2 skeleton, emit zero-count.
@@ -351,4 +351,86 @@ func (pi *PlayerInfo) Encode(b *Buf, pid int32, renderer *Renderer) []byte {
 	out := make([]byte, len(pi.buf.Data))
 	copy(out, pi.buf.Data)
 	return out
+}
+
+// writeLocalPlayer emits the local player's per-tick movement bits
+// (or idle/extend), branching on tele/run/walk/masks. Mirrors upstream
+// PlayerInfo::write_local_player at info.rs:72-100.
+//
+// Returns the high-def payload length for the local player (consumed
+// by the new-players byte-budget math at info.rs:60).
+func (pi *PlayerInfo) writeLocalPlayer(self *Player, renderer *Renderer) int {
+	pos := coordgrid.UnpackCoord(self.Coord)
+	originPos := coordgrid.UnpackCoord(self.Origin)
+	highDef := renderer.HighDefOf(int(self.PID))
+	hdLen := len(highDef)
+
+	switch {
+	case self.Tele:
+		// Mirrors info.rs:80-89: teleport leaf with local-window coords.
+		localX := pos.X - (((originPos.X >> 3) - 6) << 3)
+		localZ := pos.Z - (((originPos.Z >> 3) - 6) << 3)
+		jump := 0
+		if self.Jump {
+			jump = 1
+		}
+		extend := 0
+		if hdLen > 0 {
+			extend = 1
+		}
+		pi.buf.PBit(1, 1)
+		pi.buf.PBit(2, 3)
+		pi.buf.PBit(2, pos.Level)
+		pi.buf.PBit(7, localX)
+		pi.buf.PBit(7, localZ)
+		pi.buf.PBit(1, jump)
+		pi.buf.PBit(1, extend)
+		if extend == 1 {
+			for _, b := range highDef {
+				pi.updates.P1(b)
+			}
+		}
+	case self.RunDir != -1:
+		// Mirrors info.rs:91 + run() at info.rs:226-243.
+		extend := 0
+		if hdLen > 0 {
+			extend = 1
+		}
+		pi.buf.PBit(1, 1)
+		pi.buf.PBit(2, 2)
+		pi.buf.PBit(3, int(self.WalkDir))
+		pi.buf.PBit(3, int(self.RunDir))
+		pi.buf.PBit(1, extend)
+		if extend == 1 {
+			for _, b := range highDef {
+				pi.updates.P1(b)
+			}
+		}
+	case self.WalkDir != -1:
+		// Mirrors info.rs:93 + walk() at info.rs:246-262.
+		extend := 0
+		if hdLen > 0 {
+			extend = 1
+		}
+		pi.buf.PBit(1, 1)
+		pi.buf.PBit(2, 1)
+		pi.buf.PBit(3, int(self.WalkDir))
+		pi.buf.PBit(1, extend)
+		if extend == 1 {
+			for _, b := range highDef {
+				pi.updates.P1(b)
+			}
+		}
+	case hdLen > 0:
+		// Mirrors info.rs:94-95 + extend() at info.rs:265-274.
+		pi.buf.PBit(1, 1)
+		pi.buf.PBit(2, 0)
+		for _, b := range highDef {
+			pi.updates.P1(b)
+		}
+	default:
+		// idle (info.rs:97).
+		pi.buf.PBit(1, 0)
+	}
+	return hdLen
 }
