@@ -12,6 +12,7 @@ import (
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
+	"github.com/zsrv/goscape/pkg/zone"
 )
 
 // InventoryListener associates a player-visible UI component with an inventory.
@@ -74,6 +75,12 @@ type Player struct {
 	originX, originZ                int
 	lastTickX, lastTickZ, lastLevel int
 	lastStepX, lastStepZ            int
+
+	// zoneListElement is the player's intrusive subscription element in
+	// pkg/zone.Zone.players. Set by Zone.EnterPlayer; nilled after
+	// Zone.LeavePlayer. Used to support O(1) Unlink on cross-zone movement.
+	// Per NAI-28 Bundle 2.
+	zoneListElement *zone.Element[zone.PlayerLike]
 
 	// === movement (PathingEntity) ===
 	moveSpeed              MoveSpeed
