@@ -654,9 +654,11 @@ func TestNpcInfo_FaceCoord_PreservedAcrossEncode(t *testing.T) {
 // TestNpcInfo_Orientation_PreservedAcrossEncode pins that Encode does
 // not mutate b.npcs[nid].OrientationX or OrientationZ. Per Rust
 // upstream npc.rs:68-71, orientation values persist across cleanup
-// (and across Encode). NAI-31's fallback ladder may use orientation
-// as the fallback for face_x when face_x == -1; for NAI-30, the
-// placeholder pins non-mutation.
+// (and across Encode). The encoder's fallback ladder uses orientation
+// as the face_x fallback when face_x == -1 (info.rs:328-340); the
+// orientation producer (set_orient script + npc-config initial
+// orientation) is deferred to the engine-port series per NAI-30-D1.
+// This test pins non-mutation.
 func TestNpcInfo_Orientation_PreservedAcrossEncode(t *testing.T) {
 	b := New()
 	setupLocalPlayer(b, 1, nil)
