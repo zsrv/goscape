@@ -118,8 +118,10 @@ func (b *Buf) RemoveNpc(nid int32) {
 	if n == nil {
 		return
 	}
+	// Step 1: remove nid from zoneMap.
 	pos := coordgrid.UnpackCoord(n.Coord)
 	b.zoneMap.Zone(pos.X, pos.Level, pos.Z).RemoveNpc(nid)
 	// Step 2 deferred to NAI-30.
+	// Step 3: nil the slot.
 	b.npcs[nid] = nil
 }

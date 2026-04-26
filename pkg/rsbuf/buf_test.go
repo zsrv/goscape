@@ -172,6 +172,9 @@ func TestAddNpc_AllocatesSlot(t *testing.T) {
 	if b.npcs[50].WalkDir != -1 {
 		t.Errorf("AddNpc(50, 100): WalkDir = %d, want -1 (sentinel)", b.npcs[50].WalkDir)
 	}
+	if b.npcs[50].Observers != 0 {
+		t.Errorf("AddNpc(50, 100): Observers = %d, want 0 (persistent counter init)", b.npcs[50].Observers)
+	}
 }
 
 func TestAddNpc_NegativeIsNoop(t *testing.T) {
@@ -199,6 +202,7 @@ func TestRemoveNpc_AbsentIsNoop(t *testing.T) {
 	b := New()
 	b.RemoveNpc(50) // never added
 	b.RemoveNpc(-1)
+	b.RemoveNpc(8192) // out-of-range upper bound
 	if b.npcs[50] != nil {
 		t.Error("RemoveNpc(absent): slot mutated")
 	}
