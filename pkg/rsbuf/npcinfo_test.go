@@ -1,6 +1,7 @@
 package rsbuf
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/buildarea"
@@ -685,6 +686,36 @@ func TestNpcInfo_NewNpcs_SkipsAlreadyTracked(t *testing.T) {
 	// PBit(8,1) + PBit(1,0) = 9 bits → 2 bytes (idle branch: no walk/run/extend).
 	if len(out) != 2 {
 		t.Errorf("SkipsAlreadyTracked: got %d bytes, want 2 (tracked idle, no add-leaf); bytes: % x", len(out), out)
+	}
+}
+
+// TestNpcInfo_Encode_OutputBytesAreCopy regression-locks the
+// make+copy pattern at the end of (ni *NpcInfo).Encode (T3.2).
+// Each Encode call returns an independent byte slice; the next
+// Encode call mutates ni.buf.Data (truncates + rewrites) but must
+// not corrupt the previously-returned slice.
+func TestNpcInfo_Encode_OutputBytesAreCopy(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil)
+	setupNpc(b, 7, 100, nil) // NPC near self at default coords
+	ni := NewNpcInfo()
+	r := NewRenderer()
+
+	out1 := ni.Encode(b, 1, r)
+	out1Saved := append([]byte(nil), out1...)
+
+	// Mutate the NPC to force a different branch in the second Encode.
+	// out1 added the NPC via writeNewNpcs (Build.Npcs now contains 7);
+	// out2 will see it in writeNpcs's tracked-loop and emit the walk-mode
+	// branch instead of the add-leaf, producing different bytes.
+	b.npcs[7].WalkDir = 2
+	out2 := ni.Encode(b, 1, r)
+
+	if !bytes.Equal(out1, out1Saved) {
+		t.Errorf("out1 mutated after second Encode: got %x, want %x", out1, out1Saved)
+	}
+	if bytes.Equal(out1, out2) {
+		t.Errorf("out2 identical to out1 (expected different branch); both = %x", out1)
 	}
 }
 
