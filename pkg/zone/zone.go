@@ -1,6 +1,8 @@
 package zone
 
 import (
+	"iter"
+
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/io/packet"
@@ -44,6 +46,12 @@ type Zone struct {
 	entityEvents map[*entity.NonPathing][]int // entity pointer → indexes into events
 
 	shared []byte
+
+	// PathingEntity subscription lists. Per TS Zone.ts:47-48, players and
+	// npcs are tracked separately. Reset does NOT clear these — subscription
+	// persists across ticks until LeaveX is called explicitly.
+	players DoublyLinkList[PlayerLike]
+	npcs    DoublyLinkList[NpcLike]
 }
 
 // New constructs a zone for the given packed index and (level, zoneX, zoneZ).
@@ -360,3 +368,89 @@ func (z *Zone) MapProjAnim(
 		Bytes:      bytes,
 	})
 }
+
+// ---- PathingEntity subscription (NAI-28) ----
+
+// EnterPlayer adds p to z.players and returns the *Element for caller storage.
+// If z's player count transitions 0→1, grid.Flag(z.X, z.Z) fires.
+//
+// Mirrors TS Zone.enter Player branch at Zone.ts:80-83.
+func (z *Zone) EnterPlayer(p PlayerLike, grid *ZoneGrid) *Element[PlayerLike] {
+	wasEmpty := z.players.Size() == 0
+	e := z.players.AddTail(p)
+	if wasEmpty && grid != nil {
+		grid.Flag(z.X, z.Z)
+	}
+	return e
+}
+
+// LeavePlayer removes the element from z.players. If z's player count
+// transitions 1→0, grid.Unflag(z.X, z.Z) fires. Caller must null its
+// stored *Element after this call.
+//
+// Mirrors TS Zone.leave Player branch at Zone.ts:90-96.
+func (z *Zone) LeavePlayer(p PlayerLike, e *Element[PlayerLike], grid *ZoneGrid) {
+	if e == nil {
+		return
+	}
+	e.Unlink()
+	if z.players.Size() == 0 && grid != nil {
+		grid.Unflag(z.X, z.Z)
+	}
+}
+
+// EnterNpc adds n to z.npcs and returns the *Element for caller storage.
+// NPC entries do NOT touch the grid (only player entries do).
+//
+// Mirrors TS Zone.enter Npc branch at Zone.ts:84-87.
+func (z *Zone) EnterNpc(n NpcLike) *Element[NpcLike] {
+	return z.npcs.AddTail(n)
+}
+
+// LeaveNpc removes the element from z.npcs.
+//
+// Mirrors TS Zone.leave Npc branch at Zone.ts:97-99.
+func (z *Zone) LeaveNpc(n NpcLike, e *Element[NpcLike]) {
+	if e == nil {
+		return
+	}
+	e.Unlink()
+}
+
+// PlayersSafe yields players that pass IsValid(). reverse=true iterates
+// in reverse insertion order. Mirrors TS Zone.getAllPlayersSafe at Zone.ts:387-393.
+func (z *Zone) PlayersSafe(reverse bool) iter.Seq[PlayerLike] {
+	return func(yield func(PlayerLike) bool) {
+		for p := range z.players.All(reverse) {
+			if !p.IsValid() {
+				continue
+			}
+			if !yield(p) {
+				return
+			}
+		}
+	}
+}
+
+// NpcsSafe yields npcs that pass IsValid(). Mirrors TS Zone.getAllNpcsSafe
+// at Zone.ts:399-405.
+func (z *Zone) NpcsSafe(reverse bool) iter.Seq[NpcLike] {
+	return func(yield func(NpcLike) bool) {
+		for n := range z.npcs.All(reverse) {
+			if !n.IsValid() {
+				continue
+			}
+			if !yield(n) {
+				return
+			}
+		}
+	}
+}
+
+// PlayersCount returns the number of players currently subscribed.
+// Mirrors TS Zone.playersCount field at Zone.ts:51.
+func (z *Zone) PlayersCount() int { return z.players.Size() }
+
+// NpcsCount returns the number of npcs currently subscribed.
+// Mirrors TS Zone.npcsCount field at Zone.ts:52.
+func (z *Zone) NpcsCount() int { return z.npcs.Size() }

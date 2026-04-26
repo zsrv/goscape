@@ -363,3 +363,162 @@ func TestResetPreservesStaticLocs(t *testing.T) {
 		t.Errorf("per-tick state should be cleared; events=%d shared=%v", len(z.Events()), z.Shared())
 	}
 }
+
+// stubPlayer implements PlayerLike for Zone subscription tests.
+type stubPlayer struct {
+	slot  int
+	valid bool
+}
+
+func (p *stubPlayer) IsValid() bool { return p.valid }
+func (p *stubPlayer) Slot() int     { return p.slot }
+
+// stubNpc implements NpcLike for Zone subscription tests.
+type stubNpc struct {
+	nid   int
+	valid bool
+}
+
+func (n *stubNpc) IsValid() bool { return n.valid }
+func (n *stubNpc) Nid() int      { return n.nid }
+
+func TestZoneEnterPlayerFlagsGridOnFirstEntry(t *testing.T) {
+	z := New(0, 0, 400, 400)
+	g := NewZoneGrid()
+	p := &stubPlayer{slot: 1, valid: true}
+	z.EnterPlayer(p, g)
+	if !g.IsFlagged(400, 400, 0) {
+		t.Error("first EnterPlayer should flag the grid at (400,400)")
+	}
+}
+
+func TestZoneEnterPlayerSecondPlayerDoesNotReFlag(t *testing.T) {
+	z := New(0, 0, 400, 400)
+	g := NewZoneGrid()
+	z.EnterPlayer(&stubPlayer{slot: 1, valid: true}, g)
+	// Manually unflag, then add a second player. If the second EnterPlayer
+	// re-flags, that's incorrect — only the first should flag.
+	g.Unflag(400, 400)
+	z.EnterPlayer(&stubPlayer{slot: 2, valid: true}, g)
+	if g.IsFlagged(400, 400, 0) {
+		t.Error("second EnterPlayer should NOT re-flag a previously-unflagged grid")
+	}
+}
+
+func TestZoneLeaveLastPlayerUnflagsGrid(t *testing.T) {
+	z := New(0, 0, 400, 400)
+	g := NewZoneGrid()
+	p := &stubPlayer{slot: 1, valid: true}
+	e := z.EnterPlayer(p, g)
+	z.LeavePlayer(p, e, g)
+	if g.IsFlagged(400, 400, 0) {
+		t.Error("LeavePlayer of last player should unflag grid")
+	}
+}
+
+func TestZoneLeavePlayerNonLastDoesNotUnflag(t *testing.T) {
+	z := New(0, 0, 400, 400)
+	g := NewZoneGrid()
+	p1 := &stubPlayer{slot: 1, valid: true}
+	p2 := &stubPlayer{slot: 2, valid: true}
+	e1 := z.EnterPlayer(p1, g)
+	z.EnterPlayer(p2, g)
+	z.LeavePlayer(p1, e1, g)
+	if !g.IsFlagged(400, 400, 0) {
+		t.Error("LeavePlayer when others remain should NOT unflag grid")
+	}
+}
+
+func TestZoneEnterNpcDoesNotFlagGrid(t *testing.T) {
+	z := New(0, 0, 400, 400)
+	g := NewZoneGrid()
+	n := &stubNpc{nid: 1, valid: true}
+	z.EnterNpc(n)
+	// NPC enter must not touch the grid (TS Zone.enter only flags for Player).
+	if g.IsFlagged(400, 400, 0) {
+		t.Error("EnterNpc should NOT flag grid")
+	}
+}
+
+func TestZoneLeaveNpcDoesNotUnflagGrid(t *testing.T) {
+	z := New(0, 0, 400, 400)
+	g := NewZoneGrid()
+	// Manually flag the grid (e.g., a player is in this zone).
+	g.Flag(400, 400)
+	n := &stubNpc{nid: 1, valid: true}
+	e := z.EnterNpc(n)
+	z.LeaveNpc(n, e)
+	if !g.IsFlagged(400, 400, 0) {
+		t.Error("LeaveNpc should NOT unflag the grid (only LeavePlayer does)")
+	}
+}
+
+func TestZoneEnterIncrementsCount(t *testing.T) {
+	z := New(0, 0, 400, 400)
+	g := NewZoneGrid()
+	z.EnterPlayer(&stubPlayer{slot: 1, valid: true}, g)
+	z.EnterPlayer(&stubPlayer{slot: 2, valid: true}, g)
+	z.EnterNpc(&stubNpc{nid: 1, valid: true})
+	if z.PlayersCount() != 2 {
+		t.Errorf("PlayersCount: got %d, want 2", z.PlayersCount())
+	}
+	if z.NpcsCount() != 1 {
+		t.Errorf("NpcsCount: got %d, want 1", z.NpcsCount())
+	}
+}
+
+func TestZoneLeaveDecrementsCount(t *testing.T) {
+	z := New(0, 0, 400, 400)
+	g := NewZoneGrid()
+	p := &stubPlayer{slot: 1, valid: true}
+	e := z.EnterPlayer(p, g)
+	z.LeavePlayer(p, e, g)
+	if z.PlayersCount() != 0 {
+		t.Errorf("PlayersCount after Leave: got %d, want 0", z.PlayersCount())
+	}
+}
+
+func TestZonePlayersSafeFiltersInvalid(t *testing.T) {
+	z := New(0, 0, 400, 400)
+	g := NewZoneGrid()
+	z.EnterPlayer(&stubPlayer{slot: 1, valid: true}, g)
+	z.EnterPlayer(&stubPlayer{slot: 2, valid: false}, g)
+	z.EnterPlayer(&stubPlayer{slot: 3, valid: true}, g)
+	got := []int{}
+	for p := range z.PlayersSafe(false) {
+		got = append(got, p.Slot())
+	}
+	if len(got) != 2 || got[0] != 1 || got[1] != 3 {
+		t.Errorf("PlayersSafe filter: got %v, want [1 3]", got)
+	}
+}
+
+func TestZoneNpcsSafeFiltersInvalid(t *testing.T) {
+	z := New(0, 0, 400, 400)
+	z.EnterNpc(&stubNpc{nid: 1, valid: true})
+	z.EnterNpc(&stubNpc{nid: 2, valid: false})
+	z.EnterNpc(&stubNpc{nid: 3, valid: true})
+	got := []int{}
+	for n := range z.NpcsSafe(false) {
+		got = append(got, n.Nid())
+	}
+	if len(got) != 2 || got[0] != 1 || got[1] != 3 {
+		t.Errorf("NpcsSafe filter: got %v, want [1 3]", got)
+	}
+}
+
+func TestZoneResetPreservesSubscription(t *testing.T) {
+	z := New(0, 0, 400, 400)
+	g := NewZoneGrid()
+	z.EnterPlayer(&stubPlayer{slot: 1, valid: true}, g)
+	z.EnterNpc(&stubNpc{nid: 1, valid: true})
+	z.Reset()
+	// Zone.reset clears events/entityEvents/shared but NOT subscription
+	// (mirrors TS Zone.reset at Zone.ts:197-201 which only clears the event-side state).
+	if z.PlayersCount() != 1 {
+		t.Errorf("Reset should preserve PlayersCount: got %d, want 1", z.PlayersCount())
+	}
+	if z.NpcsCount() != 1 {
+		t.Errorf("Reset should preserve NpcsCount: got %d, want 1", z.NpcsCount())
+	}
+}
