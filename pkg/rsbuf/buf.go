@@ -335,3 +335,41 @@ func (b *Buf) ComputeNpc(
 
 	// Step 3 (renderer compute_info) deferred to NAI-30/31.
 }
+
+// Cleanup resets the tile-keyed playerGrid and calls cleanup() on every
+// populated Player + Npc. Called once per tick at end-of-tick (after
+// info encoding completes). Mirrors upstream cleanup at lib.rs:348-363.
+//
+// (NAI-30) PLAYER_RENDERER.removeTemporary + NPC_RENDERER.removeTemporary
+// at lib.rs:351-352 are skipped here pending NAI-31 renderer port.
+func (b *Buf) Cleanup() {
+	// Clear playerGrid (tile-keyed; rebuilt fresh each tick).
+	clear(b.playerGrid)
+	for _, p := range b.players {
+		if p != nil {
+			p.cleanup()
+		}
+	}
+	for _, n := range b.npcs {
+		if n != nil {
+			n.cleanup()
+		}
+	}
+}
+
+// CleanupPlayerBuildArea calls Cleanup on the named player's BuildArea
+// (clears tracking sets + appearances). Used at logout pre-flush.
+// Mirrors upstream cleanup_player_buildarea at lib.rs:365-373.
+//
+// No-op if pid < 0, pid >= 2048, or slot[pid] is nil. (Upstream guards
+// pid == -1; goscape broadens to pid < 0 for slice safety.)
+func (b *Buf) CleanupPlayerBuildArea(pid int32) {
+	if pid < 0 || int(pid) >= len(b.players) {
+		return
+	}
+	p := b.players[pid]
+	if p == nil {
+		return
+	}
+	p.Build.Cleanup()
+}

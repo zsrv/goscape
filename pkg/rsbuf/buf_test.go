@@ -541,3 +541,115 @@ func TestComputeNpc_CrossZoneMoveUpdatesZoneMap(t *testing.T) {
 		t.Error("after cross-zone: new zone missing nid 50")
 	}
 }
+
+func TestCleanup_ClearsPlayerGridAndCallsEntityCleanup(t *testing.T) {
+	b := New()
+	b.AddPlayer(5)
+	b.AddNpc(10, 100)
+	// Compute populates state + playerGrid.
+	b.ComputePlayer(5, 50, 0, 50, 48, 48, true, false, 1, 2,
+		VisibilityDefault, true, 0xff, []byte{1}, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, 808, 0, nil, nil, 0, 0, 0, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1)
+	b.ComputeNpc(10, 100, 60, 0, 60, true, 1, 2, true, 0xff,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 808, nil, -1, -1, -1)
+	if len(b.playerGrid) == 0 {
+		t.Fatal("test setup: ComputePlayer did not populate playerGrid")
+	}
+	if !b.players[5].Tele || b.players[5].Masks != 0xff {
+		t.Fatal("test setup: ComputePlayer didn't write fields")
+	}
+	if !b.npcs[10].Tele || b.npcs[10].Masks != 0xff {
+		t.Fatal("test setup: ComputeNpc didn't write fields")
+	}
+
+	b.Cleanup()
+
+	if len(b.playerGrid) != 0 {
+		t.Errorf("Cleanup: playerGrid not cleared, len=%d", len(b.playerGrid))
+	}
+	if b.players[5].Tele {
+		t.Error("Cleanup: player.Tele not reset")
+	}
+	if b.players[5].Masks != 0 {
+		t.Errorf("Cleanup: player.Masks = %d, want 0", b.players[5].Masks)
+	}
+	if b.npcs[10].Tele {
+		t.Error("Cleanup: npc.Tele not reset")
+	}
+	if b.npcs[10].Masks != 0 {
+		t.Errorf("Cleanup: npc.Masks = %d, want 0", b.npcs[10].Masks)
+	}
+}
+
+func TestCleanup_PreservesAppearanceAndOrientation(t *testing.T) {
+	// Cleanup does NOT clear the persistent fields per upstream
+	// player.rs/npc.rs commented-out cleanup lines.
+	b := New()
+	b.AddPlayer(5)
+	b.AddNpc(10, 100)
+	b.players[5].Appearance = []byte{1, 2, 3}
+	b.players[5].LastAppearance = 100
+	b.players[5].FaceEntity = 42
+	b.players[5].OrientationX = 50
+	b.npcs[10].FaceEntity = 99
+	b.npcs[10].OrientationX = 33
+	b.npcs[10].Observers = 4
+
+	b.Cleanup()
+
+	if len(b.players[5].Appearance) != 3 {
+		t.Error("Cleanup CLEARED player.Appearance")
+	}
+	if b.players[5].LastAppearance != 100 {
+		t.Errorf("Cleanup CLEARED player.LastAppearance")
+	}
+	if b.players[5].FaceEntity != 42 || b.players[5].OrientationX != 50 {
+		t.Error("Cleanup CLEARED player FaceEntity / OrientationX")
+	}
+	if b.npcs[10].FaceEntity != 99 || b.npcs[10].OrientationX != 33 {
+		t.Error("Cleanup CLEARED npc FaceEntity / OrientationX")
+	}
+	if b.npcs[10].Observers != 4 {
+		t.Errorf("Cleanup CLEARED npc.Observers: got %d, want 4", b.npcs[10].Observers)
+	}
+}
+
+func TestCleanup_NilSlotsAreSkipped(t *testing.T) {
+	b := New()
+	// No AddPlayer / AddNpc calls — all slots nil.
+	b.ComputePlayer(5, 50, 0, 50, 48, 48, false, false, -1, -1,
+		VisibilityDefault, false, 0, nil, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1)
+	// playerGrid push from ComputePlayer was a no-op (nil slot guard).
+	b.Cleanup() // must not panic on nil-slot iteration
+}
+
+func TestCleanupPlayerBuildArea_ClearsTrackingAndAppearances(t *testing.T) {
+	b := New()
+	b.AddPlayer(5)
+	b.players[5].Build.Players.Insert(10)
+	b.players[5].Build.Npcs.Insert(20)
+	b.players[5].Build.SaveAppearance(7, 100)
+
+	b.CleanupPlayerBuildArea(5)
+
+	if b.players[5].Build.Players.Len() != 0 {
+		t.Error("CleanupPlayerBuildArea: Players set not cleared")
+	}
+	if b.players[5].Build.Npcs.Len() != 0 {
+		t.Error("CleanupPlayerBuildArea: Npcs set not cleared")
+	}
+	if b.players[5].Build.HasAppearance(7, 100) {
+		t.Error("CleanupPlayerBuildArea: appearances not cleared")
+	}
+}
+
+func TestCleanupPlayerBuildArea_NilSlotIsNoop(t *testing.T) {
+	b := New()
+	b.CleanupPlayerBuildArea(5) // never added
+	b.CleanupPlayerBuildArea(-1)
+	b.CleanupPlayerBuildArea(2048)
+	// no panic
+}
