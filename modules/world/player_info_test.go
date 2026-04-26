@@ -27,6 +27,9 @@ func setupInfoPlayer(t *testing.T, s *Server, slot, x, z, level int) *Player {
 	s.playerLoop = append(s.playerLoop, p)
 	p.active = true
 	s.grid.Add(slot, x, z, level)
+	if s.rsbuf != nil {
+		s.rsbuf.AddPlayer(int32(slot))
+	}
 	return p
 }
 
@@ -45,8 +48,8 @@ func TestTwoPlayersSeeEachOther(t *testing.T) {
 	s.processInfo()
 	a.updatePlayers()
 
-	if _, ok := a.buildArea.Players[2]; !ok {
-		t.Errorf("a should track b after updatePlayers; got %v", a.buildArea.Players)
+	if !s.rsbuf.HasPlayer(int32(a.slot), 2) {
+		t.Errorf("a should track b after updatePlayers; HasPlayer(%d, 2) returned false", a.slot)
 	}
 }
 
