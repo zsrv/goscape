@@ -18,6 +18,16 @@ func newTestNpc(nid int) *Npc {
 	return NewNpc(nid, 0, 3094, 3106, 0, typ)
 }
 
+func TestNewNpc_OrientationXZ_DefaultMinusOne(t *testing.T) {
+	n := newTestNpc(1)
+	if n.OrientationX != -1 {
+		t.Errorf("OrientationX default: got %d, want -1", n.OrientationX)
+	}
+	if n.OrientationZ != -1 {
+		t.Errorf("OrientationZ default: got %d, want -1", n.OrientationZ)
+	}
+}
+
 func TestNpcAnimateSetsMask(t *testing.T) {
 	n := newTestNpc(1)
 	n.Animate(123, 5)

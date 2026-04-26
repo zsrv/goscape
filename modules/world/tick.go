@@ -373,7 +373,7 @@ func (s *Server) processInfo() {
 				int32(p.AppearanceHash()&0x7fffffff), // NAI-30: revisit lastAppearance semantics (content-hash vs tick-when-changed)
 				int32(p.faceEntity),
 				int32(p.faceSquareX), int32(p.faceSquareZ),
-				int32(0), int32(0), // NAI-30: orientationX/Z not stored on Player today
+				int32(p.OrientationX), int32(p.OrientationZ),
 				int32(p.damageAmt), int32(p.damageType),
 				int32(p.CurHP()), int32(p.BaseHP()),
 				int32(p.animID), int32(p.animDelay),
@@ -409,7 +409,7 @@ func (s *Server) processInfo() {
 				uint32(n.Masks()),
 				int32(n.FaceEntity()),
 				int32(n.FaceSquareX()), int32(n.FaceSquareZ()),
-				int32(0), int32(0), // NAI-30: orientationX/Z not stored on Npc today
+				int32(n.OrientationX), int32(n.OrientationZ),
 				int32(n.DamageAmt()), int32(n.DamageType()),
 				int32(n.CurHP()), int32(n.BaseHP()),
 				int32(n.AnimID()), int32(n.AnimDelay()),

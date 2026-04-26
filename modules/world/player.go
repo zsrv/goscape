@@ -239,6 +239,14 @@ type Player struct {
 
 	faceEntity               int
 	faceSquareX, faceSquareZ int
+
+	// OrientationX, OrientationZ are persistent face-direction defaults
+	// used by the encoder when faceSquareX/Z are unset. Default -1 = "no
+	// value" per upstream player.rs:23-24. NAI-30-D1: producer (set_orient
+	// script command + initial orientation from npc-config) deferred to
+	// engine-port series; field stays at -1 in NAI-30, encoder fallback to
+	// player coord matches upstream behavior at info.rs:328-340.
+	OrientationX, OrientationZ int
 }
 
 // encodeOut mirrors TS NetworkPlayer.encodeOut(). It sends modal open/close
@@ -382,6 +390,8 @@ func newPlayer(c *client) *Player {
 		entitymask:     rsbuf.MaskFaceEntity,
 		faceSquareX:    -1,
 		faceSquareZ:    -1,
+		OrientationX:   -1,
+		OrientationZ:   -1,
 	}
 	// Sentinel values so the first tick of updateStats emits all 21 UpdateStat
 	// packets. stats[i] is int32 (always >= 0 in gameplay); levels[i] is uint8

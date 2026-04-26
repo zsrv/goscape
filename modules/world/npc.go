@@ -117,7 +117,12 @@ type Npc struct {
 	resetOnRevert                             bool                      // NAI-17: TS Npc.ts:72; CHANGETYPE→true, KEEPALL→false
 	spotanimID, spotanimHeight, spotanimDelay int
 	faceSquareX, faceSquareZ                  int
-	changeTypeID                              int
+
+	// OrientationX, OrientationZ default to -1 per upstream npc.rs:16-17.
+	// See NAI-30-D1 (orientation field plumbed without producer).
+	OrientationX, OrientationZ int
+
+	changeTypeID int
 }
 
 // NewNpc constructs an Npc at the given coord, anchoring its spawn point.
@@ -171,6 +176,8 @@ func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
 		spotanimDelay:   -1,
 		faceSquareX:     -1,
 		faceSquareZ:     -1,
+		OrientationX:    -1,
+		OrientationZ:    -1,
 		changeTypeID:    -1,
 		entitymask:      rsbuf.NpcMaskFaceEntity,
 	}
