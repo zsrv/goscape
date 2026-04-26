@@ -157,6 +157,7 @@ func (b *Buf) ComputePlayer(
 	tele, jump bool,
 	runDir, walkDir int8,
 	visibility Visibility,
+	staffModLevel int32,
 	active bool,
 	masks uint32,
 	appearance []byte,
@@ -201,6 +202,7 @@ func (b *Buf) ComputePlayer(
 	p.RunDir = runDir
 	p.WalkDir = walkDir
 	p.Visibility = visibility
+	p.StaffModLevel = staffModLevel
 	p.Active = active
 	p.Masks = masks
 	p.Appearance = appearance

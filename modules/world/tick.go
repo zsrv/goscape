@@ -367,6 +367,7 @@ func (s *Server) processInfo() {
 				p.tele, p.jump,
 				int8(p.runDir), int8(p.walkDir),
 				p.visibility,
+				p.staffModLevel,
 				p.active,
 				uint32(p.masks),
 				p.appearanceBuf,

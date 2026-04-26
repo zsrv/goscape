@@ -457,18 +457,22 @@ func (pi *PlayerInfo) writePlayers(b *Buf, self *Player, renderer *Renderer) {
 		}
 
 		otherPos := coordgrid.UnpackCoord(other.Coord)
-		// Six remove conditions (mirrors info.rs:114). T2.7 adds a 7th
-		// (Visibility==VisibilitySoft && self.StaffModLevel<1) preserving
-		// EncodeLegacy NAI-9 behavior; absent from upstream Rust by design.
-		// During the T2.4-T2.7 coexistence window, the new method gates
-		// fewer SOFT-vis players than EncodeLegacy does. T2.9 round-trip
-		// parity validates the union remains correct after T2.7 lands.
+		// Six remove conditions (mirrors info.rs:114). A 7th goscape-specific
+		// condition (Visibility==VisibilitySoft && self.StaffModLevel<1)
+		// preserves EncodeLegacy NAI-9 behavior; absent from upstream Rust by
+		// design. T2.9 round-trip parity validates the union remains correct.
 		if other.PID == -1 ||
 			other.Tele ||
 			otherPos.Level != selfPos.Level ||
 			!withinDistanceSW(selfPos.X, selfPos.Z, otherPos.X, otherPos.Z, int(self.Build.ViewDistance)) ||
 			!other.Active ||
 			other.Visibility == VisibilityHard {
+			pi.removeOther(self, otherPid)
+			continue
+		}
+		// 7th reject: SOFT visibility + insufficient staff mod level
+		// (matches goscape's NAI-9 behavior; upstream info.rs only checks HARD).
+		if other.Visibility == VisibilitySoft && self.StaffModLevel < 1 {
 			pi.removeOther(self, otherPid)
 			continue
 		}
@@ -541,6 +545,9 @@ func (pi *PlayerInfo) writeNewPlayers(b *Buf, self *Player, renderer *Renderer) 
 		}
 		other := b.players[otherPid]
 		if other == nil || other.Visibility == VisibilityHard {
+			continue
+		}
+		if other.Visibility == VisibilitySoft && self.StaffModLevel < 1 {
 			continue
 		}
 

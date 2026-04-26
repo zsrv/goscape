@@ -230,7 +230,7 @@ func TestEncodeTwoPlayersAddsOther(t *testing.T) {
 
 // setupLocalPlayer constructs a player at (3200, 0, 3200) with all sentinels.
 // The modify callback receives the populated *Player and may override fields.
-// 41-arg ComputePlayer call verified against (*Buf).ComputePlayer at pkg/rsbuf/buf.go:153-175.
+// 42-arg ComputePlayer call verified against (*Buf).ComputePlayer at pkg/rsbuf/buf.go:153-175.
 func setupLocalPlayer(b *Buf, pid int32, modify func(p *Player)) {
 	b.AddPlayer(pid)
 	b.ComputePlayer(
@@ -240,6 +240,7 @@ func setupLocalPlayer(b *Buf, pid int32, modify func(p *Player)) {
 		false, false,
 		-1, -1,
 		VisibilityDefault,
+		0,
 		true,
 		0,
 		nil,
@@ -353,6 +354,7 @@ func setupOtherPlayer(b *Buf, pid int32, modify func(p *Player)) {
 		false, false,
 		-1, -1,
 		VisibilityDefault,
+		0,
 		true,
 		0,
 		nil,
@@ -707,7 +709,7 @@ func TestPlayerInfo_Encode_LocalIdleNoOthers(t *testing.T) {
 	pi := NewPlayerInfo()
 	b.AddPlayer(1)
 	// ComputePlayer with all sentinels — local stationary at (3200, 0, 3200), no masks,
-	// no exact move. 41-arg signature; verify against (*Buf).ComputePlayer in pkg/rsbuf/buf.go.
+	// no exact move. 42-arg signature; verify against (*Buf).ComputePlayer in pkg/rsbuf/buf.go.
 	b.ComputePlayer(
 		1,           // pid
 		3200, 0, 3200, // x, level, z
@@ -715,6 +717,7 @@ func TestPlayerInfo_Encode_LocalIdleNoOthers(t *testing.T) {
 		false, false,  // tele, jump
 		-1, -1,        // runDir, walkDir
 		VisibilityDefault, // visibility
+		0,                 // staffModLevel
 		true,              // active
 		0,                 // masks
 		nil,               // appearance
@@ -749,5 +752,40 @@ func TestPlayerInfo_Encode_LocalIdleNoOthers(t *testing.T) {
 	// Total length is bit-aligned to 9 bits (1 idle + 8 count) → ceil(9/8) = 2 bytes.
 	if len(out) != 2 {
 		t.Errorf("local-idle, no others: total bytes got %d, want 2", len(out))
+	}
+}
+
+func TestPlayerInfo_TrackedOther_RemoveBecauseSoftVisAndLowStaff(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil) // StaffModLevel default 0
+	setupOtherPlayer(b, 2, func(p *Player) { p.Visibility = VisibilitySoft })
+	b.players[1].Build.Players.Insert(2)
+
+	pi := NewPlayerInfo()
+	r := NewRenderer()
+	out := pi.Encode(b, 1, r)
+	if len(out) < 2 {
+		t.Fatalf("remove (soft + low staff): got %d bytes, want >= 2; bytes %x", len(out), out)
+	}
+	if out[0] != 0x00 || out[1] != 0xf0 {
+		t.Errorf("remove (soft + low staff): got %x, want 00 f0", out)
+	}
+}
+
+func TestPlayerInfo_TrackedOther_KeepsSoftVisWithStaffMod(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, func(p *Player) { p.StaffModLevel = 1 })
+	setupOtherPlayer(b, 2, func(p *Player) { p.Visibility = VisibilitySoft })
+	b.players[1].Build.Players.Insert(2)
+
+	pi := NewPlayerInfo()
+	r := NewRenderer()
+	out := pi.Encode(b, 1, r)
+	if len(out) < 2 {
+		t.Fatalf("keeps (soft + staff>=1): got %d bytes, want >= 2; bytes %x", len(out), out)
+	}
+	// Should NOT be remove (0xf0 prefix on byte 1) — should be idle (0x80).
+	if out[1] == 0xf0 {
+		t.Errorf("remove triggered when staff mod >= 1: got %x", out)
 	}
 }

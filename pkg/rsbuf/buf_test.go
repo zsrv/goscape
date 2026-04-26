@@ -234,6 +234,7 @@ func TestComputePlayer_WritesAllFields(t *testing.T) {
 		/*tele*/ true, /*jump*/ false,
 		/*runDir*/ 1, /*walkDir*/ 2,
 		/*visibility*/ VisibilitySoft,
+		/*staffModLevel*/ 0,
 		/*active*/ true,
 		/*masks*/ 0xff,
 		/*appearance*/ []byte{0x01, 0x02, 0x03},
@@ -320,7 +321,7 @@ func TestComputePlayer_NilSlotIsNoop(t *testing.T) {
 	b := New()
 	// pid 5 not added — players[5] is nil.
 	b.ComputePlayer(5, 50, 0, 60, 48, 56,
-		false, false, -1, -1, VisibilityDefault, false, 0,
+		false, false, -1, -1, VisibilityDefault, 0, false, 0,
 		nil, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
 		nil, nil, 0, 0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1)
 	if b.players[5] != nil {
@@ -332,7 +333,7 @@ func TestComputePlayer_NegativePIDIsNoop(t *testing.T) {
 	b := New()
 	b.AddPlayer(5)
 	b.ComputePlayer(-1, 50, 0, 60, 48, 56,
-		false, false, -1, -1, VisibilityDefault, false, 0,
+		false, false, -1, -1, VisibilityDefault, 0, false, 0,
 		nil, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
 		nil, nil, 0, 0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1)
 	// no panic
@@ -342,7 +343,7 @@ func TestComputePlayer_NilSayBytesAndMessageProduceNilSubstructs(t *testing.T) {
 	b := New()
 	b.AddPlayer(5)
 	b.ComputePlayer(5, 50, 0, 60, 48, 56,
-		false, false, -1, -1, VisibilityDefault, false, 0,
+		false, false, -1, -1, VisibilityDefault, 0, false, 0,
 		nil, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
 		nil /*say*/, nil /*message*/, 0, 0, 0, -1, -1, -1,
 		-1 /*exactStartX*/, -1, -1, -1, -1, -1, -1)
@@ -363,7 +364,7 @@ func TestComputePlayer_CrossZoneMoveUpdatesZoneMap(t *testing.T) {
 	b.AddPlayer(5)
 	// Tick 1: place at (50, 0, 50). Zone is (50>>3=6, 0, 50>>3=6).
 	b.ComputePlayer(5, 50, 0, 50, 48, 48, false, false, -1, -1,
-		VisibilityDefault, true, 0, nil, -1, -1, -1, -1, -1, -1, -1,
+		VisibilityDefault, 0, true, 0, nil, -1, -1, -1, -1, -1, -1, -1,
 		-1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
 		-1, -1, -1, -1, -1, -1, -1)
 	if _, ok := b.zoneMap.Zone(50, 0, 50).players[5]; !ok {
@@ -372,7 +373,7 @@ func TestComputePlayer_CrossZoneMoveUpdatesZoneMap(t *testing.T) {
 
 	// Tick 2: cross-zone move to (64, 0, 50). Zone is (64>>3=8, 0, 6).
 	b.ComputePlayer(5, 64, 0, 50, 48, 48, false, false, -1, -1,
-		VisibilityDefault, true, 0, nil, -1, -1, -1, -1, -1, -1, -1,
+		VisibilityDefault, 0, true, 0, nil, -1, -1, -1, -1, -1, -1, -1,
 		-1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
 		-1, -1, -1, -1, -1, -1, -1)
 
@@ -389,13 +390,13 @@ func TestComputePlayer_SameZoneMoveDoesNotTouchZoneMap(t *testing.T) {
 	b.AddPlayer(5)
 	// Tick 1: place at (50, 0, 50). Zone (6, 0, 6).
 	b.ComputePlayer(5, 50, 0, 50, 48, 48, false, false, -1, -1,
-		VisibilityDefault, true, 0, nil, -1, -1, -1, -1, -1, -1, -1,
+		VisibilityDefault, 0, true, 0, nil, -1, -1, -1, -1, -1, -1, -1,
 		-1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
 		-1, -1, -1, -1, -1, -1, -1)
 
 	// Tick 2: same-zone move to (55, 0, 50). 55>>3=6 — same zone.
 	b.ComputePlayer(5, 55, 0, 50, 48, 48, false, false, -1, -1,
-		VisibilityDefault, true, 0, nil, -1, -1, -1, -1, -1, -1, -1,
+		VisibilityDefault, 0, true, 0, nil, -1, -1, -1, -1, -1, -1, -1,
 		-1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
 		-1, -1, -1, -1, -1, -1, -1)
 
@@ -413,7 +414,7 @@ func TestComputePlayer_AlwaysPushesPlayerGrid(t *testing.T) {
 	b := New()
 	b.AddPlayer(5)
 	b.ComputePlayer(5, 50, 0, 50, 48, 48, false, false, -1, -1,
-		VisibilityDefault, true, 0, nil, -1, -1, -1, -1, -1, -1, -1,
+		VisibilityDefault, 0, true, 0, nil, -1, -1, -1, -1, -1, -1, -1,
 		-1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
 		-1, -1, -1, -1, -1, -1, -1)
 
@@ -424,7 +425,7 @@ func TestComputePlayer_AlwaysPushesPlayerGrid(t *testing.T) {
 
 	// Same-zone move pushes the new tile too.
 	b.ComputePlayer(5, 55, 0, 50, 48, 48, false, false, -1, -1,
-		VisibilityDefault, true, 0, nil, -1, -1, -1, -1, -1, -1, -1,
+		VisibilityDefault, 0, true, 0, nil, -1, -1, -1, -1, -1, -1, -1,
 		-1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
 		-1, -1, -1, -1, -1, -1, -1)
 	newKey := uint32(coordgrid.PackCoord(0, 55, 50))
@@ -548,7 +549,7 @@ func TestCleanup_ClearsPlayerGridAndCallsEntityCleanup(t *testing.T) {
 	b.AddNpc(10, 100)
 	// Compute populates state + playerGrid.
 	b.ComputePlayer(5, 50, 0, 50, 48, 48, true, false, 1, 2,
-		VisibilityDefault, true, 0xff, []byte{1}, -1, -1, -1, -1, -1, -1, -1,
+		VisibilityDefault, 0, true, 0xff, []byte{1}, -1, -1, -1, -1, -1, -1, -1,
 		-1, -1, -1, 808, 0, nil, nil, 0, 0, 0, -1, -1, -1,
 		-1, -1, -1, -1, -1, -1, -1)
 	b.ComputeNpc(10, 100, 60, 0, 60, true, 1, 2, true, 0xff,
@@ -619,7 +620,7 @@ func TestCleanup_NilSlotsAreSkipped(t *testing.T) {
 	b := New()
 	// No AddPlayer / AddNpc calls — all slots nil.
 	b.ComputePlayer(5, 50, 0, 50, 48, 48, false, false, -1, -1,
-		VisibilityDefault, false, 0, nil, -1, -1, -1, -1, -1, -1, -1,
+		VisibilityDefault, 0, false, 0, nil, -1, -1, -1, -1, -1, -1, -1,
 		-1, -1, -1, -1, -1, nil, nil, 0, 0, 0, -1, -1, -1,
 		-1, -1, -1, -1, -1, -1, -1)
 	// playerGrid push from ComputePlayer was a no-op (nil slot guard).

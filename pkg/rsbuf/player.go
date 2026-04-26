@@ -19,8 +19,9 @@ type Player struct {
 	Jump       bool
 	RunDir     int8 // -1 sentinel = no run this tick
 	WalkDir    int8 // -1 sentinel = no walk this tick
-	Visibility Visibility
-	Active     bool
+	Visibility    Visibility
+	StaffModLevel int32 // 0 default, 1+ for moderator/admin (NAI-9 visibility-soft semantics)
+	Active        bool
 	Build      *BuildArea // populated by *Buf.AddPlayer (Bundle 3)
 	Masks      uint32
 	Appearance     []byte
@@ -69,6 +70,7 @@ func newPlayer(pid int32) *Player {
 		RunDir:           -1,
 		WalkDir:          -1,
 		Visibility:       VisibilityDefault,
+		StaffModLevel:    0,
 		Active:           false,
 		Build:            nil, // *Buf.AddPlayer fills this in
 		Masks:            0,
