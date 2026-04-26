@@ -141,16 +141,20 @@ func (s *Server) resetEntityForRespawn(n *Npc) {
 // removeNpc marks n as logically absent from the world. Mirrors TS
 // World.removeNpc at World.ts:1296-1319.
 //
-// Per TS: scales `duration` by player count, runs zone.leave (DEFERRED
-// per NAI-19-D1), flips isActive=false (n.dead=true in goscape), toggles
+// Per TS: scales `duration` by player count, runs zone.leave (now wired),
+// flips isActive=false (n.dead=true in goscape), toggles
 // collision flags off per n.typ.BlockWalk, and branches on lifecycle:
 //   - DESPAWN: TS removes from rsbuf + registry + cleanup. Goscape
 //     keeps the dead-bool model (registry cleanup is orthogonal; tracked
 //     by the existing npc_registry.go header comment).
 //   - RESPAWN+duration>-1: writes n.lifecycleTick = scaledDuration.
 func (s *Server) removeNpc(n *Npc, duration int) {
-	// DEVIATION NAI-19-D1: zone.leave omitted — Zone abstraction
-	// not ported. See spec § Tracked deviations.
+	// Zone leave — mirrors TS World.removeNpc at World.ts:1297-1299.
+	if s.zoneMap != nil && n.zoneListElement != nil {
+		z := s.zoneMap.Get(n.level, n.x, n.z)
+		z.LeaveNpc(n, n.zoneListElement)
+		n.zoneListElement = nil
+	}
 	n.dead = true
 	if s.gamemap != nil {
 		switch n.blockWalk {

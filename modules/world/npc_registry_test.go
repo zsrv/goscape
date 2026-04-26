@@ -250,6 +250,39 @@ func TestResetEntityForRespawnRevertRaisesChangeTypeMask(t *testing.T) {
 	}
 }
 
+func TestRemoveNpcLeavesZone(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{Size: 1, BlockWalk: objtype.BlockWalkNone}
+	n := newRegisteredNpc(t, s, typ, true)
+	z := s.zoneMap.Get(n.level, n.x, n.z)
+	s.removeNpc(n, -1)
+	if z.NpcsCount() != 0 {
+		t.Errorf("after removeNpc, Zone.NpcsCount: got %d, want 0", z.NpcsCount())
+	}
+	if n.zoneListElement != nil {
+		t.Error("removeNpc should null n.zoneListElement")
+	}
+}
+
+func TestNpcRevertTypeHeavyPathLeavesAndReentersZone(t *testing.T) {
+	// revertType heavy path is s.removeNpc(n, -1) + s.addNpc(n, -1, false).
+	// Subscription should round-trip to its pre-call state.
+	s := newTestServer(t)
+	typ := &objtype.NpcType{Size: 1, BlockWalk: objtype.BlockWalkNone}
+	n := newRegisteredNpc(t, s, typ, true)
+	z := s.zoneMap.Get(n.level, n.x, n.z)
+	s.removeNpc(n, -1)
+	if z.NpcsCount() != 0 {
+		t.Fatalf("after removeNpc, NpcsCount: got %d, want 0", z.NpcsCount())
+	}
+	if err := s.addNpc(n, -1, false); err != nil {
+		t.Fatalf("addNpc respawn: %v", err)
+	}
+	if z.NpcsCount() != 1 {
+		t.Errorf("after revertType heavy path, NpcsCount: got %d, want 1", z.NpcsCount())
+	}
+}
+
 func TestAddNpcEntersZone(t *testing.T) {
 	s := newTestServer(t)
 	typ := &objtype.NpcType{Size: 1, BlockWalk: objtype.BlockWalkNone}
