@@ -305,6 +305,9 @@ func TestComputePlayer_WritesAllFields(t *testing.T) {
 	if p.Chat == nil || p.Chat.Color != 1 || p.Chat.Effect != 2 || p.Chat.Ignored != 3 {
 		t.Errorf("Chat: got %+v", p.Chat)
 	}
+	if p.Chat == nil || len(p.Chat.Bytes) != 2 || p.Chat.Bytes[0] != 0x10 || p.Chat.Bytes[1] != 0x20 {
+		t.Errorf("Chat.Bytes: got %v, want [0x10, 0x20]", p.Chat.Bytes)
+	}
 	if p.GraphicID != 200 || p.GraphicHeight != 92 || p.GraphicDelay != 0 {
 		t.Errorf("Graphic*: got (%d,%d,%d)", p.GraphicID, p.GraphicHeight, p.GraphicDelay)
 	}

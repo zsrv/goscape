@@ -128,7 +128,8 @@ func (b *Buf) RemoveNpc(nid int32) {
 
 // ComputePlayer writes ALL per-tick state for pid in one call. Mirrors
 // upstream compute_player at lib.rs:39-153. Argument order matches
-// upstream verbatim for side-by-side review.
+// upstream verbatim except pid is promoted to position 0 (Go method-
+// receiver convention; upstream places pid at param 6 — lib.rs:46).
 //
 // Side effects:
 //  1. If new coord crosses a zone boundary OR changes level (vs the

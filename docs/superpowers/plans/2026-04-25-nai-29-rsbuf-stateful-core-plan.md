@@ -2304,7 +2304,7 @@ Expected: clean.
 ```bash
 git add pkg/rsbuf/buf.go pkg/rsbuf/buf_test.go
 git commit --no-gpg-sign -m "$(cat <<'EOF'
-feat(rsbuf): NAI-29 Bundle 3 Task 3.4 — *Buf.ComputePlayer (40-arg state push)
+feat(rsbuf): NAI-29 Bundle 3 Task 3.4 — *Buf.ComputePlayer (41-arg state push)
 
 Adds ComputePlayer to *Buf. Mirrors upstream compute_player at
 lib.rs:39-153 verbatim including the 40-arg signature for side-by-side
