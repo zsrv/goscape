@@ -26,11 +26,14 @@ const (
 // cleaned by *Buf.CleanupPlayerBuildArea (logout) or *Buf.RemovePlayer.
 //
 // NAI-29 deliberately omits these upstream fields/methods (deferred):
-//   - forceViewDistance bool                   (NAI-32; engine-override)
-//   - lastResize uint32                        (NAI-32; resize bookkeeping)
+//   - forceViewDistance bool                            (NAI-32; engine-override)
+//   - lastResize uint32                                 (NAI-32; resize bookkeeping)
+//   - INTERVAL uint8 = 10                               (NAI-32; resize-step interval)
 //   - Resize() / RebuildPlayers() / RebuildNpcs()       (NAI-32)
-//   - getNearbyPlayers / getNearbyNpcs / spiral-search  (NAI-32)
-//   - filterPlayer / filterNpc                          (NAI-32)
+//   - getNearbyPlayers / getNearbyPlayersZones /
+//     getNearbyPlayersNearest / filterPlayer            (NAI-32; consume view_distance)
+//   - getNearbyNpcs / filterNpc                         (NAI-30; fixed PREFERRED_VIEW_DISTANCE)
+//   - spiral-search helpers                             (NAI-32; player-side only)
 type BuildArea struct {
 	Players *idBitSet // 2048-bit set, capacity preferredPlayers
 	Npcs    *idBitSet // 8192-bit set, capacity preferredNpcs
