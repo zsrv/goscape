@@ -36,6 +36,12 @@ func TestNew_ZeroInit(t *testing.T) {
 	if b.playerGrid == nil {
 		t.Error("New: playerGrid nil")
 	}
+	if b.PlayerInfo == nil {
+		t.Error("New: PlayerInfo nil")
+	}
+	if b.NpcInfo == nil {
+		t.Error("New: NpcInfo nil")
+	}
 }
 
 func TestAddPlayer_AllocatesSlot(t *testing.T) {

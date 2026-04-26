@@ -22,6 +22,8 @@ type Buf struct {
 	npcs       [8192]*Npc
 	zoneMap    *zoneMap
 	playerGrid map[uint32][]int32 // tile-keyed; initialized here, populated by NAI-32 spiral search
+	PlayerInfo *PlayerInfo
+	NpcInfo    *NpcInfo
 }
 
 // New constructs an empty Buf with all slot tables nil-initialized,
@@ -31,6 +33,8 @@ func New() *Buf {
 	return &Buf{
 		zoneMap:    newZoneMap(),
 		playerGrid: map[uint32][]int32{},
+		PlayerInfo: NewPlayerInfo(),
+		NpcInfo:    NewNpcInfo(),
 	}
 }
 
