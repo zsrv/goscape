@@ -249,3 +249,20 @@ func TestResetEntityForRespawnRevertRaisesChangeTypeMask(t *testing.T) {
 		t.Errorf("typeId=%d after reset, want baseType=%d", n.typeId, n.baseType)
 	}
 }
+
+func TestAddNpcEntersZone(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{Size: 1, BlockWalk: objtype.BlockWalkNone}
+	n := newRegisteredNpc(t, s, typ, true)
+	z := s.zoneMap.Get(n.level, n.x, n.z)
+	if z.NpcsCount() != 1 {
+		t.Errorf("after addNpc, Zone.NpcsCount: got %d, want 1", z.NpcsCount())
+	}
+	if n.zoneListElement == nil {
+		t.Error("addNpc should populate n.zoneListElement")
+	}
+	// Dual-pin per ts_asymmetry_dual_pin: NPC enter does NOT flag grid.
+	if s.zoneMap.Grid(n.level).IsFlagged(n.x>>3, n.z>>3, 0) {
+		t.Error("addNpc must NOT flag the grid (only player enter flags)")
+	}
+}

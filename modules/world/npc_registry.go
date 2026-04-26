@@ -61,8 +61,11 @@ func (s *Server) addNpc(n *Npc, duration int, firstSpawn bool) error {
 	n.x = n.startX
 	n.z = n.startZ
 	n.dead = false
-	// DEVIATION NAI-19-D1: zone.enter omitted — Zone abstraction
-	// not ported. See spec § Tracked deviations.
+	// Zone enter — mirrors TS World.addNpc at World.ts:1268-1269.
+	if s.zoneMap != nil {
+		z := s.zoneMap.Get(n.level, n.x, n.z)
+		n.zoneListElement = z.EnterNpc(n)
+	}
 	if s.gamemap != nil {
 		switch n.blockWalk {
 		case objtype.BlockWalkNPC:
