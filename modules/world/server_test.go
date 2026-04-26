@@ -13,6 +13,7 @@ import (
 	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 	"github.com/zsrv/goscape/pkg/zone"
 )
@@ -314,6 +315,7 @@ func newTestServer(t *testing.T) *Server {
 		log:            discardLogger(),
 		scriptProvider: defaultTestProvider(),
 		zoneMap:        zone.NewZoneMap(),
+		rsbuf:          rsbuf.New(),
 	}
 	return s
 }

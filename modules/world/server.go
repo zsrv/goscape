@@ -91,7 +91,13 @@ type Server struct {
 	nextNpcSlot   int
 
 	renderer *rsbuf.Renderer
-	grid     *grid.Grid
+	// rsbuf is the per-tick stateful encoder core (NAI-29). Tick-goroutine-
+	// owned: connection goroutines never touch it. Hooks for AddPlayer/
+	// AddNpc/ComputePlayer/Cleanup wired in NAI-29 Bundle 4 Tasks 4.2-4.6.
+	// Parallel-write window: existing encoder does not yet read from this
+	// state (canonical at NAI-30+).
+	rsbuf *rsbuf.Buf
+	grid  *grid.Grid
 
 	zoneMap       *zone.ZoneMap
 	zonesTracking map[*zone.Zone]struct{}
@@ -130,6 +136,7 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 		invs:          make(map[int]*inventory.Inventory),
 		zoneMap:       zone.NewZoneMap(),
 		zonesTracking: map[*zone.Zone]struct{}{},
+		rsbuf:         rsbuf.New(),
 	}
 	s.tcpWg.Add(1)
 
