@@ -7,6 +7,26 @@ import (
 	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
+// PlayerLike is the minimum surface Zone needs from a player-like entity.
+// Defined here (rather than imported from modules/world) to avoid a cyclic
+// import — modules/world imports pkg/zone, not the reverse.
+//
+// Mirrors TS Player's role inside Zone.enter / Zone.leave at Zone.ts:80-83
+// (only IsValid + identity are needed; richer accessors stay in modules/world).
+type PlayerLike interface {
+	IsValid() bool
+	Slot() int
+}
+
+// NpcLike is the minimum surface Zone needs from an npc-like entity.
+// Same cyclic-import rationale as PlayerLike.
+//
+// Mirrors TS Npc's role inside Zone.enter / Zone.leave at Zone.ts:84-87.
+type NpcLike interface {
+	IsValid() bool
+	Nid() int
+}
+
 // Zone is an 8×8 tile region of the world. It owns the active dynamic
 // entities inside the region, a per-tick event queue, and a composed
 // shared buffer of every Enclosed event (built by ComputeShared).
