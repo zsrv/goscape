@@ -31,13 +31,13 @@ func NewNpcInfo() *NpcInfo {
 	}
 }
 
-// Bit-budget constants for fits() arithmetic. Mirror upstream
-// NpcInfo::BITS_* at info.rs:413-417.
+// Bit-budget constant for fits() arithmetic. Mirrors upstream
+// NpcInfo::BITS_ADD at info.rs:413. The Run/Walk/Extend siblings
+// upstream are unused by goscape's encoder shape (mirrors the
+// PlayerInfo retirement; see playerinfo.go's playerBitsAdd block)
+// and were retired at NAI-30 B4 T4.6.
 const (
 	npcBitsAdd      = 13 + 11 + 5 + 5 + 1 // 35
-	npcBitsRun      = 1 + 2 + 3 + 3 + 1   // 10
-	npcBitsWalk     = 1 + 2 + 3 + 1       // 7
-	npcBitsExtend   = 1 + 2               // 3
 	npcTerminator   = 8191
 	maxNpcInfoBytes = 4997
 )

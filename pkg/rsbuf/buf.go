@@ -364,23 +364,6 @@ func (b *Buf) Cleanup() {
 	}
 }
 
-// CleanupPlayerBuildArea calls Cleanup on the named player's BuildArea
-// (clears tracking sets + appearances). Used at logout pre-flush.
-// Mirrors upstream cleanup_player_buildarea at lib.rs:365-373.
-//
-// No-op if pid < 0, pid >= 2048, or slot[pid] is nil. (Upstream guards
-// pid == -1; goscape broadens to pid < 0 for slice safety.)
-func (b *Buf) CleanupPlayerBuildArea(pid int32) {
-	if pid < 0 || int(pid) >= len(b.players) {
-		return
-	}
-	p := b.players[pid]
-	if p == nil {
-		return
-	}
-	p.Build.Cleanup()
-}
-
 // HasPlayer reports whether pid currently observes other (i.e., other
 // is in pid's BuildArea.Players tracking set). Mirrors upstream
 // has_player at lib.rs:205-214.

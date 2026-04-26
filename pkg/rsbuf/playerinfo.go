@@ -32,13 +32,13 @@ func NewPlayerInfo() *PlayerInfo {
 	}
 }
 
-// Bit-budget constants for fits() arithmetic. Mirror upstream
-// PlayerInfo::BITS_* at info.rs:19-22.
+// Bit-budget constant for fits() arithmetic. Mirrors upstream
+// PlayerInfo::BITS_ADD at info.rs:19. The Run/Walk/Extend siblings
+// upstream are unused by goscape's encoder shape (the per-other delta
+// loop measures via len(buf.Data) directly) and were retired at
+// NAI-30 B4 T4.6.
 const (
-	playerBitsAdd    = 11 + 5 + 5 + 1 + 1 // 23
-	playerBitsRun    = 1 + 2 + 3 + 3 + 1  // 10
-	playerBitsWalk   = 1 + 2 + 3 + 1      // 7
-	playerBitsExtend = 1 + 2              // 3
+	playerBitsAdd = 11 + 5 + 5 + 1 + 1 // 23
 
 	// Per-packet byte budget. Mirrors upstream literal at info.rs:407.
 	maxPlayerInfoBytes = 4997

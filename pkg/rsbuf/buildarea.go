@@ -25,7 +25,7 @@ const (
 // in NAI-32 / NAI-30).
 //
 // Concurrency: tick-goroutine-owned. Allocated by *Buf.AddPlayer;
-// cleaned by *Buf.CleanupPlayerBuildArea (logout) or *Buf.RemovePlayer.
+// cleaned by *Buf.RemovePlayer at logout.
 //
 // NAI-29 deliberately omits these upstream fields/methods (deferred):
 //   - forceViewDistance bool                            (NAI-32; engine-override)

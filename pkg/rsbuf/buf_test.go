@@ -640,37 +640,6 @@ func TestCleanup_NilSlotsAreSkipped(t *testing.T) {
 	}
 }
 
-func TestCleanupPlayerBuildArea_ClearsTrackingAndAppearances(t *testing.T) {
-	b := New()
-	b.AddPlayer(5)
-	b.players[5].Build.Players.Insert(10)
-	b.players[5].Build.Npcs.Insert(20)
-	b.players[5].Build.SaveAppearance(7, 100)
-
-	b.CleanupPlayerBuildArea(5)
-
-	if b.players[5].Build.Players.Len() != 0 {
-		t.Error("CleanupPlayerBuildArea: Players set not cleared")
-	}
-	if b.players[5].Build.Npcs.Len() != 0 {
-		t.Error("CleanupPlayerBuildArea: Npcs set not cleared")
-	}
-	if b.players[5].Build.HasAppearance(7, 100) {
-		t.Error("CleanupPlayerBuildArea: appearances not cleared")
-	}
-}
-
-func TestCleanupPlayerBuildArea_NilSlotIsNoop(t *testing.T) {
-	b := New()
-	b.CleanupPlayerBuildArea(5) // never added
-	b.CleanupPlayerBuildArea(-1)
-	b.CleanupPlayerBuildArea(2048)
-	// Falsifiable assertion: must not fabricate a slot via a side-effect.
-	if b.players[5] != nil {
-		t.Error("CleanupPlayerBuildArea(absent): unexpected slot allocation at pid=5")
-	}
-}
-
 func TestHasPlayer_ChecksBuildArea(t *testing.T) {
 	b := New()
 	b.AddPlayer(5)
