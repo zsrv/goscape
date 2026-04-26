@@ -1377,35 +1377,24 @@ func TestNpcStepCrossZoneRefreshSubscription(t *testing.T) {
 	s := newTestServer(t)
 	typ := &objtype.NpcType{Size: 1, BlockWalk: objtype.BlockWalkNone}
 	n := newRegisteredNpc(t, s, typ, true)
-	// Start at (3200, 3200) zone (400, 400). Place at boundary first, then step east.
-	prevZone := s.zoneMap.Get(0, n.x, n.z)
-	prevX, prevZ := n.x, n.z
-	// Manually craft a step: mutate n.x, then simulate the per-step refresh
-	// the same way stepOnce would (via direct call). Real test uses queueWaypoints +
-	// stepOnce; for this commit we exercise the wire-through.
-	n.waypoints[0] = (0 << 28) | ((n.x + 8) << 14) | n.z // east 8 tiles to next zone
-	n.waypointIndex = 0
-	if !nIsInZone(n, prevZone) {
-		t.Fatal("setup: NPC not in expected starting zone")
-	}
-	_ = prevX
-	_ = prevZ
-	// Use a single stepOnce. Since stepOnce moves only 1 tile, we step until
-	// crossing zone (8 tiles). Easier: place at zone-boundary and step once.
+	// Place NPC at zone-boundary tile (3199, 3200) zone (399, 400), then step
+	// east one tile into zone (400, 400) via stepOnce. newRegisteredNpc
+	// subscribed n into zone (400, 400) at default coords; re-subscribe to
+	// the boundary zone for accurate setup.
+	defaultZone := s.zoneMap.Get(0, n.x, n.z)
 	n.x = 3199
 	n.z = 3200
-	// Re-subscribe to the boundary zone for accurate test setup.
-	prevZone.LeaveNpc(n, n.zoneListElement)
-	prevZone2 := s.zoneMap.Get(0, n.x, n.z)
-	n.zoneListElement = prevZone2.EnterNpc(n)
+	defaultZone.LeaveNpc(n, n.zoneListElement)
+	prevZone := s.zoneMap.Get(0, n.x, n.z)
+	n.zoneListElement = prevZone.EnterNpc(n)
 	n.waypoints[0] = (0 << 28) | (3200 << 14) | 3200
 	n.waypointIndex = 0
 	ok, _ := n.stepOnce(s)
 	if !ok {
 		t.Fatal("stepOnce returned false")
 	}
-	if prevZone2.NpcsCount() != 0 {
-		t.Errorf("prev zone NpcsCount: got %d, want 0", prevZone2.NpcsCount())
+	if prevZone.NpcsCount() != 0 {
+		t.Errorf("prev zone NpcsCount: got %d, want 0", prevZone.NpcsCount())
 	}
 	newZ := s.zoneMap.Get(0, 3200, 3200)
 	if newZ.NpcsCount() != 1 {
@@ -1435,11 +1424,10 @@ func TestNpcStuckTeleportRefreshSubscription(t *testing.T) {
 	awayZone := s.zoneMap.Get(0, 4000, 4000)
 	prevZone.LeaveNpc(n, n.zoneListElement)
 	n.zoneListElement = awayZone.EnterNpc(n)
-	// Now invoke stuck-teleport via the NPC patrol/wander path. Set startX/Z
-	// for clarity. The actual stuck-teleport site at npc_interaction.go:95
-	// fires when the wander mode reaches its 30-tick stuck horizon — direct
-	// invocation in tests is tricky; a synthetic test calls the helper
-	// directly to exercise the wire-through.
+	// The actual stuck-teleport site at npc_interaction.go:95 fires when
+	// wanderMode's wanderCounter exceeds its stuck horizon — direct invocation
+	// in tests requires building up wanderCounter state, so a synthetic test
+	// calls the helper directly to exercise the wire-through.
 	prevX, prevZ, prevLevel := n.x, n.z, n.level
 	n.x, n.z, n.level = n.startX, n.startZ, n.startLevel
 	refreshNpcZone(s, n, prevX, prevZ, prevLevel)
