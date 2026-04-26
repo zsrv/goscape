@@ -361,7 +361,17 @@ func TestNpcInfo_TrackedNpc_RemoveBecauseNidSentinel(t *testing.T) {
 }
 
 // TestNpcInfo_TrackedNpc_RemoveBecauseTele: NPC has Tele=true.
-// Observer counter decrements; nid removed; remove-leaf emitted.
+// writeNpcs removes the NPC (emits remove-leaf, decrements Observers 5→4).
+// writeNewNpcs immediately re-discovers and re-adds it (filter_npc does not
+// check Tele — mirrors Rust build.rs:324). End state: nid is back in
+// tracking set, Observers returns to 5, remove-leaf still in output
+// (before the add-leaf).
+//
+// This matches the Rust reference behavior (info.rs:478-480 removes;
+// info.rs:511-528 re-adds in the same tick for a teleporting NPC that is
+// still within range and active). The remove-leaf IS emitted (the client
+// uses it to clear the NPC's cached appearance so the add-leaf re-sends
+// it with the new position).
 func TestNpcInfo_TrackedNpc_RemoveBecauseTele(t *testing.T) {
 	b := New()
 	setupLocalPlayer(b, 1, nil)
@@ -375,14 +385,17 @@ func TestNpcInfo_TrackedNpc_RemoveBecauseTele(t *testing.T) {
 	r := NewRenderer()
 	out := ni.Encode(b, 1, r)
 
+	// The remove-leaf must appear in the output (writeNpcs emits it first).
 	if !removeLeafInOutput(out) {
 		t.Errorf("tele remove: expected remove-leaf in output % x", out)
 	}
-	if b.players[1].Build.Npcs.Contains(7) {
-		t.Error("tele remove: nid 7 should not be in tracking set after Encode")
+	// After writeNewNpcs re-adds the NPC, nid 7 is back in the tracking set.
+	if !b.players[1].Build.Npcs.Contains(7) {
+		t.Error("tele remove: nid 7 should be back in tracking set (re-added by writeNewNpcs)")
 	}
-	if got := b.NpcForTest(7).Observers; got != 4 {
-		t.Errorf("tele remove: Observers after remove: got %d, want 4", got)
+	// Observers: decremented 5→4 in writeNpcs, incremented 4→5 in writeNewNpcs.
+	if got := b.NpcForTest(7).Observers; got != 5 {
+		t.Errorf("tele remove: Observers after remove+re-add: got %d, want 5", got)
 	}
 }
 
@@ -477,6 +490,201 @@ func TestNpcInfo_TrackedNpc_RemoveBecauseInactive(t *testing.T) {
 	}
 	if got := b.NpcForTest(7).Observers; got != 4 {
 		t.Errorf("inactive remove: Observers after remove: got %d, want 4", got)
+	}
+}
+
+// ── writeNewNpcs tests ────────────────────────────────────────────────────────
+
+// TestNpcInfo_NewNpcs_DiscoversAndAdds: 1 NPC near self, Build.Npcs empty
+// initially. After Encode: nid is in tracking set, Observers incremented to 1,
+// and the output bit stream contains the 35-bit add-leaf.
+//
+// Add-leaf bit layout: PBit(8,0) [count] + PBit(13,nid) + PBit(11,ntype) +
+// PBit(5,dx&0x1f) + PBit(5,dz&0x1f) + PBit(1,1) [extend always 1 for new add].
+// With nid=7, ntype=100, self=(3200,0,3200), npc=(3200,0,3200) → dx=0,dz=0:
+//
+//	bits 0-7:  0x00 (count=0)
+//	bits 8-20: 0b0000000000111 = 7  → nid
+//	bits 21-31: 0b00001100100 = 100 → ntype
+//	bits 32-36: 0b00000 → dx=0
+//	bits 37-41: 0b00000 → dz=0
+//	bit 42:    1 → extend
+//
+// Total: 43 bits → 6 bytes (rounded up). First byte 0x00 (count=0).
+func TestNpcInfo_NewNpcs_DiscoversAndAdds(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil)
+	setupNpc(b, 7, 100, nil)
+
+	ni := NewNpcInfo()
+	r := NewRenderer()
+	out := ni.Encode(b, 1, r)
+
+	// nid 7 must be in tracking set after Encode.
+	if !b.PlayerForTest(1).Build.Npcs.Contains(7) {
+		t.Error("DiscoversAndAdds: nid 7 should be in tracking set after Encode")
+	}
+	// Observer counter must have been incremented from 0 to 1.
+	if got := b.NpcForTest(7).Observers; got != 1 {
+		t.Errorf("DiscoversAndAdds: Observers after add: got %d, want 1", got)
+	}
+	// Output must be longer than the 1-byte empty-case (count byte only).
+	if len(out) <= 1 {
+		t.Errorf("DiscoversAndAdds: got %d bytes, want > 1 (add-leaf present); bytes: % x", len(out), out)
+	}
+	// First byte = PBit(8, 0) = 0x00 (tracked-count = 0).
+	if out[0] != 0x00 {
+		t.Errorf("DiscoversAndAdds: byte[0] = 0x%02x, want 0x00 (count=0)", out[0])
+	}
+}
+
+// TestNpcInfo_NewNpcs_RespectsPreferredCap: 256 NPCs (nids 1-256) all at
+// self's coord. After Encode, exactly 255 are in tracking (preferredNpcs cap).
+//
+// The cap mechanism is GetNearbyNpcs's internal
+//
+//	remaining := int(preferredNpcs) - count
+//
+// guard: when Build.Npcs starts empty (count=0), GetNearbyNpcs returns at
+// most 255 candidates regardless of how many NPCs are registered in the zone.
+// The 256th NPC is silently excluded by GetNearbyNpcs, not by writeNewNpcs's
+// own Contains check. The test asserts the observable end-state (255 added),
+// not which internal check fired.
+func TestNpcInfo_NewNpcs_RespectsPreferredCap(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil)
+	// Register 256 NPCs (nids 1-256), all at self's coord (3200, 0, 3200).
+	for nid := int32(1); nid <= 256; nid++ {
+		setupNpc(b, nid, 100, nil)
+	}
+
+	ni := NewNpcInfo()
+	r := NewRenderer()
+	ni.Encode(b, 1, r)
+
+	got := b.PlayerForTest(1).Build.Npcs.Len()
+	// GetNearbyNpcs caps at preferredNpcs (255) regardless of how many are
+	// registered; writeNewNpcs can add at most what GetNearbyNpcs returns.
+	if got != 255 {
+		t.Errorf("RespectsPreferredCap: Build.Npcs.Len() = %d, want 255", got)
+	}
+}
+
+// TestNpcInfo_NewNpcs_ByteBudgetOverflow_EmitsTerminator: 1 NPC near self
+// with a huge npcLowDef payload (5000 bytes). fits(35, 5000) returns false
+// because (8+35+7)/8 + 0 + 5000 = 5006 > maxNpcInfoBytes (4997). The loop
+// must emit the 13-bit 8191 terminator and return without adding nid.
+//
+// Output layout after Encode:
+//
+//	byte 0:      0x00       — PBit(8,0), count=0 (no tracked NPCs)
+//	bits 8-20:   8191 = 0x1FFF — 13-bit terminator
+//	bit-pad to byte boundary (3 bits of zero)
+//
+// 8191 in 13 bits MSB-first: 1111111111111.
+// Packed into bytes 1-2: bit8..bit15 = 11111111 = 0xFF,
+//
+//	bit16..bit20 = 11111 and 3 padding bits = 11111_000 = 0xF8.
+func TestNpcInfo_NewNpcs_ByteBudgetOverflow_EmitsTerminator(t *testing.T) {
+	const nid = int32(7)
+	b := New()
+	setupLocalPlayer(b, 1, nil)
+	setupNpc(b, nid, 100, nil)
+
+	ni := NewNpcInfo()
+	r := NewRenderer()
+	// Inject a huge low-def payload directly (same-package reach-around,
+	// matching the T3.3 Extend test pattern with r.npcHighDef[7]).
+	r.npcLowDef[nid] = make([]byte, 5000)
+
+	out := ni.Encode(b, 1, r)
+
+	// nid must NOT be in tracking set — terminator fired before insert.
+	if b.PlayerForTest(1).Build.Npcs.Contains(nid) {
+		t.Error("ByteBudgetOverflow: nid 7 should NOT be in tracking set (terminator fired)")
+	}
+	// Observers must NOT be incremented — terminator fired before increment.
+	if got := b.NpcForTest(nid).Observers; got != 0 {
+		t.Errorf("ByteBudgetOverflow: Observers = %d, want 0 (not incremented)", got)
+	}
+	// Output must be at least 3 bytes: byte[0]=0x00, byte[1]=0xFF, byte[2]=0xF8.
+	if len(out) < 3 {
+		t.Fatalf("ByteBudgetOverflow: got %d bytes, want >= 3; bytes: % x", len(out), out)
+	}
+	if out[0] != 0x00 {
+		t.Errorf("ByteBudgetOverflow: byte[0] = 0x%02x, want 0x00", out[0])
+	}
+	if out[1] != 0xFF {
+		t.Errorf("ByteBudgetOverflow: byte[1] = 0x%02x, want 0xFF (terminator bits 8-15)", out[1])
+	}
+	if out[2] != 0xF8 {
+		t.Errorf("ByteBudgetOverflow: byte[2] = 0x%02x, want 0xF8 (terminator bits 16-20 + 3-bit pad)", out[2])
+	}
+}
+
+// TestNpcInfo_ObserverCountFloorsAtZero: NPC with Observers=0, forced into a
+// remove condition via level mismatch (NPC at level=1, player at level=0).
+// Level mismatch both triggers remove in writeNpcs AND prevents re-discovery
+// by filterNpc (which also rejects level mismatches). Verifies that
+// decObservers floors at 0 and does NOT underflow to -1.
+//
+// Note: Tele=true alone cannot be used here — filter_npc does not check Tele
+// (matches Rust build.rs:324), so a teleporting NPC that is still in range
+// and active would be re-added by writeNewNpcs in the same tick.
+func TestNpcInfo_ObserverCountFloorsAtZero(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil) // player at level=0
+	b.AddNpc(7, 100)
+	b.ComputeNpc(
+		7, 100,
+		3200, 1, 3200, // level=1 — mismatch with player level=0; prevents re-add
+		false, -1, -1, true, 0,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1,
+	)
+	b.npcs[7].Observers = 0
+	b.players[1].Build.Npcs.Insert(7)
+
+	ni := NewNpcInfo()
+	r := NewRenderer()
+	ni.Encode(b, 1, r)
+
+	// decObservers must floor at 0 — not decrement to -1.
+	if got := b.NpcForTest(7).Observers; got != 0 {
+		t.Errorf("ObserverCountFloorsAtZero: Observers = %d, want 0 (floored)", got)
+	}
+}
+
+// TestNpcInfo_NewNpcs_SkipsAlreadyTracked: pre-insert nid into Build.Npcs
+// BEFORE Encode. filterNpc (buildarea.go:218) excludes already-tracked
+// candidates from GetNearbyNpcs, so the NPC never appears in the candidates
+// slice. The in-loop Contains check in writeNewNpcs is a defensive fallback
+// for any hypothetical duplicate.
+//
+// Asserts: no double-add (Observers stays 0), Build.Npcs still contains nid,
+// and no add-leaf appears in the output (output is only the 1-byte count).
+func TestNpcInfo_NewNpcs_SkipsAlreadyTracked(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil)
+	setupNpc(b, 7, 100, nil)
+	// Pre-insert nid=7 into Build.Npcs BEFORE Encode.
+	b.players[1].Build.Npcs.Insert(7)
+
+	ni := NewNpcInfo()
+	r := NewRenderer()
+	out := ni.Encode(b, 1, r)
+
+	// Build.Npcs must still contain nid=7 (not double-removed).
+	if !b.PlayerForTest(1).Build.Npcs.Contains(7) {
+		t.Error("SkipsAlreadyTracked: nid 7 should still be in tracking set after Encode")
+	}
+	// Observers must be 0 — no add (already tracked before Encode).
+	if got := b.NpcForTest(7).Observers; got != 0 {
+		t.Errorf("SkipsAlreadyTracked: Observers = %d, want 0 (no double-increment)", got)
+	}
+	// No add-leaf: output is just the tracked-delta loop result for 1 NPC.
+	// PBit(8,1) + PBit(1,0) = 9 bits → 2 bytes (idle branch: no walk/run/extend).
+	if len(out) != 2 {
+		t.Errorf("SkipsAlreadyTracked: got %d bytes, want 2 (tracked idle, no add-leaf); bytes: % x", len(out), out)
 	}
 }
 

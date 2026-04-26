@@ -308,8 +308,62 @@ func (ni *NpcInfo) decObservers(b *Buf, nid int32) {
 }
 
 // writeNewNpcs discovers nearby NPCs and emits add-leaves until the
-// byte budget or preferredNpcs cap is hit. T3.2 SKELETON: no-op.
-// T3.4 expands with discovery + observers increment + 8191 terminator.
-// Mirrors upstream NpcInfo::write_new_npcs at info.rs:511-585.
+// byte budget or preferredNpcs cap is hit. Mirrors upstream
+// NpcInfo::write_new_npcs at info.rs:511-585. T3.4 replaces T3.2's
+// no-op skeleton with the full discovery loop. Each successful add
+// increments b.npcs[nid].Observers (mirrors info.rs:540).
+//
+// On byte-budget overflow, emits the 13-bit npcTerminator (8191)
+// sentinel and returns — distinct from PlayerInfo's pre-AccessBytes
+// 11-bit 2047 sentinel which fires at Encode level. NpcInfo's 8191
+// terminator is purely a per-loop byte-budget cutoff signal.
 func (ni *NpcInfo) writeNewNpcs(b *Buf, self *Player, renderer *Renderer) {
+	selfPos := coordgrid.UnpackCoord(self.Coord)
+	candidates := self.Build.GetNearbyNpcs(&b.npcs, b.zoneMap, selfPos.X, selfPos.Level, selfPos.Z)
+
+	for _, nid := range candidates {
+		if self.Build.Npcs.Contains(nid) {
+			continue
+		}
+		if self.Build.Npcs.Len() >= int(preferredNpcs) {
+			return
+		}
+		other := b.npcs[nid]
+		if other == nil || !other.Active {
+			continue
+		}
+
+		lowDef := renderer.NpcLowDefOf(int(nid))
+		if !ni.fits(npcBitsAdd, len(lowDef)) {
+			// Byte budget overflow — emit terminator and return.
+			ni.buf.PBit(13, npcTerminator)
+			return
+		}
+
+		otherPos := coordgrid.UnpackCoord(other.Coord)
+		dx := clampInt(otherPos.X-selfPos.X, -15, 15)
+		dz := clampInt(otherPos.Z-selfPos.Z, -15, 15)
+
+		ni.buf.PBit(13, int(nid))
+		ni.buf.PBit(11, int(other.NType))
+		ni.buf.PBit(5, dx&0x1f)
+		ni.buf.PBit(5, dz&0x1f)
+		ni.buf.PBit(1, 1) // extend always set for add
+
+		self.Build.Npcs.Insert(nid)
+		other.Observers++
+
+		for _, b2 := range lowDef {
+			ni.updates.P1(b2)
+		}
+	}
+}
+
+// fits reports whether adding bitsToAdd + bytesToAdd will fit within
+// maxNpcInfoBytes. Mirrors info.rs:577 (analogous to PlayerInfo's
+// fits at playerinfo.go:604-608, identical formula).
+func (ni *NpcInfo) fits(bitsToAdd, bytesToAdd int) bool {
+	totalBits := ni.buf.BitPos + bitsToAdd + 7
+	totalBytes := (totalBits >> 3) + len(ni.updates.Data) + bytesToAdd
+	return totalBytes <= maxNpcInfoBytes
 }
