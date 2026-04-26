@@ -135,7 +135,7 @@ func TestTargetWithinMaxRangeOpTriggerUnchanged(t *testing.T) {
 // playerModeFixture builds a minimal Server + Npc + Player target ready
 // for processMovementInteraction dispatch tests. NPC at (3094, 3106);
 // player at same tile (caller should move as needed). Players and NPCs
-// are registered in s.grid / s.npcs / s.players. The returned Player has
+// are registered in s.npcs / s.players. The returned Player has
 // p.active = true so Player.IsValid() returns true and validateTarget's
 // Gate 4 passes. s.gamemap is NOT wired by default — callers that need
 // wall-flag seeding for PLAYERESCAPE add it via

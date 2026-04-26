@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
-	"github.com/zsrv/goscape/pkg/grid"
 	"github.com/zsrv/goscape/pkg/inventory"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/objtype"
@@ -22,7 +21,6 @@ import (
 func makeOpLocFixture(t *testing.T) (*Server, *Player, *entitypkg.Loc, net.Conn) {
 	t.Helper()
 	s := newTestServer(t)
-	s.grid = grid.New()
 	s.zoneMap = zone.NewZoneMap()
 
 	// Register LocType 42.

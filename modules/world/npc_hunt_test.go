@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/gamemap"
-	"github.com/zsrv/goscape/pkg/grid"
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
@@ -1170,18 +1169,14 @@ func TestHuntPlayersUsesZoneSubscriptionExclusive(t *testing.T) {
 	typ := &objtype.NpcType{Size: 1, VisLevel: 50}
 	hunter := newRegisteredNpc(t, s, typ, true)
 	hunter.huntRange = 5
-	// Add a phantom player to s.grid only — bypass Zone subscription.
-	if s.grid == nil {
-		s.grid = grid.New()
-	}
-	s.grid.Add(99, hunter.x+1, hunter.z+1, hunter.level)
+	// Seed s.players[99] only — do NOT subscribe to Zone. huntPlayers reads
+	// from Zone, so this player must NOT be returned.
 	c, _ := newTestClient(t)
 	phantom := newPlayer(c)
 	phantom.slot = 99
 	phantom.x, phantom.z, phantom.level = hunter.x+1, hunter.z+1, hunter.level
 	phantom.combatLevel = 50
-	// active=true so any silent grid-fallback regression cannot also be
-	// masked by an IsValid()==false filter — the test must catch grid-fallback
+	// active=true so the test catches a registry-fallback regression
 	// regardless of where IsValid checks land in the filter chain.
 	phantom.active = true
 	s.players[99] = phantom
@@ -1196,7 +1191,7 @@ func TestHuntPlayersUsesZoneSubscriptionExclusive(t *testing.T) {
 	got := hunter.huntPlayers(s, hunt)
 	for _, e := range got {
 		if pl, ok := e.(*Player); ok && pl.slot == 99 {
-			t.Error("huntPlayers returned grid-only player; should be Zone-exclusive")
+			t.Error("huntPlayers returned non-Zone-subscribed player; should be Zone-exclusive")
 		}
 	}
 }

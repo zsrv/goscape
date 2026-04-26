@@ -17,7 +17,6 @@ import (
 	"github.com/zsrv/goscape/internal/dskit/signals"
 	"github.com/zsrv/goscape/pkg/cache"
 	"github.com/zsrv/goscape/pkg/gamemap"
-	"github.com/zsrv/goscape/pkg/grid"
 	"github.com/zsrv/goscape/pkg/inventory"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/io/packet"
@@ -97,7 +96,6 @@ type Server struct {
 	// Parallel-write window: existing encoder does not yet read from this
 	// state (canonical at NAI-30+).
 	rsbuf *rsbuf.Buf
-	grid  *grid.Grid
 
 	zoneMap       *zone.ZoneMap
 	zonesTracking map[*zone.Zone]struct{}
@@ -209,7 +207,6 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 	s.npcLookup = serverNpcLookup{s: s}
 
 	s.renderer = rsbuf.NewRenderer()
-	s.grid = grid.New()
 
 	npcTypes, err := objtype.LoadNPCTypes(cfg.CachePath)
 	if err != nil {
@@ -242,7 +239,6 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 			s.log.Warn("npc registry full; dropping remaining spawns", "err", err)
 			break
 		}
-		s.grid.AddNpc(n.nid, n.x, n.z, n.level)
 	}
 
 	s.populateStaticLocsIntoZones()

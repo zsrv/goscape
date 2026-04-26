@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/gamemap"
-	"github.com/zsrv/goscape/pkg/grid"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 )
@@ -24,7 +23,6 @@ func setupNpcInfoPlayer(t *testing.T, s *Server, slot, x, z, level int) *Player 
 	s.players[slot] = p
 	s.playerLoop = append(s.playerLoop, p)
 	p.active = true
-	s.grid.Add(slot, x, z, level)
 	if s.rsbuf != nil {
 		s.rsbuf.AddPlayer(int32(slot))
 	}
@@ -42,7 +40,6 @@ func setupNpc(t *testing.T, s *Server, x, z, level int) *Npc {
 	if err := s.addNpc(n, -1, true); err != nil {
 		t.Fatal(err)
 	}
-	s.grid.AddNpc(n.nid, x, z, level)
 	return n
 }
 
@@ -53,7 +50,6 @@ func TestPlayerSeesNearbyNpc(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.renderer = rsbuf.NewRenderer()
-	s.grid = grid.New()
 
 	p := setupNpcInfoPlayer(t, s, 1, 3094, 3106, 0)
 	npc := setupNpc(t, s, 3095, 3106, 0)
@@ -73,7 +69,6 @@ func TestNpcSayProducesSayMaskInRenderer(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.renderer = rsbuf.NewRenderer()
-	s.grid = grid.New()
 
 	npc := setupNpc(t, s, 3095, 3106, 0)
 	npc.Say([]byte("hello"))

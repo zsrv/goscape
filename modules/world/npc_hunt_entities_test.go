@@ -5,21 +5,17 @@ import (
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/gamemap"
-	"github.com/zsrv/goscape/pkg/grid"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/zone"
 )
 
 // addNpcToServerAt seeds s.npcs[nid], registers the NPC's type in
-// s.npcTypes.Configs, indexes into s.grid, and subscribes into pkg/zone.
+// s.npcTypes.Configs, and subscribes into pkg/zone.
 // Returns the *Npc so tests can further mutate fields.
 // Slot 0 is reserved; use 1+. nid must be < 8192 (fixed Server.npcs array size).
 func addNpcToServerAt(t *testing.T, s *Server, nid, typeId, category, x, z, level int) *Npc {
 	t.Helper()
-	if s.grid == nil {
-		s.grid = grid.New()
-	}
 	if s.zoneMap == nil {
 		s.zoneMap = zone.NewZoneMap()
 	}
@@ -34,7 +30,6 @@ func addNpcToServerAt(t *testing.T, s *Server, nid, typeId, category, x, z, leve
 	}
 	n := NewNpc(nid, typeId, x, z, level, s.npcTypes.Configs[typeId])
 	s.npcs[nid] = n
-	s.grid.AddNpc(nid, x, z, level)
 	zn := s.zoneMap.Get(level, x, z)
 	n.zoneListElement = zn.EnterNpc(n)
 	return n
@@ -173,8 +168,6 @@ func TestHuntNpcsMissingTypeConfigSkipsOnCategoryFilter(t *testing.T) {
 	other := NewNpc(70, 1, n.x+3, n.z+3, n.level, s.npcTypes.Configs[1])
 	other.typeId = 99 // Now typeId is out of bounds.
 	s.npcs[70] = other
-	s.grid = grid.New()
-	s.grid.AddNpc(70, other.x, other.z, other.level)
 	s.zoneMap = zone.NewZoneMap()
 	zn := s.zoneMap.Get(other.level, other.x, other.z)
 	other.zoneListElement = zn.EnterNpc(other)
@@ -797,12 +790,8 @@ func TestHuntNpcsUsesZoneSubscriptionExclusive(t *testing.T) {
 	typ := &objtype.NpcType{Size: 1, BlockWalk: objtype.BlockWalkNone, Category: -1}
 	hunter := newRegisteredNpc(t, s, typ, true)
 	hunter.huntRange = 5
-	// Add a phantom NPC to s.grid only — bypass Zone subscription. Post-migration,
-	// huntNpcs reads from Zone, so this NPC must NOT be returned.
-	if s.grid == nil {
-		s.grid = grid.New()
-	}
-	s.grid.AddNpc(99, hunter.x+1, hunter.z+1, hunter.level)
+	// Seed s.npcs[99] only — do NOT subscribe to Zone. huntNpcs reads from
+	// Zone, so this NPC must NOT be returned.
 	if s.npcTypes == nil {
 		s.npcTypes = &objtype.NPCTypeConfigs{Configs: make([]*objtype.NpcType, 100)}
 	}
@@ -811,7 +800,7 @@ func TestHuntNpcsUsesZoneSubscriptionExclusive(t *testing.T) {
 	got := hunter.huntNpcs(s, hunt)
 	for _, e := range got {
 		if other, ok := e.(*Npc); ok && other.nid == 99 {
-			t.Error("huntNpcs returned grid-only NPC; should be Zone-exclusive")
+			t.Error("huntNpcs returned non-Zone-subscribed NPC; should be Zone-exclusive")
 		}
 	}
 }

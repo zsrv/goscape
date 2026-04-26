@@ -3,7 +3,6 @@ package world
 import (
 	"testing"
 
-	"github.com/zsrv/goscape/pkg/grid"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
@@ -12,7 +11,6 @@ import (
 // every active player's interaction state machine in a single call.
 func TestProcessInteractionsRunsPerPlayer(t *testing.T) {
 	s := newTestServer(t)
-	s.grid = grid.New()
 
 	typ := &objtype.NpcType{
 		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "test"},
@@ -80,7 +78,6 @@ func TestProcessInteractionsRunsPerPlayer(t *testing.T) {
 // TestProcessInteractionsNoTargetNoOp verifies that players without a target are untouched.
 func TestProcessInteractionsNoTargetNoOp(t *testing.T) {
 	s := newTestServer(t)
-	s.grid = grid.New()
 
 	p, cc := newTestPlayer(t)
 	p.client.server = s

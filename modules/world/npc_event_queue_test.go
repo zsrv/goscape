@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zsrv/goscape/pkg/grid"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
@@ -517,17 +516,14 @@ func TestProcessNpcEventQueueHappyPathFire(t *testing.T) {
 	}
 }
 
-// addPlayerToServer seeds s.players[slot], s.grid, and pkg/zone with a
-// minimal *Player at the given coords. Used by NAI-8 huntPlayers tests.
+// addPlayerToServer seeds s.players[slot] and pkg/zone with a minimal
+// *Player at the given coords. Used by NAI-8 huntPlayers tests.
 // Slot 0 is reserved per existing convention.
 //
-// Sets p.active=true so PlayersSafe(false).IsValid() passes (post-NAI-28
-// huntPlayers reads from Zone subscription, not s.grid).
+// Sets p.active=true so PlayersSafe(false).IsValid() passes
+// (huntPlayers reads from Zone subscription post-NAI-28).
 func addPlayerToServer(t *testing.T, s *Server, slot, x, z, level int) *Player {
 	t.Helper()
-	if s.grid == nil {
-		s.grid = grid.New()
-	}
 	if s.zoneMap == nil {
 		s.zoneMap = zone.NewZoneMap()
 	}
@@ -539,7 +535,6 @@ func addPlayerToServer(t *testing.T, s *Server, slot, x, z, level int) *Player {
 		active: true,
 	}
 	s.players[slot] = p
-	s.grid.Add(slot, x, z, level)
 	zn := s.zoneMap.Get(level, x, z)
 	p.zoneListElement = zn.EnterPlayer(p, nil)
 	return p

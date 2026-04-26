@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
-	"github.com/zsrv/goscape/pkg/grid"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/objtype"
@@ -124,7 +123,6 @@ func TestProcessInteractionNoTargetNoop(t *testing.T) {
 // TestProcessInteractionInRangeFacesTarget verifies adjacent target triggers face + interacted.
 func TestProcessInteractionInRangeFacesTarget(t *testing.T) {
 	s := newTestServer(t)
-	s.grid = grid.New()
 	npc := makeInteractionNpc(t, s, 1, 101, 100, 0)
 
 	p, cc := newTestPlayer(t)
@@ -156,7 +154,6 @@ func TestProcessInteractionInRangeFacesTarget(t *testing.T) {
 func TestProcessInteractionOutOfRangePaths(t *testing.T) {
 	s := newTestServer(t)
 	s.cfg.NodeClientRoutefinder = true // use direct-step mode
-	s.grid = grid.New()
 	npc := makeInteractionNpc(t, s, 1, 115, 100, 0) // 15 tiles away — beyond apRange=10
 
 	p, cc := newTestPlayer(t)
@@ -185,7 +182,6 @@ func TestProcessInteractionOutOfRangePaths(t *testing.T) {
 // TestProcessInteractionDifferentLevelClears verifies level mismatch clears and emits UnsetMapFlag.
 func TestProcessInteractionDifferentLevelClears(t *testing.T) {
 	s := newTestServer(t)
-	s.grid = grid.New()
 	npc := makeInteractionNpc(t, s, 1, 100, 100, 1) // level 1
 
 	p, cc := newTestPlayer(t)
@@ -218,7 +214,6 @@ func TestProcessInteractionDifferentLevelClears(t *testing.T) {
 // TestProcessInteractionDelayedPlayerSkipped verifies a delayed player skips interaction.
 func TestProcessInteractionDelayedPlayerSkipped(t *testing.T) {
 	s := newTestServer(t)
-	s.grid = grid.New()
 	npc := makeInteractionNpc(t, s, 1, 101, 100, 0)
 
 	p, cc := newTestPlayer(t)
@@ -379,7 +374,6 @@ func TestClearInteractionResetsApRange(t *testing.T) {
 // assertion still holds.
 func TestProcessInteractionRoutesToApBranch(t *testing.T) {
 	s := newTestServer(t)
-	s.grid = grid.New()
 	s.zoneMap = zone.NewZoneMap()
 	s.locTypes = &objtype.LocTypeConfigs{
 		Configs: make([]*objtype.LocType, 1), // type 0 slot only

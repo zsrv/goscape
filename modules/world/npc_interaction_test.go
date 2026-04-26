@@ -862,9 +862,8 @@ func TestCheckApTrigger(t *testing.T) {
 // positioned 2 tiles apart on level 0, ready to exercise
 // inApproachDistance. NPC at (3094, 3106); target player at (3094, 3108).
 // s.gamemap is wired. n.server is set. Returns everything the caller
-// needs. The target Player is registered via addPlayerToServer which
-// also indexes into s.grid; grid registration is harmless for
-// inApproachDistance (only target.Coords() and target.level are read).
+// needs. The target Player is registered via addPlayerToServer; only
+// target.Coords() and target.level are read by inApproachDistance.
 func approachDistanceFixture(t *testing.T) (*Server, *Npc, *Player) {
 	t.Helper()
 	s := newServerForScriptTest(t)

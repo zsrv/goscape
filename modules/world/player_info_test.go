@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/gamemap"
-	"github.com/zsrv/goscape/pkg/grid"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
@@ -24,7 +23,6 @@ func setupInfoPlayer(t *testing.T, s *Server, slot, x, z, level int) *Player {
 	s.players[slot] = p
 	s.playerLoop = append(s.playerLoop, p)
 	p.active = true
-	s.grid.Add(slot, x, z, level)
 	if s.rsbuf != nil {
 		s.rsbuf.AddPlayer(int32(slot))
 	}
@@ -38,7 +36,6 @@ func TestTwoPlayersSeeEachOther(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.renderer = rsbuf.NewRenderer()
-	s.grid = grid.New()
 
 	a := setupInfoPlayer(t, s, 1, 3094, 3106, 0)
 	_ = setupInfoPlayer(t, s, 2, 3095, 3106, 0)
@@ -58,7 +55,6 @@ func TestSayProducesChatMaskInHighDef(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.renderer = rsbuf.NewRenderer()
-	s.grid = grid.New()
 
 	a := setupInfoPlayer(t, s, 1, 3094, 3106, 0)
 

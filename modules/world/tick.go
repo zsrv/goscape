@@ -309,18 +309,6 @@ func (s *Server) processInfo() {
 	copy(players, s.playerLoop)
 	s.playersMu.RUnlock()
 
-	// Update grid when players cross zone boundaries.
-	for _, p := range players {
-		curZX, curZZ := p.x>>3, p.z>>3
-		prevZX, prevZZ := p.lastTickX>>3, p.lastTickZ>>3
-		if prevZX != curZX || prevZZ != curZZ || p.lastLevel != p.level {
-			if p.lastTickX >= 0 {
-				s.grid.Remove(p.slot, p.lastTickX, p.lastTickZ, p.lastLevel)
-			}
-			s.grid.Add(p.slot, p.x, p.z, p.level)
-		}
-	}
-
 	// Regenerate appearance buffer for any player whose MaskAppearance is set
 	// (set on login, and when equipment changes). Without this pass, the client
 	// allocates a zero-length appearance buffer and throws
@@ -421,12 +409,7 @@ func (s *Server) processInfo() {
 
 func (s *Server) processNpcs() {
 	for _, n := range s.npcLoop {
-		prevX, prevZ, prevLevel := n.x, n.z, n.level
 		n.turn(s)
-		if n.x != prevX || n.z != prevZ || n.level != prevLevel {
-			s.grid.RemoveNpc(n.nid, prevX, prevZ, prevLevel)
-			s.grid.AddNpc(n.nid, n.x, n.z, n.level)
-		}
 	}
 }
 

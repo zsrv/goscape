@@ -3,20 +3,17 @@ package world
 import (
 	"testing"
 
-	"github.com/zsrv/goscape/pkg/grid"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
 )
 
-// setupLookupServer returns a Server with npcLookup bound, s.grid
-// initialized (required by setupNpc), and NpcTypes 7 ("Hans", category 5)
-// and 8 ("Other", category 9) registered. Mirrors the fixture patterns at
-// player_npc_test.go:33 and script_test.go:939+.
+// setupLookupServer returns a Server with npcLookup bound and NpcTypes 7
+// ("Hans", category 5) and 8 ("Other", category 9) registered. Mirrors
+// the fixture patterns at player_npc_test.go:33 and script_test.go:939+.
 func setupLookupServer(t *testing.T) *Server {
 	t.Helper()
 	s := newTestServer(t)
 	s.npcLookup = serverNpcLookup{s: s}
-	s.grid = grid.New()
 	s.npcTypes = &objtype.NPCTypeConfigs{
 		Configs: make([]*objtype.NpcType, 100),
 	}

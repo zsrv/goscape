@@ -3,7 +3,6 @@ package world
 import (
 	"testing"
 
-	"github.com/zsrv/goscape/pkg/grid"
 	"github.com/zsrv/goscape/pkg/inventory"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/objtype"
@@ -14,7 +13,6 @@ import (
 func makeOpNpcFixture(t *testing.T) (*Server, *Player, *Npc) {
 	t.Helper()
 	s := newTestServer(t)
-	s.grid = grid.New()
 
 	typ := &objtype.NpcType{
 		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "test"},
@@ -62,7 +60,6 @@ func TestHandleOpNpc1SetsInteraction(t *testing.T) {
 // TestHandleOpNpc1InvalidSlotSendsUnsetMapFlag verifies out-of-bounds slot emits UnsetMapFlag.
 func TestHandleOpNpc1InvalidSlotSendsUnsetMapFlag(t *testing.T) {
 	s := newTestServer(t)
-	s.grid = grid.New()
 
 	p2, cc2 := newTestPlayer(t)
 	p2.client.server = s
@@ -158,7 +155,6 @@ func TestHandleOpNpc3RoutesToOp3(t *testing.T) {
 // TestHandleOpNpcShortPayloadSendsUnsetMapFlag verifies < 2 byte payload emits UnsetMapFlag.
 func TestHandleOpNpcShortPayloadSendsUnsetMapFlag(t *testing.T) {
 	s := newTestServer(t)
-	s.grid = grid.New()
 
 	p, cc := newTestPlayer(t)
 	p.client.server = s
@@ -204,7 +200,6 @@ func TestHandleOpNpcDelayedPlayerRejected(t *testing.T) {
 // TestHandleOpNpcNilNpcSendsUnsetMapFlag verifies nil npc slot emits UnsetMapFlag.
 func TestHandleOpNpcNilNpcSendsUnsetMapFlag(t *testing.T) {
 	s := newTestServer(t)
-	s.grid = grid.New()
 	// s.npcs[1] is nil (no npc registered)
 
 	p, cc := newTestPlayer(t)
@@ -573,7 +568,6 @@ func TestHandleOpNpcUMembersOnMembersWorldAllowed(t *testing.T) {
 // TestHandleOpNpcOpIndexOutOfRange verifies NpcType with fewer Op entries emits UnsetMapFlag.
 func TestHandleOpNpcOpIndexOutOfRange(t *testing.T) {
 	s := newTestServer(t)
-	s.grid = grid.New()
 
 	typ := &objtype.NpcType{
 		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "test"},
