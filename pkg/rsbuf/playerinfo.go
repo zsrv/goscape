@@ -592,7 +592,12 @@ func (pi *PlayerInfo) fits(bitsToAdd, bytesToAdd int) bool {
 	return totalBytes <= maxPlayerInfoBytes
 }
 
-// clampInt clamps v to [lo, hi].
+// clampInt clamps v to [lo, hi]. The pre-existing free function clamp
+// (line 236) has an identical signature and body but is consumed only
+// by EncodeLegacy + its helpers; both retire at B4 T4.6 along with
+// EncodeLegacy. clampInt is the canonical helper for the new
+// (pi *PlayerInfo) method block; it replaces clamp at retirement
+// (rename, not delete + add).
 func clampInt(v, lo, hi int) int {
 	if v < lo {
 		return lo
