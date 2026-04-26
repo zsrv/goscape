@@ -27,6 +27,9 @@ func setupNpcInfoPlayer(t *testing.T, s *Server, slot, x, z, level int) *Player 
 	s.playerLoop = append(s.playerLoop, p)
 	p.active = true
 	s.grid.Add(slot, x, z, level)
+	if s.rsbuf != nil {
+		s.rsbuf.AddPlayer(int32(slot))
+	}
 	return p
 }
 
@@ -60,8 +63,8 @@ func TestPlayerSeesNearbyNpc(t *testing.T) {
 	s.processInfo()
 	p.updateNpcs()
 
-	if _, ok := p.buildArea.Npcs[npc.nid]; !ok {
-		t.Errorf("player should track npc after updateNpcs; got %v", p.buildArea.Npcs)
+	if !s.rsbuf.HasNpc(int32(p.slot), int32(npc.nid)) {
+		t.Errorf("player should track npc after updateNpcs; HasNpc(%d, %d) returned false", p.slot, npc.nid)
 	}
 }
 
