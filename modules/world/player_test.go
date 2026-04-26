@@ -549,6 +549,19 @@ func TestNewPlayer_OrientationXZ_DefaultMinusOne(t *testing.T) {
 	}
 }
 
+func TestNewPlayer_LastAppearance_DefaultMinusOne(t *testing.T) {
+	serverConn, clientConn := net.Pipe()
+	defer serverConn.Close()
+	defer clientConn.Close()
+	c := newClient(serverConn, time.Second, discardLogger())
+	defer c.in.Release()
+	c.state = ClientStateGame
+	p := newPlayer(c)
+	if p.lastAppearance != -1 {
+		t.Errorf("lastAppearance default: got %d, want -1", p.lastAppearance)
+	}
+}
+
 func TestPlayerIsValid(t *testing.T) {
 	base := func() *Player {
 		return &Player{

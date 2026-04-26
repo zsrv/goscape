@@ -370,7 +370,7 @@ func (s *Server) processInfo() {
 				p.active,
 				uint32(p.masks),
 				p.appearanceBuf,
-				int32(p.AppearanceHash()&0x7fffffff), // NAI-30: revisit lastAppearance semantics (content-hash vs tick-when-changed)
+				int32(p.lastAppearance),
 				int32(p.faceEntity),
 				int32(p.faceSquareX), int32(p.faceSquareZ),
 				int32(p.OrientationX), int32(p.OrientationZ),

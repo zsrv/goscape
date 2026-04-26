@@ -205,3 +205,23 @@ func TestSetAppearanceInvBindsId(t *testing.T) {
 		t.Errorf("p.masks: MaskAppearance bit unset (setter must flag for regeneration)")
 	}
 }
+
+func TestGenerateAppearance_SetsLastAppearanceToCurrentTick(t *testing.T) {
+	objs, invs := synthesizeTypes(t)
+	p, _ := newTestPlayer(t)
+	p.invs = map[int]*inventory.Inventory{
+		invs.Worn: inventory.FromType(invs.Configs[invs.Worn]),
+	}
+	// Pre-condition: default -1.
+	if p.lastAppearance != -1 {
+		t.Fatalf("default lastAppearance: got %d, want -1", p.lastAppearance)
+	}
+	p.generateAppearance(objs, invs, 42)
+	if p.lastAppearance != 42 {
+		t.Errorf("after generateAppearance(_,_,42): got %d, want 42", p.lastAppearance)
+	}
+	p.generateAppearance(objs, invs, 100)
+	if p.lastAppearance != 100 {
+		t.Errorf("after generateAppearance(_,_,100): got %d, want 100", p.lastAppearance)
+	}
+}
