@@ -679,3 +679,24 @@ func TestScaleByPlayerCountFormula(t *testing.T) {
 		}
 	}
 }
+
+func TestAddPlayerEntersZoneAndFlagsGrid(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	// newPlayer's default coords are (0,0,0); set to a known zone for clarity.
+	p.x, p.z, p.level = 3200, 3200, 0
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	z := s.zoneMap.Get(0, 3200, 3200)
+	if z.PlayersCount() != 1 {
+		t.Errorf("after addPlayer, Zone.PlayersCount: got %d, want 1", z.PlayersCount())
+	}
+	if !s.zoneMap.Grid(0).IsFlagged(400, 400, 0) {
+		t.Error("after addPlayer, ZoneGrid should be flagged at (400,400)")
+	}
+	if p.zoneListElement == nil {
+		t.Error("addPlayer should populate p.zoneListElement")
+	}
+}

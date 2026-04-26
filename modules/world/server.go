@@ -606,6 +606,10 @@ func (s *Server) addPlayer(p *Player) error {
 			s.players[i] = p
 			s.playerLoop = append(s.playerLoop, p)
 			p.active = true
+			if s.zoneMap != nil {
+				z := s.zoneMap.Get(p.level, p.x, p.z)
+				p.zoneListElement = z.EnterPlayer(p, s.zoneMap.Grid(p.level))
+			}
 			return nil
 		}
 	}
