@@ -122,10 +122,3 @@ func (p *Player) cleanup() {
 	p.GraphicDelay = -1
 	p.ExactMove = nil
 }
-
-// BuildArea is a temporary forward declaration. Bundle 3 Task 3.1
-// replaces this with the full BuildArea type. Required because
-// Player.Build *BuildArea references it.
-//
-// TEMPORARY: replaced by Bundle 3 Task 3.1.
-type BuildArea struct{}
