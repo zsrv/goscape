@@ -512,7 +512,15 @@ func TestComputeNpc_NegativeIDsAreNoop(t *testing.T) {
 		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1)
 	b.ComputeNpc(50, -1, 60, 0, 70, false, -1, -1, false, 0,
 		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, nil, -1, -1, -1)
-	// Both should no-op.
+	// Both should no-op. Pin that the negative-ntype call did NOT
+	// overwrite NType=100 on the existing slot — without this assertion
+	// the test would silently pass even if the ntype<0 guard were removed.
+	if b.npcs[50] == nil {
+		t.Fatal("slot 50 nilled")
+	}
+	if b.npcs[50].NType != 100 {
+		t.Errorf("negative ntype: NType was overwritten, got %d, want 100", b.npcs[50].NType)
+	}
 }
 
 func TestComputeNpc_CrossZoneMoveUpdatesZoneMap(t *testing.T) {

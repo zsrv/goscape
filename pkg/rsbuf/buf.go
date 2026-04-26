@@ -254,11 +254,11 @@ func (b *Buf) ComputePlayer(
 }
 
 // ComputeNpc writes ALL per-tick state for nid in one call. Mirrors
-// upstream compute_npc at lib.rs:215-281. Argument order matches
+// upstream compute_npc at lib.rs:217-281. Argument order matches
 // upstream verbatim except nid/ntype are promoted to positions 0/1
 // (Go method-receiver convention + symmetry with ComputePlayer;
 // upstream places (x, y, z) at positions 0-2 and nid/ntype at 3/4 —
-// lib.rs:217-221).
+// lib.rs:218-222).
 //
 // Side effects:
 //  1. If new coord crosses a zone boundary OR changes level: zoneMap
