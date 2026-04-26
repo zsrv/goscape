@@ -789,3 +789,14 @@ func TestPlayerInfo_TrackedOther_KeepsSoftVisWithStaffMod(t *testing.T) {
 		t.Errorf("remove triggered when staff mod >= 1: got %x", out)
 	}
 }
+
+// TestPlayerInfo_LocalPlayer_ChatMaskStripped pins the upstream
+// PlayerInfo::highdefinition at info.rs:289-291 behavior: local
+// player's own CHAT mask bit is stripped from the high-def payload
+// (no self-echo). Goscape's eager Renderer doesn't currently expose
+// per-mask suppression, so this is deferred to NAI-31 when the
+// renderer cache is ported. Tagged NAI-30-D2 (see writeLocalPlayer
+// doc-comment in playerinfo.go).
+func TestPlayerInfo_LocalPlayer_ChatMaskStripped(t *testing.T) {
+	t.Skip("NAI-30-D2: requires NAI-31 renderer cache port for per-mask suppression")
+}
