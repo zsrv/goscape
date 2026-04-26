@@ -719,3 +719,85 @@ func TestNpcInfo_Encode_OutputBytesAreCopy(t *testing.T) {
 	}
 }
 
+// TestNpcInfo_FaceCoord_PreservedAcrossEncode pins that Encode does not
+// mutate b.npcs[nid].FaceX or FaceZ. The encoder reads NpcHighDefOf /
+// NpcLowDefOf (eager Renderer) for the face-coord wire bits but never
+// writes back to the Npc struct.
+//
+// NAI-31 will port the upstream Rust lowdefinition fallback ladder
+// (info.rs:642-664) where face_x falls back to orientation_x when
+// face_x == -1. At that point this test expands to pin the fallback
+// fires when face_x is -1; for NAI-30, the placeholder pins
+// non-mutation only.
+func TestNpcInfo_FaceCoord_PreservedAcrossEncode(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil)
+	setupNpc(b, 7, 100, func(n *Npc) {
+		n.FaceX = 12345
+		n.FaceZ = 67890
+	})
+	// Pre-track the NPC so writeNpcs's tracked loop iterates it
+	// (rather than writeNewNpcs's add path, which is also non-mutating
+	// but exercises a different code path).
+	b.players[1].Build.Npcs.Insert(7)
+
+	ni := NewNpcInfo()
+	r := NewRenderer()
+	ni.Encode(b, 1, r)
+
+	if got := b.npcs[7].FaceX; got != 12345 {
+		t.Errorf("FaceX mutated by Encode: got %d, want 12345", got)
+	}
+	if got := b.npcs[7].FaceZ; got != 67890 {
+		t.Errorf("FaceZ mutated by Encode: got %d, want 67890", got)
+	}
+}
+
+// TestNpcInfo_Orientation_PreservedAcrossEncode pins that Encode does
+// not mutate b.npcs[nid].OrientationX or OrientationZ. Per Rust
+// upstream npc.rs:68-71, orientation values persist across cleanup
+// (and across Encode). NAI-31's fallback ladder may use orientation
+// as the fallback for face_x when face_x == -1; for NAI-30, the
+// placeholder pins non-mutation.
+func TestNpcInfo_Orientation_PreservedAcrossEncode(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil)
+	setupNpc(b, 7, 100, func(n *Npc) {
+		n.OrientationX = 256
+		n.OrientationZ = 512
+	})
+	b.players[1].Build.Npcs.Insert(7)
+
+	ni := NewNpcInfo()
+	r := NewRenderer()
+	ni.Encode(b, 1, r)
+
+	if got := b.npcs[7].OrientationX; got != 256 {
+		t.Errorf("OrientationX mutated by Encode: got %d, want 256", got)
+	}
+	if got := b.npcs[7].OrientationZ; got != 512 {
+		t.Errorf("OrientationZ mutated by Encode: got %d, want 512", got)
+	}
+}
+
+// TestNpcInfo_FaceEntity_PreservedAcrossEncode pins that Encode does
+// not mutate b.npcs[nid].FaceEntity. Per Rust upstream npc.rs:68-71,
+// FaceEntity persists across cleanup. NAI-31 may add fallback semantics
+// for FaceEntity when no producer set it; for NAI-30, the placeholder
+// pins non-mutation.
+func TestNpcInfo_FaceEntity_PreservedAcrossEncode(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil)
+	setupNpc(b, 7, 100, func(n *Npc) {
+		n.FaceEntity = 42
+	})
+	b.players[1].Build.Npcs.Insert(7)
+
+	ni := NewNpcInfo()
+	r := NewRenderer()
+	ni.Encode(b, 1, r)
+
+	if got := b.npcs[7].FaceEntity; got != 42 {
+		t.Errorf("FaceEntity mutated by Encode: got %d, want 42", got)
+	}
+}
