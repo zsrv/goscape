@@ -10,7 +10,6 @@ import (
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
-	"github.com/zsrv/goscape/pkg/zone"
 )
 
 func TestCheckOpTrigger(t *testing.T) {
@@ -1400,16 +1399,6 @@ func TestNpcStepCrossZoneRefreshSubscription(t *testing.T) {
 	if newZ.NpcsCount() != 1 {
 		t.Errorf("new zone NpcsCount: got %d, want 1", newZ.NpcsCount())
 	}
-}
-
-// nIsInZone returns true if n is subscribed to z (helper for tests above).
-func nIsInZone(n *Npc, z *zone.Zone) bool {
-	for cn := range z.NpcsSafe(false) {
-		if cn.Nid() == n.Nid() {
-			return true
-		}
-	}
-	return false
 }
 
 func TestNpcStuckTeleportRefreshSubscription(t *testing.T) {
