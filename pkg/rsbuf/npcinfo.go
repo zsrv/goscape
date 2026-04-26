@@ -12,8 +12,12 @@ const (
 	NpcTerminator        = 8191
 )
 
-// EncodeNpc produces the NpcInfo payload for `self` (no opcode/length prefix).
-func EncodeNpc(self PlayerSource, all []NpcSource, ba *buildarea.BuildArea, g *grid.Grid, r *Renderer) []byte {
+// EncodeNpcLegacy is the NAI-29-and-earlier interface-based NpcInfo encoder.
+// Retained during NAI-30 Bundle 3 only as a transition fallback while the
+// new (ni *NpcInfo).Encode method (receiver *NpcInfo, taking *Buf as its
+// first parameter) is being landed and validated. Callers swap to the new
+// method in NAI-30 Bundle 4 Task 4.3; this function deletes in B4 Task 4.6.
+func EncodeNpcLegacy(self PlayerSource, all []NpcSource, ba *buildarea.BuildArea, g *grid.Grid, r *Renderer) []byte {
 	byNid := make(map[int]NpcSource, len(all))
 	for _, n := range all {
 		byNid[n.Nid()] = n

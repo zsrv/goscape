@@ -6,7 +6,7 @@ import (
 )
 
 // updateNpcs runs during processClientsOut. Snapshots all NPCs, feeds to
-// rsbuf.EncodeNpc, writes the result as an OpNpcInfo packet.
+// rsbuf.EncodeNpcLegacy, writes the result as an OpNpcInfo packet.
 func (p *Player) updateNpcs() {
 	s := p.client.server
 	if s == nil || p.buildArea == nil || s.renderer == nil || s.grid == nil {
@@ -23,6 +23,6 @@ func (p *Player) updateNpcs() {
 		sources[i] = n
 	}
 
-	payload := rsbuf.EncodeNpc(p, sources, p.buildArea, s.grid, s.renderer)
+	payload := rsbuf.EncodeNpcLegacy(p, sources, p.buildArea, s.grid, s.renderer)
 	p.writeOut(gameserver.OpNpcInfo, payload)
 }
