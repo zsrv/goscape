@@ -110,12 +110,17 @@ func (pi *PlayerInfo) Encode(b *Buf, pid int32, renderer *Renderer) []byte {
 // Returns the high-def payload length for the local player (consumed
 // by the new-players byte-budget math at info.rs:60).
 //
-// NAI-30-D2 (deferred to NAI-31): upstream PlayerInfo::highdefinition
-// at info.rs:289-291 strips the CHAT mask bit for self (no chat
-// self-echo). Goscape's existing eager Renderer doesn't expose
-// per-mask suppression, so the local player's own chat may echo back
-// to its own client by one chat block per say. Fix lands when NAI-31
-// ports the renderer cache and adds suppress-chat-for-self plumbing.
+// NAI-30-D2 (audited NAI-31, deferred to NAI-32): upstream
+// PlayerInfo::highdefinition at info.rs:289-291 strips the CHAT mask
+// bit for self only — other players' CHAT is preserved so they see
+// each other's chat-history scrollback. Goscape's Renderer.ComputePlayers
+// currently passes suppressChat=true to ALL three buildPayload calls
+// (renderer.go:36,47,53), so CHAT is stripped for every player, not
+// just self. The TS-canonical fix needs a 4th cache variant in Renderer
+// (e.g. highDefWithChat) that writePlayers reads for other-player
+// payloads while writeLocalPlayer continues to read the chat-stripped
+// highDef. ~30-50 LOC change, deferred to the NAI-32 renderer-port
+// series.
 // Test pinned via TestPlayerInfo_LocalPlayer_ChatMaskStripped (t.Skip).
 func (pi *PlayerInfo) writeLocalPlayer(self *Player, renderer *Renderer) int {
 	pos := coordgrid.UnpackCoord(self.Coord)

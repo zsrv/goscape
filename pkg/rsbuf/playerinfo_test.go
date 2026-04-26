@@ -572,12 +572,14 @@ func TestPlayerInfo_TrackedOther_KeepsSoftVisWithStaffMod(t *testing.T) {
 // TestPlayerInfo_LocalPlayer_ChatMaskStripped pins the upstream
 // PlayerInfo::highdefinition at info.rs:289-291 behavior: local
 // player's own CHAT mask bit is stripped from the high-def payload
-// (no self-echo). Goscape's eager Renderer doesn't currently expose
-// per-mask suppression, so this is deferred to NAI-31 when the
-// renderer cache is ported. Tagged NAI-30-D2 (see writeLocalPlayer
-// doc-comment in playerinfo.go).
+// (no self-echo) while other players' CHAT is preserved. Audited at
+// NAI-31: goscape's Renderer.ComputePlayers passes suppressChat=true
+// to ALL three buildPayload calls (renderer.go:36,47,53), so CHAT is
+// universally suppressed; the TS-canonical partial-self-only behavior
+// requires a 4th cache variant (highDefWithChat) for other-player
+// payloads. Deferred to NAI-32 renderer-port series.
 func TestPlayerInfo_LocalPlayer_ChatMaskStripped(t *testing.T) {
-	t.Skip("NAI-30-D2: requires NAI-31 renderer cache port for per-mask suppression")
+	t.Skip("NAI-30-D2: requires renderer cache port for per-mask suppression; audited NAI-31, deferred to NAI-32")
 }
 
 // TestPlayerInfo_Encode_OutputBytesAreCopy regression-locks the
