@@ -161,6 +161,79 @@ func (b *BuildArea) filterPlayer(players *[2048]*Player, candidate, pid int32, x
 	return true
 }
 
+// GetNearbyNpcs returns up to (preferredNpcs - len(b.Npcs)) nids of
+// active NPCs within preferredViewDistance zones (Chebyshev) of
+// (x, level, z), excluding any NPC already in the tracking set.
+// Mirrors upstream BuildArea::get_nearby_npcs at build.rs:262-296.
+//
+// View distance is the const preferredViewDistance (15); upstream
+// hardcodes BuildArea::PREFERRED_VIEW_DISTANCE here even when player
+// view distance shrinks (NPCs don't downsize their search radius).
+func (b *BuildArea) GetNearbyNpcs(npcs *[8192]*Npc, zoneMap *zoneMap, x, level, z int) []int32 {
+	distance := int(preferredViewDistance)
+	startZX := (x - distance) >> 3
+	startZZ := (z - distance) >> 3
+	endZX := (x + distance) >> 3
+	endZZ := (z + distance) >> 3
+
+	count := b.Npcs.Len()
+	remaining := int(preferredNpcs) - count
+	if remaining <= 0 {
+		return nil
+	}
+	nearby := make([]int32, 0, remaining)
+
+	for zx := startZX; zx <= endZX; zx++ {
+		for zz := startZZ; zz <= endZZ; zz++ {
+			if len(nearby)+count >= int(preferredNpcs) {
+				return nearby
+			}
+			zoneNpcs := zoneMap.Zone(zx<<3, level, zz<<3).npcs
+			for candidate := range zoneNpcs { // map keys
+				if len(nearby)+count >= int(preferredNpcs) {
+					return nearby
+				}
+				if b.filterNpc(npcs, candidate, x, level, z) {
+					nearby = append(nearby, candidate)
+				}
+			}
+		}
+	}
+	return nearby
+}
+
+// filterNpc reports whether candidate should be added to a
+// nearby-npcs result. Mirrors upstream BuildArea::filter_npc at
+// build.rs:314-327. Five reject conditions: already tracked,
+// nid==-1 (empty-slot marker), !active, level mismatch,
+// out-of-distance (Chebyshev).
+func (b *BuildArea) filterNpc(npcs *[8192]*Npc, candidate int32, x, level, z int) bool {
+	if candidate < 0 || int(candidate) >= len(npcs) {
+		return false
+	}
+	other := npcs[candidate]
+	if other == nil {
+		return false
+	}
+	if b.Npcs.Contains(candidate) {
+		return false
+	}
+	if other.NID == -1 {
+		return false
+	}
+	if !other.Active {
+		return false
+	}
+	otherPos := coordgrid.UnpackCoord(other.Coord)
+	if otherPos.Level != level {
+		return false
+	}
+	if !withinDistanceSW(otherPos.X, otherPos.Z, x, z, int(preferredViewDistance)) {
+		return false
+	}
+	return true
+}
+
 // withinDistanceSW returns true if the Chebyshev distance between
 // (ax, az) and (bx, bz) is <= radius. Mirrors upstream
 // CoordGrid::within_distance_sw at coord.rs:50-58 (max of |dx|, |dz|
