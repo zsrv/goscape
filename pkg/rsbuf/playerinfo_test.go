@@ -347,7 +347,7 @@ func TestPlayerInfo_TrackedOther_Extend(t *testing.T) {
 
 	pi := NewPlayerInfo()
 	r := NewRenderer()
-	r.highDef[2] = []byte{0xab} // 1 byte; renderer-internals reach-around for branch isolation.
+	r.highDefWithChat[2] = []byte{0xab} // 1 byte; renderer-internals reach-around for branch isolation. writePlayers reads HighDefWithChatOf for tracked others (NAI-32 Task 3).
 
 	out := pi.Encode(b, 1, r)
 
@@ -570,16 +570,82 @@ func TestPlayerInfo_TrackedOther_KeepsSoftVisWithStaffMod(t *testing.T) {
 }
 
 // TestPlayerInfo_LocalPlayer_ChatMaskStripped pins the upstream
-// PlayerInfo::highdefinition at info.rs:289-291 behavior: local
+// PlayerInfo::highdefinition behavior at info.rs:289-291: local
 // player's own CHAT mask bit is stripped from the high-def payload
-// (no self-echo) while other players' CHAT is preserved. Audited at
-// NAI-31: goscape's Renderer.ComputePlayers passes suppressChat=true
-// to ALL three buildPayload calls (renderer.go:36,47,53), so CHAT is
-// universally suppressed; the TS-canonical partial-self-only behavior
-// requires a 4th cache variant (highDefWithChat) for other-player
-// payloads. Deferred to NAI-32 renderer-port series.
+// (no self-echo) while other players' CHAT is preserved.
+// Dual-pinned per ts_asymmetry_dual_pin.md: asserts both presence
+// (other's CHAT bytes appear in encoder output) AND absence (self's
+// CHAT bytes do NOT appear).
 func TestPlayerInfo_LocalPlayer_ChatMaskStripped(t *testing.T) {
-	t.Skip("NAI-30-D2: requires renderer cache port for per-mask suppression; audited NAI-31, deferred to NAI-32")
+	b := New()
+	// Self at PID=1 + tracked other at PID=2. Both at (3200, 0, 3200) — same
+	// tile, well within ViewDistance. Movement sentinels stay at -1 (per
+	// newPlayer() defaults), so the encoder takes the mask-only-update branch.
+	setupLocalPlayer(b, 1, nil)
+	setupLocalPlayer(b, 2, nil)
+
+	// Pre-track PID=2 in self.Build.Players so writePlayers (not writeNewPlayers)
+	// handles the encode for the tracked-other dual-pin assertion.
+	b.players[1].Build.Players.Insert(2)
+
+	// Renderer cache populated via fakeSource fixtures (existing pattern at
+	// renderer_test.go:7,19,37,55). Distinct chat strings per slot for the
+	// encoder-level bytes.Contains pin.
+	fakeSelf := &fakeSource{
+		slot:       1,
+		masks:      MaskChat,
+		chatColour: 7,
+		chatEffect: 0,
+		chatRights: 0,
+		chatBytes:  []byte("self"),
+	}
+	fakeOther := &fakeSource{
+		slot:       2,
+		masks:      MaskChat,
+		chatColour: 8,
+		chatEffect: 0,
+		chatRights: 0,
+		chatBytes:  []byte("other"),
+	}
+	r := NewRenderer()
+	r.ComputePlayers([]PlayerSource{fakeSelf, fakeOther})
+
+	// Cache-layer pin: self's HighDefOf has CHAT stripped, other's
+	// HighDefWithChatOf has CHAT preserved.
+	selfStripped := r.HighDefOf(1)
+	otherWithChat := r.HighDefWithChatOf(2)
+	if selfStripped == nil {
+		t.Fatalf("HighDefOf(1): nil; expected chat-stripped bytes")
+	}
+	if otherWithChat == nil {
+		t.Fatalf("HighDefWithChatOf(2): nil; expected chat-preserved bytes")
+	}
+	if selfStripped[0]&byte(MaskChat) != 0 {
+		t.Errorf("self HighDefOf header has CHAT bit set: got 0x%02x; want CHAT clear", selfStripped[0])
+	}
+	if otherWithChat[0]&byte(MaskChat) == 0 {
+		t.Errorf("other HighDefWithChatOf header missing CHAT bit: got 0x%02x; want CHAT set", otherWithChat[0])
+	}
+
+	// Encoder-level dual pin: scan the encoder output for the chat strings.
+	// pdata_alt2 transforms each byte b → (128 - b) & 0xff. So "self" encodes
+	// as (128-'s', 128-'e', 128-'l', 128-'f') = (13, 27, 20, 26).
+	// "other" encodes as (128-'o', 128-'t', 128-'h', 128-'e', 128-'r') = (17, 12, 24, 27, 14).
+	pi := NewPlayerInfo()
+	out := pi.Encode(b, 1, r)
+	if len(out) == 0 {
+		t.Fatalf("pi.Encode returned empty output")
+	}
+
+	selfChatTransformed := []byte{13, 27, 20, 26}
+	otherChatTransformed := []byte{17, 12, 24, 27, 14}
+
+	if bytes.Contains(out, selfChatTransformed) {
+		t.Errorf("self chat bytes appear in encoder output: pdata_alt2('self')=%#v found in out=%#v", selfChatTransformed, out)
+	}
+	if !bytes.Contains(out, otherChatTransformed) {
+		t.Errorf("other chat bytes missing from encoder output: pdata_alt2('other')=%#v not found in out=%#v", otherChatTransformed, out)
+	}
 }
 
 // TestPlayerInfo_Encode_OutputBytesAreCopy regression-locks the
