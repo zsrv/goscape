@@ -617,6 +617,9 @@ func (s *Server) addPlayer(p *Player) error {
 				z := s.zoneMap.Get(p.level, p.x, p.z)
 				p.zoneListElement = z.EnterPlayer(p, s.zoneMap.Grid(p.level))
 			}
+			if s.rsbuf != nil {
+				s.rsbuf.AddPlayer(int32(p.slot))
+			}
 			return nil
 		}
 	}
@@ -663,6 +666,10 @@ func (s *Server) removePlayer(p *Player) {
 		z := s.zoneMap.Get(p.level, p.x, p.z)
 		z.LeavePlayer(p, p.zoneListElement, s.zoneMap.Grid(p.level))
 		p.zoneListElement = nil
+	}
+	if s.rsbuf != nil {
+		s.rsbuf.CleanupPlayerBuildArea(int32(p.slot))
+		s.rsbuf.RemovePlayer(int32(p.slot))
 	}
 	s.players[p.slot] = nil
 
