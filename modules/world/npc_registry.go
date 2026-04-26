@@ -55,8 +55,6 @@ func (s *Server) addNpc(n *Npc, duration int, firstSpawn bool) error {
 		n.server = s
 		s.npcs[nid] = n
 		s.npcLoop = append(s.npcLoop, n)
-		// TODO(NAI-19): rsbuf.AddNpc(n.nid, n.typeId) when rsbuf
-		// API surface lands.
 	}
 	n.x = n.startX
 	n.z = n.startZ
@@ -65,6 +63,9 @@ func (s *Server) addNpc(n *Npc, duration int, firstSpawn bool) error {
 	if s.zoneMap != nil {
 		z := s.zoneMap.Get(n.level, n.x, n.z)
 		n.zoneListElement = z.EnterNpc(n)
+	}
+	if s.rsbuf != nil {
+		s.rsbuf.AddNpc(int32(n.nid), int32(n.typeId))
 	}
 	if s.gamemap != nil {
 		switch n.blockWalk {
@@ -155,6 +156,9 @@ func (s *Server) removeNpc(n *Npc, duration int) {
 		z.LeaveNpc(n, n.zoneListElement)
 		n.zoneListElement = nil
 	}
+	if s.rsbuf != nil {
+		s.rsbuf.RemoveNpc(int32(n.nid))
+	}
 	n.dead = true
 	if s.gamemap != nil {
 		switch n.blockWalk {
@@ -166,7 +170,6 @@ func (s *Server) removeNpc(n *Npc, duration int) {
 		}
 	}
 	if n.lifecycle == NpcLifecycleDespawn {
-		// TODO(NAI-19): rsbuf.RemoveNpc(n.nid) when rsbuf API surface lands.
 		// TODO(NAI-19): full registry cleanup (delete from s.npcs[],
 		// splice s.npcLoop) remains deferred per pre-existing dead-bool
 		// model — see npc_registry.go header history.

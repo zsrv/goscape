@@ -37,3 +37,28 @@ func TestServer_PlayerLifecycleRoundTripSmoke(t *testing.T) {
 		t.Fatalf("re-add after removePlayer: %v", err)
 	}
 }
+
+func TestServer_AddNpcWiresRsbufSlot(t *testing.T) {
+	s := newTestServer(t)
+	n := newTestNpc(50)
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+	// Smoke: GetNpcObservers must not panic on the new slot.
+	if got := s.rsbuf.GetNpcObservers(int32(n.nid)); got != 0 {
+		t.Errorf("GetNpcObservers fresh: got %d, want 0", got)
+	}
+}
+
+func TestServer_RemoveNpcCleansRsbufSlot(t *testing.T) {
+	s := newTestServer(t)
+	n := newTestNpc(50)
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+	s.removeNpc(n, -1)
+	// Smoke: post-remove queries must not panic.
+	if got := s.rsbuf.GetNpcObservers(int32(n.nid)); got != 0 {
+		t.Errorf("GetNpcObservers post-remove: got %d, want 0", got)
+	}
+}
