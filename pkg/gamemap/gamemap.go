@@ -83,7 +83,7 @@ func (gm *GameMap) CanTravel(level, x, z, offsetX, offsetZ int) bool {
 	)
 }
 
-// Init reads map-pack files from cacheDir/maps/ and populates the collision map.
+// Init reads map-pack files from cacheDir/server/maps/ and populates the collision map.
 // Missing files and missing CSVs are treated as warnings, not errors.
 func (gm *GameMap) Init(cacheDir string) error {
 	mapsDir := filepath.Join(cacheDir, "server", "maps")
