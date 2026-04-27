@@ -75,5 +75,38 @@ func (it *NpcIterator) passesFilter(npc ActiveNpc) bool {
 	return true
 }
 
-// _ ensures coordgrid is imported even if passesFilter is the only use.
-var _ = coordgrid.DistanceToSW
+// NewDistanceNpcIterator constructs an iterator that walks NPCs in zones
+// within `distance` of (level, x, z), filtered by huntvis (validated only —
+// NAI-33-D1) and typeID (-1 = no filter). Mirrors TS NpcIterator
+// constructor at ScriptIterators.ts:310-326 with type=DISTANCE.
+//
+// Bounds math (per TS line 312-321):
+//
+//	centerX = x >> 3
+//	radius  = 1 + distance/8       // integer division
+//	zone bounds = [center - radius, center + radius]
+//
+// Cursor starts at (maxZoneX, maxZoneZ) per TS line 337-340; advances
+// outer X descending, inner Z descending in advanceZone (Task 6).
+func NewDistanceNpcIterator(lookup NpcLookup, tick, level, x, z, distance, huntvis, typeID int) *NpcIterator {
+	centerX := x >> 3
+	centerZ := z >> 3
+	radius := 1 + distance/8
+	return &NpcIterator{
+		mode:         NpcIteratorDistance,
+		creationTick: tick,
+		lookup:       lookup,
+		level:        level,
+		x:            x,
+		z:            z,
+		distance:     distance,
+		huntvis:      huntvis,
+		typeID:       typeID,
+		minZoneX:     centerX - radius,
+		maxZoneX:     centerX + radius,
+		minZoneZ:     centerZ - radius,
+		maxZoneZ:     centerZ + radius,
+		curZoneX:     centerX + radius,
+		curZoneZ:     centerZ + radius,
+	}
+}
