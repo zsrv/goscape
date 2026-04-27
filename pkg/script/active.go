@@ -510,6 +510,36 @@ type ActiveNpc interface {
 	// TargetOp returns the NPC's current targetOp/mode value (the field set
 	// by NPC_SETMODE / interaction binding). Used by NPC_GETMODE (opcode 2522).
 	TargetOp() int
+
+	// ClearInteraction clears the NPC's current interaction binding.
+	// Mirrors TS PathingEntity.clearInteraction. Used by NPC_SETMODE
+	// clear-target branch (NAI-36).
+	ClearInteraction()
+
+	// ResetDefaults reverts the NPC to defaultMode + clears interaction
+	// + emits faceEntity reset mask. Mirrors TS Npc.resetDefaults. Used
+	// by NPC_SETMODE NULL-mode + no-target-fallthrough branches (NAI-36).
+	ResetDefaults()
+
+	// ClearPatrol resets nextPatrolTick to -1. Mirrors TS Npc.clearPatrol
+	// at Engine-TS/.../Npc.ts:377-379. Used by NPC_SETMODE PATROL branch
+	// (NAI-36).
+	ClearPatrol()
+
+	// SetTargetOp sets n.targetOp directly (no interaction binding). Used
+	// by NPC_SETMODE clear-target and target-binding branches that assign
+	// targetOp before the interaction call. Mirrors TS direct property
+	// write `state.activeNpc.targetOp = mode` at NpcOps.ts:196,205.
+	SetTargetOp(mode int)
+
+	// SetInteractionScript binds the NPC's interaction to target with mode
+	// as the targetOp, using Interaction.SCRIPT. Mirrors TS
+	// Npc.setInteraction(Interaction.SCRIPT, target, mode) at NpcOps.ts:225-228.
+	// target is one of: ActivePlayer, ActiveNpc, ActiveLoc, ActiveObj
+	// (script-side interfaces). Adapter type-switches on the underlying
+	// concrete world-side entity. Pass nil to no-op (caller handles
+	// null-target as resetDefaults).
+	SetInteractionScript(target any, mode int)
 }
 
 // ActiveLoc is the surface that LOC_* opcodes use to read the loc

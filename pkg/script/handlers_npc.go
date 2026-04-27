@@ -3,6 +3,8 @@ package script
 import (
 	"errors"
 	"fmt"
+
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 // checkCoord mirrors TS CoordValid (ScriptValidators.ts:109) — validates
@@ -14,6 +16,17 @@ func checkCoord(v int, op string) (level, x, z int, err error) {
 	}
 	level, x, z = unpackCoord(v)
 	return
+}
+
+// checkNpcMode validates an NPC mode value against the full NPCMode* enum
+// at pkg/objtype/npctype.go. Accepts every declared value (Null=-1 through
+// ApNpc5=46). Mirrors TS NpcModeValid (ScriptValidators.ts:116) — same
+// ScriptInputRangeValidator(NULL, APNPC5) range, no enum-table dispatch.
+func checkNpcMode(mode int, op string) error {
+	if mode < objtype.NPCModeNull || mode > objtype.NPCModeApNpc5 {
+		return fmt.Errorf("%s: invalid npc mode (%d)", op, mode)
+	}
+	return nil
 }
 
 // checkNpcType mirrors TS NpcTypeValid (ScriptValidators.ts:111) — range
@@ -389,6 +402,74 @@ func handleNpcGetMode(s *ScriptState) error {
 		return err
 	}
 	s.PushInt(s.ActiveNpc.TargetOp())
+	return nil
+}
+
+// handleNpcSetMode (NPC_SETMODE, opcode 2535) sets the active NPC's mode
+// (targetOp). 3-branch dispatch:
+//
+//  1. clear-target modes (NONE/WANDER/PATROL): clearInteraction +
+//     targetOp = mode; PATROL additionally clearPatrol.
+//  2. NULL: resetDefaults.
+//  3. target-binding modes (OPPLAYER*/OPLOC*/OPOBJ*/OPNPC* + AP* + the
+//     four PlayerEscape/Follow/Face/FaceClose modes): targetOp = mode,
+//     then resolve target by mode-range and bind via setInteraction(SCRIPT,
+//     target, mode); a nil target falls through to resetDefaults.
+//
+// Mirrors TS NpcOps.ts:188-249. Branch order in step 3 (Npc/Obj/Loc/Player)
+// matches TS line 207-219; the OpNpc branch additionally consults
+// state.IntOperands[PC] (TS state.intOperand): operand==0 selects
+// OtherActiveNpc (".npc2" syntax), nonzero selects ActiveNpc (self).
+func handleNpcSetMode(s *ScriptState) error {
+	if err := requireActiveNpc(s, "NPC_SETMODE"); err != nil {
+		return err
+	}
+	mode := s.PopInt()
+	if err := checkNpcMode(mode, "NPC_SETMODE"); err != nil {
+		return err
+	}
+
+	// Branch 1: clear-target modes.
+	if mode == objtype.NPCModeNone || mode == objtype.NPCModeWander || mode == objtype.NPCModePatrol {
+		s.ActiveNpc.ClearInteraction()
+		s.ActiveNpc.SetTargetOp(mode)
+		if mode == objtype.NPCModePatrol {
+			s.ActiveNpc.ClearPatrol()
+		}
+		return nil
+	}
+
+	// Branch 2: NULL → resetDefaults.
+	if mode == objtype.NPCModeNull {
+		s.ActiveNpc.ResetDefaults()
+		return nil
+	}
+
+	// Branch 3: target-binding modes.
+	s.ActiveNpc.SetTargetOp(mode)
+
+	var target any
+	switch {
+	case mode >= objtype.NPCModeOpNpc1: // OPNPC1..APNPC5
+		operand := s.Script.IntOperands[s.PC]
+		if operand == 0 {
+			target = s.OtherActiveNpc
+		} else {
+			target = s.ActiveNpc
+		}
+	case mode >= objtype.NPCModeOpObj1: // OPOBJ1..APOBJ5
+		target = s.ActiveObj
+	case mode >= objtype.NPCModeOpLoc1: // OPLOC1..APLOC5
+		target = s.ActiveLoc
+	default: // PlayerEscape/Follow/Face/FaceClose + OPPLAYER1..APPLAYER5
+		target = s.Self
+	}
+
+	if target == nil {
+		s.ActiveNpc.ResetDefaults()
+		return nil
+	}
+	s.ActiveNpc.SetInteractionScript(target, mode)
 	return nil
 }
 

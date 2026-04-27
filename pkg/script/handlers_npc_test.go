@@ -201,6 +201,16 @@ type mockNpc struct {
 	teleportCalls                      []struct{ x, z, level int }
 	queueWaypointCalls                 []struct{ x, z int }
 	targetOpField                      int
+
+	// NAI-36 Task 6: NPC_SETMODE recorder fields.
+	clearInteractionCalls     int
+	resetDefaultsCalls        int
+	clearPatrolCalls          int
+	setTargetOpCalls          []int
+	setInteractionScriptCalls []struct {
+		target any
+		mode   int
+	}
 }
 
 func (m *mockNpc) NpcType() int     { return m.typeID }
@@ -295,6 +305,20 @@ func (m *mockNpc) QueueWaypoint(x, z int) {
 }
 
 func (m *mockNpc) TargetOp() int { return m.targetOpField }
+
+func (m *mockNpc) ClearInteraction() { m.clearInteractionCalls++ }
+func (m *mockNpc) ResetDefaults()    { m.resetDefaultsCalls++ }
+func (m *mockNpc) ClearPatrol()      { m.clearPatrolCalls++ }
+func (m *mockNpc) SetTargetOp(mode int) {
+	m.targetOpField = mode
+	m.setTargetOpCalls = append(m.setTargetOpCalls, mode)
+}
+func (m *mockNpc) SetInteractionScript(target any, mode int) {
+	m.setInteractionScriptCalls = append(m.setInteractionScriptCalls, struct {
+		target any
+		mode   int
+	}{target, mode})
+}
 
 // runNpcOp executes a single-opcode script against npc + optional mc,
 // with pre-pushed int inputs, and returns the resulting state.
@@ -2293,5 +2317,305 @@ func TestNpcGetMode_NoActiveNpcErrors(t *testing.T) {
 	err := handleNpcGetMode(state)
 	if err == nil || !strings.Contains(err.Error(), "no active npc") {
 		t.Errorf("handleNpcGetMode with no active npc: got %v, want error containing 'no active npc'", err)
+	}
+}
+
+// --- NAI-36 Task 6: NPC_SETMODE Layer 1 unit tests -----------------------
+
+// mockActiveObj is a minimal ActiveObj fixture for NPC_SETMODE OPOBJ tests.
+type mockActiveObj struct {
+	objType, x, z, level int
+}
+
+func (m *mockActiveObj) ObjType() int              { return m.objType }
+func (m *mockActiveObj) Coords() (x, z, level int) { return m.x, m.z, m.level }
+
+func TestNpcSetMode_ModeNoneClearsInteractionAndSetsOp(t *testing.T) {
+	npc := &mockNpc{}
+	mc := &mockConfigs{}
+
+	_ = runNpcOp(t, npc, mc, OpNpcSetMode, []int{int(objtype.NPCModeNone)})
+
+	if npc.clearInteractionCalls != 1 {
+		t.Errorf("clearInteractionCalls: got %d, want 1", npc.clearInteractionCalls)
+	}
+	if len(npc.setTargetOpCalls) != 1 || npc.setTargetOpCalls[0] != int(objtype.NPCModeNone) {
+		t.Errorf("setTargetOpCalls: got %v, want [NPCModeNone]", npc.setTargetOpCalls)
+	}
+	if npc.clearPatrolCalls != 0 {
+		t.Errorf("clearPatrolCalls: got %d, want 0 (only PATROL mode triggers clearPatrol)", npc.clearPatrolCalls)
+	}
+	if len(npc.setInteractionScriptCalls) != 0 {
+		t.Errorf("setInteractionScriptCalls: got %d, want 0 (clear-target branch must not bind)",
+			len(npc.setInteractionScriptCalls))
+	}
+}
+
+func TestNpcSetMode_ModeWanderClearsInteractionAndSetsOp(t *testing.T) {
+	npc := &mockNpc{}
+	mc := &mockConfigs{}
+
+	_ = runNpcOp(t, npc, mc, OpNpcSetMode, []int{int(objtype.NPCModeWander)})
+
+	if npc.clearInteractionCalls != 1 {
+		t.Errorf("clearInteractionCalls: got %d, want 1", npc.clearInteractionCalls)
+	}
+	if len(npc.setTargetOpCalls) != 1 || npc.setTargetOpCalls[0] != int(objtype.NPCModeWander) {
+		t.Errorf("setTargetOpCalls: got %v, want [NPCModeWander]", npc.setTargetOpCalls)
+	}
+	if npc.clearPatrolCalls != 0 {
+		t.Errorf("clearPatrolCalls: got %d, want 0", npc.clearPatrolCalls)
+	}
+}
+
+func TestNpcSetMode_ModePatrolAlsoClearsPatrol(t *testing.T) {
+	npc := &mockNpc{}
+	mc := &mockConfigs{}
+
+	_ = runNpcOp(t, npc, mc, OpNpcSetMode, []int{int(objtype.NPCModePatrol)})
+
+	if npc.clearInteractionCalls != 1 {
+		t.Errorf("clearInteractionCalls: got %d, want 1", npc.clearInteractionCalls)
+	}
+	if len(npc.setTargetOpCalls) != 1 || npc.setTargetOpCalls[0] != int(objtype.NPCModePatrol) {
+		t.Errorf("setTargetOpCalls: got %v, want [NPCModePatrol]", npc.setTargetOpCalls)
+	}
+	if npc.clearPatrolCalls != 1 {
+		t.Errorf("clearPatrolCalls: got %d, want 1 (PATROL must reset patrol-tick)", npc.clearPatrolCalls)
+	}
+}
+
+func TestNpcSetMode_ModeNullCallsResetDefaults(t *testing.T) {
+	npc := &mockNpc{}
+	mc := &mockConfigs{}
+
+	_ = runNpcOp(t, npc, mc, OpNpcSetMode, []int{int(objtype.NPCModeNull)})
+
+	if npc.resetDefaultsCalls != 1 {
+		t.Errorf("resetDefaultsCalls: got %d, want 1", npc.resetDefaultsCalls)
+	}
+	if npc.clearInteractionCalls != 0 {
+		t.Errorf("clearInteractionCalls: got %d, want 0 (NULL goes through resetDefaults, not direct clear)",
+			npc.clearInteractionCalls)
+	}
+	if len(npc.setInteractionScriptCalls) != 0 {
+		t.Errorf("setInteractionScriptCalls: got %d, want 0", len(npc.setInteractionScriptCalls))
+	}
+}
+
+func TestNpcSetMode_OpPlayerWithSelfTargetBindsToActivePlayer(t *testing.T) {
+	npc := &mockNpc{}
+	player := &mockPlayer{}
+	mc := &mockConfigs{}
+
+	state := &ScriptState{
+		Script: &ScriptFile{
+			Name:             "test_npc_setmode",
+			Opcodes:          []Opcode{OpNpcSetMode, OpReturn},
+			IntOperands:      []int32{0, 0},
+			StringOperands:   []string{"", ""},
+			InstructionCount: 2,
+		},
+		ActiveNpc:   npc,
+		Self:        player,
+		Configs:     mc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	state.PushInt(int(objtype.NPCModeOpPlayer1))
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	if len(npc.setInteractionScriptCalls) != 1 {
+		t.Fatalf("setInteractionScriptCalls: got %d, want 1", len(npc.setInteractionScriptCalls))
+	}
+	got := npc.setInteractionScriptCalls[0]
+	if got.mode != int(objtype.NPCModeOpPlayer1) {
+		t.Errorf("mode: got %d, want NPCModeOpPlayer1", got.mode)
+	}
+	if got.target != ActivePlayer(player) {
+		t.Errorf("target: got %v, want player (%v)", got.target, player)
+	}
+}
+
+func TestNpcSetMode_OpNpcWithIntOperandZeroBindsToOtherActiveNpc(t *testing.T) {
+	npc := &mockNpc{}
+	otherNpc := &mockNpc{}
+	mc := &mockConfigs{}
+
+	state := &ScriptState{
+		Script: &ScriptFile{
+			Name:             "test_npc_setmode",
+			Opcodes:          []Opcode{OpNpcSetMode, OpReturn},
+			IntOperands:      []int32{0, 0},
+			StringOperands:   []string{"", ""},
+			InstructionCount: 2,
+		},
+		ActiveNpc:      npc,
+		OtherActiveNpc: otherNpc,
+		Configs:        mc,
+		IntStack:       make([]int, StackCapacity),
+		StringStack:    make([]string, StackCapacity),
+	}
+	state.PushInt(int(objtype.NPCModeOpNpc1))
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	if len(npc.setInteractionScriptCalls) != 1 {
+		t.Fatalf("setInteractionScriptCalls: got %d, want 1", len(npc.setInteractionScriptCalls))
+	}
+	if npc.setInteractionScriptCalls[0].target != ActiveNpc(otherNpc) {
+		t.Errorf("target: got %v, want otherNpc (%v) — operand=0 selects OtherActiveNpc",
+			npc.setInteractionScriptCalls[0].target, otherNpc)
+	}
+}
+
+func TestNpcSetMode_OpNpcWithIntOperandNonZeroBindsToActiveNpc(t *testing.T) {
+	npc := &mockNpc{}
+	otherNpc := &mockNpc{}
+	mc := &mockConfigs{}
+
+	state := &ScriptState{
+		Script: &ScriptFile{
+			Name:             "test_npc_setmode",
+			Opcodes:          []Opcode{OpNpcSetMode, OpReturn},
+			IntOperands:      []int32{1, 0},
+			StringOperands:   []string{"", ""},
+			InstructionCount: 2,
+		},
+		ActiveNpc:      npc,
+		OtherActiveNpc: otherNpc,
+		Configs:        mc,
+		IntStack:       make([]int, StackCapacity),
+		StringStack:    make([]string, StackCapacity),
+	}
+	state.PushInt(int(objtype.NPCModeOpNpc1))
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	if len(npc.setInteractionScriptCalls) != 1 {
+		t.Fatalf("setInteractionScriptCalls: got %d, want 1", len(npc.setInteractionScriptCalls))
+	}
+	if npc.setInteractionScriptCalls[0].target != ActiveNpc(npc) {
+		t.Errorf("target: got %v, want npc (self) — operand!=0 selects ActiveNpc",
+			npc.setInteractionScriptCalls[0].target)
+	}
+}
+
+func TestNpcSetMode_OpObjBindsToActiveObj(t *testing.T) {
+	npc := &mockNpc{}
+	obj := &mockActiveObj{}
+	mc := &mockConfigs{}
+
+	state := &ScriptState{
+		Script: &ScriptFile{
+			Name:             "test_npc_setmode",
+			Opcodes:          []Opcode{OpNpcSetMode, OpReturn},
+			IntOperands:      []int32{0, 0},
+			StringOperands:   []string{"", ""},
+			InstructionCount: 2,
+		},
+		ActiveNpc:   npc,
+		ActiveObj:   obj,
+		Configs:     mc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	state.PushInt(int(objtype.NPCModeOpObj1))
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	if len(npc.setInteractionScriptCalls) != 1 {
+		t.Fatalf("setInteractionScriptCalls: got %d, want 1", len(npc.setInteractionScriptCalls))
+	}
+	if npc.setInteractionScriptCalls[0].target != ActiveObj(obj) {
+		t.Errorf("target: got %v, want obj (%v)", npc.setInteractionScriptCalls[0].target, obj)
+	}
+}
+
+func TestNpcSetMode_OpLocBindsToActiveLoc(t *testing.T) {
+	npc := &mockNpc{}
+	loc := &mockActiveLoc{locType: 42}
+	mc := &mockConfigs{}
+
+	state := &ScriptState{
+		Script: &ScriptFile{
+			Name:             "test_npc_setmode",
+			Opcodes:          []Opcode{OpNpcSetMode, OpReturn},
+			IntOperands:      []int32{0, 0},
+			StringOperands:   []string{"", ""},
+			InstructionCount: 2,
+		},
+		ActiveNpc:   npc,
+		ActiveLoc:   loc,
+		Configs:     mc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	state.PushInt(int(objtype.NPCModeOpLoc1))
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	if len(npc.setInteractionScriptCalls) != 1 {
+		t.Fatalf("setInteractionScriptCalls: got %d, want 1", len(npc.setInteractionScriptCalls))
+	}
+	if npc.setInteractionScriptCalls[0].target != ActiveLoc(loc) {
+		t.Errorf("target: got %v, want loc (%v)", npc.setInteractionScriptCalls[0].target, loc)
+	}
+}
+
+func TestNpcSetMode_OpPlayerWithNoSelfFallsThroughToResetDefaults(t *testing.T) {
+	npc := &mockNpc{}
+	mc := &mockConfigs{}
+
+	state := &ScriptState{
+		Script: &ScriptFile{
+			Name:             "test_npc_setmode",
+			Opcodes:          []Opcode{OpNpcSetMode, OpReturn},
+			IntOperands:      []int32{0, 0},
+			StringOperands:   []string{"", ""},
+			InstructionCount: 2,
+		},
+		ActiveNpc:   npc,
+		Self:        nil,
+		Configs:     mc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	state.PushInt(int(objtype.NPCModeOpPlayer1))
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	if npc.resetDefaultsCalls != 1 {
+		t.Errorf("resetDefaultsCalls: got %d, want 1 (no-target fallthrough)", npc.resetDefaultsCalls)
+	}
+	if len(npc.setInteractionScriptCalls) != 0 {
+		t.Errorf("setInteractionScriptCalls: got %d, want 0 (no target → no bind)",
+			len(npc.setInteractionScriptCalls))
+	}
+}
+
+func TestNpcSetMode_NoActiveNpcErrors(t *testing.T) {
+	state := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	state.PushInt(int(objtype.NPCModeNone))
+
+	err := handleNpcSetMode(state)
+	if err == nil || !strings.Contains(err.Error(), "no active npc") {
+		t.Errorf("handleNpcSetMode with no active npc: got %v, want error", err)
 	}
 }

@@ -1,6 +1,7 @@
 package world
 
 import (
+	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -117,6 +118,68 @@ func (n *Npc) Teleport(x, z, level int) {
 // (NAI-36).
 func (n *Npc) TargetOp() int {
 	return n.targetOp
+}
+
+// ClearInteraction is the ActiveNpc-interface adapter for n.clearInteraction
+// (NAI-36). Production caller is the NPC_SETMODE script handler.
+func (n *Npc) ClearInteraction() {
+	n.clearInteraction()
+}
+
+// ResetDefaults is the ActiveNpc-interface adapter for n.resetDefaults
+// (NAI-36). Production caller is the NPC_SETMODE script handler (NULL
+// mode + no-target fallthrough).
+func (n *Npc) ResetDefaults() {
+	n.resetDefaults()
+}
+
+// ClearPatrol is the ActiveNpc-interface adapter for n.clearPatrol
+// (NAI-36). Production caller is the NPC_SETMODE script handler when
+// the new mode is PATROL.
+func (n *Npc) ClearPatrol() {
+	n.clearPatrol()
+}
+
+// SetTargetOp sets n.targetOp directly (no interaction binding).
+// ActiveNpc-interface adapter used by NPC_SETMODE for both clear-target
+// and target-binding branches (NAI-36).
+func (n *Npc) SetTargetOp(mode int) {
+	n.targetOp = mode
+}
+
+// SetInteractionScript binds the NPC's interaction to target via
+// InteractionScript with mode as the targetOp/op argument. Type-switches
+// the script-side script.Active* interface value to the underlying
+// world-side concrete entity, then delegates to n.SetInteraction. Mirrors
+// TS Npc.setInteraction(Interaction.SCRIPT, target, mode) at
+// NpcOps.ts:225-228.
+//
+// The 4-arg signature passes com=-1 as the TS-faithful "no com" sentinel
+// (TS calls setInteraction with only 3 args; goscape carries the
+// targetSubject.com snapshot as a fourth arg with -1 sentinel matching
+// the TS `com ? com : -1` coercion at SetInteraction body).
+//
+// Passing nil is a defensive no-op: the caller (NPC_SETMODE handler)
+// already routes null targets through resetDefaults instead.
+func (n *Npc) SetInteractionScript(target any, mode int) {
+	var ent entity
+	switch t := target.(type) {
+	case *Player:
+		ent = t
+	case *Npc:
+		ent = t
+	case *entitypkg.Loc:
+		ent = t
+	case *entitypkg.Obj:
+		ent = t
+	default:
+		// Should not happen — script-side resolution narrows to one of
+		// the four concrete world-side types via interface dispatch.
+		// If the type-switch misses, no-op rather than panic so
+		// production stays alive.
+		return
+	}
+	n.SetInteraction(InteractionScript, ent, mode, -1)
 }
 
 // buildNpcScriptState initialises a ScriptState for an NPC-anchored

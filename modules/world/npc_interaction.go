@@ -705,3 +705,13 @@ func (n *Npc) defaultMode() int {
 	}
 	return objtype.NPCModeNone
 }
+
+// clearPatrol resets the patrol-tick countdown so the NPC immediately
+// resumes patrol-pathing on the next tick. Mirrors TS Npc.clearPatrol at
+// Engine-TS/.../Npc.ts:377-379.
+//
+// Called by the NPC_SETMODE script handler when the new mode is PATROL
+// (NAI-36).
+func (n *Npc) clearPatrol() {
+	n.nextPatrolTick = -1
+}

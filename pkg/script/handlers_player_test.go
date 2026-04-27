@@ -48,6 +48,11 @@ func (m *mockActiveNpc) SetHuntMode(_ int)                                     {
 func (m *mockActiveNpc) Teleport(_, _, _ int)                                  {}
 func (m *mockActiveNpc) QueueWaypoint(_, _ int)                                {}
 func (m *mockActiveNpc) TargetOp() int                                         { return 0 }
+func (m *mockActiveNpc) ClearInteraction()                                     {}
+func (m *mockActiveNpc) ResetDefaults()                                        {}
+func (m *mockActiveNpc) ClearPatrol()                                          {}
+func (m *mockActiveNpc) SetTargetOp(_ int)                                     {}
+func (m *mockActiveNpc) SetInteractionScript(_ any, _ int)                     {}
 
 // newSingleOp builds a single-opcode script plus its trailing OpReturn,
 // so handler tests can run a handler in isolation and observe the state
