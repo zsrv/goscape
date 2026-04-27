@@ -2267,3 +2267,31 @@ func TestHandleNpcHuntAll_InvalidHuntVisRejected(t *testing.T) {
 		t.Error("npcIterator should remain nil after validation error")
 	}
 }
+
+// --- NAI-36 Task 3: NPC_GETMODE Layer 1 unit tests -----------------------
+
+func TestNpcGetMode_PushesTargetOp(t *testing.T) {
+	npc := &mockNpc{targetOpField: 5} // NPCModePlayerFace per pkg/objtype constants
+	mc := &mockConfigs{}
+
+	state := runNpcOp(t, npc, mc, OpNpcGetMode, nil)
+
+	if state.ISP != 1 {
+		t.Fatalf("ISP after NPC_GETMODE: got %d, want 1 (one push)", state.ISP)
+	}
+	got := state.IntStack[0]
+	if got != 5 {
+		t.Errorf("pushed value: got %d, want 5", got)
+	}
+}
+
+func TestNpcGetMode_NoActiveNpcErrors(t *testing.T) {
+	state := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	err := handleNpcGetMode(state)
+	if err == nil || !strings.Contains(err.Error(), "no active npc") {
+		t.Errorf("handleNpcGetMode with no active npc: got %v, want error containing 'no active npc'", err)
+	}
+}

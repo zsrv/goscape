@@ -381,6 +381,17 @@ func handleNpcWalk(s *ScriptState) error {
 	return nil
 }
 
+// handleNpcGetMode (NPC_GETMODE, opcode 2522) pushes the active NPC's
+// targetOp value (the mode set by NPC_SETMODE / interaction binding).
+// Mirrors TS NpcOps.ts:473-475 — checkedHandler(ActiveNpc) + pushInt.
+func handleNpcGetMode(s *ScriptState) error {
+	if err := requireActiveNpc(s, "NPC_GETMODE"); err != nil {
+		return err
+	}
+	s.PushInt(s.ActiveNpc.TargetOp())
+	return nil
+}
+
 // handleNpcSetHunt (NPC_SETHUNT, opcode 2533) sets the NPC's hunt
 // search range. Despite the opcode name, this sets RANGE only —
 // hunt mode is set via the separate NPC_SETHUNTMODE opcode.

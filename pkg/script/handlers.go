@@ -352,6 +352,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpNpcSetHunt:           handleNpcSetHunt,
 	OpNpcSetHuntMode:       handleNpcSetHuntMode,
 	OpNpcSetTimer:          handleNpcSetTimer,
+	OpNpcGetMode:           handleNpcGetMode,
 	OpNpcTele:              handleNpcTele,
 	OpNpcWalk:              handleNpcWalk,
 
