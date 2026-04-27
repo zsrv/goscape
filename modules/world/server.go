@@ -728,7 +728,7 @@ func (s *Server) ZonePlayers(level, zoneX, zoneZ int) []script.ActivePlayer {
 		return nil
 	}
 	out := make([]script.ActivePlayer, 0, z.PlayersCount())
-	for p := range z.PlayersSafe(false) {
+	for p := range z.PlayersSafe(true) {
 		// Production EnterPlayer only ever receives *Player, which compile-time
 		// satisfies script.ActivePlayer (assertion at message_game.go:11). The
 		// ok-form is forward-compatible safety: if a future PlayerLike impl

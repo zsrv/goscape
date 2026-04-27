@@ -21,6 +21,24 @@ func (s *stubLineValidator) HasLineOfWalk(level, srcX, srcZ, destX, destZ, srcSi
 	return s.lowReturn
 }
 
+// recordingLineValidator captures the args of the most recent LoS/LoW
+// call so tests can pin the src/dest argument order.
+type recordingLineValidator struct {
+	losLevel, losSrcX, losSrcZ, losDestX, losDestZ int
+	losReturn                                      bool
+	lowLevel, lowSrcX, lowSrcZ, lowDestX, lowDestZ int
+	lowReturn                                      bool
+}
+
+func (r *recordingLineValidator) HasLineOfSight(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, extraFlag int) bool {
+	r.losLevel, r.losSrcX, r.losSrcZ, r.losDestX, r.losDestZ = level, srcX, srcZ, destX, destZ
+	return r.losReturn
+}
+func (r *recordingLineValidator) HasLineOfWalk(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, extraFlag int) bool {
+	r.lowLevel, r.lowSrcX, r.lowSrcZ, r.lowDestX, r.lowDestZ = level, srcX, srcZ, destX, destZ
+	return r.lowReturn
+}
+
 func TestNpcIterator_StaleCheck(t *testing.T) {
 	// TS uses strict `>` (ScriptIterators.ts:332,343): only forward
 	// tick drift is stale. Past ticks are physically impossible
@@ -318,5 +336,23 @@ func TestPassesFilter_HuntAllMode_NilValidator_Allows(t *testing.T) {
 	it2 := NewHuntAllNpcIterator(nil, nil, 0, 0, 3200, 3300, 5, objtype.HuntVisLineOfWalk)
 	if !it2.passesFilter(npc) {
 		t.Errorf("passesFilter(nil-validator, LoW): got false, want true (pessimistic-allow)")
+	}
+}
+
+// TestNpcIterator_PassesFilter_HuntAllMode_LineOfSight_IteratorAsSrc pins
+// the TS-asymmetric arg order: NpcHuntAllCommandIterator passes iterator-as-src
+// + npc-as-dest (ScriptIterators.ts:284), REVERSE of PlayerHuntAll.
+func TestNpcIterator_PassesFilter_HuntAllMode_LineOfSight_IteratorAsSrc(t *testing.T) {
+	t.Parallel()
+	rec := &recordingLineValidator{losReturn: true}
+	it := NewHuntAllNpcIterator(nil, rec, 0, 0, 3200, 3200, 8, objtype.HuntVisLineOfSight)
+	npc := &mockNpc{x: 3201, z: 3202, level: 0}
+	_ = it.passesFilter(npc)
+	// Iterator-center should be SRC (3200, 3200); NPC should be DEST (3201, 3202).
+	if rec.losSrcX != 3200 || rec.losSrcZ != 3200 {
+		t.Errorf("LoS src: got (%d,%d), want (3200,3200) — iterator-center coords", rec.losSrcX, rec.losSrcZ)
+	}
+	if rec.losDestX != 3201 || rec.losDestZ != 3202 {
+		t.Errorf("LoS dest: got (%d,%d), want (3201,3202) — NPC coords", rec.losDestX, rec.losDestZ)
 	}
 }

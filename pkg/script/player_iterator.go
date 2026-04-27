@@ -64,12 +64,17 @@ func (it *PlayerIterator) passesFilter(p ActivePlayer) bool {
 		if it.lineValidator == nil {
 			return true
 		}
-		return it.lineValidator.HasLineOfSight(it.level, it.x, it.z, p.X(), p.Z(), 1, 0, 0, 0)
+		// TS-faithful: PlayerHuntAllCommandIterator passes player-as-src,
+		// iterator-as-dest (ScriptIterators.ts:216) — REVERSE of NPC variant
+		// at line 284. The TS asymmetry is intentional; RayCast direction
+		// sensitivity (linevalidator.go:42-160) makes the swap observable.
+		return it.lineValidator.HasLineOfSight(it.level, p.X(), p.Z(), it.x, it.z, 1, 0, 0, 0)
 	case objtype.HuntVisLineOfWalk:
 		if it.lineValidator == nil {
 			return true
 		}
-		return it.lineValidator.HasLineOfWalk(it.level, it.x, it.z, p.X(), p.Z(), 1, 0, 0, 0)
+		// TS-faithful: see HuntVisLineOfSight comment.
+		return it.lineValidator.HasLineOfWalk(it.level, p.X(), p.Z(), it.x, it.z, 1, 0, 0, 0)
 	}
 	return true
 }

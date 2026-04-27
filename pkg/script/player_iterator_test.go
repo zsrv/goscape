@@ -98,3 +98,36 @@ func TestPlayerIterator_NilLookup_NextReturnsFalse(t *testing.T) {
 		t.Errorf("nil lookup: got (%v, %t), want (nil, false)", p, ok)
 	}
 }
+
+// TestPlayerIterator_PassesFilter_LineOfSight_PlayerAsSrc pins the
+// TS-asymmetric arg order: PlayerHuntAllCommandIterator passes player-as-src
+// + iterator-as-dest (ScriptIterators.ts:216), REVERSE of NpcHuntAll.
+func TestPlayerIterator_PassesFilter_LineOfSight_PlayerAsSrc(t *testing.T) {
+	t.Parallel()
+	rec := &recordingLineValidator{losReturn: true}
+	it := NewHuntAllPlayerIterator(nil, rec, 0, 0, 3200, 3200, 8, objtype.HuntVisLineOfSight)
+	p := &mockPlayer{x: 3201, z: 3202}
+	_ = it.passesFilter(p)
+	// Player should be the SRC (3201, 3202); iterator-center should be the DEST (3200, 3200).
+	if rec.losSrcX != 3201 || rec.losSrcZ != 3202 {
+		t.Errorf("LoS src: got (%d,%d), want (3201,3202) — player coords", rec.losSrcX, rec.losSrcZ)
+	}
+	if rec.losDestX != 3200 || rec.losDestZ != 3200 {
+		t.Errorf("LoS dest: got (%d,%d), want (3200,3200) — iterator-center coords", rec.losDestX, rec.losDestZ)
+	}
+}
+
+// TestPlayerIterator_PassesFilter_LineOfWalk_PlayerAsSrc — companion to LoS.
+func TestPlayerIterator_PassesFilter_LineOfWalk_PlayerAsSrc(t *testing.T) {
+	t.Parallel()
+	rec := &recordingLineValidator{lowReturn: true}
+	it := NewHuntAllPlayerIterator(nil, rec, 0, 0, 3200, 3200, 8, objtype.HuntVisLineOfWalk)
+	p := &mockPlayer{x: 3201, z: 3202}
+	_ = it.passesFilter(p)
+	if rec.lowSrcX != 3201 || rec.lowSrcZ != 3202 {
+		t.Errorf("LoW src: got (%d,%d), want (3201,3202)", rec.lowSrcX, rec.lowSrcZ)
+	}
+	if rec.lowDestX != 3200 || rec.lowDestZ != 3200 {
+		t.Errorf("LoW dest: got (%d,%d), want (3200,3200)", rec.lowDestX, rec.lowDestZ)
+	}
+}
