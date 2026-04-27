@@ -164,6 +164,14 @@ type ScriptState struct {
 	// when `Self` (an NPC) targets another NPC. NAI-11.
 	OtherActiveNpc ActiveNpc
 
+	// npcIterator holds the active NPC_FIND iterator state. Set by
+	// FINDALL/FINDALLANY/FINDALLZONE; consumed by FINDNEXT. Lifetime is
+	// single-tick — Stale() check enforced at FINDNEXT against
+	// s.World.CurrentTick(). Nil = no active iterator. Mirrors TS
+	// ScriptState.npcIterator (ScriptState.ts:125). Lowercase = package-
+	// private; handlers in pkg/script access directly. NAI-33.
+	npcIterator *NpcIterator
+
 	// DB cursor state — populated by DB_LISTALL* (and DB_FIND*, deferred to a
 	// later sub-spec); consumed by DB_FINDNEXT, DB_FINDBYINDEX. DbTable == nil
 	// means no LISTALL/FIND has selected a table yet; DbRow is the cursor index
