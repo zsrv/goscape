@@ -1154,6 +1154,83 @@ func TestOpNpc1FiresScriptAndEmitsAnimPlusSay(t *testing.T) {
 	}
 }
 
+// --- NAI-37 Task 10: player-path WorldSuspended producer test --------------
+
+// TestResumeOrFinish_WorldSuspended_EnqueuesAndClearsActiveScript pins
+// the player-path producer: a player-bound script whose Execute
+// returned Execution=WorldSuspended (with the wakeup-tick on the int
+// stack) is dispatched by resumeOrFinish to (a) pop the wakeup-tick,
+// (b) enqueue to s.worldScriptQueue with that delay, and (c) clear
+// the player's active script. Mirrors TS Player.ts:2135-2136.
+//
+// The test constructs the post-Execute ScriptState directly (skipping
+// script.Execute) so it isolates the resumeOrFinish branch under test:
+// we want to verify the WorldSuspended dispatch arm, not the bytecode
+// path that produces it (which is covered by pkg/script tests).
+//
+// Note: resumeOrFinish itself calls script.Execute first. To bypass it
+// for this isolated test, we use a single-instruction RETURN script —
+// Execute runs it as a no-op (Execution stays WorldSuspended only if
+// we set it AFTER Execute returns). Instead we build a script whose
+// bytecode sets WorldSuspended via the WORLD_DELAY opcode, then drive
+// resumeOrFinish through it end-to-end. This matches how the real
+// dispatch path works in production.
+func TestResumeOrFinish_WorldSuspended_EnqueuesAndClearsActiveScript(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	// Script: push 5, world_delay, return.
+	// WORLD_DELAY pops the int and sets Execution=WorldSuspended,
+	// leaving the popped value... actually per pkg/script/handlers_server.go
+	// WORLD_DELAY does NOT pop (the wakeup-tick stays on the stack for
+	// the producer to consume). So the producer (resumeOrFinish) is
+	// what pops it.
+	sf := &script.ScriptFile{
+		Name: "[worlddelay,test]",
+		Opcodes: []script.Opcode{
+			script.OpPushConstantInt,
+			script.OpWorldDelay,
+			script.OpReturn,
+		},
+		IntOperands:      []int32{5, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+
+	// Init + drive through resumeOrFinish (which itself runs Execute).
+	state := script.Init(sf, p, true, nil, nil)
+	state.Provider = s.scriptProvider
+	state.World = s.worldVars
+	state.Configs = s.configsView
+	state.Inv = s.invLookup
+	state.Npcs = s.npcLookup
+	state.LineValidator = s.scriptLineValidator()
+
+	// Pre-set activeScript so we can verify it gets cleared. (In
+	// production this would be set by StoreActiveScript on a prior
+	// suspension; here we wire it directly so the assertion is
+	// meaningful.)
+	p.activeScript = state
+
+	s.resumeOrFinish(state, p)
+
+	if got, want := len(s.worldScriptQueue), 1; got != want {
+		t.Fatalf("worldScriptQueue length: got %d, want %d", got, want)
+	}
+	if got := s.worldScriptQueue[0].delay; got != 5 {
+		t.Errorf("enqueued delay: got %d, want 5 (popped from script stack)", got)
+	}
+	if got := s.worldScriptQueue[0].script; got != state {
+		t.Errorf("enqueued script identity: got %p, want %p", got, state)
+	}
+	if got := p.activeScript; got != nil {
+		t.Errorf("player.activeScript: got %v, want nil (script transitioned to world-bound)", got)
+	}
+}
+
 // TestProcessPlayerQueueDeliversAllArgs validates the NAI-26 Bundle 1
 // plumbing under realistic queue-fire conditions: a queue request
 // carrying IntArgs=[100, 200] is fired through processPlayerQueue and

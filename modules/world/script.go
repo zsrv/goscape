@@ -55,8 +55,17 @@ func (s *Server) resumeOrFinish(state *script.ScriptState, self script.ActivePla
 		self.ClearActiveScript()
 	case script.Suspended, script.PauseButton, script.CountDialog:
 		self.StoreActiveScript(state)
+	case script.WorldSuspended:
+		// NAI-37 T10: player-bound script suspended to world queue.
+		// Pop the wakeup-tick (which the script's bytecode pushed
+		// before WORLD_DELAY — see handlers_server.go:87-108) and
+		// enqueue. The player no longer owns this script; it now
+		// belongs to the world queue. Mirrors TS Player.ts:2135-2136.
+		delay := state.PopInt()
+		s.EnqueueWorldScript(state, delay)
+		self.ClearActiveScript()
 	default:
-		// NpcSuspended / WorldSuspended — future sub-specs.
+		// NpcSuspended — future sub-spec (T11).
 		s.log.Warn("script in unsupported execution state",
 			"script", state.Script.Name, "execution", state.Execution)
 		self.ClearActiveScript()
