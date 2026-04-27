@@ -97,6 +97,10 @@ type mockPlayer struct {
 	username string
 	playtime int
 
+	// NAI-35-T2: absolute world coords for ActivePlayer.X/Z, consumed
+	// by MAP_PLAYERCOUNT's rect filter. Default zero is safe.
+	x, z int
+
 	// S4: captured calls from the suspension + queue methods.
 	setDelayedCalls []int
 	enqueueCalls    []mockEnqueue
@@ -447,6 +451,11 @@ func (m *mockPlayer) CamReset() { m.camResetCalls++ }
 // StaffModLevel returns the seeded staff level for tests.
 func (m *mockPlayer) StaffModLevel() int32 { return int32(m.staffModLevelValue) }
 func (m *mockPlayer) UID() int              { return m.uidValue }
+
+// NAI-35-T2: ActivePlayer.X/Z used by MAP_PLAYERCOUNT rect filter and
+// future PlayerIterator passes-filter check.
+func (m *mockPlayer) X() int { return m.x }
+func (m *mockPlayer) Z() int { return m.z }
 
 // CanAccess returns the seeded accessibility flag for P_FINDUID tests.
 func (m *mockPlayer) CanAccess() bool { return m.canAccessValue }

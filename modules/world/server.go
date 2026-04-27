@@ -713,6 +713,27 @@ func (s *Server) LookupPlayerByUID(uid int) script.ActivePlayer {
 	return nil
 }
 
+// ZonePlayers returns all valid players in the zone at (level, zoneX, zoneZ).
+// Mirrors the NpcLookup.ZoneNpcs shape and serverNpcLookup.ZoneNpcs impl
+// at modules/world/npc_script_lookup.go:115. Zone resolution via
+// pkg/zone.ZoneMap.Get which masks coords to zone bounds internally.
+// nil zoneMap (defense) and nil zone (off-grid) both return nil.
+// PlayersSafe filters non-IsValid entries (zone.go:424). NAI-35.
+func (s *Server) ZonePlayers(level, zoneX, zoneZ int) []script.ActivePlayer {
+	if s.zoneMap == nil {
+		return nil
+	}
+	z := s.zoneMap.Get(level, zoneX, zoneZ)
+	if z == nil {
+		return nil
+	}
+	out := make([]script.ActivePlayer, 0, 4)
+	for p := range z.PlayersSafe(false) {
+		out = append(out, p.(script.ActivePlayer))
+	}
+	return out
+}
+
 // TODO: move this somewhere else
 type LoginResponse struct {
 	Type          string

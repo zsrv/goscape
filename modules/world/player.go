@@ -436,6 +436,12 @@ func (p *Player) Slot() int { return p.slot }
 // Coords returns the player's current absolute coordinates.
 func (p *Player) Coords() (x, z, level int) { return p.x, p.z, p.level }
 
+// X is the script-VM ActivePlayer.X accessor. NAI-35.
+func (p *Player) X() int { return p.x }
+
+// Z is the script-VM ActivePlayer.Z accessor. NAI-35.
+func (p *Player) Z() int { return p.z }
+
 // Busy returns true when the player cannot accept new interactions —
 // either delayed (suspended by script delay) or has a main/chat modal
 // open. Mirrors TS Player.busy() at Engine-TS/.../Player.ts:801-803

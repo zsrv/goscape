@@ -1175,15 +1175,29 @@ func TestPClearPendingActionUnprotectedRejected(t *testing.T) {
 
 // -- S7a FINDUID tests ---------------------------------------------------
 
+// zoneKey indexes the byZone fixture below by (level, zoneX, zoneZ),
+// matching the production-side ZonePlayers parameter shape (world coords,
+// not zone indices). NAI-35-T2.
+type zoneKey struct{ level, zoneX, zoneZ int }
+
 // mockPlayerLookup resolves UIDs via a pre-seeded map. Introduced in S7a.
+// NAI-35-T2 extends with byZone for the new ZonePlayers method.
 type mockPlayerLookup struct {
-	byUID map[int]ActivePlayer
-	calls int
+	byUID  map[int]ActivePlayer
+	byZone map[zoneKey][]ActivePlayer
+	calls  int
 }
 
 func (m *mockPlayerLookup) LookupPlayerByUID(uid int) ActivePlayer {
 	m.calls++
 	return m.byUID[uid]
+}
+
+// ZonePlayers satisfies the NAI-35-T2 PlayerLookup.ZonePlayers extension.
+// Returns the slice keyed by (level, zoneX, zoneZ); nil/zero-value if
+// unseeded. Mirrors the production semantics of "empty/nil slice on miss".
+func (m *mockPlayerLookup) ZonePlayers(level, zoneX, zoneZ int) []ActivePlayer {
+	return m.byZone[zoneKey{level, zoneX, zoneZ}]
 }
 
 // TestFindUIDFound: lookup returns a target → push 1, Self rebinds,

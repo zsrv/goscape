@@ -20,12 +20,21 @@ const (
 	FrameCapacity = 50
 )
 
-// PlayerLookup resolves a UID to an ActivePlayer if a player with that UID
-// is currently logged in. Handlers decide whether the result is usable:
-// FINDUID accepts any match; P_FINDUID additionally gates on CanAccess.
-// Returns nil if no logged-in player has that UID.
+// PlayerLookup is the player-resolution surface for FINDUID / P_FINDUID
+// (UID-keyed lookup) and for zone-rect player enumeration used by
+// MAP_PLAYERCOUNT (NAI-35).
 type PlayerLookup interface {
+	// LookupPlayerByUID resolves a UID to an ActivePlayer if a player
+	// with that UID is currently logged in. Returns nil on miss.
+	// Handlers decide whether the result is usable: FINDUID accepts any
+	// match; P_FINDUID additionally gates on CanAccess.
 	LookupPlayerByUID(uid int) ActivePlayer
+
+	// ZonePlayers returns all players in the zone at (level, zoneX, zoneZ),
+	// filtered by IsValid via Zone.PlayersSafe. Mirrors NpcLookup.ZoneNpcs
+	// shape (world coords, not zone-index; ZoneMap.Get masks internally).
+	// Empty/nil slice on miss. Used by MAP_PLAYERCOUNT (NAI-35).
+	ZonePlayers(level, zoneX, zoneZ int) []ActivePlayer
 }
 
 // WorldVars is the minimal surface that pkg/script needs from the

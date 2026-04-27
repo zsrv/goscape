@@ -280,6 +280,16 @@ type ActivePlayer interface {
 	// RPC). Used by the UID script opcode for mod/account-state checks.
 	UID() int
 
+	// X returns the player's current absolute world X coord. Used by
+	// MAP_PLAYERCOUNT (NAI-35-T2) for rect-filter checks; will also be
+	// used by PlayerIterator.passesFilter (NAI-35-T4).
+	X() int
+
+	// Z returns the player's current absolute world Z coord. Used by
+	// MAP_PLAYERCOUNT (NAI-35-T2) and PlayerIterator.passesFilter
+	// (NAI-35-T4).
+	Z() int
+
 	// SetApRange sets the approach-range-in-tiles for the active
 	// interaction AND marks apRangeCalled=true. Called by p_aprange
 	// script opcode when an APLOC trigger wants to extend the range
