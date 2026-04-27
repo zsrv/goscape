@@ -197,6 +197,12 @@ type ScriptState struct {
 	// private; handlers in pkg/script access directly. NAI-33.
 	npcIterator *NpcIterator
 
+	// playerIterator holds the active player-iterator state. Set by
+	// HUNTALL; consumed by HUNTNEXT (T5). Single-tick lifetime — Stale()
+	// check at HUNTNEXT against s.World.CurrentTick(). Nil = no active
+	// iterator. NAI-35-T4.
+	playerIterator *PlayerIterator
+
 	// DB cursor state — populated by DB_LISTALL* (and DB_FIND*, deferred to a
 	// later sub-spec); consumed by DB_FINDNEXT, DB_FINDBYINDEX. DbTable == nil
 	// means no LISTALL/FIND has selected a table yet; DbRow is the cursor index

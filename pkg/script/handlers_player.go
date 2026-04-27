@@ -768,3 +768,36 @@ func handleMidiJingle(s *ScriptState) error {
 	s.Self.PlayJingle(delay, name)
 	return nil
 }
+
+// handleHuntAll (HUNTALL, opcode 2031) pops [coord, distance, huntvis]
+// and stores a HuntAll-mode PlayerIterator in s.playerIterator
+// (consumed by HUNTNEXT 2032 in T5). Mirrors TS PlayerOps.ts:1215-1223.
+//
+// Pop order (top-of-stack first): huntvis, distance, coord.
+// Validation: checkCoord, checkNotNull(distance), checkHuntVis.
+// Nil-PlayerLookup degrades silently (matches NPC_HUNTALL convention).
+func handleHuntAll(s *ScriptState) error {
+	checkVis := s.PopInt()
+	distance := s.PopInt()
+	coord := s.PopInt()
+
+	level, x, z, err := checkCoord(coord, "HUNTALL")
+	if err != nil {
+		return err
+	}
+	if err := checkNotNull(distance, "HUNTALL"); err != nil {
+		return err
+	}
+	if err := checkHuntVis(checkVis, "HUNTALL"); err != nil {
+		return err
+	}
+
+	if s.PlayerLookup == nil {
+		return nil
+	}
+	s.playerIterator = NewHuntAllPlayerIterator(
+		s.PlayerLookup, s.LineValidator, s.World.CurrentTick(),
+		level, x, z, distance, checkVis,
+	)
+	return nil
+}

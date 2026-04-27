@@ -2398,3 +2398,83 @@ func TestHandlePOpNpcNullRejected(t *testing.T) {
 		t.Errorf("lastSetInteractionScriptNpc: should not have been called, got %d", len(mp.lastSetInteractionScriptNpc))
 	}
 }
+
+// --- NAI-35-T4: HUNTALL handler tests ----------------------------------
+
+// newHuntAllState pushes (coord, distance, huntvis) — popInts(3) order
+// matching TS PlayerOps.ts:1215-1223. Mirrors handlers_npc_test.go's
+// newNpcHuntAllState convention.
+func newHuntAllState(t *testing.T, coord, distance, huntvis int, lookup *mockPlayerLookup) *ScriptState {
+	t.Helper()
+	mw := newMockWorld()
+	mw.tick = 100
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{0}},
+		PC:          0,
+		World:       mw,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	if lookup != nil {
+		s.PlayerLookup = lookup
+	}
+	s.PushInt(coord)
+	s.PushInt(distance)
+	s.PushInt(huntvis)
+	return s
+}
+
+func TestHandleHuntAll_StoresHuntAllPlayerIterator(t *testing.T) {
+	coord := (2 << 28) | (3200 << 14) | 3300
+	s := newHuntAllState(t, coord, 10, objtype.HuntVisLineOfSight, &mockPlayerLookup{})
+	if err := handleHuntAll(s); err != nil {
+		t.Fatalf("handleHuntAll: %v", err)
+	}
+	if s.playerIterator == nil {
+		t.Fatal("playerIterator should be non-nil after HUNTALL")
+	}
+	if s.playerIterator.mode != PlayerIteratorHuntAll {
+		t.Errorf("mode: got %v, want PlayerIteratorHuntAll", s.playerIterator.mode)
+	}
+	if s.playerIterator.huntvis != objtype.HuntVisLineOfSight {
+		t.Errorf("huntvis: got %d, want HuntVisLineOfSight (%d)", s.playerIterator.huntvis, objtype.HuntVisLineOfSight)
+	}
+	if s.playerIterator.creationTick != 100 {
+		t.Errorf("creationTick: got %d, want 100 (from World.CurrentTick)", s.playerIterator.creationTick)
+	}
+	if s.playerIterator.level != 2 || s.playerIterator.x != 3200 || s.playerIterator.z != 3300 {
+		t.Errorf("center: got (level=%d, x=%d, z=%d), want (2, 3200, 3300)",
+			s.playerIterator.level, s.playerIterator.x, s.playerIterator.z)
+	}
+	if s.playerIterator.distance != 10 {
+		t.Errorf("distance: got %d, want 10", s.playerIterator.distance)
+	}
+	if s.ISP != 0 {
+		t.Errorf("HUNTALL should not push; ISP=%d", s.ISP)
+	}
+}
+
+func TestHandleHuntAll_NilLookupDegrades(t *testing.T) {
+	coord := (0 << 28) | (3200 << 14) | 3300
+	s := newHuntAllState(t, coord, 10, objtype.HuntVisOff, nil)
+	// PlayerLookup left nil.
+	if err := handleHuntAll(s); err != nil {
+		t.Fatalf("handleHuntAll with nil PlayerLookup: %v", err)
+	}
+	if s.playerIterator != nil {
+		t.Error("playerIterator should remain nil when PlayerLookup is nil (degrades to HUNTNEXT push-0)")
+	}
+}
+
+func TestHandleHuntAll_InvalidHuntVisRejected(t *testing.T) {
+	coord := (0 << 28) | (3200 << 14) | 3300
+	s := newHuntAllState(t, coord, 10, 99, &mockPlayerLookup{})
+	if err := handleHuntAll(s); err == nil {
+		t.Fatal("expected validator error for invalid huntvis=99")
+	} else if !strings.Contains(err.Error(), "HUNTALL") {
+		t.Errorf("error should be tagged HUNTALL: %v", err)
+	}
+	if s.playerIterator != nil {
+		t.Error("playerIterator should remain nil after validation error")
+	}
+}
