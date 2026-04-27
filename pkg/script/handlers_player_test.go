@@ -2,6 +2,7 @@ package script
 
 import (
 	"math"
+	"slices"
 	"strings"
 	"testing"
 
@@ -2626,5 +2627,54 @@ func TestHandleHuntNext_ExhaustionDoesNotClearIterator(t *testing.T) {
 	}
 	if s.playerIterator == nil {
 		t.Error("playerIterator should still be non-nil after second call")
+	}
+}
+
+// --- NAI-37 Task 6: HINT_NPC handler unit tests ---------------------------
+
+func TestHintNpc_NoActivePlayer_Errors(t *testing.T) {
+	npc := &mockNpc{nid: 42}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		ActiveNpc:   npc,
+	} // no Self
+	if err := handleHintNpc(s); err == nil {
+		t.Fatalf("expected error for no active player")
+	}
+}
+
+func TestHintNpc_NoActiveNpc_Errors(t *testing.T) {
+	pl := &mockPlayer{}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        pl,
+		Pointers:    PtrActivePlayer,
+	} // no ActiveNpc
+	if err := handleHintNpc(s); err == nil {
+		t.Fatalf("expected error for no active npc")
+	}
+	if len(pl.hintNpcCalls) != 0 {
+		t.Errorf("hintNpcCalls: got %d, want 0 on validation failure",
+			len(pl.hintNpcCalls))
+	}
+}
+
+func TestHintNpc_Success_RecordsNid(t *testing.T) {
+	pl := &mockPlayer{}
+	npc := &mockNpc{nid: 4242}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        pl,
+		Pointers:    PtrActivePlayer,
+		ActiveNpc:   npc,
+	}
+	if err := handleHintNpc(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if want := []int{4242}; !slices.Equal(pl.hintNpcCalls, want) {
+		t.Errorf("hintNpcCalls: got %v, want %v", pl.hintNpcCalls, want)
 	}
 }

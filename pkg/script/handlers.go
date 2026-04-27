@@ -399,6 +399,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// S7h: audio — MIDI_SONG + MIDI_JINGLE.
 	OpMidiJingle: handleMidiJingle,
 	OpMidiSong:   handleMidiSong,
+
+	// NAI-37 T6: hint-arrow — HINT_NPC (type=1) only.
+	OpHintNpc: handleHintNpc,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.

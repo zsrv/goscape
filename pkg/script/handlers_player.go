@@ -832,3 +832,23 @@ func handleHuntNext(s *ScriptState) error {
 	s.PushInt(1)
 	return nil
 }
+
+// handleHintNpc (HINT_NPC, opcode 2028) sends a HintArrow type=1 wire
+// packet to the active player, pointing at the active NPC. Mirrors TS
+// PlayerOps.ts:972-974:
+//
+//	state.activePlayer.hintNpc(state.activeNpc.nid)
+//
+// DEVIATION NAI-37-D-HINTARROW-PARTIAL-ENCODER: only the type=1 (NPC)
+// hint variant is wired. HINT_PL, HINT_COORD, HINT_STOP handlers
+// land in a future sub-spec.
+func handleHintNpc(s *ScriptState) error {
+	if err := requireActivePlayer(s, "HINT_NPC"); err != nil {
+		return err
+	}
+	if err := requireActiveNpc(s, "HINT_NPC"); err != nil {
+		return err
+	}
+	s.Self.HintNpc(s.ActiveNpc.Nid())
+	return nil
+}
