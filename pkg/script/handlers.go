@@ -345,6 +345,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpNpcSetHunt:           handleNpcSetHunt,
 	OpNpcSetHuntMode:       handleNpcSetHuntMode,
 	OpNpcSetTimer:          handleNpcSetTimer,
+	OpNpcTele:              handleNpcTele,
 
 	// NPC find (S7f) — closest-single cluster.
 	OpNpcFind:      handleNpcFind,

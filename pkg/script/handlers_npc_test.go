@@ -2095,3 +2095,25 @@ func TestNpcTele_PopOrderIsSinglePopInt(t *testing.T) {
 		t.Errorf("residual stack top: got %d, want 0xCAFE — handler popped wrong number of ints", got)
 	}
 }
+
+func TestNpcTele_DispatchRoutes(t *testing.T) {
+	// Integration test — exercises the dispatch table to confirm
+	// OpNpcTele is routed to handleNpcTele. If dispatch is unset,
+	// runNpcOp's internal t.Fatalf fires on the unknown-opcode error
+	// returned by Execute (per runner_test.go:8 convention) before
+	// reaching the assertions below.
+	npc := &mockNpc{}
+	packed := (0 << 28) | (3200 << 14) | 3200
+	state := runNpcOp(t, npc, nil, OpNpcTele, []int{packed})
+	if len(npc.teleportCalls) != 1 {
+		t.Fatalf("teleportCalls after dispatch: got %d, want 1 (handler ran but didn't delegate to mock)", len(npc.teleportCalls))
+	}
+	got := npc.teleportCalls[0]
+	if got.x != 3200 || got.z != 3200 || got.level != 0 {
+		t.Errorf("teleportCalls[0]: got (x=%d, z=%d, level=%d), want (3200, 3200, 0)", got.x, got.z, got.level)
+	}
+	// Confirm the script reached normal completion (Finished), not Aborted.
+	if state.Execution != Finished {
+		t.Errorf("state.Execution after NPC_TELE: got %v, want Finished", state.Execution)
+	}
+}
