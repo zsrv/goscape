@@ -1953,3 +1953,61 @@ func TestNpcFindNext_ExhaustionThenSecondCallStillPushes0(t *testing.T) {
 		t.Errorf("second exhaustion: got push %d, want 0", got)
 	}
 }
+
+// --- NAI-33 Task 14: integration test (Layer 4) ------------------------
+
+// TestIteratorFamily_Integration_FindAllAnyThenLoopFindNext exercises the
+// end-to-end binding: FINDALLANY sets s.npcIterator; subsequent FINDNEXT
+// calls visit-and-yield matching NPCs from the same iterator state.
+// Mirrors the [proc,check_fishing_spot_empty] use pattern.
+func TestIteratorFamily_Integration_FindAllAnyThenLoopFindNext(t *testing.T) {
+	npc1 := &mockNpc{typeID: 1, x: 3200, z: 3300, level: 0}
+	npc2 := &mockNpc{typeID: 2, x: 3201, z: 3300, level: 0}
+	zoneKey := mockZoneKey(0, 3200, 3296)
+	lookup := &mockNpcLookup{byZone: map[uint64][]ActiveNpc{zoneKey: {npc1, npc2}}}
+
+	mw := newMockWorld()
+	mw.tick = 100
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{0}},
+		PC:          0,
+		Configs:     newTestConfigsWithNpcTypes(map[int]bool{}),
+		Npcs:        lookup,
+		World:       mw,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+
+	// Stage 1: FINDALLANY (3 args: coord, distance, huntvis)
+	coord := (0 << 28) | (3200 << 14) | 3300
+	s.PushInt(coord)
+	s.PushInt(5)
+	s.PushInt(0)
+	if err := handleNpcFindAllAny(s); err != nil {
+		t.Fatalf("FINDALLANY: %v", err)
+	}
+	if s.npcIterator == nil {
+		t.Fatal("FINDALLANY did not set iterator")
+	}
+
+	// Stage 2: FINDNEXT loop
+	yielded := []ActiveNpc{}
+	for i := 0; i < 5; i++ { // bounded loop — guards against infinite-loop bugs
+		if err := handleNpcFindNext(s); err != nil {
+			t.Fatalf("FINDNEXT iter %d: %v", i, err)
+		}
+		got := s.PopInt()
+		if got == 0 {
+			break
+		}
+		yielded = append(yielded, s.ActiveNpc)
+	}
+
+	if len(yielded) != 2 {
+		t.Errorf("yielded count: got %d, want 2 (npc1, npc2)", len(yielded))
+	}
+	// Iterator persists across FINDNEXT calls (TS-parity).
+	if s.npcIterator == nil {
+		t.Error("iterator should persist after exhaustion")
+	}
+}
