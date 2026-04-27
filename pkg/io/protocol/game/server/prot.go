@@ -38,6 +38,13 @@ var (
 	// Sent by the CAM_RESET script opcode to reset the client's camera.
 	OpCamReset = Op{Opcode: 239, PayloadSize: 0}
 
+	// HINT_ARROW — directs the client to render a hint indicator pointing
+	// at an NPC, player, tile, or to clear (one of 5 type variants in
+	// TS HintArrowEncoder; goscape ships only the type=1 NPC variant
+	// at NAI-37 — tracked deviation NAI-37-D-HINTARROW-PARTIAL-ENCODER).
+	// TS ServerGameProt.HINT_ARROW = (25, 6).
+	OpHintArrow = Op{Opcode: 25, PayloadSize: 6}
+
 	OpRebuildNormal    = Op{Opcode: 237, PayloadSize: -2}
 	OpUpdateInvFull    = Op{Opcode: 98, PayloadSize: -2}
 	OpUpdateInvPartial = Op{Opcode: 213, PayloadSize: -2}

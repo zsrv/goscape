@@ -29,6 +29,7 @@ func (m *mockActiveNpc) NpcStat(stat int) int                    { return m.stat
 func (m *mockActiveNpc) NpcBaseStat(stat int) int                { return 0 }
 func (m *mockActiveNpc) NpcCategory() int                        { return 0 }
 func (m *mockActiveNpc) NpcUID() int                             { return 0 }
+func (m *mockActiveNpc) Nid() int                                { return 0 }
 func (m *mockActiveNpc) NpcVarN(id int) int32                    { return 0 }
 func (m *mockActiveNpc) SetNpcVarN(id int, val int32)            {}
 func (m *mockActiveNpc) Say(text []byte)                         {}

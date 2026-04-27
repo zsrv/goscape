@@ -185,6 +185,7 @@ type mockEnqueueCall struct {
 // assign to state.ActiveNpc before Execute.
 type mockNpc struct {
 	typeID, x, z, level, uid, category int
+	nid                                int
 	curHP, baseHP                      int
 	varns                              map[int]int32
 	sayCalls                           []string
@@ -220,6 +221,7 @@ func (m *mockNpc) NpcX() int        { return m.x }
 func (m *mockNpc) NpcZ() int        { return m.z }
 func (m *mockNpc) NpcLevel() int    { return m.level }
 func (m *mockNpc) NpcUID() int      { return m.uid }
+func (m *mockNpc) Nid() int         { return m.nid }
 func (m *mockNpc) NpcCategory() int { return m.category }
 
 func (m *mockNpc) NpcStat(stat int) int {

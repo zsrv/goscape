@@ -416,6 +416,10 @@ type ActiveNpc interface {
 	NpcBaseStat(stat int) int // base level — S6a: only HP (id 0) is real
 	NpcCategory() int
 	NpcUID() int // (typeId << 16) | nid
+	// Nid returns the NPC slot id (the low 16 bits of NpcUID). Used by
+	// NPC-targeted player-bound packets like HintArrow that reference
+	// the NPC by slot rather than by packed UID.
+	Nid() int
 	NpcVarN(id int) int32
 	SetNpcVarN(id int, val int32)
 	// Say buffers text as the NPC's speech bubble for the current tick,
