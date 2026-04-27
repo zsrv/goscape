@@ -37,6 +37,10 @@ func (m *mockWorld) MapLive() int                     { return m.mapLive }
 func (m *mockWorld) IsMapBlocked(level, x, z int) bool { return false }
 func (m *mockWorld) IsFreeToPlay(x, z int) bool        { return false }
 
+// NAI-36: default no-op stub for SPOTANIM_MAP test fixture. Real recording
+// is layered on by handler-specific test types.
+func (m *mockWorld) AnimMap(level, x, z, spotanim, height, delay int) {}
+
 func TestPushVarp(t *testing.T) {
 	sf := &ScriptFile{
 		Name:             "push_varp",

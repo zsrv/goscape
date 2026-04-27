@@ -164,16 +164,16 @@ func (n *Npc) playerEscapeMode(s *Server) {
 	// here (the start-coord arg has no width/length); KEEP DistanceToSW
 	// (NAI-20 audit).
 	if coordgrid.DistanceToSW(mx, mz, n.startX, n.startZ) < int(n.typ.MaxRange) {
-		n.queueWaypoint(mx, mz)
+		n.QueueWaypoint(mx, mz)
 		n.updateMovement(s)
 		return
 	}
 
 	// TS :793-797 — axis fallback.
 	if dir.fallbackUseNpcX {
-		n.queueWaypoint(n.x, mz)
+		n.QueueWaypoint(n.x, mz)
 	} else {
-		n.queueWaypoint(mx, n.z)
+		n.QueueWaypoint(mx, n.z)
 	}
 	n.updateMovement(s)
 }

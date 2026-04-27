@@ -113,6 +113,12 @@ func (n *Npc) Teleport(x, z, level int) {
 	n.tele = true
 }
 
+// TargetOp returns n.targetOp. ActiveNpc interface adapter for NPC_GETMODE
+// (NAI-36).
+func (n *Npc) TargetOp() int {
+	return n.targetOp
+}
+
 // buildNpcScriptState initialises a ScriptState for an NPC-anchored
 // script run. Pure — no side effects on server state — so callers can
 // test the target-dispatch logic in isolation.

@@ -281,7 +281,7 @@ func TestPlayerFollowQueuesWaypointAtTarget(t *testing.T) {
 
 	n.playerFollowMode(s)
 
-	// queueWaypoint writes waypoints[0] = coordgrid.PackCoord(level, x, z).
+	// QueueWaypoint writes waypoints[0] = coordgrid.PackCoord(level, x, z).
 	// Round-trip via UnpackCoord for a clean assertion.
 	if n.waypointIndex != 0 {
 		t.Fatalf("waypointIndex: got %d, want 0 (waypoint should be queued)", n.waypointIndex)

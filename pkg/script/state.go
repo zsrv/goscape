@@ -73,6 +73,11 @@ type WorldVars interface {
 	// Used by MAP_FINDSQUARE for free-world filtering. Mirrors TS
 	// World.gameMap.isFreeToPlay. NAI-35-T6.
 	IsFreeToPlay(x, z int) bool
+
+	// AnimMap broadcasts a tile-anchored spotanim event to every player in
+	// the affected zone. Mirrors TS World.animMap at Engine-TS/.../World.ts.
+	// Used by SPOTANIM_MAP (opcode 1020).
+	AnimMap(level, x, z, spotanim, height, delay int)
 }
 
 // InvLookup is the inventory resolution surface for INV_* handlers.

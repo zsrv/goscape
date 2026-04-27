@@ -80,8 +80,9 @@ func (n *Npc) turn(s *Server) {
 	n.processMovementInteraction(s)
 }
 
-// queueWaypoint clears any existing path and sets a single destination.
-func (n *Npc) queueWaypoint(x, z int) {
+// QueueWaypoint clears any existing path and sets a single destination.
+// Exported for use by pkg/script's ActiveNpc adapter (NAI-36).
+func (n *Npc) QueueWaypoint(x, z int) {
 	n.waypoints[0] = coordgrid.PackCoord(n.level, x, z)
 	n.waypointIndex = 0
 }

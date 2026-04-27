@@ -501,6 +501,15 @@ type ActiveNpc interface {
 	// DEVIATION NAI-34-D1..D5 — see Npc.Teleport doc comment for the
 	// full divergence list and closure plan.
 	Teleport(x, z, level int)
+
+	// QueueWaypoint clears any existing path and sets a single destination
+	// (level-implicit by current NPC level). Mirrors TS Npc.queueWaypoint
+	// at Engine-TS/.../Npc.ts. Used by NPC_WALK (opcode 2544).
+	QueueWaypoint(x, z int)
+
+	// TargetOp returns the NPC's current targetOp/mode value (the field set
+	// by NPC_SETMODE / interaction binding). Used by NPC_GETMODE (opcode 2522).
+	TargetOp() int
 }
 
 // ActiveLoc is the surface that LOC_* opcodes use to read the loc

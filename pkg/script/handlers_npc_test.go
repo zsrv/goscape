@@ -199,6 +199,8 @@ type mockNpc struct {
 	setHuntRangeCalls                  []int
 	setHuntModeCalls                   []int
 	teleportCalls                      []struct{ x, z, level int }
+	queueWaypointCalls                 []struct{ x, z int }
+	targetOpField                      int
 }
 
 func (m *mockNpc) NpcType() int     { return m.typeID }
@@ -287,6 +289,12 @@ func (m *mockNpc) SetHuntMode(mode int) {
 func (m *mockNpc) Teleport(x, z, level int) {
 	m.teleportCalls = append(m.teleportCalls, struct{ x, z, level int }{x, z, level})
 }
+
+func (m *mockNpc) QueueWaypoint(x, z int) {
+	m.queueWaypointCalls = append(m.queueWaypointCalls, struct{ x, z int }{x, z})
+}
+
+func (m *mockNpc) TargetOp() int { return m.targetOpField }
 
 // runNpcOp executes a single-opcode script against npc + optional mc,
 // with pre-pushed int inputs, and returns the resulting state.

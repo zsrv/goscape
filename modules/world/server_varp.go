@@ -96,3 +96,13 @@ func (w worldVarsView) IsFreeToPlay(x, z int) bool {
 	}
 	return w.s.gamemap.IsFreeToPlay(x, z)
 }
+
+// AnimMap delegates to Server.AnimMap. Used by SPOTANIM_MAP (opcode 1020).
+// NAI-36 T1: interface-satisfaction shim. Server.AnimMap already exists at
+// world_zone.go:76.
+func (w worldVarsView) AnimMap(level, x, z, spotanim, height, delay int) {
+	if w.s == nil {
+		return
+	}
+	w.s.AnimMap(level, x, z, spotanim, height, delay)
+}

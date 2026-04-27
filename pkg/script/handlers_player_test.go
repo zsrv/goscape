@@ -46,6 +46,8 @@ func (m *mockActiveNpc) SetTimer(_ int)                                        {
 func (m *mockActiveNpc) SetHuntRange(_ int)                                    {}
 func (m *mockActiveNpc) SetHuntMode(_ int)                                     {}
 func (m *mockActiveNpc) Teleport(_, _, _ int)                                  {}
+func (m *mockActiveNpc) QueueWaypoint(_, _ int)                                {}
+func (m *mockActiveNpc) TargetOp() int                                         { return 0 }
 
 // newSingleOp builds a single-opcode script plus its trailing OpReturn,
 // so handler tests can run a handler in isolation and observe the state

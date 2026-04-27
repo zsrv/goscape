@@ -73,7 +73,7 @@ func (n *Npc) noMode(s *Server) {
 // within WanderRange of spawn plus movement + a 500-tick
 // teleport-to-spawn counter. Matches TS wanderMode at Npc.ts:697-715.
 //
-// The queueWaypoint skip-if-equal-to-current guard mirrors the TS
+// The QueueWaypoint skip-if-equal-to-current guard mirrors the TS
 // "if we rolled our own tile, don't queue a null path" check.
 func (n *Npc) wanderMode(s *Server) {
 	if n.typ == nil {
@@ -84,7 +84,7 @@ func (n *Npc) wanderMode(s *Server) {
 		dx := rand.IntN(rng*2+1) - rng
 		dz := rand.IntN(rng*2+1) - rng
 		if n.startX+dx != n.x || n.startZ+dz != n.z {
-			n.queueWaypoint(n.startX+dx, n.startZ+dz)
+			n.QueueWaypoint(n.startX+dx, n.startZ+dz)
 		}
 	}
 	n.updateMovement(s)
@@ -115,7 +115,7 @@ func (n *Npc) patrolMode(s *Server) {
 	n.updateMovement(s)
 
 	if n.waypointIndex < 0 && n.target == nil {
-		n.queueWaypoint(dest.X, dest.Z)
+		n.QueueWaypoint(dest.X, dest.Z)
 	}
 	if (n.x != dest.X || n.z != dest.Z) && n.nextPatrolTick > -1 && s.currentTick >= n.nextPatrolTick {
 		n.Teleport(dest.X, dest.Z, 0)
@@ -132,7 +132,7 @@ func (n *Npc) patrolMode(s *Server) {
 	n.nextPatrolTick = s.currentTick + 30
 	n.delayedPatrol = false
 	dest = coordgrid.UnpackCoord(int(n.typ.PatrolCoord[n.nextPatrolPoint]))
-	n.queueWaypoint(dest.X, dest.Z)
+	n.QueueWaypoint(dest.X, dest.Z)
 }
 
 // processMovementInteraction is the NPC's per-tick movement + interaction
@@ -348,7 +348,7 @@ func (n *Npc) pathToTarget() {
 		return
 	}
 	tx, tz, _ := n.target.Coords()
-	n.queueWaypoint(tx, tz)
+	n.QueueWaypoint(tx, tz)
 }
 
 // validateTarget enforces per-tick target validity. Four gates matching
