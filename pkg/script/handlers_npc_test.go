@@ -1618,3 +1618,112 @@ func TestHandleNpcDamageNullAmountRejected(t *testing.T) {
 		t.Errorf("damageCalls: got %d, want 0 (must not damage on rejection)", len(npc.damageCalls))
 	}
 }
+
+// --- NAI-33 Task 9: NPC_FINDALLANY handler tests -----------------------
+
+// newNpcFindAllAnyState pushes (coord, distance, checkVis) — TS popInts(3) order.
+func newNpcFindAllAnyState(t *testing.T, coord, distance, huntvis int, lookup *mockNpcLookup) *ScriptState {
+	t.Helper()
+	mw := newMockWorld()
+	mw.tick = 100
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{0}},
+		PC:          0,
+		Configs:     newTestConfigsWithNpcTypes(map[int]bool{}),
+		Npcs:        lookup,
+		World:       mw,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(coord)
+	s.PushInt(distance)
+	s.PushInt(huntvis)
+	return s
+}
+
+func TestNpcFindAllAny_SetsIterator(t *testing.T) {
+	lookup := &mockNpcLookup{}
+	coord := (2 << 28) | (3200 << 14) | 3300
+	s := newNpcFindAllAnyState(t, coord, 10, 0, lookup)
+
+	if err := handleNpcFindAllAny(s); err != nil {
+		t.Fatalf("handleNpcFindAllAny: %v", err)
+	}
+	if s.npcIterator == nil {
+		t.Fatal("npcIterator should be non-nil after FINDALLANY")
+	}
+	if s.npcIterator.mode != NpcIteratorDistance {
+		t.Errorf("mode: got %v, want NpcIteratorDistance", s.npcIterator.mode)
+	}
+	if s.npcIterator.typeID != -1 {
+		t.Errorf("typeID: got %d, want -1 (FINDALLANY = no type filter)", s.npcIterator.typeID)
+	}
+	if s.npcIterator.creationTick != 100 {
+		t.Errorf("creationTick: got %d, want 100", s.npcIterator.creationTick)
+	}
+	if s.npcIterator.level != 2 || s.npcIterator.x != 3200 || s.npcIterator.z != 3300 {
+		t.Errorf("center: got (level=%d, x=%d, z=%d)", s.npcIterator.level, s.npcIterator.x, s.npcIterator.z)
+	}
+	if s.npcIterator.distance != 10 {
+		t.Errorf("distance: got %d, want 10", s.npcIterator.distance)
+	}
+	if s.ISP != 0 {
+		t.Errorf("FINDALLANY should not push; ISP=%d", s.ISP)
+	}
+}
+
+func TestNpcFindAllAny_PopOrder(t *testing.T) {
+	// distinguishable values — if pop order is wrong, the iterator stores wrong distance.
+	lookup := &mockNpcLookup{}
+	coord := (0 << 28) | (3200 << 14) | 3300
+	s := newNpcFindAllAnyState(t, coord, 99, 0, lookup)
+
+	if err := handleNpcFindAllAny(s); err != nil {
+		t.Fatalf("handleNpcFindAllAny: %v", err)
+	}
+	if s.npcIterator.distance != 99 {
+		t.Errorf("distance pop order wrong: got %d, want 99", s.npcIterator.distance)
+	}
+	if s.npcIterator.huntvis != 0 {
+		t.Errorf("huntvis pop order wrong: got %d, want 0", s.npcIterator.huntvis)
+	}
+}
+
+func TestNpcFindAllAny_InvalidCoord(t *testing.T) {
+	s := newNpcFindAllAnyState(t, -1, 10, 0, &mockNpcLookup{})
+	if err := handleNpcFindAllAny(s); err == nil {
+		t.Fatal("expected validator error for coord=-1")
+	} else if !strings.Contains(err.Error(), "NPC_FINDALLANY: coord out of range") {
+		t.Errorf("wrong error: %v", err)
+	}
+}
+
+func TestNpcFindAllAny_NullDistance(t *testing.T) {
+	coord := (0 << 28) | (3200 << 14) | 3300
+	s := newNpcFindAllAnyState(t, coord, -1, 0, &mockNpcLookup{})
+	if err := handleNpcFindAllAny(s); err == nil {
+		t.Fatal("expected validator error for null distance")
+	} else if !strings.Contains(err.Error(), "NPC_FINDALLANY") {
+		t.Errorf("wrong error: %v", err)
+	}
+}
+
+func TestNpcFindAllAny_InvalidHuntVis(t *testing.T) {
+	coord := (0 << 28) | (3200 << 14) | 3300
+	s := newNpcFindAllAnyState(t, coord, 10, 99, &mockNpcLookup{})
+	if err := handleNpcFindAllAny(s); err == nil {
+		t.Fatal("expected validator error for invalid huntvis")
+	}
+}
+
+func TestNpcFindAllAny_NilNpcLookup(t *testing.T) {
+	coord := (0 << 28) | (3200 << 14) | 3300
+	s := newNpcFindAllAnyState(t, coord, 10, 0, nil)
+	s.Npcs = nil
+	if err := handleNpcFindAllAny(s); err != nil {
+		t.Fatalf("handleNpcFindAllAny with nil Npcs: %v", err)
+	}
+	if s.npcIterator != nil {
+		t.Error("npcIterator should remain nil when Npcs is nil (degrades to FINDNEXT push-0)")
+	}
+}

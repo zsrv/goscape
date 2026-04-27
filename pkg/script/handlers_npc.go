@@ -477,3 +477,38 @@ func handleNpcFindExact(s *ScriptState) error {
 	s.PushInt(1)
 	return nil
 }
+
+// handleNpcFindAllAny (NPC_FINDALLANY, opcode 2515) pops (coord, distance,
+// huntvis), validates, and stores a DISTANCE-mode NpcIterator on
+// state.npcIterator with no type filter. Mirrors TS NpcOps.ts:403-411.
+// Pointer-set is `set ['find_npc']` (ScriptOpcodePointers.ts:586-588);
+// goscape encodes the find_npc pointer as state.npcIterator != nil.
+// No push (TS doesn't push either). Carries NAI-33-D1: huntvis validated
+// but not used as filter (S7f-D1 carryover).
+func handleNpcFindAllAny(s *ScriptState) error {
+	checkVis := s.PopInt()
+	distance := s.PopInt()
+	coord := s.PopInt()
+
+	level, x, z, err := checkCoord(coord, "NPC_FINDALLANY")
+	if err != nil {
+		return err
+	}
+	if err := checkNotNull(distance, "NPC_FINDALLANY"); err != nil {
+		return err
+	}
+	if err := checkHuntVis(checkVis, "NPC_FINDALLANY"); err != nil {
+		return err
+	}
+
+	// Mirror existing FIND handler nil-Npcs degradation pattern: skip
+	// iterator creation; FINDNEXT's nil-iterator branch pushes 0.
+	if s.Npcs == nil {
+		return nil
+	}
+	s.npcIterator = NewDistanceNpcIterator(
+		s.Npcs, s.World.CurrentTick(),
+		level, x, z, distance, checkVis, -1,
+	)
+	return nil
+}
