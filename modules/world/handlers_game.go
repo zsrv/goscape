@@ -128,11 +128,22 @@ func handleClientCheat(p *Player, payload []byte) error {
 	r := packet.NewPacket(payload)
 	_ = r.G1() // unused ctrlHeld-style byte per TS ClientCheat handler
 	raw := r.GJStrLF()
-	if !strings.HasPrefix(raw, "::") {
+	// Mirrors TS ClientCheatHandler.ts:40-50:
+	//   - Reject if input.length > 80
+	//   - Lowercase the entire string
+	//   - Split on space; first token is cmd, rest is args
+	//   - Reject if cmd is empty
+	// The Java client strips the `::` prefix before sending the CLIENT_CHEAT
+	// packet, so `raw` never includes it. Routing to opcode 4 IS the prefix
+	// check.
+	if len(raw) > 80 {
 		return nil
 	}
-	cmd := strings.TrimPrefix(raw, "::")
-	parts := strings.SplitN(cmd, " ", 2)
+	cheat := strings.ToLower(raw)
+	parts := strings.SplitN(cheat, " ", 2)
+	if parts[0] == "" {
+		return nil
+	}
 	args := ""
 	if len(parts) == 2 {
 		args = parts[1]
