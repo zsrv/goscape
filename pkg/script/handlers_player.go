@@ -801,3 +801,34 @@ func handleHuntAll(s *ScriptState) error {
 	)
 	return nil
 }
+
+// handleHuntNext (HUNTNEXT, opcode 2032) advances the active
+// PlayerIterator and either sets active_player + pushes 1 on hit, or
+// pushes 0 on miss / nil-iterator. Mirrors TS PlayerOps.ts:1226-1233
+// and the analogous NPC handler at handlers_npc.go:641 (handleNpcFindNext).
+//
+// Active-player slot pattern (s.Self + Pointers |= PtrActivePlayer)
+// mirrors FINDUID at handlers_player.go:683-684. Stale check uses
+// strict-greater-than per iterator_state_pattern.md element 3.
+//
+// Exhaustion does NOT clear s.playerIterator (matches NPC_FINDNEXT
+// behavior; iterator_state_pattern.md element 7). NAI-35-T5.
+func handleHuntNext(s *ScriptState) error {
+	it := s.playerIterator
+	if it == nil {
+		s.PushInt(0)
+		return nil
+	}
+	if it.Stale(s.World.CurrentTick()) {
+		return fmt.Errorf("HUNTNEXT: tried to use an old iterator. Create a new iterator instead.")
+	}
+	p, ok := it.Next()
+	if !ok {
+		s.PushInt(0)
+		return nil
+	}
+	s.Self = p
+	s.Pointers |= PtrActivePlayer
+	s.PushInt(1)
+	return nil
+}

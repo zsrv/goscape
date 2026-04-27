@@ -2478,3 +2478,143 @@ func TestHandleHuntAll_InvalidHuntVisRejected(t *testing.T) {
 		t.Error("playerIterator should remain nil after validation error")
 	}
 }
+
+// --- NAI-35-T5: HUNTNEXT handler tests ---------------------------------
+
+// newHuntNextState mirrors newNpcFindNextState (handlers_npc_test.go:1860):
+// builds a ScriptState with a pre-set playerIterator and configurable
+// World tick. Tests use this for direct handler-level coverage.
+func newHuntNextState(t *testing.T, tick int, iter *PlayerIterator) *ScriptState {
+	t.Helper()
+	mw := newMockWorld()
+	mw.tick = tick
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{0}},
+		PC:          0,
+		World:       mw,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.playerIterator = iter
+	return s
+}
+
+func TestHandleHuntNext_NilIteratorPushesZero(t *testing.T) {
+	s := newHuntNextState(t, 0, nil)
+	if err := handleHuntNext(s); err != nil {
+		t.Fatalf("handleHuntNext: %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("nil iterator: got push %d, want 0", got)
+	}
+	if s.Self != nil {
+		t.Error("Self should remain nil on nil iterator")
+	}
+	if s.Pointers&PtrActivePlayer != 0 {
+		t.Error("PtrActivePlayer should NOT be set on nil iterator")
+	}
+}
+
+func TestHandleHuntNext_StaleIteratorReturnsError(t *testing.T) {
+	// Iterator created at tick=3, World now at tick=5 → stale.
+	iter := NewHuntAllPlayerIterator(
+		&mockPlayerLookup{}, nil, 3, 0, 3200, 3200, 8, objtype.HuntVisOff,
+	)
+	s := newHuntNextState(t, 5, iter)
+
+	err := handleHuntNext(s)
+	if err == nil {
+		t.Fatal("stale iterator should return error")
+	}
+	if !strings.Contains(err.Error(), "HUNTNEXT") {
+		t.Errorf("error should be tagged HUNTNEXT: %v", err)
+	}
+	if !strings.Contains(err.Error(), "tried to use an old iterator") {
+		t.Errorf("error message should mention old iterator: %v", err)
+	}
+}
+
+func TestHandleHuntNext_HitSetsSelfAndPushesOne(t *testing.T) {
+	// HuntAll cursor for (level=0, x=3200, z=3200, distance=8):
+	//   centerX = 3200>>3 = 400; radius = 1+8/8 = 2.
+	//   curZoneX=curZoneZ=402 (max corner). First ZonePlayers lookup at
+	//   world coords (402*8, 402*8) = (3216, 3216).
+	// Player at (3204, 3204): DistanceToSW(3200,3200,3204,3204) = max(4,4) = 4 ≤ 8 → hit.
+	target := &mockPlayer{username: "Hit", x: 3204, z: 3204}
+	lookup := &mockPlayerLookup{
+		byZone: map[zoneKey][]ActivePlayer{
+			{0, 3216, 3216}: {target},
+		},
+	}
+	iter := NewHuntAllPlayerIterator(
+		lookup, nil, 100, 0, 3200, 3200, 8, objtype.HuntVisOff,
+	)
+	s := newHuntNextState(t, 100, iter)
+
+	if err := handleHuntNext(s); err != nil {
+		t.Fatalf("handleHuntNext: %v", err)
+	}
+	if s.ISP != 1 || s.IntStack[0] != 1 {
+		t.Errorf("stack: got [%v], want [1]", s.IntStack[:s.ISP])
+	}
+	if s.Self != target {
+		t.Errorf("Self: got %v, want target %v", s.Self, target)
+	}
+	if s.Pointers&PtrActivePlayer == 0 {
+		t.Error("PtrActivePlayer should be set on hit")
+	}
+}
+
+func TestHandleHuntNext_ExhaustionPushesZero(t *testing.T) {
+	// Empty PlayerLookup → iterator walks all zones in the radius and
+	// finds nothing.
+	lookup := &mockPlayerLookup{}
+	iter := NewHuntAllPlayerIterator(
+		lookup, nil, 100, 0, 3200, 3200, 8, objtype.HuntVisOff,
+	)
+	s := newHuntNextState(t, 100, iter)
+
+	if err := handleHuntNext(s); err != nil {
+		t.Fatalf("handleHuntNext: %v", err)
+	}
+	if s.ISP != 1 || s.IntStack[0] != 0 {
+		t.Errorf("stack: got [%v], want [0]", s.IntStack[:s.ISP])
+	}
+	if s.Self != nil {
+		t.Error("Self should remain nil on exhaustion (no hit to bind)")
+	}
+	if s.Pointers&PtrActivePlayer != 0 {
+		t.Error("PtrActivePlayer should NOT be set on exhaustion")
+	}
+}
+
+// TestHandleHuntNext_ExhaustionDoesNotClearIterator pins
+// iterator_state_pattern.md element 7: exhaustion does NOT nil out
+// s.playerIterator. Mirrors NPC parity at handlers_npc_test.go:1926.
+func TestHandleHuntNext_ExhaustionDoesNotClearIterator(t *testing.T) {
+	lookup := &mockPlayerLookup{}
+	iter := NewHuntAllPlayerIterator(
+		lookup, nil, 100, 0, 3200, 3200, 8, objtype.HuntVisOff,
+	)
+	s := newHuntNextState(t, 100, iter)
+
+	if err := handleHuntNext(s); err != nil {
+		t.Fatalf("first handleHuntNext: %v", err)
+	}
+	_ = s.PopInt() // discard first push
+	if s.playerIterator == nil {
+		t.Fatal("playerIterator should NOT be cleared on exhaustion (TS parity)")
+	}
+
+	// Second call on the now-exhausted iterator must also push 0
+	// without erroring (Stale check still passes — same tick).
+	if err := handleHuntNext(s); err != nil {
+		t.Fatalf("second handleHuntNext: %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("second exhaustion: got push %d, want 0", got)
+	}
+	if s.playerIterator == nil {
+		t.Error("playerIterator should still be non-nil after second call")
+	}
+}
