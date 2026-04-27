@@ -180,6 +180,29 @@ func isLineOfSight(s *ScriptState, level, srcX, srcZ, destX, destZ int) bool {
 	return s.LineValidator.HasLineOfSight(level, srcX, srcZ, destX, destZ, 1, 0, 0, 0)
 }
 
+// handleMapBlocked (MAP_BLOCKED, opcode 1007) reports whether the tile at
+// the unpacked coord blocks walking. F2P-world short-circuit: any tile
+// that's not F2P-zoned pushes 1 (effectively "blocked" for non-members
+// content). Mirrors TS ServerOps.ts:129-138.
+func handleMapBlocked(s *ScriptState) error {
+	coord := s.PopInt()
+	level, x, z, err := checkCoord(coord, "MAP_BLOCKED")
+	if err != nil {
+		return err
+	}
+	// F2P-world gate: !NODE_MEMBERS && !isFreeToPlay → push 1
+	if s.World.MapMembers() == 0 && !s.World.IsFreeToPlay(x, z) {
+		s.PushInt(1)
+		return nil
+	}
+	if s.World.IsMapBlocked(level, x, z) {
+		s.PushInt(1)
+	} else {
+		s.PushInt(0)
+	}
+	return nil
+}
+
 // absMax returns max(|a|, |b|). Mirrors TS Math.max(Math.abs(distX), Math.abs(distZ))
 // at ServerOps.ts:266 etc. NAI-35-T6.
 func absMax(a, b int) int {

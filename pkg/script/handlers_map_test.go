@@ -316,3 +316,93 @@ func TestHandleMapFindSquare_NumberPositiveValidation(t *testing.T) {
 		t.Errorf("error %q does not mention MAP_FINDSQUARE", err.Error())
 	}
 }
+
+// --- NAI-36 Task 4: MAP_BLOCKED Layer 1 unit tests -----------------------
+
+// runMapOp executes a single map opcode against the given world fixture
+// and returns the post-execution state.
+func runMapOp(t *testing.T, w WorldVars, op Opcode, intInputs []int) *ScriptState {
+	t.Helper()
+	sf := &ScriptFile{
+		Name:             "test_" + op.String(),
+		Opcodes:          []Opcode{op, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := &ScriptState{
+		Script:      sf,
+		World:       w,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	for _, v := range intInputs {
+		state.PushInt(v)
+	}
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	return state
+}
+
+// mapBlockedWorld extends mockWorld with controllable IsMapBlocked +
+// IsFreeToPlay return values for the 4-branch coverage.
+type mapBlockedWorld struct {
+	mockWorld
+	mapBlocked bool
+	freeToPlay bool
+}
+
+func (w *mapBlockedWorld) IsMapBlocked(level, x, z int) bool { return w.mapBlocked }
+func (w *mapBlockedWorld) IsFreeToPlay(x, z int) bool        { return w.freeToPlay }
+
+func TestMapBlocked_MembersWorldClearTilePushes0(t *testing.T) {
+	w := &mapBlockedWorld{mockWorld: mockWorld{mapMembers: 1}, mapBlocked: false}
+	state := runMapOp(t, w, OpMapBlocked, []int{(0 << 28) | (3200 << 14) | 3300})
+
+	if state.ISP != 1 || state.IntStack[0] != 0 {
+		t.Errorf("members-world clear tile: got top=%d ISP=%d, want top=0 ISP=1",
+			state.IntStack[0], state.ISP)
+	}
+}
+
+func TestMapBlocked_MembersWorldBlockedTilePushes1(t *testing.T) {
+	w := &mapBlockedWorld{mockWorld: mockWorld{mapMembers: 1}, mapBlocked: true}
+	state := runMapOp(t, w, OpMapBlocked, []int{(0 << 28) | (3200 << 14) | 3300})
+
+	if state.ISP != 1 || state.IntStack[0] != 1 {
+		t.Errorf("members-world blocked tile: got top=%d ISP=%d, want top=1 ISP=1",
+			state.IntStack[0], state.ISP)
+	}
+}
+
+// F2P-world non-F2P tile: short-circuits to push 1 BEFORE the IsMapBlocked
+// check. Tests the early-return per TS ServerOps.ts:132-135.
+func TestMapBlocked_F2PWorldNonF2PTilePushes1(t *testing.T) {
+	w := &mapBlockedWorld{
+		mockWorld:  mockWorld{mapMembers: 0}, // F2P world
+		mapBlocked: false,                    // would push 0 if reached
+		freeToPlay: false,                    // tile is NOT F2P
+	}
+	state := runMapOp(t, w, OpMapBlocked, []int{(0 << 28) | (3200 << 14) | 3300})
+
+	if state.ISP != 1 || state.IntStack[0] != 1 {
+		t.Errorf("F2P-world non-F2P tile: got top=%d ISP=%d, want top=1 ISP=1 (short-circuit)",
+			state.IntStack[0], state.ISP)
+	}
+}
+
+// F2P-world F2P tile: passes the gate; falls through to IsMapBlocked.
+func TestMapBlocked_F2PWorldF2PTilePushesIsBlocked(t *testing.T) {
+	w := &mapBlockedWorld{
+		mockWorld:  mockWorld{mapMembers: 0}, // F2P world
+		mapBlocked: true,
+		freeToPlay: true, // tile IS F2P
+	}
+	state := runMapOp(t, w, OpMapBlocked, []int{(0 << 28) | (3200 << 14) | 3300})
+
+	if state.ISP != 1 || state.IntStack[0] != 1 {
+		t.Errorf("F2P-world F2P-blocked tile: got top=%d ISP=%d, want top=1 ISP=1",
+			state.IntStack[0], state.ISP)
+	}
+}

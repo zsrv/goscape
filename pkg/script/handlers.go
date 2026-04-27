@@ -96,6 +96,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// NAI-35-T6: free-square finder (imps + general placement).
 	OpMapFindSquare: handleMapFindSquare,
 
+	// NAI-36-T4: per-tile blocked-state query with F2P short-circuit.
+	OpMapBlocked: handleMapBlocked,
+
 	// S5m: last-input queries.
 	OpLastInt:        handleLastInt,
 	OpLastItem:       handleLastItem,
