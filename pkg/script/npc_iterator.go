@@ -110,3 +110,20 @@ func NewDistanceNpcIterator(lookup NpcLookup, tick, level, x, z, distance, huntv
 		curZoneZ:     centerZ + radius,
 	}
 }
+
+// NewZoneNpcIterator constructs an iterator that yields all NPCs in the
+// single zone containing (level, x, z) — no distance/type filtering.
+// Mirrors TS NpcIterator constructor at ScriptIterators.ts:310-326 with
+// type=ZONE (no npcType arg). Cursor (curZoneX/Z) is set on first Next
+// call by advanceZone (Task 6).
+func NewZoneNpcIterator(lookup NpcLookup, tick, level, x, z int) *NpcIterator {
+	return &NpcIterator{
+		mode:         NpcIteratorZone,
+		creationTick: tick,
+		lookup:       lookup,
+		level:        level,
+		x:            x,
+		z:            z,
+		typeID:       -1, // not used in ZONE mode
+	}
+}

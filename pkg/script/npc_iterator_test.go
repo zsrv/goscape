@@ -48,3 +48,22 @@ func TestNpcIterator_DistanceMode_BoundsMath(t *testing.T) {
 		})
 	}
 }
+
+func TestNpcIterator_ZoneMode_Construction(t *testing.T) {
+	it := NewZoneNpcIterator(nil, 42, 3, 3200, 3300)
+	if it.mode != NpcIteratorZone {
+		t.Errorf("mode: got %v, want NpcIteratorZone", it.mode)
+	}
+	if it.creationTick != 42 {
+		t.Errorf("creationTick: got %d, want 42", it.creationTick)
+	}
+	if it.level != 3 || it.x != 3200 || it.z != 3300 {
+		t.Errorf("center: got (level=%d, x=%d, z=%d), want (3, 3200, 3300)", it.level, it.x, it.z)
+	}
+	if it.typeID != -1 {
+		t.Errorf("typeID: got %d, want -1 (no filter in ZONE mode)", it.typeID)
+	}
+	if it.started {
+		t.Error("started: should be false before first Next call")
+	}
+}
