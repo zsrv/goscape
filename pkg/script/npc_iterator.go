@@ -1,0 +1,79 @@
+package script
+
+import (
+	"github.com/zsrv/goscape/pkg/coordgrid"
+)
+
+// NpcIteratorMode selects between DISTANCE (square radius around center
+// coord, walks zones outer-X-desc/inner-Z-desc) and ZONE (single zone
+// at center coord). Mirrors TS NpcIteratorType enum.
+type NpcIteratorMode int
+
+const (
+	NpcIteratorDistance NpcIteratorMode = iota
+	NpcIteratorZone
+)
+
+// NpcIterator is the script-VM iterator state for the NPC_FIND iterator
+// family (NPC_FINDALL / NPC_FINDALLANY / NPC_FINDALLZONE). Mirrors TS
+// NpcIterator at ScriptIterators.ts:297-363.
+//
+// Lifetime: single-tick. Created by FINDALL*; consumed by FINDNEXT.
+// Stale() check at FINDNEXT compares creationTick to World.CurrentTick();
+// on mismatch, handler returns error → existing npc_script.go:167-172
+// log-warn + ClearActiveScript path runs (mirrors TS throw-on-stale at
+// ScriptIterators.ts:332,343).
+//
+// Ownership: held by ScriptState.npcIterator. Nil = no active iterator.
+// No termination-path cleanup needed: Aborted/Finished drops state;
+// NpcSuspended carries iterator, but Stale() on resume catches stale use.
+type NpcIterator struct {
+	mode         NpcIteratorMode
+	creationTick int
+	lookup       NpcLookup
+
+	// Center + filter config
+	level    int
+	x, z     int
+	distance int // DISTANCE mode only; 0 for ZONE
+	huntvis  int // validated at handler; not used as filter (NAI-33-D1)
+	typeID   int // -1 = no filter (FINDALLANY, FINDALLZONE); else exact match
+
+	// Zone-cursor (DISTANCE mode)
+	minZoneX, maxZoneX int
+	minZoneZ, maxZoneZ int
+	curZoneX, curZoneZ int
+	started            bool
+
+	// Intra-zone snapshot (lazy: filled on zone-entry)
+	zoneNpcs []ActiveNpc
+	zoneIdx  int
+}
+
+// Stale reports whether currentTick differs from the iterator's
+// creationTick. FINDNEXT handler MUST check this before calling Next.
+// Single-tick lifetime: any drift = stale.
+func (it *NpcIterator) Stale(currentTick int) bool {
+	return currentTick != it.creationTick
+}
+
+// passesFilter applies the per-NPC filter chain in TS line 345-356 order.
+// huntvis filtering is intentionally omitted (NAI-33-D1 / S7f-D1 carryover —
+// see deviation registry). Accessor names match pkg/script/active.go:400-408
+// ActiveNpc interface (NpcX/NpcZ/NpcType, NOT X/Z/Type).
+func (it *NpcIterator) passesFilter(npc ActiveNpc) bool {
+	if it.mode == NpcIteratorZone {
+		return true // ZONE mode: no per-NPC filtering per TS line 329-335
+	}
+	if coordgrid.DistanceToSW(it.x, it.z, npc.NpcX(), npc.NpcZ()) > it.distance {
+		return false
+	}
+	// huntvis filter intentionally omitted — NAI-33-D1 carryover
+	if it.typeID >= 0 && npc.NpcType() != it.typeID {
+		return false
+	}
+	return true
+}
+
+// _ ensures coordgrid is imported even if passesFilter is the only use.
+var _ = coordgrid.DistanceToSW
