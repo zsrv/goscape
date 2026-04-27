@@ -1,5 +1,9 @@
 package world
 
+import (
+	"github.com/zsrv/goscape/pkg/pathfinder/collision"
+)
+
 // worldVarsView adapts *Server to script.WorldVars. Kept value-typed so
 // tests can construct it without a running server.
 type worldVarsView struct {
@@ -71,4 +75,24 @@ func (w worldVarsView) MapLive() int {
 		return 0
 	}
 	return 1
+}
+
+// IsMapBlocked delegates to gamemap.Pathfinder.Flags. FlagBlockWalk is the
+// canonical "this tile blocks walking" flag at pkg/pathfinder/collision/flag.go:41.
+// Mirrors TS GameMap.isMapBlocked (CollisionFlag.WALK_BLOCKED). NAI-35-T6.
+func (w worldVarsView) IsMapBlocked(level, x, z int) bool {
+	if w.s == nil || w.s.gamemap == nil {
+		return false
+	}
+	flag := w.s.gamemap.Pathfinder.Flags.Get(x, z, level)
+	return flag&collision.FlagBlockWalk != 0
+}
+
+// IsFreeToPlay delegates to gamemap.IsFreeToPlay. Mirrors TS
+// World.gameMap.isFreeToPlay. NAI-35-T6.
+func (w worldVarsView) IsFreeToPlay(x, z int) bool {
+	if w.s == nil || w.s.gamemap == nil {
+		return false
+	}
+	return w.s.gamemap.IsFreeToPlay(x, z)
 }

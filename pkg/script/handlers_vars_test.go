@@ -31,6 +31,12 @@ func (m *mockWorld) PlayerCount() int                 { return m.players }
 func (m *mockWorld) MapMembers() int                  { return m.mapMembers }
 func (m *mockWorld) MapLive() int                     { return m.mapLive }
 
+// NAI-35-T6: default no-op stubs for the WorldVars surface extension. Tests
+// that exercise MAP_FINDSQUARE override these via mapFindSquareWorld
+// (handlers_map_test.go).
+func (m *mockWorld) IsMapBlocked(level, x, z int) bool { return false }
+func (m *mockWorld) IsFreeToPlay(x, z int) bool        { return false }
+
 func TestPushVarp(t *testing.T) {
 	sf := &ScriptFile{
 		Name:             "push_varp",

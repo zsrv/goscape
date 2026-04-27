@@ -93,6 +93,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// NAI-35-T2: rect-bounded player-count enumeration.
 	OpMapPlayerCount: handleMapPlayerCount,
 
+	// NAI-35-T6: free-square finder (imps + general placement).
+	OpMapFindSquare: handleMapFindSquare,
+
 	// S5m: last-input queries.
 	OpLastInt:        handleLastInt,
 	OpLastItem:       handleLastItem,

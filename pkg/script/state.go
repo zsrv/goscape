@@ -63,6 +63,16 @@ type WorldVars interface {
 	// World-config queries: MAP_MEMBERS / MAP_LIVE. Pushed as 0/1.
 	MapMembers() int
 	MapLive() int
+
+	// IsMapBlocked reports whether the tile at (level, x, z) blocks
+	// walking. Used by MAP_FINDSQUARE for candidate-square rejection.
+	// Mirrors TS World.gameMap.isMapBlocked. NAI-35-T6.
+	IsMapBlocked(level, x, z int) bool
+
+	// IsFreeToPlay reports whether the tile at (x, z) is in an F2P zone.
+	// Used by MAP_FINDSQUARE for free-world filtering. Mirrors TS
+	// World.gameMap.isFreeToPlay. NAI-35-T6.
+	IsFreeToPlay(x, z int) bool
 }
 
 // InvLookup is the inventory resolution surface for INV_* handlers.

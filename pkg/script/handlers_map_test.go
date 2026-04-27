@@ -1,6 +1,7 @@
 package script
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
@@ -130,5 +131,187 @@ func TestHandleMapPlayerCount_CrossLevelRectIgnoresToLevel(t *testing.T) {
 	}
 	if got := state.PopInt(); got != 0 {
 		t.Errorf("cross-level count (D1): got %d, want 0", got)
+	}
+}
+
+// MAP_FINDSQUARE (opcode 1009) — NAI-35-T6.
+// Mirrors TS ServerOps.ts:254-374. Pops [coord, minRadius, maxRadius, type]
+// and pushes a packed coord of a free walkable square near origin (or the
+// origin coord on exhaustion).
+
+// blockKey indexes blocked tiles by (level, x, z) for mapFindSquareWorld.
+type blockKey struct{ level, x, z int }
+
+// xzKey indexes F2P tiles by (x, z) (level-agnostic, mirroring TS
+// gameMap.isFreeToPlay signature).
+type xzKey struct{ x, z int }
+
+// mapFindSquareWorld extends mockWorld with the IsMapBlocked / IsFreeToPlay
+// surface MAP_FINDSQUARE needs. Embeds *mockWorld so all existing WorldVars
+// methods (CurrentTick / PlayerCount / MapLive / VarsInt etc.) are inherited;
+// MapMembers is overridden to allow a F2P (members=0) test case.
+type mapFindSquareWorld struct {
+	*mockWorld
+	blockedTiles map[blockKey]bool
+	f2pTiles     map[xzKey]bool
+	members      int
+}
+
+func newMapFindSquareWorld() *mapFindSquareWorld {
+	return &mapFindSquareWorld{
+		mockWorld:    newMockWorld(),
+		blockedTiles: make(map[blockKey]bool),
+		f2pTiles:     make(map[xzKey]bool),
+	}
+}
+
+func (w *mapFindSquareWorld) IsMapBlocked(level, x, z int) bool {
+	return w.blockedTiles[blockKey{level, x, z}]
+}
+
+func (w *mapFindSquareWorld) IsFreeToPlay(x, z int) bool {
+	return w.f2pTiles[xzKey{x, z}]
+}
+
+// MapMembers overrides mockWorld.MapMembers to allow tests to flip between
+// members (1) and free worlds (0).
+func (w *mapFindSquareWorld) MapMembers() int { return w.members }
+
+func TestHandleMapFindSquare_NoneType_FindsFreeSquareWithinRadius(t *testing.T) {
+	// members world (members=1) → freeWorld=false → IsFreeToPlay never
+	// gates. No blocked tiles → first random candidate within radius
+	// always succeeds. Bound check (|dx|, |dz| ≤ 5) is property-deterministic
+	// regardless of rand.IntN's output.
+	w := newMapFindSquareWorld()
+	w.members = 1
+
+	originLevel, originX, originZ := 0, 3200, 3200
+	sf := newSingleOp("map_findsquare_none", OpMapFindSquare)
+	state := Init(sf, nil, false, nil, nil)
+	state.World = w
+	state.PushInt(coordgrid.PackCoord(originLevel, originX, originZ)) // coord
+	state.PushInt(1)                                                  // minRadius
+	state.PushInt(5)                                                  // maxRadius
+	state.PushInt(int(MapFindSquareNone))                             // type (top of stack)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	got := coordgrid.UnpackCoord(state.PopInt())
+	if got.Level != originLevel {
+		t.Errorf("level: got %d, want %d", got.Level, originLevel)
+	}
+	dx, dz := got.X-originX, got.Z-originZ
+	if dx < 0 {
+		dx = -dx
+	}
+	if dz < 0 {
+		dz = -dz
+	}
+	if dx > 5 || dz > 5 {
+		t.Errorf("delta out of maxRadius: dx=%d dz=%d (want both ≤ 5)", dx, dz)
+	}
+	// minRadius=1 means at least one of |dx|,|dz| ≥ 1 (max(|dx|,|dz|) ≥ 1).
+	if max(dx, dz) < 1 {
+		t.Errorf("delta inside minRadius: dx=%d dz=%d (want max ≥ 1)", dx, dz)
+	}
+}
+
+func TestHandleMapFindSquare_AllBlocked_ReturnsOriginCoord(t *testing.T) {
+	// Block every tile in the 11×11 region (origin ± 5). Random branch
+	// will exhaust 50 attempts → fall through to PushInt(coord). Outcome
+	// is deterministic regardless of rand draws.
+	w := newMapFindSquareWorld()
+	w.members = 1
+
+	originLevel, originX, originZ := 0, 3200, 3200
+	for x := originX - 5; x <= originX+5; x++ {
+		for z := originZ - 5; z <= originZ+5; z++ {
+			w.blockedTiles[blockKey{originLevel, x, z}] = true
+		}
+	}
+
+	coord := coordgrid.PackCoord(originLevel, originX, originZ)
+	sf := newSingleOp("map_findsquare_all_blocked", OpMapFindSquare)
+	state := Init(sf, nil, false, nil, nil)
+	state.World = w
+	state.PushInt(coord)
+	state.PushInt(1) // minRadius
+	state.PushInt(5) // maxRadius
+	state.PushInt(int(MapFindSquareNone))
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopInt(); got != coord {
+		t.Errorf("got %d, want origin coord %d (TS line 373 fall-through)", got, coord)
+	}
+}
+
+func TestHandleMapFindSquare_F2PTileRejectedInFreeWorld(t *testing.T) {
+	// members=0 (free world) → freeWorld=true. With f2pTiles empty, every
+	// candidate fails the IsFreeToPlay gate → fall through to origin coord.
+	// Deterministic regardless of rand draws.
+	w := newMapFindSquareWorld()
+	w.members = 0
+
+	originLevel, originX, originZ := 0, 3200, 3200
+	coord := coordgrid.PackCoord(originLevel, originX, originZ)
+	sf := newSingleOp("map_findsquare_f2p_reject", OpMapFindSquare)
+	state := Init(sf, nil, false, nil, nil)
+	state.World = w
+	state.PushInt(coord)
+	state.PushInt(1)
+	state.PushInt(5)
+	state.PushInt(int(MapFindSquareNone))
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopInt(); got != coord {
+		t.Errorf("free-world fallthrough: got %d, want origin coord %d", got, coord)
+	}
+}
+
+func TestHandleMapFindSquare_TypeValidationRejectsInvalid(t *testing.T) {
+	// Validation order: checkNumberPositive(min), checkNumberPositive(max),
+	// checkFindSquareType(type), checkCoord(coord). Push valid radii, then
+	// invalid type → errors on type.
+	w := newMapFindSquareWorld()
+	w.members = 1
+
+	originLevel, originX, originZ := 0, 3200, 3200
+	sf := newSingleOp("map_findsquare_invalid_type", OpMapFindSquare)
+	state := Init(sf, nil, false, nil, nil)
+	state.World = w
+	state.PushInt(coordgrid.PackCoord(originLevel, originX, originZ))
+	state.PushInt(1)  // minRadius
+	state.PushInt(5)  // maxRadius
+	state.PushInt(99) // invalid type (top of stack)
+	err := Execute(state)
+	if err == nil {
+		t.Fatal("Execute: expected error for invalid type, got nil")
+	}
+	if !strings.Contains(err.Error(), "MAP_FINDSQUARE") {
+		t.Errorf("error %q does not mention MAP_FINDSQUARE", err.Error())
+	}
+}
+
+func TestHandleMapFindSquare_NumberPositiveValidation(t *testing.T) {
+	// minRadius=0 is the FIRST value validated → checkNumberPositive fires.
+	w := newMapFindSquareWorld()
+	w.members = 1
+
+	originLevel, originX, originZ := 0, 3200, 3200
+	sf := newSingleOp("map_findsquare_zero_min", OpMapFindSquare)
+	state := Init(sf, nil, false, nil, nil)
+	state.World = w
+	state.PushInt(coordgrid.PackCoord(originLevel, originX, originZ))
+	state.PushInt(0) // minRadius (invalid: not positive)
+	state.PushInt(5) // maxRadius
+	state.PushInt(int(MapFindSquareNone))
+	err := Execute(state)
+	if err == nil {
+		t.Fatal("Execute: expected error for minRadius=0, got nil")
+	}
+	if !strings.Contains(err.Error(), "MAP_FINDSQUARE") {
+		t.Errorf("error %q does not mention MAP_FINDSQUARE", err.Error())
 	}
 }
