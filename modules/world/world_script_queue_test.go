@@ -358,7 +358,7 @@ func TestWorldDelay_FullRoundTrip(t *testing.T) {
 	// will execute pushInt(2); WORLD_DELAY; suspend. The player-path
 	// resumeOrFinish handles the suspend → enqueue (user delay=2 stored
 	// as 3) + clear.
-	s.runScript(sf, p, false, nil, nil)
+	s.runScript(sf, p, nil, false, nil, nil)
 
 	// After T1: enqueued with stored delay=3, activeScript cleared.
 	if got := len(s.worldScriptQueue); got != 1 {

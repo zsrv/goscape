@@ -17,17 +17,28 @@ func (s *Server) scriptLineValidator() script.LineValidator {
 	return s.gamemap.Pathfinder.LineValidator
 }
 
-// runScript initialises a ScriptState for a fresh invocation and routes
-// the result via resumeOrFinish. Safe to call with a nil scriptFile
-// (no-op) so callers don't have to nil-check the trigger lookup.
+// buildPlayerScriptState initialises a ScriptState for a player-anchored
+// fresh run. Pure — no side effects on server state — so callers can
+// test the target-dispatch logic in isolation.
 //
-// If the script suspends (Execution == Suspended), the state is stored
-// on the active player and the tick loop will resume it when the
-// player's delay expires via processActiveScripts.
-func (s *Server) runScript(sf *script.ScriptFile, self script.ActivePlayer, protect bool, intArgs []int, stringArgs []string) {
-	if sf == nil {
-		return
-	}
+// NAI-39: target may be nil (the common case — no secondary entity), or
+// a concrete value satisfying one of the Active* interfaces. The
+// type-switch wires the matching ScriptState field and pointer flag,
+// mirroring buildNpcScriptState's NAI-11 shape (npc_script.go:225-261)
+// and the TS ScriptRunner.init target-dispatch at ScriptRunner.ts:84-116.
+//
+// DEVIATION NAI-39-D-ACTIVEPLAYER2-NO-OPPLAYER-PRODUCER: the
+// case script.ActivePlayer branch lays the rails for OPPLAYER triggers
+// (Player→Player invocations). No production trigger seeds Self2 yet;
+// closure when OPPLAYER triggers are ported.
+func (s *Server) buildPlayerScriptState(
+	sf *script.ScriptFile,
+	self script.ActivePlayer,
+	target any,
+	protect bool,
+	intArgs []int,
+	stringArgs []string,
+) *script.ScriptState {
 	state := script.Init(sf, self, protect, intArgs, stringArgs)
 	state.Provider = s.scriptProvider
 	state.World = s.worldVars
@@ -36,6 +47,53 @@ func (s *Server) runScript(sf *script.ScriptFile, self script.ActivePlayer, prot
 	state.Npcs = s.npcLookup
 	state.PlayerLookup = s
 	state.LineValidator = s.scriptLineValidator()
+
+	switch t := target.(type) {
+	case nil:
+		// No secondary pointer.
+	case script.ActivePlayer:
+		// TS: self=Player, target=Player → _activePlayer2 = target,
+		// PtrActivePlayer2 (ScriptRunner.ts:84-87).
+		state.Self2 = t
+		state.Pointers |= script.PtrActivePlayer2
+	case script.ActiveNpc:
+		state.ActiveNpc = t
+		state.Pointers |= script.PtrActiveNpc
+	case script.ActiveLoc:
+		state.ActiveLoc = t
+		state.Pointers |= script.PtrActiveLoc
+	case script.ActiveObj:
+		state.ActiveObj = t
+		state.Pointers |= script.PtrActiveObj
+	}
+
+	return state
+}
+
+// runScript initialises a ScriptState for a fresh invocation and routes
+// the result via resumeOrFinish. Safe to call with a nil scriptFile
+// (no-op) so callers don't have to nil-check the trigger lookup.
+//
+// If the script suspends (Execution == Suspended), the state is stored
+// on the active player and the tick loop will resume it when the
+// player's delay expires via processActiveScripts.
+//
+// NAI-39: target is the secondary-entity binding for triggers that
+// dispatch through an active_player2 / active_npc / active_loc /
+// active_obj slot. Pass nil when there is no secondary binding (the
+// common case — engine-dispatched timers, queue runs, login).
+func (s *Server) runScript(
+	sf *script.ScriptFile,
+	self script.ActivePlayer,
+	target any,
+	protect bool,
+	intArgs []int,
+	stringArgs []string,
+) {
+	if sf == nil {
+		return
+	}
+	state := s.buildPlayerScriptState(sf, self, target, protect, intArgs, stringArgs)
 	s.resumeOrFinish(state, self)
 }
 

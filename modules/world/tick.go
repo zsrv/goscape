@@ -132,7 +132,7 @@ func (s *Server) processLogins() {
 		// Fire the LOGIN trigger if the cache has one. Sub-spec RuneScript S3.
 		if s.scriptProvider != nil {
 			sf := s.scriptProvider.GetByTrigger(script.TriggerLogin, -1, -1)
-			s.runScript(sf, p, true, nil, nil)
+			s.runScript(sf, p, nil, true, nil, nil)
 		}
 	}
 }
@@ -243,7 +243,7 @@ func (s *Server) processPlayerQueue(p *Player) {
 		stringArgs := req.StringArgs
 		p.queue = append(p.queue[:i], p.queue[i+1:]...)
 		if sf != nil {
-			s.runScript(sf, p, false, intArgs, stringArgs)
+			s.runScript(sf, p, nil, false, intArgs, stringArgs)
 		}
 		// Don't advance i: we just removed the current element, so i
 		// now points to what was the next element (or past end).
@@ -288,7 +288,7 @@ func (s *Server) processPlayerTimers() {
 			if sf == nil {
 				continue
 			}
-			s.runScript(sf, p, false, t.IntArgs, t.StringArgs)
+			s.runScript(sf, p, nil, false, t.IntArgs, t.StringArgs)
 		}
 	}
 }

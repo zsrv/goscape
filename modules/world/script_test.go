@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/inventory"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/io/packet"
@@ -43,7 +44,7 @@ func TestRunScriptNilNoop(t *testing.T) {
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 
 	received := drainConn(t, cc)
-	s.runScript(nil, p, true, nil, nil)
+	s.runScript(nil, p, nil, true, nil, nil)
 	p.client.flushWrite()
 	got := <-received
 	if len(got) != 0 {
@@ -63,7 +64,7 @@ func TestRunScriptExecutesMesScript(t *testing.T) {
 	}
 
 	received := drainConn(t, cc)
-	s.runScript(sf, p, true, nil, nil)
+	s.runScript(sf, p, nil, true, nil, nil)
 	p.client.flushWrite()
 	got := <-received
 
@@ -94,7 +95,7 @@ func TestRunScriptHandlesError(t *testing.T) {
 	}
 
 	received := drainConn(t, cc)
-	s.runScript(bad, p, true, nil, nil)
+	s.runScript(bad, p, nil, true, nil, nil)
 	p.client.flushWrite()
 	got := <-received
 	if len(got) != 0 {
@@ -148,7 +149,7 @@ func TestPDelayStoresActiveScript(t *testing.T) {
 	startTick := s.currentTick
 
 	sf := buildDelayScript()
-	s.runScript(sf, p, true, nil, nil)
+	s.runScript(sf, p, nil, true, nil, nil)
 
 	if p.activeScript == nil {
 		t.Fatal("activeScript: got nil, want non-nil")
@@ -172,7 +173,7 @@ func TestResumeAfterDelayExpires(t *testing.T) {
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	s.playerLoop = append(s.playerLoop, p)
 
-	s.runScript(buildDelayScript(), p, true, nil, nil)
+	s.runScript(buildDelayScript(), p, nil, true, nil, nil)
 	if p.activeScript == nil {
 		t.Fatal("precondition: activeScript should be non-nil after suspension")
 	}
@@ -197,7 +198,7 @@ func TestResumedScriptEmitsMessageGame(t *testing.T) {
 	s.playerLoop = append(s.playerLoop, p)
 
 	received := drainConn(t, cc)
-	s.runScript(buildDelayScript(), p, true, nil, nil)
+	s.runScript(buildDelayScript(), p, nil, true, nil, nil)
 	p.client.flushWrite()
 	first := <-received
 
@@ -309,7 +310,7 @@ func TestPlaytimeViaScriptMessageGame(t *testing.T) {
 	}
 
 	received := drainConn(t, cc)
-	s.runScript(sf, p, false, nil, nil)
+	s.runScript(sf, p, nil, false, nil, nil)
 	p.client.flushWrite()
 	got := <-received
 
@@ -396,7 +397,7 @@ func TestVarpWireSyncSmall(t *testing.T) {
 	p.varps = make([]int32, 1)
 
 	received := drainConn(t, cc)
-	s.runScript(popVarpScript(42), p, false, nil, nil)
+	s.runScript(popVarpScript(42), p, nil, false, nil, nil)
 	p.client.flushWrite()
 	got := <-received
 
@@ -424,7 +425,7 @@ func TestVarpWireSyncLarge(t *testing.T) {
 	p.varps = make([]int32, 1)
 
 	received := drainConn(t, cc)
-	s.runScript(popVarpScript(10000), p, false, nil, nil)
+	s.runScript(popVarpScript(10000), p, nil, false, nil, nil)
 	p.client.flushWrite()
 	got := <-received
 
@@ -452,7 +453,7 @@ func TestVarpTransmitFalseNoWire(t *testing.T) {
 	p.varps = make([]int32, 1)
 
 	received := drainConn(t, cc)
-	s.runScript(popVarpScript(42), p, false, nil, nil)
+	s.runScript(popVarpScript(42), p, nil, false, nil, nil)
 	p.client.flushWrite()
 	got := <-received
 
@@ -490,7 +491,7 @@ func TestTelejumpViaScript(t *testing.T) {
 		InstructionCount: 3,
 	}
 
-	s.runScript(sf, p, true, nil, nil)
+	s.runScript(sf, p, nil, true, nil, nil)
 
 	if p.x != 3222 {
 		t.Errorf("p.x: got %d, want 3222", p.x)
@@ -535,7 +536,7 @@ func TestStatAdvanceViaScript(t *testing.T) {
 		InstructionCount: 4,
 	}
 
-	s.runScript(sf, p, true, nil, nil)
+	s.runScript(sf, p, nil, true, nil, nil)
 
 	if int(p.stats[3]) != 150 {
 		t.Errorf("p.stats[3]: got %d, want 150", int(p.stats[3]))
@@ -647,7 +648,7 @@ func TestInvAddGrantsItemsViaScript(t *testing.T) {
 		InstructionCount: 5,
 	}
 
-	s.runScript(sf, p, true, nil, nil)
+	s.runScript(sf, p, nil, true, nil, nil)
 
 	inv := p.invs[mainID]
 	if inv == nil {
@@ -679,7 +680,7 @@ func TestIfOpenMainSetsModalState(t *testing.T) {
 		StringOperands:   []string{"", "", ""},
 		InstructionCount: 3,
 	}
-	s.runScript(sf, p, true, nil, nil)
+	s.runScript(sf, p, nil, true, nil, nil)
 
 	if p.modalMain != 1234 {
 		t.Errorf("modalMain: got %d, want 1234", p.modalMain)
@@ -719,7 +720,7 @@ func TestIfSetTextEmitsWire(t *testing.T) {
 	}
 
 	received := drainConn(t, cc)
-	s.runScript(sf, p, true, nil, nil)
+	s.runScript(sf, p, nil, true, nil, nil)
 	p.client.flushWrite()
 	got := <-received
 
@@ -768,7 +769,7 @@ func TestPauseButtonResumesAfterClick(t *testing.T) {
 	}
 
 	received := drainConn(t, cc)
-	s.runScript(sf, p, true, nil, nil)
+	s.runScript(sf, p, nil, true, nil, nil)
 	p.client.flushWrite()
 	first := <-received
 
@@ -1278,5 +1279,111 @@ func TestProcessPlayerQueueDeliversAllArgs(t *testing.T) {
 	}
 	if len(p.queue) != 0 {
 		t.Errorf("queue after fire: len=%d, want 0", len(p.queue))
+	}
+}
+
+// --- NAI-39 Task 3: buildPlayerScriptState target-dispatch tests ----------
+//
+// Direct mirror of buildNpcScriptState target-dispatch coverage at
+// npc_script_test.go:472-560. Verifies the rails work even though no
+// production producer fires through them yet — closes the dual-pin
+// (presence-of-rails) per ts_asymmetry_dual_pin.md.
+
+// TestBuildPlayerScriptState_NilTarget — nil target leaves Self2 nil and
+// PtrActivePlayer2 unset; only the primary PtrActivePlayer is set.
+func TestBuildPlayerScriptState_NilTarget(t *testing.T) {
+	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	sf := &script.ScriptFile{Name: "noop"}
+
+	state := s.buildPlayerScriptState(sf, p, nil, false, nil, nil)
+
+	if state.Self2 != nil {
+		t.Error("Self2: non-nil, want nil")
+	}
+	if state.Pointers&script.PtrActivePlayer2 != 0 {
+		t.Error("Pointers: PtrActivePlayer2 flag set, want unset")
+	}
+	if state.Pointers&script.PtrActivePlayer == 0 {
+		t.Error("Pointers: PtrActivePlayer flag unset, want set (primary)")
+	}
+}
+
+// TestBuildPlayerScriptState_PlayerTarget — *Player target lands in
+// state.Self2 with PtrActivePlayer2 set; Self (primary) is unchanged.
+// Mirrors TS ScriptRunner.init: self=Player, target=Player → _activePlayer2.
+func TestBuildPlayerScriptState_PlayerTarget(t *testing.T) {
+	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	p2, _ := newTestPlayer(t)
+	sf := &script.ScriptFile{Name: "noop"}
+
+	state := s.buildPlayerScriptState(sf, p, p2, false, nil, nil)
+
+	if state.Self == nil {
+		t.Error("Self: nil, want primary set")
+	}
+	if state.Self2 == nil {
+		t.Error("Self2: nil, want set (ActivePlayer target)")
+	}
+	if state.Pointers&script.PtrActivePlayer2 == 0 {
+		t.Error("Pointers: PtrActivePlayer2 flag unset, want set")
+	}
+	if state.Self2 != p2 {
+		t.Errorf("Self2: got %v, want %v (target Player)", state.Self2, p2)
+	}
+}
+
+// TestBuildPlayerScriptState_NpcTarget — *Npc target lands in
+// state.ActiveNpc with PtrActiveNpc set.
+func TestBuildPlayerScriptState_NpcTarget(t *testing.T) {
+	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	npc := newNpcForScriptTest(t)
+	sf := &script.ScriptFile{Name: "noop"}
+
+	state := s.buildPlayerScriptState(sf, p, npc, false, nil, nil)
+
+	if state.ActiveNpc == nil {
+		t.Error("ActiveNpc: nil, want set")
+	}
+	if state.Pointers&script.PtrActiveNpc == 0 {
+		t.Error("Pointers: PtrActiveNpc flag unset, want set")
+	}
+}
+
+// TestBuildPlayerScriptState_LocTarget — *Loc target lands in
+// state.ActiveLoc with PtrActiveLoc set.
+func TestBuildPlayerScriptState_LocTarget(t *testing.T) {
+	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	loc := entitypkg.NewLoc(0, 100, 100, 1, 1, entitypkg.LifecycleRespawn, 42, 10, 0)
+	sf := &script.ScriptFile{Name: "noop"}
+
+	state := s.buildPlayerScriptState(sf, p, loc, false, nil, nil)
+
+	if state.ActiveLoc == nil {
+		t.Error("ActiveLoc: nil, want set")
+	}
+	if state.Pointers&script.PtrActiveLoc == 0 {
+		t.Error("Pointers: PtrActiveLoc flag unset, want set")
+	}
+}
+
+// TestBuildPlayerScriptState_ObjTarget — *Obj target lands in
+// state.ActiveObj with PtrActiveObj set.
+func TestBuildPlayerScriptState_ObjTarget(t *testing.T) {
+	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	obj := entitypkg.NewObj(0, 100, 100, entitypkg.LifecycleRespawn, 42, 1)
+	sf := &script.ScriptFile{Name: "noop"}
+
+	state := s.buildPlayerScriptState(sf, p, obj, false, nil, nil)
+
+	if state.ActiveObj == nil {
+		t.Error("ActiveObj: nil, want set")
+	}
+	if state.Pointers&script.PtrActiveObj == 0 {
+		t.Error("Pointers: PtrActiveObj flag unset, want set")
 	}
 }
