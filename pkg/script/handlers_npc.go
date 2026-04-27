@@ -394,6 +394,30 @@ func handleNpcWalk(s *ScriptState) error {
 	return nil
 }
 
+// handleNpcWalkTrigger (NPC_WALKTRIGGER, opcode 2545) sets a deferred
+// AI-queue trigger and arg on the active NPC; the trigger fires when
+// the NPC completes a walk step. Pop order: arg (top), queueID
+// (bottom). queueID ∈ [1, 20] mirrors TS QueueValid range, transformed
+// to [0, 19] via queueID-1 to match TS NpcOps.ts:488 storage. Mirrors
+// TS NpcOps.ts:483-490.
+//
+// NOT YET CONSUMED at NAI-37: the AI-tick walktrigger consumption that
+// reads these fields and fires the queued script when the NPC completes
+// a walk step is tracked deviation NAI-37-D-WALKTRIGGER-NOREADER.
+func handleNpcWalkTrigger(s *ScriptState) error {
+	if err := requireActiveNpc(s, "NPC_WALKTRIGGER"); err != nil {
+		return err
+	}
+	arg := s.PopInt()
+	queueID := s.PopInt()
+	if queueID < 1 || queueID > 20 {
+		return fmt.Errorf("NPC_WALKTRIGGER: invalid queueId %d (want 1..20)", queueID)
+	}
+	s.ActiveNpc.SetWalkTrigger(queueID - 1)
+	s.ActiveNpc.SetWalkTriggerArg(arg)
+	return nil
+}
+
 // handleNpcGetMode (NPC_GETMODE, opcode 2522) pushes the active NPC's
 // targetOp value (the mode set by NPC_SETMODE / interaction binding).
 // Mirrors TS NpcOps.ts:473-475 — checkedHandler(ActiveNpc) + pushInt.

@@ -2629,3 +2629,126 @@ func TestNpcSetMode_NoActiveNpcErrors(t *testing.T) {
 		t.Errorf("handleNpcSetMode with no active npc: got %v, want error", err)
 	}
 }
+
+// equalIntSlice reports whether two int slices are element-wise equal.
+// Local helper for the NAI-37 NPC_WALKTRIGGER tests; the rest of this
+// file uses reflect.DeepEqual, but the plan prescribes this helper for
+// the walktrigger pop-order/transform assertions.
+func equalIntSlice(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// --- NAI-37 Task 2: NPC_WALKTRIGGER handler unit tests ---------------------
+
+func TestNpcWalkTrigger_NoActiveNpc_Errors(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	} // no ActiveNpc set
+	// Push order: queueID (first → bottom), arg (second → top).
+	// Handler pops arg first, queueID second.
+	s.PushInt(3) // queueID
+	s.PushInt(5) // arg
+	if err := handleNpcWalkTrigger(s); err == nil {
+		t.Fatalf("expected error for no active npc")
+	}
+}
+
+func TestNpcWalkTrigger_QueueIDBelowOne_Errors(t *testing.T) {
+	npc := &mockNpc{}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	// Push order: queueID (first → bottom), arg (second → top).
+	s.PushInt(0) // queueID = 0 → invalid
+	s.PushInt(5) // arg
+	if err := handleNpcWalkTrigger(s); err == nil {
+		t.Fatalf("expected error for queueID=0")
+	}
+	if len(npc.walkTriggerCalls) != 0 {
+		t.Errorf("walkTriggerCalls: got %d writes, want 0 on validation failure",
+			len(npc.walkTriggerCalls))
+	}
+}
+
+func TestNpcWalkTrigger_QueueIDAboveTwenty_Errors(t *testing.T) {
+	npc := &mockNpc{}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	// Push order: queueID (first → bottom), arg (second → top).
+	s.PushInt(21) // queueID = 21 → invalid
+	s.PushInt(5)  // arg
+	if err := handleNpcWalkTrigger(s); err == nil {
+		t.Fatalf("expected error for queueID=21")
+	}
+}
+
+func TestNpcWalkTrigger_PopOrderAndTransform(t *testing.T) {
+	npc := &mockNpc{}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(7)  // queueID (pushed first → bottom of stack)
+	s.PushInt(42) // arg (pushed second → top of stack)
+	if err := handleNpcWalkTrigger(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Pop order: arg (top) first, queueID (next) second.
+	// Then queueID-1 transform: 7 → 6.
+	if want := []int{6}; !equalIntSlice(npc.walkTriggerCalls, want) {
+		t.Errorf("walkTriggerCalls: got %v, want %v", npc.walkTriggerCalls, want)
+	}
+	if want := []int{42}; !equalIntSlice(npc.walkTriggerArgCalls, want) {
+		t.Errorf("walkTriggerArgCalls: got %v, want %v", npc.walkTriggerArgCalls, want)
+	}
+}
+
+func TestNpcWalkTrigger_BoundaryQueueIDs(t *testing.T) {
+	t.Run("queueID=1", func(t *testing.T) {
+		npc := &mockNpc{}
+		s := &ScriptState{
+			ActiveNpc:   npc,
+			IntStack:    make([]int, StackCapacity),
+			StringStack: make([]string, StackCapacity),
+		}
+		s.PushInt(1) // queueID
+		s.PushInt(0) // arg
+		if err := handleNpcWalkTrigger(s); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if want := []int{0}; !equalIntSlice(npc.walkTriggerCalls, want) {
+			t.Errorf("queueID=1 → walktrigger=0 (queueID-1); got %v", npc.walkTriggerCalls)
+		}
+	})
+	t.Run("queueID=20", func(t *testing.T) {
+		npc := &mockNpc{}
+		s := &ScriptState{
+			ActiveNpc:   npc,
+			IntStack:    make([]int, StackCapacity),
+			StringStack: make([]string, StackCapacity),
+		}
+		s.PushInt(20) // queueID
+		s.PushInt(0)  // arg
+		if err := handleNpcWalkTrigger(s); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if want := []int{19}; !equalIntSlice(npc.walkTriggerCalls, want) {
+			t.Errorf("queueID=20 → walktrigger=19 (queueID-1); got %v", npc.walkTriggerCalls)
+		}
+	})
+}

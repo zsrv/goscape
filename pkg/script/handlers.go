@@ -362,6 +362,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpNpcSetMode:           handleNpcSetMode,
 	OpNpcTele:              handleNpcTele,
 	OpNpcWalk:              handleNpcWalk,
+	OpNpcWalkTrigger:       handleNpcWalkTrigger,
 
 	// NPC find (S7f) — closest-single cluster.
 	OpNpcFind:      handleNpcFind,
