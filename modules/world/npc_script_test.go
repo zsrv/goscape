@@ -839,3 +839,41 @@ func TestNpcSetWalkTriggerFieldWrites(t *testing.T) {
 		t.Errorf("SetWalkTriggerArg(42): got walktriggerArg=%d, want 42", got)
 	}
 }
+
+// --- NAI-37 Task 11: npc-path WorldSuspended producer test ----------------
+
+// TestResumeOrFinishNpc_WorldSuspended_EnqueuesAndClears pins the
+// npc-path producer: an npc-bound script whose Execute returned
+// Execution=WorldSuspended (with the wakeup-tick on the int stack)
+// is dispatched by resumeOrFinishNpc to (a) pop the wakeup-tick,
+// (b) enqueue to s.worldScriptQueue with that delay, and (c) clear
+// the npc's active script. Mirrors TS Npc.ts:219-220.
+func TestResumeOrFinishNpc_WorldSuspended_EnqueuesAndClears(t *testing.T) {
+	s, n := buildNpcForIntegration(t)
+
+	state := &script.ScriptState{
+		Script:      &script.ScriptFile{Name: "test_world_suspend"},
+		Execution:   script.WorldSuspended,
+		IntStack:    make([]int, script.StackCapacity),
+		StringStack: make([]string, script.StackCapacity),
+	}
+	state.PushInt(7) // wakeup-tick value for resumer to pop
+
+	// Pre-set a non-nil activeScript on the npc so we can verify it gets cleared.
+	n.activeScript = state
+
+	s.resumeOrFinishNpc(state, n)
+
+	if got, want := len(s.worldScriptQueue), 1; got != want {
+		t.Fatalf("worldScriptQueue length: got %d, want %d", got, want)
+	}
+	if got := s.worldScriptQueue[0].delay; got != 7 {
+		t.Errorf("enqueued delay: got %d, want 7 (popped from script stack)", got)
+	}
+	if got := s.worldScriptQueue[0].script; got != state {
+		t.Errorf("enqueued script identity: got %p, want %p", got, state)
+	}
+	if got := n.activeScript; got != nil {
+		t.Errorf("npc.activeScript: got %v, want nil (script transitioned to world-bound)", got)
+	}
+}

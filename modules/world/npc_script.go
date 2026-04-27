@@ -305,8 +305,14 @@ func (s *Server) resumeOrFinishNpc(state *script.ScriptState, npc script.ActiveN
 		npc.ClearActiveScript()
 	case script.NpcSuspended:
 		npc.StoreActiveScript(state)
+	case script.WorldSuspended:
+		// NAI-37: npc-bound script suspended to world queue. Symmetric
+		// to resumeOrFinish (player path, T10). Mirrors TS Npc.ts:219-220.
+		delay := state.PopInt()
+		s.EnqueueWorldScript(state, delay)
+		npc.ClearActiveScript()
 	default:
-		// Suspended / PauseButton / CountDialog / WorldSuspended —
+		// Suspended / PauseButton / CountDialog —
 		// not reachable via npc_delay alone, but defensively clear.
 		s.log.Warn("npc script in unexpected execution state",
 			"script", state.Script.Name, "execution", state.Execution)
