@@ -436,6 +436,87 @@ func TestNcParamInt(t *testing.T) {
 	}
 }
 
+// NPC_PARAM (opcode 2529) — int param push from active npc.
+// Mirrors TS NpcOps.ts:132-141 (NPC_PARAM): pop only paramID,
+// read npcID from state.activeNpc.type.
+func TestNpcParamInt(t *testing.T) {
+	mc := newTestConfigs()
+	npc := &mockNpc{typeID: 0} // NPC id 0 has Params{1: uint32(7)} per newTestConfigs.
+	state := runNpcOp(t, npc, mc, OpNpcParam, []int{1})
+	if got := state.PopInt(); got != 7 {
+		t.Errorf("NPC_PARAM(active=0, paramID=1): got %d, want 7", got)
+	}
+}
+
+// NPC_PARAM string param. Extends NPC 0's ParamMap inline since
+// newTestConfigs only seeds an int param for NPC 0.
+func TestNpcParamString(t *testing.T) {
+	mc := newTestConfigs()
+	mc.npcs[0].Params[2] = "hello"
+	npc := &mockNpc{typeID: 0}
+	state := runNpcOp(t, npc, mc, OpNpcParam, []int{2})
+	if got := state.PopString(); got != "hello" {
+		t.Errorf("NPC_PARAM(active=0, paramID=2): got %q, want %q", got, "hello")
+	}
+}
+
+// NPC_PARAM with no active npc → error tagged NPC_PARAM.
+func TestNpcParamNoActiveNpcErrors(t *testing.T) {
+	mc := newTestConfigs()
+	sf := &ScriptFile{
+		Name:             "npc_param_no_active",
+		Opcodes:          []Opcode{OpNpcParam, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.Configs = mc
+	state.PushInt(1)
+	err := Execute(state)
+	if err == nil || !strings.Contains(err.Error(), "NPC_PARAM") {
+		t.Errorf("expected NPC_PARAM error, got %v", err)
+	}
+}
+
+// NPC_PARAM with nil Configs → error tagged NPC_PARAM (via requireConfigs).
+func TestNpcParamNilConfigsErrors(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "npc_param_nil_configs",
+		Opcodes:          []Opcode{OpNpcParam, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = &mockNpc{typeID: 0}
+	state.PushInt(1)
+	err := Execute(state)
+	if err == nil || !strings.Contains(err.Error(), "Configs not set") {
+		t.Errorf("expected Configs-not-set error, got %v", err)
+	}
+}
+
+// NPC_PARAM where active npc has unknown type id → error.
+func TestNpcParamUnknownNpcIdErrors(t *testing.T) {
+	mc := newTestConfigs()
+	sf := &ScriptFile{
+		Name:             "npc_param_unknown_npc",
+		Opcodes:          []Opcode{OpNpcParam, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = &mockNpc{typeID: 999}
+	state.Configs = mc
+	state.PushInt(1)
+	err := Execute(state)
+	if err == nil || !strings.Contains(err.Error(), "unknown npc id") {
+		t.Errorf("expected unknown npc id error, got %v", err)
+	}
+}
+
 func TestNcCategory(t *testing.T) {
 	mc := newTestConfigs()
 	state := runConfigOp(t, mc, OpNcCategory, []int{0})

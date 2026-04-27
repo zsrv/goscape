@@ -290,6 +290,26 @@ func handleNcParam(s *ScriptState) error {
 	return paramLookup(s, nt.Params, paramID)
 }
 
+// handleNpcParam (NPC_PARAM, opcode 2529) reads a param from the
+// ACTIVE npc's NpcType (vs. NC_PARAM which pops an explicit npcID).
+// Pop order: paramID. Mirrors TS NpcOps.ts:132-141 — checkedHandler
+// (ActiveNpc) + ParamHelper.getIntParam / getStringParam.
+func handleNpcParam(s *ScriptState) error {
+	if err := requireConfigs(s, "NPC_PARAM"); err != nil {
+		return err
+	}
+	if s.ActiveNpc == nil {
+		return fmt.Errorf("NPC_PARAM: no active npc")
+	}
+	paramID := s.PopInt()
+	npcID := s.ActiveNpc.NpcType()
+	nt := s.Configs.NpcType(npcID)
+	if nt == nil {
+		return fmt.Errorf("NPC_PARAM: unknown npc id %d", npcID)
+	}
+	return paramLookup(s, nt.Params, paramID)
+}
+
 // handleNcCategory (NC_CATEGORY) pops a npc id and pushes its category.
 func handleNcCategory(s *ScriptState) error {
 	if err := requireConfigs(s, "NC_CATEGORY"); err != nil {

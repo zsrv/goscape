@@ -209,9 +209,10 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpLcDebugName: handleLcDebugName,
 	OpLcWidth:     handleLcWidth,
 	OpLcLength:    handleLcLength,
-	// NpcConfigOps (8).
+	// NpcConfigOps (9).
 	OpNcName:      handleNcName,
 	OpNcParam:     handleNcParam,
+	OpNpcParam:    handleNpcParam,
 	OpNcCategory:  handleNcCategory,
 	OpNcDesc:      handleNcDesc,
 	OpNcDebugName: handleNcDebugName,
