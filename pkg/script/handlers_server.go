@@ -83,3 +83,30 @@ func handleMoveCoord(s *ScriptState) error {
 	s.PushInt((level << 28) | (cx << 14) | cz)
 	return nil
 }
+
+// handleWorldDelay (WORLD_DELAY, opcode 1021) suspends the active
+// script to the world-script queue. The wakeup-tick value is NOT
+// popped here — it remains on the script's int stack and is popped by
+// the suspending caller (resumeOrFinish for player path, resumeOrFinishNpc
+// for npc path, processWorldQueue for world-self-loop) at suspend
+// time before re-enqueueing. Mirrors TS ServerOps.ts:166-169 verbatim:
+//
+//	[ScriptOpcode.WORLD_DELAY]: state => {
+//	    // arg is popped elsewhere
+//	    state.execution = ScriptState.WORLD_SUSPENDED;
+//	}
+//
+// The "arg popped elsewhere" semantics are load-bearing: the script
+// bytecode pushes the wakeup-tick before WORLD_DELAY and expects
+// the resumer to consume it. Adding a pop here would break the
+// bytecode contract.
+//
+// At HEAD T7, the consumer side (processWorldQueue + resumeOrFinishWorld)
+// is not yet wired — a script that sets WorldSuspended will be
+// log+dropped by the default branch in resumeOrFinish (script.go:58)
+// and resumeOrFinishNpc (npc_script.go:308). T8-T12 ship the consumer
+// side, completing the round-trip.
+func handleWorldDelay(s *ScriptState) error {
+	s.Execution = WorldSuspended
+	return nil
+}

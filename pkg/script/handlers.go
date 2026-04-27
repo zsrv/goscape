@@ -402,6 +402,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 
 	// NAI-37 T6: hint-arrow — HINT_NPC (type=1) only.
 	OpHintNpc: handleHintNpc,
+
+	// NAI-37 T7: world-script delay — WORLD_DELAY (handler-only; consumer wiring T8-T12).
+	OpWorldDelay: handleWorldDelay,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.

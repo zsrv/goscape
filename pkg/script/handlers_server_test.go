@@ -69,6 +69,36 @@ func TestMoveCoord(t *testing.T) {
 	}
 }
 
+// --- NAI-37 Task 7: WORLD_DELAY handler unit test --------------------------
+
+func TestWorldDelay_SetsExecutionWorldSuspendedAndDoesNotPop(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(999)
+	s.PushInt(42)
+
+	startISP := s.ISP
+	if err := handleWorldDelay(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got, want := s.Execution, WorldSuspended; got != want {
+		t.Errorf("Execution: got %v, want %v", got, want)
+	}
+	if got, want := s.ISP, startISP; got != want {
+		t.Errorf("ISP after handler: got %d, want %d (handler must not pop)", got, want)
+	}
+	// Verify exact stack contents — top-of-stack is at index ISP-1.
+	if got := s.IntStack[s.ISP-1]; got != 42 {
+		t.Errorf("top of stack: got %d, want 42", got)
+	}
+	if got := s.IntStack[s.ISP-2]; got != 999 {
+		t.Errorf("next of stack: got %d, want 999", got)
+	}
+}
+
 func TestServerOpsRequireWorld(t *testing.T) {
 	for _, op := range []Opcode{OpMapClock, OpPlayerCount} {
 		t.Run(op.String(), func(t *testing.T) {
