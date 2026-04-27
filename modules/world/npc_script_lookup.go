@@ -104,3 +104,25 @@ func (l serverNpcLookup) FindNpcAtExactCoord(level, x, z, typeID int) script.Act
 	}
 	return nil
 }
+
+// ZoneNpcs returns all valid NPCs in the zone at (level, zoneX, zoneZ).
+// Mirrors TS Zone.getAllNpcsSafe(true) consumed by NpcIterator
+// (ScriptIterators.ts:330,341). Zone resolution via pkg/zone.ZoneMap.Get
+// which masks the world coords to zone bounds internally. nil zoneMap
+// (defense) and nil zone (off-grid) both return nil. NpcsSafe filters
+// non-IsValid entries (zone.go:439). reverse=true mirrors TS
+// getAllNpcsSafe(true) traversal order.
+func (l serverNpcLookup) ZoneNpcs(level, zoneX, zoneZ int) []script.ActiveNpc {
+	if l.s.zoneMap == nil {
+		return nil
+	}
+	z := l.s.zoneMap.Get(level, zoneX, zoneZ)
+	if z == nil {
+		return nil
+	}
+	out := make([]script.ActiveNpc, 0, z.NpcsCount())
+	for n := range z.NpcsSafe(true) {
+		out = append(out, n.(script.ActiveNpc)) // *Npc satisfies both pkg/zone.NpcLike and pkg/script.ActiveNpc (assertion at npc_script.go)
+	}
+	return out
+}

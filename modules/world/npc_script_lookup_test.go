@@ -125,3 +125,46 @@ func TestServerNpcLookup_FindAtExactCoord(t *testing.T) {
 		})
 	}
 }
+
+// --- NAI-33 Task 2: serverNpcLookup.ZoneNpcs tests ----------------------
+
+func TestServerNpcLookup_ZoneNpcs_EmptyZone(t *testing.T) {
+	s := setupLookupServer(t)
+	got := s.npcLookup.ZoneNpcs(0, 3200, 3300)
+	if len(got) != 0 {
+		t.Errorf("empty zone: got len=%d, want 0", len(got))
+	}
+}
+
+func TestServerNpcLookup_ZoneNpcs_SingleNpc(t *testing.T) {
+	s := setupLookupServer(t)
+	n := setupNpc(t, s, 3200, 3300, 0)
+	got := s.npcLookup.ZoneNpcs(0, 3200, 3300)
+	if len(got) != 1 {
+		t.Fatalf("got len=%d, want 1", len(got))
+	}
+	if got[0] != script.ActiveNpc(n) {
+		t.Errorf("got %v, want %v", got[0], n)
+	}
+}
+
+func TestServerNpcLookup_ZoneNpcs_OnlyRequestedZone(t *testing.T) {
+	s := setupLookupServer(t)
+	nIn := setupNpc(t, s, 3200, 3300, 0)
+	_ = setupNpc(t, s, 3300, 3400, 0) // different zone (zone-aligned 3296 ≠ 3200)
+	got := s.npcLookup.ZoneNpcs(0, 3200, 3300)
+	if len(got) != 1 {
+		t.Fatalf("got len=%d, want 1 (only the requested zone's NPC)", len(got))
+	}
+	if got[0] != script.ActiveNpc(nIn) {
+		t.Errorf("got %v, want %v", got[0], nIn)
+	}
+}
+
+func TestServerNpcLookup_ZoneNpcs_OffGridReturnsEmpty(t *testing.T) {
+	s := setupLookupServer(t)
+	got := s.npcLookup.ZoneNpcs(0, -1000, -1000) // outside any allocated zone
+	if len(got) != 0 {
+		t.Errorf("off-grid: got len=%d, want 0", len(got))
+	}
+}
