@@ -106,18 +106,3 @@ func (w worldVarsView) AnimMap(level, x, z, spotanim, height, delay int) {
 	}
 	w.s.AnimMap(level, x, z, spotanim, height, delay)
 }
-
-// IsZoneAllocated reports whether the (level, x, z) zone is allocated.
-// Delegates to *Server.IsZoneAllocated, which forwards to the FlagMap
-// collision layer at pkg/pathfinder/collision/flagmap.go:142. Used by
-// Teleport safety check per TS PathingEntity.ts:271 (NPC_TELE / PLAYER_TELE
-// downstream of the script VM). NAI-36-T7.
-func (w worldVarsView) IsZoneAllocated(level, x, z int) bool {
-	if w.s == nil {
-		// Permissive default mirrors *Server.IsZoneAllocated's nil-gamemap
-		// handling: tests that don't wire a server should not see false
-		// rejections.
-		return true
-	}
-	return w.s.IsZoneAllocated(level, x, z)
-}

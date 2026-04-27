@@ -78,12 +78,6 @@ type WorldVars interface {
 	// the affected zone. Mirrors TS World.animMap at Engine-TS/.../World.ts.
 	// Used by SPOTANIM_MAP (opcode 1020).
 	AnimMap(level, x, z, spotanim, height, delay int)
-
-	// IsZoneAllocated reports whether the zone containing (x, z) at level
-	// has been allocated (initialized for live play). Used by Teleport
-	// safety check per TS PathingEntity.ts:271 — teleports to unallocated
-	// zones are silently ignored. NAI-36-T7.
-	IsZoneAllocated(level, x, z int) bool
 }
 
 // InvLookup is the inventory resolution surface for INV_* handlers.
