@@ -338,6 +338,7 @@ func newPlayer(c *client) *Player {
 		lowMemory:      c.lowMemory,
 		username:       c.username,
 		username37:     util.ToBase37(c.username),
+		staffModLevel:  c.staffModLevel,
 		slot:           -1,
 		uid:            -1,
 		x:              3094,

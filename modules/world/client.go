@@ -47,6 +47,10 @@ type client struct {
 	state         ClientState
 	opcode        int
 	waiting       int
+	// staffModLevel is the moderator/admin tier set from the login server's
+	// gRPC response (server.go:546 — resp.GetStaffModLevel()). Copied onto
+	// Player at newPlayer(). Read by handleClientCheat for the staff-only
+	// command gates (::tele, ::getcoord) and by Chat for the rights byte.
 	staffModLevel int32
 	members       bool
 	// username is the safe-form ("snake_case") account name from the RS2 login
