@@ -198,6 +198,7 @@ type mockNpc struct {
 	setTimerCalls                      []int
 	setHuntRangeCalls                  []int
 	setHuntModeCalls                   []int
+	teleportCalls                      []struct{ x, z, level int }
 }
 
 func (m *mockNpc) NpcType() int     { return m.typeID }
@@ -281,6 +282,10 @@ func (m *mockNpc) SetHuntRange(r int) {
 
 func (m *mockNpc) SetHuntMode(mode int) {
 	m.setHuntModeCalls = append(m.setHuntModeCalls, mode)
+}
+
+func (m *mockNpc) Teleport(x, z, level int) {
+	m.teleportCalls = append(m.teleportCalls, struct{ x, z, level int }{x, z, level})
 }
 
 // runNpcOp executes a single-opcode script against npc + optional mc,
@@ -2009,5 +2014,84 @@ func TestIteratorFamily_Integration_FindAllAnyThenLoopFindNext(t *testing.T) {
 	// Iterator persists across FINDNEXT calls (TS-parity).
 	if s.npcIterator == nil {
 		t.Error("iterator should persist after exhaustion")
+	}
+}
+
+// --- NAI-34 Task 3: NPC_TELE Layer 1 unit tests --------------------------
+
+func TestNpcTele_PopsCoordValidatesAndDelegates(t *testing.T) {
+	// Pack (level=2, x=3200, z=3200) into a single RS2 coord int.
+	packed := (2 << 28) | (3200 << 14) | 3200
+	npc := &mockNpc{}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(packed)
+	if err := handleNpcTele(s); err != nil {
+		t.Fatalf("handleNpcTele: unexpected err %v", err)
+	}
+	if len(npc.teleportCalls) != 1 {
+		t.Fatalf("teleportCalls: got %d, want 1", len(npc.teleportCalls))
+	}
+	got := npc.teleportCalls[0]
+	if got.x != 3200 || got.z != 3200 || got.level != 2 {
+		t.Errorf("teleportCalls[0]: got (x=%d, z=%d, level=%d), want (3200, 3200, 2)", got.x, got.z, got.level)
+	}
+}
+
+func TestNpcTele_NoActiveNpcErrors(t *testing.T) {
+	s := &ScriptState{
+		ActiveNpc:   nil,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(0)
+	err := handleNpcTele(s)
+	if err == nil {
+		t.Fatal("handleNpcTele: expected error for nil ActiveNpc, got nil")
+	}
+	if !strings.Contains(err.Error(), "NPC_TELE: no active npc") {
+		t.Errorf("err: got %q, want substring %q", err.Error(), "NPC_TELE: no active npc")
+	}
+}
+
+func TestNpcTele_InvalidCoordErrors(t *testing.T) {
+	npc := &mockNpc{}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(-1)
+	err := handleNpcTele(s)
+	if err == nil {
+		t.Fatal("handleNpcTele: expected error for coord=-1, got nil")
+	}
+	if !strings.Contains(err.Error(), "NPC_TELE: coord out of range") {
+		t.Errorf("err: got %q, want substring %q", err.Error(), "NPC_TELE: coord out of range")
+	}
+	if len(npc.teleportCalls) != 0 {
+		t.Errorf("teleportCalls on error path: got %d, want 0 (handler must reject before delegating)", len(npc.teleportCalls))
+	}
+}
+
+func TestNpcTele_PopOrderIsSinglePopInt(t *testing.T) {
+	// Push two ints; verify the handler pops exactly 1 (the top one — packed coord).
+	npc := &mockNpc{}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(0xCAFE)                          // bottom — should remain after handler
+	s.PushInt((0 << 28) | (3200 << 14) | 3200) // top — packed coord, gets popped
+	if err := handleNpcTele(s); err != nil {
+		t.Fatalf("handleNpcTele: unexpected err %v", err)
+	}
+	// Verify remaining stack depth — exactly 1 int left (the 0xCAFE sentinel).
+	if got := s.PopInt(); got != 0xCAFE {
+		t.Errorf("residual stack top: got %d, want 0xCAFE — handler popped wrong number of ints", got)
 	}
 }

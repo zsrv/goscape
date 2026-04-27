@@ -346,6 +346,23 @@ func handleNpcSetTimer(s *ScriptState) error {
 	return nil
 }
 
+// handleNpcTele (NPC_TELE, opcode 2541) teleports the active NPC to
+// the packed coord. Pop order: coord (single int). Mirrors TS
+// NpcOps.ts:443 — checkedHandler(ActiveNpc) + CoordValid +
+// activeNpc.teleport(x, z, level).
+func handleNpcTele(s *ScriptState) error {
+	if err := requireActiveNpc(s, "NPC_TELE"); err != nil {
+		return err
+	}
+	coord := s.PopInt()
+	level, x, z, err := checkCoord(coord, "NPC_TELE")
+	if err != nil {
+		return err
+	}
+	s.ActiveNpc.Teleport(x, z, level)
+	return nil
+}
+
 // handleNpcSetHunt (NPC_SETHUNT, opcode 2533) sets the NPC's hunt
 // search range. Despite the opcode name, this sets RANGE only —
 // hunt mode is set via the separate NPC_SETHUNTMODE opcode.

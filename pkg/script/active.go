@@ -481,6 +481,16 @@ type ActiveNpc interface {
 	// do no bounds validation; the hunt processor validates when
 	// looking up the HuntType. Mirrors TS NpcOps.ts:178-185.
 	SetHuntMode(mode int)
+
+	// Teleport moves the active NPC to (x, z, level) and flags the client
+	// for a tele transition. Mirrors (n *Npc).Teleport on the world side
+	// (modules/world/npc_script.go). Called by NPC_TELE handler
+	// (handlers_npc.go) after checkCoord validates and unpacks the packed
+	// coord.
+	//
+	// DEVIATION NAI-34-D1..D5 — see Npc.Teleport doc comment for the
+	// full divergence list and closure plan.
+	Teleport(x, z, level int)
 }
 
 // ActiveLoc is the surface that LOC_* opcodes use to read the loc
