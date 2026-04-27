@@ -3,6 +3,7 @@
 package script
 
 import (
+	"fmt"
 	"math/rand/v2"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
@@ -200,6 +201,39 @@ func handleMapBlocked(s *ScriptState) error {
 	} else {
 		s.PushInt(0)
 	}
+	return nil
+}
+
+// checkSpotAnimType validates a spotanim type id. Per NAI-36-D2: full
+// SpotAnimType config-port is absent at HEAD; fall back to range
+// validation (id < 0 rejected). When a SpotAnimType config accessor lands
+// on the Configs interface, this helper should be tightened to mirror TS
+// SpotAnimTypeValid (presence check against config table).
+func checkSpotAnimType(id int, op string) error {
+	if id < 0 {
+		return fmt.Errorf("%s: invalid spotanim id (%d)", op, id)
+	}
+	return nil
+}
+
+// handleSpotAnimMap (SPOTANIM_MAP, opcode 1020) broadcasts a tile-anchored
+// spotanim event at the unpacked coord. Pop order: 4 ints (spotanim, coord,
+// height, delay) — TS uses popInts(4) which destructures top-down.
+// Mirrors TS ServerOps.ts:84-90.
+func handleSpotAnimMap(s *ScriptState) error {
+	delay := s.PopInt()
+	height := s.PopInt()
+	coord := s.PopInt()
+	spotanim := s.PopInt()
+
+	level, x, z, err := checkCoord(coord, "SPOTANIM_MAP")
+	if err != nil {
+		return err
+	}
+	if err := checkSpotAnimType(spotanim, "SPOTANIM_MAP"); err != nil {
+		return err
+	}
+	s.World.AnimMap(level, x, z, spotanim, height, delay)
 	return nil
 }
 

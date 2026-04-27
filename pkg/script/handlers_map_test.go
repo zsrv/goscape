@@ -406,3 +406,102 @@ func TestMapBlocked_F2PWorldF2PTilePushesIsBlocked(t *testing.T) {
 			state.IntStack[0], state.ISP)
 	}
 }
+
+// --- NAI-36 Task 5: SPOTANIM_MAP Layer 1 unit tests ----------------------
+
+type spotAnimMapWorld struct {
+	mockWorld
+	animMapCalls []struct {
+		level, x, z, spotanim, height, delay int
+	}
+}
+
+func (w *spotAnimMapWorld) AnimMap(level, x, z, spotanim, height, delay int) {
+	w.animMapCalls = append(w.animMapCalls, struct {
+		level, x, z, spotanim, height, delay int
+	}{level, x, z, spotanim, height, delay})
+}
+
+func TestSpotAnimMap_PopsValidatesAndDelegates(t *testing.T) {
+	w := &spotAnimMapWorld{}
+
+	const spotanim, height, delay = 200, 50, 5
+	const level, x, z = 0, 3200, 3300
+	coord := (level << 28) | (x << 14) | z
+
+	// Push order: spotanim first (deepest), then coord, then height, then delay (top).
+	// Pop order in handler: delay (top), height, coord, spotanim (deepest).
+	state := runMapOp(t, w, OpSpotAnimMap, []int{spotanim, coord, height, delay})
+	_ = state
+
+	if len(w.animMapCalls) != 1 {
+		t.Fatalf("animMapCalls: got %d, want 1", len(w.animMapCalls))
+	}
+	got := w.animMapCalls[0]
+	want := struct {
+		level, x, z, spotanim, height, delay int
+	}{level, x, z, spotanim, height, delay}
+	if got != want {
+		t.Errorf("animMapCalls[0]: got %+v, want %+v", got, want)
+	}
+}
+
+func TestSpotAnimMap_InvalidCoordErrors(t *testing.T) {
+	w := &spotAnimMapWorld{}
+	state := &ScriptState{
+		World:       w,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	// Push 4 ints with an out-of-range coord (-1).
+	state.PushInt(200)
+	state.PushInt(-1) // invalid coord
+	state.PushInt(50)
+	state.PushInt(5)
+
+	err := handleSpotAnimMap(state)
+	if err == nil || !strings.Contains(err.Error(), "SPOTANIM_MAP") {
+		t.Errorf("invalid coord: got %v, want SPOTANIM_MAP error", err)
+	}
+	if len(w.animMapCalls) != 0 {
+		t.Errorf("animMapCalls on error path: got %d, want 0", len(w.animMapCalls))
+	}
+}
+
+// NAI-36-D2: SpotAnimType config-port absent at HEAD. Falling back to
+// range-validation (id < 0 reject). Pin: -1 errors, high id passes.
+func TestSpotAnimMap_NegativeSpotanimIDErrors(t *testing.T) {
+	w := &spotAnimMapWorld{}
+	state := &ScriptState{
+		World:       w,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	state.PushInt(-1) // invalid spotanim id
+	state.PushInt((0 << 28) | (3200 << 14) | 3300)
+	state.PushInt(50)
+	state.PushInt(5)
+
+	err := handleSpotAnimMap(state)
+	if err == nil || !strings.Contains(err.Error(), "SPOTANIM_MAP") {
+		t.Errorf("negative spotanim id: got %v, want SPOTANIM_MAP error", err)
+	}
+}
+
+func TestSpotAnimMap_ZeroDelayPassesThrough(t *testing.T) {
+	w := &spotAnimMapWorld{}
+
+	const spotanim, height, delay = 200, 0, 0
+	coord := (0 << 28) | (3200 << 14) | 3300
+
+	_ = runMapOp(t, w, OpSpotAnimMap, []int{spotanim, coord, height, delay})
+
+	if len(w.animMapCalls) != 1 {
+		t.Fatalf("animMapCalls: got %d, want 1", len(w.animMapCalls))
+	}
+	got := w.animMapCalls[0]
+	if got.height != 0 || got.delay != 0 {
+		t.Errorf("zero height/delay: got height=%d delay=%d, want 0/0",
+			got.height, got.delay)
+	}
+}

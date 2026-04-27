@@ -99,6 +99,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// NAI-36-T4: per-tile blocked-state query with F2P short-circuit.
 	OpMapBlocked: handleMapBlocked,
 
+	// NAI-36-T5: tile-anchored spotanim broadcast.
+	OpSpotAnimMap: handleSpotAnimMap,
+
 	// S5m: last-input queries.
 	OpLastInt:        handleLastInt,
 	OpLastItem:       handleLastItem,
