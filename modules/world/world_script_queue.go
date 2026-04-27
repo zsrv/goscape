@@ -63,6 +63,12 @@ func (s *Server) processWorldQueue() {
 		}
 		state := entry.script
 		s.worldScriptQueue = append(s.worldScriptQueue[:i], s.worldScriptQueue[i+1:]...)
+		// Reset Execution=Running so script.Execute resumes the loop
+		// from the post-WORLD_DELAY PC. Mirrors the player-path resume
+		// convention at tick.go:211. TS ScriptRunner.execute resets
+		// internally (ScriptRunner.ts:130); goscape leaves the reset to
+		// callers, matching processActiveScripts.
+		state.Execution = script.Running
 		s.resumeOrFinishWorld(state)
 		// Don't advance i: we just removed the current element, so i
 		// now points to what was the next element (or past end).

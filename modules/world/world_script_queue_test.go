@@ -3,6 +3,7 @@ package world
 import (
 	"testing"
 
+	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/script"
 )
 
@@ -278,5 +279,83 @@ func TestResumeOrFinishWorld_CrossContextCountDialogDrop(t *testing.T) {
 	s.resumeOrFinishWorld(state)
 	if got := len(s.worldScriptQueue); got != 0 {
 		t.Errorf("CountDialog (cross-context): queue length got %d, want 0", got)
+	}
+}
+
+// --- NAI-37 Task 13: WORLD_DELAY full round-trip integration test --------
+
+// TestWorldDelay_FullRoundTrip exercises the complete cross-tick
+// coordination of WORLD_DELAY: a player-bound script that pushes a
+// delay, calls WORLD_DELAY, then completes after the world tick wakes
+// it up.
+//
+// Tick timeline with delay=2:
+//   T1 (script first runs via runScript): pushes 2, hits WORLD_DELAY,
+//      sets Execution=WorldSuspended. resumeOrFinish (player path)
+//      pops 2, enqueues to worldScriptQueue with delay=2, clears
+//      p.activeScript.
+//   T2 (processWorldQueue): delay 2 → 1 (>0, skip).
+//   T3 (processWorldQueue): delay 1 → 0 (NOT > 0, fires).
+//      Script resumes from after WORLD_DELAY, runs OpReturn, completes.
+//      resumeOrFinishWorld sees Finished, drops entry.
+//
+// Per gettimer_passthrough_opcode_semantic_audit.md: handler-mock
+// tests pass values through unchanged; only this integration test
+// exercises the actual multi-tick state machine.
+func TestWorldDelay_FullRoundTrip(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	// Build minimal ScriptFile: pushInt(2); WORLD_DELAY; RETURN.
+	sf := &script.ScriptFile{
+		Name: "[worlddelay_roundtrip,test]",
+		Opcodes: []script.Opcode{
+			script.OpPushConstantInt,
+			script.OpWorldDelay,
+			script.OpReturn,
+		},
+		IntOperands:      []int32{2, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+
+	// Tick 1: fresh-run via the production runScript path. The script
+	// will execute pushInt(2); WORLD_DELAY; suspend. The player-path
+	// resumeOrFinish handles the suspend → enqueue + clear.
+	s.runScript(sf, p, false, nil, nil)
+
+	// After T1: enqueued with delay=2, activeScript cleared.
+	if got := len(s.worldScriptQueue); got != 1 {
+		t.Fatalf("after T1: queue length got %d, want 1 (script suspended to world queue)", got)
+	}
+	if got := s.worldScriptQueue[0].delay; got != 2 {
+		t.Fatalf("after T1: enqueued delay got %d, want 2", got)
+	}
+	if p.activeScript != nil {
+		t.Fatalf("after T1: p.activeScript should be nil (script transitioned to world-bound)")
+	}
+	state := s.worldScriptQueue[0].script
+
+	// Tick 2: processWorldQueue decrements 2 → 1, doesn't fire.
+	s.processWorldQueue()
+	if got := len(s.worldScriptQueue); got != 1 {
+		t.Fatalf("after T2: queue length got %d, want 1 (delay 2→1, not yet ready)", got)
+	}
+	if got := s.worldScriptQueue[0].delay; got != 1 {
+		t.Errorf("after T2: delay got %d, want 1", got)
+	}
+
+	// Tick 3: processWorldQueue decrements 1 → 0, fires. Script resumes
+	// from after WORLD_DELAY, runs OpReturn, reaches Finished. The
+	// resumeOrFinishWorld dispatch sees Finished and drops the entry.
+	s.processWorldQueue()
+	if got := len(s.worldScriptQueue); got != 0 {
+		t.Errorf("after T3: queue length got %d, want 0 (delay reaches 0, script fires + completes)", got)
+	}
+	if state.Execution != script.Finished {
+		t.Errorf("after T3: state.Execution got %v, want Finished", state.Execution)
 	}
 }
