@@ -5,8 +5,9 @@ import (
 )
 
 // serverNpcLookup implements script.NpcLookup by linearly iterating
-// s.npcs. See S7f spec §3.3 and deviations S7f-D1 (huntvis validated-only
-// at the handler, not filtered here) and S7f-D2 (linear iteration).
+// s.npcs. See S7f spec §3.3 and the residual deviation NAI-33-D1 /
+// S7f-D1 (huntvis validated-only on FindClosest* — partially closed by
+// NAI-35 for HuntAll-mode iterators) and S7f-D2 (linear iteration).
 type serverNpcLookup struct{ s *Server }
 
 // Compile-time assertion: serverNpcLookup must satisfy script.NpcLookup.
@@ -14,8 +15,12 @@ var _ script.NpcLookup = serverNpcLookup{}
 
 // FindClosestNpcByType returns the NPC of typeID closest (euclidean-squared)
 // to (level, x, z) within a square-bounded dist. Later-iterated NPCs win
-// ties (TS NpcOps.ts:353 uses `<=`). huntvis is accepted but not filtered
-// on (S7f-D1). Mirrors TS NpcOps.ts:336-367.
+// ties (TS NpcOps.ts:353 uses `<=`). Mirrors TS NpcOps.ts:336-367.
+//
+// huntvis is validated upstream but NOT filtered on here — preserves the
+// NAI-33-D1 / S7f-D1 deferred posture (audit if NPC_FIND consumers gain
+// LoS/LoW gating). HuntAll-mode iterators (NewHuntAllNpcIterator) DO
+// filter; this method does not.
 func (l serverNpcLookup) FindClosestNpcByType(level, x, z, dist, typeID, _ int) script.ActiveNpc {
 	var closest *Npc
 	bestDist := 1<<31 - 1 // max int32-safe sentinel
@@ -48,8 +53,12 @@ func (l serverNpcLookup) FindClosestNpcByType(level, x, z, dist, typeID, _ int) 
 
 // FindClosestNpcByCategory is the NPC_FINDCAT analogue of FindClosestNpcByType.
 // Filters on NpcType.Category == cat rather than typeID. Looks up Category
-// via l.s.npcTypes.Configs (with nil guards). huntvis accepted but not
-// filtered (S7f-D1). Mirrors TS NpcOps.ts:369-400.
+// via l.s.npcTypes.Configs (with nil guards). Mirrors TS NpcOps.ts:369-400.
+//
+// huntvis is validated upstream but NOT filtered on here — preserves the
+// NAI-33-D1 / S7f-D1 deferred posture (audit if NPC_FINDCAT consumers
+// gain LoS/LoW gating). HuntAll-mode iterators (NewHuntAllNpcIterator)
+// DO filter; this method does not.
 func (l serverNpcLookup) FindClosestNpcByCategory(level, x, z, dist, cat, _ int) script.ActiveNpc {
 	if l.s.npcTypes == nil {
 		return nil
