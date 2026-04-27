@@ -97,6 +97,15 @@ func (n *Npc) SetNpcVarN(id int, val int32) {
 // lastStepX/Z adjust, no previousLevel != level branch. Mirrors the
 // established Player.Teleport reduced shape. Closure plan: future
 // pathing-entity-teleport-parity sub-spec aligns both Player + Npc.
+//
+// Body order (refresh, then n.tele = true) matches TS PathingEntity.ts:290-293
+// and the pre-NAI-34 inline NPC sites. Note that Player.Teleport
+// (player_script.go:226) has the opposite order (tele = true, then
+// refresh) — that is a pre-existing Player.Teleport divergence FROM TS,
+// tracked in nai_followups.md for the parity sub-spec to align.
+// Functionally equivalent today (neither refresh nor flag write reads
+// the other), but TS-faithful order is preferred per the project's
+// true-to-TS gate.
 func (n *Npc) Teleport(x, z, level int) {
 	prevX, prevZ, prevLevel := n.x, n.z, n.level
 	n.x, n.z, n.level = x, z, level

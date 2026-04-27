@@ -1415,10 +1415,9 @@ func TestNpcStuckTeleportRefreshSubscription(t *testing.T) {
 	// The actual stuck-teleport site at npc_interaction.go:95 fires when
 	// wanderMode's wanderCounter exceeds its stuck horizon — direct invocation
 	// in tests requires building up wanderCounter state, so a synthetic test
-	// calls the helper directly to exercise the wire-through.
-	prevX, prevZ, prevLevel := n.x, n.z, n.level
-	n.x, n.z, n.level = n.startX, n.startZ, n.startLevel
-	refreshNpcZone(s, n, prevX, prevZ, prevLevel)
+	// calls n.Teleport directly to exercise the wire-through. Post-NAI-34
+	// this is the same call the wanderMode site makes.
+	n.Teleport(n.startX, n.startZ, n.startLevel)
 	homeZone := s.zoneMap.Get(0, n.startX, n.startZ)
 	if awayZone.NpcsCount() != 0 {
 		t.Errorf("away zone NpcsCount after stuck-teleport: got %d, want 0", awayZone.NpcsCount())
