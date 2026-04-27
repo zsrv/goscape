@@ -275,6 +275,28 @@ type ActivePlayer interface {
 	// Called by the HINT_NPC (opcode 2028) handler.
 	HintNpc(nid int)
 
+	// HintCoord directs the client to render a hint arrow at the (x, z) tile
+	// with the given offset (2..6, sub-tile arrow position) and height.
+	// Mirrors TS Player.hintTile at Player.ts:2178-2180; called by the
+	// HINT_COORD (opcode 2027) handler. NAI-39.
+	HintCoord(offset, x, z, height int)
+
+	// HintPlayer directs the client to render a hint arrow pointing at the
+	// player in slot `slot`. Mirrors TS Player.hintPlayer at
+	// Player.ts:2182-2184; called by the HINT_PL (opcode 2029) handler.
+	// NAI-39.
+	HintPlayer(slot int)
+
+	// HintStop directs the client to clear any active hint arrow. Mirrors
+	// TS Player.stopHint at Player.ts:2186-2188; called by the HINT_STOP
+	// (opcode 2030) handler. NAI-39.
+	HintStop()
+
+	// Slot returns the player's authoritative slot id (the index into the
+	// world's player array). Mirrors TS Player.slot. Consumed by HINT_PL,
+	// which reads activePlayer2.slot. NAI-39.
+	Slot() int
+
 	// StaffModLevel returns the player's staff moderation level.
 	// 0 for regular players; >0 for mods/admins. Used by STAFFMODLEVEL
 	// opcode to gate mod-only behaviour. Matches the rsbuf.PlayerSource

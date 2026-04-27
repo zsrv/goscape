@@ -2,6 +2,7 @@ package world
 
 import (
 	"bytes"
+	"fmt"
 	"slices"
 	"testing"
 
@@ -835,5 +836,115 @@ func TestHintNpcPayloadBytes(t *testing.T) {
 	got := <-received
 	if !bytes.Equal(got, want) {
 		t.Errorf("HintNpc(0x1234) wire: got %#x, want %#x", got, want)
+	}
+}
+
+// --- NAI-39 Task 2: HintCoord / HintPlayer / HintStop byte-pin tests -------
+
+// TestHintCoordPayloadBytes pins the type=2..6 (TILE) HintArrow encoder
+// branch byte-for-byte. Per HintArrowEncoder.ts:17-27 the wire shape is
+// p1(type=offset), p2(x), p2(z), p1(height). The encoder name "y" is
+// the script-author-facing "height".
+func TestHintCoordPayloadBytes(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	want := []byte{
+		byte((int(gameserver.OpHintArrow.Opcode) + int(enc.GetNext())) & 0xff),
+		0x03,       // p1: type=offset=3
+		0x12, 0x34, // p2: x = 0x1234
+		0x56, 0x78, // p2: z = 0x5678
+		0x42, // p1: height=0x42
+	}
+
+	received := drainConn(t, cc)
+	p.HintCoord(3, 0x1234, 0x5678, 0x42)
+	p.client.flushWrite()
+	got := <-received
+	if !bytes.Equal(got, want) {
+		t.Errorf("HintCoord(3, 0x1234, 0x5678, 0x42) wire: got %#x, want %#x", got, want)
+	}
+}
+
+// TestHintCoordOffsetBoundaries pins both ends of the TILE-branch range
+// (offset=2 = far-left, offset=6 = top-left). Both must produce well-formed
+// 6-byte payloads with the offset in byte[0] post-encryption.
+func TestHintCoordOffsetBoundaries(t *testing.T) {
+	for _, offset := range []int{2, 6} {
+		t.Run(fmt.Sprintf("offset=%d", offset), func(t *testing.T) {
+			p, cc := newTestPlayer(t)
+			enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+			p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+			want := []byte{
+				byte((int(gameserver.OpHintArrow.Opcode) + int(enc.GetNext())) & 0xff),
+				byte(offset), // p1: type=offset
+				0x00, 0x01,   // p2: x=1
+				0x00, 0x02,   // p2: z=2
+				0x00, // p1: height=0
+			}
+
+			received := drainConn(t, cc)
+			p.HintCoord(offset, 1, 2, 0)
+			p.client.flushWrite()
+			got := <-received
+			if !bytes.Equal(got, want) {
+				t.Errorf("HintCoord(%d,1,2,0) wire: got %#x, want %#x", offset, got, want)
+			}
+		})
+	}
+}
+
+// TestHintPlayerPayloadBytes pins the type=10 (PL) HintArrow encoder
+// branch byte-for-byte. Per HintArrowEncoder.ts:28-32 the wire shape is
+// p1(0x0A), p2(playerSlot), p2(0), p1(0). slot=0xABCD chosen so each
+// byte position is distinguishable from the zero-fill.
+func TestHintPlayerPayloadBytes(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	want := []byte{
+		byte((int(gameserver.OpHintArrow.Opcode) + int(enc.GetNext())) & 0xff),
+		0x0A,       // p1: type = 10 (player hint)
+		0xAB, 0xCD, // p2: slot=0xABCD (big-endian)
+		0x00, 0x00, // p2: 0
+		0x00, // p1: 0
+	}
+
+	received := drainConn(t, cc)
+	p.HintPlayer(0xABCD)
+	p.client.flushWrite()
+	got := <-received
+	if !bytes.Equal(got, want) {
+		t.Errorf("HintPlayer(0xABCD) wire: got %#x, want %#x", got, want)
+	}
+}
+
+// TestHintStopPayloadBytes pins the type=-1 (STOP) HintArrow encoder
+// branch byte-for-byte. Per HintArrowEncoder.ts:33-38 the wire shape is
+// p1(-1), p2(0), p2(0), p1(0). p1(-1) is 0xFF on the wire (low byte of
+// two's-complement). The 0xFF asymmetry is the conspicuous-pin per
+// ts_asymmetry_dual_pin.md.
+func TestHintStopPayloadBytes(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	want := []byte{
+		byte((int(gameserver.OpHintArrow.Opcode) + int(enc.GetNext())) & 0xff),
+		0xFF,       // p1: type = -1 sentinel (two's-complement low byte)
+		0x00, 0x00, // p2: 0
+		0x00, 0x00, // p2: 0
+		0x00, // p1: 0
+	}
+
+	received := drainConn(t, cc)
+	p.HintStop()
+	p.client.flushWrite()
+	got := <-received
+	if !bytes.Equal(got, want) {
+		t.Errorf("HintStop() wire: got %#x, want %#x", got, want)
 	}
 }

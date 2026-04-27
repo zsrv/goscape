@@ -90,6 +90,10 @@ type mockNpcOp struct {
 	Op  int
 }
 
+// mockHintCoord captures the 4 args of a single HintCoord call for
+// handler-test inspection. NAI-39.
+type mockHintCoord struct{ offset, x, z, height int }
+
 // mockPlayer is defined here for use in runner_test and handlers_test.
 // It is also used in handlers_test.go in the same package.
 type mockPlayer struct {
@@ -204,6 +208,16 @@ type mockPlayer struct {
 	// HintNpc; tests inspect this slice to verify a handler made the
 	// expected call.
 	hintNpcCalls []int
+
+	// NAI-39: HintCoord / HintPlayer / HintStop captures (mirrors hintNpcCalls
+	// shape). hintCoordCalls captures all 4 args via a struct slice;
+	// hintPlayerCalls captures the slot int; hintStopCalls counts invocations.
+	hintCoordCalls  []mockHintCoord
+	hintPlayerCalls []int
+	hintStopCalls   int
+
+	// slot is the value returned by mockPlayer.Slot(); tests pre-seed it.
+	slot int
 
 	// Staff-mod level (pre-seed for STAFFMODLEVEL query).
 	staffModLevelValue int
@@ -455,6 +469,14 @@ func (m *mockPlayer) CamReset() { m.camResetCalls++ }
 
 // HintNpc capture for handler tests (NAI-37 T5).
 func (m *mockPlayer) HintNpc(nid int) { m.hintNpcCalls = append(m.hintNpcCalls, nid) }
+
+// NAI-39: HintCoord / HintPlayer / HintStop / Slot capture impls.
+func (m *mockPlayer) HintCoord(offset, x, z, height int) {
+	m.hintCoordCalls = append(m.hintCoordCalls, mockHintCoord{offset, x, z, height})
+}
+func (m *mockPlayer) HintPlayer(s int) { m.hintPlayerCalls = append(m.hintPlayerCalls, s) }
+func (m *mockPlayer) HintStop()        { m.hintStopCalls++ }
+func (m *mockPlayer) Slot() int        { return m.slot }
 
 // StaffModLevel returns the seeded staff level for tests.
 func (m *mockPlayer) StaffModLevel() int32 { return int32(m.staffModLevelValue) }

@@ -165,6 +165,56 @@ func (p *Player) HintNpc(nid int) {
 	p.writeOut(gameserver.OpHintArrow, payload)
 }
 
+// HintCoord sends a HINT_ARROW (type=2..6, TILE variant) wire packet to
+// the client. Encodes 6 bytes matching TS HintArrowEncoder type=2..6
+// branch (HintArrowEncoder.ts:17-27): p1(offset), p2(x), p2(z),
+// p1(height). Called by the HINT_COORD (opcode 2027) script handler.
+// Mirrors TS Player.hintTile at Player.ts:2178-2180.
+//
+// Out-of-range offset (not in [2,6]) is TS-faithful: the wire packet
+// is emitted with the offset as byte[0]. Script-authors are responsible
+// for offset bounds; the entity-method does not validate.
+func (p *Player) HintCoord(offset, x, z, height int) {
+	payload := []byte{
+		byte(offset),          // p1: type = offset (2..6)
+		byte(x >> 8), byte(x), // p2: x (big-endian)
+		byte(z >> 8), byte(z), // p2: z (big-endian)
+		byte(height), // p1: height
+	}
+	p.writeOut(gameserver.OpHintArrow, payload)
+}
+
+// HintPlayer sends a HINT_ARROW (type=10, PL variant) wire packet to
+// the client. Encodes 6 bytes matching TS HintArrowEncoder type=10
+// branch (HintArrowEncoder.ts:28-32): p1(10), p2(slot), p2(0), p1(0).
+// Called by the HINT_PL (opcode 2029) script handler. Mirrors TS
+// Player.hintPlayer at Player.ts:2182-2184.
+func (p *Player) HintPlayer(slot int) {
+	payload := []byte{
+		0x0A,                        // p1: type = 10 (player hint)
+		byte(slot >> 8), byte(slot), // p2: slot (big-endian)
+		0x00, 0x00, // p2: 0
+		0x00, // p1: 0
+	}
+	p.writeOut(gameserver.OpHintArrow, payload)
+}
+
+// HintStop sends a HINT_ARROW (type=-1, STOP variant) wire packet to
+// the client, clearing any active hint arrow. Encodes 6 bytes matching
+// TS HintArrowEncoder type=-1 branch (HintArrowEncoder.ts:33-38):
+// p1(-1), p2(0), p2(0), p1(0). p1(-1) on the wire is 0xFF (low byte of
+// two's-complement). Called by the HINT_STOP (opcode 2030) script
+// handler. Mirrors TS Player.stopHint at Player.ts:2186-2188.
+func (p *Player) HintStop() {
+	payload := []byte{
+		0xFF,       // p1: type = -1 (stop sentinel; two's-complement low byte)
+		0x00, 0x00, // p2: 0
+		0x00, 0x00, // p2: 0
+		0x00, // p1: 0
+	}
+	p.writeOut(gameserver.OpHintArrow, payload)
+}
+
 // StaffModLevel is provided by player_source.go (returns int32 per
 // rsbuf.PlayerSource). Re-used here to satisfy script.ActivePlayer.
 
