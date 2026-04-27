@@ -512,3 +512,38 @@ func handleNpcFindAllAny(s *ScriptState) error {
 	)
 	return nil
 }
+
+// handleNpcFindAll (NPC_FINDALL, opcode 2514) pops (coord, npc, distance,
+// huntvis), validates, and stores a DISTANCE-mode NpcIterator with
+// typeID set to filter by NPC type. Mirrors TS NpcOps.ts:413-422.
+// Pop order matches TS popInts(4): top → bottom = checkVis, distance,
+// npcTypeID, coord. NAI-33-D1: huntvis validated but not used as filter.
+func handleNpcFindAll(s *ScriptState) error {
+	checkVis := s.PopInt()
+	distance := s.PopInt()
+	npcTypeID := s.PopInt()
+	coord := s.PopInt()
+
+	level, x, z, err := checkCoord(coord, "NPC_FINDALL")
+	if err != nil {
+		return err
+	}
+	if err := checkNotNull(distance, "NPC_FINDALL"); err != nil {
+		return err
+	}
+	if err := checkNpcType(s, npcTypeID, "NPC_FINDALL"); err != nil {
+		return err
+	}
+	if err := checkHuntVis(checkVis, "NPC_FINDALL"); err != nil {
+		return err
+	}
+
+	if s.Npcs == nil {
+		return nil
+	}
+	s.npcIterator = NewDistanceNpcIterator(
+		s.Npcs, s.World.CurrentTick(),
+		level, x, z, distance, checkVis, npcTypeID,
+	)
+	return nil
+}

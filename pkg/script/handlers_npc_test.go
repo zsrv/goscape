@@ -1727,3 +1727,65 @@ func TestNpcFindAllAny_NilNpcLookup(t *testing.T) {
 		t.Error("npcIterator should remain nil when Npcs is nil (degrades to FINDNEXT push-0)")
 	}
 }
+
+// --- NAI-33 Task 10: NPC_FINDALL handler tests -------------------------
+
+// newNpcFindAllState pushes (coord, npcType, distance, huntvis) — popInts(4) order.
+func newNpcFindAllState(t *testing.T, coord, npcTypeID, distance, huntvis int, loaded map[int]bool, lookup *mockNpcLookup) *ScriptState {
+	t.Helper()
+	mw := newMockWorld()
+	mw.tick = 100
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{0}},
+		PC:          0,
+		Configs:     newTestConfigsWithNpcTypes(loaded),
+		Npcs:        lookup,
+		World:       mw,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(coord)
+	s.PushInt(npcTypeID)
+	s.PushInt(distance)
+	s.PushInt(huntvis)
+	return s
+}
+
+func TestNpcFindAll_SetsIteratorWithTypeFilter(t *testing.T) {
+	coord := (2 << 28) | (3200 << 14) | 3300
+	s := newNpcFindAllState(t, coord, 7, 10, 0, map[int]bool{7: true}, &mockNpcLookup{})
+	if err := handleNpcFindAll(s); err != nil {
+		t.Fatalf("handleNpcFindAll: %v", err)
+	}
+	if s.npcIterator == nil {
+		t.Fatal("npcIterator should be non-nil")
+	}
+	if s.npcIterator.typeID != 7 {
+		t.Errorf("typeID: got %d, want 7 (FINDALL = type filter set)", s.npcIterator.typeID)
+	}
+	if s.npcIterator.mode != NpcIteratorDistance {
+		t.Errorf("mode: got %v, want NpcIteratorDistance", s.npcIterator.mode)
+	}
+}
+
+func TestNpcFindAll_InvalidNpcType(t *testing.T) {
+	coord := (0 << 28) | (3200 << 14) | 3300
+	s := newNpcFindAllState(t, coord, 99, 10, 0, map[int]bool{7: true}, &mockNpcLookup{})
+	if err := handleNpcFindAll(s); err == nil {
+		t.Fatal("expected NpcType validator error for unloaded npcTypeID")
+	} else if !strings.Contains(err.Error(), "NPC_FINDALL") {
+		t.Errorf("wrong error: %v", err)
+	}
+}
+
+func TestNpcFindAll_NilNpcLookup(t *testing.T) {
+	coord := (0 << 28) | (3200 << 14) | 3300
+	s := newNpcFindAllState(t, coord, 7, 10, 0, map[int]bool{7: true}, nil)
+	s.Npcs = nil
+	if err := handleNpcFindAll(s); err != nil {
+		t.Fatalf("handleNpcFindAll: %v", err)
+	}
+	if s.npcIterator != nil {
+		t.Error("nil Npcs → no iterator")
+	}
+}
