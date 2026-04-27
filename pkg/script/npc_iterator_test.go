@@ -115,3 +115,104 @@ func TestNpcIterator_ZoneMode_TerminatesAfterOneZone(t *testing.T) {
 		t.Errorf("zoneNpcsCalls: got %d, want 1 (no re-fetch after exhaustion)", lookup.zoneNpcsCalls)
 	}
 }
+
+func TestNpcIterator_DistanceMode_CursorOrder(t *testing.T) {
+	// distance=0 → radius 1 → 9 zones (3x3) walked outer-X-desc, inner-Z-desc.
+	// centerX=400, centerZ=412, bounds X=[399,401], Z=[411,413].
+	// Expected zone visit order (in zone-aligned coord-grid coords, *8):
+	// (401,413), (401,412), (401,411),  ← x=401 inner z desc
+	// (400,413), (400,412), (400,411),  ← x=400
+	// (399,413), (399,412), (399,411).  ← x=399
+	// Per TS line 337-340: outer X descending, inner Z descending.
+	lookup := &mockNpcLookup{} // byZone nil → returns nil per zone (empty)
+	it := NewDistanceNpcIterator(lookup, 0, 0, 3200, 3300, 0, 0, -1)
+
+	// Drain — Next loops until exhaustion. Empty zones produce no yields,
+	// so we just drive Next() until it returns false.
+	for {
+		if _, ok := it.Next(); !ok {
+			break
+		}
+	}
+
+	want := [][3]int{
+		{0, 401 * 8, 413 * 8},
+		{0, 401 * 8, 412 * 8},
+		{0, 401 * 8, 411 * 8},
+		{0, 400 * 8, 413 * 8},
+		{0, 400 * 8, 412 * 8},
+		{0, 400 * 8, 411 * 8},
+		{0, 399 * 8, 413 * 8},
+		{0, 399 * 8, 412 * 8},
+		{0, 399 * 8, 411 * 8},
+	}
+	if len(lookup.zoneNpcsCallArgs) != len(want) {
+		t.Fatalf("zone visits: got %d, want %d. Sequence: %v", len(lookup.zoneNpcsCallArgs), len(want), lookup.zoneNpcsCallArgs)
+	}
+	for i := range want {
+		if lookup.zoneNpcsCallArgs[i] != want[i] {
+			t.Errorf("visit[%d]: got %v, want %v", i, lookup.zoneNpcsCallArgs[i], want[i])
+		}
+	}
+}
+
+func TestNpcIterator_DistanceMode_DistanceFilter(t *testing.T) {
+	// Center (3200, 3300, lvl=0); distance=5. Zone-aligned coords for
+	// the center zone are (3200, 3296) (3300>>3*8 = 3296). Place 3 NPCs
+	// at: dist 0 (in), dist 5 (in, equal), dist 6 (out).
+	// All three live in the SAME zone since they're within ~7 tiles.
+	npcIn0 := &mockNpc{typeID: 1, x: 3200, z: 3300, level: 0}  // dist 0
+	npcIn5 := &mockNpc{typeID: 1, x: 3205, z: 3300, level: 0}  // dist 5
+	npcOut6 := &mockNpc{typeID: 1, x: 3206, z: 3300, level: 0} // dist 6 → filter out
+	zoneKey := mockZoneKey(0, 3200, 3296)
+	lookup := &mockNpcLookup{byZone: map[uint64][]ActiveNpc{zoneKey: {npcIn0, npcIn5, npcOut6}}}
+	it := NewDistanceNpcIterator(lookup, 0, 0, 3200, 3300, 5, 0, -1)
+
+	yielded := []ActiveNpc{}
+	for {
+		n, ok := it.Next()
+		if !ok {
+			break
+		}
+		yielded = append(yielded, n)
+	}
+	if len(yielded) != 2 || yielded[0] != npcIn0 || yielded[1] != npcIn5 {
+		t.Errorf("yielded: got %v, want [npcIn0, npcIn5]", yielded)
+	}
+}
+
+func TestNpcIterator_DistanceMode_TypeFilter(t *testing.T) {
+	// 2 NPCs in same zone, different types. Filter on typeID=42 yields only the matching one.
+	npcMatch := &mockNpc{typeID: 42, x: 3200, z: 3300, level: 0}
+	npcMiss := &mockNpc{typeID: 99, x: 3201, z: 3300, level: 0}
+	zoneKey := mockZoneKey(0, 3200, 3296)
+	lookup := &mockNpcLookup{byZone: map[uint64][]ActiveNpc{zoneKey: {npcMiss, npcMatch}}}
+	it := NewDistanceNpcIterator(lookup, 0, 0, 3200, 3300, 5, 0, 42)
+
+	yielded := []ActiveNpc{}
+	for {
+		n, ok := it.Next()
+		if !ok {
+			break
+		}
+		yielded = append(yielded, n)
+	}
+	if len(yielded) != 1 || yielded[0] != npcMatch {
+		t.Errorf("typeID=42: got %v, want [npcMatch only]", yielded)
+	}
+
+	// Negative-branch: typeID=-1 yields BOTH. Per test_passes_for_wrong_reason.md.
+	lookup2 := &mockNpcLookup{byZone: map[uint64][]ActiveNpc{zoneKey: {npcMiss, npcMatch}}}
+	it2 := NewDistanceNpcIterator(lookup2, 0, 0, 3200, 3300, 5, 0, -1)
+	yielded2 := []ActiveNpc{}
+	for {
+		n, ok := it2.Next()
+		if !ok {
+			break
+		}
+		yielded2 = append(yielded2, n)
+	}
+	if len(yielded2) != 2 {
+		t.Errorf("typeID=-1: got len=%d, want 2 (no filter)", len(yielded2))
+	}
+}
