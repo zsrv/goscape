@@ -2,6 +2,7 @@ package world
 
 import (
 	"bytes"
+	"strconv"
 	"strings"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
@@ -132,13 +133,75 @@ func handleClientCheat(p *Player, payload []byte) error {
 	}
 	cmd := strings.TrimPrefix(raw, "::")
 	parts := strings.SplitN(cmd, " ", 2)
+	args := ""
+	if len(parts) == 2 {
+		args = parts[1]
+	}
 	switch parts[0] {
 	case "say":
-		if len(parts) == 2 {
-			p.Say([]byte(parts[1]))
+		if args != "" {
+			p.Say([]byte(args))
 		}
+	case "getcoord":
+		// staffModLevel >= 2 gate mirrors TS ClientCheatHandler.ts:483.
+		if p.staffModLevel < 2 {
+			return nil
+		}
+		// Mirrors TS ClientCheatHandler.ts:489 — `::getcoord` displays the
+		// player's current coord as level,mapX,mapZ,localX,localZ.
+		p.MessageGame(coordgrid.FormatString(p.level, p.x, p.z, ","))
+	case "tele":
+		// staffModLevel >= 2 gate mirrors TS ClientCheatHandler.ts:483.
+		if p.staffModLevel < 2 {
+			return nil
+		}
+		// Mirrors TS `::tele level,mapX,mapZ[,localX,localZ]` at
+		// ClientCheatHandler.ts:491-523. Single-arg form:
+		// "::tele 0,50,50,32,32".
+		//
+		// DEVIATION: TS pre-tele cleanup calls player.closeModal(),
+		// player.canAccess() (with "Please finish what you are doing
+		// first." gate), and player.unsetMapFlag() — none of which exist
+		// on goscape Player yet. We call ClearInteraction (the one that
+		// does exist) and skip the others; tele is a staff-only debug
+		// op so the cleanup gap is acceptable for the smoke-test
+		// enabler scope. Track in nai_followups.md with the
+		// pathing-entity-teleport-parity sub-spec.
+		if args == "" {
+			return nil
+		}
+		coord := strings.Split(args, ",")
+		if len(coord) < 3 {
+			return nil
+		}
+		level := parseIntOr(coord[0], 0)
+		mx := parseIntOr(coord[1], 50)
+		mz := parseIntOr(coord[2], 50)
+		lx := 32
+		if len(coord) > 3 {
+			lx = parseIntOr(coord[3], 32)
+		}
+		lz := 32
+		if len(coord) > 4 {
+			lz = parseIntOr(coord[4], 32)
+		}
+		if level < 0 || level > 3 || mx < 0 || mx > 255 || mz < 0 || mz > 255 || lx < 0 || lx > 63 || lz < 0 || lz > 63 {
+			return nil
+		}
+		p.ClearInteraction()
+		p.TeleJump((mx<<6)+lx, (mz<<6)+lz, level)
 	}
 	return nil
+}
+
+// parseIntOr parses s as a base-10 int, returning def on any error.
+// Mirrors TS tryParseInt used by the cheat handler at ClientCheatHandler.ts.
+func parseIntOr(s string, def int) int {
+	v, err := strconv.Atoi(strings.TrimSpace(s))
+	if err != nil {
+		return def
+	}
+	return v
 }
 
 func handleMoveMinimapClick(p *Player, payload []byte) error {
