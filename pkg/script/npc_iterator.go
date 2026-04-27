@@ -36,7 +36,12 @@ type NpcIterator struct {
 	level    int
 	x, z     int
 	distance int // DISTANCE mode only; 0 for ZONE
-	huntvis  int // validated at handler; not used as filter (NAI-33-D1)
+	// huntvis is stored at construction (validated upstream by handlers
+	// via checkHuntVis) but NOT consumed by passesFilter today — see
+	// NAI-33-D1 deviation. Field kept (rather than dropped) for
+	// retirement readiness: when LoS/LoW filtering lands, passesFilter
+	// only needs to start reading huntvis; no constructor surface change.
+	huntvis int
 	typeID   int // -1 = no filter (FINDALLANY, FINDALLZONE); else exact match
 
 	// Zone-cursor (DISTANCE mode)
@@ -50,11 +55,14 @@ type NpcIterator struct {
 	zoneIdx  int
 }
 
-// Stale reports whether currentTick differs from the iterator's
-// creationTick. FINDNEXT handler MUST check this before calling Next.
-// Single-tick lifetime: any drift = stale.
+// Stale reports whether the iterator was created in a prior tick.
+// FINDNEXT handler MUST check this before calling Next. Mirrors TS
+// strict-greater-than at ScriptIterators.ts:332,343 (World.currentTick
+// > this.tick). Single-tick lifetime: any forward tick = stale; past
+// ticks are impossible in practice (caller is the script VM, which
+// can't go backwards) but per TS we don't flag them as stale.
 func (it *NpcIterator) Stale(currentTick int) bool {
-	return currentTick != it.creationTick
+	return currentTick > it.creationTick
 }
 
 // passesFilter applies the per-NPC filter chain in TS line 345-356 order.

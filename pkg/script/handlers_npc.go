@@ -579,6 +579,12 @@ func handleNpcFindAllZone(s *ScriptState) error {
 // Exhaustion does NOT clear s.npcIterator (matches TS
 // state.npcIterator?.next() returning {done:true} without nulling).
 // Subsequent FINDNEXT calls continue to return push-0.
+//
+// Stale-check timing: TS checks staleness inside the generator on
+// each yield (ScriptIterators.ts:331,342); goscape checks once at
+// handler entry. Equivalent in the single-tick lifetime model since
+// the iterator is consumed entirely within a single FINDNEXT call —
+// no opportunity for tick drift mid-iteration.
 func handleNpcFindNext(s *ScriptState) error {
 	it := s.npcIterator
 	if it == nil {

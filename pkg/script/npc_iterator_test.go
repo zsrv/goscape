@@ -5,6 +5,9 @@ import (
 )
 
 func TestNpcIterator_StaleCheck(t *testing.T) {
+	// TS uses strict `>` (ScriptIterators.ts:332,343): only forward
+	// tick drift is stale. Past ticks are physically impossible
+	// (script VM doesn't run backwards) but per TS we don't flag.
 	it := &NpcIterator{creationTick: 100}
 	if it.Stale(100) {
 		t.Error("Stale(creationTick) should be false")
@@ -12,8 +15,8 @@ func TestNpcIterator_StaleCheck(t *testing.T) {
 	if !it.Stale(101) {
 		t.Error("Stale(creationTick+1) should be true")
 	}
-	if !it.Stale(99) {
-		t.Error("Stale(creationTick-1) should be true (any !=)")
+	if it.Stale(99) {
+		t.Error("Stale(creationTick-1) should be false (TS uses strict >, not !=)")
 	}
 }
 
