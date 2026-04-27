@@ -198,6 +198,8 @@ type mockNpc struct {
 	setTimerCalls                      []int
 	setHuntRangeCalls                  []int
 	setHuntModeCalls                   []int
+	walkTriggerCalls                   []int
+	walkTriggerArgCalls                []int
 	teleportCalls                      []struct{ x, z, level int }
 	queueWaypointCalls                 []struct{ x, z int }
 	targetOpField                      int
@@ -294,6 +296,14 @@ func (m *mockNpc) SetHuntRange(r int) {
 
 func (m *mockNpc) SetHuntMode(mode int) {
 	m.setHuntModeCalls = append(m.setHuntModeCalls, mode)
+}
+
+func (m *mockNpc) SetWalkTrigger(queueID int) {
+	m.walkTriggerCalls = append(m.walkTriggerCalls, queueID)
+}
+
+func (m *mockNpc) SetWalkTriggerArg(arg int) {
+	m.walkTriggerArgCalls = append(m.walkTriggerArgCalls, arg)
 }
 
 func (m *mockNpc) Teleport(x, z, level int) {

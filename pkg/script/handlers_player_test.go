@@ -45,6 +45,8 @@ func (m *mockActiveNpc) EnqueueScriptForTrigger(_ ServerTriggerType, _, _ int) {
 func (m *mockActiveNpc) SetTimer(_ int)                                        {}
 func (m *mockActiveNpc) SetHuntRange(_ int)                                    {}
 func (m *mockActiveNpc) SetHuntMode(_ int)                                     {}
+func (m *mockActiveNpc) SetWalkTrigger(_ int)                                  {}
+func (m *mockActiveNpc) SetWalkTriggerArg(_ int)                               {}
 func (m *mockActiveNpc) Teleport(_, _, _ int)                                  {}
 func (m *mockActiveNpc) QueueWaypoint(_, _ int)                                {}
 func (m *mockActiveNpc) TargetOp() int                                         { return 0 }

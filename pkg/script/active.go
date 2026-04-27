@@ -492,6 +492,18 @@ type ActiveNpc interface {
 	// looking up the HuntType. Mirrors TS NpcOps.ts:178-185.
 	SetHuntMode(mode int)
 
+	// SetWalkTrigger sets the deferred AI-queue trigger index for the
+	// active NPC. Called by NPC_WALKTRIGGER (opcode 2545). Range
+	// validation [1, 20] happens in the handler before -1 transform;
+	// this method just writes the field. Mirrors TS Npc.walktrigger
+	// at NpcOps.ts:488.
+	SetWalkTrigger(queueID int)
+
+	// SetWalkTriggerArg sets the arg passed to the walktrigger script
+	// when it eventually fires. Mirrors TS Npc.walktriggerArg at
+	// NpcOps.ts:489.
+	SetWalkTriggerArg(arg int)
+
 	// Teleport moves the active NPC to (x, z, level) and flags the client
 	// for a tele transition. Mirrors (n *Npc).Teleport on the world side
 	// (modules/world/npc_script.go). Called by NPC_TELE handler

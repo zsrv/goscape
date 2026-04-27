@@ -85,6 +85,18 @@ type Npc struct {
 	nextPatrolPoint int
 	delayedPatrol   bool
 
+	// walktrigger queues a deferred AI-queue trigger (0..19, -1 = unset)
+	// to fire when this NPC completes a walk step. Written by the
+	// NPC_WALKTRIGGER (opcode 2545) handler. NOT YET CONSUMED — the
+	// AI-tick walktrigger consumption is tracked deviation
+	// NAI-37-D-WALKTRIGGER-NOREADER. Mirrors TS Npc.walktrigger.
+	// Default in NewNpc is -1 (sentinel); existing &Npc{...} literals in
+	// test files default to walktrigger=0 which is benign in NAI-37 (no
+	// reader). When the AI-tick consumer is ported (future sub-spec),
+	// every literal must be audited per plan_enumerate_struct_literals.md.
+	walktrigger    int
+	walktriggerArg int
+
 	// === interaction ===
 	target        entity
 	faceEntity    int
@@ -159,6 +171,8 @@ func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
 		runDir:          -1,
 		waypointIndex:   -1,
 		nextPatrolPoint: 0,
+		walktrigger:     -1,
+		walktriggerArg:  0,
 		faceEntity:      -1,
 		apRange:         10,
 		apRangeCalled:   false,
@@ -255,6 +269,17 @@ func (n *Npc) SetHuntRange(r int) {
 func (n *Npc) SetHuntMode(mode int) {
 	n.huntMode = mode
 }
+
+// SetWalkTrigger sets the deferred AI-queue trigger index (0..19) that
+// fires when this NPC completes a walk step. Called by the
+// NPC_WALKTRIGGER handler (handlers_npc.go) after queueID validation.
+// Mirrors TS Npc.walktrigger field write at NpcOps.ts:488.
+func (n *Npc) SetWalkTrigger(queueID int) { n.walktrigger = queueID }
+
+// SetWalkTriggerArg sets the arg passed to the walktrigger script when
+// it eventually fires. Mirrors TS Npc.walktriggerArg field write at
+// NpcOps.ts:489.
+func (n *Npc) SetWalkTriggerArg(arg int) { n.walktriggerArg = arg }
 
 // revertType restores the NPC to its baseType after a temporary CHANGETYPE
 // or KEEPALL morph.
