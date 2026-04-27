@@ -74,20 +74,43 @@ func (s *Server) resumeOrFinish(state *script.ScriptState, self script.ActivePla
 
 // resumeOrFinishWorld dispatches the post-Execute state for a script
 // run from the world-script queue (called by processWorldQueue after
-// removing the entry). STUB at T9 — full dispatch table arrives in T12.
+// removing the entry).
 //
-// At T9: just calls script.Execute and logs errors. The post-execute
-// state is not yet dispatched on, so a script that returns
-// WorldSuspended will not self-re-enqueue (T12 fixes this); a script
-// that hits a cross-context state will not warn (T12 adds the warns).
-// T9's scheduler tests exercise only Finished-returning scripts; the
-// WorldSuspended self-loop test is deferred to T12 alongside the
-// dispatch table.
+// Dispatch table (NAI-37 T12):
+//   - Finished, Aborted: drop entry; clean exit (Aborted may already
+//     be logged at script.Execute error level).
+//   - WorldSuspended: re-enqueue (self-loop case from path P3 in the
+//     spec). Pops the wakeup-tick from the script's int stack and
+//     re-appends to worldScriptQueue. Mirrors TS World.ts:553-555.
+//   - Suspended, NpcSuspended, PauseButton, CountDialog: warn+drop.
+//     Tracked deviation NAI-37-D-WORLDQUEUE-CROSS-CONTEXT-DROP — TS
+//     handles these implicitly by re-binding to the corresponding
+//     entity's activeScript (Player.ts:2137-2141, Npc.ts:221-225);
+//     goscape's narrower handling is intentional pending a broader
+//     player-script-lifecycle alignment.
+//   - default (Running, future-added): warn+drop.
 func (s *Server) resumeOrFinishWorld(state *script.ScriptState) {
 	if err := script.Execute(state); err != nil {
 		s.log.Warn("world script execute error",
 			"script", state.Script.Name, "err", err)
 		return
 	}
-	// T12 will switch on state.Execution.
+	switch state.Execution {
+	case script.Finished, script.Aborted:
+		// Clean exit; nothing to do (entry already removed by caller).
+	case script.WorldSuspended:
+		delay := state.PopInt()
+		s.EnqueueWorldScript(state, delay)
+	case script.Suspended, script.NpcSuspended, script.PauseButton, script.CountDialog:
+		// DEVIATION NAI-37-D-WORLDQUEUE-CROSS-CONTEXT-DROP: cross-context
+		// resume from a world-queued script is not supported. TS would
+		// re-bind to the corresponding entity's activeScript; goscape
+		// drops with a warn until broader script-lifecycle alignment.
+		s.log.Warn("world-queue script transitioned to cross-context state; resume unsupported",
+			"script", state.Script.Name, "execution", state.Execution)
+	default:
+		// Running, or any future-added Execution value.
+		s.log.Warn("world-queue script in unexpected execution state",
+			"script", state.Script.Name, "execution", state.Execution)
+	}
 }
