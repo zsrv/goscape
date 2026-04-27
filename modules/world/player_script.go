@@ -146,6 +146,25 @@ func (p *Player) CamReset() {
 	p.writeOut(gameserver.OpCamReset, nil)
 }
 
+// HintNpc sends a HINT_ARROW (type=1, NPC variant) wire packet to the
+// client. Encodes 6 bytes matching TS HintArrowEncoder type=1 branch:
+// p1(type=1), p2(nid), p2(0), p1(0). Called by the HINT_NPC (opcode
+// 2028) script handler. Mirrors TS Player.hintNpc at Player.ts:2174-2176.
+//
+// DEVIATION NAI-37-D-HINTARROW-PARTIAL-ENCODER: only the type=1 branch
+// of TS HintArrowEncoder is implemented. Closure when HINT_PL,
+// HINT_COORD, HINT_STOP handlers and their respective encoder branches
+// land.
+func (p *Player) HintNpc(nid int) {
+	payload := []byte{
+		0x01,                      // p1: type = 1 (NPC hint)
+		byte(nid >> 8), byte(nid), // p2: nid (big-endian)
+		0x00, 0x00, // p2: 0 (unused playerSlot for type=1)
+		0x00, // p1: 0 (unused y for type=1)
+	}
+	p.writeOut(gameserver.OpHintArrow, payload)
+}
+
 // StaffModLevel is provided by player_source.go (returns int32 per
 // rsbuf.PlayerSource). Re-used here to satisfy script.ActivePlayer.
 

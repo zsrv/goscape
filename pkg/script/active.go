@@ -269,6 +269,12 @@ type ActivePlayer interface {
 	// any custom camera state. Called by the CAM_RESET script opcode.
 	CamReset()
 
+	// HintNpc directs the client to render a hint arrow pointing at the
+	// NPC with the given nid (slot id). Mirrors TS Player.hintNpc at
+	// Player.ts:2174-2176, which writes a HintArrow(type=1) packet.
+	// Called by the HINT_NPC (opcode 2028) handler.
+	HintNpc(nid int)
+
 	// StaffModLevel returns the player's staff moderation level.
 	// 0 for regular players; >0 for mods/admins. Used by STAFFMODLEVEL
 	// opcode to gate mod-only behaviour. Matches the rsbuf.PlayerSource

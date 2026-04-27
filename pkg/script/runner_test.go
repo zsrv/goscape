@@ -200,6 +200,11 @@ type mockPlayer struct {
 	// Camera control capture.
 	camResetCalls int
 
+	// NAI-37 T5: HINT_NPC capture. Each entry records the nid passed to
+	// HintNpc; tests inspect this slice to verify a handler made the
+	// expected call.
+	hintNpcCalls []int
+
 	// Staff-mod level (pre-seed for STAFFMODLEVEL query).
 	staffModLevelValue int
 	uidValue           int
@@ -447,6 +452,9 @@ func (m *mockPlayer) LastTargetSlot() int { return m.lastTargetSlotValue }
 
 // CamReset capture for handler tests.
 func (m *mockPlayer) CamReset() { m.camResetCalls++ }
+
+// HintNpc capture for handler tests (NAI-37 T5).
+func (m *mockPlayer) HintNpc(nid int) { m.hintNpcCalls = append(m.hintNpcCalls, nid) }
 
 // StaffModLevel returns the seeded staff level for tests.
 func (m *mockPlayer) StaffModLevel() int32 { return int32(m.staffModLevelValue) }

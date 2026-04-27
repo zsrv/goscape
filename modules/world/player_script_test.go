@@ -1,11 +1,14 @@
 package world
 
 import (
+	"bytes"
 	"slices"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/cache"
 	"github.com/zsrv/goscape/pkg/gamemap"
+	io2 "github.com/zsrv/goscape/pkg/io/isaac"
+	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -802,5 +805,35 @@ func TestPlayerTeleport_OrderRefreshThenFlag(t *testing.T) {
 	}
 	if !p.tele {
 		t.Errorf("tele flag write missing: got false, want true")
+	}
+}
+
+// --- NAI-37 Task 5: HintNpc payload byte-pin test --------------------------
+
+// TestHintNpcPayloadBytes pins the type=1 HintArrow encoder branch
+// byte-for-byte. nid=0x1234 chosen so each byte position is
+// distinguishable from the zero-fill (catches type-byte regression,
+// nid endianness, and field misordering — see rsbuf_roundtrip_tests.md).
+// OpHintArrow has PayloadSize=6 (fixed), so the wire is
+// [encrypted_opcode, p1(type=1), p2(nid_hi), p2(nid_lo), p2(0)_hi, p2(0)_lo, p1(0)] — 7 bytes total.
+func TestHintNpcPayloadBytes(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	want := []byte{
+		byte((int(gameserver.OpHintArrow.Opcode) + int(enc.GetNext())) & 0xff),
+		0x01,       // p1: type = 1 (NPC hint)
+		0x12, 0x34, // p2: nid (big-endian)
+		0x00, 0x00, // p2: 0 (unused playerSlot for type=1)
+		0x00, // p1: 0 (unused y for type=1)
+	}
+
+	received := drainConn(t, cc)
+	p.HintNpc(0x1234)
+	p.client.flushWrite()
+	got := <-received
+	if !bytes.Equal(got, want) {
+		t.Errorf("HintNpc(0x1234) wire: got %#x, want %#x", got, want)
 	}
 }
