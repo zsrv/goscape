@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/cache"
+	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -603,5 +604,203 @@ func TestPlayerTeleportSameZoneNoRefresh(t *testing.T) {
 	// Same-zone teleport should NOT re-subscribe (no leave/enter dance).
 	if p.zoneListElement != prevElement {
 		t.Error("same-zone Teleport should preserve zoneListElement (no leave/enter)")
+	}
+}
+
+// --- NAI-36 Task 7: Player.Teleport partial parity ----------------------
+//
+// Closes NAI-34-D1 (level clamp), NAI-34-D2 (unallocated-zone reject),
+// body-order alignment to refresh-then-tele, and NAI-34-D5 (level-change
+// INSTANT + jump branch) for Player. Mirrors TS PathingEntity.teleport
+// at PathingEntity.ts:267-298.
+
+// TestPlayerTeleport_LevelClampNegative pins D1: level=-1 clamps to 0
+// per TS PathingEntity.ts:268-271 (TS uses Math.max(0, ...)).
+func TestPlayerTeleport_LevelClampNegative(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.client.server = s
+	p.x, p.z, p.level = 3200, 3300, 0
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+
+	p.Teleport(3210, 3310, -1)
+
+	if p.level != 0 {
+		t.Errorf("level after Teleport(level=-1): got %d, want 0 (clamp)", p.level)
+	}
+	if p.x != 3210 || p.z != 3310 {
+		t.Errorf("x/z after Teleport: got (%d, %d), want (3210, 3310)", p.x, p.z)
+	}
+}
+
+// TestPlayerTeleport_LevelClampHigh pins D1 upper bound: level=4 clamps
+// to 3 per TS PathingEntity.ts:271 (TS uses Math.min(level, 3)).
+func TestPlayerTeleport_LevelClampHigh(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.client.server = s
+	p.x, p.z, p.level = 3200, 3300, 0
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+
+	p.Teleport(3210, 3310, 4)
+
+	if p.level != 3 {
+		t.Errorf("level after Teleport(level=4): got %d, want 3 (clamp)", p.level)
+	}
+}
+
+// TestPlayerTeleport_UnallocatedZoneRejects pins D2: a teleport to a zone
+// where IsZoneAllocated returns false is silently ignored — no coord
+// mutation, no tele flag write. Per TS PathingEntity.ts:273-278.
+func TestPlayerTeleport_UnallocatedZoneRejects(t *testing.T) {
+	s := newTestServer(t)
+	// Wire a real gamemap so IsZoneAllocated returns false for any
+	// un-allocated zone (test default: all zones unallocated).
+	s.gamemap = gamemap.New(discardLogger())
+	// Allocate the starting zone so the player can be placed there.
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3200, 3300, 0)
+
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.client.server = s
+	p.x, p.z, p.level = 3200, 3300, 0
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	prevX, prevZ, prevLevel := p.x, p.z, p.level
+	p.tele = false
+
+	// Target zone (3210, 3310) is NOT allocated → reject.
+	p.Teleport(3210, 3310, 0)
+
+	if p.x != prevX || p.z != prevZ || p.level != prevLevel {
+		t.Errorf("Teleport to unallocated zone: state changed (%d,%d,%d) → (%d,%d,%d), want unchanged",
+			prevX, prevZ, prevLevel, p.x, p.z, p.level)
+	}
+	if p.tele {
+		t.Errorf("tele flag: got true, want false (rejected teleport must not set flag)")
+	}
+}
+
+// TestPlayerTeleport_AllocatedZoneAccepts pins the D2 positive case: a
+// teleport to a zone where IsZoneAllocated returns true completes
+// normally. Pairs with TestPlayerTeleport_UnallocatedZoneRejects to
+// guard against a degenerate "always-reject" implementation.
+func TestPlayerTeleport_AllocatedZoneAccepts(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3200, 3300, 0)
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3210, 3310, 0)
+
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.client.server = s
+	p.x, p.z, p.level = 3200, 3300, 0
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+
+	p.Teleport(3210, 3310, 0)
+
+	if p.x != 3210 || p.z != 3310 || p.level != 0 {
+		t.Errorf("Teleport to allocated zone: got (%d,%d,%d), want (3210,3310,0)",
+			p.x, p.z, p.level)
+	}
+	if !p.tele {
+		t.Error("tele flag: got false, want true (accepted teleport must set flag)")
+	}
+}
+
+// TestPlayerTeleport_SameLevelNoMoveSpeedChange pins the D5 negative
+// case: a same-level teleport leaves moveSpeed/jump untouched per TS
+// PathingEntity.ts:295 (the `previousLevel != level` guard).
+func TestPlayerTeleport_SameLevelNoMoveSpeedChange(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.client.server = s
+	p.x, p.z, p.level = 3200, 3300, 0
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	p.moveSpeed = MoveSpeedWalk
+	p.jump = false
+
+	p.Teleport(3210, 3310, 0) // same level (0 → 0)
+
+	if p.moveSpeed != MoveSpeedWalk {
+		t.Errorf("same-level moveSpeed: got %v, want MoveSpeedWalk (unchanged)", p.moveSpeed)
+	}
+	if p.jump {
+		t.Errorf("same-level jump: got true, want false (unchanged)")
+	}
+}
+
+// TestPlayerTeleport_LevelChangeSetsInstantAndJump pins the D5 positive
+// case: a level-change teleport sets moveSpeed=Instant + jump=true per
+// TS PathingEntity.ts:295-298.
+func TestPlayerTeleport_LevelChangeSetsInstantAndJump(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.client.server = s
+	p.x, p.z, p.level = 3200, 3300, 0
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	p.moveSpeed = MoveSpeedWalk
+	p.jump = false
+
+	p.Teleport(3210, 3310, 1) // level changed 0 → 1
+
+	if p.moveSpeed != MoveSpeedInstant {
+		t.Errorf("level-change moveSpeed: got %v, want MoveSpeedInstant", p.moveSpeed)
+	}
+	if !p.jump {
+		t.Errorf("level-change jump: got false, want true")
+	}
+}
+
+// TestPlayerTeleport_OrderRefreshThenFlag pins the body-order alignment.
+// Note: refreshPlayerZone reads only previous + current coords, never
+// p.tele; and p.tele = true never reads zone state. The two writes are
+// runtime-commutative — order is purely structural and invisible at the
+// observable-state layer. This test is a behavior witness rather than a
+// strict order-pin: it asserts that BOTH effects are applied (refresh
+// happened AND tele=true) so a regression that drops one would surface.
+// Source-level order is enforced by the doc comment on Teleport plus
+// code review; the runtime-equivalent claim is documented at
+// modules/world/player_script.go in the Teleport doc-block. NAI-36-T7.
+func TestPlayerTeleport_OrderRefreshThenFlag(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.client.server = s
+	p.x, p.z, p.level = 3200, 3200, 0
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	prevZone := s.zoneMap.Get(0, 3200, 3200)
+	p.tele = false
+
+	p.Teleport(4000, 4000, 0) // cross-zone so refresh actually runs
+
+	newZone := s.zoneMap.Get(0, 4000, 4000)
+	if prevZone.PlayersCount() != 0 {
+		t.Errorf("refresh effect missing: prevZone PlayersCount=%d, want 0",
+			prevZone.PlayersCount())
+	}
+	if newZone.PlayersCount() != 1 {
+		t.Errorf("refresh effect missing: newZone PlayersCount=%d, want 1",
+			newZone.PlayersCount())
+	}
+	if !p.tele {
+		t.Errorf("tele flag write missing: got false, want true")
 	}
 }

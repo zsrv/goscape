@@ -118,7 +118,10 @@ func (n *Npc) patrolMode(s *Server) {
 		n.QueueWaypoint(dest.X, dest.Z)
 	}
 	if (n.x != dest.X || n.z != dest.Z) && n.nextPatrolTick > -1 && s.currentTick >= n.nextPatrolTick {
-		n.Teleport(dest.X, dest.Z, 0)
+		// NAI-36-T7: pass dest.Level (was hardcoded 0) per TS Npc.ts:729.
+		// PatrolCoord packs the level via PackCoord; preserving it through
+		// the patrol-tele preserves multi-level patrol routes.
+		n.Teleport(dest.X, dest.Z, dest.Level)
 	}
 	if n.x == dest.X && n.z == dest.Z && !n.delayedPatrol {
 		n.nextPatrolTick = s.currentTick + patrolDelay

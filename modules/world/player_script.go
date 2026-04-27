@@ -222,14 +222,49 @@ func (p *Player) TeleJump(x, z, level int) {
 }
 
 // Teleport moves the player to (x, z, level) and flags the client for a
-// smooth teleport transition (tele without jump).
+// smooth teleport transition (tele without jump in the same-level case;
+// tele+jump+INSTANT speed when crossing levels). Mirrors TS
+// PathingEntity.teleport at PathingEntity.ts:267-298.
+//
+// NAI-36-T7 closes deviations D1 (level clamp), D2 (unallocated-zone
+// reject), order (refresh BEFORE tele=true), and D5 (level-change INSTANT
+// + jump branch) for Player. Residual: D3 (focus orientation), D4
+// (lastStepX/Z adjust). See DEVIATION block at npc_script.go for the full
+// tracker.
 func (p *Player) Teleport(x, z, level int) {
+	// D1: clamp level to [0, 3] per PathingEntity.ts:268-271.
+	if level < 0 {
+		level = 0
+	} else if level > 3 {
+		level = 3
+	}
+	// D2: reject teleports to unallocated zones per PathingEntity.ts:273-278.
+	// (TS additionally exempts staffModLevel >= 3; goscape has no staff-mod
+	// flag yet, so the gate is unconditional. messageGame on rejection is
+	// a future polish item.)
+	if p.client != nil && p.client.server != nil &&
+		!p.client.server.IsZoneAllocated(level, x, z) {
+		return
+	}
+
 	prevX, prevZ, prevLevel := p.x, p.z, p.level
 	p.x = x
 	p.z = z
 	p.level = level
-	p.tele = true
+
+	// Order: refreshPlayerZone runs BEFORE p.tele = true to match TS
+	// PathingEntity.ts:290-293. The two writes are functionally
+	// commutative (refresh reads only previous coords + current
+	// x/z/level; the tele bit is independent), but TS-faithful order is
+	// the project's true-to-TS gate default.
 	refreshPlayerZone(p, prevX, prevZ, prevLevel)
+	p.tele = true
+
+	// D5: level-change → INSTANT + jump per PathingEntity.ts:295-298.
+	if prevLevel != level {
+		p.moveSpeed = MoveSpeedInstant
+		p.jump = true
+	}
 }
 
 // FaceSquare rotates the player to face the square at absolute (x, z)

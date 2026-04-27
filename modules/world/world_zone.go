@@ -92,3 +92,19 @@ func (s *Server) MapProjAnim(
 		startDelay, endDelay, peak, arc)
 	s.TrackZone(z)
 }
+
+// IsZoneAllocated reports whether the (level, x, z) zone has been allocated
+// in the FlagMap collision layer (pkg/pathfinder/collision/flagmap.go:142).
+// Mirrors TS World.gameMap.isZoneAllocated; called by Player.Teleport and
+// Npc.Teleport per TS PathingEntity.ts:271 to silently reject teleports
+// into uninitialised zones. NAI-36-T7.
+//
+// When s.gamemap is nil (test fixtures that bypass the standard map
+// loader), returns true so existing tests don't see false rejections.
+// Production paths always have gamemap set during App start.
+func (s *Server) IsZoneAllocated(level, x, z int) bool {
+	if s == nil || s.gamemap == nil {
+		return true
+	}
+	return s.gamemap.Pathfinder.Flags.IsZoneAllocated(x, z, level)
+}

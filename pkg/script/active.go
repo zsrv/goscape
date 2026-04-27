@@ -498,8 +498,12 @@ type ActiveNpc interface {
 	// (handlers_npc.go) after checkCoord validates and unpacks the packed
 	// coord.
 	//
-	// DEVIATION NAI-34-D1..D5 — see Npc.Teleport doc comment for the
-	// full divergence list and closure plan.
+	// DEVIATION NAI-34-D3, D4, D5-NPC — partial closure as of NAI-36-T7:
+	// D1 (level clamp) and D2 (unallocated-zone reject) are CLOSED for
+	// both Player.Teleport and Npc.Teleport. D3/D4/D5-NPC remain residual
+	// (NPC has no focus, lastStepX/Z, or jump fields — dead-API per
+	// dead_api_polish.md). See (n *Npc).Teleport doc comment in
+	// modules/world/npc_script.go for the full tracker.
 	Teleport(x, z, level int)
 
 	// QueueWaypoint clears any existing path and sets a single destination

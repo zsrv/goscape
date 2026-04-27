@@ -1426,3 +1426,50 @@ func TestNpcStuckTeleportRefreshSubscription(t *testing.T) {
 		t.Errorf("home zone NpcsCount after stuck-teleport: got %d, want 1", homeZone.NpcsCount())
 	}
 }
+
+// TestPatrolMode_PreservesDestLevel pins NAI-36-T7's PatrolMode-level
+// fix at npc_interaction.go:121: the patrol-tele branch passes
+// dest.Level (was hardcoded 0) per TS Npc.ts:729. Pre-NAI-36-T7 bug:
+// multi-level patrol routes silently teleported to level 0 ignoring
+// dest.Level.
+//
+// Setup: NPC at (3200, 3300, 0) with a single-waypoint patrol at
+// (3210, 3310, 1). Force the patrol-tele branch by:
+//   - Setting nextPatrolTick = 0 and currentTick = 1 so the time gate
+//     at line 120 fires.
+//   - Setting waypointIndex = -1 and target = nil so QueueWaypoint
+//     re-arms (line 117-119) — but the (n.x != dest.X || n.z != dest.Z)
+//     guard fires because the NPC is not yet at dest.
+func TestPatrolMode_PreservesDestLevel(t *testing.T) {
+	s := newTestServer(t)
+	// PatrolCoord packs (level, x, z) via coordgrid.PackCoord.
+	patrolPacked := uint32(coordgrid.PackCoord(1, 3210, 3310))
+	typ := &objtype.NpcType{
+		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "patrol_test"},
+		Size:        1,
+		PatrolCoord: []uint32{patrolPacked},
+		PatrolDelay: []uint8{5},
+	}
+	n := NewNpc(0, 0, 3200, 3300, 0, typ)
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+	// Force patrol-tele branch:
+	//   - nextPatrolTick > -1 (so the > -1 guard at line 120 holds)
+	//   - currentTick >= nextPatrolTick (so the time gate at line 120 fires)
+	//   - n.x/z != dest.X/Z (NPC at 3200,3300; dest at 3210,3310)
+	n.nextPatrolTick = 0
+	s.currentTick = 1
+	n.waypointIndex = -1 // QueueWaypoint at line 118 will re-arm; that's fine
+	n.target = nil
+
+	n.patrolMode(s)
+
+	if n.level != 1 {
+		t.Errorf("PatrolMode level after patrol-tele: got %d, want 1 (dest.Level)", n.level)
+	}
+	if n.x != 3210 || n.z != 3310 {
+		t.Errorf("PatrolMode coords after patrol-tele: got (%d, %d), want (3210, 3310)",
+			n.x, n.z)
+	}
+}

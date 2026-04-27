@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
+	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
@@ -728,5 +729,96 @@ func TestNpcTeleport_NilServerNoOp(t *testing.T) {
 	}
 	if !n.tele {
 		t.Error("post-Teleport tele flag (nil server): got false, want true")
+	}
+}
+
+// --- NAI-36 Task 7: Npc.Teleport partial parity (D1 + D2 only) ----------
+//
+// NPC closes only D1 (level clamp) and D2 (unallocated-zone reject).
+// D3 (focus), D4 (lastStepX/Z), D5-NPC (jump field absent on Npc) remain
+// residual per dead_api_polish.md — see DEVIATION block in npc_script.go.
+
+// TestNpcTeleport_LevelClampNegative pins D1: level=-1 clamps to 0
+// per TS PathingEntity.ts:268-271.
+func TestNpcTeleport_LevelClampNegative(t *testing.T) {
+	s := newTestServer(t)
+	n := &Npc{nid: 0, typeId: 0, x: 5000, z: 5000, level: 0, startX: 5000, startZ: 5000, startLevel: 0}
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+
+	n.Teleport(3210, 3310, -1)
+
+	if n.level != 0 {
+		t.Errorf("level after Teleport(level=-1): got %d, want 0 (clamp)", n.level)
+	}
+	if n.x != 3210 || n.z != 3310 {
+		t.Errorf("x/z after Teleport: got (%d, %d), want (3210, 3310)", n.x, n.z)
+	}
+}
+
+// TestNpcTeleport_LevelClampHigh pins D1 upper bound: level=4 clamps to 3.
+func TestNpcTeleport_LevelClampHigh(t *testing.T) {
+	s := newTestServer(t)
+	n := &Npc{nid: 0, typeId: 0, x: 5000, z: 5000, level: 0, startX: 5000, startZ: 5000, startLevel: 0}
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+
+	n.Teleport(3210, 3310, 4)
+
+	if n.level != 3 {
+		t.Errorf("level after Teleport(level=4): got %d, want 3 (clamp)", n.level)
+	}
+}
+
+// TestNpcTeleport_UnallocatedZoneRejects pins D2: silent reject when
+// IsZoneAllocated returns false. Per TS PathingEntity.ts:273-278.
+func TestNpcTeleport_UnallocatedZoneRejects(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	// Allocate the start zone so refreshNpcZone (which won't run on
+	// reject) doesn't matter; allocate-status of the destination is the
+	// gate.
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3200, 3300, 0)
+	n := &Npc{nid: 0, typeId: 0, x: 3200, z: 3300, level: 0, startX: 3200, startZ: 3300, startLevel: 0}
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+	prevX, prevZ, prevLevel := n.x, n.z, n.level
+	n.tele = false
+
+	// (3210, 3310) is in an UNallocated zone → reject.
+	n.Teleport(3210, 3310, 0)
+
+	if n.x != prevX || n.z != prevZ || n.level != prevLevel {
+		t.Errorf("Teleport to unallocated zone: state changed (%d,%d,%d) → (%d,%d,%d), want unchanged",
+			prevX, prevZ, prevLevel, n.x, n.z, n.level)
+	}
+	if n.tele {
+		t.Errorf("tele flag: got true, want false (rejected teleport must not set flag)")
+	}
+}
+
+// TestNpcTeleport_AllocatedZoneAccepts pins D2 positive case as a
+// regression-guard against an "always-reject" misimpl.
+func TestNpcTeleport_AllocatedZoneAccepts(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3200, 3300, 0)
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3210, 3310, 0)
+	n := &Npc{nid: 0, typeId: 0, x: 3200, z: 3300, level: 0, startX: 3200, startZ: 3300, startLevel: 0}
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+
+	n.Teleport(3210, 3310, 0)
+
+	if n.x != 3210 || n.z != 3310 || n.level != 0 {
+		t.Errorf("Teleport to allocated zone: got (%d,%d,%d), want (3210,3310,0)",
+			n.x, n.z, n.level)
+	}
+	if !n.tele {
+		t.Error("tele flag: got false, want true (accepted teleport must set flag)")
 	}
 }

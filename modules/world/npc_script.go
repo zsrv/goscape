@@ -86,28 +86,50 @@ func (n *Npc) SetNpcVarN(id int, val int32) {
 
 // Teleport moves the NPC to (x, z, level), refreshes its zone
 // subscription if the zone changed, and flags the client for a tele
-// transition (no walk-anim interpolation). Mirrors Player.Teleport at
-// player_script.go:226.
+// transition (no walk-anim interpolation). Mirrors TS
+// PathingEntity.teleport at PathingEntity.ts:267-298.
 //
 // Used by NPC_TELE script handler (pkg/script/handlers_npc.go) and by
-// AI teleport sites — wanderMode home-tele (npc_interaction.go ~:97)
-// and patrolMode waypoint-tele (~:126).
+// AI teleport sites — wanderMode home-tele (npc_interaction.go ~:95)
+// and patrolMode waypoint-tele (~:121).
 //
-// DEVIATION NAI-34-D1..D5 vs TS PathingEntity.teleport (PathingEntity.ts:267):
-// no level clamp, no unallocated-zone rejection, no focus(), no
-// lastStepX/Z adjust, no previousLevel != level branch. Mirrors the
-// established Player.Teleport reduced shape. Closure plan: future
-// pathing-entity-teleport-parity sub-spec aligns both Player + Npc.
+// DEVIATION NAI-34-D3, D4, D5-NPC vs TS PathingEntity.teleport
+// (PathingEntity.ts:267) — partial closure as of NAI-36-T7:
 //
-// Body order (refresh, then n.tele = true) matches TS PathingEntity.ts:290-293
-// and the pre-NAI-34 inline NPC sites. Note that Player.Teleport
-// (player_script.go:226) has the opposite order (tele = true, then
-// refresh) — that is a pre-existing Player.Teleport divergence FROM TS,
-// tracked in nai_followups.md for the parity sub-spec to align.
-// Functionally equivalent today (neither refresh nor flag write reads
-// the other), but TS-faithful order is preferred per the project's
-// true-to-TS gate.
+// CLOSED in NAI-36-T7:
+//   - D1 (level clamp to [0, 3]) — closed for both Npc.Teleport and
+//     Player.Teleport.
+//   - D2 (unallocated-zone reject via IsZoneAllocated) — closed for both
+//     entities.
+//
+// RESIDUAL (active deviations):
+//   - D3: no focus() call (PathingEntity.ts:286-289). Closure requires
+//     designing fine-coord conversion + instant-flag semantics for the
+//     NPC side. Tracked for future "pathing-entity-focus-and-step-tracking"
+//     sub-spec.
+//   - D4: no lastStepX/Z adjust (PathingEntity.ts:291-292). Npc has no
+//     lastStepX/Z fields; adding without a consumer is dead-API per
+//     dead_api_polish.md. Tracked for the same future sub-spec.
+//   - D5-NPC: no `previousLevel != level → moveSpeed=INSTANT + jump=true`
+//     branch (PathingEntity.ts:295-298). Npc has no jump field; same
+//     dead-API concern. (D5 IS closed for Player in NAI-36-T7 since
+//     Player has both lastStepX/Z and jump fields.)
+//
+// Body order (refresh, then tele = true) matches TS
+// PathingEntity.ts:290-293; Player.Teleport's order was aligned to
+// match in NAI-36-T7.
 func (n *Npc) Teleport(x, z, level int) {
+	// D1: clamp level to [0, 3] per PathingEntity.ts:268-271.
+	if level < 0 {
+		level = 0
+	} else if level > 3 {
+		level = 3
+	}
+	// D2: reject teleports to unallocated zones per PathingEntity.ts:273-278.
+	if n.server != nil && !n.server.IsZoneAllocated(level, x, z) {
+		return
+	}
+
 	prevX, prevZ, prevLevel := n.x, n.z, n.level
 	n.x, n.z, n.level = x, z, level
 	refreshNpcZone(n.server, n, prevX, prevZ, prevLevel)

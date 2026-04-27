@@ -41,6 +41,12 @@ func (m *mockWorld) IsFreeToPlay(x, z int) bool        { return false }
 // is layered on by handler-specific test types.
 func (m *mockWorld) AnimMap(level, x, z, spotanim, height, delay int) {}
 
+// NAI-36-T7: default returns true (assume zone allocated) so existing
+// fixtures that don't care about zone-rejection don't see false-rejects.
+// Tests that exercise the rejection path override this via a derived type
+// (mapBlockedWorld pattern).
+func (m *mockWorld) IsZoneAllocated(level, x, z int) bool { return true }
+
 func TestPushVarp(t *testing.T) {
 	sf := &ScriptFile{
 		Name:             "push_varp",
