@@ -83,6 +83,27 @@ func (n *Npc) SetNpcVarN(id int, val int32) {
 	n.varns[id] = val
 }
 
+// Teleport moves the NPC to (x, z, level), refreshes its zone
+// subscription if the zone changed, and flags the client for a tele
+// transition (no walk-anim interpolation). Mirrors Player.Teleport at
+// player_script.go:226.
+//
+// Used by NPC_TELE script handler (pkg/script/handlers_npc.go) and by
+// AI teleport sites — wanderMode home-tele (npc_interaction.go ~:97)
+// and patrolMode waypoint-tele (~:126).
+//
+// DEVIATION NAI-34-D1..D5 vs TS PathingEntity.teleport (PathingEntity.ts:267):
+// no level clamp, no unallocated-zone rejection, no focus(), no
+// lastStepX/Z adjust, no previousLevel != level branch. Mirrors the
+// established Player.Teleport reduced shape. Closure plan: future
+// pathing-entity-teleport-parity sub-spec aligns both Player + Npc.
+func (n *Npc) Teleport(x, z, level int) {
+	prevX, prevZ, prevLevel := n.x, n.z, n.level
+	n.x, n.z, n.level = x, z, level
+	refreshNpcZone(n.server, n, prevX, prevZ, prevLevel)
+	n.tele = true
+}
+
 // buildNpcScriptState initialises a ScriptState for an NPC-anchored
 // script run. Pure — no side effects on server state — so callers can
 // test the target-dispatch logic in isolation.

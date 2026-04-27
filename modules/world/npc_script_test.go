@@ -668,3 +668,65 @@ func TestNpcRegenIteratesAllSixStats(t *testing.T) {
 		}
 	})
 }
+
+func TestNpcTeleport_SetsFieldsAndTeleFlag(t *testing.T) {
+	s := newTestServer(t)
+	n := &Npc{nid: 0, typeId: 0, x: 5000, z: 5000, level: 0, startX: 5000, startZ: 5000, startLevel: 0}
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+	n.tele = false
+	n.Teleport(3200, 3200, 1)
+	if n.x != 3200 || n.z != 3200 || n.level != 1 {
+		t.Errorf("post-Teleport coords: got (%d, %d, %d), want (3200, 3200, 1)", n.x, n.z, n.level)
+	}
+	if !n.tele {
+		t.Error("post-Teleport tele flag: got false, want true")
+	}
+}
+
+func TestNpcTeleport_CrossZoneRefreshSubscription(t *testing.T) {
+	s := newTestServer(t)
+	n := &Npc{nid: 0, typeId: 0, x: 3200, z: 3200, level: 0, startX: 3200, startZ: 3200, startLevel: 0}
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+	prevZone := s.zoneMap.Get(0, 3200, 3200)
+	n.Teleport(4000, 4000, 0)
+	newZone := s.zoneMap.Get(0, 4000, 4000)
+	if prevZone.NpcsCount() != 0 {
+		t.Errorf("prev zone NpcsCount after Teleport: got %d, want 0", prevZone.NpcsCount())
+	}
+	if newZone.NpcsCount() != 1 {
+		t.Errorf("new zone NpcsCount after Teleport: got %d, want 1", newZone.NpcsCount())
+	}
+}
+
+func TestNpcTeleport_SameZoneNoRefresh(t *testing.T) {
+	s := newTestServer(t)
+	n := &Npc{nid: 0, typeId: 0, x: 3200, z: 3200, level: 0, startX: 3200, startZ: 3200, startLevel: 0}
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+	z := s.zoneMap.Get(0, 3200, 3200)
+	prevElement := n.zoneListElement
+	n.Teleport(3201, 3201, 0) // same 8x8 zone (400, 400)
+	if z.NpcsCount() != 1 {
+		t.Errorf("same-zone Teleport NpcsCount: got %d, want 1", z.NpcsCount())
+	}
+	if n.zoneListElement != prevElement {
+		t.Error("same-zone Teleport should preserve zoneListElement (no leave/enter)")
+	}
+}
+
+func TestNpcTeleport_NilServerNoOp(t *testing.T) {
+	n := &Npc{nid: 0, typeId: 0, x: 5000, z: 5000, level: 0}
+	// n.server intentionally nil — refreshNpcZone has a nil-guard at zone_refresh.go:34.
+	n.Teleport(3200, 3200, 0)
+	if n.x != 3200 || n.z != 3200 || n.level != 0 {
+		t.Errorf("post-Teleport coords (nil server): got (%d, %d, %d), want (3200, 3200, 0)", n.x, n.z, n.level)
+	}
+	if !n.tele {
+		t.Error("post-Teleport tele flag (nil server): got false, want true")
+	}
+}
