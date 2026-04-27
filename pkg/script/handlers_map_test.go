@@ -85,6 +85,31 @@ func TestHandleMapPlayerCount_PlayerOutsideRect(t *testing.T) {
 	}
 }
 
+func TestHandleMapPlayerCount_PlayerInZoneButOutsideRect(t *testing.T) {
+	// Player at (97, 105). Zone (97>>3)<<3 = 96 IS within the iteration
+	// window (zones 96..112 cover rect 100..110), so the inner rect filter
+	// is reached. But 97 < 100 → inner conjunction's `p.X() >= fromX`
+	// rejects. Pins the inner-filter false branch (TestPlayerOutsideRect
+	// exercises only the zone-window pre-filter).
+	p := &mockPlayer{x: 97, z: 105}
+	lookup := &mockPlayerLookup{
+		byZone: map[zoneKey][]ActivePlayer{
+			{0, (97 >> 3) << 3, (105 >> 3) << 3}: {p},
+		},
+	}
+	sf := newSingleOp("map_playercount_in_zone_out_of_rect", OpMapPlayerCount)
+	state := Init(sf, nil, false, nil, nil)
+	state.PlayerLookup = lookup
+	state.PushInt(coordgrid.PackCoord(0, 100, 100))
+	state.PushInt(coordgrid.PackCoord(0, 110, 110))
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopInt(); got != 0 {
+		t.Errorf("in-zone-out-of-rect count: got %d, want 0", got)
+	}
+}
+
 func TestHandleMapPlayerCount_CrossLevelRectIgnoresToLevel(t *testing.T) {
 	// NAI-35-D1: TS uses from.level only; to.level is silently ignored.
 	// Player on level 1, from.level=0 → NOT counted (level-0 zones are
