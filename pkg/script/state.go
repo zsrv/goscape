@@ -77,6 +77,14 @@ type NpcLookup interface {
 	// FindNpcAtExactCoord: NPC_FINDEXACT semantics. Returns the first
 	// NPC at exactly (level, x, z) whose type matches typeID, or nil.
 	FindNpcAtExactCoord(level, x, z, typeID int) ActiveNpc
+
+	// ZoneNpcs returns all NPCs subscribed to the zone at (level, zoneX, zoneZ),
+	// filtered by IsValid. Mirrors TS Zone.getAllNpcsSafe(true) consumed by
+	// NpcIterator.generator (ScriptIterators.ts:330,341). zoneX/zoneZ are
+	// coord-grid coords (not zone indices); the impl converts via
+	// ZoneMap.Get which masks internally. Empty/nil slice on miss.
+	// No error path. Used by NPC_FINDALL/FINDALLANY/FINDALLZONE iterators.
+	ZoneNpcs(level, zoneX, zoneZ int) []ActiveNpc
 }
 
 // Frame holds a suspended call frame for GOSUB / RETURN.

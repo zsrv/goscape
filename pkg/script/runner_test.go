@@ -523,12 +523,24 @@ type mockNpcLookup struct {
 	byType     ActiveNpc
 	byCategory ActiveNpc
 	atCoord    ActiveNpc
+	// byZone returns the NPC slice keyed by (level, zoneX, zoneZ) tuple
+	// packed via mockZoneKey(level, zoneX, zoneZ). nil entry = empty.
+	byZone map[uint64][]ActiveNpc
 
 	byTypeCalls     int
 	byCategoryCalls int
 	atCoordCalls    int
+	zoneNpcsCalls   int
 
 	lastArgs []int
+	// zoneNpcsCallArgs records each ZoneNpcs call's (level, zoneX, zoneZ)
+	// in call order — used by iterator-cursor-order tests to assert
+	// the iterator visits zones in TS line 337-340 order.
+	zoneNpcsCallArgs [][3]int
+}
+
+func mockZoneKey(level, zoneX, zoneZ int) uint64 {
+	return uint64(level&0x3)<<28 | uint64(zoneX&0x3FFF)<<14 | uint64(zoneZ&0x3FFF)
 }
 
 func (m *mockNpcLookup) FindClosestNpcByType(level, x, z, dist, typeID, huntvis int) ActiveNpc {
@@ -547,4 +559,13 @@ func (m *mockNpcLookup) FindNpcAtExactCoord(level, x, z, typeID int) ActiveNpc {
 	m.atCoordCalls++
 	m.lastArgs = []int{level, x, z, typeID}
 	return m.atCoord
+}
+
+func (m *mockNpcLookup) ZoneNpcs(level, zoneX, zoneZ int) []ActiveNpc {
+	m.zoneNpcsCalls++
+	m.zoneNpcsCallArgs = append(m.zoneNpcsCallArgs, [3]int{level, zoneX, zoneZ})
+	if m.byZone == nil {
+		return nil
+	}
+	return m.byZone[mockZoneKey(level, zoneX, zoneZ)]
 }
