@@ -39,6 +39,16 @@ func requireActivePlayer(s *ScriptState, op string) error {
 	return nil
 }
 
+// requireActivePlayer2 is the dual-pin validator for the secondary
+// active-player slot (Self2). Every handler that dereferences s.Self2
+// calls this first. NAI-39.
+func requireActivePlayer2(s *ScriptState, op string) error {
+	if s.Pointers&PtrActivePlayer2 == 0 || s.Self2 == nil {
+		return errors.New(op + ": no active player2")
+	}
+	return nil
+}
+
 // requireProtectedActivePlayer is requireActivePlayer plus a check that
 // the script was started with protect=true. Used by opcodes that TS
 // wraps in checkedHandler(ProtectedActivePlayer, ...) — currently

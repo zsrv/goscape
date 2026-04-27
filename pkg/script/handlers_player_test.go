@@ -2678,3 +2678,50 @@ func TestHintNpc_Success_RecordsNid(t *testing.T) {
 		t.Errorf("hintNpcCalls: got %v, want %v", pl.hintNpcCalls, want)
 	}
 }
+
+// --- NAI-39 Task 1: requireActivePlayer2 unit tests ----------------------
+
+// TestRequireActivePlayer2_NoBit_Errors pins the pointer-bit check:
+// Self2 is set but PtrActivePlayer2 is unset → error. Without this direct
+// helper test, a bug that drops the bit-mask check could pass the
+// handler-level "Self2 set" path silently (per test_passes_for_wrong_reason.md).
+func TestRequireActivePlayer2_NoBit_Errors(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self2:       &mockPlayer{},
+		Pointers:    PtrActivePlayer, // PtrActivePlayer2 NOT set
+	}
+	if err := requireActivePlayer2(s, "TEST"); err == nil {
+		t.Fatal("expected error when PtrActivePlayer2 unset")
+	}
+}
+
+// TestRequireActivePlayer2_NilSelf2_Errors pins the nil-receiver check:
+// PtrActivePlayer2 is set but Self2 is nil → error. Defends against the
+// flag/state mismatch case that buildPlayerScriptState's atomic seeding
+// is supposed to prevent.
+func TestRequireActivePlayer2_NilSelf2_Errors(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Pointers:    PtrActivePlayer | PtrActivePlayer2,
+		// Self2 nil
+	}
+	if err := requireActivePlayer2(s, "TEST"); err == nil {
+		t.Fatal("expected error when Self2 nil")
+	}
+}
+
+// TestRequireActivePlayer2_Both_OK pins the both-present happy path.
+func TestRequireActivePlayer2_Both_OK(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self2:       &mockPlayer{},
+		Pointers:    PtrActivePlayer | PtrActivePlayer2,
+	}
+	if err := requireActivePlayer2(s, "TEST"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
