@@ -862,3 +862,52 @@ func handleHintNpc(s *ScriptState) error {
 	s.Self.HintNpc(s.ActiveNpc.Nid())
 	return nil
 }
+
+// handleHintCoord (HINT_COORD, opcode 2027) sends a HintArrow type=2..6
+// (TILE) wire packet to the active player at the unpacked coord. Pop
+// order: [offset, coord, height] (per TS popInts(3) destructuring at
+// PlayerOps.ts:867); goscape's PopInt order is height, coord, offset.
+// Mirrors TS PlayerOps.ts:866-871. NAI-39.
+func handleHintCoord(s *ScriptState) error {
+	if err := requireActivePlayer(s, "HINT_COORD"); err != nil {
+		return err
+	}
+	height := s.PopInt()
+	coord := s.PopInt()
+	offset := s.PopInt()
+	_, x, z, err := checkCoord(coord, "HINT_COORD")
+	if err != nil {
+		return err
+	}
+	s.Self.HintCoord(offset, x, z, height)
+	return nil
+}
+
+// handleHintPl (HINT_PL, opcode 2029) sends a HintArrow type=10 (PL)
+// wire packet to the active player, pointing at the secondary
+// active_player2 by slot. Mirrors TS PlayerOps.ts:976-978:
+//
+//	state.activePlayer.hintPlayer(state.activePlayer2.slot)
+//
+// Requires both active_player and active_player2 to be bound. NAI-39.
+func handleHintPl(s *ScriptState) error {
+	if err := requireActivePlayer(s, "HINT_PL"); err != nil {
+		return err
+	}
+	if err := requireActivePlayer2(s, "HINT_PL"); err != nil {
+		return err
+	}
+	s.Self.HintPlayer(s.Self2.Slot())
+	return nil
+}
+
+// handleHintStop (HINT_STOP, opcode 2030) sends a HintArrow type=-1
+// (STOP) wire packet to the active player, clearing any active hint.
+// Mirrors TS PlayerOps.ts:873-875. NAI-39.
+func handleHintStop(s *ScriptState) error {
+	if err := requireActivePlayer(s, "HINT_STOP"); err != nil {
+		return err
+	}
+	s.Self.HintStop()
+	return nil
+}

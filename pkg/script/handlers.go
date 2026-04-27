@@ -400,8 +400,15 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpMidiJingle: handleMidiJingle,
 	OpMidiSong:   handleMidiSong,
 
-	// NAI-37 T6: hint-arrow — HINT_NPC (type=1) only.
-	OpHintNpc: handleHintNpc,
+	// NAI-37 T6 + NAI-39: hint-arrow — full HintArrowEncoder coverage.
+	//   - HINT_NPC   (type=1)     — NAI-37
+	//   - HINT_COORD (type=2..6)  — NAI-39
+	//   - HINT_PL    (type=10)    — NAI-39
+	//   - HINT_STOP  (type=-1)    — NAI-39
+	OpHintNpc:   handleHintNpc,
+	OpHintCoord: handleHintCoord,
+	OpHintPl:    handleHintPl,
+	OpHintStop:  handleHintStop,
 
 	// NAI-37 T7: world-script delay — WORLD_DELAY (handler-only; consumer wiring T8-T12).
 	OpWorldDelay: handleWorldDelay,

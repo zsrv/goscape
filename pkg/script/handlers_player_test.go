@@ -2725,3 +2725,154 @@ func TestRequireActivePlayer2_Both_OK(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+// --- NAI-39 Task 4: HINT_COORD / HINT_PL / HINT_STOP handler unit tests ---
+
+func TestHintCoord_NoActivePlayer_Errors(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	} // no Self
+	if err := handleHintCoord(s); err == nil {
+		t.Fatal("expected error for no active player")
+	}
+}
+
+func TestHintCoord_InvalidCoord_Errors(t *testing.T) {
+	pl := &mockPlayer{}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        pl,
+		Pointers:    PtrActivePlayer,
+	}
+	// Push offset=3, coord=-1 (invalid), height=0. Pop order is height,
+	// coord, offset — so push offset FIRST.
+	s.PushInt(3)
+	s.PushInt(-1)
+	s.PushInt(0)
+	if err := handleHintCoord(s); err == nil {
+		t.Fatal("expected error for invalid coord")
+	}
+	if len(pl.hintCoordCalls) != 0 {
+		t.Errorf("hintCoordCalls: got %d, want 0 on validation failure", len(pl.hintCoordCalls))
+	}
+}
+
+func TestHintCoord_Success_RecordsArgs(t *testing.T) {
+	pl := &mockPlayer{}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        pl,
+		Pointers:    PtrActivePlayer,
+	}
+	// coord = pack(level=0, x=100, z=200) = (0<<28)|(100<<14)|200
+	coord := (100 << 14) | 200
+	s.PushInt(3)     // offset
+	s.PushInt(coord) // coord
+	s.PushInt(42)    // height
+	if err := handleHintCoord(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []mockHintCoord{{offset: 3, x: 100, z: 200, height: 42}}
+	if !slices.Equal(pl.hintCoordCalls, want) {
+		t.Errorf("hintCoordCalls: got %v, want %v", pl.hintCoordCalls, want)
+	}
+}
+
+// TestHintCoord_PopOrderDistinctValues pins which popped value lands in
+// which dispatch arg. Distinct values rule out symmetric off-by-one.
+func TestHintCoord_PopOrderDistinctValues(t *testing.T) {
+	pl := &mockPlayer{}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        pl,
+		Pointers:    PtrActivePlayer,
+	}
+	// coord = pack(0, 1, 2)
+	coord := (1 << 14) | 2
+	s.PushInt(2) // offset (push first, popped last)
+	s.PushInt(coord)
+	s.PushInt(99) // height (push last, popped first)
+	if err := handleHintCoord(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []mockHintCoord{{offset: 2, x: 1, z: 2, height: 99}}
+	if !slices.Equal(pl.hintCoordCalls, want) {
+		t.Errorf("hintCoordCalls: got %v, want %v", pl.hintCoordCalls, want)
+	}
+}
+
+func TestHintPl_NoActivePlayer_Errors(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	} // no Self, no Self2
+	if err := handleHintPl(s); err == nil {
+		t.Fatal("expected error for no active player")
+	}
+}
+
+// TestHintPl_NoActivePlayer2_Errors pins the second guard: Self set +
+// PtrActivePlayer set, but Self2 nil + PtrActivePlayer2 unset.
+func TestHintPl_NoActivePlayer2_Errors(t *testing.T) {
+	pl := &mockPlayer{}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        pl,
+		Pointers:    PtrActivePlayer, // PtrActivePlayer2 NOT set
+	}
+	if err := handleHintPl(s); err == nil {
+		t.Fatal("expected error for no active player2")
+	}
+	if len(pl.hintPlayerCalls) != 0 {
+		t.Errorf("hintPlayerCalls: got %d, want 0 on validation failure", len(pl.hintPlayerCalls))
+	}
+}
+
+func TestHintPl_Success_RecordsSlot(t *testing.T) {
+	pl := &mockPlayer{}
+	pl2 := &mockPlayer{slot: 7}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        pl,
+		Self2:       pl2,
+		Pointers:    PtrActivePlayer | PtrActivePlayer2,
+	}
+	if err := handleHintPl(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if want := []int{7}; !slices.Equal(pl.hintPlayerCalls, want) {
+		t.Errorf("hintPlayerCalls: got %v, want %v", pl.hintPlayerCalls, want)
+	}
+}
+
+func TestHintStop_NoActivePlayer_Errors(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	} // no Self
+	if err := handleHintStop(s); err == nil {
+		t.Fatal("expected error for no active player")
+	}
+}
+
+func TestHintStop_Success_IncrementsCounter(t *testing.T) {
+	pl := &mockPlayer{}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        pl,
+		Pointers:    PtrActivePlayer,
+	}
+	if err := handleHintStop(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if pl.hintStopCalls != 1 {
+		t.Errorf("hintStopCalls: got %d, want 1", pl.hintStopCalls)
+	}
+}
