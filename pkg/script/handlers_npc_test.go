@@ -1789,3 +1789,63 @@ func TestNpcFindAll_NilNpcLookup(t *testing.T) {
 		t.Error("nil Npcs → no iterator")
 	}
 }
+
+// --- NAI-33 Task 11: NPC_FINDALLZONE handler tests ---------------------
+
+func newNpcFindAllZoneState(t *testing.T, coord int, lookup *mockNpcLookup) *ScriptState {
+	t.Helper()
+	mw := newMockWorld()
+	mw.tick = 100
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{0}},
+		PC:          0,
+		Configs:     newTestConfigsWithNpcTypes(map[int]bool{}),
+		Npcs:        lookup,
+		World:       mw,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(coord)
+	return s
+}
+
+func TestNpcFindAllZone_SetsZoneIterator(t *testing.T) {
+	coord := (2 << 28) | (3200 << 14) | 3300
+	s := newNpcFindAllZoneState(t, coord, &mockNpcLookup{})
+	if err := handleNpcFindAllZone(s); err != nil {
+		t.Fatalf("handleNpcFindAllZone: %v", err)
+	}
+	if s.npcIterator == nil {
+		t.Fatal("npcIterator should be non-nil")
+	}
+	if s.npcIterator.mode != NpcIteratorZone {
+		t.Errorf("mode: got %v, want NpcIteratorZone", s.npcIterator.mode)
+	}
+	if s.npcIterator.level != 2 || s.npcIterator.x != 3200 || s.npcIterator.z != 3300 {
+		t.Errorf("center: got (level=%d, x=%d, z=%d)", s.npcIterator.level, s.npcIterator.x, s.npcIterator.z)
+	}
+	if s.npcIterator.typeID != -1 {
+		t.Errorf("typeID: got %d, want -1 (no filter in ZONE mode)", s.npcIterator.typeID)
+	}
+}
+
+func TestNpcFindAllZone_InvalidCoord(t *testing.T) {
+	s := newNpcFindAllZoneState(t, -1, &mockNpcLookup{})
+	if err := handleNpcFindAllZone(s); err == nil {
+		t.Fatal("expected coord validator error")
+	} else if !strings.Contains(err.Error(), "NPC_FINDALLZONE: coord out of range") {
+		t.Errorf("wrong error: %v", err)
+	}
+}
+
+func TestNpcFindAllZone_NilNpcLookup(t *testing.T) {
+	coord := (0 << 28) | (3200 << 14) | 3300
+	s := newNpcFindAllZoneState(t, coord, nil)
+	s.Npcs = nil
+	if err := handleNpcFindAllZone(s); err != nil {
+		t.Fatalf("handleNpcFindAllZone: %v", err)
+	}
+	if s.npcIterator != nil {
+		t.Error("nil Npcs → no iterator")
+	}
+}

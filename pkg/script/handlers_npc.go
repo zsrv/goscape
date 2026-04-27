@@ -547,3 +547,20 @@ func handleNpcFindAll(s *ScriptState) error {
 	)
 	return nil
 }
+
+// handleNpcFindAllZone (NPC_FINDALLZONE, opcode 2516) pops a coord,
+// validates, and stores a ZONE-mode NpcIterator targeting the single
+// zone containing that coord. Mirrors TS NpcOps.ts:424-428. No
+// distance/huntvis/type validation (TS doesn't do them either).
+func handleNpcFindAllZone(s *ScriptState) error {
+	coord := s.PopInt()
+	level, x, z, err := checkCoord(coord, "NPC_FINDALLZONE")
+	if err != nil {
+		return err
+	}
+	if s.Npcs == nil {
+		return nil
+	}
+	s.npcIterator = NewZoneNpcIterator(s.Npcs, s.World.CurrentTick(), level, x, z)
+	return nil
+}
