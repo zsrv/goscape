@@ -822,3 +822,20 @@ func TestNpcTeleport_AllocatedZoneAccepts(t *testing.T) {
 		t.Error("tele flag: got false, want true (accepted teleport must set flag)")
 	}
 }
+
+// --- NAI-37 Task 3: walktrigger field-write round-trip ---------------------
+
+func TestNpcSetWalkTriggerFieldWrites(t *testing.T) {
+	n := NewNpc(0, 0, 3200, 3200, 0, &objtype.NpcType{})
+	if got := n.walktrigger; got != -1 {
+		t.Errorf("NewNpc walktrigger default: got %d, want -1 (unset sentinel)", got)
+	}
+	n.SetWalkTrigger(7)
+	if got := n.walktrigger; got != 7 {
+		t.Errorf("SetWalkTrigger(7): got walktrigger=%d, want 7", got)
+	}
+	n.SetWalkTriggerArg(42)
+	if got := n.walktriggerArg; got != 42 {
+		t.Errorf("SetWalkTriggerArg(42): got walktriggerArg=%d, want 42", got)
+	}
+}
