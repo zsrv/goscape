@@ -295,21 +295,22 @@ func TestHandleMapFindSquare_TypeValidationRejectsInvalid(t *testing.T) {
 }
 
 func TestHandleMapFindSquare_NumberPositiveValidation(t *testing.T) {
-	// minRadius=0 is the FIRST value validated → checkNumberPositive fires.
+	// minRadius=-1 is the FIRST value validated → checkNumberPositive fires.
+	// (TS NumberPositive accepts zero — see ScriptValidators.ts:43-48.)
 	w := newMapFindSquareWorld()
 	w.members = 1
 
 	originLevel, originX, originZ := 0, 3200, 3200
-	sf := newSingleOp("map_findsquare_zero_min", OpMapFindSquare)
+	sf := newSingleOp("map_findsquare_neg_min", OpMapFindSquare)
 	state := Init(sf, nil, false, nil, nil)
 	state.World = w
 	state.PushInt(coordgrid.PackCoord(originLevel, originX, originZ))
-	state.PushInt(0) // minRadius (invalid: not positive)
-	state.PushInt(5) // maxRadius
+	state.PushInt(-1) // minRadius (invalid: negative)
+	state.PushInt(5)  // maxRadius
 	state.PushInt(int(MapFindSquareNone))
 	err := Execute(state)
 	if err == nil {
-		t.Fatal("Execute: expected error for minRadius=0, got nil")
+		t.Fatal("Execute: expected error for minRadius=-1, got nil")
 	}
 	if !strings.Contains(err.Error(), "MAP_FINDSQUARE") {
 		t.Errorf("error %q does not mention MAP_FINDSQUARE", err.Error())

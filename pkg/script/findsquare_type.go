@@ -8,9 +8,9 @@ import "fmt"
 type MapFindSquareType int
 
 const (
-	MapFindSquareNone        MapFindSquareType = 0
-	MapFindSquareLineOfWalk  MapFindSquareType = 1
-	MapFindSquareLineOfSight MapFindSquareType = 2
+	MapFindSquareLineOfWalk  MapFindSquareType = 0
+	MapFindSquareLineOfSight MapFindSquareType = 1
+	MapFindSquareNone        MapFindSquareType = 2
 )
 
 // checkFindSquareType validates that v is in {0, 1, 2}. Mirrors TS
@@ -24,11 +24,12 @@ func checkFindSquareType(v int, op string) error {
 	}
 }
 
-// checkNumberPositive validates v > 0. Mirrors TS NumberPositive
-// (ScriptValidators.ts). NAI-35-T6.
+// checkNumberPositive validates v >= 0. Mirrors TS NumberPositive
+// (ScriptValidators.ts:43-48) which accepts zero despite the misleading
+// name (it really validates non-negative).
 func checkNumberPositive(v int, op string) error {
-	if v <= 0 {
-		return fmt.Errorf("%s: expected positive number, got %d", op, v)
+	if v < 0 {
+		return fmt.Errorf("%s: input number was negative (%d)", op, v)
 	}
 	return nil
 }
