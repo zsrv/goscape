@@ -351,6 +351,12 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpNpcFindCat:   handleNpcFindCat,
 	OpNpcFindExact: handleNpcFindExact,
 
+	// NPC find (NAI-33) — iterator family (DISTANCE + ZONE).
+	OpNpcFindAll:     handleNpcFindAll,
+	OpNpcFindAllAny:  handleNpcFindAllAny,
+	OpNpcFindAllZone: handleNpcFindAllZone,
+	OpNpcFindNext:    handleNpcFindNext,
+
 	// S7a: player UID lookup.
 	OpFindUID:  handleFindUID,
 	OpPFindUID: handlePFindUID,
