@@ -363,6 +363,24 @@ func handleNpcTele(s *ScriptState) error {
 	return nil
 }
 
+// handleNpcWalk (NPC_WALK, opcode 2544) queues a single waypoint for the
+// active NPC at the unpacked coord. Pop order: coord (single int). Mirrors
+// TS NpcOps.ts:451-455 — checkedHandler(ActiveNpc) + CoordValid +
+// activeNpc.queueWaypoint(x, z). NOTE: level is dropped TS-faithfully; the
+// waypoint uses the NPC's current level by convention.
+func handleNpcWalk(s *ScriptState) error {
+	if err := requireActiveNpc(s, "NPC_WALK"); err != nil {
+		return err
+	}
+	coord := s.PopInt()
+	_, x, z, err := checkCoord(coord, "NPC_WALK")
+	if err != nil {
+		return err
+	}
+	s.ActiveNpc.QueueWaypoint(x, z)
+	return nil
+}
+
 // handleNpcSetHunt (NPC_SETHUNT, opcode 2533) sets the NPC's hunt
 // search range. Despite the opcode name, this sets RANGE only —
 // hunt mode is set via the separate NPC_SETHUNTMODE opcode.

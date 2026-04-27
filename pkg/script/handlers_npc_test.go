@@ -2065,6 +2065,67 @@ func TestNpcTele_NoActiveNpcErrors(t *testing.T) {
 	}
 }
 
+// --- NAI-36 Task 2: NPC_WALK Layer 1 unit tests --------------------------
+
+func TestNpcWalk_PopsCoordValidatesAndDelegates(t *testing.T) {
+	npc := &mockNpc{}
+	mc := &mockConfigs{}
+
+	// coord pack(level=2, x=3200, z=3300)
+	const level, x, z = 2, 3200, 3300
+	coord := (level << 28) | (x << 14) | z
+
+	state := runNpcOp(t, npc, mc, OpNpcWalk, []int{coord})
+	_ = state
+
+	if len(npc.queueWaypointCalls) != 1 {
+		t.Fatalf("queueWaypointCalls: got %d, want 1", len(npc.queueWaypointCalls))
+	}
+	got := npc.queueWaypointCalls[0]
+	if got.x != x || got.z != z {
+		t.Errorf("queueWaypointCalls[0]: got (x=%d, z=%d), want (x=%d, z=%d)",
+			got.x, got.z, x, z)
+	}
+}
+
+// TS-asymmetry pin per ts_asymmetry_dual_pin.md — pin presence (QueueWaypoint
+// called with x/z) AND conspicuous absence (level discarded TS-faithfully —
+// no Teleport call, no level path). Escalates if upstream TS adds a level
+// argument to NPC_WALK in a future fix.
+func TestNpcWalk_DiscardsLevelTSFaithfully(t *testing.T) {
+	npc := &mockNpc{}
+	mc := &mockConfigs{}
+
+	// coord pack(level=3, x=3200, z=3300) — non-zero level
+	const x, z = 3200, 3300
+	coord := (3 << 28) | (x << 14) | z
+
+	_ = runNpcOp(t, npc, mc, OpNpcWalk, []int{coord})
+
+	// Presence: QueueWaypoint called.
+	if len(npc.queueWaypointCalls) != 1 {
+		t.Fatalf("queueWaypointCalls: got %d, want 1", len(npc.queueWaypointCalls))
+	}
+	// Conspicuous absence: Teleport NOT called (no 3-arg level path).
+	if len(npc.teleportCalls) != 0 {
+		t.Errorf("teleportCalls: got %d, want 0 (NPC_WALK must not Teleport — level is dropped TS-faithfully)",
+			len(npc.teleportCalls))
+	}
+}
+
+func TestNpcWalk_NoActiveNpcErrors(t *testing.T) {
+	state := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	state.PushInt((1 << 28) | (3200 << 14) | 3300)
+
+	err := handleNpcWalk(state)
+	if err == nil || !strings.Contains(err.Error(), "no active npc") {
+		t.Errorf("handleNpcWalk with no active npc: got %v, want error containing 'no active npc'", err)
+	}
+}
+
 func TestNpcTele_InvalidCoordErrors(t *testing.T) {
 	npc := &mockNpc{}
 	s := &ScriptState{
