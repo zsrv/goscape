@@ -151,10 +151,9 @@ func (p *Player) CamReset() {
 // p1(type=1), p2(nid), p2(0), p1(0). Called by the HINT_NPC (opcode
 // 2028) script handler. Mirrors TS Player.hintNpc at Player.ts:2174-2176.
 //
-// DEVIATION NAI-37-D-HINTARROW-PARTIAL-ENCODER: only the type=1 branch
-// of TS HintArrowEncoder is implemented. Closure when HINT_PL,
-// HINT_COORD, HINT_STOP handlers and their respective encoder branches
-// land.
+// Sibling encoder branches: (*Player).HintCoord (type=2..6, NAI-39),
+// (*Player).HintPlayer (type=10, NAI-39), (*Player).HintStop
+// (type=-1, NAI-39). Closes the partial-encoder follow-up from NAI-37.
 func (p *Player) HintNpc(nid int) {
 	payload := []byte{
 		0x01,                      // p1: type = 1 (NPC hint)

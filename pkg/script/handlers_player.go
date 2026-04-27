@@ -849,9 +849,9 @@ func handleHuntNext(s *ScriptState) error {
 //
 //	state.activePlayer.hintNpc(state.activeNpc.nid)
 //
-// DEVIATION NAI-37-D-HINTARROW-PARTIAL-ENCODER: only the type=1 (NPC)
-// hint variant is wired. HINT_PL, HINT_COORD, HINT_STOP handlers
-// land in a future sub-spec.
+// Full HintArrowEncoder coverage: HINT_NPC (type=1, NAI-37 T6),
+// HINT_COORD (type=2..6, NAI-39), HINT_PL (type=10, NAI-39),
+// HINT_STOP (type=-1, NAI-39).
 func handleHintNpc(s *ScriptState) error {
 	if err := requireActivePlayer(s, "HINT_NPC"); err != nil {
 		return err

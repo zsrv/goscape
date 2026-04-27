@@ -39,9 +39,9 @@ var (
 	OpCamReset = Op{Opcode: 239, PayloadSize: 0}
 
 	// HINT_ARROW — directs the client to render a hint indicator pointing
-	// at an NPC, player, tile, or to clear (one of 5 type variants in
-	// TS HintArrowEncoder; goscape ships only the type=1 NPC variant
-	// at NAI-37 — tracked deviation NAI-37-D-HINTARROW-PARTIAL-ENCODER).
+	// at an NPC, player, tile, or to clear. All 5 TS HintArrowEncoder
+	// type variants are wired: type=1 NPC (NAI-37), type=2..6 TILE (NAI-39),
+	// type=10 PL (NAI-39), type=-1 STOP (NAI-39).
 	// TS ServerGameProt.HINT_ARROW = (25, 6).
 	OpHintArrow = Op{Opcode: 25, PayloadSize: 6}
 
