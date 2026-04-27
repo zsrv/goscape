@@ -74,10 +74,11 @@ func (it *NpcIterator) Stale(currentTick int) bool {
 
 // passesFilter applies the per-NPC filter chain in TS line 345-356 order.
 // HuntAll mode (NAI-35-T3) activates the huntvis branch — ZONE mode
-// remains unfiltered (matches TS line 329-335). Distance mode keeps the
-// pre-NAI-35 behavior (huntvis-validated-but-not-consumed; this preserves
-// NAI-33's intent for the Distance-mode iterators which have no LoS/LoW
-// content-script consumers).
+// remains unfiltered (matches TS line 329-335). Distance mode keeps
+// the pre-NAI-35 deferred behavior (huntvis validated but not consumed;
+// tracked as NAI-33-D1 / S7f-D1). TS DOES filter Distance mode by
+// huntvis (ScriptIterators.ts:348-352); goscape's deferred posture is
+// intentional pending FINDALL-family consumer audit.
 // Accessor names match pkg/script/active.go:400-408 ActiveNpc interface
 // (NpcX/NpcZ/NpcType, NOT X/Z/Type).
 func (it *NpcIterator) passesFilter(npc ActiveNpc) bool {
@@ -88,6 +89,11 @@ func (it *NpcIterator) passesFilter(npc ActiveNpc) bool {
 		return false
 	}
 	if it.mode == NpcIteratorHuntAll {
+		// NAI-35-T3-D1 deviation: TS NpcHuntAllCommandIterator
+		// (ScriptIterators.ts:274-280) ALSO rejects NPCs whose
+		// NpcType.Op[1] is empty (operability gate). Goscape skips this
+		// filter pending plumbing Configs onto NpcIterator. Content-script
+		// audit will decide port-vs-keep; tracked in nai_followups.md.
 		switch it.huntvis {
 		case objtype.HuntVisOff:
 			// no LoS/LoW gate
@@ -110,6 +116,9 @@ func (it *NpcIterator) passesFilter(npc ActiveNpc) bool {
 // npcVisibleViaLineOfSight returns true when the iterator's lineValidator
 // passes a LoS check from the iterator's center coord to the NPC. Nil
 // validator = pessimistically allow. NAI-35-T3.
+// (srcSize=1, destWidth=destLength=0, extraFlag=0) — single-tile src
+// against a zero-size NPC dest; mirrors TS isLineOfSight wrapper at
+// ScriptIterators.ts:359-361.
 func (it *NpcIterator) npcVisibleViaLineOfSight(npc ActiveNpc) bool {
 	if it.lineValidator == nil {
 		return true
@@ -119,6 +128,9 @@ func (it *NpcIterator) npcVisibleViaLineOfSight(npc ActiveNpc) bool {
 
 // npcVisibleViaLineOfWalk returns true when the iterator's lineValidator
 // passes a LoW check. Nil validator = pessimistically allow. NAI-35-T3.
+// (srcSize=1, destWidth=destLength=0, extraFlag=0) — single-tile src
+// against a zero-size NPC dest; mirrors TS isLineOfWalk wrapper at
+// ScriptIterators.ts:359-361.
 func (it *NpcIterator) npcVisibleViaLineOfWalk(npc ActiveNpc) bool {
 	if it.lineValidator == nil {
 		return true
