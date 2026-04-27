@@ -564,3 +564,36 @@ func handleNpcFindAllZone(s *ScriptState) error {
 	s.npcIterator = NewZoneNpcIterator(s.Npcs, s.World.CurrentTick(), level, x, z)
 	return nil
 }
+
+// handleNpcFindNext (NPC_FINDNEXT, opcode 2520) advances the active
+// NpcIterator and either sets active_npc + pushes 1 on hit, or pushes 0
+// on miss / nil-iterator. Mirrors TS NpcOps.ts:430-441. Pointer-set is
+// `require ['find_npc']`, `set ['active_npc']`, conditional
+// (ScriptOpcodePointers.ts:595-600). Goscape encodes the require as a
+// nil-check on s.npcIterator.
+//
+// Stale-iterator semantics: TS throws on stale (ScriptIterators.ts:332,343);
+// goscape returns error → existing npc_script.go:169 log-warn +
+// ClearActiveScript path runs. Single-tick lifetime preserved.
+//
+// Exhaustion does NOT clear s.npcIterator (matches TS
+// state.npcIterator?.next() returning {done:true} without nulling).
+// Subsequent FINDNEXT calls continue to return push-0.
+func handleNpcFindNext(s *ScriptState) error {
+	it := s.npcIterator
+	if it == nil {
+		s.PushInt(0)
+		return nil
+	}
+	if it.Stale(s.World.CurrentTick()) {
+		return fmt.Errorf("NPC_FINDNEXT: tried to use an old iterator. Create a new iterator instead.")
+	}
+	npc, ok := it.Next()
+	if !ok {
+		s.PushInt(0)
+		return nil
+	}
+	setActiveNpcSlot(s, npc)
+	s.PushInt(1)
+	return nil
+}

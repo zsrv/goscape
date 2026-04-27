@@ -1849,3 +1849,107 @@ func TestNpcFindAllZone_NilNpcLookup(t *testing.T) {
 		t.Error("nil Npcs → no iterator")
 	}
 }
+
+// --- NAI-33 Task 12: NPC_FINDNEXT handler tests ------------------------
+
+func newNpcFindNextState(t *testing.T, tick int, iter *NpcIterator) *ScriptState {
+	t.Helper()
+	mw := newMockWorld()
+	mw.tick = tick
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{0}},
+		PC:          0,
+		Configs:     newTestConfigsWithNpcTypes(map[int]bool{}),
+		World:       mw,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.npcIterator = iter
+	return s
+}
+
+func TestNpcFindNext_NilIterator(t *testing.T) {
+	s := newNpcFindNextState(t, 100, nil)
+	if err := handleNpcFindNext(s); err != nil {
+		t.Fatalf("handleNpcFindNext: %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("nil iterator: got push %d, want 0", got)
+	}
+	if s.ActiveNpc != nil {
+		t.Error("ActiveNpc should not be set on nil iterator")
+	}
+}
+
+func TestNpcFindNext_StaleIterator(t *testing.T) {
+	npc := &mockNpc{typeID: 1, x: 3200, z: 3300, level: 0}
+	zoneKey := mockZoneKey(0, 3200, 3296)
+	lookup := &mockNpcLookup{byZone: map[uint64][]ActiveNpc{zoneKey: {npc}}}
+	iter := NewZoneNpcIterator(lookup, 99, 0, 3200, 3300) // creationTick=99
+	s := newNpcFindNextState(t, 100, iter)                // currentTick=100 (advanced)
+
+	err := handleNpcFindNext(s)
+	if err == nil {
+		t.Fatal("stale iterator should return error")
+	}
+	if !strings.Contains(err.Error(), "tried to use an old iterator") {
+		t.Errorf("wrong error message: %v", err)
+	}
+}
+
+func TestNpcFindNext_HitSetsActiveNpcAndPushes1(t *testing.T) {
+	npc := &mockNpc{typeID: 1, x: 3200, z: 3300, level: 0}
+	zoneKey := mockZoneKey(0, 3200, 3296)
+	lookup := &mockNpcLookup{byZone: map[uint64][]ActiveNpc{zoneKey: {npc}}}
+	iter := NewZoneNpcIterator(lookup, 100, 0, 3200, 3300)
+	s := newNpcFindNextState(t, 100, iter)
+
+	if err := handleNpcFindNext(s); err != nil {
+		t.Fatalf("handleNpcFindNext: %v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("hit: got push %d, want 1", got)
+	}
+	if s.ActiveNpc != npc {
+		t.Errorf("ActiveNpc: got %v, want %v", s.ActiveNpc, npc)
+	}
+	if s.Pointers&PtrActiveNpc == 0 {
+		t.Error("PtrActiveNpc should be set on hit")
+	}
+}
+
+func TestNpcFindNext_ExhaustionPushes0AndDoesNotClearIterator(t *testing.T) {
+	// Empty zone — first Next exhausts immediately.
+	lookup := &mockNpcLookup{}
+	iter := NewZoneNpcIterator(lookup, 100, 0, 3200, 3300)
+	s := newNpcFindNextState(t, 100, iter)
+
+	if err := handleNpcFindNext(s); err != nil {
+		t.Fatalf("handleNpcFindNext: %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("exhaustion: got push %d, want 0", got)
+	}
+	// Critical TS-fidelity quirk: iterator NOT cleared on exhaustion
+	// (matches TS state.npcIterator?.next() returning {done:true} without nulling).
+	if s.npcIterator == nil {
+		t.Error("npcIterator should NOT be cleared on exhaustion (TS parity)")
+	}
+}
+
+func TestNpcFindNext_ExhaustionThenSecondCallStillPushes0(t *testing.T) {
+	// Subsequent FINDNEXT calls on exhausted iterator continue to push 0.
+	lookup := &mockNpcLookup{}
+	iter := NewZoneNpcIterator(lookup, 100, 0, 3200, 3300)
+	s := newNpcFindNextState(t, 100, iter)
+
+	_ = handleNpcFindNext(s)
+	_ = s.PopInt() // discard first
+
+	if err := handleNpcFindNext(s); err != nil {
+		t.Fatalf("second handleNpcFindNext: %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("second exhaustion: got push %d, want 0", got)
+	}
+}
