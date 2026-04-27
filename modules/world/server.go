@@ -89,6 +89,17 @@ type Server struct {
 	npcEventQueue []NpcEventRequest
 	nextNpcSlot   int
 
+	// worldScriptQueue holds scripts suspended to the world tick. Each
+	// entry awaits its delay countdown, then re-enters ScriptRunner
+	// at the start of the next tick where it reaches delay==0. Drained
+	// by processWorldQueue (T9). Producer call sites: resumeOrFinish
+	// (player path, T10), resumeOrFinishNpc (npc path, T11),
+	// processWorldQueue itself (world self-loop via resumeOrFinishWorld,
+	// T12). Mirrors TS World.queue at World.ts:534-559.
+	//
+	// Single-tick goroutine ownership; no mutex required.
+	worldScriptQueue []worldScriptQueueEntry
+
 	renderer *rsbuf.Renderer
 	// rsbuf is the per-tick stateful encoder core (NAI-29). Tick-goroutine-
 	// owned: connection goroutines never touch it. Hooks for AddPlayer/
