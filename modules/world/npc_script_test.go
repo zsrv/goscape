@@ -867,8 +867,8 @@ func TestResumeOrFinishNpc_WorldSuspended_EnqueuesAndClears(t *testing.T) {
 	if got, want := len(s.worldScriptQueue), 1; got != want {
 		t.Fatalf("worldScriptQueue length: got %d, want %d", got, want)
 	}
-	if got := s.worldScriptQueue[0].delay; got != 7 {
-		t.Errorf("enqueued delay: got %d, want 7 (popped from script stack)", got)
+	if got := s.worldScriptQueue[0].delay; got != 8 {
+		t.Errorf("enqueued delay: got %d, want 8 (popped 7 from script stack, stored as 7+1=8 per TS World.enqueueScript)", got)
 	}
 	if got := s.worldScriptQueue[0].script; got != state {
 		t.Errorf("enqueued script identity: got %p, want %p", got, state)

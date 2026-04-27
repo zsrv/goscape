@@ -1220,8 +1220,8 @@ func TestResumeOrFinish_WorldSuspended_EnqueuesAndClearsActiveScript(t *testing.
 	if got, want := len(s.worldScriptQueue), 1; got != want {
 		t.Fatalf("worldScriptQueue length: got %d, want %d", got, want)
 	}
-	if got := s.worldScriptQueue[0].delay; got != 5 {
-		t.Errorf("enqueued delay: got %d, want 5 (popped from script stack)", got)
+	if got := s.worldScriptQueue[0].delay; got != 6 {
+		t.Errorf("enqueued delay: got %d, want 6 (popped 5 from script stack, stored as 5+1=6 per TS World.enqueueScript)", got)
 	}
 	if got := s.worldScriptQueue[0].script; got != state {
 		t.Errorf("enqueued script identity: got %p, want %p", got, state)

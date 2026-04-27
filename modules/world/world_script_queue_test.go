@@ -25,42 +25,57 @@ func newReturnImmediatelyScript(t *testing.T) *script.ScriptState {
 	return script.Init(sf, nil, false, nil, nil)
 }
 
-func TestProcessWorldQueue_DelayZero_FiresImmediately(t *testing.T) {
+func TestProcessWorldQueue_DelayZero_FiresOnSecondCall(t *testing.T) {
 	s := newTestServer(t)
 	state := newReturnImmediatelyScript(t)
-	s.EnqueueWorldScript(state, 0)
+	s.EnqueueWorldScript(state, 0) // stored as delay=1 per TS World.enqueueScript
 	if got, want := len(s.worldScriptQueue), 1; got != want {
 		t.Fatalf("queue length post-enqueue: got %d, want %d", got, want)
 	}
+	// Tick 1: stored delay=1; post-decrement returns 1, decrements to 0; 1>0 skip.
+	s.processWorldQueue()
+	if got, want := len(s.worldScriptQueue), 1; got != want {
+		t.Fatalf("after tick 1: queue length got %d, want %d (delay=0 user-side fires on 2nd call per TS)", got, want)
+	}
+	// Tick 2: stored delay=0; post-decrement returns 0, decrements to -1; 0>0 false → fire.
 	s.processWorldQueue()
 	if got, want := len(s.worldScriptQueue), 0; got != want {
-		t.Errorf("queue length post-fire: got %d, want %d (delay=0 entry must fire and be removed)", got, want)
+		t.Errorf("after tick 2: queue length got %d, want %d (delay=0 user-side fires on 2nd call per TS)", got, want)
 	}
-	// Verify the script ran to Finished.
 	if got, want := state.Execution, script.Finished; got != want {
 		t.Errorf("script Execution post-fire: got %v, want %v", got, want)
 	}
 }
 
-func TestProcessWorldQueue_DelayN_FiresAfterNTicks(t *testing.T) {
+func TestProcessWorldQueue_DelayN_FiresAfterNPlusOneTicks(t *testing.T) {
 	s := newTestServer(t)
 	state := newReturnImmediatelyScript(t)
-	s.EnqueueWorldScript(state, 3)
+	s.EnqueueWorldScript(state, 3) // stored as delay=4 per TS World.enqueueScript
 
-	// Tick 1: delay 3 → 2 (>0, skip).
+	// Tick 1: const=4, store=3, 4>0 skip.
 	s.processWorldQueue()
 	if got := len(s.worldScriptQueue); got != 1 {
 		t.Fatalf("after tick 1: queue length got %d, want 1", got)
 	}
-	// Tick 2: delay 2 → 1 (>0, skip).
+	// Tick 2: const=3, store=2, 3>0 skip.
 	s.processWorldQueue()
 	if got := len(s.worldScriptQueue); got != 1 {
 		t.Fatalf("after tick 2: queue length got %d, want 1", got)
 	}
-	// Tick 3: delay 1 → 0 (NOT > 0, fires).
+	// Tick 3: const=2, store=1, 2>0 skip.
+	s.processWorldQueue()
+	if got := len(s.worldScriptQueue); got != 1 {
+		t.Fatalf("after tick 3: queue length got %d, want 1", got)
+	}
+	// Tick 4: const=1, store=0, 1>0 skip.
+	s.processWorldQueue()
+	if got := len(s.worldScriptQueue); got != 1 {
+		t.Fatalf("after tick 4: queue length got %d, want 1", got)
+	}
+	// Tick 5: const=0, store=-1, 0>0 false → fire.
 	s.processWorldQueue()
 	if got := len(s.worldScriptQueue); got != 0 {
-		t.Errorf("after tick 3: queue length got %d, want 0 (delay=3 entry fires on the 3rd processWorldQueue call)", got)
+		t.Errorf("after tick 5: queue length got %d, want 0 (user delay=3 stored as 4 fires on 5th call per TS)", got)
 	}
 }
 
@@ -72,13 +87,18 @@ func TestProcessWorldQueue_FifoOrder(t *testing.T) {
 	b.Script.Name = "B"
 	c := newReturnImmediatelyScript(t)
 	c.Script.Name = "C"
-	s.EnqueueWorldScript(a, 0)
+	s.EnqueueWorldScript(a, 0) // stored=1 each
 	s.EnqueueWorldScript(b, 0)
 	s.EnqueueWorldScript(c, 0)
 
 	wantOrder := []string{"A", "B", "C"}
 
-	// processWorldQueue should drain all 3 in FIFO order.
+	// Tick 1: each entry stored=1; post-decrement returns 1, 1>0 skip.
+	s.processWorldQueue()
+	if got := len(s.worldScriptQueue); got != 3 {
+		t.Fatalf("after tick 1: queue length got %d, want 3 (delay=0 user-side fires on 2nd call per TS)", got)
+	}
+	// Tick 2: each entry stored=0; post-decrement returns 0, 0>0 false → fire.
 	s.processWorldQueue()
 	if got := len(s.worldScriptQueue); got != 0 {
 		t.Fatalf("queue post-drain: got %d, want 0", got)
@@ -102,8 +122,9 @@ func TestProcessWorldQueue_RemovedBeforeFire(t *testing.T) {
 	// stay around after firing).
 	s := newTestServer(t)
 	state := newReturnImmediatelyScript(t)
-	s.EnqueueWorldScript(state, 0)
-	s.processWorldQueue()
+	s.EnqueueWorldScript(state, 0) // stored=1; needs 2 calls to fire per TS
+	s.processWorldQueue()           // tick 1: skip
+	s.processWorldQueue()           // tick 2: fire
 	if got := len(s.worldScriptQueue); got != 0 {
 		t.Errorf("queue length post-fire: got %d, want 0 (entry must be removed before+after fire)", got)
 	}
@@ -127,8 +148,14 @@ func TestProcessWorldQueue_MultipleEntries_AllFireSameTick(t *testing.T) {
 	s := newTestServer(t)
 	a := newReturnImmediatelyScript(t)
 	b := newReturnImmediatelyScript(t)
-	s.EnqueueWorldScript(a, 0)
-	s.EnqueueWorldScript(b, 0)
+	s.EnqueueWorldScript(a, 0) // stored=1
+	s.EnqueueWorldScript(b, 0) // stored=1
+	// Tick 1: both stored=1; post-decrement returns 1, 1>0 skip.
+	s.processWorldQueue()
+	if got := len(s.worldScriptQueue); got != 2 {
+		t.Fatalf("after tick 1: queue length got %d, want 2 (delay=0 user-side fires on 2nd call per TS)", got)
+	}
+	// Tick 2: both stored=0; post-decrement returns 0, 0>0 false → fire.
 	s.processWorldQueue()
 	if got := len(s.worldScriptQueue); got != 0 {
 		t.Errorf("queue length: got %d, want 0 (both entries should fire same tick)", got)
@@ -217,8 +244,8 @@ func TestResumeOrFinishWorld_WorldSuspendedSelfReenqueue(t *testing.T) {
 	if got := len(s.worldScriptQueue); got != 1 {
 		t.Fatalf("WorldSuspended self-loop: queue length got %d, want 1", got)
 	}
-	if got := s.worldScriptQueue[0].delay; got != 4 {
-		t.Errorf("re-enqueued delay: got %d, want 4 (popped from int stack)", got)
+	if got := s.worldScriptQueue[0].delay; got != 5 {
+		t.Errorf("re-enqueued delay: got %d, want 5 (popped 4 from int stack, stored as 4+1=5 per TS World.enqueueScript)", got)
 	}
 	if got := s.worldScriptQueue[0].script; got != state {
 		t.Errorf("re-enqueued script identity: got %p, want %p", got, state)
@@ -289,15 +316,20 @@ func TestResumeOrFinishWorld_CrossContextCountDialogDrop(t *testing.T) {
 // delay, calls WORLD_DELAY, then completes after the world tick wakes
 // it up.
 //
-// Tick timeline with delay=2:
-//   T1 (script first runs via runScript): pushes 2, hits WORLD_DELAY,
-//      sets Execution=WorldSuspended. resumeOrFinish (player path)
-//      pops 2, enqueues to worldScriptQueue with delay=2, clears
-//      p.activeScript.
-//   T2 (processWorldQueue): delay 2 → 1 (>0, skip).
-//   T3 (processWorldQueue): delay 1 → 0 (NOT > 0, fires).
-//      Script resumes from after WORLD_DELAY, runs OpReturn, completes.
-//      resumeOrFinishWorld sees Finished, drops entry.
+// Tick timeline with user delay=2 (stored as delay+1=3 per TS
+// World.enqueueScript at World.ts:1239; processWorldQueue uses
+// post-decrement so user delay N fires on the (N+2)-th call):
+//
+//	T1 (script first runs via runScript): pushes 2, hits WORLD_DELAY,
+//	   sets Execution=WorldSuspended. resumeOrFinish (player path)
+//	   pops 2, calls EnqueueWorldScript with user delay=2, stores
+//	   delay=3, clears p.activeScript.
+//	T2 (1st processWorldQueue): const=3, store=2, 3>0 skip.
+//	T3 (2nd processWorldQueue): const=2, store=1, 2>0 skip.
+//	T4 (3rd processWorldQueue): const=1, store=0, 1>0 skip.
+//	T5 (4th processWorldQueue): const=0, store=-1, 0>0 false → fire.
+//	   Script resumes from after WORLD_DELAY, runs OpReturn, completes.
+//	   resumeOrFinishWorld sees Finished, drops entry.
 //
 // Per gettimer_passthrough_opcode_semantic_audit.md: handler-mock
 // tests pass values through unchanged; only this integration test
@@ -324,38 +356,57 @@ func TestWorldDelay_FullRoundTrip(t *testing.T) {
 
 	// Tick 1: fresh-run via the production runScript path. The script
 	// will execute pushInt(2); WORLD_DELAY; suspend. The player-path
-	// resumeOrFinish handles the suspend → enqueue + clear.
+	// resumeOrFinish handles the suspend → enqueue (user delay=2 stored
+	// as 3) + clear.
 	s.runScript(sf, p, false, nil, nil)
 
-	// After T1: enqueued with delay=2, activeScript cleared.
+	// After T1: enqueued with stored delay=3, activeScript cleared.
 	if got := len(s.worldScriptQueue); got != 1 {
 		t.Fatalf("after T1: queue length got %d, want 1 (script suspended to world queue)", got)
 	}
-	if got := s.worldScriptQueue[0].delay; got != 2 {
-		t.Fatalf("after T1: enqueued delay got %d, want 2", got)
+	if got := s.worldScriptQueue[0].delay; got != 3 {
+		t.Fatalf("after T1: enqueued delay got %d, want 3 (user delay=2 stored as 3 per TS World.enqueueScript)", got)
 	}
 	if p.activeScript != nil {
 		t.Fatalf("after T1: p.activeScript should be nil (script transitioned to world-bound)")
 	}
 	state := s.worldScriptQueue[0].script
 
-	// Tick 2: processWorldQueue decrements 2 → 1, doesn't fire.
+	// Tick 2 (1st processWorldQueue): const=3, store=2, 3>0 skip.
 	s.processWorldQueue()
 	if got := len(s.worldScriptQueue); got != 1 {
-		t.Fatalf("after T2: queue length got %d, want 1 (delay 2→1, not yet ready)", got)
+		t.Fatalf("after T2: queue length got %d, want 1 (delay 3→2)", got)
 	}
-	if got := s.worldScriptQueue[0].delay; got != 1 {
-		t.Errorf("after T2: delay got %d, want 1", got)
+	if got := s.worldScriptQueue[0].delay; got != 2 {
+		t.Errorf("after T2: delay got %d, want 2", got)
 	}
 
-	// Tick 3: processWorldQueue decrements 1 → 0, fires. Script resumes
-	// from after WORLD_DELAY, runs OpReturn, reaches Finished. The
-	// resumeOrFinishWorld dispatch sees Finished and drops the entry.
+	// Tick 3 (2nd processWorldQueue): const=2, store=1, 2>0 skip.
+	s.processWorldQueue()
+	if got := len(s.worldScriptQueue); got != 1 {
+		t.Fatalf("after T3: queue length got %d, want 1 (delay 2→1)", got)
+	}
+	if got := s.worldScriptQueue[0].delay; got != 1 {
+		t.Errorf("after T3: delay got %d, want 1", got)
+	}
+
+	// Tick 4 (3rd processWorldQueue): const=1, store=0, 1>0 skip.
+	s.processWorldQueue()
+	if got := len(s.worldScriptQueue); got != 1 {
+		t.Fatalf("after T4: queue length got %d, want 1 (delay 1→0)", got)
+	}
+	if got := s.worldScriptQueue[0].delay; got != 0 {
+		t.Errorf("after T4: delay got %d, want 0", got)
+	}
+
+	// Tick 5 (4th processWorldQueue): const=0, store=-1, 0>0 false → fire.
+	// Script resumes from after WORLD_DELAY, runs OpReturn, reaches
+	// Finished. resumeOrFinishWorld sees Finished and drops the entry.
 	s.processWorldQueue()
 	if got := len(s.worldScriptQueue); got != 0 {
-		t.Errorf("after T3: queue length got %d, want 0 (delay reaches 0, script fires + completes)", got)
+		t.Errorf("after T5: queue length got %d, want 0 (delay 0→-1, fires + completes)", got)
 	}
 	if state.Execution != script.Finished {
-		t.Errorf("after T3: state.Execution got %v, want Finished", state.Execution)
+		t.Errorf("after T5: state.Execution got %v, want Finished", state.Execution)
 	}
 }

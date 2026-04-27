@@ -308,6 +308,12 @@ func (s *Server) resumeOrFinishNpc(state *script.ScriptState, npc script.ActiveN
 	case script.WorldSuspended:
 		// NAI-37: npc-bound script suspended to world queue. Symmetric
 		// to resumeOrFinish (player path, T10). Mirrors TS Npc.ts:219-220.
+		//
+		// DEVIATION NAI-37-D-WORLDSUSPEND-CLEARS-ACTIVE-SCRIPT: TS does
+		// NOT clear activeNpc.activeScript in this branch (see Npc.ts:226-228
+		// — only Finished/Aborted clears via the script === this.activeScript
+		// check). Goscape's ClearActiveScript() is defensive; same closure
+		// as the player-path divergence.
 		delay := state.PopInt()
 		s.EnqueueWorldScript(state, delay)
 		npc.ClearActiveScript()

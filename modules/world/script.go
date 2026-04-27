@@ -61,6 +61,14 @@ func (s *Server) resumeOrFinish(state *script.ScriptState, self script.ActivePla
 		// before WORLD_DELAY — see handlers_server.go:87-108) and
 		// enqueue. The player no longer owns this script; it now
 		// belongs to the world queue. Mirrors TS Player.ts:2135-2136.
+		//
+		// DEVIATION NAI-37-D-WORLDSUSPEND-CLEARS-ACTIVE-SCRIPT: TS does
+		// NOT clear activePlayer.activeScript in this branch (see
+		// Player.ts:2143-2150 — only Finished/Aborted clears). Goscape's
+		// ClearActiveScript() is defensive against stale-pointer
+		// double-execution if a previously-stored Suspended script
+		// transitions to WorldSuspended. Closure when goscape ports the
+		// full TS executeScript binding semantics.
 		delay := state.PopInt()
 		s.EnqueueWorldScript(state, delay)
 		self.ClearActiveScript()

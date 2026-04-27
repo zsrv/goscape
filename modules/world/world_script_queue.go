@@ -23,16 +23,15 @@ type worldScriptQueueEntry struct {
 //   - processWorldQueue (world self-loop via resumeOrFinishWorld, T12)
 //     when a world-queued script re-suspends with WorldSuspended.
 //
-// Mirrors TS World.enqueueScript at World.ts:1238.
-//
-// Note: delay parameter is the wakeup-tick value popped by the caller,
-// not the queue-internal "ticks remaining" counter. processWorldQueue
-// decrements the entry's delay each tick; when it hits 0 (after
-// being decremented from a positive starting value), the entry fires.
+// Mirrors TS World.enqueueScript at World.ts:1238-1240 — stored delay
+// is user-delay + 1 so that processWorldQueue's post-decrement (capture
+// current, decrement, check captured>0) fires at the TS-canonical tick.
+// For user world_delay N this means the entry fires on the (N+2)-th
+// processWorldQueue call after enqueue (delay=0 fires on the 2nd call).
 func (s *Server) EnqueueWorldScript(state *script.ScriptState, delay int) {
 	s.worldScriptQueue = append(s.worldScriptQueue, worldScriptQueueEntry{
 		script: state,
-		delay:  delay,
+		delay:  delay + 1, // mirror TS World.enqueueScript at World.ts:1239
 	})
 }
 
@@ -52,12 +51,23 @@ func (s *Server) EnqueueWorldScript(state *script.ScriptState, delay int) {
 // collide with the index pointer.
 //
 // Mirrors TS World.processWorld world-queue iteration at World.ts:534-559.
+//
+// DEVIATION NAI-37-D-WORLDQUEUE-NO-PANIC-RECOVERY: TS wraps the
+// world-queue iteration body in try/catch (World.ts:557-559) to
+// swallow per-script panics. goscape leaves panics to propagate up
+// the tick goroutine — closure when the project adopts a tick-wide
+// panic-recovery convention.
 func (s *Server) processWorldQueue() {
 	i := 0
 	for i < len(s.worldScriptQueue) {
 		entry := &s.worldScriptQueue[i]
+		// POST-decrement: capture current, then decrement. Mirrors TS
+		// World.processWorld at World.ts:535 (`const delay = request.delay--`).
+		// With delay=delay+1 stored at enqueue, this means user world_delay N
+		// fires on the (N+2)-th processWorldQueue call after suspend (matching TS).
+		delay := entry.delay
 		entry.delay--
-		if entry.delay > 0 {
+		if delay > 0 {
 			i++
 			continue
 		}
