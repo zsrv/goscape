@@ -26,8 +26,9 @@ func refreshPlayerZone(p *Player, prevX, prevZ, prevLevel int) {
 }
 
 // refreshNpcZone is the NPC-side analogue of refreshPlayerZone. Called from
-// (*Npc).stepOnce and the 3 NPC teleport sites in npc_interaction.go +
-// npc_ai.go.
+// (*Npc).stepOnce, (*Npc).Teleport (used by wanderMode home-tele,
+// patrolMode waypoint-tele, and the NPC_TELE script handler), and the
+// respawn lifecycle path in (*Npc).turn (npc_ai.go ~:37).
 //
 // NPC enter/leave do NOT touch ZoneGrid (only player branch flags).
 func refreshNpcZone(s *Server, n *Npc, prevX, prevZ, prevLevel int) {
