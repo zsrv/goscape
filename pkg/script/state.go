@@ -20,6 +20,16 @@ const (
 	FrameCapacity = 50
 )
 
+// LineValidator is the script-VM bridge for line-of-sight / line-of-walk
+// checks during HuntAll-mode passesFilter. Methods mirror
+// pkg/pathfinder/routefinder.LineValidator's surface — that struct
+// satisfies this interface via Go's structural typing, so production
+// wiring needs no adapter. Tests inject stubs. NAI-35-T3.
+type LineValidator interface {
+	HasLineOfSight(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, extraFlag int) bool
+	HasLineOfWalk(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, extraFlag int) bool
+}
+
 // PlayerLookup is the player-resolution surface for FINDUID / P_FINDUID
 // (UID-keyed lookup) and for zone-rect player enumeration used by
 // MAP_PLAYERCOUNT (NAI-35).
@@ -129,6 +139,12 @@ type ScriptState struct {
 	// Nil disables (handlers treat a nil surface as "no match", push 0).
 	Npcs NpcLookup
 
+	// LineValidator is the LoS/LoW bridge for HuntAll-mode iterator
+	// passesFilter (NAI-35-T3). Nil = no validator wired (HuntAll mode
+	// pessimistically allows). Production sets this from
+	// gamemap.Pathfinder.LineValidator via modules/world/script.go.
+	LineValidator LineValidator
+
 	PC      int
 	OpCount int
 
@@ -229,7 +245,7 @@ func (s *ScriptState) PushString(v string) {
 }
 
 // PopString pops and returns the top of the string stack.
-// Returns "" on underflow (matches TS popString returning '' on null).
+// Returns "" on underflow (matches TS popString returning ” on null).
 func (s *ScriptState) PopString() string {
 	if s.SSP <= 0 {
 		return ""

@@ -139,6 +139,7 @@ func (s *Server) buildNpcScriptState(
 	state.Configs = s.configsView
 	state.Inv = s.invLookup
 	state.Npcs = s.npcLookup
+	state.LineValidator = s.scriptLineValidator()
 
 	switch t := target.(type) {
 	case nil:

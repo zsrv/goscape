@@ -983,6 +983,7 @@ func TestNpcNameViaScript(t *testing.T) {
 	state.Configs = s.configsView
 	state.Inv = s.invLookup
 	state.Npcs = s.npcLookup
+	state.LineValidator = s.scriptLineValidator()
 	state.ActiveNpc = npc
 	if err := script.Execute(state); err != nil {
 		t.Fatalf("Execute: %v", err)

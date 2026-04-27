@@ -2,6 +2,7 @@ package script
 
 import (
 	"github.com/zsrv/goscape/pkg/coordgrid"
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 // NpcIteratorMode selects between DISTANCE (square radius around center
@@ -12,6 +13,7 @@ type NpcIteratorMode int
 const (
 	NpcIteratorDistance NpcIteratorMode = iota
 	NpcIteratorZone
+	NpcIteratorHuntAll // NAI-35-T3: distance-bounded with active huntvis filter
 )
 
 // NpcIterator is the script-VM iterator state for the NPC_FIND iterator
@@ -42,7 +44,12 @@ type NpcIterator struct {
 	// retirement readiness: when LoS/LoW filtering lands, passesFilter
 	// only needs to start reading huntvis; no constructor surface change.
 	huntvis int
-	typeID   int // -1 = no filter (FINDALLANY, FINDALLZONE); else exact match
+	// lineValidator is the LoS/LoW validator used by HuntAll-mode
+	// passesFilter when huntvis ∈ {LineOfSight, LineOfWalk}. Nil = no
+	// validator wired (test stub or pre-wiring); production sets via
+	// the constructor. NAI-35-T3.
+	lineValidator LineValidator
+	typeID        int // -1 = no filter (FINDALLANY, FINDALLZONE); else exact match
 
 	// Zone-cursor (DISTANCE mode)
 	minZoneX, maxZoneX int
@@ -66,9 +73,13 @@ func (it *NpcIterator) Stale(currentTick int) bool {
 }
 
 // passesFilter applies the per-NPC filter chain in TS line 345-356 order.
-// huntvis filtering is intentionally omitted (NAI-33-D1 / S7f-D1 carryover —
-// see deviation registry). Accessor names match pkg/script/active.go:400-408
-// ActiveNpc interface (NpcX/NpcZ/NpcType, NOT X/Z/Type).
+// HuntAll mode (NAI-35-T3) activates the huntvis branch — ZONE mode
+// remains unfiltered (matches TS line 329-335). Distance mode keeps the
+// pre-NAI-35 behavior (huntvis-validated-but-not-consumed; this preserves
+// NAI-33's intent for the Distance-mode iterators which have no LoS/LoW
+// content-script consumers).
+// Accessor names match pkg/script/active.go:400-408 ActiveNpc interface
+// (NpcX/NpcZ/NpcType, NOT X/Z/Type).
 func (it *NpcIterator) passesFilter(npc ActiveNpc) bool {
 	if it.mode == NpcIteratorZone {
 		return true // ZONE mode: no per-NPC filtering per TS line 329-335
@@ -76,11 +87,43 @@ func (it *NpcIterator) passesFilter(npc ActiveNpc) bool {
 	if coordgrid.DistanceToSW(it.x, it.z, npc.NpcX(), npc.NpcZ()) > it.distance {
 		return false
 	}
-	// huntvis filter intentionally omitted — NAI-33-D1 carryover
+	if it.mode == NpcIteratorHuntAll {
+		switch it.huntvis {
+		case objtype.HuntVisOff:
+			// no LoS/LoW gate
+		case objtype.HuntVisLineOfSight:
+			if !it.npcVisibleViaLineOfSight(npc) {
+				return false
+			}
+		case objtype.HuntVisLineOfWalk:
+			if !it.npcVisibleViaLineOfWalk(npc) {
+				return false
+			}
+		}
+	}
 	if it.typeID >= 0 && npc.NpcType() != it.typeID {
 		return false
 	}
 	return true
+}
+
+// npcVisibleViaLineOfSight returns true when the iterator's lineValidator
+// passes a LoS check from the iterator's center coord to the NPC. Nil
+// validator = pessimistically allow. NAI-35-T3.
+func (it *NpcIterator) npcVisibleViaLineOfSight(npc ActiveNpc) bool {
+	if it.lineValidator == nil {
+		return true
+	}
+	return it.lineValidator.HasLineOfSight(it.level, it.x, it.z, npc.NpcX(), npc.NpcZ(), 1, 0, 0, 0)
+}
+
+// npcVisibleViaLineOfWalk returns true when the iterator's lineValidator
+// passes a LoW check. Nil validator = pessimistically allow. NAI-35-T3.
+func (it *NpcIterator) npcVisibleViaLineOfWalk(npc ActiveNpc) bool {
+	if it.lineValidator == nil {
+		return true
+	}
+	return it.lineValidator.HasLineOfWalk(it.level, it.x, it.z, npc.NpcX(), npc.NpcZ(), 1, 0, 0, 0)
 }
 
 // NewDistanceNpcIterator constructs an iterator that walks NPCs in zones
@@ -133,6 +176,36 @@ func NewZoneNpcIterator(lookup NpcLookup, tick, level, x, z int) *NpcIterator {
 		x:            x,
 		z:            z,
 		typeID:       -1, // not used in ZONE mode
+	}
+}
+
+// NewHuntAllNpcIterator constructs an iterator that walks NPCs in zones
+// within `distance` of (level, x, z), filtered by huntvis (now ACTIVE
+// per NAI-35-T3 — closes NAI-33-D1) and no typeID filter (-1). Mirrors
+// TS NpcHuntAllCommandIterator at ScriptIterators.ts:234-295. Bounds math
+// identical to NewDistanceNpcIterator. HuntAll mode is distinguished
+// only by passesFilter activating huntvis-based LoS/LoW filtering.
+func NewHuntAllNpcIterator(lookup NpcLookup, lv LineValidator, tick, level, x, z, distance, huntvis int) *NpcIterator {
+	centerX := x >> 3
+	centerZ := z >> 3
+	radius := 1 + distance/8
+	return &NpcIterator{
+		mode:          NpcIteratorHuntAll,
+		creationTick:  tick,
+		lookup:        lookup,
+		lineValidator: lv,
+		level:         level,
+		x:             x,
+		z:             z,
+		distance:      distance,
+		huntvis:       huntvis,
+		typeID:        -1,
+		minZoneX:      centerX - radius,
+		maxZoneX:      centerX + radius,
+		minZoneZ:      centerZ - radius,
+		maxZoneZ:      centerZ + radius,
+		curZoneX:      centerX + radius,
+		curZoneZ:      centerZ + radius,
 	}
 }
 

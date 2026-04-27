@@ -2117,3 +2117,84 @@ func TestNpcTele_DispatchRoutes(t *testing.T) {
 		t.Errorf("state.Execution after NPC_TELE: got %v, want Finished", state.Execution)
 	}
 }
+
+// --- NAI-35-T3: NPC_HUNTALL handler tests ------------------------------
+
+// newNpcHuntAllState pushes (coord, distance, huntvis) — popInts(3) order
+// matching TS NpcOps.ts:325-333.
+func newNpcHuntAllState(t *testing.T, coord, distance, huntvis int, lookup *mockNpcLookup) *ScriptState {
+	t.Helper()
+	mw := newMockWorld()
+	mw.tick = 100
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{0}},
+		PC:          0,
+		Configs:     newTestConfigsWithNpcTypes(map[int]bool{}),
+		Npcs:        lookup,
+		World:       mw,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(coord)
+	s.PushInt(distance)
+	s.PushInt(huntvis)
+	return s
+}
+
+func TestHandleNpcHuntAll_StoresHuntAllIterator(t *testing.T) {
+	coord := (2 << 28) | (3200 << 14) | 3300
+	s := newNpcHuntAllState(t, coord, 10, objtype.HuntVisLineOfSight, &mockNpcLookup{})
+	if err := handleNpcHuntAll(s); err != nil {
+		t.Fatalf("handleNpcHuntAll: %v", err)
+	}
+	if s.npcIterator == nil {
+		t.Fatal("npcIterator should be non-nil after NPC_HUNTALL")
+	}
+	if s.npcIterator.mode != NpcIteratorHuntAll {
+		t.Errorf("mode: got %v, want NpcIteratorHuntAll", s.npcIterator.mode)
+	}
+	if s.npcIterator.huntvis != objtype.HuntVisLineOfSight {
+		t.Errorf("huntvis: got %d, want HuntVisLineOfSight (%d)", s.npcIterator.huntvis, objtype.HuntVisLineOfSight)
+	}
+	if s.npcIterator.creationTick != 100 {
+		t.Errorf("creationTick: got %d, want 100 (from World.CurrentTick)", s.npcIterator.creationTick)
+	}
+	if s.npcIterator.level != 2 || s.npcIterator.x != 3200 || s.npcIterator.z != 3300 {
+		t.Errorf("center: got (level=%d, x=%d, z=%d), want (2, 3200, 3300)",
+			s.npcIterator.level, s.npcIterator.x, s.npcIterator.z)
+	}
+	if s.npcIterator.distance != 10 {
+		t.Errorf("distance: got %d, want 10", s.npcIterator.distance)
+	}
+	if s.npcIterator.typeID != -1 {
+		t.Errorf("typeID: got %d, want -1 (HuntAll has no type filter)", s.npcIterator.typeID)
+	}
+	if s.ISP != 0 {
+		t.Errorf("NPC_HUNTALL should not push; ISP=%d", s.ISP)
+	}
+}
+
+func TestHandleNpcHuntAll_NilNpcsDegrades(t *testing.T) {
+	coord := (0 << 28) | (3200 << 14) | 3300
+	s := newNpcHuntAllState(t, coord, 10, objtype.HuntVisOff, nil)
+	s.Npcs = nil
+	if err := handleNpcHuntAll(s); err != nil {
+		t.Fatalf("handleNpcHuntAll with nil Npcs: %v", err)
+	}
+	if s.npcIterator != nil {
+		t.Error("npcIterator should remain nil when Npcs is nil (degrades to FINDNEXT push-0)")
+	}
+}
+
+func TestHandleNpcHuntAll_InvalidHuntVisRejected(t *testing.T) {
+	coord := (0 << 28) | (3200 << 14) | 3300
+	s := newNpcHuntAllState(t, coord, 10, 99, &mockNpcLookup{})
+	if err := handleNpcHuntAll(s); err == nil {
+		t.Fatal("expected validator error for invalid huntvis=99")
+	} else if !strings.Contains(err.Error(), "NPC_HUNTALL") {
+		t.Errorf("error should be tagged NPC_HUNTALL: %v", err)
+	}
+	if s.npcIterator != nil {
+		t.Error("npcIterator should remain nil after validation error")
+	}
+}

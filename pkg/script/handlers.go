@@ -362,6 +362,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpNpcFindAllZone: handleNpcFindAllZone,
 	OpNpcFindNext:    handleNpcFindNext,
 
+	// NPC hunt (NAI-35-T3) — HuntAll iterator (distance + active huntvis).
+	OpNpcHuntAll: handleNpcHuntAll,
+
 	// S7a: player UID lookup.
 	OpFindUID:  handleFindUID,
 	OpPFindUID: handlePFindUID,

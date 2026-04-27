@@ -582,6 +582,42 @@ func handleNpcFindAllZone(s *ScriptState) error {
 	return nil
 }
 
+// handleNpcHuntAll (NPC_HUNTALL, opcode 2526) pops [coord, distance,
+// huntvis] and stores a HuntAll-mode NpcIterator in s.npcIterator
+// (consumed by NPC_FINDNEXT 2520). Mirrors TS NpcOps.ts:325-333.
+//
+// Pop order (top-of-stack first): huntvis, distance, coord.
+// Validation: checkCoord, checkNotNull(distance), checkHuntVis.
+// Nil-Npcs degrades silently (matches NPC_FINDALL convention).
+//
+// NAI-35-T3: closes NAI-33-D1 structurally (huntvis becomes a live
+// consumer of LoS/LoW filtering via passesFilter HuntAll branch).
+func handleNpcHuntAll(s *ScriptState) error {
+	checkVis := s.PopInt()
+	distance := s.PopInt()
+	coord := s.PopInt()
+
+	level, x, z, err := checkCoord(coord, "NPC_HUNTALL")
+	if err != nil {
+		return err
+	}
+	if err := checkNotNull(distance, "NPC_HUNTALL"); err != nil {
+		return err
+	}
+	if err := checkHuntVis(checkVis, "NPC_HUNTALL"); err != nil {
+		return err
+	}
+
+	if s.Npcs == nil {
+		return nil
+	}
+	s.npcIterator = NewHuntAllNpcIterator(
+		s.Npcs, s.LineValidator, s.World.CurrentTick(),
+		level, x, z, distance, checkVis,
+	)
+	return nil
+}
+
 // handleNpcFindNext (NPC_FINDNEXT, opcode 2520) advances the active
 // NpcIterator and either sets active_npc + pushes 1 on hit, or pushes 0
 // on miss / nil-iterator. Mirrors TS NpcOps.ts:430-441. Pointer-set is

@@ -2,7 +2,24 @@ package script
 
 import (
 	"testing"
+
+	"github.com/zsrv/goscape/pkg/objtype"
 )
+
+// stubLineValidator is a script.LineValidator test double that returns
+// fixed responses for HasLineOfSight / HasLineOfWalk. NAI-35-T3.
+type stubLineValidator struct {
+	losReturn bool
+	lowReturn bool
+}
+
+func (s *stubLineValidator) HasLineOfSight(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, extraFlag int) bool {
+	return s.losReturn
+}
+
+func (s *stubLineValidator) HasLineOfWalk(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, extraFlag int) bool {
+	return s.lowReturn
+}
 
 func TestNpcIterator_StaleCheck(t *testing.T) {
 	// TS uses strict `>` (ScriptIterators.ts:332,343): only forward
@@ -217,5 +234,89 @@ func TestNpcIterator_DistanceMode_TypeFilter(t *testing.T) {
 	}
 	if len(yielded2) != 2 {
 		t.Errorf("typeID=-1: got len=%d, want 2 (no filter)", len(yielded2))
+	}
+}
+
+// --- NAI-35-T3: HuntAll-mode iterator tests ----------------------------
+
+func TestNewHuntAllNpcIterator_Construction(t *testing.T) {
+	// centerX = 3200>>3 = 400, centerZ = 3300>>3 = 412.
+	// distance=10 → radius = 1 + 10/8 = 2.
+	// Bounds: X=[398,402], Z=[410,414]; cursor at (max,max) = (402,414).
+	it := NewHuntAllNpcIterator(nil, nil, 99, 0, 3200, 3300, 10, objtype.HuntVisLineOfSight)
+	if it.mode != NpcIteratorHuntAll {
+		t.Errorf("mode: got %v, want NpcIteratorHuntAll", it.mode)
+	}
+	if it.creationTick != 99 {
+		t.Errorf("creationTick: got %d, want 99", it.creationTick)
+	}
+	if it.distance != 10 {
+		t.Errorf("distance: got %d, want 10", it.distance)
+	}
+	if it.huntvis != objtype.HuntVisLineOfSight {
+		t.Errorf("huntvis: got %d, want HuntVisLineOfSight (%d)", it.huntvis, objtype.HuntVisLineOfSight)
+	}
+	if it.typeID != -1 {
+		t.Errorf("typeID: got %d, want -1 (HuntAll has no type filter)", it.typeID)
+	}
+	if it.minZoneX != 398 || it.maxZoneX != 402 {
+		t.Errorf("X bounds: got [%d, %d], want [398, 402]", it.minZoneX, it.maxZoneX)
+	}
+	if it.minZoneZ != 410 || it.maxZoneZ != 414 {
+		t.Errorf("Z bounds: got [%d, %d], want [410, 414]", it.minZoneZ, it.maxZoneZ)
+	}
+	if it.curZoneX != 402 || it.curZoneZ != 414 {
+		t.Errorf("cursor: got (%d, %d), want (402, 414) (start at max,max)", it.curZoneX, it.curZoneZ)
+	}
+}
+
+func TestPassesFilter_HuntAllMode_HuntVisOff_AdmitsInRange(t *testing.T) {
+	npc := &mockNpc{x: 3203, z: 3300, level: 0}
+	it := NewHuntAllNpcIterator(nil, nil, 0, 0, 3200, 3300, 5, objtype.HuntVisOff)
+	if !it.passesFilter(npc) {
+		t.Errorf("passesFilter(in-range, HuntVisOff): got false, want true")
+	}
+}
+
+func TestPassesFilter_HuntAllMode_OutsideDistance_Rejected(t *testing.T) {
+	// dist 6 > distance 5 → reject regardless of huntvis.
+	npc := &mockNpc{x: 3206, z: 3300, level: 0}
+	// Even with a stub validator that would otherwise approve LoS — distance gate fires first.
+	stub := &stubLineValidator{losReturn: true, lowReturn: true}
+	it := NewHuntAllNpcIterator(nil, stub, 0, 0, 3200, 3300, 5, objtype.HuntVisLineOfSight)
+	if it.passesFilter(npc) {
+		t.Errorf("passesFilter(out-of-range): got true, want false")
+	}
+}
+
+func TestPassesFilter_HuntAllMode_LineOfSight_RejectsBlocked(t *testing.T) {
+	// In-distance NPC, but LoS validator returns false → reject.
+	npc := &mockNpc{x: 3203, z: 3300, level: 0}
+	stub := &stubLineValidator{losReturn: false, lowReturn: true}
+	it := NewHuntAllNpcIterator(nil, stub, 0, 0, 3200, 3300, 5, objtype.HuntVisLineOfSight)
+	if it.passesFilter(npc) {
+		t.Errorf("passesFilter(LoS-blocked): got true, want false")
+	}
+}
+
+func TestPassesFilter_HuntAllMode_LineOfWalk_AdmitsClear(t *testing.T) {
+	npc := &mockNpc{x: 3203, z: 3300, level: 0}
+	stub := &stubLineValidator{losReturn: false, lowReturn: true}
+	it := NewHuntAllNpcIterator(nil, stub, 0, 0, 3200, 3300, 5, objtype.HuntVisLineOfWalk)
+	if !it.passesFilter(npc) {
+		t.Errorf("passesFilter(LoW-clear): got false, want true")
+	}
+}
+
+func TestPassesFilter_HuntAllMode_NilValidator_Allows(t *testing.T) {
+	// Nil lineValidator → pessimistically allow even with huntvis=LoS/LoW.
+	npc := &mockNpc{x: 3203, z: 3300, level: 0}
+	it := NewHuntAllNpcIterator(nil, nil, 0, 0, 3200, 3300, 5, objtype.HuntVisLineOfSight)
+	if !it.passesFilter(npc) {
+		t.Errorf("passesFilter(nil-validator, LoS): got false, want true (pessimistic-allow)")
+	}
+	it2 := NewHuntAllNpcIterator(nil, nil, 0, 0, 3200, 3300, 5, objtype.HuntVisLineOfWalk)
+	if !it2.passesFilter(npc) {
+		t.Errorf("passesFilter(nil-validator, LoW): got false, want true (pessimistic-allow)")
 	}
 }
