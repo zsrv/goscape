@@ -298,8 +298,8 @@ func handleNpcParam(s *ScriptState) error {
 	if err := requireConfigs(s, "NPC_PARAM"); err != nil {
 		return err
 	}
-	if s.ActiveNpc == nil {
-		return fmt.Errorf("NPC_PARAM: no active npc")
+	if err := requireActiveNpc(s, "NPC_PARAM"); err != nil {
+		return err
 	}
 	paramID := s.PopInt()
 	npcID := s.ActiveNpc.NpcType()

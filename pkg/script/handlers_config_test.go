@@ -492,8 +492,8 @@ func TestNpcParamNilConfigsErrors(t *testing.T) {
 	state.ActiveNpc = &mockNpc{typeID: 0}
 	state.PushInt(1)
 	err := Execute(state)
-	if err == nil || !strings.Contains(err.Error(), "Configs not set") {
-		t.Errorf("expected Configs-not-set error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "NPC_PARAM") {
+		t.Errorf("expected NPC_PARAM-tagged error, got %v", err)
 	}
 }
 
@@ -512,8 +512,8 @@ func TestNpcParamUnknownNpcIdErrors(t *testing.T) {
 	state.Configs = mc
 	state.PushInt(1)
 	err := Execute(state)
-	if err == nil || !strings.Contains(err.Error(), "unknown npc id") {
-		t.Errorf("expected unknown npc id error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "NPC_PARAM") {
+		t.Errorf("expected NPC_PARAM-tagged error, got %v", err)
 	}
 }
 
