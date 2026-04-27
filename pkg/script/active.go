@@ -498,12 +498,34 @@ type ActiveNpc interface {
 	// (handlers_npc.go) after checkCoord validates and unpacks the packed
 	// coord.
 	//
-	// DEVIATION NAI-34-D3, D4, D5-NPC — partial closure as of NAI-36-T7:
-	// D1 (level clamp) and D2 (unallocated-zone reject) are CLOSED for
-	// both Player.Teleport and Npc.Teleport. D3/D4/D5-NPC remain residual
-	// (NPC has no focus, lastStepX/Z, or jump fields — dead-API per
-	// dead_api_polish.md). See (n *Npc).Teleport doc comment in
-	// modules/world/npc_script.go for the full tracker.
+	// DEVIATION NAI-34-D3, D4 (both entities) and NAI-34-D5-NPC vs TS
+	// PathingEntity.teleport (PathingEntity.ts:267) — partial closure as
+	// of NAI-36-T7 (D1, D2 closed for both entities; D5 closed for Player).
+	//
+	// RESIDUAL (active deviations):
+	//   - D3-Player + D3-NPC: no focus() call (PathingEntity.ts:286).
+	//     Player has FaceCoord (player_masks.go:45) and Npc has both
+	//     focus() (npc_interaction.go:686) and FaceCoord (npc_masks.go:120),
+	//     so neither side is dead-API gated; closure was deferred to a
+	//     future "pathing-entity-focus-and-step-tracking" sub-spec because
+	//     fine-coord conversion + instant-flag semantics need design.
+	//   - D4-Player + D4-NPC: no lastStepX/Z adjust (PathingEntity.ts:289-290).
+	//     Player has lastStepX/Z fields (player.go:79) but Npc does NOT;
+	//     adding to Npc is dead-API per dead_api_polish.md until an NPC-side
+	//     stride-tracking consumer materializes. Player-side closure
+	//     deferred to the same future sub-spec for consistency.
+	//   - D5-NPC: no `previousLevel != level → moveSpeed=INSTANT + jump=true`
+	//     branch on Npc. Npc has no jump field; dead-API foot-gun. Player
+	//     half closes in NAI-36-T7. Tracked for the same future sub-spec.
+	//
+	// CLOSED in NAI-36-T7:
+	//   - D1 (level clamp [0, 3]) — both entities.
+	//   - D2 (unallocated-zone reject) — both entities.
+	//   - D5-Player (level-change INSTANT/jump branch).
+	//   - Player.Teleport order divergence (refresh-then-flag).
+	//
+	// See (n *Npc).Teleport doc comment in modules/world/npc_script.go
+	// for the matching world-side tracker.
 	Teleport(x, z, level int)
 
 	// QueueWaypoint clears any existing path and sets a single destination
