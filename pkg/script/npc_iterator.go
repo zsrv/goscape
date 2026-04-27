@@ -127,3 +127,68 @@ func NewZoneNpcIterator(lookup NpcLookup, tick, level, x, z int) *NpcIterator {
 		typeID:       -1, // not used in ZONE mode
 	}
 }
+
+// Next advances the iterator and returns the next matching NPC. Returns
+// (nil, false) on exhaustion. Caller must check Stale(currentTick) before
+// invoking Next when the single-tick lifetime invariant matters; FINDNEXT
+// handler does this. Mirrors TS NpcIterator.generator at
+// ScriptIterators.ts:328-362 (the for-of consumption shape).
+func (it *NpcIterator) Next() (ActiveNpc, bool) {
+	if it.lookup == nil {
+		return nil, false
+	}
+	for {
+		// Drain current intra-zone snapshot
+		for it.zoneIdx < len(it.zoneNpcs) {
+			npc := it.zoneNpcs[it.zoneIdx]
+			it.zoneIdx++
+			if it.passesFilter(npc) {
+				return npc, true
+			}
+		}
+		// Snapshot exhausted; advance zone cursor (or terminate)
+		if !it.advanceZone() {
+			return nil, false
+		}
+		it.zoneNpcs = it.lookup.ZoneNpcs(it.level, it.curZoneX*8, it.curZoneZ*8)
+		it.zoneIdx = 0
+	}
+}
+
+// advanceZone moves the (curZoneX, curZoneZ) cursor and returns true if
+// a new zone is now selected, false if iteration has exhausted the
+// bounding region. Walks outer-X-desc / inner-Z-desc per TS line 337-340.
+//
+// ZONE mode: returns true exactly once (the single-zone visit), false
+// thereafter. ZONE-mode cursor is initialized HERE on first call (the
+// constructor leaves curZoneX/Z at zero so the lazy initialization
+// sits with the rest of the cursor logic).
+func (it *NpcIterator) advanceZone() bool {
+	if it.mode == NpcIteratorZone {
+		if it.started {
+			return false
+		}
+		it.started = true
+		// Initialize cursor for the single zone at (level, x, z)
+		it.curZoneX = it.x >> 3
+		it.curZoneZ = it.z >> 3
+		return true
+	}
+	// DISTANCE mode
+	if !it.started {
+		it.started = true
+		// Cursor already at (maxX, maxZ) from constructor
+		return true
+	}
+	// Inner Z descends; on underflow, reset to maxZ and outer X descends;
+	// on outer-X underflow, exhausted.
+	it.curZoneZ--
+	if it.curZoneZ < it.minZoneZ {
+		it.curZoneZ = it.maxZoneZ
+		it.curZoneX--
+		if it.curZoneX < it.minZoneX {
+			return false
+		}
+	}
+	return true
+}
