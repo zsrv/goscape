@@ -2070,10 +2070,18 @@ Add a new section under "## From NAI-35 (2026-04-27)" matching the existing patt
 
 **NAI-36 deviations (introduced + tracked):**
 
-- **NAI-36-D1 (active):** SpotAnimType config-port absent at HEAD; T5
+- **NAI-36-D1 (dissolved at plan-write recon):** intOperand access pattern.
+  Spec predicted a divergence; recon found `setActiveNpcSlot` at
+  `pkg/script/handlers_npc.go:59` already uses direct
+  `s.Script.IntOperands[s.PC]`. T6 follows that pattern; no deviation. ID
+  reserved (not reused) to keep on-disk grep history stable per
+  `retire_deviation_grep_all_comments.md`.
+- **NAI-36-D2 (active):** SpotAnimType config-port absent at HEAD; T5
   uses range-validation (id < 0 reject) only. Closure when
-  `Configs.SpotAnimType(id)` accessor is added. Tracking commit: T5.
-- **NAI-36-D2 (resolved at T6 entry):** SetInteractionScript adapter
+  `Configs.SpotAnimType(id)` accessor is added. Tracking commit: T5
+  (`b85c124`). Production tag: `pkg/script/handlers_map.go:207`. Test
+  pin: `pkg/script/handlers_map_test.go:471`.
+- **NAI-36-D3 (resolved at T6 entry):** SetInteractionScript adapter
   shape resolved via type-switch on script.Active* values; no deviation
   needed.
 
@@ -2088,7 +2096,7 @@ Add a new section under "## From NAI-35 (2026-04-27)" matching the existing patt
   Npc has no jump field; dead-API foot-gun.
 
 **Net deviation tally:** 16 (post-NAI-35) → 14 (post-NAI-36)
-(- NAI-34-D1, - NAI-34-D2, + NAI-36-D1).
+(- NAI-34-D1, - NAI-34-D2, + NAI-36-D2).
 
 **Items deferred to future sub-specs (still open NAI-36 follow-ups):**
 
@@ -2155,7 +2163,7 @@ Test coverage: ~34 new tests across pkg/script/handlers_npc_test.go,
 handlers_map_test.go, modules/world/player_script_test.go,
 npc_script_test.go, npc_player_modes_test.go.
 
-Net deviation tally: 16 → 14 (-NAI-34-D1, -NAI-34-D2, +NAI-36-D1).
+Net deviation tally: 16 → 14 (-NAI-34-D1, -NAI-34-D2, +NAI-36-D2).
 
 Closes memory: NAI-34 follow-up #2 (PatrolMode level discard) + NAI-34
 follow-up #3 (NPC_WALK port) + NAI-34-D1 (level clamp) + NAI-34-D2
@@ -2185,7 +2193,7 @@ pathing-entity-focus-and-step-tracking sub-spec."
 | In scope item 8 (Close polish) | T8 (Steps 8.1-8.5) |
 | Out-of-scope items (D3/D4/D5-NPC, NPC_WALKTRIGGER, PLAYER_FINDALL family, full SpotAnimType config-port, NAI-35-T3-D1 audit) | Documented in T8 follow-ups |
 | Test strategy (Layer 1 + Layer 2 + branch coverage gate + TS-asymmetry pin) | Each T2-T7 has matching test code blocks |
-| Expected deviations (NAI-36-D1/D2/D3) | T5 tracks D1; T6 resolves D2 (no entry); T6 SetInteractionScript resolved without D3 |
+| Expected deviations (NAI-36-D1/D2/D3) | D1 dissolved at recon (intOperand pattern existed); T5 tracks D2 (SpotAnimType range-only); T6 resolves D3 (SetInteractionScript adapter shape, no entry needed) |
 | Cadence (full, two-stage review) | Stage 1 between T5 and T6, Stage 2 between T7 and T8 |
 | Smoke handoff (T8) | Step 8.4 |
 
