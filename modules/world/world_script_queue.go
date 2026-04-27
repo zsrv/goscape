@@ -35,3 +35,36 @@ func (s *Server) EnqueueWorldScript(state *script.ScriptState, delay int) {
 		delay:  delay,
 	})
 }
+
+// processWorldQueue drains ready entries from s.worldScriptQueue,
+// firing each by calling script.Execute (via resumeOrFinishWorld) and
+// dispatching the post-execute state.
+//
+// Iteration uses index-based slice walk with mid-pass append visibility
+// (re-reads len(s.worldScriptQueue) each loop iteration) — this
+// preserves the same TS-authentic "speedup quirk" already present
+// in processPlayerQueue (tick.go:222) where a script that re-enqueues
+// itself or another script during Execute will see the new entry
+// processed in the same tick.
+//
+// Removal happens BEFORE firing (matching processPlayerQueue:243-249)
+// so a re-entrant Execute that calls EnqueueWorldScript doesn't
+// collide with the index pointer.
+//
+// Mirrors TS World.processWorld world-queue iteration at World.ts:534-559.
+func (s *Server) processWorldQueue() {
+	i := 0
+	for i < len(s.worldScriptQueue) {
+		entry := &s.worldScriptQueue[i]
+		entry.delay--
+		if entry.delay > 0 {
+			i++
+			continue
+		}
+		state := entry.script
+		s.worldScriptQueue = append(s.worldScriptQueue[:i], s.worldScriptQueue[i+1:]...)
+		s.resumeOrFinishWorld(state)
+		// Don't advance i: we just removed the current element, so i
+		// now points to what was the next element (or past end).
+	}
+}

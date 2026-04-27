@@ -32,6 +32,7 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		}
 
 		s.processClientsIn()
+		s.processWorldQueue() // NAI-37: matches TS World.processWorld start-of-cycle ordering
 		s.processActiveScripts()
 		s.processPlayerTimers()
 		s.processPathing()

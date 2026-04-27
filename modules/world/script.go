@@ -62,3 +62,23 @@ func (s *Server) resumeOrFinish(state *script.ScriptState, self script.ActivePla
 		self.ClearActiveScript()
 	}
 }
+
+// resumeOrFinishWorld dispatches the post-Execute state for a script
+// run from the world-script queue (called by processWorldQueue after
+// removing the entry). STUB at T9 — full dispatch table arrives in T12.
+//
+// At T9: just calls script.Execute and logs errors. The post-execute
+// state is not yet dispatched on, so a script that returns
+// WorldSuspended will not self-re-enqueue (T12 fixes this); a script
+// that hits a cross-context state will not warn (T12 adds the warns).
+// T9's scheduler tests exercise only Finished-returning scripts; the
+// WorldSuspended self-loop test is deferred to T12 alongside the
+// dispatch table.
+func (s *Server) resumeOrFinishWorld(state *script.ScriptState) {
+	if err := script.Execute(state); err != nil {
+		s.log.Warn("world script execute error",
+			"script", state.Script.Name, "err", err)
+		return
+	}
+	// T12 will switch on state.Execution.
+}
