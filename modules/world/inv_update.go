@@ -39,3 +39,28 @@ func sendUpdateInvFullCom(p *Player, com int, inv *inventory.Inventory) {
 
 	p.writeOut(gameserver.OpUpdateInvFull, buf.Bytes())
 }
+
+// sendUpdateInvPartial writes an UpdateInvPartial packet for the listed slots.
+// Used by handleInvButtonD to revert the client drag visual when the player
+// is delayed. Mirrors TS UpdateInvPartialEncoder.ts:9-32.
+func sendUpdateInvPartial(p *Player, com int, inv *inventory.Inventory, slots ...int) {
+	buf := packet.NewPacket(nil)
+	buf.P2(uint16(com))
+	for _, slot := range slots {
+		item := inv.Get(slot)
+		buf.P1(uint8(slot))
+		if item != nil {
+			buf.P2(uint16(item.Id + 1))
+			if item.Count >= 255 {
+				buf.P1(255)
+				buf.P4(uint32(item.Count))
+			} else {
+				buf.P1(uint8(item.Count))
+			}
+		} else {
+			buf.P2(0)
+			buf.P1(0)
+		}
+	}
+	p.writeOut(gameserver.OpUpdateInvPartial, buf.Bytes())
+}
