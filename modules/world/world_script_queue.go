@@ -48,15 +48,14 @@ func (s *Server) EnqueueWorldScript(state *script.ScriptState, delay int) {
 //
 // Removal happens BEFORE firing (matching processPlayerQueue:243-249)
 // so a re-entrant Execute that calls EnqueueWorldScript doesn't
-// collide with the index pointer.
+// collide with the index pointer. This ordering also matters for
+// panic recovery: a panicking script has already been removed from
+// the queue when recoverWorldScript fires, so the next iteration sees
+// the next entry (NAI-42).
 //
-// Mirrors TS World.processWorld world-queue iteration at World.ts:534-559.
-//
-// DEVIATION NAI-37-D-WORLDQUEUE-NO-PANIC-RECOVERY: TS wraps the
-// world-queue iteration body in try/catch (World.ts:557-559) to
-// swallow per-script panics. goscape leaves panics to propagate up
-// the tick goroutine — closure when the project adopts a tick-wide
-// panic-recovery convention.
+// Mirrors TS World.processWorld world-queue iteration at World.ts:534-559,
+// including the per-iteration try/catch (NAI-42; closes
+// NAI-37-D-WORLDQUEUE-NO-PANIC-RECOVERY).
 func (s *Server) processWorldQueue() {
 	i := 0
 	for i < len(s.worldScriptQueue) {
@@ -79,7 +78,10 @@ func (s *Server) processWorldQueue() {
 		// internally (ScriptRunner.ts:130); goscape leaves the reset to
 		// callers, matching processActiveScripts.
 		state.Execution = script.Running
-		s.resumeOrFinishWorld(state)
+		func(state *script.ScriptState) {
+			defer recoverWorldScript(state, s.log)
+			s.resumeOrFinishWorld(state)
+		}(state)
 		// Don't advance i: we just removed the current element, so i
 		// now points to what was the next element (or past end).
 	}
