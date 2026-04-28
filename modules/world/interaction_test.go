@@ -120,7 +120,10 @@ func TestProcessInteractionNoTargetNoop(t *testing.T) {
 	}
 }
 
-// TestProcessInteractionInRangeFacesTarget verifies adjacent target triggers face + interacted.
+// TestProcessInteractionInRangeFacesTarget verifies adjacent target triggers
+// interacted=true and fires the OP trigger. NAI-41: faceEntity write
+// timing moved to SetInteraction-time; this test no longer pins faceEntity
+// (covered by TestSetInteractionNpcTargetSetsFaceEntity).
 func TestProcessInteractionInRangeFacesTarget(t *testing.T) {
 	s := newTestServer(t)
 	npc := makeInteractionNpc(t, s, 1, 101, 100, 0)
@@ -139,12 +142,6 @@ func TestProcessInteractionInRangeFacesTarget(t *testing.T) {
 
 	if !p.interacted {
 		t.Error("interacted should be true when adjacent to target")
-	}
-	if p.faceEntity != npc.nid {
-		t.Errorf("faceEntity: got %d, want %d", p.faceEntity, npc.nid)
-	}
-	if p.masks&MaskFaceEntity == 0 {
-		t.Error("MaskFaceEntity bit should be set")
 	}
 }
 
@@ -516,5 +513,102 @@ func TestProcessInteractionNpcUsesAttackrange(t *testing.T) {
 	}
 	if !p.repathed {
 		t.Error("p.repathed: got false, want true — pathing branch should fire when out of AP range")
+	}
+}
+
+// --- NAI-41: Player.SetInteraction face-entity TS-fidelity ---------------
+// Mirrors TS PathingEntity.setInteraction (PathingEntity.ts:530-541) and
+// the in-codebase Npc.SetInteraction template (npc_interaction.go:651-666).
+
+// TestSetInteractionPlayerTargetSetsFaceEntity pins the *Player branch:
+// faceEntity = target.slot + 32768, MaskFaceEntity bit set. The +32768
+// magic encodes "this is a player slot" on the client wire.
+func TestSetInteractionPlayerTargetSetsFaceEntity(t *testing.T) {
+	s := newTestServer(t)
+	p, wait := makeInteractionPlayer(t, s, 100, 100, 0)
+	defer wait()
+
+	// Use a second player as the target. slot=-1 default would yield
+	// faceEntity=32767 — pick a non-default slot so the formula assertion
+	// catches accidental sign drops or off-by-one errors.
+	other, _ := newTestPlayer(t)
+	other.slot = 5
+
+	p.SetInteraction(InteractionEngine, other, 1, -1)
+
+	wantFE := other.slot + 32768 // 32773
+	if p.faceEntity != wantFE {
+		t.Errorf("faceEntity: got %d, want %d (slot+32768)", p.faceEntity, wantFE)
+	}
+	if p.masks&MaskFaceEntity == 0 {
+		t.Error("MaskFaceEntity bit should be set after SetInteraction with *Player target")
+	}
+}
+
+// TestSetInteractionNpcTargetSetsFaceEntity pins the *Npc branch:
+// faceEntity = npc.nid, MaskFaceEntity bit set, AT SetInteraction time
+// (not at contact). Supersedes the contact-time pin previously in
+// TestProcessInteractionInRangeFacesTarget.
+func TestSetInteractionNpcTargetSetsFaceEntity(t *testing.T) {
+	s := newTestServer(t)
+	npc := makeInteractionNpc(t, s, 7, 100, 100, 0)
+	p, wait := makeInteractionPlayer(t, s, 99, 100, 0)
+	defer wait()
+
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
+
+	if p.faceEntity != npc.nid {
+		t.Errorf("faceEntity: got %d, want %d (npc.nid)", p.faceEntity, npc.nid)
+	}
+	if p.masks&MaskFaceEntity == 0 {
+		t.Error("MaskFaceEntity bit should be set after SetInteraction with *Npc target")
+	}
+}
+
+// TestSetInteractionLocTargetDoesNotSetFaceEntity pins the deferred
+// default branch: *Loc target leaves faceEntity untouched and
+// MaskFaceEntity bit clear. Closes the spec's "deviation is intentional,
+// not a partial port" contract for NAI-41-D-PLAYER-NO-LOCOBJ-TARGETXZ.
+func TestSetInteractionLocTargetDoesNotSetFaceEntity(t *testing.T) {
+	s := newTestServer(t)
+	p, wait := makeInteractionPlayer(t, s, 100, 100, 0)
+	defer wait()
+
+	loc := entitypkg.NewLoc(0, 105, 100, 1, 1, entitypkg.LifecycleForever, 0, 10, 0)
+
+	p.SetInteraction(InteractionEngine, loc, 1, -1)
+
+	if p.faceEntity != -1 {
+		t.Errorf("faceEntity: got %d, want -1 (default; *Loc branch must not write)", p.faceEntity)
+	}
+	if p.masks&MaskFaceEntity != 0 {
+		t.Error("MaskFaceEntity bit must NOT be set after SetInteraction with *Loc target")
+	}
+}
+
+// TestSetInteractionFaceEntityIdempotent pins the TS idempotency check
+// at PathingEntity.ts:532 / 538 (`if (this.faceEntity !== X)`). Without
+// this check, repeated SetInteraction calls with the same target re-emit
+// MaskFaceEntity needlessly. We reset masks=0 between calls to isolate
+// the second call's mask-emission decision.
+func TestSetInteractionFaceEntityIdempotent(t *testing.T) {
+	s := newTestServer(t)
+	npc := makeInteractionNpc(t, s, 7, 100, 100, 0)
+	p, wait := makeInteractionPlayer(t, s, 99, 100, 0)
+	defer wait()
+
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
+	if p.masks&MaskFaceEntity == 0 {
+		t.Fatal("first SetInteraction should set MaskFaceEntity")
+	}
+	p.masks = 0 // isolate the second call's emission decision
+
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
+
+	if p.masks&MaskFaceEntity != 0 {
+		t.Error("second SetInteraction with same target must NOT re-emit MaskFaceEntity (TS idempotency check at PathingEntity.ts:532)")
+	}
+	if p.faceEntity != npc.nid {
+		t.Errorf("faceEntity should remain %d (npc.nid) after idempotent second call, got %d", npc.nid, p.faceEntity)
 	}
 }

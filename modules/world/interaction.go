@@ -44,6 +44,13 @@ func sendUnsetMapFlag(p *Player) {
 // For OpLocT the com parameter carries the spell-component ID; for OpLocU
 // pass -1 (item tracking uses lastUseItem/lastUseSlot instead). For
 // OpLoc1..5 and OpNpc1..5, callers pass -1.
+//
+// faceEntity dispatch mirrors TS PathingEntity.setInteraction
+// (PathingEntity.ts:530-541) and the in-codebase Npc.SetInteraction
+// template (npc_interaction.go:651-666). NAI-41 closed
+// NAI-40-D-PLAYER-NO-FACEENTITY-ON-OPCLICK and the pre-existing
+// *Player→*Npc contact-time-write divergence by moving the faceEntity
+// write here from processInteraction's contact branch.
 func (p *Player) SetInteraction(kind InteractionKind, target entity, op, com int) {
 	p.target = target
 	p.targetOp = op
@@ -54,6 +61,27 @@ func (p *Player) SetInteraction(kind InteractionKind, target entity, op, com int
 	p.interacted = false
 	p.repathed = false
 	p.interactionFired = false
+
+	switch t := target.(type) {
+	case *Player:
+		slot := t.slot + 32768
+		if p.faceEntity != slot {
+			p.faceEntity = slot
+			p.masks |= p.entitymask
+		}
+	case *Npc:
+		if p.faceEntity != t.nid {
+			p.faceEntity = t.nid
+			p.masks |= p.entitymask
+		}
+	default:
+		// DEVIATION NAI-41-D-PLAYER-NO-LOCOBJ-TARGETXZ: TS L542-545 sets
+		// targetX = CoordGrid.fine(target.x, target.width) and targetZ
+		// analogously for *Loc/*Obj targets. Player has no targetX/Z
+		// fields and no consumer reads them; deferred to the focus/
+		// step-tracking sub-spec that closes NAI-34-D3 (which already
+		// touches Player fine-coord infra).
+	}
 }
 
 // ClearInteraction resets interaction state to idle.
@@ -93,23 +121,9 @@ func (p *Player) processInteraction() {
 	}
 
 	if inOperableDistance(p.x, p.z, tx, tz) {
-		// Contact range — fire OP. Matches TS Player.ts:1123-1135
-		// (OP checked before AP at contact).
-		if npc, ok := p.target.(*Npc); ok {
-			p.SetFaceEntity(npc.nid)
-		}
-		// DEVIATION NAI-40-D-PLAYER-NO-FACEENTITY-ON-OPCLICK: TS
-		// PathingEntity.setInteraction (PathingEntity.ts:530-543) sets
-		// faceEntity = target.slot+32768 for *Player target AND
-		// faceEntity = target.nid for *Npc target — both at SetInteraction
-		// time, not at contact. Goscape sets SetFaceEntity for *Npc only
-		// (above) and at contact-distance (here), and never for *Player.
-		// Behavioral effect: clicker's player_facingmask doesn't update
-		// to face the target on op-click. Pre-existing convention for
-		// the *Npc case (set at contact rather than SetInteraction);
-		// NAI-40 inherits this for *Player by omission. Closure: bundle
-		// with the broader "SetInteraction face-entity TS-fidelity"
-		// follow-up sub-spec.
+		// Contact range — fire OP. Matches TS Player.ts:1123-1135 (OP
+		// checked before AP at contact). NAI-41 moved the faceEntity
+		// write to SetInteraction time; no contact-time write needed.
 		p.interacted = true
 		if !p.interactionFired {
 			tryFireOpTrigger(p)
