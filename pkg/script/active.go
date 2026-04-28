@@ -430,6 +430,25 @@ type ActivePlayer interface {
 	// MidiJingle; silent no-op on empty name or missing PRELOADED entry
 	// (mirrors TS guard `if (jingle)` at Player.ts:1923).
 	PlayJingle(delay int, name string)
+
+	// NAI-47: SETIDKIT appearance mutation.
+
+	// Gender returns the player's gender (0=male, 1=female). Used by SETIDKIT
+	// to determine the body-part slot offset (female slots = type − 7).
+	// Mirrors TS state.activePlayer.gender at PlayerOps.ts:1073.
+	Gender() int
+
+	// SetBodyPart writes body[slot] = idkit. Called by SETIDKIT after slot
+	// computation. Does NOT flip MaskAppearance — the script must call
+	// BUILDAPPEARANCE separately (TS pattern: SETIDKIT then BUILDAPPEARANCE).
+	// Mirrors TS state.activePlayer.body[slot] = idkType.id at PlayerOps.ts:1079.
+	SetBodyPart(slot, idkit int)
+
+	// SetColorPart writes colors[slot] = color. Called by SETIDKIT for the
+	// color slot that corresponds to the body-part type (0/1→0, 2/3→1, 5→2,
+	// 6→3; type 4 has no color write). Mirrors TS state.activePlayer.colors
+	// at PlayerOps.ts:1102.
+	SetColorPart(slot, color int)
 }
 
 // ActiveNpc is the per-NPC surface that NPC_* opcodes and VARN

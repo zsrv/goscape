@@ -699,6 +699,11 @@ func (p *Player) SetInteractionScriptNpc(npc script.ActiveNpc, op int) {
 // copied onto the Player at newPlayer().
 func (p *Player) LowMemory() bool { return p.lowMemory }
 
+// NAI-47: SETIDKIT appearance mutation.
+func (p *Player) Gender() int                  { return p.gender }
+func (p *Player) SetBodyPart(slot, idkit int)  { p.body[slot] = idkit }
+func (p *Player) SetColorPart(slot, color int) { p.colors[slot] = color }
+
 // normalizeSongName mirrors TS Player.playSong's normalization step
 // (Engine-TS/src/engine/entity/Player.ts:1903) — lowercase + spaces
 // replaced by underscores. Extracted for direct testability given

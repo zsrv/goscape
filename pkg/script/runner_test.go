@@ -265,6 +265,11 @@ type mockPlayer struct {
 	// S7h: lowMemory pre-seed for MIDI_SONG / MIDI_JINGLE lowMemory-gate tests.
 	lowMemoryValue bool
 
+	// NAI-47: SETIDKIT gender + appearance captures.
+	genderValue int
+	bodyParts   [7]int
+	colorParts  [5]int
+
 	// S7h: captured MIDI_SONG plays. Each entry records the normalized-name
 	// argument as seen by the mock; the mock does not perform TS
 	// normalization (that's (*Player).PlaySong's responsibility).
@@ -511,6 +516,11 @@ func (m *mockPlayer) SetAllowDesign(v bool) {
 // S7h: LowMemory returns the seeded value for MIDI_SONG / MIDI_JINGLE
 // handler tests that exercise the lowMemory bail path.
 func (m *mockPlayer) LowMemory() bool { return m.lowMemoryValue }
+
+// NAI-47: SETIDKIT appearance-mutation captures.
+func (m *mockPlayer) Gender() int                  { return m.genderValue }
+func (m *mockPlayer) SetBodyPart(slot, idkit int)  { m.bodyParts[slot] = idkit }
+func (m *mockPlayer) SetColorPart(slot, color int) { m.colorParts[slot] = color }
 
 // S7h: PlaySong captures the MIDI_SONG name for handler tests.
 func (m *mockPlayer) PlaySong(name string) {
