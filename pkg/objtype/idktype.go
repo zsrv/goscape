@@ -1,8 +1,12 @@
 package objtype
 
 import (
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 
+	io "github.com/zsrv/goscape/pkg/io/jagfile"
 	packet2 "github.com/zsrv/goscape/pkg/io/packet"
 )
 
@@ -71,4 +75,59 @@ func (t *IdkType) Decode(code uint8, dat *packet2.Packet) error {
 		return fmt.Errorf("unrecognized idk config code %d", code)
 	}
 	return nil
+}
+
+// IdkTypeConfigs is the parsed registry of all identity-kit config records.
+type IdkTypeConfigs struct {
+	ConfigNames map[string]int
+	Configs     []*IdkType
+}
+
+// LoadIdkTypes parses server/idk.dat + client/config jag → idk.dat into
+// an IdkTypeConfigs registry. Returns an empty registry with nil error when
+// server/idk.dat is absent (silent-on-missing, matching TS IdkType.load at
+// Engine-TS/src/cache/config/IdkType.ts:14-18).
+func LoadIdkTypes(dir string) (*IdkTypeConfigs, error) {
+	server, err := packet2.Load(filepath.Join(dir, "server", "idk.dat"), false)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return &IdkTypeConfigs{ConfigNames: map[string]int{}}, nil
+		}
+		return nil, err
+	}
+
+	clientJag, err := io.LoadJagfile(filepath.Join(dir, "client", "config"))
+	if err != nil {
+		return nil, err
+	}
+
+	return parseIdkTypes(server, clientJag)
+}
+
+func parseIdkTypes(server *packet2.Packet, clientJag *io.Jagfile) (*IdkTypeConfigs, error) {
+	count := int(server.G2())
+	configs := make([]*IdkType, count)
+	configNames := make(map[string]int, count)
+
+	client, err := clientJag.Read("idk.dat")
+	if err != nil {
+		return nil, err
+	}
+	client.Pos = 2 // skip client-side count header (same as npctype.go:377)
+
+	for id := range count {
+		config := NewIdkType(id)
+		if err := DecodeType(server, config); err != nil {
+			return nil, err
+		}
+		if err := DecodeType(client, config); err != nil {
+			return nil, err
+		}
+		configs[id] = config
+		if config.DebugName != "" {
+			configNames[config.DebugName] = id
+		}
+	}
+
+	return &IdkTypeConfigs{ConfigNames: configNames, Configs: configs}, nil
 }

@@ -1,6 +1,8 @@
 package objtype
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	packet2 "github.com/zsrv/goscape/pkg/io/packet"
@@ -165,5 +167,42 @@ func TestIdkTypeDecode_UnknownCode(t *testing.T) {
 	_, err := decodeIdk(func(p *packet2.Packet) { p.P1(99) })
 	if err == nil {
 		t.Error("want error for unknown code 99, got nil")
+	}
+}
+
+// TestLoadIdkTypes_MissingServerDat pins that LoadIdkTypes returns an empty
+// registry (not an error) when server/idk.dat is absent, matching TS
+// IdkType.load's early-return on missing file.
+func TestLoadIdkTypes_MissingServerDat(t *testing.T) {
+	dir := t.TempDir()
+	// No server/idk.dat created — directory exists but file is absent.
+	configs, err := LoadIdkTypes(dir)
+	if err != nil {
+		t.Fatalf("LoadIdkTypes: want nil error on missing file, got %v", err)
+	}
+	if configs == nil {
+		t.Fatal("configs: want non-nil registry, got nil")
+	}
+	if len(configs.Configs) != 0 {
+		t.Errorf("Configs: want empty slice, got %d entries", len(configs.Configs))
+	}
+	if len(configs.ConfigNames) != 0 {
+		t.Errorf("ConfigNames: want empty map, got %d entries", len(configs.ConfigNames))
+	}
+}
+
+// TestLoadIdkTypes_FromPack loads IdkTypes from the real pack directory.
+// Skipped when the pack data is absent (CI / clean checkout).
+func TestLoadIdkTypes_FromPack(t *testing.T) {
+	cacheDir := filepath.Join("..", "..", "data", "pack")
+	if _, err := os.Stat(filepath.Join(cacheDir, "server", "idk.dat")); err != nil {
+		t.Skipf("no pack data: %v", err)
+	}
+	configs, err := LoadIdkTypes(cacheDir)
+	if err != nil {
+		t.Fatalf("LoadIdkTypes: %v", err)
+	}
+	if len(configs.Configs) == 0 {
+		t.Fatal("expected at least one IdkType, got 0")
 	}
 }
