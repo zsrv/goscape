@@ -113,37 +113,19 @@ func (p *Player) processInteraction() {
 		return
 	}
 
-	tx, tz, tlevel := p.target.Coords()
+	_, _, tlevel := p.target.Coords()
 	if tlevel != p.level {
 		p.ClearInteraction()
 		sendUnsetMapFlag(p)
 		return
 	}
 
-	if inOperableDistance(p.x, p.z, tx, tz) {
-		// Contact range — fire OP. Matches TS Player.ts:1123-1135 (OP
-		// checked before AP at contact). NAI-41 moved the faceEntity
-		// write to SetInteraction time; no contact-time write needed.
-		p.interacted = true
-		if !p.interactionFired {
-			tryFireOpTrigger(p)
-		}
-		return
-	}
-
-	if inApproachDistance(p.x, p.z, tx, tz, effectiveApRange(p)) {
-		// Approach range — fire AP. Matches TS Player.ts:1139-1170.
-		// S6l-D1 closed in S6r: when fireApTriggerLoc finds no script,
-		// it sets p.apRange = -1. Next tick's inApproachDistance sees
-		// apRange <= 0 and returns false, skipping re-lookup.
-		p.interacted = true
-		if !p.interactionFired {
-			tryFireApTrigger(p)
-		}
+	if p.tryInteract(false) {
 		return
 	}
 
 	if !p.repathed {
+		tx, tz, _ := p.target.Coords()
 		p.pathToTarget(tx, tz)
 		p.repathed = true
 	}
@@ -167,6 +149,37 @@ func (p *Player) hasWaypoints() bool {
 // Empty no-op preserves TS-faithful processInteraction shape so a
 // future consumer can wire here without further reshape.
 func (p *Player) processWalktrigger() {}
+
+// tryInteract is the contact/approach-distance dispatch unifying the
+// OP and AP arms that processInteraction previously inlined.
+// Returns true when an OP or AP trigger fired this tick.
+//
+// continueWalk is reserved for TS Player.ts:1245's stepsTaken-aware
+// retry timing. Goscape's per-tick movement order makes it currently a
+// no-op (the post-step arm only runs once anyway).
+//
+// DEVIATION NAI-44-D-CONTINUEWALK-UNUSED: parameter kept for symmetry
+// with TS shape; closure is dead-API-polish at next sub-spec close per
+// dead_api_polish.md if no consumer materializes.
+func (p *Player) tryInteract(continueWalk bool) bool {
+	tx, tz, _ := p.target.Coords()
+	if inOperableDistance(p.x, p.z, tx, tz) {
+		p.interacted = true
+		if !p.interactionFired {
+			tryFireOpTrigger(p)
+		}
+		return true
+	}
+	if inApproachDistance(p.x, p.z, tx, tz, effectiveApRange(p)) {
+		p.interacted = true
+		if !p.interactionFired {
+			tryFireApTrigger(p)
+		}
+		return true
+	}
+	_ = continueWalk
+	return false
+}
 
 // inOperableDistance is Chebyshev <= 1 between (px,pz) and (tx,tz),
 // excluding the same tile. Adjacent (including diagonals) counts as
