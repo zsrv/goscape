@@ -32,6 +32,13 @@ func (p *Player) queueWaypoints(packed []int) {
 // Called from processPathing before processClientsOut so walkDir/runDir are
 // set for the outgoing info block.
 func (p *Player) resolveMovement() {
+	// NAI-44 T3: stepsTaken accumulates per-step in stepOnce (movement.go:88).
+	// Reset at start of each tick's movement cycle so processInteraction
+	// (which runs after processPathing in tick.go:38-39) reads the
+	// per-tick step count. TS Player.processInteraction reads
+	// stepsTaken === 0 to gate post-step retry timing (Player.ts:1245).
+	p.stepsTaken = 0
+
 	p.lastTickX = p.x
 	p.lastTickZ = p.z
 	p.lastLevel = p.level

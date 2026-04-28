@@ -203,6 +203,25 @@ func TestPlayerStepCrossZoneRefreshSubscription(t *testing.T) {
 	}
 }
 
+// TestResolveMovementResetsStepsTaken — NAI-44 T3.
+// stepsTaken must be reset at the start of each tick's movement cycle so
+// processInteraction (which runs after processPathing) reads the per-tick
+// step count, not a cumulative total. Goscape's stepsTaken increment at
+// movement.go:88 has no consumer pre-NAI-44; T5's processInteraction port
+// is the first reader.
+func TestResolveMovementResetsStepsTaken(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.stepsTaken = 5 // simulate cumulative count from prior tick
+
+	p.resolveMovement()
+
+	// resolveMovement returns early on waypointIndex < 0 (no path), so
+	// stepsTaken should be reset to 0 and stay there (no steps taken).
+	if p.stepsTaken != 0 {
+		t.Errorf("stepsTaken: got %d, want 0 (reset at top of resolveMovement)", p.stepsTaken)
+	}
+}
+
 func TestPlayerStepIntraZoneNoSubscriptionChange(t *testing.T) {
 	s := newTestServer(t)
 	c, _ := newTestClient(t)

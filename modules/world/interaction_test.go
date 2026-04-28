@@ -612,3 +612,54 @@ func TestSetInteractionFaceEntityIdempotent(t *testing.T) {
 		t.Errorf("faceEntity should remain %d (npc.nid) after idempotent second call, got %d", npc.nid, p.faceEntity)
 	}
 }
+
+// TestHasWaypoints — NAI-44 T3 helper. Returns true iff the player has
+// active waypoints; goscape's existing convention is waypointIndex == -1
+// for "no waypoints" (vs >= 0 for "active path").
+func TestHasWaypoints(t *testing.T) {
+	tests := []struct {
+		name          string
+		waypointIndex int
+		want          bool
+	}{
+		{"no path", -1, false},
+		{"single step path", 0, true},
+		{"multi-step path", 5, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Player{waypointIndex: tt.waypointIndex}
+			if got := p.hasWaypoints(); got != tt.want {
+				t.Errorf("hasWaypoints: got %v, want %v (waypointIndex=%d)", got, tt.want, tt.waypointIndex)
+			}
+		})
+	}
+}
+
+// TestProcessWalktriggerNoOp — NAI-44 T3 / B7. processWalktrigger is a
+// stub for TS-faithful processInteraction shape (TS Player.ts:1219-1234).
+// Goscape has no walktrigger consumer (NAI-37-D-WALKTRIGGER-NOREADER on
+// the Npc side; NAI-44-D-PLAYER-WALKTRIGGER-NOOP on the Player side).
+// The empty stub must not panic and must not mutate Player state.
+func TestProcessWalktriggerNoOp(t *testing.T) {
+	s := newTestServer(t)
+	p, wait := makeInteractionPlayer(t, s, 3200, 3200, 0)
+	defer wait()
+
+	beforeX, beforeZ, beforeLevel := p.x, p.z, p.level
+	beforeWaypointIndex := p.waypointIndex
+	beforeTarget := p.target
+
+	p.processWalktrigger()
+
+	if p.x != beforeX || p.z != beforeZ || p.level != beforeLevel {
+		t.Errorf("processWalktrigger: coords mutated: was (%d,%d,%d), got (%d,%d,%d)",
+			beforeX, beforeZ, beforeLevel, p.x, p.z, p.level)
+	}
+	if p.waypointIndex != beforeWaypointIndex {
+		t.Errorf("processWalktrigger: waypointIndex mutated: was %d, got %d", beforeWaypointIndex, p.waypointIndex)
+	}
+	if p.target != beforeTarget {
+		t.Errorf("processWalktrigger: target mutated: was %v, got %v", beforeTarget, p.target)
+	}
+}

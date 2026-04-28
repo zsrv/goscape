@@ -149,6 +149,25 @@ func (p *Player) processInteraction() {
 	}
 }
 
+// hasWaypoints reports whether the player has an active waypoint queue.
+// Goscape's convention: waypointIndex == -1 means no path; >= 0 means
+// active. Mirrors TS Player.hasWaypoints(); the predicate is consumed by
+// processInteraction's pre/post-step arms.
+func (p *Player) hasWaypoints() bool {
+	return p.waypointIndex >= 0
+}
+
+// processWalktrigger is the per-tick walktrigger consumption hook
+// invoked by processInteraction's pre-step and post-step arms.
+//
+// DEVIATION NAI-44-D-PLAYER-WALKTRIGGER-NOOP: TS Player.ts:1219-1234
+// calls processWalktrigger which dispatches the player's queued
+// walktrigger script. Goscape has no walktrigger consumer yet (sibling
+// to NAI-37-D-WALKTRIGGER-NOREADER on the Npc side at npc.go:92).
+// Empty no-op preserves TS-faithful processInteraction shape so a
+// future consumer can wire here without further reshape.
+func (p *Player) processWalktrigger() {}
+
 // inOperableDistance is Chebyshev <= 1 between (px,pz) and (tx,tz),
 // excluding the same tile. Adjacent (including diagonals) counts as
 // operable for 1x1 targets. Multi-tile + strict-adjacency come with
