@@ -152,3 +152,115 @@ func TestHandleOpPlayer_TruncatedPayload(t *testing.T) {
 		t.Errorf("target should remain nil; got %v", clicker.target)
 	}
 }
+
+// p2x2Payload encodes (a: u16, b: u16) into 4 bytes big-endian.
+// Used by OpPlayerT payload construction: slot + spellCom.
+func opPlayerTPayload(slot, spellCom int) []byte {
+	return []byte{
+		byte(slot >> 8), byte(slot),
+		byte(spellCom >> 8), byte(spellCom),
+	}
+}
+
+// TestHandleOpPlayerT_HappyPath — valid OPPLAYERT request sets target,
+// targetOp = targetOpPlayerT, targetSubject.com = spellCom, kind = Engine.
+func TestHandleOpPlayerT_HappyPath(t *testing.T) {
+	s, clicker, other, _ := makeOpPlayerFixture(t)
+	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+
+	const spellCom = 7777
+	if err := handleOpPlayerT(clicker, opPlayerTPayload(other.slot, spellCom)); err != nil {
+		t.Fatalf("handleOpPlayerT: %v", err)
+	}
+
+	if clicker.target != other {
+		t.Errorf("target: got %v, want other (%p)", clicker.target, other)
+	}
+	if clicker.targetOp != targetOpPlayerT {
+		t.Errorf("targetOp: got %d, want targetOpPlayerT (%d)", clicker.targetOp, targetOpPlayerT)
+	}
+	if clicker.targetSubject.com != spellCom {
+		t.Errorf("targetSubject.com: got %d, want %d (spellCom)", clicker.targetSubject.com, spellCom)
+	}
+	if clicker.interactionKind != InteractionEngine {
+		t.Errorf("interactionKind: got %v, want InteractionEngine", clicker.interactionKind)
+	}
+}
+
+// TestHandleOpPlayerT_DelayedSendsUnsetMapFlag — delayed clicker →
+// UnsetMapFlag, no interaction set.
+func TestHandleOpPlayerT_DelayedSendsUnsetMapFlag(t *testing.T) {
+	s, clicker, other, cc := makeOpPlayerFixture(t)
+	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+	clicker.delayed = true
+	clicker.delayedUntil = 999
+	s.currentTick = 0
+
+	received := drainConn(t, cc)
+	_ = handleOpPlayerT(clicker, opPlayerTPayload(other.slot, 7777))
+	clicker.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag for delayed player, got nothing")
+	}
+	if clicker.target != nil {
+		t.Errorf("target should remain nil; got %v", clicker.target)
+	}
+}
+
+// TestHandleOpPlayerT_TargetNotLoggedIn — LookupPlayerBySlot returns nil →
+// UnsetMapFlag, no interaction set.
+func TestHandleOpPlayerT_TargetNotLoggedIn(t *testing.T) {
+	s, clicker, _, cc := makeOpPlayerFixture(t)
+	const missingSlot = 99
+	s.players[missingSlot] = nil
+
+	received := drainConn(t, cc)
+	_ = handleOpPlayerT(clicker, opPlayerTPayload(missingSlot, 7777))
+	clicker.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag for missing target, got nothing")
+	}
+	if clicker.target != nil {
+		t.Errorf("target should remain nil; got %v", clicker.target)
+	}
+}
+
+// TestHandleOpPlayerT_TargetNotVisible — target exists but rsbuf.HasPlayer
+// is false → UnsetMapFlag, no interaction set.
+func TestHandleOpPlayerT_TargetNotVisible(t *testing.T) {
+	_, clicker, other, cc := makeOpPlayerFixture(t)
+	// Deliberately do NOT call rsbufSeesPlayer.
+
+	received := drainConn(t, cc)
+	_ = handleOpPlayerT(clicker, opPlayerTPayload(other.slot, 7777))
+	clicker.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag for non-visible target, got nothing")
+	}
+	if clicker.target != nil {
+		t.Errorf("target should remain nil; got %v", clicker.target)
+	}
+}
+
+// TestHandleOpPlayerT_TruncatedPayload — payload < 4 bytes → UnsetMapFlag.
+func TestHandleOpPlayerT_TruncatedPayload(t *testing.T) {
+	_, clicker, _, cc := makeOpPlayerFixture(t)
+
+	received := drainConn(t, cc)
+	_ = handleOpPlayerT(clicker, []byte{0x00, 0x02, 0x01})
+	clicker.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag for truncated payload, got nothing")
+	}
+	if clicker.target != nil {
+		t.Errorf("target should remain nil; got %v", clicker.target)
+	}
+}

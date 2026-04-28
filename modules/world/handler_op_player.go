@@ -67,3 +67,61 @@ func handleOpPlayer1(p *Player, payload []byte) error { return handleOpPlayer(p,
 func handleOpPlayer2(p *Player, payload []byte) error { return handleOpPlayer(p, payload, 2) }
 func handleOpPlayer3(p *Player, payload []byte) error { return handleOpPlayer(p, payload, 3) }
 func handleOpPlayer4(p *Player, payload []byte) error { return handleOpPlayer(p, payload, 4) }
+
+// handleOpPlayerT is the handler for OPPLAYERT (opcode 177, 4-byte payload).
+// Spell-on-Player: player drags a spell icon onto another player.
+// Payload = (slot:G2, spellCom:G2).
+//
+// Validation gates (mirrors goscape's handleOpNpcT, NOT the full TS chain):
+//  1. delayed player → UnsetMapFlag
+//  2. payload too short → UnsetMapFlag
+//  3. target not logged in (LookupPlayerBySlot returns nil) → UnsetMapFlag
+//  4. target not visible (rsbuf.HasPlayer == false) → UnsetMapFlag
+//
+// DEVIATION NAI-40-D-COMPONENT-REGISTRY-VALIDATION-SKIPPED: TS validates
+// spellCom references a component with ComActionTarget.PLAYER flag AND
+// is visible in the player's interface stack. Skipped here for the same
+// reason as S6o-D1 (NPC variant) — goscape has no component registry
+// yet. Effective risk: client can forge spellCom values; scripts reading
+// p.TargetSubjectCom() get raw wire values. Closure: bundle with S6o-D1
+// when the component-registry sub-spec lands.
+//
+// DEVIATION NAI-40-D-OPCALLED-MISSING: see handleOpPlayer.
+//
+// On success: ClearPendingAction → SetInteraction(Engine, other,
+// targetOpPlayerT, spellCom).
+func handleOpPlayerT(p *Player, payload []byte) error {
+	if p.client == nil || p.client.server == nil {
+		return nil
+	}
+	s := p.client.server
+
+	if p.delayed && s.currentTick < p.delayedUntil {
+		sendUnsetMapFlag(p)
+		return nil
+	}
+
+	if len(payload) < 4 {
+		sendUnsetMapFlag(p)
+		return nil
+	}
+
+	r := packet.NewPacket(payload)
+	slot := int(r.G2())
+	spellCom := int(r.G2())
+
+	other := s.LookupPlayerBySlot(slot)
+	if other == nil {
+		sendUnsetMapFlag(p)
+		return nil
+	}
+
+	if !s.rsbuf.HasPlayer(int32(p.slot), int32(other.slot)) {
+		sendUnsetMapFlag(p)
+		return nil
+	}
+
+	p.ClearPendingAction()
+	p.SetInteraction(InteractionEngine, other, targetOpPlayerT, spellCom)
+	return nil
+}
