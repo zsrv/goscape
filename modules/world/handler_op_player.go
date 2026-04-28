@@ -18,11 +18,6 @@ import (
 // happens later in the trigger-fire path (player_interaction_trigger.go,
 // landed in NAI-40 T5).
 //
-// DEVIATION NAI-40-D-OPCALLED-MISSING: TS sets player.opcalled = true
-// at handler exit; goscape uses interactionFired (set by trigger fire)
-// instead. Pre-existing S6a-era convention. Closure: NAI-40-SB1
-// (cross-cutting opcalled-flag convergence).
-//
 // NAI-40-D-OPPLAYER3-FOLLOWOP-NOT-PORTED closed by NAI-44 T5
 // (processInteraction reshape with followOp + auto-clear).
 func handleOpPlayer(p *Player, payload []byte, op int) error {
@@ -56,6 +51,7 @@ func handleOpPlayer(p *Player, payload []byte, op int) error {
 	}
 
 	p.ClearPendingAction()
+	p.opcalled = true
 	p.SetInteraction(InteractionEngine, other, op, -1)
 	return nil
 }
@@ -82,8 +78,6 @@ func handleOpPlayer4(p *Player, payload []byte) error { return handleOpPlayer(p,
 // yet. Effective risk: client can forge spellCom values; scripts reading
 // p.TargetSubjectCom() get raw wire values. Closure: bundle with S6o-D1
 // when the component-registry sub-spec lands.
-//
-// DEVIATION NAI-40-D-OPCALLED-MISSING: see handleOpPlayer.
 //
 // On success: ClearPendingAction → SetInteraction(Engine, other,
 // targetOpPlayerT, spellCom).
@@ -119,6 +113,7 @@ func handleOpPlayerT(p *Player, payload []byte) error {
 	}
 
 	p.ClearPendingAction()
+	p.opcalled = true
 	p.SetInteraction(InteractionEngine, other, targetOpPlayerT, spellCom)
 	return nil
 }
@@ -140,8 +135,6 @@ func handleOpPlayerT(p *Player, payload []byte) error {
 // useCom references a usable, visible component. Skipped — same reason
 // as S6o-D2 (NPC variant): no component registry yet. Closure: bundle
 // with S6o-D2.
-//
-// DEVIATION NAI-40-D-OPCALLED-MISSING: see handleOpPlayer.
 //
 // On success: snapshot p.lastUseItem=useObj, p.lastUseSlot=useSlot →
 // ClearPendingAction → SetInteraction(Engine, other, targetOpPlayerU, -1).
@@ -205,6 +198,7 @@ func handleOpPlayerU(p *Player, payload []byte) error {
 	p.lastUseSlot = useSlot
 
 	p.ClearPendingAction()
+	p.opcalled = true
 	p.SetInteraction(InteractionEngine, other, targetOpPlayerU, -1)
 	return nil
 }

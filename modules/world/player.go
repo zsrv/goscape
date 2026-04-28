@@ -182,6 +182,7 @@ type Player struct {
 	preventLogoutUntil                           int
 	reconnecting, lowMemory, webClient           bool
 	afkEventReady, moveClickRequest              bool
+	opcalled                                     bool
 
 	// === AFK zones (sub-spec 4a) ===
 	afkZones    [2]int32
@@ -656,6 +657,7 @@ func (p *Player) processIn(currentTick int) {
 	p.userLimit = 0
 	p.clientLimit = 0
 	p.restrictedLimit = 0
+	p.opcalled = false
 
 	c.inMu.Lock()
 	defer c.inMu.Unlock()

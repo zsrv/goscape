@@ -697,6 +697,48 @@ func TestHandleOpNpcUNpcNotVisibleRejected(t *testing.T) {
 	}
 }
 
+// TestHandleOpNpc1SetsOpcalled verifies success path sets p.opcalled=true.
+func TestHandleOpNpc1SetsOpcalled(t *testing.T) {
+	_, p, _ := makeOpNpcFixture(t)
+
+	if err := handleOpNpc1(p, p2Payload(1)); err != nil {
+		t.Fatalf("handleOpNpc1: %v", err)
+	}
+
+	if !p.opcalled {
+		t.Error("opcalled: want true after successful handleOpNpc1, got false")
+	}
+}
+
+// TestHandleOpNpcRejectedDoesNotSetOpcalled verifies rejection leaves p.opcalled=false.
+func TestHandleOpNpcRejectedDoesNotSetOpcalled(t *testing.T) {
+	s, _, _ := makeOpNpcFixture(t)
+
+	p2, _ := newTestPlayer(t)
+	p2.client.server = s
+	p2.client.encryptor = io2.New([4]uint32{99, 98, 97, 96})
+	// p2 has no rsbuf subscription → HasNpc gate rejects
+
+	_ = handleOpNpc1(p2, p2Payload(1))
+
+	if p2.opcalled {
+		t.Error("opcalled: want false after rejection, got true")
+	}
+}
+
+// TestProcessInResetsOpcalled verifies processIn sets p.opcalled to false.
+func TestProcessInResetsOpcalled(t *testing.T) {
+	s, p, _ := makeOpNpcFixture(t)
+	p.opcalled = true // pre-set to true
+
+	// Run processIn with an empty inbox — no packets, just the reset logic.
+	p.processIn(s.currentTick)
+
+	if p.opcalled {
+		t.Error("opcalled: want false after processIn, got true")
+	}
+}
+
 // TestHandleOpNpcOpIndexOutOfRange verifies NpcType with fewer Op entries emits UnsetMapFlag.
 func TestHandleOpNpcOpIndexOutOfRange(t *testing.T) {
 	s := newTestServer(t)

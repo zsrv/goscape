@@ -72,6 +72,7 @@ func handleOpNpc(p *Player, payload []byte, op int) error {
 	}
 
 	p.ClearPendingAction()
+	p.opcalled = true
 	p.SetInteraction(InteractionEngine, npc, op, -1)
 	return nil
 }
@@ -153,6 +154,7 @@ func handleOpNpcT(p *Player, payload []byte) error {
 	}
 
 	p.ClearPendingAction()
+	p.opcalled = true
 	p.SetInteraction(InteractionEngine, npc, targetOpNpcT, spellCom)
 	return nil
 }
@@ -260,6 +262,7 @@ func handleOpNpcU(p *Player, payload []byte) error {
 	p.lastUseSlot = useSlot
 
 	p.ClearPendingAction()
+	p.opcalled = true
 	p.SetInteraction(InteractionEngine, npc, targetOpNpcU, -1)
 	return nil
 }

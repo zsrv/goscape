@@ -85,6 +85,7 @@ func handleOpLoc(p *Player, payload []byte, op int) error {
 	}
 
 	p.ClearPendingAction()
+	p.opcalled = true
 	p.SetInteraction(InteractionEngine, loc, op, -1)
 	p.targetSubject.typ = loc.Type()
 	p.targetSubject.x = loc.X
@@ -167,6 +168,7 @@ func handleOpLocT(p *Player, payload []byte) error {
 	}
 
 	p.ClearPendingAction()
+	p.opcalled = true
 	p.SetInteraction(InteractionEngine, loc, targetOpLocT, spellCom)
 	p.targetSubject.typ = loc.Type()
 	p.targetSubject.x = loc.X
@@ -284,6 +286,7 @@ func handleOpLocU(p *Player, payload []byte) error {
 	p.lastUseSlot = useSlot
 
 	p.ClearPendingAction()
+	p.opcalled = true
 	p.SetInteraction(InteractionEngine, loc, targetOpLocU, -1)
 	p.targetSubject.typ = loc.Type()
 	p.targetSubject.x = loc.X

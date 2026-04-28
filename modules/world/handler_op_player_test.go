@@ -476,6 +476,20 @@ func TestHandleOpPlayerU_ItemNotInSlot(t *testing.T) {
 	}
 }
 
+// TestHandleOpPlayer1SetsOpcalled verifies success path sets p.opcalled=true.
+func TestHandleOpPlayer1SetsOpcalled(t *testing.T) {
+	s, clicker, other, _ := makeOpPlayerFixture(t)
+	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+
+	if err := handleOpPlayer1(clicker, p2Payload(other.slot)); err != nil {
+		t.Fatalf("handleOpPlayer1: %v", err)
+	}
+
+	if !clicker.opcalled {
+		t.Error("opcalled: want true after successful handleOpPlayer1, got false")
+	}
+}
+
 // TestHandleOpPlayerU_MembersOnNonMembersServer — useObj is members-only
 // and NodeMembers is false → MessageGame + UnsetMapFlag, no interaction.
 // Mirrors TestHandleOpNpcUMembersOnFreeWorldRejected fixture.

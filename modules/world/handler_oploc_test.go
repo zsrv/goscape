@@ -740,6 +740,19 @@ func TestHandleOpLocUMembersOnFreeWorldRejected(t *testing.T) {
 	}
 }
 
+// TestHandleOpLoc1SetsOpcalled verifies success path sets p.opcalled=true.
+func TestHandleOpLoc1SetsOpcalled(t *testing.T) {
+	_, p, _, _ := makeOpLocFixture(t)
+
+	if err := handleOpLoc1(p, p2x3Payload(100, 100, 42)); err != nil {
+		t.Fatalf("handleOpLoc1: %v", err)
+	}
+
+	if !p.opcalled {
+		t.Error("opcalled: want true after successful handleOpLoc1, got false")
+	}
+}
+
 // TestHandleOpLocUMembersOnMembersWorldAllowed — gate only fires on free.
 func TestHandleOpLocUMembersOnMembersWorldAllowed(t *testing.T) {
 	s, p, loc, _ := makeOpLocFixture(t)
