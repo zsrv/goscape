@@ -23,6 +23,7 @@ func (f *fakeDbConfigs) EnumType(id int) *objtype.EnumType     { return nil }
 func (f *fakeDbConfigs) StructType(id int) *objtype.StructType { return nil }
 func (f *fakeDbConfigs) ParamType(id int) *objtype.ParamType   { return nil }
 func (f *fakeDbConfigs) InvType(id int) *objtype.InvType       { return nil }
+func (f *fakeDbConfigs) IdkType(id int) *objtype.IdkType       { return nil }
 func (f *fakeDbConfigs) DbTableType(id int) *objtype.DbTableType {
 	return f.tables[id]
 }
