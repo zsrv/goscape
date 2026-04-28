@@ -58,8 +58,8 @@ func init() {
 	gameHandlers[231] = handleCloseModal   // CLOSE_MODAL
 	gameHandlers[175] = handleTutClickSide // TUT_CLICKSIDE
 
-	gameHandlers[155] = handleIfButton      // IF_BUTTON
-	gameHandlers[52] = handleIdkSaveDesign  // IDK_SAVEDESIGN
+	gameHandlers[155] = handleIfButton          // IF_BUTTON
+	gameHandlers[52] = handleIdkSaveDesignGame // IDK_SAVEDESIGN
 }
 
 // handleResumePauseButton is the package-level adapter that wires the
@@ -104,6 +104,13 @@ func handleIfButton(p *Player, payload []byte) error {
 		return nil
 	}
 	return p.client.server.handleIfButton(p, payload)
+}
+
+func handleIdkSaveDesignGame(p *Player, payload []byte) error {
+	if p.client == nil || p.client.server == nil {
+		return nil
+	}
+	return p.client.server.handleIdkSaveDesign(p, payload)
 }
 
 func handleNoTimeout(_ *Player, _ []byte) error {

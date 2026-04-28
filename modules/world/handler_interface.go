@@ -46,13 +46,11 @@ func (s *Server) handleIfButton(p *Player, payload []byte) error {
 // handleIdkSaveDesign handles client opcode 52 (IDK_SAVEDESIGN).
 // Body: u8 gender | u8[7] idkit (255 → -1) | u8[5] color.
 //
-// Validates allowDesign, gender ≤ 1, and color ranges. On pass: updates
-// p.gender/body/colors and calls SetAppearanceInv to flag MaskAppearance
-// (mirrors TS buildAppearance(player.appearanceInv) at IdkSaveDesignHandler.ts:37).
-//
-// DEVIATION NAI-45-D3: IdkType.get(idkit[i]) disable+type checks skipped —
-// no IdkType config registry. Closure: IdkType-config sub-spec.
-func handleIdkSaveDesign(p *Player, payload []byte) error {
+// Validates allowDesign, gender ≤ 1, idk disable+type (via IdkType registry),
+// and color ranges. On pass: updates p.gender/body/colors and calls
+// SetAppearanceInv to flag MaskAppearance.
+// Mirrors TS IdkSaveDesignHandler.ts:7-38.
+func (s *Server) handleIdkSaveDesign(p *Player, payload []byte) error {
 	if len(payload) < 13 {
 		return nil
 	}
@@ -72,6 +70,24 @@ func handleIdkSaveDesign(p *Player, payload []byte) error {
 			v = -1
 		}
 		idkit[i] = v
+	}
+
+	// IdkType validation — mirrors TS IdkSaveDesignHandler.ts:18-33.
+	// TS order: idk loop before color loop.
+	if s.idkTypes != nil {
+		for i := range 7 {
+			typ := i + gender*7
+			if typ == 8 && idkit[i] == -1 { // female jaw exception (TS L21-23)
+				continue
+			}
+			if idkit[i] < 0 || idkit[i] >= len(s.idkTypes.Configs) {
+				return nil
+			}
+			idk := s.idkTypes.Configs[idkit[i]]
+			if idk.Disable || idk.Type != typ {
+				return nil
+			}
+		}
 	}
 
 	var color [5]int
