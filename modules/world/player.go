@@ -191,7 +191,7 @@ type Player struct {
 	modalMain, modalChat, modalSide             int
 	lastModalMain, lastModalChat, lastModalSide int
 	modalState                                  int
-	refreshModal, refreshModalClose             bool
+	refreshModal, refreshModalClose, requestModalClose bool
 
 	// === resume buttons (sub-spec 5f) ===
 	// Stored by IF_SETRESUMEBUTTONS; consumed by P_PAUSEBUTTON (future sub-spec).

@@ -231,6 +231,19 @@ func (s *Server) processActiveScripts() {
 // Removal happens BEFORE firing so a re-entrant EnqueueScript doesn't
 // collide with the index pointer.
 func (s *Server) processPlayerQueue(p *Player) {
+	// TS Player.processQueues (Player.ts:854-865): any STRONG-queue item
+	// closes the modal before queues run; then consume the deferred flag
+	// (also set by handleCloseModal for the CLOSE_MODAL client packet).
+	for _, req := range p.queue {
+		if req.Type == script.QueueStrong {
+			p.requestModalClose = true
+			break
+		}
+	}
+	if p.requestModalClose {
+		p.requestModalClose = false
+		p.CloseModal()
+	}
 	i := 0
 	for i < len(p.queue) {
 		req := &p.queue[i]

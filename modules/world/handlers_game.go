@@ -54,6 +54,9 @@ func init() {
 
 	gameHandlers[235] = handleResumePauseButton // RESUME_PAUSEBUTTON
 	gameHandlers[237] = handleResumeCountDialog // RESUME_P_COUNTDIALOG
+
+	gameHandlers[231] = handleCloseModal   // CLOSE_MODAL
+	gameHandlers[175] = handleTutClickSide // TUT_CLICKSIDE
 }
 
 // handleResumePauseButton is the package-level adapter that wires the
@@ -72,6 +75,22 @@ func handleResumeCountDialog(p *Player, payload []byte) error {
 		return nil
 	}
 	return p.client.server.handleResumeCountDialog(p, packet.NewPacket(payload))
+}
+
+// handleCloseModal handles client opcode 231 (CLOSE_MODAL). Zero-byte
+// payload. Sets requestModalClose so processPlayerQueue closes the modal
+// before queue scripts run this tick.
+// Mirrors TS CloseModalHandler.ts — the modal is NOT closed directly here.
+func handleCloseModal(p *Player, _ []byte) error {
+	p.requestModalClose = true
+	return nil
+}
+
+func handleTutClickSide(p *Player, payload []byte) error {
+	if p.client == nil || p.client.server == nil {
+		return nil
+	}
+	return p.client.server.handleTutClickSide(p, payload)
 }
 
 func handleNoTimeout(_ *Player, _ []byte) error {
