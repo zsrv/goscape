@@ -23,11 +23,8 @@ import (
 // instead. Pre-existing S6a-era convention. Closure: NAI-40-SB1
 // (cross-cutting opcalled-flag convergence).
 //
-// DEVIATION NAI-40-D-OPPLAYER3-FOLLOWOP-NOT-PORTED: TS Player.ts:1115
-// special-cases targetOp == APPLAYER3 || OPPLAYER3 to keep the
-// interaction anchored while chasing the target. Goscape fires-and-
-// forgets. Tag-only; closure when player-script-lifecycle alignment
-// sub-spec ports follow-op semantics.
+// NAI-40-D-OPPLAYER3-FOLLOWOP-NOT-PORTED closed by NAI-44 T5
+// (processInteraction reshape with followOp + auto-clear).
 func handleOpPlayer(p *Player, payload []byte, op int) error {
 	if p.client == nil || p.client.server == nil {
 		return nil

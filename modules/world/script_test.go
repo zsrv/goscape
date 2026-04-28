@@ -1086,9 +1086,10 @@ func TestOpNpc1FiresScriptAndEmitsSay(t *testing.T) {
 	if p.target != nil {
 		t.Error("target: expected cleared after script Finished")
 	}
-	if !p.interactionFired {
-		t.Error("interactionFired: expected true after dispatch")
-	}
+	// NAI-44 T6 cascade: interactionFired is cleared by the post-fire auto-clear
+	// (TS L1261-1263: interacted && !apRangeCalled → ClearInteraction). Dispatch
+	// is proven by sayText + NpcMaskSay above; the interactionFired flag check
+	// is dropped as it's a transient in-tick signal cleared by auto-clear.
 }
 
 func TestOpNpc1FiresScriptAndEmitsAnimPlusSay(t *testing.T) {
@@ -1152,19 +1153,26 @@ func TestOpNpc1FiresScriptAndEmitsAnimPlusSay(t *testing.T) {
 	if p.target != nil {
 		t.Error("target: expected cleared after script Finished")
 	}
-	if !p.interactionFired {
-		t.Error("interactionFired: expected true after dispatch")
-	}
+	// NAI-44 T6 cascade: interactionFired is cleared by the post-fire auto-clear
+	// (TS L1261-1263: interacted && !apRangeCalled → ClearInteraction). Dispatch
+	// is proven by animID/animDelay/sayText + NpcMaskAnim/NpcMaskSay above.
 }
 
 // --- NAI-37 Task 10: player-path WorldSuspended producer test --------------
 
-// TestResumeOrFinish_WorldSuspended_EnqueuesAndClearsActiveScript pins
+// TestResumeOrFinish_WorldSuspended_EnqueuesAndPreservesActiveScript pins
 // the player-path producer: a player-bound script whose Execute
 // returned Execution=WorldSuspended (with the wakeup-tick on the int
 // stack) is dispatched by resumeOrFinish to (a) pop the wakeup-tick,
-// (b) enqueue to s.worldScriptQueue with that delay, and (c) clear
-// the player's active script. Mirrors TS Player.ts:2135-2136.
+// (b) enqueue to s.worldScriptQueue with that delay, and (c) PRESERVE
+// the player's active script pointer. Mirrors TS Player.ts:2143-2150
+// (only Finished/Aborted nulls activeScript; WorldSuspended does not).
+//
+// NAI-44 T1 closed NAI-37-D-WORLDSUSPEND-CLEARS-ACTIVE-SCRIPT: the
+// previous defensive ClearActiveScript() call has been deleted; the
+// pointer is retained and the resume loop is guarded by
+// Execution==Suspended only (tick.go:213-214), so holding the pointer
+// across the WorldSuspended transition is safe.
 //
 // The test constructs the post-Execute ScriptState directly (skipping
 // script.Execute) so it isolates the resumeOrFinish branch under test:
@@ -1178,7 +1186,7 @@ func TestOpNpc1FiresScriptAndEmitsAnimPlusSay(t *testing.T) {
 // bytecode sets WorldSuspended via the WORLD_DELAY opcode, then drive
 // resumeOrFinish through it end-to-end. This matches how the real
 // dispatch path works in production.
-func TestResumeOrFinish_WorldSuspended_EnqueuesAndClearsActiveScript(t *testing.T) {
+func TestResumeOrFinish_WorldSuspended_EnqueuesAndPreservesActiveScript(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
 	p, _ := newTestPlayer(t)
@@ -1229,8 +1237,12 @@ func TestResumeOrFinish_WorldSuspended_EnqueuesAndClearsActiveScript(t *testing.
 	if got := s.worldScriptQueue[0].script; got != state {
 		t.Errorf("enqueued script identity: got %p, want %p", got, state)
 	}
-	if got := p.activeScript; got != nil {
-		t.Errorf("player.activeScript: got %v, want nil (script transitioned to world-bound)", got)
+	// NAI-44 T1 cascade: post-T1 the WorldSuspended arm no longer calls
+	// ClearActiveScript(). TS Player.ts:2143-2150 only nulls activeScript on
+	// FINISHED/ABORTED; holding the pointer is safe (processActiveScripts
+	// gates resume on Execution==Suspended only; tick.go:213-214).
+	if got := p.activeScript; got != state {
+		t.Errorf("player.activeScript: got %p, want %p (WorldSuspended must NOT clear)", got, state)
 	}
 }
 

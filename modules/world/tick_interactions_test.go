@@ -61,11 +61,14 @@ func TestProcessInteractionsRunsPerPlayer(t *testing.T) {
 	<-drain1
 	<-drain2
 
-	if !p1.interacted {
-		t.Error("p1.interacted should be true after processInteractions (adjacent to npc1)")
+	// NAI-44 T6 cascade: interacted is cleared by the post-fire auto-clear
+	// (TS L1261-1263: interacted && !apRangeCalled → ClearInteraction).
+	// target==nil proves each player's interaction fired and auto-cleared.
+	if p1.target != nil {
+		t.Errorf("p1.target: got %v, want nil (auto-clear after contact-fire with npc1)", p1.target)
 	}
-	if !p2.interacted {
-		t.Error("p2.interacted should be true after processInteractions (adjacent to npc2)")
+	if p2.target != nil {
+		t.Errorf("p2.target: got %v, want nil (auto-clear after contact-fire with npc2)", p2.target)
 	}
 	if p1.faceEntity != npc1.nid {
 		t.Errorf("p1.faceEntity: got %d, want %d", p1.faceEntity, npc1.nid)

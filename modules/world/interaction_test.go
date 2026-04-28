@@ -120,10 +120,14 @@ func TestProcessInteractionNoTargetNoop(t *testing.T) {
 	}
 }
 
-// TestProcessInteractionInRangeFacesTarget verifies adjacent target triggers
-// interacted=true and fires the OP trigger. NAI-41: faceEntity write
+// TestProcessInteractionInRangeFacesTarget verifies adjacent target fires the
+// OP trigger and auto-clears the interaction. NAI-41: faceEntity write
 // timing moved to SetInteraction-time; this test no longer pins faceEntity
 // (covered by TestSetInteractionNpcTargetSetsFaceEntity).
+//
+// NAI-44 T6 cascade: pre-T5 asserted interacted==true; post-T5 auto-clear
+// (TS L1261-1263) fires when interacted && !apRangeCalled, setting target=nil
+// and clearing interacted. The observable proof of contact-fire is target==nil.
 func TestProcessInteractionInRangeFacesTarget(t *testing.T) {
 	s := newTestServer(t)
 	npc := makeInteractionNpc(t, s, 1, 101, 100, 0)
@@ -140,8 +144,10 @@ func TestProcessInteractionInRangeFacesTarget(t *testing.T) {
 	p.client.flushWrite()
 	<-received
 
-	if !p.interacted {
-		t.Error("interacted should be true when adjacent to target")
+	// NAI-44: auto-clear fires after contact (interacted && !apRangeCalled);
+	// target==nil is the observable proof that the OP arm was reached and fired.
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil (auto-clear at TS L1261-1263 after contact-fire)", p.target)
 	}
 }
 
@@ -392,11 +398,12 @@ func TestProcessInteractionRoutesToApBranch(t *testing.T) {
 
 	p.processInteraction()
 
-	if !p.interactionFired {
-		t.Error("interactionFired after AP-branch: got false, want true")
-	}
-	if !p.interacted {
-		t.Error("interacted after AP-branch: got false, want true")
+	// NAI-44 T6 cascade: pre-T5 asserted interactionFired+interacted==true.
+	// Post-T5 auto-clear (TS L1261-1263) fires when interacted && !apRangeCalled
+	// (the no-script AP path does not set apRangeCalled), clearing both flags.
+	// Observable proof of AP-branch routing: target==nil (auto-clear ran).
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil (auto-clear at TS L1261-1263 after AP-branch fire)", p.target)
 	}
 }
 

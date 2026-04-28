@@ -238,6 +238,11 @@ func TestTryFireOpTrigger_GlobalFallback(t *testing.T) {
 // processInteraction fires AP/OP triggers for script-kind interactions
 // just like engine-kind. S6v closed the placeholder-skip behavior that
 // was previously codified as "reserved for RuneScript integration."
+//
+// NAI-44 T6 cascade: pre-T5 asserted interactionFired==true; post-T5
+// auto-clear (TS L1261-1263) fires after contact-fire (interacted &&
+// !apRangeCalled), clearing interactionFired. Observable proof of dispatch:
+// npc.sayText set by the registered script + target==nil (auto-cleared).
 func TestProcessInteractionInteractionScriptKindFiresDispatch(t *testing.T) {
 	_, p, npc := newTriggerFixture(t)
 	// Move the npc one tile east so inOperableDistance(player, npc) returns
@@ -251,8 +256,9 @@ func TestProcessInteractionInteractionScriptKindFiresDispatch(t *testing.T) {
 	if string(npc.sayText) == "" {
 		t.Error("sayText: expected script-kind dispatch to fire the trigger, got empty")
 	}
-	if !p.interactionFired {
-		t.Error("interactionFired: expected true (dispatch consumed for script-kind)")
+	// NAI-44: auto-clear fires after contact; target==nil proves dispatch + clear.
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil (auto-clear at TS L1261-1263 after contact-fire)", p.target)
 	}
 }
 

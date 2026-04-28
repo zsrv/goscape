@@ -862,13 +862,17 @@ func TestNpcSetWalkTriggerFieldWrites(t *testing.T) {
 
 // --- NAI-37 Task 11: npc-path WorldSuspended producer test ----------------
 
-// TestResumeOrFinishNpc_WorldSuspended_EnqueuesAndClears pins the
-// npc-path producer: an npc-bound script whose Execute returned
+// TestResumeOrFinishNpc_WorldSuspended_EnqueuesAndPreservesActiveScript pins
+// the npc-path producer: an npc-bound script whose Execute returned
 // Execution=WorldSuspended (with the wakeup-tick on the int stack)
 // is dispatched by resumeOrFinishNpc to (a) pop the wakeup-tick,
-// (b) enqueue to s.worldScriptQueue with that delay, and (c) clear
-// the npc's active script. Mirrors TS Npc.ts:219-220.
-func TestResumeOrFinishNpc_WorldSuspended_EnqueuesAndClears(t *testing.T) {
+// (b) enqueue to s.worldScriptQueue with that delay, and (c) PRESERVE
+// the npc's active script pointer. Mirrors TS Npc.ts:226-228
+// (only Finished/Aborted nulls activeScript; WorldSuspended does not).
+//
+// NAI-44 T1 closed NAI-37-D-WORLDSUSPEND-CLEARS-ACTIVE-SCRIPT: the
+// previous defensive ClearActiveScript() call has been deleted.
+func TestResumeOrFinishNpc_WorldSuspended_EnqueuesAndPreservesActiveScript(t *testing.T) {
 	s, n := buildNpcForIntegration(t)
 
 	state := &script.ScriptState{
@@ -893,8 +897,12 @@ func TestResumeOrFinishNpc_WorldSuspended_EnqueuesAndClears(t *testing.T) {
 	if got := s.worldScriptQueue[0].script; got != state {
 		t.Errorf("enqueued script identity: got %p, want %p", got, state)
 	}
-	if got := n.activeScript; got != nil {
-		t.Errorf("npc.activeScript: got %v, want nil (script transitioned to world-bound)", got)
+	// NAI-44 T1 cascade: post-T1 the WorldSuspended arm no longer calls
+	// ClearActiveScript(). TS Npc.ts:226-228 only nulls activeScript on
+	// FINISHED/ABORTED; holding the pointer is safe (processActiveScripts
+	// gates resume on Execution==Suspended only; tick.go:213-214).
+	if got := n.activeScript; got != state {
+		t.Errorf("npc.activeScript: got %p, want %p (WorldSuspended must NOT clear)", got, state)
 	}
 }
 
