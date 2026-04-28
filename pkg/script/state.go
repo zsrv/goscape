@@ -187,13 +187,10 @@ type ScriptState struct {
 	Self     ActivePlayer
 	Target   ActivePlayer
 	// Self2 is the secondary active-player slot consumed by HINT_PL and
-	// (future) BOTH_HEROPOINTS / OPPLAYER triggers. Mirrors TS
-	// _activePlayer2 (ScriptState.ts:223-241). Producer wiring lives in
-	// buildPlayerScriptState's target type-switch (when self is also Player).
-	//
-	// DEVIATION NAI-39-D-ACTIVEPLAYER2-NO-OPPLAYER-PRODUCER: no production
-	// trigger seeds Self2 yet; the rails are exercised only by tests.
-	// Closure when OPPLAYER triggers are ported.
+	// the player→player OPPLAYER<N>/APPLAYER<N> trigger family.
+	// Mirrors TS ScriptState._activePlayer2 (ScriptState.ts:80).
+	// Production producer: fireOpTriggerPlayer / fireApTriggerPlayer
+	// (modules/world/player_interaction_trigger.go) wired by NAI-40.
 	Self2 ActivePlayer
 
 	// ActiveNpc is the NPC that NPC_* and VARN ops target. Nil if no

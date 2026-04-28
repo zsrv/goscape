@@ -27,10 +27,11 @@ func (s *Server) scriptLineValidator() script.LineValidator {
 // mirroring buildNpcScriptState's NAI-11 shape (npc_script.go:225-261)
 // and the TS ScriptRunner.init target-dispatch at ScriptRunner.ts:84-116.
 //
-// DEVIATION NAI-39-D-ACTIVEPLAYER2-NO-OPPLAYER-PRODUCER: the
-// case script.ActivePlayer branch lays the rails for OPPLAYER triggers
-// (Player→Player invocations). No production trigger seeds Self2 yet;
-// closure when OPPLAYER triggers are ported.
+// case script.ActivePlayer is the secondary-binding arm consumed by
+// the OPPLAYER<N>/APPLAYER<N> player→player trigger family
+// (player_interaction_trigger.go). Sets state.Self2 + PtrActivePlayer2
+// when target is a *Player (NAI-40 closure of the activePlayer2
+// substrate that NAI-39 introduced).
 func (s *Server) buildPlayerScriptState(
 	sf *script.ScriptFile,
 	self script.ActivePlayer,

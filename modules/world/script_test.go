@@ -1,6 +1,7 @@
 package world
 
 import (
+	"bytes"
 	"slices"
 	"testing"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/zsrv/goscape/pkg/inventory"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/io/packet"
+	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
@@ -1385,5 +1387,78 @@ func TestBuildPlayerScriptState_ObjTarget(t *testing.T) {
 	}
 	if state.Pointers&script.PtrActiveObj == 0 {
 		t.Error("Pointers: PtrActiveObj flag unset, want set")
+	}
+}
+
+// TestOpPlayer1_E2E_HintPlOnTarget — full path: simulate an OPPLAYER1
+// client packet → handleOpPlayer1 sets interaction → tryFireOpTrigger
+// fires fireOpTriggerPlayer → runScript routes through
+// buildPlayerScriptState's case-ActivePlayer arm → script runs with
+// Self=target, Self2=clicker → HINT_PL emits to target's outbound.
+//
+// Closes NAI-39-D-ACTIVEPLAYER2-NO-OPPLAYER-PRODUCER by adding
+// handler-entry coverage on top of T5's
+// TestFireOpTriggerPlayer_BindsSelf2ToClicker (which goes directly
+// through tryFireOpTrigger without exercising the OPPLAYER1 wire-bytes
+// handler).
+//
+// Approach: Option A — drive handleOpPlayer1 with an OPPLAYER1 payload,
+// then mark clicker.interacted = true (the gate processInteraction
+// would set on adjacency) and call tryFireOpTrigger directly. This keeps
+// the test free of the movement/path-finding machinery while still
+// exercising the full handler→trigger→script→wire pipeline.
+func TestOpPlayer1_E2E_HintPlOnTarget(t *testing.T) {
+	s, clicker, target, _ := makeOpPlayerFixture(t)
+	rsbufSeesPlayer(t, s, clicker.slot, target.slot)
+
+	// Give target a real connection + ISAAC encryptor so HINT_ARROW
+	// bytes are observable on the wire. makeOpPlayerFixture leaves
+	// target with a stub connection; rewire here.
+	freshTarget, targetConn := newTestPlayer(t)
+	freshTarget.client.server = s
+	freshTarget.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	freshTarget.slot = target.slot
+	s.players[target.slot] = freshTarget
+	target = freshTarget
+
+	// Compute expected first wire byte using a parallel encryptor seeded
+	// identically to target.client.encryptor.
+	wantEnc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1))
+
+	// Drive the OPPLAYER1 wire packet through the handler.
+	if err := handleOpPlayer1(clicker, p2Payload(target.slot)); err != nil {
+		t.Fatalf("handleOpPlayer1: %v", err)
+	}
+	if clicker.target != target {
+		t.Fatalf("post-handler: clicker.target = %v, want %p (target)", clicker.target, target)
+	}
+	if clicker.targetOp != 1 {
+		t.Fatalf("post-handler: clicker.targetOp = %d, want 1", clicker.targetOp)
+	}
+
+	// Simulate processInteraction's adjacency gate (the bit
+	// tryFireOpTrigger reads).
+	clicker.interacted = true
+
+	received := drainConn(t, targetConn)
+	tryFireOpTrigger(clicker)
+	target.client.flushWrite()
+	got := <-received
+
+	want := []byte{
+		byte((int(gameserver.OpHintArrow.Opcode) + int(wantEnc.GetNext())) & 0xff),
+		0x0A, // p1: type = 10 (player hint)
+		byte(clicker.slot >> 8), byte(clicker.slot), // p2: slot
+		0x00, 0x00, // p2: 0
+		0x00, // p1: 0
+	}
+	if !bytes.Equal(got, want) {
+		t.Errorf("HINT_ARROW wire bytes: got %#x, want %#x", got, want)
+	}
+	if !clicker.interactionFired {
+		t.Error("interactionFired: got false, want true after fire")
 	}
 }
