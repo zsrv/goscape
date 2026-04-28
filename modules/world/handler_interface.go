@@ -15,7 +15,7 @@ func (s *Server) handleTutClickSide(p *Player, payload []byte) error {
 		return nil
 	}
 	tab := int(payload[0])
-	if tab < 0 || tab > 13 {
+	if tab < 0 || tab > 13 { // tab < 0 unreachable (byte→int ≥ 0); preserved from TS source
 		return nil
 	}
 	sf := s.scriptProvider.GetByTriggerSpecific(script.TriggerTutorial, -1, -1)
