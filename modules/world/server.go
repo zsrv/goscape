@@ -724,6 +724,17 @@ func (s *Server) LookupPlayerByUID(uid int) script.ActivePlayer {
 	return nil
 }
 
+// LookupPlayerBySlot returns the logged-in player at the given slot
+// index, or nil if slot is out of range or unoccupied. Mirrors TS
+// World.getPlayer(slot). Used by OpPlayer handlers to resolve a
+// message's PlayerSlot to a target Player.
+func (s *Server) LookupPlayerBySlot(slot int) *Player {
+	if slot < 0 || slot >= len(s.players) {
+		return nil
+	}
+	return s.players[slot]
+}
+
 // ZonePlayers returns all valid players in the zone at (level, zoneX, zoneZ).
 // Mirrors the NpcLookup.ZoneNpcs shape and serverNpcLookup.ZoneNpcs impl
 // at modules/world/npc_script_lookup.go:115. Zone resolution via

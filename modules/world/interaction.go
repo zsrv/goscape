@@ -27,10 +27,12 @@ const (
 // (8, 9) chosen for clarity — reusing 6, 7 is safe via type-switch
 // but less self-documenting.
 const (
-	targetOpLocT = 6 // APLOCT / OPLOCT dispatch marker
-	targetOpLocU = 7 // APLOCU / OPLOCU dispatch marker
-	targetOpNpcT = 8 // APNPCT / OPNPCT dispatch marker (S6o)
-	targetOpNpcU = 9 // APNPCU / OPNPCU dispatch marker (S6o)
+	targetOpLocT    = 6  // APLOCT / OPLOCT dispatch marker
+	targetOpLocU    = 7  // APLOCU / OPLOCU dispatch marker
+	targetOpNpcT    = 8  // APNPCT / OPNPCT dispatch marker (S6o)
+	targetOpNpcU    = 9  // APNPCU / OPNPCU dispatch marker (S6o)
+	targetOpPlayerT = 10 // APPLAYERT / OPPLAYERT dispatch marker (NAI-40)
+	targetOpPlayerU = 11 // APPLAYERU / OPPLAYERU dispatch marker (NAI-40)
 )
 
 // sendUnsetMapFlag clears the client's pending map-click indicator.

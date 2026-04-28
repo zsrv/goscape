@@ -740,3 +740,41 @@ func TestRemovePlayerDoubleCallIsNoop(t *testing.T) {
 		t.Errorf("PlayersCount after double removePlayer: got %d, want 0", z.PlayersCount())
 	}
 }
+
+// TestLookupPlayerBySlot_Found returns the player at the slot.
+func TestLookupPlayerBySlot_Found(t *testing.T) {
+	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	slot := 5
+	s.players[slot] = p
+	t.Cleanup(func() { s.players[slot] = nil })
+
+	got := s.LookupPlayerBySlot(slot)
+	if got != p {
+		t.Errorf("LookupPlayerBySlot(%d): got %v, want %p", slot, got, p)
+	}
+}
+
+// TestLookupPlayerBySlot_OutOfRange returns nil for indices outside
+// [0, len(s.players)).
+func TestLookupPlayerBySlot_OutOfRange(t *testing.T) {
+	s := newTestServer(t)
+	if got := s.LookupPlayerBySlot(-1); got != nil {
+		t.Errorf("LookupPlayerBySlot(-1): got %v, want nil", got)
+	}
+	if got := s.LookupPlayerBySlot(len(s.players)); got != nil {
+		t.Errorf("LookupPlayerBySlot(len): got %v, want nil", got)
+	}
+	if got := s.LookupPlayerBySlot(len(s.players) + 100); got != nil {
+		t.Errorf("LookupPlayerBySlot(len+100): got %v, want nil", got)
+	}
+}
+
+// TestLookupPlayerBySlot_EmptySlotReturnsNil — slot is in range but no
+// player logged in there.
+func TestLookupPlayerBySlot_EmptySlotReturnsNil(t *testing.T) {
+	s := newTestServer(t)
+	if got := s.LookupPlayerBySlot(7); got != nil {
+		t.Errorf("LookupPlayerBySlot(empty): got %v, want nil", got)
+	}
+}
