@@ -166,21 +166,20 @@ func handleSetIdKit(s *ScriptState) error {
 	}
 	color := s.PopInt()
 	idkit := s.PopInt()
-	if s.Configs == nil || s.Configs.IdkType(idkit) == nil {
+	if s.Configs == nil {
 		return fmt.Errorf("SETIDKIT: invalid idkit %d", idkit)
 	}
 	idk := s.Configs.IdkType(idkit)
+	if idk == nil {
+		return fmt.Errorf("SETIDKIT: invalid idkit %d", idkit)
+	}
 	gender := s.Self.Gender()
 	slot := idk.Type
 	if gender == 1 {
 		slot -= 7
 	}
 	s.Self.SetBodyPart(slot, idkit)
-	adjustedType := idk.Type
-	if gender == 1 {
-		adjustedType -= 7
-	}
-	if cs := idkColorSlot(adjustedType); cs >= 0 {
+	if cs := idkColorSlot(slot); cs >= 0 {
 		s.Self.SetColorPart(cs, color)
 	}
 	return nil
