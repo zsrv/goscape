@@ -16,6 +16,7 @@ type mockConfigs struct {
 	structs map[int]*objtype.StructType
 	params  map[int]*objtype.ParamType
 	invs    map[int]*objtype.InvType
+	idks    map[int]*objtype.IdkType
 }
 
 func (m *mockConfigs) ObjType(id int) *objtype.ObjType       { return m.objs[id] }
@@ -25,6 +26,7 @@ func (m *mockConfigs) EnumType(id int) *objtype.EnumType     { return m.enums[id
 func (m *mockConfigs) StructType(id int) *objtype.StructType { return m.structs[id] }
 func (m *mockConfigs) ParamType(id int) *objtype.ParamType   { return m.params[id] }
 func (m *mockConfigs) InvType(id int) *objtype.InvType       { return m.invs[id] }
+func (m *mockConfigs) IdkType(id int) *objtype.IdkType       { return m.idks[id] }
 func (m *mockConfigs) DbTableType(id int) *objtype.DbTableType { return nil }
 func (m *mockConfigs) DbRowType(id int) *objtype.DbRowType     { return nil }
 func (m *mockConfigs) DbRowsInTable(tableID int) []int         { return nil }

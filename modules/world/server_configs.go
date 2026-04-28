@@ -78,6 +78,16 @@ func (c serverConfigsView) InvType(id int) *objtype.InvType {
 	return c.s.invTypes.Configs[id]
 }
 
+func (c serverConfigsView) IdkType(id int) *objtype.IdkType {
+	if c.s == nil || c.s.idkTypes == nil {
+		return nil
+	}
+	if id < 0 || id >= len(c.s.idkTypes.Configs) {
+		return nil
+	}
+	return c.s.idkTypes.Configs[id]
+}
+
 func (c serverConfigsView) DbTableType(id int) *objtype.DbTableType {
 	if c.s == nil || c.s.dbTableTypes == nil {
 		return nil
