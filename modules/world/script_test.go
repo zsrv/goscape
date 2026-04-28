@@ -1506,3 +1506,51 @@ func TestResumeOrFinishWorldSuspendedDoesNotClearActiveScript(t *testing.T) {
 		t.Errorf("worldScriptQueue length: got %d, want 1 (state should have been enqueued)", len(s.worldScriptQueue))
 	}
 }
+
+// TestSuspendedThenWorldSuspendedNoDoubleFire — NAI-44 T2 R5 regression.
+// Pre-NAI-44, the defensive ClearActiveScript at the WorldSuspended arm
+// guarded against double-fire if the same state pointer was held by both
+// the player slot and the world queue. NAI-44 T1 deletes that clear,
+// leaving the player slot pointing at a WorldSuspended state.
+//
+// Verify the gating logic in processActiveScripts still prevents double-fire:
+// a state with Execution == WorldSuspended in the player's activeScript slot
+// is NOT re-fired by processActiveScripts, which gates on Execution ==
+// Suspended only (tick.go:213-214). A re-fire would reset Execution to
+// Running and change it; we pin that Execution stays WorldSuspended.
+func TestSuspendedThenWorldSuspendedNoDoubleFire(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	// Build a synthetic WorldSuspended state wired to the player.
+	state := &script.ScriptState{
+		Script:      &script.ScriptFile{Name: "[worlddelay,nai44t2r5]", Opcodes: []script.Opcode{}},
+		Execution:   script.WorldSuspended,
+		IntStack:    make([]int, script.StackCapacity),
+		StringStack: make([]string, script.StackCapacity),
+		Self:        p,
+	}
+
+	// Simulate: NAI-44 T1's no-clear leaves the player slot pointing at the
+	// WorldSuspended state (production path: Suspended→WorldSuspended transition
+	// enqueues into world queue but does NOT null activeScript).
+	p.activeScript = state
+
+	// Register player so processActiveScripts iterates over it.
+	s.playersMu.Lock()
+	s.playerLoop = append(s.playerLoop, p)
+	s.playersMu.Unlock()
+
+	// processActiveScripts must NOT re-fire: gate is Execution == Suspended only.
+	s.processActiveScripts()
+
+	if state.Execution != script.WorldSuspended {
+		t.Errorf("after processActiveScripts: state.Execution got %v, want WorldSuspended (must not re-fire)", state.Execution)
+	}
+	if p.activeScript != state {
+		t.Errorf("after processActiveScripts: p.activeScript got %p, want %p (slot must remain)", p.activeScript, state)
+	}
+}

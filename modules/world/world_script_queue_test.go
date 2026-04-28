@@ -252,60 +252,108 @@ func TestResumeOrFinishWorld_WorldSuspendedSelfReenqueue(t *testing.T) {
 	}
 }
 
-// TestResumeOrFinishWorld_CrossContextSuspendedDrop verifies the
-// cross-context warn+drop branch for player-Suspended states reaching
-// the world dispatch (deviation NAI-37-D-WORLDQUEUE-CROSS-CONTEXT-DROP).
-func TestResumeOrFinishWorld_CrossContextSuspendedDrop(t *testing.T) {
+// TestResumeOrFinishWorld_SuspendedRebindsToSelf — NAI-44 T2.
+// TS World.processWorld L547-549: world-queue script transitions to
+// SUSPENDED → bind script.activePlayer.activeScript = script.
+func TestResumeOrFinishWorld_SuspendedRebindsToSelf(t *testing.T) {
 	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+
 	state := &script.ScriptState{
-		Script:    &script.ScriptFile{Name: "test_suspended", Opcodes: []script.Opcode{}},
-		Execution: script.Suspended,
+		Script:      &script.ScriptFile{Name: "test_suspended", Opcodes: []script.Opcode{}},
+		Execution:   script.Suspended,
+		IntStack:    make([]int, script.StackCapacity),
+		StringStack: make([]string, script.StackCapacity),
+		Self:        p,
 	}
+
 	s.resumeOrFinishWorld(state)
+
+	if p.activeScript != state {
+		t.Errorf("p.activeScript: got %p, want %p (Suspended must rebind to Self per TS World.ts:548-549)", p.activeScript, state)
+	}
 	if got := len(s.worldScriptQueue); got != 0 {
-		t.Errorf("Suspended (cross-context): queue length got %d, want 0 (warn+drop per NAI-37-D-WORLDQUEUE-CROSS-CONTEXT-DROP)", got)
+		t.Errorf("worldScriptQueue length: got %d, want 0 (entry already removed by caller)", got)
 	}
 }
 
-// TestResumeOrFinishWorld_CrossContextNpcSuspendedDrop verifies the
-// cross-context warn+drop branch for NpcSuspended states.
-func TestResumeOrFinishWorld_CrossContextNpcSuspendedDrop(t *testing.T) {
-	s := newTestServer(t)
+// TestResumeOrFinishWorld_NpcSuspendedRebindsToActiveNpc — NAI-44 T2.
+// TS World.processWorld L550-552: world-queue script transitions to
+// NPC_SUSPENDED → bind script.activeNpc.activeScript = script.
+func TestResumeOrFinishWorld_NpcSuspendedRebindsToActiveNpc(t *testing.T) {
+	s, n := buildNpcForIntegration(t)
+
 	state := &script.ScriptState{
-		Script:    &script.ScriptFile{Name: "test_npc_suspended", Opcodes: []script.Opcode{}},
-		Execution: script.NpcSuspended,
+		Script:      &script.ScriptFile{Name: "test_npc_suspended", Opcodes: []script.Opcode{}},
+		Execution:   script.NpcSuspended,
+		IntStack:    make([]int, script.StackCapacity),
+		StringStack: make([]string, script.StackCapacity),
+		ActiveNpc:   n,
 	}
+
 	s.resumeOrFinishWorld(state)
+
+	if n.activeScript != state {
+		t.Errorf("n.activeScript: got %p, want %p (NpcSuspended must rebind to ActiveNpc per TS World.ts:550-552)", n.activeScript, state)
+	}
 	if got := len(s.worldScriptQueue); got != 0 {
-		t.Errorf("NpcSuspended (cross-context): queue length got %d, want 0", got)
+		t.Errorf("worldScriptQueue length: got %d, want 0", got)
 	}
 }
 
-// TestResumeOrFinishWorld_CrossContextPauseButtonDrop verifies the
-// cross-context warn+drop branch for PauseButton states.
-func TestResumeOrFinishWorld_CrossContextPauseButtonDrop(t *testing.T) {
+// TestResumeOrFinishWorld_PauseButtonDropsSilently — NAI-44 T2.
+// TS World.processWorld (World.ts:530-560) has no branch for PauseButton;
+// request.unlink() at L545 already removed the entry, so it falls through
+// silently with no rebind and no queue entry.
+func TestResumeOrFinishWorld_PauseButtonDropsSilently(t *testing.T) {
 	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+
 	state := &script.ScriptState{
-		Script:    &script.ScriptFile{Name: "test_pause", Opcodes: []script.Opcode{}},
-		Execution: script.PauseButton,
+		Script:      &script.ScriptFile{Name: "test_pause", Opcodes: []script.Opcode{}},
+		Execution:   script.PauseButton,
+		IntStack:    make([]int, script.StackCapacity),
+		StringStack: make([]string, script.StackCapacity),
+		Self:        p,
 	}
+
 	s.resumeOrFinishWorld(state)
+
+	// PauseButton must NOT rebind: p.activeScript was nil before, stays nil.
+	if p.activeScript == state {
+		t.Errorf("p.activeScript: got rebind, want no-rebind (PauseButton silent drop per TS World.ts)")
+	}
 	if got := len(s.worldScriptQueue); got != 0 {
-		t.Errorf("PauseButton (cross-context): queue length got %d, want 0", got)
+		t.Errorf("worldScriptQueue length: got %d, want 0", got)
 	}
 }
 
-// TestResumeOrFinishWorld_CrossContextCountDialogDrop verifies the
-// cross-context warn+drop branch for CountDialog states.
-func TestResumeOrFinishWorld_CrossContextCountDialogDrop(t *testing.T) {
+// TestResumeOrFinishWorld_CountDialogDropsSilently — NAI-44 T2.
+// Same rationale as PauseButton: TS World.processWorld has no branch
+// for CountDialog; silent fall-through with no rebind.
+func TestResumeOrFinishWorld_CountDialogDropsSilently(t *testing.T) {
 	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+
 	state := &script.ScriptState{
-		Script:    &script.ScriptFile{Name: "test_count", Opcodes: []script.Opcode{}},
-		Execution: script.CountDialog,
+		Script:      &script.ScriptFile{Name: "test_count", Opcodes: []script.Opcode{}},
+		Execution:   script.CountDialog,
+		IntStack:    make([]int, script.StackCapacity),
+		StringStack: make([]string, script.StackCapacity),
+		Self:        p,
 	}
+
 	s.resumeOrFinishWorld(state)
+
+	// CountDialog must NOT rebind: p.activeScript was nil before, stays nil.
+	if p.activeScript == state {
+		t.Errorf("p.activeScript: got rebind, want no-rebind (CountDialog silent drop per TS World.ts)")
+	}
 	if got := len(s.worldScriptQueue); got != 0 {
-		t.Errorf("CountDialog (cross-context): queue length got %d, want 0", got)
+		t.Errorf("worldScriptQueue length: got %d, want 0", got)
 	}
 }
 

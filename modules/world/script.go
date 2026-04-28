@@ -141,19 +141,17 @@ func (s *Server) resumeOrFinish(state *script.ScriptState, self script.ActivePla
 // run from the world-script queue (called by processWorldQueue after
 // removing the entry).
 //
-// Dispatch table (NAI-37 T12):
-//   - Finished, Aborted: drop entry; clean exit (Aborted may already
-//     be logged at script.Execute error level).
-//   - WorldSuspended: re-enqueue (self-loop case from path P3 in the
-//     spec). Pops the wakeup-tick from the script's int stack and
-//     re-appends to worldScriptQueue. Mirrors TS World.ts:553-555.
-//   - Suspended, NpcSuspended, PauseButton, CountDialog: warn+drop.
-//     Tracked deviation NAI-37-D-WORLDQUEUE-CROSS-CONTEXT-DROP — TS
-//     handles these implicitly by re-binding to the corresponding
-//     entity's activeScript (Player.ts:2137-2141, Npc.ts:221-225);
-//     goscape's narrower handling is intentional pending a broader
-//     player-script-lifecycle alignment.
+// Dispatch table mirrors TS World.processWorld (World.ts:530-560):
+//   - Finished, Aborted: clean exit (entry already unlink()'d).
+//   - WorldSuspended: re-enqueue (self-loop). Pops the wakeup-tick from
+//     the script's int stack and re-appends to worldScriptQueue.
+//   - Suspended: rebind to state.Self.activeScript (TS L548-549).
+//   - NpcSuspended: rebind to state.ActiveNpc.activeScript (TS L550-552).
+//   - PauseButton, CountDialog: silent fall-through (TS World.processWorld
+//     has no branch for these; matches TS behavior).
 //   - default (Running, future-added): warn+drop.
+//
+// NAI-44 closure of NAI-37-D-WORLDQUEUE-CROSS-CONTEXT-DROP.
 func (s *Server) resumeOrFinishWorld(state *script.ScriptState) {
 	if err := script.Execute(state); err != nil {
 		s.log.Warn("world script execute error",
@@ -166,13 +164,30 @@ func (s *Server) resumeOrFinishWorld(state *script.ScriptState) {
 	case script.WorldSuspended:
 		delay := state.PopInt()
 		s.EnqueueWorldScript(state, delay)
-	case script.Suspended, script.NpcSuspended, script.PauseButton, script.CountDialog:
-		// DEVIATION NAI-37-D-WORLDQUEUE-CROSS-CONTEXT-DROP: cross-context
-		// resume from a world-queued script is not supported. TS would
-		// re-bind to the corresponding entity's activeScript; goscape
-		// drops with a warn until broader script-lifecycle alignment.
-		s.log.Warn("world-queue script transitioned to cross-context state; resume unsupported",
-			"script", state.Script.Name, "execution", state.Execution)
+	case script.Suspended:
+		// TS World.ts:548-549 — bind to script.activePlayer.activeScript.
+		// The "(probably not needed)" TS comment notes this case isn't
+		// expected from world-queued scripts in practice, but the binding
+		// exists for completeness.
+		if state.Self != nil {
+			state.Self.StoreActiveScript(state)
+		} else {
+			s.log.Warn("world-queue script Suspended with nil Self; dropping",
+				"script", state.Script.Name)
+		}
+	case script.NpcSuspended:
+		// TS World.ts:550-552 — bind to script.activeNpc.activeScript.
+		if state.ActiveNpc != nil {
+			state.ActiveNpc.StoreActiveScript(state)
+		} else {
+			s.log.Warn("world-queue script NpcSuspended with nil ActiveNpc; dropping",
+				"script", state.Script.Name)
+		}
+	case script.PauseButton, script.CountDialog:
+		// TS World.processWorld (World.ts:530-560) has no branch for these
+		// states. request.unlink() at L545 already removed the entry, so
+		// they are silently dropped. Match TS by intentionally falling
+		// through with no rebind and no warn.
 	default:
 		// Running, or any future-added Execution value.
 		s.log.Warn("world-queue script in unexpected execution state",
