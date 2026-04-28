@@ -1064,6 +1064,11 @@ func TestOpNpc1FiresScriptAndEmitsSay(t *testing.T) {
 	// s.npcs is a fixed-size array; slot 0 is always valid.
 	s.npcs[0] = npc
 
+	// Wire rsbuf so HasNpc(p.slot, nid=0) returns true.
+	p.slot = 1
+	s.players[1] = p
+	rsbufSeesNpc(t, s, 1, 0)
+
 	// Build the OPNPC1 payload (p2(slot=0)) and fire it through the handler.
 	payload := []byte{0x00, 0x00}
 	if err := handleOpNpc1(p, payload); err != nil {
@@ -1124,6 +1129,11 @@ func TestOpNpc1FiresScriptAndEmitsAnimPlusSay(t *testing.T) {
 	}
 	npc := NewNpc(0, 7, p.x+1, p.z, p.level, npcType)
 	s.npcs[0] = npc
+
+	// Wire rsbuf so HasNpc(p.slot, nid=0) returns true.
+	p.slot = 1
+	s.players[1] = p
+	rsbufSeesNpc(t, s, 1, 0)
 
 	// Fire OPNPC1 click.
 	payload := []byte{0x00, 0x00}

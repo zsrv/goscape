@@ -54,6 +54,14 @@ func handleOpNpc(p *Player, payload []byte, op int) error {
 		sendUnsetMapFlag(p)
 		return nil
 	}
+	if npc.delayed && s.currentTick < npc.delayedUntil {
+		sendUnsetMapFlag(p)
+		return nil
+	}
+	if !s.rsbuf.HasNpc(int32(p.slot), int32(npc.nid)) {
+		sendUnsetMapFlag(p)
+		return nil
+	}
 
 	// NpcType.Op[op-1] must be a non-empty, non-"hidden" string.
 	// RuneScript will later replace this with trigger-existence lookup.
@@ -131,6 +139,14 @@ func handleOpNpcT(p *Player, payload []byte) error {
 		sendUnsetMapFlag(p)
 		return nil
 	}
+	if npc.delayed && s.currentTick < npc.delayedUntil {
+		sendUnsetMapFlag(p)
+		return nil
+	}
+	if !s.rsbuf.HasNpc(int32(p.slot), int32(npc.nid)) {
+		sendUnsetMapFlag(p)
+		return nil
+	}
 	if npc.typ == nil {
 		sendUnsetMapFlag(p)
 		return nil
@@ -196,6 +212,14 @@ func handleOpNpcU(p *Player, payload []byte) error {
 	}
 	npc := s.npcs[slot]
 	if npc == nil || npc.dead {
+		sendUnsetMapFlag(p)
+		return nil
+	}
+	if npc.delayed && s.currentTick < npc.delayedUntil {
+		sendUnsetMapFlag(p)
+		return nil
+	}
+	if !s.rsbuf.HasNpc(int32(p.slot), int32(npc.nid)) {
 		sendUnsetMapFlag(p)
 		return nil
 	}

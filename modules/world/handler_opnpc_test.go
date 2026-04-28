@@ -30,6 +30,11 @@ func makeOpNpcFixture(t *testing.T) (*Server, *Player, *Npc) {
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	p.x, p.z, p.level = 99, 100, 0
 
+	p.slot = 1
+	s.players[1] = p
+	s.rsbuf.AddPlayer(1)
+	s.rsbuf.SubscribeNpcForTest(1, int32(npc.nid)) // nid=1
+
 	return s, p, npc
 }
 
@@ -110,6 +115,8 @@ func TestHandleOpNpc1HiddenOpSendsUnsetMapFlag(t *testing.T) {
 	p2, cc2 := newTestPlayer(t)
 	p2.client.server = s
 	p2.client.encryptor = io2.New([4]uint32{4, 5, 6, 7})
+	p2.slot = 2
+	rsbufSeesNpc(t, s, 2, 1)
 
 	received := drainConn(t, cc2)
 	_ = handleOpNpc1(p2, p2Payload(1))
@@ -565,6 +572,131 @@ func TestHandleOpNpcUMembersOnMembersWorldAllowed(t *testing.T) {
 	}
 }
 
+// rsbufSeesNpc makes s.rsbuf.HasNpc(playerSlot, nid) return true.
+func rsbufSeesNpc(t *testing.T, s *Server, playerSlot, nid int) {
+	t.Helper()
+	s.rsbuf.AddPlayer(int32(playerSlot))
+	s.rsbuf.SubscribeNpcForTest(int32(playerSlot), int32(nid))
+}
+
+// TestHandleOpNpcDelayedNpcRejected verifies delayed NPC sends UnsetMapFlag.
+func TestHandleOpNpcDelayedNpcRejected(t *testing.T) {
+	s, p, _ := makeOpNpcFixture(t)
+	s.npcs[1].delayed = true
+	s.npcs[1].delayedUntil = 999
+	s.currentTick = 0
+
+	_ = handleOpNpc1(p, p2Payload(1))
+
+	if p.target != nil {
+		t.Error("target should remain nil for delayed NPC")
+	}
+}
+
+// TestHandleOpNpcTDelayedNpcRejected verifies delayed NPC in handleOpNpcT sends UnsetMapFlag.
+func TestHandleOpNpcTDelayedNpcRejected(t *testing.T) {
+	s, p, _ := makeOpNpcFixture(t)
+	s.npcs[1].delayed = true
+	s.npcs[1].delayedUntil = 999
+	s.currentTick = 0
+
+	_ = handleOpNpcT(p, p2x2Payload(1, 7777))
+
+	if p.target != nil {
+		t.Error("target should remain nil for delayed NPC")
+	}
+}
+
+// TestHandleOpNpcUDelayedNpcRejected verifies delayed NPC in handleOpNpcU sends UnsetMapFlag.
+func TestHandleOpNpcUDelayedNpcRejected(t *testing.T) {
+	s, p, _ := makeOpNpcFixture(t)
+	s.npcs[1].delayed = true
+	s.npcs[1].delayedUntil = 999
+	s.currentTick = 0
+	// Register listener + populate inv so the test can reach the delayed-npc gate
+	if s.invs == nil {
+		s.invs = make(map[int]*inventory.Inventory)
+	}
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Items[3] = &inventory.Item{Id: 1511, Count: 1}
+	s.invs[93] = inv
+	p.invListenOnCom(93, 149, -1)
+
+	_ = handleOpNpcU(p, p2x4NpcUPayload(1, 1511, 3, 149))
+
+	if p.target != nil {
+		t.Error("target should remain nil for delayed NPC")
+	}
+}
+
+// TestHandleOpNpcNpcNotVisibleRejected verifies NPC not in rsbuf sends UnsetMapFlag.
+func TestHandleOpNpcNpcNotVisibleRejected(t *testing.T) {
+	s, _, _ := makeOpNpcFixture(t)
+
+	// Create a fresh player NOT subscribed to the NPC via rsbuf.
+	p2, cc2 := newTestPlayer(t)
+	p2.client.server = s
+	p2.client.encryptor = io2.New([4]uint32{10, 11, 12, 13})
+	p2.slot = 2
+	s.players[2] = p2
+	s.rsbuf.AddPlayer(2) // registered but NOT subscribed to npc nid=1
+
+	received := drainConn(t, cc2)
+	_ = handleOpNpc1(p2, p2Payload(1))
+	p2.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag for invisible NPC, got nothing")
+	}
+	if p2.target != nil {
+		t.Error("target should remain nil for invisible NPC")
+	}
+}
+
+// TestHandleOpNpcTNpcNotVisibleRejected verifies NPC not visible in handleOpNpcT.
+func TestHandleOpNpcTNpcNotVisibleRejected(t *testing.T) {
+	s, _, _ := makeOpNpcFixture(t)
+
+	p2, _ := newTestPlayer(t)
+	p2.client.server = s
+	p2.client.encryptor = io2.New([4]uint32{14, 15, 16, 17})
+	p2.slot = 2
+	s.players[2] = p2
+	s.rsbuf.AddPlayer(2)
+
+	_ = handleOpNpcT(p2, p2x2Payload(1, 7777))
+
+	if p2.target != nil {
+		t.Error("target should remain nil for invisible NPC (handleOpNpcT)")
+	}
+}
+
+// TestHandleOpNpcUNpcNotVisibleRejected verifies NPC not visible in handleOpNpcU.
+func TestHandleOpNpcUNpcNotVisibleRejected(t *testing.T) {
+	s, _, _ := makeOpNpcFixture(t)
+
+	p2, _ := newTestPlayer(t)
+	p2.client.server = s
+	p2.client.encryptor = io2.New([4]uint32{18, 19, 20, 21})
+	p2.slot = 2
+	s.players[2] = p2
+	s.rsbuf.AddPlayer(2)
+	if s.invs == nil {
+		s.invs = make(map[int]*inventory.Inventory)
+	}
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Items[3] = &inventory.Item{Id: 1511, Count: 1}
+	s.invs[93] = inv
+	p2.invListenOnCom(93, 149, -1)
+
+	_ = handleOpNpcU(p2, p2x4NpcUPayload(1, 1511, 3, 149))
+
+	if p2.target != nil {
+		t.Error("target should remain nil for invisible NPC (handleOpNpcU)")
+	}
+}
+
 // TestHandleOpNpcOpIndexOutOfRange verifies NpcType with fewer Op entries emits UnsetMapFlag.
 func TestHandleOpNpcOpIndexOutOfRange(t *testing.T) {
 	s := newTestServer(t)
@@ -582,6 +714,8 @@ func TestHandleOpNpcOpIndexOutOfRange(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 1, 1, 1})
+	p.slot = 1
+	rsbufSeesNpc(t, s, 1, 1)
 
 	received := drainConn(t, cc)
 	_ = handleOpNpc2(p, p2Payload(1)) // op=2 but only Op[0] exists
