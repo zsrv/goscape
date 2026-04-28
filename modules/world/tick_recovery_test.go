@@ -2,7 +2,6 @@ package world
 
 import (
 	"errors"
-	"log/slog"
 	"net"
 	"sync/atomic"
 	"testing"
@@ -22,16 +21,12 @@ func (m *mockConn) Close() error {
 	return nil
 }
 
-func newDiscardLogger() *slog.Logger {
-	return slog.New(slog.DiscardHandler)
-}
-
 // TestRecoverPlayer_NoPanic: when no panic, recoverPlayer is a no-op.
 // requestLogout stays false, the conn stays open.
 func TestRecoverPlayer_NoPanic(t *testing.T) {
 	mc := &mockConn{}
 	p := &Player{username: "alice", client: &client{conn: mc}}
-	log := newDiscardLogger()
+	log := discardLogger()
 
 	func() {
 		defer recoverPlayer(p, "test", log)
@@ -51,7 +46,7 @@ func TestRecoverPlayer_NoPanic(t *testing.T) {
 func TestRecoverPlayer_PanicSetsLogout(t *testing.T) {
 	mc := &mockConn{}
 	p := &Player{username: "alice", client: &client{conn: mc}}
-	log := newDiscardLogger()
+	log := discardLogger()
 
 	func() {
 		defer recoverPlayer(p, "test", log)
@@ -68,7 +63,7 @@ func TestRecoverPlayer_PanicSetsLogout(t *testing.T) {
 func TestRecoverPlayer_PanicClosesConn(t *testing.T) {
 	mc := &mockConn{}
 	p := &Player{username: "alice", client: &client{conn: mc}}
-	log := newDiscardLogger()
+	log := discardLogger()
 
 	func() {
 		defer recoverPlayer(p, "test", log)
@@ -84,7 +79,7 @@ func TestRecoverPlayer_PanicClosesConn(t *testing.T) {
 // p.client is nil (test players often have no wire connection).
 func TestRecoverPlayer_NilClientSafe(t *testing.T) {
 	p := &Player{username: "alice"} // client is nil
-	log := newDiscardLogger()
+	log := discardLogger()
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -106,7 +101,7 @@ func TestRecoverPlayer_NilClientSafe(t *testing.T) {
 // must be recovered (Go panic value can be any).
 func TestRecoverPlayer_PanicWithErrorValue(t *testing.T) {
 	p := &Player{username: "alice"}
-	log := newDiscardLogger()
+	log := discardLogger()
 
 	func() {
 		defer recoverPlayer(p, "test", log)
@@ -122,7 +117,7 @@ func TestRecoverPlayer_PanicWithErrorValue(t *testing.T) {
 // returns normally.
 func TestRecoverWorldScript_NoPanic(t *testing.T) {
 	state := &script.ScriptState{Script: &script.ScriptFile{Name: "[world,demo]"}}
-	log := newDiscardLogger()
+	log := discardLogger()
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -140,7 +135,7 @@ func TestRecoverWorldScript_NoPanic(t *testing.T) {
 // execution must be swallowed (caller's loop continues).
 func TestRecoverWorldScript_PanicSwallowed(t *testing.T) {
 	state := &script.ScriptState{Script: &script.ScriptFile{Name: "[world,demo]"}}
-	log := newDiscardLogger()
+	log := discardLogger()
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -157,7 +152,7 @@ func TestRecoverWorldScript_PanicSwallowed(t *testing.T) {
 // TestRecoverWorldScript_NilStateSafe: nil state must not nil-panic
 // inside the recovery (defensive; production callers always pass non-nil).
 func TestRecoverWorldScript_NilStateSafe(t *testing.T) {
-	log := newDiscardLogger()
+	log := discardLogger()
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -181,7 +176,7 @@ func TestRecoverPlayer_ThreePlayers_OnePanics(t *testing.T) {
 	p2 := &Player{username: "p2", client: &client{conn: mc2}}
 	p3 := &Player{username: "p3", client: &client{conn: mc3}}
 	players := []*Player{p1, p2, p3}
-	log := newDiscardLogger()
+	log := discardLogger()
 
 	var ran [3]bool
 	for i, p := range players {
