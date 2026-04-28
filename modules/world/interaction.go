@@ -166,7 +166,7 @@ func (p *Player) processInteraction() {
 	if !followOp {
 		p.processWalktrigger()
 	}
-	interacted = p.tryInteract()
+	interacted = p.tryInteract(false)
 
 	// Post-step arm (TS L1227-1252). Skipped when pre-step interacted.
 	if !interacted {
@@ -189,7 +189,7 @@ func (p *Player) processInteraction() {
 		// Post-step interact (TS L1244-1252). Skipped when followOp
 		// (the chase keeps interaction anchored across steps).
 		if p.target != nil && !followOp {
-			interacted = p.tryInteract()
+			interacted = p.tryInteract(p.stepsTaken == 0)
 			if !interacted && !p.hasWaypoints() && p.stepsTaken == 0 {
 				p.MessageGame("I can't reach that!")
 				p.ClearInteraction()
@@ -241,14 +241,28 @@ func (p *Player) processWalktrigger() {}
 // tryInteract is the contact/approach-distance dispatch unifying the
 // OP and AP arms that processInteraction previously inlined.
 // Returns true when an OP or AP trigger fired this tick.
-func (p *Player) tryInteract() bool {
+//
+// allowOpScenery gates the OP branch for non-PathingEntity targets
+// (Loc, Obj). Mirrors TS Player.tryInteract(allowOpScenery: boolean)
+// at Player.ts:1113. Callers:
+//   - pre-step (always false): scenery OP blocked before movement
+//   - post-step (stepsTaken==0): scenery OP allowed only if no walk
+//
+// NPC side equivalent: (*Npc).tryInteract(s, allowOpScenery bool)
+// at npc_interaction.go:247.
+func (p *Player) tryInteract(allowOpScenery bool) bool {
 	tx, tz, _ := p.target.Coords()
 	if inOperableDistance(p.x, p.z, tx, tz) {
-		p.interacted = true
-		if !p.interactionFired {
-			tryFireOpTrigger(p)
+		_, isNpc := p.target.(*Npc)
+		_, isPlayer := p.target.(*Player)
+		if isNpc || isPlayer || allowOpScenery {
+			p.interacted = true
+			if !p.interactionFired {
+				tryFireOpTrigger(p)
+			}
+			return true
 		}
-		return true
+		// Loc/Obj + !allowOpScenery: fall through to AP check.
 	}
 	if inApproachDistance(p.x, p.z, tx, tz, effectiveApRange(p)) {
 		p.interacted = true

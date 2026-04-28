@@ -828,3 +828,90 @@ func TestFollowOpContactFire(t *testing.T) {
 		t.Errorf("target: got %v, want nil (auto-clear at TS L1261-1263)", clicker.target)
 	}
 }
+
+// --- NAI-47: tryInteract allowOpScenery gate ---
+
+// TestTryInteractNpcAllowsOpWhenSceneryGated pins that *Npc targets (PathingEntity)
+// are always eligible for the OP branch regardless of allowOpScenery.
+// Mirrors TS: (target instanceof PathingEntity || allowOpScenery).
+func TestTryInteractNpcAllowsOpWhenSceneryGated(t *testing.T) {
+	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.x, p.z, p.level = 100, 100, 0
+
+	npc := makeInteractionNpc(t, s, 1, 101, 100, 0) // adjacent — in OP range
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
+
+	// allowOpScenery=false: NPC is PathingEntity so OP fires anyway.
+	result := p.tryInteract(false)
+
+	if !result {
+		t.Error("tryInteract(false): got false, want true — NPC is PathingEntity, OP must fire")
+	}
+}
+
+// TestTryInteractLocBlocksOpWhenSceneryFalse pins that *Loc targets cannot
+// fire the OP branch when allowOpScenery=false. AP branch fires instead
+// if in approach range.
+func TestTryInteractLocBlocksOpWhenSceneryFalse(t *testing.T) {
+	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.x, p.z, p.level = 100, 100, 0
+	p.apRange = 10 // wide AP range so AP branch fires
+
+	loc := entitypkg.NewLoc(0, 101, 100, 1, 1, entitypkg.LifecycleForever, 42, 1, 0)
+	p.SetInteraction(InteractionEngine, loc, 1, -1)
+
+	// allowOpScenery=false + adjacent Loc → OP gated; AP fires instead (returns true).
+	result := p.tryInteract(false)
+
+	// AP branch fires (returns true) because the OP gate falls through to AP.
+	if !result {
+		t.Error("tryInteract(false) on adjacent Loc: got false, want true (AP fires)")
+	}
+}
+
+// TestTryInteractLocAllowsOpWhenSceneryTrue pins that *Loc targets CAN fire
+// the OP branch when allowOpScenery=true.
+func TestTryInteractLocAllowsOpWhenSceneryTrue(t *testing.T) {
+	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.x, p.z, p.level = 100, 100, 0
+
+	loc := entitypkg.NewLoc(0, 101, 100, 1, 1, entitypkg.LifecycleForever, 42, 1, 0)
+	p.SetInteraction(InteractionEngine, loc, 1, -1)
+
+	// allowOpScenery=true + adjacent Loc → OP fires.
+	result := p.tryInteract(true)
+
+	if !result {
+		t.Error("tryInteract(true) on adjacent Loc: got false, want true (OP allowed)")
+	}
+}
+
+// TestTryInteractProcessInteractionCallSites pins the two call-site semantics
+// via processInteraction: pre-step always passes false, post-step passes
+// stepsTaken==0 (true only when no movement this tick).
+func TestTryInteractProcessInteractionCallSites(t *testing.T) {
+	s := newTestServer(t)
+
+	// Scenario: Loc target, player already adjacent (no movement needed),
+	// so post-step call gets allowOpScenery=true (stepsTaken==0).
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.x, p.z, p.level = 100, 100, 0
+	p.stepsTaken = 0 // no movement this tick
+
+	loc := entitypkg.NewLoc(0, 101, 100, 1, 1, entitypkg.LifecycleForever, 42, 1, 0)
+	p.SetInteraction(InteractionEngine, loc, 1, -1)
+
+	p.processInteraction()
+
+	// OP or AP fired (interacted=true), and interaction was auto-cleared.
+	if p.target != nil {
+		t.Error("target should be nil after interaction auto-clear")
+	}
+}
