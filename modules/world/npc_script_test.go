@@ -486,6 +486,17 @@ func TestBuildNpcScriptStateDispatchesActivePlayer(t *testing.T) {
 	if state.Pointers&script.PtrActivePlayer == 0 {
 		t.Error("Pointers: PtrActivePlayer flag not set")
 	}
+	// Absence pin (NAI-43, ts_asymmetry_dual_pin):
+	// Self2 / PtrActivePlayer2 must NOT be set when self=Npc, target=Player.
+	// TS ScriptRunner.init:84-91 sets _activePlayer2 only when self and
+	// target are both Player; the self=Npc branch falls into the else arm
+	// at L89-90 and assigns _activePlayer (already pinned above).
+	if state.Self2 != nil {
+		t.Errorf("Self2: got %v, want nil (NPC-self → target.Player goes to Self, not Self2)", state.Self2)
+	}
+	if state.Pointers&script.PtrActivePlayer2 != 0 {
+		t.Error("Pointers: PtrActivePlayer2 set, want unset")
+	}
 }
 
 // TestBuildNpcScriptStateDispatchesActiveLoc — a *entity.Loc target
@@ -540,6 +551,15 @@ func TestBuildNpcScriptStateDispatchesOtherActiveNpc(t *testing.T) {
 	}
 	if state.Pointers&script.PtrOtherActiveNpc == 0 {
 		t.Error("Pointers: PtrOtherActiveNpc flag not set")
+	}
+	// Absence pin (NAI-43, ts_asymmetry_dual_pin):
+	// ActiveNpc (primary slot, set to self=n at npc_script.go:233) must
+	// remain bound to self — the target's *Npc must land in OtherActiveNpc,
+	// not overwrite the primary slot. TS ScriptRunner.init:92-95 sets
+	// _activeNpc2 only when self is also Npc; the primary _activeNpc
+	// (already set to self) must be untouched.
+	if state.ActiveNpc != n {
+		t.Errorf("ActiveNpc: got %v, want self n (target overwrote primary slot)", state.ActiveNpc)
 	}
 }
 
