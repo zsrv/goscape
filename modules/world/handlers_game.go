@@ -59,6 +59,12 @@ func init() {
 	gameHandlers[175] = handleTutClickSide // TUT_CLICKSIDE
 
 	gameHandlers[155] = handleIfButton          // IF_BUTTON
+	gameHandlers[31] = handleInvButton1  // INV_BUTTON1
+	gameHandlers[59] = handleInvButton2  // INV_BUTTON2
+	gameHandlers[212] = handleInvButton3 // INV_BUTTON3
+	gameHandlers[38] = handleInvButton4  // INV_BUTTON4
+	gameHandlers[6] = handleInvButton5   // INV_BUTTON5
+	gameHandlers[159] = handleInvButtonD // INV_BUTTOND
 	gameHandlers[52] = handleIdkSaveDesignGame // IDK_SAVEDESIGN
 }
 
@@ -104,6 +110,48 @@ func handleIfButton(p *Player, payload []byte) error {
 		return nil
 	}
 	return p.client.server.handleIfButton(p, payload)
+}
+
+func handleInvButton1(p *Player, payload []byte) error {
+	if p.client == nil || p.client.server == nil {
+		return nil
+	}
+	return p.client.server.handleInvButton(p, payload, 1)
+}
+
+func handleInvButton2(p *Player, payload []byte) error {
+	if p.client == nil || p.client.server == nil {
+		return nil
+	}
+	return p.client.server.handleInvButton(p, payload, 2)
+}
+
+func handleInvButton3(p *Player, payload []byte) error {
+	if p.client == nil || p.client.server == nil {
+		return nil
+	}
+	return p.client.server.handleInvButton(p, payload, 3)
+}
+
+func handleInvButton4(p *Player, payload []byte) error {
+	if p.client == nil || p.client.server == nil {
+		return nil
+	}
+	return p.client.server.handleInvButton(p, payload, 4)
+}
+
+func handleInvButton5(p *Player, payload []byte) error {
+	if p.client == nil || p.client.server == nil {
+		return nil
+	}
+	return p.client.server.handleInvButton(p, payload, 5)
+}
+
+func handleInvButtonD(p *Player, payload []byte) error {
+	if p.client == nil || p.client.server == nil {
+		return nil
+	}
+	return p.client.server.handleInvButtonD(p, payload)
 }
 
 func handleIdkSaveDesignGame(p *Player, payload []byte) error {
