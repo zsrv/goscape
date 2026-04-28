@@ -95,12 +95,38 @@ func (p *Player) ClearInteraction() {
 	p.interactionFired = false
 }
 
+// isFollowOp reports whether the current interaction is in chase-the-target
+// mode. TS Player.ts:1205: followOp = targetOp == APPLAYER3 || OPPLAYER3.
+// Goscape's targetOp is the raw op slot 1..4 (interaction.go:56), so a
+// single equality check covers both AP and OP variants of slot 3. Player
+// targets only — OPLOC/OPNPC/OPOBJ slot-3 ops are unrelated to the
+// player→player chase semantics.
+func isFollowOp(p *Player) bool {
+	if p.targetOp != 3 {
+		return false
+	}
+	_, ok := p.target.(*Player)
+	return ok
+}
+
 // processInteraction runs once per tick per player after pathing.
-//   - No target: no-op.
-//   - Delayed: no-op.
-//   - Target on different level: clear + UnsetMapFlag.
-//   - In operable distance: face target, interacted=true.
-//   - Out of range: set waypoint toward target.
+// Mirrors TS Player.processInteraction (Player.ts:1200-1264).
+//
+// Branch summary:
+//   - No target / no client / delayed: no-op.
+//   - Target on different level: clear + UnsetMapFlag (subset of TS
+//     validateTarget; goscape has no isValid()-style alive/visible
+//     registry).
+//   - Pre-step arm: walktrigger (skipped when followOp) + tryInteract.
+//   - If pre-step did not interact: repath, post-step walktrigger (if
+//     waypoints), waypoint-exhaustion clear (if followOp), post-step
+//     tryInteract (skipped when followOp).
+//   - Auto-clear: interacted && !apRangeCalled → ClearInteraction
+//     (TS L1261-1263).
+//
+// Goscape's updateMovement runs in processPathing (tick.go:38), BEFORE
+// processInteractions (tick.go:39). TS embeds it inline at L1241; the
+// order-of-operations difference is by goscape design.
 func (p *Player) processInteraction() {
 	if p.target == nil {
 		return
@@ -109,9 +135,23 @@ func (p *Player) processInteraction() {
 		return
 	}
 	s := p.client.server
+	// DEVIATION NAI-44-D-CANACCESS-NO-STUN-CHECK: TS canAccess() also tests
+	// stun/freeze; goscape has no stun system, so the !p.delayed subset is
+	// the in-tree approximation.
 	if p.delayed && s.currentTick < p.delayedUntil {
 		return
 	}
+
+	// TS L1201-1202.
+	p.followX = p.lastStepX
+	p.followZ = p.lastStepZ
+	// TS L1203 (this.nextTarget = null) — DEVIATION NAI-44-D-IMMEDIATE-POP-VS-NEXTTARGET:
+	// goscape's p_op* opcodes do immediate SetInteraction swaps rather
+	// than queueing a nextTarget for next-tick application. No nextTarget
+	// field exists on *Player; the reshape below has no nextTarget block.
+	// Closure: future p_op* opcode reshape sub-spec.
+
+	followOp := isFollowOp(p)
 
 	_, _, tlevel := p.target.Coords()
 	if tlevel != p.level {
@@ -120,14 +160,51 @@ func (p *Player) processInteraction() {
 		return
 	}
 
-	if p.tryInteract(false) {
-		return
+	interacted := false
+
+	// Pre-step interact arm (TS L1209-1224).
+	if !followOp {
+		p.processWalktrigger()
+	}
+	interacted = p.tryInteract(false)
+
+	// Post-step arm (TS L1227-1252). Skipped when pre-step interacted.
+	if !interacted {
+		// Recalc path (TS L1228-1229).
+		if !p.repathed {
+			tx, tz, _ := p.target.Coords()
+			p.pathToTarget(tx, tz)
+			p.repathed = true
+		}
+
+		if p.hasWaypoints() {
+			p.processWalktrigger()
+		}
+
+		// followOp + waypoint exhaustion → clear (TS L1237-1239).
+		if !p.hasWaypoints() && followOp {
+			p.ClearInteraction()
+		}
+
+		// Post-step interact (TS L1244-1252). Skipped when followOp
+		// (the chase keeps interaction anchored across steps).
+		if p.target != nil && !followOp {
+			interacted = p.tryInteract(p.stepsTaken == 0)
+			if !interacted && !p.hasWaypoints() && p.stepsTaken == 0 {
+				p.MessageGame("I can't reach that!")
+				p.ClearInteraction()
+			}
+		}
 	}
 
-	if !p.repathed {
-		tx, tz, _ := p.target.Coords()
-		p.pathToTarget(tx, tz)
-		p.repathed = true
+	// Auto-clear (TS L1261-1263). NAI-44 closure of
+	// NAI-40-D-OPPLAYER3-FOLLOWOP-NOT-PORTED's auto-clear gap.
+	// Note: followOp paths can still reach this when tryInteract returned
+	// true at the pre-step arm (contact range with target=*Player op=3).
+	// TS does the same — followOp gates SKIP_post-step-interact, not
+	// the auto-clear itself.
+	if interacted && !p.apRangeCalled {
+		p.ClearInteraction()
 	}
 }
 

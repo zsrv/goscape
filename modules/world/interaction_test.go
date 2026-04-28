@@ -663,3 +663,161 @@ func TestProcessWalktriggerNoOp(t *testing.T) {
 		t.Errorf("processWalktrigger: target mutated: was %v, got %v", beforeTarget, p.target)
 	}
 }
+
+// --- NAI-44 T5 helpers ---
+
+// setupServerForInteractionTest returns a server configured for Player→Player
+// interaction tests. Uses NodeClientRoutefinder=true (direct-step mode) so
+// pathToTarget produces deterministic waypoints without a real gamemap.
+func setupServerForInteractionTest(t *testing.T) *Server {
+	t.Helper()
+	s := newTestServer(t)
+	s.cfg.NodeClientRoutefinder = true
+	return s
+}
+
+// newTestPlayerAt wires a Player to the server at specified coordinates and
+// assigns it the given slot. Returns the player; caller drains conn via
+// drainConn if wire output is expected.
+func newTestPlayerAt(t *testing.T, s *Server, slot, x, z, level int) *Player {
+	t.Helper()
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	p.x, p.z, p.level = x, z, level
+	p.slot = slot
+	// Drain connection in background so wire writes don't block.
+	go func() {
+		buf := make([]byte, 4096)
+		for {
+			if _, err := cc.Read(buf); err != nil {
+				return
+			}
+		}
+	}()
+	return p
+}
+
+// --- NAI-44 T5 / B1-B4 tests ---
+
+// TestFollowOpPredicate — NAI-44 T5 / B1. followOp = (targetOp == 3 &&
+// target is *Player). TS Player.ts:1205 uses ServerTriggerType enum
+// (APPLAYER3/OPPLAYER3 are sibling values); goscape stores raw op slot
+// 1..4, so a single equality check covers both AP and OP variants.
+func TestFollowOpPredicate(t *testing.T) {
+	npcForPredicate := func(t *testing.T, s *Server) entity {
+		t.Helper()
+		return makeInteractionNpc(t, s, 1, 3100, 3200, 0)
+	}
+	tests := []struct {
+		name        string
+		targetOp    int
+		buildTarget func(t *testing.T, s *Server) entity
+		wantFollow  bool
+	}{
+		{
+			"OPPLAYER3 → followOp",
+			3,
+			func(t *testing.T, s *Server) entity { return newTestPlayerAt(t, s, 2, 3200, 3200, 0) },
+			true,
+		},
+		{
+			"OPPLAYER1 → not followOp",
+			1,
+			func(t *testing.T, s *Server) entity { return newTestPlayerAt(t, s, 2, 3200, 3200, 0) },
+			false,
+		},
+		{
+			"OPNPC3 (op=3, *Npc target) → not followOp",
+			3,
+			npcForPredicate,
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := setupServerForInteractionTest(t)
+			p := newTestPlayerAt(t, s, 1, 3200, 3201, 0)
+			target := tt.buildTarget(t, s)
+			p.SetInteraction(InteractionEngine, target, tt.targetOp, -1)
+
+			got := isFollowOp(p)
+
+			if got != tt.wantFollow {
+				t.Errorf("followOp: got %v, want %v (targetOp=%d, target type=%T)", got, tt.wantFollow, tt.targetOp, target)
+			}
+		})
+	}
+}
+
+// TestFollowOpAnchoredChase — NAI-44 T5 / B2. When OPPLAYER3 fires with
+// the target out of operable/approach range, the player path-walks toward
+// the target. processInteraction must NOT clear the interaction in this
+// scenario (followOp keeps interaction anchored across steps).
+// Target is placed 15 tiles east — beyond the default apRange of 10 —
+// so both OP and AP distance checks fail and the pathing branch fires.
+func TestFollowOpAnchoredChase(t *testing.T) {
+	s := setupServerForInteractionTest(t)
+	clicker := newTestPlayerAt(t, s, 1, 3200, 3200, 0)
+	target := newTestPlayerAt(t, s, 2, 3215, 3200, 0) // 15 tiles east — beyond apRange=10
+
+	clicker.SetInteraction(InteractionEngine, target, 3, -1)
+
+	clicker.processInteraction()
+
+	if clicker.target != target {
+		t.Errorf("target: got %v, want %v (followOp must NOT auto-clear when chasing)", clicker.target, target)
+	}
+	if clicker.targetOp != 3 {
+		t.Errorf("targetOp: got %d, want 3", clicker.targetOp)
+	}
+	if !clicker.hasWaypoints() {
+		t.Error("hasWaypoints: got false, want true (path should be set toward target)")
+	}
+}
+
+// TestFollowOpWaypointExhaustion — NAI-44 T5 / B3. When followOp is
+// active and pathToTarget yields no waypoints (e.g. target unreachable),
+// the post-step arm clears the interaction (TS L1237-1239).
+func TestFollowOpWaypointExhaustion(t *testing.T) {
+	s := setupServerForInteractionTest(t)
+	clicker := newTestPlayerAt(t, s, 1, 3200, 3200, 0)
+	target := newTestPlayerAt(t, s, 2, 3210, 3200, 0)
+
+	clicker.SetInteraction(InteractionEngine, target, 3, -1)
+	// Force waypoint exhaustion: set repathed=true to skip pathToTarget
+	// and leave waypointIndex at -1 (no waypoints). This exercises the
+	// TS L1237-1239 followOp + no-waypoints → ClearInteraction branch.
+	clicker.waypointIndex = -1
+	clicker.repathed = true
+
+	clicker.processInteraction()
+
+	if clicker.target != nil {
+		t.Errorf("target: got %v, want nil (followOp + no waypoints must ClearInteraction)", clicker.target)
+	}
+}
+
+// TestFollowOpContactFire — NAI-44 T5 / B4. OPPLAYER3 with target in
+// operable distance: pre-step tryInteract fires the OP trigger. The
+// auto-clear gate at TS L1261-1263 evaluates `interacted && !apRangeCalled`
+// → ClearInteraction, wiping both target and interactionFired.
+// followOp does NOT gate the auto-clear; it only gates post-step-interact.
+//
+// Note: interactionFired is NOT checked post-processInteraction because
+// the auto-clear calls ClearInteraction() which resets interactionFired=false.
+// The key invariant pinned here is target=nil (auto-clear fired).
+func TestFollowOpContactFire(t *testing.T) {
+	s := setupServerForInteractionTest(t)
+	clicker := newTestPlayerAt(t, s, 1, 3200, 3200, 0)
+	target := newTestPlayerAt(t, s, 2, 3201, 3200, 0) // adjacent — operable distance
+
+	clicker.SetInteraction(InteractionEngine, target, 3, -1)
+
+	clicker.processInteraction()
+
+	// Auto-clear gate fires (interacted && !apRangeCalled) → ClearInteraction.
+	if clicker.target != nil {
+		t.Errorf("target: got %v, want nil (auto-clear at TS L1261-1263)", clicker.target)
+	}
+}
