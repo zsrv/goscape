@@ -39,7 +39,7 @@ func (s *Server) handleIfButton(p *Player, payload []byte) error {
 	}
 
 	sf := s.scriptProvider.GetByTriggerSpecific(script.TriggerIfButton, comId, -1)
-	s.runScript(sf, p, nil, true, nil, nil) // protect=true per NAI-45-D2
+	s.runScript(sf, p, nil, true, nil, nil)
 	return nil
 }
 
