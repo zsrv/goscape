@@ -206,6 +206,17 @@ func (p *Player) processInteraction() {
 	if interacted && !p.apRangeCalled {
 		p.ClearInteraction()
 	}
+
+	// Tail mapflag clear (TS L1266-1268). When the player has consumed
+	// at least one step this tick and no waypoints remain, clear the
+	// client's pending map-click indicator. Without this, a player who
+	// walks a full path without reaching the target (path blocked, target
+	// moved out of reach) leaves the yellow X on screen until the next
+	// click. Idempotent against the auto-clear above (which also nulls
+	// waypoints via ClearInteraction).
+	if !p.hasWaypoints() && p.stepsTaken > 0 {
+		sendUnsetMapFlag(p)
+	}
 }
 
 // hasWaypoints reports whether the player has an active waypoint queue.
