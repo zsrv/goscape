@@ -33,6 +33,30 @@ func TestResetCRCStateRestoresInitialState(t *testing.T) {
 	if CrcBuffer32 != 0 {
 		t.Errorf("CrcBuffer32 = %d, want 0", CrcBuffer32)
 	}
+	if CrcBytes != nil {
+		t.Errorf("CrcBytes = %v, want nil", CrcBytes)
+	}
+}
+
+// TestMakeCRCsPopulatesCrcBytes pins that MakeCRCs snapshots the CRC
+// payload into CrcBytes so HTTP handlers can serve it without a stateful reader.
+func TestMakeCRCsPopulatesCrcBytes(t *testing.T) {
+	ResetCRCState()
+	t.Cleanup(ResetCRCState)
+
+	MakeCRCs() // missing files are silently skipped; at least P4(0) is written
+
+	if CrcBytes == nil {
+		t.Fatal("CrcBytes is nil after MakeCRCs")
+	}
+	if len(CrcBytes) < 4 {
+		t.Errorf("CrcBytes len = %d, want >= 4", len(CrcBytes))
+	}
+	// Must not alias CrcBuffer.Data — mutation of one must not affect the other.
+	if len(CrcBytes) > 0 && len(CrcBuffer.Data) > 0 &&
+		&CrcBytes[0] == &CrcBuffer.Data[0] {
+		t.Error("CrcBytes aliases CrcBuffer.Data; must be an independent copy")
+	}
 }
 
 // TestMakeCrcWarnsOnMissingFile pins NAI-20 Task 3 C2: makeCrc emits

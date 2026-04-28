@@ -9,6 +9,7 @@ import (
 
 var (
 	CrcBuffer   = packet.NewPacket(make([]byte, 0, 4*9))
+	CrcBytes    []byte
 	CrcTable    []uint32
 	CrcBuffer32 uint32
 )
@@ -19,6 +20,7 @@ var (
 // at the top of this file.
 func ResetCRCState() {
 	CrcBuffer = packet.NewPacket(make([]byte, 0, 4*9))
+	CrcBytes = nil
 	CrcTable = nil
 	CrcBuffer32 = 0
 }
@@ -58,4 +60,5 @@ func MakeCRCs() {
 	makeCrc("data/pack/client/sounds")
 
 	CrcBuffer32 = packet.GetCRC(CrcBuffer.Bytes(), 0, len(CrcBuffer.Bytes()))
+	CrcBytes = append([]byte(nil), CrcBuffer.Bytes()...)
 }

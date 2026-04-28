@@ -1,7 +1,6 @@
 package asset
 
 import (
-	"io"
 	"log"
 	"net/http"
 	"path"
@@ -21,7 +20,7 @@ func (a *Asset) RootHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		// would have to use bytes.Reader (implements ReadSeeker)
 		//http.ServeContent(w, r, "", nil, cache.CrcBuffer)
-		io.Copy(w, cache.CrcBuffer)
+		w.Write(cache.CrcBytes)
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/title") { // title screen
