@@ -68,7 +68,10 @@ func (s *Server) processClientsIn() {
 	s.playersMu.RUnlock()
 
 	for _, p := range players {
-		p.processIn(s.currentTick)
+		func(p *Player) {
+			defer recoverPlayer(p, "processIn", s.log)
+			p.processIn(s.currentTick)
+		}(p)
 	}
 }
 
@@ -200,19 +203,22 @@ func (s *Server) processActiveScripts() {
 	s.playersMu.RUnlock()
 
 	for _, p := range players {
-		// (1) Expire delay.
-		if p.delayed && s.currentTick >= p.delayedUntil {
-			p.delayed = false
-		}
-		// (2) Resume suspended activeScript if delay has expired.
-		if !p.delayed && p.activeScript != nil &&
-			p.activeScript.Execution == script.Suspended {
-			state := p.activeScript
-			state.Execution = script.Running
-			s.resumeOrFinish(state, p)
-		}
-		// (3) Process queue (fresh runs).
-		s.processPlayerQueue(p)
+		func(p *Player) {
+			defer recoverPlayer(p, "processActiveScripts", s.log)
+			// (1) Expire delay.
+			if p.delayed && s.currentTick >= p.delayedUntil {
+				p.delayed = false
+			}
+			// (2) Resume suspended activeScript if delay has expired.
+			if !p.delayed && p.activeScript != nil &&
+				p.activeScript.Execution == script.Suspended {
+				state := p.activeScript
+				state.Execution = script.Running
+				s.resumeOrFinish(state, p)
+			}
+			// (3) Process queue (fresh runs).
+			s.processPlayerQueue(p)
+		}(p)
 	}
 }
 
@@ -259,37 +265,40 @@ func (s *Server) processPlayerTimers() {
 	s.playersMu.RUnlock()
 
 	for _, p := range players {
-		if len(p.timers) == 0 {
-			continue
-		}
-		// Deterministic fire order (maps are unordered).
-		ids := make([]uint32, 0, len(p.timers))
-		for id := range p.timers {
-			ids = append(ids, id)
-		}
-		sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+		func(p *Player) {
+			defer recoverPlayer(p, "processPlayerTimers", s.log)
+			if len(p.timers) == 0 {
+				return
+			}
+			// Deterministic fire order (maps are unordered).
+			ids := make([]uint32, 0, len(p.timers))
+			for id := range p.timers {
+				ids = append(ids, id)
+			}
+			sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
 
-		for _, id := range ids {
-			t, ok := p.timers[id]
-			if !ok {
-				continue
+			for _, id := range ids {
+				t, ok := p.timers[id]
+				if !ok {
+					continue
+				}
+				if s.currentTick < t.Clock+t.Interval {
+					continue
+				}
+				if t.Type == script.TimerNormal && p.delayed {
+					continue
+				}
+				t.Clock = s.currentTick
+				if s.scriptProvider == nil {
+					continue
+				}
+				sf := s.scriptProvider.GetByID(id)
+				if sf == nil {
+					continue
+				}
+				s.runScript(sf, p, nil, false, t.IntArgs, t.StringArgs)
 			}
-			if s.currentTick < t.Clock+t.Interval {
-				continue
-			}
-			if t.Type == script.TimerNormal && p.delayed {
-				continue
-			}
-			t.Clock = s.currentTick
-			if s.scriptProvider == nil {
-				continue
-			}
-			sf := s.scriptProvider.GetByID(id)
-			if sf == nil {
-				continue
-			}
-			s.runScript(sf, p, nil, false, t.IntArgs, t.StringArgs)
-		}
+		}(p)
 	}
 }
 
@@ -426,7 +435,10 @@ func (s *Server) processInteractions() {
 	copy(players, s.playerLoop)
 	s.playersMu.RUnlock()
 	for _, p := range players {
-		p.processInteraction()
+		func(p *Player) {
+			defer recoverPlayer(p, "processInteraction", s.log)
+			p.processInteraction()
+		}(p)
 	}
 }
 
