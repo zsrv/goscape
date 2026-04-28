@@ -157,12 +157,17 @@ func TestHandleInvButtonOpVariant(t *testing.T) {
 
 	_ = s.handleInvButton(p, invButtonPayload(555, 3, 149), 2)
 
+	// Confirm handler reached the dispatch block (state was mutated).
+	if p.lastItem != 555 {
+		t.Errorf("lastItem: got %d, want 555 (handler must reach dispatch branch)", p.lastItem)
+	}
+	if p.lastSlot != 3 {
+		t.Errorf("lastSlot: got %d, want 3 (handler must reach dispatch branch)", p.lastSlot)
+	}
 	// Script for Button2 fired and returned — no suspension.
 	if p.activeScript != nil {
 		t.Error("activeScript: want nil after RETURN (Button2 script should have fired)")
 	}
-	// Button1 was NOT registered; the lack of Button1 script with op=2 passing
-	// confirms the trigger offset computation is correct.
 }
 
 // --- INV_BUTTOND tests ---
