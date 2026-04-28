@@ -98,6 +98,18 @@ func (p *Player) processInteraction() {
 		if npc, ok := p.target.(*Npc); ok {
 			p.SetFaceEntity(npc.nid)
 		}
+		// DEVIATION NAI-40-D-PLAYER-NO-FACEENTITY-ON-OPCLICK: TS
+		// PathingEntity.setInteraction (PathingEntity.ts:530-543) sets
+		// faceEntity = target.slot+32768 for *Player target AND
+		// faceEntity = target.nid for *Npc target — both at SetInteraction
+		// time, not at contact. Goscape sets SetFaceEntity for *Npc only
+		// (above) and at contact-distance (here), and never for *Player.
+		// Behavioral effect: clicker's player_facingmask doesn't update
+		// to face the target on op-click. Pre-existing convention for
+		// the *Npc case (set at contact rather than SetInteraction);
+		// NAI-40 inherits this for *Player by omission. Closure: bundle
+		// with the broader "SetInteraction face-entity TS-fidelity"
+		// follow-up sub-spec.
 		p.interacted = true
 		if !p.interactionFired {
 			tryFireOpTrigger(p)
