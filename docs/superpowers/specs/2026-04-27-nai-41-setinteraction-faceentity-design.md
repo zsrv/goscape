@@ -1,6 +1,6 @@
 # NAI-41 — `Player.SetInteraction` face-entity TS-fidelity
 
-**Status:** spec
+**Status:** closed (commit `188c088`, 2026-04-27)
 **Date:** 2026-04-27
 **HEAD at spec-write:** `39e5d71` (post-NAI-40)
 **Tech Stack:** Go 1.26+
