@@ -2876,3 +2876,113 @@ func TestHintStop_Success_IncrementsCounter(t *testing.T) {
 		t.Errorf("hintStopCalls: got %d, want 1", pl.hintStopCalls)
 	}
 }
+
+// --- NAI-47: handleSetIdKit ---
+
+func buildIdkTypeConfig(id, typ int) *objtype.IdkType {
+	c := objtype.NewIdkType(id)
+	c.Type = typ
+	return c
+}
+
+func TestHandleSetIdKitRequiresActivePlayer(t *testing.T) {
+	s := &ScriptState{IntStack: make([]int, StackCapacity)}
+	s.PushInt(0)
+	s.PushInt(0)
+	if err := handleSetIdKit(s); err == nil {
+		t.Error("want error for no active player, got nil")
+	}
+}
+
+func TestHandleSetIdKitNilConfigs(t *testing.T) {
+	s := &ScriptState{Pointers: PtrActivePlayer, Self: &mockPlayer{}, IntStack: make([]int, StackCapacity)}
+	s.PushInt(0) // idkit (pushed first = below)
+	s.PushInt(0) // color (pushed last = top)
+	if err := handleSetIdKit(s); err == nil {
+		t.Error("want error for nil Configs, got nil")
+	}
+}
+
+func TestHandleSetIdKitInvalidIdkit(t *testing.T) {
+	mc := &mockConfigs{idks: map[int]*objtype.IdkType{}}
+	s := &ScriptState{Pointers: PtrActivePlayer, Self: &mockPlayer{}, Configs: mc, IntStack: make([]int, StackCapacity)}
+	s.PushInt(5) // idkit=5 — not in registry (pushed first = below)
+	s.PushInt(0) // color (pushed last = top)
+	if err := handleSetIdKit(s); err == nil {
+		t.Error("want error for invalid idkit, got nil")
+	}
+}
+
+// TestHandleSetIdKitMaleHair: gender=0, idkType.Type=0 (hair) → body[0]=idkit,
+// colors[0]=color (hair colorSlot).
+func TestHandleSetIdKitMaleHair(t *testing.T) {
+	mc := &mockConfigs{idks: map[int]*objtype.IdkType{3: buildIdkTypeConfig(3, 0)}}
+	mp := &mockPlayer{genderValue: 0}
+	s := &ScriptState{Pointers: PtrActivePlayer, Self: mp, Configs: mc, IntStack: make([]int, StackCapacity)}
+	s.PushInt(3) // idkit=3 (Type=0, male hair) — pushed first = below
+	s.PushInt(7) // color — pushed last = top
+	if err := handleSetIdKit(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if mp.bodyParts[0] != 3 {
+		t.Errorf("bodyParts[0]: got %d, want 3 (idkit id)", mp.bodyParts[0])
+	}
+	if mp.colorParts[0] != 7 {
+		t.Errorf("colorParts[0]: got %d, want 7 (hair color)", mp.colorParts[0])
+	}
+}
+
+// TestHandleSetIdKitFemaleSlotAdjust: gender=1, idkType.Type=7 (female hair).
+// slot = 7 − 7 = 0, adjustedType = 0 → colorSlot=0.
+func TestHandleSetIdKitFemaleSlotAdjust(t *testing.T) {
+	mc := &mockConfigs{idks: map[int]*objtype.IdkType{9: buildIdkTypeConfig(9, 7)}}
+	mp := &mockPlayer{genderValue: 1}
+	s := &ScriptState{Pointers: PtrActivePlayer, Self: mp, Configs: mc, IntStack: make([]int, StackCapacity)}
+	s.PushInt(9) // idkit=9 (Type=7 → female hair, slot=0) — pushed first = below
+	s.PushInt(2) // color — pushed last = top
+	if err := handleSetIdKit(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if mp.bodyParts[0] != 9 {
+		t.Errorf("bodyParts[0]: got %d, want 9", mp.bodyParts[0])
+	}
+	if mp.colorParts[0] != 2 {
+		t.Errorf("colorParts[0]: got %d, want 2", mp.colorParts[0])
+	}
+}
+
+// TestHandleSetIdKitSkinNoColorWrite: Type=4 (hands) has no color slot.
+// colorParts must stay at zero defaults.
+func TestHandleSetIdKitSkinNoColorWrite(t *testing.T) {
+	mc := &mockConfigs{idks: map[int]*objtype.IdkType{4: buildIdkTypeConfig(4, 4)}}
+	mp := &mockPlayer{genderValue: 0}
+	s := &ScriptState{Pointers: PtrActivePlayer, Self: mp, Configs: mc, IntStack: make([]int, StackCapacity)}
+	s.PushInt(4)  // idkit=4 (Type=4, hands/skin) — pushed first = below
+	s.PushInt(99) // color (should not be written) — pushed last = top
+	if err := handleSetIdKit(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if mp.bodyParts[4] != 4 {
+		t.Errorf("bodyParts[4]: got %d, want 4", mp.bodyParts[4])
+	}
+	for i, v := range mp.colorParts {
+		if v != 0 {
+			t.Errorf("colorParts[%d]: got %d, want 0 (no color write for Type=4)", i, v)
+		}
+	}
+}
+
+// TestHandleSetIdKitLegs: Type=5 → colorSlot=2.
+func TestHandleSetIdKitLegs(t *testing.T) {
+	mc := &mockConfigs{idks: map[int]*objtype.IdkType{5: buildIdkTypeConfig(5, 5)}}
+	mp := &mockPlayer{genderValue: 0}
+	s := &ScriptState{Pointers: PtrActivePlayer, Self: mp, Configs: mc, IntStack: make([]int, StackCapacity)}
+	s.PushInt(5)  // idkit=5 (Type=5, legs) — pushed first = below
+	s.PushInt(11) // color — pushed last = top
+	if err := handleSetIdKit(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if mp.colorParts[2] != 11 {
+		t.Errorf("colorParts[2]: got %d, want 11 (legs colorSlot=2)", mp.colorParts[2])
+	}
+}

@@ -154,6 +154,57 @@ func handleBuildAppearance(s *ScriptState) error {
 	return nil
 }
 
+// handleSetIdKit (SETIDKIT, opcode 2100) sets one body-part slot on the
+// active player's appearance. Pops (idkit int, color int) from the stack.
+// Validates idkit via Configs.IdkType; writes body[slot] and
+// colors[colorSlot] (slot adjusted for gender). Script must call
+// BUILDAPPEARANCE separately to trigger the appearance rebuild.
+// Mirrors TS PlayerOps.ts:1066-1106.
+func handleSetIdKit(s *ScriptState) error {
+	if err := requireActivePlayer(s, "SETIDKIT"); err != nil {
+		return err
+	}
+	color := s.PopInt()
+	idkit := s.PopInt()
+	if s.Configs == nil || s.Configs.IdkType(idkit) == nil {
+		return fmt.Errorf("SETIDKIT: invalid idkit %d", idkit)
+	}
+	idk := s.Configs.IdkType(idkit)
+	gender := s.Self.Gender()
+	slot := idk.Type
+	if gender == 1 {
+		slot -= 7
+	}
+	s.Self.SetBodyPart(slot, idkit)
+	adjustedType := idk.Type
+	if gender == 1 {
+		adjustedType -= 7
+	}
+	if cs := idkColorSlot(adjustedType); cs >= 0 {
+		s.Self.SetColorPart(cs, color)
+	}
+	return nil
+}
+
+// idkColorSlot maps the gender-adjusted body-part type (0-6) to the
+// colors array index. Returns -1 when no color write is needed (type=4,
+// hands/skin — set via SETSKINCOLOUR instead).
+// Mirrors TS PlayerOps.ts:1082-1103 color-slot mapping.
+func idkColorSlot(t int) int {
+	switch t {
+	case 0, 1:
+		return 0 // hair / jaw
+	case 2, 3:
+		return 1 // torso / arms
+	case 5:
+		return 2 // legs
+	case 6:
+		return 3 // feet
+	default:
+		return -1 // type=4 (hands/skin): no color write
+	}
+}
+
 // -- Stat read ops -------------------------------------------------------
 
 // handleStat pushes the active player's current (boosted/drained) level

@@ -393,6 +393,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// S7c: BUILDAPPEARANCE dispatch.
 	OpBuildAppearance: handleBuildAppearance,
 
+	// NAI-47: identity-kit body-part setter.
+	OpSetIdKit: handleSetIdKit,
+
 	// S7e: character-design flag setter.
 	OpAllowDesign: handleAllowDesign,
 
