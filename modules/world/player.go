@@ -654,6 +654,8 @@ func (p *Player) processIn(currentTick int) {
 		return
 	}
 
+	p.lastConnected = currentTick // mirrors TS decodeIn() line 63
+
 	p.userLimit = 0
 	p.clientLimit = 0
 	p.restrictedLimit = 0
@@ -662,6 +664,7 @@ func (p *Player) processIn(currentTick int) {
 	c.inMu.Lock()
 	defer c.inMu.Unlock()
 
+	readAny := false
 	for p.userLimit < userEventLimit &&
 		p.clientLimit < clientEventLimit &&
 		p.restrictedLimit < restrictedEventLimit {
@@ -673,6 +676,7 @@ func (p *Player) processIn(currentTick int) {
 		if !ok {
 			break
 		}
+		readAny = true
 		switch gameclient.Ops[opcode].Category {
 		case gameclient.CategoryUserEvent:
 			p.userLimit++
@@ -681,6 +685,9 @@ func (p *Player) processIn(currentTick int) {
 		default:
 			p.clientLimit++
 		}
+	}
+	if readAny {
+		p.lastResponse = currentTick // mirrors TS decodeIn() line 80
 	}
 }
 

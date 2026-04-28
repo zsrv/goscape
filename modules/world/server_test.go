@@ -525,6 +525,40 @@ func TestProcessLogoutsTimeoutMarksLoggingOut(t *testing.T) {
 	}
 }
 
+func TestProcessInUpdatesLastConnectedWhenGameState(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	c.server = s
+	c.state = ClientStateGame
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	c.encryptor = enc
+	p := newPlayer(c)
+	c.player = p
+	p.lastConnected = 0
+
+	p.processIn(42)
+
+	if p.lastConnected != 42 {
+		t.Errorf("lastConnected: got %d, want 42", p.lastConnected)
+	}
+}
+
+func TestProcessInDoesNotUpdateLastConnectedWhenNotGameState(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	c.server = s
+	// c.state defaults to ClientStateLogin
+	p := newPlayer(c)
+	c.player = p
+	p.lastConnected = 5
+
+	p.processIn(42)
+
+	if p.lastConnected != 5 {
+		t.Errorf("lastConnected: got %d, want 5 (unchanged)", p.lastConnected)
+	}
+}
+
 func TestTickLoopIncrementsCurrentTick(t *testing.T) {
 	s := newTestServer(t)
 
