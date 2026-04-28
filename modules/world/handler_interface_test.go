@@ -372,3 +372,111 @@ func TestHandleIdkSaveDesignFemaleJaw255Accepted(t *testing.T) {
 		t.Errorf("gender: got %d, want 1", p.gender)
 	}
 }
+
+// TestHandleIdkSaveDesignValidMale pins the male happy path with a seeded registry.
+func TestHandleIdkSaveDesignValidMale(t *testing.T) {
+	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.allowDesign = true
+	s.idkTypes = buildIdkTypes(14)
+
+	// gender=0: types 0..6, use registry IDs 0..6.
+	body := [7]byte{0, 1, 2, 3, 4, 5, 6}
+	colors := [5]byte{0, 1, 2, 0, 0}
+	_ = s.handleIdkSaveDesign(p, idkPayload(0, body, colors))
+
+	if p.gender != 0 {
+		t.Errorf("gender: got %d, want 0", p.gender)
+	}
+	for i, v := range body {
+		if p.body[i] != int(v) {
+			t.Errorf("body[%d]: got %d, want %d", i, p.body[i], v)
+		}
+	}
+	if p.masks&rsbuf.MaskAppearance == 0 {
+		t.Error("MaskAppearance: want set, got unset")
+	}
+}
+
+// TestHandleIdkSaveDesignValidFemaleWithJaw pins the female happy path
+// where all 7 slots including jaw are valid IDs.
+func TestHandleIdkSaveDesignValidFemaleWithJaw(t *testing.T) {
+	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.allowDesign = true
+	s.idkTypes = buildIdkTypes(14)
+
+	// gender=1: types 7..13, use registry IDs 7..13.
+	body := [7]byte{7, 8, 9, 10, 11, 12, 13}
+	colors := [5]byte{0, 0, 0, 0, 0}
+	_ = s.handleIdkSaveDesign(p, idkPayload(1, body, colors))
+
+	if p.gender != 1 {
+		t.Errorf("gender: got %d, want 1", p.gender)
+	}
+	for i, v := range body {
+		if p.body[i] != int(v) {
+			t.Errorf("body[%d]: got %d, want %d", i, p.body[i], v)
+		}
+	}
+	if p.masks&rsbuf.MaskAppearance == 0 {
+		t.Error("MaskAppearance: want set, got unset")
+	}
+}
+
+// TestHandleIdkSaveDesignDisabledIdk pins that a disabled IdkType rejects
+// the whole packet (TS IdkSaveDesignHandler.ts:30: idk.disable check).
+func TestHandleIdkSaveDesignDisabledIdk(t *testing.T) {
+	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.allowDesign = true
+	s.idkTypes = buildIdkTypes(14)
+	s.idkTypes.Configs[0].Disable = true // slot 0 disabled
+
+	// gender=0, idkit[0]=0 → disabled → rejected.
+	body := [7]byte{0, 1, 2, 3, 4, 5, 6}
+	_ = s.handleIdkSaveDesign(p, idkPayload(0, body, [5]byte{}))
+
+	if p.gender != 0 || p.masks&rsbuf.MaskAppearance != 0 {
+		t.Error("state changed despite disabled idk: expected rejection")
+	}
+}
+
+// TestHandleIdkSaveDesignWrongType pins that a type mismatch rejects the packet
+// (TS IdkSaveDesignHandler.ts:30: idk.type != type check).
+func TestHandleIdkSaveDesignWrongType(t *testing.T) {
+	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.allowDesign = true
+	s.idkTypes = buildIdkTypes(14)
+	s.idkTypes.Configs[0].Type = 99 // wrong type for slot 0 (expected 0)
+
+	body := [7]byte{0, 1, 2, 3, 4, 5, 6}
+	_ = s.handleIdkSaveDesign(p, idkPayload(0, body, [5]byte{}))
+
+	if p.gender != 0 || p.masks&rsbuf.MaskAppearance != 0 {
+		t.Error("state changed despite wrong idk type: expected rejection")
+	}
+}
+
+// TestHandleIdkSaveDesignOutOfRangeIdkit pins that an idkit value >= registry
+// length is rejected (bounds check before Configs[idkit[i]] dereference).
+func TestHandleIdkSaveDesignOutOfRangeIdkit(t *testing.T) {
+	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.allowDesign = true
+	s.idkTypes = buildIdkTypes(14) // IDs 0..13
+
+	// idkit[0] = 14 → out of range (len=14).
+	body := [7]byte{14, 1, 2, 3, 4, 5, 6}
+	_ = s.handleIdkSaveDesign(p, idkPayload(0, body, [5]byte{}))
+
+	if p.gender != 0 || p.masks&rsbuf.MaskAppearance != 0 {
+		t.Error("state changed despite out-of-range idkit: expected rejection")
+	}
+}
