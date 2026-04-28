@@ -1462,3 +1462,47 @@ func TestOpPlayer1_E2E_HintPlOnTarget(t *testing.T) {
 		t.Error("interactionFired: got false, want true after fire")
 	}
 }
+
+// TestResumeOrFinishWorldSuspendedDoesNotClearActiveScript pins NAI-44 T1:
+// when a player-anchored script transitions to WorldSuspended, the
+// player's activeScript slot retains the state pointer (TS Player.ts:2143-2150
+// only nulls activeScript on FINISHED/ABORTED).
+func TestResumeOrFinishWorldSuspendedDoesNotClearActiveScript(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	sf := &script.ScriptFile{
+		Name: "[worlddelay,nai44t1]",
+		Opcodes: []script.Opcode{
+			script.OpPushConstantInt,
+			script.OpWorldDelay,
+			script.OpReturn,
+		},
+		IntOperands:      []int32{5, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+
+	state := script.Init(sf, p, true, nil, nil)
+	state.Provider = s.scriptProvider
+	state.World = s.worldVars
+	state.Configs = s.configsView
+	state.Inv = s.invLookup
+	state.Npcs = s.npcLookup
+	state.LineValidator = s.scriptLineValidator()
+
+	// Pre-condition: store the state so the assertion is meaningful.
+	p.activeScript = state
+
+	s.resumeOrFinish(state, p)
+
+	if p.activeScript != state {
+		t.Errorf("activeScript: got %p, want %p (WorldSuspended must NOT clear)", p.activeScript, state)
+	}
+	if len(s.worldScriptQueue) != 1 {
+		t.Errorf("worldScriptQueue length: got %d, want 1 (state should have been enqueued)", len(s.worldScriptQueue))
+	}
+}

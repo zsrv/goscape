@@ -118,19 +118,17 @@ func (s *Server) resumeOrFinish(state *script.ScriptState, self script.ActivePla
 		// NAI-37 T10: player-bound script suspended to world queue.
 		// Pop the wakeup-tick (which the script's bytecode pushed
 		// before WORLD_DELAY — see handlers_server.go:87-108) and
-		// enqueue. The player no longer owns this script; it now
-		// belongs to the world queue. Mirrors TS Player.ts:2135-2136.
+		// enqueue. The player no longer owns this script's execution;
+		// it now belongs to the world queue. Mirrors TS Player.ts:2135-2136.
 		//
-		// DEVIATION NAI-37-D-WORLDSUSPEND-CLEARS-ACTIVE-SCRIPT: TS does
-		// NOT clear activePlayer.activeScript in this branch (see
-		// Player.ts:2143-2150 — only Finished/Aborted clears). Goscape's
-		// ClearActiveScript() is defensive against stale-pointer
-		// double-execution if a previously-stored Suspended script
-		// transitions to WorldSuspended. Closure when goscape ports the
-		// full TS executeScript binding semantics.
+		// NAI-44: TS Player.executeScript (L2143-2150) only nulls
+		// this.activeScript on FINISHED/ABORTED. Goscape's previous
+		// defensive clear here was untracked-divergent; processActiveScripts
+		// gates resume on Execution == Suspended (tick.go:213-214), so
+		// holding the pointer is safe — the player's resume loop will
+		// not re-fire a WorldSuspended state.
 		delay := state.PopInt()
 		s.EnqueueWorldScript(state, delay)
-		self.ClearActiveScript()
 	default:
 		// NpcSuspended — future sub-spec (T11).
 		s.log.Warn("script in unsupported execution state",

@@ -897,3 +897,30 @@ func TestResumeOrFinishNpc_WorldSuspended_EnqueuesAndClears(t *testing.T) {
 		t.Errorf("npc.activeScript: got %v, want nil (script transitioned to world-bound)", got)
 	}
 }
+
+// TestResumeOrFinishNpcWorldSuspendedDoesNotClearActiveScript — NAI-44 T1
+// symmetric pin for the npc-path. TS Npc.ts:226-228 only nulls activeScript
+// on FINISHED/ABORTED.
+func TestResumeOrFinishNpcWorldSuspendedDoesNotClearActiveScript(t *testing.T) {
+	s, n := buildNpcForIntegration(t)
+
+	state := &script.ScriptState{
+		Script:      &script.ScriptFile{Name: "test_world_suspend_nai44"},
+		Execution:   script.WorldSuspended,
+		IntStack:    make([]int, script.StackCapacity),
+		StringStack: make([]string, script.StackCapacity),
+	}
+	state.PushInt(5) // wakeup-tick value for resumer to pop
+
+	// Pre-set activeScript so the assertion is meaningful.
+	n.activeScript = state
+
+	s.resumeOrFinishNpc(state, n)
+
+	if n.activeScript != state {
+		t.Errorf("activeScript: got %p, want %p (WorldSuspended must NOT clear)", n.activeScript, state)
+	}
+	if len(s.worldScriptQueue) != 1 {
+		t.Errorf("worldScriptQueue length: got %d, want 1", len(s.worldScriptQueue))
+	}
+}
