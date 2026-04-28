@@ -37,6 +37,12 @@ func tryFireOpTrigger(p *Player) {
 		fireOpTriggerNpc(p, srv, tgt)
 	case *entitypkg.Loc:
 		fireOpTriggerLoc(p, srv, tgt)
+	case *Player:
+		// NAI-40 T5: Player→Player engine dispatch. Closes
+		// NAI-39-D-ACTIVEPLAYER2-NO-OPPLAYER-PRODUCER by routing
+		// through srv.runScript so buildPlayerScriptState's
+		// case-ActivePlayer arm sets state.Self2 = clicker.
+		fireOpTriggerPlayer(p, srv, tgt)
 	default:
 		// Target type not handled by any branch: skip; mark fired so we
 		// don't retry every tick.
@@ -255,6 +261,10 @@ func tryFireApTrigger(p *Player) {
 		fireApTriggerLoc(p, srv, tgt)
 	case *Npc:
 		fireApTriggerNpc(p, srv, tgt)
+	case *Player:
+		// NAI-40 T5: Player→Player approach dispatch. Same Self2
+		// substrate as the OP variant.
+		fireApTriggerPlayer(p, srv, tgt)
 	default:
 		// *Obj, etc. — AP branch not yet wired. Mark fired to prevent
 		// same-tick retry. Follow-up: APOBJ sub-spec.
