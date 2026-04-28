@@ -43,6 +43,11 @@ func init() {
 	gameHandlers[134] = handleOpNpcT // OPNPCT
 	gameHandlers[202] = handleOpNpcU // OPNPCU
 
+	gameHandlers[164] = handleOpPlayer1 // OPPLAYER1
+	gameHandlers[53] = handleOpPlayer2  // OPPLAYER2
+	gameHandlers[185] = handleOpPlayer3 // OPPLAYER3
+	gameHandlers[206] = handleOpPlayer4 // OPPLAYER4
+
 	gameHandlers[158] = handleMessagePublic // MESSAGE_PUBLIC
 
 	gameHandlers[235] = handleResumePauseButton // RESUME_PAUSEBUTTON
