@@ -84,6 +84,7 @@ type Server struct {
 
 	npcTypes      *objtype.NPCTypeConfigs
 	huntTypes     *objtype.HuntTypeConfigs
+	idkTypes      *objtype.IdkTypeConfigs
 	npcs          [8192]*Npc
 	npcLoop       []*Npc
 	npcEventQueue []NpcEventRequest
@@ -230,6 +231,12 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 		return nil, fmt.Errorf("load hunt types: %w", err)
 	}
 	s.huntTypes = huntTypes
+
+	idkTypes, err := objtype.LoadIdkTypes(cfg.CachePath)
+	if err != nil {
+		return nil, fmt.Errorf("load idk types: %w", err)
+	}
+	s.idkTypes = idkTypes
 
 	s.scriptProvider = script.NewProvider()
 	if err := s.scriptProvider.Load(filepath.Join(cfg.CachePath, "server")); err != nil {

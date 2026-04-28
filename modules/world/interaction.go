@@ -166,7 +166,7 @@ func (p *Player) processInteraction() {
 	if !followOp {
 		p.processWalktrigger()
 	}
-	interacted = p.tryInteract(false)
+	interacted = p.tryInteract()
 
 	// Post-step arm (TS L1227-1252). Skipped when pre-step interacted.
 	if !interacted {
@@ -189,7 +189,7 @@ func (p *Player) processInteraction() {
 		// Post-step interact (TS L1244-1252). Skipped when followOp
 		// (the chase keeps interaction anchored across steps).
 		if p.target != nil && !followOp {
-			interacted = p.tryInteract(p.stepsTaken == 0)
+			interacted = p.tryInteract()
 			if !interacted && !p.hasWaypoints() && p.stepsTaken == 0 {
 				p.MessageGame("I can't reach that!")
 				p.ClearInteraction()
@@ -241,15 +241,7 @@ func (p *Player) processWalktrigger() {}
 // tryInteract is the contact/approach-distance dispatch unifying the
 // OP and AP arms that processInteraction previously inlined.
 // Returns true when an OP or AP trigger fired this tick.
-//
-// continueWalk is reserved for TS Player.ts:1245's stepsTaken-aware
-// retry timing. Goscape's per-tick movement order makes it currently a
-// no-op (the post-step arm only runs once anyway).
-//
-// DEVIATION NAI-44-D-CONTINUEWALK-UNUSED: parameter kept for symmetry
-// with TS shape; closure is dead-API-polish at next sub-spec close per
-// dead_api_polish.md if no consumer materializes.
-func (p *Player) tryInteract(continueWalk bool) bool {
+func (p *Player) tryInteract() bool {
 	tx, tz, _ := p.target.Coords()
 	if inOperableDistance(p.x, p.z, tx, tz) {
 		p.interacted = true
@@ -265,7 +257,6 @@ func (p *Player) tryInteract(continueWalk bool) bool {
 		}
 		return true
 	}
-	_ = continueWalk
 	return false
 }
 
