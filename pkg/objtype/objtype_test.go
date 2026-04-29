@@ -3,7 +3,30 @@ package objtype
 import (
 	"path/filepath"
 	"testing"
+
+	packet2 "github.com/zsrv/goscape/pkg/io/packet"
 )
+
+func TestObjTypeDecodeOpHiddenCoercedToEmpty(t *testing.T) {
+	pkt := packet2.NewPacket(nil)
+	pkt.P1(30)
+	pkt.PJStrLF("visible")
+	pkt.P1(31)
+	pkt.PJStrLF("hidden")
+	pkt.P1(0)
+
+	ot := NewObjType(0)
+	if err := DecodeType(pkt, ot); err != nil {
+		t.Fatalf("DecodeType: %v", err)
+	}
+
+	if got := ot.Op[0]; got != "visible" {
+		t.Errorf("Op[0]: got %q, want \"visible\"", got)
+	}
+	if got := ot.Op[1]; got != "" {
+		t.Errorf("Op[1] (hidden-coerced): got %q, want \"\"", got)
+	}
+}
 
 func TestLoadObjTypesFromPack(t *testing.T) {
 	cacheDir := filepath.Join("..", "..", "data", "pack")
