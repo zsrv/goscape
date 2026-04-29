@@ -114,7 +114,7 @@ func TestFireOpTriggerPlayer_BindsSelf2ToClicker(t *testing.T) {
 
 	want := []byte{
 		byte((int(gameserver.OpHintArrow.Opcode) + int(wantEnc.GetNext())) & 0xff),
-		0x0A,                                       // p1: type = 10 (player hint)
+		0x0A,                                        // p1: type = 10 (player hint)
 		byte(clicker.slot >> 8), byte(clicker.slot), // p2: slot
 		0x00, 0x00, // p2: 0
 		0x00, // p1: 0

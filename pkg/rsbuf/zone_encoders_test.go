@@ -77,10 +77,10 @@ func TestEncodeMapProjAnim(t *testing.T) {
 		5, 10,
 		0x00, 0x00, // target
 		0x00, 0x01, // spotanim
-		2, 3,       // srcHeight, dstHeight
+		2, 3, // srcHeight, dstHeight
 		0x00, 0x04, // startDelay
 		0x00, 0x05, // endDelay
-		6, 7,       // peak, arc
+		6, 7, // peak, arc
 	}
 	if !bytes.Equal(buf.Data, want) {
 		t.Errorf("got %v, want %v", buf.Data, want)

@@ -15,17 +15,17 @@ func setupNpc(b *Buf, nid, ntype int32, modify func(n *Npc)) {
 	b.ComputeNpc(
 		nid, ntype,
 		3200, 0, 3200, // x, level, z — same zone as local player
-		false,         // tele
-		-1, -1,        // runDir, walkDir
-		true,          // active
-		0,             // masks
-		-1, -1, -1,    // faceEntity, faceX, faceZ
-		-1, -1,        // orientationX, orientationZ
-		-1, -1,        // damageTaken, damageType
-		-1, -1,        // currentHitpoints, baseHitpoints
-		-1, -1,        // animID, animDelay
-		nil,           // say
-		-1, -1, -1,    // graphicID, graphicHeight, graphicDelay
+		false,  // tele
+		-1, -1, // runDir, walkDir
+		true,       // active
+		0,          // masks
+		-1, -1, -1, // faceEntity, faceX, faceZ
+		-1, -1, // orientationX, orientationZ
+		-1, -1, // damageTaken, damageType
+		-1, -1, // currentHitpoints, baseHitpoints
+		-1, -1, // animID, animDelay
+		nil,        // say
+		-1, -1, -1, // graphicID, graphicHeight, graphicDelay
 	)
 	if modify != nil {
 		modify(b.npcs[nid])
@@ -40,11 +40,11 @@ func TestNpcInfo_Encode_Empty(t *testing.T) {
 	// sets are both empty. 42-arg ComputePlayer signature (verify against
 	// (*Buf).ComputePlayer in pkg/rsbuf/buf.go).
 	b.ComputePlayer(
-		1,           // pid
+		1,             // pid
 		3200, 0, 3200, // x, level, z
-		3200, 3200,    // originX, originZ
-		false, false,  // tele, jump
-		-1, -1,        // runDir, walkDir
+		3200, 3200, // originX, originZ
+		false, false, // tele, jump
+		-1, -1, // runDir, walkDir
 		VisibilityDefault, // visibility
 		0,                 // staffModLevel
 		true,              // active
@@ -53,16 +53,16 @@ func TestNpcInfo_Encode_Empty(t *testing.T) {
 		-1,                // lastAppearance
 		-1,                // faceEntity
 		-1, -1,            // faceX, faceZ
-		-1, -1,            // orientationX, orientationZ
-		-1, -1,            // damageTaken, damageType
-		-1, -1,            // currentHitpoints, baseHitpoints
-		-1, -1,            // animID, animDelay
-		nil,               // say
-		nil, 0, 0, 0,      // message, color, effect, ignored
-		-1, -1, -1,        // graphicID, graphicHeight, graphicDelay
-		-1, -1,            // exactStartX, exactStartZ
-		-1, -1,            // exactEndX, exactEndZ
-		-1, -1, -1,        // exactMoveStart, exactMoveEnd, exactMoveDirection
+		-1, -1, // orientationX, orientationZ
+		-1, -1, // damageTaken, damageType
+		-1, -1, // currentHitpoints, baseHitpoints
+		-1, -1, // animID, animDelay
+		nil,          // say
+		nil, 0, 0, 0, // message, color, effect, ignored
+		-1, -1, -1, // graphicID, graphicHeight, graphicDelay
+		-1, -1, // exactStartX, exactStartZ
+		-1, -1, // exactEndX, exactEndZ
+		-1, -1, -1, // exactMoveStart, exactMoveEnd, exactMoveDirection
 	)
 
 	r := NewRenderer()
@@ -341,7 +341,7 @@ func TestNpcInfo_TrackedNpc_RemoveBecauseLevelMismatch(t *testing.T) {
 func TestNpcInfo_TrackedNpc_RemoveBecauseOutOfDistance(t *testing.T) {
 	b := New()
 	setupLocalPlayer(b, 1, nil) // x=3200, z=3200, level=0
-	npcX := 3200 + 16*8       // 128 tiles away — distance > 15
+	npcX := 3200 + 16*8         // 128 tiles away — distance > 15
 	b.AddNpc(7, 100)
 	b.ComputeNpc(
 		7, 100,

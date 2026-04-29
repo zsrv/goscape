@@ -123,8 +123,8 @@ func TestProcessWorldQueue_RemovedBeforeFire(t *testing.T) {
 	s := newTestServer(t)
 	state := newReturnImmediatelyScript(t)
 	s.EnqueueWorldScript(state, 0) // stored=1; needs 2 calls to fire per TS
-	s.processWorldQueue()           // tick 1: skip
-	s.processWorldQueue()           // tick 2: fire
+	s.processWorldQueue()          // tick 1: skip
+	s.processWorldQueue()          // tick 2: fire
 	if got := len(s.worldScriptQueue); got != 0 {
 		t.Errorf("queue length post-fire: got %d, want 0 (entry must be removed before+after fire)", got)
 	}

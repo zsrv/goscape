@@ -13,23 +13,23 @@ package rsbuf
 // and by NAI-30's encoder (increments on add to a tracking set,
 // decrements on remove from a tracking set).
 type Npc struct {
-	Coord    int   // pkg/coordgrid.PackCoord(level, x, z)
-	NID      int32
-	NType    int32
-	Tele     bool
-	RunDir   int8 // -1 sentinel
-	WalkDir  int8 // -1 sentinel
-	Active   bool
-	Masks    uint32
-	FaceEntity              int32
-	FaceX, FaceZ            int32
-	OrientationX, OrientationZ int32
-	DamageTaken, DamageType    int32
-	CurrentHitpoints, BaseHitpoints int32
-	AnimID, AnimDelay int32
-	Say               *string
+	Coord                                  int // pkg/coordgrid.PackCoord(level, x, z)
+	NID                                    int32
+	NType                                  int32
+	Tele                                   bool
+	RunDir                                 int8 // -1 sentinel
+	WalkDir                                int8 // -1 sentinel
+	Active                                 bool
+	Masks                                  uint32
+	FaceEntity                             int32
+	FaceX, FaceZ                           int32
+	OrientationX, OrientationZ             int32
+	DamageTaken, DamageType                int32
+	CurrentHitpoints, BaseHitpoints        int32
+	AnimID, AnimDelay                      int32
+	Say                                    *string
 	GraphicID, GraphicHeight, GraphicDelay int32
-	Observers int32
+	Observers                              int32
 }
 
 // newNpc constructs an Npc at zero-coord with sentinel defaults and

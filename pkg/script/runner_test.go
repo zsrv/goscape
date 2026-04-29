@@ -128,28 +128,28 @@ type mockPlayer struct {
 
 	// S5c: captured calls from the mutation methods. Tests inspect these
 	// to verify a handler made the expected call.
-	lastTeleJump  struct{ x, z, level int }
-	teleJumpCalls int
-	lastTeleport  struct{ x, z, level int }
-	teleportCalls int
-	lastFaceSquare struct{ x, z int }
+	lastTeleJump    struct{ x, z, level int }
+	teleJumpCalls   int
+	lastTeleport    struct{ x, z, level int }
+	teleportCalls   int
+	lastFaceSquare  struct{ x, z int }
 	faceSquareCalls int
 
 	setCurLevelCalls []struct{ id, level int }
 	addXPCalls       []struct{ id, xp int }
 
-	lastPlayAnim     struct{ seqID, delay int }
-	playAnimCalls    int
-	lastPlaySpotAnim struct{ id, height, delay int }
+	lastPlayAnim      struct{ seqID, delay int }
+	playAnimCalls     int
+	lastPlaySpotAnim  struct{ id, height, delay int }
 	playSpotAnimCalls int
 
-	lastReadyAnim  int
-	lastTurnAnim   int
-	lastWalkAnim   int
-	lastWalkAnimB  int
-	lastWalkAnimL  int
-	lastWalkAnimR  int
-	lastRunAnim    int
+	lastReadyAnim int
+	lastTurnAnim  int
+	lastWalkAnim  int
+	lastWalkAnimB int
+	lastWalkAnimL int
+	lastWalkAnimR int
+	lastRunAnim   int
 
 	// S5f: captured calls from the interface / modal-control methods.
 	lastCloseModalCalls int
@@ -158,18 +158,24 @@ type mockPlayer struct {
 	lastOpenSide        int
 	lastOpenMainSide    struct{ main, side int }
 
-	lastIfSetText       struct{ com int; text string }
+	lastIfSetText struct {
+		com  int
+		text string
+	}
 	lastIfSetModel      struct{ com, modelID int }
 	lastIfSetNpcHead    struct{ com, npcID int }
 	lastIfSetPlayerHead int // just com
 	lastIfSetAnim       struct{ com, seqID int }
-	lastIfSetHide       struct{ com int; hide bool }
-	lastIfSetTab        struct{ com, tab int }
-	lastIfSetObject     struct{ com, objID, scale int }
-	lastIfSetColour     struct{ com, colour int }
-	lastIfSetPosition   struct{ com, x, y int }
-	lastIfSetRecol      struct{ com, src, dst int }
-	lastIfSetTabActive  int // just tab
+	lastIfSetHide       struct {
+		com  int
+		hide bool
+	}
+	lastIfSetTab       struct{ com, tab int }
+	lastIfSetObject    struct{ com, objID, scale int }
+	lastIfSetColour    struct{ com, colour int }
+	lastIfSetPosition  struct{ com, x, y int }
+	lastIfSetRecol     struct{ com, src, dst int }
+	lastIfSetTabActive int // just tab
 
 	lastSetResumeButtons [5]int
 
@@ -181,7 +187,7 @@ type mockPlayer struct {
 	clearPendingActionCalls int
 
 	// S5i capture fields
-	lastSetTimer    struct {
+	lastSetTimer struct {
 		scriptID   uint32
 		interval   int
 		intArgs    []int
@@ -390,16 +396,19 @@ func (m *mockPlayer) SetRunAnim(seqID int)   { m.lastRunAnim = seqID }
 
 // S5f: interface / modal control.
 
-func (m *mockPlayer) CloseModal()            { m.lastCloseModalCalls++ }
-func (m *mockPlayer) OpenMain(com int)       { m.lastOpenMain = com }
-func (m *mockPlayer) OpenChat(com int)       { m.lastOpenChat = com }
-func (m *mockPlayer) OpenSide(com int)       { m.lastOpenSide = com }
+func (m *mockPlayer) CloseModal()      { m.lastCloseModalCalls++ }
+func (m *mockPlayer) OpenMain(com int) { m.lastOpenMain = com }
+func (m *mockPlayer) OpenChat(com int) { m.lastOpenChat = com }
+func (m *mockPlayer) OpenSide(com int) { m.lastOpenSide = com }
 func (m *mockPlayer) OpenMainSide(mainCom, sideCom int) {
 	m.lastOpenMainSide = struct{ main, side int }{mainCom, sideCom}
 }
 
 func (m *mockPlayer) IfSetText(com int, text string) {
-	m.lastIfSetText = struct{ com int; text string }{com, text}
+	m.lastIfSetText = struct {
+		com  int
+		text string
+	}{com, text}
 }
 func (m *mockPlayer) IfSetModel(com, modelID int) {
 	m.lastIfSetModel = struct{ com, modelID int }{com, modelID}
@@ -412,7 +421,10 @@ func (m *mockPlayer) IfSetAnim(com, seqID int) {
 	m.lastIfSetAnim = struct{ com, seqID int }{com, seqID}
 }
 func (m *mockPlayer) IfSetHide(com int, hide bool) {
-	m.lastIfSetHide = struct{ com int; hide bool }{com, hide}
+	m.lastIfSetHide = struct {
+		com  int
+		hide bool
+	}{com, hide}
 }
 func (m *mockPlayer) IfSetTab(com, tab int) {
 	m.lastIfSetTab = struct{ com, tab int }{com, tab}
@@ -485,7 +497,7 @@ func (m *mockPlayer) Slot() int        { return m.slot }
 
 // StaffModLevel returns the seeded staff level for tests.
 func (m *mockPlayer) StaffModLevel() int32 { return int32(m.staffModLevelValue) }
-func (m *mockPlayer) UID() int              { return m.uidValue }
+func (m *mockPlayer) UID() int             { return m.uidValue }
 
 // NAI-35-T2: ActivePlayer.X/Z used by MAP_PLAYERCOUNT rect filter and
 // future PlayerIterator passes-filter check.

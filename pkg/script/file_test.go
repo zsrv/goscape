@@ -58,7 +58,7 @@ func buildScript(name, source string, lookupKey uint32, intArgCount, stringArgCo
 	header = append(header, []byte(source)...)
 	header = append(header, 0)
 	header = binary.BigEndian.AppendUint32(header, lookupKey)
-	header = append(header, 0) // parameterTypeCount = 0
+	header = append(header, 0)                        // parameterTypeCount = 0
 	header = binary.BigEndian.AppendUint16(header, 0) // lineNumberTableLength = 0
 
 	// full blob = header + instrStream + trailer + u16(trailerLen)
@@ -166,13 +166,13 @@ func TestDecodeOneSwitchTable(t *testing.T) {
 	header = append(header, []byte(source)...)
 	header = append(header, 0)
 	header = binary.BigEndian.AppendUint32(header, lookupKey)
-	header = append(header, 0) // paramCount
+	header = append(header, 0)                        // paramCount
 	header = binary.BigEndian.AppendUint16(header, 0) // lineTableLen
 
 	// One SWITCH instruction (small operand, opcode=24)
 	var instrStream []byte
 	instrStream = append(instrStream, 0x00, byte(OpSwitch)) // u16 opcode
-	instrStream = append(instrStream, 0)                     // u8 operand (small)
+	instrStream = append(instrStream, 0)                    // u8 operand (small)
 
 	// Trailer: fixed 12 bytes + variable switch data + u16 varLen.
 	// varLen = switchTableCount(1) + caseCount(2) + 2 cases×8 bytes = 1+2+16 = 19.
@@ -184,12 +184,12 @@ func TestDecodeOneSwitchTable(t *testing.T) {
 	fixedTrailer = binary.BigEndian.AppendUint16(fixedTrailer, 0) // stringArgCount
 
 	var switchData []byte
-	switchData = append(switchData, 1)                               // switchTableCount=1
-	switchData = binary.BigEndian.AppendUint16(switchData, 2)        // caseCount=2
-	switchData = binary.BigEndian.AppendUint32(switchData, 10)       // key
-	switchData = binary.BigEndian.AppendUint32(switchData, 5)        // offset
-	switchData = binary.BigEndian.AppendUint32(switchData, 20)       // key
-	switchData = binary.BigEndian.AppendUint32(switchData, 3)        // offset
+	switchData = append(switchData, 1)                         // switchTableCount=1
+	switchData = binary.BigEndian.AppendUint16(switchData, 2)  // caseCount=2
+	switchData = binary.BigEndian.AppendUint32(switchData, 10) // key
+	switchData = binary.BigEndian.AppendUint32(switchData, 5)  // offset
+	switchData = binary.BigEndian.AppendUint32(switchData, 20) // key
+	switchData = binary.BigEndian.AppendUint32(switchData, 3)  // offset
 	trailerLen := len(switchData)
 
 	var trailer []byte

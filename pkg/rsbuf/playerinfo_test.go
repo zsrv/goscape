@@ -490,11 +490,11 @@ func TestPlayerInfo_Encode_LocalIdleNoOthers(t *testing.T) {
 	// ComputePlayer with all sentinels — local stationary at (3200, 0, 3200), no masks,
 	// no exact move. 42-arg signature; verify against (*Buf).ComputePlayer in pkg/rsbuf/buf.go.
 	b.ComputePlayer(
-		1,           // pid
+		1,             // pid
 		3200, 0, 3200, // x, level, z
-		3200, 3200,    // originX, originZ
-		false, false,  // tele, jump
-		-1, -1,        // runDir, walkDir
+		3200, 3200, // originX, originZ
+		false, false, // tele, jump
+		-1, -1, // runDir, walkDir
 		VisibilityDefault, // visibility
 		0,                 // staffModLevel
 		true,              // active
@@ -503,16 +503,16 @@ func TestPlayerInfo_Encode_LocalIdleNoOthers(t *testing.T) {
 		-1,                // lastAppearance
 		-1,                // faceEntity
 		-1, -1,            // faceX, faceZ
-		-1, -1,            // orientationX, orientationZ
-		-1, -1,            // damageTaken, damageType
-		-1, -1,            // currentHitpoints, baseHitpoints
-		-1, -1,            // animID, animDelay
-		nil,               // say
-		nil, 0, 0, 0,      // message, color, effect, ignored
-		-1, -1, -1,        // graphicID, graphicHeight, graphicDelay
-		-1, -1,            // exactStartX, exactStartZ
-		-1, -1,            // exactEndX, exactEndZ
-		-1, -1, -1,        // exactMoveStart, exactMoveEnd, exactMoveDirection
+		-1, -1, // orientationX, orientationZ
+		-1, -1, // damageTaken, damageType
+		-1, -1, // currentHitpoints, baseHitpoints
+		-1, -1, // animID, animDelay
+		nil,          // say
+		nil, 0, 0, 0, // message, color, effect, ignored
+		-1, -1, -1, // graphicID, graphicHeight, graphicDelay
+		-1, -1, // exactStartX, exactStartZ
+		-1, -1, // exactEndX, exactEndZ
+		-1, -1, -1, // exactMoveStart, exactMoveEnd, exactMoveDirection
 	)
 
 	r := NewRenderer()

@@ -517,7 +517,7 @@ func TestPlayerEscapeBeyondMaxRangeNorthAxisFallback(t *testing.T) {
 	s, n, p := playerModeFixture(t)
 	n.x, n.z = 3100, 3100
 	n.startX, n.startZ = 3100, 3100
-	n.typ.MaxRange = 0 // candidate's distance-from-start (=1) >= MaxRange → fallback
+	n.typ.MaxRange = 0    // candidate's distance-from-start (=1) >= MaxRange → fallback
 	p.x, p.z = 3095, 3095 // target to NE direction (tx < nx && tz < nz)
 	n.SetInteraction(InteractionScript, p, objtype.NPCModePlayerEscape, 0)
 

@@ -180,7 +180,7 @@ func TestGenerateAppearanceCustomInvIdHonored(t *testing.T) {
 	wantSlot4Hi := byte((0x200 | (1 & 0x1FF)) >> 8)
 	wantSlot4Lo := byte((0x200 | (1 & 0x1FF)) & 0xFF)
 	if !bytes.Contains(p.appearanceBuf, []byte{wantSlot4Hi, wantSlot4Lo}) {
-		t.Errorf("appearanceBuf missing platebody from custom inv; reader is "+
+		t.Errorf("appearanceBuf missing platebody from custom inv; reader is " +
 			"still reading from invs.Worn (S7c-D1 NOT closed)")
 	}
 }

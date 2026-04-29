@@ -19,18 +19,18 @@ type mockConfigs struct {
 	idks    map[int]*objtype.IdkType
 }
 
-func (m *mockConfigs) ObjType(id int) *objtype.ObjType       { return m.objs[id] }
-func (m *mockConfigs) NpcType(id int) *objtype.NpcType       { return m.npcs[id] }
-func (m *mockConfigs) LocType(id int) *objtype.LocType       { return m.locs[id] }
-func (m *mockConfigs) EnumType(id int) *objtype.EnumType     { return m.enums[id] }
-func (m *mockConfigs) StructType(id int) *objtype.StructType { return m.structs[id] }
-func (m *mockConfigs) ParamType(id int) *objtype.ParamType   { return m.params[id] }
-func (m *mockConfigs) InvType(id int) *objtype.InvType       { return m.invs[id] }
-func (m *mockConfigs) IdkType(id int) *objtype.IdkType       { return m.idks[id] }
-func (m *mockConfigs) DbTableType(id int) *objtype.DbTableType { return nil }
-func (m *mockConfigs) DbRowType(id int) *objtype.DbRowType     { return nil }
-func (m *mockConfigs) DbRowsInTable(tableID int) []int         { return nil }
-func (m *mockConfigs) FindDbRowsInt(query int32, packed int) []int { return nil }
+func (m *mockConfigs) ObjType(id int) *objtype.ObjType              { return m.objs[id] }
+func (m *mockConfigs) NpcType(id int) *objtype.NpcType              { return m.npcs[id] }
+func (m *mockConfigs) LocType(id int) *objtype.LocType              { return m.locs[id] }
+func (m *mockConfigs) EnumType(id int) *objtype.EnumType            { return m.enums[id] }
+func (m *mockConfigs) StructType(id int) *objtype.StructType        { return m.structs[id] }
+func (m *mockConfigs) ParamType(id int) *objtype.ParamType          { return m.params[id] }
+func (m *mockConfigs) InvType(id int) *objtype.InvType              { return m.invs[id] }
+func (m *mockConfigs) IdkType(id int) *objtype.IdkType              { return m.idks[id] }
+func (m *mockConfigs) DbTableType(id int) *objtype.DbTableType      { return nil }
+func (m *mockConfigs) DbRowType(id int) *objtype.DbRowType          { return nil }
+func (m *mockConfigs) DbRowsInTable(tableID int) []int              { return nil }
+func (m *mockConfigs) FindDbRowsInt(query int32, packed int) []int  { return nil }
 func (m *mockConfigs) FindDbRowsStr(query string, packed int) []int { return nil }
 
 // newTestConfigs seeds a fresh mockConfigs with the canonical fixture used

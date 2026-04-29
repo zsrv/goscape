@@ -27,7 +27,6 @@ import (
 //   - Script suspends (P_DELAY/P_PAUSEBUTTON/P_COUNTDIALOG): keep
 //     interaction anchored; resumeOrFinish already stored the state.
 //   - Script finishes / aborts: clear interaction.
-//
 func tryFireOpTrigger(p *Player) {
 	srv := p.client.server
 

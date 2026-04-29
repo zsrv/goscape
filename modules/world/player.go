@@ -189,9 +189,9 @@ type Player struct {
 	lastAfkZone int
 
 	// === modal (from sub-spec 1) ===
-	modalMain, modalChat, modalSide             int
-	lastModalMain, lastModalChat, lastModalSide int
-	modalState                                  int
+	modalMain, modalChat, modalSide                    int
+	lastModalMain, lastModalChat, lastModalSide        int
+	modalState                                         int
 	refreshModal, refreshModalClose, requestModalClose bool
 
 	// === resume buttons (sub-spec 5f) ===

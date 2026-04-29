@@ -14,8 +14,8 @@ import (
 // Mirrors Engine-TS/src/cache/config/IdkType.ts.
 type IdkType struct {
 	ConfigType
-	Type    int      // body-part slot; -1 = unset
-	Models  []uint16 // nil = no models
+	Type    int       // body-part slot; -1 = unset
+	Models  []uint16  // nil = no models
 	Heads   [5]uint16 // 0xFFFF = unset (TS Uint16Array(5).fill(-1))
 	RecolS  [6]uint16
 	RecolD  [6]uint16

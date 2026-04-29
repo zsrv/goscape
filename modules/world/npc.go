@@ -318,7 +318,7 @@ func (n *Npc) revertType() {
 	// Heavy path — structural TS port per Npc.ts:1083-1085.
 	n.server.removeNpc(n, -1)
 	_ = n.server.addNpc(n, -1, false) // err only on slot-full; firstSpawn=false skips alloc
-	n.resetOnRevert = true             // re-arm default for next morph cycle
+	n.resetOnRevert = true            // re-arm default for next morph cycle
 }
 
 // IsValid returns whether the NPC's session slot is alive (!n.dead).

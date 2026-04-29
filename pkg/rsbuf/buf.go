@@ -245,9 +245,9 @@ func (b *Buf) ComputePlayer(
 	if exactStartX >= 0 {
 		p.ExactMove = &ExactMove{
 			StartX: exactStartX, StartZ: exactStartZ,
-			EndX:   exactEndX, EndZ: exactEndZ,
-			Begin:  exactMoveStart, Finish: exactMoveEnd,
-			Dir:    exactMoveDirection,
+			EndX: exactEndX, EndZ: exactEndZ,
+			Begin: exactMoveStart, Finish: exactMoveEnd,
+			Dir: exactMoveDirection,
 		}
 	} else {
 		p.ExactMove = nil

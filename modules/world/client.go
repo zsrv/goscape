@@ -33,20 +33,20 @@ const (
 )
 
 type client struct {
-	conn          net.Conn
-	log           *slog.Logger
-	bufr          *bufio.Reader
-	bufw          *bufio.Writer
-	in            *packet.Packet
-	inMu          sync.Mutex // guards in, opcode, waiting between reader goroutine and tick goroutine
-	player        *Player    // nil until sendLoginOK; owned exclusively by tick goroutine after login
-	encryptor     *io2.Isaac
-	decryptor     *io2.Isaac
-	server        *Server
-	writeTimeout  time.Duration
-	state         ClientState
-	opcode        int
-	waiting       int
+	conn         net.Conn
+	log          *slog.Logger
+	bufr         *bufio.Reader
+	bufw         *bufio.Writer
+	in           *packet.Packet
+	inMu         sync.Mutex // guards in, opcode, waiting between reader goroutine and tick goroutine
+	player       *Player    // nil until sendLoginOK; owned exclusively by tick goroutine after login
+	encryptor    *io2.Isaac
+	decryptor    *io2.Isaac
+	server       *Server
+	writeTimeout time.Duration
+	state        ClientState
+	opcode       int
+	waiting      int
 	// staffModLevel is the moderator/admin tier set from the login server's
 	// gRPC response (server.go:546 — resp.GetStaffModLevel()). Copied onto
 	// Player at newPlayer(). Read by handleClientCheat for the staff-only

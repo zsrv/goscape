@@ -12,30 +12,30 @@ package rsbuf
 // Coord encoding: stored as int packed via pkg/coordgrid.PackCoord
 // (level, x, z). Layout matches upstream CoordGrid::from at coord.rs:13-19.
 type Player struct {
-	Coord      int // pkg/coordgrid.PackCoord(level, x, z)
-	Origin     int // pkg/coordgrid.PackCoord(level, originX, originZ)
-	PID        int32
-	Tele       bool
-	Jump       bool
-	RunDir     int8 // -1 sentinel = no run this tick
-	WalkDir    int8 // -1 sentinel = no walk this tick
-	Visibility    Visibility
-	StaffModLevel int32 // 0 default, 1+ for moderator/admin (NAI-9 visibility-soft semantics)
-	Active        bool
-	Build      *BuildArea // populated by *Buf.AddPlayer (Bundle 3)
-	Masks      uint32
-	Appearance     []byte
-	LastAppearance int32
-	FaceEntity     int32
-	FaceX, FaceZ   int32
-	OrientationX, OrientationZ      int32
-	DamageTaken, DamageType         int32
-	CurrentHitpoints, BaseHitpoints int32
-	AnimID, AnimDelay               int32
-	Say                             *string // nil = no say this tick
-	Chat                            *Chat
+	Coord                                  int // pkg/coordgrid.PackCoord(level, x, z)
+	Origin                                 int // pkg/coordgrid.PackCoord(level, originX, originZ)
+	PID                                    int32
+	Tele                                   bool
+	Jump                                   bool
+	RunDir                                 int8 // -1 sentinel = no run this tick
+	WalkDir                                int8 // -1 sentinel = no walk this tick
+	Visibility                             Visibility
+	StaffModLevel                          int32 // 0 default, 1+ for moderator/admin (NAI-9 visibility-soft semantics)
+	Active                                 bool
+	Build                                  *BuildArea // populated by *Buf.AddPlayer (Bundle 3)
+	Masks                                  uint32
+	Appearance                             []byte
+	LastAppearance                         int32
+	FaceEntity                             int32
+	FaceX, FaceZ                           int32
+	OrientationX, OrientationZ             int32
+	DamageTaken, DamageType                int32
+	CurrentHitpoints, BaseHitpoints        int32
+	AnimID, AnimDelay                      int32
+	Say                                    *string // nil = no say this tick
+	Chat                                   *Chat
 	GraphicID, GraphicHeight, GraphicDelay int32
-	ExactMove *ExactMove
+	ExactMove                              *ExactMove
 }
 
 // Chat carries chat-message payload + formatting. Mirrors upstream

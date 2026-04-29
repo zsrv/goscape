@@ -90,9 +90,9 @@ func TestHandleTutClickSideFiresTutorialScript(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
 	tutScript := &script.ScriptFile{
-		Name:      "[tutorial]",
-		LookupKey: script.LookupKeyForGlobal(script.TriggerTutorial),
-		Opcodes:   []script.Opcode{script.OpReturn},
+		Name:        "[tutorial]",
+		LookupKey:   script.LookupKeyForGlobal(script.TriggerTutorial),
+		Opcodes:     []script.Opcode{script.OpReturn},
 		IntOperands: []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
 	}
 	s.scriptProvider.Register(tutScript)
@@ -146,8 +146,8 @@ func TestHandleIfButtonResumesPauseButton(t *testing.T) {
 	s.scriptProvider = script.NewProvider()
 	// Minimal script: RETURN.
 	retScript := &script.ScriptFile{
-		Name: "[test_resume]",
-		Opcodes: []script.Opcode{script.OpReturn},
+		Name:        "[test_resume]",
+		Opcodes:     []script.Opcode{script.OpReturn},
 		IntOperands: []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
 	}
 	s.configsView = serverConfigsView{s: s}
@@ -202,9 +202,9 @@ func TestHandleIfButtonFiresIfButtonScript(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
 	ifBtnScript := &script.ScriptFile{
-		Name:      "[if_button,42]",
-		LookupKey: script.LookupKeyForType(script.TriggerIfButton, 42),
-		Opcodes:   []script.Opcode{script.OpReturn},
+		Name:        "[if_button,42]",
+		LookupKey:   script.LookupKeyForType(script.TriggerIfButton, 42),
+		Opcodes:     []script.Opcode{script.OpReturn},
 		IntOperands: []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
 	}
 	s.scriptProvider.Register(ifBtnScript)

@@ -1259,6 +1259,7 @@ func TestTargetWithinMaxRangePlayerEscapeStartCoordUsesTargetSizeQuirk(t *testin
 //   - destLength=1 (typ live):  endZ=lineCoordinate(n.z, srcZ, 1)=n.z   →
 //     ray enters z=n.z, FlagWallNorthProjBlocker still in zFlags at endpoint
 //     (only FlagLocProjBlocker is masked) → returns FALSE.
+//
 // Assert TRUE — the snapshot-honoring behavior.
 func TestInApproachDistanceUsesSelfSizeSnapshotNotTyp(t *testing.T) {
 	s := newServerForScriptTest(t)

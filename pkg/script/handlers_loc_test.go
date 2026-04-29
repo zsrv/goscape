@@ -17,18 +17,18 @@ type fakeConfigs struct {
 	locs map[int]*objtype.LocType
 }
 
-func (f *fakeConfigs) ObjType(id int) *objtype.ObjType       { return nil }
-func (f *fakeConfigs) NpcType(id int) *objtype.NpcType       { return nil }
-func (f *fakeConfigs) LocType(id int) *objtype.LocType       { return f.locs[id] }
-func (f *fakeConfigs) EnumType(id int) *objtype.EnumType     { return nil }
-func (f *fakeConfigs) StructType(id int) *objtype.StructType { return nil }
-func (f *fakeConfigs) ParamType(id int) *objtype.ParamType   { return nil }
-func (f *fakeConfigs) InvType(id int) *objtype.InvType       { return nil }
-func (f *fakeConfigs) IdkType(id int) *objtype.IdkType       { return nil }
-func (f *fakeConfigs) DbTableType(id int) *objtype.DbTableType { return nil }
-func (f *fakeConfigs) DbRowType(id int) *objtype.DbRowType     { return nil }
-func (f *fakeConfigs) DbRowsInTable(tableID int) []int         { return nil }
-func (f *fakeConfigs) FindDbRowsInt(query int32, packed int) []int { return nil }
+func (f *fakeConfigs) ObjType(id int) *objtype.ObjType              { return nil }
+func (f *fakeConfigs) NpcType(id int) *objtype.NpcType              { return nil }
+func (f *fakeConfigs) LocType(id int) *objtype.LocType              { return f.locs[id] }
+func (f *fakeConfigs) EnumType(id int) *objtype.EnumType            { return nil }
+func (f *fakeConfigs) StructType(id int) *objtype.StructType        { return nil }
+func (f *fakeConfigs) ParamType(id int) *objtype.ParamType          { return nil }
+func (f *fakeConfigs) InvType(id int) *objtype.InvType              { return nil }
+func (f *fakeConfigs) IdkType(id int) *objtype.IdkType              { return nil }
+func (f *fakeConfigs) DbTableType(id int) *objtype.DbTableType      { return nil }
+func (f *fakeConfigs) DbRowType(id int) *objtype.DbRowType          { return nil }
+func (f *fakeConfigs) DbRowsInTable(tableID int) []int              { return nil }
+func (f *fakeConfigs) FindDbRowsInt(query int32, packed int) []int  { return nil }
 func (f *fakeConfigs) FindDbRowsStr(query string, packed int) []int { return nil }
 
 // newLocOpState builds a ScriptState with ActiveLoc bound, Configs wired,

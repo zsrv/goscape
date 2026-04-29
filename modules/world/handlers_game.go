@@ -51,7 +51,7 @@ func init() {
 	gameHandlers[248] = handleOpPlayerU // OPPLAYERU
 
 	gameHandlers[140] = handleOpObj1 // OPOBJ1
-	gameHandlers[40]  = handleOpObj2 // OPOBJ2
+	gameHandlers[40] = handleOpObj2  // OPOBJ2
 	gameHandlers[200] = handleOpObj3 // OPOBJ3
 	gameHandlers[178] = handleOpObj4 // OPOBJ4
 	gameHandlers[247] = handleOpObj5 // OPOBJ5
@@ -66,13 +66,13 @@ func init() {
 	gameHandlers[231] = handleCloseModal   // CLOSE_MODAL
 	gameHandlers[175] = handleTutClickSide // TUT_CLICKSIDE
 
-	gameHandlers[155] = handleIfButton          // IF_BUTTON
-	gameHandlers[31] = handleInvButton1  // INV_BUTTON1
-	gameHandlers[59] = handleInvButton2  // INV_BUTTON2
-	gameHandlers[212] = handleInvButton3 // INV_BUTTON3
-	gameHandlers[38] = handleInvButton4  // INV_BUTTON4
-	gameHandlers[6] = handleInvButton5   // INV_BUTTON5
-	gameHandlers[159] = handleInvButtonD // INV_BUTTOND
+	gameHandlers[155] = handleIfButton         // IF_BUTTON
+	gameHandlers[31] = handleInvButton1        // INV_BUTTON1
+	gameHandlers[59] = handleInvButton2        // INV_BUTTON2
+	gameHandlers[212] = handleInvButton3       // INV_BUTTON3
+	gameHandlers[38] = handleInvButton4        // INV_BUTTON4
+	gameHandlers[6] = handleInvButton5         // INV_BUTTON5
+	gameHandlers[159] = handleInvButtonD       // INV_BUTTOND
 	gameHandlers[52] = handleIdkSaveDesignGame // IDK_SAVEDESIGN
 }
 

@@ -51,8 +51,8 @@ func TestZoneMap_LevelDifferentiates(t *testing.T) {
 func TestZoneMap_AxisDifferentiates(t *testing.T) {
 	// Confirm x and z are not transposed in packing.
 	m := newZoneMap()
-	a := m.Zone(8, 0, 0)  // zone (1, 0, 0)
-	b := m.Zone(0, 0, 8)  // zone (0, 0, 1)
+	a := m.Zone(8, 0, 0) // zone (1, 0, 0)
+	b := m.Zone(0, 0, 8) // zone (0, 0, 1)
 	if a == b {
 		t.Errorf("(8,0,0) and (0,0,8) should map to different zones")
 	}

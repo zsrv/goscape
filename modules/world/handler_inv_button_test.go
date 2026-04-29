@@ -3,8 +3,8 @@ package world
 import (
 	"testing"
 
-	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/inventory"
+	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/script"
 )
 
@@ -121,9 +121,9 @@ func TestHandleInvButtonItemMismatch(t *testing.T) {
 func TestHandleInvButtonSetsStateAndRunsScript(t *testing.T) {
 	s, p := setupInvButtonServer(t)
 	sf := &script.ScriptFile{
-		Name:      "[inv_button1,149]",
-		LookupKey: script.LookupKeyForType(script.TriggerInvButton1, 149),
-		Opcodes:   []script.Opcode{script.OpReturn},
+		Name:        "[inv_button1,149]",
+		LookupKey:   script.LookupKeyForType(script.TriggerInvButton1, 149),
+		Opcodes:     []script.Opcode{script.OpReturn},
 		IntOperands: []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
 	}
 	s.scriptProvider.Register(sf)
@@ -148,9 +148,9 @@ func TestHandleInvButtonSetsStateAndRunsScript(t *testing.T) {
 func TestHandleInvButtonOpVariant(t *testing.T) {
 	s, p := setupInvButtonServer(t)
 	sf := &script.ScriptFile{
-		Name:      "[inv_button2,149]",
-		LookupKey: script.LookupKeyForType(script.TriggerInvButton2, 149),
-		Opcodes:   []script.Opcode{script.OpReturn},
+		Name:        "[inv_button2,149]",
+		LookupKey:   script.LookupKeyForType(script.TriggerInvButton2, 149),
+		Opcodes:     []script.Opcode{script.OpReturn},
 		IntOperands: []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
 	}
 	s.scriptProvider.Register(sf)
@@ -264,9 +264,9 @@ func TestHandleInvButtonDDelayedRevert(t *testing.T) {
 func TestHandleInvButtonDSetsStateAndRunsScript(t *testing.T) {
 	s, p := setupInvButtonServer(t)
 	sf := &script.ScriptFile{
-		Name:      "[inv_buttond,149]",
-		LookupKey: script.LookupKeyForType(script.TriggerInvButtonD, 149),
-		Opcodes:   []script.Opcode{script.OpReturn},
+		Name:        "[inv_buttond,149]",
+		LookupKey:   script.LookupKeyForType(script.TriggerInvButtonD, 149),
+		Opcodes:     []script.Opcode{script.OpReturn},
 		IntOperands: []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
 	}
 	s.scriptProvider.Register(sf)

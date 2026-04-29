@@ -11,8 +11,8 @@ import "fmt"
 // The PC starts at 0; the first instruction is executed on the first Execute tick.
 func Init(script *ScriptFile, self ActivePlayer, protect bool, intArgs []int, stringArgs []string) *ScriptState {
 	s := &ScriptState{
-		Script:   script,
-		PC:       0,
+		Script:    script,
+		PC:        0,
 		Execution: Running,
 
 		IntStack:    make([]int, StackCapacity),

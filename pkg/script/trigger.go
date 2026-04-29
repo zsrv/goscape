@@ -113,16 +113,16 @@ const (
 	TriggerAiOpPlayer4 ServerTriggerType = 111
 	TriggerAiOpPlayer5 ServerTriggerType = 112
 
-	TriggerQueue    ServerTriggerType = 116
-	TriggerAiQueue1 ServerTriggerType = 117
-	TriggerAiQueue2 ServerTriggerType = 118
-	TriggerAiQueue3 ServerTriggerType = 119
-	TriggerAiQueue4 ServerTriggerType = 120
-	TriggerAiQueue5 ServerTriggerType = 121
-	TriggerAiQueue6 ServerTriggerType = 122
-	TriggerAiQueue7 ServerTriggerType = 123
-	TriggerAiQueue8 ServerTriggerType = 124
-	TriggerAiQueue9 ServerTriggerType = 125
+	TriggerQueue     ServerTriggerType = 116
+	TriggerAiQueue1  ServerTriggerType = 117
+	TriggerAiQueue2  ServerTriggerType = 118
+	TriggerAiQueue3  ServerTriggerType = 119
+	TriggerAiQueue4  ServerTriggerType = 120
+	TriggerAiQueue5  ServerTriggerType = 121
+	TriggerAiQueue6  ServerTriggerType = 122
+	TriggerAiQueue7  ServerTriggerType = 123
+	TriggerAiQueue8  ServerTriggerType = 124
+	TriggerAiQueue9  ServerTriggerType = 125
 	TriggerAiQueue10 ServerTriggerType = 126
 	TriggerAiQueue11 ServerTriggerType = 127
 	TriggerAiQueue12 ServerTriggerType = 128
@@ -147,8 +147,8 @@ const (
 	TriggerOpHeldU ServerTriggerType = 145
 	TriggerOpHeldT ServerTriggerType = 146
 
-	TriggerIfButton  ServerTriggerType = 147
-	TriggerIfClose   ServerTriggerType = 148
+	TriggerIfButton   ServerTriggerType = 147
+	TriggerIfClose    ServerTriggerType = 148
 	TriggerInvButton1 ServerTriggerType = 149
 	TriggerInvButton2 ServerTriggerType = 150
 	TriggerInvButton3 ServerTriggerType = 151
@@ -159,15 +159,15 @@ const (
 	TriggerWalkTrigger   ServerTriggerType = 155
 	TriggerAiWalkTrigger ServerTriggerType = 156
 
-	TriggerLogin      ServerTriggerType = 157
-	TriggerLogout     ServerTriggerType = 158
-	TriggerTutorial   ServerTriggerType = 159
+	TriggerLogin       ServerTriggerType = 157
+	TriggerLogout      ServerTriggerType = 158
+	TriggerTutorial    ServerTriggerType = 159
 	TriggerAdvanceStat ServerTriggerType = 160
-	TriggerMapZone    ServerTriggerType = 161
+	TriggerMapZone     ServerTriggerType = 161
 	TriggerMapZoneExit ServerTriggerType = 162
-	TriggerZone       ServerTriggerType = 163
-	TriggerZoneExit   ServerTriggerType = 164
+	TriggerZone        ServerTriggerType = 163
+	TriggerZoneExit    ServerTriggerType = 164
 	TriggerChangeStat  ServerTriggerType = 165
-	TriggerAiSpawn    ServerTriggerType = 166
-	TriggerAiDespawn  ServerTriggerType = 167
+	TriggerAiSpawn     ServerTriggerType = 166
+	TriggerAiDespawn   ServerTriggerType = 167
 )

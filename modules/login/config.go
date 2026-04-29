@@ -6,15 +6,15 @@ import (
 )
 
 type Config struct {
-	GRPCListenAddress    string        `yaml:"grpc_listen_address"`
-	SQLiteDSN            string        `yaml:"sqlite_dsn"`
-	SavePath             string        `yaml:"save_path"`
-	NodeProfile          string        `yaml:"node_profile"`
-	GRPCListenPort       int           `yaml:"grpc_listen_port"`
-	BCryptCost           int           `yaml:"bcrypt_cost"`
-	AutoRegister         bool          `yaml:"auto_register"`
-	AutoSubscribeMembers bool          `yaml:"auto_subscribe_members"`
-	Enable               bool          `yaml:"enable"`
+	GRPCListenAddress       string        `yaml:"grpc_listen_address"`
+	SQLiteDSN               string        `yaml:"sqlite_dsn"`
+	SavePath                string        `yaml:"save_path"`
+	NodeProfile             string        `yaml:"node_profile"`
+	GRPCListenPort          int           `yaml:"grpc_listen_port"`
+	BCryptCost              int           `yaml:"bcrypt_cost"`
+	AutoRegister            bool          `yaml:"auto_register"`
+	AutoSubscribeMembers    bool          `yaml:"auto_subscribe_members"`
+	Enable                  bool          `yaml:"enable"`
 	GracefulShutdownTimeout time.Duration `yaml:"graceful_shutdown_timeout"`
 }
 

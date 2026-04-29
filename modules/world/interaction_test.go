@@ -156,7 +156,7 @@ func TestProcessInteractionInRangeFacesTarget(t *testing.T) {
 // interaction falls through to the pathing branch (not the AP branch).
 func TestProcessInteractionOutOfRangePaths(t *testing.T) {
 	s := newTestServer(t)
-	s.cfg.NodeClientRoutefinder = true // use direct-step mode
+	s.cfg.NodeClientRoutefinder = true              // use direct-step mode
 	npc := makeInteractionNpc(t, s, 1, 115, 100, 0) // 15 tiles away — beyond apRange=10
 
 	p, cc := newTestPlayer(t)

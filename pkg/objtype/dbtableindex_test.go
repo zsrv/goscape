@@ -159,17 +159,17 @@ func TestBuildTupleColumn(t *testing.T) {
 	)
 	row := singleColRow(7, 0, 0,
 		[]ScriptVarType{ScriptVarTypeInt, ScriptVarTypeString},
-		[]int32{100, 0}, // typeID=0 INT=100, typeID=1 STRING slot unused (0)
+		[]int32{100, 0},       // typeID=0 INT=100, typeID=1 STRING slot unused (0)
 		[]string{"", "alpha"}, // typeID=0 STRING slot unused, typeID=1 STRING="alpha"
 	)
 	idx := buildIndex(tbl, row)
 
 	// Build stores at typeID=0 (INT bucket) and typeID=1 (STRING bucket).
 	// Tests call Find with 1-based nibble (bytecode convention).
-	intBuildKey := 0                   // (0<<12)|(0<<4)|0
-	strBuildKey := 1                   // (0<<12)|(0<<4)|1
-	intFindKey := intBuildKey + 1      // 1-based: typeID 0 -> 1
-	strFindKey := strBuildKey + 1      // 1-based: typeID 1 -> 2
+	intBuildKey := 0              // (0<<12)|(0<<4)|0
+	strBuildKey := 1              // (0<<12)|(0<<4)|1
+	intFindKey := intBuildKey + 1 // 1-based: typeID 0 -> 1
+	strFindKey := strBuildKey + 1 // 1-based: typeID 1 -> 2
 
 	if got := idx.FindInt(100, intFindKey); len(got) != 1 || got[0] != 7 {
 		t.Errorf("FindInt INT slot (nibble=1 → bucket=0): want [7], got %v", got)

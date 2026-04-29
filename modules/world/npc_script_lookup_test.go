@@ -109,9 +109,9 @@ func TestServerNpcLookup_FindAtExactCoord(t *testing.T) {
 
 	// Miss sub-cases.
 	for _, tc := range []struct {
-		name   string
+		name    string
 		l, x, z int
-		typeID int
+		typeID  int
 	}{
 		{"off by one x", 0, 51, 50, 7},
 		{"off by one z", 0, 50, 51, 7},

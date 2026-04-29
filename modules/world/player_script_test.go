@@ -881,7 +881,7 @@ func TestHintCoordOffsetBoundaries(t *testing.T) {
 				byte((int(gameserver.OpHintArrow.Opcode) + int(enc.GetNext())) & 0xff),
 				byte(offset), // p1: type=offset
 				0x00, 0x01,   // p2: x=1
-				0x00, 0x02,   // p2: z=2
+				0x00, 0x02, // p2: z=2
 				0x00, // p1: height=0
 			}
 
