@@ -1,6 +1,7 @@
 package world
 
 import (
+	"bytes"
 	"net"
 	"testing"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/zsrv/goscape/pkg/inventory"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/script"
 	"github.com/zsrv/goscape/pkg/zone"
 )
 
@@ -481,5 +483,191 @@ func TestHandleOpObjUItemMismatchRejected(t *testing.T) {
 	}
 	if p.lastUseItem != 77 {
 		t.Errorf("lastUseItem leaked: got %d, want 77", p.lastUseItem)
+	}
+}
+
+// --- Trigger dispatch tests (fireOpTriggerObj / fireApTriggerObj) ---
+
+// makeOpObjTriggerFixture creates a fixture for tryFireOpTrigger Obj-branch
+// tests: server + player anchored on an obj with valid targetSubject,
+// positioned at contact distance (player at (99,100), obj at (100,100)).
+func makeOpObjTriggerFixture(t *testing.T) (*Server, *Player, *entitypkg.Obj, net.Conn) {
+	t.Helper()
+	s, p, obj, cc := makeOpObjFixture(t)
+	s.scriptProvider = script.NewProvider()
+	p.SetInteraction(InteractionEngine, obj, 1, -1)
+	p.targetSubject.typ = obj.Type
+	p.targetSubject.x = obj.X
+	p.targetSubject.z = obj.Z
+	p.targetSubject.level = obj.Level
+	return s, p, obj, cc
+}
+
+// TestTryFireOpTriggerObjNoScript verifies a *Obj target with no registered
+// trigger emits "Nothing interesting happens." and clears the interaction.
+func TestTryFireOpTriggerObjNoScript(t *testing.T) {
+	_, p, _, cc := makeOpObjTriggerFixture(t)
+
+	received := drainConn(t, cc)
+	tryFireOpTrigger(p)
+	p.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected MessageGame packet for default-op, got nothing")
+	}
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil after default-op clear", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after default-op clear")
+	}
+	if !bytes.Contains(got, []byte("Nothing interesting happens.")) {
+		t.Errorf("expected \"Nothing interesting happens.\" in drained bytes, got %x", got)
+	}
+}
+
+// TestTryFireOpTriggerObjScriptFires verifies a registered [opobj1,<typeID>]
+// script fires, and ClearInteraction runs after Finished.
+func TestTryFireOpTriggerObjScriptFires(t *testing.T) {
+	s, p, obj, _ := makeOpObjTriggerFixture(t)
+
+	sf := newNoopScriptFile(t, script.TriggerOpObj1, obj.Type, -1)
+	s.scriptProvider.Register(sf)
+
+	tryFireOpTrigger(p)
+
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil after Finished", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after script fire")
+	}
+}
+
+// TestTryFireOpTriggerObjDeferredOnDelay verifies delayed player defers fire.
+func TestTryFireOpTriggerObjDeferredOnDelay(t *testing.T) {
+	s, p, obj, _ := makeOpObjTriggerFixture(t)
+	p.delayed = true
+	p.delayedUntil = 999
+	s.currentTick = 0
+
+	tryFireOpTrigger(p)
+
+	if p.target != obj {
+		t.Errorf("target: got %v, want obj (deferred)", p.target)
+	}
+	if p.interactionFired {
+		t.Error("interactionFired: want false (deferred)")
+	}
+}
+
+// TestTryFireOpTriggerObjRemoved verifies removing the obj from its zone
+// clears interaction silently.
+func TestTryFireOpTriggerObjRemoved(t *testing.T) {
+	s, p, _, _ := makeOpObjTriggerFixture(t)
+
+	// Remove all objs from the zone.
+	zn := s.zoneMap.Get(0, 100, 100)
+	zn.Objs = nil
+
+	tryFireOpTrigger(p)
+
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil (obj removed)", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after removal clear")
+	}
+}
+
+// TestTryFireOpTriggerObjFiresObjTTrigger verifies targetOpObjT → OPOBJT dispatch.
+func TestTryFireOpTriggerObjFiresObjTTrigger(t *testing.T) {
+	s, p, obj, _ := makeOpObjFixture(t)
+	s.scriptProvider = script.NewProvider()
+	p.SetInteraction(InteractionEngine, obj, targetOpObjT, 7777)
+	p.targetSubject.typ = obj.Type
+	p.targetSubject.x = obj.X
+	p.targetSubject.z = obj.Z
+	p.targetSubject.level = obj.Level
+
+	sf := newNoopScriptFile(t, script.TriggerOpObjT, obj.Type, -1)
+	s.scriptProvider.Register(sf)
+
+	tryFireOpTrigger(p)
+
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil after Finished", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after OPOBJT fire")
+	}
+}
+
+// TestTryFireOpTriggerObjFiresObjUTrigger verifies targetOpObjU → OPOBJU dispatch.
+func TestTryFireOpTriggerObjFiresObjUTrigger(t *testing.T) {
+	s, p, obj, _ := makeOpObjFixture(t)
+	s.scriptProvider = script.NewProvider()
+	p.SetInteraction(InteractionEngine, obj, targetOpObjU, -1)
+	p.targetSubject.typ = obj.Type
+	p.targetSubject.x = obj.X
+	p.targetSubject.z = obj.Z
+	p.targetSubject.level = obj.Level
+
+	sf := newNoopScriptFile(t, script.TriggerOpObjU, obj.Type, -1)
+	s.scriptProvider.Register(sf)
+
+	tryFireOpTrigger(p)
+
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil after Finished", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after OPOBJU fire")
+	}
+}
+
+// makeApObjTriggerFixture creates a fixture for tryFireApTrigger Obj-branch tests:
+// player at (95, 100) — 5 tiles from obj at (100, 100), within apRange=10.
+func makeApObjTriggerFixture(t *testing.T) (*Server, *Player, *entitypkg.Obj, net.Conn) {
+	t.Helper()
+	s, p, obj, cc := makeOpObjTriggerFixture(t)
+	p.x, p.z = 95, 100 // move out of contact, within approach range
+	return s, p, obj, cc
+}
+
+// TestTryFireApTriggerObjNoScript verifies a *Obj target with no APOBJ
+// trigger leaves the interaction anchored, sets apRange=-1, interactionFired=true.
+func TestTryFireApTriggerObjNoScript(t *testing.T) {
+	_, p, obj, _ := makeApObjTriggerFixture(t)
+
+	tryFireApTrigger(p)
+
+	if p.target != obj {
+		t.Errorf("target: got %v, want obj (no-AP-script should not clear)", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after no-AP-script mark")
+	}
+	if p.apRange != -1 {
+		t.Errorf("apRange: got %d, want -1 (sentinel for no-AP-script)", p.apRange)
+	}
+}
+
+// TestTryFireApTriggerObjScriptFiresNoApRangeCalled verifies an APOBJ script
+// that runs but doesn't call p_aprange causes ClearInteraction.
+func TestTryFireApTriggerObjScriptFiresNoApRangeCalled(t *testing.T) {
+	s, p, obj, _ := makeApObjTriggerFixture(t)
+
+	sf := newNoopScriptFile(t, script.TriggerApObj1, obj.Type, -1)
+	s.scriptProvider.Register(sf)
+
+	tryFireApTrigger(p)
+
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil after no-p_aprange clear", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after clear")
 	}
 }

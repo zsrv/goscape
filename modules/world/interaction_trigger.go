@@ -43,9 +43,9 @@ func tryFireOpTrigger(p *Player) {
 		// through srv.runScript so buildPlayerScriptState's
 		// case-ActivePlayer arm sets state.Self2 = clicker.
 		fireOpTriggerPlayer(p, srv, tgt)
+	case *entitypkg.Obj:
+		fireOpTriggerObj(p, srv, tgt)
 	default:
-		// Target type not handled by any branch: skip; mark fired so we
-		// don't retry every tick.
 		p.interactionFired = true
 	}
 }
@@ -265,9 +265,9 @@ func tryFireApTrigger(p *Player) {
 		// NAI-40 T5: Player→Player approach dispatch. Same Self2
 		// substrate as the OP variant.
 		fireApTriggerPlayer(p, srv, tgt)
+	case *entitypkg.Obj:
+		fireApTriggerObj(p, srv, tgt)
 	default:
-		// *Obj, etc. — AP branch not yet wired. Mark fired to prevent
-		// same-tick retry. Follow-up: APOBJ sub-spec.
 		p.interactionFired = true
 	}
 }
@@ -422,5 +422,145 @@ func fireApTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 	// Reached by: (a) Finished/Aborted + !apRangeCalled (after
 	// ClearInteraction above), or (b) Suspended/P_DELAY/P_PAUSEBUTTON/
 	// P_COUNTDIALOG (anchor intact, resume flow re-enters on resume tick).
+	p.interactionFired = true
+}
+
+// apObjTriggerForOp returns the APOBJ trigger for p.targetOp. Returns
+// ok=false for unrecognised sentinels. fireOpTriggerObj derives OPOBJ
+// by adding 7 (TS Player.ts:997 offset convention):
+//
+//	APOBJ1..5 (31..35) + 7 → OPOBJ1..5 (38..42)
+//	APOBJT    (37)     + 7 → OPOBJT    (44)
+//	APOBJU    (36)     + 7 → OPOBJU    (43)
+func apObjTriggerForOp(op int) (script.ServerTriggerType, bool) {
+	switch {
+	case op >= 1 && op <= 5:
+		return script.TriggerApObj1 + script.ServerTriggerType(op-1), true
+	case op == targetOpObjT:
+		return script.TriggerApObjT, true
+	case op == targetOpObjU:
+		return script.TriggerApObjU, true
+	default:
+		return 0, false
+	}
+}
+
+// fireOpTriggerObj fires the [opobj<op>,<objType>] trigger for the player's
+// anchored Obj target when the player has reached operable distance.
+// Mirrors fireOpTriggerLoc with three substitutions:
+//  1. Lifecycle gate: objStillValid (zone-membership check).
+//  2. ScriptState: ActiveObj + PtrActiveObj.
+//  3. No-script fallback: "Nothing interesting happens." (TS Player.ts:1095).
+func fireOpTriggerObj(p *Player, srv *Server, obj *entitypkg.Obj) {
+	if p.delayed && srv.currentTick < p.delayedUntil {
+		return
+	}
+
+	if !objStillValid(srv, obj, p.targetSubject.x, p.targetSubject.z, p.targetSubject.level) {
+		p.ClearInteraction()
+		p.interactionFired = true
+		return
+	}
+
+	apTrigger, ok := apObjTriggerForOp(p.targetOp)
+	if !ok {
+		p.ClearInteraction()
+		p.interactionFired = true
+		return
+	}
+	trigger := apTrigger + 7 // APOBJ→OPOBJ offset per TS Player.ts:997
+
+	category := 0
+	if obj.Type >= 0 && obj.Type < len(srv.objTypes.Configs) {
+		if ot := srv.objTypes.Configs[obj.Type]; ot != nil {
+			category = ot.Category
+		}
+	}
+
+	sf := srv.scriptProvider.GetByTrigger(trigger, obj.Type, category)
+	if sf == nil {
+		p.MessageGame("Nothing interesting happens.")
+		p.ClearInteraction()
+		p.interactionFired = true
+		return
+	}
+
+	state := script.Init(sf, p, true, nil, nil)
+	state.ActiveObj = obj
+	state.Pointers |= script.PtrActiveObj
+	state.Provider = srv.scriptProvider
+	state.World = srv.worldVars
+	state.Configs = srv.configsView
+	state.Inv = srv.invLookup
+	state.Npcs = srv.npcLookup
+	state.LineValidator = srv.scriptLineValidator()
+
+	srv.resumeOrFinish(state, p)
+
+	if state.Execution == script.Finished || state.Execution == script.Aborted {
+		p.ClearInteraction()
+	}
+	p.interactionFired = true
+}
+
+// fireApTriggerObj fires the [apobj<op>,<objType>] approach-trigger for the
+// player's anchored Obj target. Mirrors fireApTriggerLoc with three
+// substitutions:
+//  1. Lifecycle gate: objStillValid.
+//  2. ScriptState: ActiveObj + PtrActiveObj.
+//  3. No-script path: apRange=-1 sentinel (OP trigger takes over on contact).
+func fireApTriggerObj(p *Player, srv *Server, obj *entitypkg.Obj) {
+	if p.delayed && srv.currentTick < p.delayedUntil {
+		return
+	}
+
+	if !objStillValid(srv, obj, p.targetSubject.x, p.targetSubject.z, p.targetSubject.level) {
+		p.ClearInteraction()
+		p.interactionFired = true
+		return
+	}
+
+	trigger, ok := apObjTriggerForOp(p.targetOp)
+	if !ok {
+		p.ClearInteraction()
+		p.interactionFired = true
+		return
+	}
+
+	category := 0
+	if obj.Type >= 0 && obj.Type < len(srv.objTypes.Configs) {
+		if ot := srv.objTypes.Configs[obj.Type]; ot != nil {
+			category = ot.Category
+		}
+	}
+
+	sf := srv.scriptProvider.GetByTrigger(trigger, obj.Type, category)
+	if sf == nil {
+		p.apRange = -1
+		p.interactionFired = true
+		return
+	}
+
+	p.apRangeCalled = false
+
+	state := script.Init(sf, p, true, nil, nil)
+	state.ActiveObj = obj
+	state.Pointers |= script.PtrActiveObj
+	state.Provider = srv.scriptProvider
+	state.World = srv.worldVars
+	state.Configs = srv.configsView
+	state.Inv = srv.invLookup
+	state.Npcs = srv.npcLookup
+	state.LineValidator = srv.scriptLineValidator()
+
+	srv.resumeOrFinish(state, p)
+
+	if state.Execution == script.Finished || state.Execution == script.Aborted {
+		if p.apRangeCalled {
+			p.repathed = false
+			return
+		}
+		p.ClearInteraction()
+	}
 	p.interactionFired = true
 }
