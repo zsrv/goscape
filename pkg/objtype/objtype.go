@@ -215,6 +215,9 @@ func (ot *ObjType) Decode(code uint8, dat *packet2.Packet) error {
 			ot.Op = make([]string, 5)
 		}
 		ot.Op[code-30] = dat.GJStrLF()
+		if ot.Op[code-30] == "hidden" {
+			ot.Op[code-30] = ""
+		}
 	case 35, 36, 37, 38, 39:
 		if ot.IOp == nil {
 			ot.IOp = make([]string, 5)
