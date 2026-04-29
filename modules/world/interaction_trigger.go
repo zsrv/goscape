@@ -28,7 +28,6 @@ import (
 //     interaction anchored; resumeOrFinish already stored the state.
 //   - Script finishes / aborts: clear interaction.
 //
-// (OPOBJ branch will extend this switch in a later sub-spec.)
 func tryFireOpTrigger(p *Player) {
 	srv := p.client.server
 
