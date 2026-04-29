@@ -34,7 +34,7 @@ const (
 	targetOpPlayerT = 10 // APPLAYERT / OPPLAYERT dispatch marker (NAI-40)
 	targetOpPlayerU = 11 // APPLAYERU / OPPLAYERU dispatch marker (NAI-40)
 	targetOpObjT    = 12 // APOBJT / OPOBJT dispatch marker (NAI-50)
-	targetOpObjU    = 13 // APOBJT / OPOBJU dispatch marker (NAI-50)
+	targetOpObjU    = 13 // APOBJU / OPOBJU dispatch marker (NAI-50)
 )
 
 // sendUnsetMapFlag clears the client's pending map-click indicator.
