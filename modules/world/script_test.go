@@ -1621,3 +1621,90 @@ func TestResumeOrFinish_PreservesUnrelatedSuspendedScript(t *testing.T) {
 			p.activeScript, stored)
 	}
 }
+
+// TestResumeOrFinish_ExecuteError_PreservesUnrelatedSuspendedScript pins
+// the NAI-55 error-path match-guard: a fresh script Y that errors during
+// script.Execute must NOT null an unrelated stored activeScript X on the
+// player. Mirrors TS ScriptRunner.execute setting Execution=ABORTED on
+// throw (ScriptRunner.ts:228), then Player.executeScript re-entering the
+// (script === this.activeScript) guard (Player.ts:2143).
+func TestResumeOrFinish_ExecuteError_PreservesUnrelatedSuspendedScript(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	stored := &script.ScriptState{
+		Script:    &script.ScriptFile{Name: "stored-paused"},
+		Execution: script.PauseButton,
+	}
+	p.activeScript = stored
+
+	// Y: bad-opcode script. Execute hits the "no handler" arm at
+	// runner.go:69-72, which sets Execution=Aborted and returns the error.
+	sf := &script.ScriptFile{
+		Name:    "[err,test]",
+		Opcodes: []script.Opcode{script.Opcode(0xFFFF)},
+	}
+	state := script.Init(sf, p, false, nil, nil)
+	state.Provider = s.scriptProvider
+	state.World = s.worldVars
+	state.Configs = s.configsView
+	state.Inv = s.invLookup
+	state.Npcs = s.npcLookup
+	state.LineValidator = s.scriptLineValidator()
+
+	s.resumeOrFinish(state, p)
+
+	if p.activeScript != stored {
+		t.Errorf("activeScript: got %p, want preserved %p (NAI-55 error-path guard: fresh-Y erroring must not null unrelated stored X)",
+			p.activeScript, stored)
+	}
+}
+
+// TestResumeOrFinish_ExecuteError_ClearsMatchingActiveScript pins
+// the NAI-55 error-path match arm: when the fresh state IS the player's
+// activeScript and Execute errors, activeScript is nulled AND
+// CloseModal(false) fires when no MAIN modal is open. Mirrors TS
+// Player.ts:2143-2148 reached after ScriptRunner.execute returned ABORTED.
+func TestResumeOrFinish_ExecuteError_ClearsMatchingActiveScript(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	sf := &script.ScriptFile{
+		Name:    "[err,match]",
+		Opcodes: []script.Opcode{script.Opcode(0xFFFF)},
+	}
+	state := script.Init(sf, p, false, nil, nil)
+	state.Provider = s.scriptProvider
+	state.World = s.worldVars
+	state.Configs = s.configsView
+	state.Inv = s.invLookup
+	state.Npcs = s.npcLookup
+	state.LineValidator = s.scriptLineValidator()
+
+	p.activeScript = state // match-arm: state IS the player's activeScript
+	p.modalState = modalStateChat
+	p.modalChat = 100
+	p.refreshModalClose = false
+
+	s.resumeOrFinish(state, p)
+
+	if p.activeScript != nil {
+		t.Errorf("activeScript: got non-nil, want nil (match-arm must clear on error)")
+	}
+	if p.modalState != modalStateNone {
+		t.Errorf("modalState: got %#x, want %#x (CloseModal(false) must fire on no-MAIN error)",
+			p.modalState, modalStateNone)
+	}
+	if !p.refreshModalClose {
+		t.Errorf("refreshModalClose: got false, want true (CloseModal must fire)")
+	}
+	if p.modalChat != -1 {
+		t.Errorf("modalChat: got %d, want -1 (CloseModal must reset slot)", p.modalChat)
+	}
+}
