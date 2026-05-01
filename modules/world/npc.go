@@ -225,6 +225,21 @@ func (n *Npc) ClearActiveScript() {
 	n.activeScript = nil
 }
 
+// OnScriptFinishedOrAborted handles the Finished/Aborted post-Execute
+// tail for an npc-anchored script. If state matches the npc's
+// activeScript, nulls it; otherwise no-op. Mirrors TS
+// Npc.executeScript tail (Npc.ts:226-228). The match-guard preserves
+// an NpcSuspended-stored activeScript when a different fresh script
+// Finishes on the same npc in the same tick. NPCs have no modals.
+//
+// NAI-54 T2.
+func (n *Npc) OnScriptFinishedOrAborted(state *script.ScriptState) {
+	if n.activeScript != state {
+		return
+	}
+	n.activeScript = nil
+}
+
 // SetDelayed marks the NPC as suspended for `ticks` more ticks starting
 // next tick. delayedUntil = currentTick + 1 + ticks, matching TS
 // Npc.delay() and ActivePlayer.SetDelayed semantics.

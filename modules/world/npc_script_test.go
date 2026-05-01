@@ -906,6 +906,37 @@ func TestResumeOrFinishNpc_WorldSuspended_EnqueuesAndPreservesActiveScript(t *te
 	}
 }
 
+// TestNpcOnScriptFinishedOrAborted_Match pins the npc-path Finished/Aborted
+// tail where state matches activeScript: activeScript is nulled.
+// Mirrors TS Npc.ts:226-228. NAI-54 T2.
+func TestNpcOnScriptFinishedOrAborted_Match(t *testing.T) {
+	n := &Npc{}
+	state := &script.ScriptState{Script: &script.ScriptFile{Name: "match"}}
+	n.activeScript = state
+
+	n.OnScriptFinishedOrAborted(state)
+
+	if n.activeScript != nil {
+		t.Errorf("activeScript: got non-nil, want nil (match must clear)")
+	}
+}
+
+// TestNpcOnScriptFinishedOrAborted_Mismatch pins the guard: when state
+// is NOT n.activeScript, activeScript is preserved. Closes the silent
+// NpcSuspended-clobber bug symmetric to the player path. NAI-54 T2.
+func TestNpcOnScriptFinishedOrAborted_Mismatch(t *testing.T) {
+	n := &Npc{}
+	stored := &script.ScriptState{Script: &script.ScriptFile{Name: "stored"}}
+	other := &script.ScriptState{Script: &script.ScriptFile{Name: "other"}}
+	n.activeScript = stored
+
+	n.OnScriptFinishedOrAborted(other)
+
+	if n.activeScript != stored {
+		t.Errorf("activeScript: got %p, want preserved %p", n.activeScript, stored)
+	}
+}
+
 // TestResumeOrFinishNpcWorldSuspendedDoesNotClearActiveScript — NAI-44 T1
 // symmetric pin for the npc-path. TS Npc.ts:226-228 only nulls activeScript
 // on FINISHED/ABORTED.
