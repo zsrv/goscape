@@ -987,7 +987,6 @@ func TestTryInteractProcessInteractionCallSites(t *testing.T) {
 	}
 }
 
-
 // TestProcessInteraction_PreStepWalktriggerFires — NAI-51 T1.8. With
 // a walktrigger queued and a target in operable distance, the pre-step
 // arm at interaction.go:169 must fire the walktrigger BEFORE tryInteract.
