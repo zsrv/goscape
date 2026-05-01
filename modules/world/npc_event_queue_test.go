@@ -480,8 +480,9 @@ func TestProcessNpcEventQueueSkipsDelayedNpcs(t *testing.T) {
 // TestProcessNpcEventQueueHappyPathFire guards the fire+remove path
 // of processNpcEventQueue at modules/world/npc_event_queue.go:36-48.
 // A non-delayed NPC with a queued event runs through runNpcScript →
-// resumeOrFinishNpc → (on Finished) ClearActiveScript. Observability:
-// queue drained + activeScript cleared.
+// resumeOrFinishNpc → (on Finished) OnScriptFinishedOrAborted.
+// Observability: queue drained + unrelated pre-seeded activeScript
+// preserved (NAI-54 guard: Npc.ts:226 `if (script === this.activeScript)`).
 //
 // Closes NAI-5 test-gap #1. Complement to
 // TestProcessNpcEventQueueSkipsDelayedNpcs (skip branch) and
