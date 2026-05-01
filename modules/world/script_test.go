@@ -1100,6 +1100,7 @@ func TestOpNpc1FiresScriptAndEmitsSay(t *testing.T) {
 func TestOpNpc1FiresScriptAndEmitsAnimPlusSay(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
+	s.seqTypes = buildSeqTypes(50) // NPC_ANIM opcode calls n.Animate(42, 3); needs seqTypes.Count() > 42
 
 	// [opnpc1, type=7]: push seq=42 + push delay=3 + NPC_ANIM +
 	//                   push "cluck" + NPC_SAY + RETURN.
@@ -1128,6 +1129,7 @@ func TestOpNpc1FiresScriptAndEmitsAnimPlusSay(t *testing.T) {
 		Op:         []string{"Talk-to", "", "", "", ""},
 	}
 	npc := NewNpc(0, 7, p.x+1, p.z, p.level, npcType)
+	npc.server = s // wire server so Animate gate can reach s.seqTypes
 	s.npcs[0] = npc
 
 	// Wire rsbuf so HasNpc(p.slot, nid=0) returns true.

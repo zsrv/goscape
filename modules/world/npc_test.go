@@ -29,7 +29,9 @@ func TestNewNpc_OrientationXZ_DefaultMinusOne(t *testing.T) {
 }
 
 func TestNpcAnimateSetsMask(t *testing.T) {
-	n := newTestNpc(1)
+	s := newTestServer(t)
+	s.seqTypes = buildSeqTypes(200)
+	n := &Npc{server: s, animID: -1}
 	n.Animate(123, 5)
 	if n.masks&rsbuf.NpcMaskAnim == 0 {
 		t.Error("NpcMaskAnim should be set")
@@ -192,7 +194,9 @@ func TestNewNpcInitialisesInteractionFields(t *testing.T) {
 
 func TestNpcResetMasksClearsEphemerals(t *testing.T) {
 	n := newTestNpc(1)
-	n.Animate(123, 5)
+	n.animID = 123
+	n.animDelay = 5
+	n.masks |= rsbuf.NpcMaskAnim
 	n.Say([]byte("hi"))
 	n.Damage(10, 1)
 	n.ResetMasks()
@@ -787,5 +791,111 @@ func TestRevertTypeUsesScaledRespawnDuration(t *testing.T) {
 
 	if n.lifecycleTick != 99 {
 		t.Errorf("n.lifecycleTick: got %d, want 99 (revertType's duration=-1 must not write)", n.lifecycleTick)
+	}
+}
+
+func TestNpcAnimate_BoundsRejectAtCount(t *testing.T) {
+	s := newTestServer(t)
+	s.seqTypes = buildSeqTypes(50)
+	n := &Npc{server: s, animID: -1}
+	n.Animate(50, 5)
+	if n.animID != -1 {
+		t.Errorf("animID: got %d, want -1 (bounds-reject)", n.animID)
+	}
+	if n.masks&rsbuf.NpcMaskAnim != 0 {
+		t.Error("NpcMaskAnim should not be set on bounds-reject")
+	}
+}
+
+func TestNpcAnimate_NilServerEarlyReturn(t *testing.T) {
+	// Goscape-only nil-guard (test-fixture concession; no TS analogue).
+	n := &Npc{server: nil, animID: -1}
+	n.Animate(0, 5)
+	if n.animID != -1 {
+		t.Errorf("animID: got %d, want -1 (nil server → no-op)", n.animID)
+	}
+	if n.masks&rsbuf.NpcMaskAnim != 0 {
+		t.Error("NpcMaskAnim should not be set when server is nil")
+	}
+}
+
+func TestNpcAnimate_PriorityHigherOverwrites(t *testing.T) {
+	s := newTestServer(t)
+	cfg := buildSeqTypes(20)
+	cfg.Configs[5].Priority = 3
+	cfg.Configs[10].Priority = 7
+	s.seqTypes = cfg
+	n := &Npc{server: s, animID: 5}
+	n.Animate(10, 3)
+	if n.animID != 10 {
+		t.Errorf("animID: got %d, want 10 (higher priority overwrites)", n.animID)
+	}
+	if n.masks&rsbuf.NpcMaskAnim == 0 {
+		t.Error("NpcMaskAnim should be set on overwrite")
+	}
+}
+
+func TestNpcAnimate_PriorityLowerRejected(t *testing.T) {
+	s := newTestServer(t)
+	cfg := buildSeqTypes(20)
+	cfg.Configs[5].Priority = 7
+	cfg.Configs[10].Priority = 3
+	s.seqTypes = cfg
+	n := &Npc{server: s, animID: 5, animDelay: 99}
+	n.Animate(10, 3)
+	if n.animID != 5 {
+		t.Errorf("animID: got %d, want 5 (lower priority rejected)", n.animID)
+	}
+	if n.animDelay != 99 {
+		t.Errorf("animDelay: got %d, want 99 (preserved)", n.animDelay)
+	}
+	if n.masks&rsbuf.NpcMaskAnim != 0 {
+		t.Error("NpcMaskAnim should not be set on rejection")
+	}
+}
+
+func TestNpcAnimate_PriorityEqualRejected(t *testing.T) {
+	s := newTestServer(t)
+	s.seqTypes = buildSeqTypes(20) // all default Priority=5
+	n := &Npc{server: s, animID: 5}
+	n.Animate(10, 3)
+	if n.animID != 5 {
+		t.Errorf("animID: got %d, want 5 (equal priority rejected)", n.animID)
+	}
+}
+
+func TestNpcAnimate_CurrentZeroPriorityOverwrites(t *testing.T) {
+	s := newTestServer(t)
+	cfg := buildSeqTypes(20)
+	cfg.Configs[5].Priority = 0
+	cfg.Configs[10].Priority = 5
+	s.seqTypes = cfg
+	n := &Npc{server: s, animID: 5}
+	n.Animate(10, 3)
+	if n.animID != 10 {
+		t.Errorf("animID: got %d, want 10 (current zero-priority overwrite)", n.animID)
+	}
+}
+
+func TestNpcAnimate_FreshAnimIDMinusOneAlwaysOverwrites(t *testing.T) {
+	s := newTestServer(t)
+	s.seqTypes = buildSeqTypes(20)
+	n := &Npc{server: s, animID: -1}
+	n.Animate(10, 3)
+	if n.animID != 10 {
+		t.Errorf("animID: got %d, want 10 (fresh animID=-1 short-circuit)", n.animID)
+	}
+}
+
+func TestNpcAnimate_ClearWithMinusOneSucceeds(t *testing.T) {
+	s := newTestServer(t)
+	s.seqTypes = buildSeqTypes(20)
+	n := &Npc{server: s, animID: 5}
+	n.Animate(-1, 0)
+	if n.animID != -1 {
+		t.Errorf("animID: got %d, want -1 (clear)", n.animID)
+	}
+	if n.masks&rsbuf.NpcMaskAnim == 0 {
+		t.Error("NpcMaskAnim should be set on clear")
 	}
 }
