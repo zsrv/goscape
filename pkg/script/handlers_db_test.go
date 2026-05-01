@@ -16,14 +16,15 @@ type fakeDbConfigs struct {
 	index   *objtype.DbTableIndex // nil-safe; nil means DB_FIND* tests can't run
 }
 
-func (f *fakeDbConfigs) ObjType(id int) *objtype.ObjType       { return nil }
-func (f *fakeDbConfigs) NpcType(id int) *objtype.NpcType       { return nil }
-func (f *fakeDbConfigs) LocType(id int) *objtype.LocType       { return nil }
-func (f *fakeDbConfigs) EnumType(id int) *objtype.EnumType     { return nil }
-func (f *fakeDbConfigs) StructType(id int) *objtype.StructType { return nil }
-func (f *fakeDbConfigs) ParamType(id int) *objtype.ParamType   { return nil }
-func (f *fakeDbConfigs) InvType(id int) *objtype.InvType       { return nil }
-func (f *fakeDbConfigs) IdkType(id int) *objtype.IdkType       { return nil }
+func (f *fakeDbConfigs) ObjType(id int) *objtype.ObjType           { return nil }
+func (f *fakeDbConfigs) NpcType(id int) *objtype.NpcType           { return nil }
+func (f *fakeDbConfigs) LocType(id int) *objtype.LocType           { return nil }
+func (f *fakeDbConfigs) EnumType(id int) *objtype.EnumType         { return nil }
+func (f *fakeDbConfigs) StructType(id int) *objtype.StructType     { return nil }
+func (f *fakeDbConfigs) ParamType(id int) *objtype.ParamType       { return nil }
+func (f *fakeDbConfigs) InvType(id int) *objtype.InvType           { return nil }
+func (f *fakeDbConfigs) IdkType(id int) *objtype.IdkType           { return nil }
+func (f *fakeDbConfigs) SpotAnimType(id int) *objtype.SpotanimType { return nil }
 func (f *fakeDbConfigs) DbTableType(id int) *objtype.DbTableType {
 	return f.tables[id]
 }

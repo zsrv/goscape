@@ -16,6 +16,7 @@ type Configs interface {
 	ParamType(id int) *objtype.ParamType
 	InvType(id int) *objtype.InvType
 	IdkType(id int) *objtype.IdkType
+	SpotAnimType(id int) *objtype.SpotanimType
 	DbTableType(id int) *objtype.DbTableType
 	DbRowType(id int) *objtype.DbRowType
 	DbRowsInTable(tableID int) []int

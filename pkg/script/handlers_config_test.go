@@ -9,14 +9,15 @@ import (
 
 // mockConfigs implements the Configs interface with in-memory fixture maps.
 type mockConfigs struct {
-	objs    map[int]*objtype.ObjType
-	npcs    map[int]*objtype.NpcType
-	locs    map[int]*objtype.LocType
-	enums   map[int]*objtype.EnumType
-	structs map[int]*objtype.StructType
-	params  map[int]*objtype.ParamType
-	invs    map[int]*objtype.InvType
-	idks    map[int]*objtype.IdkType
+	objs          map[int]*objtype.ObjType
+	npcs          map[int]*objtype.NpcType
+	locs          map[int]*objtype.LocType
+	enums         map[int]*objtype.EnumType
+	structs       map[int]*objtype.StructType
+	params        map[int]*objtype.ParamType
+	invs          map[int]*objtype.InvType
+	idks          map[int]*objtype.IdkType
+	spotAnimTypes map[int]*objtype.SpotanimType
 }
 
 func (m *mockConfigs) ObjType(id int) *objtype.ObjType              { return m.objs[id] }
@@ -27,6 +28,7 @@ func (m *mockConfigs) StructType(id int) *objtype.StructType        { return m.s
 func (m *mockConfigs) ParamType(id int) *objtype.ParamType          { return m.params[id] }
 func (m *mockConfigs) InvType(id int) *objtype.InvType              { return m.invs[id] }
 func (m *mockConfigs) IdkType(id int) *objtype.IdkType              { return m.idks[id] }
+func (m *mockConfigs) SpotAnimType(id int) *objtype.SpotanimType    { return m.spotAnimTypes[id] }
 func (m *mockConfigs) DbTableType(id int) *objtype.DbTableType      { return nil }
 func (m *mockConfigs) DbRowType(id int) *objtype.DbRowType          { return nil }
 func (m *mockConfigs) DbRowsInTable(tableID int) []int              { return nil }

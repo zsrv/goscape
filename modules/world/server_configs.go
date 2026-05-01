@@ -88,6 +88,16 @@ func (c serverConfigsView) IdkType(id int) *objtype.IdkType {
 	return c.s.idkTypes.Configs[id]
 }
 
+func (c serverConfigsView) SpotAnimType(id int) *objtype.SpotanimType {
+	if c.s == nil || c.s.spotanimTypes == nil {
+		return nil
+	}
+	if id < 0 || id >= len(c.s.spotanimTypes.Configs) {
+		return nil
+	}
+	return c.s.spotanimTypes.Configs[id]
+}
+
 func (c serverConfigsView) DbTableType(id int) *objtype.DbTableType {
 	if c.s == nil || c.s.dbTableTypes == nil {
 		return nil
