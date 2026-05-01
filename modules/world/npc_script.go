@@ -297,8 +297,10 @@ func (s *Server) resumeOrFinishNpc(state *script.ScriptState, npc script.ActiveN
 	if err := script.Execute(state); err != nil {
 		s.log.Warn("npc script execute error",
 			"script", state.Script.Name, "err", err)
-		npc.ClearActiveScript()
-		return
+		// NAI-55: fall through. Symmetric to resumeOrFinish; routes
+		// Aborted via (*Npc).OnScriptFinishedOrAborted (NPCs have no
+		// modals, so the method is just the match-guard). Mirrors TS
+		// Npc.executeScript tail at Npc.ts:226-228.
 	}
 	switch state.Execution {
 	case script.Finished, script.Aborted:
