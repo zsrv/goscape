@@ -204,13 +204,14 @@ func handleMapBlocked(s *ScriptState) error {
 	return nil
 }
 
-// checkSpotAnimType validates a spotanim type id. Per NAI-36-D2: full
-// SpotAnimType config-port is absent at HEAD; fall back to range
-// validation (id < 0 rejected). When a SpotAnimType config accessor lands
-// on the Configs interface, this helper should be tightened to mirror TS
-// SpotAnimTypeValid (presence check against config table).
-func checkSpotAnimType(id int, op string) error {
+// checkSpotAnimType validates a spotanim type id by mirroring TS
+// SpotAnimTypeValid (ScriptValidators.ts). Rejects negatives and
+// any id not present in the SpotanimType config registry.
+func checkSpotAnimType(s *ScriptState, id int, op string) error {
 	if id < 0 {
+		return fmt.Errorf("%s: invalid spotanim id (%d)", op, id)
+	}
+	if s.Configs.SpotAnimType(id) == nil {
 		return fmt.Errorf("%s: invalid spotanim id (%d)", op, id)
 	}
 	return nil
@@ -230,7 +231,7 @@ func handleSpotAnimMap(s *ScriptState) error {
 	if err != nil {
 		return err
 	}
-	if err := checkSpotAnimType(spotanim, "SPOTANIM_MAP"); err != nil {
+	if err := checkSpotAnimType(s, spotanim, "SPOTANIM_MAP"); err != nil {
 		return err
 	}
 	s.World.AnimMap(level, x, z, spotanim, height, delay)

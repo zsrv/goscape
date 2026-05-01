@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 // MAP_PLAYERCOUNT (opcode 1015) — NAI-35-T2.
@@ -320,8 +321,9 @@ func TestHandleMapFindSquare_NumberPositiveValidation(t *testing.T) {
 // --- NAI-36 Task 4: MAP_BLOCKED Layer 1 unit tests -----------------------
 
 // runMapOp executes a single map opcode against the given world fixture
-// and returns the post-execution state.
-func runMapOp(t *testing.T, w WorldVars, op Opcode, intInputs []int) *ScriptState {
+// and returns the post-execution state. Pass c=nil for tests that don't
+// exercise the Configs lookup.
+func runMapOp(t *testing.T, w WorldVars, c Configs, op Opcode, intInputs []int) *ScriptState {
 	t.Helper()
 	sf := &ScriptFile{
 		Name:             "test_" + op.String(),
@@ -333,6 +335,7 @@ func runMapOp(t *testing.T, w WorldVars, op Opcode, intInputs []int) *ScriptStat
 	state := &ScriptState{
 		Script:      sf,
 		World:       w,
+		Configs:     c,
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
 	}
@@ -358,7 +361,7 @@ func (w *mapBlockedWorld) IsFreeToPlay(x, z int) bool        { return w.freeToPl
 
 func TestMapBlocked_MembersWorldClearTilePushes0(t *testing.T) {
 	w := &mapBlockedWorld{mockWorld: mockWorld{mapMembers: 1}, mapBlocked: false}
-	state := runMapOp(t, w, OpMapBlocked, []int{(0 << 28) | (3200 << 14) | 3300})
+	state := runMapOp(t, w, nil, OpMapBlocked, []int{(0 << 28) | (3200 << 14) | 3300})
 
 	if state.ISP != 1 || state.IntStack[0] != 0 {
 		t.Errorf("members-world clear tile: got top=%d ISP=%d, want top=0 ISP=1",
@@ -368,7 +371,7 @@ func TestMapBlocked_MembersWorldClearTilePushes0(t *testing.T) {
 
 func TestMapBlocked_MembersWorldBlockedTilePushes1(t *testing.T) {
 	w := &mapBlockedWorld{mockWorld: mockWorld{mapMembers: 1}, mapBlocked: true}
-	state := runMapOp(t, w, OpMapBlocked, []int{(0 << 28) | (3200 << 14) | 3300})
+	state := runMapOp(t, w, nil, OpMapBlocked, []int{(0 << 28) | (3200 << 14) | 3300})
 
 	if state.ISP != 1 || state.IntStack[0] != 1 {
 		t.Errorf("members-world blocked tile: got top=%d ISP=%d, want top=1 ISP=1",
@@ -384,7 +387,7 @@ func TestMapBlocked_F2PWorldNonF2PTilePushes1(t *testing.T) {
 		mapBlocked: false,                    // would push 0 if reached
 		freeToPlay: false,                    // tile is NOT F2P
 	}
-	state := runMapOp(t, w, OpMapBlocked, []int{(0 << 28) | (3200 << 14) | 3300})
+	state := runMapOp(t, w, nil, OpMapBlocked, []int{(0 << 28) | (3200 << 14) | 3300})
 
 	if state.ISP != 1 || state.IntStack[0] != 1 {
 		t.Errorf("F2P-world non-F2P tile: got top=%d ISP=%d, want top=1 ISP=1 (short-circuit)",
@@ -399,7 +402,7 @@ func TestMapBlocked_F2PWorldF2PTilePushesIsBlocked(t *testing.T) {
 		mapBlocked: true,
 		freeToPlay: true, // tile IS F2P
 	}
-	state := runMapOp(t, w, OpMapBlocked, []int{(0 << 28) | (3200 << 14) | 3300})
+	state := runMapOp(t, w, nil, OpMapBlocked, []int{(0 << 28) | (3200 << 14) | 3300})
 
 	if state.ISP != 1 || state.IntStack[0] != 1 {
 		t.Errorf("F2P-world F2P-blocked tile: got top=%d ISP=%d, want top=1 ISP=1",
@@ -424,6 +427,7 @@ func (w *spotAnimMapWorld) AnimMap(level, x, z, spotanim, height, delay int) {
 
 func TestSpotAnimMap_PopsValidatesAndDelegates(t *testing.T) {
 	w := &spotAnimMapWorld{}
+	m := &mockConfigs{spotAnimTypes: map[int]*objtype.SpotanimType{200: objtype.NewSpotanimType(200)}}
 
 	const spotanim, height, delay = 200, 50, 5
 	const level, x, z = 0, 3200, 3300
@@ -431,7 +435,7 @@ func TestSpotAnimMap_PopsValidatesAndDelegates(t *testing.T) {
 
 	// Push order: spotanim first (deepest), then coord, then height, then delay (top).
 	// Pop order in handler: delay (top), height, coord, spotanim (deepest).
-	state := runMapOp(t, w, OpSpotAnimMap, []int{spotanim, coord, height, delay})
+	state := runMapOp(t, w, m, OpSpotAnimMap, []int{spotanim, coord, height, delay})
 	_ = state
 
 	if len(w.animMapCalls) != 1 {
@@ -450,6 +454,7 @@ func TestSpotAnimMap_InvalidCoordErrors(t *testing.T) {
 	w := &spotAnimMapWorld{}
 	state := &ScriptState{
 		World:       w,
+		Configs:     &mockConfigs{},
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
 	}
@@ -468,12 +473,13 @@ func TestSpotAnimMap_InvalidCoordErrors(t *testing.T) {
 	}
 }
 
-// NAI-36-D2: SpotAnimType config-port absent at HEAD. Falling back to
-// range-validation (id < 0 reject). Pin: -1 errors, high id passes.
+// Pins post-NAI-58 negative-id rejection: checkSpotAnimType errors on
+// id < 0 before any Configs lookup.
 func TestSpotAnimMap_NegativeSpotanimIDErrors(t *testing.T) {
 	w := &spotAnimMapWorld{}
 	state := &ScriptState{
 		World:       w,
+		Configs:     &mockConfigs{},
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
 	}
@@ -490,11 +496,12 @@ func TestSpotAnimMap_NegativeSpotanimIDErrors(t *testing.T) {
 
 func TestSpotAnimMap_ZeroDelayPassesThrough(t *testing.T) {
 	w := &spotAnimMapWorld{}
+	m := &mockConfigs{spotAnimTypes: map[int]*objtype.SpotanimType{200: objtype.NewSpotanimType(200)}}
 
 	const spotanim, height, delay = 200, 0, 0
 	coord := (0 << 28) | (3200 << 14) | 3300
 
-	_ = runMapOp(t, w, OpSpotAnimMap, []int{spotanim, coord, height, delay})
+	_ = runMapOp(t, w, m, OpSpotAnimMap, []int{spotanim, coord, height, delay})
 
 	if len(w.animMapCalls) != 1 {
 		t.Fatalf("animMapCalls: got %d, want 1", len(w.animMapCalls))
@@ -503,5 +510,88 @@ func TestSpotAnimMap_ZeroDelayPassesThrough(t *testing.T) {
 	if got.height != 0 || got.delay != 0 {
 		t.Errorf("zero height/delay: got height=%d delay=%d, want 0/0",
 			got.height, got.delay)
+	}
+}
+
+// TestSpotAnimMap_RegisteredIdPasses pins the positive arm of the
+// post-NAI-58 SpotAnimTypeValid mirror: a registered id reaches
+// World.AnimMap with the spotanim untouched.
+func TestSpotAnimMap_RegisteredIdPasses(t *testing.T) {
+	w := &spotAnimMapWorld{}
+	m := &mockConfigs{
+		spotAnimTypes: map[int]*objtype.SpotanimType{
+			7: objtype.NewSpotanimType(7),
+		},
+	}
+
+	const spotanim, height, delay = 7, 50, 5
+	const level, x, z = 0, 3200, 3300
+	coord := (level << 28) | (x << 14) | z
+
+	_ = runMapOp(t, w, m, OpSpotAnimMap, []int{spotanim, coord, height, delay})
+
+	if len(w.animMapCalls) != 1 {
+		t.Fatalf("animMapCalls: got %d, want 1", len(w.animMapCalls))
+	}
+	got := w.animMapCalls[0]
+	if got.spotanim != spotanim {
+		t.Errorf("spotanim: got %d, want %d", got.spotanim, spotanim)
+	}
+}
+
+// TestSpotAnimMap_UnregisteredIdRejects pins the post-NAI-58
+// SpotAnimTypeValid mirror: an id that's non-negative but absent
+// from the registry is rejected.
+func TestSpotAnimMap_UnregisteredIdRejects(t *testing.T) {
+	w := &spotAnimMapWorld{}
+	m := &mockConfigs{
+		spotAnimTypes: map[int]*objtype.SpotanimType{
+			7: objtype.NewSpotanimType(7),
+		},
+	}
+	state := &ScriptState{
+		World:       w,
+		Configs:     m,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	state.PushInt(8) // unregistered spotanim id
+	state.PushInt((0 << 28) | (3200 << 14) | 3300)
+	state.PushInt(50)
+	state.PushInt(5)
+
+	err := handleSpotAnimMap(state)
+	if err == nil || !strings.Contains(err.Error(), "SPOTANIM_MAP") {
+		t.Errorf("unregistered spotanim id: got %v, want SPOTANIM_MAP error", err)
+	}
+	if len(w.animMapCalls) != 0 {
+		t.Errorf("animMapCalls on error path: got %d, want 0", len(w.animMapCalls))
+	}
+}
+
+// TestSpotAnimMap_NilEntryRejects covers the registry-has-key-but-nil-value
+// edge: mockConfigs.spotAnimTypes[7] = nil → SpotAnimType(7) returns nil
+// → validation rejects.
+func TestSpotAnimMap_NilEntryRejects(t *testing.T) {
+	w := &spotAnimMapWorld{}
+	m := &mockConfigs{
+		spotAnimTypes: map[int]*objtype.SpotanimType{
+			7: nil,
+		},
+	}
+	state := &ScriptState{
+		World:       w,
+		Configs:     m,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	state.PushInt(7) // key present but value is nil
+	state.PushInt((0 << 28) | (3200 << 14) | 3300)
+	state.PushInt(50)
+	state.PushInt(5)
+
+	err := handleSpotAnimMap(state)
+	if err == nil || !strings.Contains(err.Error(), "SPOTANIM_MAP") {
+		t.Errorf("nil-value spotanim id: got %v, want SPOTANIM_MAP error", err)
 	}
 }
