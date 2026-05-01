@@ -7,6 +7,7 @@ import (
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
+	"github.com/zsrv/goscape/pkg/script"
 )
 
 // checkOpTrigger reports whether targetOp falls in any OP-trigger band
@@ -284,6 +285,22 @@ func (n *Npc) updateMovement(s *Server) bool {
 		n.walkDir = -1
 		n.runDir = -1
 		return false
+	}
+
+	// NAI-51: walktrigger consumer (TS Npc.ts:347-357). Fire BEFORE
+	// step consumption. TS clears walktrigger BEFORE the script-found
+	// check, so a missing script still resets the field. The n.typ
+	// guard defends against the nil-typ test path; production NPCs
+	// always have typ set by NewNpc, but defensive parity with TS's
+	// NpcType.get(this.type) lookup avoids a nil deref here.
+	if n.walktrigger != -1 && n.typ != nil {
+		trigger := script.TriggerAiQueue1 + script.ServerTriggerType(n.walktrigger)
+		sf := s.scriptProvider.GetByTrigger(trigger, n.typeId, n.typ.Category)
+		wtArg := n.walktriggerArg
+		n.walktrigger = -1
+		if sf != nil {
+			s.runNpcScript(sf, n, nil, []int{wtArg}, nil)
+		}
 	}
 
 	advanced1, dir1 := n.stepOnce(s)
