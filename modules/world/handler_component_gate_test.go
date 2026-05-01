@@ -7,6 +7,7 @@ import (
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/script"
 	"github.com/zsrv/goscape/pkg/zone"
 )
 
@@ -445,4 +446,65 @@ func seedTargetPlayerAtSlot(t *testing.T, s *Server, p *Player, slot int) {
 		t.Fatalf("rsbuf has no player at observer slot %d", p.slot)
 	}
 	bp.Build.Players.Insert(int32(slot))
+}
+
+// runProtectScript registers a script for (trigger, comId) that runs
+// P_DELAY (which requires Protect=true via requireProtectedActivePlayer),
+// invokes handlerFn against a Server seeded with the rootLayer fixture,
+// and reports whether the script suspended (handler computed protect=true)
+// or aborted (handler computed protect=false).
+//
+// rootOverlay sets Overlay on the rootLayer component (when includeRoot).
+// includeRoot=false omits the root component entirely → lookupComponent
+// returns nil → protect should default to true.
+func runProtectScript(
+	t *testing.T,
+	trigger script.ServerTriggerType,
+	comId int,
+	rootLayer int,
+	rootOverlay bool,
+	includeRoot bool,
+	registerExtra func(*Server, *Player), // e.g., listener + inv setup
+	invokeHandler func(*Server, *Player) error,
+	componentExtras *objtype.ComponentType, // additional fields like Iop, Draggable
+) bool {
+	t.Helper()
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
+
+	sf := &script.ScriptFile{
+		Name:             "[trigger,com]",
+		LookupKey:        script.LookupKeyForType(trigger, comId),
+		Opcodes:          []script.Opcode{script.OpPushConstantInt, script.OpPDelay, script.OpReturn},
+		IntOperands:      []int32{1, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	s.scriptProvider.Register(sf)
+
+	com := &objtype.ComponentType{RootLayer: rootLayer}
+	if componentExtras != nil {
+		com.Iop = componentExtras.Iop
+		com.Draggable = componentExtras.Draggable
+	}
+	components := map[int]*objtype.ComponentType{comId: com}
+	if includeRoot {
+		components[rootLayer] = &objtype.ComponentType{RootLayer: rootLayer, Overlay: rootOverlay}
+	}
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	seedComponentTypes(t, s, components)
+	p.tabs[0] = rootLayer
+
+	if registerExtra != nil {
+		registerExtra(s, p)
+	}
+
+	if err := invokeHandler(s, p); err != nil {
+		t.Fatalf("handler error: %v", err)
+	}
+	return p.activeScript != nil && p.activeScript.Execution == script.Suspended
 }
