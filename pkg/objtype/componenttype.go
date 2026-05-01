@@ -1,5 +1,14 @@
 package objtype
 
+import (
+	"errors"
+	"os"
+	"path/filepath"
+
+	io "github.com/zsrv/goscape/pkg/io/jagfile"
+	"github.com/zsrv/goscape/pkg/io/packet"
+)
+
 // ComType discriminator values per Engine-TS/src/cache/config/Component.ts:7-14.
 const (
 	ComTypeLayer         = 0
@@ -104,4 +113,230 @@ func NewComponentType(id int) *ComponentType {
 		ActiveAnim:   -1,
 		ActionTarget: -1,
 	}
+}
+
+// ComponentTypeConfigs is the parsed registry of all component records.
+type ComponentTypeConfigs struct {
+	ConfigNames map[string]int
+	Configs     []*ComponentType
+}
+
+// LoadComponentTypes reads the dual-source Component config:
+//   - dir/client/interface (jagfile, "data" entry)
+//   - dir/server/interface.dat (raw packet; debugname + overlay)
+//
+// Mirrors TS Component.load (Engine-TS/src/cache/config/Component.ts:27-41).
+// Silent-on-missing for the client jagfile (returns empty registry, nil err).
+func LoadComponentTypes(dir string) (*ComponentTypeConfigs, error) {
+	clientJag, err := io.LoadJagfile(filepath.Join(dir, "client", "interface"))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return &ComponentTypeConfigs{ConfigNames: map[string]int{}}, nil
+		}
+		return nil, err
+	}
+	clientData, err := clientJag.Read("data")
+	if err != nil {
+		return &ComponentTypeConfigs{ConfigNames: map[string]int{}}, nil
+	}
+
+	server, err := packet.Load(filepath.Join(dir, "server", "interface.dat"), false)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return parseComponentTypes(clientData, nil)
+		}
+		return nil, err
+	}
+	return parseComponentTypes(clientData, server)
+}
+
+// parseComponentTypes decodes the dual-source body. client is the jagfile
+// "data" entry (per-id record stream); server is the server interface.dat
+// (debugname + overlay extension). server may be nil.
+//
+// Mirrors TS Component.decode (Component.ts:43-234) + decodeExtra (L237-250).
+func parseComponentTypes(client *packet.Packet, server *packet.Packet) (*ComponentTypeConfigs, error) {
+	var configs []*ComponentType
+	configNames := make(map[string]int)
+
+	client.G2() // count header (advisory; TS reads then ignores)
+
+	rootLayer := -1
+	for client.Len() > 0 {
+		id := int(client.G2())
+		if id == 65535 {
+			rootLayer = int(client.G2())
+			id = int(client.G2())
+		}
+
+		com := NewComponentType(id)
+		com.RootLayer = rootLayer
+		com.ComType = int(client.G1())
+		com.ButtonType = int(client.G1())
+		com.ClientCode = int(client.G2())
+		com.Width = int(client.G2())
+		com.Height = int(client.G2())
+
+		overLayer := int(client.G1())
+		if overLayer == 0 {
+			com.OverLayer = -1
+		} else {
+			com.OverLayer = ((overLayer - 1) << 8) + int(client.G1())
+		}
+
+		comparatorCount := int(client.G1())
+		if comparatorCount > 0 {
+			com.ScriptComparator = make([]uint8, comparatorCount)
+			com.ScriptOperand = make([]uint16, comparatorCount)
+			for i := range comparatorCount {
+				com.ScriptComparator[i] = client.G1()
+				com.ScriptOperand[i] = client.G2()
+			}
+		}
+
+		scriptCount := int(client.G1())
+		if scriptCount > 0 {
+			com.Scripts = make([][]uint16, scriptCount)
+			for i := range scriptCount {
+				opcodeCount := int(client.G2())
+				com.Scripts[i] = make([]uint16, opcodeCount)
+				for j := range opcodeCount {
+					com.Scripts[i][j] = client.G2()
+				}
+			}
+		}
+
+		switch com.ComType {
+		case ComTypeLayer:
+			com.Scroll = int(client.G2())
+			com.Hide = client.GBool()
+			childCount := int(client.G1())
+			com.ChildId = make([]uint16, childCount)
+			com.ChildX = make([]int16, childCount)
+			com.ChildY = make([]int16, childCount)
+			for i := range childCount {
+				com.ChildId[i] = client.G2()
+				com.ChildX[i] = client.G2S()
+				com.ChildY[i] = client.G2S()
+			}
+		case ComTypeUnused:
+			// TS L116-120: client reads 10 bytes "seems unused though".
+			client.Pos += 10
+		case ComTypeInventory:
+			com.Draggable = client.GBool()
+			com.Operable = client.GBool()
+			com.Usable = client.GBool()
+			com.MarginX = int(client.G1())
+			com.MarginY = int(client.G1())
+			com.InventorySlotOffsetX = make([]int16, 20)
+			com.InventorySlotOffsetY = make([]int16, 20)
+			com.InventorySlotGraphic = make([]string, 20)
+			for i := range 20 {
+				if client.GBool() {
+					com.InventorySlotOffsetX[i] = client.G2S()
+					com.InventorySlotOffsetY[i] = client.G2S()
+					com.InventorySlotGraphic[i] = client.GJStrLF()
+				}
+			}
+			com.Iop = make([]string, 5)
+			for i := range 5 {
+				com.Iop[i] = client.GJStrLF()
+			}
+			com.ActionVerb = client.GJStrLF()
+			com.Action = client.GJStrLF()
+			com.ActionTarget = int(client.G2())
+		case ComTypeRect:
+			com.Fill = client.GBool()
+			com.Colour = int32(client.G4())
+			com.ActiveColour = int32(client.G4())
+			com.OverColour = int32(client.G4())
+		case ComTypeText:
+			com.Center = client.GBool()
+			com.Font = int(client.G1())
+			com.Shadowed = client.GBool()
+			com.Text = client.GJStrLF()
+			com.ActiveText = client.GJStrLF()
+			com.Colour = int32(client.G4())
+			com.ActiveColour = int32(client.G4())
+			com.OverColour = int32(client.G4())
+		case ComTypeSprite:
+			com.Graphic = client.GJStrLF()
+			com.ActiveGraphic = client.GJStrLF()
+		case ComTypeModel:
+			modelHi := int(client.G1())
+			if modelHi != 0 {
+				com.Model = ((modelHi - 1) << 8) + int(client.G1())
+			} else {
+				com.Model = 0 // TS: stays 0, not -1
+			}
+			activeModelHi := int(client.G1())
+			if activeModelHi != 0 {
+				com.ActiveModel = ((activeModelHi - 1) << 8) + int(client.G1())
+			} else {
+				com.ActiveModel = 0 // TS: stays 0, not -1
+			}
+			animHi := int(client.G1())
+			if animHi == 0 {
+				com.Anim = -1
+			} else {
+				com.Anim = ((animHi - 1) << 8) + int(client.G1())
+			}
+			activeAnimHi := int(client.G1())
+			if activeAnimHi == 0 {
+				com.ActiveAnim = -1
+			} else {
+				com.ActiveAnim = ((activeAnimHi - 1) << 8) + int(client.G1())
+			}
+			com.Zoom = int(client.G2())
+			com.Xan = int(client.G2())
+			com.Yan = int(client.G2())
+		case ComTypeInventoryText:
+			com.Center = client.GBool()
+			com.Font = int(client.G1())
+			com.Shadowed = client.GBool()
+			com.Colour = int32(client.G4())
+			com.MarginX = int(client.G2S())
+			com.MarginY = int(client.G2S())
+			com.Operable = client.GBool()
+			com.Iop = make([]string, 5)
+			for i := range 5 {
+				com.Iop[i] = client.GJStrLF()
+			}
+		}
+
+		switch com.ButtonType {
+		case ButtonNone:
+			// no extra fields
+		case ButtonTarget:
+			com.ActionVerb = client.GJStrLF()
+			com.Action = client.GJStrLF()
+			com.ActionTarget = int(client.G2())
+		case Button, ButtonToggle, ButtonSelect, ButtonPause:
+			com.Option = client.GJStrLF()
+		}
+
+		if id >= len(configs) {
+			grown := make([]*ComponentType, id+1)
+			copy(grown, configs)
+			configs = grown
+		}
+		configs[id] = com
+	}
+
+	if server != nil {
+		server.G2() // count header (advisory)
+		for server.Len() > 0 {
+			id := int(server.G2())
+			debugName := server.GJStrLF()
+			overlay := server.G1() != 0
+			if id < len(configs) && configs[id] != nil {
+				configs[id].ComName = debugName
+				configs[id].Overlay = overlay
+				configs[id].DebugName = debugName
+				configNames[debugName] = id
+			}
+		}
+	}
+
+	return &ComponentTypeConfigs{ConfigNames: configNames, Configs: configs}, nil
 }
