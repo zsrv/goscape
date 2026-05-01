@@ -397,8 +397,8 @@ type ActivePlayer interface {
 	// S7b: anim-protect flag.
 
 	// SetAnimProtect updates the player's anim-protect flag. While nonzero,
-	// the engine should suppress in-engine animation requests (gated reader
-	// unported, see PAnimProtect handler comment and deviation S7b-D1).
+	// (*Player).PlayAnim suppresses in-engine animation requests per TS
+	// Player.ts:1842 (NAI-56).
 	SetAnimProtect(v int)
 
 	// WalkTrigger returns the active player's queued walktrigger script

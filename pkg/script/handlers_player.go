@@ -103,9 +103,9 @@ func checkInvType(s *ScriptState, id int, op string) error {
 }
 
 // handlePAnimProtect (P_ANIMPROTECT, opcode 2066) sets the active player's
-// animProtect flag. While nonzero, in-engine animation requests should be
-// suppressed (TS Player.ts:1842 — reader path not yet ported in goscape;
-// tracked as S7b-D1). Mirrors TS PlayerOps.ts:1171-1172.
+// animProtect flag. While nonzero, the (*Player).PlayAnim reader gate at
+// TS Player.ts:1842 suppresses in-engine animation requests (NAI-56).
+// Mirrors TS PlayerOps.ts:1171-1172.
 func handlePAnimProtect(s *ScriptState) error {
 	if err := requireProtectedActivePlayer(s, "P_ANIMPROTECT"); err != nil {
 		return err

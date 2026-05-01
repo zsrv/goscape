@@ -539,8 +539,15 @@ func (p *Player) AddXP(id int, xp int) {
 }
 
 // PlayAnim schedules sequence seqID with the given client-side delay on
-// the player's primary animation slot. seqID=-1 clears.
+// the player's primary animation slot. seqID=-1 clears. Mirrors TS
+// Player.playAnimation (Player.ts:1841-1851); the animProtect early-return
+// is the TS L1842 gate (NAI-56). The remaining TS gates
+// (anim >= SeqType.count bounds and priority comparison at L1846) depend
+// on the unported SeqType config registry — tracked as NAI-56-D1.
 func (p *Player) PlayAnim(seqID, delay int) {
+	if p.animProtect != 0 {
+		return // TS Player.ts:1842 — animProtect gate (NAI-56)
+	}
 	p.animID = seqID
 	p.animDelay = delay
 	p.masks |= rsbuf.MaskAnim
@@ -800,9 +807,9 @@ func (p *Player) SetInteractionScriptLoc(loc script.ActiveLoc, op int) {
 }
 
 // SetAnimProtect implements script.ActivePlayer.SetAnimProtect. Stores the
-// anim-protect flag; when nonzero, in-engine animation requests should be
-// suppressed (reader path unported — S7b-D1; paid down when anim playback
-// is ported). Matches TS Player.ts:321 (field) + PlayerOps.ts:1171-1172.
+// anim-protect flag; when nonzero, PlayAnim suppresses in-engine animation
+// requests (NAI-56 wired the reader at PlayAnim's L1842 gate). Matches TS
+// Player.ts:321 (field) + PlayerOps.ts:1171-1172.
 func (p *Player) SetAnimProtect(v int) { p.animProtect = v }
 
 // SetAllowDesign implements script.ActivePlayer.SetAllowDesign. Stores the

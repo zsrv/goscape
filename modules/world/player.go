@@ -165,7 +165,8 @@ type Player struct {
 
 	// === anim-protect (S7b) ===
 	// animProtect gates in-engine animation requests when nonzero.
-	// Set by the P_ANIMPROTECT script opcode. Reader path unported (S7b-D1).
+	// Set by the P_ANIMPROTECT script opcode; read by (*Player).PlayAnim
+	// per TS Player.ts:1842 (NAI-56).
 	animProtect int
 
 	// walktrigger queues a deferred script id to fire from
