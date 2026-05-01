@@ -5,12 +5,6 @@ import (
 	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
-func (p *Player) Animate(id, delay int) {
-	p.animID = id
-	p.animDelay = delay
-	p.masks |= rsbuf.MaskAnim
-}
-
 func (p *Player) Say(msg []byte) {
 	p.sayText = msg
 	p.masks |= rsbuf.MaskSay

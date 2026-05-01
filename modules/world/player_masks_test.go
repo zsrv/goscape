@@ -6,17 +6,6 @@ import (
 	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
-func TestAnimateSetsMask(t *testing.T) {
-	p, _ := newTestPlayer(t)
-	p.Animate(123, 5)
-	if p.masks&rsbuf.MaskAnim == 0 {
-		t.Error("MaskAnim bit should be set")
-	}
-	if p.animID != 123 || p.animDelay != 5 {
-		t.Errorf("animID/Delay: got (%d,%d), want (123,5)", p.animID, p.animDelay)
-	}
-}
-
 func TestSaySetsMask(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.Say([]byte("hi"))
@@ -85,7 +74,9 @@ func TestResetMasksClearsEphemerals(t *testing.T) {
 	p.baseLevels[3] = 50
 	p.levels[3] = 50
 	p.Say([]byte("hi"))
-	p.Animate(123, 5)
+	p.animID = 123
+	p.animDelay = 5
+	p.masks |= rsbuf.MaskAnim
 	p.Damage(10, 1)
 	p.ResetMasks()
 	if p.masks != 0 {
