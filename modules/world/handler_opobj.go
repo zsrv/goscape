@@ -100,7 +100,7 @@ func handleOpObj5(p *Player, payload []byte) error { return handleOpObj(p, paylo
 //  4. spellCom: !IsComponentVisible → UnsetMapFlag
 //  5. coords outside viewport (52-tile half-extent) → UnsetMapFlag
 //  6. Server.GetObj returns nil → UnsetMapFlag
-//  7. ObjType not registered → UnsetMapFlag
+//  7. ObjType not registered → UnsetMapFlag  (goscape defensive; TS skips this check)
 func handleOpObjT(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		return nil

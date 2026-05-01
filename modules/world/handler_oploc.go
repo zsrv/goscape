@@ -112,7 +112,7 @@ func handleOpLoc5(p *Player, payload []byte) error { return handleOpLoc(p, paylo
 //  4. spellCom: !IsComponentVisible → UnsetMapFlag
 //  5. coords outside viewport (52-tile half-extent) → UnsetMapFlag
 //  6. Server.GetLoc returns nil → UnsetMapFlag
-//  7. LocType not registered → UnsetMapFlag
+//  7. LocType not registered → UnsetMapFlag  (goscape defensive; TS skips this check)
 //
 // On success: ClearPendingAction → SetInteraction(Engine, loc,
 // targetOpLocT, spellCom) → targetSubject snapshot.

@@ -97,7 +97,7 @@ func handleOpNpc5(p *Player, payload []byte) error { return handleOpNpc(p, paylo
 //  6. NPC nil or dead → UnsetMapFlag
 //  7. NPC delayed → UnsetMapFlag
 //  8. NPC not rsbuf-visible → UnsetMapFlag
-//  9. NpcType nil → UnsetMapFlag
+//  9. NpcType nil → UnsetMapFlag  (goscape defensive; TS skips — type always valid when npc exists)
 //
 // On success: ClearPendingAction → SetInteraction(Engine, npc,
 // targetOpNpcT, spellCom).

@@ -56,7 +56,7 @@ func runCompGate(t *testing.T, c compGateCase) {
 		c.setupOk(t, s, p)
 		ct := &objtype.ComponentType{RootLayer: c.rootLayer}
 		if !c.isUVariant {
-			ct.ActionTarget = 0 // wrong bit cleared
+			ct.ActionTarget = 0 // no bits set — gate's correct bit absent
 		} else {
 			ct.Usable = false
 		}
