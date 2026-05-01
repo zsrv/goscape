@@ -205,7 +205,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpWalkAnimR:  handleWalkAnimR,
 	OpRunAnim:    handleRunAnim,
 	// NAI-51: walktrigger consumer ops (Player side).
-	OpWalkTrigger: handleWalkTrigger,
+	OpWalkTrigger:    handleWalkTrigger,
+	OpGetWalkTrigger: handleGetWalkTrigger,
 	// P_WALK stub — real impl needs pathfinder + waypoint integration.
 	OpPWalk: handlePWalk,
 

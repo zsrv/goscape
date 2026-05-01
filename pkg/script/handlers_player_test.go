@@ -3022,3 +3022,57 @@ func TestHandleWalkTrigger_NoActivePlayer(t *testing.T) {
 		t.Fatal("handleWalkTrigger: got nil, want no-active-player error")
 	}
 }
+
+// TestHandleGetWalkTrigger_ReadsAndPushes verifies GETWALKTRIGGER (opcode
+// 2023) reads p.walktrigger via WalkTrigger() and pushes the value.
+// Mirrors TS PlayerOps.ts:1039-1042.
+func TestHandleGetWalkTrigger_ReadsAndPushes(t *testing.T) {
+	mp := &mockPlayer{walkTriggerValue: 99}
+	sf := &ScriptFile{
+		Name:             "[getwalktrigger,test]",
+		Opcodes:          []Opcode{OpGetWalkTrigger, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.ISP != 1 {
+		t.Fatalf("ISP after GETWALKTRIGGER: got %d, want 1", state.ISP)
+	}
+	if got := state.PopInt(); got != 99 {
+		t.Errorf("popped: got %d, want 99", got)
+	}
+}
+
+// TestHandleGetWalkTrigger_DefaultUnsetReturnsMinusOne pins the unset
+// sentinel propagation through the handler.
+func TestHandleGetWalkTrigger_DefaultUnsetReturnsMinusOne(t *testing.T) {
+	mp := &mockPlayer{walkTriggerValue: -1}
+	sf := &ScriptFile{
+		Name:             "[getwalktrigger,test]",
+		Opcodes:          []Opcode{OpGetWalkTrigger, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopInt(); got != -1 {
+		t.Errorf("popped: got %d, want -1", got)
+	}
+}
+
+// TestHandleGetWalkTrigger_NoActivePlayer asserts the handler errors when
+// the active-player pointer is unset.
+func TestHandleGetWalkTrigger_NoActivePlayer(t *testing.T) {
+	state := &ScriptState{IntStack: make([]int, StackCapacity)}
+	err := handleGetWalkTrigger(state)
+	if err == nil {
+		t.Fatal("handleGetWalkTrigger: got nil, want no-active-player error")
+	}
+}

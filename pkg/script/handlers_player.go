@@ -643,6 +643,17 @@ func handleWalkTrigger(s *ScriptState) error {
 	return nil
 }
 
+// handleGetWalkTrigger (GETWALKTRIGGER, opcode 2023) pushes the active
+// player's current walktrigger script id. Returns -1 when unset.
+// Mirrors TS PlayerOps.ts:1039-1042.
+func handleGetWalkTrigger(s *ScriptState) error {
+	if err := requireActivePlayer(s, "GETWALKTRIGGER"); err != nil {
+		return err
+	}
+	s.PushInt(s.Self.WalkTrigger())
+	return nil
+}
+
 // S5h: action-clear.
 
 func handlePStopAction(s *ScriptState) error {
