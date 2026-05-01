@@ -86,14 +86,14 @@ type Npc struct {
 	delayedPatrol   bool
 
 	// walktrigger queues a deferred AI-queue trigger (0..19, -1 = unset)
-	// to fire when this NPC completes a walk step. Written by the
-	// NPC_WALKTRIGGER (opcode 2545) handler. NOT YET CONSUMED — the
-	// AI-tick walktrigger consumption is tracked deviation
-	// NAI-37-D-WALKTRIGGER-NOREADER. Mirrors TS Npc.walktrigger.
-	// Default in NewNpc is -1 (sentinel); existing &Npc{...} literals in
-	// test files default to walktrigger=0 which is benign in NAI-37 (no
-	// reader). When the AI-tick consumer is ported (future sub-spec),
-	// every literal must be audited per plan_enumerate_struct_literals.md.
+	// to fire on the next updateMovement tick (BEFORE step consumption).
+	// Written by the NPC_WALKTRIGGER (opcode 2545) handler at
+	// pkg/script/handlers_npc.go:407 (transformed queueID-1). Read +
+	// cleared by (*Npc).updateMovement at npc_interaction.go (NAI-51 T2.1).
+	// Mirrors TS Npc.walktrigger / Npc.ts:343-360. Default in NewNpc is -1
+	// (sentinel); raw &Npc{...} test literals default to 0 — safe because
+	// existing tests build via NewNpc, and the consumer's `n.typ != nil`
+	// guard short-circuits any literal that omits typ.
 	walktrigger    int
 	walktriggerArg int
 

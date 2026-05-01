@@ -399,11 +399,8 @@ func handleNpcWalk(s *ScriptState) error {
 // the NPC completes a walk step. Pop order: arg (top), queueID
 // (bottom). queueID ∈ [1, 20] mirrors TS QueueValid range, transformed
 // to [0, 19] via queueID-1 to match TS NpcOps.ts:488 storage. Mirrors
-// TS NpcOps.ts:483-490.
-//
-// NOT YET CONSUMED at NAI-37: the AI-tick walktrigger consumption that
-// reads these fields and fires the queued script when the NPC completes
-// a walk step is tracked deviation NAI-37-D-WALKTRIGGER-NOREADER.
+// TS NpcOps.ts:483-490. The walktrigger consumer fires from
+// (*Npc).updateMovement (modules/world/npc_interaction.go, NAI-51 T2.1).
 func handleNpcWalkTrigger(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_WALKTRIGGER"); err != nil {
 		return err
