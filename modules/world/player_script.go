@@ -144,6 +144,30 @@ func (p *Player) ClearActiveScript() {
 	p.activeScript = nil
 }
 
+// OnScriptFinishedOrAborted handles the Finished/Aborted post-Execute
+// tail for a player-anchored script. If state is the player's current
+// activeScript, nulls it; and if no MAIN modal is open, fires
+// CloseModal(false) to auto-close any open chat / side dialogue.
+//
+// Mirrors TS Player.executeScript Finished/Aborted tail
+// (Player.ts:2143-2148). The match-guard preserves a Suspended /
+// PauseButton / CountDialog activeScript when a different fresh script
+// Finishes on the same player in the same tick. The MAIN-bit gate on
+// CloseModal preserves any open main modal while dropping chat /
+// side dialogues — TS comment: "close chat dialogues automatically
+// and leave main modals alone".
+//
+// NAI-54 T1.
+func (p *Player) OnScriptFinishedOrAborted(state *script.ScriptState) {
+	if p.activeScript != state {
+		return
+	}
+	p.activeScript = nil
+	if p.modalState&modalStateMain == modalStateNone {
+		p.CloseModal(false)
+	}
+}
+
 // Playtime implements script.ActivePlayer.Playtime. The playtime field
 // is incremented in processIn each tick.
 func (p *Player) Playtime() int { return int(p.playtime) }

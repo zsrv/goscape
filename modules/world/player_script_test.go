@@ -1027,3 +1027,115 @@ func TestHintStopPayloadBytes(t *testing.T) {
 		t.Errorf("HintStop() wire: got %#x, want %#x", got, want)
 	}
 }
+
+// TestPlayerOnScriptFinishedOrAborted_MatchNoMain pins the player-path
+// Finished/Aborted tail where state matches activeScript and no MAIN
+// modal is open: activeScript is nulled and CloseModal(false) fires.
+// Mirrors TS Player.ts:2143-2148. NAI-54 T1.
+func TestPlayerOnScriptFinishedOrAborted_MatchNoMain(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	state := &script.ScriptState{Script: &script.ScriptFile{Name: "match-no-main"}}
+	p.activeScript = state
+	p.modalState = modalStateChat
+	p.modalChat = 100
+	p.refreshModalClose = false
+
+	p.OnScriptFinishedOrAborted(state)
+
+	if p.activeScript != nil {
+		t.Errorf("activeScript: got non-nil, want nil (state matched and was cleared)")
+	}
+	if p.modalState != modalStateNone {
+		t.Errorf("modalState: got %#x, want %#x (CloseModal must reset)", p.modalState, modalStateNone)
+	}
+	if !p.refreshModalClose {
+		t.Errorf("refreshModalClose: got false, want true (CloseModal fired)")
+	}
+	if p.modalChat != -1 {
+		t.Errorf("modalChat: got %d, want -1 (CloseModal must reset slot)", p.modalChat)
+	}
+}
+
+// TestPlayerOnScriptFinishedOrAborted_MatchWithMain pins the
+// MAIN-modal-preserving branch: activeScript clears but CloseModal does
+// NOT fire because (modalState & MAIN) != NONE. Mirrors TS Player.ts:2146.
+// NAI-54 T1.
+func TestPlayerOnScriptFinishedOrAborted_MatchWithMain(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	state := &script.ScriptState{Script: &script.ScriptFile{Name: "match-with-main"}}
+	p.activeScript = state
+	p.modalState = modalStateMain | modalStateChat
+	p.modalMain = 200
+	p.modalChat = 100
+	p.refreshModalClose = false
+
+	p.OnScriptFinishedOrAborted(state)
+
+	if p.activeScript != nil {
+		t.Errorf("activeScript: got non-nil, want nil (state matched and was cleared)")
+	}
+	if p.modalState != modalStateMain|modalStateChat {
+		t.Errorf("modalState: got %#x, want %#x (MAIN bit set must skip CloseModal)",
+			p.modalState, modalStateMain|modalStateChat)
+	}
+	if p.refreshModalClose {
+		t.Errorf("refreshModalClose: got true, want false (CloseModal must not fire with MAIN open)")
+	}
+	if p.modalMain != 200 {
+		t.Errorf("modalMain: got %d, want 200 (slot must be preserved)", p.modalMain)
+	}
+	if p.modalChat != 100 {
+		t.Errorf("modalChat: got %d, want 100 (slot must be preserved)", p.modalChat)
+	}
+}
+
+// TestPlayerOnScriptFinishedOrAborted_Mismatch pins the guard: when the
+// supplied state is NOT p.activeScript, activeScript is preserved and
+// CloseModal does not fire. Closes the silent Suspended-clobber bug.
+// NAI-54 T1.
+func TestPlayerOnScriptFinishedOrAborted_Mismatch(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	stored := &script.ScriptState{Script: &script.ScriptFile{Name: "stored"}}
+	other := &script.ScriptState{Script: &script.ScriptFile{Name: "other"}}
+	p.activeScript = stored
+	p.modalState = modalStateChat
+	p.modalChat = 100
+	p.refreshModalClose = false
+
+	p.OnScriptFinishedOrAborted(other)
+
+	if p.activeScript != stored {
+		t.Errorf("activeScript: got %p, want preserved %p", p.activeScript, stored)
+	}
+	if p.modalState != modalStateChat {
+		t.Errorf("modalState: got %#x, want %#x (mismatch must not fire CloseModal)",
+			p.modalState, modalStateChat)
+	}
+	if p.refreshModalClose {
+		t.Errorf("refreshModalClose: got true, want false (mismatch must not fire CloseModal)")
+	}
+}
+
+// TestPlayerOnScriptFinishedOrAborted_NilActive pins the nil-active
+// guard: p.activeScript == nil + non-nil arg → no-op (no panic, no
+// state change). NAI-54 T1.
+func TestPlayerOnScriptFinishedOrAborted_NilActive(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.activeScript = nil
+	other := &script.ScriptState{Script: &script.ScriptFile{Name: "other"}}
+	p.modalState = modalStateChat
+	p.modalChat = 100
+	p.refreshModalClose = false
+
+	p.OnScriptFinishedOrAborted(other) // must not panic
+
+	if p.activeScript != nil {
+		t.Errorf("activeScript: got non-nil, want nil")
+	}
+	if p.modalState != modalStateChat {
+		t.Errorf("modalState: got %#x, want %#x (no-op)", p.modalState, modalStateChat)
+	}
+	if p.refreshModalClose {
+		t.Errorf("refreshModalClose: got true, want false (no-op)")
+	}
+}
