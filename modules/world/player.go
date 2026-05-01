@@ -251,6 +251,7 @@ type Player struct {
 
 	// === mask state (sub-spec 3b) ===
 	animID, animDelay int
+	seqTypes          *objtype.SeqTypeConfigs // seeded conditionally in newPlayer; gates PlayAnim
 
 	sayText []byte
 
@@ -427,6 +428,9 @@ func newPlayer(c *client) *Player {
 		loadedZones:    map[int]bool{},
 		activeZones:    map[int]bool{},
 		mapsquares:     map[uint16]bool{},
+	}
+	if c.server != nil {
+		p.seqTypes = c.server.seqTypes
 	}
 	// Sentinel values so the first tick of updateStats emits all 21 UpdateStat
 	// packets. stats[i] is int32 (always >= 0 in gameplay); levels[i] is uint8

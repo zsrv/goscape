@@ -85,6 +85,8 @@ type Server struct {
 	npcTypes      *objtype.NPCTypeConfigs
 	huntTypes     *objtype.HuntTypeConfigs
 	idkTypes      *objtype.IdkTypeConfigs
+	seqFrames     *objtype.SeqFrameConfigs
+	seqTypes      *objtype.SeqTypeConfigs
 	npcs          [8192]*Npc
 	npcLoop       []*Npc
 	npcEventQueue []NpcEventRequest
@@ -237,6 +239,18 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 		return nil, fmt.Errorf("load idk types: %w", err)
 	}
 	s.idkTypes = idkTypes
+
+	seqFrames, err := objtype.LoadSeqFrames(cfg.CachePath)
+	if err != nil {
+		return nil, fmt.Errorf("load seq frames: %w", err)
+	}
+	s.seqFrames = seqFrames
+
+	seqTypes, err := objtype.LoadSeqTypes(cfg.CachePath, seqFrames)
+	if err != nil {
+		return nil, fmt.Errorf("load seq types: %w", err)
+	}
+	s.seqTypes = seqTypes
 
 	s.scriptProvider = script.NewProvider()
 	if err := s.scriptProvider.Load(filepath.Join(cfg.CachePath, "server")); err != nil {
