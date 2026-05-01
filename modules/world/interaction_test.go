@@ -986,3 +986,92 @@ func TestTryInteractProcessInteractionCallSites(t *testing.T) {
 		t.Error("target should be nil after interaction auto-clear")
 	}
 }
+
+
+// TestProcessInteraction_PreStepWalktriggerFires — NAI-51 T1.8. With
+// a walktrigger queued and a target in operable distance, the pre-step
+// arm at interaction.go:169 must fire the walktrigger BEFORE tryInteract.
+// Verified via "wt-fired" wire output AND walktrigger=-1 after the tick.
+func TestProcessInteraction_PreStepWalktriggerFires(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	sf := &script.ScriptFile{
+		Name: "[walktrigger,test]",
+		Opcodes: []script.Opcode{
+			script.OpPushConstantString,
+			script.OpMes,
+			script.OpReturn,
+		},
+		IntOperands:      []int32{0, 0, 0},
+		StringOperands:   []string{"wt-fired", "", ""},
+		InstructionCount: 3,
+	}
+	s.scriptProvider.RegisterAt(7, sf)
+
+	npc := makeInteractionNpc(t, s, 1, 100, 100, 0)
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	p.x, p.z, p.level = 99, 100, 0 // dx=1 → operable
+	received := drainConn(t, cc)
+
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
+	p.walktrigger = 7
+
+	p.processInteraction()
+	p.client.flushWrite()
+
+	if p.walktrigger != -1 {
+		t.Errorf("walktrigger after pre-step fire: got %d, want -1", p.walktrigger)
+	}
+	// First wire packet should be the "wt-fired" mes.
+	pkt := <-received
+	if !bytes.Contains(pkt, []byte("wt-fired")) {
+		t.Errorf("first wire packet did not contain wt-fired: %q", pkt)
+	}
+}
+
+// TestProcessInteraction_PostStepWalktriggerFires — NAI-51 T1.8. With a
+// walktrigger queued, a target out of range, and waypoints set, the
+// post-step arm at interaction.go:183 must fire the walktrigger.
+func TestProcessInteraction_PostStepWalktriggerFires(t *testing.T) {
+	s := setupServerForInteractionTest(t)
+	s.scriptProvider = script.NewProvider()
+	sf := &script.ScriptFile{
+		Name: "[walktrigger,test]",
+		Opcodes: []script.Opcode{
+			script.OpPushConstantString,
+			script.OpMes,
+			script.OpReturn,
+		},
+		IntOperands:      []int32{0, 0, 0},
+		StringOperands:   []string{"wt-post", "", ""},
+		InstructionCount: 3,
+	}
+	s.scriptProvider.RegisterAt(11, sf)
+
+	npc := makeInteractionNpc(t, s, 1, 200, 200, 0) // far away → no operable
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	p.x, p.z, p.level = 99, 100, 0
+	received := drainConn(t, cc)
+
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
+	p.walktrigger = 11
+	// Pre-seed waypoints so hasWaypoints() is true after the pre-step
+	// arm fails its tryInteract.
+	p.waypointIndex = 0
+	p.waypoints[0] = (0 << 28) | (200 << 14) | 200
+
+	p.processInteraction()
+	p.client.flushWrite()
+
+	if p.walktrigger != -1 {
+		t.Errorf("walktrigger after post-step fire: got %d, want -1", p.walktrigger)
+	}
+	pkt := <-received
+	if !bytes.Contains(pkt, []byte("wt-post")) {
+		t.Errorf("wire did not contain wt-post: %q", pkt)
+	}
+}
