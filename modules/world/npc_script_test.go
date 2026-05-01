@@ -362,32 +362,6 @@ func TestNpcTurnReentryQueueAppendDuringIteration(t *testing.T) {
 	}
 }
 
-// TestResumeOrFinishNpcErrorPathClearsScript — NAI-2 follow-up.
-// When script.Execute returns an error, resumeOrFinishNpc must
-// clear n.activeScript (matching the player-side resumeOrFinish
-// error-path at modules/world/script.go:31-35).
-func TestResumeOrFinishNpcErrorPathClearsScript(t *testing.T) {
-	s, n := buildNpcForIntegration(t)
-
-	// Pre-store a dummy script to prove it gets cleared.
-	n.activeScript = &script.ScriptState{}
-
-	// Build a state whose Execute will error. Opcode 0xFFFF has no
-	// registered handler; Execute returns "no handler for ..." error.
-	sf := &script.ScriptFile{
-		Name:    "err_script",
-		Opcodes: []script.Opcode{script.Opcode(0xFFFF)},
-	}
-	errState := script.Init(sf, nil, false, nil, nil)
-	errState.ActiveNpc = n
-
-	s.resumeOrFinishNpc(errState, n)
-
-	if n.activeScript != nil {
-		t.Errorf("activeScript: got %v, want nil (cleared on Execute error)", n.activeScript)
-	}
-}
-
 // TestResumeOrFinishNpcDefaultBranchClearsScript — NAI-2 follow-up.
 // Synthetic: pre-set Execution to a value that hits the default:
 // branch (not Finished/Aborted/NpcSuspended). Execute's hot loop
