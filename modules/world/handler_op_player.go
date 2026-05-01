@@ -138,8 +138,9 @@ func handleOpPlayerT(p *Player, payload []byte) error {
 //  8. target not visible (rsbuf.HasPlayer == false) → UnsetMapFlag
 //  9. members-only item on free world → MessageGame + UnsetMapFlag
 //
-// On success: snapshot p.lastUseItem=useObj, p.lastUseSlot=useSlot →
-// ClearPendingAction → SetInteraction(Engine, other, targetOpPlayerU, -1).
+// On success: ClearPendingAction (after rsbuf.HasPlayer reject, before members check)
+// → snapshot p.lastUseItem=useObj, p.lastUseSlot=useSlot →
+// SetInteraction(Engine, other, targetOpPlayerU, -1).
 func handleOpPlayerU(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
@@ -198,6 +199,8 @@ func handleOpPlayerU(p *Player, payload []byte) error {
 		return nil
 	}
 
+	p.ClearPendingAction()
+
 	if s.objTypes != nil && useObj >= 0 && useObj < len(s.objTypes.Configs) {
 		if useObjType := s.objTypes.Configs[useObj]; useObjType != nil && useObjType.Members && !s.cfg.NodeMembers {
 			p.MessageGame("To use this item please login to a members' server.")
@@ -209,7 +212,6 @@ func handleOpPlayerU(p *Player, payload []byte) error {
 	p.lastUseItem = useObj
 	p.lastUseSlot = useSlot
 
-	p.ClearPendingAction()
 	p.opcalled = true
 	p.SetInteraction(InteractionEngine, other, targetOpPlayerU, -1)
 	return nil

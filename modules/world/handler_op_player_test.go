@@ -557,3 +557,46 @@ func TestHandleOpPlayerU_MembersOnNonMembersServer(t *testing.T) {
 		t.Errorf("target should remain nil for members-on-free rejection; got %v", clicker.target)
 	}
 }
+
+// TestHandleOpPlayerU_MembersOnNonMembersServerClearsPendingAction — ordering pin:
+// ClearPendingAction must fire BEFORE the members-only check (after rsbuf.HasPlayer
+// reject), so a stale pending action is cleared even when the members reject path fires.
+// Matches TS OpPlayerUHandler.ts:66 (clearPendingAction before members check).
+func TestHandleOpPlayerU_MembersOnNonMembersServerClearsPendingAction(t *testing.T) {
+	s, clicker, other, cc := makeOpPlayerFixture(t)
+	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+	// Seed component so the component gate passes; members-free-world gate fires next.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	clicker.tabs[0] = 149
+	s.cfg.NodeMembers = false
+	if s.objTypes == nil {
+		s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 2000)}
+	}
+	s.objTypes.Configs[1511] = &objtype.ObjType{
+		ConfigType: objtype.ConfigType{ID: 1511, DebugName: "members_item"},
+		Members:    true,
+	}
+	seedOpPlayerUInv(t, s, clicker, 93, 149, 1511, 3)
+
+	// Pre-seed stale pending action — proves members reject clears it.
+	clicker.targetOp = 99
+	clicker.target = other
+
+	received := drainConn(t, cc)
+	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.slot, 1511, 3, 149))
+	clicker.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected MessageGame + UnsetMapFlag for members-on-free, got nothing")
+	}
+	// Ordering pin: ClearPendingAction must have run before members reject.
+	if clicker.targetOp != -1 {
+		t.Errorf("targetOp: got %d, want -1 (cleared by ClearPendingAction before members reject)", clicker.targetOp)
+	}
+	if clicker.target != nil {
+		t.Errorf("target: got %v, want nil (cleared by ClearPendingAction before members reject)", clicker.target)
+	}
+}
