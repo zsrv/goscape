@@ -106,8 +106,14 @@ func (s *Server) resumeOrFinish(state *script.ScriptState, self script.ActivePla
 	if err := script.Execute(state); err != nil {
 		s.log.Warn("script execute error",
 			"script", state.Script.Name, "err", err)
-		self.ClearActiveScript()
-		return
+		// NAI-55: fall through. script.Execute sets state.Execution =
+		// Aborted on every error path (pkg/script/runner.go:54-83),
+		// so the switch routes via OnScriptFinishedOrAborted —
+		// match-guarded, identical to a clean Aborted. Mirrors TS
+		// ScriptRunner.execute setting state.execution = ABORTED on
+		// throw (ScriptRunner.ts:228), then Player.executeScript
+		// re-entering the (script === this.activeScript) guard
+		// (Player.ts:2143-2148). Closes NAI-54-F1.
 	}
 	switch state.Execution {
 	case script.Finished, script.Aborted:
