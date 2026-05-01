@@ -996,3 +996,54 @@ func TestResumeOrFinishNpc_PreservesUnrelatedSuspendedScript(t *testing.T) {
 			n.activeScript, stored)
 	}
 }
+
+// TestResumeOrFinishNpc_ExecuteError_PreservesUnrelatedSuspendedScript
+// pins the NAI-55 NPC-path error+mismatch match-guard: a fresh script Y
+// that errors during script.Execute must NOT null an unrelated stored
+// activeScript X on the NPC. Mirrors TS Npc.ts:226 guard reached after
+// ScriptRunner.execute returned ABORTED (ScriptRunner.ts:228).
+func TestResumeOrFinishNpc_ExecuteError_PreservesUnrelatedSuspendedScript(t *testing.T) {
+	s, n := buildNpcForIntegration(t)
+
+	stored := &script.ScriptState{
+		Script:    &script.ScriptFile{Name: "stored-npc-suspended"},
+		Execution: script.NpcSuspended,
+	}
+	n.activeScript = stored
+
+	sf := &script.ScriptFile{
+		Name:    "[err,npc-test]",
+		Opcodes: []script.Opcode{script.Opcode(0xFFFF)},
+	}
+	errState := script.Init(sf, nil, false, nil, nil)
+	errState.ActiveNpc = n
+
+	s.resumeOrFinishNpc(errState, n)
+
+	if n.activeScript != stored {
+		t.Errorf("activeScript: got %p, want preserved %p (NAI-55 NPC error-path guard)",
+			n.activeScript, stored)
+	}
+}
+
+// TestResumeOrFinishNpc_ExecuteError_ClearsMatchingActiveScript pins
+// the NAI-55 NPC-path error+match arm: when the fresh state IS the NPC's
+// activeScript and Execute errors, activeScript is nulled. Mirrors TS
+// Npc.ts:226-228 tail reached after ScriptRunner.execute returned ABORTED.
+func TestResumeOrFinishNpc_ExecuteError_ClearsMatchingActiveScript(t *testing.T) {
+	s, n := buildNpcForIntegration(t)
+
+	sf := &script.ScriptFile{
+		Name:    "[err,npc-match]",
+		Opcodes: []script.Opcode{script.Opcode(0xFFFF)},
+	}
+	state := script.Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = n
+	n.activeScript = state // match-arm
+
+	s.resumeOrFinishNpc(state, n)
+
+	if n.activeScript != nil {
+		t.Errorf("activeScript: got non-nil, want nil (NPC match-arm must clear on error)")
+	}
+}
