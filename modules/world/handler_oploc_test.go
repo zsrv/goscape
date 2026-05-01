@@ -291,7 +291,13 @@ func p2x4Payload(x, z, locId, com int) []byte {
 // and routes through SetInteraction with targetOp=targetOpLocT and
 // targetSubject.com=spellCom.
 func TestHandleOpLocTSetsInteraction(t *testing.T) {
-	_, p, loc, _ := makeOpLocFixture(t)
+	s, p, loc, _ := makeOpLocFixture(t)
+
+	// gate satisfaction: register spellCom with passing ActionTarget bit and visibility.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		7777: {RootLayer: 7777, ActionTarget: objtype.ComActionTargetLoc},
+	})
+	p.tabs[0] = 7777
 
 	if err := handleOpLocT(p, p2x4Payload(100, 100, 42, 7777)); err != nil {
 		t.Fatalf("handleOpLocT: %v", err)

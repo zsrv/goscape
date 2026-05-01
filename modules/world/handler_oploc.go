@@ -2,6 +2,7 @@ package world
 
 import (
 	"github.com/zsrv/goscape/pkg/io/packet"
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 // handleOpLoc is the shared implementation for OPLOC1..OPLOC5.
@@ -104,20 +105,14 @@ func handleOpLoc5(p *Player, payload []byte) error { return handleOpLoc(p, paylo
 // Spell-on-loc: player drags a spell icon from the magic-book interface
 // onto a loc. Payload = (x:G2, z:G2, locId:G2, spellCom:G2).
 //
-// Validation gates (mirrors TS OpLocTHandler.ts:~49):
+// Gates per TS OpLocTHandler.ts:
 //  1. delayed player → UnsetMapFlag
 //  2. payload too short → UnsetMapFlag
-//  3. coords outside viewport (52-tile half-extent) → UnsetMapFlag
-//  4. Server.GetLoc returns nil → UnsetMapFlag
-//  5. LocType not registered → UnsetMapFlag
-//
-// DEVIATION (S6m-D1): TS also validates spellCom references a component
-// with ComActionTarget.LOC flag AND that the component is visible in the
-// player's interface stack (OpLocTHandler.ts:~25-35). Skipped here
-// because goscape has no component registry yet. Effective risk: client
-// can forge spellCom values; scripts reading p.TargetSubjectCom() get
-// raw wire values. Follow-up: "component registry + ComActionTarget
-// validation" sub-spec.
+//  3. spellCom: nil or ActionTarget&LOC == 0 → UnsetMapFlag
+//  4. spellCom: !IsComponentVisible → UnsetMapFlag
+//  5. coords outside viewport (52-tile half-extent) → UnsetMapFlag
+//  6. Server.GetLoc returns nil → UnsetMapFlag
+//  7. LocType not registered → UnsetMapFlag
 //
 // On success: ClearPendingAction → SetInteraction(Engine, loc,
 // targetOpLocT, spellCom) → targetSubject snapshot.
@@ -142,6 +137,16 @@ func handleOpLocT(p *Player, payload []byte) error {
 	z := int(r.G2())
 	locId := int(r.G2())
 	spellCom := int(r.G2())
+
+	com := s.lookupComponent(spellCom)
+	if com == nil || (com.ActionTarget&objtype.ComActionTargetLoc) == 0 {
+		sendUnsetMapFlag(p)
+		return nil
+	}
+	if !p.IsComponentVisible(com) {
+		sendUnsetMapFlag(p)
+		return nil
+	}
 
 	dx := x - p.originX
 	if dx < 0 {

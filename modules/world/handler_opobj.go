@@ -2,6 +2,7 @@ package world
 
 import (
 	"github.com/zsrv/goscape/pkg/io/packet"
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 // handleOpObj is the shared implementation for OPOBJ1..OPOBJ5.
@@ -92,10 +93,14 @@ func handleOpObj5(p *Player, payload []byte) error { return handleOpObj(p, paylo
 // Spell-on-obj: player casts a spell onto a ground item.
 // Payload = (x:G2, z:G2, objId:G2, spellCom:G2).
 //
-// DEVIATION NAI-50-D1: TS OpObjTHandler.ts:20-29 validates spellCom
-// references a component with ComActionTarget.OBJ AND that the component
-// is visible. Skipped — handler not yet wired to component registry.
-// Same cluster as S6m-D1, NAI-48-D1. Closure: cluster-cleanup sub-spec.
+// Gates per TS OpObjTHandler.ts:
+//  1. delayed player → UnsetMapFlag
+//  2. payload too short → UnsetMapFlag
+//  3. spellCom: nil or ActionTarget&OBJ == 0 → UnsetMapFlag
+//  4. spellCom: !IsComponentVisible → UnsetMapFlag
+//  5. coords outside viewport (52-tile half-extent) → UnsetMapFlag
+//  6. Server.GetObj returns nil → UnsetMapFlag
+//  7. ObjType not registered → UnsetMapFlag
 func handleOpObjT(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
@@ -117,6 +122,16 @@ func handleOpObjT(p *Player, payload []byte) error {
 	z := int(r.G2())
 	objId := int(r.G2())
 	spellCom := int(r.G2())
+
+	com := s.lookupComponent(spellCom)
+	if com == nil || (com.ActionTarget&objtype.ComActionTargetObj) == 0 {
+		sendUnsetMapFlag(p)
+		return nil
+	}
+	if !p.IsComponentVisible(com) {
+		sendUnsetMapFlag(p)
+		return nil
+	}
 
 	dx := x - p.originX
 	if dx < 0 {

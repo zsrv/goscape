@@ -3,6 +3,7 @@ package world
 import (
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/io/packet"
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 // resolveListenerInv returns the inventory the given listener observes,
@@ -87,27 +88,16 @@ func handleOpNpc5(p *Player, payload []byte) error { return handleOpNpc(p, paylo
 // Spell-on-NPC: player drags a spell icon onto an NPC.
 // Payload = (slot:G2, spellCom:G2).
 //
-// Validation gates (mirrors TS OpNpcTHandler.ts):
+// Gates per TS OpNpcTHandler.ts:
 //  1. delayed player → UnsetMapFlag
 //  2. payload too short → UnsetMapFlag
-//  3. slot out of range → UnsetMapFlag
-//  4. NPC nil or dead → UnsetMapFlag
-//  5. NpcType nil → UnsetMapFlag
-//
-// DEVIATION S6o-D1: TS validates spellCom references a component
-// with ComActionTarget.NPC flag AND that the component is visible in
-// the player's interface stack. Skipped here because goscape has no
-// component registry yet. Effective risk: client can forge spellCom
-// values; scripts reading p.TargetSubjectCom() get raw wire values.
-// Follow-up: "component registry + ComActionTarget validation"
-// sub-spec (bundle with S6m-D1).
-//
-// Unlike handleOpNpc (handler_opnpc.go:40-44), there is NO per-op
-// validation gate — T/U variants don't index into NpcType.Op.
-//
-// No targetSubject.{typ,x,z,level} snapshot — NPCs have no in-place
-// mutation risk (unlike Loc's packed Info bitfield). npc.dead is the
-// lifecycle gate, checked at fire time (fireApTriggerNpc/fireOpTriggerNpc).
+//  3. spellCom: nil component or ActionTarget&NPC == 0 → UnsetMapFlag
+//  4. spellCom: !IsComponentVisible → UnsetMapFlag
+//  5. slot out of range → UnsetMapFlag
+//  6. NPC nil or dead → UnsetMapFlag
+//  7. NPC delayed → UnsetMapFlag
+//  8. NPC not rsbuf-visible → UnsetMapFlag
+//  9. NpcType nil → UnsetMapFlag
 //
 // On success: ClearPendingAction → SetInteraction(Engine, npc,
 // targetOpNpcT, spellCom).
@@ -130,6 +120,16 @@ func handleOpNpcT(p *Player, payload []byte) error {
 	r := packet.NewPacket(payload)
 	slot := int(r.G2())
 	spellCom := int(r.G2())
+
+	com := s.lookupComponent(spellCom)
+	if com == nil || (com.ActionTarget&objtype.ComActionTargetNpc) == 0 {
+		sendUnsetMapFlag(p)
+		return nil
+	}
+	if !p.IsComponentVisible(com) {
+		sendUnsetMapFlag(p)
+		return nil
+	}
 
 	if slot < 0 || slot >= len(s.npcs) {
 		sendUnsetMapFlag(p)

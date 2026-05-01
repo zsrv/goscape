@@ -235,7 +235,13 @@ func TestHandleOpObjRejectsEmptyOpSlot(t *testing.T) {
 // --- handleOpObjT ---
 
 func TestHandleOpObjTSetsInteraction(t *testing.T) {
-	_, p, obj, _ := makeOpObjFixture(t)
+	s, p, obj, _ := makeOpObjFixture(t)
+
+	// gate satisfaction: register spellCom with passing ActionTarget bit and visibility.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		7777: {RootLayer: 7777, ActionTarget: objtype.ComActionTargetObj},
+	})
+	p.tabs[0] = 7777
 
 	if err := handleOpObjT(p, p2x4ObjPayload(100, 100, 42, 7777)); err != nil {
 		t.Fatalf("handleOpObjT: %v", err)

@@ -171,6 +171,13 @@ func TestHandleOpPlayerT_HappyPath(t *testing.T) {
 	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
 
 	const spellCom = 7777
+
+	// gate satisfaction: register spellCom with passing ActionTarget bit and visibility.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		spellCom: {RootLayer: spellCom, ActionTarget: objtype.ComActionTargetPlayer},
+	})
+	clicker.tabs[0] = spellCom
+
 	if err := handleOpPlayerT(clicker, opPlayerTPayload(other.slot, spellCom)); err != nil {
 		t.Fatalf("handleOpPlayerT: %v", err)
 	}

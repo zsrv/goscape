@@ -236,7 +236,13 @@ func p2x2Payload(a, b int) []byte {
 // interaction state with targetOp=targetOpNpcT and targetSubject.com
 // carrying the spellCom.
 func TestHandleOpNpcTSetsInteraction(t *testing.T) {
-	_, p, npc := makeOpNpcFixture(t)
+	s, p, npc := makeOpNpcFixture(t)
+
+	// gate satisfaction: register spellCom with passing ActionTarget bit and visibility.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		7777: {RootLayer: 7777, ActionTarget: objtype.ComActionTargetNpc},
+	})
+	p.tabs[0] = 7777
 
 	if err := handleOpNpcT(p, p2x2Payload(1, 7777)); err != nil {
 		t.Fatalf("handleOpNpcT: %v", err)

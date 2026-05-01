@@ -2,6 +2,7 @@ package world
 
 import (
 	"github.com/zsrv/goscape/pkg/io/packet"
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 // handleOpPlayer is the shared implementation for OPPLAYER1..OPPLAYER4
@@ -65,19 +66,13 @@ func handleOpPlayer4(p *Player, payload []byte) error { return handleOpPlayer(p,
 // Spell-on-Player: player drags a spell icon onto another player.
 // Payload = (slot:G2, spellCom:G2).
 //
-// Validation gates (mirrors goscape's handleOpNpcT, NOT the full TS chain):
+// Gates per TS OpPlayerTHandler.ts:
 //  1. delayed player → UnsetMapFlag
 //  2. payload too short → UnsetMapFlag
-//  3. target not logged in (LookupPlayerBySlot returns nil) → UnsetMapFlag
-//  4. target not visible (rsbuf.HasPlayer == false) → UnsetMapFlag
-//
-// DEVIATION NAI-40-D-COMPONENT-REGISTRY-VALIDATION-SKIPPED: TS validates
-// spellCom references a component with ComActionTarget.PLAYER flag AND
-// is visible in the player's interface stack. Skipped here for the same
-// reason as S6o-D1 (NPC variant) — goscape has no component registry
-// yet. Effective risk: client can forge spellCom values; scripts reading
-// p.TargetSubjectCom() get raw wire values. Closure: bundle with S6o-D1
-// when the component-registry sub-spec lands.
+//  3. spellCom: nil or ActionTarget&PLAYER == 0 → UnsetMapFlag
+//  4. spellCom: !IsComponentVisible → UnsetMapFlag
+//  5. target not logged in (LookupPlayerBySlot returns nil) → UnsetMapFlag
+//  6. target not visible (rsbuf.HasPlayer == false) → UnsetMapFlag
 //
 // On success: ClearPendingAction → SetInteraction(Engine, other,
 // targetOpPlayerT, spellCom).
@@ -100,6 +95,16 @@ func handleOpPlayerT(p *Player, payload []byte) error {
 	r := packet.NewPacket(payload)
 	slot := int(r.G2())
 	spellCom := int(r.G2())
+
+	com := s.lookupComponent(spellCom)
+	if com == nil || (com.ActionTarget&objtype.ComActionTargetPlayer) == 0 {
+		sendUnsetMapFlag(p)
+		return nil
+	}
+	if !p.IsComponentVisible(com) {
+		sendUnsetMapFlag(p)
+		return nil
+	}
 
 	other := s.LookupPlayerBySlot(slot)
 	if other == nil {
