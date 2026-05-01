@@ -86,6 +86,7 @@ type Server struct {
 	huntTypes     *objtype.HuntTypeConfigs
 	idkTypes      *objtype.IdkTypeConfigs
 	seqTypes      *objtype.SeqTypeConfigs
+	spotanimTypes *objtype.SpotanimTypeConfigs
 	npcs          [8192]*Npc
 	npcLoop       []*Npc
 	npcEventQueue []NpcEventRequest
@@ -249,6 +250,12 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 		return nil, fmt.Errorf("load seq types: %w", err)
 	}
 	s.seqTypes = seqTypes
+
+	spotanimTypes, err := objtype.LoadSpotanimTypes(cfg.CachePath)
+	if err != nil {
+		return nil, fmt.Errorf("load spotanim types: %w", err)
+	}
+	s.spotanimTypes = spotanimTypes
 
 	s.scriptProvider = script.NewProvider()
 	if err := s.scriptProvider.Load(filepath.Join(cfg.CachePath, "server")); err != nil {
