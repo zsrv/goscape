@@ -236,12 +236,11 @@ func (p *Player) hasWaypoints() bool {
 // via runScript with protect=true. Mirrors TS Player.processWalktrigger
 // at Player.ts:1057-1070.
 //
-// DEVIATION NAI-51-D-PLAYER-WALKTRIGGER-NO-PROTECT-CHECK: TS L1062 also
-// gates on !this.protect. Player has no boolean protect field; the
-// anim-protect block (player.go:166) is a separate concern. Closure:
-// future protect/anim-protect convergence sub-spec.
+// The !p.protectedScriptActive() gate mirrors TS L1062 !this.protect via
+// goscape's documented activeScript.Protect convergence (see CanAccess
+// doc-comment in player_script.go).
 func (p *Player) processWalktrigger() {
-	if p.walktrigger == -1 || p.delayed {
+	if p.walktrigger == -1 || p.delayed || p.protectedScriptActive() {
 		return
 	}
 	if p.client == nil || p.client.server == nil {

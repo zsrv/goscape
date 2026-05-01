@@ -742,6 +742,104 @@ func TestProcessWalktrigger_MissingScriptStillClears(t *testing.T) {
 	}
 }
 
+// TestProcessWalktrigger_ProtectedScriptActiveNoOp — NAI-52. With a
+// suspended protected script anchored on the player, the walktrigger
+// consumer must bail without firing. Mirrors TS Player.ts:1062 gate
+// !this.protect via goscape's activeScript.Protect convergence.
+func TestProcessWalktrigger_ProtectedScriptActiveNoOp(t *testing.T) {
+	s := newTestServer(t)
+	p, wait := makeInteractionPlayer(t, s, 3200, 3200, 0)
+	defer wait()
+
+	p.walktrigger = 7
+	p.activeScript = &script.ScriptState{Protect: true}
+
+	p.processWalktrigger()
+
+	if p.walktrigger != 7 {
+		t.Errorf("walktrigger after protected-bail: got %d, want 7 (unchanged)", p.walktrigger)
+	}
+}
+
+// TestProcessWalktrigger_ActiveScriptUnprotectedFires — NAI-52. Pins
+// that activeScript != nil alone does NOT block the consumer; only
+// activeScript.Protect == true does. activeScript with Protect=false
+// must allow the walktrigger to fire and clear.
+func TestProcessWalktrigger_ActiveScriptUnprotectedFires(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	sf := &script.ScriptFile{
+		Name: "[walktrigger,test]",
+		Opcodes: []script.Opcode{
+			script.OpPushConstantString,
+			script.OpMes,
+			script.OpReturn,
+		},
+		IntOperands:      []int32{0, 0, 0},
+		StringOperands:   []string{"wt-unprot", "", ""},
+		InstructionCount: 3,
+	}
+	s.scriptProvider.RegisterAt(42, sf)
+
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	received := drainConn(t, cc)
+
+	p.walktrigger = 42
+	p.activeScript = &script.ScriptState{Protect: false}
+
+	p.processWalktrigger()
+	p.client.flushWrite()
+	pkt := <-received
+
+	if p.walktrigger != -1 {
+		t.Errorf("walktrigger after unprotected fire: got %d, want -1", p.walktrigger)
+	}
+	if !bytes.Contains(pkt, []byte("wt-unprot")) {
+		t.Errorf("payload: did not contain wt-unprot: %q", pkt)
+	}
+}
+
+// TestProcessWalktrigger_NilActiveScriptFires — NAI-52. activeScript=nil
+// short-circuit pin: protectedScriptActive returns false on nil
+// activeScript, so the consumer must fire.
+func TestProcessWalktrigger_NilActiveScriptFires(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	sf := &script.ScriptFile{
+		Name: "[walktrigger,test]",
+		Opcodes: []script.Opcode{
+			script.OpPushConstantString,
+			script.OpMes,
+			script.OpReturn,
+		},
+		IntOperands:      []int32{0, 0, 0},
+		StringOperands:   []string{"wt-nilactive", "", ""},
+		InstructionCount: 3,
+	}
+	s.scriptProvider.RegisterAt(42, sf)
+
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	received := drainConn(t, cc)
+
+	p.walktrigger = 42
+	// activeScript is already nil from newPlayer.
+
+	p.processWalktrigger()
+	p.client.flushWrite()
+	pkt := <-received
+
+	if p.walktrigger != -1 {
+		t.Errorf("walktrigger after nil-active fire: got %d, want -1", p.walktrigger)
+	}
+	if !bytes.Contains(pkt, []byte("wt-nilactive")) {
+		t.Errorf("payload: did not contain wt-nilactive: %q", pkt)
+	}
+}
+
 // --- NAI-44 T5 helpers ---
 
 // setupServerForInteractionTest returns a server configured for Player→Player
