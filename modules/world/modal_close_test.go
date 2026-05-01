@@ -419,3 +419,60 @@ func TestCloseModalNilScriptProviderNoOp(t *testing.T) {
 		t.Errorf("modalMain: got %d, want -1", p.modalMain)
 	}
 }
+
+// TestCloseModalCombinedPauseButtonNullAndPerSlotDispatch pins the
+// interaction of two NAI-53 T5 branches in a single fixture:
+//
+//	(a) PAUSEBUTTON-suspended activeScript is nulled (NAI-52-F1 closure
+//	    branch, modal_close_test.go:257-271 covers in isolation).
+//	(b) Per-slot IF_CLOSE dispatch fires for the open chat slot (T5
+//	    per-slot trigger-script port, modal_close_test.go:329-352
+//	    covers in isolation).
+//
+// NAI-53 T5's quality review surfaced this as a coverage gap: the null
+// tests use newTestPlayer without a server, and the dispatch tests use
+// fresh ScriptStates left at zero-value Running execution. This test
+// puts them in the same fixture. NAI-54 T4 (closes NAI-53-F2).
+func TestCloseModalCombinedPauseButtonNullAndPerSlotDispatch(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	ifCloseScript := &script.ScriptFile{
+		Name:        "[if_close,77]",
+		LookupKey:   script.LookupKeyForType(script.TriggerIfClose, 77),
+		Opcodes:     []script.Opcode{script.OpReturn},
+		IntOperands: []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+	}
+	s.scriptProvider.Register(ifCloseScript)
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.modalState = modalStateChat
+	p.modalChat = 77
+	pausedState := &script.ScriptState{
+		Script:    &script.ScriptFile{Name: "paused-dialog"},
+		Execution: script.PauseButton,
+	}
+	p.activeScript = pausedState
+
+	p.CloseModal(true)
+
+	// (a) PauseButton-state activeScript was nulled.
+	if p.activeScript != nil {
+		t.Errorf("activeScript: got non-nil, want nil (PauseButton must be cleared)")
+	}
+	// (b) Per-slot dispatch fired (slot reset, modalState cleared,
+	// refreshModalClose set; the dispatched IF_CLOSE script is OpReturn
+	// so it Finishes immediately and does not re-store activeScript).
+	if p.modalChat != -1 {
+		t.Errorf("modalChat: got %d, want -1 (slot reset)", p.modalChat)
+	}
+	if p.modalState != modalStateNone {
+		t.Errorf("modalState: got %#x, want %#x (NONE)", p.modalState, modalStateNone)
+	}
+	if !p.refreshModalClose {
+		t.Errorf("refreshModalClose: got false, want true")
+	}
+}
