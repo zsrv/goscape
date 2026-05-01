@@ -440,6 +440,33 @@ func TestSetInteractionPassesMinusOneForNonComOps(t *testing.T) {
 	}
 }
 
+// TestSetInteractionComZeroCanonicalisation verifies that SetInteraction
+// canonicalises com=0 to com=-1 at storage time, matching TS truthy
+// PathingEntity.ts:520: `targetSubject.com = com ? com : -1`. NAI-62: this
+// boundary affects OpPlayerU's useObj=0 case post-producer-fix.
+func TestSetInteractionComZeroCanonicalisation(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.targetSubject.com = 999 // stale prior value
+
+	fake := fakeEntity{x: 100, z: 100, level: 0}
+	p.SetInteraction(InteractionEngine, fake, 1, 0)
+	if p.targetSubject.com != -1 {
+		t.Errorf("com=0 canonicalisation: got %d, want -1 (TS PathingEntity.ts:520)", p.targetSubject.com)
+	}
+
+	// Sanity: positive com is preserved
+	p.SetInteraction(InteractionEngine, fake, 1, 12345)
+	if p.targetSubject.com != 12345 {
+		t.Errorf("positive com: got %d, want 12345", p.targetSubject.com)
+	}
+
+	// Sanity: -1 sentinel is preserved
+	p.SetInteraction(InteractionEngine, fake, 1, -1)
+	if p.targetSubject.com != -1 {
+		t.Errorf("-1 sentinel: got %d, want -1", p.targetSubject.com)
+	}
+}
+
 // fakeEntity is a minimal entity implementation for tests that need a
 // non-nil, non-specific target.
 type fakeEntity struct{ x, z, level int }

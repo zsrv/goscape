@@ -140,7 +140,10 @@ func handleOpPlayerT(p *Player, payload []byte) error {
 //
 // On success: ClearPendingAction (after rsbuf.HasPlayer reject, before members check)
 // → snapshot p.lastUseItem=useObj, p.lastUseSlot=useSlot →
-// SetInteraction(Engine, other, targetOpPlayerU, -1).
+// SetInteraction(Engine, other, targetOpPlayerU, useObj) (NAI-62: useObj
+// threaded for trigger-lookup override per TS OpPlayerUHandler.ts:77 +
+// Player.ts:993-995; useObj=0 canonicalised to com=-1 by SetInteraction
+// per TS PathingEntity.ts:520).
 func handleOpPlayerU(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
@@ -213,6 +216,6 @@ func handleOpPlayerU(p *Player, payload []byte) error {
 	p.lastUseSlot = useSlot
 
 	p.opcalled = true
-	p.SetInteraction(InteractionEngine, other, targetOpPlayerU, -1)
+	p.SetInteraction(InteractionEngine, other, targetOpPlayerU, useObj)
 	return nil
 }

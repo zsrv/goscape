@@ -43,9 +43,14 @@ func sendUnsetMapFlag(p *Player) {
 }
 
 // SetInteraction anchors the interaction state machine on a target entity.
-// For OpLocT the com parameter carries the spell-component ID; for OpLocU
-// pass -1 (item tracking uses lastUseItem/lastUseSlot instead). For
-// OpLoc1..5 and OpNpc1..5, callers pass -1.
+// The com parameter carries:
+//   - OpLocT/OpNpcT/OpObjT/OpPlayerT: spellCom (UI component ID of the spell).
+//   - OpPlayerU: useObj (the obj/item ID used on the target player; NAI-62
+//     producer fix per TS OpPlayerUHandler.ts:77).
+//   - OpLoc1..5 / OpNpc1..5 / OpObj1..5 / OpLocU / OpNpcU / OpObjU: -1.
+// Storage canonicalises com=0 → -1 (NAI-62, matching TS truthy
+// PathingEntity.ts:520) so the lookup-side != -1 override check in
+// resolveTriggerTypeId behaves identically to TS !== -1.
 //
 // faceEntity dispatch mirrors TS PathingEntity.setInteraction
 // (PathingEntity.ts:530-541) and the in-codebase Npc.SetInteraction
@@ -56,7 +61,14 @@ func sendUnsetMapFlag(p *Player) {
 func (p *Player) SetInteraction(kind InteractionKind, target entity, op, com int) {
 	p.target = target
 	p.targetOp = op
-	p.targetSubject.com = com
+	// TS PathingEntity.ts:520 truthy: com=0 → -1. Lookup-side checks
+	// use != -1, so canonicalising at storage means a single sentinel
+	// reaches resolveTriggerTypeId.
+	if com == 0 {
+		p.targetSubject.com = -1
+	} else {
+		p.targetSubject.com = com
+	}
 	p.interactionKind = kind
 	p.apRange = 10
 	p.apRangeCalled = false

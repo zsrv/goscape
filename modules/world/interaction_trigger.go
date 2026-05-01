@@ -443,6 +443,23 @@ func apObjTriggerForOp(op int) (script.ServerTriggerType, bool) {
 	}
 }
 
+// resolveTriggerTypeId mirrors the typeId override in TS Player.getOpTrigger
+// (Player.ts:993-995) and Player.getApTrigger (Player.ts:1027-1029): when
+// targetSubject.com is set (≠ -1), it overrides the entity's typeId for
+// trigger lookup. categoryId is NEVER overridden — the override flips only
+// the type slot. Used by every player-side fire helper to thread spellCom
+// (T-handlers) and useObj (OpPlayerU) into script-key resolution.
+//
+// Storage convention: SetInteraction canonicalises com=0 → -1 (matching
+// TS PathingEntity.ts:520 truthy), so the != -1 check here behaves
+// identically to TS !== -1 even at the com=0 boundary.
+func resolveTriggerTypeId(p *Player, defaultTypeId int) int {
+	if p.targetSubject.com != -1 {
+		return p.targetSubject.com
+	}
+	return defaultTypeId
+}
+
 // fireOpTriggerObj fires the [opobj<op>,<objType>] trigger for the player's
 // anchored Obj target when the player has reached operable distance.
 // Mirrors fireOpTriggerLoc with three substitutions:

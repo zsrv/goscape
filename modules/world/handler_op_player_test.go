@@ -301,8 +301,10 @@ func seedOpPlayerUInv(t *testing.T, s *Server, p *Player, invType, useCom, useOb
 }
 
 // TestHandleOpPlayerU_HappyPath — valid OPPLAYERU request sets target,
-// targetOp = targetOpPlayerU, targetSubject.com = -1 (useCom discarded),
-// lastUseItem = useObj, lastUseSlot = useSlot, kind = Engine.
+// targetOp = targetOpPlayerU, targetSubject.com = useObj (NAI-62: useObj
+// threaded through SetInteraction for trigger-lookup override per TS
+// OpPlayerUHandler.ts:77 + Player.ts:993-995), lastUseItem = useObj,
+// lastUseSlot = useSlot, kind = Engine.
 func TestHandleOpPlayerU_HappyPath(t *testing.T) {
 	s, clicker, other, _ := makeOpPlayerFixture(t)
 	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
@@ -332,8 +334,8 @@ func TestHandleOpPlayerU_HappyPath(t *testing.T) {
 	if clicker.targetOp != targetOpPlayerU {
 		t.Errorf("targetOp: got %d, want targetOpPlayerU (%d)", clicker.targetOp, targetOpPlayerU)
 	}
-	if clicker.targetSubject.com != -1 {
-		t.Errorf("targetSubject.com: got %d, want -1", clicker.targetSubject.com)
+	if clicker.targetSubject.com != useObj {
+		t.Errorf("targetSubject.com: got %d, want %d (useObj — NAI-62 producer fix per TS OpPlayerUHandler.ts:77)", clicker.targetSubject.com, useObj)
 	}
 	if clicker.lastUseItem != useObj {
 		t.Errorf("lastUseItem: got %d, want %d (useObj)", clicker.lastUseItem, useObj)
@@ -343,6 +345,43 @@ func TestHandleOpPlayerU_HappyPath(t *testing.T) {
 	}
 	if clicker.interactionKind != InteractionEngine {
 		t.Errorf("interactionKind: got %v, want InteractionEngine", clicker.interactionKind)
+	}
+}
+
+// TestHandleOpPlayerU_UseObjZeroCanonicalisation pins the TS truthy quirk
+// (PathingEntity.ts:520) end-to-end: when useObj=0 from the wire, the
+// producer threads it through SetInteraction, which canonicalises 0 → -1.
+// NAI-62 — verifies §3.1 + §3.2 compose correctly.
+func TestHandleOpPlayerU_UseObjZeroCanonicalisation(t *testing.T) {
+	s, clicker, other, _ := makeOpPlayerFixture(t)
+	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+
+	const (
+		invType = 93
+		useCom  = 149
+		useObj  = 0 // <-- TS truthy boundary
+		useSlot = 3
+	)
+
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		useCom: {RootLayer: useCom, Usable: true},
+	})
+	clicker.tabs[0] = useCom
+
+	seedOpPlayerUInv(t, s, clicker, invType, useCom, useObj, useSlot)
+
+	if err := handleOpPlayerU(clicker, opPlayerUPayload(other.slot, useObj, useSlot, useCom)); err != nil {
+		t.Fatalf("handleOpPlayerU: %v", err)
+	}
+
+	if clicker.target != other {
+		t.Errorf("target: got %v, want other (%p)", clicker.target, other)
+	}
+	if clicker.targetSubject.com != -1 {
+		t.Errorf("targetSubject.com: got %d, want -1 (useObj=0 canonicalised per TS PathingEntity.ts:520)", clicker.targetSubject.com)
+	}
+	if clicker.lastUseItem != 0 {
+		t.Errorf("lastUseItem: got %d, want 0 (useObj is preserved on lastUseItem; only com is canonicalised)", clicker.lastUseItem)
 	}
 }
 

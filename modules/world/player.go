@@ -105,9 +105,15 @@ type Player struct {
 	// click time. Components:
 	//   typ, x, z, level — loc identity for tryFireXxxTriggerLoc's
 	//     lifecycle gate (set by OpLoc handlers after SetInteraction).
-	//   com — spell-component ID for OpLocT; -1 for OpLoc1..5 and OpLocU.
-	//     Scripts read via ActivePlayer.TargetSubjectCom() (S6m).
-	// S6m: com field resurrected from S6j shrink to carry spellCom.
+	//   com — payload ID:
+	//     - OpLocT/OpNpcT/OpObjT/OpPlayerT: spellCom (UI component ID).
+	//     - OpPlayerU: useObj (item ID; NAI-62 producer fix).
+	//     - OpLoc1..5 / OpNpc1..5 / OpObj1..5 / OpLocU / OpNpcU / OpObjU: -1.
+	//     Canonicalised by SetInteraction: com=0 → -1 (NAI-62, matching TS
+	//     PathingEntity.ts:520 truthy). Consumed at trigger lookup via
+	//     resolveTriggerTypeId (NAI-62, mirrors TS Player.getOpTrigger:993-995
+	//     / getApTrigger:1027-1029) and by scripts via
+	//     ActivePlayer.TargetSubjectCom().
 	targetSubject    struct{ typ, x, z, level, com int }
 	interactionKind  InteractionKind
 	apRange          int

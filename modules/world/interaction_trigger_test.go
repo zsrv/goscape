@@ -1047,3 +1047,27 @@ func TestObjStillValid(t *testing.T) {
 		t.Error("removed obj: objStillValid = true, want false")
 	}
 }
+
+// TestResolveTriggerTypeId pins the typeId override semantics ported from
+// TS Player.getOpTrigger:993-995 / getApTrigger:1027-1029. NAI-62.
+func TestResolveTriggerTypeId(t *testing.T) {
+	p := &Player{}
+
+	// com == -1: returns the default typeId.
+	p.targetSubject.com = -1
+	if got := resolveTriggerTypeId(p, 42); got != 42 {
+		t.Errorf("com=-1: got %d, want 42 (default)", got)
+	}
+
+	// com != -1: returns com (override wins).
+	p.targetSubject.com = 7777
+	if got := resolveTriggerTypeId(p, 42); got != 7777 {
+		t.Errorf("com=7777: got %d, want 7777 (override)", got)
+	}
+
+	// Boundary: com == -1 with default == -1 still returns -1.
+	p.targetSubject.com = -1
+	if got := resolveTriggerTypeId(p, -1); got != -1 {
+		t.Errorf("com=-1 default=-1: got %d, want -1", got)
+	}
+}
