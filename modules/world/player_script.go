@@ -586,12 +586,14 @@ func (p *Player) SetWalkTrigger(scriptID int) { p.walktrigger = scriptID }
 // CloseModal clears every modal slot and flags the client to emit
 // IF_CLOSE on the next encodeOut pass. When clearWeakQueue is true
 // (TS default), drops every QueueWeak entry from p.queue before
-// processing.
+// processing. When the player is not delayed, clears any active
+// script's Protect flag (NAI-52 convergence). Early-returns if no
+// modal is currently open.
 //
-// Body is incrementally ported across NAI-53 tasks; this commit
-// adds only the clearWeakQueue invocation. T3 ports protect-clear,
-// T4 ports NONE early-return + slot-reset gating, T5 ports
-// activeScript-null + per-slot IF_CLOSE dispatch.
+// Body is incrementally ported across NAI-53 tasks; this commit (T4)
+// adds the modalState==NONE early-return and gates slot reset on
+// non-NONE state. T5 ports activeScript-null + per-slot IF_CLOSE
+// dispatch.
 func (p *Player) CloseModal(clearWeakQueue bool) {
 	if clearWeakQueue {
 		p.clearWeakQueue()
@@ -599,10 +601,16 @@ func (p *Player) CloseModal(clearWeakQueue bool) {
 	if !p.delayed && p.activeScript != nil {
 		p.activeScript.Protect = false
 	}
+
+	if p.modalState == modalStateNone {
+		return
+	}
+
+	p.modalState = modalStateNone
+
 	p.modalMain = -1
 	p.modalChat = -1
 	p.modalSide = -1
-	p.modalState = modalStateNone
 	p.refreshModalClose = true
 }
 

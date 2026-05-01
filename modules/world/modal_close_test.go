@@ -155,3 +155,81 @@ func TestCloseModalNilActiveScriptNoPanic(t *testing.T) {
 		t.Errorf("activeScript: got non-nil, want nil")
 	}
 }
+
+
+// TestCloseModalNoneEarlyReturnPreservesRefreshModalClose pins
+// modalState == NONE early-return. When no modal is open, CloseModal
+// must NOT touch refreshModalClose (avoids redundant wire IF_CLOSE).
+// Mirrors TS Player.closeModal `if (modalState === NONE) return`
+// (Player.ts:749-751).
+func TestCloseModalNoneEarlyReturnPreservesRefreshModalClose(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.modalState = modalStateNone
+	p.modalMain = -1
+	p.modalChat = -1
+	p.modalSide = -1
+	p.refreshModalClose = false
+
+	p.CloseModal(true)
+
+	if p.refreshModalClose {
+		t.Errorf("refreshModalClose: got true, want false (NONE state must early-return)")
+	}
+}
+
+// TestCloseModalNonNoneResetsAllSlots pins that with any modal open,
+// all three slots are reset to -1, modalState becomes NONE, and
+// refreshModalClose is set true.
+func TestCloseModalNonNoneResetsAllSlots(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.modalState = modalStateMain
+	p.modalMain = 42
+	p.modalChat = 88
+	p.modalSide = 99
+	p.refreshModalClose = false
+
+	p.CloseModal(true)
+
+	if p.modalMain != -1 {
+		t.Errorf("modalMain: got %d, want -1", p.modalMain)
+	}
+	if p.modalChat != -1 {
+		t.Errorf("modalChat: got %d, want -1", p.modalChat)
+	}
+	if p.modalSide != -1 {
+		t.Errorf("modalSide: got %d, want -1", p.modalSide)
+	}
+	if p.modalState != modalStateNone {
+		t.Errorf("modalState: got %#x, want %#x (NONE)", p.modalState, modalStateNone)
+	}
+	if !p.refreshModalClose {
+		t.Errorf("refreshModalClose: got false, want true (modal was open)")
+	}
+}
+
+// TestCloseModalNoneEarlyReturnStillRunsClearWeakQueueAndProtect pins
+// the early-return is positioned AFTER weak-queue clearing and the
+// !delayed protect-clear (TS Player.ts:742-748 — both run before the
+// modalState check).
+func TestCloseModalNoneEarlyReturnStillRunsClearWeakQueueAndProtect(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	sf := &script.ScriptFile{Name: "stub"}
+	p.queue = []playerQueueRequest{
+		{Script: sf, Type: script.QueueWeak},
+	}
+	p.delayed = false
+	p.activeScript = &script.ScriptState{
+		Script:  &script.ScriptFile{Name: "running"},
+		Protect: true,
+	}
+	p.modalState = modalStateNone
+
+	p.CloseModal(true)
+
+	if len(p.queue) != 0 {
+		t.Errorf("queue len: got %d, want 0 (weak should be cleared even on NONE early-return)", len(p.queue))
+	}
+	if p.activeScript == nil || p.activeScript.Protect {
+		t.Errorf("activeScript.Protect should be cleared even on NONE early-return")
+	}
+}

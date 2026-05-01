@@ -32,6 +32,7 @@ func TestProcessPlayerQueueConsumesRequestModalClose(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.client.server = s
 	p.modalMain = 10
+	p.modalState = modalStateMain
 	p.requestModalClose = true
 
 	s.processPlayerQueue(p)
@@ -53,6 +54,7 @@ func TestProcessPlayerQueueStrongQueueClosesModal(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.client.server = s
 	p.modalMain = 99
+	p.modalState = modalStateMain
 
 	p.queue = append(p.queue, playerQueueRequest{
 		Type:  script.QueueStrong,
