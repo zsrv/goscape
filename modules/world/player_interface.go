@@ -3,6 +3,7 @@ package world
 import (
 	"github.com/zsrv/goscape/pkg/io/packet"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 // This file wires Player to the 12 IF_SET* fire-and-forget wire emitters.
@@ -119,4 +120,42 @@ func (p *Player) IfSetTabActive(tab int) {
 	buf := packet.NewPacket(nil)
 	buf.P1(uint8(tab))
 	p.writeOut(gameserver.OpIfSetTabActive, buf.Bytes())
+}
+
+// IsComponentVisible reports whether the given component's rootLayer
+// is currently in any of the player's visible-modal slots. Mirrors TS
+// Player.isComponentVisible (Player.ts:2047-2049).
+//
+// Goscape divergence from TS: TS gates each modal slot via raw
+// equality against -1-defaulted fields; goscape uses the modalState
+// bitmap (modalStateMain/Chat/Side) because modalMain/Chat/Side
+// fields are not initialized to -1 (zero-valued by Go default).
+// Functionally equivalent: a slot is "active" iff the corresponding
+// bit is set, and only then is its component-id read.
+//
+// modalTutorial IS initialized to -1 (see newPlayer); the != -1 guard
+// is direct because the field is write-empty until the IF_OPENTUT-
+// equivalent opcode lands (DEVIATION NAI-59-D-MODALTUTORIAL-NO-PRODUCER).
+func (p *Player) IsComponentVisible(com *objtype.ComponentType) bool {
+	if com == nil {
+		return false
+	}
+	if p.modalState&modalStateMain != 0 && com.RootLayer == p.modalMain {
+		return true
+	}
+	if p.modalState&modalStateChat != 0 && com.RootLayer == p.modalChat {
+		return true
+	}
+	if p.modalState&modalStateSide != 0 && com.RootLayer == p.modalSide {
+		return true
+	}
+	for _, t := range p.tabs {
+		if t == com.RootLayer {
+			return true
+		}
+	}
+	if p.modalTutorial != -1 && com.RootLayer == p.modalTutorial {
+		return true
+	}
+	return false
 }
