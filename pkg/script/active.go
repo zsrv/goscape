@@ -388,6 +388,19 @@ type ActivePlayer interface {
 	// unported, see PAnimProtect handler comment and deviation S7b-D1).
 	SetAnimProtect(v int)
 
+	// WalkTrigger returns the active player's queued walktrigger script
+	// id, or -1 if none. Read by GETWALKTRIGGER (opcode 2023) and by
+	// (*Player).processWalktrigger before firing. Mirrors TS
+	// Player.walktrigger getter at Player.ts:1057-1070.
+	WalkTrigger() int
+
+	// SetWalkTrigger writes the queued walktrigger script id. -1 clears.
+	// Written by P_WALKTRIGGER (opcode 2128); also written by
+	// (*Player).processWalktrigger to -1 immediately before script
+	// dispatch (TS clear-before-check semantics). Mirrors TS
+	// Player.walktrigger setter at PlayerOps.ts:1035-1037.
+	SetWalkTrigger(scriptID int)
+
 	// S7c: appearance refresh.
 
 	// SetAppearanceInv updates the active player's appearanceInv field AND

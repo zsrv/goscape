@@ -539,6 +539,14 @@ func (p *Player) SetWalkAnimR(seqID int) { p.walkanim_r = seqID }
 // SetRunAnim sets the player's run animation.
 func (p *Player) SetRunAnim(seqID int) { p.runanim = seqID }
 
+// WalkTrigger implements script.ActivePlayer.WalkTrigger. Returns the
+// queued walktrigger script id, or -1 if none. NAI-51.
+func (p *Player) WalkTrigger() int { return p.walktrigger }
+
+// SetWalkTrigger implements script.ActivePlayer.SetWalkTrigger. Stores
+// scriptID in p.walktrigger. -1 clears. NAI-51.
+func (p *Player) SetWalkTrigger(scriptID int) { p.walktrigger = scriptID }
+
 // S5f: interface / modal control.
 //
 // Modal mutex rules mirror LostCityRS/Engine-TS Player.ts:1928-2022:

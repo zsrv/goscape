@@ -253,6 +253,15 @@ type mockPlayer struct {
 	// they can assert "unchanged" vs. "set to 0".
 	animProtectValue int
 
+	// NAI-51: SetWalkTrigger captures. lastWalkTriggerSet is the last
+	// scriptID passed to SetWalkTrigger; walkTriggerSetCalls counts
+	// invocations (so error-path tests can assert the setter was NOT
+	// reached). walkTriggerValue is pre-seeded by tests that exercise
+	// GETWALKTRIGGER's read path.
+	walkTriggerValue    int
+	lastWalkTriggerSet  int
+	walkTriggerSetCalls int
+
 	// S7c: BUILDAPPEARANCE captures. lastAppearanceInv is the last id passed
 	// to SetAppearanceInv; appearanceInvCalls counts invocations (0 verifies
 	// the setter was NOT reached for error paths); appearanceMaskSet tracks
@@ -509,6 +518,13 @@ func (m *mockPlayer) CanAccess() bool { return m.canAccessValue }
 
 // S7b: SetAnimProtect stores the anim-protect flag for P_ANIMPROTECT tests.
 func (m *mockPlayer) SetAnimProtect(v int) { m.animProtectValue = v }
+
+func (m *mockPlayer) WalkTrigger() int { return m.walkTriggerValue }
+
+func (m *mockPlayer) SetWalkTrigger(scriptID int) {
+	m.lastWalkTriggerSet = scriptID
+	m.walkTriggerSetCalls++
+}
 
 // S7c: SetAppearanceInv stores the id + mask-set intent for BUILDAPPEARANCE
 // tests. The bool captures the TS two-side-effects guarantee without porting
