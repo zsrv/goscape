@@ -85,7 +85,6 @@ type Server struct {
 	npcTypes      *objtype.NPCTypeConfigs
 	huntTypes     *objtype.HuntTypeConfigs
 	idkTypes      *objtype.IdkTypeConfigs
-	seqFrames     *objtype.SeqFrameConfigs
 	seqTypes      *objtype.SeqTypeConfigs
 	npcs          [8192]*Npc
 	npcLoop       []*Npc
@@ -244,7 +243,6 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 	if err != nil {
 		return nil, fmt.Errorf("load seq frames: %w", err)
 	}
-	s.seqFrames = seqFrames
 
 	seqTypes, err := objtype.LoadSeqTypes(cfg.CachePath, seqFrames)
 	if err != nil {
