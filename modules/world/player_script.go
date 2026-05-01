@@ -78,6 +78,21 @@ func (p *Player) EnqueueScriptFile(sf *script.ScriptFile, delay int, intArgs []i
 	})
 }
 
+// clearWeakQueue removes every QueueWeak entry from p.queue, preserving
+// relative order of remaining entries. Mirrors TS
+// Player.weakQueue.clear() (Player.ts:743). Goscape unifies all queue
+// types into p.queue with a Type discriminator, so "clear weak queue"
+// becomes a filter on the Type field.
+func (p *Player) clearWeakQueue() {
+	out := p.queue[:0]
+	for _, req := range p.queue {
+		if req.Type != script.QueueWeak {
+			out = append(out, req)
+		}
+	}
+	p.queue = out
+}
+
 // EnqueueScriptArgs implements script.ActivePlayer.EnqueueScriptArgs by
 // resolving scriptID → *ScriptFile via scriptProvider.GetByID and
 // delegating to EnqueueScriptFile. Returns a non-nil error when the

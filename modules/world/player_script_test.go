@@ -550,6 +550,85 @@ func TestPlayJingleEmptyNameReturnsSilently(t *testing.T) {
 	}
 }
 
+// TestClearWeakQueueRemovesOnlyWeakEntries pins (*Player).clearWeakQueue:
+// drops every QueueWeak entry from p.queue, preserves relative order
+// of remaining entries. Mirrors TS Player.weakQueue.clear() (Player.ts:743).
+func TestClearWeakQueueRemovesOnlyWeakEntries(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	sf := &script.ScriptFile{Name: "stub"}
+	p.queue = []playerQueueRequest{
+		{Script: sf, Type: script.QueueStrong},
+		{Script: sf, Type: script.QueueWeak},
+		{Script: sf, Type: script.QueueNormal},
+		{Script: sf, Type: script.QueueWeak},
+		{Script: sf, Type: script.QueueLong},
+	}
+
+	p.clearWeakQueue()
+
+	if got, want := len(p.queue), 3; got != want {
+		t.Fatalf("queue len after clearWeakQueue: got %d, want %d", got, want)
+	}
+	wantTypes := []script.PlayerQueueType{
+		script.QueueStrong, script.QueueNormal, script.QueueLong,
+	}
+	for i, want := range wantTypes {
+		if got := p.queue[i].Type; got != want {
+			t.Errorf("queue[%d].Type: got %v, want %v (order must be preserved)", i, got, want)
+		}
+	}
+}
+
+// TestClearWeakQueueEmptyQueueNoOp pins clearWeakQueue is safe on empty queue.
+func TestClearWeakQueueEmptyQueueNoOp(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.queue = nil
+
+	p.clearWeakQueue()
+
+	if len(p.queue) != 0 {
+		t.Errorf("queue len: got %d, want 0", len(p.queue))
+	}
+}
+
+// TestClearWeakQueueAllWeakEntries pins clearWeakQueue empties a queue
+// of all-weak entries.
+func TestClearWeakQueueAllWeakEntries(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	sf := &script.ScriptFile{Name: "stub"}
+	p.queue = []playerQueueRequest{
+		{Script: sf, Type: script.QueueWeak},
+		{Script: sf, Type: script.QueueWeak},
+	}
+
+	p.clearWeakQueue()
+
+	if len(p.queue) != 0 {
+		t.Errorf("queue len: got %d, want 0 (all weak entries should be removed)", len(p.queue))
+	}
+}
+
+// TestClearWeakQueueIdempotent pins repeated clearWeakQueue is a no-op
+// after the first call.
+func TestClearWeakQueueIdempotent(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	sf := &script.ScriptFile{Name: "stub"}
+	p.queue = []playerQueueRequest{
+		{Script: sf, Type: script.QueueStrong},
+		{Script: sf, Type: script.QueueWeak},
+	}
+
+	p.clearWeakQueue()
+	p.clearWeakQueue()
+
+	if got, want := len(p.queue), 1; got != want {
+		t.Errorf("queue len after 2× clearWeakQueue: got %d, want %d", got, want)
+	}
+	if p.queue[0].Type != script.QueueStrong {
+		t.Errorf("queue[0].Type: got %v, want QueueStrong", p.queue[0].Type)
+	}
+}
+
 func TestPlayerTeleportCrossZoneRefreshSubscription(t *testing.T) {
 	s := newTestServer(t)
 	c, _ := newTestClient(t)
