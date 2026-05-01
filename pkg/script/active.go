@@ -39,6 +39,17 @@ type ActivePlayer interface {
 	// Finished/Aborted runs and on logout/cleanup.
 	ClearActiveScript()
 
+	// OnScriptFinishedOrAborted is the post-Execute tail for the
+	// Finished or Aborted execution states. If state matches the
+	// player's currently stored activeScript, nulls activeScript;
+	// additionally calls CloseModal(false) when no MAIN modal is
+	// open. Mirrors TS Player.executeScript tail (Player.ts:2143-2148).
+	// Player-only modal clause; the symmetric ActiveNpc method has no
+	// modal handling.
+	//
+	// NAI-54 closure of NAI-53-F1.
+	OnScriptFinishedOrAborted(state *ScriptState)
+
 	// Playtime returns the number of ticks the player has been online
 	// this session, used by the TIMESPENT / GETTIMESPENT opcodes.
 	Playtime() int
@@ -528,6 +539,14 @@ type ActiveNpc interface {
 	// ClearActiveScript discards any stored ScriptState. Called after
 	// Finished/Aborted runs. Mirrors ActivePlayer.ClearActiveScript.
 	ClearActiveScript()
+
+	// OnScriptFinishedOrAborted is the post-Execute tail for the
+	// Finished or Aborted execution states. Nulls activeScript only
+	// if state matches the npc's currently stored value. Mirrors TS
+	// Npc.executeScript tail (Npc.ts:226-228). NPCs have no modals.
+	//
+	// NAI-54.
+	OnScriptFinishedOrAborted(state *ScriptState)
 
 	// SetDelayed marks the NPC as suspended for `ticks` more ticks
 	// starting next tick. Implementations compute delayedUntil =

@@ -302,7 +302,9 @@ func (s *Server) resumeOrFinishNpc(state *script.ScriptState, npc script.ActiveN
 	}
 	switch state.Execution {
 	case script.Finished, script.Aborted:
-		npc.ClearActiveScript()
+		// NAI-54: TS Npc.ts:226-228 — only nulls activeScript when
+		// state matches.
+		npc.OnScriptFinishedOrAborted(state)
 	case script.NpcSuspended:
 		npc.StoreActiveScript(state)
 	case script.WorldSuspended:

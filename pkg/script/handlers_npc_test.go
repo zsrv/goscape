@@ -274,8 +274,9 @@ func (m *mockNpc) Damage(amount, dmgType int) {
 	m.damageCalls = append(m.damageCalls, struct{ amount, dmgType int }{amount, dmgType})
 }
 
-func (m *mockNpc) StoreActiveScript(_ *ScriptState) {}
-func (m *mockNpc) ClearActiveScript()               {}
+func (m *mockNpc) StoreActiveScript(_ *ScriptState)         {}
+func (m *mockNpc) ClearActiveScript()                       {}
+func (m *mockNpc) OnScriptFinishedOrAborted(_ *ScriptState) {}
 func (m *mockNpc) SetDelayed(d int) {
 	m.setDelayedCalls = append(m.setDelayedCalls, d)
 }

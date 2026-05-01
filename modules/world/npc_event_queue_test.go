@@ -490,11 +490,14 @@ func TestProcessNpcEventQueueHappyPathFire(t *testing.T) {
 	s := newServerForScriptTest(t)
 	n := newNpcForLifecycleTest(t)
 	n.server = s
-	// Pre-seed activeScript so the post-call nil check is a positive
-	// witness that ClearActiveScript dispatched (matches the pattern
-	// in TestResumeOrFinishNpcErrorPathClearsScript at
-	// modules/world/npc_script_test.go:306).
-	n.activeScript = &script.ScriptState{}
+	// Pre-seed activeScript with an UNRELATED state. Under NAI-54's
+	// TS-faithful Finished/Aborted tail (Npc.ts:226 `if (script ===
+	// this.activeScript)`), the executing event-queue script is a
+	// different ScriptState instance, so the pre-seeded activeScript
+	// must be PRESERVED, not nilled. Observability of the fire path
+	// remains via the queue-drained assertion below.
+	stored := &script.ScriptState{}
+	n.activeScript = stored
 
 	sf := &script.ScriptFile{
 		Name:    "ai_despawn_stub",
@@ -511,8 +514,9 @@ func TestProcessNpcEventQueueHappyPathFire(t *testing.T) {
 	if len(s.npcEventQueue) != 0 {
 		t.Errorf("npcEventQueue: got len %d, want 0 (queue drained after fire)", len(s.npcEventQueue))
 	}
-	if n.activeScript != nil {
-		t.Error("activeScript: got non-nil, want nil (Finished execution should have cleared the pre-seeded state via ClearActiveScript)")
+	if n.activeScript != stored {
+		t.Errorf("activeScript: got %p, want preserved %p (NAI-54 guard: fresh event-queue script finishing must not null unrelated stored state)",
+			n.activeScript, stored)
 	}
 }
 

@@ -111,7 +111,10 @@ func (s *Server) resumeOrFinish(state *script.ScriptState, self script.ActivePla
 	}
 	switch state.Execution {
 	case script.Finished, script.Aborted:
-		self.ClearActiveScript()
+		// NAI-54: TS Player.ts:2143-2148 — only nulls activeScript when
+		// state matches, and additionally fires CloseModal(false) on
+		// no-MAIN-modal. Both behaviors live in OnScriptFinishedOrAborted.
+		self.OnScriptFinishedOrAborted(state)
 	case script.Suspended, script.PauseButton, script.CountDialog:
 		self.StoreActiveScript(state)
 	case script.WorldSuspended:

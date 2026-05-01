@@ -1576,3 +1576,48 @@ func TestSuspendedThenWorldSuspendedNoDoubleFire(t *testing.T) {
 		t.Errorf("after processActiveScripts: p.activeScript got %p, want %p (slot must remain)", p.activeScript, state)
 	}
 }
+
+// TestResumeOrFinish_PreservesUnrelatedSuspendedScript pins the
+// NAI-54 Suspended-clobber bug fix end-to-end via resumeOrFinish.
+// A fresh script Y that Finished must NOT null an unrelated suspended
+// activeScript X already stored on the player. Mirrors TS
+// Player.ts:2143 `if (script === this.activeScript)` guard.
+func TestResumeOrFinish_PreservesUnrelatedSuspendedScript(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	// Pre-seed: an unrelated PauseButton-suspended X stored on the player.
+	stored := &script.ScriptState{
+		Script:    &script.ScriptFile{Name: "stored-paused"},
+		Execution: script.PauseButton,
+	}
+	p.activeScript = stored
+
+	// Y: a fresh script that returns immediately (Finished after Execute).
+	sf := &script.ScriptFile{
+		Name: "[fresh,test]",
+		Opcodes: []script.Opcode{
+			script.OpReturn,
+		},
+		IntOperands:      []int32{0},
+		StringOperands:   []string{""},
+		InstructionCount: 1,
+	}
+	state := script.Init(sf, p, false, nil, nil)
+	state.Provider = s.scriptProvider
+	state.World = s.worldVars
+	state.Configs = s.configsView
+	state.Inv = s.invLookup
+	state.Npcs = s.npcLookup
+	state.LineValidator = s.scriptLineValidator()
+
+	s.resumeOrFinish(state, p)
+
+	if p.activeScript != stored {
+		t.Errorf("activeScript: got %p, want preserved %p (NAI-54 guard: fresh-Y finishing must not null unrelated stored X)",
+			p.activeScript, stored)
+	}
+}

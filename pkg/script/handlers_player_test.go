@@ -42,6 +42,7 @@ func (m *mockActiveNpc) Damage(amount, dmgType int)              {}
 
 func (m *mockActiveNpc) StoreActiveScript(_ *ScriptState)                      {}
 func (m *mockActiveNpc) ClearActiveScript()                                    {}
+func (m *mockActiveNpc) OnScriptFinishedOrAborted(_ *ScriptState)              {}
 func (m *mockActiveNpc) SetDelayed(_ int)                                      {}
 func (m *mockActiveNpc) EnqueueScriptForTrigger(_ ServerTriggerType, _, _ int) {}
 func (m *mockActiveNpc) SetTimer(_ int)                                        {}

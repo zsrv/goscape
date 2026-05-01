@@ -316,9 +316,10 @@ func (m *mockPlayer) EnqueueScriptArgs(id uint32, delay int, intArgs []int, stri
 	m.enqueueCalls = append(m.enqueueCalls, mockEnqueue{ScriptID: id, Delay: delay, IntArgs: intArgs, StringArgs: stringArgs, Type: qtype})
 	return m.enqueueScriptArgsReturnErr
 }
-func (m *mockPlayer) StoreActiveScript(s *ScriptState) { m.stored = s }
-func (m *mockPlayer) ClearActiveScript()               { m.cleared++ }
-func (m *mockPlayer) Playtime() int                    { return m.playtime }
+func (m *mockPlayer) StoreActiveScript(s *ScriptState)         { m.stored = s }
+func (m *mockPlayer) ClearActiveScript()                       { m.cleared++ }
+func (m *mockPlayer) OnScriptFinishedOrAborted(_ *ScriptState) {}
+func (m *mockPlayer) Playtime() int                            { return m.playtime }
 
 func (m *mockPlayer) Varp(id int) int32 {
 	if m.varps == nil {

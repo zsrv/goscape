@@ -963,3 +963,36 @@ func TestResumeOrFinishNpcWorldSuspendedDoesNotClearActiveScript(t *testing.T) {
 		t.Errorf("worldScriptQueue length: got %d, want 1", len(s.worldScriptQueue))
 	}
 }
+
+// TestResumeOrFinishNpc_PreservesUnrelatedSuspendedScript pins the
+// NAI-54 NpcSuspended-clobber bug fix end-to-end via resumeOrFinishNpc.
+// Symmetric to the player-path test. Mirrors TS Npc.ts:226 guard.
+func TestResumeOrFinishNpc_PreservesUnrelatedSuspendedScript(t *testing.T) {
+	s, n := buildNpcForIntegration(t)
+
+	// Pre-seed: an unrelated NpcSuspended X stored on the npc.
+	stored := &script.ScriptState{
+		Script:    &script.ScriptFile{Name: "stored-suspended"},
+		Execution: script.NpcSuspended,
+	}
+	n.activeScript = stored
+
+	// Y: a fresh npc-bound script that returns immediately.
+	sf := &script.ScriptFile{
+		Name: "[fresh-npc,test]",
+		Opcodes: []script.Opcode{
+			script.OpReturn,
+		},
+		IntOperands:      []int32{0},
+		StringOperands:   []string{""},
+		InstructionCount: 1,
+	}
+	state := s.buildNpcScriptState(sf, n, nil, nil, nil)
+
+	s.resumeOrFinishNpc(state, n)
+
+	if n.activeScript != stored {
+		t.Errorf("activeScript: got %p, want preserved %p (NAI-54 guard: fresh-Y finishing must not null unrelated stored X)",
+			n.activeScript, stored)
+	}
+}
