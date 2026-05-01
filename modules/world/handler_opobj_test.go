@@ -508,6 +508,60 @@ func TestHandleOpObjUItemMismatchRejected(t *testing.T) {
 	}
 }
 
+// TestHandleOpObjUMembersOnFreeWorldClearsPendingAction — ordering pin:
+// ClearPendingAction must fire BEFORE the members-only check, so a stale
+// pending action is cleared even when the members reject path fires.
+// Matches TS OpObjUHandler.ts:68 (clearPendingAction before members check).
+func TestHandleOpObjUMembersOnFreeWorldClearsPendingAction(t *testing.T) {
+	s, p, obj, cc := makeOpObjFixture(t)
+	// Seed component so the component gate passes; members-free-world gate fires next.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	p.tabs[0] = 149
+	s.cfg.NodeMembers = false
+	if s.objTypes == nil {
+		s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 2000)}
+	}
+	// Extend Configs slice to hold index 1511.
+	if len(s.objTypes.Configs) <= 1511 {
+		extended := make([]*objtype.ObjType, 1512)
+		copy(extended, s.objTypes.Configs)
+		s.objTypes.Configs = extended
+	}
+	s.objTypes.Configs[1511] = &objtype.ObjType{
+		ConfigType: objtype.ConfigType{ID: 1511, DebugName: "members_item"},
+		Members:    true,
+	}
+	if s.invs == nil {
+		s.invs = make(map[int]*inventory.Inventory)
+	}
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Items[3] = &inventory.Item{Id: 1511, Count: 1}
+	s.invs[93] = inv
+	p.invListenOnCom(93, 149, -1)
+
+	// Pre-seed stale pending action — proves members reject clears it.
+	p.targetOp = 99
+	p.target = obj
+
+	received := drainConn(t, cc)
+	_ = handleOpObjU(p, p2x6ObjPayload(100, 100, 42, 1511, 3, 149))
+	p.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected MessageGame + UnsetMapFlag for members-on-free, got nothing")
+	}
+	// Ordering pin: ClearPendingAction must have run before members reject.
+	if p.targetOp != -1 {
+		t.Errorf("targetOp: got %d, want -1 (cleared by ClearPendingAction before members reject)", p.targetOp)
+	}
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil (cleared by ClearPendingAction before members reject)", p.target)
+	}
+}
+
 // --- Trigger dispatch tests (fireOpTriggerObj / fireApTriggerObj) ---
 
 // makeOpObjTriggerFixture creates a fixture for tryFireOpTrigger Obj-branch

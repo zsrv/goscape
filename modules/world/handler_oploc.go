@@ -199,9 +199,9 @@ func handleOpLocT(p *Player, payload []byte) error {
 //  9. listener's inventory unresolved or slot/item mismatch → UnsetMapFlag
 //  10. members-only item on free world → MessageGame + UnsetMapFlag
 //
-// On success: set p.lastUseItem = useObj, p.lastUseSlot = useSlot →
-// ClearPendingAction → SetInteraction(Engine, loc, targetOpLocU, -1) →
-// targetSubject snapshot.
+// On success: ClearPendingAction (after HasAt reject, before members check)
+// → set p.lastUseItem = useObj, p.lastUseSlot = useSlot →
+// SetInteraction(Engine, loc, targetOpLocU, -1) → targetSubject snapshot.
 func handleOpLocU(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
@@ -275,6 +275,8 @@ func handleOpLocU(p *Player, payload []byte) error {
 		return nil
 	}
 
+	p.ClearPendingAction()
+
 	// S6m-D4 closed in S6z: reject members-only items on
 	// free-to-play worlds. Matches TS OpLocUHandler.ts:70-73.
 	if s.objTypes != nil && useObj >= 0 && useObj < len(s.objTypes.Configs) {
@@ -288,7 +290,6 @@ func handleOpLocU(p *Player, payload []byte) error {
 	p.lastUseItem = useObj
 	p.lastUseSlot = useSlot
 
-	p.ClearPendingAction()
 	p.opcalled = true
 	p.SetInteraction(InteractionEngine, loc, targetOpLocU, -1)
 	p.targetSubject.typ = loc.Type()

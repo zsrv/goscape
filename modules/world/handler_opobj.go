@@ -182,6 +182,10 @@ func handleOpObjT(p *Player, payload []byte) error {
 //  8. useCom not in invListeners → UnsetMapFlag
 //  9. listener's inventory unresolved or slot/item mismatch → UnsetMapFlag
 //  10. members-only item on free world → MessageGame + UnsetMapFlag
+//
+// On success: ClearPendingAction (after HasAt reject, before members check)
+// → set lastUseItem/Slot → SetInteraction(Engine, obj, targetOpObjU, -1) →
+// targetSubject snapshot.
 func handleOpObjU(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
@@ -255,6 +259,8 @@ func handleOpObjU(p *Player, payload []byte) error {
 		return nil
 	}
 
+	p.ClearPendingAction()
+
 	if s.objTypes != nil && useObj >= 0 && useObj < len(s.objTypes.Configs) {
 		if useObjType := s.objTypes.Configs[useObj]; useObjType != nil && useObjType.Members && !s.cfg.NodeMembers {
 			p.MessageGame("To use this item please login to a members' server.")
@@ -266,7 +272,6 @@ func handleOpObjU(p *Player, payload []byte) error {
 	p.lastUseItem = useObj
 	p.lastUseSlot = useSlot
 
-	p.ClearPendingAction()
 	p.opcalled = true
 	p.SetInteraction(InteractionEngine, obj, targetOpObjU, -1)
 	p.targetSubject.typ = obj.Type
