@@ -243,7 +243,7 @@ func (p *Player) CanAccess() bool {
 	if p.modalState&(modalStateMain|modalStateChat) != 0 {
 		return false
 	}
-	if p.activeScript != nil && p.activeScript.Protect {
+	if p.protectedScriptActive() {
 		return false
 	}
 	return true
