@@ -632,6 +632,17 @@ func handleRunAnim(s *ScriptState) error {
 	return nil
 }
 
+// handleWalkTrigger (P_WALKTRIGGER, opcode 2128) sets the active player's
+// queued walktrigger script id. Pops one int. Mirrors TS PlayerOps.ts:1035-1037.
+// Consumed by (*Player).processWalktrigger on the next interaction tick.
+func handleWalkTrigger(s *ScriptState) error {
+	if err := requireActivePlayer(s, "WALKTRIGGER"); err != nil {
+		return err
+	}
+	s.Self.SetWalkTrigger(s.PopInt())
+	return nil
+}
+
 // S5h: action-clear.
 
 func handlePStopAction(s *ScriptState) error {

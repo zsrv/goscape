@@ -2986,3 +2986,39 @@ func TestHandleSetIdKitLegs(t *testing.T) {
 		t.Errorf("colorParts[2]: got %d, want 11 (legs colorSlot=2)", mp.colorParts[2])
 	}
 }
+
+// TestHandleWalkTrigger_PopsAndWrites verifies P_WALKTRIGGER (opcode
+// 2128) pops one int and writes it via SetWalkTrigger on the active
+// player. Mirrors TS PlayerOps.ts:1035-1037.
+func TestHandleWalkTrigger_PopsAndWrites(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name:             "[walktrigger,test]",
+		Opcodes:          []Opcode{OpPushConstantInt, OpWalkTrigger, OpReturn},
+		IntOperands:      []int32{42, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if mp.walkTriggerSetCalls != 1 {
+		t.Errorf("SetWalkTrigger calls: got %d, want 1", mp.walkTriggerSetCalls)
+	}
+	if mp.lastWalkTriggerSet != 42 {
+		t.Errorf("SetWalkTrigger arg: got %d, want 42", mp.lastWalkTriggerSet)
+	}
+}
+
+// TestHandleWalkTrigger_NoActivePlayer asserts the handler errors when
+// the active-player pointer is unset, matching the requireActivePlayer
+// contract.
+func TestHandleWalkTrigger_NoActivePlayer(t *testing.T) {
+	state := &ScriptState{IntStack: make([]int, StackCapacity)}
+	state.PushInt(42)
+	err := handleWalkTrigger(state)
+	if err == nil {
+		t.Fatal("handleWalkTrigger: got nil, want no-active-player error")
+	}
+}
