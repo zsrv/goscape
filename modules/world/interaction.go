@@ -230,15 +230,31 @@ func (p *Player) hasWaypoints() bool {
 }
 
 // processWalktrigger is the per-tick walktrigger consumption hook
-// invoked by processInteraction's pre-step and post-step arms.
+// invoked by processInteraction's pre-step and post-step arms. Looks up
+// the queued script id, clears the field BEFORE the script-found check
+// (TS clear-before-check semantics at Player.ts:1064), then dispatches
+// via runScript with protect=true. Mirrors TS Player.processWalktrigger
+// at Player.ts:1057-1070.
 //
-// DEVIATION NAI-44-D-PLAYER-WALKTRIGGER-NOOP: TS Player.ts:1219-1234
-// calls processWalktrigger which dispatches the player's queued
-// walktrigger script. Goscape has no walktrigger consumer yet (sibling
-// to NAI-37-D-WALKTRIGGER-NOREADER on the Npc side at npc.go:92).
-// Empty no-op preserves TS-faithful processInteraction shape so a
-// future consumer can wire here without further reshape.
-func (p *Player) processWalktrigger() {}
+// DEVIATION NAI-51-D-PLAYER-WALKTRIGGER-NO-PROTECT-CHECK: TS L1062 also
+// gates on !this.protect. Player has no boolean protect field; the
+// anim-protect block (player.go:166) is a separate concern. Closure:
+// future protect/anim-protect convergence sub-spec.
+func (p *Player) processWalktrigger() {
+	if p.walktrigger == -1 || p.delayed {
+		return
+	}
+	if p.client == nil || p.client.server == nil {
+		return
+	}
+	s := p.client.server
+	sf := s.scriptProvider.GetByID(uint32(p.walktrigger))
+	p.walktrigger = -1
+	if sf == nil {
+		return
+	}
+	s.runScript(sf, p, nil, true, nil, nil)
+}
 
 // tryInteract is the contact/approach-distance dispatch unifying the
 // OP and AP arms that processInteraction previously inlined.

@@ -8,6 +8,7 @@ import (
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/script"
 	"github.com/zsrv/goscape/pkg/zone"
 )
 
@@ -643,31 +644,101 @@ func TestHasWaypoints(t *testing.T) {
 	}
 }
 
-// TestProcessWalktriggerNoOp — NAI-44 T3 / B7. processWalktrigger is a
-// stub for TS-faithful processInteraction shape (TS Player.ts:1219-1234).
-// Goscape has no walktrigger consumer (NAI-37-D-WALKTRIGGER-NOREADER on
-// the Npc side; NAI-44-D-PLAYER-WALKTRIGGER-NOOP on the Player side).
-// The empty stub must not panic and must not mutate Player state.
-func TestProcessWalktriggerNoOp(t *testing.T) {
+// TestProcessWalktrigger_UnsetNoOp — NAI-51 T1.7. walktrigger=-1 → no
+// script lookup, no field write. Replaces the NAI-44 stub-no-op test.
+func TestProcessWalktrigger_UnsetNoOp(t *testing.T) {
 	s := newTestServer(t)
 	p, wait := makeInteractionPlayer(t, s, 3200, 3200, 0)
 	defer wait()
 
-	beforeX, beforeZ, beforeLevel := p.x, p.z, p.level
-	beforeWaypointIndex := p.waypointIndex
-	beforeTarget := p.target
+	// Default from newPlayer is -1.
+	if p.walktrigger != -1 {
+		t.Fatalf("precondition: walktrigger=%d, want -1", p.walktrigger)
+	}
 
 	p.processWalktrigger()
 
-	if p.x != beforeX || p.z != beforeZ || p.level != beforeLevel {
-		t.Errorf("processWalktrigger: coords mutated: was (%d,%d,%d), got (%d,%d,%d)",
-			beforeX, beforeZ, beforeLevel, p.x, p.z, p.level)
+	if p.walktrigger != -1 {
+		t.Errorf("walktrigger after no-op: got %d, want -1 (unchanged)", p.walktrigger)
 	}
-	if p.waypointIndex != beforeWaypointIndex {
-		t.Errorf("processWalktrigger: waypointIndex mutated: was %d, got %d", beforeWaypointIndex, p.waypointIndex)
+}
+
+// TestProcessWalktrigger_DelayedNoOp — NAI-51 T1.7. delayed=true gates
+// the consumer entirely; field stays unchanged. Mirrors TS gate at
+// Player.ts:1062.
+func TestProcessWalktrigger_DelayedNoOp(t *testing.T) {
+	s := newTestServer(t)
+	p, wait := makeInteractionPlayer(t, s, 3200, 3200, 0)
+	defer wait()
+
+	p.walktrigger = 7
+	p.delayed = true
+
+	p.processWalktrigger()
+
+	if p.walktrigger != 7 {
+		t.Errorf("walktrigger after delayed bail: got %d, want 7 (unchanged)", p.walktrigger)
 	}
-	if p.target != beforeTarget {
-		t.Errorf("processWalktrigger: target mutated: was %v, got %v", beforeTarget, p.target)
+}
+
+// TestProcessWalktrigger_FiresAndClears — NAI-51 T1.7. walktrigger=N + a
+// registered script at slot N → script fires once, field cleared to -1.
+// Verifies firing via mes "wt-fired" landing on the wire.
+func TestProcessWalktrigger_FiresAndClears(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	sf := &script.ScriptFile{
+		Name: "[walktrigger,test]",
+		Opcodes: []script.Opcode{
+			script.OpPushConstantString,
+			script.OpMes,
+			script.OpReturn,
+		},
+		IntOperands:      []int32{0, 0, 0},
+		StringOperands:   []string{"wt-fired", "", ""},
+		InstructionCount: 3,
+	}
+	s.scriptProvider.RegisterAt(42, sf)
+
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	received := drainConn(t, cc)
+
+	p.walktrigger = 42
+
+	p.processWalktrigger()
+	p.client.flushWrite()
+	pkt := <-received
+
+	if p.walktrigger != -1 {
+		t.Errorf("walktrigger after fire: got %d, want -1", p.walktrigger)
+	}
+	// MessageGame wire = opcode(1) + len(1) + PJStrLF("wt-fired") = 1+1+9 = 11 bytes
+	if len(pkt) != 11 {
+		t.Fatalf("packet length: got %d, want 11", len(pkt))
+	}
+	if string(pkt[2:10]) != "wt-fired" || pkt[10] != 0x0a {
+		t.Errorf("payload: got %q, want 'wt-fired\\n'", pkt[2:])
+	}
+}
+
+// TestProcessWalktrigger_MissingScriptStillClears — NAI-51 T1.7. TS
+// Player.ts:1064 clears walktrigger BEFORE the script-found check, so a
+// missing script still resets the field. No script registered at slot 42
+// → walktrigger reset to -1, no script run.
+func TestProcessWalktrigger_MissingScriptStillClears(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider() // empty
+	p, wait := makeInteractionPlayer(t, s, 3200, 3200, 0)
+	defer wait()
+
+	p.walktrigger = 42
+
+	p.processWalktrigger()
+
+	if p.walktrigger != -1 {
+		t.Errorf("walktrigger after missing-script: got %d, want -1 (TS clear-before-check)", p.walktrigger)
 	}
 }
 
