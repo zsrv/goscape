@@ -588,12 +588,18 @@ func (p *Player) SetWalkTrigger(scriptID int) { p.walktrigger = scriptID }
 // (TS default), drops every QueueWeak entry from p.queue before
 // processing. When the player is not delayed, clears any active
 // script's Protect flag (NAI-52 convergence). Early-returns if no
-// modal is currently open.
+// modal is currently open. Otherwise: nulls activeScript on
+// COUNTDIALOG/PAUSEBUTTON suspends (closes NAI-52-F1) and dispatches
+// a per-slot IF_CLOSE trigger script (Main → Chat → Side, TS order).
 //
-// Body is incrementally ported across NAI-53 tasks; this commit (T4)
-// adds the modalState==NONE early-return and gates slot reset on
-// non-NONE state. T5 ports activeScript-null + per-slot IF_CLOSE
-// dispatch.
+// Mirrors TS Player.closeModal (Player.ts:741-794). Body fully
+// landed across NAI-53 T1-T5.
+//
+// DEVIATION NAI-53-D-CLEARCOMLISTENERS-PER-SLOT: TS calls
+// clearComListeners(slotCom) per-slot, filtering invListeners by
+// Component.rootLayer. Goscape's encodeOut clears ALL invListeners
+// globally when refreshModalClose is set; per-slot rootLayer
+// filtering blocks on unported Component config registry.
 func (p *Player) CloseModal(clearWeakQueue bool) {
 	if clearWeakQueue {
 		p.clearWeakQueue()
@@ -608,10 +614,51 @@ func (p *Player) CloseModal(clearWeakQueue bool) {
 
 	p.modalState = modalStateNone
 
-	p.modalMain = -1
-	p.modalChat = -1
-	p.modalSide = -1
+	// Close any input-dialogue suspended scripts. NAI-52-F1.
+	if p.activeScript != nil &&
+		(p.activeScript.Execution == script.CountDialog ||
+			p.activeScript.Execution == script.PauseButton) {
+		p.activeScript = nil
+	}
+
+	// Per-slot IF_CLOSE dispatch (Main → Chat → Side, TS order).
+	if p.client != nil && p.client.server != nil {
+		s := p.client.server
+		if p.modalMain != -1 {
+			p.runIfCloseTrigger(s, p.modalMain)
+			p.modalMain = -1
+		}
+		if p.modalChat != -1 {
+			p.runIfCloseTrigger(s, p.modalChat)
+			p.modalChat = -1
+		}
+		if p.modalSide != -1 {
+			p.runIfCloseTrigger(s, p.modalSide)
+			p.modalSide = -1
+		}
+	} else {
+		// No server (test path with no Server bound) — still reset slots.
+		p.modalMain = -1
+		p.modalChat = -1
+		p.modalSide = -1
+	}
+
 	p.refreshModalClose = true
+}
+
+// runIfCloseTrigger looks up TriggerIfClose for slotCom and runs it
+// if found. Mirrors TS Player.closeModal per-slot
+// `executeScript(ScriptRunner.init(closeTrigger, this), false)`
+// (Player.ts:761-769, 772-780, 783-791).
+//
+// Nil-safe on s.scriptProvider; runScript is itself nil-safe on the
+// returned ScriptFile.
+func (p *Player) runIfCloseTrigger(s *Server, slotCom int) {
+	if s.scriptProvider == nil {
+		return
+	}
+	sf := s.scriptProvider.GetByTriggerSpecific(script.TriggerIfClose, slotCom, -1)
+	s.runScript(sf, p, nil, false, nil, nil)
 }
 
 // OpenMain opens com as the main modal. Per TS, opening main closes any

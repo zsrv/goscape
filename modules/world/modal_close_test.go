@@ -232,3 +232,190 @@ func TestCloseModalNoneEarlyReturnStillRunsClearWeakQueueAndProtect(t *testing.T
 		t.Errorf("activeScript.Protect should be cleared even on NONE early-return")
 	}
 }
+
+// TestCloseModalNullsActiveScriptOnCountDialog pins COUNTDIALOG-suspended
+// activeScript is nulled on CloseModal. Closes NAI-52-F1.
+// Mirrors TS Player.closeModal Player.ts:756-758.
+func TestCloseModalNullsActiveScriptOnCountDialog(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.modalState = modalStateChat
+	p.modalChat = 7
+	p.activeScript = &script.ScriptState{
+		Script:    &script.ScriptFile{Name: "dialog"},
+		Execution: script.CountDialog,
+	}
+
+	p.CloseModal(true)
+
+	if p.activeScript != nil {
+		t.Errorf("activeScript: got non-nil, want nil (COUNTDIALOG must be cleared)")
+	}
+}
+
+// TestCloseModalNullsActiveScriptOnPauseButton pins PAUSEBUTTON-suspended
+// activeScript is nulled on CloseModal. Closes NAI-52-F1.
+func TestCloseModalNullsActiveScriptOnPauseButton(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.modalState = modalStateChat
+	p.modalChat = 7
+	p.activeScript = &script.ScriptState{
+		Script:    &script.ScriptFile{Name: "pause"},
+		Execution: script.PauseButton,
+	}
+
+	p.CloseModal(true)
+
+	if p.activeScript != nil {
+		t.Errorf("activeScript: got non-nil, want nil (PAUSEBUTTON must be cleared)")
+	}
+}
+
+// TestCloseModalPreservesActiveScriptOnSuspended pins Suspended (non-dialog)
+// activeScript is preserved on CloseModal. Mirrors TS exclusion of
+// non-COUNTDIALOG/PAUSEBUTTON execution states from the null branch.
+func TestCloseModalPreservesActiveScriptOnSuspended(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.delayed = true // delayed so the protect-clear block doesn't fire
+	p.modalState = modalStateChat
+	p.modalChat = 7
+	state := &script.ScriptState{
+		Script:    &script.ScriptFile{Name: "suspended"},
+		Execution: script.Suspended,
+		Protect:   true,
+	}
+	p.activeScript = state
+
+	p.CloseModal(true)
+
+	if p.activeScript != state {
+		t.Errorf("activeScript: got %v, want preserved %v (Suspended must NOT be cleared)", p.activeScript, state)
+	}
+}
+
+// TestCloseModalIfCloseDispatchMain pins per-slot IF_CLOSE dispatch
+// for modalMain. Mirrors TS Player.closeModal:761-769.
+func TestCloseModalIfCloseDispatchMain(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	ifCloseScript := &script.ScriptFile{
+		Name:        "[if_close,42]",
+		LookupKey:   script.LookupKeyForType(script.TriggerIfClose, 42),
+		Opcodes:     []script.Opcode{script.OpReturn},
+		IntOperands: []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+	}
+	s.scriptProvider.Register(ifCloseScript)
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.modalState = modalStateMain
+	p.modalMain = 42
+
+	p.CloseModal(true)
+
+	if p.modalMain != -1 {
+		t.Errorf("modalMain: got %d, want -1", p.modalMain)
+	}
+	// Script is registered, so dispatch path was taken; OpReturn finishes
+	// immediately so activeScript is nil.
+	if p.activeScript != nil {
+		t.Errorf("activeScript: got non-nil, want nil (IF_CLOSE script returned)")
+	}
+}
+
+// TestCloseModalIfCloseDispatchChat pins per-slot IF_CLOSE dispatch
+// for modalChat (slot lookup uses modalChat com ID).
+func TestCloseModalIfCloseDispatchChat(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	ifCloseScript := &script.ScriptFile{
+		Name:        "[if_close,88]",
+		LookupKey:   script.LookupKeyForType(script.TriggerIfClose, 88),
+		Opcodes:     []script.Opcode{script.OpReturn},
+		IntOperands: []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+	}
+	s.scriptProvider.Register(ifCloseScript)
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.modalState = modalStateChat
+	p.modalChat = 88
+
+	p.CloseModal(true)
+
+	if p.modalChat != -1 {
+		t.Errorf("modalChat: got %d, want -1", p.modalChat)
+	}
+}
+
+// TestCloseModalIfCloseDispatchSide pins per-slot IF_CLOSE dispatch
+// for modalSide.
+func TestCloseModalIfCloseDispatchSide(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	ifCloseScript := &script.ScriptFile{
+		Name:        "[if_close,99]",
+		LookupKey:   script.LookupKeyForType(script.TriggerIfClose, 99),
+		Opcodes:     []script.Opcode{script.OpReturn},
+		IntOperands: []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+	}
+	s.scriptProvider.Register(ifCloseScript)
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.modalState = modalStateSide
+	p.modalSide = 99
+
+	p.CloseModal(true)
+
+	if p.modalSide != -1 {
+		t.Errorf("modalSide: got %d, want -1", p.modalSide)
+	}
+}
+
+// TestCloseModalIfCloseMissingScriptNoOp pins that an open slot with no
+// registered IF_CLOSE script is a silent no-op (slot still resets, no
+// panic). Mirrors TS where `if (closeTrigger)` guards the executeScript.
+func TestCloseModalIfCloseMissingScriptNoOp(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.modalState = modalStateMain
+	p.modalMain = 42
+
+	// Should not panic.
+	p.CloseModal(true)
+
+	if p.modalMain != -1 {
+		t.Errorf("modalMain: got %d, want -1", p.modalMain)
+	}
+}
+
+// TestCloseModalNilScriptProviderNoOp pins that nil scriptProvider is
+// a silent no-op (slots still reset). Defensive — covers test paths
+// that don't seed scriptProvider.
+func TestCloseModalNilScriptProviderNoOp(t *testing.T) {
+	s := newTestServer(t)
+	// s.scriptProvider intentionally nil.
+	s.scriptProvider = nil
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.modalState = modalStateMain
+	p.modalMain = 42
+
+	// Should not panic.
+	p.CloseModal(true)
+
+	if p.modalMain != -1 {
+		t.Errorf("modalMain: got %d, want -1", p.modalMain)
+	}
+}
