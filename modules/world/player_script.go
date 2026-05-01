@@ -540,17 +540,21 @@ func (p *Player) AddXP(id int, xp int) {
 
 // PlayAnim schedules sequence seqID with the given client-side delay on
 // the player's primary animation slot. seqID=-1 clears. Mirrors TS
-// Player.playAnimation (Player.ts:1841-1851); the animProtect early-return
-// is the TS L1842 gate (NAI-56). The remaining TS gates
-// (anim >= SeqType.count bounds and priority comparison at L1846) depend
-// on the unported SeqType config registry — tracked as NAI-56-D1.
+// Player.playAnimation (Player.ts:1840-1851): bounds-reject on
+// seqID >= SeqType.count, animProtect early-return, and priority-comparison
+// overwrite gate. The seqID==-1 / animID==-1 short-circuits in the priority
+// arm guard the slice dereferences. Closes deviation NAI-56-D1.
 func (p *Player) PlayAnim(seqID, delay int) {
-	if p.animProtect != 0 {
-		return // TS Player.ts:1842 — animProtect gate (NAI-56)
+	if seqID >= p.seqTypes.Count() || p.animProtect != 0 {
+		return // TS Player.ts:1841
 	}
-	p.animID = seqID
-	p.animDelay = delay
-	p.masks |= rsbuf.MaskAnim
+	if seqID == -1 || p.animID == -1 ||
+		p.seqTypes.Configs[seqID].Priority > p.seqTypes.Configs[p.animID].Priority ||
+		p.seqTypes.Configs[p.animID].Priority == 0 {
+		p.animID = seqID
+		p.animDelay = delay
+		p.masks |= rsbuf.MaskAnim
+	}
 }
 
 // PlaySpotAnim schedules a graphic (spotanim) on the player at the given
