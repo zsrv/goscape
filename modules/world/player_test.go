@@ -562,6 +562,22 @@ func TestNewPlayer_LastAppearance_DefaultMinusOne(t *testing.T) {
 	}
 }
 
+// TestNewPlayer_WalkTrigger_DefaultMinusOne pins the NAI-51 default for the
+// new walktrigger field. -1 sentinel = "no script queued"; default 0 would
+// silently fire script id 0 on every walktrigger consumer entry.
+func TestNewPlayer_WalkTrigger_DefaultMinusOne(t *testing.T) {
+	serverConn, clientConn := net.Pipe()
+	defer serverConn.Close()
+	defer clientConn.Close()
+	c := newClient(serverConn, time.Second, discardLogger())
+	defer c.in.Release()
+	c.state = ClientStateGame
+	p := newPlayer(c)
+	if p.walktrigger != -1 {
+		t.Errorf("walktrigger default: got %d, want -1", p.walktrigger)
+	}
+}
+
 func TestPlayerIsValid(t *testing.T) {
 	base := func() *Player {
 		return &Player{

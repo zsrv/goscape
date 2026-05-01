@@ -168,6 +168,13 @@ type Player struct {
 	// Set by the P_ANIMPROTECT script opcode. Reader path unported (S7b-D1).
 	animProtect int
 
+	// walktrigger queues a deferred script id to fire from
+	// processWalktrigger on the next interaction tick (-1 = unset).
+	// Written by P_WALKTRIGGER (opcode 2128); read by GETWALKTRIGGER
+	// (opcode 2023) and (*Player).processWalktrigger. Mirrors TS
+	// Player.walktrigger at Player.ts:1057-1070.
+	walktrigger int
+
 	// === character-design gate (S7e) ===
 	// allowDesign permits IdkSaveDesign inbound packets (character-design
 	// recustomise) when true. Set by the ALLOWDESIGN script opcode. Reader
@@ -367,6 +374,7 @@ func newPlayer(c *client) *Player {
 		appearanceInv:  -1, // test-only sentinel; production binds via SetAppearanceInv from client.go login wiring (NAI-22 Bundle 3).
 		lastAppearance: -1,
 		targetOp:       -1,
+		walktrigger:    -1,
 		apRange:        10,
 		followX:        -1,
 		followZ:        -1,
