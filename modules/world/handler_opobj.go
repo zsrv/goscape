@@ -94,8 +94,8 @@ func handleOpObj5(p *Player, payload []byte) error { return handleOpObj(p, paylo
 //
 // DEVIATION NAI-50-D1: TS OpObjTHandler.ts:20-29 validates spellCom
 // references a component with ComActionTarget.OBJ AND that the component
-// is visible. Skipped — no component registry. Same cluster as S6m-D1,
-// NAI-45-D1, NAI-48-D1. Closure: component-registry sub-spec.
+// is visible. Skipped — handler not yet wired to component registry.
+// Same cluster as S6m-D1, NAI-48-D1. Closure: cluster-cleanup sub-spec.
 func handleOpObjT(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
@@ -157,8 +157,9 @@ func handleOpObjT(p *Player, payload []byte) error {
 // Payload = (x:G2, z:G2, objId:G2, useObj:G2, useSlot:G2, useCom:G2).
 //
 // DEVIATION NAI-50-D2: TS OpObjUHandler.ts:39-48 validates useCom
-// references a usable, visible component. Skipped — no component registry.
-// Same cluster as S6m-D2, NAI-45-D2, NAI-48-D1. Closure: component-registry sub-spec.
+// references a usable, visible component. Skipped — handler not yet
+// wired to component registry. Same cluster as S6m-D2, NAI-48-D1.
+// Closure: cluster-cleanup sub-spec.
 func handleOpObjU(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		return nil

@@ -1,31 +1,50 @@
 package world
 
-import "github.com/zsrv/goscape/pkg/script"
+import (
+	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/script"
+)
 
 // designBodyColorCount holds the number of valid color values per body-part
 // slot. Mirrors the lengths of TS Player.DESIGN_BODY_COLORS
 // (Engine-TS/src/engine/entity/Player.ts:102-108).
 var designBodyColorCount = [5]int{12, 16, 16, 6, 8}
 
+// lookupComponent returns the registered component for id, or nil if
+// the registry is unloaded or the id is out of range. Mirrors TS
+// Component.get (Component.ts:252-254) which reads sparse-array slots
+// returning undefined on miss.
+func (s *Server) lookupComponent(id int) *objtype.ComponentType {
+	if s.componentTypes == nil || id < 0 || id >= len(s.componentTypes.Configs) {
+		return nil
+	}
+	return s.componentTypes.Configs[id]
+}
+
 // handleIfButton handles client opcode 155 (IF_BUTTON).
 // Body: u16 component-id.
 //
-// Sets lastCom, then:
-//   - If comId is in resumeButtons and activeScript is in PauseButton state →
-//     resumes the suspended script (mirrors TS IfButtonHandler.ts:20-23).
-//   - Otherwise → looks up [if_button,<comId>] and runs it with protect=true.
+// Gates per TS IfButtonHandler.ts:14-22:
+//   - Component must be registered AND have buttonType != NO_BUTTON
+//   - Component must be IsComponentVisible to the player
 //
-// DEVIATION NAI-45-D1: buttonType and isComponentVisible checks skipped —
-// no component registry (same cluster as S6m-D2, S6o-D1, NAI-40-D-COMPONENT-
-// REGISTRY-VALIDATION-SKIPPED). Closure: component-registry sub-spec.
-//
-// DEVIATION NAI-45-D2: protect=true always; TS uses root.overlay==false
-// which requires the component registry. Closure: component-registry sub-spec.
+// On pass, sets lastCom and either resumes a PauseButton-suspended script
+// or fires [if_button,<comId>]. The trigger fires with protect = !root.Overlay
+// (root = rootLayer's component).
 func (s *Server) handleIfButton(p *Player, payload []byte) error {
 	if len(payload) < 2 {
 		return nil
 	}
 	comId := int(uint16(payload[0])<<8 | uint16(payload[1]))
+
+	com := s.lookupComponent(comId)
+	if com == nil || com.ButtonType == objtype.ButtonNone {
+		return nil
+	}
+	if !p.IsComponentVisible(com) {
+		return nil
+	}
+
 	p.lastCom = comId
 
 	for _, b := range p.resumeButtons {
@@ -38,8 +57,13 @@ func (s *Server) handleIfButton(p *Player, payload []byte) error {
 		}
 	}
 
+	if s.scriptProvider == nil {
+		return nil
+	}
 	sf := s.scriptProvider.GetByTriggerSpecific(script.TriggerIfButton, comId, -1)
-	s.runScript(sf, p, nil, true, nil, nil)
+	root := s.lookupComponent(com.RootLayer)
+	protect := root == nil || !root.Overlay
+	s.runScript(sf, p, nil, protect, nil, nil)
 	return nil
 }
 

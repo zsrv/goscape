@@ -126,18 +126,43 @@ func TestHandleTutClickSideNoScriptNoOp(t *testing.T) {
 	}
 }
 
-// TestHandleIfButtonSetsLastCom pins that lastCom is always updated
-// regardless of branch taken (TS IfButtonHandler.ts:18).
+// seedComponentTypes installs an inline component-type registry on s.
+// Sparse — id N is placed at index N. The largest id determines slice
+// length.
+func seedComponentTypes(t *testing.T, s *Server, components map[int]*objtype.ComponentType) {
+	t.Helper()
+	maxId := 0
+	for id := range components {
+		if id > maxId {
+			maxId = id
+		}
+	}
+	configs := make([]*objtype.ComponentType, maxId+1)
+	for id, c := range components {
+		configs[id] = c
+	}
+	s.componentTypes = &objtype.ComponentTypeConfigs{
+		ConfigNames: map[string]int{},
+		Configs:     configs,
+	}
+}
+
+// TestHandleIfButtonSetsLastCom pins that lastCom is set after gates pass.
 func TestHandleIfButtonSetsLastCom(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
 	p, _ := newTestPlayer(t)
 	p.client.server = s
+	const comId = 42
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		comId: {RootLayer: comId, ButtonType: objtype.Button},
+	})
+	p.tabs[0] = comId // visible via tab slot
 
-	_ = s.handleIfButton(p, []byte{0, 42}) // com = 42
+	_ = s.handleIfButton(p, []byte{0, comId})
 
-	if p.lastCom != 42 {
-		t.Errorf("lastCom: got %d, want 42", p.lastCom)
+	if p.lastCom != comId {
+		t.Errorf("lastCom: got %d, want %d", p.lastCom, comId)
 	}
 }
 
@@ -158,6 +183,10 @@ func TestHandleIfButtonResumesPauseButton(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.client.server = s
 	p.resumeButtons = [5]int{7, 0, 0, 0, 0}
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		7: {RootLayer: 7, ButtonType: objtype.Button},
+	})
+	p.tabs[0] = 7
 
 	// Build an already-suspended script state.
 	st := script.Init(retScript, p, false, nil, nil)
@@ -186,6 +215,10 @@ func TestHandleIfButtonPauseButtonNotInResumeButtons(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.client.server = s
 	p.resumeButtons = [5]int{99, 0, 0, 0, 0} // 7 is not in the list
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		7: {RootLayer: 7, ButtonType: objtype.Button},
+	})
+	p.tabs[0] = 7
 
 	st := &script.ScriptState{Execution: script.PauseButton}
 	p.StoreActiveScript(st)
@@ -215,6 +248,10 @@ func TestHandleIfButtonFiresIfButtonScript(t *testing.T) {
 	s.npcLookup = serverNpcLookup{s: s}
 	p, _ := newTestPlayer(t)
 	p.client.server = s
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		42: {RootLayer: 42, ButtonType: objtype.Button},
+	})
+	p.tabs[0] = 42
 
 	_ = s.handleIfButton(p, []byte{0, 42})
 
@@ -225,15 +262,143 @@ func TestHandleIfButtonFiresIfButtonScript(t *testing.T) {
 }
 
 // TestHandleIfButtonNoScriptNoOp pins that missing [if_button,<com>]
-// is a silent no-op when comId is not in resumeButtons.
+// is a silent no-op even when gates pass.
 func TestHandleIfButtonNoScriptNoOp(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
 	p, _ := newTestPlayer(t)
 	p.client.server = s
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		7: {RootLayer: 7, ButtonType: objtype.Button},
+	})
+	p.tabs[0] = 7
 
 	if err := s.handleIfButton(p, []byte{0, 7}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// TestHandleIfButton_NilComponentRejects: registry is empty → component
+// is nil → handler rejects before setting lastCom.
+func TestHandleIfButton_NilComponentRejects(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+
+	if err := s.handleIfButton(p, []byte{0, 42}); err != nil {
+		t.Fatalf("handleIfButton: %v", err)
+	}
+	if p.lastCom != -1 {
+		t.Errorf("lastCom: got %d, want -1 (nil component should reject)", p.lastCom)
+	}
+}
+
+// TestHandleIfButton_NoButtonTypeRejects: component has ButtonType=NoButton
+// → handler rejects before setting lastCom.
+func TestHandleIfButton_NoButtonTypeRejects(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		42: {RootLayer: 100, ButtonType: objtype.ButtonNone},
+	})
+	p.tabs[0] = 100
+
+	if err := s.handleIfButton(p, []byte{0, 42}); err != nil {
+		t.Fatalf("handleIfButton: %v", err)
+	}
+	if p.lastCom != -1 {
+		t.Errorf("lastCom: got %d, want -1 (ButtonNone should reject)", p.lastCom)
+	}
+}
+
+// TestHandleIfButton_NotVisibleRejects: component RootLayer not in any
+// modal/tab slot → handler rejects.
+func TestHandleIfButton_NotVisibleRejects(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		42: {RootLayer: 100, ButtonType: objtype.Button},
+	})
+	// All tabs default -1; no modal open. Component not visible.
+
+	if err := s.handleIfButton(p, []byte{0, 42}); err != nil {
+		t.Fatalf("handleIfButton: %v", err)
+	}
+	if p.lastCom != -1 {
+		t.Errorf("lastCom: got %d, want -1 (not visible should reject)", p.lastCom)
+	}
+}
+
+// runIfButtonProtectScript fires handleIfButton against a Server seeded
+// with rootLayer fixture, registers an [if_button,42] script that calls
+// P_DELAY (which requires Protect=true), and reports whether the script
+// suspended (Protect=true ran P_DELAY OK → Suspended) or aborted
+// (Protect=false → requireProtectedActivePlayer rejects → Aborted).
+//
+// Returns true iff p.activeScript is non-nil and Suspended after the
+// handler runs (i.e. handler computed protect=true).
+func runIfButtonProtectScript(t *testing.T, rootOverlay bool, includeRoot bool) bool {
+	t.Helper()
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
+	// Script: PUSH_INT 1, P_DELAY, RETURN. P_DELAY requires Protect=true.
+	sf := &script.ScriptFile{
+		Name:             "[if_button,42]",
+		LookupKey:        script.LookupKeyForType(script.TriggerIfButton, 42),
+		Opcodes:          []script.Opcode{script.OpPushConstantInt, script.OpPDelay, script.OpReturn},
+		IntOperands:      []int32{1, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	s.scriptProvider.Register(sf)
+
+	components := map[int]*objtype.ComponentType{
+		42: {RootLayer: 100, ButtonType: objtype.Button},
+	}
+	if includeRoot {
+		components[100] = &objtype.ComponentType{RootLayer: 100, ButtonType: objtype.ButtonNone, Overlay: rootOverlay}
+	}
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	seedComponentTypes(t, s, components)
+	p.tabs[0] = 100 // make rootLayer visible
+
+	if err := s.handleIfButton(p, []byte{0, 42}); err != nil {
+		t.Fatalf("handleIfButton: %v", err)
+	}
+	return p.activeScript != nil && p.activeScript.Execution == script.Suspended
+}
+
+// TestHandleIfButton_OverlayRootSetsProtectFalse: rootLayer.Overlay=true
+// → protect=false → P_DELAY's requireProtectedActivePlayer aborts the
+// script → no suspended state.
+func TestHandleIfButton_OverlayRootSetsProtectFalse(t *testing.T) {
+	if got := runIfButtonProtectScript(t, true, true); got {
+		t.Errorf("script suspended: got true, want false (Overlay=true should set protect=false → P_DELAY aborts)")
+	}
+}
+
+// TestHandleIfButton_NonOverlayRootSetsProtectTrue: rootLayer.Overlay=false
+// → protect=true → P_DELAY suspends successfully.
+func TestHandleIfButton_NonOverlayRootSetsProtectTrue(t *testing.T) {
+	if got := runIfButtonProtectScript(t, false, true); !got {
+		t.Errorf("script suspended: got false, want true (Overlay=false should set protect=true → P_DELAY suspends)")
+	}
+}
+
+// TestHandleIfButton_NilRootSetsProtectTrue: rootLayer not registered
+// (root lookup returns nil) → protect=true → P_DELAY suspends.
+func TestHandleIfButton_NilRootSetsProtectTrue(t *testing.T) {
+	if got := runIfButtonProtectScript(t, false, false); !got {
+		t.Errorf("script suspended: got false, want true (nil root should set protect=true → P_DELAY suspends)")
 	}
 }
 

@@ -20,8 +20,8 @@ import (
 //
 // DEVIATION NAI-48-D1: component lookup, com.iop[op-1] null-check,
 // isComponentVisible, and root.overlay protect computation skipped —
-// no component registry. protect=true always. Same cluster as NAI-45-D1/D2.
-// Closure: component-registry sub-spec.
+// handler not yet wired to component registry. protect=true always.
+// Closure: cluster-cleanup sub-spec.
 func (s *Server) handleInvButton(p *Player, payload []byte, op int) error {
 	if p.delayed && s.currentTick < p.delayedUntil {
 		return nil
