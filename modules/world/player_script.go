@@ -596,6 +596,9 @@ func (p *Player) CloseModal(clearWeakQueue bool) {
 	if clearWeakQueue {
 		p.clearWeakQueue()
 	}
+	if !p.delayed && p.activeScript != nil {
+		p.activeScript.Protect = false
+	}
 	p.modalMain = -1
 	p.modalChat = -1
 	p.modalSide = -1

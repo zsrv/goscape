@@ -92,3 +92,66 @@ func TestCloseModalPreservesWeakQueueWhenFalse(t *testing.T) {
 		t.Fatalf("queue len: got %d, want %d (weak should be preserved)", got, want)
 	}
 }
+
+// TestCloseModalClearsActiveScriptProtectWhenNotDelayed pins
+// !delayed && activeScript != nil → activeScript.Protect = false.
+// Mirrors TS Player.closeModal !delayed → protect=false branch
+// (Player.ts:745-747), applied via NAI-52 convergence (TS this.protect ↔
+// goscape activeScript.Protect).
+func TestCloseModalClearsActiveScriptProtectWhenNotDelayed(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.delayed = false
+	p.activeScript = &script.ScriptState{
+		Script:  &script.ScriptFile{Name: "running"},
+		Protect: true,
+	}
+
+	p.CloseModal(true)
+
+	if p.activeScript == nil {
+		t.Fatal("activeScript: got nil, want preserved (Suspended/Running scripts not nulled)")
+	}
+	if p.activeScript.Protect {
+		t.Errorf("activeScript.Protect: got true, want false (!delayed should clear)")
+	}
+	if p.protectedScriptActive() {
+		t.Errorf("protectedScriptActive(): got true, want false (NAI-52 convergence)")
+	}
+}
+
+// TestCloseModalPreservesActiveScriptProtectWhenDelayed pins
+// delayed → activeScript.Protect preserved.
+// Mirrors TS Player.closeModal `if (!this.delayed)` guard.
+func TestCloseModalPreservesActiveScriptProtectWhenDelayed(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.delayed = true
+	p.activeScript = &script.ScriptState{
+		Script:  &script.ScriptFile{Name: "running"},
+		Protect: true,
+	}
+
+	p.CloseModal(true)
+
+	if p.activeScript == nil {
+		t.Fatal("activeScript: got nil, want preserved")
+	}
+	if !p.activeScript.Protect {
+		t.Errorf("activeScript.Protect: got false, want true (delayed should preserve)")
+	}
+}
+
+// TestCloseModalNilActiveScriptNoPanic pins !delayed + nil activeScript
+// is a no-op (no panic). Mirrors TS where `this.protect = false` is a
+// no-op when no script is suspended.
+func TestCloseModalNilActiveScriptNoPanic(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.delayed = false
+	p.activeScript = nil
+
+	// Should not panic.
+	p.CloseModal(true)
+
+	if p.activeScript != nil {
+		t.Errorf("activeScript: got non-nil, want nil")
+	}
+}
