@@ -584,8 +584,18 @@ func (p *Player) SetWalkTrigger(scriptID int) { p.walktrigger = scriptID }
 // IF_OPEN* (and any IF_CLOSE) packets.
 
 // CloseModal clears every modal slot and flags the client to emit
-// IF_CLOSE on the next encodeOut pass.
-func (p *Player) CloseModal() {
+// IF_CLOSE on the next encodeOut pass. When clearWeakQueue is true
+// (TS default), drops every QueueWeak entry from p.queue before
+// processing.
+//
+// Body is incrementally ported across NAI-53 tasks; this commit
+// adds only the clearWeakQueue invocation. T3 ports protect-clear,
+// T4 ports NONE early-return + slot-reset gating, T5 ports
+// activeScript-null + per-slot IF_CLOSE dispatch.
+func (p *Player) CloseModal(clearWeakQueue bool) {
+	if clearWeakQueue {
+		p.clearWeakQueue()
+	}
 	p.modalMain = -1
 	p.modalChat = -1
 	p.modalSide = -1
@@ -664,7 +674,7 @@ func (p *Player) ClearPendingAction() {
 	p.interactionKind = InteractionEngine
 	p.target = nil
 	p.targetOp = -1
-	p.CloseModal()
+	p.CloseModal(true)
 }
 
 // SetApRange implements script.ActivePlayer.SetApRange. Sets apRange

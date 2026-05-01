@@ -242,7 +242,7 @@ func (s *Server) processPlayerQueue(p *Player) {
 	}
 	if p.requestModalClose {
 		p.requestModalClose = false
-		p.CloseModal()
+		p.CloseModal(true)
 	}
 	i := 0
 	for i < len(p.queue) {

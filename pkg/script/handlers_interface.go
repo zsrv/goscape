@@ -16,7 +16,7 @@ func handleIfClose(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return errors.New("IF_CLOSE: no active player")
 	}
-	s.Self.CloseModal()
+	s.Self.CloseModal(true)
 	return nil
 }
 

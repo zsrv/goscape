@@ -129,8 +129,10 @@ type ActivePlayer interface {
 	// S5f: interface / modal control.
 
 	// CloseModal closes any currently open main/chat/side interface and
-	// flags the client to refresh modal state.
-	CloseModal()
+	// flags the client to refresh modal state. clearWeakQueue=true (TS
+	// default) drops weak-queue entries before processing; false
+	// preserves them. Mirrors TS Player.closeModal(clearWeakQueue).
+	CloseModal(clearWeakQueue bool)
 
 	// OpenMain opens the given interface component as the main modal,
 	// closing any chat/side modals per authentic TS rules.

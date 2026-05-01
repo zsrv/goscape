@@ -405,7 +405,7 @@ func (m *mockPlayer) SetRunAnim(seqID int)   { m.lastRunAnim = seqID }
 
 // S5f: interface / modal control.
 
-func (m *mockPlayer) CloseModal()      { m.lastCloseModalCalls++ }
+func (m *mockPlayer) CloseModal(bool)  { m.lastCloseModalCalls++ }
 func (m *mockPlayer) OpenMain(com int) { m.lastOpenMain = com }
 func (m *mockPlayer) OpenChat(com int) { m.lastOpenChat = com }
 func (m *mockPlayer) OpenSide(com int) { m.lastOpenSide = com }
