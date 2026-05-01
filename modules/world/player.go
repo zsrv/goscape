@@ -200,6 +200,8 @@ type Player struct {
 	modalMain, modalChat, modalSide                    int
 	lastModalMain, lastModalChat, lastModalSide        int
 	modalState                                         int
+	modalTutorial                                      int
+	tabs                                               [14]int
 	refreshModal, refreshModalClose, requestModalClose bool
 
 	// === resume buttons (sub-spec 5f) ===
@@ -373,6 +375,8 @@ func newPlayer(c *client) *Player {
 		combatLevel:    3,
 		colors:         [5]int{0, 0, 0, 0, 0},
 		body:           [7]int{0, 10, 18, 26, 33, 36, 42},
+		modalTutorial:  -1,
+		tabs:           [14]int{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
 		appearanceInv:  -1, // test-only sentinel; production binds via SetAppearanceInv from client.go login wiring (NAI-22 Bundle 3).
 		lastAppearance: -1,
 		targetOp:       -1,

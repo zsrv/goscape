@@ -63,8 +63,15 @@ func (p *Player) IfSetHide(com int, hide bool) {
 	p.writeOut(gameserver.OpIfSetHide, buf.Bytes())
 }
 
-// IfSetTab emits IF_SETTAB (com u16, tab u8). 3-byte payload.
+// IfSetTab emits IF_SETTAB (com u16, tab u8). 3-byte payload. Also
+// writes p.tabs[tab] = com so IsComponentVisible's tab check sees the
+// same set of root-layers the client sees. Mirrors TS Player.setTab
+// (Player.ts:2042-2044) which performs the array write before writing
+// the wire packet.
 func (p *Player) IfSetTab(com, tab int) {
+	if tab >= 0 && tab < len(p.tabs) {
+		p.tabs[tab] = com
+	}
 	buf := packet.NewPacket(nil)
 	buf.P2(uint16(com))
 	buf.P1(uint8(tab))
