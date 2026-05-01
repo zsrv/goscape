@@ -293,7 +293,7 @@ func (n *Npc) updateMovement(s *Server) bool {
 	// guard defends against the nil-typ test path; production NPCs
 	// always have typ set by NewNpc, but defensive parity with TS's
 	// NpcType.get(this.type) lookup avoids a nil deref here.
-	if n.walktrigger != -1 && n.typ != nil {
+	if n.walktrigger != -1 && n.typ != nil && s.scriptProvider != nil {
 		trigger := script.TriggerAiQueue1 + script.ServerTriggerType(n.walktrigger)
 		sf := s.scriptProvider.GetByTrigger(trigger, n.typeId, n.typ.Category)
 		wtArg := n.walktriggerArg
