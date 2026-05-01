@@ -182,3 +182,65 @@ func TestTryFireOpTrigger_PlayerArm(t *testing.T) {
 	// exact value here (covered by BindsSelf2 above) — just confirm a
 	// packet arrived at all.
 }
+
+// TestFireOpTriggerPlayerOverridesTypeIdFromTargetSubjectCom — NAI-62.
+// Player-target script's Self == target, so MES opcode emits MessageGame
+// on target's conn. Pre-fix lookup uses (trigger, -1, -1); override
+// registers at (trigger, K, -1) which is unreachable → no MessageGame
+// on target's conn. Post-fix → script runs → marker appears.
+func TestFireOpTriggerPlayerOverridesTypeIdFromTargetSubjectCom(t *testing.T) {
+	s, clicker, other, _, cc2 := makeOpPlayerFixtureWithBothConns(t)
+	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+
+	const overrideTypeId = 7783
+	const marker = "opplayer1-override-fired"
+
+	clicker.target = other
+	clicker.targetOp = 1
+	clicker.targetSubject.com = overrideTypeId
+
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildPlayerMesScript(script.TriggerOpPlayer1, overrideTypeId, marker))
+
+	received := drainConn(t, cc2)
+	fireOpTriggerPlayer(clicker, s, other)
+	other.client.flushWrite()
+	got := <-received
+
+	if !bytes.Contains(got, []byte(marker)) {
+		t.Errorf("drained bytes from target conn: missing %q substring; override should have run override-keyed script for targetSubject.com=%d (default Player-target lookup typeId=-1), got %x",
+			marker, overrideTypeId, got)
+	}
+}
+
+// TestFireApTriggerPlayerOverridesTypeIdFromTargetSubjectCom — NAI-62.
+// Same OpMes marker strategy as Task 2.7; AP variant. Also asserts
+// p.apRange != -1 as a secondary signal (no-script path sets apRange = -1
+// per fireApTriggerPlayer:88).
+func TestFireApTriggerPlayerOverridesTypeIdFromTargetSubjectCom(t *testing.T) {
+	s, clicker, other, _, cc2 := makeOpPlayerFixtureWithBothConns(t)
+	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+
+	const overrideTypeId = 7784
+	const marker = "applayer1-override-fired"
+
+	clicker.target = other
+	clicker.targetOp = 1
+	clicker.targetSubject.com = overrideTypeId
+
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(buildPlayerMesScript(script.TriggerApPlayer1, overrideTypeId, marker))
+
+	received := drainConn(t, cc2)
+	fireApTriggerPlayer(clicker, s, other)
+	other.client.flushWrite()
+	got := <-received
+
+	if !bytes.Contains(got, []byte(marker)) {
+		t.Errorf("drained bytes from target conn: missing %q substring; override should have run override-keyed script for targetSubject.com=%d, got %x",
+			marker, overrideTypeId, got)
+	}
+	if clicker.apRange == -1 {
+		t.Errorf("apRange: got -1 (no-script sentinel), want >0; override should have prevented the no-script path")
+	}
+}

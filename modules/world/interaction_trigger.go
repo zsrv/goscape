@@ -73,7 +73,9 @@ func fireOpTriggerNpc(p *Player, srv *Server, npc *Npc) {
 		category = npc.typ.Category
 	}
 
-	sf := srv.scriptProvider.GetByTrigger(trigger, npc.typeId, category)
+	// Reads p.targetSubject.com per TS Player.getOpTrigger:993-995 via
+	// resolveTriggerTypeId — spellCom / useObj override defaultTypeId when set.
+	sf := srv.scriptProvider.GetByTrigger(trigger, resolveTriggerTypeId(p, npc.typeId), category)
 	if sf == nil {
 		p.ClearInteraction()
 		p.interactionFired = true
@@ -143,7 +145,9 @@ func fireOpTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 		}
 	}
 
-	sf := srv.scriptProvider.GetByTrigger(trigger, loc.Type(), category)
+	// Reads p.targetSubject.com per TS Player.getOpTrigger:993-995 via
+	// resolveTriggerTypeId — spellCom override defaultTypeId when set.
+	sf := srv.scriptProvider.GetByTrigger(trigger, resolveTriggerTypeId(p, loc.Type()), category)
 	if sf == nil {
 		// S6j-D7 closed in S6k: defaultOp fallback. TS Player.ts:~1095
 		// fires this message when the player reaches contact range and
@@ -314,7 +318,9 @@ func fireApTriggerNpc(p *Player, srv *Server, npc *Npc) {
 		category = npc.typ.Category
 	}
 
-	sf := srv.scriptProvider.GetByTrigger(trigger, npc.typeId, category)
+	// Reads p.targetSubject.com per TS Player.getApTrigger:1027-1029 via
+	// resolveTriggerTypeId — spellCom override defaultTypeId when set.
+	sf := srv.scriptProvider.GetByTrigger(trigger, resolveTriggerTypeId(p, npc.typeId), category)
 	if sf == nil {
 		p.ClearInteraction()
 		p.interactionFired = true
@@ -374,7 +380,9 @@ func fireApTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 		}
 	}
 
-	sf := srv.scriptProvider.GetByTrigger(trigger, loc.Type(), category)
+	// Reads p.targetSubject.com per TS Player.getApTrigger:1027-1029 via
+	// resolveTriggerTypeId — spellCom override defaultTypeId when set.
+	sf := srv.scriptProvider.GetByTrigger(trigger, resolveTriggerTypeId(p, loc.Type()), category)
 	if sf == nil {
 		// S6l-D1 closed in S6r: cache "no AP script for this (trigger,
 		// locType, category) triple" via the apRange=-1 sentinel so
@@ -492,7 +500,9 @@ func fireOpTriggerObj(p *Player, srv *Server, obj *entitypkg.Obj) {
 		}
 	}
 
-	sf := srv.scriptProvider.GetByTrigger(trigger, obj.Type, category)
+	// Reads p.targetSubject.com per TS Player.getOpTrigger:993-995 via
+	// resolveTriggerTypeId — spellCom override defaultTypeId when set.
+	sf := srv.scriptProvider.GetByTrigger(trigger, resolveTriggerTypeId(p, obj.Type), category)
 	if sf == nil {
 		p.MessageGame("Nothing interesting happens.")
 		p.ClearInteraction()
@@ -549,7 +559,9 @@ func fireApTriggerObj(p *Player, srv *Server, obj *entitypkg.Obj) {
 		}
 	}
 
-	sf := srv.scriptProvider.GetByTrigger(trigger, obj.Type, category)
+	// Reads p.targetSubject.com per TS Player.getApTrigger:1027-1029 via
+	// resolveTriggerTypeId — spellCom override defaultTypeId when set.
+	sf := srv.scriptProvider.GetByTrigger(trigger, resolveTriggerTypeId(p, obj.Type), category)
 	if sf == nil {
 		p.apRange = -1
 		p.interactionFired = true

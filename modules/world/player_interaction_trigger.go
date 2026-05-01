@@ -52,7 +52,12 @@ func fireOpTriggerPlayer(p *Player, srv *Server, target *Player) {
 	}
 	trigger := apTrigger + 7 // APPLAYER → OPPLAYER offset
 
-	sf := srv.scriptProvider.GetByTrigger(trigger, -1, -1)
+	// Reads p.targetSubject.com per TS Player.getOpTrigger:993-995 via
+	// resolveTriggerTypeId — useObj override default (-1) when set.
+	// Player has no NpcType/LocType/ObjType counterpart in TS so the
+	// default typeId is -1 (matches TS's getOpTrigger early skip of the
+	// type-fetching if-block when target is a Player).
+	sf := srv.scriptProvider.GetByTrigger(trigger, resolveTriggerTypeId(p, -1), -1)
 	if sf == nil {
 		p.ClearInteraction()
 		p.interactionFired = true
@@ -83,7 +88,9 @@ func fireApTriggerPlayer(p *Player, srv *Server, target *Player) {
 		return
 	}
 
-	sf := srv.scriptProvider.GetByTrigger(trigger, -1, -1)
+	// Reads p.targetSubject.com per TS Player.getApTrigger:1027-1029 via
+	// resolveTriggerTypeId — useObj override default (-1) when set.
+	sf := srv.scriptProvider.GetByTrigger(trigger, resolveTriggerTypeId(p, -1), -1)
 	if sf == nil {
 		p.apRange = -1
 		return

@@ -644,7 +644,9 @@ func TestFireOpTriggerLocFiresOpLocTTrigger(t *testing.T) {
 	p.targetSubject.z = loc.Z
 	p.targetSubject.level = loc.Level
 
-	sf := newNoopScriptFile(t, script.TriggerOpLocT, loc.Type(), -1)
+	// com=7777 is passed to SetInteraction above; post-NAI-62 fix, the
+	// override key is 7777 (not loc.Type()).
+	sf := newNoopScriptFile(t, script.TriggerOpLocT, 7777, -1)
 	s.scriptProvider.Register(sf)
 
 	tryFireOpTrigger(p)
@@ -885,7 +887,9 @@ func TestFireApTriggerNpcOpOutOfRange(t *testing.T) {
 func TestFireOpTriggerNpcFiresOpNpcTTrigger(t *testing.T) {
 	s, p, npc := makeOpNpcFixture(t)
 	s.scriptProvider = script.NewProvider()
-	s.scriptProvider.Register(buildNpcSayScript(script.TriggerOpNpcT, 0, "opnpct-fired"))
+	// com=7777 is passed to SetInteraction below; post-NAI-62 fix, the
+	// override key is 7777 (not npc.typeId=0).
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerOpNpcT, 7777, "opnpct-fired"))
 
 	p.SetInteraction(InteractionEngine, npc, targetOpNpcT, 7777)
 	p.interacted = true
@@ -931,7 +935,9 @@ func TestFireOpTriggerNpcFiresOpNpcUTrigger(t *testing.T) {
 func TestFireApTriggerNpcFiresApNpcTTrigger(t *testing.T) {
 	s, p, npc := makeOpNpcFixture(t)
 	s.scriptProvider = script.NewProvider()
-	s.scriptProvider.Register(buildNpcSayScript(script.TriggerApNpcT, 0, "apnpct-fired"))
+	// com=7777 is passed to SetInteraction below; post-NAI-62 fix, the
+	// override key is 7777 (not npc.typeId=0).
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerApNpcT, 7777, "apnpct-fired"))
 
 	p.SetInteraction(InteractionEngine, npc, targetOpNpcT, 7777)
 	p.interacted = true
@@ -1013,6 +1019,174 @@ func TestApRangeSentinelShortCircuitsApproachGate(t *testing.T) {
 	// Control: with apRange=5, same positions should return true.
 	if !inApproachDistance(100, 100, 101, 100, 5) {
 		t.Error("control: inApproachDistance should return true when apRange=5 and distance=1")
+	}
+}
+
+// buildPlayerMesScript produces a tiny [push <text>, MES, RETURN] script
+// keyed at (trigger, typeID)-specific. The MES opcode calls Self.MessageGame
+// (handlers.go:616-622), so for Player-target triggers (Self == target) the
+// emitted text appears on target's conn. NAI-62 per-site override pinning.
+func buildPlayerMesScript(trigger script.ServerTriggerType, typeID int, text string) *script.ScriptFile {
+	key := script.LookupKeyForType(trigger, typeID)
+	return &script.ScriptFile{
+		Name:             "[opplayer1,test]",
+		LookupKey:        key,
+		Opcodes:          []script.Opcode{script.OpPushConstantString, script.OpMes, script.OpReturn},
+		IntOperands:      []int32{0, 0, 0},
+		StringOperands:   []string{text, "", ""},
+		InstructionCount: 3,
+	}
+}
+
+// TestFireOpTriggerNpcOverridesTypeIdFromTargetSubjectCom pins NAI-62: when
+// p.targetSubject.com != -1, fireOpTriggerNpc must look up the script at
+// (trigger, com, …) instead of (trigger, npc.typeId, …). TS Player.getOpTrigger
+// (Player.ts:993-995).
+func TestFireOpTriggerNpcOverridesTypeIdFromTargetSubjectCom(t *testing.T) {
+	s, p, npc := makeOpNpcFixture(t)
+	s.scriptProvider = script.NewProvider()
+
+	// Register ONLY at the override key. If fireOpTriggerNpc still uses
+	// npc.typeId for lookup (pre-fix), this script is unreachable and
+	// npc.sayText stays empty.
+	const overrideTypeId = 7777
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerOpNpc1, overrideTypeId, "opnpc1-override-fired"))
+
+	p.SetInteraction(InteractionEngine, npc, 1, overrideTypeId)
+	p.interacted = true
+
+	tryFireOpTrigger(p)
+
+	if string(npc.sayText) != "opnpc1-override-fired" {
+		t.Errorf("npc.sayText: got %q, want %q (override script must run because targetSubject.com=%d overrides default npc.typeId=%d per TS Player.ts:993-995)",
+			npc.sayText, "opnpc1-override-fired", overrideTypeId, npc.typeId)
+	}
+}
+
+// TestFireOpTriggerLocOverridesTypeIdFromTargetSubjectCom — NAI-62.
+// Strategy: register override-keyed script only. Pre-fix takes the
+// "Nothing interesting happens." default-op path; post-fix runs the
+// override script (no message emitted because the script is OpReturn-only).
+func TestFireOpTriggerLocOverridesTypeIdFromTargetSubjectCom(t *testing.T) {
+	s, p, loc, cc := makeOpLocTriggerFixture(t)
+
+	const overrideTypeId = 7778
+	// Override targetSubject.com to the sentinel; SetInteraction was already
+	// called by the fixture with op=1, com=-1, so we must overwrite directly
+	// rather than re-call SetInteraction (which would also reset the
+	// loc-identity fields).
+	p.targetSubject.com = overrideTypeId
+
+	// Register the no-op script at the override key only.
+	sf := newNoopScriptFile(t, script.TriggerOpLoc1, overrideTypeId, -1)
+	s.scriptProvider.Register(sf)
+
+	received := drainConn(t, cc)
+	tryFireOpTrigger(p)
+	p.client.flushWrite()
+	got := <-received
+
+	if bytes.Contains(got, []byte("Nothing interesting happens.")) {
+		t.Errorf("drained bytes: contained \"Nothing interesting happens.\" — override should have run override-keyed script for targetSubject.com=%d (default loc.Type()=%d), got %x",
+			overrideTypeId, loc.Type(), got)
+	}
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil after Finished clear", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after override fire")
+	}
+}
+
+// TestFireApTriggerNpcOverridesTypeIdFromTargetSubjectCom — NAI-62.
+// Same NPC_SAY marker strategy as TestFireOpTriggerNpcOverrides… but at
+// approach distance (apRange-eligible).
+func TestFireApTriggerNpcOverridesTypeIdFromTargetSubjectCom(t *testing.T) {
+	s, p, npc := makeOpNpcFixture(t)
+	s.scriptProvider = script.NewProvider()
+
+	const overrideTypeId = 7779
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerApNpc1, overrideTypeId, "apnpc1-override-fired"))
+
+	p.SetInteraction(InteractionEngine, npc, 1, overrideTypeId)
+	p.interacted = true
+
+	tryFireApTrigger(p)
+
+	if string(npc.sayText) != "apnpc1-override-fired" {
+		t.Errorf("npc.sayText: got %q, want %q (override script must run because targetSubject.com=%d overrides default npc.typeId=%d per TS Player.ts:1027-1029)",
+			npc.sayText, "apnpc1-override-fired", overrideTypeId, npc.typeId)
+	}
+}
+
+// TestFireApTriggerLocOverridesTypeIdFromTargetSubjectCom — NAI-62.
+// Strategy: register override-keyed script only. Pre-fix takes the
+// no-AP-script path which sets p.apRange = -1; post-fix runs the
+// override script and apRange is preserved (>0).
+func TestFireApTriggerLocOverridesTypeIdFromTargetSubjectCom(t *testing.T) {
+	s, p, loc, _ := makeApTriggerFixture(t)
+
+	const overrideTypeId = 7780
+	p.targetSubject.com = overrideTypeId
+
+	// Register the no-op script at the override key only.
+	sf := newNoopScriptFile(t, script.TriggerApLoc1, overrideTypeId, -1)
+	s.scriptProvider.Register(sf)
+
+	tryFireApTrigger(p)
+
+	if p.apRange == -1 {
+		t.Errorf("apRange: got -1 (no-script sentinel), want >0; override should have run override-keyed script for targetSubject.com=%d (default loc.Type()=%d)",
+			overrideTypeId, loc.Type())
+	}
+}
+
+// TestFireOpTriggerObjOverridesTypeIdFromTargetSubjectCom — NAI-62.
+// Strategy parallels Task 2.2's Loc absence-pin: register override-keyed
+// script only; pre-fix takes the "Nothing interesting happens." path;
+// post-fix runs the script.
+func TestFireOpTriggerObjOverridesTypeIdFromTargetSubjectCom(t *testing.T) {
+	s, p, obj, cc := makeOpObjTriggerFixture(t)
+
+	const overrideTypeId = 7781
+	p.targetSubject.com = overrideTypeId
+
+	sf := newNoopScriptFile(t, script.TriggerOpObj1, overrideTypeId, -1)
+	s.scriptProvider.Register(sf)
+
+	received := drainConn(t, cc)
+	tryFireOpTrigger(p)
+	p.client.flushWrite()
+	got := <-received
+
+	if bytes.Contains(got, []byte("Nothing interesting happens.")) {
+		t.Errorf("drained bytes: contained \"Nothing interesting happens.\" — override should have run override-keyed script for targetSubject.com=%d (default obj.Type=%d), got %x",
+			overrideTypeId, obj.Type, got)
+	}
+	if p.target != nil {
+		t.Errorf("target: got %v, want nil after Finished clear", p.target)
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after override fire")
+	}
+}
+
+// TestFireApTriggerObjOverridesTypeIdFromTargetSubjectCom — NAI-62.
+// Strategy parallels Task 2.4's apRange-preservation pin.
+func TestFireApTriggerObjOverridesTypeIdFromTargetSubjectCom(t *testing.T) {
+	s, p, obj, _ := makeApObjTriggerFixture(t)
+	_ = obj
+
+	const overrideTypeId = 7782
+	p.targetSubject.com = overrideTypeId
+
+	sf := newNoopScriptFile(t, script.TriggerApObj1, overrideTypeId, -1)
+	s.scriptProvider.Register(sf)
+
+	tryFireApTrigger(p)
+
+	if p.apRange == -1 {
+		t.Errorf("apRange: got -1 (no-script sentinel), want >0; override should have run override-keyed script for targetSubject.com=%d", overrideTypeId)
 	}
 }
 

@@ -36,6 +36,30 @@ func makeOpPlayerFixture(t *testing.T) (*Server, *Player, *Player, net.Conn) {
 	return s, clicker, other, cc
 }
 
+// makeOpPlayerFixtureWithBothConns is makeOpPlayerFixture but also returns
+// `other`'s conn so tests can drain target-side traffic (e.g. OpMes
+// MessageGame writes for trigger-dispatch verification — NAI-62).
+func makeOpPlayerFixtureWithBothConns(t *testing.T) (*Server, *Player, *Player, net.Conn, net.Conn) {
+	t.Helper()
+	s := newTestServer(t)
+
+	clicker, cc := newTestPlayer(t)
+	clicker.client.server = s
+	clicker.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	clicker.slot = 1
+	s.players[1] = clicker
+	s.rsbuf.AddPlayer(int32(clicker.slot))
+
+	other, cc2 := newTestPlayer(t)
+	other.client.server = s
+	other.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	other.slot = 2
+	s.players[2] = other
+	s.rsbuf.AddPlayer(int32(other.slot))
+
+	return s, clicker, other, cc, cc2
+}
+
 // rsbufSeesPlayer makes s.rsbuf.HasPlayer(observer, target) return true
 // by inserting target into observer's BuildArea.Players tracking set
 // directly (test-only path; production code goes through ComputePlayer).
