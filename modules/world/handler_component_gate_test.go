@@ -5,6 +5,7 @@ import (
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
+	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/zone"
 )
@@ -210,6 +211,125 @@ func TestComponentGate_OpPlayerT(t *testing.T) {
 			seedTargetPlayerAtSlot(t, s, p, otherSlot)
 		},
 	})
+}
+
+func TestComponentGate_OpNpcU(t *testing.T) {
+	const npcSlot = 0
+	const useObj = 1511
+	const useSlot = 3
+	const useCom = 4246
+	const rootLayer = 4246
+	runCompGate(t, compGateCase{
+		name:       "OpNpcU",
+		handler:    handleOpNpcU,
+		comId:      useCom,
+		isUVariant: true,
+		rootLayer:  rootLayer,
+		payloadOK: []byte{
+			0, npcSlot,
+			useObj >> 8, useObj & 0xFF,
+			useSlot >> 8, useSlot & 0xFF,
+			useCom >> 8, useCom & 0xFF,
+		},
+		setupOk: func(t *testing.T, s *Server, p *Player) {
+			seedNpcAtSlot(t, s, p, npcSlot)
+			seedListenerWithItem(t, s, p, useCom, useSlot, useObj)
+		},
+	})
+}
+
+func TestComponentGate_OpObjU(t *testing.T) {
+	const x, z = 100, 100
+	const objId = 42
+	const useObj = 1511
+	const useSlot = 3
+	const useCom = 4247
+	const rootLayer = 4247
+	runCompGate(t, compGateCase{
+		name:       "OpObjU",
+		handler:    handleOpObjU,
+		comId:      useCom,
+		isUVariant: true,
+		rootLayer:  rootLayer,
+		payloadOK: []byte{
+			x >> 8, x & 0xFF,
+			z >> 8, z & 0xFF,
+			objId >> 8, objId & 0xFF,
+			useObj >> 8, useObj & 0xFF,
+			useSlot >> 8, useSlot & 0xFF,
+			useCom >> 8, useCom & 0xFF,
+		},
+		setupOk: func(t *testing.T, s *Server, p *Player) {
+			seedObjAt(t, s, p, x, z, objId)
+			seedListenerWithItem(t, s, p, useCom, useSlot, useObj)
+		},
+	})
+}
+
+func TestComponentGate_OpLocU(t *testing.T) {
+	const x, z = 100, 100
+	const locId = 42
+	const useObj = 1511
+	const useSlot = 3
+	const useCom = 4248
+	const rootLayer = 4248
+	runCompGate(t, compGateCase{
+		name:       "OpLocU",
+		handler:    handleOpLocU,
+		comId:      useCom,
+		isUVariant: true,
+		rootLayer:  rootLayer,
+		payloadOK: []byte{
+			x >> 8, x & 0xFF,
+			z >> 8, z & 0xFF,
+			locId >> 8, locId & 0xFF,
+			useObj >> 8, useObj & 0xFF,
+			useSlot >> 8, useSlot & 0xFF,
+			useCom >> 8, useCom & 0xFF,
+		},
+		setupOk: func(t *testing.T, s *Server, p *Player) {
+			seedLocAt(t, s, p, x, z, locId)
+			seedListenerWithItem(t, s, p, useCom, useSlot, useObj)
+		},
+	})
+}
+
+func TestComponentGate_OpPlayerU(t *testing.T) {
+	const otherSlot = 1
+	const useObj = 1511
+	const useSlot = 3
+	const useCom = 4249
+	const rootLayer = 4249
+	runCompGate(t, compGateCase{
+		name:       "OpPlayerU",
+		handler:    handleOpPlayerU,
+		comId:      useCom,
+		isUVariant: true,
+		rootLayer:  rootLayer,
+		payloadOK: []byte{
+			0, otherSlot,
+			useObj >> 8, useObj & 0xFF,
+			useSlot >> 8, useSlot & 0xFF,
+			useCom >> 8, useCom & 0xFF,
+		},
+		setupOk: func(t *testing.T, s *Server, p *Player) {
+			seedTargetPlayerAtSlot(t, s, p, otherSlot)
+			seedListenerWithItem(t, s, p, useCom, useSlot, useObj)
+		},
+	})
+}
+
+// seedListenerWithItem registers an inv listener at useCom pointing at world-
+// shared invType=93, populates that inv with useObj at useSlot.
+func seedListenerWithItem(t *testing.T, s *Server, p *Player, useCom, useSlot, useObj int) {
+	t.Helper()
+	if s.invs == nil {
+		s.invs = make(map[int]*inventory.Inventory)
+	}
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Items[useSlot] = &inventory.Item{Id: useObj, Count: 1}
+	s.invs[93] = inv
+	p.invListenOnCom(93, useCom, -1)
 }
 
 // seedNpcAtSlot installs a live NPC at the given slot and subscribes it to

@@ -187,26 +187,17 @@ func handleOpLocT(p *Player, payload []byte) error {
 // tree, tinderbox on logs, seed on patch).
 // Payload = (x:G2, z:G2, locId:G2, useObj:G2, useSlot:G2, useCom:G2).
 //
-// Validation gates (subset of TS OpLocUHandler.ts:~79):
+// Gates per TS OpLocUHandler.ts:
 //  1. delayed player → UnsetMapFlag
 //  2. payload too short → UnsetMapFlag
-//  3. coords outside viewport → UnsetMapFlag
+//  3. coords outside viewport (52-tile half-extent) → UnsetMapFlag
 //  4. Server.GetLoc returns nil → UnsetMapFlag
-//  5. LocType not registered → UnsetMapFlag
-//  6. useCom not in invListeners → UnsetMapFlag (S6p)
-//  7. listener's inventory unresolved or slot/item mismatch → UnsetMapFlag (S6p)
-//  8. members-only item on free world → MessageGame + UnsetMapFlag (S6z)
-//
-// DEVIATION (S6m-D2): TS validates useCom references a usable, visible
-// interface component (OpLocUHandler.ts:~25-35). Skipped — no component
-// registry yet.
-//
-// S6m-D3 closed in S6p: per-op useCom listener lookup + slot/item
-// validation gates added below, mirroring TS OpLocUHandler.ts:50-66.
-//
-// S6m-D4 closed in S6z: members-only items on free-to-play worlds
-// are now rejected via the gate below, matching TS
-// OpLocUHandler.ts:70-73.
+//  5. LocType not registered → UnsetMapFlag  (goscape defensive; TS skips this check)
+//  6. useCom: nil component or !Usable → UnsetMapFlag
+//  7. useCom: !IsComponentVisible → UnsetMapFlag
+//  8. useCom not in invListeners → UnsetMapFlag
+//  9. listener's inventory unresolved or slot/item mismatch → UnsetMapFlag
+//  10. members-only item on free world → MessageGame + UnsetMapFlag
 //
 // On success: set p.lastUseItem = useObj, p.lastUseSlot = useSlot →
 // ClearPendingAction → SetInteraction(Engine, loc, targetOpLocU, -1) →
@@ -259,9 +250,16 @@ func handleOpLocU(p *Player, payload []byte) error {
 		return nil
 	}
 
-	// S6m-D3 closed: verify the player has an inv listener at useCom
-	// and that the claimed item lives at the claimed slot (TS
-	// OpLocUHandler.ts:50-66).
+	com := s.lookupComponent(useCom)
+	if com == nil || !com.Usable {
+		sendUnsetMapFlag(p)
+		return nil
+	}
+	if !p.IsComponentVisible(com) {
+		sendUnsetMapFlag(p)
+		return nil
+	}
+
 	listener, ok := p.invListeners[useCom]
 	if !ok {
 		sendUnsetMapFlag(p)

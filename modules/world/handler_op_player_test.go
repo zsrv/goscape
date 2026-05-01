@@ -313,6 +313,13 @@ func TestHandleOpPlayerU_HappyPath(t *testing.T) {
 		useObj  = 1511
 		useSlot = 3
 	)
+
+	// Seed component so the component gate passes.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		useCom: {RootLayer: useCom, Usable: true},
+	})
+	clicker.tabs[0] = useCom
+
 	seedOpPlayerUInv(t, s, clicker, invType, useCom, useObj, useSlot)
 
 	if err := handleOpPlayerU(clicker, opPlayerUPayload(other.slot, useObj, useSlot, useCom)); err != nil {
@@ -372,6 +379,11 @@ func TestHandleOpPlayerU_TargetNotLoggedIn(t *testing.T) {
 	s, clicker, _, cc := makeOpPlayerFixture(t)
 	const missingSlot = 99
 	s.players[missingSlot] = nil
+	// Seed component so the component gate passes; target-not-logged-in gate fires next.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	clicker.tabs[0] = 149
 	seedOpPlayerUInv(t, s, clicker, 93, 149, 1511, 3)
 
 	received := drainConn(t, cc)
@@ -392,6 +404,11 @@ func TestHandleOpPlayerU_TargetNotLoggedIn(t *testing.T) {
 func TestHandleOpPlayerU_TargetNotVisible(t *testing.T) {
 	s, clicker, other, cc := makeOpPlayerFixture(t)
 	// Deliberately do NOT call rsbufSeesPlayer.
+	// Seed component so the component gate passes; rsbuf-visibility gate fires next.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	clicker.tabs[0] = 149
 	seedOpPlayerUInv(t, s, clicker, 93, 149, 1511, 3)
 
 	received := drainConn(t, cc)
@@ -429,6 +446,11 @@ func TestHandleOpPlayerU_TruncatedPayload(t *testing.T) {
 func TestHandleOpPlayerU_InvListenerMissing(t *testing.T) {
 	s, clicker, other, cc := makeOpPlayerFixture(t)
 	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+	// Seed component so the component gate passes; listener-missing gate fires next.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	clicker.tabs[0] = 149
 	if s.invs == nil {
 		s.invs = make(map[int]*inventory.Inventory)
 	}
@@ -458,6 +480,11 @@ func TestHandleOpPlayerU_InvListenerMissing(t *testing.T) {
 func TestHandleOpPlayerU_ItemNotInSlot(t *testing.T) {
 	s, clicker, other, cc := makeOpPlayerFixture(t)
 	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+	// Seed component so the component gate passes; item-mismatch gate fires next.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	clicker.tabs[0] = 149
 	if s.invs == nil {
 		s.invs = make(map[int]*inventory.Inventory)
 	}
@@ -503,6 +530,11 @@ func TestHandleOpPlayer1SetsOpcalled(t *testing.T) {
 func TestHandleOpPlayerU_MembersOnNonMembersServer(t *testing.T) {
 	s, clicker, other, cc := makeOpPlayerFixture(t)
 	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+	// Seed component so the component gate passes; members-free-world gate fires next.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	clicker.tabs[0] = 149
 	s.cfg.NodeMembers = false
 	if s.objTypes == nil {
 		s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 2000)}

@@ -341,6 +341,12 @@ func p2x4NpcUPayload(a, b, c, d int) []byte {
 func TestHandleOpNpcUSetsInteraction(t *testing.T) {
 	s, p, npc := makeOpNpcFixture(t)
 
+	// Seed component so the component gate passes.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	p.tabs[0] = 149
+
 	// Register listener + populate the inv with the claimed item.
 	if s.invs == nil {
 		s.invs = make(map[int]*inventory.Inventory)
@@ -404,7 +410,19 @@ func TestHandleOpNpcUShortPayloadRejected(t *testing.T) {
 
 // TestHandleOpNpcUInvalidSlotRejected verifies slot OOB → UnsetMapFlag.
 func TestHandleOpNpcUInvalidSlotRejected(t *testing.T) {
-	_, p, _ := makeOpNpcFixture(t)
+	s, p, _ := makeOpNpcFixture(t)
+	// Seed component and listener so gates pass and the NPC slot OOB gate fires.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	p.tabs[0] = 149
+	if s.invs == nil {
+		s.invs = make(map[int]*inventory.Inventory)
+	}
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Items[3] = &inventory.Item{Id: 1511, Count: 1}
+	s.invs[93] = inv
+	p.invListenOnCom(93, 149, -1)
 
 	_ = handleOpNpcU(p, p2x4NpcUPayload(9999, 1511, 3, 149)) // slot 9999 OOB
 
@@ -416,6 +434,18 @@ func TestHandleOpNpcUInvalidSlotRejected(t *testing.T) {
 // TestHandleOpNpcUDeadNpcRejected verifies dead NPC → UnsetMapFlag.
 func TestHandleOpNpcUDeadNpcRejected(t *testing.T) {
 	s, p, _ := makeOpNpcFixture(t)
+	// Seed component and listener so gates pass and the dead-NPC gate fires.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	p.tabs[0] = 149
+	if s.invs == nil {
+		s.invs = make(map[int]*inventory.Inventory)
+	}
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Items[3] = &inventory.Item{Id: 1511, Count: 1}
+	s.invs[93] = inv
+	p.invListenOnCom(93, 149, -1)
 	s.npcs[1].dead = true
 
 	_ = handleOpNpcU(p, p2x4NpcUPayload(1, 1511, 3, 149))
@@ -428,6 +458,18 @@ func TestHandleOpNpcUDeadNpcRejected(t *testing.T) {
 // TestHandleOpNpcUMissingNpcTypeRejected verifies nil typ → UnsetMapFlag.
 func TestHandleOpNpcUMissingNpcTypeRejected(t *testing.T) {
 	s, p, _ := makeOpNpcFixture(t)
+	// Seed component and listener so gates pass and the nil-typ gate fires.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	p.tabs[0] = 149
+	if s.invs == nil {
+		s.invs = make(map[int]*inventory.Inventory)
+	}
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Items[3] = &inventory.Item{Id: 1511, Count: 1}
+	s.invs[93] = inv
+	p.invListenOnCom(93, 149, -1)
 	s.npcs[1].typ = nil
 
 	_ = handleOpNpcU(p, p2x4NpcUPayload(1, 1511, 3, 149))
@@ -441,6 +483,11 @@ func TestHandleOpNpcUMissingNpcTypeRejected(t *testing.T) {
 // with no registered listener rejects with UnsetMapFlag.
 func TestHandleOpNpcUMissingListenerRejected(t *testing.T) {
 	s, p, _ := makeOpNpcFixture(t)
+	// Seed component so the component gate passes; listener-missing gate fires next.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	p.tabs[0] = 149
 	if s.invs == nil {
 		s.invs = make(map[int]*inventory.Inventory)
 	}
@@ -462,6 +509,11 @@ func TestHandleOpNpcUMissingListenerRejected(t *testing.T) {
 // registered inv → UnsetMapFlag.
 func TestHandleOpNpcUInvalidInvSlotRejected(t *testing.T) {
 	s, p, _ := makeOpNpcFixture(t)
+	// Seed component so the component gate passes.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	p.tabs[0] = 149
 	if s.invs == nil {
 		s.invs = make(map[int]*inventory.Inventory)
 	}
@@ -484,6 +536,11 @@ func TestHandleOpNpcUInvalidInvSlotRejected(t *testing.T) {
 // different id than useObj → UnsetMapFlag.
 func TestHandleOpNpcUItemMismatchRejected(t *testing.T) {
 	s, p, _ := makeOpNpcFixture(t)
+	// Seed component so the component gate passes.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	p.tabs[0] = 149
 	if s.invs == nil {
 		s.invs = make(map[int]*inventory.Inventory)
 	}
@@ -508,6 +565,12 @@ func TestHandleOpNpcUItemMismatchRejected(t *testing.T) {
 func TestHandleOpNpcUHappyPathWithOtherPlayerInv(t *testing.T) {
 	s, p, npc := makeOpNpcFixture(t)
 
+	// Seed component so the component gate passes.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	p.tabs[0] = 149
+
 	other, _ := newTestPlayer(t)
 	other.invs = map[int]*inventory.Inventory{}
 	inv := inventory.New(93, 28, inventory.StackNormal)
@@ -528,6 +591,11 @@ func TestHandleOpNpcUHappyPathWithOtherPlayerInv(t *testing.T) {
 // TestHandleOpNpcUMembersOnFreeWorldRejected — S6z closes S6o-D4.
 func TestHandleOpNpcUMembersOnFreeWorldRejected(t *testing.T) {
 	s, p, _ := makeOpNpcFixture(t)
+	// Seed component so the component gate passes.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	p.tabs[0] = 149
 	s.cfg.NodeMembers = false
 	if s.objTypes == nil {
 		s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 2000)}
@@ -554,6 +622,11 @@ func TestHandleOpNpcUMembersOnFreeWorldRejected(t *testing.T) {
 // TestHandleOpNpcUMembersOnMembersWorldAllowed — gate only fires on free.
 func TestHandleOpNpcUMembersOnMembersWorldAllowed(t *testing.T) {
 	s, p, npc := makeOpNpcFixture(t)
+	// Seed component so the component gate passes.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	p.tabs[0] = 149
 	s.cfg.NodeMembers = true
 	if s.objTypes == nil {
 		s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 2000)}
@@ -619,7 +692,12 @@ func TestHandleOpNpcUDelayedNpcRejected(t *testing.T) {
 	s.npcs[1].delayed = true
 	s.npcs[1].delayedUntil = 999
 	s.currentTick = 0
-	// Register listener + populate inv so the test can reach the delayed-npc gate
+	// Seed component so the component gate passes; register listener + populate inv
+	// so the delayed-npc gate fires (not the component/listener gate).
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	p.tabs[0] = 149
 	if s.invs == nil {
 		s.invs = make(map[int]*inventory.Inventory)
 	}
@@ -688,6 +766,11 @@ func TestHandleOpNpcUNpcNotVisibleRejected(t *testing.T) {
 	p2.slot = 2
 	s.players[2] = p2
 	s.rsbuf.AddPlayer(2)
+	// Seed component so the component gate passes; rsbuf-visibility gate fires next.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	p2.tabs[0] = 149
 	if s.invs == nil {
 		s.invs = make(map[int]*inventory.Inventory)
 	}

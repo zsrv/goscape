@@ -171,10 +171,17 @@ func handleOpObjT(p *Player, payload []byte) error {
 // Item-on-obj: player drags an inventory item onto a ground item.
 // Payload = (x:G2, z:G2, objId:G2, useObj:G2, useSlot:G2, useCom:G2).
 //
-// DEVIATION NAI-50-D2: TS OpObjUHandler.ts:39-48 validates useCom
-// references a usable, visible component. Skipped — handler not yet
-// wired to component registry. Same cluster as S6m-D2, NAI-48-D1.
-// Closure: cluster-cleanup sub-spec.
+// Gates per TS OpObjUHandler.ts:
+//  1. delayed player → UnsetMapFlag
+//  2. payload too short → UnsetMapFlag
+//  3. coords outside viewport (52-tile half-extent) → UnsetMapFlag
+//  4. Server.GetObj returns nil → UnsetMapFlag
+//  5. ObjType not registered → UnsetMapFlag  (goscape defensive; TS skips this check)
+//  6. useCom: nil component or !Usable → UnsetMapFlag
+//  7. useCom: !IsComponentVisible → UnsetMapFlag
+//  8. useCom not in invListeners → UnsetMapFlag
+//  9. listener's inventory unresolved or slot/item mismatch → UnsetMapFlag
+//  10. members-only item on free world → MessageGame + UnsetMapFlag
 func handleOpObjU(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
@@ -219,6 +226,16 @@ func handleOpObjU(p *Player, payload []byte) error {
 	}
 
 	if s.objTypes == nil || objId < 0 || objId >= len(s.objTypes.Configs) || s.objTypes.Configs[objId] == nil {
+		sendUnsetMapFlag(p)
+		return nil
+	}
+
+	com := s.lookupComponent(useCom)
+	if com == nil || !com.Usable {
+		sendUnsetMapFlag(p)
+		return nil
+	}
+	if !p.IsComponentVisible(com) {
 		sendUnsetMapFlag(p)
 		return nil
 	}

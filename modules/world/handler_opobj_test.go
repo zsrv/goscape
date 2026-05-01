@@ -337,6 +337,12 @@ func TestHandleOpObjTMissingObjRejected(t *testing.T) {
 func TestHandleOpObjUSetsInteraction(t *testing.T) {
 	s, p, obj, _ := makeOpObjFixture(t)
 
+	// Seed component so the component gate passes.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	p.tabs[0] = 149
+
 	if s.invs == nil {
 		s.invs = make(map[int]*inventory.Inventory)
 	}
@@ -442,6 +448,11 @@ func TestHandleOpObjUMissingObjRejected(t *testing.T) {
 
 func TestHandleOpObjUMissingListenerRejected(t *testing.T) {
 	s, p, _, cc := makeOpObjFixture(t)
+	// Seed component so the component gate passes; listener-missing gate fires next.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	p.tabs[0] = 149
 	if s.invs == nil {
 		s.invs = make(map[int]*inventory.Inventory)
 	}
@@ -467,6 +478,11 @@ func TestHandleOpObjUMissingListenerRejected(t *testing.T) {
 
 func TestHandleOpObjUItemMismatchRejected(t *testing.T) {
 	s, p, _, cc := makeOpObjFixture(t)
+	// Seed component so the component gate passes; item-mismatch gate fires next.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	p.tabs[0] = 149
 	if s.invs == nil {
 		s.invs = make(map[int]*inventory.Inventory)
 	}

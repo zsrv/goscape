@@ -432,10 +432,16 @@ func p2x6Payload(x, z, locId, useObj, useSlot, useCom int) []byte {
 
 // TestHandleOpLocUSetsInteraction verifies OpLocU decodes a valid payload
 // and routes through SetInteraction with targetOp=targetOpLocU. useObj
-// and useSlot land on p.lastUseItem/lastUseSlot; useCom is discarded
-// (S6m-D2/D3).
+// and useSlot land on p.lastUseItem/lastUseSlot; useCom is gated
+// against the component registry and used for listener lookup.
 func TestHandleOpLocUSetsInteraction(t *testing.T) {
 	s, p, loc, _ := makeOpLocFixture(t)
+
+	// Seed component so the component gate passes.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	p.tabs[0] = 149
 
 	// Register listener at com=149 pointing at world-shared inv type 93,
 	// and populate that inv with the claimed item (1511) at the claimed
@@ -607,6 +613,11 @@ func TestHandleOpLocClearsExistingInteraction(t *testing.T) {
 // listeners.
 func TestHandleOpLocUMissingListenerRejected(t *testing.T) {
 	s, p, _, cc := makeOpLocFixture(t)
+	// Seed component so the component gate passes; listener-missing gate fires next.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	p.tabs[0] = 149
 	// NO invListenOnCom — the map stays empty.
 	if s.invs == nil {
 		s.invs = make(map[int]*inventory.Inventory)
@@ -635,6 +646,11 @@ func TestHandleOpLocUMissingListenerRejected(t *testing.T) {
 // slot is OOB (pkg/inventory.Inventory.Get bounds-checks).
 func TestHandleOpLocUInvalidSlotRejected(t *testing.T) {
 	s, p, _, cc := makeOpLocFixture(t)
+	// Seed component so the component gate passes; inv-slot-OOB gate fires next.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	p.tabs[0] = 149
 	if s.invs == nil {
 		s.invs = make(map[int]*inventory.Inventory)
 	}
@@ -663,6 +679,11 @@ func TestHandleOpLocUInvalidSlotRejected(t *testing.T) {
 // a different item id than useObj, the handler rejects.
 func TestHandleOpLocUItemMismatchRejected(t *testing.T) {
 	s, p, _, cc := makeOpLocFixture(t)
+	// Seed component so the component gate passes; item-mismatch gate fires next.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	p.tabs[0] = 149
 	if s.invs == nil {
 		s.invs = make(map[int]*inventory.Inventory)
 	}
@@ -694,6 +715,12 @@ func TestHandleOpLocUItemMismatchRejected(t *testing.T) {
 func TestHandleOpLocUHappyPathWithOtherPlayerInv(t *testing.T) {
 	s, p, loc, _ := makeOpLocFixture(t)
 
+	// Seed component so the component gate passes.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	p.tabs[0] = 149
+
 	// Create a second player at slot 2 with inv type 93 containing
 	// the claimed item at the claimed slot.
 	other, _ := newTestPlayer(t)
@@ -717,6 +744,11 @@ func TestHandleOpLocUHappyPathWithOtherPlayerInv(t *testing.T) {
 // TestHandleOpLocUMembersOnFreeWorldRejected — S6z closes S6m-D4.
 func TestHandleOpLocUMembersOnFreeWorldRejected(t *testing.T) {
 	s, p, _, cc := makeOpLocFixture(t)
+	// Seed component so the component gate passes; members-free-world gate fires next.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	p.tabs[0] = 149
 	s.cfg.NodeMembers = false
 	if s.objTypes == nil {
 		s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 2000)}
@@ -762,6 +794,11 @@ func TestHandleOpLoc1SetsOpcalled(t *testing.T) {
 // TestHandleOpLocUMembersOnMembersWorldAllowed — gate only fires on free.
 func TestHandleOpLocUMembersOnMembersWorldAllowed(t *testing.T) {
 	s, p, loc, _ := makeOpLocFixture(t)
+	// Seed component so the component gate passes.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Usable: true},
+	})
+	p.tabs[0] = 149
 	s.cfg.NodeMembers = true
 	if s.objTypes == nil {
 		s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 2000)}

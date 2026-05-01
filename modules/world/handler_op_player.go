@@ -127,19 +127,16 @@ func handleOpPlayerT(p *Player, payload []byte) error {
 // Item-on-Player: player drags an inventory item onto another player.
 // Payload = (slot:G2, useObj:G2, useSlot:G2, useCom:G2).
 //
-// Validation gates (mirrors goscape's handleOpNpcU, NOT the full TS chain):
+// Gates per TS OpPlayerUHandler.ts:
 //  1. delayed player → UnsetMapFlag
 //  2. payload too short → UnsetMapFlag
-//  3. useCom not in invListeners → UnsetMapFlag
-//  4. listener's inventory unresolved or item-at-slot mismatch → UnsetMapFlag
-//  5. target not logged in → UnsetMapFlag
-//  6. target not visible (rsbuf.HasPlayer == false) → UnsetMapFlag
-//  7. members-only item on free world → MessageGame + UnsetMapFlag
-//
-// DEVIATION NAI-40-D-COMPONENT-REGISTRY-VALIDATION-SKIPPED: TS validates
-// useCom references a usable, visible component. Skipped — same reason
-// as S6o-D2 (NPC variant): no component registry yet. Closure: bundle
-// with S6o-D2.
+//  3. useCom: nil component or !Usable → UnsetMapFlag
+//  4. useCom: !IsComponentVisible → UnsetMapFlag
+//  5. useCom not in invListeners → UnsetMapFlag
+//  6. listener's inventory unresolved or item-at-slot mismatch → UnsetMapFlag
+//  7. target not logged in → UnsetMapFlag
+//  8. target not visible (rsbuf.HasPlayer == false) → UnsetMapFlag
+//  9. members-only item on free world → MessageGame + UnsetMapFlag
 //
 // On success: snapshot p.lastUseItem=useObj, p.lastUseSlot=useSlot →
 // ClearPendingAction → SetInteraction(Engine, other, targetOpPlayerU, -1).
@@ -164,6 +161,16 @@ func handleOpPlayerU(p *Player, payload []byte) error {
 	useObj := int(r.G2())
 	useSlot := int(r.G2())
 	useCom := int(r.G2())
+
+	com := s.lookupComponent(useCom)
+	if com == nil || !com.Usable {
+		sendUnsetMapFlag(p)
+		return nil
+	}
+	if !p.IsComponentVisible(com) {
+		sendUnsetMapFlag(p)
+		return nil
+	}
 
 	listener, ok := p.invListeners[useCom]
 	if !ok {
