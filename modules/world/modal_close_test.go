@@ -156,7 +156,6 @@ func TestCloseModalNilActiveScriptNoPanic(t *testing.T) {
 	}
 }
 
-
 // TestCloseModalNoneEarlyReturnPreservesRefreshModalClose pins
 // modalState == NONE early-return. When no modal is open, CloseModal
 // must NOT touch refreshModalClose (avoids redundant wire IF_CLOSE).
