@@ -9,6 +9,7 @@ import (
 
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/rsbuf"
+	"github.com/zsrv/goscape/pkg/script"
 )
 
 func newTestPlayer(t *testing.T) (*Player, net.Conn) {
@@ -705,6 +706,30 @@ func TestPlayerIsInWildernessBoundaries(t *testing.T) {
 			got := p.IsInWilderness()
 			if got != tc.want {
 				t.Errorf("IsInWilderness(%d,%d): got %v, want %v", tc.x, tc.z, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestPlayer_ProtectedScriptActive_TruthTable pins the goscape mapping
+// of TS Player.protect: protectedScriptActive iff activeScript != nil
+// AND activeScript.Protect. Mirrors the convergence documented at
+// CanAccess (player_script.go:232-238).
+func TestPlayer_ProtectedScriptActive_TruthTable(t *testing.T) {
+	cases := []struct {
+		name   string
+		active *script.ScriptState
+		want   bool
+	}{
+		{"nil-active", nil, false},
+		{"active-unprotected", &script.ScriptState{Protect: false}, false},
+		{"active-protected", &script.ScriptState{Protect: true}, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := &Player{activeScript: tc.active}
+			if got := p.protectedScriptActive(); got != tc.want {
+				t.Errorf("protectedScriptActive: got %v, want %v", got, tc.want)
 			}
 		})
 	}

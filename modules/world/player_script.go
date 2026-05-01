@@ -249,6 +249,16 @@ func (p *Player) CanAccess() bool {
 	return true
 }
 
+// protectedScriptActive reports whether the player currently owns a
+// suspended protected script — goscape's mapping of TS Player.protect.
+// Used by CanAccess (above) and processWalktrigger to gate operations
+// that TS guards with !this.protect. See the CanAccess doc-comment for
+// the activeScript.Protect ↔ TS Player.protect equivalence rationale.
+// NAI-52.
+func (p *Player) protectedScriptActive() bool {
+	return p.activeScript != nil && p.activeScript.Protect
+}
+
 // Varp implements script.ActivePlayer.Varp.
 func (p *Player) Varp(id int) int32 {
 	if id < 0 || id >= len(p.varps) {
