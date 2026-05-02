@@ -719,6 +719,19 @@ func (n *Npc) focus(fx, fz int, instant bool) {
 	}
 }
 
+// unfocus restores the default-south face-angle. Mirrors TS
+// PathingEntity.unfocus (Engine-TS/src/engine/entity/PathingEntity.ts:338-341).
+// No mask emit — TS unfocus leaves coordmask alone (faceAngle is the
+// "where am I oriented" channel; mask is the wire signal, only fired
+// from focus(instant=true) or FaceSquare).
+//
+// Caller: resetEntityForRespawn (modules/world/npc_registry.go), the
+// goscape-shape equivalent of TS Npc.resetEntity(true) at Npc.ts:284.
+func (n *Npc) unfocus() {
+	n.faceAngleX = coordgrid.Fine(n.x, n.size)
+	n.faceAngleZ = coordgrid.Fine(n.z-1, n.size)
+}
+
 // reorient is the Npc-side per-tick refocus invoked from
 // Server.processInfo before rsbuf compute. Mirrors TS
 // PathingEntity.reorient at PathingEntity.ts:349-361. Same shape as

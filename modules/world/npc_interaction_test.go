@@ -1676,3 +1676,51 @@ func TestPatrolMode_PreservesDestLevel(t *testing.T) {
 			n.x, n.z)
 	}
 }
+
+// TestNpcUnfocusWritesDefaultSouthFaceAngle pins TS
+// PathingEntity.unfocus (PathingEntity.ts:338-341): faceAngle restored
+// to fine(x, size), fine(z-1, size). Sub-pinned at size=1 and size=2.
+//
+// Per ts_asymmetry_dual_pin.md: explicitly assert NpcMaskFaceCoord is
+// NOT ORed (TS unfocus leaves coordmask alone). Escalates if upstream
+// changes that.
+func TestNpcUnfocusWritesDefaultSouthFaceAngle(t *testing.T) {
+	tests := []struct {
+		name string
+		size uint8
+	}{
+		{"size1", 1},
+		{"size2", 2},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			typ := &objtype.NpcType{Size: tc.size}
+			n := NewNpc(1, 42, 100, 100, 0, typ)
+			// Pre-state: distinguishable sentinels.
+			n.faceAngleX = 999_999
+			n.faceAngleZ = 999_999
+			n.faceSquareX = -1
+			n.faceSquareZ = -1
+			n.masks = 0
+
+			n.unfocus()
+
+			wantFX := coordgrid.Fine(100, int(tc.size))
+			wantFZ := coordgrid.Fine(100-1, int(tc.size))
+			if n.faceAngleX != wantFX {
+				t.Errorf("faceAngleX: got %d, want %d (Fine(x=100, size=%d))", n.faceAngleX, wantFX, tc.size)
+			}
+			if n.faceAngleZ != wantFZ {
+				t.Errorf("faceAngleZ: got %d, want %d (Fine(z-1=99, size=%d))", n.faceAngleZ, wantFZ, tc.size)
+			}
+			// Conspicuous-absence pin: TS unfocus does NOT touch
+			// faceSquare or coordmask. Per ts_asymmetry_dual_pin.md.
+			if n.faceSquareX != -1 || n.faceSquareZ != -1 {
+				t.Errorf("unfocus must NOT write faceSquare (got %d, %d)", n.faceSquareX, n.faceSquareZ)
+			}
+			if n.masks&rsbuf.NpcMaskFaceCoord != 0 {
+				t.Errorf("unfocus must NOT OR NpcMaskFaceCoord (masks=%d)", n.masks)
+			}
+		})
+	}
+}
