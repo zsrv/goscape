@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
@@ -297,5 +298,29 @@ func TestAddNpcEntersZone(t *testing.T) {
 	// Dual-pin per ts_asymmetry_dual_pin: NPC enter does NOT flag grid.
 	if s.zoneMap.Grid(n.level).IsFlagged(n.x>>3, n.z>>3, 0) {
 		t.Error("addNpc must NOT flag the grid (only player enter flags)")
+	}
+}
+
+// TestResetEntityForRespawnInvokesUnfocus pins TS Npc.resetEntity(true)
+// at Npc.ts:284 — calls super.unfocus() to restore default-south
+// face-angle. Goscape's resetEntityForRespawn is the goscape-shape
+// equivalent of that branch.
+func TestResetEntityForRespawnInvokesUnfocus(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{Size: 1}
+	n := newRegisteredNpc(t, s, typ, false)
+	// Pre-state: simulate post-interaction face-angle drift.
+	n.faceAngleX = 999_999
+	n.faceAngleZ = 999_999
+
+	s.resetEntityForRespawn(n)
+
+	wantFX := coordgrid.Fine(n.x, n.size)
+	wantFZ := coordgrid.Fine(n.z-1, n.size)
+	if n.faceAngleX != wantFX {
+		t.Errorf("faceAngleX: got %d, want %d (Fine(n.x=%d, size=%d))", n.faceAngleX, wantFX, n.x, n.size)
+	}
+	if n.faceAngleZ != wantFZ {
+		t.Errorf("faceAngleZ: got %d, want %d (Fine(n.z-1=%d, size=%d))", n.faceAngleZ, wantFZ, n.z-1, n.size)
 	}
 }

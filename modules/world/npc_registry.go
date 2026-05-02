@@ -113,6 +113,11 @@ func (s *Server) addNpc(n *Npc, duration int, firstSpawn bool) error {
 // caller handles position) or collision flags (the caller handles
 // those via gamemap).
 func (s *Server) resetEntityForRespawn(n *Npc) {
+	// TS Npc.resetEntity(true) at Npc.ts:284 — restore default-south
+	// face-angle. Reads n.x, n.z, n.size; none are mutated by the
+	// rest of this function so the call order is safe at the top.
+	n.unfocus()
+
 	if n.typeId != n.baseType {
 		n.typeId = n.baseType
 		n.uid = (n.typeId << 16) | n.nid
