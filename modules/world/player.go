@@ -820,10 +820,53 @@ func (p *Player) invListenOnCom(invType, com, source int) {
 }
 
 // invStopListenOnCom unregisters the listener at the given component
-// ID. No-op if no listener exists there, including when the map itself
-// is nil (Go's delete-on-nil is safe). Matches TS Player.ts:1464-1471.
+// ID and writes UpdateInvStopTransmit(com) to the client. No-op if no
+// listener exists there (mirrors TS L1466-1468 early-return; Go's
+// delete-on-nil semantics make nil maps a strict subset of "no listener
+// registered"). Mirrors TS Player.ts:1464-1471.
+//
+// Callers must ensure p.client is non-nil; sendUpdateInvStopTransmit
+// (and writeOut underneath) dereferences p.client without a guard.
+// Production callers (handleInvStopTransmit, CloseModal via
+// clearComListeners) are all reached only with a connected client.
 func (p *Player) invStopListenOnCom(com int) {
+	if _, ok := p.invListeners[com]; !ok {
+		return
+	}
 	delete(p.invListeners, com)
+	sendUpdateInvStopTransmit(p, com)
+}
+
+// clearComListeners removes every inv-listener whose Component.RootLayer
+// equals rootCom and writes UpdateInvStopTransmit per removal. No-op
+// when rootCom is -1 (slot was unset; mirrors TS L729-731). No-op when
+// the player has no Server bound (goscape defensive; TS skips this
+// check since TS Components are a global singleton — Component.get is
+// always reachable).
+//
+// Mirrors TS Player.ts:728-739. Closes NAI-53-D-CLEARCOMLISTENERS-PER-SLOT.
+//
+// Iteration safety: Go's spec guarantees `delete` during `range` over a
+// map is well-defined — deleted keys are not re-yielded. Calling
+// invStopListenOnCom (which deletes) inside the range loop is safe.
+func (p *Player) clearComListeners(rootCom int) {
+	if rootCom == -1 {
+		return
+	}
+	if p.client == nil || p.client.server == nil {
+		return
+	}
+	s := p.client.server
+	for com := range p.invListeners {
+		c := s.lookupComponent(com)
+		if c == nil {
+			// goscape defensive; TS assumes Component.get(com) is non-nil.
+			continue
+		}
+		if c.RootLayer == rootCom {
+			p.invStopListenOnCom(com)
+		}
+	}
 }
 
 // IsValid returns whether the player's session is live per TS semantics:

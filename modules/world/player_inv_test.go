@@ -3,6 +3,7 @@ package world
 import (
 	"testing"
 
+	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
@@ -86,15 +87,22 @@ func TestInvListenOnComLazyInitializesMap(t *testing.T) {
 // TestInvStopListenOnComRemovesListener verifies that calling stop on
 // a registered com deletes the entry and decreases len by 1.
 func TestInvStopListenOnComRemovesListener(t *testing.T) {
-	p, _ := newTestPlayer(t)
+	p, cc := newTestPlayer(t)
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	p.invListenOnCom(93, 149, -1)
 	p.invListenOnCom(100, 200, -1)
 	if len(p.invListeners) != 2 {
 		t.Fatalf("setup: len should be 2, got %d", len(p.invListeners))
 	}
 
+	received := drainConn(t, cc)
 	p.invStopListenOnCom(149)
+	p.client.flushWrite()
 
+	got := <-received
+	if len(got) != 3 {
+		t.Errorf("packet bytes: got %d, want 3 (opcode + P2)", len(got))
+	}
 	if len(p.invListeners) != 1 {
 		t.Errorf("len: got %d, want 1", len(p.invListeners))
 	}
@@ -110,11 +118,18 @@ func TestInvStopListenOnComRemovesListener(t *testing.T) {
 // com that was never registered is a no-op (does not panic, does not
 // mutate map).
 func TestInvStopListenOnComNoopForMissingKey(t *testing.T) {
-	p, _ := newTestPlayer(t)
+	p, cc := newTestPlayer(t)
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	p.invListenOnCom(93, 149, -1)
 
+	received := drainConn(t, cc)
 	p.invStopListenOnCom(999) // never registered
+	p.client.flushWrite()
 
+	got := <-received
+	if len(got) != 0 {
+		t.Errorf("missing-key stop should write no packet; got %d bytes", len(got))
+	}
 	if len(p.invListeners) != 1 {
 		t.Errorf("len: got %d, want 1 (unrelated listener should remain)", len(p.invListeners))
 	}
@@ -123,13 +138,20 @@ func TestInvStopListenOnComNoopForMissingKey(t *testing.T) {
 // TestInvStopListenOnComNoopForNilMap verifies calling stop on a Player
 // whose map is still nil does not panic (Go's delete-on-nil semantic).
 func TestInvStopListenOnComNoopForNilMap(t *testing.T) {
-	p, _ := newTestPlayer(t)
+	p, cc := newTestPlayer(t)
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	if p.invListeners != nil {
 		t.Fatalf("precondition: invListeners should start nil")
 	}
 
+	received := drainConn(t, cc)
 	p.invStopListenOnCom(149) // must not panic
+	p.client.flushWrite()
 
+	got := <-received
+	if len(got) != 0 {
+		t.Errorf("nil-map stop should write no packet; got %d bytes", len(got))
+	}
 	if p.invListeners != nil {
 		t.Error("stop on nil map should not cause an allocation")
 	}
@@ -230,5 +252,27 @@ func TestInvListenOnComKeepsSourceForNonSharedScope(t *testing.T) {
 	}
 	if got.Type != testInvTypeID {
 		t.Errorf("Type: got %d, want %d (Type should be preserved alongside Source)", got.Type, testInvTypeID)
+	}
+}
+
+// TestInvStopListenOnComWritesUpdatePacket pins TS Player.ts:1464-1471:
+// invStopListenOnCom must remove the listener AND write
+// OpUpdateInvStopTransmit(com).
+func TestInvStopListenOnComWritesUpdatePacket(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	p.invListenOnCom(93, 149, -1)
+
+	received := drainConn(t, cc)
+	p.invStopListenOnCom(149)
+	p.client.flushWrite()
+
+	got := <-received
+	// Wire: 1 opcode byte + 2 payload bytes (P2 com=149) = 3 bytes.
+	if len(got) != 3 {
+		t.Errorf("got %d bytes, want 3 (opcode + P2 com); bytes=%v", len(got), got)
+	}
+	if _, ok := p.invListeners[149]; ok {
+		t.Error("listener at 149 should be removed")
 	}
 }
