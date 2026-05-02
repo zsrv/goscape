@@ -58,6 +58,12 @@ func init() {
 	gameHandlers[138] = handleOpObjT // OPOBJT
 	gameHandlers[239] = handleOpObjU // OPOBJU
 
+	gameHandlers[195] = handleOpHeld1 // OPHELD1
+	gameHandlers[71] = handleOpHeld2  // OPHELD2
+	gameHandlers[133] = handleOpHeld3 // OPHELD3
+	gameHandlers[157] = handleOpHeld4 // OPHELD4
+	gameHandlers[211] = handleOpHeld5 // OPHELD5
+
 	gameHandlers[158] = handleMessagePublic // MESSAGE_PUBLIC
 
 	gameHandlers[235] = handleResumePauseButton // RESUME_PAUSEBUTTON
