@@ -43,18 +43,32 @@ script-side `p_op_*` mid-trigger is a no-op in goscape today.
 
 ## 2. Goal
 
-Mirror TS Player.ts:1113-1170 + 1203 + 1255-1263 verbatim so:
+Mirror TS Player.ts:1126-1163 + 1203 + 1255-1263 so:
 
 1. Script-set `nextTarget` survives the auto-clear and applies on the next
-   tick.
-2. AP scripts that call `p_aprange` propagate `apReverted` out of
-   `tryInteract` and re-enable the post-step retry arm.
-3. The OP branch's TS L1131 `clearWaypoints()` runs (currently absent in
+   tick (TS L1133, L1155, L1255-1258).
+2. The OP branch's TS L1131 `clearWaypoints()` runs (currently absent in
    goscape).
-4. AP branch saves+restores waypoints around script execution (currently
-   absent).
+3. AP branch saves+restores waypoints around script execution and clears
+   them when the script set a `nextTarget` (TS L1145-1162).
+4. The fire-helper Finished/Aborted eager-clear is dropped in favor of
+   the tail's `else if interacted && !apRangeCalled` block (consolidates
+   clear-on-fire to one site).
 
-Closes `NAI-44-D-IMMEDIATE-POP-VS-NEXTTARGET`. No new deviations expected.
+**Out of scope for this sub-spec — TS L1166-1170 apRangeCalled revert
+(same-tick post-step retry).** Goscape's existing AP fire helpers
+simulate `apRangeCalled` persistence via an *across-tick* mechanism:
+early-return without setting `interactionFired = true` so the AP re-fires
+on a later tick after the player walks closer (interaction_trigger.go:415-422
+for AP-Loc, mirrored in AP-Obj at line 586). Adopting TS L1166-1170's
+same-tick retry path requires reworking goscape's `interactionFired`
+guard (which is a goscape-specific re-fire prevention) to avoid same-tick
+infinite loops. The two mechanisms are logically equivalent for player
+experience but mutually exclusive at the state-machine level.
+
+Closes `NAI-44-D-IMMEDIATE-POP-VS-NEXTTARGET`. Opens
+`NAI-68-D-AP-APRANGE-REVERT-NOT-PORTED` (TS L1166-1170 same-tick retry +
+`interactionFired`-guard rework). Net tally: 13 → 13.
 
 ## 3. Out of scope
 
@@ -116,52 +130,77 @@ if p.nextTarget != nil {
 
 The mapflag-clear at `interaction.go:256-258` is unaffected.
 
-### 4.4 Two new helpers
+### 4.4 Inline save/clear/capture/restore at each fire helper
 
-Both go in `modules/world/interaction.go`. Signatures use the existing
-`entity` interface from `movement_consts.go:45`.
+No extracted helpers. The save/clear/capture/restore pattern is
+inlined at each of the 8 fire helpers because:
+
+1. The pattern is short (4-5 lines) and TS-citation-anchored at each
+   site, so inlining keeps the TS-line-mapping locally grep-discoverable.
+2. The OP and AP shapes diverge (AP saves waypoints; OP doesn't), and
+   inlining sidesteps a "shared helper that's wrong for half the callers"
+   risk.
+3. Goscape's existing AP-Loc apRangeCalled across-tick re-fire (early
+   return without `interactionFired = true`) is preserved verbatim —
+   trying to wrap that into a helper conflates two responsibilities.
+
+The OP-side inline shape (TS L1129-1135):
 
 ```go
-// runOpTriggerScript wraps srv.resumeOrFinish with TS Player.ts:1129-1135's
-// save/clear/capture/restore pattern. The OP arm unconditionally clears
-// waypoints (TS L1131) and never reverts.
-func runOpTriggerScript(p *Player, srv *Server, state *script.ScriptState, savedTarget entity) {
-    p.target = nil
-    p.waypointIndex = -1 // TS L1131: this.clearWaypoints()
-    srv.resumeOrFinish(state, p)
-    p.nextTarget = p.target
-    p.target = savedTarget
+// Save target before script run (TS L1129).
+savedTarget := p.target
+p.target = nil
+p.waypointIndex = -1 // TS L1131: this.clearWaypoints()
+
+srv.resumeOrFinish(state, p)
+
+// Capture script-set target into nextTarget; restore original (TS L1133-1134).
+p.nextTarget = p.target
+p.target = savedTarget
+
+p.interactionFired = true
+```
+
+The AP-side inline shape (TS L1145-1162) — preserves goscape's existing
+apRangeCalled across-tick re-fire branch:
+
+```go
+p.apRangeCalled = false // TS L1141 — pre-set required at all 4 AP sites.
+
+// Save target + waypoints before script run (TS L1145, L1146).
+savedTarget := p.target
+savedWP := p.waypoints
+savedIdx := p.waypointIndex
+p.target = nil
+p.waypointIndex = -1
+
+srv.resumeOrFinish(state, p)
+
+// Capture script-set target into nextTarget; restore target.
+p.nextTarget = p.target
+p.target = savedTarget
+
+if p.nextTarget != nil {
+    // TS L1162: clear destination so next-tick interaction starts fresh.
+    p.waypointIndex = -1
+} else {
+    // No script-set target — restore waypoints (TS L1146 inverse).
+    p.waypoints = savedWP
+    p.waypointIndex = savedIdx
 }
 
-// runApTriggerScript wraps srv.resumeOrFinish with TS Player.ts:1145-1170's
-// save/clear/capture/restore pattern. AP additionally saves+restores the
-// waypoint queue and reverts waypoints when the script called p_aprange
-// (apRangeCalled=true) without setting a nextTarget.
-//
-// Returns apReverted=true when the AP script asked for an extended range
-// (TS L1167-1170 path); the caller propagates !apReverted as the
-// tryInteract return value so the post-step arm gets a chance to retry.
-func runApTriggerScript(p *Player, srv *Server, state *script.ScriptState, savedTarget entity) (apReverted bool) {
-    savedWP := p.waypoints
-    savedIdx := p.waypointIndex
-    p.target = nil
-    p.waypointIndex = -1
-    srv.resumeOrFinish(state, p)
-    p.nextTarget = p.target
-    p.target = savedTarget
-    if p.nextTarget != nil {
-        // TS L1162: clear destination so the next-tick interaction starts fresh.
-        p.waypointIndex = -1
-        return false
-    }
+// Existing apRangeCalled across-tick re-fire branch — UNCHANGED.
+// DEVIATION NAI-68-D-AP-APRANGE-REVERT-NOT-PORTED: TS L1166-1170 does
+// same-tick post-step retry; goscape uses early-return-without-fired
+// for next-tick re-fire. Equivalent for player experience.
+if state.Execution == script.Finished || state.Execution == script.Aborted {
     if p.apRangeCalled {
-        // TS L1167-1170: revert waypoints and re-enable post-step retry.
-        p.waypoints = savedWP
-        p.waypointIndex = savedIdx
-        return true
+        p.repathed = false
+        return // interactionFired stays false → re-fire next tick.
     }
-    return false
 }
+
+p.interactionFired = true
 ```
 
 Goscape's `[25]int` waypoints array is copied by value in the local —
@@ -169,10 +208,17 @@ the array is small and trivially copyable. Restoring both array+index
 matches TS's `this.waypoints = wayPoints; this.waypointIndex = waypointIndex`
 exactly.
 
+The Finished/Aborted ClearInteraction in the existing AP-Loc helper
+(line 426) and AP-Obj helper (corresponding site) is **dropped** — the
+processInteraction tail's `else if interacted && !apRangeCalled` block
+(Section 4.3) covers it.
+
 ### 4.5 Per-fire-helper changes (8 sites)
 
-**4 OP fires** (`fireOpTriggerNpc`, `fireOpTriggerLoc`,
-`fireOpTriggerPlayer`, `fireOpTriggerObj`):
+**4 OP fires** (`fireOpTriggerNpc` at interaction_trigger.go:53,
+`fireOpTriggerLoc` at interaction_trigger.go:119, `fireOpTriggerPlayer`
+at player_interaction_trigger.go:42, `fireOpTriggerObj` at
+interaction_trigger.go:477):
 
 Replace the existing tail block:
 
@@ -184,101 +230,56 @@ if state.Execution == script.Finished || state.Execution == script.Aborted {
 p.interactionFired = true
 ```
 
-with:
+with the OP inline shape from Section 4.4:
 
 ```go
-runOpTriggerScript(p, srv, state, p.target)
+savedTarget := p.target
+p.target = nil
+p.waypointIndex = -1 // TS L1131
+
+srv.resumeOrFinish(state, p)
+
+p.nextTarget = p.target
+p.target = savedTarget
+
 p.interactionFired = true
 ```
-
-(`p.target` is the saved target value at the call site — `p` still
-points to the entity locked in by the lifecycle/lookup-passes earlier
-in the helper. `runOpTriggerScript` reads it before clearing.)
 
 The Finished/Aborted clear is dropped — subsumed by the tail's
 `else if interacted && !apRangeCalled` (which fires after every successful
 trigger fire because `interacted=true` and goscape never sets
 `apRangeCalled=true` in OP scripts).
 
-**4 AP fires** (`fireApTriggerNpc`, `fireApTriggerLoc`,
-`fireApTriggerPlayer`, `fireApTriggerObj`):
+**4 AP fires** (`fireApTriggerNpc` at interaction_trigger.go:298,
+`fireApTriggerLoc` at interaction_trigger.go:359, `fireApTriggerPlayer`
+at player_interaction_trigger.go:79, `fireApTriggerObj` at
+interaction_trigger.go:537):
 
-Same treatment, but the helper returns `apReverted` which propagates
-out via `tryFireApTrigger`. The pre-script `apRangeCalled = false`
-reset (currently explicit at `interaction_trigger.go:401` for AP-Loc)
-must be present at all 4 AP sites — verify and add to AP-Npc, AP-Player,
-AP-Obj if missing. Replace:
+The pre-script `apRangeCalled = false` reset is currently explicit at
+`interaction_trigger.go:401` (AP-Loc) and `interaction_trigger.go:571`
+(AP-Obj). Verify presence on AP-Npc and AP-Player; add if missing.
+
+Replace the existing tail block:
 
 ```go
-p.apRangeCalled = false  // already present at AP-Loc; verify others
 srv.resumeOrFinish(state, p)
 if state.Execution == script.Finished || state.Execution == script.Aborted {
+    if p.apRangeCalled {
+        p.repathed = false
+        return
+    }
     p.ClearInteraction()
 }
 p.interactionFired = true
 ```
 
-with:
+with the AP inline shape from Section 4.4 (preserves the apRangeCalled
+across-tick re-fire branch; drops the eager ClearInteraction).
 
-```go
-p.apRangeCalled = false  // TS L1141 — pre-set at all 4 AP sites
-apReverted = runApTriggerScript(p, srv, state, p.target)
-p.interactionFired = true
-return apReverted
-```
+`tryFireApTrigger` signature is **unchanged**. `tryInteract` AP-arm
+is **unchanged**.
 
-(`apReverted` becomes a return value of each per-entity AP fire.)
-
-### 4.6 `tryFireApTrigger` signature change
-
-`interaction_trigger.go:258` changes from:
-
-```go
-func tryFireApTrigger(p *Player) {
-```
-
-to:
-
-```go
-func tryFireApTrigger(p *Player) (apReverted bool) {
-```
-
-The type-switch routes to per-entity helpers; collect each's
-`apReverted` return into the named return.
-
-### 4.7 `tryInteract` AP arm
-
-`interaction.go:321-327` changes from:
-
-```go
-if inApproachDistance(p.x, p.z, tx, tz, effectiveApRange(p)) {
-    p.interacted = true
-    if !p.interactionFired {
-        tryFireApTrigger(p)
-    }
-    return true
-}
-```
-
-to:
-
-```go
-if inApproachDistance(p.x, p.z, tx, tz, effectiveApRange(p)) {
-    p.interacted = true
-    if !p.interactionFired {
-        if apReverted := tryFireApTrigger(p); apReverted {
-            // TS L1167-1170: AP script called p_aprange; defer to post-step.
-            return false
-        }
-    }
-    return true
-}
-```
-
-The OP arm at `interaction.go:307-320` is unchanged in return-value
-shape — TS L1136 unconditionally returns true.
-
-### 4.8 Lifecycle/lookup-failure clears (unchanged)
+### 4.6 Lifecycle/lookup-failure clears (unchanged)
 
 The `npc.dead`, `!locStillValid`, no-trigger, invalid-op, and
 `delayed && currentTick < delayedUntil` early-clears inside each fire
@@ -287,7 +288,7 @@ preserve. Keep these as immediate `ClearInteraction()` + `interactionFired = tru
 
 ## 5. Test plan
 
-Five testable behaviors. Each pinned with new tests; existing tests
+Four testable behaviors. Each pinned with new tests; existing tests
 audited against the new contract.
 
 ### B1 — `nextTarget` pop overrides auto-clear
@@ -318,16 +319,6 @@ assert `p.target == newTarget` AND `p.targetOp == newOp`. Counter-pin:
 when the script does NOT call `p_op_*`, assert `p.target == nil`
 (auto-clear via tail's else-if).
 
-### B4 — apRangeCalled revert returns false from tryInteract
-
-Test that an AP script calling `p_aprange(N)` causes the post-step arm
-to execute. Setup: target outside operable range, AP script registered
-for `[aploc1,<typeID>]` whose body is `push N; p_aprange; ret`. After
-`processInteraction`: assert `p.repathed == true` (post-step recalc
-ran) AND `p.apRangeCalled == true` (preserved into next tick). Pre-fix
-this test would fail because pre-step returned true and short-circuited
-post-step.
-
 ### B5 — OP branch's TS L1131 `clearWaypoints()` add (dual-pin)
 
 Pre-set `p.waypointIndex >= 0` (active path). Run a `processInteraction`
@@ -335,6 +326,14 @@ that fires an OP trigger. Assert `p.waypointIndex == -1` post-call,
 both when the script sets a `nextTarget` (B5a) and when it doesn't
 (B5b). The dual-pin pre-empts a future regression that conditionalizes
 the clear on script behavior.
+
+### B6 — AP TS L1162 conditional waypoint clear
+
+When an AP trigger script sets a `nextTarget` (calls `p_op_npc` etc.),
+assert `p.waypointIndex == -1` post-call (TS L1162). When it does NOT
+set a nextTarget AND does not call `p_aprange`, assert
+`p.waypointIndex == savedIdx` (waypoints restored — TS L1146 inverse).
+Two-test dual-pin.
 
 ### Existing tests — audit pass
 
@@ -373,20 +372,25 @@ T1's commit body explicitly notes this change. T3 adds a regression
 test pinning "OP-script suspends → `p.target` cleared at tail" so the
 intent is grep-discoverable.
 
-### Risk 2: `tryFireApTrigger` signature change blast radius
+### Risk 2: `tryFireApTrigger` signature unchanged (de-risked)
 
-Quick grep at plan-write time confirms `tryFireApTrigger` is package-private
-(`world` package); only call site is `tryInteract` AP arm at
-`interaction.go:323`. Pre-flight: `rg "tryFireApTrigger" --glob '*.go' modules/world/`
-should yield exactly the definition + 1 call site + the 4 per-entity
-delegations.
+Original spec considered changing `tryFireApTrigger` to return
+`apReverted`. Final design leaves the signature alone — the
+across-tick re-fire mechanism in goscape's existing AP fire helpers
+already preserves `apRangeCalled` interaction state. No call-site
+churn; tests at `interaction_trigger_test.go:439, 459, 500, 527, 545,
+563, 578, 695, 714, 1114, 1136, 1185` and
+`player_interaction_trigger_test.go:153` and `handler_opobj_test.go:720, 741`
+all continue to compile unchanged.
 
-### Risk 3: Implementer drifting `runOpTriggerScript` / `runApTriggerScript`
+### Risk 3: Implementer drifting inline save/clear/restore across 8 sites
 
-The two helpers are TS-anchored — the body lines correspond 1:1 to
-specific TS source lines (cited in 4.4's doc-comments). Plan-doc
-includes the TS lines verbatim adjacent to each Go statement; reviewer
-checks one-to-one mapping at T2 and T3 close.
+Each fire helper inlines the same ~8-line save/clear/exec/capture/restore
+shape, varying only by OP-vs-AP. Drift risk: implementer rewrites the
+shape slightly differently at each site. Plan codifies the EXACT inline
+text once for OP and once for AP (Section 4.4 + 4.5); per-site Edits
+copy verbatim. Plan code blocks include adjacent TS L-citation comments;
+reviewer checks one-to-one mapping at T2 and T3 close.
 
 ### Risk 4: Pre-existing AP fire helpers missing `apRangeCalled = false` pre-set
 
@@ -416,7 +420,7 @@ apRangeCalled-revert + waypoint save/restore).
 
 ### T1 — Framework + tail rewrite
 
-**Closes:** B1, B2, partial B5.
+**Closes:** B1, B2.
 **Files:** `modules/world/player.go`, `modules/world/interaction.go`,
 `modules/world/interaction_test.go` (or extend an existing test file).
 
@@ -429,45 +433,49 @@ apRangeCalled-revert + waypoint save/restore).
 
 **Review:** code-reviewer audit against TS Player.ts:1200-1263 verbatim.
 
-### T2 — OP helper + wire 4 OP fires
+### T2 — Wire 4 OP fires (inline save/clear/restore)
 
-**Closes:** B5 fully, partial B3 (OP variants).
-**Files:** `modules/world/interaction.go` (new helper),
-`modules/world/interaction_trigger.go` (Loc, Npc, Obj OP fires),
-`modules/world/player_interaction_trigger.go` (Player OP fire), tests.
+**Closes:** B3 (OP variants), B5.
+**Files:** `modules/world/interaction_trigger.go` (Loc, Npc, Obj OP
+fires), `modules/world/player_interaction_trigger.go` (Player OP fire),
+tests.
 
-1. Add `runOpTriggerScript` helper to `interaction.go`.
-2. Wire into `fireOpTriggerNpc`, `fireOpTriggerLoc`, `fireOpTriggerPlayer`,
-   `fireOpTriggerObj`. Drop each helper's Finished/Aborted clear block.
-3. Tests: per-entity-type B3 OP variant + B5 dual-pin.
+1. Inline OP save/clear/restore at `fireOpTriggerNpc` (interaction_trigger.go:53),
+   `fireOpTriggerLoc` (interaction_trigger.go:119), `fireOpTriggerPlayer`
+   (player_interaction_trigger.go:42), `fireOpTriggerObj`
+   (interaction_trigger.go:477). Drop Finished/Aborted ClearInteraction.
+2. Tests: per-entity-type B3 OP variant + B5 dual-pin.
 
 **Review:** standard task review at T2 close.
 
-### T3 — AP helper + wire 4 AP fires + tryInteract AP-branch return
+### T3 — Wire 4 AP fires (inline save/clear/restore + waypoints)
 
-**Closes:** B3 fully, B4.
-**Files:** `modules/world/interaction.go` (new helper + tryInteract AP
-arm), `modules/world/interaction_trigger.go` (Loc, Npc, Obj AP fires +
-`tryFireApTrigger` signature), `modules/world/player_interaction_trigger.go`
-(Player AP fire), tests.
+**Closes:** B3 (AP variants), B6.
+**Files:** `modules/world/interaction_trigger.go` (Loc, Npc, Obj AP
+fires), `modules/world/player_interaction_trigger.go` (Player AP fire),
+tests.
 
-1. Add `runApTriggerScript` helper to `interaction.go`.
-2. Add `apRangeCalled = false` pre-reset to all 4 AP fire helpers (verify
-   AP-Loc already has it, add to AP-Npc/AP-Player/AP-Obj if missing).
-3. Wire helper into all 4 AP fires; each returns `apReverted bool`.
-4. Change `tryFireApTrigger` to `(apReverted bool)`; collect from
-   per-entity helpers.
-5. `tryInteract` AP arm: `return !apReverted` propagation.
-6. Tests: per-entity-type B3 AP variant + B4.
+1. Verify `apRangeCalled = false` pre-reset on all 4 AP fire helpers
+   (already at AP-Loc:401 and AP-Obj:571; add to AP-Npc and AP-Player
+   if missing).
+2. Inline AP save/clear/restore + nextTarget-conditional waypoint clear
+   at `fireApTriggerNpc` (interaction_trigger.go:298), `fireApTriggerLoc`
+   (interaction_trigger.go:359), `fireApTriggerPlayer`
+   (player_interaction_trigger.go:79), `fireApTriggerObj`
+   (interaction_trigger.go:537). Drop Finished/Aborted ClearInteraction
+   (the Finished/Aborted-with-apRangeCalled early-return path stays).
+3. Tests: per-entity-type B3 AP variant + B6 dual-pin.
 
-**Review:** code-reviewer whole-impl audit against TS Player.ts:1140-1170.
+**Review:** code-reviewer whole-impl audit against TS Player.ts:1140-1162.
 
 ### T4 — Close
 
-Update `nai_followups.md`. Net deviation tally 13 → 12.
-Close commit body cites TS Player.ts:1113-1170 + 1203 + 1255-1263, all
-8 fire-helper sites touched, suspend-state behavior change (Risk 1),
-and carries `Closes memory: NAI-44-D-IMMEDIATE-POP-VS-NEXTTARGET`.
+Update `nai_followups.md`. Net deviation tally 13 → 13 (closes
+NAI-44-D-IMMEDIATE-POP-VS-NEXTTARGET; opens
+NAI-68-D-AP-APRANGE-REVERT-NOT-PORTED). Close commit body cites TS
+Player.ts:1126-1163 + 1203 + 1255-1263, all 8 fire-helper sites
+touched, suspend-state behavior change (Risk 1), and carries
+`Closes memory: NAI-44-D-IMMEDIATE-POP-VS-NEXTTARGET`.
 
 ## 8. Memory entries to apply at plan-write and dispatch
 
