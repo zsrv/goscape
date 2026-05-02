@@ -63,13 +63,14 @@ func buildOpPlayerHintPlScript(trigger script.ServerTriggerType) *script.ScriptF
 // outbound HINT_ARROW packets via drainConn). The clicker's
 // targetOp/targetSubject/target are anchored at op=1 → Player; the
 // fixture leaves it to the caller to register any [opplayer1,_] script.
-func newPlayerTriggerFixture(t *testing.T) (s *Server, clicker, target *Player, targetConn net.Conn) {
+func newPlayerTriggerFixture(t *testing.T) (s *Server, clicker, target *Player, clickerConn, targetConn net.Conn) {
 	t.Helper()
 	s = newTestServer(t)
 	s.scriptProvider = script.NewProvider() // empty; caller registers
 
-	clicker, _ = newTestPlayer(t)
+	clicker, clickerConn = newTestPlayer(t)
 	clicker.client.server = s
+	clicker.client.encryptor = io2.New([4]uint32{5, 6, 7, 8})
 	clicker.slot = 1
 
 	target, targetConn = newTestPlayer(t)
@@ -99,7 +100,7 @@ func newPlayerTriggerFixture(t *testing.T) (s *Server, clicker, target *Player, 
 //
 // The slot on the wire is the clicker's slot, confirming the Self2 link.
 func TestFireOpTriggerPlayer_BindsSelf2ToClicker(t *testing.T) {
-	s, clicker, target, targetConn := newPlayerTriggerFixture(t)
+	s, clicker, target, _, targetConn := newPlayerTriggerFixture(t)
 
 	// Compute expected first wire byte using a parallel encryptor seeded
 	// identically to target.client.encryptor.
@@ -130,7 +131,7 @@ func TestFireOpTriggerPlayer_BindsSelf2ToClicker(t *testing.T) {
 // TestFireOpTriggerPlayer_NoScriptRegistered — empty provider + Player
 // target → silent clear (no panic, target nil-ed, fired=true).
 func TestFireOpTriggerPlayer_NoScriptRegistered(t *testing.T) {
-	_, clicker, _, _ := newPlayerTriggerFixture(t)
+	_, clicker, _, _, _ := newPlayerTriggerFixture(t)
 
 	tryFireOpTrigger(clicker)
 
@@ -147,7 +148,7 @@ func TestFireOpTriggerPlayer_NoScriptRegistered(t *testing.T) {
 // at S6r). interaction NOT cleared (anchor stays — contact path takes
 // over on a later tick).
 func TestFireApTriggerPlayer_NoScriptSetsApRangeMinusOne(t *testing.T) {
-	_, clicker, _, _ := newPlayerTriggerFixture(t)
+	_, clicker, _, _, _ := newPlayerTriggerFixture(t)
 	clicker.apRange = 10
 
 	tryFireApTrigger(clicker)
@@ -167,7 +168,7 @@ func TestFireApTriggerPlayer_NoScriptSetsApRangeMinusOne(t *testing.T) {
 // arm would mark fired=true without invoking any script and no
 // HINT_ARROW would arrive.
 func TestTryFireOpTrigger_PlayerArm(t *testing.T) {
-	s, clicker, target, targetConn := newPlayerTriggerFixture(t)
+	s, clicker, target, _, targetConn := newPlayerTriggerFixture(t)
 	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1))
 
 	received := drainConn(t, targetConn)
@@ -255,7 +256,7 @@ func TestFireApTriggerPlayerOverridesTypeIdFromTargetSubjectCom(t *testing.T) {
 //
 // NAI-68 B3 AP-Player variant.
 func TestFireApTriggerPlayerRestoresTargetAndWaypoints(t *testing.T) {
-	s, clicker, target, _ := newPlayerTriggerFixture(t)
+	s, clicker, target, _, _ := newPlayerTriggerFixture(t)
 
 	// Pre-state: active waypoint queue (must be restored when no nextTarget).
 	clicker.waypointIndex = 3
@@ -315,7 +316,7 @@ func TestFireApTriggerPlayerRestoresTargetAndWaypoints(t *testing.T) {
 // AP-Player's apRangeCalled IS the clicker's. AP-Loc/AP-Obj/AP-Npc match
 // TS in goscape (Self=p); AP-Player is the goscape-specific reversal.
 func TestFireApTriggerPlayer_ApRangeCalled_BindsToTargetNotClicker(t *testing.T) {
-	s, clicker, target, _ := newPlayerTriggerFixture(t)
+	s, clicker, target, _, _ := newPlayerTriggerFixture(t)
 
 	// Register an APPLAYER1 script that calls p_aprange(2).
 	s.scriptProvider.Register(&script.ScriptFile{
@@ -367,7 +368,7 @@ func TestFireApTriggerPlayer_ApRangeCalled_BindsToTargetNotClicker(t *testing.T)
 // NAI-69-D-APPLAYER-SELF2-REVERSED-NO-SAMETICK-RETRY is closed, this
 // test should be inverted to pin the activated retry path.
 func TestTryInteract_ApPlayer_NoSameTickRetry_DueToReversedSelf(t *testing.T) {
-	s, clicker, target, _ := newPlayerTriggerFixture(t)
+	s, clicker, target, _, _ := newPlayerTriggerFixture(t)
 
 	// Register the p_aprange(2) script.
 	s.scriptProvider.Register(&script.ScriptFile{

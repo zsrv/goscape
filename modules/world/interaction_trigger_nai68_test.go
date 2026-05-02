@@ -217,7 +217,7 @@ func TestFireOpTriggerObjClearsWaypoints(t *testing.T) {
 //
 // NAI-68 B3 OP-Player variant.
 func TestFireOpTriggerPlayerCapturesNextTargetFromScript(t *testing.T) {
-	s, clicker, target, _ := newPlayerTriggerFixture(t)
+	s, clicker, target, _, _ := newPlayerTriggerFixture(t)
 
 	s.scriptProvider.Register(buildOpPlayerHintPlScript(script.TriggerOpPlayer1))
 
@@ -243,7 +243,7 @@ func TestFireOpTriggerPlayerCapturesNextTargetFromScript(t *testing.T) {
 //
 // NAI-68 B5 OP-Player.
 func TestFireOpTriggerPlayerClearsWaypoints(t *testing.T) {
-	s, clicker, target, _ := newPlayerTriggerFixture(t)
+	s, clicker, target, _, _ := newPlayerTriggerFixture(t)
 
 	clicker.waypointIndex = 4
 	clicker.waypoints[4] = 0x0EADBEEF
