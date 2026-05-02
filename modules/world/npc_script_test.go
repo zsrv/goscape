@@ -796,11 +796,12 @@ func TestNpcTeleport_InPlaceFocusUsesSelfCenter(t *testing.T) {
 	}
 }
 
-// --- NAI-36 Task 7: Npc.Teleport partial parity (D1 + D2 only) ----------
+// --- NAI-36 Task 7 + NAI-65: Npc.Teleport parity status -----------------
 //
-// NPC closes only D1 (level clamp) and D2 (unallocated-zone reject).
-// D3 (focus), D4 (lastStepX/Z), D5-NPC (jump field absent on Npc) remain
-// residual per dead_api_polish.md — see DEVIATION block in npc_script.go.
+// Closed: D1 (level clamp), D2 (unallocated-zone reject) — NAI-36-T7.
+// Closed: D3-NPC (focus call) — NAI-65.
+// Residual: D4-NPC (no lastStepX/Z fields), D5-NPC (no jump field).
+// See DEVIATION block in npc_script.go for full tracker.
 
 // TestNpcTeleport_LevelClampNegative pins D1: level=-1 clamps to 0
 // per TS PathingEntity.ts:268-271.

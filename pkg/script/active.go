@@ -595,34 +595,26 @@ type ActiveNpc interface {
 	// (handlers_npc.go) after checkCoord validates and unpacks the packed
 	// coord.
 	//
-	// DEVIATION NAI-34-D3, D4 (both entities) and NAI-34-D5-NPC vs TS
-	// PathingEntity.teleport (PathingEntity.ts:267) — partial closure as
-	// of NAI-36-T7 (D1, D2 closed for both entities; D5 closed for Player).
+	// DEVIATION NAI-34 vs TS PathingEntity.teleport — closure status:
 	//
-	// RESIDUAL (active deviations):
-	//   - D3-Player + D3-NPC: no focus() call (PathingEntity.ts:286).
-	//     Player has FaceCoord (player_masks.go:45) and Npc has both
-	//     focus() (npc_interaction.go:686) and FaceCoord (npc_masks.go:120),
-	//     so neither side is dead-API gated; closure was deferred to a
-	//     future "pathing-entity-focus-and-step-tracking" sub-spec because
-	//     fine-coord conversion + instant-flag semantics need design.
-	//   - D4-Player + D4-NPC: no lastStepX/Z adjust (PathingEntity.ts:289-290).
-	//     Player has lastStepX/Z fields (player.go:79) but Npc does NOT;
-	//     adding to Npc is dead-API per dead_api_polish.md until an NPC-side
-	//     stride-tracking consumer materializes. Player-side closure
-	//     deferred to the same future sub-spec for consistency.
-	//   - D5-NPC: no `previousLevel != level → moveSpeed=INSTANT + jump=true`
-	//     branch on Npc. Npc has no jump field; dead-API foot-gun. Player
-	//     half closes in NAI-36-T7. Tracked for the same future sub-spec.
+	// CLOSED:
+	//   - D1 (level clamp [0, 3]) — NAI-36-T7, both entities.
+	//   - D2 (unallocated-zone reject) — NAI-36-T7, both entities.
+	//   - D5-Player (level-change INSTANT/jump branch) — NAI-36-T7.
+	//   - Player.Teleport order divergence (refresh-then-flag) — NAI-36-T7.
+	//   - D3-Player + D3-NPC (focus call) — NAI-65.
+	//   - D4-Player (lastStepX = x-1; lastStepZ = z) — NAI-65.
 	//
-	// CLOSED in NAI-36-T7:
-	//   - D1 (level clamp [0, 3]) — both entities.
-	//   - D2 (unallocated-zone reject) — both entities.
-	//   - D5-Player (level-change INSTANT/jump branch).
-	//   - Player.Teleport order divergence (refresh-then-flag).
+	// RESIDUAL:
+	//   - D4-NPC: no lastStepX/Z fields on Npc; dead-API until an NPC
+	//     stride-tracking consumer ports.
+	//   - D5-NPC: no jump field on Npc; rsbuf upstream parity blocks
+	//     until an npcinfo encoder branch ports.
+	//
+	// Tracked under "pathing-entity-reorient-and-stride-tracking"
+	// sub-spec (also bundles NAI-41-D-PLAYER-NO-LOCOBJ-TARGETXZ).
 	//
 	// See (n *Npc).Teleport doc comment in modules/world/npc_script.go
-	// for the matching world-side tracker.
 	Teleport(x, z, level int)
 
 	// QueueWaypoint clears any existing path and sets a single destination

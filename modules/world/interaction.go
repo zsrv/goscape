@@ -92,9 +92,9 @@ func (p *Player) SetInteraction(kind InteractionKind, target entity, op, com int
 		// DEVIATION NAI-41-D-PLAYER-NO-LOCOBJ-TARGETXZ: TS L542-545 sets
 		// targetX = CoordGrid.fine(target.x, target.width) and targetZ
 		// analogously for *Loc/*Obj targets. Player has no targetX/Z
-		// fields and no consumer reads them; deferred to the focus/
-		// step-tracking sub-spec that closes NAI-34-D3 (which already
-		// touches Player fine-coord infra).
+		// consumer at HEAD (the only TS reader is reorient(), unported).
+		// Deferred to the future
+		// "pathing-entity-reorient-and-stride-tracking" sub-spec.
 	}
 }
 

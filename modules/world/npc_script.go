@@ -94,38 +94,34 @@ func (n *Npc) SetNpcVarN(id int, val int32) {
 // AI teleport sites — wanderMode home-tele (npc_interaction.go ~:95)
 // and patrolMode waypoint-tele (~:121).
 //
-// DEVIATION NAI-34-D3, D4 (both entities) and NAI-34-D5-NPC vs TS
-// PathingEntity.teleport (PathingEntity.ts:267) — partial closure as of
-// NAI-36-T7:
+// DEVIATION NAI-34 vs TS PathingEntity.teleport — closure status:
 //
-// CLOSED in NAI-36-T7:
-//   - D1 (level clamp to [0, 3]) — closed for both Npc.Teleport and
-//     Player.Teleport.
-//   - D2 (unallocated-zone reject via IsZoneAllocated) — closed for both
-//     entities.
-//   - D5-Player (level-change → moveSpeed=INSTANT + jump=true) — closed
-//     for Player only; Npc lacks jump field.
+// CLOSED:
+//   - D1 (level clamp to [0, 3]) — NAI-36-T7, both entities.
+//   - D2 (unallocated-zone reject via IsZoneAllocated) — NAI-36-T7,
+//     both entities.
+//   - D5-Player (level-change → moveSpeed=INSTANT + jump=true) —
+//     NAI-36-T7.
+//   - D3-Player + D3-NPC (focus call from PathingEntity.ts:286-289) —
+//     NAI-65, both entities.
+//   - D4-Player (lastStepX = x-1; lastStepZ = z from
+//     PathingEntity.ts:291-292) — NAI-65.
 //
-// RESIDUAL (active deviations, both entities):
-//   - D3-Player + D3-NPC: no focus() call (PathingEntity.ts:286).
-//     Player has FaceCoord at player_masks.go:45; Npc has focus() at
-//     npc_interaction.go:686 AND FaceCoord at npc_masks.go:120.
-//     Neither side is dead-API gated, but closure was deferred because
-//     fine-coord conversion + instant-flag semantics need cross-entity
-//     design. Tracked for future "pathing-entity-focus-and-step-tracking"
-//     sub-spec.
-//   - D4-Player + D4-NPC: no lastStepX/Z adjust (PathingEntity.ts:289-290).
-//     Player has lastStepX/Z fields (player.go:79); Npc does NOT. Adding
-//     to Npc is dead-API per dead_api_polish.md until a consumer
-//     materializes; Player-side closure deferred for symmetry. Tracked
-//     for the same future sub-spec.
-//   - D5-NPC: no `previousLevel != level → INSTANT + jump=true` branch
-//     on Npc. Npc has no jump field; dead-API foot-gun. (D5-Player closed
-//     in NAI-36-T7.) Tracked for the same future sub-spec.
+// RESIDUAL:
+//   - D4-NPC: no lastStepX/Z fields on Npc. Adding is dead-API per
+//     dead_api_polish.md until an NPC stride-tracking consumer ports.
+//     Blocked on: NPC stride-tracking consumer (e.g. NPC_LASTSTEP-style
+//     opcode or AI movement code that reads stride state).
+//   - D5-NPC: no jump field on Npc; pkg/rsbuf/npc.go:15-33 Npc struct
+//     has no Jump field either, mirroring upstream Rust npc.rs:3-29.
+//     Blocked on: rsbuf.Npc.Jump field + npcinfo encoder branch
+//     (would diverge from upstream rsbuf parity).
 //
-// Body order (refresh, then tele = true) matches TS
-// PathingEntity.ts:290-293; Player.Teleport's order was aligned to
-// match in NAI-36-T7.
+// Both residual items are tracked for the future
+// "pathing-entity-reorient-and-stride-tracking" sub-spec.
+//
+// Body order (focus, refresh, tele=true) matches TS
+// PathingEntity.ts:286-293.
 func (n *Npc) Teleport(x, z, level int) {
 	// D1: clamp level to [0, 3] per PathingEntity.ts:268-271.
 	if level < 0 {
