@@ -1376,9 +1376,17 @@ func TestSetInteractionObjEngineWritesFaceSquareAndMask(t *testing.T) {
 	}
 }
 
-// TestProcessInteractionTailAutoClearsWithoutNextTarget pins the negative
-// case — tail's else-if branch fires when nextTarget is nil and the
-// pre-fix interacted+!apRangeCalled state is met.
+// TestProcessInteractionTailAutoClearsWithoutNextTarget pins the tail's
+// else-if branch (interacted && !apRangeCalled && nextTarget==nil → ClearInteraction)
+// as the sole clearing agent.
+//
+// Path exercised:
+//   tryInteract (NPC adjacent, targetOp=1) → fireOpTriggerNpc executes the
+//   registered [opnpc1, typeID=0] noop script to Finished; the script does NOT
+//   call p_op_npc, so p.target stays nil during execution and p.nextTarget is
+//   set to nil at the capture step (p.nextTarget = p.target = nil); then
+//   fireOpTriggerNpc restores p.target = savedTarget (= npc); interacted=true,
+//   nextTarget=nil, apRangeCalled=false → tail else-if calls ClearInteraction.
 //
 // NAI-68 B1 dual-pin.
 func TestProcessInteractionTailAutoClearsWithoutNextTarget(t *testing.T) {
@@ -1387,18 +1395,23 @@ func TestProcessInteractionTailAutoClearsWithoutNextTarget(t *testing.T) {
 	defer wait()
 
 	// npcA is adjacent (3201, 3200) so tryInteract fires the OP path.
-	// With p.targetOp=-1 (default), fireOpTriggerNpc does an early-return
-	// ClearInteraction (apNpcTriggerForOp returns ok=false). The local
-	// interacted=true, nextTarget=nil → tail's else-if auto-clears.
+	// typeID=0 matches makeInteractionNpc's default NpcType.ID.
 	npcA := makeInteractionNpc(t, s, 1, 3201, 3200, 0)
 
-	p.target = npcA
+	// Register a noop [opnpc1, typeID=0] script so fireOpTriggerNpc reaches
+	// the script-execution path (not the early-return ClearInteraction path).
+	// The noop script completes without calling p_op_npc, so p.nextTarget
+	// remains nil after the capture step.
+	s.scriptProvider.Register(newNoopScriptFile(t, script.TriggerOpNpc1, 0, -1))
+
+	// SetInteraction with targetOp=1 so apNpcTriggerForOp(1) returns ok=true.
+	p.SetInteraction(InteractionEngine, npcA, 1, -1)
 	p.nextTarget = nil
 
 	p.processInteraction()
 
 	if p.target != nil {
-		t.Errorf("p.target after tail: got %v, want nil (else-if auto-clear)", p.target)
+		t.Errorf("p.target after tail: got %v, want nil (tail else-if sole clearer)", p.target)
 	}
 }
 
