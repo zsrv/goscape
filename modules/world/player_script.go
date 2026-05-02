@@ -792,6 +792,14 @@ func (p *Player) StopAction() {
 	p.ClearPendingAction()
 }
 
+// RequestLogout implements script.ActivePlayer.RequestLogout. Flags the
+// player for tick-loop logout processing; processLogouts (tick.go) tears
+// the session down at the next boundary. Mirrors TS PlayerOps.ts:622-624
+// (P_LOGOUT) — `state.activePlayer.requestLogout = true`.
+func (p *Player) RequestLogout() {
+	p.requestLogout = true
+}
+
 // ClearPendingAction implements script.ActivePlayer.ClearPendingAction.
 // Resets interaction kind/target/op to idle and closes any open modal.
 // Walk queue is preserved.

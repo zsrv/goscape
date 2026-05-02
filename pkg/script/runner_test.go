@@ -185,6 +185,7 @@ type mockPlayer struct {
 	// S5h: action-clear capture counters.
 	stopActionCalls         int
 	clearPendingActionCalls int
+	requestLogoutCalls      int
 
 	// S5i capture fields
 	lastSetTimer struct {
@@ -464,6 +465,7 @@ func (m *mockPlayer) SendCountDialog() { m.sendCountDialogCalls++ }
 
 func (m *mockPlayer) StopAction()         { m.stopActionCalls++ }
 func (m *mockPlayer) ClearPendingAction() { m.clearPendingActionCalls++ }
+func (m *mockPlayer) RequestLogout()      { m.requestLogoutCalls++ }
 
 // S5i: timer ops.
 

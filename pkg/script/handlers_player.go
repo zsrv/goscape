@@ -672,6 +672,17 @@ func handlePClearPendingAction(s *ScriptState) error {
 	return nil
 }
 
+// handlePLogout (P_LOGOUT, opcode 2075) flags the active player for
+// logout processing. The tick loop's processLogouts pass tears the
+// session down at the next boundary. Mirrors TS PlayerOps.ts:622-624.
+func handlePLogout(s *ScriptState) error {
+	if err := requireProtectedActivePlayer(s, "P_LOGOUT"); err != nil {
+		return err
+	}
+	s.Self.RequestLogout()
+	return nil
+}
+
 // handlePApRange pops the approach range (in tiles) and sets it on
 // the active player along with apRangeCalled=true. Called from APLOC
 // trigger scripts to extend the approach-distance at which the trigger

@@ -230,6 +230,13 @@ type ActivePlayer interface {
 
 	// S5h: action-clear ops.
 
+	// RequestLogout flags the player for tick-loop logout processing.
+	// Mirrors TS PlayerOps.ts:622-624 (P_LOGOUT) which sets
+	// activePlayer.requestLogout = true. The processLogouts loop
+	// (modules/world/tick.go) consumes the flag and tears the session
+	// down at the next tick boundary.
+	RequestLogout()
+
 	// StopAction clears the current interaction target + pending action.
 	// Matches TS Player.stopAction().
 	StopAction()
