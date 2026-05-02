@@ -612,14 +612,16 @@ type ActiveNpc interface {
 	//   - D3-Player + D3-NPC (focus call) — NAI-65.
 	//   - D4-Player (lastStepX = x-1; lastStepZ = z) — NAI-65.
 	//
-	// RESIDUAL:
-	//   - D4-NPC: no lastStepX/Z fields on Npc; dead-API until an NPC
-	//     stride-tracking consumer ports.
-	//   - D5-NPC: no jump field on Npc; rsbuf upstream parity blocks
-	//     until an npcinfo encoder branch ports.
+	// RESIDUAL (permanent dead-API skips per NAI-66):
+	//   - D4-NPC: no lastStepX/Z fields on Npc; TS itself has no
+	//     NPC reader, so adding fields would be dead-API. Closure
+	//     requires upstream-TS NPC consumer.
+	//   - D5-NPC: no jump field on Npc; TS NPC encoders don't read
+	//     it, and rsbuf upstream parity confirms (Rust npc.rs has no
+	//     jump field). Closure requires upstream-TS NPC encoder
+	//     consumer.
 	//
-	// Tracked under "pathing-entity-reorient-and-stride-tracking"
-	// sub-spec (also bundles NAI-41-D-PLAYER-NO-LOCOBJ-TARGETXZ).
+	// NAI-41-D-PLAYER-NO-LOCOBJ-TARGETXZ closed in NAI-66.
 	//
 	// See (n *Npc).Teleport doc comment in modules/world/npc_script.go
 	Teleport(x, z, level int)

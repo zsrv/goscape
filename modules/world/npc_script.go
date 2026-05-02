@@ -107,18 +107,21 @@ func (n *Npc) SetNpcVarN(id int, val int32) {
 //   - D4-Player (lastStepX = x-1; lastStepZ = z from
 //     PathingEntity.ts:291-292) — NAI-65.
 //
-// RESIDUAL:
-//   - D4-NPC: no lastStepX/Z fields on Npc. Adding is dead-API per
-//     dead_api_polish.md until an NPC stride-tracking consumer ports.
-//     Blocked on: NPC stride-tracking consumer (e.g. NPC_LASTSTEP-style
-//     opcode or AI movement code that reads stride state).
-//   - D5-NPC: no jump field on Npc; pkg/rsbuf/npc.go:15-33 Npc struct
-//     has no Jump field either, mirroring upstream Rust npc.rs:3-29.
-//     Blocked on: rsbuf.Npc.Jump field + npcinfo encoder branch
-//     (would diverge from upstream rsbuf parity).
+// RESIDUAL (permanent dead-API skips per NAI-66):
+//   - D4-NPC: no lastStepX/Z fields on Npc. TS PathingEntity sets
+//     these on Npc via inheritance, but no TS reader consumes them
+//     on NPC instances (Player.ts:1201-1202 is the only TS reader,
+//     scoped to Player only). Closure: requires upstream-TS NPC
+//     consumer to materialise — until then, dead-API per
+//     dead_api_polish.md.
+//   - D5-NPC: no jump field on Npc. TS PathingEntity sets npc.jump
+//     on level-change, but no TS NPC encoder reads it; Rust upstream
+//     rsbuf::Npc (2004scape/rsbuf branch 225, src/npc.rs:3-29) has
+//     no jump field either. Closure: requires upstream-TS NPC
+//     encoder consumer to materialise.
 //
-// Both residual items are tracked for the future
-// "pathing-entity-reorient-and-stride-tracking" sub-spec.
+// Both residuals are documented permanent dead-API skips, not
+// blocked-on-future-work items.
 //
 // Body order (focus, refresh, tele=true) matches TS
 // PathingEntity.ts:286-293.
