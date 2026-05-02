@@ -84,7 +84,18 @@ func fireOpTriggerPlayer(p *Player, srv *Server, target *Player) {
 // fireApTriggerPlayer fires the [applayer<op>,_] trigger at approach
 // distance. On no-script-found: sets p.apRange = -1 to skip re-lookup
 // next tick (matches fireApTriggerLoc behaviour at S6r). Self2 binding
-// is the same as fireOpTriggerPlayer.
+// is the same as fireOpTriggerPlayer (NAI-39): Self=target, Self2=p.
+//
+// Same-tick AP retry NOT active for AP-Player. Per TS Player.ts:1151,
+// `ScriptRunner.init(apTrigger, this, target)` runs with this=clicker
+// uniformly, so TS sees the clicker's apRangeCalled flag in the
+// L1163-1167 guard. Goscape's NAI-39 producer reverses the binding
+// (Self=target), so handlePApRange (pkg/script/handlers_player.go:695
+// → s.Self.SetApRange) mutates target.apRangeCalled, leaving
+// clicker.apRangeCalled=false. The NAI-69 T1 guard at
+// interaction.go:336 reads clicker.apRangeCalled, so AP-Player skips
+// the same-tick retry path. AP-Loc/AP-Obj/AP-Npc match TS (Self=p).
+// Tracked deviation: NAI-69-D-APPLAYER-SELF2-REVERSED-NO-SAMETICK-RETRY.
 func fireApTriggerPlayer(p *Player, srv *Server, target *Player) {
 	if p.delayed && srv.currentTick < p.delayedUntil {
 		return
@@ -108,9 +119,10 @@ func fireApTriggerPlayer(p *Player, srv *Server, target *Player) {
 	// TS L1141 — apRangeCalled pre-reset.
 	p.apRangeCalled = false
 
-	// TS Player.ts:1145-1162 AP save/clear/exec/capture/restore. NAI-68.
-	// AP-Player has no apRangeCalled persistence (uses runScript which
-	// hides state.Execution; same NPC-class semantic).
+	// TS Player.ts:1145-1162 AP save/clear/exec/capture/restore. NAI-68
+	// framework. AP-Player same-tick retry is structurally inert under
+	// the current Self=target binding — see header for full divergence
+	// narrative (NAI-69-D-APPLAYER-SELF2-REVERSED-NO-SAMETICK-RETRY).
 	savedTarget := p.target
 	savedWP := p.waypoints
 	savedIdx := p.waypointIndex

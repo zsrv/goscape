@@ -294,3 +294,120 @@ func TestFireApTriggerPlayerRestoresTargetAndWaypoints(t *testing.T) {
 		t.Error("interactionFired: want true after AP-Player fire")
 	}
 }
+
+// --- NAI-69 T3 (reframed): AP-Player Self2-reversed binding pin ---
+
+// TestFireApTriggerPlayer_ApRangeCalled_BindsToTargetNotClicker pins
+// the preexisting NAI-39 Self/Self2 binding divergence: APPLAYER scripts
+// run with state.Self = target (the clicked player), state.Self2 = p
+// (the clicker). When the script calls p_aprange, handlePApRange
+// (pkg/script/handlers_player.go:695) invokes s.Self.SetApRange(n) — so
+// target.apRange and target.apRangeCalled are mutated, NOT the clicker's.
+//
+// Consequence: the NAI-69 T1 same-tick retry guard
+// `if p.nextTarget == nil && p.apRangeCalled` checks p (clicker) but
+// clicker.apRangeCalled is never set via APPLAYER scripts. AP-Player
+// is a structural no-op for same-tick retry until the NAI-39 binding
+// is reworked (tracked: NAI-69-D-APPLAYER-SELF2-REVERSED-NO-SAMETICK-RETRY).
+//
+// TS Player.ts:1151 has ScriptRunner.init(apTrigger, this, target) where
+// `this` is the clicker uniformly across AP-Loc/Obj/Npc/Player — so TS
+// AP-Player's apRangeCalled IS the clicker's. AP-Loc/AP-Obj/AP-Npc match
+// TS in goscape (Self=p); AP-Player is the goscape-specific reversal.
+func TestFireApTriggerPlayer_ApRangeCalled_BindsToTargetNotClicker(t *testing.T) {
+	s, clicker, target, _ := newPlayerTriggerFixture(t)
+
+	// Register an APPLAYER1 script that calls p_aprange(2).
+	s.scriptProvider.Register(&script.ScriptFile{
+		Name:      "[applayer1,_]_aprange",
+		LookupKey: script.LookupKeyForGlobal(script.TriggerApPlayer1),
+		Opcodes: []script.Opcode{
+			script.OpPushConstantInt,
+			script.OpPApRange,
+			script.OpReturn,
+		},
+		IntOperands:      []int32{2, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	})
+
+	s.players[target.slot] = target
+	s.players[clicker.slot] = clicker
+
+	fireApTriggerPlayer(clicker, s, target)
+
+	// Uniform-exit contract from NAI-69 T1+T2 (works for AP-Player too):
+	if !clicker.interactionFired {
+		t.Error("clicker.interactionFired: got false, want true (NAI-69: fire helper uniform exit)")
+	}
+	if clicker.target != target {
+		t.Errorf("clicker.target: got %v, want target (restored after fire)", clicker.target)
+	}
+
+	// Self2-reversed-binding pin: p_aprange routed to target.SetApRange,
+	// NOT clicker.SetApRange. Tracked: NAI-69-D-APPLAYER-SELF2-REVERSED-NO-SAMETICK-RETRY.
+	if clicker.apRangeCalled {
+		t.Error("clicker.apRangeCalled: got true, want false (script ran on Self=target, not clicker)")
+	}
+	if clicker.apRange != 10 {
+		t.Errorf("clicker.apRange: got %d, want 10 (default unchanged — script mutated target's apRange)", clicker.apRange)
+	}
+	if !target.apRangeCalled {
+		t.Error("target.apRangeCalled: got false, want true (Self=target; SetApRange ran on target)")
+	}
+	if target.apRange != 2 {
+		t.Errorf("target.apRange: got %d, want 2 (script set new range on Self=target)", target.apRange)
+	}
+}
+
+// TestTryInteract_ApPlayer_NoSameTickRetry_DueToReversedSelf — end-to-end
+// pin: tryInteract returns true (guard not tripped) because clicker's
+// apRangeCalled stays false. Confirms the NAI-69 T1 guard is structurally
+// inert for AP-Player under the current NAI-39 Self/Self2 binding. When
+// NAI-69-D-APPLAYER-SELF2-REVERSED-NO-SAMETICK-RETRY is closed, this
+// test should be inverted to pin the activated retry path.
+func TestTryInteract_ApPlayer_NoSameTickRetry_DueToReversedSelf(t *testing.T) {
+	s, clicker, target, _ := newPlayerTriggerFixture(t)
+
+	// Register the p_aprange(2) script.
+	s.scriptProvider.Register(&script.ScriptFile{
+		Name:      "[applayer1,_]_aprange",
+		LookupKey: script.LookupKeyForGlobal(script.TriggerApPlayer1),
+		Opcodes: []script.Opcode{
+			script.OpPushConstantInt,
+			script.OpPApRange,
+			script.OpReturn,
+		},
+		IntOperands:      []int32{2, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	})
+
+	s.players[target.slot] = target
+	s.players[clicker.slot] = clicker
+
+	// Place clicker within AP range (5 tiles) but outside operable range (>1).
+	// Default apRange=10; 5 tiles satisfies inApproachDistance but not
+	// inOperableDistance — AP arm is taken, not OP arm.
+	clicker.x = 3094
+	clicker.z = 3106
+	target.x = 3094
+	target.z = 3111 // 5 tiles away on z-axis
+
+	result := clicker.tryInteract(false)
+
+	// Guard does NOT trigger: clicker.apRangeCalled stays false because
+	// p_aprange ran on Self=target.
+	if !result {
+		t.Error("tryInteract: got false, want true (NAI-69 T1 guard inert for AP-Player; clicker.apRangeCalled=false)")
+	}
+	if !clicker.interactionFired {
+		t.Error("clicker.interactionFired: got false, want true (uniform-exit preserved; no reset because guard didn't fire)")
+	}
+	if clicker.apRangeCalled {
+		t.Error("clicker.apRangeCalled: got true, want false (Self=target divergence)")
+	}
+	if !target.apRangeCalled {
+		t.Error("target.apRangeCalled: got false, want true (script ran on Self=target)")
+	}
+}
