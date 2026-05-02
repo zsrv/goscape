@@ -3,6 +3,7 @@ package world
 import (
 	"testing"
 
+	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 )
@@ -146,5 +147,39 @@ func TestProcessInfo_PassesRealLastAppearance(t *testing.T) {
 	}
 	if rp.LastAppearance != 42 {
 		t.Errorf("LastAppearance: got %d, want 42", rp.LastAppearance)
+	}
+}
+
+// TestProcessInfoInvokesReorient pins NAI-66's per-tick wire-up: a
+// player with a *Loc target and cached targetX/Z + stepsTaken == 0
+// must have targetX/Z cleared and faceAngleX/Z written by the time
+// processInfo's rsbuf compute pass runs. This pins both ordering
+// (reorient runs before ComputePlayers) and the per-tick invocation.
+func TestProcessInfoInvokesReorient(t *testing.T) {
+	s := newTestServer(t)
+	p, wait := makeInteractionPlayer(t, s, 100, 100, 0)
+	defer wait()
+	// Register in playerLoop so processInfo iterates p.
+	s.playerLoop = append(s.playerLoop, p)
+
+	loc := entitypkg.NewLoc(0, 105, 108, 1, 1, entitypkg.LifecycleForever, 0, 10, 0)
+	p.target = loc
+	p.targetX = 999
+	p.targetZ = 1001
+	p.stepsTaken = 0
+
+	s.processInfo()
+
+	if p.targetX != -1 {
+		t.Errorf("targetX: got %d, want -1 (reorient must clear)", p.targetX)
+	}
+	if p.targetZ != -1 {
+		t.Errorf("targetZ: got %d, want -1 (reorient must clear)", p.targetZ)
+	}
+	if p.faceAngleX != 999 {
+		t.Errorf("faceAngleX: got %d, want 999 (reorient must focus)", p.faceAngleX)
+	}
+	if p.faceAngleZ != 1001 {
+		t.Errorf("faceAngleZ: got %d, want 1001 (reorient must focus)", p.faceAngleZ)
 	}
 }

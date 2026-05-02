@@ -332,6 +332,13 @@ func (s *Server) processInfo() {
 	copy(players, s.playerLoop)
 	s.playersMu.RUnlock()
 
+	// NAI-66: TS World.ts:995 — per-tick refocus before rsbuf compute.
+	// Refocuses on a moved PathingEntity target or clears the cached
+	// Loc/Obj targetX/Z when the player took zero steps this tick.
+	for _, p := range players {
+		p.reorient()
+	}
+
 	// Regenerate appearance buffer for any player whose MaskAppearance is set
 	// (set on login, and when equipment changes). Without this pass, the client
 	// allocates a zero-length appearance buffer and throws
@@ -349,6 +356,11 @@ func (s *Server) processInfo() {
 		sources[i] = p
 	}
 	s.renderer.ComputePlayers(sources)
+
+	// NAI-66: TS World.ts:1046 — npc-side per-tick refocus.
+	for _, n := range s.npcLoop {
+		n.reorient()
+	}
 
 	npcSources := make([]rsbuf.NpcSource, len(s.npcLoop))
 	for i, n := range s.npcLoop {
