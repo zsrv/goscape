@@ -123,3 +123,42 @@ func TestFireApTriggerObj_ApRangeCalled_SetsInteractionFiredTrue(t *testing.T) {
 		t.Errorf("target: got %v, want obj (restored after fire)", p.target)
 	}
 }
+
+// --- NAI-69 T4: AP-Npc structural parity (no-op) pin ---
+
+// TestFireApTriggerNpc_ApRangeCalled_SetsInteractionFiredTrueStructural
+// pins the post-NAI-69 contract for AP-Npc: the fire helper sets
+// interactionFired=true at exit and apRangeCalled is set by p_aprange
+// (mechanism activates structurally) — but the next tryInteract call
+// would re-evaluate using effectiveApRange = npc.typ.AttackRange
+// (fixed per-type, not p.apRange), so the retry path is a behavioral
+// no-op for NPC targets. This preserves the preexisting goscape
+// divergence at interaction.go:404 (effectiveApRange).
+func TestFireApTriggerNpc_ApRangeCalled_SetsInteractionFiredTrueStructural(t *testing.T) {
+	s, p, npc := newApTriggerNpcFixture(t)
+
+	// Register an APNPC1 script for npc.typeId that calls p_aprange(2).
+	sf := scriptFileWithApRangeCall(t, script.TriggerApNpc1, npc.typeId, 2)
+	s.scriptProvider.Register(sf)
+
+	fireApTriggerNpc(p, s, npc)
+
+	// Mechanism activates structurally:
+	if !p.interactionFired {
+		t.Error("interactionFired: got false, want true (NAI-69: uniform exit)")
+	}
+	if !p.apRangeCalled {
+		t.Error("apRangeCalled: got false, want true (script called p_aprange)")
+	}
+	if p.apRange != 2 {
+		t.Errorf("apRange: got %d, want 2 (script set new range — but effectiveApRange reads npc.typ.AttackRange for NPC targets)", p.apRange)
+	}
+
+	// effectiveApRange divergence pin: for NPC targets, the retry
+	// decision uses npc.typ.AttackRange, NOT p.apRange. Verify the
+	// in-range check still uses the NPC's AttackRange.
+	if effectiveApRange(p) != int(npc.typ.AttackRange) {
+		t.Errorf("effectiveApRange: got %d, want %d (NPC AttackRange, not p.apRange — preexisting divergence)",
+			effectiveApRange(p), npc.typ.AttackRange)
+	}
+}
