@@ -417,3 +417,101 @@ func TestTryInteract_ApPlayer_SameTickRetryActivates(t *testing.T) {
 		t.Errorf("clicker.target: got %v, want target (NAI-68 restore; guard preserves)", clicker.target)
 	}
 }
+
+// TestApTriggerPlayer_SameTickRetry_FullCycle pins the TS Player.ts:1163-1167
+// guard interaction with a simulated walk for AP-Player (NAI-70 + NAI-69
+// closure). Two consecutive tryInteract calls represent processInteraction's
+// pre-step + post-step retry windows:
+//
+//   - Pre-step (call 1): clicker at distance 5, default apRange=10. AP arm
+//     taken; p_aprange(2) fires under the realigned Self=clicker binding,
+//     setting clicker.apRange=2 and clicker.apRangeCalled=true. Guard
+//     fires (nextTarget==nil && apRangeCalled), reset interactionFired,
+//     return false.
+//   - Walk: clicker steps 1 tile closer; new distance is 4. Caller resets
+//     clicker.interacted to mirror the post-step state where the prior
+//     interaction reservation has cleared.
+//   - Post-step (call 2): apRange now 2, distance 4 → inApproachDistance
+//     returns false (4>2); inOperableDistance also false (Chebyshev>1).
+//     Neither arm fires; tryInteract returns false. State carries over
+//     from call 1: apRangeCalled stays true, interactionFired stays false,
+//     clicker.target stays preserved.
+//
+// Twin of NAI-69's TestApTriggerLoc_SameTickRetry_RangeLowered for the
+// AP-Player path. The walk-driven script-set-range geometry would tighten
+// the AP envelope below the post-walk distance — the test pins that
+// neither fire path activates and that pinned-state from call 1 is not
+// disturbed.
+func TestApTriggerPlayer_SameTickRetry_FullCycle(t *testing.T) {
+	s, clicker, target, _, _ := newPlayerTriggerFixture(t)
+
+	// Same APPLAYER1 p_aprange(2) script as T3.
+	s.scriptProvider.Register(&script.ScriptFile{
+		Name:      "[applayer1,_]_aprange",
+		LookupKey: script.LookupKeyForGlobal(script.TriggerApPlayer1),
+		Opcodes: []script.Opcode{
+			script.OpPushConstantInt,
+			script.OpPApRange,
+			script.OpReturn,
+		},
+		IntOperands:      []int32{2, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	})
+
+	s.players[target.slot] = target
+	s.players[clicker.slot] = clicker
+
+	clicker.x = 3094
+	clicker.z = 3106
+	target.x = 3094
+	target.z = 3111 // 5 tiles z-axis (within default apRange=10, outside 2)
+
+	// Pre-step retry: AP fires + guard fires.
+	result1 := clicker.tryInteract(false)
+	if result1 {
+		t.Fatal("first tryInteract: got true, want false (AP fire + guard fires)")
+	}
+	if !clicker.apRangeCalled {
+		t.Fatal("after first fire: clicker.apRangeCalled false, want true (Self=clicker; p_aprange ran)")
+	}
+	if clicker.interactionFired {
+		t.Fatal("after first fire: clicker.interactionFired true, want false (guard reset)")
+	}
+	if clicker.apRange != 2 {
+		t.Fatalf("after first fire: clicker.apRange=%d, want 2 (script-set)", clicker.apRange)
+	}
+
+	// Simulate processInteraction's walk-arm: move clicker 1 tile closer.
+	// New distance: 4 tiles, still outside the script-tightened apRange=2 →
+	// AP arm NOT re-taken on call 2.
+	clicker.z = 3107
+
+	// Post-step retry. processInteraction would call tryInteract(false)
+	// again with the !interacted guard inverted (interacted was set to
+	// true by the first call); reset interacted to mirror the post-step
+	// state where the first fire's interaction reservation has cleared.
+	clicker.interacted = false
+
+	result2 := clicker.tryInteract(false)
+
+	// Geometry: distance=4, apRange=2 → inApproachDistance false; OP
+	// requires Chebyshev≤1 → also false. No fire path runs on call 2.
+	if result2 {
+		t.Error("second tryInteract: got true, want false (no fire path; distance 4 exceeds new apRange 2 and OP Chebyshev>1)")
+	}
+	// State preservation pin (no call-2 mutations): apRangeCalled stays
+	// true (set in call 1, not reset since no fire ran), interactionFired
+	// stays false (reset by call-1 guard, not touched by call 2).
+	if !clicker.apRangeCalled {
+		t.Error("after walk + call 2: clicker.apRangeCalled false, want true (carried from call 1; no fire on call 2)")
+	}
+	if clicker.interactionFired {
+		t.Error("after walk + call 2: clicker.interactionFired true, want false (call-1 guard reset persists; no fire on call 2)")
+	}
+	// NAI-68 restore from call 1 still holds; call 2 took neither arm so
+	// no further save/restore happened.
+	if clicker.target != target {
+		t.Errorf("clicker.target: got %v, want target (NAI-68 restore from call 1 preserved)", clicker.target)
+	}
+}
