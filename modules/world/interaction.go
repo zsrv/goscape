@@ -65,7 +65,7 @@ func sendUnsetMapFlag(p *Player) {
 //   - Npc/Player target (any kind): instant=false — faceAngle written only.
 //   - Loc/Obj target + InteractionEngine: instant=true — faceAngle + faceSquare
 //     written, MaskFaceCoord ORed. Mirrors (*Npc).SetInteraction at
-//     modules/world/npc_interaction.go:660-665.
+//     modules/world/npc_interaction.go:657-666.
 //   - Loc/Obj target + InteractionScript: instant=false — faceAngle only.
 func (p *Player) SetInteraction(kind InteractionKind, target entity, op, com int) {
 	p.target = target
@@ -89,7 +89,7 @@ func (p *Player) SetInteraction(kind InteractionKind, target entity, op, com int
 	// instant=true ⇔ NonPathingEntity (Loc/Obj) clicked via the engine
 	// (kind == InteractionEngine). Any other combination passes
 	// instant=false: faceAngle still written, but faceSquare/mask are
-	// not. Mirrors (*Npc).SetInteraction at modules/world/npc_interaction.go:660-665.
+	// not. Mirrors (*Npc).SetInteraction at modules/world/npc_interaction.go:657-666.
 	tx, tz, _ := target.Coords()
 	tw, tl := targetWidthLength(target)
 	fx := coordgrid.Fine(tx, tw)
