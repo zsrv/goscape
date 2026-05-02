@@ -2,6 +2,7 @@ package world
 
 import (
 	"github.com/zsrv/goscape/pkg/coordgrid"
+	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 )
 
@@ -58,6 +59,14 @@ func sendUnsetMapFlag(p *Player) {
 // NAI-40-D-PLAYER-NO-FACEENTITY-ON-OPCLICK and the pre-existing
 // *Player→*Npc contact-time-write divergence by moving the faceEntity
 // write here from processInteraction's contact branch.
+//
+// TS PathingEntity.ts:528 — focus() is called on every SetInteraction with
+// the target's fine coord. The four (kind × target-shape) wire-write cases:
+//   - Npc/Player target (any kind): instant=false — faceAngle written only.
+//   - Loc/Obj target + InteractionEngine: instant=true — faceAngle + faceSquare
+//     written, MaskFaceCoord ORed. Mirrors (*Npc).SetInteraction at
+//     modules/world/npc_interaction.go:660-665.
+//   - Loc/Obj target + InteractionScript: instant=false — faceAngle only.
 func (p *Player) SetInteraction(kind InteractionKind, target entity, op, com int) {
 	p.target = target
 	p.targetOp = op
@@ -76,6 +85,22 @@ func (p *Player) SetInteraction(kind InteractionKind, target entity, op, com int
 	p.repathed = false
 	p.interactionFired = false
 
+	// TS PathingEntity.ts:528 — focus on the target's fine coord.
+	// instant=true ⇔ NonPathingEntity (Loc/Obj) clicked via the engine
+	// (kind == InteractionEngine). Any other combination passes
+	// instant=false: faceAngle still written, but faceSquare/mask are
+	// not. Mirrors (*Npc).SetInteraction at modules/world/npc_interaction.go:660-665.
+	tx, tz, _ := target.Coords()
+	tw, tl := targetWidthLength(target)
+	fx := coordgrid.Fine(tx, tw)
+	fz := coordgrid.Fine(tz, tl)
+	isNonPathing := false
+	switch target.(type) {
+	case *entitypkg.Loc, *entitypkg.Obj:
+		isNonPathing = true
+	}
+	p.focus(fx, fz, isNonPathing && kind == InteractionEngine)
+
 	switch t := target.(type) {
 	case *Player:
 		slot := t.slot + 32768
@@ -93,10 +118,8 @@ func (p *Player) SetInteraction(kind InteractionKind, target entity, op, com int
 		// TS PathingEntity.ts:542-545. Closes
 		// NAI-41-D-PLAYER-NO-LOCOBJ-TARGETXZ in NAI-66 (consumer is
 		// (*Player).reorient at modules/world/movement.go).
-		tx, tz, _ := t.Coords()
-		tw, tl := targetWidthLength(t)
-		p.targetX = coordgrid.Fine(tx, tw)
-		p.targetZ = coordgrid.Fine(tz, tl)
+		p.targetX = fx
+		p.targetZ = fz
 	}
 }
 
