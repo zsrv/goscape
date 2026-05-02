@@ -295,15 +295,11 @@ func (p *Player) encodeOut() {
 
 	if modalChanged {
 		if p.refreshModalClose {
+			// IF_CLOSE wire event. Per-listener UpdateInvStopTransmit
+			// packets were already written at CloseModal time via
+			// clearComListeners → invStopListenOnCom (NAI-64; TS
+			// Player.ts:728-739, 767, 778, 789).
 			p.writeOut(gameserver.OpIfClose, nil)
-			// Stop transmitting every currently-registered inv.
-			// Approximation: TS only stops listeners bound to the closing
-			// modal's components; we don't yet have a component-to-modal
-			// mapping, so clear all. Re-registered on next modal open.
-			for _, l := range p.invListeners {
-				sendUpdateInvStopTransmit(p, l.Com)
-			}
-			clear(p.invListeners) // Go 1.21+ map reset; keeps allocated buckets
 		}
 		p.refreshModalClose = false
 		p.lastModalMain = p.modalMain

@@ -628,13 +628,8 @@ func (p *Player) SetWalkTrigger(scriptID int) { p.walktrigger = scriptID }
 // a per-slot IF_CLOSE trigger script (Main → Chat → Side, TS order).
 //
 // Mirrors TS Player.closeModal (Player.ts:741-794). Body fully
-// landed across NAI-53 T1-T5.
-//
-// DEVIATION NAI-53-D-CLEARCOMLISTENERS-PER-SLOT: TS calls
-// clearComListeners(slotCom) per-slot, filtering invListeners by
-// Component.rootLayer. Goscape's encodeOut clears ALL invListeners
-// globally when refreshModalClose is set; per-slot rootLayer
-// filtering blocks on unported Component config registry.
+// landed across NAI-53 T1-T5; per-slot clearComListeners wired in
+// NAI-64 (TS Player.ts:728-739, 767, 778, 789).
 func (p *Player) CloseModal(clearWeakQueue bool) {
 	if clearWeakQueue {
 		p.clearWeakQueue()
@@ -661,14 +656,17 @@ func (p *Player) CloseModal(clearWeakQueue bool) {
 		s := p.client.server
 		if p.modalMain != -1 {
 			p.runIfCloseTrigger(s, p.modalMain)
+			p.clearComListeners(p.modalMain)
 			p.modalMain = -1
 		}
 		if p.modalChat != -1 {
 			p.runIfCloseTrigger(s, p.modalChat)
+			p.clearComListeners(p.modalChat)
 			p.modalChat = -1
 		}
 		if p.modalSide != -1 {
 			p.runIfCloseTrigger(s, p.modalSide)
+			p.clearComListeners(p.modalSide)
 			p.modalSide = -1
 		}
 	} else {

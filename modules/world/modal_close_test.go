@@ -4,12 +4,19 @@ import (
 	"testing"
 
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
+	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
 )
 
-func TestModalCloseEmitsStopTransmit(t *testing.T) {
+// TestEncodeOutOnRefreshModalCloseWritesIfCloseOnly pins that
+// encodeOut emits ONLY OpIfClose when refreshModalClose is set —
+// per-listener UpdateInvStopTransmit packets are now written at
+// CloseModal time via clearComListeners (NAI-64 atomic switchover).
+// Listener map is left intact; CloseModal owns the per-slot removals.
+func TestEncodeOutOnRefreshModalCloseWritesIfCloseOnly(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	// Pre-load invListeners; encodeOut must NOT touch them.
 	p.invListeners = map[int]InventoryListener{
 		149: {Type: 93, Com: 149, Source: 2, FirstSeen: false},
 		150: {Type: 93, Com: 150, Source: -1, FirstSeen: false},
@@ -21,15 +28,12 @@ func TestModalCloseEmitsStopTransmit(t *testing.T) {
 	p.client.flushWrite()
 
 	got := <-received
-	// Expected wire:
-	//   1 byte IfClose (opcode, no payload)
-	//   + 2 * 3 bytes UpdateInvStopTransmit (1 opcode + 2 payload)
-	// Total = 1 + 6 = 7 bytes.
-	if len(got) != 7 {
-		t.Errorf("got %d bytes, want 7 (IfClose + 2× StopTransmit); bytes=%v", len(got), got)
+	// Wire: 1 byte OpIfClose (opcode, no payload). Nothing else.
+	if len(got) != 1 {
+		t.Errorf("got %d bytes, want 1 (IfClose only); bytes=%v", len(got), got)
 	}
-	if len(p.invListeners) != 0 {
-		t.Errorf("invListeners should be cleared; got %d", len(p.invListeners))
+	if len(p.invListeners) != 2 {
+		t.Errorf("invListeners must be untouched by encodeOut; got %d", len(p.invListeners))
 	}
 }
 
@@ -474,5 +478,77 @@ func TestCloseModalCombinedPauseButtonNullAndPerSlotDispatch(t *testing.T) {
 	}
 	if !p.refreshModalClose {
 		t.Errorf("refreshModalClose: got false, want true")
+	}
+}
+
+// TestCloseModalClearsOnlyListenersForClosingSlots pins TS
+// Player.ts:761-791: clearComListeners is called per slot with the
+// slot's modal id; only listeners whose Component.RootLayer matches a
+// closing slot are removed. Closes NAI-53-D-CLEARCOMLISTENERS-PER-SLOT.
+func TestCloseModalClearsOnlyListenersForClosingSlots(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	p, cc := newInvListenerTestPlayer(t, s, 1)
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 100}, // matches modalMain
+		250: {RootLayer: 200}, // matches modalSide
+		300: {RootLayer: 999}, // unrelated
+	})
+	p.invListenOnCom(93, 149, -1)
+	p.invListenOnCom(93, 250, -1)
+	p.invListenOnCom(93, 300, -1)
+	p.modalState = modalStateMain | modalStateSide
+	p.modalMain = 100
+	p.modalChat = -1
+	p.modalSide = 200
+
+	received := drainConn(t, cc)
+	p.CloseModal(true)
+	p.client.flushWrite()
+
+	got := <-received
+	// Two UpdateInvStopTransmit packets (149 + 250) = 6 bytes;
+	// IF_CLOSE wire packet is emitted later by encodeOut, not here.
+	if len(got) != 6 {
+		t.Errorf("packet bytes: got %d, want 6 (2× StopTransmit); bytes=%v", len(got), got)
+	}
+	if _, ok := p.invListeners[149]; ok {
+		t.Error("listener 149 (RootLayer 100 == modalMain) should be removed")
+	}
+	if _, ok := p.invListeners[250]; ok {
+		t.Error("listener 250 (RootLayer 200 == modalSide) should be removed")
+	}
+	if _, ok := p.invListeners[300]; !ok {
+		t.Error("listener 300 (RootLayer 999) should be retained")
+	}
+	if !p.refreshModalClose {
+		t.Error("CloseModal should set refreshModalClose=true")
+	}
+}
+
+// TestCloseModalNoListenersStillClosesAndWritesIfClose pins that
+// CloseModal with empty invListeners produces zero per-listener
+// packets but still flags refreshModalClose so the next encodeOut
+// writes OpIfClose.
+func TestCloseModalNoListenersStillClosesAndWritesIfClose(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	p, cc := newInvListenerTestPlayer(t, s, 1)
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		100: {RootLayer: 100},
+	})
+	p.modalState = modalStateMain
+	p.modalMain = 100
+	// invListeners deliberately left nil.
+
+	received := drainConn(t, cc)
+	p.CloseModal(true)
+	p.encodeOut()
+	p.client.flushWrite()
+
+	got := <-received
+	// Wire: 1 byte OpIfClose only.
+	if len(got) != 1 {
+		t.Errorf("got %d bytes, want 1 (IfClose only); bytes=%v", len(got), got)
 	}
 }
