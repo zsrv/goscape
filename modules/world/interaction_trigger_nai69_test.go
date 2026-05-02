@@ -1,0 +1,68 @@
+package world
+
+import (
+	"testing"
+
+	"github.com/zsrv/goscape/pkg/script"
+)
+
+// --- NAI-69 T1: tryInteract AP-branch same-tick retry pin ---
+
+// TestTryInteract_ApRangeCalled_ReturnsFalseAndResetsFired pins the new
+// TS L1163-1167 contract: when the AP script set apRangeCalled=true and
+// nextTarget is nil, tryInteract resets interactionFired=false and
+// returns false so processInteraction's walk-arm runs and the post-step
+// tryInteract can re-fire AP.
+//
+// NAI-69 closes NAI-68-D-AP-APRANGE-REVERT-NOT-PORTED.
+func TestTryInteract_ApRangeCalled_ReturnsFalseAndResetsFired(t *testing.T) {
+	s, p, loc, _ := makeApTriggerFixture(t)
+
+	// Register an APLOC1 script that calls p_aprange(2).
+	sf := scriptFileWithApRangeCall(t, script.TriggerApLoc1, loc.Type(), 2)
+	s.scriptProvider.Register(sf)
+
+	// Pre-state: in 10-range (apRange default), distance 5 (fixture
+	// invariant from makeApTriggerFixture).
+	result := p.tryInteract(false)
+
+	if result {
+		t.Error("tryInteract: got true, want false (TS L1167 — apRangeCalled triggers same-tick retry)")
+	}
+	if p.interactionFired {
+		t.Error("interactionFired: got true, want false (reset by tryInteract for post-step re-fire)")
+	}
+	if !p.apRangeCalled {
+		t.Error("apRangeCalled: got false, want true (script called p_aprange)")
+	}
+	if p.target != loc {
+		t.Errorf("target: got %v, want loc (preserved across AP fire)", p.target)
+	}
+	if p.nextTarget != nil {
+		t.Errorf("nextTarget: got %v, want nil (script did not call p_op_*)", p.nextTarget)
+	}
+}
+
+// TestTryInteract_NoApRange_StillReturnsTrue pins that the new guard
+// only triggers when apRangeCalled. A no-op AP script (no p_aprange)
+// keeps the pre-NAI-69 contract: returns true, interactionFired stays
+// true.
+func TestTryInteract_NoApRange_StillReturnsTrue(t *testing.T) {
+	s, p, loc, _ := makeApTriggerFixture(t)
+
+	// Register a no-op APLOC1 script.
+	sf := newNoopScriptFile(t, script.TriggerApLoc1, loc.Type(), -1)
+	s.scriptProvider.Register(sf)
+
+	result := p.tryInteract(false)
+
+	if !result {
+		t.Error("tryInteract: got false, want true (no apRangeCalled — original contract)")
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: got false, want true (no retry signal)")
+	}
+	if p.apRangeCalled {
+		t.Error("apRangeCalled: got true, want false (script did not call p_aprange)")
+	}
+}

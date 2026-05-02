@@ -326,6 +326,17 @@ func (p *Player) tryInteract(allowOpScenery bool) bool {
 		if !p.interactionFired {
 			tryFireApTrigger(p)
 		}
+		// TS L1163-1167: same-tick AP retry. When the AP script called
+		// p_aprange (sets apRangeCalled=true) and did NOT call p_op_*
+		// (nextTarget nil), reset the per-tick re-fire gate and return
+		// false so processInteraction's walk-arm runs and post-step
+		// tryInteract can re-fire AP with the new range. nextTarget
+		// priority mirrors TS L1158-1161 (nextTarget pop wins). Closes
+		// NAI-68-D-AP-APRANGE-REVERT-NOT-PORTED.
+		if p.nextTarget == nil && p.apRangeCalled {
+			p.interactionFired = false
+			return false
+		}
 		return true
 	}
 	return false
