@@ -52,8 +52,8 @@ func handleOpPlayer(p *Player, payload []byte, op int) error {
 	}
 
 	p.ClearPendingAction()
-	p.opcalled = true
 	p.SetInteraction(InteractionEngine, other, op, -1)
+	p.opcalled = true
 	return nil
 }
 
@@ -75,7 +75,7 @@ func handleOpPlayer4(p *Player, payload []byte) error { return handleOpPlayer(p,
 //  6. target not visible (rsbuf.HasPlayer == false) → UnsetMapFlag
 //
 // On success: ClearPendingAction → SetInteraction(Engine, other,
-// targetOpPlayerT, spellCom).
+// targetOpPlayerT, spellCom) → opcalled=true.
 func handleOpPlayerT(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
@@ -118,8 +118,8 @@ func handleOpPlayerT(p *Player, payload []byte) error {
 	}
 
 	p.ClearPendingAction()
-	p.opcalled = true
 	p.SetInteraction(InteractionEngine, other, targetOpPlayerT, spellCom)
+	p.opcalled = true
 	return nil
 }
 
@@ -143,7 +143,7 @@ func handleOpPlayerT(p *Player, payload []byte) error {
 // SetInteraction(Engine, other, targetOpPlayerU, useObj) (NAI-62: useObj
 // threaded for trigger-lookup override per TS OpPlayerUHandler.ts:77 +
 // Player.ts:993-995; useObj=0 canonicalised to com=-1 by SetInteraction
-// per TS PathingEntity.ts:520).
+// per TS PathingEntity.ts:520) → opcalled=true.
 func handleOpPlayerU(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
@@ -215,7 +215,7 @@ func handleOpPlayerU(p *Player, payload []byte) error {
 	p.lastUseItem = useObj
 	p.lastUseSlot = useSlot
 
-	p.opcalled = true
 	p.SetInteraction(InteractionEngine, other, targetOpPlayerU, useObj)
+	p.opcalled = true
 	return nil
 }

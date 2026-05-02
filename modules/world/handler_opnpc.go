@@ -73,8 +73,8 @@ func handleOpNpc(p *Player, payload []byte, op int) error {
 	}
 
 	p.ClearPendingAction()
-	p.opcalled = true
 	p.SetInteraction(InteractionEngine, npc, op, -1)
+	p.opcalled = true
 	return nil
 }
 
@@ -100,7 +100,7 @@ func handleOpNpc5(p *Player, payload []byte) error { return handleOpNpc(p, paylo
 //  9. NpcType nil → UnsetMapFlag  (goscape defensive; TS skips — type always valid when npc exists)
 //
 // On success: ClearPendingAction → SetInteraction(Engine, npc,
-// targetOpNpcT, spellCom).
+// targetOpNpcT, spellCom) → opcalled=true.
 func handleOpNpcT(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
@@ -154,8 +154,8 @@ func handleOpNpcT(p *Player, payload []byte) error {
 	}
 
 	p.ClearPendingAction()
-	p.opcalled = true
 	p.SetInteraction(InteractionEngine, npc, targetOpNpcT, spellCom)
+	p.opcalled = true
 	return nil
 }
 
@@ -177,7 +177,7 @@ func handleOpNpcT(p *Player, payload []byte) error {
 //  10. members-only item on free world → MessageGame + UnsetMapFlag
 //
 // On success: set p.lastUseItem=useObj, p.lastUseSlot=useSlot →
-// ClearPendingAction → SetInteraction(Engine, npc, targetOpNpcU, -1).
+// ClearPendingAction → SetInteraction(Engine, npc, targetOpNpcU, -1) → opcalled=true.
 func handleOpNpcU(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
@@ -260,7 +260,7 @@ func handleOpNpcU(p *Player, payload []byte) error {
 	p.lastUseItem = useObj
 	p.lastUseSlot = useSlot
 
-	p.opcalled = true
 	p.SetInteraction(InteractionEngine, npc, targetOpNpcU, -1)
+	p.opcalled = true
 	return nil
 }

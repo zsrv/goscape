@@ -17,8 +17,8 @@ import (
 //  6. ObjType not registered → UnsetMapFlag
 //  7. per-op gate: Op[op-1] == "" → UnsetMapFlag
 //
-// On success: ClearPendingAction → opcalled=true →
-// SetInteraction(Engine, obj, op, -1) → targetSubject snapshot.
+// On success: ClearPendingAction → SetInteraction(Engine, obj, op, -1)
+// → opcalled=true → targetSubject snapshot.
 func handleOpObj(p *Player, payload []byte, op int) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
@@ -74,8 +74,8 @@ func handleOpObj(p *Player, payload []byte, op int) error {
 	}
 
 	p.ClearPendingAction()
-	p.opcalled = true
 	p.SetInteraction(InteractionEngine, obj, op, -1)
+	p.opcalled = true
 	p.targetSubject.typ = obj.Type
 	p.targetSubject.x = obj.X
 	p.targetSubject.z = obj.Z
@@ -158,8 +158,8 @@ func handleOpObjT(p *Player, payload []byte) error {
 	}
 
 	p.ClearPendingAction()
-	p.opcalled = true
 	p.SetInteraction(InteractionEngine, obj, targetOpObjT, spellCom)
+	p.opcalled = true
 	p.targetSubject.typ = obj.Type
 	p.targetSubject.x = obj.X
 	p.targetSubject.z = obj.Z
@@ -185,7 +185,7 @@ func handleOpObjT(p *Player, payload []byte) error {
 //
 // On success: ClearPendingAction (after HasAt reject, before members check)
 // → set lastUseItem/Slot → SetInteraction(Engine, obj, targetOpObjU, -1) →
-// targetSubject snapshot.
+// opcalled=true → targetSubject snapshot.
 func handleOpObjU(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
@@ -272,8 +272,8 @@ func handleOpObjU(p *Player, payload []byte) error {
 	p.lastUseItem = useObj
 	p.lastUseSlot = useSlot
 
-	p.opcalled = true
 	p.SetInteraction(InteractionEngine, obj, targetOpObjU, -1)
+	p.opcalled = true
 	p.targetSubject.typ = obj.Type
 	p.targetSubject.x = obj.X
 	p.targetSubject.z = obj.Z

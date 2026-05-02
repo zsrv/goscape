@@ -20,8 +20,8 @@ import (
 // restored below, mirroring handler_opnpc.go:38-44 for consistency.
 //
 // On success: ClearPendingAction → SetInteraction(Engine, loc, op, -1) →
-// snapshot loc identity into p.targetSubject for tryFireOpTrigger's
-// lifecycle gate.
+// opcalled=true → snapshot loc identity into p.targetSubject for
+// tryFireOpTrigger's lifecycle gate.
 func handleOpLoc(p *Player, payload []byte, op int) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
@@ -86,8 +86,8 @@ func handleOpLoc(p *Player, payload []byte, op int) error {
 	}
 
 	p.ClearPendingAction()
-	p.opcalled = true
 	p.SetInteraction(InteractionEngine, loc, op, -1)
+	p.opcalled = true
 	p.targetSubject.typ = loc.Type()
 	p.targetSubject.x = loc.X
 	p.targetSubject.z = loc.Z
@@ -115,7 +115,7 @@ func handleOpLoc5(p *Player, payload []byte) error { return handleOpLoc(p, paylo
 //  7. LocType not registered → UnsetMapFlag  (goscape defensive; TS skips this check)
 //
 // On success: ClearPendingAction → SetInteraction(Engine, loc,
-// targetOpLocT, spellCom) → targetSubject snapshot.
+// targetOpLocT, spellCom) → opcalled=true → targetSubject snapshot.
 func handleOpLocT(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
@@ -173,8 +173,8 @@ func handleOpLocT(p *Player, payload []byte) error {
 	}
 
 	p.ClearPendingAction()
-	p.opcalled = true
 	p.SetInteraction(InteractionEngine, loc, targetOpLocT, spellCom)
+	p.opcalled = true
 	p.targetSubject.typ = loc.Type()
 	p.targetSubject.x = loc.X
 	p.targetSubject.z = loc.Z
@@ -201,7 +201,7 @@ func handleOpLocT(p *Player, payload []byte) error {
 //
 // On success: ClearPendingAction (after HasAt reject, before members check)
 // → set p.lastUseItem = useObj, p.lastUseSlot = useSlot →
-// SetInteraction(Engine, loc, targetOpLocU, -1) → targetSubject snapshot.
+// SetInteraction(Engine, loc, targetOpLocU, -1) → opcalled=true → targetSubject snapshot.
 func handleOpLocU(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
@@ -290,8 +290,8 @@ func handleOpLocU(p *Player, payload []byte) error {
 	p.lastUseItem = useObj
 	p.lastUseSlot = useSlot
 
-	p.opcalled = true
 	p.SetInteraction(InteractionEngine, loc, targetOpLocU, -1)
+	p.opcalled = true
 	p.targetSubject.typ = loc.Type()
 	p.targetSubject.x = loc.X
 	p.targetSubject.z = loc.Z
