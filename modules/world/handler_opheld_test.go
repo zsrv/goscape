@@ -1,8 +1,10 @@
 package world
 
 import (
+	"bytes"
 	"testing"
 
+	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
@@ -302,5 +304,154 @@ func TestHandleOpHeld_RootLayerMismatch_ClearsPending(t *testing.T) {
 
 	if p.target != nil {
 		t.Error("ClearPendingAction was NOT called but rootLayer mismatched modalMain (should clear)")
+	}
+}
+
+// opHeldTPayload encodes an 8-byte OPHELDT payload
+// (obj:G2 slot:G2 com:G2 spellCom:G2).
+func opHeldTPayload(obj, slot, com, spellCom int) []byte {
+	return []byte{
+		byte(obj >> 8), byte(obj),
+		byte(slot >> 8), byte(slot),
+		byte(com >> 8), byte(com),
+		byte(spellCom >> 8), byte(spellCom),
+	}
+}
+
+// setupOpHeldTServer extends setupOpHeldServer with a spell component
+// at id=200 that has ActionTarget&HELD set and is visible.
+func setupOpHeldTServer(t *testing.T) (*Server, *Player) {
+	t.Helper()
+	s, p := setupOpHeldServer(t)
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Operable: true, Usable: true},
+		200: {RootLayer: 200, ActionTarget: objtype.ComActionTargetHeld},
+	})
+	p.tabs[1] = 200 // spell tab visible
+	return s, p
+}
+
+func TestHandleOpHeldT_Delayed(t *testing.T) {
+	s, p := setupOpHeldTServer(t)
+	s.currentTick = 5
+	p.delayed = true
+	p.delayedUntil = 10
+	_ = handleOpHeldT(p, opHeldTPayload(555, 3, 149, 200))
+	if p.lastItem != -1 {
+		t.Errorf("lastItem: got %d, want -1 (delayed reject)", p.lastItem)
+	}
+}
+
+func TestHandleOpHeldT_ShortPayload(t *testing.T) {
+	_, p := setupOpHeldTServer(t)
+	_ = handleOpHeldT(p, []byte{0, 0, 0, 0, 0, 0, 0}) // 7 bytes
+	if p.lastItem != -1 {
+		t.Error("lastItem mutated on short payload")
+	}
+}
+
+// TS OpHeldTHandler.ts:21-23 — spellCom: nil or actionTarget&HELD == 0.
+func TestHandleOpHeldT_SpellComMissingHeldFlag(t *testing.T) {
+	s, p := setupOpHeldTServer(t)
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Operable: true, Usable: true},
+		200: {RootLayer: 200, ActionTarget: 0}, // HELD flag clear
+	})
+	p.tabs[1] = 200
+	_ = handleOpHeldT(p, opHeldTPayload(555, 3, 149, 200))
+	if p.lastItem != -1 {
+		t.Errorf("lastItem: got %d, want -1 (spellCom missing HELD flag)", p.lastItem)
+	}
+}
+
+// TS OpHeldTHandler.ts:30-32 — com: nil or !Usable.
+func TestHandleOpHeldT_ComNotUsable(t *testing.T) {
+	s, p := setupOpHeldTServer(t)
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Operable: true, Usable: false}, // Usable cleared
+		200: {RootLayer: 200, ActionTarget: objtype.ComActionTargetHeld},
+	})
+	p.tabs[1] = 200
+	_ = handleOpHeldT(p, opHeldTPayload(555, 3, 149, 200))
+	if p.lastItem != -1 {
+		t.Errorf("lastItem: got %d, want -1 (com not Usable)", p.lastItem)
+	}
+}
+
+// TestHandleOpHeldT_HappyPath pins the success path: state mutated,
+// ClearPendingAction unconditional, faceEntity=-1, mask emitted.
+// Mirrors TS OpHeldTHandler.ts:57-73.
+func TestHandleOpHeldT_HappyPath(t *testing.T) {
+	s, p := setupOpHeldTServer(t)
+	sf := &script.ScriptFile{
+		Name:             "[opheldt,200]",
+		LookupKey:        script.LookupKeyForType(script.TriggerOpHeldT, 200),
+		Opcodes:          []script.Opcode{script.OpReturn},
+		IntOperands:      []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+	}
+	s.scriptProvider.Register(sf)
+
+	p.faceEntity = 7
+	p.target = p // sentinel for unconditional ClearPendingAction
+	p.opcalled = true
+	p.masks = 0
+
+	_ = handleOpHeldT(p, opHeldTPayload(555, 3, 149, 200))
+
+	if p.lastItem != 555 {
+		t.Errorf("lastItem: got %d, want 555", p.lastItem)
+	}
+	if p.lastSlot != 3 {
+		t.Errorf("lastSlot: got %d, want 3", p.lastSlot)
+	}
+	if p.target != nil {
+		t.Error("ClearPendingAction must be unconditional in OPHELDT (target should be nil)")
+	}
+	if p.faceEntity != -1 {
+		t.Errorf("faceEntity: got %d, want -1", p.faceEntity)
+	}
+	if p.masks&p.entitymask == 0 {
+		t.Error("masks: entitymask bit not set")
+	}
+}
+
+// TestHandleOpHeldT_NoScript_NothingInteresting pins that when no
+// [opheldt,spellComId] script is registered, "Nothing interesting happens."
+// is sent to the client. Mirrors TS OpHeldTHandler.ts:71-73.
+func TestHandleOpHeldT_NoScript_NothingInteresting(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
+	s.invs = make(map[int]*inventory.Inventory)
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Items[3] = &inventory.Item{Id: 555, Count: 1}
+	s.invs[93] = inv
+	s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 600)}
+	s.objTypes.Configs[555] = &objtype.ObjType{
+		ConfigType: objtype.ConfigType{ID: 555},
+		IOp:        []string{"op1", "", "", "", ""},
+		Category:   -1,
+	}
+
+	p.client.server = s
+	p.invListenOnCom(93, 149, -1)
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Operable: true, Usable: true},
+		200: {RootLayer: 200, ActionTarget: objtype.ComActionTargetHeld},
+	})
+	p.tabs[0] = 149
+	p.tabs[1] = 200
+
+	received := drainConn(t, cc)
+	_ = handleOpHeldT(p, opHeldTPayload(555, 3, 149, 200))
+	p.client.flushWrite()
+	got := <-received
+	if !bytes.Contains(got, []byte("Nothing interesting happens.")) {
+		t.Errorf("want \"Nothing interesting happens.\" in drained bytes, got %x", got)
 	}
 }
