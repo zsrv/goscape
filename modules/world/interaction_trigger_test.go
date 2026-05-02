@@ -1175,7 +1175,6 @@ func TestFireOpTriggerObjOverridesTypeIdFromTargetSubjectCom(t *testing.T) {
 // Strategy parallels Task 2.4's apRange-preservation pin.
 func TestFireApTriggerObjOverridesTypeIdFromTargetSubjectCom(t *testing.T) {
 	s, p, obj, _ := makeApObjTriggerFixture(t)
-	_ = obj
 
 	const overrideTypeId = 7782
 	p.targetSubject.com = overrideTypeId
@@ -1186,7 +1185,8 @@ func TestFireApTriggerObjOverridesTypeIdFromTargetSubjectCom(t *testing.T) {
 	tryFireApTrigger(p)
 
 	if p.apRange == -1 {
-		t.Errorf("apRange: got -1 (no-script sentinel), want >0; override should have run override-keyed script for targetSubject.com=%d", overrideTypeId)
+		t.Errorf("apRange: got -1 (no-script sentinel), want >0; override should have run override-keyed script for targetSubject.com=%d (default obj.Type=%d)",
+			overrideTypeId, obj.Type)
 	}
 }
 

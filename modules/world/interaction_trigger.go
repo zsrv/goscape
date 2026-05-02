@@ -74,7 +74,7 @@ func fireOpTriggerNpc(p *Player, srv *Server, npc *Npc) {
 	}
 
 	// Reads p.targetSubject.com per TS Player.getOpTrigger:993-995 via
-	// resolveTriggerTypeId — spellCom / useObj override defaultTypeId when set.
+	// resolveTriggerTypeId — spellCom override defaultTypeId when set.
 	sf := srv.scriptProvider.GetByTrigger(trigger, resolveTriggerTypeId(p, npc.typeId), category)
 	if sf == nil {
 		p.ClearInteraction()
