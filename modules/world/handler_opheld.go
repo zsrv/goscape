@@ -194,3 +194,181 @@ func handleOpHeldT(p *Player, payload []byte) error {
 	s.runScript(sf, p, nil, true, nil, nil)
 	return nil
 }
+
+// handleOpHeldU is the handler for OPHELDU (opcode 130, 12-byte payload).
+// Item-on-held-item: player drags one inventory item onto another.
+// Wire format: obj:G2 | slot:G2 | com:G2 | useObj:G2 | useSlot:G2 | useCom:G2.
+//
+// Gates per TS OpHeldUHandler.ts:
+//  1. p.delayed → drop
+//  2. payload < 12 → drop
+//  3. comId != useComId → drop
+//  4. com: nil or !Usable → drop
+//  5. com: !IsComponentVisible → drop
+//  6. useCom: nil or !Usable → drop
+//  7. useCom: !IsComponentVisible → drop
+//  8. comId not in invListeners → drop
+//  9. listener's inventory unresolved → drop
+//  10. inv.HasAt(slot, obj) false → moveClickRequest=false +
+//      ClearPendingAction + drop (TS OpHeldUHandler.ts:54-58)
+//  11. useComId not in invListeners → drop
+//  12. useInv unresolved → drop
+//  13. useInv.HasAt(useSlot, useObj) false → moveClickRequest=false +
+//      ClearPendingAction + drop (TS OpHeldUHandler.ts:71-75)
+//
+// On pass: lastItem/lastSlot/lastUseItem/lastUseSlot snapshot →
+// ClearPendingAction (unconditional, contrast OPHELD1-5 conditional) →
+// faceEntity=-1 + emit entitymask → members-only gate: free world +
+// (objType.Members || useObjType.Members) ⇒ MessageGame "To use this
+// item please login..." + drop.
+//
+// Trigger fallback (4 arms; first hit wins):
+//
+//	(a) GetByTriggerSpecific(OPHELDU, objType.id, -1)    — no swap
+//	(b) GetByTriggerSpecific(OPHELDU, useObjType.id, -1) — on hit: SWAP
+//	                                                        (lastItem,lastUseItem)
+//	                                                        AND
+//	                                                        (lastSlot,lastUseSlot)
+//	(c) GetByTriggerSpecific(OPHELDU, -1, objType.Category)    — no swap
+//	                                                            (only if objType.Category != -1)
+//	(d) GetByTriggerSpecific(OPHELDU, -1, useObjType.Category) — on hit: SWAP
+//	                                                            (only if useObjType.Category != -1)
+//
+// On miss across all 4: MessageGame "Nothing interesting happens.".
+//
+// Note on TS labelling: TS calls (a)/(b) "[opheldu,b]/[opheldu,a]"
+// where 'b' = the inventory-listed (dragged-from) item and 'a' = the
+// dragged-onto target. Goscape's implementation is byte-identical; the
+// (a)/(b)/(c)/(d) labelling here is plan-local for clarity.
+func handleOpHeldU(p *Player, payload []byte) error {
+	if p.client == nil || p.client.server == nil {
+		return nil
+	}
+	s := p.client.server
+
+	if p.delayed && s.currentTick < p.delayedUntil {
+		return nil
+	}
+	if len(payload) < 12 {
+		return nil
+	}
+
+	r := packet.NewPacket(payload)
+	obj := int(r.G2())
+	slot := int(r.G2())
+	comId := int(r.G2())
+	useObj := int(r.G2())
+	useSlot := int(r.G2())
+	useComId := int(r.G2())
+
+	if comId != useComId {
+		return nil
+	}
+
+	com := s.lookupComponent(comId)
+	if com == nil || !com.Usable {
+		return nil
+	}
+	if !p.IsComponentVisible(com) {
+		return nil
+	}
+
+	useCom := s.lookupComponent(useComId)
+	if useCom == nil || !useCom.Usable {
+		return nil
+	}
+	if !p.IsComponentVisible(useCom) {
+		return nil
+	}
+
+	listener, ok := p.invListeners[comId]
+	if !ok {
+		return nil
+	}
+	inv := resolveListenerInv(s, listener)
+	if inv == nil {
+		return nil
+	}
+	if !inv.HasAt(slot, obj) {
+		// TS OpHeldUHandler.ts:54-58 — extra cleanup on this specific reject.
+		p.moveClickRequest = false
+		p.ClearPendingAction()
+		return nil
+	}
+
+	useListener, ok := p.invListeners[useComId]
+	if !ok {
+		return nil
+	}
+	useInv := resolveListenerInv(s, useListener)
+	if useInv == nil {
+		return nil
+	}
+	if !useInv.HasAt(useSlot, useObj) {
+		// TS OpHeldUHandler.ts:71-75.
+		p.moveClickRequest = false
+		p.ClearPendingAction()
+		return nil
+	}
+
+	// State snapshot BEFORE members gate (matches TS OpHeldUHandler.ts:78-81 ordering).
+	p.lastItem = obj
+	p.lastSlot = slot
+	p.lastUseItem = useObj
+	p.lastUseSlot = useSlot
+
+	// ObjType resolution for both objects (goscape defensive; TS throws here).
+	if s.objTypes == nil || obj < 0 || obj >= len(s.objTypes.Configs) || s.objTypes.Configs[obj] == nil {
+		return nil // goscape defensive; TS throws here
+	}
+	if useObj < 0 || useObj >= len(s.objTypes.Configs) || s.objTypes.Configs[useObj] == nil {
+		return nil // goscape defensive; TS throws here
+	}
+	objType := s.objTypes.Configs[obj]
+	useObjType := s.objTypes.Configs[useObj]
+
+	p.ClearPendingAction()
+	if p.faceEntity != -1 {
+		p.faceEntity = -1
+	}
+	p.masks |= p.entitymask
+
+	// Members-only gate (TS OpHeldUHandler.ts:90-93).
+	if (objType.Members || useObjType.Members) && !s.cfg.NodeMembers {
+		p.MessageGame("To use this item please login to a members' server.")
+		return nil
+	}
+
+	// 4-arm trigger fallback (TS OpHeldUHandler.ts:96-117); first hit wins.
+	sf := s.scriptProvider.GetByTriggerSpecific(script.TriggerOpHeldU, objType.ConfigType.ID, -1)
+
+	if sf == nil {
+		sf = s.scriptProvider.GetByTriggerSpecific(script.TriggerOpHeldU, useObjType.ConfigType.ID, -1)
+		if sf != nil {
+			// Arm (b) hit: swap both pairs (TS OpHeldUHandler.ts:101-102).
+			p.lastItem, p.lastUseItem = p.lastUseItem, p.lastItem
+			p.lastSlot, p.lastUseSlot = p.lastUseSlot, p.lastSlot
+		}
+	}
+
+	if sf == nil && objType.Category != -1 {
+		sf = s.scriptProvider.GetByTriggerSpecific(script.TriggerOpHeldU, -1, objType.Category)
+	}
+
+	if sf == nil && useObjType.Category != -1 {
+		sf = s.scriptProvider.GetByTriggerSpecific(script.TriggerOpHeldU, -1, useObjType.Category)
+		if sf != nil {
+			// Arm (d) hit: swap both pairs (TS OpHeldUHandler.ts:115-116).
+			p.lastItem, p.lastUseItem = p.lastUseItem, p.lastItem
+			p.lastSlot, p.lastUseSlot = p.lastUseSlot, p.lastSlot
+		}
+	}
+
+	if sf == nil {
+		p.MessageGame("Nothing interesting happens.")
+		return nil
+	}
+
+	s.runScript(sf, p, nil, true, nil, nil)
+	return nil
+}

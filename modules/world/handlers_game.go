@@ -63,7 +63,8 @@ func init() {
 	gameHandlers[133] = handleOpHeld3 // OPHELD3
 	gameHandlers[157] = handleOpHeld4 // OPHELD4
 	gameHandlers[211] = handleOpHeld5 // OPHELD5
-	gameHandlers[48] = handleOpHeldT  // OPHELDT
+	gameHandlers[48] = handleOpHeldT   // OPHELDT
+	gameHandlers[130] = handleOpHeldU // OPHELDU
 
 	gameHandlers[158] = handleMessagePublic // MESSAGE_PUBLIC
 

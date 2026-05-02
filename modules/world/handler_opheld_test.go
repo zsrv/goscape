@@ -455,3 +455,271 @@ func TestHandleOpHeldT_NoScript_NothingInteresting(t *testing.T) {
 		t.Errorf("want \"Nothing interesting happens.\" in drained bytes, got %x", got)
 	}
 }
+
+// opHeldUPayload encodes a 12-byte OPHELDU payload.
+// Wire format: obj:G2 | slot:G2 | com:G2 | useObj:G2 | useSlot:G2 | useCom:G2.
+func opHeldUPayload(obj, slot, com, useObj, useSlot, useCom int) []byte {
+	return []byte{
+		byte(obj >> 8), byte(obj),
+		byte(slot >> 8), byte(slot),
+		byte(com >> 8), byte(com),
+		byte(useObj >> 8), byte(useObj),
+		byte(useSlot >> 8), byte(useSlot),
+		byte(useCom >> 8), byte(useCom),
+	}
+}
+
+// setupOpHeldUServer extends setupOpHeldServer with a second item at
+// slot 5 (id=777) so item-on-item swaps can be pinned. Both 555 and 777
+// have Category=-1 so category-fallback arms are inactive by default.
+// The ObjType slice is grown to 800 to accommodate id=777.
+func setupOpHeldUServer(t *testing.T) (*Server, *Player) {
+	t.Helper()
+	s, p := setupOpHeldServer(t)
+	// Grow the configs slice so id=777 is in range.
+	grown := make([]*objtype.ObjType, 800)
+	copy(grown, s.objTypes.Configs)
+	s.objTypes.Configs = grown
+	s.invs[93].Items[5] = &inventory.Item{Id: 777, Count: 1}
+	s.objTypes.Configs[777] = &objtype.ObjType{
+		ConfigType: objtype.ConfigType{ID: 777, DebugName: "test_held2"},
+		IOp:        []string{"op1", "", "", "", ""},
+		Category:   -1,
+	}
+	return s, p
+}
+
+func TestHandleOpHeldU_Delayed(t *testing.T) {
+	s, p := setupOpHeldUServer(t)
+	s.currentTick = 5
+	p.delayed = true
+	p.delayedUntil = 10
+	_ = handleOpHeldU(p, opHeldUPayload(555, 3, 149, 777, 5, 149))
+	if p.lastItem != -1 {
+		t.Errorf("lastItem: got %d, want -1 (delayed)", p.lastItem)
+	}
+}
+
+func TestHandleOpHeldU_ShortPayload(t *testing.T) {
+	_, p := setupOpHeldUServer(t)
+	_ = handleOpHeldU(p, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}) // 11 bytes
+	if p.lastItem != -1 {
+		t.Error("lastItem mutated on short payload")
+	}
+}
+
+// TS OpHeldUHandler.ts:21-24 — comId !== useComId reject.
+// Goscape uses != since both are int.
+func TestHandleOpHeldU_ComMismatch(t *testing.T) {
+	_, p := setupOpHeldUServer(t)
+	_ = handleOpHeldU(p, opHeldUPayload(555, 3, 149, 777, 5, 200))
+	if p.lastItem != -1 {
+		t.Errorf("lastItem: got %d, want -1 (comId != useComId reject)", p.lastItem)
+	}
+}
+
+// Happy path arm (a): [opheldu,objType.id] hits — no swap.
+// TS OpHeldUHandler.ts:96-97 ("[opheldu,b]" in TS labelling but lookup
+// is on objType.id which is the dragged item).
+func TestHandleOpHeldU_ArmA_NoSwap(t *testing.T) {
+	s, p := setupOpHeldUServer(t)
+	sf := &script.ScriptFile{
+		Name:             "[opheldu,555]",
+		LookupKey:        script.LookupKeyForType(script.TriggerOpHeldU, 555),
+		Opcodes:          []script.Opcode{script.OpReturn},
+		IntOperands:      []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+	}
+	s.scriptProvider.Register(sf)
+
+	_ = handleOpHeldU(p, opHeldUPayload(555, 3, 149, 777, 5, 149))
+
+	if p.lastItem != 555 {
+		t.Errorf("lastItem (a): got %d, want 555 (no swap)", p.lastItem)
+	}
+	if p.lastSlot != 3 {
+		t.Errorf("lastSlot (a): got %d, want 3", p.lastSlot)
+	}
+	if p.lastUseItem != 777 {
+		t.Errorf("lastUseItem (a): got %d, want 777", p.lastUseItem)
+	}
+	if p.lastUseSlot != 5 {
+		t.Errorf("lastUseSlot (a): got %d, want 5", p.lastUseSlot)
+	}
+}
+
+// Arm (b): [opheldu,useObjType.id] hits when (a) misses — SWAP both pairs.
+// TS OpHeldUHandler.ts:99-103.
+func TestHandleOpHeldU_ArmB_SwapsItemAndSlot(t *testing.T) {
+	s, p := setupOpHeldUServer(t)
+	sf := &script.ScriptFile{
+		Name:             "[opheldu,777]",
+		LookupKey:        script.LookupKeyForType(script.TriggerOpHeldU, 777),
+		Opcodes:          []script.Opcode{script.OpReturn},
+		IntOperands:      []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+	}
+	s.scriptProvider.Register(sf)
+
+	_ = handleOpHeldU(p, opHeldUPayload(555, 3, 149, 777, 5, 149))
+
+	// Pre-swap: lastItem=555, lastSlot=3, lastUseItem=777, lastUseSlot=5
+	// Post-swap: lastItem=777, lastSlot=5, lastUseItem=555, lastUseSlot=3
+	if p.lastItem != 777 {
+		t.Errorf("lastItem (b): got %d, want 777 (swapped)", p.lastItem)
+	}
+	if p.lastSlot != 5 {
+		t.Errorf("lastSlot (b): got %d, want 5 (swapped)", p.lastSlot)
+	}
+	if p.lastUseItem != 555 {
+		t.Errorf("lastUseItem (b): got %d, want 555 (swapped)", p.lastUseItem)
+	}
+	if p.lastUseSlot != 3 {
+		t.Errorf("lastUseSlot (b): got %d, want 3 (swapped)", p.lastUseSlot)
+	}
+}
+
+// Arm (c): [opheldu,-1,objType.Category] hits — no swap.
+// objType.Category=100 activates the category-fallback arm (c).
+func TestHandleOpHeldU_ArmC_CategoryB_NoSwap(t *testing.T) {
+	s, p := setupOpHeldUServer(t)
+	s.objTypes.Configs[555].Category = 100 // category set so arm (c) is active
+	sf := &script.ScriptFile{
+		Name:             "[opheldu,_,100]",
+		LookupKey:        script.LookupKeyForCategory(script.TriggerOpHeldU, 100),
+		Opcodes:          []script.Opcode{script.OpReturn},
+		IntOperands:      []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+	}
+	s.scriptProvider.Register(sf)
+
+	_ = handleOpHeldU(p, opHeldUPayload(555, 3, 149, 777, 5, 149))
+
+	if p.lastItem != 555 {
+		t.Errorf("lastItem (c): got %d, want 555 (no swap)", p.lastItem)
+	}
+	if p.lastUseItem != 777 {
+		t.Errorf("lastUseItem (c): got %d, want 777", p.lastUseItem)
+	}
+}
+
+// Arm (d): [opheldu,-1,useObjType.Category] hits — SWAPS both pairs.
+// useObjType.Category=200 activates arm (d).
+func TestHandleOpHeldU_ArmD_CategoryA_Swaps(t *testing.T) {
+	s, p := setupOpHeldUServer(t)
+	s.objTypes.Configs[777].Category = 200
+	sf := &script.ScriptFile{
+		Name:             "[opheldu,_,200]",
+		LookupKey:        script.LookupKeyForCategory(script.TriggerOpHeldU, 200),
+		Opcodes:          []script.Opcode{script.OpReturn},
+		IntOperands:      []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+	}
+	s.scriptProvider.Register(sf)
+
+	_ = handleOpHeldU(p, opHeldUPayload(555, 3, 149, 777, 5, 149))
+
+	if p.lastItem != 777 {
+		t.Errorf("lastItem (d): got %d, want 777 (swapped)", p.lastItem)
+	}
+	if p.lastSlot != 5 {
+		t.Errorf("lastSlot (d): got %d, want 5 (swapped)", p.lastSlot)
+	}
+	if p.lastUseItem != 555 {
+		t.Errorf("lastUseItem (d): got %d, want 555 (swapped)", p.lastUseItem)
+	}
+	if p.lastUseSlot != 3 {
+		t.Errorf("lastUseSlot (d): got %d, want 3 (swapped)", p.lastUseSlot)
+	}
+}
+
+// TestHandleOpHeldU_AllMiss_NothingInteresting pins that when all four
+// trigger arms miss, "Nothing interesting happens." is sent to the client.
+func TestHandleOpHeldU_AllMiss_NothingInteresting(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
+	s.invs = make(map[int]*inventory.Inventory)
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Items[3] = &inventory.Item{Id: 555, Count: 1}
+	inv.Items[5] = &inventory.Item{Id: 777, Count: 1}
+	s.invs[93] = inv
+	s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 800)}
+	s.objTypes.Configs[555] = &objtype.ObjType{
+		ConfigType: objtype.ConfigType{ID: 555},
+		IOp:        []string{"op1", "", "", "", ""},
+		Category:   -1,
+	}
+	s.objTypes.Configs[777] = &objtype.ObjType{
+		ConfigType: objtype.ConfigType{ID: 777},
+		IOp:        []string{"op1", "", "", "", ""},
+		Category:   -1,
+	}
+
+	p.client.server = s
+	p.invListenOnCom(93, 149, -1)
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Operable: true, Usable: true},
+	})
+	p.tabs[0] = 149
+
+	received := drainConn(t, cc)
+	_ = handleOpHeldU(p, opHeldUPayload(555, 3, 149, 777, 5, 149))
+	p.client.flushWrite()
+	got := <-received
+	if !bytes.Contains(got, []byte("Nothing interesting happens.")) {
+		t.Errorf("want \"Nothing interesting happens.\" in drained bytes, got %x", got)
+	}
+}
+
+// TestHandleOpHeldU_MembersOnFreeWorld_Rejects pins that members-only items
+// on a free world send the members message. Per TS OpHeldUHandler.ts:90-93,
+// state is mutated BEFORE the members check (TS:78-81 ordering).
+func TestHandleOpHeldU_MembersOnFreeWorld_Rejects(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
+	s.cfg.NodeMembers = false
+	s.invs = make(map[int]*inventory.Inventory)
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Items[3] = &inventory.Item{Id: 555, Count: 1}
+	inv.Items[5] = &inventory.Item{Id: 777, Count: 1}
+	s.invs[93] = inv
+	s.objTypes = &objtype.ObjTypeConfigs{Configs: make([]*objtype.ObjType, 800)}
+	s.objTypes.Configs[555] = &objtype.ObjType{
+		ConfigType: objtype.ConfigType{ID: 555},
+		IOp:        []string{"op1", "", "", "", ""},
+		Category:   -1,
+		Members:    true, // triggers members gate
+	}
+	s.objTypes.Configs[777] = &objtype.ObjType{
+		ConfigType: objtype.ConfigType{ID: 777},
+		IOp:        []string{"op1", "", "", "", ""},
+		Category:   -1,
+	}
+
+	p.client.server = s
+	p.invListenOnCom(93, 149, -1)
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Operable: true, Usable: true},
+	})
+	p.tabs[0] = 149
+
+	received := drainConn(t, cc)
+	_ = handleOpHeldU(p, opHeldUPayload(555, 3, 149, 777, 5, 149))
+	p.client.flushWrite()
+	got := <-received
+	if !bytes.Contains(got, []byte("To use this item please login to a members' server.")) {
+		t.Errorf("want members-message in drained bytes, got %x", got)
+	}
+	// Per TS: state set pre-members-check (TS:78-81); lastItem must equal obj=555.
+	if p.lastItem != 555 {
+		t.Errorf("lastItem: got %d, want 555 (TS sets state pre-members-check)", p.lastItem)
+	}
+}
