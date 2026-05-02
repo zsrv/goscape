@@ -91,7 +91,7 @@ func newPlayerTriggerFixture(t *testing.T) (s *Server, clicker, target *Player, 
 // state.Self2.Slot()) and observing the resulting HINT_ARROW packet on the
 // CLICKER's wire proves:
 //   - srv.runScript routed `target` (clicked player) into
-//     buildPlayerScriptState's case-ActivePlayer arm at script.go:54-59,
+//     buildPlayerScriptState's case-ActivePlayer arm at script.go:55-59,
 //     which set state.Self2 = target and OR-d in PtrActivePlayer2.
 //   - state.Self = clicker (`p`), since HintPlayer is dispatched on
 //     state.Self's *Player and the wire packet lands on clicker's conn.
