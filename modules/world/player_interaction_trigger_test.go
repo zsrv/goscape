@@ -58,9 +58,10 @@ func buildOpPlayerHintPlScript(trigger script.ServerTriggerType) *script.ScriptF
 	}
 }
 
-// newPlayerTriggerFixture sets up two players: clicker (slot=1, no
-// drainable conn) and target (slot=2, real net.Conn so we can observe
-// outbound HINT_ARROW packets via drainConn). The clicker's
+// newPlayerTriggerFixture sets up two players: clicker (slot=1, real
+// net.Conn with ISAAC seed {5,6,7,8}) and target (slot=2, real net.Conn
+// with ISAAC seed {1,2,3,4}). Distinct seeds let wire-byte assertions
+// pin which side a packet was emitted on. The clicker's
 // targetOp/targetSubject/target are anchored at op=1 → Player; the
 // fixture leaves it to the caller to register any [opplayer1,_] script.
 func newPlayerTriggerFixture(t *testing.T) (s *Server, clicker, target *Player, clickerConn, targetConn net.Conn) {
