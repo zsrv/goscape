@@ -279,7 +279,7 @@ func NewJagfile(src *packet.Packet) (*Jagfile, error) {
 		jf.Unpacked = false
 	} else {
 		var err error
-		jf.Data, err = BZip2Decompress(src.Data, int(unpackedSize), true, false)
+		jf.Data, err = BZip2Decompress(src.Data[src.Pos:], int(unpackedSize), true, false)
 		if err != nil {
 			return nil, err
 		}

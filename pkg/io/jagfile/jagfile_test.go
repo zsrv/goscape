@@ -65,6 +65,38 @@ func Test_genHash(t *testing.T) {
 	}
 }
 
+// TestNewJagfile_BZip2Path exercises the unpackedSize != packedSize branch
+// (whole-jagfile bzip2). Mirrors TS Jagfile constructor's
+// `BZip2.decompress(src.data.subarray(6), unpackedSize, true)` — must skip
+// the 6-byte size header before handing bytes to the bzip2 decoder.
+func TestNewJagfile_BZip2Path(t *testing.T) {
+	body := packet.NewPacket(make([]byte, 0, 19))
+	body.P2(1)                        // FileCount
+	body.P4(-1502153170 & 0xFFFFFFFF) // hitmarks.dat hash
+	body.P3(1)                        // FileUnpackedSize[0]
+	body.P3(1)                        // FilePackedSize[0]
+	body.P1(255)                      // file payload
+
+	compressed, err := BZip2Compress(body.Data, false, true, 1, 0)
+	if err != nil {
+		t.Fatalf("BZip2Compress: %v", err)
+	}
+
+	src := packet.NewPacket(make([]byte, 0, 6+len(compressed)))
+	src.P3(uint32(len(body.Data)))
+	src.P3(uint32(len(compressed)))
+	src.Data = append(src.Data, compressed...)
+	src.Pos = 0
+
+	jf, err := NewJagfile(src)
+	if err != nil {
+		t.Fatalf("NewJagfile (bzip2 path): %v", err)
+	}
+	if jf.FileCount != 1 || jf.FileName[0] != "hitmarks.dat" {
+		t.Fatalf("decoded jagfile mismatch: count=%d name=%q", jf.FileCount, jf.FileName[0])
+	}
+}
+
 func TestJagfileCreation(t *testing.T) {
 	jf, err := MakeTestJagfile()
 	if err != nil {
