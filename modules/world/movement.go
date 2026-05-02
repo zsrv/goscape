@@ -142,6 +142,31 @@ func (p *Player) pathToMoveClick(packed []int, needsFinding bool) {
 	}
 }
 
+// reorient is the per-tick refocus invoked from Server.processInfo
+// before rsbuf compute. Mirrors TS PathingEntity.reorient at
+// Engine-TS/src/engine/entity/PathingEntity.ts:349-361.
+//
+// PathingEntity targets (Player/Npc) are refocused on the target's
+// current position (target may have moved this tick). Non-pathing
+// targets (Loc/Obj) trigger one-shot focus + clear of the cached
+// fine-coord (targetX/Z) iff the player took zero steps this tick —
+// semantically "the entity moved off while we were trying to reach it."
+func (p *Player) reorient() {
+	switch t := p.target.(type) {
+	case *Player:
+		p.focus(coordgrid.Fine(t.x, 1), coordgrid.Fine(t.z, 1), false)
+	case *Npc:
+		p.focus(coordgrid.Fine(t.x, 1), coordgrid.Fine(t.z, 1), false)
+	default:
+		_ = t
+		if p.targetX != -1 && p.stepsTaken == 0 {
+			p.focus(p.targetX, p.targetZ, false)
+			p.targetX = -1
+			p.targetZ = -1
+		}
+	}
+}
+
 // routeToPacked converts a pathfinder.Route into packed coord ints.
 func routeToPacked(route routefinder.Route) []int {
 	if !route.Success || len(route.Waypoints) == 0 {
