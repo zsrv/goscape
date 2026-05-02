@@ -51,8 +51,10 @@ func TestTryFireOpTrigger_HappyPath(t *testing.T) {
 	if string(npc.sayText) != "hello" {
 		t.Errorf("sayText: got %q, want %q", npc.sayText, "hello")
 	}
-	if p.target != nil {
-		t.Error("target: expected cleared after Finished")
+	// NAI-68: target restored to originalTarget (not nil); processInteraction
+	// tail's else-if handles clear after contact-fire.
+	if p.target != npc {
+		t.Errorf("target: got %v, want npc (restored after OP fire — NAI-68)", p.target)
 	}
 	if !p.interactionFired {
 		t.Error("interactionFired: expected true after dispatch")
@@ -322,7 +324,8 @@ func TestTryFireOpTriggerLocNoScript(t *testing.T) {
 }
 
 // TestTryFireOpTriggerLocScriptFires verifies a registered [oploc1,<typeID>]
-// script fires, ActiveLoc is set, and ClearInteraction runs after Finished.
+// script fires, ActiveLoc is set, and target is restored after Finished.
+// NAI-68: Finished/Aborted ClearInteraction dropped; target preserved.
 func TestTryFireOpTriggerLocScriptFires(t *testing.T) {
 	s, p, loc, _ := makeOpLocTriggerFixture(t)
 
@@ -332,8 +335,12 @@ func TestTryFireOpTriggerLocScriptFires(t *testing.T) {
 
 	tryFireOpTrigger(p)
 
-	if p.target != nil {
-		t.Errorf("target: got %v, want nil after Finished", p.target)
+	// NAI-68: target restored to originalTarget; processInteraction tail clears.
+	if p.target != loc {
+		t.Errorf("target: got %v, want loc (restored after Finished — NAI-68)", p.target)
+	}
+	if p.nextTarget != nil {
+		t.Errorf("nextTarget: got %v, want nil (noop script set no nextTarget)", p.nextTarget)
 	}
 	if !p.interactionFired {
 		t.Error("interactionFired: want true after script fire")
@@ -651,8 +658,9 @@ func TestFireOpTriggerLocFiresOpLocTTrigger(t *testing.T) {
 
 	tryFireOpTrigger(p)
 
-	if p.target != nil {
-		t.Errorf("target: got %v, want nil after Finished clear", p.target)
+	// NAI-68: target restored to loc (not nil); tail clears on next tick.
+	if p.target != loc {
+		t.Errorf("target: got %v, want loc (restored after OPLOCT fire — NAI-68)", p.target)
 	}
 	if !p.interactionFired {
 		t.Error("interactionFired: want true after OPLOCT fire")
@@ -674,8 +682,9 @@ func TestFireOpTriggerLocFiresOpLocUTrigger(t *testing.T) {
 
 	tryFireOpTrigger(p)
 
-	if p.target != nil {
-		t.Errorf("target: got %v, want nil after Finished clear", p.target)
+	// NAI-68: target restored to loc (not nil); tail clears on next tick.
+	if p.target != loc {
+		t.Errorf("target: got %v, want loc (restored after OPLOCU fire — NAI-68)", p.target)
 	}
 	if !p.interactionFired {
 		t.Error("interactionFired: want true after OPLOCU fire")
@@ -896,8 +905,9 @@ func TestFireOpTriggerNpcFiresOpNpcTTrigger(t *testing.T) {
 
 	tryFireOpTrigger(p)
 
-	if p.target != nil {
-		t.Errorf("target: got %v, want nil after Finished clear", p.target)
+	// NAI-68: target restored to npc (not nil); tail clears on next tick.
+	if p.target != npc {
+		t.Errorf("target: got %v, want npc (restored after OPNPCT fire — NAI-68)", p.target)
 	}
 	if !p.interactionFired {
 		t.Error("interactionFired: want true after OPNPCT fire")
@@ -919,8 +929,9 @@ func TestFireOpTriggerNpcFiresOpNpcUTrigger(t *testing.T) {
 
 	tryFireOpTrigger(p)
 
-	if p.target != nil {
-		t.Errorf("target: got %v, want nil after Finished clear", p.target)
+	// NAI-68: target restored to npc (not nil); tail clears on next tick.
+	if p.target != npc {
+		t.Errorf("target: got %v, want npc (restored after OPNPCU fire — NAI-68)", p.target)
 	}
 	if !p.interactionFired {
 		t.Error("interactionFired: want true after OPNPCU fire")
@@ -1090,8 +1101,9 @@ func TestFireOpTriggerLocOverridesTypeIdFromTargetSubjectCom(t *testing.T) {
 		t.Errorf("drained bytes: contained \"Nothing interesting happens.\" — override should have run override-keyed script for targetSubject.com=%d (default loc.Type()=%d), got %x",
 			overrideTypeId, loc.Type(), got)
 	}
-	if p.target != nil {
-		t.Errorf("target: got %v, want nil after Finished clear", p.target)
+	// NAI-68: target restored to loc (not nil); tail clears on next tick.
+	if p.target != loc {
+		t.Errorf("target: got %v, want loc (restored after override Finished — NAI-68)", p.target)
 	}
 	if !p.interactionFired {
 		t.Error("interactionFired: want true after override fire")
@@ -1163,8 +1175,9 @@ func TestFireOpTriggerObjOverridesTypeIdFromTargetSubjectCom(t *testing.T) {
 		t.Errorf("drained bytes: contained \"Nothing interesting happens.\" — override should have run override-keyed script for targetSubject.com=%d (default obj.Type=%d), got %x",
 			overrideTypeId, obj.Type, got)
 	}
-	if p.target != nil {
-		t.Errorf("target: got %v, want nil after Finished clear", p.target)
+	// NAI-68: target restored to obj (not nil); tail clears on next tick.
+	if p.target != obj {
+		t.Errorf("target: got %v, want obj (restored after override Finished — NAI-68)", p.target)
 	}
 	if !p.interactionFired {
 		t.Error("interactionFired: want true after override fire")

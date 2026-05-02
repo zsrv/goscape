@@ -604,7 +604,8 @@ func TestTryFireOpTriggerObjNoScript(t *testing.T) {
 }
 
 // TestTryFireOpTriggerObjScriptFires verifies a registered [opobj1,<typeID>]
-// script fires, and ClearInteraction runs after Finished.
+// script fires, and target is restored after Finished. NAI-68: dropped
+// Finished/Aborted ClearInteraction — target preserved until tail clears.
 func TestTryFireOpTriggerObjScriptFires(t *testing.T) {
 	s, p, obj, _ := makeOpObjTriggerFixture(t)
 
@@ -613,8 +614,9 @@ func TestTryFireOpTriggerObjScriptFires(t *testing.T) {
 
 	tryFireOpTrigger(p)
 
-	if p.target != nil {
-		t.Errorf("target: got %v, want nil after Finished", p.target)
+	// NAI-68: target restored to obj (not nil); processInteraction tail clears.
+	if p.target != obj {
+		t.Errorf("target: got %v, want obj (restored after Finished — NAI-68)", p.target)
 	}
 	if !p.interactionFired {
 		t.Error("interactionFired: want true after script fire")
@@ -681,6 +683,7 @@ func TestTryFireOpTriggerObjFiresObjTTrigger(t *testing.T) {
 }
 
 // TestTryFireOpTriggerObjFiresObjUTrigger verifies targetOpObjU → OPOBJU dispatch.
+// NAI-68: target restored after Finished (not nil).
 func TestTryFireOpTriggerObjFiresObjUTrigger(t *testing.T) {
 	s, p, obj, _ := makeOpObjFixture(t)
 	s.scriptProvider = script.NewProvider()
@@ -695,8 +698,9 @@ func TestTryFireOpTriggerObjFiresObjUTrigger(t *testing.T) {
 
 	tryFireOpTrigger(p)
 
-	if p.target != nil {
-		t.Errorf("target: got %v, want nil after Finished", p.target)
+	// NAI-68: target restored to obj (not nil); processInteraction tail clears.
+	if p.target != obj {
+		t.Errorf("target: got %v, want obj (restored after OPOBJU fire — NAI-68)", p.target)
 	}
 	if !p.interactionFired {
 		t.Error("interactionFired: want true after OPOBJU fire")

@@ -64,11 +64,20 @@ func fireOpTriggerPlayer(p *Player, srv *Server, target *Player) {
 		return
 	}
 
+	// TS Player.ts:1129-1134 OP save/clear/exec/capture/restore. NAI-68.
+	savedTarget := p.target
+	p.target = nil
+	p.waypointIndex = -1 // TS L1131
+
 	// Run with target as Self and `p` (clicker) threaded as the
 	// ActivePlayer-typed second arg → buildPlayerScriptState's
 	// case-ActivePlayer arm sets state.Self2 = p, Pointers |=
 	// PtrActivePlayer2.
 	srv.runScript(sf, target, p, true, nil, nil)
+
+	p.nextTarget = p.target
+	p.target = savedTarget
+
 	p.interactionFired = true
 }
 

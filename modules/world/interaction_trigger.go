@@ -92,11 +92,16 @@ func fireOpTriggerNpc(p *Player, srv *Server, npc *Npc) {
 	state.Npcs = srv.npcLookup
 	state.LineValidator = srv.scriptLineValidator()
 
+	// TS Player.ts:1129-1134 OP save/clear/exec/capture/restore. NAI-68.
+	savedTarget := p.target
+	p.target = nil
+	p.waypointIndex = -1 // TS L1131
+
 	srv.resumeOrFinish(state, p)
 
-	if state.Execution == script.Finished || state.Execution == script.Aborted {
-		p.ClearInteraction()
-	}
+	p.nextTarget = p.target
+	p.target = savedTarget
+
 	p.interactionFired = true
 }
 
@@ -168,11 +173,19 @@ func fireOpTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 	state.Npcs = srv.npcLookup
 	state.LineValidator = srv.scriptLineValidator()
 
+	// TS Player.ts:1129-1134 OP save/clear/exec/capture/restore.
+	// NAI-68 closes NAI-44-D-IMMEDIATE-POP-VS-NEXTTARGET.
+	savedTarget := p.target
+	p.target = nil
+	p.waypointIndex = -1 // TS L1131 — this.clearWaypoints()
+
 	srv.resumeOrFinish(state, p)
 
-	if state.Execution == script.Finished || state.Execution == script.Aborted {
-		p.ClearInteraction()
-	}
+	p.nextTarget = p.target
+	p.target = savedTarget
+
+	// Finished/Aborted ClearInteraction dropped — subsumed by
+	// processInteraction tail's else-if at interaction.go (TS L1261-1263).
 	p.interactionFired = true
 }
 
@@ -520,11 +533,16 @@ func fireOpTriggerObj(p *Player, srv *Server, obj *entitypkg.Obj) {
 	state.Npcs = srv.npcLookup
 	state.LineValidator = srv.scriptLineValidator()
 
+	// TS Player.ts:1129-1134 OP save/clear/exec/capture/restore. NAI-68.
+	savedTarget := p.target
+	p.target = nil
+	p.waypointIndex = -1 // TS L1131
+
 	srv.resumeOrFinish(state, p)
 
-	if state.Execution == script.Finished || state.Execution == script.Aborted {
-		p.ClearInteraction()
-	}
+	p.nextTarget = p.target
+	p.target = savedTarget
+
 	p.interactionFired = true
 }
 
