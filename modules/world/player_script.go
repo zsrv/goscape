@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/zsrv/goscape/pkg/cache"
+	"github.com/zsrv/goscape/pkg/coordgrid"
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
@@ -343,11 +344,11 @@ func (p *Player) TeleJump(x, z, level int) {
 // tele+jump+INSTANT speed when crossing levels). Mirrors TS
 // PathingEntity.teleport at PathingEntity.ts:267-298.
 //
-// NAI-36-T7 closes deviations D1 (level clamp), D2 (unallocated-zone
-// reject), order (refresh BEFORE tele=true), and D5 (level-change INSTANT
-// + jump branch) for Player. Residual: D3 (focus orientation), D4
-// (lastStepX/Z adjust). See DEVIATION block at npc_script.go for the full
-// tracker.
+// NAI-36-T7 closed D1 (level clamp), D2 (unallocated-zone reject), order
+// (refresh BEFORE tele=true), and D5 (level-change INSTANT + jump branch)
+// for Player. NAI-65 closed D3-Player (focus call) and D4-Player
+// (lastStepX = x-1; lastStepZ = z). See DEVIATION block at npc_script.go
+// for the full tracker; D4-NPC, D5-NPC, and NAI-41 remain residual.
 func (p *Player) Teleport(x, z, level int) {
 	// D1: clamp level to [0, 3] per PathingEntity.ts:268-271.
 	if level < 0 {
@@ -369,12 +370,27 @@ func (p *Player) Teleport(x, z, level int) {
 	p.z = z
 	p.level = level
 
+	// NAI-65 D3-Player: focus call from TS PathingEntity.ts:286-289.
+	// Player width=length=1 (no struct field; PathingEntity-default).
+	dir := coordgrid.Face(prevX, prevZ, x, z)
+	moveX := coordgrid.MoveX(p.x, dir)
+	moveZ := coordgrid.MoveZ(p.z, dir)
+	p.focus(coordgrid.Fine(moveX, 1), coordgrid.Fine(moveZ, 1), false)
+
 	// Order: refreshPlayerZone runs BEFORE p.tele = true to match TS
 	// PathingEntity.ts:290-293. The two writes are functionally
 	// commutative (refresh reads only previous coords + current
 	// x/z/level; the tele bit is independent), but TS-faithful order is
 	// the project's true-to-TS gate default.
 	refreshPlayerZone(p, prevX, prevZ, prevLevel)
+
+	// NAI-65 D4-Player: lastStep adjust from TS PathingEntity.ts:291-292.
+	// Currently dead-write at HEAD (no production reader of
+	// p.lastStepX/Z besides the dead-write of p.followX/Z in
+	// processInteraction). Tracked.
+	p.lastStepX = p.x - 1
+	p.lastStepZ = p.z
+
 	p.tele = true
 
 	// D5: level-change → INSTANT + jump per PathingEntity.ts:295-298.
@@ -382,6 +398,24 @@ func (p *Player) Teleport(x, z, level int) {
 		p.moveSpeed = MoveSpeedInstant
 		p.jump = true
 	}
+}
+
+// focus records the fine-grained face-angle target. Mirrors TS
+// PathingEntity.focus (Engine-TS/src/engine/entity/PathingEntity.ts:321-333).
+// Called from Teleport (NAI-65 D3-Player closure) and intended for future
+// non-Teleport callers (e.g. SetInteraction's Engine-clicked Loc/Obj
+// branch when NAI-41 closes).
+//
+// DEVIATION NAI-65-D-FOCUS-INSTANT-WIRE: TS focus(_, _, client=true) ALSO
+// writes faceSquareX/Z and ORs the coord mask into masks. Goscape's wire
+// protocol doesn't currently branch on it, so the flag is accepted for
+// signature parity but stored write-only. Mirror site: (*Npc).focus
+// (npc_interaction.go:706). Closure: future "face-instant wire protocol"
+// sub-spec.
+func (p *Player) focus(fx, fz int, instant bool) {
+	p.faceAngleX = fx
+	p.faceAngleZ = fz
+	_ = instant
 }
 
 // FaceSquare rotates the player to face the square at absolute (x, z)

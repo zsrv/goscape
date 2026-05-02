@@ -1139,3 +1139,131 @@ func TestPlayerOnScriptFinishedOrAborted_NilActive(t *testing.T) {
 		t.Errorf("refreshModalClose: got true, want false (no-op)")
 	}
 }
+
+// TestPlayerFocus_HelperWritesFaceAngleOnly pins NAI-65 D3-Player helper
+// shape. instant=false sets faceAngleX/Z only — does NOT touch
+// faceSquareX/Z or masks. instant=true is currently write-only too,
+// matching (*Npc).focus and tracked under NAI-65-D-FOCUS-INSTANT-WIRE.
+func TestPlayerFocus_HelperWritesFaceAngleOnly(t *testing.T) {
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.faceAngleX = -1
+	p.faceAngleZ = -1
+	p.faceSquareX = -1
+	p.faceSquareZ = -1
+	p.masks = 0
+
+	p.focus(123, 456, false)
+
+	if p.faceAngleX != 123 || p.faceAngleZ != 456 {
+		t.Errorf("instant=false faceAngle: got (%d, %d), want (123, 456)", p.faceAngleX, p.faceAngleZ)
+	}
+	if p.faceSquareX != -1 || p.faceSquareZ != -1 {
+		t.Errorf("instant=false faceSquare: got (%d, %d), want (-1, -1) unchanged", p.faceSquareX, p.faceSquareZ)
+	}
+	if p.masks != 0 {
+		t.Errorf("instant=false masks: got %d, want 0 unchanged", p.masks)
+	}
+
+	// instant=true: same outcome at HEAD per NAI-65-D-FOCUS-INSTANT-WIRE.
+	// Per ts_asymmetry_dual_pin.md, dual-pin both branches so that a future
+	// closure of the wire-protocol sub-spec breaks this test loudly.
+	p.focus(789, 1011, true)
+	if p.faceAngleX != 789 || p.faceAngleZ != 1011 {
+		t.Errorf("instant=true faceAngle: got (%d, %d), want (789, 1011)", p.faceAngleX, p.faceAngleZ)
+	}
+	if p.faceSquareX != -1 || p.faceSquareZ != -1 {
+		t.Errorf("instant=true faceSquare: got (%d, %d), want (-1, -1) — flag is currently write-only (NAI-65-D-FOCUS-INSTANT-WIRE)", p.faceSquareX, p.faceSquareZ)
+	}
+	if p.masks != 0 {
+		t.Errorf("instant=true masks: got %d, want 0 — flag is currently write-only (NAI-65-D-FOCUS-INSTANT-WIRE)", p.masks)
+	}
+}
+
+// TestPlayerTeleport_FocusFromDirection pins NAI-65 D3-Player. Teleport
+// from (3200, 3200, 0) to (3300, 3300, 0): direction is NE, so MoveX/MoveZ
+// each return prevDest+1. faceAngleX = Fine(3301, 1) = 3301*64 + (1*64-1)/2
+// = 211264 + 31 = 211295. Mirrors TS PathingEntity.ts:286-289.
+func TestPlayerTeleport_FocusFromDirection(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.client.server = s
+	p.x, p.z, p.level = 3200, 3200, 0
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	p.faceAngleX = -1
+	p.faceAngleZ = -1
+
+	p.Teleport(3300, 3300, 0)
+
+	wantX := 3301*64 + 31
+	wantZ := 3301*64 + 31
+	if p.faceAngleX != wantX {
+		t.Errorf("faceAngleX after Teleport(NE): got %d, want %d (Fine(3301, 1))", p.faceAngleX, wantX)
+	}
+	if p.faceAngleZ != wantZ {
+		t.Errorf("faceAngleZ after Teleport(NE): got %d, want %d (Fine(3301, 1))", p.faceAngleZ, wantZ)
+	}
+}
+
+// TestPlayerTeleport_LastStepAdjust pins NAI-65 D4-Player. After Teleport,
+// p.lastStepX = p.x - 1 and p.lastStepZ = p.z per TS PathingEntity.ts:291-292.
+func TestPlayerTeleport_LastStepAdjust(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.client.server = s
+	p.x, p.z, p.level = 3200, 3200, 0
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	p.lastStepX = -999
+	p.lastStepZ = -999
+
+	p.Teleport(3300, 3300, 0)
+
+	if p.lastStepX != 3299 {
+		t.Errorf("lastStepX after Teleport: got %d, want 3299 (x - 1)", p.lastStepX)
+	}
+	if p.lastStepZ != 3300 {
+		t.Errorf("lastStepZ after Teleport: got %d, want 3300 (z)", p.lastStepZ)
+	}
+}
+
+// TestPlayerTeleport_InPlaceFocusUsesSelfCenter pins the in-place edge case.
+// When prev == new, coordgrid.Face returns -1; coordgrid.MoveX/MoveZ no-op
+// (DeltaX/Z default-case = 0). focus uses self-center coords:
+// Fine(p.x, 1), Fine(p.z, 1). lastStep adjust still applies (x-1, z).
+func TestPlayerTeleport_InPlaceFocusUsesSelfCenter(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.client.server = s
+	p.x, p.z, p.level = 3200, 3200, 0
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	p.faceAngleX = -1
+	p.faceAngleZ = -1
+
+	p.Teleport(3200, 3200, 0)
+
+	wantSelf := 3200*64 + 31
+	if p.faceAngleX != wantSelf {
+		t.Errorf("in-place faceAngleX: got %d, want %d (Fine(3200, 1) self-center)", p.faceAngleX, wantSelf)
+	}
+	if p.faceAngleZ != wantSelf {
+		t.Errorf("in-place faceAngleZ: got %d, want %d (Fine(3200, 1) self-center)", p.faceAngleZ, wantSelf)
+	}
+	if p.lastStepX != 3199 {
+		t.Errorf("in-place lastStepX: got %d, want 3199 (x - 1 still applies)", p.lastStepX)
+	}
+	if p.lastStepZ != 3200 {
+		t.Errorf("in-place lastStepZ: got %d, want 3200", p.lastStepZ)
+	}
+	if !p.tele {
+		t.Error("in-place tele flag: got false, want true")
+	}
+}
