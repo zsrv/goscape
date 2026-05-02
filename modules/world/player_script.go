@@ -400,12 +400,6 @@ func (p *Player) Teleport(x, z, level int) {
 	}
 }
 
-// focus records the fine-grained face-angle target. Mirrors TS
-// PathingEntity.focus (Engine-TS/src/engine/entity/PathingEntity.ts:321-333).
-// Called from Teleport (NAI-65 D3-Player closure) and intended for future
-// non-Teleport callers (e.g. SetInteraction's Engine-clicked Loc/Obj
-// branch when NAI-41 closes).
-//
 // focus records the fine-grained face-angle coord. Mirrors TS
 // PathingEntity.focus (Engine-TS/src/engine/entity/PathingEntity.ts:321-333).
 // instant=true ALSO writes faceSquareX/Z to (fx, fz) and ORs
