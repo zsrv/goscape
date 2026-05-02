@@ -39,7 +39,7 @@ func tryFireOpTrigger(p *Player) {
 		// NAI-40 T5: Player→Player engine dispatch. Closes
 		// NAI-39-D-ACTIVEPLAYER2-NO-OPPLAYER-PRODUCER by routing
 		// through srv.runScript so buildPlayerScriptState's
-		// case-ActivePlayer arm sets state.Self2 = clicker.
+		// case-ActivePlayer arm sets state.Self2 = target (NAI-70).
 		fireOpTriggerPlayer(p, srv, tgt)
 	case *entitypkg.Obj:
 		fireOpTriggerObj(p, srv, tgt)

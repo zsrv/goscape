@@ -29,9 +29,12 @@ func (s *Server) scriptLineValidator() script.LineValidator {
 //
 // case script.ActivePlayer is the secondary-binding arm consumed by
 // the OPPLAYER<N>/APPLAYER<N> player→player trigger family
-// (player_interaction_trigger.go). Sets state.Self2 + PtrActivePlayer2
-// when target is a *Player (NAI-40 closure of the activePlayer2
-// substrate that NAI-39 introduced).
+// (player_interaction_trigger.go). Sets state.Self2 = target +
+// PtrActivePlayer2 when the second arg is a *Player. Mirrors TS
+// ScriptRunner.ts:84-87 _activePlayer2 dispatch (self=Player &&
+// target=Player → _activePlayer2=target). NAI-40 closure of the
+// activePlayer2 substrate; NAI-70 realigned the call sites in
+// player_interaction_trigger.go to TS-true binding.
 func (s *Server) buildPlayerScriptState(
 	sf *script.ScriptFile,
 	self script.ActivePlayer,
