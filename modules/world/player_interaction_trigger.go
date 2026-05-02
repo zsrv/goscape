@@ -86,19 +86,18 @@ func fireOpTriggerPlayer(p *Player, srv *Server, target *Player) {
 
 // fireApTriggerPlayer fires the [applayer<op>,_] trigger at approach
 // distance. On no-script-found: sets p.apRange = -1 to skip re-lookup
-// next tick (matches fireApTriggerLoc behaviour at S6r). Self2 binding
-// is the same as fireOpTriggerPlayer (NAI-39): Self=target, Self2=p.
+// next tick (matches fireApTriggerLoc behaviour at S6r).
 //
-// Same-tick AP retry NOT active for AP-Player. Per TS Player.ts:1151,
-// `ScriptRunner.init(apTrigger, this, target)` runs with this=clicker
-// uniformly, so TS sees the clicker's apRangeCalled flag in the
-// L1163-1167 guard. Goscape's NAI-39 producer reverses the binding
-// (Self=target), so handlePApRange (pkg/script/handlers_player.go:695
-// → s.Self.SetApRange) mutates target.apRangeCalled, leaving
-// clicker.apRangeCalled=false. The NAI-69 T1 guard at
-// interaction.go:336 reads clicker.apRangeCalled, so AP-Player skips
-// the same-tick retry path. AP-Loc/AP-Obj/AP-Npc match TS (Self=p).
-// Tracked deviation: NAI-69-D-APPLAYER-SELF2-REVERSED-NO-SAMETICK-RETRY.
+// Self/Self2 binding mirrors TS Player.ts:1151 + ScriptRunner.ts:84-87:
+// ScriptRunner.init(apTrigger, this=clicker, target=target_player) →
+// state.Self=clicker (`p`), state.Self2=target. Same as
+// fireOpTriggerPlayer.
+//
+// Same-tick AP retry path active per NAI-69 T1 guard at
+// interaction.go:336: handlePApRange's s.Self.SetApRange mutates
+// clicker.apRangeCalled, the guard fires, and tryInteract returns
+// false to allow processInteraction's walk-arm a same-tick retry.
+// Closes NAI-69-D-APPLAYER-SELF2-REVERSED-NO-SAMETICK-RETRY (NAI-70).
 func fireApTriggerPlayer(p *Player, srv *Server, target *Player) {
 	if p.delayed && srv.currentTick < p.delayedUntil {
 		return
@@ -123,16 +122,15 @@ func fireApTriggerPlayer(p *Player, srv *Server, target *Player) {
 	p.apRangeCalled = false
 
 	// TS Player.ts:1145-1162 AP save/clear/exec/capture/restore. NAI-68
-	// framework. AP-Player same-tick retry is structurally inert under
-	// the current Self=target binding — see header for full divergence
-	// narrative (NAI-69-D-APPLAYER-SELF2-REVERSED-NO-SAMETICK-RETRY).
+	// framework. AP-Player same-tick retry active under the realigned
+	// Self=clicker binding (NAI-70).
 	savedTarget := p.target
 	savedWP := p.waypoints
 	savedIdx := p.waypointIndex
 	p.target = nil
 	p.waypointIndex = -1
 
-	srv.runScript(sf, target, p, true, nil, nil)
+	srv.runScript(sf, p, target, true, nil, nil)
 
 	p.nextTarget = p.target
 	p.target = savedTarget

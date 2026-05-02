@@ -216,11 +216,12 @@ func TestFireOpTriggerPlayerOverridesTypeIdFromTargetSubjectCom(t *testing.T) {
 }
 
 // TestFireApTriggerPlayerOverridesTypeIdFromTargetSubjectCom — NAI-62.
-// Same OpMes marker strategy as Task 2.7; AP variant. Also asserts
-// p.apRange != -1 as a secondary signal (no-script path sets apRange = -1
-// per fireApTriggerPlayer:88).
+// Same OpMes marker strategy as the OP variant; AP variant. NAI-70
+// binding flip: marker now lands on clicker's conn (Self=clicker).
+// Also asserts p.apRange != -1 as a secondary signal (no-script path
+// sets apRange = -1 per fireApTriggerPlayer).
 func TestFireApTriggerPlayerOverridesTypeIdFromTargetSubjectCom(t *testing.T) {
-	s, clicker, other, _, cc2 := makeOpPlayerFixtureWithBothConns(t)
+	s, clicker, other, cc1, _ := makeOpPlayerFixtureWithBothConns(t)
 	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
 
 	const overrideTypeId = 7784
@@ -233,13 +234,13 @@ func TestFireApTriggerPlayerOverridesTypeIdFromTargetSubjectCom(t *testing.T) {
 	s.scriptProvider = script.NewProvider()
 	s.scriptProvider.Register(buildPlayerMesScript(script.TriggerApPlayer1, overrideTypeId, marker))
 
-	received := drainConn(t, cc2)
+	received := drainConn(t, cc1)
 	fireApTriggerPlayer(clicker, s, other)
-	other.client.flushWrite()
+	clicker.client.flushWrite()
 	got := <-received
 
 	if !bytes.Contains(got, []byte(marker)) {
-		t.Errorf("drained bytes from target conn: missing %q substring; override should have run override-keyed script for targetSubject.com=%d, got %x",
+		t.Errorf("drained bytes from clicker conn: missing %q substring; override should have run override-keyed script for targetSubject.com=%d, got %x",
 			marker, overrideTypeId, got)
 	}
 	if clicker.apRange == -1 {
@@ -250,10 +251,10 @@ func TestFireApTriggerPlayerOverridesTypeIdFromTargetSubjectCom(t *testing.T) {
 // --- B3 AP-Player variant ---
 
 // TestFireApTriggerPlayerRestoresTargetAndWaypoints pins TS Player.ts:1145-1162
-// for the AP-Player path. Since runScript's self=target (the target player),
-// no p_op_player handler exists, and p_op_npc would act on target's state —
-// the test pins the restore-only contract: noop script → p.target restored,
-// p.nextTarget nil, waypoints restored.
+// for the AP-Player path. With NAI-70 binding (Self=clicker), the noop
+// script doesn't mutate any pinned state — the test asserts the
+// restore-only contract: p.target restored, p.nextTarget nil, waypoints
+// restored.
 //
 // NAI-68 B3 AP-Player variant.
 func TestFireApTriggerPlayerRestoresTargetAndWaypoints(t *testing.T) {
@@ -297,26 +298,23 @@ func TestFireApTriggerPlayerRestoresTargetAndWaypoints(t *testing.T) {
 	}
 }
 
-// --- NAI-69 T3 (reframed): AP-Player Self2-reversed binding pin ---
+// --- NAI-70: AP-Player Self=clicker binding pin ---
 
-// TestFireApTriggerPlayer_ApRangeCalled_BindsToTargetNotClicker pins
-// the preexisting NAI-39 Self/Self2 binding divergence: APPLAYER scripts
-// run with state.Self = target (the clicked player), state.Self2 = p
-// (the clicker). When the script calls p_aprange, handlePApRange
-// (pkg/script/handlers_player.go:695) invokes s.Self.SetApRange(n) — so
-// target.apRange and target.apRangeCalled are mutated, NOT the clicker's.
+// TestFireApTriggerPlayer_ApRangeCalled_BindsToClicker pins the TS-true
+// AP-Player binding (NAI-70). APPLAYER scripts run with state.Self =
+// clicker (`p`), state.Self2 = target. When the script calls p_aprange,
+// handlePApRange (pkg/script/handlers_player.go:695) invokes
+// s.Self.SetApRange(n) — so clicker.apRange and clicker.apRangeCalled
+// are mutated, target's are untouched.
 //
-// Consequence: the NAI-69 T1 same-tick retry guard
-// `if p.nextTarget == nil && p.apRangeCalled` checks p (clicker) but
-// clicker.apRangeCalled is never set via APPLAYER scripts. AP-Player
-// is a structural no-op for same-tick retry until the NAI-39 binding
-// is reworked (tracked: NAI-69-D-APPLAYER-SELF2-REVERSED-NO-SAMETICK-RETRY).
+// Mirrors TS Player.ts:1151 + ScriptRunner.ts:84-87:
+// ScriptRunner.init(apTrigger, this=clicker, target=target_player) →
+// _activePlayer=clicker, _activePlayer2=target. AP-Loc/AP-Obj/AP-Npc
+// already match TS; AP-Player matches as of NAI-70.
 //
-// TS Player.ts:1151 has ScriptRunner.init(apTrigger, this, target) where
-// `this` is the clicker uniformly across AP-Loc/Obj/Npc/Player — so TS
-// AP-Player's apRangeCalled IS the clicker's. AP-Loc/AP-Obj/AP-Npc match
-// TS in goscape (Self=p); AP-Player is the goscape-specific reversal.
-func TestFireApTriggerPlayer_ApRangeCalled_BindsToTargetNotClicker(t *testing.T) {
+// Closes NAI-69-D-APPLAYER-SELF2-REVERSED-NO-SAMETICK-RETRY (this binding
+// flip activates the same-tick retry path at interaction.go:336).
+func TestFireApTriggerPlayer_ApRangeCalled_BindsToClicker(t *testing.T) {
 	s, clicker, target, _, _ := newPlayerTriggerFixture(t)
 
 	// Register an APPLAYER1 script that calls p_aprange(2).
@@ -346,29 +344,32 @@ func TestFireApTriggerPlayer_ApRangeCalled_BindsToTargetNotClicker(t *testing.T)
 		t.Errorf("clicker.target: got %v, want target (restored after fire)", clicker.target)
 	}
 
-	// Self2-reversed-binding pin: p_aprange routed to target.SetApRange,
-	// NOT clicker.SetApRange. Tracked: NAI-69-D-APPLAYER-SELF2-REVERSED-NO-SAMETICK-RETRY.
-	if clicker.apRangeCalled {
-		t.Error("clicker.apRangeCalled: got true, want false (script ran on Self=target, not clicker)")
+	// TS-true binding pin: p_aprange routed to clicker.SetApRange,
+	// NOT target.SetApRange (NAI-70).
+	if !clicker.apRangeCalled {
+		t.Error("clicker.apRangeCalled: got false, want true (Self=clicker; SetApRange ran on clicker)")
 	}
-	if clicker.apRange != 10 {
-		t.Errorf("clicker.apRange: got %d, want 10 (default unchanged — script mutated target's apRange)", clicker.apRange)
+	if clicker.apRange != 2 {
+		t.Errorf("clicker.apRange: got %d, want 2 (script set new range on Self=clicker)", clicker.apRange)
 	}
-	if !target.apRangeCalled {
-		t.Error("target.apRangeCalled: got false, want true (Self=target; SetApRange ran on target)")
+	if target.apRangeCalled {
+		t.Error("target.apRangeCalled: got true, want false (script ran on Self=clicker, not target)")
 	}
-	if target.apRange != 2 {
-		t.Errorf("target.apRange: got %d, want 2 (script set new range on Self=target)", target.apRange)
+	if target.apRange != 10 {
+		t.Errorf("target.apRange: got %d, want 10 (default unchanged — script mutated clicker's apRange)", target.apRange)
 	}
 }
 
-// TestTryInteract_ApPlayer_NoSameTickRetry_DueToReversedSelf — end-to-end
-// pin: tryInteract returns true (guard not tripped) because clicker's
-// apRangeCalled stays false. Confirms the NAI-69 T1 guard is structurally
-// inert for AP-Player under the current NAI-39 Self/Self2 binding. When
-// NAI-69-D-APPLAYER-SELF2-REVERSED-NO-SAMETICK-RETRY is closed, this
-// test should be inverted to pin the activated retry path.
-func TestTryInteract_ApPlayer_NoSameTickRetry_DueToReversedSelf(t *testing.T) {
+// TestTryInteract_ApPlayer_SameTickRetryActivates — end-to-end pin:
+// tryInteract returns false (NAI-69 T1 guard fires) because clicker's
+// apRangeCalled is now true after the AP-Player binding realignment
+// (NAI-70). Confirms the same-tick retry path is structurally active
+// for AP-Player, matching AP-Loc/AP-Obj/AP-Npc and TS Player.ts:1163-1167.
+//
+// Triple-pin per test_passes_for_wrong_reason.md: assert return value,
+// the apRangeCalled mutation that drives the guard, AND the
+// interactionFired reset that proves the guard's body executed.
+func TestTryInteract_ApPlayer_SameTickRetryActivates(t *testing.T) {
 	s, clicker, target, _, _ := newPlayerTriggerFixture(t)
 
 	// Register the p_aprange(2) script.
@@ -398,18 +399,21 @@ func TestTryInteract_ApPlayer_NoSameTickRetry_DueToReversedSelf(t *testing.T) {
 
 	result := clicker.tryInteract(false)
 
-	// Guard does NOT trigger: clicker.apRangeCalled stays false because
-	// p_aprange ran on Self=target.
-	if !result {
-		t.Error("tryInteract: got false, want true (NAI-69 T1 guard inert for AP-Player; clicker.apRangeCalled=false)")
+	// NAI-69 T1 guard fires under the realigned binding:
+	if result {
+		t.Error("tryInteract: got true, want false (NAI-70 + NAI-69 T1: guard fires; clicker.apRangeCalled=true)")
 	}
-	if !clicker.interactionFired {
-		t.Error("clicker.interactionFired: got false, want true (uniform-exit preserved; no reset because guard didn't fire)")
+	if clicker.interactionFired {
+		t.Error("clicker.interactionFired: got true, want false (guard reset for retry)")
 	}
-	if clicker.apRangeCalled {
-		t.Error("clicker.apRangeCalled: got true, want false (Self=target divergence)")
+	if !clicker.apRangeCalled {
+		t.Error("clicker.apRangeCalled: got false, want true (Self=clicker; p_aprange mutated clicker)")
 	}
-	if !target.apRangeCalled {
-		t.Error("target.apRangeCalled: got false, want true (script ran on Self=target)")
+	if target.apRangeCalled {
+		t.Error("target.apRangeCalled: got true, want false (script ran on Self=clicker, not target)")
+	}
+	// Fire helper restored target+waypoints (NAI-68); guard does not re-clear.
+	if clicker.target != target {
+		t.Errorf("clicker.target: got %v, want target (NAI-68 restore; guard preserves)", clicker.target)
 	}
 }
