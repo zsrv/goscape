@@ -233,16 +233,16 @@ func (p *Player) processInteraction() {
 		}
 	}
 
-	// nextTarget pop + auto-clear (TS L1255-1263). NAI-68 closes
-	// NAI-44-D-IMMEDIATE-POP-VS-NEXTTARGET: when an OP/AP trigger
-	// script called p_op_* mid-trigger, the fire helpers captured the
-	// script-set target into p.nextTarget; pop it here. Otherwise,
-	// auto-clear the interaction (NAI-44 closure of
-	// NAI-40-D-OPPLAYER3-FOLLOWOP-NOT-PORTED's auto-clear gap).
-	// followOp paths can still reach the else-if when tryInteract
-	// returned true at the pre-step arm (contact range with
-	// target=*Player op=3); TS does the same — followOp gates SKIP
-	// post-step-interact, not the auto-clear itself.
+	// nextTarget pop + auto-clear (TS L1255-1263). When an OP/AP
+	// trigger script called p_op_* mid-trigger, the fire helpers
+	// captured the script-set target into p.nextTarget; pop it here.
+	// Otherwise, auto-clear the interaction. followOp paths can still
+	// reach the else-if when tryInteract returned true at the pre-step
+	// arm (contact range with target=*Player op=3); TS does the same —
+	// followOp gates SKIP post-step-interact, not the auto-clear
+	// itself. NAI-68 closed NAI-44-D-IMMEDIATE-POP-VS-NEXTTARGET via
+	// this reshape; NAI-69 closes NAI-68-D-AP-APRANGE-REVERT-NOT-PORTED
+	// by routing the same-tick retry signal through tryInteract.
 	if p.nextTarget != nil {
 		p.target = p.nextTarget
 	} else if interacted && !p.apRangeCalled {
