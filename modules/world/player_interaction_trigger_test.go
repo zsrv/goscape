@@ -310,10 +310,8 @@ func TestFireApTriggerPlayerRestoresTargetAndWaypoints(t *testing.T) {
 // Mirrors TS Player.ts:1151 + ScriptRunner.ts:84-87:
 // ScriptRunner.init(apTrigger, this=clicker, target=target_player) →
 // _activePlayer=clicker, _activePlayer2=target. AP-Loc/AP-Obj/AP-Npc
-// already match TS; AP-Player matches as of NAI-70.
-//
-// Closes NAI-69-D-APPLAYER-SELF2-REVERSED-NO-SAMETICK-RETRY (this binding
-// flip activates the same-tick retry path at interaction.go:336).
+// already match TS; AP-Player matches as of NAI-70 (this binding flip
+// activates the same-tick retry path at interaction.go:336).
 func TestFireApTriggerPlayer_ApRangeCalled_BindsToClicker(t *testing.T) {
 	s, clicker, target, _, _ := newPlayerTriggerFixture(t)
 

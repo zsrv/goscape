@@ -97,7 +97,6 @@ func fireOpTriggerPlayer(p *Player, srv *Server, target *Player) {
 // interaction.go:336: handlePApRange's s.Self.SetApRange mutates
 // clicker.apRangeCalled, the guard fires, and tryInteract returns
 // false to allow processInteraction's walk-arm a same-tick retry.
-// Closes NAI-69-D-APPLAYER-SELF2-REVERSED-NO-SAMETICK-RETRY (NAI-70).
 func fireApTriggerPlayer(p *Player, srv *Server, target *Player) {
 	if p.delayed && srv.currentTick < p.delayedUntil {
 		return
