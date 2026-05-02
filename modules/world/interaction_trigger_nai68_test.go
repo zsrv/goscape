@@ -261,3 +261,175 @@ func TestFireOpTriggerPlayerClearsWaypoints(t *testing.T) {
 		t.Errorf("clicker.waypointIndex: got %d, want -1 (TS L1131 Player OP-fire path)", clicker.waypointIndex)
 	}
 }
+
+// --- B3 AP-Loc variant + B6 dual-pin ---
+
+// TestFireApTriggerLocCapturesNextTargetFromScript pins TS Player.ts:1145-1162.
+// An AP-Loc trigger script that calls p_op_loc mid-execution must:
+//   - capture new target into p.nextTarget,
+//   - restore p.target to the original loc,
+//   - clear waypoints (TS L1162 — nextTarget != nil branch).
+//
+// NAI-68 B3 AP-Loc variant + B6 nextTarget-set sub-pin.
+func TestFireApTriggerLocCapturesNextTargetFromScript(t *testing.T) {
+	s, p, loc, _ := makeApTriggerFixture(t)
+
+	// Pre-state: active waypoint queue (must be cleared per TS L1162).
+	p.waypointIndex = 3
+	p.waypoints[3] = 0x0EADBEEF
+
+	// p_op_loc calls SetInteraction(p, state.ActiveLoc, op, -1).
+	// fireApTriggerLoc sets state.ActiveLoc = loc, so p.target is set to loc again.
+	// nextTarget = loc (non-nil) → waypoints clear branch.
+	s.scriptProvider.Register(buildPOpLocScript(script.TriggerApLoc1, loc.Type(), 2))
+
+	fireApTriggerLoc(p, s, loc)
+
+	if p.nextTarget != loc {
+		t.Errorf("p.nextTarget: got %v, want loc (script called p_op_loc(loc, 2))", p.nextTarget)
+	}
+	if p.target != loc {
+		t.Errorf("p.target: got %v, want loc (restored)", p.target)
+	}
+	if p.waypointIndex != -1 {
+		t.Errorf("p.waypointIndex: got %d, want -1 (TS L1162 nextTarget != nil clears)", p.waypointIndex)
+	}
+}
+
+// TestFireApTriggerLocRestoresWaypointsWhenNoNextTarget pins TS L1146 inverse.
+// When the AP script does NOT set a nextTarget AND does not call p_aprange,
+// waypoints must be RESTORED to pre-fire state (the L1146 clear is reverted).
+//
+// NAI-68 B6 nextTarget-nil sub-pin.
+func TestFireApTriggerLocRestoresWaypointsWhenNoNextTarget(t *testing.T) {
+	s, p, loc, _ := makeApTriggerFixture(t)
+
+	// Pre-state: active waypoint queue.
+	p.waypointIndex = 3
+	p.waypoints[3] = 0x0EADBEEF
+	p.waypoints[2] = 0x0AFEBABE
+
+	// No-op AP script: no p_op_*, no p_aprange.
+	s.scriptProvider.Register(newNoopScriptFile(t, script.TriggerApLoc1, loc.Type(), -1))
+
+	fireApTriggerLoc(p, s, loc)
+
+	if p.waypointIndex != 3 {
+		t.Errorf("p.waypointIndex: got %d, want 3 (no-script-target preserves waypoints)", p.waypointIndex)
+	}
+	if p.waypoints[3] != 0x0EADBEEF {
+		t.Errorf("p.waypoints[3]: got 0x%X, want 0x0EADBEEF", p.waypoints[3])
+	}
+	if p.waypoints[2] != 0x0AFEBABE {
+		t.Errorf("p.waypoints[2]: got 0x%X, want 0x0AFEBABE", p.waypoints[2])
+	}
+	if p.nextTarget != nil {
+		t.Errorf("p.nextTarget: got %v, want nil", p.nextTarget)
+	}
+}
+
+// --- B3 AP-Npc variant ---
+
+// TestFireApTriggerNpcCapturesNextTargetFromScript pins TS Player.ts:1145-1162
+// for the AP-Npc path. A script that calls p_op_npc re-anchors on ActiveNpc
+// (same npc), setting p.target during execution. Post-fire:
+//   - p.nextTarget = npc (captured),
+//   - p.target = npc (restored from savedTarget),
+//   - p.waypointIndex = -1 (nextTarget != nil → clear branch).
+//
+// NAI-68 B3 AP-Npc variant.
+func TestFireApTriggerNpcCapturesNextTargetFromScript(t *testing.T) {
+	s, p, npc := newApTriggerNpcFixture(t)
+
+	// Pre-state: active waypoint queue (must be cleared when nextTarget set).
+	p.waypointIndex = 5
+	p.waypoints[5] = 0x0EADBEEF
+
+	// p_op_npc reads state.ActiveNpc (= npc) and calls SetInteraction(p, npc, 2, -1).
+	// After exec: p.target = npc; capture: p.nextTarget = npc.
+	s.scriptProvider.Register(buildPOpNpcScript(script.TriggerApNpc1, npc.typeId, 2))
+
+	fireApTriggerNpc(p, s, npc)
+
+	if p.nextTarget != npc {
+		t.Errorf("p.nextTarget: got %v, want npc (captured from p_op_npc)", p.nextTarget)
+	}
+	if p.target != npc {
+		t.Errorf("p.target: got %v, want npc (restored from savedTarget)", p.target)
+	}
+	if p.waypointIndex != -1 {
+		t.Errorf("p.waypointIndex: got %d, want -1 (nextTarget != nil clears)", p.waypointIndex)
+	}
+}
+
+// TestFireApTriggerNpcRestoresWaypointsWhenNoNextTarget pins the restore
+// branch for AP-Npc: noop script → nextTarget stays nil → waypoints restored.
+//
+// NAI-68 B3 AP-Npc restore sub-pin.
+func TestFireApTriggerNpcRestoresWaypointsWhenNoNextTarget(t *testing.T) {
+	s, p, npc := newApTriggerNpcFixture(t)
+
+	p.waypointIndex = 4
+	p.waypoints[4] = 0x0EADBEEF
+
+	s.scriptProvider.Register(newNoopScriptFile(t, script.TriggerApNpc1, npc.typeId, -1))
+
+	fireApTriggerNpc(p, s, npc)
+
+	if p.waypointIndex != 4 {
+		t.Errorf("p.waypointIndex: got %d, want 4 (restored when no nextTarget)", p.waypointIndex)
+	}
+	if p.waypoints[4] != 0x0EADBEEF {
+		t.Errorf("p.waypoints[4]: got 0x%X, want 0x0EADBEEF", p.waypoints[4])
+	}
+	if p.nextTarget != nil {
+		t.Errorf("p.nextTarget: got %v, want nil (noop script set no target)", p.nextTarget)
+	}
+}
+
+// --- B3 AP-Obj variant ---
+
+// TestFireApTriggerObjCapturesNextTargetFromScript pins TS Player.ts:1145-1162
+// for the AP-Obj path. No p_op_obj handler exists yet; test pins the
+// restore-only contract: noop script → p.target restored to obj, p.nextTarget nil.
+//
+// NAI-68 B3 AP-Obj variant.
+func TestFireApTriggerObjCapturesNextTargetFromScript(t *testing.T) {
+	s, p, obj, _ := makeApObjTriggerFixture(t)
+
+	s.scriptProvider.Register(newNoopScriptFile(t, script.TriggerApObj1, obj.Type, -1))
+
+	fireApTriggerObj(p, s, obj)
+
+	if p.target != obj {
+		t.Errorf("p.target: got %v, want obj (restored after AP-Obj fire)", p.target)
+	}
+	if p.nextTarget != nil {
+		t.Errorf("p.nextTarget: got %v, want nil (noop script set no target)", p.nextTarget)
+	}
+}
+
+// TestFireApTriggerObjRestoresWaypointsWhenNoNextTarget pins the restore
+// branch for AP-Obj.
+//
+// NAI-68 B3 AP-Obj restore sub-pin.
+func TestFireApTriggerObjRestoresWaypointsWhenNoNextTarget(t *testing.T) {
+	s, p, obj, _ := makeApObjTriggerFixture(t)
+
+	p.waypointIndex = 2
+	p.waypoints[2] = 0x0EADBEEF
+
+	s.scriptProvider.Register(newNoopScriptFile(t, script.TriggerApObj1, obj.Type, -1))
+
+	fireApTriggerObj(p, s, obj)
+
+	if p.waypointIndex != 2 {
+		t.Errorf("p.waypointIndex: got %d, want 2 (restored when no nextTarget)", p.waypointIndex)
+	}
+	if p.waypoints[2] != 0x0EADBEEF {
+		t.Errorf("p.waypoints[2]: got 0x%X, want 0x0EADBEEF", p.waypoints[2])
+	}
+	if p.nextTarget != nil {
+		t.Errorf("p.nextTarget: got %v, want nil", p.nextTarget)
+	}
+}

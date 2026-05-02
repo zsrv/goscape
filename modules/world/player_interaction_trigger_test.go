@@ -244,3 +244,53 @@ func TestFireApTriggerPlayerOverridesTypeIdFromTargetSubjectCom(t *testing.T) {
 		t.Errorf("apRange: got -1 (no-script sentinel), want >0; override should have prevented the no-script path")
 	}
 }
+
+// --- B3 AP-Player variant ---
+
+// TestFireApTriggerPlayerRestoresTargetAndWaypoints pins TS Player.ts:1145-1162
+// for the AP-Player path. Since runScript's self=target (the target player),
+// no p_op_player handler exists, and p_op_npc would act on target's state —
+// the test pins the restore-only contract: noop script → p.target restored,
+// p.nextTarget nil, waypoints restored.
+//
+// NAI-68 B3 AP-Player variant.
+func TestFireApTriggerPlayerRestoresTargetAndWaypoints(t *testing.T) {
+	s, clicker, target, _ := newPlayerTriggerFixture(t)
+
+	// Pre-state: active waypoint queue (must be restored when no nextTarget).
+	clicker.waypointIndex = 3
+	clicker.waypoints[3] = 0x0EADBEEF
+
+	// Register a noop [applayer1,_] script.
+	s.scriptProvider.Register(&script.ScriptFile{
+		Name:             "[applayer1,_]",
+		LookupKey:        script.LookupKeyForGlobal(script.TriggerApPlayer1),
+		Opcodes:          []script.Opcode{script.OpReturn},
+		IntOperands:      []int32{0},
+		StringOperands:   []string{""},
+		InstructionCount: 1,
+	})
+
+	s.players[target.slot] = target
+	s.players[clicker.slot] = clicker
+
+	fireApTriggerPlayer(clicker, s, target)
+
+	// p.target restored to original target; nextTarget nil (noop script set nothing).
+	if clicker.target != target {
+		t.Errorf("clicker.target: got %v, want target (restored — NAI-68)", clicker.target)
+	}
+	if clicker.nextTarget != nil {
+		t.Errorf("clicker.nextTarget: got %v, want nil (noop script set no target)", clicker.nextTarget)
+	}
+	// Waypoints restored (nextTarget == nil branch).
+	if clicker.waypointIndex != 3 {
+		t.Errorf("clicker.waypointIndex: got %d, want 3 (restored when no nextTarget)", clicker.waypointIndex)
+	}
+	if clicker.waypoints[3] != 0x0EADBEEF {
+		t.Errorf("clicker.waypoints[3]: got 0x%X, want 0x0EADBEEF", clicker.waypoints[3])
+	}
+	if !clicker.interactionFired {
+		t.Error("interactionFired: want true after AP-Player fire")
+	}
+}

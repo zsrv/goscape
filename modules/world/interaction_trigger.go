@@ -340,6 +340,11 @@ func fireApTriggerNpc(p *Player, srv *Server, npc *Npc) {
 		return
 	}
 
+	// Reset apRangeCalled BEFORE exec (TS Player.ts:1141). Each AP fire
+	// is a fresh evaluation — script must actively call p_aprange to
+	// persist the interaction.
+	p.apRangeCalled = false
+
 	state := script.Init(sf, p, true, nil, nil)
 	state.ActiveNpc = npc
 	state.Pointers |= script.PtrActiveNpc
@@ -350,11 +355,28 @@ func fireApTriggerNpc(p *Player, srv *Server, npc *Npc) {
 	state.Npcs = srv.npcLookup
 	state.LineValidator = srv.scriptLineValidator()
 
+	// TS Player.ts:1145-1162 AP save/clear/exec/capture/restore. NAI-68.
+	// AP-Npc has no apRangeCalled persistence (NPC attackrange is fixed
+	// per-type per pre-existing doc-comment at fireApTriggerNpc:293-297).
+	savedTarget := p.target
+	savedWP := p.waypoints
+	savedIdx := p.waypointIndex
+	p.target = nil
+	p.waypointIndex = -1
+
 	srv.resumeOrFinish(state, p)
 
-	if state.Execution == script.Finished || state.Execution == script.Aborted {
-		p.ClearInteraction()
+	p.nextTarget = p.target
+	p.target = savedTarget
+	if p.nextTarget != nil {
+		p.waypointIndex = -1
+	} else {
+		p.waypoints = savedWP
+		p.waypointIndex = savedIdx
 	}
+
+	// Finished/Aborted ClearInteraction dropped — subsumed by
+	// processInteraction tail's else-if (TS L1261-1263).
 	p.interactionFired = true
 }
 
@@ -423,24 +445,41 @@ func fireApTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 	state.Npcs = srv.npcLookup
 	state.LineValidator = srv.scriptLineValidator()
 
+	// TS Player.ts:1145-1162 AP save/clear/exec/capture/restore +
+	// nextTarget-conditional waypoint clear. NAI-68.
+	savedTarget := p.target
+	savedWP := p.waypoints
+	savedIdx := p.waypointIndex
+	p.target = nil
+	p.waypointIndex = -1
+
 	srv.resumeOrFinish(state, p)
 
+	p.nextTarget = p.target
+	p.target = savedTarget
+	if p.nextTarget != nil {
+		// TS L1162: clear destination so next-tick interaction starts fresh.
+		p.waypointIndex = -1
+	} else {
+		// No script-set target — restore waypoints (TS L1146 inverse).
+		p.waypoints = savedWP
+		p.waypointIndex = savedIdx
+	}
+
+	// Existing apRangeCalled across-tick re-fire branch — UNCHANGED.
+	// DEVIATION NAI-68-D-AP-APRANGE-REVERT-NOT-PORTED: TS L1166-1170 does
+	// same-tick post-step retry; goscape uses early-return-without-fired
+	// for next-tick re-fire. Equivalent for player experience.
 	if state.Execution == script.Finished || state.Execution == script.Aborted {
 		if p.apRangeCalled {
-			// Script requested a new approach range. Persist interaction
-			// for next-tick re-evaluation at updated apRange.
 			p.repathed = false
-			// interactionFired stays false → processInteraction re-enters
-			// next tick; APLOC re-fires if still in range.
-			return
+			return // interactionFired stays false → re-fire next tick.
 		}
-		// apRangeCalled=false → script didn't extend range; TS line 1261
-		// clears the interaction.
-		p.ClearInteraction()
+		// Finished/Aborted + !apRangeCalled: ClearInteraction dropped —
+		// subsumed by processInteraction tail's else-if (TS L1261-1263).
 	}
-	// Reached by: (a) Finished/Aborted + !apRangeCalled (after
-	// ClearInteraction above), or (b) Suspended/P_DELAY/P_PAUSEBUTTON/
-	// P_COUNTDIALOG (anchor intact, resume flow re-enters on resume tick).
+	// Reached by: (a) Finished/Aborted + !apRangeCalled (no-op here, tail
+	// handles), or (b) Suspended (anchor intact, resume on next tick).
 	p.interactionFired = true
 }
 
@@ -598,14 +637,40 @@ func fireApTriggerObj(p *Player, srv *Server, obj *entitypkg.Obj) {
 	state.Npcs = srv.npcLookup
 	state.LineValidator = srv.scriptLineValidator()
 
+	// TS Player.ts:1145-1162 AP save/clear/exec/capture/restore +
+	// nextTarget-conditional waypoint clear. NAI-68.
+	savedTarget := p.target
+	savedWP := p.waypoints
+	savedIdx := p.waypointIndex
+	p.target = nil
+	p.waypointIndex = -1
+
 	srv.resumeOrFinish(state, p)
 
+	p.nextTarget = p.target
+	p.target = savedTarget
+	if p.nextTarget != nil {
+		// TS L1162: clear destination so next-tick interaction starts fresh.
+		p.waypointIndex = -1
+	} else {
+		// No script-set target — restore waypoints (TS L1146 inverse).
+		p.waypoints = savedWP
+		p.waypointIndex = savedIdx
+	}
+
+	// Existing apRangeCalled across-tick re-fire branch — UNCHANGED.
+	// DEVIATION NAI-68-D-AP-APRANGE-REVERT-NOT-PORTED: TS L1166-1170 does
+	// same-tick post-step retry; goscape uses early-return-without-fired
+	// for next-tick re-fire. Equivalent for player experience.
 	if state.Execution == script.Finished || state.Execution == script.Aborted {
 		if p.apRangeCalled {
 			p.repathed = false
-			return
+			return // interactionFired stays false → re-fire next tick.
 		}
-		p.ClearInteraction()
+		// Finished/Aborted + !apRangeCalled: ClearInteraction dropped —
+		// subsumed by processInteraction tail's else-if (TS L1261-1263).
 	}
+	// Reached by: (a) Finished/Aborted + !apRangeCalled (no-op here, tail
+	// handles), or (b) Suspended (anchor intact, resume on next tick).
 	p.interactionFired = true
 }

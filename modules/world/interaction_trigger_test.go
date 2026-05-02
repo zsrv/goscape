@@ -454,8 +454,9 @@ func TestTryFireApTriggerLocNoScript(t *testing.T) {
 }
 
 // TestTryFireApTriggerLocScriptFiresNoApRangeCalled verifies an APLOC
-// script that runs but doesn't call p_aprange causes ClearInteraction
-// per TS Player.ts:1261 (if interacted && !apRangeCalled: clear).
+// script that runs but doesn't call p_aprange leaves p.target as the
+// original loc (ClearInteraction is deferred to processInteraction tail's
+// else-if per NAI-68 TS L1261-1263 refactor). nextTarget is nil.
 func TestTryFireApTriggerLocScriptFiresNoApRangeCalled(t *testing.T) {
 	s, p, loc, _ := makeApTriggerFixture(t)
 
@@ -465,8 +466,13 @@ func TestTryFireApTriggerLocScriptFiresNoApRangeCalled(t *testing.T) {
 
 	tryFireApTrigger(p)
 
-	if p.target != nil {
-		t.Errorf("target: got %v, want nil after no-p_aprange clear", p.target)
+	// NAI-68: ClearInteraction dropped from fire helper; p.target restored to
+	// original loc. Auto-clear happens in processInteraction tail's else-if.
+	if p.target != loc {
+		t.Errorf("target: got %v, want loc (restored — NAI-68)", p.target)
+	}
+	if p.nextTarget != nil {
+		t.Errorf("nextTarget: got %v, want nil (no p_op_* in script)", p.nextTarget)
 	}
 	if !p.interactionFired {
 		t.Error("interactionFired: want true after clear")
@@ -703,8 +709,13 @@ func TestFireApTriggerLocFiresApLocTTrigger(t *testing.T) {
 
 	tryFireApTrigger(p)
 
-	if p.target != nil {
-		t.Errorf("target: got %v, want nil after no-p_aprange clear", p.target)
+	// NAI-68: ClearInteraction dropped from fire helper; target restored to
+	// original loc. processInteraction tail's else-if is the sole auto-clear.
+	if p.target != loc {
+		t.Errorf("target: got %v, want loc (restored — NAI-68)", p.target)
+	}
+	if p.nextTarget != nil {
+		t.Errorf("nextTarget: got %v, want nil (no p_op_* in script)", p.nextTarget)
 	}
 	if !p.interactionFired {
 		t.Error("interactionFired: want true after APLOCT fire")
@@ -722,8 +733,13 @@ func TestFireApTriggerLocFiresApLocUTrigger(t *testing.T) {
 
 	tryFireApTrigger(p)
 
-	if p.target != nil {
-		t.Errorf("target: got %v, want nil after no-p_aprange clear", p.target)
+	// NAI-68: ClearInteraction dropped from fire helper; target restored to
+	// original loc. processInteraction tail's else-if is the sole auto-clear.
+	if p.target != loc {
+		t.Errorf("target: got %v, want loc (restored — NAI-68)", p.target)
+	}
+	if p.nextTarget != nil {
+		t.Errorf("nextTarget: got %v, want nil (no p_op_* in script)", p.nextTarget)
 	}
 	if !p.interactionFired {
 		t.Error("interactionFired: want true after APLOCU fire")
@@ -819,8 +835,8 @@ func TestFireApTriggerNpcNoScript(t *testing.T) {
 
 // TestFireApTriggerNpcScriptFires verifies that with an APNPC1 script
 // registered at (TriggerApNpc1, typeID=7, categoryID=-1), fireApTriggerNpc
-// runs the script, binds ActiveNpc, and clears the interaction after
-// Finished (no apRangeCalled persistence — TS divergence #3).
+// runs the script and restores p.target to the original npc (NAI-68: eager
+// ClearInteraction dropped; deferred to processInteraction tail's else-if).
 func TestFireApTriggerNpcScriptFires(t *testing.T) {
 	s, p, npc := newApTriggerNpcFixture(t)
 
@@ -829,8 +845,13 @@ func TestFireApTriggerNpcScriptFires(t *testing.T) {
 
 	fireApTriggerNpc(p, s, npc)
 
-	if p.target != nil {
-		t.Errorf("target: got %v, want nil after Finished clear", p.target)
+	// NAI-68: ClearInteraction dropped from fire helper; p.target restored to
+	// original npc. Auto-clear happens in processInteraction tail's else-if.
+	if p.target != npc {
+		t.Errorf("target: got %v, want npc (restored — NAI-68)", p.target)
+	}
+	if p.nextTarget != nil {
+		t.Errorf("nextTarget: got %v, want nil (noop script set no target)", p.nextTarget)
 	}
 	if !p.interactionFired {
 		t.Error("interactionFired: want true after script fire")
@@ -955,8 +976,13 @@ func TestFireApTriggerNpcFiresApNpcTTrigger(t *testing.T) {
 
 	fireApTriggerNpc(p, s, npc)
 
-	if p.target != nil {
-		t.Errorf("target: got %v, want nil after Finished clear", p.target)
+	// NAI-68: ClearInteraction dropped from fire helper; p.target restored to
+	// original npc. Auto-clear happens in processInteraction tail's else-if.
+	if p.target != npc {
+		t.Errorf("target: got %v, want npc (restored — NAI-68)", p.target)
+	}
+	if p.nextTarget != nil {
+		t.Errorf("nextTarget: got %v, want nil (NPC_SAY script set no target)", p.nextTarget)
 	}
 	if !p.interactionFired {
 		t.Error("interactionFired: want true after APNPCT fire")
@@ -978,8 +1004,13 @@ func TestFireApTriggerNpcFiresApNpcUTrigger(t *testing.T) {
 
 	fireApTriggerNpc(p, s, npc)
 
-	if p.target != nil {
-		t.Errorf("target: got %v, want nil after Finished clear", p.target)
+	// NAI-68: ClearInteraction dropped from fire helper; p.target restored to
+	// original npc. Auto-clear happens in processInteraction tail's else-if.
+	if p.target != npc {
+		t.Errorf("target: got %v, want npc (restored — NAI-68)", p.target)
+	}
+	if p.nextTarget != nil {
+		t.Errorf("nextTarget: got %v, want nil (NPC_SAY script set no target)", p.nextTarget)
 	}
 	if !p.interactionFired {
 		t.Error("interactionFired: want true after APNPCU fire")

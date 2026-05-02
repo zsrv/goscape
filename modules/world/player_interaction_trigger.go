@@ -105,6 +105,28 @@ func fireApTriggerPlayer(p *Player, srv *Server, target *Player) {
 		return
 	}
 
+	// TS L1141 — apRangeCalled pre-reset.
+	p.apRangeCalled = false
+
+	// TS Player.ts:1145-1162 AP save/clear/exec/capture/restore. NAI-68.
+	// AP-Player has no apRangeCalled persistence (uses runScript which
+	// hides state.Execution; same NPC-class semantic).
+	savedTarget := p.target
+	savedWP := p.waypoints
+	savedIdx := p.waypointIndex
+	p.target = nil
+	p.waypointIndex = -1
+
 	srv.runScript(sf, target, p, true, nil, nil)
+
+	p.nextTarget = p.target
+	p.target = savedTarget
+	if p.nextTarget != nil {
+		p.waypointIndex = -1
+	} else {
+		p.waypoints = savedWP
+		p.waypointIndex = savedIdx
+	}
+
 	p.interactionFired = true
 }

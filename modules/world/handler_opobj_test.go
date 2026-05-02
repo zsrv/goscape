@@ -735,7 +735,8 @@ func TestTryFireApTriggerObjNoScript(t *testing.T) {
 }
 
 // TestTryFireApTriggerObjScriptFiresNoApRangeCalled verifies an APOBJ script
-// that runs but doesn't call p_aprange causes ClearInteraction.
+// that runs but doesn't call p_aprange leaves p.target as the original obj
+// (ClearInteraction deferred to processInteraction tail per NAI-68). nextTarget nil.
 func TestTryFireApTriggerObjScriptFiresNoApRangeCalled(t *testing.T) {
 	s, p, obj, _ := makeApObjTriggerFixture(t)
 
@@ -744,8 +745,13 @@ func TestTryFireApTriggerObjScriptFiresNoApRangeCalled(t *testing.T) {
 
 	tryFireApTrigger(p)
 
-	if p.target != nil {
-		t.Errorf("target: got %v, want nil after no-p_aprange clear", p.target)
+	// NAI-68: ClearInteraction dropped from fire helper; p.target restored to
+	// original obj. Auto-clear happens in processInteraction tail's else-if.
+	if p.target != obj {
+		t.Errorf("target: got %v, want obj (restored — NAI-68)", p.target)
+	}
+	if p.nextTarget != nil {
+		t.Errorf("nextTarget: got %v, want nil (no p_op_* in script)", p.nextTarget)
 	}
 	if !p.interactionFired {
 		t.Error("interactionFired: want true after clear")
