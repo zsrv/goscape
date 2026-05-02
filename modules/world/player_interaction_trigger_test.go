@@ -409,8 +409,8 @@ func TestTryInteract_ApPlayer_SameTickRetryActivates(t *testing.T) {
 	if !clicker.apRangeCalled {
 		t.Error("clicker.apRangeCalled: got false, want true (Self=clicker; p_aprange mutated clicker)")
 	}
-	if target.apRangeCalled {
-		t.Error("target.apRangeCalled: got true, want false (script ran on Self=clicker, not target)")
+	if target.apRange != 10 {
+		t.Errorf("target.apRange: got %d, want 10 (default unchanged; script mutated clicker not target)", target.apRange)
 	}
 	// Fire helper restored target+waypoints (NAI-68); guard does not re-clear.
 	if clicker.target != target {
