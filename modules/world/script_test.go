@@ -1414,39 +1414,28 @@ func TestBuildPlayerScriptState_ObjTarget(t *testing.T) {
 	}
 }
 
-// TestOpPlayer1_E2E_HintPlOnTarget — full path: simulate an OPPLAYER1
+// TestOpPlayer1_E2E_HintPlOnClicker — full path: simulate an OPPLAYER1
 // client packet → handleOpPlayer1 sets interaction → tryFireOpTrigger
 // fires fireOpTriggerPlayer → runScript routes through
 // buildPlayerScriptState's case-ActivePlayer arm → script runs with
-// Self=target, Self2=clicker → HINT_PL emits to target's outbound.
+// Self=clicker, Self2=target → HINT_PL emits to clicker's outbound
+// (TS Player.ts:1129 + ScriptRunner.ts:84-87 binding; NAI-70).
 //
 // Closes NAI-39-D-ACTIVEPLAYER2-NO-OPPLAYER-PRODUCER by adding
-// handler-entry coverage on top of T5's
-// TestFireOpTriggerPlayer_BindsSelf2ToClicker (which goes directly
-// through tryFireOpTrigger without exercising the OPPLAYER1 wire-bytes
-// handler).
+// handler-entry coverage on top of the direct fire-helper pin in
+// TestFireOpTriggerPlayer_BindsSelf2ToTarget.
 //
 // Approach: Option A — drive handleOpPlayer1 with an OPPLAYER1 payload,
 // then mark clicker.interacted = true (the gate processInteraction
 // would set on adjacency) and call tryFireOpTrigger directly. This keeps
 // the test free of the movement/path-finding machinery while still
 // exercising the full handler→trigger→script→wire pipeline.
-func TestOpPlayer1_E2E_HintPlOnTarget(t *testing.T) {
-	s, clicker, target, _ := makeOpPlayerFixture(t)
+func TestOpPlayer1_E2E_HintPlOnClicker(t *testing.T) {
+	s, clicker, target, clickerConn := makeOpPlayerFixture(t)
 	rsbufSeesPlayer(t, s, clicker.slot, target.slot)
 
-	// Give target a real connection + ISAAC encryptor so HINT_ARROW
-	// bytes are observable on the wire. makeOpPlayerFixture leaves
-	// target with a stub connection; rewire here.
-	freshTarget, targetConn := newTestPlayer(t)
-	freshTarget.client.server = s
-	freshTarget.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	freshTarget.slot = target.slot
-	s.players[target.slot] = freshTarget
-	target = freshTarget
-
 	// Compute expected first wire byte using a parallel encryptor seeded
-	// identically to target.client.encryptor.
+	// identically to clicker.client.encryptor (set by makeOpPlayerFixture).
 	wantEnc, _ := isaacPair([4]uint32{1, 2, 3, 4})
 
 	s.scriptProvider = script.NewProvider()
@@ -1467,15 +1456,15 @@ func TestOpPlayer1_E2E_HintPlOnTarget(t *testing.T) {
 	// tryFireOpTrigger reads).
 	clicker.interacted = true
 
-	received := drainConn(t, targetConn)
+	received := drainConn(t, clickerConn)
 	tryFireOpTrigger(clicker)
-	target.client.flushWrite()
+	clicker.client.flushWrite()
 	got := <-received
 
 	want := []byte{
 		byte((int(gameserver.OpHintArrow.Opcode) + int(wantEnc.GetNext())) & 0xff),
-		0x0A,                                        // p1: type = 10 (player hint)
-		byte(clicker.slot >> 8), byte(clicker.slot), // p2: slot
+		0x0A,                                      // p1: type = 10 (player hint)
+		byte(target.slot >> 8), byte(target.slot), // p2: slot (target's)
 		0x00, 0x00, // p2: 0
 		0x00, // p1: 0
 	}

@@ -29,10 +29,13 @@ func apPlayerTriggerForOp(op int) (script.ServerTriggerType, bool) {
 }
 
 // fireOpTriggerPlayer fires the [opplayer<op>,_] trigger for a Player
-// target. Self = target, Self2 = clicker (the receiver `p`). Self2
-// binding flows through srv.runScript → buildPlayerScriptState's
-// `case script.ActivePlayer:` arm (script.go:54-58), which sets
-// state.Self2 = p and OR-s in script.PtrActivePlayer2.
+// target. Self = `p` (clicker), Self2 = target. Mirrors TS Player.ts:1129
+// + ScriptRunner.ts:84-87: ScriptRunner.init(opTrigger, this=clicker,
+// target=target_player) yields _activePlayer=clicker, _activePlayer2=target.
+//
+// Self2 binding flows through srv.runScript → buildPlayerScriptState's
+// `case script.ActivePlayer:` arm (script.go:55-59), which sets
+// state.Self2 = target and OR-s in script.PtrActivePlayer2.
 //
 // Closes NAI-39-D-ACTIVEPLAYER2-NO-OPPLAYER-PRODUCER: this is the
 // production producer for state.Self2. Players have no type, so the
@@ -69,11 +72,11 @@ func fireOpTriggerPlayer(p *Player, srv *Server, target *Player) {
 	p.target = nil
 	p.waypointIndex = -1 // TS L1131
 
-	// Run with target as Self and `p` (clicker) threaded as the
+	// Run with `p` (clicker) as Self and `target` threaded as the
 	// ActivePlayer-typed second arg → buildPlayerScriptState's
-	// case-ActivePlayer arm sets state.Self2 = p, Pointers |=
-	// PtrActivePlayer2.
-	srv.runScript(sf, target, p, true, nil, nil)
+	// case-ActivePlayer arm sets state.Self2 = target, Pointers |=
+	// PtrActivePlayer2 (TS-true binding per NAI-70).
+	srv.runScript(sf, p, target, true, nil, nil)
 
 	p.nextTarget = p.target
 	p.target = savedTarget
