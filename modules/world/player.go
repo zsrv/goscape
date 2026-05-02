@@ -99,8 +99,14 @@ type Player struct {
 	faceAngleX, faceAngleZ int
 
 	// === interaction target ===
-	target   entity
-	targetOp int
+	target entity
+	// nextTarget queues a script-set interaction target for next-tick
+	// application. Written by the OP/AP fire helpers (interaction_trigger.go,
+	// player_interaction_trigger.go) capturing whatever a trigger script
+	// stored via SetInteraction; popped at processInteraction tail
+	// (interaction.go) per TS Player.ts:1255-1258. Nil between ticks.
+	nextTarget entity
+	targetOp   int
 	// targetSubject snapshots the identity of the interaction target at
 	// click time. Components:
 	//   typ, x, z, level — loc identity for tryFireXxxTriggerLoc's

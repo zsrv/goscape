@@ -184,11 +184,8 @@ func (p *Player) processInteraction() {
 	// TS L1201-1202.
 	p.followX = p.lastStepX
 	p.followZ = p.lastStepZ
-	// TS L1203 (this.nextTarget = null) — DEVIATION NAI-44-D-IMMEDIATE-POP-VS-NEXTTARGET:
-	// goscape's p_op* opcodes do immediate SetInteraction swaps rather
-	// than queueing a nextTarget for next-tick application. No nextTarget
-	// field exists on *Player; the reshape below has no nextTarget block.
-	// Closure: future p_op* opcode reshape sub-spec.
+	// TS L1203.
+	p.nextTarget = nil
 
 	followOp := isFollowOp(p)
 
@@ -236,13 +233,19 @@ func (p *Player) processInteraction() {
 		}
 	}
 
-	// Auto-clear (TS L1261-1263). NAI-44 closure of
-	// NAI-40-D-OPPLAYER3-FOLLOWOP-NOT-PORTED's auto-clear gap.
-	// Note: followOp paths can still reach this when tryInteract returned
-	// true at the pre-step arm (contact range with target=*Player op=3).
-	// TS does the same — followOp gates SKIP_post-step-interact, not
-	// the auto-clear itself.
-	if interacted && !p.apRangeCalled {
+	// nextTarget pop + auto-clear (TS L1255-1263). NAI-68 closes
+	// NAI-44-D-IMMEDIATE-POP-VS-NEXTTARGET: when an OP/AP trigger
+	// script called p_op_* mid-trigger, the fire helpers captured the
+	// script-set target into p.nextTarget; pop it here. Otherwise,
+	// auto-clear the interaction (NAI-44 closure of
+	// NAI-40-D-OPPLAYER3-FOLLOWOP-NOT-PORTED's auto-clear gap).
+	// followOp paths can still reach the else-if when tryInteract
+	// returned true at the pre-step arm (contact range with
+	// target=*Player op=3); TS does the same — followOp gates SKIP
+	// post-step-interact, not the auto-clear itself.
+	if p.nextTarget != nil {
+		p.target = p.nextTarget
+	} else if interacted && !p.apRangeCalled {
 		p.ClearInteraction()
 	}
 

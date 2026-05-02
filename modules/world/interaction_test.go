@@ -1375,3 +1375,87 @@ func TestSetInteractionObjEngineWritesFaceSquareAndMask(t *testing.T) {
 		t.Errorf("MaskFaceCoord bit not set (masks=%d)", p.masks)
 	}
 }
+
+// TestProcessInteractionTailAutoClearsWithoutNextTarget pins the negative
+// case — tail's else-if branch fires when nextTarget is nil and the
+// pre-fix interacted+!apRangeCalled state is met.
+//
+// NAI-68 B1 dual-pin.
+func TestProcessInteractionTailAutoClearsWithoutNextTarget(t *testing.T) {
+	s := newTestServer(t)
+	p, wait := makeInteractionPlayer(t, s, 3200, 3200, 0)
+	defer wait()
+
+	// npcA is adjacent (3201, 3200) so tryInteract fires the OP path.
+	// With p.targetOp=-1 (default), fireOpTriggerNpc does an early-return
+	// ClearInteraction (apNpcTriggerForOp returns ok=false). The local
+	// interacted=true, nextTarget=nil → tail's else-if auto-clears.
+	npcA := makeInteractionNpc(t, s, 1, 3201, 3200, 0)
+
+	p.target = npcA
+	p.nextTarget = nil
+
+	p.processInteraction()
+
+	if p.target != nil {
+		t.Errorf("p.target after tail: got %v, want nil (else-if auto-clear)", p.target)
+	}
+}
+
+// TestProcessInteractionEntryResetsNextTarget pins TS Player.ts:1203.
+// p.nextTarget MUST be reset to nil on every processInteraction call,
+// even on the level-mismatch early-exit path (TS L1203 runs before
+// validateTarget at TS L1207).
+//
+// NAI-68 B2.
+func TestProcessInteractionEntryResetsNextTarget(t *testing.T) {
+	s := newTestServer(t)
+	p, wait := makeInteractionPlayer(t, s, 3200, 3200, 0)
+	defer wait()
+
+	// Stale nextTarget from a hypothetical previous tick.
+	npcStale := makeInteractionNpc(t, s, 1, 3201, 3201, 0)
+	// npcA is far away (15 tiles) so tryInteract returns false; the tail
+	// sees nextTarget=nil (entry reset wiped it) and doesn't pop.
+	npcA := makeInteractionNpc(t, s, 2, 3215, 3200, 0)
+
+	p.target = npcA
+	p.nextTarget = npcStale
+
+	p.processInteraction()
+
+	if p.nextTarget != nil {
+		// After tail: pop happens, but the field STAYS at the popped
+		// value (we don't post-pop reset). However, the entry reset
+		// runs FIRST, so the stale value is wiped before the pop reads
+		// it. The pop reads nil → no swap → tail's else-if runs.
+		// Final state: nextTarget=nil because the value was reset on
+		// entry, never re-set during this tick.
+		t.Errorf("p.nextTarget after processInteraction: got %v, want nil (entry reset per TS L1203)", p.nextTarget)
+	}
+}
+
+// TestProcessInteractionEntryResetsNextTargetEvenOnLevelMismatch pins
+// TS L1203's placement BEFORE the validateTarget level-check. A target
+// at a different level triggers the early-exit at interaction.go:196-199,
+// but the entry reset must already have run.
+//
+// NAI-68 B2 placement-pin.
+func TestProcessInteractionEntryResetsNextTargetEvenOnLevelMismatch(t *testing.T) {
+	s := newTestServer(t)
+	p, wait := makeInteractionPlayer(t, s, 3200, 3200, 0)
+	defer wait()
+
+	npcStale := makeInteractionNpc(t, s, 1, 3201, 3201, 0)
+	// Target on a DIFFERENT level — triggers level-mismatch early-exit.
+	npcOtherLevel := makeInteractionNpc(t, s, 2, 3201, 3200, 1)
+
+	p.target = npcOtherLevel
+	p.nextTarget = npcStale
+
+	p.processInteraction()
+
+	if p.nextTarget != nil {
+		t.Errorf("p.nextTarget after level-mismatch exit: got %v, want nil (TS L1203 runs before L1207)", p.nextTarget)
+	}
+}
