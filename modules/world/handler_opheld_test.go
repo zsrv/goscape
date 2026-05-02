@@ -518,6 +518,46 @@ func TestHandleOpHeldU_ComMismatch(t *testing.T) {
 	}
 }
 
+// TestHandleOpHeldU_SlotMismatch_ClearsAndUnsetsMoveClick pins gate 10:
+// inv.HasAt(slot, obj)=false → moveClickRequest=false + ClearPendingAction.
+// TS OpHeldUHandler.ts:54-58.
+func TestHandleOpHeldU_SlotMismatch_ClearsAndUnsetsMoveClick(t *testing.T) {
+	_, p := setupOpHeldUServer(t)
+	// Pre-arm the sentinel state.
+	p.moveClickRequest = true
+	p.target = p // ClearPendingAction sets target=nil
+
+	// slot=10 is empty in the fixture (inv has items at 3 and 5 only).
+	_ = handleOpHeldU(p, opHeldUPayload(555, 10, 149, 777, 5, 149))
+
+	if p.moveClickRequest {
+		t.Error("moveClickRequest: want false after slot-mismatch reject (gate 10)")
+	}
+	if p.target != nil {
+		t.Error("ClearPendingAction: want called (target nil) after slot-mismatch reject (gate 10)")
+	}
+}
+
+// TestHandleOpHeldU_UseSlotMismatch_ClearsAndUnsetsMoveClick pins gate 13:
+// useInv.HasAt(useSlot, useObj)=false → moveClickRequest=false + ClearPendingAction.
+// TS OpHeldUHandler.ts:71-75.
+func TestHandleOpHeldU_UseSlotMismatch_ClearsAndUnsetsMoveClick(t *testing.T) {
+	_, p := setupOpHeldUServer(t)
+	// Pre-arm the sentinel state.
+	p.moveClickRequest = true
+	p.target = p // ClearPendingAction sets target=nil
+
+	// slot=3 has id=555 (HasAt true); useSlot=10 is empty (HasAt false).
+	_ = handleOpHeldU(p, opHeldUPayload(555, 3, 149, 777, 10, 149))
+
+	if p.moveClickRequest {
+		t.Error("moveClickRequest: want false after useSlot-mismatch reject (gate 13)")
+	}
+	if p.target != nil {
+		t.Error("ClearPendingAction: want called (target nil) after useSlot-mismatch reject (gate 13)")
+	}
+}
+
 // Happy path arm (a): [opheldu,objType.id] hits — no swap.
 // TS OpHeldUHandler.ts:96-97 ("[opheldu,b]" in TS labelling but lookup
 // is on objType.id which is the dragged item).
@@ -577,9 +617,14 @@ func TestHandleOpHeldU_ArmB_SwapsItemAndSlot(t *testing.T) {
 	}
 }
 
-// Arm (c): [opheldu,-1,objType.Category] hits — no swap.
+// Arm (c): [opheldu,-1,objType.Category] hits — INHERITS the b-block swap.
 // objType.Category=100 activates the category-fallback arm (c).
-func TestHandleOpHeldU_ArmC_CategoryB_NoSwap(t *testing.T) {
+//
+// Path: (a) misses → (b) entered → b-swap fires (UNCONDITIONAL) → (b)'s
+// lookup misses (no script for useObjType.id=777) → (c) entered
+// (objType.Category=100) → (c) hits → no further swap.
+// Final state: b-block swap took effect, so lastItem=777, lastUseItem=555.
+func TestHandleOpHeldU_ArmC_CategoryB_Inherits_BSwap(t *testing.T) {
 	s, p := setupOpHeldUServer(t)
 	s.objTypes.Configs[555].Category = 100 // category set so arm (c) is active
 	sf := &script.ScriptFile{
@@ -592,17 +637,32 @@ func TestHandleOpHeldU_ArmC_CategoryB_NoSwap(t *testing.T) {
 
 	_ = handleOpHeldU(p, opHeldUPayload(555, 3, 149, 777, 5, 149))
 
-	if p.lastItem != 555 {
-		t.Errorf("lastItem (c): got %d, want 555 (no swap)", p.lastItem)
+	// Pre-snapshot: lastItem=555, lastSlot=3, lastUseItem=777, lastUseSlot=5.
+	// After b-block swap: lastItem=777, lastSlot=5, lastUseItem=555, lastUseSlot=3.
+	// Arm (c) fires with no additional swap.
+	if p.lastItem != 777 {
+		t.Errorf("lastItem (c): got %d, want 777 (inherits b-block swap)", p.lastItem)
 	}
-	if p.lastUseItem != 777 {
-		t.Errorf("lastUseItem (c): got %d, want 777", p.lastUseItem)
+	if p.lastSlot != 5 {
+		t.Errorf("lastSlot (c): got %d, want 5 (inherits b-block swap)", p.lastSlot)
+	}
+	if p.lastUseItem != 555 {
+		t.Errorf("lastUseItem (c): got %d, want 555 (inherits b-block swap)", p.lastUseItem)
+	}
+	if p.lastUseSlot != 3 {
+		t.Errorf("lastUseSlot (c): got %d, want 3 (inherits b-block swap)", p.lastUseSlot)
 	}
 }
 
-// Arm (d): [opheldu,-1,useObjType.Category] hits — SWAPS both pairs.
+// Arm (d): [opheldu,-1,useObjType.Category] hits — b-swap + d-swap = net identity.
 // useObjType.Category=200 activates arm (d).
-func TestHandleOpHeldU_ArmD_CategoryA_Swaps(t *testing.T) {
+//
+// Path: (a) misses → (b) entered → b-swap fires (UNCONDITIONAL) → (b)'s
+// lookup misses (no script for useObjType.id=777) → (c) skipped
+// (objType.Category=-1) → (d) entered (useObjType.Category=200) → d-swap
+// fires (UNCONDITIONAL) → (d)'s lookup hits.
+// b-swap + d-swap = double swap = net identity (original state restored).
+func TestHandleOpHeldU_ArmD_CategoryA_DoubleSwap_NetIdentity(t *testing.T) {
 	s, p := setupOpHeldUServer(t)
 	s.objTypes.Configs[777].Category = 200
 	sf := &script.ScriptFile{
@@ -615,17 +675,21 @@ func TestHandleOpHeldU_ArmD_CategoryA_Swaps(t *testing.T) {
 
 	_ = handleOpHeldU(p, opHeldUPayload(555, 3, 149, 777, 5, 149))
 
-	if p.lastItem != 777 {
-		t.Errorf("lastItem (d): got %d, want 777 (swapped)", p.lastItem)
+	// Pre-snapshot: lastItem=555, lastSlot=3, lastUseItem=777, lastUseSlot=5.
+	// After b-block swap: lastItem=777, lastSlot=5, lastUseItem=555, lastUseSlot=3.
+	// After d-block swap: lastItem=555, lastSlot=3, lastUseItem=777, lastUseSlot=5.
+	// Double swap = net identity; final state equals original snapshot.
+	if p.lastItem != 555 {
+		t.Errorf("lastItem (d): got %d, want 555 (b-swap+d-swap=identity)", p.lastItem)
 	}
-	if p.lastSlot != 5 {
-		t.Errorf("lastSlot (d): got %d, want 5 (swapped)", p.lastSlot)
+	if p.lastSlot != 3 {
+		t.Errorf("lastSlot (d): got %d, want 3 (b-swap+d-swap=identity)", p.lastSlot)
 	}
-	if p.lastUseItem != 555 {
-		t.Errorf("lastUseItem (d): got %d, want 555 (swapped)", p.lastUseItem)
+	if p.lastUseItem != 777 {
+		t.Errorf("lastUseItem (d): got %d, want 777 (b-swap+d-swap=identity)", p.lastUseItem)
 	}
-	if p.lastUseSlot != 3 {
-		t.Errorf("lastUseSlot (d): got %d, want 3 (swapped)", p.lastUseSlot)
+	if p.lastUseSlot != 5 {
+		t.Errorf("lastUseSlot (d): got %d, want 5 (b-swap+d-swap=identity)", p.lastUseSlot)
 	}
 }
 

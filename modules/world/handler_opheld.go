@@ -224,22 +224,29 @@ func handleOpHeldT(p *Player, payload []byte) error {
 //
 // Trigger fallback (4 arms; first hit wins):
 //
-//	(a) GetByTriggerSpecific(OPHELDU, objType.id, -1)    — no swap
-//	(b) GetByTriggerSpecific(OPHELDU, useObjType.id, -1) — on hit: SWAP
-//	                                                        (lastItem,lastUseItem)
-//	                                                        AND
-//	                                                        (lastSlot,lastUseSlot)
-//	(c) GetByTriggerSpecific(OPHELDU, -1, objType.Category)    — no swap
-//	                                                            (only if objType.Category != -1)
-//	(d) GetByTriggerSpecific(OPHELDU, -1, useObjType.Category) — on hit: SWAP
-//	                                                            (only if useObjType.Category != -1)
+//	(a) GetByTriggerSpecific(OPHELDU, objType.id, -1)         — no swap
+//	(b) GetByTriggerSpecific(OPHELDU, useObjType.id, -1)      — UNCONDITIONAL swap of
+//	                                                             (lastItem,lastUseItem) and
+//	                                                             (lastSlot,lastUseSlot)
+//	                                                             whenever (a) misses,
+//	                                                             regardless of whether
+//	                                                             (b)'s lookup succeeded.
+//	(c) GetByTriggerSpecific(OPHELDU, -1, objType.Category)   — no swap; only if
+//	                                                             objType.Category != -1
+//	(d) GetByTriggerSpecific(OPHELDU, -1, useObjType.Category) — UNCONDITIONAL swap
+//	                                                             of both pairs whenever
+//	                                                             (c) misses (or is
+//	                                                             skipped), regardless of
+//	                                                             (d)'s lookup result;
+//	                                                             only if useObjType.Category
+//	                                                             != -1.
 //
 // On miss across all 4: MessageGame "Nothing interesting happens.".
 //
 // Note on TS labelling: TS calls (a)/(b) "[opheldu,b]/[opheldu,a]"
 // where 'b' = the inventory-listed (dragged-from) item and 'a' = the
-// dragged-onto target. Goscape's implementation is byte-identical; the
-// (a)/(b)/(c)/(d) labelling here is plan-local for clarity.
+// dragged-onto target. The (a)/(b)/(c)/(d) labelling here is plan-local
+// for clarity.
 func handleOpHeldU(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
@@ -344,11 +351,10 @@ func handleOpHeldU(p *Player, payload []byte) error {
 
 	if sf == nil {
 		sf = s.scriptProvider.GetByTriggerSpecific(script.TriggerOpHeldU, useObjType.ConfigType.ID, -1)
-		if sf != nil {
-			// Arm (b) hit: swap both pairs (TS OpHeldUHandler.ts:101-102).
-			p.lastItem, p.lastUseItem = p.lastUseItem, p.lastItem
-			p.lastSlot, p.lastUseSlot = p.lastUseSlot, p.lastSlot
-		}
+		// Arm (b): UNCONDITIONAL swap whenever (a) misses, regardless of
+		// whether (b)'s lookup succeeded (TS OpHeldUHandler.ts:101-102).
+		p.lastItem, p.lastUseItem = p.lastUseItem, p.lastItem
+		p.lastSlot, p.lastUseSlot = p.lastUseSlot, p.lastSlot
 	}
 
 	if sf == nil && objType.Category != -1 {
@@ -357,11 +363,10 @@ func handleOpHeldU(p *Player, payload []byte) error {
 
 	if sf == nil && useObjType.Category != -1 {
 		sf = s.scriptProvider.GetByTriggerSpecific(script.TriggerOpHeldU, -1, useObjType.Category)
-		if sf != nil {
-			// Arm (d) hit: swap both pairs (TS OpHeldUHandler.ts:115-116).
-			p.lastItem, p.lastUseItem = p.lastUseItem, p.lastItem
-			p.lastSlot, p.lastUseSlot = p.lastUseSlot, p.lastSlot
-		}
+		// Arm (d): UNCONDITIONAL swap whenever (c) misses or is skipped,
+		// regardless of whether (d)'s lookup succeeded (TS OpHeldUHandler.ts:115-116).
+		p.lastItem, p.lastUseItem = p.lastUseItem, p.lastItem
+		p.lastSlot, p.lastUseSlot = p.lastUseSlot, p.lastSlot
 	}
 
 	if sf == nil {
