@@ -709,6 +709,26 @@ func (n *Npc) focus(fx, fz int, instant bool) {
 	_ = instant
 }
 
+// reorient is the Npc-side per-tick refocus invoked from
+// Server.processInfo before rsbuf compute. Mirrors TS
+// PathingEntity.reorient at PathingEntity.ts:349-361. Same shape as
+// (*Player).reorient.
+func (n *Npc) reorient() {
+	switch t := n.target.(type) {
+	case *Player:
+		n.focus(coordgrid.Fine(t.x, 1), coordgrid.Fine(t.z, 1), false)
+	case *Npc:
+		n.focus(coordgrid.Fine(t.x, 1), coordgrid.Fine(t.z, 1), false)
+	default:
+		_ = t
+		if n.targetX != -1 && n.stepsTaken == 0 {
+			n.focus(n.targetX, n.targetZ, false)
+			n.targetX = -1
+			n.targetZ = -1
+		}
+	}
+}
+
 // defaultMode returns the NPC's baseline mode based on its NpcType
 // config. Patrol if PatrolCoord is set; else Wander if WanderRange>0;
 // else None. Single source of truth used by NewNpc (initial targetOp)
