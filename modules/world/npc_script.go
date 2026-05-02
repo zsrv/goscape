@@ -1,6 +1,7 @@
 package world
 
 import (
+	"github.com/zsrv/goscape/pkg/coordgrid"
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
@@ -139,6 +140,14 @@ func (n *Npc) Teleport(x, z, level int) {
 
 	prevX, prevZ, prevLevel := n.x, n.z, n.level
 	n.x, n.z, n.level = x, z, level
+
+	// NAI-65 D3-NPC: focus call from TS PathingEntity.ts:286-289.
+	// Npc width=length=size (square; from typ.Size at NewNpc).
+	dir := coordgrid.Face(prevX, prevZ, x, z)
+	moveX := coordgrid.MoveX(n.x, dir)
+	moveZ := coordgrid.MoveZ(n.z, dir)
+	n.focus(coordgrid.Fine(moveX, n.size), coordgrid.Fine(moveZ, n.size), false)
+
 	refreshNpcZone(n.server, n, prevX, prevZ, prevLevel)
 	n.tele = true
 }

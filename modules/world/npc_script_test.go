@@ -726,6 +726,76 @@ func TestNpcTeleport_NilServerNoOp(t *testing.T) {
 	}
 }
 
+// TestNpcTeleport_FocusFromDirection pins NAI-65 D3-NPC. Teleport from
+// (3200, 3200, 0) to (3300, 3300, 0) for a size=1 NPC: dir=NE, moveX=3301,
+// moveZ=3301. faceAngleX = Fine(3301, 1) = 3301*64 + 31 = 211295.
+// Mirrors TS PathingEntity.ts:286-289.
+func TestNpcTeleport_FocusFromDirection(t *testing.T) {
+	s := newTestServer(t)
+	n := &Npc{nid: 0, typeId: 0, x: 3200, z: 3200, level: 0, size: 1, startX: 3200, startZ: 3200, startLevel: 0, faceAngleX: -1, faceAngleZ: -1}
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+
+	n.Teleport(3300, 3300, 0)
+
+	wantX := 3301*64 + 31
+	wantZ := 3301*64 + 31
+	if n.faceAngleX != wantX {
+		t.Errorf("faceAngleX after Teleport(NE): got %d, want %d (Fine(3301, 1))", n.faceAngleX, wantX)
+	}
+	if n.faceAngleZ != wantZ {
+		t.Errorf("faceAngleZ after Teleport(NE): got %d, want %d (Fine(3301, 1))", n.faceAngleZ, wantZ)
+	}
+}
+
+// TestNpcTeleport_FocusSize2 pins the size>1 path so a refactor that drops
+// `n.size` to a literal `1` regresses. Fine(3301, 2) = 3301*64 + (2*64-1)/2
+// = 211264 + 63 = 211327.
+func TestNpcTeleport_FocusSize2(t *testing.T) {
+	s := newTestServer(t)
+	n := &Npc{nid: 0, typeId: 0, x: 3200, z: 3200, level: 0, size: 2, startX: 3200, startZ: 3200, startLevel: 0, faceAngleX: -1, faceAngleZ: -1}
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+
+	n.Teleport(3300, 3300, 0)
+
+	wantX := 3301*64 + 63
+	wantZ := 3301*64 + 63
+	if n.faceAngleX != wantX {
+		t.Errorf("size=2 faceAngleX: got %d, want %d (Fine(3301, 2))", n.faceAngleX, wantX)
+	}
+	if n.faceAngleZ != wantZ {
+		t.Errorf("size=2 faceAngleZ: got %d, want %d (Fine(3301, 2))", n.faceAngleZ, wantZ)
+	}
+}
+
+// TestNpcTeleport_InPlaceFocusUsesSelfCenter pins the in-place edge case.
+// prev == new → Face returns -1 → MoveX/MoveZ no-op → focus uses
+// self-center coords. tele still flags true.
+func TestNpcTeleport_InPlaceFocusUsesSelfCenter(t *testing.T) {
+	s := newTestServer(t)
+	n := &Npc{nid: 0, typeId: 0, x: 3200, z: 3200, level: 0, size: 1, startX: 3200, startZ: 3200, startLevel: 0, faceAngleX: -1, faceAngleZ: -1}
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+	n.tele = false
+
+	n.Teleport(3200, 3200, 0)
+
+	wantSelf := 3200*64 + 31
+	if n.faceAngleX != wantSelf {
+		t.Errorf("in-place faceAngleX: got %d, want %d (Fine(3200, 1) self-center)", n.faceAngleX, wantSelf)
+	}
+	if n.faceAngleZ != wantSelf {
+		t.Errorf("in-place faceAngleZ: got %d, want %d (Fine(3200, 1) self-center)", n.faceAngleZ, wantSelf)
+	}
+	if !n.tele {
+		t.Error("in-place tele flag: got false, want true")
+	}
+}
+
 // --- NAI-36 Task 7: Npc.Teleport partial parity (D1 + D2 only) ----------
 //
 // NPC closes only D1 (level clamp) and D2 (unallocated-zone reject).
