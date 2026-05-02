@@ -406,16 +406,29 @@ func (p *Player) Teleport(x, z, level int) {
 // non-Teleport callers (e.g. SetInteraction's Engine-clicked Loc/Obj
 // branch when NAI-41 closes).
 //
-// DEVIATION NAI-65-D-FOCUS-INSTANT-WIRE: TS focus(_, _, client=true) ALSO
-// writes faceSquareX/Z and ORs the coord mask into masks. Goscape's wire
-// protocol doesn't currently branch on it, so the flag is accepted for
-// signature parity but stored write-only. Mirror site: (*Npc).focus
-// (npc_interaction.go:706). Closure: future "face-instant wire protocol"
-// sub-spec.
+// focus records the fine-grained face-angle coord. Mirrors TS
+// PathingEntity.focus (Engine-TS/src/engine/entity/PathingEntity.ts:321-333).
+// instant=true ALSO writes faceSquareX/Z to (fx, fz) and ORs
+// MaskFaceCoord into masks.
+//
+// Coord-frame note: focus() takes RAW fine coords (already
+// CoordGrid.fine'd). Distinct from (*Player).FaceSquare in
+// modules/world/player_masks.go which takes absolute coords and
+// applies *2+1.
+//
+// Drivers per TS: Teleport (PathingEntity.ts:289), takeStep
+// (PathingEntity.ts:220), reorient (PathingEntity.ts:353,358),
+// setInteraction (PathingEntity.ts:528). The setInteraction site is
+// the only one that ever passes instant=true — gated on
+// (target instanceof NonPathingEntity && interaction === Interaction.ENGINE).
 func (p *Player) focus(fx, fz int, instant bool) {
 	p.faceAngleX = fx
 	p.faceAngleZ = fz
-	_ = instant
+	if instant {
+		p.faceSquareX = fx
+		p.faceSquareZ = fz
+		p.masks |= rsbuf.MaskFaceCoord
+	}
 }
 
 // FaceSquare rotates the player to face the square at absolute (x, z)

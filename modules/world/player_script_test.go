@@ -11,6 +11,7 @@ import (
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 )
 
@@ -1140,11 +1141,17 @@ func TestPlayerOnScriptFinishedOrAborted_NilActive(t *testing.T) {
 	}
 }
 
-// TestPlayerFocus_HelperWritesFaceAngleOnly pins NAI-65 D3-Player helper
-// shape. instant=false sets faceAngleX/Z only — does NOT touch
-// faceSquareX/Z or masks. instant=true is currently write-only too,
-// matching (*Npc).focus and tracked under NAI-65-D-FOCUS-INSTANT-WIRE.
-func TestPlayerFocus_HelperWritesFaceAngleOnly(t *testing.T) {
+// TestPlayerFocusWritesFaceAngleAlwaysAndFaceSquareOnInstant pins TS
+// PathingEntity.focus (PathingEntity.ts:321-333). instant=false sets
+// faceAngleX/Z only — does NOT touch faceSquareX/Z or masks.
+// instant=true ALSO writes faceSquareX = fineX, faceSquareZ = fineZ,
+// and ORs MaskFaceCoord into masks.
+//
+// Per ts_asymmetry_dual_pin.md: dual-pin both branches. The
+// instant=false absence-pin escalates if upstream changes the focus()
+// shape; the instant=true presence-pin escalates if the wire writes
+// regress.
+func TestPlayerFocusWritesFaceAngleAlwaysAndFaceSquareOnInstant(t *testing.T) {
 	c, _ := newTestClient(t)
 	p := newPlayer(c)
 	p.faceAngleX = -1
@@ -1153,8 +1160,8 @@ func TestPlayerFocus_HelperWritesFaceAngleOnly(t *testing.T) {
 	p.faceSquareZ = -1
 	p.masks = 0
 
+	// instant=false — faceAngle written; faceSquare/mask untouched.
 	p.focus(123, 456, false)
-
 	if p.faceAngleX != 123 || p.faceAngleZ != 456 {
 		t.Errorf("instant=false faceAngle: got (%d, %d), want (123, 456)", p.faceAngleX, p.faceAngleZ)
 	}
@@ -1165,18 +1172,17 @@ func TestPlayerFocus_HelperWritesFaceAngleOnly(t *testing.T) {
 		t.Errorf("instant=false masks: got %d, want 0 unchanged", p.masks)
 	}
 
-	// instant=true: same outcome at HEAD per NAI-65-D-FOCUS-INSTANT-WIRE.
-	// Per ts_asymmetry_dual_pin.md, dual-pin both branches so that a future
-	// closure of the wire-protocol sub-spec breaks this test loudly.
+	// instant=true — faceAngle written; faceSquare = (fx, fz);
+	// MaskFaceCoord ORed in.
 	p.focus(789, 1011, true)
 	if p.faceAngleX != 789 || p.faceAngleZ != 1011 {
 		t.Errorf("instant=true faceAngle: got (%d, %d), want (789, 1011)", p.faceAngleX, p.faceAngleZ)
 	}
-	if p.faceSquareX != -1 || p.faceSquareZ != -1 {
-		t.Errorf("instant=true faceSquare: got (%d, %d), want (-1, -1) — flag is currently write-only (NAI-65-D-FOCUS-INSTANT-WIRE)", p.faceSquareX, p.faceSquareZ)
+	if p.faceSquareX != 789 || p.faceSquareZ != 1011 {
+		t.Errorf("instant=true faceSquare: got (%d, %d), want (789, 1011)", p.faceSquareX, p.faceSquareZ)
 	}
-	if p.masks != 0 {
-		t.Errorf("instant=true masks: got %d, want 0 — flag is currently write-only (NAI-65-D-FOCUS-INSTANT-WIRE)", p.masks)
+	if p.masks&rsbuf.MaskFaceCoord == 0 {
+		t.Errorf("instant=true masks: MaskFaceCoord bit not set (masks=%d)", p.masks)
 	}
 }
 
