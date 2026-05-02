@@ -303,11 +303,15 @@ func tryFireApTrigger(p *Player) {
 //     lookup because Loc has no cached LocType pointer, only a
 //     packed Info bitfield.
 //
-//  3. NO apRangeCalled persistence contract. Per TS
-//     (Npc.ts:~1064-1080): NPC AP scripts complete and clear
-//     interaction unconditionally. The p_aprange persistence is
-//     Player-side only; NPC attackrange is fixed per-type so
-//     "extend the range" has no meaning. Simpler post-fire logic.
+//  3. apRangeCalled mechanism is structurally active per the uniform
+//     TS Player.ts:1139-1170 AP block, but behaviorally a no-op for
+//     NPC targets. effectiveApRange (interaction.go:393) reads
+//     npc.typ.AttackRange (fixed per-type), not p.apRange — so a
+//     script calling p_aprange against an NPC target sets
+//     p.apRangeCalled=true but doesn't change the in-range check on
+//     post-step retry. NAI-69 preserves this preexisting goscape
+//     divergence. Closure: future "AP-Npc effectiveApRange parity"
+//     audit if upstream TS NPC AP behavior changes.
 func fireApTriggerNpc(p *Player, srv *Server, npc *Npc) {
 	if p.delayed && srv.currentTick < p.delayedUntil {
 		return
@@ -380,10 +384,11 @@ func fireApTriggerNpc(p *Player, srv *Server, npc *Npc) {
 	p.interactionFired = true
 }
 
-// fireApTriggerLoc fires the [aploc<op>,<locType>] trigger with the
-// persistence contract: apRangeCalled=true keeps the interaction
-// anchored across ticks; apRangeCalled=false clears it after a
-// terminal Execution. Matches TS Player.ts:1139-1170 + :1261.
+// fireApTriggerLoc fires the [aploc<op>,<locType>] trigger. Matches
+// TS Player.ts:1139-1170. Always sets interactionFired=true at exit;
+// the same-tick retry signal is apRangeCalled (set by p_aprange via
+// the ActivePlayer.SetApRange interface). tryInteract owns the
+// retry-vs-pop decision (see interaction.go AP branch).
 //
 // Lifecycle gate: locStillValid (same helper from S6j) — catches
 // in-place Info mutation and zone removal.
@@ -466,20 +471,14 @@ func fireApTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 		p.waypointIndex = savedIdx
 	}
 
-	// Existing apRangeCalled across-tick re-fire branch — UNCHANGED.
-	// DEVIATION NAI-68-D-AP-APRANGE-REVERT-NOT-PORTED: TS L1166-1170 does
-	// same-tick post-step retry; goscape uses early-return-without-fired
-	// for next-tick re-fire. Equivalent for player experience.
-	if state.Execution == script.Finished || state.Execution == script.Aborted {
-		if p.apRangeCalled {
-			p.repathed = false
-			return // interactionFired stays false → re-fire next tick.
-		}
-		// Finished/Aborted + !apRangeCalled: ClearInteraction dropped —
-		// subsumed by processInteraction tail's else-if (TS L1261-1263).
-	}
-	// Reached by: (a) Finished/Aborted + !apRangeCalled (no-op here, tail
-	// handles), or (b) Suspended (anchor intact, resume on next tick).
+	// TS L1163-1167 same-tick AP retry: when state.Execution is
+	// Finished/Aborted AND apRangeCalled is true, tryInteract sees the
+	// flag, restores interactionFired=false, and returns false so
+	// processInteraction's walk-arm runs and post-step tryInteract
+	// re-fires AP with the new range. Suspended scripts (P_DELAY /
+	// P_PAUSEBUTTON / P_COUNTDIALOG) leave apRangeCalled false and
+	// keep the anchor across ticks via the suspended ScriptState. NAI-69
+	// closes NAI-68-D-AP-APRANGE-REVERT-NOT-PORTED.
 	p.interactionFired = true
 }
 
@@ -658,19 +657,13 @@ func fireApTriggerObj(p *Player, srv *Server, obj *entitypkg.Obj) {
 		p.waypointIndex = savedIdx
 	}
 
-	// Existing apRangeCalled across-tick re-fire branch — UNCHANGED.
-	// DEVIATION NAI-68-D-AP-APRANGE-REVERT-NOT-PORTED: TS L1166-1170 does
-	// same-tick post-step retry; goscape uses early-return-without-fired
-	// for next-tick re-fire. Equivalent for player experience.
-	if state.Execution == script.Finished || state.Execution == script.Aborted {
-		if p.apRangeCalled {
-			p.repathed = false
-			return // interactionFired stays false → re-fire next tick.
-		}
-		// Finished/Aborted + !apRangeCalled: ClearInteraction dropped —
-		// subsumed by processInteraction tail's else-if (TS L1261-1263).
-	}
-	// Reached by: (a) Finished/Aborted + !apRangeCalled (no-op here, tail
-	// handles), or (b) Suspended (anchor intact, resume on next tick).
+	// TS L1163-1167 same-tick AP retry: when state.Execution is
+	// Finished/Aborted AND apRangeCalled is true, tryInteract sees the
+	// flag, restores interactionFired=false, and returns false so
+	// processInteraction's walk-arm runs and post-step tryInteract
+	// re-fires AP with the new range. Suspended scripts leave
+	// apRangeCalled false and keep the anchor across ticks via the
+	// suspended ScriptState. NAI-69 closes
+	// NAI-68-D-AP-APRANGE-REVERT-NOT-PORTED.
 	p.interactionFired = true
 }

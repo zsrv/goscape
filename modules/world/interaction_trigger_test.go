@@ -498,17 +498,16 @@ func scriptFileWithApRangeCall(t *testing.T, trigger script.ServerTriggerType, t
 }
 
 // TestTryFireApTriggerLocScriptCallsPApRange verifies an APLOC script
-// that calls p_aprange sets apRangeCalled=true, which causes the
-// interaction to PERSIST past the tick (no ClearInteraction). repathed
-// is reset to force a fresh path on the next tick.
+// that calls p_aprange completes the fire cleanly with apRangeCalled=true
+// and interactionFired=true (post-NAI-69 uniform-exit contract). The
+// same-tick retry decision happens in tryInteract, not the fire helper
+// (see TestTryInteract_ApRangeCalled_ReturnsFalseAndResetsFired).
 func TestTryFireApTriggerLocScriptCallsPApRange(t *testing.T) {
 	s, p, loc, _ := makeApTriggerFixture(t)
 
 	// Register an APLOC1 script that calls p_aprange(5).
 	sf := scriptFileWithApRangeCall(t, script.TriggerApLoc1, loc.Type(), 5)
 	s.scriptProvider.Register(sf)
-
-	p.repathed = true // verify it gets reset to false post-fire
 
 	tryFireApTrigger(p)
 
@@ -521,11 +520,8 @@ func TestTryFireApTriggerLocScriptCallsPApRange(t *testing.T) {
 	if !p.apRangeCalled {
 		t.Error("apRangeCalled: want true after p_aprange fire")
 	}
-	if p.repathed {
-		t.Error("repathed: want false (reset post-p_aprange for fresh path)")
-	}
-	if p.interactionFired {
-		t.Error("interactionFired: want false (allow re-fire next tick)")
+	if !p.interactionFired {
+		t.Error("interactionFired: want true (NAI-69: fire helper uniform exit)")
 	}
 }
 

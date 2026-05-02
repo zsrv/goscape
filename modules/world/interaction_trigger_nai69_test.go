@@ -66,3 +66,60 @@ func TestTryInteract_NoApRange_StillReturnsTrue(t *testing.T) {
 		t.Error("apRangeCalled: got true, want false (script did not call p_aprange)")
 	}
 }
+
+// --- NAI-69 T2: fire-helper uniform interactionFired=true contract ---
+
+// TestFireApTriggerLoc_ApRangeCalled_SetsInteractionFiredTrue pins the
+// post-NAI-69 contract: fireApTriggerLoc always sets
+// interactionFired=true at fire end, regardless of apRangeCalled state.
+// The pre-NAI-69 across-tick re-fire scaffold (early-return on
+// Finished/Aborted+apRangeCalled leaving interactionFired=false) is
+// dropped — same-tick retry is now signaled via apRangeCalled and
+// handled by tryInteract (see T1).
+func TestFireApTriggerLoc_ApRangeCalled_SetsInteractionFiredTrue(t *testing.T) {
+	s, p, loc, _ := makeApTriggerFixture(t)
+
+	sf := scriptFileWithApRangeCall(t, script.TriggerApLoc1, loc.Type(), 2)
+	s.scriptProvider.Register(sf)
+
+	tryFireApTrigger(p)
+
+	if !p.interactionFired {
+		t.Error("interactionFired: got false, want true (NAI-69: fire helper uniform exit)")
+	}
+	if !p.apRangeCalled {
+		t.Error("apRangeCalled: got false, want true (script called p_aprange)")
+	}
+	if p.apRange != 2 {
+		t.Errorf("apRange: got %d, want 2 (script set new range)", p.apRange)
+	}
+	if p.target != loc {
+		t.Errorf("target: got %v, want loc (restored after fire)", p.target)
+	}
+}
+
+// TestFireApTriggerObj_ApRangeCalled_SetsInteractionFiredTrue — AP-Obj
+// parity. fireApTriggerObj's post-NAI-69 contract is identical to
+// fireApTriggerLoc.
+func TestFireApTriggerObj_ApRangeCalled_SetsInteractionFiredTrue(t *testing.T) {
+	s, p, obj, _ := makeApObjTriggerFixture(t)
+
+	// Register an APOBJ1 script that calls p_aprange(2).
+	sf := scriptFileWithApRangeCall(t, script.TriggerApObj1, obj.Type, 2)
+	s.scriptProvider.Register(sf)
+
+	fireApTriggerObj(p, s, obj)
+
+	if !p.interactionFired {
+		t.Error("interactionFired: got false, want true (NAI-69: fire helper uniform exit)")
+	}
+	if !p.apRangeCalled {
+		t.Error("apRangeCalled: got false, want true (script called p_aprange)")
+	}
+	if p.apRange != 2 {
+		t.Errorf("apRange: got %d, want 2 (script set new range)", p.apRange)
+	}
+	if p.target != obj {
+		t.Errorf("target: got %v, want obj (restored after fire)", p.target)
+	}
+}
