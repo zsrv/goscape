@@ -7,6 +7,7 @@ import (
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
+	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 )
 
@@ -694,19 +695,28 @@ func targetWidthLength(target entity) (width, length int) {
 	return 1, 1
 }
 
-// focus records the fine-grained face-angle target. Called from
-// SetInteraction with CoordGrid.fine of the target's width/length.
-// Matches TS PathingEntity.focus.
+// focus records the fine-grained face-angle coord. Mirrors TS
+// PathingEntity.focus (Engine-TS/src/engine/entity/PathingEntity.ts:321-333).
+// instant=true ALSO writes faceSquareX/Z to (fx, fz) and ORs
+// NpcMaskFaceCoord into masks.
 //
-// DEVIATION: TS takes an `instant` flag distinguishing engine-face
-// from script-face, which selects between two wire-protocol paths.
-// Go's current protocol doesn't branch on it, so the flag is accepted
-// for signature parity but currently stored write-only. Follow-up:
-// "face-instant wire protocol" sub-spec.
+// Coord-frame note: focus() takes RAW fine coords. Distinct from
+// (*Npc).FaceSquare in modules/world/npc_masks.go which takes absolute
+// coords and applies *2+1.
+//
+// Drivers per TS: takeStep (PathingEntity.ts:220), Teleport
+// (PathingEntity.ts:289), reorient (PathingEntity.ts:353,358),
+// setInteraction (PathingEntity.ts:528). The setInteraction site
+// (modules/world/npc_interaction.go:665) is the only one that ever
+// passes instant=true.
 func (n *Npc) focus(fx, fz int, instant bool) {
 	n.faceAngleX = fx
 	n.faceAngleZ = fz
-	_ = instant
+	if instant {
+		n.faceSquareX = fx
+		n.faceSquareZ = fz
+		n.masks |= rsbuf.NpcMaskFaceCoord
+	}
 }
 
 // reorient is the Npc-side per-tick refocus invoked from

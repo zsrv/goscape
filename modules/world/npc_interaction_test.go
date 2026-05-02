@@ -899,23 +899,41 @@ func TestNpcSetInteractionTargetInvalidReturnsFalse(t *testing.T) {
 	}
 }
 
-func TestNpcFocusSetsFaceAngleCoords(t *testing.T) {
+// TestNpcFocusWritesFaceAngleAlwaysAndFaceSquareOnInstant pins TS
+// PathingEntity.focus (PathingEntity.ts:321-333) for the Npc
+// override. Symmetric with TestPlayerFocusWritesFaceAngleAlwaysAndFaceSquareOnInstant.
+// instant=true ORs NpcMaskFaceCoord (= 0x80, distinct from
+// MaskFaceCoord = 0x20 used by Player).
+func TestNpcFocusWritesFaceAngleAlwaysAndFaceSquareOnInstant(t *testing.T) {
 	typ := &objtype.NpcType{}
 	n := NewNpc(1, 42, 100, 100, 0, typ)
+	n.faceSquareX = -1
+	n.faceSquareZ = -1
+	n.masks = 0
 
+	// instant=false — faceAngle written; faceSquare/mask untouched.
 	n.focus(6431, 6431, false)
-	if n.faceAngleX != 6431 {
-		t.Errorf("faceAngleX: got %d, want 6431", n.faceAngleX)
+	if n.faceAngleX != 6431 || n.faceAngleZ != 6431 {
+		t.Errorf("instant=false faceAngle: got (%d, %d), want (6431, 6431)", n.faceAngleX, n.faceAngleZ)
 	}
-	if n.faceAngleZ != 6431 {
-		t.Errorf("faceAngleZ: got %d, want 6431", n.faceAngleZ)
+	if n.faceSquareX != -1 || n.faceSquareZ != -1 {
+		t.Errorf("instant=false faceSquare: got (%d, %d), want (-1, -1) unchanged", n.faceSquareX, n.faceSquareZ)
+	}
+	if n.masks != 0 {
+		t.Errorf("instant=false masks: got %d, want 0 unchanged", n.masks)
 	}
 
-	// instant flag is write-only (per the DEVIATION note) — test merely
-	// confirms no panic and that coords still update on a subsequent call.
+	// instant=true — faceAngle written; faceSquare = (fx, fz);
+	// NpcMaskFaceCoord ORed in.
 	n.focus(1000, 2000, true)
 	if n.faceAngleX != 1000 || n.faceAngleZ != 2000 {
-		t.Errorf("focus(instant=true) did not update coords: got (%d,%d)", n.faceAngleX, n.faceAngleZ)
+		t.Errorf("instant=true faceAngle: got (%d, %d), want (1000, 2000)", n.faceAngleX, n.faceAngleZ)
+	}
+	if n.faceSquareX != 1000 || n.faceSquareZ != 2000 {
+		t.Errorf("instant=true faceSquare: got (%d, %d), want (1000, 2000)", n.faceSquareX, n.faceSquareZ)
+	}
+	if n.masks&rsbuf.NpcMaskFaceCoord == 0 {
+		t.Errorf("instant=true masks: NpcMaskFaceCoord bit not set (masks=%d)", n.masks)
 	}
 }
 
