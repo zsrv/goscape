@@ -31,10 +31,13 @@ func TestNpcReorientPathingTargetPlayer(t *testing.T) {
 }
 
 // TestNpcReorientPathingTargetNpc — symmetric, *Npc target.
+// makeInteractionNpc builds with typ.Size=0, so other.size defaults to 0.
+// We set other.size = 1 to match the real Npc.New default for typ.Size=1.
 func TestNpcReorientPathingTargetNpc(t *testing.T) {
 	s := newTestServer(t)
 	npc := makeInteractionNpc(t, s, 1, 100, 100, 0)
 	other := makeInteractionNpc(t, s, 2, 105, 108, 0)
+	other.size = 1 // matches Npc.New default for typ.Size=1
 
 	npc.target = other
 
@@ -45,6 +48,27 @@ func TestNpcReorientPathingTargetNpc(t *testing.T) {
 	}
 	if npc.faceAngleZ != coordgrid.Fine(108, 1) {
 		t.Errorf("faceAngleZ: got %d, want %d", npc.faceAngleZ, coordgrid.Fine(108, 1))
+	}
+}
+
+// TestNpcReorientPathingTargetNpcSize2 pins the size>1 path on the NPC side.
+// Mirrors TestPlayerReorientPathingTargetNpcSize2. Without the Fix 1 change
+// Fine(t.x, 1) would be returned instead of Fine(t.x, 2).
+func TestNpcReorientPathingTargetNpcSize2(t *testing.T) {
+	s := newTestServer(t)
+	npc := makeInteractionNpc(t, s, 1, 100, 100, 0)
+	other := makeInteractionNpc(t, s, 2, 105, 108, 0)
+	other.size = 2 // size-2 target: Fine(x, 2) = x*64+63
+
+	npc.target = other
+
+	npc.reorient()
+
+	if npc.faceAngleX != coordgrid.Fine(105, 2) {
+		t.Errorf("faceAngleX: got %d, want %d (Fine(105,2))", npc.faceAngleX, coordgrid.Fine(105, 2))
+	}
+	if npc.faceAngleZ != coordgrid.Fine(108, 2) {
+		t.Errorf("faceAngleZ: got %d, want %d (Fine(108,2))", npc.faceAngleZ, coordgrid.Fine(108, 2))
 	}
 }
 

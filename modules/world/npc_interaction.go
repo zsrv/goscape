@@ -718,7 +718,7 @@ func (n *Npc) reorient() {
 	case *Player:
 		n.focus(coordgrid.Fine(t.x, 1), coordgrid.Fine(t.z, 1), false)
 	case *Npc:
-		n.focus(coordgrid.Fine(t.x, 1), coordgrid.Fine(t.z, 1), false)
+		n.focus(coordgrid.Fine(t.x, t.size), coordgrid.Fine(t.z, t.size), false)
 	default:
 		_ = t
 		if n.targetX != -1 && n.stepsTaken == 0 {

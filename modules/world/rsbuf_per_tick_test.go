@@ -150,17 +150,19 @@ func TestProcessInfo_PassesRealLastAppearance(t *testing.T) {
 	}
 }
 
-// TestProcessInfoInvokesReorient pins NAI-66's per-tick wire-up: a
-// player with a *Loc target and cached targetX/Z + stepsTaken == 0
-// must have targetX/Z cleared and faceAngleX/Z written by the time
-// processInfo's rsbuf compute pass runs. This pins both ordering
-// (reorient runs before ComputePlayers) and the per-tick invocation.
+// TestProcessInfoInvokesReorient pins NAI-66's per-tick wire-up on the
+// player side: a player with a *Loc target and cached targetX/Z +
+// stepsTaken == 0 must have targetX/Z cleared and faceAngleX/Z written
+// before processInfo's rsbuf ComputePlayers pass runs (ordering claim).
+// Uses a valid slot (slot=1) and initialises s.renderer so ComputePlayers
+// actually executes rather than being short-circuited by slot<1.
 func TestProcessInfoInvokesReorient(t *testing.T) {
 	s := newTestServer(t)
-	p, wait := makeInteractionPlayer(t, s, 100, 100, 0)
-	defer wait()
-	// Register in playerLoop so processInfo iterates p.
-	s.playerLoop = append(s.playerLoop, p)
+	s.renderer = rsbuf.NewRenderer()
+
+	// setupInfoPlayer wires slot=1, active=true, adds to s.rsbuf and
+	// s.playerLoop — ComputePlayers will execute for this slot.
+	p := setupInfoPlayer(t, s, 1, 100, 100, 0)
 
 	loc := entitypkg.NewLoc(0, 105, 108, 1, 1, entitypkg.LifecycleForever, 0, 10, 0)
 	p.target = loc
@@ -171,15 +173,47 @@ func TestProcessInfoInvokesReorient(t *testing.T) {
 	s.processInfo()
 
 	if p.targetX != -1 {
-		t.Errorf("targetX: got %d, want -1 (reorient must clear)", p.targetX)
+		t.Errorf("targetX: got %d, want -1 (reorient must clear before ComputePlayers)", p.targetX)
 	}
 	if p.targetZ != -1 {
-		t.Errorf("targetZ: got %d, want -1 (reorient must clear)", p.targetZ)
+		t.Errorf("targetZ: got %d, want -1 (reorient must clear before ComputePlayers)", p.targetZ)
 	}
 	if p.faceAngleX != 999 {
-		t.Errorf("faceAngleX: got %d, want 999 (reorient must focus)", p.faceAngleX)
+		t.Errorf("faceAngleX: got %d, want 999 (reorient must focus before ComputePlayers)", p.faceAngleX)
 	}
 	if p.faceAngleZ != 1001 {
-		t.Errorf("faceAngleZ: got %d, want 1001 (reorient must focus)", p.faceAngleZ)
+		t.Errorf("faceAngleZ: got %d, want 1001 (reorient must focus before ComputePlayers)", p.faceAngleZ)
+	}
+}
+
+// TestProcessInfoInvokesNpcReorient pins the NPC-side reorient wire-up
+// (TS World.ts:1046). An NPC with a *Loc target, cached targetX/Z, and
+// stepsTaken == 0 must have targetX/Z cleared and faceAngleX/Z written
+// before processInfo's rsbuf ComputeNpcs pass runs.
+func TestProcessInfoInvokesNpcReorient(t *testing.T) {
+	s := newTestServer(t)
+	s.renderer = rsbuf.NewRenderer()
+
+	n := makeInteractionNpc(t, s, 1, 50, 50, 0)
+
+	loc := entitypkg.NewLoc(0, 55, 58, 1, 1, entitypkg.LifecycleForever, 0, 10, 0)
+	n.target = loc
+	n.targetX = 888
+	n.targetZ = 777
+	n.stepsTaken = 0
+
+	s.processInfo()
+
+	if n.targetX != -1 {
+		t.Errorf("npc targetX: got %d, want -1 (npc reorient must clear before ComputeNpcs)", n.targetX)
+	}
+	if n.targetZ != -1 {
+		t.Errorf("npc targetZ: got %d, want -1 (npc reorient must clear before ComputeNpcs)", n.targetZ)
+	}
+	if n.faceAngleX != 888 {
+		t.Errorf("npc faceAngleX: got %d, want 888 (npc reorient must focus before ComputeNpcs)", n.faceAngleX)
+	}
+	if n.faceAngleZ != 777 {
+		t.Errorf("npc faceAngleZ: got %d, want 777 (npc reorient must focus before ComputeNpcs)", n.faceAngleZ)
 	}
 }

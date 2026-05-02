@@ -33,11 +33,16 @@ func TestPlayerReorientPathingTargetPlayer(t *testing.T) {
 }
 
 // TestPlayerReorientPathingTargetNpc — symmetric to above, *Npc target.
+// makeInteractionNpc builds with typ.Size=0, so npc.size defaults to 0.
+// We set npc.size = 1 to match the real Npc.New default (NpcType.Size
+// defaults to 1 in production configs, NpcType.RegisterFlagsAndApplyDefaults
+// line ~310). Fine(x, 1) is the expected centre for a size-1 NPC.
 func TestPlayerReorientPathingTargetNpc(t *testing.T) {
 	s := newTestServer(t)
 	p, wait := makeInteractionPlayer(t, s, 100, 100, 0)
 	defer wait()
 	npc := makeInteractionNpc(t, s, 1, 105, 108, 0)
+	npc.size = 1 // matches Npc.New default for typ.Size=1
 
 	p.target = npc
 
@@ -48,6 +53,28 @@ func TestPlayerReorientPathingTargetNpc(t *testing.T) {
 	}
 	if p.faceAngleZ != coordgrid.Fine(108, 1) {
 		t.Errorf("faceAngleZ: got %d, want %d", p.faceAngleZ, coordgrid.Fine(108, 1))
+	}
+}
+
+// TestPlayerReorientPathingTargetNpcSize2 pins the size>1 path. Without
+// the Fix 1 production change Fine(t.x, 1) would be returned instead of
+// Fine(t.x, 2), exposing a 32-fine-unit centre-offset error.
+func TestPlayerReorientPathingTargetNpcSize2(t *testing.T) {
+	s := newTestServer(t)
+	p, wait := makeInteractionPlayer(t, s, 100, 100, 0)
+	defer wait()
+	npc := makeInteractionNpc(t, s, 1, 105, 108, 0)
+	npc.size = 2 // size-2 NPC: Fine(x, 2) = x*64+63, not x*64+31
+
+	p.target = npc
+
+	p.reorient()
+
+	if p.faceAngleX != coordgrid.Fine(105, 2) {
+		t.Errorf("faceAngleX: got %d, want %d (Fine(105,2))", p.faceAngleX, coordgrid.Fine(105, 2))
+	}
+	if p.faceAngleZ != coordgrid.Fine(108, 2) {
+		t.Errorf("faceAngleZ: got %d, want %d (Fine(108,2))", p.faceAngleZ, coordgrid.Fine(108, 2))
 	}
 }
 
