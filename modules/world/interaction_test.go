@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/zsrv/goscape/pkg/coordgrid"
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
@@ -600,27 +601,6 @@ func TestSetInteractionNpcTargetSetsFaceEntity(t *testing.T) {
 	}
 }
 
-// TestSetInteractionLocTargetDoesNotSetFaceEntity pins the deferred
-// default branch: *Loc target leaves faceEntity untouched and
-// MaskFaceEntity bit clear. Closes the spec's "deviation is intentional,
-// not a partial port" contract for NAI-41-D-PLAYER-NO-LOCOBJ-TARGETXZ.
-func TestSetInteractionLocTargetDoesNotSetFaceEntity(t *testing.T) {
-	s := newTestServer(t)
-	p, wait := makeInteractionPlayer(t, s, 100, 100, 0)
-	defer wait()
-
-	loc := entitypkg.NewLoc(0, 105, 100, 1, 1, entitypkg.LifecycleForever, 0, 10, 0)
-
-	p.SetInteraction(InteractionEngine, loc, 1, -1)
-
-	if p.faceEntity != -1 {
-		t.Errorf("faceEntity: got %d, want -1 (default; *Loc branch must not write)", p.faceEntity)
-	}
-	if p.masks&MaskFaceEntity != 0 {
-		t.Error("MaskFaceEntity bit must NOT be set after SetInteraction with *Loc target")
-	}
-}
-
 // TestSetInteractionFaceEntityIdempotent pins the TS idempotency check
 // at PathingEntity.ts:532 / 538 (`if (this.faceEntity !== X)`). Without
 // this check, repeated SetInteraction calls with the same target re-emit
@@ -1197,5 +1177,60 @@ func TestProcessInteraction_PostStepWalktriggerFires(t *testing.T) {
 	pkt := <-received
 	if !bytes.Contains(pkt, []byte("wt-post")) {
 		t.Errorf("wire did not contain wt-post: %q", pkt)
+	}
+}
+
+// TestSetInteractionLocTargetWritesTargetXZ pins NAI-66 closure of
+// NAI-41-D-PLAYER-NO-LOCOBJ-TARGETXZ: *Loc target writes
+// targetX = fine(loc.X, loc.Width), targetZ = fine(loc.Z, loc.Length)
+// per TS PathingEntity.ts:542-545. Replaces the previous
+// TestSetInteractionLocTargetDoesNotSetFaceEntity contract (which
+// pinned the now-closed deferral).
+func TestSetInteractionLocTargetWritesTargetXZ(t *testing.T) {
+	s := newTestServer(t)
+	p, wait := makeInteractionPlayer(t, s, 100, 100, 0)
+	defer wait()
+
+	// 3x2 Loc at (50, 60).
+	loc := entitypkg.NewLoc(0, 50, 60, 3, 2, entitypkg.LifecycleForever, 0, 10, 0)
+
+	p.SetInteraction(InteractionEngine, loc, 1, -1)
+
+	// faceEntity must remain unwritten (Loc branch never sets it).
+	if p.faceEntity != -1 {
+		t.Errorf("faceEntity: got %d, want -1 (Loc branch must not write)", p.faceEntity)
+	}
+	if p.masks&MaskFaceEntity != 0 {
+		t.Error("MaskFaceEntity bit must NOT be set after SetInteraction with *Loc target")
+	}
+	// targetX/Z now written per NAI-66.
+	wantTX := coordgrid.Fine(50, 3)
+	wantTZ := coordgrid.Fine(60, 2)
+	if p.targetX != wantTX {
+		t.Errorf("targetX: got %d, want %d (fine(50, width=3))", p.targetX, wantTX)
+	}
+	if p.targetZ != wantTZ {
+		t.Errorf("targetZ: got %d, want %d (fine(60, length=2))", p.targetZ, wantTZ)
+	}
+}
+
+// TestSetInteractionObjTargetWritesTargetXZ pins the Obj-target case:
+// always 1x1, so fine(obj.X, 1) and fine(obj.Z, 1).
+func TestSetInteractionObjTargetWritesTargetXZ(t *testing.T) {
+	s := newTestServer(t)
+	p, wait := makeInteractionPlayer(t, s, 100, 100, 0)
+	defer wait()
+
+	obj := entitypkg.NewObj(0, 50, 60, entitypkg.LifecycleForever, 42, 1)
+
+	p.SetInteraction(InteractionEngine, obj, 1, -1)
+
+	wantTX := coordgrid.Fine(50, 1)
+	wantTZ := coordgrid.Fine(60, 1)
+	if p.targetX != wantTX {
+		t.Errorf("targetX: got %d, want %d (fine(50, 1))", p.targetX, wantTX)
+	}
+	if p.targetZ != wantTZ {
+		t.Errorf("targetZ: got %d, want %d (fine(60, 1))", p.targetZ, wantTZ)
 	}
 }

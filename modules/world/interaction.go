@@ -89,12 +89,14 @@ func (p *Player) SetInteraction(kind InteractionKind, target entity, op, com int
 			p.masks |= p.entitymask
 		}
 	default:
-		// DEVIATION NAI-41-D-PLAYER-NO-LOCOBJ-TARGETXZ: TS L542-545 sets
-		// targetX = CoordGrid.fine(target.x, target.width) and targetZ
-		// analogously for *Loc/*Obj targets. Player has no targetX/Z
-		// consumer at HEAD (the only TS reader is reorient(), unported).
-		// Deferred to the future
-		// "pathing-entity-reorient-and-stride-tracking" sub-spec.
+		// Loc/Obj target — cache fine-coord for reorient consumption.
+		// TS PathingEntity.ts:542-545. Closes
+		// NAI-41-D-PLAYER-NO-LOCOBJ-TARGETXZ in NAI-66 (consumer is
+		// (*Player).reorient at modules/world/movement.go).
+		tx, tz, _ := t.Coords()
+		tw, tl := targetWidthLength(t)
+		p.targetX = coordgrid.Fine(tx, tw)
+		p.targetZ = coordgrid.Fine(tz, tl)
 	}
 }
 
