@@ -97,4 +97,9 @@ var (
 	// (2063) script opcodes via (*Player).PlaySong / PlayJingle.
 	OpMidiSong   = Op{Opcode: 54, PayloadSize: -1}
 	OpMidiJingle = Op{Opcode: 212, PayloadSize: -2}
+
+	// Input-tracking signals — server tells client to start/stop sending
+	// EVENT_TRACKING blobs (op 81). NAI-73; mirrors TS ServerGameProt.ts:43-44.
+	OpEnableTracking = Op{Opcode: 226, PayloadSize: 0}
+	OpFinishTracking = Op{Opcode: 133, PayloadSize: 0}
 )

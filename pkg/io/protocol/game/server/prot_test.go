@@ -62,3 +62,22 @@ func TestSubSpec3COpcodes(t *testing.T) {
 		t.Errorf("OpNpcInfo.PayloadSize = %d, want -2", OpNpcInfo.PayloadSize)
 	}
 }
+
+func TestNAI73TrackingOpcodes(t *testing.T) {
+	cases := []struct {
+		op   Op
+		code byte
+		size int
+	}{
+		{OpEnableTracking, 226, 0},
+		{OpFinishTracking, 133, 0},
+	}
+	for _, tc := range cases {
+		if tc.op.Opcode != tc.code {
+			t.Errorf("opcode: got %d, want %d", tc.op.Opcode, tc.code)
+		}
+		if tc.op.PayloadSize != tc.size {
+			t.Errorf("payload size: got %d, want %d", tc.op.PayloadSize, tc.size)
+		}
+	}
+}
