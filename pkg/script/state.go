@@ -242,6 +242,21 @@ type ScriptState struct {
 	// thereafter. A nil slice at a slot means "undefined"; OOB reads
 	// return 0 and OOB writes are dropped.
 	Arrays [5][]int32
+
+	// SplitPages holds the per-page, per-line wrapped chat-dialog text
+	// produced by SPLIT_INIT and consumed by SPLIT_GET / SPLIT_PAGECOUNT
+	// / SPLIT_LINECOUNT. Nil before any SPLIT_INIT call. Each call to
+	// SPLIT_INIT replaces (not appends) the slice. Mirrors TS
+	// ScriptState.splitPages (StringOps.ts:91). NAI-75.
+	SplitPages [][]string
+
+	// SplitMesanim is the MesanimType id parsed from a leading <p,name>
+	// prefix on SPLIT_INIT's text input, or -1 when no prefix is present.
+	// Currently set by SPLIT_INIT but consumed by SPLIT_GETANIM as -1
+	// unconditionally per NAI-75-D-MESANIM-NOT-PORTED (no MesanimType
+	// cache loader yet). Mirrors TS ScriptState.splitMesanim
+	// (StringOps.ts:85). NAI-75.
+	SplitMesanim int32
 }
 
 // PushInt pushes v onto the int stack.

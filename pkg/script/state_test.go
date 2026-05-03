@@ -119,3 +119,13 @@ func TestReturnEmptyFramesFinishes(t *testing.T) {
 		t.Errorf("Execution: got %v want Finished", s.Execution)
 	}
 }
+
+func TestScriptStateSplitFieldsZeroValue(t *testing.T) {
+	s := &ScriptState{}
+	if s.SplitPages != nil {
+		t.Errorf("fresh ScriptState.SplitPages: got %v, want nil", s.SplitPages)
+	}
+	if s.SplitMesanim != 0 {
+		t.Errorf("fresh ScriptState.SplitMesanim: got %d, want 0", s.SplitMesanim)
+	}
+}
