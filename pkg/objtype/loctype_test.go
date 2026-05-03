@@ -223,6 +223,10 @@ func TestLocTypeDecodeOpSingleEntry(t *testing.T) {
 			t.Errorf("Op[%d]: got %q, want \"\"", i, tree.Op[i])
 		}
 	}
+	// Pins parseLocTypes → PostDecode wiring: Op != nil so Active=1.
+	if tree.Active != 1 {
+		t.Errorf("Active: got %d, want 1 (PostDecode wiring pin: Op != nil → Active=1)", tree.Active)
+	}
 }
 
 func TestLocTypeDecodeOpAllFive(t *testing.T) {
