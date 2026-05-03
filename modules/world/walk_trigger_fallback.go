@@ -14,6 +14,17 @@ package world
 // Insertion phase: invoked from tick.go after processInteractions, NOT
 // inside processInteraction itself (which is target-gated and would
 // skip target-less players — wrong for plain move-click flows).
+//
+// NAI-77-D-WALKTRIGGER-FALLBACK-PHASE-CHOICE:
+// TS World.ts:635-641 runs this fallback inside the per-player loop
+// BEFORE processPathing (so re-pathed waypoints are consumed in the
+// same tick). Goscape invokes it AFTER processInteractions, which
+// itself runs after processPathing — so waypoints queued by the
+// fallback are not consumed until the NEXT tick's processPathing.
+// Default cfg (PLAYERPACKET) makes this a per-player no-op so there
+// is no production-visible effect today; when the project switches
+// to PLAYERSETUP / PLAYERMOVEMENT, revisit phase ordering. Tracked
+// per spec NAI-77 §7 R3.
 func processWalkTriggerFallback(p *Player) {
 	if p.client == nil || p.client.server == nil {
 		return

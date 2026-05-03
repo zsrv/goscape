@@ -217,9 +217,13 @@ func handleMoveOpClick(p *Player, payload []byte) error {
 //	bytes 5+:  up to 24 waypoints, each 2 bytes (dx:G1B, dz:G1B)
 //
 // Gates per TS MoveClickHandler.ts:11-22:
-//  1. p.delayed → UnsetMapFlag, no-op
+//  1. p.delayed → write UnsetMapFlag (no waypoint clear), no-op
 //  2. ctrlHeld out of [0,1] OR DistanceToSW(player, start) > 104 →
-//     unsetMapFlag, no-op (TS also clears userPath)
+//     player.unsetMapFlag() (clearWaypoints + write) + clear userPath,
+//     no-op. TS Player.ts:2169 unsetMapFlag = clearWaypoints + write;
+//     goscape's sendUnsetMapFlag is the write only, so gate-2 also
+//     resets waypointIndex inline to halt any in-flight movement from
+//     a prior click.
 //
 // On success:
 //  3. Build packed waypoint slice
@@ -250,6 +254,7 @@ func moveClickInner(p *Player, payload []byte, opClick bool) error {
 
 	if ctrlHeld < 0 || ctrlHeld > 1 || coordgrid.DistanceToSW(p.x, p.z, startX, startZ) > 104 {
 		sendUnsetMapFlag(p)
+		p.waypointIndex = -1 // TS Player.unsetMapFlag → clearWaypoints (Player.ts:2169)
 		p.userPath = nil
 		return nil
 	}

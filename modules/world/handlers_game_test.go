@@ -314,5 +314,36 @@ func TestHandleMoveGameClickSkipsWalktriggerWhenSettingNotPlayerpacket(t *testin
 	}
 }
 
+// TestHandleMoveClickGate2ClearsWaypoints pins that gate-2 (ctrlHeld out
+// of range OR start > 104 tiles away) clears any in-flight waypoints,
+// matching TS Player.unsetMapFlag (Player.ts:2169 = clearWaypoints + write).
+// Goscape's sendUnsetMapFlag is the wire write only, so moveClickInner
+// resets waypointIndex inline at the gate-2 reject site.
+func TestHandleMoveClickGate2ClearsWaypoints(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	_ = cc
+
+	// Seed in-flight movement: waypointIndex >= 0 simulates a prior click
+	// that's still being walked.
+	p.waypointIndex = 0
+	p.userPath = []int{42}
+
+	// Trip gate-2 via ctrlHeld=5 (out of [0,1]).
+	payload := buildMovePayload(5, p.x, p.z)
+	if err := handleMoveGameClick(p, payload); err != nil {
+		t.Fatalf("handleMoveGameClick: %v", err)
+	}
+
+	if p.waypointIndex != -1 {
+		t.Errorf("waypointIndex: got %d, want -1 (gate-2 must clear)", p.waypointIndex)
+	}
+	if p.userPath != nil {
+		t.Errorf("userPath: got %v, want nil (gate-2 must clear)", p.userPath)
+	}
+}
+
 // ensure net is used (drainConn uses net.Conn)
 var _ net.Conn
