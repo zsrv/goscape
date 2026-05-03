@@ -1454,3 +1454,43 @@ No spec section uncovered.
 - `jagfile` production alias — used consistently in T2 production imports (avoids name collision with the import path's leaf).
 
 No type drift across tasks.
+
+---
+
+# NAI-80 — Close — full-port complete + smoke handoff
+
+**Implementation HEAD:** `b2449b7` (most recent commit at close).
+
+**Commit chain:**
+- `89e6373` T1 — struct expansion
+- `9f1d162` T2 — parseLocTypes dual-pass sig change
+- `564c9bb` T3 — Decode arms for client-blob codes
+- `da4fc24` T4 — PostDecode + parseLocTypes wiring
+- `866a0ad` T4 fixup — pin parseLocTypes→PostDecode wiring
+- `2e2e50c` T5 — real-cache cascade-blocker regression
+- `a70797d` T5 fixup — drop redundant nil-check before len()
+- `b2449b7` T5 fixup — defensive Op[0] read + skip-pattern parity
+
+**Acceptance gates met:**
+- [x] §10.1 — `go test ./pkg/objtype/...` green (T7 Step 1).
+- [x] §10.2 — `TestLoadLocTypes_RealCache_CascadeBlockerLocs` passes against `data/pack` (T5 + cascade-blocker `Op[0]` discovered: 3014→"Open", 380→"Search", 350→"Open"; ID-shift probe `oaktree`→"Chop down").
+- [x] §10.3 — `go test ./...` + `go build ./...` clean (T7 Steps 1+2). `go test -race ./pkg/objtype/...` also clean.
+- [x] §10.4 — top-of-file comment retired in T1 (verified at T6: no "server-only"/"skips" wording remaining).
+- [x] §10.5 — smoke handoff issued (this section).
+- [x] §10.6 — Closes memory trailer (this close commit).
+
+**Smoke handoff (user-driven):**
+1. Restart goscape world server at this commit (or any commit at/after `b2449b7`).
+2. Java client login as Tutorial Island fresh char (avoid coord-based chat-suppression zones per `java_client_coord_chat_suppression.md`).
+3. Repeat the 3 OPLOC1 clicks captured in NAI-79 H4 re-smoke:
+   - RS Guide door (loc 3014, DebugName=`newbie_door1`, Op[0]=`"Open"`)
+   - bookcase (loc 380, Op[0]=`"Search"`)
+   - drawer (loc 350, DebugName=`drawers2`, Op[0]=`"Open"`)
+4. Capture session-log `oploc gate` records for each click.
+
+**Expected gate signal at fix:** `gate=script_dispatch` (or no gate record at all → full dispatch success). Walking-on-click should resume for all 3 locs.
+
+**Routing if smoke does NOT advance gate:**
+- All 3 still at `op_slot_empty` → real-cache regression should have caught this; bin-decode the cache for loc 3014 and audit.
+- Different gate fires (e.g., `getloc_nil`, `viewport`, `delayed`) → second blocker exposed; route to NAI-81 brainstorm with new gate name as routing target (per `smoke_unchanged_means_multiple_blockers.md`).
+- Gate=`script_dispatch` but no walking → SetInteraction reaches but pathing/visual blocked downstream; route to a movement-side investigation.
