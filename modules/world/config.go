@@ -22,7 +22,7 @@ type Config struct {
 	NodeMaxNPCs                      int           `yaml:"node_max_npcs"`
 	TCPServerWriteTimeout            time.Duration `yaml:"tcp_server_write_timeout"`
 	TCPKeepAlivePeriod               time.Duration `yaml:"tcp_keepalive_period"`
-	NodeWalktriggerSetting           int           `yaml:"node_walktrigger_setting"`
+	NodeWalktriggerSetting           WalkTriggerSetting `yaml:"node_walktrigger_setting"`
 	TCPServerReadTimeout             time.Duration `yaml:"tcp_server_read_timeout"`
 	ServerGracefulShutdownTimeout    time.Duration `yaml:"graceful_shutdown_timeout"`
 	NodeID                           int           `yaml:"node_id"`
@@ -77,7 +77,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.BoolVar(&c.NodeDebugProfile, "world.node-debug-profile", false, "")
 	f.BoolVar(&c.NodeDebugSocket, "world.node-debug-socket", false, "")
 	f.BoolVar(&c.NodeClientRoutefinder, "world.node-client-route-finder", true, "")
-	f.IntVar(&c.NodeWalktriggerSetting, "world.node-walk-trigger-setting", 0, "") // TODO: replace default with enum
+	f.IntVar((*int)(&c.NodeWalktriggerSetting), "world.node-walk-trigger-setting", int(WalkTriggerSettingPlayerpacket), "WalkTriggerSetting: 0=PLAYERPACKET (default), 1=PLAYERSETUP, 2=PLAYERMOVEMENT")
 	f.StringVar(&c.NodeProfile, "world.node-profile", "main", "")
 	f.StringVar(&c.CachePath, "world.cache-path", "./data/pack", "Cache root; gamemap loads map-pack files from <path>/maps/")
 	f.IntVar(&c.NodeMaxPlayers, "world.node-max-players", 2047, "")
