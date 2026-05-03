@@ -18,8 +18,8 @@ func init() {
 	gameHandlers[108] = handleNoTimeout // NO_TIMEOUT
 	gameHandlers[70] = handleNoTimeout  // IDLE_TIMER
 
-	gameHandlers[181] = handleMoveClick        // MOVE_GAMECLICK
-	gameHandlers[93] = handleMoveClick         // MOVE_OPCLICK
+	gameHandlers[181] = handleMoveGameClick    // MOVE_GAMECLICK (opClick=false)
+	gameHandlers[93] = handleMoveOpClick       // MOVE_OPCLICK (opClick=true)
 	gameHandlers[165] = handleMoveMinimapClick // MOVE_MINIMAPCLICK
 
 	gameHandlers[4] = handleClientCheat // CLIENT_CHEAT
@@ -190,30 +190,111 @@ func handleNoTimeout(_ *Player, _ []byte) error {
 	return nil
 }
 
-func handleMoveClick(p *Player, payload []byte) error {
+// handleMoveGameClick is the dispatch entry for MOVE_GAMECLICK (opcode 181).
+// Routes to the shared inner handler with opClick=false, which causes the
+// !opClick body to fire (clearPendingAction + tempRun + walktrigger).
+func handleMoveGameClick(p *Player, payload []byte) error {
+	return moveClickInner(p, payload, false)
+}
+
+// handleMoveOpClick is the dispatch entry for MOVE_OPCLICK (opcode 93).
+// Routes to the shared inner handler with opClick=true, which skips the
+// !opClick body (the move was triggered by an op click, not a plain
+// ground click — the op click already handled modal/interaction state).
+func handleMoveOpClick(p *Player, payload []byte) error {
+	return moveClickInner(p, payload, true)
+}
+
+// moveClickInner is the shared move-click implementation.
+// Mirrors TS MoveClickHandler.ts:10-58.
+//
+// Wire payload (per TS MoveClickDecoder.ts; identical between opcodes
+// 181 and 93):
+//
+//	byte 0:    ctrlHeld (G1, expected 0 or 1)
+//	bytes 1-2: startX (G2)
+//	bytes 3-4: startZ (G2)
+//	bytes 5+:  up to 24 waypoints, each 2 bytes (dx:G1B, dz:G1B)
+//
+// Gates per TS MoveClickHandler.ts:11-22:
+//  1. p.delayed → UnsetMapFlag, no-op
+//  2. ctrlHeld out of [0,1] OR DistanceToSW(player, start) > 104 →
+//     unsetMapFlag, no-op (TS also clears userPath; the userPath field is
+//     added in T3 so the clear becomes meaningful then)
+//
+// On success:
+//  3. Build packed waypoint slice
+//  4. cfg.WalkTriggerSetting==PLAYERPACKET → pathToMoveClick
+//  5. !opClick:
+//     a. ClearPendingAction (fires CloseModal(true) — symptom-2 fix)
+//     b. tempRun = ctrlHeld; override to 0 if runenergy<100 && ctrlHeld==1
+//     c. cfg.WalkTriggerSetting==PLAYERPACKET && hasWaypoints → processWalktrigger
+func moveClickInner(p *Player, payload []byte, opClick bool) error {
+	if p.client == nil {
+		return nil
+	}
+	var s *Server
+	if p.client.server != nil {
+		s = p.client.server
+		if p.delayed && s.currentTick < p.delayedUntil {
+			sendUnsetMapFlag(p)
+			return nil
+		}
+	}
+
 	if len(payload) < 5 {
 		return nil
 	}
+
 	r := packet.NewPacket(payload)
-	ctrlHeld := r.G1()
+	ctrlHeld := int(r.G1())
 	startX := int(r.G2())
 	startZ := int(r.G2())
+
+	if ctrlHeld < 0 || ctrlHeld > 1 || coordgrid.DistanceToSW(p.x, p.z, startX, startZ) > 104 {
+		if s != nil {
+			sendUnsetMapFlag(p)
+		}
+		// T3 will also clear p.userPath here.
+		return nil
+	}
 
 	pathLen := min((len(payload)-5)/2, 24) + 1
 	packed := make([]int, 0, pathLen)
 	packed = append(packed, coordgrid.PackCoord(p.level, startX, startZ))
 	for range min((len(payload)-5)/2, 24) {
-		dx := int(r.G1B())
-		dz := int(r.G1B())
-		packed = append(packed, coordgrid.PackCoord(p.level, startX+dx, startZ+dz))
+		ddx := int(r.G1B())
+		ddz := int(r.G1B())
+		packed = append(packed, coordgrid.PackCoord(p.level, startX+ddx, startZ+ddz))
 	}
 
-	p.client.log.Debug("move click", "ctrl_held", ctrlHeld, "dest_packed", packed[0])
+	p.client.log.Debug("move click", "ctrl_held", ctrlHeld, "dest_packed", packed[0], "op_click", opClick)
+
+	walkTriggerSetting := WalkTriggerSettingPlayerpacket // default when no server
 	needsFinding := false
-	if p.client.server != nil {
-		needsFinding = !p.client.server.cfg.NodeClientRoutefinder
+	if s != nil {
+		walkTriggerSetting = s.cfg.NodeWalktriggerSetting
+		needsFinding = !s.cfg.NodeClientRoutefinder
 	}
-	p.pathToMoveClick(packed, needsFinding)
+
+	if walkTriggerSetting == WalkTriggerSettingPlayerpacket {
+		p.pathToMoveClick(packed, needsFinding)
+	}
+
+	if !opClick && s != nil {
+		p.ClearPendingAction()
+
+		if p.runenergy < 100 && ctrlHeld == 1 {
+			p.tempRun = 0
+		} else {
+			p.tempRun = ctrlHeld
+		}
+
+		if walkTriggerSetting == WalkTriggerSettingPlayerpacket && p.hasWaypoints() {
+			p.processWalktrigger()
+		}
+	}
+
 	return nil
 }
 

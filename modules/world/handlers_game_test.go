@@ -2,8 +2,10 @@ package world
 
 import (
 	"bytes"
+	"net"
 	"testing"
 
+	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
@@ -68,3 +70,249 @@ func TestHandleMessagePublic_ShortPayloadIsNoop(t *testing.T) {
 		t.Errorf("p.masks should not have MaskChat for short payload; got 0x%x", p.masks)
 	}
 }
+
+// buildMovePayload encodes a minimal MOVE_GAMECLICK/MOVE_OPCLICK payload with
+// no extra waypoints: [ctrlHeld(1), startX(2), startZ(2)].
+func buildMovePayload(ctrlHeld int, startX, startZ int) []byte {
+	return []byte{
+		byte(ctrlHeld),
+		byte(startX >> 8), byte(startX),
+		byte(startZ >> 8), byte(startZ),
+	}
+}
+
+// TestHandleMoveGameClickClosesChatModal pins symptom-2: a plain walk click
+// (MOVE_GAMECLICK) must close an open chat modal via ClearPendingAction.
+// Mirrors TS MoveClickHandler.ts:!opClick → clearPendingAction().
+func TestHandleMoveGameClickClosesChatModal(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	_ = cc
+
+	// Open a chat modal.
+	p.modalChat = 100
+	p.modalState |= modalStateChat
+
+	payload := buildMovePayload(0, p.x, p.z)
+	if err := handleMoveGameClick(p, payload); err != nil {
+		t.Fatalf("handleMoveGameClick: %v", err)
+	}
+
+	if p.modalChat != -1 {
+		t.Errorf("modalChat: got %d, want -1 (closed by ClearPendingAction)", p.modalChat)
+	}
+	if p.modalState&modalStateChat != modalStateNone {
+		t.Errorf("modalState chat bit still set: got 0x%x", p.modalState)
+	}
+}
+
+// TestHandleMoveOpClickPreservesChatModal pins that MOVE_OPCLICK (opClick=true)
+// skips ClearPendingAction, leaving an open chat modal untouched.
+func TestHandleMoveOpClickPreservesChatModal(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	_ = cc
+
+	// Open a chat modal.
+	p.modalChat = 100
+	p.modalState |= modalStateChat
+
+	payload := buildMovePayload(0, p.x, p.z)
+	if err := handleMoveOpClick(p, payload); err != nil {
+		t.Fatalf("handleMoveOpClick: %v", err)
+	}
+
+	if p.modalChat != 100 {
+		t.Errorf("modalChat: got %d, want 100 (unchanged — op click skips ClearPendingAction)", p.modalChat)
+	}
+	if p.modalState&modalStateChat == modalStateNone {
+		t.Errorf("modalState chat bit cleared unexpectedly")
+	}
+}
+
+// TestHandleMoveClickDelayedSendsUnsetMapFlag pins that a delayed player receives
+// UnsetMapFlag and the handler returns early without touching modal state.
+func TestHandleMoveClickDelayedSendsUnsetMapFlag(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	// Open a chat modal — must remain open.
+	p.modalChat = 100
+	p.modalState |= modalStateChat
+
+	// Mark player as delayed.
+	s.currentTick = 0
+	p.delayed = true
+	p.delayedUntil = 5
+
+	payload := buildMovePayload(0, p.x, p.z)
+	received := drainConn(t, cc)
+	_ = handleMoveGameClick(p, payload)
+	p.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag packet for delayed player, got nothing")
+	}
+	if p.modalChat != 100 {
+		t.Errorf("modalChat: got %d, want 100 (unchanged — early return)", p.modalChat)
+	}
+}
+
+// TestHandleMoveClickInvalidCtrlHeldRejects pins that ctrlHeld outside [0,1]
+// triggers UnsetMapFlag and early return without modifying modal state.
+func TestHandleMoveClickInvalidCtrlHeldRejects(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	// Open a chat modal — must remain open.
+	p.modalChat = 100
+	p.modalState |= modalStateChat
+
+	// ctrlHeld=5 is out of [0,1].
+	payload := buildMovePayload(5, p.x, p.z)
+	received := drainConn(t, cc)
+	_ = handleMoveGameClick(p, payload)
+	p.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag for invalid ctrlHeld, got nothing")
+	}
+	if p.modalChat != 100 {
+		t.Errorf("modalChat: got %d, want 100 (unchanged — early return)", p.modalChat)
+	}
+}
+
+// TestHandleMoveClickStartTooFarRejects pins that a destination more than 104
+// tiles away (Chebyshev) triggers UnsetMapFlag and early return.
+func TestHandleMoveClickStartTooFarRejects(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	// Open a chat modal — must remain open.
+	p.modalChat = 100
+	p.modalState |= modalStateChat
+
+	// startX = p.x + 200 is 200 tiles away — exceeds 104.
+	payload := buildMovePayload(0, p.x+200, p.z)
+	received := drainConn(t, cc)
+	_ = handleMoveGameClick(p, payload)
+	p.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag for too-far destination, got nothing")
+	}
+	if p.modalChat != 100 {
+		t.Errorf("modalChat: got %d, want 100 (unchanged — early return)", p.modalChat)
+	}
+}
+
+// TestHandleMoveGameClickSetsTempRunFromCtrlHeld pins that ctrlHeld=1 with
+// sufficient runenergy sets tempRun=1.
+func TestHandleMoveGameClickSetsTempRunFromCtrlHeld(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	_ = cc
+
+	// Default runenergy=10000 (>=100), so tempRun should follow ctrlHeld.
+	payload := buildMovePayload(1, p.x, p.z)
+	if err := handleMoveGameClick(p, payload); err != nil {
+		t.Fatalf("handleMoveGameClick: %v", err)
+	}
+
+	if p.tempRun != 1 {
+		t.Errorf("tempRun: got %d, want 1 (ctrlHeld=1, runenergy high)", p.tempRun)
+	}
+}
+
+// TestHandleMoveGameClickRunenergyLowSuppressesTempRun pins that ctrlHeld=1
+// with runenergy<100 overrides tempRun to 0 (can't run on empty energy).
+func TestHandleMoveGameClickRunenergyLowSuppressesTempRun(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	_ = cc
+
+	p.runenergy = 50 // below 100 threshold
+
+	payload := buildMovePayload(1, p.x, p.z)
+	if err := handleMoveGameClick(p, payload); err != nil {
+		t.Fatalf("handleMoveGameClick: %v", err)
+	}
+
+	if p.tempRun != 0 {
+		t.Errorf("tempRun: got %d, want 0 (runenergy<100 overrides ctrlHeld)", p.tempRun)
+	}
+}
+
+// TestHandleMoveGameClickFiresWalktriggerWhenPlayerpacket pins that
+// processWalktrigger is called when WalkTriggerSetting==PLAYERPACKET and the
+// player has waypoints. Observable via p.walktrigger being reset to -1.
+func TestHandleMoveGameClickFiresWalktriggerWhenPlayerpacket(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	_ = cc
+
+	// Precondition: default cfg has WalkTriggerSetting=PLAYERPACKET (value 0).
+	if s.cfg.NodeWalktriggerSetting != WalkTriggerSettingPlayerpacket {
+		t.Fatalf("precondition: NodeWalktriggerSetting=%v, want PLAYERPACKET", s.cfg.NodeWalktriggerSetting)
+	}
+
+	// Set a walktrigger so processWalktrigger has something to clear.
+	p.walktrigger = 42
+
+	// Dest one tile away so hasWaypoints() returns true after pathToMoveClick.
+	payload := buildMovePayload(0, p.x+1, p.z)
+	if err := handleMoveGameClick(p, payload); err != nil {
+		t.Fatalf("handleMoveGameClick: %v", err)
+	}
+
+	if p.walktrigger != -1 {
+		t.Errorf("walktrigger: got %d, want -1 (cleared by processWalktrigger)", p.walktrigger)
+	}
+}
+
+// TestHandleMoveGameClickSkipsWalktriggerWhenSettingNotPlayerpacket pins that
+// processWalktrigger is NOT called when WalkTriggerSetting!=PLAYERPACKET.
+// walktrigger remains at its preset value.
+func TestHandleMoveGameClickSkipsWalktriggerWhenSettingNotPlayerpacket(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	_ = cc
+
+	// Override setting to PLAYERSETUP.
+	s.cfg.NodeWalktriggerSetting = WalkTriggerSettingPlayersetup
+
+	p.walktrigger = 42
+
+	payload := buildMovePayload(0, p.x+1, p.z)
+	if err := handleMoveGameClick(p, payload); err != nil {
+		t.Fatalf("handleMoveGameClick: %v", err)
+	}
+
+	if p.walktrigger != 42 {
+		t.Errorf("walktrigger: got %d, want 42 (unchanged — setting is not PLAYERPACKET)", p.walktrigger)
+	}
+}
+
+// ensure net is used (drainConn uses net.Conn)
+var _ net.Conn
