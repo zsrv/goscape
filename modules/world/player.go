@@ -207,6 +207,23 @@ type Player struct {
 	// path unported (S7e-D1).
 	allowDesign bool
 
+	// === input tracking (NAI-73) ===
+	// input is the per-player anti-cheat input-recording state machine.
+	// Mirrors TS Player.input (Player.ts:305). Allocated in processLogins;
+	// nil before login transitions to ClientStateGame.
+	input *InputTracking
+	// submitInput is the per-player gate for detailed tracking-event
+	// submission. Set true by REPORT_ABUSE when reason ∈ {MACROING,
+	// BUG_ABUSE} (TS World.notifyPlayerReport, World.ts:2298-2304).
+	// Read by InputTracking.shouldSubmitTrackingDetails together with
+	// cfg.NodeSubmitInput. Mirrors TS Player.submitInput (Player.ts:306).
+	submitInput bool
+	// session is the per-player session correlation key for the logger
+	// bridge. Defaults to "headless" (TS Player.session = 'headless',
+	// Player.ts:304). Real UUID assignment is owned by login-server-bridge
+	// integration — tracked as NAI-72-D-LOGIN-SERVER-BRIDGE-MOD.
+	session string
+
 	// === session flags ===
 	playtime                                     int
 	lastResponse, lastConnected                  int
