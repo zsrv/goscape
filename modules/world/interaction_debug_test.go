@@ -34,6 +34,7 @@ func TestChebDist(t *testing.T) {
 
 func TestTargetKindString(t *testing.T) {
 	loc := entitypkg.NewLoc(0, 1, 1, 1, 1, entitypkg.LifecycleForever, 0, 0, 0)
+	obj := entitypkg.NewObj(0, 1, 1, entitypkg.LifecycleForever, 0, 1)
 	npc := &Npc{}
 	plr := &Player{}
 
@@ -43,6 +44,7 @@ func TestTargetKindString(t *testing.T) {
 		expect string
 	}{
 		{"loc", loc, "Loc"},
+		{"obj", obj, "Obj"},
 		{"npc", npc, "Npc"},
 		{"player", plr, "Player"},
 		{"nil", nil, "unknown"},
