@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	jag "github.com/zsrv/goscape/pkg/io/jagfile"
 	packet2 "github.com/zsrv/goscape/pkg/io/packet"
 )
 
@@ -14,14 +15,51 @@ type locEntry struct {
 	width     int
 	length    int
 	intParams map[uint32]uint32
-	op        []string // NEW — S6k: op-name slots (codes 30-34)
+	op        []string // codes 30-34
 }
 
-// buildLocDat assembles a server/loc.dat wire blob:
+// hashLocDat is genHash("loc.dat") — pre-computed via the algorithm in
+// pkg/io/jagfile/jagfile.go:18-25 (uppercase + h*61+c-32 reduction).
+const hashLocDat uint32 = 682978269
+
+// buildLocServerDat assembles the server-side loc.dat blob:
 //
 //	u16 count
-//	for each entry: sequence of (code, payload) pairs terminated by code 0.
-func buildLocDat(entries []locEntry) []byte {
+//	for each entry: codes 61 (category), 249 (params), 250 (debugname),
+//	terminated by code 0.
+func buildLocServerDat(entries []locEntry) []byte {
+	pkt := packet2.NewPacket(nil)
+	pkt.P2(uint16(len(entries)))
+	for _, e := range entries {
+		if e.category != 0 {
+			pkt.P1(61)
+			pkt.P2(uint16(e.category))
+		}
+		if len(e.intParams) > 0 {
+			pkt.P1(249)
+			pkt.P1(uint8(len(e.intParams)))
+			for k, v := range e.intParams {
+				pkt.P3(k)
+				pkt.PBool(false)
+				pkt.P4(v)
+			}
+		}
+		if e.debugName != "" {
+			pkt.P1(250)
+			pkt.PJStrLF(e.debugName)
+		}
+		pkt.P1(0)
+	}
+	return pkt.Bytes()
+}
+
+// buildLocClientDat assembles the inner client-side loc.dat payload (the
+// blob that lives inside client/config jagfile under entry name "loc.dat"):
+//
+//	u16 count
+//	for each entry: codes 3 (desc), 14 (width), 15 (length), 30-34 (op),
+//	250 (debugname), terminated by code 0.
+func buildLocClientDat(entries []locEntry) []byte {
 	pkt := packet2.NewPacket(nil)
 	pkt.P2(uint16(len(entries)))
 	for _, e := range entries {
@@ -37,20 +75,6 @@ func buildLocDat(entries []locEntry) []byte {
 			pkt.P1(15)
 			pkt.P1(uint8(e.length))
 		}
-		if e.category != 0 {
-			pkt.P1(61)
-			pkt.P2(uint16(e.category))
-		}
-		if len(e.intParams) > 0 {
-			pkt.P1(249)
-			pkt.P1(uint8(len(e.intParams)))
-			for k, v := range e.intParams {
-				pkt.P3(k)
-				pkt.PBool(false)
-				pkt.P4(v)
-			}
-		}
-		// Op entries (codes 30-34). S6k: emit one code per non-empty slot.
 		for i, name := range e.op {
 			if name == "" {
 				continue
@@ -65,6 +89,40 @@ func buildLocDat(entries []locEntry) []byte {
 		pkt.P1(0)
 	}
 	return pkt.Bytes()
+}
+
+// buildClientJag wraps a single-entry jagfile around the given client
+// loc.dat blob and returns a parsed *jag.Jagfile ready for parseLocTypes.
+// Mirrors componenttype_test.go:751 buildMinimalJagfile pattern.
+func buildClientJag(t *testing.T, locDatBytes []byte) *jag.Jagfile {
+	t.Helper()
+	compressed, err := jag.BZip2Compress(locDatBytes, false, true, 1, 0)
+	if err != nil {
+		t.Fatalf("BZip2Compress: %v", err)
+	}
+	p := packet2.NewPacket(nil)
+	p.P3(1)                        // unpackedSize (== packedSize → Unpacked=false outer path)
+	p.P3(1)                        // packedSize
+	p.P2(1)                        // fileCount = 1
+	p.P4(hashLocDat)               // file hash
+	p.P3(uint32(len(locDatBytes))) // unpacked size
+	p.P3(uint32(len(compressed)))  // packed size
+	p.Data = append(p.Data, compressed...)
+
+	jf, err := jag.NewJagfile(packet2.NewPacket(p.Data))
+	if err != nil {
+		t.Fatalf("NewJagfile: %v", err)
+	}
+	return jf
+}
+
+// buildLocFixture is a convenience that builds both server bytes and
+// client jagfile from a single entries list, ready for parseLocTypes.
+func buildLocFixture(t *testing.T, entries []locEntry) (*packet2.Packet, *jag.Jagfile) {
+	t.Helper()
+	server := packet2.NewPacket(buildLocServerDat(entries))
+	clientJag := buildClientJag(t, buildLocClientDat(entries))
+	return server, clientJag
 }
 
 func TestParseLocTypes(t *testing.T) {
@@ -82,8 +140,8 @@ func TestParseLocTypes(t *testing.T) {
 		},
 	}
 
-	blob := buildLocDat(entries)
-	cfgs, err := parseLocTypes(packet2.NewPacket(blob))
+	server, clientJag := buildLocFixture(t, entries)
+	cfgs, err := parseLocTypes(server, clientJag)
 	if err != nil {
 		t.Fatalf("parseLocTypes: %v", err)
 	}
@@ -122,23 +180,30 @@ func TestParseLocTypes(t *testing.T) {
 }
 
 func TestLocUnknownCode(t *testing.T) {
-	pkt := packet2.NewPacket(nil)
-	pkt.P2(1)
-	pkt.P1(200) // bogus
-	pkt.P1(0)
-	_, err := parseLocTypes(packet2.NewPacket(pkt.Bytes()))
+	server := packet2.NewPacket(nil)
+	server.P2(1) // count = 1
+	server.P1(0) // immediate terminator on server side
+
+	clientInner := packet2.NewPacket(nil)
+	clientInner.P2(1)   // count = 1
+	clientInner.P1(200) // bogus code in client blob
+	clientInner.P1(0)
+
+	clientJag := buildClientJag(t, clientInner.Bytes())
+
+	_, err := parseLocTypes(packet2.NewPacket(server.Bytes()), clientJag)
 	if err == nil {
 		t.Fatal("expected error on unknown loc code, got nil")
 	}
 }
 
 func TestLocTypeDecodeOpSingleEntry(t *testing.T) {
-	dat := buildLocDat([]locEntry{
+	entries := []locEntry{
 		{debugName: "tree", op: []string{"Chop", "", "", "", ""}},
-	})
-	pkt := packet2.NewPacket(dat)
+	}
+	server, clientJag := buildLocFixture(t, entries)
 
-	cfgs, err := parseLocTypes(pkt)
+	cfgs, err := parseLocTypes(server, clientJag)
 	if err != nil {
 		t.Fatalf("parseLocTypes: %v", err)
 	}
@@ -161,12 +226,12 @@ func TestLocTypeDecodeOpSingleEntry(t *testing.T) {
 }
 
 func TestLocTypeDecodeOpAllFive(t *testing.T) {
-	dat := buildLocDat([]locEntry{
+	entries := []locEntry{
 		{debugName: "multi", op: []string{"op0", "op1", "op2", "op3", "op4"}},
-	})
-	pkt := packet2.NewPacket(dat)
+	}
+	server, clientJag := buildLocFixture(t, entries)
 
-	cfgs, err := parseLocTypes(pkt)
+	cfgs, err := parseLocTypes(server, clientJag)
 	if err != nil {
 		t.Fatalf("parseLocTypes: %v", err)
 	}
@@ -181,12 +246,12 @@ func TestLocTypeDecodeOpAllFive(t *testing.T) {
 }
 
 func TestLocTypeDecodeOpHiddenCoercedToEmpty(t *testing.T) {
-	dat := buildLocDat([]locEntry{
+	entries := []locEntry{
 		{debugName: "hidden_test", op: []string{"visible", "hidden", "", "", ""}},
-	})
-	pkt := packet2.NewPacket(dat)
+	}
+	server, clientJag := buildLocFixture(t, entries)
 
-	cfgs, err := parseLocTypes(pkt)
+	cfgs, err := parseLocTypes(server, clientJag)
 	if err != nil {
 		t.Fatalf("parseLocTypes: %v", err)
 	}
@@ -196,7 +261,7 @@ func TestLocTypeDecodeOpHiddenCoercedToEmpty(t *testing.T) {
 		t.Errorf("Op[0]: got %q, want \"visible\"", got)
 	}
 	if got := entry.Op[1]; got != "" {
-		t.Errorf("Op[1] (hidden-coerced): got %q, want \"\"", got)
+		t.Errorf("Op[1] (hidden-coerced, NAI-80-D1): got %q, want \"\"", got)
 	}
 }
 

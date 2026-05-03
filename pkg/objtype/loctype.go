@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	jagfile "github.com/zsrv/goscape/pkg/io/jagfile"
 	packet2 "github.com/zsrv/goscape/pkg/io/packet"
 )
 
@@ -122,11 +123,21 @@ func LoadLocTypes(dir string) (*LocTypeConfigs, error) {
 	if err != nil {
 		return nil, err
 	}
-	return parseLocTypes(server)
+	clientJag, err := jagfile.LoadJagfile(filepath.Join(dir, "client", "config"))
+	if err != nil {
+		return nil, err
+	}
+	return parseLocTypes(server, clientJag)
 }
 
-func parseLocTypes(server *packet2.Packet) (*LocTypeConfigs, error) {
+func parseLocTypes(server *packet2.Packet, clientJag *jagfile.Jagfile) (*LocTypeConfigs, error) {
 	count := int(server.G2())
+
+	client, err := clientJag.Read("loc.dat")
+	if err != nil {
+		return nil, fmt.Errorf("client/config loc.dat: %w", err)
+	}
+	client.Pos = 2 // skip the 2-byte count header on the client side
 
 	configs := make([]*LocType, count)
 	configNames := make(map[string]int, count)
@@ -134,8 +145,12 @@ func parseLocTypes(server *packet2.Packet) (*LocTypeConfigs, error) {
 	for id := range count {
 		config := NewLocType(id)
 		if err := DecodeType(server, config); err != nil {
-			return nil, fmt.Errorf("loc id %d: %w", id, err)
+			return nil, fmt.Errorf("loc id %d (server): %w", id, err)
 		}
+		if err := DecodeType(client, config); err != nil {
+			return nil, fmt.Errorf("loc id %d (client): %w", id, err)
+		}
+		// PostDecode wired in T4; struct method does not yet exist.
 		configs[id] = config
 		if config.DebugName != "" {
 			configNames[config.DebugName] = id
