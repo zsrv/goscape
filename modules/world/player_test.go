@@ -85,6 +85,9 @@ func TestReadPacketMoveGameClickFullPacket(t *testing.T) {
 	enc, dec := isaacPair([4]uint32{11, 22, 33, 44})
 	p, _ := newTestPlayer(t)
 	p.client.decryptor = dec
+	p.client.encryptor = enc
+	s := newTestServer(t)
+	p.client.server = s
 
 	// MOVE_GAMECLICK: opcode 181, 1-byte length prefix
 	// Payload: ctrlHeld(1) + startX G2(2) + startZ G2(2) = 5 bytes

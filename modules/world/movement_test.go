@@ -133,6 +133,8 @@ func TestMoveGameClickAdvancesPlayer(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.client.decryptor = dec
 	p.client.encryptor = enc
+	s := newTestServer(t)
+	p.client.server = s
 	p.x, p.z, p.level = 3094, 3106, 0
 	p.moveSpeed = MoveSpeedWalk
 

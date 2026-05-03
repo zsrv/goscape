@@ -230,16 +230,14 @@ func handleMoveOpClick(p *Player, payload []byte) error {
 //     b. tempRun = ctrlHeld; override to 0 if runenergy<100 && ctrlHeld==1
 //     c. cfg.WalkTriggerSetting==PLAYERPACKET && hasWaypoints → processWalktrigger
 func moveClickInner(p *Player, payload []byte, opClick bool) error {
-	if p.client == nil {
+	if p.client == nil || p.client.server == nil {
 		return nil
 	}
-	var s *Server
-	if p.client.server != nil {
-		s = p.client.server
-		if p.delayed && s.currentTick < p.delayedUntil {
-			sendUnsetMapFlag(p)
-			return nil
-		}
+	s := p.client.server
+
+	if p.delayed && s.currentTick < p.delayedUntil {
+		sendUnsetMapFlag(p)
+		return nil
 	}
 
 	if len(payload) < 5 {
@@ -252,9 +250,7 @@ func moveClickInner(p *Player, payload []byte, opClick bool) error {
 	startZ := int(r.G2())
 
 	if ctrlHeld < 0 || ctrlHeld > 1 || coordgrid.DistanceToSW(p.x, p.z, startX, startZ) > 104 {
-		if s != nil {
-			sendUnsetMapFlag(p)
-		}
+		sendUnsetMapFlag(p)
 		// T3 will also clear p.userPath here.
 		return nil
 	}
@@ -270,18 +266,12 @@ func moveClickInner(p *Player, payload []byte, opClick bool) error {
 
 	p.client.log.Debug("move click", "ctrl_held", ctrlHeld, "dest_packed", packed[0], "op_click", opClick)
 
-	walkTriggerSetting := WalkTriggerSettingPlayerpacket // default when no server
-	needsFinding := false
-	if s != nil {
-		walkTriggerSetting = s.cfg.NodeWalktriggerSetting
-		needsFinding = !s.cfg.NodeClientRoutefinder
-	}
-
-	if walkTriggerSetting == WalkTriggerSettingPlayerpacket {
+	if s.cfg.NodeWalktriggerSetting == WalkTriggerSettingPlayerpacket {
+		needsFinding := !s.cfg.NodeClientRoutefinder
 		p.pathToMoveClick(packed, needsFinding)
 	}
 
-	if !opClick && s != nil {
+	if !opClick {
 		p.ClearPendingAction()
 
 		if p.runenergy < 100 && ctrlHeld == 1 {
@@ -290,7 +280,7 @@ func moveClickInner(p *Player, payload []byte, opClick bool) error {
 			p.tempRun = ctrlHeld
 		}
 
-		if walkTriggerSetting == WalkTriggerSettingPlayerpacket && p.hasWaypoints() {
+		if s.cfg.NodeWalktriggerSetting == WalkTriggerSettingPlayerpacket && p.hasWaypoints() {
 			p.processWalktrigger()
 		}
 	}
