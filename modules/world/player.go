@@ -139,6 +139,7 @@ type Player struct {
 	lastInteractBranchPre  int
 	lastInteractBranchPost int
 	interactCallSlot       int
+
 	activeScript     *script.ScriptState
 	queue            []playerQueueRequest
 
