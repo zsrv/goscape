@@ -2,7 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Port 6 silent-discard game opcodes (CHAT_SETMODE, FRIENDLIST_ADD/DEL, IGNORELIST_ADD/DEL, REPORT_ABUSE) into `modules/world/`, mirroring TS handlers line-by-line. Adds 3 Player fields, a per-tick reset hook, a 3-bridge interface trio (no-op default + recording test capture), and a ReportAbuseReason enum. Folds in one true-to-TS bug fix in `pkg/util/jstring.FromBase37`. Net deviation tally 14 → 19.
+**Goal:** Port 6 silent-discard game opcodes (CHAT_SETMODE, FRIENDLIST_ADD/DEL, IGNORELIST_ADD/DEL, REPORT_ABUSE) into `modules/world/`, mirroring TS handlers line-by-line. Adds 2 Player fields (socialProtect + reportAbuseProtect), a per-tick reset hook, a 3-bridge interface trio (no-op default + recording test capture), and a ReportAbuseReason enum. Folds in one true-to-TS bug fix in `pkg/util/jstring.FromBase37`. Net deviation tally 14 → 18 (post-erratum).
+
+**Erratum (2026-05-02, post-`c8e995c`):** Pre-flight grep before T1 dispatch surfaced that `Player.staffModLevel int32` already exists at `player.go:73` with a producer at `server.go:590` (login proto). The `NAI-72-D-STAFFMODLEVEL-DEAD-WRITER` deviation was retracted, T1 Step 8 dropped its staffModLevel field-add, T4 Step 3 dropped its "no producer at HEAD" doc-comment, Stage 1 review focus #6 dropped, commit-msg templates corrected. ReportAbuse handler reads `p.staffModLevel` (existing `int32` field) directly — comparison `p.staffModLevel > 0` works unchanged. ReportAbuse tests still set `p.staffModLevel = 1` to drive the moderator-mute branch deterministically. See spec erratum block.
 
 **Architecture:** Six free-function handlers (`p.client.server` access pattern, matching NAI-71's `handler_opheld.go`) registered directly in `handlers_game.go init()`. Foundation task (T1) lays bridge interfaces, default no-op impl, recording capture for tests, Player flag fields, processCleanup hook, ReportAbuseReason enum, Server fields, and NewServer init. T2-T4 each port one handler family with its tests. Two-stage Sonnet review (after T1, after T4).
 
@@ -21,7 +23,9 @@ Per `controller_preflight.md` and `spec_followup_tracker_freshness.md`, controll
 **Before T1:**
 ```bash
 # Confirm absence of all NAI-72 surfaces
-rg -n "socialProtect|reportAbuseProtect|staffModLevel" pkg/ modules/
+# (Note: staffModLevel is EXPECTED to have hits — it already exists at
+# player.go:73 with login-proto producer. Erratum dropped its field-add.)
+rg -n "socialProtect|reportAbuseProtect" pkg/ modules/
 rg -n "FriendsBridge|LoginBridgeMod|LoggerBridge|noopBridges|recordingBridges" modules/
 rg -n "ReportAbuseReason" pkg/ modules/
 rg -n "gameHandlers\[(11|79|118|171|190|244)\]" modules/
@@ -37,7 +41,7 @@ rg -n "func newTestPlayer\(|func newTestServer\(" modules/world/
 rg -n "func \(s \*Server\) processCleanup\(\)" modules/world/tick.go
 ```
 
-**Before T2/T3/T4:** re-grep `gameHandlers\[N\]` for the specific opcode being added (T1 may shift line numbers in `handlers_game.go`); re-grep `socialProtect`/`reportAbuseProtect`/`staffModLevel` to confirm T1 landed; re-grep `FriendsBridge`/`LoginBridgeMod`/`LoggerBridge` to confirm interfaces exist.
+**Before T2/T3/T4:** re-grep `gameHandlers\[N\]` for the specific opcode being added (T1 may shift line numbers in `handlers_game.go`); re-grep `socialProtect`/`reportAbuseProtect` to confirm T1 landed; re-grep `FriendsBridge`/`LoginBridgeMod`/`LoggerBridge` to confirm interfaces exist.
 
 **Before T4 specifically:** re-read TS `ReportAbuseHandler.ts:9-26` AND `ReportAbuse.ts:4-17` (enum) to confirm no upstream drift, and verify `cfg.NodeProduction` is still readable from a Player handler via `p.client.server.cfg`.
 
@@ -218,9 +222,9 @@ func TestProcessCleanupPreservesStaffModLevel(t *testing.T) {
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/world/ -run TestProcessCleanup -v
 ```
 
-Expected: compile error `p.socialProtect undefined` (and the other two fields).
+Expected: compile error `p.socialProtect undefined` and `p.reportAbuseProtect undefined`. (`p.staffModLevel = 2` already compiles — existing field.)
 
-- [ ] **Step 8: Add the 3 Player fields in `modules/world/player.go`**
+- [ ] **Step 8: Add the 2 Player fields in `modules/world/player.go`**
 
 Insert after line 176 (the end of the `=== chat state ===` block):
 
@@ -238,14 +242,9 @@ Insert after line 176 (the end of the `=== chat state ===` block):
 	// player. Reset/set semantics identical to socialProtect. Mirrors
 	// TS Player.reportAbuseProtect (Player.ts:387, reset Player.ts:467).
 	reportAbuseProtect bool
-
-	// staffModLevel is the player's moderator level: 0=user, 1+=mod.
-	// Read by the ReportAbuse moderator-mute branch (handler_reportabuse.go).
-	// Writer is deferred — see NAI-72-D-STAFFMODLEVEL-DEAD-WRITER.
-	// Field defaults to 0 for all players at HEAD. Mirrors TS
-	// Player.staffModLevel (Player.ts:370).
-	staffModLevel int
 ```
+
+(Erratum: `staffModLevel int32` already exists at `player.go:73` with a producer at `server.go:590` from login proto; ReportAbuse handler reads it directly without re-declaring.)
 
 - [ ] **Step 9: Re-run cleanup test, verify it now compiles but the reset assertion fails**
 
@@ -253,7 +252,7 @@ Insert after line 176 (the end of the `=== chat state ===` block):
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/world/ -run TestProcessCleanup -v
 ```
 
-Expected: `TestProcessCleanupResetsSocialFlags` FAIL (`socialProtect: not reset by processCleanup`); `TestProcessCleanupPreservesStaffModLevel` PASS (no code touches staffModLevel anywhere).
+Expected: `TestProcessCleanupResetsSocialFlags` FAIL (`socialProtect: not reset by processCleanup`); `TestProcessCleanupPreservesStaffModLevel` PASS (`processCleanup` does not touch `staffModLevel` — the field has unrelated producers/consumers at HEAD but the per-tick reset path is independent).
 
 - [ ] **Step 10: Add the per-tick reset in `modules/world/tick.go:processCleanup`**
 
@@ -694,8 +693,9 @@ feat(world): NAI-72 T1 — social subsystem foundation
 - pkg/util/jstring.FromBase37: add TS % 37 == 0 invalid-name check
   (true-to-TS bug fix per JString.ts:42-44, surfaced by NAI-72 social
   handler invalid_name gate)
-- Player: add socialProtect, reportAbuseProtect, staffModLevel fields
-  (mirror Player.ts:386-387, 370)
+- Player: add socialProtect, reportAbuseProtect fields
+  (mirror Player.ts:386-387). staffModLevel field already exists at
+  player.go:73 with login-proto producer — see erratum block.
 - processCleanup: per-tick reset of social/report protect flags
   (mirror Player.resetEntity(false) at Player.ts:466-467)
 - Server: add friendsBridge, loginBridgeMod, loggerBridge fields with
@@ -706,7 +706,8 @@ feat(world): NAI-72 T1 — social subsystem foundation
   pins + TestNoopBridgesAllMethods + TestRecordingBridgesCapturesAllCalls
 - social.go: ReportAbuseReason enum (12 values, 0..11) + reasonLabel
 - tick_social_reset_test.go: per-tick reset coverage + staffModLevel
-  preservation pin
+  preservation pin (pins that processCleanup does NOT reset
+  staffModLevel, defending against accidental future loop-body changes)
 
 Plan: docs/superpowers/plans/2026-05-02-nai-72-social-subsystem-foundation.md
 Spec: docs/superpowers/specs/2026-05-02-nai-72-social-subsystem-foundation-design.md
@@ -728,8 +729,8 @@ Dispatch `superpowers:code-reviewer` agent on Sonnet with these focus areas:
 2. **`recordingBridges` test idiom** — is `installRecordingBridges` clear, single-use, no hidden coupling?
 3. **`processCleanup` hook** — minimal change, no scope creep into other reset fields, doc-comment cites NAI-72-N-RESETENTITY-PARTIAL?
 4. **`FromBase37` fix** — does the new branch match TS exactly? Is the `v != 0` guard correct (preserves zero behavior)?
-5. **Deviation tag completeness** — is every TS behavior gap that ships in T1 covered by either a deviation tag or a tracker note? (Specifically: NAI-72-D-STAFFMODLEVEL-DEAD-WRITER for the unwritten field, NAI-72-N-RESETENTITY-PARTIAL for the partial reset.)
-6. **`staffModLevel` defaults to 0 for all players** — is the consume_reserved_constant pattern correctly applied (consumer opens with no producer; tests use `p.staffModLevel = 1` direct assignment to exercise dependent branches)?
+5. **Deviation tag completeness** — is every TS behavior gap that ships in T1 covered by either a deviation tag or a tracker note? (Specifically: NAI-72-N-RESETENTITY-PARTIAL for the partial reset. Note: `NAI-72-D-STAFFMODLEVEL-DEAD-WRITER` was retracted via erratum; the field already has a producer.)
+6. **(Retracted via erratum.)** Original focus area asked about `consume_reserved_constant` pattern for staffModLevel; pre-flight grep showed the field already has a producer at `server.go:590`, so the pattern does not apply. Reviewer should instead spot-check that `T1` did NOT add a duplicate `staffModLevel` field and that ReportAbuse-driving tests use `p.staffModLevel = 1` direct assignment to keep the moderator-mute branch deterministic.
 
 If reviewer surfaces any high-confidence issue, controller reads source + verifies before re-dispatch (per `audit_subagent_fabrication.md`). Fix-ups commit independently.
 
@@ -1625,9 +1626,9 @@ func handleReportAbuse(p *Player, payload []byte) error {
 
 	// Moderator-mute branch: only fires if the reporting player has staff
 	// level > 0 AND the bool flag is set AND we're in production. Mutes
-	// the offender for 48h. (TS ReportAbuseHandler.ts:19-22.)
-	// staffModLevel currently has no producer at HEAD —
-	// NAI-72-D-STAFFMODLEVEL-DEAD-WRITER.
+	// the offender for 48h. (TS ReportAbuseHandler.ts:19-22.) Reads the
+	// existing Player.staffModLevel int32 (set from login proto at
+	// server.go:590).
 	if moderatorMute && p.staffModLevel > 0 && s.cfg.NodeProduction {
 		s.loginBridgeMod.NotifyPlayerMute(p.username, util.FromBase37(offender), time.Now().Add(48*time.Hour))
 	}
@@ -1847,13 +1848,13 @@ Append a `## NAI-72 — CLOSED 2026-05-02` block at the end of `~/.claude/projec
 - Spec + plan paths
 - Close commit SHA + per-task SHAs (filled in at commit time)
 - **Follow-ups closed:** none
-- **Deviations opened:** all 5 with closure paths
+- **Deviations opened:** all 4 with closure paths (post-erratum: STAFFMODLEVEL-DEAD-WRITER retracted)
 - **Deviations closed:** none
-- **Net deviation tally:** -0, +5 = 14 → 19
+- **Net deviation tally:** -0, +4 = 14 → 18 (post-erratum)
 - **Wire-behaviour delta:** all 6 opcodes
-- **Lessons confirmed:** runescript_cadence, true_to_ts_gate, controller_preflight, risk_register_premise_grep, defensive_gate_doc_comment_label, plan_grep_helper_patterns, enumerate_all_sites, superpowers_code_reviewer_model, execution_mode_default, close_commit_memory_trailer, consume_reserved_constant, spec_unconditional_swap_in_arm_block (verified not-applicable)
-- **Lessons surfaced (saved as memory entries):** none expected unless review surfaces something new
-- **Carry-forwards (still open after NAI-72):** all 5 new deviations + carry-forward unchanged from NAI-71
+- **Lessons confirmed:** runescript_cadence, true_to_ts_gate, controller_preflight (caught the staffModLevel pre-flight blocker), risk_register_premise_grep (R6 was the missed grep), defensive_gate_doc_comment_label, plan_grep_helper_patterns, enumerate_all_sites, superpowers_code_reviewer_model, execution_mode_default, close_commit_memory_trailer, spec_unconditional_swap_in_arm_block (verified not-applicable)
+- **Lessons surfaced (saved as memory entries):** consider whether `risk_register_premise_grep.md` needs a 2nd-instance reinforcement note (NAI-72 R6 is a 2nd occurrence of the same analogy-reasoning failure mode after NAI-69)
+- **Carry-forwards (still open after NAI-72):** all 4 new deviations + carry-forward unchanged from NAI-71
 
 ### Close Step 5: Close commit
 
@@ -1873,7 +1874,7 @@ Closes 6 silent-discard slots in gameHandlers[]:
   171 IGNORELIST_DEL
   190 REPORT_ABUSE
 
-T1 Foundation (jstring fix + 3 Player fields + processCleanup +
+T1 Foundation (jstring fix + 2 Player fields + processCleanup +
    bridges + ReportAbuseReason)             (TBD-SHA)
 T2 ChatSetMode handler                      (TBD-SHA)
 T3 Friend/Ignore family (4 handlers)        (TBD-SHA)
@@ -1894,12 +1895,11 @@ Wire-behaviour delta:
 - pkg/util/jstring.FromBase37 now matches TS — % 37 == 0 returns
   "invalid_name" (true-to-TS bug fix surfaced by social handler gate).
 
-Net deviation tally: 14 → 19 (-0 / +5).
+Net deviation tally: 14 → 18 (-0 / +4, post-erratum).
 
 Opens memory: NAI-72-D-FRIENDS-SERVER-BRIDGE
 Opens memory: NAI-72-D-LOGIN-SERVER-BRIDGE-MOD
 Opens memory: NAI-72-D-LOGGER-BRIDGE
-Opens memory: NAI-72-D-STAFFMODLEVEL-DEAD-WRITER
 Opens memory: NAI-72-D-INPUT-RECORDING-NOT-PORTED
 
 Spec: docs/superpowers/specs/2026-05-02-nai-72-social-subsystem-foundation-design.md
@@ -1930,6 +1930,6 @@ EOF
 | Stage 1 review focus areas | After T1, see "Stage 1 review" block |
 | Stage 2 review focus areas | After T4, see "Stage 2 review" block |
 | Integration smoke | Close Step 1 |
-| 5 deviation tags opened | Close Step 4 (memory) + Close Step 5 (commit trailer) |
+| 4 deviation tags opened (post-erratum) | Close Step 4 (memory) + Close Step 5 (commit trailer) |
 
 No placeholders, no TBD/TODO except the close commit's per-task SHA blanks (filled at commit time). All file paths are absolute-from-repo-root. Every test step shows full test code; every implementation step shows full code. Method signatures match across tasks (`AddFriend(playerUsername string, target uint64)` is identical in interface, noop, recording, and 4 handler call sites).

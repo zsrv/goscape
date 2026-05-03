@@ -2,12 +2,13 @@
 
 **Status:** Spec written 2026-05-02.
 **Predecessor:** NAI-71 (HEAD `5298d6a`). Net deviation tally entering: 14.
-**Opens:** 5 new deviations:
+**Opens:** 4 new deviations:
 - `NAI-72-D-FRIENDS-SERVER-BRIDGE`
 - `NAI-72-D-LOGIN-SERVER-BRIDGE-MOD`
 - `NAI-72-D-LOGGER-BRIDGE`
-- `NAI-72-D-STAFFMODLEVEL-DEAD-WRITER`
 - `NAI-72-D-INPUT-RECORDING-NOT-PORTED`
+
+**Erratum (2026-05-02, post-`c8e995c`):** Pre-flight grep before T1 dispatch surfaced that `Player.staffModLevel int32` already exists at `player.go:73` with a producer at `server.go:590` (`c.staffModLevel = resp.GetStaffModLevel()` from the login response, propagated into `Player` at `player.go:361`) and 6+ existing consumers including `handlers_game.go:222,233,267-276`, `tick.go:391`, `player_source.go:12`. The previously-listed `NAI-72-D-STAFFMODLEVEL-DEAD-WRITER` deviation was retracted: the §2.3 "no hits" claim was wrong (analogy reasoning, not grep-verified) and `NAI-72-D-` does not apply because the field has a producer. The handler reads `p.staffModLevel` directly (existing field). T1 Step 8 drops the staffModLevel field-add. Net tally projection corrected from 14 → 19 to 14 → 18 (4 opens). Pattern: `risk_register_premise_grep.md` — risk-register premises about cross-call-chain state need actual grep evidence.
 
 Plus one tracker note (not a deviation): `NAI-72-N-RESETENTITY-PARTIAL` — partial port of `Player.resetEntity(false)`; rest of the body belongs to chat-mask / script-protect sub-specs and is already split across other tracker entries. Tracked as a doc-comment audit note, not a numbered deviation.
 
@@ -66,8 +67,13 @@ Together these form the engine's "social" cluster — they share three structura
 Per `risk_register_premise_grep.md` and `controller_preflight.md`:
 
 ```
-$ rg -n "socialProtect|reportAbuseProtect|staffModLevel" pkg/ modules/
-(no hits — confirms all three Player fields and per-tick reset are absent)
+$ rg -n "socialProtect|reportAbuseProtect" pkg/ modules/
+(no hits — confirms both spam-protect Player fields and per-tick reset are absent)
+
+$ rg -n "staffModLevel" pkg/ modules/
+(many hits — Player.staffModLevel int32 already exists at player.go:73 with producer
+ at server.go:590 from login response. Erratum: NAI-72 does NOT add this field; T1
+ only adds socialProtect + reportAbuseProtect.)
 
 $ rg -n "FriendsBridge|LoginBridgeMod|LoggerBridge|friendsBridge|loggerBridge" modules/
 (no hits — confirms bridge interfaces and Server fields are absent)
@@ -96,7 +102,7 @@ $ rg -n "gameHandlers\[(11|79|118|148|171|190|244)\]" modules/
 - **`loginThread` `player_ban` / `player_mute` channels.** TS uses the existing login Worker for moderation messages (World.ts:2275-2294). Goscape's `loginClient` is auth-only (login + logout + save), with no ban/mute IPC. Deferred via `NAI-72-D-LOGIN-SERVER-BRIDGE-MOD`.
 - **`loggerThread` worker.** TS posts `'report'` events to a dedicated logger worker (World.ts:2305). Goscape has no logger subsystem. Deferred via `NAI-72-D-LOGGER-BRIDGE`. (Same closure path will activate the deferred EventTracking handler in a future sub-spec.)
 - **`Player.input` recording subsystem.** TS `notifyPlayerReport` flips `offenderPlayer.submitInput = true` on MACROING/BUG_ABUSE reasons (World.ts:2298-2304). The `input` and `submitInput` properties are not ported. Deferred via `NAI-72-D-INPUT-RECORDING-NOT-PORTED`. (Same gap blocks the EventTracking handler.)
-- **DB-side staff-level loader.** TS reads `staffmodlevel` from the DB at `World.ts:1895` and writes it to `Player.staffModLevel`. Goscape's login DB schema has no `staffmodlevel` column and `LoginClient.UpdatePlayer` does not propagate it. Deferred via `NAI-72-D-STAFFMODLEVEL-DEAD-WRITER`. The field exists post-NAI-72 but defaults to 0 for all players (consume_reserved_constant pattern: opening the consumer with no producer).
+- ~~**DB-side staff-level loader.**~~ **Erratum:** retracted. `Player.staffModLevel int32` already exists with a producer (`server.go:590` from login proto `resp.GetStaffModLevel()`, propagated into Player at `player.go:361`). The ReportAbuse moderator-mute branch reads it directly. Whether the login server returns nonzero values is a configuration concern outside NAI-72 scope.
 
 ## 3. Scope
 
@@ -110,7 +116,6 @@ $ rg -n "gameHandlers\[(11|79|118|148|171|190|244)\]" modules/
 | `Player.input.hasSeenReport`, `submitInput`, `recordedBlobsSizeTotal`, `record(bytes)` | All input-recording — see above | `NAI-72-D-INPUT-RECORDING-NOT-PORTED` |
 | Real friends-server, login-server-mod, logger-server impls | Per-bridge deferral (5 deviations) | Each deviation lists its closure path |
 | Full `Player.resetEntity(false)` port | `protect`, `chatColour`, `chatEffect`, `chatRights`, `chatMessage`, `logMessage` resets each belong to other sub-specs (chat-mask / script-protect) | Doc-comment audit note `NAI-72-N-RESETENTITY-PARTIAL` only; not a numbered deviation |
-| Wiring `staffModLevel` reads from existing handlers (e.g. `ClientCheatHandler.ts:52,56,189,483`) | Out of scope — would require login DB column + bridge propagation. Field is read-once by ReportAbuse only. | `NAI-72-D-STAFFMODLEVEL-DEAD-WRITER` |
 
 ### 3.2 In-scope
 
@@ -131,14 +136,9 @@ socialProtect bool
 // player. Reset/set semantics identical to socialProtect. Mirrors
 // TS Player.reportAbuseProtect (Player.ts:387, reset Player.ts:467).
 reportAbuseProtect bool
-
-// staffModLevel is the player's moderator level: 0=user, 1+=mod.
-// Read by the ReportAbuse moderator-mute branch (handler_reportabuse.go).
-// Writer is deferred — see NAI-72-D-STAFFMODLEVEL-DEAD-WRITER.
-// Field defaults to 0 for all players at HEAD. Mirrors TS
-// Player.staffModLevel (Player.ts:370).
-staffModLevel int
 ```
+
+(`Player.staffModLevel int32` already exists at `player.go:73` with a producer; ReportAbuse handler reads it directly without re-declaring.)
 
 #### 3.2.2 New per-tick reset (`modules/world/tick.go:processCleanup`)
 
@@ -524,7 +524,7 @@ Full sub-spec, 4 implementation tasks + close. Two-stage review per `runescript_
 
 | Task | Scope | Approx LOC | Reviewer |
 |---|---|---|---|
-| **T1: Foundation** | jstring.FromBase37 fix + test; 3 Player fields; processCleanup hook + test; bridges.go + bridges_test.go (interfaces, noop, recording capture); social.go (enum + reasonLabel); Server fields + NewServer init | ~250 LOC (impl + tests) | **Stage 1 review (Sonnet)** — pattern lock: bridge interface shape, recordingBridges idiom, processCleanup hook minimal-change, deviation tag completeness, jstring fix correctness |
+| **T1: Foundation** | jstring.FromBase37 fix + test; 2 Player fields (post-erratum); processCleanup hook + test; bridges.go + bridges_test.go (interfaces, noop, recording capture); social.go (enum + reasonLabel); Server fields + NewServer init | ~250 LOC (impl + tests) | **Stage 1 review (Sonnet)** — pattern lock: bridge interface shape, recordingBridges idiom, processCleanup hook minimal-change, deviation tag completeness, jstring fix correctness |
 | **T2: ChatSetMode** | handler_chatsetmode.go + tests; opcode 244 binding | ~95 LOC | (no review) |
 | **T3: Friend/Ignore family** | handler_social_list.go + tests; 4 opcode bindings | ~275 LOC | (no review) |
 | **T4: ReportAbuse** | handler_reportabuse.go + tests; opcode 190 binding | ~320 LOC | **Stage 2 review (Sonnet)** — TS-fidelity gate: every handler line-by-line vs TS; verify `spec_unconditional_swap_in_arm_block` not-applicable claim; verify `submitInput` omission is doc-tagged; verify ReportAbuse range-check direction; verify moderator-mute 3-way gate order |
@@ -543,7 +543,7 @@ Per `risk_register_premise_grep.md`. Each premise is grep-evidenced in §2.3 abo
 | R3 | `world.NodeProduction` config is the correct gate for the moderator-mute branch. | `cfg.NodeProduction` already gates MAP_LIVE at `server_varp.go:74`; declared at `config.go:43`; matches TS `Environment.NODE_PRODUCTION`. | **Verified low.** Same semantics, no new config key. |
 | R4 | `FromBase37` returns the literal `"invalid_name"` sentinel that the TS handlers gate on. | `jstring.go:37` returns the literal (matching TS JString.ts:39,43). One missing branch — folded into T1 fix. | **Verified low.** |
 | R5 | `socialProtect`/`reportAbuseProtect` flags are NOT consumed by any code path besides the new handlers + the new reset. | Per §2.3 grep — no hits anywhere. | **Verified low.** Brand-new fields. |
-| R6 | `staffModLevel` field has no producer at HEAD. | Per §2.3 grep — no hits. Tracked as `NAI-72-D-STAFFMODLEVEL-DEAD-WRITER`. | **Acknowledged.** All players have `staffModLevel == 0`; ReportAbuse moderator-mute branch never fires until login-side wiring lands. ReportAbuse tests use `p.staffModLevel = 1` directly to exercise the branch. |
+| R6 | ~~`staffModLevel` field has no producer at HEAD.~~ **Retracted (erratum).** Field exists at `player.go:73` (`int32`) with producer at `server.go:590` from login proto. | Re-grep showed 30+ hits including production producers and consumers. ReportAbuse handler reads `p.staffModLevel` directly. | **Verified low.** ReportAbuse tests still use `p.staffModLevel = 1` direct assignment to drive the moderator-mute branch deterministically (the login server may return 0 in dev). |
 | R7 | `spec_unconditional_swap_in_arm_block` lesson does NOT apply to any handler in this bundle. | All five "set protect = true" sites are at the BOTTOM of the function, OUTSIDE the gate-check. ReportAbuse moderator-mute branch is independently gated, not nested inside the protect-check. No arm-fallback `if (!script)` patterns in any of these handlers. | **Verified not applicable.** Stage 2 reviewer will re-confirm. |
 | R8 | `plan_geometry_premise_pretrace` lesson does NOT apply. | No geometry/coord/distance arithmetic in any handler in this bundle. | **Verified not applicable.** |
 | R9 | `(*Player).MessageGame` accepts a string and is the correct ack channel. | Used in `handler_opheld.go:191`, `handler_opnpc.go:254`, etc. — Stage 1 reviewer cross-checks signature. | **Verified low.** |
@@ -565,7 +565,6 @@ See §3.1.
 | `true_to_ts_gate.md` | Every behavioral decision cited against TS source line |
 | `controller_preflight.md` | Premise grep evidence in §2.3; pre-flight before every implementer dispatch |
 | `risk_register_premise_grep.md` | §6 register with grep evidence per premise |
-| `consume_reserved_constant.md` | `staffModLevel` field opens consumer with no producer; closure path documented |
 | `spec_unconditional_swap_in_arm_block.md` | Risk register R7 explicitly verifies not-applicable; Stage 2 reviewer re-confirms |
 | `plan_geometry_premise_pretrace.md` | Risk register R8 explicitly verifies not-applicable |
 | `defensive_gate_doc_comment_label.md` | `nil` checks on `p.client`/`p.client.server` will be labeled "(goscape defensive; TS reaches via static accessor)" in handler doc-comments |
@@ -590,7 +589,7 @@ Closes 6 silent-discard slots in gameHandlers[]:
   171 IGNORELIST_DEL
   190 REPORT_ABUSE
 
-T1 Foundation (jstring fix + 3 Player fields + processCleanup +
+T1 Foundation (jstring fix + 2 Player fields + processCleanup +
    bridges + ReportAbuseReason)            (TBD-SHA)
 T2 ChatSetMode handler                     (TBD-SHA)
 T3 Friend/Ignore family (4 handlers)       (TBD-SHA)
@@ -610,8 +609,7 @@ Wire-behaviour delta:
 Opens memory: NAI-72-D-FRIENDS-SERVER-BRIDGE
 Opens memory: NAI-72-D-LOGIN-SERVER-BRIDGE-MOD
 Opens memory: NAI-72-D-LOGGER-BRIDGE
-Opens memory: NAI-72-D-STAFFMODLEVEL-DEAD-WRITER
 Opens memory: NAI-72-D-INPUT-RECORDING-NOT-PORTED
 ```
 
-**Net deviation tally projection:** -0 closures, +5 opens = 14 → 19.
+**Net deviation tally projection:** -0 closures, +4 opens = 14 → 18 (post-erratum).
