@@ -1174,3 +1174,466 @@ After T5 commits, controller emits a smoke-handoff resume prompt to the user (pe
 - Branch 0 ("fallthrough") collides with the `p.target == nil` early-return record. Both record `branch=0`, which is correct: in either case `tryInteract` did NOT take a documented branch. The test in T3 covers the standard fallthrough; the no-target case is rare in practice.
 
 **5. Build/test commands consistent:** All steps use `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache` per global CLAUDE.md. ✓
+
+---
+
+# NAI-79 — Stage 2 plan-update — Bundle H4 (gate-naming instrumentation at `handleOpLoc` early-returns)
+
+**Routing rationale.** Smoke at HEAD `10645e5` produced THREE OPLOC1 receipts (Tutorial Island RS Guide door / bookcase / drawer) with **zero** Frame A AND **zero** Frame B records. Per spec §5, the H1/H2/H3 routing rules all assume Frame A is emitted (each match condition reads `op_slot`, `loc_id`, or `loc_shape` from Frame A). With Frame A absent on three independent click receipts, the click is rejected at one of `handleOpLoc`'s six pre-success early-returns — and Stage 1's instrumentation has no signal beyond "did not reach line 97." That maps to spec §5 H4 ("none of H1/H2/H3 matches") with the additional refinement that the failure is upstream of the success path, not in `processInteraction`.
+
+The §6.4 H4 template prescribes audit-subagent dispatch to "trace forward from the FIRST visible state mutation that doesn't happen post-click." Here the FIRST missing mutation is `p.SetInteraction` (handler_oploc.go:89) — equivalently, the question collapses to "which of the 6 early-returns fired?" That's a one-bit-of-signal question per click; an audit subagent cannot answer it without runtime instrumentation. Therefore Bundle H4 is materialized as a single Tier-2 instrumentation sub-task that emits a gate-name slog record at each early-return, followed by re-smoke. Once captured-log signal pins the gate, Stage 2.5 (an additional plan-update) can route to a concrete fix.
+
+This refinement of the §6.4 template is in-scope for NAI-79: spec §5 explicitly opens the door for an "instrumentation, not fix" Stage 2 when no H1/H2/H3 condition holds (the spec's H4 fallback exists to authorize exactly this kind of follow-up data collection).
+
+**Goal:** Add a permanent `Cfg.NodeDebug`-gated `slog.Debug` record at each of `handleOpLoc`'s six early-return paths so a re-smoke at the Tutorial Island RS Guide door produces exactly one `oploc gate` record per OPLOC1 receipt, with a gate-name attribute pinning which validation gate rejected the click.
+
+**Architecture:** One file-local helper `emitOpLocGate(s *Server, p *Player, gate string, op, x, z, locId int)` in `modules/world/interaction_debug.go` (created in Stage 1 T1). Each early-return calls the helper before `sendUnsetMapFlag(p); return nil`. Helper short-circuits when `!s.cfg.NodeDebug || s.log == nil`. Six instrumented sites, six distinct `gate` strings: `"delayed"`, `"payload_short"`, `"viewport"`, `"getloc_nil"`, `"loctype_nil"`, `"op_slot_empty"`. The two physical return statements that share gate #5 (`s.locTypes == nil || locId out of range` AND `Configs[locId] == nil` — both map to the comment-block "LocType not registered" gate) emit the same `"loctype_nil"` name; this matches the user-stated 6-gate framing.
+
+**Field schema (per gate emit):**
+
+```go
+s.log.Debug("oploc gate",
+    "tick",       s.currentTick,
+    "player_uid", p.uid,
+    "gate",       gate,             // one of the 6 names above
+    "op",         op,                // 1..5
+    "click_x",    x,                 // -1 if pre-decode (delayed, payload_short)
+    "click_z",    z,                 // -1 if pre-decode
+    "loc_id",     locId,             // -1 if pre-decode
+)
+```
+
+The `-1` sentinel for pre-decode fields matches the existing `ap_range=-1` convention (interaction.go) and keeps the field set uniform across all 6 gates so downstream log-parsing tooling does not need per-gate field detection. Value semantics: `delayed` and `payload_short` fire BEFORE the 6-byte payload is decoded, so `(x, z, locId) = (-1, -1, -1)`; the other four fire AFTER decode and pass real values.
+
+**Why exactly 6 gates (not 7).** The `p.client == nil || p.client.server == nil` guard at handler_oploc.go:26-28 is a defensive nil-check that returns silently with no `sendUnsetMapFlag` — it is not a validation gate per the comment-block enumeration. Production smokes always have `p.client.server != nil` (the connection is live by definition when a packet handler runs), so this branch contributes no real-world signal. Out of scope.
+
+**Tech Stack:** Go 1.26+, `log/slog`, existing `*Server.log *slog.Logger` plumbing (server.go:48), existing `s.cfg.NodeDebug` config flag (handler_oploc.go:97 reference site).
+
+**Spec:** `docs/superpowers/specs/2026-05-03-nai-79-door-cascade-blocker-investigation-design.md` §5 (H4 fallback) + §6.4 (H4 template, refined to instrumentation-first per smoke evidence above).
+
+**Scope:** Bundle H4 Stage 2 only. Stage 2.5 (concrete fix bundle, routed by gate signal) materializes as a fresh plan-update after re-smoke handoff captures the gate name.
+
+---
+
+## File Structure
+
+**New files:** none.
+
+**Modified files:**
+- `modules/world/interaction_debug.go` — add unexported helper `emitOpLocGate`.
+- `modules/world/handler_oploc.go` — instrument `handleOpLoc`'s six early-return paths (one helper call before each existing `sendUnsetMapFlag(p); return nil`). `handleOpLocT` and `handleOpLocU` are NOT instrumented (door symptom is OPLOC1 only; OPLOCT/OPLOCU are out of scope per Stage 1 §4.1 boundary).
+- `modules/world/interaction_debug_test.go` — append one new test `TestOpLocGateInstrumentation` (table-driven; one row per gate; six rows total).
+
+**Justification for keeping the helper in `interaction_debug.go`:** Stage 1 T1 already created this file as the home for instrumentation helpers (`chebDist`, `targetKindString`, `recordTryInteractBranch`). Adding `emitOpLocGate` keeps all NAI-79 instrumentation co-located and avoids a new file for a 12-line helper.
+
+---
+
+## Task 6 — Gate-naming instrumentation at `handleOpLoc` early-returns
+
+**Files:**
+- Modify: `modules/world/interaction_debug.go` (add `emitOpLocGate` helper)
+- Modify: `modules/world/handler_oploc.go` (instrument 6 early-returns)
+- Modify: `modules/world/interaction_debug_test.go` (append `TestOpLocGateInstrumentation`)
+
+This task lands the gate-name instrumentation in one feat commit. TDD discipline: write the failing table-driven test for all six gates first, verify each row fails for the expected reason (no `oploc gate` record emitted), then add the helper + the six call-site instrumentations, then re-run and confirm each row passes.
+
+- [ ] **Step 1 — Write failing table-driven test for all 6 gates.**
+
+Append to `modules/world/interaction_debug_test.go`:
+
+```go
+func TestOpLocGateInstrumentation(t *testing.T) {
+	tests := []struct {
+		name      string
+		setup     func(s *Server, p *Player)
+		payload   []byte
+		wantGate  string
+		wantOp    int
+		wantX     int64 // -1 if pre-decode
+		wantZ     int64
+		wantLocId int64
+	}{
+		{
+			name: "delayed",
+			setup: func(s *Server, p *Player) {
+				p.delayed = true
+				p.delayedUntil = 999
+				s.currentTick = 0
+			},
+			payload:   p2x3Payload(100, 100, 42),
+			wantGate:  "delayed",
+			wantOp:    1,
+			wantX:     -1, // emit fires pre-decode
+			wantZ:     -1,
+			wantLocId: -1,
+		},
+		{
+			name:      "payload_short",
+			setup:     func(s *Server, p *Player) {},
+			payload:   []byte{0x01, 0x02, 0x03}, // only 3 bytes
+			wantGate:  "payload_short",
+			wantOp:    1,
+			wantX:     -1, // emit fires pre-decode
+			wantZ:     -1,
+			wantLocId: -1,
+		},
+		{
+			name:      "viewport",
+			setup:     func(s *Server, p *Player) {},
+			payload:   p2x3Payload(250, 100, 42), // dx=150 > 52
+			wantGate:  "viewport",
+			wantOp:    1,
+			wantX:     250,
+			wantZ:     100,
+			wantLocId: 42,
+		},
+		{
+			name:      "getloc_nil",
+			setup:     func(s *Server, p *Player) {},
+			payload:   p2x3Payload(100, 100, 999), // wrong locId
+			wantGate:  "getloc_nil",
+			wantOp:    1,
+			wantX:     100,
+			wantZ:     100,
+			wantLocId: 999,
+		},
+		{
+			name: "loctype_nil",
+			setup: func(s *Server, p *Player) {
+				// Place a loc whose typeID has no LocType registered.
+				// fixture's locTypes slice has length 43 → index 77 is out of range.
+				missingTypeLoc := entitypkg.NewLoc(0, 100, 100, 1, 1, entitypkg.LifecycleForever, 77, 10, 0)
+				zn := s.zoneMap.Get(0, 100, 100)
+				zn.Locs = append(zn.Locs, missingTypeLoc)
+			},
+			payload:   p2x3Payload(100, 100, 77),
+			wantGate:  "loctype_nil",
+			wantOp:    1,
+			wantX:     100,
+			wantZ:     100,
+			wantLocId: 77,
+		},
+		{
+			name: "op_slot_empty",
+			setup: func(s *Server, p *Player) {
+				s.locTypes.Configs[42].Op[0] = ""
+			},
+			payload:   p2x3Payload(100, 100, 42),
+			wantGate:  "op_slot_empty",
+			wantOp:    1,
+			wantX:     100,
+			wantZ:     100,
+			wantLocId: 42,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			s, p, _, _ := makeOpLocFixture(t)
+			logger, h := newCapturingLogger()
+			s.log = logger
+			s.cfg.NodeDebug = true
+			s.currentTick = 7
+			p.uid = 555
+			tc.setup(s, p)
+
+			_ = handleOpLoc1(p, tc.payload)
+
+			rec := findRecord(h.snapshot(), "oploc gate")
+			if rec == nil {
+				t.Fatalf("expected one 'oploc gate' record; got none")
+			}
+			requireAttr(t, *rec, "gate", tc.wantGate)
+			requireAttr(t, *rec, "player_uid", "555")
+			requireAttr(t, *rec, "tick", "7")
+			if v, ok := attrValue(*rec, "op"); !ok || v.Int64() != int64(tc.wantOp) {
+				t.Errorf("op: got %v, want %d", v, tc.wantOp)
+			}
+			if v, ok := attrValue(*rec, "click_x"); !ok || v.Int64() != tc.wantX {
+				t.Errorf("click_x: got %v, want %d", v, tc.wantX)
+			}
+			if v, ok := attrValue(*rec, "click_z"); !ok || v.Int64() != tc.wantZ {
+				t.Errorf("click_z: got %v, want %d", v, tc.wantZ)
+			}
+			if v, ok := attrValue(*rec, "loc_id"); !ok || v.Int64() != tc.wantLocId {
+				t.Errorf("loc_id: got %v, want %d", v, tc.wantLocId)
+			}
+
+			// Frame A must NOT emit on rejected clicks.
+			if frameA := findRecord(h.snapshot(), "oploc handler"); frameA != nil {
+				t.Errorf("unexpected 'oploc handler' record on rejected click: %v", frameA)
+			}
+		})
+	}
+}
+
+func TestOpLocGateInstrumentation_SuppressedWhenNodeDebugFalse(t *testing.T) {
+	s, p, _, _ := makeOpLocFixture(t)
+	logger, h := newCapturingLogger()
+	s.log = logger
+	s.cfg.NodeDebug = false
+
+	// Drive the viewport gate (a representative early-return).
+	_ = handleOpLoc1(p, p2x3Payload(250, 100, 42))
+
+	if rec := findRecord(h.snapshot(), "oploc gate"); rec != nil {
+		t.Errorf("unexpected 'oploc gate' record under NodeDebug=false: %v", rec)
+	}
+}
+```
+
+- [ ] **Step 2 — Run the new test file; verify every gate row fails.**
+
+```bash
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/world/ -run TestOpLocGateInstrumentation -v
+```
+
+Expected: `TestOpLocGateInstrumentation/delayed`, `/payload_short`, `/viewport`, `/getloc_nil`, `/loctype_nil`, `/op_slot_empty` all FAIL with `expected one 'oploc gate' record; got none`. The `_SuppressedWhenNodeDebugFalse` companion may PASS trivially (no record exists either way). The 6 failures are the gate signal we want to introduce; do not proceed until each row fails for that exact reason.
+
+- [ ] **Step 3 — Add the helper to `interaction_debug.go`.**
+
+Read the current file head to confirm package declaration + any existing imports of `log/slog`:
+
+```bash
+head -20 modules/world/interaction_debug.go
+```
+
+Append to `modules/world/interaction_debug.go` (after the existing `recordTryInteractBranch` writer; if `log/slog` is not yet imported, add it to the import block):
+
+```go
+// emitOpLocGate emits a gate-name slog.Debug record for one of
+// handleOpLoc's six early-return paths. NodeDebug-gated; nil-log safe.
+//
+// Field schema (NAI-79 Bundle H4):
+//   tick / player_uid / gate / op / click_x / click_z / loc_id
+//
+// Pre-decode gates ("delayed", "payload_short") pass (-1, -1, -1) for
+// (x, z, locId) since the 6-byte payload has not been parsed yet. The
+// -1 sentinel matches the project's apRange=-1 convention and keeps
+// the field set uniform across all 6 gate emits.
+func emitOpLocGate(s *Server, p *Player, gate string, op, x, z, locId int) {
+	if !s.cfg.NodeDebug || s.log == nil {
+		return
+	}
+	s.log.Debug("oploc gate",
+		"tick", s.currentTick,
+		"player_uid", p.uid,
+		"gate", gate,
+		"op", op,
+		"click_x", x,
+		"click_z", z,
+		"loc_id", locId,
+	)
+}
+```
+
+- [ ] **Step 4 — Instrument the 6 early-returns in `handleOpLoc`.**
+
+Edit `modules/world/handler_oploc.go`. For each of the six early-return blocks below, add ONE `emitOpLocGate(...)` call immediately before the existing `sendUnsetMapFlag(p)` line. Do NOT touch `handleOpLocT` or `handleOpLocU` — door symptom is OPLOC1-only per spec §4.1. Concretely:
+
+**Site 1 — delayed (line 31–34):**
+
+```go
+	if p.delayed && s.currentTick < p.delayedUntil {
+		emitOpLocGate(s, p, "delayed", op, -1, -1, -1)
+		sendUnsetMapFlag(p)
+		return nil
+	}
+```
+
+**Site 2 — payload_short (line 36–39):**
+
+```go
+	if len(payload) < 6 {
+		emitOpLocGate(s, p, "payload_short", op, -1, -1, -1)
+		sendUnsetMapFlag(p)
+		return nil
+	}
+```
+
+**Site 3 — viewport (line 58–61).** At this point `x`, `z`, `locId` have been decoded (lines 42–44):
+
+```go
+	if dx > 52 || dz > 52 {
+		emitOpLocGate(s, p, "viewport", op, x, z, locId)
+		sendUnsetMapFlag(p)
+		return nil
+	}
+```
+
+**Site 4 — getloc_nil (line 64–67):**
+
+```go
+	if loc == nil {
+		emitOpLocGate(s, p, "getloc_nil", op, x, z, locId)
+		sendUnsetMapFlag(p)
+		return nil
+	}
+```
+
+**Site 5a — loctype_nil (line 69–72), gate-#5 first sub-path:**
+
+```go
+	if s.locTypes == nil || locId < 0 || locId >= len(s.locTypes.Configs) {
+		emitOpLocGate(s, p, "loctype_nil", op, x, z, locId)
+		sendUnsetMapFlag(p)
+		return nil
+	}
+```
+
+**Site 5b — loctype_nil (line 74–77), gate-#5 second sub-path:**
+
+```go
+	if locType == nil {
+		emitOpLocGate(s, p, "loctype_nil", op, x, z, locId)
+		sendUnsetMapFlag(p)
+		return nil
+	}
+```
+
+**Site 6 — op_slot_empty (line 83–86):**
+
+```go
+	if len(locType.Op) < op || locType.Op[op-1] == "" {
+		emitOpLocGate(s, p, "op_slot_empty", op, x, z, locId)
+		sendUnsetMapFlag(p)
+		return nil
+	}
+```
+
+Note: sites 5a + 5b share gate name `"loctype_nil"` per the comment-block "LocType not registered" framing (handler_oploc.go:11–17 enumerates 5 validation gates; the per-op slot check at line 83 is the 6th gate, retroactively-numbered after S6k).
+
+- [ ] **Step 5 — Run the test; verify every gate row passes.**
+
+```bash
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/world/ -run TestOpLocGateInstrumentation -v
+```
+
+Expected: all six rows of `TestOpLocGateInstrumentation` PASS. `TestOpLocGateInstrumentation_SuppressedWhenNodeDebugFalse` PASS.
+
+- [ ] **Step 6 — Run the full `modules/world` package; verify no regression.**
+
+```bash
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/world/...
+```
+
+Expected: PASS. In particular, the existing rejection tests (`TestHandleOpLocDelayedPlayerRejected`, `TestHandleOpLocShortPayloadRejected`, `TestHandleOpLocOutOfViewportRejected`, `TestHandleOpLocMissingLocRejected`, `TestHandleOpLocMissingLocTypeRejected`, `TestHandleOpLocRejectsEmptyOpSlot`) must continue to PASS — none of them assert on log records, so the new emit calls are additive.
+
+- [ ] **Step 7 — Run all repo tests with race detector.**
+
+```bash
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./...
+```
+
+Expected: PASS. The `s.log` write path is single-threaded per packet handler (each connection has its own goroutine running the handler-decode loop), and `s.currentTick` is only mutated by the world tick goroutine — no new race surface introduced.
+
+- [ ] **Step 8 — Build the binary; verify clean.**
+
+```bash
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache CGO_ENABLED=0 go build -trimpath -o /tmp/goscape-nai79-t6 ./cmd/goscape
+```
+
+Expected: clean build; binary at `/tmp/goscape-nai79-t6`.
+
+- [ ] **Step 9 — Commit.**
+
+```bash
+git add modules/world/interaction_debug.go modules/world/handler_oploc.go modules/world/interaction_debug_test.go
+git commit --no-gpg-sign -m "feat(world): NAI-79 T6 — gate-naming instrumentation at handleOpLoc early-returns
+
+handleOpLoc now emits a NodeDebug-gated 'oploc gate' slog.Debug record
+at each of its six pre-success early-return paths. Six gate names —
+delayed / payload_short / viewport / getloc_nil / loctype_nil /
+op_slot_empty — pin which validation gate rejected an OPLOC1 click.
+
+This is the Bundle H4 instrumentation channel per NAI-79 spec §5/§6.4.
+Stage 1 smoke at HEAD 10645e5 produced three OPLOC1 receipts (Tutorial
+Island RS Guide door / bookcase / drawer) with zero Frame A and zero
+Frame B records, ruling out H1/H2/H3 (whose match conditions all read
+Frame A fields) and routing to H4. Re-smoke at this HEAD identifies
+the gate, then routes Stage 2.5 to a concrete fix.
+
+OPLOCT / OPLOCU are out of scope (door symptom is OPLOC1 only)."
+```
+
+---
+
+## Bundle H4 close (smoke handoff, then await captured-log paste)
+
+After T6 commits, the controller emits a re-smoke handoff resume prompt to the user (per spec §7 + memory `smoke_test_server_handoff.md`). User boots the binary at the new HEAD, walks to the Tutorial Island RS Guide door, clicks once, and pastes the resulting log lines.
+
+**Routing rules for Stage 2.5 (post-re-smoke):**
+
+- **Gate = `viewport`:** click coords are outside the 52-tile half-extent. Indicates `p.originX/originZ` desync (handler computes against origin, not current position). Route to a Stage 2.5 brainstorm on origin tracking.
+- **Gate = `getloc_nil`:** `s.GetLoc` does not find the door at the clicked coords, despite TS having it there. Indicates a map-data load mismatch or zone-indexing bug. Route to a Stage 2.5 audit of the map-load path against TS for this specific (level, x, z, locId).
+- **Gate = `loctype_nil`:** `s.locTypes.Configs[locId]` is nil or out of range. Indicates a config-load shortfall for the door's typeID. Route to a Stage 2.5 audit of `objtype.LocTypeConfigs` initialization.
+- **Gate = `op_slot_empty`:** the door's `LocType.Op[op-1]` is `""`. Either the config genuinely has no op for this slot (TS would reject too — would need to verify against TS data) or the goscape decoder erased it. Route to a Stage 2.5 audit of `pkg/objtype/loctype.go` decoder cases 30–34.
+- **Gate = `delayed`:** the player is delayed. Indicates a tick/state-management bug — player should not be delayed at the door. Route to a Stage 2.5 investigation of `p.delayed`/`p.delayedUntil` lifecycle.
+- **Gate = `payload_short`:** payload arrived under 6 bytes. Indicates a packet-framing bug upstream of the handler (server-side decoder length-prefix mismatch). Route to a Stage 2.5 audit of OPLOC1 dispatch in the protocol layer.
+- **No `oploc gate` record at all:** the click is not even reaching `handleOpLoc`. Indicates an opcode-dispatch bug (OPLOC1 opcode not registered for this connection state, or pre-handler middleware drops it). Route to a Stage 2.5 audit of the connection-state dispatcher for OPLOC1.
+
+Each routing destination is a fresh brainstorm sub-spec; this plan-update closes once the gate signal pins the destination.
+
+---
+
+## Self-Review (Bundle H4 plan-update)
+
+**1. Spec coverage:**
+- §5 H4 fallback ("none of H1/H2/H3 matches") → triggered by 3-receipt zero-Frame-A smoke evidence; bundle entry justified above. ✓
+- §6.4 H4 template (audit-subagent) → refined to instrumentation-first per smoke evidence. Audit-subagent dispatch deferred to Stage 2.5 once gate signal narrows the question. ✓
+- §7 smoke handoff → T6's close commit triggers re-smoke per existing protocol; routing rules above are the pre-computed branch table. ✓
+
+**2. Placeholder scan:** No TBD/TODO/"appropriate error handling". Every code-step has the actual code. The Stage 2.5 routing block names destination brainstorms explicitly without prescribing their contents (correct boundary — Stage 2.5 is out of scope here).
+
+**3. Type consistency:**
+- `emitOpLocGate(s *Server, p *Player, gate string, op, x, z, locId int)` — single declaration in T6 Step 3; six call sites in T6 Step 4 all match the signature. ✓
+- `s.cfg.NodeDebug` (bool), `s.log` (`*slog.Logger`), `s.currentTick` (int), `p.uid` (int) — all existing fields verified at T1/T5 sites already; reused unchanged. ✓
+- `op` parameter (int, 1..5) — passed through from `handleOpLoc(p *Player, payload []byte, op int)`'s third parameter (handler_oploc.go:25). ✓
+- `-1` sentinel for pre-decode `(x, z, locId)` — explicitly typed `int` in helper signature; matches `int` types decoded at lines 42–44 (`int(r.G2())`). No unsigned/signed mismatch. ✓
+
+**4. Risk surface:**
+- New helper `emitOpLocGate` runs before each `sendUnsetMapFlag(p); return nil`. The `sendUnsetMapFlag` write to the connection is preserved unchanged; the helper only adds a slog record. No behavioral change to client-visible bytes. ✓
+- `s.log` access guarded by `s.log != nil`; matches existing Frame A guard at handler_oploc.go:97. ✓
+- Sites 5a + 5b share gate name `"loctype_nil"`: the test row `loctype_nil` exercises only site 5a (out-of-range path), not 5b (registered-as-nil path). Site 5b's emit is untested in isolation. Acceptable: both paths share the helper signature and gate name; if 5a passes, 5b cannot fail compilation, and the runtime field-shape is identical to 5a. A dedicated 5b row would require `s.locTypes.Configs[someId] = nil` setup, which doubles the test surface for zero diagnostic gain.
+- Test fixture for `loctype_nil` row: copies the setup from `TestHandleOpLocMissingLocTypeRejected` (handler_oploc_test.go:191–212). Verified the existing test does NOT mutate `makeOpLocFixture`'s shared state in a way that would conflict with the new t.Run's fixture (each `makeOpLocFixture(t)` call creates a fresh `*Server` per `newTestServer(t)` — confirmed at handler_oploc_test.go:23). ✓
+- Test fixture for `op_slot_empty` row: copies setup from `TestHandleOpLocRejectsEmptyOpSlot` (handler_oploc_test.go:244–260). Same fresh-fixture isolation. ✓
+- Race surface: `s.log.Debug` is concurrency-safe (slog.Logger is documented safe for concurrent use). `s.cfg.NodeDebug` is a read-only flag after server startup; no mutation in tick loop. `s.currentTick` and `p.uid` reads are racy in principle but match Frame A's existing pattern at line 99 — same risk surface, no escalation. ✓
+
+**5. Build/test commands consistent:** All steps use `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache` per global CLAUDE.md. ✓
+
+**6. Bundle scope discipline:** ONE feat commit (T6 Step 9). ONE new test function (`TestOpLocGateInstrumentation`, table-driven, 6 rows) plus ONE companion suppression test. NO new files. NO touches to OPLOCT/OPLOCU/processInteraction/tryInteract. NO behavioral changes to packet decoding, viewport math, GetLoc lookup, locType resolution, or op-slot validation — instrumentation only. ✓
+
+---
+
+# NAI-79 — Bundle H4 close — re-smoke result + Stage 2.5 routing
+
+**Re-smoke at HEAD `260515c` (`b21642e` instrumentation + `260515c` docstring polish).** User booted the binary on host, logged in as fresh tutorial-stage character, performed door-cascade probe per spec §7.
+
+**Captured `oploc gate` records (3/3 OPLOC1 receipts):**
+
+| tick | loc_id | gate            | click_x | click_z |
+|------|--------|-----------------|---------|---------|
+| 23   | 3014   | `op_slot_empty` | 3098    | 3107    |
+| 44   | 380    | `op_slot_empty` | 3095    | 3111    |
+| 63   | 350    | `op_slot_empty` | 3095    | 3104    |
+
+All three clicks pinned to the same gate. Three distinct loc_ids → systematic, not per-loc data quirk. The MOVE_OPCLICK packet preceding each OPLOC1 confirms client-side intent matched server-decoded coords.
+
+**Routing decision:** Per the plan's pre-computed branch table, `op_slot_empty` routes to **Stage 2.5 audit of `pkg/objtype/loctype.go` decoder cases 30–34**. Confirmed routing target exists at `pkg/objtype/loctype.go:36` (`case 30, 31, 32, 33, 34:` — the Op[1..5] slot decoder, with a "hidden" → "" coercion at line 47).
+
+**Stage 2.5 brainstorm seed (next sub-spec NAI-80):**
+
+The hypothesis space narrows to one of:
+1. **Cache data genuinely lacks Op[0] for these locs.** TS picks up the action from a parent loc / template / category default that goscape's decoder does not honor. Investigate TS `LocType` inheritance / template substitution code.
+2. **Cache has Op[0] = "hidden" sentinel,** and the goscape decoder's `"hidden" → ""` coercion at loctype.go:47-49 is over-aggressive — TS may treat "hidden" differently (e.g., still dispatch to a `oploc1`-typed script keyed on the bare object even if menu label is suppressed).
+3. **Cache has Op[0] under a different opcode** that goscape's decoder skips or maps to the wrong slot. The `code-30` indexing assumption may not hold for all loc data versions.
+4. **Cache has Op[0] but the decoder is not reading it** because of upstream truncation (lazy-load short-circuit, MaxLength gate, etc.) before Op[0]'s code byte is reached.
+
+Brainstorm should:
+- Read TS LocType decoder + LocType inheritance/template code at the same cache version
+- Pin which of the 4 hypotheses by bin-diffing one specific loc (recommend loc_id=3014, the RS Guide door — it's the symptom-anchor)
+- Define Stage 2.5 fix scope based on which hypothesis pins
+
+**Adjacent observation (not a routing signal, but worth flagging for NAI-80):** All 3 records show `player_uid=-1`. Production fresh-tutorial-stage players appear to have no uid assigned at this lifecycle stage. Not a blocker for OPLOC1 dispatch (the gate fires on `op_slot_empty`, not on uid), but if NAI-80's fix exposes a `target_uid`/`player_uid` mismatch downstream, this is the data shape to expect.
+
+**Bundle H4 status: CLOSED.** Instrumentation in (`b21642e` + `260515c`); gate signal pinned; routing target confirmed; Stage 2.5 brainstorm seed published above.
+
