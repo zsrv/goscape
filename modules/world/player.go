@@ -165,6 +165,13 @@ type Player struct {
 	vars       []int32
 	varsString []string
 
+	// === move-click path (NAI-77 T3) ===
+	// userPath is the most recent move-click path packed via
+	// coordgrid.PackCoord. Persisted by moveClickInner for the per-tick
+	// WalkTriggerSetting fallback (NAI-77 T3). Mirrors TS Player.userPath.
+	// Default: nil (no pending path).
+	userPath []int
+
 	// === run energy ===
 	run, tempRun             int
 	runenergy, lastRunEnergy int

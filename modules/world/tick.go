@@ -37,6 +37,7 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		s.processPlayerTimers()
 		s.processPathing()
 		s.processInteractions()
+		s.processWalkTriggerFallbacks() // NAI-77 T3: TS World.ts:635-641 per-tick re-path + PLAYERSETUP walktrigger
 		s.processNpcEventQueue() // NAI-5: matches TS World.ts:356
 		s.processNpcs()
 		s.processLogouts()

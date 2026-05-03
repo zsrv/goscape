@@ -219,8 +219,7 @@ func handleMoveOpClick(p *Player, payload []byte) error {
 // Gates per TS MoveClickHandler.ts:11-22:
 //  1. p.delayed → UnsetMapFlag, no-op
 //  2. ctrlHeld out of [0,1] OR DistanceToSW(player, start) > 104 →
-//     unsetMapFlag, no-op (TS also clears userPath; the userPath field is
-//     added in T3 so the clear becomes meaningful then)
+//     unsetMapFlag, no-op (TS also clears userPath)
 //
 // On success:
 //  3. Build packed waypoint slice
@@ -251,7 +250,7 @@ func moveClickInner(p *Player, payload []byte, opClick bool) error {
 
 	if ctrlHeld < 0 || ctrlHeld > 1 || coordgrid.DistanceToSW(p.x, p.z, startX, startZ) > 104 {
 		sendUnsetMapFlag(p)
-		// T3 will also clear p.userPath here.
+		p.userPath = nil
 		return nil
 	}
 
@@ -262,6 +261,19 @@ func moveClickInner(p *Player, payload []byte, opClick bool) error {
 		ddx := int(r.G1B())
 		ddz := int(r.G1B())
 		packed = append(packed, coordgrid.PackCoord(p.level, startX+ddx, startZ+ddz))
+	}
+
+	// Persist for per-tick WalkTriggerSetting fallback (T3).
+	// Under client-routefinder, store the full path; otherwise store
+	// only the dest. Mirrors TS MoveClickHandler.ts:23-37.
+	if s.cfg.NodeClientRoutefinder {
+		p.userPath = append(p.userPath[:0], packed...)
+	} else {
+		dest := packed[len(packed)-1]
+		if cap(p.userPath) > 0 {
+			p.userPath = p.userPath[:0]
+		}
+		p.userPath = append(p.userPath, dest)
 	}
 
 	p.client.log.Debug("move click", "ctrl_held", ctrlHeld, "dest_packed", packed[0], "op_click", opClick)
