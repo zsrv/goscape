@@ -423,6 +423,12 @@ func TestInteractionFrameA_EmittedWhenNodeDebugTrue(t *testing.T) {
 	requireAttr(t, *rec, "tick", "42")
 	requireAttr(t, *rec, "op", "1")
 	requireAttr(t, *rec, "loc_id", "42")
+	if v, ok := attrValue(*rec, "click_x"); !ok || v.Int64() != 100 {
+		t.Errorf("click_x: got %v, want 100", v)
+	}
+	if v, ok := attrValue(*rec, "click_z"); !ok || v.Int64() != 100 {
+		t.Errorf("click_z: got %v, want 100", v)
+	}
 	requireAttr(t, *rec, "loc_name", "test_loc") // from makeOpLocFixture LocType.DebugName
 	requireAttr(t, *rec, "op_slot", "op1")       // from fixture's Op[0]
 	if v, ok := attrValue(*rec, "lt_width"); !ok || v.Int64() != 1 {
