@@ -159,6 +159,22 @@ func (lt *LocType) Decode(code uint8, dat *packet2.Packet) error {
 	return nil
 }
 
+// PostDecode mirrors TS LocType.postDecode (LocType.ts:202-214).
+// Coerces the Active default (-1) to 0/1 based on Shapes/Op presence.
+// Called after both server and client decode passes complete in
+// parseLocTypes.
+func (lt *LocType) PostDecode() {
+	if lt.Active == -1 {
+		lt.Active = 0
+		if len(lt.Shapes) == 1 && lt.Shapes[0] == 10 {
+			lt.Active = 1
+		}
+		if lt.Op != nil {
+			lt.Active = 1
+		}
+	}
+}
+
 func NewLocType(id int) *LocType {
 	return &LocType{
 		ConfigType:  ConfigType{ID: id},
@@ -217,7 +233,7 @@ func parseLocTypes(server *packet2.Packet, clientJag *jagfile.Jagfile) (*LocType
 		if err := DecodeType(client, config); err != nil {
 			return nil, fmt.Errorf("loc id %d (client): %w", id, err)
 		}
-		// PostDecode wired in T4; struct method does not yet exist.
+		config.PostDecode()
 		configs[id] = config
 		if config.DebugName != "" {
 			configNames[config.DebugName] = id

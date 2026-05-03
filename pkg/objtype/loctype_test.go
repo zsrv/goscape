@@ -280,6 +280,62 @@ func TestLoadRealLocCache(t *testing.T) {
 	t.Logf("loaded %d LocTypes from %s", len(cfgs.Configs), cacheDir)
 }
 
+func TestPostDecode_ActiveInference(t *testing.T) {
+	t.Run("op_nonnil_sets_active_1", func(t *testing.T) {
+		lt := NewLocType(0)
+		lt.Op = []string{"Open", "", "", "", ""}
+		lt.PostDecode()
+		if lt.Active != 1 {
+			t.Errorf("Active: got %d, want 1 (Op != nil branch)", lt.Active)
+		}
+	})
+
+	t.Run("shapes_single_10_sets_active_1", func(t *testing.T) {
+		lt := NewLocType(0)
+		lt.Shapes = []uint8{10}
+		lt.PostDecode()
+		if lt.Active != 1 {
+			t.Errorf("Active: got %d, want 1 (Shapes==[10] branch)", lt.Active)
+		}
+	})
+
+	t.Run("neither_sets_active_0", func(t *testing.T) {
+		lt := NewLocType(0)
+		lt.PostDecode()
+		if lt.Active != 0 {
+			t.Errorf("Active: got %d, want 0 (default fallthrough)", lt.Active)
+		}
+	})
+
+	t.Run("active_already_set_unchanged", func(t *testing.T) {
+		lt := NewLocType(0)
+		lt.Active = 5
+		lt.Op = []string{"Open", "", "", "", ""}
+		lt.PostDecode()
+		if lt.Active != 5 {
+			t.Errorf("Active: got %d, want 5 (already-set guard)", lt.Active)
+		}
+	})
+
+	t.Run("shapes_multi_no_active_inference", func(t *testing.T) {
+		lt := NewLocType(0)
+		lt.Shapes = []uint8{10, 11}
+		lt.PostDecode()
+		if lt.Active != 0 {
+			t.Errorf("Active: got %d, want 0 (Shapes len != 1)", lt.Active)
+		}
+	})
+
+	t.Run("shapes_single_non10_no_active_inference", func(t *testing.T) {
+		lt := NewLocType(0)
+		lt.Shapes = []uint8{5}
+		lt.PostDecode()
+		if lt.Active != 0 {
+			t.Errorf("Active: got %d, want 0 (Shapes[0] != 10)", lt.Active)
+		}
+	})
+}
+
 // buildClientBlobRaw assembles a 1-entry client loc.dat with the given
 // raw code-payload bytes inserted between the count header and the 0
 // terminator. Used by per-arm decode tests in TestLocTypeDecodeNewArms.
