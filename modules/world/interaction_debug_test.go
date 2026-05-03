@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
+	"github.com/zsrv/goscape/pkg/script"
 )
 
 func TestChebDist(t *testing.T) {
@@ -158,4 +159,150 @@ func TestRecordTryInteractBranch(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestTryInteractBranchTrackingPerCallsite(t *testing.T) {
+	// Each row drives tryInteract to a specific branch and asserts
+	// the recorded branch id for both pre-step (slot=0) and
+	// post-step (slot=1) calls. The fixture builds a player with a
+	// Loc target and tweaks state per row to force the branch.
+	tests := []struct {
+		name           string
+		setup          func(s *Server, p *Player, loc *entitypkg.Loc, sf *script.ScriptFile)
+		postSetup      func(p *Player)
+		allowOpScenery bool
+		wantBranch     int
+	}{
+		{
+			name: "branch 1 (op + operable + scenery allowed)",
+			setup: func(s *Server, p *Player, loc *entitypkg.Loc, sf *script.ScriptFile) {
+				// player adjacent to loc → operable. opTrigger present
+				// via registered script. allowOpScenery=true (so non-
+				// PathingEntity Loc target qualifies).
+				p.x, p.z = 99, 100
+				registerOpLocScript(t, s, loc.Type(), 1, sf)
+			},
+			postSetup:      func(p *Player) {},
+			allowOpScenery: true,
+			wantBranch:     1,
+		},
+		{
+			name: "branch 2 (ap + approach)",
+			setup: func(s *Server, p *Player, loc *entitypkg.Loc, sf *script.ScriptFile) {
+				// player 2 tiles away → approach but not operable. ap
+				// trigger present, ap_range default 10.
+				p.x, p.z = 98, 100
+				p.apRange = 10
+				registerApLocScript(t, s, loc.Type(), 1, sf)
+			},
+			postSetup:  func(p *Player) {},
+			wantBranch: 2,
+		},
+		{
+			name: "branch 3 (approach + ap nil)",
+			setup: func(s *Server, p *Player, loc *entitypkg.Loc, sf *script.ScriptFile) {
+				p.x, p.z = 98, 100
+				p.apRange = 10
+				// no scripts registered: ap trigger nil → branch 3.
+			},
+			postSetup:  func(p *Player) {},
+			wantBranch: 3,
+		},
+		{
+			name: "branch 4 (operable + scenery allowed + op nil)",
+			setup: func(s *Server, p *Player, loc *entitypkg.Loc, sf *script.ScriptFile) {
+				p.x, p.z = 99, 100
+				// no scripts registered: op trigger nil; allowOpScenery
+				// flips on; player is operable → branch 4 (NIH).
+			},
+			// SetInteraction resets apRange=10; fix after SetInteraction call.
+			postSetup:      func(p *Player) { p.apRange = 0 },
+			allowOpScenery: true,
+			wantBranch:     4,
+		},
+		{
+			name: "fallthrough (operable but allowOpScenery=false, no triggers)",
+			setup: func(s *Server, p *Player, loc *entitypkg.Loc, sf *script.ScriptFile) {
+				p.x, p.z = 99, 100
+				// allowOpScenery=false; Loc target is non-PathingEntity;
+				// branch 1 fails. No ap script. branch 2 fails. Not in
+				// approach without ap_range>0 (default in fixture is 0).
+				p.apRange = 0
+				// branch 3 needs approach=true; with ap_range=0 it's
+				// false. branch 4 needs allowOpScenery; false here.
+				// Returns false at fallthrough → branch 0.
+			},
+			// SetInteraction resets apRange=10; fix after SetInteraction call.
+			postSetup:      func(p *Player) { p.apRange = 0 },
+			allowOpScenery: false,
+			wantBranch:     0,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name+" pre-slot", func(t *testing.T) {
+			s, p, loc, _ := makeOpLocFixture(t)
+			s.scriptProvider = script.NewProvider() // empty; per-row setup re-seeds
+			sf := buildPOpLocScript(script.TriggerOpLoc1, loc.Type(), 1)
+			tc.setup(s, p, loc, sf)
+
+			// Engage interaction so tryInteract has a target.
+			p.SetInteraction(InteractionEngine, loc, 1, -1)
+			tc.postSetup(p) // re-applies setup's apRange override after SetInteraction's reset
+
+			p.interactCallSlot = 0
+			_ = p.tryInteract(tc.allowOpScenery)
+			if p.lastInteractBranchPre != tc.wantBranch {
+				t.Errorf("pre: got branch %d, want %d", p.lastInteractBranchPre, tc.wantBranch)
+			}
+			if p.lastInteractBranchPost != 0 {
+				t.Errorf("post unexpectedly set: %d", p.lastInteractBranchPost)
+			}
+		})
+		t.Run(tc.name+" post-slot", func(t *testing.T) {
+			s, p, loc, _ := makeOpLocFixture(t)
+			s.scriptProvider = script.NewProvider()
+			sf := buildPOpLocScript(script.TriggerOpLoc1, loc.Type(), 1)
+			tc.setup(s, p, loc, sf)
+			p.SetInteraction(InteractionEngine, loc, 1, -1)
+			tc.postSetup(p) // re-applies setup's apRange override after SetInteraction's reset
+
+			p.interactCallSlot = 1
+			_ = p.tryInteract(tc.allowOpScenery)
+			if p.lastInteractBranchPost != tc.wantBranch {
+				t.Errorf("post: got branch %d, want %d", p.lastInteractBranchPost, tc.wantBranch)
+			}
+			if p.lastInteractBranchPre != 0 {
+				t.Errorf("pre unexpectedly set: %d", p.lastInteractBranchPre)
+			}
+		})
+	}
+}
+
+// registerOpLocScript registers a [oploc<N>,<typeID>] script via the
+// existing TriggerOpLoc1 + LookupKeyForType convention. The OP-side
+// trigger is computed inline as `script.TriggerOpLoc1 + (op-1)` since
+// goscape only exposes apLocTriggerForOp; the OP variant is the AP
+// variant + 7 (TS offset convention; see interaction_trigger.go:194-198).
+func registerOpLocScript(t *testing.T, s *Server, typeID int, op int, sf *script.ScriptFile) {
+	t.Helper()
+	if s.scriptProvider == nil {
+		s.scriptProvider = script.NewProvider()
+	}
+	trigger := script.TriggerOpLoc1 + script.ServerTriggerType(op-1)
+	sf.LookupKey = script.LookupKeyForType(trigger, typeID)
+	s.scriptProvider.Register(sf)
+}
+
+func registerApLocScript(t *testing.T, s *Server, typeID int, op int, sf *script.ScriptFile) {
+	t.Helper()
+	if s.scriptProvider == nil {
+		s.scriptProvider = script.NewProvider()
+	}
+	trigger, ok := apLocTriggerForOp(op)
+	if !ok {
+		t.Fatalf("apLocTriggerForOp(%d) returned ok=false", op)
+	}
+	sf.LookupKey = script.LookupKeyForType(trigger, typeID)
+	s.scriptProvider.Register(sf)
 }

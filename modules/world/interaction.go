@@ -330,6 +330,7 @@ func (p *Player) processWalktrigger() {
 // at npc_interaction.go:247.
 func (p *Player) tryInteract(allowOpScenery bool) bool {
 	if p.target == nil {
+		recordTryInteractBranch(p, 0) // NAI-79 Stage 1 (no-target early-return)
 		return false
 	}
 	// DEVIATION NAI-78-D-HASINTERACTION-GUARD: TS Player.ts:1114 also
@@ -361,6 +362,7 @@ func (p *Player) tryInteract(allowOpScenery bool) bool {
 		if !p.interactionFired {
 			tryFireOpTrigger(p)
 		}
+		recordTryInteractBranch(p, 1) // NAI-79 Stage 1
 		return true
 	}
 
@@ -374,8 +376,10 @@ func (p *Player) tryInteract(allowOpScenery bool) bool {
 		// NAI-68-D-AP-APRANGE-REVERT-NOT-PORTED.
 		if p.nextTarget == nil && p.apRangeCalled {
 			p.interactionFired = false
+			recordTryInteractBranch(p, 2) // NAI-79 Stage 1 (retry-no-op)
 			return false
 		}
+		recordTryInteractBranch(p, 2) // NAI-79 Stage 1
 		return true
 	}
 
@@ -387,15 +391,18 @@ func (p *Player) tryInteract(allowOpScenery bool) bool {
 	// tryInteract with allowOpScenery=true so branch 1 can fire OP).
 	if approach {
 		p.apRange = -1
+		recordTryInteractBranch(p, 3) // NAI-79 Stage 1
 		return false
 	}
 
 	// Branch 4 — default-OP NIH (TS Player.ts:1179-1182).
 	if (isPathing || allowOpScenery) && operable {
 		defaultOp(p)
+		recordTryInteractBranch(p, 4) // NAI-79 Stage 1
 		return true
 	}
 
+	recordTryInteractBranch(p, 0) // NAI-79 Stage 1 (fallthrough)
 	return false
 }
 
