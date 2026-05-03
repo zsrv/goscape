@@ -768,6 +768,27 @@ func (s *Server) LookupPlayerByUID(uid int) script.ActivePlayer {
 	return nil
 }
 
+// LookupPlayerByUsername returns the logged-in player whose username
+// field matches the argument exactly, or nil if none is active.
+// Mirrors TS World.getPlayerByUsername (World.ts:1675-1689). Intended
+// to be called from the tick goroutine (playerLoop is unguarded there).
+//
+// Match is case-sensitive on the goscape username field (which is set
+// at login from the client-supplied display name). TS keys on
+// username37 (base37-encoded) but the inputs to this lookup are
+// already strings in goscape's call sites.
+func (s *Server) LookupPlayerByUsername(name string) *Player {
+	for _, p := range s.playerLoop {
+		if p == nil || !p.active {
+			continue
+		}
+		if p.username == name {
+			return p
+		}
+	}
+	return nil
+}
+
 // LookupPlayerBySlot returns the logged-in player at the given slot
 // index, or nil if slot is out of range or unoccupied. Mirrors TS
 // World.getPlayer(slot). Used by OpPlayer handlers to resolve a

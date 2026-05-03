@@ -20,12 +20,14 @@ import (
 //  5. MessageGame ack.
 //  6. reportAbuseProtect = true.
 //
-// The MACROING/BUG_ABUSE submitInput=true branch (TS World.ts:2298-2304)
-// is intentionally omitted — input-recording subsystem not ported
-// (NAI-72-D-INPUT-RECORDING-NOT-PORTED).
+// MACROING/BUG_ABUSE flips offenderPlayer.submitInput = true so the
+// next InputTracking window submits detailed events to the logger
+// bridge. Mirrors TS World.notifyPlayerReport at World.ts:2298-2304.
+// Closes NAI-73's retroactive REPORT_ABUSE polish.
 //
-// Friends/login/logger bridges all stubbed; see NAI-72-D-FRIENDS-SERVER-
-// BRIDGE / NAI-72-D-LOGIN-SERVER-BRIDGE-MOD / NAI-72-D-LOGGER-BRIDGE.
+// Friends and login bridges are stubbed (noopBridges); see
+// NAI-72-D-FRIENDS-SERVER-BRIDGE and NAI-72-D-LOGIN-SERVER-BRIDGE-MOD.
+// Logger bridge ships the slogLoggerBridge default impl as of NAI-73.
 func handleReportAbuse(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		// goscape defensive; TS reaches via static accessor.
@@ -56,6 +58,15 @@ func handleReportAbuse(p *Player, payload []byte) error {
 	// server.go:590).
 	if moderatorMute && p.staffModLevel > 0 && s.cfg.NodeProduction {
 		s.loginBridgeMod.NotifyPlayerMute(p.username, util.FromBase37(offender), time.Now().Add(48*time.Hour))
+	}
+
+	// NAI-73: MACROING/BUG_ABUSE → flip the offender's submitInput so
+	// the next InputTracking window submits detailed events for offline
+	// review. Mirrors TS World.notifyPlayerReport (World.ts:2298-2304).
+	if reason == ReportAbuseMacroing || reason == ReportAbuseBugAbuse {
+		if offenderPlayer := s.LookupPlayerByUsername(util.FromBase37(offender)); offenderPlayer != nil {
+			offenderPlayer.submitInput = true
+		}
 	}
 
 	s.loggerBridge.NotifyPlayerReport(p, util.FromBase37(offender), reasonLabel(reason))
