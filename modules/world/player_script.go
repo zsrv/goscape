@@ -775,6 +775,12 @@ func (p *Player) OpenMainSide(mainCom, sideCom int) {
 	p.refreshModal = true
 }
 
+// OpenTutorial — stubbed at T1 to satisfy the script.ActivePlayer
+// interface; real implementation lands at T2.
+func (p *Player) OpenTutorial(com int) {
+	// implemented in T2
+}
+
 // SetResumeButtons stores the 5 resume-button interface ids for later
 // consumption by P_PAUSEBUTTON. No wire op is emitted.
 func (p *Player) SetResumeButtons(b1, b2, b3, b4, b5 int) {

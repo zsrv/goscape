@@ -14,6 +14,7 @@ var (
 	OpIfOpenChat     = Op{Opcode: 14, PayloadSize: 2}
 	OpIfOpenSide     = Op{Opcode: 195, PayloadSize: 2}
 	OpIfOpenMainSide = Op{Opcode: 28, PayloadSize: 4}
+	OpTutOpen        = Op{Opcode: 185, PayloadSize: 2}
 	OpLogout         = Op{Opcode: 142, PayloadSize: 0}
 
 	// S5f: per-component setters (fire-and-forget wire ops used by IF_SET* opcodes).

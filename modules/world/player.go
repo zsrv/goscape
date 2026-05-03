@@ -36,6 +36,7 @@ const (
 	modalStateMain = 0x1
 	modalStateChat = 0x2
 	modalStateSide = 0x4
+	modalStateTut  = 0x8
 )
 
 // playerTimer is a per-player repeating script registration.
@@ -242,6 +243,7 @@ type Player struct {
 	// === modal (from sub-spec 1) ===
 	modalMain, modalChat, modalSide                    int
 	lastModalMain, lastModalChat, lastModalSide        int
+	lastModalTutorial                                  int
 	modalState                                         int
 	modalTutorial                                      int
 	tabs                                               [14]int
@@ -429,6 +431,7 @@ func newPlayer(c *client) *Player {
 		colors:         [5]int{0, 0, 0, 0, 0},
 		body:           [7]int{0, 10, 18, 26, 33, 36, 42},
 		modalTutorial:  -1,
+		lastModalTutorial: -1,
 		tabs:           [14]int{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
 		appearanceInv:  -1, // test-only sentinel; production binds via SetAppearanceInv from client.go login wiring (NAI-22 Bundle 3).
 		lastAppearance: -1,

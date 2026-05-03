@@ -161,6 +161,12 @@ type ActivePlayer interface {
 	// side modal simultaneously.
 	OpenMainSide(mainCom, sideCom int)
 
+	// OpenTutorial opens com as the tutorial-overlay component. Per TS,
+	// opening the tutorial does NOT close any other modal — the TUT bit
+	// is OR'd into modalState. Mirrors LostCityRS/Engine-TS
+	// Player.ts:1999-2003 (openTutorial).
+	OpenTutorial(com int)
+
 	// IfSetText emits an IF_SETTEXT wire op setting the text of interface
 	// component com. Fire-and-forget; no server-side persistence.
 	IfSetText(com int, text string)
