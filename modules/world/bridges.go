@@ -49,13 +49,13 @@ type LoggerBridge interface {
 // performs no I/O.
 type noopBridges struct{}
 
-func (noopBridges) AddFriend(string, uint64)                  {}
-func (noopBridges) RemoveFriend(string, uint64)               {}
-func (noopBridges) AddIgnore(string, uint64)                  {}
-func (noopBridges) RemoveIgnore(string, uint64)               {}
-func (noopBridges) SetChatMode(string, int)                   {}
-func (noopBridges) NotifyPlayerBan(string, string, time.Time) {}
+func (noopBridges) AddFriend(string, uint64)                   {}
+func (noopBridges) RemoveFriend(string, uint64)                {}
+func (noopBridges) AddIgnore(string, uint64)                   {}
+func (noopBridges) RemoveIgnore(string, uint64)                {}
+func (noopBridges) SetChatMode(string, int)                    {}
+func (noopBridges) NotifyPlayerBan(string, string, time.Time)  {}
 func (noopBridges) NotifyPlayerMute(string, string, time.Time) {}
 func (noopBridges) NotifyPlayerReport(*Player, string, string) {}
 func (noopBridges) SubmitInputTracking(*Player, []byte)        {}
-func (noopBridges) SubmitSessionLogs([]SessionLog)              {}
+func (noopBridges) SubmitSessionLogs([]SessionLog)             {}

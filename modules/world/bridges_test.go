@@ -114,6 +114,7 @@ func TestNoopBridgesAllMethods(t *testing.T) {
 	b.NotifyPlayerMute("s", "u", now)
 	b.NotifyPlayerReport(nil, "off", "REASON")
 	b.SubmitInputTracking(nil, []byte{1, 2, 3})
+	b.SubmitSessionLogs(nil)
 }
 
 // TestRecordingBridgesCapturesAllCalls exercises every recordingBridges
