@@ -672,6 +672,21 @@ func handlePClearPendingAction(s *ScriptState) error {
 	return nil
 }
 
+// handleSessionLog ports TS PlayerOps.ts:1184-1189 (SESSION_LOG opcode).
+// Pops eventType (with TS +2 offset — script-content domain collapses
+// the engine-only ENGINE/WEALTH values out, leaving 0=MODERATOR and
+// 1=ADVENTURE for content authors) and event string, then dispatches
+// to ActivePlayer.AddSessionLog. NAI-74.
+func handleSessionLog(s *ScriptState) error {
+	if err := requireActivePlayer(s, "SESSION_LOG"); err != nil {
+		return err
+	}
+	eventType := s.PopInt() + 2
+	event := s.PopString()
+	s.Self.AddSessionLog(eventType, event)
+	return nil
+}
+
 // handlePLogout (P_LOGOUT, opcode 2075) flags the active player for
 // logout processing. The tick loop's processLogouts pass tears the
 // session down at the next boundary. Mirrors TS PlayerOps.ts:622-624.

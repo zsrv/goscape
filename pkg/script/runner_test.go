@@ -297,6 +297,9 @@ type mockPlayer struct {
 		delay int
 		name  string
 	}
+
+	// NAI-74: SESSION_LOG opcode + Player.AddSessionLog capture.
+	addSessionLogCalls []mockSessionLogCall
 }
 
 type mockEnqueue struct {
@@ -305,6 +308,12 @@ type mockEnqueue struct {
 	IntArgs    []int
 	StringArgs []string
 	Type       PlayerQueueType
+}
+
+type mockSessionLogCall struct {
+	eventType int
+	message   string
+	args      []string
 }
 
 func (m *mockPlayer) MessageGame(msg string) { m.messages = append(m.messages, msg) }
@@ -564,6 +573,18 @@ func (m *mockPlayer) PlayJingle(delay int, name string) {
 		delay int
 		name  string
 	}{delay, name})
+}
+
+// NAI-74: AddSessionLog captures SESSION_LOG dispatch for handler tests.
+func (m *mockPlayer) AddSessionLog(eventType int, message string, args ...string) {
+	// Defensive copy of args (variadic slice may alias caller storage).
+	cp := make([]string, len(args))
+	copy(cp, args)
+	m.addSessionLogCalls = append(m.addSessionLogCalls, mockSessionLogCall{
+		eventType: eventType,
+		message:   message,
+		args:      cp,
+	})
 }
 
 // S6l: p_aprange.

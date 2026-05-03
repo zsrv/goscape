@@ -482,6 +482,14 @@ type ActivePlayer interface {
 	// 6→3; type 4 has no color write). Mirrors TS state.activePlayer.colors
 	// at PlayerOps.ts:1102.
 	SetColorPart(slot, color int)
+
+	// AddSessionLog pushes a session-log entry onto the server-level
+	// per-tick buffer. Mirrors TS Player.addSessionLog (Player.ts:629-631).
+	// eventType is the LoggerEventType numeric value (0=ENGINE, 1=WEALTH,
+	// 2=MODERATOR, 3=ADVENTURE — see modules/world/session_log.go for
+	// the typed constants). Variadic args are space-joined per TS quirk.
+	// Wired by NAI-74.
+	AddSessionLog(eventType int, message string, args ...string)
 }
 
 // ActiveNpc is the per-NPC surface that NPC_* opcodes and VARN

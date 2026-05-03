@@ -1,6 +1,7 @@
 package script
 
 import (
+	"fmt"
 	"math"
 	"slices"
 	"strings"
@@ -3075,5 +3076,85 @@ func TestHandleGetWalkTrigger_NoActivePlayer(t *testing.T) {
 	err := handleGetWalkTrigger(state)
 	if err == nil {
 		t.Fatal("handleGetWalkTrigger: got nil, want no-active-player error")
+	}
+}
+
+// TestHandleSessionLog pins the SESSION_LOG opcode (TS PlayerOps.ts:1184-1189).
+// Stack convention: pushString(event); pushInt(eventType_unshifted) →
+// handler pops eventType+2, pops event, calls Self.AddSessionLog(eventType+2, event).
+func TestHandleSessionLog(t *testing.T) {
+	mp := &mockPlayer{}
+	s := &ScriptState{
+		IntStack:     make([]int, StackCapacity),
+		StringStack:  make([]string, StackCapacity),
+		IntLocals:    []int{},
+		StringLocals: []string{},
+		Pointers:     PtrActivePlayer,
+		Self:         mp,
+	}
+	// Push string first (deeper), then int (top of int stack).
+	s.PushString("hello")
+	s.PushInt(0) // script-side 0 → engine-side MODERATOR (2)
+
+	if err := handleSessionLog(s); err != nil {
+		t.Fatalf("handleSessionLog: %v", err)
+	}
+	if got := len(mp.addSessionLogCalls); got != 1 {
+		t.Fatalf("AddSessionLog calls: got %d, want 1", got)
+	}
+	call := mp.addSessionLogCalls[0]
+	if call.eventType != 2 {
+		t.Errorf("eventType: got %d, want 2 (script 0 → MODERATOR via +2 shift)", call.eventType)
+	}
+	if call.message != "hello" {
+		t.Errorf("message: got %q, want %q", call.message, "hello")
+	}
+	if len(call.args) != 0 {
+		t.Errorf("args: got %v, want empty", call.args)
+	}
+}
+
+// TestHandleSessionLogModeratorAdventureMapping pins both script-side
+// values: 0 → 2 (MODERATOR), 1 → 3 (ADVENTURE).
+func TestHandleSessionLogModeratorAdventureMapping(t *testing.T) {
+	cases := []struct {
+		scriptVal int
+		wantType  int
+	}{
+		{0, 2}, // MODERATOR
+		{1, 3}, // ADVENTURE
+	}
+	for _, tc := range cases {
+		t.Run(fmt.Sprintf("script%d_eng%d", tc.scriptVal, tc.wantType), func(t *testing.T) {
+			mp := &mockPlayer{}
+			s := &ScriptState{
+				IntStack:    make([]int, StackCapacity),
+				StringStack: make([]string, StackCapacity),
+				Pointers:    PtrActivePlayer,
+				Self:        mp,
+			}
+			s.PushString("evt")
+			s.PushInt(tc.scriptVal)
+
+			if err := handleSessionLog(s); err != nil {
+				t.Fatalf("handleSessionLog: %v", err)
+			}
+			if mp.addSessionLogCalls[0].eventType != tc.wantType {
+				t.Errorf("eventType: got %d, want %d", mp.addSessionLogCalls[0].eventType, tc.wantType)
+			}
+		})
+	}
+}
+
+// TestHandleSessionLogRequiresActivePlayer pins the gate.
+func TestHandleSessionLogRequiresActivePlayer(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Pointers:    0, // no PtrActivePlayer
+		Self:        nil,
+	}
+	if err := handleSessionLog(s); err == nil {
+		t.Fatal("handleSessionLog: want error on missing ActivePlayer, got nil")
 	}
 }
