@@ -45,6 +45,7 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		s.processZones() // compute ComputeShared before delivery
 		s.processClientsOut()
 		s.processCleanup()
+		s.processSessionLogs() // NAI-74: TS World.cycle session-log block (W.ts:428-442)
 		s.currentTick++
 
 		nextTick = nextTick.Add(rate)

@@ -122,3 +122,154 @@ func TestPlayerAddSessionLogNilClient(t *testing.T) {
 	p.AddSessionLog(LoggerEventTypeEngine, "ignored")
 	// Nothing to assert on a nil-client Player; absence of panic is the test.
 }
+
+// TestProcessSessionLogsFlush pins the basic flush behaviour:
+// non-empty buffer → bridge called once with snapshot, buffer cleared.
+func TestProcessSessionLogsFlush(t *testing.T) {
+	s := newTestServer(t)
+	rec := installRecordingBridges(s)
+	s.sessionLogs = []SessionLog{
+		{SessionUUID: "a", Event: "first"},
+		{SessionUUID: "b", Event: "second"},
+	}
+	s.currentTick = 5 // non-rate tick — only flush exercises here
+
+	s.processSessionLogs()
+
+	if len(rec.submittedSessionLogs) != 1 {
+		t.Fatalf("bridge calls: got %d, want 1", len(rec.submittedSessionLogs))
+	}
+	if got := len(rec.submittedSessionLogs[0]); got != 2 {
+		t.Errorf("batch size: got %d, want 2", got)
+	}
+	if s.sessionLogs != nil {
+		t.Errorf("sessionLogs: must be nil after flush, got %v", s.sessionLogs)
+	}
+}
+
+// TestProcessSessionLogsEmptyNoFlush pins the TS empty-buffer skip:
+// World.ts:435 gates dispatch on length > 0. Bridge must NOT be called.
+func TestProcessSessionLogsEmptyNoFlush(t *testing.T) {
+	s := newTestServer(t)
+	rec := installRecordingBridges(s)
+	s.currentTick = 5
+
+	s.processSessionLogs()
+
+	if got := len(rec.submittedSessionLogs); got != 0 {
+		t.Errorf("bridge calls: got %d, want 0 (empty buffer must skip flush)", got)
+	}
+}
+
+// TestProcessSessionLogsCoordLog pins the periodic MODERATOR push:
+// at tick == PlayerCoordLogRate, every player in playerLoop gets a
+// "Server check in" record with their packed coord.
+func TestProcessSessionLogsCoordLog(t *testing.T) {
+	s := newTestServer(t)
+	rec := installRecordingBridges(s)
+	p1, _ := newTestPlayer(t)
+	p1.client.server = s
+	p1.session = "p1"
+	p1.level, p1.x, p1.z = 0, 3200, 3200
+	p2, _ := newTestPlayer(t)
+	p2.client.server = s
+	p2.session = "p2"
+	p2.level, p2.x, p2.z = 0, 3210, 3215
+	s.playerLoop = []*Player{p1, p2}
+	s.currentTick = PlayerCoordLogRate
+
+	s.processSessionLogs()
+
+	if len(rec.submittedSessionLogs) != 1 {
+		t.Fatalf("bridge calls: got %d, want 1", len(rec.submittedSessionLogs))
+	}
+	batch := rec.submittedSessionLogs[0]
+	if len(batch) != 2 {
+		t.Fatalf("batch size: got %d, want 2", len(batch))
+	}
+	for i, want := range []struct {
+		session string
+		coord   int
+	}{
+		{"p1", coordgrid.PackCoord(0, 3200, 3200)},
+		{"p2", coordgrid.PackCoord(0, 3210, 3215)},
+	} {
+		if batch[i].SessionUUID != want.session {
+			t.Errorf("batch[%d].SessionUUID: got %q, want %q", i, batch[i].SessionUUID, want.session)
+		}
+		if batch[i].EventType != LoggerEventTypeModerator {
+			t.Errorf("batch[%d].EventType: got %d, want MODERATOR(%d)", i, batch[i].EventType, LoggerEventTypeModerator)
+		}
+		if batch[i].Event != "Server check in" {
+			t.Errorf("batch[%d].Event: got %q, want %q", i, batch[i].Event, "Server check in")
+		}
+		if batch[i].Coord != want.coord {
+			t.Errorf("batch[%d].Coord: got %d, want %d", i, batch[i].Coord, want.coord)
+		}
+	}
+}
+
+// TestProcessSessionLogsCoordLogTickZeroSkip pins the TS tick > 0 guard
+// (World.ts:428). At tick=0, no coord-log push.
+func TestProcessSessionLogsCoordLogTickZeroSkip(t *testing.T) {
+	s := newTestServer(t)
+	rec := installRecordingBridges(s)
+	p1, _ := newTestPlayer(t)
+	p1.client.server = s
+	s.playerLoop = []*Player{p1}
+	s.currentTick = 0 // tick 0 with tick % rate == 0 must NOT push
+
+	s.processSessionLogs()
+
+	if got := len(rec.submittedSessionLogs); got != 0 {
+		t.Errorf("bridge calls: got %d, want 0 (tick=0 must skip coord-log)", got)
+	}
+	if got := len(s.sessionLogs); got != 0 {
+		t.Errorf("sessionLogs: got %d, want 0 (no coord-log push at tick=0)", got)
+	}
+}
+
+// TestProcessSessionLogsCoordLogPhaseOrder pins that the coord-log push
+// happens BEFORE the flush — the Server-check-in entries land in the
+// SAME tick's batch (not deferred to next tick).
+func TestProcessSessionLogsCoordLogPhaseOrder(t *testing.T) {
+	s := newTestServer(t)
+	rec := installRecordingBridges(s)
+	p1, _ := newTestPlayer(t)
+	p1.client.server = s
+	s.playerLoop = []*Player{p1}
+	s.currentTick = PlayerCoordLogRate
+	// Pre-seed an unrelated entry to verify it precedes the coord-log
+	// push in the batch (insertion order = slice append order).
+	s.sessionLogs = []SessionLog{{Event: "preseeded"}}
+
+	s.processSessionLogs()
+
+	if len(rec.submittedSessionLogs) != 1 || len(rec.submittedSessionLogs[0]) != 2 {
+		t.Fatalf("batch shape: %+v", rec.submittedSessionLogs)
+	}
+	batch := rec.submittedSessionLogs[0]
+	if batch[0].Event != "preseeded" {
+		t.Errorf("batch[0].Event: got %q, want %q", batch[0].Event, "preseeded")
+	}
+	if batch[1].Event != "Server check in" {
+		t.Errorf("batch[1].Event: got %q, want %q", batch[1].Event, "Server check in")
+	}
+}
+
+// TestProcessSessionLogsNonRateTickNoCoordLog pins that on a non-rate
+// tick, no coord-log push happens; if buffer is empty, no flush either.
+func TestProcessSessionLogsNonRateTickNoCoordLog(t *testing.T) {
+	s := newTestServer(t)
+	rec := installRecordingBridges(s)
+	p1, _ := newTestPlayer(t)
+	p1.client.server = s
+	s.playerLoop = []*Player{p1}
+	s.currentTick = PlayerCoordLogRate + 1 // not a rate tick
+
+	s.processSessionLogs()
+
+	if got := len(rec.submittedSessionLogs); got != 0 {
+		t.Errorf("bridge calls: got %d, want 0 (non-rate tick + empty buffer)", got)
+	}
+}

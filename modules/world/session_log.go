@@ -27,3 +27,25 @@ type SessionLog struct {
 	Event       string          // TS event (message + ' ' + args.join(' ') if args, else message)
 	EventType   LoggerEventType // TS event_type
 }
+
+// processSessionLogs runs as the last tick phase (after processCleanup,
+// before currentTick++). Mirrors TS World.cycle() session-log block at
+// World.ts:428-442:
+//  1. If currentTick > 0 && currentTick % PlayerCoordLogRate == 0,
+//     push MODERATOR "Server check in" for every player in playerLoop.
+//  2. If sessionLogs is non-empty, dispatch via loggerBridge then clear.
+//
+// Empty-buffer skip matches TS (World.ts:435 `if (sessionLogs.length > 0)`).
+// Coord-log push runs BEFORE flush so server-check-in entries land in
+// the SAME tick's batch (matches TS source ordering at World.ts:428-442).
+func (s *Server) processSessionLogs() {
+	if s.currentTick > 0 && s.currentTick%PlayerCoordLogRate == 0 {
+		for _, p := range s.playerLoop {
+			p.AddSessionLog(LoggerEventTypeModerator, "Server check in")
+		}
+	}
+	if len(s.sessionLogs) > 0 {
+		s.loggerBridge.SubmitSessionLogs(s.sessionLogs)
+		s.sessionLogs = nil
+	}
+}
