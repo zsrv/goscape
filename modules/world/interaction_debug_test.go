@@ -478,3 +478,140 @@ func TestInteractionFrameA_NotEmittedOnFailedHandler(t *testing.T) {
 		t.Errorf("unexpected 'oploc handler' record on failed handler: %v", rec)
 	}
 }
+
+func TestOpLocGateInstrumentation(t *testing.T) {
+	tests := []struct {
+		name      string
+		setup     func(s *Server, p *Player)
+		payload   []byte
+		wantGate  string
+		wantOp    int
+		wantX     int64 // -1 if pre-decode
+		wantZ     int64
+		wantLocId int64
+	}{
+		{
+			name: "delayed",
+			setup: func(s *Server, p *Player) {
+				p.delayed = true
+				p.delayedUntil = 999 // > currentTick=7 set in test body
+			},
+			payload:   p2x3Payload(100, 100, 42),
+			wantGate:  "delayed",
+			wantOp:    1,
+			wantX:     -1, // emit fires pre-decode
+			wantZ:     -1,
+			wantLocId: -1,
+		},
+		{
+			name:      "payload_short",
+			setup:     func(s *Server, p *Player) {},
+			payload:   []byte{0x01, 0x02, 0x03}, // only 3 bytes
+			wantGate:  "payload_short",
+			wantOp:    1,
+			wantX:     -1, // emit fires pre-decode
+			wantZ:     -1,
+			wantLocId: -1,
+		},
+		{
+			name:      "viewport",
+			setup:     func(s *Server, p *Player) {},
+			payload:   p2x3Payload(250, 100, 42), // dx=150 > 52
+			wantGate:  "viewport",
+			wantOp:    1,
+			wantX:     250,
+			wantZ:     100,
+			wantLocId: 42,
+		},
+		{
+			name:      "getloc_nil",
+			setup:     func(s *Server, p *Player) {},
+			payload:   p2x3Payload(100, 100, 999), // wrong locId
+			wantGate:  "getloc_nil",
+			wantOp:    1,
+			wantX:     100,
+			wantZ:     100,
+			wantLocId: 999,
+		},
+		{
+			name: "loctype_nil",
+			setup: func(s *Server, p *Player) {
+				// Place a loc whose typeID has no LocType registered.
+				// fixture's locTypes slice has length 43 → index 77 is out of range.
+				missingTypeLoc := entitypkg.NewLoc(0, 100, 100, 1, 1, entitypkg.LifecycleForever, 77, 10, 0)
+				zn := s.zoneMap.Get(0, 100, 100)
+				zn.Locs = append(zn.Locs, missingTypeLoc)
+			},
+			payload:   p2x3Payload(100, 100, 77),
+			wantGate:  "loctype_nil",
+			wantOp:    1,
+			wantX:     100,
+			wantZ:     100,
+			wantLocId: 77,
+		},
+		{
+			name: "op_slot_empty",
+			setup: func(s *Server, p *Player) {
+				s.locTypes.Configs[42].Op[0] = ""
+			},
+			payload:   p2x3Payload(100, 100, 42),
+			wantGate:  "op_slot_empty",
+			wantOp:    1,
+			wantX:     100,
+			wantZ:     100,
+			wantLocId: 42,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			s, p, _, _ := makeOpLocFixture(t)
+			logger, h := newCapturingLogger()
+			s.log = logger
+			s.cfg.NodeDebug = true
+			s.currentTick = 7
+			p.uid = 555
+			tc.setup(s, p)
+
+			_ = handleOpLoc1(p, tc.payload)
+
+			rec := findRecord(h.snapshot(), "oploc gate")
+			if rec == nil {
+				t.Fatalf("expected one 'oploc gate' record; got none")
+			}
+			requireAttr(t, *rec, "gate", tc.wantGate)
+			requireAttr(t, *rec, "player_uid", "555")
+			requireAttr(t, *rec, "tick", "7")
+			if v, ok := attrValue(*rec, "op"); !ok || v.Int64() != int64(tc.wantOp) {
+				t.Errorf("op: got %v, want %d", v, tc.wantOp)
+			}
+			if v, ok := attrValue(*rec, "click_x"); !ok || v.Int64() != tc.wantX {
+				t.Errorf("click_x: got %v, want %d", v, tc.wantX)
+			}
+			if v, ok := attrValue(*rec, "click_z"); !ok || v.Int64() != tc.wantZ {
+				t.Errorf("click_z: got %v, want %d", v, tc.wantZ)
+			}
+			if v, ok := attrValue(*rec, "loc_id"); !ok || v.Int64() != tc.wantLocId {
+				t.Errorf("loc_id: got %v, want %d", v, tc.wantLocId)
+			}
+
+			// Frame A must NOT emit on rejected clicks.
+			if frameA := findRecord(h.snapshot(), "oploc handler"); frameA != nil {
+				t.Errorf("unexpected 'oploc handler' record on rejected click: %v", frameA)
+			}
+		})
+	}
+}
+
+func TestOpLocGateInstrumentation_SuppressedWhenNodeDebugFalse(t *testing.T) {
+	s, p, _, _ := makeOpLocFixture(t)
+	logger, h := newCapturingLogger()
+	s.log = logger
+	s.cfg.NodeDebug = false
+
+	// Drive the viewport gate (a representative early-return).
+	_ = handleOpLoc1(p, p2x3Payload(250, 100, 42))
+
+	if rec := findRecord(h.snapshot(), "oploc gate"); rec != nil {
+		t.Errorf("unexpected 'oploc gate' record under NodeDebug=false: %v", rec)
+	}
+}

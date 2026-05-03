@@ -86,6 +86,32 @@ func chebDist(ax, az, bx, bz int) int {
 	return dz
 }
 
+// emitOpLocGate emits a gate-name slog.Debug record for one of
+// handleOpLoc's six early-return paths. NodeDebug-gated; nil-log safe.
+//
+// Field schema (NAI-79 Bundle H4):
+//
+//	tick / player_uid / gate / op / click_x / click_z / loc_id
+//
+// Pre-decode gates ("delayed", "payload_short") pass (-1, -1, -1) for
+// (x, z, locId) since the 6-byte payload has not been parsed yet. The
+// -1 sentinel matches the project's apRange=-1 convention and keeps
+// the field set uniform across all 6 gate emits.
+func emitOpLocGate(s *Server, p *Player, gate string, op, x, z, locId int) {
+	if !s.cfg.NodeDebug || s.log == nil {
+		return
+	}
+	s.log.Debug("oploc gate",
+		"tick", s.currentTick,
+		"player_uid", p.uid,
+		"gate", gate,
+		"op", op,
+		"click_x", x,
+		"click_z", z,
+		"loc_id", locId,
+	)
+}
+
 // recordTryInteractBranch is the side-channel writer used by
 // (*Player).tryInteract to surface which of its 4 branches (or
 // fallthrough = 0) returned. processInteraction sets p.interactCallSlot

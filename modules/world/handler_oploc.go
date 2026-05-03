@@ -29,11 +29,13 @@ func handleOpLoc(p *Player, payload []byte, op int) error {
 	s := p.client.server
 
 	if p.delayed && s.currentTick < p.delayedUntil {
+		emitOpLocGate(s, p, "delayed", op, -1, -1, -1)
 		sendUnsetMapFlag(p)
 		return nil
 	}
 
 	if len(payload) < 6 {
+		emitOpLocGate(s, p, "payload_short", op, -1, -1, -1)
 		sendUnsetMapFlag(p)
 		return nil
 	}
@@ -56,22 +58,26 @@ func handleOpLoc(p *Player, payload []byte, op int) error {
 		dz = -dz
 	}
 	if dx > 52 || dz > 52 {
+		emitOpLocGate(s, p, "viewport", op, x, z, locId)
 		sendUnsetMapFlag(p)
 		return nil
 	}
 
 	loc := s.GetLoc(p.level, x, z, locId)
 	if loc == nil {
+		emitOpLocGate(s, p, "getloc_nil", op, x, z, locId)
 		sendUnsetMapFlag(p)
 		return nil
 	}
 
 	if s.locTypes == nil || locId < 0 || locId >= len(s.locTypes.Configs) {
+		emitOpLocGate(s, p, "loctype_nil", op, x, z, locId)
 		sendUnsetMapFlag(p)
 		return nil
 	}
 	locType := s.locTypes.Configs[locId]
 	if locType == nil {
+		emitOpLocGate(s, p, "loctype_nil", op, x, z, locId)
 		sendUnsetMapFlag(p)
 		return nil
 	}
@@ -81,6 +87,7 @@ func handleOpLoc(p *Player, payload []byte, op int) error {
 	// (pkg/objtype/loctype.go cases 30-34), so the runtime check is
 	// just `== ""`.
 	if len(locType.Op) < op || locType.Op[op-1] == "" {
+		emitOpLocGate(s, p, "op_slot_empty", op, x, z, locId)
 		sendUnsetMapFlag(p)
 		return nil
 	}
