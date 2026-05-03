@@ -233,7 +233,7 @@ func TestInputTrackingSubmitEventsMatrix(t *testing.T) {
 			blobsBefore:       [][]byte{{0xAA}, {0xBB}, {0xCC}},
 			wantBridgeCalls:   1,
 			wantKick:          false,
-			wantSubmittedBlob: []byte{0xAA},
+			wantSubmittedBlob: []byte{0xAA}, // TS quirk: only blob[0]
 			wantSessionLogPush: false,
 		},
 		{
