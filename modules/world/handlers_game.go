@@ -67,6 +67,10 @@ func init() {
 	gameHandlers[130] = handleOpHeldU // OPHELDU
 
 	gameHandlers[244] = handleChatSetMode // CHAT_SETMODE
+	gameHandlers[118] = handleFriendListAdd // FRIENDLIST_ADD
+	gameHandlers[11] = handleFriendListDel  // FRIENDLIST_DEL
+	gameHandlers[79] = handleIgnoreListAdd  // IGNORELIST_ADD
+	gameHandlers[171] = handleIgnoreListDel // IGNORELIST_DEL
 
 	gameHandlers[158] = handleMessagePublic // MESSAGE_PUBLIC
 
