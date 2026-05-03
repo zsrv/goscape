@@ -1,8 +1,6 @@
 package objtype
 
 import (
-	"errors"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -18,11 +16,11 @@ import (
 // guard against re-introducing that gap.
 func TestLoadLocTypes_RealCache_CascadeBlockerLocs(t *testing.T) {
 	cacheDir := filepath.Join("..", "..", "data", "pack")
-	if _, err := os.Stat(filepath.Join(cacheDir, "server", "loc.dat")); errors.Is(err, fs.ErrNotExist) {
-		t.Skip("data/pack/server/loc.dat absent; skipping real-cache regression")
+	if _, err := os.Stat(filepath.Join(cacheDir, "server", "loc.dat")); err != nil {
+		t.Skipf("data/pack/server/loc.dat unavailable: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(cacheDir, "client", "config")); errors.Is(err, fs.ErrNotExist) {
-		t.Skip("data/pack/client/config absent; skipping real-cache regression")
+	if _, err := os.Stat(filepath.Join(cacheDir, "client", "config")); err != nil {
+		t.Skipf("data/pack/client/config unavailable: %v", err)
 	}
 
 	cfgs, err := LoadLocTypes(cacheDir)
@@ -57,9 +55,13 @@ func TestLoadLocTypes_RealCache_CascadeBlockerLocs(t *testing.T) {
 	// Implementer-derived probe — see commit body for which loc was pinned.
 	if id, ok := cfgs.ConfigNames["oaktree"]; ok {
 		cfg := cfgs.Configs[id]
-		if len(cfg.Op) < 1 || cfg.Op[0] != "Chop down" {
+		var got string
+		if len(cfg.Op) > 0 {
+			got = cfg.Op[0]
+		}
+		if got != "Chop down" {
 			t.Errorf("ID-shift probe: ConfigNames[%q]=%d, Op[0]=%q, want %q",
-				"oaktree", id, cfg.Op[0], "Chop down")
+				"oaktree", id, got, "Chop down")
 		}
 	} else {
 		t.Logf("ID-shift probe: ConfigNames[%q] not found — skipping", "oaktree")
