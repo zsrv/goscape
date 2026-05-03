@@ -4,6 +4,66 @@ import (
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 )
 
+// targetTypeID extracts the type/config ID from an interaction target for
+// logging. Uses a type-switch since the entity interface does not expose
+// a Type() method. Returns -1 for unknown/nil targets.
+func targetTypeID(t entity) int {
+	switch v := t.(type) {
+	case *entitypkg.Loc:
+		return v.Type()
+	case *entitypkg.Obj:
+		return v.ObjType()
+	case *Npc:
+		return v.typeId
+	case *Player:
+		return v.slot
+	default:
+		return -1
+	}
+}
+
+// emitInteractionTickFrame writes the NAI-79 Stage 1 "interaction tick"
+// Frame B record. Caller (processInteraction) gates on hadTarget; this
+// helper additionally gates on s.cfg.NodeDebug. All target-coord fields
+// refer to the INITIAL target (snapshotted by the caller at function
+// entry); target_still_set separately signals whether p.target was
+// nulled during the tick.
+func emitInteractionTickFrame(
+	s *Server,
+	p *Player,
+	hadTarget bool,
+	initialTarget entity,
+	initialTargetX, initialTargetZ int,
+	opTriggerPresent, apTriggerPresent bool,
+	interactedFinal bool,
+) {
+	if !hadTarget || !s.cfg.NodeDebug || s.log == nil {
+		return
+	}
+	s.log.Debug("interaction tick",
+		"tick", s.currentTick,
+		"player_uid", p.uid,
+		"target_kind", targetKindString(initialTarget),
+		"target_type_id", targetTypeID(initialTarget),
+		"target_x", initialTargetX,
+		"target_z", initialTargetZ,
+		"player_x", p.x,
+		"player_z", p.z,
+		"cheb_dist", chebDist(p.x, p.z, initialTargetX, initialTargetZ),
+		"op_trigger", opTriggerPresent,
+		"ap_trigger", apTriggerPresent,
+		"ap_range", p.apRange,
+		"waypoint_idx", p.waypointIndex,
+		"branch_pre", p.lastInteractBranchPre,
+		"branch_post", p.lastInteractBranchPost,
+		"interacted", interactedFinal,
+		"interaction_fired", p.interactionFired,
+		"steps_taken", p.stepsTaken,
+		"repathed", p.repathed,
+		"target_still_set", p.target != nil,
+	)
+}
+
 // chebDist returns the Chebyshev distance between two tile coords.
 // Used by NAI-79 Stage 1 instrumentation (interaction tick frame).
 func chebDist(ax, az, bx, bz int) int {

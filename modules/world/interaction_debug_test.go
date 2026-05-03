@@ -323,3 +323,82 @@ func registerApLocScript(t *testing.T, s *Server, typeID int, op int, sf *script
 	sf.LookupKey = script.LookupKeyForType(trigger, typeID)
 	s.scriptProvider.Register(sf)
 }
+
+func TestInteractionFrameB_EmittedWhenTargetSetAndNodeDebugTrue(t *testing.T) {
+	s, p, loc, _ := makeOpLocFixture(t)
+	logger, h := newCapturingLogger()
+	s.log = logger
+	s.cfg.NodeDebug = true
+	s.scriptProvider = script.NewProvider() // empty; force fallthrough/branch 3
+
+	// Place player 2 tiles away — approach distance with default ap_range=10
+	// (set by SetInteraction). Target Loc; no scripts → branch 3 pre-step,
+	// then post-step pathToTarget no-op (Loc has no waypoints generated for
+	// shape-blind path in this fixture; that's acceptable here — the test
+	// only verifies frame emission, not pathing correctness).
+	p.x, p.z = 98, 100
+
+	p.SetInteraction(InteractionEngine, loc, 1, -1)
+	p.uid = 12345
+
+	p.processInteraction()
+
+	rec := findRecord(h.snapshot(), "interaction tick")
+	if rec == nil {
+		t.Fatal("expected one 'interaction tick' record; got none")
+	}
+	requireAttr(t, *rec, "player_uid", "12345")
+	requireAttr(t, *rec, "target_kind", "Loc")
+	if v, ok := attrValue(*rec, "target_x"); !ok || v.Int64() != 100 {
+		t.Errorf("target_x: got %v, want 100", v)
+	}
+	if v, ok := attrValue(*rec, "target_z"); !ok || v.Int64() != 100 {
+		t.Errorf("target_z: got %v, want 100", v)
+	}
+	if _, ok := attrValue(*rec, "cheb_dist"); !ok {
+		t.Errorf("cheb_dist missing")
+	}
+	if _, ok := attrValue(*rec, "branch_pre"); !ok {
+		t.Errorf("branch_pre missing")
+	}
+	if _, ok := attrValue(*rec, "branch_post"); !ok {
+		t.Errorf("branch_post missing")
+	}
+	if _, ok := attrValue(*rec, "waypoint_idx"); !ok {
+		t.Errorf("waypoint_idx missing")
+	}
+	if _, ok := attrValue(*rec, "target_still_set"); !ok {
+		t.Errorf("target_still_set missing")
+	}
+}
+
+func TestInteractionFrameB_SuppressedWhenNoTargetAtEntry(t *testing.T) {
+	s, p, _, _ := makeOpLocFixture(t)
+	logger, h := newCapturingLogger()
+	s.log = logger
+	s.cfg.NodeDebug = true
+
+	// p.target is nil (default after newTestPlayer); processInteraction
+	// short-circuits at the first guard. No frame should emit.
+	p.processInteraction()
+
+	if rec := findRecord(h.snapshot(), "interaction tick"); rec != nil {
+		t.Errorf("unexpected 'interaction tick' record: %v", rec)
+	}
+}
+
+func TestInteractionFrameB_SuppressedWhenNodeDebugFalse(t *testing.T) {
+	s, p, loc, _ := makeOpLocFixture(t)
+	logger, h := newCapturingLogger()
+	s.log = logger
+	s.cfg.NodeDebug = false
+	s.scriptProvider = script.NewProvider()
+
+	p.x, p.z = 98, 100
+	p.SetInteraction(InteractionEngine, loc, 1, -1)
+	p.processInteraction()
+
+	if rec := findRecord(h.snapshot(), "interaction tick"); rec != nil {
+		t.Errorf("unexpected 'interaction tick' record: %v", rec)
+	}
+}

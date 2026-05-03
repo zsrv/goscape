@@ -181,6 +181,18 @@ func (p *Player) processInteraction() {
 		return
 	}
 
+	// NAI-79 Stage 1 — pre-step state capture for Frame B emit at tail.
+	// All target-coord fields refer to the INITIAL target; target_still_set
+	// separately signals whether p.target was nulled during the tick.
+	hadTarget := true
+	initialTarget := p.target
+	initialTargetX, initialTargetZ, _ := p.target.Coords()
+	opTriggerPresent := getOpTrigger(p, s) != nil
+	apTriggerPresent := getApTrigger(p, s) != nil
+	p.lastInteractBranchPre = 0
+	p.lastInteractBranchPost = 0
+	p.interactCallSlot = 0
+
 	// TS L1201-1202.
 	p.followX = p.lastStepX
 	p.followZ = p.lastStepZ
@@ -193,6 +205,11 @@ func (p *Player) processInteraction() {
 	if tlevel != p.level {
 		p.ClearInteraction()
 		sendUnsetMapFlag(p)
+		// NAI-79 Stage 1 — emit Frame B even on level-mismatch clear so
+		// the captured log shows the cross-level ClearInteraction case.
+		emitInteractionTickFrame(s, p, hadTarget, initialTarget,
+			initialTargetX, initialTargetZ, opTriggerPresent,
+			apTriggerPresent, false /*interactedFinal*/)
 		return
 	}
 
@@ -202,6 +219,7 @@ func (p *Player) processInteraction() {
 	if !followOp {
 		p.processWalktrigger()
 	}
+	p.interactCallSlot = 0
 	interacted = p.tryInteract(false)
 
 	// Post-step arm (TS L1227-1252). Skipped when pre-step interacted.
@@ -225,6 +243,7 @@ func (p *Player) processInteraction() {
 		// Post-step interact (TS L1244-1252). Skipped when followOp
 		// (the chase keeps interaction anchored across steps).
 		if p.target != nil && !followOp {
+			p.interactCallSlot = 1
 			interacted = p.tryInteract(p.stepsTaken == 0)
 			if !interacted && !p.hasWaypoints() && p.stepsTaken == 0 {
 				p.MessageGame("I can't reach that!")
@@ -259,6 +278,12 @@ func (p *Player) processInteraction() {
 	if !p.hasWaypoints() && p.stepsTaken > 0 {
 		sendUnsetMapFlag(p)
 	}
+
+	// NAI-79 Stage 1 — Frame B emit at tail. Gated on hadTarget (a
+	// tick with no target at entry should never emit) and NodeDebug.
+	emitInteractionTickFrame(s, p, hadTarget, initialTarget,
+		initialTargetX, initialTargetZ, opTriggerPresent,
+		apTriggerPresent, interacted)
 }
 
 // hasWaypoints reports whether the player has an active waypoint queue.
