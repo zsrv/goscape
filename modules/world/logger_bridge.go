@@ -47,5 +47,23 @@ func (b *slogLoggerBridge) SubmitInputTracking(p *Player, blob []byte) {
 	)
 }
 
+// SubmitSessionLogs emits one structured slog record per entry. The
+// per-tick batch shape is preserved by the call cadence (one
+// SubmitSessionLogs call per tick); per-entry record emission is
+// chosen for grep/filter friendliness — this is a dev/debug sink, not
+// the production LoggerClient WS transport which would JSON-batch.
+func (b *slogLoggerBridge) SubmitSessionLogs(logs []SessionLog) {
+	for _, lg := range logs {
+		b.log.Info("session_log",
+			"type", "session_log",
+			"session", lg.SessionUUID,
+			"timestamp_ms", lg.Timestamp,
+			"coord", lg.Coord,
+			"event_type", lg.EventType,
+			"event", lg.Event,
+		)
+	}
+}
+
 // Compile-time interface satisfaction.
 var _ LoggerBridge = (*slogLoggerBridge)(nil)

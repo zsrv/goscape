@@ -34,10 +34,11 @@ type recordedInputTrackingCall struct {
 }
 
 type recordingBridges struct {
-	friends     []recordedFriendsCall
-	loginMod    []recordedLoginModCall
-	logger      []recordedLoggerCall
-	inputTracks []recordedInputTrackingCall // NAI-73
+	friends             []recordedFriendsCall
+	loginMod            []recordedLoginModCall
+	logger              []recordedLoggerCall
+	inputTracks         []recordedInputTrackingCall // NAI-73
+	submittedSessionLogs [][]SessionLog              // NAI-74 — one element per tick flush
 }
 
 func (r *recordingBridges) AddFriend(p string, t uint64) {
@@ -69,6 +70,12 @@ func (r *recordingBridges) SubmitInputTracking(player *Player, blob []byte) {
 	cp := make([]byte, len(blob))
 	copy(cp, blob)
 	r.inputTracks = append(r.inputTracks, recordedInputTrackingCall{method: "SubmitInputTracking", player: player, blob: cp})
+}
+func (r *recordingBridges) SubmitSessionLogs(logs []SessionLog) {
+	// Snapshot: defends against caller mutation between the call and assertion.
+	snap := make([]SessionLog, len(logs))
+	copy(snap, logs)
+	r.submittedSessionLogs = append(r.submittedSessionLogs, snap)
 }
 
 // installRecordingBridges wires a recordingBridges into all 3 Server
@@ -160,5 +167,34 @@ func TestRecordingBridgesCapturesSubmitInputTracking(t *testing.T) {
 	callerBlob[0] = 0x00
 	if rec.inputTracks[0].blob[0] != 0xDE {
 		t.Error("blob copy must be defensive (not aliasing caller bytes)")
+	}
+}
+
+// TestNoopBridgesSubmitSessionLogs exercises the noop SubmitSessionLogs.
+func TestNoopBridgesSubmitSessionLogs(t *testing.T) {
+	var b noopBridges
+	b.SubmitSessionLogs([]SessionLog{{SessionUUID: "x"}})
+	// Must not panic; nothing else to assert.
+}
+
+// TestRecordingBridgesCapturesSubmitSessionLogs verifies snapshot semantics.
+func TestRecordingBridgesCapturesSubmitSessionLogs(t *testing.T) {
+	rec := &recordingBridges{}
+	caller := []SessionLog{
+		{SessionUUID: "alice", Timestamp: 1000, Coord: 50, Event: "hi", EventType: LoggerEventTypeModerator},
+		{SessionUUID: "bob", Timestamp: 2000, Coord: 60, Event: "ho", EventType: LoggerEventTypeEngine},
+	}
+	rec.SubmitSessionLogs(caller)
+	if len(rec.submittedSessionLogs) != 1 {
+		t.Fatalf("submittedSessionLogs: got %d batches, want 1", len(rec.submittedSessionLogs))
+	}
+	got := rec.submittedSessionLogs[0]
+	if len(got) != 2 || got[0].SessionUUID != "alice" || got[1].SessionUUID != "bob" {
+		t.Errorf("batch contents: %+v", got)
+	}
+	// Mutation defense: mutate caller's slice; recorded snapshot must be unaffected.
+	caller[0].SessionUUID = "MUTATED"
+	if rec.submittedSessionLogs[0][0].SessionUUID != "alice" {
+		t.Error("snapshot must not alias caller slice")
 	}
 }

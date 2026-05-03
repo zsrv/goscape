@@ -37,6 +37,12 @@ type LoggerBridge interface {
 	// World.ts:2314-2321, channel 'input_track'). blob is the raw bytes
 	// from the EVENT_TRACKING client packet.
 	SubmitInputTracking(player *Player, blob []byte)
+
+	// SubmitSessionLogs posts the per-tick batch of session-log entries.
+	// Mirrors TS LoggerThread 'session_log' channel (LoggerThread.ts:31-37,
+	// dispatched from World.cycle at World.ts:435-442). Called once per
+	// tick by Server.processSessionLogs when the buffer is non-empty.
+	SubmitSessionLogs(logs []SessionLog)
 }
 
 // noopBridges is the default impl wired into NewServer. Records nothing,
@@ -52,3 +58,4 @@ func (noopBridges) NotifyPlayerBan(string, string, time.Time) {}
 func (noopBridges) NotifyPlayerMute(string, string, time.Time) {}
 func (noopBridges) NotifyPlayerReport(*Player, string, string) {}
 func (noopBridges) SubmitInputTracking(*Player, []byte)        {}
+func (noopBridges) SubmitSessionLogs([]SessionLog)              {}
