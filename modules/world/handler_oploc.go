@@ -92,6 +92,24 @@ func handleOpLoc(p *Player, payload []byte, op int) error {
 	p.targetSubject.x = loc.X
 	p.targetSubject.z = loc.Z
 	p.targetSubject.level = loc.Level
+
+	// NAI-79 Stage 1 — handler frame for H1/H2 evidence channel.
+	if s.cfg.NodeDebug && s.log != nil {
+		s.log.Debug("oploc handler",
+			"tick", s.currentTick,
+			"player_uid", p.uid,
+			"op", op,
+			"click_x", x,
+			"click_z", z,
+			"loc_id", locId,
+			"loc_name", locType.DebugName,
+			"loc_shape", loc.Shape(),
+			"loc_angle", loc.Angle(),
+			"lt_width", locType.Width,
+			"lt_length", locType.Length,
+			"op_slot", locType.Op[op-1],
+		)
+	}
 	return nil
 }
 

@@ -402,3 +402,73 @@ func TestInteractionFrameB_SuppressedWhenNodeDebugFalse(t *testing.T) {
 		t.Errorf("unexpected 'interaction tick' record: %v", rec)
 	}
 }
+
+func TestInteractionFrameA_EmittedWhenNodeDebugTrue(t *testing.T) {
+	s, p, loc, _ := makeOpLocFixture(t)
+	logger, h := newCapturingLogger()
+	s.log = logger
+	s.cfg.NodeDebug = true
+	s.currentTick = 42
+	p.uid = 99
+
+	if err := handleOpLoc1(p, p2x3Payload(100, 100, 42)); err != nil {
+		t.Fatalf("handleOpLoc1: %v", err)
+	}
+
+	rec := findRecord(h.snapshot(), "oploc handler")
+	if rec == nil {
+		t.Fatal("expected one 'oploc handler' record; got none")
+	}
+	requireAttr(t, *rec, "player_uid", "99")
+	requireAttr(t, *rec, "tick", "42")
+	requireAttr(t, *rec, "op", "1")
+	requireAttr(t, *rec, "loc_id", "42")
+	requireAttr(t, *rec, "loc_name", "test_loc") // from makeOpLocFixture LocType.DebugName
+	requireAttr(t, *rec, "op_slot", "op1")       // from fixture's Op[0]
+	if v, ok := attrValue(*rec, "lt_width"); !ok || v.Int64() != 1 {
+		t.Errorf("lt_width: got %v, want 1", v)
+	}
+	if v, ok := attrValue(*rec, "lt_length"); !ok || v.Int64() != 1 {
+		t.Errorf("lt_length: got %v, want 1", v)
+	}
+	if v, ok := attrValue(*rec, "loc_shape"); !ok || v.Int64() != int64(loc.Shape()) {
+		t.Errorf("loc_shape: got %v, want %d", v, loc.Shape())
+	}
+	if v, ok := attrValue(*rec, "loc_angle"); !ok || v.Int64() != int64(loc.Angle()) {
+		t.Errorf("loc_angle: got %v, want %d", v, loc.Angle())
+	}
+}
+
+func TestInteractionFrameA_SuppressedWhenNodeDebugFalse(t *testing.T) {
+	s, p, _, _ := makeOpLocFixture(t)
+	logger, h := newCapturingLogger()
+	s.log = logger
+	s.cfg.NodeDebug = false
+
+	if err := handleOpLoc1(p, p2x3Payload(100, 100, 42)); err != nil {
+		t.Fatalf("handleOpLoc1: %v", err)
+	}
+
+	if rec := findRecord(h.snapshot(), "oploc handler"); rec != nil {
+		t.Errorf("unexpected 'oploc handler' record: %v", rec)
+	}
+}
+
+func TestInteractionFrameA_NotEmittedOnFailedHandler(t *testing.T) {
+	s, p, _, _ := makeOpLocFixture(t)
+	logger, h := newCapturingLogger()
+	s.log = logger
+	s.cfg.NodeDebug = true
+
+	// Send a coord outside the viewport (originX=100, max delta 52) →
+	// handler returns early at the viewport gate without setting
+	// interaction. Frame A should not emit because we only emit on
+	// the success path.
+	if err := handleOpLoc1(p, p2x3Payload(200, 200, 42)); err != nil {
+		t.Fatalf("handleOpLoc1: %v", err)
+	}
+
+	if rec := findRecord(h.snapshot(), "oploc handler"); rec != nil {
+		t.Errorf("unexpected 'oploc handler' record on failed handler: %v", rec)
+	}
+}
