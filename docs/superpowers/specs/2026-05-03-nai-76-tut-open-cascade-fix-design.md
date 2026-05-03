@@ -116,27 +116,33 @@ Add `OpenTutorial(com int)` method to the `ActivePlayer` interface. Implementer:
 
 ```go
 // handleTutOpen mirrors LostCityRS/Engine-TS PlayerOps.ts:723-725
-// (TUT_OPEN). Pops the component id and calls
-// ActivePlayer.OpenTutorial. TS wraps the popInt() in
-// check(…, NumberNotNull) which throws on -1; goscape passes -1
-// through (com=-1 is reserved for closeTutorial, deferred per
-// stub_deferred_comment_marker.md — no observable difference at
-// HEAD because no production caller passes -1 here).
-func handleTutOpen(s *State) error {
+// (TUT_OPEN). Pops the component id, rejects -1 via
+// check(_, NumberNotNull), and calls ActivePlayer.OpenTutorial.
+// TS reserves com=-1 for the closeTutorial path (Player.ts:716-726
+// writes TutOpen(-1) directly via Player.write, not through this
+// opcode) — deferred per stub_deferred_comment_marker.md.
+func handleTutOpen(s *ScriptState) error {
+    if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+        return errors.New("TUT_OPEN: no active player")
+    }
     com := s.PopInt()
-    s.ActivePlayer.OpenTutorial(int(com))
+    if err := checkNotNull(com, "TUT_OPEN"); err != nil {
+        return err
+    }
+    s.Self.OpenTutorial(com)
     return nil
 }
 ```
 
-Register `OpTutOpen → handleTutOpen` in the dispatch map at `pkg/script/handlers.go`. Active-player gate convention (per `plan_grep_helper_patterns.md`): plan-author greps `requireActivePlayer` or equivalent helper sibling-sites before codifying inline boilerplate.
+Register `OpTutOpen → handleTutOpen` in the dispatch map at `pkg/script/handlers.go:285`-area (alongside the existing IF_OPEN_* entries). Active-player gate matches the local file convention at `handlers_interface.go` (inline `s.Pointers&PtrActivePlayer == 0 || s.Self == nil`, per `plan_grep_helper_patterns.md` — that file does NOT use the `requireActivePlayer` helper from `handlers_player.go:35`; mirror the local convention to avoid mixed style).
 
 ## Test strategy
 
 ### `pkg/script` handler tests (new, in matching `handlers_player_test.go`)
 
-- `TestHandleTutOpen_PopArityAndDispatch` — push `com=42` onto state stack; call `handleTutOpen`; assert mock `ActivePlayer.OpenTutorial` recorder captured `com=42`; stack drained to empty.
-- `TestHandleTutOpen_DispatchTableRegistration` — assert `handlers[OpTutOpen]` is non-nil and resolves to `handleTutOpen`. Closes the very gap that produced the smoke error.
+- `TestTutOpen` — push `com=42` via `OpPushConstantInt`/`OpTutOpen`/`OpReturn`; assert mock `OpenTutorial` recorder captured 42 (matching pattern of `TestIfOpenMain` at `handlers_interface_test.go:34-50`).
+- `TestHandleTutOpenNullRejected` — push `com=-1`; assert `Execute` returns error containing `"TUT_OPEN: input number was null(-1)"`; assert mock `lastOpenTutorial == 0` (never called) (matching pattern of `TestHandleIfOpenMainNullRejected` at `handlers_interface_test.go:546-570`).
+- `TestTutOpenNoActivePlayer` — set `state.Pointers = 0` before Execute; assert error contains `"TUT_OPEN: no active player"` (matching pattern of `TestIfOpenMainNoActivePlayer` at `handlers_interface_test.go:500`).
 
 Mock recorder: add `openTutorialCalls []int` (or sibling field matching existing convention) to the mockActivePlayer struct. Plan-author MUST grep the existing mock struct field names per `mock_recorder_field_naming_check.md` before codifying.
 
@@ -198,7 +204,7 @@ Annotation: at the dispatch table site for TUT_CLOSE registration (the missing e
 
 - **R1 — `IsComponentVisible` semantics drift.** Existing test at `player_interface_test.go:143-158` pins modalTutorial-by-value without bit-gate. **Mitigation:** §3 explicit non-touch decision; this sub-spec does not extend `IsComponentVisible`.
 - **R2 — `lastModalTutorial` init.** Default `0` would cause spurious `OpTutOpen(0)` emit on first encodeOut. **Mitigation:** init `-1` in `newPlayer` (§C), mirroring `modalTutorial`'s init at `player.go:431`.
-- **R3 — TS `NumberNotNull` divergence.** TS wraps the popInt in `check(…, NumberNotNull)` which throws on `com == -1`; goscape passes -1 through. **Mitigation:** inline doc-comment label per `defensive_gate_doc_comment_label.md` capturing the divergence (no observable difference at HEAD — no production caller passes -1; reserved for future TUT_CLOSE). No error-return test (per `spec_library_capability_match.md`).
+- **R3 — `NumberNotNull` parity.** TS wraps the popInt in `check(…, NumberNotNull)` which throws on `com == -1`. Goscape mirrors with `checkNotNull(com, "TUT_OPEN")` (helper at `pkg/script/handlers_player.go:71-76`). **Test pin:** `TestHandleTutOpenNullRejected` matching the pattern of `TestHandleIfOpenMainNullRejected` at `handlers_interface_test.go:546-570`. No divergence opened.
 - **R4 — TUT_CLOSE absence.** Smoke matrix doesn't exercise tutorial completion. Risk = future smoke surfaces it. **Mitigation:** stub_deferred annotation at the dispatch site.
 - **R5 — Door visual loc_change unrelated.** Door not opening visually may be a separate `loc_change` wire-out gap, not downstream of tut_open. **Mitigation:** smoke decision-tree row 4 catches this and routes to NAI-77.
 - **R6 — Cascade theory wrong on click-away.** Click-away modal dismiss may not cascade-resolve from tut_open port — could be a closeModal-on-movement integration gap independent of tutorial. **Mitigation:** smoke decision-tree row 2 routes to in-scope stretch (≤30 LOC) or NAI-77, per `smoke_surfaces_adjacent_divergences.md`.
