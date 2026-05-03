@@ -66,6 +66,8 @@ func init() {
 	gameHandlers[48] = handleOpHeldT   // OPHELDT
 	gameHandlers[130] = handleOpHeldU // OPHELDU
 
+	gameHandlers[244] = handleChatSetMode // CHAT_SETMODE
+
 	gameHandlers[158] = handleMessagePublic // MESSAGE_PUBLIC
 
 	gameHandlers[235] = handleResumePauseButton // RESUME_PAUSEBUTTON
