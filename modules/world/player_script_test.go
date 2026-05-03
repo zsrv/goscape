@@ -1273,3 +1273,53 @@ func TestPlayerTeleport_InPlaceFocusUsesSelfCenter(t *testing.T) {
 		t.Error("in-place tele flag: got false, want true")
 	}
 }
+
+// TestOpenTutorial_SetsFieldsWithoutClosingOthers pins TS-fidelity:
+// opening the tutorial overlay does NOT close any other modal.
+// TS Player.ts:1999-2003 — `this.modalState |= ModalState.TUT;
+// this.modalTutorial = com;`. No clear of modalMain/Chat/Side.
+func TestOpenTutorial_SetsFieldsWithoutClosingOthers(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.modalMain = 5
+	p.modalChat = 7
+	p.modalSide = 9
+	p.modalState = modalStateMain | modalStateChat | modalStateSide
+
+	p.OpenTutorial(42)
+
+	if p.modalTutorial != 42 {
+		t.Errorf("modalTutorial: got %d, want 42", p.modalTutorial)
+	}
+	wantState := modalStateMain | modalStateChat | modalStateSide | modalStateTut
+	if p.modalState != wantState {
+		t.Errorf("modalState: got %#x, want %#x", p.modalState, wantState)
+	}
+	if p.modalMain != 5 {
+		t.Errorf("modalMain: got %d, want 5 (must not be cleared)", p.modalMain)
+	}
+	if p.modalChat != 7 {
+		t.Errorf("modalChat: got %d, want 7 (must not be cleared)", p.modalChat)
+	}
+	if p.modalSide != 9 {
+		t.Errorf("modalSide: got %d, want 9 (must not be cleared)", p.modalSide)
+	}
+}
+
+// TestOpenTutorial_RefreshFlagsUntouched pins that OpenTutorial uses
+// the lastModalTutorial diff-check pattern, NOT the existing
+// refreshModal/refreshModalClose flags. The existing flags are
+// reserved for the main/chat/side switch in encodeOut.
+func TestOpenTutorial_RefreshFlagsUntouched(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.refreshModal = false
+	p.refreshModalClose = false
+
+	p.OpenTutorial(42)
+
+	if p.refreshModal {
+		t.Error("refreshModal should remain false after OpenTutorial")
+	}
+	if p.refreshModalClose {
+		t.Error("refreshModalClose should remain false after OpenTutorial")
+	}
+}

@@ -775,10 +775,15 @@ func (p *Player) OpenMainSide(mainCom, sideCom int) {
 	p.refreshModal = true
 }
 
-// OpenTutorial — stubbed at T1 to satisfy the script.ActivePlayer
-// interface; real implementation lands at T2.
+// OpenTutorial sets the player's tutorial-overlay component. Per TS,
+// opening the tutorial does NOT close any other modal — the TUT bit
+// is OR'd into modalState and the tutorial id is stored. The
+// matching wire packet (OpTutOpen) is deferred to the next
+// encodeOut pass which detects the modalTutorial != lastModalTutorial
+// diff. Mirrors LostCityRS/Engine-TS Player.ts:1999-2003.
 func (p *Player) OpenTutorial(com int) {
-	// implemented in T2
+	p.modalTutorial = com
+	p.modalState |= modalStateTut
 }
 
 // SetResumeButtons stores the 5 resume-button interface ids for later

@@ -363,6 +363,12 @@ func (p *Player) encodeOut() {
 		}
 		p.refreshModal = false
 	}
+
+	if p.modalTutorial != p.lastModalTutorial {
+		payload := []byte{byte(p.modalTutorial >> 8), byte(p.modalTutorial)}
+		p.writeOut(gameserver.OpTutOpen, payload)
+		p.lastModalTutorial = p.modalTutorial
+	}
 }
 
 // writeOut ISAAC-encrypts op.Opcode, writes any length prefix, then writes

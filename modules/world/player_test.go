@@ -757,3 +757,178 @@ func TestProcessInCallsInputTrackingOnCycle(t *testing.T) {
 		t.Error("input.enabled: must be true after processIn → OnCycle → enable()")
 	}
 }
+
+func TestEncodeOutSendsTutOpen(t *testing.T) {
+	enc, _ := isaacPair([4]uint32{9, 10, 11, 12})
+	wantEnc, _ := isaacPair([4]uint32{9, 10, 11, 12})
+
+	p, clientConn := newTestPlayer(t)
+	p.client.encryptor = enc
+	p.OpenTutorial(42)
+
+	received := make(chan []byte, 1)
+	go func() {
+		buf := make([]byte, 3) // 1 encrypted opcode + 2 payload bytes
+		clientConn.SetReadDeadline(time.Now().Add(time.Second))
+		if _, err := io.ReadFull(clientConn, buf); err == nil {
+			received <- buf
+		}
+	}()
+
+	p.encodeOut()
+	p.client.flushWrite()
+
+	expectedByte := byte((int(gameserver.OpTutOpen.Opcode) + int(wantEnc.GetNext())) & 0xff)
+
+	select {
+	case got := <-received:
+		if got[0] != expectedByte {
+			t.Errorf("TUT_OPEN encrypted opcode: got %d, want %d", got[0], expectedByte)
+		}
+		component := int(got[1])<<8 | int(got[2])
+		if component != 42 {
+			t.Errorf("TUT_OPEN component: got %d, want 42", component)
+		}
+		if p.lastModalTutorial != 42 {
+			t.Errorf("lastModalTutorial: got %d, want 42", p.lastModalTutorial)
+		}
+	case <-time.After(time.Second):
+		t.Error("timed out waiting for TUT_OPEN")
+	}
+}
+
+func TestEncodeOutTutorialNoChangeNoEmit(t *testing.T) {
+	enc, _ := isaacPair([4]uint32{13, 14, 15, 16})
+	p, clientConn := newTestPlayer(t)
+	p.client.encryptor = enc
+
+	// First encodeOut after OpenTutorial(42): drain concurrently so
+	// flushWrite does not block on net.Pipe's synchronous writes.
+	p.OpenTutorial(42)
+	p.encodeOut()
+	drainDone := make(chan struct{})
+	go func() {
+		defer close(drainDone)
+		drain := make([]byte, 3)
+		clientConn.SetReadDeadline(time.Now().Add(time.Second))
+		io.ReadFull(clientConn, drain) //nolint:errcheck
+	}()
+	p.client.flushWrite()
+	<-drainDone // wait until first emit bytes are consumed
+
+	// Second pass — no field change.
+	p.encodeOut()
+	p.client.flushWrite()
+	clientConn.SetReadDeadline(time.Now().Add(50 * time.Millisecond))
+	buf := make([]byte, 16)
+	n, _ := clientConn.Read(buf)
+	if n != 0 {
+		t.Errorf("expected 0 bytes from no-change encodeOut, got %d", n)
+	}
+}
+
+// TestEncodeOutTutorialResetEmitsMinusOne pins the wire shape for
+// future TUT_CLOSE: setting modalTutorial back to -1 emits
+// OpTutOpen with payload [0xFF, 0xFF] (signed -1 → uint16 0xFFFF).
+// Mirrors TS Player.closeTutorial Player.ts:716-726 which writes
+// `new TutOpen(-1)`. closeTutorial itself is deferred; this test
+// pins the diff-check emit path independently.
+func TestEncodeOutTutorialResetEmitsMinusOne(t *testing.T) {
+	enc, _ := isaacPair([4]uint32{17, 18, 19, 20})
+	wantEnc, _ := isaacPair([4]uint32{17, 18, 19, 20})
+
+	p, clientConn := newTestPlayer(t)
+	p.client.encryptor = enc
+
+	// Establish lastModalTutorial = 42 via a first emit pass.
+	// net.Pipe() is synchronous: start a concurrent reader so flushWrite
+	// does not block, then signal when the drain bytes are consumed.
+	drainDone := make(chan struct{})
+	p.OpenTutorial(42)
+	p.encodeOut()
+	go func() {
+		defer close(drainDone)
+		drain := make([]byte, 3)
+		clientConn.SetReadDeadline(time.Now().Add(time.Second))
+		io.ReadFull(clientConn, drain) //nolint:errcheck
+	}()
+	p.client.flushWrite()
+	<-drainDone                // wait until first emit bytes are consumed
+	wantEnc.GetNext()          // consume the encryptor step for the first emit
+
+	// Now reset.
+	p.modalTutorial = -1
+
+	received := make(chan []byte, 1)
+	go func() {
+		buf := make([]byte, 3)
+		clientConn.SetReadDeadline(time.Now().Add(time.Second))
+		if _, err := io.ReadFull(clientConn, buf); err == nil {
+			received <- buf
+		}
+	}()
+
+	p.encodeOut()
+	p.client.flushWrite()
+
+	expectedByte := byte((int(gameserver.OpTutOpen.Opcode) + int(wantEnc.GetNext())) & 0xff)
+
+	select {
+	case got := <-received:
+		if got[0] != expectedByte {
+			t.Errorf("TUT_OPEN(reset) encrypted opcode: got %d, want %d", got[0], expectedByte)
+		}
+		if got[1] != 0xFF || got[2] != 0xFF {
+			t.Errorf("TUT_OPEN(reset) payload: got [%#x %#x], want [0xFF 0xFF]", got[1], got[2])
+		}
+		if p.lastModalTutorial != -1 {
+			t.Errorf("lastModalTutorial: got %d, want -1", p.lastModalTutorial)
+		}
+	case <-time.After(time.Second):
+		t.Error("timed out waiting for TUT_OPEN(-1)")
+	}
+}
+
+// TestEncodeOutTutorialIndependentOfMain pins that the tutorial emit
+// branch is INDEPENDENT of the main/chat/side switch — opening
+// main and tutorial in the same tick produces both packets.
+func TestEncodeOutTutorialIndependentOfMain(t *testing.T) {
+	enc, _ := isaacPair([4]uint32{21, 22, 23, 24})
+	p, clientConn := newTestPlayer(t)
+	p.client.encryptor = enc
+
+	p.OpenMain(1234)
+	p.OpenTutorial(42)
+
+	// Read up to 6 bytes (3 for IF_OPENMAIN + 3 for TUT_OPEN).
+	received := make(chan []byte, 1)
+	go func() {
+		buf := make([]byte, 6)
+		clientConn.SetReadDeadline(time.Now().Add(time.Second))
+		if n, err := io.ReadFull(clientConn, buf); err == nil && n == 6 {
+			received <- buf
+		}
+	}()
+
+	p.encodeOut()
+	p.client.flushWrite()
+
+	select {
+	case got := <-received:
+		if len(got) != 6 {
+			t.Fatalf("expected 6 bytes (3+3), got %d: %#v", len(got), got)
+		}
+		// Per encodeOut order, IF_OPENMAIN is emitted first (within
+		// the refreshModal switch), then the tutorial branch.
+		mainComp := int(got[1])<<8 | int(got[2])
+		tutComp := int(got[4])<<8 | int(got[5])
+		if mainComp != 1234 {
+			t.Errorf("main component: got %d, want 1234", mainComp)
+		}
+		if tutComp != 42 {
+			t.Errorf("tut component: got %d, want 42", tutComp)
+		}
+	case <-time.After(time.Second):
+		t.Error("timed out waiting for IF_OPENMAIN + TUT_OPEN")
+	}
+}
