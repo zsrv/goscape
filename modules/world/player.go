@@ -758,6 +758,25 @@ func (p *Player) processIn(currentTick int) {
 	if readAny {
 		p.lastResponse = currentTick // mirrors TS decodeIn() line 80
 	}
+
+	// NAI-73: per-tick input-tracking dispatch. Mirrors TS World.ts:646
+	// placement (last step of per-player client-input phase iteration).
+	p.processInputTracking(currentTick)
+}
+
+// processInputTracking dispatches per-tick input-recording state-machine
+// work. Mirrors TS Player.processInputTracking (Player.ts:1271-1273) →
+// this.input.onCycle(). Called from the end of processIn, mirroring TS
+// World.ts:646 placement (last step of the per-player iteration in the
+// client-input phase).
+//
+// Nil-guards p.input because newly-logged-in players may transition to
+// ClientStateGame before processLogins allocates their InputTracking.
+func (p *Player) processInputTracking(currentTick int) {
+	if p.input == nil {
+		return
+	}
+	p.input.OnCycle(currentTick)
 }
 
 // readPacket reads, ISAAC-decrypts, and dispatches one complete packet from c.in.

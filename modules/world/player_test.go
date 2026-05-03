@@ -734,3 +734,26 @@ func TestPlayer_ProtectedScriptActive_TruthTable(t *testing.T) {
 		})
 	}
 }
+
+// TestProcessInCallsInputTrackingOnCycle pins that the last line of
+// Player.processIn dispatches to InputTracking.OnCycle (TS World.ts:646
+// placement parity).
+func TestProcessInCallsInputTrackingOnCycle(t *testing.T) {
+	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.client.state = ClientStateGame
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = enc
+	p.input = &InputTracking{player: p}
+	// Position the window so OnCycle should fire enable() this tick.
+	p.input.startTrackingAt = 0
+	p.input.endTrackingAt = 1000
+	p.input.enabled = false
+
+	p.processIn(0)
+
+	if !p.input.enabled {
+		t.Error("input.enabled: must be true after processIn → OnCycle → enable()")
+	}
+}
