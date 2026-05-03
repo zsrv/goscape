@@ -137,6 +137,14 @@ func (s *Server) processLogins() {
 			sf := s.scriptProvider.GetByTrigger(script.TriggerLogin, -1, -1)
 			s.runScript(sf, p, nil, true, nil, nil)
 		}
+
+		// NAI-73: allocate the InputTracking state machine. Defaults
+		// session to "headless" until LOGIN-SERVER-BRIDGE-MOD ships a
+		// real UUID assignment.
+		p.input = NewInputTracking(p, s.currentTick)
+		if p.session == "" {
+			p.session = "headless"
+		}
 	}
 }
 
