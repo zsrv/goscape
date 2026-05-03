@@ -334,14 +334,12 @@ func (p *Player) tryInteract(allowOpScenery bool) bool {
 	}
 	// DEVIATION NAI-78-D-HASINTERACTION-GUARD: TS Player.ts:1114 also
 	// gates on `!this.hasInteraction()` (false for follow-op:
-	// APPLAYER3 / OPPLAYER3). Goscape has no follow-op short-circuit
-	// here; the case falls through to branch 3 and is then handled
-	// by processInteraction's waypoint-exhaustion clear at
-	// interaction.go:221. Behavioral difference is bounded to
-	// follow-op-with-no-scripts adjacent: post-NAI-78 surfaces a
-	// "Nothing interesting happens." NIH after one extra tick where
-	// pre-NAI-78 produced an immediate ClearInteraction. Defer port
-	// alongside the rest of the follow-op semantics.
+	// APPLAYER3 / OPPLAYER3). Pre-existing gap — was absent in the
+	// 2-branch shape too. NAI-78 shifts the path the case follows (now
+	// branch 3 → followOp post-step gate at processInteraction:221
+	// rather than direct OP-block dispatch) but the underlying gap
+	// is unchanged. Defer port alongside the rest of the follow-op
+	// semantics.
 	srv := p.client.server
 
 	opTrigger := getOpTrigger(p, srv)
