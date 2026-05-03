@@ -47,7 +47,7 @@ func TestLoadLocTypes_RealCache_CascadeBlockerLocs(t *testing.T) {
 			t.Errorf("loc %d (%s): nil config", tc.id, tc.name)
 			continue
 		}
-		if cfg.Op == nil || len(cfg.Op) < 1 || cfg.Op[0] == "" {
+		if len(cfg.Op) < 1 || cfg.Op[0] == "" {
 			t.Errorf("loc %d (%s): expected Op[0] non-empty (NAI-80 cascade-blocker pin); got DebugName=%q Op=%v",
 				tc.id, tc.name, cfg.DebugName, cfg.Op)
 		}
@@ -57,7 +57,7 @@ func TestLoadLocTypes_RealCache_CascadeBlockerLocs(t *testing.T) {
 	// Implementer-derived probe — see commit body for which loc was pinned.
 	if id, ok := cfgs.ConfigNames["oaktree"]; ok {
 		cfg := cfgs.Configs[id]
-		if cfg.Op == nil || cfg.Op[0] != "Chop down" {
+		if len(cfg.Op) < 1 || cfg.Op[0] != "Chop down" {
 			t.Errorf("ID-shift probe: ConfigNames[%q]=%d, Op[0]=%q, want %q",
 				"oaktree", id, cfg.Op[0], "Chop down")
 		}
