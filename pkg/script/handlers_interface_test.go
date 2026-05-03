@@ -1123,3 +1123,72 @@ func TestHandleIfSetTabActiveNullRejected(t *testing.T) {
 		t.Errorf("IfSetTabActive: should not have been called, got %d", mp.lastIfSetTabActive)
 	}
 }
+
+// -- NAI-76: TUT_OPEN tests ------------------------------------------------
+
+// TestTutOpen pins TUT_OPEN script-opcode dispatch:
+// state.popInt() → ActivePlayer.OpenTutorial(com).
+// Mirrors TS PlayerOps.ts:723-725.
+func TestTutOpen(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "tut_open",
+		Opcodes:          []Opcode{OpPushConstantInt, OpTutOpen, OpReturn},
+		IntOperands:      []int32{42, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if mp.lastOpenTutorial != 42 {
+		t.Errorf("OpenTutorial: got %d, want 42", mp.lastOpenTutorial)
+	}
+}
+
+// TestHandleTutOpenNullRejected pins TUT_OPEN: TS wraps com with
+// NumberNotNull (PlayerOps.ts:723-724). A com value of -1 must be
+// rejected before any side-effect occurs.
+func TestHandleTutOpenNullRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "tut_open_null_com",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // com = -1
+			OpTutOpen,
+			OpReturn,
+		},
+		IntOperands: []int32{-1, 0, 0},
+	}
+	state := Init(sf, mp, false, nil, nil)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for com=-1, got nil")
+	}
+	want := "TUT_OPEN: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if mp.lastOpenTutorial != 0 {
+		t.Errorf("OpenTutorial: should not have been called, got %d", mp.lastOpenTutorial)
+	}
+}
+
+func TestTutOpenNoActivePlayer(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "tut_open_nap",
+		Opcodes:          []Opcode{OpPushConstantInt, OpTutOpen, OpReturn},
+		IntOperands:      []int32{1, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	if err := Execute(state); err == nil {
+		t.Fatal("expected error from TUT_OPEN with no active player, got nil")
+	}
+	if state.Execution != Aborted {
+		t.Errorf("Execution: got %v, want Aborted", state.Execution)
+	}
+}

@@ -277,12 +277,15 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpInvOtherTransmit: handleInvOtherTransmit,
 
 	// S5f: interface / modal.
-	// Modal management (5).
+	// Modal management (6).
 	OpIfClose:        handleIfClose,
 	OpIfOpenMain:     handleIfOpenMain,
 	OpIfOpenChat:     handleIfOpenChat,
 	OpIfOpenSide:     handleIfOpenSide,
 	OpIfOpenMainSide: handleIfOpenMainSide,
+	OpTutOpen:        handleTutOpen,
+	// OpTutClose: deferred to later sub-spec — TUT_CLOSE handler port
+	// + Player.closeTutorial() method. See NAI-76 spec §5 R4.
 	// Per-component setters (12).
 	OpIfSetText:       handleIfSetText,
 	OpIfSetModel:      handleIfSetModel,
