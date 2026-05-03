@@ -71,6 +71,7 @@ func init() {
 	gameHandlers[11] = handleFriendListDel  // FRIENDLIST_DEL
 	gameHandlers[79] = handleIgnoreListAdd  // IGNORELIST_ADD
 	gameHandlers[171] = handleIgnoreListDel // IGNORELIST_DEL
+	gameHandlers[190] = handleReportAbuse   // REPORT_ABUSE
 
 	gameHandlers[158] = handleMessagePublic // MESSAGE_PUBLIC
 
