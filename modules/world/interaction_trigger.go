@@ -503,9 +503,10 @@ func apObjTriggerForOp(op int) (script.ServerTriggerType, bool) {
 }
 
 // apTriggerForTarget dispatches to the per-entity-type apXxxTriggerForOp
-// helper. Returns ok=false when target is nil or targetOp is unsupported
-// for the target's concrete type. Internal — used by getOpTrigger and
-// getApTrigger to share the type-switch.
+// helper. Returns ok=false when targetOp is unsupported for the target's
+// concrete type or when the concrete type is unrecognised. Callers gate
+// nil-target externally. Internal — used by getOpTrigger and getApTrigger
+// to share the type-switch.
 func apTriggerForTarget(p *Player) (script.ServerTriggerType, bool) {
 	switch p.target.(type) {
 	case *Npc:
@@ -527,6 +528,16 @@ func apTriggerForTarget(p *Player) (script.ServerTriggerType, bool) {
 // Player target: typeId stays -1 (TS Player.ts:971-972 default — Player
 // branch doesn't set type) and categoryId stays -1 (provider falls
 // through LookupKeyForType / LookupKeyForCategory to LookupKeyForGlobal).
+//
+// DEVIATION NAI-78-D-NULL-TYPE-GUARD-OMITTED: TS getOpTrigger:983-985 /
+// getApTrigger:1015-1017 has a `if (!type) return null` guard that fires
+// when NpcType.get / LocType.get / ObjType.get returns null (entity has
+// an unknown type ID). Goscape's per-arm fallback to categoryId=0 lets
+// execution continue to GetByTrigger, which returns nil from the 3-tier
+// fallback in practice (no scripts registered at the unknown key).
+// Matches existing fire-helper convention at interaction_trigger.go (Npc
+// branch reads `if npc.typ != nil { … }`). Production cache always
+// registers types for spawned entities.
 //
 // Internal — used by getOpTrigger and getApTrigger.
 func triggerTypeAndCategory(p *Player, srv *Server) (typeId, categoryId int) {

@@ -332,6 +332,16 @@ func (p *Player) tryInteract(allowOpScenery bool) bool {
 	if p.target == nil {
 		return false
 	}
+	// DEVIATION NAI-78-D-HASINTERACTION-GUARD: TS Player.ts:1114 also
+	// gates on `!this.hasInteraction()` (false for follow-op:
+	// APPLAYER3 / OPPLAYER3). Goscape has no follow-op short-circuit
+	// here; the case falls through to branch 3 and is then handled
+	// by processInteraction's waypoint-exhaustion clear at
+	// interaction.go:221. Behavioral difference is bounded to
+	// follow-op-with-no-scripts adjacent: post-NAI-78 surfaces a
+	// "Nothing interesting happens." NIH after one extra tick where
+	// pre-NAI-78 produced an immediate ClearInteraction. Defer port
+	// alongside the rest of the follow-op semantics.
 	srv := p.client.server
 
 	opTrigger := getOpTrigger(p, srv)
@@ -377,8 +387,6 @@ func (p *Player) tryInteract(allowOpScenery bool) bool {
 	// interaction, then return false to let processInteraction's
 	// post-step branch run (pathToTarget → walktrigger → post-step
 	// tryInteract with allowOpScenery=true so branch 1 can fire OP).
-	//
-	// THIS IS THE NAI-78 LOAD-BEARING FIX.
 	if approach {
 		p.apRange = -1
 		return false
@@ -398,10 +406,12 @@ func (p *Player) tryInteract(allowOpScenery bool) bool {
 // [op…] script is registered. Mirrors LostCityRS/Engine-TS
 // Player.ts:1072-1097.
 //
-// Skips the NODE_PRODUCTION-gated dev "No trigger for [...]" debug
-// message at TS Player.ts:1076-1093 — goscape has no equivalent dev/prod
-// flag and the chat-only path matches all known production-mode TS
-// behavior.
+// DEVIATION NAI-78-D-DEBUG-MSG-DEFERRED: TS Player.ts:1076-1093 emits a
+// `[debug] No trigger for [op<entity><op>,<typeName>]` chat message under
+// `!NODE_PRODUCTION`. Goscape's analogue is `Cfg.NodeDebug` (config.go:76,
+// "Extra debug info, e.g. missing triggers"), but no other interaction-tier
+// missing-trigger handler consults it today. The debug-emit port is
+// deferred to a future sub-spec for cross-handler consistency.
 func defaultOp(p *Player) {
 	p.MessageGame("Nothing interesting happens.")
 	p.waypointIndex = -1 // TS Player.ts:1096 — clearWaypoints()
