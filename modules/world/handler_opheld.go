@@ -1,6 +1,8 @@
 package world
 
 import (
+	"fmt"
+
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
@@ -26,10 +28,10 @@ import (
 // fire [opheld<op>,<objId>] via GetByTrigger keyed on
 // (objType.id, objType.Category) and runScript with protect=true.
 //
-// DEVIATION NAI-71-D-OPHELD-NO-SESSION-LOG: TS OpHeldHandler.ts:62-65
-// calls addSessionLog(MODERATOR, ...) for op != 5. Skipped — no
-// session-log subsystem in goscape. Closure path: future moderator-
-// logging sub-spec ports LoggerEventType + session-log buffer.
+// Per TS OpHeldHandler.ts:62-65: op != 5 emits a MODERATOR session
+// log "<iop> <debugname>". (op == 5 is wealth-logged in content
+// scripts, not here.) NAI-74 activates this; the prior
+// NAI-71-D-OPHELD-NO-SESSION-LOG deviation is closed.
 func handleOpHeld(p *Player, payload []byte, op int) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
@@ -92,6 +94,13 @@ func handleOpHeld(p *Player, payload []byte, op int) error {
 	}
 	p.masks |= p.entitymask
 
+	// NAI-74: NAI-71-D close. TS OpHeldHandler.ts:62-65 — unconditional
+	// at this point in the pipeline (before script lookup).
+	if op != 5 {
+		p.AddSessionLog(LoggerEventTypeModerator,
+			fmt.Sprintf("%s %s", objType.IOp[op-1], objType.DebugName))
+	}
+
 	trigger := script.TriggerOpHeld1 + script.ServerTriggerType(op-1)
 	sf := s.scriptProvider.GetByTrigger(trigger, obj, objType.Category)
 	s.runScript(sf, p, nil, true, nil, nil)
@@ -126,10 +135,10 @@ func handleOpHeld5(p *Player, payload []byte) error { return handleOpHeld(p, pay
 // GetByTrigger(typeID=spellComId, cat=-1). On no-script: emit
 // "Nothing interesting happens.".
 //
-// DEVIATION NAI-71-D-OPHELD-NO-SESSION-LOG: TS OpHeldTHandler.ts:61
-// addSessionLog skipped — no session-log subsystem in goscape. Closure
-// path: future moderator-logging sub-spec ports LoggerEventType +
-// session-log buffer.
+// Per TS OpHeldTHandler.ts:61: emits a MODERATOR session log
+// "Cast <comName> on <debugname>" before script dispatch. NAI-74
+// activates this; the prior NAI-71-D-OPHELD-NO-SESSION-LOG
+// deviation is closed.
 func handleOpHeldT(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
@@ -185,6 +194,18 @@ func handleOpHeldT(p *Player, payload []byte) error {
 		p.faceEntity = -1
 	}
 	p.masks |= p.entitymask
+
+	// NAI-74: NAI-71-D close. TS OpHeldTHandler.ts:61 — unconditional at
+	// this point in the pipeline. Inline ObjType lookup is goscape-only
+	// (TS uses ObjType.get(obj).debugname which would throw on missing
+	// config; goscape skips the session-log on missing — defensive,
+	// goscape behaviour-preserving since TS would have thrown).
+	if s.objTypes != nil && obj >= 0 && obj < len(s.objTypes.Configs) {
+		if objType := s.objTypes.Configs[obj]; objType != nil {
+			p.AddSessionLog(LoggerEventTypeModerator,
+				fmt.Sprintf("Cast %s on %s", spellCom.ComName, objType.DebugName))
+		}
+	}
 
 	sf := s.scriptProvider.GetByTrigger(script.TriggerOpHeldT, spellComId, -1)
 	if sf == nil {

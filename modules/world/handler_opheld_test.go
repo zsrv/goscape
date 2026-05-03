@@ -2,6 +2,7 @@ package world
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
@@ -734,6 +735,155 @@ func TestHandleOpHeldU_AllMiss_NothingInteresting(t *testing.T) {
 	got := <-received
 	if !bytes.Contains(got, []byte("Nothing interesting happens.")) {
 		t.Errorf("want \"Nothing interesting happens.\" in drained bytes, got %x", got)
+	}
+}
+
+// TestHandleOpHeldSessionLogPushOp1Through4 pins NAI-71-D close: every
+// successful op != 5 dispatch pushes one MODERATOR session-log record
+// formatted as "<iop> <debugname>". Exercises ops 1..4.
+func TestHandleOpHeldSessionLogPushOp1Through4(t *testing.T) {
+	cases := []struct {
+		op       int
+		iop      string
+		wantSkip bool
+	}{
+		{1, "op1", false},
+		{2, "op2", false},
+		{3, "op3", false},
+		{4, "op4", false},
+	}
+	for _, tc := range cases {
+		t.Run(fmt.Sprintf("op%d", tc.op), func(t *testing.T) {
+			s, p := setupOpHeldServer(t)
+			// Seed all 5 IOp slots so each op is allowed.
+			s.objTypes.Configs[555].IOp = []string{"op1", "op2", "op3", "op4", "op5"}
+			p.session = "test-sess"
+			p.level, p.x, p.z = 0, 3200, 3200
+
+			err := handleOpHeld(p, opHeldPayload(555, 3, 149), tc.op)
+			if err != nil {
+				t.Fatalf("handleOpHeld op=%d: %v", tc.op, err)
+			}
+
+			if got := len(s.sessionLogs); got != 1 {
+				t.Fatalf("sessionLogs after op=%d: got %d, want 1", tc.op, got)
+			}
+			lg := s.sessionLogs[0]
+			wantEvent := tc.iop + " test_held"
+			if lg.Event != wantEvent {
+				t.Errorf("Event: got %q, want %q", lg.Event, wantEvent)
+			}
+			if lg.EventType != LoggerEventTypeModerator {
+				t.Errorf("EventType: got %d, want MODERATOR(%d)", lg.EventType, LoggerEventTypeModerator)
+			}
+			if lg.SessionUUID != "test-sess" {
+				t.Errorf("SessionUUID: got %q, want test-sess", lg.SessionUUID)
+			}
+		})
+	}
+}
+
+// TestHandleOpHeldOp5NoSessionLog pins the TS wealth-log carve-out:
+// op == 5 must NOT push a session-log (TS OpHeldHandler.ts:63).
+func TestHandleOpHeldOp5NoSessionLog(t *testing.T) {
+	s, p := setupOpHeldServer(t)
+	s.objTypes.Configs[555].IOp = []string{"op1", "op2", "op3", "op4", "op5"}
+
+	if err := handleOpHeld(p, opHeldPayload(555, 3, 149), 5); err != nil {
+		t.Fatalf("handleOpHeld op=5: %v", err)
+	}
+
+	if got := len(s.sessionLogs); got != 0 {
+		t.Errorf("sessionLogs: got %d, want 0 (op=5 must skip session-log)", got)
+	}
+}
+
+// TestHandleOpHeldSessionLogBeforeScript pins that the session-log push
+// happens unconditionally on the gates-passed path — even when no script
+// is registered for the trigger. Mirrors TS unconditional addSessionLog
+// at OpHeldHandler.ts:62-65 (line 64 runs before the line-69 dispatch).
+func TestHandleOpHeldSessionLogBeforeScript(t *testing.T) {
+	s, p := setupOpHeldServer(t)
+	s.objTypes.Configs[555].IOp = []string{"op1", "", "", "", ""}
+	// Do NOT register any script for the OPHELD1 trigger — runScript(nil) is no-op.
+
+	if err := handleOpHeld(p, opHeldPayload(555, 3, 149), 1); err != nil {
+		t.Fatalf("handleOpHeld op=1: %v", err)
+	}
+
+	if got := len(s.sessionLogs); got != 1 {
+		t.Errorf("sessionLogs: got %d, want 1 (push must fire regardless of script presence)", got)
+	}
+}
+
+// TestHandleOpHeldTSessionLogPush pins NAI-71-D close for OPHELDT:
+// successful dispatch pushes one MODERATOR record formatted as
+// "Cast <comName> on <debugname>" (TS OpHeldTHandler.ts:61).
+func TestHandleOpHeldTSessionLogPush(t *testing.T) {
+	s, p := setupOpHeldTServer(t)
+	// Set ComName on spell component 200 — re-seed because seedComponentTypes is full-replace.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Operable: true, Usable: true},
+		200: {RootLayer: 200, ActionTarget: objtype.ComActionTargetHeld, ComName: "spell_blast"},
+	})
+	// Register a no-op script to prevent the "Nothing interesting happens."
+	// fallback from reaching MessageGame (which requires an encryptor).
+	s.scriptProvider.Register(&script.ScriptFile{
+		Name:             "[opheldt,200]",
+		LookupKey:        script.LookupKeyForType(script.TriggerOpHeldT, 200),
+		Opcodes:          []script.Opcode{script.OpReturn},
+		IntOperands:      []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+	})
+	p.session = "wizard-sess"
+
+	if err := handleOpHeldT(p, opHeldTPayload(555, 3, 149, 200)); err != nil {
+		t.Fatalf("handleOpHeldT: %v", err)
+	}
+
+	if got := len(s.sessionLogs); got != 1 {
+		t.Fatalf("sessionLogs: got %d, want 1", got)
+	}
+	lg := s.sessionLogs[0]
+	wantEvent := "Cast spell_blast on test_held"
+	if lg.Event != wantEvent {
+		t.Errorf("Event: got %q, want %q", lg.Event, wantEvent)
+	}
+	if lg.EventType != LoggerEventTypeModerator {
+		t.Errorf("EventType: got %d, want MODERATOR(%d)", lg.EventType, LoggerEventTypeModerator)
+	}
+	if lg.SessionUUID != "wizard-sess" {
+		t.Errorf("SessionUUID: got %q, want wizard-sess", lg.SessionUUID)
+	}
+}
+
+// TestHandleOpHeldTSessionLogMissingObjType pins the goscape-defensive
+// guard: when the obj has no registered ObjType, the session-log is
+// skipped (no panic). TS would throw at ObjType.get(obj).debugname.
+func TestHandleOpHeldTSessionLogMissingObjType(t *testing.T) {
+	s, p := setupOpHeldTServer(t)
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Operable: true, Usable: true},
+		200: {RootLayer: 200, ActionTarget: objtype.ComActionTargetHeld, ComName: "spell_blast"},
+	})
+	// Register a no-op script to prevent the "Nothing interesting happens."
+	// fallback from reaching MessageGame (which requires an encryptor).
+	s.scriptProvider.Register(&script.ScriptFile{
+		Name:             "[opheldt,200]",
+		LookupKey:        script.LookupKeyForType(script.TriggerOpHeldT, 200),
+		Opcodes:          []script.Opcode{script.OpReturn},
+		IntOperands:      []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+	})
+	// Place an item with id=999 in inv slot 3 so HasAt passes, but use an obj id whose
+	// ObjType is nil (default-zero slice slot — Configs len is 600).
+	s.invs[93].Items[3] = &inventory.Item{Id: 999, Count: 1}
+
+	if err := handleOpHeldT(p, opHeldTPayload(999, 3, 149, 200)); err != nil {
+		t.Fatalf("handleOpHeldT: %v", err)
+	}
+
+	// No panic; no session-log pushed because ObjType is nil/out-of-bounds.
+	if got := len(s.sessionLogs); got != 0 {
+		t.Errorf("sessionLogs: got %d, want 0 (missing ObjType must skip session-log)", got)
 	}
 }
 
