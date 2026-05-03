@@ -184,11 +184,17 @@ func (p *Player) processInteraction() {
 	// NAI-79 Stage 1 — pre-step state capture for Frame B emit at tail.
 	// All target-coord fields refer to the INITIAL target; target_still_set
 	// separately signals whether p.target was nulled during the tick.
+	// Trigger-lookup capture is gated on NodeDebug to avoid the per-tick
+	// hot-path cost of two extra GetByTrigger calls when instrumentation
+	// is disabled. Frame B emission gates again on NodeDebug at the tail.
 	hadTarget := true
 	initialTarget := p.target
 	initialTargetX, initialTargetZ, _ := p.target.Coords()
-	opTriggerPresent := getOpTrigger(p, s) != nil
-	apTriggerPresent := getApTrigger(p, s) != nil
+	var opTriggerPresent, apTriggerPresent bool
+	if s.cfg.NodeDebug {
+		opTriggerPresent = getOpTrigger(p, s) != nil
+		apTriggerPresent = getApTrigger(p, s) != nil
+	}
 	p.lastInteractBranchPre = 0
 	p.lastInteractBranchPost = 0
 	p.interactCallSlot = 0
