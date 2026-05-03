@@ -73,6 +73,8 @@ func init() {
 	gameHandlers[171] = handleIgnoreListDel // IGNORELIST_DEL
 	gameHandlers[190] = handleReportAbuse   // REPORT_ABUSE
 
+	gameHandlers[81] = handleEventTracking // EVENT_TRACKING
+
 	gameHandlers[158] = handleMessagePublic // MESSAGE_PUBLIC
 
 	gameHandlers[235] = handleResumePauseButton // RESUME_PAUSEBUTTON
