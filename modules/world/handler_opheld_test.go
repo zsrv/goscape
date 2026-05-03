@@ -873,8 +873,9 @@ func TestHandleOpHeldTSessionLogMissingObjType(t *testing.T) {
 		Opcodes:          []script.Opcode{script.OpReturn},
 		IntOperands:      []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
 	})
-	// Place an item with id=999 in inv slot 3 so HasAt passes, but use an obj id whose
-	// ObjType is nil (default-zero slice slot — Configs len is 600).
+	// Place an item with id=999 in inv slot 3 so HasAt passes, but use an obj id
+	// that's out-of-bounds for the Configs slice (Configs len is 600 from
+	// setupOpHeldServer; 999 trips the bounds-guard in the new ObjType lookup).
 	s.invs[93].Items[3] = &inventory.Item{Id: 999, Count: 1}
 
 	if err := handleOpHeldT(p, opHeldTPayload(999, 3, 149, 200)); err != nil {
