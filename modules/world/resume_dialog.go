@@ -6,27 +6,21 @@ import (
 )
 
 // handleResumePauseButton handles client opcode 235 (RESUME_PAUSEBUTTON).
-// Body: u16 component-id of the clicked button. If the button matches
-// one of the player's pre-stored resumeButtons and the activeScript is
-// in the PauseButton state, execution resumes.
+// Body: 2 bytes (component-id echoed by Java client) — IGNORED per TS
+// ResumePauseButtonHandler.ts:7-14 (the TS decoder reads no body and the
+// handler never inspects payload, lastCom, or resumeButtons). Resumes
+// the active script if it is PauseButton-suspended; no-ops otherwise.
+//
+// Why this matters: the standard chatnpc proc (chat.rs2:303-311) never
+// calls if_setresumebuttons, so resumeButtons is empty when "Click here
+// to continue" fires. A resumeButtons match-gate would deadlock chat
+// dialogs — confirmed at NAI-75 smoke. Match TS exactly.
 func (s *Server) handleResumePauseButton(p *Player, buf *packet.Packet) error {
-	com := int(buf.G2())
-	p.lastCom = com
+	_ = buf.G2() // consume the 2-byte com echo; payload value is ignored
 
 	if p.activeScript == nil || p.activeScript.Execution != script.PauseButton {
 		return nil
 	}
-	matched := false
-	for _, b := range p.resumeButtons {
-		if b == com {
-			matched = true
-			break
-		}
-	}
-	if !matched {
-		return nil
-	}
-
 	p.activeScript.Execution = script.Running
 	s.resumeOrFinish(p.activeScript, p)
 	return nil

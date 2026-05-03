@@ -803,6 +803,67 @@ func TestPauseButtonResumesAfterClick(t *testing.T) {
 	}
 }
 
+// TestResumePauseButtonResumesEvenWithEmptyResumeButtons pins TS fidelity
+// per ResumePauseButtonHandler.ts:7-14 — RESUME_PAUSEBUTTON resumes any
+// PauseButton-suspended script regardless of payload value AND regardless
+// of the resumeButtons array contents. This unblocks chatnpc dialogs,
+// which never call if_setresumebuttons (chat.rs2:303-311).
+func TestResumePauseButtonResumesEvenWithEmptyResumeButtons(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	// resumeButtons LEFT AT ZERO VALUE (all zeros); payload com value
+	// (9999) is ALSO not in resumeButtons. Both must be ignored under
+	// TS fidelity.
+
+	sf := &script.ScriptFile{
+		Name: "[pausebutton,empty_resumebuttons]",
+		Opcodes: []script.Opcode{
+			script.OpPushConstantString,
+			script.OpMes,
+			script.OpPPauseButton,
+			script.OpPushConstantString,
+			script.OpMes,
+			script.OpReturn,
+		},
+		IntOperands:      []int32{0, 0, 0, 0, 0, 0},
+		StringOperands:   []string{"before", "", "", "after", "", ""},
+		InstructionCount: 6,
+	}
+
+	received := drainConn(t, cc)
+	s.runScript(sf, p, nil, true, nil, nil)
+	p.client.flushWrite()
+	<-received
+
+	if p.activeScript == nil || p.activeScript.Execution != script.PauseButton {
+		t.Fatalf("setup: expected PauseButton state, got activeScript=%v", p.activeScript)
+	}
+
+	// Send RESUME_PAUSEBUTTON with com=9999 (NOT in p.resumeButtons,
+	// which is the zero-value [5]int{0,0,0,0,0}). TS-fidelity handler
+	// ignores the payload and resumes anyway.
+	received2 := drainConn(t, cc)
+	buf := packet.NewPacket([]byte{0x27, 0x0F}) // 9999 = 0x270F
+	if err := s.handleResumePauseButton(p, buf); err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+	p.client.flushWrite()
+	second := <-received2
+
+	if string(second[2:7]) != "after" {
+		t.Errorf("post-resume payload: got %q, want \"after\"", second[2:])
+	}
+	if p.activeScript != nil {
+		t.Errorf("activeScript after resume-and-finish: got %v, want nil", p.activeScript)
+	}
+}
+
 // TestStrongQueueFiresWhileDelayed verifies STRONG-tagged queue entries
 // fire through processPlayerQueue even when p.delayed=true. This gates
 // the STRONG queue variant introduced in sub-spec S5h.
