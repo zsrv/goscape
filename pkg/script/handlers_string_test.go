@@ -104,17 +104,6 @@ func TestStringIndexOfString(t *testing.T) {
 	}
 }
 
-func TestSplitStubsReturnZeroes(t *testing.T) {
-	got, _ := runStringOp(t, OpSplitLineCount, []int{0}, nil)
-	if got != 0 {
-		t.Errorf("SplitLineCount stub: got %d, want 0", got)
-	}
-	got, _ = runStringOp(t, OpSplitPageCount, nil, nil)
-	if got != 0 {
-		t.Errorf("SplitPageCount stub: got %d, want 0", got)
-	}
-}
-
 // runSplitInit pushes (text, maxWidth, linesPerPage, fontId) and runs
 // SPLIT_INIT against a fresh state, then returns the state for assertion.
 func runSplitInit(t *testing.T, text string, maxWidth, linesPerPage, fontId int) *ScriptState {
@@ -241,4 +230,113 @@ func equalStrings(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// runSplitInitThen runs SPLIT_INIT then a single follow-up opcode in the
+// same script, returning the state. Used by SPLIT_GET/PAGECOUNT/etc tests.
+func runSplitInitThen(t *testing.T, initText string, linesPerPage int, follow Opcode, followInts []int) *ScriptState {
+	t.Helper()
+	ops := []Opcode{OpSplitInit, follow, OpReturn}
+	sf := &ScriptFile{
+		Name:             "test_split_init_then_" + follow.String(),
+		Opcodes:          ops,
+		IntOperands:      make([]int32, len(ops)),
+		StringOperands:   make([]string, len(ops)),
+		InstructionCount: uint32(len(ops)),
+	}
+	state := Init(sf, nil, false, nil, nil)
+	// Push in reverse execution order: follow-up args first (deepest in
+	// stack), then SPLIT_INIT args on top (popped first by the first opcode).
+	// Follow-up opcode args (e.g. page index for SPLIT_GET).
+	for _, v := range followInts {
+		state.PushInt(v)
+	}
+	// SPLIT_INIT args: text, maxWidth, linesPerPage, fontId (fontId on top).
+	state.PushString(initText)
+	state.PushInt(380)
+	state.PushInt(linesPerPage)
+	state.PushInt(8)
+	if err := Execute(state); err != nil {
+		t.Fatalf("SPLIT_INIT+%s: unexpected error: %v", follow.String(), err)
+	}
+	return state
+}
+
+func TestSplitPageCountAfterInit(t *testing.T) {
+	// 5 lines, linesPerPage=4 → 2 pages.
+	s := runSplitInitThen(t, "a|b|c|d|e", 4, OpSplitPageCount, nil)
+	got := s.PopInt()
+	if got != 2 {
+		t.Errorf("SPLIT_PAGECOUNT: got %d, want 2", got)
+	}
+}
+
+func TestSplitPageCountBeforeInit(t *testing.T) {
+	// No SPLIT_INIT call — SplitPages is nil; len(nil) = 0.
+	sf := &ScriptFile{
+		Name:             "test_split_pagecount_uninit",
+		Opcodes:          []Opcode{OpSplitPageCount, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("SPLIT_PAGECOUNT uninit: %v", err)
+	}
+	if got := state.PopInt(); got != 0 {
+		t.Errorf("SPLIT_PAGECOUNT (no prior SPLIT_INIT): got %d, want 0", got)
+	}
+}
+
+func TestSplitLineCountAfterInit(t *testing.T) {
+	// 5 lines, linesPerPage=4 → page 0 has 4 lines, page 1 has 1.
+	s := runSplitInitThen(t, "a|b|c|d|e", 4, OpSplitLineCount, []int{0})
+	if got := s.PopInt(); got != 4 {
+		t.Errorf("SPLIT_LINECOUNT(0): got %d, want 4", got)
+	}
+	s = runSplitInitThen(t, "a|b|c|d|e", 4, OpSplitLineCount, []int{1})
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("SPLIT_LINECOUNT(1): got %d, want 1", got)
+	}
+}
+
+func TestSplitLineCountOutOfBounds(t *testing.T) {
+	// Defensive: TS would throw; goscape pushes 0 and logs debug.
+	s := runSplitInitThen(t, "a|b", 4, OpSplitLineCount, []int{99})
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("SPLIT_LINECOUNT(99) on 1-page state: got %d, want 0 (defensive)", got)
+	}
+}
+
+func TestSplitGetAfterInit(t *testing.T) {
+	s := runSplitInitThen(t, "first|second|third", 4, OpSplitGet, []int{0, 1})
+	if got := s.PopString(); got != "second" {
+		t.Errorf("SPLIT_GET(0,1): got %q, want %q", got, "second")
+	}
+	s = runSplitInitThen(t, "first|second|third", 4, OpSplitGet, []int{0, 0})
+	if got := s.PopString(); got != "first" {
+		t.Errorf("SPLIT_GET(0,0): got %q, want %q", got, "first")
+	}
+}
+
+func TestSplitGetOutOfBounds(t *testing.T) {
+	// Defensive: TS would throw on undefined access; goscape pushes "".
+	s := runSplitInitThen(t, "a", 4, OpSplitGet, []int{99, 99})
+	if got := s.PopString(); got != "" {
+		t.Errorf("SPLIT_GET(99,99): got %q, want \"\" (defensive)", got)
+	}
+}
+
+func TestSplitGetAnimReturnsMinusOne(t *testing.T) {
+	// NAI-75-D-MESANIM-NOT-PORTED: SPLIT_GETANIM unconditionally returns -1
+	// regardless of prefix, until MesanimType cache loader ports.
+	s := runSplitInitThen(t, "<p,neutral>Greetings", 4, OpSplitGetAnim, []int{0})
+	if got := s.PopInt(); got != -1 {
+		t.Errorf("SPLIT_GETANIM(0) with prefix: got %d, want -1 (NAI-75-D-MESANIM-NOT-PORTED pin)", got)
+	}
+	s = runSplitInitThen(t, "no prefix", 4, OpSplitGetAnim, []int{0})
+	if got := s.PopInt(); got != -1 {
+		t.Errorf("SPLIT_GETANIM(0) no prefix: got %d, want -1", got)
+	}
 }

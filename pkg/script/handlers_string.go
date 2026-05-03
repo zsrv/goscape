@@ -149,28 +149,61 @@ func handleSplitInit(s *ScriptState) error {
 	return nil
 }
 
+// handleSplitGet ports TS SPLIT_GET (StringOps.ts:98-102). Pops
+// (page, line); pushes s.SplitPages[page][line]. Out-of-bounds pushes
+// empty string (goscape defensive; TS throws — labelled per
+// defensive_gate_doc_comment_label.md).
 func handleSplitGet(s *ScriptState) error {
-	// TS pops (page, line).
-	_ = s.PopInt()
-	_ = s.PopInt()
-	s.PushString("")
+	line := s.PopInt()
+	page := s.PopInt()
+	if page < 0 || page >= len(s.SplitPages) {
+		s.PushString("")
+		slog.Debug("SPLIT_GET out of page range",
+			"script", s.Script.Name, "page", page, "pages", len(s.SplitPages))
+		return nil
+	}
+	pg := s.SplitPages[page]
+	if line < 0 || line >= len(pg) {
+		s.PushString("")
+		slog.Debug("SPLIT_GET out of line range",
+			"script", s.Script.Name, "page", page, "line", line, "lines", len(pg))
+		return nil
+	}
+	s.PushString(pg[line])
 	return nil
 }
 
+// handleSplitGetAnim ports TS SPLIT_GETANIM (StringOps.ts:114-122).
+// Pops page; pushes -1 unconditionally per NAI-75-D-MESANIM-NOT-PORTED
+// (no MesanimType cache loader; the TS path requires
+// MesanimValid.len[lineCount-1] which depends on it). Closure: future
+// MesanimType cache loader sub-spec wires the lookup here.
 func handleSplitGetAnim(s *ScriptState) error {
-	_ = s.PopInt()
-	_ = s.PopInt()
+	_ = s.PopInt() // page — unused per NAI-75-D-MESANIM-NOT-PORTED
 	s.PushInt(-1)
 	return nil
 }
 
+// handleSplitLineCount ports TS SPLIT_LINECOUNT (StringOps.ts:108-112).
+// Pops page; pushes len(s.SplitPages[page]). Out-of-bounds pushes 0
+// (goscape defensive; TS throws — labelled per
+// defensive_gate_doc_comment_label.md).
 func handleSplitLineCount(s *ScriptState) error {
-	_ = s.PopInt()
-	s.PushInt(0)
+	page := s.PopInt()
+	if page < 0 || page >= len(s.SplitPages) {
+		s.PushInt(0)
+		slog.Debug("SPLIT_LINECOUNT out of page range",
+			"script", s.Script.Name, "page", page, "pages", len(s.SplitPages))
+		return nil
+	}
+	s.PushInt(len(s.SplitPages[page]))
 	return nil
 }
 
+// handleSplitPageCount ports TS SPLIT_PAGECOUNT (StringOps.ts:104-106).
+// Pushes len(s.SplitPages). Returns 0 before any SPLIT_INIT call
+// (Go zero-value: SplitPages is nil, len(nil) == 0).
 func handleSplitPageCount(s *ScriptState) error {
-	s.PushInt(0)
+	s.PushInt(len(s.SplitPages))
 	return nil
 }
