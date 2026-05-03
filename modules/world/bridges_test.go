@@ -1,6 +1,7 @@
 package world
 
 import (
+	"bytes"
 	"testing"
 	"time"
 )
@@ -26,11 +27,17 @@ type recordedLoggerCall struct {
 	offender string
 	reason   string
 }
+type recordedInputTrackingCall struct {
+	method string // "SubmitInputTracking"
+	player *Player
+	blob   []byte
+}
 
 type recordingBridges struct {
-	friends  []recordedFriendsCall
-	loginMod []recordedLoginModCall
-	logger   []recordedLoggerCall
+	friends     []recordedFriendsCall
+	loginMod    []recordedLoginModCall
+	logger      []recordedLoggerCall
+	inputTracks []recordedInputTrackingCall // NAI-73
 }
 
 func (r *recordingBridges) AddFriend(p string, t uint64) {
@@ -56,6 +63,12 @@ func (r *recordingBridges) NotifyPlayerMute(staff, username string, until time.T
 }
 func (r *recordingBridges) NotifyPlayerReport(player *Player, offender, reason string) {
 	r.logger = append(r.logger, recordedLoggerCall{method: "NotifyPlayerReport", player: player, offender: offender, reason: reason})
+}
+func (r *recordingBridges) SubmitInputTracking(player *Player, blob []byte) {
+	// Copy blob to defend against caller mutation.
+	cp := make([]byte, len(blob))
+	copy(cp, blob)
+	r.inputTracks = append(r.inputTracks, recordedInputTrackingCall{method: "SubmitInputTracking", player: player, blob: cp})
 }
 
 // installRecordingBridges wires a recordingBridges into all 3 Server
@@ -93,6 +106,7 @@ func TestNoopBridgesAllMethods(t *testing.T) {
 	b.NotifyPlayerBan("s", "u", now)
 	b.NotifyPlayerMute("s", "u", now)
 	b.NotifyPlayerReport(nil, "off", "REASON")
+	b.SubmitInputTracking(nil, []byte{1, 2, 3})
 }
 
 // TestRecordingBridgesCapturesAllCalls exercises every recordingBridges
@@ -124,5 +138,27 @@ func TestRecordingBridgesCapturesAllCalls(t *testing.T) {
 	rec.NotifyPlayerReport(nil, "evilbob", "MACROING")
 	if len(rec.logger) != 1 || rec.logger[0].reason != "MACROING" {
 		t.Errorf("NotifyPlayerReport record: %+v", rec.logger)
+	}
+}
+
+func TestRecordingBridgesCapturesSubmitInputTracking(t *testing.T) {
+	rec := &recordingBridges{}
+	callerBlob := []byte{0xDE, 0xAD, 0xBE, 0xEF}
+	rec.SubmitInputTracking(nil, callerBlob)
+	if len(rec.inputTracks) != 1 {
+		t.Fatalf("inputTracks: got %d, want 1", len(rec.inputTracks))
+	}
+	got := rec.inputTracks[0]
+	if got.method != "SubmitInputTracking" {
+		t.Errorf("method: got %q, want SubmitInputTracking", got.method)
+	}
+	want := []byte{0xDE, 0xAD, 0xBE, 0xEF}
+	if !bytes.Equal(got.blob, want) {
+		t.Errorf("blob: got %x, want %x", got.blob, want)
+	}
+	// Mutation defense: mutate caller's original slice; stored copy must be unaffected.
+	callerBlob[0] = 0x00
+	if rec.inputTracks[0].blob[0] != 0xDE {
+		t.Error("blob copy must be defensive (not aliasing caller bytes)")
 	}
 }

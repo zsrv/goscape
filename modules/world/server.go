@@ -161,7 +161,7 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 	}
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}
-	s.loggerBridge = noopBridges{}
+	s.loggerBridge = NewSlogLoggerBridge(s.log)
 	s.tcpWg.Add(1)
 
 	gm := gamemap.New(logger)
