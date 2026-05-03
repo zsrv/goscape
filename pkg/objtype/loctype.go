@@ -7,22 +7,54 @@ import (
 	packet2 "github.com/zsrv/goscape/pkg/io/packet"
 )
 
-// LocType is the server-side subset of a cache loc (scenery/door/etc.). The
-// full TS LocType decodes many more fields from the client jagfile (models,
-// shapes, recolours, resizes, etc.) which this server-only loader skips.
+// LocType mirrors Engine-TS/src/cache/config/LocType.ts. Loaded via a
+// dual-pass decode: server/loc.dat contributes codes 61/249/250 (category,
+// params, debugname), and the client jagfile entry loc.dat contributes
+// the render+gameplay fields (codes 1-73). PostDecode infers Active from
+// Shapes/Op when the cache leaves it unset.
 //
-// server/loc.dat in the real cache contains only codes 61 (category), 249
-// (params), and 250 (debugname); Desc/Width/Length are defined here so the
-// LC_* handlers have a place to read from even if the packer never writes
-// them to the server blob.
+// "hidden" → "" coercion in code 30-34 (NAI-80-D1) is preserved from S6k
+// for handler-gate simplicity; see follow-up note in spec §6.
 type LocType struct {
 	ConfigType
-	Category int
-	Desc     string
-	Width    int
-	Length   int
-	Op       []string // S6k: 5 click-option names, nil until decoded
-	Params   ParamMap
+
+	// Client-side render + gameplay fields (codes 1-73)
+	Models        []uint16 // code 1, paired with Shapes
+	Shapes        []uint8  // code 1, paired with Models
+	Name          string   // code 2
+	Desc          string   // code 3
+	Width         int      // code 14, default 1
+	Length        int      // code 15, default 1
+	BlockWalk     bool     // code 17 sets false; default true
+	BlockRange    bool     // code 18 sets false; default true
+	Active        int      // code 19; default -1, PostDecode coerces to 0/1
+	HillSkew      bool     // code 21
+	ShareLight    bool     // code 22
+	Occlude       bool     // code 23
+	Anim          int      // code 24, 65535 → -1; default -1
+	HasAlpha      bool     // code 25
+	WallWidth     int      // code 28; default 16
+	Ambient       int8     // code 29 (G1B)
+	Contrast      int8     // code 39 (G1B)
+	Op            []string // codes 30-34, lazy 5-slot init; "hidden"→"" (D1)
+	RecolS        []uint16 // code 40, paired with RecolD
+	RecolD        []uint16 // code 40
+	MapFunction   int      // code 60; default -1
+	Mirror        bool     // code 62
+	Shadow        bool     // code 64 sets false; default true
+	ResizeX       int      // code 65; default 128
+	ResizeY       int      // code 66; default 128
+	ResizeZ       int      // code 67; default 128
+	MapScene      int      // code 68; default -1
+	ForceApproach int      // code 69
+	OffsetX       int16    // code 70 (G2S)
+	OffsetY       int16    // code 71 (G2S)
+	OffsetZ       int16    // code 72 (G2S)
+	ForceDecor    bool     // code 73
+
+	// Server-side fields
+	Category int      // code 61
+	Params   ParamMap // code 249
 }
 
 func (lt *LocType) Decode(code uint8, dat *packet2.Packet) error {
@@ -61,11 +93,22 @@ func (lt *LocType) Decode(code uint8, dat *packet2.Packet) error {
 
 func NewLocType(id int) *LocType {
 	return &LocType{
-		ConfigType: ConfigType{ID: id},
-		Category:   -1,
-		Width:      1,
-		Length:     1,
-		Params:     make(ParamMap),
+		ConfigType:  ConfigType{ID: id},
+		Width:       1,
+		Length:      1,
+		BlockWalk:   true,
+		BlockRange:  true,
+		Active:      -1,
+		Anim:        -1,
+		WallWidth:   16,
+		Shadow:      true,
+		ResizeX:     128,
+		ResizeY:     128,
+		ResizeZ:     128,
+		MapFunction: -1,
+		MapScene:    -1,
+		Category:    -1,
+		Params:      make(ParamMap),
 	}
 }
 
