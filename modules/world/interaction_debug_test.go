@@ -133,3 +133,29 @@ func requireAttr(t *testing.T, r slog.Record, key, want string) {
 		t.Errorf("record %q attr %q = %q, want %q", r.Message, key, got, want)
 	}
 }
+
+func TestRecordTryInteractBranch(t *testing.T) {
+	tests := []struct {
+		name              string
+		slot, branch      int
+		expectPre, expectPost int
+	}{
+		{"slot 0 writes pre", 0, 1, 1, 0},
+		{"slot 1 writes post", 1, 3, 0, 3},
+		{"slot 0 branch 4", 0, 4, 4, 0},
+		{"slot 1 branch 2", 1, 2, 0, 2},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			p := &Player{}
+			p.interactCallSlot = tc.slot
+			recordTryInteractBranch(p, tc.branch)
+			if p.lastInteractBranchPre != tc.expectPre {
+				t.Errorf("pre: got %d, want %d", p.lastInteractBranchPre, tc.expectPre)
+			}
+			if p.lastInteractBranchPost != tc.expectPost {
+				t.Errorf("post: got %d, want %d", p.lastInteractBranchPost, tc.expectPost)
+			}
+		})
+	}
+}

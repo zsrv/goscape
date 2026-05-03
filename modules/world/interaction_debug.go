@@ -21,6 +21,19 @@ func chebDist(ax, az, bx, bz int) int {
 	return dz
 }
 
+// recordTryInteractBranch is the side-channel writer used by
+// (*Player).tryInteract to surface which of its 4 branches (or
+// fallthrough = 0) returned. processInteraction sets p.interactCallSlot
+// to 0 before its pre-step call and 1 before its post-step call; this
+// helper picks the right Player field based on the slot value.
+func recordTryInteractBranch(p *Player, branch int) {
+	if p.interactCallSlot == 1 {
+		p.lastInteractBranchPost = branch
+	} else {
+		p.lastInteractBranchPre = branch
+	}
+}
+
 // targetKindString returns a stable string label for an interaction
 // target so the NAI-79 interaction tick frame can name the target type
 // without relying on slog's reflection-based formatting. Returns

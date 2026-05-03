@@ -131,6 +131,14 @@ type Player struct {
 	interactionFired bool
 	delayed          bool
 	delayedUntil     int
+	// NAI-79 Stage 1 instrumentation (interaction.go branch tracking).
+	// lastInteractBranch{Pre,Post} hold the branch id (0=fallthrough,
+	// 1..4) of the most recent tryInteract call from processInteraction's
+	// pre-step / post-step arms. interactCallSlot is the transient mode
+	// flag (0=pre, 1=post) set by processInteraction before each call.
+	lastInteractBranchPre  int
+	lastInteractBranchPost int
+	interactCallSlot       int
 	activeScript     *script.ScriptState
 	queue            []playerQueueRequest
 
