@@ -96,12 +96,56 @@ func handleTextSwitch(s *ScriptState) error {
 
 // -- SPLIT_* stubs (dialog pagination — deferred to later sub-spec) --
 
+// handleSplitInit ports TS SPLIT_INIT (StringOps.ts:76-96). Pops
+// (text, maxWidth, linesPerPage, fontId), parses any leading <p,name>
+// mesanim prefix, splits the prefix-stripped text on '|' (the explicit
+// line-break char used in chatnpc strings), and chunks the lines into
+// pages of linesPerPage lines each. Stores results in s.SplitPages +
+// s.SplitMesanim.
+//
+// NAI-75-D-FONT-WRAP-NAIVE: maxWidth + fontId are popped but unused
+// (no font-aware word-wrap; relies on '|' breaks). Closure: future
+// FontType cache loader sub-spec calls font.split(text, maxWidth) here.
+//
+// NAI-75-D-MESANIM-NOT-PORTED: <p,name> prefix is parsed and stripped
+// but SplitMesanim is left at -1 (no MesanimType.getId lookup yet).
+// Closure: future MesanimType cache loader sub-spec resolves the id.
 func handleSplitInit(s *ScriptState) error {
-	// TS pops (text, fontId, maxWidth); we don't keep them.
-	_ = s.PopInt()
-	_ = s.PopInt()
-	_ = s.PopString()
-	slog.Debug("SPLIT_INIT stub invoked", "script", s.Script.Name)
+	// Pop order matches TS popInts(3) semantics: top of stack is fontId.
+	_ = s.PopInt() // fontId — unused per NAI-75-D-FONT-WRAP-NAIVE
+	linesPerPage := s.PopInt()
+	_ = s.PopInt() // maxWidth — unused per NAI-75-D-FONT-WRAP-NAIVE
+	text := s.PopString()
+
+	s.SplitMesanim = -1
+	if strings.HasPrefix(text, "<p,") {
+		if end := strings.IndexByte(text, '>'); end != -1 {
+			// Prefix recognised; light-fidelity skips MesanimType lookup.
+			// SplitMesanim stays -1 per NAI-75-D-MESANIM-NOT-PORTED.
+			text = text[end+1:]
+		}
+	}
+
+	if linesPerPage < 1 {
+		// Defensive: TS would divide-by-zero on splice(0, 0); we no-op
+		// to avoid an infinite chunking loop. Goscape defensive (TS
+		// throws); labelled per defensive_gate_doc_comment_label.md.
+		s.SplitPages = [][]string{{text}}
+		return nil
+	}
+
+	lines := strings.Split(text, "|")
+	pages := make([][]string, 0, (len(lines)+linesPerPage-1)/linesPerPage)
+	for i := 0; i < len(lines); i += linesPerPage {
+		end := i + linesPerPage
+		if end > len(lines) {
+			end = len(lines)
+		}
+		pages = append(pages, lines[i:end])
+	}
+	s.SplitPages = pages
+	slog.Debug("SPLIT_INIT processed",
+		"script", s.Script.Name, "pages", len(pages), "mesanim", s.SplitMesanim)
 	return nil
 }
 

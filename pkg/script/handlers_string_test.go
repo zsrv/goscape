@@ -114,3 +114,131 @@ func TestSplitStubsReturnZeroes(t *testing.T) {
 		t.Errorf("SplitPageCount stub: got %d, want 0", got)
 	}
 }
+
+// runSplitInit pushes (text, maxWidth, linesPerPage, fontId) and runs
+// SPLIT_INIT against a fresh state, then returns the state for assertion.
+func runSplitInit(t *testing.T, text string, maxWidth, linesPerPage, fontId int) *ScriptState {
+	t.Helper()
+	sf := &ScriptFile{
+		Name:             "test_split_init",
+		Opcodes:          []Opcode{OpSplitInit, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.PushString(text)
+	state.PushInt(maxWidth)
+	state.PushInt(linesPerPage)
+	state.PushInt(fontId)
+	if err := Execute(state); err != nil {
+		t.Fatalf("SPLIT_INIT: unexpected error: %v", err)
+	}
+	return state
+}
+
+func TestSplitInitNoMesanimPrefix(t *testing.T) {
+	s := runSplitInit(t, "first line|second line", 380, 4, 8)
+	if s.SplitMesanim != -1 {
+		t.Errorf("SplitMesanim: got %d, want -1 (no prefix)", s.SplitMesanim)
+	}
+	if len(s.SplitPages) != 1 {
+		t.Fatalf("len(SplitPages): got %d, want 1", len(s.SplitPages))
+	}
+	if got, want := s.SplitPages[0], []string{"first line", "second line"}; !equalStrings(got, want) {
+		t.Errorf("SplitPages[0]: got %v, want %v", got, want)
+	}
+}
+
+func TestSplitInitMesanimPrefixStripped(t *testing.T) {
+	s := runSplitInit(t, "<p,neutral>Greetings|stranger", 380, 4, 8)
+	// NAI-75-D-MESANIM-NOT-PORTED: prefix parsed but id lookup deferred,
+	// so SplitMesanim stays -1 even when a prefix is present.
+	if s.SplitMesanim != -1 {
+		t.Errorf("SplitMesanim: got %d, want -1 (NAI-75-D-MESANIM-NOT-PORTED pin)", s.SplitMesanim)
+	}
+	if len(s.SplitPages) != 1 {
+		t.Fatalf("len(SplitPages): got %d, want 1", len(s.SplitPages))
+	}
+	// Prefix stripped: text is "Greetings|stranger" → 2 lines.
+	if got, want := s.SplitPages[0], []string{"Greetings", "stranger"}; !equalStrings(got, want) {
+		t.Errorf("SplitPages[0]: got %v, want %v (prefix should be stripped)", got, want)
+	}
+}
+
+func TestSplitInitMultiPageChunking(t *testing.T) {
+	// 5 lines, linesPerPage=4 → 2 pages: page 0 = 4 lines, page 1 = 1 line.
+	s := runSplitInit(t, "a|b|c|d|e", 380, 4, 8)
+	if len(s.SplitPages) != 2 {
+		t.Fatalf("len(SplitPages): got %d, want 2", len(s.SplitPages))
+	}
+	if got, want := s.SplitPages[0], []string{"a", "b", "c", "d"}; !equalStrings(got, want) {
+		t.Errorf("SplitPages[0]: got %v, want %v", got, want)
+	}
+	if got, want := s.SplitPages[1], []string{"e"}; !equalStrings(got, want) {
+		t.Errorf("SplitPages[1]: got %v, want %v", got, want)
+	}
+}
+
+func TestSplitInitReplacesNotAppends(t *testing.T) {
+	// Multi-call SAME ScriptState: second SPLIT_INIT must replace SplitPages,
+	// not append. Mirrors chatnpc's repeated calls within Welcome flow.
+	sf := &ScriptFile{
+		Name:             "test_split_init_replace",
+		Opcodes:          []Opcode{OpSplitInit, OpSplitInit, OpReturn},
+		IntOperands:      []int32{0, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	// Push order matters: stack is LIFO, both opcodes execute in instruction
+	// order, so the FIRST opcode pops what was pushed LAST. Push the
+	// SECOND call's args FIRST (deepest), then the FIRST call's args
+	// (top of stack — popped by the first SPLIT_INIT instruction).
+	//
+	// Second SPLIT_INIT: 1 line.
+	state.PushString("only")
+	state.PushInt(380)
+	state.PushInt(4)
+	state.PushInt(8)
+	// First SPLIT_INIT: 3 lines.
+	state.PushString("x|y|z")
+	state.PushInt(380)
+	state.PushInt(4)
+	state.PushInt(8)
+	if err := Execute(state); err != nil {
+		t.Fatalf("SPLIT_INIT chain: %v", err)
+	}
+	// After two SPLIT_INIT calls, SplitPages reflects the SECOND call's
+	// result ("only"), proving replacement (not append) semantics.
+	if len(state.SplitPages) != 1 {
+		t.Fatalf("len(SplitPages) after second SPLIT_INIT: got %d, want 1", len(state.SplitPages))
+	}
+	if got, want := state.SplitPages[0], []string{"only"}; !equalStrings(got, want) {
+		t.Errorf("SplitPages[0]: got %v, want %v (second call must replace, not append)", got, want)
+	}
+}
+
+func TestSplitInitEmptyText(t *testing.T) {
+	s := runSplitInit(t, "", 380, 4, 8)
+	// Empty text → strings.Split("", "|") returns [""] → 1 page, 1 line.
+	// This matches TS font.split("") which returns [""].
+	if len(s.SplitPages) != 1 {
+		t.Fatalf("len(SplitPages) for empty text: got %d, want 1", len(s.SplitPages))
+	}
+	if got, want := s.SplitPages[0], []string{""}; !equalStrings(got, want) {
+		t.Errorf("SplitPages[0]: got %v, want %v", got, want)
+	}
+}
+
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
