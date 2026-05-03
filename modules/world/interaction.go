@@ -296,42 +296,73 @@ func (p *Player) processWalktrigger() {
 }
 
 // tryInteract is the contact/approach-distance dispatch unifying the
-// OP and AP arms that processInteraction previously inlined.
-// Returns true when an OP or AP trigger fired this tick.
+// OP and AP arms that processInteraction previously inlined. Mirrors
+// LostCityRS/Engine-TS Player.tryInteract at Player.ts:1113-1184.
 //
-// allowOpScenery gates the OP branch for non-PathingEntity targets
-// (Loc, Obj). Mirrors TS Player.tryInteract(allowOpScenery: boolean)
-// at Player.ts:1113. Callers:
+// 4-branch dispatch (after NAI-78). Resolves opTrigger/apTrigger via
+// getOpTrigger/getApTrigger (interaction_trigger.go) at entry, then
+// dispatches:
+//
+//	1. opTrigger != nil && (PathingEntity || allowOpScenery) && operable
+//	   → fire OP, return true.
+//	2. apTrigger != nil && approach
+//	   → fire AP, return true (or false on NAI-69 same-tick retry).
+//	3. approach (apTrigger nil)
+//	   → apRange=-1, return false. Allows processInteraction's post-step
+//	   to run pathToTarget + tryInteract(allowOpScenery=true).
+//	4. (PathingEntity || allowOpScenery) && operable (opTrigger nil)
+//	   → defaultOp NIH ("Nothing interesting happens." + clear waypoints),
+//	   return true.
+//
+// Fixes NAI-78 root cause: pre-NAI-78, the 2-branch shape returned true
+// from the AP block even when no AP script existed, which gated the
+// post-step branch off and let the auto-clear nuke the anchor — the
+// Tutorial Island RS Guide door symptom. Branch 3's `return false`
+// closure is the load-bearing change.
+//
+// allowOpScenery gates branches 1 and 4 for non-PathingEntity targets
+// (Loc, Obj). Mirrors TS Player.tryInteract(allowOpScenery: boolean).
+// Callers:
 //   - pre-step (always false): scenery OP blocked before movement
 //   - post-step (stepsTaken==0): scenery OP allowed only if no walk
 //
 // NPC side equivalent: (*Npc).tryInteract(s, allowOpScenery bool)
 // at npc_interaction.go:247.
 func (p *Player) tryInteract(allowOpScenery bool) bool {
-	tx, tz, _ := p.target.Coords()
-	if inOperableDistance(p.x, p.z, tx, tz) {
-		_, isNpc := p.target.(*Npc)
-		_, isPlayer := p.target.(*Player)
-		if isNpc || isPlayer || allowOpScenery {
-			p.interacted = true
-			if !p.interactionFired {
-				tryFireOpTrigger(p)
-			}
-			return true
-		}
-		// Loc/Obj + !allowOpScenery: fall through to AP check.
+	if p.target == nil {
+		return false
 	}
-	if inApproachDistance(p.x, p.z, tx, tz, effectiveApRange(p)) {
+	srv := p.client.server
+
+	opTrigger := getOpTrigger(p, srv)
+	apTrigger := getApTrigger(p, srv)
+
+	tx, tz, _ := p.target.Coords()
+	operable := inOperableDistance(p.x, p.z, tx, tz)
+	approach := inApproachDistance(p.x, p.z, tx, tz, effectiveApRange(p))
+
+	isPathing := false
+	switch p.target.(type) {
+	case *Npc, *Player:
+		isPathing = true
+	}
+
+	// Branch 1 — OP fire (TS Player.ts:1123).
+	if opTrigger != nil && (isPathing || allowOpScenery) && operable {
+		p.interacted = true
+		if !p.interactionFired {
+			tryFireOpTrigger(p)
+		}
+		return true
+	}
+
+	// Branch 2 — AP fire (TS Player.ts:1139).
+	if apTrigger != nil && approach {
 		p.interacted = true
 		if !p.interactionFired {
 			tryFireApTrigger(p)
 		}
-		// TS L1163-1167: same-tick AP retry. When the AP script called
-		// p_aprange (sets apRangeCalled=true) and did NOT call p_op_*
-		// (nextTarget nil), reset the per-tick re-fire gate and return
-		// false so processInteraction's walk-arm runs and post-step
-		// tryInteract can re-fire AP with the new range. nextTarget
-		// priority mirrors TS L1158-1161 (nextTarget pop wins). Closes
+		// NAI-69 same-tick retry (TS Player.ts:1158-1167). Closes
 		// NAI-68-D-AP-APRANGE-REVERT-NOT-PORTED.
 		if p.nextTarget == nil && p.apRangeCalled {
 			p.interactionFired = false
@@ -339,6 +370,26 @@ func (p *Player) tryInteract(allowOpScenery bool) bool {
 		}
 		return true
 	}
+
+	// Branch 3 — default-AP no-op (TS Player.ts:1173-1175).
+	// Player is in approach distance but no [ap…] script exists.
+	// Force apRange = -1 so the AP block can never re-enter on this
+	// interaction, then return false to let processInteraction's
+	// post-step branch run (pathToTarget → walktrigger → post-step
+	// tryInteract with allowOpScenery=true so branch 1 can fire OP).
+	//
+	// THIS IS THE NAI-78 LOAD-BEARING FIX.
+	if approach {
+		p.apRange = -1
+		return false
+	}
+
+	// Branch 4 — default-OP NIH (TS Player.ts:1179-1182).
+	if (isPathing || allowOpScenery) && operable {
+		defaultOp(p)
+		return true
+	}
+
 	return false
 }
 

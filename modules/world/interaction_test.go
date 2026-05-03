@@ -370,13 +370,12 @@ func TestClearInteractionResetsApRange(t *testing.T) {
 	}
 }
 
-// TestProcessInteractionRoutesToApBranch verifies processInteraction
-// fires the AP-branch (tryFireApTrigger → interactionFired=true) when
-// the player is within apRange but not at contact. The full
-// tryFireApTrigger impl requires zoneMap, locTypes, and targetSubject.
-// No APLOC script is registered so fireApTriggerLoc falls through to
-// the no-script path and sets interactionFired=true — the routing
-// assertion still holds.
+// TestProcessInteractionRoutesToApBranch verifies processInteraction routes
+// via branch 3 (default-AP no-op) when the player is within approach range
+// of a Loc with no [aploc1] script. Pre-NAI-78 this test pinned the
+// 2-branch bug where tryFireApTrigger was called unconditionally (even with
+// no AP script) causing early auto-clear. Post-NAI-78 branch 3 fires:
+// apRange=-1, tryInteract returns false, player starts walking toward target.
 func TestProcessInteractionRoutesToApBranch(t *testing.T) {
 	s := newTestServer(t)
 	s.zoneMap = zone.NewZoneMap()
@@ -400,12 +399,15 @@ func TestProcessInteractionRoutesToApBranch(t *testing.T) {
 
 	p.processInteraction()
 
-	// NAI-44 T6 cascade: pre-T5 asserted interactionFired+interacted==true.
-	// Post-T5 auto-clear (TS L1261-1263) fires when interacted && !apRangeCalled
-	// (the no-script AP path does not set apRangeCalled), clearing both flags.
-	// Observable proof of AP-branch routing: target==nil (auto-clear ran).
-	if p.target != nil {
-		t.Errorf("target: got %v, want nil (auto-clear at TS L1261-1263 after AP-branch fire)", p.target)
+	// NAI-78 branch 3: approach=true, no AP script → apRange=-1, return false.
+	// Target is preserved (player still walking toward Loc); apRange is set
+	// to -1 (the "no AP script for this interaction" sentinel).
+	if p.apRange != -1 {
+		t.Errorf("apRange: got %d, want -1 (NAI-78 branch 3 no-AP sentinel)", p.apRange)
+	}
+	// Target preserved: player is en-route, not prematurely cleared.
+	if p.target == nil {
+		t.Errorf("target: got nil, want non-nil (target preserved while walking toward Loc)")
 	}
 }
 
@@ -981,15 +983,13 @@ func TestFollowOpWaypointExhaustion(t *testing.T) {
 	}
 }
 
-// TestFollowOpContactFire — NAI-44 T5 / B4. OPPLAYER3 with target in
-// operable distance: pre-step tryInteract fires the OP trigger. The
-// auto-clear gate at TS L1261-1263 evaluates `interacted && !apRangeCalled`
-// → ClearInteraction, wiping both target and interactionFired.
-// followOp does NOT gate the auto-clear; it only gates post-step-interact.
-//
-// Note: interactionFired is NOT checked post-processInteraction because
-// the auto-clear calls ClearInteraction() which resets interactionFired=false.
-// The key invariant pinned here is target=nil (auto-clear fired).
+// TestFollowOpContactFire — NAI-44 T5 / B4 (updated for NAI-78).
+// OPPLAYER3 with no registered script, adjacent target Player:
+// Pre-NAI-78 the 2-branch fired tryFireOpTrigger unconditionally for
+// PathingEntity → ClearInteraction + auto-clear → target=nil.
+// Post-NAI-78 the 4-branch routes via branch 3 (approach=true, no AP
+// script, no OP trigger) → apRange=-1, return false. followOp gates the
+// post-step tryInteract, so no NIH fires this tick. Target preserved.
 func TestFollowOpContactFire(t *testing.T) {
 	s := setupServerForInteractionTest(t)
 	clicker := newTestPlayerAt(t, s, 1, 3200, 3200, 0)
@@ -999,9 +999,14 @@ func TestFollowOpContactFire(t *testing.T) {
 
 	clicker.processInteraction()
 
-	// Auto-clear gate fires (interacted && !apRangeCalled) → ClearInteraction.
-	if clicker.target != nil {
-		t.Errorf("target: got %v, want nil (auto-clear at TS L1261-1263)", clicker.target)
+	// NAI-78 branch 3: approach=true, no OP/AP trigger → apRange=-1, return false.
+	// followOp gates post-step-interact, so branch 4 (NIH) never fires.
+	// Target preserved for continued following.
+	if clicker.apRange != -1 {
+		t.Errorf("apRange: got %d, want -1 (NAI-78 branch 3 sentinel)", clicker.apRange)
+	}
+	if clicker.target == nil {
+		t.Errorf("target: got nil, want non-nil (followOp preserves target for continued chase)")
 	}
 }
 
@@ -1028,56 +1033,82 @@ func TestTryInteractNpcAllowsOpWhenSceneryGated(t *testing.T) {
 }
 
 // TestTryInteractLocBlocksOpWhenSceneryFalse pins that *Loc targets cannot
-// fire the OP branch when allowOpScenery=false. AP branch fires instead
-// if in approach range.
+// fire the OP branch when allowOpScenery=false (branch 1 blocked: isPathing=false
+// && allowOpScenery=false). Updated for NAI-78: with no AP script registered,
+// branch 3 fires (approach=true → apRange=-1, return false). Pre-NAI-78 the
+// 2-branch caused the AP block to return true unconditionally (pinning the bug).
 func TestTryInteractLocBlocksOpWhenSceneryFalse(t *testing.T) {
 	s := newTestServer(t)
 	p, _ := newTestPlayer(t)
 	p.client.server = s
 	p.x, p.z, p.level = 100, 100, 0
-	p.apRange = 10 // wide AP range so AP branch fires
+	p.apRange = 10 // wide AP range so approach=true
 
 	loc := entitypkg.NewLoc(0, 101, 100, 1, 1, entitypkg.LifecycleForever, 42, 1, 0)
 	p.SetInteraction(InteractionEngine, loc, 1, -1)
 
-	// allowOpScenery=false + adjacent Loc → OP gated; AP fires instead (returns true).
+	// allowOpScenery=false + adjacent Loc + no scripts → branch 1 blocked (isPathing=false),
+	// branch 2 blocked (no apTrigger), branch 3 fires (approach=true) → apRange=-1, false.
 	result := p.tryInteract(false)
 
-	// AP branch fires (returns true) because the OP gate falls through to AP.
-	if !result {
-		t.Error("tryInteract(false) on adjacent Loc: got false, want true (AP fires)")
+	if result {
+		t.Error("tryInteract(false) on adjacent Loc with no scripts: got true, want false (branch 3)")
+	}
+	if p.apRange != -1 {
+		t.Errorf("apRange: got %d, want -1 (NAI-78 branch 3 no-AP sentinel)", p.apRange)
 	}
 }
 
 // TestTryInteractLocAllowsOpWhenSceneryTrue pins that *Loc targets CAN fire
-// the OP branch when allowOpScenery=true.
+// the OP branch when allowOpScenery=true AND an OP script is registered.
+// Updated for NAI-78: the 4-branch gates branch 1 on opTrigger!=nil. Without
+// an OP script, approach=true causes branch 3 to fire even with allowOpScenery=true.
+// With an OP script registered, branch 1 fires: opTrigger!=nil && allowOpScenery && operable.
 func TestTryInteractLocAllowsOpWhenSceneryTrue(t *testing.T) {
 	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
 	p, _ := newTestPlayer(t)
 	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	p.x, p.z, p.level = 100, 100, 0
 
 	loc := entitypkg.NewLoc(0, 101, 100, 1, 1, entitypkg.LifecycleForever, 42, 1, 0)
 	p.SetInteraction(InteractionEngine, loc, 1, -1)
+	p.targetSubject.typ = loc.Type()
+	p.targetSubject.x = loc.X
+	p.targetSubject.z = loc.Z
+	p.targetSubject.level = loc.Level
 
-	// allowOpScenery=true + adjacent Loc → OP fires.
+	// Register an OP script for loc.Type()=42 so getOpTrigger returns non-nil.
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerOpLoc1, loc.Type(), "op-fired"))
+
+	// allowOpScenery=true + OP script registered + adjacent Loc → branch 1 fires.
 	result := p.tryInteract(true)
 
 	if !result {
-		t.Error("tryInteract(true) on adjacent Loc: got false, want true (OP allowed)")
+		t.Error("tryInteract(true) on adjacent Loc with OP script: got false, want true (branch 1 OP allowed)")
+	}
+	if !p.interactionFired {
+		t.Error("interactionFired: want true after branch 1 OP fire")
 	}
 }
 
 // TestTryInteractProcessInteractionCallSites pins the two call-site semantics
 // via processInteraction: pre-step always passes false, post-step passes
 // stepsTaken==0 (true only when no movement this tick).
+// Updated for NAI-78: with no scripts and adjacent Loc, the two-step sequence is:
+//   pre-step tryInteract(false): branch 3 (approach=true) → apRange=-1, return false.
+//   post-step tryInteract(true): approach=false (apRange=-1), operable=true → branch 4 NIH.
+// Branch 4 fires defaultOp → target auto-cleared.
 func TestTryInteractProcessInteractionCallSites(t *testing.T) {
 	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
 
 	// Scenario: Loc target, player already adjacent (no movement needed),
 	// so post-step call gets allowOpScenery=true (stepsTaken==0).
 	p, _ := newTestPlayer(t)
 	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4}) // required for MessageGame in defaultOp
 	p.x, p.z, p.level = 100, 100, 0
 	p.stepsTaken = 0 // no movement this tick
 
@@ -1086,9 +1117,9 @@ func TestTryInteractProcessInteractionCallSites(t *testing.T) {
 
 	p.processInteraction()
 
-	// OP or AP fired (interacted=true), and interaction was auto-cleared.
+	// Post-step branch 4 NIH fires → defaultOp → waypointIndex=-1 + auto-clear.
 	if p.target != nil {
-		t.Error("target should be nil after interaction auto-clear")
+		t.Error("target should be nil after interaction auto-clear via branch 4 NIH")
 	}
 }
 
@@ -1500,5 +1531,190 @@ func TestDefaultOp_EmitsNIHAndClearsWaypoints(t *testing.T) {
 	// Assert: "Nothing interesting happens." emitted on the wire.
 	if !bytes.Contains(got, []byte("Nothing interesting happens.")) {
 		t.Errorf("expected MessageGame(\"Nothing interesting happens.\") on wire; got %x", got)
+	}
+}
+
+// --- NAI-78 T3: tryInteract 4-branch dispatch ---
+
+// TestTryInteract_OpFires_AdjacentNpc_Branch1 pins TS Player.ts:1123.
+// Adjacent NPC + [opnpc1] registered → branch 1 fires (PathingEntity
+// gates branch 1 even with allowOpScenery=false).
+// Wire-bytes assertion omitted: newApTriggerNpcFixture discards the
+// clientConn; interactionFired is the operative signal here.
+func TestTryInteract_OpFires_AdjacentNpc_Branch1(t *testing.T) {
+	s, p, npc := newApTriggerNpcFixture(t)
+
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerOpNpc1, npc.typeId, "branch1-fired"))
+
+	p.x, p.z = npc.x-1, npc.z
+	p.interactionFired = false // fixture sets interacted=true; reset fired flag
+
+	got := p.tryInteract(false)
+
+	if !got {
+		t.Errorf("tryInteract: got false, want true (branch 1 OP fire)")
+	}
+	if !p.interactionFired {
+		t.Errorf("p.interactionFired: got false, want true")
+	}
+}
+
+// TestTryInteract_DoorSymptom_AdjacentLoc_OpOnly_Branch3to4 is THE
+// regression test for the NAI-78 root cause.
+// Pre-step (allowOpScenery=false): player adjacent to loc with only [oploc1],
+// no [aploc1]. Must return false (branch 3 — apRange=-1).
+// Post-step (allowOpScenery=true): branch 1 fires OPLOC → interactionFired=true.
+//
+// Wire-bytes assertion dropped: buildNpcSayScript uses OpNpcSay which requires
+// an active NPC; the script aborts cleanly for Loc targets but interactionFired
+// is still set by fireOpTriggerLoc after resumeOrFinish (interaction_trigger.go).
+// interactionFired=true is the operative regression signal.
+func TestTryInteract_DoorSymptom_AdjacentLoc_OpOnly_Branch3to4(t *testing.T) {
+	s, p, loc, _ := makeOpLocTriggerFixture(t)
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerOpLoc1, loc.Type(), "door-fired"))
+	// No TriggerApLoc1 registered — the door's [oploc1]-only shape.
+
+	lx, lz, _ := loc.Coords()
+	p.x, p.z = lx-1, lz
+
+	// Pre-step: branch 3 fires.
+	preGot := p.tryInteract(false)
+	if preGot {
+		t.Errorf("pre-step tryInteract(false): got true, want false (TS branch 3 — apRange=-1, return false)")
+	}
+	if p.apRange != -1 {
+		t.Errorf("p.apRange: got %d, want -1 (TS Player.ts:1174)", p.apRange)
+	}
+	if p.interactionFired {
+		t.Errorf("p.interactionFired: got true, want false (branch 3 returned without firing)")
+	}
+
+	// Post-step: branch 1 fires (allowOpScenery=true).
+	// interactionFired=true is the operative signal that OP fired.
+	postGot := p.tryInteract(true)
+	if !postGot {
+		t.Errorf("post-step tryInteract(true): got false, want true (TS branch 1 OP fire)")
+	}
+	if !p.interactionFired {
+		t.Errorf("p.interactionFired (post-step): got false, want true (door symptom regression — OP must fire)")
+	}
+}
+
+// TestTryInteract_AdjacentLoc_BothScripts_Branch2 pins TS Player.ts:1139.
+// Adjacent loc with both [aploc1] and [oploc1] registered → AP fires (not OP).
+//
+// Assertion strategy: wire-bytes dropped (buildNpcSayScript uses OpNpcSay
+// which requires active NPC — aborts cleanly for Loc). Instead:
+//   - got=true (branch 2 returns true)
+//   - p.apRange != -1 (AP script found → apRange NOT set to -1 sentinel;
+//     if OP had fired via branch 1, fireOpTriggerLoc sets waypointIndex=-1
+//     but branch 1 is blocked when allowOpScenery=false && !isPathing)
+//   - p.interactionFired=true (AP fire helper sets this)
+//
+// Branch 1 is blocked here: allowOpScenery=false, Loc is not PathingEntity.
+// Branch 2 fires because apTrigger!=nil and player is in approach range.
+func TestTryInteract_AdjacentLoc_BothScripts_Branch2(t *testing.T) {
+	s, p, loc, _ := makeOpLocTriggerFixture(t)
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerApLoc1, loc.Type(), "ap-fired"))
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerOpLoc1, loc.Type(), "op-fired"))
+
+	lx, lz, _ := loc.Coords()
+	p.x, p.z = lx-1, lz
+
+	got := p.tryInteract(false)
+
+	if !got {
+		t.Errorf("tryInteract: got false, want true (branch 2 AP fire)")
+	}
+	if !p.interactionFired {
+		t.Errorf("p.interactionFired: got false, want true")
+	}
+	// AP script found → apRange stays at 10 (not reset to -1 sentinel).
+	// If OP had fired instead, apRange would still be 10 too, but branch 1
+	// is structurally blocked (allowOpScenery=false && loc is not PathingEntity).
+	if p.apRange == -1 {
+		t.Errorf("p.apRange: got -1, want !=−1 (AP script found — not the no-script sentinel)")
+	}
+}
+
+// TestTryInteract_AdjacentNpc_NoScripts_Branch4 pins TS Player.ts:1179.
+// Adjacent NPC with no AP scripts and AttackRange=0 (approach always false):
+// tryInteract(false) → branch 4 NIH (defaultOp, waypointIndex=-1).
+//
+// effectiveApRange for NPC targets reads npc.typ.AttackRange (not p.apRange),
+// so inApproachDistance returns false when AttackRange=0 regardless of
+// p.apRange. This directly reaches branch 4 without a branch-3 pre-step.
+// Wire-bytes assertion omitted: NPC fixture has no exposed clientConn.
+// waypointIndex=-1 is the operative signal that defaultOp ran.
+func TestTryInteract_AdjacentNpc_NoScripts_Branch4(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	// No scripts registered.
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4}) // required for MessageGame
+	p.x, p.z, p.level = 100, 100, 0
+
+	// AttackRange=0 → effectiveApRange=0 → inApproachDistance always false.
+	// This ensures branch 3 is skipped and branch 4 is reachable when adjacent.
+	npcType := &objtype.NpcType{
+		ConfigType:  objtype.ConfigType{ID: 7, DebugName: "rat"},
+		AttackRange: 0,
+		Category:    0,
+	}
+	npc := NewNpc(0, 7, 101, 100, 0, npcType) // adjacent: distance=1, operable
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
+	p.interactionFired = false
+
+	got := p.tryInteract(false)
+	if !got {
+		t.Errorf("tryInteract: got false, want true (branch 4 NIH — adjacent NPC, no scripts)")
+	}
+	if p.waypointIndex != -1 {
+		t.Errorf("p.waypointIndex: got %d, want -1 (defaultOp clears)", p.waypointIndex)
+	}
+}
+
+func TestTryInteract_NilTargetReturnsFalse(t *testing.T) {
+	_, p, _, _ := makeOpLocTriggerFixture(t)
+	p.target = nil
+	if p.tryInteract(false) {
+		t.Errorf("tryInteract with nil target: got true, want false")
+	}
+}
+
+// TestTryInteract_NAI69_AprangeRetry_PreservedInBranch2 pins NAI-69.
+// Out-of-operable, in-approach distance with AP script that calls
+// p_aprange → interactionFired reset + return false (same-tick retry).
+func TestTryInteract_NAI69_AprangeRetry_PreservedInBranch2(t *testing.T) {
+	s, p, loc, _ := makeOpLocTriggerFixture(t)
+	s.scriptProvider.Register(scriptFileWithApRangeCall(t, script.TriggerApLoc1, loc.Type(), 2))
+
+	lx, lz, _ := loc.Coords()
+	p.x, p.z = lx-3, lz // out of operable, in approach
+
+	got := p.tryInteract(false)
+
+	if got {
+		t.Errorf("tryInteract with apRangeCalled: got true, want false (NAI-69 retry)")
+	}
+	if !p.apRangeCalled {
+		t.Errorf("p.apRangeCalled: got false, want true")
+	}
+	if p.interactionFired {
+		t.Errorf("p.interactionFired: got true, want false (NAI-69 — reset for retry)")
+	}
+}
+
+func TestTryInteract_OutOfRangeReturnsFalse(t *testing.T) {
+	s, p, loc, _ := makeOpLocTriggerFixture(t)
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerOpLoc1, loc.Type(), "op-fired"))
+
+	lx, lz, _ := loc.Coords()
+	p.x, p.z = lx-50, lz
+
+	if p.tryInteract(false) {
+		t.Errorf("tryInteract out-of-range: got true, want false")
 	}
 }
