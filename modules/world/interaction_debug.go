@@ -87,7 +87,9 @@ func chebDist(ax, az, bx, bz int) int {
 }
 
 // emitOpLocGate emits a gate-name slog.Debug record for one of
-// handleOpLoc's six early-return paths. NodeDebug-gated; nil-log safe.
+// handleOpLoc's six gate names (seven early-return branches; the
+// out-of-range and registered-as-nil locType checks share gate name
+// "loctype_nil"). NodeDebug-gated; nil-log safe.
 //
 // Field schema (NAI-79 Bundle H4):
 //
@@ -96,7 +98,7 @@ func chebDist(ax, az, bx, bz int) int {
 // Pre-decode gates ("delayed", "payload_short") pass (-1, -1, -1) for
 // (x, z, locId) since the 6-byte payload has not been parsed yet. The
 // -1 sentinel matches the project's apRange=-1 convention and keeps
-// the field set uniform across all 6 gate emits.
+// the field set uniform across all gate emits.
 func emitOpLocGate(s *Server, p *Player, gate string, op, x, z, locId int) {
 	if !s.cfg.NodeDebug || s.log == nil {
 		return
