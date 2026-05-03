@@ -381,6 +381,20 @@ func (p *Player) writeOut(op gameserver.Op, payload []byte) {
 	c.bufw.Write(payload)
 }
 
+// WriteEnableTracking sends the EnableTracking server packet (op 226,
+// 0 payload). Mirrors TS InputTracking.enable() at InputTracking.ts:102.
+// Called only from InputTracking.enable().
+func (p *Player) WriteEnableTracking() {
+	p.writeOut(gameserver.OpEnableTracking, nil)
+}
+
+// WriteFinishTracking sends the FinishTracking server packet (op 133,
+// 0 payload). Mirrors TS InputTracking.disable() at InputTracking.ts:114.
+// Called only from InputTracking.disable().
+func (p *Player) WriteFinishTracking() {
+	p.writeOut(gameserver.OpFinishTracking, nil)
+}
+
 func newPlayer(c *client) *Player {
 	p := &Player{
 		client:         c,
