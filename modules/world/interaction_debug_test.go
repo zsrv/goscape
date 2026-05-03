@@ -221,6 +221,23 @@ func TestTryInteractBranchTrackingPerCallsite(t *testing.T) {
 			wantBranch:     4,
 		},
 		{
+			// Pins the SECOND branch-2 site at interaction.go:379
+			// (`nextTarget==nil && apRangeCalled` retry-no-op return false).
+			// Skip tryFireApTrigger by setting interactionFired=true so
+			// the gate is reached with the state set by postSetup.
+			name: "branch 2 retry (apRangeCalled, nextTarget=nil)",
+			setup: func(s *Server, p *Player, loc *entitypkg.Loc, sf *script.ScriptFile) {
+				p.x, p.z = 98, 100
+				p.apRange = 10
+				registerApLocScript(t, s, loc.Type(), 1, sf)
+			},
+			postSetup: func(p *Player) {
+				p.interactionFired = true // skip tryFireApTrigger
+				p.apRangeCalled = true    // force retry-arm guard
+			},
+			wantBranch: 2,
+		},
+		{
 			name: "fallthrough (operable but allowOpScenery=false, no triggers)",
 			setup: func(s *Server, p *Player, loc *entitypkg.Loc, sf *script.ScriptFile) {
 				p.x, p.z = 99, 100
