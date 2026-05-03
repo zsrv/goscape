@@ -279,3 +279,320 @@ func TestLoadRealLocCache(t *testing.T) {
 	}
 	t.Logf("loaded %d LocTypes from %s", len(cfgs.Configs), cacheDir)
 }
+
+// buildClientBlobRaw assembles a 1-entry client loc.dat with the given
+// raw code-payload bytes inserted between the count header and the 0
+// terminator. Used by per-arm decode tests in TestLocTypeDecodeNewArms.
+func buildClientBlobRaw(payload []byte) []byte {
+	pkt := packet2.NewPacket(nil)
+	pkt.P2(1) // count = 1
+	pkt.Data = append(pkt.Data, payload...)
+	pkt.P1(0) // terminator
+	return pkt.Bytes()
+}
+
+// withMinimalServer pairs a 1-entry server blob (no codes, just terminator)
+// with the given client jagfile, returning both ready for parseLocTypes.
+func withMinimalServer(t *testing.T, clientJag *jag.Jagfile) (*packet2.Packet, *jag.Jagfile) {
+	t.Helper()
+	srv := packet2.NewPacket(nil)
+	srv.P2(1) // count = 1
+	srv.P1(0) // terminator
+	return packet2.NewPacket(srv.Bytes()), clientJag
+}
+
+func TestLocTypeDecodeNewArms(t *testing.T) {
+	cases := []struct {
+		name    string
+		payload []byte
+		assert  func(t *testing.T, lt *LocType)
+	}{
+		{
+			name: "code1_models_shapes_pair",
+			payload: func() []byte {
+				p := packet2.NewPacket(nil)
+				p.P1(1)
+				p.P1(2)      // count = 2
+				p.P2(0x1111) // models[0]
+				p.P1(10)     // shapes[0]
+				p.P2(0x2222) // models[1]
+				p.P1(11)     // shapes[1]
+				return p.Bytes()
+			}(),
+			assert: func(t *testing.T, lt *LocType) {
+				if len(lt.Models) != 2 || lt.Models[0] != 0x1111 || lt.Models[1] != 0x2222 {
+					t.Errorf("Models: got %v, want [0x1111 0x2222]", lt.Models)
+				}
+				if len(lt.Shapes) != 2 || lt.Shapes[0] != 10 || lt.Shapes[1] != 11 {
+					t.Errorf("Shapes: got %v, want [10 11]", lt.Shapes)
+				}
+			},
+		},
+		{
+			name: "code2_name",
+			payload: func() []byte {
+				p := packet2.NewPacket(nil)
+				p.P1(2)
+				p.PJStrLF("oak tree")
+				return p.Bytes()
+			}(),
+			assert: func(t *testing.T, lt *LocType) {
+				if lt.Name != "oak tree" {
+					t.Errorf("Name: got %q, want \"oak tree\"", lt.Name)
+				}
+			},
+		},
+		{
+			name:    "code17_blockwalk_false",
+			payload: []byte{17},
+			assert: func(t *testing.T, lt *LocType) {
+				if lt.BlockWalk {
+					t.Errorf("BlockWalk: got true, want false")
+				}
+			},
+		},
+		{
+			name:    "code18_blockrange_false",
+			payload: []byte{18},
+			assert: func(t *testing.T, lt *LocType) {
+				if lt.BlockRange {
+					t.Errorf("BlockRange: got true, want false")
+				}
+			},
+		},
+		{
+			name:    "code19_active_g1",
+			payload: []byte{19, 7},
+			assert: func(t *testing.T, lt *LocType) {
+				if lt.Active != 7 {
+					t.Errorf("Active: got %d, want 7", lt.Active)
+				}
+			},
+		},
+		{
+			name:    "code21_hillskew_true",
+			payload: []byte{21},
+			assert: func(t *testing.T, lt *LocType) {
+				if !lt.HillSkew {
+					t.Errorf("HillSkew: got false, want true")
+				}
+			},
+		},
+		{
+			name:    "code22_sharelight_true",
+			payload: []byte{22},
+			assert: func(t *testing.T, lt *LocType) {
+				if !lt.ShareLight {
+					t.Errorf("ShareLight: got false, want true")
+				}
+			},
+		},
+		{
+			name:    "code23_occlude_true",
+			payload: []byte{23},
+			assert: func(t *testing.T, lt *LocType) {
+				if !lt.Occlude {
+					t.Errorf("Occlude: got false, want true")
+				}
+			},
+		},
+		{
+			name:    "code24_anim_g2_normal",
+			payload: []byte{24, 0x12, 0x34}, // 0x1234 = 4660
+			assert: func(t *testing.T, lt *LocType) {
+				if lt.Anim != 4660 {
+					t.Errorf("Anim: got %d, want 4660", lt.Anim)
+				}
+			},
+		},
+		{
+			name:    "code24_anim_65535_to_neg1",
+			payload: []byte{24, 0xFF, 0xFF},
+			assert: func(t *testing.T, lt *LocType) {
+				if lt.Anim != -1 {
+					t.Errorf("Anim: got %d, want -1 (65535 → -1)", lt.Anim)
+				}
+			},
+		},
+		{
+			name:    "code25_hasalpha_true",
+			payload: []byte{25},
+			assert: func(t *testing.T, lt *LocType) {
+				if !lt.HasAlpha {
+					t.Errorf("HasAlpha: got false, want true")
+				}
+			},
+		},
+		{
+			name:    "code28_wallwidth_g1",
+			payload: []byte{28, 32},
+			assert: func(t *testing.T, lt *LocType) {
+				if lt.WallWidth != 32 {
+					t.Errorf("WallWidth: got %d, want 32", lt.WallWidth)
+				}
+			},
+		},
+		{
+			name:    "code29_ambient_g1b_negative",
+			payload: []byte{29, 0xFF}, // -1 signed
+			assert: func(t *testing.T, lt *LocType) {
+				if lt.Ambient != -1 {
+					t.Errorf("Ambient: got %d, want -1", lt.Ambient)
+				}
+			},
+		},
+		{
+			name:    "code39_contrast_g1b_negative",
+			payload: []byte{39, 0xFE}, // -2 signed
+			assert: func(t *testing.T, lt *LocType) {
+				if lt.Contrast != -2 {
+					t.Errorf("Contrast: got %d, want -2", lt.Contrast)
+				}
+			},
+		},
+		{
+			name: "code40_recol_pair",
+			payload: func() []byte {
+				p := packet2.NewPacket(nil)
+				p.P1(40)
+				p.P1(2) // count = 2
+				p.P2(0xAAAA)
+				p.P2(0xBBBB)
+				p.P2(0xCCCC)
+				p.P2(0xDDDD)
+				return p.Bytes()
+			}(),
+			assert: func(t *testing.T, lt *LocType) {
+				if len(lt.RecolS) != 2 || lt.RecolS[0] != 0xAAAA || lt.RecolS[1] != 0xCCCC {
+					t.Errorf("RecolS: got %v", lt.RecolS)
+				}
+				if len(lt.RecolD) != 2 || lt.RecolD[0] != 0xBBBB || lt.RecolD[1] != 0xDDDD {
+					t.Errorf("RecolD: got %v", lt.RecolD)
+				}
+			},
+		},
+		{
+			name:    "code60_mapfunction_g2",
+			payload: []byte{60, 0x01, 0x23},
+			assert: func(t *testing.T, lt *LocType) {
+				if lt.MapFunction != 0x0123 {
+					t.Errorf("MapFunction: got %d, want 0x0123", lt.MapFunction)
+				}
+			},
+		},
+		{
+			name:    "code62_mirror_true",
+			payload: []byte{62},
+			assert: func(t *testing.T, lt *LocType) {
+				if !lt.Mirror {
+					t.Errorf("Mirror: got false, want true")
+				}
+			},
+		},
+		{
+			name:    "code64_shadow_false",
+			payload: []byte{64},
+			assert: func(t *testing.T, lt *LocType) {
+				if lt.Shadow {
+					t.Errorf("Shadow: got true, want false")
+				}
+			},
+		},
+		{
+			name:    "code65_resizex_g2",
+			payload: []byte{65, 0x00, 0x40}, // 64
+			assert: func(t *testing.T, lt *LocType) {
+				if lt.ResizeX != 64 {
+					t.Errorf("ResizeX: got %d, want 64", lt.ResizeX)
+				}
+			},
+		},
+		{
+			name:    "code66_resizey_g2",
+			payload: []byte{66, 0x00, 0x50}, // 80
+			assert: func(t *testing.T, lt *LocType) {
+				if lt.ResizeY != 80 {
+					t.Errorf("ResizeY: got %d, want 80", lt.ResizeY)
+				}
+			},
+		},
+		{
+			name:    "code67_resizez_g2",
+			payload: []byte{67, 0x00, 0x60}, // 96
+			assert: func(t *testing.T, lt *LocType) {
+				if lt.ResizeZ != 96 {
+					t.Errorf("ResizeZ: got %d, want 96", lt.ResizeZ)
+				}
+			},
+		},
+		{
+			name:    "code68_mapscene_g2",
+			payload: []byte{68, 0x04, 0x56},
+			assert: func(t *testing.T, lt *LocType) {
+				if lt.MapScene != 0x0456 {
+					t.Errorf("MapScene: got %d, want 0x0456", lt.MapScene)
+				}
+			},
+		},
+		{
+			name:    "code69_forceapproach_g1",
+			payload: []byte{69, 3},
+			assert: func(t *testing.T, lt *LocType) {
+				if lt.ForceApproach != 3 {
+					t.Errorf("ForceApproach: got %d, want 3", lt.ForceApproach)
+				}
+			},
+		},
+		{
+			name:    "code70_offsetx_g2s_negative",
+			payload: []byte{70, 0xFF, 0xFE}, // -2 as int16
+			assert: func(t *testing.T, lt *LocType) {
+				if lt.OffsetX != -2 {
+					t.Errorf("OffsetX: got %d, want -2", lt.OffsetX)
+				}
+			},
+		},
+		{
+			name:    "code71_offsety_g2s_negative",
+			payload: []byte{71, 0xFF, 0xFD}, // -3
+			assert: func(t *testing.T, lt *LocType) {
+				if lt.OffsetY != -3 {
+					t.Errorf("OffsetY: got %d, want -3", lt.OffsetY)
+				}
+			},
+		},
+		{
+			name:    "code72_offsetz_g2s_positive",
+			payload: []byte{72, 0x00, 0x05},
+			assert: func(t *testing.T, lt *LocType) {
+				if lt.OffsetZ != 5 {
+					t.Errorf("OffsetZ: got %d, want 5", lt.OffsetZ)
+				}
+			},
+		},
+		{
+			name:    "code73_forcedecor_true",
+			payload: []byte{73},
+			assert: func(t *testing.T, lt *LocType) {
+				if !lt.ForceDecor {
+					t.Errorf("ForceDecor: got false, want true")
+				}
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			clientJag := buildClientJag(t, buildClientBlobRaw(tc.payload))
+			server, clientJag := withMinimalServer(t, clientJag)
+			cfgs, err := parseLocTypes(server, clientJag)
+			if err != nil {
+				t.Fatalf("parseLocTypes: %v", err)
+			}
+			if len(cfgs.Configs) != 1 {
+				t.Fatalf("Configs len: got %d, want 1", len(cfgs.Configs))
+			}
+			tc.assert(t, cfgs.Configs[0])
+		})
+	}
+}

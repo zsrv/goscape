@@ -60,19 +60,52 @@ type LocType struct {
 
 func (lt *LocType) Decode(code uint8, dat *packet2.Packet) error {
 	switch code {
+	case 1:
+		count := int(dat.G1())
+		lt.Models = make([]uint16, count)
+		lt.Shapes = make([]uint8, count)
+		for i := range count {
+			lt.Models[i] = dat.G2()
+			lt.Shapes[i] = dat.G1()
+		}
+	case 2:
+		lt.Name = dat.GJStrLF()
 	case 3:
 		lt.Desc = dat.GJStrLF()
 	case 14:
 		lt.Width = int(dat.G1())
 	case 15:
 		lt.Length = int(dat.G1())
+	case 17:
+		lt.BlockWalk = false
+	case 18:
+		lt.BlockRange = false
+	case 19:
+		lt.Active = int(dat.G1())
+	case 21:
+		lt.HillSkew = true
+	case 22:
+		lt.ShareLight = true
+	case 23:
+		lt.Occlude = true
+	case 24:
+		lt.Anim = int(dat.G2())
+		if lt.Anim == 65535 {
+			lt.Anim = -1
+		}
+	case 25:
+		lt.HasAlpha = true
+	case 28:
+		lt.WallWidth = int(dat.G1())
+	case 29:
+		lt.Ambient = dat.G1B()
 	case 30, 31, 32, 33, 34:
-		// S6k: op-name slots. Lazy 5-slot init mirrors NpcType.Op
+		// Op-name slots. Lazy 5-slot init mirrors NpcType.Op
 		// (npctype.go:124-132). TS LocType.ts:152-157 uses
 		// `code >= 30 && < 35`. The "hidden" keyword in the cache
 		// marks a disabled op slot; we coerce to "" here so the
 		// handler gate in modules/world/handler_oploc.go can do a
-		// single empty-string check at runtime.
+		// single empty-string check at runtime (NAI-80-D1).
 		if lt.Op == nil {
 			lt.Op = make([]string, 5)
 		}
@@ -80,8 +113,42 @@ func (lt *LocType) Decode(code uint8, dat *packet2.Packet) error {
 		if lt.Op[code-30] == "hidden" {
 			lt.Op[code-30] = ""
 		}
+	case 39:
+		lt.Contrast = dat.G1B()
+	case 40:
+		count := int(dat.G1())
+		lt.RecolS = make([]uint16, count)
+		lt.RecolD = make([]uint16, count)
+		for i := range count {
+			lt.RecolS[i] = dat.G2()
+			lt.RecolD[i] = dat.G2()
+		}
+	case 60:
+		lt.MapFunction = int(dat.G2())
 	case 61:
 		lt.Category = int(dat.G2())
+	case 62:
+		lt.Mirror = true
+	case 64:
+		lt.Shadow = false
+	case 65:
+		lt.ResizeX = int(dat.G2())
+	case 66:
+		lt.ResizeY = int(dat.G2())
+	case 67:
+		lt.ResizeZ = int(dat.G2())
+	case 68:
+		lt.MapScene = int(dat.G2())
+	case 69:
+		lt.ForceApproach = int(dat.G1())
+	case 70:
+		lt.OffsetX = dat.G2S()
+	case 71:
+		lt.OffsetY = dat.G2S()
+	case 72:
+		lt.OffsetZ = dat.G2S()
+	case 73:
+		lt.ForceDecor = true
 	case 249:
 		lt.Params = DecodeParams(dat)
 	case 250:
