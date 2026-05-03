@@ -215,14 +215,15 @@ func TestInputTrackingDisableIdempotent(t *testing.T) {
 // submitEvents (TS InputTracking.submitEvents at lines 140-158).
 func TestInputTrackingSubmitEventsMatrix(t *testing.T) {
 	cases := []struct {
-		name              string
-		hasSeenReport     bool
-		shouldSubmit      bool
-		nodeDebug         bool
-		blobsBefore       [][]byte
-		wantBridgeCalls   int
-		wantKick          bool
-		wantSubmittedBlob []byte
+		name               string
+		hasSeenReport      bool
+		shouldSubmit       bool
+		nodeDebug          bool
+		blobsBefore        [][]byte
+		wantBridgeCalls    int
+		wantKick           bool
+		wantSubmittedBlob  []byte
+		wantSessionLogPush bool // NAI-74
 	}{
 		{
 			name:              "report+submit→bridge",
@@ -232,34 +233,38 @@ func TestInputTrackingSubmitEventsMatrix(t *testing.T) {
 			blobsBefore:       [][]byte{{0xAA}, {0xBB}, {0xCC}},
 			wantBridgeCalls:   1,
 			wantKick:          false,
-			wantSubmittedBlob: []byte{0xAA}, // TS quirk: only blob[0]
+			wantSubmittedBlob: []byte{0xAA},
+			wantSessionLogPush: false,
 		},
 		{
-			name:            "report+!submit→nothing",
-			hasSeenReport:   true,
-			shouldSubmit:    false,
-			nodeDebug:       false,
-			blobsBefore:     [][]byte{{0xAA}},
-			wantBridgeCalls: 0,
-			wantKick:        false,
+			name:               "report+!submit→nothing",
+			hasSeenReport:      true,
+			shouldSubmit:       false,
+			nodeDebug:          false,
+			blobsBefore:        [][]byte{{0xAA}},
+			wantBridgeCalls:    0,
+			wantKick:           false,
+			wantSessionLogPush: false,
 		},
 		{
-			name:            "!report+!debug→kick",
-			hasSeenReport:   false,
-			shouldSubmit:    false,
-			nodeDebug:       false,
-			blobsBefore:     nil,
-			wantBridgeCalls: 0,
-			wantKick:        true,
+			name:               "!report+!debug→kick",
+			hasSeenReport:      false,
+			shouldSubmit:       false,
+			nodeDebug:          false,
+			blobsBefore:        nil,
+			wantBridgeCalls:    0,
+			wantKick:           true,
+			wantSessionLogPush: true, // NAI-74: TS InputTracking.ts:150
 		},
 		{
-			name:            "!report+debug→nothing",
-			hasSeenReport:   false,
-			shouldSubmit:    false,
-			nodeDebug:       true,
-			blobsBefore:     nil,
-			wantBridgeCalls: 0,
-			wantKick:        false,
+			name:               "!report+debug→nothing",
+			hasSeenReport:      false,
+			shouldSubmit:       false,
+			nodeDebug:          true,
+			blobsBefore:        nil,
+			wantBridgeCalls:    0,
+			wantKick:           false,
+			wantSessionLogPush: false,
 		},
 	}
 	for _, tc := range cases {
@@ -289,6 +294,27 @@ func TestInputTrackingSubmitEventsMatrix(t *testing.T) {
 			}
 			if got := p.requestIdleLogout; got != tc.wantKick {
 				t.Errorf("requestIdleLogout: got %v, want %v", got, tc.wantKick)
+			}
+
+			// NAI-74: NAI-73-D close — kick branch must push one ENGINE
+			// session-log "Client did not submit an input tracking report".
+			if tc.wantSessionLogPush {
+				if got := len(p.client.server.sessionLogs); got != 1 {
+					t.Errorf("sessionLogs: got %d, want 1", got)
+				} else {
+					lg := p.client.server.sessionLogs[0]
+					if lg.EventType != LoggerEventTypeEngine {
+						t.Errorf("EventType: got %d, want ENGINE(%d)", lg.EventType, LoggerEventTypeEngine)
+					}
+					if lg.Event != "Client did not submit an input tracking report" {
+						t.Errorf("Event: got %q, want %q", lg.Event,
+							"Client did not submit an input tracking report")
+					}
+				}
+			} else {
+				if got := len(p.client.server.sessionLogs); got != 0 {
+					t.Errorf("sessionLogs: got %d, want 0", got)
+				}
 			}
 
 			// Reset invariants — every branch must clear state.

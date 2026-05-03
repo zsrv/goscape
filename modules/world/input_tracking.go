@@ -161,11 +161,9 @@ func (t *InputTracking) disable(currentTick int) {
 // Branches:
 //   - hasSeenReport && shouldSubmit → loggerBridge.SubmitInputTracking(player, recordedBlobs[0])
 //     (TS submits only blob index 0, even when multiple blobs were recorded — quirk preserved).
-//   - !hasSeenReport && !cfg.NodeDebug → requestIdleLogout = true
-//     (TS additionally calls addSessionLog(ENGINE, "Client did not submit
-//     an input tracking report") which is deferred via
-//     NAI-73-D-INPUT-NO-SESSION-LOG-KICK; structured-log entry is
-//     missing in goscape until the session-log NAI lands).
+//   - !hasSeenReport && !cfg.NodeDebug → ENGINE session log "Client did
+//     not submit an input tracking report" + requestIdleLogout = true
+//     (TS InputTracking.ts:150; ported in NAI-74).
 //
 // All branches reset waitingForRemainingData / recordedBlobs /
 // recordedBlobsSizeTotal / hasSeenReport (TS lines 154-157).
@@ -176,10 +174,11 @@ func (t *InputTracking) submitEvents() {
 			s.loggerBridge.SubmitInputTracking(t.player, t.recordedBlobs[0])
 		}
 	} else if !s.cfg.NodeDebug {
-		// NAI-73-D-INPUT-NO-SESSION-LOG-KICK: TS also calls
-		// player.addSessionLog(LoggerEventType.ENGINE, ...) on this
-		// branch (InputTracking.ts:150). Goscape has no session-log
-		// subsystem yet; deferred to a future session-log NAI.
+		// NAI-74: NAI-73-D close. Per TS InputTracking.ts:150 — emits
+		// an ENGINE session log noting the missed report alongside the
+		// idle-logout request.
+		t.player.AddSessionLog(LoggerEventTypeEngine,
+			"Client did not submit an input tracking report")
 		t.player.requestIdleLogout = true
 	}
 	t.waitingForRemainingData = false
