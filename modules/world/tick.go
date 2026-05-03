@@ -474,6 +474,14 @@ func (s *Server) processCleanup() {
 	s.playersMu.RUnlock()
 	for _, p := range players {
 		p.ResetMasks()
+		// NAI-72 — TS Player.resetEntity(false) at Player.ts:466-467.
+		// Reset social/report spam-protect flags so the next tick admits
+		// at most one social/report packet per type per player.
+		// (Other resetEntity fields — protect, chatColour/Effect/Rights,
+		// chatMessage, logMessage — belong to other sub-specs; tracked
+		// as NAI-72-N-RESETENTITY-PARTIAL.)
+		p.socialProtect = false
+		p.reportAbuseProtect = false
 	}
 	for _, n := range s.npcLoop {
 		n.ResetMasks()

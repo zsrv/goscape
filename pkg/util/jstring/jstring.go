@@ -33,7 +33,13 @@ func ToBase37(s string) uint64 {
 
 func FromBase37(v uint64) string {
 	// >= 37 to the 12th power
-	if v < 0 || v >= 6582952005840035281 {
+	if v >= 6582952005840035281 {
+		return "invalid_name"
+	}
+
+	// Mirrors TS JString.ts:42-44 — values divisible by 37 are invalid
+	// (NAI-72: surfaced by social handler invalid_name gate).
+	if v != 0 && v%37 == 0 {
 		return "invalid_name"
 	}
 

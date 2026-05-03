@@ -175,6 +175,19 @@ type Player struct {
 	mutedUntil                         time.Time
 	messageCount                       int
 
+	// === social spam protection (NAI-72) ===
+	// socialProtect gates FRIENDLIST_ADD/DEL, IGNORELIST_ADD/DEL, and
+	// (future) MESSAGE_PRIVATE — at most one such packet per tick per
+	// player. Reset to false in processCleanup. Set to true at handler-
+	// success bottom. Mirrors TS Player.socialProtect (Player.ts:386,
+	// reset Player.ts:466).
+	socialProtect bool
+
+	// reportAbuseProtect gates REPORT_ABUSE — at most one per tick per
+	// player. Reset/set semantics identical to socialProtect. Mirrors
+	// TS Player.reportAbuseProtect (Player.ts:387, reset Player.ts:467).
+	reportAbuseProtect bool
+
 	// === anim-protect (S7b) ===
 	// animProtect gates in-engine animation requests when nonzero.
 	// Set by the P_ANIMPROTECT script opcode; read by (*Player).PlayAnim

@@ -317,6 +317,9 @@ func newTestServer(t *testing.T) *Server {
 		zoneMap:        zone.NewZoneMap(),
 		rsbuf:          rsbuf.New(),
 	}
+	s.friendsBridge = noopBridges{}
+	s.loginBridgeMod = noopBridges{}
+	s.loggerBridge = noopBridges{}
 	return s
 }
 

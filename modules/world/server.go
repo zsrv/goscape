@@ -116,6 +116,14 @@ type Server struct {
 	zonesTracking map[*zone.Zone]struct{}
 
 	scriptProvider *script.Provider
+
+	// Social/moderation bridges (NAI-72). Default to noopBridges{} in
+	// NewServer; tests inject recordingBridges via installRecordingBridges.
+	// Real impls deferred per NAI-72-D-{FRIENDS-SERVER-BRIDGE,
+	// LOGIN-SERVER-BRIDGE-MOD, LOGGER-BRIDGE}.
+	friendsBridge  FriendsBridge
+	loginBridgeMod LoginBridgeMod
+	loggerBridge   LoggerBridge
 }
 
 // appendNewPlayer queues a player for registration on the next tick.
@@ -151,6 +159,9 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 		zonesTracking: map[*zone.Zone]struct{}{},
 		rsbuf:         rsbuf.New(),
 	}
+	s.friendsBridge = noopBridges{}
+	s.loginBridgeMod = noopBridges{}
+	s.loggerBridge = noopBridges{}
 	s.tcpWg.Add(1)
 
 	gm := gamemap.New(logger)
