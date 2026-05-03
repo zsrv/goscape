@@ -1472,3 +1472,33 @@ func TestProcessInteractionEntryResetsNextTargetEvenOnLevelMismatch(t *testing.T
 		t.Errorf("p.nextTarget after level-mismatch exit: got %v, want nil (TS L1203 runs before L1207)", p.nextTarget)
 	}
 }
+
+// --- NAI-78 T2: defaultOp NIH helper ---
+
+// TestDefaultOp_EmitsNIHAndClearsWaypoints pins TS
+// LostCityRS/Engine-TS Player.ts:1072-1097. defaultOp must emit
+// "Nothing interesting happens." to the player AND clear the
+// waypoint queue (waypointIndex = -1). Goscape skips the
+// NODE_PRODUCTION-gated dev "No trigger for [...]" debug line.
+func TestDefaultOp_EmitsNIHAndClearsWaypoints(t *testing.T) {
+	_, p, _, cc := makeOpLocTriggerFixture(t)
+
+	// Pre-state: active waypoint queue.
+	p.waypointIndex = 5
+	p.waypoints[5] = 0xCAFE
+
+	received := drainConn(t, cc)
+	defaultOp(p)
+	p.client.flushWrite()
+	got := <-received
+
+	// Assert: waypointIndex cleared.
+	if p.waypointIndex != -1 {
+		t.Errorf("p.waypointIndex: got %d, want -1 (TS Player.ts:1096 clearWaypoints)", p.waypointIndex)
+	}
+
+	// Assert: "Nothing interesting happens." emitted on the wire.
+	if !bytes.Contains(got, []byte("Nothing interesting happens.")) {
+		t.Errorf("expected MessageGame(\"Nothing interesting happens.\") on wire; got %x", got)
+	}
+}

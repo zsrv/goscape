@@ -342,6 +342,20 @@ func (p *Player) tryInteract(allowOpScenery bool) bool {
 	return false
 }
 
+// defaultOp implements the NIH (Not-Implemented-Here) fallback fired by
+// tryInteract branch 4 when the player reaches operable distance but no
+// [op…] script is registered. Mirrors LostCityRS/Engine-TS
+// Player.ts:1072-1097.
+//
+// Skips the NODE_PRODUCTION-gated dev "No trigger for [...]" debug
+// message at TS Player.ts:1076-1093 — goscape has no equivalent dev/prod
+// flag and the chat-only path matches all known production-mode TS
+// behavior.
+func defaultOp(p *Player) {
+	p.MessageGame("Nothing interesting happens.")
+	p.waypointIndex = -1 // TS Player.ts:1096 — clearWaypoints()
+}
+
 // inOperableDistance is Chebyshev <= 1 between (px,pz) and (tx,tz),
 // excluding the same tile. Adjacent (including diagonals) counts as
 // operable for 1x1 targets. Multi-tile + strict-adjacency come with
