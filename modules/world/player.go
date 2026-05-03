@@ -3,6 +3,7 @@ package world
 import (
 	"math/rand/v2"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
@@ -946,4 +947,32 @@ func (p *Player) IsValid() bool {
 		return false
 	}
 	return p.active
+}
+
+// AddSessionLog mirrors TS Player.addSessionLog (Player.ts:629-631) +
+// World.addSessionLog (World.ts:2222-2231). Pushes one SessionLog onto
+// Server.sessionLogs; flushed per-tick by Server.processSessionLogs.
+//
+// Variadic-arg join preserves TS quirk (World.ts:2227):
+//
+//	event = len(args) > 0 ? message + " " + strings.Join(args, " ") : message
+//
+// goscape defensive: nil-client / nil-server short-circuit (TS Player
+// has no equivalent gate; in TS the World reference is module-global).
+func (p *Player) AddSessionLog(eventType LoggerEventType, message string, args ...string) {
+	if p.client == nil || p.client.server == nil {
+		return
+	}
+	s := p.client.server
+	event := message
+	if len(args) > 0 {
+		event = message + " " + strings.Join(args, " ")
+	}
+	s.sessionLogs = append(s.sessionLogs, SessionLog{
+		SessionUUID: p.session,
+		Timestamp:   time.Now().UnixMilli(),
+		Coord:       coordgrid.PackCoord(p.level, p.x, p.z),
+		Event:       event,
+		EventType:   eventType,
+	})
 }
