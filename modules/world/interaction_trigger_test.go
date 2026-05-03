@@ -1285,3 +1285,97 @@ func TestResolveTriggerTypeId(t *testing.T) {
 		t.Errorf("com=-1 default=-1: got %d, want -1", got)
 	}
 }
+
+// --- NAI-78 T1: getOpTrigger / getApTrigger resolution helpers ---
+
+func TestGetOpTrigger_LocTargetResolvesViaTriggerOpLoc1(t *testing.T) {
+	s, p, loc, _ := makeOpLocTriggerFixture(t)
+	want := newNoopScriptFile(t, script.TriggerOpLoc1, loc.Type(), -1)
+	s.scriptProvider.Register(want)
+
+	got := getOpTrigger(p, s)
+	if got != want {
+		t.Errorf("getOpTrigger: got %p, want %p (TS Player.ts:966-998)", got, want)
+	}
+}
+
+func TestGetOpTrigger_LocTarget_NoScriptReturnsNil(t *testing.T) {
+	s, p, _, _ := makeOpLocTriggerFixture(t)
+	// No script registered.
+	got := getOpTrigger(p, s)
+	if got != nil {
+		t.Errorf("getOpTrigger: got %p, want nil (no [oploc1] registered)", got)
+	}
+}
+
+func TestGetOpTrigger_NpcTargetResolvesViaTriggerOpNpc1(t *testing.T) {
+	s, p, npc := newApTriggerNpcFixture(t)
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
+	want := newNoopScriptFile(t, script.TriggerOpNpc1, npc.typeId, -1)
+	s.scriptProvider.Register(want)
+
+	got := getOpTrigger(p, s)
+	if got != want {
+		t.Errorf("getOpTrigger: got %p, want %p", got, want)
+	}
+}
+
+func TestGetOpTrigger_NilTargetReturnsNil(t *testing.T) {
+	s, p, _, _ := makeOpLocTriggerFixture(t)
+	p.target = nil
+
+	got := getOpTrigger(p, s)
+	if got != nil {
+		t.Errorf("getOpTrigger: got %p, want nil (TS Player.ts:967-969)", got)
+	}
+}
+
+func TestGetOpTrigger_InvalidOpReturnsNil(t *testing.T) {
+	s, p, loc, _ := makeOpLocTriggerFixture(t)
+	p.targetOp = 99 // out of [1..5] + non-T/U
+	_ = loc
+
+	got := getOpTrigger(p, s)
+	if got != nil {
+		t.Errorf("getOpTrigger: got %p, want nil (apLocTriggerForOp ok=false)", got)
+	}
+}
+
+func TestGetOpTrigger_TargetSubjectComOverridesTypeId(t *testing.T) {
+	s, p, loc, _ := makeOpLocTriggerFixture(t)
+	// loc.Type() == 42 in this fixture; use a different com value so keys differ.
+	const overrideTypeId = 7777
+	// targetSubject.com=overrideTypeId → resolveTriggerTypeId returns overrideTypeId (TS Player.ts:993-995).
+	p.targetSubject.com = overrideTypeId
+	want := newNoopScriptFile(t, script.TriggerOpLoc1, overrideTypeId, -1)
+	s.scriptProvider.Register(want)
+	// Counter-pin: a script keyed at the loc's actual type must NOT be returned.
+	deceiver := newNoopScriptFile(t, script.TriggerOpLoc1, loc.Type(), -1)
+	s.scriptProvider.Register(deceiver)
+
+	got := getOpTrigger(p, s)
+	if got != want {
+		t.Errorf("getOpTrigger: got %p, want %p (com override per TS Player.ts:993-995)", got, want)
+	}
+}
+
+func TestGetApTrigger_LocTargetResolvesViaTriggerApLoc1(t *testing.T) {
+	s, p, loc, _ := makeOpLocTriggerFixture(t)
+	want := newNoopScriptFile(t, script.TriggerApLoc1, loc.Type(), -1)
+	s.scriptProvider.Register(want)
+
+	got := getApTrigger(p, s)
+	if got != want {
+		t.Errorf("getApTrigger: got %p, want %p (TS Player.ts:1000-1032)", got, want)
+	}
+}
+
+func TestGetApTrigger_LocTarget_NoScriptReturnsNil(t *testing.T) {
+	s, p, _, _ := makeOpLocTriggerFixture(t)
+	// No [aploc1] registered. The door symptom: this returns nil →
+	// tryInteract branch 2 must NOT fire.
+	got := getApTrigger(p, s)
+	if got != nil {
+		t.Errorf("getApTrigger: got %p, want nil (door bug regression — no [aploc1])", got)
+	}
+}

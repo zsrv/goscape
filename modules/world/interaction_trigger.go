@@ -502,6 +502,104 @@ func apObjTriggerForOp(op int) (script.ServerTriggerType, bool) {
 	}
 }
 
+// apTriggerForTarget dispatches to the per-entity-type apXxxTriggerForOp
+// helper. Returns ok=false when target is nil or targetOp is unsupported
+// for the target's concrete type. Internal — used by getOpTrigger and
+// getApTrigger to share the type-switch.
+func apTriggerForTarget(p *Player) (script.ServerTriggerType, bool) {
+	switch p.target.(type) {
+	case *Npc:
+		return apNpcTriggerForOp(p.targetOp)
+	case *entitypkg.Loc:
+		return apLocTriggerForOp(p.targetOp)
+	case *Player:
+		return apPlayerTriggerForOp(p.targetOp)
+	case *entitypkg.Obj:
+		return apObjTriggerForOp(p.targetOp)
+	}
+	return 0, false
+}
+
+// triggerTypeAndCategory derives (typeId, categoryId) from the target's
+// type registry, applying the targetSubject.com override per TS
+// Player.getOpTrigger:993-995 / Player.getApTrigger:1027-1029.
+//
+// Player target: typeId stays -1 (TS Player.ts:971-972 default — Player
+// branch doesn't set type) and categoryId stays -1 (provider falls
+// through LookupKeyForType / LookupKeyForCategory to LookupKeyForGlobal).
+//
+// Internal — used by getOpTrigger and getApTrigger.
+func triggerTypeAndCategory(p *Player, srv *Server) (typeId, categoryId int) {
+	typeId = -1
+	categoryId = -1
+
+	switch tgt := p.target.(type) {
+	case *Npc:
+		typeId = tgt.typeId
+		if tgt.typ != nil {
+			categoryId = tgt.typ.Category
+		} else {
+			categoryId = 0
+		}
+	case *entitypkg.Loc:
+		typeId = tgt.Type()
+		categoryId = 0
+		if locId := tgt.Type(); srv.locTypes != nil && locId >= 0 && locId < len(srv.locTypes.Configs) {
+			if lt := srv.locTypes.Configs[locId]; lt != nil {
+				categoryId = lt.Category
+			}
+		}
+	case *entitypkg.Obj:
+		typeId = tgt.Type
+		categoryId = 0
+		if srv.objTypes != nil && tgt.Type >= 0 && tgt.Type < len(srv.objTypes.Configs) {
+			if ot := srv.objTypes.Configs[tgt.Type]; ot != nil {
+				categoryId = ot.Category
+			}
+		}
+	case *Player:
+		// typeId, categoryId stay -1.
+	}
+
+	typeId = resolveTriggerTypeId(p, typeId)
+	return typeId, categoryId
+}
+
+// getOpTrigger resolves the [op<entity><op>,<typeId>] script for the
+// player's anchored target. Mirrors LostCityRS/Engine-TS
+// Player.ts:966-998. Returns nil if target is nil, op is unsupported,
+// or no script registered. Used by tryInteract (interaction.go) to gate
+// branch 1 (OP fire).
+//
+// The +7 offset converts an APXXX trigger into the matching OPXXX trigger
+// per TS Player.ts:997 ScriptProvider.getByTrigger(this.targetOp + 7, …).
+func getOpTrigger(p *Player, srv *Server) *script.ScriptFile {
+	if p.target == nil {
+		return nil
+	}
+	apTrigger, ok := apTriggerForTarget(p)
+	if !ok {
+		return nil
+	}
+	typeId, categoryId := triggerTypeAndCategory(p, srv)
+	return srv.scriptProvider.GetByTrigger(apTrigger+7, typeId, categoryId)
+}
+
+// getApTrigger resolves the [ap<entity><op>,<typeId>] script. Mirror of
+// getOpTrigger without the +7 offset. Mirrors LostCityRS/Engine-TS
+// Player.ts:1000-1032. Used by tryInteract to gate branch 2 (AP fire).
+func getApTrigger(p *Player, srv *Server) *script.ScriptFile {
+	if p.target == nil {
+		return nil
+	}
+	apTrigger, ok := apTriggerForTarget(p)
+	if !ok {
+		return nil
+	}
+	typeId, categoryId := triggerTypeAndCategory(p, srv)
+	return srv.scriptProvider.GetByTrigger(apTrigger, typeId, categoryId)
+}
+
 // resolveTriggerTypeId mirrors the typeId override in TS Player.getOpTrigger
 // (Player.ts:993-995) and Player.getApTrigger (Player.ts:1027-1029): when
 // targetSubject.com is set (≠ -1), it overrides the entity's typeId for
