@@ -1,6 +1,7 @@
 package world
 
 import (
+	"fmt"
 	"sort"
 	"time"
 
@@ -479,7 +480,26 @@ func (s *Server) processZones() {
 		for np := range t.All() {
 			snap = append(snap, np)
 		}
-		for _, np := range snap {
+		// NAI-88 probe; remove at Stage 2 close.
+		if s.cfg.NodeDebug && s.log != nil {
+			s.log.Debug("nai88 process_zones iter",
+				"event_id", "P1",
+				"tick", s.currentTick,
+				"tracker_size", len(snap),
+				"cursor", -1,
+			)
+		}
+		for i, np := range snap {
+			// NAI-88 probe; remove at Stage 2 close.
+			if s.cfg.NodeDebug && s.log != nil {
+				s.log.Debug("nai88 process_zones iter",
+					"event_id", "P1",
+					"tick", s.currentTick,
+					"tracker_size", len(snap),
+					"cursor", i,
+					"np_addr", fmt.Sprintf("%p", np),
+				)
+			}
 			switch p := np.Parent().(type) {
 			case *entitypkg.Loc:
 				s.turnLoc(p, s.currentTick)
