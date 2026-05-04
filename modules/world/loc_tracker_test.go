@@ -7,7 +7,7 @@ import (
 )
 
 func TestLocObjTrackerRegisterAddsToList(t *testing.T) {
-	tr := newLocObjTracker(nil, false)
+	tr := newLocObjTracker()
 	np := &entitypkg.NonPathing{Entity: entitypkg.NewEntity(0, 100, 200, 1, 1, entitypkg.LifecycleDespawn)}
 	tr.Register(np)
 	count := 0
@@ -20,7 +20,7 @@ func TestLocObjTrackerRegisterAddsToList(t *testing.T) {
 }
 
 func TestLocObjTrackerUnregisterRemoves(t *testing.T) {
-	tr := newLocObjTracker(nil, false)
+	tr := newLocObjTracker()
 	np := &entitypkg.NonPathing{Entity: entitypkg.NewEntity(0, 100, 200, 1, 1, entitypkg.LifecycleDespawn)}
 	tr.Register(np)
 	tr.Unregister(np)
@@ -34,7 +34,7 @@ func TestLocObjTrackerUnregisterRemoves(t *testing.T) {
 }
 
 func TestLocObjTrackerReRegisterUnlinksOld(t *testing.T) {
-	tr := newLocObjTracker(nil, false)
+	tr := newLocObjTracker()
 	np := &entitypkg.NonPathing{Entity: entitypkg.NewEntity(0, 100, 200, 1, 1, entitypkg.LifecycleDespawn)}
 	tr.Register(np)
 	tr.Register(np) // second register should unlink-and-re-add, not duplicate
@@ -48,7 +48,7 @@ func TestLocObjTrackerReRegisterUnlinksOld(t *testing.T) {
 }
 
 func TestLocObjTrackerUnregisterUnknownIsNoOp(t *testing.T) {
-	tr := newLocObjTracker(nil, false)
+	tr := newLocObjTracker()
 	np := &entitypkg.NonPathing{Entity: entitypkg.NewEntity(0, 100, 200, 1, 1, entitypkg.LifecycleDespawn)}
 	tr.Unregister(np) // no panic; no-op
 }

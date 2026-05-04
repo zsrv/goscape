@@ -1,10 +1,7 @@
 package world
 
 import (
-	"fmt"
 	"iter"
-	"log/slog"
-	"runtime"
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/zone"
@@ -19,25 +16,14 @@ import (
 type locObjTracker struct {
 	list  *zone.DoublyLinkList[*entitypkg.NonPathing]
 	nodes map[*entitypkg.NonPathing]*zone.Element[*entitypkg.NonPathing]
-
-	// log + nodeDebug back the NAI-88 Stage 1 probes (P5/P6) at
-	// Register/Unregister. Both are nil-safe; production passes
-	// (s.log, s.cfg.NodeDebug) at Server.New, test fixtures pass
-	// (nil, false) and the probe emit-helper short-circuits.
-	// NAI-88 probe; remove at Stage 2 close.
-	log       *slog.Logger
-	nodeDebug bool
 }
 
 // newLocObjTracker constructs an empty tracker. Server.New calls this
-// once at server startup. log+nodeDebug back NAI-88 Stage 1 probes;
-// pass (nil, false) in tests to no-op them.
-func newLocObjTracker(log *slog.Logger, nodeDebug bool) *locObjTracker {
+// once at server startup.
+func newLocObjTracker() *locObjTracker {
 	return &locObjTracker{
-		list:      &zone.DoublyLinkList[*entitypkg.NonPathing]{},
-		nodes:     map[*entitypkg.NonPathing]*zone.Element[*entitypkg.NonPathing]{},
-		log:       log,
-		nodeDebug: nodeDebug,
+		list:  &zone.DoublyLinkList[*entitypkg.NonPathing]{},
+		nodes: map[*entitypkg.NonPathing]*zone.Element[*entitypkg.NonPathing]{},
 	}
 }
 
@@ -51,37 +37,13 @@ func (t *locObjTracker) Register(np *entitypkg.NonPathing) {
 		delete(t.nodes, np)
 	}
 	t.nodes[np] = t.list.AddTail(np)
-	// NAI-88 probe; remove at Stage 2 close.
-	if t.nodeDebug && t.log != nil {
-		t.log.Debug("nai88 tracker register",
-			"event_id", "P5",
-			"np_addr", fmt.Sprintf("%p", np),
-			"tracker_size_after", t.list.Size(),
-		)
-	}
 }
 
 // Unregister removes np from the tracker. No-op if np is not tracked.
 func (t *locObjTracker) Unregister(np *entitypkg.NonPathing) {
-	hit := false
 	if e, ok := t.nodes[np]; ok {
 		e.Unlink()
 		delete(t.nodes, np)
-		hit = true
-	}
-	// NAI-88 probe; remove at Stage 2 close.
-	if t.nodeDebug && t.log != nil {
-		caller := "unknown"
-		if _, file, line, ok := runtime.Caller(1); ok {
-			caller = fmt.Sprintf("%s:%d", file, line)
-		}
-		t.log.Debug("nai88 tracker unregister",
-			"event_id", "P6",
-			"np_addr", fmt.Sprintf("%p", np),
-			"hit", hit,
-			"tracker_size_after", t.list.Size(),
-			"caller", caller,
-		)
 	}
 }
 

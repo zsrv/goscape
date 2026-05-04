@@ -37,6 +37,9 @@ func (s *Server) AddLoc(loc *entitypkg.Loc, duration int) {
 // (2) remove old collision; (3) loc.Change(); (4) add new collision;
 // (5) zone.ChangeLoc; (6) trackZone; (7) SetLifeCycle (duration if
 // changed-or-DESPAWN, else -1 to untrack a no-op static change).
+//
+// IsActive=true is written by the called Zone.ChangeLoc (pkg/zone/zone.go),
+// matching TS Zone.changeLoc (Zone.ts:232).
 func (s *Server) ChangeLoc(loc *entitypkg.Loc, typ, shape, angle, duration int) {
 	if loc.Lifecycle == entitypkg.LifecycleDespawn && !loc.IsActive {
 		return
@@ -57,27 +60,7 @@ func (s *Server) ChangeLoc(loc *entitypkg.Loc, typ, shape, angle, duration int) 
 	z := s.zoneMap.Get(loc.Level, loc.X, loc.Z)
 	z.ChangeLoc(loc)
 	s.TrackZone(z)
-	armRegister := loc.IsChanged() || loc.Lifecycle == entitypkg.LifecycleDespawn
-	// NAI-88 probe; remove at Stage 2 close.
-	if s.cfg.NodeDebug && s.log != nil {
-		arm := "untrack"
-		if armRegister {
-			arm = "register"
-		}
-		s.log.Debug("nai88 change_loc setlifecycle",
-			"event_id", "P4",
-			"tick", s.currentTick,
-			"loc_x", loc.X,
-			"loc_z", loc.Z,
-			"loc_level", loc.Level,
-			"loc_type", loc.Type(),
-			"is_changed", loc.IsChanged(),
-			"lifecycle", int(loc.Lifecycle),
-			"duration", duration,
-			"arm", arm,
-		)
-	}
-	if armRegister {
+	if loc.IsChanged() || loc.Lifecycle == entitypkg.LifecycleDespawn {
 		loc.SetLifeCycle(duration, s.currentTick, s.locObjTracker)
 	} else {
 		loc.SetLifeCycle(-1, s.currentTick, nil)
