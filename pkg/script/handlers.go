@@ -419,9 +419,10 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// S7e: character-design flag setter.
 	OpAllowDesign: handleAllowDesign,
 
-	// S7h: audio — MIDI_SONG + MIDI_JINGLE.
+	// S7h + NAI-87: audio — MIDI_SONG + MIDI_JINGLE + SOUND_SYNTH.
 	OpMidiJingle: handleMidiJingle,
 	OpMidiSong:   handleMidiSong,
+	OpSoundSynth: handleSoundSynth,
 
 	// NAI-37 T6 + NAI-39: hint-arrow — full HintArrowEncoder coverage.
 	//   - HINT_NPC   (type=1)     — NAI-37

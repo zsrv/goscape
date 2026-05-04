@@ -3166,3 +3166,78 @@ func TestHandleSessionLogRequiresActivePlayer(t *testing.T) {
 		t.Fatal("handleSessionLog: want error on missing ActivePlayer, got nil")
 	}
 }
+
+// TestSoundSynthHappyPath pins NAI-87: SOUND_SYNTH dispatches to
+// (*ActivePlayer).PlaySynth with the popped (synth, loops, delay)
+// triple in TS argument order. Push order left-to-right matches
+// TS popInts(3) at ScriptState.ts:325-331 (top-of-stack popped
+// first, written into result[amount-1]).
+func TestSoundSynthHappyPath(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        &mockPlayer{},
+		Pointers:    PtrActivePlayer,
+	}
+	s.PushInt(42)  // synth
+	s.PushInt(2)   // loops
+	s.PushInt(100) // delay
+	mp := s.Self.(*mockPlayer)
+
+	if err := handleSoundSynth(s); err != nil {
+		t.Fatalf("handleSoundSynth: %v", err)
+	}
+	if len(mp.playSynthCalls) != 1 {
+		t.Fatalf("playSynthCalls: got %d, want 1", len(mp.playSynthCalls))
+	}
+	got := mp.playSynthCalls[0]
+	if got.synth != 42 || got.loops != 2 || got.delay != 100 {
+		t.Errorf("playSynthCalls[0] = %+v, want {synth:42, loops:2, delay:100}", got)
+	}
+}
+
+// TestSoundSynthLowMemoryBails pins TS PlayerOps.ts:470-472 silent
+// no-op gate. lowMemory=true → handler returns nil and PlaySynth is
+// NOT called.
+func TestSoundSynthLowMemoryBails(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        &mockPlayer{lowMemoryValue: true},
+		Pointers:    PtrActivePlayer,
+	}
+	s.PushInt(42)
+	s.PushInt(2)
+	s.PushInt(100)
+	mp := s.Self.(*mockPlayer)
+
+	if err := handleSoundSynth(s); err != nil {
+		t.Fatalf("handleSoundSynth: %v", err)
+	}
+	if len(mp.playSynthCalls) != 0 {
+		t.Errorf("lowMemory=true: playSynthCalls=%d, want 0", len(mp.playSynthCalls))
+	}
+}
+
+// TestSoundSynthNoActivePlayerRejects pins the requireActivePlayer
+// gate. Self=nil + Pointers=0 → error containing "SOUND_SYNTH: no
+// active player".
+func TestSoundSynthNoActivePlayerRejects(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        nil,
+		Pointers:    0,
+	}
+	s.PushInt(42)
+	s.PushInt(2)
+	s.PushInt(100)
+
+	err := handleSoundSynth(s)
+	if err == nil {
+		t.Fatal("no active player: want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "SOUND_SYNTH: no active player") {
+		t.Errorf("error %q does not contain %q", err.Error(), "SOUND_SYNTH: no active player")
+	}
+}

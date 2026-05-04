@@ -908,6 +908,32 @@ func handleMidiJingle(s *ScriptState) error {
 	return nil
 }
 
+// handleSoundSynth (SOUND_SYNTH, opcode 2104) plays a synthesized
+// sound effect to the active player. Silent no-op if the player has
+// lowMemory set. Mirrors TS PlayerOps.ts:466-474.
+//
+// Pointer gate: require active_player (TS ScriptOpcodePointers.ts:434
+// require: ['active_player']).
+//
+// Pop order (top-of-stack first per ScriptState.ts:325-331):
+// delay, loops, synth. TS uses popInts(3) which fills the result
+// slice from index amount-1 down to 0, so the destructured
+// `[synth, loops, delay]` gets `synth = bottom-most pop`,
+// `delay = first pop`. No check() validation — TS has none.
+func handleSoundSynth(s *ScriptState) error {
+	delay := s.PopInt()
+	loops := s.PopInt()
+	synth := s.PopInt()
+	if err := requireActivePlayer(s, "SOUND_SYNTH"); err != nil {
+		return err
+	}
+	if s.Self.LowMemory() {
+		return nil
+	}
+	s.Self.PlaySynth(synth, loops, delay)
+	return nil
+}
+
 // handleHuntAll (HUNTALL, opcode 2031) pops [coord, distance, huntvis]
 // and stores a HuntAll-mode PlayerIterator in s.playerIterator
 // (consumed by HUNTNEXT 2032 in T5). Mirrors TS PlayerOps.ts:1215-1223.
