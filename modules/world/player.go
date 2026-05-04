@@ -634,6 +634,46 @@ func (p *Player) rebuildScenery(currentTick int) []uint16 {
 	return out
 }
 
+// rebuildZones refreshes activeZones to a 7×7-zone window centered on
+// the player's current zone, intersected with the 13×13-zone
+// build-area window centered on origin. Mirrors TS
+// BuildArea.rebuildZones (BuildArea.ts:31-55).
+//
+// Called at the end of handleRebuildGetMaps (after the client confirms
+// maps loaded). Not called per-zone-change because goscape has not yet
+// ported NetworkPlayer.ts:269-271 lastZone-transition tracking;
+// deferred follow-up in nai84_rebuildzones_per_zone_change.md.
+//
+// Note: rebuildScenery (player.go:600-635) currently also writes
+// activeZones (with a 13×13 set keyed at level=0). That pre-existing
+// divergence is intentionally not touched here — see TS-fidelity
+// ledger entry §6 R-D2. rebuildZones runs after rebuildScenery in the
+// REBUILD path (rebuildScenery → sendRebuildNormal → client requests
+// maps → handleRebuildGetMaps → rebuildZones), so the rebuildScenery
+// preset is overwritten before zone deltas flow.
+func (p *Player) rebuildZones() {
+	p.activeZones = map[int]bool{}
+	centerX := p.x >> 3
+	centerZ := p.z >> 3
+	originZoneX := p.originX >> 3
+	originZoneZ := p.originZ >> 3
+	leftX := originZoneX - 6
+	rightX := originZoneX + 6
+	bottomZ := originZoneZ - 6
+	topZ := originZoneZ + 6
+	for x := centerX - 3; x <= centerX+3; x++ {
+		for z := centerZ - 3; z <= centerZ+3; z++ {
+			if x < leftX || x > rightX || z < bottomZ || z > topZ {
+				continue
+			}
+			if x < 0 || z < 0 { // (goscape defensive; TS skips this check)
+				continue
+			}
+			p.activeZones[coordgrid.ZoneIndex(x<<3, z<<3, p.level)] = true
+		}
+	}
+}
+
 func (p *Player) updateMap() {
 	if p.client == nil || p.client.server == nil {
 		return

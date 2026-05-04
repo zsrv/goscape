@@ -1,7 +1,9 @@
 package world
 
 import (
-	"github.com/zsrv/goscape/pkg/gamemap"
+	"fmt"
+
+	"github.com/zsrv/goscape/pkg/cache"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 )
@@ -56,11 +58,19 @@ func sendDataLocDone(p *Player, mapX, mapZ int) {
 	p.writeOut(gameserver.OpDataLocDone, buf.Bytes())
 }
 
-// streamLand chunks the land file for (mapX, mapZ) into DATA_LAND packets
-// followed by exactly one DATA_LAND_DONE. Silent no-op if the mapsquare
-// isn't loaded in the gamemap.
-func streamLand(p *Player, gm *gamemap.GameMap, mapX, mapZ int) {
-	data := gm.LandBytes(mapX, mapZ)
+// streamLand chunks the client-pack land file for (mapX, mapZ) into
+// DATA_LAND packets followed by exactly one DATA_LAND_DONE. Silent
+// no-op if the mapsquare isn't in cache.Preloaded.
+//
+// Reads from cache.Preloaded (data/pack/client/maps/) — NOT
+// gamemap.LandBytes (data/pack/server/maps/). Per TS
+// RebuildGetMapsHandler.ts:44 (PRELOADED.get('m${x}_${z}')). The two
+// directories hold byte-different files for the same filename: server
+// maps are uncompressed for collision parsing; client maps are
+// pre-compressed/encrypted for over-the-wire delivery and match the
+// CRCs advertised in RebuildNormal.
+func streamLand(p *Player, mapX, mapZ int) {
+	data := cache.Preloaded[fmt.Sprintf("m%d_%d", mapX, mapZ)]
 	if data == nil {
 		return
 	}
@@ -75,9 +85,11 @@ func streamLand(p *Player, gm *gamemap.GameMap, mapX, mapZ int) {
 	sendDataLandDone(p, mapX, mapZ)
 }
 
-// streamLoc is the symmetric helper for DATA_LOC.
-func streamLoc(p *Player, gm *gamemap.GameMap, mapX, mapZ int) {
-	data := gm.LocBytes(mapX, mapZ)
+// streamLoc is the symmetric helper for DATA_LOC. Same client-pack
+// source, same per-chunk + done-packet structure. Per TS
+// RebuildGetMapsHandler.ts:54.
+func streamLoc(p *Player, mapX, mapZ int) {
+	data := cache.Preloaded[fmt.Sprintf("l%d_%d", mapX, mapZ)]
 	if data == nil {
 		return
 	}
@@ -100,7 +112,7 @@ func streamLoc(p *Player, gm *gamemap.GameMap, mapX, mapZ int) {
 //   - Reject (silently) if buildArea.LastBuild + 10 < currentTick (stale).
 //   - Reject (silently) if entries > MAPS_LIMIT (18).
 //   - Skip per-entry if mapsquare not in buildArea.Mapsquares.
-//   - Skip per-entry if GameMap has no bytes for that file.
+//   - Skip per-entry if cache.Preloaded has no bytes for that file.
 //
 // No error-response opcodes are sent - clients retry on their own.
 func handleRebuildGetMaps(p *Player, payload []byte) error {
@@ -108,10 +120,6 @@ func handleRebuildGetMaps(p *Player, payload []byte) error {
 		return nil
 	}
 	s := p.client.server
-	gm := s.gamemap
-	if gm == nil {
-		return nil
-	}
 
 	if p.lastBuild+rebuildGetMapsLastBuildTicks < s.currentTick {
 		return nil
@@ -134,10 +142,14 @@ func handleRebuildGetMaps(p *Player, payload []byte) error {
 		mapZ := int(mapsquare) & 0xFF
 		switch typ {
 		case 0:
-			streamLand(p, gm, mapX, mapZ)
+			streamLand(p, mapX, mapZ)
 		case 1:
-			streamLoc(p, gm, mapX, mapZ)
+			streamLoc(p, mapX, mapZ)
 		}
 	}
+
+	// Mirrors TS RebuildGetMapsHandler.ts:66 — refresh activeZones to
+	// the player's current 7×7 zone window now that maps are loaded.
+	p.rebuildZones()
 	return nil
 }
