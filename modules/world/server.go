@@ -16,6 +16,7 @@ import (
 
 	"github.com/zsrv/goscape/internal/dskit/signals"
 	"github.com/zsrv/goscape/pkg/cache"
+	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/inventory"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
@@ -114,7 +115,7 @@ type Server struct {
 
 	zoneMap       *zone.ZoneMap
 	zonesTracking map[*zone.Zone]struct{}
-	locObjTracker any // NAI-86 Bundle 2: replaced with concrete *locObjTracker
+	locObjTracker entitypkg.LifecycleTracker // *locObjTracker satisfies after Task 2.2
 
 	scriptProvider *script.Provider
 
