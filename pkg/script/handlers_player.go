@@ -80,7 +80,7 @@ func checkNotNull(v int, op string) error {
 // Rejects values outside that range.
 //
 // Note: pkg/entity.Loc.Angle() is mask-bounded to [0,3] by construction
-// ((l.Info >> 19) & 0x3 at loc.go:34), so this validator is unreachable
+// ((l.CurrentInfo >> 19) & 0x3 at loc.go), so this validator is unreachable
 // when fed from the entity layer. Retained for TS-fidelity parity per
 // true_to_ts_gate.md — future ActiveLoc producers (e.g. LOC_FIND results
 // from external sources) may bypass the bit mask.
@@ -95,7 +95,7 @@ func checkLocAngle(v int) error {
 // ScriptInputRangeValidator over [LocShape.WALL_STRAIGHT=0,
 // LocShape.GROUND_DECOR=22]. Rejects values outside that range.
 //
-// Note: pkg/entity.Loc.Shape() returns (l.Info >> 14) & 0x1F which
+// Note: pkg/entity.Loc.Shape() returns (l.CurrentInfo >> 14) & 0x1F which
 // covers [0,31] — wider than the LocShape valid range. Caller wraps
 // the error with "LOC_SHAPE: %w" so the script abort message names
 // the opcode.

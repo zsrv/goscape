@@ -16,12 +16,14 @@ func TestLocInfoRoundTrip(t *testing.T) {
 }
 
 func TestLocInfoBoundaryValues(t *testing.T) {
-	l := NewLoc(0, 0, 0, 1, 1, LifecycleForever, 0x3FFF, 0x1F, 0x3)
+	// shape=22 (ShapeGroundDecor) is the highest valid LocShape; shape=31
+	// would be out-of-range and panics in LayerOf (matching TS locShapeLayer).
+	l := NewLoc(0, 0, 0, 1, 1, LifecycleForever, 0x3FFF, 22, 0x3)
 	if l.Type() != 0x3FFF {
 		t.Errorf("Type at max: got %d, want %d", l.Type(), 0x3FFF)
 	}
-	if l.Shape() != 0x1F {
-		t.Errorf("Shape at max: got %d, want %d", l.Shape(), 0x1F)
+	if l.Shape() != 22 {
+		t.Errorf("Shape at max valid: got %d, want 22 (ShapeGroundDecor)", l.Shape())
 	}
 	if l.Angle() != 0x3 {
 		t.Errorf("Angle at max: got %d, want %d", l.Angle(), 0x3)
@@ -73,5 +75,67 @@ func TestLocIsValid(t *testing.T) {
 	l := NewLoc(0, 100, 100, 1, 1, LifecycleRespawn, 42, 10, 0)
 	if !l.IsValid() {
 		t.Error("fresh loc: IsValid = false, want true")
+	}
+}
+
+func TestLocChangeMutatesCurrentInfoOnly(t *testing.T) {
+	l := NewLoc(0, 100, 200, 1, 1, LifecycleRespawn, 42, 0, 0)
+	baseBefore := l.BaseInfo
+	l.Change(99, 0, 1)
+	if l.BaseInfo != baseBefore {
+		t.Errorf("BaseInfo mutated: got %d, want %d", l.BaseInfo, baseBefore)
+	}
+	if l.Type() != 99 {
+		t.Errorf("Type after Change: got %d, want 99", l.Type())
+	}
+	if l.Angle() != 1 {
+		t.Errorf("Angle after Change: got %d, want 1", l.Angle())
+	}
+}
+
+func TestLocRevertRestoresBaseInfo(t *testing.T) {
+	l := NewLoc(0, 100, 200, 1, 1, LifecycleRespawn, 42, 0, 0)
+	l.Change(99, 0, 1)
+	l.Revert()
+	if l.CurrentInfo != l.BaseInfo {
+		t.Errorf("Revert: CurrentInfo=%d BaseInfo=%d", l.CurrentInfo, l.BaseInfo)
+	}
+	if l.Type() != 42 {
+		t.Errorf("Type after Revert: got %d, want 42", l.Type())
+	}
+}
+
+func TestLocIsChangedReflectsBaseDelta(t *testing.T) {
+	l := NewLoc(0, 100, 200, 1, 1, LifecycleRespawn, 42, 0, 0)
+	if l.IsChanged() {
+		t.Error("fresh loc must report IsChanged=false")
+	}
+	l.Change(99, 0, 0)
+	if !l.IsChanged() {
+		t.Error("after Change with new type, IsChanged must be true")
+	}
+	l.Revert()
+	if l.IsChanged() {
+		t.Error("after Revert, IsChanged must be false")
+	}
+}
+
+func TestLocLayerReadsFromBaseInfo(t *testing.T) {
+	// shape=0 (ShapeWallStraight) → LayerWall (0)
+	l := NewLoc(0, 100, 200, 1, 1, LifecycleRespawn, 42, 0, 0)
+	if l.Layer() != 0 {
+		t.Errorf("Layer for shape=0: got %d, want 0 (LayerWall)", l.Layer())
+	}
+	// Change shape; Layer reads BaseInfo so must be unaffected
+	l.Change(42, 22, 0) // ShapeGroundDecor (LayerGroundDecor=3)
+	if l.Layer() != 0 {
+		t.Errorf("Layer after Change of shape: got %d, want 0 (BaseInfo unchanged)", l.Layer())
+	}
+}
+
+func TestLocIsActiveDefaultFalse(t *testing.T) {
+	l := NewLoc(0, 100, 200, 1, 1, LifecycleDespawn, 42, 0, 0)
+	if l.IsActive {
+		t.Error("fresh loc must have IsActive=false")
 	}
 }

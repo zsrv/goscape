@@ -110,7 +110,7 @@ func fireOpTriggerNpc(p *Player, srv *Server, npc *Npc) {
 // Lifecycle gate: locStillValid checks BOTH zone membership (loc still
 // in zoneMap.Get(level,x,z).Locs by pointer) AND type match (loc.Type()
 // == targetSubject.typ). The combined check defends against:
-//   - In-place Info mutation (tree → stump via Loc.Info bitfield change)
+//   - In-place Info mutation (tree → stump via Loc.CurrentInfo bitfield change)
 //   - Removal from zone (loc despawned, axed, etc.)
 //
 // DEVIATION S6j-D2: TS handler sets targetOp=APLOC1+(op-1) and engine

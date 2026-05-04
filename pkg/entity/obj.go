@@ -27,6 +27,7 @@ func NewObj(level, x, z int, lc Lifecycle, typ, count int) *Obj {
 		ReceiverID: -1, Reveal: -1, LastChange: -1,
 	}
 	o.Entity = NewEntity(level, x, z, 1, 1, lc)
+	o.parent = o
 	return o
 }
 
