@@ -27,6 +27,7 @@ func (f fakeActiveLoc) Layer() int                { return f.layer }
 type fakeConfigs struct {
 	locs   map[int]*objtype.LocType
 	params map[int]*objtype.ParamType
+	seqs   map[int]*objtype.SeqType
 }
 
 func (f *fakeConfigs) ObjType(id int) *objtype.ObjType              { return nil }
@@ -38,6 +39,7 @@ func (f *fakeConfigs) ParamType(id int) *objtype.ParamType          { return f.p
 func (f *fakeConfigs) InvType(id int) *objtype.InvType              { return nil }
 func (f *fakeConfigs) IdkType(id int) *objtype.IdkType              { return nil }
 func (f *fakeConfigs) SpotAnimType(id int) *objtype.SpotanimType    { return nil }
+func (f *fakeConfigs) SeqType(id int) *objtype.SeqType              { return f.seqs[id] }
 func (f *fakeConfigs) DbTableType(id int) *objtype.DbTableType      { return nil }
 func (f *fakeConfigs) DbRowType(id int) *objtype.DbRowType          { return nil }
 func (f *fakeConfigs) DbRowsInTable(tableID int) []int              { return nil }
@@ -688,5 +690,96 @@ func TestLocAddRejectsBadAngle(t *testing.T) {
 	s.PushInt(3)
 	if err := handleLocAdd(s); err == nil {
 		t.Error("handleLocAdd bad angle must reject")
+	}
+}
+
+// -- LOC_DEL tests --
+
+func TestLocDelCallsLocOps(t *testing.T) {
+	loc := fakeActiveLoc{id: 100}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		ActiveLoc:   loc,
+		LocOps:      &fakeLocOps{},
+	}
+	s.PushInt(5)
+	if err := handleLocDel(s); err != nil {
+		t.Fatalf("handleLocDel: %v", err)
+	}
+	ops := s.LocOps.(*fakeLocOps)
+	if len(ops.removeCalls) != 1 || ops.removeCalls[0].dur != 5 || ops.removeCalls[0].loc != loc {
+		t.Errorf("RemoveLoc call: %+v", ops.removeCalls)
+	}
+}
+
+func TestLocDelRequiresActiveLoc(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(5)
+	if err := handleLocDel(s); err == nil {
+		t.Error("handleLocDel without ActiveLoc must error")
+	}
+}
+
+func TestLocDelRejectsBadDuration(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		ActiveLoc:   fakeActiveLoc{},
+		LocOps:      &fakeLocOps{},
+	}
+	s.PushInt(0)
+	if err := handleLocDel(s); err == nil {
+		t.Error("handleLocDel dur=0 must reject")
+	}
+}
+
+// -- LOC_ANIM tests --
+
+func TestLocAnimCallsLocOps(t *testing.T) {
+	loc := fakeActiveLoc{id: 100}
+	seq := &objtype.SeqType{ConfigType: objtype.ConfigType{ID: 42}}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		ActiveLoc:   loc,
+		Configs:     &fakeConfigs{seqs: map[int]*objtype.SeqType{42: seq}},
+		LocOps:      &fakeLocOps{},
+	}
+	s.PushInt(42)
+	if err := handleLocAnim(s); err != nil {
+		t.Fatalf("handleLocAnim: %v", err)
+	}
+	ops := s.LocOps.(*fakeLocOps)
+	if len(ops.animCalls) != 1 || ops.animCalls[0].seq != 42 {
+		t.Errorf("AnimLoc call: %+v", ops.animCalls)
+	}
+}
+
+func TestLocAnimRequiresActiveLoc(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(42)
+	if err := handleLocAnim(s); err == nil {
+		t.Error("handleLocAnim without ActiveLoc must error")
+	}
+}
+
+func TestLocAnimRejectsUnknownSeq(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		ActiveLoc:   fakeActiveLoc{},
+		Configs:     &fakeConfigs{seqs: map[int]*objtype.SeqType{}},
+		LocOps:      &fakeLocOps{},
+	}
+	s.PushInt(9999)
+	if err := handleLocAnim(s); err == nil {
+		t.Error("handleLocAnim unknown seq must reject")
 	}
 }

@@ -122,13 +122,17 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// LOC lookup — stub (always "not found"). Real impl ships with S6.
 	OpLocCoord: handleLocCoord,
 	OpLocFind:  handleLocFind,
-	// LOC active-loc reads.
-	OpLocAngle: handleLocAngle,
-	OpLocName:  handleLocName,
-	OpLocOp:    handleLocOp,
-	OpLocParam: handleLocParam,
-	OpLocShape: handleLocShape,
-	OpLocType:  handleLocType,
+	// LOC active-loc reads + mutations.
+	OpLocAdd:    handleLocAdd,
+	OpLocAngle:  handleLocAngle,
+	OpLocAnim:   handleLocAnim,
+	OpLocChange: handleLocChange,
+	OpLocDel:    handleLocDel,
+	OpLocName:   handleLocName,
+	OpLocOp:     handleLocOp,
+	OpLocParam:  handleLocParam,
+	OpLocShape:  handleLocShape,
+	OpLocType:   handleLocType,
 
 	// DB ops (7500-7510).
 	// Pointer-gate asymmetry across this family — see preamble comment on handlers_db.go.

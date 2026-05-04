@@ -229,6 +229,42 @@ func handleLocParam(s *ScriptState) error {
 	return paramLookup(s, lt.Params, paramID)
 }
 
+// handleLocDel pops [duration] and removes the ActiveLoc. Mirrors TS
+// LOC_DEL (LocOps.ts:74-77).
+func handleLocDel(s *ScriptState) error {
+	if err := requireActiveLoc(s, "LOC_DEL"); err != nil {
+		return err
+	}
+	duration := s.PopInt()
+	if err := checkDuration(duration); err != nil {
+		return fmt.Errorf("LOC_DEL: %w", err)
+	}
+	if s.LocOps == nil {
+		return fmt.Errorf("LOC_DEL: LocOps unavailable")
+	}
+	return s.LocOps.RemoveLoc(s.ActiveLoc, duration)
+}
+
+// handleLocAnim pops [seq], validates against Configs.SeqType, and
+// dispatches an animation event for the ActiveLoc. Mirrors TS LOC_ANIM
+// (LocOps.ts:50-54).
+func handleLocAnim(s *ScriptState) error {
+	if err := requireActiveLoc(s, "LOC_ANIM"); err != nil {
+		return err
+	}
+	if err := requireConfigs(s, "LOC_ANIM"); err != nil {
+		return err
+	}
+	seq := s.PopInt()
+	if s.Configs.SeqType(seq) == nil {
+		return fmt.Errorf("LOC_ANIM: unknown seq id %d", seq)
+	}
+	if s.LocOps == nil {
+		return fmt.Errorf("LOC_ANIM: LocOps unavailable")
+	}
+	return s.LocOps.AnimLoc(s.ActiveLoc, seq)
+}
+
 // handleLocAdd pops [coord, type, angle, shape, duration] and either
 // (a) finds a same-layer loc at coord and changes it, or (b) creates a
 // new DESPAWN-lifecycle loc. Mirrors TS LOC_ADD (LocOps.ts:18-43):

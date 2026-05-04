@@ -98,6 +98,16 @@ func (c serverConfigsView) SpotAnimType(id int) *objtype.SpotanimType {
 	return c.s.spotanimTypes.Configs[id]
 }
 
+func (c serverConfigsView) SeqType(id int) *objtype.SeqType {
+	if c.s == nil || c.s.seqTypes == nil {
+		return nil
+	}
+	if id < 0 || id >= len(c.s.seqTypes.Configs) {
+		return nil
+	}
+	return c.s.seqTypes.Configs[id]
+}
+
 func (c serverConfigsView) DbTableType(id int) *objtype.DbTableType {
 	if c.s == nil || c.s.dbTableTypes == nil {
 		return nil
