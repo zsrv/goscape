@@ -4,6 +4,7 @@ import (
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+	"github.com/zsrv/goscape/pkg/pathfinder/reach"
 )
 
 // InteractionKind distinguishes engine-triggered from script-queued
@@ -378,7 +379,7 @@ func (p *Player) tryInteract(allowOpScenery bool) bool {
 	apTrigger := getApTrigger(p, srv)
 
 	tx, tz, _ := p.target.Coords()
-	operable := inOperableDistance(p.x, p.z, tx, tz)
+	operable := inOperableDistance(p, p.target)
 	approach := inApproachDistance(p.x, p.z, tx, tz, effectiveApRange(p))
 
 	isPathing := false
@@ -453,11 +454,51 @@ func defaultOp(p *Player) {
 	p.waypointIndex = -1 // TS Player.ts:1096 — clearWaypoints()
 }
 
-// inOperableDistance is Chebyshev <= 1 between (px,pz) and (tx,tz),
-// excluding the same tile. Adjacent (including diagonals) counts as
-// operable for 1x1 targets. Multi-tile + strict-adjacency come with
-// real combat.
-func inOperableDistance(px, pz, tx, tz int) bool {
+// inOperableDistance reports whether p is in contact range of target.
+// Mirrors TS Player.inOperableDistance (Player.ts:1099-1111):
+//   - Loc targets dispatch to pkg/pathfinder/reach.Reached for shape /
+//     angle / forceapproach-aware reach (NAI-91).
+//   - PathingEntity (Player, Npc) and Obj targets fall through to
+//     inOperableDistanceCheb (Chebyshev≤1, excludes same tile) pending
+//     entity-shape / reachedObj port (DEVIATION
+//     NAI-91-D-OPERABLE-CHEB-FALLBACK).
+//
+// target.level mismatch returns false (TS guard preserved at all arms).
+//
+// INVARIANT: pkg/entity/Loc.Width / Loc.Length store ABSOLUTE (un-rotated)
+// dimensions — verified at modules/world/script_loc_ops.go:35-43 and
+// pkg/gamemap/load.go:128. reach.Reached rotates internally via
+// rotation.Rotate(locAngle, destWidth, destLength); no double-rotation.
+func inOperableDistance(p *Player, target entity) bool {
+	tx, tz, tlevel := target.Coords()
+	if tlevel != p.level {
+		return false
+	}
+	if loc, ok := target.(*entitypkg.Loc); ok {
+		srv := p.client.server
+		// goscape defensive: gamemap is always initialised by Server.Init in
+		// production but may be nil in narrow unit tests that don't load map
+		// data. Fall back to Chebyshev when absent so pre-NAI-91 tests that
+		// don't exercise the shape-aware path continue to compile and run.
+		if srv.gamemap == nil {
+			return inOperableDistanceCheb(p.x, p.z, tx, tz)
+		}
+		flags := srv.gamemap.Pathfinder.Flags
+		var fap int
+		if cfg := srv.locTypeOrNil(loc.Type()); cfg != nil {
+			fap = cfg.ForceApproach
+		}
+		return reach.Reached(flags, p.level, p.x, p.z, tx, tz,
+			loc.Width, loc.Length, 1, loc.Angle(), loc.Shape(), fap)
+	}
+	return inOperableDistanceCheb(p.x, p.z, tx, tz)
+}
+
+// inOperableDistanceCheb is the Chebyshev≤1 predicate (excludes same tile)
+// retained for PathingEntity (Player, Npc) and Obj targets pending the
+// TS reachedEntity / reachedObj ports. Lives under DEVIATION
+// NAI-91-D-OPERABLE-CHEB-FALLBACK.
+func inOperableDistanceCheb(px, pz, tx, tz int) bool {
 	dx := px - tx
 	if dx < 0 {
 		dx = -dx

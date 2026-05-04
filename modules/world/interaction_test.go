@@ -2,13 +2,17 @@ package world
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/pathfinder/collision"
+	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 	"github.com/zsrv/goscape/pkg/zone"
 )
@@ -263,8 +267,11 @@ func TestClearInteractionResetsInteractionFired(t *testing.T) {
 	}
 }
 
-// TestInOperableDistanceTable checks adjacency logic for various offsets.
-func TestInOperableDistanceTable(t *testing.T) {
+// TestInOperableDistanceCheb_PathingEntityFallback pins the Chebyshev≤1
+// excluding-same-tile predicate for non-Loc targets (PathingEntity / Obj).
+// Lives under NAI-91-D-OPERABLE-CHEB-FALLBACK pending entity-shape /
+// reachedObj port. Renamed from TestInOperableDistance at NAI-91 T1.
+func TestInOperableDistanceCheb_PathingEntityFallback(t *testing.T) {
 	cases := []struct {
 		dx, dz int
 		want   bool
@@ -281,9 +288,9 @@ func TestInOperableDistanceTable(t *testing.T) {
 		{2, 1, false},
 	}
 	for _, tc := range cases {
-		got := inOperableDistance(0, 0, tc.dx, tc.dz)
+		got := inOperableDistanceCheb(0, 0, tc.dx, tc.dz)
 		if got != tc.want {
-			t.Errorf("inOperableDistance(0,0,%d,%d) = %v, want %v", tc.dx, tc.dz, got, tc.want)
+			t.Errorf("inOperableDistanceCheb(0,0,%d,%d) = %v, want %v", tc.dx, tc.dz, got, tc.want)
 		}
 	}
 }
@@ -1716,5 +1723,216 @@ func TestTryInteract_OutOfRangeReturnsFalse(t *testing.T) {
 
 	if p.tryInteract(false) {
 		t.Errorf("tryInteract out-of-range: got true, want false")
+	}
+}
+
+// -- NAI-91 player-side shape-aware inOperableDistance tests --------------
+
+// newInOperableTestServer builds a minimal *Server with locTypes + gamemap
+// populated so inOperableDistance's Loc dispatch can resolve forceapproach
+// and read collision flags. The returned LocType is the only configured one
+// (ID 100); callers may set custom ForceApproach via the returned pointer.
+func newInOperableTestServer(t *testing.T) (*Server, *objtype.LocType) {
+	t.Helper()
+	s := &Server{
+		quit:           make(chan interface{}),
+		log:            discardLogger(),
+		scriptProvider: defaultTestProvider(),
+		zoneMap:        zone.NewZoneMap(),
+		locObjTracker:  newLocObjTracker(),
+		rsbuf:          rsbuf.New(),
+	}
+	s.friendsBridge = noopBridges{}
+	s.loginBridgeMod = noopBridges{}
+	s.loggerBridge = noopBridges{}
+	s.locOps = &serverLocOps{s: s}
+	s.gamemap = gamemap.New(discardLogger())
+	s.locTypes = &objtype.LocTypeConfigs{Configs: make([]*objtype.LocType, 200)}
+	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100, DebugName: "wall_test"}}
+	s.locTypes.Configs[100] = lt
+	return s, lt
+}
+
+// makeWallLoc constructs a 1×1 *entitypkg.Loc at (level, x, z) with the given
+// shape/angle, type ID 100 (matching newInOperableTestServer's configured
+// LocType). Lifecycle is Despawn — non-load-bearing for these tests.
+func makeWallLoc(t *testing.T, level, x, z, shape, angle int) *entitypkg.Loc {
+	t.Helper()
+	return entitypkg.NewLoc(level, x, z, 1, 1, entitypkg.LifecycleDespawn, 100, shape, angle)
+}
+
+// TestPlayer_InOperableDistance_DoorTile_AllowsReClick pins the Tutorial
+// Island RS Guide door re-click case (NAI-91 root symptom). Player on the
+// door tile clicking the door (wall_straight, angle=west, 1×1 footprint).
+// Pre-NAI-91 returned false (excluded same-tile); post-NAI-91 returns true
+// because reach.Reached short-circuits srcX==destX && srcZ==destZ for wall
+// strategies.
+func TestPlayer_InOperableDistance_DoorTile_AllowsReClick(t *testing.T) {
+	s, _ := newInOperableTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.x, p.z, p.level = 3098, 3107, 0
+
+	loc := makeWallLoc(t, 0, 3098, 3107, 0 /*wall_straight*/, 0 /*loc_west*/)
+
+	if !inOperableDistance(p, loc) {
+		t.Fatalf("expected inOperableDistance true on the door tile (NAI-91 binding)")
+	}
+}
+
+// TestPlayer_InOperableDistance_WallStraightMatrix exercises the four
+// wall_straight angles across on-tile, all 4 orthogonal neighbors, and 4
+// diagonals. Reaches that depend on collision flags (e.g. north/south
+// neighbors gated by FlagBlock*) are tested in both open and blocked
+// configurations.
+func TestPlayer_InOperableDistance_WallStraightMatrix(t *testing.T) {
+	type tile struct {
+		dx, dz int
+		want   bool
+		// preFlags is OR-applied to the player's tile (srcX, srcZ) before
+		// the call. A blocking flag set on the player's tile makes the
+		// flag-gated reach condition false. Empty for cases that don't
+		// depend on flags.
+		preFlags int
+	}
+	type angleCase struct {
+		angle int
+		name  string
+		tiles []tile
+	}
+	cases := []angleCase{
+		{
+			angle: 0 /*loc_west*/, name: "west",
+			tiles: []tile{
+				{0, 0, true, 0},   // on-tile
+				{-1, 0, true, 0},  // west-adjacent (in front of wall)
+				{0, 1, true, 0},   // north-adjacent, open flags
+				{0, -1, true, 0},  // south-adjacent, open flags
+				{0, 1, false, collision.FlagBlockNorth},  // north-adjacent, blocked
+				{0, -1, false, collision.FlagBlockSouth}, // south-adjacent, blocked
+				{1, 0, false, 0}, // east-adjacent (behind wall, no gate)
+				{1, 1, false, 0}, // diagonals false
+				{-1, -1, false, 0},
+			},
+		},
+		{
+			angle: 1 /*loc_north*/, name: "north",
+			tiles: []tile{
+				{0, 0, true, 0},
+				{0, 1, true, 0},  // north-adjacent
+				{-1, 0, true, 0}, // west-adjacent, open flags
+				{1, 0, true, 0},  // east-adjacent, open flags
+				{-1, 0, false, collision.FlagBlockWest},  // west-adjacent, blocked
+				{1, 0, false, collision.FlagBlockEast},   // east-adjacent, blocked
+				{0, -1, false, 0},
+			},
+		},
+		{
+			angle: 2 /*loc_east*/, name: "east",
+			tiles: []tile{
+				{0, 0, true, 0},
+				{1, 0, true, 0},  // east-adjacent
+				{0, 1, true, 0},  // north-adjacent, open flags
+				{0, -1, true, 0}, // south-adjacent, open flags
+				{0, 1, false, collision.FlagBlockNorth},  // north-adjacent, blocked
+				{0, -1, false, collision.FlagBlockSouth}, // south-adjacent, blocked
+				{-1, 0, false, 0},
+			},
+		},
+		{
+			angle: 3 /*loc_south*/, name: "south",
+			tiles: []tile{
+				{0, 0, true, 0},
+				{0, -1, true, 0}, // south-adjacent
+				{-1, 0, true, 0}, // west-adjacent, open flags
+				{1, 0, true, 0},  // east-adjacent, open flags
+				{-1, 0, false, collision.FlagBlockWest}, // west-adjacent, blocked
+				{1, 0, false, collision.FlagBlockEast},  // east-adjacent, blocked
+				{0, 1, false, 0},
+			},
+		},
+	}
+
+	const lx, lz = 3098, 3107
+
+	for _, ac := range cases {
+		ac := ac
+		t.Run(ac.name, func(t *testing.T) {
+			for _, tt := range ac.tiles {
+				tt := tt
+				t.Run(fmt.Sprintf("dx=%+d_dz=%+d_flags=0x%x", tt.dx, tt.dz, tt.preFlags), func(t *testing.T) {
+					s, _ := newInOperableTestServer(t)
+					p, _ := newTestPlayer(t)
+					p.client.server = s
+					p.x, p.z, p.level = lx+tt.dx, lz+tt.dz, 0
+					// Always initialise the player's tile so flags.Get returns
+					// FlagOpen (0) rather than FlagNull (-1) for unallocated zones;
+					// FlagNull makes all flag-gated reach conditions false. Then
+					// OR in any blocking flags for the gated test cases.
+					s.gamemap.Pathfinder.Flags.Set(p.x, p.z, p.level, tt.preFlags)
+					loc := makeWallLoc(t, 0, lx, lz, 0 /*wall_straight*/, ac.angle)
+					got := inOperableDistance(p, loc)
+					if got != tt.want {
+						t.Errorf("angle=%s tile dx=%+d dz=%+d preFlags=0x%x: got %v want %v",
+							ac.name, tt.dx, tt.dz, tt.preFlags, got, tt.want)
+					}
+				})
+			}
+		})
+	}
+}
+
+// TestPlayer_InOperableDistance_LevelMismatchFalse pins the level-guard
+// from TS PathingEntity.ts:379-381.
+func TestPlayer_InOperableDistance_LevelMismatchFalse(t *testing.T) {
+	s, _ := newInOperableTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.x, p.z, p.level = 3098, 3107, 0
+	loc := entitypkg.NewLoc(1 /*level=1*/, 3098, 3107, 1, 1, entitypkg.LifecycleDespawn, 100, 0, 0)
+	if inOperableDistance(p, loc) {
+		t.Errorf("expected false when target.level != p.level")
+	}
+}
+
+// TestPlayer_InOperableDistance_NilLocTypeFallback pins forceapproach=0
+// behavior when LocType lookup returns nil (out-of-range type id).
+func TestPlayer_InOperableDistance_NilLocTypeFallback(t *testing.T) {
+	s, _ := newInOperableTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.x, p.z, p.level = 3098, 3107, 0
+	// Type id 199 is not configured in newInOperableTestServer.
+	loc := entitypkg.NewLoc(0, 3098, 3107, 1, 1, entitypkg.LifecycleDespawn, 199, 0, 0)
+	if !inOperableDistance(p, loc) {
+		t.Errorf("on-tile reach should still resolve true with nil LocType (forceapproach=0)")
+	}
+}
+
+// TestPlayer_InOperableDistance_NpcTarget_UsesCheb pins that *Npc targets
+// hit the default Chebyshev arm (excludes same-tile).
+func TestPlayer_InOperableDistance_NpcTarget_UsesCheb(t *testing.T) {
+	s, _ := newInOperableTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.x, p.z, p.level = 100, 100, 0
+
+	cases := []struct {
+		name   string
+		tx, tz int
+		want   bool
+	}{
+		{"same tile", 100, 100, false},
+		{"adjacent", 100, 101, true},
+		{"2 away", 100, 102, false},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			n := &Npc{x: tc.tx, z: tc.tz, level: 0}
+			if got := inOperableDistance(p, n); got != tc.want {
+				t.Errorf("npc target: got %v want %v", got, tc.want)
+			}
+		})
 	}
 }
