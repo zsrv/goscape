@@ -2,21 +2,22 @@ package world
 
 import (
 	"bytes"
+	"fmt"
 	"net"
 	"testing"
 
-	"github.com/zsrv/goscape/pkg/gamemap"
+	"github.com/zsrv/goscape/pkg/cache"
+	"github.com/zsrv/goscape/pkg/coordgrid"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 )
 
-// newMapDataPlayer wires a Player into a Server with a gamemap and
-// scenery-window state ready to service RebuildGetMaps. Returns the
-// player, the client-side pipe, and the server.
+// newMapDataPlayer wires a Player into a Server with scenery-window state
+// ready to service RebuildGetMaps. Returns the player, the client-side
+// pipe, and the server.
 func newMapDataPlayer(t *testing.T) (*Player, net.Conn, *Server) {
 	t.Helper()
 	s := newTestServer(t)
-	s.gamemap = gamemap.New(discardLogger())
 	s.currentTick = 5 // well within rate-limit window
 
 	p, cc := newTestPlayer(t)
@@ -24,6 +25,19 @@ func newMapDataPlayer(t *testing.T) (*Player, net.Conn, *Server) {
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	p.lastBuild = 0 // 5 - 0 = 5 < 10 -> in-window
 	return p, cc, s
+}
+
+// seedClientMap seeds cache.Preloaded under the client-pack m{x}_{z}
+// or l{x}_{z} key and registers a t.Cleanup to remove the entry after
+// the test. Mirrors seedCachedMidi (player_script_test.go:436) for the
+// map-streaming path.
+func seedClientMap(t *testing.T, prefix byte, mapX, mapZ int, data []byte) {
+	t.Helper()
+	name := fmt.Sprintf("%c%d_%d", prefix, mapX, mapZ)
+	cache.Preloaded[name] = data
+	t.Cleanup(func() {
+		delete(cache.Preloaded, name)
+	})
 }
 
 func TestSendDataLandWireFormat(t *testing.T) {
@@ -119,8 +133,8 @@ func packEntry(typ, mapX, mapZ int) uint32 {
 }
 
 func TestHandleRebuildGetMapsSingleChunk(t *testing.T) {
-	p, cc, s := newMapDataPlayer(t)
-	s.gamemap.SetLandBytesForTest(50, 51, []byte{0x11, 0x22})
+	p, cc, _ := newMapDataPlayer(t)
+	seedClientMap(t, 'm', 50, 51, []byte{0x11, 0x22})
 	p.mapsquares[uint16((50<<8)|51)] = true
 
 	received := drainConn(t, cc)
@@ -138,12 +152,12 @@ func TestHandleRebuildGetMapsSingleChunk(t *testing.T) {
 }
 
 func TestHandleRebuildGetMapsMultiChunk(t *testing.T) {
-	p, cc, s := newMapDataPlayer(t)
+	p, cc, _ := newMapDataPlayer(t)
 	file := make([]byte, 2500) // 991 + 991 + 518
 	for i := range file {
 		file[i] = byte(i)
 	}
-	s.gamemap.SetLandBytesForTest(10, 20, file)
+	seedClientMap(t, 'm', 10, 20, file)
 	p.mapsquares[uint16((10<<8)|20)] = true
 
 	received := drainConn(t, cc)
@@ -163,9 +177,9 @@ func TestHandleRebuildGetMapsMultiChunk(t *testing.T) {
 }
 
 func TestHandleRebuildGetMapsExactlyChunkBoundary(t *testing.T) {
-	p, cc, s := newMapDataPlayer(t)
+	p, cc, _ := newMapDataPlayer(t)
 	file := make([]byte, 991)
-	s.gamemap.SetLandBytesForTest(1, 2, file)
+	seedClientMap(t, 'm', 1, 2, file)
 	p.mapsquares[uint16((1<<8)|2)] = true
 
 	received := drainConn(t, cc)
@@ -180,8 +194,8 @@ func TestHandleRebuildGetMapsExactlyChunkBoundary(t *testing.T) {
 }
 
 func TestHandleRebuildGetMapsRoutesToLoc(t *testing.T) {
-	p, cc, s := newMapDataPlayer(t)
-	s.gamemap.SetLocBytesForTest(3, 4, []byte{0xEE})
+	p, cc, _ := newMapDataPlayer(t)
+	seedClientMap(t, 'l', 3, 4, []byte{0xEE})
 	p.mapsquares[uint16((3<<8)|4)] = true
 
 	received := drainConn(t, cc)
@@ -196,8 +210,8 @@ func TestHandleRebuildGetMapsRoutesToLoc(t *testing.T) {
 }
 
 func TestHandleRebuildGetMapsSkipsUnknownMapsquare(t *testing.T) {
-	p, cc, s := newMapDataPlayer(t)
-	s.gamemap.SetLandBytesForTest(50, 51, []byte{0x11})
+	p, cc, _ := newMapDataPlayer(t)
+	seedClientMap(t, 'm', 50, 51, []byte{0x11})
 	// buildArea does NOT include this mapsquare.
 
 	received := drainConn(t, cc)
@@ -228,7 +242,7 @@ func TestHandleRebuildGetMapsRateLimitedDropsEntireRequest(t *testing.T) {
 	p, cc, s := newMapDataPlayer(t)
 	s.currentTick = 100
 	p.lastBuild = 0 // 100 > 10 -> stale
-	s.gamemap.SetLandBytesForTest(50, 51, []byte{0x11})
+	seedClientMap(t, 'm', 50, 51, []byte{0x11})
 	p.mapsquares[uint16((50<<8)|51)] = true
 
 	received := drainConn(t, cc)
@@ -259,9 +273,9 @@ func TestHandleRebuildGetMapsCapsAtEighteenEntries(t *testing.T) {
 }
 
 func TestHandleRebuildGetMapsMultipleEntries(t *testing.T) {
-	p, cc, s := newMapDataPlayer(t)
-	s.gamemap.SetLandBytesForTest(1, 1, []byte{0xAA})
-	s.gamemap.SetLocBytesForTest(2, 2, []byte{0xBB})
+	p, cc, _ := newMapDataPlayer(t)
+	seedClientMap(t, 'm', 1, 1, []byte{0xAA})
+	seedClientMap(t, 'l', 2, 2, []byte{0xBB})
 	p.mapsquares[uint16((1<<8)|1)] = true
 	p.mapsquares[uint16((2<<8)|2)] = true
 
@@ -276,5 +290,86 @@ func TestHandleRebuildGetMapsMultipleEntries(t *testing.T) {
 	// 1 DATA_LAND (10) + 1 DATA_LAND_DONE (3) + 1 DATA_LOC (10) + 1 DATA_LOC_DONE (3) = 26.
 	if len(got) != 26 {
 		t.Errorf("2 entries should produce 26 bytes; got %d", len(got))
+	}
+}
+
+func TestHandleRebuildGetMapsCallsRebuildZones(t *testing.T) {
+	p, _, _ := newMapDataPlayer(t)
+	p.x = 50 << 3
+	p.z = 50 << 3
+	p.originX = 50 << 3
+	p.originZ = 50 << 3
+	p.level = 0
+	// Stale entry that should be cleared by rebuildZones.
+	staleIdx := coordgrid.ZoneIndex(99<<3, 99<<3, 0)
+	p.activeZones[staleIdx] = true
+
+	if err := handleRebuildGetMaps(p, nil); err != nil {
+		t.Fatalf("handleRebuildGetMaps: %v", err)
+	}
+
+	if p.activeZones[staleIdx] {
+		t.Errorf("stale activeZones entry not cleared")
+	}
+	if want := 49; len(p.activeZones) != want {
+		t.Errorf("activeZones size: got %d, want %d", len(p.activeZones), want)
+	}
+	if !p.activeZones[coordgrid.ZoneIndex(50<<3, 50<<3, 0)] {
+		t.Errorf("center zone (50,50) missing from activeZones")
+	}
+}
+
+func TestRebuildZonesIntersectsBuildArea(t *testing.T) {
+	p, _ := newTestPlayer(t)
+
+	// Case 1: center == origin → full 7×7, no clipping.
+	p.originX = 50 << 3
+	p.originZ = 50 << 3
+	p.x = 50 << 3
+	p.z = 50 << 3
+	p.level = 0
+	p.rebuildZones()
+	if len(p.activeZones) != 49 {
+		t.Errorf("center==origin: got %d zones, want 49", len(p.activeZones))
+	}
+
+	// Case 2: center pushed toward NE corner; build-area clips.
+	// origin=(50,50); build-area window [44..56] × [44..56].
+	// center=(56,56); raw 7×7 = [53..59] × [53..59]; clipped to
+	// [53..56] × [53..56] = 16 entries.
+	p.x = 56 << 3
+	p.z = 56 << 3
+	p.rebuildZones()
+	if len(p.activeZones) != 16 {
+		t.Errorf("clipped: got %d zones, want 16", len(p.activeZones))
+	}
+	if !p.activeZones[coordgrid.ZoneIndex(56<<3, 56<<3, 0)] {
+		t.Errorf("kept cell (56,56) missing")
+	}
+	if p.activeZones[coordgrid.ZoneIndex(57<<3, 57<<3, 0)] {
+		t.Errorf("clipped cell (57,57) present")
+	}
+}
+
+func TestRebuildZonesHonorsPlayerLevel(t *testing.T) {
+	p0, _ := newTestPlayer(t)
+	p0.originX, p0.originZ = 50<<3, 50<<3
+	p0.x, p0.z = 50<<3, 50<<3
+	p0.level = 0
+	p0.rebuildZones()
+
+	p1, _ := newTestPlayer(t)
+	p1.originX, p1.originZ = 50<<3, 50<<3
+	p1.x, p1.z = 50<<3, 50<<3
+	p1.level = 1
+	p1.rebuildZones()
+
+	// Pin: level-0 keys differ from level-1 keys.
+	sameKey := coordgrid.ZoneIndex(50<<3, 50<<3, 0)
+	if !p0.activeZones[sameKey] {
+		t.Fatalf("p0 missing level-0 center key")
+	}
+	if p1.activeZones[sameKey] {
+		t.Errorf("p1 (level=1) should not have level-0 center key — port honors p.level")
 	}
 }
