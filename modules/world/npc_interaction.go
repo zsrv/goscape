@@ -326,10 +326,10 @@ func (n *Npc) updateMovement(s *Server) bool {
 	// lastMovement = World.currentTick + 1 when the NPC's position changed
 	// this tick. Read by AI_ARRIVEDELAY / AI_TARGETMOVED (deferred — see
 	// NAI-82 spec §6.1). Position-vs-snapshot check (rather than
-	// stepsTaken > 0) mirrors TS exactly. The s != nil guard is defensive
-	// parity with goscape's TS-faithful nil-server convention; production
-	// callers always pass a non-nil server.
-	if (n.x != n.lastTickX || n.z != n.lastTickZ) && s != nil {
+	// stepsTaken > 0) mirrors TS exactly. No nil-server guard: the function
+	// already dereferences s above (walktrigger lookup, stepOnce), so reaching
+	// this line implies s != nil.
+	if n.x != n.lastTickX || n.z != n.lastTickZ {
 		n.lastMovement = s.currentTick + 1
 	}
 	return true

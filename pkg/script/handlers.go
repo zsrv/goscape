@@ -686,6 +686,9 @@ func handlePArriveDelay(s *ScriptState) error {
 	if err := requireProtectedActivePlayer(s, "P_ARRIVEDELAY"); err != nil {
 		return err
 	}
+	if s.World == nil {
+		return errors.New("P_ARRIVEDELAY: no world")
+	}
 	if s.Self.LastMovement() < s.World.CurrentTick() {
 		return nil
 	}

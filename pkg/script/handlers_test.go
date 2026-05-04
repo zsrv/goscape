@@ -1006,3 +1006,22 @@ func TestPArriveDelayRequiresActivePlayer(t *testing.T) {
 		t.Errorf("expected 'P_ARRIVEDELAY: no active player', got %v", err)
 	}
 }
+
+// TestPArriveDelayRequiresWorld: handler reads s.World.CurrentTick() to
+// evaluate its gate; missing world must return a clean error rather than
+// nil-deref. Mirrors the established sibling-handler convention
+// (handlePushVars / handleMapClock / handlePlayerCount etc.).
+func TestPArriveDelayRequiresWorld(t *testing.T) {
+	mp := &mockPlayer{lastMovement: 101}
+	sf := newSingleOp("p_arrivedelay_no_world", OpPArriveDelay)
+	state := Init(sf, mp, true, nil, nil)
+	// state.World intentionally left nil
+
+	err := Execute(state)
+	if err == nil || err.Error() != "P_ARRIVEDELAY: no world" {
+		t.Errorf("expected 'P_ARRIVEDELAY: no world', got %v", err)
+	}
+	if len(mp.setDelayedCalls) != 0 {
+		t.Errorf("setDelayedCalls: got %v, want [] (rejection must not mutate)", mp.setDelayedCalls)
+	}
+}
