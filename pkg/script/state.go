@@ -169,6 +169,13 @@ type ScriptState struct {
 	// gamemap.Pathfinder.LineValidator via modules/world/script.go.
 	LineValidator LineValidator
 
+	// NodeDebug is the per-state instrumentation gate. Production wiring
+	// reads from cfg.NodeDebug at script construction sites; pkg/script
+	// itself never reads cfg. Zero-value (false) preserves silence in
+	// every existing &ScriptState{} test fixture without modification.
+	// NAI-90: gates the handlePTeleport frame T (handlers_player.go).
+	NodeDebug bool
+
 	PC      int
 	OpCount int
 
