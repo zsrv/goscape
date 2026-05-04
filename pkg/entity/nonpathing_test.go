@@ -8,8 +8,8 @@ type fakeTracker struct {
 	unregistered []*NonPathing
 }
 
-func (t *fakeTracker) Register(np *NonPathing)   { t.registered = append(t.registered, np) }
-func (t *fakeTracker) Unregister(np *NonPathing) { t.unregistered = append(t.unregistered, np) }
+func (ft *fakeTracker) Register(np *NonPathing)   { ft.registered = append(ft.registered, np) }
+func (ft *fakeTracker) Unregister(np *NonPathing) { ft.unregistered = append(ft.unregistered, np) }
 
 func TestSetLifeCyclePositiveDurationRegisters(t *testing.T) {
 	tr := &fakeTracker{}
@@ -46,6 +46,9 @@ func TestSetLifeCycleSecondCallUnregistersFirst(t *testing.T) {
 	if np.LifecycleTick != 113 {
 		t.Errorf("LifecycleTick: got %d, want 113", np.LifecycleTick)
 	}
+	if np.tracker != tr {
+		t.Errorf("np.tracker after second call: got %v, want %v", np.tracker, tr)
+	}
 }
 
 func TestSetLifeCycleNonPositiveDurationUntracks(t *testing.T) {
@@ -71,5 +74,23 @@ func TestSetLifeCycleNoTrackerNoRegister(t *testing.T) {
 	np.SetLifeCycle(0, 50, nil)
 	if np.LifecycleTick != -1 {
 		t.Errorf("LifecycleTick: got %d, want -1", np.LifecycleTick)
+	}
+}
+
+func TestSetLifeCyclePositiveDurationNilTrackerSchedulesButSkipsRegister(t *testing.T) {
+	// Transition-window invariant pin (NAI-86 B2.1 → B2.2): when
+	// duration>0 and tracker is nil, SetLifeCycle still schedules the
+	// transition tick (Entity.SetLifecycle) but does NOT panic and does
+	// NOT update np.tracker. Bundle 2.2 wires the tracker so this path
+	// becomes unreachable in production, but the contract is pinned now
+	// so a future regression doesn't silently re-introduce the panic.
+	np := &NonPathing{Entity: NewEntity(0, 100, 200, 1, 1, LifecycleDespawn)}
+	np.parent = np
+	np.SetLifeCycle(5, 100, nil)
+	if np.LifecycleTick != 105 {
+		t.Errorf("LifecycleTick: got %d, want 105", np.LifecycleTick)
+	}
+	if np.tracker != nil {
+		t.Error("np.tracker must remain nil when SetLifeCycle was called with tracker=nil")
 	}
 }
