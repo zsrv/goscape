@@ -52,6 +52,11 @@ func (s *Server) RevertLoc(l *entitypkg.Loc) {
 	}
 	z := s.zoneMap.Get(l.Level, l.X, l.Z)
 	z.ChangeLoc(l)
-	s.TrackZone(z)
+	// TS-faithful tail order (World.ts:1445-1447): SetLifeCycle(-1) BEFORE
+	// TrackZone, the inverse of AddLoc/ChangeLoc/RemoveLoc. The two writes
+	// touch independent data structures (locObjTracker vs zonesTracking)
+	// so the order is observably equivalent — preserving the TS sequence
+	// for audit clarity.
 	l.SetLifeCycle(-1, s.currentTick, nil)
+	s.TrackZone(z)
 }
