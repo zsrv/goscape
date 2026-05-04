@@ -546,3 +546,30 @@ func TestAddLocSetsIsActive(t *testing.T) {
 		t.Error("Zone.AddLoc must set loc.IsActive=true (mirrors TS Zone.addLoc Zone.ts:226)")
 	}
 }
+
+func TestChangeLocSetsIsActiveWhenInactive(t *testing.T) {
+	// Pins TS Zone.ts:231 comment: "If a loc is inactive, it should be
+	// set to active when we call a change". This is the smoking-gun
+	// branch for NAI-88's door-revert bug — a static map loc, never
+	// touched by Server.AddLoc, has IsActive=false at script-time
+	// change_loc; without this write the revert tick mis-dispatches.
+	z := New(0, 0, 0, 0)
+	loc := entity.NewLoc(0, 3094, 3106, 1, 1, entity.LifecycleRespawn, 100, 0, 0)
+	if loc.IsActive {
+		t.Fatal("setup: fresh loc must default IsActive=false")
+	}
+	z.ChangeLoc(loc)
+	if !loc.IsActive {
+		t.Error("Zone.ChangeLoc on inactive loc must set IsActive=true (mirrors TS Zone.changeLoc Zone.ts:232)")
+	}
+}
+
+func TestChangeLocPreservesActive(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	loc := entity.NewLoc(0, 3094, 3106, 1, 1, entity.LifecycleRespawn, 100, 0, 0)
+	loc.IsActive = true
+	z.ChangeLoc(loc)
+	if !loc.IsActive {
+		t.Error("Zone.ChangeLoc on already-active loc must keep IsActive=true")
+	}
+}

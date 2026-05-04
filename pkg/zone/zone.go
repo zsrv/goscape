@@ -174,6 +174,7 @@ func (z *Zone) AddLoc(loc *entity.Loc) {
 // ChangeLoc emits a LOC_ADD_CHANGE for an existing active loc whose
 // type/shape/angle changed. Does not modify Locs.
 func (z *Zone) ChangeLoc(loc *entity.Loc) {
+	loc.IsActive = true
 	coord := coordgrid.PackZoneCoord(loc.X, loc.Z)
 	bytes := encodeNested(rsbuf.ZoneOpLocAddChange, func(buf *packet.Packet) {
 		rsbuf.EncodeLocAddChange(buf, coord, loc.Shape(), loc.Angle(), loc.Type())
