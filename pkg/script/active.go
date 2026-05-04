@@ -12,6 +12,18 @@ type ActivePlayer interface {
 	// resumeTick = currentTick + 1 + ticks.
 	SetDelayed(ticks int)
 
+	// LastMovement returns the absolute tick value stored on the player's
+	// lastMovement field. The field is written to currentTick + 1 at the
+	// end of any tick in which the player actually advanced (stepsTaken > 0),
+	// matching TS Player.processMovement at Engine-TS/.../Player.ts:675-677.
+	//
+	// Consumed by P_ARRIVEDELAY (PlayerOps.ts:359), which suspends the
+	// active script when the player moved within the past 2 ticks
+	// (lastMovement >= currentTick) and is a no-op otherwise.
+	//
+	// Returns 0 when the player has never moved (zero-value of the field).
+	LastMovement() int
+
 	// EnqueueScriptArgs appends a queued fresh-run request with the
 	// given queue type and the caller-supplied parallel arg slices
 	// (IntArgs + StringArgs — matches TS PlayerQueueRequest.args

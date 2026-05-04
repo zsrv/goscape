@@ -79,6 +79,10 @@ type Player struct {
 	originX, originZ                int
 	lastTickX, lastTickZ, lastLevel int
 	lastStepX, lastStepZ            int
+	// NAI-82: TS PathingEntity.lastMovement (Engine-TS/.../PathingEntity.ts:56).
+	// Written to currentTick + 1 at end of resolveMovement when stepsTaken > 0;
+	// read by P_ARRIVEDELAY's gate. Zero-value default matches TS init.
+	lastMovement int
 
 	// zoneListElement is the player's intrusive subscription element in
 	// pkg/zone.Zone.players. Set by Zone.EnterPlayer; nilled after

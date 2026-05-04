@@ -105,6 +105,9 @@ type mockPlayer struct {
 	// by MAP_PLAYERCOUNT's rect filter. Default zero is safe.
 	x, z int
 
+	// NAI-82: seeded by handler tests to drive P_ARRIVEDELAY's gate.
+	lastMovement int
+
 	// S4: captured calls from the suspension + queue methods.
 	setDelayedCalls []int
 	enqueueCalls    []mockEnqueue
@@ -323,6 +326,8 @@ func (m *mockPlayer) Username() string       { return m.username }
 func (m *mockPlayer) SetDelayed(ticks int) {
 	m.setDelayedCalls = append(m.setDelayedCalls, ticks)
 }
+
+func (m *mockPlayer) LastMovement() int { return m.lastMovement }
 func (m *mockPlayer) EnqueueScriptArgs(id uint32, delay int, intArgs []int, stringArgs []string, qtype PlayerQueueType) error {
 	m.enqueueCalls = append(m.enqueueCalls, mockEnqueue{ScriptID: id, Delay: delay, IntArgs: intArgs, StringArgs: stringArgs, Type: qtype})
 	return m.enqueueScriptArgsReturnErr

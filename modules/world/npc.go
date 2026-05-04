@@ -62,6 +62,10 @@ type Npc struct {
 	waypoints       [25]int
 	tele            bool
 	stepsTaken      int
+	// NAI-82: TS PathingEntity.lastMovement (Engine-TS/.../PathingEntity.ts:56).
+	// Written to currentTick + 1 at end of updateMovement when position changed;
+	// read by AI_ARRIVEDELAY / AI_TARGETMOVED (deferred — see NAI-82 spec §6.1).
+	lastMovement int
 
 	// === script state ===
 	server        *Server // back-reference; set by Server.addNpc

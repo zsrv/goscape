@@ -173,6 +173,10 @@ func (p *Player) OnScriptFinishedOrAborted(state *script.ScriptState) {
 // is incremented in processIn each tick.
 func (p *Player) Playtime() int { return int(p.playtime) }
 
+// LastMovement returns the player's lastMovement field. See the
+// pkg/script.ActivePlayer.LastMovement docstring for semantics.
+func (p *Player) LastMovement() int { return p.lastMovement }
+
 // S5m: last-input queries. Return the matching Player field.
 func (p *Player) LastItem() int       { return p.lastItem }
 func (p *Player) LastSlot() int       { return p.lastSlot }
