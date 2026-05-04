@@ -67,12 +67,29 @@ func TestServerLocOpsLocsAtCoord(t *testing.T) {
 	}
 }
 
+func TestServerLocOpsAnimLoc(t *testing.T) {
+	s := newLocTurnTestServer(t)
+	loc := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleDespawn, 100, 0, 0)
+	s.AddLoc(loc, 0)
+
+	ops := &serverLocOps{s: s}
+	if err := ops.AnimLoc(loc, 42); err != nil {
+		t.Errorf("AnimLoc: %v", err)
+	}
+}
+
 func TestServerLocOpsRejectsNonLocActiveLoc(t *testing.T) {
 	s := newLocTurnTestServer(t)
 	ops := &serverLocOps{s: s}
 	other := &fakeNonLoc{}
 	if err := ops.ChangeLoc(other, 100, 0, 0, 1); err == nil {
 		t.Error("ChangeLoc with non-*Loc ActiveLoc must error")
+	}
+	if err := ops.RemoveLoc(other, 1); err == nil {
+		t.Error("RemoveLoc with non-*Loc ActiveLoc must error")
+	}
+	if err := ops.AnimLoc(other, 42); err == nil {
+		t.Error("AnimLoc with non-*Loc ActiveLoc must error")
 	}
 }
 
