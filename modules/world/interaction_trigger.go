@@ -89,6 +89,7 @@ func fireOpTriggerNpc(p *Player, srv *Server, npc *Npc) {
 	state.World = srv.worldVars
 	state.Configs = srv.configsView
 	state.Inv = srv.invLookup
+	state.LocOps = srv.locOps
 	state.Npcs = srv.npcLookup
 	state.LineValidator = srv.scriptLineValidator()
 
@@ -170,6 +171,7 @@ func fireOpTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 	state.World = srv.worldVars
 	state.Configs = srv.configsView
 	state.Inv = srv.invLookup
+	state.LocOps = srv.locOps
 	state.Npcs = srv.npcLookup
 	state.LineValidator = srv.scriptLineValidator()
 
@@ -356,6 +358,7 @@ func fireApTriggerNpc(p *Player, srv *Server, npc *Npc) {
 	state.World = srv.worldVars
 	state.Configs = srv.configsView
 	state.Inv = srv.invLookup
+	state.LocOps = srv.locOps
 	state.Npcs = srv.npcLookup
 	state.LineValidator = srv.scriptLineValidator()
 
@@ -447,6 +450,7 @@ func fireApTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 	state.World = srv.worldVars
 	state.Configs = srv.configsView
 	state.Inv = srv.invLookup
+	state.LocOps = srv.locOps
 	state.Npcs = srv.npcLookup
 	state.LineValidator = srv.scriptLineValidator()
 
@@ -677,6 +681,7 @@ func fireOpTriggerObj(p *Player, srv *Server, obj *entitypkg.Obj) {
 	state.World = srv.worldVars
 	state.Configs = srv.configsView
 	state.Inv = srv.invLookup
+	state.LocOps = srv.locOps
 	state.Npcs = srv.npcLookup
 	state.LineValidator = srv.scriptLineValidator()
 
@@ -742,6 +747,7 @@ func fireApTriggerObj(p *Player, srv *Server, obj *entitypkg.Obj) {
 	state.World = srv.worldVars
 	state.Configs = srv.configsView
 	state.Inv = srv.invLookup
+	state.LocOps = srv.locOps
 	state.Npcs = srv.npcLookup
 	state.LineValidator = srv.scriptLineValidator()
 

@@ -244,6 +244,7 @@ func (s *Server) buildNpcScriptState(
 	state.World = s.worldVars
 	state.Configs = s.configsView
 	state.Inv = s.invLookup
+	state.LocOps = s.locOps
 	state.Npcs = s.npcLookup
 	state.LineValidator = s.scriptLineValidator()
 

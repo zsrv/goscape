@@ -116,6 +116,7 @@ type Server struct {
 	zoneMap       *zone.ZoneMap
 	zonesTracking map[*zone.Zone]struct{}
 	locObjTracker entitypkg.LifecycleTracker // concrete type *locObjTracker (modules/world/loc_tracker.go); initialized in NewServer
+	locOps        *serverLocOps
 
 	scriptProvider *script.Provider
 
@@ -169,6 +170,7 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}
 	s.loggerBridge = NewSlogLoggerBridge(s.log)
+	s.locOps = &serverLocOps{s: s}
 	s.tcpWg.Add(1)
 
 	gm := gamemap.New(logger)

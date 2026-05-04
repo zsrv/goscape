@@ -48,6 +48,7 @@ func (s *Server) buildPlayerScriptState(
 	state.World = s.worldVars
 	state.Configs = s.configsView
 	state.Inv = s.invLookup
+	state.LocOps = s.locOps
 	state.Npcs = s.npcLookup
 	state.PlayerLookup = s
 	state.LineValidator = s.scriptLineValidator()

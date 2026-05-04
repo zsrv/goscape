@@ -321,6 +321,7 @@ func newTestServer(t *testing.T) *Server {
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}
 	s.loggerBridge = noopBridges{}
+	s.locOps = &serverLocOps{s: s}
 	return s
 }
 
