@@ -2,6 +2,7 @@ package world
 
 import (
 	"iter"
+	"log/slog"
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/zone"
@@ -16,14 +17,25 @@ import (
 type locObjTracker struct {
 	list  *zone.DoublyLinkList[*entitypkg.NonPathing]
 	nodes map[*entitypkg.NonPathing]*zone.Element[*entitypkg.NonPathing]
+
+	// log + nodeDebug back the NAI-88 Stage 1 probes (P5/P6) at
+	// Register/Unregister. Both are nil-safe; production passes
+	// (s.log, s.cfg.NodeDebug) at Server.New, test fixtures pass
+	// (nil, false) and the probe emit-helper short-circuits.
+	// NAI-88 probe; remove at Stage 2 close.
+	log       *slog.Logger
+	nodeDebug bool
 }
 
 // newLocObjTracker constructs an empty tracker. Server.New calls this
-// once at server startup.
-func newLocObjTracker() *locObjTracker {
+// once at server startup. log+nodeDebug back NAI-88 Stage 1 probes;
+// pass (nil, false) in tests to no-op them.
+func newLocObjTracker(log *slog.Logger, nodeDebug bool) *locObjTracker {
 	return &locObjTracker{
-		list:  &zone.DoublyLinkList[*entitypkg.NonPathing]{},
-		nodes: map[*entitypkg.NonPathing]*zone.Element[*entitypkg.NonPathing]{},
+		list:      &zone.DoublyLinkList[*entitypkg.NonPathing]{},
+		nodes:     map[*entitypkg.NonPathing]*zone.Element[*entitypkg.NonPathing]{},
+		log:       log,
+		nodeDebug: nodeDebug,
 	}
 }
 

@@ -315,7 +315,7 @@ func newTestServer(t *testing.T) *Server {
 		log:            discardLogger(),
 		scriptProvider: defaultTestProvider(),
 		zoneMap:        zone.NewZoneMap(),
-		locObjTracker:  newLocObjTracker(),
+		locObjTracker:  newLocObjTracker(nil, false),
 		rsbuf:          rsbuf.New(),
 	}
 	s.friendsBridge = noopBridges{}

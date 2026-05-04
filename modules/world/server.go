@@ -164,7 +164,7 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 		invs:          make(map[int]*inventory.Inventory),
 		zoneMap:       zone.NewZoneMap(),
 		zonesTracking: map[*zone.Zone]struct{}{},
-		locObjTracker: newLocObjTracker(),
+		locObjTracker: newLocObjTracker(logger, cfg.NodeDebug),
 		rsbuf:         rsbuf.New(),
 	}
 	s.friendsBridge = noopBridges{}
