@@ -544,7 +544,34 @@ func handlePTeleport(s *ScriptState) error {
 	if err := requireProtectedActivePlayer(s, "P_TELEPORT"); err != nil {
 		return err
 	}
-	level, x, z := unpackCoord(s.PopInt())
+	argCoord := s.PopInt()
+	level, x, z := unpackCoord(argCoord)
+
+	if s.NodeDebug {
+		var (
+			scriptName string
+			selfCoord  int
+			selfName   string
+		)
+		if s.Script != nil {
+			scriptName = s.Script.Name
+		}
+		if s.Self != nil {
+			selfCoord = s.Self.CoordPacked()
+			selfName = s.Self.Username()
+		}
+		slog.Info("p_teleport",
+			"script_name", scriptName,
+			"script_pc", s.PC,
+			"self_username", selfName,
+			"self_coord_pre", selfCoord,
+			"arg_coord", argCoord,
+			"arg_x", x,
+			"arg_z", z,
+			"arg_level", level,
+		)
+	}
+
 	s.Self.Teleport(x, z, level)
 	return nil
 }

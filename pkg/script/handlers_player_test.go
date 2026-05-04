@@ -1,7 +1,9 @@
 package script
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"math"
 	"slices"
 	"strings"
@@ -3239,5 +3241,125 @@ func TestSoundSynthNoActivePlayerRejects(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "SOUND_SYNTH: no active player") {
 		t.Errorf("error %q does not contain %q", err.Error(), "SOUND_SYNTH: no active player")
+	}
+}
+
+// -- NAI-90 frame T tests ------------------------------------------------
+
+// recordingHandler is a minimal slog handler that captures records for
+// assertion. Used by NAI-90 frame T tests; not exported.
+type recordingHandler struct {
+	records []slog.Record
+}
+
+func (h *recordingHandler) Enabled(_ context.Context, _ slog.Level) bool { return true }
+func (h *recordingHandler) Handle(_ context.Context, r slog.Record) error {
+	h.records = append(h.records, r)
+	return nil
+}
+func (h *recordingHandler) WithAttrs(_ []slog.Attr) slog.Handler { return h }
+func (h *recordingHandler) WithGroup(_ string) slog.Handler      { return h }
+
+// installRecordingLogger swaps slog.Default for a recording handler at
+// INFO level for the duration of the test. Returns the handler so the
+// test can read records; restoration is automatic via t.Cleanup.
+func installRecordingLogger(t *testing.T) *recordingHandler {
+	t.Helper()
+	prev := slog.Default()
+	h := &recordingHandler{}
+	slog.SetDefault(slog.New(h))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+	return h
+}
+
+func TestPTeleport_FrameT_EmittedWhenNodeDebugTrue(t *testing.T) {
+	rec := installRecordingLogger(t)
+	mp := &mockPlayer{}
+	s := &ScriptState{
+		Script:    &ScriptFile{Name: "frame_t_emit"},
+		IntStack:  make([]int, StackCapacity),
+		Self:      mp,
+		Protect:   true,
+		NodeDebug: true,
+	}
+	s.Pointers |= PtrActivePlayer
+	s.PushInt(packCoord(0, 3098, 3107))
+
+	if err := handlePTeleport(s); err != nil {
+		t.Fatalf("handlePTeleport: %v", err)
+	}
+
+	if len(rec.records) != 1 {
+		t.Fatalf("frame T records: got %d, want 1", len(rec.records))
+	}
+	if rec.records[0].Message != "p_teleport" {
+		t.Errorf("frame T message: got %q, want %q", rec.records[0].Message, "p_teleport")
+	}
+}
+
+func TestPTeleport_FrameT_SuppressedWhenNodeDebugFalse(t *testing.T) {
+	rec := installRecordingLogger(t)
+	mp := &mockPlayer{}
+	s := &ScriptState{
+		Script:   &ScriptFile{Name: "frame_t_silent"},
+		IntStack: make([]int, StackCapacity),
+		Self:     mp,
+		Protect:  true,
+		// NodeDebug zero-value = false
+	}
+	s.Pointers |= PtrActivePlayer
+	s.PushInt(packCoord(0, 3098, 3107))
+
+	if err := handlePTeleport(s); err != nil {
+		t.Fatalf("handlePTeleport: %v", err)
+	}
+
+	if len(rec.records) != 0 {
+		t.Errorf("frame T records under NodeDebug=false: got %d, want 0", len(rec.records))
+	}
+}
+
+func TestPTeleport_FrameT_FieldValues(t *testing.T) {
+	rec := installRecordingLogger(t)
+	mp := &mockPlayer{coordPacked: packCoord(0, 3094, 3107)}
+	s := &ScriptState{
+		Script:    &ScriptFile{Name: "open_and_close_door"},
+		PC:        42,
+		IntStack:  make([]int, StackCapacity),
+		Self:      mp,
+		Protect:   true,
+		NodeDebug: true,
+	}
+	s.Pointers |= PtrActivePlayer
+	argCoord := packCoord(0, 3098, 3107)
+	s.PushInt(argCoord)
+
+	if err := handlePTeleport(s); err != nil {
+		t.Fatalf("handlePTeleport: %v", err)
+	}
+
+	if len(rec.records) != 1 {
+		t.Fatalf("frame T records: got %d, want 1", len(rec.records))
+	}
+	got := map[string]any{}
+	rec.records[0].Attrs(func(a slog.Attr) bool {
+		got[a.Key] = a.Value.Any()
+		return true
+	})
+
+	want := map[string]any{
+		"script_name":    "open_and_close_door",
+		"script_pc":      int64(42),
+		"self_username":  "",
+		"self_coord_pre": int64(packCoord(0, 3094, 3107)),
+		"arg_coord":      int64(argCoord),
+		"arg_x":          int64(3098),
+		"arg_z":          int64(3107),
+		"arg_level":      int64(0),
+	}
+	for k, v := range want {
+		if got[k] != v {
+			t.Errorf("frame T field %s: got %v, want %v", k, got[k], v)
+		}
 	}
 }
