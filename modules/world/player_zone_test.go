@@ -59,7 +59,7 @@ func TestUpdateZonesSendsPartialEnclosedForActiveZone(t *testing.T) {
 	p, cc := newZoneTestPlayer(t, s, 1, 3094, 3106, 0)
 
 	loc := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleDespawn, 100, 0, 0)
-	s.AddLoc(loc)
+	s.AddLoc(loc, 0)
 	for z := range s.zonesTracking {
 		z.ComputeShared()
 	}

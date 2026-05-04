@@ -10,7 +10,7 @@ import (
 func TestProcessZonesComputesShared(t *testing.T) {
 	s := newZoneTestServer(t)
 	loc := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleDespawn, 100, 0, 0)
-	s.AddLoc(loc)
+	s.AddLoc(loc, 0)
 
 	// Before processZones: shared is nil.
 	var beforeZone *zone.Zone
@@ -35,7 +35,7 @@ func TestProcessCleanupResetsAndClearsTracking(t *testing.T) {
 	s := newZoneTestServer(t)
 	// need valid playersMu and playerLoop for processCleanup's existing code path.
 	loc := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleDespawn, 100, 0, 0)
-	s.AddLoc(loc)
+	s.AddLoc(loc, 0)
 	s.processZones()
 
 	var trackedZone *zone.Zone

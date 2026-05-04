@@ -17,3 +17,18 @@ type NonPathing struct {
 // NAI-86 type-asserts on the result inside Server.processZones to
 // dispatch turnLoc / (future) turnObj.
 func (np *NonPathing) Parent() any { return np.parent }
+
+// SetLifeCycle is the duration-aware lifecycle override that registers
+// the entity in a LifecycleTracker. Bundle 2 of NAI-86 lands the
+// tracker; this stub records the transition tick only and ignores the
+// tracker arg.
+//
+// TODO(NAI-86 Bundle 2): rewire to call tracker.Register / Unregister
+// and remove this stub doc-line.
+func (np *NonPathing) SetLifeCycle(duration, currentTick int, tracker any) {
+	if duration > 0 {
+		np.SetLifecycle(currentTick+duration, currentTick)
+	} else {
+		np.SetLifecycle(-1, currentTick)
+	}
+}
