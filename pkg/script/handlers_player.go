@@ -75,6 +75,22 @@ func checkNotNull(v int, op string) error {
 	return nil
 }
 
+// checkLocAngle mirrors TS LocAngleValid (ScriptValidators.ts:106) — a
+// ScriptInputRangeValidator over [LocAngle.WEST=0, LocAngle.SOUTH=3].
+// Rejects values outside that range.
+//
+// Note: pkg/entity.Loc.Angle() is mask-bounded to [0,3] by construction
+// ((l.Info >> 19) & 0x3 at loc.go:34), so this validator is unreachable
+// when fed from the entity layer. Retained for TS-fidelity parity per
+// true_to_ts_gate.md — future ActiveLoc producers (e.g. LOC_FIND results
+// from external sources) may bypass the bit mask.
+func checkLocAngle(v int) error {
+	if v < 0 || v > 3 {
+		return fmt.Errorf("LocAngle out of range: %d", v)
+	}
+	return nil
+}
+
 // checkStringNotNull mirrors TS StringNotNull
 // (ScriptInputStringNotNullValidator at ScriptValidators.ts:50-55) —
 // rejects empty strings, accepts any non-empty string. Used by handlers

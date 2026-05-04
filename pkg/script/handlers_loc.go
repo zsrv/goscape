@@ -80,3 +80,21 @@ func handleLocCoord(s *ScriptState) error {
 	s.PushInt(coordgrid.PackCoord(level, x, z))
 	return nil
 }
+
+// handleLocAngle pushes the ActiveLoc's rotation onto the int stack,
+// validated through the [0,3] LocAngle range. TS:
+//
+//	pushInt(check(activeLoc.angle, LocAngleValid));
+//
+// Requires an ActiveLoc; returns "LOC_ANGLE: no active loc" otherwise.
+func handleLocAngle(s *ScriptState) error {
+	if err := requireActiveLoc(s, "LOC_ANGLE"); err != nil {
+		return err
+	}
+	angle := s.ActiveLoc.Angle()
+	if err := checkLocAngle(angle); err != nil {
+		return fmt.Errorf("LOC_ANGLE: %w", err)
+	}
+	s.PushInt(angle)
+	return nil
+}
