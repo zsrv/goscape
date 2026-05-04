@@ -84,9 +84,12 @@ func (s *Server) ChangeLoc(loc *entitypkg.Loc, typ, shape, angle, duration int) 
 	}
 }
 
-// RemoveLoc deactivates a loc, clears its collision (if BlockWalk),
-// and reschedules respawn (RESPAWN) or untracks (DESPAWN). Mirrors TS
-// World.removeLoc (Engine-TS/src/engine/World.ts:1402-1425).
+// RemoveLoc clears collision (if BlockWalk), routes the zone-side
+// removal, and reschedules respawn (RESPAWN) or untracks (DESPAWN).
+// Mirrors TS World.removeLoc (Engine-TS/src/engine/World.ts:1402-1425).
+//
+// IsActive=false is written by the called Zone.RemoveLoc (pkg/zone/zone.go),
+// matching TS Zone.removeLoc (Zone.ts:254).
 func (s *Server) RemoveLoc(loc *entitypkg.Loc, duration int) {
 	if !loc.IsActive {
 		return
@@ -99,7 +102,6 @@ func (s *Server) RemoveLoc(loc *entitypkg.Loc, duration int) {
 	}
 	z := s.zoneMap.Get(loc.Level, loc.X, loc.Z)
 	z.RemoveLoc(loc)
-	loc.IsActive = false
 	s.TrackZone(z)
 	if loc.Lifecycle == entitypkg.LifecycleRespawn {
 		loc.SetLifeCycle(duration, s.currentTick, s.locObjTracker)

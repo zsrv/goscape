@@ -573,3 +573,16 @@ func TestChangeLocPreservesActive(t *testing.T) {
 		t.Error("Zone.ChangeLoc on already-active loc must keep IsActive=true")
 	}
 }
+
+func TestRemoveLocSetsIsActiveFalse(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	loc := entity.NewLoc(0, 3094, 3106, 1, 1, entity.LifecycleDespawn, 100, 0, 0)
+	z.AddLoc(loc) // sets IsActive=true (Task 2)
+	if !loc.IsActive {
+		t.Fatal("setup: AddLoc should have set IsActive=true")
+	}
+	z.RemoveLoc(loc)
+	if loc.IsActive {
+		t.Error("Zone.RemoveLoc must set loc.IsActive=false (mirrors TS Zone.removeLoc Zone.ts:254)")
+	}
+}

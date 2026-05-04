@@ -199,6 +199,7 @@ func (z *Zone) RemoveLoc(loc *entity.Loc) {
 		}
 	}
 	z.clearQueuedEvents(&loc.NonPathing)
+	loc.IsActive = false
 	bytes := encodeNested(rsbuf.ZoneOpLocDel, func(buf *packet.Packet) {
 		rsbuf.EncodeLocDel(buf, coord, loc.Shape(), loc.Angle())
 	})
