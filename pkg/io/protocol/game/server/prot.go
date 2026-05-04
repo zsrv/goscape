@@ -99,6 +99,13 @@ var (
 	OpMidiSong   = Op{Opcode: 54, PayloadSize: -1}
 	OpMidiJingle = Op{Opcode: 212, PayloadSize: -2}
 
+	// Sound-effect packet (verified against TS ServerGameProt.ts:80).
+	// SYNTH_SOUND plays a short synthesized sound effect; payload is
+	// fixed 5 bytes: p2(synth) p1(loops) p2(delay) per
+	// SynthSoundEncoder.ts:9-13. Wired from the SOUND_SYNTH (2104)
+	// script opcode via (*Player).PlaySynth.
+	OpSynthSound = Op{Opcode: 12, PayloadSize: 5}
+
 	// Input-tracking signals — server tells client to start/stop sending
 	// EVENT_TRACKING blobs (op 81). NAI-73; mirrors TS ServerGameProt.ts:43-44.
 	OpEnableTracking = Op{Opcode: 226, PayloadSize: 0}
