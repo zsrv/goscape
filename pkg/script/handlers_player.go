@@ -91,6 +91,21 @@ func checkLocAngle(v int) error {
 	return nil
 }
 
+// checkLocShape mirrors TS LocShapeValid (ScriptValidators.ts) — a
+// ScriptInputRangeValidator over [LocShape.WALL_STRAIGHT=0,
+// LocShape.GROUND_DECOR=22]. Rejects values outside that range.
+//
+// Note: pkg/entity.Loc.Shape() returns (l.Info >> 14) & 0x1F which
+// covers [0,31] — wider than the LocShape valid range. Caller wraps
+// the error with "LOC_SHAPE: %w" so the script abort message names
+// the opcode.
+func checkLocShape(v int) error {
+	if v < 0 || v > 22 {
+		return fmt.Errorf("LocShape out of range: %d", v)
+	}
+	return nil
+}
+
 // checkStringNotNull mirrors TS StringNotNull
 // (ScriptInputStringNotNullValidator at ScriptValidators.ts:50-55) —
 // rejects empty strings, accepts any non-empty string. Used by handlers

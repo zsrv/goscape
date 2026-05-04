@@ -98,3 +98,93 @@ func handleLocAngle(s *ScriptState) error {
 	s.PushInt(angle)
 	return nil
 }
+
+// handleLocType pushes the ActiveLoc's resolved LocType ID. Mirrors TS
+// LOC_TYPE: pushInt(check(activeLoc.type, LocTypeValid).id).
+//
+// Goscape ActiveLoc.LocType() returns the int ID directly; the TS
+// LocTypeValid non-null check translates to a Configs lookup nil-check
+// (matches handleNpcParam pattern at handlers_config.go:307-308).
+func handleLocType(s *ScriptState) error {
+	if err := requireConfigs(s, "LOC_TYPE"); err != nil {
+		return err
+	}
+	if err := requireActiveLoc(s, "LOC_TYPE"); err != nil {
+		return err
+	}
+	id := s.ActiveLoc.LocType()
+	lt := s.Configs.LocType(id)
+	if lt == nil {
+		return fmt.Errorf("LOC_TYPE: unknown loc id %d", id)
+	}
+	s.PushInt(id)
+	return nil
+}
+
+// handleLocName pushes the ActiveLoc's LocType name, with "null" fallback
+// when the name is empty. Mirrors TS LOC_NAME: pushString(check(activeLoc.type,
+// LocTypeValid).name ?? 'null').
+//
+// Note: TS active-loc LOC_NAME does NOT fall back to debugname (only the
+// locID-arg LC_NAME does). LC_NAME itself currently uses DebugName with a
+// stale comment claiming Name is unset server-side; that's a tracked
+// follow-up (NAI-N+1 — fix LC_NAME to use Name → DebugName → "null"
+// per TS LocConfigOps.ts:12). LOC_NAME ships TS-correct from the start.
+func handleLocName(s *ScriptState) error {
+	if err := requireConfigs(s, "LOC_NAME"); err != nil {
+		return err
+	}
+	if err := requireActiveLoc(s, "LOC_NAME"); err != nil {
+		return err
+	}
+	id := s.ActiveLoc.LocType()
+	lt := s.Configs.LocType(id)
+	if lt == nil {
+		return fmt.Errorf("LOC_NAME: unknown loc id %d", id)
+	}
+	if lt.Name != "" {
+		s.PushString(lt.Name)
+	} else {
+		s.PushString("null")
+	}
+	return nil
+}
+
+// handleLocShape pushes the ActiveLoc's shape, validated through the
+// [0,22] LocShape range. TS:
+//
+//	pushInt(check(activeLoc.shape, LocShapeValid));
+//
+// Requires an ActiveLoc; returns "LOC_SHAPE: no active loc" otherwise.
+// Range-validates because Loc.Shape()'s mask is [0,31] — wider than
+// the LocShape valid range.
+func handleLocShape(s *ScriptState) error {
+	if err := requireActiveLoc(s, "LOC_SHAPE"); err != nil {
+		return err
+	}
+	shape := s.ActiveLoc.Shape()
+	if err := checkLocShape(shape); err != nil {
+		return fmt.Errorf("LOC_SHAPE: %w", err)
+	}
+	s.PushInt(shape)
+	return nil
+}
+
+// handleLocParam pops paramID, resolves the ActiveLoc's LocType, and
+// delegates to paramLookup. Mirrors TS LOC_PARAM (LocOps.ts:114-123) —
+// the active-loc-bound counterpart of LC_PARAM (handlers_config.go:163).
+func handleLocParam(s *ScriptState) error {
+	if err := requireConfigs(s, "LOC_PARAM"); err != nil {
+		return err
+	}
+	if err := requireActiveLoc(s, "LOC_PARAM"); err != nil {
+		return err
+	}
+	paramID := s.PopInt()
+	id := s.ActiveLoc.LocType()
+	lt := s.Configs.LocType(id)
+	if lt == nil {
+		return fmt.Errorf("LOC_PARAM: unknown loc id %d", id)
+	}
+	return paramLookup(s, lt.Params, paramID)
+}

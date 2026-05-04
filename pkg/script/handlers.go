@@ -124,7 +124,11 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpLocFind:  handleLocFind,
 	// LOC active-loc reads.
 	OpLocAngle: handleLocAngle,
+	OpLocName:  handleLocName,
 	OpLocOp:    handleLocOp,
+	OpLocParam: handleLocParam,
+	OpLocShape: handleLocShape,
+	OpLocType:  handleLocType,
 
 	// DB ops (7500-7510).
 	// Pointer-gate asymmetry across this family — see preamble comment on handlers_db.go.
