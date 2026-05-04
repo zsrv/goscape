@@ -3,13 +3,18 @@ package script
 import (
 	"testing"
 
+	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 // fakeActiveLoc is a minimal ActiveLoc implementation for handler tests.
-type fakeActiveLoc struct{ id int }
+type fakeActiveLoc struct {
+	id          int
+	x, z, level int
+}
 
-func (f fakeActiveLoc) LocType() int { return f.id }
+func (f fakeActiveLoc) LocType() int              { return f.id }
+func (f fakeActiveLoc) Coords() (x, z, level int) { return f.x, f.z, f.level }
 
 // fakeConfigs implements the Configs interface with just the LocType path
 // wired for these tests; other methods return nil.
@@ -150,5 +155,40 @@ func TestHandleLocOpLocTypeNotLoaded(t *testing.T) {
 	}
 	if got := s.StringStack[0]; got != "" {
 		t.Errorf("got %q, want \"\" for missing LocType", got)
+	}
+}
+
+func TestHandleLocCoordHappyPath(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		ActiveLoc:   fakeActiveLoc{id: 42, x: 3200, z: 3200, level: 0},
+	}
+
+	if err := handleLocCoord(s); err != nil {
+		t.Fatalf("handleLocCoord: %v", err)
+	}
+
+	if s.ISP != 1 {
+		t.Fatalf("ISP: got %d, want 1", s.ISP)
+	}
+	want := coordgrid.PackCoord(0, 3200, 3200)
+	if got := s.IntStack[0]; got != want {
+		t.Errorf("top of int stack: got %d, want %d", got, want)
+	}
+}
+
+func TestHandleLocCoordRequiresActiveLoc(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+
+	err := handleLocCoord(s)
+	if err == nil {
+		t.Fatal("handleLocCoord: expected error, got nil")
+	}
+	if got := err.Error(); got != "LOC_COORD: no active loc" {
+		t.Errorf("error: got %q, want \"LOC_COORD: no active loc\"", got)
 	}
 }

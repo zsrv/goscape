@@ -1,6 +1,10 @@
 package script
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/zsrv/goscape/pkg/coordgrid"
+)
 
 // requireActiveLoc returns an error tagged with the opcode name if the
 // script has no ActiveLoc bound. All LOC_* read handlers start with
@@ -59,5 +63,20 @@ func handleLocOp(s *ScriptState) error {
 		return nil
 	}
 	s.PushString(cfg.Op[idx])
+	return nil
+}
+
+// handleLocCoord pushes the ActiveLoc's packed (level, x, z) coord onto
+// the int stack. TS:
+//
+//	pushInt(CoordGrid.packCoord(activeLoc.level, activeLoc.x, activeLoc.z));
+//
+// Requires an ActiveLoc; returns "LOC_COORD: no active loc" otherwise.
+func handleLocCoord(s *ScriptState) error {
+	if err := requireActiveLoc(s, "LOC_COORD"); err != nil {
+		return err
+	}
+	x, z, level := s.ActiveLoc.Coords()
+	s.PushInt(coordgrid.PackCoord(level, x, z))
 	return nil
 }

@@ -13,10 +13,12 @@ import (
 // -- mock active entity stubs (S6v) -------------------------------------
 
 type mockActiveLoc struct {
-	locType int
+	locType     int
+	x, z, level int
 }
 
-func (m *mockActiveLoc) LocType() int { return m.locType }
+func (m *mockActiveLoc) LocType() int              { return m.locType }
+func (m *mockActiveLoc) Coords() (x, z, level int) { return m.x, m.z, m.level }
 
 type mockActiveNpc struct {
 	typeId, x, z, level int

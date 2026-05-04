@@ -684,7 +684,8 @@ type ActiveNpc interface {
 // bound to the script's execution. Set by OPLOC trigger routing
 // (S6j fireOpTriggerLoc) and LOC_FIND (future).
 type ActiveLoc interface {
-	LocType() int // returns the LocType ID (from packed Loc.Info bitfield)
+	LocType() int              // returns the LocType ID (from packed Loc.Info bitfield)
+	Coords() (x, z, level int) // world position; consumed by LOC_COORD
 }
 
 // ActiveObj is the surface that OBJ_* and AI_APOBJ/AI_OPOBJ handlers

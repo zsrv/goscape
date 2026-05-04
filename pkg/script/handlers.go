@@ -120,7 +120,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpUID: handleUID,
 
 	// LOC lookup — stub (always "not found"). Real impl ships with S6.
-	OpLocFind: handleLocFind,
+	OpLocCoord: handleLocCoord,
+	OpLocFind:  handleLocFind,
 	// LOC active-loc reads.
 	OpLocOp: handleLocOp,
 
