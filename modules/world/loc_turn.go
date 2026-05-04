@@ -13,6 +13,22 @@ import (
 // Entity.SetLifecycle). TS decrements lifecycleTick-- per tick; the
 // observable behavior is equivalent (deviation D-N86-4 in spec §5).
 func (s *Server) turnLoc(l *entitypkg.Loc, now int) {
+	// NAI-88 probe; remove at Stage 2 close.
+	if s.cfg.NodeDebug && s.log != nil {
+		s.log.Debug("nai88 turn_loc entry",
+			"event_id", "P2",
+			"tick", s.currentTick,
+			"now", now,
+			"loc_x", l.X,
+			"loc_z", l.Z,
+			"loc_level", l.Level,
+			"loc_type", l.Type(),
+			"lifecycle", int(l.Lifecycle),
+			"is_active", l.IsActive,
+			"is_changed", l.IsChanged(),
+			"lifecycle_tick", l.LifecycleTick,
+		)
+	}
 	if l.LifecycleTick != now {
 		return
 	}
@@ -37,6 +53,17 @@ func (s *Server) turnLoc(l *entitypkg.Loc, now int) {
 // Mirrors TS World.revertLoc (Engine-TS/.../World.ts:1427-1448). Called
 // from turnLoc for the RESPAWN+IsChanged+IsActive branch.
 func (s *Server) RevertLoc(l *entitypkg.Loc) {
+	// NAI-88 probe; remove at Stage 2 close.
+	if s.cfg.NodeDebug && s.log != nil {
+		s.log.Debug("nai88 revert_loc entry",
+			"event_id", "P3",
+			"tick", s.currentTick,
+			"loc_x", l.X,
+			"loc_z", l.Z,
+			"loc_level", l.Level,
+			"loc_type", l.Type(),
+		)
+	}
 	if s.gamemap != nil && s.locTypes != nil {
 		if oldLt := s.locTypeOrNil(l.Type()); oldLt != nil && oldLt.BlockWalk {
 			s.gamemap.ChangeLocCollision(l.Shape(), l.Angle(), oldLt.BlockRange,
