@@ -150,3 +150,51 @@ func TestProcessZonesSnapshotsBeforeIterating(t *testing.T) {
 	s.processZones()
 }
 
+
+// TestTurnLocRevertChangedStaticMapLoc is the smoke-equivalent unit
+// test for the NAI-88 door-revert bug. Setup mirrors the production
+// path: a static map loc (loaded via Zone.AddStaticLoc, never via
+// Server.AddLoc) is changed by a script call, then the revert tick
+// fires. Pre-NAI-89, this would mis-dispatch to AddLoc because the
+// static-loc init path never set IsActive=true and Server.ChangeLoc
+// didn't either.
+func TestTurnLocRevertChangedStaticMapLoc(t *testing.T) {
+	s := newLocTurnTestServer(t)
+	s.currentTick = 100
+
+	// Build a static map loc and inject it via Zone.AddStaticLoc to
+	// mirror Server.populateStaticLocsIntoZones.
+	loc := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleRespawn, 100, 0, 0)
+	z := s.zoneMap.Get(loc.Level, loc.X, loc.Z)
+	z.AddStaticLoc(loc)
+	if !loc.IsActive {
+		t.Fatal("setup: AddStaticLoc must set IsActive=true (NAI-89 T1)")
+	}
+
+	// Script-driven change_loc with duration=5 schedules revert at tick 105.
+	s.ChangeLoc(loc, 101, loc.Shape(), loc.Angle(), 5)
+	if !loc.IsChanged() {
+		t.Fatal("setup: ChangeLoc should have flipped IsChanged=true")
+	}
+	if !loc.IsActive {
+		t.Fatal("setup: ChangeLoc must keep IsActive=true (NAI-89 T3)")
+	}
+
+	// Advance to the scheduled tick and dispatch.
+	s.currentTick = 105
+	s.turnLoc(loc, 105)
+
+	// Post-revert assertions.
+	if loc.IsChanged() {
+		t.Error("after turnLoc revert at scheduled tick, IsChanged must be false")
+	}
+	if loc.Type() != 100 {
+		t.Errorf("after turnLoc revert, Type: got %d, want 100 (BaseInfo type)", loc.Type())
+	}
+	if !loc.IsActive {
+		t.Error("after turnLoc revert, IsActive must remain true (TS Zone.changeLoc force-flip held through revert)")
+	}
+	if loc.LifecycleTick != -1 {
+		t.Errorf("after turnLoc revert, LifecycleTick: got %d, want -1 (untracked)", loc.LifecycleTick)
+	}
+}
