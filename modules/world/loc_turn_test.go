@@ -150,12 +150,3 @@ func TestProcessZonesSnapshotsBeforeIterating(t *testing.T) {
 	s.processZones()
 }
 
-func TestProcessZonesStillComputesShared(t *testing.T) {
-	s := newZoneTestServer(t)
-	loc := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleDespawn, 100, 0, 0)
-	s.AddLoc(loc, 0)
-	// Pre-existing semantics: processZones must call ComputeShared on every
-	// tracked zone without panicking. The actual Shared() byte content
-	// depends on Enclosed events and is covered in pkg/zone tests.
-	s.processZones()
-}

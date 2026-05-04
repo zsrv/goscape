@@ -470,12 +470,14 @@ func (s *Server) processNpcs() {
 func (s *Server) processZones() {
 	if s.locObjTracker != nil {
 		// Snapshot to a slice — the tracker uses a linked list whose
-		// iteration is invalidated by mid-iteration Unlink.
-		var snap []*entitypkg.NonPathing
-		if t, ok := s.locObjTracker.(*locObjTracker); ok {
-			for np := range t.All() {
-				snap = append(snap, np)
-			}
+		// iteration is invalidated by mid-iteration Unlink. The bare
+		// type-assert (no comma-ok) panics if the field ever holds
+		// something other than *locObjTracker, surfacing the bug
+		// loudly rather than silently dropping all per-tick processing.
+		t := s.locObjTracker.(*locObjTracker)
+		snap := make([]*entitypkg.NonPathing, 0, t.list.Size())
+		for np := range t.All() {
+			snap = append(snap, np)
 		}
 		for _, np := range snap {
 			switch p := np.Parent().(type) {
