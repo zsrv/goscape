@@ -366,13 +366,13 @@ func TestTryFireOpTriggerLocDeferredOnDelay(t *testing.T) {
 }
 
 // TestTryFireOpTriggerLocTypeChanged verifies in-place type mutation
-// (loc.Info changed via packLocInfo) clears interaction silently.
+// (loc.CurrentInfo changed via packLocInfo) clears interaction silently.
 func TestTryFireOpTriggerLocTypeChanged(t *testing.T) {
 	_, p, loc, _ := makeOpLocTriggerFixture(t)
 
-	// Mutate the loc's type in-place by overwriting CurrentInfo. New type 99
-	// differs from p.targetSubject.typ (42).
-	loc.CurrentInfo = (99 & 0x3FFF) | (10&0x1F)<<14 | (0&0x3)<<19
+	// Mutate the loc's type in-place. New type 99 differs from
+	// p.targetSubject.typ (42).
+	loc.Change(99, 10, 0)
 
 	tryFireOpTrigger(p)
 
@@ -544,12 +544,12 @@ func TestTryFireApTriggerLocDeferredOnDelay(t *testing.T) {
 }
 
 // TestTryFireApTriggerLocTypeChanged verifies in-place type mutation
-// (loc.Info changed) clears interaction silently.
+// (loc.CurrentInfo changed) clears interaction silently.
 func TestTryFireApTriggerLocTypeChanged(t *testing.T) {
 	_, p, loc, _ := makeApTriggerFixture(t)
 
 	// Mutate loc.CurrentInfo to a different type (99 ≠ 42 recorded in targetSubject).
-	loc.CurrentInfo = (99 & 0x3FFF) | (10&0x1F)<<14 | (0&0x3)<<19
+	loc.Change(99, 10, 0)
 
 	tryFireApTrigger(p)
 

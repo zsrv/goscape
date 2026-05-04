@@ -133,6 +133,14 @@ func TestLocLayerReadsFromBaseInfo(t *testing.T) {
 	}
 }
 
+func TestLocLayerNonZeroFromConstruction(t *testing.T) {
+	// shape=22 = ShapeGroundDecor → LayerGroundDecor=3
+	l := NewLoc(0, 100, 200, 1, 1, LifecycleRespawn, 42, 22, 0)
+	if l.Layer() != 3 {
+		t.Errorf("Layer for shape=22: got %d, want 3 (LayerGroundDecor)", l.Layer())
+	}
+}
+
 func TestLocIsActiveDefaultFalse(t *testing.T) {
 	l := NewLoc(0, 100, 200, 1, 1, LifecycleDespawn, 42, 0, 0)
 	if l.IsActive {
