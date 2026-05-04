@@ -15,10 +15,12 @@ import (
 type mockActiveLoc struct {
 	locType     int
 	x, z, level int
+	angle       int
 }
 
 func (m *mockActiveLoc) LocType() int              { return m.locType }
 func (m *mockActiveLoc) Coords() (x, z, level int) { return m.x, m.z, m.level }
+func (m *mockActiveLoc) Angle() int                { return m.angle }
 
 type mockActiveNpc struct {
 	typeId, x, z, level int

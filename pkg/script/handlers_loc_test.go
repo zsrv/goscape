@@ -11,10 +11,12 @@ import (
 type fakeActiveLoc struct {
 	id          int
 	x, z, level int
+	angle       int
 }
 
 func (f fakeActiveLoc) LocType() int              { return f.id }
 func (f fakeActiveLoc) Coords() (x, z, level int) { return f.x, f.z, f.level }
+func (f fakeActiveLoc) Angle() int                { return f.angle }
 
 // fakeConfigs implements the Configs interface with just the LocType path
 // wired for these tests; other methods return nil.
@@ -190,5 +192,39 @@ func TestHandleLocCoordRequiresActiveLoc(t *testing.T) {
 	}
 	if got := err.Error(); got != "LOC_COORD: no active loc" {
 		t.Errorf("error: got %q, want \"LOC_COORD: no active loc\"", got)
+	}
+}
+
+func TestHandleLocAngleHappyPath(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		ActiveLoc:   fakeActiveLoc{id: 42, angle: 2},
+	}
+
+	if err := handleLocAngle(s); err != nil {
+		t.Fatalf("handleLocAngle: %v", err)
+	}
+
+	if s.ISP != 1 {
+		t.Fatalf("ISP: got %d, want 1", s.ISP)
+	}
+	if got := s.IntStack[0]; got != 2 {
+		t.Errorf("top of int stack: got %d, want 2", got)
+	}
+}
+
+func TestHandleLocAngleRequiresActiveLoc(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+
+	err := handleLocAngle(s)
+	if err == nil {
+		t.Fatal("handleLocAngle: expected error, got nil")
+	}
+	if got := err.Error(); got != "LOC_ANGLE: no active loc" {
+		t.Errorf("error: got %q, want \"LOC_ANGLE: no active loc\"", got)
 	}
 }

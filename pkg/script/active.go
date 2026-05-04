@@ -698,6 +698,7 @@ type ActiveNpc interface {
 type ActiveLoc interface {
 	LocType() int              // returns the LocType ID (from packed Loc.Info bitfield)
 	Coords() (x, z, level int) // world position; consumed by LOC_COORD
+	Angle() int                // rotation (0=west, 1=north, 2=east, 3=south); consumed by LOC_ANGLE
 }
 
 // ActiveObj is the surface that OBJ_* and AI_APOBJ/AI_OPOBJ handlers
