@@ -170,6 +170,45 @@ func handleLocShape(s *ScriptState) error {
 	return nil
 }
 
+// checkDuration mirrors TS DurationValid (ScriptValidators.ts:108) — a
+// range validator rejecting [<1, >2147483647]. Reused by LOC_CHANGE,
+// LOC_ADD, LOC_DEL.
+func checkDuration(v int) error {
+	if v < 1 || v > 2147483647 {
+		return fmt.Errorf("duration out of range [1, 2147483647]: %d", v)
+	}
+	return nil
+}
+
+// handleLocChange pops [id, duration] from the int stack and asks
+// LocOps to mutate the ActiveLoc's type to id, preserving shape/angle.
+// Mirrors TS LOC_CHANGE (LocOps.ts:60-67):
+//
+//	const [id, duration] = state.popInts(2);
+//	check(duration, DurationValid);
+//	check(id, LocTypeValid);
+//	World.changeLoc(state.activeLoc, id, state.activeLoc.shape, state.activeLoc.angle, duration);
+func handleLocChange(s *ScriptState) error {
+	if err := requireActiveLoc(s, "LOC_CHANGE"); err != nil {
+		return err
+	}
+	if err := requireConfigs(s, "LOC_CHANGE"); err != nil {
+		return err
+	}
+	duration := s.PopInt()
+	id := s.PopInt()
+	if err := checkDuration(duration); err != nil {
+		return fmt.Errorf("LOC_CHANGE: %w", err)
+	}
+	if s.Configs.LocType(id) == nil {
+		return fmt.Errorf("LOC_CHANGE: unknown loc id %d", id)
+	}
+	if s.LocOps == nil {
+		return fmt.Errorf("LOC_CHANGE: LocOps unavailable")
+	}
+	return s.LocOps.ChangeLoc(s.ActiveLoc, id, s.ActiveLoc.Shape(), s.ActiveLoc.Angle(), duration)
+}
+
 // handleLocParam pops paramID, resolves the ActiveLoc's LocType, and
 // delegates to paramLookup. Mirrors TS LOC_PARAM (LocOps.ts:114-123) —
 // the active-loc-bound counterpart of LC_PARAM (handlers_config.go:163).

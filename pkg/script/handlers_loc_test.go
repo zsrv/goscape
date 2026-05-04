@@ -473,3 +473,79 @@ func TestHandleLocParamRequiresActiveLoc(t *testing.T) {
 		t.Errorf("error: got %q, want \"LOC_PARAM: no active loc\"", got)
 	}
 }
+
+// -- LOC_CHANGE tests --
+
+// newLocChangeState builds a ScriptState ready for handleLocChange tests.
+// Stack is empty; caller pushes [id, duration] in that order before calling.
+func newLocChangeState(activeLoc ActiveLoc, locTypes map[int]*objtype.LocType) *ScriptState {
+	return &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		ActiveLoc:   activeLoc,
+		Configs:     &fakeConfigs{locs: locTypes},
+		LocOps:      &fakeLocOps{},
+	}
+}
+
+func TestLocChangeCallsLocOpsWithPoppedArgs(t *testing.T) {
+	loc := fakeActiveLoc{id: 100, shape: 0, angle: 0}
+	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+	lt200 := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 200}}
+	s := newLocChangeState(loc, map[int]*objtype.LocType{100: lt, 200: lt200})
+
+	// stack: [..., id=200, duration=3]
+	s.PushInt(200)
+	s.PushInt(3)
+
+	if err := handleLocChange(s); err != nil {
+		t.Fatalf("handleLocChange: unexpected error %v", err)
+	}
+	ops := s.LocOps.(*fakeLocOps)
+	if len(ops.changeCalls) != 1 {
+		t.Fatalf("ChangeLoc calls: got %d, want 1", len(ops.changeCalls))
+	}
+	c := ops.changeCalls[0]
+	if c.typ != 200 || c.dur != 3 {
+		t.Errorf("ChangeLoc args: got typ=%d dur=%d, want 200/3", c.typ, c.dur)
+	}
+	if c.shape != 0 || c.angle != 0 {
+		t.Errorf("ChangeLoc preserves activeLoc shape/angle: got shape=%d angle=%d", c.shape, c.angle)
+	}
+}
+
+func TestLocChangeRequiresActiveLoc(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(200)
+	s.PushInt(3)
+	if err := handleLocChange(s); err == nil {
+		t.Error("handleLocChange without ActiveLoc must return error")
+	}
+}
+
+func TestLocChangeRejectsZeroOrNegativeDuration(t *testing.T) {
+	for _, dur := range []int{0, -1, -100} {
+		loc := fakeActiveLoc{id: 100}
+		lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+		s := newLocChangeState(loc, map[int]*objtype.LocType{100: lt})
+		s.PushInt(100)
+		s.PushInt(dur)
+		if err := handleLocChange(s); err == nil {
+			t.Errorf("handleLocChange dur=%d must reject", dur)
+		}
+	}
+}
+
+func TestLocChangeRejectsUnknownType(t *testing.T) {
+	loc := fakeActiveLoc{id: 100}
+	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+	s := newLocChangeState(loc, map[int]*objtype.LocType{100: lt})
+	s.PushInt(9999) // unknown
+	s.PushInt(3)
+	if err := handleLocChange(s); err == nil {
+		t.Error("handleLocChange with unknown type id must return error")
+	}
+}
