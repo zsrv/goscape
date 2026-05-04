@@ -322,6 +322,16 @@ func (n *Npc) updateMovement(s *Server) bool {
 	} else {
 		n.runDir = -1
 	}
+	// NAI-82: TS Npc.updateMovement at Engine-TS/.../Npc.ts:362-366 writes
+	// lastMovement = World.currentTick + 1 when the NPC's position changed
+	// this tick. Read by AI_ARRIVEDELAY / AI_TARGETMOVED (deferred — see
+	// NAI-82 spec §6.1). Position-vs-snapshot check (rather than
+	// stepsTaken > 0) mirrors TS exactly. The s != nil guard is defensive
+	// parity with goscape's TS-faithful nil-server convention; production
+	// callers always pass a non-nil server.
+	if (n.x != n.lastTickX || n.z != n.lastTickZ) && s != nil {
+		n.lastMovement = s.currentTick + 1
+	}
 	return true
 }
 
