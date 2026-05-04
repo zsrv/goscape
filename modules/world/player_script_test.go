@@ -1323,3 +1323,16 @@ func TestOpenTutorial_RefreshFlagsUntouched(t *testing.T) {
 		t.Error("refreshModalClose should remain false after OpenTutorial")
 	}
 }
+
+// TestPlaySynthWritesOut pins NAI-87 T3: (*Player).PlaySynth issues
+// a writeOut to the client for the OpSynthSound opcode. Failure
+// signal = "wire-out broken or encoder mis-wired."
+func TestPlaySynthWritesOut(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = enc
+	p.PlaySynth(123, 1, 0)
+	if n := p.client.bufw.Buffered(); n == 0 {
+		t.Errorf("PlaySynth wrote 0 bytes to c.bufw; want >0 (NAI-87 positive pin)")
+	}
+}

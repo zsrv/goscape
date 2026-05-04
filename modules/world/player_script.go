@@ -971,3 +971,16 @@ func (p *Player) PlayJingle(delay int, name string) {
 	encodeMidiJingle(buf, uint16(delay), jingle)
 	p.writeOut(gameserver.OpMidiJingle, buf.Bytes())
 }
+
+// PlaySynth sends a synthesized sound effect to the client. Called by
+// the SOUND_SYNTH script opcode (PlayerOps.ts:466-474). Encodes
+// synth/loops/delay via encodeSynthSound and writes OpSynthSound.
+//
+// No name normalization, no PRELOADED lookup, no validation — TS
+// handler has none. Out-of-range int values truncate at the
+// uint16/uint8/uint16 cast boundary (matches TS p1/p2 narrowing).
+func (p *Player) PlaySynth(synth, loops, delay int) {
+	buf := packet.NewPacket(make([]byte, 0, 5))
+	encodeSynthSound(buf, uint16(synth), uint8(loops), uint16(delay))
+	p.writeOut(gameserver.OpSynthSound, buf.Bytes())
+}
