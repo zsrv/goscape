@@ -13,12 +13,14 @@ type fakeActiveLoc struct {
 	x, z, level int
 	angle       int
 	shape       int
+	layer       int
 }
 
 func (f fakeActiveLoc) LocType() int              { return f.id }
 func (f fakeActiveLoc) Coords() (x, z, level int) { return f.x, f.z, f.level }
 func (f fakeActiveLoc) Angle() int                { return f.angle }
 func (f fakeActiveLoc) Shape() int                { return f.shape }
+func (f fakeActiveLoc) Layer() int                { return f.layer }
 
 // fakeConfigs implements the Configs interface with the LocType and
 // ParamType paths wired for these tests; other methods return nil.

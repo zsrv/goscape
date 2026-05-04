@@ -157,6 +157,12 @@ type ScriptState struct {
 	// Nil disables (handlers treat a nil surface as "no match", push 0).
 	Npcs NpcLookup
 
+	// LocOps is the script→world mutator surface for LOC_CHANGE / LOC_ADD /
+	// LOC_DEL / LOC_ANIM (NAI-86). Callers set this after Init if the
+	// script uses loc mutator opcodes. Nil disables (handlers return an
+	// explicit error).
+	LocOps LocOps
+
 	// LineValidator is the LoS/LoW bridge for HuntAll-mode iterator
 	// passesFilter (NAI-35-T3). Nil = no validator wired (HuntAll mode
 	// pessimistically allows). Production sets this from
