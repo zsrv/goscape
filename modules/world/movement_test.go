@@ -243,3 +243,45 @@ func TestPlayerStepIntraZoneNoSubscriptionChange(t *testing.T) {
 		t.Errorf("intra-zone step PlayersCount: got %d, want 1", z.PlayersCount())
 	}
 }
+
+// NAI-82: TS Player.processMovement at Engine-TS/.../Player.ts:675-677
+// writes lastMovement = World.currentTick + 1 whenever stepsTaken > 0
+// after the tick's movement resolves. Read by P_ARRIVEDELAY's gate.
+func TestResolveMovementWritesLastMovementOnStep(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	s.currentTick = 50
+
+	p.x, p.z, p.level = 3094, 3106, 0
+	p.moveSpeed = MoveSpeedWalk
+	p.queueWaypoint(3094, 3107)
+
+	p.resolveMovement()
+
+	if p.stepsTaken != 1 {
+		t.Fatalf("stepsTaken: got %d, want 1 (sanity — pre-existing invariant)", p.stepsTaken)
+	}
+	if p.lastMovement != 51 {
+		t.Errorf("lastMovement: got %d, want 51 (currentTick + 1)", p.lastMovement)
+	}
+}
+
+// NAI-82: idle ticks (no waypoint) leave lastMovement untouched.
+func TestResolveMovementSkipsLastMovementWhenIdle(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	s.currentTick = 50
+
+	p.waypointIndex = -1
+
+	p.resolveMovement()
+
+	if p.stepsTaken != 0 {
+		t.Errorf("stepsTaken: got %d, want 0 (no waypoint = no step)", p.stepsTaken)
+	}
+	if p.lastMovement != 0 {
+		t.Errorf("lastMovement: got %d, want 0 (unchanged from zero-value)", p.lastMovement)
+	}
+}

@@ -65,6 +65,16 @@ func (p *Player) resolveMovement() {
 			p.drainRunEnergy()
 		}
 	}
+
+	// NAI-82: TS Player.processMovement at Engine-TS/.../Player.ts:675-677
+	// writes lastMovement = World.currentTick + 1 whenever stepsTaken > 0
+	// after the tick's movement resolves. The defensive client/server nil
+	// guard mirrors the established stepOnce convention (movement.go:84) —
+	// fixture tests that construct a bare *Player with no client get a
+	// silent skip.
+	if p.stepsTaken > 0 && p.client != nil && p.client.server != nil {
+		p.lastMovement = p.client.server.currentTick + 1
+	}
 }
 
 // stepOnce advances one tile toward the current waypoint.
