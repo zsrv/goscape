@@ -114,6 +114,7 @@ type Server struct {
 
 	zoneMap       *zone.ZoneMap
 	zonesTracking map[*zone.Zone]struct{}
+	locObjTracker any // NAI-86 Bundle 2: replaced with concrete *locObjTracker
 
 	scriptProvider *script.Provider
 
@@ -128,8 +129,6 @@ type Server struct {
 	// sessionLogs is the per-tick session-log accumulator. NAI-74. Pushed by
 	// Player.AddSessionLog; flushed via processSessionLogs in the tick loop.
 	sessionLogs    []SessionLog
-
-	locObjTracker any // NAI-86 Bundle 2: replaced with concrete *locObjTracker
 }
 
 // appendNewPlayer queues a player for registration on the next tick.

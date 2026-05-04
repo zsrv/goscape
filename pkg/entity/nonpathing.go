@@ -23,6 +23,11 @@ func (np *NonPathing) Parent() any { return np.parent }
 // tracker; this stub records the transition tick only and ignores the
 // tracker arg.
 //
+// Distinct from [Entity.SetLifecycle](transitionTick, currentTick): this method
+// takes a duration relative to currentTick and (in Bundle 2) (de)registers in a
+// LifecycleTracker. The casing difference is deliberate and mirrors TS
+// setLifeCycle vs setLifecycle.
+//
 // TODO(NAI-86 Bundle 2): rewire to call tracker.Register / Unregister
 // and remove this stub doc-line.
 func (np *NonPathing) SetLifeCycle(duration, currentTick int, tracker any) {
