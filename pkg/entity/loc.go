@@ -13,7 +13,7 @@ type Loc struct {
 	NonPathing
 	BaseInfo    int  // immutable: packed (type, shape, angle, layer)
 	CurrentInfo int  // mutable: equals BaseInfo at construction; rewritten by Change
-	IsActive    bool // true after Server.AddLoc, false after Server.RemoveLoc
+	IsActive    bool // managed by pkg/zone Zone methods (AddStaticLoc, AddLoc, ChangeLoc, RemoveLoc); mirrors TS Zone.ts isActive writes (Zone.ts:208,226,232,254)
 }
 
 // NewLoc constructs a Loc at (level, x, z) with the given footprint and
