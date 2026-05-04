@@ -57,7 +57,27 @@ func (s *Server) ChangeLoc(loc *entitypkg.Loc, typ, shape, angle, duration int) 
 	z := s.zoneMap.Get(loc.Level, loc.X, loc.Z)
 	z.ChangeLoc(loc)
 	s.TrackZone(z)
-	if loc.IsChanged() || loc.Lifecycle == entitypkg.LifecycleDespawn {
+	armRegister := loc.IsChanged() || loc.Lifecycle == entitypkg.LifecycleDespawn
+	// NAI-88 probe; remove at Stage 2 close.
+	if s.cfg.NodeDebug && s.log != nil {
+		arm := "untrack"
+		if armRegister {
+			arm = "register"
+		}
+		s.log.Debug("nai88 change_loc setlifecycle",
+			"event_id", "P4",
+			"tick", s.currentTick,
+			"loc_x", loc.X,
+			"loc_z", loc.Z,
+			"loc_level", loc.Level,
+			"loc_type", loc.Type(),
+			"is_changed", loc.IsChanged(),
+			"lifecycle", int(loc.Lifecycle),
+			"duration", duration,
+			"arm", arm,
+		)
+	}
+	if armRegister {
 		loc.SetLifeCycle(duration, s.currentTick, s.locObjTracker)
 	} else {
 		loc.SetLifeCycle(-1, s.currentTick, nil)
