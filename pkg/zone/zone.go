@@ -149,6 +149,7 @@ func encodeNested(opcode byte, fn func(*packet.Packet)) []byte {
 // world init.
 func (z *Zone) AddStaticLoc(loc *entity.Loc) {
 	z.Locs = append(z.Locs, loc)
+	loc.IsActive = true
 }
 
 // AddLoc activates a loc and queues a LOC_ADD_CHANGE Enclosed event. For

@@ -522,3 +522,15 @@ func TestZoneResetPreservesSubscription(t *testing.T) {
 		t.Errorf("Reset should preserve NpcsCount: got %d, want 1", z.NpcsCount())
 	}
 }
+
+func TestAddStaticLocSetsIsActive(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	loc := entity.NewLoc(0, 3094, 3106, 1, 1, entity.LifecycleRespawn, 100, 0, 0)
+	if loc.IsActive {
+		t.Fatal("setup: fresh loc must default IsActive=false")
+	}
+	z.AddStaticLoc(loc)
+	if !loc.IsActive {
+		t.Error("AddStaticLoc must set loc.IsActive=true (mirrors TS Zone.addStaticLoc Zone.ts:208)")
+	}
+}
