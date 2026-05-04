@@ -9,6 +9,7 @@ type fakeLocOps struct {
 	removeCalls []removeLocCall
 	animCalls   []animLocCall
 	atCoord     []ActiveLoc
+	addReturn   ActiveLoc // returned from AddLoc
 }
 
 type changeLocCall struct {
@@ -37,10 +38,7 @@ func (f *fakeLocOps) ChangeLoc(loc ActiveLoc, typ, shape, angle, dur int) error 
 
 func (f *fakeLocOps) AddLoc(level, x, z, typ, shape, angle, dur int) (ActiveLoc, error) {
 	f.addCalls = append(f.addCalls, addLocCall{level, x, z, typ, shape, angle, dur})
-	if len(f.atCoord) > 0 {
-		return f.atCoord[0], nil
-	}
-	return nil, nil
+	return f.addReturn, nil
 }
 
 func (f *fakeLocOps) RemoveLoc(loc ActiveLoc, dur int) error {

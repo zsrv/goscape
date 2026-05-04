@@ -549,3 +549,144 @@ func TestLocChangeRejectsUnknownType(t *testing.T) {
 		t.Error("handleLocChange with unknown type id must return error")
 	}
 }
+
+// -- LOC_ADD tests --
+
+func TestLocAddSameLayerCallsChangeOnExisting(t *testing.T) {
+	// existing loc on layer 0 (wall); LOC_ADD with shape=0 (also wall layer 0)
+	existing := fakeActiveLoc{id: 50, shape: 0, angle: 0, layer: 0}
+	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Configs:     &fakeConfigs{locs: map[int]*objtype.LocType{100: lt}},
+		LocOps:      &fakeLocOps{atCoord: []ActiveLoc{existing}},
+	}
+
+	level, x, z := 0, 3094, 3106
+	coord := coordgrid.PackCoord(level, x, z)
+
+	// stack: [coord, type=100, angle=0, shape=0 (wall→layer0), duration=3]
+	s.PushInt(coord)
+	s.PushInt(100)
+	s.PushInt(0)
+	s.PushInt(0) // ShapeWallStraight → LayerWall (0)
+	s.PushInt(3)
+
+	if err := handleLocAdd(s); err != nil {
+		t.Fatalf("handleLocAdd: %v", err)
+	}
+	ops := s.LocOps.(*fakeLocOps)
+	if len(ops.changeCalls) != 1 {
+		t.Errorf("expected ChangeLoc on same-layer existing, got %d ChangeLoc calls", len(ops.changeCalls))
+	}
+	if len(ops.addCalls) != 0 {
+		t.Errorf("expected no AddLoc when same-layer hit, got %d AddLoc calls", len(ops.addCalls))
+	}
+	if s.ActiveLoc != existing {
+		t.Error("ActiveLoc must bind to the existing same-layer loc")
+	}
+}
+
+func TestLocAddNoSameLayerCallsAddOnNew(t *testing.T) {
+	// existing is on a DIFFERENT layer (groundDecor=3 vs wall=0)
+	existing := fakeActiveLoc{id: 50, layer: 3}
+	created := fakeActiveLoc{id: 100, shape: 0, angle: 0, layer: 0}
+	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Configs:     &fakeConfigs{locs: map[int]*objtype.LocType{100: lt}},
+		LocOps:      &fakeLocOps{atCoord: []ActiveLoc{existing}, addReturn: created},
+	}
+
+	coord := coordgrid.PackCoord(0, 3094, 3106)
+	s.PushInt(coord)
+	s.PushInt(100)
+	s.PushInt(0)
+	s.PushInt(0) // wall layer
+	s.PushInt(3)
+
+	if err := handleLocAdd(s); err != nil {
+		t.Fatalf("handleLocAdd: %v", err)
+	}
+	ops := s.LocOps.(*fakeLocOps)
+	if len(ops.addCalls) != 1 {
+		t.Errorf("expected AddLoc, got %d AddLoc calls", len(ops.addCalls))
+	}
+	if len(ops.changeCalls) != 0 {
+		t.Errorf("no same-layer hit should not call ChangeLoc, got %d", len(ops.changeCalls))
+	}
+}
+
+func TestLocAddRejectsBadDuration(t *testing.T) {
+	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Configs:     &fakeConfigs{locs: map[int]*objtype.LocType{100: lt}},
+		LocOps:      &fakeLocOps{},
+	}
+	s.PushInt(coordgrid.PackCoord(0, 3094, 3106))
+	s.PushInt(100)
+	s.PushInt(0)
+	s.PushInt(0)
+	s.PushInt(0) // bad duration
+	if err := handleLocAdd(s); err == nil {
+		t.Error("handleLocAdd dur=0 must reject")
+	}
+}
+
+func TestLocAddRejectsUnknownType(t *testing.T) {
+	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Configs:     &fakeConfigs{locs: map[int]*objtype.LocType{100: lt}},
+		LocOps:      &fakeLocOps{},
+	}
+	s.PushInt(coordgrid.PackCoord(0, 3094, 3106))
+	s.PushInt(9999) // unknown
+	s.PushInt(0)
+	s.PushInt(0)
+	s.PushInt(3)
+	if err := handleLocAdd(s); err == nil {
+		t.Error("handleLocAdd unknown type must reject")
+	}
+}
+
+func TestLocAddRejectsBadShape(t *testing.T) {
+	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Configs:     &fakeConfigs{locs: map[int]*objtype.LocType{100: lt}},
+		LocOps:      &fakeLocOps{},
+	}
+	s.PushInt(coordgrid.PackCoord(0, 3094, 3106))
+	s.PushInt(100)
+	s.PushInt(0)
+	s.PushInt(99) // shape > 22 → invalid
+	s.PushInt(3)
+	if err := handleLocAdd(s); err == nil {
+		t.Error("handleLocAdd bad shape must reject")
+	}
+}
+
+func TestLocAddRejectsBadAngle(t *testing.T) {
+	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Configs:     &fakeConfigs{locs: map[int]*objtype.LocType{100: lt}},
+		LocOps:      &fakeLocOps{},
+	}
+	s.PushInt(coordgrid.PackCoord(0, 3094, 3106))
+	s.PushInt(100)
+	s.PushInt(99) // angle > 3 → invalid
+	s.PushInt(0)
+	s.PushInt(3)
+	if err := handleLocAdd(s); err == nil {
+		t.Error("handleLocAdd bad angle must reject")
+	}
+}

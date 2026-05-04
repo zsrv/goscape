@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
+	"github.com/zsrv/goscape/pkg/pathfinder/loc"
 )
 
 // requireActiveLoc returns an error tagged with the opcode name if the
@@ -226,4 +227,60 @@ func handleLocParam(s *ScriptState) error {
 		return fmt.Errorf("LOC_PARAM: unknown loc id %d", id)
 	}
 	return paramLookup(s, lt.Params, paramID)
+}
+
+// handleLocAdd pops [coord, type, angle, shape, duration] and either
+// (a) finds a same-layer loc at coord and changes it, or (b) creates a
+// new DESPAWN-lifecycle loc. Mirrors TS LOC_ADD (LocOps.ts:18-43):
+//
+//	const [coord, type, angle, shape, duration] = state.popInts(5);
+//	[validators]
+//	for loc at zone-coord:
+//	    if loc.layer === locShapeLayer(shape):
+//	        World.changeLoc(loc, type, shape, angle, duration); return
+//	const created = new Loc(level, x, z, locType.width, locType.length, DESPAWN, type, shape, angle);
+//	World.addLoc(created, duration);
+func handleLocAdd(s *ScriptState) error {
+	if err := requireConfigs(s, "LOC_ADD"); err != nil {
+		return err
+	}
+	duration := s.PopInt()
+	shape := s.PopInt()
+	angle := s.PopInt()
+	typ := s.PopInt()
+	coord := s.PopInt()
+
+	if s.Configs.LocType(typ) == nil {
+		return fmt.Errorf("LOC_ADD: unknown loc id %d", typ)
+	}
+	if err := checkLocAngle(angle); err != nil {
+		return fmt.Errorf("LOC_ADD: %w", err)
+	}
+	if err := checkLocShape(shape); err != nil {
+		return fmt.Errorf("LOC_ADD: %w", err)
+	}
+	if err := checkDuration(duration); err != nil {
+		return fmt.Errorf("LOC_ADD: %w", err)
+	}
+	if s.LocOps == nil {
+		return fmt.Errorf("LOC_ADD: LocOps unavailable")
+	}
+
+	pos := coordgrid.UnpackCoord(coord)
+	wantLayer := int(loc.LayerOf(loc.Shape(shape)))
+	for _, existing := range s.LocOps.LocsAtCoord(pos.Level, pos.X, pos.Z) {
+		if existing.Layer() == wantLayer {
+			if err := s.LocOps.ChangeLoc(existing, typ, shape, angle, duration); err != nil {
+				return err
+			}
+			s.ActiveLoc = existing
+			return nil
+		}
+	}
+	created, err := s.LocOps.AddLoc(pos.Level, pos.X, pos.Z, typ, shape, angle, duration)
+	if err != nil {
+		return err
+	}
+	s.ActiveLoc = created
+	return nil
 }
