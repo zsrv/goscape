@@ -4,6 +4,7 @@ import (
 	"sort"
 	"time"
 
+	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/inventory"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/objtype"
@@ -458,7 +459,34 @@ func (s *Server) processNpcs() {
 	}
 }
 
+// processZones drives per-tick lifecycle transitions for tracked
+// NonPathing entities (Loc / future Obj) and computes the shared
+// Enclosed-event buffer for every tracked zone. Mirrors TS
+// World.processZones (Engine-TS/.../World.ts:961-986).
+//
+// Snapshots the tracker before iterating because each turnLoc may
+// mutate the tracker (RemoveLoc / RevertLoc both call SetLifeCycle(-1)
+// → Unregister) and we cannot iterate a list that's being unlinked.
 func (s *Server) processZones() {
+	if s.locObjTracker != nil {
+		// Snapshot to a slice — the tracker uses a linked list whose
+		// iteration is invalidated by mid-iteration Unlink.
+		var snap []*entitypkg.NonPathing
+		if t, ok := s.locObjTracker.(*locObjTracker); ok {
+			for np := range t.All() {
+				snap = append(snap, np)
+			}
+		}
+		for _, np := range snap {
+			switch p := np.Parent().(type) {
+			case *entitypkg.Loc:
+				s.turnLoc(p, s.currentTick)
+			case *entitypkg.Obj:
+				// TODO(NAI-86 D-N86-3): Obj.Turn ports later.
+				_ = p
+			}
+		}
+	}
 	for z := range s.zonesTracking {
 		z.ComputeShared()
 	}

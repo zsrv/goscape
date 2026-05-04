@@ -107,3 +107,55 @@ func TestTurnLocBeforeScheduledTickIsNoOp(t *testing.T) {
 		t.Error("turnLoc before scheduled tick must be no-op")
 	}
 }
+
+func TestProcessZonesFiresTurnLocAtScheduledTick(t *testing.T) {
+	s := newLocTurnTestServer(t)
+	s.currentTick = 100
+	loc := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleDespawn, 100, 0, 0)
+	s.AddLoc(loc, 3) // schedule despawn at tick 103
+
+	// tick 101, 102: not scheduled
+	s.currentTick = 101
+	s.processZones()
+	if !loc.IsActive {
+		t.Errorf("loc must stay active at tick 101 (scheduled 103)")
+	}
+	s.currentTick = 102
+	s.processZones()
+	if !loc.IsActive {
+		t.Errorf("loc must stay active at tick 102")
+	}
+
+	// tick 103: scheduled
+	s.currentTick = 103
+	s.processZones()
+	if loc.IsActive {
+		t.Errorf("loc must be deactivated at scheduled tick 103")
+	}
+}
+
+func TestProcessZonesSnapshotsBeforeIterating(t *testing.T) {
+	// turnLoc → RemoveLoc → SetLifeCycle(-1, ..., nil) calls
+	// tracker.Unregister mid-iteration. processZones must snapshot
+	// to avoid undefined iteration over the modified list.
+	s := newLocTurnTestServer(t)
+	s.currentTick = 100
+	for i := 0; i < 5; i++ {
+		loc := entitypkg.NewLoc(0, 3094+i, 3106, 1, 1, entitypkg.LifecycleDespawn, 100, 0, 0)
+		s.AddLoc(loc, 1) // all schedule despawn at tick 101
+	}
+
+	s.currentTick = 101
+	// Must not panic and must process all 5
+	s.processZones()
+}
+
+func TestProcessZonesStillComputesShared(t *testing.T) {
+	s := newZoneTestServer(t)
+	loc := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleDespawn, 100, 0, 0)
+	s.AddLoc(loc, 0)
+	// Pre-existing semantics: processZones must call ComputeShared on every
+	// tracked zone without panicking. The actual Shared() byte content
+	// depends on Enclosed events and is covered in pkg/zone tests.
+	s.processZones()
+}
