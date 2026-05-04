@@ -11,9 +11,8 @@ import (
 // (Engine-TS/src/engine/World.ts:1337-1348).
 //
 // Sets loc.IsActive=true after the zone wire. duration > 0 schedules
-// a despawn-revert via NonPathing.SetLifeCycle (Bundle 2 wires the
-// tracker; until Bundle 2 lands SetLifeCycle is a no-op for the
-// tracker side).
+// a despawn-revert via NonPathing.SetLifeCycle, which Registers the
+// loc in s.locObjTracker for per-tick processing.
 func (s *Server) AddLoc(loc *entitypkg.Loc, duration int) {
 	if s.gamemap != nil && s.locTypes != nil {
 		if lt := s.locTypeOrNil(loc.Type()); lt != nil && lt.BlockWalk {

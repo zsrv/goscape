@@ -115,7 +115,7 @@ type Server struct {
 
 	zoneMap       *zone.ZoneMap
 	zonesTracking map[*zone.Zone]struct{}
-	locObjTracker entitypkg.LifecycleTracker // *locObjTracker satisfies after Task 2.2
+	locObjTracker entitypkg.LifecycleTracker // concrete type *locObjTracker (modules/world/loc_tracker.go); initialized in NewServer
 
 	scriptProvider *script.Provider
 

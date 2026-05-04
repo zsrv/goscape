@@ -44,11 +44,10 @@ func (np *NonPathing) SetLifeCycle(duration, currentTick int, tracker LifecycleT
 		np.tracker = nil
 	}
 	if duration > 0 {
-		// Transition-window guard (NAI-86 B2.1 → B2.2): in the fully-wired
-		// server tracker is always non-nil here. Bundle 2.2 wires
-		// s.locObjTracker via newLocObjTracker(); until then duration>0
-		// calls from existing tests pass nil and only the SetLifecycle
-		// half is observable.
+		// Defensive nil-tracker guard (goscape; TS skips this check): in the
+		// fully-wired server tracker is always non-nil when duration>0, but
+		// test fixtures may build a NonPathing without going through Server.
+		// SetLifecycle still records the absolute transition tick.
 		if tracker != nil {
 			tracker.Register(np)
 			np.tracker = tracker
