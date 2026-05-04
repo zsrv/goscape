@@ -302,6 +302,13 @@ type mockPlayer struct {
 		name  string
 	}
 
+	// NAI-87: captured SOUND_SYNTH plays. Each entry records the three
+	// int arguments passed to PlaySynth in TS argument order
+	// (synth, loops, delay).
+	playSynthCalls []struct {
+		synth, loops, delay int
+	}
+
 	// NAI-74: SESSION_LOG opcode + Player.AddSessionLog capture.
 	addSessionLogCalls []mockSessionLogCall
 }
@@ -581,6 +588,15 @@ func (m *mockPlayer) PlayJingle(delay int, name string) {
 		delay int
 		name  string
 	}{delay, name})
+}
+
+// NAI-87: PlaySynth captures the SOUND_SYNTH (synth, loops, delay)
+// triple for handler tests. The mock does not encode anything;
+// wire-format coverage lives in modules/world/sound_encoders_test.go.
+func (m *mockPlayer) PlaySynth(synth, loops, delay int) {
+	m.playSynthCalls = append(m.playSynthCalls, struct {
+		synth, loops, delay int
+	}{synth, loops, delay})
 }
 
 // NAI-74: AddSessionLog captures SESSION_LOG dispatch for handler tests.

@@ -482,6 +482,14 @@ type ActivePlayer interface {
 	// (mirrors TS guard `if (jingle)` at Player.ts:1923).
 	PlayJingle(delay int, name string)
 
+	// PlaySynth sends a synthesized sound effect to the client. Called
+	// by the SOUND_SYNTH script opcode (PlayerOps.ts:466-474). No name
+	// normalization, no PRELOADED lookup, no validation — TS handler
+	// gates only on lowMemory; the script-handler layer applies that
+	// gate. Implementation encodes p2(synth) p1(loops) p2(delay) and
+	// writes OpSynthSound.
+	PlaySynth(synth, loops, delay int)
+
 	// NAI-47: SETIDKIT appearance mutation.
 
 	// Gender returns the player's gender (0=male, 1=female). Used by SETIDKIT
