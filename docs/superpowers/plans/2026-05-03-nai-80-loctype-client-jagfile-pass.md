@@ -1494,3 +1494,26 @@ No type drift across tasks.
 - All 3 still at `op_slot_empty` → real-cache regression should have caught this; bin-decode the cache for loc 3014 and audit.
 - Different gate fires (e.g., `getloc_nil`, `viewport`, `delayed`) → second blocker exposed; route to NAI-81 brainstorm with new gate name as routing target (per `smoke_unchanged_means_multiple_blockers.md`).
 - Gate=`script_dispatch` but no walking → SetInteraction reaches but pathing/visual blocked downstream; route to a movement-side investigation.
+
+---
+
+## Smoke result (2026-05-03, user-driven at HEAD `d5b3480`)
+
+**Outcome:** ✅ NAI-80 cascade-blocker silenced. All 3 OPLOC1 clicks advance past `op_slot_empty` to **script_dispatch**:
+
+| Loc | DebugName | Op[1] | Script invoked | New gate |
+|---|---|---|---|---|
+| 3014 | `newbie_door1` | `Open` | `[oploc1,newbie_door1]` | `no handler for LOC_COORD (opcode 3005) at pc=9` |
+| 380 | `bookcase` | `Search` | `[oploc1,_bookcase]` | `no handler for P_ARRIVEDELAY (opcode 2068) at pc=0` |
+| 350 | `drawers2` | `Open` | `[oploc1,_drawer]` | `no handler for LOC_COORD (opcode 3005) at pc=4` |
+
+Plus a bonus surfaced via player exploration: loc 375 (`chestclosed`) → `[oploc1,_chest_closed]` → same `LOC_COORD` gap at pc=4.
+
+**Adjacent observation (orthogonal):** "I can't reach that" message fires when the player clips into the bookcase footprint. Reach/pathing-side concern; not part of NAI-80 chain.
+
+**Cascade routing per `cascade_theory_smoke_binding.md`:** smoke binds the attribution. NAI-80 closed. Two follow-up sub-specs:
+
+- **NAI-81 — port `LOC_COORD` (opcode 3005) script handler.** Higher leverage: 3 distinct script consumers in this smoke alone (`_drawer`, `_chest_closed`, `newbie_door1`). TS reference: `Engine-TS` ScriptOpcode.LOC_COORD handler. Constants already declared at `pkg/script/opcode.go:980` (`OpLocCoord`).
+- **NAI-82 — port `P_ARRIVEDELAY` (opcode 2068) script handler.** 1 consumer (`_bookcase`). Constants already declared at `pkg/script/opcode.go:744` (`OpPArriveDelay`).
+
+Both are `protocol_stub_not_completed`-pattern: opcode constants declared but no dispatch wiring.
