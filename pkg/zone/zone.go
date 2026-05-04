@@ -163,6 +163,7 @@ func (z *Zone) AddLoc(loc *entity.Loc) {
 	if loc.Lifecycle == entity.LifecycleDespawn {
 		z.Locs = append(z.Locs, loc)
 	}
+	loc.IsActive = true
 	z.queueEvent(&loc.NonPathing, ZoneEvent{
 		Type:       ZoneEventEnclosed,
 		ReceiverID: PublicReceiver,

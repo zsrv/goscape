@@ -10,7 +10,8 @@ import (
 // LocType has BlockWalk=true. Mirrors TS World.addLoc
 // (Engine-TS/src/engine/World.ts:1337-1348).
 //
-// Sets loc.IsActive=true after the zone wire. duration > 0 schedules
+// IsActive=true is written by the called Zone.AddLoc (pkg/zone/zone.go),
+// matching TS Zone.addLoc (Zone.ts:226). duration > 0 schedules
 // a despawn-revert via NonPathing.SetLifeCycle, which Registers the
 // loc in s.locObjTracker for per-tick processing.
 func (s *Server) AddLoc(loc *entitypkg.Loc, duration int) {
@@ -22,7 +23,6 @@ func (s *Server) AddLoc(loc *entitypkg.Loc, duration int) {
 	}
 	z := s.zoneMap.Get(loc.Level, loc.X, loc.Z)
 	z.AddLoc(loc)
-	loc.IsActive = true
 	s.TrackZone(z)
 	loc.SetLifeCycle(duration, s.currentTick, s.locObjTracker)
 }
