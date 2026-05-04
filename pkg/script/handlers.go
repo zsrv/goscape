@@ -328,6 +328,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpPClearPendingAction: handlePClearPendingAction,
 	OpPLogout:             handlePLogout,
 
+	// NAI-82: arrive-delay opcode.
+	OpPArriveDelay: handlePArriveDelay,
+
 	// S6l: APLOC approach-range opcode.
 	OpPApRange: handlePApRange,
 
@@ -665,6 +668,28 @@ func handlePDelay(s *ScriptState) error {
 		return err
 	}
 	s.Self.SetDelayed(n)
+	s.Execution = Suspended
+	return nil
+}
+
+// handlePArriveDelay implements P_ARRIVEDELAY (opcode 2068): if the
+// active player has moved within the past 2 ticks, mark them delayed for
+// 1 tick and suspend the script; otherwise no-op. TS PlayerOps.ts:357-366.
+//
+// The 2-tick window arises from the TS lastMovement contract (written to
+// currentTick + 1 after a moving tick): the gate accepts moves from this
+// tick (lastMovement = T+1) and last tick (lastMovement = T) but rejects
+// moves from 2+ ticks ago (lastMovement = T-1; T-1 < T ⇒ return).
+//
+// Requires ProtectedActivePlayer pointer.
+func handlePArriveDelay(s *ScriptState) error {
+	if err := requireProtectedActivePlayer(s, "P_ARRIVEDELAY"); err != nil {
+		return err
+	}
+	if s.Self.LastMovement() < s.World.CurrentTick() {
+		return nil
+	}
+	s.Self.SetDelayed(0)
 	s.Execution = Suspended
 	return nil
 }

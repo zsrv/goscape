@@ -888,3 +888,121 @@ func TestQueueScriptNotFound(t *testing.T) {
 		})
 	}
 }
+
+// -- P_ARRIVEDELAY tests (NAI-82) ----------------------------------------
+//
+// TS PlayerOps.ts:357-366: if state.activePlayer.lastMovement < World.currentTick
+// then return (no-op); else SetDelayed(0) + Suspended. The 2-tick window arises
+// because lastMovement is written to currentTick + 1 after a moving tick.
+
+// TestPArriveDelaySuspendsWhenMovedThisTick: lastMovement = currentTick + 1
+// (the value written this tick by Player.resolveMovement).
+// Gate condition: 101 < 100 is false ⇒ suspend.
+func TestPArriveDelaySuspendsWhenMovedThisTick(t *testing.T) {
+	mp := &mockPlayer{lastMovement: 101}
+	w := &mockWorld{tick: 100}
+	sf := newSingleOp("p_arrivedelay_moved_this_tick", OpPArriveDelay)
+	state := Init(sf, mp, true, nil, nil)
+	state.World = w
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.Execution != Suspended {
+		t.Errorf("Execution: got %v, want Suspended", state.Execution)
+	}
+	if len(mp.setDelayedCalls) != 1 || mp.setDelayedCalls[0] != 0 {
+		t.Errorf("setDelayedCalls: got %v, want [0]", mp.setDelayedCalls)
+	}
+}
+
+// TestPArriveDelaySuspendsWhenMovedLastTick: lastMovement = currentTick (the
+// boundary case — moved on tick T-1 means lastMovement was set to T-1+1 = T).
+// Gate condition: 100 < 100 is false ⇒ suspend. Pins the inclusive boundary.
+func TestPArriveDelaySuspendsWhenMovedLastTick(t *testing.T) {
+	mp := &mockPlayer{lastMovement: 100}
+	w := &mockWorld{tick: 100}
+	sf := newSingleOp("p_arrivedelay_moved_last_tick", OpPArriveDelay)
+	state := Init(sf, mp, true, nil, nil)
+	state.World = w
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.Execution != Suspended {
+		t.Errorf("Execution: got %v, want Suspended", state.Execution)
+	}
+	if len(mp.setDelayedCalls) != 1 || mp.setDelayedCalls[0] != 0 {
+		t.Errorf("setDelayedCalls: got %v, want [0]", mp.setDelayedCalls)
+	}
+}
+
+// TestPArriveDelayNoOpWhenMovedTwoTicksAgo: lastMovement = currentTick - 1
+// (the first tick on which the gate becomes a no-op).
+// Gate condition: 99 < 100 is true ⇒ return early.
+func TestPArriveDelayNoOpWhenMovedTwoTicksAgo(t *testing.T) {
+	mp := &mockPlayer{lastMovement: 99}
+	w := &mockWorld{tick: 100}
+	sf := newSingleOp("p_arrivedelay_moved_two_ticks_ago", OpPArriveDelay)
+	state := Init(sf, mp, true, nil, nil)
+	state.World = w
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.Execution != Finished {
+		t.Errorf("Execution: got %v, want Finished (no-op should let OpReturn complete)", state.Execution)
+	}
+	if len(mp.setDelayedCalls) != 0 {
+		t.Errorf("setDelayedCalls: got %v, want [] (no-op must not call SetDelayed)", mp.setDelayedCalls)
+	}
+}
+
+// TestPArriveDelayNoOpWhenNeverMoved: lastMovement = 0 (zero-value, never
+// moved). Gate condition: 0 < 100 is true ⇒ return early. Pins zero-value.
+func TestPArriveDelayNoOpWhenNeverMoved(t *testing.T) {
+	mp := &mockPlayer{lastMovement: 0}
+	w := &mockWorld{tick: 100}
+	sf := newSingleOp("p_arrivedelay_never_moved", OpPArriveDelay)
+	state := Init(sf, mp, true, nil, nil)
+	state.World = w
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.Execution != Finished {
+		t.Errorf("Execution: got %v, want Finished", state.Execution)
+	}
+	if len(mp.setDelayedCalls) != 0 {
+		t.Errorf("setDelayedCalls: got %v, want []", mp.setDelayedCalls)
+	}
+}
+
+// TestPArriveDelayUnprotectedRejected: TS uses checkedHandler(ProtectedActivePlayer);
+// scripts started with protect=false must reject. Mirrors TestPDelayUnprotectedRejected.
+func TestPArriveDelayUnprotectedRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := newSingleOp("p_arrivedelay_unprotected", OpPArriveDelay)
+	state := Init(sf, mp, false, nil, nil) // protect=false
+
+	err := Execute(state)
+	if err == nil || err.Error() != "P_ARRIVEDELAY: script not protected" {
+		t.Errorf("expected 'P_ARRIVEDELAY: script not protected', got %v", err)
+	}
+	if len(mp.setDelayedCalls) != 0 {
+		t.Errorf("setDelayedCalls: got %v, want [] (rejection must not mutate)", mp.setDelayedCalls)
+	}
+}
+
+// TestPArriveDelayRequiresActivePlayer: no Self ⇒ requireProtectedActivePlayer
+// chains through requireActivePlayer's "no active player" message.
+// Mirrors TestPDelayRequiresActivePlayer.
+func TestPArriveDelayRequiresActivePlayer(t *testing.T) {
+	sf := newSingleOp("p_arrivedelay_no_self", OpPArriveDelay)
+	state := Init(sf, nil, false, nil, nil)
+
+	err := Execute(state)
+	if err == nil || err.Error() != "P_ARRIVEDELAY: no active player" {
+		t.Errorf("expected 'P_ARRIVEDELAY: no active player', got %v", err)
+	}
+}
