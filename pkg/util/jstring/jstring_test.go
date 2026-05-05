@@ -39,7 +39,7 @@ func TestToDisplayName(t *testing.T) {
 		in   string
 		want string
 	}{
-		{"", ""},
+		{"", "Invalid Name"},
 		{"alice", "Alice"},
 		{"user_two", "User Two"},
 		{"USER_TWO", "User Two"}, // case-insensitive via base37 round-trip

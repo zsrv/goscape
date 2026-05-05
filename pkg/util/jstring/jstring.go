@@ -43,7 +43,7 @@ func FromBase37(v uint64) string {
 
 	// Mirrors TS JString.ts:42-44 — values divisible by 37 are invalid
 	// (NAI-72: surfaced by social handler invalid_name gate).
-	if v != 0 && v%37 == 0 {
+	if v%37 == 0 {
 		return "invalid_name"
 	}
 
