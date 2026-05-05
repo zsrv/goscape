@@ -2336,3 +2336,125 @@ func TestPlayer_PathToTarget_ObjTarget_DifferentTile_UsesFindPathPlain(t *testin
 		t.Errorf("FindPathToLoc unexpectedly called for different-tile Obj")
 	}
 }
+
+// TestPlayer_PathToTarget_NaiveStrategy_PathingEntityTarget_UsesFindNaivePath
+// pins NAI-92 B5's NAIVE/PathingEntity dispatch. Player.blockWalkFlag is
+// unconditional FlagBlockPlayers in TS, so extraFlag is always
+// FlagBlockPlayers (verified via the recorder's extraFlag field).
+func TestPlayer_PathToTarget_NaiveStrategy_PathingEntityTarget_UsesFindNaivePath(t *testing.T) {
+	srv, rec := newPathToTargetTestServer(t)
+	p := newPathToTargetTestPlayer(t, srv, 100, 100, 0)
+	p.moveStrategy = MoveStrategyNaive
+	npc := newPathToTargetTestNpc(t, srv, 105, 105, 0, /*size=*/ 1)
+	p.target = npc
+
+	p.pathToTarget()
+
+	call, ok := rec.lastFindNaivePath()
+	if !ok {
+		t.Fatalf("FindNaivePath not called")
+	}
+	if call.extraFlag != p.blockWalkFlag() {
+		t.Errorf("extraFlag: got %d, want %d (Player.blockWalkFlag)", call.extraFlag, p.blockWalkFlag())
+	}
+	if call.srcWidth != 1 || call.srcLength != 1 {
+		t.Errorf("srcW/L: got (%d, %d), want (1, 1) (Player.Width/Length)", call.srcWidth, call.srcLength)
+	}
+	if call.destWidth != 1 || call.destLength != 1 {
+		t.Errorf("destW/L: got (%d, %d), want (1, 1) (npc.size)", call.destWidth, call.destLength)
+	}
+	// Negative pin: SMART arm should NOT have fired.
+	if _, ok := rec.lastFindPathToEntity(); ok {
+		t.Errorf("FindPathToEntity unexpectedly called (NAIVE should use FindNaivePath)")
+	}
+}
+
+// TestPlayer_PathToTarget_NaiveStrategy_LocTarget_QueuesSingleWaypoint
+// pins the non-PathingEntity branch of NAIVE — Loc target queues one
+// waypoint, no FindNaivePath call.
+func TestPlayer_PathToTarget_NaiveStrategy_LocTarget_QueuesSingleWaypoint(t *testing.T) {
+	srv, rec := newPathToTargetTestServer(t)
+	p := newPathToTargetTestPlayer(t, srv, 100, 100, 0)
+	p.moveStrategy = MoveStrategyNaive
+	loc := entitypkg.NewLoc(0, 105, 105, 1, 1, entitypkg.LifecycleForever, 1234, 0, 0)
+	p.target = loc
+
+	p.pathToTarget()
+
+	if _, ok := rec.lastFindNaivePath(); ok {
+		t.Errorf("FindNaivePath unexpectedly called for Loc target in NAIVE")
+	}
+	if _, ok := rec.lastFindPathToLoc(); ok {
+		t.Errorf("FindPathToLoc unexpectedly called for NAIVE Loc target")
+	}
+	if p.waypointIndex < 0 {
+		t.Errorf("expected single waypoint queued, got waypointIndex=%d", p.waypointIndex)
+	}
+	got := coordgrid.UnpackCoord(p.waypoints[p.waypointIndex])
+	if got.Level != 0 || got.X != 105 || got.Z != 105 {
+		t.Errorf("waypoint coord: got (lvl=%d, %d, %d), want (0, 105, 105)", got.Level, got.X, got.Z)
+	}
+}
+
+// TestPlayer_PathToTarget_NaiveStrategy_NoMove_NoOp pins the
+// getCollisionStrategy() == nil early-return for MoveRestrictNoMove.
+func TestPlayer_PathToTarget_NaiveStrategy_NoMove_NoOp(t *testing.T) {
+	srv, rec := newPathToTargetTestServer(t)
+	p := newPathToTargetTestPlayer(t, srv, 100, 100, 0)
+	p.moveStrategy = MoveStrategyNaive
+	p.moveRestrict = MoveRestrictNoMove
+	p.target = newPathToTargetTestNpc(t, srv, 105, 105, 0, 1)
+
+	p.pathToTarget()
+
+	if p.waypointIndex >= 0 {
+		t.Errorf("expected no waypoints (NoMove early return), got waypointIndex=%d", p.waypointIndex)
+	}
+	if _, ok := rec.lastFindNaivePath(); ok {
+		t.Errorf("FindNaivePath unexpectedly called for NoMove player")
+	}
+}
+
+// TestPlayer_PathToTarget_NoStrategyBranch_QueuesSingleWaypoint pins
+// the third else-branch (PathingEntity.ts:494-507). goscape's
+// MoveStrategy enum has only Smart+Naive, so engage the default arm
+// via an out-of-range cast.
+func TestPlayer_PathToTarget_NoStrategyBranch_QueuesSingleWaypoint(t *testing.T) {
+	srv, rec := newPathToTargetTestServer(t)
+	p := newPathToTargetTestPlayer(t, srv, 100, 100, 0)
+	p.moveStrategy = MoveStrategy(99) // out of enum range → default branch
+	p.target = newPathToTargetTestNpc(t, srv, 105, 105, 0, 1)
+
+	p.pathToTarget()
+
+	if p.waypointIndex < 0 {
+		t.Errorf("expected single waypoint, got waypointIndex=%d", p.waypointIndex)
+	}
+	got := coordgrid.UnpackCoord(p.waypoints[p.waypointIndex])
+	if got.Level != 0 || got.X != 105 || got.Z != 105 {
+		t.Errorf("waypoint coord: got (lvl=%d, %d, %d), want (0, 105, 105)", got.Level, got.X, got.Z)
+	}
+	// Negative pins: no pathfinder call should have fired.
+	if _, ok := rec.lastFindNaivePath(); ok {
+		t.Errorf("FindNaivePath unexpectedly called in no-strategy branch")
+	}
+	if _, ok := rec.lastFindPathToEntity(); ok {
+		t.Errorf("FindPathToEntity unexpectedly called in no-strategy branch")
+	}
+}
+
+// TestPlayer_PathToTarget_NoStrategyBranch_NoMove_NoOp pins the same
+// nomove early-return for the no-strategy else branch.
+func TestPlayer_PathToTarget_NoStrategyBranch_NoMove_NoOp(t *testing.T) {
+	srv, _ := newPathToTargetTestServer(t)
+	p := newPathToTargetTestPlayer(t, srv, 100, 100, 0)
+	p.moveStrategy = MoveStrategy(99)
+	p.moveRestrict = MoveRestrictNoMove
+	p.target = newPathToTargetTestNpc(t, srv, 105, 105, 0, 1)
+
+	p.pathToTarget()
+
+	if p.waypointIndex >= 0 {
+		t.Errorf("expected no waypoints (NoMove early return), got waypointIndex=%d", p.waypointIndex)
+	}
+}

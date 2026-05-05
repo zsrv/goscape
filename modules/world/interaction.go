@@ -658,16 +658,51 @@ func (p *Player) pathToTargetSmart() {
 	}
 }
 
-// pathToTargetNaive — NAI-92 B5 fills this in. Stub queues a single
-// waypoint at the target tile to preserve pre-NAI-92 behaviour.
+// pathToTargetNaive — NAIVE strategy. PathingEntity targets use
+// FindNaivePath with the entity's blockWalkFlag/collisionStrategy;
+// non-PathingEntity targets queue a single waypoint at the target tile.
+// Mirrors TS PathingEntity.pathToTarget NAIVE arm (PathingEntity.ts:477-493).
 func (p *Player) pathToTargetNaive() {
+	cs := p.getCollisionStrategy()
+	if cs == nil {
+		// nomove moverestrict returns nil = no walking allowed.
+		return
+	}
+	extraFlag := p.blockWalkFlag()
+	if extraFlag == collision.FlagNull {
+		// nomove moverestrict returns NULL = no walking allowed. Note
+		// Player.blockWalkFlag is unconditional FlagBlockPlayers in TS, so
+		// this branch is structurally present but never fires for Player.
+		return
+	}
+
 	tx, tz, _ := p.target.Coords()
-	p.queueWaypoint(tx, tz)
+	if t, ok := p.target.(pathingEntity); ok {
+		pf := p.client.server.pathfinder()
+		if pf == nil {
+			// (goscape defensive; TS skips this check)
+			p.queueWaypoint(tx, tz)
+			return
+		}
+		route := pf.FindNaivePath(p.level, p.x, p.z, tx, tz, p.Width(), p.Length(), t.Width(), t.Length(), extraFlag, *cs)
+		p.queueWaypoints(routeToPacked(route))
+	} else {
+		p.queueWaypoint(tx, tz)
+	}
 }
 
-// pathToTargetNoStrategy — NAI-92 B5 fills this in. Stub queues a single
-// waypoint at the target tile.
+// pathToTargetNoStrategy is TS PathingEntity.pathToTarget's third else
+// branch (PathingEntity.ts:494-507): runs the same nomove + blockwalk
+// guards as NAIVE but always queues a single waypoint regardless of
+// target type. Engaged by MoveStrategy values outside Smart/Naive
+// (defensive future-proofing — goscape's enum only has Smart+Naive).
 func (p *Player) pathToTargetNoStrategy() {
+	if p.getCollisionStrategy() == nil {
+		return
+	}
+	if p.blockWalkFlag() == collision.FlagNull {
+		return
+	}
 	tx, tz, _ := p.target.Coords()
 	p.queueWaypoint(tx, tz)
 }
