@@ -385,18 +385,368 @@ Per `execution_mode_default`: subagent-driven-development. One subagent per Phas
 
 ---
 
-## Task 4: Phase 2 — sub-H-conditional surgical fix (PLACEHOLDER)
+## Task 4: Phase 2 — sub-H8 fix: port TS Player.pathToPathingTarget gate
 
-**STATUS: PLACEHOLDER — controller fills in this task block per Task 3 Step 3.5.**
+**Sub-H surfaced:** H8 (tickloop-level state mutation). Phase 1 commit `58d95cd` confirmed both repros via `t.Logf("H8 FIRES by elimination")`:
+- Repro A (NPC 943, src=(3221,3218)→dst=(3218,3216)): `BFS path internally consistent (2 waypoints, last=(3219,3216))` — last waypoint cheb-1 of dst.
+- Repro B (NPC 3, src=(3218,3213)→dst=(3223,3216)): `BFS path internally consistent (2 waypoints, last=(3222,3216))` — last waypoint cheb-1 of dst.
 
-Tasks below are DRAFTED post-Phase-1, not at plan-author time. Controller verifies sub-H surfaced ∈ {H6, H7, H8}, re-greps premises, diffs against upstream source per spec §4 step 4, then appends per-task code blocks following the plan's existing TDD style.
+H6 + H7 do not fire on either geometry. BFS is internally consistent and StepValidator-walkable. Reach abandonment is at tickloop-level.
 
-Before any Phase 2 task dispatches, controller must complete Task 3 Steps 3.1-3.7. Phase 2 dispatch on stale premises is the explicit failure mode this checkpoint exists to prevent.
+**Root cause (verbatim from upstream-source diff):**
 
-Estimated task count by sub-H:
-- Sub-H6: 1-3 tasks (predicate fix + regression test; possibly 2 if BFS expansion + reach.Reached both diverge).
-- Sub-H7: 1 task (align CanTravel and BFS clip-flag; regression test).
-- Sub-H8: 1-2 tasks (repathed gate or tickloop ordering fix; regression test in `modules/world/`).
+TS `Player.processInteraction` at `LostCityRS/Engine-TS/src/engine/entity/Player.ts:1228-1229` calls `this.pathToPathingTarget()` **UNCONDITIONALLY** each tick when `!interacted`:
+
+```ts
+if (!interacted) {
+    // Recalc path
+    this.pathToPathingTarget();
+    ...
+}
+```
+
+TS `Player.pathToPathingTarget` (Player.ts:1034-1055) gates SMART repath internally on `isLastOrNoWaypoint()` (PathingEntity.ts:374-376: `waypointIndex <= 0`):
+
+```ts
+pathToPathingTarget(): void {
+    if (!(this.target instanceof PathingEntity)) {
+        return;
+    }
+    if (this.isLastOrNoWaypoint() && (this.targetOp === ServerTriggerType.APPLAYER3 || this.targetOp === ServerTriggerType.OPPLAYER3)) {
+        this.queueWaypoint(this.target.followX, this.target.followZ);
+        return;
+    }
+    if (!this.canAccess()) {
+        return;
+    }
+    if (Environment.NODE_CLIENT_ROUTEFINDER && CoordGrid.intersects(...)) {
+        this.queueWaypoints(findNaivePath(...));
+        return;
+    }
+    if (this.isLastOrNoWaypoint()) {
+        this.pathToTarget();
+    }
+}
+```
+
+TS `repathed` field at `PathingEntity.ts:64` is declared and reset in `Player.resetEntity` (Player.ts:459) but is **NEVER READ** elsewhere in TS — verified via `grep -rn "repathed" Engine-TS/src/`. It is a vestigial dead field.
+
+goscape `interaction.go:236-239` misinterprets the dead-field-presence as live-gate-semantics:
+
+```go
+if !p.repathed {
+    p.pathToTarget()
+    p.repathed = true
+}
+```
+
+This is a **once-per-interaction-lifecycle gate** (only reset by `SetInteraction` at :87 and `ClearInteraction` at :135). After the first repath fires, it is OFF for the remainder of the interaction. Path-exhaustion mid-interaction never re-paths → `!hasWaypoints && stepsTaken==0 && !interacted` → "I can't reach that" + `ClearInteraction` at interaction.go:255-258. This is the smoke shape on both repros.
+
+**Files:**
+- Create: `modules/world/interaction_h8_test.go` — TDD regression test (red → fix → green).
+- Modify: `modules/world/interaction.go` — add `pathToPathingTarget` method; replace gate at :236-239.
+- Modify: `modules/world/interaction_test.go` — rewrite `repathed`-as-pathing-fired assertions at :184 and :560-561 to assert directly on `p.waypointIndex`.
+
+**Files NOT modified (deviation rationale):**
+- `repathed` field declaration on Player struct, resets in `SetInteraction`/`ClearInteraction`, debug emit at `interaction_debug.go:67` — kept as TS-vestigial (TS retains the field declared + reset). Field becomes inert (no production reader) post-fix; tests at :76, :91, :108, :985 that exercise reset-to-false or set-as-state stay valid.
+- `modules/world/movement.go:34-115` (resolveMovement → stepOnce ordering) — DEVIATION (documented at interaction.go:168-170: "Goscape's updateMovement runs in processPathing BEFORE processInteractions; TS embeds it inline at L1241"). Out of H8 fix scope; preserved.
+
+### Step 4.1: Write failing regression test
+
+Create `modules/world/interaction_h8_test.go`:
+
+```go
+package world
+
+import (
+	"testing"
+
+	io2 "github.com/zsrv/goscape/pkg/io/isaac"
+)
+
+// TestProcessInteractionRepathsAfterPathExhaustion — NAI-98 sub-H8 regression.
+// Pre-NAI-98: interaction.go:236-239 gates pathToTarget() on `!p.repathed`,
+// a once-per-interaction-lifecycle boolean. Post-fix: pathToPathingTarget
+// gates SMART repath on isLastOrNoWaypoint (TS Player.ts:1034-1055,
+// PathingEntity.ts:374-376).
+//
+// Repro shape: player anchors target NPC at cheb=15 (out of apRange=10);
+// first processInteraction queues path; we manually exhaust the path
+// (waypointIndex=-1 with target still anchored); second processInteraction
+// must re-queue path. Pre-fix: !p.repathed gate is false on tick 2 →
+// pathToTarget skipped → !hasWaypoints && stepsTaken==0 → "I can't reach
+// that" + ClearInteraction (target=nil).
+func TestProcessInteractionRepathsAfterPathExhaustion(t *testing.T) {
+	s := newTestServer(t)
+	s.cfg.NodeClientRoutefinder = true
+	npc := makeInteractionNpc(t, s, 1, 115, 100, 0) // cheb=15
+
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	p.x, p.z, p.level = 100, 100, 0
+
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
+
+	// Tick 1: initial pathToPathingTarget queues path.
+	received := drainConn(t, cc)
+	p.processInteraction()
+	p.client.flushWrite()
+	<-received
+
+	if p.waypointIndex < 0 {
+		t.Fatalf("tick 1: waypointIndex=%d, want >= 0 (initial repath)", p.waypointIndex)
+	}
+	if p.target == nil {
+		t.Fatal("tick 1: target cleared unexpectedly")
+	}
+
+	// Simulate path exhaustion mid-interaction.
+	p.waypointIndex = -1
+
+	// Tick 2: pathToPathingTarget MUST re-queue path. Pre-fix would skip
+	// because !p.repathed=false, then "I can't reach that" + Clear fires.
+	received = drainConn(t, cc)
+	p.processInteraction()
+	p.client.flushWrite()
+	<-received
+
+	if p.target == nil {
+		t.Errorf("tick 2: target cleared (interaction abandoned). Pre-fix !p.repathed gate prevented repath; expected pathToPathingTarget to re-queue path on isLastOrNoWaypoint.")
+	}
+	if p.waypointIndex < 0 {
+		t.Errorf("tick 2: waypointIndex=%d after path exhaustion. pathToPathingTarget did not re-queue waypoints. This is the H8 bug: TS Player.ts:1052-1054 gates on isLastOrNoWaypoint; goscape gated on !p.repathed once-per-interaction.", p.waypointIndex)
+	}
+}
+```
+
+Run:
+
+```bash
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -v ./modules/world/... -run TestProcessInteractionRepathsAfterPathExhaustion
+```
+
+Expected: RED. Tick 2's `target==nil` and `waypointIndex<0` fire.
+
+### Step 4.2: Add `pathToPathingTarget` method on Player
+
+Insert in `modules/world/interaction.go` directly before `pathToTarget` (around current line 566). Body mirrors TS `Player.pathToPathingTarget` (Player.ts:1034-1055), with documented divergences:
+
+```go
+// pathToPathingTarget mirrors TS Player.pathToPathingTarget
+// (Engine-TS/src/engine/entity/Player.ts:1034-1055). Called once per tick
+// from processInteraction's post-step branch when !interacted (TS L1228-1229).
+//
+// Dispatch:
+//   - Loc/Obj target: no-op (TS L1035-1037). In TS, Loc/Obj targets get
+//     their initial path from MoveClick/scripts; tickloop never repaths.
+//     Pre-NAI-98 goscape ran pathToTarget once per interaction for these
+//     targets too (legacy `!p.repathed` gate). DEVIATION
+//     NAI-98-D-LOC-OBJ-NO-OP-ALIGNED-TO-TS: aligned to TS no-op as part of
+//     this fix; smoke targets are *Npc, but the gate retirement is the
+//     same code path so Loc/Obj alignment is a free byproduct. If a
+//     downstream Loc/Obj smoke surfaces a residual, revisit.
+//   - PathingEntity + isLastOrNoWaypoint + followOp (APPLAYER3/OPPLAYER3):
+//     queueWaypoint to target's followX/followZ (TS L1039-1042).
+//     Player-on-player chase fast-path. Goscape's *Player has followX/Z;
+//     *Npc does not (DEVIATION NAI-98-D-NPC-NO-FOLLOWXY: ports of TS
+//     PathingEntity.ts:1201-1202 base behavior limited to *Player today;
+//     followOp branch fires only when target is *Player anyway).
+//   - !canAccess: no-op (TS L1044-1046). Goscape canAccess approximation:
+//     !p.delayed && !p.protectedScriptActive() (per CanAccess doc-comment
+//     in player_script.go; DEVIATION NAI-44-D-CANACCESS-NO-STUN-CHECK).
+//   - NODE_CLIENT_ROUTEFINDER + intersects: queueWaypoints via
+//     FindNaivePath (TS L1048-1051). Mirrors the same shortcut at
+//     pathToTarget Smart/PathingEntity arm (interaction.go:638-644).
+//   - PathingEntity + isLastOrNoWaypoint (no followOp, no intersects):
+//     pathToTarget (TS L1052-1054).
+//
+// isLastOrNoWaypoint mirrors TS PathingEntity.ts:374-376 (waypointIndex <= 0).
+//
+// Retires the goscape divergent `!p.repathed` once-per-interaction gate
+// at interaction.go:236-239 (pre-NAI-98). The `repathed` field stays
+// declared + reset in SetInteraction/ClearInteraction as TS-vestigial
+// (TS PathingEntity.ts:64 declares it + Player.ts:459 resets it but
+// nothing reads it).
+func (p *Player) pathToPathingTarget() {
+	if p.target == nil {
+		return
+	}
+	if _, ok := p.target.(pathingEntity); !ok {
+		// Loc/Obj target — TS no-op.
+		return
+	}
+	if p.isLastOrNoWaypoint() && isFollowOp(p) {
+		// Player-on-player chase: queue waypoint to target's last-step coord.
+		// followOp implies target is *Player (per isFollowOp at :145-151);
+		// goscape's *Player has followX/followZ (player.go:104).
+		if t, ok := p.target.(*Player); ok {
+			p.queueWaypoint(t.followX, t.followZ)
+		}
+		return
+	}
+	if p.delayed || p.protectedScriptActive() {
+		// canAccess gate (TS L1044-1046). DEVIATION
+		// NAI-44-D-CANACCESS-NO-STUN-CHECK: stun/freeze unmodelled.
+		return
+	}
+	srv := p.client.server
+	if srv == nil {
+		return
+	}
+	tx, tz, _ := p.target.Coords()
+	if t, ok := p.target.(pathingEntity); ok {
+		tw, tl := t.Width(), t.Length()
+		if srv.cfg.NodeClientRoutefinder && coordgrid.Intersects(p.x, p.z, p.Width(), p.Length(), tx, tz, tw, tl) {
+			pf := srv.pathfinder()
+			if pf == nil {
+				p.queueWaypoint(tx, tz)
+				return
+			}
+			route := pf.FindNaivePath(p.level, p.x, p.z, tx, tz, p.Width(), p.Length(), tw, tl, 0, collision.TypeNormal)
+			p.queueWaypoints(routeToPacked(route))
+			return
+		}
+	}
+	if p.isLastOrNoWaypoint() {
+		p.pathToTarget()
+	}
+}
+
+// isLastOrNoWaypoint mirrors TS PathingEntity.isLastOrNoWaypoint
+// (PathingEntity.ts:374-376): true when the player has consumed all but
+// the final waypoint or has none queued.
+func (p *Player) isLastOrNoWaypoint() bool {
+	return p.waypointIndex <= 0
+}
+```
+
+Verify the `pathingEntity` interface, `coordgrid.Intersects`, `collision.TypeNormal`, and `srv.pathfinder()` symbols at HEAD before commit:
+
+```bash
+grep -n "pathingEntity interface\|func Intersects\|TypeNormal\|func .* pathfinder()" modules/world/pathing.go pkg/coordgrid/*.go pkg/pathfinder/collision/*.go modules/world/server.go
+```
+
+### Step 4.3: Replace the gate at interaction.go:236-239
+
+Replace:
+
+```go
+		// Recalc path (TS L1228-1229).
+		if !p.repathed {
+			p.pathToTarget()
+			p.repathed = true
+		}
+```
+
+with:
+
+```go
+		// Recalc path (TS L1228-1229).
+		p.pathToPathingTarget()
+```
+
+### Step 4.4: Run regression test → green
+
+```bash
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -v ./modules/world/... -run TestProcessInteractionRepathsAfterPathExhaustion
+```
+
+Expected: PASS. Tick 2 re-queues path because `isLastOrNoWaypoint() == true`.
+
+### Step 4.5: Update existing tests asserting `repathed` as pathing-fired signal
+
+`modules/world/interaction_test.go` lines 184 and 560-561 use `if !p.repathed` as a proxy for "did the pathing branch fire this tick". After the fix, `repathed` is no longer set by the post-step branch (it stays at its `SetInteraction` reset value of `false`), so the assertion is invalid. Replace each with a direct `waypointIndex` assertion.
+
+At interaction_test.go:184 (inside TestProcessInteractionOutOfRangePaths):
+
+```go
+	if !p.repathed {
+		t.Error("repathed should be true after first out-of-range tick")
+	}
+```
+
+→ delete. The preceding `if p.waypointIndex < 0` assertion at :181-183 already covers "pathing branch fired".
+
+At interaction_test.go:560-561 (inside TestProcessInteractionNpcUsesAttackrange):
+
+```go
+	if !p.repathed {
+		t.Error("p.repathed: got false, want true — pathing branch should fire when out of AP range")
+	}
+```
+
+→ replace with:
+
+```go
+	if p.waypointIndex < 0 {
+		t.Error("p.waypointIndex < 0 — pathing branch should fire when out of AP range")
+	}
+```
+
+Other `p.repathed` references stay as-is (state-setup at :91, :985; reset-to-false assertions at :76, :108).
+
+### Step 4.6: Run the full module test suite → green
+
+```bash
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/world/...
+```
+
+Expected: PASS. Verify no other test relies on the old `repathed`-as-gate semantics.
+
+### Step 4.7: Run full repo test suite → green
+
+```bash
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./...
+```
+
+Expected: PASS.
+
+### Step 4.8: Verify Phase 1 probe still PASSES post-fix
+
+```bash
+GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -v ./pkg/gamemap/... -run TestNAI98_RealCacheReachProbe
+```
+
+Expected: BOTH repros emit `H8 FIRES by elimination …` via `t.Logf` (passing). The probe operates on the BFS+StepValidator layer, not the tickloop; H6/H7 paths remain green pre/post-fix.
+
+### Step 4.9: Commit
+
+```bash
+git add modules/world/interaction.go modules/world/interaction_h8_test.go modules/world/interaction_test.go
+git commit --no-gpg-sign -m "$(cat <<'EOF'
+fix(world): NAI-98 Phase 2 — port TS Player.pathToPathingTarget gate
+
+Sub-H8 fix. Phase 1 probe (commit 58d95cd) surfaced H8 by elimination
+on both Repro A (NPC 943) and Repro B (NPC 3): BFS path internally
+consistent and StepValidator-walkable; reach abandonment is at
+tickloop level.
+
+Root cause: goscape interaction.go:236-239 gated pathToTarget on
+`!p.repathed` (once-per-interaction-lifecycle boolean). TS
+Player.processInteraction (Player.ts:1228-1229) calls pathToPathingTarget
+unconditionally each tick; pathToPathingTarget (Player.ts:1034-1055)
+gates SMART repath internally on isLastOrNoWaypoint (PathingEntity.ts
+:374-376: waypointIndex <= 0). TS `repathed` (PathingEntity.ts:64) is
+declared but never read — vestigial.
+
+Smoke trace fits: tick N path consumed to last waypoint cheb-1 of
+target; tick N+1 target moves; pre-fix gate prevents repath →
+"I can't reach that" + ClearInteraction.
+
+Replaces gate with TS-faithful pathToPathingTarget port. Retires
+behavioral coupling on `repathed`; field stays declared as TS-vestigial.
+
+Test: modules/world/interaction_h8_test.go drives 2 ticks of
+processInteraction with manual mid-interaction path-exhaustion;
+asserts target stays anchored and waypointIndex re-queues.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+EOF
+)"
+```
+
+**Task 4 exit:** Phase 2 fix committed; full test suite green; Phase 1 probe still PASSES (H8 logf path remains, asserting BFS+StepValidator unchanged). Smoke gate (Task 6) pending.
 
 ---
 
