@@ -207,3 +207,98 @@ func TestNAI96_WallDecor_NoWrite(t *testing.T) {
 			absX, absZ, level, flag)
 	}
 }
+
+// TestNAI96_AngleSwap_North_2x3 pins TS GameMap.ts:331-332 — N/S angles call
+// ChangeLoc with (length, width) order, producing a length-along-X,
+// width-along-Z footprint.
+//
+// Goscape Pathfinder.ChangeLoc(x, z, level, w, l, ...) iterates w*l tiles at
+// offsets (index%w, index/w). With width=length=swapped to (length=3,
+// width=2), the footprint covers X∈[x..x+2], Z∈[z..z+1] — 3 tiles wide, 2 tiles deep.
+func TestNAI96_AngleSwap_North_2x3(t *testing.T) {
+	s := newZoneTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+
+	// LocType: BlockWalk=true, Active=0 (LayerGround doesn't gate on active).
+	lt := &objtype.LocType{BlockWalk: true, Active: 0}
+	s.locTypes = &objtype.LocTypeConfigs{Configs: []*objtype.LocType{nil, lt}}
+
+	// Loc: width=2, length=3, angle=North, LayerGround shape (Centrepiece).
+	const absX, absZ, level = 3220, 3220, 0
+	dynamicLoc := entitypkg.NewLoc(level, absX, absZ, 2 /*width*/, 3 /*length*/,
+		entitypkg.LifecycleRespawn,
+		1,
+		int(loc.ShapeCentrepieceStraight),
+		int(loc.AngleNorth))
+
+	// Pre-allocate all tiles in the maximum possible footprint.
+	for dx := range 3 {
+		for dz := range 3 {
+			s.gamemap.Pathfinder.Flags.AllocateIfAbsent(absX+dx, absZ+dz, level)
+		}
+	}
+
+	// Use AddLoc to exercise the runtime path through ChangeLocCollision.
+	s.AddLoc(dynamicLoc, -1)
+
+	// Expected N/S footprint: 3 wide along X, 2 along Z.
+	expected := map[[2]int]bool{
+		{0, 0}: true, {1, 0}: true, {2, 0}: true,
+		{0, 1}: true, {1, 1}: true, {2, 1}: true,
+	}
+	for dx := range 3 {
+		for dz := range 3 {
+			flag := s.gamemap.Pathfinder.Flags.Get(absX+dx, absZ+dz, level)
+			has := flag&collision.FlagLoc != 0
+			want := expected[[2]int{dx, dz}]
+			if has != want {
+				t.Errorf("N-angled 2x3 loc at (%d, %d, %d) offset (%d, %d): FlagLoc=%v, want %v (flag=0x%x)",
+					absX, absZ, level, dx, dz, has, want, flag)
+			}
+		}
+	}
+}
+
+// TestNAI96_AngleSwap_East_2x3 pins TS GameMap.ts:333-334 — non-N/S angles
+// call ChangeLoc with (width, length) order, producing a width-along-X,
+// length-along-Z footprint (2 wide along X, 3 along Z).
+func TestNAI96_AngleSwap_East_2x3(t *testing.T) {
+	s := newZoneTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+
+	lt := &objtype.LocType{BlockWalk: true, Active: 0}
+	s.locTypes = &objtype.LocTypeConfigs{Configs: []*objtype.LocType{nil, lt}}
+
+	const absX, absZ, level = 3220, 3220, 0
+	dynamicLoc := entitypkg.NewLoc(level, absX, absZ, 2 /*width*/, 3 /*length*/,
+		entitypkg.LifecycleRespawn,
+		1,
+		int(loc.ShapeCentrepieceStraight),
+		int(loc.AngleEast))
+
+	for dx := range 3 {
+		for dz := range 3 {
+			s.gamemap.Pathfinder.Flags.AllocateIfAbsent(absX+dx, absZ+dz, level)
+		}
+	}
+
+	s.AddLoc(dynamicLoc, -1)
+
+	// Expected E/W footprint: 2 wide along X, 3 along Z.
+	expected := map[[2]int]bool{
+		{0, 0}: true, {1, 0}: true,
+		{0, 1}: true, {1, 1}: true,
+		{0, 2}: true, {1, 2}: true,
+	}
+	for dx := range 3 {
+		for dz := range 3 {
+			flag := s.gamemap.Pathfinder.Flags.Get(absX+dx, absZ+dz, level)
+			has := flag&collision.FlagLoc != 0
+			want := expected[[2]int{dx, dz}]
+			if has != want {
+				t.Errorf("E-angled 2x3 loc at (%d, %d, %d) offset (%d, %d): FlagLoc=%v, want %v (flag=0x%x)",
+					absX, absZ, level, dx, dz, has, want, flag)
+			}
+		}
+	}
+}
