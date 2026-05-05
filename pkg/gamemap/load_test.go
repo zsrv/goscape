@@ -17,7 +17,12 @@ import (
 //
 // Encoding per loadGround's parser (load.go):
 //   - opcode 0: terminate tile (no land set; lands[idx] stays 0)
-//   - opcode 50+land: terminate tile with land = opcode - 49
+//   - opcode (49+land): set land = opcode - 49; CONTINUES the tile loop
+//   - opcode 0: terminate tile after the land opcode
+//
+// Each non-empty tile emits two bytes: the land opcode followed by a
+// terminator (opcode 0), matching TS's while-loop semantics where opcodes
+// 50..81 continue rather than break.
 //
 // Iteration order is level outer, x middle, z inner — matches loadGround.
 // The packCoord index is the same as the parser's packCoord helper.
@@ -27,7 +32,8 @@ func mFileWithLand(targetLevel, targetX, targetZ int, land byte) []byte {
 		for x := range mapSquareSize {
 			for z := range mapSquareSize {
 				if level == targetLevel && x == targetX && z == targetZ {
-					buf.WriteByte(49 + land) // opcode encoding land
+					buf.WriteByte(49 + land) // opcode encoding land (continues loop)
+					buf.WriteByte(0)         // terminator
 				} else {
 					buf.WriteByte(0) // empty tile
 				}
@@ -38,13 +44,15 @@ func mFileWithLand(targetLevel, targetX, targetZ int, land byte) []byte {
 }
 
 // mFileWithLands writes multiple (level,x,z,land) entries; all other tiles empty.
+// Each non-empty tile emits a land opcode followed by a terminator (opcode 0).
 func mFileWithLands(entries map[[3]int]byte) []byte {
 	var buf bytes.Buffer
 	for level := range mapLevels {
 		for x := range mapSquareSize {
 			for z := range mapSquareSize {
 				if land, ok := entries[[3]int{level, x, z}]; ok {
-					buf.WriteByte(49 + land)
+					buf.WriteByte(49 + land) // land opcode (continues loop)
+					buf.WriteByte(0)         // terminator
 				} else {
 					buf.WriteByte(0)
 				}
@@ -246,6 +254,81 @@ func lFileWithOneLoc(locId, level, localX, localZ, shape, angle int) []byte {
 	pw.PSmart(0) // end coords
 	pw.PSmart(0) // end locs
 	return pw.Data
+}
+
+// TestLoadGround_OverlayThenLand pins TS GameMap.ts:173-177 — opcode in
+// 2..49 (overlay) consumes 1 trailing byte and continues; a subsequent
+// opcode 50+ on the same tile sets lands.
+func TestLoadGround_OverlayThenLand(t *testing.T) {
+	const mapX, mapZ = 50, 50
+	const localX, localZ = 1, 1
+	absX := mapX*mapSquareSize + localX
+	absZ := mapZ*mapSquareSize + localZ
+
+	gm := newTestGameMap()
+	gm.Pathfinder.Flags.AllocateIfAbsent(absX, absZ, 0)
+
+	// Build a stream where tile (1,1,0) has [overlay=10, overlayTag=0xAA, land=50, terminator=0].
+	var buf bytes.Buffer
+	for level := range mapLevels {
+		for x := range mapSquareSize {
+			for z := range mapSquareSize {
+				if level == 0 && x == localX && z == localZ {
+					buf.WriteByte(10)   // overlay opcode (2..49)
+					buf.WriteByte(0xAA) // overlay tag (1 byte skipped)
+					buf.WriteByte(50)   // land=1 (BLOCK_MAP_SQUARE)
+					buf.WriteByte(0)    // terminator
+				} else {
+					buf.WriteByte(0) // empty tile
+				}
+			}
+		}
+	}
+	gm.loadGround(buf.Bytes(), mapX, mapZ)
+
+	flag := gm.Pathfinder.Flags.Get(absX, absZ, 0)
+	if flag&collision.FlagBlockWalk == 0 {
+		t.Errorf("overlay-then-land tile: flag=0x%x missing FlagBlockWalk; parser likely misaligned by overlay byte skip", flag)
+	}
+}
+
+// TestLoadGround_ReservedOpcode_NoOp pins TS GameMap.ts:175 — opcodes
+// 82..255 are no-ops within a tile (no lands write, no break).
+func TestLoadGround_ReservedOpcode_NoOp(t *testing.T) {
+	const mapX, mapZ = 50, 50
+	const localX, localZ = 1, 1
+	absX := mapX*mapSquareSize + localX
+	absZ := mapZ*mapSquareSize + localZ
+
+	gm := newTestGameMap()
+	gm.Pathfinder.Flags.AllocateIfAbsent(absX, absZ, 0)
+
+	// Build a stream where tile (1,1,0) has [reserved=100, land=50, terminator=0].
+	// Pre-fix Go: opcode=100 sets lands[idx]=51 then BREAKs, leaving int8 with bits
+	//   that include BLOCK_MAP_SQUARE (51 & 1 == 1), but the test asserts the
+	//   POST-fix behavior where opcode 100 is ignored and the subsequent opcode 50
+	//   (land=1) sets the bit.
+	// Post-fix Go: opcode=100 no-op continues; opcode=50 sets lands[idx]=1.
+	var buf bytes.Buffer
+	for level := range mapLevels {
+		for x := range mapSquareSize {
+			for z := range mapSquareSize {
+				if level == 0 && x == localX && z == localZ {
+					buf.WriteByte(100) // reserved (>=82)
+					buf.WriteByte(50)  // land=1 (BLOCK_MAP_SQUARE)
+					buf.WriteByte(0)   // terminator
+				} else {
+					buf.WriteByte(0)
+				}
+			}
+		}
+	}
+	gm.loadGround(buf.Bytes(), mapX, mapZ)
+
+	flag := gm.Pathfinder.Flags.Get(absX, absZ, 0)
+	if flag&collision.FlagBlockWalk == 0 {
+		t.Errorf("reserved-then-land tile: flag=0x%x missing FlagBlockWalk; reserved opcode may have terminated tile prematurely or set wrong land", flag)
+	}
 }
 
 // TestLoadLocs_BridgedLoc_PlacedAtActualLevel pins that a loc with the

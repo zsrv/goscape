@@ -31,10 +31,11 @@ func packCoord(x, z, level int) int {
 //
 // The opcode stream per tile (loop until terminator):
 //
-//	opcode 0:     end of tile (lands[idx] stays 0)
-//	opcode 1:     1-byte height follows; ends tile
-//	opcode 2..49: overlay data (3 bytes skipped); continues
-//	opcode 50+:   direct land = opcode - 49; ends tile
+//	opcode 0:      end of tile (lands[idx] stays 0)
+//	opcode 1:      1-byte height follows; ends tile
+//	opcode 2..49:  overlay tag (1 byte skipped); continues
+//	opcode 50..81: direct land = opcode - 49; continues
+//	opcode 82..255: no-op; continues
 func (gm *GameMap) loadGround(data []byte, mapSquareX, mapSquareZ int) {
 	p := packet.NewPacket(data)
 	lands := make([]int8, mapLevels*mapSquareSize*mapSquareSize)
@@ -59,13 +60,15 @@ parseLoop:
 						break
 					}
 					if op <= 49 {
-						if p.Len() >= 3 {
-							_ = p.Next(3) // overlay (id, rot, underlay)
+						if p.Len() >= 1 {
+							_ = p.G1() // overlay tag (TS GameMap.ts:174)
 						}
 						continue
 					}
-					lands[packCoord(x, z, level)] = int8(op) - 49
-					break
+					if op <= 81 {
+						lands[packCoord(x, z, level)] = int8(op) - 49
+					}
+					// op >= 82: no-op (TS implicitly skips; no else branch)
 				}
 			}
 		}
@@ -169,7 +172,7 @@ func (gm *GameMap) loadLocs(data []byte, mapSquareX, mapSquareZ int) {
 			absZ := mapSquareZ*mapSquareSize + localZ
 
 			actualLevel := level
-			if lands != nil {
+			if lands != nil { // goscape defensive; TS skips this check (lands is always populated by caller)
 				var bridgeLand int
 				if level == 1 {
 					bridgeLand = int(lands[coord])
