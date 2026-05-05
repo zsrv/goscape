@@ -28,6 +28,10 @@ func ToBase37(s string) uint64 {
 		}
 	}
 
+	for l != 0 && l%37 == 0 {
+		l /= 37
+	}
+
 	return l
 }
 
