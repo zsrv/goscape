@@ -1856,10 +1856,8 @@ func TestPlayer_InOperableDistance_WallStraightMatrix(t *testing.T) {
 	const lx, lz = 3098, 3107
 
 	for _, ac := range cases {
-		ac := ac
 		t.Run(ac.name, func(t *testing.T) {
 			for _, tt := range ac.tiles {
-				tt := tt
 				t.Run(fmt.Sprintf("dx=%+d_dz=%+d_flags=0x%x", tt.dx, tt.dz, tt.preFlags), func(t *testing.T) {
 					s, _ := newInOperableTestServer(t)
 					p, _ := newTestPlayer(t)
@@ -1927,7 +1925,6 @@ func TestPlayer_InOperableDistance_NpcTarget_UsesCheb(t *testing.T) {
 		{"2 away", 100, 102, false},
 	}
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			n := &Npc{x: tc.tx, z: tc.tz, level: 0}
 			if got := inOperableDistance(p, n); got != tc.want {
