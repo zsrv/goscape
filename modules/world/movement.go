@@ -139,7 +139,7 @@ func (p *Player) pathToMoveClick(packed []int, needsFinding bool) {
 	case MoveStrategySmart:
 		if needsFinding && p.client != nil && p.client.server != nil && p.client.server.gamemap != nil {
 			dest := coordgrid.UnpackCoord(packed[0])
-			route := p.client.server.gamemap.Pathfinder.FindPathDefault(p.level, p.x, p.z, dest.X, dest.Z)
+			route := p.client.server.gamemap.Pathfinder.FindPathPlain(p.level, p.x, p.z, dest.X, dest.Z)
 			if coords := routeToPacked(route); len(coords) > 0 {
 				p.queueWaypoints(coords)
 			}

@@ -33,12 +33,40 @@ func NewPathFinderAPI() PathFinderAPI {
 	return pf
 }
 
-// Deprecated: replace with pf.RouteFinder.FindRouteDefault
-func (pf PathFinderAPI) FindPathDefault(level, srcX, srcZ, destX, destZ int) Route {
+// FindPathPlain mirrors TS findPath (GameMap.ts:378-380). Hardcodes the
+// shape-blind 1×1 default search; equivalent to the prior FindPathDefault.
+// Used by MOVE_CLICK pipeline (movement.go pathToMoveClick) and by SMART
+// pathToTarget's Obj-different-tile fallback branch.
+func (pf PathFinderAPI) FindPathPlain(level, srcX, srcZ, destX, destZ int) Route {
 	return pf.FindPath(level, srcX, srcZ, destX, destZ, 1, 1, 1, 0, -1, true, 0, 25, collision.TypeNormal)
 }
 
-// Deprecated
+// FindPathToEntity mirrors TS findPathToEntity (GameMap.ts:382-384).
+// shape=-2 is the entity-target sentinel for rsmod's reach search.
+// Used by SMART pathToTarget for *Player / *Npc targets.
+func (pf PathFinderAPI) FindPathToEntity(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength int) Route {
+	return pf.FindPath(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, 0, -2, true, 0, 25, collision.TypeNormal)
+}
+
+// FindPathToLoc mirrors TS findPathToLoc (GameMap.ts:386-388). Threads
+// loc shape/angle/forceapproach (blockAccessFlags) into rsmod's reach
+// search. Used by SMART pathToTarget for *Loc targets.
+func (pf PathFinderAPI) FindPathToLoc(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, angle, shape, blockAccessFlags int) Route {
+	return pf.FindPath(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, angle, shape, true, blockAccessFlags, 25, collision.TypeNormal)
+}
+
+// FindNaivePath mirrors TS findNaivePath (GameMap.ts:390-392). Uses the
+// NaiveRouteFinder for straight-line stepping with collision flags.
+// Used by SMART pathToTarget's NODE_CLIENT_ROUTEFINDER intersect-shortcut
+// and by Npc-side pathToTarget intersect-shortcut, plus NAIVE strategy.
+func (pf PathFinderAPI) FindNaivePath(level, srcX, srcZ, destX, destZ, srcWidth, srcLength, destWidth, destLength, extraFlag int, collisionType collision.Type) Route {
+	return pf.NaiveRouteFinder.FindRoute(level, srcX, srcZ, destX, destZ, srcWidth, srcLength, destWidth, destLength, extraFlag, collisionType)
+}
+
+// FindPath is the low-level 14-arg search delegating to RouteFinder. The
+// named wrappers above (FindPathPlain / FindPathToEntity / FindPathToLoc /
+// FindNaivePath) are the preferred call sites; FindPath is preserved for
+// callers that need to thread custom arg vectors.
 func (pf PathFinderAPI) FindPath(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, angle, shape int, moveNear bool, blockAccessFlags, maxWaypoints int, collisionType collision.Type) Route {
 	return pf.RouteFinder.FindRoute(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, angle, shape, moveNear, blockAccessFlags, maxWaypoints, collisionType)
 }
