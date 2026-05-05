@@ -20,25 +20,27 @@ type NpcSpawn struct {
 
 // GameMap holds collision data for the game world.
 type GameMap struct {
-	Pathfinder *routefinder.PathFinderAPI
-	multimap   map[int]bool      // packed zone coord -> multi combat
-	freemap    map[int]bool      // packed zone coord -> F2P
-	mData      map[uint16][]byte // (mapX<<8)|mapZ -> raw m{x}_{z} bytes (sub-spec 5b)
-	lData      map[uint16][]byte // (mapX<<8)|mapZ -> raw l{x}_{z} bytes (sub-spec 5b)
-	staticLocs []*entity.Loc     // parsed static locs with absolute world coords
-	npcSpawns  []NpcSpawn
-	log        *slog.Logger
+	Pathfinder       *routefinder.PathFinderAPI
+	multimap         map[int]bool      // packed zone coord -> multi combat
+	freemap          map[int]bool      // packed zone coord -> F2P
+	mData            map[uint16][]byte // (mapX<<8)|mapZ -> raw m{x}_{z} bytes (sub-spec 5b)
+	lData            map[uint16][]byte // (mapX<<8)|mapZ -> raw l{x}_{z} bytes (sub-spec 5b)
+	landsByMapSquare map[uint16][]int8 // (mapX<<8)|mapZ -> mapLevels*64*64 land bytes; populated by loadGround, consumed by loadLocs (NAI-96 LINK_BELOW)
+	staticLocs       []*entity.Loc     // parsed static locs with absolute world coords
+	npcSpawns        []NpcSpawn
+	log              *slog.Logger
 }
 
 func New(log *slog.Logger) *GameMap {
 	pf := routefinder.NewPathFinderAPI()
 	return &GameMap{
-		Pathfinder: &pf,
-		multimap:   make(map[int]bool),
-		freemap:    make(map[int]bool),
-		mData:      map[uint16][]byte{},
-		lData:      map[uint16][]byte{},
-		log:        log,
+		Pathfinder:       &pf,
+		multimap:         make(map[int]bool),
+		freemap:          make(map[int]bool),
+		mData:            map[uint16][]byte{},
+		lData:            map[uint16][]byte{},
+		landsByMapSquare: map[uint16][]int8{},
+		log:              log,
 	}
 }
 
