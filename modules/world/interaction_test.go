@@ -2257,6 +2257,9 @@ func TestPlayer_PathToTarget_NpcTarget_NodeClientRoutefinder_NoIntersect_UsesFin
 	if _, ok := rec.lastFindPathToEntity(); !ok {
 		t.Fatalf("FindPathToEntity not called (no intersect should use full search)")
 	}
+	if _, ok := rec.lastFindNaivePath(); ok {
+		t.Errorf("FindNaivePath unexpectedly called (NCR + no intersect should fall through)")
+	}
 }
 
 // TestPlayer_PathToTarget_PlayerTarget_DispatchesSameAsNpc pins symmetry —
@@ -2273,5 +2276,8 @@ func TestPlayer_PathToTarget_PlayerTarget_DispatchesSameAsNpc(t *testing.T) {
 
 	if _, ok := rec.lastFindPathToEntity(); !ok {
 		t.Fatalf("FindPathToEntity not called for *Player target")
+	}
+	if _, ok := rec.lastFindNaivePath(); ok {
+		t.Errorf("FindNaivePath unexpectedly called for *Player target (no NCR)")
 	}
 }
