@@ -2363,6 +2363,9 @@ func TestPlayer_PathToTarget_NaiveStrategy_PathingEntityTarget_UsesFindNaivePath
 	if call.destWidth != 1 || call.destLength != 1 {
 		t.Errorf("destW/L: got (%d, %d), want (1, 1) (npc.size)", call.destWidth, call.destLength)
 	}
+	if call.collisionType != collision.TypeNormal {
+		t.Errorf("collisionType: got %v, want TypeNormal (MoveRestrictNormal player)", call.collisionType)
+	}
 	// Negative pin: SMART arm should NOT have fired.
 	if _, ok := rec.lastFindPathToEntity(); ok {
 		t.Errorf("FindPathToEntity unexpectedly called (NAIVE should use FindNaivePath)")
