@@ -6,7 +6,9 @@ import (
 )
 
 const (
-	gameMapBlockMapSquare = 0x2 // BLOCK_MAP_SQUARE — marks a tile as blocked floor
+	gameMapBlockMapSquare = 0x1 // BLOCK_MAP_SQUARE — marks a tile as blocked floor (TS GameMap.ts:24)
+	gameMapLinkBelow      = 0x2 // LINK_BELOW — bridge tile; collision drops to level-1 (TS GameMap.ts:25)
+	gameMapRemoveRoofs    = 0x4 // REMOVE_ROOFS — write roof collision (TS GameMap.ts:26)
 
 	mapSquareSize = 64
 	mapLevels     = 4
