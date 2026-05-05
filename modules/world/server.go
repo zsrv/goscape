@@ -175,7 +175,14 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 	s.locOps = &serverLocOps{s: s}
 	s.tcpWg.Add(1)
 
+	locTypes, err := objtype.LoadLocTypes(cfg.CachePath)
+	if err != nil {
+		return nil, fmt.Errorf("load loc types: %w", err)
+	}
+	s.locTypes = locTypes
+
 	gm := gamemap.New(logger)
+	gm.SetLocTypes(locTypes)
 	if err := gm.Init(cfg.CachePath); err != nil {
 		return nil, fmt.Errorf("failed to load game map: %w", err)
 	}
@@ -232,13 +239,8 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 	if err != nil {
 		return nil, fmt.Errorf("load struct types: %w", err)
 	}
-	locTypes, err := objtype.LoadLocTypes(cfg.CachePath)
-	if err != nil {
-		return nil, fmt.Errorf("load loc types: %w", err)
-	}
 	s.enumTypes = enumTypes
 	s.structTypes = structTypes
-	s.locTypes = locTypes
 	s.configsView = serverConfigsView{s: s}
 	s.invLookup = invLookupView{s: s}
 	s.npcLookup = serverNpcLookup{s: s}

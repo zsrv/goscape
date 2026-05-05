@@ -160,28 +160,15 @@ func TestNAI99_FountainCoverage_Lumbridge(t *testing.T) {
 		t.Skipf("data/pack/server/loc.dat unavailable: %v", err)
 	}
 
-	t.Skip(`NAI-99: fountain footprint coverage divergence reproduces.
-
-Observed (verbatim from Step 6.3 run):
-  NAI-99 instance 0: typeID=879 origin=(2556,3113,0) shape=10 angle=3 W=2 L=2 (rotated W=2 L=2) flagged=[(2556,3113)=0x100] unflagged=[(2557,3113)=0x0 (2556,3114)=0x0 (2557,3114)=0x0]
-  NAI-99: instance 0 footprint coverage divergence — flagged=[(2556,3113)=0x100] unflagged=[(2557,3113)=0x0 (2556,3114)=0x0 (2557,3114)=0x0] expected all 4 tiles flagged
-
-Expected (post-NAI-100 fix): unflagged=[]; all 4 tiles carry FlagLoc (0x100).
-
-Root cause per NAI-99 diagnosis report: H5 — pkg/gamemap/load.go:190
-hardcodes entity.NewLoc(... 1, 1, ...) ignoring lt.Width/lt.Length;
-production loc.Length/loc.Width=1,1 passed to ChangeLocCollision so
-ChangeLoc loops 1×1=1. TODO at pkg/gamemap/load.go:136 acknowledges.
-
-Stage 2 lifts in NAI-100.`)
-
-	gm := New(slog.New(slog.NewTextHandler(io.Discard, nil)))
-	if err := gm.Init(cacheDir); err != nil {
-		t.Fatalf("gamemap.Init: %v", err)
-	}
 	cfgs, err := objtype.LoadLocTypes(cacheDir)
 	if err != nil {
 		t.Fatalf("LoadLocTypes: %v", err)
+	}
+
+	gm := New(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	gm.SetLocTypes(cfgs)
+	if err := gm.Init(cacheDir); err != nil {
+		t.Fatalf("gamemap.Init: %v", err)
 	}
 
 	// Replay collision-write globally (not bbox-limited) so we don't
