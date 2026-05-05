@@ -78,3 +78,51 @@ func TestLoadGround_BlockMapSquare_WritesFloorBlock(t *testing.T) {
 			absX, absZ, targetLevel, flag, collision.FlagBlockWalk)
 	}
 }
+
+// TestLoadGround_RemoveRoofs_WritesRoof pins the REMOVE_ROOFS=0x4 →
+// Pathfinder.ChangeRoof write per TS GameMap.ts:200-202.
+func TestLoadGround_RemoveRoofs_WritesRoof(t *testing.T) {
+	const mapX, mapZ = 50, 50
+	const localX, localZ = 1, 1
+	const targetLevel = 0
+	absX := mapX*mapSquareSize + localX
+	absZ := mapZ*mapSquareSize + localZ
+
+	gm := newTestGameMap()
+	gm.Pathfinder.Flags.AllocateIfAbsent(absX, absZ, targetLevel)
+
+	gm.loadGround(mFileWithLand(targetLevel, localX, localZ, 0x4), mapX, mapZ)
+
+	flag := gm.Pathfinder.Flags.Get(absX, absZ, targetLevel)
+	if flag&collision.FlagRoof == 0 {
+		t.Errorf("tile (%d, %d, %d) land=0x4: flag=0x%x missing FlagRoof (0x%x)",
+			absX, absZ, targetLevel, flag, collision.FlagRoof)
+	}
+	if flag&collision.FlagBlockWalk != 0 {
+		t.Errorf("tile (%d, %d, %d) land=0x4: flag=0x%x unexpectedly has FlagBlockWalk",
+			absX, absZ, targetLevel, flag)
+	}
+}
+
+// TestLoadGround_BlockAndRemoveRoofs_BothWritten pins that land=0x5
+// (BLOCK_MAP_SQUARE | REMOVE_ROOFS) writes both flags.
+func TestLoadGround_BlockAndRemoveRoofs_BothWritten(t *testing.T) {
+	const mapX, mapZ = 50, 50
+	const localX, localZ = 1, 1
+	const targetLevel = 0
+	absX := mapX*mapSquareSize + localX
+	absZ := mapZ*mapSquareSize + localZ
+
+	gm := newTestGameMap()
+	gm.Pathfinder.Flags.AllocateIfAbsent(absX, absZ, targetLevel)
+
+	gm.loadGround(mFileWithLand(targetLevel, localX, localZ, 0x5), mapX, mapZ)
+
+	flag := gm.Pathfinder.Flags.Get(absX, absZ, targetLevel)
+	if flag&collision.FlagRoof == 0 {
+		t.Errorf("flag=0x%x missing FlagRoof", flag)
+	}
+	if flag&collision.FlagBlockWalk == 0 {
+		t.Errorf("flag=0x%x missing FlagBlockWalk", flag)
+	}
+}

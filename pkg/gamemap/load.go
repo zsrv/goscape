@@ -14,26 +14,39 @@ const (
 	mapLevels     = 4
 )
 
-// loadGround parses a mapsquare's m{X}_{Z} file and marks blocked floor tiles.
+// packCoord packs (x, z, level) into a single index per TS GameMap.ts:284-286.
+// x and z are local-to-mapsquare (0..63); level is 0..3.
+func packCoord(x, z, level int) int {
+	return (z & 0x3F) | ((x & 0x3F) << 6) | ((level & 0x3) << 12)
+}
+
+// loadGround parses a mapsquare's m{X}_{Z} file in two passes:
 //
-// The byte stream iterates per-level, per-tile, reading opcodes until a
-// tile-terminator is seen:
+//	pass 1: opcodes → lands[level*64*64 + x*64 + z] (per packCoord)
+//	pass 2: for each tile, write FlagRoof when REMOVE_ROOFS set, then
+//	        write FlagBlockWalk when BLOCK_MAP_SQUARE set, dropping the
+//	        write level by 1 when the tile is bridged (LINK_BELOW).
 //
-//	opcode 0:     end of tile
-//	opcode 1:     1-byte height follows, ends tile
-//	opcode 2..49: overlay data (3 bytes skipped)
-//	opcode 50+:   direct land value = opcode - 49; ends tile
+// Mirrors TS Engine-TS/src/engine/GameMap.ts:182-217.
+//
+// The opcode stream per tile (loop until terminator):
+//
+//	opcode 0:     end of tile (lands[idx] stays 0)
+//	opcode 1:     1-byte height follows; ends tile
+//	opcode 2..49: overlay data (3 bytes skipped); continues
+//	opcode 50+:   direct land = opcode - 49; ends tile
 func (gm *GameMap) loadGround(data []byte, mapSquareX, mapSquareZ int) {
 	p := packet.NewPacket(data)
+	lands := make([]int8, mapLevels*mapSquareSize*mapSquareSize)
 
+	// Pass 1 — parse opcodes into lands.
+parseLoop:
 	for level := 0; level < mapLevels; level++ {
 		for x := 0; x < mapSquareSize; x++ {
 			for z := 0; z < mapSquareSize; z++ {
-				absX := (mapSquareX * mapSquareSize) + x
-				absZ := (mapSquareZ * mapSquareSize) + z
 				for {
 					if p.Len() == 0 {
-						return
+						break parseLoop
 					}
 					op := p.G1()
 					if op == 0 {
@@ -46,19 +59,48 @@ func (gm *GameMap) loadGround(data []byte, mapSquareX, mapSquareZ int) {
 						break
 					}
 					if op <= 49 {
-						// overlay: 3 trailing bytes (id, rot, underlay) — not used for collision
 						if p.Len() >= 3 {
-							_ = p.Next(3)
+							_ = p.Next(3) // overlay (id, rot, underlay)
 						}
 						continue
 					}
-					// direct land value in range 50..255
-					land := int(op) - 49
-					if land&gameMapBlockMapSquare != 0 && level == 0 {
-						gm.Pathfinder.ChangeFloor(absX, absZ, level, true)
-					}
+					lands[packCoord(x, z, level)] = int8(op) - 49
 					break
 				}
+			}
+		}
+	}
+	gm.landsByMapSquare[uint16((mapSquareX<<8)|mapSquareZ)] = lands
+
+	// Pass 2 — write collision flags.
+	for level := 0; level < mapLevels; level++ {
+		for x := 0; x < mapSquareSize; x++ {
+			absX := mapSquareX*mapSquareSize + x
+			for z := 0; z < mapSquareSize; z++ {
+				absZ := mapSquareZ*mapSquareSize + z
+				land := int(lands[packCoord(x, z, level)])
+
+				if land&gameMapRemoveRoofs != 0 {
+					gm.Pathfinder.ChangeRoof(absX, absZ, level, true)
+				}
+				if land&gameMapBlockMapSquare == 0 {
+					continue
+				}
+
+				var bridgeLand int
+				if level == 1 {
+					bridgeLand = land
+				} else {
+					bridgeLand = int(lands[packCoord(x, z, 1)])
+				}
+				actualLevel := level
+				if bridgeLand&gameMapLinkBelow != 0 {
+					actualLevel = level - 1
+				}
+				if actualLevel < 0 {
+					continue
+				}
+				gm.Pathfinder.ChangeFloor(absX, absZ, actualLevel, true)
 			}
 		}
 	}
