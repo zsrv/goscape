@@ -181,9 +181,6 @@ func TestProcessInteractionOutOfRangePaths(t *testing.T) {
 	if p.waypointIndex < 0 {
 		t.Error("waypointIndex should be >= 0 after pathToTarget")
 	}
-	if !p.repathed {
-		t.Error("repathed should be true after first out-of-range tick")
-	}
 	if p.interacted {
 		t.Error("interacted should be false when out of range")
 	}
@@ -384,6 +381,12 @@ func TestClearInteractionResetsApRange(t *testing.T) {
 // 2-branch bug where tryFireApTrigger was called unconditionally (even with
 // no AP script) causing early auto-clear. Post-NAI-78 branch 3 fires:
 // apRange=-1, tryInteract returns false, player starts walking toward target.
+//
+// NAI-98 update: pathToPathingTarget is a no-op for Loc targets (TS
+// L1035-1037 alignment; DEVIATION NAI-98-D-LOC-OBJ-NO-OP-ALIGNED-TO-TS).
+// The path toward the Loc must be pre-queued (simulating what MoveClick
+// does in production) so that the post-step NIH branch ("I can't reach
+// that") does not fire and clear the interaction.
 func TestProcessInteractionRoutesToApBranch(t *testing.T) {
 	s := newTestServer(t)
 	s.zoneMap = zone.NewZoneMap()
@@ -404,6 +407,10 @@ func TestProcessInteractionRoutesToApBranch(t *testing.T) {
 	p.targetSubject.level = loc.Level
 	p.interactionFired = false
 	p.apRange = 10
+	// Pre-queue path toward Loc, mirroring what MoveClick does in production.
+	// NAI-98: pathToPathingTarget is a no-op for Loc targets; path must come
+	// from MoveClick / scripts, not from the tickloop repath.
+	p.queueWaypoint(loc.X, loc.Z)
 
 	p.processInteraction()
 
@@ -557,8 +564,8 @@ func TestProcessInteractionNpcUsesAttackrange(t *testing.T) {
 	if p.interacted {
 		t.Error("p.interacted: got true, want false — AP branch should NOT fire (dx=6 > AttackRange=5)")
 	}
-	if !p.repathed {
-		t.Error("p.repathed: got false, want true — pathing branch should fire when out of AP range")
+	if p.waypointIndex < 0 {
+		t.Error("p.waypointIndex < 0 — pathing branch should fire when out of AP range")
 	}
 }
 
@@ -972,22 +979,29 @@ func TestFollowOpAnchoredChase(t *testing.T) {
 // TestFollowOpWaypointExhaustion — NAI-44 T5 / B3. When followOp is
 // active and pathToTarget yields no waypoints (e.g. target unreachable),
 // the post-step arm clears the interaction (TS L1237-1239).
-func TestFollowOpWaypointExhaustion(t *testing.T) {
+func TestFollowOpRepathsOnExhaustion(t *testing.T) {
 	s := setupServerForInteractionTest(t)
 	clicker := newTestPlayerAt(t, s, 1, 3200, 3200, 0)
 	target := newTestPlayerAt(t, s, 2, 3210, 3200, 0)
 
 	clicker.SetInteraction(InteractionEngine, target, 3, -1)
-	// Force waypoint exhaustion: set repathed=true to skip pathToTarget
-	// and leave waypointIndex at -1 (no waypoints). This exercises the
-	// TS L1237-1239 followOp + no-waypoints → ClearInteraction branch.
+	// Simulate path exhaustion (waypointIndex=-1) mid-follow interaction.
+	// NAI-98 update: the pre-NAI-98 test (TestFollowOpWaypointExhaustion)
+	// used repathed=true to artificially skip pathToTarget, then asserted
+	// ClearInteraction. Post-fix, pathToPathingTarget repaths unconditionally
+	// when isLastOrNoWaypoint() && followOp (TS L1039-1042), queuing a
+	// waypoint to target.followX/followZ. The TS L1237-1239
+	// !hasWaypoints() && followOp → ClearInteraction branch is effectively
+	// unreachable for *Player targets (pathToPathingTarget always queues
+	// the chase waypoint when isLastOrNoWaypoint). Target is preserved.
 	clicker.waypointIndex = -1
-	clicker.repathed = true
 
 	clicker.processInteraction()
 
-	if clicker.target != nil {
-		t.Errorf("target: got %v, want nil (followOp + no waypoints must ClearInteraction)", clicker.target)
+	// Post-fix TS-faithful behavior: pathToPathingTarget queues a chase
+	// waypoint → hasWaypoints()=true → L1237 does not fire → target preserved.
+	if clicker.target == nil {
+		t.Errorf("target: got nil, want non-nil (pathToPathingTarget should repath followOp on isLastOrNoWaypoint; L1237 ClearInteraction does not fire when chase waypoint is queued)")
 	}
 }
 

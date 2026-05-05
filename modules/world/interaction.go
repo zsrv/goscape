@@ -233,10 +233,7 @@ func (p *Player) processInteraction() {
 	// Post-step arm (TS L1227-1252). Skipped when pre-step interacted.
 	if !interacted {
 		// Recalc path (TS L1228-1229).
-		if !p.repathed {
-			p.pathToTarget()
-			p.repathed = true
-		}
+		p.pathToPathingTarget()
 
 		if p.hasWaypoints() {
 			p.processWalktrigger()
@@ -561,6 +558,95 @@ func effectiveApRange(p *Player) int {
 		return int(npc.typ.AttackRange)
 	}
 	return p.apRange
+}
+
+// pathToPathingTarget mirrors TS Player.pathToPathingTarget
+// (Engine-TS/src/engine/entity/Player.ts:1034-1055). Called once per tick
+// from processInteraction's post-step branch when !interacted (TS L1228-1229).
+//
+// Dispatch:
+//   - Loc/Obj target: no-op (TS L1035-1037). In TS, Loc/Obj targets get
+//     their initial path from MoveClick/scripts; tickloop never repaths.
+//     Pre-NAI-98 goscape ran pathToTarget once per interaction for these
+//     targets too (legacy `!p.repathed` gate). DEVIATION
+//     NAI-98-D-LOC-OBJ-NO-OP-ALIGNED-TO-TS: aligned to TS no-op as part of
+//     this fix; smoke targets are *Npc, but the gate retirement is the
+//     same code path so Loc/Obj alignment is a free byproduct. If a
+//     downstream Loc/Obj smoke surfaces a residual, revisit.
+//   - PathingEntity + isLastOrNoWaypoint + followOp (APPLAYER3/OPPLAYER3):
+//     queueWaypoint to target's followX/followZ (TS L1039-1042).
+//     Player-on-player chase fast-path. Goscape's *Player has followX/Z;
+//     *Npc does not (DEVIATION NAI-98-D-NPC-NO-FOLLOWXY: ports of TS
+//     PathingEntity.ts:1201-1202 base behavior limited to *Player today;
+//     followOp branch fires only when target is *Player anyway).
+//   - !canAccess: no-op (TS L1044-1046). Goscape canAccess approximation:
+//     !p.delayed && !p.protectedScriptActive() (per CanAccess doc-comment
+//     in player_script.go; DEVIATION NAI-44-D-CANACCESS-NO-STUN-CHECK).
+//   - NODE_CLIENT_ROUTEFINDER + intersects: queueWaypoints via
+//     FindNaivePath (TS L1048-1051). Mirrors the same shortcut at
+//     pathToTarget Smart/PathingEntity arm (interaction.go:638-644).
+//   - PathingEntity + isLastOrNoWaypoint (no followOp, no intersects):
+//     pathToTarget (TS L1052-1054).
+//
+// isLastOrNoWaypoint mirrors TS PathingEntity.isLastOrNoWaypoint
+// (PathingEntity.ts:374-376): true when the player has consumed all but
+// the final waypoint or has none queued.
+//
+// Retires the goscape divergent `!p.repathed` once-per-interaction gate
+// at interaction.go:236-239 (pre-NAI-98). The `repathed` field stays
+// declared + reset in SetInteraction/ClearInteraction as TS-vestigial
+// (TS PathingEntity.ts:64 declares it + Player.ts:459 resets it but
+// nothing reads it).
+func (p *Player) pathToPathingTarget() {
+	if p.target == nil {
+		return
+	}
+	if _, ok := p.target.(pathingEntity); !ok {
+		// Loc/Obj target — TS no-op.
+		return
+	}
+	if p.isLastOrNoWaypoint() && isFollowOp(p) {
+		// Player-on-player chase: queue waypoint to target's last-step coord.
+		// followOp implies target is *Player (per isFollowOp at :145-151);
+		// goscape's *Player has followX/followZ (player.go:104).
+		if t, ok := p.target.(*Player); ok {
+			p.queueWaypoint(t.followX, t.followZ)
+		}
+		return
+	}
+	if p.delayed || p.protectedScriptActive() {
+		// canAccess gate (TS L1044-1046). DEVIATION
+		// NAI-44-D-CANACCESS-NO-STUN-CHECK: stun/freeze unmodelled.
+		return
+	}
+	if p.client == nil || p.client.server == nil {
+		return
+	}
+	srv := p.client.server
+	tx, tz, _ := p.target.Coords()
+	if t, ok := p.target.(pathingEntity); ok {
+		tw, tl := t.Width(), t.Length()
+		if srv.cfg.NodeClientRoutefinder && coordgrid.Intersects(p.x, p.z, p.Width(), p.Length(), tx, tz, tw, tl) {
+			pf := srv.pathfinder()
+			if pf == nil {
+				p.queueWaypoint(tx, tz)
+				return
+			}
+			route := pf.FindNaivePath(p.level, p.x, p.z, tx, tz, p.Width(), p.Length(), tw, tl, 0, collision.TypeNormal)
+			p.queueWaypoints(routeToPacked(route))
+			return
+		}
+	}
+	if p.isLastOrNoWaypoint() {
+		p.pathToTarget()
+	}
+}
+
+// isLastOrNoWaypoint mirrors TS PathingEntity.isLastOrNoWaypoint
+// (PathingEntity.ts:374-376): true when the player has consumed all but
+// the final waypoint or has none queued.
+func (p *Player) isLastOrNoWaypoint() bool {
+	return p.waypointIndex <= 0
 }
 
 // pathToTarget queues waypoints from p.x/p.z to p.target via shape-aware
