@@ -12,6 +12,7 @@ import (
 	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 	util "github.com/zsrv/goscape/pkg/util/jstring"
@@ -542,6 +543,41 @@ func (p *Player) Width() int { return 1 }
 
 // Length returns the player's tile footprint length. Players are always 1×1.
 func (p *Player) Length() int { return 1 }
+
+// blockWalkFlag returns the CollisionFlag this player imposes on its
+// occupied tile during pathfinding. Mirrors TS Player.blockWalkFlag
+// (Player.ts:706-708) — unconditional return regardless of moveRestrict.
+func (p *Player) blockWalkFlag() int {
+	return collision.FlagBlockPlayers
+}
+
+// getCollisionStrategy returns the collision search type for this player,
+// or nil for MoveRestrictNoMove. Mirrors TS PathingEntity.getCollisionStrategy
+// (PathingEntity.ts:558-575). goscape MoveRestrict has no BLOCKED_NORMAL —
+// that TS branch is skipped.
+func (p *Player) getCollisionStrategy() *collision.Type {
+	switch p.moveRestrict {
+	case MoveRestrictNormal:
+		t := collision.TypeNormal
+		return &t
+	case MoveRestrictBlocked:
+		t := collision.TypeBlocked
+		return &t
+	case MoveRestrictIndoors:
+		t := collision.TypeIndoors
+		return &t
+	case MoveRestrictOutdoors:
+		t := collision.TypeOutdoors
+		return &t
+	case MoveRestrictNoMove:
+		return nil
+	case MoveRestrictPassthru:
+		t := collision.TypeNormal
+		return &t
+	default:
+		return nil
+	}
+}
 
 // X is the script-VM ActivePlayer.X accessor. NAI-35.
 func (p *Player) X() int { return p.x }

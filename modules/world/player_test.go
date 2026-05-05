@@ -2,12 +2,14 @@ package world
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"testing"
 	"time"
 
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -935,3 +937,57 @@ func TestEncodeOutTutorialIndependentOfMain(t *testing.T) {
 		t.Error("timed out waiting for IF_OPENMAIN + TUT_OPEN")
 	}
 }
+
+func TestPlayer_BlockWalkFlag_Unconditional(t *testing.T) {
+	// TS Player.blockWalkFlag (Player.ts:706-708) is unconditional —
+	// returns CollisionFlag.PLAYER regardless of moveRestrict. Pin that
+	// goscape behaves identically across all MoveRestrict variants.
+	cases := []MoveRestrict{
+		MoveRestrictNormal,
+		MoveRestrictBlocked,
+		MoveRestrictIndoors,
+		MoveRestrictOutdoors,
+		MoveRestrictNoMove,
+		MoveRestrictPassthru,
+	}
+	for _, mr := range cases {
+		t.Run(fmt.Sprintf("MR%d", mr), func(t *testing.T) {
+			p := &Player{}
+			p.moveRestrict = mr
+			if got := p.blockWalkFlag(); got != collision.FlagBlockPlayers {
+				t.Errorf("blockWalkFlag(%v) = %d, want FlagBlockPlayers (%d)", mr, got, collision.FlagBlockPlayers)
+			}
+		})
+	}
+}
+
+func TestPlayer_GetCollisionStrategy_PerMoveRestrict(t *testing.T) {
+	// Mirrors TS PathingEntity.getCollisionStrategy (PathingEntity.ts:558-575).
+	// goscape MoveRestrict has no BLOCKED_NORMAL — that branch is skipped.
+	cases := []struct {
+		mr   MoveRestrict
+		want *collision.Type
+	}{
+		{MoveRestrictNormal, ptrType(collision.TypeNormal)},
+		{MoveRestrictBlocked, ptrType(collision.TypeBlocked)},
+		{MoveRestrictIndoors, ptrType(collision.TypeIndoors)},
+		{MoveRestrictOutdoors, ptrType(collision.TypeOutdoors)},
+		{MoveRestrictNoMove, nil},
+		{MoveRestrictPassthru, ptrType(collision.TypeNormal)},
+	}
+	for _, tc := range cases {
+		t.Run(fmt.Sprintf("MR%d", tc.mr), func(t *testing.T) {
+			p := &Player{}
+			p.moveRestrict = tc.mr
+			got := p.getCollisionStrategy()
+			if (got == nil) != (tc.want == nil) {
+				t.Fatalf("getCollisionStrategy(%v) nil-mismatch: got %v want %v", tc.mr, got, tc.want)
+			}
+			if got != nil && *got != *tc.want {
+				t.Errorf("getCollisionStrategy(%v) = %v, want %v", tc.mr, *got, *tc.want)
+			}
+		})
+	}
+}
+
+func ptrType(t collision.Type) *collision.Type { return &t }

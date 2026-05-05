@@ -1,10 +1,12 @@
 package world
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -899,3 +901,58 @@ func TestNpcAnimate_ClearWithMinusOneSucceeds(t *testing.T) {
 		t.Error("NpcMaskAnim should be set on clear")
 	}
 }
+
+func TestNpc_BlockWalkFlag_PerMoveRestrict(t *testing.T) {
+	// Mirrors TS Npc.blockWalkFlag (Npc.ts:381-398). goscape MoveRestrict
+	// has no BLOCKED_NORMAL — that branch is skipped.
+	cases := []struct {
+		mr   MoveRestrict
+		want int
+	}{
+		{MoveRestrictNormal, collision.FlagBlockNPCs},
+		{MoveRestrictBlocked, collision.FlagOpen},
+		{MoveRestrictIndoors, collision.FlagBlockNPCs},
+		{MoveRestrictOutdoors, collision.FlagBlockNPCs},
+		{MoveRestrictNoMove, collision.FlagNull},
+		{MoveRestrictPassthru, collision.FlagOpen},
+	}
+	for _, tc := range cases {
+		t.Run(fmt.Sprintf("MR%d", tc.mr), func(t *testing.T) {
+			n := &Npc{}
+			n.moveRestrict = tc.mr
+			if got := n.blockWalkFlag(); got != tc.want {
+				t.Errorf("blockWalkFlag(%v) = %d, want %d", tc.mr, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestNpc_GetCollisionStrategy_PerMoveRestrict(t *testing.T) {
+	// Mirrors TS PathingEntity.getCollisionStrategy (PathingEntity.ts:558-575).
+	cases := []struct {
+		mr   MoveRestrict
+		want *collision.Type
+	}{
+		{MoveRestrictNormal, ptrTypeNpc(collision.TypeNormal)},
+		{MoveRestrictBlocked, ptrTypeNpc(collision.TypeBlocked)},
+		{MoveRestrictIndoors, ptrTypeNpc(collision.TypeIndoors)},
+		{MoveRestrictOutdoors, ptrTypeNpc(collision.TypeOutdoors)},
+		{MoveRestrictNoMove, nil},
+		{MoveRestrictPassthru, ptrTypeNpc(collision.TypeNormal)},
+	}
+	for _, tc := range cases {
+		t.Run(fmt.Sprintf("MR%d", tc.mr), func(t *testing.T) {
+			n := &Npc{}
+			n.moveRestrict = tc.mr
+			got := n.getCollisionStrategy()
+			if (got == nil) != (tc.want == nil) {
+				t.Fatalf("getCollisionStrategy(%v) nil-mismatch: got %v want %v", tc.mr, got, tc.want)
+			}
+			if got != nil && *got != *tc.want {
+				t.Errorf("getCollisionStrategy(%v) = %v, want %v", tc.mr, *got, *tc.want)
+			}
+		})
+	}
+}
+
+func ptrTypeNpc(t collision.Type) *collision.Type { return &t }

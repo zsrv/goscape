@@ -2,6 +2,7 @@ package world
 
 import (
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 	"github.com/zsrv/goscape/pkg/zone"
@@ -222,6 +223,57 @@ func (n *Npc) Width() int { return n.size }
 
 // Length returns the NPC's tile footprint length. Square: equals Width().
 func (n *Npc) Length() int { return n.size }
+
+// blockWalkFlag returns the CollisionFlag this NPC imposes on its
+// occupied tile during pathfinding. Mirrors TS Npc.blockWalkFlag
+// (Npc.ts:381-398). goscape MoveRestrict has no BLOCKED_NORMAL — that
+// TS branch is skipped.
+func (n *Npc) blockWalkFlag() int {
+	switch n.moveRestrict {
+	case MoveRestrictNormal:
+		return collision.FlagBlockNPCs
+	case MoveRestrictBlocked:
+		return collision.FlagOpen
+	case MoveRestrictIndoors:
+		return collision.FlagBlockNPCs
+	case MoveRestrictOutdoors:
+		return collision.FlagBlockNPCs
+	case MoveRestrictNoMove:
+		return collision.FlagNull
+	case MoveRestrictPassthru:
+		return collision.FlagOpen
+	default:
+		return collision.FlagNull
+	}
+}
+
+// getCollisionStrategy returns the collision search type for this NPC,
+// or nil for MoveRestrictNoMove. Mirrors TS PathingEntity.getCollisionStrategy
+// (PathingEntity.ts:558-575). Same as Player.getCollisionStrategy because
+// the TS impl lives on the PathingEntity base.
+func (n *Npc) getCollisionStrategy() *collision.Type {
+	switch n.moveRestrict {
+	case MoveRestrictNormal:
+		t := collision.TypeNormal
+		return &t
+	case MoveRestrictBlocked:
+		t := collision.TypeBlocked
+		return &t
+	case MoveRestrictIndoors:
+		t := collision.TypeIndoors
+		return &t
+	case MoveRestrictOutdoors:
+		t := collision.TypeOutdoors
+		return &t
+	case MoveRestrictNoMove:
+		return nil
+	case MoveRestrictPassthru:
+		t := collision.TypeNormal
+		return &t
+	default:
+		return nil
+	}
+}
 
 // StoreActiveScript saves a Suspended ScriptState so Npc.turn() can
 // resume it when the NPC's delay expires. Part of the ActiveNpc
