@@ -1,6 +1,7 @@
 package world
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
@@ -10,6 +11,7 @@ import (
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
+	"github.com/zsrv/goscape/pkg/zone"
 )
 
 func TestCheckOpTrigger(t *testing.T) {
@@ -1722,5 +1724,132 @@ func TestNpcUnfocusWritesDefaultSouthFaceAngle(t *testing.T) {
 				t.Errorf("unfocus must NOT OR NpcMaskFaceCoord (masks=%d)", n.masks)
 			}
 		})
+	}
+}
+
+// -- NAI-91 NPC-side shape-aware inOperableDistance tests -----------------
+
+// newNpcInOperableTestServer mirrors newInOperableTestServer
+// (interaction_test.go) for NPC-side fixtures.
+func newNpcInOperableTestServer(t *testing.T) *Server {
+	t.Helper()
+	s := &Server{
+		quit:           make(chan interface{}),
+		log:            discardLogger(),
+		scriptProvider: defaultTestProvider(),
+		zoneMap:        zone.NewZoneMap(),
+		locObjTracker:  newLocObjTracker(),
+		rsbuf:          rsbuf.New(),
+	}
+	s.friendsBridge = noopBridges{}
+	s.loginBridgeMod = noopBridges{}
+	s.loggerBridge = noopBridges{}
+	s.locOps = &serverLocOps{s: s}
+	s.gamemap = gamemap.New(discardLogger())
+	s.locTypes = &objtype.LocTypeConfigs{Configs: make([]*objtype.LocType, 200)}
+	s.locTypes.Configs[100] = &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100, DebugName: "wall_test"}}
+	return s
+}
+
+// makeNpcWallLoc constructs a 1×1 *entitypkg.Loc at (level, x, z) with the
+// given shape/angle, type ID 100.
+func makeNpcWallLoc(t *testing.T, level, x, z, shape, angle int) *entitypkg.Loc {
+	t.Helper()
+	return entitypkg.NewLoc(level, x, z, 1, 1, entitypkg.LifecycleDespawn, 100, shape, angle)
+}
+
+// TestNpc_InOperableDistance_WallStraight_OnTile pins the on-tile case
+// for an NPC standing on a wall_straight loc (size=1).
+func TestNpc_InOperableDistance_WallStraight_OnTile(t *testing.T) {
+	s := newNpcInOperableTestServer(t)
+	typ := &objtype.NpcType{Size: 1}
+	n := NewNpc(1, 42, 3098, 3107, 0, typ)
+	n.server = s
+	loc := makeNpcWallLoc(t, 0, 3098, 3107, 0, 0)
+	if !n.inOperableDistance(loc) {
+		t.Fatalf("expected on-tile NPC reach to a wall_straight loc to be true (NAI-91)")
+	}
+}
+
+// TestNpc_InOperableDistance_WallStraightMatrix mirrors the player-side
+// matrix at four wall_straight angles, srcSize=1. preFlags expectations
+// inverted from plan: FlagBlockX on src tile causes ReachWall1 to return
+// false (per pkg/pathfinder/reach/strategy.go); see T1 commit 7b85605.
+func TestNpc_InOperableDistance_WallStraightMatrix(t *testing.T) {
+	type tile struct {
+		dx, dz   int
+		want     bool
+		preFlags int
+	}
+	type angleCase struct {
+		angle int
+		name  string
+		tiles []tile
+	}
+	cases := []angleCase{
+		{angle: 0, name: "west", tiles: []tile{
+			{0, 0, true, 0},
+			{-1, 0, true, 0},
+			{0, 1, false, collision.FlagBlockNorth},
+			{0, -1, false, collision.FlagBlockSouth},
+			{1, 0, false, 0},
+		}},
+		{angle: 1, name: "north", tiles: []tile{
+			{0, 0, true, 0},
+			{0, 1, true, 0},
+			{-1, 0, false, collision.FlagBlockWest},
+			{1, 0, false, collision.FlagBlockEast},
+			{0, -1, false, 0},
+		}},
+		{angle: 2, name: "east", tiles: []tile{
+			{0, 0, true, 0},
+			{1, 0, true, 0},
+			{0, 1, false, collision.FlagBlockNorth},
+			{0, -1, false, collision.FlagBlockSouth},
+			{-1, 0, false, 0},
+		}},
+		{angle: 3, name: "south", tiles: []tile{
+			{0, 0, true, 0},
+			{0, -1, true, 0},
+			{-1, 0, false, collision.FlagBlockWest},
+			{1, 0, false, collision.FlagBlockEast},
+			{0, 1, false, 0},
+		}},
+	}
+	const lx, lz = 3098, 3107
+	for _, ac := range cases {
+		t.Run(ac.name, func(t *testing.T) {
+			for _, tt := range ac.tiles {
+				t.Run(fmt.Sprintf("dx=%+d_dz=%+d_flags=0x%x", tt.dx, tt.dz, tt.preFlags), func(t *testing.T) {
+					s := newNpcInOperableTestServer(t)
+					typ := &objtype.NpcType{Size: 1}
+					n := NewNpc(1, 42, lx+tt.dx, lz+tt.dz, 0, typ)
+					n.server = s
+					// Initialize n's tile so flags.Get returns the test's
+					// preFlags value (FlagOpen=0 by default; FlagNull=-1
+					// for unallocated zones would block all reach paths).
+					s.gamemap.Pathfinder.Flags.Set(n.x, n.z, n.level, tt.preFlags)
+					loc := makeNpcWallLoc(t, 0, lx, lz, 0, ac.angle)
+					got := n.inOperableDistance(loc)
+					if got != tt.want {
+						t.Errorf("angle=%s dx=%+d dz=%+d preFlags=0x%x: got %v want %v",
+							ac.name, tt.dx, tt.dz, tt.preFlags, got, tt.want)
+					}
+				})
+			}
+		})
+	}
+}
+
+// TestNpc_InOperableDistance_NilServer_FallsBackSafely pins the
+// defensive nil-server path. Goscape historically constructs *Npc
+// fixtures without a server in some unit tests; preserve safety.
+func TestNpc_InOperableDistance_NilServer_FallsBackSafely(t *testing.T) {
+	typ := &objtype.NpcType{Size: 1}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+	// n.server is nil by default in this minimal fixture.
+	target := &Npc{x: 101, z: 100, level: 0}
+	if !n.inOperableDistance(target) {
+		t.Errorf("nil-server pathing-entity target: expected Chebyshev fallback to succeed")
 	}
 }
