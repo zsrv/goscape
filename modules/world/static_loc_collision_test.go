@@ -152,3 +152,58 @@ func TestNAI96_GroundDecor_Active1_WritesFloor(t *testing.T) {
 			absX, absZ, level, flag, collision.FlagBlockWalk)
 	}
 }
+
+// TestNAI96_GroundDecor_Active0_NoWrite pins that GroundDecor with active=0
+// does not write collision (TS GameMap.ts:337 — only active===1 calls changeFloor).
+func TestNAI96_GroundDecor_Active0_NoWrite(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+
+	lt := &objtype.LocType{BlockWalk: true, Active: 0}
+	s.locTypes = &objtype.LocTypeConfigs{Configs: []*objtype.LocType{nil, lt}}
+
+	const absX, absZ, level = 3220, 3220, 0
+	staticLoc := entitypkg.NewLoc(level, absX, absZ, 1, 1,
+		entitypkg.LifecycleRespawn,
+		1,
+		int(loc.ShapeGroundDecor),
+		int(loc.AngleWest))
+	s.gamemap.AddStaticLoc(staticLoc)
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(absX, absZ, level)
+
+	s.populateStaticLocsIntoZones()
+
+	flag := s.gamemap.Pathfinder.Flags.Get(absX, absZ, level)
+	if flag&collision.FlagBlockWalk != 0 {
+		t.Errorf("GroundDecor active=0 at (%d, %d, %d): flag=0x%x unexpectedly has FlagBlockWalk",
+			absX, absZ, level, flag)
+	}
+}
+
+// TestNAI96_WallDecor_NoWrite pins that WallDecor never writes collision
+// regardless of active (TS GameMap.ts:326-340 has no WALL_DECOR branch).
+func TestNAI96_WallDecor_NoWrite(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+
+	lt := &objtype.LocType{BlockWalk: true, Active: 1}
+	s.locTypes = &objtype.LocTypeConfigs{Configs: []*objtype.LocType{nil, lt}}
+
+	const absX, absZ, level = 3220, 3220, 0
+	// ShapeWallDecorStraightNoOffset = 4 (LayerWallDecor per LayerOf).
+	staticLoc := entitypkg.NewLoc(level, absX, absZ, 1, 1,
+		entitypkg.LifecycleRespawn,
+		1,
+		int(loc.ShapeWallDecorStraightNoOffset),
+		int(loc.AngleWest))
+	s.gamemap.AddStaticLoc(staticLoc)
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(absX, absZ, level)
+
+	s.populateStaticLocsIntoZones()
+
+	flag := s.gamemap.Pathfinder.Flags.Get(absX, absZ, level)
+	if flag != collision.FlagOpen {
+		t.Errorf("WallDecor active=1 at (%d, %d, %d): flag=0x%x, want FlagOpen (0x0)",
+			absX, absZ, level, flag)
+	}
+}
