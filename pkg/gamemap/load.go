@@ -132,8 +132,12 @@ parseLoop:
 //	             actualLevel = bridged ? level-1 : level; skip if <0.
 //	    instantiate LifecycleRespawn loc at actualLevel.
 //
-// Footprint hardcoded to 1x1 until LocType config loading lands.
-// TODO(loctype): use LocType.Width/Length.
+// Per-instance footprint (Width, Length) is read from the LocType registry
+// when SetLocTypes was called before Init. When the registry is unset
+// (e.g., empty-cache test fixtures) or the locID is missing/out-of-range
+// (goscape defensive; TS calls printFatalError — see GameMap.ts:249-252),
+// falls back to 1×1 with a log-warn for the missing-LocType branches.
+// Mirrors TS GameMap.ts:248-263.
 func (gm *GameMap) loadLocs(data []byte, mapSquareX, mapSquareZ int) {
 	p := packet.NewPacket(data)
 	lands := gm.landsByMapSquare[uint16((mapSquareX<<8)|mapSquareZ)]
@@ -187,7 +191,24 @@ func (gm *GameMap) loadLocs(data []byte, mapSquareX, mapSquareZ int) {
 				continue
 			}
 
-			loc := entity.NewLoc(actualLevel, absX, absZ, 1, 1,
+			width, length := 1, 1
+			if gm.locTypes != nil {
+				if locID >= 0 && locID < len(gm.locTypes.Configs) {
+					if lt := gm.locTypes.Configs[locID]; lt != nil {
+						width, length = lt.Width, lt.Length
+					} else {
+						// (goscape defensive; TS calls printFatalError on missing LocType — see GameMap.ts:249-252)
+						gm.log.Warn("loadLocs: nil LocType for locID; using 1x1 fallback",
+							"locID", locID, "mapSquareX", mapSquareX, "mapSquareZ", mapSquareZ)
+					}
+				} else {
+					// (goscape defensive; TS calls printFatalError on missing LocType — see GameMap.ts:249-252)
+					gm.log.Warn("loadLocs: locID out of range; using 1x1 fallback",
+						"locID", locID, "mapSquareX", mapSquareX, "mapSquareZ", mapSquareZ)
+				}
+			}
+
+			loc := entity.NewLoc(actualLevel, absX, absZ, width, length,
 				entity.LifecycleRespawn,
 				locID, shape, angle)
 			gm.staticLocs = append(gm.staticLocs, loc)

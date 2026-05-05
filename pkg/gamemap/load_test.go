@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/io/packet"
+	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/pathfinder/loc"
 )
@@ -328,6 +329,77 @@ func TestLoadGround_ReservedOpcode_NoOp(t *testing.T) {
 	flag := gm.Pathfinder.Flags.Get(absX, absZ, 0)
 	if flag&collision.FlagBlockWalk == 0 {
 		t.Errorf("reserved-then-land tile: flag=0x%x missing FlagBlockWalk; reserved opcode may have terminated tile prematurely or set wrong land", flag)
+	}
+}
+
+// TestLoadLocs_UsesLocTypeWidthLength pins the post-NAI-100 behavior:
+// when SetLocTypes is called before loadLocs, the resulting *entity.Loc
+// carries the LocType's W×L (not the legacy hardcoded 1×1).
+func TestLoadLocs_UsesLocTypeWidthLength(t *testing.T) {
+	const mapX, mapZ = 50, 50
+	const locId = 42
+	const shape = 10 // LayerGround centrepiece
+	const angle = 0
+
+	gm := newTestGameMap()
+
+	cfgs := &objtype.LocTypeConfigs{
+		Configs: make([]*objtype.LocType, 100),
+	}
+	cfgs.Configs[locId] = &objtype.LocType{Width: 2, Length: 3}
+	gm.SetLocTypes(cfgs)
+
+	data := lFileWithOneLoc(locId, 0, 0, 0, shape, angle)
+	gm.loadLocs(data, mapX, mapZ)
+
+	if len(gm.staticLocs) != 1 {
+		t.Fatalf("staticLocs: got %d, want 1", len(gm.staticLocs))
+	}
+	l := gm.staticLocs[0]
+	if l.Type() != locId {
+		t.Errorf("Type: got %d, want %d", l.Type(), locId)
+	}
+	if l.Width != 2 {
+		t.Errorf("Width: got %d, want 2 (lt.Width)", l.Width)
+	}
+	if l.Length != 3 {
+		t.Errorf("Length: got %d, want 3 (lt.Length)", l.Length)
+	}
+	wantX := mapX*mapSquareSize + 0
+	wantZ := mapZ*mapSquareSize + 0
+	if l.X != wantX || l.Z != wantZ || l.Level != 0 {
+		t.Errorf("coords: got (%d,%d,%d), want (%d,%d,0)", l.X, l.Z, l.Level, wantX, wantZ)
+	}
+}
+
+// TestLoadLocs_NilLocTypesFallback pins the test-fixture path:
+// when SetLocTypes was never called, loadLocs falls back to 1×1 and
+// does not log any "LocType" warnings (the warnings only fire when
+// gm.locTypes != nil but the entry is missing/out-of-range).
+func TestLoadLocs_NilLocTypesFallback(t *testing.T) {
+	const mapX, mapZ = 50, 50
+	const locId = 42
+	const shape = 10
+	const angle = 0
+
+	gm := newTestGameMap()
+	// Note: no SetLocTypes call.
+
+	data := lFileWithOneLoc(locId, 0, 0, 0, shape, angle)
+	gm.loadLocs(data, mapX, mapZ)
+
+	if len(gm.staticLocs) != 1 {
+		t.Fatalf("staticLocs: got %d, want 1", len(gm.staticLocs))
+	}
+	l := gm.staticLocs[0]
+	if l.Type() != locId {
+		t.Errorf("Type: got %d, want %d", l.Type(), locId)
+	}
+	if l.Width != 1 {
+		t.Errorf("Width: got %d, want 1 (nil-locTypes fallback)", l.Width)
+	}
+	if l.Length != 1 {
+		t.Errorf("Length: got %d, want 1 (nil-locTypes fallback)", l.Length)
 	}
 }
 
