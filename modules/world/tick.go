@@ -346,8 +346,17 @@ func (s *Server) processInfo() {
 	// NAI-66: TS World.ts:995 — per-tick refocus before rsbuf compute.
 	// Refocuses on a moved PathingEntity target or clears the cached
 	// Loc/Obj targetX/Z when the player took zero steps this tick.
+	//
+	// NAI-93: TS World.ts:996 — buildArea.rebuildNormal() runs in this
+	// loop, BEFORE the ComputePlayers/ComputePlayer calls below, so the
+	// rsbuf-cached Origin matches the just-emitted RebuildNormal packet's
+	// zoneX/zoneZ. Inverting this order produces stale-origin tele leaves
+	// on cross-window teles → Java client AIOOBE in getHeightmapY/getTopLevel.
+	// TS comment at World.ts:996 verbatim: "set origin before compute
+	// player is why this is above."
 	for _, p := range players {
 		p.reorient()
+		p.updateMap()
 	}
 
 	// Regenerate appearance buffer for any player whose MaskAppearance is set

@@ -813,7 +813,9 @@ func (p *Player) updateStats() {
 }
 
 func (p *Player) processOut() {
-	p.updateMap()
+	// NAI-93: updateMap moved to Server.processInfo per TS World.ts:996
+	// ordering. processOut now starts with PlayerInfo encode against the
+	// already-fresh rsbuf state.
 	p.updatePlayers()
 	p.updateNpcs()
 	p.updateZones()
