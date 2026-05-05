@@ -548,19 +548,9 @@ func (n *Npc) inOperableDistance(target entity) bool {
 		return reach.Reached(flags, n.level, n.x, n.z, tx, tz,
 			loc.Width, loc.Length, srcSize, loc.Angle(), loc.Shape(), fap)
 	}
-	// Chebyshev fallback (NAI-91-D-OPERABLE-CHEB-FALLBACK).
-	dx := n.x - tx
-	if dx < 0 {
-		dx = -dx
-	}
-	dz := n.z - tz
-	if dz < 0 {
-		dz = -dz
-	}
-	if dx > 1 || dz > 1 {
-		return false
-	}
-	return !(dx == 0 && dz == 0)
+	// Chebyshev fallback (NAI-91-D-OPERABLE-CHEB-FALLBACK); shared with
+	// player-side via interaction.go (same package).
+	return inOperableDistanceCheb(n.x, n.z, tx, tz)
 }
 
 // approachEntitySize returns target (width, length) for the NPC-side
