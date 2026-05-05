@@ -299,7 +299,7 @@ type Player struct {
 	// pkg/buildarea encoded this via OriginX = -1, but Player.originX is
 	// already set to a real coord in tick.go's processLogins loop (anchor
 	// for PlayerInfo zone-relative encoding, which runs in updatePlayers
-	// BEFORE updateMap each tick). Reusing originX as the sentinel would
+	// BEFORE updateMap each tick, NAI-93: updateMap is in processInfo). Reusing originX as the sentinel would
 	// be silently consumed at login. A separate bool keeps the two roles
 	// independent.
 	lastBuild   int
@@ -724,9 +724,18 @@ func (p *Player) updateMap() {
 	if !p.shouldRebuild() {
 		return
 	}
-	// rebuildScenery anchors p.originX/Z to the new rebuild position so the
-	// next PlayerInfo teleport block produces local coords in range [0, 104].
-	// Staleness would overflow the 7-bit PBit(7, localX) encoding.
+	// rebuildScenery anchors p.originX/Z to the new rebuild position so
+	// the rsbuf-cached Origin captured by the IMMEDIATELY FOLLOWING
+	// ComputePlayer call (in the same Server.processInfo per-player loop)
+	// matches the just-emitted RebuildNormal packet's zoneX/zoneZ.
+	//
+	// NAI-93 moved this call from processOut to processInfo per TS
+	// World.ts:996 ordering. Pre-NAI-93, the ComputePlayer call had
+	// already cached the STALE origin by the time updateMap ran, and the
+	// PlayerInfo tele leaf encoded localX = pos.X - (((staleOriginX>>3)
+	// - 6) << 3) — which on a cross-window tele produced values outside
+	// the Java client's 0..104 active-window array bound, crashing in
+	// getHeightmapY and getTopLevel.
 	ms := p.rebuildScenery(p.client.server.currentTick)
 	p.reconnecting = false
 	sendRebuildNormal(p, ms)
