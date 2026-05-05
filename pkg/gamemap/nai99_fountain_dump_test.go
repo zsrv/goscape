@@ -1,13 +1,16 @@
 package gamemap
 
 import (
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/pathfinder/loc"
 )
 
 // TestNAI99_FountainFootprintDump_Lumbridge loads real m48_50 (Lumbridge
@@ -126,4 +129,122 @@ func TestNAI99_FountainFootprintDump_Lumbridge(t *testing.T) {
 		}
 	}
 	t.Logf("flagged tiles in bbox: %d", flaggedCount)
+}
+
+// TestNAI99_FountainCoverage_Lumbridge asserts every tile in the
+// W×L footprint of the Lumbridge fountain LocType (rotated by Angle
+// per the LayerGround swap convention at gamemap.go:67-71) carries
+// the expected flag — FlagBlockWalk for GroundDecor active=1, FlagLoc
+// for LayerGround.
+//
+// User smoke 2026-05-05: fountain "treated like 1 tile wide; player
+// walks partway in then stuck." This test pins which footprint tiles
+// are flagged vs unflagged after collision-write replay.
+//
+// Fountain LocType identified in Stage 1.1 dump: typeID=879
+// ("fountain", W=2, L=2, BlockWalk=true, BlockRange=false, Active=1)
+// at static placement (3221, 3226) shape=10 angle=0.
+//
+// Disposition: if reproduces (some footprint tiles unflagged), add a
+// t.Skip wrapper above the body with full assertion-failure output
+// per skip_pin_full_struct_capture; lifting the skip is NAI-100's
+// success criterion.
+func TestNAI99_FountainCoverage_Lumbridge(t *testing.T) {
+	const fountainTypeID = 879
+
+	cacheDir := filepath.Join("..", "..", "data", "pack")
+	if _, err := os.Stat(filepath.Join(cacheDir, "server", "maps", "m48_50")); err != nil {
+		t.Skipf("data/pack/server/maps/m48_50 unavailable: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(cacheDir, "server", "loc.dat")); err != nil {
+		t.Skipf("data/pack/server/loc.dat unavailable: %v", err)
+	}
+
+	t.Skip(`NAI-99: fountain footprint coverage divergence reproduces.
+
+Observed (verbatim from Step 6.3 run):
+  NAI-99 instance 0: typeID=879 origin=(2556,3113,0) shape=10 angle=3 W=2 L=2 (rotated W=2 L=2) flagged=[(2556,3113)=0x100] unflagged=[(2557,3113)=0x0 (2556,3114)=0x0 (2557,3114)=0x0]
+  NAI-99: instance 0 footprint coverage divergence — flagged=[(2556,3113)=0x100] unflagged=[(2557,3113)=0x0 (2556,3114)=0x0 (2557,3114)=0x0] expected all 4 tiles flagged
+
+Expected (post-NAI-100 fix): unflagged=[]; all 4 tiles carry FlagLoc (0x100).
+
+Root cause per NAI-99 diagnosis report: H5 — pkg/gamemap/load.go:190
+hardcodes entity.NewLoc(... 1, 1, ...) ignoring lt.Width/lt.Length;
+production loc.Length/loc.Width=1,1 passed to ChangeLocCollision so
+ChangeLoc loops 1×1=1. TODO at pkg/gamemap/load.go:136 acknowledges.
+
+Stage 2 lifts in NAI-100.`)
+
+	gm := New(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err := gm.Init(cacheDir); err != nil {
+		t.Fatalf("gamemap.Init: %v", err)
+	}
+	cfgs, err := objtype.LoadLocTypes(cacheDir)
+	if err != nil {
+		t.Fatalf("LoadLocTypes: %v", err)
+	}
+
+	// Replay collision-write globally (not bbox-limited) so we don't
+	// miss adjacent-zone allocations that the W×L footprint may span.
+	for _, l := range gm.StaticLocs() {
+		ltID := l.Type()
+		if ltID < 0 || ltID >= len(cfgs.Configs) {
+			continue
+		}
+		lt := cfgs.Configs[ltID]
+		if lt == nil || !lt.BlockWalk {
+			continue
+		}
+		gm.ChangeLocCollision(l.Shape(), l.Angle(), lt.BlockRange,
+			l.Length, l.Width, lt.Active, l.X, l.Z, l.Level, true)
+	}
+
+	// Find every static-loc instance of fountainTypeID.
+	var fountains []*entity.Loc
+	for _, l := range gm.StaticLocs() {
+		if l.Type() == fountainTypeID {
+			fountains = append(fountains, l)
+		}
+	}
+	if len(fountains) == 0 {
+		t.Fatalf("NAI-99: no fountain instance with typeID=%d found in StaticLocs", fountainTypeID)
+	}
+	t.Logf("NAI-99: %d fountain instance(s) found for typeID=%d", len(fountains), fountainTypeID)
+
+	// Assert footprint coverage on the first multi-tile instance.
+	lt := cfgs.Configs[fountainTypeID]
+	for idx, f := range fountains {
+		// Apply the same length/width swap as gamemap.go:67-71 for LayerGround
+		// (NORTH/SOUTH = identity; EAST/WEST = swap). For LayerGroundDecor,
+		// rotation does not swap — single-tile origin.
+		w, l := lt.Width, lt.Length
+		if loc.LayerOf(loc.Shape(f.Shape())) == loc.LayerGround {
+			if f.Angle() != loc.AngleNorth && f.Angle() != loc.AngleSouth {
+				w, l = l, w
+			}
+		}
+
+		var unflagged []string
+		var flagged []string
+		for dz := 0; dz < l; dz++ {
+			for dx := 0; dx < w; dx++ {
+				tx, tz := f.X+dx, f.Z+dz
+				flag := gm.Pathfinder.Flags.Get(tx, tz, f.Level)
+				cell := fmt.Sprintf("(%d,%d)=0x%x", tx, tz, flag)
+				if flag == 0 {
+					unflagged = append(unflagged, cell)
+				} else {
+					flagged = append(flagged, cell)
+				}
+			}
+		}
+		t.Logf("NAI-99 instance %d: typeID=%d origin=(%d,%d,%d) shape=%d angle=%d W=%d L=%d (rotated W=%d L=%d) flagged=%v unflagged=%v",
+			idx, fountainTypeID, f.X, f.Z, f.Level, f.Shape(), f.Angle(), lt.Width, lt.Length, w, l, flagged, unflagged)
+		if idx == 0 {
+			if len(unflagged) > 0 {
+				t.Errorf("NAI-99: instance 0 footprint coverage divergence — flagged=%v unflagged=%v expected all %d tiles flagged",
+					flagged, unflagged, w*l)
+			}
+		}
+	}
 }
