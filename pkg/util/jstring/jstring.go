@@ -64,5 +64,5 @@ func ToSafeName(s string) string {
 }
 
 func ToDisplayName(s string) string {
-	return strings.ReplaceAll(ToTitleCase(ToSafeName(s)), "_", " ")
+	return ToTitleCase(strings.ReplaceAll(ToSafeName(s), "_", " "))
 }

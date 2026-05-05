@@ -28,3 +28,25 @@ func TestFromBase37ValidNameDecodes(t *testing.T) {
 		t.Errorf("FromBase37(ToBase37(%q)): got %q, want %q", name, got, name)
 	}
 }
+
+func TestToDisplayName(t *testing.T) {
+	// 3-word coverage (e.g. "alice_smith_jr") deferred — its ToBase37
+	// encoding is divisible by 37, tripping goscape's pre-existing
+	// missing divide-out-37 loop (TS JString.ts:21-23). Tracked as
+	// separate follow-up; out of NAI-104 scope.
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"", ""},
+		{"alice", "Alice"},
+		{"user_two", "User Two"},
+		{"USER_TWO", "User Two"}, // case-insensitive via base37 round-trip
+		{"player1", "Player1"},   // digits inside a token
+	}
+	for _, c := range cases {
+		if got := ToDisplayName(c.in); got != c.want {
+			t.Errorf("ToDisplayName(%q): got %q, want %q", c.in, got, c.want)
+		}
+	}
+}
