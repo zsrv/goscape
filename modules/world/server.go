@@ -313,10 +313,22 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 }
 
 // populateStaticLocsIntoZones pushes each parsed static loc from the gamemap
-// into its owning Zone via Zone.AddStaticLoc. Called once at server startup,
-// adjacent to the NPC-spawn pass.
+// into its owning Zone via Zone.AddStaticLoc and writes the loc's collision
+// into the FlagMap when its LocType has BlockWalk=true. Called once at
+// server startup, adjacent to the NPC-spawn pass. Mirrors the runtime
+// AddLoc collision-write path at world_zone.go:17-22; the boot-time path
+// previously omitted the collision write, leaving zones whose only blockers
+// are static locs (e.g., Lumbridge castle interior) unallocated and
+// producing FlagNull tile reads in pathfinder BFS expansion (Hans waypoint_idx=-1
+// in NAI-92 smoke).
 func (s *Server) populateStaticLocsIntoZones() {
 	for _, loc := range s.gamemap.StaticLocs() {
+		if s.locTypes != nil {
+			if lt := s.locTypeOrNil(loc.Type()); lt != nil && lt.BlockWalk {
+				s.gamemap.ChangeLocCollision(loc.Shape(), loc.Angle(), lt.BlockRange,
+					loc.Length, loc.Width, loc.X, loc.Z, loc.Level, true)
+			}
+		}
 		z := s.zoneMap.Get(loc.Level, loc.X, loc.Z)
 		z.AddStaticLoc(loc)
 	}
