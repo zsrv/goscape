@@ -19,7 +19,11 @@ import (
 // "multi-tile but treated as 1 tile wide; player walks partway in then
 // stuck."
 //
-// bbox: x ∈ [3217..3225], z ∈ [3214..3220], level=0.
+// bbox: x ∈ [3217..3225], z ∈ [3214..3228], level=0. Initial run with
+// z ∈ [3214..3220] (NAI-99 T2 first commit) returned 37 locs but no
+// fountain — the actual Lumbridge "fountain" LocType (typeID=879,
+// W=2 L=2 BlockWalk=true Active=1) sits at (3221, 3226) per global scan;
+// widened zHi to 3228 to cover the W×L footprint plus a 1-tile margin.
 //
 // Output is captured via t.Logf and lands in the NAI-99 diagnosis report
 // as Stage 1.1 input. No assertions — this is a probe.
@@ -49,7 +53,7 @@ func TestNAI99_FountainFootprintDump_Lumbridge(t *testing.T) {
 		xLo   = 3217
 		xHi   = 3225
 		zLo   = 3214
-		zHi   = 3220
+		zHi   = 3228
 	)
 
 	type seen struct {
