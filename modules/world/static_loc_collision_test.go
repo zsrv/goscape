@@ -213,8 +213,9 @@ func TestNAI96_WallDecor_NoWrite(t *testing.T) {
 // width-along-Z footprint.
 //
 // Goscape Pathfinder.ChangeLoc(x, z, level, w, l, ...) iterates w*l tiles at
-// offsets (index%w, index/w). With width=length=swapped to (length=3,
-// width=2), the footprint covers X∈[x..x+2], Z∈[z..z+1] — 3 tiles wide, 2 tiles deep.
+// offsets (index%w, index/w). With N/S swap, ChangeLoc receives the loc's
+// (length=3, width=2) as its (w, l) args, so X-extent=3 and Z-extent=2 — the
+// footprint covers X∈[x..x+2], Z∈[z..z+1] (3 tiles wide, 2 tiles deep).
 func TestNAI96_AngleSwap_North_2x3(t *testing.T) {
 	s := newZoneTestServer(t)
 	s.gamemap = gamemap.New(discardLogger())
