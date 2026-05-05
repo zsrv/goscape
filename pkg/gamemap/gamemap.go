@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/zsrv/goscape/pkg/entity"
+	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/pathfinder/loc"
 	"github.com/zsrv/goscape/pkg/pathfinder/routefinder"
@@ -28,6 +29,7 @@ type GameMap struct {
 	landsByMapSquare map[uint16][]int8 // (mapX<<8)|mapZ -> mapLevels*64*64 land bytes; populated by loadGround, consumed by loadLocs (NAI-96 LINK_BELOW)
 	staticLocs       []*entity.Loc     // parsed static locs with absolute world coords
 	npcSpawns        []NpcSpawn
+	locTypes         *objtype.LocTypeConfigs // optional; when set before Init, loadLocs uses lt.Width/lt.Length per LocType (NAI-100). nil-OK preserves t.TempDir() test fixtures.
 	log              *slog.Logger
 }
 
@@ -42,6 +44,16 @@ func New(log *slog.Logger) *GameMap {
 		landsByMapSquare: map[uint16][]int8{},
 		log:              log,
 	}
+}
+
+// SetLocTypes registers the LocType configs used by loadLocs to thread
+// per-instance Width/Length into static *entity.Loc construction. Must be
+// called BEFORE Init for static-loc footprint correctness; calling later
+// has no effect on already-loaded static locs. nil-OK: when unset,
+// loadLocs falls back to 1×1 (preserves test fixtures with empty caches).
+// Mirrors TS GameMap.ts:248-263 where loadLocations consults LocType.get().
+func (gm *GameMap) SetLocTypes(cfgs *objtype.LocTypeConfigs) {
+	gm.locTypes = cfgs
 }
 
 // ChangeLandCollision marks or clears a floor tile as walkable.
