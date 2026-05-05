@@ -86,8 +86,8 @@ func handleIfOpenMainSide(s *ScriptState) error {
 // TS PlayerOps.ts:723-725 — pops a single int (com); check(com,
 // NumberNotNull). TS reserves com=-1 for the closeTutorial path
 // (Player.ts:716-726 writes TutOpen(-1) directly via Player.write,
-// not through this opcode) — closeTutorial is deferred per
-// stub_deferred_comment_marker.md.
+// not through this opcode); see handleTutClose / (*Player).CloseTutorial
+// (NAI-102 port).
 func handleTutOpen(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return errors.New("TUT_OPEN: no active player")
@@ -97,6 +97,16 @@ func handleTutOpen(s *ScriptState) error {
 		return err
 	}
 	s.Self.OpenTutorial(com)
+	return nil
+}
+
+// handleTutClose implements TUT_CLOSE.
+// TS PlayerOps.ts:877-879 — no pops; just delegates to closeTutorial().
+func handleTutClose(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("TUT_CLOSE: no active player")
+	}
+	s.Self.CloseTutorial()
 	return nil
 }
 

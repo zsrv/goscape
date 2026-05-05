@@ -790,6 +790,32 @@ func (p *Player) OpenTutorial(com int) {
 	p.modalState |= modalStateTut
 }
 
+// CloseTutorial closes the player's tutorial overlay. Per TS:
+// no-op if no tutorial open; otherwise dispatches the matching
+// IF_CLOSE trigger (if registered) for the current modalTutorial
+// component, then resets modalTutorial to -1. The wire OpTutOpen(-1)
+// emission is implicit via encodeOut's diff-check at
+// player.go:388-391 (NAI-76 pin).
+//
+// TS does NOT call clearComListeners(modalTutorial) here (contrast
+// with closeModal); we mirror that absence.
+//
+// Clears modalStateTut on the goscape-internal modalState bitmap
+// (goscape defensive; TS has no equivalent field). Labelled per
+// defensive_gate_doc_comment_label.md.
+//
+// Mirrors LostCityRS/Engine-TS Player.closeTutorial (Player.ts:716-726).
+func (p *Player) CloseTutorial() {
+	if p.modalTutorial == -1 {
+		return
+	}
+	if p.client != nil && p.client.server != nil {
+		p.runIfCloseTrigger(p.client.server, p.modalTutorial)
+	}
+	p.modalTutorial = -1
+	p.modalState &^= modalStateTut
+}
+
 // SetResumeButtons stores the 5 resume-button interface ids for later
 // consumption by P_PAUSEBUTTON. No wire op is emitted.
 func (p *Player) SetResumeButtons(b1, b2, b3, b4, b5 int) {

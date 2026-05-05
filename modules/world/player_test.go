@@ -894,6 +894,71 @@ func TestEncodeOutTutorialResetEmitsMinusOne(t *testing.T) {
 	}
 }
 
+// TestEncodeOut_CloseTutorialEmitsMinusOne pins that calling
+// (*Player).CloseTutorial() drives the same wire emission as a direct
+// modalTutorial=-1 reset (NAI-76 pin), confirming the
+// CloseTutorial API path produces OpTutOpen with payload [0xFF, 0xFF]
+// (signed -1 → uint16 0xFFFF). Mirrors TS Player.closeTutorial
+// Player.ts:716-726 → `this.write(new TutOpen(-1))`.
+func TestEncodeOut_CloseTutorialEmitsMinusOne(t *testing.T) {
+	enc, _ := isaacPair([4]uint32{17, 18, 19, 20})
+	wantEnc, _ := isaacPair([4]uint32{17, 18, 19, 20})
+
+	p, clientConn := newTestPlayer(t)
+	p.client.encryptor = enc
+
+	// Establish lastModalTutorial = 42 via a first emit pass.
+	drainDone := make(chan struct{})
+	p.OpenTutorial(42)
+	p.encodeOut()
+	go func() {
+		defer close(drainDone)
+		drain := make([]byte, 3)
+		clientConn.SetReadDeadline(time.Now().Add(time.Second))
+		io.ReadFull(clientConn, drain) //nolint:errcheck
+	}()
+	p.client.flushWrite()
+	<-drainDone                // wait until first emit bytes are consumed
+	wantEnc.GetNext()          // consume the encryptor step for the first emit
+
+	// Now close via the new CloseTutorial API path (instead of the
+	// direct field write that TestEncodeOutTutorialResetEmitsMinusOne
+	// uses).
+	p.CloseTutorial()
+
+	received := make(chan []byte, 1)
+	go func() {
+		buf := make([]byte, 3)
+		clientConn.SetReadDeadline(time.Now().Add(time.Second))
+		if _, err := io.ReadFull(clientConn, buf); err == nil {
+			received <- buf
+		}
+	}()
+
+	p.encodeOut()
+	p.client.flushWrite()
+
+	expectedByte := byte((int(gameserver.OpTutOpen.Opcode) + int(wantEnc.GetNext())) & 0xff)
+
+	select {
+	case got := <-received:
+		if got[0] != expectedByte {
+			t.Errorf("TUT_OPEN(close) encrypted opcode: got %d, want %d", got[0], expectedByte)
+		}
+		if got[1] != 0xFF || got[2] != 0xFF {
+			t.Errorf("TUT_OPEN(close) payload: got [%#x %#x], want [0xFF 0xFF]", got[1], got[2])
+		}
+		if p.modalTutorial != -1 {
+			t.Errorf("modalTutorial: got %d, want -1", p.modalTutorial)
+		}
+		if p.lastModalTutorial != -1 {
+			t.Errorf("lastModalTutorial: got %d, want -1", p.lastModalTutorial)
+		}
+	case <-time.After(time.Second):
+		t.Error("timed out waiting for TUT_OPEN(-1) via CloseTutorial")
+	}
+}
+
 // TestEncodeOutTutorialIndependentOfMain pins that the tutorial emit
 // branch is INDEPENDENT of the main/chat/side switch — opening
 // main and tutorial in the same tick produces both packets.

@@ -382,6 +382,92 @@ func TestCloseModalIfCloseDispatchSide(t *testing.T) {
 	}
 }
 
+// -- NAI-102: CloseTutorial tests -----------------------------------------
+
+// TestCloseTutorial_EarlyReturnsWhenNoTutorialOpen pins the TS-faithful
+// no-op when modalTutorial == -1 (Player.ts:716-726 early-returns).
+// Mirrors TestCloseModalIfCloseDispatchMain fixture shape.
+func TestCloseTutorial_EarlyReturnsWhenNoTutorialOpen(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	// Fresh player: modalTutorial defaults to -1, modalState == modalStateNone.
+
+	p.CloseTutorial()
+
+	if p.modalTutorial != -1 {
+		t.Errorf("modalTutorial: got %d, want -1", p.modalTutorial)
+	}
+	if p.modalState != modalStateNone {
+		t.Errorf("modalState: got %#x, want modalStateNone (%#x)", p.modalState, modalStateNone)
+	}
+}
+
+// TestCloseTutorial_DispatchesIfCloseTriggerAndResets pins TS Player.ts:716-726:
+// when modalTutorial != -1, dispatch the matching IF_CLOSE trigger script
+// (if registered) and reset the tutorial slot + clear modalStateTut.
+func TestCloseTutorial_DispatchesIfCloseTriggerAndResets(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	ifCloseScript := &script.ScriptFile{
+		Name:        "[if_close,42]",
+		LookupKey:   script.LookupKeyForType(script.TriggerIfClose, 42),
+		Opcodes:     []script.Opcode{script.OpReturn},
+		IntOperands: []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+	}
+	s.scriptProvider.Register(ifCloseScript)
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.modalTutorial = 42
+	p.modalState |= modalStateTut
+
+	p.CloseTutorial()
+
+	if p.modalTutorial != -1 {
+		t.Errorf("modalTutorial: got %d, want -1", p.modalTutorial)
+	}
+	if p.modalState&modalStateTut != 0 {
+		t.Errorf("modalState&modalStateTut: got %#x, want 0", p.modalState&modalStateTut)
+	}
+	// Script is registered, so dispatch path was taken; OpReturn finishes
+	// immediately so activeScript is nil.
+	if p.activeScript != nil {
+		t.Errorf("activeScript: got non-nil, want nil (IF_CLOSE script returned)")
+	}
+}
+
+// TestCloseTutorial_NoIfCloseTriggerStillResets pins that a missing
+// registered IF_CLOSE script is a silent no-op for dispatch but still
+// resets the tutorial slot. Mirrors TS `if (closeTrigger)` guard.
+func TestCloseTutorial_NoIfCloseTriggerStillResets(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.modalTutorial = 42
+	p.modalState |= modalStateTut
+
+	// Should not panic.
+	p.CloseTutorial()
+
+	if p.modalTutorial != -1 {
+		t.Errorf("modalTutorial: got %d, want -1", p.modalTutorial)
+	}
+	if p.modalState&modalStateTut != 0 {
+		t.Errorf("modalState&modalStateTut: got %#x, want 0", p.modalState&modalStateTut)
+	}
+}
+
 // TestCloseModalIfCloseMissingScriptNoOp pins that an open slot with no
 // registered IF_CLOSE script is a silent no-op (slot still resets, no
 // panic). Mirrors TS where `if (closeTrigger)` guards the executeScript.

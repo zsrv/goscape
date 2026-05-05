@@ -1192,3 +1192,53 @@ func TestTutOpenNoActivePlayer(t *testing.T) {
 		t.Errorf("Execution: got %v, want Aborted", state.Execution)
 	}
 }
+
+// -- NAI-102: TUT_CLOSE tests ----------------------------------------------
+
+// TestTutClose pins TUT_CLOSE script-opcode dispatch:
+// no pops; just delegates to ActivePlayer.CloseTutorial().
+// Mirrors TS PlayerOps.ts:877-879.
+func TestTutClose(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "tut_close",
+		Opcodes:          []Opcode{OpTutClose, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if mp.lastCloseTutorialCalls != 1 {
+		t.Errorf("CloseTutorial calls: got %d, want 1", mp.lastCloseTutorialCalls)
+	}
+}
+
+// TestTutCloseNoActivePlayer pins the no-active-player guard on TUT_CLOSE.
+func TestTutCloseNoActivePlayer(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "tut_close_nap",
+		Opcodes:          []Opcode{OpTutClose, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	mp := &mockPlayer{}
+	state := Init(sf, nil, false, nil, nil)
+	err := Execute(state)
+	if err == nil {
+		t.Fatal("expected error from TUT_CLOSE with no active player, got nil")
+	}
+	want := "TUT_CLOSE: no active player"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if mp.lastCloseTutorialCalls != 0 {
+		t.Errorf("CloseTutorial calls: got %d, want 0", mp.lastCloseTutorialCalls)
+	}
+	if state.Execution != Aborted {
+		t.Errorf("Execution: got %v, want Aborted", state.Execution)
+	}
+}

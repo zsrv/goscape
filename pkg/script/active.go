@@ -179,6 +179,13 @@ type ActivePlayer interface {
 	// Player.ts:1999-2003 (openTutorial).
 	OpenTutorial(com int)
 
+	// CloseTutorial closes any currently-open tutorial overlay. Per TS,
+	// this is a no-op when no tutorial is open; otherwise it dispatches
+	// the matching IF_CLOSE trigger script (if registered) and resets
+	// the tutorial slot. Mirrors LostCityRS/Engine-TS Player.closeTutorial
+	// (Player.ts:716-726).
+	CloseTutorial()
+
 	// IfSetText emits an IF_SETTEXT wire op setting the text of interface
 	// component com. Fire-and-forget; no server-side persistence.
 	IfSetText(com int, text string)
