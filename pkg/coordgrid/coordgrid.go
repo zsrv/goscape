@@ -167,6 +167,9 @@ func PackZoneCoord(x, z int) byte {
 	return byte((x&0x7)<<4 | (z & 0x7))
 }
 
+// Intersects reports whether two axis-aligned bounding boxes overlap.
+// Mirrors TS CoordGrid.intersects (CoordGrid.ts:144-150): touching edges
+// (e.g. src right at x=7, dest at x=7) do NOT overlap (strict >= / <=).
 func Intersects(srcX, srcZ, srcWidth, srcHeight, destX, destZ, destWidth, destHeight int) bool {
 	srcHorizontal := srcX + srcWidth
 	srcVertical := srcZ + srcHeight
