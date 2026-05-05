@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
+	"github.com/zsrv/goscape/pkg/pathfinder/internal"
 )
 
 // TestNAI94_HansCheb2_StraightLineMustReach is the H1 reproducer for NAI-94.
@@ -19,9 +20,14 @@ import (
 //   - If PASSES: H1 is eliminated against the unit-level pathfinder; the
 //     real-game bug is upstream of the pathfinder API. Document in diagnosis.
 func TestNAI94_HansCheb2_StraightLineMustReach(t *testing.T) {
-	t.Skip("NAI-94: H1 reproducer — pathfinder returns no/short path on cheb=2 straight-line with empty FlagMap. " +
-		"Observed Route at NAI-94 audit time: {Waypoints:[] Alternative:false Success:true}. " +
-		"Lift this skip in NAI-95 once the fix lands.")
+	t.Skip("NAI-94: H1 reproducer — pathfinder returns empty Waypoints on cheb=2 straight-line with empty FlagMap. " +
+		"Observed Route at NAI-94 audit time: {Waypoints:[] Alternative:true Success:true}. " +
+		"NOTE (post-T4 audit): empty FlagMap is a DEGENERATE case — flags.Get() returns FlagNull=-1 " +
+		"for unallocated zones, and CanMove(-1, mask, TypeNormal)=false for any non-zero mask, so BFS " +
+		"cannot expand any direction. With zones allocated (FlagOpen=0 default) the pathfinder works " +
+		"correctly (see TestNAI94_AllocatedZones_PathfinderWorks). Lift this skip in NAI-95 if the " +
+		"production-side allocation gap is fixed in the pathfinder layer; otherwise this skip stays " +
+		"because empty-FlagMap is not the production bug.")
 
 	pf := NewPathFinderAPI()
 
@@ -129,9 +135,10 @@ func TestNAI94_SurvivalExpert_BlockedPassage(t *testing.T) {
 	)
 
 	t.Run("EmptyFlagMap_MustReach", func(t *testing.T) {
-		t.Skip("NAI-94: H3 — empty-flagmap cheb=8 path failed; observed: " +
-			"Route.Success=true, Route.Waypoints=[] (same empty-waypoint shape as H1). " +
-			"Lift this skip in NAI-95 once the fix lands.")
+		t.Skip("NAI-94: H3 — empty-flagmap cheb=8 path produces empty Waypoints; observed: " +
+			"{Waypoints:[] Alternative:true Success:true} (same shape as H1). " +
+			"Same FlagNull-blocks-expansion degenerate case (see H1 skip note + TestNAI94_AllocatedZones_PathfinderWorks). " +
+			"Lift this skip in NAI-95 only if production-allocation gap is fixed in pathfinder layer.")
 
 		pf := NewPathFinderAPI()
 
@@ -173,6 +180,65 @@ func TestNAI94_SurvivalExpert_BlockedPassage(t *testing.T) {
 		if len(route.Waypoints) > 0 {
 			last := route.Waypoints[len(route.Waypoints)-1]
 			t.Logf("last waypoint: (%d, %d)", last.X(), last.Z())
+		}
+	})
+}
+
+// TestNAI94_AllocatedZones_PathfinderWorks is the corrective companion to the
+// H1/H3 empty-FlagMap reproducers. After T4 audit (controller-side, post-T3
+// commit), it became clear that the empty-FlagMap probe surfaces a DEGENERATE
+// case (FlagNull=-1 returned for unallocated zones blocks all CanMove checks
+// under TypeNormal), not the production bug. This test pins the same H1/H3
+// coords against a FlagMap whose relevant zones ARE allocated (defaulting to
+// FlagOpen=0, the real-world non-blocked tile state), confirming the
+// unit-level pathfinder works correctly. This is positive elimination
+// evidence: the NAI-92-surfaced "waypoint_idx=-1" bug is upstream of the
+// pathfinder algorithm — likely in production-side FlagMap allocation, the
+// caller's coord/srcSize/destWidth/destLength threading, or the consumer
+// layer's interpretation of the returned Route.
+//
+// If this test ever FAILS at HEAD: a regression has been introduced into the
+// pathfinder algorithm itself. Investigate before assuming H1/H3 fired.
+func TestNAI94_AllocatedZones_PathfinderWorks(t *testing.T) {
+	t.Run("HansCheb2", func(t *testing.T) {
+		// Allocate a 3x3 zone box covering src and dst (and a margin).
+		flags := internal.BuildCollisionMap(3216, 3220, 3222, 3226)
+		rf := NewRouteFinderDefault(flags)
+		route := rf.FindRouteDefault(0, 3219, 3224, 3219, 3222)
+
+		if !route.Success {
+			t.Fatalf("Success=false; cheb=2 with allocated empty zones must succeed. Route=%+v", route)
+		}
+		if route.Alternative {
+			t.Fatalf("Alternative=true; cheb=2 unobstructed must reach via primary path. Route=%+v", route)
+		}
+		if len(route.Waypoints) == 0 {
+			t.Fatalf("Waypoints empty; expected reaching path. Route=%+v", route)
+		}
+		last := route.Waypoints[len(route.Waypoints)-1]
+		if last.X() != 3219 || last.Z() != 3222 {
+			t.Fatalf("last waypoint (%d, %d) != dest (3219, 3222). Route=%+v", last.X(), last.Z(), route)
+		}
+	})
+
+	t.Run("SurvivalExpertCheb8", func(t *testing.T) {
+		// Allocate zones covering the full search window for src=(3101,3103), dst=(3103,3095).
+		flags := internal.BuildCollisionMap(3095, 3088, 3110, 3110)
+		rf := NewRouteFinderDefault(flags)
+		route := rf.FindRouteDefault(0, 3101, 3103, 3103, 3095)
+
+		if !route.Success {
+			t.Fatalf("Success=false; cheb=8 with allocated empty zones must succeed. Route=%+v", route)
+		}
+		if route.Alternative {
+			t.Fatalf("Alternative=true; cheb=8 unobstructed must reach via primary path. Route=%+v", route)
+		}
+		if len(route.Waypoints) == 0 {
+			t.Fatalf("Waypoints empty; expected reaching path. Route=%+v", route)
+		}
+		last := route.Waypoints[len(route.Waypoints)-1]
+		if last.X() != 3103 || last.Z() != 3095 {
+			t.Fatalf("last waypoint (%d, %d) != dest (3103, 3095). Route=%+v", last.X(), last.Z(), route)
 		}
 	})
 }
