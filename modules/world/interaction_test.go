@@ -2163,4 +2163,7 @@ func TestPlayer_PathToTarget_NoTarget_NoOp(t *testing.T) {
 	if _, ok := rec.lastFindPathPlain(); ok {
 		t.Errorf("FindPathPlain unexpectedly called for nil target")
 	}
+	if p.waypointIndex >= 0 {
+		t.Errorf("expected no waypoints (waypointIndex=-1), got waypointIndex=%d", p.waypointIndex)
+	}
 }
