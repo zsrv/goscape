@@ -215,6 +215,14 @@ func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
 // Slot returns the NPC's nid for the entity interface.
 func (n *Npc) Slot() int { return n.nid }
 
+// Width returns the NPC's tile footprint width. NPCs are square (size×size);
+// width and length both return n.size. Mirrors TS Npc.width which equals
+// NpcType.size at construction.
+func (n *Npc) Width() int { return n.size }
+
+// Length returns the NPC's tile footprint length. Square: equals Width().
+func (n *Npc) Length() int { return n.size }
+
 // StoreActiveScript saves a Suspended ScriptState so Npc.turn() can
 // resume it when the NPC's delay expires. Part of the ActiveNpc
 // interface; mirrors *Player.StoreActiveScript.

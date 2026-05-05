@@ -536,6 +536,13 @@ func (p *Player) Slot() int { return p.slot }
 // Coords returns the player's current absolute coordinates.
 func (p *Player) Coords() (x, z, level int) { return p.x, p.z, p.level }
 
+// Width returns the player's tile footprint width. Players are always 1×1.
+// Mirrors TS PathingEntity.width inheritance from Entity.
+func (p *Player) Width() int { return 1 }
+
+// Length returns the player's tile footprint length. Players are always 1×1.
+func (p *Player) Length() int { return 1 }
+
 // X is the script-VM ActivePlayer.X accessor. NAI-35.
 func (p *Player) X() int { return p.x }
 
