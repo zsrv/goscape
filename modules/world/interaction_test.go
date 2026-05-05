@@ -2296,6 +2296,10 @@ func TestPlayer_PathToTarget_ObjTarget_SameTile_QueuesSingleWaypoint(t *testing.
 	if p.waypointIndex < 0 {
 		t.Fatalf("expected single waypoint queued, got waypointIndex=%d", p.waypointIndex)
 	}
+	got := coordgrid.UnpackCoord(p.waypoints[p.waypointIndex])
+	if got.Level != 0 || got.X != 100 || got.Z != 100 {
+		t.Errorf("waypoint coord: got (lvl=%d, %d, %d), want (0, 100, 100)", got.Level, got.X, got.Z)
+	}
 	if _, ok := rec.lastFindPathPlain(); ok {
 		t.Errorf("FindPathPlain unexpectedly called for same-tile Obj")
 	}
