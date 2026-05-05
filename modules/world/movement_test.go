@@ -285,3 +285,101 @@ func TestResolveMovementSkipsLastMovementWhenIdle(t *testing.T) {
 		t.Errorf("lastMovement: got %d, want 0 (unchanged from zero-value)", p.lastMovement)
 	}
 }
+
+// TestQueueWaypointsReversesInputOrder pins TS PathingEntity.queueWaypoints
+// (Engine-TS/src/engine/entity/PathingEntity.ts:248-254): packed arrives in
+// src→dst order ([first_step, …, dest]); queueWaypoints reverses on copy so
+// internal storage is [dest, …, first_step]. stepOnce's read of
+// waypoints[waypointIndex=n-1] then returns first_step.
+func TestQueueWaypointsReversesInputOrder(t *testing.T) {
+	p, _ := newTestPlayer(t)
+
+	a := packTestCoord(0, 3100, 3100) // first_step
+	b := packTestCoord(0, 3105, 3105) // mid
+	c := packTestCoord(0, 3110, 3110) // dest
+	packed := []int{a, b, c}
+
+	p.queueWaypoints(packed)
+
+	if p.waypointIndex != 2 {
+		t.Errorf("waypointIndex: got %d, want 2 (n-1)", p.waypointIndex)
+	}
+	if p.waypoints[0] != c {
+		t.Errorf("waypoints[0]: got 0x%X, want 0x%X (= packed[2] = dest)", p.waypoints[0], c)
+	}
+	if p.waypoints[1] != b {
+		t.Errorf("waypoints[1]: got 0x%X, want 0x%X (= packed[1] = mid)", p.waypoints[1], b)
+	}
+	if p.waypoints[2] != a {
+		t.Errorf("waypoints[2]: got 0x%X, want 0x%X (= packed[0] = first_step)", p.waypoints[2], a)
+	}
+}
+
+// TestQueueWaypointsTruncatesFarEntries pins TS PathingEntity.queueWaypoints
+// truncation behavior (PathingEntity.ts:248-254 inner condition output <
+// this.waypoints.length): when packed exceeds the waypoints buffer length,
+// the entries closest to dest are preserved and far-from-dest entries are
+// dropped. This matches TS because TS iterates input from length-1 down to
+// 0 while output is bounded above by waypoints.length.
+//
+// Goscape's Player.waypoints is a fixed-size [25]int. With 30-element
+// packed input, the 5 entries at packed[0..4] (closest to source) are
+// dropped; packed[5..29] reversed are stored at waypoints[0..24].
+func TestQueueWaypointsTruncatesFarEntries(t *testing.T) {
+	p, _ := newTestPlayer(t)
+
+	const inLen = 30
+	if inLen <= len(p.waypoints) {
+		t.Fatalf("test fixture broken: inLen=%d must exceed len(p.waypoints)=%d", inLen, len(p.waypoints))
+	}
+	packed := make([]int, inLen)
+	for i := range packed {
+		packed[i] = packTestCoord(0, 3000+i, 3000)
+	}
+
+	p.queueWaypoints(packed)
+
+	bufLen := len(p.waypoints)
+	if p.waypointIndex != bufLen-1 {
+		t.Errorf("waypointIndex: got %d, want %d (buffer cap)", p.waypointIndex, bufLen-1)
+	}
+	// Storage[i] = packed[inLen-1-i] for i in [0, bufLen). The last
+	// bufLen entries of packed (the dest-end) are preserved; packed[0..4]
+	// (source-end) are dropped.
+	for i := range bufLen {
+		want := packed[inLen-1-i]
+		if p.waypoints[i] != want {
+			t.Errorf("waypoints[%d]: got 0x%X, want 0x%X (= packed[%d])", i, p.waypoints[i], want, inLen-1-i)
+		}
+	}
+}
+
+// TestStepOnceFollowsDirectionChangePoints is the regression pin for the
+// NAI-101 root cause. Pre-fix, with packed=[first_step, mid, dest] stored
+// natural-order, stepOnce reads waypoints[n-1] = dest and uses Face to head
+// straight at dest, ignoring the routed mid waypoint. Post-fix, reversed
+// storage means waypoints[n-1] = first_step; stepOnce iterates through
+// each direction-change point in turn.
+//
+// Scenario: player at (3094, 3106). Route N to (3094, 3110), then E to
+// (3097, 3110). Pre-fix Face from (3094, 3106) to dest (3097, 3110) returns
+// DirectionNortheast (heads NE diagonally), bypassing the routed N→E shape.
+// Post-fix Face from (3094, 3106) to first_step (3094, 3107) returns
+// DirectionNorth (correct first step).
+func TestStepOnceFollowsDirectionChangePoints(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.x, p.z, p.level = 3094, 3106, 0
+	p.moveSpeed = MoveSpeedWalk
+
+	firstStep := packTestCoord(0, 3094, 3107)
+	mid := packTestCoord(0, 3094, 3110)
+	dest := packTestCoord(0, 3097, 3110)
+	p.queueWaypoints([]int{firstStep, mid, dest})
+
+	// Tick 1: should step N (toward first_step), not NE (toward dest).
+	p.resolveMovement()
+	if p.x != 3094 || p.z != 3107 {
+		t.Fatalf("tick 1: got (%d,%d), want (3094,3107) [N step toward first_step]; "+
+			"pre-fix bug heads NE toward dest", p.x, p.z)
+	}
+}

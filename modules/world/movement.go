@@ -12,20 +12,26 @@ func (p *Player) queueWaypoint(x, z int) {
 }
 
 // queueWaypoints replaces the current path with the given packed coords.
-// waypoints[0] is the final destination; the last element is the first step.
+// Mirrors TS PathingEntity.queueWaypoints (Engine-TS PathingEntity.ts:248-254):
+// reverses the input on copy so that internal storage is [dest, …, first_step].
+// stepOnce reads waypoints[waypointIndex] starting at n-1 (= first_step) and
+// decrements toward 0 (= dest).
+//
+// Truncation: when len(packed) exceeds len(p.waypoints), entries closest to
+// dest are preserved (input iterates from length-1 down; output bounded above
+// by waypoints buffer cap). TS-faithful: TS truncates the same way via
+// output < this.waypoints.length.
 func (p *Player) queueWaypoints(packed []int) {
 	if len(packed) == 0 {
 		p.waypointIndex = -1
 		return
 	}
-	n := len(packed)
-	if n > len(p.waypoints) {
-		n = len(p.waypoints)
+	index := -1
+	for input, output := len(packed)-1, 0; input >= 0 && output < len(p.waypoints); input, output = input-1, output+1 {
+		p.waypoints[output] = packed[input]
+		index++
 	}
-	for i := 0; i < n; i++ {
-		p.waypoints[i] = packed[i]
-	}
-	p.waypointIndex = n - 1
+	p.waypointIndex = index
 }
 
 // resolveMovement advances the player along their waypoint queue for one tick.
