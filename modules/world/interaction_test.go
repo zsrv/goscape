@@ -2055,6 +2055,21 @@ func newPathToTargetTestPlayer(t *testing.T, srv *Server, x, z, level int) *Play
 	return p
 }
 
+// newPathToTargetTestNpc returns an Npc at the given coords with size=size,
+// suitable for use as a Player.target in B3+ pathToTarget tests. The NPC's
+// own moveStrategy is irrelevant — only its Coords/Width/Length matter when
+// it's the target.
+func newPathToTargetTestNpc(t *testing.T, srv *Server, x, z, level, size int) *Npc {
+	t.Helper()
+	typ := &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 0, DebugName: "pttarget"},
+		Size:       byte(size),
+	}
+	n := NewNpc(0, 0, x, z, level, typ)
+	n.server = srv
+	return n
+}
+
 // ---------------------------------------------------------------------------
 // pathToTarget tests — NAI-92 B2
 // ---------------------------------------------------------------------------
@@ -2165,5 +2180,98 @@ func TestPlayer_PathToTarget_NoTarget_NoOp(t *testing.T) {
 	}
 	if p.waypointIndex >= 0 {
 		t.Errorf("expected no waypoints (waypointIndex=-1), got waypointIndex=%d", p.waypointIndex)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// pathToTarget tests — NAI-92 B3
+// ---------------------------------------------------------------------------
+
+// TestPlayer_PathToTarget_NpcTarget_NoIntersect_UsesFindPathToEntity pins
+// NAI-92 B3's SMART/PathingEntity arm without the intersect shortcut.
+// Fixture: Survival Expert NPC at (3104, 3093) + player at (3101, 3105).
+// bbox is disjoint → FindPathToEntity called with srcSize=p.Width(),
+// destWidth=destLength=npc.size. Pre-NAI-92 this used the shape-blind 1×1
+// FindPathPlain and failed to route through the cabin door.
+func TestPlayer_PathToTarget_NpcTarget_NoIntersect_UsesFindPathToEntity(t *testing.T) {
+	srv, rec := newPathToTargetTestServer(t)
+	srv.cfg.NodeClientRoutefinder = false // server-routefinder mode (production default)
+	p := newPathToTargetTestPlayer(t, srv, 3101, 3105, 0)
+	npc := newPathToTargetTestNpc(t, srv, 3104, 3093, 0, /*size=*/ 1)
+	p.target = npc
+
+	p.pathToTarget()
+
+	call, ok := rec.lastFindPathToEntity()
+	if !ok {
+		t.Fatalf("FindPathToEntity not called")
+	}
+	if call.srcSize != 1 {
+		t.Errorf("srcSize: got %d, want 1 (Player.Width)", call.srcSize)
+	}
+	if call.destWidth != 1 || call.destLength != 1 {
+		t.Errorf("destW/L: got (%d, %d), want (1, 1) (npc.size)", call.destWidth, call.destLength)
+	}
+	if call.level != 0 || call.srcX != 3101 || call.srcZ != 3105 || call.destX != 3104 || call.destZ != 3093 {
+		t.Errorf("coords: got (lvl=%d src=%d,%d dest=%d,%d), want (0, 3101, 3105, 3104, 3093)",
+			call.level, call.srcX, call.srcZ, call.destX, call.destZ)
+	}
+
+	// Negative pin: FindNaivePath must NOT have been called.
+	if _, ok := rec.lastFindNaivePath(); ok {
+		t.Errorf("FindNaivePath unexpectedly called (no NCR + no intersect should use FindPathToEntity)")
+	}
+}
+
+// TestPlayer_PathToTarget_NpcTarget_NodeClientRoutefinder_Intersect_UsesNaivePath
+// pins the shortcut: NodeClientRoutefinder=true AND bbox-intersect →
+// FindNaivePath instead of FindPathToEntity.
+func TestPlayer_PathToTarget_NpcTarget_NodeClientRoutefinder_Intersect_UsesNaivePath(t *testing.T) {
+	srv, rec := newPathToTargetTestServer(t)
+	srv.cfg.NodeClientRoutefinder = true
+	p := newPathToTargetTestPlayer(t, srv, 100, 100, 0)
+	npc := newPathToTargetTestNpc(t, srv, 100, 100, 0, /*size=*/ 1) // same tile = intersect
+	p.target = npc
+
+	p.pathToTarget()
+
+	if _, ok := rec.lastFindNaivePath(); !ok {
+		t.Fatalf("FindNaivePath not called (NCR + intersect should shortcut)")
+	}
+	if _, ok := rec.lastFindPathToEntity(); ok {
+		t.Errorf("FindPathToEntity unexpectedly called (intersect should shortcut)")
+	}
+}
+
+// TestPlayer_PathToTarget_NpcTarget_NodeClientRoutefinder_NoIntersect_UsesFindPathToEntity
+// pins the fallthrough: NCR=true but bbox is DISJOINT → FindPathToEntity (full search).
+func TestPlayer_PathToTarget_NpcTarget_NodeClientRoutefinder_NoIntersect_UsesFindPathToEntity(t *testing.T) {
+	srv, rec := newPathToTargetTestServer(t)
+	srv.cfg.NodeClientRoutefinder = true
+	p := newPathToTargetTestPlayer(t, srv, 100, 100, 0)
+	npc := newPathToTargetTestNpc(t, srv, 200, 200, 0, /*size=*/ 1) // disjoint bbox
+	p.target = npc
+
+	p.pathToTarget()
+
+	if _, ok := rec.lastFindPathToEntity(); !ok {
+		t.Fatalf("FindPathToEntity not called (no intersect should use full search)")
+	}
+}
+
+// TestPlayer_PathToTarget_PlayerTarget_DispatchesSameAsNpc pins symmetry —
+// when the target is another *Player, the same SMART/PathingEntity branch
+// fires.
+func TestPlayer_PathToTarget_PlayerTarget_DispatchesSameAsNpc(t *testing.T) {
+	srv, rec := newPathToTargetTestServer(t)
+	srv.cfg.NodeClientRoutefinder = false
+	p := newPathToTargetTestPlayer(t, srv, 100, 100, 0)
+	other := newPathToTargetTestPlayer(t, srv, 105, 105, 0)
+	p.target = other
+
+	p.pathToTarget()
+
+	if _, ok := rec.lastFindPathToEntity(); !ok {
+		t.Fatalf("FindPathToEntity not called for *Player target")
 	}
 }

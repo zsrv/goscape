@@ -4,6 +4,7 @@ import (
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/pathfinder/reach"
 )
 
@@ -585,7 +586,7 @@ func (p *Player) pathToTarget() {
 }
 
 // pathToTargetSmart dispatches by target type for the SMART strategy.
-// NAI-92 B2 implements the *Loc arm; B3 adds *Player/*Npc; B4 adds *Obj.
+// NAI-92 B2 implements *Loc; B3 implements *Player/*Npc; B4 adds *Obj.
 func (p *Player) pathToTargetSmart() {
 	srv := p.client.server
 	pf := srv.pathfinder()
@@ -594,9 +595,8 @@ func (p *Player) pathToTargetSmart() {
 	switch t := p.target.(type) {
 	case *entitypkg.Loc:
 		if pf == nil {
-			// gamemap not initialised (e.g. tests that only test interaction
-			// framing, not pathing correctness): queue a direct-step waypoint
-			// mirroring the pre-NAI-92 NodeClientRoutefinder=true path.
+			// (goscape defensive; TS skips this check) — gamemap not
+			// initialised in some test fixtures; queue a direct-step waypoint.
 			p.queueWaypoint(tx, tz)
 			return
 		}
@@ -608,11 +608,30 @@ func (p *Player) pathToTargetSmart() {
 		}
 		route := pf.FindPathToLoc(p.level, p.x, p.z, tx, tz, p.Width(), t.Width, t.Length, t.Angle(), t.Shape(), fap)
 		p.queueWaypoints(routeToPacked(route))
+
+	case pathingEntity:
+		// *Player or *Npc target. Mirrors TS PathingEntity.pathToTarget
+		// PathingEntity branch (PathingEntity.ts:464-468). When NODE_CLIENT_-
+		// ROUTEFINDER is enabled and player+target bboxes intersect, shortcut
+		// to FindNaivePath; else use the full FindPathToEntity search with
+		// the entity-target shape sentinel (=-2 inside the wrapper).
+		if pf == nil {
+			// (goscape defensive; TS skips this check)
+			p.queueWaypoint(tx, tz)
+			return
+		}
+		tw, tl := t.Width(), t.Length()
+		if srv.cfg.NodeClientRoutefinder && coordgrid.Intersects(p.x, p.z, p.Width(), p.Length(), tx, tz, tw, tl) {
+			route := pf.FindNaivePath(p.level, p.x, p.z, tx, tz, p.Width(), p.Length(), tw, tl, 0, collision.TypeNormal)
+			p.queueWaypoints(routeToPacked(route))
+		} else {
+			route := pf.FindPathToEntity(p.level, p.x, p.z, tx, tz, p.Width(), tw, tl)
+			p.queueWaypoints(routeToPacked(route))
+		}
+
 	default:
-		// NAI-92 B3-B4 fill in *Player/*Npc/*Obj. For now, fall back to the
-		// pre-NAI-92 shape-blind path so B2 doesn't regress PathingEntity/Obj
-		// targets in flight. When gamemap is absent, queue a direct-step
-		// waypoint (mirrors old NodeClientRoutefinder=true behaviour).
+		// *entitypkg.Obj branches (B4) and any unhandled subject — fall back
+		// to plain. (goscape defensive; TS skips this check on the default arm.)
 		if pf == nil {
 			p.queueWaypoint(tx, tz)
 			return
