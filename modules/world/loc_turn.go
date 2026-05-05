@@ -40,14 +40,14 @@ func (s *Server) RevertLoc(l *entitypkg.Loc) {
 	if s.gamemap != nil && s.locTypes != nil {
 		if oldLt := s.locTypeOrNil(l.Type()); oldLt != nil && oldLt.BlockWalk {
 			s.gamemap.ChangeLocCollision(l.Shape(), l.Angle(), oldLt.BlockRange,
-				l.Length, l.Width, l.X, l.Z, l.Level, false)
+				l.Length, l.Width, oldLt.Active, l.X, l.Z, l.Level, false)
 		}
 	}
 	l.Revert()
 	if s.gamemap != nil && s.locTypes != nil {
 		if newLt := s.locTypeOrNil(l.Type()); newLt != nil && newLt.BlockWalk {
 			s.gamemap.ChangeLocCollision(l.Shape(), l.Angle(), newLt.BlockRange,
-				l.Length, l.Width, l.X, l.Z, l.Level, true)
+				l.Length, l.Width, newLt.Active, l.X, l.Z, l.Level, true)
 		}
 	}
 	z := s.zoneMap.Get(l.Level, l.X, l.Z)

@@ -18,7 +18,7 @@ func (s *Server) AddLoc(loc *entitypkg.Loc, duration int) {
 	if s.gamemap != nil && s.locTypes != nil {
 		if lt := s.locTypeOrNil(loc.Type()); lt != nil && lt.BlockWalk {
 			s.gamemap.ChangeLocCollision(loc.Shape(), loc.Angle(), lt.BlockRange,
-				loc.Length, loc.Width, loc.X, loc.Z, loc.Level, true)
+				loc.Length, loc.Width, lt.Active, loc.X, loc.Z, loc.Level, true)
 		}
 	}
 	z := s.zoneMap.Get(loc.Level, loc.X, loc.Z)
@@ -47,14 +47,14 @@ func (s *Server) ChangeLoc(loc *entitypkg.Loc, typ, shape, angle, duration int) 
 	if loc.IsActive && s.gamemap != nil && s.locTypes != nil {
 		if oldLt := s.locTypeOrNil(loc.Type()); oldLt != nil && oldLt.BlockWalk {
 			s.gamemap.ChangeLocCollision(loc.Shape(), loc.Angle(), oldLt.BlockRange,
-				loc.Length, loc.Width, loc.X, loc.Z, loc.Level, false)
+				loc.Length, loc.Width, oldLt.Active, loc.X, loc.Z, loc.Level, false)
 		}
 	}
 	loc.Change(typ, shape, angle)
 	if s.gamemap != nil && s.locTypes != nil {
 		if newLt := s.locTypeOrNil(typ); newLt != nil && newLt.BlockWalk {
 			s.gamemap.ChangeLocCollision(loc.Shape(), loc.Angle(), newLt.BlockRange,
-				loc.Length, loc.Width, loc.X, loc.Z, loc.Level, true)
+				loc.Length, loc.Width, newLt.Active, loc.X, loc.Z, loc.Level, true)
 		}
 	}
 	z := s.zoneMap.Get(loc.Level, loc.X, loc.Z)
@@ -80,7 +80,7 @@ func (s *Server) RemoveLoc(loc *entitypkg.Loc, duration int) {
 	if s.gamemap != nil && s.locTypes != nil {
 		if lt := s.locTypeOrNil(loc.Type()); lt != nil && lt.BlockWalk {
 			s.gamemap.ChangeLocCollision(loc.Shape(), loc.Angle(), lt.BlockRange,
-				loc.Length, loc.Width, loc.X, loc.Z, loc.Level, false)
+				loc.Length, loc.Width, lt.Active, loc.X, loc.Z, loc.Level, false)
 		}
 	}
 	z := s.zoneMap.Get(loc.Level, loc.X, loc.Z)

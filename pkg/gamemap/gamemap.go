@@ -49,17 +49,32 @@ func (gm *GameMap) ChangeLandCollision(x, z, level int, add bool) {
 	gm.Pathfinder.ChangeFloor(x, z, level, add)
 }
 
-// ChangeLocCollision updates collision for a wall/scenery piece.
-// Uses loc.LayerOf to route the call to the appropriate pathfinder method.
-func (gm *GameMap) ChangeLocCollision(shape, angle int, blocksRange bool, length, width, x, z, level int, add bool) {
+// ChangeLocCollision updates collision for a loc based on its layer.
+// Mirrors TS Engine-TS/src/engine/GameMap.ts:326-341 changeLocCollision.
+//
+// LayerWall:        ChangeWall (writes FlagWall* by angle).
+// LayerGround:      ChangeLoc with angle-aware (length,width) swap.
+// LayerGroundDecor: ChangeFloor when active==1 (writes FlagBlockWalk).
+// LayerWallDecor:   no-op (TS skips: GameMap.ts:326-340 has no WALL_DECOR branch).
+//
+// `active` is the LocType.Active field (0 or 1 after PostDecode).
+func (gm *GameMap) ChangeLocCollision(shape, angle int, blocksRange bool, length, width, active, x, z, level int, add bool) {
 	layer := loc.LayerOf(loc.Shape(shape))
 	switch layer {
 	case loc.LayerWall:
 		gm.Pathfinder.ChangeWall(x, z, level, angle, shape, blocksRange, false, add)
 	case loc.LayerGround:
-		gm.Pathfinder.ChangeLoc(x, z, level, width, length, blocksRange, false, add)
+		if angle == loc.AngleNorth || angle == loc.AngleSouth {
+			gm.Pathfinder.ChangeLoc(x, z, level, length, width, blocksRange, false, add)
+		} else {
+			gm.Pathfinder.ChangeLoc(x, z, level, width, length, blocksRange, false, add)
+		}
+	case loc.LayerGroundDecor:
+		if active == 1 {
+			gm.Pathfinder.ChangeFloor(x, z, level, add)
+		}
 	}
-	// LayerWallDecor and LayerGroundDecor do not affect collision.
+	// LayerWallDecor: TS skips (GameMap.ts:326-340 has no WALL_DECOR branch).
 }
 
 // ChangeNPCCollision marks or clears an NPC's occupied tiles.

@@ -5,9 +5,11 @@ import (
 	"path/filepath"
 	"testing"
 
+	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
+	"github.com/zsrv/goscape/pkg/pathfinder/loc"
 )
 
 // TestNAI95_StaticLocCollision_HansArea pins NAI-95: populateStaticLocsIntoZones
@@ -116,4 +118,37 @@ func TestNAI95_StaticLocCollision_HansArea(t *testing.T) {
 			t.Skip("no BlockWalk static loc found in cache; cannot pin positive wall-tile collision")
 		}
 	})
+}
+
+// TestNAI96_GroundDecor_Active1_WritesFloor pins TS GameMap.ts:336-340 —
+// LocLayer.GROUND_DECOR + active==1 writes ChangeFloor (FlagBlockWalk).
+func TestNAI96_GroundDecor_Active1_WritesFloor(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+
+	// Build a synthetic LocType: BlockWalk=true, Active=1, BlockRange=false.
+	// LocTypeConfigs.Configs is indexed by typeId; index 0 reserved by convention.
+	lt := &objtype.LocType{BlockWalk: true, Active: 1}
+	s.locTypes = &objtype.LocTypeConfigs{Configs: []*objtype.LocType{nil, lt}}
+
+	// Static loc with GroundDecor shape (ShapeGroundDecor=22) at (3220, 3220, 0).
+	// Width/Length 1x1 (matches load.go convention).
+	const absX, absZ, level = 3220, 3220, 0
+	staticLoc := entitypkg.NewLoc(level, absX, absZ, 1, 1,
+		entitypkg.LifecycleRespawn,
+		1, /*locId*/
+		int(loc.ShapeGroundDecor),
+		int(loc.AngleWest))
+	s.gamemap.AddStaticLoc(staticLoc)
+
+	// Pre-allocate the touched zone so flag reads return real values.
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(absX, absZ, level)
+
+	s.populateStaticLocsIntoZones()
+
+	flag := s.gamemap.Pathfinder.Flags.Get(absX, absZ, level)
+	if flag&collision.FlagBlockWalk == 0 {
+		t.Errorf("GroundDecor active=1 at (%d, %d, %d): flag=0x%x missing FlagBlockWalk (0x%x)",
+			absX, absZ, level, flag, collision.FlagBlockWalk)
+	}
 }

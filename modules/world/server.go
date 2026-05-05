@@ -326,7 +326,7 @@ func (s *Server) populateStaticLocsIntoZones() {
 		if s.locTypes != nil {
 			if lt := s.locTypeOrNil(loc.Type()); lt != nil && lt.BlockWalk {
 				s.gamemap.ChangeLocCollision(loc.Shape(), loc.Angle(), lt.BlockRange,
-					loc.Length, loc.Width, loc.X, loc.Z, loc.Level, true)
+					loc.Length, loc.Width, lt.Active, loc.X, loc.Z, loc.Level, true)
 			}
 		}
 		z := s.zoneMap.Get(loc.Level, loc.X, loc.Z)
