@@ -6,6 +6,9 @@ import (
 	"testing"
 
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
+	"github.com/zsrv/goscape/pkg/gamemap"
+	"github.com/zsrv/goscape/pkg/io/packet"
+	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
@@ -347,3 +350,155 @@ func TestHandleMoveClickGate2ClearsWaypoints(t *testing.T) {
 
 // ensure net is used (drainConn uses net.Conn)
 var _ net.Conn
+
+// --- NAI-93 Bundle 2: ::tele cheat-handler tightening ---
+
+// teleTestPlayer creates a Player wired into a Server with the conn
+// handle preserved, an encryptor seeded from a fixed key (for stable
+// wire-byte assertions), and the gamemap initialized.
+func teleTestPlayer(t *testing.T) (*Player, net.Conn, *Server) {
+	t.Helper()
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	if err := s.gamemap.Init(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	enc, dec := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = enc
+	p.client.decryptor = dec
+	p.x, p.z, p.level = 3094, 3106, 0
+	p.originX, p.originZ = 3094, 3106
+	p.lastTickX, p.lastTickZ, p.lastLevel = 3094, 3106, 0
+	p.slot = 1
+	s.players[1] = p
+	s.playerLoop = append(s.playerLoop, p)
+	p.active = true
+	if s.rsbuf != nil {
+		s.rsbuf.AddPlayer(int32(1))
+	}
+	return p, cc, s
+}
+
+// dispatchTeleCheat sends a `::<cmd>` cheat through handleClientCheat.
+// Builds the payload as G1(ctrlHeld) + PJStrLF(cmd), matching the
+// rev-225 wire format consumed at handlers_game.go:334.
+func dispatchTeleCheat(t *testing.T, p *Player, cheat string) {
+	t.Helper()
+	pkt := packet.NewPacket(nil)
+	pkt.P1(0) // ctrlHeld byte (unused)
+	pkt.PJStrLF(cheat)
+	if err := handleClientCheat(p, pkt.Data); err != nil {
+		t.Fatalf("handleClientCheat: %v", err)
+	}
+}
+
+// drainAfterTele flushes p.client.bufw and reads everything that lands
+// on the test conn.
+func drainAfterTele(t *testing.T, p *Player, cc net.Conn) []byte {
+	t.Helper()
+	received := drainConn(t, cc)
+	p.client.flushWrite()
+	return <-received
+}
+
+// TestTeleCheat_CallsCloseModal — pins that ::tele invokes p.CloseModal,
+// closing any open modal. Mirrors TS ClientCheatHandler.ts:504.
+func TestTeleCheat_CallsCloseModal(t *testing.T) {
+	p, _, _ := teleTestPlayer(t)
+	p.staffModLevel = 2
+	p.modalState = modalStateMain
+
+	dispatchTeleCheat(t, p, "tele 0,50,50,32,32")
+
+	if p.modalState != modalStateNone {
+		t.Errorf("modalState after ::tele: got %d, want %d (modalStateNone)",
+			p.modalState, modalStateNone)
+	}
+}
+
+// TestTeleCheat_CanAccessGate_RejectsAndMessagesGame — pins that the
+// canAccess gate rejects with the TS message and DOES NOT teleport.
+// Mirrors TS ClientCheatHandler.ts:506-509.
+func TestTeleCheat_CanAccessGate_RejectsAndMessagesGame(t *testing.T) {
+	p, cc, _ := teleTestPlayer(t)
+	p.staffModLevel = 2
+	p.delayed = true // forces CanAccess() = false (player_script.go:284)
+
+	startX, startZ := p.x, p.z
+	emitted := drainAfterTele(t, p, cc)
+	dispatchTeleCheat(t, p, "tele 0,50,50,32,32")
+	emitted2 := drainAfterTele(t, p, cc)
+	emitted = append(emitted, emitted2...)
+
+	if p.x != startX || p.z != startZ {
+		t.Errorf("position changed despite CanAccess=false: (%d, %d) → (%d, %d)",
+			startX, startZ, p.x, p.z)
+	}
+	want := []byte("Please finish what you are doing first.")
+	if !bytes.Contains(emitted, want) {
+		t.Errorf("expected MessageGame body %q in emitted bytes; got %d bytes (none containing target)", string(want), len(emitted))
+	}
+}
+
+// TestTeleCheat_UnsetMapFlag_ClearsWaypointAndEmitsPacket — pins that
+// the cheat handler clears p.waypointIndex AND emits OpUnsetMapFlag,
+// matching the TS Player.unsetMapFlag bundle (Player.ts:2169-2172):
+// clearWaypoints + write(UnsetMapFlag).
+func TestTeleCheat_UnsetMapFlag_ClearsWaypointAndEmitsPacket(t *testing.T) {
+	p, cc, _ := teleTestPlayer(t)
+	p.staffModLevel = 2
+	p.waypointIndex = 5
+
+	// Sibling decoder seeded from same key → can decrypt opcodes in order.
+	sibling := io2.New([4]uint32{1, 2, 3, 4})
+
+	dispatchTeleCheat(t, p, "tele 0,50,50,32,32")
+	emitted := drainAfterTele(t, p, cc)
+
+	if p.waypointIndex != -1 {
+		t.Errorf("waypointIndex after ::tele: got %d, want -1", p.waypointIndex)
+	}
+
+	// modalState was None pre-dispatch, so CloseModal early-returns and
+	// emits no packets. ClearInteraction is state-only. The first
+	// emitted byte should therefore be the encrypted OpUnsetMapFlag opcode.
+	if len(emitted) == 0 {
+		t.Fatalf("no bytes emitted; expected OpUnsetMapFlag (opcode %d)",
+			gameserver.OpUnsetMapFlag.Opcode)
+	}
+	wantEnc := byte((int(gameserver.OpUnsetMapFlag.Opcode) + int(sibling.GetNext())) & 0xff)
+	if emitted[0] != wantEnc {
+		t.Errorf("first emitted byte: got %d, want %d (encrypted OpUnsetMapFlag opcode %d)",
+			emitted[0], wantEnc, gameserver.OpUnsetMapFlag.Opcode)
+	}
+}
+
+// TestTeleCheat_BoundsCheck_RejectsAfterCleanup — pins TS-faithful
+// ordering: closeModal/clearInteraction/unsetMapFlag run BEFORE the
+// numeric bounds check. An invalid coord still triggers cleanup side
+// effects but does NOT teleport. Matches TS lines 504-522 ordering.
+func TestTeleCheat_BoundsCheck_RejectsAfterCleanup(t *testing.T) {
+	p, _, _ := teleTestPlayer(t)
+	p.staffModLevel = 2
+	p.modalState = modalStateMain
+	p.waypointIndex = 5
+	startX, startZ := p.x, p.z
+
+	// Level 9 is OOB; bounds check at the end of the case rejects.
+	dispatchTeleCheat(t, p, "tele 9,50,50,32,32")
+
+	// Cleanup side effects fire BEFORE bounds check (TS-faithful).
+	if p.modalState != modalStateNone {
+		t.Errorf("modalState: got %d, want modalStateNone (cleanup runs before bounds check)", p.modalState)
+	}
+	if p.waypointIndex != -1 {
+		t.Errorf("waypointIndex: got %d, want -1 (cleanup runs before bounds check)", p.waypointIndex)
+	}
+	// Bounds check rejects: position unchanged.
+	if p.x != startX || p.z != startZ {
+		t.Errorf("position changed despite OOB level: (%d, %d) → (%d, %d)",
+			startX, startZ, p.x, p.z)
+	}
+}
