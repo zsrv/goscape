@@ -6,7 +6,9 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
+	"github.com/zsrv/goscape/pkg/pathfinder/loc"
 )
 
 // mFileWithLand returns the bytes of an m-file where exactly one tile
@@ -220,5 +222,58 @@ func TestLoadGround_LinkBelowOnly_DoesNotBlock(t *testing.T) {
 	flag := gm.Pathfinder.Flags.Get(absX, absZ, 0)
 	if flag&collision.FlagBlockWalk != 0 {
 		t.Errorf("LINK_BELOW-only tile: flag=0x%x unexpectedly has FlagBlockWalk", flag)
+	}
+}
+
+// lFileWithOneLoc returns the bytes of an l-file placing one loc.
+//   - locId is the absolute loc id (delta = locId+1, since prevId starts at -1)
+//   - level/localX/localZ encode coord
+//   - shape, angle pack into info = (shape<<2)|angle
+//
+// Stream shape (per loadLocs):
+//
+//	gsmart(locDelta=locId+1)
+//	gsmart(coordDelta = packedCoord+1)
+//	g1(info)
+//	gsmart(0)        // end of coords for this loc
+//	gsmart(0)        // end of locs
+func lFileWithOneLoc(locId, level, localX, localZ, shape, angle int) []byte {
+	pw := packet.NewPacket(nil)
+	pw.PSmart(int32(locId + 1))
+	packed := (localZ & 0x3F) | ((localX & 0x3F) << 6) | ((level & 0x3) << 12)
+	pw.PSmart(int32(packed + 1))
+	pw.P1(uint8((shape << 2) | (angle & 0x3)))
+	pw.PSmart(0) // end coords
+	pw.PSmart(0) // end locs
+	return pw.Data
+}
+
+// TestLoadLocs_BridgedLoc_PlacedAtActualLevel pins that a loc with the
+// LINK_BELOW bit set on its corresponding lands tile is downshifted by one
+// level on the staticLocs entity (TS GameMap.ts:242-246).
+func TestLoadLocs_BridgedLoc_PlacedAtActualLevel(t *testing.T) {
+	const mapX, mapZ = 50, 50
+	const localX, localZ = 1, 1
+	const locId = 0
+	const shape = int(loc.ShapeCentrepieceStraight) // LayerGround
+	const angle = int(loc.AngleNorth)
+
+	gm := newTestGameMap()
+
+	// loadGround populates landsByMapSquare with level 1 LINK_BELOW set at (1,1,1).
+	mData := mFileWithLand(1, localX, localZ, 0x2)
+	gm.loadGround(mData, mapX, mapZ)
+
+	// loadLocs places the loc at level 1 (request level), but lands[(1,1,1)]
+	// has LINK_BELOW set, so actualLevel = 0.
+	lData := lFileWithOneLoc(locId, 1, localX, localZ, shape, angle)
+	gm.loadLocs(lData, mapX, mapZ)
+
+	if len(gm.staticLocs) != 1 {
+		t.Fatalf("expected 1 static loc; got %d", len(gm.staticLocs))
+	}
+	got := gm.staticLocs[0]
+	if got.Level != 0 {
+		t.Errorf("bridged loc: level=%d, want 0 (actualLevel = level-1)", got.Level)
 	}
 }

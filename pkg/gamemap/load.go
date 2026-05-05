@@ -125,16 +125,15 @@ parseLoop:
 //	    info   = g1()
 //	    shape  = info >> 2
 //	    angle  = info & 0x3
-//	    instantiate LifecycleRespawn loc at absolute (mapX*64+localX, mapZ*64+localZ)
+//	    bridged: if level==1 use lands[coord], else lands[packCoord(x,z,1)];
+//	             actualLevel = bridged ? level-1 : level; skip if <0.
+//	    instantiate LifecycleRespawn loc at actualLevel.
 //
-// Footprint is hardcoded to 1x1 until LocType config loading lands. Multi-tile
-// locs (trees, large buildings) render correctly client-side because the client
-// has its own LocType cache; server-side positional queries (pathing, aggro)
-// will be wrong for those until LocType arrives.
+// Footprint hardcoded to 1x1 until LocType config loading lands.
 // TODO(loctype): use LocType.Width/Length.
-// TODO(bridged-levels): honour LINK_BELOW for bridge tiles (see TS reference).
 func (gm *GameMap) loadLocs(data []byte, mapSquareX, mapSquareZ int) {
 	p := packet.NewPacket(data)
+	lands := gm.landsByMapSquare[uint16((mapSquareX<<8)|mapSquareZ)]
 	locID := -1
 	for {
 		if p.Len() == 0 {
@@ -169,7 +168,23 @@ func (gm *GameMap) loadLocs(data []byte, mapSquareX, mapSquareZ int) {
 			absX := mapSquareX*mapSquareSize + localX
 			absZ := mapSquareZ*mapSquareSize + localZ
 
-			loc := entity.NewLoc(level, absX, absZ, 1, 1,
+			actualLevel := level
+			if lands != nil {
+				var bridgeLand int
+				if level == 1 {
+					bridgeLand = int(lands[coord])
+				} else {
+					bridgeLand = int(lands[packCoord(localX, localZ, 1)])
+				}
+				if bridgeLand&gameMapLinkBelow != 0 {
+					actualLevel = level - 1
+				}
+			}
+			if actualLevel < 0 {
+				continue
+			}
+
+			loc := entity.NewLoc(actualLevel, absX, absZ, 1, 1,
 				entity.LifecycleRespawn,
 				locID, shape, angle)
 			gm.staticLocs = append(gm.staticLocs, loc)
