@@ -3244,6 +3244,43 @@ func TestSoundSynthNoActivePlayerRejects(t *testing.T) {
 	}
 }
 
+// TestDisplayNameHappyPath pins NAI-103: DISPLAYNAME pushes the active
+// player's display name onto the string stack.
+func TestDisplayNameHappyPath(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        &mockPlayer{displayName: "Alice Smith"},
+		Pointers:    PtrActivePlayer,
+	}
+
+	if err := handleDisplayName(s); err != nil {
+		t.Fatalf("handleDisplayName: %v", err)
+	}
+	if got := s.PopString(); got != "Alice Smith" {
+		t.Errorf("PopString(): got %q, want %q", got, "Alice Smith")
+	}
+}
+
+// TestDisplayNameNoActivePlayerRejects pins the requireActivePlayer gate.
+// Self=nil + Pointers=0 → error containing "DISPLAYNAME: no active player".
+func TestDisplayNameNoActivePlayerRejects(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        nil,
+		Pointers:    0,
+	}
+
+	err := handleDisplayName(s)
+	if err == nil {
+		t.Fatal("no active player: want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "DISPLAYNAME: no active player") {
+		t.Errorf("error %q does not contain %q", err.Error(), "DISPLAYNAME: no active player")
+	}
+}
+
 // -- NAI-90 frame T tests ------------------------------------------------
 
 // recordingHandler is a minimal slog handler that captures records for

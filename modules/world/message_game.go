@@ -22,3 +22,10 @@ func (p *Player) MessageGame(msg string) {
 func (p *Player) Username() string {
 	return p.username
 }
+
+// DisplayName returns the player's titlecased, underscore-replaced
+// display name. Used by the DISPLAYNAME script opcode. Set once at
+// newPlayer construction (TS Player.ts:417).
+func (p *Player) DisplayName() string {
+	return p.displayName
+}

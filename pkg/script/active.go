@@ -6,6 +6,7 @@ package script
 type ActivePlayer interface {
 	MessageGame(msg string)
 	Username() string
+	DisplayName() string
 
 	// SetDelayed marks the active player as suspended for `ticks` more
 	// ticks starting next tick. Implementation must compute

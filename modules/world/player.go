@@ -431,6 +431,7 @@ func newPlayer(c *client) *Player {
 		reconnecting:   c.reconnecting,
 		lowMemory:      c.lowMemory,
 		username:       c.username,
+		displayName:    util.ToDisplayName(c.username),
 		username37:     util.ToBase37(c.username),
 		staffModLevel:  c.staffModLevel,
 		slot:           -1,

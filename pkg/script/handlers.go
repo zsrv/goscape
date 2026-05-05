@@ -200,8 +200,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpStatAdvance: handleStatAdvance,
 	OpStatRandom:  handleStatRandom,
 	// Coord / facing / teleport.
-	OpCoord:      handleCoord,
-	OpFaceSquare: handleFaceSquare,
+	OpCoord:        handleCoord,
+	OpDisplayName:  handleDisplayName,
+	OpFaceSquare:   handleFaceSquare,
 	OpPTeleport:  handlePTeleport,
 	OpPTeleJump:  handlePTeleJump,
 	// Animation.

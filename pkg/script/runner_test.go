@@ -97,8 +97,9 @@ type mockHintCoord struct{ offset, x, z, height int }
 // mockPlayer is defined here for use in runner_test and handlers_test.
 // It is also used in handlers_test.go in the same package.
 type mockPlayer struct {
-	messages []string
-	username string
+	messages    []string
+	username    string
+	displayName string
 	playtime int
 
 	// NAI-35-T2: absolute world coords for ActivePlayer.X/Z, consumed
@@ -330,6 +331,7 @@ type mockSessionLogCall struct {
 
 func (m *mockPlayer) MessageGame(msg string) { m.messages = append(m.messages, msg) }
 func (m *mockPlayer) Username() string       { return m.username }
+func (m *mockPlayer) DisplayName() string    { return m.displayName }
 
 func (m *mockPlayer) SetDelayed(ticks int) {
 	m.setDelayedCalls = append(m.setDelayedCalls, ticks)

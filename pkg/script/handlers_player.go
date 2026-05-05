@@ -527,6 +527,19 @@ func handleCoord(s *ScriptState) error {
 	return nil
 }
 
+// handleDisplayName (DISPLAYNAME, opcode 2016) pushes the active
+// player's display name. Mirrors TS PlayerOps.ts:235-237.
+//
+// Pointer gate: require active_player (TS ScriptOpcodePointers.ts
+// :95-98 require: ['active_player']).
+func handleDisplayName(s *ScriptState) error {
+	if err := requireActivePlayer(s, "DISPLAYNAME"); err != nil {
+		return err
+	}
+	s.PushString(s.Self.DisplayName())
+	return nil
+}
+
 // handleFaceSquare pops a packed coord and calls Self.FaceSquare(x, z).
 // The level component of the packed coord is ignored — facing is always
 // on the player's current level.
