@@ -109,3 +109,33 @@ func TestFine(t *testing.T) {
 		})
 	}
 }
+
+func TestIntersects(t *testing.T) {
+	cases := []struct {
+		name           string
+		sx, sz, sw, sl int
+		dx, dz, dw, dl int
+		want           bool
+	}{
+		{"identical 1x1", 5, 5, 1, 1, 5, 5, 1, 1, true},
+		{"adjacent east 1x1", 5, 5, 1, 1, 6, 5, 1, 1, false},
+		{"adjacent north 1x1", 5, 5, 1, 1, 5, 6, 1, 1, false},
+		{"src contains dest", 5, 5, 3, 3, 6, 6, 1, 1, true},
+		{"dest contains src", 5, 5, 1, 1, 4, 4, 3, 3, true},
+		{"overlap NE corner", 5, 5, 2, 2, 6, 6, 2, 2, true},
+		{"disjoint far east", 5, 5, 1, 1, 10, 5, 1, 1, false},
+		{"disjoint far north", 5, 5, 1, 1, 5, 10, 1, 1, false},
+		{"touching edge east", 5, 5, 2, 1, 7, 5, 1, 1, false}, // src right edge at 7, dest at 7 → touching, NOT overlap
+		{"touching edge north", 5, 5, 1, 2, 5, 7, 1, 1, false},
+		{"2x2 vs 2x2 overlap one tile", 5, 5, 2, 2, 6, 6, 2, 2, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := Intersects(tc.sx, tc.sz, tc.sw, tc.sl, tc.dx, tc.dz, tc.dw, tc.dl)
+			if got != tc.want {
+				t.Errorf("Intersects(%d,%d,%d,%d, %d,%d,%d,%d) = %v, want %v",
+					tc.sx, tc.sz, tc.sw, tc.sl, tc.dx, tc.dz, tc.dw, tc.dl, got, tc.want)
+			}
+		})
+	}
+}
