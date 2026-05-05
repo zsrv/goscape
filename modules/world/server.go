@@ -131,6 +131,8 @@ type Server struct {
 	// sessionLogs is the per-tick session-log accumulator. NAI-74. Pushed by
 	// Player.AddSessionLog; flushed via processSessionLogs in the tick loop.
 	sessionLogs    []SessionLog
+
+	testPathfinder pathfinderForTarget // injected by tests; nil in production
 }
 
 // appendNewPlayer queues a player for registration on the next tick.

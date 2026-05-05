@@ -233,8 +233,7 @@ func (p *Player) processInteraction() {
 	if !interacted {
 		// Recalc path (TS L1228-1229).
 		if !p.repathed {
-			tx, tz, _ := p.target.Coords()
-			p.pathToTarget(tx, tz)
+			p.pathToTarget()
 			p.repathed = true
 		}
 
@@ -563,10 +562,76 @@ func effectiveApRange(p *Player) int {
 	return p.apRange
 }
 
-// pathToTarget sets a waypoint to (tx, tz) via the existing move-click
-// pathing pipeline so pathfinding (or direct-step mode) applies uniformly.
-func (p *Player) pathToTarget(tx, tz int) {
-	packed := []int{coordgrid.PackCoord(p.level, tx, tz)}
-	needsFinding := !p.client.server.cfg.NodeClientRoutefinder
-	p.pathToMoveClick(packed, needsFinding)
+// pathToTarget queues waypoints from p.x/p.z to p.target via shape-aware
+// findPath helpers. Mirrors TS PathingEntity.pathToTarget
+// (PathingEntity.ts:457-508).
+//
+// Single point-of-entry replacing NAI-11's naive (tx, tz int) signature.
+// NAI-92 B2 ports the SMART/*Loc arm; B3-B5 fill in the remaining
+// branches (*Player/*Npc, *Obj, NAIVE strategy, no-strategy else).
+func (p *Player) pathToTarget() {
+	if p.target == nil {
+		return
+	}
+
+	switch p.moveStrategy {
+	case MoveStrategySmart:
+		p.pathToTargetSmart()
+	case MoveStrategyNaive:
+		p.pathToTargetNaive()
+	default:
+		p.pathToTargetNoStrategy()
+	}
+}
+
+// pathToTargetSmart dispatches by target type for the SMART strategy.
+// NAI-92 B2 implements the *Loc arm; B3 adds *Player/*Npc; B4 adds *Obj.
+func (p *Player) pathToTargetSmart() {
+	srv := p.client.server
+	pf := srv.pathfinder()
+	tx, tz, _ := p.target.Coords()
+
+	switch t := p.target.(type) {
+	case *entitypkg.Loc:
+		if pf == nil {
+			// gamemap not initialised (e.g. tests that only test interaction
+			// framing, not pathing correctness): queue a direct-step waypoint
+			// mirroring the pre-NAI-92 NodeClientRoutefinder=true path.
+			p.queueWaypoint(tx, tz)
+			return
+		}
+		var fap int
+		// (goscape defensive; TS skips this check) — TS LocType.get(t.type)
+		// throws on missing; goscape returns nil and we treat as forceapproach=0.
+		if cfg := srv.locTypeOrNil(t.Type()); cfg != nil {
+			fap = cfg.ForceApproach
+		}
+		route := pf.FindPathToLoc(p.level, p.x, p.z, tx, tz, p.Width(), t.Width, t.Length, t.Angle(), t.Shape(), fap)
+		p.queueWaypoints(routeToPacked(route))
+	default:
+		// NAI-92 B3-B4 fill in *Player/*Npc/*Obj. For now, fall back to the
+		// pre-NAI-92 shape-blind path so B2 doesn't regress PathingEntity/Obj
+		// targets in flight. When gamemap is absent, queue a direct-step
+		// waypoint (mirrors old NodeClientRoutefinder=true behaviour).
+		if pf == nil {
+			p.queueWaypoint(tx, tz)
+			return
+		}
+		route := pf.FindPathPlain(p.level, p.x, p.z, tx, tz)
+		p.queueWaypoints(routeToPacked(route))
+	}
+}
+
+// pathToTargetNaive — NAI-92 B5 fills this in. Stub queues a single
+// waypoint at the target tile to preserve pre-NAI-92 behaviour.
+func (p *Player) pathToTargetNaive() {
+	tx, tz, _ := p.target.Coords()
+	p.queueWaypoint(tx, tz)
+}
+
+// pathToTargetNoStrategy — NAI-92 B5 fills this in. Stub queues a single
+// waypoint at the target tile.
+func (p *Player) pathToTargetNoStrategy() {
+	tx, tz, _ := p.target.Coords()
+	p.queueWaypoint(tx, tz)
 }

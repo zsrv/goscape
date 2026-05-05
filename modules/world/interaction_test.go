@@ -12,6 +12,7 @@ import (
 	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
+	"github.com/zsrv/goscape/pkg/pathfinder/routefinder"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 	"github.com/zsrv/goscape/pkg/zone"
@@ -1931,5 +1932,235 @@ func TestPlayer_InOperableDistance_NpcTarget_UsesCheb(t *testing.T) {
 				t.Errorf("npc target: got %v want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// pathfinderRecorder — test double for pathfinderForTarget
+// ---------------------------------------------------------------------------
+
+// pathfinderRecorder captures FindPath* calls for assertion in
+// pathToTarget tests. Implements the pathfinderForTarget interface.
+type pathfinderRecorder struct {
+	findPathToLocCalls    []findPathToLocCall
+	findPathToEntityCalls []findPathToEntityCall
+	findNaivePathCalls    []findNaivePathCall
+	findPathPlainCalls    []findPathPlainCall
+
+	// returned routes — empty by default (callers typically don't
+	// care about the path content for call-shape assertions)
+	returnRoute routefinder.Route
+}
+
+type findPathToLocCall struct {
+	level, srcX, srcZ, destX, destZ        int
+	srcSize, destWidth, destLength         int
+	angle, shape, blockAccessFlags         int
+}
+
+type findPathToEntityCall struct {
+	level, srcX, srcZ, destX, destZ int
+	srcSize, destWidth, destLength  int
+}
+
+type findNaivePathCall struct {
+	level, srcX, srcZ, destX, destZ            int
+	srcWidth, srcLength, destWidth, destLength int
+	extraFlag                                  int
+	collisionType                              collision.Type
+}
+
+type findPathPlainCall struct {
+	level, srcX, srcZ, destX, destZ int
+}
+
+func (r *pathfinderRecorder) FindPathPlain(level, srcX, srcZ, destX, destZ int) routefinder.Route {
+	r.findPathPlainCalls = append(r.findPathPlainCalls, findPathPlainCall{level, srcX, srcZ, destX, destZ})
+	return r.returnRoute
+}
+
+func (r *pathfinderRecorder) FindPathToEntity(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength int) routefinder.Route {
+	r.findPathToEntityCalls = append(r.findPathToEntityCalls, findPathToEntityCall{
+		level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength,
+	})
+	return r.returnRoute
+}
+
+func (r *pathfinderRecorder) FindPathToLoc(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, angle, shape, blockAccessFlags int) routefinder.Route {
+	r.findPathToLocCalls = append(r.findPathToLocCalls, findPathToLocCall{
+		level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, angle, shape, blockAccessFlags,
+	})
+	return r.returnRoute
+}
+
+func (r *pathfinderRecorder) FindNaivePath(level, srcX, srcZ, destX, destZ, srcWidth, srcLength, destWidth, destLength, extraFlag int, collisionType collision.Type) routefinder.Route {
+	r.findNaivePathCalls = append(r.findNaivePathCalls, findNaivePathCall{
+		level, srcX, srcZ, destX, destZ, srcWidth, srcLength, destWidth, destLength, extraFlag, collisionType,
+	})
+	return r.returnRoute
+}
+
+func (r *pathfinderRecorder) lastFindPathToLoc() (findPathToLocCall, bool) {
+	if len(r.findPathToLocCalls) == 0 {
+		return findPathToLocCall{}, false
+	}
+	return r.findPathToLocCalls[len(r.findPathToLocCalls)-1], true
+}
+
+func (r *pathfinderRecorder) lastFindPathToEntity() (findPathToEntityCall, bool) {
+	if len(r.findPathToEntityCalls) == 0 {
+		return findPathToEntityCall{}, false
+	}
+	return r.findPathToEntityCalls[len(r.findPathToEntityCalls)-1], true
+}
+
+func (r *pathfinderRecorder) lastFindNaivePath() (findNaivePathCall, bool) {
+	if len(r.findNaivePathCalls) == 0 {
+		return findNaivePathCall{}, false
+	}
+	return r.findNaivePathCalls[len(r.findNaivePathCalls)-1], true
+}
+
+func (r *pathfinderRecorder) lastFindPathPlain() (findPathPlainCall, bool) {
+	if len(r.findPathPlainCalls) == 0 {
+		return findPathPlainCall{}, false
+	}
+	return r.findPathPlainCalls[len(r.findPathPlainCalls)-1], true
+}
+
+// newPathToTargetTestServer builds a Server suitable for pathToTarget
+// dispatch testing. Wires the recorder as the pathfinder seam.
+func newPathToTargetTestServer(t *testing.T) (*Server, *pathfinderRecorder) {
+	t.Helper()
+	rec := &pathfinderRecorder{}
+	srv := newTestServer(t)
+	srv.testPathfinder = rec
+	// Initialize empty locTypes so locTypeOrNil returns nil cleanly
+	// for fixtures that don't register a type.
+	srv.locTypes = &objtype.LocTypeConfigs{}
+	return srv, rec
+}
+
+// newPathToTargetTestPlayer returns a Player with the given coords,
+// wired to srv via client.server. Fields are mutated directly to
+// avoid the full constructor.
+func newPathToTargetTestPlayer(t *testing.T, srv *Server, x, z, level int) *Player {
+	t.Helper()
+	p, _ := newTestPlayer(t)
+	p.client.server = srv
+	p.x = x
+	p.z = z
+	p.level = level
+	p.moveStrategy = MoveStrategySmart
+	return p
+}
+
+// ---------------------------------------------------------------------------
+// pathToTarget tests — NAI-92 B2
+// ---------------------------------------------------------------------------
+
+// TestPlayer_PathToTarget_LocTarget_ThreadsShapeAngle pins NAI-92 B2's
+// SMART/Loc dispatch. Asserts FindPathToLoc receives the loc's shape,
+// angle, width, length, and the player's Width as srcSize.
+func TestPlayer_PathToTarget_LocTarget_ThreadsShapeAngle(t *testing.T) {
+	srv, rec := newPathToTargetTestServer(t)
+	p := newPathToTargetTestPlayer(t, srv, 3097, 3107, 0)
+
+	// Loc at (3098, 3107, 0), wall_straight (shape=0), angle west (0), 1×1.
+	loc := entitypkg.NewLoc(0, 3098, 3107, 1, 1, entitypkg.LifecycleForever, /*typ=*/ 1234, /*shape=*/ 0, /*angle=*/ 0)
+	p.target = loc
+
+	// Register loc type with ForceApproach=0 so locTypeOrNil returns
+	// non-nil cfg with the expected blockAccessFlags.
+	for len(srv.locTypes.Configs) <= 1234 {
+		srv.locTypes.Configs = append(srv.locTypes.Configs, nil)
+	}
+	srv.locTypes.Configs[1234] = &objtype.LocType{ForceApproach: 0}
+
+	p.pathToTarget()
+
+	call, ok := rec.lastFindPathToLoc()
+	if !ok {
+		t.Fatalf("FindPathToLoc not called")
+	}
+	if call.level != 0 || call.srcX != 3097 || call.srcZ != 3107 || call.destX != 3098 || call.destZ != 3107 {
+		t.Errorf("coords: got (lvl=%d src=%d,%d dest=%d,%d), want (0, 3097, 3107, 3098, 3107)",
+			call.level, call.srcX, call.srcZ, call.destX, call.destZ)
+	}
+	if call.angle != 0 || call.shape != 0 {
+		t.Errorf("angle/shape: got (%d, %d), want (0, 0)", call.angle, call.shape)
+	}
+	if call.blockAccessFlags != 0 {
+		t.Errorf("blockAccessFlags: got %d, want 0", call.blockAccessFlags)
+	}
+	if call.destWidth != 1 || call.destLength != 1 {
+		t.Errorf("destW/L: got (%d, %d), want (1, 1)", call.destWidth, call.destLength)
+	}
+	if call.srcSize != 1 {
+		t.Errorf("srcSize: got %d, want 1 (Player.Width)", call.srcSize)
+	}
+}
+
+// TestPlayer_PathToTarget_LocTarget_ForceApproachThreaded pins that
+// LocType.ForceApproach is threaded into the FindPathToLoc
+// blockAccessFlags argument.
+func TestPlayer_PathToTarget_LocTarget_ForceApproachThreaded(t *testing.T) {
+	srv, rec := newPathToTargetTestServer(t)
+	p := newPathToTargetTestPlayer(t, srv, 100, 100, 0)
+	loc := entitypkg.NewLoc(0, 105, 105, 1, 1, entitypkg.LifecycleForever, 1234, 0, 0)
+	p.target = loc
+
+	for len(srv.locTypes.Configs) <= 1234 {
+		srv.locTypes.Configs = append(srv.locTypes.Configs, nil)
+	}
+	srv.locTypes.Configs[1234] = &objtype.LocType{ForceApproach: 7}
+
+	p.pathToTarget()
+
+	call, ok := rec.lastFindPathToLoc()
+	if !ok {
+		t.Fatalf("FindPathToLoc not called")
+	}
+	if call.blockAccessFlags != 7 {
+		t.Errorf("blockAccessFlags: got %d, want 7 (LocType.ForceApproach)", call.blockAccessFlags)
+	}
+}
+
+// TestPlayer_PathToTarget_LocTarget_NilLocTypeUsesZeroForceApproach
+// pins the goscape-defensive guard in pathToTargetSmart that handles
+// locTypeOrNil returning nil (e.g. test fixtures with no registered
+// type). (goscape defensive; TS skips this check)
+func TestPlayer_PathToTarget_LocTarget_NilLocTypeUsesZeroForceApproach(t *testing.T) {
+	srv, rec := newPathToTargetTestServer(t)
+	p := newPathToTargetTestPlayer(t, srv, 100, 100, 0)
+	loc := entitypkg.NewLoc(0, 105, 105, 1, 1, entitypkg.LifecycleForever, 9999, 0, 0)
+	p.target = loc
+	// No registration in srv.locTypes.Configs[9999] — locTypeOrNil returns nil.
+
+	p.pathToTarget()
+
+	call, ok := rec.lastFindPathToLoc()
+	if !ok {
+		t.Fatalf("FindPathToLoc not called")
+	}
+	if call.blockAccessFlags != 0 {
+		t.Errorf("blockAccessFlags: got %d, want 0 (nil locType→zero)", call.blockAccessFlags)
+	}
+}
+
+// TestPlayer_PathToTarget_NoTarget_NoOp pins the guard at the top
+// of pathToTarget — no target ⇒ no pathfinder call, no waypoint.
+func TestPlayer_PathToTarget_NoTarget_NoOp(t *testing.T) {
+	srv, rec := newPathToTargetTestServer(t)
+	p := newPathToTargetTestPlayer(t, srv, 100, 100, 0)
+	p.target = nil
+
+	p.pathToTarget()
+
+	if _, ok := rec.lastFindPathToLoc(); ok {
+		t.Errorf("FindPathToLoc unexpectedly called for nil target")
+	}
+	if _, ok := rec.lastFindPathPlain(); ok {
+		t.Errorf("FindPathPlain unexpectedly called for nil target")
 	}
 }
