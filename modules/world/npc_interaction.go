@@ -369,14 +369,155 @@ func (n *Npc) stepOnce(s *Server) (bool, int) {
 	return true, int(dir)
 }
 
-// pathToTarget queues a single waypoint at the target's current tile.
-// Naive-only port — TS's pathToTarget at PathingEntity.ts:457-508 has
-// a full SMART branch using findPath / findPathToEntity / findPathToLoc.
-//
-// DEVIATION: SMART branch deferred. NAI-11 uses naive pathing for
-// every mode; a full route-finder port is a separate sub-spec.
+// pathToTarget mirrors TS Npc.pathToTarget (Npc.ts:319-335). Override of
+// PathingEntity.pathToTarget that short-circuits PathingEntity targets to
+// FindNaivePath when bbox-intersect (UNCONDITIONAL — no NodeClientRoutefinder
+// gate, unlike Player-side PathingEntity branch). Otherwise delegates to
+// pathToTargetBase which mirrors PathingEntity.pathToTarget.
 func (n *Npc) pathToTarget() {
 	if n.target == nil {
+		return
+	}
+
+	if t, ok := n.target.(pathingEntity); ok {
+		tx, tz, _ := t.Coords()
+		tw, tl := t.Width(), t.Length()
+		if coordgrid.Intersects(n.x, n.z, n.Width(), n.Length(), tx, tz, tw, tl) {
+			pf := n.pathfinder()
+			if pf == nil {
+				// (goscape defensive; TS skips this check) — gamemap absent
+				// in test fixtures; queue a single waypoint at target tile.
+				n.QueueWaypoint(tx, tz)
+				return
+			}
+			route := pf.FindNaivePath(n.level, n.x, n.z, tx, tz, n.Width(), n.Length(), tw, tl, 0, collision.TypeNormal)
+			n.queueWaypoints(routeToPacked(route))
+			return
+		}
+	}
+
+	n.pathToTargetBase()
+}
+
+// pathToTargetBase is the shared base dispatch consumed by Npc, mirroring
+// TS PathingEntity.pathToTarget (PathingEntity.ts:457-508). Identical
+// structure to Player.pathToTarget — see modules/world/interaction.go for
+// the cross-reference. Logic is duplicated rather than factored because of
+// asymmetric server-access (Player: client.server, Npc: server).
+func (n *Npc) pathToTargetBase() {
+	switch n.moveStrategy {
+	case MoveStrategySmart:
+		n.pathToTargetSmart()
+	case MoveStrategyNaive:
+		n.pathToTargetNaive()
+	default:
+		n.pathToTargetNoStrategy()
+	}
+}
+
+// pathToTargetSmart — Npc-side analogue of Player.pathToTargetSmart.
+// Cross-reference: modules/world/interaction.go pathToTargetSmart.
+// NB: NODE_CLIENT_ROUTEFINDER+intersect shortcut from the Player side is
+// NOT mirrored here because Npc.pathToTarget already short-circuits
+// intersect cases UNCONDITIONALLY (TS Npc.ts:319-335). The PathingEntity
+// no-intersect case falls through to FindPathToEntity unconditionally.
+func (n *Npc) pathToTargetSmart() {
+	pf := n.pathfinder()
+	tx, tz, _ := n.target.Coords()
+
+	switch t := n.target.(type) {
+	case *entitypkg.Loc:
+		if pf == nil {
+			// (goscape defensive; TS skips this check)
+			n.QueueWaypoint(tx, tz)
+			return
+		}
+		var fap int
+		// (goscape defensive; TS skips this check) — TS LocType.get(t.type)
+		// throws on missing; goscape returns nil and we treat as forceapproach=0.
+		if cfg := n.server.locTypeOrNil(t.Type()); cfg != nil {
+			fap = cfg.ForceApproach
+		}
+		route := pf.FindPathToLoc(n.level, n.x, n.z, tx, tz, n.Width(), t.Width, t.Length, t.Angle(), t.Shape(), fap)
+		n.queueWaypoints(routeToPacked(route))
+
+	case pathingEntity:
+		// Intersect shortcut handled in pathToTarget override; this is the
+		// no-intersect fallthrough.
+		if pf == nil {
+			// (goscape defensive; TS skips this check)
+			n.QueueWaypoint(tx, tz)
+			return
+		}
+		tw, tl := t.Width(), t.Length()
+		route := pf.FindPathToEntity(n.level, n.x, n.z, tx, tz, n.Width(), tw, tl)
+		n.queueWaypoints(routeToPacked(route))
+
+	case *entitypkg.Obj:
+		if n.x == tx && n.z == tz {
+			n.QueueWaypoint(tx, tz)
+			return
+		}
+		if pf == nil {
+			// (goscape defensive; TS skips this check)
+			n.QueueWaypoint(tx, tz)
+			return
+		}
+		route := pf.FindPathPlain(n.level, n.x, n.z, tx, tz)
+		n.queueWaypoints(routeToPacked(route))
+
+	default:
+		// Unhandled target type (TS pathToTarget has no fallthrough default).
+		// (goscape defensive; TS skips this check)
+		if pf == nil {
+			n.QueueWaypoint(tx, tz)
+			return
+		}
+		route := pf.FindPathPlain(n.level, n.x, n.z, tx, tz)
+		n.queueWaypoints(routeToPacked(route))
+	}
+}
+
+// pathToTargetNaive — Npc-side analogue of Player.pathToTargetNaive.
+// Cross-reference: modules/world/interaction.go pathToTargetNaive.
+// Mirrors TS PathingEntity.pathToTarget NAIVE arm (PathingEntity.ts:477-493).
+func (n *Npc) pathToTargetNaive() {
+	cs := n.getCollisionStrategy()
+	if cs == nil {
+		// nomove moverestrict returns nil = no walking allowed.
+		return
+	}
+	extraFlag := n.blockWalkFlag()
+	if extraFlag == collision.FlagNull {
+		// nomove moverestrict returns NULL = no walking allowed. Unlike
+		// Player.blockWalkFlag (which is unconditional), this branch CAN
+		// fire on NPCs (Npc.blockWalkFlag returns NULL for MoveRestrictNoMove
+		// and the default fallthrough; see Npc.ts:381-398).
+		return
+	}
+
+	tx, tz, _ := n.target.Coords()
+	if t, ok := n.target.(pathingEntity); ok {
+		pf := n.pathfinder()
+		if pf == nil {
+			// (goscape defensive; TS skips this check)
+			n.QueueWaypoint(tx, tz)
+			return
+		}
+		route := pf.FindNaivePath(n.level, n.x, n.z, tx, tz, n.Width(), n.Length(), t.Width(), t.Length(), extraFlag, *cs)
+		n.queueWaypoints(routeToPacked(route))
+	} else {
+		n.QueueWaypoint(tx, tz)
+	}
+}
+
+// pathToTargetNoStrategy — Npc-side analogue of Player.pathToTargetNoStrategy.
+// Mirrors TS PathingEntity.pathToTarget trailing else (PathingEntity.ts:494-507).
+func (n *Npc) pathToTargetNoStrategy() {
+	if n.getCollisionStrategy() == nil {
+		return
+	}
+	if n.blockWalkFlag() == collision.FlagNull {
 		return
 	}
 	tx, tz, _ := n.target.Coords()

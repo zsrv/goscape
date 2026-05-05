@@ -581,7 +581,9 @@ func TestNpcUpdateMovement_WalktriggerNilTypNoOp(t *testing.T) {
 
 func TestNpcPathToTarget(t *testing.T) {
 	typ := &objtype.NpcType{}
+	srv := newTestServer(t) // wire n.server so pathToTarget can call pathfinder()
 	n := NewNpc(1, 42, 100, 100, 0, typ)
+	n.server = srv
 	n.target = &Npc{x: 105, z: 108, level: 0}
 
 	n.pathToTarget()
@@ -1851,5 +1853,135 @@ func TestNpc_InOperableDistance_NilServer_FallsBackSafely(t *testing.T) {
 	target := &Npc{x: 101, z: 100, level: 0}
 	if !n.inOperableDistance(target) {
 		t.Errorf("nil-server pathing-entity target: expected Chebyshev fallback to succeed")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// pathToTarget tests — NAI-92 B6
+// ---------------------------------------------------------------------------
+
+// TestNpc_PathToTarget_PlayerTarget_Intersect_UsesFindNaivePath pins TS
+// Npc.pathToTarget override (Npc.ts:319-335): when target is a
+// PathingEntity AND bbox intersects, shortcut to FindNaivePath. Note the
+// shortcut is UNCONDITIONAL (no NodeClientRoutefinder gate, unlike
+// Player-side PathingEntity branch).
+func TestNpc_PathToTarget_PlayerTarget_Intersect_UsesFindNaivePath(t *testing.T) {
+	srv, rec := newPathToTargetTestServer(t)
+	srv.cfg.NodeClientRoutefinder = false // confirm gate is unconditional
+	n := newPathToTargetTestNpc(t, srv, 100, 100, 0, 1)
+	target := newPathToTargetTestPlayer(t, srv, 100, 100, 0) // same tile = intersect
+	n.target = target
+
+	n.pathToTarget()
+
+	if _, ok := rec.lastFindNaivePath(); !ok {
+		t.Fatalf("FindNaivePath not called (intersect shortcut should fire)")
+	}
+	if _, ok := rec.lastFindPathToEntity(); ok {
+		t.Errorf("FindPathToEntity unexpectedly called for intersect case")
+	}
+}
+
+// TestNpc_PathToTarget_PlayerTarget_NoIntersect_DelegatesToBase pins
+// the no-intersect fallthrough: delegates to pathToTargetBase, which
+// for the SMART moveStrategy hits the PathingEntity arm in pathToTargetSmart
+// → FindPathToEntity (entity-target sentinel).
+func TestNpc_PathToTarget_PlayerTarget_NoIntersect_DelegatesToBase(t *testing.T) {
+	srv, rec := newPathToTargetTestServer(t)
+	n := newPathToTargetTestNpc(t, srv, 100, 100, 0, 1)
+	n.moveStrategy = MoveStrategySmart
+	target := newPathToTargetTestPlayer(t, srv, 200, 200, 0) // disjoint
+	n.target = target
+
+	n.pathToTarget()
+
+	if _, ok := rec.lastFindPathToEntity(); !ok {
+		t.Fatalf("FindPathToEntity not called (base SMART arm)")
+	}
+	if _, ok := rec.lastFindNaivePath(); ok {
+		t.Errorf("FindNaivePath unexpectedly called for no-intersect")
+	}
+}
+
+// TestNpc_PathToTarget_LocTarget_NotPathingEntity_DelegatesToBase pins
+// the non-PathingEntity dispatch — Loc target skips the intersect shortcut
+// (Loc does not satisfy pathingEntity), goes to base SMART/Loc arm.
+func TestNpc_PathToTarget_LocTarget_NotPathingEntity_DelegatesToBase(t *testing.T) {
+	srv, rec := newPathToTargetTestServer(t)
+	n := newPathToTargetTestNpc(t, srv, 100, 100, 0, 1)
+	n.moveStrategy = MoveStrategySmart
+	loc := entitypkg.NewLoc(0, 105, 105, 1, 1, entitypkg.LifecycleForever, 1234, 0, 0)
+	n.target = loc
+
+	n.pathToTarget()
+
+	if _, ok := rec.lastFindPathToLoc(); !ok {
+		t.Fatalf("FindPathToLoc not called (base SMART/Loc arm)")
+	}
+	if _, ok := rec.lastFindNaivePath(); ok {
+		t.Errorf("FindNaivePath unexpectedly called for Loc target (no intersect shortcut)")
+	}
+}
+
+// TestNpc_PathToTarget_NoTarget_NoOp pins the top-level guard.
+func TestNpc_PathToTarget_NoTarget_NoOp(t *testing.T) {
+	srv, rec := newPathToTargetTestServer(t)
+	n := newPathToTargetTestNpc(t, srv, 100, 100, 0, 1)
+	n.target = nil
+
+	n.pathToTarget()
+
+	if n.waypointIndex >= 0 {
+		t.Errorf("expected no waypoints, got waypointIndex=%d", n.waypointIndex)
+	}
+	if _, ok := rec.lastFindNaivePath(); ok {
+		t.Errorf("FindNaivePath unexpectedly called for nil target")
+	}
+}
+
+// TestNpc_PathToTarget_NaiveStrategy_NullBlockWalkFlag_NoOp pins the
+// FlagNull guard in pathToTargetNaive on the NPC side. Unlike Player
+// (where blockWalkFlag is unconditional FlagBlockPlayers), Npc.blockWalkFlag
+// returns FlagNull for MoveRestrictNoMove. NewNpc defaults moveStrategy
+// to Naive.
+func TestNpc_PathToTarget_NaiveStrategy_NullBlockWalkFlag_NoOp(t *testing.T) {
+	srv, rec := newPathToTargetTestServer(t)
+	n := newPathToTargetTestNpc(t, srv, 100, 100, 0, 1)
+	n.moveStrategy = MoveStrategyNaive
+	n.moveRestrict = MoveRestrictNoMove // both cs==nil AND blockWalkFlag==FlagNull
+	n.target = newPathToTargetTestPlayer(t, srv, 105, 105, 0)
+
+	n.pathToTarget()
+
+	if n.waypointIndex >= 0 {
+		t.Errorf("expected no waypoints (NoMove early return), got waypointIndex=%d", n.waypointIndex)
+	}
+	if _, ok := rec.lastFindNaivePath(); ok {
+		t.Errorf("FindNaivePath unexpectedly called for NoMove NPC")
+	}
+}
+
+// TestNpc_PathToTarget_SmartStrategy_LocTarget_ThreadsShapeAngle pins the
+// SMART/Loc arm on the NPC side mirroring Player B2 test.
+func TestNpc_PathToTarget_SmartStrategy_LocTarget_ThreadsShapeAngle(t *testing.T) {
+	srv, rec := newPathToTargetTestServer(t)
+	n := newPathToTargetTestNpc(t, srv, 100, 100, 0, 1)
+	n.moveStrategy = MoveStrategySmart
+	loc := entitypkg.NewLoc(0, 105, 105, 1, 1, entitypkg.LifecycleForever, 1234, /*shape=*/ 0, /*angle=*/ 2)
+	n.target = loc
+
+	for len(srv.locTypes.Configs) <= 1234 {
+		srv.locTypes.Configs = append(srv.locTypes.Configs, nil)
+	}
+	srv.locTypes.Configs[1234] = &objtype.LocType{ForceApproach: 5}
+
+	n.pathToTarget()
+
+	call, ok := rec.lastFindPathToLoc()
+	if !ok {
+		t.Fatalf("FindPathToLoc not called")
+	}
+	if call.angle != 2 || call.shape != 0 || call.blockAccessFlags != 5 {
+		t.Errorf("threading: angle=%d shape=%d bAF=%d, want (2, 0, 5)", call.angle, call.shape, call.blockAccessFlags)
 	}
 }

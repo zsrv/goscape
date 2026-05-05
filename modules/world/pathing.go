@@ -39,3 +39,13 @@ func (s *Server) pathfinder() pathfinderForTarget {
 	}
 	return nil
 }
+
+// pathfinder returns the pathfinder for an Npc-anchored dispatch. Returns
+// nil when n.server or the server's pathfinder (gamemap and test seam) are
+// absent.
+func (n *Npc) pathfinder() pathfinderForTarget {
+	if n == nil || n.server == nil {
+		return nil
+	}
+	return n.server.pathfinder()
+}

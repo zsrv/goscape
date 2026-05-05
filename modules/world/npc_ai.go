@@ -87,6 +87,25 @@ func (n *Npc) QueueWaypoint(x, z int) {
 	n.waypointIndex = 0
 }
 
+// queueWaypoints replaces the current path with the given packed coords.
+// Mirrors (*Player).queueWaypoints. waypoints[0] is the final destination;
+// the last element is the first step. Unexported because external script-VM
+// callers use QueueWaypoint (single-step) only.
+func (n *Npc) queueWaypoints(packed []int) {
+	if len(packed) == 0 {
+		n.waypointIndex = -1
+		return
+	}
+	n2 := len(packed)
+	if n2 > len(n.waypoints) {
+		n2 = len(n.waypoints)
+	}
+	for i := 0; i < n2; i++ {
+		n.waypoints[i] = packed[i]
+	}
+	n.waypointIndex = n2 - 1
+}
+
 // Kill is a test-only helper that marks the NPC dead and schedules respawn.
 func (n *Npc) Kill() {
 	n.dead = true
