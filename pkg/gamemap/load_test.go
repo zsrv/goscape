@@ -23,9 +23,9 @@ import (
 // The packCoord index is the same as the parser's packCoord helper.
 func mFileWithLand(targetLevel, targetX, targetZ int, land byte) []byte {
 	var buf bytes.Buffer
-	for level := 0; level < mapLevels; level++ {
-		for x := 0; x < mapSquareSize; x++ {
-			for z := 0; z < mapSquareSize; z++ {
+	for level := range mapLevels {
+		for x := range mapSquareSize {
+			for z := range mapSquareSize {
 				if level == targetLevel && x == targetX && z == targetZ {
 					buf.WriteByte(49 + land) // opcode encoding land
 				} else {
@@ -40,9 +40,9 @@ func mFileWithLand(targetLevel, targetX, targetZ int, land byte) []byte {
 // mFileWithLands writes multiple (level,x,z,land) entries; all other tiles empty.
 func mFileWithLands(entries map[[3]int]byte) []byte {
 	var buf bytes.Buffer
-	for level := 0; level < mapLevels; level++ {
-		for x := 0; x < mapSquareSize; x++ {
-			for z := 0; z < mapSquareSize; z++ {
+	for level := range mapLevels {
+		for x := range mapSquareSize {
+			for z := range mapSquareSize {
 				if land, ok := entries[[3]int{level, x, z}]; ok {
 					buf.WriteByte(49 + land)
 				} else {

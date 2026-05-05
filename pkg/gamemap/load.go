@@ -41,9 +41,9 @@ func (gm *GameMap) loadGround(data []byte, mapSquareX, mapSquareZ int) {
 
 	// Pass 1 — parse opcodes into lands.
 parseLoop:
-	for level := 0; level < mapLevels; level++ {
-		for x := 0; x < mapSquareSize; x++ {
-			for z := 0; z < mapSquareSize; z++ {
+	for level := range mapLevels {
+		for x := range mapSquareSize {
+			for z := range mapSquareSize {
 				for {
 					if p.Len() == 0 {
 						break parseLoop
@@ -73,10 +73,10 @@ parseLoop:
 	gm.landsByMapSquare[uint16((mapSquareX<<8)|mapSquareZ)] = lands
 
 	// Pass 2 — write collision flags.
-	for level := 0; level < mapLevels; level++ {
-		for x := 0; x < mapSquareSize; x++ {
+	for level := range mapLevels {
+		for x := range mapSquareSize {
 			absX := mapSquareX*mapSquareSize + x
-			for z := 0; z < mapSquareSize; z++ {
+			for z := range mapSquareSize {
 				absZ := mapSquareZ*mapSquareSize + z
 				land := int(lands[packCoord(x, z, level)])
 
