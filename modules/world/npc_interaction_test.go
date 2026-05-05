@@ -580,6 +580,12 @@ func TestNpcUpdateMovement_WalktriggerNilTypNoOp(t *testing.T) {
 }
 
 func TestNpcPathToTarget(t *testing.T) {
+	// Pre-NAI-92 this test pinned naive single-waypoint behavior. Post-B6
+	// the dispatch path is: pathToTarget → bare *Npc target with size=0
+	// → coordgrid.Intersects((100,100,1,1),(105,108,0,0)) = false (no overlap)
+	// → pathToTargetBase → pathToTargetNaive (NewNpc default) → PathingEntity
+	// branch → pf == nil defensive fallback (newTestServer has no gamemap)
+	// → QueueWaypoint(105, 108). Outcome preserved; path through nil-pf guard.
 	typ := &objtype.NpcType{}
 	srv := newTestServer(t) // wire n.server so pathToTarget can call pathfinder()
 	n := NewNpc(1, 42, 100, 100, 0, typ)

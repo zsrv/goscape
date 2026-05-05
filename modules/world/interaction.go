@@ -567,9 +567,21 @@ func effectiveApRange(p *Player) int {
 // findPath helpers. Mirrors TS PathingEntity.pathToTarget
 // (PathingEntity.ts:457-508).
 //
-// Single point-of-entry replacing NAI-11's naive (tx, tz int) signature.
-// NAI-92 B2 ports the SMART/*Loc arm; B3-B5 fill in the remaining
-// branches (*Player/*Npc, *Obj, NAIVE strategy, no-strategy else).
+// Type-switches on p.target to select the appropriate FindPath* wrapper:
+//   - *entitypkg.Loc:        FindPathToLoc with shape/angle/forceapproach.
+//   - *Player / *Npc:        FindPathToEntity (shape=-2 entity sentinel),
+//                            FindNaivePath shortcut on NODE_CLIENT_ROUTEFINDER+intersect.
+//   - *entitypkg.Obj same:   queueWaypoint (TS workaround for findPath returning (0,0)).
+//   - *entitypkg.Obj diff:   FindPathPlain (TS plain findPath).
+//
+// NAIVE strategy: PathingEntity → FindNaivePath, others → single waypoint.
+// No-strategy else: nomove guards + single waypoint.
+//
+// History: NAI-11 deferred the SMART branch with a stub queueing a single
+// waypoint at target.Coords(). NAI-92 closed the deferral.
+//
+// Counterpart: (*Npc).pathToTarget (modules/world/npc_interaction.go) overrides
+// this base dispatch with an unconditional intersect shortcut per Npc.ts:319-335.
 func (p *Player) pathToTarget() {
 	if p.target == nil {
 		return
@@ -586,7 +598,9 @@ func (p *Player) pathToTarget() {
 }
 
 // pathToTargetSmart dispatches by target type for the SMART strategy.
-// NAI-92 B2 implements *Loc; B3 implements *Player/*Npc; B4 adds *Obj.
+// Cross-reference: modules/world/npc_interaction.go pathToTargetSmart.
+// Logic is duplicated rather than factored because of asymmetric server-
+// access (Player: client.server, Npc: server). Risk register R2 mitigation.
 func (p *Player) pathToTargetSmart() {
 	srv := p.client.server
 	pf := srv.pathfinder()
@@ -662,6 +676,7 @@ func (p *Player) pathToTargetSmart() {
 // FindNaivePath with the entity's blockWalkFlag/collisionStrategy;
 // non-PathingEntity targets queue a single waypoint at the target tile.
 // Mirrors TS PathingEntity.pathToTarget NAIVE arm (PathingEntity.ts:477-493).
+// Cross-reference: modules/world/npc_interaction.go pathToTargetNaive.
 func (p *Player) pathToTargetNaive() {
 	cs := p.getCollisionStrategy()
 	if cs == nil {
@@ -696,6 +711,7 @@ func (p *Player) pathToTargetNaive() {
 // guards as NAIVE but always queues a single waypoint regardless of
 // target type. Engaged by MoveStrategy values outside Smart/Naive
 // (defensive future-proofing — goscape's enum only has Smart+Naive).
+// Cross-reference: modules/world/npc_interaction.go pathToTargetNoStrategy.
 func (p *Player) pathToTargetNoStrategy() {
 	if p.getCollisionStrategy() == nil {
 		return

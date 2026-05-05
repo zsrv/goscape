@@ -512,6 +512,7 @@ func (n *Npc) pathToTargetNaive() {
 }
 
 // pathToTargetNoStrategy — Npc-side analogue of Player.pathToTargetNoStrategy.
+// Cross-reference: modules/world/interaction.go pathToTargetNoStrategy.
 // Mirrors TS PathingEntity.pathToTarget trailing else (PathingEntity.ts:494-507).
 func (n *Npc) pathToTargetNoStrategy() {
 	if n.getCollisionStrategy() == nil {
