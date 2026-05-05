@@ -2281,3 +2281,54 @@ func TestPlayer_PathToTarget_PlayerTarget_DispatchesSameAsNpc(t *testing.T) {
 		t.Errorf("FindNaivePath unexpectedly called for *Player target (no NCR)")
 	}
 }
+
+// TestPlayer_PathToTarget_ObjTarget_SameTile_QueuesSingleWaypoint pins
+// the TS workaround at PathingEntity.ts:472-473: findPath returns (0,0)
+// when src==dest, so the Obj-same-tile case queues a direct waypoint.
+func TestPlayer_PathToTarget_ObjTarget_SameTile_QueuesSingleWaypoint(t *testing.T) {
+	srv, rec := newPathToTargetTestServer(t)
+	p := newPathToTargetTestPlayer(t, srv, 100, 100, 0)
+	obj := entitypkg.NewObj(0, 100, 100, entitypkg.LifecycleForever, /*typ=*/ 1234, /*count=*/ 1)
+	p.target = obj
+
+	p.pathToTarget()
+
+	if p.waypointIndex < 0 {
+		t.Fatalf("expected single waypoint queued, got waypointIndex=%d", p.waypointIndex)
+	}
+	if _, ok := rec.lastFindPathPlain(); ok {
+		t.Errorf("FindPathPlain unexpectedly called for same-tile Obj")
+	}
+	if _, ok := rec.lastFindPathToEntity(); ok {
+		t.Errorf("FindPathToEntity unexpectedly called for same-tile Obj")
+	}
+	if _, ok := rec.lastFindPathToLoc(); ok {
+		t.Errorf("FindPathToLoc unexpectedly called for same-tile Obj")
+	}
+}
+
+// TestPlayer_PathToTarget_ObjTarget_DifferentTile_UsesFindPathPlain pins
+// the shape-blind 1×1 fallback for the different-tile Obj case.
+func TestPlayer_PathToTarget_ObjTarget_DifferentTile_UsesFindPathPlain(t *testing.T) {
+	srv, rec := newPathToTargetTestServer(t)
+	p := newPathToTargetTestPlayer(t, srv, 100, 100, 0)
+	obj := entitypkg.NewObj(0, 105, 105, entitypkg.LifecycleForever, /*typ=*/ 1234, /*count=*/ 1)
+	p.target = obj
+
+	p.pathToTarget()
+
+	call, ok := rec.lastFindPathPlain()
+	if !ok {
+		t.Fatalf("FindPathPlain not called for different-tile Obj")
+	}
+	if call.level != 0 || call.srcX != 100 || call.srcZ != 100 || call.destX != 105 || call.destZ != 105 {
+		t.Errorf("coords: got (lvl=%d src=%d,%d dest=%d,%d), want (0, 100, 100, 105, 105)",
+			call.level, call.srcX, call.srcZ, call.destX, call.destZ)
+	}
+	if _, ok := rec.lastFindPathToEntity(); ok {
+		t.Errorf("FindPathToEntity unexpectedly called for different-tile Obj")
+	}
+	if _, ok := rec.lastFindPathToLoc(); ok {
+		t.Errorf("FindPathToLoc unexpectedly called for different-tile Obj")
+	}
+}

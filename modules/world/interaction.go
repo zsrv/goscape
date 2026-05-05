@@ -629,9 +629,26 @@ func (p *Player) pathToTargetSmart() {
 			p.queueWaypoints(routeToPacked(route))
 		}
 
+	case *entitypkg.Obj:
+		// TS PathingEntity.pathToTarget Obj arm (PathingEntity.ts:469-475).
+		// Same-tile workaround: TS findPath returns (0,0) when src==dest, so
+		// queue one waypoint at the target tile directly. Different-tile:
+		// shape-blind FindPathPlain (TS plain findPath).
+		if p.x == tx && p.z == tz {
+			p.queueWaypoint(tx, tz)
+		} else {
+			if pf == nil {
+				// (goscape defensive; TS skips this check)
+				p.queueWaypoint(tx, tz)
+				return
+			}
+			route := pf.FindPathPlain(p.level, p.x, p.z, tx, tz)
+			p.queueWaypoints(routeToPacked(route))
+		}
+
 	default:
-		// *entitypkg.Obj branches (B4) and any unhandled subject — fall back
-		// to plain. (goscape defensive; TS skips this check on the default arm.)
+		// Unhandled target type (TS pathToTarget has no fallthrough default).
+		// (goscape defensive; TS skips this check)
 		if pf == nil {
 			p.queueWaypoint(tx, tz)
 			return
