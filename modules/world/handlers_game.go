@@ -374,17 +374,14 @@ func handleClientCheat(p *Player, payload []byte) error {
 			return nil
 		}
 		// Mirrors TS `::tele level,mapX,mapZ[,localX,localZ]` at
-		// ClientCheatHandler.ts:491-523. Single-arg form:
+		// ClientCheatHandler.ts:491-524. Single-arg form:
 		// "::tele 0,50,50,32,32".
 		//
-		// DEVIATION: TS pre-tele cleanup calls player.closeModal(),
-		// player.canAccess() (with "Please finish what you are doing
-		// first." gate), and player.unsetMapFlag() — none of which exist
-		// on goscape Player yet. We call ClearInteraction (the one that
-		// does exist) and skip the others; tele is a staff-only debug
-		// op so the cleanup gap is acceptable for the smoke-test
-		// enabler scope. Track in nai_followups.md with the
-		// pathing-entity-teleport-parity sub-spec.
+		// NAI-93 closed the prior DEVIATION block here: closeModal,
+		// canAccess gate, and the unsetMapFlag bundle (sendUnsetMapFlag
+		// + waypointIndex reset, per TS Player.unsetMapFlag at
+		// Player.ts:2169-2172) are now wired. ClearInteraction
+		// preserved.
 		if args == "" {
 			return nil
 		}
@@ -392,6 +389,17 @@ func handleClientCheat(p *Player, payload []byte) error {
 		if len(coord) < 3 {
 			return nil
 		}
+
+		// Pre-tele cleanup chain — order per TS lines 504-512.
+		p.CloseModal(true) // TS closeModal() default-arg.
+		if !p.CanAccess() {
+			p.MessageGame("Please finish what you are doing first.")
+			return nil
+		}
+		p.ClearInteraction()
+		sendUnsetMapFlag(p)
+		p.waypointIndex = -1 // TS Player.unsetMapFlag → clearWaypoints.
+
 		level := parseIntOr(coord[0], 0)
 		mx := parseIntOr(coord[1], 50)
 		mz := parseIntOr(coord[2], 50)
@@ -406,7 +414,6 @@ func handleClientCheat(p *Player, payload []byte) error {
 		if level < 0 || level > 3 || mx < 0 || mx > 255 || mz < 0 || mz > 255 || lx < 0 || lx > 63 || lz < 0 || lz > 63 {
 			return nil
 		}
-		p.ClearInteraction()
 		p.TeleJump((mx<<6)+lx, (mz<<6)+lz, level)
 	}
 	return nil
