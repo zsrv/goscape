@@ -487,6 +487,114 @@ func handleInvOtherTransmit(s *ScriptState) error {
 	return nil
 }
 
+// handleInvDropSlot (INV_DROPSLOT, opcode 4312) drops the entire stack at
+// slot from inv onto the ground at coord with private (caller-only)
+// visibility for duration ticks. Mirrors TS InvOps.ts:213-260.
+//
+// Pop order: [inv, coord, slot, duration] — duration on top-of-stack.
+//
+// Validation order (mirrors TS): InvTypeValid → DurationValid → CoordValid
+// → protect gate → slot lookup → empty check → addWealthEvent (D1) →
+// invDel → completed check → AddObj per-item or stacked.
+//
+// Protect gate (conditional per InvType): when invType.Protect is true AND
+// invType.Scope is not InvTypeScopeShared, require s.Protect via
+// requireProtectedActivePlayer. Otherwise require only ActivePlayer.
+// Gate is checked AFTER validators, matching TS opcode dispatch order.
+//
+// NAI-115-D1 deviation: TS inlines addWealthEvent for SCOPE_PERM drops.
+// (goscape: skipped; content can emit via OpWealthEvent 2131 — TS calls
+// addWealthEvent here.)
+//
+// NAI-115-D3 deviation: TS sets state.activeObj = floorObj and calls
+// pointerAdd(ActiveObj) after each AddObj. goscape's WorldVars.AddObj has
+// no world→state writeback path; omitted here (smoke-binding).
+func handleInvDropSlot(s *ScriptState) error {
+	duration := s.PopInt()
+	slot := s.PopInt()
+	coord := s.PopInt()
+	invID := s.PopInt()
+
+	if s.Configs == nil {
+		return fmt.Errorf("INV_DROPSLOT: no configs")
+	}
+
+	// InvTypeValid: resolve InvType config.
+	invType := s.Configs.InvType(invID)
+	if invType == nil {
+		return fmt.Errorf("INV_DROPSLOT: invalid inv id (%d)", invID)
+	}
+
+	// DurationValid.
+	if err := checkDuration(duration); err != nil {
+		return fmt.Errorf("INV_DROPSLOT: %w", err)
+	}
+
+	// CoordValid.
+	level, x, z, err := checkCoord(coord, "INV_DROPSLOT")
+	if err != nil {
+		return err
+	}
+
+	// Protect gate: conditional on InvType protect + scope.
+	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared {
+		if err := requireProtectedActivePlayer(s, "INV_DROPSLOT"); err != nil {
+			return err
+		}
+	} else {
+		if err := requireActivePlayer(s, "INV_DROPSLOT"); err != nil {
+			return err
+		}
+	}
+
+	if s.World == nil {
+		return fmt.Errorf("INV_DROPSLOT: no world surface")
+	}
+
+	// Resolve inventory and get slot contents.
+	inv := resolveInv(s, invID)
+	if inv == nil {
+		return fmt.Errorf("INV_DROPSLOT: inv unresolved (id=%d)", invID)
+	}
+	it := inv.Get(slot)
+	if it == nil {
+		return fmt.Errorf("INV_DROPSLOT: $slot is empty (slot=%d)", slot)
+	}
+
+	objID := it.Id
+	count := it.Count
+
+	// Validate obj config (mirrors TS ObjType.get after slot lookup).
+	if s.Configs.ObjType(objID) == nil {
+		return fmt.Errorf("INV_DROPSLOT: invalid obj id at slot (id=%d)", objID)
+	}
+	objType := s.Configs.ObjType(objID)
+
+	// NAI-115-D1: TS calls addWealthEvent here for SCOPE_PERM. Skipped.
+	// (goscape: content can emit via OpWealthEvent 2131.)
+
+	// Slot-scoped removal: mirrors TS player.invDel(invType.id, obj.id,
+	// obj.count, slot). completed = count removed (constrained to the slot).
+	completed := count
+	inv.Delete(slot)
+	if completed == 0 {
+		return nil
+	}
+
+	// Caller-only (private) drop: receiverID = active player's UID.
+	receiverID := s.Self.UID()
+
+	// Stackable branch: mirrors TS. NAI-115-D3: no activeObj writeback.
+	if !objType.Stackable || completed == 1 {
+		for range completed {
+			s.World.AddObj(level, x, z, objID, 1, duration, receiverID)
+		}
+	} else {
+		s.World.AddObj(level, x, z, objID, completed, duration, receiverID)
+	}
+	return nil
+}
+
 // handleInvMoveToSlot (INV_MOVETOSLOT) pops [fromInv, toInv, fromSlot,
 // toSlot] and swaps the two slot contents (nil-safe both directions).
 // Matches TS Player.invMoveToSlot.

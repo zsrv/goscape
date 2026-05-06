@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
@@ -679,5 +680,150 @@ func TestHandleInvOtherTransmitNullRejected(t *testing.T) {
 				t.Errorf("lastInvListenOnCom: got %d calls, want 0", len(mp.lastInvListenOnCom))
 			}
 		})
+	}
+}
+
+// -- INV_DROPSLOT tests --
+
+func TestHandleInvDropSlotHappyPath(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	w := newFakeWorldMembers()
+	s.World = w
+	s.Self = &mockPlayer{uidValue: 12345}
+	s.Pointers |= PtrActivePlayer
+	s.Protect = true
+
+	mc := newTestInvConfigs()
+	invType := objtype.NewInvType(93)
+	invType.Size = 28
+	invType.Protect = true
+	invType.Scope = objtype.InvTypeScopeTemp
+	mc.invs[93] = invType
+	logs := objtype.NewObjType(1511)
+	logs.Stackable = false
+	mc.objs[1511] = logs
+	s.Configs = mc
+
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Set(2, &inventory.Item{Id: 1511, Count: 1})
+	s.Inv = &mockInvLookup{invs: map[int]*inventory.Inventory{93: inv}}
+
+	// Push order [inv, coord, slot, duration] — duration on top.
+	s.PushInt(93)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(2)
+	s.PushInt(100)
+
+	if err := handleInvDropSlot(s); err != nil {
+		t.Fatalf("handleInvDropSlot returned error: %v", err)
+	}
+	if len(w.addedCalls) != 1 {
+		t.Fatalf("expected 1 AddObj call, got %d", len(w.addedCalls))
+	}
+	if got := w.addedCalls[0].typeID; got != 1511 {
+		t.Errorf("AddObj typeID: got %d, want 1511", got)
+	}
+	if got := w.addedCalls[0].receiverID; got != 12345 {
+		t.Errorf("AddObj receiverID: got %d, want 12345 (player UID)", got)
+	}
+	if got := w.addedCalls[0].count; got != 1 {
+		t.Errorf("AddObj count: got %d, want 1", got)
+	}
+	if it := inv.Get(2); it != nil {
+		t.Errorf("expected slot 2 cleared, got %+v", it)
+	}
+}
+
+func TestHandleInvDropSlotEmptySlotErrors(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	s.World = newFakeWorldMembers()
+	s.Self = &mockPlayer{uidValue: 12345}
+	s.Pointers |= PtrActivePlayer
+	s.Protect = true
+
+	mc := newTestInvConfigs()
+	invType := objtype.NewInvType(93)
+	invType.Size = 28
+	invType.Protect = true
+	invType.Scope = objtype.InvTypeScopeTemp
+	mc.invs[93] = invType
+	s.Configs = mc
+
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	// slot 2 left empty
+	s.Inv = &mockInvLookup{invs: map[int]*inventory.Inventory{93: inv}}
+
+	s.PushInt(93)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(2)
+	s.PushInt(100)
+
+	if err := handleInvDropSlot(s); err == nil {
+		t.Errorf("INV_DROPSLOT empty slot: expected error, got nil")
+	}
+}
+
+func TestHandleInvDropSlotProtectedRequired(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	s.World = newFakeWorldMembers()
+	s.Self = &mockPlayer{uidValue: 12345}
+	s.Pointers |= PtrActivePlayer
+	s.Protect = false // not protected — protect gate must fire
+
+	mc := newTestInvConfigs()
+	invType := objtype.NewInvType(93)
+	invType.Size = 28
+	invType.Protect = true
+	invType.Scope = objtype.InvTypeScopeTemp
+	mc.invs[93] = invType
+	s.Configs = mc
+
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Set(2, &inventory.Item{Id: 1511, Count: 1})
+	s.Inv = &mockInvLookup{invs: map[int]*inventory.Inventory{93: inv}}
+
+	s.PushInt(93)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(2)
+	s.PushInt(100)
+
+	if err := handleInvDropSlot(s); err == nil {
+		t.Errorf("INV_DROPSLOT protect-required without s.Protect: expected error, got nil")
+	}
+}
+
+func TestHandleInvDropSlotSharedScopeBypassesProtect(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	w := newFakeWorldMembers()
+	s.World = w
+	s.Self = &mockPlayer{uidValue: 12345}
+	s.Pointers |= PtrActivePlayer
+	s.Protect = false // not protected
+
+	mc := newTestInvConfigs()
+	invType := objtype.NewInvType(93)
+	invType.Size = 28
+	invType.Protect = true
+	invType.Scope = objtype.InvTypeScopeShared // SHARED bypasses protect gate
+	mc.invs[93] = invType
+	logs := objtype.NewObjType(1511)
+	logs.Stackable = false
+	mc.objs[1511] = logs
+	s.Configs = mc
+
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Set(2, &inventory.Item{Id: 1511, Count: 1})
+	s.Inv = &mockInvLookup{invs: map[int]*inventory.Inventory{93: inv}}
+
+	s.PushInt(93)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(2)
+	s.PushInt(100)
+
+	if err := handleInvDropSlot(s); err != nil {
+		t.Fatalf("INV_DROPSLOT scope=Shared: expected success, got error %v", err)
+	}
+	if len(w.addedCalls) != 1 {
+		t.Errorf("expected 1 AddObj call, got %d", len(w.addedCalls))
 	}
 }

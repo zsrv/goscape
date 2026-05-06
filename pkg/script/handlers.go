@@ -107,10 +107,11 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpMapLocAddUnsafe: handleMapLocAddUnsafe,
 
 	// NAI-115 Bundle 1: firemaking-cascade Obj/Inv/Server/Player ports.
-	OpObjCoord:   handleObjCoord,
-	OpObjDel:     handleObjDel,
-	OpObjAdd:     handleObjAdd,
-	OpLineOfWalk: handleLineOfWalk,
+	OpObjCoord:    handleObjCoord,
+	OpObjDel:      handleObjDel,
+	OpObjAdd:      handleObjAdd,
+	OpLineOfWalk:  handleLineOfWalk,
+	OpInvDropSlot: handleInvDropSlot,
 
 	// S5m: last-input queries.
 	OpLastInt:        handleLastInt,
