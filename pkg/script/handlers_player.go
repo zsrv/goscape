@@ -1106,3 +1106,24 @@ func handleHintStop(s *ScriptState) error {
 	s.Self.HintStop()
 	return nil
 }
+
+// handleTextGender implements TEXT_GENDER (opcode 4504). Mirrors TS
+// PlayerOps.ts:787-794 — pops two strings (popStrings(2) destructures
+// [male, female]; per ScriptState.ts:341-347 index 1 is popped first,
+// so female is popped first off the stack, male second), then pushes
+// male if gender==0 else female. No null-check on either string (TS
+// does not call check(..., StringNotNull)). Pure stack op — no wire
+// packet, no side effect.
+func handleTextGender(s *ScriptState) error {
+	if err := requireActivePlayer(s, "TEXT_GENDER"); err != nil {
+		return err
+	}
+	female := s.PopString()
+	male := s.PopString()
+	if s.Self.Gender() == 0 {
+		s.PushString(male)
+	} else {
+		s.PushString(female)
+	}
+	return nil
+}
