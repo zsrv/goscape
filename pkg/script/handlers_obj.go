@@ -93,6 +93,9 @@ func handleObjAdd(s *ScriptState) error {
 	if s.Self == nil {
 		return fmt.Errorf("OBJ_ADD: no active player")
 	}
+	if s.World == nil {
+		return fmt.Errorf("OBJ_ADD: no world surface")
+	}
 	return objAddCommon(s, "OBJ_ADD", s.Self.UID())
 }
 

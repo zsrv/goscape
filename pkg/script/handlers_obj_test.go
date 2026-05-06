@@ -209,3 +209,19 @@ func TestHandleObjAddMembersGate(t *testing.T) {
 		t.Errorf("OBJ_ADD members-gated F2P: expected 0 AddObj calls, got %d", len(w.addedCalls))
 	}
 }
+
+func TestHandleObjAddNilWorldErrors(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	s.World = nil
+	s.Configs = withObjForObjAdd(newTestConfigs(), 590, true, false, 0)
+	s.Self = &mockPlayer{uidValue: 12345}
+
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(590)
+	s.PushInt(1)
+	s.PushInt(100)
+
+	if err := handleObjAdd(s); err == nil {
+		t.Errorf("OBJ_ADD nil world: expected error, got nil")
+	}
+}
