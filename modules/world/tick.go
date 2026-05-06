@@ -523,12 +523,18 @@ func (s *Server) processCleanup() {
 	s.playersMu.RUnlock()
 	for _, p := range players {
 		p.ResetMasks()
-		// NAI-72 — TS Player.resetEntity(false) at Player.ts:466-467.
+		// NAI-72/108 — TS Player.resetEntity(false) at Player.ts:454-467.
 		// Reset social/report spam-protect flags so the next tick admits
 		// at most one social/report packet per type per player.
-		// (Other resetEntity fields — protect, chatColour/Effect/Rights,
-		// chatMessage, logMessage — belong to other sub-specs; tracked
-		// as NAI-72-N-RESETENTITY-PARTIAL.)
+		//
+		// Deferred resetEntity fields now resolved by NAI-108:
+		//   - protect → activeScript.Protect (already-converged divergence;
+		//     see interaction.go:308, player_script.go:276,297-300).
+		//   - chatColour/Effect/Rights → moved to ResetMasks per TS fidelity.
+		//   - chat msg field → dead field deleted (player.go:196 retired).
+		//   - logMessage → TS-only, no goscape consumer (YAGNI).
+		// unfocus() remains deferred per NAI-67-D-PLAYER-UNFOCUS-DEFERRED
+		// (Player respawn/death sub-spec).
 		p.socialProtect = false
 		p.reportAbuseProtect = false
 	}
