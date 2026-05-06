@@ -2,8 +2,6 @@ package world
 
 import (
 	"fmt"
-	"log/slog"
-	"sort"
 
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/objtype"
@@ -272,20 +270,14 @@ func handleOpHeldT(p *Player, payload []byte) error {
 // for clarity.
 func handleOpHeldU(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
-		slog.Default().Debug("opheldu reject", "gate", "client_nil",
-			"client_nil", p.client == nil)
 		return nil
 	}
 	s := p.client.server
 
 	if p.delayed && s.currentTick < p.delayedUntil {
-		s.log.Debug("opheldu reject", "gate", "delayed",
-			"currentTick", s.currentTick, "delayedUntil", p.delayedUntil)
 		return nil
 	}
 	if len(payload) < 12 {
-		s.log.Debug("opheldu reject", "gate", "short_payload",
-			"payload_len", len(payload))
 		return nil
 	}
 
@@ -297,57 +289,35 @@ func handleOpHeldU(p *Player, payload []byte) error {
 	useSlot := int(r.G2())
 	useComId := int(r.G2())
 
-	s.log.Debug("opheldu entry",
-		"tick", s.currentTick,
-		"obj", obj, "slot", slot, "comId", comId,
-		"useObj", useObj, "useSlot", useSlot, "useComId", useComId,
-		"delayed", p.delayed, "delayedUntil", p.delayedUntil)
-
 	if comId != useComId {
-		s.log.Debug("opheldu reject", "gate", "comId_mismatch",
-			"comId", comId, "useComId", useComId)
 		return nil
 	}
 
 	com := s.lookupComponent(comId)
 	if com == nil || !com.Usable {
-		s.log.Debug("opheldu reject", "gate", "com_nil_or_unusable",
-			"com_nil", com == nil, "com_usable", com != nil && com.Usable)
 		return nil
 	}
 	if !p.IsComponentVisible(com) {
-		s.log.Debug("opheldu reject", "gate", "com_invisible")
 		return nil
 	}
 
 	useCom := s.lookupComponent(useComId)
 	if useCom == nil || !useCom.Usable {
-		s.log.Debug("opheldu reject", "gate", "useCom_nil_or_unusable",
-			"useCom_nil", useCom == nil, "useCom_usable", useCom != nil && useCom.Usable)
 		return nil
 	}
 	if !p.IsComponentVisible(useCom) {
-		s.log.Debug("opheldu reject", "gate", "useCom_invisible")
 		return nil
 	}
 
 	listener, ok := p.invListeners[comId]
 	if !ok {
-		s.log.Debug("opheldu reject", "gate", "invListener_missing",
-			"comId", comId,
-			"listener_count", len(p.invListeners),
-			"listener_keys", snapshotInvListenerKeys(p))
 		return nil
 	}
 	inv := resolveListenerInv(s, listener)
 	if inv == nil {
-		s.log.Debug("opheldu reject", "gate", "inv_unresolved",
-			"listener_type", listener.Type, "listener_source", listener.Source)
 		return nil
 	}
 	if !inv.HasAt(slot, obj) {
-		s.log.Debug("opheldu reject", "gate", "inv_hasAt_failed",
-			"slot", slot, "obj", obj)
 		// TS OpHeldUHandler.ts:54-58 — extra cleanup on this specific reject.
 		p.moveClickRequest = false
 		p.ClearPendingAction()
@@ -356,21 +326,13 @@ func handleOpHeldU(p *Player, payload []byte) error {
 
 	useListener, ok := p.invListeners[useComId]
 	if !ok {
-		s.log.Debug("opheldu reject", "gate", "useInvListener_missing",
-			"useComId", useComId,
-			"listener_count", len(p.invListeners),
-			"listener_keys", snapshotInvListenerKeys(p))
 		return nil
 	}
 	useInv := resolveListenerInv(s, useListener)
 	if useInv == nil {
-		s.log.Debug("opheldu reject", "gate", "useInv_unresolved",
-			"useListener_type", useListener.Type, "useListener_source", useListener.Source)
 		return nil
 	}
 	if !useInv.HasAt(useSlot, useObj) {
-		s.log.Debug("opheldu reject", "gate", "useInv_hasAt_failed",
-			"useSlot", useSlot, "useObj", useObj)
 		// TS OpHeldUHandler.ts:71-75.
 		p.moveClickRequest = false
 		p.ClearPendingAction()
@@ -385,13 +347,9 @@ func handleOpHeldU(p *Player, payload []byte) error {
 
 	// ObjType resolution for both objects (goscape defensive; TS throws here).
 	if s.objTypes == nil || obj < 0 || obj >= len(s.objTypes.Configs) || s.objTypes.Configs[obj] == nil {
-		s.log.Debug("opheldu reject", "gate", "objType_unregistered",
-			"which", "obj", "id", obj)
 		return nil // goscape defensive; TS throws here
 	}
 	if useObj < 0 || useObj >= len(s.objTypes.Configs) || s.objTypes.Configs[useObj] == nil {
-		s.log.Debug("opheldu reject", "gate", "objType_unregistered",
-			"which", "useObj", "id", useObj)
 		return nil // goscape defensive; TS throws here
 	}
 	objType := s.objTypes.Configs[obj]
@@ -405,10 +363,6 @@ func handleOpHeldU(p *Player, payload []byte) error {
 
 	// Members-only gate (TS OpHeldUHandler.ts:90-93).
 	if (objType.Members || useObjType.Members) && !s.cfg.NodeMembers {
-		s.log.Debug("opheldu reject", "gate", "members_only",
-			"obj_members", objType.Members,
-			"useObj_members", useObjType.Members,
-			"node_members", s.cfg.NodeMembers)
 		p.MessageGame("To use this item please login to a members' server.")
 		return nil
 	}
@@ -443,19 +397,4 @@ func handleOpHeldU(p *Player, payload []byte) error {
 
 	s.runScript(sf, p, nil, true, nil, nil)
 	return nil
-}
-
-// snapshotInvListenerKeys returns up to 16 sorted comId keys from
-// p.invListeners. NAI-114 Stage 4 throwaway instrumentation; reverted
-// at Stage 5 close.
-func snapshotInvListenerKeys(p *Player) []int {
-	keys := make([]int, 0, len(p.invListeners))
-	for k := range p.invListeners {
-		keys = append(keys, k)
-	}
-	sort.Ints(keys)
-	if len(keys) > 16 {
-		keys = keys[:16]
-	}
-	return keys
 }
