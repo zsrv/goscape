@@ -85,6 +85,12 @@ type WorldVars interface {
 	// objs) is a foundation gap. DESPAWN-lifecycle path unaffected.
 	// Used by OBJ_DEL.
 	RemoveObj(obj ActiveObj)
+
+	// AddObj routes a ground-item spawn. receiverID is the owning
+	// player's UID for caller-only drops, or zone.PublicReceiver (-1)
+	// for broadcast. Used by OBJ_ADD (per-caller), OBJ_ADDALL
+	// (broadcast), and INV_DROPSLOT.
+	AddObj(level, x, z, typeID, count, duration, receiverID int)
 }
 
 // InvLookup is the inventory resolution surface for INV_* handlers.

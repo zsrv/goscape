@@ -127,3 +127,23 @@ func (w worldVarsView) RemoveObj(obj script.ActiveObj) {
 	}
 	w.s.RemoveObj(realObj)
 }
+
+// AddObj implements script.WorldVars.AddObj. Constructs a
+// DESPAWN-lifecycle Obj at (level, x, z) with typeID/count, sets
+// ReceiverID to the caller's UID (or PublicReceiver=-1 for broadcast),
+// and routes via Server.AddObj. Mirrors TS World.addObj for despawnable
+// drops.
+//
+// NAI-115-D2: duration is accepted but not yet honored (no
+// despawn-after-N-ticks scheduler hooked up). DESPAWN-lifecycle objs
+// (the firemaking smoke target) are unaffected because the smoke only
+// requires the obj to appear at all.
+func (w worldVarsView) AddObj(level, x, z, typeID, count, duration, receiverID int) {
+	if w.s == nil {
+		return
+	}
+	obj := entitypkg.NewObj(level, x, z, entitypkg.LifecycleDespawn, typeID, count)
+	obj.ReceiverID = receiverID
+	w.s.AddObj(obj, receiverID)
+	_ = duration // NAI-115-D2: foundation gap
+}
