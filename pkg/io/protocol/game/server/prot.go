@@ -15,6 +15,7 @@ var (
 	OpIfOpenSide     = Op{Opcode: 195, PayloadSize: 2}
 	OpIfOpenMainSide = Op{Opcode: 28, PayloadSize: 4}
 	OpTutOpen        = Op{Opcode: 185, PayloadSize: 2}
+	OpTutFlash       = Op{Opcode: 126, PayloadSize: 1}
 	OpLogout         = Op{Opcode: 142, PayloadSize: 0}
 
 	// S5f: per-component setters (fire-and-forget wire ops used by IF_SET* opcodes).

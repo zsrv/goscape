@@ -161,8 +161,10 @@ type mockPlayer struct {
 	lastOpenChat        int
 	lastOpenSide        int
 	lastOpenMainSide    struct{ main, side int }
-	lastOpenTutorial    int
+	lastOpenTutorial       int
 	lastCloseTutorialCalls int
+	lastFlashTutorial      int
+	lastFlashTutorialCalls int
 
 	lastIfSetText struct {
 		com  int
@@ -442,6 +444,10 @@ func (m *mockPlayer) OpenMainSide(mainCom, sideCom int) {
 
 func (m *mockPlayer) OpenTutorial(com int) { m.lastOpenTutorial = com }
 func (m *mockPlayer) CloseTutorial()       { m.lastCloseTutorialCalls++ }
+func (m *mockPlayer) FlashTutorial(tab int) {
+	m.lastFlashTutorial = tab
+	m.lastFlashTutorialCalls++
+}
 
 func (m *mockPlayer) IfSetText(com int, text string) {
 	m.lastIfSetText = struct {

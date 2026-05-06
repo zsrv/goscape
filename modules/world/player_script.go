@@ -816,6 +816,20 @@ func (p *Player) CloseTutorial() {
 	p.modalState &^= modalStateTut
 }
 
+// FlashTutorial implements script.ActivePlayer.FlashTutorial. Writes
+// a TUT_FLASH server packet (opcode 126, 1-byte tab payload). Direct
+// write — TUT_FLASH is fire-and-forget UI hint, not a modal-state
+// transition like TUT_OPEN, so no deferred-flush pathway. Mirrors
+// LostCityRS/Engine-TS Player.write(new TutFlash(tab)) call from
+// PlayerOps.ts:694-696 + TutFlashEncoder.ts:9-11.
+//
+// No client-nil guard — matches goscape's direct-writer convention
+// (CamReset at line 189-191, HintNpc at line 201-209, WriteEnableTracking
+// at player.go:416-418); writeOut itself does not nil-guard either.
+func (p *Player) FlashTutorial(tab int) {
+	p.writeOut(gameserver.OpTutFlash, []byte{byte(tab)})
+}
+
 // SetResumeButtons stores the 5 resume-button interface ids for later
 // consumption by P_PAUSEBUTTON. No wire op is emitted.
 func (p *Player) SetResumeButtons(b1, b2, b3, b4, b5 int) {

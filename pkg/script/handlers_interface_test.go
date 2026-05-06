@@ -1242,3 +1242,76 @@ func TestTutCloseNoActivePlayer(t *testing.T) {
 		t.Errorf("Execution: got %v, want Aborted", state.Execution)
 	}
 }
+
+// -- NAI-109: TUT_FLASH tests ----------------------------------------------
+
+// TestTutFlash pins TUT_FLASH script-opcode dispatch:
+// state.popInt() → ActivePlayer.FlashTutorial(tab).
+// Mirrors TS PlayerOps.ts:694-696.
+func TestTutFlash(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "tut_flash",
+		Opcodes:          []Opcode{OpPushConstantInt, OpTutFlash, OpReturn},
+		IntOperands:      []int32{42, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if mp.lastFlashTutorial != 42 {
+		t.Errorf("FlashTutorial: got %d, want 42", mp.lastFlashTutorial)
+	}
+	if mp.lastFlashTutorialCalls != 1 {
+		t.Errorf("FlashTutorial calls: got %d, want 1", mp.lastFlashTutorialCalls)
+	}
+}
+
+// TestHandleTutFlashNullRejected pins TUT_FLASH: TS wraps tab with
+// NumberNotNull (PlayerOps.ts:694-695). A tab value of -1 must be
+// rejected before any side-effect occurs.
+func TestHandleTutFlashNullRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "tut_flash_null_tab",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // tab = -1
+			OpTutFlash,
+			OpReturn,
+		},
+		IntOperands: []int32{-1, 0, 0},
+	}
+	state := Init(sf, mp, false, nil, nil)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for tab=-1, got nil")
+	}
+	want := "TUT_FLASH: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if mp.lastFlashTutorialCalls != 0 {
+		t.Errorf("FlashTutorial: should not have been called, got %d calls", mp.lastFlashTutorialCalls)
+	}
+}
+
+// TestTutFlashNoActivePlayer pins the no-active-player guard on TUT_FLASH.
+func TestTutFlashNoActivePlayer(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "tut_flash_nap",
+		Opcodes:          []Opcode{OpPushConstantInt, OpTutFlash, OpReturn},
+		IntOperands:      []int32{1, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	if err := Execute(state); err == nil {
+		t.Fatal("expected error from TUT_FLASH with no active player, got nil")
+	}
+	if state.Execution != Aborted {
+		t.Errorf("Execution: got %v, want Aborted", state.Execution)
+	}
+}

@@ -802,6 +802,44 @@ func TestEncodeOutSendsTutOpen(t *testing.T) {
 	}
 }
 
+// TestPlayerFlashTutorialWireBytes pins the TUT_FLASH wire shape:
+// (*Player).FlashTutorial(tab) → OpTutFlash (126, 1) with 1-byte
+// payload = byte(tab). Mirrors TS TutFlashEncoder.ts:9-11
+// (buf.p1(message.tab)).
+func TestPlayerFlashTutorialWireBytes(t *testing.T) {
+	enc, _ := isaacPair([4]uint32{17, 18, 19, 20})
+	wantEnc, _ := isaacPair([4]uint32{17, 18, 19, 20})
+
+	p, clientConn := newTestPlayer(t)
+	p.client.encryptor = enc
+
+	received := make(chan []byte, 1)
+	go func() {
+		buf := make([]byte, 2) // 1 encrypted opcode + 1 payload byte
+		clientConn.SetReadDeadline(time.Now().Add(time.Second))
+		if _, err := io.ReadFull(clientConn, buf); err == nil {
+			received <- buf
+		}
+	}()
+
+	p.FlashTutorial(7)
+	p.client.flushWrite()
+
+	expectedByte := byte((int(gameserver.OpTutFlash.Opcode) + int(wantEnc.GetNext())) & 0xff)
+
+	select {
+	case got := <-received:
+		if got[0] != expectedByte {
+			t.Errorf("TUT_FLASH encrypted opcode: got %d, want %d", got[0], expectedByte)
+		}
+		if got[1] != 7 {
+			t.Errorf("TUT_FLASH tab payload: got %d, want 7", got[1])
+		}
+	case <-time.After(time.Second):
+		t.Error("timed out waiting for TUT_FLASH")
+	}
+}
+
 func TestEncodeOutTutorialNoChangeNoEmit(t *testing.T) {
 	enc, _ := isaacPair([4]uint32{13, 14, 15, 16})
 	p, clientConn := newTestPlayer(t)

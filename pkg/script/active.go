@@ -187,6 +187,13 @@ type ActivePlayer interface {
 	// (Player.ts:716-726).
 	CloseTutorial()
 
+	// FlashTutorial directs the client to flash the named tab to draw
+	// the player's attention to it. Fire-and-forget: writes a single
+	// TUT_FLASH server packet (opcode 126, 1-byte tab payload) and
+	// returns. Mirrors LostCityRS/Engine-TS PlayerOps.ts:694-696 +
+	// TutFlashEncoder.ts.
+	FlashTutorial(tab int)
+
 	// IfSetText emits an IF_SETTEXT wire op setting the text of interface
 	// component com. Fire-and-forget; no server-side persistence.
 	IfSetText(com int, text string)
