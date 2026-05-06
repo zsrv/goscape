@@ -884,3 +884,77 @@ func TestMapLocAddUnsafe_ConfigsNilSkipsAllLocsPushes0(t *testing.T) {
 			state.IntStack[0], state.ISP)
 	}
 }
+
+// --- NAI-115 Task 4: LINEOFWALK (opcode 1006) unit tests ------------------
+
+func TestHandleLineOfWalkSameLevelTrue(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	mw := newMockWorld()
+	mw.mapMembers = 1 // members world; F2P gate inert
+	s.World = mw
+	s.LineValidator = &stubLineValidator{lowReturn: true}
+
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200)) // c1 (from)
+	s.PushInt(coordgrid.PackCoord(0, 3201, 3200)) // c2 (to)
+
+	if err := handleLineOfWalk(s); err != nil {
+		t.Fatalf("handleLineOfWalk returned error: %v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("LINEOFWALK same-level true: got %d, want 1", got)
+	}
+}
+
+func TestHandleLineOfWalkDifferentLevels(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	mw := newMockWorld()
+	mw.mapMembers = 1
+	s.World = mw
+	s.LineValidator = &stubLineValidator{lowReturn: true}
+
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(coordgrid.PackCoord(1, 3200, 3200)) // different level
+
+	if err := handleLineOfWalk(s); err != nil {
+		t.Fatalf("handleLineOfWalk returned error: %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("LINEOFWALK different-level: got %d, want 0", got)
+	}
+}
+
+func TestHandleLineOfWalkF2PShortCircuit(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	mw := newMockWorld()
+	mw.mapMembers = 0 // F2P world; default IsFreeToPlay returns false → blocked
+	s.World = mw
+	s.LineValidator = &stubLineValidator{lowReturn: true}
+
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(coordgrid.PackCoord(0, 3201, 3200))
+
+	if err := handleLineOfWalk(s); err != nil {
+		t.Fatalf("handleLineOfWalk returned error: %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("LINEOFWALK F2P-blocked: got %d, want 0", got)
+	}
+}
+
+func TestHandleLineOfWalkNilValidator(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	mw := newMockWorld()
+	mw.mapMembers = 1
+	s.World = mw
+	s.LineValidator = nil
+
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(coordgrid.PackCoord(0, 3201, 3200))
+
+	if err := handleLineOfWalk(s); err != nil {
+		t.Fatalf("handleLineOfWalk returned error: %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("LINEOFWALK nil validator: got %d, want 0", got)
+	}
+}
