@@ -193,7 +193,6 @@ type Player struct {
 
 	// === chat state ===
 	publicChat, privateChat, tradeDuel int
-	chatMessage                        []byte
 	chatColour, chatEffect, chatRights int
 	mutedUntil                         time.Time
 	messageCount                       int
