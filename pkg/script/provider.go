@@ -216,3 +216,15 @@ func (p *Provider) Count() int {
 	}
 	return count
 }
+
+// Names returns the slice of all registered script names. Order is map
+// iteration order (unstable). Used by NAI-114 Stage 3 instrumentation to
+// filter for [opheldu,*] entries at boot. Tests should sort the result
+// before comparing.
+func (p *Provider) Names() []string {
+	out := make([]string, 0, len(p.byName))
+	for name := range p.byName {
+		out = append(out, name)
+	}
+	return out
+}

@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -242,5 +243,19 @@ func TestGetByTriggerSpecificMissingReturnsNil(t *testing.T) {
 	p := NewProvider() // empty
 	if got := p.GetByTriggerSpecific(TriggerChangeStat, 0, -1); got != nil {
 		t.Errorf("empty provider: got %v, want nil", got)
+	}
+}
+
+func TestProviderNames(t *testing.T) {
+	p := NewProvider()
+	p.Register(&ScriptFile{Name: "[opheldu,tinderbox]", LookupKey: 0xFFFFFFFF})
+	p.Register(&ScriptFile{Name: "[opheldu,logs]", LookupKey: 0xFFFFFFFF})
+	p.Register(&ScriptFile{Name: "[proc,unrelated]", LookupKey: 0xFFFFFFFF})
+
+	got := p.Names()
+	slices.Sort(got)
+	want := []string{"[opheldu,logs]", "[opheldu,tinderbox]", "[proc,unrelated]"}
+	if !slices.Equal(got, want) {
+		t.Errorf("Names(): got %v, want %v", got, want)
 	}
 }
