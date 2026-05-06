@@ -102,6 +102,10 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// NAI-36-T5: tile-anchored spotanim broadcast.
 	OpSpotAnimMap: handleSpotAnimMap,
 
+	// NAI-114 Stage 2: zone-wide active-loc occupancy probe for the
+	// firemaking-chain area-allow check.
+	OpMapLocAddUnsafe: handleMapLocAddUnsafe,
+
 	// S5m: last-input queries.
 	OpLastInt:        handleLastInt,
 	OpLastItem:       handleLastItem,

@@ -6,6 +6,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/pathfinder/loc"
 )
 
 // MAP_PLAYERCOUNT (opcode 1015) — NAI-35-T2.
@@ -593,5 +594,293 @@ func TestSpotAnimMap_NilEntryRejects(t *testing.T) {
 	err := handleSpotAnimMap(state)
 	if err == nil || !strings.Contains(err.Error(), "SPOTANIM_MAP") {
 		t.Errorf("nil-value spotanim id: got %v, want SPOTANIM_MAP error", err)
+	}
+}
+
+// --- NAI-114 Stage 2: MAP_LOCADDUNSAFE Layer 1 unit tests --------------
+
+// mapLocAddUnsafeOps is a minimal LocOps fixture for MAP_LOCADDUNSAFE
+// tests. Records nothing; provides controllable AllLocsInZone return.
+// The other LocOps methods are not called by MAP_LOCADDUNSAFE; they
+// satisfy the interface so a test-state can mount this as state.LocOps.
+type mapLocAddUnsafeOps struct {
+	zoneLocs []ActiveLoc
+}
+
+func (m *mapLocAddUnsafeOps) ChangeLoc(loc ActiveLoc, typ, shape, angle, duration int) error {
+	return nil
+}
+func (m *mapLocAddUnsafeOps) AddLoc(level, x, z, typ, shape, angle, duration int) (ActiveLoc, error) {
+	return nil, nil
+}
+func (m *mapLocAddUnsafeOps) RemoveLoc(loc ActiveLoc, duration int) error { return nil }
+func (m *mapLocAddUnsafeOps) AnimLoc(loc ActiveLoc, seq int) error        { return nil }
+func (m *mapLocAddUnsafeOps) LocsAtCoord(level, x, z int) []ActiveLoc     { return nil }
+func (m *mapLocAddUnsafeOps) AllLocsInZone(level, x, z int) []ActiveLoc   { return m.zoneLocs }
+
+// runMapLocAddUnsafe is the standard test harness: pushes the packed
+// coord and dispatches the opcode through Execute (so registration is
+// also exercised).
+func runMapLocAddUnsafe(t *testing.T, locs []ActiveLoc, configs Configs, packedCoord int) *ScriptState {
+	t.Helper()
+	sf := &ScriptFile{
+		Name:             "test_MAP_LOCADDUNSAFE",
+		Opcodes:          []Opcode{OpMapLocAddUnsafe, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := &ScriptState{
+		Script:      sf,
+		LocOps:      &mapLocAddUnsafeOps{zoneLocs: locs},
+		Configs:     configs,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	state.PushInt(packedCoord)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	return state
+}
+
+func TestMapLocAddUnsafe_EmptyZonePushes0(t *testing.T) {
+	state := runMapLocAddUnsafe(t, nil, &fakeConfigs{}, coordgrid.PackCoord(0, 100, 100))
+	if state.ISP != 1 || state.IntStack[0] != 0 {
+		t.Errorf("empty zone: got top=%d ISP=%d, want top=0 ISP=1",
+			state.IntStack[0], state.ISP)
+	}
+}
+
+// TS ServerOps.ts:218 — type.active !== 1 → continue.
+func TestMapLocAddUnsafe_LocTypeActiveZeroSkipped(t *testing.T) {
+	lt := objtype.NewLocType(42)
+	lt.Active = 0 // explicit; default is -1 then PostDecode coerces, but we set directly
+	configs := &fakeConfigs{locs: map[int]*objtype.LocType{42: lt}}
+	wallAtCoord := fakeActiveLoc{
+		id: 42, x: 100, z: 100, level: 0,
+		layer:  0, // LayerWall
+		active: true,
+	}
+	state := runMapLocAddUnsafe(t, []ActiveLoc{wallAtCoord}, configs,
+		coordgrid.PackCoord(0, 100, 100))
+	if state.ISP != 1 || state.IntStack[0] != 0 {
+		t.Errorf("LocType.Active=0 wall at coord: got top=%d ISP=%d, want top=0 ISP=1 (TS line 218 skip)",
+			state.IntStack[0], state.ISP)
+	}
+}
+
+// TS ServerOps.ts:224 — !loc.isActive && layer === LocLayer.WALL → continue.
+// Distinguishes from TS line 218: this loc HAS LocType.Active=1, but its
+// runtime IsActive flag (Loc.IsActive, zone-managed) is false.
+func TestMapLocAddUnsafe_InactiveWallSkipped(t *testing.T) {
+	lt := objtype.NewLocType(42)
+	lt.Active = 1
+	configs := &fakeConfigs{locs: map[int]*objtype.LocType{42: lt}}
+	inactiveWallAtCoord := fakeActiveLoc{
+		id: 42, x: 100, z: 100, level: 0,
+		layer:  0, // LayerWall
+		active: false,
+	}
+	state := runMapLocAddUnsafe(t, []ActiveLoc{inactiveWallAtCoord}, configs,
+		coordgrid.PackCoord(0, 100, 100))
+	if state.ISP != 1 || state.IntStack[0] != 0 {
+		t.Errorf("inactive wall at coord: got top=%d ISP=%d, want top=0 ISP=1 (TS line 224 skip)",
+			state.IntStack[0], state.ISP)
+	}
+}
+
+// TS ServerOps.ts:228-232 — active WALL at coord → push 1.
+func TestMapLocAddUnsafe_ActiveWallAtCoordPushes1(t *testing.T) {
+	lt := objtype.NewLocType(42)
+	lt.Active = 1
+	configs := &fakeConfigs{locs: map[int]*objtype.LocType{42: lt}}
+	activeWallAtCoord := fakeActiveLoc{
+		id: 42, x: 100, z: 100, level: 0,
+		layer:  0, // LayerWall
+		active: true,
+	}
+	state := runMapLocAddUnsafe(t, []ActiveLoc{activeWallAtCoord}, configs,
+		coordgrid.PackCoord(0, 100, 100))
+	if state.ISP != 1 || state.IntStack[0] != 1 {
+		t.Errorf("active wall at coord: got top=%d ISP=%d, want top=1 ISP=1",
+			state.IntStack[0], state.ISP)
+	}
+}
+
+// TS ServerOps.ts:228-232 inverse — active WALL not at coord → continue → push 0.
+func TestMapLocAddUnsafe_ActiveWallNotAtCoordPushes0(t *testing.T) {
+	lt := objtype.NewLocType(42)
+	lt.Active = 1
+	configs := &fakeConfigs{locs: map[int]*objtype.LocType{42: lt}}
+	activeWallElsewhere := fakeActiveLoc{
+		id: 42, x: 105, z: 100, level: 0, // 5 tiles east of probe coord
+		layer:  0, // LayerWall
+		active: true,
+	}
+	state := runMapLocAddUnsafe(t, []ActiveLoc{activeWallElsewhere}, configs,
+		coordgrid.PackCoord(0, 100, 100))
+	if state.ISP != 1 || state.IntStack[0] != 0 {
+		t.Errorf("active wall not at coord: got top=%d ISP=%d, want top=0 ISP=1",
+			state.IntStack[0], state.ISP)
+	}
+}
+
+// TS ServerOps.ts:233-243 — 1×1 GROUND at coord → push 1 (single iteration
+// of the footprint loop, deltaX/deltaZ = anchor).
+func TestMapLocAddUnsafe_GroundLayer1x1AtCoordPushes1(t *testing.T) {
+	lt := objtype.NewLocType(42)
+	lt.Active = 1
+	lt.Width = 1
+	lt.Length = 1
+	configs := &fakeConfigs{locs: map[int]*objtype.LocType{42: lt}}
+	activeGround := fakeActiveLoc{
+		id: 42, x: 100, z: 100, level: 0,
+		layer:  2, // LayerGround
+		angle:  0, // AngleWest (no width/length swap)
+		active: true,
+	}
+	state := runMapLocAddUnsafe(t, []ActiveLoc{activeGround}, configs,
+		coordgrid.PackCoord(0, 100, 100))
+	if state.ISP != 1 || state.IntStack[0] != 1 {
+		t.Errorf("1x1 ground at coord: got top=%d ISP=%d, want top=1 ISP=1",
+			state.IntStack[0], state.ISP)
+	}
+}
+
+// TS ServerOps.ts:236-243 — 2×1 GROUND anchored at (100,100), AngleWest:
+// width=2, length=1. Footprint covers (100,100) and (101,100). Probing
+// (101,100) → push 1 (second iteration of the footprint loop).
+func TestMapLocAddUnsafe_GroundLayer2x1FootprintCoversCoord(t *testing.T) {
+	lt := objtype.NewLocType(42)
+	lt.Active = 1
+	lt.Width = 2
+	lt.Length = 1
+	configs := &fakeConfigs{locs: map[int]*objtype.LocType{42: lt}}
+	activeGround := fakeActiveLoc{
+		id: 42, x: 100, z: 100, level: 0,
+		layer:  2, // LayerGround
+		angle:  0, // AngleWest
+		active: true,
+	}
+	state := runMapLocAddUnsafe(t, []ActiveLoc{activeGround}, configs,
+		coordgrid.PackCoord(0, 101, 100)) // probe one tile east
+	if state.ISP != 1 || state.IntStack[0] != 1 {
+		t.Errorf("2x1 ground footprint covers (101,100): got top=%d ISP=%d, want top=1 ISP=1",
+			state.IntStack[0], state.ISP)
+	}
+}
+
+// TS ServerOps.ts:234-235 — AngleNorth/AngleSouth swap width and length.
+// Anchor (100,100), Width=1, Length=2, AngleNorth → effective width=2,
+// length=1; footprint covers (100,100) and (101,100). The original
+// (101,100) probe must hit; the (100,101) probe (the unswapped axis)
+// must miss.
+func TestMapLocAddUnsafe_GroundLayerNorthAngleSwapsWidthLength(t *testing.T) {
+	lt := objtype.NewLocType(42)
+	lt.Active = 1
+	lt.Width = 1
+	lt.Length = 2
+	configs := &fakeConfigs{locs: map[int]*objtype.LocType{42: lt}}
+	activeGround := fakeActiveLoc{
+		id: 42, x: 100, z: 100, level: 0,
+		layer:  2,                   // LayerGround
+		angle:  int(loc.AngleNorth), // 1
+		active: true,
+	}
+	// Hit case: (101, 100) is covered by the swapped 2×1 footprint.
+	state := runMapLocAddUnsafe(t, []ActiveLoc{activeGround}, configs,
+		coordgrid.PackCoord(0, 101, 100))
+	if state.ISP != 1 || state.IntStack[0] != 1 {
+		t.Errorf("AngleNorth swap hit: got top=%d ISP=%d, want top=1 ISP=1",
+			state.IntStack[0], state.ISP)
+	}
+
+	// Miss case: (100, 101) — the unswapped Length axis — is NOT covered.
+	state2 := runMapLocAddUnsafe(t, []ActiveLoc{activeGround}, configs,
+		coordgrid.PackCoord(0, 100, 101))
+	if state2.ISP != 1 || state2.IntStack[0] != 0 {
+		t.Errorf("AngleNorth swap miss: got top=%d ISP=%d, want top=0 ISP=1",
+			state2.IntStack[0], state2.ISP)
+	}
+}
+
+// TS ServerOps.ts:244-249 — GROUND_DECOR at coord → push 1 (no footprint;
+// exact tile match like WALL).
+func TestMapLocAddUnsafe_GroundDecorAtCoordPushes1(t *testing.T) {
+	lt := objtype.NewLocType(42)
+	lt.Active = 1
+	configs := &fakeConfigs{locs: map[int]*objtype.LocType{42: lt}}
+	activeGroundDecor := fakeActiveLoc{
+		id: 42, x: 100, z: 100, level: 0,
+		layer:  3, // LayerGroundDecor
+		active: true,
+	}
+	state := runMapLocAddUnsafe(t, []ActiveLoc{activeGroundDecor}, configs,
+		coordgrid.PackCoord(0, 100, 100))
+	if state.ISP != 1 || state.IntStack[0] != 1 {
+		t.Errorf("ground-decor at coord: got top=%d ISP=%d, want top=1 ISP=1",
+			state.IntStack[0], state.ISP)
+	}
+}
+
+// TS ServerOps.ts:224 inverse — inactive ground/ground-decor locs are
+// STILL checked (the WALL-only inactive-skip rule does not extend to
+// other layers). Probes an inactive ground-decor at coord; expects push 1.
+func TestMapLocAddUnsafe_InactiveGroundDecorStillChecked(t *testing.T) {
+	lt := objtype.NewLocType(42)
+	lt.Active = 1
+	configs := &fakeConfigs{locs: map[int]*objtype.LocType{42: lt}}
+	inactiveGroundDecor := fakeActiveLoc{
+		id: 42, x: 100, z: 100, level: 0,
+		layer:  3, // LayerGroundDecor
+		active: false,
+	}
+	state := runMapLocAddUnsafe(t, []ActiveLoc{inactiveGroundDecor}, configs,
+		coordgrid.PackCoord(0, 100, 100))
+	if state.ISP != 1 || state.IntStack[0] != 1 {
+		t.Errorf("inactive ground-decor at coord (TS line 224 inverse): got top=%d ISP=%d, want top=1 ISP=1",
+			state.IntStack[0], state.ISP)
+	}
+}
+
+// Coord validation (checkCoord) errors before the zone iteration begins.
+// No push occurs; Execute returns the error tagged "MAP_LOCADDUNSAFE".
+func TestMapLocAddUnsafe_NegativeCoordErrors(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "test_MAP_LOCADDUNSAFE",
+		Opcodes:          []Opcode{OpMapLocAddUnsafe, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := &ScriptState{
+		Script:      sf,
+		LocOps:      &mapLocAddUnsafeOps{},
+		Configs:     &fakeConfigs{},
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	state.PushInt(-1) // invalid coord
+	err := Execute(state)
+	if err == nil || !strings.Contains(err.Error(), "MAP_LOCADDUNSAFE") {
+		t.Errorf("negative coord: got err=%v, want error containing MAP_LOCADDUNSAFE", err)
+	}
+}
+
+// Configs nil (defensive — the firemaking chain should not crash if a
+// later state-builder forgets to wire Configs). Per the doc comment:
+// nil Configs → all per-loc LocType lookups silently skip → push 0.
+func TestMapLocAddUnsafe_ConfigsNilSkipsAllLocsPushes0(t *testing.T) {
+	wallAtCoord := fakeActiveLoc{
+		id: 42, x: 100, z: 100, level: 0,
+		layer:  0, // LayerWall
+		active: true,
+	}
+	state := runMapLocAddUnsafe(t, []ActiveLoc{wallAtCoord}, nil,
+		coordgrid.PackCoord(0, 100, 100))
+	if state.ISP != 1 || state.IntStack[0] != 0 {
+		t.Errorf("nil Configs: got top=%d ISP=%d, want top=0 ISP=1",
+			state.IntStack[0], state.ISP)
 	}
 }

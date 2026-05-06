@@ -7,6 +7,8 @@ import (
 	"math/rand/v2"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
+	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/pathfinder/loc"
 )
 
 // handleMapPlayerCount (MAP_PLAYERCOUNT, opcode 1015) pops two coords
@@ -248,4 +250,86 @@ func absMax(a, b int) int {
 		b = -b
 	}
 	return max(a, b)
+}
+
+// handleMapLocAddUnsafe (MAP_LOCADDUNSAFE, opcode 1012) reports whether
+// the input coord is occupied by an active loc that would block a new
+// loc-add at that tile. Pops one packed coord; pushes 1 if any qualifying
+// loc occupies the tile, else 0. Mirrors TS ServerOps.ts:212-252.
+//
+// Per-loc filter (TS line 218 + 224):
+//
+//   - LocType.Active != 1 → skip the loc entirely (no occupancy check).
+//   - !loc.Active() && layer == LayerWall → skip the loc entirely
+//     (goscape defensive note: TS skips inactive walls only; inactive
+//     ground / ground-decor locs ARE checked).
+//
+// Per-layer occupancy check (TS lines 228-249):
+//
+//   - LayerWall (TS LocLayer.WALL): exact (x, z) match.
+//   - LayerGround (TS LocLayer.GROUND): footprint covers (coord.x, coord.z),
+//     where width/length are LocType.Width/Length swapped if Angle is
+//     AngleNorth or AngleSouth.
+//   - LayerGroundDecor (TS LocLayer.GROUND_DECOR): exact (x, z) match.
+//   - LayerWallDecor: not enumerated by TS; falls through to push 0.
+//
+// Configs nil-handling: a nil LocType lookup silently skips the loc
+// (mirrors TS check(loc.type, LocTypeValid) which would throw, but
+// goscape defensive — script execution continues with the next loc to
+// avoid aborting the firemaking chain on a malformed cache entry;
+// goscape defensive; TS throws).
+func handleMapLocAddUnsafe(s *ScriptState) error {
+	coord := s.PopInt()
+	level, x, z, err := checkCoord(coord, "MAP_LOCADDUNSAFE")
+	if err != nil {
+		return err
+	}
+	if s.LocOps == nil {
+		s.PushInt(0)
+		return nil
+	}
+
+	for _, l := range s.LocOps.AllLocsInZone(level, x, z) {
+		var lt *objtype.LocType
+		if s.Configs != nil {
+			lt = s.Configs.LocType(l.LocType())
+		}
+		if lt == nil || lt.Active != 1 {
+			continue
+		}
+
+		layer := l.Layer()
+		if !l.Active() && layer == int(loc.LayerWall) {
+			continue
+		}
+
+		lx, lz, _ := l.Coords()
+		switch layer {
+		case int(loc.LayerWall):
+			if lx == x && lz == z {
+				s.PushInt(1)
+				return nil
+			}
+		case int(loc.LayerGround):
+			width, length := lt.Width, lt.Length
+			if l.Angle() == loc.AngleNorth || l.Angle() == loc.AngleSouth {
+				width, length = lt.Length, lt.Width
+			}
+			for index := range width * length {
+				deltaX := lx + (index % width)
+				deltaZ := lz + (index / width)
+				if deltaX == x && deltaZ == z {
+					s.PushInt(1)
+					return nil
+				}
+			}
+		case int(loc.LayerGroundDecor):
+			if lx == x && lz == z {
+				s.PushInt(1)
+				return nil
+			}
+		}
+	}
+	s.PushInt(0)
+	return nil
 }
