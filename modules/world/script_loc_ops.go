@@ -76,3 +76,17 @@ func (o *serverLocOps) LocsAtCoord(level, x, zc int) []script.ActiveLoc {
 	}
 	return out
 }
+
+// AllLocsInZone returns the script-side ActiveLoc slice for every loc
+// in the zone owning (level, x, zc), without any per-tile filter.
+// MAP_LOCADDUNSAFE (NAI-114) consumes this for footprint-overlap
+// probing; the handler does the per-loc (x, z, layer, footprint)
+// checks itself.
+func (o *serverLocOps) AllLocsInZone(level, x, zc int) []script.ActiveLoc {
+	z := o.s.zoneMap.Get(level, x, zc)
+	out := make([]script.ActiveLoc, 0, len(z.Locs))
+	for _, l := range z.Locs {
+		out = append(out, l)
+	}
+	return out
+}

@@ -9,6 +9,7 @@ type fakeLocOps struct {
 	removeCalls []removeLocCall
 	animCalls   []animLocCall
 	atCoord     []ActiveLoc
+	inZone      []ActiveLoc
 	addReturn   ActiveLoc // returned from AddLoc
 }
 
@@ -55,10 +56,25 @@ func (f *fakeLocOps) LocsAtCoord(level, x, z int) []ActiveLoc {
 	return f.atCoord
 }
 
+func (f *fakeLocOps) AllLocsInZone(level, x, z int) []ActiveLoc {
+	return f.inZone
+}
+
 func TestScriptStateAcceptsLocOps(t *testing.T) {
 	s := &ScriptState{}
 	s.LocOps = &fakeLocOps{}
 	if s.LocOps == nil {
 		t.Error("LocOps field unsettable")
+	}
+}
+
+// TestLocOpsInterfaceHasAllLocsInZone confirms LocOps surfaces the
+// zone-wide loc enumeration MAP_LOCADDUNSAFE needs (distinct from
+// LocsAtCoord which filters by exact tile). NAI-114.
+func TestLocOpsInterfaceHasAllLocsInZone(t *testing.T) {
+	var ops LocOps = &fakeLocOps{}
+	got := ops.AllLocsInZone(0, 100, 200)
+	if got != nil {
+		t.Errorf("fakeLocOps.AllLocsInZone(empty): got %v, want nil", got)
 	}
 }
