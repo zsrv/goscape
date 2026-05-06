@@ -294,3 +294,46 @@ Discriminating signals from smoke trace:
 - TutOpen wire emits: 1 (login `OpenTutorial(6179)` at `08:51:31` with `prevLast=-1`); diff-suppresses: 4 in-session against `lastModalTutorial=6179` (08:51:44, 08:51:47, 08:51:58, 08:52:00) plus per-tick suppress noise.
 
 Stage 2.2 fix routes to: **Task 4c** of plan `2026-05-06-nai-112-stage2-tutorial-tab-click-fix.md` — move the wire emit out of `encodeOut` and into `Player.OpenTutorial` / `Player.CloseTutorial` directly, mirroring TS `Player.ts:1999-2003` / `:716-726`.
+
+---
+
+## Stage 2.2 fix shipped + first final smoke (2026-05-06 at HEAD `94c879d`)
+
+Stage 2.2 fix landed at `a69d44a` (TS-fidelity reorder fixup at `4ee6298`) and Bundle 3 instrumentation revert at `94c879d`.
+
+**First final smoke against `94c879d`:** symptom unchanged. Both chatbox-advance and inventory-side-panel still broken to the user. With instrumentation reverted, the trace was uninformative — TUT_CLICKSIDE arrived but no logs disambiguated whether the script ran, whether the OpenTutorial fix path was hit, or whether the inventory-side issue was downstream of TUT_OPEN re-emit.
+
+Per `smoke_unchanged_means_multiple_blockers`: re-open Stage 2.1 with smoke evidence. New disambiguation: H6.c-α (client ignores duplicate `TUT_OPEN(com)`), H6.c-β (separate inventory divergence per the original spec note), H6.c-γ (fix didn't land at runtime).
+
+---
+
+## Bundle 1.5 instrumentation + second final smoke (2026-05-06 at HEAD `3a8c85a`)
+
+Re-instrumented four sites for one disambiguation cycle: `handleTutClickSide` entry/lookup/postScript; `Player.OpenTutorial` post-writeOut; `Player.CloseTutorial` post-writeOut; `Player.IfSetTab` entry. Reverted at `7633304` after the smoke trace bound the residual.
+
+**Second final smoke (click event at `09:46:56.611`):**
+
+```
+TUT_CLICKSIDE entry tab=3
+TUT_CLICKSIDE lookup tab=3 scriptFound=true
+OpenTutorial wired com=6179 prevModalTutorial=6179
+TUT_CLICKSIDE postScript tab=3
+```
+
+**Visible client behavior:** chatbox advanced to "Cut down a tree" ✓; inventory side panel did NOT display bronze axe + tinderbox.
+
+**Three-way binding:**
+
+- **H6.c-γ refuted** — `OpenTutorial wired` log fires post-click with `prevModalTutorial=6179` (the exact duplicate-com case the pre-fix `encodeOut` diff would have suppressed). The Stage 2.2 fix is engaged at runtime.
+- **H6.c-α refuted** — chatbox visibly advanced. The Java client DOES redraw the tutorial overlay on a duplicate `TUT_OPEN(com)`. The H6.c diagnosis was correct; the H6.c fix works for the chatbox-advance symptom.
+- **H6.c-β confirmed** — bronze axe + tinderbox don't display, but `OpenTutorial wired` + `TUT_CLICKSIDE postScript` both fired. The trace shows `IfSetTab com=3213 tab=3` at `09:46:55` (during pre-click `tutorial_step_view_inventory` setup) had already bound tab=3 to the inventory com. The `[tutorial,_]` `cut_tree` branch correctly does NOT re-bind tab=3 (matches TS). So the inventory-tab BINDING is fine; the inventory CONTENTS aren't reaching the client. This is a separate engine-layer divergence in goscape's inventory wire-sync path (likely the post-`Inventory.add()` UPDATE_INV* emit; or a missing `inv_listener`/`inv_open` style binding setup; or a tutorial-mode-specific render gate).
+
+---
+
+## Final binding (revised)
+
+**NAI-112 PRIMARY (chatbox-advance / `[tutorial,_]` branch dispatch correct, TUT_OPEN wire suppressed): H6.c — TUT_OPEN unconditional re-emit divergence.** Smoke-confirmed at HEAD `94c879d` second smoke 2026-05-06 → chatbox advances to "Cut down a tree" after inventory-tab click.
+
+**NAI-112 SECONDARY (inventory side panel doesn't display): H6.c-β — separate inventory wire-sync divergence.** Surface unknown at this stage; needs its own brainstorm + instrumentation pass on the `inv_add` → UPDATE_INV* path. Routes to **NAI-113** as a fresh sub-spec — not downstream of the H6.c TUT_OPEN fix; not a cascade residual; an independent gap surfaced by the same user-visible symptom.
+
+Per `dispatch_correct_reach_blocked` shape: PRIMARY (TS-faithful port) closes here; SECONDARY (content outcome) routes to NAI-113.
