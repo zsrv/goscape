@@ -1295,6 +1295,34 @@ func TestFindUIDNoLookupConfigured(t *testing.T) {
 	}
 }
 
+// TestFindUIDComposedUIDLookup pins NAI-113 cascade closure: with
+// production-realistic composed uids (post-Server.addPlayer wiring),
+// FINDUID resolves a registered other-player and rebinds Self. Pre-fix,
+// every Player.uid was -1 → LookupPlayerByUID(any_uid) returned nil →
+// FINDUID always pushed 0, dead code. Sentinel uid value 0xD005 =
+// composeUID(0x1A, 5) = ((0x1A << 11) | 5) = 0xD005, documents the
+// (username37 << 11 | slot) composed-uid shape.
+func TestFindUIDComposedUIDLookup(t *testing.T) {
+	self := &mockPlayer{username: "Self", uidValue: 1}
+	target := &mockPlayer{username: "Target", uidValue: 0xD005}
+	lookup := &mockPlayerLookup{byUID: map[int]ActivePlayer{0xD005: target}}
+
+	sf := newSingleOp("finduid_composed", OpFindUID)
+	state := Init(sf, self, false, nil, nil)
+	state.PlayerLookup = lookup
+	state.PushInt(0xD005)
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.ISP != 1 || state.IntStack[0] != 1 {
+		t.Errorf("stack: got [%v], want [1]", state.IntStack[:state.ISP])
+	}
+	if state.Self != target {
+		t.Errorf("Self should rebind to target")
+	}
+}
+
 // TestPFindUIDSelfReacquire: script already runs protected on the target
 // uid → push 1 with no state mutation, no lookup call (fast-path).
 // Mirrors TS PlayerOps.ts:79-83.
