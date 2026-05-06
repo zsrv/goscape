@@ -47,18 +47,49 @@ func (p *Player) SetFaceEntity(entityIndex int) {
 	p.masks |= rsbuf.MaskFaceEntity
 }
 
-// ResetMasks clears mask bits and ephemeral mask state for the next tick.
-// Persistent fields (animID, faceEntity, faceSquareX/Z, levels[Hitpoints],
-// baseLevels[Hitpoints]) retained — S6e promoted Player HP from per-tick
-// ephemeral to persistent, routed through the skill arrays. Also clears
-// one-shot movement intents (tele, jump) so a single-tick teleport
-// emission doesn't repeat next tick.
+// ResetMasks clears mask bits + ephemeral per-tick state. Mirrors TS
+// PathingEntity.resetPathingEntity (PathingEntity.ts:577-615) plus the
+// Player-only fields TS resets in Player.resetEntity (Player.ts:454-467,
+// non-respawn branch).
+//
+// Persistent-by-design (TS resets, goscape preserves):
+//   - animID/animDelay (TS PathingEntity.ts:598-600) — animations carry
+//     across ticks until a new PlayAnim/script-driven change.
+//   - faceSquareX/Z (TS PathingEntity.ts:608-609) — non-symptomatic
+//     persistence; the encoder gates on MaskFaceCoord which IS cleared
+//     via `p.masks = 0` below.
+//   - levels[Hitpoints] / baseLevels[Hitpoints] (S6e promotion to
+//     persistent via the skill arrays).
+//   - moveSpeed — see NAI-108-D-MOVESPEED-NOT-RESET (deferred audit).
+//
+// Handled-elsewhere (NOT in ResetMasks; equivalent goscape paths):
+//   - walkDir/runDir — reset/set in movement.go:53-65 per movement step.
+//   - stepsTaken — reset in movement.go:46 (pinned by
+//     TestResolveMovementResetsStepsTaken at movement_test.go:214).
+//   - lastTickX/Z + lastLevel — set in movement.go:48-50 per movement step.
+//   - interacted/apRangeCalled — reset on SetInteraction (interaction.go:85-86),
+//     ClearInteraction (interaction.go:133-134), and post-fire
+//     (player_interaction_trigger.go:121).
+//   - socialProtect/reportAbuseProtect — reset in tick.go:532-533 (NAI-72).
+//
+// Also clears one-shot movement intents (tele, jump) so a single-tick
+// teleport emission doesn't repeat next tick.
+//
+// The trailing-clear mirrors TS PathingEntity.ts:611-614 with a
+// one-tick lag deviation (Go's ResetMasks runs at tick end via
+// tick.go processCleanup, so the mask bit is consumed by the NEXT
+// tick's info-pass — same convention as Npc.ResetMasks at
+// npc_masks.go:184-207). Closes NAI-91's "player keeps facing NPC
+// after walking away" smoke residual.
 func (p *Player) ResetMasks() {
 	p.masks = 0
 	p.tele = false
 	p.jump = false
 	p.sayText = nil
 	p.chatBytes = nil
+	p.chatColour = -1
+	p.chatEffect = -1
+	p.chatRights = -1
 	p.damageAmt = -1
 	p.damageType = -1
 	p.spotanimID = -1
@@ -71,6 +102,10 @@ func (p *Player) ResetMasks() {
 	p.exactBegin = -1
 	p.exactFinish = -1
 	p.exactDir = -1
+	if p.target == nil && p.faceEntity != -1 {
+		p.masks |= p.entitymask
+		p.faceEntity = -1
+	}
 }
 
 // Damage applies `amount` damage of `dmgType` to the player this tick,

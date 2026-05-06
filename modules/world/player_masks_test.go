@@ -88,7 +88,8 @@ func TestResetMasksClearsEphemerals(t *testing.T) {
 	if p.damageAmt != -1 {
 		t.Errorf("damageAmt: got %d, want -1", p.damageAmt)
 	}
-	// Persistent (animID, faceEntity, levels[3], baseLevels[3]) should stay.
+	// Persistent (animID, levels[3], baseLevels[3]) and conditionally-persistent
+	// faceEntity (target=nil/faceEntity=-1 here, so trailing-clear no-ops) should stay.
 	if p.animID != 123 {
 		t.Errorf("animID should persist: got %d", p.animID)
 	}
