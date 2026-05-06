@@ -382,7 +382,6 @@ func (p *Player) encodeOut() {
 		}
 		p.refreshModal = false
 	}
-
 }
 
 // writeOut ISAAC-encrypts op.Opcode, writes any length prefix, then writes

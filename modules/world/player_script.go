@@ -799,10 +799,10 @@ func (p *Player) OpenMainSide(mainCom, sideCom int) {
 // OR'd into modalState and the tutorial id is stored alongside the
 // wire emit.
 func (p *Player) OpenTutorial(com int) {
-	p.modalTutorial = com
-	p.modalState |= modalStateTut
 	payload := []byte{byte(com >> 8), byte(com)}
 	p.writeOut(gameserver.OpTutOpen, payload)
+	p.modalState |= modalStateTut
+	p.modalTutorial = com
 }
 
 // CloseTutorial closes the player's tutorial overlay. Per TS:
