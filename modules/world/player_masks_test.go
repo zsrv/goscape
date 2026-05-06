@@ -224,3 +224,112 @@ func TestNewPlayerSetsEntityMaskToMaskFaceEntity(t *testing.T) {
 		t.Errorf("entitymask: got %d, want %d (MaskFaceEntity)", p.entitymask, rsbuf.MaskFaceEntity)
 	}
 }
+
+// === NAI-108: Player.ResetMasks trailing-clear + chat metadata reset ===
+//
+// Mirrors NPC-side coverage at npc_masks_test.go:230-281.
+
+// TestPlayerResetMasksTrailingClearFires — NAI-108 Task 1.
+// When p.target is nil but p.faceEntity still holds a prior NPC slot,
+// ResetMasks emits MaskFaceEntity and snaps faceEntity to -1, mirroring
+// TS PathingEntity.ts:611-614. Closes the NAI-91 smoke-surfaced
+// "player keeps facing NPC after walking away" symptom.
+func TestPlayerResetMasksTrailingClearFires(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.target = nil
+	p.faceEntity = 42
+	p.masks = 0
+	p.ResetMasks()
+	if p.faceEntity != -1 {
+		t.Errorf("faceEntity: got %d, want -1 (trailing clear should run)", p.faceEntity)
+	}
+	if p.masks&rsbuf.MaskFaceEntity == 0 {
+		t.Error("masks & MaskFaceEntity: got 0, want nonzero (trailing clear should emit)")
+	}
+}
+
+// TestPlayerResetMasksTrailingClearSkippedWhenTargetPresent — NAI-108 Task 1.
+// Quirk guard: trailing clear must not fire when p.target is non-nil
+// (the player is still facing someone, by design). Pattern mirrors NPC
+// test at npc_masks_test.go:254-267.
+func TestPlayerResetMasksTrailingClearSkippedWhenTargetPresent(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	other, _ := newTestPlayer(t)
+	p.target = other
+	p.faceEntity = 42
+	p.masks = 0
+	p.ResetMasks()
+	if p.faceEntity != 42 {
+		t.Errorf("faceEntity: got %d, want 42 (trailing clear should be skipped — target present)", p.faceEntity)
+	}
+	if p.masks&rsbuf.MaskFaceEntity != 0 {
+		t.Error("masks & MaskFaceEntity: got nonzero, want 0 (trailing clear should not emit — target present)")
+	}
+}
+
+// TestPlayerResetMasksTrailingClearSkippedWhenFaceEntityAlreadyMinusOne — NAI-108 Task 1.
+// Quirk guard: trailing clear must not fire when faceEntity is already
+// -1 (no pending clear to sync). Pattern mirrors NPC test at
+// npc_masks_test.go:272-281.
+func TestPlayerResetMasksTrailingClearSkippedWhenFaceEntityAlreadyMinusOne(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.target = nil
+	p.faceEntity = -1
+	p.masks = 0
+	p.ResetMasks()
+	if p.masks != 0 {
+		t.Errorf("masks: got 0x%x, want 0 (trailing clear should be skipped — faceEntity already -1)", p.masks)
+	}
+}
+
+// TestPlayerResetMasksClearsChatMetadata — NAI-108 Task 1.
+// TS Player.resetEntity at Player.ts:461-463 nulls chatColour/Effect/Rights
+// each tick. Goscape resets to -1 (the sentinel used at newPlayer init,
+// player.go:494-496) for TS-fidelity. The encoder gates on chatBytes != nil
+// (tick.go:423), so this reset is observably-no-op; pinning it preserves
+// future TS-faithfulness if a non-gated reader is added.
+func TestPlayerResetMasksClearsChatMetadata(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.chatColour = 5
+	p.chatEffect = 3
+	p.chatRights = 2
+	p.ResetMasks()
+	if p.chatColour != -1 {
+		t.Errorf("chatColour: got %d, want -1", p.chatColour)
+	}
+	if p.chatEffect != -1 {
+		t.Errorf("chatEffect: got %d, want -1", p.chatEffect)
+	}
+	if p.chatRights != -1 {
+		t.Errorf("chatRights: got %d, want -1", p.chatRights)
+	}
+}
+
+// TestPlayerResetMasksChatMetadataResetIsNoOpWithoutChatBytes — NAI-108 Task 1.
+// Regression pin for the spec §3 (ε) "chat reset is functionally inert"
+// claim. Asserts that with chatBytes nil (the encoder gate), arbitrary
+// pre-reset chatColour/Effect/Rights values do not cause a chat packet
+// to be emitted on the next tick. This is the structural reason the
+// chat reset is TS-fidelity polish, not a behavior change.
+//
+// We assert via the in-place mask state: chatBytes nil → MaskChat must
+// not fire from ResetMasks. ResetMasks itself never sets MaskChat (only
+// Chat() does, in player_masks.go:18). After ResetMasks runs, p.chatBytes
+// is still nil and p.masks must not carry MaskChat regardless of color
+// pre-state. This pins the encoder-gate equivalence claim without
+// requiring the full tick.go:423 chat-encode path.
+func TestPlayerResetMasksChatMetadataResetIsNoOpWithoutChatBytes(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.chatBytes = nil
+	p.chatColour = 99
+	p.chatEffect = 99
+	p.chatRights = 99
+	p.masks = 0
+	p.ResetMasks()
+	if p.chatBytes != nil {
+		t.Error("chatBytes: should remain nil after ResetMasks")
+	}
+	if p.masks&rsbuf.MaskChat != 0 {
+		t.Errorf("masks & MaskChat: got nonzero, want 0 (chat reset must not synthesize MaskChat)")
+	}
+}
