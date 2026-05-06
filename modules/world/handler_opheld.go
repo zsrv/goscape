@@ -367,11 +367,24 @@ func handleOpHeldU(p *Player, payload []byte) error {
 		return nil
 	}
 
+	s.log.Debug("opheldu trigger probe context",
+		"tick", s.currentTick,
+		"obj", obj,
+		"obj_name", objType.ConfigType.DebugName,
+		"obj_config_id", objType.ConfigType.ID,
+		"obj_category", objType.Category,
+		"useObj", useObj,
+		"useObj_name", useObjType.ConfigType.DebugName,
+		"useObj_config_id", useObjType.ConfigType.ID,
+		"useObj_category", useObjType.Category)
+
 	// 4-arm trigger fallback (TS OpHeldUHandler.ts:96-117); first hit wins.
 	sf := s.scriptProvider.GetByTriggerSpecific(script.TriggerOpHeldU, objType.ConfigType.ID, -1)
+	s.log.Debug("opheldu arm probe", "arm", "a", "key", "type", "type_id", objType.ConfigType.ID, "hit", sf != nil)
 
 	if sf == nil {
 		sf = s.scriptProvider.GetByTriggerSpecific(script.TriggerOpHeldU, useObjType.ConfigType.ID, -1)
+		s.log.Debug("opheldu arm probe", "arm", "b", "key", "type", "type_id", useObjType.ConfigType.ID, "hit", sf != nil)
 		// Arm (b): UNCONDITIONAL swap whenever (a) misses, regardless of
 		// whether (b)'s lookup succeeded (TS OpHeldUHandler.ts:101-102).
 		p.lastItem, p.lastUseItem = p.lastUseItem, p.lastItem
@@ -380,21 +393,29 @@ func handleOpHeldU(p *Player, payload []byte) error {
 
 	if sf == nil && objType.Category != -1 {
 		sf = s.scriptProvider.GetByTriggerSpecific(script.TriggerOpHeldU, -1, objType.Category)
+		s.log.Debug("opheldu arm probe", "arm", "c", "key", "category", "category_id", objType.Category, "hit", sf != nil)
+	} else if sf == nil {
+		s.log.Debug("opheldu arm probe", "arm", "c", "skipped", true, "reason", "objType.Category == -1")
 	}
 
 	if sf == nil && useObjType.Category != -1 {
 		sf = s.scriptProvider.GetByTriggerSpecific(script.TriggerOpHeldU, -1, useObjType.Category)
+		s.log.Debug("opheldu arm probe", "arm", "d", "key", "category", "category_id", useObjType.Category, "hit", sf != nil)
 		// Arm (d): UNCONDITIONAL swap whenever (c) misses or is skipped,
 		// regardless of whether (d)'s lookup succeeded (TS OpHeldUHandler.ts:115-116).
 		p.lastItem, p.lastUseItem = p.lastUseItem, p.lastItem
 		p.lastSlot, p.lastUseSlot = p.lastUseSlot, p.lastSlot
+	} else if sf == nil {
+		s.log.Debug("opheldu arm probe", "arm", "d", "skipped", true, "reason", "useObjType.Category == -1")
 	}
 
 	if sf == nil {
+		s.log.Debug("opheldu fallback miss — sending Nothing interesting happens", "tick", s.currentTick)
 		p.MessageGame("Nothing interesting happens.")
 		return nil
 	}
 
+	s.log.Debug("opheldu dispatch", "tick", s.currentTick, "script", sf.Name)
 	s.runScript(sf, p, nil, true, nil, nil)
 	return nil
 }
