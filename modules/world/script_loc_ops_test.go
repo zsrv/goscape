@@ -100,6 +100,7 @@ func (f *fakeNonLoc) Coords() (int, int, int) { return 0, 0, 0 }
 func (f *fakeNonLoc) Angle() int              { return 0 }
 func (f *fakeNonLoc) Shape() int              { return 0 }
 func (f *fakeNonLoc) Layer() int              { return 0 }
+func (f *fakeNonLoc) Active() bool            { return false }
 
 // Suppress unused-script import warning if the file ends up not using script.
 var _ script.ActiveLoc = &fakeNonLoc{}

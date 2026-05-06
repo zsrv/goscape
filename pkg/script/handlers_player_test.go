@@ -20,6 +20,7 @@ type mockActiveLoc struct {
 	angle       int
 	shape       int
 	layer       int
+	active      bool
 }
 
 func (m *mockActiveLoc) LocType() int              { return m.locType }
@@ -27,6 +28,7 @@ func (m *mockActiveLoc) Coords() (x, z, level int) { return m.x, m.z, m.level }
 func (m *mockActiveLoc) Angle() int                { return m.angle }
 func (m *mockActiveLoc) Shape() int                { return m.shape }
 func (m *mockActiveLoc) Layer() int                { return m.layer }
+func (m *mockActiveLoc) Active() bool              { return m.active }
 
 type mockActiveNpc struct {
 	typeId, x, z, level int

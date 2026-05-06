@@ -724,6 +724,7 @@ type ActiveLoc interface {
 	Angle() int                // rotation (0=west, 1=north, 2=east, 3=south); consumed by LOC_ANGLE
 	Shape() int                // shape (0..22 valid range); consumed by LOC_SHAPE
 	Layer() int                // shape's render layer (0..3); consumed by LOC_ADD same-layer search (NAI-86)
+	Active() bool              // mirrors entity.Loc.IsActive (zone-managed); consumed by MAP_LOCADDUNSAFE WALL-only inactive-skip (NAI-114)
 }
 
 // ActiveObj is the surface that OBJ_* and AI_APOBJ/AI_OPOBJ handlers

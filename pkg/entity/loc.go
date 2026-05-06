@@ -94,3 +94,11 @@ func (l *Loc) Coords() (x, z, level int) {
 // pkg/entity cannot depend on modules/world. The "in world right now"
 // check that gates Loc.Turn branches lives on IsActive.
 func (l *Loc) IsValid() bool { return true }
+
+// Active reports whether the loc is currently zone-active. Mirrors the
+// field-backed flag mutated by pkg/zone Zone methods (AddStaticLoc/
+// AddLoc/ChangeLoc/RemoveLoc). Method form satisfies the script-side
+// ActiveLoc.Active() interface contract; the field name remains
+// IsActive for compatibility with the existing ~25 reader sites in
+// pkg/zone, modules/world, and tests. NAI-114.
+func (l *Loc) Active() bool { return l.IsActive }
