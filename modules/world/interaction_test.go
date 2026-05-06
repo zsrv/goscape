@@ -2501,14 +2501,22 @@ func TestPlayerInteractedDoesNotLeakAcrossIdleTick(t *testing.T) {
 
 // TestPlayerApRangeCalledDoesNotLeakAcrossIdleTick — NAI-108 Task 4 (δ).
 // TS PathingEntity.ts:588 resets apRangeCalled=false every tick.
-// Pinning the no-leak contract — see T4.4 for full rationale.
+// Pinning the no-leak contract; rationale differs from INTERACTED-LEAK
+// because apRangeCalled HAS production reads (see SKIP note below).
 //
 // SKIP-PINNED as NAI-108-D-APRANGECALLED-LEAK: apRangeCalled is reset on
 // SetInteraction (interaction.go:85), ClearInteraction (interaction.go:133),
 // and post-fire (player_interaction_trigger.go:121); not reset by ResetMasks.
-// Cross-tick leak is only possible on an idle tick with no interaction
-// touch; consumers read it within the same tick's handler chain before
-// any reset, so leak semantics differ from TS. Deferred for future cleanup.
+// Unlike NAI-108-D-INTERACTED-LEAK (which is moot — apRangeCalled HAS
+// production reads at interaction.go:271 (`else if interacted &&
+// !p.apRangeCalled`) and interaction.go:406 (`if p.nextTarget == nil &&
+// p.apRangeCalled`), both at the start of processInteraction() before any
+// handler-side reset. A real cross-tick leak (idle tick with no
+// SetInteraction/ClearInteraction between SetApRange and the next
+// processInteraction) would suppress the auto-clear branch at line 271 —
+// a behavioral divergence from TS. Deferred per spec R1 (no auto-port to
+// ResetMasks); future fix should either reset in ResetMasks or audit
+// each read site.
 func TestPlayerApRangeCalledDoesNotLeakAcrossIdleTick(t *testing.T) {
 	t.Skip("NAI-108-D-APRANGECALLED-LEAK — pinned for future fix; current goscape relies on handler-elsewhere re-set; see audit table §3")
 	p, _ := newTestPlayer(t)

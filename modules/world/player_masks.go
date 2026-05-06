@@ -70,7 +70,7 @@ func (p *Player) SetFaceEntity(entityIndex int) {
 //   - interacted/apRangeCalled — reset on SetInteraction (interaction.go:85-86),
 //     ClearInteraction (interaction.go:133-134), and post-fire
 //     (player_interaction_trigger.go:121).
-//   - socialProtect/reportAbuseProtect — reset in tick.go:532-533 (NAI-72).
+//   - socialProtect/reportAbuseProtect — reset in tick.go:538-539 (NAI-72).
 //
 // Also clears one-shot movement intents (tele, jump) so a single-tick
 // teleport emission doesn't repeat next tick.
