@@ -3400,3 +3400,101 @@ func TestPTeleport_FrameT_FieldValues(t *testing.T) {
 		}
 	}
 }
+
+// TestTextGenderMale: gender=0 → handler pushes the male string (the
+// second-popped, i.e. the bottom of the two-string slice on entry).
+// Mirrors TS PlayerOps.ts:787-794, gender===0 branch.
+func TestTextGenderMale(t *testing.T) {
+	mp := &mockPlayer{genderValue: 0}
+	s := &ScriptState{
+		Pointers:    PtrActivePlayer,
+		Self:        mp,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushString("MALE")   // pushed first → below
+	s.PushString("FEMALE") // pushed last → top
+	if err := handleTextGender(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if s.SSP != 1 {
+		t.Fatalf("SSP: got %d, want 1", s.SSP)
+	}
+	if got := s.PopString(); got != "MALE" {
+		t.Errorf("pushed string: got %q, want %q", got, "MALE")
+	}
+}
+
+// TestTextGenderFemale: gender=1 → handler pushes the female string
+// (the first-popped, i.e. top of stack on entry). Mirrors TS
+// PlayerOps.ts:787-794, gender!==0 branch.
+func TestTextGenderFemale(t *testing.T) {
+	mp := &mockPlayer{genderValue: 1}
+	s := &ScriptState{
+		Pointers:    PtrActivePlayer,
+		Self:        mp,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushString("MALE")   // pushed first → below
+	s.PushString("FEMALE") // pushed last → top
+	if err := handleTextGender(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if s.SSP != 1 {
+		t.Fatalf("SSP: got %d, want 1", s.SSP)
+	}
+	if got := s.PopString(); got != "FEMALE" {
+		t.Errorf("pushed string: got %q, want %q", got, "FEMALE")
+	}
+}
+
+// TestTextGenderNoActivePlayer: pointer-gate. Self=nil and/or
+// PtrActivePlayer unset → handler returns the standard
+// requireActivePlayer error and leaves the string stack untouched.
+func TestTextGenderNoActivePlayer(t *testing.T) {
+	s := &ScriptState{
+		Pointers:    0, // no PtrActivePlayer
+		Self:        nil,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushString("a")
+	s.PushString("b")
+	err := handleTextGender(s)
+	if err == nil {
+		t.Fatal("want error for no-active-player, got nil")
+	}
+	if !strings.Contains(err.Error(), "TEXT_GENDER: no active player") {
+		t.Errorf("error: got %q, want substring %q", err.Error(), "TEXT_GENDER: no active player")
+	}
+	if s.SSP != 2 {
+		t.Errorf("SSP: got %d, want 2 (stack must be untouched on guard reject)", s.SSP)
+	}
+}
+
+// TestTextGenderEmptyStrings: TS does NOT call check(..., StringNotNull)
+// on either argument (PlayerOps.ts:787-794 — destructure-and-push, no
+// gate). Empty strings are valid input and pass through unchanged.
+// Per ts_asymmetry_dual_pin memory: pin the absence of a null gate so
+// the test escalates if upstream TS adds one.
+func TestTextGenderEmptyStrings(t *testing.T) {
+	mp := &mockPlayer{genderValue: 0}
+	s := &ScriptState{
+		Pointers:    PtrActivePlayer,
+		Self:        mp,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushString("") // male (below)
+	s.PushString("") // female (top)
+	if err := handleTextGender(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if s.SSP != 1 {
+		t.Fatalf("SSP: got %d, want 1", s.SSP)
+	}
+	if got := s.PopString(); got != "" {
+		t.Errorf("pushed string: got %q, want empty string", got)
+	}
+}
