@@ -236,3 +236,61 @@ Stage 2 plan should be its own audit-then-fix sub-spec, not a single-shot fix; t
 ## Final binding
 
 **H6 — `[tutorial,_]` body runs but downstream effect is silently broken.** Runtime-bound by Bundle 1b smoke 2026-05-06. Stage 2 must first triangulate which sub-hypothesis (H6.a/b/c) by observing `%tutorial` at click time and walking the matched branch's effects against TS.
+
+---
+
+## Stage 2.1 — runtime evidence (smoke 2026-05-06 at HEAD `f0d2ab1`)
+
+User-launched smoke against the Bundle 1 instrumentation (`f0d2ab1`). Java client rev-225, fresh account (`LOGIN_RESULT_NEW_PLAYER`), walk through Survival Expert dialog to "Click on the flashing backpack icon to the …", click inventory tab.
+
+**Visible client behavior:** chatbox does NOT advance to "Cut down a tree"; inventory side panel does NOT display the bronze axe + tinderbox. Symptom matches NAI-110 close-smoke residual.
+
+**Click event trace (verbatim from server stdout, click at `08:52:00.270`):**
+
+```
+08:52:00 INFO TUT_CLICKSIDE entry tab=3 tutorialVarpID=281 tutorialVal=20
+08:52:00 INFO TUT_CLICKSIDE lookup tab=3 scriptFound=true
+08:52:00 INFO INV_ADD typeID=93 obj=1351 count=1 invResolved=true hasActivePlayer=true
+08:52:00 INFO INV_ADD typeID=93 obj=590 count=1 invResolved=true hasActivePlayer=true
+08:52:00 INFO SetVarp id=281 prev=20 val=30
+08:52:00 INFO IfSetText com=6180 text="Cut down a tree"
+08:52:00 INFO IfSetText com=6181 text="You can click on the backpack icon at any time"
+08:52:00 INFO IfSetText com=6182 text="to view the items that you currently have in your inventory."
+08:52:00 INFO IfSetText com=6183 text="You will see that you now have an axe in your inventory."
+08:52:00 INFO IfSetText com=6184 text="Use this to get some logs by clicking on the indicated tree."
+08:52:00 INFO OpenTutorial com=6179 prevModalTutorial=6179 lastModalTutorial=6179 willEmitOnEncodeOut=false
+08:52:00 INFO TUT_CLICKSIDE postScript tab=3 tutorialValAfter=30
+08:52:00 INFO encodeOut TutOpen diff-suppressed modalTutorial=6179 lastModalTutorial=6179
+```
+
+**Reading:**
+
+Every script-side effect of the `^newbie_survival_instructor_open_inventory` branch fires correctly:
+
+- `%tutorial == 20` at click time (matches `^newbie_survival_instructor_open_inventory`); H6.a refuted.
+- `tab=3` resolved to scriptFound=true; lookup correct.
+- `inv_add(inv, bronze_axe=1351, 1)` and `inv_add(inv, tinderbox=590, 1)` both fire on a resolved inv with active player; refutes H6.b for `INV_ADD`.
+- `%tutorial = 30` (`^newbie_survival_instructor_cut_tree`); refutes H6.b for `POP_VARP`.
+- All five `IfSetText(com=6180..6184)` calls fire with the expected "Cut down a tree" + body strings; refutes H6.b for `IF_SETTEXT` payload encoding.
+- `OpenTutorial(6179)` is called (the second call this session at this com — first was at `08:51:31` login emit, with intermediate calls at `08:51:44` / `08:51:47` / `08:51:58` for view_inventory / talk_to_survival).
+
+The chain dies at `encodeOut`'s diff-check at `modules/world/player.go:387-391`: `prevModalTutorial=6179 == lastModalTutorial=6179` → `willEmitOnEncodeOut=false` → `encodeOut TutOpen diff-suppressed`. **No `OpTutOpen` wire packet is emitted to the client.** The Java client receives the IF_SETTEXT updates but no TUT_OPEN re-trigger to flush the overlay redraw, so the chatbox visibly retains the previous "view your inventory" content.
+
+The same diff-suppress shape is observable on every prior `OpenTutorial(6179)` call in this session (08:51:44, 08:51:47, 08:51:58). Only the first emit at login (`OpenTutorial com=6179 prevModalTutorial=-1 lastModalTutorial=-1 willEmitOnEncodeOut=true` at 08:51:31) actually wires; every subsequent call is suppressed.
+
+This matches the H6.c discrimination row exactly: `SetVarp tutorial=30` fires AND `INV_ADD` for both items AND `IfSetText` for "Cut down a tree" + body lines AND `OpenTutorial` second-call `willEmitOnEncodeOut=false` AND `encodeOut TutOpen diff-suppressed` fires.
+
+---
+
+## Stage 2.1 binding (2026-05-06)
+
+**Bound: H6.c** — `Player.OpenTutorial` defers wire emit to `encodeOut`'s `modalTutorial != lastModalTutorial` diff at `modules/world/player.go:387-391`, suppressing every same-com re-open. TS `Player.openTutorial` at `Engine-TS/src/engine/entity/Player.ts:1999-2003` writes `new TutOpen(com)` UNCONDITIONALLY on every call. The Java client requires the TUT_OPEN re-emit to flush the overlay redraw after IF_SETTEXT updates; goscape's diff-suppress strands the UI on the previous chatbox content.
+
+Discriminating signals from smoke trace:
+
+- TUT_CLICKSIDE entry: `tutorialVal=20` (matches `^newbie_survival_instructor_open_inventory`).
+- Branch fired: `^newbie_survival_instructor_open_inventory` (identified by `SetVarp id=281 prev=20 val=30` log; `30` = `^newbie_survival_instructor_cut_tree`).
+- Effects observed: `INV_ADD bronze_axe(1351)` + `INV_ADD tinderbox(590)`; 5× `IfSetText(com=6180..6184)` with "Cut down a tree" content; `OpenTutorial(com=6179, willEmitOnEncodeOut=false)`.
+- TutOpen wire emits: 1 (login `OpenTutorial(6179)` at `08:51:31` with `prevLast=-1`); diff-suppresses: 4 in-session against `lastModalTutorial=6179` (08:51:44, 08:51:47, 08:51:58, 08:52:00) plus per-tick suppress noise.
+
+Stage 2.2 fix routes to: **Task 4c** of plan `2026-05-06-nai-112-stage2-tutorial-tab-click-fix.md` — move the wire emit out of `encodeOut` and into `Player.OpenTutorial` / `Player.CloseTutorial` directly, mirroring TS `Player.ts:1999-2003` / `:716-726`.
