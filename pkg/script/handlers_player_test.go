@@ -1428,6 +1428,36 @@ func TestPFindUIDNotFound(t *testing.T) {
 	}
 }
 
+// TestPFindUIDSelfReacquireSkippedWhenUnprotected pins the inverse of
+// the self-reacquire fast-path: when popped uid equals Self.UID() but
+// the script is currently unprotected, P_FINDUID still consults
+// PlayerLookup (no fast-path short-circuit). NAI-113 cascade context:
+// pre-fix Self.UID() was always -1, so neither fast-path nor this
+// branch fired meaningfully on uid match — both branches were dead
+// code under the broken default. Mirrors TS PlayerOps.ts:79-83.
+func TestPFindUIDSelfReacquireSkippedWhenUnprotected(t *testing.T) {
+	self := &mockPlayer{username: "Self", uidValue: 42, canAccessValue: true}
+	lookup := &mockPlayerLookup{byUID: map[int]ActivePlayer{42: self}}
+
+	sf := newSingleOp("pfinduid_unprotected_self", OpPFindUID)
+	state := Init(sf, self, false, nil, nil) // protect=false
+	state.PlayerLookup = lookup
+	state.PushInt(42)
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.ISP != 1 || state.IntStack[0] != 1 {
+		t.Errorf("stack: got [%v], want [1]", state.IntStack[:state.ISP])
+	}
+	if lookup.calls != 1 {
+		t.Errorf("lookup.calls: got %d, want 1 (fast-path must NOT fire when Protect=false)", lookup.calls)
+	}
+	if !state.Protect {
+		t.Error("Protect should be true after successful unprotected lookup")
+	}
+}
+
 // -- S7b: checkNotNull + handlePAnimProtect tests -------------------------
 
 // TestCheckNotNull validates the shared NumberNotNull helper.
