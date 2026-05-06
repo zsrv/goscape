@@ -427,6 +427,48 @@ func TestInvTransmitNoActivePlayerErrors(t *testing.T) {
 	}
 }
 
+// TestInvTransmitSourceTracksActivePlayerUID is a complement to
+// TestInvTransmitRegistersListener (line 388) using a non-trivial
+// composed-uid sentinel. Pins NAI-113 cascade context: INV_TRANSMIT
+// propagates the active player's UID() to the listener Source field
+// regardless of how UID() obtains its value. Pre-NAI-113 production
+// Player.uid was always -1 (Server.addPlayer never composed it); the
+// existing literal-42 test would have masked that bug. Post-fix
+// production composes uid via composeUID(username37, slot); this test
+// pins the propagation chain end-to-end with a value matching
+// production-realistic uid shapes.
+func TestInvTransmitSourceTracksActivePlayerUID(t *testing.T) {
+	const wantUID = 0xDEADBEE
+	mp := &mockPlayer{uidValue: wantUID}
+
+	sf := &ScriptFile{
+		Name: "inv_transmit_uid_track",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // com
+			OpPushConstantInt, // inv (top)
+			OpInvTransmit,
+			OpReturn,
+		},
+		IntOperands:      []int32{149, 93, 0, 0},
+		StringOperands:   []string{"", "", "", ""},
+		InstructionCount: 4,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(mp.lastInvListenOnCom) != 1 {
+		t.Fatalf("expected 1 call to InvListenOnCom, got %d", len(mp.lastInvListenOnCom))
+	}
+	got := mp.lastInvListenOnCom[0]
+	if got.Source != wantUID {
+		t.Errorf("Source: got %#x, want %#x (must propagate active player UID)", got.Source, wantUID)
+	}
+	if got.InvType != 93 || got.Com != 149 {
+		t.Errorf("InvType/Com mismatch: got {%d, %d}, want {93, 149}", got.InvType, got.Com)
+	}
+}
+
 // TestInvStopTransmitUnregistersListener runs a script pushing com then
 // OpInvStopTransmit; asserts mockPlayer recorded InvStopListenOnCom(com).
 func TestInvStopTransmitUnregistersListener(t *testing.T) {
