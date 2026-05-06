@@ -1,6 +1,8 @@
 package world
 
 import (
+	"log/slog"
+
 	"github.com/zsrv/goscape/pkg/io/packet"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/objtype"
@@ -70,6 +72,7 @@ func (p *Player) IfSetHide(com int, hide bool) {
 // (Player.ts:2042-2044) which performs the array write before writing
 // the wire packet.
 func (p *Player) IfSetTab(com, tab int) {
+	slog.Info("NAI-112 Bundle1.5 instr: IfSetTab", "com", com, "tab", tab)
 	if tab >= 0 && tab < len(p.tabs) {
 		p.tabs[tab] = com
 	}
