@@ -632,14 +632,15 @@ func TestLookupPlayerByUIDFound(t *testing.T) {
 	s := newTestServer(t)
 	c, _ := newTestClient(t)
 	p := newPlayer(c)
-	p.uid = 12345
 	if err := s.addPlayer(p); err != nil {
 		t.Fatalf("addPlayer: %v", err)
 	}
 
-	got := s.LookupPlayerByUID(12345)
+	// After addPlayer, p.uid is composed from (p.username37=0, p.slot).
+	// Use p.uid as the lookup arg.
+	got := s.LookupPlayerByUID(p.uid)
 	if got != p {
-		t.Errorf("LookupPlayerByUID(12345) = %v, want %v", got, p)
+		t.Errorf("LookupPlayerByUID(%d) = %v, want %v", p.uid, got, p)
 	}
 }
 
@@ -648,12 +649,14 @@ func TestLookupPlayerByUIDNotFound(t *testing.T) {
 	s := newTestServer(t)
 	c, _ := newTestClient(t)
 	p := newPlayer(c)
-	p.uid = 1
 	_ = s.addPlayer(p)
 
-	got := s.LookupPlayerByUID(999)
+	// After addPlayer, p.uid is composed from (p.username37=0, p.slot).
+	// Use a uid that won't collide.
+	notFoundUID := p.uid + 1000
+	got := s.LookupPlayerByUID(notFoundUID)
 	if got != nil {
-		t.Errorf("LookupPlayerByUID(999) = %v, want nil", got)
+		t.Errorf("LookupPlayerByUID(%d) = %v, want nil", notFoundUID, got)
 	}
 }
 
@@ -666,13 +669,14 @@ func TestLookupPlayerByUIDSkipsInactive(t *testing.T) {
 	s := newTestServer(t)
 	c, _ := newTestClient(t)
 	p := newPlayer(c)
-	p.uid = 7
 	_ = s.addPlayer(p)
 	p.active = false
 
-	got := s.LookupPlayerByUID(7)
+	// After addPlayer, p.uid is composed from (p.username37=0, p.slot).
+	// Lookup arg matches p.uid, but active=false, so should return nil.
+	got := s.LookupPlayerByUID(p.uid)
 	if got != nil {
-		t.Errorf("LookupPlayerByUID(7) on inactive player = %v, want nil", got)
+		t.Errorf("LookupPlayerByUID(%d) on inactive player = %v, want nil", p.uid, got)
 	}
 }
 

@@ -1,6 +1,10 @@
 package world
 
-import "testing"
+import (
+	"testing"
+
+	jutil "github.com/zsrv/goscape/pkg/util/jstring"
+)
 
 func TestComposeUID(t *testing.T) {
 	tests := []struct {
@@ -66,5 +70,44 @@ func TestComposeUID(t *testing.T) {
 				t.Errorf("composeUID(%#x, %d) = %d, want %d", tc.username37, tc.slot, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestAddPlayerComposesUID(t *testing.T) {
+	s := &Server{
+		quit: make(chan interface{}),
+		log:  discardLogger(),
+	}
+
+	p, _ := newTestPlayer(t)
+	p.username37 = jutil.ToBase37("alice")
+
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer() failed: %v", err)
+	}
+
+	want := composeUID(p.username37, p.slot)
+	if p.uid != want {
+		t.Errorf("p.uid = %d (slot=%d, username37=%#x), want %d", p.uid, p.slot, p.username37, want)
+	}
+}
+
+func TestAddPlayerEmptyUsernameComposesSlotOnlyUID(t *testing.T) {
+	s := &Server{
+		quit: make(chan interface{}),
+		log:  discardLogger(),
+	}
+
+	p, _ := newTestPlayer(t)
+	// p.username37 defaults to 0
+
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer() failed: %v", err)
+	}
+
+	// With username37=0, uid should equal slot only
+	want := composeUID(0, p.slot)
+	if p.uid != want {
+		t.Errorf("p.uid = %d (slot=%d, username37=0), want %d (slot only)", p.uid, p.slot, want)
 	}
 }

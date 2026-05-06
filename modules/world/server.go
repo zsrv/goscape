@@ -687,6 +687,7 @@ func (s *Server) addPlayer(p *Player) error {
 	for i := 1; i < len(s.players); i++ {
 		if s.players[i] == nil {
 			p.slot = i
+			p.uid = composeUID(p.username37, p.slot) // NAI-113: TS World.ts:937
 			s.players[i] = p
 			s.playerLoop = append(s.playerLoop, p)
 			p.active = true
