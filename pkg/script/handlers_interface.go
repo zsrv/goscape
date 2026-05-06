@@ -88,6 +88,9 @@ func handleIfOpenMainSide(s *ScriptState) error {
 // (Player.ts:716-726 writes TutOpen(-1) directly via Player.write,
 // not through this opcode); see handleTutClose / (*Player).CloseTutorial
 // (NAI-102 port).
+//
+// s.Self==nil guard is goscape defensive (TS skips this check; pointer
+// bit and entity reference are always coupled in TS ScriptState).
 func handleTutOpen(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return errors.New("TUT_OPEN: no active player")
@@ -102,11 +105,41 @@ func handleTutOpen(s *ScriptState) error {
 
 // handleTutClose implements TUT_CLOSE.
 // TS PlayerOps.ts:877-879 — no pops; just delegates to closeTutorial().
+//
+// s.Self==nil guard is goscape defensive (TS skips this check; pointer
+// bit and entity reference are always coupled in TS ScriptState).
 func handleTutClose(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return errors.New("TUT_CLOSE: no active player")
 	}
 	s.Self.CloseTutorial()
+	return nil
+}
+
+// handleTutFlash implements TUT_FLASH.
+// TS PlayerOps.ts:694-696 — pops a single int (tab); check(tab,
+// NumberNotNull). No protect gate (TS uses checkedHandler(ActivePlayer,
+// ...), not ProtectedActivePlayer). Fire-and-forget — writes a
+// TUT_FLASH server packet to draw the player's attention to the
+// named tab.
+//
+// Tab argument is not range-checked: TS encoder uses p1() which
+// silently truncates >255 to a single byte. Goscape's ^tab_* runescript
+// constants are non-negative single-byte tab indices, so this is
+// behaviorally equivalent to TS for in-range inputs.
+//
+// Pointer check s.Pointers&PtrActivePlayer==0 mirrors TS checkedHandler.
+// s.Self==nil guard is goscape defensive (TS skips this check; pointer
+// bit and entity reference are always coupled in TS ScriptState).
+func handleTutFlash(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("TUT_FLASH: no active player")
+	}
+	tab := s.PopInt()
+	if err := checkNotNull(tab, "TUT_FLASH"); err != nil {
+		return err
+	}
+	s.Self.FlashTutorial(tab)
 	return nil
 }
 

@@ -296,6 +296,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpIfOpenMainSide: handleIfOpenMainSide,
 	OpTutOpen:        handleTutOpen,
 	OpTutClose:       handleTutClose,
+	OpTutFlash:       handleTutFlash,
 	// Per-component setters (12).
 	OpIfSetText:       handleIfSetText,
 	OpIfSetModel:      handleIfSetModel,
