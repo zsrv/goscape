@@ -2,7 +2,6 @@ package world
 
 import (
 	"fmt"
-	"log/slog"
 	"strings"
 
 	"github.com/zsrv/goscape/pkg/cache"
@@ -319,11 +318,7 @@ func (p *Player) SetVarp(id int, val int32) {
 	if id < 0 || id >= len(p.varps) {
 		return
 	}
-	prev := p.varps[id]
 	p.varps[id] = val
-	// NAI-112 Stage 2.1 instr: log every varp write. High-volume but
-	// scoped to a single user-launched smoke run; reverted in Bundle 3.
-	slog.Info("NAI-112 Stage2.1 instr: SetVarp", "id", id, "prev", prev, "val", val)
 	p.writeVarp(id, val)
 }
 

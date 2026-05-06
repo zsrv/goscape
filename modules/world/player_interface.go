@@ -1,8 +1,6 @@
 package world
 
 import (
-	"log/slog"
-
 	"github.com/zsrv/goscape/pkg/io/packet"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/objtype"
@@ -16,11 +14,6 @@ import (
 
 // IfSetText emits IF_SETTEXT (com u16, text jstr). Dynamic payload size.
 func (p *Player) IfSetText(com int, text string) {
-	logText := text
-	if len(logText) > 80 {
-		logText = logText[:80] + "…"
-	}
-	slog.Info("NAI-112 Stage2.1 instr: IfSetText", "com", com, "text", logText)
 	buf := packet.NewPacket(nil)
 	buf.P2(uint16(com))
 	buf.PJStrLF(text)

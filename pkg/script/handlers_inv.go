@@ -2,7 +2,6 @@ package script
 
 import (
 	"fmt"
-	"log/slog"
 
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
@@ -297,12 +296,6 @@ func handleInvAdd(s *ScriptState) error {
 	obj := s.PopInt()
 	typeID := s.PopInt()
 	inv := resolveInv(s, typeID)
-	slog.Info("NAI-112 Stage2.1 instr: INV_ADD",
-		"typeID", typeID,
-		"obj", obj,
-		"count", count,
-		"invResolved", inv != nil,
-		"hasActivePlayer", s.Self != nil)
 	if inv == nil {
 		return fmt.Errorf("INV_ADD: no inv for type %d", typeID)
 	}
