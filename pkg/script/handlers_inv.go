@@ -413,18 +413,27 @@ func handleInvMoveFromSlot(s *ScriptState) error {
 // the active player for UI component `com` tracking the active
 // player's own inventory of type `invType` (source = activePlayer.uid).
 //
-// TS: InvOps.ts INV_TRANSMIT — popInt(inv), popInt(com),
-// activePlayer.invListenOnCom(inv, com, activePlayer.uid). com is
-// wrapped with check(com, NumberNotNull) in TS; invType uses
+// TS: InvOps.ts INV_TRANSMIT — `const [inv, com] = state.popInts(2)`
+// (popInts returns [bottom, top] — i.e. inv pushed FIRST, com pushed
+// SECOND). Then activePlayer.invListenOnCom(inv, com, activePlayer.uid).
+// com is wrapped with check(com, NumberNotNull) in TS; invType uses
 // InvTypeValid (not NumberNotNull) — stays raw (NAI-23 Bundle 4b).
-// Source porting fix landed in NAI-24 Bundle 2 — origin commit
-// fa57ee4 (S6u) erroneously hard-coded -1. Closes NAI-24 Bundle 2.
+// Source porting fix landed in NAI-24 Bundle 2 — origin commit fa57ee4
+// (S6u) erroneously hard-coded -1.
+//
+// NAI-113 T9: pop order corrected to match TS (com from top, invType
+// from below). Pre-fix the assignments were swapped — INV_TRANSMIT
+// stored Type=<com>, Com=<inv>, masking inventory side-panel emission
+// in production (the listener Type never matched any allocated inv).
+// Sibling INVOTHER_TRANSMIT was already correct; only this opcode was
+// inverted. Existing TestInvTransmitRegistersListener was hand-tuned
+// to the buggy order and is migrated here.
 func handleInvTransmit(s *ScriptState) error {
 	if err := requireActivePlayer(s, "INV_TRANSMIT"); err != nil {
 		return err
 	}
-	invType := s.PopInt()
 	com := s.PopInt()
+	invType := s.PopInt()
 	if err := checkNotNull(com, "INV_TRANSMIT"); err != nil {
 		return err
 	}

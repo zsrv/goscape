@@ -380,23 +380,27 @@ func TestInvLookupNilReturnsError(t *testing.T) {
 	runInvOpExpectErr(t, OpInvClear, []int{testInvMain}, nil, mc, "no inv for type")
 }
 
-// TestInvTransmitRegistersListener runs a script pushing (com, inv) then
+// TestInvTransmitRegistersListener runs a script pushing (inv, com) then
 // OpInvTransmit; asserts the mock player recorded
 // InvListenOnCom(invType, com, activePlayer.uid). Matches TS InvOps.ts
-// INV_TRANSMIT. Pins post-NAI-24-Bundle-2 behavior; pre-fix this test
-// asserted Source: -1 (S6u porting bug at commit fa57ee4).
+// INV_TRANSMIT (`const [inv, com] = state.popInts(2)` — inv pushed first,
+// com second). Pins post-NAI-24-Bundle-2 behavior; pre-fix this test
+// asserted Source: -1 (S6u porting bug at commit fa57ee4). Push order
+// migrated by NAI-113 T9 to match runescript-compiler convention; the
+// previous (com, inv) order was hand-tuned to a buggy handler pop order
+// that masked a side-panel emission bug in production.
 func TestInvTransmitRegistersListener(t *testing.T) {
 	mp := &mockPlayer{uidValue: 42}
 
 	sf := &ScriptFile{
 		Name: "inv_transmit",
 		Opcodes: []Opcode{
-			OpPushConstantInt, // com
-			OpPushConstantInt, // inv (top)
+			OpPushConstantInt, // inv (bottom — pushed first)
+			OpPushConstantInt, // com (top — pushed second)
 			OpInvTransmit,
 			OpReturn,
 		},
-		IntOperands:      []int32{149, 93, 0, 0},
+		IntOperands:      []int32{93, 149, 0, 0},
 		StringOperands:   []string{"", "", "", ""},
 		InstructionCount: 4,
 	}
@@ -444,12 +448,12 @@ func TestInvTransmitSourceTracksActivePlayerUID(t *testing.T) {
 	sf := &ScriptFile{
 		Name: "inv_transmit_uid_track",
 		Opcodes: []Opcode{
-			OpPushConstantInt, // com
-			OpPushConstantInt, // inv (top)
+			OpPushConstantInt, // inv (bottom — pushed first per TS popInts order)
+			OpPushConstantInt, // com (top — pushed second)
 			OpInvTransmit,
 			OpReturn,
 		},
-		IntOperands:      []int32{149, 93, 0, 0},
+		IntOperands:      []int32{93, 149, 0, 0},
 		StringOperands:   []string{"", "", "", ""},
 		InstructionCount: 4,
 	}
@@ -558,19 +562,20 @@ func TestInvOtherTransmitNoActivePlayerErrors(t *testing.T) {
 // check(com, NumberNotNull)). invType is wrapped with InvTypeValid (not
 // NumberNotNull) and stays raw. The InvListenOnCom side-effect must NOT occur.
 //
-// Pop order: invType first (top of stack), com second (bottom of stack).
-// Push com=-1 first (bottom), then invType=93 on top.
+// Push order per TS popInts(2)→[inv,com]: invType first (bottom), com on top.
+// Migrated by NAI-113 T9; previous order was hand-tuned to a buggy
+// handler pop order.
 func TestHandleInvTransmitNullComRejected(t *testing.T) {
 	mp := &mockPlayer{}
 	sf := &ScriptFile{
 		Name: "inv_transmit_null_com",
 		Opcodes: []Opcode{
-			OpPushConstantInt, // push com (-1, bottom)
-			OpPushConstantInt, // push invType (93, top)
+			OpPushConstantInt, // push invType (93, bottom — pushed first)
+			OpPushConstantInt, // push com (-1, top — pushed second)
 			OpInvTransmit,
 			OpReturn,
 		},
-		IntOperands: []int32{-1, 93, 0, 0},
+		IntOperands: []int32{93, -1, 0, 0},
 	}
 	state := Init(sf, mp, false, nil, nil)
 
