@@ -14,8 +14,11 @@ func newInvListenerTestPlayer(t *testing.T, s *Server, slot int) (*Player, net.C
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	p.slot = slot
+	p.uid = composeUID(p.username37, p.slot) // NAI-113: matches Server.addPlayer
+	p.active = true
 	p.invs = map[int]*inventory.Inventory{}
 	s.players[slot] = p
+	s.playerLoop = append(s.playerLoop, p)
 	return p, cc
 }
 
@@ -115,5 +118,109 @@ func TestUpdateInvsSkipsMissingSource(t *testing.T) {
 	got := <-received
 	if len(got) != 0 {
 		t.Errorf("missing source should be skipped silently; got %d bytes", len(got))
+	}
+}
+
+// TestUpdateInvsSelfListenerEmitsViaComposedUID is the NAI-113 binding
+// test: a player listening on their own inv (Source = self uid, the
+// production INV_TRANSMIT shape) must produce an UpdateInvFull packet
+// when inv.Update fires. Pre-fix this path was silently broken because
+// p.uid stayed at -1, INV_TRANSMIT registered Source=-1, and
+// updateInvs routed to the world-shared inv table (which had no entry
+// for per-player invtypes).
+//
+// Asserts the full chain: composed uid + Source=composed uid +
+// LookupPlayerByUID-based emit.
+func TestUpdateInvsSelfListenerEmitsViaComposedUID(t *testing.T) {
+	s := newTestServer(t)
+	s.invs = make(map[int]*inventory.Inventory)
+
+	p, cc := newInvListenerTestPlayer(t, s, 5)
+	if p.uid == -1 {
+		t.Fatalf("precondition: helper must compose uid; got -1 (T1/T2 wiring missing)")
+	}
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Update = true
+	p.invs[93] = inv
+
+	p.invListeners = map[int]InventoryListener{
+		149: {Type: 93, Com: 149, Source: p.uid, FirstSeen: false},
+	}
+
+	received := drainConn(t, cc)
+	p.updateInvs()
+	p.client.flushWrite()
+	got := <-received
+	if len(got) == 0 {
+		t.Fatal("self-listener with composed uid Source should emit UpdateInvFull; got 0 bytes")
+	}
+}
+
+// TestUpdateInvsCrossPlayerListenerEmitsViaComposedUID exercises the
+// INVOTHER_TRANSMIT shape: viewer's listener at Source=owner.uid must
+// resolve the owner via LookupPlayerByUID and emit owner.invs[Type].
+func TestUpdateInvsCrossPlayerListenerEmitsViaComposedUID(t *testing.T) {
+	s := newTestServer(t)
+	s.invs = make(map[int]*inventory.Inventory)
+
+	owner, _ := newInvListenerTestPlayer(t, s, 2)
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Update = false // FirstSeen should fire emit regardless of Update.
+	owner.invs[93] = inv
+
+	viewer, vcc := newInvListenerTestPlayer(t, s, 3)
+	if owner.uid == -1 || viewer.uid == -1 {
+		t.Fatalf("precondition: helper must compose uids; owner.uid=%d, viewer.uid=%d", owner.uid, viewer.uid)
+	}
+
+	viewer.invListeners = map[int]InventoryListener{
+		149: {Type: 93, Com: 149, Source: owner.uid, FirstSeen: true},
+	}
+
+	received := drainConn(t, vcc)
+	viewer.updateInvs()
+	viewer.client.flushWrite()
+	got := <-received
+	if len(got) == 0 {
+		t.Fatal("cross-player FirstSeen listener should emit; got 0 bytes")
+	}
+	if viewer.invListeners[149].FirstSeen {
+		t.Error("FirstSeen should flip to false post-emit")
+	}
+}
+
+// TestUpdateInvsCrossPlayerNonSlotUID forces the LookupPlayerByUID
+// path to be exercised for real: the owner is placed at slot 2 but
+// has uid manually set to a value far above any valid slot index, so
+// players[uid] would index out of bounds (or a wrong slot) under the
+// pre-fix slot-indexed lookup. Under the LookupPlayerByUID fix the
+// emit succeeds.
+func TestUpdateInvsCrossPlayerNonSlotUID(t *testing.T) {
+	s := newTestServer(t)
+	s.invs = make(map[int]*inventory.Inventory)
+
+	owner, _ := newInvListenerTestPlayer(t, s, 2)
+	owner.uid = 0xABCDEF // far above len(s.players); pre-fix `players[0xABCDEF]` panics
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Update = true
+	owner.invs[93] = inv
+
+	viewer, vcc := newInvListenerTestPlayer(t, s, 3)
+	viewer.invListeners = map[int]InventoryListener{
+		149: {Type: 93, Com: 149, Source: owner.uid, FirstSeen: false},
+	}
+
+	received := drainConn(t, vcc)
+	// Under pre-fix code this panics with "index out of range".
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("updateInvs panicked under slot-indexed lookup: %v", r)
+		}
+	}()
+	viewer.updateInvs()
+	viewer.client.flushWrite()
+	got := <-received
+	if len(got) == 0 {
+		t.Fatal("cross-player listener with non-slot uid should emit via LookupPlayerByUID; got 0 bytes")
 	}
 }

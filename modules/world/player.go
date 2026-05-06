@@ -774,8 +774,12 @@ func (p *Player) updateInvs() {
 		if l.Source == -1 {
 			inv = p.client.server.invs[l.Type]
 		} else {
-			other := p.client.server.players[l.Source]
-			if other == nil {
+			otherActive := p.client.server.LookupPlayerByUID(l.Source)
+			if otherActive == nil {
+				continue
+			}
+			other, ok := otherActive.(*Player)
+			if !ok || other == nil {
 				continue
 			}
 			inv = other.invs[l.Type]
