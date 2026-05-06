@@ -572,13 +572,17 @@ func TestHandleOpNpcUHappyPathWithOtherPlayerInv(t *testing.T) {
 	p.tabs[0] = 149
 
 	other, _ := newTestPlayer(t)
+	other.slot = 2
+	other.uid = 0xDEADBEEF // arbitrary UID; must use UID not slot in invListenOnCom
+	other.active = true
 	other.invs = map[int]*inventory.Inventory{}
 	inv := inventory.New(93, 28, inventory.StackNormal)
 	inv.Items[3] = &inventory.Item{Id: 1511, Count: 1}
 	other.invs[93] = inv
 	s.players[2] = other
+	s.playerLoop = append(s.playerLoop, other)
 
-	p.invListenOnCom(93, 149, 2)
+	p.invListenOnCom(93, 149, 0xDEADBEEF)
 
 	if err := handleOpNpcU(p, p2x4NpcUPayload(1, 1511, 3, 149)); err != nil {
 		t.Fatalf("handleOpNpcU: %v", err)

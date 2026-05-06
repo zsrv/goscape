@@ -23,7 +23,7 @@ import (
 type InventoryListener struct {
 	Type      int  // InvType id
 	Com       int  // UI component id
-	Source    int  // -1 = world-shared inventory, else owning player's slot
+	Source    int  // -1 = world-shared inventory, else owning player's UID
 	FirstSeen bool // true until the first UpdateInvFull; then false
 }
 

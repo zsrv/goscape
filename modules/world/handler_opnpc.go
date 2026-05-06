@@ -8,18 +8,24 @@ import (
 
 // resolveListenerInv returns the inventory the given listener observes,
 // or nil if it can't be resolved. Source = -1 → world-shared inventory
-// (Server.invs[Type]); otherwise the source is another player's slot,
-// and the inventory is that player's local invs[Type]. Mirrors TS
-// getInventoryFromListener in Player.ts.
+// (Server.invs[Type]); otherwise Source is another player's UID, and
+// the inventory is that player's local invs[Type]. Mirrors TS
+// Player.getInventoryFromListener (Player.ts:getInventoryFromListener).
+//
+// NAI-114 Stage 5: prior to this fix Source was indexed directly into
+// s.players[], which silently failed for any UID >= len(s.players)
+// (always, in practice). Sister consumer Player.updateInvs already used
+// LookupPlayerByUID; this function now matches.
 func resolveListenerInv(s *Server, listener InventoryListener) *inventory.Inventory {
 	if listener.Source == -1 {
 		return s.invs[listener.Type]
 	}
-	if listener.Source < 0 || listener.Source >= len(s.players) {
+	otherActive := s.LookupPlayerByUID(listener.Source)
+	if otherActive == nil {
 		return nil
 	}
-	other := s.players[listener.Source]
-	if other == nil {
+	other, ok := otherActive.(*Player)
+	if !ok || other == nil {
 		return nil
 	}
 	return other.invs[listener.Type]
