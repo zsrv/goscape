@@ -2,7 +2,6 @@ package world
 
 import (
 	"fmt"
-	"log/slog"
 	"strings"
 
 	"github.com/zsrv/goscape/pkg/cache"
@@ -795,10 +794,8 @@ func (p *Player) OpenMainSide(mainCom, sideCom int) {
 // OR'd into modalState and the tutorial id is stored alongside the
 // wire emit.
 func (p *Player) OpenTutorial(com int) {
-	prev := p.modalTutorial
 	payload := []byte{byte(com >> 8), byte(com)}
 	p.writeOut(gameserver.OpTutOpen, payload)
-	slog.Info("NAI-112 Bundle1.5 instr: OpenTutorial wired", "com", com, "prevModalTutorial", prev)
 	p.modalState |= modalStateTut
 	p.modalTutorial = com
 }
@@ -822,10 +819,8 @@ func (p *Player) OpenTutorial(com int) {
 // defensive_gate_doc_comment_label.md.
 func (p *Player) CloseTutorial() {
 	if p.modalTutorial == -1 {
-		slog.Info("NAI-112 Bundle1.5 instr: CloseTutorial noop")
 		return
 	}
-	prev := p.modalTutorial
 	if p.client != nil && p.client.server != nil {
 		p.runIfCloseTrigger(p.client.server, p.modalTutorial)
 	}
@@ -833,7 +828,6 @@ func (p *Player) CloseTutorial() {
 	p.modalState &^= modalStateTut
 	payload := []byte{0xff, 0xff} // -1 as int16 BE
 	p.writeOut(gameserver.OpTutOpen, payload)
-	slog.Info("NAI-112 Bundle1.5 instr: CloseTutorial wired", "prevModalTutorial", prev)
 }
 
 // FlashTutorial implements script.ActivePlayer.FlashTutorial. Writes
