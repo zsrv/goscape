@@ -122,3 +122,38 @@ func TestDialogOpsRequireActivePlayer(t *testing.T) {
 		})
 	}
 }
+
+// TestUIDOpcodePushesComposedUID pins NAI-113 cascade closure for the
+// UID opcode (handlers_dialog.go:115-121): pushes the active player's
+// composed uid to the stack. Pre-fix Player.uid was always -1 because
+// Server.addPlayer never composed it; runescript callers branching on
+// UID short-circuited dead. Post-NAI-113 production composes uid via
+// composeUID(username37, slot); this test pins the handler propagating
+// that value to the int stack.
+func TestUIDOpcodePushesComposedUID(t *testing.T) {
+	self := &mockPlayer{username: "Self", uidValue: 0xABCDEF}
+
+	sf := newSingleOp("uid_push", OpUID)
+	state := Init(sf, self, false, nil, nil)
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.ISP != 1 || state.IntStack[0] != 0xABCDEF {
+		t.Errorf("stack: got [%v], want [%#x]", state.IntStack[:state.ISP], 0xABCDEF)
+	}
+}
+
+// TestUIDOpcodeNoActivePlayerErrors pins the negative case: handleUID
+// returns an error when Pointers&PtrActivePlayer is unset (no active
+// player). This branch is unaffected by NAI-113 but documents the
+// guard for completeness.
+func TestUIDOpcodeNoActivePlayerErrors(t *testing.T) {
+	sf := newSingleOp("uid_no_player", OpUID)
+	state := Init(sf, nil, false, nil, nil)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatal("expected error on UID with no active player")
+	}
+}
