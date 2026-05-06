@@ -140,8 +140,8 @@ func handleStructParam(s *ScriptState) error {
 
 // -- LocConfigOps --
 
-// handleLcName (LC_NAME) pops a loc id and pushes its name (or debugname
-// fallback; "null" when both are empty).
+// handleLcName (LC_NAME) pops a loc id and pushes its name, falling
+// back to debugname, then "null".
 func handleLcName(s *ScriptState) error {
 	if err := requireConfigs(s, "LC_NAME"); err != nil {
 		return err
@@ -151,8 +151,9 @@ func handleLcName(s *ScriptState) error {
 	if lt == nil {
 		return fmt.Errorf("LC_NAME: unknown loc id %d", id)
 	}
-	// LocType has no separate Name field server-side; fall back to debugname.
-	if lt.DebugName != "" {
+	if lt.Name != "" {
+		s.PushString(lt.Name)
+	} else if lt.DebugName != "" {
 		s.PushString(lt.DebugName)
 	} else {
 		s.PushString("null")

@@ -345,7 +345,7 @@ func TestStructParamUnknownStructErrors(t *testing.T) {
 func TestLcName(t *testing.T) {
 	mc := newTestConfigs()
 	state := runConfigOp(t, mc, OpLcName, []int{0})
-	// LocType has no Name field server-side; falls back to DebugName.
+	// Loc 0 has DebugName only (no Name); falls back to DebugName.
 	if got := state.PopString(); got != "door" {
 		t.Errorf("LC_NAME(0): got %q, want %q", got, "door")
 	}
@@ -358,6 +358,19 @@ func TestLcNameNullFallback(t *testing.T) {
 	state := runConfigOp(t, mc, OpLcName, []int{1})
 	if got := state.PopString(); got != "null" {
 		t.Errorf("LC_NAME(1 unnamed): got %q, want %q", got, "null")
+	}
+}
+
+func TestLcNamePrefersNameOverDebugName(t *testing.T) {
+	mc := newTestConfigs()
+	// Seed a loc with both Name and DebugName at id 2; Name wins.
+	named := objtype.NewLocType(2)
+	named.Name = "Door"
+	named.DebugName = "door"
+	mc.locs[2] = named
+	state := runConfigOp(t, mc, OpLcName, []int{2})
+	if got := state.PopString(); got != "Door" {
+		t.Errorf("LC_NAME(2 named): got %q, want %q", got, "Door")
 	}
 }
 
