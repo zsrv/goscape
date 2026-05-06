@@ -784,49 +784,55 @@ func (p *Player) OpenMainSide(mainCom, sideCom int) {
 	p.refreshModal = true
 }
 
-// OpenTutorial sets the player's tutorial-overlay component. Per TS,
-// opening the tutorial does NOT close any other modal — the TUT bit
-// is OR'd into modalState and the tutorial id is stored. The
-// matching wire packet (OpTutOpen) is deferred to the next
-// encodeOut pass which detects the modalTutorial != lastModalTutorial
-// diff. Mirrors LostCityRS/Engine-TS Player.ts:1999-2003.
+// OpenTutorial sets the player's tutorial-overlay component and writes
+// the matching TUT_OPEN wire packet UNCONDITIONALLY. Mirrors TS
+// Player.openTutorial at Engine-TS/src/engine/entity/Player.ts:1999-2003,
+// which writes `new TutOpen(com)` on every call regardless of prior
+// state. NAI-112 Stage 2.2 retired the goscape diff at
+// modules/world/player.go (pre-NAI-112: emit-only-on-change introduced
+// by NAI-76 T2) — that suppressed the re-open the client needs to flush
+// IF_SETTEXT updates when the same tutorial component is re-opened.
+// Surfaced at NAI-110 close smoke; bound NAI-112 Stage 2.1 instrumentation
+// 2026-05-06.
+//
+// Opening the tutorial does NOT close any other modal — the TUT bit is
+// OR'd into modalState and the tutorial id is stored alongside the
+// wire emit.
 func (p *Player) OpenTutorial(com int) {
-	prev := p.modalTutorial
 	p.modalTutorial = com
 	p.modalState |= modalStateTut
-	slog.Info("NAI-112 Stage2.1 instr: OpenTutorial",
-		"com", com,
-		"prevModalTutorial", prev,
-		"lastModalTutorial", p.lastModalTutorial,
-		"willEmitOnEncodeOut", com != p.lastModalTutorial)
+	payload := []byte{byte(com >> 8), byte(com)}
+	p.writeOut(gameserver.OpTutOpen, payload)
 }
 
 // CloseTutorial closes the player's tutorial overlay. Per TS:
-// no-op if no tutorial open; otherwise dispatches the matching
-// IF_CLOSE trigger (if registered) for the current modalTutorial
-// component, then resets modalTutorial to -1. The wire OpTutOpen(-1)
-// emission is implicit via encodeOut's diff-check at
-// player.go:388-391 (NAI-76 pin).
+// no-op if no tutorial open; otherwise dispatches the matching IF_CLOSE
+// trigger (if registered) for the current modalTutorial component,
+// resets modalTutorial to -1, and writes TUT_OPEN(-1) directly.
 //
-// TS does NOT call clearComListeners(modalTutorial) here (contrast
-// with closeModal); we mirror that absence.
+// TS Player.closeTutorial at Engine-TS/src/engine/entity/Player.ts:716-726
+// writes `new TutOpen(-1)` directly. NAI-76 routed this through
+// encodeOut's diff-check (NAI-76 pin); NAI-112 Stage 2.2 inlines the
+// write to match TS unconditional-emit semantics and to symmetrize with
+// the OpenTutorial fix.
+//
+// TS does NOT call clearComListeners(modalTutorial) here (contrast with
+// closeModal); we mirror that absence.
 //
 // Clears modalStateTut on the goscape-internal modalState bitmap
-// (goscape defensive; TS has no equivalent field). Labelled per
+// (goscape defensive; TS skips this check). Labelled per
 // defensive_gate_doc_comment_label.md.
-//
-// Mirrors LostCityRS/Engine-TS Player.closeTutorial (Player.ts:716-726).
 func (p *Player) CloseTutorial() {
 	if p.modalTutorial == -1 {
-		slog.Info("NAI-112 Stage2.1 instr: CloseTutorial noop (already closed)")
 		return
 	}
-	slog.Info("NAI-112 Stage2.1 instr: CloseTutorial enter", "modalTutorial", p.modalTutorial)
 	if p.client != nil && p.client.server != nil {
 		p.runIfCloseTrigger(p.client.server, p.modalTutorial)
 	}
 	p.modalTutorial = -1
 	p.modalState &^= modalStateTut
+	payload := []byte{0xff, 0xff} // -1 as int16 BE
+	p.writeOut(gameserver.OpTutOpen, payload)
 }
 
 // FlashTutorial implements script.ActivePlayer.FlashTutorial. Writes

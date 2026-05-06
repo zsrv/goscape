@@ -1,7 +1,6 @@
 package world
 
 import (
-	"log/slog"
 	"math/rand/v2"
 	"sort"
 	"strings"
@@ -264,7 +263,6 @@ type Player struct {
 	// === modal (from sub-spec 1) ===
 	modalMain, modalChat, modalSide                    int
 	lastModalMain, lastModalChat, lastModalSide        int
-	lastModalTutorial                                  int
 	modalState                                         int
 	modalTutorial                                      int
 	tabs                                               [14]int
@@ -385,21 +383,6 @@ func (p *Player) encodeOut() {
 		p.refreshModal = false
 	}
 
-	if p.modalTutorial != p.lastModalTutorial {
-		payload := []byte{byte(p.modalTutorial >> 8), byte(p.modalTutorial)}
-		p.writeOut(gameserver.OpTutOpen, payload)
-		slog.Info("NAI-112 Stage2.1 instr: encodeOut TutOpen wire emit",
-			"modalTutorial", p.modalTutorial,
-			"prevLast", p.lastModalTutorial)
-		p.lastModalTutorial = p.modalTutorial
-	} else if p.modalTutorial != -1 {
-		// Diff suppress: TS Player.openTutorial writes unconditionally
-		// (Engine-TS Player.ts:1999-2003); goscape's diff may be the H6.c
-		// divergence. Log every suppress event so smoke can count them.
-		slog.Info("NAI-112 Stage2.1 instr: encodeOut TutOpen diff-suppressed",
-			"modalTutorial", p.modalTutorial,
-			"lastModalTutorial", p.lastModalTutorial)
-	}
 }
 
 // writeOut ISAAC-encrypts op.Opcode, writes any length prefix, then writes
@@ -469,7 +452,6 @@ func newPlayer(c *client) *Player {
 		colors:         [5]int{0, 0, 0, 0, 0},
 		body:           [7]int{0, 10, 18, 26, 33, 36, 42},
 		modalTutorial:  -1,
-		lastModalTutorial: -1,
 		tabs:           [14]int{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
 		appearanceInv:  -1, // test-only sentinel; production binds via SetAppearanceInv from client.go login wiring (NAI-22 Bundle 3).
 		lastAppearance: -1,

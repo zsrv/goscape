@@ -423,8 +423,10 @@ func TestCloseTutorial_DispatchesIfCloseTriggerAndResets(t *testing.T) {
 	s.configsView = serverConfigsView{s: s}
 	s.invLookup = invLookupView{s: s}
 	s.npcLookup = serverNpcLookup{s: s}
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
 	p, _ := newTestPlayer(t)
 	p.client.server = s
+	p.client.encryptor = enc
 	p.modalTutorial = 42
 	p.modalState |= modalStateTut
 
@@ -452,8 +454,10 @@ func TestCloseTutorial_NoIfCloseTriggerStillResets(t *testing.T) {
 	s.configsView = serverConfigsView{s: s}
 	s.invLookup = invLookupView{s: s}
 	s.npcLookup = serverNpcLookup{s: s}
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
 	p, _ := newTestPlayer(t)
 	p.client.server = s
+	p.client.encryptor = enc
 	p.modalTutorial = 42
 	p.modalState |= modalStateTut
 

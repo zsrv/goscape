@@ -1279,7 +1279,9 @@ func TestPlayerTeleport_InPlaceFocusUsesSelfCenter(t *testing.T) {
 // TS Player.ts:1999-2003 — `this.modalState |= ModalState.TUT;
 // this.modalTutorial = com;`. No clear of modalMain/Chat/Side.
 func TestOpenTutorial_SetsFieldsWithoutClosingOthers(t *testing.T) {
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
 	p, _ := newTestPlayer(t)
+	p.client.encryptor = enc
 	p.modalMain = 5
 	p.modalChat = 7
 	p.modalSide = 9
@@ -1305,12 +1307,16 @@ func TestOpenTutorial_SetsFieldsWithoutClosingOthers(t *testing.T) {
 	}
 }
 
-// TestOpenTutorial_RefreshFlagsUntouched pins that OpenTutorial uses
-// the lastModalTutorial diff-check pattern, NOT the existing
-// refreshModal/refreshModalClose flags. The existing flags are
-// reserved for the main/chat/side switch in encodeOut.
+// TestOpenTutorial_RefreshFlagsUntouched pins that OpenTutorial does
+// NOT touch the refreshModal/refreshModalClose flags; those remain
+// reserved for the main/chat/side modal switch in encodeOut.
+// (Pre-NAI-112 OpenTutorial deferred via the lastModalTutorial diff;
+// post-NAI-112 OpenTutorial writes the wire packet directly per TS
+// Player.ts:1999-2003 — neither shape involved the refresh flags.)
 func TestOpenTutorial_RefreshFlagsUntouched(t *testing.T) {
+	enc, _ := isaacPair([4]uint32{5, 6, 7, 8})
 	p, _ := newTestPlayer(t)
+	p.client.encryptor = enc
 	p.refreshModal = false
 	p.refreshModalClose = false
 
