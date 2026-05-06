@@ -1,6 +1,8 @@
 package world
 
 import (
+	"log/slog"
+
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -140,10 +142,35 @@ func (s *Server) handleTutClickSide(p *Player, payload []byte) error {
 		return nil
 	}
 	tab := int(payload[0])
-	if tab < 0 || tab > 13 { // tab < 0 unreachable (byte→int ≥ 0); preserved from TS source
+	// NAI-112 Stage 2.1 instr: capture %tutorial varp at click time. The
+	// varp id for "tutorial" is resolved by name via the loaded varp config
+	// table; if absent, log -1 to surface a config-load divergence.
+	tutorialVarpID := -1
+	if s.varpTypes != nil {
+		if id, ok := s.varpTypes.ConfigNames["tutorial"]; ok {
+			tutorialVarpID = id
+		}
+	}
+	tutorialVal := int32(-999)
+	if tutorialVarpID >= 0 {
+		tutorialVal = p.Varp(tutorialVarpID)
+	}
+	slog.Info("NAI-112 Stage2.1 instr: TUT_CLICKSIDE entry",
+		"tab", tab,
+		"tutorialVarpID", tutorialVarpID,
+		"tutorialVal", tutorialVal)
+	if tab < 0 || tab > 13 {
 		return nil
 	}
 	sf := s.scriptProvider.GetByTriggerSpecific(script.TriggerTutorial, -1, -1)
+	slog.Info("NAI-112 Stage2.1 instr: TUT_CLICKSIDE lookup", "tab", tab, "scriptFound", sf != nil)
 	s.runScript(sf, p, nil, true, nil, nil)
+	tutorialValAfter := int32(-999)
+	if tutorialVarpID >= 0 {
+		tutorialValAfter = p.Varp(tutorialVarpID)
+	}
+	slog.Info("NAI-112 Stage2.1 instr: TUT_CLICKSIDE postScript",
+		"tab", tab,
+		"tutorialValAfter", tutorialValAfter)
 	return nil
 }

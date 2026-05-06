@@ -2,6 +2,7 @@ package world
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/zsrv/goscape/pkg/cache"
@@ -318,7 +319,11 @@ func (p *Player) SetVarp(id int, val int32) {
 	if id < 0 || id >= len(p.varps) {
 		return
 	}
+	prev := p.varps[id]
 	p.varps[id] = val
+	// NAI-112 Stage 2.1 instr: log every varp write. High-volume but
+	// scoped to a single user-launched smoke run; reverted in Bundle 3.
+	slog.Info("NAI-112 Stage2.1 instr: SetVarp", "id", id, "prev", prev, "val", val)
 	p.writeVarp(id, val)
 }
 
@@ -786,8 +791,14 @@ func (p *Player) OpenMainSide(mainCom, sideCom int) {
 // encodeOut pass which detects the modalTutorial != lastModalTutorial
 // diff. Mirrors LostCityRS/Engine-TS Player.ts:1999-2003.
 func (p *Player) OpenTutorial(com int) {
+	prev := p.modalTutorial
 	p.modalTutorial = com
 	p.modalState |= modalStateTut
+	slog.Info("NAI-112 Stage2.1 instr: OpenTutorial",
+		"com", com,
+		"prevModalTutorial", prev,
+		"lastModalTutorial", p.lastModalTutorial,
+		"willEmitOnEncodeOut", com != p.lastModalTutorial)
 }
 
 // CloseTutorial closes the player's tutorial overlay. Per TS:
@@ -807,8 +818,10 @@ func (p *Player) OpenTutorial(com int) {
 // Mirrors LostCityRS/Engine-TS Player.closeTutorial (Player.ts:716-726).
 func (p *Player) CloseTutorial() {
 	if p.modalTutorial == -1 {
+		slog.Info("NAI-112 Stage2.1 instr: CloseTutorial noop (already closed)")
 		return
 	}
+	slog.Info("NAI-112 Stage2.1 instr: CloseTutorial enter", "modalTutorial", p.modalTutorial)
 	if p.client != nil && p.client.server != nil {
 		p.runIfCloseTrigger(p.client.server, p.modalTutorial)
 	}

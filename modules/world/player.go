@@ -1,6 +1,7 @@
 package world
 
 import (
+	"log/slog"
 	"math/rand/v2"
 	"sort"
 	"strings"
@@ -387,7 +388,17 @@ func (p *Player) encodeOut() {
 	if p.modalTutorial != p.lastModalTutorial {
 		payload := []byte{byte(p.modalTutorial >> 8), byte(p.modalTutorial)}
 		p.writeOut(gameserver.OpTutOpen, payload)
+		slog.Info("NAI-112 Stage2.1 instr: encodeOut TutOpen wire emit",
+			"modalTutorial", p.modalTutorial,
+			"prevLast", p.lastModalTutorial)
 		p.lastModalTutorial = p.modalTutorial
+	} else if p.modalTutorial != -1 {
+		// Diff suppress: TS Player.openTutorial writes unconditionally
+		// (Engine-TS Player.ts:1999-2003); goscape's diff may be the H6.c
+		// divergence. Log every suppress event so smoke can count them.
+		slog.Info("NAI-112 Stage2.1 instr: encodeOut TutOpen diff-suppressed",
+			"modalTutorial", p.modalTutorial,
+			"lastModalTutorial", p.lastModalTutorial)
 	}
 }
 
