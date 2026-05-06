@@ -82,7 +82,7 @@ Disasm pass via temporary probe (`cmd/probe-opheldu/main.go`, deleted after spec
 ### 2.3 Linked scripts disassembled
 
 - **id 7356 `[label,light_logs_inv]`** (logs path): 105 PCs. Reads `oc_param(logs_obj, 86)` for firemaking-level requirement, runs STAT check, COORD/MAP_BLOCKED check, INV_TOTAL tinderbox check, P_STOPACTION, ANIM 733, SOUND_SYNTH 195, INV_DROPSLOT, MAP_CLOCK + VARP 58 timer for repeat-light delay, GOSUB 7359 (loc_add fire), GOSUB 7357 (xp grant), P_OPOBJ 4. **Source:** same file.
-- **id 7360 `[label,ignite_light_source]`** (light_source.rs2): handles candle/torch lighting. Out of fire-making path but registered.
+- **id 7360 `[label,ignite_light_source]`** (light_source.rs2): reached from `[opheldu,tinderbox]` PC 23-25 sibling branch (SWITCH case mapping to PC 23, e.g. unstrung-candle category); handles candle/torch lighting. Disasm captured for completeness; not on the logs path.
 - **id 2130 `[proc,displaymessage]`** (general/misc): `enum(105, 115, 11, $arg0).MES`. Default arg=0 from PC 26-27 of `[opheldu,tinderbox]`.
 - **id 7904 (newbielogs path), id 6460 (oc_param=1 logs path)**: not yet disassembled — Stage 1.1 deliverable.
 
