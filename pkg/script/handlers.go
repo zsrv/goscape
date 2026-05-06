@@ -288,7 +288,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpInvOtherTransmit: handleInvOtherTransmit,
 
 	// S5f: interface / modal.
-	// Modal management (6).
+	// Modal management (8).
 	OpIfClose:        handleIfClose,
 	OpIfOpenMain:     handleIfOpenMain,
 	OpIfOpenChat:     handleIfOpenChat,
