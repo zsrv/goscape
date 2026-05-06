@@ -293,6 +293,9 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 		s.log.Warn("script provider load failed; scripts will not run", "err", err)
 		s.scriptProvider = nil
 	}
+	if s.scriptProvider != nil {
+		logOpHeldUScriptInventory(s.scriptProvider, s.log)
+	}
 
 	for _, spawn := range s.gamemap.NpcSpawns() {
 		if spawn.TypeID < 0 || spawn.TypeID >= len(npcTypes.Configs) {
