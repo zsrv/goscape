@@ -2,6 +2,9 @@ package world
 
 import (
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
+	"github.com/zsrv/goscape/pkg/script"
+
+	entitypkg "github.com/zsrv/goscape/pkg/entity"
 )
 
 // worldVarsView adapts *Server to script.WorldVars. Kept value-typed so
@@ -105,4 +108,22 @@ func (w worldVarsView) AnimMap(level, x, z, spotanim, height, delay int) {
 		return
 	}
 	w.s.AnimMap(level, x, z, spotanim, height, delay)
+}
+
+// RemoveObj implements script.WorldVars.RemoveObj. Type-asserts the
+// script-side ActiveObj to the world-side *entitypkg.Obj and routes
+// via Server.RemoveObj.
+//
+// NAI-115-D2: TS passes ObjType.respawnrate as duration to
+// World.removeObj; goscape's Server.RemoveObj has no duration arg
+// (RESPAWN-lifecycle respawn-after-delay is a foundation gap).
+func (w worldVarsView) RemoveObj(obj script.ActiveObj) {
+	if w.s == nil {
+		return
+	}
+	realObj, ok := obj.(*entitypkg.Obj)
+	if !ok {
+		return
+	}
+	w.s.RemoveObj(realObj)
 }

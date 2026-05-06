@@ -78,6 +78,13 @@ type WorldVars interface {
 	// the affected zone. Mirrors TS World.animMap at Engine-TS/.../World.ts.
 	// Used by SPOTANIM_MAP (opcode 1020).
 	AnimMap(level, x, z, spotanim, height, delay int)
+
+	// RemoveObj despawns / removes the given obj from its zone. Mirrors
+	// TS World.removeObj. NAI-115-D2: goscape's Server.RemoveObj does
+	// not accept a duration; respawn-aware delete (RESPAWN-lifecycle
+	// objs) is a foundation gap. DESPAWN-lifecycle path unaffected.
+	// Used by OBJ_DEL.
+	RemoveObj(obj ActiveObj)
 }
 
 // InvLookup is the inventory resolution surface for INV_* handlers.

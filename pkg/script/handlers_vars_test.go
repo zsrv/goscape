@@ -41,6 +41,10 @@ func (m *mockWorld) IsFreeToPlay(x, z int) bool        { return false }
 // is layered on by handler-specific test types.
 func (m *mockWorld) AnimMap(level, x, z, spotanim, height, delay int) {}
 
+// NAI-115 T2: default no-op stub for OBJ_DEL test fixture. Tests
+// exercising RemoveObj override via fakeWorldRemoveObj.
+func (m *mockWorld) RemoveObj(obj ActiveObj) {}
+
 func TestPushVarp(t *testing.T) {
 	sf := &ScriptFile{
 		Name:             "push_varp",

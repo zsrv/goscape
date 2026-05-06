@@ -15,6 +15,25 @@ func requireActiveObj(s *ScriptState, op string) error {
 	return nil
 }
 
+// handleObjDel (OBJ_DEL, opcode 3504) removes the active obj. Mirrors
+// TS ObjOps.ts:112-119.
+//
+// NAI-115-D2 deviation: TS reads ObjType.respawnrate and passes it to
+// World.removeObj as duration. goscape's Server.RemoveObj has no
+// duration arg; RESPAWN-lifecycle respawn-after-delay is a foundation
+// gap. DESPAWN-lifecycle objs (the firemaking smoke target) are
+// unaffected.
+func handleObjDel(s *ScriptState) error {
+	if err := requireActiveObj(s, "OBJ_DEL"); err != nil {
+		return err
+	}
+	if s.World == nil {
+		return fmt.Errorf("OBJ_DEL: no world surface")
+	}
+	s.World.RemoveObj(s.ActiveObj)
+	return nil
+}
+
 // handleObjCoord (OBJ_COORD, opcode 3502) packs the active obj's tile
 // position into a single RS2 coord int and pushes it. Mirrors TS
 // ObjOps.ts:163-166.

@@ -108,6 +108,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 
 	// NAI-115 Bundle 1: firemaking-cascade Obj/Inv/Server/Player ports.
 	OpObjCoord: handleObjCoord,
+	OpObjDel:   handleObjDel,
 
 	// S5m: last-input queries.
 	OpLastInt:        handleLastInt,
