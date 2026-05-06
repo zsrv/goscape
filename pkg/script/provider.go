@@ -102,13 +102,6 @@ func (p *Provider) Load(cacheDir string) error {
 		}
 	}
 
-	// NAI-112 instr: enumerate global-tier registrations (key < 256).
-	for k, f := range p.byKey {
-		if k < 256 {
-			slog.Info("NAI-112 instr: byKey global-tier registration", "key", k, "scriptName", f.Name)
-		}
-	}
-
 	return nil
 }
 

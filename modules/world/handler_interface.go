@@ -1,8 +1,6 @@
 package world
 
 import (
-	"log/slog"
-
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -139,17 +137,13 @@ func (s *Server) handleIdkSaveDesign(p *Player, payload []byte) error {
 // Mirrors TS TutClickSideHandler.ts.
 func (s *Server) handleTutClickSide(p *Player, payload []byte) error {
 	if len(payload) < 1 {
-		slog.Info("NAI-112 instr: TUT_CLICKSIDE empty payload")
 		return nil
 	}
 	tab := int(payload[0])
-	slog.Info("NAI-112 instr: TUT_CLICKSIDE entry", "tab", tab, "payloadLen", len(payload))
 	if tab < 0 || tab > 13 { // tab < 0 unreachable (byte→int ≥ 0); preserved from TS source
-		slog.Info("NAI-112 instr: TUT_CLICKSIDE out-of-range; not firing", "tab", tab)
 		return nil
 	}
 	sf := s.scriptProvider.GetByTriggerSpecific(script.TriggerTutorial, -1, -1)
-	slog.Info("NAI-112 instr: TUT_CLICKSIDE lookup", "tab", tab, "scriptFound", sf != nil)
 	s.runScript(sf, p, nil, true, nil, nil)
 	return nil
 }

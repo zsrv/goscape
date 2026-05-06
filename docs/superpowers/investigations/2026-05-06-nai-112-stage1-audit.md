@@ -172,3 +172,67 @@ LookupKey arithmetic (controller-recomputed):
 ## Controller verdict
 
 All audit-claimed evidence verified at HEAD. The static refutation of H1-H5 stands. **Proceeding to Bundle 1b instrumentation** per plan Task 5.
+
+---
+
+## Bundle 1b — runtime evidence (smoke 2026-05-06)
+
+User-launched goscape + Java client rev-225 against instrumented HEAD `e348e34`. User logged in fresh (LOGIN_RESULT_NEW_PLAYER), walked through Tutorial Island chatbox steps (Survival Expert dialog, opcode 235 RESUME_PAUSEBUTTON repeated), then clicked the inventory tab (^tab_inventory=3) when prompted by "Click on the flashing backpack icon to the …".
+
+### Server-boot byKey enumeration (excerpt — 21 global-tier registrations total)
+
+```
+INFO NAI-112 instr: byKey global-tier registration key=159 scriptName=[tutorial,_]
+INFO NAI-112 instr: byKey global-tier registration key=157 scriptName=[login,_]
+INFO NAI-112 instr: byKey global-tier registration key=158 scriptName=[logout,_]
+INFO NAI-112 instr: byKey global-tier registration key=165 scriptName=[changestat,_]
+... (17 more global registrations omitted)
+```
+
+**Verdict: H1 runtime-refuted.** `[tutorial,_]` IS registered at `byKey[159]` post-Provider.Load — exactly as the binary extraction predicted. The script.dat → Decode → Provider.Load pipeline produces the expected registration.
+
+### Tab-click trace (single click, tab=3)
+
+```
+DEBUG msg="game packet" opcode=175 name=TUT_CLICKSIDE len=1
+INFO  NAI-112 instr: TUT_CLICKSIDE entry tab=3 payloadLen=1
+INFO  NAI-112 instr: TUT_CLICKSIDE lookup tab=3 scriptFound=true
+```
+
+**Verdict: H2 runtime-refuted.** Java client at rev-225 DOES send opcode 175 with `tab=3` (`^tab_inventory`) on Tutorial-Island inventory-tab click. No tutorial-mode gate on the client side suppresses the dispatch.
+
+**Verdict: H1 + H5 doubly runtime-refuted.** `GetByTriggerSpecific(TriggerTutorial, -1, -1)` returns a non-nil ScriptFile (`scriptFound=true`); the global-tier dispatch finds `[tutorial,_]`.
+
+### Symptom after click
+
+User reports: chatbox message "Click on the flashing backpack icon to the …" remained visible (did NOT advance), and inventory side panel did NOT display.
+
+**No warn or error log fires** in the `[tutorial,_]` execution window (08:13:22.162 to 08:13:23.4). No `script error` or `interpret abort` log appears.
+
+### Bound hypothesis: H6 — `[tutorial,_]` body runs but downstream effect is silently broken
+
+The full pipeline is wired and fires correctly: 175 → handleTutClickSide → GetByTriggerSpecific → script found → runScript invoked. The audit's static H1-H5 refutation is corroborated by runtime evidence on every step. Yet the user-visible effect (advance chatbox + open inventory) does NOT happen.
+
+This narrows the divergence to **inside the `[tutorial,_]` script execution itself or its downstream proc chain**:
+
+- **H6.a** — wrong branch fires: `%tutorial` varp at click time does not match the branch the content expects (varp persistence / save-load divergence between goscape and TS, OR earlier tutorial step left the wrong %tutorial value). User just completed a fresh-account login flow; varp could be uninitialized differently than TS.
+- **H6.b** — correct branch fires but the proc it gosubs (`~set_tutorial_progress`, `~tutorial_step_player_controls_left_click`, etc.) has a per-opcode TS-divergence that nullifies the effect (e.g., `tut_open` produces wrong-component-id and silently no-ops, or `if_settab` mis-targets, or a varp-write to %tutorial doesn't propagate to the outbound varp packet).
+- **H6.c** — the script runs to completion but the visible "advance chatbox" effect is mediated by `if_close_sub` / `tut_close` / similar that has a goscape-divergence in modal-stack handling.
+
+**Note on H6 directional asymmetry from §H6 above:** the original H6 (TS protect gate absent) was ruled out as wrong-direction. This is a NEW H6 distinct from the protect-gate one — the hypothesis number is reused for the runtime-binding context.
+
+### Stage 2 fix-shape sizing (preliminary)
+
+Stage 2 needs first an observation pass — instrument or statically determine which `%tutorial` value the player has at click time and which branch fires. Then the fix shape depends on which sub-hypothesis (a/b/c) lands:
+
+- H6.a: a single varp-init or save-load fix; ≤20 LOC. Likely involves auditing the post-LOGIN_RESULT_NEW_PLAYER varp seeding path against TS.
+- H6.b: per-opcode TS-divergence fix in one of the procs; size depends on which opcode. Range: ≤20 LOC (single opcode) to ~80 LOC (proc chain audit).
+- H6.c: modal-stack / outbound-varp dispatch fix; ≤30 LOC.
+
+Stage 2 plan should be its own audit-then-fix sub-spec, not a single-shot fix; the static audit refuted all surface hypotheses, so the next layer is also non-trivial. Per spec §5 LOC guardrail (~80 LOC), Stage 2 should pause for user confirmation if scope creeps past that bound.
+
+---
+
+## Final binding
+
+**H6 — `[tutorial,_]` body runs but downstream effect is silently broken.** Runtime-bound by Bundle 1b smoke 2026-05-06. Stage 2 must first triangulate which sub-hypothesis (H6.a/b/c) by observing `%tutorial` at click time and walking the matched branch's effects against TS.
