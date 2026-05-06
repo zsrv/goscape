@@ -2475,3 +2475,46 @@ func TestPlayer_PathToTarget_NoStrategyBranch_NoMove_NoOp(t *testing.T) {
 		t.Errorf("expected no waypoints (NoMove early return), got waypointIndex=%d", p.waypointIndex)
 	}
 }
+
+// TestPlayerInteractedDoesNotLeakAcrossIdleTick — NAI-108 Task 4 (δ) verify-and-pin.
+// TS PathingEntity.ts:587 resets interacted=false every tick. goscape
+// relies on SetInteraction/ClearInteraction handlers re-setting on the
+// next interaction touch. Pins the no-leak contract for the idle-tick
+// path (no SetInteraction/ClearInteraction call between ticks).
+//
+// SKIP-PINNED as NAI-108-D-INTERACTED-LEAK: p.interacted is set true by
+// tryInteract fire helpers (interaction.go:390,400) but is never READ in
+// production code — only referenced in doc-comments. The field is a
+// write-only struct annotation; cross-tick leak is moot since no
+// consumer reads it before the next handler-side re-set. Deferred for
+// future cleanup if a reader is added.
+func TestPlayerInteractedDoesNotLeakAcrossIdleTick(t *testing.T) {
+	t.Skip("NAI-108-D-INTERACTED-LEAK — pinned for future fix; current goscape relies on handler-elsewhere re-set; see audit table §3")
+	p, _ := newTestPlayer(t)
+	p.interacted = true // simulate prior-tick fire
+	// Idle tick: ResetMasks runs at tick end; no interaction touch.
+	p.ResetMasks()
+	if p.interacted {
+		t.Error("interacted: got true, want false (must not leak across idle tick) — NAI-108-D-INTERACTED-LEAK candidate")
+	}
+}
+
+// TestPlayerApRangeCalledDoesNotLeakAcrossIdleTick — NAI-108 Task 4 (δ).
+// TS PathingEntity.ts:588 resets apRangeCalled=false every tick.
+// Pinning the no-leak contract — see T4.4 for full rationale.
+//
+// SKIP-PINNED as NAI-108-D-APRANGECALLED-LEAK: apRangeCalled is reset on
+// SetInteraction (interaction.go:85), ClearInteraction (interaction.go:133),
+// and post-fire (player_interaction_trigger.go:121); not reset by ResetMasks.
+// Cross-tick leak is only possible on an idle tick with no interaction
+// touch; consumers read it within the same tick's handler chain before
+// any reset, so leak semantics differ from TS. Deferred for future cleanup.
+func TestPlayerApRangeCalledDoesNotLeakAcrossIdleTick(t *testing.T) {
+	t.Skip("NAI-108-D-APRANGECALLED-LEAK — pinned for future fix; current goscape relies on handler-elsewhere re-set; see audit table §3")
+	p, _ := newTestPlayer(t)
+	p.apRangeCalled = true
+	p.ResetMasks()
+	if p.apRangeCalled {
+		t.Error("apRangeCalled: got true, want false (must not leak across idle tick) — NAI-108-D-APRANGECALLED-LEAK candidate")
+	}
+}
