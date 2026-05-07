@@ -602,6 +602,11 @@ type ActiveNpc interface {
 	NpcLevel() int
 	NpcStat(stat int) int     // current (boosted) level — S6a: only HP (id 0) is real
 	NpcBaseStat(stat int) int // base level — S6a: only HP (id 0) is real
+	// SetNpcStat writes `level` into the NPC's current (boosted) stat slot
+	// `stat`. OOB stats are dropped silently (impl bounds-checks against
+	// objtype.NpcStatCount=6). Used by NPC_STATADD / NPC_STATSUB. Mirrors TS
+	// `npc.levels[stat] = ...` in NpcOps.ts:492-518. NAI-120 Bundle 2C.
+	SetNpcStat(stat, level int)
 	NpcCategory() int
 	NpcUID() int // (typeId << 16) | nid
 	// Nid returns the NPC slot id (the low 16 bits of NpcUID). Used by
@@ -619,6 +624,11 @@ type ActiveNpc interface {
 	// Animate schedules sequence `id` with client-side `delay` on the NPC's
 	// primary animation slot this tick. id = -1 clears.
 	Animate(id, delay int)
+
+	// PlaySpotAnim schedules a spotanim graphic on the NPC for this tick
+	// at the given height with the given client-side delay. Used by
+	// SPOTANIM_NPC (opcode 2547). Mirrors TS Npc.spotanim. NAI-120 Bundle 2C.
+	PlaySpotAnim(id, height, delay int)
 
 	// FaceCoord rotates the NPC to face absolute square (x, z). Wire coords
 	// are doubled + 1 (face-center convention).

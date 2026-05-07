@@ -18,6 +18,16 @@ func checkCoord(v int, op string) (level, x, z int, err error) {
 	return
 }
 
+// checkNpcStatID validates a stat id against objtype.NpcStatCount. Mirrors
+// TS NpcStatValid (ScriptValidators.ts) — range [0, NpcStatCount). NAI-120
+// Bundle 2C.
+func checkNpcStatID(id int, op string) error {
+	if id < 0 || id >= objtype.NpcStatCount {
+		return fmt.Errorf("%s: npc stat id out of range (%d)", op, id)
+	}
+	return nil
+}
+
 // checkNpcMode validates an NPC mode value against the full NPCMode* enum
 // at pkg/objtype/npctype.go. Accepts every declared value (Null=-1 through
 // ApNpc5=46). Mirrors TS NpcModeValid (ScriptValidators.ts:116) — same
@@ -878,5 +888,101 @@ func handleNpcRange(s *ScriptState) error {
 	} else {
 		s.PushInt(dz)
 	}
+	return nil
+}
+
+// handleNpcStatAdd (NPC_STATADD, opcode 2538) boosts the active NPC's stat.
+// Pop order: percent (top), constant, stat (bottom). Formula clamped at 255:
+//
+//	added = current + trunc(constant + (base*percent)/100)
+//	npc.levels[stat] = min(added, 255)
+//
+// Mirrors TS NpcOps.ts:492-504. NAI-120 Bundle 2C.
+func handleNpcStatAdd(s *ScriptState) error {
+	if err := requireActiveNpc(s, "NPC_STATADD"); err != nil {
+		return err
+	}
+	percent := s.PopInt()
+	if err := checkNotNull(percent, "NPC_STATADD"); err != nil {
+		return err
+	}
+	constant := s.PopInt()
+	if err := checkNotNull(constant, "NPC_STATADD"); err != nil {
+		return err
+	}
+	stat := s.PopInt()
+	if err := checkNpcStatID(stat, "NPC_STATADD"); err != nil {
+		return err
+	}
+	base := s.ActiveNpc.NpcBaseStat(stat)
+	cur := s.ActiveNpc.NpcStat(stat)
+	added := cur + (constant + (base*percent)/100)
+	if added > 255 {
+		added = 255
+	}
+	s.ActiveNpc.SetNpcStat(stat, added)
+	return nil
+}
+
+// handleNpcStatSub (NPC_STATSUB, opcode 2540) drains the active NPC's stat.
+// Pop order matches NPC_STATADD. Formula clamped at 0:
+//
+//	subbed = current - trunc(constant + (base*percent)/100)
+//	npc.levels[stat] = max(subbed, 0)
+//
+// Mirrors TS NpcOps.ts:506-518. NAI-120 Bundle 2C.
+func handleNpcStatSub(s *ScriptState) error {
+	if err := requireActiveNpc(s, "NPC_STATSUB"); err != nil {
+		return err
+	}
+	percent := s.PopInt()
+	if err := checkNotNull(percent, "NPC_STATSUB"); err != nil {
+		return err
+	}
+	constant := s.PopInt()
+	if err := checkNotNull(constant, "NPC_STATSUB"); err != nil {
+		return err
+	}
+	stat := s.PopInt()
+	if err := checkNpcStatID(stat, "NPC_STATSUB"); err != nil {
+		return err
+	}
+	base := s.ActiveNpc.NpcBaseStat(stat)
+	cur := s.ActiveNpc.NpcStat(stat)
+	subbed := cur - (constant + (base*percent)/100)
+	if subbed < 0 {
+		subbed = 0
+	}
+	s.ActiveNpc.SetNpcStat(stat, subbed)
+	return nil
+}
+
+// handleSpotAnimNpc (SPOTANIM_NPC, opcode 2547) queues a spotanim on the
+// active NPC. Pop order: delay (top), height, spotanim id (bottom). Mirrors
+// TS NpcOps.ts:282-288:
+//
+//	const delay = check(state.popInt(), NumberNotNull);
+//	const height = check(state.popInt(), NumberNotNull);
+//	const spotanimType = check(state.popInt(), SpotAnimTypeValid);
+//	state.activeNpc.spotanim(spotanimType.id, height, delay);
+//
+// NAI-120 Bundle 2C.
+func handleSpotAnimNpc(s *ScriptState) error {
+	if err := requireActiveNpc(s, "SPOTANIM_NPC"); err != nil {
+		return err
+	}
+	delay := s.PopInt()
+	if err := checkNotNull(delay, "SPOTANIM_NPC"); err != nil {
+		return err
+	}
+	height := s.PopInt()
+	if err := checkNotNull(height, "SPOTANIM_NPC"); err != nil {
+		return err
+	}
+	id := s.PopInt()
+	if err := checkSpotAnimType(s, id, "SPOTANIM_NPC"); err != nil {
+		return err
+	}
+	s.ActiveNpc.PlaySpotAnim(id, height, delay)
 	return nil
 }

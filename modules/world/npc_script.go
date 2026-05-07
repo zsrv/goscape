@@ -59,6 +59,15 @@ func (n *Npc) NpcBaseStat(stat int) int {
 	return n.baseLevels[stat]
 }
 
+// SetNpcStat writes the NPC's current (boosted) stat. OOB drops silently.
+// NAI-120 Bundle 2C.
+func (n *Npc) SetNpcStat(stat, level int) {
+	if stat < 0 || stat >= objtype.NpcStatCount {
+		return
+	}
+	n.levels[stat] = level
+}
+
 // NpcVarN reads the per-NPC var at id. Returns 0 for out-of-range ids
 // (including any id never written to).
 func (n *Npc) NpcVarN(id int) int32 {
@@ -149,6 +158,14 @@ func (n *Npc) Teleport(x, z, level int) {
 
 	refreshNpcZone(n.server, n, prevX, prevZ, prevLevel)
 	n.tele = true
+}
+
+// PlaySpotAnim schedules a spotanim on the NPC for this tick at the given
+// height with the given client-side delay. Delegates to n.SpotAnim which
+// sets the spotanimID/Height/Delay fields and OR-merges NpcMaskSpotAnim.
+// NAI-120 Bundle 2C.
+func (n *Npc) PlaySpotAnim(id, height, delay int) {
+	n.SpotAnim(id, height, delay)
 }
 
 // TargetOp returns n.targetOp. ActiveNpc interface adapter for NPC_GETMODE

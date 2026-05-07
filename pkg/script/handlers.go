@@ -420,6 +420,11 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpNpcFindUID: handleNpcFindUID,
 	OpNpcRange:   handleNpcRange,
 
+	// NAI-120 Bundle 2C: NPC stat write ops + NPC spotanim.
+	OpNpcStatAdd:   handleNpcStatAdd,
+	OpNpcStatSub:   handleNpcStatSub,
+	OpSpotAnimNpc:  handleSpotAnimNpc,
+
 	// NPC find (S7f) — closest-single cluster.
 	OpNpcFind:      handleNpcFind,
 	OpNpcFindCat:   handleNpcFindCat,

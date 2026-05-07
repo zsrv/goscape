@@ -110,6 +110,19 @@ func newTestConfigsWithNpcTypes(present map[int]bool) Configs {
 	return mc
 }
 
+// newTestConfigsWithSpotAnims builds a Configs that reports any id in present
+// as a valid SpotanimType. Uses the shared mockConfigs type from handlers_config_test.go.
+// NAI-120 Bundle 2C.
+func newTestConfigsWithSpotAnims(present map[int]bool) Configs {
+	mc := &mockConfigs{
+		spotAnimTypes: make(map[int]*objtype.SpotanimType),
+	}
+	for id := range present {
+		mc.spotAnimTypes[id] = objtype.NewSpotanimType(id)
+	}
+	return mc
+}
+
 func TestSetActiveNpcSlot_OperandZero(t *testing.T) {
 	s := &ScriptState{
 		Script: &ScriptFile{IntOperands: []int32{0}},
@@ -187,7 +200,15 @@ type mockNpc struct {
 	typeID, x, z, level, uid, category int
 	nid                                int
 	curHP, baseHP                      int
-	varns                              map[int]int32
+	// NAI-120 Bundle 2C: NPC_STATADD/SUB capture. Sparse maps let tests seed
+	// specific stat slots without seeding all 6. curHP/baseHP remain as
+	// fallback for stat=0 when the maps are unset.
+	levels          map[int]int
+	baseLevels      map[int]int
+	setNpcStatCalls []struct{ stat, level int }
+	// NAI-120 Bundle 2C: SPOTANIM_NPC capture.
+	playSpotAnimCalls []struct{ id, height, delay int }
+	varns             map[int]int32
 	sayCalls                           []string
 	animCalls                          []struct{ id, delay int }
 	faceCoordCalls                     []struct{ x, z int }
@@ -225,6 +246,11 @@ func (m *mockNpc) Nid() int         { return m.nid }
 func (m *mockNpc) NpcCategory() int { return m.category }
 
 func (m *mockNpc) NpcStat(stat int) int {
+	if m.levels != nil {
+		if v, ok := m.levels[stat]; ok {
+			return v
+		}
+	}
 	if stat == 0 {
 		return m.curHP
 	}
@@ -232,10 +258,27 @@ func (m *mockNpc) NpcStat(stat int) int {
 }
 
 func (m *mockNpc) NpcBaseStat(stat int) int {
+	if m.baseLevels != nil {
+		if v, ok := m.baseLevels[stat]; ok {
+			return v
+		}
+	}
 	if stat == 0 {
 		return m.baseHP
 	}
 	return 0
+}
+
+func (m *mockNpc) SetNpcStat(stat, level int) {
+	m.setNpcStatCalls = append(m.setNpcStatCalls, struct{ stat, level int }{stat, level})
+	if m.levels == nil {
+		m.levels = make(map[int]int)
+	}
+	m.levels[stat] = level
+}
+
+func (m *mockNpc) PlaySpotAnim(id, height, delay int) {
+	m.playSpotAnimCalls = append(m.playSpotAnimCalls, struct{ id, height, delay int }{id, height, delay})
 }
 
 func (m *mockNpc) NpcVarN(id int) int32 {
@@ -2930,5 +2973,309 @@ func TestNpcRange_InvalidCoord(t *testing.T) {
 	s.PushInt(-1)
 	if err := handleNpcRange(s); err == nil {
 		t.Error("NPC_RANGE invalid coord: want error")
+	}
+}
+
+// --- NAI-120 Bundle 2C: NPC_STATADD tests ---
+
+func TestNpcStatAdd_HappyPath(t *testing.T) {
+	npc := &mockNpc{
+		baseLevels: map[int]int{0: 70},
+		levels:     map[int]int{0: 50},
+	}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		Pointers:    PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	// Pop order: percent (top), constant, stat (bottom).
+	s.PushInt(0)  // stat
+	s.PushInt(5)  // constant
+	s.PushInt(10) // percent
+	if err := handleNpcStatAdd(s); err != nil {
+		t.Fatalf("NPC_STATADD happy: unexpected error %v", err)
+	}
+	// 50 + (5 + 70*10/100) = 50 + (5 + 7) = 62
+	if got := len(npc.setNpcStatCalls); got != 1 {
+		t.Fatalf("NPC_STATADD happy: SetNpcStat calls = %d, want 1", got)
+	}
+	call := npc.setNpcStatCalls[0]
+	if call.stat != 0 || call.level != 62 {
+		t.Errorf("NPC_STATADD happy: SetNpcStat(%d,%d), want (0,62)", call.stat, call.level)
+	}
+}
+
+func TestNpcStatAdd_CapAt255(t *testing.T) {
+	npc := &mockNpc{
+		baseLevels: map[int]int{0: 100},
+		levels:     map[int]int{0: 250},
+	}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		Pointers:    PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(0)
+	s.PushInt(10)
+	s.PushInt(100)
+	if err := handleNpcStatAdd(s); err != nil {
+		t.Fatalf("NPC_STATADD cap: unexpected error %v", err)
+	}
+	// 250 + (10 + 100*100/100) = 250 + 110 = 360 → clamp 255.
+	if got := npc.setNpcStatCalls[0].level; got != 255 {
+		t.Errorf("NPC_STATADD cap: level = %d, want 255", got)
+	}
+}
+
+func TestNpcStatAdd_NoActiveNpc(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(0)
+	s.PushInt(5)
+	s.PushInt(10)
+	if err := handleNpcStatAdd(s); err == nil {
+		t.Error("NPC_STATADD no active npc: want error")
+	}
+}
+
+func TestNpcStatAdd_StatOOB(t *testing.T) {
+	npc := &mockNpc{}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		Pointers:    PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(6) // OOB
+	s.PushInt(5)
+	s.PushInt(10)
+	if err := handleNpcStatAdd(s); err == nil {
+		t.Error("NPC_STATADD stat=6: want range error")
+	}
+}
+
+func TestNpcStatAdd_ConstantNull(t *testing.T) {
+	npc := &mockNpc{baseLevels: map[int]int{0: 10}, levels: map[int]int{0: 5}}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		Pointers:    PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(0)
+	s.PushInt(-1) // null
+	s.PushInt(10)
+	if err := handleNpcStatAdd(s); err == nil {
+		t.Error("NPC_STATADD constant=-1: want NumberNotNull error")
+	}
+}
+
+func TestNpcStatAdd_PercentNull(t *testing.T) {
+	npc := &mockNpc{baseLevels: map[int]int{0: 10}, levels: map[int]int{0: 5}}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		Pointers:    PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(0)
+	s.PushInt(5)
+	s.PushInt(-1) // null
+	if err := handleNpcStatAdd(s); err == nil {
+		t.Error("NPC_STATADD percent=-1: want NumberNotNull error")
+	}
+}
+
+// --- NAI-120 Bundle 2C: NPC_STATSUB tests ---
+
+func TestNpcStatSub_HappyPath(t *testing.T) {
+	npc := &mockNpc{
+		baseLevels: map[int]int{0: 70},
+		levels:     map[int]int{0: 50},
+	}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		Pointers:    PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(0)
+	s.PushInt(5)
+	s.PushInt(10)
+	if err := handleNpcStatSub(s); err != nil {
+		t.Fatalf("NPC_STATSUB happy: unexpected error %v", err)
+	}
+	// 50 - (5 + 70*10/100) = 50 - (5 + 7) = 38
+	if got := npc.setNpcStatCalls[0].level; got != 38 {
+		t.Errorf("NPC_STATSUB happy: level = %d, want 38", got)
+	}
+}
+
+func TestNpcStatSub_FloorAtZero(t *testing.T) {
+	npc := &mockNpc{
+		baseLevels: map[int]int{0: 70},
+		levels:     map[int]int{0: 5},
+	}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		Pointers:    PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(0)
+	s.PushInt(100)
+	s.PushInt(100)
+	if err := handleNpcStatSub(s); err != nil {
+		t.Fatalf("NPC_STATSUB floor: unexpected error %v", err)
+	}
+	// 5 - (100 + 70) = -165 → clamp 0.
+	if got := npc.setNpcStatCalls[0].level; got != 0 {
+		t.Errorf("NPC_STATSUB floor: level = %d, want 0", got)
+	}
+}
+
+func TestNpcStatSub_NoActiveNpc(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(0)
+	s.PushInt(5)
+	s.PushInt(10)
+	if err := handleNpcStatSub(s); err == nil {
+		t.Error("NPC_STATSUB no active npc: want error")
+	}
+}
+
+func TestNpcStatSub_StatOOB(t *testing.T) {
+	npc := &mockNpc{}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		Pointers:    PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(-1)
+	s.PushInt(5)
+	s.PushInt(10)
+	if err := handleNpcStatSub(s); err == nil {
+		t.Error("NPC_STATSUB stat=-1: want range error")
+	}
+}
+
+func TestNpcStatSub_ConstantNull(t *testing.T) {
+	npc := &mockNpc{baseLevels: map[int]int{0: 10}, levels: map[int]int{0: 5}}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		Pointers:    PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(0)
+	s.PushInt(-1)
+	s.PushInt(10)
+	if err := handleNpcStatSub(s); err == nil {
+		t.Error("NPC_STATSUB constant=-1: want NumberNotNull error")
+	}
+}
+
+// --- NAI-120 Bundle 2C: SPOTANIM_NPC tests ---
+
+func TestSpotAnimNpc_HappyPath(t *testing.T) {
+	npc := &mockNpc{}
+	cfg := newTestConfigsWithSpotAnims(map[int]bool{5: true})
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		Configs:     cfg,
+		Pointers:    PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	// Pop order: delay (top), height, spotanim id (bottom).
+	s.PushInt(5)  // spotanim id
+	s.PushInt(92) // height
+	s.PushInt(30) // delay
+	if err := handleSpotAnimNpc(s); err != nil {
+		t.Fatalf("SPOTANIM_NPC happy: unexpected error %v", err)
+	}
+	if got := len(npc.playSpotAnimCalls); got != 1 {
+		t.Fatalf("SPOTANIM_NPC happy: PlaySpotAnim calls = %d, want 1", got)
+	}
+	call := npc.playSpotAnimCalls[0]
+	if call.id != 5 || call.height != 92 || call.delay != 30 {
+		t.Errorf("SPOTANIM_NPC happy: PlaySpotAnim(%d,%d,%d), want (5,92,30)", call.id, call.height, call.delay)
+	}
+}
+
+func TestSpotAnimNpc_NoActiveNpc(t *testing.T) {
+	cfg := newTestConfigsWithSpotAnims(map[int]bool{5: true})
+	s := &ScriptState{
+		Configs:     cfg,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(5)
+	s.PushInt(92)
+	s.PushInt(30)
+	if err := handleSpotAnimNpc(s); err == nil {
+		t.Error("SPOTANIM_NPC no active npc: want error")
+	}
+}
+
+func TestSpotAnimNpc_DelayNull(t *testing.T) {
+	npc := &mockNpc{}
+	cfg := newTestConfigsWithSpotAnims(map[int]bool{5: true})
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		Configs:     cfg,
+		Pointers:    PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(5)
+	s.PushInt(92)
+	s.PushInt(-1)
+	if err := handleSpotAnimNpc(s); err == nil {
+		t.Error("SPOTANIM_NPC delay=-1: want NumberNotNull error")
+	}
+}
+
+func TestSpotAnimNpc_HeightNull(t *testing.T) {
+	npc := &mockNpc{}
+	cfg := newTestConfigsWithSpotAnims(map[int]bool{5: true})
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		Configs:     cfg,
+		Pointers:    PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(5)
+	s.PushInt(-1)
+	s.PushInt(30)
+	if err := handleSpotAnimNpc(s); err == nil {
+		t.Error("SPOTANIM_NPC height=-1: want NumberNotNull error")
+	}
+}
+
+func TestSpotAnimNpc_InvalidSpotAnim(t *testing.T) {
+	npc := &mockNpc{}
+	cfg := newTestConfigsWithSpotAnims(map[int]bool{5: true})
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		Configs:     cfg,
+		Pointers:    PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(999) // not in registry
+	s.PushInt(92)
+	s.PushInt(30)
+	if err := handleSpotAnimNpc(s); err == nil {
+		t.Error("SPOTANIM_NPC invalid id: want SpotAnimTypeValid error")
 	}
 }
