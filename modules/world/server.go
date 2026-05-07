@@ -71,6 +71,7 @@ type Server struct {
 	dbTableIndex *objtype.DbTableIndex
 	varpTypes    *objtype.VarpTypeConfigs
 	varsTypes    *objtype.VarsTypeConfigs
+	varnTypes    *objtype.VarnTypeConfigs
 	enumTypes    *objtype.EnumTypeConfigs
 	structTypes  *objtype.StructTypeConfigs
 	locTypes     *objtype.LocTypeConfigs
@@ -225,8 +226,13 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 	if err != nil {
 		return nil, fmt.Errorf("load vars types: %w", err)
 	}
+	varnTypes, err := objtype.LoadVarnTypes(cfg.CachePath)
+	if err != nil {
+		return nil, fmt.Errorf("load varn types: %w", err)
+	}
 	s.varpTypes = varpTypes
 	s.varsTypes = varsTypes
+	s.varnTypes = varnTypes
 	s.vars = make([]int32, len(varsTypes.Configs))
 	s.varsStrings = make([]string, len(varsTypes.Configs))
 	s.worldVars = worldVarsView{s: s}

@@ -46,6 +46,12 @@ const (
 	ScriptVarTypeSeq       ScriptVarType = 65  // A
 	ScriptVarTypeStat      ScriptVarType = 83  // S
 	ScriptVarTypeInterface ScriptVarType = 97  // a
+	ScriptVarTypeVarp      ScriptVarType = 86  // V
+	ScriptVarTypePlayerUid ScriptVarType = 112 // p
+	ScriptVarTypeNpcUid    ScriptVarType = 78  // N
+	ScriptVarTypeNpcStat   ScriptVarType = 254 // þ
+	ScriptVarTypeIdkit     ScriptVarType = 75  // K
+	ScriptVarTypeDbrow     ScriptVarType = 208 // Ð
 )
 
 type ParamTypeConfigs struct {
