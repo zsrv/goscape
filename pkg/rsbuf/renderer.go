@@ -100,7 +100,21 @@ func (r *Renderer) ComputeNpcs(npcs []NpcSource) {
 			continue
 		}
 		masks := n.Masks()
-		if masks == 0 && n.EntityMask() == 0 {
+		// High-def carries only the NPC's live mask updates. When masks
+		// is 0, leave highDef nil so the encoder takes the idle path with
+		// no extend bit and no orphan mask-header byte leaking into the
+		// packet (mirrors upstream NpcRenderer::compute_info early-return
+		// at 2004scape/rsbuf/src/renderer.rs:258-260, and parallels the
+		// PlayerInfo gate at renderer.go:34-40).
+		//
+		// NAI-116: a persistent FaceEntity (EntityMask != 0) on a tick
+		// with masks==0 previously fell through to the else branch, writing
+		// a single 0x00 mask header byte. The encoder's Walk/Run/Extend
+		// leaves saw hdLen=1 and appended it to the wire, producing a
+		// 4-byte NpcInfo payload [0x01, 0x9F, 0xFF, 0x00] (count + Extend
+		// leaf + terminator + orphan 0x00) → Java client `Error: T2` on
+		// opcode 1.
+		if masks == 0 {
 			r.npcHighDef[nid] = nil
 		} else {
 			buf := packet.NewPacket(nil)
@@ -108,7 +122,10 @@ func (r *Renderer) ComputeNpcs(npcs []NpcSource) {
 			writeNpcMaskPayloads(buf, n, masks)
 			r.npcHighDef[nid] = append([]byte(nil), buf.Data...)
 		}
-		// Low-def: force FACE_COORD baseline so new observers know where to look.
+		// Low-def: always recomputed. lowMasks always includes
+		// NpcMaskFaceCoord (line below), so the orphan-byte hazard
+		// doesn't apply here — the cache always has at least the
+		// FACE_COORD payload (4 bytes) behind its 1-byte mask header.
 		lowMasks := masks | NpcMaskFaceCoord
 		buf := packet.NewPacket(nil)
 		writeNpcMaskHeader(buf, lowMasks)

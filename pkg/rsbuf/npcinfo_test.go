@@ -780,3 +780,39 @@ func TestNpcInfo_Encode_EmitsTerminatorBeforeMaskPayloads(t *testing.T) {
 			got, got, out)
 	}
 }
+
+// TestNpcInfo_Encode_NoOrphanByteOnPersistentFaceEntity pins the NAI-116
+// wire-output: with the renderer's masks==0 gate in place, a tracked NPC
+// in the Idle branch produces a 2-byte NpcInfo payload [0x01, 0x00]:
+// PBit(8,1) [count=1] + PBit(1,0) [Idle leaf] = 9 bits → AccessBytes pads
+// to 2 bytes. No Extend bit, no terminator (updates stays empty), no
+// orphan 0x00 mask-header byte.
+//
+// Pre-NAI-116, the same setup produced 4 bytes [0x01, 0x9F, 0xFF, 0x00]:
+// count + Extend leaf "1 00" + 13-bit terminator 8191 + orphan mask byte
+// — the exact bytes the Java client crashed decoding (T2 - 1,184,162 -
+// 4,3072,3090 - 1,-97,-1,0).
+func TestNpcInfo_Encode_NoOrphanByteOnPersistentFaceEntity(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil)
+	setupNpc(b, 7, 100, nil) // masks=0, faceEntity=-1 in *pkg/rsbuf/Npc
+	// Pre-track nid=7 so writeNpcs handles it (skip writeNewNpcs path).
+	b.players[1].Build.Npcs.Insert(7)
+
+	ni := NewNpcInfo()
+	r := NewRenderer()
+	// Source for ComputeNpcs: masks=0, entityMask!=0 (FaceEntity carrier).
+	// Pre-fix this populated r.npcHighDef[7] = [0x00].
+	// Post-fix r.npcHighDef[7] = nil.
+	n := &fakeNpcSource{
+		nid: 7, masks: 0, entityMask: NpcMaskFaceEntity,
+		faceEntity: 12345, active: true,
+	}
+	r.ComputeNpcs([]NpcSource{n})
+
+	out := ni.Encode(b, 1, r)
+	want := []byte{0x01, 0x00}
+	if !bytes.Equal(out, want) {
+		t.Errorf("Encode: got % x, want % x (NAI-116: orphan 0x00 mask byte must not leak)", out, want)
+	}
+}
