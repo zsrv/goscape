@@ -153,11 +153,13 @@ type Player struct {
 	timers map[uint32]*playerTimer
 
 	// varps holds per-player int-typed vars; sized to
-	// len(server.varpTypes.Configs) at login (initPlayerVarps). Per-type
-	// seeded — INT→0, non-INT-non-STRING→-1 (TS Player.ts:418-432).
+	// len(server.varpTypes.Configs) at login by initPlayerVarps, which
+	// also writes the STRING-typed slots into the parallel varpsString
+	// slice. See initPlayerVarps for the full per-type seed contract.
 	varps []int32
 	// varpsString is the parallel STRING-typed slot array. Sized identically
-	// to varps. Mirrors TS Player.varsString.
+	// to varps; STRING-typed slots seed to "" via initPlayerVarps. Mirrors
+	// TS Player.varsString.
 	varpsString []string
 
 	// === masks ===
