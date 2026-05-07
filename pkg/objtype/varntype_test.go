@@ -45,8 +45,8 @@ func TestParseVarnTypes_DefaultIsInt(t *testing.T) {
 	if cfg.Configs[0].Type != ScriptVarTypeInt {
 		t.Errorf("default Type: got %d, want ScriptVarTypeInt(%d)", cfg.Configs[0].Type, ScriptVarTypeInt)
 	}
-	if cfg.ConfigNames["default_int_var"] != 0 {
-		t.Errorf("ConfigNames[default_int_var]: got %d, want 0", cfg.ConfigNames["default_int_var"])
+	if idx, ok := cfg.ConfigNames["default_int_var"]; !ok || idx != 0 {
+		t.Errorf("ConfigNames[default_int_var]: got (%d, %v), want (0, true)", idx, ok)
 	}
 }
 
@@ -107,7 +107,32 @@ func TestParseVarnTypes_AntimacroFixture(t *testing.T) {
 	if cfg.Configs[0].Type != ScriptVarTypePlayerUid {
 		t.Errorf("Type: got %d, want ScriptVarTypePlayerUid", cfg.Configs[0].Type)
 	}
-	if cfg.ConfigNames["npc_macro_event_target"] != 0 {
-		t.Errorf("ConfigNames lookup failed")
+	if idx, ok := cfg.ConfigNames["npc_macro_event_target"]; !ok || idx != 0 {
+		t.Errorf("ConfigNames[npc_macro_event_target]: got (%d, %v), want (0, true)", idx, ok)
+	}
+}
+
+func TestParseVarnTypes_MultiEntry_ConfigNamesIndexed(t *testing.T) {
+	// Two entries: anonymous at id 0, named at id 1. Catches a bug
+	// where ConfigNames always inserts index 0 regardless of loop id.
+	p := buildVarnPacket([]struct {
+		Type int
+		Name string
+	}{
+		{Type: int(ScriptVarTypeInt), Name: ""},
+		{Type: int(ScriptVarTypePlayerUid), Name: "named_var"},
+	})
+	cfg, err := parseVarnTypes(p)
+	if err != nil {
+		t.Fatalf("parseVarnTypes: %v", err)
+	}
+	if len(cfg.Configs) != 2 {
+		t.Fatalf("Configs length: got %d, want 2", len(cfg.Configs))
+	}
+	if idx, ok := cfg.ConfigNames["named_var"]; !ok || idx != 1 {
+		t.Errorf("ConfigNames[named_var]: got (%d, %v), want (1, true)", idx, ok)
+	}
+	if _, ok := cfg.ConfigNames[""]; ok {
+		t.Error("ConfigNames should not contain empty-string key for anonymous entry")
 	}
 }
