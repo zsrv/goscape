@@ -314,7 +314,7 @@ func TestPopVarn_StringType_PopsString(t *testing.T) {
 		t.Fatalf("Execute: %v", err)
 	}
 	if got := npc.NpcVarNString(7); got != "abc" {
-		t.Errorf("npc.varnsString[7]: got %q, want %q", got, "abc")
+		t.Errorf("NpcVarNString(7): got %q, want %q", got, "abc")
 	}
 }
 
@@ -363,5 +363,138 @@ func TestPushVarn_NilConfigsFallsBackToInt(t *testing.T) {
 	}
 	if got := state.PopInt(); got != 99 {
 		t.Errorf("PushVarn(nil Configs fallback): got %d, want 99", got)
+	}
+}
+
+func TestPushVarp_StringType_PushesString(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "push_varp_str",
+		Opcodes:          []Opcode{OpPushVarp, OpReturn},
+		IntOperands:      []int32{2, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	mp := &mockPlayer{varpsString: map[int]string{2: "hello"}}
+	state := Init(sf, mp, false, nil, nil)
+	state.Configs = &mockConfigs{
+		varps: map[int]*objtype.VarPlayerType{
+			2: {Type: objtype.ScriptVarTypeString},
+		},
+	}
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopString(); got != "hello" {
+		t.Errorf("PushVarp(STRING): got %q, want %q", got, "hello")
+	}
+}
+
+func TestPopVarp_StringType_PopsString(t *testing.T) {
+	sf := &ScriptFile{
+		Name: "pop_varp_str",
+		Opcodes: []Opcode{
+			OpPushConstantString, // push "xyz"
+			OpPopVarp,            // write varp 4 = "xyz"
+			OpReturn,
+		},
+		IntOperands:      []int32{0, 4, 0},
+		StringOperands:   []string{"xyz", "", ""},
+		InstructionCount: 3,
+	}
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	state.Configs = &mockConfigs{
+		varps: map[int]*objtype.VarPlayerType{
+			4: {Type: objtype.ScriptVarTypeString},
+		},
+	}
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.VarpString(4); got != "xyz" {
+		t.Errorf("VarpString(4): got %q, want %q", got, "xyz")
+	}
+}
+
+func TestPopVarp_ProtectGate_DeniesUnprotected(t *testing.T) {
+	sf := &ScriptFile{
+		Name: "pop_varp_protected_unprot",
+		Opcodes: []Opcode{
+			OpPushConstantInt,
+			OpPopVarp,
+			OpReturn,
+		},
+		IntOperands:      []int32{77, 5, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false /* protect=false */, nil, nil)
+	state.Configs = &mockConfigs{
+		varps: map[int]*objtype.VarPlayerType{
+			5: {Type: objtype.ScriptVarTypeInt, Protect: true},
+		},
+	}
+	err := Execute(state)
+	if err == nil {
+		t.Fatal("Execute: want Protect-gate error, got nil")
+	}
+	if !strings.Contains(err.Error(), "requires protected access") {
+		t.Errorf("error: got %q, want substring 'requires protected access'", err.Error())
+	}
+}
+
+func TestPopVarp_ProtectGate_AllowsProtected(t *testing.T) {
+	sf := &ScriptFile{
+		Name: "pop_varp_protected_prot",
+		Opcodes: []Opcode{
+			OpPushConstantInt,
+			OpPopVarp,
+			OpReturn,
+		},
+		IntOperands:      []int32{77, 5, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	mp := &mockPlayer{}
+	state := Init(sf, mp, true /* protect=true */, nil, nil)
+	state.Configs = &mockConfigs{
+		varps: map[int]*objtype.VarPlayerType{
+			5: {Type: objtype.ScriptVarTypeInt, Protect: true},
+		},
+	}
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.Varp(5); got != 77 {
+		t.Errorf("mp.Varp(5): got %d, want 77", got)
+	}
+}
+
+func TestPopVarp_NonProtect_NoGate(t *testing.T) {
+	// Confirm Protect=false varps don't gate even when state.Protect=false.
+	sf := &ScriptFile{
+		Name: "pop_varp_unprot",
+		Opcodes: []Opcode{
+			OpPushConstantInt,
+			OpPopVarp,
+			OpReturn,
+		},
+		IntOperands:      []int32{42, 5, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	state.Configs = &mockConfigs{
+		varps: map[int]*objtype.VarPlayerType{
+			5: {Type: objtype.ScriptVarTypeInt, Protect: false},
+		},
+	}
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.Varp(5); got != 42 {
+		t.Errorf("mp.Varp(5): got %d, want 42", got)
 	}
 }
