@@ -1,6 +1,7 @@
 package script
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
@@ -783,5 +784,215 @@ func TestLocAnimRejectsUnknownSeq(t *testing.T) {
 	s.PushInt(9999)
 	if err := handleLocAnim(s); err == nil {
 		t.Error("handleLocAnim unknown seq must reject")
+	}
+}
+
+// --- NAI-119: LOC_FINDALLZONE handler tests --------------------------
+
+// newLocFindAllZoneState builds a ScriptState with a coord on the int
+// stack, World wired (for CurrentTick), LocOps wired. Mirror of
+// newNpcFindNextState (handlers_npc_test.go) plus a stack-prepushed coord.
+func newLocFindAllZoneState(t *testing.T, tick int, ops LocOps, coord int) *ScriptState {
+	t.Helper()
+	mw := newMockWorld()
+	mw.tick = tick
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{0}},
+		PC:          0,
+		World:       mw,
+		LocOps:      ops,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(coord)
+	return s
+}
+
+// TestLocFindAllZoneStoresIterator pins LOC_FINDALLZONE: pop coord →
+// store iterator with creationTick from World.CurrentTick + level/x/z
+// from coord.
+func TestLocFindAllZoneStoresIterator(t *testing.T) {
+	ops := newLocIterTestOps(nil)
+	coord := coordgrid.PackCoord(0, 3200, 3300)
+	s := newLocFindAllZoneState(t, 100, ops, coord)
+
+	if err := handleLocFindAllZone(s); err != nil {
+		t.Fatalf("handleLocFindAllZone: %v", err)
+	}
+	if s.locIterator == nil {
+		t.Fatal("locIterator: got nil, want set")
+	}
+	if s.locIterator.creationTick != 100 {
+		t.Errorf("creationTick: got %d, want 100 (from World.CurrentTick)",
+			s.locIterator.creationTick)
+	}
+	if s.locIterator.level != 0 || s.locIterator.x != 3200 || s.locIterator.z != 3300 {
+		t.Errorf("coord: got (%d, %d, %d), want (0, 3200, 3300)",
+			s.locIterator.level, s.locIterator.x, s.locIterator.z)
+	}
+}
+
+// TestLocFindAllZoneNilLocOpsDegrades pins the parallel-NPC nil-ops
+// degradation: handler returns nil, locIterator stays nil.
+func TestLocFindAllZoneNilLocOpsDegrades(t *testing.T) {
+	coord := coordgrid.PackCoord(0, 3200, 3300)
+	s := newLocFindAllZoneState(t, 100, nil, coord)
+	// LocOps is nil — explicitly set to confirm.
+	s.LocOps = nil
+
+	if err := handleLocFindAllZone(s); err != nil {
+		t.Fatalf("handleLocFindAllZone: got err %v, want nil (degrade silently)", err)
+	}
+	if s.locIterator != nil {
+		t.Errorf("locIterator: got %v, want nil (no iterator on nil-ops)", s.locIterator)
+	}
+}
+
+// TestLocFindAllZoneCoordValid pins the checkCoord error path: invalid
+// coord (-1) yields the wrapped error.
+func TestLocFindAllZoneCoordValid(t *testing.T) {
+	ops := newLocIterTestOps(nil)
+	s := newLocFindAllZoneState(t, 100, ops, -1)
+
+	err := handleLocFindAllZone(s)
+	if err == nil {
+		t.Fatal("handleLocFindAllZone(-1): want error, got nil")
+	}
+	// Error string should be checkCoord's format; assert opcode tag.
+	if want := "LOC_FINDALLZONE"; !strings.Contains(err.Error(), want) {
+		t.Errorf("err: got %q, want substring %q", err.Error(), want)
+	}
+}
+
+// --- NAI-119: LOC_FINDNEXT handler tests -----------------------------
+
+// newLocFindNextState builds a ScriptState with World wired (for
+// CurrentTick), an optional locIterator pre-installed, and IntOperands
+// supplied for setActiveLocSlot to read. Mirror of newNpcFindNextState.
+func newLocFindNextState(t *testing.T, tick int, iter *LocIterator, intOperand int32) *ScriptState {
+	t.Helper()
+	mw := newMockWorld()
+	mw.tick = tick
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{intOperand}},
+		PC:          0,
+		World:       mw,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.locIterator = iter
+	return s
+}
+
+// TestLocFindNextNoIterator pins the nil-iterator branch: pushes 0,
+// no error, ActiveLoc/OtherActiveLoc untouched.
+func TestLocFindNextNoIterator(t *testing.T) {
+	s := newLocFindNextState(t, 100, nil, 0)
+
+	if err := handleLocFindNext(s); err != nil {
+		t.Fatalf("handleLocFindNext: %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("nil iterator: got push %d, want 0", got)
+	}
+	if s.ActiveLoc != nil {
+		t.Error("ActiveLoc should remain nil")
+	}
+	if s.OtherActiveLoc != nil {
+		t.Error("OtherActiveLoc should remain nil")
+	}
+}
+
+// TestLocFindNextHitPrimarySlot pins LOC_FINDNEXT IntOperand=0:
+// pushes 1, sets ActiveLoc + PtrActiveLoc.
+func TestLocFindNextHitPrimarySlot(t *testing.T) {
+	loc := fakeActiveLoc{id: 100}
+	ops := newLocIterTestOps([]ActiveLoc{loc})
+	iter := NewZoneLocIterator(ops, 100, 0, 3200, 3300)
+	s := newLocFindNextState(t, 100, iter, 0)
+
+	if err := handleLocFindNext(s); err != nil {
+		t.Fatalf("handleLocFindNext: %v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("hit: got push %d, want 1", got)
+	}
+	if s.ActiveLoc == nil || s.ActiveLoc.LocType() != 100 {
+		t.Errorf("ActiveLoc: got %v, want id=100", s.ActiveLoc)
+	}
+	if s.OtherActiveLoc != nil {
+		t.Error("OtherActiveLoc should remain nil for IntOperand=0")
+	}
+	if s.Pointers&PtrActiveLoc == 0 {
+		t.Error("PtrActiveLoc should be set")
+	}
+	if s.Pointers&PtrActiveLoc2 != 0 {
+		t.Error("PtrActiveLoc2 should NOT be set for IntOperand=0")
+	}
+}
+
+// TestLocFindNextHitSecondarySlot pins LOC_FINDNEXT IntOperand=1:
+// pushes 1, sets OtherActiveLoc + PtrActiveLoc2 (primary slot
+// untouched). Closes NAI-119 dual-slot decision.
+func TestLocFindNextHitSecondarySlot(t *testing.T) {
+	loc := fakeActiveLoc{id: 200}
+	ops := newLocIterTestOps([]ActiveLoc{loc})
+	iter := NewZoneLocIterator(ops, 100, 0, 3200, 3300)
+	s := newLocFindNextState(t, 100, iter, 1)
+
+	if err := handleLocFindNext(s); err != nil {
+		t.Fatalf("handleLocFindNext: %v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("hit: got push %d, want 1", got)
+	}
+	if s.OtherActiveLoc == nil || s.OtherActiveLoc.LocType() != 200 {
+		t.Errorf("OtherActiveLoc: got %v, want id=200", s.OtherActiveLoc)
+	}
+	if s.ActiveLoc != nil {
+		t.Error("ActiveLoc should remain nil for IntOperand=1")
+	}
+	if s.Pointers&PtrActiveLoc2 == 0 {
+		t.Error("PtrActiveLoc2 should be set")
+	}
+	if s.Pointers&PtrActiveLoc != 0 {
+		t.Error("PtrActiveLoc should NOT be set for IntOperand=1")
+	}
+}
+
+// TestLocFindNextExhaustionPushesZero pins post-exhaustion behavior:
+// FINDNEXT pushes 0, leaves ActiveLoc/OtherActiveLoc untouched.
+func TestLocFindNextExhaustionPushesZero(t *testing.T) {
+	ops := newLocIterTestOps([]ActiveLoc{}) // empty zone
+	iter := NewZoneLocIterator(ops, 100, 0, 3200, 3300)
+	s := newLocFindNextState(t, 100, iter, 0)
+
+	if err := handleLocFindNext(s); err != nil {
+		t.Fatalf("handleLocFindNext: %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("exhaustion: got push %d, want 0", got)
+	}
+	if s.ActiveLoc != nil {
+		t.Error("ActiveLoc should remain nil on exhaustion")
+	}
+}
+
+// TestLocFindNextStaleErrors pins the stale-iterator error path:
+// creationTick=99, currentTick=100 → handler returns the canonical
+// "tried to use an old iterator" error matching the NPC family wording.
+func TestLocFindNextStaleErrors(t *testing.T) {
+	loc := fakeActiveLoc{id: 100}
+	ops := newLocIterTestOps([]ActiveLoc{loc})
+	iter := NewZoneLocIterator(ops, 99, 0, 3200, 3300) // creationTick=99
+	s := newLocFindNextState(t, 100, iter, 0)          // currentTick=100
+
+	err := handleLocFindNext(s)
+	if err == nil {
+		t.Fatal("stale: want error, got nil")
+	}
+	want := "LOC_FINDNEXT: tried to use an old iterator. Create a new iterator instead."
+	if err.Error() != want {
+		t.Errorf("err: got %q, want %q", err.Error(), want)
 	}
 }

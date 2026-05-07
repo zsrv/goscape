@@ -17,6 +17,82 @@ func requireActiveLoc(s *ScriptState, op string) error {
 	return nil
 }
 
+// setActiveLocSlot writes the loc to either ActiveLoc (primary) or
+// OtherActiveLoc (secondary) based on the handler's IntOperand and sets
+// the corresponding Pointer flag. Mirrors TS
+// state.pointerAdd(ActiveLoc[state.intOperand]) at LocOps.ts:110, and
+// the parallel setActiveNpcSlot at handlers_npc.go:64-83.
+//
+// IntOperand==0 → ActiveLoc/PtrActiveLoc (.loc syntax).
+// IntOperand==1 → OtherActiveLoc/PtrActiveLoc2 (.loc2 syntax).
+// Any other value panics (compiler invariant — bytecode only emits 0/1).
+func setActiveLocSlot(s *ScriptState, loc ActiveLoc) {
+	operand := s.Script.IntOperands[s.PC]
+	switch operand {
+	case 0:
+		s.ActiveLoc = loc
+		s.Pointers |= PtrActiveLoc
+	case 1:
+		s.OtherActiveLoc = loc
+		s.Pointers |= PtrActiveLoc2
+	default:
+		panic(fmt.Sprintf("setActiveLocSlot: invalid IntOperand %d", operand))
+	}
+}
+
+// handleLocFindAllZone (LOC_FINDALLZONE, opcode 3008) pops a coord,
+// validates, and stores a single-zone LocIterator targeting the zone
+// containing that coord. Mirrors TS LocOps.ts:96-100. No
+// distance/category/type filtering (TS LocIterator is single-mode).
+//
+// Nil-LocOps degrades silently (matches NPC_FINDALLZONE convention at
+// handlers_npc.go:714-716).
+func handleLocFindAllZone(s *ScriptState) error {
+	coord := s.PopInt()
+	level, x, z, err := checkCoord(coord, "LOC_FINDALLZONE")
+	if err != nil {
+		return err
+	}
+	if s.LocOps == nil {
+		return nil
+	}
+	s.locIterator = NewZoneLocIterator(s.LocOps, s.World.CurrentTick(), level, x, z)
+	return nil
+}
+
+// handleLocFindNext (LOC_FINDNEXT, opcode 3009) advances the active
+// LocIterator and either sets active_loc + pushes 1 on hit, or pushes 0
+// on miss / nil-iterator. Mirrors TS LocOps.ts:102-112.
+//
+// Stale-iterator semantics: mirror NPC_FINDNEXT (handlers_npc.go:778-795)
+// — return error on stale; existing runtime path catches and clears the
+// active script (parallel to npc_script.go:167-172).
+//
+// Pointer-set: setActiveLocSlot threads IntOperand 0/1 to choose
+// primary/secondary slot per TS state.pointerAdd(ActiveLoc[intOperand]).
+//
+// Exhaustion does NOT clear s.locIterator (matches NPC family —
+// handlers_npc.go:769-771). Subsequent FINDNEXT calls continue to
+// return push-0.
+func handleLocFindNext(s *ScriptState) error {
+	it := s.locIterator
+	if it == nil {
+		s.PushInt(0)
+		return nil
+	}
+	if it.Stale(s.World.CurrentTick()) {
+		return fmt.Errorf("LOC_FINDNEXT: tried to use an old iterator. Create a new iterator instead.")
+	}
+	loc, ok := it.Next()
+	if !ok {
+		s.PushInt(0)
+		return nil
+	}
+	setActiveLocSlot(s, loc)
+	s.PushInt(1)
+	return nil
+}
+
 // handleLocFind is a stub for the LOC_FIND opcode. TS:
 //
 //	const [coord, locId] = state.popInts(2);
