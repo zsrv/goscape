@@ -225,3 +225,55 @@ func TestHandleObjAddNilWorldErrors(t *testing.T) {
 		t.Errorf("OBJ_ADD nil world: expected error, got nil")
 	}
 }
+
+func TestHandleObjAddAllUsesPublicReceiver(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	w := newFakeWorldMembers()
+	s.World = w
+	s.Configs = withObjForObjAdd(newTestConfigs(), 590, true, false, 0)
+	// No s.Self required — broadcast does not need an active player.
+
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(590)
+	s.PushInt(1)
+	s.PushInt(100)
+
+	if err := handleObjAddAll(s); err != nil {
+		t.Fatalf("handleObjAddAll returned error: %v", err)
+	}
+	if len(w.addedCalls) != 1 {
+		t.Fatalf("expected 1 AddObj call, got %d", len(w.addedCalls))
+	}
+	got := w.addedCalls[0].receiverID
+	want := -1 // zone.PublicReceiver
+	if got != want {
+		t.Errorf("OBJ_ADDALL receiverID: got %d, want %d (broadcast/PublicReceiver)", got, want)
+	}
+}
+
+func TestHandleObjAddAllNonStackableSplits(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	w := newFakeWorldMembers()
+	s.World = w
+	s.Configs = withObjForObjAdd(newTestConfigs(), 590, false, false, 0)
+
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(590)
+	s.PushInt(3)
+	s.PushInt(100)
+
+	if err := handleObjAddAll(s); err != nil {
+		t.Fatalf("handleObjAddAll returned error: %v", err)
+	}
+	if len(w.addedCalls) != 3 {
+		t.Fatalf("expected 3 AddObj calls (non-stackable split), got %d", len(w.addedCalls))
+	}
+	for i, c := range w.addedCalls {
+		if c.receiverID != -1 {
+			t.Errorf("OBJ_ADDALL call[%d] receiverID: got %d, want -1", i, c.receiverID)
+		}
+		if c.count != 1 {
+			t.Errorf("OBJ_ADDALL call[%d] count: got %d, want 1", i, c.count)
+		}
+	}
+}

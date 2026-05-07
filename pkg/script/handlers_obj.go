@@ -118,6 +118,20 @@ func handleObjDel(s *ScriptState) error {
 	return nil
 }
 
+// objAddAllReceiverID is the receiverID sentinel passed to
+// WorldVars.AddObj for broadcast (visible-to-all) drops. The world
+// adapter resolves this to zone.PublicReceiver. Kept package-local so
+// pkg/script does not depend on pkg/zone directly.
+const objAddAllReceiverID = -1
+
+// handleObjAddAll (OBJ_ADDALL, opcode 3501) drops a broadcast
+// (visible-to-all) obj at the unpacked coord. Twin of handleObjAdd —
+// identical validation chain via objAddCommon; only the receiverID
+// differs. Mirrors TS ObjOps.ts:58-93.
+func handleObjAddAll(s *ScriptState) error {
+	return objAddCommon(s, "OBJ_ADDALL", objAddAllReceiverID)
+}
+
 // handleObjCoord (OBJ_COORD, opcode 3502) packs the active obj's tile
 // position into a single RS2 coord int and pushes it. Mirrors TS
 // ObjOps.ts:163-166.

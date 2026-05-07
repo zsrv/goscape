@@ -106,10 +106,11 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// firemaking-chain area-allow check.
 	OpMapLocAddUnsafe: handleMapLocAddUnsafe,
 
-	// NAI-115 Bundle 1: firemaking-cascade Obj/Inv/Server/Player ports.
+	// NAI-115 Bundle 1+2: firemaking-cascade Obj/Inv/Server/Player ports.
 	OpObjCoord:    handleObjCoord,
 	OpObjDel:      handleObjDel,
 	OpObjAdd:      handleObjAdd,
+	OpObjAddAll:   handleObjAddAll,
 	OpLineOfWalk:  handleLineOfWalk,
 	OpInvDropSlot: handleInvDropSlot,
 
