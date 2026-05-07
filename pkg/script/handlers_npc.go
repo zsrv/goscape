@@ -999,10 +999,15 @@ func handleSpotAnimNpc(s *ScriptState) error {
 //	state.activeNpc.heroPoints.addHero(state.activePlayer.hash64,
 //	    check(state.popInt(), NumberNotNull));
 //
-// Gate: ProtectedActivePlayer NOT required — TS uses plain ActivePlayer +
-// ActiveNpc. goscape uses player UID instead of TS hash64 (player UID is
-// the goscape analog of the hash64 player identity token).
-// NAI-120 Bundle 2D.
+// Gate: ProtectedActivePlayer NOT required. TS uses
+// checkedHandler([ActivePlayer, ...ActiveNpc]) which selects exactly ONE
+// pointer to validate via state.intOperand (ScriptPointer.ts:52); for the
+// compiled value used in combat scripts (intOperand=0) only ActivePlayer
+// is enforced, with ActiveNpc relied on implicitly. Goscape additionally
+// gates on requireActiveNpc (goscape defensive; TS skips this check —
+// would surface as a runtime NPE in TS). goscape uses player UID instead
+// of TS hash64 (player UID is the goscape analog of the hash64 player
+// identity token). NAI-120 Bundle 2D.
 func handleNpcHeroPoints(s *ScriptState) error {
 	if err := requireActivePlayer(s, "NPC_HEROPOINTS"); err != nil {
 		return err
