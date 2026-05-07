@@ -152,9 +152,13 @@ type Player struct {
 	// key. Allocated lazily on first SetTimer call.
 	timers map[uint32]*playerTimer
 
-	// varps holds the per-player int values for every registered VarPlayerType.
-	// Allocated in processLogins after VarpTypeConfigs is available.
+	// varps holds per-player int-typed vars; sized to
+	// len(server.varpTypes.Configs) at login (initPlayerVarps). Per-type
+	// seeded — INT→0, non-INT-non-STRING→-1 (TS Player.ts:418-432).
 	varps []int32
+	// varpsString is the parallel STRING-typed slot array. Sized identically
+	// to varps. Mirrors TS Player.varsString.
+	varpsString []string
 
 	// === masks ===
 	masks      int

@@ -101,9 +101,7 @@ func (s *Server) processLogins() {
 		// (Scenery-window state is initialised in newPlayer as flat fields
 		// since NAI-30 Bundle 4.)
 		p.invs = map[int]*inventory.Inventory{}
-		if s.varpTypes != nil {
-			p.varps = make([]int32, len(s.varpTypes.Configs))
-		}
+		s.initPlayerVarps(p)
 		if s.invTypes != nil && s.invTypes.Worn >= 0 && s.invTypes.Worn < len(s.invTypes.Configs) {
 			wornType := s.invTypes.Configs[s.invTypes.Worn]
 			if wornType != nil {
@@ -147,6 +145,33 @@ func (s *Server) processLogins() {
 		p.input = NewInputTracking(p, s.currentTick)
 		if p.session == "" {
 			p.session = "headless"
+		}
+	}
+}
+
+// initPlayerVarps allocates p.varps + p.varpsString to len(s.varpTypes.Configs)
+// and per-type-seeds each slot per TS Player.ts:418-432:
+//
+//	STRING → varpsString[i] = "" (Go zero-value)
+//	INT    → varps[i] = 0        (Go zero-value)
+//	else   → varps[i] = -1
+//
+// Defensive (DEVIATION-NAI-121-D3): nil s.varpTypes → no-op (test paths).
+// (goscape defensive; TS skips this check.)
+func (s *Server) initPlayerVarps(p *Player) {
+	if s.varpTypes == nil {
+		return
+	}
+	p.varps = make([]int32, len(s.varpTypes.Configs))
+	p.varpsString = make([]string, len(s.varpTypes.Configs))
+	for i, vt := range s.varpTypes.Configs {
+		switch vt.Type {
+		case objtype.ScriptVarTypeString:
+			// varpsString[i] = "" already (Go zero-value)
+		case objtype.ScriptVarTypeInt:
+			// varps[i] = 0 already (Go zero-value)
+		default:
+			p.varps[i] = -1
 		}
 	}
 }
