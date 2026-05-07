@@ -83,8 +83,9 @@ func (s *Server) addNpc(n *Npc, duration int, firstSpawn bool) error {
 	// unconditionally — for both firstSpawn=true (server boot) and
 	// firstSpawn=false (revertType respawn). NPCs without a registered
 	// AI_SPAWN script never enter the queue (the script != nil guard).
-	// processNpcEventQueue dispatches at tick.go:40. Mirrors the
-	// existing AI_DESPAWN producer pattern at npc_ai.go:47-58.
+	// processNpcEventQueue dispatches early in the tick — before
+	// processInteractions — per NAI-122 (TS World.ts:356 vs 376).
+	// Mirrors the existing AI_DESPAWN producer pattern at npc_ai.go:47-58.
 	if s.scriptProvider != nil && n.typ != nil {
 		sf := s.scriptProvider.GetByTrigger(
 			script.TriggerAiSpawn, n.typeId, n.typ.Category)
