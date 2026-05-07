@@ -322,6 +322,25 @@ func (p *Player) SetVarp(id int, val int32) {
 	p.writeVarp(id, val)
 }
 
+// VarpString implements script.ActivePlayer.VarpString. Returns the
+// STRING-typed per-player var at id, or "" on OOB / unsized slice.
+func (p *Player) VarpString(id int) string {
+	if id < 0 || id >= len(p.varpsString) {
+		return ""
+	}
+	return p.varpsString[id]
+}
+
+// SetVarpString implements script.ActivePlayer.SetVarpString. OOB
+// silently dropped (slice sized to varpTypes.Configs at login). No
+// wire-send: this protocol revision has no varp_string opcode.
+func (p *Player) SetVarpString(id int, val string) {
+	if id < 0 || id >= len(p.varpsString) {
+		return
+	}
+	p.varpsString[id] = val
+}
+
 // SetRun implements script.ActivePlayer.SetRun. Writes the run-mode
 // toggle (0=walk, 1=run) to the player's run field. Mirrors TS field
 // write at PlayerOps.ts:1205. Backs the P_RUN opcode handler. NAI-117.

@@ -121,7 +121,8 @@ type mockPlayer struct {
 	enqueueScriptArgsReturnErr error
 
 	// S5b: per-player varp storage for tests.
-	varps map[int]int32
+	varps       map[int]int32
+	varpsString map[int]string
 
 	// S5c: read-side storage. Tests pre-seed these; the getter methods
 	// return the corresponding slot. 21 is the authentic stat count.
@@ -391,6 +392,19 @@ func (m *mockPlayer) SetVarp(id int, val int32) {
 		m.varps = make(map[int]int32)
 	}
 	m.varps[id] = val
+}
+
+func (m *mockPlayer) VarpString(id int) string {
+	if m.varpsString == nil {
+		return ""
+	}
+	return m.varpsString[id]
+}
+func (m *mockPlayer) SetVarpString(id int, val string) {
+	if m.varpsString == nil {
+		m.varpsString = make(map[int]string)
+	}
+	m.varpsString[id] = val
 }
 
 // S5c: position / facing / teleport.

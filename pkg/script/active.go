@@ -83,6 +83,16 @@ type ActivePlayer interface {
 	// VARP_SMALL / VARP_LARGE. OOB writes are dropped silently.
 	SetVarp(id int, val int32)
 
+	// VarpString reads the per-player STRING-typed var at id. Returns
+	// "" defensively for OOB or never-written ids. Mirrors TS
+	// Player.getVar dispatched on STRING type.
+	VarpString(id int) string
+
+	// SetVarpString writes the per-player STRING-typed var at id. OOB
+	// silently dropped. No wire-send (this protocol revision has no
+	// varp_string opcode); server-side state only.
+	SetVarpString(id int, val string)
+
 	// S5c: position / facing / teleport.
 
 	// CoordPacked returns the player's current position packed as a single
