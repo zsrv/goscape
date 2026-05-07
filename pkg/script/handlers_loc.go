@@ -176,6 +176,31 @@ func handleLocAngle(s *ScriptState) error {
 	return nil
 }
 
+// handleLocCategory pushes the ActiveLoc's resolved LocType.Category.
+// Mirrors TS LOC_CATEGORY (LocOps.ts:56-58):
+//
+//	pushInt(check(activeLoc.type, LocTypeValid).category);
+//
+// Goscape default LocType.Category is -1 (loctype.go:194) — TS-faithful
+// for unset categories. Surfaced by NAI-119 smoke (tut_open_mining_gate
+// branches on `loc_category = tut_mining_exit`); spec §1's claim that
+// downstream LOC_* handlers "all already exist" missed this one.
+func handleLocCategory(s *ScriptState) error {
+	if err := requireConfigs(s, "LOC_CATEGORY"); err != nil {
+		return err
+	}
+	if err := requireActiveLoc(s, "LOC_CATEGORY"); err != nil {
+		return err
+	}
+	id := s.ActiveLoc.LocType()
+	lt := s.Configs.LocType(id)
+	if lt == nil {
+		return fmt.Errorf("LOC_CATEGORY: unknown loc id %d", id)
+	}
+	s.PushInt(lt.Category)
+	return nil
+}
+
 // handleLocType pushes the ActiveLoc's resolved LocType ID. Mirrors TS
 // LOC_TYPE: pushInt(check(activeLoc.type, LocTypeValid).id).
 //

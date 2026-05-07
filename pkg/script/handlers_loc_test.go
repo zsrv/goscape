@@ -239,6 +239,86 @@ func TestHandleLocAngleRequiresActiveLoc(t *testing.T) {
 	}
 }
 
+// -- LOC_CATEGORY tests --
+
+func TestHandleLocCategoryHappyPath(t *testing.T) {
+	lt := &objtype.LocType{
+		ConfigType: objtype.ConfigType{ID: 42},
+		Category:   17,
+	}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		ActiveLoc:   fakeActiveLoc{id: 42},
+		Configs:     &fakeConfigs{locs: map[int]*objtype.LocType{42: lt}},
+	}
+
+	if err := handleLocCategory(s); err != nil {
+		t.Fatalf("handleLocCategory: %v", err)
+	}
+	if s.ISP != 1 {
+		t.Fatalf("ISP: got %d, want 1", s.ISP)
+	}
+	if got := s.IntStack[0]; got != 17 {
+		t.Errorf("top of int stack: got %d, want 17", got)
+	}
+}
+
+// TestHandleLocCategoryUnsetDefault pins the TS-faithful -1 default for
+// LocType.Category when the config-file omits the `category=` line.
+func TestHandleLocCategoryUnsetDefault(t *testing.T) {
+	lt := &objtype.LocType{
+		ConfigType: objtype.ConfigType{ID: 42},
+		Category:   -1,
+	}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		ActiveLoc:   fakeActiveLoc{id: 42},
+		Configs:     &fakeConfigs{locs: map[int]*objtype.LocType{42: lt}},
+	}
+
+	if err := handleLocCategory(s); err != nil {
+		t.Fatalf("handleLocCategory: %v", err)
+	}
+	if got := s.IntStack[0]; got != -1 {
+		t.Errorf("top of int stack: got %d, want -1", got)
+	}
+}
+
+func TestHandleLocCategoryRequiresActiveLoc(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Configs:     &fakeConfigs{locs: map[int]*objtype.LocType{}},
+	}
+
+	err := handleLocCategory(s)
+	if err == nil {
+		t.Fatal("handleLocCategory: expected error, got nil")
+	}
+	if got := err.Error(); got != "LOC_CATEGORY: no active loc" {
+		t.Errorf("error: got %q, want \"LOC_CATEGORY: no active loc\"", got)
+	}
+}
+
+func TestHandleLocCategoryUnknownID(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		ActiveLoc:   fakeActiveLoc{id: 999},
+		Configs:     &fakeConfigs{locs: map[int]*objtype.LocType{}},
+	}
+
+	err := handleLocCategory(s)
+	if err == nil {
+		t.Fatal("handleLocCategory: expected error, got nil")
+	}
+	if got := err.Error(); got != "LOC_CATEGORY: unknown loc id 999" {
+		t.Errorf("error: got %q, want \"LOC_CATEGORY: unknown loc id 999\"", got)
+	}
+}
+
 // -- LOC_TYPE tests --
 
 func TestHandleLocTypeHappyPath(t *testing.T) {
