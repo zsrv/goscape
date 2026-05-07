@@ -233,6 +233,16 @@ type ScriptState struct {
 	// methods in a follow-up sub-spec).
 	ActiveLoc ActiveLoc
 
+	// OtherActiveLoc is the secondary Loc slot, parallel to OtherActiveNpc.
+	// Set by LOC_FINDNEXT (and any future LOC_FIND family handler) when
+	// the bytecode IntOperand is 1 (.loc2 syntax). NAI-119.
+	//
+	// NAI-119-D-NO-DOWNSTREAM-LOC2-CONSUMERS: no existing LOC_* read
+	// handler reads from this slot at HEAD — they all read s.ActiveLoc
+	// only. Tracked deviation; closure when a `.loc2` content-script
+	// consumer surfaces.
+	OtherActiveLoc ActiveLoc
+
 	// ActiveObj is the Obj that OBJ_* and AI_*OBJ handlers target. Nil
 	// if no Obj is bound. NAI-11.
 	ActiveObj ActiveObj
@@ -248,6 +258,12 @@ type ScriptState struct {
 	// ScriptState.npcIterator (ScriptState.ts:125). Lowercase = package-
 	// private; handlers in pkg/script access directly. NAI-33.
 	npcIterator *NpcIterator
+
+	// locIterator holds the active LOC_FIND iterator state. Set by
+	// LOC_FINDALLZONE; consumed by LOC_FINDNEXT. Lifetime is single-tick
+	// — Stale() check enforced at FINDNEXT against s.World.CurrentTick().
+	// Nil = no active iterator. Mirrors TS ScriptState.locIterator. NAI-119.
+	locIterator *LocIterator
 
 	// playerIterator holds the active player-iterator state. Set by
 	// HUNTALL; consumed by HUNTNEXT (T5). Single-tick lifetime — Stale()
