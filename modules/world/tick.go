@@ -273,7 +273,9 @@ func (s *Server) processPlayerQueue(p *Player) {
 		stringArgs := req.StringArgs
 		p.queue = append(p.queue[:i], p.queue[i+1:]...)
 		if sf != nil {
-			s.runScript(sf, p, nil, false, intArgs, stringArgs)
+			// TS Player.ts:891,903 — processQueues + processWeakQueue
+			// both fire scripts as protected (executeScript(script, true)).
+			s.runScript(sf, p, nil, true, intArgs, stringArgs)
 		}
 		// Don't advance i: we just removed the current element, so i
 		// now points to what was the next element (or past end).
@@ -320,7 +322,9 @@ func (s *Server) processPlayerTimers() {
 				if sf == nil {
 					continue
 				}
-				s.runScript(sf, p, nil, false, t.IntArgs, t.StringArgs)
+				// TS Player.ts:938: NORMAL timers run protected, SOFT
+				// timers do not.
+				s.runScript(sf, p, nil, t.Type == script.TimerNormal, t.IntArgs, t.StringArgs)
 			}
 		}(p)
 	}
