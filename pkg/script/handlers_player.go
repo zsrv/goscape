@@ -629,6 +629,19 @@ func handlePRun(s *ScriptState) error {
 	return nil
 }
 
+// handleRunEnergy implements RUNENERGY (opcode 2096). Pushes the active
+// player's current run-energy as an int (range [0, 10000]). Mirrors TS
+// PlayerOps.ts:1175-1178. Gate: ActivePlayer (no Protected requirement).
+//
+// NAI-117 T2.
+func handleRunEnergy(s *ScriptState) error {
+	if err := requireActivePlayer(s, "RUNENERGY"); err != nil {
+		return err
+	}
+	s.PushInt(s.Self.RunEnergy())
+	return nil
+}
+
 // -- Animation ops -------------------------------------------------------
 
 // handleAnim implements ANIM. TS pops (seq, delay); stack top is delay.

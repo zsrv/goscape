@@ -237,6 +237,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpPWalk: handlePWalk,
 	// NAI-117 T1: run-mode toggle (gated by ProtectedActivePlayer).
 	OpPRun: handlePRun,
+	// NAI-117 T2: run-energy reader (gated by ActivePlayer).
+	OpRunEnergy: handleRunEnergy,
 
 	// S5d: config-read ops (enum/struct/loc/npc/obj).
 	// EnumOps (2).

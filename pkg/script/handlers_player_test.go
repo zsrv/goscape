@@ -791,6 +791,29 @@ func TestPRunDispatch(t *testing.T) {
 	}
 }
 
+// TestRunEnergyDispatch verifies the RUNENERGY handler (opcode 2096)
+// pushes the active player's runenergy onto the int stack. Mirrors TS
+// PlayerOps.ts:1175-1178. NAI-117 T2.
+func TestRunEnergyDispatch(t *testing.T) {
+	mp := &mockPlayer{runenergyValue: 7250}
+	sf := &ScriptFile{
+		Name: "runenergy_dispatch",
+		Opcodes: []Opcode{
+			OpRunEnergy, OpReturn,
+		},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopInt(); got != 7250 {
+		t.Errorf("RUNENERGY: got %d, want 7250", got)
+	}
+}
+
 // -- Active-player-required negative tests -------------------------------
 
 // Every handler that dereferences Self must return an error when
@@ -826,6 +849,8 @@ func TestHandlersRequireActivePlayer(t *testing.T) {
 		{"RUNANIM", OpRunAnim},
 		// NAI-117 T1.
 		{"P_RUN", OpPRun},
+		// NAI-117 T2.
+		{"RUNENERGY", OpRunEnergy},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
