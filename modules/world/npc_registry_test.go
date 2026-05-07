@@ -338,7 +338,11 @@ func seedVarnTypes(s *Server, entries []struct {
 		c.Type = e.Type
 		c.DebugName = e.Name
 		configs[i] = c
-		configNames[e.Name] = i
+		// Match parseVarnTypes: only insert into ConfigNames when the
+		// debug name is non-empty.
+		if e.Name != "" {
+			configNames[e.Name] = i
+		}
 	}
 	s.varnTypes = &objtype.VarnTypeConfigs{ConfigNames: configNames, Configs: configs}
 }
@@ -449,6 +453,9 @@ func TestResetEntityForRespawn_NilVarnTypes_NoOp(t *testing.T) {
 
 	if n.varns != nil {
 		t.Errorf("varns: got non-nil slice, want nil (defensive no-op)")
+	}
+	if n.varnsString != nil {
+		t.Errorf("varnsString: got non-nil slice, want nil (defensive no-op)")
 	}
 }
 
