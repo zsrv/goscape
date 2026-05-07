@@ -10,10 +10,6 @@ import (
 // Compile-time check: *Npc satisfies script.ActiveNpc.
 var _ script.ActiveNpc = (*Npc)(nil)
 
-// npcVarnCap caps the per-NPC var slice so a rogue script cannot grow
-// it unboundedly. Matches the engine-wide soft cap used in S6a.
-const npcVarnCap = 1024
-
 // NpcType returns the NPC's type id.
 func (n *Npc) NpcType() int { return n.typeId }
 
@@ -86,12 +82,11 @@ func (n *Npc) NpcVarN(id int) int32 {
 }
 
 // SetNpcVarN writes val to the per-NPC var at id, lazily growing the
-// backing slice. Writes beyond npcVarnCap are silently dropped.
+// backing slice for raw &Npc{} test paths. Production NPCs spawned via
+// Server.addNpc are pre-sized by resetEntityForRespawn (T3) so the
+// lazy-grow path is dormant in production. Negative ids are dropped.
 func (n *Npc) SetNpcVarN(id int, val int32) {
 	if id < 0 {
-		return
-	}
-	if id >= npcVarnCap {
 		return
 	}
 	if id >= len(n.varns) {
