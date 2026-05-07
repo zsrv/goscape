@@ -977,9 +977,20 @@ func (p *Player) SetInteractionScriptObj(obj script.ActiveObj, op int) {
 	p.SetInteraction(InteractionScript, realObj, op, -1)
 }
 
-// HasInteraction reports whether the player has an interaction target.
+// HasInteraction reports whether the player has an interaction target,
+// excluding the follow interaction (APPLAYER3 / OPPLAYER3). Mirrors TS
+// Player.hasInteraction at Engine-TS Player.ts:955-964 — "the follow
+// interaction doesn't do anything", so it is reported as not-busy.
 // NAI-120 Bundle 2B. Implements script.ActivePlayer.
-func (p *Player) HasInteraction() bool { return p.target != nil }
+func (p *Player) HasInteraction() bool {
+	if p.target == nil {
+		return false
+	}
+	if isFollowOp(p) {
+		return false
+	}
+	return true
+}
 
 // HasWaypoints reports whether the player has a waypoint queue active.
 // Wraps the package-private hasWaypoints helper at interaction.go:297.

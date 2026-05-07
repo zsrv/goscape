@@ -1246,7 +1246,9 @@ func handleBusy2(s *ScriptState) error {
 //	state.activePlayer.setInteraction(Interaction.SCRIPT, state.activeNpc,
 //	    ServerTriggerType.APNPCT, spellId);
 //
-// Gate: ProtectedActivePlayer + ActiveNpc. NAI-120 Bundle 2B.
+// Gate: ProtectedActivePlayer + ActiveNpc (goscape defensive; TS skips this
+// check — TS checkedHandler(ProtectedActivePlayer) does not gate ActiveNpc).
+// NAI-120 Bundle 2B.
 func handlePOpNpcT(s *ScriptState) error {
 	if err := requireProtectedActivePlayer(s, "P_OPNPCT"); err != nil {
 		return err

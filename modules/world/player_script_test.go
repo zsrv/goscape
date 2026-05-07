@@ -1342,3 +1342,53 @@ func TestPlaySynthWritesOut(t *testing.T) {
 		t.Errorf("PlaySynth wrote 0 bytes to c.bufw; want >0 (NAI-87 positive pin)")
 	}
 }
+
+// TestHasInteraction_NoTarget pins (*Player).HasInteraction → false when
+// there is no interaction target. NAI-120 Bundle 2B; mirrors TS
+// Player.hasInteraction Player.ts:955-957.
+func TestHasInteraction_NoTarget(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	if p.HasInteraction() {
+		t.Error("HasInteraction with nil target: got true, want false")
+	}
+}
+
+// TestHasInteraction_NormalInteraction pins HasInteraction → true for
+// a non-follow interaction (e.g., targetOp=1 / OPPLAYER1).
+func TestHasInteraction_NormalInteraction(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	other, _ := newTestPlayer(t)
+	p.target = other
+	p.targetOp = 1
+	if !p.HasInteraction() {
+		t.Error("HasInteraction with normal player interaction: got false, want true")
+	}
+}
+
+// TestHasInteraction_FollowOp_Excluded pins TS-faithful exclusion of the
+// follow interaction (targetOp=3 with player target = APPLAYER3/OPPLAYER3).
+// Mirrors TS Player.ts:959-962 — "the follow interaction doesn't do
+// anything" so HasInteraction reports false. NAI-120 Bundle 2B.
+func TestHasInteraction_FollowOp_Excluded(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	other, _ := newTestPlayer(t)
+	p.target = other
+	p.targetOp = 3
+	if p.HasInteraction() {
+		t.Error("HasInteraction with follow-op (targetOp=3, player target): got true, want false (TS Player.ts:959-962)")
+	}
+}
+
+// TestHasInteraction_Op3_NonPlayerTarget pins that the follow-op exclusion
+// only applies to player targets. targetOp=3 against a non-player (e.g., NPC)
+// is a regular interaction; reports true. The isFollowOp helper at
+// interaction.go:145-151 narrows to *Player targets.
+func TestHasInteraction_Op3_NonPlayerTarget(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	npc := &Npc{}
+	p.target = npc
+	p.targetOp = 3
+	if !p.HasInteraction() {
+		t.Error("HasInteraction with op=3 against non-player target: got false, want true (follow-op narrows to *Player)")
+	}
+}
