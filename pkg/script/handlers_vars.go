@@ -1,6 +1,10 @@
 package script
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/zsrv/goscape/pkg/objtype"
+)
 
 // varOperandID returns the low 16 bits of the int operand at the
 // current PC — that's the VAR id. The high bit (0x10000) flags the
@@ -47,23 +51,45 @@ func handlePopVars(s *ScriptState) error {
 }
 
 // handlePushVarn reads per-NPC variable `id` from the active NPC and
-// pushes it. Returns an error if no ActiveNpc is bound. High operand bit
-// (secondary-NPC flag) is ignored — same convention as VARP.
+// pushes it. Dispatches on Configs.VarnType(id): STRING → pushString,
+// else → pushInt. Returns an error if no ActiveNpc is bound. High
+// operand bit (secondary-NPC flag) is ignored — same convention as VARP.
 func handlePushVarn(s *ScriptState) error {
 	if s.ActiveNpc == nil {
 		return errors.New("PUSH_VARN: no active npc")
 	}
-	s.PushInt(int(s.ActiveNpc.NpcVarN(varOperandID(s))))
+	id := varOperandID(s)
+	if s.varnType(id) == objtype.ScriptVarTypeString {
+		s.PushString(s.ActiveNpc.NpcVarNString(id))
+	} else {
+		s.PushInt(int(s.ActiveNpc.NpcVarN(id)))
+	}
 	return nil
 }
 
-// handlePopVarn pops an int and writes it to per-NPC variable `id` on
-// the active NPC. Returns an error if no ActiveNpc is bound.
+// handlePopVarn pops the top of the appropriate stack and writes it
+// to per-NPC variable `id` on the active NPC. Dispatches on
+// Configs.VarnType(id): STRING → popString, else → popInt. Returns an
+// error if no ActiveNpc is bound.
 func handlePopVarn(s *ScriptState) error {
 	if s.ActiveNpc == nil {
 		return errors.New("POP_VARN: no active npc")
 	}
-	val := int32(s.PopInt())
-	s.ActiveNpc.SetNpcVarN(varOperandID(s), val)
+	id := varOperandID(s)
+	if s.varnType(id) == objtype.ScriptVarTypeString {
+		s.ActiveNpc.SetNpcVarNString(id, s.PopString())
+	} else {
+		s.ActiveNpc.SetNpcVarN(id, int32(s.PopInt()))
+	}
 	return nil
+}
+
+// varnType returns the type of NPC-var id from Configs, falling back
+// to ScriptVarTypeInt when Configs is nil (test paths). Mirrors
+// DEVIATION-NAI-121-D3.
+func (s *ScriptState) varnType(id int) objtype.ScriptVarType {
+	if s.Configs == nil {
+		return objtype.ScriptVarTypeInt
+	}
+	return s.Configs.VarnType(id)
 }

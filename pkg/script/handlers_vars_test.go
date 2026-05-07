@@ -3,6 +3,8 @@ package script
 import (
 	"strings"
 	"testing"
+
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 // mockWorld implements WorldVars for tests.
@@ -261,5 +263,105 @@ func TestVarnRequireActiveNpc(t *testing.T) {
 				t.Errorf("%s: error %q does not contain %q", tc.name, err.Error(), tc.want)
 			}
 		})
+	}
+}
+
+func TestPushVarn_StringType_PushesString(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "push_varn_str",
+		Opcodes:          []Opcode{OpPushVarn, OpReturn},
+		IntOperands:      []int32{3, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	npc := &mockNpc{varnsString: map[int]string{3: "hello"}}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	state.Configs = &mockConfigs{
+		varns: map[int]*objtype.VarNpcType{
+			3: {Type: objtype.ScriptVarTypeString},
+		},
+	}
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopString(); got != "hello" {
+		t.Errorf("PushVarn(STRING): got %q, want %q", got, "hello")
+	}
+}
+
+func TestPopVarn_StringType_PopsString(t *testing.T) {
+	sf := &ScriptFile{
+		Name: "pop_varn_str",
+		Opcodes: []Opcode{
+			OpPushConstantString, // push "abc"
+			OpPopVarn,            // write varn 7 = "abc"
+			OpReturn,
+		},
+		IntOperands:      []int32{0, 7, 0},
+		StringOperands:   []string{"abc", "", ""},
+		InstructionCount: 3,
+	}
+	npc := &mockNpc{}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	state.Configs = &mockConfigs{
+		varns: map[int]*objtype.VarNpcType{
+			7: {Type: objtype.ScriptVarTypeString},
+		},
+	}
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := npc.NpcVarNString(7); got != "abc" {
+		t.Errorf("npc.varnsString[7]: got %q, want %q", got, "abc")
+	}
+}
+
+func TestPushVarn_PlayerUidDefault_PushesMinusOne(t *testing.T) {
+	// Smoke-bind unit pin. A fresh-spawn NPC's player_uid varn reads -1
+	// (set by resetEntityForRespawn in T3) — combat gate skips.
+	// Here we mock the seeded state directly: mockNpc.varns[N] = -1.
+	sf := &ScriptFile{
+		Name:             "push_varn_pid",
+		Opcodes:          []Opcode{OpPushVarn, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	npc := &mockNpc{varns: map[int]int32{0: -1}}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	state.Configs = &mockConfigs{
+		varns: map[int]*objtype.VarNpcType{
+			0: {Type: objtype.ScriptVarTypePlayerUid},
+		},
+	}
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopInt(); got != -1 {
+		t.Errorf("PushVarn(PLAYER_UID, default-seeded -1): got %d, want -1", got)
+	}
+}
+
+func TestPushVarn_NilConfigsFallsBackToInt(t *testing.T) {
+	// DEVIATION-NAI-121-D3 pin: nil Configs → int dispatch.
+	sf := &ScriptFile{
+		Name:             "push_varn_nilconfigs",
+		Opcodes:          []Opcode{OpPushVarn, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	npc := &mockNpc{varns: map[int]int32{0: 99}}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	state.Configs = nil // explicit
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopInt(); got != 99 {
+		t.Errorf("PushVarn(nil Configs fallback): got %d, want 99", got)
 	}
 }
