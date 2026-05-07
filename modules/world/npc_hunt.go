@@ -288,7 +288,9 @@ func invTotalParam(inv *inventory.Inventory, param int,
 		}
 		if v, ok := ot.Params[uint32(param)]; ok {
 			if iv, ok := v.(uint32); ok {
-				total += int(iv)
+				// NAI-122 in-scope-stretch: sign-extend through int32.
+				// See paramLookup in pkg/script/handlers_config.go.
+				total += int(int32(iv))
 				continue
 			}
 		}

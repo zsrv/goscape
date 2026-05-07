@@ -80,7 +80,12 @@ func newTestConfigs() *mockConfigs {
 	coins.WearPos = -1
 	coins.WearPos2 = -1
 	coins.WearPos3 = -1
-	coins.Params = objtype.ParamMap{1: uint32(42)}
+	coins.Params = objtype.ParamMap{
+		1: uint32(42),
+		// 0xFFFFFFFC bit pattern = int32(-4). Encoded this way because
+		// DecodeParams reads param ints via Packet.G4() (uint32 return).
+		5: uint32(0xFFFFFFFC),
+	}
 	mc.objs[995] = coins
 
 	// ObjType id 1: a wearable item with wearpos set.
@@ -193,6 +198,16 @@ func newTestConfigs() *mockConfigs {
 	pIntDef.Type = objtype.ScriptVarTypeInt
 	pIntDef.DefaultInt = 77
 	mc.params[4] = pIntDef
+
+	// ParamType id 5: INT type, default 0. Used by the
+	// negative-int32-sign-preservation test (param value bytes
+	// 0xFFFFFFFC = int32(-4); RuneScape weapon configs encode
+	// negative attack/defence bonuses this way).
+	pIntNeg := objtype.NewParamType(5)
+	pIntNeg.DebugName = "p_int_neg"
+	pIntNeg.Type = objtype.ScriptVarTypeInt
+	pIntNeg.DefaultInt = 0
+	mc.params[5] = pIntNeg
 
 	return mc
 }
@@ -702,6 +717,22 @@ func TestOcParamMissingKeyStringFallback(t *testing.T) {
 func TestOcParamUnknownParamErrors(t *testing.T) {
 	mc := newTestConfigs()
 	runConfigOpExpectErr(t, mc, OpOcParam, []int{995, 999}, "unknown param id")
+}
+
+// TestOcParamInt_NegativeSignPreserved pins NAI-122 in-scope-stretch fix:
+// negative-int32 param values stored as their uint32 bit pattern (e.g.
+// 0xFFFFFFFC = int32(-4)) must pop as the signed int32 value, not as
+// the unsigned reading. Surfaced at NAI-122 smoke handoff: bronze-weapon
+// crush/slash/stab bonuses showed as 4294967292 / 4294967294 (= -4 / -2
+// as int32) in the equipment UI because paramLookup's `int(iv)`
+// conversion did not sign-extend.
+func TestOcParamInt_NegativeSignPreserved(t *testing.T) {
+	mc := newTestConfigs()
+	// Coins (995) param 5 holds the bit pattern for int32(-4).
+	state := runConfigOp(t, mc, OpOcParam, []int{995, 5})
+	if got := state.PopInt(); got != -4 {
+		t.Errorf("OC_PARAM(995, 5): got %d, want -4 (uint32 0xFFFFFFFC must sign-extend through int32)", got)
+	}
 }
 
 func TestOcCategory(t *testing.T) {

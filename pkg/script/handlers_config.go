@@ -35,7 +35,12 @@ func paramLookup(s *ScriptState, params objtype.ParamMap, paramID int) error {
 			if !ok {
 				return fmt.Errorf("param lookup: param %d expected uint32, got %T", paramID, v)
 			}
-			s.PushInt(int(iv))
+			// NAI-122 in-scope-stretch: param ints are stored as the
+			// raw uint32 wire bytes (DecodeParams reads via Packet.G4).
+			// Cast through int32 to sign-extend negative values
+			// (RuneScape weapon configs encode bonuses like -4 stab
+			// as 0xFFFFFFFC). Direct uint32→int loses the sign.
+			s.PushInt(int(int32(iv)))
 		}
 		return nil
 	}

@@ -246,7 +246,10 @@ func handleInvTotalParam(s *ScriptState) error {
 		}
 		if v, ok := ot.Params[uint32(param)]; ok {
 			if iv, ok := v.(uint32); ok {
-				total += int(iv)
+				// NAI-122 in-scope-stretch: sign-extend through int32
+				// so negative-encoded bonuses sum correctly. See
+				// paramLookup in handlers_config.go for the rationale.
+				total += int(int32(iv))
 				continue
 			}
 		}
