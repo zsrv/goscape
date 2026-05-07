@@ -892,7 +892,10 @@ func handleNpcRange(s *ScriptState) error {
 }
 
 // handleNpcStatAdd (NPC_STATADD, opcode 2538) boosts the active NPC's stat.
-// Pop order: percent (top), constant, stat (bottom). Formula clamped at 255:
+// Pop order: percent (top), constant, stat (bottom). All three are popped
+// before any validation runs so that validation order matches TS exactly:
+// stat → constant → percent (TS NpcOps.ts:495-497, popInts(3) destructured).
+// Formula clamped at 255:
 //
 //	added = current + trunc(constant + (base*percent)/100)
 //	npc.levels[stat] = min(added, 255)
@@ -903,15 +906,15 @@ func handleNpcStatAdd(s *ScriptState) error {
 		return err
 	}
 	percent := s.PopInt()
-	if err := checkNotNull(percent, "NPC_STATADD"); err != nil {
+	constant := s.PopInt()
+	stat := s.PopInt()
+	if err := checkNpcStatID(stat, "NPC_STATADD"); err != nil {
 		return err
 	}
-	constant := s.PopInt()
 	if err := checkNotNull(constant, "NPC_STATADD"); err != nil {
 		return err
 	}
-	stat := s.PopInt()
-	if err := checkNpcStatID(stat, "NPC_STATADD"); err != nil {
+	if err := checkNotNull(percent, "NPC_STATADD"); err != nil {
 		return err
 	}
 	base := s.ActiveNpc.NpcBaseStat(stat)
@@ -925,7 +928,8 @@ func handleNpcStatAdd(s *ScriptState) error {
 }
 
 // handleNpcStatSub (NPC_STATSUB, opcode 2540) drains the active NPC's stat.
-// Pop order matches NPC_STATADD. Formula clamped at 0:
+// Pop order matches NPC_STATADD; validation order is stat → constant →
+// percent to match TS NpcOps.ts:509-511 exactly. Formula clamped at 0:
 //
 //	subbed = current - trunc(constant + (base*percent)/100)
 //	npc.levels[stat] = max(subbed, 0)
@@ -936,15 +940,15 @@ func handleNpcStatSub(s *ScriptState) error {
 		return err
 	}
 	percent := s.PopInt()
-	if err := checkNotNull(percent, "NPC_STATSUB"); err != nil {
+	constant := s.PopInt()
+	stat := s.PopInt()
+	if err := checkNpcStatID(stat, "NPC_STATSUB"); err != nil {
 		return err
 	}
-	constant := s.PopInt()
 	if err := checkNotNull(constant, "NPC_STATSUB"); err != nil {
 		return err
 	}
-	stat := s.PopInt()
-	if err := checkNpcStatID(stat, "NPC_STATSUB"); err != nil {
+	if err := checkNotNull(percent, "NPC_STATSUB"); err != nil {
 		return err
 	}
 	base := s.ActiveNpc.NpcBaseStat(stat)

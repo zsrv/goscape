@@ -3183,6 +3183,22 @@ func TestNpcStatSub_ConstantNull(t *testing.T) {
 	}
 }
 
+func TestNpcStatSub_PercentNull(t *testing.T) {
+	npc := &mockNpc{baseLevels: map[int]int{0: 10}, levels: map[int]int{0: 5}}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		Pointers:    PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(0)
+	s.PushInt(5)
+	s.PushInt(-1) // null
+	if err := handleNpcStatSub(s); err == nil {
+		t.Error("NPC_STATSUB percent=-1: want NumberNotNull error")
+	}
+}
+
 // --- NAI-120 Bundle 2C: SPOTANIM_NPC tests ---
 
 func TestSpotAnimNpc_HappyPath(t *testing.T) {
