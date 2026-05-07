@@ -324,3 +324,154 @@ func TestResetEntityForRespawnInvokesUnfocus(t *testing.T) {
 		t.Errorf("faceAngleZ: got %d, want %d (Fine(n.z-1=%d, size=%d))", n.faceAngleZ, wantFZ, n.z-1, n.size)
 	}
 }
+
+// seedVarnTypes installs a minimal VarnTypeConfigs on s with the given
+// (type, name) tuples for resetEntityForRespawn seed-loop tests.
+func seedVarnTypes(s *Server, entries []struct {
+	Type objtype.ScriptVarType
+	Name string
+}) {
+	configs := make([]*objtype.VarNpcType, len(entries))
+	configNames := make(map[string]int, len(entries))
+	for i, e := range entries {
+		c := objtype.NewVarNpcType(i)
+		c.Type = e.Type
+		c.DebugName = e.Name
+		configs[i] = c
+		configNames[e.Name] = i
+	}
+	s.varnTypes = &objtype.VarnTypeConfigs{ConfigNames: configNames, Configs: configs}
+}
+
+func TestResetEntityForRespawn_SeedsIntToZero(t *testing.T) {
+	s := newTestServer(t)
+	seedVarnTypes(s, []struct {
+		Type objtype.ScriptVarType
+		Name string
+	}{
+		{Type: objtype.ScriptVarTypeInt, Name: "int_var"},
+	})
+
+	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 0}}
+	n := NewNpc(1, 0, 100, 100, 0, npcType)
+	n.varns = []int32{42} // pre-write to verify reset overwrites
+	s.resetEntityForRespawn(n)
+
+	if got := n.NpcVarN(0); got != 0 {
+		t.Errorf("INT-typed varn after reset: got %d, want 0", got)
+	}
+}
+
+func TestResetEntityForRespawn_SeedsPlayerUidToMinusOne(t *testing.T) {
+	s := newTestServer(t)
+	seedVarnTypes(s, []struct {
+		Type objtype.ScriptVarType
+		Name string
+	}{
+		{Type: objtype.ScriptVarTypePlayerUid, Name: "npc_macro_event_target"},
+	})
+
+	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 0}}
+	n := NewNpc(1, 0, 100, 100, 0, npcType)
+	s.resetEntityForRespawn(n)
+
+	if got := n.NpcVarN(0); got != -1 {
+		t.Errorf("player_uid-typed varn: got %d, want -1", got)
+	}
+}
+
+func TestResetEntityForRespawn_SeedsCoordToMinusOne(t *testing.T) {
+	s := newTestServer(t)
+	seedVarnTypes(s, []struct {
+		Type objtype.ScriptVarType
+		Name string
+	}{
+		{Type: objtype.ScriptVarTypeCoord, Name: "npc_start_coord"},
+	})
+
+	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 0}}
+	n := NewNpc(1, 0, 100, 100, 0, npcType)
+	s.resetEntityForRespawn(n)
+
+	if got := n.NpcVarN(0); got != -1 {
+		t.Errorf("coord-typed varn: got %d, want -1", got)
+	}
+}
+
+func TestResetEntityForRespawn_SeedsNpcUidToMinusOne(t *testing.T) {
+	s := newTestServer(t)
+	seedVarnTypes(s, []struct {
+		Type objtype.ScriptVarType
+		Name string
+	}{
+		{Type: objtype.ScriptVarTypeNpcUid, Name: "rantz_attacking_chompy"},
+	})
+
+	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 0}}
+	n := NewNpc(1, 0, 100, 100, 0, npcType)
+	s.resetEntityForRespawn(n)
+
+	if got := n.NpcVarN(0); got != -1 {
+		t.Errorf("npc_uid-typed varn: got %d, want -1", got)
+	}
+}
+
+func TestResetEntityForRespawn_SeedsStringToEmpty(t *testing.T) {
+	s := newTestServer(t)
+	seedVarnTypes(s, []struct {
+		Type objtype.ScriptVarType
+		Name string
+	}{
+		{Type: objtype.ScriptVarTypeString, Name: "string_var"},
+	})
+
+	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 0}}
+	n := NewNpc(1, 0, 100, 100, 0, npcType)
+	// Note: NpcVarNString accessor lands in T5; test reads field
+	// directly here. After T5, this can switch to NpcVarNString.
+	s.resetEntityForRespawn(n)
+
+	if len(n.varnsString) != 1 {
+		t.Fatalf("varnsString length: got %d, want 1", len(n.varnsString))
+	}
+	if got := n.varnsString[0]; got != "" {
+		t.Errorf("string-typed varn: got %q, want \"\"", got)
+	}
+}
+
+func TestResetEntityForRespawn_NilVarnTypes_NoOp(t *testing.T) {
+	s := newTestServer(t)
+	// Do NOT seed varnTypes; leave nil.
+
+	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 0}}
+	n := NewNpc(1, 0, 100, 100, 0, npcType)
+	s.resetEntityForRespawn(n)
+
+	if n.varns != nil {
+		t.Errorf("varns: got non-nil slice, want nil (defensive no-op)")
+	}
+}
+
+func TestAddNpc_FreshSpawn_PlayerUidVarnReadsMinusOne(t *testing.T) {
+	// THE smoke-bind unit pin. After Server.addNpc, a fresh-spawn NPC's
+	// player_uid-typed varn must read as -1 so the player_combat.rs2
+	// "It's not after you." gate skips.
+	s := newTestServer(t)
+	seedVarnTypes(s, []struct {
+		Type objtype.ScriptVarType
+		Name string
+	}{
+		{Type: objtype.ScriptVarTypePlayerUid, Name: "npc_macro_event_target"},
+	})
+
+	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 0}}
+	n := NewNpc(1, 0, 100, 100, 0, npcType)
+	// addNpc(n, duration, firstSpawn). firstSpawn=true allocates nid.
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+
+	if got := n.NpcVarN(0); got != -1 {
+		t.Errorf("smoke-bind: %%npc_macro_event_target on fresh-spawn NPC: got %d, want -1", got)
+	}
+}

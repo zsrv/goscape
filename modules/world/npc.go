@@ -31,8 +31,16 @@ type Npc struct {
 
 	// uid = (typeId << 16) | nid; computed in NewNpc and exposed via NpcUID.
 	uid int
-	// varns is per-NPC vars; nil until first SetNpcVarN write.
+	// varns is per-NPC int-typed vars; sized to len(server.varnTypes.Configs)
+	// at first resetEntityForRespawn (called inside Server.addNpc). Nil for
+	// raw &Npc{} test literals; reads via NpcVarN return 0 defensively. Per-
+	// type seeded by resetEntityForRespawn (TS Npc.ts:296-303) — INT→0,
+	// non-INT-non-STRING→-1.
 	varns []int32
+	// varnsString is the parallel STRING-typed slot array. Sized identically
+	// to varns; nil for raw &Npc{} test literals; reads via NpcVarNString
+	// return "" defensively. Mirrors TS Npc.varsString.
+	varnsString []string
 
 	// === lifecycle ===
 	lifecycle                  int

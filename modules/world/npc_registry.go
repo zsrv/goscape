@@ -142,6 +142,29 @@ func (s *Server) resetEntityForRespawn(n *Npc) {
 		n.huntRange = int(n.typ.HuntRange)
 		n.huntMode = n.typ.HuntMode
 	}
+
+	// TS Npc.resetEntity(true) varn re-seed loop (Npc.ts:296-306).
+	// Per-type defaults: STRING → "" (TS uses undefined; goscape uses
+	// zero-value string per DEVIATION-NAI-121-D2); INT → 0; everything
+	// else → -1. Defensive (DEVIATION-NAI-121-D3): if s.varnTypes is nil
+	// (test path) the loop is a no-op and reads fall back to slice
+	// defaults. (goscape defensive; TS skips this check.)
+	if s.varnTypes != nil {
+		if len(n.varns) != len(s.varnTypes.Configs) {
+			n.varns = make([]int32, len(s.varnTypes.Configs))
+			n.varnsString = make([]string, len(s.varnTypes.Configs))
+		}
+		for i, vt := range s.varnTypes.Configs {
+			switch vt.Type {
+			case objtype.ScriptVarTypeString:
+				n.varnsString[i] = ""
+			case objtype.ScriptVarTypeInt:
+				n.varns[i] = 0
+			default:
+				n.varns[i] = -1
+			}
+		}
+	}
 }
 
 // removeNpc marks n as logically absent from the world. Mirrors TS
