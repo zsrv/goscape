@@ -47,7 +47,9 @@ func (m *mockWorld) RemoveObj(obj ActiveObj) {}
 
 // NAI-115 T3: default no-op stub for OBJ_ADD/OBJ_ADDALL/INV_DROPSLOT
 // test fixture. Tests exercising AddObj override via fakeWorldAddObj.
-func (m *mockWorld) AddObj(level, x, z, typeID, count, duration, receiverID int) {}
+func (m *mockWorld) AddObj(level, x, z, typeID, count, duration, receiverID int) ActiveObj {
+	return nil
+}
 
 func TestPushVarp(t *testing.T) {
 	sf := &ScriptFile{

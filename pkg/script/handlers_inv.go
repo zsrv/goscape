@@ -506,9 +506,9 @@ func handleInvOtherTransmit(s *ScriptState) error {
 // (goscape: skipped; content can emit via OpWealthEvent 2131 — TS calls
 // addWealthEvent here.)
 //
-// NAI-115-D3 deviation: TS sets state.activeObj = floorObj and calls
-// pointerAdd(ActiveObj) after each AddObj. goscape's WorldVars.AddObj has
-// no world→state writeback path; omitted here (smoke-binding).
+// NAI-115-D3 retired in-bundle stretch: AddObj now returns ActiveObj;
+// state.activeObj writeback + pointerAdd(ActiveObj) wired below, matching
+// TS InvOps.ts:248-258.
 func handleInvDropSlot(s *ScriptState) error {
 	duration := s.PopInt()
 	slot := s.PopInt()
@@ -584,13 +584,22 @@ func handleInvDropSlot(s *ScriptState) error {
 	// Caller-only (private) drop: receiverID = active player's UID.
 	receiverID := s.Self.UID()
 
-	// Stackable branch: mirrors TS. NAI-115-D3: no activeObj writeback.
+	// Stackable branch: mirrors TS InvOps.ts:248-258.
+	// state.activeObj set after each spawn; last wins for non-stackable count=N.
 	if !objType.Stackable || completed == 1 {
 		for range completed {
-			s.World.AddObj(level, x, z, objID, 1, duration, receiverID)
+			obj := s.World.AddObj(level, x, z, objID, 1, duration, receiverID)
+			if obj != nil {
+				s.ActiveObj = obj
+				s.Pointers |= PtrActiveObj
+			}
 		}
 	} else {
-		s.World.AddObj(level, x, z, objID, completed, duration, receiverID)
+		obj := s.World.AddObj(level, x, z, objID, completed, duration, receiverID)
+		if obj != nil {
+			s.ActiveObj = obj
+			s.Pointers |= PtrActiveObj
+		}
 	}
 	return nil
 }

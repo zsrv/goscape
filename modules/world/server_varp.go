@@ -138,12 +138,13 @@ func (w worldVarsView) RemoveObj(obj script.ActiveObj) {
 // despawn-after-N-ticks scheduler hooked up). DESPAWN-lifecycle objs
 // (the firemaking smoke target) are unaffected because the smoke only
 // requires the obj to appear at all.
-func (w worldVarsView) AddObj(level, x, z, typeID, count, duration, receiverID int) {
+func (w worldVarsView) AddObj(level, x, z, typeID, count, duration, receiverID int) script.ActiveObj {
 	if w.s == nil {
-		return
+		return nil
 	}
 	obj := entitypkg.NewObj(level, x, z, entitypkg.LifecycleDespawn, typeID, count)
 	obj.ReceiverID = receiverID
 	w.s.AddObj(obj, receiverID)
 	_ = duration // NAI-115-D2: foundation gap
+	return obj
 }

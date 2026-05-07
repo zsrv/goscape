@@ -42,10 +42,9 @@ func checkObjStack(c int, op string) error {
 // + stackable branch). Pop order matches popInts(4): top-of-stack is
 // duration, then count, then objId, then coord at the bottom.
 //
-// NAI-115-D3 deviation: TS sets state.activeObj after each AddObj for
-// pointerAdd(ActiveObj). goscape's WorldVars.AddObj has no world→state
-// writeback path; smoke binds because the firemaking script does not
-// consume the obj-pointer in the same handler invocation.
+// Mirrors TS ObjOps.ts:20-92 (both opcodes share the validation chain
+// + stackable branch + state.activeObj writeback + pointerAdd(ActiveObj)).
+// (NAI-115-D3 retired in-bundle stretch: AddObj now returns ActiveObj.)
 func objAddCommon(s *ScriptState, op string, receiverID int) error {
 	duration := s.PopInt()
 	count := s.PopInt()
@@ -77,12 +76,23 @@ func objAddCommon(s *ScriptState, op string, receiverID int) error {
 		return nil
 	}
 
+	// Mirror TS: set state.activeObj on each spawn; pointerAdd(ActiveObj).
+	// For non-stackable count=N, this overwrites N times — last wins,
+	// matching TS Engine-TS/.../ObjOps.ts:50-54 loop.
 	if !objType.Stackable || count == 1 {
 		for range count {
-			s.World.AddObj(level, x, z, objId, 1, duration, receiverID)
+			obj := s.World.AddObj(level, x, z, objId, 1, duration, receiverID)
+			if obj != nil {
+				s.ActiveObj = obj
+				s.Pointers |= PtrActiveObj
+			}
 		}
 	} else {
-		s.World.AddObj(level, x, z, objId, count, duration, receiverID)
+		obj := s.World.AddObj(level, x, z, objId, count, duration, receiverID)
+		if obj != nil {
+			s.ActiveObj = obj
+			s.Pointers |= PtrActiveObj
+		}
 	}
 	return nil
 }

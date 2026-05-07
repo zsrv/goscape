@@ -74,8 +74,9 @@ type addObjCall struct {
 	level, x, z, typeID, count, duration, receiverID int
 }
 
-func (f *fakeWorldAddObj) AddObj(level, x, z, typeID, count, duration, receiverID int) {
+func (f *fakeWorldAddObj) AddObj(level, x, z, typeID, count, duration, receiverID int) ActiveObj {
 	f.addedCalls = append(f.addedCalls, addObjCall{level, x, z, typeID, count, duration, receiverID})
+	return &mockActiveObj{objType: typeID, x: x, z: z, level: level}
 }
 
 // withObjForObjAdd registers an ObjType in the mockConfigs with the
@@ -275,5 +276,34 @@ func TestHandleObjAddAllNonStackableSplits(t *testing.T) {
 		if c.count != 1 {
 			t.Errorf("OBJ_ADDALL call[%d] count: got %d, want 1", i, c.count)
 		}
+	}
+}
+
+// TestHandleObjAddSetsActiveObjAndPointer pins NAI-115-D3 closure:
+// OBJ_ADD must set s.ActiveObj and PtrActiveObj after the spawn.
+func TestHandleObjAddSetsActiveObjAndPointer(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	w := newFakeWorldMembers()
+	s.World = w
+	s.Configs = withObjForObjAdd(newTestConfigs(), 590, true, false, 0)
+	s.Self = &mockPlayer{uidValue: 12345}
+
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(590)
+	s.PushInt(1)
+	s.PushInt(100)
+
+	if err := handleObjAdd(s); err != nil {
+		t.Fatalf("handleObjAdd returned error: %v", err)
+	}
+	if s.ActiveObj == nil {
+		t.Fatalf("OBJ_ADD: expected s.ActiveObj set, got nil")
+	}
+	if s.Pointers&PtrActiveObj == 0 {
+		t.Errorf("OBJ_ADD: expected PtrActiveObj set in Pointers")
+	}
+	x, z, level := s.ActiveObj.Coords()
+	if x != 3200 || z != 3200 || level != 0 {
+		t.Errorf("OBJ_ADD: ActiveObj coords got (%d,%d,%d), want (3200,3200,0)", x, z, level)
 	}
 }

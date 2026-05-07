@@ -88,9 +88,11 @@ type WorldVars interface {
 
 	// AddObj routes a ground-item spawn. receiverID is the owning
 	// player's UID for caller-only drops, or zone.PublicReceiver (-1)
-	// for broadcast. Used by OBJ_ADD (per-caller), OBJ_ADDALL
-	// (broadcast), and INV_DROPSLOT.
-	AddObj(level, x, z, typeID, count, duration, receiverID int)
+	// for broadcast. Returns the just-spawned ActiveObj so handlers can
+	// write back to state.ActiveObj and pointerAdd(ActiveObj). Mirrors
+	// TS World.addObj which returns the constructed Obj.
+	// Used by OBJ_ADD, OBJ_ADDALL, INV_DROPSLOT.
+	AddObj(level, x, z, typeID, count, duration, receiverID int) ActiveObj
 }
 
 // InvLookup is the inventory resolution surface for INV_* handlers.

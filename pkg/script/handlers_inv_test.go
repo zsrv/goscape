@@ -827,3 +827,44 @@ func TestHandleInvDropSlotSharedScopeBypassesProtect(t *testing.T) {
 		t.Errorf("expected 1 AddObj call, got %d", len(w.addedCalls))
 	}
 }
+
+// TestHandleInvDropSlotSetsActiveObjAndPointer pins NAI-115-D3 closure:
+// INV_DROPSLOT must set s.ActiveObj and PtrActiveObj after the drop spawn.
+func TestHandleInvDropSlotSetsActiveObjAndPointer(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	w := newFakeWorldMembers()
+	s.World = w
+	s.Self = &mockPlayer{uidValue: 12345}
+	s.Pointers |= PtrActivePlayer
+	s.Protect = true
+
+	mc := newTestInvConfigs()
+	invType := objtype.NewInvType(93)
+	invType.Size = 28
+	invType.Protect = true
+	invType.Scope = objtype.InvTypeScopeTemp
+	mc.invs[93] = invType
+	logs := objtype.NewObjType(1511)
+	logs.Stackable = false
+	mc.objs[1511] = logs
+	s.Configs = mc
+
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Set(2, &inventory.Item{Id: 1511, Count: 1})
+	s.Inv = &mockInvLookup{invs: map[int]*inventory.Inventory{93: inv}}
+
+	s.PushInt(93)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(2)
+	s.PushInt(100)
+
+	if err := handleInvDropSlot(s); err != nil {
+		t.Fatalf("handleInvDropSlot returned error: %v", err)
+	}
+	if s.ActiveObj == nil {
+		t.Fatalf("INV_DROPSLOT: expected s.ActiveObj set, got nil")
+	}
+	if s.Pointers&PtrActiveObj == 0 {
+		t.Errorf("INV_DROPSLOT: expected PtrActiveObj set in Pointers")
+	}
+}
