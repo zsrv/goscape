@@ -3558,3 +3558,101 @@ func TestTextGenderEmptyStrings(t *testing.T) {
 		t.Errorf("pushed string: got %q, want empty string", got)
 	}
 }
+
+// --- NAI-115 T7: P_OPOBJ handler tests -----------------------------------
+
+func TestHandleP_OpObjHappyPath(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	pl := &mockPlayer{uidValue: 12345}
+	s.Self = pl
+	s.Pointers |= PtrActivePlayer
+	s.Protect = true
+	active := &mockActiveObj{objType: 590, x: 3200, z: 3200, level: 0}
+	s.ActiveObj = active
+
+	mc := newTestConfigs()
+	logs := objtype.NewObjType(590)
+	logs.Op = make([]string, 5)
+	logs.Op[0] = "Light"
+	mc.objs[590] = logs
+	s.Configs = mc
+
+	s.PushInt(1) // op = 1
+
+	if err := handleP_OpObj(s); err != nil {
+		t.Fatalf("handleP_OpObj returned error: %v", err)
+	}
+	if pl.stopActionCalls != 1 {
+		t.Errorf("expected 1 StopAction call, got %d", pl.stopActionCalls)
+	}
+	if len(pl.queueWaypointCalls) != 1 || pl.queueWaypointCalls[0] != (struct{ x, z int }{x: 3200, z: 3200}) {
+		t.Errorf("QueueWaypoint args: got %+v, want [{3200, 3200}]", pl.queueWaypointCalls)
+	}
+	if len(pl.objOpCalls) != 1 || pl.objOpCalls[0].op != 1 {
+		t.Errorf("SetInteractionScriptObj: got %+v, want 1 call op=1", pl.objOpCalls)
+	}
+}
+
+func TestHandleP_OpObjOutOfRange(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	pl := &mockPlayer{uidValue: 12345}
+	s.Self = pl
+	s.Pointers |= PtrActivePlayer
+	s.Protect = true
+	s.ActiveObj = &mockActiveObj{objType: 590, x: 0, z: 0, level: 0}
+
+	mc := newTestConfigs()
+	logs := objtype.NewObjType(590)
+	logs.Op = make([]string, 5)
+	mc.objs[590] = logs
+	s.Configs = mc
+
+	s.PushInt(6) // op = 6 → out of range (1..5)
+	if err := handleP_OpObj(s); err == nil {
+		t.Errorf("P_OPOBJ op=6: expected error, got nil")
+	}
+}
+
+func TestHandleP_OpObjMissingOpEntryShortCircuits(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	pl := &mockPlayer{uidValue: 12345}
+	s.Self = pl
+	s.Pointers |= PtrActivePlayer
+	s.Protect = true
+	s.ActiveObj = &mockActiveObj{objType: 590, x: 0, z: 0, level: 0}
+
+	mc := newTestConfigs()
+	logs := objtype.NewObjType(590)
+	logs.Op = make([]string, 5) // empty op slots → silent skip
+	mc.objs[590] = logs
+	s.Configs = mc
+
+	s.PushInt(3) // op = 3 → Op[2] empty
+	if err := handleP_OpObj(s); err != nil {
+		t.Fatalf("P_OPOBJ missing op entry: expected nil-error short-circuit, got %v", err)
+	}
+	if len(pl.objOpCalls) != 0 {
+		t.Errorf("P_OPOBJ missing op entry: expected 0 SetInteractionScriptObj calls, got %d", len(pl.objOpCalls))
+	}
+}
+
+func TestHandleP_OpObjRequiresProtect(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	pl := &mockPlayer{uidValue: 12345}
+	s.Self = pl
+	s.Pointers |= PtrActivePlayer
+	s.Protect = false // not protected — gate must fire
+	s.ActiveObj = &mockActiveObj{objType: 590, x: 0, z: 0, level: 0}
+
+	mc := newTestConfigs()
+	logs := objtype.NewObjType(590)
+	logs.Op = make([]string, 5)
+	logs.Op[0] = "Light"
+	mc.objs[590] = logs
+	s.Configs = mc
+
+	s.PushInt(1)
+	if err := handleP_OpObj(s); err == nil {
+		t.Errorf("P_OPOBJ without s.Protect: expected error, got nil")
+	}
+}

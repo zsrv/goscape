@@ -274,6 +274,13 @@ type ActivePlayer interface {
 	// Matches TS Player.stopAction().
 	StopAction()
 
+	// QueueWaypoint clears any existing path and sets a single
+	// destination on the active player. Mirrors TS Player.queueWaypoint
+	// (Engine-TS PathingEntity.queueWaypoint). NAI-115 T7: used by
+	// P_OPOBJ to walk the player toward the active obj's tile before
+	// SCRIPT-anchoring the interaction.
+	QueueWaypoint(x, z int)
+
 	// ClearPendingAction clears the current interaction + pending action
 	// + closes any open modal. Walk queue is preserved.
 	ClearPendingAction()
@@ -423,6 +430,13 @@ type ActivePlayer interface {
 	// ApNpc<op> as a script-queued interaction. Matches TS
 	// PlayerOps.ts:404-415.
 	SetInteractionScriptNpc(npc ActiveNpc, op int)
+
+	// SetInteractionScriptObj anchors the player on `obj` with trigger
+	// APOBJ<op> as a script-queued interaction (TS Interaction.SCRIPT).
+	// Mirrors TS Player.setInteraction
+	// (Interaction.SCRIPT, obj, ServerTriggerType.APOBJ1 + (op-1))
+	// at PlayerOps.ts:990-1006. NAI-115 T7.
+	SetInteractionScriptObj(obj ActiveObj, op int)
 
 	// S7a: protected-binding gate.
 

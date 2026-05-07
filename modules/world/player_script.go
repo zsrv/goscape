@@ -946,6 +946,23 @@ func (p *Player) SetInteractionScriptNpc(npc script.ActiveNpc, op int) {
 	p.SetInteraction(InteractionScript, realNpc, op, -1)
 }
 
+// QueueWaypoint implements script.ActivePlayer.QueueWaypoint by
+// delegating to the package-private queueWaypoint at movement.go.
+// NAI-115 T7.
+func (p *Player) QueueWaypoint(x, z int) { p.queueWaypoint(x, z) }
+
+// SetInteractionScriptObj implements script.ActivePlayer. Type-asserts
+// the script-side ActiveObj to *entity.Obj and anchors the player
+// with InteractionScript + APOBJ<op>. Silently no-ops if the obj
+// isn't a real *entity.Obj. NAI-115 T7.
+func (p *Player) SetInteractionScriptObj(obj script.ActiveObj, op int) {
+	realObj, ok := obj.(*entitypkg.Obj)
+	if !ok {
+		return
+	}
+	p.SetInteraction(InteractionScript, realObj, op, -1)
+}
+
 // LowMemory returns the player's low-memory flag as plumbed from the
 // RS2 login request (req.LowMemory) through client.lowMemory and
 // copied onto the Player at newPlayer().

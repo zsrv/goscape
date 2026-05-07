@@ -254,6 +254,13 @@ type mockPlayer struct {
 	lastSetInteractionScriptLoc []mockLocOp
 	lastSetInteractionScriptNpc []mockNpcOp
 
+	// NAI-115 T7: P_OPOBJ-side captures.
+	queueWaypointCalls []struct{ x, z int }
+	objOpCalls         []struct {
+		obj ActiveObj
+		op  int
+	}
+
 	// S7a: canAccess return value. Defaults to false; tests that exercise
 	// P_FINDUID positive paths set this to true explicitly.
 	canAccessValue bool
@@ -647,6 +654,17 @@ func (m *mockPlayer) SetInteractionScriptLoc(loc ActiveLoc, op int) {
 
 func (m *mockPlayer) SetInteractionScriptNpc(npc ActiveNpc, op int) {
 	m.lastSetInteractionScriptNpc = append(m.lastSetInteractionScriptNpc, mockNpcOp{Npc: npc, Op: op})
+}
+
+func (m *mockPlayer) QueueWaypoint(x, z int) {
+	m.queueWaypointCalls = append(m.queueWaypointCalls, struct{ x, z int }{x, z})
+}
+
+func (m *mockPlayer) SetInteractionScriptObj(obj ActiveObj, op int) {
+	m.objOpCalls = append(m.objOpCalls, struct {
+		obj ActiveObj
+		op  int
+	}{obj, op})
 }
 
 // mockNpcLookup is a test double for script.NpcLookup. Tests set the

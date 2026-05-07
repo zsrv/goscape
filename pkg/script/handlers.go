@@ -360,6 +360,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// S6v: p_op* re-anchor ops.
 	OpPOpLoc: handleP_OpLoc,
 	OpPOpNpc: handleP_OpNpc,
+	OpPOpObj: handleP_OpObj,
 
 	// S5i: timer ops.
 	OpSetTimer:       handleSetTimer,

@@ -1127,3 +1127,42 @@ func handleTextGender(s *ScriptState) error {
 	}
 	return nil
 }
+
+// handleP_OpObj (P_OPOBJ, opcode 2080) re-anchors the active player on
+// the active obj with AP trigger APOBJ<op>. Pops 1-based op, validates
+// [1,5], looks up ObjType.Op[op-1] and silently returns if empty.
+// Else: StopAction → QueueWaypoint to obj tile → SetInteractionScriptObj.
+//
+// Mirrors TS PlayerOps.ts:990-1006 (op subtracted to 0-based in TS;
+// goscape keeps 1-based throughout for consistency with sibling
+// SetInteractionScript* signatures).
+func handleP_OpObj(s *ScriptState) error {
+	if err := requireProtectedActivePlayer(s, "P_OPOBJ"); err != nil {
+		return err
+	}
+	if err := requireActiveObj(s, "P_OPOBJ"); err != nil {
+		return err
+	}
+	op := s.PopInt()
+	if err := checkNotNull(op, "P_OPOBJ"); err != nil {
+		return err
+	}
+	if op < 1 || op > 5 {
+		return fmt.Errorf("P_OPOBJ: invalid op %d (must be 1..5)", op)
+	}
+	if s.Configs == nil {
+		return errors.New("P_OPOBJ: no configs")
+	}
+	objType := s.Configs.ObjType(s.ActiveObj.ObjType())
+	if objType == nil {
+		return fmt.Errorf("P_OPOBJ: invalid active obj type (%d)", s.ActiveObj.ObjType())
+	}
+	if op-1 >= len(objType.Op) || objType.Op[op-1] == "" {
+		return nil // TS: type.op[op-1] === null → silent skip
+	}
+	x, z, _ := s.ActiveObj.Coords()
+	s.Self.StopAction()
+	s.Self.QueueWaypoint(x, z)
+	s.Self.SetInteractionScriptObj(s.ActiveObj, op)
+	return nil
+}
