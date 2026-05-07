@@ -257,13 +257,11 @@ non-nil error.)
 
 ### 5.4 Table-coverage extensions (NEW)
 
-Add `{"P_RUN", OpPRun}` and `{"RUNENERGY", OpRunEnergy}` to:
-
-- `TestHandlersRequireActivePlayer` table at `handlers_player_test.go:769-806`
-  (every handler must error on `Self == nil`).
-
-If a parallel "all-handlers-dispatch-without-panic" enumeration exists in
-the test file (sister to the existing dispatch coverage), add both ops.
+Add `{"P_RUN", OpPRun}` and `{"RUNENERGY", OpRunEnergy}` to the
+`TestHandlersRequireActivePlayer` table at `handlers_player_test.go:769-806`
+— the file's single shared "every handler must error on `Self == nil`"
+enumeration. (Verified at HEAD `6658a0d`: no second parallel
+all-handlers-dispatch enumeration exists in the test file.)
 
 ### 5.5 mockPlayer extensions — `pkg/script/runner_test.go`
 
