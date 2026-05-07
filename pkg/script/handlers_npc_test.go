@@ -208,6 +208,8 @@ type mockNpc struct {
 	setNpcStatCalls []struct{ stat, level int }
 	// NAI-120 Bundle 2C: SPOTANIM_NPC capture.
 	playSpotAnimCalls []struct{ id, height, delay int }
+	// NAI-120 Bundle 2D: NPC_HEROPOINTS capture.
+	addHeroPointsCalls []struct{ playerUID, amount int }
 	varns             map[int]int32
 	sayCalls                           []string
 	animCalls                          []struct{ id, delay int }
@@ -279,6 +281,10 @@ func (m *mockNpc) SetNpcStat(stat, level int) {
 
 func (m *mockNpc) PlaySpotAnim(id, height, delay int) {
 	m.playSpotAnimCalls = append(m.playSpotAnimCalls, struct{ id, height, delay int }{id, height, delay})
+}
+
+func (m *mockNpc) AddHeroPoints(playerUID, amount int) {
+	m.addHeroPointsCalls = append(m.addHeroPointsCalls, struct{ playerUID, amount int }{playerUID, amount})
 }
 
 func (m *mockNpc) NpcVarN(id int) int32 {
@@ -3293,5 +3299,94 @@ func TestSpotAnimNpc_InvalidSpotAnim(t *testing.T) {
 	s.PushInt(30)
 	if err := handleSpotAnimNpc(s); err == nil {
 		t.Error("SPOTANIM_NPC invalid id: want SpotAnimTypeValid error")
+	}
+}
+
+// --- NAI-120 Bundle 2D: NPC_HEROPOINTS handler tests -----------------------
+
+func TestNpcHeroPoints_HappyPath(t *testing.T) {
+	mp := &mockPlayer{uidValue: 12345}
+	npc := &mockNpc{}
+	s := &ScriptState{
+		Self:        mp,
+		ActiveNpc:   npc,
+		Pointers:    PtrActivePlayer | PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(42)
+	if err := handleNpcHeroPoints(s); err != nil {
+		t.Fatalf("NPC_HEROPOINTS happy: unexpected error %v", err)
+	}
+	if got := len(npc.addHeroPointsCalls); got != 1 {
+		t.Fatalf("NPC_HEROPOINTS happy: AddHeroPoints calls = %d, want 1", got)
+	}
+	call := npc.addHeroPointsCalls[0]
+	if call.playerUID != 12345 || call.amount != 42 {
+		t.Errorf("NPC_HEROPOINTS happy: AddHeroPoints(%d,%d), want (12345,42)", call.playerUID, call.amount)
+	}
+}
+
+func TestNpcHeroPoints_NoActivePlayer(t *testing.T) {
+	npc := &mockNpc{}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		Pointers:    PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(42)
+	if err := handleNpcHeroPoints(s); err == nil {
+		t.Error("NPC_HEROPOINTS no active player: want error")
+	}
+}
+
+func TestNpcHeroPoints_NoActiveNpc(t *testing.T) {
+	mp := &mockPlayer{uidValue: 1}
+	s := &ScriptState{
+		Self:        mp,
+		Pointers:    PtrActivePlayer,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(42)
+	if err := handleNpcHeroPoints(s); err == nil {
+		t.Error("NPC_HEROPOINTS no active npc: want error")
+	}
+}
+
+func TestNpcHeroPoints_AmountNull(t *testing.T) {
+	mp := &mockPlayer{uidValue: 1}
+	npc := &mockNpc{}
+	s := &ScriptState{
+		Self:        mp,
+		ActiveNpc:   npc,
+		Pointers:    PtrActivePlayer | PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(-1)
+	if err := handleNpcHeroPoints(s); err == nil {
+		t.Error("NPC_HEROPOINTS amount=-1: want NumberNotNull error")
+	}
+}
+
+func TestNpcHeroPoints_AmountZero(t *testing.T) {
+	mp := &mockPlayer{uidValue: 1}
+	npc := &mockNpc{}
+	s := &ScriptState{
+		Self:        mp,
+		ActiveNpc:   npc,
+		Pointers:    PtrActivePlayer | PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(0)
+	if err := handleNpcHeroPoints(s); err != nil {
+		t.Fatalf("NPC_HEROPOINTS amount=0: unexpected error %v (NumberNotNull only rejects -1)", err)
+	}
+	// Handler still calls AddHeroPoints(uid, 0); the ledger no-ops on amount=0.
+	if got := len(npc.addHeroPointsCalls); got != 1 {
+		t.Errorf("NPC_HEROPOINTS amount=0: AddHeroPoints calls = %d, want 1", got)
 	}
 }

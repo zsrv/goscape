@@ -990,3 +990,30 @@ func handleSpotAnimNpc(s *ScriptState) error {
 	s.ActiveNpc.PlaySpotAnim(id, height, delay)
 	return nil
 }
+
+// handleNpcHeroPoints (NPC_HEROPOINTS, opcode 2524) credits the active
+// player's UID with `amount` hero points on the active NPC's ledger. Used
+// for damage-contribution loot routing on NPC death. Mirrors TS
+// NpcOps.ts:477-480 (https://x.com/JagexAsh/status/1704492467226091853):
+//
+//	state.activeNpc.heroPoints.addHero(state.activePlayer.hash64,
+//	    check(state.popInt(), NumberNotNull));
+//
+// Gate: ProtectedActivePlayer NOT required — TS uses plain ActivePlayer +
+// ActiveNpc. goscape uses player UID instead of TS hash64 (player UID is
+// the goscape analog of the hash64 player identity token).
+// NAI-120 Bundle 2D.
+func handleNpcHeroPoints(s *ScriptState) error {
+	if err := requireActivePlayer(s, "NPC_HEROPOINTS"); err != nil {
+		return err
+	}
+	if err := requireActiveNpc(s, "NPC_HEROPOINTS"); err != nil {
+		return err
+	}
+	amount := s.PopInt()
+	if err := checkNotNull(amount, "NPC_HEROPOINTS"); err != nil {
+		return err
+	}
+	s.ActiveNpc.AddHeroPoints(s.Self.UID(), amount)
+	return nil
+}

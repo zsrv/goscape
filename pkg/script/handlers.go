@@ -425,6 +425,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpNpcStatSub:   handleNpcStatSub,
 	OpSpotAnimNpc:  handleSpotAnimNpc,
 
+	// NAI-120 Bundle 2D: NPC hero-point ledger write.
+	OpNpcHeroPoints: handleNpcHeroPoints,
+
 	// NPC find (S7f) — closest-single cluster.
 	OpNpcFind:      handleNpcFind,
 	OpNpcFindCat:   handleNpcFindCat,

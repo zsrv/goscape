@@ -59,6 +59,14 @@ func (n *Npc) NpcBaseStat(stat int) int {
 	return n.baseLevels[stat]
 }
 
+// AddHeroPoints implements script.ActiveNpc. Credits amount to playerUID on
+// the NPC's hero-point ledger. amount < 1 is a no-op (delegated to
+// HeroPoints.AddHero). Mirrors TS Npc.heroPoints.addHero(...) at
+// NpcOps.ts:479. NAI-120 Bundle 2D.
+func (n *Npc) AddHeroPoints(playerUID, amount int) {
+	n.heroPoints.AddHero(playerUID, amount)
+}
+
 // SetNpcStat writes the NPC's current (boosted) stat. OOB drops silently.
 // NAI-120 Bundle 2C.
 func (n *Npc) SetNpcStat(stat, level int) {

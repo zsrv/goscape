@@ -73,6 +73,7 @@ func (m *mockActiveNpc) SetTargetOp(_ int)                                     {
 func (m *mockActiveNpc) SetInteractionScript(_ any, _ int)                     {}
 func (m *mockActiveNpc) SetNpcStat(_, _ int)                                   {}
 func (m *mockActiveNpc) PlaySpotAnim(_, _, _ int)                              {}
+func (m *mockActiveNpc) AddHeroPoints(_, _ int)                                {}
 
 // newSingleOp builds a single-opcode script plus its trailing OpReturn,
 // so handler tests can run a handler in isolation and observe the state

@@ -782,6 +782,12 @@ type ActiveNpc interface {
 	// concrete world-side entity. Pass nil to no-op (caller handles
 	// null-target as resetDefaults).
 	SetInteractionScript(target any, mode int)
+
+	// AddHeroPoints credits `amount` to `playerUID` on the NPC's hero-point
+	// ledger. Used by NPC_HEROPOINTS (opcode 2524) to track damage
+	// contributions for loot routing. amount < 1 is a no-op (TS short-circuit).
+	// Mirrors TS Npc.heroPoints.addHero(...) at NpcOps.ts:479. NAI-120 Bundle 2D.
+	AddHeroPoints(playerUID, amount int)
 }
 
 // ActiveLoc is the surface that LOC_* opcodes use to read the loc

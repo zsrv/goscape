@@ -135,6 +135,10 @@ type Npc struct {
 	spotanimID, spotanimHeight, spotanimDelay int
 	faceSquareX, faceSquareZ                  int
 
+	// heroPoints tracks per-player damage contributions for loot routing on
+	// NPC death. Initialised to cap=16 in NewNpc. NAI-120 Bundle 2D.
+	heroPoints HeroPoints
+
 	// OrientationX, OrientationZ default to -1 per upstream npc.rs:16-17.
 	// See NAI-30-D1 (orientation field plumbed without producer).
 	OrientationX, OrientationZ int
@@ -199,6 +203,7 @@ func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
 		OrientationZ:    -1,
 		changeTypeID:    -1,
 		entitymask:      rsbuf.NpcMaskFaceEntity,
+		heroPoints:      NewHeroPoints(16), // NAI-120 Bundle 2D
 	}
 	n.targetOp = n.defaultMode()
 	// NAI-17: seed levels[]/baseLevels[] from typ.Stats (mirrors TS Npc.ts:90-94).
