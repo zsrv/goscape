@@ -162,9 +162,6 @@ func (c serverConfigsView) VarpType(id int) (objtype.ScriptVarType, bool) {
 		return objtype.ScriptVarTypeInt, false
 	}
 	cfg := c.s.varpTypes.Configs[id]
-	if cfg == nil {
-		return objtype.ScriptVarTypeInt, false
-	}
 	return cfg.Type, cfg.Protect
 }
 
@@ -175,9 +172,5 @@ func (c serverConfigsView) VarnType(id int) objtype.ScriptVarType {
 	if id < 0 || id >= len(c.s.varnTypes.Configs) {
 		return objtype.ScriptVarTypeInt
 	}
-	cfg := c.s.varnTypes.Configs[id]
-	if cfg == nil {
-		return objtype.ScriptVarTypeInt
-	}
-	return cfg.Type
+	return c.s.varnTypes.Configs[id].Type
 }
