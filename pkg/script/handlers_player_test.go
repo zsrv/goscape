@@ -3765,3 +3765,266 @@ func TestHandleLowMemNoActivePlayer(t *testing.T) {
 		t.Errorf("LOWMEM no active player: expected error, got nil")
 	}
 }
+
+// -- BUSY2 tests (NAI-120 Bundle 2B) -----------------------------------------
+
+func TestBusy2_HasInteraction(t *testing.T) {
+	mp := &mockPlayer{hasInteractionValue: true}
+	s := &ScriptState{
+		Self:        mp,
+		Pointers:    PtrActivePlayer,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	if err := handleBusy2(s); err != nil {
+		t.Fatalf("BUSY2 hasInteraction: unexpected error %v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("BUSY2 hasInteraction: got %d, want 1", got)
+	}
+}
+
+func TestBusy2_HasWaypoints(t *testing.T) {
+	mp := &mockPlayer{hasWaypointsValue: true}
+	s := &ScriptState{
+		Self:        mp,
+		Pointers:    PtrActivePlayer,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	if err := handleBusy2(s); err != nil {
+		t.Fatalf("BUSY2 hasWaypoints: unexpected error %v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("BUSY2 hasWaypoints: got %d, want 1", got)
+	}
+}
+
+func TestBusy2_NeitherSet(t *testing.T) {
+	mp := &mockPlayer{}
+	s := &ScriptState{
+		Self:        mp,
+		Pointers:    PtrActivePlayer,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	if err := handleBusy2(s); err != nil {
+		t.Fatalf("BUSY2 neither: unexpected error %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("BUSY2 neither: got %d, want 0", got)
+	}
+}
+
+func TestBusy2_NoActivePlayer(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	if err := handleBusy2(s); err == nil {
+		t.Error("BUSY2 with no active player: want error")
+	}
+}
+
+// -- P_OPNPCT tests (NAI-120 Bundle 2B) --------------------------------------
+
+func TestPOpNpcT_HappyPath(t *testing.T) {
+	mp := &mockPlayer{}
+	npc := &mockNpc{typeID: 42, nid: 7}
+	s := &ScriptState{
+		Self:        mp,
+		ActiveNpc:   npc,
+		Pointers:    PtrActivePlayer | PtrActiveNpc,
+		Protect:     true,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(1234) // spellCom
+	if err := handlePOpNpcT(s); err != nil {
+		t.Fatalf("P_OPNPCT happy: unexpected error %v", err)
+	}
+	if mp.stopActionCalls != 1 {
+		t.Errorf("P_OPNPCT happy: stopActionCalls = %d, want 1", mp.stopActionCalls)
+	}
+	if got := len(mp.lastSetInteractionScriptNpcT); got != 1 {
+		t.Fatalf("P_OPNPCT happy: SetInteractionScriptNpcT calls = %d, want 1", got)
+	}
+	call := mp.lastSetInteractionScriptNpcT[0]
+	if call.npc != npc {
+		t.Errorf("P_OPNPCT happy: npc = %v, want %v", call.npc, npc)
+	}
+	if call.spellCom != 1234 {
+		t.Errorf("P_OPNPCT happy: spellCom = %d, want 1234", call.spellCom)
+	}
+}
+
+func TestPOpNpcT_NotProtected(t *testing.T) {
+	mp := &mockPlayer{}
+	npc := &mockNpc{typeID: 42, nid: 7}
+	s := &ScriptState{
+		Self:        mp,
+		ActiveNpc:   npc,
+		Pointers:    PtrActivePlayer | PtrActiveNpc,
+		Protect:     false, // not protected
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(1234)
+	if err := handlePOpNpcT(s); err == nil {
+		t.Error("P_OPNPCT not-protected: want error")
+	}
+}
+
+func TestPOpNpcT_NoActiveNpc(t *testing.T) {
+	mp := &mockPlayer{}
+	s := &ScriptState{
+		Self:        mp,
+		Pointers:    PtrActivePlayer,
+		Protect:     true,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(1234)
+	if err := handlePOpNpcT(s); err == nil {
+		t.Error("P_OPNPCT no active npc: want error")
+	}
+}
+
+func TestPOpNpcT_NullSpellCom(t *testing.T) {
+	mp := &mockPlayer{}
+	npc := &mockNpc{typeID: 42, nid: 7}
+	s := &ScriptState{
+		Self:        mp,
+		ActiveNpc:   npc,
+		Pointers:    PtrActivePlayer | PtrActiveNpc,
+		Protect:     true,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(-1) // null sentinel
+	if err := handlePOpNpcT(s); err == nil {
+		t.Error("P_OPNPCT spellCom=-1: want NumberNotNull error")
+	}
+}
+
+// -- P_OPPLAYER tests (NAI-120 Bundle 2B) ------------------------------------
+
+func TestPOpPlayer_HappyPath(t *testing.T) {
+	mp := &mockPlayer{}
+	mp2 := &mockPlayer{}
+	s := &ScriptState{
+		Self:        mp,
+		Self2:       mp2,
+		Pointers:    PtrActivePlayer | PtrActivePlayer2,
+		Protect:     true,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(2) // op
+	if err := handlePOpPlayer(s); err != nil {
+		t.Fatalf("P_OPPLAYER happy: unexpected error %v", err)
+	}
+	if mp.stopActionCalls != 1 {
+		t.Errorf("P_OPPLAYER happy: stopActionCalls = %d, want 1", mp.stopActionCalls)
+	}
+	if got := len(mp.lastSetInteractionScriptPlayer); got != 1 {
+		t.Fatalf("P_OPPLAYER happy: SetInteractionScriptPlayer calls = %d, want 1", got)
+	}
+	call := mp.lastSetInteractionScriptPlayer[0]
+	if call.player2 != mp2 {
+		t.Errorf("P_OPPLAYER happy: player2 = %v, want %v", call.player2, mp2)
+	}
+	if call.op != 2 {
+		t.Errorf("P_OPPLAYER happy: op = %d, want 2", call.op)
+	}
+}
+
+func TestPOpPlayer_NoSelf2_SilentReturn(t *testing.T) {
+	mp := &mockPlayer{}
+	s := &ScriptState{
+		Self:        mp,
+		Self2:       nil,
+		Pointers:    PtrActivePlayer,
+		Protect:     true,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(1)
+	if err := handlePOpPlayer(s); err != nil {
+		t.Fatalf("P_OPPLAYER no Self2: want silent return, got error %v", err)
+	}
+	if mp.stopActionCalls != 0 {
+		t.Errorf("P_OPPLAYER no Self2: stopActionCalls = %d, want 0 (no-op)", mp.stopActionCalls)
+	}
+	if got := len(mp.lastSetInteractionScriptPlayer); got != 0 {
+		t.Errorf("P_OPPLAYER no Self2: should not call SetInteractionScriptPlayer, got %d calls", got)
+	}
+}
+
+func TestPOpPlayer_NotProtected(t *testing.T) {
+	mp := &mockPlayer{}
+	mp2 := &mockPlayer{}
+	s := &ScriptState{
+		Self:        mp,
+		Self2:       mp2,
+		Pointers:    PtrActivePlayer | PtrActivePlayer2,
+		Protect:     false,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(1)
+	if err := handlePOpPlayer(s); err == nil {
+		t.Error("P_OPPLAYER not-protected: want error")
+	}
+}
+
+func TestPOpPlayer_OpZero(t *testing.T) {
+	mp := &mockPlayer{}
+	mp2 := &mockPlayer{}
+	s := &ScriptState{
+		Self:        mp,
+		Self2:       mp2,
+		Pointers:    PtrActivePlayer | PtrActivePlayer2,
+		Protect:     true,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(0) // 0 is NOT NumberNotNull-rejected; but op 0 → type=-1 → out of [0,5)
+	if err := handlePOpPlayer(s); err == nil {
+		t.Error("P_OPPLAYER op=0: want range error")
+	}
+}
+
+func TestPOpPlayer_OpSix(t *testing.T) {
+	mp := &mockPlayer{}
+	mp2 := &mockPlayer{}
+	s := &ScriptState{
+		Self:        mp,
+		Self2:       mp2,
+		Pointers:    PtrActivePlayer | PtrActivePlayer2,
+		Protect:     true,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(6) // type = 5; type >= 5 fails
+	if err := handlePOpPlayer(s); err == nil {
+		t.Error("P_OPPLAYER op=6: want range error")
+	}
+}
+
+func TestPOpPlayer_OpNullSentinel(t *testing.T) {
+	mp := &mockPlayer{}
+	mp2 := &mockPlayer{}
+	s := &ScriptState{
+		Self:        mp,
+		Self2:       mp2,
+		Pointers:    PtrActivePlayer | PtrActivePlayer2,
+		Protect:     true,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(-1)
+	if err := handlePOpPlayer(s); err == nil {
+		t.Error("P_OPPLAYER op=-1: want NumberNotNull error")
+	}
+}

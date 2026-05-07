@@ -242,6 +242,10 @@ type mockPlayer struct {
 	// slot is the value returned by mockPlayer.Slot(); tests pre-seed it.
 	slot int
 
+	// NAI-120 Bundle 2B: BUSY2 read-side seeds.
+	hasInteractionValue bool
+	hasWaypointsValue   bool
+
 	// Staff-mod level (pre-seed for STAFFMODLEVEL query).
 	staffModLevelValue int
 	uidValue           int
@@ -261,6 +265,18 @@ type mockPlayer struct {
 	// S6v: p_op* script-queued interaction captures.
 	lastSetInteractionScriptLoc []mockLocOp
 	lastSetInteractionScriptNpc []mockNpcOp
+
+	// NAI-120 Bundle 2B: P_OPNPCT capture.
+	lastSetInteractionScriptNpcT []struct {
+		npc      ActiveNpc
+		spellCom int
+	}
+
+	// NAI-120 Bundle 2B: P_OPPLAYER capture.
+	lastSetInteractionScriptPlayer []struct {
+		player2 ActivePlayer
+		op      int
+	}
 
 	// NAI-115 T7: P_OPOBJ-side captures.
 	queueWaypointCalls []struct{ x, z int }
@@ -669,6 +685,23 @@ func (m *mockPlayer) SetInteractionScriptLoc(loc ActiveLoc, op int) {
 func (m *mockPlayer) SetInteractionScriptNpc(npc ActiveNpc, op int) {
 	m.lastSetInteractionScriptNpc = append(m.lastSetInteractionScriptNpc, mockNpcOp{Npc: npc, Op: op})
 }
+
+func (m *mockPlayer) SetInteractionScriptNpcT(npc ActiveNpc, spellCom int) {
+	m.lastSetInteractionScriptNpcT = append(m.lastSetInteractionScriptNpcT, struct {
+		npc      ActiveNpc
+		spellCom int
+	}{npc, spellCom})
+}
+
+func (m *mockPlayer) SetInteractionScriptPlayer(player2 ActivePlayer, op int) {
+	m.lastSetInteractionScriptPlayer = append(m.lastSetInteractionScriptPlayer, struct {
+		player2 ActivePlayer
+		op      int
+	}{player2, op})
+}
+
+func (m *mockPlayer) HasInteraction() bool { return m.hasInteractionValue }
+func (m *mockPlayer) HasWaypoints() bool   { return m.hasWaypointsValue }
 
 func (m *mockPlayer) QueueWaypoint(x, z int) {
 	m.queueWaypointCalls = append(m.queueWaypointCalls, struct{ x, z int }{x, z})

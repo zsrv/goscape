@@ -1215,3 +1215,88 @@ func handleLowMem(s *ScriptState) error {
 	}
 	return nil
 }
+
+// handleBusy2 (BUSY2, opcode 2006) pushes 1 if the active player has either
+// an interaction target OR queued waypoints, else 0. Mirrors TS
+// PlayerOps.ts:898-900 (https://x.com/JagexAsh/status/1791053667228856563):
+//
+//	state.pushInt(state.activePlayer.hasInteraction() ||
+//	              state.activePlayer.hasWaypoints() ? 1 : 0);
+//
+// Gate: ActivePlayer (no Protected requirement). NAI-120 Bundle 2B.
+func handleBusy2(s *ScriptState) error {
+	if err := requireActivePlayer(s, "BUSY2"); err != nil {
+		return err
+	}
+	if s.Self.HasInteraction() || s.Self.HasWaypoints() {
+		s.PushInt(1)
+	} else {
+		s.PushInt(0)
+	}
+	return nil
+}
+
+// handlePOpNpcT (P_OPNPCT, opcode 2079) anchors the active player on the
+// active NPC with the APNPCT/OPNPCT trigger family and stores spellCom as
+// the targetSubject.com. Mirrors TS PlayerOps.ts:417-421
+// (https://x.com/JagexAsh/status/1791472651623370843):
+//
+//	const spellId: number = check(state.popInt(), NumberNotNull);
+//	state.activePlayer.stopAction();
+//	state.activePlayer.setInteraction(Interaction.SCRIPT, state.activeNpc,
+//	    ServerTriggerType.APNPCT, spellId);
+//
+// Gate: ProtectedActivePlayer + ActiveNpc. NAI-120 Bundle 2B.
+func handlePOpNpcT(s *ScriptState) error {
+	if err := requireProtectedActivePlayer(s, "P_OPNPCT"); err != nil {
+		return err
+	}
+	if s.ActiveNpc == nil {
+		return errors.New("P_OPNPCT: no active npc")
+	}
+	spellCom := s.PopInt()
+	if err := checkNotNull(spellCom, "P_OPNPCT"); err != nil {
+		return err
+	}
+	s.Self.StopAction()
+	s.Self.SetInteractionScriptNpcT(s.ActiveNpc, spellCom)
+	return nil
+}
+
+// handlePOpPlayer (P_OPPLAYER, opcode 2081) anchors the active player on the
+// secondary active player (Self2) with the APPLAYER<op>/OPPLAYER<op> trigger
+// family. Mirrors TS PlayerOps.ts:1009-1020
+// (https://x.com/JagexAsh/status/1791472651623370843):
+//
+//	const type = check(state.popInt(), NumberNotNull) - 1;
+//	if (type < 0 || type >= 5) {
+//	    throw new Error(`Invalid opplayer: ${type + 1}`);
+//	}
+//	const target = state._activePlayer2;
+//	if (!target) { return; }
+//	state.activePlayer.stopAction();
+//	state.activePlayer.setInteraction(Interaction.SCRIPT, target,
+//	    ServerTriggerType.APPLAYER1 + type);
+//
+// Gate: ProtectedActivePlayer. The popped op is 1-indexed (1..5); after
+// subtracting 1 it must be in [0,4]. Self2-nil is a silent return (TS-faithful).
+// NAI-120 Bundle 2B.
+func handlePOpPlayer(s *ScriptState) error {
+	if err := requireProtectedActivePlayer(s, "P_OPPLAYER"); err != nil {
+		return err
+	}
+	op := s.PopInt()
+	if err := checkNotNull(op, "P_OPPLAYER"); err != nil {
+		return err
+	}
+	idx := op - 1
+	if idx < 0 || idx >= 5 {
+		return fmt.Errorf("P_OPPLAYER: invalid op %d", op)
+	}
+	if s.Self2 == nil {
+		return nil // TS-faithful silent return
+	}
+	s.Self.StopAction()
+	s.Self.SetInteractionScriptPlayer(s.Self2, op)
+	return nil
+}

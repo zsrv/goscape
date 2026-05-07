@@ -293,6 +293,17 @@ type ActivePlayer interface {
 	// Matches TS Player.stopAction().
 	StopAction()
 
+	// HasInteraction reports whether the player has a current interaction
+	// target (i.e., `target != nil`). Used by BUSY2 (opcode 2006). Mirrors
+	// TS Player.hasInteraction at Engine-TS/.../PathingEntity.ts. NAI-120
+	// Bundle 2B.
+	HasInteraction() bool
+
+	// HasWaypoints reports whether the player has waypoints queued
+	// (waypointIndex >= 0). Used by BUSY2 (opcode 2006). Mirrors TS
+	// Player.hasWaypoints. NAI-120 Bundle 2B.
+	HasWaypoints() bool
+
 	// QueueWaypoint clears any existing path and sets a single
 	// destination on the active player. Mirrors TS Player.queueWaypoint
 	// (Engine-TS PathingEntity.queueWaypoint). NAI-115 T7: used by
@@ -449,6 +460,21 @@ type ActivePlayer interface {
 	// ApNpc<op> as a script-queued interaction. Matches TS
 	// PlayerOps.ts:404-415.
 	SetInteractionScriptNpc(npc ActiveNpc, op int)
+
+	// SetInteractionScriptNpcT anchors the player on `npc` with trigger
+	// ApNpcT as a script-queued interaction (TS Interaction.SCRIPT) and
+	// stores `spellCom` as the targetSubject.com (the UI component id of
+	// the spell being cast). Matches TS PlayerOps.ts:417-421 (P_OPNPCT)
+	// terminal setInteraction call. NAI-120 Bundle 2B.
+	SetInteractionScriptNpcT(npc ActiveNpc, spellCom int)
+
+	// SetInteractionScriptPlayer anchors the player on `player2` (a secondary
+	// active player) with trigger ApPlayer<op> as a script-queued interaction
+	// (TS Interaction.SCRIPT). op is 1-indexed (1..5; engine fire-path
+	// supports 1..4 — see modules/world/player_interaction_trigger.go's
+	// apPlayerTriggerForOp). Matches TS PlayerOps.ts:1009-1020 (P_OPPLAYER)
+	// terminal setInteraction. NAI-120 Bundle 2B.
+	SetInteractionScriptPlayer(player2 ActivePlayer, op int)
 
 	// SetInteractionScriptObj anchors the player on `obj` with trigger
 	// APOBJ<op> as a script-queued interaction (TS Interaction.SCRIPT).

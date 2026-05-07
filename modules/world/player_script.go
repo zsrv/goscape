@@ -977,6 +977,39 @@ func (p *Player) SetInteractionScriptObj(obj script.ActiveObj, op int) {
 	p.SetInteraction(InteractionScript, realObj, op, -1)
 }
 
+// HasInteraction reports whether the player has an interaction target.
+// NAI-120 Bundle 2B. Implements script.ActivePlayer.
+func (p *Player) HasInteraction() bool { return p.target != nil }
+
+// HasWaypoints reports whether the player has a waypoint queue active.
+// Wraps the package-private hasWaypoints helper at interaction.go:297.
+// NAI-120 Bundle 2B. Implements script.ActivePlayer.
+func (p *Player) HasWaypoints() bool { return p.hasWaypoints() }
+
+// SetInteractionScriptNpcT implements script.ActivePlayer.
+// Routes via SetInteraction(InteractionScript, npc, targetOpNpcT, spellCom)
+// — the targetOpNpcT sentinel (=8 at modules/world/interaction.go:35) selects
+// the APNPCT/OPNPCT trigger family in resolveTriggerTypeId. NAI-120 Bundle 2B.
+func (p *Player) SetInteractionScriptNpcT(npc script.ActiveNpc, spellCom int) {
+	realNpc, ok := npc.(*Npc)
+	if !ok {
+		return
+	}
+	p.SetInteraction(InteractionScript, realNpc, targetOpNpcT, spellCom)
+}
+
+// SetInteractionScriptPlayer implements script.ActivePlayer. Routes via
+// SetInteraction(InteractionScript, realPlayer2, op, -1). The com=-1 means
+// no spellCom association — APPLAYER<N> reads no targetSubject.com. NAI-120
+// Bundle 2B.
+func (p *Player) SetInteractionScriptPlayer(player2 script.ActivePlayer, op int) {
+	realPlayer2, ok := player2.(*Player)
+	if !ok {
+		return
+	}
+	p.SetInteraction(InteractionScript, realPlayer2, op, -1)
+}
+
 // LowMemory returns the player's low-memory flag as plumbed from the
 // RS2 login request (req.LowMemory) through client.lowMemory and
 // copied onto the Player at newPlayer().
