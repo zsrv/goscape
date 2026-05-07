@@ -1,5 +1,11 @@
 package script
 
+// VarPlayerRun is the varp id for the run-mode toggle (`run` varp).
+// Mirrors TS VarPlayerType.RUN = 0 at Engine-TS
+// cache/config/VarPlayerType.ts:18. Consumed by the P_RUN opcode
+// handler to mirror the run field into varp-id 0. NAI-117.
+const VarPlayerRun = 0
+
 // ActivePlayer is the minimal surface RuneScript needs from a Player.
 // Sub-spec S2 wires modules/world.Player to this interface. S4 adds
 // suspension + queue methods.
@@ -149,6 +155,19 @@ type ActivePlayer interface {
 
 	// SetRunAnim sets the player's run animation.
 	SetRunAnim(seqID int)
+
+	// SetRun writes the run-mode toggle (0=walk, 1=run) to the player.
+	// Mirrors TS field write `state.activePlayer.run = state.popInt()`
+	// at Engine-TS PlayerOps.ts:1205. The varp-mirror side-effect
+	// (setVar(VarPlayerType.RUN, run)) remains explicit at the handler
+	// call site (handlePRun), per ts_helper_method_bundles memory.
+	// NAI-117.
+	SetRun(value int)
+
+	// RunEnergy returns the player's current run-energy value as an
+	// int (range [0, 10000]). Mirrors TS `state.pushInt(player.runenergy)`
+	// at Engine-TS PlayerOps.ts:1177. NAI-117.
+	RunEnergy() int
 
 	// S5f: interface / modal control.
 

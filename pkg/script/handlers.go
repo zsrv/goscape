@@ -235,6 +235,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpGetWalkTrigger: handleGetWalkTrigger,
 	// P_WALK stub — real impl needs pathfinder + waypoint integration.
 	OpPWalk: handlePWalk,
+	// NAI-117 T1: run-mode toggle (gated by ProtectedActivePlayer).
+	OpPRun: handlePRun,
 
 	// S5d: config-read ops (enum/struct/loc/npc/obj).
 	// EnumOps (2).

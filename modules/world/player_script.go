@@ -322,6 +322,20 @@ func (p *Player) SetVarp(id int, val int32) {
 	p.writeVarp(id, val)
 }
 
+// SetRun implements script.ActivePlayer.SetRun. Writes the run-mode
+// toggle (0=walk, 1=run) to the player's run field. Mirrors TS field
+// write at PlayerOps.ts:1205. Backs the P_RUN opcode handler. NAI-117.
+func (p *Player) SetRun(v int) {
+	p.run = v
+}
+
+// RunEnergy implements script.ActivePlayer.RunEnergy. Returns the
+// player's current run-energy as an int (range [0, 10000]). Backs the
+// RUNENERGY opcode handler. NAI-117.
+func (p *Player) RunEnergy() int {
+	return p.runenergy
+}
+
 // S5c: position / facing / teleport, stats, and animation.
 
 // CoordPacked returns the player's current position as a single RS2 coord

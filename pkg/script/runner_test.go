@@ -155,6 +155,14 @@ type mockPlayer struct {
 	lastWalkAnimR int
 	lastRunAnim   int
 
+	// NAI-117 P_RUN: most recent value passed to SetRun(v); -1 sentinel
+	// distinguishes "never called" from a legitimate v=0 walk-mode write.
+	lastSetRun int
+
+	// NAI-117 RUNENERGY: configurable return for RunEnergy(); zero default
+	// is fine for tests that don't pin a specific value.
+	runenergyValue int
+
 	// S5f: captured calls from the interface / modal-control methods.
 	lastCloseModalCalls int
 	lastOpenMain        int
@@ -438,6 +446,12 @@ func (m *mockPlayer) SetWalkAnimB(seqID int) { m.lastWalkAnimB = seqID }
 func (m *mockPlayer) SetWalkAnimL(seqID int) { m.lastWalkAnimL = seqID }
 func (m *mockPlayer) SetWalkAnimR(seqID int) { m.lastWalkAnimR = seqID }
 func (m *mockPlayer) SetRunAnim(seqID int)   { m.lastRunAnim = seqID }
+
+// NAI-117 P_RUN.
+func (m *mockPlayer) SetRun(v int) { m.lastSetRun = v }
+
+// NAI-117 RUNENERGY.
+func (m *mockPlayer) RunEnergy() int { return m.runenergyValue }
 
 // S5f: interface / modal control.
 

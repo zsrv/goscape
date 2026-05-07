@@ -761,6 +761,36 @@ func TestRunAnimAcceptsMinusOne(t *testing.T) {
 	}
 }
 
+// TestPRunDispatch verifies the P_RUN handler (opcode 2085) writes the
+// popped int to SetRun and mirrors it to varp id VarPlayerRun. Mirrors
+// TS PlayerOps.ts:1204-1209. NAI-117 T1.
+func TestPRunDispatch(t *testing.T) {
+	for _, v := range []int{0, 1} {
+		t.Run(fmt.Sprintf("v=%d", v), func(t *testing.T) {
+			mp := &mockPlayer{lastSetRun: -1, varps: map[int]int32{}}
+			sf := &ScriptFile{
+				Name: "p_run_dispatch",
+				Opcodes: []Opcode{
+					OpPushConstantInt, OpPRun, OpReturn,
+				},
+				IntOperands:      []int32{int32(v), 0, 0},
+				StringOperands:   []string{"", "", ""},
+				InstructionCount: 3,
+			}
+			state := Init(sf, mp, true, nil, nil) // protect=true (P_RUN gate)
+			if err := Execute(state); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+			if mp.lastSetRun != v {
+				t.Errorf("SetRun: got %d, want %d", mp.lastSetRun, v)
+			}
+			if got := mp.varps[VarPlayerRun]; int(got) != v {
+				t.Errorf("varp[VarPlayerRun]: got %d, want %d", got, v)
+			}
+		})
+	}
+}
+
 // -- Active-player-required negative tests -------------------------------
 
 // Every handler that dereferences Self must return an error when
@@ -794,6 +824,8 @@ func TestHandlersRequireActivePlayer(t *testing.T) {
 		{"WALKANIM_L", OpWalkAnimL},
 		{"WALKANIM_R", OpWalkAnimR},
 		{"RUNANIM", OpRunAnim},
+		// NAI-117 T1.
+		{"P_RUN", OpPRun},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1152,6 +1184,22 @@ func TestPTeleJumpUnprotectedRejected(t *testing.T) {
 	err := Execute(state)
 	if err == nil || err.Error() != "P_TELEJUMP: script not protected" {
 		t.Errorf("expected 'P_TELEJUMP: script not protected', got %v", err)
+	}
+}
+
+// TestPRunUnprotectedRejected verifies that a script started without
+// protection gets the "script not protected" error. Mirrors TS
+// checkedHandler(ProtectedActivePlayer, ...) at PlayerOps.ts:1204.
+// NAI-117 T1.
+func TestPRunUnprotectedRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := newSingleOp("p_run_unprotected", OpPRun)
+	state := Init(sf, mp, false, nil, nil) // protect=false
+	state.PushInt(1)
+
+	err := Execute(state)
+	if err == nil || err.Error() != "P_RUN: script not protected" {
+		t.Errorf("expected 'P_RUN: script not protected', got %v", err)
 	}
 }
 
