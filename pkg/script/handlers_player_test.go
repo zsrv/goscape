@@ -3656,3 +3656,39 @@ func TestHandleP_OpObjRequiresProtect(t *testing.T) {
 		t.Errorf("P_OPOBJ without s.Protect: expected error, got nil")
 	}
 }
+
+// NAI-115 stretch — LOWMEM handler tests.
+
+func TestHandleLowMemReturnsZeroWhenHighMem(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	s.Self = &mockPlayer{}
+	s.Pointers |= PtrActivePlayer
+
+	if err := handleLowMem(s); err != nil {
+		t.Fatalf("LOWMEM returned error: %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("LOWMEM high-mem: got %d, want 0", got)
+	}
+}
+
+func TestHandleLowMemReturnsOneWhenLowMem(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	pl := &mockPlayer{lowMemoryValue: true}
+	s.Self = pl
+	s.Pointers |= PtrActivePlayer
+
+	if err := handleLowMem(s); err != nil {
+		t.Fatalf("LOWMEM returned error: %v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("LOWMEM low-mem: got %d, want 1", got)
+	}
+}
+
+func TestHandleLowMemNoActivePlayer(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	if err := handleLowMem(s); err == nil {
+		t.Errorf("LOWMEM no active player: expected error, got nil")
+	}
+}

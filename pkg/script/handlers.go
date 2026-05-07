@@ -113,6 +113,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpObjAddAll:   handleObjAddAll,
 	OpLineOfWalk:  handleLineOfWalk,
 	OpInvDropSlot: handleInvDropSlot,
+	// NAI-115 stretch: LOWMEM surfaced by Tutorial Island smoke.
+	OpLowMem: handleLowMem,
 
 	// S5m: last-input queries.
 	OpLastInt:        handleLastInt,

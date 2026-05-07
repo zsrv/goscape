@@ -1166,3 +1166,18 @@ func handleP_OpObj(s *ScriptState) error {
 	s.Self.SetInteractionScriptObj(s.ActiveObj, op)
 	return nil
 }
+
+// handleLowMem (LOWMEM, opcode 2061) pushes 1 if the active player's
+// client requested low-memory mode at login, else 0. Mirrors TS
+// PlayerOps.ts:1062-1064: pushes state.activePlayer.lowMemory ? 1 : 0.
+func handleLowMem(s *ScriptState) error {
+	if err := requireActivePlayer(s, "LOWMEM"); err != nil {
+		return err
+	}
+	if s.Self.LowMemory() {
+		s.PushInt(1)
+	} else {
+		s.PushInt(0)
+	}
+	return nil
+}
