@@ -18,6 +18,8 @@ type mockConfigs struct {
 	invs          map[int]*objtype.InvType
 	idks          map[int]*objtype.IdkType
 	spotAnimTypes map[int]*objtype.SpotanimType
+	varps         map[int]*objtype.VarPlayerType
+	varns         map[int]*objtype.VarNpcType
 }
 
 func (m *mockConfigs) ObjType(id int) *objtype.ObjType              { return m.objs[id] }
@@ -35,6 +37,22 @@ func (m *mockConfigs) DbRowType(id int) *objtype.DbRowType          { return nil
 func (m *mockConfigs) DbRowsInTable(tableID int) []int              { return nil }
 func (m *mockConfigs) FindDbRowsInt(query int32, packed int) []int  { return nil }
 func (m *mockConfigs) FindDbRowsStr(query string, packed int) []int { return nil }
+
+func (m *mockConfigs) VarpType(id int) (objtype.ScriptVarType, bool) {
+	v, ok := m.varps[id]
+	if !ok || v == nil {
+		return objtype.ScriptVarTypeInt, false
+	}
+	return v.Type, v.Protect
+}
+
+func (m *mockConfigs) VarnType(id int) objtype.ScriptVarType {
+	v, ok := m.varns[id]
+	if !ok || v == nil {
+		return objtype.ScriptVarTypeInt
+	}
+	return v.Type
+}
 
 // newTestConfigs seeds a fresh mockConfigs with the canonical fixture used
 // across handler tests.

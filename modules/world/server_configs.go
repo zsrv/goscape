@@ -153,3 +153,31 @@ func (c serverConfigsView) FindDbRowsStr(query string, packed int) []int {
 	}
 	return c.s.dbTableIndex.FindStr(query, packed)
 }
+
+func (c serverConfigsView) VarpType(id int) (objtype.ScriptVarType, bool) {
+	if c.s == nil || c.s.varpTypes == nil {
+		return objtype.ScriptVarTypeInt, false
+	}
+	if id < 0 || id >= len(c.s.varpTypes.Configs) {
+		return objtype.ScriptVarTypeInt, false
+	}
+	cfg := c.s.varpTypes.Configs[id]
+	if cfg == nil {
+		return objtype.ScriptVarTypeInt, false
+	}
+	return cfg.Type, cfg.Protect
+}
+
+func (c serverConfigsView) VarnType(id int) objtype.ScriptVarType {
+	if c.s == nil || c.s.varnTypes == nil {
+		return objtype.ScriptVarTypeInt
+	}
+	if id < 0 || id >= len(c.s.varnTypes.Configs) {
+		return objtype.ScriptVarTypeInt
+	}
+	cfg := c.s.varnTypes.Configs[id]
+	if cfg == nil {
+		return objtype.ScriptVarTypeInt
+	}
+	return cfg.Type
+}

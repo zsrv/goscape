@@ -31,4 +31,14 @@ type Configs interface {
 
 	// FindDbRowsStr — string-valued variant of FindDbRowsInt.
 	FindDbRowsStr(query string, packed int) []int
+
+	// VarpType returns the type and protect bit for a player-var id.
+	// Out-of-range or unloaded id returns (ScriptVarTypeInt, false) —
+	// degraded mode lets opcode dispatch fall through to int-side
+	// (DEVIATION-NAI-121-D3; goscape defensive; TS check() throws).
+	VarpType(id int) (typ objtype.ScriptVarType, protect bool)
+
+	// VarnType returns the type for an NPC-var id. Out-of-range or
+	// unloaded id returns ScriptVarTypeInt (DEVIATION-NAI-121-D3).
+	VarnType(id int) objtype.ScriptVarType
 }
