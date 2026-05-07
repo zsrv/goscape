@@ -211,6 +211,7 @@ type mockNpc struct {
 	// NAI-120 Bundle 2D: NPC_HEROPOINTS capture.
 	addHeroPointsCalls []struct{ playerUID, amount int }
 	varns             map[int]int32
+	varnsString       map[int]string
 	sayCalls                           []string
 	animCalls                          []struct{ id, delay int }
 	faceCoordCalls                     []struct{ x, z int }
@@ -299,6 +300,20 @@ func (m *mockNpc) SetNpcVarN(id int, val int32) {
 		m.varns = make(map[int]int32)
 	}
 	m.varns[id] = val
+}
+
+func (m *mockNpc) NpcVarNString(id int) string {
+	if m.varnsString == nil {
+		return ""
+	}
+	return m.varnsString[id]
+}
+
+func (m *mockNpc) SetNpcVarNString(id int, val string) {
+	if m.varnsString == nil {
+		m.varnsString = make(map[int]string)
+	}
+	m.varnsString[id] = val
 }
 
 func (m *mockNpc) Say(text []byte) {

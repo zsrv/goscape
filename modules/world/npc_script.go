@@ -102,6 +102,24 @@ func (n *Npc) SetNpcVarN(id int, val int32) {
 	n.varns[id] = val
 }
 
+// NpcVarNString implements script.ActiveNpc.NpcVarNString. Returns the
+// STRING-typed per-NPC var at id, or "" on OOB / unsized slice.
+func (n *Npc) NpcVarNString(id int) string {
+	if id < 0 || id >= len(n.varnsString) {
+		return ""
+	}
+	return n.varnsString[id]
+}
+
+// SetNpcVarNString implements script.ActiveNpc.SetNpcVarNString. OOB
+// silently dropped (slice sized to varnTypes.Configs at spawn).
+func (n *Npc) SetNpcVarNString(id int, val string) {
+	if id < 0 || id >= len(n.varnsString) {
+		return
+	}
+	n.varnsString[id] = val
+}
+
 // Teleport moves the NPC to (x, z, level), refreshes its zone
 // subscription if the zone changed, and flags the client for a tele
 // transition (no walk-anim interpolation). Mirrors TS

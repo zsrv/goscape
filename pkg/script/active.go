@@ -615,6 +615,14 @@ type ActiveNpc interface {
 	Nid() int
 	NpcVarN(id int) int32
 	SetNpcVarN(id int, val int32)
+	// NpcVarNString reads the per-NPC STRING-typed var at id. Returns
+	// "" defensively for OOB or never-written ids. Mirrors TS
+	// Npc.getVar dispatched on STRING type.
+	NpcVarNString(id int) string
+
+	// SetNpcVarNString writes the per-NPC STRING-typed var at id. OOB
+	// silently dropped (slice sized to varnTypes.Configs at spawn).
+	SetNpcVarNString(id int, val string)
 	// Say buffers text as the NPC's speech bubble for the current tick,
 	// flagging NpcMaskSay so the NPC-info encoder emits it. Empty text is
 	// allowed (produces an empty bubble that clears itself next tick via

@@ -46,6 +46,8 @@ func (m *mockActiveNpc) NpcUID() int                             { return 0 }
 func (m *mockActiveNpc) Nid() int                                { return 0 }
 func (m *mockActiveNpc) NpcVarN(id int) int32                    { return 0 }
 func (m *mockActiveNpc) SetNpcVarN(id int, val int32)            {}
+func (m *mockActiveNpc) NpcVarNString(id int) string         { return "" }
+func (m *mockActiveNpc) SetNpcVarNString(id int, val string) {}
 func (m *mockActiveNpc) Say(text []byte)                         {}
 func (m *mockActiveNpc) Animate(id, delay int)                   {}
 func (m *mockActiveNpc) FaceCoord(x, z int)                      {}
