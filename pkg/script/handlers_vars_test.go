@@ -498,3 +498,49 @@ func TestPopVarp_NonProtect_NoGate(t *testing.T) {
 		t.Errorf("mp.Varp(5): got %d, want 42", got)
 	}
 }
+
+func TestPushVarn_RawNpcLiteralNoPanic(t *testing.T) {
+	// R2 mitigation: a mockNpc with nil varns/varnsString slices must not
+	// panic when PUSH_VARN dispatches via either branch (STRING or int).
+	// The defensive guards in NpcVarN/NpcVarNString return zero values.
+
+	for _, tc := range []struct {
+		name string
+		typ  objtype.ScriptVarType
+		want any
+	}{
+		{"int branch", objtype.ScriptVarTypeInt, 0},
+		{"string branch", objtype.ScriptVarTypeString, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sf := &ScriptFile{
+				Name:             "push_varn_raw",
+				Opcodes:          []Opcode{OpPushVarn, OpReturn},
+				IntOperands:      []int32{0, 0},
+				StringOperands:   []string{"", ""},
+				InstructionCount: 2,
+			}
+			npc := &mockNpc{} // nil varns + nil varnsString
+			state := Init(sf, nil, false, nil, nil)
+			state.ActiveNpc = npc
+			state.Configs = &mockConfigs{
+				varns: map[int]*objtype.VarNpcType{
+					0: {Type: tc.typ},
+				},
+			}
+			if err := Execute(state); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+			switch want := tc.want.(type) {
+			case int:
+				if got := state.PopInt(); got != want {
+					t.Errorf("PopInt: got %d, want %d", got, want)
+				}
+			case string:
+				if got := state.PopString(); got != want {
+					t.Errorf("PopString: got %q, want %q", got, want)
+				}
+			}
+		})
+	}
+}

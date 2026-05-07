@@ -482,3 +482,36 @@ func TestAddNpc_FreshSpawn_PlayerUidVarnReadsMinusOne(t *testing.T) {
 		t.Errorf("smoke-bind: %%npc_macro_event_target on fresh-spawn NPC: got %d, want -1", got)
 	}
 }
+
+func TestAddNpc_RespawnAfterChangeType_ReseedsVarns(t *testing.T) {
+	// Heavy revertType path: removeNpc + addNpc(firstSpawn=false) →
+	// resetEntityForRespawn re-seeds varns. Mid-life writes are wiped.
+	s := newTestServer(t)
+	seedVarnTypes(s, []struct {
+		Type objtype.ScriptVarType
+		Name string
+	}{
+		{Type: objtype.ScriptVarTypePlayerUid, Name: "npc_macro_event_target"},
+	})
+
+	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 0}}
+	n := NewNpc(1, 0, 100, 100, 0, npcType)
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc(firstSpawn=true): %v", err)
+	}
+
+	// Mid-life mutation (e.g. combat-script attaches a player UID).
+	n.SetNpcVarN(0, 12345)
+	if got := n.NpcVarN(0); got != 12345 {
+		t.Fatalf("setup: NpcVarN(0) after SetNpcVarN: got %d, want 12345", got)
+	}
+
+	// Heavy revertType-style respawn (firstSpawn=false; nid stays).
+	if err := s.addNpc(n, -1, false); err != nil {
+		t.Fatalf("addNpc(firstSpawn=false): %v", err)
+	}
+
+	if got := n.NpcVarN(0); got != -1 {
+		t.Errorf("varn after respawn re-seed: got %d, want -1", got)
+	}
+}

@@ -136,3 +136,14 @@ func TestParseVarnTypes_MultiEntry_ConfigNamesIndexed(t *testing.T) {
 		t.Error("ConfigNames should not contain empty-string key for anonymous entry")
 	}
 }
+
+func TestLoadVarnTypes_FileMissing_ReturnsError(t *testing.T) {
+	// DEVIATION-NAI-121-D1 pin: TS VarNpcType.load silently returns when
+	// varn.dat is missing; goscape fails loud at boot, matching the
+	// existing varp/vars loader pattern.
+	dir := t.TempDir() // empty — no server/varn.dat under it
+	_, err := LoadVarnTypes(dir)
+	if err == nil {
+		t.Fatal("LoadVarnTypes: want error for missing varn.dat, got nil")
+	}
+}

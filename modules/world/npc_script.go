@@ -81,10 +81,22 @@ func (n *Npc) NpcVarN(id int) int32 {
 	return n.varns[id]
 }
 
-// SetNpcVarN writes val to the per-NPC var at id, lazily growing the
-// backing slice for raw &Npc{} test paths. Production NPCs spawned via
-// Server.addNpc are pre-sized by resetEntityForRespawn (T3) so the
-// lazy-grow path is dormant in production. Negative ids are dropped.
+// SetNpcVarN writes val to the per-NPC var at id. Negative ids are
+// dropped silently.
+//
+// Lazy-grow path is reserved for raw &Npc{} test fixtures (e.g.
+// npc_hunt_test.go's combat-window setup) that bypass Server.addNpc.
+// In production, every NPC enters the world via addNpc →
+// resetEntityForRespawn (T3), which sizes n.varns to
+// len(server.varnTypes.Configs); a script can only address declared
+// varn ids, so id < len(n.varns) holds and the grow branch is
+// dormant.
+//
+// CAVEAT: a script reaching this with id >= len(n.varns) would
+// desync n.varns (grown to id+1) from n.varnsString (registry-sized)
+// until the next resetEntityForRespawn re-allocates both. This is
+// not reachable via declared registry ids — it would require a script
+// authoring bug or compiled-script corruption.
 func (n *Npc) SetNpcVarN(id int, val int32) {
 	if id < 0 {
 		return
