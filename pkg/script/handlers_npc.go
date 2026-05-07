@@ -793,3 +793,90 @@ func handleNpcFindNext(s *ScriptState) error {
 	s.PushInt(1)
 	return nil
 }
+
+// handleNpcFindUID (NPC_FINDUID, opcode 2521) pops a packed NPC UID and
+// binds the matching live NPC to the active slot dictated by the bytecode
+// IntOperand (.npc → primary, .npc2 → secondary). Pushes 1 on hit, 0 on
+// miss. Does NOT set the Protect bit. Mirrors TS NpcOps.ts:26-40:
+//
+//	const slot = npcUid & 0xffff;
+//	const expectedType = (npcUid >> 16) & 0xffff;
+//	const npc = World.getNpc(slot);
+//	if (!npc || npc.type !== expectedType) {
+//	    state.pushInt(0);
+//	    return;
+//	}
+//	state.activeNpc = npc;
+//	state.pointerAdd(ActiveNpc[state.intOperand]);
+//	state.pushInt(1);
+//
+// goscape's NpcLookup.FindNpcByUID encapsulates the slot-lookup +
+// type-match check, returning nil on miss. NAI-120 Bundle 2A.
+func handleNpcFindUID(s *ScriptState) error {
+	uid := s.PopInt()
+	if s.Npcs == nil {
+		s.PushInt(0)
+		return nil
+	}
+	npc := s.Npcs.FindNpcByUID(uid)
+	if npc == nil {
+		s.PushInt(0)
+		return nil
+	}
+	setActiveNpcSlot(s, npc)
+	s.PushInt(1)
+	return nil
+}
+
+// handleNpcRange (NPC_RANGE, opcode 2531) pops a packed coord and pushes the
+// Chebyshev distance from the active NPC to that 1x1 tile. Returns -1 when
+// the coord's level differs from the NPC's level (TS sentinel). Mirrors TS
+// NpcOps.ts:152-168:
+//
+//	const coord: CoordGrid = check(state.popInt(), CoordValid);
+//	const npc = state.activeNpc;
+//	if (coord.level !== npc.level) {
+//	    state.pushInt(-1);
+//	} else {
+//	    state.pushInt(CoordGrid.distanceTo(npc, {x, z, width:1, length:1}));
+//	}
+//
+// `CoordGrid.distanceTo` for a 1x1 target reduces to Chebyshev:
+// max(|npcX - x|, |npcZ - z|) -- width=1/length=1 contributes 0 to the
+// per-axis subtractions in the TS formula. NAI-120 Bundle 2A.
+//
+// Multi-tile NPCs (size > 1): the inner-ring call sites in
+// player_combat.rs2 do not require size-aware distance -- sites pass
+// `coord` (the player's own coord) and the active NPC is the combat
+// target. This handler treats the NPC as a 1x1 source (matches TS
+// behaviour for size=1 NPCs; size>1 audit deferred to a future sub-spec
+// per NAI-120 Bundle 1 audit section 6 dependency note).
+func handleNpcRange(s *ScriptState) error {
+	if err := requireActiveNpc(s, "NPC_RANGE"); err != nil {
+		return err
+	}
+	coord := s.PopInt()
+	level, x, z, err := checkCoord(coord, "NPC_RANGE")
+	if err != nil {
+		return err
+	}
+	n := s.ActiveNpc
+	if level != n.NpcLevel() {
+		s.PushInt(-1)
+		return nil
+	}
+	dx := n.NpcX() - x
+	if dx < 0 {
+		dx = -dx
+	}
+	dz := n.NpcZ() - z
+	if dz < 0 {
+		dz = -dz
+	}
+	if dx > dz {
+		s.PushInt(dx)
+	} else {
+		s.PushInt(dz)
+	}
+	return nil
+}

@@ -958,3 +958,63 @@ func TestHandleLineOfWalkNilValidator(t *testing.T) {
 		t.Errorf("LINEOFWALK nil validator: got %d, want 0", got)
 	}
 }
+
+// MAP_MULTIWAY (opcode 1014) — NAI-120 Bundle 2A.
+// Mirrors TS ServerOps.ts:376-380.
+
+// multiWorld extends mockWorld with a coord→bool map for IsMulti so MAP_MULTIWAY
+// tests can pin per-tile multi-zone results. NAI-120 Bundle 2A.
+type multiWorld struct {
+	*mockWorld
+	multiTiles map[[3]int]bool // key: [level, x, z]
+}
+
+func (m *multiWorld) IsMulti(level, x, z int) bool {
+	return m.multiTiles[[3]int{level, x, z}]
+}
+
+func TestMapMultiway_MultiTile(t *testing.T) {
+	w := &multiWorld{mockWorld: newMockWorld(), multiTiles: map[[3]int]bool{
+		{0, 3222, 3218}: true,
+	}}
+	s := &ScriptState{
+		World:       w,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	// Push packed coord (level<<28) | (x<<14) | z = 3222 << 14 | 3218.
+	s.PushInt((0 << 28) | (3222 << 14) | 3218)
+	if err := handleMapMultiway(s); err != nil {
+		t.Fatalf("MAP_MULTIWAY multi tile: unexpected error %v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("MAP_MULTIWAY multi tile: got %d, want 1", got)
+	}
+}
+
+func TestMapMultiway_NonMultiTile(t *testing.T) {
+	w := &multiWorld{mockWorld: newMockWorld(), multiTiles: nil}
+	s := &ScriptState{
+		World:       w,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt((0 << 28) | (3000 << 14) | 3000)
+	if err := handleMapMultiway(s); err != nil {
+		t.Fatalf("MAP_MULTIWAY non-multi: unexpected error %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("MAP_MULTIWAY non-multi: got %d, want 0", got)
+	}
+}
+
+func TestMapMultiway_NoWorld(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(0)
+	if err := handleMapMultiway(s); err == nil {
+		t.Error("MAP_MULTIWAY with nil World: want error")
+	}
+}

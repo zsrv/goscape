@@ -693,11 +693,14 @@ type mockNpcLookup struct {
 	// byZone returns the NPC slice keyed by (level, zoneX, zoneZ) tuple
 	// packed via mockZoneKey(level, zoneX, zoneZ). nil entry = empty.
 	byZone map[uint64][]ActiveNpc
+	// byUID returns the NPC keyed by uid. nil entry = miss. NAI-120 Bundle 2A.
+	byUID map[int]ActiveNpc
 
 	byTypeCalls     int
 	byCategoryCalls int
 	atCoordCalls    int
 	zoneNpcsCalls   int
+	byUIDCalls      int
 
 	lastArgs []int
 	// zoneNpcsCallArgs records each ZoneNpcs call's (level, zoneX, zoneZ)
@@ -735,4 +738,13 @@ func (m *mockNpcLookup) ZoneNpcs(level, zoneX, zoneZ int) []ActiveNpc {
 		return nil
 	}
 	return m.byZone[mockZoneKey(level, zoneX, zoneZ)]
+}
+
+func (m *mockNpcLookup) FindNpcByUID(uid int) ActiveNpc {
+	m.byUIDCalls++
+	m.lastArgs = []int{uid}
+	if m.byUID == nil {
+		return nil
+	}
+	return m.byUID[uid]
 }

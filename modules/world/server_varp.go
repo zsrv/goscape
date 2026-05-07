@@ -91,6 +91,16 @@ func (w worldVarsView) IsMapBlocked(level, x, z int) bool {
 	return flag&collision.FlagBlockWalk != 0
 }
 
+// IsMulti delegates to the world's GameMap.IsMulti, swapping arg order to
+// match the WorldVars convention (level, x, z) — gamemap uses (x, z, level).
+// Mirrors TS World.gameMap.isMulti(coord). NAI-120 Bundle 2A.
+func (w worldVarsView) IsMulti(level, x, z int) bool {
+	if w.s == nil || w.s.gamemap == nil {
+		return false
+	}
+	return w.s.gamemap.IsMulti(x, z, level)
+}
+
 // IsFreeToPlay delegates to gamemap.IsFreeToPlay. Mirrors TS
 // World.gameMap.isFreeToPlay. NAI-35-T6.
 func (w worldVarsView) IsFreeToPlay(x, z int) bool {

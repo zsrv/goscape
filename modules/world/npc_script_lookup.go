@@ -114,6 +114,29 @@ func (l serverNpcLookup) FindNpcAtExactCoord(level, x, z, typeID int) script.Act
 	return nil
 }
 
+// FindNpcByUID resolves a packed NPC UID to the live NPC at that slot
+// only when the NPC's typeId matches the high-16-bit `expectedType`
+// embedded in the UID. Mirrors TS NpcOps.ts:26-40:
+//
+//	const slot = npcUid & 0xffff;
+//	const expectedType = (npcUid >> 16) & 0xffff;
+//	const npc = World.getNpc(slot);
+//	if (!npc || npc.type !== expectedType) { ... return null }
+//
+// NAI-120 Bundle 2A.
+func (l serverNpcLookup) FindNpcByUID(uid int) script.ActiveNpc {
+	slot := uid & 0xffff
+	expectedType := (uid >> 16) & 0xffff
+	if slot < 0 || slot >= len(l.s.npcs) {
+		return nil
+	}
+	n := l.s.npcs[slot]
+	if n == nil || n.typeId != expectedType {
+		return nil
+	}
+	return n
+}
+
 // ZoneNpcs returns all valid NPCs in the zone at (level, zoneX, zoneZ).
 // Mirrors TS Zone.getAllNpcsSafe(true) consumed by NpcIterator
 // (ScriptIterators.ts:330,341). Zone resolution via pkg/zone.ZoneMap.Get

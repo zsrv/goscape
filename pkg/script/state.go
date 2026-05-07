@@ -74,6 +74,11 @@ type WorldVars interface {
 	// World.gameMap.isFreeToPlay. NAI-35-T6.
 	IsFreeToPlay(x, z int) bool
 
+	// IsMulti reports whether the tile at (level, x, z) is in a multi-combat
+	// zone. Mirrors TS World.gameMap.isMulti at Engine-TS/.../GameMap.ts.
+	// Used by MAP_MULTIWAY (opcode 1014).
+	IsMulti(level, x, z int) bool
+
 	// AnimMap broadcasts a tile-anchored spotanim event to every player in
 	// the affected zone. Mirrors TS World.animMap at Engine-TS/.../World.ts.
 	// Used by SPOTANIM_MAP (opcode 1020).
@@ -137,6 +142,12 @@ type NpcLookup interface {
 	// ZoneMap.Get which masks internally. Empty/nil slice on miss.
 	// No error path. Used by NPC_FINDALL/FINDALLANY/FINDALLZONE iterators.
 	ZoneNpcs(level, zoneX, zoneZ int) []ActiveNpc
+
+	// FindNpcByUID resolves a packed NPC UID `(typeId<<16)|nid` to the
+	// matching ActiveNpc. The lookup verifies BOTH the slot has a live
+	// NPC AND the NPC's typeId equals the high-16-bit type. Returns nil
+	// on miss. Mirrors TS NpcOps.ts:26-40 (NPC_FINDUID). NAI-120 Bundle 2A.
+	FindNpcByUID(uid int) ActiveNpc
 }
 
 // Frame holds a suspended call frame for GOSUB / RETURN.

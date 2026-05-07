@@ -3,6 +3,7 @@
 package script
 
 import (
+	"errors"
 	"fmt"
 	"math/rand/v2"
 
@@ -369,6 +370,28 @@ func handleLineOfWalk(s *ScriptState) error {
 		return nil
 	}
 	if s.LineValidator.HasLineOfWalk(fromLevel, fromX, fromZ, toX, toZ, 1, 0, 0, 0) {
+		s.PushInt(1)
+	} else {
+		s.PushInt(0)
+	}
+	return nil
+}
+
+// handleMapMultiway (MAP_MULTIWAY, opcode 1014) reports whether the tile at
+// the popped coord is in a multi-combat zone. Mirrors TS ServerOps.ts:376-380:
+//
+//	state.pushInt(World.gameMap.isMulti(coord) ? 1 : 0);
+//
+// TS does NOT call CoordValid on the coord (unlike MAP_BLOCKED). Goscape
+// matches: pass the unpacked coord directly to WorldVars.IsMulti. NAI-120
+// Bundle 2A.
+func handleMapMultiway(s *ScriptState) error {
+	coord := s.PopInt()
+	if s.World == nil {
+		return errors.New("MAP_MULTIWAY: no world surface")
+	}
+	level, x, z := unpackCoord(coord)
+	if s.World.IsMulti(level, x, z) {
 		s.PushInt(1)
 	} else {
 		s.PushInt(0)

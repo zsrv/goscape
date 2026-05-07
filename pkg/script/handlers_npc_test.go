@@ -2755,3 +2755,180 @@ func TestNpcWalkTrigger_BoundaryQueueIDs(t *testing.T) {
 		}
 	})
 }
+
+// NPC_FINDUID (opcode 2521) — NAI-120 Bundle 2A.
+// Mirrors TS NpcOps.ts:26-40.
+
+func TestNpcFindUID_Hit_PrimarySlot(t *testing.T) {
+	npc := &mockNpc{typeID: 42, nid: 7, uid: (42 << 16) | 7}
+	lookup := &mockNpcLookup{byUID: map[int]ActiveNpc{npc.uid: npc}}
+	s := &ScriptState{
+		Npcs:        lookup,
+		Script:      &ScriptFile{IntOperands: []int32{0}},
+		PC:          0,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(npc.uid)
+	if err := handleNpcFindUID(s); err !=nil {
+		t.Fatalf("NPC_FINDUID hit: unexpected error %v", err)
+	}
+	if got := s.PopInt(); got !=1 {
+		t.Errorf("NPC_FINDUID hit: pushed %d, want 1", got)
+	}
+	if s.ActiveNpc !=npc {
+		t.Errorf("NPC_FINDUID hit: ActiveNpc not bound (got %v, want %v)", s.ActiveNpc, npc)
+	}
+	if s.Pointers&PtrActiveNpc == 0 {
+		t.Error("NPC_FINDUID hit: PtrActiveNpc not set")
+	}
+}
+
+func TestNpcFindUID_Hit_SecondarySlot(t *testing.T) {
+	npc := &mockNpc{typeID: 42, nid: 7, uid: (42 << 16) | 7}
+	lookup := &mockNpcLookup{byUID: map[int]ActiveNpc{npc.uid: npc}}
+	s := &ScriptState{
+		Npcs:        lookup,
+		Script:      &ScriptFile{IntOperands: []int32{1}},
+		PC:          0,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(npc.uid)
+	if err := handleNpcFindUID(s); err !=nil {
+		t.Fatalf("NPC_FINDUID secondary hit: unexpected error %v", err)
+	}
+	if got := s.PopInt(); got !=1 {
+		t.Errorf("NPC_FINDUID secondary hit: pushed %d, want 1", got)
+	}
+	if s.OtherActiveNpc !=npc {
+		t.Errorf("NPC_FINDUID secondary hit: OtherActiveNpc not bound (got %v, want %v)", s.OtherActiveNpc, npc)
+	}
+	if s.Pointers&PtrActiveNpc2 == 0 {
+		t.Error("NPC_FINDUID secondary hit: PtrActiveNpc2 not set")
+	}
+}
+
+func TestNpcFindUID_Miss(t *testing.T) {
+	lookup := &mockNpcLookup{byUID: nil}
+	s := &ScriptState{
+		Npcs:        lookup,
+		Script:      &ScriptFile{IntOperands: []int32{0}},
+		PC:          0,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt((42 << 16) | 999)
+	if err := handleNpcFindUID(s); err !=nil {
+		t.Fatalf("NPC_FINDUID miss: unexpected error %v", err)
+	}
+	if got := s.PopInt(); got !=0 {
+		t.Errorf("NPC_FINDUID miss: pushed %d, want 0", got)
+	}
+	if s.ActiveNpc !=nil {
+		t.Errorf("NPC_FINDUID miss: ActiveNpc should remain nil (got %v)", s.ActiveNpc)
+	}
+	if s.Pointers&PtrActiveNpc !=0 {
+		t.Error("NPC_FINDUID miss: PtrActiveNpc should NOT be set")
+	}
+}
+
+func TestNpcFindUID_NilNpcs(t *testing.T) {
+	s := &ScriptState{
+		Npcs:        nil,
+		Script:      &ScriptFile{IntOperands: []int32{0}},
+		PC:          0,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt((42 << 16) | 7)
+	if err := handleNpcFindUID(s); err !=nil {
+		t.Fatalf("NPC_FINDUID nil Npcs: unexpected error %v", err)
+	}
+	if got := s.PopInt(); got !=0 {
+		t.Errorf("NPC_FINDUID nil Npcs: pushed %d, want 0", got)
+	}
+}
+
+// NPC_RANGE (opcode 2531) — NAI-120 Bundle 2A.
+// Mirrors TS NpcOps.ts:152-168.
+
+func TestNpcRange_SameLevel_Adjacent(t *testing.T) {
+	npc := &mockNpc{x: 3222, z: 3218, level: 0}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		Pointers:    PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	// Pop a packed coord at (3223, 3218, level 0): chebyshev distance 1.
+	s.PushInt((0 << 28) | (3223 << 14) | 3218)
+	if err := handleNpcRange(s); err != nil {
+		t.Fatalf("NPC_RANGE same-level adjacent: unexpected error %v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("NPC_RANGE same-level adjacent: got %d, want 1", got)
+	}
+}
+
+func TestNpcRange_SameLevel_Diagonal(t *testing.T) {
+	npc := &mockNpc{x: 3222, z: 3218, level: 0}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		Pointers:    PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	// Pop a packed coord at (3223, 3219, 0): chebyshev distance 1.
+	s.PushInt((0 << 28) | (3223 << 14) | 3219)
+	if err := handleNpcRange(s); err != nil {
+		t.Fatalf("NPC_RANGE same-level diagonal: unexpected error %v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("NPC_RANGE same-level diagonal: got %d, want 1", got)
+	}
+}
+
+func TestNpcRange_DifferentLevel_Sentinel(t *testing.T) {
+	npc := &mockNpc{x: 3222, z: 3218, level: 0}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		Pointers:    PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	// Pop a packed coord at (3222, 3218, level 1): different level -> -1.
+	s.PushInt((1 << 28) | (3222 << 14) | 3218)
+	if err := handleNpcRange(s); err != nil {
+		t.Fatalf("NPC_RANGE diff-level: unexpected error %v", err)
+	}
+	if got := s.PopInt(); got != -1 {
+		t.Errorf("NPC_RANGE diff-level: got %d, want -1", got)
+	}
+}
+
+func TestNpcRange_NoActiveNpc(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(0)
+	if err := handleNpcRange(s); err == nil {
+		t.Error("NPC_RANGE with no ActiveNpc: want error")
+	}
+}
+
+func TestNpcRange_InvalidCoord(t *testing.T) {
+	npc := &mockNpc{x: 3222, z: 3218, level: 0}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		Pointers:    PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	// Negative coord fails CoordValid.
+	s.PushInt(-1)
+	if err := handleNpcRange(s); err == nil {
+		t.Error("NPC_RANGE invalid coord: want error")
+	}
+}

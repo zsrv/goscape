@@ -99,6 +99,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// NAI-36-T4: per-tile blocked-state query with F2P short-circuit.
 	OpMapBlocked: handleMapBlocked,
 
+	// NAI-120 Bundle 2A: multi-combat zone query.
+	OpMapMultiway: handleMapMultiway,
+
 	// NAI-36-T5: tile-anchored spotanim broadcast.
 	OpSpotAnimMap: handleSpotAnimMap,
 
@@ -409,6 +412,10 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpNpcTele:              handleNpcTele,
 	OpNpcWalk:              handleNpcWalk,
 	OpNpcWalkTrigger:       handleNpcWalkTrigger,
+
+	// NAI-120 Bundle 2A: UID-keyed NPC lookup + range query.
+	OpNpcFindUID: handleNpcFindUID,
+	OpNpcRange:   handleNpcRange,
 
 	// NPC find (S7f) — closest-single cluster.
 	OpNpcFind:      handleNpcFind,
