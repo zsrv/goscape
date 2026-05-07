@@ -383,7 +383,8 @@ func handleLineOfWalk(s *ScriptState) error {
 //	state.pushInt(World.gameMap.isMulti(coord) ? 1 : 0);
 //
 // TS does NOT call CoordValid on the coord (unlike MAP_BLOCKED). Goscape
-// matches: pass the unpacked coord directly to WorldVars.IsMulti. NAI-120
+// matches: pass the unpacked coord directly to WorldVars.IsMulti. Nil-World
+// returns an error (goscape defensive; TS always has a live World). NAI-120
 // Bundle 2A.
 func handleMapMultiway(s *ScriptState) error {
 	coord := s.PopInt()
