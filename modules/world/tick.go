@@ -34,12 +34,21 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 
 		s.processClientsIn()
 		s.processWorldQueue() // NAI-37: matches TS World.processWorld start-of-cycle ordering
+		// NAI-122: processNpcEventQueue moved up to mirror TS World.ts:356
+		// (drains BEFORE processPlayers at TS line 376). Closes the
+		// V-PARTIAL where AI_SPAWN-populated npc varns
+		// (%npc_combat_xp_multiplier and friends) were read as zero by
+		// same-tick combat dispatch because the queue drained AFTER
+		// processInteractions. DEVIATION-NAI-122-D3 declared in Bundle 0
+		// findings: NAI-121 audit's "TS sync-inline" claim was a misread
+		// — TS uses a unified queue identical to goscape's, just drained
+		// earlier in the tick.
+		s.processNpcEventQueue()
 		s.processActiveScripts()
 		s.processPlayerTimers()
 		s.processPathing()
 		s.processInteractions()
 		s.processWalkTriggerFallbacks() // NAI-77 T3: TS World.ts:635-641 per-tick re-path + PLAYERSETUP walktrigger
-		s.processNpcEventQueue() // NAI-5: matches TS World.ts:356
 		s.processNpcs()
 		s.processLogouts()
 		s.processLogins()

@@ -1,12 +1,48 @@
 package world
 
 import (
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 )
+
+// TestTickPhaseOrder_NpcEventQueueBeforeInteractions pins the NAI-122 fix:
+// processNpcEventQueue (which dispatches AI_SPAWN scripts queued by
+// Server.addNpc) MUST run before processInteractions (where combat scripts
+// read npc varns). Mirrors TS World.ts:356 (processNpcEventQueue) running
+// before TS World.ts:376 (processPlayers / interactions).
+//
+// Pre-fix (buggy) order from NAI-5: processInteractions at tick.go:40 ran
+// before processNpcEventQueue at tick.go:42. AI_SPAWN scripts didn't
+// populate %npc_combat_xp_multiplier and similar varns until AFTER combat
+// had already read the zero-init value, producing the V-PARTIAL parked at
+// NAI-120 / NAI-121.
+//
+// This is a structural pin: it source-scans tick.go to assert call-site
+// ordering. Fragile to mass refactors; intentional, since the invariant
+// itself is structural.
+func TestTickPhaseOrder_NpcEventQueueBeforeInteractions(t *testing.T) {
+	src, err := os.ReadFile("tick.go")
+	if err != nil {
+		t.Fatalf("read tick.go: %v", err)
+	}
+	text := string(src)
+	qIdx := strings.Index(text, "s.processNpcEventQueue()")
+	iIdx := strings.Index(text, "s.processInteractions()")
+	if qIdx < 0 {
+		t.Fatalf("s.processNpcEventQueue() call not found in tick.go")
+	}
+	if iIdx < 0 {
+		t.Fatalf("s.processInteractions() call not found in tick.go")
+	}
+	if qIdx > iIdx {
+		t.Errorf("NAI-122: s.processNpcEventQueue() at offset %d must precede s.processInteractions() at offset %d (TS World.ts:356 < World.ts:376)", qIdx, iIdx)
+	}
+}
 
 // TestProcessInfo_TeleAcrossWindow_LocalCoordsInRange pins the NAI-93 bug:
 // pre-fix, processInfo runs rsbuf.ComputePlayer BEFORE updateMap, so the
