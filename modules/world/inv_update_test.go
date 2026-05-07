@@ -6,10 +6,29 @@ import (
 
 	"github.com/zsrv/goscape/pkg/inventory"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
+// invUpdateTestInvTypesLen is the configs slice capacity used by
+// newInvListenerTestPlayer; large enough to cover both type 0 (world-source
+// tests) and type 93 (per-player tests).
+const invUpdateTestInvTypesLen = 94
+
+// newInvListenerTestPlayer wires a Player to s with a pre-allocated invs map,
+// a composed uid, and encryptor ready for wire-emit assertions. Also ensures
+// s.invTypes covers types 0..93 so invLookupView.Get can resolve both world-
+// source and per-player listeners created by the update-invs test suite.
 func newInvListenerTestPlayer(t *testing.T, s *Server, slot int) (*Player, net.Conn) {
 	t.Helper()
+	if s.invTypes == nil {
+		configs := make([]*objtype.InvType, invUpdateTestInvTypesLen)
+		// type 0 — world-source listeners (SCOPE_SHARED); SCOPE_SHARED=2.
+		configs[0] = &objtype.InvType{ConfigType: objtype.ConfigType{ID: 0}, Scope: objtype.InvTypeScopeShared, Size: 1}
+		// type 93 — per-player listeners (SCOPE_TEMP=0, default).
+		configs[93] = &objtype.InvType{ConfigType: objtype.ConfigType{ID: 93}, Scope: objtype.InvTypeScopeTemp, Size: 28}
+		s.invTypes = &objtype.InvTypeConfigs{Configs: configs}
+		s.invLookup = invLookupView{s: s}
+	}
 	p, cc := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})

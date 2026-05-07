@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
+	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
@@ -274,5 +275,117 @@ func TestInvStopListenOnComWritesUpdatePacket(t *testing.T) {
 	}
 	if _, ok := p.invListeners[149]; ok {
 		t.Error("listener at 149 should be removed")
+	}
+}
+
+// TestUpdateInvsLazyAllocSeedsStockTemp pins: a SCOPE_TEMP listener for an
+// unallocated InvType with StockObj populated causes updateInvs to
+// lazy-allocate the per-player inventory (seeding stock items) and emit a
+// sendUpdateInvFullCom wire packet. Mirrors TS Player.ts:1400-1438.
+func TestUpdateInvsLazyAllocSeedsStockTemp(t *testing.T) {
+	// InvType: SCOPE_TEMP, capacity 5, stock=[bronze_dagger=100, bronze_sword=101].
+	cfg := &objtype.InvType{
+		ConfigType: objtype.ConfigType{ID: testInvTypeID},
+		Scope:      objtype.InvTypeScopeTemp,
+		Size:       5,
+		StockObj:   []uint16{100, 101, 0, 0, 0},
+		StockCount: []uint16{1, 1, 0, 0, 0},
+	}
+	configs := make([]*objtype.InvType, testInvTypesLen)
+	configs[testInvTypeID] = cfg
+
+	p, cc := newTestPlayer(t)
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	s := &Server{
+		log:        discardLogger(),
+		invTypes:   &objtype.InvTypeConfigs{Configs: configs},
+		invs:       make(map[int]*inventory.Inventory),
+		playerLoop: []*Player{p}, // for LookupPlayerByUID
+	}
+	s.invLookup = invLookupView{s: s}
+	p.client.server = s
+	p.uid = 12345
+	p.active = true
+
+	// Register listener at com=149 — SCOPE_TEMP, source=p.uid.
+	p.invListenOnCom(testInvTypeID, 149, p.uid)
+	if p.invListeners[149].Source != p.uid {
+		t.Fatalf("setup: Source got %d, want %d", p.invListeners[149].Source, p.uid)
+	}
+	if _, ok := p.invs[testInvTypeID]; ok {
+		t.Fatal("setup: per-player inv slot must be empty before updateInvs")
+	}
+
+	received := drainConn(t, cc)
+	p.updateInvs()
+	p.client.flushWrite()
+
+	got := <-received
+	if len(got) == 0 {
+		t.Fatal("updateInvs should emit a wire packet for a SCOPE_TEMP listener with stock items")
+	}
+
+	// Lazy-alloc must have populated p.invs[testInvTypeID] with stock items.
+	inv, ok := p.invs[testInvTypeID]
+	if !ok || inv == nil {
+		t.Error("updateInvs should lazy-allocate per-player inv from InvType")
+	} else if inv.GetItemCount(100) != 1 || inv.GetItemCount(101) != 1 {
+		t.Errorf("lazy-allocated inv missing stock items: items=%v", inv.Items)
+	}
+}
+
+// TestUpdateInvsLazyAllocSeedsStockShared pins: a SCOPE_SHARED listener
+// (source rewritten to -1 by invListenOnCom) causes updateInvs to
+// lazy-allocate the world-shared inventory and emit a sendUpdateInvFullCom
+// wire packet. Mirrors TS Player.ts:1400-1438 (World.getInventory path).
+func TestUpdateInvsLazyAllocSeedsStockShared(t *testing.T) {
+	// InvType: SCOPE_SHARED, capacity 5, stock=[bronze_dagger=100, bronze_sword=101].
+	cfg := &objtype.InvType{
+		ConfigType: objtype.ConfigType{ID: testInvTypeID},
+		Scope:      objtype.InvTypeScopeShared,
+		Size:       5,
+		StockObj:   []uint16{100, 101, 0, 0, 0},
+		StockCount: []uint16{1, 1, 0, 0, 0},
+	}
+	configs := make([]*objtype.InvType, testInvTypesLen)
+	configs[testInvTypeID] = cfg
+
+	p, cc := newTestPlayer(t)
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	s := &Server{
+		log:        discardLogger(),
+		invTypes:   &objtype.InvTypeConfigs{Configs: configs},
+		invs:       make(map[int]*inventory.Inventory),
+		playerLoop: []*Player{p},
+	}
+	s.invLookup = invLookupView{s: s}
+	p.client.server = s
+	p.uid = 12345
+	p.active = true
+
+	// caller source=99; SCOPE_SHARED rewrite inside invListenOnCom flips to -1.
+	p.invListenOnCom(testInvTypeID, 149, 99)
+	if p.invListeners[149].Source != -1 {
+		t.Fatalf("setup: Source got %d, want -1 (SCOPE_SHARED rewrite)", p.invListeners[149].Source)
+	}
+	if _, ok := s.invs[testInvTypeID]; ok {
+		t.Fatal("setup: world-shared inv slot must be empty before updateInvs")
+	}
+
+	received := drainConn(t, cc)
+	p.updateInvs()
+	p.client.flushWrite()
+
+	got := <-received
+	if len(got) == 0 {
+		t.Fatal("updateInvs should emit a wire packet for a SCOPE_SHARED listener with stock items")
+	}
+
+	// Lazy-alloc must have populated s.invs[testInvTypeID] with stock items.
+	inv, ok := s.invs[testInvTypeID]
+	if !ok || inv == nil {
+		t.Error("updateInvs should lazy-allocate world-shared inv from InvType")
+	} else if inv.GetItemCount(100) != 1 || inv.GetItemCount(101) != 1 {
+		t.Errorf("lazy-allocated shared inv missing stock items: items=%v", inv.Items)
 	}
 }

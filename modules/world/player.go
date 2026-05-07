@@ -767,23 +767,21 @@ func (p *Player) updateInvs() {
 	if p.client == nil || p.client.server == nil {
 		return
 	}
+	srv := p.client.server
 	// Collect all observed invs so we can clear Update after all listeners fire.
 	observed := make([]*inventory.Inventory, 0, len(p.invListeners))
 	for com, l := range p.invListeners {
-		var inv *inventory.Inventory
+		var self script.ActivePlayer
 		if l.Source == -1 {
-			inv = p.client.server.invs[l.Type]
+			// SCOPE_SHARED listener — invLookupView.Get ignores self for shared.
+			self = p
 		} else {
-			otherActive := p.client.server.LookupPlayerByUID(l.Source)
-			if otherActive == nil {
+			self = srv.LookupPlayerByUID(l.Source)
+			if self == nil {
 				continue
 			}
-			other, ok := otherActive.(*Player)
-			if !ok || other == nil {
-				continue
-			}
-			inv = other.invs[l.Type]
 		}
+		inv := srv.invLookup.Get(self, l.Type)
 		if inv == nil {
 			continue
 		}
