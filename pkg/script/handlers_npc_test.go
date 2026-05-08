@@ -219,6 +219,9 @@ type mockNpc struct {
 	changeTypeKeepAllCalls             []struct{ newType, duration int }
 	damageCalls                        []struct{ amount, dmgType int }
 	enqueueCalls                       []mockEnqueueCall
+	// NAI-125: mirrors PathingEntity.lastMovement reader for
+	// NPC_ARRIVEDELAY. Default 0 = "never moved".
+	lastMovement                       int
 	setDelayedCalls                    []int
 	setTimerCalls                      []int
 	setHuntRangeCalls                  []int
@@ -246,6 +249,7 @@ func (m *mockNpc) NpcZ() int        { return m.z }
 func (m *mockNpc) NpcLevel() int    { return m.level }
 func (m *mockNpc) NpcUID() int      { return m.uid }
 func (m *mockNpc) Nid() int         { return m.nid }
+func (m *mockNpc) LastMovement() int { return m.lastMovement }
 func (m *mockNpc) NpcCategory() int { return m.category }
 
 func (m *mockNpc) NpcStat(stat int) int {
