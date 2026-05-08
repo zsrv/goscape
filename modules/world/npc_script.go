@@ -33,6 +33,12 @@ func (n *Npc) NpcCategory() int {
 	return n.typ.Category
 }
 
+// LastMovement returns n.lastMovement, satisfying script.ActiveNpc.
+// Used by NPC_ARRIVEDELAY (handlers_npc.go). The field is written by
+// (*Npc).updateMovement at npc_interaction.go:334 to currentTick + 1
+// after any tick the NPC stepped.
+func (n *Npc) LastMovement() int { return n.lastMovement }
+
 // NpcStat returns the current (boosted) stat level for the given stat id.
 // Reads n.levels[stat] — seeded from typ.Stats at NewNpc time and maintained
 // by ChangeType / Damage / processNpcRegen.

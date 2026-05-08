@@ -623,6 +623,13 @@ type ActiveNpc interface {
 	// NPC-targeted player-bound packets like HintArrow that reference
 	// the NPC by slot rather than by packed UID.
 	Nid() int
+
+	// LastMovement returns the NPC's TS-PathingEntity.lastMovement value
+	// (set to currentTick + 1 at the end of any tick the NPC stepped, else
+	// 0). Read by NPC_ARRIVEDELAY (NpcOps.ts:542-555). Mirrors
+	// ActivePlayer.LastMovement.
+	LastMovement() int
+
 	NpcVarN(id int) int32
 	SetNpcVarN(id int, val int32)
 	// NpcVarNString reads the per-NPC STRING-typed var at id. Returns
