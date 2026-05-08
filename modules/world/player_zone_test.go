@@ -221,3 +221,29 @@ func TestPartialFollowsDeliversPrivateDropToOwnerByUID(t *testing.T) {
 		t.Errorf("want 9 bytes (1 Follows wrapper + 1 ObjAdd for p.uid); got %d", len(got))
 	}
 }
+
+
+func TestPartialFollowsHidesPrivateDropFromNonOwnerByUID(t *testing.T) {
+	s := newZoneTestServer(t)
+	// Owner at slot 5 with uid = (1<<11)|5 = 2053.
+	owner, _ := newZoneTestPlayer(t, s, 5, 3094, 3106, 0)
+	owner.uid = composeUID(1, 5)
+	// Other player at slot 9 with uid = (2<<11)|9 = 4105 (distinct).
+	other, otherCC := newZoneTestPlayer(t, s, 9, 3094, 3106, 0)
+	other.uid = composeUID(2, 9)
+
+	z := s.zoneMap.Get(0, 3094, 3106)
+	obj := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 526, 1)
+	s.AddObj(obj, owner.uid)
+	for zi := range s.zonesTracking {
+		zi.ComputeShared()
+	}
+
+	received := drainConn(t, otherCC)
+	other.writePartialFollows(z)
+	other.client.flushWrite()
+	got := <-received
+	if len(got) != 0 {
+		t.Errorf("non-owner must receive no bytes; got %d (%v)", len(got), got)
+	}
+}
