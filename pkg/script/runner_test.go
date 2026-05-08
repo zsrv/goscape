@@ -333,6 +333,13 @@ type mockPlayer struct {
 	// mockNpc.addHeroPointsCalls.
 	addHeroPointsCalls []struct{ playerUID, amount int }
 
+	// NAI-127 Bundle 2: DAMAGE recorder.
+	applyDamageCalls []struct{ amount, dmgType int }
+
+	// NAI-127 Bundle 2: P_PREVENTLOGOUT recorders.
+	preventLogoutMessage string
+	preventLogoutUntil   int
+
 	// S7h: captured MIDI_SONG plays. Each entry records the normalized-name
 	// argument as seen by the mock; the mock does not perform TS
 	// normalization (that's (*Player).PlaySong's responsibility).
@@ -649,6 +656,16 @@ func (m *mockPlayer) TopContributor() int { return m.topContributor }
 
 func (m *mockPlayer) AddHeroPoints(playerUID, amount int) {
 	m.addHeroPointsCalls = append(m.addHeroPointsCalls, struct{ playerUID, amount int }{playerUID, amount})
+}
+
+
+func (m *mockPlayer) SetPreventLogout(message string, untilTick int) {
+	m.preventLogoutMessage = message
+	m.preventLogoutUntil = untilTick
+}
+
+func (m *mockPlayer) ApplyDamage(amount, dmgType int) {
+	m.applyDamageCalls = append(m.applyDamageCalls, struct{ amount, dmgType int }{amount, dmgType})
 }
 
 // S7h: PlaySong captures the MIDI_SONG name for handler tests.

@@ -592,6 +592,17 @@ type ActivePlayer interface {
 	// by FINDHERO (PlayerOps.ts:1138-1154). NAI-127 Bundle 1.
 	TopContributor() int
 
+	// SetPreventLogout records an anti-log message and absolute-tick
+	// deadline. Used by P_PREVENTLOGOUT (PlayerOps.ts:626-630). The
+	// caller computes `untilTick = currentTick + popped-ticks` —
+	// matches TS `World.currentTick + check(popInt(), NumberNotNull)`.
+	// NAI-127 Bundle 2.
+	SetPreventLogout(message string, untilTick int)
+
+	// ApplyDamage applies `amount` damage of `dmgType` to this player.
+	// Used by DAMAGE (PlayerOps.ts:768-779). NAI-127 Bundle 2.
+	ApplyDamage(amount, dmgType int)
+
 	// SetBodyPart writes body[slot] = idkit. Called by SETIDKIT after slot
 	// computation. Does NOT flip MaskAppearance — the script must call
 	// BUILDAPPEARANCE separately (TS pattern: SETIDKIT then BUILDAPPEARANCE).

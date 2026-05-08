@@ -1148,3 +1148,21 @@ func (p *Player) PlaySynth(synth, loops, delay int) {
 	encodeSynthSound(buf, uint16(synth), uint8(loops), uint16(delay))
 	p.writeOut(gameserver.OpSynthSound, buf.Bytes())
 }
+
+
+// SetPreventLogout implements script.ActivePlayer. Mirrors TS
+// PlayerOps.ts:628-629 (state.activePlayer.preventLogoutMessage =
+// msg; state.activePlayer.preventLogoutUntil = currentTick + ticks).
+// NAI-127 Bundle 2.
+func (p *Player) SetPreventLogout(message string, untilTick int) {
+	p.preventLogoutMessage = message
+	p.preventLogoutUntil = untilTick
+}
+
+// ApplyDamage implements script.ActivePlayer. Delegates to
+// Player.Damage (player_masks.go:126), which is the existing
+// damage-mask producer. Mirrors TS player.applyDamage(amount, type)
+// at PlayerOps.ts:778. NAI-127 Bundle 2.
+func (p *Player) ApplyDamage(amount, dmgType int) {
+	p.Damage(amount, dmgType)
+}
