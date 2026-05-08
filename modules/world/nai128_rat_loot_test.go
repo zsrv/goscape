@@ -384,6 +384,30 @@ func TestNAI128_RatLootCascade(t *testing.T) {
 				"nai128.npc.queuefire", len(queueFireRecs))
 		}
 
+		// G5 — handleNpcFindHero exit gateway. ai_queue3's npc_findhero
+		// call should fire one record with pushed=1 (heroPoints credited
+		// via test setup; player lookup resolves post-Phase-A).
+		var findHeroRecs []slog.Record
+		for _, r := range records {
+			if r.Message == "nai128.npc.findhero" {
+				findHeroRecs = append(findHeroRecs, r)
+			}
+		}
+		if len(findHeroRecs) == 0 {
+			t.Errorf("G5: expected at least one %q record during cascade; got 0", "nai128.npc.findhero")
+		} else {
+			var pushed int64 = -1
+			findHeroRecs[0].Attrs(func(a slog.Attr) bool {
+				if a.Key == "pushed" {
+					pushed = a.Value.Int64()
+				}
+				return true
+			})
+			if pushed != 1 {
+				t.Errorf("G5: first record pushed=%d; want 1 (test setup credits heroPoints + Phase A wires LookupPlayerByUID)", pushed)
+			}
+		}
+
 		// Diagnostic dump of all captured log frames — useful when the
 		// binding is none of E0/E2a/E2b (e.g. an unexpected error path).
 		if t.Failed() || testing.Verbose() {

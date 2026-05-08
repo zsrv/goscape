@@ -1106,20 +1106,33 @@ func handleNpcFindHero(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_FINDHERO"); err != nil {
 		return err
 	}
+	pushed := 0
+	var topUID int
+	lookupNonNil := false
+	defer func() {
+		if s.NodeDebug && s.Log != nil {
+			s.Log.Info("nai128.npc.findhero",
+				"topUID", topUID,
+				"lookupNonNil", lookupNonNil,
+				"pushed", pushed,
+			)
+		}
+	}()
 	if s.World == nil {
 		s.PushInt(0)
 		return nil
 	}
-	uid := s.ActiveNpc.TopContributor()
-	if uid == 0 {
+	topUID = s.ActiveNpc.TopContributor()
+	if topUID == 0 {
 		s.PushInt(0)
 		return nil
 	}
-	player := s.World.LookupPlayerByUID(uid)
+	player := s.World.LookupPlayerByUID(topUID)
 	if player == nil {
 		s.PushInt(0)
 		return nil
 	}
+	lookupNonNil = true
 	if s.Script.IntOperands[s.PC] == 0 {
 		s.Self = player
 		s.Pointers |= PtrActivePlayer
@@ -1128,5 +1141,6 @@ func handleNpcFindHero(s *ScriptState) error {
 		s.Pointers |= PtrActivePlayer2
 	}
 	s.PushInt(1)
+	pushed = 1
 	return nil
 }
