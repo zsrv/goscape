@@ -466,6 +466,12 @@ func (s *Server) processNpcRegen(n *Npc) {
 // Removal happens BEFORE firing so a re-entrant enqueue doesn't
 // collide with the index pointer. Matches the player-side pattern at
 // modules/world/tick.go:219-242.
+//
+// NAI-123: req.IntArg is copied into state.LastInt before execution,
+// mirroring TS Npc.ts:554-555 (state.lastInt = request.lastInt). The
+// queued arg is NOT a positional script arg (TS request.args is always
+// [] at the only enqueue site Npc.ts:242); ai_queueN scripts read it
+// via the last_int opcode → state.LastInt.
 func (s *Server) processNpcQueue(n *Npc) {
 	if n.typ == nil {
 		return
@@ -481,13 +487,18 @@ func (s *Server) processNpcQueue(n *Npc) {
 			continue
 		}
 		trigger := req.Trigger
-		intArg := req.IntArg
+		lastIntArg := req.IntArg
 		n.queue = append(n.queue[:i], n.queue[i+1:]...)
 		if s.scriptProvider == nil {
 			continue
 		}
 		sf := s.scriptProvider.GetByTrigger(trigger, n.typeId, n.typ.Category)
-		s.runNpcScript(sf, n, nil, []int{intArg}, nil)
+		if sf == nil {
+			continue
+		}
+		state := s.buildNpcScriptState(sf, n, nil, nil, nil)
+		state.LastInt = lastIntArg
+		s.resumeOrFinishNpc(state, n)
 		// Don't advance i — removed current element.
 	}
 }

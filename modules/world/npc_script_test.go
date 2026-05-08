@@ -1071,6 +1071,53 @@ func TestResumeOrFinishNpc_ExecuteError_PreservesUnrelatedSuspendedScript(t *tes
 	}
 }
 
+// TestProcessNpcQueue_SetsStateLastInt pins NAI-123 fix: processNpcQueue
+// must copy req.IntArg into state.LastInt before executing the dispatched
+// ai_queueN script. Mirrors TS Npc.ts:554-555 — without this line,
+// [ai_queueN,_] ~proc(last_int) reads 0 and zero-damages the target.
+//
+// Observable: register a script at TriggerAiQueue2 whose bytecode pushes
+// last_int and feeds it to NPC_SETTIMER. SetTimer writes n.timerInterval
+// directly. Enqueue with intArg=42; turn(); assert n.timerInterval == 42.
+//
+// Failure mode if state.LastInt is unset: OpLastInt pushes 0 → SetTimer(0)
+// → n.timerInterval = 0 (got 0, want 42).
+func TestProcessNpcQueue_SetsStateLastInt(t *testing.T) {
+	s, n := buildNpcForIntegration(t)
+	s.scriptProvider = script.NewProvider()
+
+	// Bytecode: OpLastInt; OpNpcSetTimer; OpReturn.
+	// OpLastInt pushes state.LastInt; OpNpcSetTimer pops it as the
+	// interval and calls n.SetTimer(interval) → n.timerInterval=interval.
+	probe := &script.ScriptFile{
+		Name:             "nai123_lastint_probe_aiqueue2",
+		LookupKey:        uint32(script.TriggerAiQueue2),
+		Opcodes:          []script.Opcode{script.OpLastInt, script.OpNpcSetTimer, script.OpReturn},
+		IntOperands:      []int32{0, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	s.scriptProvider.Register(probe)
+
+	if got := s.scriptProvider.GetByTrigger(script.TriggerAiQueue2, n.typeId, n.typ.Category); got != probe {
+		t.Fatalf("setup: GetByTrigger(TriggerAiQueue2, ...) = %v, want probe", got)
+	}
+
+	n.EnqueueScriptForTrigger(script.TriggerAiQueue2, 1, 42)
+	if len(n.queue) != 1 {
+		t.Fatalf("setup: queue len = %d, want 1", len(n.queue))
+	}
+
+	n.turn(s)
+
+	if len(n.queue) != 0 {
+		t.Fatalf("after turn: queue len = %d, want 0 (delay 1→0 fires the queue)", len(n.queue))
+	}
+	if n.timerInterval != 42 {
+		t.Errorf("n.timerInterval: got %d, want 42 (state.LastInt was not propagated to dispatched script — TS Npc.ts:554-555)", n.timerInterval)
+	}
+}
+
 // TestResumeOrFinishNpc_ExecuteError_ClearsMatchingActiveScript pins
 // the NAI-55 NPC-path error+match arm: when the fresh state IS the NPC's
 // activeScript and Execute errors, activeScript is nulled. Mirrors TS
