@@ -73,7 +73,7 @@ func (p *Player) writePartialFollows(z *zone.Zone) {
 		if e.Type != zone.ZoneEventFollows || e.Bytes == nil {
 			continue
 		}
-		if e.ReceiverID != zone.PublicReceiver && e.ReceiverID != p.slot {
+		if e.ReceiverID != zone.PublicReceiver && e.ReceiverID != p.uid {
 			continue
 		}
 		if !hasAnyForMe {

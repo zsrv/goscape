@@ -158,14 +158,17 @@ func TestWriteFullFollowsSkipsThisTickTransitions(t *testing.T) {
 
 func TestPartialFollowsFiltersByReceiverID(t *testing.T) {
 	s := newZoneTestServer(t)
+	// Player at slot 7 with a derived UID (username37=1 → uid = (1<<11)|7 = 2055).
 	p, cc := newZoneTestPlayer(t, s, 7, 3094, 3106, 0)
+	p.uid = composeUID(1, 7)
+	otherUID := composeUID(2, 3) // username37=2, slot 3 → uid = (2<<11)|3 = 4099 (distinct, > 2047)
 
 	z := s.zoneMap.Get(0, 3094, 3106)
-	// Two Follows events: one targeted at slot 3, one at slot 7.
-	obj3 := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 995, 1)
-	obj7 := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 995, 1)
-	s.AddObj(obj3, 3)
-	s.AddObj(obj7, 7)
+	// Two Follows events: one for otherUID, one for p.uid.
+	objOther := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 995, 1)
+	objMine := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 995, 1)
+	s.AddObj(objOther, otherUID)
+	s.AddObj(objMine, p.uid)
 	for zi := range s.zonesTracking {
 		zi.ComputeShared()
 	}
@@ -175,12 +178,12 @@ func TestPartialFollowsFiltersByReceiverID(t *testing.T) {
 	p.client.flushWrite()
 	got := <-received
 	if len(got) == 0 {
-		t.Fatal("expected follows packets for slot 7")
+		t.Fatal("expected follows packets for p.uid")
 	}
-	// Should include exactly one Follows wrapper + one ObjAdd for slot 7
-	// (slot 3 filtered). 2 + 5 = 7 bytes payload + 2 opcode bytes = 9.
+	// Should include exactly one Follows wrapper + one ObjAdd for p.uid
+	// (otherUID filtered). 2 + 5 = 7 bytes payload + 2 opcode bytes = 9.
 	if len(got) != 9 {
-		t.Errorf("want 9 bytes (1 header + 1 ObjAdd for slot 7); got %d", len(got))
+		t.Errorf("want 9 bytes (1 header + 1 ObjAdd for p.uid); got %d", len(got))
 	}
 }
 
