@@ -2112,7 +2112,7 @@ func TestIteratorFamily_Integration_FindAllAnyThenLoopFindNext(t *testing.T) {
 
 	// Stage 2: FINDNEXT loop
 	yielded := []ActiveNpc{}
-	for i := 0; i < 5; i++ { // bounded loop — guards against infinite-loop bugs
+	for i := range 5 { // bounded loop — guards against infinite-loop bugs
 		if err := handleNpcFindNext(s); err != nil {
 			t.Fatalf("FINDNEXT iter %d: %v", i, err)
 		}

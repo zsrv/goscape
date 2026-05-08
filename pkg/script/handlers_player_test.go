@@ -144,7 +144,7 @@ func TestStatBaseReadsSeededBase(t *testing.T) {
 
 func TestStatTotalSumsAllBases(t *testing.T) {
 	mp := &mockPlayer{}
-	for i := 0; i < NumStats; i++ {
+	for i := range NumStats {
 		mp.baseLevels[i] = i + 1 // 1..21 → total 231
 	}
 	state := Init(newSingleOp("stat_total", OpStatTotal), mp, false, nil, nil)
