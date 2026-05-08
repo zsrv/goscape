@@ -169,6 +169,17 @@ func (w worldVarsView) AddObj(level, x, z, typeID, count, duration, receiverID i
 	obj.ReceiverID = receiverID
 	w.s.AddObj(obj, receiverID)
 	_ = duration // NAI-115-D2: foundation gap
+	if w.s.cfg.NodeDebug && w.s.log != nil {
+		w.s.log.Info("nai128.obj.add",
+			"level", level,
+			"x", x,
+			"z", z,
+			"typeID", typeID,
+			"count", count,
+			"duration", duration,
+			"receiverID", receiverID,
+		)
+	}
 	return obj
 }
 

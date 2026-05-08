@@ -408,6 +408,19 @@ func TestNAI128_RatLootCascade(t *testing.T) {
 			}
 		}
 
+		// G6 — worldVarsView.AddObj gateway. ai_queue3's two obj_add
+		// calls fire one record each (death_drop + raw_rat_meat).
+		var addObjRecs []slog.Record
+		for _, r := range records {
+			if r.Message == "nai128.obj.add" {
+				addObjRecs = append(addObjRecs, r)
+			}
+		}
+		if len(addObjRecs) < 2 {
+			t.Errorf("G6: expected at least 2 %q records during cascade (death_drop + raw_rat_meat); got %d",
+				"nai128.obj.add", len(addObjRecs))
+		}
+
 		// Diagnostic dump of all captured log frames — useful when the
 		// binding is none of E0/E2a/E2b (e.g. an unexpected error path).
 		if t.Failed() || testing.Verbose() {
