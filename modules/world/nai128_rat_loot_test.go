@@ -9,6 +9,7 @@ import (
 	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
+	"github.com/zsrv/goscape/pkg/zone"
 )
 
 // nai128CacheFixture loads the real data/pack cache + scriptProvider into a
@@ -106,6 +107,13 @@ func nai128CacheFixture(t *testing.T) (*Server, string) {
 		t.Fatalf("provider.Load: %v", err)
 	}
 	s.scriptProvider = provider
+
+	// zonesTracking — production NewServer initializes this at server.go:169
+	// but newTestServer doesn't. Required for the cascade's obj_add → zone
+	// AddObj → TrackZone chain (server.go:780).
+	if s.zonesTracking == nil {
+		s.zonesTracking = map[*zone.Zone]struct{}{}
+	}
 
 	return s, ""
 }
@@ -221,6 +229,21 @@ func TestNAI128_RatLootCascade(t *testing.T) {
 		// pattern (npc_script.go:497-526). After this call, BOTH
 		// ai_queue2 AND ai_queue3 should have run.
 		s.processNpcQueue(rat)
+		// Drive multi-tick to completion: ai_queue3 gosubs into
+		// [proc,npc_death] which contains NPC_ARRIVEDELAY (PC 4) and
+		// NPC_DELAY (PC 30). Both suspend the script with delayedUntil
+		// set on the NPC. n.turn() resumes when currentTick>=delayedUntil.
+		// Without this loop, the cascade halts at NPC_ARRIVEDELAY before
+		// reaching NPC_FINDHERO and the obj_add calls in ai_queue3.
+		// Bound: 16 ticks (worst-case 2 suspends × ~8 ticks each).
+		for tick := 0; tick < 16 && rat.activeScript != nil; tick++ {
+			s.currentTick++
+			rat.turn(s)
+		}
+		if rat.activeScript != nil {
+			t.Errorf("cascade did not complete within 16 ticks; activeScript still suspended at PC=%d Script=%q",
+				rat.activeScript.PC, rat.activeScript.Script.Name)
+		}
 
 		// Cascade link 1: NPC_DAMAGE (called inside ~npc_default_damage)
 		// must have decremented HP to 0.
@@ -288,11 +311,16 @@ func TestNAI128_RatLootCascade(t *testing.T) {
 			}
 		}
 
-		// Note: E2a (NPC_FINDHERO returning 0 silently) leaves both
-		// assertions above passing while T5 still reports 0 objs. The
-		// E2a binding is inferred from "T6 PASS + T5 FAIL". After fix,
 		// T6's two positive contracts (sf!=nil; execErrors empty) are
-		// permanent regression gates.
+		// permanent regression gates: they catch (a) provider lookup
+		// gaps for [ai_queue3,newbiegiantrat] and (b) any handler-level
+		// error inside the cascade. The original E2a hypothesis (silent
+		// NPC_FINDHERO=0) was a misdiagnosis — the actual root cause was
+		// fixture-side: AiQueueCascade was a single processNpcQueue call
+		// but [proc,npc_death] (gosub'd from ai_queue3) contains
+		// NPC_ARRIVEDELAY + NPC_DELAY, so the cascade requires multi-tick
+		// resumption via Npc.turn(). The fix is the tick-driver loop in
+		// AiQueueCascade above.
 	})
 
 	t.Run("GroundObjs", func(t *testing.T) {
