@@ -630,6 +630,13 @@ type ActiveNpc interface {
 	// ActivePlayer.LastMovement.
 	LastMovement() int
 
+	// Respawnrate returns the active NPC type's respawnrate config field
+	// (objtype.NpcType.RespawnRate, uint16 widened to int). Read by NPC_DEL
+	// — passed as the duration arg to script.WorldVars.RemoveNpc. Mirrors
+	// TS check(state.activeNpc.type, NpcTypeValid).respawnrate at
+	// NpcOps.ts:79.
+	Respawnrate() int
+
 	NpcVarN(id int) int32
 	SetNpcVarN(id int, val int32)
 	// NpcVarNString reads the per-NPC STRING-typed var at id. Returns

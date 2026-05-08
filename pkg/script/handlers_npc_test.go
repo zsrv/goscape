@@ -199,6 +199,7 @@ type mockEnqueueCall struct {
 type mockNpc struct {
 	typeID, x, z, level, uid, category int
 	nid                                int
+	respawnrate                        int
 	curHP, baseHP                      int
 	// NAI-120 Bundle 2C: NPC_STATADD/SUB capture. Sparse maps let tests seed
 	// specific stat slots without seeding all 6. curHP/baseHP remain as
@@ -250,6 +251,7 @@ func (m *mockNpc) NpcLevel() int    { return m.level }
 func (m *mockNpc) NpcUID() int      { return m.uid }
 func (m *mockNpc) Nid() int         { return m.nid }
 func (m *mockNpc) LastMovement() int { return m.lastMovement }
+func (m *mockNpc) Respawnrate() int  { return m.respawnrate }
 func (m *mockNpc) NpcCategory() int { return m.category }
 
 func (m *mockNpc) NpcStat(stat int) int {

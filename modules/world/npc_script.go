@@ -39,6 +39,12 @@ func (n *Npc) NpcCategory() int {
 // after any tick the NPC stepped.
 func (n *Npc) LastMovement() int { return n.lastMovement }
 
+// Respawnrate returns the NPC type's respawnrate config field
+// (uint16 widened to int). Read by NPC_DEL — passed as the duration
+// arg to script.WorldVars.RemoveNpc. Mirrors TS
+// check(state.activeNpc.type, NpcTypeValid).respawnrate at NpcOps.ts:79.
+func (n *Npc) Respawnrate() int { return int(n.typ.RespawnRate) }
+
 // NpcStat returns the current (boosted) stat level for the given stat id.
 // Reads n.levels[stat] — seeded from typ.Stats at NewNpc time and maintained
 // by ChangeType / Damage / processNpcRegen.

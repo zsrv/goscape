@@ -45,6 +45,7 @@ func (m *mockActiveNpc) NpcCategory() int                        { return 0 }
 func (m *mockActiveNpc) NpcUID() int                             { return 0 }
 func (m *mockActiveNpc) Nid() int                                { return 0 }
 func (m *mockActiveNpc) LastMovement() int                       { return 0 }
+func (m *mockActiveNpc) Respawnrate() int                        { return 0 }
 func (m *mockActiveNpc) NpcVarN(id int) int32                    { return 0 }
 func (m *mockActiveNpc) SetNpcVarN(id int, val int32)            {}
 func (m *mockActiveNpc) NpcVarNString(id int) string         { return "" }
