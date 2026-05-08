@@ -32,6 +32,11 @@ func nai128CacheFixture(t *testing.T) (*Server, string) {
 
 	s := newTestServer(t)
 
+	// NAI-128 Stage 3: enable NodeDebug so gateway probes fire during
+	// the cascade. capturingHandler in CascadeDispatchTrace reads them
+	// back as binding regression gates.
+	s.cfg.NodeDebug = true
+
 	// Locs + gamemap (death-side of cascade routes obj_add through zoneMap;
 	// gamemap is required for s.zoneMap.Get to anchor on the rat coord).
 	locTypes, err := objtype.LoadLocTypes(cacheDir)
@@ -301,6 +306,19 @@ func TestNAI128_RatLootCascade(t *testing.T) {
 				t.Errorf("warn[%d] script=%q err=%q; binding candidate E2b: cascade script errored",
 					i, scriptName, errStr)
 			}
+		}
+
+		// G1 — Npc.Damage gateway. ai_queue2 → ~npc_default_damage runs
+		// NPC_DAMAGE during the cascade; assert at least one nai128.npc.damage
+		// record fires for the rat.
+		var damageRecs []slog.Record
+		for _, r := range records {
+			if r.Message == "nai128.npc.damage" {
+				damageRecs = append(damageRecs, r)
+			}
+		}
+		if len(damageRecs) == 0 {
+			t.Errorf("G1: expected at least one %q record during cascade; got 0", "nai128.npc.damage")
 		}
 
 		// Diagnostic dump of all captured log frames — useful when the

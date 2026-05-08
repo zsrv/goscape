@@ -174,6 +174,16 @@ func (n *Npc) Damage(amount, dmgType int) {
 		cur = 0
 	}
 	n.levels[objtype.NpcStatHitpoints] = cur
+	if n.server != nil && n.server.cfg.NodeDebug && n.server.log != nil {
+		n.server.log.Info("nai128.npc.damage",
+			"npc", n.uid,
+			"typeId", n.typeId,
+			"amount", amount,
+			"dmgType", dmgType,
+			"cur", cur+amount, // pre-hit HP
+			"new", cur,
+		)
+	}
 	n.masks |= rsbuf.NpcMaskDamage
 }
 
