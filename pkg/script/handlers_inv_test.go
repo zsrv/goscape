@@ -879,3 +879,168 @@ func TestHandleInvDropSlotSetsActiveObjAndPointer(t *testing.T) {
 		t.Errorf("INV_DROPSLOT: expected PtrActiveObj set in Pointers")
 	}
 }
+
+// -- NAI-130 overflow-to-world tests --
+
+// helper: build a fakeWorldAddObj-backed state for INV_ADD overflow tests.
+// Sets up: mc with stackable + non-stackable test objs, an InvType=1
+// (StackNormal capacity 28), an mockPlayer at level=0, x=3200, z=3200,
+// uid=12345. Returns the state, the world recorder, and the inv (so the
+// caller can pre-fill it).
+func newInvAddOverflowState(t *testing.T) (*ScriptState, *fakeWorldAddObj, *inventory.Inventory) {
+	t.Helper()
+	s := newTestState(minimalScript(OpReturn))
+	w := newFakeWorldMembers()
+	s.World = w
+
+	mc := newTestInvConfigs()
+	invType := objtype.NewInvType(testInvMain)
+	invType.Size = 28
+	mc.invs[testInvMain] = invType
+	s.Configs = mc
+
+	inv := inventory.New(testInvMain, 28, inventory.StackNormal)
+	s.Inv = &mockInvLookup{invs: map[int]*inventory.Inventory{testInvMain: inv}}
+
+	s.Self = &mockPlayer{
+		uidValue:    12345,
+		coordPacked: coordgrid.PackCoord(0, 3200, 3200),
+		x:           3200,
+		z:           3200,
+	}
+	s.Pointers |= PtrActivePlayer
+	return s, w, inv
+}
+
+// (1) No-overflow regression: bag has space; no AddObj calls.
+func TestInvAdd_NoOverflow_NoWorldAddObj(t *testing.T) {
+	s, w, _ := newInvAddOverflowState(t)
+	s.PushInt(testInvMain)
+	s.PushInt(testObjCoin)
+	s.PushInt(5)
+	if err := handleInvAdd(s); err != nil {
+		t.Fatalf("handleInvAdd: %v", err)
+	}
+	if len(w.addedCalls) != 0 {
+		t.Errorf("no overflow → no AddObj calls, got %d", len(w.addedCalls))
+	}
+}
+
+// (2) Stackable overflow > 1: full bag (no existing stack) + stackable
+// obj + overflow=5 → 1 AddObj with count=5.
+func TestInvAdd_StackableOverflow_GreaterThanOne_SingleDrop(t *testing.T) {
+	s, w, inv := newInvAddOverflowState(t)
+	// Fill all 28 slots with OTHER (non-stackable) objs so free=0 and
+	// the stackable obj has no existing stack.
+	for i := range 28 {
+		inv.Items[i] = &inventory.Item{Id: testObjSword, Count: 1}
+	}
+	s.PushInt(testInvMain)
+	s.PushInt(testObjCoin) // Stackable=true per newTestInvConfigs
+	s.PushInt(5)
+	if err := handleInvAdd(s); err != nil {
+		t.Fatalf("handleInvAdd: %v", err)
+	}
+	if len(w.addedCalls) != 1 {
+		t.Fatalf("stackable overflow=5: expected 1 AddObj call, got %d", len(w.addedCalls))
+	}
+	got := w.addedCalls[0]
+	want := addObjCall{level: 0, x: 3200, z: 3200, typeID: testObjCoin, count: 5, duration: 200, receiverID: 12345}
+	if got != want {
+		t.Errorf("AddObj: got %+v, want %+v", got, want)
+	}
+}
+
+// (3) Stackable overflow == 1: TS line 75 special case — even stackable,
+// overflow=1 emits 1 single-count drop.
+func TestInvAdd_StackableOverflow_EqualsOne_SingleDrop(t *testing.T) {
+	s, w, inv := newInvAddOverflowState(t)
+	for i := range 28 {
+		inv.Items[i] = &inventory.Item{Id: testObjSword, Count: 1}
+	}
+	s.PushInt(testInvMain)
+	s.PushInt(testObjCoin)
+	s.PushInt(1)
+	if err := handleInvAdd(s); err != nil {
+		t.Fatalf("handleInvAdd: %v", err)
+	}
+	if len(w.addedCalls) != 1 {
+		t.Fatalf("stackable overflow=1: expected 1 AddObj call, got %d", len(w.addedCalls))
+	}
+	if got := w.addedCalls[0].count; got != 1 {
+		t.Errorf("AddObj count: got %d, want 1", got)
+	}
+}
+
+// (4) Non-stackable overflow loops one-per-call.
+func TestInvAdd_NonStackableOverflow_LoopsOnePerCall(t *testing.T) {
+	s, w, inv := newInvAddOverflowState(t)
+	// Fill 25 of 28 slots so free=3; non-stackable distribution puts 3
+	// swords in slots 25-27, then overflow = 6 - 3 = 3.
+	for i := range 25 {
+		inv.Items[i] = &inventory.Item{Id: testObjSword, Count: 1}
+	}
+	s.PushInt(testInvMain)
+	s.PushInt(testObjSword) // Stackable=false per newTestInvConfigs
+	s.PushInt(6)
+	if err := handleInvAdd(s); err != nil {
+		t.Fatalf("handleInvAdd: %v", err)
+	}
+	if len(w.addedCalls) != 3 {
+		t.Fatalf("non-stack overflow=3: expected 3 AddObj calls, got %d", len(w.addedCalls))
+	}
+	for i, c := range w.addedCalls {
+		if c.count != 1 {
+			t.Errorf("AddObj[%d] count: got %d, want 1", i, c.count)
+		}
+		if c.typeID != testObjSword {
+			t.Errorf("AddObj[%d] typeID: got %d, want %d", i, c.typeID, testObjSword)
+		}
+	}
+}
+
+// (5) Overflow drop coords come from player.CoordPacked() / X / Z.
+func TestInvAdd_OverflowDropUsesPlayerCoord(t *testing.T) {
+	s, w, inv := newInvAddOverflowState(t)
+	// Override the default coord to a recognizable level=2, x=2500, z=3000.
+	s.Self.(*mockPlayer).coordPacked = coordgrid.PackCoord(2, 2500, 3000)
+	s.Self.(*mockPlayer).x = 2500
+	s.Self.(*mockPlayer).z = 3000
+	for i := range 28 {
+		inv.Items[i] = &inventory.Item{Id: testObjSword, Count: 1}
+	}
+	s.PushInt(testInvMain)
+	s.PushInt(testObjCoin)
+	s.PushInt(7)
+	if err := handleInvAdd(s); err != nil {
+		t.Fatalf("handleInvAdd: %v", err)
+	}
+	if len(w.addedCalls) != 1 {
+		t.Fatalf("expected 1 AddObj call, got %d", len(w.addedCalls))
+	}
+	got := w.addedCalls[0]
+	if got.level != 2 || got.x != 2500 || got.z != 3000 {
+		t.Errorf("AddObj coord: got level=%d x=%d z=%d, want level=2 x=2500 z=3000", got.level, got.x, got.z)
+	}
+}
+
+// (6) Overflow drop receiverID is the player's UID.
+func TestInvAdd_OverflowDropReceiverIsPlayerUID(t *testing.T) {
+	s, w, inv := newInvAddOverflowState(t)
+	s.Self.(*mockPlayer).uidValue = 99999
+	for i := range 28 {
+		inv.Items[i] = &inventory.Item{Id: testObjSword, Count: 1}
+	}
+	s.PushInt(testInvMain)
+	s.PushInt(testObjCoin)
+	s.PushInt(3)
+	if err := handleInvAdd(s); err != nil {
+		t.Fatalf("handleInvAdd: %v", err)
+	}
+	if len(w.addedCalls) != 1 {
+		t.Fatalf("expected 1 AddObj call, got %d", len(w.addedCalls))
+	}
+	if got := w.addedCalls[0].receiverID; got != 99999 {
+		t.Errorf("AddObj receiverID: got %d, want 99999", got)
+	}
+}
