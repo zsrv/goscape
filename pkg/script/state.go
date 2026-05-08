@@ -384,14 +384,10 @@ func (s *ScriptState) GosubCall(target *ScriptFile, intArgs []int, stringArgs []
 
 	// Allocate new locals for the callee.
 	intLocals := make([]int, max(int(target.IntLocalCount), len(intArgs)))
-	for i, v := range intArgs {
-		intLocals[i] = v
-	}
+	copy(intLocals, intArgs)
 
 	stringLocals := make([]string, max(int(target.StringLocalCount), len(stringArgs)))
-	for i, v := range stringArgs {
-		stringLocals[i] = v
-	}
+	copy(stringLocals, stringArgs)
 
 	// Switch to callee context. PC = -1 so runner's PC++ lands at 0.
 	s.Script = target
@@ -407,13 +403,9 @@ func (s *ScriptState) JumpCall(target *ScriptFile, intArgs []int, stringArgs []s
 	s.FrameSP = 0
 
 	intLocals := make([]int, max(int(target.IntLocalCount), len(intArgs)))
-	for i, v := range intArgs {
-		intLocals[i] = v
-	}
+	copy(intLocals, intArgs)
 	stringLocals := make([]string, max(int(target.StringLocalCount), len(stringArgs)))
-	for i, v := range stringArgs {
-		stringLocals[i] = v
-	}
+	copy(stringLocals, stringArgs)
 
 	s.Script = target
 	s.PC = -1

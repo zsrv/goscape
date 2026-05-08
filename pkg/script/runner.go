@@ -27,12 +27,8 @@ func Init(script *ScriptFile, self ActivePlayer, protect bool, intArgs []int, st
 		Protect: protect,
 	}
 
-	for i, v := range intArgs {
-		s.IntLocals[i] = v
-	}
-	for i, v := range stringArgs {
-		s.StringLocals[i] = v
-	}
+	copy(s.IntLocals, intArgs)
+	copy(s.StringLocals, stringArgs)
 
 	if self != nil {
 		s.Pointers |= PtrActivePlayer
