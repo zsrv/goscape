@@ -309,6 +309,7 @@ func (s *Server) buildNpcScriptState(
 ) *script.ScriptState {
 	state := script.Init(sf, nil, false, intArgs, stringArgs)
 	state.NodeDebug = s.cfg.NodeDebug
+	state.Log = s.log
 	state.ActiveNpc = npc
 	state.Pointers |= script.PtrActiveNpc
 	state.Provider = s.scriptProvider

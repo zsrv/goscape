@@ -2,6 +2,7 @@ package script
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
@@ -216,6 +217,12 @@ type ScriptState struct {
 	// every existing &ScriptState{} test fixture without modification.
 	// NAI-90: gates the handlePTeleport frame T (handlers_player.go).
 	NodeDebug bool
+
+	// Log is an optional logger for diagnostic instrumentation (e.g.
+	// gateway probes). Wired by goscape state-builders from Server.log;
+	// may be nil for pkg/script-internal tests. Always nil-check before
+	// use. NAI-128 Stage 3.
+	Log *slog.Logger
 
 	PC      int
 	OpCount int

@@ -45,6 +45,7 @@ func (s *Server) buildPlayerScriptState(
 ) *script.ScriptState {
 	state := script.Init(sf, self, protect, intArgs, stringArgs)
 	state.NodeDebug = s.cfg.NodeDebug
+	state.Log = s.log
 	state.Provider = s.scriptProvider
 	state.World = s.worldVars
 	state.Configs = s.configsView
