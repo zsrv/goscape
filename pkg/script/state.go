@@ -93,8 +93,9 @@ type WorldVars interface {
 
 	// RemoveNpc removes the given NPC from the world. duration is passed
 	// through to Server.removeNpc, which scales it by player count and
-	// writes lifecycleTick (RESPAWN-lifecycle) or schedules registry
-	// cleanup (DESPAWN-lifecycle). Mirrors TS World.removeNpc at
+	// writes lifecycleTick (RESPAWN-lifecycle) or is a no-op for
+	// DESPAWN-lifecycle (registry cleanup deferred per TODO(NAI-19) at
+	// modules/world/npc_registry.go:181). Mirrors TS World.removeNpc at
 	// World.ts:1296-1319. Used by NPC_DEL.
 	RemoveNpc(npc ActiveNpc, duration int)
 

@@ -313,9 +313,9 @@ func handleNpcDamage(s *ScriptState) error {
 // handleNpcDel (NPC_DEL, opcode 2510) removes the active NPC. The
 // duration passed to World.RemoveNpc is the active NPC type's
 // respawnrate; Server.removeNpc scales it by player count and writes
-// it to lifecycleTick (RESPAWN-lifecycle) or schedules registry
-// cleanup (DESPAWN-lifecycle, currently dead-bool model — see
-// modules/world/npc_registry.go:181 and TODO(NAI-19)).
+// it to lifecycleTick (RESPAWN-lifecycle) or is a no-op for
+// DESPAWN-lifecycle (registry cleanup deferred per dead-bool model —
+// see modules/world/npc_registry.go:181 and TODO(NAI-19)).
 //
 // Mirrors TS NpcOps.ts:78-80:
 //
