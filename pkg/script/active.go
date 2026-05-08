@@ -581,6 +581,17 @@ type ActivePlayer interface {
 	// Mirrors TS state.activePlayer.gender at PlayerOps.ts:1073.
 	Gender() int
 
+	// AddHeroPoints credits `amount` to `playerUID` on the player's
+	// hero-point ledger. Mirrors TS Player.heroPoints.addHero(...) at
+	// PlayerOps.ts:1167 (BOTH_HEROPOINTS recipient). Parallel to
+	// ActiveNpc.AddHeroPoints. NAI-127 Bundle 1.
+	AddHeroPoints(playerUID, amount int)
+
+	// TopContributor returns the playerUID with the largest HeroPoints
+	// credit on this player's ledger, or 0 if the ledger is empty. Used
+	// by FINDHERO (PlayerOps.ts:1138-1154). NAI-127 Bundle 1.
+	TopContributor() int
+
 	// SetBodyPart writes body[slot] = idkit. Called by SETIDKIT after slot
 	// computation. Does NOT flip MaskAppearance — the script must call
 	// BUILDAPPEARANCE separately (TS pattern: SETIDKIT then BUILDAPPEARANCE).

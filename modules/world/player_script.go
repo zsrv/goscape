@@ -1047,6 +1047,22 @@ func (p *Player) LowMemory() bool { return p.lowMemory }
 
 // NAI-47: SETIDKIT appearance mutation.
 func (p *Player) Gender() int                  { return p.gender }
+
+
+// AddHeroPoints implements script.ActivePlayer. Credits amount to
+// playerUID on the player's hero-point ledger. Used by BOTH_HEROPOINTS.
+// Mirrors TS Player.heroPoints.addHero at PlayerOps.ts:1167.
+func (p *Player) AddHeroPoints(playerUID, amount int) {
+	p.heroPoints.AddHero(playerUID, amount)
+}
+
+// TopContributor implements script.ActivePlayer. Returns the playerUID
+// with the largest HeroPoints credit, or 0 if the ledger is empty.
+// Used by FINDHERO. Mirrors TS state.activePlayer.heroPoints.findHero()
+// at PlayerOps.ts:1139.
+func (p *Player) TopContributor() int {
+	return p.heroPoints.TopContributor()
+}
 func (p *Player) SetBodyPart(slot, idkit int)  { p.body[slot] = idkit }
 func (p *Player) SetColorPart(slot, color int) { p.colors[slot] = color }
 

@@ -326,6 +326,13 @@ type mockPlayer struct {
 	bodyParts   [7]int
 	colorParts  [5]int
 
+	// NAI-127 Bundle 1: FINDHERO ledger-top getter.
+	topContributor int
+
+	// NAI-127 Bundle 1: BOTH_HEROPOINTS recipient recorder. Mirrors
+	// mockNpc.addHeroPointsCalls.
+	addHeroPointsCalls []struct{ playerUID, amount int }
+
 	// S7h: captured MIDI_SONG plays. Each entry records the normalized-name
 	// argument as seen by the mock; the mock does not perform TS
 	// normalization (that's (*Player).PlaySong's responsibility).
@@ -637,6 +644,12 @@ func (m *mockPlayer) LowMemory() bool { return m.lowMemoryValue }
 func (m *mockPlayer) Gender() int                  { return m.genderValue }
 func (m *mockPlayer) SetBodyPart(slot, idkit int)  { m.bodyParts[slot] = idkit }
 func (m *mockPlayer) SetColorPart(slot, color int) { m.colorParts[slot] = color }
+
+func (m *mockPlayer) TopContributor() int { return m.topContributor }
+
+func (m *mockPlayer) AddHeroPoints(playerUID, amount int) {
+	m.addHeroPointsCalls = append(m.addHeroPointsCalls, struct{ playerUID, amount int }{playerUID, amount})
+}
 
 // S7h: PlaySong captures the MIDI_SONG name for handler tests.
 func (m *mockPlayer) PlaySong(name string) {

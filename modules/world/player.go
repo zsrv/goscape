@@ -170,6 +170,11 @@ type Player struct {
 	body           [7]int
 	colors         [5]int
 	gender         int
+	// NAI-127 Bundle 1: per-player HeroPoints ledger (parallel to
+	// Npc.heroPoints from NAI-120). Read by FINDHERO; written by
+	// BOTH_HEROPOINTS. TS Player.heroPoints = new HeroPoints(16) at
+	// Engine-TS/.../Player.ts:76.
+	heroPoints HeroPoints
 	combatLevel    int
 	headicons      int
 	appearanceInv  int
@@ -460,6 +465,7 @@ func newPlayer(c *client) *Player {
 		tabs:           [14]int{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
 		appearanceInv:  -1, // test-only sentinel; production binds via SetAppearanceInv from client.go login wiring (NAI-22 Bundle 3).
 		lastAppearance: -1,
+		heroPoints:     NewHeroPoints(16),
 		targetOp:       -1,
 		walktrigger:    -1,
 		apRange:        10,
