@@ -4189,3 +4189,152 @@ func TestBothHeroPoints_AmountZero(t *testing.T) {
 		t.Errorf("BOTH_HEROPOINTS zero: call.amount=%d, want 0", call.amount)
 	}
 }
+
+// --- NAI-127 Bundle 2: DAMAGE (opcode 2015) ---
+
+// newDamageState builds a state with World set + push order matching
+// the handler's pop order: amount, hitType, uid (the handler pops
+// amount first, then hitType, then uid).
+func newDamageState(mw WorldVars, uid, hitType, amount int) *ScriptState {
+	s := &ScriptState{
+		World:       mw,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(uid)
+	s.PushInt(hitType)
+	s.PushInt(amount)
+	return s
+}
+
+func TestDamage_HappyPath(t *testing.T) {
+	target := &mockPlayer{uidValue: 42}
+	mw := &mockWorld{playersByUID: map[int]ActivePlayer{42: target}}
+	s := newDamageState(mw, 42, 1, 7)
+	if err := handleDamage(s); err != nil {
+		t.Fatalf("DAMAGE happy: err=%v", err)
+	}
+	if got := len(target.applyDamageCalls); got != 1 {
+		t.Fatalf("DAMAGE happy: applyDamageCalls=%d, want 1", got)
+	}
+	if call := target.applyDamageCalls[0]; call.amount != 7 || call.dmgType != 1 {
+		t.Errorf("DAMAGE happy: call=%+v, want {amount:7,dmgType:1}", call)
+	}
+}
+
+func TestDamage_UnknownUID(t *testing.T) {
+	mw := &mockWorld{} // empty playersByUID
+	s := newDamageState(mw, 99, 1, 7)
+	if err := handleDamage(s); err != nil {
+		t.Fatalf("DAMAGE unknown: err=%v", err)
+	}
+	// no panic, no call recorded — silent no-op
+}
+
+// Pin TS quirk: DAMAGE uses raw `state =>` with no checkedHandler;
+// goscape's handler must NOT call requireActivePlayer.
+func TestDamage_NoPointerGate(t *testing.T) {
+	target := &mockPlayer{uidValue: 42}
+	mw := &mockWorld{playersByUID: map[int]ActivePlayer{42: target}}
+	s := newDamageState(mw, 42, 1, 5)
+	// Pointers=0 — no PtrActivePlayer set.
+	if err := handleDamage(s); err != nil {
+		t.Fatalf("DAMAGE no-pointer: err=%v (pointer-gate must be absent)", err)
+	}
+	if got := len(target.applyDamageCalls); got != 1 {
+		t.Errorf("DAMAGE no-pointer: applyDamageCalls=%d, want 1", got)
+	}
+}
+
+// --- NAI-127 Bundle 2: GENDER (opcode 2020) ---
+
+// newGenderState builds a state with Self set; deliberately does NOT
+// set PtrActivePlayer to pin TS quirk (no checkedHandler at
+// PlayerOps.ts:968-970) per ts_asymmetry_dual_pin.
+func newGenderState(self *mockPlayer) *ScriptState {
+	return &ScriptState{
+		Self:        self,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+}
+
+func TestGender_Male(t *testing.T) {
+	self := &mockPlayer{genderValue: 0}
+	s := newGenderState(self)
+	if err := handleGender(s); err != nil {
+		t.Fatalf("GENDER male: err=%v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("GENDER male: pushed %d, want 0", got)
+	}
+}
+
+func TestGender_Female(t *testing.T) {
+	self := &mockPlayer{genderValue: 1}
+	s := newGenderState(self)
+	if err := handleGender(s); err != nil {
+		t.Fatalf("GENDER female: err=%v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("GENDER female: pushed %d, want 1", got)
+	}
+}
+
+// --- NAI-127 Bundle 2: P_PREVENTLOGOUT (opcode 2084) ---
+
+// newPreventLogoutState builds a state with Self + protected flag +
+// ticks/msg pre-pushed. Push order matches handler pop order: msg
+// pushed FIRST (popped last) and ticks pushed LAST (popped first), so
+// PopInt returns ticks and PopString returns msg.
+func newPreventLogoutState(self *mockPlayer, mw WorldVars, msg string, ticks int, protect bool) *ScriptState {
+	s := &ScriptState{
+		World:       mw,
+		Self:        self,
+		Pointers:    PtrActivePlayer,
+		Protect:     protect,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushString(msg)
+	s.PushInt(ticks)
+	return s
+}
+
+func TestPPreventLogout_HappyPath(t *testing.T) {
+	self := &mockPlayer{}
+	mw := &mockWorld{tick: 100}
+	s := newPreventLogoutState(self, mw, "Combat", 16, true)
+	if err := handlePPreventLogout(s); err != nil {
+		t.Fatalf("P_PREVENTLOGOUT happy: err=%v", err)
+	}
+	if self.preventLogoutMessage != "Combat" {
+		t.Errorf("P_PREVENTLOGOUT happy: msg=%q, want %q", self.preventLogoutMessage, "Combat")
+	}
+	if self.preventLogoutUntil != 116 {
+		t.Errorf("P_PREVENTLOGOUT happy: until=%d, want 116", self.preventLogoutUntil)
+	}
+}
+
+func TestPPreventLogout_RequiresProtected(t *testing.T) {
+	self := &mockPlayer{}
+	mw := &mockWorld{tick: 100}
+	s := newPreventLogoutState(self, mw, "Combat", 16, false) // not protected
+	if err := handlePPreventLogout(s); err == nil {
+		t.Fatalf("P_PREVENTLOGOUT not-protected: want error, got nil")
+	}
+}
+
+func TestPPreventLogout_NoActivePlayer(t *testing.T) {
+	mw := &mockWorld{tick: 100}
+	s := &ScriptState{
+		World:       mw,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	} // no PtrActivePlayer
+	s.PushString("Combat")
+	s.PushInt(16)
+	if err := handlePPreventLogout(s); err == nil {
+		t.Fatalf("P_PREVENTLOGOUT no-active-player: want error, got nil")
+	}
+}
