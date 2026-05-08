@@ -98,4 +98,34 @@ func TestNAI128_RatLootCascade(t *testing.T) {
 			t.Fatal("objTypes empty after fixture load")
 		}
 	})
+
+	// Resolve newbiegiantrat type and spawn a rat at a benign coord.
+	ratTypeID, ok := s.npcTypes.ConfigNames["newbiegiantrat"]
+	if !ok {
+		t.Fatalf("npc type 'newbiegiantrat' not in ConfigNames; check NPC_FINDHERO predecessor work")
+	}
+	ratType := s.npcTypes.Configs[ratTypeID]
+	rat := NewNpc(1, ratTypeID, 3094, 3106, 0, ratType)
+	rat.server = s
+
+	// Spawn a player adjacent to the rat.
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.x, p.z, p.level = 3094, 3107, 0
+
+	t.Run("BaselineState", func(t *testing.T) {
+		if rat.uid == 0 {
+			t.Errorf("rat.uid = 0; want non-zero (typeId<<16 | nid)")
+		}
+		if p.UID() == 0 {
+			t.Errorf("player.UID() = 0; want non-zero")
+		}
+		hp := rat.levels[objtype.NpcStatHitpoints]
+		if hp <= 0 {
+			t.Errorf("rat HP = %d; want > 0 (seeded from typ.Stats[NpcStatHitpoints])", hp)
+		}
+		t.Logf("rat: uid=%d typeId=%d HP=%d coord=(%d,%d,%d)",
+			rat.uid, rat.typeId, hp, rat.x, rat.z, rat.level)
+		t.Logf("player: uid=%d coord=(%d,%d,%d)", p.UID(), p.x, p.z, p.level)
+	})
 }
