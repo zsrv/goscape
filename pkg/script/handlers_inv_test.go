@@ -21,10 +21,11 @@ func (m *mockInvLookup) Get(_ ActivePlayer, typeID int) *inventory.Inventory {
 }
 
 const (
-	testInvMain = 1 // stack-normal, capacity 28
-	testInvBank = 2 // stack-always, capacity 100
-	testObjCoin = 995
-	testObjArr  = 2
+	testInvMain  = 1 // stack-normal, capacity 28
+	testInvBank  = 2 // stack-always, capacity 100
+	testObjCoin  = 995
+	testObjArr   = 2
+	testObjSword = 3 // non-stackable scratch obj for per-slot semantics tests
 )
 
 // newTestInvLookup seeds a fresh mockInvLookup with the shared fixture:
@@ -78,6 +79,14 @@ func newTestInvConfigs() *mockConfigs {
 	pInt.Type = objtype.ScriptVarTypeInt
 	pInt.DefaultInt = 0
 	mc.params[1] = pInt
+
+	sword := objtype.NewObjType(testObjSword)
+	sword.Name = "Sword"
+	sword.DebugName = "sword"
+	sword.Stackable = false
+	sword.Category = 10
+	sword.Params = objtype.ParamMap{1: uint32(5)}
+	mc.objs[testObjSword] = sword
 
 	return mc
 }
@@ -347,11 +356,11 @@ func TestInvMoveToSlot(t *testing.T) {
 func TestInvTotalParam(t *testing.T) {
 	lookup := newTestInvLookup()
 	mc := newTestInvConfigs()
-	// main is StackNormal and pkg/inventory.Add distributes non-stack
-	// invs one unit per slot. 5 coins → 5 slots, each with count=1.
-	// INV_TOTALPARAM sums the param value per non-empty slot (no count
-	// multiply — that's TOTALPARAM_STACK). params[1]=5 × 5 slots = 25.
-	runInvOp(t, OpInvAdd, []int{testInvMain, testObjCoin, 5}, lookup, mc)
+	// testObjSword is non-stackable, so 5 swords distribute one-per-slot
+	// in main (StackNormal): 5 slots × 1 count. INV_TOTALPARAM sums the
+	// param value per non-empty slot (no count multiply — that's
+	// TOTALPARAM_STACK). params[1]=5 × 5 slots = 25.
+	runInvOp(t, OpInvAdd, []int{testInvMain, testObjSword, 5}, lookup, mc)
 	state := runInvOp(t, OpInvTotalParam, []int{testInvMain, 1}, lookup, mc)
 	if got := state.PopInt(); got != 25 {
 		t.Errorf("INV_TOTALPARAM: got %d, want 25", got)
@@ -361,13 +370,15 @@ func TestInvTotalParam(t *testing.T) {
 func TestInvTotalCat(t *testing.T) {
 	lookup := newTestInvLookup()
 	mc := newTestInvConfigs()
-	// 3 coins (cat=10, 3 slots × 1 count) + 2 arrows (cat=20, 2 slots
-	// × 1 count). TOTALCAT for cat=10 sums the count of coin slots.
-	runInvOp(t, OpInvAdd, []int{testInvMain, testObjCoin, 3}, lookup, mc)
+	// 3 swords (cat=10, non-stackable: 3 slots × 1 count) + 2 arrows
+	// (cat=20, stackable: 1 slot — fixture aside; cat-mismatch means
+	// count is irrelevant). TOTALCAT for cat=10 sums the count of sword
+	// slots: 3 slots × 1 count = 3.
+	runInvOp(t, OpInvAdd, []int{testInvMain, testObjSword, 3}, lookup, mc)
 	runInvOp(t, OpInvAdd, []int{testInvMain, testObjArr, 2}, lookup, mc)
 	state := runInvOp(t, OpInvTotalCat, []int{testInvMain, 10}, lookup, mc)
 	if got := state.PopInt(); got != 3 {
-		t.Errorf("INV_TOTALCAT(10 coins): got %d, want 3", got)
+		t.Errorf("INV_TOTALCAT(10 swords): got %d, want 3", got)
 	}
 }
 
