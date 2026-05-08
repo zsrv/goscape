@@ -3719,3 +3719,99 @@ func TestHandleNpcDel_ZeroRespawnrate(t *testing.T) {
 		t.Errorf("duration: got %d, want %d", got, want)
 	}
 }
+
+// --- NAI-127 Bundle 1: NPC_FINDHERO (opcode 2519) ---
+
+// newNpcFindHeroState builds a ScriptState with PtrActiveNpc set,
+// ActiveNpc=npc, and World=mw, IntOperand-driven by intOperand.
+func newNpcFindHeroState(npc ActiveNpc, mw WorldVars, intOperand int) *ScriptState {
+	s := &ScriptState{
+		World:       mw,
+		ActiveNpc:   npc,
+		Pointers:    PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.Script = &ScriptFile{IntOperands: []int32{int32(intOperand)}}
+	return s
+}
+
+func TestNpcFindHero_EmptyLedger(t *testing.T) {
+	npc := &mockNpc{topContributor: 0}
+	mw := &mockWorld{}
+	s := newNpcFindHeroState(npc, mw, 0)
+	if err := handleNpcFindHero(s); err != nil {
+		t.Fatalf("NPC_FINDHERO empty: err=%v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("NPC_FINDHERO empty: pushed %d, want 0", got)
+	}
+	if s.Self != nil || s.Self2 != nil {
+		t.Errorf("NPC_FINDHERO empty: Self/Self2 should remain nil")
+	}
+	if s.Pointers&(PtrActivePlayer|PtrActivePlayer2) != 0 {
+		t.Errorf("NPC_FINDHERO empty: ActivePlayer pointer flags must not be set")
+	}
+}
+
+func TestNpcFindHero_PrimarySlot(t *testing.T) {
+	p := &mockPlayer{uidValue: 42}
+	npc := &mockNpc{topContributor: 42}
+	mw := &mockWorld{playersByUID: map[int]ActivePlayer{42: p}}
+	s := newNpcFindHeroState(npc, mw, 0)
+	if err := handleNpcFindHero(s); err != nil {
+		t.Fatalf("NPC_FINDHERO primary: err=%v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("NPC_FINDHERO primary: pushed %d, want 1", got)
+	}
+	if s.Self != p {
+		t.Errorf("NPC_FINDHERO primary: Self=%v, want %v", s.Self, p)
+	}
+	if s.Pointers&PtrActivePlayer == 0 {
+		t.Errorf("NPC_FINDHERO primary: PtrActivePlayer flag must be set")
+	}
+}
+
+func TestNpcFindHero_SecondarySlot(t *testing.T) {
+	p := &mockPlayer{uidValue: 42}
+	npc := &mockNpc{topContributor: 42}
+	mw := &mockWorld{playersByUID: map[int]ActivePlayer{42: p}}
+	s := newNpcFindHeroState(npc, mw, 1)
+	if err := handleNpcFindHero(s); err != nil {
+		t.Fatalf("NPC_FINDHERO secondary: err=%v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("NPC_FINDHERO secondary: pushed %d, want 1", got)
+	}
+	if s.Self2 != p {
+		t.Errorf("NPC_FINDHERO secondary: Self2=%v, want %v", s.Self2, p)
+	}
+	if s.Pointers&PtrActivePlayer2 == 0 {
+		t.Errorf("NPC_FINDHERO secondary: PtrActivePlayer2 flag must be set")
+	}
+}
+
+func TestNpcFindHero_LookupReturnsNil(t *testing.T) {
+	npc := &mockNpc{topContributor: 99}
+	mw := &mockWorld{} // empty playersByUID
+	s := newNpcFindHeroState(npc, mw, 0)
+	if err := handleNpcFindHero(s); err != nil {
+		t.Fatalf("NPC_FINDHERO loggedout: err=%v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("NPC_FINDHERO loggedout: pushed %d, want 0", got)
+	}
+}
+
+func TestNpcFindHero_RequiresActiveNpc(t *testing.T) {
+	mw := &mockWorld{}
+	s := &ScriptState{
+		World:       mw,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	} // no PtrActiveNpc
+	if err := handleNpcFindHero(s); err == nil {
+		t.Fatalf("NPC_FINDHERO no-active-npc: want error, got nil")
+	}
+}

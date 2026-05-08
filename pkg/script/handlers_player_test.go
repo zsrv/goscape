@@ -4036,3 +4036,156 @@ func TestPOpPlayer_OpNullSentinel(t *testing.T) {
 		t.Error("P_OPPLAYER op=-1: want NumberNotNull error")
 	}
 }
+
+// --- NAI-127 Bundle 1: FINDHERO (opcode 2018) ---
+
+func newFindHeroState(self *mockPlayer, mw WorldVars, intOperand int) *ScriptState {
+	s := &ScriptState{
+		World:       mw,
+		Self:        self,
+		Pointers:    PtrActivePlayer,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.Script = &ScriptFile{IntOperands: []int32{int32(intOperand)}}
+	return s
+}
+
+func TestFindHero_EmptyLedger(t *testing.T) {
+	self := &mockPlayer{topContributor: 0}
+	s := newFindHeroState(self, &mockWorld{}, 0)
+	if err := handleFindHero(s); err != nil {
+		t.Fatalf("FINDHERO empty: err=%v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("FINDHERO empty: pushed %d, want 0", got)
+	}
+	if s.Self2 != nil {
+		t.Errorf("FINDHERO empty: Self2 must remain nil")
+	}
+}
+
+// FINDHERO ALWAYS sets Self2 (secondary) regardless of IntOperand —
+// pin TS asymmetry vs NPC_FINDHERO per ts_asymmetry_dual_pin.
+func TestFindHero_PopulatedAlwaysSetsSelf2(t *testing.T) {
+	other := &mockPlayer{uidValue: 7}
+	mw := &mockWorld{playersByUID: map[int]ActivePlayer{7: other}}
+	for _, op := range []int{0, 1} {
+		self := &mockPlayer{topContributor: 7}
+		s := newFindHeroState(self, mw, op)
+		if err := handleFindHero(s); err != nil {
+			t.Fatalf("FINDHERO op=%d: err=%v", op, err)
+		}
+		if got := s.PopInt(); got != 1 {
+			t.Errorf("FINDHERO op=%d: pushed %d, want 1", op, got)
+		}
+		if s.Self2 != other {
+			t.Errorf("FINDHERO op=%d: Self2=%v, want %v", op, s.Self2, other)
+		}
+		if s.Pointers&PtrActivePlayer2 == 0 {
+			t.Errorf("FINDHERO op=%d: PtrActivePlayer2 must be set", op)
+		}
+	}
+}
+
+func TestFindHero_LookupReturnsNil(t *testing.T) {
+	self := &mockPlayer{topContributor: 99}
+	mw := &mockWorld{} // empty
+	s := newFindHeroState(self, mw, 0)
+	if err := handleFindHero(s); err != nil {
+		t.Fatalf("FINDHERO loggedout: err=%v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("FINDHERO loggedout: pushed %d, want 0", got)
+	}
+}
+
+func TestFindHero_RequiresActivePlayer(t *testing.T) {
+	mw := &mockWorld{}
+	s := &ScriptState{
+		World:       mw,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	} // no PtrActivePlayer
+	if err := handleFindHero(s); err == nil {
+		t.Fatalf("FINDHERO no-active-player: want error, got nil")
+	}
+}
+
+// --- NAI-127 Bundle 1: BOTH_HEROPOINTS (opcode 2003) ---
+
+// newBothHeroPointsState builds a state with both Self and Self2 set,
+// IntOperand and damage configured, and PtrActivePlayer set. Optional
+// nilSelf2 lets tests pin the nil-slot error path.
+func newBothHeroPointsState(self, other *mockPlayer, intOperand, damage int, nilSelf2 bool) *ScriptState {
+	s := &ScriptState{
+		Self:        self,
+		Pointers:    PtrActivePlayer,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.Script = &ScriptFile{IntOperands: []int32{int32(intOperand)}}
+	if !nilSelf2 {
+		s.Self2 = other
+	}
+	s.PushInt(damage)
+	return s
+}
+
+func TestBothHeroPoints_PrimaryToSecondary(t *testing.T) {
+	from := &mockPlayer{uidValue: 11}
+	to := &mockPlayer{uidValue: 22}
+	s := newBothHeroPointsState(from, to, 0, 5, false)
+	if err := handleBothHeroPoints(s); err != nil {
+		t.Fatalf("BOTH_HEROPOINTS primary: err=%v", err)
+	}
+	if got := len(to.addHeroPointsCalls); got != 1 {
+		t.Fatalf("BOTH_HEROPOINTS primary: to.addHeroPointsCalls=%d, want 1", got)
+	}
+	if call := to.addHeroPointsCalls[0]; call.playerUID != 11 || call.amount != 5 {
+		t.Errorf("BOTH_HEROPOINTS primary: call=%+v, want {11,5}", call)
+	}
+	if got := len(from.addHeroPointsCalls); got != 0 {
+		t.Errorf("BOTH_HEROPOINTS primary: from.addHeroPointsCalls=%d, want 0", got)
+	}
+}
+
+func TestBothHeroPoints_SecondaryToPrimary(t *testing.T) {
+	primary := &mockPlayer{uidValue: 11}
+	secondary := &mockPlayer{uidValue: 22}
+	s := newBothHeroPointsState(primary, secondary, 1, 9, false)
+	if err := handleBothHeroPoints(s); err != nil {
+		t.Fatalf("BOTH_HEROPOINTS secondary: err=%v", err)
+	}
+	if got := len(primary.addHeroPointsCalls); got != 1 {
+		t.Fatalf("BOTH_HEROPOINTS secondary: primary.addHeroPointsCalls=%d, want 1", got)
+	}
+	if call := primary.addHeroPointsCalls[0]; call.playerUID != 22 || call.amount != 9 {
+		t.Errorf("BOTH_HEROPOINTS secondary: call=%+v, want {22,9}", call)
+	}
+}
+
+func TestBothHeroPoints_NilSlot(t *testing.T) {
+	from := &mockPlayer{uidValue: 11}
+	s := newBothHeroPointsState(from, nil, 0, 5, true) // Self2 nil
+	if err := handleBothHeroPoints(s); err == nil {
+		t.Fatalf("BOTH_HEROPOINTS nilSelf2: want error, got nil")
+	}
+}
+
+// Pin that handler still calls AddHeroPoints with amount=0; ledger
+// no-ops downstream per HeroPoints.AddHero `if amount < 1 return`.
+func TestBothHeroPoints_AmountZero(t *testing.T) {
+	from := &mockPlayer{uidValue: 11}
+	to := &mockPlayer{uidValue: 22}
+	s := newBothHeroPointsState(from, to, 0, 0, false)
+	if err := handleBothHeroPoints(s); err != nil {
+		t.Fatalf("BOTH_HEROPOINTS zero: err=%v", err)
+	}
+	if got := len(to.addHeroPointsCalls); got != 1 {
+		t.Errorf("BOTH_HEROPOINTS zero: to.addHeroPointsCalls=%d, want 1 (mock records before ledger no-ops)", got)
+	}
+	if call := to.addHeroPointsCalls[0]; call.amount != 0 {
+		t.Errorf("BOTH_HEROPOINTS zero: call.amount=%d, want 0", call.amount)
+	}
+}
