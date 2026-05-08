@@ -196,3 +196,28 @@ func TestSendZoneNestedUnknownOpcodePanics(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	sendZoneNested(p, []byte{255, 0, 0})
 }
+
+func TestPartialFollowsDeliversPrivateDropToOwnerByUID(t *testing.T) {
+	s := newZoneTestServer(t)
+	p, cc := newZoneTestPlayer(t, s, 5, 3094, 3106, 0)
+	p.uid = composeUID(1, 5) // uid = (1<<11)|5 = 2053
+
+	z := s.zoneMap.Get(0, 3094, 3106)
+	obj := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 526, 1)
+	s.AddObj(obj, p.uid)
+	for zi := range s.zonesTracking {
+		zi.ComputeShared()
+	}
+
+	received := drainConn(t, cc)
+	p.writePartialFollows(z)
+	p.client.flushWrite()
+	got := <-received
+	// 1 Follows wrapper (opcode + 2-byte payload = 3 bytes) +
+	// 1 ObjAdd nested (opcode + 4-byte payload = 6 bytes; rsbuf.EncodeObjAdd
+	// writes 1-byte coord-pack stub + 2-byte type + 1-byte count … but the
+	// existing slot=7 test pins this combined wire shape at 9 bytes).
+	if len(got) != 9 {
+		t.Errorf("want 9 bytes (1 Follows wrapper + 1 ObjAdd for p.uid); got %d", len(got))
+	}
+}
