@@ -405,6 +405,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpNpcChangeType:        handleNpcChangeType,
 	OpNpcChangeTypeKeepAll: handleNpcChangeTypeKeepAll,
 	OpNpcDamage:            handleNpcDamage,
+	OpNpcDel:               handleNpcDel,
 	OpNpcDelay:             handleNpcDelay,
 	OpNpcFaceSquare:        handleNpcFaceSquare,
 	OpNpcQueue:             handleNpcQueue,

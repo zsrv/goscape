@@ -310,6 +310,35 @@ func handleNpcDamage(s *ScriptState) error {
 	return nil
 }
 
+// handleNpcDel (NPC_DEL, opcode 2510) removes the active NPC. The
+// duration passed to World.RemoveNpc is the active NPC type's
+// respawnrate; Server.removeNpc scales it by player count and writes
+// it to lifecycleTick (RESPAWN-lifecycle) or schedules registry
+// cleanup (DESPAWN-lifecycle, currently dead-bool model — see
+// modules/world/npc_registry.go:181 and TODO(NAI-19)).
+//
+// Mirrors TS NpcOps.ts:78-80:
+//
+//	[ScriptOpcode.NPC_DEL]: checkedHandler(ActiveNpc, state => {
+//	    World.removeNpc(state.activeNpc, check(state.activeNpc.type, NpcTypeValid).respawnrate);
+//	}),
+//
+// DEVIATION-NAI-126-D1: nil-World defensive guard (goscape defensive;
+// TS skips this check — World is always present in a running engine).
+// Mirrors handleObjDel at handlers_obj.go:122-124. Retire when an
+// upstream invariant proves s.World is non-nil for any executing
+// script.
+func handleNpcDel(s *ScriptState) error {
+	if err := requireActiveNpc(s, "NPC_DEL"); err != nil {
+		return err
+	}
+	if s.World == nil {
+		return fmt.Errorf("NPC_DEL: no world surface")
+	}
+	s.World.RemoveNpc(s.ActiveNpc, s.ActiveNpc.Respawnrate())
+	return nil
+}
+
 // handleNpcDelay (NPC_DELAY, opcode 2511) suspends the active NPC's
 // script for N ticks. Transitions the script to NpcSuspended and
 // records the wake tick on the NPC via SetDelayed. The tick loop
