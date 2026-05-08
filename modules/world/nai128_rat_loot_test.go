@@ -1,6 +1,7 @@
 package world
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -204,6 +205,13 @@ func TestNAI128_RatLootCascade(t *testing.T) {
 		t.Logf("registered player: uid=%d slot=%d", p.UID(), p.Slot())
 	})
 
+	// T6 setup: replace s.log with a recording handler so the cascade's
+	// resumeOrFinishNpc warn-level "npc script execute error" frames are
+	// captured (production discardLogger swallows them). Recorder is
+	// inspected in T6 below.
+	rec := &capturingHandler{}
+	s.log = slog.New(rec)
+
 	t.Run("AiQueueCascade", func(t *testing.T) {
 		// One processNpcQueue call drains all entries with Delay<=0.
 		// Per spec §4.4 phase-collapse pre-flight: ai_queue2 firing
@@ -230,6 +238,61 @@ func TestNAI128_RatLootCascade(t *testing.T) {
 				t.Logf("  rat.queue[%d]: Trigger=%v Delay=%d LastInt=%d", i, req.Trigger, req.Delay, req.LastInt)
 			}
 		}
+	})
+
+	t.Run("CascadeDispatchTrace", func(t *testing.T) {
+		// Static probe: is the rat-specific ai_queue3 script even
+		// resolvable via the trigger lookup? processNpcQueue silently
+		// `continue`s on nil at npc_script.go:518 — no log, no error.
+		// nil → E0 bound (provider lookup gap).
+		sf := s.scriptProvider.GetByTrigger(script.TriggerAiQueue3, ratTypeID, ratType.Category)
+		if sf == nil {
+			t.Errorf("scriptProvider.GetByTrigger(TriggerAiQueue3, %d, %d) = nil; binding candidate E0: provider lookup miss for [ai_queue3,newbiegiantrat]",
+				ratTypeID, ratType.Category)
+		} else {
+			t.Logf("ai_queue3 script resolved: %q", sf.Name)
+		}
+
+		// Recorder readout: any warn-level "npc script execute error"
+		// frames identify a script.Execute error during cascade. The err
+		// attr names the failing opcode.
+		records := rec.snapshot()
+		var execErrors []slog.Record
+		for _, r := range records {
+			if r.Level == slog.LevelWarn && r.Message == "npc script execute error" {
+				execErrors = append(execErrors, r)
+			}
+		}
+		if len(execErrors) > 0 {
+			for i, r := range execErrors {
+				var scriptName, errStr string
+				r.Attrs(func(a slog.Attr) bool {
+					switch a.Key {
+					case "script":
+						scriptName = a.Value.String()
+					case "err":
+						errStr = a.Value.String()
+					}
+					return true
+				})
+				t.Errorf("warn[%d] script=%q err=%q; binding candidate E2b: cascade script errored",
+					i, scriptName, errStr)
+			}
+		}
+
+		// Diagnostic dump of all captured log frames — useful when the
+		// binding is none of E0/E2a/E2b (e.g. an unexpected error path).
+		if t.Failed() || testing.Verbose() {
+			for i, r := range records {
+				t.Logf("log[%d] level=%v msg=%q", i, r.Level, r.Message)
+			}
+		}
+
+		// Note: E2a (NPC_FINDHERO returning 0 silently) leaves both
+		// assertions above passing while T5 still reports 0 objs. The
+		// E2a binding is inferred from "T6 PASS + T5 FAIL". After fix,
+		// T6's two positive contracts (sf!=nil; execErrors empty) are
+		// permanent regression gates.
 	})
 
 	t.Run("GroundObjs", func(t *testing.T) {
