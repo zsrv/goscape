@@ -224,7 +224,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpStatRandom:  handleStatRandom,
 	// Coord / facing / teleport.
 	OpCoord:       handleCoord,
+	OpDamage:      handleDamage,
 	OpDisplayName: handleDisplayName,
+	OpGender:      handleGender,
 	OpFaceSquare:  handleFaceSquare,
 	OpPTeleport:   handlePTeleport,
 	OpPTeleJump:   handlePTeleJump,
@@ -365,6 +367,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpPStopAction:         handlePStopAction,
 	OpPClearPendingAction: handlePClearPendingAction,
 	OpPLogout:             handlePLogout,
+	OpPPreventLogout:      handlePPreventLogout,
 
 	// NAI-82: arrive-delay opcode.
 	OpPArriveDelay: handlePArriveDelay,

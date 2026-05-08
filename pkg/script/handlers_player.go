@@ -1362,3 +1362,63 @@ func handleBothHeroPoints(s *ScriptState) error {
 	to.AddHeroPoints(from.UID(), damage)
 	return nil
 }
+
+
+// handleDamage (DAMAGE, opcode 2015) applies damage to the player
+// resolved from a UID popped from the stack. Pop order (TS): amount,
+// hitType, uid (LIFO via popInt). Silent no-op if the UID does not
+// resolve to a logged-in player. Mirrors TS PlayerOps.ts:768-779.
+//
+// DEVIATION-NAI-127-D1: defensive nil-s.World guard. Without s.World
+// there is no way to resolve the UID.
+//
+// DEVIATION-NAI-127-D2: no PtrActivePlayer gate — TS uses raw
+// `state =>`, not checkedHandler. Pinned by TestDamage_NoPointerGate
+// per ts_asymmetry_dual_pin.
+func handleDamage(s *ScriptState) error {
+	amount := s.PopInt()
+	hitType := s.PopInt()
+	uid := s.PopInt()
+	if s.World == nil {
+		return nil
+	}
+	player := s.World.LookupPlayerByUID(uid)
+	if player == nil {
+		return nil
+	}
+	player.ApplyDamage(amount, hitType)
+	return nil
+}
+
+// handleGender (GENDER, opcode 2020) pushes the active player's
+// gender (0=male, 1=female). Mirrors TS PlayerOps.ts:968-970.
+//
+// DEVIATION-NAI-127-D2: TS uses raw `state =>` — there is no pointer
+// gate (no requireActivePlayer). state.activePlayer access is
+// nil-unsafe. Goscape preserves this quirk per ts_asymmetry_dual_pin.
+// Pinned by TestGender_Male/Female (no PtrActivePlayer in fixture).
+// Retire only if upstream TS adds a checkedHandler wrapping.
+func handleGender(s *ScriptState) error {
+	s.PushInt(s.Self.Gender())
+	return nil
+}
+
+// handlePPreventLogout (P_PREVENTLOGOUT, opcode 2084) sets the
+// player's anti-log message and absolute tick deadline. Pop order
+// (TS): popInt first (additional ticks from current tick), then
+// popString (message). Mirrors TS PlayerOps.ts:626-630.
+//
+// DEVIATION-NAI-127-D1: defensive nil-s.World guard (currentTick read
+// requires World).
+func handlePPreventLogout(s *ScriptState) error {
+	if err := requireProtectedActivePlayer(s, "P_PREVENTLOGOUT"); err != nil {
+		return err
+	}
+	if s.World == nil {
+		return nil
+	}
+	ticks := s.PopInt()
+	msg := s.PopString()
+	s.Self.SetPreventLogout(msg, s.World.CurrentTick()+ticks)
+	return nil
+}
