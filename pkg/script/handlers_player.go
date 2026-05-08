@@ -1372,9 +1372,10 @@ func handleBothHeroPoints(s *ScriptState) error {
 // DEVIATION-NAI-127-D1: defensive nil-s.World guard. Without s.World
 // there is no way to resolve the UID.
 //
-// DEVIATION-NAI-127-D2: no PtrActivePlayer gate — TS uses raw
-// `state =>`, not checkedHandler. Pinned by TestDamage_NoPointerGate
-// per ts_asymmetry_dual_pin.
+// Note: no PtrActivePlayer gate — TS uses raw `state =>`, not
+// checkedHandler. This is intentional and not a deviation; the
+// handler is UID-driven and never reads s.Self. Pinned by
+// TestDamage_NoPointerGate.
 func handleDamage(s *ScriptState) error {
 	amount := s.PopInt()
 	hitType := s.PopInt()
@@ -1405,8 +1406,10 @@ func handleGender(s *ScriptState) error {
 
 // handlePPreventLogout (P_PREVENTLOGOUT, opcode 2084) sets the
 // player's anti-log message and absolute tick deadline. Pop order
-// (TS): popInt first (additional ticks from current tick), then
-// popString (message). Mirrors TS PlayerOps.ts:626-630.
+// (TS): popString first (message), then popInt (additional ticks
+// from current tick). Goscape's int and string stacks are
+// independent so the in-handler order between PopInt and PopString
+// does not affect runtime. Mirrors TS PlayerOps.ts:626-630.
 //
 // DEVIATION-NAI-127-D1: defensive nil-s.World guard (currentTick read
 // requires World).
