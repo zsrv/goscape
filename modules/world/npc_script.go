@@ -467,7 +467,7 @@ func (s *Server) processNpcRegen(n *Npc) {
 // collide with the index pointer. Matches the player-side pattern at
 // modules/world/tick.go:219-242.
 //
-// NAI-123: req.IntArg is copied into state.LastInt before execution,
+// NAI-123: req.LastInt is copied into state.LastInt before execution,
 // mirroring TS Npc.ts:554-555 (state.lastInt = request.lastInt). The
 // queued arg is NOT a positional script arg (TS request.args is always
 // [] at the only enqueue site Npc.ts:242); ai_queueN scripts read it
@@ -487,7 +487,7 @@ func (s *Server) processNpcQueue(n *Npc) {
 			continue
 		}
 		trigger := req.Trigger
-		lastIntArg := req.IntArg
+		lastIntArg := req.LastInt
 		n.queue = append(n.queue[:i], n.queue[i+1:]...)
 		if s.scriptProvider == nil {
 			continue

@@ -344,13 +344,13 @@ func handleNpcQueue(s *ScriptState) error {
 	if err := checkNotNull(delay, "NPC_QUEUE"); err != nil {
 		return err
 	}
-	arg := s.PopInt()
+	lastIntArg := s.PopInt()
 	queueID := s.PopInt()
 	if queueID < 1 || queueID > 20 {
 		return fmt.Errorf("NPC_QUEUE: invalid queueId %d (want 1..20)", queueID)
 	}
 	trigger := TriggerAiQueue1 + ServerTriggerType(queueID-1)
-	s.ActiveNpc.EnqueueScriptForTrigger(trigger, delay, arg)
+	s.ActiveNpc.EnqueueScriptForTrigger(trigger, delay, lastIntArg)
 	return nil
 }
 

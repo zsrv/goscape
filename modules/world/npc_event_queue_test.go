@@ -57,7 +57,7 @@ func TestNpcRevertTypeRestoresBaseType(t *testing.T) {
 func TestNpcRevertTypeClearsQueue(t *testing.T) {
 	n := newNpcForLifecycleTest(t)
 	n.server = newTestServer(t) // NAI-19 Task 5e: heavy path needs server.
-	n.queue = []script.NpcQueueRequest{{Trigger: script.TriggerAiQueue1, Delay: 5, IntArg: 0}}
+	n.queue = []script.NpcQueueRequest{{Trigger: script.TriggerAiQueue1, Delay: 5, LastInt: 0}}
 
 	n.revertType()
 

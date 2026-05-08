@@ -186,8 +186,8 @@ func TestNpcEnqueueScriptForTrigger(t *testing.T) {
 	if req.Delay != 5 {
 		t.Errorf("Delay: got %d, want 5", req.Delay)
 	}
-	if req.IntArg != 42 {
-		t.Errorf("IntArg: got %d, want 42", req.IntArg)
+	if req.LastInt != 42 {
+		t.Errorf("LastInt: got %d, want 42", req.LastInt)
 	}
 }
 
@@ -1072,13 +1072,13 @@ func TestResumeOrFinishNpc_ExecuteError_PreservesUnrelatedSuspendedScript(t *tes
 }
 
 // TestProcessNpcQueue_SetsStateLastInt pins NAI-123 fix: processNpcQueue
-// must copy req.IntArg into state.LastInt before executing the dispatched
+// must copy req.LastInt into state.LastInt before executing the dispatched
 // ai_queueN script. Mirrors TS Npc.ts:554-555 — without this line,
 // [ai_queueN,_] ~proc(last_int) reads 0 and zero-damages the target.
 //
 // Observable: register a script at TriggerAiQueue2 whose bytecode pushes
 // last_int and feeds it to NPC_SETTIMER. SetTimer writes n.timerInterval
-// directly. Enqueue with intArg=42; turn(); assert n.timerInterval == 42.
+// directly. Enqueue with lastIntArg=42; turn(); assert n.timerInterval == 42.
 //
 // Failure mode if state.LastInt is unset: OpLastInt pushes 0 → SetTimer(0)
 // → n.timerInterval = 0 (got 0, want 42).

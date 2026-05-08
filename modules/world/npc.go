@@ -329,11 +329,13 @@ func (n *Npc) SetDelayed(ticks int) {
 // Implements script.ActiveNpc.EnqueueScriptForTrigger. Script
 // resolution is deferred to fire time via
 // scriptProvider.GetByTrigger — matches TS Npc.enqueueScript.
-func (n *Npc) EnqueueScriptForTrigger(trigger script.ServerTriggerType, delay, intArg int) {
+// lastIntArg is stored on the request and copied into state.LastInt
+// at fire time (mirrors TS Npc.ts:554-555).
+func (n *Npc) EnqueueScriptForTrigger(trigger script.ServerTriggerType, delay, lastIntArg int) {
 	n.queue = append(n.queue, script.NpcQueueRequest{
 		Trigger: trigger,
 		Delay:   delay,
-		IntArg:  intArg,
+		LastInt: lastIntArg,
 	})
 }
 

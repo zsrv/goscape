@@ -702,7 +702,9 @@ type ActiveNpc interface {
 	// trigger (TriggerAiQueue1..TriggerAiQueue20) identifies which
 	// script runs; lookup happens at fire time via
 	// scriptProvider.GetByTrigger keyed on the NPC's type + category.
-	EnqueueScriptForTrigger(trigger ServerTriggerType, delay int, intArg int)
+	// lastIntArg is stored on the queue entry and copied into
+	// state.LastInt at fire time (TS Npc.ts:554-555).
+	EnqueueScriptForTrigger(trigger ServerTriggerType, delay int, lastIntArg int)
 
 	// SetTimer sets the tick interval between ai_timer trigger fires
 	// on the active NPC. interval == -1 is a silent no-op, matching

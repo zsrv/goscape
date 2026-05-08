@@ -189,9 +189,9 @@ func TestNpcLookupInterfaceShape(t *testing.T) {
 }
 
 type mockEnqueueCall struct {
-	trigger ServerTriggerType
-	delay   int
-	intArg  int
+	trigger    ServerTriggerType
+	delay      int
+	lastIntArg int
 }
 
 // mockNpc is a test fixture implementing ActiveNpc. Pre-seed fields then
@@ -345,11 +345,11 @@ func (m *mockNpc) SetDelayed(d int) {
 	m.setDelayedCalls = append(m.setDelayedCalls, d)
 }
 
-func (m *mockNpc) EnqueueScriptForTrigger(trigger ServerTriggerType, delay, intArg int) {
+func (m *mockNpc) EnqueueScriptForTrigger(trigger ServerTriggerType, delay, lastIntArg int) {
 	m.enqueueCalls = append(m.enqueueCalls, mockEnqueueCall{
-		trigger: trigger,
-		delay:   delay,
-		intArg:  intArg,
+		trigger:    trigger,
+		delay:      delay,
+		lastIntArg: lastIntArg,
 	})
 }
 
@@ -868,8 +868,8 @@ func TestHandleNpcQueueEnqueues(t *testing.T) {
 	if call.delay != 5 {
 		t.Errorf("delay: got %d, want 5", call.delay)
 	}
-	if call.intArg != 42 {
-		t.Errorf("intArg: got %d, want 42", call.intArg)
+	if call.lastIntArg != 42 {
+		t.Errorf("lastIntArg: got %d, want 42", call.lastIntArg)
 	}
 }
 

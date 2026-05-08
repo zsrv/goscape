@@ -478,7 +478,7 @@ func TestRevertTypeHonorsResetOnRevertFalse(t *testing.T) {
 	n.levels[objtype.NpcStatHitpoints] = 7
 	n.baseLevels[objtype.NpcStatAttack] = 20 // not from baseTyp
 	n.baseLevels[objtype.NpcStatHitpoints] = 20
-	n.queue = []script.NpcQueueRequest{{Trigger: 0, Delay: 5, IntArg: 42}}
+	n.queue = []script.NpcQueueRequest{{Trigger: 0, Delay: 5, LastInt: 42}}
 	n.waypointIndex = 3
 	n.huntClock = 7
 	n.huntRange = 99
@@ -543,7 +543,7 @@ func TestRevertTypeHonorsResetOnRevertTrue(t *testing.T) {
 		n.levels[i] = 50
 		n.baseLevels[i] = 50
 	}
-	n.queue = []script.NpcQueueRequest{{Trigger: 0, Delay: 5, IntArg: 42}}
+	n.queue = []script.NpcQueueRequest{{Trigger: 0, Delay: 5, LastInt: 42}}
 
 	n.revertType()
 
