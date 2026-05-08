@@ -182,6 +182,13 @@ func TestNAI128_RatLootCascade(t *testing.T) {
 		t.Fatalf("addPlayer: %v", err)
 	}
 
+	// Install recording logger before the initial enqueue so the G3 gateway
+	// captures both the test-side TriggerAiQueue2 enqueue and the
+	// cascade-side TriggerAiQueue3 enqueue. Replaces the production
+	// discardLogger with a capturingHandler for the duration of this test.
+	rec := &capturingHandler{}
+	s.log = slog.New(rec)
+
 	// Simulate the state player_melee_attack would leave: rat ledger
 	// credited with the player's UID, and ai_queue2 enqueued with the
 	// damage value. Per spec §4 plan-vs-spec divergence note, this
@@ -217,13 +224,6 @@ func TestNAI128_RatLootCascade(t *testing.T) {
 		}
 		t.Logf("registered player: uid=%d slot=%d", p.UID(), p.Slot())
 	})
-
-	// T6 setup: replace s.log with a recording handler so the cascade's
-	// resumeOrFinishNpc warn-level "npc script execute error" frames are
-	// captured (production discardLogger swallows them). Recorder is
-	// inspected in T6 below.
-	rec := &capturingHandler{}
-	s.log = slog.New(rec)
 
 	t.Run("AiQueueCascade", func(t *testing.T) {
 		// One processNpcQueue call drains all entries with Delay<=0.
@@ -319,6 +319,37 @@ func TestNAI128_RatLootCascade(t *testing.T) {
 		}
 		if len(damageRecs) == 0 {
 			t.Errorf("G1: expected at least one %q record during cascade; got 0", "nai128.npc.damage")
+		}
+
+		// G3 — Npc.EnqueueScriptForTrigger gateway. The test pre-enqueues
+		// TriggerAiQueue2 manually; the cascade re-enters via NPC_QUEUE
+		// inside ~npc_default_damage which enqueues TriggerAiQueue3.
+		// Assert both fire (one per enqueue).
+		var enqueueRecs []slog.Record
+		var sawAiQueue2, sawAiQueue3 bool
+		for _, r := range records {
+			if r.Message == "nai128.npc.enqueue" {
+				enqueueRecs = append(enqueueRecs, r)
+				r.Attrs(func(a slog.Attr) bool {
+					if a.Key == "trigger" {
+						switch int(a.Value.Int64()) {
+						case int(script.TriggerAiQueue2):
+							sawAiQueue2 = true
+						case int(script.TriggerAiQueue3):
+							sawAiQueue3 = true
+						}
+					}
+					return true
+				})
+			}
+		}
+		if !sawAiQueue2 {
+			t.Errorf("G3: expected at least one %q record with trigger=TriggerAiQueue2 (%d); got %d enqueue records",
+				"nai128.npc.enqueue", script.TriggerAiQueue2, len(enqueueRecs))
+		}
+		if !sawAiQueue3 {
+			t.Errorf("G3: expected at least one %q record with trigger=TriggerAiQueue3 (%d); got %d enqueue records",
+				"nai128.npc.enqueue", script.TriggerAiQueue3, len(enqueueRecs))
 		}
 
 		// Diagnostic dump of all captured log frames — useful when the

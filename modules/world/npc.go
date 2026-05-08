@@ -338,6 +338,16 @@ func (n *Npc) EnqueueScriptForTrigger(trigger script.ServerTriggerType, delay, l
 		Delay:   delay,
 		LastInt: lastIntArg,
 	})
+	if n.server != nil && n.server.cfg.NodeDebug && n.server.log != nil {
+		n.server.log.Info("nai128.npc.enqueue",
+			"npc", n.uid,
+			"typeId", n.typeId,
+			"trigger", int(trigger),
+			"delay", delay,
+			"lastInt", lastIntArg,
+			"queueLen", len(n.queue),
+		)
+	}
 }
 
 // SetTimer sets the tick interval between ai_timer trigger fires.
