@@ -3591,3 +3591,128 @@ func TestNpcArriveDelayRequiresWorld(t *testing.T) {
 		t.Errorf("setDelayedCalls: got %v, want [] (rejection must not mutate)", mn.setDelayedCalls)
 	}
 }
+
+// fakeWorldRemoveNpc records RemoveNpc calls. Embeds *mockWorld so the
+// rest of the WorldVars surface stays no-op. Mirrors fakeWorldRemoveObj
+// at handlers_obj_test.go:33.
+type fakeWorldRemoveNpc struct {
+	*mockWorld
+	calls []struct {
+		npc      ActiveNpc
+		duration int
+	}
+}
+
+func (f *fakeWorldRemoveNpc) RemoveNpc(npc ActiveNpc, duration int) {
+	f.calls = append(f.calls, struct {
+		npc      ActiveNpc
+		duration int
+	}{npc, duration})
+}
+
+func newNpcDelState(t *testing.T, npc ActiveNpc, world WorldVars) *ScriptState {
+	t.Helper()
+	sf := &ScriptFile{
+		Name:             "npc_del",
+		Opcodes:          []Opcode{OpNpcDel, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	state.World = world
+	state.Pointers |= PtrActiveNpc
+	return state
+}
+
+func TestHandleNpcDel_CallsRemoveNpc(t *testing.T) {
+	w := &fakeWorldRemoveNpc{mockWorld: newMockWorld()}
+	npc := &mockNpc{typeID: 5, respawnrate: 50}
+	state := newNpcDelState(t, npc, w)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(w.calls) != 1 {
+		t.Fatalf("RemoveNpc calls: got %d, want 1", len(w.calls))
+	}
+	if got, want := w.calls[0].duration, 50; got != want {
+		t.Errorf("duration: got %d, want %d", got, want)
+	}
+}
+
+func TestHandleNpcDel_PassesActiveNpcInstance(t *testing.T) {
+	w := &fakeWorldRemoveNpc{mockWorld: newMockWorld()}
+	npc := &mockNpc{typeID: 5, respawnrate: 50}
+	state := newNpcDelState(t, npc, w)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(w.calls) != 1 {
+		t.Fatalf("RemoveNpc calls: got %d, want 1", len(w.calls))
+	}
+	if w.calls[0].npc != ActiveNpc(npc) {
+		t.Errorf("npc identity mismatch: got %v, want %v", w.calls[0].npc, npc)
+	}
+}
+
+func TestHandleNpcDel_NoActiveNpcErrors(t *testing.T) {
+	w := &fakeWorldRemoveNpc{mockWorld: newMockWorld()}
+	sf := &ScriptFile{
+		Name:             "npc_del_no_active",
+		Opcodes:          []Opcode{OpNpcDel, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.World = w
+	// Pointers flag NOT set → requireActiveNpc gate fires.
+	err := Execute(state)
+	if err == nil {
+		t.Fatal("Execute: expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "NPC_DEL") {
+		t.Errorf("error: %v, want containing \"NPC_DEL\"", err)
+	}
+	if len(w.calls) != 0 {
+		t.Errorf("RemoveNpc calls: got %d, want 0", len(w.calls))
+	}
+}
+
+func TestHandleNpcDel_NilWorldErrors(t *testing.T) {
+	npc := &mockNpc{typeID: 5, respawnrate: 50}
+	sf := &ScriptFile{
+		Name:             "npc_del_nil_world",
+		Opcodes:          []Opcode{OpNpcDel, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	state.World = nil
+	state.Pointers |= PtrActiveNpc
+	err := Execute(state)
+	if err == nil {
+		t.Fatal("Execute: expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "no world surface") {
+		t.Errorf("error: %v, want containing \"no world surface\"", err)
+	}
+}
+
+func TestHandleNpcDel_ZeroRespawnrate(t *testing.T) {
+	w := &fakeWorldRemoveNpc{mockWorld: newMockWorld()}
+	npc := &mockNpc{typeID: 5, respawnrate: 0}
+	state := newNpcDelState(t, npc, w)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(w.calls) != 1 {
+		t.Fatalf("RemoveNpc calls: got %d, want 1", len(w.calls))
+	}
+	if got, want := w.calls[0].duration, 0; got != want {
+		t.Errorf("duration: got %d, want %d", got, want)
+	}
+}
