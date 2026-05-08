@@ -180,5 +180,5 @@ func NewParamType(id int) *ParamType {
 		ConfigType: ConfigType{
 			ID: id,
 		},
-}
+	}
 }
