@@ -1089,3 +1089,44 @@ func handleNpcHeroPoints(s *ScriptState) error {
 	s.ActiveNpc.AddHeroPoints(s.Self.UID(), amount)
 	return nil
 }
+
+// handleNpcFindHero (NPC_FINDHERO, opcode 2519) returns the player
+// with the largest HeroPoints credit on this NPC's ledger and binds
+// them to the primary or secondary active-player slot per IntOperand.
+// Pushes 1 on success, 0 if the ledger is empty, the resolved player
+// has logged out, or s.World is nil. Mirrors TS NpcOps.ts:114-130 —
+// state.activePlayer setter behavior at ScriptState.ts:235-241
+// routes to Self (primary) or Self2 (secondary) based on intOperand.
+//
+// DEVIATION-NAI-127-D1: defensive nil-s.World guard (goscape defensive;
+// TS skips this check). Mirrors handleNpcDel from NAI-126. Retire when
+// an upstream invariant proves s.World non-nil for any executing
+// script.
+func handleNpcFindHero(s *ScriptState) error {
+	if err := requireActiveNpc(s, "NPC_FINDHERO"); err != nil {
+		return err
+	}
+	if s.World == nil {
+		s.PushInt(0)
+		return nil
+	}
+	uid := s.ActiveNpc.TopContributor()
+	if uid == 0 {
+		s.PushInt(0)
+		return nil
+	}
+	player := s.World.LookupPlayerByUID(uid)
+	if player == nil {
+		s.PushInt(0)
+		return nil
+	}
+	if s.Script.IntOperands[s.PC] == 0 {
+		s.Self = player
+		s.Pointers |= PtrActivePlayer
+	} else {
+		s.Self2 = player
+		s.Pointers |= PtrActivePlayer2
+	}
+	s.PushInt(1)
+	return nil
+}

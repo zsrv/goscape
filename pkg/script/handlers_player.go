@@ -1302,3 +1302,63 @@ func handlePOpPlayer(s *ScriptState) error {
 	s.Self.SetInteractionScriptPlayer(s.Self2, op)
 	return nil
 }
+
+// handleFindHero (FINDHERO, opcode 2018) returns the player with the
+// largest HeroPoints credit on the active player's ledger, binding
+// them to the SECONDARY active-player slot regardless of IntOperand.
+// Pushes 1 on success, 0 if the ledger is empty, the resolved player
+// has logged out, or s.World is nil. Mirrors TS PlayerOps.ts:1138-1154.
+//
+// DEVIATION-NAI-127-D1: defensive nil-s.World guard (goscape defensive;
+// TS skips this check). Retire per the same condition as NPC_FINDHERO.
+func handleFindHero(s *ScriptState) error {
+	if err := requireActivePlayer(s, "FINDHERO"); err != nil {
+		return err
+	}
+	if s.World == nil {
+		s.PushInt(0)
+		return nil
+	}
+	uid := s.Self.TopContributor()
+	if uid == 0 {
+		s.PushInt(0)
+		return nil
+	}
+	player := s.World.LookupPlayerByUID(uid)
+	if player == nil {
+		s.PushInt(0)
+		return nil
+	}
+	s.Self2 = player
+	s.Pointers |= PtrActivePlayer2
+	s.PushInt(1)
+	return nil
+}
+
+// handleBothHeroPoints (BOTH_HEROPOINTS, opcode 2003) credits `damage`
+// to the receiving player's HeroPoints ledger, attributed to the
+// sending player's UID. IntOperand selects the swap direction:
+//
+//	IntOperand=0 → from=Self (primary),    to=Self2 (secondary)
+//	IntOperand=1 → from=Self2 (secondary), to=Self (primary)
+//
+// Mirrors TS PlayerOps.ts:1156-1167. Returns an error if either slot
+// is nil (TS throws).
+func handleBothHeroPoints(s *ScriptState) error {
+	if err := requireActivePlayer(s, "BOTH_HEROPOINTS"); err != nil {
+		return err
+	}
+	damage := s.PopInt()
+	secondary := s.Script.IntOperands[s.PC] == 1
+	var from, to ActivePlayer
+	if secondary {
+		from, to = s.Self2, s.Self
+	} else {
+		from, to = s.Self, s.Self2
+	}
+	if from == nil || to == nil {
+		return fmt.Errorf("BOTH_HEROPOINTS: player is null")
+	}
+	to.AddHeroPoints(from.UID(), damage)
+	return nil
+}

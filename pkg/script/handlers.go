@@ -229,8 +229,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpPTeleport:   handlePTeleport,
 	OpPTeleJump:   handlePTeleJump,
 	// Animation.
-	OpAnim:       handleAnim,
-	OpSpotAnimPl: handleSpotAnimPl,
+	OpAnim:            handleAnim,
+	OpBothHeroPoints:  handleBothHeroPoints,
+	OpSpotAnimPl:      handleSpotAnimPl,
 	OpReadyAnim:  handleReadyAnim,
 	OpTurnAnim:   handleTurnAnim,
 	OpWalkAnim:   handleWalkAnim,
@@ -439,6 +440,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpNpcFindAll:     handleNpcFindAll,
 	OpNpcFindAllAny:  handleNpcFindAllAny,
 	OpNpcFindAllZone: handleNpcFindAllZone,
+	OpNpcFindHero:    handleNpcFindHero,
 	OpNpcFindNext:    handleNpcFindNext,
 
 	// NPC hunt (NAI-35-T3) — HuntAll iterator (distance + active huntvis).
@@ -451,6 +453,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 
 	// S7a: player UID lookup.
 	OpFindUID:  handleFindUID,
+	OpFindHero: handleFindHero,
 	OpPFindUID: handlePFindUID,
 
 	// S7b: anim-protect flag.
