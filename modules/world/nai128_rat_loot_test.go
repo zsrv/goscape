@@ -128,4 +128,50 @@ func TestNAI128_RatLootCascade(t *testing.T) {
 			rat.uid, rat.typeId, hp, rat.x, rat.z, rat.level)
 		t.Logf("player: uid=%d coord=(%d,%d,%d)", p.UID(), p.x, p.z, p.level)
 	})
+
+	// Register the player with the server before crediting heroPoints.
+	// addPlayer assigns p.slot, p.uid=composeUID(username37, slot), and
+	// adds to s.players + s.playerLoop with active=true. Required so
+	// downstream NPC_FINDHERO -> LookupPlayerByUID(uid) resolves the
+	// player at T5 (controller pre-flight: tut_giant_rat.rs2:6 gates
+	// obj_add behind npc_findhero=^true).
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+
+	// Simulate the state player_melee_attack would leave: rat ledger
+	// credited with the player's UID, and ai_queue2 enqueued with the
+	// damage value. Per spec §4 plan-vs-spec divergence note, this
+	// bypasses the RNG-bound hit-roll branch.
+	const damage = 5
+	rat.heroPoints.AddHero(p.UID(), damage)
+	rat.EnqueueScriptForTrigger(script.TriggerAiQueue2, 0, damage)
+
+	// Force rat HP to 1 so the next damage application kills (one-shot
+	// simplifies cascade tracing).
+	rat.levels[objtype.NpcStatHitpoints] = 1
+
+	t.Run("Preconditions", func(t *testing.T) {
+		top := rat.heroPoints.TopContributor()
+		if top != p.UID() {
+			t.Errorf("rat.heroPoints.TopContributor() = %d; want %d (player.UID)", top, p.UID())
+		}
+		if len(rat.queue) != 1 {
+			t.Fatalf("rat.queue len = %d; want 1 (ai_queue2 enqueued)", len(rat.queue))
+		}
+		req := rat.queue[0]
+		if req.Trigger != script.TriggerAiQueue2 {
+			t.Errorf("rat.queue[0].Trigger = %v; want TriggerAiQueue2 (%d)", req.Trigger, script.TriggerAiQueue2)
+		}
+		if req.LastInt != damage {
+			t.Errorf("rat.queue[0].LastInt = %d; want %d", req.LastInt, damage)
+		}
+		if req.Delay != 0 {
+			t.Errorf("rat.queue[0].Delay = %d; want 0", req.Delay)
+		}
+		if hp := rat.levels[objtype.NpcStatHitpoints]; hp != 1 {
+			t.Errorf("rat HP after force-set = %d; want 1", hp)
+		}
+		t.Logf("registered player: uid=%d slot=%d", p.UID(), p.Slot())
+	})
 }
