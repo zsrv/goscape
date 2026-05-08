@@ -72,6 +72,14 @@ func (n *Npc) NpcBaseStat(stat int) int {
 // HeroPoints.AddHero). Mirrors TS Npc.heroPoints.addHero(...) at
 // NpcOps.ts:479. NAI-120 Bundle 2D.
 func (n *Npc) AddHeroPoints(playerUID, amount int) {
+	if n.server != nil && n.server.cfg.NodeDebug && n.server.log != nil {
+		n.server.log.Info("nai128.heropoints.add",
+			"npc", n.uid,
+			"typeId", n.typeId,
+			"playerUID", playerUID,
+			"amount", amount,
+		)
+	}
 	n.heroPoints.AddHero(playerUID, amount)
 }
 

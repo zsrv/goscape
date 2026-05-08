@@ -420,3 +420,51 @@ func TestNAI128_RatLootCascade(t *testing.T) {
 		t.Logf("ground objs at rat coord: %v (expected death_drop=%d + raw_rat_meat=%d)", atRat, dropObjID, ratMeatID)
 	})
 }
+
+// TestNAI128_G2_AddHeroPointsGateway pins the G2 gateway probe at
+// (*Npc).AddHeroPoints. NAI-128 Stage 3.
+func TestNAI128_G2_AddHeroPointsGateway(t *testing.T) {
+	s := newTestServer(t)
+	s.cfg.NodeDebug = true
+	rec := &capturingHandler{}
+	s.log = slog.New(rec)
+
+	npcType := &objtype.NpcType{}
+	n := NewNpc(1, 100, 0, 0, 0, npcType)
+	n.server = s
+
+	n.AddHeroPoints(123, 5)
+
+	records := rec.snapshot()
+	var found *slog.Record
+	for i := range records {
+		if records[i].Message == "nai128.heropoints.add" {
+			found = &records[i]
+			break
+		}
+	}
+	if found == nil {
+		t.Fatalf("G2: expected one %q record; got %d total records", "nai128.heropoints.add", len(records))
+	}
+	var npcUID, playerUID, amount int64
+	found.Attrs(func(a slog.Attr) bool {
+		switch a.Key {
+		case "npc":
+			npcUID = a.Value.Int64()
+		case "playerUID":
+			playerUID = a.Value.Int64()
+		case "amount":
+			amount = a.Value.Int64()
+		}
+		return true
+	})
+	if npcUID != int64(n.uid) {
+		t.Errorf("G2 npc attr = %d; want %d", npcUID, n.uid)
+	}
+	if playerUID != 123 {
+		t.Errorf("G2 playerUID attr = %d; want 123", playerUID)
+	}
+	if amount != 5 {
+		t.Errorf("G2 amount attr = %d; want 5", amount)
+	}
+}
