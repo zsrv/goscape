@@ -167,6 +167,7 @@ func (n *Npc) Damage(amount, dmgType int) {
 		amount = 0
 	}
 	cur := n.levels[objtype.NpcStatHitpoints]
+	preHit := cur
 	n.damageAmt = min(amount, cur)
 	n.damageType = dmgType
 	cur -= amount
@@ -180,7 +181,7 @@ func (n *Npc) Damage(amount, dmgType int) {
 			"typeId", n.typeId,
 			"amount", amount,
 			"dmgType", dmgType,
-			"cur", cur+amount, // pre-hit HP
+			"cur", preHit,
 			"new", cur,
 		)
 	}
