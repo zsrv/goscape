@@ -70,6 +70,35 @@ func nai128CacheFixture(t *testing.T) (*Server, string) {
 	}
 	s.varpTypes = varpTypes
 
+	// VarsTypes / VarnTypes — required to size s.vars and s.varsStrings
+	// (mirrors NewServer at server.go:225-237). worldVarsView.VarsInt /
+	// SetVarsInt key into these slices; with empty slices any cascade-side
+	// varp read returns 0 silently rather than panicking on a nil-server
+	// short-circuit.
+	varsTypes, err := objtype.LoadVarsTypes(cacheDir)
+	if err != nil {
+		t.Fatalf("LoadVarsTypes: %v", err)
+	}
+	s.varsTypes = varsTypes
+	varnTypes, err := objtype.LoadVarnTypes(cacheDir)
+	if err != nil {
+		t.Fatalf("LoadVarnTypes: %v", err)
+	}
+	s.varnTypes = varnTypes
+	s.vars = make([]int32, len(varsTypes.Configs))
+	s.varsStrings = make([]string, len(varsTypes.Configs))
+
+	// Script-side adapter views — wire after cache types are set so the
+	// inner-server pointer references a fixture in its final shape. Mirrors
+	// NewServer at server.go:238, 250-252. Without these, ScriptState.World
+	// is worldVarsView{s: nil} and LookupPlayerByUID short-circuits to nil
+	// at server_varp.go:178-180 — silently breaks NPC_FINDHERO even though
+	// playerLoop is populated.
+	s.worldVars = worldVarsView{s: s}
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
+
 	// Real script provider — replaces the stub from newTestServer.
 	provider := script.NewProvider()
 	if err := provider.Load(filepath.Join(cacheDir, "server")); err != nil {
