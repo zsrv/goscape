@@ -326,8 +326,10 @@ func (s *Server) buildNpcScriptState(
 // the trigger lookup. Mirrors runScript at modules/world/script.go:14.
 //
 // NAI-11: target is the interaction target for AI_*PLAYER / AI_*NPC /
-// AI_*LOC / AI_*OBJ triggers. Pass nil for AI_TIMER, DESPAWN, and
-// QUEUE* paths (no secondary entity). The type-switch in
+// AI_*LOC / AI_*OBJ triggers. Pass nil for AI_TIMER and DESPAWN paths
+// (no secondary entity). QUEUE* paths bypass runNpcScript entirely
+// post-NAI-123 — processNpcQueue expands the call so it can write
+// state.LastInt before resumeOrFinishNpc. The type-switch in
 // buildNpcScriptState wires the matching ScriptState field and pointer
 // flag; ActivePlayer is checked first so a *Player target never
 // accidentally falls into the OtherActiveNpc branch.
