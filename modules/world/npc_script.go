@@ -527,6 +527,15 @@ func (s *Server) processNpcQueue(n *Npc) {
 		if sf == nil {
 			continue
 		}
+		if s.cfg.NodeDebug && s.log != nil {
+			s.log.Info("nai128.npc.queuefire",
+				"npc", n.uid,
+				"typeId", n.typeId,
+				"trigger", int(trigger),
+				"sf", sf.Name,
+				"lastInt", lastIntArg,
+			)
+		}
 		state := s.buildNpcScriptState(sf, n, nil, nil, nil)
 		state.LastInt = lastIntArg
 		s.resumeOrFinishNpc(state, n)

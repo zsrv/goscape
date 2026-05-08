@@ -352,6 +352,38 @@ func TestNAI128_RatLootCascade(t *testing.T) {
 				"nai128.npc.enqueue", script.TriggerAiQueue3, len(enqueueRecs))
 		}
 
+		// G4 — processNpcQueue per-fire gateway. Both ai_queue2 and
+		// ai_queue3 should fire during the cascade per spec §4.4
+		// phase-collapse. Assert one queuefire record each by sf.Name
+		// shape (rat-specific scripts).
+		var queueFireRecs []slog.Record
+		var sawAi2Fire, sawAi3Fire bool
+		for _, r := range records {
+			if r.Message == "nai128.npc.queuefire" {
+				queueFireRecs = append(queueFireRecs, r)
+				r.Attrs(func(a slog.Attr) bool {
+					if a.Key == "sf" {
+						name := a.Value.String()
+						if name == "[ai_queue2,_]" || name == "[ai_queue2,newbiegiantrat]" {
+							sawAi2Fire = true
+						}
+						if name == "[ai_queue3,_]" || name == "[ai_queue3,newbiegiantrat]" {
+							sawAi3Fire = true
+						}
+					}
+					return true
+				})
+			}
+		}
+		if !sawAi2Fire {
+			t.Errorf("G4: expected one %q record for ai_queue2 (specific or generic); got %d queuefire records",
+				"nai128.npc.queuefire", len(queueFireRecs))
+		}
+		if !sawAi3Fire {
+			t.Errorf("G4: expected one %q record for ai_queue3 (specific or generic); got %d queuefire records",
+				"nai128.npc.queuefire", len(queueFireRecs))
+		}
+
 		// Diagnostic dump of all captured log frames — useful when the
 		// binding is none of E0/E2a/E2b (e.g. an unexpected error path).
 		if t.Failed() || testing.Verbose() {
