@@ -3409,3 +3409,183 @@ func TestNpcHeroPoints_AmountZero(t *testing.T) {
 		t.Errorf("NPC_HEROPOINTS amount=0: AddHeroPoints calls = %d, want 1", got)
 	}
 }
+
+// -- NPC_ARRIVEDELAY tests (NAI-125) ---------------------------------------
+//
+// TS NpcOps.ts:542-555: 3-tick acceptance window with recency-dependent
+// suspend duration. Asymmetric vs P_ARRIVEDELAY (which has a 2-tick
+// window and always SetDelayed(0)).
+//
+// lastMovement is written by (*Npc).updateMovement to currentTick + 1
+// after any tick the NPC stepped (npc_interaction.go:334). The
+// SetDelayed(ticks) primitive at npc.go:323-326 writes both
+// n.delayed = true and n.delayedUntil = currentTick + 1 + ticks, so:
+//   TS delayedUntil = T+2 ⇒ goscape SetDelayed(1)
+//   TS delayedUntil = T+1 ⇒ goscape SetDelayed(0)
+
+// TestNpcArriveDelaySuspendsWhenMovedThisTick: lastMovement = currentTick + 1.
+// Gate condition: 101 < 99 is false ⇒ continue. Branch: 101 == 99 is false
+// ⇒ SetDelayed(1) (delayedUntil = T+2).
+func TestNpcArriveDelaySuspendsWhenMovedThisTick(t *testing.T) {
+	mn := &mockNpc{lastMovement: 101}
+	w := &mockWorld{tick: 100}
+	sf := &ScriptFile{
+		Name:    "npc_arrivedelay_moved_this_tick",
+		Opcodes: []Opcode{OpNpcArriveDelay, OpReturn},
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = mn
+	state.World = w
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.Execution != NpcSuspended {
+		t.Errorf("Execution: got %v, want NpcSuspended", state.Execution)
+	}
+	if len(mn.setDelayedCalls) != 1 || mn.setDelayedCalls[0] != 1 {
+		t.Errorf("setDelayedCalls: got %v, want [1]", mn.setDelayedCalls)
+	}
+}
+
+// TestNpcArriveDelaySuspendsWhenMovedLastTick: lastMovement = currentTick (the
+// boundary case — moved on tick T-1 means lastMovement was set to T-1+1 = T).
+// Gate condition: 100 < 99 is false ⇒ continue. Branch: 100 == 99 is false
+// ⇒ SetDelayed(1) (delayedUntil = T+2). Mid-of-window.
+func TestNpcArriveDelaySuspendsWhenMovedLastTick(t *testing.T) {
+	mn := &mockNpc{lastMovement: 100}
+	w := &mockWorld{tick: 100}
+	sf := &ScriptFile{
+		Name:    "npc_arrivedelay_moved_last_tick",
+		Opcodes: []Opcode{OpNpcArriveDelay, OpReturn},
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = mn
+	state.World = w
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.Execution != NpcSuspended {
+		t.Errorf("Execution: got %v, want NpcSuspended", state.Execution)
+	}
+	if len(mn.setDelayedCalls) != 1 || mn.setDelayedCalls[0] != 1 {
+		t.Errorf("setDelayedCalls: got %v, want [1]", mn.setDelayedCalls)
+	}
+}
+
+// TestNpcArriveDelaySuspendsWhenMovedTwoTicksAgo: lastMovement = currentTick - 1.
+// Gate condition: 99 < 99 is false ⇒ continue. Branch: 99 == 99 is true
+// ⇒ SetDelayed(0) (delayedUntil = T+1). NPC-unique branch (no equivalent
+// in P_ARRIVEDELAY which always SetDelayed(0) regardless).
+func TestNpcArriveDelaySuspendsWhenMovedTwoTicksAgo(t *testing.T) {
+	mn := &mockNpc{lastMovement: 99}
+	w := &mockWorld{tick: 100}
+	sf := &ScriptFile{
+		Name:    "npc_arrivedelay_moved_two_ticks_ago",
+		Opcodes: []Opcode{OpNpcArriveDelay, OpReturn},
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = mn
+	state.World = w
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.Execution != NpcSuspended {
+		t.Errorf("Execution: got %v, want NpcSuspended", state.Execution)
+	}
+	if len(mn.setDelayedCalls) != 1 || mn.setDelayedCalls[0] != 0 {
+		t.Errorf("setDelayedCalls: got %v, want [0]", mn.setDelayedCalls)
+	}
+}
+
+// TestNpcArriveDelayNoOpWhenMovedThreeTicksAgo: lastMovement = currentTick - 2
+// (the first tick on which the gate becomes a no-op).
+// Gate condition: 98 < 99 is true ⇒ return early.
+func TestNpcArriveDelayNoOpWhenMovedThreeTicksAgo(t *testing.T) {
+	mn := &mockNpc{lastMovement: 98}
+	w := &mockWorld{tick: 100}
+	sf := &ScriptFile{
+		Name:    "npc_arrivedelay_moved_three_ticks_ago",
+		Opcodes: []Opcode{OpNpcArriveDelay, OpReturn},
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = mn
+	state.World = w
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.Execution != Finished {
+		t.Errorf("Execution: got %v, want Finished (no-op should let OpReturn complete)", state.Execution)
+	}
+	if len(mn.setDelayedCalls) != 0 {
+		t.Errorf("setDelayedCalls: got %v, want [] (no-op must not call SetDelayed)", mn.setDelayedCalls)
+	}
+}
+
+// TestNpcArriveDelayNoOpWhenNeverMoved: lastMovement = 0 (zero-value, never
+// moved). Gate condition: 0 < 99 is true ⇒ return early. Pins zero-value.
+func TestNpcArriveDelayNoOpWhenNeverMoved(t *testing.T) {
+	mn := &mockNpc{lastMovement: 0}
+	w := &mockWorld{tick: 100}
+	sf := &ScriptFile{
+		Name:    "npc_arrivedelay_never_moved",
+		Opcodes: []Opcode{OpNpcArriveDelay, OpReturn},
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = mn
+	state.World = w
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.Execution != Finished {
+		t.Errorf("Execution: got %v, want Finished", state.Execution)
+	}
+	if len(mn.setDelayedCalls) != 0 {
+		t.Errorf("setDelayedCalls: got %v, want []", mn.setDelayedCalls)
+	}
+}
+
+// TestNpcArriveDelayRequiresActiveNpc: handler must reject when no
+// ActiveNpc bound. Mirrors requireActiveNpc semantics shared by every
+// NPC_* reader handler.
+func TestNpcArriveDelayRequiresActiveNpc(t *testing.T) {
+	sf := &ScriptFile{
+		Name:    "npc_arrivedelay_no_npc",
+		Opcodes: []Opcode{OpNpcArriveDelay, OpReturn},
+	}
+	state := Init(sf, nil, false, nil, nil)
+	// state.ActiveNpc intentionally left nil.
+	state.World = &mockWorld{tick: 100}
+
+	err := Execute(state)
+	if err == nil || err.Error() != "NPC_ARRIVEDELAY: no active npc" {
+		t.Errorf("expected 'NPC_ARRIVEDELAY: no active npc', got %v", err)
+	}
+}
+
+// TestNpcArriveDelayRequiresWorld: handler reads s.World.CurrentTick() to
+// evaluate its gate; missing world must return a clean error rather than
+// nil-deref. Defensive guard mirrors P_ARRIVEDELAY's sibling-handler
+// convention (DEVIATION-NAI-125-D1; goscape defensive; TS skips this check).
+func TestNpcArriveDelayRequiresWorld(t *testing.T) {
+	mn := &mockNpc{lastMovement: 101}
+	sf := &ScriptFile{
+		Name:    "npc_arrivedelay_no_world",
+		Opcodes: []Opcode{OpNpcArriveDelay, OpReturn},
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = mn
+	// state.World intentionally left nil.
+
+	err := Execute(state)
+	if err == nil || err.Error() != "NPC_ARRIVEDELAY: no world" {
+		t.Errorf("expected 'NPC_ARRIVEDELAY: no world', got %v", err)
+	}
+	if len(mn.setDelayedCalls) != 0 {
+		t.Errorf("setDelayedCalls: got %v, want [] (rejection must not mutate)", mn.setDelayedCalls)
+	}
+}
