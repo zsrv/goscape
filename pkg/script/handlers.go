@@ -401,6 +401,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 
 	// S6c: NPC mutating ops batch.
 	OpNpcAnim:              handleNpcAnim,
+	OpNpcArriveDelay:       handleNpcArriveDelay,
 	OpNpcChangeType:        handleNpcChangeType,
 	OpNpcChangeTypeKeepAll: handleNpcChangeTypeKeepAll,
 	OpNpcDamage:            handleNpcDamage,

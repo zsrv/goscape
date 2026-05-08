@@ -329,6 +329,52 @@ func handleNpcDelay(s *ScriptState) error {
 	return nil
 }
 
+// handleNpcArriveDelay implements NPC_ARRIVEDELAY (opcode 2502): if the
+// active NPC has moved within the past 3 ticks (this tick, last tick, or
+// 2 ticks ago), suspend the script with a delay computed from the
+// movement recency; otherwise no-op. TS NpcOps.ts:542-555.
+//
+// The 3-tick window arises from the TS lastMovement contract (written
+// to currentTick + 1 after a moving tick): the gate accepts moves from
+// this tick (lastMovement = T+1), last tick (lastMovement = T), and
+// 2 ticks ago (lastMovement = T-1) but rejects moves from 3+ ticks ago
+// (lastMovement <= T-2; T-2 < T-1 ⇒ return).
+//
+// Inner branch: if NPC moved 2 ticks ago (lastMovement = T-1), suspend
+// for 1 tick (TS delayedUntil = T+1 ⇒ goscape SetDelayed(0)). Otherwise
+// (this tick or last tick), suspend for 2 ticks (TS delayedUntil = T+2
+// ⇒ goscape SetDelayed(1)). The +1 offset comes from goscape's
+// SetDelayed(ticks) writing delayedUntil = currentTick + 1 + ticks
+// (npc.go:323-326).
+//
+// Vs P_ARRIVEDELAY (handlers.go:739): NPC variant has a 3-tick window
+// (vs 2) and a recency-dependent suspend duration (vs always 1 tick),
+// per TS NpcOps.ts asymmetry vs PlayerOps.ts:357-366.
+//
+// DEVIATION-NAI-125-D1: s.World == nil defensive guard (goscape
+// defensive; TS skips this check). Mirrors handlePArriveDelay /
+// handleMapClock / handlePlayerCount sibling-handler convention.
+func handleNpcArriveDelay(s *ScriptState) error {
+	if err := requireActiveNpc(s, "NPC_ARRIVEDELAY"); err != nil {
+		return err
+	}
+	if s.World == nil {
+		return errors.New("NPC_ARRIVEDELAY: no world")
+	}
+	last := s.ActiveNpc.LastMovement()
+	tick := s.World.CurrentTick()
+	if last < tick-1 {
+		return nil
+	}
+	if last == tick-1 {
+		s.ActiveNpc.SetDelayed(0) // delayedUntil = T+1
+	} else {
+		s.ActiveNpc.SetDelayed(1) // delayedUntil = T+2
+	}
+	s.Execution = NpcSuspended
+	return nil
+}
+
 // handleNpcQueue (NPC_QUEUE, opcode 2530) enqueues an ai_queueN
 // dispatch on the active NPC. Pop order: delay (top), arg, queueId
 // (bottom). queueId ∈ [1, 20] maps to TriggerAiQueue1..20 via
