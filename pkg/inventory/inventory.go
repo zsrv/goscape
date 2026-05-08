@@ -121,6 +121,19 @@ type AddOpts struct {
 	AssureFullInsertion bool
 	ForceNoStack        bool
 	DryRun              bool
+
+	// Stackable signals whether the obj being added is stackable
+	// (`ObjType.stackable` in TS). Caller pre-computes from
+	// objtype.Configs.ObjType(id).Stackable. Drives the new TS-fidelity
+	// stack predicate per Inventory.ts:161. Default zero-value (false)
+	// means non-stackable.
+	Stackable bool
+
+	// StockObj signals whether the obj is in the inv's stock list
+	// (`InvType.stockobj.includes(id)` in TS). Caller pre-computes from
+	// InvType.StockObj. Drives the TS line 173 stockObj-aware free-slot
+	// guard. Default zero-value (false) means not a stock obj.
+	StockObj bool
 }
 
 type RemoveOpts struct {
