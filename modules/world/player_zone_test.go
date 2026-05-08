@@ -278,3 +278,28 @@ func TestFullFollowsReplaysPrivateDropToOwnerByUID(t *testing.T) {
 		t.Errorf("want 12 bytes (FullFollows header + PartialFollows wrapper + 1 ObjAdd); got %d", len(got))
 	}
 }
+
+func TestFullFollowsHidesPrivateDropFromNonOwnerInReplay(t *testing.T) {
+	s := newZoneTestServer(t)
+	owner, _ := newZoneTestPlayer(t, s, 5, 3094, 3106, 0)
+	owner.uid = composeUID(1, 5) // uid = 2053
+	other, otherCC := newZoneTestPlayer(t, s, 9, 3094, 3106, 0)
+	other.uid = composeUID(2, 9) // uid = 4105
+
+	z := s.zoneMap.Get(0, 3094, 3106)
+	obj := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 526, 1)
+	obj.ReceiverID = owner.uid
+	obj.LifecycleTick = 100 // alive at tick 1 — proves filter is UID, not lifecycle
+	z.Objs = append(z.Objs, obj)
+
+	received := drainConn(t, otherCC)
+	other.writeFullFollows(z, 1)
+	other.client.flushWrite()
+	got := <-received
+	// Expect only the FullFollows header (3 bytes); no PartialFollows
+	// wrapper, no ObjAdd. Mirrors TestWriteFullFollowsSkipsThisTickTransitions
+	// header-only baseline.
+	if len(got) != 3 {
+		t.Errorf("non-owner replay must produce header-only (3 bytes); got %d (%v)", len(got), got)
+	}
+}
