@@ -91,6 +91,13 @@ type WorldVars interface {
 	// Used by OBJ_DEL.
 	RemoveObj(obj ActiveObj)
 
+	// RemoveNpc removes the given NPC from the world. duration is passed
+	// through to Server.removeNpc, which scales it by player count and
+	// writes lifecycleTick (RESPAWN-lifecycle) or schedules registry
+	// cleanup (DESPAWN-lifecycle). Mirrors TS World.removeNpc at
+	// World.ts:1296-1319. Used by NPC_DEL.
+	RemoveNpc(npc ActiveNpc, duration int)
+
 	// AddObj routes a ground-item spawn. receiverID is the owning
 	// player's UID for caller-only drops, or zone.PublicReceiver (-1)
 	// for broadcast. Returns the just-spawned ActiveObj so handlers can

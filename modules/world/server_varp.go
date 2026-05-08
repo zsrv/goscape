@@ -138,6 +138,19 @@ func (w worldVarsView) RemoveObj(obj script.ActiveObj) {
 	w.s.RemoveObj(realObj)
 }
 
+// RemoveNpc implements script.WorldVars.RemoveNpc. Type-asserts the
+// script-side ActiveNpc to *Npc and calls the existing
+// Server.removeNpc. Mirrors RemoveObj. Type-assert miss is a silent
+// no-op (matches RemoveObj behavior); production NPC pointers are
+// always *Npc.
+func (w worldVarsView) RemoveNpc(npc script.ActiveNpc, duration int) {
+	realNpc, ok := npc.(*Npc)
+	if !ok {
+		return
+	}
+	w.s.removeNpc(realNpc, duration)
+}
+
 // AddObj implements script.WorldVars.AddObj. Constructs a
 // DESPAWN-lifecycle Obj at (level, x, z) with typeID/count, sets
 // ReceiverID to the caller's UID (or PublicReceiver=-1 for broadcast),

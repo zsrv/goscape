@@ -51,6 +51,10 @@ func (m *mockWorld) AnimMap(level, x, z, spotanim, height, delay int) {}
 // exercising RemoveObj override via fakeWorldRemoveObj.
 func (m *mockWorld) RemoveObj(obj ActiveObj) {}
 
+// NAI-126 Bundle 1: default no-op stub for NPC_DEL test fixture. Tests
+// exercising RemoveNpc override via fakeWorldRemoveNpc.
+func (m *mockWorld) RemoveNpc(npc ActiveNpc, duration int) {}
+
 // NAI-115 T3: default no-op stub for OBJ_ADD/OBJ_ADDALL/INV_DROPSLOT
 // test fixture. Tests exercising AddObj override via fakeWorldAddObj.
 func (m *mockWorld) AddObj(level, x, z, typeID, count, duration, receiverID int) ActiveObj {
