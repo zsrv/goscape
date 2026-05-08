@@ -167,63 +167,116 @@ func (inv *Inventory) Swap(from, to int) {
 	inv.Update = true
 }
 
+// Add inserts up to count units of obj id into the inv. Mirrors TS
+// Inventory.add (Engine-TS/src/engine/Inventory.ts:158-225) 1:1.
+//
+// Stack predicate (TS line 161):
+//
+//	stack = !ForceNoStack && stackType != StackNever
+//	     && (Stackable || stackType == StackAlways)
+//
+// Returns Transaction with Completed (units written) and Added (per-slot
+// SlotEntries actually written; empty for no-op or DryRun).
 func (inv *Inventory) Add(id, count int, opts AddOpts) Transaction {
 	tx := Transaction{Requested: count}
 	if count <= 0 {
 		return tx
 	}
 
-	shouldStack := inv.StackType == StackAlways && !opts.ForceNoStack
+	// TS line 161: stack predicate.
+	stack := !opts.ForceNoStack &&
+		inv.StackType != StackNever &&
+		(opts.Stackable || inv.StackType == StackAlways)
 
-	if shouldStack {
-		idx := inv.GetItemIndex(id)
-		if idx < 0 {
-			idx = inv.findFreeSlotFrom(opts.BeginSlot)
-		}
-		if idx < 0 {
+	// TS lines 163-166: previousCount is non-zero only on the stack path.
+	var previousCount int
+	if stack {
+		previousCount = inv.GetItemCount(id)
+	}
+
+	// TS lines 168-170: stack already at limit — short-circuit.
+	if previousCount == StackLimit {
+		return tx
+	}
+
+	free := inv.FreeSlotCount()
+	// TS lines 172-175: free=0 guard with stockObj exception.
+	if free == 0 && (!stack || (stack && previousCount == 0 && !opts.StockObj)) {
+		return tx
+	}
+
+	// TS lines 177-191: AssureFullInsertion gate.
+	if opts.AssureFullInsertion {
+		if stack && previousCount > StackLimit-count {
 			return tx
 		}
-		if !opts.DryRun {
-			if inv.Items[idx] == nil {
-				inv.Items[idx] = &Item{Id: id, Count: count}
-			} else {
-				newCount := inv.Items[idx].Count + count
-				if newCount > StackLimit {
-					newCount = StackLimit
-				}
-				inv.Items[idx].Count = newCount
+		if !stack && count > free {
+			return tx
+		}
+	} else {
+		if stack && previousCount == StackLimit {
+			return tx
+		}
+		if !stack && free == 0 {
+			return tx
+		}
+	}
+
+	// TS lines 196-213: non-stack branch.
+	if !stack {
+		startSlot := max(opts.BeginSlot, 0)
+		completed := 0
+		for i := startSlot; i < inv.Capacity && completed < count; i++ {
+			if inv.Items[i] != nil {
+				continue
 			}
+			it := Item{Id: id, Count: 1}
+			if !opts.DryRun {
+				inv.Items[i] = &Item{Id: id, Count: 1}
+			}
+			tx.Added = append(tx.Added, SlotEntry{Slot: i, Item: it})
+			completed++
+		}
+		if !opts.DryRun && completed > 0 {
 			inv.Update = true
 		}
-		tx.Completed = count
+		tx.Completed = completed
 		return tx
 	}
 
-	added := 0
-	for added < count {
-		idx := inv.findFreeSlotFrom(opts.BeginSlot)
-		if idx < 0 {
-			break
+	// TS lines 214-?: stack branch — find or allocate the stack slot.
+	stackIndex := inv.GetItemIndex(id)
+	if stackIndex == -1 {
+		if opts.BeginSlot == -1 {
+			stackIndex = inv.NextFreeSlot()
+		} else {
+			stackIndex = opts.BeginSlot
 		}
-		if !opts.DryRun {
-			inv.Items[idx] = &Item{Id: id, Count: 1}
+		if stackIndex < 0 || stackIndex >= inv.Capacity {
+			return tx
 		}
-		added++
 	}
-	if !opts.DryRun && added > 0 {
-		inv.Update = true
-	}
-	if opts.AssureFullInsertion && added < count {
-		if !opts.DryRun {
-			for i, it := range inv.Items {
-				if it != nil && it.Id == id {
-					inv.Items[i] = nil
-				}
-			}
-		}
+
+	// Clamp at StackLimit.
+	addCount := min(count, StackLimit-previousCount)
+	if addCount <= 0 {
 		return tx
 	}
-	tx.Completed = added
+
+	var written Item
+	if !opts.DryRun {
+		if inv.Items[stackIndex] == nil {
+			inv.Items[stackIndex] = &Item{Id: id, Count: addCount}
+		} else {
+			inv.Items[stackIndex].Count += addCount
+		}
+		inv.Update = true
+		written = *inv.Items[stackIndex]
+	} else {
+		written = Item{Id: id, Count: previousCount + addCount}
+	}
+	tx.Completed = addCount
+	tx.Added = []SlotEntry{{Slot: stackIndex, Item: written}}
 	return tx
 }
 
