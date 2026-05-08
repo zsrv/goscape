@@ -108,7 +108,7 @@ func parseParamTypes(dat *packet2.Packet) (*ParamTypeConfigs, error) {
 type ParamType struct {
 	ConfigType
 	Type          ScriptVarType
-	DefaultInt    uint32
+	DefaultInt    int32
 	AutoDisable   bool
 	DefaultString string
 }
@@ -118,7 +118,7 @@ func (pt *ParamType) Decode(code uint8, dat *packet2.Packet) error {
 	case 1:
 		pt.Type = ScriptVarType(dat.G1())
 	case 2:
-		pt.DefaultInt = dat.G4()
+		pt.DefaultInt = int32(dat.G4())
 	case 4:
 		pt.AutoDisable = false
 	case 5:
@@ -180,6 +180,5 @@ func NewParamType(id int) *ParamType {
 		ConfigType: ConfigType{
 			ID: id,
 		},
-		//DefaultInt: -1, // this is -1 in js, default 0 here
-	}
+}
 }
