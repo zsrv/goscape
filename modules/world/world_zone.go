@@ -121,7 +121,10 @@ func (s *Server) MergeLoc(
 }
 
 // AddObj routes a ground-item spawn. receiverID == zone.PublicReceiver for
-// public drops; otherwise the receiver's player slot.
+// public drops; otherwise the receiving player's UID per composeUID. The
+// per-player delivery filter at player_zone.go (writeFullFollows /
+// writePartialFollows) compares this against p.uid, mirroring TS
+// Engine-TS Zone.ts:138, 190 (obj.receiver64 vs player.hash64).
 func (s *Server) AddObj(obj *entitypkg.Obj, receiverID int) {
 	z := s.zoneMap.Get(obj.Level, obj.X, obj.Z)
 	z.AddObj(obj, receiverID)

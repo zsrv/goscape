@@ -27,6 +27,9 @@ const (
 // is removed after queuing events. ComputeShared skips tombstoned entries.
 type ZoneEvent struct {
 	Type       ZoneEventType
-	ReceiverID int // PublicReceiver = -1 for Enclosed events and public Follows
+	// ReceiverID is UID-space — mirrors TS Engine-TS Zone.ts ZoneEvent.receiver64.
+	// PublicReceiver (-1) for Enclosed events and public Follows; otherwise the
+	// owning player's UID per modules/world.composeUID(username37, slot).
+	ReceiverID int
 	Bytes      []byte
 }

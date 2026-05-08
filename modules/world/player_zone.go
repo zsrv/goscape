@@ -16,6 +16,10 @@ import (
 // every currently-active dynamic loc/obj in the zone. Entities transitioned
 // THIS tick are skipped — the Enclosed buffer already carries their change.
 //
+// Private drops are filtered by obj.ReceiverID against p.uid, matching TS
+// Engine-TS Zone.ts:138 (obj.receiver64 vs player.hash64). PublicReceiver
+// drops are visible to all observers.
+//
 // TODO(beyond-4b): handle Respawn-lifecycle (static) loc branches once
 // static loading from cache maps is wired up.
 func (p *Player) writeFullFollows(z *zone.Zone, currentTick int) {
@@ -67,6 +71,10 @@ func (p *Player) writeFullFollows(z *zone.Zone, currentTick int) {
 // writePartialFollows iterates the zone's per-tick Follows events, filtered
 // by recipient, emitting a PartialFollows header once (if any match) then
 // each event as its own top-level zone-nested packet.
+//
+// Recipient filter compares e.ReceiverID against p.uid, matching TS
+// Engine-TS Zone.ts:190 (event.receiver64 vs player.hash64). PublicReceiver
+// events are delivered to all observers.
 func (p *Player) writePartialFollows(z *zone.Zone) {
 	hasAnyForMe := false
 	for _, e := range z.Events() {

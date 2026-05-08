@@ -13,7 +13,11 @@ type Obj struct {
 	Count int // stack size
 
 	// Runtime state.
-	ReceiverID int // -1 = public; else the owning player's slot
+	// ReceiverID is UID-space — mirrors TS Engine-TS entity/Obj.ts receiver64.
+	// PublicReceiver (-1) for public drops; else the owning player's UID per
+	// modules/world.composeUID(username37, slot). Set by worldVarsView.AddObj
+	// at modules/world/server_varp.go:169 for private drops.
+	ReceiverID int
 	Reveal     int // tick countdown until OBJ_REVEAL fires; -1 if already public
 	LastChange int // last tick Count was modified; -1 if never
 }
