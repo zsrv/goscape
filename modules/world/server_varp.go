@@ -171,3 +171,12 @@ func (w worldVarsView) AddObj(level, x, z, typeID, count, duration, receiverID i
 	_ = duration // NAI-115-D2: foundation gap
 	return obj
 }
+
+// LookupPlayerByUID implements script.WorldVars. Delegates to
+// Server.LookupPlayerByUID (server.go:791). NAI-127 Bundle 1.
+func (w worldVarsView) LookupPlayerByUID(uid int) script.ActivePlayer {
+	if w.s == nil {
+		return nil
+	}
+	return w.s.LookupPlayerByUID(uid)
+}

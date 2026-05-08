@@ -15,6 +15,9 @@ type mockWorld struct {
 	players    int
 	mapMembers int
 	mapLive    int
+	// NAI-127 Bundle 1: LookupPlayerByUID lookup table. Distinct from
+	// the existing `players int` field (which backs PlayerCount).
+	playersByUID map[int]ActivePlayer
 }
 
 func newMockWorld() *mockWorld {
@@ -54,6 +57,13 @@ func (m *mockWorld) RemoveObj(obj ActiveObj) {}
 // NAI-126 Bundle 1: default no-op stub for NPC_DEL test fixture. Tests
 // exercising RemoveNpc override via fakeWorldRemoveNpc.
 func (m *mockWorld) RemoveNpc(npc ActiveNpc, duration int) {}
+
+func (m *mockWorld) LookupPlayerByUID(uid int) ActivePlayer {
+	if m.playersByUID == nil {
+		return nil
+	}
+	return m.playersByUID[uid]
+}
 
 // NAI-115 T3: default no-op stub for OBJ_ADD/OBJ_ADDALL/INV_DROPSLOT
 // test fixture. Tests exercising AddObj override via fakeWorldAddObj.

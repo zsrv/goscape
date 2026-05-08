@@ -106,6 +106,13 @@ type WorldVars interface {
 	// TS World.addObj which returns the constructed Obj.
 	// Used by OBJ_ADD, OBJ_ADDALL, INV_DROPSLOT.
 	AddObj(level, x, z, typeID, count, duration, receiverID int) ActiveObj
+
+	// LookupPlayerByUID resolves a packed Player UID to the matching
+	// ActivePlayer, or nil if no logged-in player has that UID. Used by
+	// NPC_FINDHERO, FINDHERO, and DAMAGE. Mirrors TS World.getPlayerByUid
+	// (PlayerOps.ts:773) / World.getPlayerByHash64 (PlayerOps.ts:1144,
+	// NpcOps.ts:120).
+	LookupPlayerByUID(uid int) ActivePlayer
 }
 
 // InvLookup is the inventory resolution surface for INV_* handlers.
