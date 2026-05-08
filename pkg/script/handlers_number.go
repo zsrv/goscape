@@ -126,13 +126,15 @@ func handleAddPercent(s *ScriptState) error {
 }
 
 func handleScale(s *ScriptState) error {
+	// SCALE: TS NumberOps.ts:124-127 — pushInt((a*c)/b).
+	// Runescript scale(value, max, newMax) → value*newMax/max.
 	c := s.PopInt()
 	b := s.PopInt()
 	a := s.PopInt()
-	if c == 0 {
+	if b == 0 {
 		return errors.New("SCALE: division by zero")
 	}
-	s.PushInt(floorDiv(a*b, c))
+	s.PushInt(floorDiv(a*c, b))
 	return nil
 }
 
