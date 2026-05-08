@@ -98,6 +98,27 @@ func TestDivideByZeroAborts(t *testing.T) {
 	}
 }
 
+func TestScaleDivideByZeroAborts(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "scalezero",
+		Opcodes:          []Opcode{OpScale, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	// scale(value=100, max=0, newMax=5) — divisor is max (the second-popped operand).
+	state.PushInt(100)
+	state.PushInt(0)
+	state.PushInt(5)
+	if err := Execute(state); err == nil {
+		t.Fatal("Execute: want error on SCALE divide by zero")
+	}
+	if state.Execution != Aborted {
+		t.Errorf("Execution: got %v, want Aborted", state.Execution)
+	}
+}
+
 func TestRandomInRange(t *testing.T) {
 	for range 100 {
 		got := runSingleOp(t, OpRandom, []int{10})
