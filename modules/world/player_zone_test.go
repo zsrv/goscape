@@ -247,3 +247,34 @@ func TestPartialFollowsHidesPrivateDropFromNonOwnerByUID(t *testing.T) {
 		t.Errorf("non-owner must receive no bytes; got %d (%v)", len(got), got)
 	}
 }
+
+func TestFullFollowsReplaysPrivateDropToOwnerByUID(t *testing.T) {
+	s := newZoneTestServer(t)
+	p, cc := newZoneTestPlayer(t, s, 5, 3094, 3106, 0)
+	p.uid = composeUID(1, 5) // uid = 2053
+
+	// Preload a dynamic Obj into the zone with ReceiverID == p.uid. Bypass
+	// Server.AddObj so nothing lives in zonesTracking — we're testing the
+	// replay path only. Set obj.ReceiverID directly to mirror what
+	// worldVarsView.AddObj does at server_varp.go:169.
+	z := s.zoneMap.Get(0, 3094, 3106)
+	obj := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 526, 1)
+	obj.ReceiverID = p.uid
+	obj.LifecycleTick = 100 // despawn at tick 100 → alive at tick 1 (CheckLifecycle: LifecycleTick > tick)
+	z.Objs = append(z.Objs, obj)
+
+	received := drainConn(t, cc)
+	p.writeFullFollows(z, 1) // currentTick=1, obj.LastLifecycleTick=0 → replay.
+	p.client.flushWrite()
+	got := <-received
+	if len(got) == 0 {
+		t.Fatal("expected FullFollows + PartialFollows + ObjAdd packets")
+	}
+	// FullFollows header (3 bytes: opcode + 2 payload) + PartialFollows
+	// wrapper (3 bytes) + ObjAdd (6 bytes: opcode + 5 payload) = 12 bytes.
+	// The existing TestWriteFullFollowsSkipsThisTickTransitions pins the
+	// header-only baseline at 3 bytes.
+	if len(got) != 12 {
+		t.Errorf("want 12 bytes (FullFollows header + PartialFollows wrapper + 1 ObjAdd); got %d", len(got))
+	}
+}

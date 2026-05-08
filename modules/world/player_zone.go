@@ -38,7 +38,7 @@ func (p *Player) writeFullFollows(z *zone.Zone, currentTick int) {
 		if obj.LastLifecycleTick == currentTick {
 			continue
 		}
-		if obj.ReceiverID != zone.PublicReceiver && obj.ReceiverID != p.slot {
+		if obj.ReceiverID != zone.PublicReceiver && obj.ReceiverID != p.uid {
 			continue
 		}
 		if !obj.CheckLifecycle(currentTick) {
