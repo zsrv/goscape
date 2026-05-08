@@ -280,18 +280,6 @@ func (inv *Inventory) Add(id, count int, opts AddOpts) Transaction {
 	return tx
 }
 
-func (inv *Inventory) findFreeSlotFrom(begin int) int {
-	if begin < 0 {
-		begin = 0
-	}
-	for i := begin; i < inv.Capacity; i++ {
-		if inv.Items[i] == nil {
-			return i
-		}
-	}
-	return -1
-}
-
 func (inv *Inventory) Remove(id, count int, opts RemoveOpts) Transaction {
 	tx := Transaction{Requested: count}
 	if count <= 0 {
