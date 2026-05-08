@@ -123,7 +123,7 @@ func TestAdd_NonStackableObj_NormalStackInv_FillsSlots(t *testing.T) {
 	if tx.Completed != 3 {
 		t.Errorf("Completed: got %d, want 3", tx.Completed)
 	}
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if inv.Items[i] == nil || inv.Items[i].Count != 1 {
 			t.Errorf("slot %d: got %+v, want {Id:10 Count:1}", i, inv.Items[i])
 		}
@@ -259,7 +259,7 @@ func TestAdd_PartialNonStack_ReturnsCompletedCount(t *testing.T) {
 	if tx.Completed != 3 {
 		t.Errorf("Completed (partial): got %d, want 3", tx.Completed)
 	}
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if inv.Items[i] == nil || inv.Items[i].Count != 1 {
 			t.Errorf("slot %d: got %+v, want {Id:10 Count:1}", i, inv.Items[i])
 		}
