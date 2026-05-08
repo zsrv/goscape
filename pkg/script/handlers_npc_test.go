@@ -211,7 +211,9 @@ type mockNpc struct {
 	playSpotAnimCalls []struct{ id, height, delay int }
 	// NAI-120 Bundle 2D: NPC_HEROPOINTS capture.
 	addHeroPointsCalls []struct{ playerUID, amount int }
-	varns             map[int]int32
+	// NAI-127 Bundle 1: NPC_FINDHERO ledger-top getter.
+	topContributor int
+	varns          map[int]int32
 	varnsString       map[int]string
 	sayCalls                           []string
 	animCalls                          []struct{ id, delay int }
@@ -252,6 +254,7 @@ func (m *mockNpc) NpcUID() int      { return m.uid }
 func (m *mockNpc) Nid() int         { return m.nid }
 func (m *mockNpc) LastMovement() int { return m.lastMovement }
 func (m *mockNpc) Respawnrate() int  { return m.respawnrate }
+func (m *mockNpc) TopContributor() int { return m.topContributor }
 func (m *mockNpc) NpcCategory() int { return m.category }
 
 func (m *mockNpc) NpcStat(stat int) int {

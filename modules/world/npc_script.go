@@ -75,6 +75,14 @@ func (n *Npc) AddHeroPoints(playerUID, amount int) {
 	n.heroPoints.AddHero(playerUID, amount)
 }
 
+// TopContributor implements script.ActiveNpc. Returns the playerUID
+// with the largest HeroPoints credit, or 0 if the ledger is empty.
+// Mirrors TS state.activeNpc.heroPoints.findHero() at NpcOps.ts:115
+// (TS returns hash64 -1n on empty; goscape uses 0).
+func (n *Npc) TopContributor() int {
+	return n.heroPoints.TopContributor()
+}
+
 // SetNpcStat writes the NPC's current (boosted) stat. OOB drops silently.
 // NAI-120 Bundle 2C.
 func (n *Npc) SetNpcStat(stat, level int) {

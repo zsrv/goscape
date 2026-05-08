@@ -822,6 +822,12 @@ type ActiveNpc interface {
 	// contributions for loot routing. amount < 1 is a no-op (TS short-circuit).
 	// Mirrors TS Npc.heroPoints.addHero(...) at NpcOps.ts:479. NAI-120 Bundle 2D.
 	AddHeroPoints(playerUID, amount int)
+
+	// TopContributor returns the playerUID with the largest HeroPoints
+	// credit on this NPC's ledger, or 0 if the ledger is empty. Used by
+	// NPC_FINDHERO (NpcOps.ts:114-130) — TS uses hash64; goscape uses
+	// int playerUID. The 0-empty-sentinel mirrors HeroPoints.TopContributor.
+	TopContributor() int
 }
 
 // ActiveLoc is the surface that LOC_* opcodes use to read the loc
