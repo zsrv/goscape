@@ -958,11 +958,7 @@ func handleNpcRange(s *ScriptState) error {
 	if dz < 0 {
 		dz = -dz
 	}
-	if dx > dz {
-		s.PushInt(dx)
-	} else {
-		s.PushInt(dz)
-	}
+	s.PushInt(max(dx, dz))
 	return nil
 }
 
@@ -995,9 +991,7 @@ func handleNpcStatAdd(s *ScriptState) error {
 	base := s.ActiveNpc.NpcBaseStat(stat)
 	cur := s.ActiveNpc.NpcStat(stat)
 	added := cur + (constant + (base*percent)/100)
-	if added > 255 {
-		added = 255
-	}
+	added = min(added, 255)
 	s.ActiveNpc.SetNpcStat(stat, added)
 	return nil
 }
@@ -1029,9 +1023,7 @@ func handleNpcStatSub(s *ScriptState) error {
 	base := s.ActiveNpc.NpcBaseStat(stat)
 	cur := s.ActiveNpc.NpcStat(stat)
 	subbed := cur - (constant + (base*percent)/100)
-	if subbed < 0 {
-		subbed = 0
-	}
+	subbed = max(subbed, 0)
 	s.ActiveNpc.SetNpcStat(stat, subbed)
 	return nil
 }
