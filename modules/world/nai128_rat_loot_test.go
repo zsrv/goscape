@@ -202,4 +202,83 @@ func TestNAI128_RatLootCascade(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("GroundObjs", func(t *testing.T) {
+		// Look up expected obj IDs.
+		ratMeatID, ok := s.objTypes.ConfigNames["raw_rat_meat"]
+		if !ok {
+			t.Fatalf("obj type 'raw_rat_meat' not in ConfigNames; binding candidate: ObjType cache gap")
+		}
+
+		// Resolve the death_drop param ID, then read it off the rat type.
+		// Pre-flight: NpcType.Params is map[uint32]any (paramtype.go:10);
+		// no ParamInt method exists. Match handlers_inv.go:247 access shape.
+		dropParamID, ok := s.paramTypes.ConfigNames["death_drop"]
+		if !ok {
+			t.Fatalf("param type 'death_drop' not in ConfigNames; binding candidate: ParamType cache gap")
+		}
+		v, ok := ratType.Params[uint32(dropParamID)]
+		if !ok {
+			t.Fatalf("ratType.Params[death_drop] missing; binding candidate D: npc_param(death_drop) returns null")
+		}
+		// Pre-flight stated "int" but actual cache decoder stores uint32
+		// (npc_hunt.go:290 production pattern: v.(uint32) + int32 sign-extend).
+		dropObjIDu, ok := v.(uint32)
+		if !ok {
+			t.Fatalf("ratType.Params[death_drop] = %v (type %T); want uint32", v, v)
+		}
+		dropObjID := int(int32(dropObjIDu))
+		if dropObjID < 0 {
+			t.Fatalf("ratType.Params[death_drop] = %d; want a valid obj ID (binding candidate D: npc_param(death_drop) returns -1)", dropObjID)
+		}
+
+		// Read the zone at the rat's coord.
+		z := s.zoneMap.Get(rat.level, rat.x, rat.z)
+		if z == nil {
+			t.Fatal("zoneMap.Get returned nil for rat coord")
+		}
+
+		// Assert exactly the two obj_adds from [ai_queue3,newbiegiantrat]:
+		// obj_add(npc_coord, npc_param(death_drop), 1, ^lootdrop_duration)
+		// obj_add(npc_coord, raw_rat_meat,          1, ^lootdrop_duration)
+		// Filter by rat coord (the zone may contain other test obj state).
+		var atRat []int
+		for _, o := range z.Objs {
+			if o.X == rat.x && o.Z == rat.z && o.Level == rat.level {
+				atRat = append(atRat, o.Type)
+			}
+		}
+		if len(atRat) != 2 {
+			t.Errorf("ground obj count at rat coord = %d; want 2 (binding candidate E: OBJ_ADD not registering OR npc_findhero=false skipping the if-block)", len(atRat))
+			t.Logf("  observed types at rat coord: %v", atRat)
+			t.Logf("  zone.Objs full: %d entries", len(z.Objs))
+			for i, o := range z.Objs {
+				t.Logf("    [%d] type=%d count=%d at (%d,%d,%d) lifecycle=%v",
+					i, o.Type, o.Count, o.X, o.Z, o.Level, o.Lifecycle)
+			}
+			return
+		}
+
+		// Specific-match dispatch verification (spec §6 R3 mitigation):
+		// raw_rat_meat is in the [ai_queue3,newbiegiantrat] specific match
+		// but NOT in [ai_queue3,_] / [proc,npc_default_death]. Its presence
+		// pins specific-trigger dispatch.
+		hasMeat := false
+		hasDrop := false
+		for _, typ := range atRat {
+			if typ == ratMeatID {
+				hasMeat = true
+			}
+			if typ == dropObjID {
+				hasDrop = true
+			}
+		}
+		if !hasMeat {
+			t.Errorf("raw_rat_meat (id=%d) not among ground objs at rat coord; binding candidate: [ai_queue3,newbiegiantrat] specific-match did not dispatch (fell through to [ai_queue3,_] generic)", ratMeatID)
+		}
+		if !hasDrop {
+			t.Errorf("death_drop (id=%d) not among ground objs at rat coord; binding candidate D: npc_param(death_drop) returned a value but obj_add for it did not register", dropObjID)
+		}
+		t.Logf("ground objs at rat coord: %v (expected death_drop=%d + raw_rat_meat=%d)", atRat, dropObjID, ratMeatID)
+	})
 }
