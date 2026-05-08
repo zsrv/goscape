@@ -174,4 +174,32 @@ func TestNAI128_RatLootCascade(t *testing.T) {
 		}
 		t.Logf("registered player: uid=%d slot=%d", p.UID(), p.Slot())
 	})
+
+	t.Run("AiQueueCascade", func(t *testing.T) {
+		// One processNpcQueue call drains all entries with Delay<=0.
+		// Per spec §4.4 phase-collapse pre-flight: ai_queue2 firing
+		// runs npc_default_damage which calls NPC_QUEUE(3,0,0); the
+		// re-entered enqueue lands at end of n.queue with Delay=0 and
+		// fires within the SAME loop iteration via the for-len-grows
+		// pattern (npc_script.go:497-526). After this call, BOTH
+		// ai_queue2 AND ai_queue3 should have run.
+		s.processNpcQueue(rat)
+
+		// Cascade link 1: NPC_DAMAGE (called inside ~npc_default_damage)
+		// must have decremented HP to 0.
+		if hp := rat.levels[objtype.NpcStatHitpoints]; hp != 0 {
+			t.Errorf("rat HP after one processNpcQueue = %d; want 0 (binding candidate B/C: NPC_DAMAGE handler bug or [ai_queue2,_] not dispatching)", hp)
+		}
+
+		// Cascade link 2: queue must be drained. If ai_queue3 enqueued
+		// but didn't fire (phase-collapse hypothesis wrong), the queue
+		// will still contain the ai_queue3 entry. If ai_queue2 didn't
+		// dispatch at all, we'd have hit the HP assertion above.
+		if remaining := len(rat.queue); remaining != 0 {
+			t.Errorf("rat.queue len after cascade = %d; want 0 (binding candidate D-or-tick-order: ai_queue3 enqueued but not fired in same call)", remaining)
+			for i, req := range rat.queue {
+				t.Logf("  rat.queue[%d]: Trigger=%v Delay=%d LastInt=%d", i, req.Trigger, req.Delay, req.LastInt)
+			}
+		}
+	})
 }
