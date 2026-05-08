@@ -328,7 +328,7 @@ func handleInvAdd(s *ScriptState) error {
 
 	overflow := count - tx.Completed
 	if overflow > 0 && s.World != nil {
-		level := s.Self.CoordPacked() >> 28
+		level := (s.Self.CoordPacked() >> 28) & 0x3
 		x := s.Self.X()
 		z := s.Self.Z()
 		receiverID := s.Self.UID()

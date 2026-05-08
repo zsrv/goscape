@@ -244,13 +244,21 @@ func (inv *Inventory) Add(id, count int, opts AddOpts) Transaction {
 		return tx
 	}
 
-	// TS lines 214-?: stack branch — find or allocate the stack slot.
+	// TS lines 214-225: stack branch — find or allocate the stack slot.
+	// When no existing stack and BeginSlot != -1, scan for the first nil
+	// slot at-or-after BeginSlot (TS `items.indexOf(null, beginSlot)`).
 	stackIndex := inv.GetItemIndex(id)
 	if stackIndex == -1 {
 		if opts.BeginSlot == -1 {
 			stackIndex = inv.NextFreeSlot()
 		} else {
-			stackIndex = opts.BeginSlot
+			stackIndex = -1
+			for i := opts.BeginSlot; i < inv.Capacity; i++ {
+				if inv.Items[i] == nil {
+					stackIndex = i
+					break
+				}
+			}
 		}
 		if stackIndex < 0 || stackIndex >= inv.Capacity {
 			return tx
