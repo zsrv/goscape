@@ -290,11 +290,25 @@ func handleInvTotalCat(s *ScriptState) error {
 
 // -- Mutations --
 
-// handleInvAdd (INV_ADD) pops [inv, obj, count] and adds count units of
-// obj to the inv via inventory.Add. Overflow-to-world drop is NOT
-// implemented; the overflow is silently discarded (documented
-// limitation — needs active_obj plumbing).
+// handleInvAdd ports TS InvOps.ts:57-83 (INV_ADD, opcode 4302). Pops
+// [inv, obj, count]; adds count units of obj to the inv via Inventory.Add
+// with caller-precomputed Stackable/StockObj flags. Per TS, any overflow
+// drops to the world at the player's tile via World.AddObj — branched on
+// (!stackable || overflow == 1) for the per-unit-loop case vs the
+// single-stack-drop case (TS InvOps.ts:73-82, duration=200).
+//
+// DEVIATION-NAI-130-D2: defensive nil-World guard skips the overflow
+// drop when s.World is unset (goscape defensive; TS uses static World
+// import which is never null). Per defensive_gate_doc_comment_label.
+//
+// DEVIATION-NAI-130-D3: defensive nil-Configs fallback (Stackable=false,
+// StockObj=false) when s.Configs is unset (goscape defensive; TS
+// `check(obj, ObjTypeValid)` would throw on missing config). Mirrors
+// the invItemSpaceRemaining nil-Configs pattern at handlers_inv.go.
 func handleInvAdd(s *ScriptState) error {
+	if err := requireActivePlayer(s, "INV_ADD"); err != nil {
+		return err
+	}
 	count := s.PopInt()
 	obj := s.PopInt()
 	typeID := s.PopInt()
@@ -302,8 +316,54 @@ func handleInvAdd(s *ScriptState) error {
 	if inv == nil {
 		return fmt.Errorf("INV_ADD: no inv for type %d", typeID)
 	}
-	inv.Add(obj, count, inventory.AddOpts{BeginSlot: -1})
+
+	stackable, stockObj := lookupStackableStockObj(s, inv.Type, obj)
+
+	tx := inv.Add(obj, count, inventory.AddOpts{
+		BeginSlot:           -1,
+		AssureFullInsertion: false,
+		Stackable:           stackable,
+		StockObj:            stockObj,
+	})
+
+	overflow := count - tx.Completed
+	if overflow > 0 && s.World != nil {
+		level := s.Self.CoordPacked() >> 28
+		x := s.Self.X()
+		z := s.Self.Z()
+		receiverID := s.Self.UID()
+		if !stackable || overflow == 1 {
+			for range overflow {
+				s.World.AddObj(level, x, z, obj, 1, 200, receiverID)
+			}
+		} else {
+			s.World.AddObj(level, x, z, obj, overflow, 200, receiverID)
+		}
+	}
+
 	return nil
+}
+
+// lookupStackableStockObj returns the (Stackable, StockObj) pair for the
+// given (invType, objId), pre-computed from s.Configs for inventory.Add
+// to consume. Returns (false, false) on nil-Configs / missing types
+// (goscape defensive — see DEVIATION-NAI-130-D3).
+func lookupStackableStockObj(s *ScriptState, invTypeID, objID int) (stackable, stockObj bool) {
+	if s.Configs == nil {
+		return false, false
+	}
+	if ot := s.Configs.ObjType(objID); ot != nil {
+		stackable = ot.Stackable
+	}
+	if it := s.Configs.InvType(invTypeID); it != nil {
+		for _, id := range it.StockObj {
+			if int(id) == objID {
+				stockObj = true
+				break
+			}
+		}
+	}
+	return stackable, stockObj
 }
 
 // handleInvDel (INV_DEL) pops [inv, obj, count] and removes count units
@@ -381,7 +441,12 @@ func handleInvMoveItem(s *ScriptState) error {
 	if tx.Completed == 0 {
 		return nil
 	}
-	toInv.Add(obj, tx.Completed, inventory.AddOpts{BeginSlot: -1})
+	stackable, stockObj := lookupStackableStockObj(s, toInv.Type, obj)
+	toInv.Add(obj, tx.Completed, inventory.AddOpts{
+		BeginSlot: -1,
+		Stackable: stackable,
+		StockObj:  stockObj,
+	})
 	return nil
 }
 
@@ -406,7 +471,12 @@ func handleInvMoveFromSlot(s *ScriptState) error {
 	// Capture before mutating — Delete nulls the slot pointer.
 	id, cnt := it.Id, it.Count
 	fromInv.Delete(fromSlot)
-	toInv.Add(id, cnt, inventory.AddOpts{BeginSlot: -1})
+	stackable, stockObj := lookupStackableStockObj(s, toInv.Type, id)
+	toInv.Add(id, cnt, inventory.AddOpts{
+		BeginSlot: -1,
+		Stackable: stackable,
+		StockObj:  stockObj,
+	})
 	return nil
 }
 

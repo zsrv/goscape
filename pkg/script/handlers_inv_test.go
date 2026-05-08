@@ -103,7 +103,9 @@ func runInvOp(t *testing.T, op Opcode, intInputs []int, lookup InvLookup, config
 		StringOperands:   []string{"", ""},
 		InstructionCount: 2,
 	}
-	state := Init(sf, nil, false, nil, nil)
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	state.Pointers |= PtrActivePlayer
 	state.Inv = lookup
 	state.Configs = configs
 	for _, v := range intInputs {
@@ -388,7 +390,7 @@ func TestInvLookupNilReturnsError(t *testing.T) {
 	mc := newTestInvConfigs()
 	// No lookup: every INV_* mutation / read that needs inv must error.
 	runInvOpExpectErr(t, OpInvTotal, []int{testInvMain, testObjCoin}, nil, mc, "no inv for type")
-	runInvOpExpectErr(t, OpInvAdd, []int{testInvMain, testObjCoin, 1}, nil, mc, "no inv for type")
+	runInvOpExpectErr(t, OpInvAdd, []int{testInvMain, testObjCoin, 1}, nil, mc, "no active player")
 	runInvOpExpectErr(t, OpInvClear, []int{testInvMain}, nil, mc, "no inv for type")
 }
 
