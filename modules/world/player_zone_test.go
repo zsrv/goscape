@@ -6,6 +6,7 @@ import (
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
+	"github.com/zsrv/goscape/pkg/zone"
 )
 
 func newZoneTestPlayer(t *testing.T, s *Server, slot, x, z, level int) (*Player, net.Conn) {
@@ -301,5 +302,203 @@ func TestFullFollowsHidesPrivateDropFromNonOwnerInReplay(t *testing.T) {
 	// header-only baseline.
 	if len(got) != 3 {
 		t.Errorf("non-owner replay must produce header-only (3 bytes); got %d (%v)", len(got), got)
+	}
+}
+
+// NAI-141 T1.0: Existing-behavior fence. Despawn loc that is alive in the world
+// (IsActive=true, LifecycleTick > currentTick) replays as LocAddChange. Pins
+// the gate-swap from CheckLifecycle → IsActive is observably equivalent for
+// production-reachable Despawn+active state (AddLoc sets both IsActive=true and
+// schedules LifecycleTick > current; RemoveLoc sets IsActive=false AND removes
+// the loc from z.Locs, so no Despawn+!IsActive state is reachable in production).
+// Wire shape: FullFollows header (3) + PartialFollows wrapper (3) + LocAddChange (5) = 11 bytes.
+func TestWriteFullFollows_DespawnActiveLoc_EmitsLocAddChange(t *testing.T) {
+	s := newZoneTestServer(t)
+	p, cc := newZoneTestPlayer(t, s, 1, 3094, 3106, 0)
+
+	z := s.zoneMap.Get(0, 3094, 3106)
+	loc := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleDespawn, 42, 0, 0)
+	loc.IsActive = true     // Despawn loc is alive.
+	loc.LifecycleTick = 100 // despawn at tick 100; alive at tick 1 (CheckLifecycle: 100 > 1).
+	z.Locs = append(z.Locs, loc)
+
+	received := drainConn(t, cc)
+	p.writeFullFollows(z, 1) // LastLifecycleTick=0 ≠ 1 → not skipped.
+	p.client.flushWrite()
+	got := <-received
+	// FullFollows header (3) + PartialFollows wrapper (3) + LocAddChange (5) = 11.
+	if len(got) != 11 {
+		t.Errorf("T1.0: want 11 bytes (FullFollows+PartialFollows+LocAddChange); got %d", len(got))
+	}
+}
+
+// NAI-141 T1.1: NEW PRIMARY. Respawn loc with IsActive=false (removed via
+// RemoveLoc which keeps loc in z.Locs for Respawn lifecycle) replays as LocDel.
+// Wire shape: FullFollows header (3) + PartialFollows wrapper (3) + LocDel (3) = 9 bytes.
+func TestWriteFullFollows_RespawnInactiveLoc_EmitsLocDel(t *testing.T) {
+	s := newZoneTestServer(t)
+	p, cc := newZoneTestPlayer(t, s, 1, 3094, 3106, 0)
+
+	z := s.zoneMap.Get(0, 3094, 3106)
+	// AddStaticLoc: sets IsActive=true, appends to z.Locs with LifecycleRespawn.
+	loc := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleRespawn, 42, 0, 0)
+	z.AddStaticLoc(loc)
+	// RemoveLoc for Respawn: sets IsActive=false, keeps loc in z.Locs
+	// (pkg/zone/zone.go:191-211). LastLifecycleTick stays 0.
+	z.RemoveLoc(loc)
+
+	received := drainConn(t, cc)
+	p.writeFullFollows(z, 1) // currentTick=1, LastLifecycleTick=0 → not skipped.
+	p.client.flushWrite()
+	got := <-received
+	// FullFollows header (3) + PartialFollows wrapper (3) + LocDel (3) = 9.
+	if len(got) != 9 {
+		t.Errorf("T1.1: want 9 bytes (FullFollows+PartialFollows+LocDel); got %d", len(got))
+	}
+}
+
+// NAI-141 T1.2: NEW PRIMARY. Respawn loc with IsChanged()=true (after Change)
+// replays as LocAddChange carrying the new type/shape/angle. Covers the
+// Lumbridge kitchen door after change_loc on a plane round-trip.
+// Wire shape: FullFollows header (3) + PartialFollows wrapper (3) + LocAddChange (5) = 11 bytes.
+func TestWriteFullFollows_RespawnChangedLoc_EmitsLocAddChange(t *testing.T) {
+	s := newZoneTestServer(t)
+	p, cc := newZoneTestPlayer(t, s, 1, 3094, 3106, 0)
+
+	z := s.zoneMap.Get(0, 3094, 3106)
+	// AddStaticLoc: IsActive=true, Lifecycle=Respawn, CurrentInfo=BaseInfo.
+	loc := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleRespawn, 42, 0, 0)
+	z.AddStaticLoc(loc)
+	// Mutate CurrentInfo via Change — mirrors LocOps.ChangeLoc in the script handler.
+	// IsChanged() returns true; IsActive remains true.
+	loc.Change(99, 1, 2) // new type=99, shape=1, angle=2
+
+	received := drainConn(t, cc)
+	p.writeFullFollows(z, 1) // LastLifecycleTick=0 ≠ 1 → not skipped.
+	p.client.flushWrite()
+	got := <-received
+	// FullFollows header (3) + PartialFollows wrapper (3) + LocAddChange (5) = 11.
+	if len(got) != 11 {
+		t.Errorf("T1.2: want 11 bytes (FullFollows+PartialFollows+LocAddChange); got %d", len(got))
+	}
+}
+
+// NAI-141 T1.3: Negative pin. Respawn loc that is untouched (IsActive=true,
+// IsChanged()=false) produces no replay — statics are delivered via mapsquare
+// download, not via zone replay.
+// Wire shape: FullFollows header only = 3 bytes.
+func TestWriteFullFollows_RespawnUntouchedStatic_NoReplay(t *testing.T) {
+	s := newZoneTestServer(t)
+	p, cc := newZoneTestPlayer(t, s, 1, 3094, 3106, 0)
+
+	z := s.zoneMap.Get(0, 3094, 3106)
+	loc := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleRespawn, 42, 0, 0)
+	z.AddStaticLoc(loc) // IsActive=true, no Change → IsChanged()=false.
+
+	received := drainConn(t, cc)
+	p.writeFullFollows(z, 1)
+	p.client.flushWrite()
+	got := <-received
+	// Only the FullFollows header; no PartialFollows wrapper, no loc replay.
+	if len(got) != 3 {
+		t.Errorf("T1.3: want 3 bytes (FullFollows header only); got %d", len(got))
+	}
+}
+
+// NAI-141 T1.4: Obj-side equivalence pin (§2.5). The unified CheckLifecycle
+// gate covers both TS branch shapes (Despawn+isActive and Respawn+isActive).
+// (a) Despawn obj: covered by existing TestFullFollowsReplaysPrivateDropToOwnerByUID.
+// (b) Respawn obj with LifecycleTick=0 at currentTick=1: CheckLifecycle → 0<1 → alive.
+// Wire shape: FullFollows header (3) + PartialFollows wrapper (3) + ObjAdd (6) = 12 bytes.
+func TestWriteFullFollows_ObjAdd_RespawnEmits(t *testing.T) {
+	s := newZoneTestServer(t)
+	p, cc := newZoneTestPlayer(t, s, 1, 3094, 3106, 0)
+
+	z := s.zoneMap.Get(0, 3094, 3106)
+	// LifecycleRespawn obj: LifecycleTick=0, currentTick=1 → CheckLifecycle: 0<1 → true.
+	obj := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleRespawn, 526, 1)
+	obj.LifecycleTick = 0
+	obj.ReceiverID = zone.PublicReceiver // visible to all observers.
+	z.Objs = append(z.Objs, obj)
+
+	received := drainConn(t, cc)
+	p.writeFullFollows(z, 1) // LastLifecycleTick=0 ≠ 1 → not skipped.
+	p.client.flushWrite()
+	got := <-received
+	// FullFollows header (3) + PartialFollows wrapper (3) + ObjAdd (6) = 12.
+	if len(got) != 12 {
+		t.Errorf("T1.4: want 12 bytes (FullFollows+PartialFollows+ObjAdd for Respawn obj); got %d", len(got))
+	}
+}
+
+// NAI-141 T1.5: R1 invariant pin. Despawn loc with IsActive=false (synthesized
+// by direct field write — not production-reachable since RemoveLoc removes
+// Despawn locs from z.Locs) produces no replay.
+// Wire shape: FullFollows header only = 3 bytes.
+func TestWriteFullFollows_DespawnInactiveLoc_NoReplay(t *testing.T) {
+	s := newZoneTestServer(t)
+	p, cc := newZoneTestPlayer(t, s, 1, 3094, 3106, 0)
+
+	z := s.zoneMap.Get(0, 3094, 3106)
+	// Synthesize a non-production state: Despawn loc with IsActive=false in z.Locs.
+	// Documents the invariant gate: Despawn+!IsActive → no replay.
+	loc := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleDespawn, 42, 0, 0)
+	loc.IsActive = false // NewLoc default; explicit for clarity.
+	z.Locs = append(z.Locs, loc)
+
+	received := drainConn(t, cc)
+	p.writeFullFollows(z, 1)
+	p.client.flushWrite()
+	got := <-received
+	if len(got) != 3 {
+		t.Errorf("T1.5: want 3 bytes (FullFollows header only, Despawn+!IsActive no replay); got %d", len(got))
+	}
+}
+
+// NAI-141 T1.6: Revert path pin. Respawn loc after Revert() has IsActive=true
+// and IsChanged()=false → no replay branch matches. Mirrors RevertLoc behavior
+// (loc_turn.go:39-62): state-side Revert, event-side LocAddChange in per-tick stream.
+// Wire shape: FullFollows header only = 3 bytes.
+func TestWriteFullFollows_PostRevertRespawnLoc_NoReplay(t *testing.T) {
+	s := newZoneTestServer(t)
+	p, cc := newZoneTestPlayer(t, s, 1, 3094, 3106, 0)
+
+	z := s.zoneMap.Get(0, 3094, 3106)
+	loc := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleRespawn, 42, 0, 0)
+	z.AddStaticLoc(loc)   // IsActive=true, IsChanged()=false.
+	loc.Change(99, 1, 2)  // Mutate: IsChanged()=true.
+	loc.Revert()          // Restore: IsChanged()=false, IsActive unchanged (true).
+
+	received := drainConn(t, cc)
+	p.writeFullFollows(z, 1)
+	p.client.flushWrite()
+	got := <-received
+	if len(got) != 3 {
+		t.Errorf("T1.6: want 3 bytes (FullFollows header only, post-Revert no replay); got %d", len(got))
+	}
+}
+
+// NAI-141 T1.7: Per-tick skip pin. A loc with LastLifecycleTick == currentTick
+// is skipped regardless of branch (branch 1, 2, or 3). The per-tick event
+// stream already carries the change; writeFullFollows must not double-replay it.
+// Wire shape: FullFollows header only = 3 bytes.
+func TestWriteFullFollows_LocLastLifecycleTick_SkipsReplay(t *testing.T) {
+	s := newZoneTestServer(t)
+	p, cc := newZoneTestPlayer(t, s, 1, 3094, 3106, 0)
+
+	z := s.zoneMap.Get(0, 3094, 3106)
+	// Use a Respawn+IsChanged loc (would hit branch 3) but set LastLifecycleTick
+	// equal to currentTick — the guard at the top of the loop must skip it.
+	loc := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleRespawn, 42, 0, 0)
+	z.AddStaticLoc(loc)
+	loc.Change(99, 1, 2)        // IsChanged()=true → would match branch 3.
+	loc.LastLifecycleTick = 5   // equals currentTick below → skip guard fires.
+
+	received := drainConn(t, cc)
+	p.writeFullFollows(z, 5) // currentTick=5, LastLifecycleTick=5 → skipped.
+	p.client.flushWrite()
+	got := <-received
+	if len(got) != 3 {
+		t.Errorf("T1.7: want 3 bytes (FullFollows header only, per-tick skip); got %d", len(got))
 	}
 }
