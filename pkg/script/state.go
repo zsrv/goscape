@@ -312,8 +312,6 @@ type ScriptState struct {
 	DbRow      int
 	DbRowQuery []int
 
-	Protect bool
-
 	// Arrays holds script-local int[] arrays defined via DEFINE_ARRAY.
 	// Index = array slot (0..4); length set at DEFINE_ARRAY, fixed
 	// thereafter. A nil slice at a slot means "undefined"; OOB reads

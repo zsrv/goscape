@@ -14,6 +14,18 @@ const (
 	PtrActiveObj     Pointer = 1 << 6
 	PtrActiveObj2    Pointer = 1 << 7
 	PtrFindDb        Pointer = 1 << 8 // S7g: DB_FIND* / DB_LISTALL* set; DB_FINDNEXT / DB_FIND_REFINE require.
+
+	// PtrProtectedActivePlayer is the slot-0 protect flag — TS
+	// ProtectedActivePlayer (ScriptPointer.ts:10). Set by `Init` when
+	// `protect=true` and `self != nil`, by P_FINDUID success on
+	// intOperand=0, and cleared by Player.CloseModal. NAI-133.
+	PtrProtectedActivePlayer Pointer = 1 << 9
+
+	// PtrProtectedActivePlayer2 is the slot-1 protect flag — TS
+	// ProtectedActivePlayer2 (ScriptPointer.ts:11). Set ONLY by
+	// P_FINDUID success on intOperand=1; TS never sets this from the
+	// engine. NAI-133.
+	PtrProtectedActivePlayer2 Pointer = 1 << 10
 )
 
 // NAI-11 aliases for the reserved *2 slot flags, named after TS's

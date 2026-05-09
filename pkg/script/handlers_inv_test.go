@@ -181,8 +181,8 @@ func runInvOpExpectErr(t *testing.T, op Opcode, intInputs []int, lookup InvLooku
 // runInvOpExpectErr. Sets up a zero-value mockPlayer + PtrActivePlayer
 // so the requireActivePlayer gate is satisfied; tests targeting deeper
 // gates (InvTypeValid / ObjTypeValid / ObjStackValid / protect-scope /
-// dummyitem) use this helper. s.Protect remains false (Init's third
-// arg) — tests that need a protected script set state.Protect = true
+// dummyitem) use this helper. PtrProtectedActivePlayer remains unset (Init's third
+// arg) — tests that need a protected script set state.Pointers |= PtrProtectedActivePlayer
 // before pushing inputs.
 func runInvOpExpectErrAsPlayer(t *testing.T, op Opcode, intInputs []int, lookup InvLookup, configs Configs, substr string) {
 	t.Helper()
@@ -850,7 +850,7 @@ func TestHandleInvDropSlotHappyPath(t *testing.T) {
 	s.World = w
 	s.Self = &mockPlayer{uidValue: 12345}
 	s.Pointers |= PtrActivePlayer
-	s.Protect = true
+	s.Pointers |= PtrProtectedActivePlayer
 
 	mc := newTestInvConfigs()
 	invType := objtype.NewInvType(93)
@@ -898,7 +898,7 @@ func TestHandleInvDropSlotEmptySlotErrors(t *testing.T) {
 	s.World = newFakeWorldMembers()
 	s.Self = &mockPlayer{uidValue: 12345}
 	s.Pointers |= PtrActivePlayer
-	s.Protect = true
+	s.Pointers |= PtrProtectedActivePlayer
 
 	mc := newTestInvConfigs()
 	invType := objtype.NewInvType(93)
@@ -927,7 +927,7 @@ func TestHandleInvDropSlotProtectedRequired(t *testing.T) {
 	s.World = newFakeWorldMembers()
 	s.Self = &mockPlayer{uidValue: 12345}
 	s.Pointers |= PtrActivePlayer
-	s.Protect = false // not protected — protect gate must fire
+	// not protected — protect gate must fire (Pointers zero-value lacks PtrProtectedActivePlayer)
 
 	mc := newTestInvConfigs()
 	invType := objtype.NewInvType(93)
@@ -947,7 +947,7 @@ func TestHandleInvDropSlotProtectedRequired(t *testing.T) {
 	s.PushInt(100)
 
 	if err := handleInvDropSlot(s); err == nil {
-		t.Errorf("INV_DROPSLOT protect-required without s.Protect: expected error, got nil")
+		t.Errorf("INV_DROPSLOT protect-required without PtrProtectedActivePlayer: expected error, got nil")
 	}
 }
 
@@ -957,7 +957,7 @@ func TestHandleInvDropSlotSharedScopeBypassesProtect(t *testing.T) {
 	s.World = w
 	s.Self = &mockPlayer{uidValue: 12345}
 	s.Pointers |= PtrActivePlayer
-	s.Protect = false // not protected
+	// not protected — protect gate must fire (Pointers zero-value lacks PtrProtectedActivePlayer)
 
 	mc := newTestInvConfigs()
 	invType := objtype.NewInvType(93)
@@ -995,7 +995,7 @@ func TestHandleInvDropSlotSetsActiveObjAndPointer(t *testing.T) {
 	s.World = w
 	s.Self = &mockPlayer{uidValue: 12345}
 	s.Pointers |= PtrActivePlayer
-	s.Protect = true
+	s.Pointers |= PtrProtectedActivePlayer
 
 	mc := newTestInvConfigs()
 	invType := objtype.NewInvType(93)

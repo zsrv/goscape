@@ -938,7 +938,7 @@ func TestHandlePApRangeSetsBothFields(t *testing.T) {
 	s := &ScriptState{
 		IntStack: make([]int, StackCapacity),
 		Self:     fake,
-		Protect:  true,
+		Pointers: PtrProtectedActivePlayer,
 	}
 	s.Pointers |= PtrActivePlayer
 	s.PushInt(5)
@@ -980,7 +980,7 @@ func TestHandlePApRangeAcceptsNegative(t *testing.T) {
 	s := &ScriptState{
 		IntStack: make([]int, StackCapacity),
 		Self:     fake,
-		Protect:  true,
+		Pointers: PtrProtectedActivePlayer,
 	}
 	s.Pointers |= PtrActivePlayer
 	s.PushInt(-2)
@@ -1001,7 +1001,7 @@ func TestHandlePApRangeAcceptsZero(t *testing.T) {
 	s := &ScriptState{
 		IntStack: make([]int, StackCapacity),
 		Self:     fake,
-		Protect:  true,
+		Pointers: PtrProtectedActivePlayer,
 	}
 	s.Pointers |= PtrActivePlayer
 	s.PushInt(0)
@@ -1330,8 +1330,8 @@ func TestFindUIDFound(t *testing.T) {
 	if state.Pointers&PtrActivePlayer == 0 {
 		t.Errorf("PtrActivePlayer should be set, pointers=%b", state.Pointers)
 	}
-	if state.Protect {
-		t.Errorf("Protect should remain false for FINDUID")
+	if state.Pointers&PtrProtectedActivePlayer != 0 {
+		t.Errorf("PtrProtectedActivePlayer should remain unset for FINDUID, pointers=%b", state.Pointers)
 	}
 }
 
@@ -1430,13 +1430,13 @@ func TestPFindUIDSelfReacquire(t *testing.T) {
 	if lookup.calls != 0 {
 		t.Errorf("fast-path should skip lookup, calls=%d", lookup.calls)
 	}
-	if !state.Protect {
-		t.Errorf("Protect should remain true")
+	if state.Pointers&PtrProtectedActivePlayer == 0 {
+		t.Errorf("PtrProtectedActivePlayer should remain set, pointers=%b", state.Pointers)
 	}
 }
 
 // TestPFindUIDFoundCanAccess: target is reachable and CanAccess=true →
-// push 1, Self rebinds, Protect=true, PtrActivePlayer set.
+// push 1, Self rebinds, PtrProtectedActivePlayer set, PtrActivePlayer set.
 func TestPFindUIDFoundCanAccess(t *testing.T) {
 	target := &mockPlayer{username: "Target", uidValue: 99, canAccessValue: true}
 	origSelf := &mockPlayer{username: "Orig", uidValue: 1}
@@ -1459,8 +1459,8 @@ func TestPFindUIDFoundCanAccess(t *testing.T) {
 	if state.Pointers&PtrActivePlayer == 0 {
 		t.Errorf("PtrActivePlayer should be set")
 	}
-	if !state.Protect {
-		t.Errorf("Protect should be true after successful P_FINDUID")
+	if state.Pointers&PtrProtectedActivePlayer == 0 {
+		t.Errorf("PtrProtectedActivePlayer should be set after successful P_FINDUID, pointers=%b", state.Pointers)
 	}
 }
 
@@ -1485,8 +1485,8 @@ func TestPFindUIDFoundCannotAccess(t *testing.T) {
 	if state.Self != origSelf {
 		t.Errorf("Self should be unchanged when CanAccess=false")
 	}
-	if state.Protect {
-		t.Errorf("Protect should remain false")
+	if state.Pointers&PtrProtectedActivePlayer != 0 {
+		t.Errorf("PtrProtectedActivePlayer should remain unset, pointers=%b", state.Pointers)
 	}
 }
 
@@ -1534,10 +1534,10 @@ func TestPFindUIDSelfReacquireSkippedWhenUnprotected(t *testing.T) {
 		t.Errorf("stack: got [%v], want [1]", state.IntStack[:state.ISP])
 	}
 	if lookup.calls != 1 {
-		t.Errorf("lookup.calls: got %d, want 1 (fast-path must NOT fire when Protect=false)", lookup.calls)
+		t.Errorf("lookup.calls: got %d, want 1 (fast-path must NOT fire when PtrProtectedActivePlayer unset)", lookup.calls)
 	}
-	if !state.Protect {
-		t.Error("Protect should be true after successful unprotected lookup")
+	if state.Pointers&PtrProtectedActivePlayer == 0 {
+		t.Errorf("PtrProtectedActivePlayer should be set after successful unprotected lookup, pointers=%b", state.Pointers)
 	}
 }
 
@@ -2490,7 +2490,7 @@ func TestHandlePApRangeNullRejected(t *testing.T) {
 	s := &ScriptState{
 		IntStack: make([]int, StackCapacity),
 		Self:     fake,
-		Protect:  true,
+		Pointers: PtrProtectedActivePlayer,
 	}
 	s.Pointers |= PtrActivePlayer
 	s.PushInt(-1)
@@ -3457,7 +3457,7 @@ func TestPTeleport_FrameT_EmittedWhenNodeDebugTrue(t *testing.T) {
 		Script:    &ScriptFile{Name: "frame_t_emit"},
 		IntStack:  make([]int, StackCapacity),
 		Self:      mp,
-		Protect:   true,
+		Pointers:  PtrProtectedActivePlayer,
 		NodeDebug: true,
 	}
 	s.Pointers |= PtrActivePlayer
@@ -3482,7 +3482,7 @@ func TestPTeleport_FrameT_SuppressedWhenNodeDebugFalse(t *testing.T) {
 		Script:   &ScriptFile{Name: "frame_t_silent"},
 		IntStack: make([]int, StackCapacity),
 		Self:     mp,
-		Protect:  true,
+		Pointers: PtrProtectedActivePlayer,
 		// NodeDebug zero-value = false
 	}
 	s.Pointers |= PtrActivePlayer
@@ -3505,7 +3505,7 @@ func TestPTeleport_FrameT_FieldValues(t *testing.T) {
 		PC:        42,
 		IntStack:  make([]int, StackCapacity),
 		Self:      mp,
-		Protect:   true,
+		Pointers:  PtrProtectedActivePlayer,
 		NodeDebug: true,
 	}
 	s.Pointers |= PtrActivePlayer
@@ -3647,7 +3647,7 @@ func TestHandleP_OpObjHappyPath(t *testing.T) {
 	pl := &mockPlayer{uidValue: 12345}
 	s.Self = pl
 	s.Pointers |= PtrActivePlayer
-	s.Protect = true
+	s.Pointers |= PtrProtectedActivePlayer
 	active := &mockActiveObj{objType: 590, x: 3200, z: 3200, level: 0}
 	s.ActiveObj = active
 
@@ -3679,7 +3679,7 @@ func TestHandleP_OpObjOutOfRange(t *testing.T) {
 	pl := &mockPlayer{uidValue: 12345}
 	s.Self = pl
 	s.Pointers |= PtrActivePlayer
-	s.Protect = true
+	s.Pointers |= PtrProtectedActivePlayer
 	s.ActiveObj = &mockActiveObj{objType: 590, x: 0, z: 0, level: 0}
 
 	mc := newTestConfigs()
@@ -3699,7 +3699,7 @@ func TestHandleP_OpObjMissingOpEntryShortCircuits(t *testing.T) {
 	pl := &mockPlayer{uidValue: 12345}
 	s.Self = pl
 	s.Pointers |= PtrActivePlayer
-	s.Protect = true
+	s.Pointers |= PtrProtectedActivePlayer
 	s.ActiveObj = &mockActiveObj{objType: 590, x: 0, z: 0, level: 0}
 
 	mc := newTestConfigs()
@@ -3722,7 +3722,7 @@ func TestHandleP_OpObjRequiresProtect(t *testing.T) {
 	pl := &mockPlayer{uidValue: 12345}
 	s.Self = pl
 	s.Pointers |= PtrActivePlayer
-	s.Protect = false // not protected — gate must fire
+	// not protected — gate must fire (Pointers zero-value lacks PtrProtectedActivePlayer)
 	s.ActiveObj = &mockActiveObj{objType: 590, x: 0, z: 0, level: 0}
 
 	mc := newTestConfigs()
@@ -3734,7 +3734,7 @@ func TestHandleP_OpObjRequiresProtect(t *testing.T) {
 
 	s.PushInt(1)
 	if err := handleP_OpObj(s); err == nil {
-		t.Errorf("P_OPOBJ without s.Protect: expected error, got nil")
+		t.Errorf("P_OPOBJ without PtrProtectedActivePlayer: expected error, got nil")
 	}
 }
 
@@ -3842,8 +3842,7 @@ func TestPOpNpcT_HappyPath(t *testing.T) {
 	s := &ScriptState{
 		Self:        mp,
 		ActiveNpc:   npc,
-		Pointers:    PtrActivePlayer | PtrActiveNpc,
-		Protect:     true,
+		Pointers:    PtrActivePlayer | PtrActiveNpc | PtrProtectedActivePlayer,
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
 	}
@@ -3872,8 +3871,7 @@ func TestPOpNpcT_NotProtected(t *testing.T) {
 	s := &ScriptState{
 		Self:        mp,
 		ActiveNpc:   npc,
-		Pointers:    PtrActivePlayer | PtrActiveNpc,
-		Protect:     false, // not protected
+		Pointers:    PtrActivePlayer | PtrActiveNpc, // not protected — PtrProtectedActivePlayer absent
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
 	}
@@ -3887,8 +3885,7 @@ func TestPOpNpcT_NoActiveNpc(t *testing.T) {
 	mp := &mockPlayer{}
 	s := &ScriptState{
 		Self:        mp,
-		Pointers:    PtrActivePlayer,
-		Protect:     true,
+		Pointers:    PtrActivePlayer | PtrProtectedActivePlayer,
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
 	}
@@ -3904,8 +3901,7 @@ func TestPOpNpcT_NullSpellCom(t *testing.T) {
 	s := &ScriptState{
 		Self:        mp,
 		ActiveNpc:   npc,
-		Pointers:    PtrActivePlayer | PtrActiveNpc,
-		Protect:     true,
+		Pointers:    PtrActivePlayer | PtrActiveNpc | PtrProtectedActivePlayer,
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
 	}
@@ -3923,8 +3919,7 @@ func TestPOpPlayer_HappyPath(t *testing.T) {
 	s := &ScriptState{
 		Self:        mp,
 		Self2:       mp2,
-		Pointers:    PtrActivePlayer | PtrActivePlayer2,
-		Protect:     true,
+		Pointers:    PtrActivePlayer | PtrActivePlayer2 | PtrProtectedActivePlayer,
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
 	}
@@ -3952,8 +3947,7 @@ func TestPOpPlayer_NoSelf2_SilentReturn(t *testing.T) {
 	s := &ScriptState{
 		Self:        mp,
 		Self2:       nil,
-		Pointers:    PtrActivePlayer,
-		Protect:     true,
+		Pointers:    PtrActivePlayer | PtrProtectedActivePlayer,
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
 	}
@@ -3975,8 +3969,7 @@ func TestPOpPlayer_NotProtected(t *testing.T) {
 	s := &ScriptState{
 		Self:        mp,
 		Self2:       mp2,
-		Pointers:    PtrActivePlayer | PtrActivePlayer2,
-		Protect:     false,
+		Pointers:    PtrActivePlayer | PtrActivePlayer2, // not protected — PtrProtectedActivePlayer absent
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
 	}
@@ -3992,8 +3985,7 @@ func TestPOpPlayer_OpZero(t *testing.T) {
 	s := &ScriptState{
 		Self:        mp,
 		Self2:       mp2,
-		Pointers:    PtrActivePlayer | PtrActivePlayer2,
-		Protect:     true,
+		Pointers:    PtrActivePlayer | PtrActivePlayer2 | PtrProtectedActivePlayer,
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
 	}
@@ -4009,8 +4001,7 @@ func TestPOpPlayer_OpSix(t *testing.T) {
 	s := &ScriptState{
 		Self:        mp,
 		Self2:       mp2,
-		Pointers:    PtrActivePlayer | PtrActivePlayer2,
-		Protect:     true,
+		Pointers:    PtrActivePlayer | PtrActivePlayer2 | PtrProtectedActivePlayer,
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
 	}
@@ -4026,8 +4017,7 @@ func TestPOpPlayer_OpNullSentinel(t *testing.T) {
 	s := &ScriptState{
 		Self:        mp,
 		Self2:       mp2,
-		Pointers:    PtrActivePlayer | PtrActivePlayer2,
-		Protect:     true,
+		Pointers:    PtrActivePlayer | PtrActivePlayer2 | PtrProtectedActivePlayer,
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
 	}
@@ -4292,9 +4282,11 @@ func newPreventLogoutState(self *mockPlayer, mw WorldVars, msg string, ticks int
 		World:       mw,
 		Self:        self,
 		Pointers:    PtrActivePlayer,
-		Protect:     protect,
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
+	}
+	if protect {
+		s.Pointers |= PtrProtectedActivePlayer
 	}
 	s.PushString(msg)
 	s.PushInt(ticks)

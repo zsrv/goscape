@@ -274,7 +274,7 @@ func (p *Player) UID() int { return p.uid }
 // no global shutdown flag to consult and rejects lookups uniformly.
 //
 // The third branch derives what TS expresses as a single Player.protect
-// bool from activeScript.Protect. They are equivalent: TS persists the
+// bool from activeScript.Pointers&PtrProtectedActivePlayer. They are equivalent: TS persists the
 // flag onto the player at script suspension (Player.ts:2141) and clears
 // it at script completion (:2103-2114), so "is the player in a stored
 // protected script?" and "is the player-level protect flag set?" are
@@ -297,10 +297,10 @@ func (p *Player) CanAccess() bool {
 // suspended protected script — goscape's mapping of TS Player.protect.
 // Used by CanAccess (above) and processWalktrigger to gate operations
 // that TS guards with !this.protect. See the CanAccess doc-comment for
-// the activeScript.Protect ↔ TS Player.protect equivalence rationale.
+// the activeScript.Pointers&PtrProtectedActivePlayer ↔ TS Player.protect equivalence rationale.
 // NAI-52.
 func (p *Player) protectedScriptActive() bool {
-	return p.activeScript != nil && p.activeScript.Protect
+	return p.activeScript != nil && p.activeScript.Pointers&script.PtrProtectedActivePlayer != 0
 }
 
 // Varp implements script.ActivePlayer.Varp.
@@ -713,7 +713,7 @@ func (p *Player) CloseModal(clearWeakQueue bool) {
 		p.clearWeakQueue()
 	}
 	if !p.delayed && p.activeScript != nil {
-		p.activeScript.Protect = false
+		p.activeScript.Pointers &^= script.PtrProtectedActivePlayer
 	}
 
 	if p.modalState == modalStateNone {

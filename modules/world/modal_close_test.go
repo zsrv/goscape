@@ -98,16 +98,16 @@ func TestCloseModalPreservesWeakQueueWhenFalse(t *testing.T) {
 }
 
 // TestCloseModalClearsActiveScriptProtectWhenNotDelayed pins
-// !delayed && activeScript != nil → activeScript.Protect = false.
+// !delayed && activeScript != nil → PtrProtectedActivePlayer cleared.
 // Mirrors TS Player.closeModal !delayed → protect=false branch
 // (Player.ts:745-747), applied via NAI-52 convergence (TS this.protect ↔
-// goscape activeScript.Protect).
+// goscape activeScript.Pointers&PtrProtectedActivePlayer).
 func TestCloseModalClearsActiveScriptProtectWhenNotDelayed(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.delayed = false
 	p.activeScript = &script.ScriptState{
-		Script:  &script.ScriptFile{Name: "running"},
-		Protect: true,
+		Script:   &script.ScriptFile{Name: "running"},
+		Pointers: script.PtrProtectedActivePlayer,
 	}
 
 	p.CloseModal(true)
@@ -115,8 +115,8 @@ func TestCloseModalClearsActiveScriptProtectWhenNotDelayed(t *testing.T) {
 	if p.activeScript == nil {
 		t.Fatal("activeScript: got nil, want preserved (Suspended/Running scripts not nulled)")
 	}
-	if p.activeScript.Protect {
-		t.Errorf("activeScript.Protect: got true, want false (!delayed should clear)")
+	if p.activeScript.Pointers&script.PtrProtectedActivePlayer != 0 {
+		t.Errorf("activeScript.PtrProtectedActivePlayer: got set, want clear (!delayed should clear)")
 	}
 	if p.protectedScriptActive() {
 		t.Errorf("protectedScriptActive(): got true, want false (NAI-52 convergence)")
@@ -124,14 +124,14 @@ func TestCloseModalClearsActiveScriptProtectWhenNotDelayed(t *testing.T) {
 }
 
 // TestCloseModalPreservesActiveScriptProtectWhenDelayed pins
-// delayed → activeScript.Protect preserved.
+// delayed → activeScript.PtrProtectedActivePlayer preserved.
 // Mirrors TS Player.closeModal `if (!this.delayed)` guard.
 func TestCloseModalPreservesActiveScriptProtectWhenDelayed(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.delayed = true
 	p.activeScript = &script.ScriptState{
-		Script:  &script.ScriptFile{Name: "running"},
-		Protect: true,
+		Script:   &script.ScriptFile{Name: "running"},
+		Pointers: script.PtrProtectedActivePlayer,
 	}
 
 	p.CloseModal(true)
@@ -139,8 +139,8 @@ func TestCloseModalPreservesActiveScriptProtectWhenDelayed(t *testing.T) {
 	if p.activeScript == nil {
 		t.Fatal("activeScript: got nil, want preserved")
 	}
-	if !p.activeScript.Protect {
-		t.Errorf("activeScript.Protect: got false, want true (delayed should preserve)")
+	if p.activeScript.Pointers&script.PtrProtectedActivePlayer == 0 {
+		t.Errorf("activeScript.PtrProtectedActivePlayer: got clear, want set (delayed should preserve)")
 	}
 }
 
@@ -222,8 +222,8 @@ func TestCloseModalNoneEarlyReturnStillRunsClearWeakQueueAndProtect(t *testing.T
 	}
 	p.delayed = false
 	p.activeScript = &script.ScriptState{
-		Script:  &script.ScriptFile{Name: "running"},
-		Protect: true,
+		Script:   &script.ScriptFile{Name: "running"},
+		Pointers: script.PtrProtectedActivePlayer,
 	}
 	p.modalState = modalStateNone
 
@@ -232,8 +232,8 @@ func TestCloseModalNoneEarlyReturnStillRunsClearWeakQueueAndProtect(t *testing.T
 	if len(p.queue) != 0 {
 		t.Errorf("queue len: got %d, want 0 (weak should be cleared even on NONE early-return)", len(p.queue))
 	}
-	if p.activeScript == nil || p.activeScript.Protect {
-		t.Errorf("activeScript.Protect should be cleared even on NONE early-return")
+	if p.activeScript == nil || p.activeScript.Pointers&script.PtrProtectedActivePlayer != 0 {
+		t.Errorf("activeScript.PtrProtectedActivePlayer should be cleared even on NONE early-return")
 	}
 }
 
@@ -285,7 +285,7 @@ func TestCloseModalPreservesActiveScriptOnSuspended(t *testing.T) {
 	state := &script.ScriptState{
 		Script:    &script.ScriptFile{Name: "suspended"},
 		Execution: script.Suspended,
-		Protect:   true,
+		Pointers:  script.PtrProtectedActivePlayer,
 	}
 	p.activeScript = state
 

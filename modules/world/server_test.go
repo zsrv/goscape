@@ -617,7 +617,7 @@ func TestPlayerCanAccess(t *testing.T) {
 			p.delayed = tc.delayed
 			p.modalState = tc.modalState
 			if tc.protectedScript {
-				p.activeScript = &script.ScriptState{Protect: true}
+				p.activeScript = &script.ScriptState{Pointers: script.PtrProtectedActivePlayer}
 			}
 			if got := p.CanAccess(); got != tc.want {
 				t.Errorf("CanAccess() = %v, want %v", got, tc.want)

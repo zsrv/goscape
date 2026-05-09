@@ -58,7 +58,7 @@ func handlePushVarp(s *ScriptState) error {
 // Configs.VarpType(id): STRING calls PopString, else calls PopInt.
 // Enforces TS CoreOps.ts:50-52 Protect gate (DEVIATION-NAI-121-D4):
 // if the var's type is Protect=true, the script must hold protected
-// access (state.Protect=true) or the handler errors. Returns an error
+// access (PtrProtectedActivePlayer set) or the handler errors. Returns an error
 // if no ActivePlayer is bound.
 func handlePopVarp(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
@@ -66,7 +66,7 @@ func handlePopVarp(s *ScriptState) error {
 	}
 	id := varOperandID(s)
 	typ, protect := s.varpType(id)
-	if protect && !s.Protect {
+	if protect && s.Pointers&PtrProtectedActivePlayer == 0 {
 		return fmt.Errorf("POP_VARP: %%%d requires protected access", id)
 	}
 	if typ == objtype.ScriptVarTypeString {

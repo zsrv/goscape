@@ -776,7 +776,7 @@ func TestProcessWalktrigger_ProtectedScriptActiveNoOp(t *testing.T) {
 	defer wait()
 
 	p.walktrigger = 7
-	p.activeScript = &script.ScriptState{Protect: true}
+	p.activeScript = &script.ScriptState{Pointers: script.PtrProtectedActivePlayer}
 
 	p.processWalktrigger()
 
@@ -811,7 +811,7 @@ func TestProcessWalktrigger_ActiveScriptUnprotectedFires(t *testing.T) {
 	received := drainConn(t, cc)
 
 	p.walktrigger = 42
-	p.activeScript = &script.ScriptState{Protect: false}
+	p.activeScript = &script.ScriptState{} // unprotected — PtrProtectedActivePlayer absent
 
 	p.processWalktrigger()
 	p.client.flushWrite()

@@ -486,7 +486,7 @@ func TestPopVarp_ProtectGate_AllowsProtected(t *testing.T) {
 }
 
 func TestPopVarp_NonProtect_NoGate(t *testing.T) {
-	// Confirm Protect=false varps don't gate even when state.Protect=false.
+	// Confirm Protect=false varps don't gate even when PtrProtectedActivePlayer is unset.
 	sf := &ScriptFile{
 		Name: "pop_varp_unprot",
 		Opcodes: []Opcode{

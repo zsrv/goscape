@@ -54,8 +54,8 @@ func TestInitSetsFields(t *testing.T) {
 	if s.Pointers&PtrActivePlayer == 0 {
 		t.Error("PtrActivePlayer not set")
 	}
-	if s.Protect != true {
-		t.Error("Protect not set")
+	if s.Pointers&PtrProtectedActivePlayer == 0 {
+		t.Errorf("Protect: PtrProtectedActivePlayer should be set, pointers=%b", s.Pointers)
 	}
 	if s.PC != 0 {
 		t.Errorf("PC: got %d want 0", s.PC)

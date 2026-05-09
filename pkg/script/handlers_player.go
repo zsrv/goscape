@@ -50,16 +50,29 @@ func requireActivePlayer2(s *ScriptState, op string) error {
 }
 
 // requireProtectedActivePlayer is requireActivePlayer plus a check that
-// the script was started with protect=true. Used by opcodes that TS
-// wraps in checkedHandler(ProtectedActivePlayer, ...) — currently
-// P_OPLOC and P_OPNPC (S6w closure of S6v-D1). Chains through to
-// requireActivePlayer first so the "no active player" error message
-// matches the unprotected variant.
+// the script holds the slot-0 protect flag (PtrProtectedActivePlayer).
+// Used by opcodes that TS wraps in checkedHandler(ProtectedActivePlayer, ...)
+// at intOperand=0. Chains through requireActivePlayer first so the
+// "no active player" error message matches the unprotected variant.
 func requireProtectedActivePlayer(s *ScriptState, op string) error {
 	if err := requireActivePlayer(s, op); err != nil {
 		return err
 	}
-	if !s.Protect {
+	if s.Pointers&PtrProtectedActivePlayer == 0 {
+		return errors.New(op + ": script not protected")
+	}
+	return nil
+}
+
+// requireProtectedActivePlayer2 is the slot-1 analogue of
+// requireProtectedActivePlayer. Chains through requireActivePlayer2 first
+// so error messages match the unprotected variant. Currently consumed
+// only by BOTH_MOVEINV's secondary branch. NAI-133.
+func requireProtectedActivePlayer2(s *ScriptState, op string) error {
+	if err := requireActivePlayer2(s, op); err != nil {
+		return err
+	}
+	if s.Pointers&PtrProtectedActivePlayer2 == 0 {
 		return errors.New(op + ": script not protected")
 	}
 	return nil
@@ -830,7 +843,7 @@ func handlePApRange(s *ScriptState) error {
 // the active loc with AP trigger APLOC<op>. Matches TS
 // PlayerOps.ts:386-402.
 //
-// S6v-D1 closed in S6w: gates on ScriptState.Protect via
+// S6v-D1 closed in S6w: gates on PtrProtectedActivePlayer via
 // requireProtectedActivePlayer, matching TS checkedHandler(ProtectedActivePlayer).
 func handleP_OpLoc(s *ScriptState) error {
 	if err := requireProtectedActivePlayer(s, "P_OPLOC"); err != nil {
@@ -854,7 +867,7 @@ func handleP_OpLoc(s *ScriptState) error {
 // handleP_OpNpc (P_OPNPC, opcode 2078) re-anchors on the active npc.
 // Matches TS PlayerOps.ts:404-415.
 //
-// S6v-D1 closed in S6w: gates on ScriptState.Protect via
+// S6v-D1 closed in S6w: gates on PtrProtectedActivePlayer via
 // requireProtectedActivePlayer, matching TS checkedHandler(ProtectedActivePlayer).
 func handleP_OpNpc(s *ScriptState) error {
 	if err := requireProtectedActivePlayer(s, "P_OPNPC"); err != nil {
@@ -880,7 +893,7 @@ func handleP_OpNpc(s *ScriptState) error {
 // the lookup returned nil or no PlayerLookup is configured.
 //
 // Does NOT check CanAccess — that's P_FINDUID's job. Does NOT set
-// Protect. Mirrors TS PlayerOps.ts:60-72 with goscape's collapsed
+// PtrProtectedActivePlayer. Mirrors TS PlayerOps.ts:60-72 with goscape's collapsed
 // pointer model (single PtrActivePlayer).
 func handleFindUID(s *ScriptState) error {
 	uid := s.PopInt()
@@ -905,14 +918,14 @@ func handleFindUID(s *ScriptState) error {
 //   - Self-reacquire fast-path: script already runs protected on a
 //     player whose UID matches → push 1, no state change, no lookup.
 //   - Lookup miss OR target.CanAccess()==false → push 0.
-//   - Success → Self rebinds, PtrActivePlayer set, Protect=true, push 1.
+//   - Success → Self rebinds, PtrActivePlayer set, PtrProtectedActivePlayer set, push 1.
 //
 // Mirrors TS PlayerOps.ts:75-94 with goscape's collapsed pointer model
-// (single PtrActivePlayer + ScriptState.Protect bool).
+// (single PtrActivePlayer + PtrProtectedActivePlayer).
 func handlePFindUID(s *ScriptState) error {
 	uid := s.PopInt()
 	// Self-reacquire fast-path: already protected on this player.
-	if s.Protect && s.Self != nil && s.Self.UID() == uid {
+	if s.Pointers&PtrProtectedActivePlayer != 0 && s.Self != nil && s.Self.UID() == uid {
 		s.PushInt(1)
 		return nil
 	}
@@ -927,7 +940,7 @@ func handlePFindUID(s *ScriptState) error {
 	}
 	s.Self = target
 	s.Pointers |= PtrActivePlayer
-	s.Protect = true
+	s.Pointers |= PtrProtectedActivePlayer
 	s.PushInt(1)
 	return nil
 }

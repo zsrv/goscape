@@ -6,7 +6,7 @@ import "fmt"
 //
 // int/string arguments are copied into the script's local arrays in declaration
 // order (index 0 = first arg). self is wired to Self and PtrActivePlayer is set
-// if self != nil. Protect is stored for handlers that honour it.
+// if self != nil. PtrProtectedActivePlayer is set when protect=true and self != nil.
 //
 // The PC starts at 0; the first instruction is executed on the first Execute tick.
 func Init(script *ScriptFile, self ActivePlayer, protect bool, intArgs []int, stringArgs []string) *ScriptState {
@@ -23,8 +23,7 @@ func Init(script *ScriptFile, self ActivePlayer, protect bool, intArgs []int, st
 
 		Frames: make([]Frame, FrameCapacity),
 
-		Self:    self,
-		Protect: protect,
+		Self: self,
 	}
 
 	copy(s.IntLocals, intArgs)
@@ -32,6 +31,9 @@ func Init(script *ScriptFile, self ActivePlayer, protect bool, intArgs []int, st
 
 	if self != nil {
 		s.Pointers |= PtrActivePlayer
+		if protect {
+			s.Pointers |= PtrProtectedActivePlayer
+		}
 	}
 
 	return s

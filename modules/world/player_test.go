@@ -727,8 +727,8 @@ func TestPlayer_ProtectedScriptActive_TruthTable(t *testing.T) {
 		want   bool
 	}{
 		{"nil-active", nil, false},
-		{"active-unprotected", &script.ScriptState{Protect: false}, false},
-		{"active-protected", &script.ScriptState{Protect: true}, true},
+		{"active-unprotected", &script.ScriptState{}, false},
+		{"active-protected", &script.ScriptState{Pointers: script.PtrProtectedActivePlayer}, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
