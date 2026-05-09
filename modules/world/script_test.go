@@ -619,6 +619,18 @@ func TestInvAddGrantsItemsViaScript(t *testing.T) {
 		Size:       28,
 		StackAll:   true,
 	}
+	// Seed a fake ObjType at id 995 ("coins") so checkObjType (NAI-131 T1
+	// gate) resolves it. StackAll on the InvType makes the single-stack
+	// path exercise without requiring a stackable ObjType.
+	s.objTypes = &objtype.ObjTypeConfigs{
+		ConfigNames: map[string]int{"coins": 995},
+		Configs:     make([]*objtype.ObjType, 996),
+	}
+	s.objTypes.Configs[995] = &objtype.ObjType{
+		ConfigType: objtype.ConfigType{ID: 995, DebugName: "coins"},
+		Name:       "Coins",
+	}
+	s.configsView = serverConfigsView{s: s}
 	s.invLookup = invLookupView{s: s}
 	s.npcLookup = serverNpcLookup{s: s}
 
