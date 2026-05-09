@@ -60,7 +60,6 @@ func (p *Player) SetFaceEntity(entityIndex int) {
 //     via `p.masks = 0` below.
 //   - levels[Hitpoints] / baseLevels[Hitpoints] (S6e promotion to
 //     persistent via the skill arrays).
-//   - moveSpeed — see NAI-108-D-MOVESPEED-NOT-RESET (deferred audit).
 //
 // Handled-elsewhere (NOT in ResetMasks; equivalent goscape paths):
 //   - walkDir/runDir — reset/set in movement.go:53-65 per movement step.
@@ -85,6 +84,12 @@ func (p *Player) ResetMasks() {
 	p.masks = 0
 	p.tele = false
 	p.jump = false
+	// NAI-135 (retires NAI-108-D-MOVESPEED-NOT-RESET): mirrors TS
+	// PathingEntity.resetPathingEntity at PathingEntity.ts:578.
+	// Cleared at tick-end so the next tick's bridge sees a non-Instant
+	// moveSpeed (rsbuf already consumed any same-tick teleport block
+	// earlier in the cycle via Tele()/Jump() readers).
+	p.moveSpeed = p.defaultMoveSpeed()
 	p.sayText = nil
 	p.chatBytes = nil
 	p.chatColour = -1

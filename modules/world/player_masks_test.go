@@ -306,6 +306,45 @@ func TestPlayerResetMasksClearsChatMetadata(t *testing.T) {
 	}
 }
 
+// TestResetMasksResetsMoveSpeedToDefault — NAI-135 stretch (retires NAI-108-D-MOVESPEED-NOT-RESET).
+// Pins that ResetMasks resets moveSpeed to defaultMoveSpeed() each tick, mirroring
+// TS PathingEntity.resetPathingEntity at PathingEntity.ts:578.
+func TestResetMasksResetsMoveSpeedToDefault(t *testing.T) {
+	t.Run("Instant→Walk when run=0", func(t *testing.T) {
+		p, _ := newTestPlayer(t)
+		p.run = 0
+		p.moveSpeed = MoveSpeedInstant
+
+		p.ResetMasks()
+
+		if p.moveSpeed != MoveSpeedWalk {
+			t.Errorf("moveSpeed: got %v, want MoveSpeedWalk (run=0 → Walk)", p.moveSpeed)
+		}
+	})
+	t.Run("Instant→Run when run=1", func(t *testing.T) {
+		p, _ := newTestPlayer(t)
+		p.run = 1
+		p.moveSpeed = MoveSpeedInstant
+
+		p.ResetMasks()
+
+		if p.moveSpeed != MoveSpeedRun {
+			t.Errorf("moveSpeed: got %v, want MoveSpeedRun (run=1 → Run)", p.moveSpeed)
+		}
+	})
+	t.Run("Walk→Walk when run=0 (idempotent)", func(t *testing.T) {
+		p, _ := newTestPlayer(t)
+		p.run = 0
+		p.moveSpeed = MoveSpeedWalk
+
+		p.ResetMasks()
+
+		if p.moveSpeed != MoveSpeedWalk {
+			t.Errorf("moveSpeed: got %v, want MoveSpeedWalk (idempotent)", p.moveSpeed)
+		}
+	})
+}
+
 // TestPlayerResetMasksChatMetadataResetIsNoOpWithoutChatBytes — NAI-108 Task 1.
 // Regression pin for the spec §3 (ε) "chat reset is functionally inert"
 // claim. Asserts that with chatBytes nil (the encoder gate), arbitrary
