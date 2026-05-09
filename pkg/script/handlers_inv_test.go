@@ -1775,7 +1775,9 @@ func TestInvDropItem_StackableSpawnsSingleStackedObj(t *testing.T) {
 	}
 }
 
-func TestInvDropItem_NonStackableSpawnsPerItem(t *testing.T) {
+func TestInvDropItem_NonStackableSpawnsSingleStacked(t *testing.T) {
+	// TS InvOps.ts:181-184 spawns ONE floor Obj with the full completed
+	// count regardless of stackability — there is no per-item branch.
 	mc := newTestInvConfigs()
 	lookup := newTestInvLookup()
 	from := lookup.Get(nil, testInvMain)
@@ -1784,13 +1786,11 @@ func TestInvDropItem_NonStackableSpawnsPerItem(t *testing.T) {
 	from.Set(2, &inventory.Item{Id: testObjSword, Count: 1})
 	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
 	runInvOpWithWorld(t, OpInvDropItem, []int{testInvMain, coordgrid.PackCoord(0, 3200, 3200), testObjSword, 3, 200}, lookup, mc, world)
-	if len(world.addedCalls) != 3 {
-		t.Fatalf("non-stackable count=3: want 3 AddObj calls, got %d", len(world.addedCalls))
+	if len(world.addedCalls) != 1 {
+		t.Fatalf("non-stackable count=3 (TS-faithful single-stacked): want 1 AddObj call, got %d", len(world.addedCalls))
 	}
-	for i, c := range world.addedCalls {
-		if c.count != 1 {
-			t.Errorf("call %d: got count=%d, want 1", i, c.count)
-		}
+	if world.addedCalls[0].count != 3 {
+		t.Errorf("AddObj count: got %d, want 3 (single stacked)", world.addedCalls[0].count)
 	}
 }
 

@@ -1141,9 +1141,9 @@ func handleInvMoveItemUncert(s *ScriptState) error {
 
 // handleInvDropItem (INV_DROPITEM) ports TS InvOps.ts:163-186. Pops
 // [inv, coord, obj, count, duration]. Removes count of obj from inv,
-// then drops the removed count to the world at coord. Stackable+completed>1
-// spawns a single stacked Obj; non-stackable OR completed==1 spawns
-// per-item. Sets ActiveObj + PtrActiveObj after each spawn (last-wins).
+// then drops the removed count to the world at coord as a single stacked
+// Obj (TS InvOps.ts:181-184 — one Obj-construct + one World.addObj call;
+// stackability is irrelevant). Sets ActiveObj + PtrActiveObj.
 //
 // Validator chain (NAI-131): InvTypeValid → CoordValid → ObjTypeValid
 // → ObjStackValid → DurationValid → protect/scope.
@@ -1193,22 +1193,11 @@ func handleInvDropItem(s *ScriptState) error {
 	if s.World == nil {
 		return fmt.Errorf("INV_DROPITEM: no world surface")
 	}
-	objType := s.Configs.ObjType(obj)
 	receiverID := s.Self.UID()
-	if !objType.Stackable || completed == 1 {
-		for range completed {
-			o := s.World.AddObj(level, x, z, obj, 1, duration, receiverID)
-			if o != nil {
-				s.ActiveObj = o
-				s.Pointers |= PtrActiveObj
-			}
-		}
-	} else {
-		o := s.World.AddObj(level, x, z, obj, completed, duration, receiverID)
-		if o != nil {
-			s.ActiveObj = o
-			s.Pointers |= PtrActiveObj
-		}
+	o := s.World.AddObj(level, x, z, obj, completed, duration, receiverID)
+	if o != nil {
+		s.ActiveObj = o
+		s.Pointers |= PtrActiveObj
 	}
 	return nil
 }
