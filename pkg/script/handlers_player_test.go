@@ -770,12 +770,13 @@ func TestRunAnimAcceptsMinusOne(t *testing.T) {
 }
 
 // TestPRunDispatch verifies the P_RUN handler (opcode 2085) writes the
-// popped int to SetRun and mirrors it to varp id VarPlayerRun. Mirrors
+// popped int to SetRun and mirrors it to the varp id returned by
+// RunVarpID() (the cache-resolved run-mode varp). Mirrors
 // TS PlayerOps.ts:1204-1209. NAI-117 T1.
 func TestPRunDispatch(t *testing.T) {
 	for _, v := range []int{0, 1} {
 		t.Run(fmt.Sprintf("v=%d", v), func(t *testing.T) {
-			mp := &mockPlayer{lastSetRun: -1, varps: map[int]int32{}}
+			mp := &mockPlayer{lastSetRun: -1, runVarpID: 173, varps: map[int]int32{}}
 			sf := &ScriptFile{
 				Name: "p_run_dispatch",
 				Opcodes: []Opcode{
@@ -792,8 +793,8 @@ func TestPRunDispatch(t *testing.T) {
 			if mp.lastSetRun != v {
 				t.Errorf("SetRun: got %d, want %d", mp.lastSetRun, v)
 			}
-			if got := mp.varps[VarPlayerRun]; int(got) != v {
-				t.Errorf("varp[VarPlayerRun]: got %d, want %d", got, v)
+			if got := mp.varps[173]; int(got) != v {
+				t.Errorf("varp[173]: got %d, want %d", got, v)
 			}
 		})
 	}

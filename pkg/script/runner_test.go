@@ -160,6 +160,10 @@ type mockPlayer struct {
 	// distinguishes "never called" from a legitimate v=0 walk-mode write.
 	lastSetRun int
 
+	// NAI-137: seeded by tests; mockPlayer.RunVarpID returns this. Default
+	// 0 matches the TS VarPlayerType.RUN placeholder default.
+	runVarpID int
+
 	// NAI-117 RUNENERGY: configurable return for RunEnergy(); zero default
 	// is fine for tests that don't pin a specific value.
 	runenergyValue int
@@ -420,6 +424,7 @@ func (m *mockPlayer) SetVarpString(id int, val string) {
 	}
 	m.varpsString[id] = val
 }
+func (m *mockPlayer) RunVarpID() int { return m.runVarpID }
 
 // S5c: position / facing / teleport.
 

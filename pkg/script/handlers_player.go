@@ -622,8 +622,9 @@ func handlePWalk(s *ScriptState) error {
 }
 
 // handlePRun implements P_RUN (opcode 2085). Pops the run-mode int and
-// writes it to the player's run field, then mirrors the value to
-// VarPlayerRun. Mirrors TS PlayerOps.ts:1204-1209 line-for-line.
+// writes it to the player's run field, then mirrors it to the
+// cache-resolved run-mode varp id (`RunVarpID()`, the config with
+// `ClientCode==7`). Mirrors TS PlayerOps.ts:1204-1209 line-for-line.
 //
 // Two-step (field write + varp mirror) is intentional per
 // ts_helper_method_bundles memory; TS itself flags the duplication
@@ -638,7 +639,7 @@ func handlePRun(s *ScriptState) error {
 	v := s.PopInt()
 	s.Self.SetRun(v)
 	// todo: better way to sync engine varp (mirrored from TS PlayerOps.ts:1207)
-	s.Self.SetVarp(VarPlayerRun, int32(v))
+	s.Self.SetVarp(s.Self.RunVarpID(), int32(v))
 	return nil
 }
 

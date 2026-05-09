@@ -1,11 +1,5 @@
 package script
 
-// VarPlayerRun is the varp id for the run-mode toggle (`run` varp).
-// Mirrors TS VarPlayerType.RUN = 0 at Engine-TS
-// cache/config/VarPlayerType.ts:18. Consumed by the P_RUN opcode
-// handler to mirror the run field into varp-id 0. NAI-117.
-const VarPlayerRun = 0
-
 // ActivePlayer is the minimal surface RuneScript needs from a Player.
 // Sub-spec S2 wires modules/world.Player to this interface. S4 adds
 // suspension + queue methods.
@@ -92,6 +86,13 @@ type ActivePlayer interface {
 	// silently dropped. No wire-send (this protocol revision has no
 	// varp_string opcode); server-side state only.
 	SetVarpString(id int, val string)
+
+	// RunVarpID returns the varp id discovered at config-load time as the
+	// engine-level run-mode varp (the config with ClientCode==7). Mirrors TS
+	// VarPlayerType.RUN dynamic discovery at Engine-TS/src/cache/config/VarPlayerType.ts:50-53.
+	// Returns 0 as a TS-faithful placeholder default when no clientcode-7
+	// config exists in the loaded cache.
+	RunVarpID() int
 
 	// S5c: position / facing / teleport.
 
