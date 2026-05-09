@@ -5,17 +5,10 @@ import (
 	"log/slog"
 	"testing"
 
+	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
-
-// setupEncryptor initialises p.client.encryptor so writeOut does not
-// panic on nil ISAAC access. Required whenever writeVarp will reach
-// writeOut (i.e. Transmit: true).
-func setupEncryptor(p *Player) {
-	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
-	p.client.encryptor = enc
-}
 
 func TestWriteVarp_Probe_SmallValueShape(t *testing.T) {
 	p, _ := newTestPlayer(t)
@@ -29,7 +22,7 @@ func TestWriteVarp_Probe_SmallValueShape(t *testing.T) {
 	rec := &nai138WorldHandler{}
 	s.log = slog.New(rec)
 	p.client.server = s
-	setupEncryptor(p)
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 
 	p.writeVarp(173, 0)
 
@@ -76,7 +69,7 @@ func TestWriteVarp_Probe_LargeValueShape(t *testing.T) {
 	rec := &nai138WorldHandler{}
 	s.log = slog.New(rec)
 	p.client.server = s
-	setupEncryptor(p)
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 
 	p.writeVarp(100, 200) // 200 > 127 → VARP_LARGE
 
@@ -112,7 +105,7 @@ func TestWriteVarp_Probe_SuppressedWhenNodeDebugFalse(t *testing.T) {
 	rec := &nai138WorldHandler{}
 	s.log = slog.New(rec)
 	p.client.server = s
-	setupEncryptor(p)
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 
 	p.writeVarp(173, 0)
 
@@ -145,5 +138,71 @@ func TestWriteVarp_Probe_NotEmittedForNonTransmitVarp(t *testing.T) {
 				"so probe must not fire)")
 			return
 		}
+	}
+}
+
+// TestWriteVarp_Probe_SmallValueShape_SignExtension pins the
+// P1(uint8(int8(value))) sign-extension path in the OpVarpSmall branch.
+// The probe is the binding for Hypothesis C (encoder-byte divergence);
+// the original 0-only pin did not exercise negative values.
+//
+// Varp id 50 (0x32) is used so payload bytes are unambiguous:
+//
+//	P2(50)  = 0x00 0x32
+//	P1(v)   = uint8(int8(v))
+func TestWriteVarp_Probe_SmallValueShape_SignExtension(t *testing.T) {
+	cases := []struct {
+		name      string
+		value     int32
+		wantLastB byte
+	}{
+		{"pos_max_int8", 127, 0x7F},
+		{"neg_one_sign_ext", -1, 0xFF},
+		{"neg_min_int8", -128, 0x80},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p, _ := newTestPlayer(t)
+			s := newTestServer(t)
+			s.varpTypes = &objtype.VarpTypeConfigs{
+				Configs: make([]*objtype.VarPlayerType, 51),
+				RunID:   50,
+			}
+			s.varpTypes.Configs[50] = &objtype.VarPlayerType{Transmit: true}
+			s.cfg.NodeDebug = true
+			rec := &nai138WorldHandler{}
+			s.log = slog.New(rec)
+			p.client.server = s
+			p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+			p.writeVarp(50, tc.value)
+
+			var probe *slog.Record
+			for i := range rec.records {
+				if rec.records[i].Message == "nai138.write_varp" {
+					probe = &rec.records[i]
+					break
+				}
+			}
+			if probe == nil {
+				t.Fatalf("nai138.write_varp record absent; got %d records", len(rec.records))
+			}
+			got := recordAttrs138(*probe)
+
+			if got["opcode"] != int64(gameserver.OpVarpSmall.Opcode) {
+				t.Errorf(`attr "opcode": got %v, want %d (OpVarpSmall)`,
+					got["opcode"], gameserver.OpVarpSmall.Opcode)
+			}
+			if got["payload_len"] != int64(3) {
+				t.Errorf(`attr "payload_len": got %v, want 3`, got["payload_len"])
+			}
+			// Payload: P2(50) + P1(uint8(int8(value))) = 0x00, 0x32, <last byte>
+			wantHex := hex.EncodeToString([]byte{0x00, 0x32, tc.wantLastB})
+			if got["payload_hex"] != wantHex {
+				t.Errorf(`attr "payload_hex": got %q, want %q (value=%v)`,
+					got["payload_hex"], wantHex, tc.value)
+			}
+		})
 	}
 }
