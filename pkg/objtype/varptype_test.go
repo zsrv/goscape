@@ -7,9 +7,10 @@ import (
 )
 
 type varpEntry struct {
-	debugName string
-	scope     int
-	transmit  bool
+	debugName  string
+	scope      int
+	transmit   bool
+	clientCode uint16
 }
 
 // buildVarpDat assembles a varp.dat wire blob:
@@ -27,6 +28,10 @@ func buildVarpDat(entries []varpEntry) []byte {
 		if e.transmit {
 			pkt.P1(6)
 		}
+		if e.clientCode != 0 {
+			pkt.P1(5)
+			pkt.P2(e.clientCode)
+		}
 		if e.debugName != "" {
 			pkt.P1(250)
 			pkt.PJStrLF(e.debugName)
@@ -38,9 +43,9 @@ func buildVarpDat(entries []varpEntry) []byte {
 
 func TestParseVarpTypes(t *testing.T) {
 	entries := []varpEntry{
-		{"coins", 0, true},
-		{"quest_state", 1, false},
-		{"anon", 0, false},
+		{debugName: "coins", scope: 0, transmit: true},
+		{debugName: "quest_state", scope: 1},
+		{debugName: "anon"},
 	}
 
 	blob := buildVarpDat(entries)
@@ -66,12 +71,48 @@ func TestParseVarpTypes(t *testing.T) {
 
 func TestVarpProtectDefaultTrue(t *testing.T) {
 	// No code 4 → Protect stays true.
-	blob := buildVarpDat([]varpEntry{{"x", 0, false}})
+	blob := buildVarpDat([]varpEntry{{"x", 0, false, 0}})
 	cfgs, err := parseVarpTypes(packet2.NewPacket(blob))
 	if err != nil {
 		t.Fatalf("parseVarpTypes: %v", err)
 	}
 	if !cfgs.Configs[0].Protect {
 		t.Errorf("Protect default: got false, want true")
+	}
+}
+
+// TestParseVarpTypes_DiscoversRunIDFromClientCode7 mirrors TS VarPlayerType.ts:50-53:
+// the varp config with ClientCode==7 is recorded as VarpTypeConfigs.RunID.
+func TestParseVarpTypes_DiscoversRunIDFromClientCode7(t *testing.T) {
+	entries := []varpEntry{
+		{debugName: "other_a", clientCode: 0},
+		{debugName: "option_run", clientCode: 7}, // id=1 — the run varp
+		{debugName: "other_b", clientCode: 0},
+	}
+	cfgs, err := parseVarpTypes(packet2.NewPacket(buildVarpDat(entries)))
+	if err != nil {
+		t.Fatalf("parseVarpTypes: %v", err)
+	}
+	if cfgs.RunID != 1 {
+		t.Errorf("RunID: got %d, want 1", cfgs.RunID)
+	}
+	if cfgs.Configs[1].ClientCode != 7 {
+		t.Errorf("Configs[1].ClientCode: got %d, want 7", cfgs.Configs[1].ClientCode)
+	}
+}
+
+// TestParseVarpTypes_RunIDDefaultsZeroWhenNoClientCode7 pins the TS-faithful
+// default-0 fallback (VarPlayerType.ts:18) when no clientcode-7 config exists.
+func TestParseVarpTypes_RunIDDefaultsZeroWhenNoClientCode7(t *testing.T) {
+	entries := []varpEntry{
+		{debugName: "alpha", clientCode: 1},
+		{debugName: "beta", clientCode: 3},
+	}
+	cfgs, err := parseVarpTypes(packet2.NewPacket(buildVarpDat(entries)))
+	if err != nil {
+		t.Fatalf("parseVarpTypes: %v", err)
+	}
+	if cfgs.RunID != 0 {
+		t.Errorf("RunID: got %d, want 0 (default)", cfgs.RunID)
 	}
 }

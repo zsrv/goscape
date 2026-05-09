@@ -53,6 +53,12 @@ func NewVarPlayerType(id int) *VarPlayerType {
 type VarpTypeConfigs struct {
 	ConfigNames map[string]int
 	Configs     []*VarPlayerType
+	// RunID is the varp id of the engine run-mode varp (the config whose
+	// ClientCode==7). Defaults to 0 (TS placeholder default at
+	// Engine-TS/src/cache/config/VarPlayerType.ts:18) when no clientcode-7
+	// config exists in the cache. Set by dynamic discovery mirroring
+	// VarPlayerType.ts:50-53.
+	RunID int
 }
 
 func LoadVarpTypes(dir string) (*VarpTypeConfigs, error) {
@@ -68,6 +74,7 @@ func parseVarpTypes(server *packet2.Packet) (*VarpTypeConfigs, error) {
 
 	configs := make([]*VarPlayerType, count)
 	configNames := make(map[string]int, count)
+	runID := 0
 
 	for id := range count {
 		config := NewVarPlayerType(id)
@@ -78,10 +85,14 @@ func parseVarpTypes(server *packet2.Packet) (*VarpTypeConfigs, error) {
 		if config.DebugName != "" {
 			configNames[config.DebugName] = id
 		}
+		if config.ClientCode == 7 {
+			runID = id
+		}
 	}
 
 	return &VarpTypeConfigs{
 		ConfigNames: configNames,
 		Configs:     configs,
+		RunID:       runID,
 	}, nil
 }
