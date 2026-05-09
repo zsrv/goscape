@@ -930,3 +930,58 @@ func handleInvMoveToSlot(s *ScriptState) error {
 	}
 	return nil
 }
+
+// handleInvChangeSlot (INV_CHANGESLOT) ports TS InvOps.ts:86-113. Pops
+// [inv, find, replace, replaceCount]. Loops the inventory for the first
+// slot whose item.Id == findObj.Id; on hit, replaces with replaceObj.Id
+// at replaceCount. No-match is a silent no-op.
+//
+// Validator chain (NAI-131 shape, partial): InvTypeValid → protect/scope
+// → ObjTypeValid(find) → ObjTypeValid(replace). NOTE: TS does NOT
+// validate replaceCount (no `check(count, ObjStackValid)` at InvOps.ts:86-113).
+// Goscape preserves this — pop-without-validate is intentional;
+// absence-pinned via TestInvChangeSlot_ReplaceCountZeroAbsencePin.
+func handleInvChangeSlot(s *ScriptState) error {
+	if err := requireActivePlayer(s, "INV_CHANGESLOT"); err != nil {
+		return err
+	}
+	replaceCount := s.PopInt()
+	replace := s.PopInt()
+	find := s.PopInt()
+	typeID := s.PopInt()
+
+	if err := checkInvType(s, typeID, "INV_CHANGESLOT"); err != nil {
+		return err
+	}
+
+	invType := s.Configs.InvType(typeID)
+	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared && !s.Protect {
+		return fmt.Errorf("INV_CHANGESLOT: $inv requires protected access: %s", invType.DebugName)
+	}
+
+	if err := checkObjType(s, find, "INV_CHANGESLOT"); err != nil {
+		return err
+	}
+	if err := checkObjType(s, replace, "INV_CHANGESLOT"); err != nil {
+		return err
+	}
+
+	inv := resolveInv(s, typeID)
+	if inv == nil {
+		return fmt.Errorf("INV_CHANGESLOT: no inv for type %d", typeID)
+	}
+
+	findObj := s.Configs.ObjType(find)
+	replaceObj := s.Configs.ObjType(replace)
+	for slot := 0; slot < inv.Capacity; slot++ {
+		it := inv.Get(slot)
+		if it == nil {
+			continue
+		}
+		if it.Id == findObj.ID {
+			inv.Set(slot, &inventory.Item{Id: replaceObj.ID, Count: replaceCount})
+			return nil
+		}
+	}
+	return nil
+}

@@ -1443,3 +1443,75 @@ func TestInvAdd_ObjStackValid_CountAboveStackLimit(t *testing.T) {
 	overLimit := int(inventory.StackLimit) + 1
 	runInvOpExpectErrAsPlayer(t, OpInvAdd, []int{testInvMain, testObjCoin, overLimit}, lookup, mc, fmt.Sprintf("invalid count (%d)", overLimit))
 }
+
+func TestInvChangeSlot_NoActivePlayer(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	runInvOpExpectErr(t, OpInvChangeSlot, []int{testInvMain, testObjCoin, testObjArr, 1}, lookup, mc, "INV_CHANGESLOT: no active player")
+}
+
+func TestInvChangeSlot_InvTypeInvalid(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	runInvOpExpectErrAsPlayer(t, OpInvChangeSlot, []int{9999, testObjCoin, testObjArr, 1}, lookup, mc, "no InvType with value (9999) found")
+}
+
+func TestInvChangeSlot_ProtectedRejectsUnprotected(t *testing.T) {
+	mc := newTestInvConfigs()
+	mc.invs[testInvMain].Protect = true
+	mc.invs[testInvMain].Scope = objtype.InvTypeScopePerm
+	lookup := newTestInvLookup()
+	runInvOpExpectErrAsPlayer(t, OpInvChangeSlot, []int{testInvMain, testObjCoin, testObjArr, 1}, lookup, mc, "INV_CHANGESLOT: $inv requires protected access")
+}
+
+func TestInvChangeSlot_FindObjTypeInvalid(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	runInvOpExpectErrAsPlayer(t, OpInvChangeSlot, []int{testInvMain, 9999, testObjArr, 1}, lookup, mc, "no ObjType with value (9999) found")
+}
+
+func TestInvChangeSlot_ReplaceObjTypeInvalid(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	runInvOpExpectErrAsPlayer(t, OpInvChangeSlot, []int{testInvMain, testObjCoin, 9999, 1}, lookup, mc, "no ObjType with value (9999) found")
+}
+
+func TestInvChangeSlot_HitOnFirstMatch(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	inv := lookup.Get(nil, testInvMain) // pre-populate
+	inv.Set(0, &inventory.Item{Id: testObjCoin, Count: 100})
+	inv.Set(1, &inventory.Item{Id: testObjCoin, Count: 50})
+	runInvOp(t, OpInvChangeSlot, []int{testInvMain, testObjCoin, testObjArr, 7}, lookup, mc)
+	// Slot 0 replaced; slot 1 untouched (early return on first hit).
+	if got := inv.Get(0); got == nil || got.Id != testObjArr || got.Count != 7 {
+		t.Errorf("slot 0: got %+v, want {Id=%d, Count=7}", got, testObjArr)
+	}
+	if got := inv.Get(1); got == nil || got.Id != testObjCoin || got.Count != 50 {
+		t.Errorf("slot 1 should be unchanged: got %+v", got)
+	}
+}
+
+func TestInvChangeSlot_NoMatchSilentNoOp(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	inv := lookup.Get(nil, testInvMain)
+	inv.Set(0, &inventory.Item{Id: testObjCoin, Count: 100})
+	runInvOp(t, OpInvChangeSlot, []int{testInvMain, testObjArr, testObjSword, 1}, lookup, mc)
+	if got := inv.Get(0); got == nil || got.Id != testObjCoin || got.Count != 100 {
+		t.Errorf("slot 0 should be unchanged: got %+v", got)
+	}
+}
+
+func TestInvChangeSlot_ReplaceCountZeroAbsencePin(t *testing.T) {
+	// Absence-pin: TS does NOT validate replaceCount via ObjStackValid (no `check(count, ObjStackValid)` at InvOps.ts:86-113).
+	// replaceCount=0 must be accepted (pop-without-validate); inv.Set writes the zero-count item.
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	inv := lookup.Get(nil, testInvMain)
+	inv.Set(0, &inventory.Item{Id: testObjCoin, Count: 100})
+	runInvOp(t, OpInvChangeSlot, []int{testInvMain, testObjCoin, testObjArr, 0}, lookup, mc)
+	if got := inv.Get(0); got == nil || got.Id != testObjArr || got.Count != 0 {
+		t.Errorf("slot 0: got %+v, want {Id=%d, Count=0}", got, testObjArr)
+	}
+}
