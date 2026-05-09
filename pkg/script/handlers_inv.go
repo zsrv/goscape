@@ -291,20 +291,30 @@ func handleInvTotalCat(s *ScriptState) error {
 // -- Mutations --
 
 // handleInvAdd ports TS InvOps.ts:57-83 (INV_ADD, opcode 4302). Pops
-// [inv, obj, count]; adds count units of obj to the inv via Inventory.Add
-// with caller-precomputed Stackable/StockObj flags. Per TS, any overflow
-// drops to the world at the player's tile via World.AddObj — branched on
-// (!stackable || overflow == 1) for the per-unit-loop case vs the
-// single-stack-drop case (TS InvOps.ts:73-82, duration=200).
+// [inv, obj, count]; validates each via TS check chain (InvTypeValid,
+// ObjTypeValid, ObjStackValid), enforces the protect/scope gate, and
+// rejects dummy items in non-dummy invs. Adds count units of obj to
+// the inv via Inventory.Add with caller-precomputed Stackable/StockObj
+// flags. Per TS, any overflow drops to the world at the player's tile
+// via World.AddObj — branched on (!stackable || overflow == 1) for the
+// per-unit-loop case vs the single-stack-drop case (TS InvOps.ts:73-82,
+// duration=200).
+//
+// Validator chain (NAI-131): InvTypeValid → ObjTypeValid → ObjStackValid
+// → protect/scope (rejects unprotected scripts when invType.Protect &&
+// scope != SHARED) → dummyitem (rejects ObjType.DummyItem != 0 when
+// invType.DummyInv == false). All 5 gates throw in TS; goscape returns
+// errors with TS-shaped literals.
 //
 // DEVIATION-NAI-130-D2: defensive nil-World guard skips the overflow
 // drop when s.World is unset (goscape defensive; TS uses static World
 // import which is never null). Per defensive_gate_doc_comment_label.
 //
-// DEVIATION-NAI-130-D3: defensive nil-Configs fallback (Stackable=false,
-// StockObj=false) when s.Configs is unset (goscape defensive; TS
-// `check(obj, ObjTypeValid)` would throw on missing config). Mirrors
-// the invItemSpaceRemaining nil-Configs pattern at handlers_inv.go.
+// DEVIATION-NAI-130-D3: defensive nil-Configs fallback in
+// lookupStackableStockObj retained for sibling callers (handleInvMoveItem
+// etc.); INV_ADD itself is now ObjType-validated before the helper
+// runs, making the fallback unreachable on this path. The defensive
+// fallback stays for the sibling Move handlers (NAI-131 T4).
 func handleInvAdd(s *ScriptState) error {
 	if err := requireActivePlayer(s, "INV_ADD"); err != nil {
 		return err
@@ -312,8 +322,35 @@ func handleInvAdd(s *ScriptState) error {
 	count := s.PopInt()
 	obj := s.PopInt()
 	typeID := s.PopInt()
+
+	// TS InvOps.ts:60-62 — InvTypeValid, ObjTypeValid, ObjStackValid.
+	if err := checkInvType(s, typeID, "INV_ADD"); err != nil {
+		return err
+	}
+	if err := checkObjType(s, obj, "INV_ADD"); err != nil {
+		return err
+	}
+	if err := checkObjStack(count, "INV_ADD"); err != nil {
+		return err
+	}
+
+	invType := s.Configs.InvType(typeID)
+	objType := s.Configs.ObjType(obj)
+
+	// TS InvOps.ts:64-66 — protect/scope gate.
+	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared && !s.Protect {
+		return fmt.Errorf("INV_ADD: $inv requires protected access: %s", invType.DebugName)
+	}
+
+	// TS InvOps.ts:68-70 — dummyitem-in-non-dummyinv gate.
+	if !invType.DummyInv && objType.DummyItem != 0 {
+		return fmt.Errorf("INV_ADD: dummyitem in non-dummyinv: %s -> %s", objType.DebugName, invType.DebugName)
+	}
+
 	inv := resolveInv(s, typeID)
 	if inv == nil {
+		// Defensive: unreachable post-checkInvType for valid configs;
+		// retained for the InvLookup-unset case (s.Inv == nil → resolveInv returns nil).
 		return fmt.Errorf("INV_ADD: no inv for type %d", typeID)
 	}
 

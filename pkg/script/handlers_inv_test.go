@@ -948,6 +948,7 @@ func newInvAddOverflowState(t *testing.T) (*ScriptState, *fakeWorldAddObj, *inve
 	mc := newTestInvConfigs()
 	invType := objtype.NewInvType(testInvMain)
 	invType.Size = 28
+	invType.Protect = false // NewInvType defaults Protect=true; clear so overflow tests don't trip the protect gate (goscape defensive_gate_doc_comment_label)
 	mc.invs[testInvMain] = invType
 	s.Configs = mc
 
@@ -1095,4 +1096,68 @@ func TestInvAdd_OverflowDropReceiverIsPlayerUID(t *testing.T) {
 	if got := w.addedCalls[0].receiverID; got != 99999 {
 		t.Errorf("AddObj receiverID: got %d, want 99999", got)
 	}
+}
+
+// -- NAI-131 INV_ADD validator tests --
+
+// (T1.1) InvTypeValid: passing an inv id not registered in s.Configs
+// triggers checkInvType before any inv lookup, mirroring TS check(inv,
+// InvTypeValid). Asserts TS-shaped error literal.
+func TestInvAdd_InvTypeValid_UnregisteredID(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	delete(mc.invs, testInvMain)
+	runInvOpExpectErrAsPlayer(t, OpInvAdd, []int{testInvMain, testObjCoin, 1}, lookup, mc, "no InvType with value (1) found")
+}
+
+// (T1.2) ObjTypeValid: passing an obj id not registered triggers
+// checkObjType. Mirrors TS check(objId, ObjTypeValid).
+func TestInvAdd_ObjTypeValid_UnregisteredID(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	delete(mc.objs, testObjCoin)
+	runInvOpExpectErrAsPlayer(t, OpInvAdd, []int{testInvMain, testObjCoin, 1}, lookup, mc, "no ObjType with value (995) found")
+}
+
+// (T1.3) ObjStackValid: count == 0 (TS: ScriptInputRangeValidator min=1).
+func TestInvAdd_ObjStackValid_CountZero(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	runInvOpExpectErrAsPlayer(t, OpInvAdd, []int{testInvMain, testObjCoin, 0}, lookup, mc, "invalid count (0)")
+}
+
+// (T1.4) ObjStackValid: count == -1 (TS rejects below min=1).
+func TestInvAdd_ObjStackValid_CountNegative(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	runInvOpExpectErrAsPlayer(t, OpInvAdd, []int{testInvMain, testObjCoin, -1}, lookup, mc, "invalid count (-1)")
+}
+
+// (T1.5) Protect+TEMP scope rejects unprotected script. The fixture
+// invType "main" defaults Scope=TEMP so a Protect=true override here
+// triggers the gate.
+func TestInvAdd_ProtectGate_RejectsUnprotected(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	mc.invs[testInvMain].Protect = true // scope is TEMP from T0 default
+	runInvOpExpectErrAsPlayer(t, OpInvAdd, []int{testInvMain, testObjCoin, 1}, lookup, mc, "$inv requires protected access: main")
+}
+
+// (T1.6) Protect+SHARED scope is the TS escape hatch — no protected
+// access required even when Protect=true.
+func TestInvAdd_ProtectGate_SharedScopeEscapeHatch(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	mc.invs[testInvBank].Protect = true // bank is SHARED scope per T0
+	// No error expected: SHARED scope skips the protect gate.
+	runInvOp(t, OpInvAdd, []int{testInvBank, testObjCoin, 1}, lookup, mc)
+}
+
+// (T1.7) Dummy-item gate: non-DummyInv inv + ObjType.DummyItem != 0
+// rejects with TS-shaped literal.
+func TestInvAdd_DummyItemGate_RejectsDummyItemInRegularInv(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	mc.objs[testObjCoin].DummyItem = 1 // make coins a dummy item; main is not a dummy inv
+	runInvOpExpectErrAsPlayer(t, OpInvAdd, []int{testInvMain, testObjCoin, 1}, lookup, mc, "dummyitem in non-dummyinv: coins -> main")
 }
