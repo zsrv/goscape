@@ -2472,3 +2472,118 @@ func TestInvDropItemDelayed_NilWorld_DefensiveError(t *testing.T) {
 		t.Errorf("err: got %q, want substring \"no world surface\"", err)
 	}
 }
+
+// TestInvDropItemDelayed_ProtectGate_Operand0_Errors pins operand=0 +
+// Protect=true + Scope!=Shared + no PtrProtectedActivePlayer → error.
+func TestInvDropItemDelayed_ProtectGate_Operand0_Errors(t *testing.T) {
+	s, _, world := makeDropItemDelayedState(t, true, objtype.InvTypeScopeTemp, 5)
+	// Pointers does NOT include PtrProtectedActivePlayer.
+
+	pushDropItemDelayedArgs(s, testInvMain, coordgrid.PackCoord(0, 3200, 3200), testObjCoin, 1, 100, 0)
+	err := handleInvDropItemDelayed(s)
+
+	if err == nil {
+		t.Fatalf("expected protect-gate error")
+	}
+	if !strings.Contains(err.Error(), "protected access") {
+		t.Errorf("err: got %q, want substring \"protected access\"", err)
+	}
+	if !strings.Contains(err.Error(), "test_inv") {
+		t.Errorf("err: got %q, want substring \"test_inv\" (debugname)", err)
+	}
+	if got := len(world.enqueueObjDelayedCalls); got != 0 {
+		t.Errorf("protect-error path: expected 0 enqueue, got %d", got)
+	}
+}
+
+// TestInvDropItemDelayed_ProtectGate_Operand0_PassesWithFlag pins
+// operand=0 + Protect=true + PtrProtectedActivePlayer set → success.
+func TestInvDropItemDelayed_ProtectGate_Operand0_PassesWithFlag(t *testing.T) {
+	s, _, world := makeDropItemDelayedState(t, true, objtype.InvTypeScopeTemp, 5)
+	s.Pointers |= PtrProtectedActivePlayer
+
+	pushDropItemDelayedArgs(s, testInvMain, coordgrid.PackCoord(0, 3200, 3200), testObjCoin, 1, 100, 0)
+	err := handleInvDropItemDelayed(s)
+
+	if err != nil {
+		t.Fatalf("protect-flag set: unexpected error: %v", err)
+	}
+	if got := len(world.enqueueObjDelayedCalls); got != 1 {
+		t.Errorf("protect-flag set: expected 1 enqueue, got %d", got)
+	}
+}
+
+// TestInvDropItemDelayed_ProtectGate_Operand1_RequiresPtr2 pins NAI-133
+// slot routing: operand=1 must check PtrProtectedActivePlayer2, not
+// PtrProtectedActivePlayer.
+//
+// Sub-case A: only PtrProtectedActivePlayer set (not …2) → error.
+// Sub-case B: PtrProtectedActivePlayer2 set → success.
+func TestInvDropItemDelayed_ProtectGate_Operand1_RequiresPtr2(t *testing.T) {
+	t.Run("PtrProtectedActivePlayer_only_errors", func(t *testing.T) {
+		s, _, _ := makeDropItemDelayedState(t, true, objtype.InvTypeScopeTemp, 5)
+		s.Script.IntOperands[s.PC] = 1
+		s.Pointers |= PtrProtectedActivePlayer // wrong slot
+
+		pushDropItemDelayedArgs(s, testInvMain, coordgrid.PackCoord(0, 3200, 3200), testObjCoin, 1, 100, 0)
+		err := handleInvDropItemDelayed(s)
+
+		if err == nil {
+			t.Fatalf("operand=1 with only PtrProtectedActivePlayer (not …2): expected error")
+		}
+		if !strings.Contains(err.Error(), "protected access") {
+			t.Errorf("err: got %q, want substring \"protected access\"", err)
+		}
+	})
+
+	t.Run("PtrProtectedActivePlayer2_passes", func(t *testing.T) {
+		s, _, world := makeDropItemDelayedState(t, true, objtype.InvTypeScopeTemp, 5)
+		s.Script.IntOperands[s.PC] = 1
+		s.Pointers |= PtrProtectedActivePlayer2
+
+		pushDropItemDelayedArgs(s, testInvMain, coordgrid.PackCoord(0, 3200, 3200), testObjCoin, 1, 100, 0)
+		err := handleInvDropItemDelayed(s)
+
+		if err != nil {
+			t.Fatalf("operand=1 with PtrProtectedActivePlayer2: unexpected error: %v", err)
+		}
+		if got := len(world.enqueueObjDelayedCalls); got != 1 {
+			t.Errorf("expected 1 enqueue, got %d", got)
+		}
+	})
+}
+
+// TestInvDropItemDelayed_BadOperand_Errors pins operand=2 → "invalid
+// intOperand". Mirrors handleBothMoveInv at handlers_inv.go:1230-1233.
+func TestInvDropItemDelayed_BadOperand_Errors(t *testing.T) {
+	s, _, _ := makeDropItemDelayedState(t, false, objtype.InvTypeScopeTemp, 5)
+	s.Script.IntOperands[s.PC] = 2
+
+	pushDropItemDelayedArgs(s, testInvMain, coordgrid.PackCoord(0, 3200, 3200), testObjCoin, 1, 100, 0)
+	err := handleInvDropItemDelayed(s)
+
+	if err == nil {
+		t.Fatalf("operand=2: expected error")
+	}
+	if !strings.Contains(err.Error(), "invalid intOperand") {
+		t.Errorf("err: got %q, want substring \"invalid intOperand\"", err)
+	}
+}
+
+// TestInvDropItemDelayed_SharedScopeBypassesProtect pins TS InvOps.ts:197:
+// when invType.Scope == InvTypeScopeShared, the protect gate is skipped
+// even if invType.Protect=true and no PtrProtectedActivePlayer flag.
+func TestInvDropItemDelayed_SharedScopeBypassesProtect(t *testing.T) {
+	s, _, world := makeDropItemDelayedState(t, true, objtype.InvTypeScopeShared, 5)
+	// Pointers does NOT include PtrProtectedActivePlayer.
+
+	pushDropItemDelayedArgs(s, testInvMain, coordgrid.PackCoord(0, 3200, 3200), testObjCoin, 1, 100, 0)
+	err := handleInvDropItemDelayed(s)
+
+	if err != nil {
+		t.Fatalf("Scope=Shared: unexpected error: %v", err)
+	}
+	if got := len(world.enqueueObjDelayedCalls); got != 1 {
+		t.Errorf("Scope=Shared: expected 1 enqueue, got %d", got)
+	}
+}
