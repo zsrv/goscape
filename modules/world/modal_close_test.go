@@ -97,52 +97,6 @@ func TestCloseModalPreservesWeakQueueWhenFalse(t *testing.T) {
 	}
 }
 
-// TestCloseModalClearsActiveScriptProtectWhenNotDelayed pins
-// !delayed && activeScript != nil → PtrProtectedActivePlayer cleared.
-// Mirrors TS Player.closeModal !delayed → protect=false branch
-// (Player.ts:745-747), applied via NAI-52 convergence (TS this.protect ↔
-// goscape activeScript.Pointers&PtrProtectedActivePlayer).
-func TestCloseModalClearsActiveScriptProtectWhenNotDelayed(t *testing.T) {
-	p, _ := newTestPlayer(t)
-	p.delayed = false
-	p.activeScript = &script.ScriptState{
-		Script:   &script.ScriptFile{Name: "running"},
-		Pointers: script.PtrProtectedActivePlayer,
-	}
-
-	p.CloseModal(true)
-
-	if p.activeScript == nil {
-		t.Fatal("activeScript: got nil, want preserved (Suspended/Running scripts not nulled)")
-	}
-	if p.activeScript.Pointers&script.PtrProtectedActivePlayer != 0 {
-		t.Errorf("activeScript.PtrProtectedActivePlayer: got set, want clear (!delayed should clear)")
-	}
-	if p.protectedScriptActive() {
-		t.Errorf("protectedScriptActive(): got true, want false (NAI-52 convergence)")
-	}
-}
-
-// TestCloseModalPreservesActiveScriptProtectWhenDelayed pins
-// delayed → activeScript.PtrProtectedActivePlayer preserved.
-// Mirrors TS Player.closeModal `if (!this.delayed)` guard.
-func TestCloseModalPreservesActiveScriptProtectWhenDelayed(t *testing.T) {
-	p, _ := newTestPlayer(t)
-	p.delayed = true
-	p.activeScript = &script.ScriptState{
-		Script:   &script.ScriptFile{Name: "running"},
-		Pointers: script.PtrProtectedActivePlayer,
-	}
-
-	p.CloseModal(true)
-
-	if p.activeScript == nil {
-		t.Fatal("activeScript: got nil, want preserved")
-	}
-	if p.activeScript.Pointers&script.PtrProtectedActivePlayer == 0 {
-		t.Errorf("activeScript.PtrProtectedActivePlayer: got clear, want set (delayed should preserve)")
-	}
-}
 
 // TestCloseModalNilActiveScriptNoPanic pins !delayed + nil activeScript
 // is a no-op (no panic). Mirrors TS where `this.protect = false` is a
@@ -210,20 +164,15 @@ func TestCloseModalNonNoneResetsAllSlots(t *testing.T) {
 	}
 }
 
-// TestCloseModalNoneEarlyReturnStillRunsClearWeakQueueAndProtect pins
-// the early-return is positioned AFTER weak-queue clearing and the
-// !delayed protect-clear (TS Player.ts:742-748 — both run before the
-// modalState check).
-func TestCloseModalNoneEarlyReturnStillRunsClearWeakQueueAndProtect(t *testing.T) {
+// TestCloseModalNoneEarlyReturnStillRunsClearWeakQueue pins the
+// weak-queue clearing runs BEFORE the modalState == NONE early-return
+// (TS Player.ts:742-744 — clearWeakQueue runs before the modalState
+// check).
+func TestCloseModalNoneEarlyReturnStillRunsClearWeakQueue(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	sf := &script.ScriptFile{Name: "stub"}
 	p.queue = []playerQueueRequest{
 		{Script: sf, Type: script.QueueWeak},
-	}
-	p.delayed = false
-	p.activeScript = &script.ScriptState{
-		Script:   &script.ScriptFile{Name: "running"},
-		Pointers: script.PtrProtectedActivePlayer,
 	}
 	p.modalState = modalStateNone
 
@@ -231,9 +180,6 @@ func TestCloseModalNoneEarlyReturnStillRunsClearWeakQueueAndProtect(t *testing.T
 
 	if len(p.queue) != 0 {
 		t.Errorf("queue len: got %d, want 0 (weak should be cleared even on NONE early-return)", len(p.queue))
-	}
-	if p.activeScript == nil || p.activeScript.Pointers&script.PtrProtectedActivePlayer != 0 {
-		t.Errorf("activeScript.PtrProtectedActivePlayer should be cleared even on NONE early-return")
 	}
 }
 
@@ -279,7 +225,6 @@ func TestCloseModalNullsActiveScriptOnPauseButton(t *testing.T) {
 // non-COUNTDIALOG/PAUSEBUTTON execution states from the null branch.
 func TestCloseModalPreservesActiveScriptOnSuspended(t *testing.T) {
 	p, _ := newTestPlayer(t)
-	p.delayed = true // delayed so the protect-clear block doesn't fire
 	p.modalState = modalStateChat
 	p.modalChat = 7
 	state := &script.ScriptState{
@@ -293,6 +238,59 @@ func TestCloseModalPreservesActiveScriptOnSuspended(t *testing.T) {
 
 	if p.activeScript != state {
 		t.Errorf("activeScript: got %v, want preserved %v (Suspended must NOT be cleared)", p.activeScript, state)
+	}
+}
+
+// TestCloseModalPreservesInFlightProtectOnResumedScript pins NAI-111:
+// CloseModal must NOT strip PtrProtectedActivePlayer from p.activeScript.
+// During a resumed script's in-flight execution (Execution=Running),
+// p.activeScript IS the in-flight ScriptState — handlers downstream of
+// tut_close/if_close (e.g. p_telejump) read s.Pointers&PAP via
+// requireProtectedActivePlayer. TS Player.closeModal (Player.ts:741-794)
+// touches no script pointer. Regression for NAI-53 T3's incorrect
+// NAI-52-convergence over-clear.
+func TestCloseModalPreservesInFlightProtectOnResumedScript(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.delayed = false
+	state := &script.ScriptState{
+		Script:    &script.ScriptFile{Name: "tutorial_complete"},
+		Execution: script.Running,
+		Pointers:  script.PtrActivePlayer | script.PtrProtectedActivePlayer,
+	}
+	p.activeScript = state
+
+	p.CloseModal(true)
+
+	if p.activeScript != state {
+		t.Fatalf("activeScript: got %v, want preserved %v (Running must NOT be cleared)", p.activeScript, state)
+	}
+	if p.activeScript.Pointers&script.PtrProtectedActivePlayer == 0 {
+		t.Errorf("activeScript.PtrProtectedActivePlayer: got clear, want set (CloseModal must not strip mid-flight protect)")
+	}
+	if p.activeScript.Pointers&script.PtrActivePlayer == 0 {
+		t.Errorf("activeScript.PtrActivePlayer: got clear, want set (CloseModal must not touch any script pointer)")
+	}
+}
+
+// TestCloseModal_NotDelayed_ProtectedScriptActiveStaysTrue pins NAI-111:
+// after CloseModal on a !delayed player whose activeScript is a Running
+// protected script, protectedScriptActive() must still return true.
+// Externally observable form of the same invariant covered by
+// TestCloseModalPreservesInFlightProtectOnResumedScript; this view
+// matches the gate consumed by CanAccess and processWalktrigger.
+func TestCloseModal_NotDelayed_ProtectedScriptActiveStaysTrue(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.delayed = false
+	p.activeScript = &script.ScriptState{
+		Script:    &script.ScriptFile{Name: "tutorial_complete"},
+		Execution: script.Running,
+		Pointers:  script.PtrActivePlayer | script.PtrProtectedActivePlayer,
+	}
+
+	p.CloseModal(true)
+
+	if !p.protectedScriptActive() {
+		t.Errorf("protectedScriptActive(): got false, want true (CloseModal must not strip in-flight protect)")
 	}
 }
 

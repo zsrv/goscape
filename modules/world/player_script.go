@@ -267,19 +267,20 @@ func (p *Player) UID() int { return p.uid }
 
 // CanAccess implements script.ActivePlayer.CanAccess — the P_FINDUID
 // protected-binding gate. False when delayed, when a modal main/chat
-// is open, or when a suspended protected script is stored. Mirrors TS
-// Player.canAccess at Engine-TS/src/engine/entity/Player.ts:805-812.
+// is open, or when a protected script is stored on activeScript.
+// Mirrors TS Player.canAccess at Engine-TS/src/engine/entity/Player.ts:805-812.
 //
 // The World-shutdown early-return from TS is omitted — goscape has
 // no global shutdown flag to consult and rejects lookups uniformly.
 //
-// The third branch derives what TS expresses as a single Player.protect
-// bool from activeScript.Pointers&PtrProtectedActivePlayer. They are equivalent: TS persists the
-// flag onto the player at script suspension (Player.ts:2141) and clears
-// it at script completion (:2103-2114), so "is the player in a stored
-// protected script?" and "is the player-level protect flag set?" are
-// the same condition — goscape just reads it from the stored state
-// instead of a redundant bool field.
+// The third branch reads activeScript.Pointers&PtrProtectedActivePlayer
+// to answer TS's `!this.protect` gate. The mapping holds because
+// goscape's StoreActiveScript (player_script.go:138-140) preserves
+// Pointers across suspensions — so "is a protected script stored on
+// the player?" and TS's persisted `this.protect` bool produce
+// identical observable behavior across the canAccess + walktrigger
+// gates. See DEVIATION-NAI-111-D1 on CloseModal for the full
+// narrowed-convergence rationale.
 func (p *Player) CanAccess() bool {
 	if p.delayed {
 		return false
@@ -293,12 +294,15 @@ func (p *Player) CanAccess() bool {
 	return true
 }
 
-// protectedScriptActive reports whether the player currently owns a
-// suspended protected script — goscape's mapping of TS Player.protect.
-// Used by CanAccess (above) and processWalktrigger to gate operations
-// that TS guards with !this.protect. See the CanAccess doc-comment for
-// the activeScript.Pointers&PtrProtectedActivePlayer ↔ TS Player.protect equivalence rationale.
-// NAI-52.
+// protectedScriptActive reports whether the player currently has a
+// protected script stored on activeScript — goscape's mapping of
+// TS Player.protect for external (non-handler) consumers. Used by
+// CanAccess (above) and processWalktrigger to gate operations that
+// TS guards with !this.protect. See CanAccess + DEVIATION-NAI-111-D1
+// on CloseModal for the narrowed-convergence rationale: the
+// activeScript-pointer reading produces identical observable behavior
+// to TS Player.protect because StoreActiveScript preserves Pointers
+// across suspensions. NAI-52, narrowed in NAI-111.
 func (p *Player) protectedScriptActive() bool {
 	return p.activeScript != nil && p.activeScript.Pointers&script.PtrProtectedActivePlayer != 0
 }
@@ -712,21 +716,30 @@ func (p *Player) SetWalkTrigger(scriptID int) { p.walktrigger = scriptID }
 // CloseModal clears every modal slot and flags the client to emit
 // IF_CLOSE on the next encodeOut pass. When clearWeakQueue is true
 // (TS default), drops every QueueWeak entry from p.queue before
-// processing. When the player is not delayed, clears any active
-// script's Protect flag (NAI-52 convergence). Early-returns if no
-// modal is currently open. Otherwise: nulls activeScript on
-// COUNTDIALOG/PAUSEBUTTON suspends (closes NAI-52-F1) and dispatches
-// a per-slot IF_CLOSE trigger script (Main → Chat → Side, TS order).
+// processing. Early-returns if no modal is currently open. Otherwise:
+// nulls activeScript on COUNTDIALOG/PAUSEBUTTON suspends (closes
+// NAI-52-F1) and dispatches a per-slot IF_CLOSE trigger script
+// (Main → Chat → Side, TS order).
 //
 // Mirrors TS Player.closeModal (Player.ts:741-794). Body fully
 // landed across NAI-53 T1-T5; per-slot clearComListeners wired in
 // NAI-64 (TS Player.ts:728-739, 767, 778, 789).
+//
+// DEVIATION-NAI-111-D1: NAI-52 convergence narrowed. CloseModal does
+// NOT touch p.activeScript.Pointers — TS Player.closeModal clears
+// this.protect (Player-level bool) but contains zero pointer
+// operations on script.pointers&PAP. Goscape maps PAP only to the
+// script-state bitmask; the external "is a protected script
+// suspended?" question is answered by protectedScriptActive, which
+// reads the preserved pointer on the stored *ScriptState across
+// suspensions (StoreActiveScript at player_script.go:138-140
+// preserves Pointers). NAI-53 T3's earlier convergence claim that
+// CloseModal must clear PAP was incorrect — it stripped the gate
+// from in-flight resumed scripts (e.g. tut_close inside
+// [label,tutorial_complete] caused P_TELEJUMP to abort).
 func (p *Player) CloseModal(clearWeakQueue bool) {
 	if clearWeakQueue {
 		p.clearWeakQueue()
-	}
-	if !p.delayed && p.activeScript != nil {
-		p.activeScript.Pointers &^= script.PtrProtectedActivePlayer
 	}
 
 	if p.modalState == modalStateNone {
