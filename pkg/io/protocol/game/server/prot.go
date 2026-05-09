@@ -55,6 +55,10 @@ var (
 
 	OpUpdateStat            = Op{Opcode: 44, PayloadSize: 6}
 	OpUpdateRunEnergy       = Op{Opcode: 68, PayloadSize: 1}
+	// Per-player run-weight (kg). Emitted from NetworkPlayer.updateInvs when an
+	// inv with RunWeight=true is dirtied or first-seen. Mirrors TS
+	// ServerGameProt.UPDATE_RUNWEIGHT (opcode 22, 2-byte payload).
+	OpUpdateRunWeight       = Op{Opcode: 22, PayloadSize: 2}
 	OpUpdateInvStopTransmit = Op{Opcode: 15, PayloadSize: 2}
 
 	// Per-player VARP sync. VARP_SMALL fits values in [-128, 127];

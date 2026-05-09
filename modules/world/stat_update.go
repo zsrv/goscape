@@ -22,3 +22,16 @@ func sendUpdateRunEnergy(p *Player, energy int) {
 	buf.P1(uint8(energy / 100))
 	p.writeOut(gameserver.OpUpdateRunEnergy, buf.Bytes())
 }
+
+// sendUpdateRunWeight writes one UpdateRunWeight packet (kg field is
+// the truncated runweight/1000). Mirrors TS UpdateRunWeightEncoder
+// (`buf.p2(kg)`). Negative kg is signed-16-bit-encoded for parity with
+// TS p2 (which is signed); in practice kg is always >= 0 since
+// calculateRunWeight sums non-negative ObjType.Weight values.
+//
+// NAI-136.
+func sendUpdateRunWeight(p *Player, kg int) {
+	buf := packet.NewPacket(nil)
+	buf.P2(uint16(int16(kg)))
+	p.writeOut(gameserver.OpUpdateRunWeight, buf.Bytes())
+}

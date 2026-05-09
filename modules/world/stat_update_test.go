@@ -55,6 +55,66 @@ func TestSendUpdateRunEnergyWireFormat(t *testing.T) {
 	}
 }
 
+// TestSendUpdateRunWeightWireFormat pins the exact 3-byte wire encoding for
+// sendUpdateRunWeight(p, 42): encrypted opcode (1 byte) + P2(42) (2 bytes).
+// Mirrors TS UpdateRunWeightEncoder (`buf.p2(kg)`). NAI-136.
+func TestSendUpdateRunWeightWireFormat(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	want := []byte{
+		byte((int(gameserver.OpUpdateRunWeight.Opcode) + int(enc.GetNext())) & 0xff),
+		0x00, 0x2a, // P2(42)
+	}
+
+	received := drainConn(t, cc)
+	sendUpdateRunWeight(p, 42)
+	p.client.flushWrite()
+
+	got := <-received
+	if !bytes.Equal(got, want) {
+		t.Errorf("wire: got %v, want %v", got, want)
+	}
+}
+
+// TestSendUpdateRunWeight_LargeKg pins that kg=64 round-trips through P2 without
+// truncation. NAI-136.
+func TestSendUpdateRunWeight_LargeKg(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	want := []byte{
+		byte((int(gameserver.OpUpdateRunWeight.Opcode) + int(enc.GetNext())) & 0xff),
+		0x00, 0x40, // P2(64)
+	}
+
+	received := drainConn(t, cc)
+	sendUpdateRunWeight(p, 64)
+	p.client.flushWrite()
+
+	got := <-received
+	if !bytes.Equal(got, want) {
+		t.Errorf("wire: got %v, want %v", got, want)
+	}
+}
+
+// TestSendUpdateRunWeight_NegativeRoundsTowardZero pins Go integer division
+// truncation toward zero for negative values. This is the divisor at the
+// sendUpdateRunWeight call site (p.runweight/1000) and mirrors TS Math.trunc.
+// In practice calculateRunWeight only sums non-negative weights, but the
+// truncation parity with TS is worth an explicit pin. NAI-136 §7 R5.
+func TestSendUpdateRunWeight_NegativeRoundsTowardZero(t *testing.T) {
+	// Go: int / int truncates toward zero, same as TS Math.trunc.
+	if -500/1000 != 0 {
+		t.Errorf("-500/1000 = %d, want 0 (Go must truncate toward zero)", -500/1000)
+	}
+	if -1500/1000 != -1 {
+		t.Errorf("-1500/1000 = %d, want -1", -1500/1000)
+	}
+}
+
 // drainConn reads everything currently in the pipe. Must be called BEFORE flush.
 func drainConn(t *testing.T, c net.Conn) <-chan []byte {
 	t.Helper()

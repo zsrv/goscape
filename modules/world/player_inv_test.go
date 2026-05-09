@@ -334,6 +334,244 @@ func TestUpdateInvsLazyAllocSeedsStockTemp(t *testing.T) {
 	}
 }
 
+// ── NAI-136 runweight extension tests (§8.3) ──────────────────────────────────
+
+// buildRunWeightInvServer builds a minimal Server with invTypes + objTypes for
+// player_inv_test NAI-136 tests. invTypeID must be the RunWeight=true InvType;
+// objTypeID must be the non-stackable weighted ObjType used for items.
+func buildRunWeightInvServer(t *testing.T, p *Player, invTypeID, objTypeID, objWeight int) *Server {
+	t.Helper()
+	invConfigs := make([]*objtype.InvType, testInvTypesLen)
+	invConfigs[invTypeID] = &objtype.InvType{
+		ConfigType: objtype.ConfigType{ID: invTypeID},
+		Scope:      objtype.InvTypeScopeTemp,
+		Size:       1,
+		RunWeight:  true,
+	}
+	objConfigs := make([]*objtype.ObjType, objTypeID+1)
+	objConfigs[objTypeID] = &objtype.ObjType{
+		Stackable: false,
+		Weight:    objWeight,
+	}
+	s := &Server{
+		log:        discardLogger(),
+		invTypes:   &objtype.InvTypeConfigs{Configs: invConfigs},
+		objTypes:   &objtype.ObjTypeConfigs{Configs: objConfigs},
+		invs:       make(map[int]*inventory.Inventory),
+		playerLoop: []*Player{p},
+	}
+	s.invLookup = invLookupView{s: s}
+	p.client.server = s
+	p.uid = 12345
+	p.active = true
+	return s
+}
+
+// Wire sizes for a capacity=1 inv (empty or 1 item, count<255):
+//   UpdateInvFull wire = 1 opcode + 2 len + (2 com + 1 size + 2 id + 1 count) = 9 bytes.
+//   UpdateRunWeight wire = 1 opcode + 2 payload = 3 bytes.
+const (
+	updateInvFull1SlotBytes   = 9  // capacity=1 inv, any fill state
+	updateRunWeightBytes      = 3
+)
+
+// TestUpdateInvs_RunWeightChangedEmitsPacket — per-player listener on a
+// RunWeight=true inv; after first-tick (clears FirstSeen), add a weighted item
+// and run a second tick. The second tick emits UpdateInvFull + UpdateRunWeight.
+// NAI-136 §8.3.
+func TestUpdateInvs_RunWeightChangedEmitsPacket(t *testing.T) {
+	const invTypeID = testInvTypeID
+	const objTypeID = 3
+	const objWeight = 1000 // 1 kg
+
+	p, cc := newTestPlayer(t)
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	s := buildRunWeightInvServer(t, p, invTypeID, objTypeID, objWeight)
+
+	// Register per-player listener (FirstSeen=true).
+	p.invListenOnCom(invTypeID, 149, p.uid)
+
+	// Tick 1 — drains FirstSeen; inv is empty; runweight stays 0 after calculateRunWeight.
+	received1 := drainConn(t, cc)
+	p.updateInvs()
+	p.client.flushWrite()
+	<-received1 // consume to unblock
+
+	// Verify FirstSeen is now false.
+	if p.invListeners[149].FirstSeen {
+		t.Fatal("setup: FirstSeen must be false after tick 1")
+	}
+
+	// Add a weighted non-stackable item to the per-player inv.
+	inv := s.invLookup.Get(p, invTypeID)
+	if inv == nil {
+		t.Fatal("setup: inv must be allocated after tick 1")
+	}
+	inv.Items[0] = &inventory.Item{Id: objTypeID, Count: 1}
+	inv.Update = true // mark dirty so the listener fires
+
+	// Tick 2 — inv.Update=true, RunWeight inv → runWeightChanged=true.
+	// calculateRunWeight returns 1000; before=0 → runWeightChanged stays true.
+	received2 := drainConn(t, cc)
+	p.updateInvs()
+	p.client.flushWrite()
+	got2 := <-received2
+
+	wantLen := updateInvFull1SlotBytes + updateRunWeightBytes
+	if len(got2) != wantLen {
+		t.Errorf("tick 2: got %d bytes, want %d (UpdateInvFull + UpdateRunWeight)", len(got2), wantLen)
+	}
+}
+
+// TestUpdateInvs_FirstSeenEmitsEvenIfWeightZero — fresh listener (FirstSeen=true)
+// on an empty RunWeight inv; even though runWeightChanged=false (weight stays 0),
+// firstSeen forces UpdateRunWeight(0) to be emitted. NAI-136 §8.3.
+func TestUpdateInvs_FirstSeenEmitsEvenIfWeightZero(t *testing.T) {
+	const invTypeID = testInvTypeID
+	const objTypeID = 3
+
+	p, cc := newTestPlayer(t)
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	buildRunWeightInvServer(t, p, invTypeID, objTypeID, 1000)
+
+	// Register listener with FirstSeen=true (default).
+	p.invListenOnCom(invTypeID, 149, p.uid)
+
+	// Tick 1 — empty inv, RunWeight=true, FirstSeen=true.
+	// Expect: UpdateInvFull(9) + UpdateRunWeight(3) = 12 bytes.
+	received := drainConn(t, cc)
+	p.updateInvs()
+	p.client.flushWrite()
+	got := <-received
+
+	wantLen := updateInvFull1SlotBytes + updateRunWeightBytes
+	if len(got) != wantLen {
+		t.Errorf("got %d bytes, want %d (UpdateInvFull + UpdateRunWeight(0))", len(got), wantLen)
+	}
+}
+
+// TestUpdateInvs_NoChangeNoEmitOnSecondTick — after tick 1 (clears FirstSeen),
+// tick 2 with no inventory mutations emits no packets at all. NAI-136 §8.3.
+func TestUpdateInvs_NoChangeNoEmitOnSecondTick(t *testing.T) {
+	const invTypeID = testInvTypeID
+	const objTypeID = 3
+
+	p, cc := newTestPlayer(t)
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	buildRunWeightInvServer(t, p, invTypeID, objTypeID, 1000)
+	p.invListenOnCom(invTypeID, 149, p.uid)
+
+	// Tick 1 — clears FirstSeen.
+	received1 := drainConn(t, cc)
+	p.updateInvs()
+	p.client.flushWrite()
+	<-received1
+
+	// Tick 2 — no mutations; inv.Update=false, FirstSeen=false.
+	received2 := drainConn(t, cc)
+	p.updateInvs()
+	p.client.flushWrite()
+	got2 := <-received2
+
+	if len(got2) != 0 {
+		t.Errorf("tick 2: got %d bytes, want 0 (no change → no packets)", len(got2))
+	}
+}
+
+// TestUpdateInvs_SharedInvDoesNotCountToRunWeight — SCOPE_SHARED listener
+// (Source==-1) on a RunWeight=true inv; the SCOPE_SHARED branch does NOT
+// set runWeightChanged or firstSeen, so no UpdateRunWeight is emitted.
+// NAI-136 §8.3; TS NetworkPlayer.ts:354-357.
+func TestUpdateInvs_SharedInvDoesNotCountToRunWeight(t *testing.T) {
+	const invTypeID = testInvTypeID
+	const objTypeID = 3
+
+	p, cc := newTestPlayer(t)
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	// Build server with SCOPE_SHARED inv.
+	invConfigs := make([]*objtype.InvType, testInvTypesLen)
+	invConfigs[invTypeID] = &objtype.InvType{
+		ConfigType: objtype.ConfigType{ID: invTypeID},
+		Scope:      objtype.InvTypeScopeShared, // forces Source=-1 in invListenOnCom
+		Size:       1,
+		RunWeight:  true,
+	}
+	objConfigs := make([]*objtype.ObjType, objTypeID+1)
+	objConfigs[objTypeID] = &objtype.ObjType{Stackable: false, Weight: 1000}
+	s := &Server{
+		log:        discardLogger(),
+		invTypes:   &objtype.InvTypeConfigs{Configs: invConfigs},
+		objTypes:   &objtype.ObjTypeConfigs{Configs: objConfigs},
+		invs:       make(map[int]*inventory.Inventory),
+		playerLoop: []*Player{p},
+	}
+	s.invLookup = invLookupView{s: s}
+	p.client.server = s
+	p.uid = 12345
+	p.active = true
+
+	// SCOPE_SHARED: invListenOnCom rewrites source to -1.
+	p.invListenOnCom(invTypeID, 149, p.uid)
+	if p.invListeners[149].Source != -1 {
+		t.Fatalf("setup: Source must be -1 for SCOPE_SHARED; got %d", p.invListeners[149].Source)
+	}
+
+	// Tick — FirstSeen=true, shared inv, RunWeight=true.
+	// Expect only UpdateInvFull (9 bytes); no UpdateRunWeight.
+	received := drainConn(t, cc)
+	p.updateInvs()
+	p.client.flushWrite()
+	got := <-received
+
+	wantLen := updateInvFull1SlotBytes // NO UpdateRunWeight
+	if len(got) != wantLen {
+		t.Errorf("got %d bytes, want %d (UpdateInvFull only; SCOPE_SHARED skips RunWeight)", len(got), wantLen)
+	}
+}
+
+// TestUpdateInvs_SkipOnNoNetWeightChange — RunWeight listener fires
+// (inv.Update=true) but the recomputed runweight equals p.runweight (same
+// total); skip-on-no-change suppresses UpdateRunWeight. NAI-136 §8.3.
+func TestUpdateInvs_SkipOnNoNetWeightChange(t *testing.T) {
+	const invTypeID = testInvTypeID
+	const objTypeID = 3
+	const objWeight = 2275 // 2.275 kg; 1 item → runweight=2275
+
+	p, cc := newTestPlayer(t)
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	s := buildRunWeightInvServer(t, p, invTypeID, objTypeID, objWeight)
+	p.invListenOnCom(invTypeID, 149, p.uid)
+
+	// Tick 1 — clears FirstSeen; empty inv → runweight stays 0.
+	received1 := drainConn(t, cc)
+	p.updateInvs()
+	p.client.flushWrite()
+	<-received1
+
+	// Pre-set p.runweight to match what calculateRunWeight will compute (1 item × 2275g).
+	inv := s.invLookup.Get(p, invTypeID)
+	if inv == nil {
+		t.Fatal("setup: inv must be allocated after tick 1")
+	}
+	inv.Items[0] = &inventory.Item{Id: objTypeID, Count: 1}
+	inv.Update = true
+	p.runweight = objWeight // pre-set; calculateRunWeight will return the same value
+
+	// Tick 2 — runWeightChanged starts true (RunWeight inv, inv.Update=true),
+	// but after calculateRunWeight: before(2275)==p.runweight(2275) → false.
+	// firstSeen=false. → no UpdateRunWeight.
+	received2 := drainConn(t, cc)
+	p.updateInvs()
+	p.client.flushWrite()
+	got2 := <-received2
+
+	wantLen := updateInvFull1SlotBytes // UpdateInvFull only; no UpdateRunWeight
+	if len(got2) != wantLen {
+		t.Errorf("skip-on-no-change: got %d bytes, want %d (UpdateInvFull only)", len(got2), wantLen)
+	}
+}
+
 // TestUpdateInvsLazyAllocSeedsStockShared pins: a SCOPE_SHARED listener
 // (source rewritten to -1 by invListenOnCom) causes updateInvs to
 // lazy-allocate the world-shared inventory and emit a sendUpdateInvFullCom

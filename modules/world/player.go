@@ -782,6 +782,8 @@ func (p *Player) updateInvs() {
 	srv := p.client.server
 	// Collect all observed invs so we can clear Update after all listeners fire.
 	observed := make([]*inventory.Inventory, 0, len(p.invListeners))
+	runWeightChanged := false // NEW: TS NetworkPlayer.ts:338
+	firstSeen := false        // NEW: TS NetworkPlayer.ts:339
 	for com, l := range p.invListeners {
 		var self script.ActivePlayer
 		if l.Source == -1 {
@@ -800,6 +802,20 @@ func (p *Player) updateInvs() {
 
 		if inv.Update || l.FirstSeen {
 			sendUpdateInvFullCom(p, l.Com, inv)
+			// NEW: per-player branch only — runweight + firstSeen tracking.
+			// TS NetworkPlayer.ts:372-381. SCOPE_SHARED (Source==-1) branch
+			// does NOT count toward runWeightChanged or firstSeen — TS
+			// line 354-357 falls through after the world-inv emit.
+			if l.Source != -1 {
+				if l.FirstSeen {
+					firstSeen = true
+				}
+				if l.Type >= 0 && l.Type < len(srv.invTypes.Configs) {
+					if invType := srv.invTypes.Configs[l.Type]; invType != nil && invType.RunWeight {
+						runWeightChanged = true
+					}
+				}
+			}
 			if l.FirstSeen {
 				// Flip via read-modify-write — map values are not addressable.
 				l.FirstSeen = false
@@ -811,6 +827,15 @@ func (p *Player) updateInvs() {
 	// Clear inv.Update AFTER all listeners (multiple listeners can share an inv).
 	for _, inv := range observed {
 		inv.Update = false
+	}
+	// NEW: TS NetworkPlayer.ts:385-393 — recompute, skip-on-no-change, emit.
+	if runWeightChanged {
+		before := p.runweight
+		p.calculateRunWeight()
+		runWeightChanged = before != p.runweight
+	}
+	if runWeightChanged || firstSeen {
+		sendUpdateRunWeight(p, p.runweight/1000)
 	}
 }
 func (p *Player) updateStats() {
