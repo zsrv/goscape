@@ -1,6 +1,7 @@
 package world
 
 import (
+	"github.com/zsrv/goscape/pkg/colorconv"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/objtype"
@@ -93,7 +94,7 @@ func (p *Player) IfSetObject(com, objID, scale int) {
 func (p *Player) IfSetColour(com, colour int) {
 	buf := packet.NewPacket(nil)
 	buf.P2(uint16(com))
-	buf.P2(uint16(colour))
+	buf.P2(uint16(colorconv.Rgb24to15(colour)))
 	p.writeOut(gameserver.OpIfSetColour, buf.Bytes())
 }
 
