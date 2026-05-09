@@ -293,6 +293,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpOcStackable: handleOcStackable,
 
 	// S5e: inventory.
+	// Both-player mutations (1).
+	OpBothMoveInv: handleBothMoveInv,
 	// Reads (9).
 	OpInvTotal:      handleInvTotal,
 	OpInvGetObj:     handleInvGetObj,

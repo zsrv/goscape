@@ -1833,3 +1833,409 @@ func TestInvDropItem_ActiveObjPointerSet(t *testing.T) {
 		t.Error("ActiveObj should be set")
 	}
 }
+
+// -- NAI-133 T3: BOTH_MOVEINV tests --
+
+// runBothMoveInv executes OpBothMoveInv with the given intOperand against
+// a state pre-bound with Self + Self2. intInputs are pushed in order
+// (matching the TS popInts(2) order: from on bottom, to on top).
+// slot1Protected: if true, also sets PtrProtectedActivePlayer2 on the
+// constructed state. Returns the post-execution state.
+func runBothMoveInv(t *testing.T, operand int32, intInputs []int, lookup InvLookup, configs Configs, world WorldVars, self, self2 *mockPlayer, slot1Protected bool) *ScriptState {
+	t.Helper()
+	sf := &ScriptFile{
+		Name:             "test_BOTH_MOVEINV",
+		Opcodes:          []Opcode{OpBothMoveInv, OpReturn},
+		IntOperands:      []int32{operand, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, self, true, nil, nil) // slot-0 protected
+	state.Self2 = self2
+	state.Pointers |= PtrActivePlayer2
+	if slot1Protected {
+		state.Pointers |= PtrProtectedActivePlayer2
+	}
+	state.Inv = lookup
+	state.Configs = configs
+	state.World = world
+	for _, v := range intInputs {
+		state.PushInt(v)
+	}
+	if err := Execute(state); err != nil {
+		t.Fatalf("BOTH_MOVEINV: unexpected error: %v", err)
+	}
+	return state
+}
+
+// runBothMoveInvExpectErr is the error-path variant of runBothMoveInv.
+// slot0Protected / slot1Protected control which protect flags are set on
+// the state. self / self2 may be nil to test missing-pointer paths.
+func runBothMoveInvExpectErr(t *testing.T, operand int32, intInputs []int, lookup InvLookup, configs Configs, world WorldVars, self, self2 ActivePlayer, slot0Protected, slot1Protected bool, substr string) {
+	t.Helper()
+	sf := &ScriptFile{
+		Name:             "test_BOTH_MOVEINV",
+		Opcodes:          []Opcode{OpBothMoveInv, OpReturn},
+		IntOperands:      []int32{operand, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, self, slot0Protected, nil, nil)
+	if self2 != nil {
+		state.Self2 = self2
+		state.Pointers |= PtrActivePlayer2
+	}
+	if slot1Protected {
+		state.Pointers |= PtrProtectedActivePlayer2
+	}
+	state.Inv = lookup
+	state.Configs = configs
+	state.World = world
+	for _, v := range intInputs {
+		state.PushInt(v)
+	}
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("BOTH_MOVEINV: expected error containing %q, got nil", substr)
+	}
+	if !strings.Contains(err.Error(), substr) {
+		t.Fatalf("BOTH_MOVEINV: expected error containing %q, got %q", substr, err.Error())
+	}
+}
+
+// twoPlayerInvLookup routes Get(player, typeID) to one of two per-player
+// inventory maps based on the receiver pointer. Tests use this to give
+// Self and Self2 distinct main/bank inventories. Other player addresses
+// return nil.
+type twoPlayerInvLookup struct {
+	self      *mockPlayer
+	self2     *mockPlayer
+	selfInvs  map[int]*inventory.Inventory
+	self2Invs map[int]*inventory.Inventory
+}
+
+func (m *twoPlayerInvLookup) Get(p ActivePlayer, typeID int) *inventory.Inventory {
+	mp, ok := p.(*mockPlayer)
+	if !ok {
+		return nil
+	}
+	switch mp {
+	case m.self:
+		return m.selfInvs[typeID]
+	case m.self2:
+		return m.self2Invs[typeID]
+	}
+	return nil
+}
+
+// newTwoPlayerInvFixture builds a fixture where Self and Self2 each have
+// their own main + bank inventories. Inventories are seeded as fresh
+// (capacity 28 main, 100 bank).
+func newTwoPlayerInvFixture() (*twoPlayerInvLookup, *mockPlayer, *mockPlayer) {
+	self := &mockPlayer{username: "Self", uidValue: 1, x: 100, z: 100}
+	self2 := &mockPlayer{username: "Self2", uidValue: 2, x: 200, z: 200}
+	selfMain := inventory.New(testInvMain, 28, inventory.StackNormal)
+	selfBank := inventory.New(testInvBank, 100, inventory.StackAlways)
+	self2Main := inventory.New(testInvMain, 28, inventory.StackNormal)
+	self2Bank := inventory.New(testInvBank, 100, inventory.StackAlways)
+	return &twoPlayerInvLookup{
+		self:      self,
+		self2:     self2,
+		selfInvs:  map[int]*inventory.Inventory{testInvMain: selfMain, testInvBank: selfBank},
+		self2Invs: map[int]*inventory.Inventory{testInvMain: self2Main, testInvBank: self2Bank},
+	}, self, self2
+}
+
+// TestBothMoveInv_Primary_DrainsFromSelfToSelf2 — operand=0; populate
+// Self's main with {coins x 5, sword x 1}; expect Self2's main to hold
+// the items post; Self's main empty.
+func TestBothMoveInv_Primary_DrainsFromSelfToSelf2(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup, self, self2 := newTwoPlayerInvFixture()
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+
+	lookup.selfInvs[testInvMain].Items[0] = &inventory.Item{Id: testObjCoin, Count: 5}
+	lookup.selfInvs[testInvMain].Items[1] = &inventory.Item{Id: testObjSword, Count: 1}
+
+	st := runBothMoveInv(t, 0, []int{testInvMain, testInvMain}, lookup, mc, world, self, self2, false)
+	_ = st
+
+	for slot, it := range lookup.selfInvs[testInvMain].Items {
+		if it != nil {
+			t.Errorf("Self.main slot %d should be nil, got %+v", slot, it)
+		}
+	}
+	if it := lookup.self2Invs[testInvMain].Get(0); it == nil || it.Id != testObjCoin || it.Count != 5 {
+		t.Errorf("Self2.main slot 0: got %+v, want {coins, 5}", it)
+	}
+	if it := lookup.self2Invs[testInvMain].Get(1); it == nil || it.Id != testObjSword || it.Count != 1 {
+		t.Errorf("Self2.main slot 1: got %+v, want {sword, 1}", it)
+	}
+	if len(world.addedCalls) != 0 {
+		t.Errorf("expected zero AddObj calls, got %d: %+v", len(world.addedCalls), world.addedCalls)
+	}
+}
+
+// TestBothMoveInv_Secondary_DrainsFromSelf2ToSelf — operand=1; Self2's
+// bank → Self's bank (Scope=Shared, no protect gate).
+func TestBothMoveInv_Secondary_DrainsFromSelf2ToSelf(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup, self, self2 := newTwoPlayerInvFixture()
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+
+	lookup.self2Invs[testInvBank].Items[0] = &inventory.Item{Id: testObjArr, Count: 100}
+
+	st := runBothMoveInv(t, 1, []int{testInvBank, testInvBank}, lookup, mc, world, self, self2, false)
+	_ = st
+
+	if it := lookup.self2Invs[testInvBank].Get(0); it != nil {
+		t.Errorf("Self2.bank slot 0: got %+v, want nil", it)
+	}
+	if it := lookup.selfInvs[testInvBank].Get(0); it == nil || it.Id != testObjArr || it.Count != 100 {
+		t.Errorf("Self.bank slot 0: got %+v, want {arrow, 100}", it)
+	}
+}
+
+// TestBothMoveInv_Overflow_StackableDropsSingleStack — toInv full (no free
+// slot, no merge target) + stackable from-item count=N → AddObj called once
+// at toPlayer's tile with full count.
+func TestBothMoveInv_Overflow_StackableDropsSingleStack(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup, self, self2 := newTwoPlayerInvFixture()
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+
+	lookup.selfInvs[testInvMain].Items[0] = &inventory.Item{Id: testObjCoin, Count: 7}
+	for i := range lookup.self2Invs[testInvMain].Items {
+		lookup.self2Invs[testInvMain].Items[i] = &inventory.Item{Id: testObjSword, Count: 1}
+	}
+
+	st := runBothMoveInv(t, 0, []int{testInvMain, testInvMain}, lookup, mc, world, self, self2, false)
+	_ = st
+
+	if it := lookup.selfInvs[testInvMain].Get(0); it != nil {
+		t.Errorf("Self.main slot 0 should be nil after delete, got %+v", it)
+	}
+	if len(world.addedCalls) != 1 {
+		t.Fatalf("expected 1 AddObj call (stackable overflow), got %d: %+v", len(world.addedCalls), world.addedCalls)
+	}
+	call := world.addedCalls[0]
+	if call.typeID != testObjCoin || call.count != 7 {
+		t.Errorf("AddObj: got typeID=%d count=%d, want %d / 7", call.typeID, call.count, testObjCoin)
+	}
+	if call.x != self2.x || call.z != self2.z {
+		t.Errorf("AddObj coords: got (%d, %d), want (%d, %d) (toPlayer=Self2)", call.x, call.z, self2.x, self2.z)
+	}
+}
+
+// TestBothMoveInv_Overflow_NonStackableDropsPerUnit — non-stackable count=K,
+// toInv full → AddObj called K times count=1.
+func TestBothMoveInv_Overflow_NonStackableDropsPerUnit(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup, self, self2 := newTwoPlayerInvFixture()
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+
+	lookup.selfInvs[testInvMain].Items[0] = &inventory.Item{Id: testObjSword, Count: 3}
+	for i := range lookup.self2Invs[testInvMain].Items {
+		lookup.self2Invs[testInvMain].Items[i] = &inventory.Item{Id: testObjArr, Count: 1}
+	}
+
+	st := runBothMoveInv(t, 0, []int{testInvMain, testInvMain}, lookup, mc, world, self, self2, false)
+	_ = st
+
+	if len(world.addedCalls) != 3 {
+		t.Fatalf("expected 3 AddObj calls (non-stackable per-unit), got %d: %+v", len(world.addedCalls), world.addedCalls)
+	}
+	for i, call := range world.addedCalls {
+		if call.typeID != testObjSword || call.count != 1 {
+			t.Errorf("call %d: got typeID=%d count=%d, want %d / 1", i, call.typeID, call.count, testObjSword)
+		}
+	}
+}
+
+// TestBothMoveInv_FromProtectGate_FiresWhenSlotUnprotected — primary,
+// fromInv.Protect=true + Scope=TEMP, slot-0 unprotected → from-gate fires.
+func TestBothMoveInv_FromProtectGate_FiresWhenSlotUnprotected(t *testing.T) {
+	mc := newTestInvConfigs()
+	mc.invs[testInvMain].Protect = true
+	mc.invs[testInvMain].Scope = objtype.InvTypeScopeTemp
+	lookup, self, self2 := newTwoPlayerInvFixture()
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+
+	sf := &ScriptFile{
+		Name:             "from_gate",
+		Opcodes:          []Opcode{OpBothMoveInv, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, self, false, nil, nil) // slot-0 NOT protected
+	state.Self2 = self2
+	state.Pointers |= PtrActivePlayer2
+	state.Inv = lookup
+	state.Configs = mc
+	state.World = world
+	state.PushInt(testInvMain)
+	state.PushInt(testInvMain)
+
+	err := Execute(state)
+	if err == nil || !strings.Contains(err.Error(), "BOTH_MOVEINV: $from_inv requires protected access: main") {
+		t.Errorf("expected from-gate error, got %v", err)
+	}
+}
+
+// TestBothMoveInv_ToProtectGate_UsesFromInvScope_Fires — TS quirk pin
+// (InvOps.ts:397). toInv.Protect=true, fromInv.Scope=TEMP → to-gate FIRES
+// because it reads fromInv.Scope. Slot-0 protected, slot-1 unprotected.
+func TestBothMoveInv_ToProtectGate_UsesFromInvScope_Fires(t *testing.T) {
+	mc := newTestInvConfigs()
+	mc.invs[testInvMain].Scope = objtype.InvTypeScopeTemp     // from-scope NOT shared
+	mc.invs[testInvBank].Protect = true                       // toInv.Protect=true
+	mc.invs[testInvBank].Scope = objtype.InvTypeScopeShared   // toInv.Scope IS shared (TS quirk: gate ignores this)
+	lookup, self, self2 := newTwoPlayerInvFixture()
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+
+	runBothMoveInvExpectErr(t, 0, []int{testInvMain, testInvBank}, lookup, mc, world,
+		self, self2,
+		true,  // slot-0 protected
+		false, // slot-1 NOT protected
+		"BOTH_MOVEINV: $to_inv requires protected access: bank",
+	)
+}
+
+// TestBothMoveInv_ToProtectGate_UsesFromInvScope_DoesNotFire — inverse pin:
+// fromInv.Scope=Shared → gate does NOT fire even though toInv.Protect=true
+// and toInv.Scope=TEMP.
+func TestBothMoveInv_ToProtectGate_UsesFromInvScope_DoesNotFire(t *testing.T) {
+	mc := newTestInvConfigs()
+	mc.invs[testInvMain].Scope = objtype.InvTypeScopeShared // from-scope shared → gate skipped
+	mc.invs[testInvBank].Protect = true
+	mc.invs[testInvBank].Scope = objtype.InvTypeScopeTemp   // toInv.Scope NOT shared (TS quirk: ignored)
+	lookup, self, self2 := newTwoPlayerInvFixture()
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+
+	st := runBothMoveInv(t, 0, []int{testInvMain, testInvBank}, lookup, mc, world, self, self2, false)
+	if st == nil {
+		t.Fatal("expected handler to complete without error")
+	}
+}
+
+// TestBothMoveInv_NoSelf2_Primary_Errors — operand=0 with PtrActivePlayer2
+// unset → error "no active player2".
+func TestBothMoveInv_NoSelf2_Primary_Errors(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup, self, _ := newTwoPlayerInvFixture()
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+
+	sf := &ScriptFile{
+		Name:             "no_self2",
+		Opcodes:          []Opcode{OpBothMoveInv, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, self, true, nil, nil)
+	// Self2 deliberately NOT set; PtrActivePlayer2 NOT set.
+	state.Inv = lookup
+	state.Configs = mc
+	state.World = world
+	state.PushInt(testInvMain)
+	state.PushInt(testInvMain)
+
+	err := Execute(state)
+	if err == nil || !strings.Contains(err.Error(), "no active player2") {
+		t.Errorf("expected 'no active player2' error, got %v", err)
+	}
+}
+
+// TestBothMoveInv_NoSelf_Secondary_Errors — operand=1; requireActivePlayer2
+// passes (Self2 set). Self is nil → secondary path's nil-Self check fires.
+func TestBothMoveInv_NoSelf_Secondary_Errors(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup, _, self2 := newTwoPlayerInvFixture()
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+
+	sf := &ScriptFile{
+		Name:             "no_self_secondary",
+		Opcodes:          []Opcode{OpBothMoveInv, OpReturn},
+		IntOperands:      []int32{1, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, nil, false, nil, nil) // Self nil
+	state.Self2 = self2
+	state.Pointers |= PtrActivePlayer2
+	state.Inv = lookup
+	state.Configs = mc
+	state.World = world
+	state.PushInt(testInvMain)
+	state.PushInt(testInvMain)
+
+	err := Execute(state)
+	if err == nil || !strings.Contains(err.Error(), "no active player") {
+		t.Errorf("expected 'no active player' error, got %v", err)
+	}
+}
+
+// TestBothMoveInv_FromInvNil_Errors — InvLookup returns nil for from →
+// "inv is null".
+func TestBothMoveInv_FromInvNil_Errors(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup, self, self2 := newTwoPlayerInvFixture()
+	delete(lookup.selfInvs, testInvMain)
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+
+	runBothMoveInvExpectErr(t, 0, []int{testInvMain, testInvBank}, lookup, mc, world,
+		self, self2, true, false,
+		"BOTH_MOVEINV: inv is null",
+	)
+}
+
+// TestBothMoveInv_ToInvNil_Errors — InvLookup returns nil for to.
+func TestBothMoveInv_ToInvNil_Errors(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup, self, self2 := newTwoPlayerInvFixture()
+	delete(lookup.self2Invs, testInvBank)
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+
+	runBothMoveInvExpectErr(t, 0, []int{testInvMain, testInvBank}, lookup, mc, world,
+		self, self2, true, false,
+		"BOTH_MOVEINV: inv is null",
+	)
+}
+
+// TestBothMoveInv_InvalidOperand_Errors — operand=2 → error.
+func TestBothMoveInv_InvalidOperand_Errors(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup, self, self2 := newTwoPlayerInvFixture()
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+
+	runBothMoveInvExpectErr(t, 2, []int{testInvMain, testInvMain}, lookup, mc, world,
+		self, self2, true, false,
+		"BOTH_MOVEINV: invalid intOperand 2",
+	)
+}
+
+// TestBothMoveInv_WealthEventSkip_NoEmission — D1 absence pin: even with
+// fromInvType.DebugName="dueloffer" and a non-empty drain, no
+// OpWealthEvent recorder fires. Per ts_asymmetry_dual_pin.md: pin the
+// absence so a future WealthEvent wiring escalates this test.
+func TestBothMoveInv_WealthEventSkip_NoEmission(t *testing.T) {
+	mc := newTestInvConfigs()
+	mc.invs[testInvMain].DebugName = "dueloffer" // STAKE branch trigger in TS
+	mc.invs[testInvMain].Protect = false
+	lookup, self, self2 := newTwoPlayerInvFixture()
+	lookup.selfInvs[testInvMain].Items[0] = &inventory.Item{Id: testObjCoin, Count: 1000}
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+
+	st := runBothMoveInv(t, 0, []int{testInvMain, testInvMain}, lookup, mc, world, self, self2, false)
+	_ = st
+
+	// Production sanity: items moved.
+	if it := lookup.self2Invs[testInvMain].Get(0); it == nil || it.Count != 1000 {
+		t.Fatalf("transfer must succeed before D1 absence-pin is meaningful: got %+v", it)
+	}
+	// D1 absence: mockPlayer has no addWealthEvent recorder; nothing to assert directly.
+	// When the WealthEvent subsystem lands, this test should be extended to assert
+	// a recorder field on mockPlayer remained empty. Until then, the comment is
+	// the contract.
+}

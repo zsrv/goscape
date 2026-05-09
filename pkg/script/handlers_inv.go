@@ -1201,3 +1201,141 @@ func handleInvDropItem(s *ScriptState) error {
 	}
 	return nil
 }
+
+// handleBothMoveInv ports TS InvOps.ts:373-495 (BOTH_MOVEINV, opcode 4301).
+//
+// Dispatch shape: state.intOperand selects primary (0) vs secondary (1).
+// Primary:    from = active_player (Self), to = .active_player (Self2).
+// Secondary:  pointers swap — from = Self2, to = Self.
+//
+// Pop order (TS popInts(2)): from on bottom, to on top → PopInt() returns
+// to first.
+//
+// Protect gates per TS (slot-flipped on secondary):
+//   - fromPlayer's slot must be Protected if fromInv.Protect && fromInv.Scope != Shared
+//   - toPlayer's slot must be Protected if toInv.Protect && fromInv.Scope != Shared
+//     (TS quirk preserved: to-gate gates on FROM scope, InvOps.ts:397)
+//
+// Drain loop: for each non-empty slot in fromInv, delete the slot, attempt
+// to add the count to toInv at toPlayer; spill any overflow to toPlayer's
+// tile via World.AddObj using TS InvOps.ts:423-432 stackable branching
+// (per-unit loop for non-stackable / overflow==1, single stack for the
+// stackable many-overflow case).
+//
+// DEVIATION-NAI-115-D1 (reuse): TS InvOps.ts:445-494 emits addWealthEvent
+// for dueloffer/STAKE and trade/TRADE. Goscape skips inline emission;
+// content can emit via OpWealthEvent (2131). Single-point retire when
+// WealthEvent subsystem lands. NAI-115-D1.
+func handleBothMoveInv(s *ScriptState) error {
+	operand := s.Script.IntOperands[s.PC]
+	if operand != 0 && operand != 1 {
+		return fmt.Errorf("BOTH_MOVEINV: invalid intOperand %d", operand)
+	}
+	secondary := operand == 1
+
+	if secondary {
+		if err := requireActivePlayer2(s, "BOTH_MOVEINV"); err != nil {
+			return err
+		}
+	} else {
+		if err := requireActivePlayer(s, "BOTH_MOVEINV"); err != nil {
+			return err
+		}
+	}
+
+	to := s.PopInt()
+	from := s.PopInt()
+
+	if err := checkInvType(s, from, "BOTH_MOVEINV"); err != nil {
+		return err
+	}
+	if err := checkInvType(s, to, "BOTH_MOVEINV"); err != nil {
+		return err
+	}
+
+	fromInvType := s.Configs.InvType(from)
+	toInvType := s.Configs.InvType(to)
+
+	var fromPlayer, toPlayer ActivePlayer
+	var fromProtectedFlag, toProtectedFlag Pointer
+	if secondary {
+		fromPlayer = s.Self2
+		toPlayer = s.Self
+		fromProtectedFlag = PtrProtectedActivePlayer2
+		toProtectedFlag = PtrProtectedActivePlayer
+		if toPlayer == nil || s.Pointers&PtrActivePlayer == 0 {
+			return fmt.Errorf("BOTH_MOVEINV: no active player")
+		}
+	} else {
+		fromPlayer = s.Self
+		toPlayer = s.Self2
+		fromProtectedFlag = PtrProtectedActivePlayer
+		toProtectedFlag = PtrProtectedActivePlayer2
+		if toPlayer == nil || s.Pointers&PtrActivePlayer2 == 0 {
+			return fmt.Errorf("BOTH_MOVEINV: no active player2")
+		}
+	}
+
+	if fromInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared &&
+		s.Pointers&fromProtectedFlag == 0 {
+		return fmt.Errorf("BOTH_MOVEINV: $from_inv requires protected access: %s", fromInvType.DebugName)
+	}
+	// TS quirk preserved (InvOps.ts:397): to-gate gates on FROM scope.
+	if toInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared &&
+		s.Pointers&toProtectedFlag == 0 {
+		return fmt.Errorf("BOTH_MOVEINV: $to_inv requires protected access: %s", toInvType.DebugName)
+	}
+
+	if s.Inv == nil {
+		return fmt.Errorf("BOTH_MOVEINV: no inv lookup")
+	}
+	fromInv := s.Inv.Get(fromPlayer, from)
+	toInv := s.Inv.Get(toPlayer, to)
+	if fromInv == nil || toInv == nil {
+		return fmt.Errorf("BOTH_MOVEINV: inv is null")
+	}
+
+	for slot := 0; slot < fromInv.Capacity; slot++ {
+		it := fromInv.Get(slot)
+		if it == nil {
+			continue
+		}
+		objID := it.Id
+		count := it.Count
+
+		objType := s.Configs.ObjType(objID)
+		if objType == nil {
+			return fmt.Errorf("BOTH_MOVEINV: invalid obj id at slot (id=%d)", objID)
+		}
+
+		fromInv.Delete(slot)
+
+		stackable, stockObj := lookupStackableStockObj(s, toInv.Type, objID)
+		tx := toInv.Add(objID, count, inventory.AddOpts{
+			BeginSlot:           -1,
+			AssureFullInsertion: false,
+			Stackable:           stackable,
+			StockObj:            stockObj,
+		})
+		overflow := count - tx.Completed
+		if overflow > 0 && s.World != nil {
+			level := (toPlayer.CoordPacked() >> 28) & 0x3
+			x := toPlayer.X()
+			z := toPlayer.Z()
+			receiverID := toPlayer.UID()
+			if !objType.Stackable || overflow == 1 {
+				for range overflow {
+					s.World.AddObj(level, x, z, objID, 1, 200, receiverID)
+				}
+			} else {
+				s.World.AddObj(level, x, z, objID, overflow, 200, receiverID)
+			}
+		}
+	}
+
+	// NAI-115-D1 (reuse): TS InvOps.ts:445-494 emits addWealthEvent for
+	// dueloffer/STAKE and trade/TRADE. Skipped — content emits via
+	// OpWealthEvent (2131).
+
+	return nil
+}
