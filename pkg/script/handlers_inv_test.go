@@ -2383,3 +2383,92 @@ func TestInvDropItemDelayed_RemoveCompletedZero_NoEnqueue(t *testing.T) {
 		t.Errorf("completed=0: expected 0 enqueue calls, got %d", got)
 	}
 }
+
+// TestInvDropItemDelayed_BadInv_Errors pins InvTypeValid: invID=-1 fails.
+func TestInvDropItemDelayed_BadInv_Errors(t *testing.T) {
+	s, _, world := makeDropItemDelayedState(t, false, objtype.InvTypeScopeTemp, 5)
+
+	pushDropItemDelayedArgs(s, -1, coordgrid.PackCoord(0, 3200, 3200), testObjCoin, 1, 100, 0)
+	err := handleInvDropItemDelayed(s)
+
+	if err == nil {
+		t.Fatalf("expected error for invID=-1")
+	}
+	if !strings.Contains(err.Error(), "INV_DROPITEM_DELAYED") {
+		t.Errorf("err: got %q, want INV_DROPITEM_DELAYED prefix", err)
+	}
+	if got := len(world.enqueueObjDelayedCalls); got != 0 {
+		t.Errorf("error path: expected 0 enqueue, got %d", got)
+	}
+}
+
+// TestInvDropItemDelayed_BadCoord_Errors pins CoordValid: coord=-1 fails.
+func TestInvDropItemDelayed_BadCoord_Errors(t *testing.T) {
+	s, _, _ := makeDropItemDelayedState(t, false, objtype.InvTypeScopeTemp, 5)
+
+	pushDropItemDelayedArgs(s, testInvMain, -1, testObjCoin, 1, 100, 0)
+	err := handleInvDropItemDelayed(s)
+
+	if err == nil {
+		t.Fatalf("expected error for coord=-1")
+	}
+	if !strings.Contains(err.Error(), "coord") {
+		t.Errorf("err: got %q, want substring \"coord\"", err)
+	}
+}
+
+// TestInvDropItemDelayed_BadObj_Errors pins ObjTypeValid: obj=-1 fails.
+func TestInvDropItemDelayed_BadObj_Errors(t *testing.T) {
+	s, _, _ := makeDropItemDelayedState(t, false, objtype.InvTypeScopeTemp, 5)
+
+	pushDropItemDelayedArgs(s, testInvMain, coordgrid.PackCoord(0, 3200, 3200), -1, 1, 100, 0)
+	err := handleInvDropItemDelayed(s)
+
+	if err == nil {
+		t.Fatalf("expected error for obj=-1")
+	}
+}
+
+// TestInvDropItemDelayed_BadCount_Errors pins ObjStackValid: count=0 fails.
+func TestInvDropItemDelayed_BadCount_Errors(t *testing.T) {
+	s, _, _ := makeDropItemDelayedState(t, false, objtype.InvTypeScopeTemp, 5)
+
+	pushDropItemDelayedArgs(s, testInvMain, coordgrid.PackCoord(0, 3200, 3200), testObjCoin, 0, 100, 0)
+	err := handleInvDropItemDelayed(s)
+
+	if err == nil {
+		t.Fatalf("expected error for count=0")
+	}
+}
+
+// TestInvDropItemDelayed_BadDuration_Errors pins DurationValid:
+// duration=0 fails (DurationValid rejects <=0).
+func TestInvDropItemDelayed_BadDuration_Errors(t *testing.T) {
+	s, _, _ := makeDropItemDelayedState(t, false, objtype.InvTypeScopeTemp, 5)
+
+	pushDropItemDelayedArgs(s, testInvMain, coordgrid.PackCoord(0, 3200, 3200), testObjCoin, 1, 0, 0)
+	err := handleInvDropItemDelayed(s)
+
+	if err == nil {
+		t.Fatalf("expected error for duration=0")
+	}
+}
+
+// TestInvDropItemDelayed_NilWorld_DefensiveError pins
+// DEVIATION-NAI-130-D2 sibling: nil World surface returns a clean error
+// rather than nil-deref. Only fires AFTER all validators + protect gate
+// + Remove succeed.
+func TestInvDropItemDelayed_NilWorld_DefensiveError(t *testing.T) {
+	s, _, _ := makeDropItemDelayedState(t, false, objtype.InvTypeScopeTemp, 5)
+	s.World = nil
+
+	pushDropItemDelayedArgs(s, testInvMain, coordgrid.PackCoord(0, 3200, 3200), testObjCoin, 1, 100, 0)
+	err := handleInvDropItemDelayed(s)
+
+	if err == nil {
+		t.Fatalf("nil World: expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "no world surface") {
+		t.Errorf("err: got %q, want substring \"no world surface\"", err)
+	}
+}
