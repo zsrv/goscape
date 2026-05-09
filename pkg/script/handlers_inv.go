@@ -430,14 +430,44 @@ func handleInvDelSlot(s *ScriptState) error {
 	return nil
 }
 
-// handleInvSetSlot (INV_SETSLOT) pops [inv, slot, obj, count] and
-// replaces the slot with {obj, count}. Matches TS popInts(4) order —
-// count on top. Out-of-range slot is silently ignored.
+// handleInvSetSlot (INV_SETSLOT) ports TS InvOps.ts:600-616. Pops
+// [inv, slot, obj, count] (popInts(4) order — count on top). Validates
+// via TS check chain, enforces protect/scope and dummyitem gates, then
+// replaces the slot with {obj, count}. Out-of-range slot is silently
+// ignored by inv.Set (matches TS Inventory.set behavior).
+//
+// Validator chain (NAI-131): InvTypeValid → ObjTypeValid → ObjStackValid
+// → protect/scope → dummyitem.
 func handleInvSetSlot(s *ScriptState) error {
+	if err := requireActivePlayer(s, "INV_SETSLOT"); err != nil {
+		return err
+	}
 	count := s.PopInt()
 	obj := s.PopInt()
 	slot := s.PopInt()
 	typeID := s.PopInt()
+
+	if err := checkInvType(s, typeID, "INV_SETSLOT"); err != nil {
+		return err
+	}
+	if err := checkObjType(s, obj, "INV_SETSLOT"); err != nil {
+		return err
+	}
+	if err := checkObjStack(count, "INV_SETSLOT"); err != nil {
+		return err
+	}
+
+	invType := s.Configs.InvType(typeID)
+	objType := s.Configs.ObjType(obj)
+
+	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared && !s.Protect {
+		return fmt.Errorf("INV_SETSLOT: $inv requires protected access: %s", invType.DebugName)
+	}
+
+	if !invType.DummyInv && objType.DummyItem != 0 {
+		return fmt.Errorf("INV_SETSLOT: dummyitem in non-dummyinv: %s -> %s", objType.DebugName, invType.DebugName)
+	}
+
 	inv := resolveInv(s, typeID)
 	if inv == nil {
 		return fmt.Errorf("INV_SETSLOT: no inv for type %d", typeID)

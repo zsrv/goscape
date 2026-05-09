@@ -1161,3 +1161,52 @@ func TestInvAdd_DummyItemGate_RejectsDummyItemInRegularInv(t *testing.T) {
 	mc.objs[testObjCoin].DummyItem = 1 // make coins a dummy item; main is not a dummy inv
 	runInvOpExpectErrAsPlayer(t, OpInvAdd, []int{testInvMain, testObjCoin, 1}, lookup, mc, "dummyitem in non-dummyinv: coins -> main")
 }
+
+// -- NAI-131 INV_SETSLOT validator tests --
+
+func TestInvSetSlot_InvTypeValid_UnregisteredID(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	delete(mc.invs, testInvMain)
+	runInvOpExpectErrAsPlayer(t, OpInvSetSlot, []int{testInvMain, 0, testObjCoin, 1}, lookup, mc, "no InvType with value (1) found")
+}
+
+func TestInvSetSlot_ObjTypeValid_UnregisteredID(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	delete(mc.objs, testObjCoin)
+	runInvOpExpectErrAsPlayer(t, OpInvSetSlot, []int{testInvMain, 0, testObjCoin, 1}, lookup, mc, "no ObjType with value (995) found")
+}
+
+func TestInvSetSlot_ObjStackValid_CountZero(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	runInvOpExpectErrAsPlayer(t, OpInvSetSlot, []int{testInvMain, 0, testObjCoin, 0}, lookup, mc, "invalid count (0)")
+}
+
+func TestInvSetSlot_ObjStackValid_CountNegative(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	runInvOpExpectErrAsPlayer(t, OpInvSetSlot, []int{testInvMain, 0, testObjCoin, -1}, lookup, mc, "invalid count (-1)")
+}
+
+func TestInvSetSlot_ProtectGate_RejectsUnprotected(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	mc.invs[testInvMain].Protect = true
+	runInvOpExpectErrAsPlayer(t, OpInvSetSlot, []int{testInvMain, 0, testObjCoin, 1}, lookup, mc, "$inv requires protected access: main")
+}
+
+func TestInvSetSlot_ProtectGate_SharedScopeEscapeHatch(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	mc.invs[testInvBank].Protect = true
+	runInvOp(t, OpInvSetSlot, []int{testInvBank, 0, testObjCoin, 1}, lookup, mc)
+}
+
+func TestInvSetSlot_DummyItemGate_RejectsDummyItemInRegularInv(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	mc.objs[testObjCoin].DummyItem = 1
+	runInvOpExpectErrAsPlayer(t, OpInvSetSlot, []int{testInvMain, 0, testObjCoin, 1}, lookup, mc, "dummyitem in non-dummyinv: coins -> main")
+}
