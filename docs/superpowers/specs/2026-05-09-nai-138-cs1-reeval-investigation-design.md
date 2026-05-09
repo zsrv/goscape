@@ -228,6 +228,32 @@ This narrows the fix-layer matrix significantly:
 
 **Bundle 1 dispatch decision:** Bundle 0 has resolved 1.A and 1.C definitively. Only 1.B (Java client cs1 re-eval audit) remains unbound. Bundle 1 dispatches **only the 1.B substage** (single Explore subagent), not the planned three. 1.B determines whether the fix is §7.3 (client needs additional event → engine ad-hoc refresh) or §7.4 (client should re-eval but doesn't due to goscape encoder defect).
 
+### 6.3 Stage 1 synthesis verdict
+
+**Substage verdicts (verified at T5 controller pre-flight):**
+
+- **1.A: `TS_BARE_SETVAR_CONFIRMED`** — citations `Engine-TS Player.ts:682-704`, `Player.ts:1715-1738`. Independently verified.
+- **1.B: `BARE_VARP_RE_EVALS`** — citations `Client-Java deob/client.java:9363-9377` (VarpSmall handler sets `redrawSidebar=true` when value changes), `:4696-4698` (redrawSidebar drives `drawSidebar()`), `:10387-10395` (`drawSidebar()` calls `drawInterface()`), `:7962-7986` (`executeInterfaceScript` evaluates cs1 comparators), `:8678-8680` (opcode 5 reads `varps[id]`). Independently verified — minor line discrepancy in subagent report (cited 8685 instead of 8678 for opcode 5; substance correct).
+- **1.C: `SELF_WRITE_EMITS_OP_VARP`** — citations `RuneScriptKt BinaryScriptWriter.kt:131,146`, `Engine-TS CoreOps.ts:41-58`, `Player.ts:1715-1738`. Independently verified. Bonus finding: no `[varp,X]` triggers in Content; `ServerTriggerType.ts` has no VARP entries.
+
+**Pre-Bundle-2 verification (per `audit_subagent_fabrication`):** all 1.B citations independently verified at T5; 1.A and 1.C citations established directly by controller in Bundle 0.
+
+**Synthesis matrix row matched:** Row 4 — `TS_BARE | BARE_VARP_RE_EVALS | * → §7.4 Goscape encoder defect`.
+
+**Goscape-side pre-flight (controller, 5-min sanity check):**
+- `pkg/io/protocol/game/server/prot.go:66` — `OpVarpSmall = Op{Opcode: 150, PayloadSize: 3}` matches TS `ServerGameProt.VARP_SMALL = (150, 3)` exactly.
+- `modules/world/player_varp.go:12-26` — `writeVarp` structurally mirrors TS Player.ts:1732-1738: P2(id) + P1(int8 value) for small range, P4(value) for large range.
+- Both opcodes and packet shapes look structurally correct. **An encoder-byte defect is not the most likely Stage 2 finding.**
+
+**Refined Stage 2 framing:** matrix row 4 nominally routes to §7.4 (encoder defect), but the goscape-side pre-flight suggests the encoder bytes are correct. The actual goscape-side defect is more likely:
+- **Hypothesis A:** Sequencing — `varps[173]` client-side never transitions to 1 in the smoke scenario, so `OpVarpSmall(173, 0)` at energy=0 hits the `if (varps[var26] != var52)` short-circuit at `client.java:9367` and produces no redraw.
+- **Hypothesis B:** Tick timing — packet emitted but flushed too late or to wrong client connection.
+- **Hypothesis C:** Encoder-byte divergence — actual on-wire bytes diverge from TS despite same opcode / payload-size constants (e.g., `P1(uint8(int8(value)))` cast at `player_varp.go:20` may produce wrong byte for negative values, though run varp values are 0/1 only).
+
+**Chosen fix layer:** **§7.4 Goscape encoder defect** (matrix-driven), with Stage 2 plan author instructed to start with Bundle 3 Template β (probe instrumentation) — capture goscape's actual on-wire bytes at energy=0 vs click-toggle paths, plus client-side `varps[173]` state at the moment of energy=0 emit. The probe binds whether Hypothesis A, B, or C is the actual defect; the fix (which may NOT be encoder-byte work) is then authored against the bound hypothesis.
+
+**Stage 2 plan handoff:** `docs/superpowers/handoffs/2026-05-09-nai-138-stage-1-binding.md`
+
 ## 7. Bundle 2 — Fix at indicated layer
 
 Single goscape commit (or Content PR for the content-fix layer). TDD red→green→commit per `test-driven-development`.
