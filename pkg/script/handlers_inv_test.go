@@ -949,7 +949,7 @@ func newInvAddOverflowState(t *testing.T) (*ScriptState, *fakeWorldAddObj, *inve
 	mc := newTestInvConfigs()
 	invType := objtype.NewInvType(testInvMain)
 	invType.Size = 28
-	invType.Protect = false // NewInvType defaults Protect=true; clear so overflow tests don't trip the protect gate (goscape defensive_gate_doc_comment_label)
+	invType.Protect = false // NewInvType defaults Protect=true; clear so NAI-130 overflow tests don't trip the NAI-131 T1 protect gate.
 	mc.invs[testInvMain] = invType
 	s.Configs = mc
 
