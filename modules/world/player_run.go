@@ -41,8 +41,23 @@ func (p *Player) updateEnergy() {
 		p.runenergy = max(p.runenergy-loss, 0)
 	}
 	if p.runenergy == 0 {
+		varpID := p.RunVarpID()
+		if p.client != nil && p.client.server != nil &&
+			p.client.server.cfg.NodeDebug && p.client.server.log != nil {
+			var varpPre int32
+			if varpID >= 0 && varpID < len(p.varps) {
+				varpPre = p.varps[varpID]
+			}
+			p.client.server.log.Info("nai138.update_energy.zero",
+				"tick", p.client.server.currentTick,
+				"player_uid", p.uid,
+				"varp_id", varpID,
+				"varp_pre", varpPre,
+				"run_pre", p.run,
+			)
+		}
 		p.run = 0
-		p.SetVarp(p.RunVarpID(), 0)
+		p.SetVarp(varpID, 0)
 	}
 	if p.runenergy < 100 {
 		p.tempRun = 0
