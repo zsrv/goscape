@@ -45,6 +45,11 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		// earlier in the tick.
 		s.processNpcEventQueue()
 		s.processActiveScripts()
+		// NAI-134: drain the obj-delayed-spawn queue. Mirrors TS
+		// World.cycle ordering at World.ts:563 — runs after script-firing
+		// (so same-tick INV_DROPITEM_DELAYED with delay=0 spawns the obj
+		// before processNpcs / processInfo reads zone state).
+		s.processObjDelayedQueue()
 		s.processPlayerTimers()
 		s.processPathing()
 		s.processInteractions()
