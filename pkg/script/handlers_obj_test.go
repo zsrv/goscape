@@ -67,16 +67,34 @@ func TestHandleObjDelNilActive(t *testing.T) {
 // (e.g. fakeWorldAddObj{mockWorld: &mockWorld{mapMembers: 1}, ...}).
 type fakeWorldAddObj struct {
 	*mockWorld
-	addedCalls []addObjCall
+	addedCalls             []addObjCall
+	enqueueObjDelayedCalls []enqueueObjDelayedCall
 }
 
 type addObjCall struct {
 	level, x, z, typeID, count, duration, receiverID int
 }
 
+// enqueueObjDelayedCall captures one EnqueueObjDelayed invocation for
+// NAI-134 INV_DROPITEM_DELAYED tests. Field order mirrors the WorldVars
+// signature exactly (level, x, z, typeID, count, duration, delay,
+// receiverID).
+type enqueueObjDelayedCall struct {
+	level, x, z, typeID, count, duration, delay, receiverID int
+}
+
 func (f *fakeWorldAddObj) AddObj(level, x, z, typeID, count, duration, receiverID int) ActiveObj {
 	f.addedCalls = append(f.addedCalls, addObjCall{level, x, z, typeID, count, duration, receiverID})
 	return &mockActiveObj{objType: typeID, x: x, z: z, level: level}
+}
+
+func (f *fakeWorldAddObj) EnqueueObjDelayed(level, x, z, typeID, count, duration, delay, receiverID int) {
+	f.enqueueObjDelayedCalls = append(f.enqueueObjDelayedCalls, enqueueObjDelayedCall{
+		level: level, x: x, z: z,
+		typeID: typeID, count: count,
+		duration: duration, delay: delay,
+		receiverID: receiverID,
+	})
 }
 
 // withObjForObjAdd registers an ObjType in the mockConfigs with the

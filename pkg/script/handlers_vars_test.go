@@ -71,6 +71,12 @@ func (m *mockWorld) AddObj(level, x, z, typeID, count, duration, receiverID int)
 	return nil
 }
 
+// NAI-134: default no-op stub for INV_DROPITEM_DELAYED test fixture.
+// Tests exercising EnqueueObjDelayed override via fakeWorldAddObj
+// (handlers_obj_test.go).
+func (m *mockWorld) EnqueueObjDelayed(level, x, z, typeID, count, duration, delay, receiverID int) {
+}
+
 func TestPushVarp(t *testing.T) {
 	sf := &ScriptFile{
 		Name:             "push_varp",
