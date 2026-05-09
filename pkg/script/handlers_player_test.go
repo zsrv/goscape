@@ -1583,6 +1583,11 @@ func TestFindUID_Slot1_BindsSelf2(t *testing.T) {
 	if state.Pointers&PtrActivePlayer2 == 0 {
 		t.Errorf("PtrActivePlayer2 should be set, pointers=%b", state.Pointers)
 	}
+	// Slot-0 isolation: Init set PtrActivePlayer for non-nil self; slot-1
+	// routing must not clear it.
+	if state.Pointers&PtrActivePlayer == 0 {
+		t.Errorf("PtrActivePlayer (slot-0) should remain set after slot-1 routing, pointers=%b", state.Pointers)
+	}
 }
 
 // TestFindUID_Slot1_LookupMiss — operand=1, lookup miss → push 0,
@@ -1658,6 +1663,11 @@ func TestPFindUID_Slot1_Success(t *testing.T) {
 	}
 	if state.Pointers&PtrProtectedActivePlayer2 == 0 {
 		t.Errorf("PtrProtectedActivePlayer2 should be set, pointers=%b", state.Pointers)
+	}
+	// Slot-0 isolation: Init was called with protect=false, so the slot-0
+	// protect flag must NOT be set as a side effect of slot-1 P_FINDUID.
+	if state.Pointers&PtrProtectedActivePlayer != 0 {
+		t.Errorf("PtrProtectedActivePlayer (slot-0) should remain UNSET on slot-1 routing, pointers=%b", state.Pointers)
 	}
 }
 

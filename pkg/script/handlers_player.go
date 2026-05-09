@@ -891,8 +891,10 @@ func handleP_OpNpc(s *ScriptState) error {
 // handleFindUID resolves the popped uid via PlayerLookup and binds it
 // to the slot selected by intOperand: 0 → Self + PtrActivePlayer,
 // 1 → Self2 + PtrActivePlayer2. Pushes 1 on success, 0 on miss /
-// nil-PlayerLookup. Errors on invalid intOperand. Mirrors TS
-// PlayerOps.ts:60-72 with goscape's collapsed pointer model. NAI-133.
+// nil-PlayerLookup. Errors on invalid intOperand. Does NOT check
+// CanAccess; does NOT set PtrProtectedActivePlayer{,2} — that's
+// P_FINDUID's job. Mirrors TS PlayerOps.ts:60-72 with goscape's
+// collapsed pointer model. NAI-133.
 func handleFindUID(s *ScriptState) error {
 	operand := s.Script.IntOperands[s.PC]
 	if operand != 0 && operand != 1 {
