@@ -294,19 +294,13 @@ func (inv *Inventory) Remove(id, count int, opts RemoveOpts) Transaction {
 		return tx
 	}
 	removed := 0
-	begin := opts.BeginSlot
-	if begin < 0 {
-		begin = 0
-	}
+	begin := max(opts.BeginSlot, 0)
 	for i := begin; i < inv.Capacity && removed < count; i++ {
 		it := inv.Items[i]
 		if it == nil || it.Id != id {
 			continue
 		}
-		take := count - removed
-		if take > it.Count {
-			take = it.Count
-		}
+		take := min(count-removed, it.Count)
 		it.Count -= take
 		removed += take
 		if it.Count == 0 {
