@@ -88,13 +88,6 @@ func (p *Player) resolveMovement() {
 		}
 	}
 
-	// NAI-135: Mirrors TS Player.ts:670-673 — TS resets tempRun when no
-	// movement happened this tick. stepsTaken==0 is the equivalent of
-	// TS's `if (!super.processMovement())` (false ⇒ no steps).
-	if p.stepsTaken == 0 {
-		p.tempRun = 0
-	}
-
 	// NAI-82: TS Player.processMovement at Engine-TS/.../Player.ts:675-677
 	// writes lastMovement = World.currentTick + 1 whenever stepsTaken > 0
 	// after the tick's movement resolves. The defensive client/server nil
