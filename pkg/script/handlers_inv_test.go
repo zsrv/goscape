@@ -1285,3 +1285,101 @@ func TestInvClear_NoActivePlayerErrors(t *testing.T) {
 	mc := newTestInvConfigs()
 	runInvOpExpectErr(t, OpInvClear, []int{testInvMain}, nil, mc, "INV_CLEAR: no active player")
 }
+
+// -- NAI-131 INV_MOVEITEM / INV_MOVEFROMSLOT validator tests --
+
+// (T4.A) INV_MOVEITEM — full Obj-gate set + 2 inv gates.
+func TestInvMoveItem_FromInvTypeValid_UnregisteredID(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	delete(mc.invs, testInvMain)
+	runInvOpExpectErrAsPlayer(t, OpInvMoveItem, []int{testInvMain, testInvBank, testObjCoin, 1}, lookup, mc, "no InvType with value (1) found")
+}
+
+func TestInvMoveItem_ToInvTypeValid_UnregisteredID(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	delete(mc.invs, testInvBank)
+	runInvOpExpectErrAsPlayer(t, OpInvMoveItem, []int{testInvMain, testInvBank, testObjCoin, 1}, lookup, mc, "no InvType with value (2) found")
+}
+
+func TestInvMoveItem_ObjTypeValid_UnregisteredID(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	delete(mc.objs, testObjCoin)
+	runInvOpExpectErrAsPlayer(t, OpInvMoveItem, []int{testInvMain, testInvBank, testObjCoin, 1}, lookup, mc, "no ObjType with value (995) found")
+}
+
+func TestInvMoveItem_ObjStackValid_CountZero(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	runInvOpExpectErrAsPlayer(t, OpInvMoveItem, []int{testInvMain, testInvBank, testObjCoin, 0}, lookup, mc, "invalid count (0)")
+}
+
+// Protect gate fires on the FROM inv (TS InvOps.ts:507-509).
+func TestInvMoveItem_FromProtectGate_RejectsUnprotected(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	mc.invs[testInvMain].Protect = true // from=main, scope=TEMP
+	runInvOpExpectErrAsPlayer(t, OpInvMoveItem, []int{testInvMain, testInvBank, testObjCoin, 1}, lookup, mc, "$inv requires protected access: main")
+}
+
+// Protect gate fires on the TO inv (TS InvOps.ts:511-513) BUT TS
+// preserves the asymmetry: the SHARED-escape check uses fromInv's
+// scope, not toInv's. So when from=TEMP and to=anything, the TO gate
+// still fires regardless of toInv's scope. DEVIATION-NAI-131-D1.
+func TestInvMoveItem_ToProtectGate_RejectsUnprotected(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	// from=main (TEMP, Protect=false default), to=bank (SHARED, Protect=true override)
+	mc.invs[testInvBank].Protect = true
+	// from is TEMP (not SHARED) — no TS escape hatch — both gates check fromInv.scope=TEMP.
+	// FROM gate's Protect=false skips it; TO gate fires.
+	runInvOpExpectErrAsPlayer(t, OpInvMoveItem, []int{testInvMain, testInvBank, testObjCoin, 1}, lookup, mc, "$inv requires protected access: bank")
+}
+
+// TS asymmetry pin (DEVIATION-NAI-131-D1): when fromInv.scope == SHARED,
+// BOTH gates' escape hatches fire because both check fromInv.scope.
+// toInv's own scope is irrelevant.
+func TestInvMoveItem_TSAsymmetry_FromSharedSkipsBothGates(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	// Swap roles: bank is "from" (SHARED), main is "to" (TEMP).
+	mc.invs[testInvMain].Protect = true // would normally trigger TO gate
+	// But fromInv (bank) is SHARED → TS asymmetry skips both gates.
+	runInvOp(t, OpInvMoveItem, []int{testInvBank, testInvMain, testObjCoin, 1}, lookup, mc)
+}
+
+func TestInvMoveItem_NoActivePlayerErrors(t *testing.T) {
+	mc := newTestInvConfigs()
+	runInvOpExpectErr(t, OpInvMoveItem, []int{testInvMain, testInvBank, testObjCoin, 1}, nil, mc, "INV_MOVEITEM: no active player")
+}
+
+// (T4.B) INV_MOVEFROMSLOT — 2 inv gates + 2 protect gates only.
+func TestInvMoveFromSlot_FromInvTypeValid_UnregisteredID(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	delete(mc.invs, testInvMain)
+	runInvOpExpectErrAsPlayer(t, OpInvMoveFromSlot, []int{testInvMain, testInvBank, 0}, lookup, mc, "no InvType with value (1) found")
+}
+
+func TestInvMoveFromSlot_ToInvTypeValid_UnregisteredID(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	delete(mc.invs, testInvBank)
+	runInvOpExpectErrAsPlayer(t, OpInvMoveFromSlot, []int{testInvMain, testInvBank, 0}, lookup, mc, "no InvType with value (2) found")
+}
+
+func TestInvMoveFromSlot_FromProtectGate_RejectsUnprotected(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	mc.invs[testInvMain].Protect = true
+	// Pre-fill source slot so the test reaches the gate before the empty-slot error.
+	lookup.invs[testInvMain].Items[0] = &inventory.Item{Id: testObjCoin, Count: 1}
+	runInvOpExpectErrAsPlayer(t, OpInvMoveFromSlot, []int{testInvMain, testInvBank, 0}, lookup, mc, "$inv requires protected access: main")
+}
+
+func TestInvMoveFromSlot_NoActivePlayerErrors(t *testing.T) {
+	mc := newTestInvConfigs()
+	runInvOpExpectErr(t, OpInvMoveFromSlot, []int{testInvMain, testInvBank, 0}, nil, mc, "INV_MOVEFROMSLOT: no active player")
+}

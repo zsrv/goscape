@@ -542,15 +542,52 @@ func handleInvClear(s *ScriptState) error {
 	return nil
 }
 
-// handleInvMoveItem (INV_MOVEITEM) pops [fromInv, toInv, obj, count]
-// and moves up to `count` of `obj` from fromInv to toInv. Remove is
-// performed first, then Add with the removed count (matches TS). Both
-// invs must resolve before any mutation.
+// handleInvMoveItem (INV_MOVEITEM) ports TS InvOps.ts:499-531. Pops
+// [fromInv, toInv, obj, count] and moves up to count of obj from
+// fromInv to toInv. Remove first, then Add with the removed count
+// (matches TS).
+//
+// Validator chain (NAI-131): from-InvTypeValid → to-InvTypeValid →
+// ObjTypeValid → ObjStackValid → from-protect/scope → to-protect/scope.
+//
+// DEVIATION-NAI-131-D1: TS asymmetry — both protect/scope gates check
+// fromInvType.scope !== SCOPE_SHARED (toInv's own scope is never
+// consulted). Pinned per ts_asymmetry_dual_pin.md (positive presence
+// + absence-pin in tests). Escalates if upstream TS fixes.
 func handleInvMoveItem(s *ScriptState) error {
+	if err := requireActivePlayer(s, "INV_MOVEITEM"); err != nil {
+		return err
+	}
 	count := s.PopInt()
 	obj := s.PopInt()
 	toTypeID := s.PopInt()
 	fromTypeID := s.PopInt()
+
+	if err := checkInvType(s, fromTypeID, "INV_MOVEITEM"); err != nil {
+		return err
+	}
+	if err := checkInvType(s, toTypeID, "INV_MOVEITEM"); err != nil {
+		return err
+	}
+	if err := checkObjType(s, obj, "INV_MOVEITEM"); err != nil {
+		return err
+	}
+	if err := checkObjStack(count, "INV_MOVEITEM"); err != nil {
+		return err
+	}
+
+	fromInvType := s.Configs.InvType(fromTypeID)
+	toInvType := s.Configs.InvType(toTypeID)
+
+	// TS InvOps.ts:507-509 — from-protect gate uses fromInv.scope.
+	if fromInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared && !s.Protect {
+		return fmt.Errorf("INV_MOVEITEM: $inv requires protected access: %s", fromInvType.DebugName)
+	}
+	// TS InvOps.ts:511-513 — to-protect gate ALSO uses fromInv.scope (DEVIATION-NAI-131-D1).
+	if toInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared && !s.Protect {
+		return fmt.Errorf("INV_MOVEITEM: $inv requires protected access: %s", toInvType.DebugName)
+	}
+
 	fromInv := resolveInv(s, fromTypeID)
 	if fromInv == nil {
 		return fmt.Errorf("INV_MOVEITEM: no inv for from-type %d", fromTypeID)
@@ -572,12 +609,40 @@ func handleInvMoveItem(s *ScriptState) error {
 	return nil
 }
 
-// handleInvMoveFromSlot (INV_MOVEFROMSLOT) pops [fromInv, toInv,
-// fromSlot] and moves the entire slot contents from fromInv to toInv.
+// handleInvMoveFromSlot (INV_MOVEFROMSLOT) ports TS InvOps.ts:323-349.
+// Pops [fromInv, toInv, fromSlot] and moves the entire slot contents
+// from fromInv to toInv.
+//
+// Validator chain (NAI-131): from-InvTypeValid → to-InvTypeValid →
+// from-protect/scope → to-protect/scope. No Obj-gates (the obj id
+// comes from the source slot, not a stack-pushed input).
+//
+// DEVIATION-NAI-131-D1 applies (see handleInvMoveItem above).
 func handleInvMoveFromSlot(s *ScriptState) error {
+	if err := requireActivePlayer(s, "INV_MOVEFROMSLOT"); err != nil {
+		return err
+	}
 	fromSlot := s.PopInt()
 	toTypeID := s.PopInt()
 	fromTypeID := s.PopInt()
+
+	if err := checkInvType(s, fromTypeID, "INV_MOVEFROMSLOT"); err != nil {
+		return err
+	}
+	if err := checkInvType(s, toTypeID, "INV_MOVEFROMSLOT"); err != nil {
+		return err
+	}
+
+	fromInvType := s.Configs.InvType(fromTypeID)
+	toInvType := s.Configs.InvType(toTypeID)
+
+	if fromInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared && !s.Protect {
+		return fmt.Errorf("INV_MOVEFROMSLOT: $inv requires protected access: %s", fromInvType.DebugName)
+	}
+	if toInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared && !s.Protect {
+		return fmt.Errorf("INV_MOVEFROMSLOT: $inv requires protected access: %s", toInvType.DebugName)
+	}
+
 	fromInv := resolveInv(s, fromTypeID)
 	if fromInv == nil {
 		return fmt.Errorf("INV_MOVEFROMSLOT: no inv for from-type %d", fromTypeID)
@@ -590,7 +655,6 @@ func handleInvMoveFromSlot(s *ScriptState) error {
 	if it == nil {
 		return fmt.Errorf("INV_MOVEFROMSLOT: from slot %d empty", fromSlot)
 	}
-	// Capture before mutating — Delete nulls the slot pointer.
 	id, cnt := it.Id, it.Count
 	fromInv.Delete(fromSlot)
 	stackable, stockObj := lookupStackableStockObj(s, toInv.Type, id)
