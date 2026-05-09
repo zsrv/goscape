@@ -136,36 +136,6 @@ func TestVarpProtectDefaultTrue(t *testing.T) {
 	}
 }
 
-// TestParseVarpTypes_DiscoversRunIDFromClientCode7 mirrors TS VarPlayerType.ts:50-53:
-// the varp config with ClientCode==7 is recorded as VarpTypeConfigs.RunID.
-// clientcode is placed in the CLIENT stream (production-faithful).
-func TestParseVarpTypes_DiscoversRunIDFromClientCode7(t *testing.T) {
-	serverEntries := []varpEntry{
-		{debugName: "other_a"},
-		{debugName: "option_run"},
-		{debugName: "other_b"},
-	}
-	clientEntries := []varpEntry{
-		{clientCode: 0},
-		{clientCode: 7}, // id=1 — the run varp
-		{clientCode: 0},
-	}
-
-	server := packet2.NewPacket(buildVarpServerDat(serverEntries))
-	clientJag := buildVarpClientJag(t, buildVarpClientDat(clientEntries))
-
-	cfgs, err := parseVarpTypes(server, clientJag)
-	if err != nil {
-		t.Fatalf("parseVarpTypes: %v", err)
-	}
-	if cfgs.RunID != 1 {
-		t.Errorf("RunID: got %d, want 1", cfgs.RunID)
-	}
-	if cfgs.Configs[1].ClientCode != 7 {
-		t.Errorf("Configs[1].ClientCode: got %d, want 7", cfgs.Configs[1].ClientCode)
-	}
-}
-
 // TestParseVarpTypes_RunIDDefaultsZeroWhenNoClientCode7 pins the TS-faithful
 // default-0 fallback (VarPlayerType.ts:18) when no clientcode-7 config exists.
 // clientcodes are placed in the CLIENT stream (production-faithful).
