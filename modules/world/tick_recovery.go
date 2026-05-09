@@ -65,3 +65,27 @@ func recoverWorldScript(state *script.ScriptState, log *slog.Logger) {
 		"err", r,
 		"stack", string(debug.Stack()))
 }
+
+// recoverObjDelayed recovers from panics during objDelayedQueue fire
+// (NAI-134). Mirrors recoverWorldScript: structured log + swallow. The
+// offending request was already removed before fire (per
+// processObjDelayedQueue's remove-before-fire ordering), so recovery
+// only logs.
+//
+// Mirrors TS World.ts:566-572 catch action.
+func recoverObjDelayed(req objDelayedRequest, log *slog.Logger) {
+	r := recover()
+	if r == nil {
+		return
+	}
+	typeID := -1
+	if req.obj != nil {
+		typeID = req.obj.Type
+	}
+	log.Error("panic in objDelayedQueue fire",
+		"typeID", typeID,
+		"receiverID", req.receiverID,
+		"duration", req.duration,
+		"err", r,
+		"stack", string(debug.Stack()))
+}

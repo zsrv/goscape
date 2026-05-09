@@ -105,6 +105,7 @@ type Server struct {
 	//
 	// Single-tick goroutine ownership; no mutex required.
 	worldScriptQueue []worldScriptQueueEntry
+	objDelayedQueue []objDelayedRequest // NAI-134
 
 	renderer *rsbuf.Renderer
 	// rsbuf is the per-tick stateful encoder core (NAI-29). Tick-goroutine-
