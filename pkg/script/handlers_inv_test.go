@@ -1721,3 +1721,115 @@ func TestInvMoveItemCert_RemoveZeroCompletesNoOp(t *testing.T) {
 		t.Errorf("want 0 AddObj calls when from-Remove completes 0; got %d", len(world.addedCalls))
 	}
 }
+
+// -- NAI-132 T6 INV_DROPITEM tests --
+
+func TestInvDropItem_NoActivePlayer(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	runInvOpExpectErr(t, OpInvDropItem, []int{testInvMain, coordgrid.PackCoord(0, 3200, 3200), testObjCoin, 1, 100}, lookup, mc, "INV_DROPITEM: no active player")
+}
+
+func TestInvDropItem_InvTypeInvalid(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	runInvOpExpectErrAsPlayer(t, OpInvDropItem, []int{9999, coordgrid.PackCoord(0, 3200, 3200), testObjCoin, 1, 100}, lookup, mc, "no InvType with value (9999) found")
+}
+
+func TestInvDropItem_CoordInvalid(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	runInvOpExpectErrAsPlayer(t, OpInvDropItem, []int{testInvMain, -1, testObjCoin, 1, 100}, lookup, mc, "INV_DROPITEM: coord out of range (-1)")
+}
+
+func TestInvDropItem_ObjTypeInvalid(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	runInvOpExpectErrAsPlayer(t, OpInvDropItem, []int{testInvMain, coordgrid.PackCoord(0, 3200, 3200), 9999, 1, 100}, lookup, mc, "no ObjType with value (9999) found")
+}
+
+func TestInvDropItem_ObjStackInvalid(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	runInvOpExpectErrAsPlayer(t, OpInvDropItem, []int{testInvMain, coordgrid.PackCoord(0, 3200, 3200), testObjCoin, 0, 100}, lookup, mc, "INV_DROPITEM: invalid count (0)")
+}
+
+func TestInvDropItem_DurationInvalid(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	runInvOpExpectErrAsPlayer(t, OpInvDropItem, []int{testInvMain, coordgrid.PackCoord(0, 3200, 3200), testObjCoin, 1, 0}, lookup, mc, "INV_DROPITEM: duration out of range")
+}
+
+func TestInvDropItem_StackableSpawnsSingleStackedObj(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	from := lookup.Get(nil, testInvMain)
+	from.Set(0, &inventory.Item{Id: testObjCoin, Count: 100})
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+	runInvOpWithWorld(t, OpInvDropItem, []int{testInvMain, coordgrid.PackCoord(0, 3200, 3200), testObjCoin, 100, 200}, lookup, mc, world)
+	if len(world.addedCalls) != 1 {
+		t.Fatalf("stackable: want 1 AddObj call, got %d", len(world.addedCalls))
+	}
+	if world.addedCalls[0].count != 100 {
+		t.Errorf("AddObj count: got %d, want 100 (single stacked)", world.addedCalls[0].count)
+	}
+}
+
+func TestInvDropItem_NonStackableSpawnsPerItem(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	from := lookup.Get(nil, testInvMain)
+	from.Set(0, &inventory.Item{Id: testObjSword, Count: 1})
+	from.Set(1, &inventory.Item{Id: testObjSword, Count: 1})
+	from.Set(2, &inventory.Item{Id: testObjSword, Count: 1})
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+	runInvOpWithWorld(t, OpInvDropItem, []int{testInvMain, coordgrid.PackCoord(0, 3200, 3200), testObjSword, 3, 200}, lookup, mc, world)
+	if len(world.addedCalls) != 3 {
+		t.Fatalf("non-stackable count=3: want 3 AddObj calls, got %d", len(world.addedCalls))
+	}
+	for i, c := range world.addedCalls {
+		if c.count != 1 {
+			t.Errorf("call %d: got count=%d, want 1", i, c.count)
+		}
+	}
+}
+
+func TestInvDropItem_StackableCompletedOneSpawnsSingle(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	from := lookup.Get(nil, testInvMain)
+	from.Set(0, &inventory.Item{Id: testObjCoin, Count: 1})
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+	runInvOpWithWorld(t, OpInvDropItem, []int{testInvMain, coordgrid.PackCoord(0, 3200, 3200), testObjCoin, 1, 200}, lookup, mc, world)
+	if len(world.addedCalls) != 1 {
+		t.Fatalf("want 1 AddObj call, got %d", len(world.addedCalls))
+	}
+	if world.addedCalls[0].count != 1 {
+		t.Errorf("count: got %d, want 1", world.addedCalls[0].count)
+	}
+}
+
+func TestInvDropItem_RemoveZeroCompletedNoSpawn(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+	runInvOpWithWorld(t, OpInvDropItem, []int{testInvMain, coordgrid.PackCoord(0, 3200, 3200), testObjCoin, 50, 200}, lookup, mc, world)
+	if len(world.addedCalls) != 0 {
+		t.Errorf("empty inv: want 0 AddObj, got %d", len(world.addedCalls))
+	}
+}
+
+func TestInvDropItem_ActiveObjPointerSet(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	from := lookup.Get(nil, testInvMain)
+	from.Set(0, &inventory.Item{Id: testObjCoin, Count: 5})
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+	st := runInvOpWithWorld(t, OpInvDropItem, []int{testInvMain, coordgrid.PackCoord(0, 3200, 3200), testObjCoin, 5, 200}, lookup, mc, world)
+	if st.Pointers&PtrActiveObj == 0 {
+		t.Error("PtrActiveObj should be set after successful drop")
+	}
+	if st.ActiveObj == nil {
+		t.Error("ActiveObj should be set")
+	}
+}

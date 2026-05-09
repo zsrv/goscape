@@ -1138,3 +1138,77 @@ func handleInvMoveItemUncert(s *ScriptState) error {
 	})
 	return nil
 }
+
+// handleInvDropItem (INV_DROPITEM) ports TS InvOps.ts:163-186. Pops
+// [inv, coord, obj, count, duration]. Removes count of obj from inv,
+// then drops the removed count to the world at coord. Stackable+completed>1
+// spawns a single stacked Obj; non-stackable OR completed==1 spawns
+// per-item. Sets ActiveObj + PtrActiveObj after each spawn (last-wins).
+//
+// Validator chain (NAI-131): InvTypeValid → CoordValid → ObjTypeValid
+// → ObjStackValid → DurationValid → protect/scope.
+//
+// DEVIATION-NAI-130-D2: defensive nil-World guard returns clean error.
+func handleInvDropItem(s *ScriptState) error {
+	if err := requireActivePlayer(s, "INV_DROPITEM"); err != nil {
+		return err
+	}
+	duration := s.PopInt()
+	count := s.PopInt()
+	obj := s.PopInt()
+	coord := s.PopInt()
+	invID := s.PopInt()
+
+	if err := checkInvType(s, invID, "INV_DROPITEM"); err != nil {
+		return err
+	}
+	level, x, z, err := checkCoord(coord, "INV_DROPITEM")
+	if err != nil {
+		return err
+	}
+	if err := checkObjType(s, obj, "INV_DROPITEM"); err != nil {
+		return err
+	}
+	if err := checkObjStack(count, "INV_DROPITEM"); err != nil {
+		return err
+	}
+	if err := checkDuration(duration); err != nil {
+		return fmt.Errorf("INV_DROPITEM: %w", err)
+	}
+
+	invType := s.Configs.InvType(invID)
+	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared && !s.Protect {
+		return fmt.Errorf("INV_DROPITEM: $inv requires protected access: %s", invType.DebugName)
+	}
+
+	inv := resolveInv(s, invID)
+	if inv == nil {
+		return fmt.Errorf("INV_DROPITEM: inv unresolved (id=%d)", invID)
+	}
+	tx := inv.Remove(obj, count, inventory.RemoveOpts{BeginSlot: -1})
+	completed := tx.Completed
+	if completed == 0 {
+		return nil
+	}
+	if s.World == nil {
+		return fmt.Errorf("INV_DROPITEM: no world surface")
+	}
+	objType := s.Configs.ObjType(obj)
+	receiverID := s.Self.UID()
+	if !objType.Stackable || completed == 1 {
+		for range completed {
+			o := s.World.AddObj(level, x, z, obj, 1, duration, receiverID)
+			if o != nil {
+				s.ActiveObj = o
+				s.Pointers |= PtrActiveObj
+			}
+		}
+	} else {
+		o := s.World.AddObj(level, x, z, obj, completed, duration, receiverID)
+		if o != nil {
+			s.ActiveObj = o
+			s.Pointers |= PtrActiveObj
+		}
+	}
+	return nil
+}
