@@ -985,3 +985,73 @@ func handleInvChangeSlot(s *ScriptState) error {
 	}
 	return nil
 }
+
+// handleInvMoveItemUncert (INV_MOVEITEM_UNCERT) ports TS InvOps.ts:570-597.
+// Pops [fromInv, toInv, obj, count]. invDel → if obj is a certificate
+// (CertTemplate >= 0 && CertLink >= 0) add CertLink to toInv else add
+// obj.Id. No overflow-to-world drop (TS InvOps.ts:593-595 just calls
+// player.invAdd without overflow-handling).
+//
+// Validator chain (NAI-131): from-InvTypeValid → to-InvTypeValid →
+// ObjTypeValid → ObjStackValid → from-protect/scope → to-protect/scope
+// (DEVIATION-NAI-131-D1: both gates evaluate fromInvType.Scope).
+func handleInvMoveItemUncert(s *ScriptState) error {
+	if err := requireActivePlayer(s, "INV_MOVEITEM_UNCERT"); err != nil {
+		return err
+	}
+	count := s.PopInt()
+	obj := s.PopInt()
+	toTypeID := s.PopInt()
+	fromTypeID := s.PopInt()
+
+	if err := checkInvType(s, fromTypeID, "INV_MOVEITEM_UNCERT"); err != nil {
+		return err
+	}
+	if err := checkInvType(s, toTypeID, "INV_MOVEITEM_UNCERT"); err != nil {
+		return err
+	}
+	if err := checkObjType(s, obj, "INV_MOVEITEM_UNCERT"); err != nil {
+		return err
+	}
+	if err := checkObjStack(count, "INV_MOVEITEM_UNCERT"); err != nil {
+		return err
+	}
+
+	fromInvType := s.Configs.InvType(fromTypeID)
+	toInvType := s.Configs.InvType(toTypeID)
+
+	if fromInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared && !s.Protect {
+		return fmt.Errorf("INV_MOVEITEM_UNCERT: $inv requires protected access: %s", fromInvType.DebugName)
+	}
+	// DEVIATION-NAI-131-D1: to-gate uses fromInvType.Scope.
+	if toInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared && !s.Protect {
+		return fmt.Errorf("INV_MOVEITEM_UNCERT: $inv requires protected access: %s", toInvType.DebugName)
+	}
+
+	fromInv := resolveInv(s, fromTypeID)
+	if fromInv == nil {
+		return fmt.Errorf("INV_MOVEITEM_UNCERT: no inv for from-type %d", fromTypeID)
+	}
+	toInv := resolveInv(s, toTypeID)
+	if toInv == nil {
+		return fmt.Errorf("INV_MOVEITEM_UNCERT: no inv for to-type %d", toTypeID)
+	}
+
+	tx := fromInv.Remove(obj, count, inventory.RemoveOpts{BeginSlot: -1})
+	if tx.Completed == 0 {
+		return nil
+	}
+
+	objType := s.Configs.ObjType(obj)
+	finalObj := obj
+	if objType.CertTemplate >= 0 && objType.CertLink >= 0 {
+		finalObj = objType.CertLink
+	}
+	stackable, stockObj := lookupStackableStockObj(s, toInv.Type, finalObj)
+	toInv.Add(finalObj, tx.Completed, inventory.AddOpts{
+		BeginSlot: -1,
+		Stackable: stackable,
+		StockObj:  stockObj,
+	})
+	return nil
+}

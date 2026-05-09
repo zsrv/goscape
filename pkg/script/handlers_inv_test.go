@@ -22,11 +22,12 @@ func (m *mockInvLookup) Get(_ ActivePlayer, typeID int) *inventory.Inventory {
 }
 
 const (
-	testInvMain  = 1 // stack-normal, capacity 28
-	testInvBank  = 2 // stack-always, capacity 100
-	testObjCoin  = 995
-	testObjArr   = 2
-	testObjSword = 3 // non-stackable scratch obj for per-slot semantics tests
+	testInvMain    = 1   // stack-normal, capacity 28
+	testInvBank    = 2   // stack-always, capacity 100
+	testObjCoin    = 995
+	testObjArr     = 2
+	testObjSword   = 3 // non-stackable scratch obj for per-slot semantics tests
+	testObjCertNote = 4 // certificate item (UNCERT direction): CertTemplate=self(>=0), CertLink=testObjCoin
 )
 
 // newTestInvLookup seeds a fresh mockInvLookup with the shared fixture:
@@ -91,6 +92,13 @@ func newTestInvConfigs() *mockConfigs {
 	sword.Category = 10
 	sword.Params = objtype.ParamMap{1: uint32(5)}
 	mc.objs[testObjSword] = sword
+
+	certNote := objtype.NewObjType(testObjCertNote)
+	certNote.DebugName = "cert_note"
+	certNote.CertTemplate = testObjCertNote // self-referential (>=0) satisfies UNCERT gate
+	certNote.CertLink = testObjCoin
+	certNote.Stackable = true
+	mc.objs[testObjCertNote] = certNote
 
 	mainInv := objtype.NewInvType(testInvMain)
 	mainInv.DebugName = "main"
@@ -1513,5 +1521,82 @@ func TestInvChangeSlot_ReplaceCountZeroAbsencePin(t *testing.T) {
 	runInvOp(t, OpInvChangeSlot, []int{testInvMain, testObjCoin, testObjArr, 0}, lookup, mc)
 	if got := inv.Get(0); got == nil || got.Id != testObjArr || got.Count != 0 {
 		t.Errorf("slot 0: got %+v, want {Id=%d, Count=0}", got, testObjArr)
+	}
+}
+
+// --- INV_MOVEITEM_UNCERT ---
+
+func TestInvMoveItemUncert_NoActivePlayer(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	runInvOpExpectErr(t, OpInvMoveItemUncert, []int{testInvMain, testInvBank, testObjCoin, 1}, lookup, mc, "INV_MOVEITEM_UNCERT: no active player")
+}
+
+func TestInvMoveItemUncert_FromInvTypeInvalid(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	runInvOpExpectErrAsPlayer(t, OpInvMoveItemUncert, []int{9999, testInvBank, testObjCoin, 1}, lookup, mc, "no InvType with value (9999) found")
+}
+
+func TestInvMoveItemUncert_ToInvTypeInvalid(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	runInvOpExpectErrAsPlayer(t, OpInvMoveItemUncert, []int{testInvMain, 9999, testObjCoin, 1}, lookup, mc, "no InvType with value (9999) found")
+}
+
+func TestInvMoveItemUncert_ObjTypeInvalid(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	runInvOpExpectErrAsPlayer(t, OpInvMoveItemUncert, []int{testInvMain, testInvBank, 9999, 1}, lookup, mc, "no ObjType with value (9999) found")
+}
+
+func TestInvMoveItemUncert_ObjStackInvalid(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	runInvOpExpectErrAsPlayer(t, OpInvMoveItemUncert, []int{testInvMain, testInvBank, testObjCoin, 0}, lookup, mc, "INV_MOVEITEM_UNCERT: invalid count (0)")
+}
+
+func TestInvMoveItemUncert_NonCertObjMovesAsIs(t *testing.T) {
+	// Non-cert obj (CertTemplate=-1 default, CertLink=-1 default) → invAdd uses obj.Id unchanged.
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	from := lookup.Get(nil, testInvMain)
+	from.Set(0, &inventory.Item{Id: testObjCoin, Count: 50})
+	runInvOp(t, OpInvMoveItemUncert, []int{testInvMain, testInvBank, testObjCoin, 50}, lookup, mc)
+	if got := from.Get(0); got != nil {
+		t.Errorf("from slot 0 should be empty: got %+v", got)
+	}
+	to := lookup.Get(nil, testInvBank)
+	if got := to.GetItemCount(testObjCoin); got != 50 {
+		t.Errorf("to inv: got %d coins, want 50", got)
+	}
+}
+
+func TestInvMoveItemUncert_CertObjUncertifies(t *testing.T) {
+	// Certificate item (CertTemplate=self>=0, CertLink=testObjCoin>=0) →
+	// gate fires → invAdd uses CertLink (the real underlying obj).
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	from := lookup.Get(nil, testInvMain)
+	from.Set(0, &inventory.Item{Id: testObjCertNote, Count: 5})
+	runInvOp(t, OpInvMoveItemUncert, []int{testInvMain, testInvBank, testObjCertNote, 5}, lookup, mc)
+	to := lookup.Get(nil, testInvBank)
+	if got := to.GetItemCount(testObjCertNote); got != 0 {
+		t.Errorf("to inv should not contain cert note: got %d", got)
+	}
+	// CertLink = testObjCoin → 5 coins added.
+	if got := to.GetItemCount(testObjCoin); got != 5 {
+		t.Errorf("to inv: got %d coins via cert→link, want 5", got)
+	}
+}
+
+func TestInvMoveItemUncert_RemoveZeroCompletesNoOp(t *testing.T) {
+	// from inv empty → tx.Completed=0 → return without invAdd.
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	runInvOp(t, OpInvMoveItemUncert, []int{testInvMain, testInvBank, testObjCoin, 50}, lookup, mc)
+	to := lookup.Get(nil, testInvBank)
+	if got := to.GetItemCount(testObjCoin); got != 0 {
+		t.Errorf("to inv: got %d coins, want 0 (Remove returned 0)", got)
 	}
 }
