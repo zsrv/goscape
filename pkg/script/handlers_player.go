@@ -638,8 +638,31 @@ func handlePRun(s *ScriptState) error {
 	}
 	v := s.PopInt()
 	s.Self.SetRun(v)
+	varpID := s.Self.RunVarpID()
+	if s.NodeDebug && s.Log != nil {
+		var (
+			scriptName string
+			tick       int
+			varpPre    int32
+		)
+		if s.Script != nil {
+			scriptName = s.Script.Name
+		}
+		if s.World != nil {
+			tick = s.World.CurrentTick()
+		}
+		varpPre = s.Self.Varp(varpID)
+		s.Log.Info("nai138.p_run",
+			"script_name", scriptName,
+			"script_pc", s.PC,
+			"tick", tick,
+			"value", v,
+			"varp_id", varpID,
+			"varp_pre", varpPre,
+		)
+	}
 	// todo: better way to sync engine varp (mirrored from TS PlayerOps.ts:1207)
-	s.Self.SetVarp(s.Self.RunVarpID(), int32(v))
+	s.Self.SetVarp(varpID, int32(v))
 	return nil
 }
 
