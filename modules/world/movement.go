@@ -132,6 +132,21 @@ func (p *Player) drainRunEnergy() {
 	}
 }
 
+// defaultMoveSpeed maps p.run → MoveSpeed. Mirrors TS
+// Engine-TS/src/engine/entity/Player.ts:710-712:
+//
+//	defaultMoveSpeed(): MoveSpeed {
+//	    return this.run ? MoveSpeed.RUN : MoveSpeed.WALK;
+//	}
+//
+// NAI-135.
+func (p *Player) defaultMoveSpeed() MoveSpeed {
+	if p.run != 0 {
+		return MoveSpeedRun
+	}
+	return MoveSpeedWalk
+}
+
 // pathToMoveClick translates a MOVE_GAMECLICK / MOVE_OPCLICK waypoint list
 // into the player's movement queue. If needsFinding is true and moveStrategy
 // is SMART, the server runs its own pathfinder; otherwise it trusts the
