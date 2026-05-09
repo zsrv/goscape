@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/objtype"
-	"github.com/zsrv/goscape/pkg/script"
 )
 
 func TestDefaultMoveSpeed_RunZero(t *testing.T) {
@@ -249,11 +248,18 @@ func TestUpdateEnergy_DrainWeightOverflowClampedTo64kg(t *testing.T) {
 	}
 }
 
-// updateEnergy: runenergy=0 → run=0 + varp sync
+// updateEnergy: runenergy=0 → run=0 + varp sync to clientcode-7-resolved id
 func TestUpdateEnergy_EnergyZeroResetsRunAndVarp(t *testing.T) {
 	p, _ := newTestPlayer(t)
-	p.varps = make([]int32, 1)
-	p.varps[0] = 1 // pre-state: run is on
+	s := newTestServer(t)
+	s.varpTypes = &objtype.VarpTypeConfigs{
+		Configs: make([]*objtype.VarPlayerType, 174),
+		RunID:   173,
+	}
+	p.client.server = s
+
+	p.varps = make([]int32, 174)
+	p.varps[173] = 1 // pre-state: run-mode varp is on
 	p.run = 1
 	p.stepsTaken = 2
 	p.runweight = 0
@@ -267,8 +273,37 @@ func TestUpdateEnergy_EnergyZeroResetsRunAndVarp(t *testing.T) {
 	if p.run != 0 {
 		t.Errorf("run: got %d, want 0 (reset on energy=0)", p.run)
 	}
-	if p.varps[script.VarPlayerRun] != 0 {
-		t.Errorf("varps[VarPlayerRun]: got %d, want 0 (varp sync)", p.varps[script.VarPlayerRun])
+	if p.varps[173] != 0 {
+		t.Errorf("varps[173] (RunID=173): got %d, want 0", p.varps[173])
+	}
+	if p.varps[0] != 0 {
+		t.Errorf("varps[0]: got %d, want 0 (sanity: no write hit hardcoded id 0)", p.varps[0])
+	}
+}
+
+// updateEnergy: runenergy=0 + RunID=0 → write still lands at the TS
+// placeholder default id (0). Sanity-pins parity with TS behavior when
+// the cache lacks a clientcode-7 config (Engine-TS/src/cache/config/VarPlayerType.ts:18 default).
+func TestUpdateEnergy_EnergyZeroNoEmitWhenRunIDZero(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	s := newTestServer(t)
+	s.varpTypes = &objtype.VarpTypeConfigs{
+		Configs: make([]*objtype.VarPlayerType, 1),
+		RunID:   0,
+	}
+	p.client.server = s
+
+	p.varps = make([]int32, 1)
+	p.varps[0] = 1
+	p.run = 1
+	p.stepsTaken = 2
+	p.runweight = 0
+	p.runenergy = 10
+
+	p.updateEnergy()
+
+	if p.varps[0] != 0 {
+		t.Errorf("varps[0]: got %d, want 0 (RunID=0 default lands at id 0)", p.varps[0])
 	}
 }
 

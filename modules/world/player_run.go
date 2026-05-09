@@ -2,7 +2,6 @@ package world
 
 import (
 	"github.com/zsrv/goscape/pkg/objtype"
-	"github.com/zsrv/goscape/pkg/script"
 )
 
 // updateEnergy drains or recovers run energy for one tick, and
@@ -19,8 +18,9 @@ import (
 // runweight is in grams; TS divides by 1000 to convert to kg, then
 // clamps to [0, 64]. Loss formula = floor(67 + 67*kg/64).
 //
-// At runenergy==0: clear p.run AND propagate via SetVarp(VarPlayerRun)
-// so the client's varp-driven run-toggle UI updates. Mirrors TS
+// At runenergy==0: clear p.run AND propagate via
+// SetVarp(p.RunVarpID(), 0) — the cache-resolved engine run-mode varp
+// id (clientcode==7, typically 173 for option_run). Mirrors TS
 // Player.ts:697-699.
 //
 // At runenergy<100: clear p.tempRun (TS Player.ts:701-703).
@@ -42,7 +42,7 @@ func (p *Player) updateEnergy() {
 	}
 	if p.runenergy == 0 {
 		p.run = 0
-		p.SetVarp(script.VarPlayerRun, 0)
+		p.SetVarp(p.RunVarpID(), 0)
 	}
 	if p.runenergy < 100 {
 		p.tempRun = 0

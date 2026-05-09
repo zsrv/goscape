@@ -348,6 +348,19 @@ func (p *Player) SetRun(v int) {
 	p.run = v
 }
 
+// RunVarpID implements script.ActivePlayer.RunVarpID. Returns the varp
+// id discovered at config-load time as the engine run-mode varp (the
+// config with ClientCode==7). Mirrors TS VarPlayerType.RUN at
+// Engine-TS/src/cache/config/VarPlayerType.ts:50-53. Returns 0 (goscape
+// defensive; TS skips this check) if the server has no varpTypes loaded
+// (test-fixture / pre-config-load).
+func (p *Player) RunVarpID() int {
+	if p.client == nil || p.client.server == nil || p.client.server.varpTypes == nil {
+		return 0
+	}
+	return p.client.server.varpTypes.RunID
+}
+
 // RunEnergy implements script.ActivePlayer.RunEnergy. Returns the
 // player's current run-energy as an int (range [0, 10000]). Backs the
 // RUNENERGY opcode handler. NAI-117.
