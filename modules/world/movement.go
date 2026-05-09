@@ -80,11 +80,10 @@ func (p *Player) resolveMovement() {
 	p.walkDir = int(dir)
 	p.runDir = -1
 
-	if p.moveSpeed == MoveSpeedRun && p.runenergy > 0 && p.waypointIndex >= 0 {
+	if p.moveSpeed == MoveSpeedRun && p.waypointIndex >= 0 {
 		dir2, ok2 := p.stepOnce()
 		if ok2 {
 			p.runDir = int(dir2)
-			p.drainRunEnergy()
 		}
 	}
 
@@ -134,18 +133,6 @@ func (p *Player) stepOnce() (coordgrid.Direction, bool) {
 		p.waypointIndex--
 	}
 	return dir, true
-}
-
-// drainRunEnergy applies the TS run-energy decay formula once per running step.
-func (p *Player) drainRunEnergy() {
-	decay := (67 + 67*p.runweight/64) / 100
-	if decay < 1 {
-		decay = 1
-	}
-	p.runenergy -= decay
-	if p.runenergy < 0 {
-		p.runenergy = 0
-	}
 }
 
 // defaultMoveSpeed maps p.run → MoveSpeed. Mirrors TS

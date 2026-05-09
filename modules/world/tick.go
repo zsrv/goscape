@@ -54,6 +54,7 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		s.processPathing()
 		s.processInteractions()
 		s.processWalkTriggerFallbacks() // NAI-77 T3: TS World.ts:635-641 per-tick re-path + PLAYERSETUP walktrigger
+		s.processEnergy()               // NAI-135: TS World.ts:731 per-player updateEnergy
 		s.processNpcs()
 		s.processLogouts()
 		s.processLogins()
@@ -239,6 +240,20 @@ func (s *Server) processPathing() {
 
 	for _, p := range players {
 		p.resolveMovement()
+	}
+}
+
+// processEnergy drives one tick of per-player run-energy
+// drain/recovery + run-mode auto-disable. Mirrors TS World.ts:731
+// (player.updateEnergy() per-player iteration). NAI-135.
+func (s *Server) processEnergy() {
+	s.playersMu.RLock()
+	players := make([]*Player, len(s.playerLoop))
+	copy(players, s.playerLoop)
+	s.playersMu.RUnlock()
+
+	for _, p := range players {
+		p.updateEnergy()
 	}
 }
 
