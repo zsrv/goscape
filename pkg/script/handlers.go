@@ -318,6 +318,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpInvMoveItemCert:   handleInvMoveItemCert,
 	OpInvMoveItemUncert: handleInvMoveItemUncert,
 	OpInvDropItem:       handleInvDropItem,
+	OpInvDropItemDelayed: handleInvDropItemDelayed,
 	// S6u+S6y: listener registration (3).
 	OpInvTransmit:      handleInvTransmit,
 	OpInvStopTransmit:  handleInvStopTransmit,

@@ -2245,3 +2245,141 @@ func TestBothMoveInv_WealthEventSkip_NoEmission(t *testing.T) {
 	// a recorder field on mockPlayer remained empty. Until then, the comment is
 	// the contract.
 }
+
+// -- NAI-134 INV_DROPITEM_DELAYED tests --
+
+// makeDropItemDelayedState builds a direct-call test fixture matching
+// the existing newInvAddOverflowState pattern (handlers_inv_test.go:1038).
+// Sets up: configs with one InvType (Protect/Scope per args) and one
+// stackable ObjType, an inventory pre-loaded with `count` of the obj, an
+// mockPlayer at (0,3200,3200) with uid=12345, PtrActivePlayer set, and
+// a fakeWorldAddObj recorder wired into state.World.
+//
+// Returns (state, inv, world). Caller pushes int args in TS pop-order
+// before calling handleInvDropItemDelayed directly.
+func makeDropItemDelayedState(t *testing.T, protect bool, scope int, count int) (*ScriptState, *inventory.Inventory, *fakeWorldAddObj) {
+	t.Helper()
+	s := newTestState(minimalScript(OpReturn))
+
+	mc := newTestInvConfigs()
+	invType := objtype.NewInvType(testInvMain)
+	invType.DebugName = "test_inv"
+	invType.Size = 28
+	invType.Protect = protect
+	invType.Scope = scope
+	mc.invs[testInvMain] = invType
+	s.Configs = mc
+
+	inv := inventory.New(testInvMain, 28, inventory.StackNormal)
+	if count > 0 {
+		inv.Items[0] = &inventory.Item{Id: testObjCoin, Count: count}
+	}
+	s.Inv = &mockInvLookup{invs: map[int]*inventory.Inventory{testInvMain: inv}}
+
+	s.Self = &mockPlayer{
+		uidValue:    12345,
+		coordPacked: coordgrid.PackCoord(0, 3200, 3200),
+		x:           3200,
+		z:           3200,
+	}
+	s.Pointers |= PtrActivePlayer
+
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+	s.World = world
+	return s, inv, world
+}
+
+// pushDropItemDelayedArgs pushes the 6 args in TS pop-order
+// (invID at bottom, delay on top): handler PopInts in reverse.
+func pushDropItemDelayedArgs(s *ScriptState, invID, coord, obj, count, duration, delay int) {
+	s.PushInt(invID)
+	s.PushInt(coord)
+	s.PushInt(obj)
+	s.PushInt(count)
+	s.PushInt(duration)
+	s.PushInt(delay)
+}
+
+// TestInvDropItemDelayed_NoActivePlayer_Errors pins the requireActivePlayer
+// guard. Without PtrActivePlayer set, handler returns an error.
+func TestInvDropItemDelayed_NoActivePlayer_Errors(t *testing.T) {
+	s, _, world := makeDropItemDelayedState(t, false, objtype.InvTypeScopeTemp, 5)
+	s.Pointers &^= PtrActivePlayer
+
+	pushDropItemDelayedArgs(s, testInvMain, coordgrid.PackCoord(0, 3200, 3200), testObjCoin, 1, 100, 5)
+	err := handleInvDropItemDelayed(s)
+
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "no active player") {
+		t.Errorf("err: got %q, want substring \"no active player\"", err)
+	}
+	if got := len(world.enqueueObjDelayedCalls); got != 0 {
+		t.Errorf("error path: expected 0 enqueue calls, got %d", got)
+	}
+}
+
+// TestInvDropItemDelayed_HappyPath_EnqueueArgs pins the success path:
+// validators pass, protect-gate skipped (Protect=false), inv.Remove
+// succeeds with completed=count, EnqueueObjDelayed receives every arg
+// verbatim including delay.
+func TestInvDropItemDelayed_HappyPath_EnqueueArgs(t *testing.T) {
+	s, _, world := makeDropItemDelayedState(t, false, objtype.InvTypeScopeTemp, 5)
+	const wantDelay = 7
+	const wantDuration = 100
+
+	pushDropItemDelayedArgs(s, testInvMain, coordgrid.PackCoord(0, 3200, 3200), testObjCoin, 3, wantDuration, wantDelay)
+	err := handleInvDropItemDelayed(s)
+
+	if err != nil {
+		t.Fatalf("happy path: unexpected error: %v", err)
+	}
+	if got := len(world.enqueueObjDelayedCalls); got != 1 {
+		t.Fatalf("expected 1 enqueue call, got %d", got)
+	}
+	c := world.enqueueObjDelayedCalls[0]
+	if c.level != 0 || c.x != 3200 || c.z != 3200 {
+		t.Errorf("enqueue coord: got level=%d x=%d z=%d, want 0/3200/3200", c.level, c.x, c.z)
+	}
+	if c.typeID != testObjCoin {
+		t.Errorf("enqueue typeID: got %d, want %d", c.typeID, testObjCoin)
+	}
+	if c.count != 3 {
+		t.Errorf("enqueue count: got %d, want 3 (TS uses Remove.completed)", c.count)
+	}
+	if c.duration != wantDuration {
+		t.Errorf("enqueue duration: got %d, want %d", c.duration, wantDuration)
+	}
+	if c.delay != wantDelay {
+		t.Errorf("enqueue delay: got %d, want %d", c.delay, wantDelay)
+	}
+	if c.receiverID != s.Self.UID() {
+		t.Errorf("enqueue receiverID: got %d, want %d (Self.UID)", c.receiverID, s.Self.UID())
+	}
+	// TS-asymmetry vs INV_DROPITEM: ActiveObj NOT set (obj does not yet exist).
+	if s.ActiveObj != nil {
+		t.Errorf("DoesNotSetActiveObj: state.ActiveObj got %v, want nil", s.ActiveObj)
+	}
+	if s.Pointers&PtrActiveObj != 0 {
+		t.Errorf("DoesNotSetActiveObj: PtrActiveObj should not be set, pointers=%b", s.Pointers)
+	}
+}
+
+// TestInvDropItemDelayed_RemoveCompletedZero_NoEnqueue pins TS
+// InvOps.ts:203-205: when inv.Remove returns completed=0 (empty inv),
+// handler returns nil and does NOT enqueue.
+func TestInvDropItemDelayed_RemoveCompletedZero_NoEnqueue(t *testing.T) {
+	// Empty inv (count=0 → Items[0] not seeded → Remove returns completed=0).
+	s, _, world := makeDropItemDelayedState(t, false, objtype.InvTypeScopeTemp, 0)
+
+	pushDropItemDelayedArgs(s, testInvMain, coordgrid.PackCoord(0, 3200, 3200), testObjCoin, 1, 100, 0)
+	err := handleInvDropItemDelayed(s)
+
+	if err != nil {
+		t.Fatalf("completed=0 path: unexpected error: %v", err)
+	}
+	if got := len(world.enqueueObjDelayedCalls); got != 0 {
+		t.Errorf("completed=0: expected 0 enqueue calls, got %d", got)
+	}
+}

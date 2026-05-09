@@ -1339,3 +1339,83 @@ func handleBothMoveInv(s *ScriptState) error {
 
 	return nil
 }
+
+// handleInvDropItemDelayed (INV_DROPITEM_DELAYED, opcode 4310) ports
+// TS InvOps.ts:188-209. Pops [inv, coord, obj, count, duration, delay].
+// Removes count of obj from inv; if completed > 0, enqueues an
+// ObjDelayedRequest onto World.objDelayedQueue (drained per-tick by
+// Server.processObjDelayedQueue at modules/world/obj_delayed_queue.go).
+//
+// Validator chain (mirrors handleInvDropItem at handlers_inv.go:1142):
+// InvTypeValid → CoordValid → ObjTypeValid → ObjStackValid → DurationValid
+// → operand-aware protect-gate.
+//
+// `delay` is unvalidated — TS InvOps.ts:188-195 lacks DelayValid.
+//
+// Operand-aware protect gate (NAI-133 slot routing): operand=0 selects
+// PtrProtectedActivePlayer; operand=1 selects PtrProtectedActivePlayer2.
+// Out-of-range operand returns an error.
+//
+// TS-asymmetry vs INV_DROPITEM (handlers_inv.go:1142-1203): does NOT set
+// state.ActiveObj or PtrActiveObj — the obj does not yet exist as a
+// tracked world entity at enqueue time. TS verbatim at InvOps.ts:206-208.
+//
+// DEVIATION-NAI-130-D2 sibling: defensive nil-World guard returns clean
+// error rather than nil-deref, matching handleInvDropItem.
+func handleInvDropItemDelayed(s *ScriptState) error {
+	if err := requireActivePlayer(s, "INV_DROPITEM_DELAYED"); err != nil {
+		return err
+	}
+	delay := s.PopInt()
+	duration := s.PopInt()
+	count := s.PopInt()
+	obj := s.PopInt()
+	coord := s.PopInt()
+	invID := s.PopInt()
+
+	if err := checkInvType(s, invID, "INV_DROPITEM_DELAYED"); err != nil {
+		return err
+	}
+	level, x, z, err := checkCoord(coord, "INV_DROPITEM_DELAYED")
+	if err != nil {
+		return err
+	}
+	if err := checkObjType(s, obj, "INV_DROPITEM_DELAYED"); err != nil {
+		return err
+	}
+	if err := checkObjStack(count, "INV_DROPITEM_DELAYED"); err != nil {
+		return err
+	}
+	if err := checkDuration(duration); err != nil {
+		return fmt.Errorf("INV_DROPITEM_DELAYED: %w", err)
+	}
+
+	// Operand-aware protect gate (NAI-133 slot routing).
+	operand := s.Script.IntOperands[s.PC]
+	if operand != 0 && operand != 1 {
+		return fmt.Errorf("INV_DROPITEM_DELAYED: invalid intOperand %d", operand)
+	}
+	protectFlag := PtrProtectedActivePlayer
+	if operand == 1 {
+		protectFlag = PtrProtectedActivePlayer2
+	}
+	invType := s.Configs.InvType(invID)
+	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared && s.Pointers&protectFlag == 0 {
+		return fmt.Errorf("INV_DROPITEM_DELAYED: $inv requires protected access: %s", invType.DebugName)
+	}
+
+	inv := resolveInv(s, invID)
+	if inv == nil {
+		return fmt.Errorf("INV_DROPITEM_DELAYED: inv unresolved (id=%d)", invID)
+	}
+	tx := inv.Remove(obj, count, inventory.RemoveOpts{BeginSlot: -1})
+	completed := tx.Completed
+	if completed == 0 {
+		return nil
+	}
+	if s.World == nil {
+		return fmt.Errorf("INV_DROPITEM_DELAYED: no world surface")
+	}
+	s.World.EnqueueObjDelayed(level, x, z, obj, completed, duration, delay, s.Self.UID())
+	return nil
+}
