@@ -91,7 +91,9 @@ func TestNAI101_FountainPathAround_RealCache(t *testing.T) {
 		p, _ := newTestPlayer(t)
 		p.client.server = s
 		p.x, p.z, p.level = 3222, 3225, 0
-		p.moveSpeed = MoveSpeedRun
+		p.run = 1
+		p.runanim = 0
+		p.moveSpeed = MoveSpeedWalk // bridge input; bridge will elevate to Run
 		p.runenergy = 10000
 
 		route := s.gamemap.Pathfinder.FindPathPlain(0, 3222, 3225, 3219, 3230)

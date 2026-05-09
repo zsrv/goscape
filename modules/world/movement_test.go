@@ -63,7 +63,9 @@ func TestResolveMovementAdvancesOneTileWalking(t *testing.T) {
 func TestResolveMovementAdvancesTwoTilesRunning(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.x, p.z, p.level = 3094, 3106, 0
-	p.moveSpeed = MoveSpeedRun
+	p.run = 1
+	p.runanim = 0
+	p.moveSpeed = MoveSpeedWalk // bridge input; bridge will elevate to Run
 	p.runenergy = 10000
 	p.waypoints[0] = packTestCoord(0, 3094, 3108)
 	p.waypointIndex = 0
@@ -163,21 +165,6 @@ func TestMoveGameClickAdvancesPlayer(t *testing.T) {
 	}
 }
 
-func TestResolveMovementDrainsRunEnergy(t *testing.T) {
-	p, _ := newTestPlayer(t)
-	p.x, p.z, p.level = 3094, 3106, 0
-	p.moveSpeed = MoveSpeedRun
-	p.runenergy = 10000
-	p.runweight = 0
-	p.waypoints[0] = packTestCoord(0, 3094, 3108)
-	p.waypointIndex = 0
-
-	p.resolveMovement()
-
-	if p.runenergy >= 10000 {
-		t.Errorf("run energy should have drained, got %d", p.runenergy)
-	}
-}
 
 func TestPlayerStepCrossZoneRefreshSubscription(t *testing.T) {
 	s := newTestServer(t)

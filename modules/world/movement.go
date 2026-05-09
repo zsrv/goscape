@@ -45,6 +45,18 @@ func (p *Player) resolveMovement() {
 	// stepsTaken === 0 to gate post-step retry timing (Player.ts:1245).
 	p.stepsTaken = 0
 
+	// NAI-135: Bridge p.run → moveSpeed. Mirrors TS Player.ts:661-668.
+	// moveSpeed==Instant skip preserves the teleport-jump invariant
+	// from P_TELEJUMP / RebuildNormal (TS Player.ts:556).
+	if p.moveSpeed != MoveSpeedInstant {
+		p.moveSpeed = p.defaultMoveSpeed()
+		if p.runanim == -1 {
+			p.moveSpeed = MoveSpeedWalk
+		} else if p.tempRun != 0 {
+			p.moveSpeed = MoveSpeedRun
+		}
+	}
+
 	p.lastTickX = p.x
 	p.lastTickZ = p.z
 	p.lastLevel = p.level
@@ -52,6 +64,8 @@ func (p *Player) resolveMovement() {
 	if p.waypointIndex < 0 {
 		p.walkDir = -1
 		p.runDir = -1
+		// NAI-135: no waypoints → no steps → tempRun reset (TS Player.ts:670-673).
+		p.tempRun = 0
 		return
 	}
 
@@ -59,6 +73,8 @@ func (p *Player) resolveMovement() {
 	if !ok {
 		p.walkDir = -1
 		p.runDir = -1
+		// NAI-135: step blocked → no steps → tempRun reset (TS Player.ts:670-673).
+		p.tempRun = 0
 		return
 	}
 	p.walkDir = int(dir)
@@ -70,6 +86,13 @@ func (p *Player) resolveMovement() {
 			p.runDir = int(dir2)
 			p.drainRunEnergy()
 		}
+	}
+
+	// NAI-135: Mirrors TS Player.ts:670-673 — TS resets tempRun when no
+	// movement happened this tick. stepsTaken==0 is the equivalent of
+	// TS's `if (!super.processMovement())` (false ⇒ no steps).
+	if p.stepsTaken == 0 {
+		p.tempRun = 0
 	}
 
 	// NAI-82: TS Player.processMovement at Engine-TS/.../Player.ts:675-677
