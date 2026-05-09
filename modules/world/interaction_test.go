@@ -769,7 +769,8 @@ func TestProcessWalktrigger_MissingScriptStillClears(t *testing.T) {
 // TestProcessWalktrigger_ProtectedScriptActiveNoOp — NAI-52. With a
 // suspended protected script anchored on the player, the walktrigger
 // consumer must bail without firing. Mirrors TS Player.ts:1062 gate
-// !this.protect via goscape's activeScript.Protect convergence.
+// !this.protect via goscape's activeScript.Pointers&PtrProtectedActivePlayer
+// convergence.
 func TestProcessWalktrigger_ProtectedScriptActiveNoOp(t *testing.T) {
 	s := newTestServer(t)
 	p, wait := makeInteractionPlayer(t, s, 3200, 3200, 0)
@@ -787,8 +788,8 @@ func TestProcessWalktrigger_ProtectedScriptActiveNoOp(t *testing.T) {
 
 // TestProcessWalktrigger_ActiveScriptUnprotectedFires — NAI-52. Pins
 // that activeScript != nil alone does NOT block the consumer; only
-// activeScript.Protect == true does. activeScript with Protect=false
-// must allow the walktrigger to fire and clear.
+// activeScript with PtrProtectedActivePlayer set does. activeScript
+// without the protect flag must allow the walktrigger to fire and clear.
 func TestProcessWalktrigger_ActiveScriptUnprotectedFires(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()

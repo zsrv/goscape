@@ -718,8 +718,8 @@ func TestPlayerIsInWildernessBoundaries(t *testing.T) {
 
 // TestPlayer_ProtectedScriptActive_TruthTable pins the goscape mapping
 // of TS Player.protect: protectedScriptActive iff activeScript != nil
-// AND activeScript.Protect. Mirrors the convergence documented at
-// CanAccess (player_script.go:232-238).
+// AND activeScript.Pointers&PtrProtectedActivePlayer != 0. Mirrors the
+// convergence documented at CanAccess (player_script.go:232-238).
 func TestPlayer_ProtectedScriptActive_TruthTable(t *testing.T) {
 	cases := []struct {
 		name   string

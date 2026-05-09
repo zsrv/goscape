@@ -566,8 +566,9 @@ func (s *Server) processCleanup() {
 		// at most one social/report packet per type per player.
 		//
 		// Deferred resetEntity fields now resolved by NAI-108:
-		//   - protect → activeScript.Protect (already-converged divergence;
-		//     see interaction.go:308, player_script.go:276,297-300).
+		//   - protect → activeScript.Pointers&PtrProtectedActivePlayer
+		//     (already-converged divergence; see interaction.go:308,
+		//     player_script.go:276,297-300).
 		//   - chatColour/Effect/Rights → moved to ResetMasks per TS fidelity.
 		//   - chat msg field → dead field deleted (player.go:196 retired).
 		//   - logMessage → TS-only, no goscape consumer (YAGNI).

@@ -306,8 +306,8 @@ func (p *Player) hasWaypoints() bool {
 // at Player.ts:1057-1070.
 //
 // The !p.protectedScriptActive() gate mirrors TS L1062 !this.protect via
-// goscape's documented activeScript.Protect convergence (see CanAccess
-// doc-comment in player_script.go).
+// goscape's documented activeScript.Pointers&PtrProtectedActivePlayer
+// convergence (see CanAccess doc-comment in player_script.go).
 func (p *Player) processWalktrigger() {
 	if p.walktrigger == -1 || p.delayed || p.protectedScriptActive() {
 		return
