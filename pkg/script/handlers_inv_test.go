@@ -46,7 +46,10 @@ func newTestInvLookup() *mockInvLookup {
 // fixture types used across this file:
 //   - obj 995 "coins": stackable, category 10, params[1] = 5
 //   - obj 2   "arrow": stackable, category 20, params[1] = 0
+//   - obj 3   "sword": non-stackable, category 10
 //   - param 1: int, default 0
+//   - inv 1 "main": size 28, scope TEMP, protect=false
+//   - inv 2 "bank": size 100, scope SHARED, protect=false
 func newTestInvConfigs() *mockConfigs {
 	mc := &mockConfigs{
 		objs:    make(map[int]*objtype.ObjType),
@@ -87,6 +90,20 @@ func newTestInvConfigs() *mockConfigs {
 	sword.Category = 10
 	sword.Params = objtype.ParamMap{1: uint32(5)}
 	mc.objs[testObjSword] = sword
+
+	mainInv := objtype.NewInvType(testInvMain)
+	mainInv.DebugName = "main"
+	mainInv.Size = 28
+	mainInv.Scope = objtype.InvTypeScopeTemp
+	mainInv.Protect = false // override NewInvType default so existing tests don't trip the protect/scope gate
+	mc.invs[testInvMain] = mainInv
+
+	bankInv := objtype.NewInvType(testInvBank)
+	bankInv.DebugName = "bank"
+	bankInv.Size = 100
+	bankInv.Scope = objtype.InvTypeScopeShared
+	bankInv.Protect = false
+	mc.invs[testInvBank] = bankInv
 
 	return mc
 }
@@ -129,6 +146,39 @@ func runInvOpExpectErr(t *testing.T, op Opcode, intInputs []int, lookup InvLooku
 		InstructionCount: 2,
 	}
 	state := Init(sf, nil, false, nil, nil)
+	state.Inv = lookup
+	state.Configs = configs
+	for _, v := range intInputs {
+		state.PushInt(v)
+	}
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("%s: expected error containing %q, got nil", op.String(), substr)
+	}
+	if !strings.Contains(err.Error(), substr) {
+		t.Fatalf("%s: expected error containing %q, got %q", op.String(), substr, err.Error())
+	}
+}
+
+// runInvOpExpectErrAsPlayer is the active-player variant of
+// runInvOpExpectErr. Sets up a zero-value mockPlayer + PtrActivePlayer
+// so the requireActivePlayer gate is satisfied; tests targeting deeper
+// gates (InvTypeValid / ObjTypeValid / ObjStackValid / protect-scope /
+// dummyitem) use this helper. s.Protect remains false (Init's third
+// arg) — tests that need a protected script set state.Protect = true
+// before pushing inputs.
+func runInvOpExpectErrAsPlayer(t *testing.T, op Opcode, intInputs []int, lookup InvLookup, configs Configs, substr string) {
+	t.Helper()
+	sf := &ScriptFile{
+		Name:             "test_" + op.String(),
+		Opcodes:          []Opcode{op, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	state.Pointers |= PtrActivePlayer
 	state.Inv = lookup
 	state.Configs = configs
 	for _, v := range intInputs {
