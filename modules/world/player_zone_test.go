@@ -125,6 +125,8 @@ func TestWriteFullFollowsReplaysActiveLocs(t *testing.T) {
 	// lives in zonesTracking — we're testing the replay path only).
 	z := s.zoneMap.Get(0, 3094, 3106)
 	loc := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleDespawn, 100, 5, 2)
+	loc.IsActive = true     // gate-swap from CheckLifecycle → IsActive; set explicitly.
+	loc.LifecycleTick = 100 // alive at tick 1: CheckLifecycle (100 > 1) and IsActive agree.
 	z.Locs = append(z.Locs, loc)
 
 	received := drainConn(t, cc)

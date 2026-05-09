@@ -20,8 +20,10 @@ import (
 // Engine-TS Zone.ts:138 (obj.receiver64 vs player.hash64). PublicReceiver
 // drops are visible to all observers.
 //
-// TODO(beyond-4b): handle Respawn-lifecycle (static) loc branches once
-// static loading from cache maps is wired up.
+// Loc replay mirrors TS Engine-TS Zone.ts:133-165 three-branch shape:
+//   - Despawn + IsActive → LOC_ADD_CHANGE
+//   - Respawn + !IsActive → LOC_DEL
+//   - Respawn + IsChanged() → LOC_ADD_CHANGE
 func (p *Player) writeFullFollows(z *zone.Zone, currentTick int) {
 	buf := packet.NewPacket(nil)
 	rsbuf.EncodeZoneFullFollows(buf, z.X, z.Z, p.originX, p.originZ)
@@ -58,7 +60,20 @@ func (p *Player) writeFullFollows(z *zone.Zone, currentTick int) {
 		if loc.LastLifecycleTick == currentTick {
 			continue
 		}
-		if loc.Lifecycle == entitypkg.LifecycleDespawn && loc.CheckLifecycle(currentTick) {
+		switch {
+		case loc.Lifecycle == entitypkg.LifecycleDespawn && loc.IsActive:
+			ensureHeader()
+			pb := packet.NewPacket(nil)
+			rsbuf.EncodeLocAddChange(pb, coordgrid.PackZoneCoord(loc.X, loc.Z),
+				loc.Shape(), loc.Angle(), loc.Type())
+			p.writeOut(gameserver.OpLocAddChange, pb.Bytes())
+		case loc.Lifecycle == entitypkg.LifecycleRespawn && !loc.IsActive:
+			ensureHeader()
+			pb := packet.NewPacket(nil)
+			rsbuf.EncodeLocDel(pb, coordgrid.PackZoneCoord(loc.X, loc.Z),
+				loc.Shape(), loc.Angle())
+			p.writeOut(gameserver.OpLocDel, pb.Bytes())
+		case loc.Lifecycle == entitypkg.LifecycleRespawn && loc.IsChanged():
 			ensureHeader()
 			pb := packet.NewPacket(nil)
 			rsbuf.EncodeLocAddChange(pb, coordgrid.PackZoneCoord(loc.X, loc.Z),
