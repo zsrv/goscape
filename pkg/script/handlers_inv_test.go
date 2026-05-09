@@ -441,7 +441,7 @@ func TestInvLookupNilReturnsError(t *testing.T) {
 	// No lookup: every INV_* mutation / read that needs inv must error.
 	runInvOpExpectErr(t, OpInvTotal, []int{testInvMain, testObjCoin}, nil, mc, "no inv for type")
 	runInvOpExpectErr(t, OpInvAdd, []int{testInvMain, testObjCoin, 1}, nil, mc, "no active player")
-	runInvOpExpectErr(t, OpInvClear, []int{testInvMain}, nil, mc, "no inv for type")
+	runInvOpExpectErr(t, OpInvClear, []int{testInvMain}, nil, mc, "no active player")
 }
 
 // TestInvTransmitRegistersListener runs a script pushing (inv, com) then
@@ -1209,4 +1209,79 @@ func TestInvSetSlot_DummyItemGate_RejectsDummyItemInRegularInv(t *testing.T) {
 	mc := newTestInvConfigs()
 	mc.objs[testObjCoin].DummyItem = 1
 	runInvOpExpectErrAsPlayer(t, OpInvSetSlot, []int{testInvMain, 0, testObjCoin, 1}, lookup, mc, "dummyitem in non-dummyinv: coins -> main")
+}
+
+// -- NAI-131 INV_DEL / INV_DELSLOT / INV_CLEAR validator tests --
+
+// (T3.A) INV_DEL — full Obj-gate set without dummyitem.
+func TestInvDel_InvTypeValid_UnregisteredID(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	delete(mc.invs, testInvMain)
+	runInvOpExpectErrAsPlayer(t, OpInvDel, []int{testInvMain, testObjCoin, 1}, lookup, mc, "no InvType with value (1) found")
+}
+
+func TestInvDel_ObjTypeValid_UnregisteredID(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	delete(mc.objs, testObjCoin)
+	runInvOpExpectErrAsPlayer(t, OpInvDel, []int{testInvMain, testObjCoin, 1}, lookup, mc, "no ObjType with value (995) found")
+}
+
+func TestInvDel_ObjStackValid_CountZero(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	runInvOpExpectErrAsPlayer(t, OpInvDel, []int{testInvMain, testObjCoin, 0}, lookup, mc, "invalid count (0)")
+}
+
+func TestInvDel_ProtectGate_RejectsUnprotected(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	mc.invs[testInvMain].Protect = true
+	runInvOpExpectErrAsPlayer(t, OpInvDel, []int{testInvMain, testObjCoin, 1}, lookup, mc, "$inv requires protected access: main")
+}
+
+func TestInvDel_NoActivePlayerErrors(t *testing.T) {
+	mc := newTestInvConfigs()
+	runInvOpExpectErr(t, OpInvDel, []int{testInvMain, testObjCoin, 1}, nil, mc, "INV_DEL: no active player")
+}
+
+// (T3.B) INV_DELSLOT — InvTypeValid + protect/scope only.
+func TestInvDelSlot_InvTypeValid_UnregisteredID(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	delete(mc.invs, testInvMain)
+	runInvOpExpectErrAsPlayer(t, OpInvDelSlot, []int{testInvMain, 0}, lookup, mc, "no InvType with value (1) found")
+}
+
+func TestInvDelSlot_ProtectGate_RejectsUnprotected(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	mc.invs[testInvMain].Protect = true
+	runInvOpExpectErrAsPlayer(t, OpInvDelSlot, []int{testInvMain, 0}, lookup, mc, "$inv requires protected access: main")
+}
+
+func TestInvDelSlot_NoActivePlayerErrors(t *testing.T) {
+	mc := newTestInvConfigs()
+	runInvOpExpectErr(t, OpInvDelSlot, []int{testInvMain, 0}, nil, mc, "INV_DELSLOT: no active player")
+}
+
+// (T3.C) INV_CLEAR — InvTypeValid + protect/scope only.
+func TestInvClear_InvTypeValid_UnregisteredID(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	delete(mc.invs, testInvMain)
+	runInvOpExpectErrAsPlayer(t, OpInvClear, []int{testInvMain}, lookup, mc, "no InvType with value (1) found")
+}
+
+func TestInvClear_ProtectGate_RejectsUnprotected(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	mc.invs[testInvMain].Protect = true
+	runInvOpExpectErrAsPlayer(t, OpInvClear, []int{testInvMain}, lookup, mc, "$inv requires protected access: main")
+}
+
+func TestInvClear_NoActivePlayerErrors(t *testing.T) {
+	mc := newTestInvConfigs()
+	runInvOpExpectErr(t, OpInvClear, []int{testInvMain}, nil, mc, "INV_CLEAR: no active player")
 }

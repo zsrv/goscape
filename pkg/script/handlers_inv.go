@@ -403,12 +403,35 @@ func lookupStackableStockObj(s *ScriptState, invTypeID, objID int) (stackable, s
 	return stackable, stockObj
 }
 
-// handleInvDel (INV_DEL) pops [inv, obj, count] and removes count units
-// of obj from the inv.
+// handleInvDel (INV_DEL) ports TS InvOps.ts:129-141. Pops [inv, obj,
+// count] and removes count units of obj from the inv. Validates via
+// TS check chain (no dummyitem gate — TS doesn't apply it on DEL).
+//
+// Validator chain (NAI-131): InvTypeValid → ObjTypeValid → ObjStackValid
+// → protect/scope.
 func handleInvDel(s *ScriptState) error {
+	if err := requireActivePlayer(s, "INV_DEL"); err != nil {
+		return err
+	}
 	count := s.PopInt()
 	obj := s.PopInt()
 	typeID := s.PopInt()
+
+	if err := checkInvType(s, typeID, "INV_DEL"); err != nil {
+		return err
+	}
+	if err := checkObjType(s, obj, "INV_DEL"); err != nil {
+		return err
+	}
+	if err := checkObjStack(count, "INV_DEL"); err != nil {
+		return err
+	}
+
+	invType := s.Configs.InvType(typeID)
+	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared && !s.Protect {
+		return fmt.Errorf("INV_DEL: $inv requires protected access: %s", invType.DebugName)
+	}
+
 	inv := resolveInv(s, typeID)
 	if inv == nil {
 		return fmt.Errorf("INV_DEL: no inv for type %d", typeID)
@@ -417,11 +440,27 @@ func handleInvDel(s *ScriptState) error {
 	return nil
 }
 
-// handleInvDelSlot (INV_DELSLOT) pops [inv, slot] and clears that slot.
-// Out-of-range slots are silently ignored by inventory.Delete.
+// handleInvDelSlot (INV_DELSLOT) ports TS InvOps.ts:144-159. Pops
+// [inv, slot] and clears that slot. Out-of-range slots are silently
+// ignored by inventory.Delete (matches TS).
+//
+// Validator chain (NAI-131): InvTypeValid → protect/scope.
 func handleInvDelSlot(s *ScriptState) error {
+	if err := requireActivePlayer(s, "INV_DELSLOT"); err != nil {
+		return err
+	}
 	slot := s.PopInt()
 	typeID := s.PopInt()
+
+	if err := checkInvType(s, typeID, "INV_DELSLOT"); err != nil {
+		return err
+	}
+
+	invType := s.Configs.InvType(typeID)
+	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared && !s.Protect {
+		return fmt.Errorf("INV_DELSLOT: $inv requires protected access: %s", invType.DebugName)
+	}
+
 	inv := resolveInv(s, typeID)
 	if inv == nil {
 		return fmt.Errorf("INV_DELSLOT: no inv for type %d", typeID)
@@ -476,9 +515,25 @@ func handleInvSetSlot(s *ScriptState) error {
 	return nil
 }
 
-// handleInvClear (INV_CLEAR) pops an inv id and empties every slot.
+// handleInvClear (INV_CLEAR) ports TS InvOps.ts:116-124. Pops an inv
+// id and empties every slot.
+//
+// Validator chain (NAI-131): InvTypeValid → protect/scope.
 func handleInvClear(s *ScriptState) error {
+	if err := requireActivePlayer(s, "INV_CLEAR"); err != nil {
+		return err
+	}
 	typeID := s.PopInt()
+
+	if err := checkInvType(s, typeID, "INV_CLEAR"); err != nil {
+		return err
+	}
+
+	invType := s.Configs.InvType(typeID)
+	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared && !s.Protect {
+		return fmt.Errorf("INV_CLEAR: $inv requires protected access: %s", invType.DebugName)
+	}
+
 	inv := resolveInv(s, typeID)
 	if inv == nil {
 		return fmt.Errorf("INV_CLEAR: no inv for type %d", typeID)
