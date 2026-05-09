@@ -1,6 +1,8 @@
 package world
 
 import (
+	"encoding/hex"
+
 	"github.com/zsrv/goscape/pkg/io/packet"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/objtype"
@@ -16,13 +18,28 @@ func (p *Player) writeVarp(id int, value int32) {
 	}
 	buf := packet.NewPacket(nil)
 	buf.P2(uint16(id))
+	var op gameserver.Op
 	if value >= -128 && value <= 127 {
 		buf.P1(uint8(int8(value)))
-		p.writeOut(gameserver.OpVarpSmall, buf.Bytes())
+		op = gameserver.OpVarpSmall
 	} else {
 		buf.P4(uint32(value))
-		p.writeOut(gameserver.OpVarpLarge, buf.Bytes())
+		op = gameserver.OpVarpLarge
 	}
+	payload := buf.Bytes()
+	if p.client != nil && p.client.server != nil &&
+		p.client.server.cfg.NodeDebug && p.client.server.log != nil {
+		p.client.server.log.Info("nai138.write_varp",
+			"tick", p.client.server.currentTick,
+			"player_uid", p.uid,
+			"id", id,
+			"value", value,
+			"opcode", int(op.Opcode),
+			"payload_hex", hex.EncodeToString(payload),
+			"payload_len", len(payload),
+		)
+	}
+	p.writeOut(op, payload)
 }
 
 // varpTypeConfig returns the VarPlayerType for id, or nil if the
