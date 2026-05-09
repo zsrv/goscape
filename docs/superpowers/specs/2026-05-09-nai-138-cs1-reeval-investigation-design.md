@@ -158,25 +158,75 @@ Controller combines the three substage verdicts into a fix-layer decision:
 
 **Pre-Bundle-2 verification step (per `audit_subagent_fabrication`):** Controller verifies each substage's load-bearing claims by independent grep+Read before dispatching Bundle 2. Specifically: any cited TS file:line in 1.A, any cited `Component.script1` trigger site in 1.B, any cited Content trigger in 1.C — re-grep at synthesis time. Any unverifiable claim → escalate substage to `INCONCLUSIVE`.
 
-## 6. Bundle 0 verdict (TBD — appended after pre-flight)
+## 6. Bundle 0 verdict
 
-This section is filled in after §3.1 and §3.2 complete. Format:
-
-```
 ### 6.1 Engine-TS re-grep verdict
-- TS emit sites at energy=0 transition: <enumerated file:line list>
-- TS emit sites at click-toggle pathway: <enumerated file:line list>
-- Per-pathway packet sequence comparison: <table or prose>
-- Verdict: MISSING_TS_EMIT(site, signal) | TS_BARE_SETVAR_CONFIRMED | INCONCLUSIVE
+
+**TS emit sites — Pathway A (energy=0 transition):**
+- `Engine-TS/src/engine/entity/Player.ts:682-704` — `updateEnergy()`. At L696-700:
+  ```ts
+  if (this.runenergy === 0) {
+      this.run = 0;
+      // todo: better way to sync engine varp
+      this.setVar(VarPlayerType.RUN, this.run);
+  }
+  ```
+  - L698 comment is load-bearing: TS author flagged the same concern this sub-spec investigates ("better way to sync engine varp" — they knew the bare setVar wasn't quite right but didn't fix it).
+- `setVar` (Player.ts:1715-1730) → `writeVarp` (Player.ts:1732-1738) → emits **one** `VarpSmall(173, 0)` packet (since 0 ∈ [-128, 127]). No deduplication; no extra refresh signal.
+
+**TS emit sites — Pathway B (click-toggle):**
+- `Content/scripts/interface_controls/scripts/player_controls.rs2:25-50` runs three operations:
+  1. `if_close;` — opcode handler at `PlayerOps.ts:245`; emits `IfClose()` packet (ServerGameProt.IF_CLOSE = 129, 0-byte payload per `IfCloseEncoder.ts:9` `encode(_, __): void {}`).
+  2. `p_run(...)` — handler at `PlayerOps.ts:1208`; calls `setVar(VarPlayerType.RUN, ...)` → `writeVarp` → emits `VarpSmall(173, 0/1)`.
+  3. `%option_run = %option_run;` — lowers to `PUSH_VARP option_run` + `POP_VARP option_run` (per RuneScriptKt `BinaryScriptWriter.kt:131,146`); POP_VARP handler at `CoreOps.ts:41-58` calls `setVar` unconditionally → emits **another** `VarpSmall(173, 0/1)`.
+
+**Per-pathway packet sequence comparison:**
+
+| Step | Pathway A (energy=0) | Pathway B (click-toggle) |
+|---|---|---|
+| 1 | `VarpSmall(173, 0)` | `IfClose()` |
+| 2 | (none) | `VarpSmall(173, 0/1)` (from p_run) |
+| 3 | (none) | `VarpSmall(173, 0/1)` (from %option_run = %option_run) |
+
+Pathway B emits **3 packets**; Pathway A emits **1**. The asymmetry is in CONTENT (which provides the `if_close` and self-write packets for free), not in TS engine behavior.
+
+**Verdict:** **`TS_BARE_SETVAR_CONFIRMED`**. The TS engine truly emits exactly one bare `VarpSmall(173, 0)` at energy=0; no missed emit. NAI-137 close commit's claim was correct on this point. **§7.1 (Engine port — missed TS emit) is INVALID as a fix layer.**
 
 ### 6.2 `%v = %v` semantics verdict
-- Compiler/runtime evidence: <citations>
-- Self-write opcode behavior: <emits | no-op | conditional>
-- Other Content uses of the idiom: <count, sample sites>
-- Verdict: SELF_WRITE_EMITS_OP_VARP | SELF_WRITE_NOOP | INCONCLUSIVE
+
+**Compiler evidence:** `RuneScriptKt/clientscript-compiler/src/main/kotlin/me/filby/neptune/clientscript/compiler/writer/BinaryScriptWriter.kt:131,146` lowers `VarPlayerType` reads to `PUSH_VARP` and writes to `POP_VARP`. So `%option_run = %option_run;` lowers to:
+```
+PUSH_VARP option_run    (reads vars[173], pushes to stack)
+POP_VARP option_run     (pops, calls setVar(173, value))
 ```
 
-If §6.1 is `MISSING_TS_EMIT`, Bundle 1 is skipped.
+**Runtime handler:** `Engine-TS/src/engine/script/handlers/CoreOps.ts:41-58` — `POP_VARP` handler calls `player.setVar(varpType.id, state.popInt())` unconditionally. No equal-value short-circuit. `setVar` (`Player.ts:1715-1730`) writes `vars[id] = value` AND calls `writeVarp` if `varp.transmit` is set. `writeVarp` (`Player.ts:1732-1738`) unconditionally emits `VarpSmall` or `VarpLarge` packet.
+
+**Conclusion:** `%X = %X` **DOES** emit `OpVarpSmall` (or Large) on the wire, even when the value is unchanged.
+
+**Other Content uses of the idiom:**
+- Total hits: 50+ (not exhaustively counted; idiom is well-established).
+- Sample sites:
+  - `Content/scripts/interface_controls/scripts/player_controls.rs2:12,21,32,49` — `option_nodef`, `option_run` resync writes
+  - `Content/scripts/tutorial/scripts/tut_chatbox_steps.rs2:118` — `option_run` resync
+  - `Content/scripts/skill_prayer/scripts/prayers/*.rs2` — `prayer0..prayer10` resync (one per prayer script)
+  - `Content/scripts/minigames/game_trawler/scripts/trawler_flood.rs2:8-10,30-32` — npc-side vars
+  - `Content/scripts/minigames/game_duelarena/scripts/duel_arena_settings.rs2:87` — `dueloptions` resync
+- The `// resync varp` comment is consistent across player_controls usages, indicating the idiom is INTENTIONAL and treated as a refresh trigger by content authors.
+
+**Verdict:** **`SELF_WRITE_EMITS_OP_VARP`**.
+
+**Additional finding — `[varp,X]` trigger non-existence (refutes spec §7.2):**
+
+`grep -E "^\[varp," /home/owner/Code/github.com/LostCityRS/Content/scripts/` returned **zero hits**. `Engine-TS/src/engine/script/ServerTriggerType.ts` has no `VARP` or `VAR_` enum entries (only PROC, LABEL, DEBUGPROC, AP*/OP* for npc/obj/loc, and trigger types for explicit interface events — no varp-change triggers). **The LostCity engine does not dispatch script triggers on varp changes.** §7.2 (Content `[varp,option_run]` trigger) is **INVALID** as a fix layer.
+
+This narrows the fix-layer matrix significantly:
+- §7.1 invalid (no missed TS emit)
+- §7.2 invalid (no `[varp,X]` trigger pattern in engine)
+- §7.3 (engine ad-hoc refresh — which is what TS L698's "todo" comment hints at) — primary candidate
+- §7.4 (encoder defect) — secondary candidate, contingent on 1.B
+
+**Bundle 1 dispatch decision:** Bundle 0 has resolved 1.A and 1.C definitively. Only 1.B (Java client cs1 re-eval audit) remains unbound. Bundle 1 dispatches **only the 1.B substage** (single Explore subagent), not the planned three. 1.B determines whether the fix is §7.3 (client needs additional event → engine ad-hoc refresh) or §7.4 (client should re-eval but doesn't due to goscape encoder defect).
 
 ## 7. Bundle 2 — Fix at indicated layer
 
