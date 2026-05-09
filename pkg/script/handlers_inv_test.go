@@ -2025,6 +2025,9 @@ func TestBothMoveInv_Overflow_StackableDropsSingleStack(t *testing.T) {
 	if call.x != self2.x || call.z != self2.z {
 		t.Errorf("AddObj coords: got (%d, %d), want (%d, %d) (toPlayer=Self2)", call.x, call.z, self2.x, self2.z)
 	}
+	if call.duration != 200 {
+		t.Errorf("AddObj duration: got %d, want 200 (TS InvOps.ts:430)", call.duration)
+	}
 }
 
 // TestBothMoveInv_Overflow_NonStackableDropsPerUnit — non-stackable count=K,
@@ -2048,6 +2051,9 @@ func TestBothMoveInv_Overflow_NonStackableDropsPerUnit(t *testing.T) {
 	for i, call := range world.addedCalls {
 		if call.typeID != testObjSword || call.count != 1 {
 			t.Errorf("call %d: got typeID=%d count=%d, want %d / 1", i, call.typeID, call.count, testObjSword)
+		}
+		if call.duration != 200 {
+			t.Errorf("call %d duration: got %d, want 200", i, call.duration)
 		}
 	}
 }
