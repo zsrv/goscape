@@ -863,14 +863,44 @@ func handleInvDropSlot(s *ScriptState) error {
 	return nil
 }
 
-// handleInvMoveToSlot (INV_MOVETOSLOT) pops [fromInv, toInv, fromSlot,
-// toSlot] and swaps the two slot contents (nil-safe both directions).
-// Matches TS Player.invMoveToSlot.
+// handleInvMoveToSlot (INV_MOVETOSLOT) ports TS InvOps.ts:353-368. Pops
+// [fromInv, toInv, fromSlot, toSlot] (popInts(4) — toSlot on top) and
+// swaps the two slot contents (nil-safe both directions). Matches TS
+// Player.invMoveToSlot.
+//
+// Validator chain (NAI-131): from-InvTypeValid → to-InvTypeValid →
+// from-protect/scope → to-protect/scope.
+//
+// DEVIATION-NAI-131-D1: TS asymmetry — both protect/scope gates check
+// fromInvType.Scope, never toInvType.Scope. Pinned per ts_asymmetry_dual_pin.md.
 func handleInvMoveToSlot(s *ScriptState) error {
+	if err := requireActivePlayer(s, "INV_MOVETOSLOT"); err != nil {
+		return err
+	}
 	toSlot := s.PopInt()
 	fromSlot := s.PopInt()
 	toTypeID := s.PopInt()
 	fromTypeID := s.PopInt()
+
+	if err := checkInvType(s, fromTypeID, "INV_MOVETOSLOT"); err != nil {
+		return err
+	}
+	if err := checkInvType(s, toTypeID, "INV_MOVETOSLOT"); err != nil {
+		return err
+	}
+
+	fromInvType := s.Configs.InvType(fromTypeID)
+	toInvType := s.Configs.InvType(toTypeID)
+
+	// TS InvOps.ts:359-361 — from-protect gate uses fromInvType.Scope.
+	if fromInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared && !s.Protect {
+		return fmt.Errorf("INV_MOVETOSLOT: $inv requires protected access: %s", fromInvType.DebugName)
+	}
+	// TS InvOps.ts:363-365 — to-protect gate ALSO uses fromInvType.Scope (DEVIATION-NAI-131-D1).
+	if toInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared && !s.Protect {
+		return fmt.Errorf("INV_MOVETOSLOT: $inv requires protected access: %s", toInvType.DebugName)
+	}
+
 	fromInv := resolveInv(s, fromTypeID)
 	if fromInv == nil {
 		return fmt.Errorf("INV_MOVETOSLOT: no inv for from-type %d", fromTypeID)

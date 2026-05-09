@@ -406,6 +406,56 @@ func TestInvMoveToSlot(t *testing.T) {
 	}
 }
 
+func TestInvMoveToSlot_NoActivePlayer(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	runInvOpExpectErr(t, OpInvMoveToSlot, []int{testInvMain, testInvBank, 0, 0}, lookup, mc, "INV_MOVETOSLOT: no active player")
+}
+
+func TestInvMoveToSlot_FromInvTypeInvalid(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	runInvOpExpectErrAsPlayer(t, OpInvMoveToSlot, []int{9999, testInvBank, 0, 0}, lookup, mc, "no InvType with value (9999) found")
+}
+
+func TestInvMoveToSlot_ToInvTypeInvalid(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	runInvOpExpectErrAsPlayer(t, OpInvMoveToSlot, []int{testInvMain, 9999, 0, 0}, lookup, mc, "no InvType with value (9999) found")
+}
+
+func TestInvMoveToSlot_FromProtectedRejectsUnprotected(t *testing.T) {
+	mc := newTestInvConfigs()
+	mc.invs[testInvMain].Protect = true
+	mc.invs[testInvMain].Scope = objtype.InvTypeScopePerm
+	lookup := newTestInvLookup()
+	runInvOpExpectErrAsPlayer(t, OpInvMoveToSlot, []int{testInvMain, testInvBank, 0, 0}, lookup, mc, "INV_MOVETOSLOT: $inv requires protected access")
+}
+
+func TestInvMoveToSlot_ToProtectedAsymmetricD1(t *testing.T) {
+	// DEVIATION-NAI-131-D1: to-gate evaluates fromInvType.Scope, NOT toInvType.Scope.
+	// fromInvType.Scope=Shared but toInvType.Protect=true → to-gate must NOT fire (gated by from's scope).
+	mc := newTestInvConfigs()
+	mc.invs[testInvMain].Scope = objtype.InvTypeScopeShared
+	mc.invs[testInvBank].Protect = true
+	mc.invs[testInvBank].Scope = objtype.InvTypeScopePerm
+	lookup := newTestInvLookup()
+	st := runInvOp(t, OpInvMoveToSlot, []int{testInvMain, testInvBank, 0, 0}, lookup, mc)
+	if st == nil {
+		t.Fatal("expected handler to complete without error")
+	}
+}
+
+func TestInvMoveToSlot_ToProtectedSamefromScopePerm(t *testing.T) {
+	// Inverse pin: fromInvType.Scope=Perm + toInvType.Protect=true → to-gate fires.
+	mc := newTestInvConfigs()
+	mc.invs[testInvMain].Scope = objtype.InvTypeScopePerm
+	mc.invs[testInvBank].Protect = true
+	mc.invs[testInvBank].Scope = objtype.InvTypeScopeShared // ignored — gate uses from's scope
+	lookup := newTestInvLookup()
+	runInvOpExpectErrAsPlayer(t, OpInvMoveToSlot, []int{testInvMain, testInvBank, 0, 0}, lookup, mc, "INV_MOVETOSLOT: $inv requires protected access")
+}
+
 func TestInvTotalParam(t *testing.T) {
 	lookup := newTestInvLookup()
 	mc := newTestInvConfigs()
