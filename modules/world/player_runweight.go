@@ -35,7 +35,7 @@ func (p *Player) calculateRunWeight() {
 		if invType == nil || !invType.RunWeight {
 			continue
 		}
-		for slot := 0; slot < inv.Capacity; slot++ {
+		for slot := range inv.Capacity {
 			item := inv.Get(slot)
 			if item == nil {
 				continue
