@@ -1,6 +1,7 @@
 package script
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -1382,4 +1383,13 @@ func TestInvMoveFromSlot_FromProtectGate_RejectsUnprotected(t *testing.T) {
 func TestInvMoveFromSlot_NoActivePlayerErrors(t *testing.T) {
 	mc := newTestInvConfigs()
 	runInvOpExpectErr(t, OpInvMoveFromSlot, []int{testInvMain, testInvBank, 0}, nil, mc, "INV_MOVEFROMSLOT: no active player")
+}
+
+// (T5) checkObjStack upper-bound: count > Inventory.StackLimit
+// (0x7fffffff) is rejected. TS-fidelity per ScriptValidators.ts:121.
+func TestInvAdd_ObjStackValid_CountAboveStackLimit(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	overLimit := int(inventory.StackLimit) + 1
+	runInvOpExpectErrAsPlayer(t, OpInvAdd, []int{testInvMain, testObjCoin, overLimit}, lookup, mc, fmt.Sprintf("invalid count (%d)", overLimit))
 }

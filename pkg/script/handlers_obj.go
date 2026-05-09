@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
+	"github.com/zsrv/goscape/pkg/inventory"
 )
 
 // requireActiveObj returns an error if s.ActiveObj is nil.
@@ -24,10 +25,11 @@ func checkObjType(s *ScriptState, id int, op string) error {
 	return nil
 }
 
-// checkObjStack validates a stack count is positive. Mirrors TS
-// NumberPositive (ScriptValidators.ts).
+// checkObjStack mirrors TS ObjStackValid (ScriptValidators.ts:121) — a
+// ScriptInputRangeValidator over [1, Inventory.STACK_LIMIT=0x7fffffff].
+// Rejects 0, negatives, and counts above StackLimit.
 func checkObjStack(c int, op string) error {
-	if c < 1 {
+	if c < 1 || c > inventory.StackLimit {
 		return fmt.Errorf("%s: invalid count (%d)", op, c)
 	}
 	return nil
