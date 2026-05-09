@@ -97,10 +97,9 @@ func TestCloseModalPreservesWeakQueueWhenFalse(t *testing.T) {
 	}
 }
 
-
-// TestCloseModalNilActiveScriptNoPanic pins !delayed + nil activeScript
-// is a no-op (no panic). Mirrors TS where `this.protect = false` is a
-// no-op when no script is suspended.
+// TestCloseModalNilActiveScriptNoPanic pins nil activeScript is a no-op
+// (no panic). Defensive coverage for the modalStateNone early-return
+// path; CloseModal never derefs activeScript post-NAI-111.
 func TestCloseModalNilActiveScriptNoPanic(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.delayed = false
