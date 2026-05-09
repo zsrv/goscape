@@ -1541,6 +1541,248 @@ func TestPFindUIDSelfReacquireSkippedWhenUnprotected(t *testing.T) {
 	}
 }
 
+// -- NAI-133 T2: FINDUID/P_FINDUID slot-1 routing --
+
+// finduidSlotOp builds a one-instruction ScriptFile with the requested
+// intOperand value (0 or 1). Sister to newSingleOp which always uses 0.
+func finduidSlotOp(name string, op Opcode, operand int32) *ScriptFile {
+	return &ScriptFile{
+		Name:             name,
+		Opcodes:          []Opcode{op, OpReturn},
+		IntOperands:      []int32{operand, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+}
+
+// TestFindUID_Slot1_BindsSelf2 — operand=1, lookup hits → Self2 set,
+// PtrActivePlayer2 set, Self UNTOUCHED. NAI-133 T2 closes the latent
+// `.finduid` clobber bug.
+func TestFindUID_Slot1_BindsSelf2(t *testing.T) {
+	target := &mockPlayer{username: "Target", uidValue: 99}
+	origSelf := &mockPlayer{username: "Orig", uidValue: 1}
+	lookup := &mockPlayerLookup{byUID: map[int]ActivePlayer{99: target}}
+
+	sf := finduidSlotOp("finduid_slot1", OpFindUID, 1)
+	state := Init(sf, origSelf, false, nil, nil)
+	state.PlayerLookup = lookup
+	state.PushInt(99)
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.ISP != 1 || state.IntStack[0] != 1 {
+		t.Errorf("stack: got [%v], want [1]", state.IntStack[:state.ISP])
+	}
+	if state.Self != origSelf {
+		t.Errorf("Self should be UNCHANGED on slot-1 routing, got %v", state.Self)
+	}
+	if state.Self2 != target {
+		t.Errorf("Self2: got %v, want target", state.Self2)
+	}
+	if state.Pointers&PtrActivePlayer2 == 0 {
+		t.Errorf("PtrActivePlayer2 should be set, pointers=%b", state.Pointers)
+	}
+}
+
+// TestFindUID_Slot1_LookupMiss — operand=1, lookup miss → push 0,
+// no state change.
+func TestFindUID_Slot1_LookupMiss(t *testing.T) {
+	origSelf := &mockPlayer{username: "Orig", uidValue: 1}
+	lookup := &mockPlayerLookup{byUID: map[int]ActivePlayer{}}
+
+	sf := finduidSlotOp("finduid_slot1_miss", OpFindUID, 1)
+	state := Init(sf, origSelf, false, nil, nil)
+	state.PlayerLookup = lookup
+	state.PushInt(999)
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.ISP != 1 || state.IntStack[0] != 0 {
+		t.Errorf("stack: got [%v], want [0]", state.IntStack[:state.ISP])
+	}
+	if state.Self2 != nil {
+		t.Errorf("Self2 should remain nil on miss, got %v", state.Self2)
+	}
+	if state.Pointers&PtrActivePlayer2 != 0 {
+		t.Errorf("PtrActivePlayer2 should remain unset on miss, pointers=%b", state.Pointers)
+	}
+}
+
+// TestFindUID_InvalidOperand_Errors — operand=2 → error.
+func TestFindUID_InvalidOperand_Errors(t *testing.T) {
+	origSelf := &mockPlayer{username: "Orig", uidValue: 1}
+	lookup := &mockPlayerLookup{byUID: map[int]ActivePlayer{}}
+
+	sf := finduidSlotOp("finduid_bad", OpFindUID, 2)
+	state := Init(sf, origSelf, false, nil, nil)
+	state.PlayerLookup = lookup
+	state.PushInt(1)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("expected error on intOperand=2, got nil")
+	}
+	if !strings.Contains(err.Error(), "FINDUID: invalid intOperand 2") {
+		t.Errorf("err message: got %q, want containing %q", err.Error(), "FINDUID: invalid intOperand 2")
+	}
+}
+
+// TestPFindUID_Slot1_Success — operand=1, lookup hits + CanAccess=true →
+// Self2 set, PtrActivePlayer2 + PtrProtectedActivePlayer2 set, push 1.
+func TestPFindUID_Slot1_Success(t *testing.T) {
+	target := &mockPlayer{username: "Target", uidValue: 99, canAccessValue: true}
+	origSelf := &mockPlayer{username: "Orig", uidValue: 1}
+	lookup := &mockPlayerLookup{byUID: map[int]ActivePlayer{99: target}}
+
+	sf := finduidSlotOp("pfinduid_slot1", OpPFindUID, 1)
+	state := Init(sf, origSelf, false, nil, nil)
+	state.PlayerLookup = lookup
+	state.PushInt(99)
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.ISP != 1 || state.IntStack[0] != 1 {
+		t.Errorf("stack: got [%v], want [1]", state.IntStack[:state.ISP])
+	}
+	if state.Self != origSelf {
+		t.Errorf("Self UNCHANGED: got %v, want %v", state.Self, origSelf)
+	}
+	if state.Self2 != target {
+		t.Errorf("Self2: got %v, want target", state.Self2)
+	}
+	if state.Pointers&PtrActivePlayer2 == 0 {
+		t.Errorf("PtrActivePlayer2 should be set, pointers=%b", state.Pointers)
+	}
+	if state.Pointers&PtrProtectedActivePlayer2 == 0 {
+		t.Errorf("PtrProtectedActivePlayer2 should be set, pointers=%b", state.Pointers)
+	}
+}
+
+// TestPFindUID_Slot1_SelfReacquire — slot-1 fast-path: Self2 already
+// bound + PtrProtectedActivePlayer2 set + popped uid == Self2.UID() →
+// push 1, no state mutation, no lookup call.
+func TestPFindUID_Slot1_SelfReacquire(t *testing.T) {
+	self2 := &mockPlayer{username: "Self2", uidValue: 42}
+	origSelf := &mockPlayer{username: "Orig", uidValue: 1}
+	lookup := &mockPlayerLookup{byUID: map[int]ActivePlayer{}}
+
+	sf := finduidSlotOp("pfinduid_slot1_reacquire", OpPFindUID, 1)
+	state := Init(sf, origSelf, false, nil, nil)
+	state.Self2 = self2
+	state.Pointers |= PtrActivePlayer2 | PtrProtectedActivePlayer2
+	state.PlayerLookup = lookup
+	state.PushInt(42)
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.ISP != 1 || state.IntStack[0] != 1 {
+		t.Errorf("stack: got [%v], want [1]", state.IntStack[:state.ISP])
+	}
+	if state.Self2 != self2 {
+		t.Errorf("Self2 should remain unchanged on fast-path")
+	}
+	if lookup.calls != 0 {
+		t.Errorf("fast-path should skip lookup, calls=%d", lookup.calls)
+	}
+}
+
+// TestPFindUID_Slot0_NoFastPathWhenSlot1Protected — only the matching
+// slot's protect flag triggers the fast-path. Slot-0 P_FINDUID with
+// PtrProtectedActivePlayer2 set (but PtrProtectedActivePlayer UNSET)
+// must NOT fast-path; it must perform a real lookup.
+func TestPFindUID_Slot0_NoFastPathWhenSlot1Protected(t *testing.T) {
+	self := &mockPlayer{username: "Self", uidValue: 42, canAccessValue: true}
+	target := &mockPlayer{username: "Target", uidValue: 42, canAccessValue: true}
+	lookup := &mockPlayerLookup{byUID: map[int]ActivePlayer{42: target}}
+
+	sf := finduidSlotOp("pfinduid_slot0_no_cross", OpPFindUID, 0)
+	state := Init(sf, self, false, nil, nil) // protect=false: slot-0 flag UNSET
+	state.Pointers |= PtrProtectedActivePlayer2  // slot-1 protected (irrelevant)
+	state.PlayerLookup = lookup
+	state.PushInt(42)
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if lookup.calls != 1 {
+		t.Errorf("expected real lookup, calls=%d (fast-path leaked from slot-1)", lookup.calls)
+	}
+	// Slot-0 protect flag set after success.
+	if state.Pointers&PtrProtectedActivePlayer == 0 {
+		t.Errorf("PtrProtectedActivePlayer should be set after success, pointers=%b", state.Pointers)
+	}
+}
+
+// TestPFindUID_Slot1_LookupMiss — operand=1, lookup miss → push 0.
+func TestPFindUID_Slot1_LookupMiss(t *testing.T) {
+	origSelf := &mockPlayer{username: "Orig", uidValue: 1}
+	lookup := &mockPlayerLookup{byUID: map[int]ActivePlayer{}}
+
+	sf := finduidSlotOp("pfinduid_slot1_miss", OpPFindUID, 1)
+	state := Init(sf, origSelf, false, nil, nil)
+	state.PlayerLookup = lookup
+	state.PushInt(999)
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.ISP != 1 || state.IntStack[0] != 0 {
+		t.Errorf("stack: got [%v], want [0]", state.IntStack[:state.ISP])
+	}
+	if state.Self2 != nil {
+		t.Errorf("Self2 should remain nil on miss")
+	}
+	if state.Pointers&PtrProtectedActivePlayer2 != 0 {
+		t.Errorf("PtrProtectedActivePlayer2 should remain unset on miss")
+	}
+}
+
+// TestPFindUID_Slot1_CanAccessFalse — operand=1, lookup hits but
+// CanAccess=false → push 0, no state change.
+func TestPFindUID_Slot1_CanAccessFalse(t *testing.T) {
+	target := &mockPlayer{username: "Target", uidValue: 99, canAccessValue: false}
+	origSelf := &mockPlayer{username: "Orig", uidValue: 1}
+	lookup := &mockPlayerLookup{byUID: map[int]ActivePlayer{99: target}}
+
+	sf := finduidSlotOp("pfinduid_slot1_no_access", OpPFindUID, 1)
+	state := Init(sf, origSelf, false, nil, nil)
+	state.PlayerLookup = lookup
+	state.PushInt(99)
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.ISP != 1 || state.IntStack[0] != 0 {
+		t.Errorf("stack: got [%v], want [0]", state.IntStack[:state.ISP])
+	}
+	if state.Self2 != nil {
+		t.Errorf("Self2 should remain nil when CanAccess=false")
+	}
+}
+
+// TestPFindUID_InvalidOperand_Errors — operand=-1 → error.
+func TestPFindUID_InvalidOperand_Errors(t *testing.T) {
+	origSelf := &mockPlayer{username: "Orig", uidValue: 1}
+	lookup := &mockPlayerLookup{byUID: map[int]ActivePlayer{}}
+
+	sf := finduidSlotOp("pfinduid_bad", OpPFindUID, -1)
+	state := Init(sf, origSelf, false, nil, nil)
+	state.PlayerLookup = lookup
+	state.PushInt(1)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("expected error on intOperand=-1, got nil")
+	}
+	if !strings.Contains(err.Error(), "P_FINDUID: invalid intOperand -1") {
+		t.Errorf("err message: got %q", err.Error())
+	}
+}
+
 // -- S7b: checkNotNull + handlePAnimProtect tests -------------------------
 
 // TestCheckNotNull validates the shared NumberNotNull helper.

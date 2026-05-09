@@ -888,14 +888,16 @@ func handleP_OpNpc(s *ScriptState) error {
 	return nil
 }
 
-// handleFindUID (opcode 2019) pops a uid, looks up the logged-in player
-// with that uid, and rebinds Self on success. Pushes 1 if found, 0 if
-// the lookup returned nil or no PlayerLookup is configured.
-//
-// Does NOT check CanAccess — that's P_FINDUID's job. Does NOT set
-// PtrProtectedActivePlayer. Mirrors TS PlayerOps.ts:60-72 with goscape's collapsed
-// pointer model (single PtrActivePlayer).
+// handleFindUID resolves the popped uid via PlayerLookup and binds it
+// to the slot selected by intOperand: 0 → Self + PtrActivePlayer,
+// 1 → Self2 + PtrActivePlayer2. Pushes 1 on success, 0 on miss /
+// nil-PlayerLookup. Errors on invalid intOperand. Mirrors TS
+// PlayerOps.ts:60-72 with goscape's collapsed pointer model. NAI-133.
 func handleFindUID(s *ScriptState) error {
+	operand := s.Script.IntOperands[s.PC]
+	if operand != 0 && operand != 1 {
+		return fmt.Errorf("FINDUID: invalid intOperand %d", operand)
+	}
 	uid := s.PopInt()
 	if s.PlayerLookup == nil {
 		s.PushInt(0)
@@ -906,29 +908,48 @@ func handleFindUID(s *ScriptState) error {
 		s.PushInt(0)
 		return nil
 	}
-	s.Self = target
-	s.Pointers |= PtrActivePlayer
+	if operand == 0 {
+		s.Self = target
+		s.Pointers |= PtrActivePlayer
+	} else {
+		s.Self2 = target
+		s.Pointers |= PtrActivePlayer2
+	}
 	s.PushInt(1)
 	return nil
 }
 
-// handlePFindUID (opcode 2073) is P_FINDUID — the protected variant of
-// FINDUID. Pops a uid, tries to rebind Self with protected access.
-// Three outcomes:
+// handlePFindUID is P_FINDUID — the protected variant of FINDUID. Pops
+// a uid, tries to rebind the slot selected by intOperand with protected
+// access. Three outcomes per slot:
 //   - Self-reacquire fast-path: script already runs protected on a
 //     player whose UID matches → push 1, no state change, no lookup.
 //   - Lookup miss OR target.CanAccess()==false → push 0.
-//   - Success → Self rebinds, PtrActivePlayer set, PtrProtectedActivePlayer set, push 1.
+//   - Success → slot rebinds, both PtrActivePlayer{,2} and
+//     PtrProtectedActivePlayer{,2} flags set, push 1.
 //
-// Mirrors TS PlayerOps.ts:75-94 with goscape's collapsed pointer model
-// (single PtrActivePlayer + PtrProtectedActivePlayer).
+// Mirrors TS PlayerOps.ts:75-94. NAI-133 added intOperand-based slot
+// routing (closes latent `.p_finduid` clobber bug).
 func handlePFindUID(s *ScriptState) error {
-	uid := s.PopInt()
-	// Self-reacquire fast-path: already protected on this player.
-	if s.Pointers&PtrProtectedActivePlayer != 0 && s.Self != nil && s.Self.UID() == uid {
-		s.PushInt(1)
-		return nil
+	operand := s.Script.IntOperands[s.PC]
+	if operand != 0 && operand != 1 {
+		return fmt.Errorf("P_FINDUID: invalid intOperand %d", operand)
 	}
+	uid := s.PopInt()
+
+	// Self-reacquire fast-path: already protected on this slot's player.
+	if operand == 0 {
+		if s.Pointers&PtrProtectedActivePlayer != 0 && s.Self != nil && s.Self.UID() == uid {
+			s.PushInt(1)
+			return nil
+		}
+	} else {
+		if s.Pointers&PtrProtectedActivePlayer2 != 0 && s.Self2 != nil && s.Self2.UID() == uid {
+			s.PushInt(1)
+			return nil
+		}
+	}
+
 	if s.PlayerLookup == nil {
 		s.PushInt(0)
 		return nil
@@ -938,9 +959,14 @@ func handlePFindUID(s *ScriptState) error {
 		s.PushInt(0)
 		return nil
 	}
-	s.Self = target
-	s.Pointers |= PtrActivePlayer
-	s.Pointers |= PtrProtectedActivePlayer
+
+	if operand == 0 {
+		s.Self = target
+		s.Pointers |= PtrActivePlayer | PtrProtectedActivePlayer
+	} else {
+		s.Self2 = target
+		s.Pointers |= PtrActivePlayer2 | PtrProtectedActivePlayer2
+	}
 	s.PushInt(1)
 	return nil
 }
