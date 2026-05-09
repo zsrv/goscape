@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	jagfile "github.com/zsrv/goscape/pkg/io/jagfile"
 	packet2 "github.com/zsrv/goscape/pkg/io/packet"
 )
 
@@ -66,11 +67,21 @@ func LoadVarpTypes(dir string) (*VarpTypeConfigs, error) {
 	if err != nil {
 		return nil, err
 	}
-	return parseVarpTypes(server)
+	clientJag, err := jagfile.LoadJagfile(filepath.Join(dir, "client", "config"))
+	if err != nil {
+		return nil, err
+	}
+	return parseVarpTypes(server, clientJag)
 }
 
-func parseVarpTypes(server *packet2.Packet) (*VarpTypeConfigs, error) {
+func parseVarpTypes(server *packet2.Packet, clientJag *jagfile.Jagfile) (*VarpTypeConfigs, error) {
 	count := int(server.G2())
+
+	client, err := clientJag.Read("varp.dat")
+	if err != nil {
+		return nil, fmt.Errorf("client/config varp.dat: %w", err)
+	}
+	client.Pos = 2 // skip the 2-byte count header on the client side
 
 	configs := make([]*VarPlayerType, count)
 	configNames := make(map[string]int, count)
@@ -79,7 +90,10 @@ func parseVarpTypes(server *packet2.Packet) (*VarpTypeConfigs, error) {
 	for id := range count {
 		config := NewVarPlayerType(id)
 		if err := DecodeType(server, config); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("varp id %d (server): %w", id, err)
+		}
+		if err := DecodeType(client, config); err != nil {
+			return nil, fmt.Errorf("varp id %d (client): %w", id, err)
 		}
 		configs[id] = config
 		if config.DebugName != "" {

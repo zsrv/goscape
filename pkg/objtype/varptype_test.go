@@ -1,8 +1,10 @@
 package objtype
 
 import (
+	"os"
 	"testing"
 
+	jag "github.com/zsrv/goscape/pkg/io/jagfile"
 	packet2 "github.com/zsrv/goscape/pkg/io/packet"
 )
 
@@ -13,11 +15,16 @@ type varpEntry struct {
 	clientCode uint16
 }
 
-// buildVarpDat assembles a varp.dat wire blob:
+// hashVarpDat is genHash("varp.dat") — pre-computed via the algorithm in
+// pkg/io/jagfile/jagfile.go:18-25 (uppercase + h*61+c-32 reduction).
+const hashVarpDat uint32 = 383739196
+
+// buildVarpServerDat assembles the server-side varp.dat blob:
 //
 //	u16 count
-//	for each entry: sequence of (code, payload) pairs terminated by code 0.
-func buildVarpDat(entries []varpEntry) []byte {
+//	for each entry: codes 1 (scope), 6 (transmit), 250 (debugname),
+//	terminated by code 0.
+func buildVarpServerDat(entries []varpEntry) []byte {
 	pkt := packet2.NewPacket(nil)
 	pkt.P2(uint16(len(entries)))
 	for _, e := range entries {
@@ -28,10 +35,6 @@ func buildVarpDat(entries []varpEntry) []byte {
 		if e.transmit {
 			pkt.P1(6)
 		}
-		if e.clientCode != 0 {
-			pkt.P1(5)
-			pkt.P2(e.clientCode)
-		}
 		if e.debugName != "" {
 			pkt.P1(250)
 			pkt.PJStrLF(e.debugName)
@@ -41,6 +44,58 @@ func buildVarpDat(entries []varpEntry) []byte {
 	return pkt.Bytes()
 }
 
+// buildVarpClientDat assembles the inner client-side varp.dat payload (the
+// blob that lives inside client/config jagfile under entry name "varp.dat"):
+//
+//	u16 count
+//	for each entry: code 5 (clientcode), terminated by code 0.
+func buildVarpClientDat(entries []varpEntry) []byte {
+	pkt := packet2.NewPacket(nil)
+	pkt.P2(uint16(len(entries)))
+	for _, e := range entries {
+		if e.clientCode != 0 {
+			pkt.P1(5)
+			pkt.P2(e.clientCode)
+		}
+		pkt.P1(0) // terminator
+	}
+	return pkt.Bytes()
+}
+
+// buildClientJag wraps a single-entry jagfile around the given client
+// varp.dat blob and returns a parsed *jag.Jagfile ready for parseVarpTypes.
+// Mirrors loctype_test.go:97-117 buildClientJag pattern.
+func buildVarpClientJag(t *testing.T, varpDatBytes []byte) *jag.Jagfile {
+	t.Helper()
+	compressed, err := jag.BZip2Compress(varpDatBytes, false, true, 1, 0)
+	if err != nil {
+		t.Fatalf("BZip2Compress: %v", err)
+	}
+	p := packet2.NewPacket(nil)
+	p.P3(1)                         // unpackedSize (== packedSize → Unpacked=false outer path)
+	p.P3(1)                         // packedSize
+	p.P2(1)                         // fileCount = 1
+	p.P4(hashVarpDat)               // file hash
+	p.P3(uint32(len(varpDatBytes))) // unpacked size
+	p.P3(uint32(len(compressed)))   // packed size
+	p.Data = append(p.Data, compressed...)
+
+	jf, err := jag.NewJagfile(packet2.NewPacket(p.Data))
+	if err != nil {
+		t.Fatalf("NewJagfile: %v", err)
+	}
+	return jf
+}
+
+// buildVarpFixture is a convenience that builds both server bytes and
+// client jagfile from a single entries list, ready for parseVarpTypes.
+func buildVarpFixture(t *testing.T, entries []varpEntry) (*packet2.Packet, *jag.Jagfile) {
+	t.Helper()
+	server := packet2.NewPacket(buildVarpServerDat(entries))
+	clientJag := buildVarpClientJag(t, buildVarpClientDat(entries))
+	return server, clientJag
+}
+
 func TestParseVarpTypes(t *testing.T) {
 	entries := []varpEntry{
 		{debugName: "coins", scope: 0, transmit: true},
@@ -48,10 +103,9 @@ func TestParseVarpTypes(t *testing.T) {
 		{debugName: "anon"},
 	}
 
-	blob := buildVarpDat(entries)
-	pkt := packet2.NewPacket(blob)
+	server, clientJag := buildVarpFixture(t, entries)
 
-	cfgs, err := parseVarpTypes(pkt)
+	cfgs, err := parseVarpTypes(server, clientJag)
 	if err != nil {
 		t.Fatalf("parseVarpTypes: %v", err)
 	}
@@ -71,8 +125,9 @@ func TestParseVarpTypes(t *testing.T) {
 
 func TestVarpProtectDefaultTrue(t *testing.T) {
 	// No code 4 → Protect stays true.
-	blob := buildVarpDat([]varpEntry{{"x", 0, false, 0}})
-	cfgs, err := parseVarpTypes(packet2.NewPacket(blob))
+	entries := []varpEntry{{"x", 0, false, 0}}
+	server, clientJag := buildVarpFixture(t, entries)
+	cfgs, err := parseVarpTypes(server, clientJag)
 	if err != nil {
 		t.Fatalf("parseVarpTypes: %v", err)
 	}
@@ -83,13 +138,23 @@ func TestVarpProtectDefaultTrue(t *testing.T) {
 
 // TestParseVarpTypes_DiscoversRunIDFromClientCode7 mirrors TS VarPlayerType.ts:50-53:
 // the varp config with ClientCode==7 is recorded as VarpTypeConfigs.RunID.
+// clientcode is placed in the CLIENT stream (production-faithful).
 func TestParseVarpTypes_DiscoversRunIDFromClientCode7(t *testing.T) {
-	entries := []varpEntry{
-		{debugName: "other_a", clientCode: 0},
-		{debugName: "option_run", clientCode: 7}, // id=1 — the run varp
-		{debugName: "other_b", clientCode: 0},
+	serverEntries := []varpEntry{
+		{debugName: "other_a"},
+		{debugName: "option_run"},
+		{debugName: "other_b"},
 	}
-	cfgs, err := parseVarpTypes(packet2.NewPacket(buildVarpDat(entries)))
+	clientEntries := []varpEntry{
+		{clientCode: 0},
+		{clientCode: 7}, // id=1 — the run varp
+		{clientCode: 0},
+	}
+
+	server := packet2.NewPacket(buildVarpServerDat(serverEntries))
+	clientJag := buildVarpClientJag(t, buildVarpClientDat(clientEntries))
+
+	cfgs, err := parseVarpTypes(server, clientJag)
 	if err != nil {
 		t.Fatalf("parseVarpTypes: %v", err)
 	}
@@ -103,16 +168,88 @@ func TestParseVarpTypes_DiscoversRunIDFromClientCode7(t *testing.T) {
 
 // TestParseVarpTypes_RunIDDefaultsZeroWhenNoClientCode7 pins the TS-faithful
 // default-0 fallback (VarPlayerType.ts:18) when no clientcode-7 config exists.
+// clientcodes are placed in the CLIENT stream (production-faithful).
 func TestParseVarpTypes_RunIDDefaultsZeroWhenNoClientCode7(t *testing.T) {
-	entries := []varpEntry{
-		{debugName: "alpha", clientCode: 1},
-		{debugName: "beta", clientCode: 3},
+	serverEntries := []varpEntry{
+		{debugName: "alpha"},
+		{debugName: "beta"},
 	}
-	cfgs, err := parseVarpTypes(packet2.NewPacket(buildVarpDat(entries)))
+	clientEntries := []varpEntry{
+		{clientCode: 1},
+		{clientCode: 3},
+	}
+
+	server := packet2.NewPacket(buildVarpServerDat(serverEntries))
+	clientJag := buildVarpClientJag(t, buildVarpClientDat(clientEntries))
+
+	cfgs, err := parseVarpTypes(server, clientJag)
 	if err != nil {
 		t.Fatalf("parseVarpTypes: %v", err)
 	}
 	if cfgs.RunID != 0 {
 		t.Errorf("RunID: got %d, want 0 (default)", cfgs.RunID)
+	}
+}
+
+// TestParseVarpTypes_DiscoversRunIDFromClientStream is the new production-faithful
+// test: clientcode opcode lives ONLY in the client stream (never the server stream).
+// Asserts that RunID is discovered correctly when the client stream carries clientcode=7.
+func TestParseVarpTypes_DiscoversRunIDFromClientStream(t *testing.T) {
+	const runVarpID = 2
+	serverEntries := []varpEntry{
+		{debugName: "varp_a", scope: 0, transmit: false},
+		{debugName: "varp_b", scope: 1, transmit: true},
+		{debugName: "option_run", scope: 0, transmit: true}, // id=2, NO clientcode here
+		{debugName: "varp_c", scope: 0, transmit: false},
+	}
+	clientEntries := []varpEntry{
+		{clientCode: 0},
+		{clientCode: 0},
+		{clientCode: 7}, // id=2 — run varp, clientcode ONLY in client stream
+		{clientCode: 0},
+	}
+
+	server := packet2.NewPacket(buildVarpServerDat(serverEntries))
+	clientJag := buildVarpClientJag(t, buildVarpClientDat(clientEntries))
+
+	cfgs, err := parseVarpTypes(server, clientJag)
+	if err != nil {
+		t.Fatalf("parseVarpTypes: %v", err)
+	}
+	if cfgs.RunID != runVarpID {
+		t.Errorf("RunID: got %d, want %d", cfgs.RunID, runVarpID)
+	}
+	if cfgs.Configs[runVarpID].ClientCode != 7 {
+		t.Errorf("Configs[%d].ClientCode: got %d, want 7", runVarpID, cfgs.Configs[runVarpID].ClientCode)
+	}
+	if cfgs.Configs[runVarpID].DebugName != "option_run" {
+		t.Errorf("Configs[%d].DebugName: got %q, want %q", runVarpID, cfgs.Configs[runVarpID].DebugName, "option_run")
+	}
+	// Verify clientcode did NOT bleed in from server stream (server had no opcode 5)
+	if cfgs.Configs[0].ClientCode != 0 {
+		t.Errorf("Configs[0].ClientCode: got %d, want 0 (no client-stream clientcode)", cfgs.Configs[0].ClientCode)
+	}
+}
+
+// TestLoadVarpTypes_ProductionCacheRunIDIs173 binds the two-stream fix to the
+// actual production cache. Skipped when data/pack/client/config is absent.
+func TestLoadVarpTypes_ProductionCacheRunIDIs173(t *testing.T) {
+	const cacheDir = "../../data/pack"
+	if _, err := os.Stat(cacheDir + "/client/config"); err != nil {
+		t.Skipf("production cache not present (%s/client/config absent): %v", cacheDir, err)
+	}
+
+	cfgs, err := LoadVarpTypes(cacheDir)
+	if err != nil {
+		t.Fatalf("LoadVarpTypes: %v", err)
+	}
+	if cfgs.RunID != 173 {
+		t.Errorf("RunID: got %d, want 173", cfgs.RunID)
+	}
+	if cfgs.Configs[173].ClientCode != 7 {
+		t.Errorf("Configs[173].ClientCode: got %d, want 7", cfgs.Configs[173].ClientCode)
+	}
+	if got, ok := cfgs.ConfigNames["option_run"]; !ok || got != 173 {
+		t.Errorf("ConfigNames[option_run]: got %d (ok=%v), want 173", got, ok)
 	}
 }
