@@ -28,6 +28,7 @@ const (
 	testObjArr     = 2
 	testObjSword   = 3 // non-stackable scratch obj for per-slot semantics tests
 	testObjCertNote = 4 // certificate item (UNCERT direction): CertTemplate=self(>=0), CertLink=testObjCoin
+	testObjLogs     = 5 // certifiable item (CERT direction): CertTemplate=-1, CertLink=testObjCertNote
 )
 
 // newTestInvLookup seeds a fresh mockInvLookup with the shared fixture:
@@ -99,6 +100,13 @@ func newTestInvConfigs() *mockConfigs {
 	certNote.CertLink = testObjCoin
 	certNote.Stackable = true
 	mc.objs[testObjCertNote] = certNote
+
+	logs := objtype.NewObjType(testObjLogs)
+	logs.DebugName = "logs"
+	logs.CertTemplate = -1          // CertTemplate==-1 satisfies the CERT gate (INVERTED vs UNCERT)
+	logs.CertLink = testObjCertNote // certifies TO cert note
+	logs.Stackable = true           // "should be a stackable cert already" per TS comment
+	mc.objs[testObjLogs] = logs
 
 	mainInv := objtype.NewInvType(testInvMain)
 	mainInv.DebugName = "main"
@@ -200,6 +208,35 @@ func runInvOpExpectErrAsPlayer(t *testing.T, op Opcode, intInputs []int, lookup 
 	if !strings.Contains(err.Error(), substr) {
 		t.Fatalf("%s: expected error containing %q, got %q", op.String(), substr, err.Error())
 	}
+}
+
+// runInvOpWithWorld is the WorldVars variant of runInvOp; useful for
+// handlers that overflow to world via s.World.AddObj (e.g. INV_MOVEITEM_CERT,
+// INV_DROPSLOT). The active-player pointer is set unconditionally so
+// requireActivePlayer gates pass; callers that need a non-player context
+// should use a lower-level helper.
+func runInvOpWithWorld(t *testing.T, op Opcode, intInputs []int, lookup InvLookup, configs Configs, world WorldVars) *ScriptState {
+	t.Helper()
+	sf := &ScriptFile{
+		Name:             "test_" + op.String(),
+		Opcodes:          []Opcode{op, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	state.Pointers |= PtrActivePlayer
+	state.Inv = lookup
+	state.Configs = configs
+	state.World = world
+	for _, v := range intInputs {
+		state.PushInt(v)
+	}
+	if err := Execute(state); err != nil {
+		t.Fatalf("%s: unexpected error: %v", op.String(), err)
+	}
+	return state
 }
 
 // -- Reads --
@@ -1598,5 +1635,89 @@ func TestInvMoveItemUncert_RemoveZeroCompletesNoOp(t *testing.T) {
 	to := lookup.Get(nil, testInvBank)
 	if got := to.GetItemCount(testObjCoin); got != 0 {
 		t.Errorf("to inv: got %d coins, want 0 (Remove returned 0)", got)
+	}
+}
+
+// -- INV_MOVEITEM_CERT tests --
+
+func TestInvMoveItemCert_NoActivePlayer(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	runInvOpExpectErr(t, OpInvMoveItemCert, []int{testInvMain, testInvBank, testObjCoin, 1}, lookup, mc, "INV_MOVEITEM_CERT: no active player")
+}
+
+func TestInvMoveItemCert_FromInvTypeInvalid(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	runInvOpExpectErrAsPlayer(t, OpInvMoveItemCert, []int{9999, testInvBank, testObjCoin, 1}, lookup, mc, "no InvType with value (9999) found")
+}
+
+func TestInvMoveItemCert_ObjStackInvalid(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	runInvOpExpectErrAsPlayer(t, OpInvMoveItemCert, []int{testInvMain, testInvBank, testObjCoin, 0}, lookup, mc, "INV_MOVEITEM_CERT: invalid count (0)")
+}
+
+func TestInvMoveItemCert_NonCertObjMovesAsIs(t *testing.T) {
+	// Non-cert obj (CertTemplate=-1 default, CertLink=-1 default) → finalObj=obj.
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	from := lookup.Get(nil, testInvMain)
+	from.Set(0, &inventory.Item{Id: testObjCoin, Count: 50})
+	runInvOp(t, OpInvMoveItemCert, []int{testInvMain, testInvBank, testObjCoin, 50}, lookup, mc)
+	to := lookup.Get(nil, testInvBank)
+	if got := to.GetItemCount(testObjCoin); got != 50 {
+		t.Errorf("to inv: got %d coins, want 50", got)
+	}
+}
+
+func TestInvMoveItemCert_CertableObjCertifies(t *testing.T) {
+	// Certifiable obj (CertTemplate==-1 && CertLink>=0) → finalObj=CertLink.
+	// testObjLogs has CertTemplate=-1, CertLink=testObjCertNote → finalObj=testObjCertNote.
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	from := lookup.Get(nil, testInvMain)
+	from.Set(0, &inventory.Item{Id: testObjLogs, Count: 5})
+	runInvOp(t, OpInvMoveItemCert, []int{testInvMain, testInvBank, testObjLogs, 5}, lookup, mc)
+	to := lookup.Get(nil, testInvBank)
+	if got := to.GetItemCount(testObjLogs); got != 0 {
+		t.Errorf("to inv should NOT contain raw logs: got %d", got)
+	}
+	if got := to.GetItemCount(testObjCertNote); got != 5 {
+		t.Errorf("to inv: got %d cert notes via CertLink, want 5", got)
+	}
+}
+
+func TestInvMoveItemCert_OverflowDropsToWorld(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	from := lookup.Get(nil, testInvMain)
+	from.Set(0, &inventory.Item{Id: testObjCoin, Count: 10})
+	// Cap bank to 1 slot, fill with non-stackable arrow → coin overflow.
+	to := lookup.Get(nil, testInvBank)
+	to.Capacity = 1
+	to.Items = make([]*inventory.Item, 1)
+	to.Set(0, &inventory.Item{Id: testObjArr, Count: 1})
+
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+	runInvOpWithWorld(t, OpInvMoveItemCert, []int{testInvMain, testInvBank, testObjCoin, 10}, lookup, mc, world)
+	if len(world.addedCalls) != 1 {
+		t.Fatalf("want 1 World.AddObj call (single stacked overflow), got %d", len(world.addedCalls))
+	}
+	got := world.addedCalls[0]
+	if got.typeID != testObjCoin || got.count != 10 || got.duration != 200 {
+		t.Errorf("AddObj args: got typeID=%d count=%d duration=%d, want typeID=%d count=10 duration=200",
+			got.typeID, got.count, got.duration, testObjCoin)
+	}
+}
+
+func TestInvMoveItemCert_RemoveZeroCompletesNoOp(t *testing.T) {
+	// from inv empty → tx.Completed=0 → return without invAdd or world drop.
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+	runInvOpWithWorld(t, OpInvMoveItemCert, []int{testInvMain, testInvBank, testObjCoin, 50}, lookup, mc, world)
+	if len(world.addedCalls) != 0 {
+		t.Errorf("want 0 AddObj calls when from-Remove completes 0; got %d", len(world.addedCalls))
 	}
 }

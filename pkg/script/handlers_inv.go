@@ -986,6 +986,89 @@ func handleInvChangeSlot(s *ScriptState) error {
 	return nil
 }
 
+// handleInvMoveItemCert (INV_MOVEITEM_CERT) ports TS InvOps.ts:535-566.
+// Pops [fromInv, toInv, obj, count]. invDel → if obj is certifiable
+// (CertTemplate == -1 && CertLink >= 0) finalObj=CertLink; invAdd
+// finalObj. Overflow drops to world as a single stacked Obj — TS
+// comment "should be a stackable cert already" → no per-item branch.
+//
+// Validator chain (NAI-131): from-InvTypeValid → to-InvTypeValid →
+// ObjTypeValid → ObjStackValid → from-protect/scope → to-protect/scope
+// (DEVIATION-NAI-131-D1: both gates evaluate fromInvType.Scope).
+//
+// DEVIATION-NAI-130-D2: defensive nil-World guard skips overflow drop
+// when s.World is unset (goscape defensive; TS uses static World import).
+func handleInvMoveItemCert(s *ScriptState) error {
+	if err := requireActivePlayer(s, "INV_MOVEITEM_CERT"); err != nil {
+		return err
+	}
+	count := s.PopInt()
+	obj := s.PopInt()
+	toTypeID := s.PopInt()
+	fromTypeID := s.PopInt()
+
+	if err := checkInvType(s, fromTypeID, "INV_MOVEITEM_CERT"); err != nil {
+		return err
+	}
+	if err := checkInvType(s, toTypeID, "INV_MOVEITEM_CERT"); err != nil {
+		return err
+	}
+	if err := checkObjType(s, obj, "INV_MOVEITEM_CERT"); err != nil {
+		return err
+	}
+	if err := checkObjStack(count, "INV_MOVEITEM_CERT"); err != nil {
+		return err
+	}
+
+	fromInvType := s.Configs.InvType(fromTypeID)
+	toInvType := s.Configs.InvType(toTypeID)
+
+	if fromInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared && !s.Protect {
+		return fmt.Errorf("INV_MOVEITEM_CERT: $inv requires protected access: %s", fromInvType.DebugName)
+	}
+	// DEVIATION-NAI-131-D1: to-gate uses fromInvType.Scope (mirrors TS; goscape defensive label).
+	if toInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared && !s.Protect {
+		return fmt.Errorf("INV_MOVEITEM_CERT: $inv requires protected access: %s", toInvType.DebugName)
+	}
+
+	fromInv := resolveInv(s, fromTypeID)
+	if fromInv == nil {
+		return fmt.Errorf("INV_MOVEITEM_CERT: no inv for from-type %d", fromTypeID)
+	}
+	toInv := resolveInv(s, toTypeID)
+	if toInv == nil {
+		return fmt.Errorf("INV_MOVEITEM_CERT: no inv for to-type %d", toTypeID)
+	}
+
+	tx := fromInv.Remove(obj, count, inventory.RemoveOpts{BeginSlot: -1})
+	if tx.Completed == 0 {
+		return nil
+	}
+
+	objType := s.Configs.ObjType(obj)
+	finalObj := obj
+	// CERT gate: INVERTED vs UNCERT — certifiable item has CertTemplate==-1 && CertLink>=0.
+	if objType.CertTemplate == -1 && objType.CertLink >= 0 {
+		finalObj = objType.CertLink
+	}
+	stackable, stockObj := lookupStackableStockObj(s, toInv.Type, finalObj)
+	tx2 := toInv.Add(finalObj, tx.Completed, inventory.AddOpts{
+		BeginSlot: -1,
+		Stackable: stackable,
+		StockObj:  stockObj,
+	})
+
+	overflow := count - tx2.Completed
+	// DEVIATION-NAI-130-D2: defensive nil-World guard (goscape defensive; TS skips this check).
+	if overflow > 0 && s.World != nil {
+		level := (s.Self.CoordPacked() >> 28) & 0x3
+		receiverID := s.Self.UID()
+		// TS comment: "should be a stackable cert already" → single stacked drop.
+		s.World.AddObj(level, s.Self.X(), s.Self.Z(), finalObj, overflow, 200, receiverID)
+	}
+	return nil
+}
+
 // handleInvMoveItemUncert (INV_MOVEITEM_UNCERT) ports TS InvOps.ts:570-597.
 // Pops [fromInv, toInv, obj, count]. invDel → if obj is a certificate
 // (CertTemplate >= 0 && CertLink >= 0) add CertLink to toInv else add
