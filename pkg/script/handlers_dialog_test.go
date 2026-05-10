@@ -214,7 +214,7 @@ func TestCamLookAt(t *testing.T) {
 			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
 			OpCamLookAt, OpReturn,
 		},
-		IntOperands:      []int32{packedCoord, 200, 100, 100, 0, 0},
+		IntOperands:      []int32{packedCoord, 200, 60, 30, 0, 0},
 		StringOperands:   []string{"", "", "", "", "", ""},
 		InstructionCount: 6,
 	}
@@ -232,6 +232,10 @@ func TestCamLookAt(t *testing.T) {
 	}
 	if got.camX != x || got.camZ != z {
 		t.Errorf("(camX, camZ): got (%d, %d), want (%d, %d)", got.camX, got.camZ, x, z)
+	}
+	if got.height != 200 || got.rotationSpeed != 60 || got.rotationMultiplier != 30 {
+		t.Errorf("scalars: got height=%d rate=%d rate2=%d, want 200 60 30",
+			got.height, got.rotationSpeed, got.rotationMultiplier)
 	}
 }
 
