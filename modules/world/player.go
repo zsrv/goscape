@@ -356,6 +356,13 @@ type Player struct {
 	// of triggerZone/triggerZoneExit (NAI-142-D-R-D3) can decode via
 	// CoordGrid.unpackCoord parity (NetworkPlayer.ts:281).
 	lastZone int
+	// lastMapZone is the previously-witnessed packed mapzone coord
+	// (level=0, mapsquareX<<6, mapsquareZ<<6) used by updateBuildArea
+	// to detect per-tick mapzone (64-tile-grid) transitions. Sentinel
+	// -1 forces the first updateBuildArea call to fire triggerMapzone
+	// without firing triggerMapzoneExit (matches TS Player.ts:379
+	// `lastMapZone: number = -1` + NetworkPlayer.ts:259 `!== -1` guard).
+	lastMapZone int
 
 	// === BAS (basic animation set) — sub-spec 3a ===
 	readyanim, turnanim                          int
@@ -560,6 +567,7 @@ func newPlayer(c *client) *Player {
 		activeZones:    map[int]bool{},
 		mapsquares:     map[uint16]bool{},
 		lastZone:       -1, // NAI-142: sentinel; first updateBuildArea fires rebuildZones
+		lastMapZone:    -1, // NAI-145: sentinel; first updateBuildArea fires triggerMapzone (no exit)
 	}
 	if c.server != nil {
 		p.seqTypes = c.server.seqTypes
