@@ -6,7 +6,9 @@ import (
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/coordgrid"
+	"github.com/zsrv/goscape/pkg/gamemap"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
+	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/zone"
 )
 
@@ -654,5 +656,50 @@ func TestUpdateBuildArea_CachedClientCrossZoneFreshActiveZones(t *testing.T) {
 	// in the new.
 	if p.activeZones[coordgrid.ZoneIndex(47<<3, 50<<3, 0)] {
 		t.Error("post-cross-zone activeZones still contains stale cell (47,50)")
+	}
+}
+
+// TestStaticObjReplaysOnZoneEntry pins the full chain: o-file parse →
+// populateStaticObjsIntoZones → writeFullFollows → client receives
+// OBJ_ADD on zone entry. Mirrors TestWriteFullFollows_ObjAdd_RespawnEmits
+// (player_zone_test.go:419) but routes the obj through the boot helper
+// instead of direct z.Objs append. NAI-151.
+//
+// Wire shape: FullFollows header (3) + PartialFollows wrapper (3) +
+// ObjAdd nested (6) = 12 bytes.
+func TestStaticObjReplaysOnZoneEntry(t *testing.T) {
+	s := newZoneTestServer(t)
+	gm := gamemap.New(discardLogger())
+	gm.SetMembers(false)
+	gm.SetObjTypes(&objtype.ObjTypeConfigs{Configs: []*objtype.ObjType{
+		nil,
+		{Members: false},
+	}})
+	const absX, absZ = 3094, 3106
+	const mapX, mapZ = absX / 64, absZ / 64     // 48, 48
+	const localX, localZ = absX % 64, absZ % 64 // 22, 34
+	const packed = (0 << 12) | (localX << 6) | localZ
+	gm.SetFreeMapForTest(absX, absZ)
+	header := []byte{byte(packed >> 8), byte(packed & 0xFF), 0x01}
+	entry := []byte{0x00, 0x01, 0x07} // typeID=1, count=7
+	gm.LoadObjsForTest(append(header, entry...), mapX, mapZ)
+	s.gamemap = gm
+	s.populateStaticObjsIntoZones()
+
+	z := s.zoneMap.Get(0, absX, absZ)
+	if len(z.Objs) != 1 {
+		t.Fatalf("setup: zone Objs len got %d, want 1 (populateStaticObjsIntoZones did not route)", len(z.Objs))
+	}
+	if !z.Objs[0].IsActive {
+		t.Fatal("setup: static obj IsActive should be true after AddStaticObj")
+	}
+
+	p, cc := newZoneTestPlayer(t, s, 1, absX, absZ, 0)
+	received := drainConn(t, cc)
+	p.writeFullFollows(z, 1) // LastLifecycleTick=0 ≠ 1 → not skipped.
+	p.client.flushWrite()
+	got := <-received
+	if len(got) != 12 {
+		t.Errorf("want 12 bytes (FullFollows+PartialFollows+ObjAdd for static obj); got %d (% x)", len(got), got)
 	}
 }
