@@ -252,13 +252,13 @@ func TestAddXPDoesNotFireChangeStatWithoutLevelUp(t *testing.T) {
 	p.baseLevels[objtype.PlayerStatAttack] = 1
 	p.levels[objtype.PlayerStatAttack] = 1
 
-	before := len(p.queue)
+	beforeQueue := len(p.queue)
 	beforeEngineQueue := len(p.engineQueue)
 	p.AddXP(objtype.PlayerStatAttack, 100) // → 200, still level 1 (< 830)
 
-	if len(p.queue) != before {
+	if len(p.queue) != beforeQueue {
 		t.Errorf("queue len: got %d, want %d (no level-up = no changestat fire)",
-			len(p.queue), before)
+			len(p.queue), beforeQueue)
 	}
 	if len(p.engineQueue) != beforeEngineQueue {
 		t.Errorf("engineQueue len: got %d, want %d (no level-up = no changestat fire)",
@@ -276,13 +276,13 @@ func TestAddXPChangeStatNoScriptIsNoop(t *testing.T) {
 	p.baseLevels[objtype.PlayerStatAttack] = 2
 	p.levels[objtype.PlayerStatAttack] = 2
 
-	before := len(p.queue)
+	beforeQueue := len(p.queue)
 	beforeEngineQueue := len(p.engineQueue)
 	p.AddXP(objtype.PlayerStatAttack, 1000) // level up, but no script registered
 
-	if len(p.queue) != before {
+	if len(p.queue) != beforeQueue {
 		t.Errorf("queue len: got %d, want %d (no registered script = silent no-op)",
-			len(p.queue), before)
+			len(p.queue), beforeQueue)
 	}
 	if len(p.engineQueue) != beforeEngineQueue {
 		t.Errorf("engineQueue len: got %d, want %d (no registered script = silent no-op)",
@@ -346,13 +346,13 @@ func TestAddXPDoesNotFireAdvanceStatWithoutLevelUp(t *testing.T) {
 	p.baseLevels[objtype.PlayerStatAttack] = 1
 	p.levels[objtype.PlayerStatAttack] = 1
 
-	before := len(p.queue)
+	beforeQueue := len(p.queue)
 	beforeEngineQueue := len(p.engineQueue)
 	p.AddXP(objtype.PlayerStatAttack, 100) // → 200, still level 1
 
-	if len(p.queue) != before {
+	if len(p.queue) != beforeQueue {
 		t.Errorf("queue len: got %d, want %d (no level-up = no advancestat fire)",
-			len(p.queue), before)
+			len(p.queue), beforeQueue)
 	}
 	if len(p.engineQueue) != beforeEngineQueue {
 		t.Errorf("engineQueue len: got %d, want %d (no level-up = no advancestat fire)",
@@ -375,13 +375,13 @@ func TestAddXPAdvanceStatNoFallbackToGlobal(t *testing.T) {
 	p.baseLevels[objtype.PlayerStatAttack] = 2
 	p.levels[objtype.PlayerStatAttack] = 2
 
-	before := len(p.queue)
+	beforeQueue := len(p.queue)
 	beforeEngineQueue := len(p.engineQueue)
 	p.AddXP(objtype.PlayerStatAttack, 1000) // level up
 
-	if len(p.queue) != before {
+	if len(p.queue) != beforeQueue {
 		t.Errorf("queue len: got %d, want %d (global script must NOT fire — advancestat is type-specific only)",
-			len(p.queue), before)
+			len(p.queue), beforeQueue)
 	}
 	if len(p.engineQueue) != beforeEngineQueue {
 		t.Errorf("engineQueue len: got %d, want %d (global script must NOT fire — advancestat is type-specific only)",
@@ -1487,5 +1487,8 @@ func TestAdvanceStatUsesQueueEngine(t *testing.T) {
 	}
 	if p.engineQueue[0].Type != script.QueueEngine {
 		t.Errorf("Type: got %v, want QueueEngine", p.engineQueue[0].Type)
+	}
+	if p.engineQueue[0].Script != sf {
+		t.Errorf("Script: got %v, want %v", p.engineQueue[0].Script, sf)
 	}
 }
