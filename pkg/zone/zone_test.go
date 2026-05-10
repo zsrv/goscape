@@ -586,3 +586,36 @@ func TestRemoveLocSetsIsActiveFalse(t *testing.T) {
 		t.Error("Zone.RemoveLoc must set loc.IsActive=false (mirrors TS Zone.removeLoc Zone.ts:254)")
 	}
 }
+
+func TestAddStaticObjAppendsToObjs(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	obj := entity.NewObj(0, 3094, 3106, entity.LifecycleRespawn, 1234, 5)
+	z.AddStaticObj(obj)
+	if len(z.Objs) != 1 || z.Objs[0] != obj {
+		t.Errorf("Objs: got %v, want [obj]", z.Objs)
+	}
+	if len(z.Events()) != 0 {
+		t.Errorf("AddStaticObj should not queue events; got %d", len(z.Events()))
+	}
+}
+
+func TestAddStaticObjNoEntityEvents(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	obj := entity.NewObj(0, 0, 0, entity.LifecycleRespawn, 1234, 1)
+	z.AddStaticObj(obj)
+	if len(z.entityEvents) != 0 {
+		t.Errorf("AddStaticObj should not register entityEvents; got %d entries", len(z.entityEvents))
+	}
+}
+
+func TestAddStaticObjSetsIsActive(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	obj := entity.NewObj(0, 3094, 3106, entity.LifecycleRespawn, 1234, 1)
+	if obj.IsActive {
+		t.Fatal("setup: fresh obj must default IsActive=false")
+	}
+	z.AddStaticObj(obj)
+	if !obj.IsActive {
+		t.Error("AddStaticObj must set obj.IsActive=true (mirrors TS Zone.addStaticObj Zone.ts:214)")
+	}
+}

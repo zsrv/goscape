@@ -246,6 +246,16 @@ func (z *Zone) MergeLoc(
 
 // ---- obj mutations ----
 
+// AddStaticObj appends a static (LifecycleRespawn) obj to z.Objs WITHOUT
+// queuing a zone event. Statics are delivered to clients via the
+// FullFollows replay on zone entry (modules/world/player_zone.go:42-58),
+// not via Enclosed/Follows events. Called once per obj during world init.
+// Mirrors LostCityRS/Engine-TS/src/engine/zone/Zone.ts:211-215. NAI-151.
+func (z *Zone) AddStaticObj(obj *entity.Obj) {
+	z.Objs = append(z.Objs, obj)
+	obj.IsActive = true
+}
+
 // AddObj appends a dynamic obj to z.Objs and queues an OBJ_ADD event.
 // Enclosed if receiverID == PublicReceiver; Follows otherwise.
 // TODO(beyond-4b): enforce per-zone obj cap (TS: OBJS = 129) with
