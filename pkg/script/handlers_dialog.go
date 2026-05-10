@@ -115,6 +115,46 @@ func handleCamShake(s *ScriptState) error {
 	return nil
 }
 
+// handleCamMoveTo reads (coord, height, rate, rate2) from the int stack,
+// validates coord via checkCoord (mirrors TS CoordValid at
+// ScriptValidators.ts:109), and dispatches to ActivePlayer.CamMoveTo
+// with the unpacked (x, z). Args were pushed left-to-right; PopInt
+// reverses, so we pop rate2, rate, height, coord. Mirrors TS
+// PlayerOps.ts:213-218.
+func handleCamMoveTo(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("CAM_MOVETO: no active player")
+	}
+	rate2 := s.PopInt()
+	rate := s.PopInt()
+	height := s.PopInt()
+	coord := s.PopInt()
+	_, x, z, err := checkCoord(coord, "CAM_MOVETO")
+	if err != nil {
+		return err
+	}
+	s.Self.CamMoveTo(x, z, height, rate, rate2)
+	return nil
+}
+
+// handleCamLookAt is identical to handleCamMoveTo except it dispatches
+// to CamLookAt (kind=1). Mirrors TS PlayerOps.ts:206-211.
+func handleCamLookAt(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("CAM_LOOKAT: no active player")
+	}
+	rate2 := s.PopInt()
+	rate := s.PopInt()
+	height := s.PopInt()
+	coord := s.PopInt()
+	_, x, z, err := checkCoord(coord, "CAM_LOOKAT")
+	if err != nil {
+		return err
+	}
+	s.Self.CamLookAt(x, z, height, rate, rate2)
+	return nil
+}
+
 // handleStaffModLevel pushes the active player's staff moderation
 // level (0 for regular players, >0 for mods/admins). Used by update_all
 // and other login procs that branch on mod status.

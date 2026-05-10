@@ -613,6 +613,20 @@ func (m *mockPlayer) CamShake(axis, random, amplitude, rate int) {
 	m.lastCamShake = &struct{ axis, random, amplitude, rate int }{axis, random, amplitude, rate}
 }
 
+func (m *mockPlayer) CamMoveTo(camX, camZ, height, rate, rate2 int) {
+	m.cameraPackets = append(m.cameraPackets, struct {
+		kind                                              uint8
+		camX, camZ, height, rotationSpeed, rotationMultiplier int
+	}{kind: 0, camX: camX, camZ: camZ, height: height, rotationSpeed: rate, rotationMultiplier: rate2})
+}
+
+func (m *mockPlayer) CamLookAt(camX, camZ, height, rate, rate2 int) {
+	m.cameraPackets = append(m.cameraPackets, struct {
+		kind                                              uint8
+		camX, camZ, height, rotationSpeed, rotationMultiplier int
+	}{kind: 1, camX: camX, camZ: camZ, height: height, rotationSpeed: rate, rotationMultiplier: rate2})
+}
+
 // HintNpc capture for handler tests (NAI-37 T5).
 func (m *mockPlayer) HintNpc(nid int) { m.hintNpcCalls = append(m.hintNpcCalls, nid) }
 

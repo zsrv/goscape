@@ -40,6 +40,19 @@ const (
 	modalStateTut  = 0x8
 )
 
+// cameraInfo is one entry in Player.cameraPackets — a deferred
+// CAM_MOVETO / CAM_LOOKAT wire packet awaiting drain at the top of
+// updateBuildArea. kind=0 emits OpCamMoveTo; kind=1 emits OpCamLookAt.
+// Mirrors TS engine/entity/CameraInfo.ts. (slice for goscape; TS uses
+// LinkList<CameraInfo>.)
+type cameraInfo struct {
+	kind               uint8 // 0 = moveto, 1 = lookat
+	camX, camZ         int   // world-space cam target; converted to zone-relative at drain
+	height             int   // p2 (16-bit big-endian at encode)
+	rotationSpeed      int   // p1 (rate in engine.rs2)
+	rotationMultiplier int   // p1 (rate2 in engine.rs2)
+}
+
 // playerTimer is a per-player repeating script registration.
 // S5i: identified by target scriptID (TS semantics: setTimer at same
 // id overwrites).
@@ -145,8 +158,14 @@ type Player struct {
 	lastInteractBranchPost int
 	interactCallSlot       int
 
-	activeScript     *script.ScriptState
-	queue            []playerQueueRequest
+	activeScript *script.ScriptState
+	queue        []playerQueueRequest
+
+	// cameraPackets is the per-player buffer of deferred camera packets.
+	// CAM_MOVETO / CAM_LOOKAT script opcodes append; updateBuildArea drains
+	// at top-of-tick (after Player.updateMap has refreshed originX/originZ
+	// per NAI-93 ordering). Mirrors TS Player.cameraPackets at Player.ts:344.
+	cameraPackets []cameraInfo
 
 	// timers is a per-player repeating-script map keyed by script lookup
 	// key. Allocated lazily on first SetTimer call.

@@ -375,6 +375,15 @@ type ActivePlayer interface {
 	// the CAM_SHAKE script opcode for cutscene camera shake.
 	CamShake(axis, random, amplitude, rate int)
 
+	// CamMoveTo and CamLookAt buffer a deferred zone-relative camera packet
+	// onto Player.cameraPackets. The packet is drained at the top of
+	// updateBuildArea, where (camX, camZ) is converted to (localX, localZ)
+	// against the player's freshly-rebuilt originX/originZ. kind is
+	// 0 (moveto) or 1 (lookat). Mirrors TS PlayerOps.ts:206-218 +
+	// NetworkPlayer.ts:244-253.
+	CamMoveTo(camX, camZ, height, rate, rate2 int)
+	CamLookAt(camX, camZ, height, rate, rate2 int)
+
 	// HintNpc directs the client to render a hint arrow pointing at the
 	// NPC with the given nid (slot id). Mirrors TS Player.hintNpc at
 	// Player.ts:2174-2176, which writes a HintArrow(type=1) packet.

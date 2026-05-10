@@ -202,6 +202,26 @@ func (p *Player) CamShake(axis, random, amplitude, rate int) {
 	})
 }
 
+// CamMoveTo appends a kind=0 cameraInfo onto p.cameraPackets. The packet
+// is drained at the top of updateBuildArea (TS NetworkPlayer.ts:244-253);
+// (camX, camZ) is converted to (localX, localZ) at drain-time using
+// p.originX/p.originZ. Mirrors TS PlayerOps.ts:213-218.
+func (p *Player) CamMoveTo(camX, camZ, height, rate, rate2 int) {
+	p.cameraPackets = append(p.cameraPackets, cameraInfo{
+		kind: 0, camX: camX, camZ: camZ,
+		height: height, rotationSpeed: rate, rotationMultiplier: rate2,
+	})
+}
+
+// CamLookAt appends a kind=1 cameraInfo. Same drain semantics as CamMoveTo.
+// Mirrors TS PlayerOps.ts:206-211.
+func (p *Player) CamLookAt(camX, camZ, height, rate, rate2 int) {
+	p.cameraPackets = append(p.cameraPackets, cameraInfo{
+		kind: 1, camX: camX, camZ: camZ,
+		height: height, rotationSpeed: rate, rotationMultiplier: rate2,
+	})
+}
+
 // HintNpc sends a HINT_ARROW (type=1, NPC variant) wire packet to the
 // client. Encodes 6 bytes matching TS HintArrowEncoder type=1 branch:
 // p1(type=1), p2(nid), p2(0), p1(0). Called by the HINT_NPC (opcode

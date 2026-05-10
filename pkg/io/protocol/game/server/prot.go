@@ -42,6 +42,14 @@ var (
 	// Camera control. TS ServerGameProt.CAM_SHAKE = (13, 4), payload p1×4.
 	// Sent by the CAM_SHAKE script opcode for cutscene camera shake.
 	OpCamShake = Op{Opcode: 13, PayloadSize: 4}
+	// Camera control. TS ServerGameProt.CAM_MOVETO = (3, 6), payload
+	// p1(localX) p1(localZ) p2(height) p1(rotationSpeed) p1(rotationMultiplier).
+	// Coords are zone-relative against player.originX/originZ at drain-time
+	// (TS NetworkPlayer.ts:245-246). Sent by the CAM_MOVETO script opcode.
+	OpCamMoveTo = Op{Opcode: 3, PayloadSize: 6}
+	// Camera control. TS ServerGameProt.CAM_LOOKAT = (74, 6); same payload
+	// shape as OpCamMoveTo. Sent by the CAM_LOOKAT script opcode.
+	OpCamLookAt = Op{Opcode: 74, PayloadSize: 6}
 
 	// HINT_ARROW — directs the client to render a hint indicator pointing
 	// at an NPC, player, tile, or to clear. All 5 TS HintArrowEncoder

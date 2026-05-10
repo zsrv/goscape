@@ -1,6 +1,9 @@
 package script
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestPPauseButtonSuspends(t *testing.T) {
 	sf := &ScriptFile{
@@ -144,7 +147,7 @@ func TestPCountDialogUnprotectedRejected(t *testing.T) {
 }
 
 func TestDialogOpsRequireActivePlayer(t *testing.T) {
-	for _, op := range []Opcode{OpPPauseButton, OpPCountDialog, OpLastCom, OpCamReset, OpCamShake} {
+	for _, op := range []Opcode{OpPPauseButton, OpPCountDialog, OpLastCom, OpCamReset, OpCamShake, OpCamMoveTo, OpCamLookAt} {
 		t.Run(op.String(), func(t *testing.T) {
 			sf := &ScriptFile{
 				Name:             "no_self",
@@ -158,6 +161,103 @@ func TestDialogOpsRequireActivePlayer(t *testing.T) {
 				t.Errorf("%v: want error with nil Self", op)
 			}
 		})
+	}
+}
+
+func TestCamMoveTo(t *testing.T) {
+	const packedCoord = int32(0x0000_1000)
+	level, x, z := unpackCoord(int(packedCoord))
+
+	sf := &ScriptFile{
+		Name: "cam_moveto",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // coord
+			OpPushConstantInt, // height
+			OpPushConstantInt, // rate
+			OpPushConstantInt, // rate2
+			OpCamMoveTo,
+			OpReturn,
+		},
+		IntOperands:      []int32{packedCoord, 550, 100, 80, 0, 0},
+		StringOperands:   []string{"", "", "", "", "", ""},
+		InstructionCount: 6,
+	}
+	_ = level
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(mp.cameraPackets) != 1 {
+		t.Fatalf("cameraPackets: got %d entries, want 1", len(mp.cameraPackets))
+	}
+	got := mp.cameraPackets[0]
+	if got.kind != 0 {
+		t.Errorf("kind: got %d, want 0 (moveto)", got.kind)
+	}
+	if got.camX != x || got.camZ != z {
+		t.Errorf("(camX, camZ): got (%d, %d), want (%d, %d) from unpackCoord", got.camX, got.camZ, x, z)
+	}
+	if got.height != 550 || got.rotationSpeed != 100 || got.rotationMultiplier != 80 {
+		t.Errorf("scalars: got height=%d rate=%d rate2=%d, want 550 100 80",
+			got.height, got.rotationSpeed, got.rotationMultiplier)
+	}
+}
+
+func TestCamLookAt(t *testing.T) {
+	const packedCoord = int32(0x0000_1000)
+	_, x, z := unpackCoord(int(packedCoord))
+
+	sf := &ScriptFile{
+		Name: "cam_lookat",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpCamLookAt, OpReturn,
+		},
+		IntOperands:      []int32{packedCoord, 200, 100, 100, 0, 0},
+		StringOperands:   []string{"", "", "", "", "", ""},
+		InstructionCount: 6,
+	}
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(mp.cameraPackets) != 1 {
+		t.Fatalf("cameraPackets: got %d entries, want 1", len(mp.cameraPackets))
+	}
+	got := mp.cameraPackets[0]
+	if got.kind != 1 {
+		t.Errorf("kind: got %d, want 1 (lookat)", got.kind)
+	}
+	if got.camX != x || got.camZ != z {
+		t.Errorf("(camX, camZ): got (%d, %d), want (%d, %d)", got.camX, got.camZ, x, z)
+	}
+}
+
+func TestCamMoveToHandler_invalidCoord(t *testing.T) {
+	const invalidCoord = int32(-1)
+	sf := &ScriptFile{
+		Name: "cam_moveto_bad",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpCamMoveTo, OpReturn,
+		},
+		IntOperands:      []int32{invalidCoord, 100, 1, 1, 0, 0},
+		StringOperands:   []string{"", "", "", "", "", ""},
+		InstructionCount: 6,
+	}
+	mp := &mockPlayer{}
+	state := Init(sf, mp, false, nil, nil)
+	err := Execute(state)
+	if err == nil {
+		t.Fatal("expected error from CAM_MOVETO with invalid coord, got nil")
+	}
+	if !strings.Contains(err.Error(), "CAM_MOVETO") || !strings.Contains(err.Error(), "coord out of range") {
+		t.Errorf("error shape: got %q, want substrings 'CAM_MOVETO' and 'coord out of range'", err.Error())
+	}
+	if len(mp.cameraPackets) != 0 {
+		t.Errorf("cameraPackets must remain empty on error; got %d entries", len(mp.cameraPackets))
 	}
 }
 
