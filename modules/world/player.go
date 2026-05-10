@@ -880,8 +880,24 @@ func (p *Player) updateStats() {
 	}
 }
 
-// updateBuildArea fires rebuildZones() on per-tick zone transitions.
-// Mirrors the lastZone slice of TS NetworkPlayer.updateMap
+// updateBuildArea drains deferred camera packets then fires rebuildZones()
+// on per-tick zone transitions.
+//
+// Camera drain mirrors TS NetworkPlayer.updateMap (NetworkPlayer.ts:243-253):
+//
+//	for (const info of this.cameraPackets) {
+//	    const localX = info.camX - CoordGrid.zoneOrigin(this.originX);
+//	    const localZ = info.camZ - CoordGrid.zoneOrigin(this.originZ);
+//	    // ... write OpCamMoveTo or OpCamLookAt ...
+//	}
+//	this.cameraPackets.length = 0;
+//
+// Origin freshness is preserved by NAI-93 ordering: Player.updateMap
+// (TS BuildArea.rebuildNormal slot) runs in Server.processInfo before
+// processOut, so p.originX/Z are already anchored to the current
+// rebuild position when this drain fires.
+//
+// Zone-transition logic mirrors TS NetworkPlayer.updateMap
 // (NetworkPlayer.ts:269-271):
 //
 //	const zone = CoordGrid.packCoord(this.level, (this.x >> 3) << 3, (this.z >> 3) << 3);
@@ -891,12 +907,33 @@ func (p *Player) updateStats() {
 //	    this.lastZone = zone;
 //	}
 //
-// Camera packets (NetworkPlayer.ts:243-253), lastMapZone +
-// triggerMapzone (NetworkPlayer.ts:256-266), and triggerZone +
-// triggerZoneExit + SetMultiway (NetworkPlayer.ts:274-285) are
-// deferred follow-ups; see nai_followups.md
-// NAI-142-D-R-D{1,2,3}.
+// lastMapZone + triggerMapzone (NetworkPlayer.ts:256-266), and
+// triggerZone + triggerZoneExit + SetMultiway (NetworkPlayer.ts:274-285)
+// are deferred follow-ups; see nai_followups.md NAI-142-D-R-D{2,3}.
 func (p *Player) updateBuildArea() {
+	// 1. drain cameraPackets — TS NetworkPlayer.ts:244-253. Origin is
+	// already fresh because Player.updateMap (TS BuildArea.rebuildNormal
+	// slot) runs in Server.processInfo before processOut per NAI-93.
+	for i := range p.cameraPackets {
+		info := p.cameraPackets[i]
+		localX := info.camX - coordgrid.ZoneOrigin(p.originX)
+		localZ := info.camZ - coordgrid.ZoneOrigin(p.originZ)
+		payload := []byte{
+			byte(localX),
+			byte(localZ),
+			byte(info.height >> 8), byte(info.height), // p2 big-endian
+			byte(info.rotationSpeed),
+			byte(info.rotationMultiplier),
+		}
+		op := gameserver.OpCamMoveTo
+		if info.kind == 1 {
+			op = gameserver.OpCamLookAt
+		}
+		p.writeOut(op, payload)
+	}
+	p.cameraPackets = p.cameraPackets[:0]
+
+	// 2. lastZone — TS NetworkPlayer.ts:269-271 (NAI-142).
 	zone := coordgrid.PackCoord(p.level, (p.x>>3)<<3, (p.z>>3)<<3)
 	if p.lastZone != zone {
 		p.rebuildZones()
