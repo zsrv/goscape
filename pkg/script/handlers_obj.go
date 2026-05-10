@@ -222,6 +222,11 @@ func handleObjTakeItem(s *ScriptState) error {
 	}
 
 	invID := s.PopInt()
+	// TS validates invType first (ObjOps.ts:138, hard-error) THEN checks
+	// obj.isValid (ObjOps.ts:143, soft no-op). Pre-check here preserves
+	// that order so a bad invType paired with an invalid obj hard-errors
+	// like TS, instead of silently no-op'ing through performInvAdd's
+	// own checkInvType (which fires after IsValidFor's early return).
 	if err := checkInvType(s, invID, "OBJ_TAKEITEM"); err != nil {
 		return err
 	}
