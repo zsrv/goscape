@@ -51,6 +51,10 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		// before processNpcs / processInfo reads zone state).
 		s.processObjDelayedQueue()
 		s.processPlayerTimers()
+		// NAI-144: TS World.ts:725 — engineQueue drains between timers and
+		// movement. processPlayerEngineQueues mirrors TS
+		// Player.processEngineQueue per-player drain semantics.
+		s.processPlayerEngineQueues()
 		s.processPathing()
 		s.processInteractions()
 		s.processWalkTriggerFallbacks() // NAI-77 T3: TS World.ts:635-641 per-tick re-path + PLAYERSETUP walktrigger
@@ -333,6 +337,57 @@ func (s *Server) processPlayerQueue(p *Player) {
 		}
 		// Don't advance i: we just removed the current element, so i
 		// now points to what was the next element (or past end).
+	}
+}
+
+// processPlayerEngineQueues drains each player's engineQueue (NAI-144).
+// Mirrors TS Player.processEngineQueue (Engine-TS/.../Player.ts:641-651):
+// per entry, decrement Delay; if CanAccess() && Delay <= 0, fire (as a
+// protected script) and remove. Iteration is index-based and re-evaluates
+// len(p.engineQueue) each pass so a script that re-enqueues during fire
+// (TS LinkList chain semantics) is visible same-tick (T6 pin).
+//
+// Distinct from processPlayerQueue: no QueueStrong modal-close pre-pass;
+// gated by CanAccess() not by req.Type==QueueStrong; no STRONG-style
+// preemption.
+//
+// DEVIATION-NAI-144-D4: goscape's CanAccess() (player_script.go:324)
+// gates on delayed + modalState + protectedScriptActive. TS canAccess()
+// gates only on connection/logout state. Observable effect for engineQueue
+// is equivalent (both deny fire when the player is busy); divergence is
+// noted for parity bookkeeping but doesn't change drain shape.
+//
+// Tick-loop slot: between processPlayerTimers and processPathing,
+// matching TS World.ts:725.
+func (s *Server) processPlayerEngineQueues() {
+	s.playersMu.RLock()
+	players := make([]*Player, len(s.playerLoop))
+	copy(players, s.playerLoop)
+	s.playersMu.RUnlock()
+
+	for _, p := range players {
+		func(p *Player) {
+			defer recoverPlayer(p, "processPlayerEngineQueues", s.log)
+			i := 0
+			for i < len(p.engineQueue) {
+				req := &p.engineQueue[i]
+				req.Delay--
+				if req.Delay > 0 || !p.CanAccess() {
+					i++
+					continue
+				}
+				sf := req.Script
+				intArgs := req.IntArgs
+				stringArgs := req.StringArgs
+				p.engineQueue = append(p.engineQueue[:i], p.engineQueue[i+1:]...)
+				if sf != nil {
+					// TS Player.ts:646 — executeScript(script, true): protected.
+					s.runScript(sf, p, nil, true, intArgs, stringArgs)
+				}
+				// Don't advance i — the slice shrunk by one; index now points
+				// at what was the next entry (or past end).
+			}
+		}(p)
 	}
 }
 
