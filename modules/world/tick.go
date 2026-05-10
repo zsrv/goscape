@@ -351,11 +351,11 @@ func (s *Server) processPlayerQueue(p *Player) {
 // gated by CanAccess() not by req.Type==QueueStrong; no STRONG-style
 // preemption.
 //
-// DEVIATION-NAI-144-D4: goscape's CanAccess() (player_script.go:324)
-// gates on delayed + modalState + protectedScriptActive. TS canAccess()
-// gates only on connection/logout state. Observable effect for engineQueue
-// is equivalent (both deny fire when the player is busy); divergence is
-// noted for parity bookkeeping but doesn't change drain shape.
+// DEVIATION-NAI-144-D4: TS canAccess() (Player.ts:805-812) returns true
+// unconditionally when World.shutdown=true; goscape has no equivalent
+// shutdown flag and omits this branch. All other gates (delayed, modal,
+// protect-equivalent) are functionally identical between TS and goscape's
+// CanAccess() — see player_script.go:308-322 for the full mapping.
 //
 // Tick-loop slot: between processPlayerTimers and processPathing,
 // matching TS World.ts:725.
