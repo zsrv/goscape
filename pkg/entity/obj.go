@@ -20,6 +20,12 @@ type Obj struct {
 	ReceiverID int
 	Reveal     int // tick countdown until OBJ_REVEAL fires; -1 if already public
 	LastChange int // last tick Count was modified; -1 if never
+
+	// IsActive is true while the obj is present in its zone's Objs list.
+	// Managed by pkg/zone Zone methods (AddStaticObj, AddObj, RemoveObj).
+	// Mirrors TS Zone.ts isActive writes (Zone.ts:208,214,295) and
+	// pkg/entity/loc.go:16. NAI-151.
+	IsActive bool
 }
 
 // NewObj constructs a 1×1 ground item with public visibility by default

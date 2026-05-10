@@ -68,3 +68,18 @@ func TestObjIsValid(t *testing.T) {
 		t.Error("fresh obj: IsValid = false, want true")
 	}
 }
+
+func TestObjIsActiveDefaultFalse(t *testing.T) {
+	o := NewObj(0, 0, 0, LifecycleRespawn, 1, 1)
+	if o.IsActive {
+		t.Error("fresh obj must have IsActive=false")
+	}
+}
+
+func TestObjIsActiveSettable(t *testing.T) {
+	o := NewObj(0, 0, 0, LifecycleRespawn, 1, 1)
+	o.IsActive = true
+	if !o.IsActive {
+		t.Error("IsActive must be settable to true")
+	}
+}
