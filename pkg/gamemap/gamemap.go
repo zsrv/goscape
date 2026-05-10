@@ -19,6 +19,13 @@ type NpcSpawn struct {
 	X, Z, Level int
 }
 
+// ObjSpawn records a static ground-obj spawn position from a mapsquare's
+// o-file. Mirrors NpcSpawn (above). NAI-151.
+type ObjSpawn struct {
+	TypeID, Count int
+	X, Z, Level   int
+}
+
 // GameMap holds collision data for the game world.
 type GameMap struct {
 	Pathfinder       *routefinder.PathFinderAPI
@@ -29,6 +36,9 @@ type GameMap struct {
 	landsByMapSquare map[uint16][]int8 // (mapX<<8)|mapZ -> mapLevels*64*64 land bytes; populated by loadGround, consumed by loadLocs (NAI-96 LINK_BELOW)
 	staticLocs       []*entity.Loc     // parsed static locs with absolute world coords
 	npcSpawns        []NpcSpawn
+	objSpawns        []ObjSpawn
+	members          bool                    // NodeMembers flag — set via SetMembers before Init. Mirrors TS GameMap.members. NAI-151.
+	objTypes         *objtype.ObjTypeConfigs // optional; consumed by loadObjs gate. nil-OK preserves t.TempDir() test fixtures with empty caches. NAI-151.
 	locTypes         *objtype.LocTypeConfigs // optional; when set before Init, loadLocs uses lt.Width/lt.Length per LocType (NAI-100). nil-OK preserves t.TempDir() test fixtures.
 	log              *slog.Logger
 }
@@ -54,6 +64,23 @@ func New(log *slog.Logger) *GameMap {
 // Mirrors TS GameMap.ts:248-263 where loadLocations consults LocType.get().
 func (gm *GameMap) SetLocTypes(cfgs *objtype.LocTypeConfigs) {
 	gm.locTypes = cfgs
+}
+
+// SetMembers registers the world's NodeMembers flag for use by loadObjs.
+// Must be called BEFORE Init; calling later has no effect on already-
+// loaded static objs. Default false. Mirrors TS GameMap.members.
+// NAI-151.
+func (gm *GameMap) SetMembers(m bool) {
+	gm.members = m
+}
+
+// SetObjTypes registers the ObjType configs used by loadObjs to gate
+// per-obj members visibility. Must be called BEFORE Init. nil-OK:
+// when unset, loadObjs records no objs (preserves test fixtures with
+// empty caches). Mirrors TS ObjType.get() inside GameMap.loadObjs.
+// NAI-151.
+func (gm *GameMap) SetObjTypes(cfgs *objtype.ObjTypeConfigs) {
+	gm.objTypes = cfgs
 }
 
 // ChangeLandCollision marks or clears a floor tile as walkable.
@@ -175,6 +202,10 @@ func (gm *GameMap) Init(cacheDir string) error {
 
 // NpcSpawns returns the list of NPC spawn records collected during Init.
 func (gm *GameMap) NpcSpawns() []NpcSpawn { return gm.npcSpawns }
+
+// ObjSpawns returns the list of static-obj spawn records collected
+// during Init. Returned slice is internal — do not mutate. NAI-151.
+func (gm *GameMap) ObjSpawns() []ObjSpawn { return gm.objSpawns }
 
 // StaticLocs returns the parsed static locs accumulated during Init.
 // Pointers are stable for the lifetime of GameMap.

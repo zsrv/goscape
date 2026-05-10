@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/entity"
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 func discardLogger() *slog.Logger {
@@ -278,5 +279,36 @@ func TestSetMulti(t *testing.T) {
 	gm.SetMulti(3094, 3107, 0, false)
 	if gm.IsMulti(3094, 3107, 0) {
 		t.Errorf("post-clear: IsMulti(3094,3107,0) = true, want false")
+	}
+}
+
+func TestObjSpawnsDefaultEmpty(t *testing.T) {
+	gm := New(discardLogger())
+	if len(gm.ObjSpawns()) != 0 {
+		t.Errorf("ObjSpawns: fresh GameMap should return empty slice; got %d", len(gm.ObjSpawns()))
+	}
+}
+
+func TestSetMembersAcceptsTrue(t *testing.T) {
+	gm := New(discardLogger())
+	gm.SetMembers(true)
+	if !gm.members {
+		t.Error("SetMembers(true) should set gm.members=true")
+	}
+}
+
+func TestSetMembersDefaultsFalse(t *testing.T) {
+	gm := New(discardLogger())
+	if gm.members {
+		t.Error("fresh GameMap should default members=false")
+	}
+}
+
+func TestSetObjTypesAcceptsConfigs(t *testing.T) {
+	gm := New(discardLogger())
+	cfgs := &objtype.ObjTypeConfigs{Configs: []*objtype.ObjType{nil}}
+	gm.SetObjTypes(cfgs)
+	if gm.objTypes != cfgs {
+		t.Error("SetObjTypes should store the supplied pointer")
 	}
 }
