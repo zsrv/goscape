@@ -158,6 +158,40 @@ func TestApplyPostDecodeFixupsNonF2PMembersUnchanged(t *testing.T) {
 	}
 }
 
+func TestApplyPostDecodeFixupsDummyItemForcesTradeableFalse(t *testing.T) {
+	t.Setenv("NODE_MEMBERS", "true") // disable F2P branch
+
+	ot := NewObjType(0)
+	ot.DummyItem = 1
+	ot.Tradeable = true // simulates cache code 200
+
+	otc := &ObjTypeConfigs{Configs: []*ObjType{ot}}
+	ptc := &ParamTypeConfigs{}
+
+	applyPostDecodeFixups(otc, ptc)
+
+	if ot.Tradeable != false {
+		t.Errorf("Tradeable: got %v, want false (DummyItem != 0)", ot.Tradeable)
+	}
+}
+
+func TestApplyPostDecodeFixupsDummyItemZeroPreservesTradeable(t *testing.T) {
+	t.Setenv("NODE_MEMBERS", "true")
+
+	ot := NewObjType(0)
+	ot.DummyItem = 0
+	ot.Tradeable = true
+
+	otc := &ObjTypeConfigs{Configs: []*ObjType{ot}}
+	ptc := &ParamTypeConfigs{}
+
+	applyPostDecodeFixups(otc, ptc)
+
+	if ot.Tradeable != true {
+		t.Errorf("Tradeable: got %v, want true (DummyItem == 0)", ot.Tradeable)
+	}
+}
+
 func TestLoadObjTypesFromPack(t *testing.T) {
 	cacheDir := filepath.Join("..", "..", "data", "pack")
 

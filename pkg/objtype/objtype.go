@@ -77,6 +77,10 @@ func applyPostDecodeFixups(otc *ObjTypeConfigs, ptc *ParamTypeConfigs) {
 			config.toCertificate(otc)
 		}
 
+		if config.DummyItem != 0 {
+			config.Tradeable = false
+		}
+
 		if os.Getenv("NODE_MEMBERS") == "false" && config.Members {
 			config.Tradeable = false
 			config.Op = []string{"", "", "Take", "", ""}
