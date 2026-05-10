@@ -174,7 +174,7 @@ type Player struct {
 
 	// cameraPackets is the per-player buffer of deferred camera packets.
 	// CAM_MOVETO / CAM_LOOKAT script opcodes append; updateBuildArea drains
-	// at top-of-tick (after Player.updateMap has refreshed originX/originZ
+	// at top-of-tick (after Player.rebuildNormal has refreshed originX/originZ
 	// per NAI-93 ordering). Mirrors TS Player.cameraPackets at Player.ts:344.
 	cameraPackets []cameraInfo
 
@@ -338,7 +338,7 @@ type Player struct {
 	// pkg/buildarea encoded this via OriginX = -1, but Player.originX is
 	// already set to a real coord in tick.go's processLogins loop (anchor
 	// for PlayerInfo zone-relative encoding, which runs in updatePlayers
-	// BEFORE updateMap each tick, NAI-93: updateMap is in processInfo). Reusing originX as the sentinel would
+	// BEFORE rebuildNormal each tick, NAI-93: rebuildNormal is in processInfo). Reusing originX as the sentinel would
 	// be silently consumed at login. A separate bool keeps the two roles
 	// independent.
 	lastBuild   int
@@ -768,7 +768,7 @@ func (p *Player) rebuildZones() {
 	}
 }
 
-func (p *Player) updateMap() {
+func (p *Player) rebuildNormal() {
 	if p.client == nil || p.client.server == nil {
 		return
 	}
@@ -782,7 +782,7 @@ func (p *Player) updateMap() {
 	//
 	// NAI-93 moved this call from processOut to processInfo per TS
 	// World.ts:996 ordering. Pre-NAI-93, the ComputePlayer call had
-	// already cached the STALE origin by the time updateMap ran, and the
+	// already cached the STALE origin by the time rebuildNormal ran, and the
 	// PlayerInfo tele leaf encoded localX = pos.X - (((staleOriginX>>3)
 	// - 6) << 3) — which on a cross-window tele produced values outside
 	// the Java client's 0..104 active-window array bound, crashing in
@@ -911,7 +911,7 @@ func (p *Player) updateStats() {
 //	    // ... write CamMoveTo or CamLookAt ...
 //	}
 //
-// Origin freshness is preserved by NAI-93 ordering: Player.updateMap
+// Origin freshness is preserved by NAI-93 ordering: Player.rebuildNormal
 // (TS BuildArea.rebuildNormal slot) runs in Server.processInfo before
 // processOut, so p.originX/Z are already anchored to the current
 // rebuild position when this drain fires.
@@ -1023,7 +1023,7 @@ func (p *Player) updateBuildArea() {
 }
 
 func (p *Player) processOut() {
-	// NAI-93: goscape's updateMap (=TS BuildArea.rebuildNormal slot) was
+	// NAI-93: goscape's rebuildNormal (=TS BuildArea.rebuildNormal slot) was
 	// moved to Server.processInfo per TS World.ts:996 ordering, so the
 	// PlayerInfo encode (updatePlayers) runs against already-fresh rsbuf
 	// state.

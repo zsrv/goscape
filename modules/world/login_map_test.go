@@ -9,7 +9,7 @@ import (
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 )
 
-// TestLoginSendsRebuildNormal verifies that updateMap() sends a RebuildNormal
+// TestLoginSendsRebuildNormal verifies that rebuildNormal() sends a RebuildNormal
 // packet on first call (when p.originX is -1, the initial newPlayer sentinel).
 func TestLoginSendsRebuildNormal(t *testing.T) {
 	s := newTestServer(t)
@@ -33,7 +33,7 @@ func TestLoginSendsRebuildNormal(t *testing.T) {
 		}
 	}()
 
-	p.updateMap()
+	p.rebuildNormal()
 	p.client.flushWrite()
 
 	wantOp := byte((int(gameserver.OpRebuildNormal.Opcode) + int(wantEnc.GetNext())) & 0xff)
@@ -48,13 +48,13 @@ func TestLoginSendsRebuildNormal(t *testing.T) {
 	}
 }
 
-// TestUpdateMapAnchorsOriginToPlayer verifies that updateMap()'s rebuild
+// TestRebuildNormalAnchorsOriginToPlayer verifies that rebuildNormal()'s rebuild
 // path refreshes p.originX/Z to match the player's current position.
 // Without this, a subsequent teleport-triggered PlayerInfo tele block
 // would compute localX relative to the stale origin and overflow the
 // 7-bit PBit(7, localX) encoding — visible on the Java client as the
 // player landing at the wrong local-scene position after far teleport.
-func TestUpdateMapAnchorsOriginToPlayer(t *testing.T) {
+func TestRebuildNormalAnchorsOriginToPlayer(t *testing.T) {
 	s := newTestServer(t)
 	s.gamemap = gamemap.New(discardLogger())
 	if err := s.gamemap.Init(t.TempDir()); err != nil {
@@ -71,7 +71,7 @@ func TestUpdateMapAnchorsOriginToPlayer(t *testing.T) {
 	p.originX, p.originZ = 3094, 3106
 
 	// First rebuild is a no-op on origin (already matches).
-	p.updateMap()
+	p.rebuildNormal()
 	p.client.flushWrite()
 	if p.originX != 3094 || p.originZ != 3106 {
 		t.Errorf("initial rebuild: originX/Z = (%d, %d), want (3094, 3106)",
@@ -85,7 +85,7 @@ func TestUpdateMapAnchorsOriginToPlayer(t *testing.T) {
 	p.x, p.z = 5000, 5000
 	p.reconnecting = false
 
-	p.updateMap()
+	p.rebuildNormal()
 	p.client.flushWrite()
 
 	if p.originX != 5000 || p.originZ != 5000 {

@@ -45,12 +45,12 @@ func TestTickPhaseOrder_NpcEventQueueBeforeInteractions(t *testing.T) {
 }
 
 // TestProcessInfo_TeleAcrossWindow_LocalCoordsInRange pins the NAI-93 bug:
-// pre-fix, processInfo runs rsbuf.ComputePlayer BEFORE updateMap, so the
+// pre-fix, processInfo runs rsbuf.ComputePlayer BEFORE rebuildNormal, so the
 // rsbuf-cached Origin is stale on a cross-window tele tick. The PlayerInfo
 // tele leaf encodes localX, localZ relative to the stale Origin, producing
 // values outside the Java client's 0..104 active-window array bounds.
 //
-// The fix moves updateMap into processInfo, before ComputePlayer, per TS
+// The fix moves rebuildNormal into processInfo, before ComputePlayer, per TS
 // World.ts:996 ("set origin before compute player is why this is above.").
 //
 // Pre-fix: localZ = 3306 - ((406-6)*8) = 106 — OOB on the Java client's
@@ -79,7 +79,7 @@ func TestProcessInfo_TeleAcrossWindow_LocalCoordsInRange(t *testing.T) {
 	p.tele = true
 	p.jump = true
 
-	// Drive one tick of processInfo. Post-fix: updateMap fires inside
+	// Drive one tick of processInfo. Post-fix: rebuildNormal fires inside
 	// processInfo BEFORE ComputePlayer, so rsbuf cache holds the FRESH
 	// origin (2661, 3306). Pre-fix: rsbuf cache holds STALE (3094, 3106).
 	s.processInfo()
