@@ -545,59 +545,62 @@ func apTriggerForTarget(p *Player) (script.ServerTriggerType, bool) {
 	return 0, false
 }
 
-// triggerTypeAndCategory derives (typeId, categoryId) from the target's
+// triggerTypeAndCategory derives (typeId, categoryId, ok) from the target's
 // type registry, applying the targetSubject.com override per TS
 // Player.getOpTrigger:993-995 / Player.getApTrigger:1027-1029.
+//
+// `ok` reports whether the target's type config is resolvable. Mirrors
+// TS Player.ts:986-988 / :1020-1022 `if (!type) return null` guard:
+// caller (getOpTrigger / getApTrigger) returns nil when ok==false,
+// short-circuiting the GetByTrigger 3-tier fallback. NAI-147 T3 closes
+// NAI-78-D-NULL-TYPE-GUARD-OMITTED.
 //
 // Player target: typeId stays -1 (TS Player.ts:971-972 default — Player
 // branch doesn't set type) and categoryId stays -1 (provider falls
 // through LookupKeyForType / LookupKeyForCategory to LookupKeyForGlobal).
-//
-// DEVIATION NAI-78-D-NULL-TYPE-GUARD-OMITTED: TS getOpTrigger:983-985 /
-// getApTrigger:1015-1017 has a `if (!type) return null` guard that fires
-// when NpcType.get / LocType.get / ObjType.get returns null (entity has
-// an unknown type ID). Goscape's per-arm fallback to categoryId=0 lets
-// execution continue to GetByTrigger, which returns nil from the 3-tier
-// fallback in practice (no scripts registered at the unknown key).
-// Matches existing fire-helper convention at interaction_trigger.go (Npc
-// branch reads `if npc.typ != nil { … }`). Production cache always
-// registers types for spawned entities.
+// ok=true for Player targets — TS has no type lookup on the Player
+// branch.
 //
 // Internal — used by getOpTrigger and getApTrigger.
-func triggerTypeAndCategory(p *Player, srv *Server) (typeId, categoryId int) {
+func triggerTypeAndCategory(p *Player, srv *Server) (typeId, categoryId int, ok bool) {
 	typeId = -1
 	categoryId = -1
+	ok = true
 
 	switch tgt := p.target.(type) {
 	case *Npc:
+		if tgt.typ == nil {
+			ok = false
+			break
+		}
 		typeId = tgt.typeId
-		if tgt.typ != nil {
-			categoryId = tgt.typ.Category
-		} else {
-			categoryId = 0
-		}
+		categoryId = tgt.typ.Category
 	case *entitypkg.Loc:
-		typeId = tgt.Type()
-		categoryId = 0
-		if locId := tgt.Type(); srv.locTypes != nil && locId >= 0 && locId < len(srv.locTypes.Configs) {
-			if lt := srv.locTypes.Configs[locId]; lt != nil {
-				categoryId = lt.Category
-			}
+		locId := tgt.Type()
+		if srv.locTypes == nil || locId < 0 || locId >= len(srv.locTypes.Configs) || srv.locTypes.Configs[locId] == nil {
+			ok = false
+			break
 		}
+		typeId = locId
+		categoryId = srv.locTypes.Configs[locId].Category
 	case *entitypkg.Obj:
-		typeId = tgt.Type
-		categoryId = 0
-		if srv.objTypes != nil && tgt.Type >= 0 && tgt.Type < len(srv.objTypes.Configs) {
-			if ot := srv.objTypes.Configs[tgt.Type]; ot != nil {
-				categoryId = ot.Category
-			}
+		if srv.objTypes == nil || tgt.Type < 0 || tgt.Type >= len(srv.objTypes.Configs) || srv.objTypes.Configs[tgt.Type] == nil {
+			ok = false
+			break
 		}
+		typeId = tgt.Type
+		categoryId = srv.objTypes.Configs[tgt.Type].Category
 	case *Player:
-		// typeId, categoryId stay -1.
+		// typeId, categoryId stay -1; ok=true (TS L975-984 — Player
+		// branch has no type lookup).
+	}
+
+	if !ok {
+		return -1, -1, false
 	}
 
 	typeId = resolveTriggerTypeId(p, typeId)
-	return typeId, categoryId
+	return typeId, categoryId, true
 }
 
 // getOpTrigger resolves the [op<entity><op>,<typeId>] script for the
@@ -616,7 +619,12 @@ func getOpTrigger(p *Player, srv *Server) *script.ScriptFile {
 	if !ok {
 		return nil
 	}
-	typeId, categoryId := triggerTypeAndCategory(p, srv)
+	typeId, categoryId, ok2 := triggerTypeAndCategory(p, srv)
+	if !ok2 {
+		// NAI-147 T3 — TS Player.ts:986-988 short-circuit on
+		// unresolvable type.
+		return nil
+	}
 	return srv.scriptProvider.GetByTrigger(apTrigger+7, typeId, categoryId)
 }
 
@@ -631,7 +639,12 @@ func getApTrigger(p *Player, srv *Server) *script.ScriptFile {
 	if !ok {
 		return nil
 	}
-	typeId, categoryId := triggerTypeAndCategory(p, srv)
+	typeId, categoryId, ok2 := triggerTypeAndCategory(p, srv)
+	if !ok2 {
+		// NAI-147 T3 — TS Player.ts:1020-1022 short-circuit on
+		// unresolvable type.
+		return nil
+	}
 	return srv.scriptProvider.GetByTrigger(apTrigger, typeId, categoryId)
 }
 

@@ -1102,6 +1102,13 @@ func TestTryInteractLocAllowsOpWhenSceneryTrue(t *testing.T) {
 	p.targetSubject.z = loc.Z
 	p.targetSubject.level = loc.Level
 
+	// NAI-147 T3: triggerTypeAndCategory now returns ok=false when locTypes
+	// is nil (TS Player.ts:986-988 null-type guard). Seed locTypes so the
+	// Loc type 42 resolves and getOpTrigger proceeds to GetByTrigger.
+	locConfigs := make([]*objtype.LocType, 43)
+	locConfigs[42] = &objtype.LocType{ConfigType: objtype.ConfigType{ID: 42}}
+	s.locTypes = &objtype.LocTypeConfigs{Configs: locConfigs}
+
 	// Register an OP script for loc.Type()=42 so getOpTrigger returns non-nil.
 	s.scriptProvider.Register(buildNpcSayScript(script.TriggerOpLoc1, loc.Type(), "op-fired"))
 
