@@ -2,7 +2,9 @@ package world
 
 import (
 	"bytes"
+	"log/slog"
 	"net"
+	"strings"
 	"testing"
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
@@ -755,5 +757,81 @@ func TestTryFireApTriggerObjScriptFiresNoApRangeCalled(t *testing.T) {
 	}
 	if !p.interactionFired {
 		t.Error("interactionFired: want true after clear")
+	}
+}
+
+// --- NAI-152 B1.5: handleOpObj short-circuit probe gateways ---
+
+// TestHandleOpObj_GatewayLogsOnEmptyOpSlot pins that under NodeDebug,
+// the op_slot_empty gateway fires with the expected name when
+// objType.Op[op-1] is empty. Mirrors smoke-time behavior for the suspected
+// short-circuit branch. NAI-152 B1.5.
+func TestHandleOpObj_GatewayLogsOnEmptyOpSlot(t *testing.T) {
+	s, p, _, _ := makeOpObjFixture(t)
+	s.cfg.NodeDebug = true
+
+	var buf bytes.Buffer
+	s.log = slog.New(slog.NewTextHandler(&buf, nil))
+
+	// Force gate #7 (op_slot_empty) by clearing the op[2] slot.
+	s.objTypes.Configs[42].Op[2] = ""
+
+	if err := handleOpObj3(p, p2x3ObjPayload(100, 100, 42)); err != nil {
+		t.Fatalf("handleOpObj3: %v", err)
+	}
+
+	got := buf.String()
+	if !strings.Contains(got, "nai152.opobj.gate") {
+		t.Errorf("expected gateway log emission; got %q", got)
+	}
+	if !strings.Contains(got, "name=op_slot_empty") {
+		t.Errorf("expected name=op_slot_empty in log; got %q", got)
+	}
+}
+
+// TestHandleOpObj_GatewayLogsOnSuccess pins that under NodeDebug, the
+// success gateway fires when handleOpObj reaches SetInteraction.
+// NAI-152 B1.5.
+func TestHandleOpObj_GatewayLogsOnSuccess(t *testing.T) {
+	s, p, _, _ := makeOpObjFixture(t)
+	s.cfg.NodeDebug = true
+
+	var buf bytes.Buffer
+	s.log = slog.New(slog.NewTextHandler(&buf, nil))
+
+	// Default fixture has Op = ["op1", ..., "op5"]; op3 slot is non-empty
+	// so all gates pass and the success branch is reached.
+	if err := handleOpObj3(p, p2x3ObjPayload(100, 100, 42)); err != nil {
+		t.Fatalf("handleOpObj3: %v", err)
+	}
+
+	got := buf.String()
+	if !strings.Contains(got, "nai152.opobj.gate") {
+		t.Errorf("expected gateway log emission; got %q", got)
+	}
+	if !strings.Contains(got, "name=success") {
+		t.Errorf("expected name=success in log; got %q", got)
+	}
+}
+
+// TestHandleOpObj_GatewaySilentWhenNodeDebugFalse pins that gateways
+// produce zero log output when NodeDebug=false. Guards against
+// accidental log emission in production. NAI-152 B1.5.
+func TestHandleOpObj_GatewaySilentWhenNodeDebugFalse(t *testing.T) {
+	s, p, _, _ := makeOpObjFixture(t)
+	s.cfg.NodeDebug = false
+
+	var buf bytes.Buffer
+	s.log = slog.New(slog.NewTextHandler(&buf, nil))
+
+	// Force gate #7 to fire.
+	s.objTypes.Configs[42].Op[2] = ""
+
+	if err := handleOpObj3(p, p2x3ObjPayload(100, 100, 42)); err != nil {
+		t.Fatalf("handleOpObj3: %v", err)
+	}
+
+	if got := buf.String(); strings.Contains(got, "nai152.opobj.gate") {
+		t.Errorf("gateway leaked under NodeDebug=false; got %q", got)
 	}
 }

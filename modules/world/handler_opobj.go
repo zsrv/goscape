@@ -26,11 +26,17 @@ func handleOpObj(p *Player, payload []byte, op int) error {
 	s := p.client.server
 
 	if p.delayed && s.currentTick < p.delayedUntil {
+		if s.cfg.NodeDebug && s.log != nil {
+			s.log.Info("nai152.opobj.gate", "name", "delayed", "op", op, "currentTick", s.currentTick, "delayedUntil", p.delayedUntil)
+		}
 		sendUnsetMapFlag(p)
 		return nil
 	}
 
 	if len(payload) < 6 {
+		if s.cfg.NodeDebug && s.log != nil {
+			s.log.Info("nai152.opobj.gate", "name", "short_payload", "op", op, "len", len(payload))
+		}
 		sendUnsetMapFlag(p)
 		return nil
 	}
@@ -49,30 +55,53 @@ func handleOpObj(p *Player, payload []byte, op int) error {
 		dz = -dz
 	}
 	if dx > 52 || dz > 52 {
+		if s.cfg.NodeDebug && s.log != nil {
+			s.log.Info("nai152.opobj.gate", "name", "viewport", "op", op, "x", x, "z", z, "originX", p.originX, "originZ", p.originZ)
+		}
 		sendUnsetMapFlag(p)
 		return nil
 	}
 
 	obj := s.GetObj(p.level, x, z, objId, p.slot)
 	if obj == nil {
+		if s.cfg.NodeDebug && s.log != nil {
+			s.log.Info("nai152.opobj.gate", "name", "getobj_nil", "op", op, "level", p.level, "x", x, "z", z, "objId", objId, "slot", p.slot)
+		}
 		sendUnsetMapFlag(p)
 		return nil
 	}
 
 	if s.objTypes == nil || objId < 0 || objId >= len(s.objTypes.Configs) {
+		if s.cfg.NodeDebug && s.log != nil {
+			s.log.Info("nai152.opobj.gate", "name", "objtype_oob", "op", op, "objId", objId)
+		}
 		sendUnsetMapFlag(p)
 		return nil
 	}
 	objType := s.objTypes.Configs[objId]
 	if objType == nil {
+		if s.cfg.NodeDebug && s.log != nil {
+			s.log.Info("nai152.opobj.gate", "name", "objtype_nil", "op", op, "objId", objId)
+		}
 		sendUnsetMapFlag(p)
 		return nil
 	}
 	if len(objType.Op) < op || objType.Op[op-1] == "" {
+		if s.cfg.NodeDebug && s.log != nil {
+			opLen := len(objType.Op)
+			opVal := ""
+			if opLen >= op {
+				opVal = objType.Op[op-1]
+			}
+			s.log.Info("nai152.opobj.gate", "name", "op_slot_empty", "op", op, "objId", objId, "opLen", opLen, "opVal", opVal, "debugName", objType.DebugName)
+		}
 		sendUnsetMapFlag(p)
 		return nil
 	}
 
+	if s.cfg.NodeDebug && s.log != nil {
+		s.log.Info("nai152.opobj.gate", "name", "success", "op", op, "objId", objId, "objType", objType.DebugName, "x", x, "z", z)
+	}
 	p.ClearPendingAction()
 	p.SetInteraction(InteractionEngine, obj, op, -1)
 	p.opcalled = true
