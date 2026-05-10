@@ -592,10 +592,14 @@ func tsTriggerForOpFire(target entity, targetOp int) script.ServerTriggerType {
 // Mirrors TS Player.inOperableDistance (Player.ts:1099-1111):
 //   - Loc targets dispatch to pkg/pathfinder/reach.Reached for shape /
 //     angle / forceapproach-aware reach (NAI-91).
-//   - PathingEntity (Player, Npc) and Obj targets fall through to
+//   - Obj targets dispatch to reach.Reached twice — locShape=-2
+//     (reachedEntity) OR locShape=-1 (reachedObj). Same-tile pickup
+//     succeeds via the locShape=-1 short-circuit at strategy.go:37
+//     (NAI-152 B2). 1×1 Obj invariant: NewObj sets Width=Length=1
+//     unconditionally (pkg/entity/obj.go:39).
+//   - PathingEntity (Player, Npc) targets fall through to
 //     inOperableDistanceCheb (Chebyshev≤1, excludes same tile) pending
-//     entity-shape / reachedObj port (DEVIATION
-//     NAI-91-D-OPERABLE-CHEB-FALLBACK).
+//     entity-shape port (DEVIATION NAI-91-D-OPERABLE-CHEB-FALLBACK).
 //
 // target.level mismatch returns false (TS guard preserved at all arms).
 //
@@ -624,6 +628,24 @@ func inOperableDistance(p *Player, target entity) bool {
 		}
 		return reach.Reached(flags, p.level, p.x, p.z, tx, tz,
 			loc.Width, loc.Length, 1, loc.Angle(), loc.Shape(), fap)
+	}
+	if obj, ok := target.(*entitypkg.Obj); ok {
+		// TS Player.ts:1110 — reachedEntity || reachedObj. Same-tile
+		// pickup relies on the locShape=-1 short-circuit; reachedEntity
+		// (locShape=-2) returns false on 1×1 same-tile because
+		// ReachExclusiveRectangle's Collides() detects the src/dest
+		// overlap and rejects (TS rsmod has identical semantics).
+		srv := p.client.server
+		if srv.gamemap == nil {
+			return inOperableDistanceCheb(p.x, p.z, tx, tz)
+		}
+		flags := srv.gamemap.Pathfinder.Flags
+		if reach.Reached(flags, p.level, p.x, p.z, tx, tz,
+			obj.Width, obj.Length, p.Width(), 0, -2, 0) {
+			return true
+		}
+		return reach.Reached(flags, p.level, p.x, p.z, tx, tz,
+			obj.Width, obj.Length, p.Width(), 0, -1, 0)
 	}
 	return inOperableDistanceCheb(p.x, p.z, tx, tz)
 }

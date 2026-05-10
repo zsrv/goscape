@@ -2546,3 +2546,98 @@ func TestPlayerApRangeCalledDoesNotLeakAcrossIdleTick(t *testing.T) {
 		t.Error("apRangeCalled: got true, want false (must not leak across idle tick) — NAI-108-D-APRANGECALLED-LEAK candidate")
 	}
 }
+
+// -- NAI-152 B2 T2 Obj-target reach tests ---------------------------------
+//
+// Ports TS Player.ts:1110 — reachedEntity || reachedObj. Retires the Obj
+// clause of NAI-91-D-OPERABLE-CHEB-FALLBACK. Same-tile pickup succeeds via
+// reach.Reached's srcX==destX && srcZ==destZ early-out on the locShape=-1
+// arm.
+
+// newObjReachTestServer constructs a minimal *Server with a gamemap so
+// inOperableDistance's new Obj branch can read collision flags. No
+// locTypes needed — Obj targets don't dispatch via locTypeOrNil.
+func newObjReachTestServer(t *testing.T) *Server {
+	t.Helper()
+	s := &Server{
+		quit:           make(chan interface{}),
+		log:            discardLogger(),
+		scriptProvider: defaultTestProvider(),
+		zoneMap:        zone.NewZoneMap(),
+		locObjTracker:  newLocObjTracker(),
+		rsbuf:          rsbuf.New(),
+	}
+	s.friendsBridge = noopBridges{}
+	s.loginBridgeMod = noopBridges{}
+	s.loggerBridge = noopBridges{}
+	s.locOps = &serverLocOps{s: s}
+	s.gamemap = gamemap.New(discardLogger())
+	return s
+}
+
+// TestPlayer_InOperableDistance_Obj_SameTile pins the mindrune pickup
+// reach-check. Pre-B2 returned false via inOperableDistanceCheb (excludes
+// same-tile); post-B2 returns true via reach.Reached locShape=-1
+// short-circuit (strategy.go:37). This is the B1-smoke binding case.
+func TestPlayer_InOperableDistance_Obj_SameTile(t *testing.T) {
+	s := newObjReachTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.x, p.z, p.level = 3200, 3200, 0
+
+	obj := entitypkg.NewObj(0, 3200, 3200, entitypkg.LifecycleDespawn, 558, 1)
+	if !inOperableDistance(p, obj) {
+		t.Fatalf("expected inOperableDistance true on same-tile Obj (mindrune pickup)")
+	}
+}
+
+// TestPlayer_InOperableDistance_Obj_Adjacent pins the table-pickup case
+// (player one tile away from the obj). reachedEntity (locShape=-2) enters
+// ReachExclusiveRectangle which returns true for the 4 orthogonal
+// neighbors of a 1×1 dest (reachRectangle1 perimeter check, all flags
+// default zero).
+func TestPlayer_InOperableDistance_Obj_Adjacent(t *testing.T) {
+	s := newObjReachTestServer(t)
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3201, 3200, 0)
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.x, p.z, p.level = 3201, 3200, 0
+
+	obj := entitypkg.NewObj(0, 3200, 3200, entitypkg.LifecycleDespawn, 558, 1)
+	if !inOperableDistance(p, obj) {
+		t.Fatalf("expected inOperableDistance true on adjacent (east) Obj")
+	}
+}
+
+// TestPlayer_InOperableDistance_Obj_OutOfReach pins the no-reach case
+// (distance > 1). Both reachedEntity and reachedObj arms return false:
+// reachedEntity's reachRectangle1 perimeter check rejects non-adjacent
+// src; reachedObj falls through the noStrategy switch default to false.
+func TestPlayer_InOperableDistance_Obj_OutOfReach(t *testing.T) {
+	s := newObjReachTestServer(t)
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3210, 3200, 0)
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.x, p.z, p.level = 3210, 3200, 0
+
+	obj := entitypkg.NewObj(0, 3200, 3200, entitypkg.LifecycleDespawn, 558, 1)
+	if inOperableDistance(p, obj) {
+		t.Fatalf("expected inOperableDistance false at distance 10")
+	}
+}
+
+// TestPlayer_InOperableDistance_Obj_CrossLevel preserves the existing
+// top-level guard (target.level != p.level → false).
+func TestPlayer_InOperableDistance_Obj_CrossLevel(t *testing.T) {
+	s := newObjReachTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.x, p.z, p.level = 3200, 3200, 0
+
+	obj := entitypkg.NewObj(1 /*level=1*/, 3200, 3200, entitypkg.LifecycleDespawn, 558, 1)
+	if inOperableDistance(p, obj) {
+		t.Fatalf("expected inOperableDistance false on cross-level Obj")
+	}
+}
