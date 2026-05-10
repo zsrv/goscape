@@ -1578,3 +1578,24 @@ func handleHealEnergy(s *ScriptState) error {
 	s.Self.SetRunEnergy(next)
 	return nil
 }
+
+// handleSetSkinColour (SETSKINCOLOUR) writes the player's skin-colour
+// slot (colors[4]) after a [0,7] range check. Mirrors TS
+// LostCityRS/Engine-TS/.../PlayerOps.ts:1121-1124:
+//
+//	const skin = check(state.popInt(), SkinColourValid)
+//	state.activePlayer.colors[4] = skin
+//
+// The active-player guard is goscape defensive (TS skips this check;
+// see defensive_gate_doc_comment_label).
+func handleSetSkinColour(s *ScriptState) error {
+	if err := requireActivePlayer(s, "SETSKINCOLOUR"); err != nil {
+		return err
+	}
+	skin := s.PopInt()
+	if skin < 0 || skin > 7 {
+		return fmt.Errorf("SETSKINCOLOUR: invalid skin colour %d (range 0..7)", skin)
+	}
+	s.Self.SetColorPart(4, skin)
+	return nil
+}

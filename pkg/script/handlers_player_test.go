@@ -4850,3 +4850,97 @@ func TestHandleHealEnergy_RequiresActivePlayer(t *testing.T) {
 		t.Errorf("error: got %q, want to contain \"HEAL_ENERGY\"", err.Error())
 	}
 }
+
+// TestHandleSetSkinColour_WritesColors4 pins TS PlayerOps.ts:1121-1124
+// — colors[4] = skin (range 0..7).
+func TestHandleSetSkinColour_WritesColors4(t *testing.T) {
+	cases := []struct {
+		name string
+		skin int
+	}{
+		{"min boundary 0", 0},
+		{"mid 3", 3},
+		{"max boundary 7", 7},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mp := &mockPlayer{}
+			s := &ScriptState{
+				IntStack:    make([]int, StackCapacity),
+				StringStack: make([]string, StackCapacity),
+				Self:        mp,
+				Pointers:    PtrActivePlayer,
+			}
+			s.PushInt(tc.skin)
+			if err := handleSetSkinColour(s); err != nil {
+				t.Fatalf("handleSetSkinColour: %v", err)
+			}
+			if got := mp.colorParts[4]; got != tc.skin {
+				t.Errorf("colorParts[4]: got %d, want %d", got, tc.skin)
+			}
+			// Other slots must NOT be touched.
+			for i, c := range mp.colorParts {
+				if i == 4 {
+					continue
+				}
+				if c != 0 {
+					t.Errorf("colorParts[%d]: got %d, want 0 (only slot 4 written)", i, c)
+				}
+			}
+		})
+	}
+}
+
+// TestHandleSetSkinColour_RejectsOutOfRange pins TS check(skin, SkinColourValid)
+// — range 0..7 inclusive. Tests both off-by-one boundaries.
+func TestHandleSetSkinColour_RejectsOutOfRange(t *testing.T) {
+	cases := []struct {
+		name string
+		skin int
+	}{
+		{"-1 below min", -1},
+		{"8 above max", 8},
+		{"large negative", -100},
+		{"large positive", 100},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mp := &mockPlayer{}
+			s := &ScriptState{
+				IntStack:    make([]int, StackCapacity),
+				StringStack: make([]string, StackCapacity),
+				Self:        mp,
+				Pointers:    PtrActivePlayer,
+			}
+			s.PushInt(tc.skin)
+			err := handleSetSkinColour(s)
+			if err == nil {
+				t.Fatalf("handleSetSkinColour(%d): expected error, got nil", tc.skin)
+			}
+			if !strings.Contains(err.Error(), "SETSKINCOLOUR") {
+				t.Errorf("error: got %q, want to contain \"SETSKINCOLOUR\"", err.Error())
+			}
+			// No write on error.
+			if mp.colorParts[4] != 0 {
+				t.Errorf("colorParts[4]: got %d, want 0 (no write on error)", mp.colorParts[4])
+			}
+		})
+	}
+}
+
+// TestHandleSetSkinColour_RequiresActivePlayer pins the goscape-only
+// defensive guard.
+func TestHandleSetSkinColour_RequiresActivePlayer(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(3)
+	err := handleSetSkinColour(s)
+	if err == nil {
+		t.Fatalf("handleSetSkinColour: expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "SETSKINCOLOUR") {
+		t.Errorf("error: got %q, want to contain \"SETSKINCOLOUR\"", err.Error())
+	}
+}

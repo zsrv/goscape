@@ -318,7 +318,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpInvTotalParam: handleInvTotalParam,
 	OpInvTotalCat:   handleInvTotalCat,
 	OpInvStockBase:  handleInvStockBase,
-	OpInvDebugName: handleInvDebugName,
+	OpInvDebugName:  handleInvDebugName,
+	OpSetSkinColour: handleSetSkinColour,
 	// Mutations (8).
 	OpInvAdd:          handleInvAdd,
 	OpInvDel:          handleInvDel,
