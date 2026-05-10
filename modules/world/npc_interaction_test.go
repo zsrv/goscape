@@ -1991,3 +1991,78 @@ func TestNpc_PathToTarget_SmartStrategy_LocTarget_ThreadsShapeAngle(t *testing.T
 		t.Errorf("threading: angle=%d shape=%d bAF=%d, want (2, 0, 5)", call.angle, call.shape, call.blockAccessFlags)
 	}
 }
+
+// -- NAI-152 B2 T3 NPC Obj-target reach tests -----------------------------
+//
+// Ports TS PathingEntity.ts:389 (base class — Npc inherits). Single
+// reach.Reached call with locShape=-1 (reachedObj), no OR-chain.
+// Asymmetric with Player.ts:1110 which overrides to OR reachedEntity.
+
+// newNpcObjReachTestServer constructs a minimal *Server with a gamemap
+// (no locTypes needed for Obj targets).
+func newNpcObjReachTestServer(t *testing.T) *Server {
+	t.Helper()
+	s := &Server{
+		quit:           make(chan interface{}),
+		log:            discardLogger(),
+		scriptProvider: defaultTestProvider(),
+		zoneMap:        zone.NewZoneMap(),
+		locObjTracker:  newLocObjTracker(),
+		rsbuf:          rsbuf.New(),
+	}
+	s.friendsBridge = noopBridges{}
+	s.loginBridgeMod = noopBridges{}
+	s.loggerBridge = noopBridges{}
+	s.locOps = &serverLocOps{s: s}
+	s.gamemap = gamemap.New(discardLogger())
+	return s
+}
+
+// TestNpc_InOperableDistance_Obj_SameTile pins on-tile Obj reach for an
+// NPC (size=1).
+func TestNpc_InOperableDistance_Obj_SameTile(t *testing.T) {
+	s := newNpcObjReachTestServer(t)
+	typ := &objtype.NpcType{Size: 1}
+	n := NewNpc(1, 42, 3200, 3200, 0, typ)
+	n.server = s
+
+	obj := entitypkg.NewObj(0, 3200, 3200, entitypkg.LifecycleDespawn, 558, 1)
+	if !n.inOperableDistance(obj) {
+		t.Fatalf("expected NPC inOperableDistance true on same-tile Obj")
+	}
+}
+
+// TestNpc_InOperableDistance_Obj_Adjacent — reachedObj only (no OR-chain),
+// so adjacency relies on the noStrategy default. reach.Reached(...,
+// locShape=-1) falls to the default switch case (strategy.go:50-52) and
+// returns false for non-same-tile coords. Pin that TS-faithful semantic.
+func TestNpc_InOperableDistance_Obj_Adjacent(t *testing.T) {
+	s := newNpcObjReachTestServer(t)
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3201, 3200, 0)
+
+	typ := &objtype.NpcType{Size: 1}
+	n := NewNpc(1, 42, 3201, 3200, 0, typ)
+	n.server = s
+
+	obj := entitypkg.NewObj(0, 3200, 3200, entitypkg.LifecycleDespawn, 558, 1)
+	if n.inOperableDistance(obj) {
+		t.Fatalf("expected NPC inOperableDistance false on adjacent Obj " +
+			"(TS PathingEntity.ts:389 base — reachedObj only; no Player " +
+			"OR-chain)")
+	}
+}
+
+// TestNpc_InOperableDistance_Obj_OutOfReach pins distance>1.
+func TestNpc_InOperableDistance_Obj_OutOfReach(t *testing.T) {
+	s := newNpcObjReachTestServer(t)
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3210, 3200, 0)
+
+	typ := &objtype.NpcType{Size: 1}
+	n := NewNpc(1, 42, 3210, 3200, 0, typ)
+	n.server = s
+
+	obj := entitypkg.NewObj(0, 3200, 3200, entitypkg.LifecycleDespawn, 558, 1)
+	if n.inOperableDistance(obj) {
+		t.Fatalf("expected NPC inOperableDistance false at distance 10")
+	}
+}

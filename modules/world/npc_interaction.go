@@ -665,9 +665,14 @@ func (n *Npc) targetWithinMaxRange() bool {
 // Mirrors TS PathingEntity.inOperableDistance (PathingEntity.ts:378-389):
 //   - Loc targets dispatch to pkg/pathfinder/reach.Reached (shape /
 //     angle / forceapproach-aware) with srcSize=n.size (NAI-91).
-//   - PathingEntity (Player, Npc) and Obj targets fall through to
-//     Chebyshev≤1 excluding same-tile, pending entity-shape /
-//     reachedObj port (DEVIATION NAI-91-D-OPERABLE-CHEB-FALLBACK).
+//   - Obj targets dispatch to reach.Reached with locShape=-1
+//     (reachedObj). No OR-chain — TS base class uses reachedObj only;
+//     Player.ts:1110 overrides to OR reachedEntity but Npc inherits the
+//     base (NAI-152 B2 T3). Same-tile pickup succeeds via the
+//     strategy.go:37 short-circuit.
+//   - PathingEntity (Player, Npc) targets fall through to Chebyshev≤1
+//     excluding same-tile, pending entity-shape port (DEVIATION
+//     NAI-91-D-OPERABLE-CHEB-FALLBACK).
 //
 // Defensive: nil n.server falls through to Chebyshev so test fixtures
 // constructing minimal *Npc without a server keep working
@@ -689,6 +694,19 @@ func (n *Npc) inOperableDistance(target entity) bool {
 		}
 		return reach.Reached(flags, n.level, n.x, n.z, tx, tz,
 			loc.Width, loc.Length, srcSize, loc.Angle(), loc.Shape(), fap)
+	}
+	if obj, ok := target.(*entitypkg.Obj); ok && n.server != nil && n.server.gamemap != nil {
+		// TS PathingEntity.ts:389 (base class) — reachedObj only. Asymmetric
+		// with Player.ts:1110's reachedEntity || reachedObj override; Npc
+		// inherits the base. Per audit_full_method_against_ts.md +
+		// ts_base_class_read_for_inherited_behavior.md.
+		flags := n.server.gamemap.Pathfinder.Flags
+		srcSize := n.size
+		if srcSize <= 0 {
+			srcSize = 1
+		}
+		return reach.Reached(flags, n.level, n.x, n.z, tx, tz,
+			obj.Width, obj.Length, srcSize, 0, -1, 0)
 	}
 	// Chebyshev fallback (NAI-91-D-OPERABLE-CHEB-FALLBACK); shared with
 	// player-side via interaction.go (same package).
