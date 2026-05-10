@@ -156,6 +156,34 @@ func handleObjCoord(s *ScriptState) error {
 	return nil
 }
 
+// handleObjCount (OBJ_COUNT, opcode 3503) pushes the active obj's
+// count if it's valid for the active player; else pushes 0. Mirrors
+// TS ObjOps.ts:121-130:
+//
+//	const obj: Obj = state.activeObj;
+//	if (obj.isValid(state.activePlayer.hash64)) {
+//	    state.pushInt(state.activeObj.count);
+//	    return;
+//	}
+//	state.pushInt(0);
+//
+// goscape uses Self.UID() (composeUID-shaped int) instead of TS bigint
+// hash64. See NAI-153-D2 in the spec.
+func handleObjCount(s *ScriptState) error {
+	if err := requireActiveObj(s, "OBJ_COUNT"); err != nil {
+		return err
+	}
+	if err := requireActivePlayer(s, "OBJ_COUNT"); err != nil {
+		return err
+	}
+	if s.ActiveObj.IsValidFor(s.Self.UID()) {
+		s.PushInt(s.ActiveObj.ObjCount())
+		return nil
+	}
+	s.PushInt(0)
+	return nil
+}
+
 // handleObjType (OBJ_TYPE, opcode 3511) pushes the active obj's type id.
 // Mirrors TS ObjOps.ts:132-134:
 //

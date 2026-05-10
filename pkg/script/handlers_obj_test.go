@@ -347,3 +347,86 @@ func TestHandleObjTypeNilActive(t *testing.T) {
 		t.Errorf("OBJ_TYPE: expected error on nil ActiveObj, got nil")
 	}
 }
+
+// --- NAI-153 T3: OBJ_COUNT handler --------------------------------------
+
+func TestHandleObjCount_PushesCount_WhenValid(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	s.Self = &mockPlayer{uidValue: 12345}
+	s.Pointers |= PtrActivePlayer
+	// Public obj (reveal: -1): IsValidFor(any) returns true.
+	s.ActiveObj = &mockActiveObj{objType: 558, x: 3200, z: 3200, level: 0, count: 7, reveal: -1}
+
+	if err := handleObjCount(s); err != nil {
+		t.Fatalf("handleObjCount returned error: %v", err)
+	}
+	if got := s.PopInt(); got != 7 {
+		t.Errorf("OBJ_COUNT (valid public): got %d, want 7", got)
+	}
+}
+
+func TestHandleObjCount_PushesCount_WhenPrivateSelf(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	s.Self = &mockPlayer{uidValue: 12345}
+	s.Pointers |= PtrActivePlayer
+	// Private obj where receiverID matches Self.UID: IsValidFor(12345) = true.
+	s.ActiveObj = &mockActiveObj{objType: 558, x: 3200, z: 3200, level: 0, count: 3, reveal: 50, receiverID: 12345}
+
+	if err := handleObjCount(s); err != nil {
+		t.Fatalf("handleObjCount returned error: %v", err)
+	}
+	if got := s.PopInt(); got != 3 {
+		t.Errorf("OBJ_COUNT (valid private-to-self): got %d, want 3", got)
+	}
+}
+
+func TestHandleObjCount_PushesZero_WhenPrivateOther(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	s.Self = &mockPlayer{uidValue: 12345}
+	s.Pointers |= PtrActivePlayer
+	// Private obj with non-matching receiver: IsValidFor(12345) = false → push 0.
+	s.ActiveObj = &mockActiveObj{objType: 558, x: 3200, z: 3200, level: 0, count: 7, reveal: 50, receiverID: 99999}
+
+	if err := handleObjCount(s); err != nil {
+		t.Fatalf("handleObjCount returned error: %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("OBJ_COUNT (private-to-other): got %d, want 0", got)
+	}
+}
+
+func TestHandleObjCount_PushesZero_WhenDepleted(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	s.Self = &mockPlayer{uidValue: 12345}
+	s.Pointers |= PtrActivePlayer
+	// Public obj with count=0: IsValidFor returns false (count<1) → push 0.
+	s.ActiveObj = &mockActiveObj{objType: 558, x: 3200, z: 3200, level: 0, count: 0, reveal: -1}
+
+	if err := handleObjCount(s); err != nil {
+		t.Fatalf("handleObjCount returned error: %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("OBJ_COUNT (depleted): got %d, want 0", got)
+	}
+}
+
+func TestHandleObjCount_NoActiveObj(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	s.Self = &mockPlayer{uidValue: 12345}
+	s.Pointers |= PtrActivePlayer
+	// s.ActiveObj == nil
+
+	if err := handleObjCount(s); err == nil {
+		t.Errorf("OBJ_COUNT: expected error on nil ActiveObj, got nil")
+	}
+}
+
+func TestHandleObjCount_NoActivePlayer(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	s.ActiveObj = &mockActiveObj{objType: 558, x: 3200, z: 3200, level: 0, count: 7, reveal: -1}
+	// s.Self == nil; PtrActivePlayer not set
+
+	if err := handleObjCount(s); err == nil {
+		t.Errorf("OBJ_COUNT: expected error on nil Self, got nil")
+	}
+}
