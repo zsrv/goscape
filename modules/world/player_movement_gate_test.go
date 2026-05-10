@@ -99,3 +99,61 @@ func TestResolveMovementGateReleasesWhenQueuesEmpty(t *testing.T) {
 		t.Errorf("lastTickX: got %d, want 3200 (queues empty → gate releases → resolveMovement progressed past gate)", p.lastTickX)
 	}
 }
+
+// TestProcessPostDecodeActivatesGate is the end-to-end pin closing
+// NAI-144-D-MoveClickRequestSetter: with a busy player who issued a
+// move-click (userPath set) and has queued script work, the
+// post-decode block sets moveClickRequest=true and the gate at
+// resolveMovement returns early.
+func TestProcessPostDecodeActivatesGate(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.client.server = &Server{
+		log: discardLogger(),
+		cfg: Config{
+			NodeWalktriggerSetting: WalkTriggerSettingPlayerpacket,
+			NodeClientRoutefinder:  true,
+		},
+	}
+	p.x, p.z, p.level = 3200, 3200, 0
+	p.lastTickX, p.lastTickZ, p.lastLevel = 3200, 3200, 0
+
+	// Stage gate-firing prerequisites.
+	p.userPath = []int{coordgrid.PackCoord(p.level, p.x+1, p.z)}
+	p.waypoints[0] = coordgrid.PackCoord(0, 3201, 3200)
+	p.waypointIndex = 0
+	// Use modalState (not delayed) to make Busy() true: p.delayed=true would
+	// trigger the TS L614-617 early-return arm in processPostDecode (which
+	// calls unsetMapFlag and bypasses the moveClickRequest setter), defeating
+	// the test. modalState=Main satisfies Busy() via the modal disjunct
+	// (interaction.go Busy()) without entering the delayed branch.
+	p.modalState = modalStateMain
+	p.opcalled = false
+	p.queue = append(p.queue, playerQueueRequest{
+		Script: &script.ScriptFile{Name: "[blocker]"},
+		Type:   script.QueueNormal,
+	})
+	p.decodedThisTick = true
+	p.walkDir = 7
+	p.runDir = 7
+	p.moveClickRequest = false // sentinel — will be flipped by processPostDecode
+
+	// Drive the post-decode block.
+	p.processPostDecode()
+
+	if !p.moveClickRequest {
+		t.Fatalf("moveClickRequest after processPostDecode: got false, want true (Busy + !opcalled + userPath set)")
+	}
+
+	// Drive movement; gate should fire and suppress.
+	p.resolveMovement()
+
+	if p.walkDir != -1 {
+		t.Errorf("walkDir: got %d, want -1 (gate fires → walkDir cleared)", p.walkDir)
+	}
+	if p.runDir != -1 {
+		t.Errorf("runDir: got %d, want -1 (gate fires → runDir cleared)", p.runDir)
+	}
+	if p.x != 3200 {
+		t.Errorf("p.x: got %d, want 3200 (gate fires → no step taken)", p.x)
+	}
+}
