@@ -81,13 +81,15 @@ func captureCamWire(t *testing.T, cc net.Conn, dec *io2.Isaac) <-chan []wirePack
 }
 
 // TestUpdateBuildAreaCameraDrain_moveto (T5): one cameraPackets entry with
-// kind=0 at (camX=300, camZ=400, height=550, rotationSpeed=100,
-// rotationMultiplier=100) and player at (originX=296, originZ=392).
+// kind=0 at (camX=300, camZ=400, height=550, rotationSpeed=80,
+// rotationMultiplier=120) and player at (originX=296, originZ=392).
+// rotationSpeed/rotationMultiplier use distinct values so a wire-format
+// field-swap between adjacent p1 fields is detectable.
 //
 // After updateBuildArea():
 //   - exactly one OpCamMoveTo (opcode 3) arrives on the wire
 //   - payload bytes: [localX, localZ, height_hi, height_lo, rotSpeed, rotMul]
-//     = [52, 56, 0x02, 0x26, 100, 100]
+//     = [52, 56, 0x02, 0x26, 80, 120]
 //   - p.cameraPackets is emptied (len==0)
 //
 // Wire math:
@@ -105,7 +107,7 @@ func TestUpdateBuildAreaCameraDrain_moveto(t *testing.T) {
 
 	// Arrange: one cam_moveto entry.
 	p.cameraPackets = []cameraInfo{
-		{kind: 0, camX: 300, camZ: 400, height: 550, rotationSpeed: 100, rotationMultiplier: 100},
+		{kind: 0, camX: 300, camZ: 400, height: 550, rotationSpeed: 80, rotationMultiplier: 120},
 	}
 
 	// Launch reader goroutine BEFORE the write (net.Pipe is synchronous).
@@ -132,7 +134,7 @@ func TestUpdateBuildAreaCameraDrain_moveto(t *testing.T) {
 	wantPayload := []byte{
 		wantLocalX, wantLocalZ,
 		0x02, 0x26, // height=550 big-endian
-		100, 100,   // rotationSpeed, rotationMultiplier
+		80, 120,    // rotationSpeed, rotationMultiplier (distinct)
 	}
 	if len(pkt.payload) != len(wantPayload) {
 		t.Fatalf("payload length: got %d, want %d", len(pkt.payload), len(wantPayload))
