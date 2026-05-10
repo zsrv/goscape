@@ -121,6 +121,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpObjDel:      handleObjDel,
 	OpObjAdd:      handleObjAdd,
 	OpObjAddAll:   handleObjAddAll,
+	OpObjType:     handleObjType, // NAI-152 B2 T1
 	OpLineOfWalk:  handleLineOfWalk,
 	OpInvDropSlot: handleInvDropSlot,
 	// NAI-115 stretch: LOWMEM surfaced by Tutorial Island smoke.

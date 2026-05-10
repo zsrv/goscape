@@ -325,3 +325,25 @@ func TestHandleObjAddSetsActiveObjAndPointer(t *testing.T) {
 		t.Errorf("OBJ_ADD: ActiveObj coords got (%d,%d,%d), want (3200,3200,0)", x, z, level)
 	}
 }
+
+// --- NAI-152 B2 T1: OBJ_TYPE handler ------------------------------------
+
+func TestHandleObjType(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	s.ActiveObj = &mockActiveObj{objType: 558, x: 3200, z: 3200, level: 0}
+
+	if err := handleObjType(s); err != nil {
+		t.Fatalf("handleObjType returned error: %v", err)
+	}
+	got := s.PopInt()
+	if got != 558 {
+		t.Errorf("OBJ_TYPE: got %d, want 558 (mindrune id)", got)
+	}
+}
+
+func TestHandleObjTypeNilActive(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	if err := handleObjType(s); err == nil {
+		t.Errorf("OBJ_TYPE: expected error on nil ActiveObj, got nil")
+	}
+}

@@ -155,3 +155,22 @@ func handleObjCoord(s *ScriptState) error {
 	s.PushInt(coordgrid.PackCoord(level, x, z))
 	return nil
 }
+
+// handleObjType (OBJ_TYPE, opcode 3511) pushes the active obj's type id.
+// Mirrors TS ObjOps.ts:132-134:
+//
+//	[ScriptOpcode.OBJ_TYPE]: state => {
+//	    state.pushInt(check(state.activeObj.type, ObjTypeValid).id);
+//	},
+//
+// TS validates the type id via ObjTypeValid. In goscape the active obj is
+// pre-validated at the wire handler (handler_opobj.go:62-70 looks up
+// ObjType.Configs[objId] before constructing the obj), so the id is
+// round-trip-clean. (goscape defensive guard upstream; TS re-validates here.)
+func handleObjType(s *ScriptState) error {
+	if err := requireActiveObj(s, "OBJ_TYPE"); err != nil {
+		return err
+	}
+	s.PushInt(s.ActiveObj.ObjType())
+	return nil
+}
