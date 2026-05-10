@@ -52,6 +52,11 @@ func (s *Server) addNpc(n *Npc, duration int, firstSpawn bool) error {
 			return errNpcsFull
 		}
 		n.nid = nid
+		// NAI-150 stretch: refresh uid against the freshly-allocated nid.
+		// Production spawn site (server.go:312) constructs NewNpc(0, ...);
+		// without this line every spawned NPC retains slot=0 in uid,
+		// breaking PROJANIM_NPC and FindNpcByUID for the entire NPC set.
+		n.uid = (n.typeId << 16) | n.nid
 		n.server = s
 		s.npcs[nid] = n
 		s.npcLoop = append(s.npcLoop, n)

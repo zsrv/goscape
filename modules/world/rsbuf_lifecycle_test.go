@@ -50,6 +50,33 @@ func TestServer_AddNpcWiresRsbufSlot(t *testing.T) {
 	}
 }
 
+// NAI-150 in-scope-stretch: pins that addNpc(firstSpawn=true) refreshes
+// n.uid to match the freshly-allocated n.nid. Pre-fix: production
+// spawn site (server.go:312) constructs NewNpc(0, ...) so the
+// constructor-computed uid carried slot=0; addNpc allocated a real
+// slot ≥1 but never recomputed uid, leaving every spawned NPC with a
+// stale slot in its uid. Surfaced by NAI-150 smoke (PROJANIM_NPC
+// errored with "invalid npc uid" because npc_uid → slot 0 → s.npcs[0]
+// = nil); also silently broke NAI-120's FindNpcByUID.
+func TestServer_AddNpc_UidRefreshedAfterSlotAlloc(t *testing.T) {
+	s := newTestServer(t)
+	// Construct with nid=0 to mirror production server.go:312 NewNpc(0, ...).
+	n := newTestNpc(0)
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+	want := (n.typeId << 16) | n.nid
+	if n.uid != want {
+		t.Errorf("Npc.uid after addNpc(firstSpawn=true): got %d, want %d (typeId=%d, nid=%d)",
+			n.uid, want, n.typeId, n.nid)
+	}
+	// Roundtrip pin: extracting slot from uid must yield n.nid (the
+	// inverse of the staleness bug).
+	if got := n.uid & 0xffff; got != n.nid {
+		t.Errorf("uid slot extraction: got %d, want %d (n.nid)", got, n.nid)
+	}
+}
+
 func TestServer_RemoveNpcCleansRsbufSlot(t *testing.T) {
 	s := newTestServer(t)
 	n := newTestNpc(50)
