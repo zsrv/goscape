@@ -28,6 +28,30 @@ func TestObjTypeDecodeOpHiddenCoercedToEmpty(t *testing.T) {
 	}
 }
 
+func TestNewObjTypeOpDefaults(t *testing.T) {
+	ot := NewObjType(0)
+
+	if got, want := len(ot.Op), 5; got != want {
+		t.Fatalf("len(Op): got %d, want %d", got, want)
+	}
+	wantOp := []string{"", "", "Take", "", ""}
+	for i, w := range wantOp {
+		if got := ot.Op[i]; got != w {
+			t.Errorf("Op[%d]: got %q, want %q", i, got, w)
+		}
+	}
+
+	if got, want := len(ot.IOp), 5; got != want {
+		t.Fatalf("len(IOp): got %d, want %d", got, want)
+	}
+	wantIOp := []string{"", "", "", "", "Drop"}
+	for i, w := range wantIOp {
+		if got := ot.IOp[i]; got != w {
+			t.Errorf("IOp[%d]: got %q, want %q", i, got, w)
+		}
+	}
+}
+
 func TestLoadObjTypesFromPack(t *testing.T) {
 	cacheDir := filepath.Join("..", "..", "data", "pack")
 

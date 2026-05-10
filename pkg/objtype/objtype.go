@@ -305,6 +305,8 @@ func NewObjType(id int) *ObjType {
 		WearPos3:    -1,
 		Category:    -1,
 		RespawnRate: 100, // defaults to 1 minute
+		Op:          []string{"", "", "Take", "", ""},
+		IOp:         []string{"", "", "", "", "Drop"},
 		Params:      make(ParamMap),
 	}
 }
