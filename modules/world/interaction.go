@@ -45,6 +45,20 @@ func sendUnsetMapFlag(p *Player) {
 	p.writeOut(gameserver.OpUnsetMapFlag, nil)
 }
 
+// unsetMapFlag clears the player's waypoint queue and emits the
+// OpUnsetMapFlag packet. Mirrors TS Player.unsetMapFlag
+// (Engine-TS/.../Player.ts:2169-2172) — the bundled
+// clearWaypoints + write helper. Distinct from the wire-only
+// sendUnsetMapFlag(p), which is preserved for decode-time handler
+// call sites that already manage waypoint state inline.
+//
+// Per memory ts_helper_method_bundles.md: when porting a TS site
+// that calls unsetMapFlag(), use this method, not sendUnsetMapFlag.
+func (p *Player) unsetMapFlag() {
+	p.waypointIndex = -1
+	sendUnsetMapFlag(p)
+}
+
 // SetInteraction anchors the interaction state machine on a target entity.
 // The com parameter carries:
 //   - OpLocT/OpNpcT/OpObjT/OpPlayerT: spellCom (UI component ID of the spell).
