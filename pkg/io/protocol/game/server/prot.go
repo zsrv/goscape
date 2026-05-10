@@ -39,6 +39,9 @@ var (
 	// Camera control. TS ServerGameProt.CAM_RESET = 239, payload 0.
 	// Sent by the CAM_RESET script opcode to reset the client's camera.
 	OpCamReset = Op{Opcode: 239, PayloadSize: 0}
+	// Camera control. TS ServerGameProt.CAM_SHAKE = (13, 4), payload p1×4.
+	// Sent by the CAM_SHAKE script opcode for cutscene camera shake.
+	OpCamShake = Op{Opcode: 13, PayloadSize: 4}
 
 	// HINT_ARROW — directs the client to render a hint indicator pointing
 	// at an NPC, player, tile, or to clear. All 5 TS HintArrowEncoder

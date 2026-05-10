@@ -98,6 +98,23 @@ func handleCamReset(s *ScriptState) error {
 	return nil
 }
 
+// handleCamShake reads (axis, random, amplitude, rate) from the int stack
+// and dispatches to ActivePlayer.CamShake. Args were pushed left-to-right
+// at the script call site (engine.rs2:120 `cam_shake(int $axis, int $random,
+// int $amplitude, int $rate)`); goscape's PopInt returns them in reverse.
+// Mirrors TS PlayerOps.ts:220-224.
+func handleCamShake(s *ScriptState) error {
+	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+		return errors.New("CAM_SHAKE: no active player")
+	}
+	rate := s.PopInt()
+	amplitude := s.PopInt()
+	random := s.PopInt()
+	axis := s.PopInt()
+	s.Self.CamShake(axis, random, amplitude, rate)
+	return nil
+}
+
 // handleStaffModLevel pushes the active player's staff moderation
 // level (0 for regular players, >0 for mods/admins). Used by update_all
 // and other login procs that branch on mod status.

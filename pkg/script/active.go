@@ -370,6 +370,11 @@ type ActivePlayer interface {
 	// any custom camera state. Called by the CAM_RESET script opcode.
 	CamReset()
 
+	// CamShake sends a CAM_SHAKE wire packet to the client. Direct-write
+	// (no accumulator); siblings the existing CamReset shape. Called by
+	// the CAM_SHAKE script opcode for cutscene camera shake.
+	CamShake(axis, random, amplitude, rate int)
+
 	// HintNpc directs the client to render a hint arrow pointing at the
 	// NPC with the given nid (slot id). Mirrors TS Player.hintNpc at
 	// Player.ts:2174-2176, which writes a HintArrow(type=1) packet.

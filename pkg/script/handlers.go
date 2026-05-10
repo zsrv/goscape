@@ -128,7 +128,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpLastTargetSlot: handleLastTargetSlot,
 
 	// Camera control — minimal stub set for login-script compatibility.
-	OpCamReset: handleCamReset,
+	OpCamReset:  handleCamReset,
+	OpCamShake:  handleCamShake,
 
 	// Staff / moderator state.
 	OpStaffModLevel: handleStaffModLevel,

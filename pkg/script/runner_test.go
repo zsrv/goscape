@@ -232,6 +232,15 @@ type mockPlayer struct {
 	// Camera control capture.
 	camResetCalls int
 
+	// cameraPackets mirrors the production Player.cameraPackets accumulator
+	// for handler-layer tests. CamMoveTo / CamLookAt append to this slice;
+	// CamShake does NOT touch it (direct-write).
+	cameraPackets []struct {
+		kind                                              uint8
+		camX, camZ, height, rotationSpeed, rotationMultiplier int
+	}
+	lastCamShake *struct{ axis, random, amplitude, rate int }
+
 	// NAI-37 T5: HINT_NPC capture. Each entry records the nid passed to
 	// HintNpc; tests inspect this slice to verify a handler made the
 	// expected call.
@@ -599,6 +608,10 @@ func (m *mockPlayer) LastTargetSlot() int { return m.lastTargetSlotValue }
 
 // CamReset capture for handler tests.
 func (m *mockPlayer) CamReset() { m.camResetCalls++ }
+
+func (m *mockPlayer) CamShake(axis, random, amplitude, rate int) {
+	m.lastCamShake = &struct{ axis, random, amplitude, rate int }{axis, random, amplitude, rate}
+}
 
 // HintNpc capture for handler tests (NAI-37 T5).
 func (m *mockPlayer) HintNpc(nid int) { m.hintNpcCalls = append(m.hintNpcCalls, nid) }

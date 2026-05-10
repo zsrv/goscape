@@ -190,6 +190,18 @@ func (p *Player) CamReset() {
 	p.writeOut(gameserver.OpCamReset, nil)
 }
 
+// CamShake sends a CAM_SHAKE wire packet (TS ServerGameProt.CAM_SHAKE
+// = 13, payload p1×4 = axis, random, amplitude, rate). Direct-write;
+// does NOT route through the cameraPackets accumulator (TS PlayerOps.ts:223
+// is `state.activePlayer.write(new CamShake(...))`, no accumulator).
+// Called by the CAM_SHAKE (opcode 2010) script handler. Mirrors TS
+// CamShakeEncoder.ts:9-14.
+func (p *Player) CamShake(axis, random, amplitude, rate int) {
+	p.writeOut(gameserver.OpCamShake, []byte{
+		byte(axis), byte(random), byte(amplitude), byte(rate),
+	})
+}
+
 // HintNpc sends a HINT_ARROW (type=1, NPC variant) wire packet to the
 // client. Encodes 6 bytes matching TS HintArrowEncoder type=1 branch:
 // p1(type=1), p2(nid), p2(0), p1(0). Called by the HINT_NPC (opcode
