@@ -61,6 +61,10 @@ func fireOpTriggerPlayer(p *Player, srv *Server, target *Player) {
 	// default typeId is -1 (matches TS's getOpTrigger early skip of the
 	// type-fetching if-block when target is a Player).
 	sf := srv.scriptProvider.GetByTrigger(trigger, resolveTriggerTypeId(p, -1), -1)
+	// Defensive-only post-NAI-78 (goscape defensive; TS skips this
+	// re-check). tryInteract pre-gates on resolved-trigger-non-nil so
+	// this branch is unreachable from the hot path. Preserved for
+	// non-tryInteract callers and as a goscape belt-and-braces.
 	if sf == nil {
 		p.ClearInteraction()
 		p.interactionFired = true
@@ -112,6 +116,10 @@ func fireApTriggerPlayer(p *Player, srv *Server, target *Player) {
 	// Reads p.targetSubject.com per TS Player.getApTrigger:1027-1029 via
 	// resolveTriggerTypeId — useObj override default (-1) when set.
 	sf := srv.scriptProvider.GetByTrigger(trigger, resolveTriggerTypeId(p, -1), -1)
+	// Defensive-only post-NAI-78 (goscape defensive; TS skips this
+	// re-check). tryInteract pre-gates on resolved-trigger-non-nil so
+	// this branch is unreachable from the hot path. Preserved for
+	// non-tryInteract callers and as a goscape belt-and-braces.
 	if sf == nil {
 		p.apRange = -1
 		return

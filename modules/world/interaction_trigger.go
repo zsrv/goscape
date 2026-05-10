@@ -76,6 +76,10 @@ func fireOpTriggerNpc(p *Player, srv *Server, npc *Npc) {
 	// Reads p.targetSubject.com per TS Player.getOpTrigger:993-995 via
 	// resolveTriggerTypeId — spellCom override defaultTypeId when set.
 	sf := srv.scriptProvider.GetByTrigger(trigger, resolveTriggerTypeId(p, npc.typeId), category)
+	// Defensive-only post-NAI-78 (goscape defensive; TS skips this
+	// re-check). tryInteract pre-gates on resolved-trigger-non-nil so
+	// this branch is unreachable from the hot path. Preserved for
+	// non-tryInteract callers and as a goscape belt-and-braces.
 	if sf == nil {
 		p.ClearInteraction()
 		p.interactionFired = true
@@ -155,6 +159,10 @@ func fireOpTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 	// Reads p.targetSubject.com per TS Player.getOpTrigger:993-995 via
 	// resolveTriggerTypeId — spellCom override defaultTypeId when set.
 	sf := srv.scriptProvider.GetByTrigger(trigger, resolveTriggerTypeId(p, loc.Type()), category)
+	// Defensive-only post-NAI-78 (goscape defensive; TS skips this
+	// re-check). tryInteract pre-gates on resolved-trigger-non-nil so
+	// this branch is unreachable from the hot path. Preserved for
+	// non-tryInteract callers and as a goscape belt-and-braces.
 	if sf == nil {
 		// S6j-D7 closed in S6k: defaultOp fallback. TS Player.ts:~1095
 		// fires this message when the player reaches contact range and
@@ -342,6 +350,10 @@ func fireApTriggerNpc(p *Player, srv *Server, npc *Npc) {
 	// Reads p.targetSubject.com per TS Player.getApTrigger:1027-1029 via
 	// resolveTriggerTypeId — spellCom override defaultTypeId when set.
 	sf := srv.scriptProvider.GetByTrigger(trigger, resolveTriggerTypeId(p, npc.typeId), category)
+	// Defensive-only post-NAI-78 (goscape defensive; TS skips this
+	// re-check). tryInteract pre-gates on resolved-trigger-non-nil so
+	// this branch is unreachable from the hot path. Preserved for
+	// non-tryInteract callers and as a goscape belt-and-braces.
 	if sf == nil {
 		p.ClearInteraction()
 		p.interactionFired = true
@@ -429,6 +441,10 @@ func fireApTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 	// Reads p.targetSubject.com per TS Player.getApTrigger:1027-1029 via
 	// resolveTriggerTypeId — spellCom override defaultTypeId when set.
 	sf := srv.scriptProvider.GetByTrigger(trigger, resolveTriggerTypeId(p, loc.Type()), category)
+	// Defensive-only post-NAI-78 (goscape defensive; TS skips this
+	// re-check). tryInteract pre-gates on resolved-trigger-non-nil so
+	// this branch is unreachable from the hot path. Preserved for
+	// non-tryInteract callers and as a goscape belt-and-braces.
 	if sf == nil {
 		// S6l-D1 closed in S6r: cache "no AP script for this (trigger,
 		// locType, category) triple" via the apRange=-1 sentinel so
@@ -671,6 +687,10 @@ func fireOpTriggerObj(p *Player, srv *Server, obj *entitypkg.Obj) {
 	// Reads p.targetSubject.com per TS Player.getOpTrigger:993-995 via
 	// resolveTriggerTypeId — spellCom override defaultTypeId when set.
 	sf := srv.scriptProvider.GetByTrigger(trigger, resolveTriggerTypeId(p, obj.Type), category)
+	// Defensive-only post-NAI-78 (goscape defensive; TS skips this
+	// re-check). tryInteract pre-gates on resolved-trigger-non-nil so
+	// this branch is unreachable from the hot path. Preserved for
+	// non-tryInteract callers and as a goscape belt-and-braces.
 	if sf == nil {
 		p.MessageGame("Nothing interesting happens.")
 		p.ClearInteraction()
@@ -737,6 +757,10 @@ func fireApTriggerObj(p *Player, srv *Server, obj *entitypkg.Obj) {
 	// Reads p.targetSubject.com per TS Player.getApTrigger:1027-1029 via
 	// resolveTriggerTypeId — spellCom override defaultTypeId when set.
 	sf := srv.scriptProvider.GetByTrigger(trigger, resolveTriggerTypeId(p, obj.Type), category)
+	// Defensive-only post-NAI-78 (goscape defensive; TS skips this
+	// re-check). tryInteract pre-gates on resolved-trigger-non-nil so
+	// this branch is unreachable from the hot path. Preserved for
+	// non-tryInteract callers and as a goscape belt-and-braces.
 	if sf == nil {
 		p.apRange = -1
 		p.interactionFired = true
