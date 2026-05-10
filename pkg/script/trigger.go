@@ -1,5 +1,7 @@
 package script
 
+import "fmt"
+
 // ServerTriggerType identifies which event type a script is bound to.
 // Numeric values match TS ServerTriggerType.ts exactly.
 type ServerTriggerType int
@@ -171,3 +173,194 @@ const (
 	TriggerAiSpawn     ServerTriggerType = 166
 	TriggerAiDespawn   ServerTriggerType = 167
 )
+
+// serverTriggerNames mirrors TS ServerTriggerType reverse-mapping
+// (Engine-TS/.../ServerTriggerType.ts:1-162 enum keys, lowercased per
+// `ServerTriggerType[trigger].toLowerCase()` at L168). Numeric gaps in
+// the TS enum {22,23,29,30,50,51,57,58,78,79,85,86,106,107,113,114,115}
+// are intentionally absent — TS reverse-mapping returns undefined for
+// those, mapping cleanly onto String()'s "trigger_<N>" fallback.
+var serverTriggerNames = map[ServerTriggerType]string{
+	TriggerProc:      "proc",
+	TriggerLabel:     "label",
+	TriggerDebugProc: "debugproc",
+
+	TriggerApNpc1: "apnpc1",
+	TriggerApNpc2: "apnpc2",
+	TriggerApNpc3: "apnpc3",
+	TriggerApNpc4: "apnpc4",
+	TriggerApNpc5: "apnpc5",
+	TriggerApNpcU: "apnpcu",
+	TriggerApNpcT: "apnpct",
+	TriggerOpNpc1: "opnpc1",
+	TriggerOpNpc2: "opnpc2",
+	TriggerOpNpc3: "opnpc3",
+	TriggerOpNpc4: "opnpc4",
+	TriggerOpNpc5: "opnpc5",
+	TriggerOpNpcU: "opnpcu",
+	TriggerOpNpcT: "opnpct",
+
+	TriggerAiApNpc1: "ai_apnpc1",
+	TriggerAiApNpc2: "ai_apnpc2",
+	TriggerAiApNpc3: "ai_apnpc3",
+	TriggerAiApNpc4: "ai_apnpc4",
+	TriggerAiApNpc5: "ai_apnpc5",
+	TriggerAiOpNpc1: "ai_opnpc1",
+	TriggerAiOpNpc2: "ai_opnpc2",
+	TriggerAiOpNpc3: "ai_opnpc3",
+	TriggerAiOpNpc4: "ai_opnpc4",
+	TriggerAiOpNpc5: "ai_opnpc5",
+
+	TriggerApObj1: "apobj1",
+	TriggerApObj2: "apobj2",
+	TriggerApObj3: "apobj3",
+	TriggerApObj4: "apobj4",
+	TriggerApObj5: "apobj5",
+	TriggerApObjU: "apobju",
+	TriggerApObjT: "apobjt",
+	TriggerOpObj1: "opobj1",
+	TriggerOpObj2: "opobj2",
+	TriggerOpObj3: "opobj3",
+	TriggerOpObj4: "opobj4",
+	TriggerOpObj5: "opobj5",
+	TriggerOpObjU: "opobju",
+	TriggerOpObjT: "opobjt",
+
+	TriggerAiApObj1: "ai_apobj1",
+	TriggerAiApObj2: "ai_apobj2",
+	TriggerAiApObj3: "ai_apobj3",
+	TriggerAiApObj4: "ai_apobj4",
+	TriggerAiApObj5: "ai_apobj5",
+	TriggerAiOpObj1: "ai_opobj1",
+	TriggerAiOpObj2: "ai_opobj2",
+	TriggerAiOpObj3: "ai_opobj3",
+	TriggerAiOpObj4: "ai_opobj4",
+	TriggerAiOpObj5: "ai_opobj5",
+
+	TriggerApLoc1: "aploc1",
+	TriggerApLoc2: "aploc2",
+	TriggerApLoc3: "aploc3",
+	TriggerApLoc4: "aploc4",
+	TriggerApLoc5: "aploc5",
+	TriggerApLocU: "aplocu",
+	TriggerApLocT: "aploct",
+	TriggerOpLoc1: "oploc1",
+	TriggerOpLoc2: "oploc2",
+	TriggerOpLoc3: "oploc3",
+	TriggerOpLoc4: "oploc4",
+	TriggerOpLoc5: "oploc5",
+	TriggerOpLocU: "oplocu",
+	TriggerOpLocT: "oploct",
+
+	TriggerAiApLoc1: "ai_aploc1",
+	TriggerAiApLoc2: "ai_aploc2",
+	TriggerAiApLoc3: "ai_aploc3",
+	TriggerAiApLoc4: "ai_aploc4",
+	TriggerAiApLoc5: "ai_aploc5",
+	TriggerAiOpLoc1: "ai_oploc1",
+	TriggerAiOpLoc2: "ai_oploc2",
+	TriggerAiOpLoc3: "ai_oploc3",
+	TriggerAiOpLoc4: "ai_oploc4",
+	TriggerAiOpLoc5: "ai_oploc5",
+
+	TriggerApPlayer1: "applayer1",
+	TriggerApPlayer2: "applayer2",
+	TriggerApPlayer3: "applayer3",
+	TriggerApPlayer4: "applayer4",
+	TriggerApPlayer5: "applayer5",
+	TriggerApPlayerU: "applayeru",
+	TriggerApPlayerT: "applayert",
+	TriggerOpPlayer1: "opplayer1",
+	TriggerOpPlayer2: "opplayer2",
+	TriggerOpPlayer3: "opplayer3",
+	TriggerOpPlayer4: "opplayer4",
+	TriggerOpPlayer5: "opplayer5",
+	TriggerOpPlayerU: "opplayeru",
+	TriggerOpPlayerT: "opplayert",
+
+	TriggerAiApPlayer1: "ai_applayer1",
+	TriggerAiApPlayer2: "ai_applayer2",
+	TriggerAiApPlayer3: "ai_applayer3",
+	TriggerAiApPlayer4: "ai_applayer4",
+	TriggerAiApPlayer5: "ai_applayer5",
+	TriggerAiOpPlayer1: "ai_opplayer1",
+	TriggerAiOpPlayer2: "ai_opplayer2",
+	TriggerAiOpPlayer3: "ai_opplayer3",
+	TriggerAiOpPlayer4: "ai_opplayer4",
+	TriggerAiOpPlayer5: "ai_opplayer5",
+
+	TriggerQueue:     "queue",
+	TriggerAiQueue1:  "ai_queue1",
+	TriggerAiQueue2:  "ai_queue2",
+	TriggerAiQueue3:  "ai_queue3",
+	TriggerAiQueue4:  "ai_queue4",
+	TriggerAiQueue5:  "ai_queue5",
+	TriggerAiQueue6:  "ai_queue6",
+	TriggerAiQueue7:  "ai_queue7",
+	TriggerAiQueue8:  "ai_queue8",
+	TriggerAiQueue9:  "ai_queue9",
+	TriggerAiQueue10: "ai_queue10",
+	TriggerAiQueue11: "ai_queue11",
+	TriggerAiQueue12: "ai_queue12",
+	TriggerAiQueue13: "ai_queue13",
+	TriggerAiQueue14: "ai_queue14",
+	TriggerAiQueue15: "ai_queue15",
+	TriggerAiQueue16: "ai_queue16",
+	TriggerAiQueue17: "ai_queue17",
+	TriggerAiQueue18: "ai_queue18",
+	TriggerAiQueue19: "ai_queue19",
+	TriggerAiQueue20: "ai_queue20",
+
+	TriggerSoftTimer: "softtimer",
+	TriggerTimer:     "timer",
+	TriggerAiTimer:   "ai_timer",
+
+	TriggerOpHeld1: "opheld1",
+	TriggerOpHeld2: "opheld2",
+	TriggerOpHeld3: "opheld3",
+	TriggerOpHeld4: "opheld4",
+	TriggerOpHeld5: "opheld5",
+	TriggerOpHeldU: "opheldu",
+	TriggerOpHeldT: "opheldt",
+
+	TriggerIfButton:   "if_button",
+	TriggerIfClose:    "if_close",
+	TriggerInvButton1: "inv_button1",
+	TriggerInvButton2: "inv_button2",
+	TriggerInvButton3: "inv_button3",
+	TriggerInvButton4: "inv_button4",
+	TriggerInvButton5: "inv_button5",
+	TriggerInvButtonD: "inv_buttond",
+
+	TriggerWalkTrigger:   "walktrigger",
+	TriggerAiWalkTrigger: "ai_walktrigger",
+
+	TriggerLogin:       "login",
+	TriggerLogout:      "logout",
+	TriggerTutorial:    "tutorial",
+	TriggerAdvanceStat: "advancestat",
+	TriggerMapZone:     "mapzone",
+	TriggerMapZoneExit: "mapzoneexit",
+	TriggerZone:        "zone",
+	TriggerZoneExit:    "zoneexit",
+	TriggerChangeStat:  "changestat",
+	TriggerAiSpawn:     "ai_spawn",
+	TriggerAiDespawn:   "ai_despawn",
+}
+
+// String returns the TS-faithful lowered enum name (e.g. TriggerOpNpc1
+// returns "opnpc1", TriggerAiQueue4 returns "ai_queue4"). Mirrors TS
+// ServerTriggerType.toString at Engine-TS/.../ServerTriggerType.ts:166-170:
+//
+//	ServerTriggerType[trigger].toLowerCase()
+//
+// Unknown values return "trigger_<N>" rather than panicking. TS would
+// throw on `undefined.toLowerCase()`; Go's nil-handling and the
+// debug-only call site (defaultOp under cfg.NodeDebug) make a sentinel
+// safer (DEVIATION-NAI-148-D-STRING-FALLBACK).
+func (t ServerTriggerType) String() string {
+	if name, ok := serverTriggerNames[t]; ok {
+		return name
+	}
+	return fmt.Sprintf("trigger_%d", int(t))
+}
