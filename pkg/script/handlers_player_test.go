@@ -4583,3 +4583,52 @@ func TestPPreventLogout_NoActivePlayer(t *testing.T) {
 		t.Fatalf("P_PREVENTLOGOUT no-active-player: want error, got nil")
 	}
 }
+
+// TestHandlePlayerMember_PushesMembersFlag pins TS PlayerOps.ts:1211-1213
+// (NAI-149). Both branches: members=true → 1, members=false → 0.
+func TestHandlePlayerMember_PushesMembersFlag(t *testing.T) {
+	cases := []struct {
+		name string
+		seed bool
+		want int
+	}{
+		{"members=true pushes 1", true, 1},
+		{"members=false pushes 0", false, 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mp := &mockPlayer{membersValue: tc.seed}
+			s := &ScriptState{
+				IntStack:    make([]int, StackCapacity),
+				StringStack: make([]string, StackCapacity),
+				Self:        mp,
+				Pointers:    PtrActivePlayer,
+			}
+			if err := handlePlayerMember(s); err != nil {
+				t.Fatalf("handlePlayerMember: %v", err)
+			}
+			if s.ISP != 1 {
+				t.Fatalf("ISP: got %d, want 1", s.ISP)
+			}
+			if got := s.IntStack[0]; got != tc.want {
+				t.Errorf("top of int stack: got %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestHandlePlayerMember_RequiresActivePlayer pins the ActivePlayer guard
+// (TS checkedHandler(ActivePlayer, ...)).
+func TestHandlePlayerMember_RequiresActivePlayer(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	err := handlePlayerMember(s)
+	if err == nil {
+		t.Fatalf("handlePlayerMember: expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "PLAYERMEMBER") {
+		t.Errorf("error: got %q, want to contain \"PLAYERMEMBER\"", err.Error())
+	}
+}

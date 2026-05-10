@@ -1469,6 +1469,21 @@ func handleGender(s *ScriptState) error {
 	return nil
 }
 
+// handlePlayerMember (PLAYERMEMBER, opcode 2090) pushes 1 if the active
+// player has a members account, else 0. Mirrors TS
+// LostCityRS/Engine-TS/.../PlayerOps.ts:1211-1213 — checkedHandler(ActivePlayer).
+func handlePlayerMember(s *ScriptState) error {
+	if err := requireActivePlayer(s, "PLAYERMEMBER"); err != nil {
+		return err
+	}
+	if s.Self.Members() {
+		s.PushInt(1)
+	} else {
+		s.PushInt(0)
+	}
+	return nil
+}
+
 // handlePPreventLogout (P_PREVENTLOGOUT, opcode 2084) sets the
 // player's anti-log message and absolute tick deadline. Pop order
 // (TS): popString first (message), then popInt (additional ticks
