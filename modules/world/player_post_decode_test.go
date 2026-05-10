@@ -8,6 +8,7 @@ import (
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+	"github.com/zsrv/goscape/pkg/script"
 )
 
 // TestProcessIn_DecodedThisTickResetAtStart pins T1a: at the top of
@@ -423,5 +424,72 @@ func TestProcessPostDecode_PathToTargetSkippedWhenRoutefinderAndUserPath(t *test
 
 	if !p.hasWaypoints() {
 		t.Errorf("waypointIndex: got %d, want >= 0 (routefinder+userPath skips pathToTarget → fallback's pathToMoveClick re-paths)", p.waypointIndex)
+	}
+}
+
+// TestProcessPostDecode_WalktriggerFallback_PlayerpacketNoOp pins TS
+// L635 cfg gate: under PLAYERPACKET (default) the fallback is a no-op.
+// Sentinel: walktrigger=42 + hasWaypoints — walktrigger MUST survive.
+func TestProcessPostDecode_WalktriggerFallback_PlayerpacketNoOp(t *testing.T) {
+	p, _ := newPostDecodeTestPlayer(t)
+	// Default cfg in fixture is PLAYERPACKET.
+	p.opcalled = false
+	p.delayed = false
+	p.modalState = modalStateNone
+	p.walktrigger = 42
+	p.waypointIndex = 0 // hasWaypoints → true
+
+	p.processPostDecode()
+
+	if p.walktrigger != 42 {
+		t.Errorf("walktrigger: got %d, want 42 (PLAYERPACKET cfg → fallback no-op)", p.walktrigger)
+	}
+}
+
+// TestProcessPostDecode_WalktriggerFallback_Playersetup_FiresWhenNotOpcalled
+// pins TS L638: PLAYERSETUP + !opcalled + hasWaypoints →
+// processWalktrigger fires (consumes walktrigger field).
+func TestProcessPostDecode_WalktriggerFallback_Playersetup_FiresWhenNotOpcalled(t *testing.T) {
+	p, s := newPostDecodeTestPlayer(t)
+	s.cfg.NodeWalktriggerSetting = WalkTriggerSettingPlayersetup
+	p.opcalled = false
+	p.delayed = false
+	p.modalState = modalStateNone
+	p.walktrigger = 42
+	p.userPath = []int{coordgrid.PackCoord(p.level, p.x+1, p.z)}
+
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(&script.ScriptFile{
+		Name:             "[walk_test_setup_fires]",
+		LookupKey:        42,
+		Opcodes:          []script.Opcode{script.OpReturn},
+		IntOperands:      []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+	})
+
+	p.processPostDecode()
+
+	if p.walktrigger != -1 {
+		t.Errorf("walktrigger: got %d, want -1 (PLAYERSETUP + !opcalled → processWalktrigger consumed)", p.walktrigger)
+	}
+}
+
+// TestProcessPostDecode_WalktriggerFallback_Playersetup_SkipsWhenOpcalled
+// pins TS L638 !opcalled guard: opcalled=true → re-path runs but
+// processWalktrigger does NOT fire.
+func TestProcessPostDecode_WalktriggerFallback_Playersetup_SkipsWhenOpcalled(t *testing.T) {
+	p, s := newPostDecodeTestPlayer(t)
+	s.cfg.NodeWalktriggerSetting = WalkTriggerSettingPlayersetup
+	s.cfg.NodeClientRoutefinder = true // also forces pathToTarget gate to skip (userPath set)
+	p.opcalled = true
+	p.targetOp = 3 // followingPlayer → bypasses pathToTarget branch
+	p.delayed = false
+	p.modalState = modalStateNone
+	p.walktrigger = 42
+	p.userPath = []int{coordgrid.PackCoord(p.level, p.x+1, p.z)}
+
+	p.processPostDecode()
+
+	if p.walktrigger != 42 {
+		t.Errorf("walktrigger: got %d, want 42 (PLAYERSETUP + opcalled=true → walktrigger NOT fired)", p.walktrigger)
 	}
 }

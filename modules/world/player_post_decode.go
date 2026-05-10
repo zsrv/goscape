@@ -65,4 +65,16 @@ func (p *Player) processPostDecode() {
 		p.pathToTarget()
 		return
 	}
+
+	// TS L635-641: non-PLAYERPACKET re-path + PLAYERSETUP walktrigger.
+	// Folded from NAI-77 processWalkTriggerFallbacks; restores the
+	// TS-faithful pre-processPathing slot, closing
+	// NAI-77-D-WALKTRIGGER-FALLBACK-PHASE-CHOICE.
+	if s.cfg.NodeWalktriggerSetting != WalkTriggerSettingPlayerpacket {
+		p.pathToMoveClick(p.userPath, !s.cfg.NodeClientRoutefinder)
+		if s.cfg.NodeWalktriggerSetting == WalkTriggerSettingPlayersetup &&
+			!p.opcalled && p.hasWaypoints() {
+			p.processWalktrigger()
+		}
+	}
 }

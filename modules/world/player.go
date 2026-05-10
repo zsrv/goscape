@@ -1093,6 +1093,8 @@ func (p *Player) processIn(currentTick int) {
 	}
 	p.decodedThisTick = readAny // NAI-146 T1: TS decodeIn() return value
 
+	p.processPostDecode() // NAI-146 T3: TS World.ts:611-641
+
 	// NAI-73: per-tick input-tracking dispatch. Mirrors TS World.ts:646
 	// placement (last step of per-player client-input phase iteration).
 	p.processInputTracking(currentTick)
