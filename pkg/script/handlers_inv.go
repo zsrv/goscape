@@ -322,15 +322,27 @@ func handleInvAdd(s *ScriptState) error {
 	count := s.PopInt()
 	obj := s.PopInt()
 	typeID := s.PopInt()
+	return performInvAdd(s, typeID, obj, count, "INV_ADD")
+}
 
+// performInvAdd is the shared invAdd impl. Mirrors TS Player.invAdd —
+// the method that both INV_ADD opcode and OBJ_TAKEITEM call. Validates
+// invType + objType + count, enforces protect/scope + dummyitem gates,
+// resolves the inv, routes via Inventory.Add, and drops overflow at
+// the player's tile.
+//
+// Pre-conditions: caller has invoked requireActivePlayer (s.Self is
+// dereferenced for the overflow drop). Inputs are raw script ints;
+// performInvAdd does its own check chain so each call site stays minimal.
+func performInvAdd(s *ScriptState, typeID, obj, count int, op string) error {
 	// TS InvOps.ts:60-62 — InvTypeValid, ObjTypeValid, ObjStackValid.
-	if err := checkInvType(s, typeID, "INV_ADD"); err != nil {
+	if err := checkInvType(s, typeID, op); err != nil {
 		return err
 	}
-	if err := checkObjType(s, obj, "INV_ADD"); err != nil {
+	if err := checkObjType(s, obj, op); err != nil {
 		return err
 	}
-	if err := checkObjStack(count, "INV_ADD"); err != nil {
+	if err := checkObjStack(count, op); err != nil {
 		return err
 	}
 
@@ -339,19 +351,19 @@ func handleInvAdd(s *ScriptState) error {
 
 	// TS InvOps.ts:64-66 — protect/scope gate.
 	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared && s.Pointers&PtrProtectedActivePlayer == 0 {
-		return fmt.Errorf("INV_ADD: $inv requires protected access: %s", invType.DebugName)
+		return fmt.Errorf("%s: $inv requires protected access: %s", op, invType.DebugName)
 	}
 
 	// TS InvOps.ts:68-70 — dummyitem-in-non-dummyinv gate.
 	if !invType.DummyInv && objType.DummyItem != 0 {
-		return fmt.Errorf("INV_ADD: dummyitem in non-dummyinv: %s -> %s", objType.DebugName, invType.DebugName)
+		return fmt.Errorf("%s: dummyitem in non-dummyinv: %s -> %s", op, objType.DebugName, invType.DebugName)
 	}
 
 	inv := resolveInv(s, typeID)
 	if inv == nil {
 		// Defensive: unreachable post-checkInvType for valid configs;
 		// retained for the InvLookup-unset case (s.Inv == nil → resolveInv returns nil).
-		return fmt.Errorf("INV_ADD: no inv for type %d", typeID)
+		return fmt.Errorf("%s: no inv for type %d", op, typeID)
 	}
 
 	stackable, stockObj := lookupStackableStockObj(s, inv.Type, obj)

@@ -2717,3 +2717,36 @@ func TestHandleInvDebugName_EmptyFallsBackToNullLiteral(t *testing.T) {
 		t.Errorf("top of string stack: got %q, want %q", got, "null")
 	}
 }
+
+// TestPerformInvAdd_DirectCall pins the contract that performInvAdd
+// can be called with already-typed args, bypassing the PopInt-driven
+// handleInvAdd wrapper. Mirrors the same validation chain + Inventory.Add
+// path that handleInvAdd takes; this test focuses on the direct-call
+// happy path so OBJ_TAKEITEM (NAI-153 T4) can rely on the shared impl.
+func TestPerformInvAdd_DirectCall(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	s.Self = &mockPlayer{uidValue: 12345}
+	s.Pointers |= PtrActivePlayer
+
+	mc := newTestInvConfigs()
+	invType := objtype.NewInvType(93)
+	invType.Size = 28
+	invType.Protect = false // NewInvType defaults Protect=true; clear it so unprotected call succeeds
+	mc.invs[93] = invType
+	mindrune := objtype.NewObjType(558)
+	mindrune.Stackable = false
+	mc.objs[558] = mindrune
+	s.Configs = mc
+
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	s.Inv = &mockInvLookup{invs: map[int]*inventory.Inventory{93: inv}}
+
+	if err := performInvAdd(s, 93, 558, 1, "TEST"); err != nil {
+		t.Fatalf("performInvAdd returned error: %v", err)
+	}
+
+	got := inv.Get(0)
+	if got == nil || got.Id != 558 || got.Count != 1 {
+		t.Errorf("performInvAdd: inv slot 0 got %+v, want {Id:558 Count:1}", got)
+	}
+}
