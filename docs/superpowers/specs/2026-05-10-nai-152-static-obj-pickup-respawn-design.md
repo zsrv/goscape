@@ -59,9 +59,14 @@ const trigger: ServerTriggerType = ServerTriggerType.APOBJ1 + (message.op - 1);
 player.setInteraction(Interaction.ENGINE, obj, trigger);
 ```
 
-TS has **no** objType-op gate at handler entry — it sets the interaction unconditionally. In RS clients, ground-item "Take" is **client-side hardcoded** independent of cache `op[2]`; many obj types have empty `op[2]` in the cache. If goscape's #7 gate fires and TS's doesn't, every static-obj pickup attempt is silently dropped — exactly matching the symptom.
-
-**Verification deferred to B1.5** — must re-read `handler_opobj.go` and `OpObjHandler.ts` end-to-end before code change (memory `audit_subagent_fabrication.md` — verify before code).
+> **B1.5 reveal (2026-05-10):** the `op_slot_empty` gate fires for mindrune (id=558) with **`opLen=0`** (the `len(Op) < op` clause), not the `Op[op-1] == ""` clause. The pre-spec framing here ("TS has no objType-op gate") is **wrong** — TS DOES gate at `OpObjHandler.ts:38-42`:
+> ```ts
+> if (type.op[message.op - 1] === null || type.op[message.op - 1] === 'hidden') {
+>     player.write(new UnsetMapFlag());
+>     return false;
+> }
+> ```
+> The actual divergence is upstream in the loader: TS `ObjType.ts:151-152` declares class-field defaults `op = [null, null, 'Take', null, null]` and `iop = [null, null, null, null, 'Drop']`; goscape's `NewObjType` (`pkg/objtype/objtype.go:282-310`) initializes neither. Any obj whose cache doesn't override codes 30-34 leaves goscape with `Op == nil`, `len(Op) == 0`, gate fires, every pickup silently dropped. B1 (§6.2) is reframed to a **loader fix**, not a handler-gate removal.
 
 ### 5.2. Field parity (P2)
 
@@ -110,25 +115,66 @@ Sequenced execution. **Smoke gate between each bundle.** Bundle scope may compre
 - Confirm `s.cfg.NodeDebug` (or equivalent debug-flag) exists; mirror existing NodeDebug gateway sites via `rg "NodeDebug" modules/world/`.
 - Confirm `s.log.Info` is the right logger reference inside `handleOpObj` (likely accessible via `p.client.server.log`).
 
-### 6.2. B1 — handler fix
+### 6.2. B1 — loader fix (reframed post-B1.5)
 
-**Conditional on B1.5 result.** Most-likely path (~95% prior): short-circuit #7 (`objType.Op[op-1] == ""`) fires. Per TS `OpObjHandler.ts:36-50`, TS does NOT gate at the handler. Fix shape:
+**Reframed from "handler-gate removal" to "loader default-initializer port"** based on the B1.5 smoke (mindrune `op_slot_empty` with `opLen=0`) and TS-source read of `ObjType.ts:151-152` + `:60-74`. The handler gate at `handler_opobj.go:90-100` is TS-faithful (`OpObjHandler.ts:38-42`); the bug is that goscape's `Op`/`IOp` slices are uninitialized when the cache leaves codes 30-34 silent.
 
-**Remove the `objType.Op[op-1] == ""` gate at `handler_opobj.go:51-53`.** The trigger fire downstream (`interaction_trigger.go`) already handles the no-script case correctly via `MessageGame("Nothing interesting happens.")`.
+**Scope:** in-spec stretch (option B per brainstorm). Closes the `Op`/`IOp` default divergence + the F2P-branch `Op`/`IOp` reset divergence + two adjacent F2P parity gaps (`dummyitem → tradeable=false`, F2P `category = -1`) surfaced in the same TS-source read.
 
-**Pin tests** (`modules/world/handler_opobj_test.go` extension):
-1. `TestHandleOpObj_EmptyOpSlotStillFiresInteraction` — construct an obj whose `objType.Op[2] == ""`. Call `handleOpObj3`. Assert `p.targetSubject.obj == obj`, `p.targetOp == 3`, **interaction is set** (not short-circuited).
-2. `TestHandleOpObj_NilObjType` (regression preserve) — `objType` index out of range still short-circuits.
-3. `TestHandleOpObj_GetObjNil` (regression preserve) — `s.GetObj` returns nil still short-circuits.
+**Production changes (`pkg/objtype/objtype.go`):**
 
-**Acceptance gate (post-impl smoke):** user repeats pickup; **client now displays "Nothing interesting happens."** chat message (or pickup actually works if a script exists). The transition from "wholly silent" to "chat message visible" is the binding signal.
+1. **`NewObjType` (L282-310)** — add field defaults to mirror TS `ObjType.ts:151-152`:
+   ```go
+   Op:  []string{"", "", "Take", "", ""},
+   IOp: []string{"", "", "", "", "Drop"},
+   ```
+   Go's `""` sentinel mirrors TS's `null`, consistent with the existing `"hidden"` → `""` collapse at L218-220.
 
-**LOC:** ~5 production + ~60 test.
+2. **`Decode` codes 30-34 / 35-39 (L213-225)** — drop the now-dead `if ot.Op == nil { ot.Op = make([]string, 5) }` and `if ot.IOp == nil { ... }` allocations. `Op`/`IOp` are always initialized after change #1.
+
+3. **`parseObjTypes` F2P branch (L74-84)** — replace `config.Op = nil; config.IOp = nil` with TS-faithful resets per `ObjType.ts:62-67`, and add the missing `Category` reset:
+   ```go
+   config.Op  = []string{"", "", "Take", "", ""}
+   config.IOp = []string{"", "", "", "", "Drop"}
+   config.Category = -1   // TS ObjType.ts:67
+   ```
+
+4. **`parseObjTypes` dummyitem branch (NEW, mirrors TS L56-58)** — placed before the F2P branch:
+   ```go
+   if config.DummyItem != 0 {
+       config.Tradeable = false
+   }
+   ```
+
+**Pin tests (`pkg/objtype/objtype_test.go` extension; 7 cases):**
+1. `TestNewObjTypeOpDefaults` — `Op[2]=="Take"`, `IOp[4]=="Drop"`, others `""`.
+2. `TestParseObjTypesPreservesOpDefaultWhenCacheSilent` — fixture obj with no codes 30-34 → `Op[2]=="Take"`.
+3. `TestParseObjTypesCacheCode32OverridesOp` — fixture with code 32=`"Whatever"` → `Op[2]=="Whatever"`.
+4. `TestParseObjTypesCacheCode32HiddenCollapsesToEmpty` — pin existing collapse semantic at L218-220.
+5. `TestParseObjTypesF2PMembersResetsOpToTakeOnly` — `NODE_MEMBERS=false` + Members + custom code 30=`"Wear"` → `Op == ["", "", "Take", "", ""]` (custom op stripped, `"Take"` preserved).
+6. `TestParseObjTypesF2PMembersZeroesCategoryAndDropDefault` — same fixture + cache code 94 (Category)=42 → `Category == -1`, `IOp[4]=="Drop"`.
+7. `TestParseObjTypesDummyItemForcesTradeableFalse` — fixture with code 96 (DummyItem)=1 + code 200 (Tradeable=true) → `Tradeable == false`.
+
+**Handler regression (`modules/world/handler_opobj_test.go`, lands with probe retirement; 1 case):**
+8. `TestHandleOpObjReachesInteractionWithDefaultOpType` — obj of type from bare `NewObjType(id)` (no cache overrides); call `handleOpObj3`; assert `p.targetSubject.obj == obj`, `p.targetOp == 3`, interaction is set (no short-circuit).
+
+**Probe retirement (same commit):**
+- `modules/world/handler_opobj.go`: strip 8 `s.log.Info("nai152.opobj.gate", ...)` gateway sites and any probe-only locals (e.g., `opVal`, `opLen` capture vars).
+- `modules/world/handler_opobj_test.go`: remove 3 probe-only test cases at L780-840 (probe-marker greps).
+- Verify via `rg -n "nai152.opobj.gate"` returns empty pre-commit.
+
+**Acceptance gate (post-impl smoke):** user repeats pickup of mindrune (or any static obj). Predicted observables:
+- Probe `op_slot_empty` no longer fires (probe is retired in this commit; this is a pre-retirement check during impl).
+- Either pickup completes (item moves to inventory + cleared from `z.Objs`) or `MessageGame("Nothing interesting happens.")` appears in client chat. The transition from "wholly silent" to either visible outcome is the binding signal; the chat-vs-inventory split distinguishes B1-only vs B2-required.
+
+**LOC:** ~10 production + ~110 test, minus ~29 production + ~50 test from probe retirement = net ~40 LOC delta.
 
 **Plan-author preflight:**
-- Re-read `handler_opobj.go` lines 8-90 to confirm exact line numbers for the gate (P1's enumeration is high-confidence but uncached at plan time).
-- Re-grep `OpObjHandler.ts` and `OpObjUHandler.ts` and `OpObjTHandler.ts` in TS for any analogous gate before declaring "TS doesn't gate".
-- Check whether `handleOpObjT` (opcode 138, op=6) and `handleOpObjU` (opcode 239, op=7) share the same gate via `handleOpObj` — if so, the fix benefits OPOBJT/OPOBJU too; pin those with their own smoke if observable.
+- Re-read `pkg/objtype/objtype.go` lines 1-345 to confirm field-shape and `Decode` exact line numbers (NewObjType currently at L282-310).
+- Re-grep `pkg/` and `modules/` for `ot.Op` / `objType.Op` / `\.IOp` reader sites — confirm none currently rely on `len(Op) == 0` as a "no ops" sentinel (the new default makes `len(Op) == 5` always).
+- Confirm `\.Tradeable` and `\.Category` reader sites do not regress with new resets (`rg "\.Tradeable" pkg/ modules/` and `rg "\.Category" pkg/ modules/`); flag any consumers that read these on dummyitem/F2P-members objs.
+- Confirm `handler_opobj_test.go` probe-test line numbers (currently 780-840 per `git show 1acb2e1`) and the `opLen`/`opVal` capture-var locals.
+- Probe retirement enumeration: `rg -n "nai152.opobj.gate" modules/ pkg/` returns 11 hits (8 prod + 3 test refs); enumerate in plan and verify post-edit.
 
 ### 6.3. B2 — pickup chain
 
@@ -279,13 +325,13 @@ Per-bundle pin tests inlined in §6. Cross-bundle regression: full `go test ./..
 
 Per `runescript_cadence.md` mid-band, multi-bundle. Total LOC estimate (production + test):
 
-- B1.5: ~25 (probe gateways, removed in B1's close commit)
-- B1: ~5 + ~60
+- B1.5: ~25 (probe gateways, retired in B1's close commit)
+- B1 (reframed): ~10 prod + ~110 test loader fix; -29 prod + -50 test probe retirement → net ~40 LOC delta
 - B2: TBD (1 line registration up to its own sub-spec)
 - B3: ~3 + ~60
 - B4: ~50 + ~120
 
-**Total estimate: ~325-400 LOC, ranging up if B2 spawns a child sub-spec.**
+**Total estimate: ~280-360 LOC, ranging up if B2 spawns a child sub-spec.**
 
 **Workflow per bundle:** spec section → plan → subagent-driven impl per `execution_mode_default.md` → reviewer subagent on Sonnet (`superpowers_code_reviewer_model.md`) → `/clear` between plan and impl per `superpowers_clear_between_spec_and_impl.md` → smoke handoff per `smoke_test_server_handoff.md` → bundle close commit with `Closes memory:` trailer per `close_commit_memory_trailer.md`.
 
@@ -295,17 +341,20 @@ Per `runescript_cadence.md` mid-band, multi-bundle. Total LOC estimate (producti
 
 Bundle-tagged. Filled at impl time per `true_to_ts_gate.md`.
 
-- **NAI-152-D1 (B1) [predicted]:** removal of `objType.Op[op-1] == ""` gate at `handler_opobj.go:51-53`. **Why:** TS `OpObjHandler.ts:36-50` sets interaction unconditionally; goscape's gate diverges and silently drops every pickup attempt for obj types with empty `op[2]`. **Risk:** OPOBJ1/2/4/5 may also be affected — confirm symmetric behavior or scope-narrow to op==3 only.
+- **NAI-152-D1 (B1) [REVERSED post-B1.5]:** ~~removal of `objType.Op[op-1] == ""` gate at `handler_opobj.go`~~ — gate is TS-faithful (`OpObjHandler.ts:38-42`). Replaced with parity-gap closure: **`NewObjType` initializes `Op = []string{"", "", "Take", "", ""}` and `IOp = []string{"", "", "", "", "Drop"}` to mirror TS class-field defaults at `ObjType.ts:151-152`.** **Why:** without these defaults, any obj whose cache leaves codes 30-34 silent has `Op == nil`, the (correct) handler gate fires, and pickup is silently dropped. **Risk:** none — closes a pure parity gap; pre-fix the only consumers were the (now-passing) handler gate and any `len(Op) == 0` sentinel reads (audited as none in plan-author preflight).
+- **NAI-152-D1a (B1) [NEW]:** F2P-branch `Op`/`IOp` reset at `parseObjTypes` mirrors TS `ObjType.ts:62-63` (`config.op = [null, null, 'Take', null, null]; config.iop = [null, null, null, null, 'Drop']`) instead of `nil`-ing. **Why:** the F2P branch should preserve "Take"/"Drop" defaults while stripping custom ops; pre-fix it left members objs unpickup-able on F2P worlds. **Risk:** none — only affects `NODE_MEMBERS=false` runs, currently not a smoke target.
+- **NAI-152-D1b (B1) [NEW]:** F2P-branch `config.Category = -1` added per TS `ObjType.ts:67`. **Why:** TS strips category triggers on F2P to prevent autodisable-bypass. **Risk:** scoped to F2P+Members objs; audit `rg "\.Category" pkg/ modules/` for downstream readers at plan-author preflight.
+- **NAI-152-D1c (B1) [NEW]:** `if config.DummyItem != 0 { config.Tradeable = false }` added per TS `ObjType.ts:56-58`. **Why:** TS-fidelity gap; dummyitems should not be tradeable. **Risk:** any consumer of `.Tradeable` on a `DummyItem != 0` obj observed pre-fix `true` where TS observed `false`; audit via `rg "\.Tradeable" pkg/ modules/`.
 - **NAI-152-D2 (B3) [predicted]:** explicit `obj.IsActive = false` set in `Zone.RemoveObj`. **Why:** TS `Zone.ts:344` sets it for BOTH lifecycles; goscape currently never sets it, leaving stale `IsActive=true` after RemoveObj. **Risk:** any current reader of `IsActive` on a "removed" obj would have observed wrong-but-harmless value pre-fix; audit consumers via `rg "\.IsActive" pkg/ modules/` at impl time.
 - **NAI-152-D3 (B4) [predicted]:** closes NAI-86 D-N86-3 stub at `tick.go:607-609`. **Why:** stub was deferred at NAI-86; now load-bearing for static-obj respawn.
 - **NAI-152-D-X:** any further divergence surfaced at impl time — open before close commit.
 
 ## 10. Risk register
 
-- **R1 (high):** B1.5 short-circuit reveal contradicts the prior (#7 `objType.Op[op-1] == ""`). **Mitigation:** B1.5 is cheap (~25 LOC, removable). If a different short-circuit fires, B1 design re-derives from the actual reveal — do not commit a fix until the smoke log is in hand. Per `audit_subagent_fabrication.md`: do not skip the probe.
+- **R1 [RESOLVED 2026-05-10]:** B1.5 reveal pinned `op_slot_empty` with `opLen=0` (the `len(Op) < op` clause), reframing B1 from handler-gate removal to loader default-initializer port. Pre-spec framing in §5.1 ("TS doesn't gate") was wrong; TS gates identically. See §5.1 reveal note + §6.2 reframed fix.
 - **R2 (med):** B2 reveals no `[opobj3, _]` script in LostCity content — pickup is genuinely engine-side in TS but P3 missed it. **Mitigation:** B2 plan-author re-reads `Engine-TS/src/engine/entity/Player.ts:1113-1184` end-to-end before designing the fix. May spawn child sub-spec.
 - **R3 (med):** B4's `objType.RespawnRate` field is unloaded in goscape. **Mitigation:** plan-author preflight confirms field load via `rg "RespawnRate\|respawnrate" pkg/objtype/`; if unloaded, B4 includes loader port (~10 LOC).
-- **R4 (low):** OPOBJT (opcode 138, op=6) and OPOBJU (opcode 239, op=7) share `handleOpObj`'s short-circuit set; B1 fix may broaden to those handlers. **Mitigation:** smoke acceptance for B1 explicitly probes whether OPOBJT/OPOBJU display analogous symptoms (per `smoke_surfaces_adjacent_divergences.md`).
+- **R4 [auto-resolved by reframe]:** OPOBJT (opcode 138, op=6) and OPOBJU (opcode 239, op=7) — the loader-side fix (D1) automatically benefits any handler reading `objType.Op[op-1]`. No handler change required; no per-handler smoke broadening needed. Note: TS `op` array is length 5, indices 0-4 (op==1..5), so OPOBJT/U at op==6/7 read `op[5]`/`op[6]` — out-of-bounds in both TS and goscape (TS `undefined === null` is `false`, gate fails-open differently); their pickup paths differ from OPOBJ1-5 and are out of scope for this sub-spec.
 - **R5 (low):** B4's `Obj.turn` port may surface NAI-86's deferred adjacent stubs (e.g., reveal-counter, lastLifecycleTick guard semantics). **Mitigation:** scope-gate at impl time per `scope_gate_prerequisite_chain.md`; route ≤30 LOC into B4, larger to NAI-152-stretch or NAI-153.
 - **R6 (low):** B3's `IsActive=false` set may break a current consumer that depends on `IsActive` remaining `true` after RemoveObj. **Mitigation:** plan-author preflight grep all `\.IsActive` reader sites for objs (per `enumerate_all_sites.md`).
 - **R7 (low):** Smoke environment unavailable — Java client at `LostCityRS/Client-Java` not launchable from sandbox per `smoke_test_server_handoff.md`. **Mitigation:** smoke handoff to user at each bundle gate; do not advance bundles without human confirmation.
