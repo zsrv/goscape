@@ -458,18 +458,22 @@ func (p *Player) tryInteract(allowOpScenery bool) bool {
 // [op…] script is registered. Mirrors LostCityRS/Engine-TS
 // Player.ts:1072-1097.
 //
-// NAI-147 T4 closes NAI-78-D-DEBUG-MSG-DEFERRED: under cfg.NodeDebug
+// NAI-147 T4 closed NAI-78-D-DEBUG-MSG-DEFERRED: under cfg.NodeDebug
 // (TS !NODE_PRODUCTION analogue) and both triggers nil, emit the TS
-// L1076-1093 debug chat. NAI-147-D-TRIGGER-NAME-NUMERIC: trigger name
-// emitted in numeric form because pkg/script.ServerTriggerType has no
-// String() table — adding a 50+ entry name table for one debug-only
-// chat is over-investment.
+// L1076-1093 debug chat.
+//
+// NAI-148 closed NAI-147-D-TRIGGER-NAME-NUMERIC: trigger name now
+// resolved via tsTriggerForOpFire(p.target, p.targetOp).String() —
+// emits TS-faithful lowered name (e.g. "opnpc1") instead of the
+// numeric `targetOp+7` form. tsTriggerForOpFire bridges goscape's
+// op-slot/sentinel namespace to TS's AP*/OP* ServerTriggerType.
 func defaultOp(p *Player, opTrigger, apTrigger *script.ScriptFile) {
 	if p.client != nil && p.client.server != nil {
 		s := p.client.server
 		if s.cfg.NodeDebug && opTrigger == nil && apTrigger == nil {
 			debugname := defaultOpDebugname(p, s)
-			p.MessageGame(fmt.Sprintf("No trigger for [%d,%s]", p.targetOp+7, debugname))
+			trigger := tsTriggerForOpFire(p.target, p.targetOp)
+			p.MessageGame(fmt.Sprintf("No trigger for [%s,%s]", trigger, debugname))
 		}
 	}
 	p.MessageGame("Nothing interesting happens.")

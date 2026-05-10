@@ -12,7 +12,8 @@ import (
 )
 
 // NAI-147 T4 — TS Player.ts:1076-1093 debug chat under NodeDebug.
-// Numeric trigger-name fallback per NAI-147-D-TRIGGER-NAME-NUMERIC.
+// NAI-148 — TS-faithful trigger names via ServerTriggerType.String()
+// + tsTriggerForOpFire (closed NAI-147-D-TRIGGER-NAME-NUMERIC).
 
 // makeDefaultOpFixture builds a server with all type configs seeded
 // and a player wired with encryptor (required for MessageGame writes).
@@ -41,12 +42,11 @@ func TestDefaultOp_NoTriggerEmitsDebug_NodeDebugTrue(t *testing.T) {
 	p.client.flushWrite()
 	got := <-received
 
-	// Goscape stores targetOp as an op-slot (1-5), not a ServerTriggerType
-	// enum value. The +7 offset is preserved from TS Player.ts:1092
-	// (NAI-147-D-TRIGGER-NAME-NUMERIC). For op-slot=1, emitted value = 1+7=8.
-	// The script import is kept to anchor the deviation documentation.
-	_ = script.TriggerOpNpc1 // deviation doc anchor — see NAI-147-D-TRIGGER-NAME-NUMERIC
-	wantDebug := []byte("No trigger for [" + strconv.Itoa(1+7) + ",test_npc]")
+	// NAI-148 closed NAI-147-D-TRIGGER-NAME-NUMERIC: defaultOp emits
+	// the TS-faithful lowered trigger name via tsTriggerForOpFire +
+	// ServerTriggerType.String(). For an Npc target with targetOp=1
+	// (op-slot 1), the helper resolves to script.TriggerOpNpc1 → "opnpc1".
+	wantDebug := []byte("No trigger for [opnpc1,test_npc]")
 	if !bytes.Contains(got, wantDebug) {
 		t.Errorf("missing debug message %q on wire; got %x", wantDebug, got)
 	}
