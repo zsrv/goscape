@@ -2,9 +2,7 @@ package world
 
 import (
 	"bytes"
-	"log/slog"
 	"net"
-	"strings"
 	"testing"
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
@@ -760,78 +758,48 @@ func TestTryFireApTriggerObjScriptFiresNoApRangeCalled(t *testing.T) {
 	}
 }
 
-// --- NAI-152 B1.5: handleOpObj short-circuit probe gateways ---
+// TestHandleOpObjReachesInteractionWithDefaultOpType pins that an obj of a
+// type constructed via NewObjType (no cache overrides) reaches the
+// interaction — i.e., the default Op[2]="Take" populated by NewObjType
+// passes the op_slot_empty gate. This is the post-NAI-152-B1 regression
+// for the static-obj pickup symptom.
+func TestHandleOpObjReachesInteractionWithDefaultOpType(t *testing.T) {
+	s := newTestServer(t)
+	s.zoneMap = zone.NewZoneMap()
 
-// TestHandleOpObj_GatewayLogsOnEmptyOpSlot pins that under NodeDebug,
-// the op_slot_empty gateway fires with the expected name when
-// objType.Op[op-1] is empty. Mirrors smoke-time behavior for the suspected
-// short-circuit branch. NAI-152 B1.5.
-func TestHandleOpObj_GatewayLogsOnEmptyOpSlot(t *testing.T) {
-	s, p, _, _ := makeOpObjFixture(t)
-	s.cfg.NodeDebug = true
+	s.objTypes = &objtype.ObjTypeConfigs{
+		Configs: make([]*objtype.ObjType, 559),
+	}
+	// Use NewObjType, NOT a struct literal — exercises the default Op/IOp
+	// initializers added in T1.
+	ot := objtype.NewObjType(558)
+	ot.DebugName = "mindrune"
+	s.objTypes.Configs[558] = ot
 
-	var buf bytes.Buffer
-	s.log = slog.New(slog.NewTextHandler(&buf, nil))
+	obj := entitypkg.NewObj(0, 100, 100, entitypkg.LifecycleRespawn, 558, 1)
+	zn := s.zoneMap.Get(0, 100, 100)
+	zn.Objs = append(zn.Objs, obj)
 
-	// Force gate #7 (op_slot_empty) by clearing the op[2] slot.
-	s.objTypes.Configs[42].Op[2] = ""
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	p.x, p.z, p.level = 99, 100, 0
+	p.originX, p.originZ = 100, 100
 
-	if err := handleOpObj3(p, p2x3ObjPayload(100, 100, 42)); err != nil {
+	if err := handleOpObj3(p, p2x3ObjPayload(100, 100, 558)); err != nil {
 		t.Fatalf("handleOpObj3: %v", err)
 	}
 
-	got := buf.String()
-	if !strings.Contains(got, "nai152.opobj.gate") {
-		t.Errorf("expected gateway log emission; got %q", got)
+	if p.target != obj {
+		t.Errorf("target: got %v, want obj (gate must not short-circuit on default Op[2]=\"Take\")", p.target)
 	}
-	if !strings.Contains(got, "name=op_slot_empty") {
-		t.Errorf("expected name=op_slot_empty in log; got %q", got)
+	if p.targetOp != 3 {
+		t.Errorf("targetOp: got %d, want 3", p.targetOp)
 	}
-}
-
-// TestHandleOpObj_GatewayLogsOnSuccess pins that under NodeDebug, the
-// success gateway fires when handleOpObj reaches SetInteraction.
-// NAI-152 B1.5.
-func TestHandleOpObj_GatewayLogsOnSuccess(t *testing.T) {
-	s, p, _, _ := makeOpObjFixture(t)
-	s.cfg.NodeDebug = true
-
-	var buf bytes.Buffer
-	s.log = slog.New(slog.NewTextHandler(&buf, nil))
-
-	// Default fixture has Op = ["op1", ..., "op5"]; op3 slot is non-empty
-	// so all gates pass and the success branch is reached.
-	if err := handleOpObj3(p, p2x3ObjPayload(100, 100, 42)); err != nil {
-		t.Fatalf("handleOpObj3: %v", err)
+	if p.interactionKind != InteractionEngine {
+		t.Errorf("interactionKind: got %v, want InteractionEngine", p.interactionKind)
 	}
-
-	got := buf.String()
-	if !strings.Contains(got, "nai152.opobj.gate") {
-		t.Errorf("expected gateway log emission; got %q", got)
-	}
-	if !strings.Contains(got, "name=success") {
-		t.Errorf("expected name=success in log; got %q", got)
-	}
-}
-
-// TestHandleOpObj_GatewaySilentWhenNodeDebugFalse pins that gateways
-// produce zero log output when NodeDebug=false. Guards against
-// accidental log emission in production. NAI-152 B1.5.
-func TestHandleOpObj_GatewaySilentWhenNodeDebugFalse(t *testing.T) {
-	s, p, _, _ := makeOpObjFixture(t)
-	s.cfg.NodeDebug = false
-
-	var buf bytes.Buffer
-	s.log = slog.New(slog.NewTextHandler(&buf, nil))
-
-	// Force gate #7 to fire.
-	s.objTypes.Configs[42].Op[2] = ""
-
-	if err := handleOpObj3(p, p2x3ObjPayload(100, 100, 42)); err != nil {
-		t.Fatalf("handleOpObj3: %v", err)
-	}
-
-	if got := buf.String(); strings.Contains(got, "nai152.opobj.gate") {
-		t.Errorf("gateway leaked under NodeDebug=false; got %q", got)
+	if !p.opcalled {
+		t.Error("opcalled: want true")
 	}
 }
