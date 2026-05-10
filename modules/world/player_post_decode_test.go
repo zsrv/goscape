@@ -163,8 +163,8 @@ func TestProcessPostDecode_OuterGateSkipsWhenIdle(t *testing.T) {
 // unsetMapFlag fires (waypointIndex=-1 + OpUnsetMapFlag) and the
 // block returns BEFORE the faceEntity reset / moveClickRequest setter.
 //
-// newPostDecodeTestPlayer (defined below) returns the conn alongside
-// the player so this test can drainConn the wire output.
+// newPostDecodeTestPlayerWithConn (defined above) returns the conn
+// alongside the player so this test can drainConn the wire output.
 func TestProcessPostDecode_DelayedFiresUnsetMapFlagAndReturns(t *testing.T) {
 	p, _, cc := newPostDecodeTestPlayerWithConn(t)
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
