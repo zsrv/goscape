@@ -300,11 +300,11 @@ func TestProcessPostDecode_MoveClickRequest_NotBusyOpcalled(t *testing.T) {
 	p.delayed = false
 	p.modalState = modalStateNone
 	p.moveClickRequest = true // sentinel — must flip to false
-	p.targetOp = -1           // disable pathToTarget branch (-1 ≠ 3, but opcalled=true → would fire)
-	// Need to also block the pathToTarget branch from firing first:
-	// !followingPlayer && opcalled && (len(userPath)==0 || !routefinder).
-	// With routefinder=true (default) AND len(userPath)>0, the gate fails →
-	// pathToTarget skipped. userPath is set in the fixture; routefinder=true default.
+	p.targetOp = -1 // not 3 → !followingPlayer (prerequisite for the gate, not its suppressor)
+	// Real pathToTarget suppressor: !followingPlayer && opcalled &&
+	// (len(userPath)==0 || !routefinder). With routefinder=true AND
+	// len(userPath)>0 (both default in fixture), the disjunction is
+	// false → pathToTarget gate fails → setter is reached.
 
 	p.processPostDecode()
 
