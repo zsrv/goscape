@@ -64,3 +64,30 @@ func (o *Obj) IsValid() bool {
 // Type field so *Obj satisfies script.ActiveObj (Go disallows same-name
 // field + method, so the method is spelled ObjType).
 func (o *Obj) ObjType() int { return o.Type }
+
+// ObjCount returns the obj's current stack size. Method wrapper around
+// the public Count field so *Obj satisfies script.ActiveObj. (Go
+// disallows same-name field + method; same convention as ObjType().)
+func (o *Obj) ObjCount() int { return o.Count }
+
+// IsValidFor reports whether the obj is consumable by the given player
+// UID. Mirrors TS Obj.ts:52-62 with goscape's UID-int receiver instead
+// of TS bigint hash64. Reveal>-1 means private; non-receiver players
+// see invalid. Count<1 means depleted.
+//
+// NAI-153-D2: TS uses hash64 (bigint username hash); goscape uses
+// ReceiverID = composeUID(username37, slot) per
+// modules/world/server_varp.go:169.
+//
+// Distinct from the no-arg IsValid() (intrinsic base, always true)
+// which satisfies the polymorphic entity interface — Go disallows
+// method overloading, so the player-aware variant gets its own name.
+func (o *Obj) IsValidFor(playerUID int) bool {
+	if o.Reveal > -1 && playerUID != o.ReceiverID {
+		return false
+	}
+	if o.Count < 1 {
+		return false
+	}
+	return true
+}

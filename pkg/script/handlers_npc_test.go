@@ -2408,13 +2408,34 @@ func TestNpcGetMode_NoActiveNpcErrors(t *testing.T) {
 
 // --- NAI-36 Task 6: NPC_SETMODE Layer 1 unit tests -----------------------
 
-// mockActiveObj is a minimal ActiveObj fixture for NPC_SETMODE OPOBJ tests.
+// mockActiveObj is a minimal ActiveObj fixture used across the
+// pkg/script test suite. Extended for NAI-153 with count, receiverID,
+// reveal so OBJ_COUNT / OBJ_TAKEITEM tests can drive the IsValidFor
+// branches. Existing call sites that construct mockActiveObj{objType,
+// x, z, level} continue to work — the new fields default to their zero
+// values, which by Reveal=0 (>-1) makes the obj "private to receiver
+// 0" — but every such call site sets ActiveObj for handlers that don't
+// inspect IsValidFor (OBJ_COORD, OBJ_TYPE, NPC_SETMODE OPOBJ), so the
+// default is benign.
 type mockActiveObj struct {
 	objType, x, z, level int
+	count                int
+	receiverID           int
+	reveal               int
 }
 
 func (m *mockActiveObj) ObjType() int              { return m.objType }
 func (m *mockActiveObj) Coords() (x, z, level int) { return m.x, m.z, m.level }
+func (m *mockActiveObj) ObjCount() int             { return m.count }
+func (m *mockActiveObj) IsValidFor(playerUID int) bool {
+	if m.reveal > -1 && playerUID != m.receiverID {
+		return false
+	}
+	if m.count < 1 {
+		return false
+	}
+	return true
+}
 
 func TestNpcSetMode_ModeNoneClearsInteractionAndSetsOp(t *testing.T) {
 	npc := &mockNpc{}

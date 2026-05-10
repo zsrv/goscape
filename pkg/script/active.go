@@ -908,6 +908,8 @@ type ActiveLoc interface {
 // use to read obj state. Narrow by design — extend as future sub-specs
 // wire more obj script opcodes.
 type ActiveObj interface {
-	ObjType() int              // underlying ObjType id
-	Coords() (x, z, level int) // world position
+	ObjType() int                  // underlying ObjType id
+	Coords() (x, z, level int)     // world position
+	ObjCount() int                 // current stack size; consumed by OBJ_COUNT, OBJ_TAKEITEM (NAI-153)
+	IsValidFor(playerUID int) bool // private-receiver + count>0 (NAI-153); see *entity.Obj.IsValidFor
 }

@@ -83,3 +83,60 @@ func TestObjIsActiveSettable(t *testing.T) {
 		t.Error("IsActive must be settable to true")
 	}
 }
+
+func TestObj_ObjCount(t *testing.T) {
+	o := NewObj(0, 3200, 3200, LifecycleRespawn, 558, 7)
+	if got := o.ObjCount(); got != 7 {
+		t.Errorf("ObjCount: got %d, want 7", got)
+	}
+}
+
+func TestObj_IsValidFor_Public(t *testing.T) {
+	// Public obj (Reveal == -1): valid for any playerUID.
+	o := NewObj(0, 3200, 3200, LifecycleRespawn, 558, 1)
+	if !o.IsValidFor(12345) {
+		t.Errorf("IsValidFor(public obj, any uid): got false, want true")
+	}
+	if !o.IsValidFor(-1) {
+		t.Errorf("IsValidFor(public obj, uid -1): got false, want true")
+	}
+}
+
+func TestObj_IsValidFor_PrivateSelf(t *testing.T) {
+	// Private obj (Reveal > -1) where playerUID matches ReceiverID: valid.
+	o := NewObj(0, 3200, 3200, LifecycleDespawn, 558, 1)
+	o.Reveal = 50
+	o.ReceiverID = 12345
+	if !o.IsValidFor(12345) {
+		t.Errorf("IsValidFor(private obj, matching uid): got false, want true")
+	}
+}
+
+func TestObj_IsValidFor_PrivateOther(t *testing.T) {
+	// Private obj where playerUID does NOT match: invalid.
+	o := NewObj(0, 3200, 3200, LifecycleDespawn, 558, 1)
+	o.Reveal = 50
+	o.ReceiverID = 12345
+	if o.IsValidFor(99999) {
+		t.Errorf("IsValidFor(private obj, non-matching uid): got true, want false")
+	}
+}
+
+func TestObj_IsValidFor_DepletedCount(t *testing.T) {
+	// Count < 1: invalid regardless of receiver state.
+	o := NewObj(0, 3200, 3200, LifecycleRespawn, 558, 0)
+	if o.IsValidFor(12345) {
+		t.Errorf("IsValidFor(public obj, count=0): got true, want false")
+	}
+}
+
+func TestObj_IsValid_NoArg_StillTrue(t *testing.T) {
+	// Regression guard: the existing no-arg IsValid() (intrinsic base)
+	// must still return true. The polymorphic entity interface at
+	// modules/world/movement_consts.go:45-49 depends on this method
+	// signature — DO NOT remove or rename.
+	o := NewObj(0, 3200, 3200, LifecycleRespawn, 558, 1)
+	if !o.IsValid() {
+		t.Errorf("IsValid() (no-arg): got false, want true (intrinsic base)")
+	}
+}
