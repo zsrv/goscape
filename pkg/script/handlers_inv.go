@@ -1429,10 +1429,10 @@ func handleInvDropItemDelayed(s *ScriptState) error {
 func handleInvStockBase(s *ScriptState) error {
 	obj := s.PopInt()
 	inv := s.PopInt()
-	if err := checkObjType(s, obj, "INV_STOCKBASE"); err != nil {
+	if err := checkInvType(s, inv, "INV_STOCKBASE"); err != nil {
 		return err
 	}
-	if err := checkInvType(s, inv, "INV_STOCKBASE"); err != nil {
+	if err := checkObjType(s, obj, "INV_STOCKBASE"); err != nil {
 		return err
 	}
 	invType := s.Configs.InvType(inv)
