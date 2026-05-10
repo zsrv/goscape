@@ -1,9 +1,11 @@
 package script
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
+	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
@@ -428,5 +430,165 @@ func TestHandleObjCount_NoActivePlayer(t *testing.T) {
 
 	if err := handleObjCount(s); err == nil {
 		t.Errorf("OBJ_COUNT: expected error on nil Self, got nil")
+	}
+}
+
+// --- NAI-153 T4: OBJ_TAKEITEM handler -----------------------------------
+
+// fakeWorldTakeItem combines RemoveObj recording (for OBJ_TAKEITEM
+// removal) and AddObj recording (for performInvAdd overflow drop —
+// expected zero in the happy path). Embeds *mockWorld for the rest of
+// the WorldVars surface.
+type fakeWorldTakeItem struct {
+	*mockWorld
+	removed    []ActiveObj
+	addedCalls []addObjCall
+}
+
+func (f *fakeWorldTakeItem) RemoveObj(obj ActiveObj) {
+	f.removed = append(f.removed, obj)
+}
+
+func (f *fakeWorldTakeItem) AddObj(level, x, z, typeID, count, duration, receiverID int) ActiveObj {
+	f.addedCalls = append(f.addedCalls, addObjCall{level, x, z, typeID, count, duration, receiverID})
+	return &mockActiveObj{objType: typeID, x: x, z: z, level: level}
+}
+
+// newTakeItemFixture builds the standard TAKEITEM happy-path harness:
+// player UID 12345 with PtrActivePlayer set, mindrune (id 558) ObjType
+// registered, inventory 93 (28 slots) registered, world recording
+// RemoveObj/AddObj. Caller sets s.ActiveObj and pushes the invType.
+func newTakeItemFixture(t *testing.T) (*ScriptState, *fakeWorldTakeItem, *inventory.Inventory) {
+	t.Helper()
+	s := newTestState(minimalScript(OpReturn))
+	s.Self = &mockPlayer{uidValue: 12345}
+	s.Pointers |= PtrActivePlayer
+
+	w := &fakeWorldTakeItem{mockWorld: newMockWorld()}
+	s.World = w
+
+	mc := newTestInvConfigs()
+	invType := objtype.NewInvType(93)
+	invType.Size = 28
+	invType.Protect = false // NewInvType defaults true; clear so performInvAdd's protect/scope gate doesn't fire.
+	mc.invs[93] = invType
+	mindrune := objtype.NewObjType(558)
+	mindrune.Stackable = false
+	mc.objs[558] = mindrune
+	s.Configs = mc
+
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	s.Inv = &mockInvLookup{invs: map[int]*inventory.Inventory{93: inv}}
+
+	return s, w, inv
+}
+
+func TestHandleObjTakeItem_HappyPath(t *testing.T) {
+	s, w, inv := newTakeItemFixture(t)
+	active := &mockActiveObj{objType: 558, x: 3200, z: 3200, level: 0, count: 1, reveal: -1}
+	s.ActiveObj = active
+
+	s.PushInt(93) // invType id
+
+	if err := handleObjTakeItem(s); err != nil {
+		t.Fatalf("OBJ_TAKEITEM: returned error: %v", err)
+	}
+
+	got := inv.Get(0)
+	if got == nil || got.Id != 558 || got.Count != 1 {
+		t.Errorf("OBJ_TAKEITEM: inv slot 0 got %+v, want {Id:558 Count:1}", got)
+	}
+	if len(w.removed) != 1 || w.removed[0] != active {
+		t.Errorf("OBJ_TAKEITEM: expected 1 RemoveObj call with active, got %v", w.removed)
+	}
+	if len(w.addedCalls) != 0 {
+		t.Errorf("OBJ_TAKEITEM: expected 0 AddObj calls (no overflow), got %v", w.addedCalls)
+	}
+}
+
+func TestHandleObjTakeItem_InvalidObj_Noop(t *testing.T) {
+	s, w, inv := newTakeItemFixture(t)
+	// Private obj with non-matching receiver: IsValidFor returns false.
+	s.ActiveObj = &mockActiveObj{objType: 558, x: 3200, z: 3200, level: 0, count: 1, reveal: 50, receiverID: 99999}
+
+	s.PushInt(93)
+
+	if err := handleObjTakeItem(s); err != nil {
+		t.Fatalf("OBJ_TAKEITEM (invalid obj): returned error: %v, want nil (no-op)", err)
+	}
+	if got := inv.Get(0); got != nil {
+		t.Errorf("OBJ_TAKEITEM (invalid obj): expected empty inv, got %+v", got)
+	}
+	if len(w.removed) != 0 {
+		t.Errorf("OBJ_TAKEITEM (invalid obj): expected 0 RemoveObj calls, got %v", w.removed)
+	}
+}
+
+func TestHandleObjTakeItem_DepletedObj_Noop(t *testing.T) {
+	s, w, inv := newTakeItemFixture(t)
+	// Public obj with count=0: IsValidFor returns false (count<1).
+	s.ActiveObj = &mockActiveObj{objType: 558, x: 3200, z: 3200, level: 0, count: 0, reveal: -1}
+
+	s.PushInt(93)
+
+	if err := handleObjTakeItem(s); err != nil {
+		t.Fatalf("OBJ_TAKEITEM (depleted obj): returned error: %v, want nil (no-op)", err)
+	}
+	if got := inv.Get(0); got != nil {
+		t.Errorf("OBJ_TAKEITEM (depleted obj): expected empty inv, got %+v", got)
+	}
+	if len(w.removed) != 0 {
+		t.Errorf("OBJ_TAKEITEM (depleted obj): expected 0 RemoveObj calls, got %v", w.removed)
+	}
+}
+
+func TestHandleObjTakeItem_BadInvType(t *testing.T) {
+	s, _, _ := newTakeItemFixture(t)
+	s.ActiveObj = &mockActiveObj{objType: 558, x: 3200, z: 3200, level: 0, count: 1, reveal: -1}
+
+	s.PushInt(99999) // unregistered invType id → checkInvType errors
+
+	err := handleObjTakeItem(s)
+	if err == nil {
+		t.Fatalf("OBJ_TAKEITEM (bad invType): expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "OBJ_TAKEITEM") {
+		t.Errorf("OBJ_TAKEITEM (bad invType): error tag missing 'OBJ_TAKEITEM': %v", err)
+	}
+}
+
+func TestHandleObjTakeItem_NoActiveObj(t *testing.T) {
+	s, _, _ := newTakeItemFixture(t)
+	// s.ActiveObj == nil
+	s.PushInt(93)
+
+	if err := handleObjTakeItem(s); err == nil {
+		t.Errorf("OBJ_TAKEITEM: expected error on nil ActiveObj, got nil")
+	}
+}
+
+func TestHandleObjTakeItem_NoActivePlayer(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	w := &fakeWorldTakeItem{mockWorld: newMockWorld()}
+	s.World = w
+	s.ActiveObj = &mockActiveObj{objType: 558, x: 3200, z: 3200, level: 0, count: 1, reveal: -1}
+	// s.Self == nil; PtrActivePlayer not set
+	s.PushInt(93)
+
+	if err := handleObjTakeItem(s); err == nil {
+		t.Errorf("OBJ_TAKEITEM: expected error on nil Self, got nil")
+	}
+}
+
+func TestHandleObjTakeItem_NoWorld(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	s.Self = &mockPlayer{uidValue: 12345}
+	s.Pointers |= PtrActivePlayer
+	s.ActiveObj = &mockActiveObj{objType: 558, x: 3200, z: 3200, level: 0, count: 1, reveal: -1}
+	// s.World == nil
+	s.PushInt(93)
+
+	if err := handleObjTakeItem(s); err == nil {
+		t.Errorf("OBJ_TAKEITEM: expected error on nil World, got nil")
 	}
 }

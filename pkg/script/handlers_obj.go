@@ -118,7 +118,9 @@ func handleObjAdd(s *ScriptState) error {
 // World.removeObj as duration. goscape's Server.RemoveObj has no
 // duration arg; RESPAWN-lifecycle respawn-after-delay is a foundation
 // gap. DESPAWN-lifecycle objs (the firemaking smoke target) are
-// unaffected.
+// unaffected. NAI-153 T4 extends the same gap to OBJ_TAKEITEM, which
+// also collapses TS's lifecycle-branched removeObj-with-duration into
+// a single zero-arg RemoveObj.
 func handleObjDel(s *ScriptState) error {
 	if err := requireActiveObj(s, "OBJ_DEL"); err != nil {
 		return err
@@ -162,7 +164,7 @@ func handleObjCoord(s *ScriptState) error {
 //
 //	const obj: Obj = state.activeObj;
 //	if (obj.isValid(state.activePlayer.hash64)) {
-//	    state.pushInt(state.activeObj.count);
+//	    state.pushInt(obj.count);
 //	    return;
 //	}
 //	state.pushInt(0);
@@ -181,6 +183,57 @@ func handleObjCount(s *ScriptState) error {
 		return nil
 	}
 	s.PushInt(0)
+	return nil
+}
+
+// handleObjTakeItem (OBJ_TAKEITEM, opcode 3510) pops invType, validates,
+// guards on isValid, adds the obj to the player's inv via performInvAdd,
+// and removes the obj from the world. Mirrors TS ObjOps.ts:137-161.
+//
+// NAI-153-D1: TS calls activePlayer.addWealthEvent(...) between invAdd
+// and removeObj. Skipped per NAI-115-D1 precedent — content can emit
+// via OpWealthEvent (2131). (goscape defensive skip; TS inlines.)
+//
+// NAI-153-D3: TS OBJ_TAKEITEM (ObjOps.ts:147) calls Player.invAdd
+// directly — the bare entity method (Player.ts:1496-1504), bypassing
+// the InvOps INV_ADD opcode gates (InvTypeValid + ObjTypeValid +
+// ObjStackValid + protect/scope + dummyitem). goscape routes through
+// performInvAdd, which DOES apply the gates. The gates are no-ops for
+// realistic OBJ_TAKEITEM call shapes (mindrune-style: non-protected
+// inv 93, non-dummyitem obj). No separate bare-invAdd entity method
+// exists in goscape; the spec-author's deliberate choice is to share
+// performInvAdd rather than introduce a parallel bare path.
+//
+// NAI-115-D2 (extended to TAKEITEM): TS calls World.removeObj(obj,
+// respawnrate) for RESPAWN-lifecycle and World.removeObj(obj, 0) for
+// DESPAWN. goscape's WorldVars.RemoveObj has no duration arg — both
+// branches collapse to a single zero-arg RemoveObj call.
+// RESPAWN-lifecycle respawn-after-delay remains a foundation gap
+// (shared with OBJ_DEL; see handleObjDel).
+func handleObjTakeItem(s *ScriptState) error {
+	if err := requireActiveObj(s, "OBJ_TAKEITEM"); err != nil {
+		return err
+	}
+	if err := requireActivePlayer(s, "OBJ_TAKEITEM"); err != nil {
+		return err
+	}
+	if s.World == nil {
+		return fmt.Errorf("OBJ_TAKEITEM: no world surface")
+	}
+
+	invID := s.PopInt()
+	if err := checkInvType(s, invID, "OBJ_TAKEITEM"); err != nil {
+		return err
+	}
+
+	if !s.ActiveObj.IsValidFor(s.Self.UID()) {
+		return nil // TS returns false; goscape no-op (matches OBJ_DEL idiom)
+	}
+
+	if err := performInvAdd(s, invID, s.ActiveObj.ObjType(), s.ActiveObj.ObjCount(), "OBJ_TAKEITEM"); err != nil {
+		return err
+	}
+	s.World.RemoveObj(s.ActiveObj)
 	return nil
 }
 
