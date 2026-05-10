@@ -376,18 +376,18 @@ func (p *Player) processWalktrigger() {
 // NPC side equivalent: (*Npc).tryInteract(s, allowOpScenery bool)
 // at npc_interaction.go:247.
 func (p *Player) tryInteract(allowOpScenery bool) bool {
-	if p.target == nil {
-		recordTryInteractBranch(p, 0) // NAI-79 Stage 1 (no-target early-return)
+	// NAI-147 T5 closes NAI-78-D-HASINTERACTION-GUARD — TS
+	// Player.ts:1114 3-part guard. !HasInteraction() filters follow-op
+	// (targetOp=3 with *Player target). !CanAccess() filters delayed,
+	// modal, and protected-script states. CanAccess() is STRICTER than
+	// processInteraction:196's delayed-only check; modal/protected-script
+	// short-circuits previously reachable through tryInteract are now
+	// blocked here. Mirrors TS canAccess semantics via NAI-111 narrowed
+	// convergence.
+	if p.target == nil || !p.HasInteraction() || !p.CanAccess() {
+		recordTryInteractBranch(p, 0) // NAI-79 Stage 1 (combined early-return)
 		return false
 	}
-	// DEVIATION NAI-78-D-HASINTERACTION-GUARD: TS Player.ts:1114 also
-	// gates on `!this.hasInteraction()` (false for follow-op:
-	// APPLAYER3 / OPPLAYER3). Pre-existing gap — was absent in the
-	// 2-branch shape too. NAI-78 shifts the path the case follows (now
-	// branch 3 → followOp post-step gate at processInteraction:221
-	// rather than direct OP-block dispatch) but the underlying gap
-	// is unchanged. Defer port alongside the rest of the follow-op
-	// semantics.
 	srv := p.client.server
 
 	opTrigger := getOpTrigger(p, srv)

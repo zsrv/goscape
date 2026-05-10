@@ -1006,13 +1006,22 @@ func TestFollowOpRepathsOnExhaustion(t *testing.T) {
 	}
 }
 
-// TestFollowOpContactFire — NAI-44 T5 / B4 (updated for NAI-78).
+// TestFollowOpContactFire — NAI-44 T5 / B4 (updated for NAI-78, updated for
+// NAI-147 T5).
 // OPPLAYER3 with no registered script, adjacent target Player:
 // Pre-NAI-78 the 2-branch fired tryFireOpTrigger unconditionally for
 // PathingEntity → ClearInteraction + auto-clear → target=nil.
 // Post-NAI-78 the 4-branch routes via branch 3 (approach=true, no AP
 // script, no OP trigger) → apRange=-1, return false. followOp gates the
 // post-step tryInteract, so no NIH fires this tick. Target preserved.
+// NAI-147 T5 — TS-faithful 3-part guard ports Player.ts:1114: follow-op
+// (targetOp=3, *Player target) now short-circuits at the top of tryInteract
+// via !HasInteraction() BEFORE reaching branch 3. apRange is therefore NOT
+// mutated to -1 (stays at the default 10). The net observable behavior is
+// identical to the NAI-78 state: tryInteract returns false, target preserved.
+// NAI-147-D-CANACCESS-MODAL-GATE: prior apRange=-1 assertion was pinning
+// intermediate goscape routing through branch 3; now branch-3 is bypassed
+// for follow-ops entirely per TS.
 func TestFollowOpContactFire(t *testing.T) {
 	s := setupServerForInteractionTest(t)
 	clicker := newTestPlayerAt(t, s, 1, 3200, 3200, 0)
@@ -1022,11 +1031,10 @@ func TestFollowOpContactFire(t *testing.T) {
 
 	clicker.processInteraction()
 
-	// NAI-78 branch 3: approach=true, no OP/AP trigger → apRange=-1, return false.
-	// followOp gates post-step-interact, so branch 4 (NIH) never fires.
-	// Target preserved for continued following.
-	if clicker.apRange != -1 {
-		t.Errorf("apRange: got %d, want -1 (NAI-78 branch 3 sentinel)", clicker.apRange)
+	// NAI-147 T5: follow-op short-circuits at top guard (!HasInteraction()),
+	// apRange is NOT mutated. Target preserved for continued following.
+	if clicker.apRange == -1 {
+		t.Errorf("apRange: got -1, want default 10 (NAI-147 T5: follow-op guard bypasses branch 3, no apRange=-1 mutation)")
 	}
 	if clicker.target == nil {
 		t.Errorf("target: got nil, want non-nil (followOp preserves target for continued chase)")
