@@ -45,6 +45,28 @@ func (p *Player) resolveMovement() {
 	// stepsTaken === 0 to gate post-step retry timing (Player.ts:1245).
 	p.stepsTaken = 0
 
+	// NAI-144: TS Player.ts:657 movement gate. When the player has an
+	// outstanding move-click request AND is busy (modal/delayed) AND has
+	// unfinished primary-queue OR engineQueue work, suppress movement
+	// for this tick.
+	//
+	// INERT AT HEAD: goscape currently has zero `moveClickRequest = true`
+	// assignment sites (verified at HEAD pre-NAI-144). TS sets it in
+	// World.ts:611-628 (per-tick post-decode pathfinding pass); goscape's
+	// structural equivalent lives in moveClickInner (handlers_game.go),
+	// which runs at decode-time, not per-tick. The gate is wired
+	// TS-faithful and ready to fire as soon as a setter port lands —
+	// see tracker NAI-144-D-MoveClickRequestSetter.
+	//
+	// Gate body explicitly clears walkDir/runDir to avoid stale prior-tick
+	// values bleeding into the current tick's outbound info block (the
+	// existing "no waypoints" branch below sets the same pattern).
+	if p.moveClickRequest && p.Busy() && (len(p.queue) > 0 || len(p.engineQueue) > 0) {
+		p.walkDir = -1
+		p.runDir = -1
+		return
+	}
+
 	// NAI-135: Bridge p.run → moveSpeed. Mirrors TS Player.ts:661-668.
 	// moveSpeed==Instant skip preserves the teleport-jump invariant
 	// from P_TELEJUMP / RebuildNormal (TS Player.ts:556).
