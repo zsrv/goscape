@@ -325,15 +325,23 @@ func handleInvAdd(s *ScriptState) error {
 	return performInvAdd(s, typeID, obj, count, "INV_ADD")
 }
 
-// performInvAdd is the shared invAdd impl. Mirrors TS Player.invAdd —
-// the method that both INV_ADD opcode and OBJ_TAKEITEM call. Validates
-// invType + objType + count, enforces protect/scope + dummyitem gates,
-// resolves the inv, routes via Inventory.Add, and drops overflow at
-// the player's tile.
+// performInvAdd is the shared body of the INV_ADD opcode. Mirrors TS
+// InvOps.ts:57-83: validates invType + objType + count, enforces
+// protect/scope + dummyitem gates, resolves the inv, routes via
+// Inventory.Add, and drops overflow at the player's tile.
 //
-// Pre-conditions: caller has invoked requireActivePlayer (s.Self is
-// dereferenced for the overflow drop). Inputs are raw script ints;
-// performInvAdd does its own check chain so each call site stays minimal.
+// Note: TS Player.invAdd (Player.ts:1496-1504) is bare — getInventory +
+// container.add only. The gates live in TS's INV_ADD opcode body, which
+// performInvAdd ports. NAI-153 T4 (OBJ_TAKEITEM) routes through
+// performInvAdd anyway; goscape lacks a separate "bare invAdd" entity
+// method and the gates are no-ops for the realistic OBJ_TAKEITEM call
+// shape (non-protected inv, non-dummyitem obj). T4 will tag this as a
+// NAI-153 deviation.
+//
+// Pre-conditions: caller has invoked requireActivePlayer (s.Self must
+// be non-nil with PtrActivePlayer set; it is dereferenced for the
+// overflow drop). Inputs are raw script ints; performInvAdd does its
+// own check chain so each call site stays minimal.
 func performInvAdd(s *ScriptState, typeID, obj, count int, op string) error {
 	// TS InvOps.ts:60-62 — InvTypeValid, ObjTypeValid, ObjStackValid.
 	if err := checkInvType(s, typeID, op); err != nil {
