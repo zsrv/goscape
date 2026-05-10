@@ -70,6 +70,14 @@ var (
 	// inv with RunWeight=true is dirtied or first-seen. Mirrors TS
 	// ServerGameProt.UPDATE_RUNWEIGHT (opcode 22, 2-byte payload).
 	OpUpdateRunWeight       = Op{Opcode: 22, PayloadSize: 2}
+	// OpSetMultiway tells the client to show or hide the multi-combat
+	// overlay icon (top-right of the chatbox). Sent on transitions across
+	// multi-combat zone boundaries from updateBuildArea. 1-byte payload
+	// (pbool): 0 to hide overlay (left a multi zone), 1 to show overlay
+	// (entered a multi zone). Mirrors TS ServerGameProt.SET_MULTIWAY
+	// (opcode 254, size 1) and SetMultiwayEncoder (`buf.pbool(message.hidden)`)
+	// at Engine-TS/src/network/game/server/codec/SetMultiwayEncoder.ts.
+	OpSetMultiway           = Op{Opcode: 254, PayloadSize: 1}
 	OpUpdateInvStopTransmit = Op{Opcode: 15, PayloadSize: 2}
 
 	// Per-player VARP sync. VARP_SMALL fits values in [-128, 127];

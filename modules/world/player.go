@@ -899,40 +899,62 @@ func (p *Player) updateStats() {
 	}
 }
 
-// updateBuildArea drains deferred camera packets then fires rebuildZones()
-// on per-tick zone transitions.
+// updateBuildArea drains deferred camera packets, then handles per-tick
+// mapzone (64-tile-grid) and zone (8-tile-grid) transitions. Mirrors TS
+// NetworkPlayer.updateMap (NetworkPlayer.ts:243-287) end-to-end.
 //
-// Camera drain mirrors TS NetworkPlayer.updateMap (NetworkPlayer.ts:243-253):
+// Step 1 — camera drain (NetworkPlayer.ts:244-253, NAI-143):
 //
-//	for (const info of this.cameraPackets) {
+//	for (const info of this.cameraPackets.all()) {
 //	    const localX = info.camX - CoordGrid.zoneOrigin(this.originX);
 //	    const localZ = info.camZ - CoordGrid.zoneOrigin(this.originZ);
-//	    // ... write OpCamMoveTo or OpCamLookAt ...
+//	    // ... write CamMoveTo or CamLookAt ...
 //	}
-//	this.cameraPackets.length = 0;
 //
 // Origin freshness is preserved by NAI-93 ordering: Player.updateMap
 // (TS BuildArea.rebuildNormal slot) runs in Server.processInfo before
 // processOut, so p.originX/Z are already anchored to the current
 // rebuild position when this drain fires.
 //
-// Zone-transition logic mirrors TS NetworkPlayer.updateMap
-// (NetworkPlayer.ts:269-271):
+// Step 2 — lastMapZone transition (NetworkPlayer.ts:255-266, NAI-145):
+//
+//	const mapZone = CoordGrid.packCoord(0, (this.x >> 6) << 6, (this.z >> 6) << 6);
+//	if (this.lastMapZone !== mapZone) {
+//	    if (this.lastMapZone !== -1) {
+//	        const { x, z } = CoordGrid.unpackCoord(this.lastMapZone);
+//	        this.triggerMapzoneExit(x, z);
+//	    }
+//	    this.triggerMapzone((this.x >> 6) << 6, (this.z >> 6) << 6);
+//	    this.lastMapZone = mapZone;
+//	}
+//
+// Step 3 — lastZone transition (NetworkPlayer.ts:268-287, NAI-142 +
+// NAI-145):
 //
 //	const zone = CoordGrid.packCoord(this.level, (this.x >> 3) << 3, (this.z >> 3) << 3);
 //	if (this.lastZone !== zone) {
 //	    this.buildArea.rebuildZones();
-//	    // ... triggerZone/triggerZoneExit/SetMultiway (NAI-142-D-R-D3)
+//	    const lastWasMulti = World.gameMap.isMulti(this.lastZone);
+//	    const nowIsMulti = World.gameMap.isMulti(zone);
+//	    if (lastWasMulti != nowIsMulti) {
+//	        this.write(new SetMultiway(nowIsMulti));
+//	    }
+//	    if (this.lastZone !== -1) {
+//	        const { level, x, z } = CoordGrid.unpackCoord(this.lastZone);
+//	        this.triggerZoneExit(level, x, z);
+//	    }
+//	    this.triggerZone(this.level, (this.x >> 3) << 3, (this.z >> 3) << 3);
 //	    this.lastZone = zone;
 //	}
 //
-// lastMapZone + triggerMapzone (NetworkPlayer.ts:256-266), and
-// triggerZone + triggerZoneExit + SetMultiway (NetworkPlayer.ts:274-285)
-// are deferred follow-ups; see nai_followups.md NAI-142-D-R-D{2,3}.
+// First-tick semantics for both blocks: the -1 sentinels suppress
+// triggerMapzoneExit / triggerZoneExit on the very first updateBuildArea
+// call. SetMultiway emission still fires on first tick if the player
+// spawns into a multi-combat tile (UnpackCoord(-1) yields a defensive
+// position whose IsMulti lookup map-misses to false → transition
+// detected). Matches TS World.gameMap.isMulti(-1) → false behavior.
 func (p *Player) updateBuildArea() {
-	// 1. drain cameraPackets — TS NetworkPlayer.ts:244-253. Origin is
-	// already fresh because Player.updateMap (TS BuildArea.rebuildNormal
-	// slot) runs in Server.processInfo before processOut per NAI-93.
+	// 1. drain cameraPackets — TS NetworkPlayer.ts:244-253 (NAI-143).
 	for i := range p.cameraPackets {
 		info := p.cameraPackets[i]
 		localX := info.camX - coordgrid.ZoneOrigin(p.originX)
@@ -940,7 +962,7 @@ func (p *Player) updateBuildArea() {
 		payload := []byte{
 			byte(localX),
 			byte(localZ),
-			byte(info.height >> 8), byte(info.height), // p2 big-endian
+			byte(info.height >> 8), byte(info.height),
 			byte(info.rotationSpeed),
 			byte(info.rotationMultiplier),
 		}
@@ -952,10 +974,50 @@ func (p *Player) updateBuildArea() {
 	}
 	p.cameraPackets = p.cameraPackets[:0]
 
-	// 2. lastZone — TS NetworkPlayer.ts:269-271 (NAI-142).
+	// 2. lastMapZone transition — TS NetworkPlayer.ts:255-266 (NAI-145
+	// / NAI-142-D-R-D2).
+	mapZone := coordgrid.PackCoord(0, (p.x>>6)<<6, (p.z>>6)<<6)
+	if p.lastMapZone != mapZone {
+		if p.lastMapZone != -1 {
+			prev := coordgrid.UnpackCoord(p.lastMapZone)
+			p.triggerMapzoneExit(prev.X, prev.Z)
+		}
+		p.triggerMapzone((p.x>>6)<<6, (p.z>>6)<<6)
+		p.lastMapZone = mapZone
+	}
+
+	// 3. lastZone transition — TS NetworkPlayer.ts:268-287 (NAI-142
+	// rebuildZones + NAI-145 SetMultiway/zone-trigger enrichment).
 	zone := coordgrid.PackCoord(p.level, (p.x>>3)<<3, (p.z>>3)<<3)
 	if p.lastZone != zone {
 		p.rebuildZones()
+
+		// SetMultiway emit on multi-flag transition. lastZone=-1 first-tick
+		// unpacks to {Level:3, X:0x3FFF, Z:0x3FFF} → IsMulti map-miss →
+		// false, matching TS World.gameMap.isMulti(-1) → false. The
+		// gamemap nil-guard is goscape defensive (TS skips this check —
+		// World.gameMap is always present in TS but test fixtures here
+		// often omit it).
+		var lastWasMulti, nowIsMulti bool
+		if p.client != nil && p.client.server != nil && p.client.server.gamemap != nil {
+			gm := p.client.server.gamemap
+			prev := coordgrid.UnpackCoord(p.lastZone)
+			lastWasMulti = gm.IsMulti(prev.X, prev.Z, prev.Level)
+			nowIsMulti = gm.IsMulti(p.x, p.z, p.level)
+		}
+		if lastWasMulti != nowIsMulti {
+			var hidden byte
+			if nowIsMulti {
+				hidden = 1
+			}
+			p.writeOut(gameserver.OpSetMultiway, []byte{hidden})
+		}
+
+		if p.lastZone != -1 {
+			prev := coordgrid.UnpackCoord(p.lastZone)
+			p.triggerZoneExit(prev.Level, prev.X, prev.Z)
+		}
+		p.triggerZone(p.level, (p.x>>3)<<3, (p.z>>3)<<3)
 		p.lastZone = zone
 	}
 }
