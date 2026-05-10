@@ -9,7 +9,7 @@ const (
 	QueueStrong
 	QueueWeak
 	QueueLong
-	QueueEngine // reserved
+	QueueEngine // NAI-144: TS PlayerQueueType.ENGINE — separate engineQueue with canAccess()-gated drain (Player.ts:641-651)
 	QueueSoft   // reserved
 )
 

@@ -70,13 +70,21 @@ func (p *Player) EnqueueScriptFile(sf *script.ScriptFile, delay int, intArgs []i
 	if sf == nil {
 		return
 	}
-	p.queue = append(p.queue, playerQueueRequest{
+	req := playerQueueRequest{
 		Script:     sf,
 		Delay:      delay,
 		IntArgs:    intArgs,
 		StringArgs: stringArgs,
 		Type:       qtype,
-	})
+	}
+	if qtype == script.QueueEngine {
+		// NAI-144: TS Player.ts:823-826 — ENGINE entries land in the
+		// separate engineQueue; processPlayerEngineQueues drains them
+		// between processPlayerTimers and processPathing.
+		p.engineQueue = append(p.engineQueue, req)
+		return
+	}
+	p.queue = append(p.queue, req)
 }
 
 // clearWeakQueue removes every QueueWeak entry from p.queue, preserving

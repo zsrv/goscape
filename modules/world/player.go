@@ -161,6 +161,17 @@ type Player struct {
 	activeScript *script.ScriptState
 	queue        []playerQueueRequest
 
+	// engineQueue is the per-player TS PlayerQueueType.ENGINE drain (NAI-144).
+	// Mirrors TS Player.engineQueue (Engine-TS/.../Player.ts:343
+	// LinkList<PlayerQueueRequest>). Drained by processPlayerEngineQueues
+	// between processPlayerTimers and processPathing in the master tick
+	// loop, matching TS World.ts:725 ordering. Distinct from p.queue:
+	// gated by canAccess() (not !p.delayed); no QueueStrong bypass; no
+	// modal-close pre-pass. Entries always carry Type==QueueEngine —
+	// the discriminator is redundant for this slice but kept for struct
+	// shape parity (DEVIATION-NAI-144-D2).
+	engineQueue []playerQueueRequest
+
 	// cameraPackets is the per-player buffer of deferred camera packets.
 	// CAM_MOVETO / CAM_LOOKAT script opcodes append; updateBuildArea drains
 	// at top-of-tick (after Player.updateMap has refreshed originX/originZ
