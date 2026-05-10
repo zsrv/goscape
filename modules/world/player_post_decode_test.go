@@ -289,3 +289,56 @@ func TestProcessPostDecode_FaceEntityNoOpWhenAlreadyMinusOne(t *testing.T) {
 		t.Errorf("masks: got %d, want 0 (faceEntity already -1 → masks NOT touched)", p.masks)
 	}
 }
+
+// TestProcessPostDecode_MoveClickRequest_NotBusyOpcalled pins TS L624-625
+// branch: !busy() && opcalled → moveClickRequest = false.
+func TestProcessPostDecode_MoveClickRequest_NotBusyOpcalled(t *testing.T) {
+	p, _ := newPostDecodeTestPlayer(t)
+	p.opcalled = true
+	p.delayed = false
+	p.modalState = modalStateNone
+	p.moveClickRequest = true // sentinel — must flip to false
+	p.targetOp = -1           // disable pathToTarget branch (-1 ≠ 3, but opcalled=true → would fire)
+	// Need to also block the pathToTarget branch from firing first:
+	// !followingPlayer && opcalled && (len(userPath)==0 || !routefinder).
+	// With routefinder=true (default) AND len(userPath)>0, the gate fails →
+	// pathToTarget skipped. userPath is set in the fixture; routefinder=true default.
+
+	p.processPostDecode()
+
+	if p.moveClickRequest {
+		t.Error("moveClickRequest: want false (!Busy + opcalled)")
+	}
+}
+
+// TestProcessPostDecode_MoveClickRequest_BusyOpcalled pins TS L626-627
+// branch: Busy + opcalled → moveClickRequest = true.
+func TestProcessPostDecode_MoveClickRequest_BusyOpcalled(t *testing.T) {
+	p, _ := newPostDecodeTestPlayer(t)
+	p.opcalled = true
+	p.modalState = modalStateMain // Busy() = true
+	p.delayed = false
+	p.moveClickRequest = false // sentinel — must flip to true
+
+	p.processPostDecode()
+
+	if !p.moveClickRequest {
+		t.Error("moveClickRequest: want true (Busy + opcalled)")
+	}
+}
+
+// TestProcessPostDecode_MoveClickRequest_NotBusyNotOpcalled pins TS
+// L626-627 else-branch: !Busy + !opcalled + userPath set → moveClickRequest = true.
+func TestProcessPostDecode_MoveClickRequest_NotBusyNotOpcalled(t *testing.T) {
+	p, _ := newPostDecodeTestPlayer(t)
+	p.opcalled = false
+	p.delayed = false
+	p.modalState = modalStateNone
+	p.moveClickRequest = false // sentinel
+
+	p.processPostDecode()
+
+	if !p.moveClickRequest {
+		t.Error("moveClickRequest: want true (!Busy + !opcalled + userPath set)")
+	}
+}

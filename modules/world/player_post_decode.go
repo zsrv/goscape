@@ -44,4 +44,12 @@ func (p *Player) processPostDecode() {
 			p.masks |= p.entitymask
 		}
 	}
+
+	// TS L624-628: moveClickRequest setter. Activates the gate at
+	// modules/world/movement.go:64 (NAI-144 — previously inert at HEAD).
+	if !p.Busy() && p.opcalled {
+		p.moveClickRequest = false
+	} else {
+		p.moveClickRequest = true
+	}
 }
