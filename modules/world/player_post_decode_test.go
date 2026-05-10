@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
+	"github.com/zsrv/goscape/pkg/coordgrid"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 )
@@ -340,5 +341,87 @@ func TestProcessPostDecode_MoveClickRequest_NotBusyNotOpcalled(t *testing.T) {
 
 	if !p.moveClickRequest {
 		t.Error("moveClickRequest: want true (!Busy + !opcalled + userPath set)")
+	}
+}
+
+// TestProcessPostDecode_PathToTargetFiresAndReturns pins TS L630-633:
+// when !followingPlayer && opcalled && (userPath==0 || !routefinder),
+// pathToTarget runs and the block returns BEFORE the walktrigger
+// fallback. Sentinel: walktrigger=42 with PLAYERSETUP cfg would be
+// consumed by the fallback if it ran; we assert it survives.
+func TestProcessPostDecode_PathToTargetFiresAndReturns(t *testing.T) {
+	p, s := newPostDecodeTestPlayer(t)
+	s.cfg.NodeWalktriggerSetting = WalkTriggerSettingPlayersetup
+	s.cfg.NodeClientRoutefinder = false // forces the pathToTarget gate
+	p.opcalled = true
+	p.targetOp = 1 // not 3 → !followingPlayer
+	p.target = nil // pathToTarget short-circuits to no-op (interaction.go:672)
+	p.delayed = false
+	p.modalState = modalStateNone
+	p.walktrigger = 42 // sentinel — would be consumed by fallback if it ran
+	p.userPath = []int{coordgrid.PackCoord(p.level, p.x+1, p.z)}
+
+	p.processPostDecode()
+
+	if p.walktrigger != 42 {
+		t.Errorf("walktrigger: got %d, want 42 (pathToTarget branch must return BEFORE walktrigger fallback)", p.walktrigger)
+	}
+}
+
+// TestProcessPostDecode_PathToTargetSkippedForFollowingPlayer pins
+// TS L630 followingPlayer guard: targetOp==3 → pathToTarget NOT called
+// → walktrigger fallback proceeds.
+//
+// Signal: waypointIndex starts at -1; if fallback runs,
+// pathToMoveClick → queueWaypoints sets it to >=0.
+// (We can't use walktrigger here: PLAYERSETUP fallback only fires
+// processWalktrigger when !opcalled, and we need opcalled=true to
+// satisfy the other clauses of the pathToTarget gate.)
+func TestProcessPostDecode_PathToTargetSkippedForFollowingPlayer(t *testing.T) {
+	p, s := newPostDecodeTestPlayer(t)
+	s.cfg.NodeWalktriggerSetting = WalkTriggerSettingPlayermovement // re-paths but no walktrigger
+	s.cfg.NodeClientRoutefinder = false                              // gate's userPath/routefinder clause WOULD pass
+	p.opcalled = true                                                // satisfies opcalled clause
+	p.targetOp = 3                                                   // followingPlayer → BLOCKS gate at first clause
+	p.delayed = false
+	p.modalState = modalStateNone
+	p.userPath = []int{coordgrid.PackCoord(p.level, p.x+1, p.z)}
+	p.waypointIndex = -1 // sentinel
+
+	p.processPostDecode()
+
+	if !p.hasWaypoints() {
+		t.Errorf("waypointIndex: got %d, want >= 0 (followingPlayer skips pathToTarget → fallback's pathToMoveClick re-paths)", p.waypointIndex)
+	}
+}
+
+// TestProcessPostDecode_PathToTargetSkippedWhenRoutefinderAndUserPath
+// pins TS L630 third gate-clause: with NodeClientRoutefinder=true AND
+// userPath non-empty, the pathToTarget branch is skipped (the
+// disjunction `len(userPath)==0 || !routefinder` is false →
+// pathToTarget gate fails) → walktrigger fallback proceeds and
+// re-paths userPath via pathToMoveClick.
+//
+// Signal: waypointIndex starts at -1 sentinel; if fallback runs,
+// pathToMoveClick → queueWaypoints sets it to >=0.
+// (We can't use walktrigger as signal here: opcalled=true is required
+// to satisfy the OTHER clauses of the pathToTarget gate, but the
+// PLAYERSETUP walktrigger sub-branch requires !opcalled — so
+// walktrigger would NOT be consumed even if fallback proceeded.)
+func TestProcessPostDecode_PathToTargetSkippedWhenRoutefinderAndUserPath(t *testing.T) {
+	p, s := newPostDecodeTestPlayer(t)
+	s.cfg.NodeWalktriggerSetting = WalkTriggerSettingPlayermovement // re-path only; no walktrigger
+	s.cfg.NodeClientRoutefinder = true
+	p.opcalled = true                    // satisfies pathToTarget opcalled clause
+	p.targetOp = 1                       // !followingPlayer
+	p.delayed = false
+	p.modalState = modalStateNone
+	p.userPath = []int{coordgrid.PackCoord(p.level, p.x+1, p.z)}
+	p.waypointIndex = -1                 // sentinel; fallback's pathToMoveClick should set >=0
+
+	p.processPostDecode()
+
+	if !p.hasWaypoints() {
+		t.Errorf("waypointIndex: got %d, want >= 0 (routefinder+userPath skips pathToTarget → fallback's pathToMoveClick re-paths)", p.waypointIndex)
 	}
 }

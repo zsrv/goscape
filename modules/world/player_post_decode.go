@@ -52,4 +52,17 @@ func (p *Player) processPostDecode() {
 	} else {
 		p.moveClickRequest = true
 	}
+
+	s := p.client.server
+
+	// TS L630-633: pathToTarget when op-driven and not following a
+	// player. followingPlayer = (targetOp == 3) per
+	// modules/world/interaction.go:140-146 (goscape stores raw op
+	// slot 1..4; APPLAYER3 / OPPLAYER3 both map to 3).
+	followingPlayer := p.targetOp == 3
+	if !followingPlayer && p.opcalled &&
+		(len(p.userPath) == 0 || !s.cfg.NodeClientRoutefinder) {
+		p.pathToTarget()
+		return
+	}
 }
