@@ -191,6 +191,48 @@ func TestDefaultOp_DebugnameComOverride_TBranch(t *testing.T) {
 	}
 }
 
+// TestDefaultOp_DebugnameTBranch_PlayerTUnconditional pins TS L1086:
+// the `com !== -1` guard applies only to APNPCT. APPLAYERT/APLOCT/APOBJT
+// enter the com branch unconditionally and fall through to the numeric
+// targetSubject form when com is -1.
+func TestDefaultOp_DebugnameTBranch_PlayerTUnconditional(t *testing.T) {
+	s, p, received := makeDefaultOpFixture(t)
+	s.cfg.NodeDebug = true
+
+	other, otherWait := makeInteractionPlayer(t, s, 101, 100, 0)
+	defer otherWait()
+	p.SetInteraction(InteractionEngine, other, targetOpPlayerT, -1)
+
+	defaultOp(p, nil, nil)
+	p.client.flushWrite()
+	got := <-received
+
+	if !bytes.Contains(got, []byte(",-1]")) {
+		t.Errorf("debug message numeric com fallback (PlayerT, com=-1) missing; got %x", got)
+	}
+}
+
+// TestDefaultOp_DebugnameTBranch_NpcTGuarded pins the inverse: APNPCT
+// with com=-1 SKIPS the T-branch (TS L1086 — the `com !== -1` guard
+// applies only here). Falls through to subjectType then default `_`.
+func TestDefaultOp_DebugnameTBranch_NpcTGuarded(t *testing.T) {
+	s, p, received := makeDefaultOpFixture(t)
+	s.cfg.NodeDebug = true
+
+	other, otherWait := makeInteractionPlayer(t, s, 101, 100, 0)
+	defer otherWait()
+	p.SetInteraction(InteractionEngine, other, targetOpNpcT, -1)
+	p.targetSubject.typ = -1
+
+	defaultOp(p, nil, nil)
+	p.client.flushWrite()
+	got := <-received
+
+	if !bytes.Contains(got, []byte(",_]")) {
+		t.Errorf("debug message default underscore (NpcT, com=-1) missing; got %x", got)
+	}
+}
+
 func TestDefaultOp_DebugnameSubjectTypeOverride(t *testing.T) {
 	s, p, received := makeDefaultOpFixture(t)
 	s.cfg.NodeDebug = true

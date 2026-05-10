@@ -503,8 +503,13 @@ func defaultOpDebugname(p *Player, s *Server) string {
 		return strconv.Itoa(tgt.Type)
 	}
 
-	// T-trigger com-branch (TS L1086).
-	if p.targetSubject.com != -1 && isApTTrigger(p.targetOp) {
+	// T-trigger com-branch (TS L1086). The `com != -1` guard applies
+	// only to APNPCT in TS; APPLAYERT/APLOCT/APOBJT enter the com
+	// branch unconditionally and fall through to the numeric
+	// targetSubject form when com is -1.
+	if (p.targetSubject.com != -1 && p.targetOp == targetOpNpcT) ||
+		p.targetOp == targetOpPlayerT || p.targetOp == targetOpLocT ||
+		p.targetOp == targetOpObjT {
 		com := p.targetSubject.com
 		if s.componentTypes != nil && com >= 0 && com < len(s.componentTypes.Configs) {
 			if ct := s.componentTypes.Configs[com]; ct != nil && ct.ComName != "" {
@@ -527,16 +532,6 @@ func defaultOpDebugname(p *Player, s *Server) string {
 	}
 
 	return "_"
-}
-
-// isApTTrigger reports whether targetOp is one of the four T-trigger
-// dispatch markers (APNPCT/APPLAYERT/APLOCT/APOBJT analogues). Mirrors
-// TS Player.ts:1086 trigger-list. Goscape uses dispatch-marker
-// sentinels (interaction.go:33-39) rather than per-T trigger numerics
-// — the four sentinels are exhaustive.
-func isApTTrigger(targetOp int) bool {
-	return targetOp == targetOpLocT || targetOp == targetOpNpcT ||
-		targetOp == targetOpPlayerT || targetOp == targetOpObjT
 }
 
 // inOperableDistance reports whether p is in contact range of target.
