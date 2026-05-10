@@ -241,9 +241,52 @@ func (gm *GameMap) loadNPCs(data []byte, mapSquareX, mapSquareZ int) {
 }
 
 // loadObjs records ground-object positions from the o{X}_{Z} file.
-// Sub-spec 2 discards these (no Obj entity type yet).
+// Mirrors LostCityRS/Engine-TS/src/engine/GameMap.ts:139-159.
+//
+// Wire layout per record: position(G2, packed level<<12|localX<<6|localZ)
+// + tile-count(G1) + tile-count × (typeID(G2) + count(G1)).
+//
+// Two gates mirror TS:
+//   - tile gate: skip when !members && !isFreeToPlay(absX, absZ)
+//   - objtype gate: include when (objType.Members && members) || !objType.Members
+//
+// nil objTypes (test fixtures without registered configs) → skip all
+// records silently. NAI-151.
 func (gm *GameMap) loadObjs(data []byte, mapSquareX, mapSquareZ int) {
-	_ = data
-	_ = mapSquareX
-	_ = mapSquareZ
+	p := packet.NewPacket(data)
+	for p.Len() >= 3 {
+		packed := int(p.G2())
+		tileCount := int(p.G1())
+		level := (packed >> 12) & 0x3
+		localX := (packed >> 6) & 0x3F
+		localZ := packed & 0x3F
+		absX := mapSquareX*mapSquareSize + localX
+		absZ := mapSquareZ*mapSquareSize + localZ
+		for i := 0; i < tileCount && p.Len() >= 3; i++ {
+			typeID := int(p.G2())
+			count := int(p.G1())
+			// Tile gate: skip members-only tile in F2P-only server.
+			if !gm.members && !gm.IsFreeToPlay(absX, absZ) {
+				continue
+			}
+			// nil-objTypes guard preserves test fixtures with empty caches.
+			if gm.objTypes == nil {
+				continue
+			}
+			if typeID < 0 || typeID >= len(gm.objTypes.Configs) {
+				continue
+			}
+			ot := gm.objTypes.Configs[typeID]
+			if ot == nil {
+				continue
+			}
+			// ObjType gate: TS expression `(Members && members) || !Members`.
+			if !((ot.Members && gm.members) || !ot.Members) {
+				continue
+			}
+			gm.objSpawns = append(gm.objSpawns, ObjSpawn{
+				TypeID: typeID, Count: count, X: absX, Z: absZ, Level: level,
+			})
+		}
+	}
 }
