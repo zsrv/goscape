@@ -154,3 +154,43 @@ func TestProcessPostDecode_OuterGateSkipsWhenIdle(t *testing.T) {
 		t.Error("moveClickRequest: want false (block skipped on !userPath && !opcalled)")
 	}
 }
+
+// TestProcessPostDecode_DelayedFiresUnsetMapFlagAndReturns pins TS
+// L614-617: when delayed AND outer gate satisfied (userPath set),
+// unsetMapFlag fires (waypointIndex=-1 + OpUnsetMapFlag) and the
+// block returns BEFORE the faceEntity reset / moveClickRequest setter.
+//
+// newPostDecodeTestPlayer (defined below) returns the conn alongside
+// the player so this test can drainConn the wire output.
+func TestProcessPostDecode_DelayedFiresUnsetMapFlagAndReturns(t *testing.T) {
+	p, _, cc := newPostDecodeTestPlayerWithConn(t)
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	sibling := io2.New([4]uint32{1, 2, 3, 4})
+
+	p.delayed = true
+	p.waypointIndex = 5    // would clear under unsetMapFlag bundle
+	p.faceEntity = 42      // would reset if delayed branch DIDN'T return
+	p.moveClickRequest = true // sentinel — must NOT be touched after return
+
+	received := drainConn(t, cc)
+	p.processPostDecode()
+	p.client.flushWrite()
+	emitted := <-received
+
+	if p.waypointIndex != -1 {
+		t.Errorf("waypointIndex: got %d, want -1 (delayed → unsetMapFlag bundle)", p.waypointIndex)
+	}
+	if len(emitted) == 0 {
+		t.Fatalf("no bytes emitted; expected OpUnsetMapFlag (opcode %d)", gameserver.OpUnsetMapFlag.Opcode)
+	}
+	wantEnc := byte((int(gameserver.OpUnsetMapFlag.Opcode) + int(sibling.GetNext())) & 0xff)
+	if emitted[0] != wantEnc {
+		t.Errorf("first emitted byte: got %d, want %d (encrypted OpUnsetMapFlag)", emitted[0], wantEnc)
+	}
+	if p.faceEntity != 42 {
+		t.Errorf("faceEntity: got %d, want 42 (delayed branch must return BEFORE faceEntity reset)", p.faceEntity)
+	}
+	if !p.moveClickRequest {
+		t.Error("moveClickRequest: want true (sentinel preserved — delayed branch must return BEFORE setter)")
+	}
+}

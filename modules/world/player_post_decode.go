@@ -25,4 +25,10 @@ func (p *Player) processPostDecode() {
 	if p.client == nil || p.client.server == nil {
 		return
 	}
+
+	// TS L614-617: delayed → unsetMapFlag and skip the rest of the block.
+	if p.delayed {
+		p.unsetMapFlag()
+		return
+	}
 }
