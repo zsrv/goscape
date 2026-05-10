@@ -211,17 +211,11 @@ func (ot *ObjType) Decode(code uint8, dat *packet2.Packet) error {
 	case 27:
 		ot.WearPos3 = int(dat.G1())
 	case 30, 31, 32, 33, 34:
-		if ot.Op == nil {
-			ot.Op = make([]string, 5)
-		}
 		ot.Op[code-30] = dat.GJStrLF()
 		if ot.Op[code-30] == "hidden" {
 			ot.Op[code-30] = ""
 		}
 	case 35, 36, 37, 38, 39:
-		if ot.IOp == nil {
-			ot.IOp = make([]string, 5)
-		}
 		ot.IOp[code-35] = dat.GJStrLF()
 	case 40:
 		count := dat.G1()

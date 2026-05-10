@@ -52,6 +52,43 @@ func TestNewObjTypeOpDefaults(t *testing.T) {
 	}
 }
 
+func TestObjTypeDecodeSilentCachePreservesDefaults(t *testing.T) {
+	pkt := packet2.NewPacket(nil)
+	pkt.P1(0) // terminator only — no codes
+
+	ot := NewObjType(0)
+	if err := DecodeType(pkt, ot); err != nil {
+		t.Fatalf("DecodeType: %v", err)
+	}
+
+	if got := ot.Op[2]; got != "Take" {
+		t.Errorf("Op[2] (silent cache): got %q, want \"Take\"", got)
+	}
+	if got := ot.IOp[4]; got != "Drop" {
+		t.Errorf("IOp[4] (silent cache): got %q, want \"Drop\"", got)
+	}
+}
+
+func TestObjTypeDecodeCode32OverridesDefault(t *testing.T) {
+	pkt := packet2.NewPacket(nil)
+	pkt.P1(32)
+	pkt.PJStrLF("Whatever")
+	pkt.P1(0)
+
+	ot := NewObjType(0)
+	if err := DecodeType(pkt, ot); err != nil {
+		t.Fatalf("DecodeType: %v", err)
+	}
+
+	if got := ot.Op[2]; got != "Whatever" {
+		t.Errorf("Op[2] (code 32 override): got %q, want \"Whatever\"", got)
+	}
+	// Non-overridden slots still default.
+	if got := ot.IOp[4]; got != "Drop" {
+		t.Errorf("IOp[4]: got %q, want \"Drop\"", got)
+	}
+}
+
 func TestLoadObjTypesFromPack(t *testing.T) {
 	cacheDir := filepath.Join("..", "..", "data", "pack")
 
