@@ -1539,8 +1539,12 @@ func TestProcessInteractionEntryResetsNextTargetEvenOnLevelMismatch(t *testing.T
 // TestDefaultOp_EmitsNIHAndClearsWaypoints pins TS
 // LostCityRS/Engine-TS Player.ts:1072-1097. defaultOp must emit
 // "Nothing interesting happens." to the player AND clear the
-// waypoint queue (waypointIndex = -1). Goscape skips the
-// NODE_PRODUCTION-gated dev "No trigger for [...]" debug line.
+// waypoint queue (waypointIndex = -1). Goscape ports the
+// NODE_PRODUCTION-gated dev "No trigger for [...]" debug line under
+// cfg.NodeDebug (NAI-147 T4 closed NAI-78-D-DEBUG-MSG-DEFERRED).
+// This test runs with NodeDebug=false (the makeOpLocTriggerFixture
+// default) so the debug line is suppressed and only
+// "Nothing interesting happens." is asserted.
 func TestDefaultOp_EmitsNIHAndClearsWaypoints(t *testing.T) {
 	_, p, _, cc := makeOpLocTriggerFixture(t)
 
@@ -1549,7 +1553,7 @@ func TestDefaultOp_EmitsNIHAndClearsWaypoints(t *testing.T) {
 	p.waypoints[5] = 0xCAFE
 
 	received := drainConn(t, cc)
-	defaultOp(p)
+	defaultOp(p, nil, nil)
 	p.client.flushWrite()
 	got := <-received
 

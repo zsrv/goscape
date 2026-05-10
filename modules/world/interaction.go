@@ -1,11 +1,15 @@
 package world
 
 import (
+	"fmt"
+	"strconv"
+
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/pathfinder/reach"
+	"github.com/zsrv/goscape/pkg/script"
 )
 
 // InteractionKind distinguishes engine-triggered from script-queued
@@ -440,7 +444,7 @@ func (p *Player) tryInteract(allowOpScenery bool) bool {
 
 	// Branch 4 — default-OP NIH (TS Player.ts:1179-1182).
 	if (isPathing || allowOpScenery) && operable {
-		defaultOp(p)
+		defaultOp(p, opTrigger, apTrigger)
 		recordTryInteractBranch(p, 4) // NAI-79 Stage 1
 		return true
 	}
@@ -454,15 +458,85 @@ func (p *Player) tryInteract(allowOpScenery bool) bool {
 // [op…] script is registered. Mirrors LostCityRS/Engine-TS
 // Player.ts:1072-1097.
 //
-// DEVIATION NAI-78-D-DEBUG-MSG-DEFERRED: TS Player.ts:1076-1093 emits a
-// `[debug] No trigger for [op<entity><op>,<typeName>]` chat message under
-// `!NODE_PRODUCTION`. Goscape's analogue is `Cfg.NodeDebug` (config.go:76,
-// "Extra debug info, e.g. missing triggers"), but no other interaction-tier
-// missing-trigger handler consults it today. The debug-emit port is
-// deferred to a future sub-spec for cross-handler consistency.
-func defaultOp(p *Player) {
+// NAI-147 T4 closes NAI-78-D-DEBUG-MSG-DEFERRED: under cfg.NodeDebug
+// (TS !NODE_PRODUCTION analogue) and both triggers nil, emit the TS
+// L1076-1093 debug chat. NAI-147-D-TRIGGER-NAME-NUMERIC: trigger name
+// emitted in numeric form because pkg/script.ServerTriggerType has no
+// String() table — adding a 50+ entry name table for one debug-only
+// chat is over-investment.
+func defaultOp(p *Player, opTrigger, apTrigger *script.ScriptFile) {
+	if p.client != nil && p.client.server != nil {
+		s := p.client.server
+		if s.cfg.NodeDebug && opTrigger == nil && apTrigger == nil {
+			debugname := defaultOpDebugname(p, s)
+			p.MessageGame(fmt.Sprintf("No trigger for [%d,%s]", p.targetOp+7, debugname))
+		}
+	}
 	p.MessageGame("Nothing interesting happens.")
 	p.waypointIndex = -1 // TS Player.ts:1096 — clearWaypoints()
+}
+
+// defaultOpDebugname mirrors TS Player.ts:1077-1090 fan-out, returning
+// a human-readable name for the player's current target. Used only by
+// defaultOp's NodeDebug-gated chat. Internal — not exported.
+func defaultOpDebugname(p *Player, s *Server) string {
+	switch tgt := p.target.(type) {
+	case *Npc:
+		if tgt.typ != nil && tgt.typ.DebugName != "" {
+			return tgt.typ.DebugName
+		}
+		return strconv.Itoa(tgt.typeId)
+	case *entitypkg.Loc:
+		typeId := tgt.Type()
+		if s.locTypes != nil && typeId >= 0 && typeId < len(s.locTypes.Configs) {
+			if lt := s.locTypes.Configs[typeId]; lt != nil && lt.DebugName != "" {
+				return lt.DebugName
+			}
+		}
+		return strconv.Itoa(typeId)
+	case *entitypkg.Obj:
+		if s.objTypes != nil && tgt.Type >= 0 && tgt.Type < len(s.objTypes.Configs) {
+			if ot := s.objTypes.Configs[tgt.Type]; ot != nil && ot.DebugName != "" {
+				return ot.DebugName
+			}
+		}
+		return strconv.Itoa(tgt.Type)
+	}
+
+	// T-trigger com-branch (TS L1086).
+	if p.targetSubject.com != -1 && isApTTrigger(p.targetOp) {
+		com := p.targetSubject.com
+		if s.componentTypes != nil && com >= 0 && com < len(s.componentTypes.Configs) {
+			if ct := s.componentTypes.Configs[com]; ct != nil && ct.ComName != "" {
+				return ct.ComName
+			}
+		}
+		return strconv.Itoa(com)
+	}
+
+	// targetSubject.typ override branch (TS L1088 — TS field name `type`,
+	// goscape field name `typ` per player.go:143).
+	if p.targetSubject.typ != -1 {
+		typ := p.targetSubject.typ
+		if s.objTypes != nil && typ >= 0 && typ < len(s.objTypes.Configs) {
+			if ot := s.objTypes.Configs[typ]; ot != nil && ot.DebugName != "" {
+				return ot.DebugName
+			}
+		}
+		return strconv.Itoa(typ)
+	}
+
+	return "_"
+}
+
+// isApTTrigger reports whether targetOp is one of the four T-trigger
+// dispatch markers (APNPCT/APPLAYERT/APLOCT/APOBJT analogues). Mirrors
+// TS Player.ts:1086 trigger-list. Goscape uses dispatch-marker
+// sentinels (interaction.go:33-39) rather than per-T trigger numerics
+// — the four sentinels are exhaustive.
+func isApTTrigger(targetOp int) bool {
+	return targetOp == targetOpLocT || targetOp == targetOpNpcT ||
+		targetOp == targetOpPlayerT || targetOp == targetOpObjT
 }
 
 // inOperableDistance reports whether p is in contact range of target.
