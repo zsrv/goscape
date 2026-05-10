@@ -1,6 +1,7 @@
 package world
 
 import (
+	"net"
 	"testing"
 
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
@@ -82,5 +83,74 @@ func TestPlayer_UnsetMapFlag_ClearsWaypointAndEmitsPacket(t *testing.T) {
 	wantEnc := byte((int(gameserver.OpUnsetMapFlag.Opcode) + int(sibling.GetNext())) & 0xff)
 	if emitted[0] != wantEnc {
 		t.Errorf("first emitted byte: got %d, want %d (encrypted OpUnsetMapFlag)", emitted[0], wantEnc)
+	}
+}
+
+// newPostDecodeTestPlayerWithConn wires a Player with the minimum
+// scaffolding required to drive (p *Player) processPostDecode
+// end-to-end:
+//   - p.client.server (with default cfg: PLAYERPACKET, routefinder=true)
+//   - p.decodedThisTick = true       (outer gate satisfied)
+//   - p.userPath set to one packed coord (outer gate satisfied)
+//   - p.faceEntity = -1              (faceEntity branch no-op by default)
+//   - p.moveClickRequest = false     (sentinel)
+//
+// Returns (player, server, conn). Most branch tests don't need the
+// conn (use the wrapper newPostDecodeTestPlayer). Wire-asserting
+// branches (T3b delayed) drain the conn directly.
+func newPostDecodeTestPlayerWithConn(t *testing.T) (*Player, *Server, net.Conn) {
+	t.Helper()
+	p, cc := newTestPlayer(t)
+	s := &Server{
+		log: discardLogger(),
+		cfg: Config{
+			NodeWalktriggerSetting: WalkTriggerSettingPlayerpacket,
+			NodeClientRoutefinder:  true,
+		},
+	}
+	p.client.server = s
+	p.decodedThisTick = true
+	p.userPath = []int{0x12345}
+	p.faceEntity = -1
+	p.moveClickRequest = false
+	return p, s, cc
+}
+
+// newPostDecodeTestPlayer is a wrapper that discards the conn for
+// branch tests that don't drain wire output.
+func newPostDecodeTestPlayer(t *testing.T) (*Player, *Server) {
+	t.Helper()
+	p, s, _ := newPostDecodeTestPlayerWithConn(t)
+	return p, s
+}
+
+// TestProcessPostDecode_OuterGateSkipsWhenNotDecoded pins TS L611
+// `decodeIn()` short-circuit. With decodedThisTick=false the entire
+// block is skipped — moveClickRequest is NOT set even when userPath
+// AND opcalled would otherwise satisfy L613.
+func TestProcessPostDecode_OuterGateSkipsWhenNotDecoded(t *testing.T) {
+	p, _ := newPostDecodeTestPlayer(t)
+	p.decodedThisTick = false
+	p.opcalled = true // would otherwise satisfy L613
+
+	p.processPostDecode()
+
+	if p.moveClickRequest {
+		t.Error("moveClickRequest: want false (block skipped on !decodedThisTick)")
+	}
+}
+
+// TestProcessPostDecode_OuterGateSkipsWhenIdle pins TS L613 outer
+// gate. With userPath empty AND !opcalled, the block returns early.
+// moveClickRequest stays at its sentinel.
+func TestProcessPostDecode_OuterGateSkipsWhenIdle(t *testing.T) {
+	p, _ := newPostDecodeTestPlayer(t)
+	p.userPath = nil
+	p.opcalled = false
+
+	p.processPostDecode()
+
+	if p.moveClickRequest {
+		t.Error("moveClickRequest: want false (block skipped on !userPath && !opcalled)")
 	}
 }
