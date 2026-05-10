@@ -89,6 +89,75 @@ func TestObjTypeDecodeCode32OverridesDefault(t *testing.T) {
 	}
 }
 
+func TestApplyPostDecodeFixupsF2PMembersResetsOpToTakeOnly(t *testing.T) {
+	t.Setenv("NODE_MEMBERS", "false")
+
+	ot := NewObjType(0)
+	ot.Members = true
+	ot.Op[0] = "Wear" // simulates cache code 30 ("Wear")
+	ot.IOp[0] = "Examine"
+
+	otc := &ObjTypeConfigs{Configs: []*ObjType{ot}}
+	ptc := &ParamTypeConfigs{}
+
+	applyPostDecodeFixups(otc, ptc)
+
+	wantOp := []string{"", "", "Take", "", ""}
+	for i, w := range wantOp {
+		if got := ot.Op[i]; got != w {
+			t.Errorf("Op[%d]: got %q, want %q", i, got, w)
+		}
+	}
+	wantIOp := []string{"", "", "", "", "Drop"}
+	for i, w := range wantIOp {
+		if got := ot.IOp[i]; got != w {
+			t.Errorf("IOp[%d]: got %q, want %q", i, got, w)
+		}
+	}
+	if ot.Tradeable != false {
+		t.Errorf("Tradeable: got %v, want false", ot.Tradeable)
+	}
+}
+
+func TestApplyPostDecodeFixupsF2PMembersZeroesCategory(t *testing.T) {
+	t.Setenv("NODE_MEMBERS", "false")
+
+	ot := NewObjType(0)
+	ot.Members = true
+	ot.Category = 42 // simulates cache code 94
+
+	otc := &ObjTypeConfigs{Configs: []*ObjType{ot}}
+	ptc := &ParamTypeConfigs{}
+
+	applyPostDecodeFixups(otc, ptc)
+
+	if ot.Category != -1 {
+		t.Errorf("Category: got %d, want -1", ot.Category)
+	}
+}
+
+func TestApplyPostDecodeFixupsNonF2PMembersUnchanged(t *testing.T) {
+	t.Setenv("NODE_MEMBERS", "true")
+
+	ot := NewObjType(0)
+	ot.Members = true
+	ot.Op[0] = "Wear"
+	ot.Category = 42
+
+	otc := &ObjTypeConfigs{Configs: []*ObjType{ot}}
+	ptc := &ParamTypeConfigs{}
+
+	applyPostDecodeFixups(otc, ptc)
+
+	// F2P branch must not fire when NODE_MEMBERS=true.
+	if ot.Op[0] != "Wear" {
+		t.Errorf("Op[0]: got %q, want \"Wear\" (F2P branch must not fire)", ot.Op[0])
+	}
+	if ot.Category != 42 {
+		t.Errorf("Category: got %d, want 42 (F2P branch must not fire)", ot.Category)
+	}
+}
+
 func TestLoadObjTypesFromPack(t *testing.T) {
 	cacheDir := filepath.Join("..", "..", "data", "pack")
 

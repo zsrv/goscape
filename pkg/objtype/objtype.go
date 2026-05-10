@@ -79,8 +79,9 @@ func applyPostDecodeFixups(otc *ObjTypeConfigs, ptc *ParamTypeConfigs) {
 
 		if os.Getenv("NODE_MEMBERS") == "false" && config.Members {
 			config.Tradeable = false
-			config.Op = nil
-			config.IOp = nil
+			config.Op = []string{"", "", "Take", "", ""}
+			config.IOp = []string{"", "", "", "", "Drop"}
+			config.Category = -1
 
 			for k, _ := range config.Params {
 				if ptc.Configs[k].AutoDisable {
