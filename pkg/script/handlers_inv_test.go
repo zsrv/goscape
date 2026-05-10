@@ -2674,3 +2674,46 @@ func TestHandleInvStockBase_ObjInListReturnsCount(t *testing.T) {
 		t.Errorf("top: got %d, want 200 (stockcount[1])", got)
 	}
 }
+
+// TestHandleInvDebugName_PushesName pins TS InvOps.ts:34-38 happy path.
+func TestHandleInvDebugName_PushesName(t *testing.T) {
+	invType := objtype.NewInvType(testInvMain)
+	invType.DebugName = "main"
+	mc := &mockConfigs{
+		invs: map[int]*objtype.InvType{testInvMain: invType},
+	}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Configs:     mc,
+	}
+	s.PushInt(testInvMain)
+	if err := handleInvDebugName(s); err != nil {
+		t.Fatalf("handleInvDebugName: %v", err)
+	}
+	if got := s.StringStack[0]; got != "main" {
+		t.Errorf("top of string stack: got %q, want %q", got, "main")
+	}
+}
+
+// TestHandleInvDebugName_EmptyFallsBackToNullLiteral pins TS InvOps.ts:37
+// — `invType.debugname ?? 'null'`.
+func TestHandleInvDebugName_EmptyFallsBackToNullLiteral(t *testing.T) {
+	invType := objtype.NewInvType(testInvMain)
+	invType.DebugName = "" // simulate the TS undefined → ?? 'null' arm
+	mc := &mockConfigs{
+		invs: map[int]*objtype.InvType{testInvMain: invType},
+	}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Configs:     mc,
+	}
+	s.PushInt(testInvMain)
+	if err := handleInvDebugName(s); err != nil {
+		t.Fatalf("handleInvDebugName: %v", err)
+	}
+	if got := s.StringStack[0]; got != "null" {
+		t.Errorf("top of string stack: got %q, want %q", got, "null")
+	}
+}

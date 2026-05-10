@@ -1455,3 +1455,23 @@ func handleInvStockBase(s *ScriptState) error {
 	s.PushInt(int(invType.StockCount[idx]))
 	return nil
 }
+
+// handleInvDebugName (INV_DEBUG_NAME) pushes the debug name of an
+// InvType, or "null" if the field is empty. Mirrors TS
+// LostCityRS/Engine-TS/.../InvOps.ts:34-38:
+//
+//	const invType = check(state.popInt(), InvTypeValid)
+//	state.pushString(invType.debugname ?? 'null')
+func handleInvDebugName(s *ScriptState) error {
+	inv := s.PopInt()
+	if err := checkInvType(s, inv, "INV_DEBUG_NAME"); err != nil {
+		return err
+	}
+	invType := s.Configs.InvType(inv)
+	if invType.DebugName == "" {
+		s.PushString("null")
+	} else {
+		s.PushString(invType.DebugName)
+	}
+	return nil
+}
