@@ -221,3 +221,17 @@ func (w worldVarsView) LookupPlayerByUID(uid int) script.ActivePlayer {
 	}
 	return w.s.LookupPlayerByUID(uid)
 }
+
+// MapProjAnim implements script.WorldVars.MapProjAnim. Stub at
+// NAI-150 T1; real delegation lands in T5.
+func (w worldVarsView) MapProjAnim(level, srcX, srcZ, dstX, dstZ, target, spotanim, srcHeight, dstHeight, startDelay, endDelay, peak, arc int) {
+}
+
+// LookupNpcBySlot implements script.WorldVars.LookupNpcBySlot. Stub
+// at NAI-150 T1; real lookup lands in T5.
+func (w worldVarsView) LookupNpcBySlot(slot int) script.ActiveNpc { return nil }
+
+// Compile-time conformance assertion for script.WorldVars. Adding any
+// new WorldVars method that worldVarsView fails to implement breaks
+// the build here. NAI-150 T1.
+var _ script.WorldVars = worldVarsView{}

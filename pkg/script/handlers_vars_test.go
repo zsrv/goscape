@@ -50,6 +50,17 @@ func (m *mockWorld) IsMulti(level, x, z int) bool { return false }
 // is layered on by handler-specific test types.
 func (m *mockWorld) AnimMap(level, x, z, spotanim, height, delay int) {}
 
+// NAI-150: default no-op stub for PROJANIM_* test fixture. Real recording
+// is layered on by handler-specific test types (projAnimWorld in
+// handlers_projanim_test.go).
+func (m *mockWorld) MapProjAnim(level, srcX, srcZ, dstX, dstZ, target, spotanim, srcHeight, dstHeight, startDelay, endDelay, peak, arc int) {
+}
+
+// NAI-150: default no-op stub for PROJANIM_NPC test fixture. Returns
+// nil (slot empty). Tests exercising the lookup override via
+// projAnimWorld.
+func (m *mockWorld) LookupNpcBySlot(slot int) ActiveNpc { return nil }
+
 // NAI-115 T2: default no-op stub for OBJ_DEL test fixture. Tests
 // exercising RemoveObj override via fakeWorldRemoveObj.
 func (m *mockWorld) RemoveObj(obj ActiveObj) {}

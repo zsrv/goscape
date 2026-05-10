@@ -85,6 +85,15 @@ type WorldVars interface {
 	// Used by SPOTANIM_MAP (opcode 1020).
 	AnimMap(level, x, z, spotanim, height, delay int)
 
+	// MapProjAnim broadcasts a projectile event from (level, srcX, srcZ)
+	// to (dstX, dstZ). target encodes the receiver: 0 = none (MAP→MAP),
+	// npc.nid+1 = NPC target, -player.slot-1 = player target.
+	// srcHeight/dstHeight are pre-scaled by the handler (×4).
+	// Mirrors TS World.mapProjAnim. Used by PROJANIM_MAP, PROJANIM_NPC,
+	// PROJANIM_PL. NAI-150.
+	MapProjAnim(level, srcX, srcZ, dstX, dstZ, target, spotanim,
+		srcHeight, dstHeight, startDelay, endDelay, peak, arc int)
+
 	// RemoveObj despawns / removes the given obj from its zone. Mirrors
 	// TS World.removeObj. NAI-115-D2: goscape's Server.RemoveObj does
 	// not accept a duration; respawn-aware delete (RESPAWN-lifecycle
@@ -124,6 +133,12 @@ type WorldVars interface {
 	// (PlayerOps.ts:773) / World.getPlayerByHash64 (PlayerOps.ts:1144,
 	// NpcOps.ts:120).
 	LookupPlayerByUID(uid int) ActivePlayer
+
+	// LookupNpcBySlot resolves the NPC slot to its live ActiveNpc, or
+	// nil if the slot is out of range / unoccupied. Slot-only — does
+	// NOT verify the high-16 type bits, unlike NpcLookup.FindNpcByUID.
+	// Mirrors TS World.getNpc(slot). Used by PROJANIM_NPC. NAI-150.
+	LookupNpcBySlot(slot int) ActiveNpc
 }
 
 // InvLookup is the inventory resolution surface for INV_* handlers.
