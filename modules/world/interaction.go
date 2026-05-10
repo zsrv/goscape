@@ -651,8 +651,8 @@ func inOperableDistance(p *Player, target entity) bool {
 }
 
 // inOperableDistanceCheb is the Chebyshev≤1 predicate (excludes same tile)
-// retained for PathingEntity (Player, Npc) and Obj targets pending the
-// TS reachedEntity / reachedObj ports. Lives under DEVIATION
+// retained for PathingEntity (Player, Npc) targets pending the TS
+// reachedEntity port. Lives under DEVIATION
 // NAI-91-D-OPERABLE-CHEB-FALLBACK.
 func inOperableDistanceCheb(px, pz, tx, tz int) bool {
 	dx := px - tx

@@ -266,9 +266,9 @@ func TestClearInteractionResetsInteractionFired(t *testing.T) {
 }
 
 // TestInOperableDistanceCheb_PathingEntityFallback pins the Chebyshev≤1
-// excluding-same-tile predicate for non-Loc targets (PathingEntity / Obj).
-// Lives under NAI-91-D-OPERABLE-CHEB-FALLBACK pending entity-shape /
-// reachedObj port. Renamed from TestInOperableDistance at NAI-91 T1.
+// excluding-same-tile predicate for PathingEntity (Player, Npc) targets.
+// Lives under NAI-91-D-OPERABLE-CHEB-FALLBACK pending entity-shape port.
+// Renamed from TestInOperableDistance at NAI-91 T1.
 func TestInOperableDistanceCheb_PathingEntityFallback(t *testing.T) {
 	cases := []struct {
 		dx, dz int
