@@ -1,5 +1,9 @@
 package world
 
+import (
+	entitypkg "github.com/zsrv/goscape/pkg/entity"
+)
+
 // processPostDecode runs the per-tick post-decode block at TS
 // Engine-TS/src/engine/World.ts:611-641. Called from end of processIn,
 // before processInputTracking (matching TS L611-646 ordering).
@@ -30,5 +34,14 @@ func (p *Player) processPostDecode() {
 	if p.delayed {
 		p.unsetMapFlag()
 		return
+	}
+
+	// TS L619-622: faceEntity reset for non-PathingEntity targets.
+	if p.faceEntity != -1 {
+		switch p.target.(type) {
+		case nil, *entitypkg.Loc, *entitypkg.Obj:
+			p.faceEntity = -1
+			p.masks |= p.entitymask
+		}
 	}
 }

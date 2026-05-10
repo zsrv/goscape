@@ -4,6 +4,7 @@ import (
 	"net"
 	"testing"
 
+	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 )
@@ -192,5 +193,99 @@ func TestProcessPostDecode_DelayedFiresUnsetMapFlagAndReturns(t *testing.T) {
 	}
 	if !p.moveClickRequest {
 		t.Error("moveClickRequest: want true (sentinel preserved — delayed branch must return BEFORE setter)")
+	}
+}
+
+// TestProcessPostDecode_FaceEntityResetForLocTarget pins TS L619-622
+// for *Loc target: faceEntity reset to -1, masks |= entitymask.
+func TestProcessPostDecode_FaceEntityResetForLocTarget(t *testing.T) {
+	p, _ := newPostDecodeTestPlayer(t)
+	p.target = &entitypkg.Loc{} // any *Loc satisfies the type-switch
+	p.faceEntity = 42
+	p.masks = 0
+	p.opcalled = true // satisfies outer L613 gate
+
+	p.processPostDecode()
+
+	if p.faceEntity != -1 {
+		t.Errorf("faceEntity: got %d, want -1 (Loc target → reset)", p.faceEntity)
+	}
+	if p.masks&p.entitymask == 0 {
+		t.Errorf("masks: entitymask bit (%d) not set; got masks=%d", p.entitymask, p.masks)
+	}
+}
+
+// TestProcessPostDecode_FaceEntityResetForObjTarget pins same for *Obj.
+func TestProcessPostDecode_FaceEntityResetForObjTarget(t *testing.T) {
+	p, _ := newPostDecodeTestPlayer(t)
+	p.target = &entitypkg.Obj{}
+	p.faceEntity = 42
+	p.masks = 0
+	p.opcalled = true
+
+	p.processPostDecode()
+
+	if p.faceEntity != -1 {
+		t.Errorf("faceEntity: got %d, want -1 (Obj target → reset)", p.faceEntity)
+	}
+	if p.masks&p.entitymask == 0 {
+		t.Errorf("masks: entitymask bit (%d) not set; got masks=%d", p.entitymask, p.masks)
+	}
+}
+
+// TestProcessPostDecode_FaceEntityResetForNilTarget pins TS L619 nil
+// target arm: nil target + faceEntity!=-1 → reset.
+func TestProcessPostDecode_FaceEntityResetForNilTarget(t *testing.T) {
+	p, _ := newPostDecodeTestPlayer(t)
+	p.target = nil
+	p.faceEntity = 42
+	p.masks = 0
+	p.opcalled = true
+
+	p.processPostDecode()
+
+	if p.faceEntity != -1 {
+		t.Errorf("faceEntity: got %d, want -1 (nil target → reset)", p.faceEntity)
+	}
+}
+
+// TestProcessPostDecode_FaceEntityPreservedForPlayerTarget pins the
+// negative arm: PathingEntity targets (Player/Npc) do NOT trigger
+// the faceEntity reset.
+func TestProcessPostDecode_FaceEntityPreservedForPlayerTarget(t *testing.T) {
+	s := newTestServer(t)
+	other := newTestPlayerAt(t, s, 2, 3200, 3200, 0)
+	p, _ := newPostDecodeTestPlayer(t)
+	p.target = other
+	p.faceEntity = 42
+	p.masks = 0
+	p.opcalled = true
+
+	p.processPostDecode()
+
+	if p.faceEntity != 42 {
+		t.Errorf("faceEntity: got %d, want 42 (Player target → preserved)", p.faceEntity)
+	}
+	if p.masks != 0 {
+		t.Errorf("masks: got %d, want 0 (Player target → masks NOT touched)", p.masks)
+	}
+}
+
+// TestProcessPostDecode_FaceEntityNoOpWhenAlreadyMinusOne pins TS L620
+// guard: when faceEntity is already -1, masks is NOT touched.
+func TestProcessPostDecode_FaceEntityNoOpWhenAlreadyMinusOne(t *testing.T) {
+	p, _ := newPostDecodeTestPlayer(t)
+	p.target = &entitypkg.Loc{}
+	p.faceEntity = -1 // guard: already cleared
+	p.masks = 0
+	p.opcalled = true
+
+	p.processPostDecode()
+
+	if p.faceEntity != -1 {
+		t.Errorf("faceEntity: got %d, want -1 (no-op preserves)", p.faceEntity)
+	}
+	if p.masks != 0 {
+		t.Errorf("masks: got %d, want 0 (faceEntity already -1 → masks NOT touched)", p.masks)
 	}
 }
