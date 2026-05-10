@@ -259,6 +259,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpPRun: handlePRun,
 	// NAI-117 T2: run-energy reader (gated by ActivePlayer).
 	OpRunEnergy: handleRunEnergy,
+	// NAI-149 T5: run-energy healer — add+clamp to [0, 10000].
+	OpHealEnergy: handleHealEnergy,
 
 	// S5d: config-read ops (enum/struct/loc/npc/obj).
 	// EnumOps (2).

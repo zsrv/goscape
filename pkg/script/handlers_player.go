@@ -1542,3 +1542,30 @@ func handleWeight(s *ScriptState) error {
 	s.PushInt(s.Self.RunWeight())
 	return nil
 }
+
+// handleHealEnergy (HEAL_ENERGY) adds the popped amount to the player's
+// run-energy and clamps the result to [0, 10000]. Mirrors TS
+// LostCityRS/Engine-TS/.../PlayerOps.ts:1050-1054:
+//
+//	const amount = check(state.popInt(), NumberNotNull) // 100=1%, 10000=100%
+//	player.runenergy = Math.min(Math.max(player.runenergy + amount, 0), 10000)
+//
+// The active-player guard is goscape defensive (TS skips this check;
+// see defensive_gate_doc_comment_label).
+func handleHealEnergy(s *ScriptState) error {
+	if err := requireActivePlayer(s, "HEAL_ENERGY"); err != nil {
+		return err
+	}
+	amount := s.PopInt()
+	if err := checkNotNull(amount, "HEAL_ENERGY"); err != nil {
+		return err
+	}
+	next := s.Self.RunEnergy() + amount
+	if next < 0 {
+		next = 0
+	} else if next > 10000 {
+		next = 10000
+	}
+	s.Self.SetRunEnergy(next)
+	return nil
+}

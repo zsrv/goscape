@@ -4774,3 +4774,79 @@ func TestHandleWeight_RequiresProtected(t *testing.T) {
 		t.Errorf("error: got %q, want to contain \"not protected\"", err.Error())
 	}
 }
+
+// TestHandleHealEnergy_AddsAndClamps pins TS PlayerOps.ts:1050-1054 —
+// runenergy clamped to [0, 10000] after add. Mirrors TS Math.min/max.
+func TestHandleHealEnergy_AddsAndClamps(t *testing.T) {
+	cases := []struct {
+		name        string
+		startEnergy int
+		amount      int
+		want        int
+	}{
+		{"normal add", 5000, 1000, 6000},
+		{"clamps to 10000 ceiling", 9500, 1000, 10000},
+		{"clamps to 0 floor on negative", 200, -500, 0},
+		{"max+max stays at 10000", 10000, 10000, 10000},
+		{"exact 10000 from below", 9000, 1000, 10000},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mp := &mockPlayer{runenergyValue: tc.startEnergy}
+			s := &ScriptState{
+				IntStack:    make([]int, StackCapacity),
+				StringStack: make([]string, StackCapacity),
+				Self:        mp,
+				Pointers:    PtrActivePlayer,
+			}
+			s.PushInt(tc.amount)
+			if err := handleHealEnergy(s); err != nil {
+				t.Fatalf("handleHealEnergy: %v", err)
+			}
+			if mp.runenergyValue != tc.want {
+				t.Errorf("runenergy: got %d, want %d", mp.runenergyValue, tc.want)
+			}
+		})
+	}
+}
+
+// TestHandleHealEnergy_RejectsNullAmount pins TS check(amount, NumberNotNull).
+// amount=-1 is the script null sentinel.
+func TestHandleHealEnergy_RejectsNullAmount(t *testing.T) {
+	mp := &mockPlayer{runenergyValue: 5000}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        mp,
+		Pointers:    PtrActivePlayer,
+	}
+	s.PushInt(-1)
+	err := handleHealEnergy(s)
+	if err == nil {
+		t.Fatalf("handleHealEnergy: expected error for amount=-1")
+	}
+	if !strings.Contains(err.Error(), "HEAL_ENERGY") {
+		t.Errorf("error: got %q, want to contain \"HEAL_ENERGY\"", err.Error())
+	}
+	// No write on error path.
+	if mp.runenergyValue != 5000 {
+		t.Errorf("runenergy: got %d, want 5000 (unchanged on error)", mp.runenergyValue)
+	}
+}
+
+// TestHandleHealEnergy_RequiresActivePlayer pins the goscape-only
+// defensive guard (TS skips this check).
+func TestHandleHealEnergy_RequiresActivePlayer(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(100) // amount, will be dead pop on error path
+	err := handleHealEnergy(s)
+	if err == nil {
+		t.Fatalf("handleHealEnergy: expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "HEAL_ENERGY") {
+		t.Errorf("error: got %q, want to contain \"HEAL_ENERGY\"", err.Error())
+	}
+}
