@@ -317,6 +317,16 @@ type Player struct {
 	mapsquares  map[uint16]bool
 	rebuiltOnce bool
 
+	// lastZone is the previously-witnessed packed zone coord
+	// (level, zoneX<<3, zoneZ<<3) used by updateBuildArea to detect
+	// per-tick zone transitions. Sentinel -1 forces the first
+	// updateBuildArea call to fire rebuildZones (matching TS
+	// Player.ts:380 `lastZone: number = -1`). Encoded via
+	// coordgrid.PackCoord — NOT coordgrid.ZoneIndex — so future ports
+	// of triggerZone/triggerZoneExit (NAI-142-D-R-D3) can decode via
+	// CoordGrid.unpackCoord parity (NetworkPlayer.ts:281).
+	lastZone int
+
 	// === BAS (basic animation set) — sub-spec 3a ===
 	readyanim, turnanim                          int
 	walkanim, walkanim_b, walkanim_l, walkanim_r int
@@ -519,6 +529,7 @@ func newPlayer(c *client) *Player {
 		loadedZones:    map[int]bool{},
 		activeZones:    map[int]bool{},
 		mapsquares:     map[uint16]bool{},
+		lastZone:       -1, // NAI-142: sentinel; first updateBuildArea fires rebuildZones
 	}
 	if c.server != nil {
 		p.seqTypes = c.server.seqTypes
@@ -664,7 +675,6 @@ func (p *Player) rebuildScenery(currentTick int) []uint16 {
 				continue
 			}
 			p.mapsquares[uint16((mapX<<8)|mapZ)] = true
-			p.activeZones[coordgrid.ZoneIndex(zx<<3, zz<<3, 0)] = true
 		}
 	}
 
@@ -686,18 +696,17 @@ func (p *Player) rebuildScenery(currentTick int) []uint16 {
 // build-area window centered on origin. Mirrors TS
 // BuildArea.rebuildZones (BuildArea.ts:31-55).
 //
-// Called at the end of handleRebuildGetMaps (after the client confirms
-// maps loaded). Not called per-zone-change because goscape has not yet
-// ported NetworkPlayer.ts:269-271 lastZone-transition tracking;
-// deferred follow-up in nai84_rebuildzones_per_zone_change.md.
+// Called from two sites:
 //
-// Note: rebuildScenery (player.go:600-635) currently also writes
-// activeZones (with a 13×13 set keyed at level=0). That pre-existing
-// divergence is intentionally not touched here — see TS-fidelity
-// ledger entry §6 R-D2. rebuildZones runs after rebuildScenery in the
-// REBUILD path (rebuildScenery → sendRebuildNormal → client requests
-// maps → handleRebuildGetMaps → rebuildZones), so the rebuildScenery
-// preset is overwritten before zone deltas flow.
+//  1. handleRebuildGetMaps (data_map.go:153) — after client confirms
+//     maps loaded post-REBUILD_NORMAL.
+//  2. updateBuildArea (player.go, top of processOut) — per-tick zone
+//     transition (NAI-142, mirroring TS NetworkPlayer.ts:269-271).
+//
+// Both sites fire on the same tick on a REBUILD path; rebuildZones
+// resets activeZones at its top, so the duplication is idempotent.
+// Matches TS ordering (TS World.ts:1097 → NetworkPlayer.updateMap also
+// calls rebuildZones unconditionally on lastZone change).
 func (p *Player) rebuildZones() {
 	p.activeZones = map[int]bool{}
 	centerX := p.x >> 3
@@ -852,10 +861,41 @@ func (p *Player) updateStats() {
 	}
 }
 
+// updateBuildArea fires rebuildZones() on per-tick zone transitions.
+// Mirrors the lastZone slice of TS NetworkPlayer.updateMap
+// (NetworkPlayer.ts:269-271):
+//
+//	const zone = CoordGrid.packCoord(this.level, (this.x >> 3) << 3, (this.z >> 3) << 3);
+//	if (this.lastZone !== zone) {
+//	    this.buildArea.rebuildZones();
+//	    // ... triggerZone/triggerZoneExit/SetMultiway (NAI-142-D-R-D3)
+//	    this.lastZone = zone;
+//	}
+//
+// Camera packets (NetworkPlayer.ts:243-253), lastMapZone +
+// triggerMapzone (NetworkPlayer.ts:256-266), and triggerZone +
+// triggerZoneExit + SetMultiway (NetworkPlayer.ts:274-285) are
+// deferred follow-ups; see nai_followups.md
+// NAI-142-D-R-D{1,2,3}.
+func (p *Player) updateBuildArea() {
+	zone := coordgrid.PackCoord(p.level, (p.x>>3)<<3, (p.z>>3)<<3)
+	if p.lastZone != zone {
+		p.rebuildZones()
+		p.lastZone = zone
+	}
+}
+
 func (p *Player) processOut() {
-	// NAI-93: updateMap moved to Server.processInfo per TS World.ts:996
-	// ordering. processOut now starts with PlayerInfo encode against the
-	// already-fresh rsbuf state.
+	// NAI-93: goscape's updateMap (=TS BuildArea.rebuildNormal slot) was
+	// moved to Server.processInfo per TS World.ts:996 ordering, so
+	// processOut starts with PlayerInfo encode against already-fresh
+	// rsbuf state.
+	//
+	// NAI-142: updateBuildArea is the TS NetworkPlayer.updateMap slot
+	// (TS World.ts:1097) — it must run before updateZones so any
+	// per-tick zone transition is reflected in activeZones before zone
+	// deltas flow.
+	p.updateBuildArea()
 	p.updatePlayers()
 	p.updateNpcs()
 	p.updateZones()

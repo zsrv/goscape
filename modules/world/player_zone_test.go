@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
+	"github.com/zsrv/goscape/pkg/coordgrid"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/zone"
 )
@@ -17,9 +18,12 @@ func newZoneTestPlayer(t *testing.T, s *Server, slot, x, z, level int) (*Player,
 	p.slot = slot
 	p.x, p.z, p.level = x, z, level
 	p.originX, p.originZ = x, z
-	// Populate the 13x13 active-zone window centered on (x, z); equivalent
-	// to the legacy `ba := buildarea.New(); ba.Rebuild(x, z, 0)` setup.
+	// rebuildScenery resets state and records the origin mapsquares (13×13
+	// window), but no longer pre-populates activeZones (NAI-142 R-D2).
+	// rebuildZones follows to fill the canonical 7×7 activeZones, mirroring
+	// the production REBUILD path: rebuildScenery → ... → rebuildZones.
 	_ = p.rebuildScenery(0)
+	p.rebuildZones()
 	s.players[slot] = p
 	s.playerLoop = append(s.playerLoop, p)
 	return p, cc
@@ -502,5 +506,151 @@ func TestWriteFullFollows_LocLastLifecycleTick_SkipsReplay(t *testing.T) {
 	got := <-received
 	if len(got) != 3 {
 		t.Errorf("T1.7: want 3 bytes (FullFollows header only, per-tick skip); got %d", len(got))
+	}
+}
+
+// === NAI-142: per-zone-change rebuildZones (R-D3) + rebuildScenery
+// activeZones dual-write retirement (R-D2) ===
+
+// T1: first-tick fires (lastZone == -1 sentinel → mismatch on first call).
+func TestUpdateBuildArea_FirstTickFires(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.x, p.z, p.level = 50<<3, 50<<3, 0
+	p.originX, p.originZ = p.x, p.z
+
+	if p.lastZone != -1 {
+		t.Fatalf("newPlayer should init lastZone=-1; got %d", p.lastZone)
+	}
+
+	p.updateBuildArea()
+
+	wantZone := coordgrid.PackCoord(0, 50<<3, 50<<3)
+	if p.lastZone != wantZone {
+		t.Errorf("lastZone after first updateBuildArea: got %d, want %d", p.lastZone, wantZone)
+	}
+	if len(p.activeZones) == 0 {
+		t.Error("activeZones must be populated by rebuildZones on first updateBuildArea")
+	}
+}
+
+// T2: same-zone no-fire (lastZone equals currentZone → no-op).
+func TestUpdateBuildArea_SameZoneNoFire(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.x, p.z, p.level = 50<<3, 50<<3, 0
+	p.originX, p.originZ = p.x, p.z
+	p.updateBuildArea() // first-tick fire establishes lastZone
+
+	// Replace activeZones with a sentinel single-entry map. If
+	// updateBuildArea fires again, it will call rebuildZones which clears
+	// activeZones and refills with 49 entries — the sentinel disappears.
+	sentinelKey := -999999
+	p.activeZones = map[int]bool{sentinelKey: true}
+
+	p.updateBuildArea()
+
+	if !p.activeZones[sentinelKey] {
+		t.Error("same-zone updateBuildArea must NOT fire rebuildZones; sentinel was cleared")
+	}
+	if len(p.activeZones) != 1 {
+		t.Errorf("same-zone updateBuildArea: activeZones len got %d, want 1", len(p.activeZones))
+	}
+}
+
+// T3: cross-zone (x boundary) fires.
+func TestUpdateBuildArea_CrossZoneFires(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.x, p.z, p.level = 50<<3, 50<<3, 0
+	p.originX, p.originZ = p.x, p.z
+	p.updateBuildArea()
+
+	// Cross x-zone boundary: 50<<3 (zone x=50) → 51<<3 (zone x=51).
+	p.x = 51 << 3
+	p.updateBuildArea()
+
+	wantZone := coordgrid.PackCoord(0, 51<<3, 50<<3)
+	if p.lastZone != wantZone {
+		t.Errorf("cross-zone lastZone: got %d, want %d", p.lastZone, wantZone)
+	}
+	// New center (51, 50) must be in activeZones.
+	if !p.activeZones[coordgrid.ZoneIndex(51<<3, 50<<3, 0)] {
+		t.Error("cross-zone activeZones missing new center (51, 50)")
+	}
+}
+
+// T4: cross-level fires (e.g., trapdoor descent).
+func TestUpdateBuildArea_CrossLevelFires(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.x, p.z, p.level = 50<<3, 50<<3, 0
+	p.originX, p.originZ = p.x, p.z
+	p.updateBuildArea()
+
+	// Same x/z but different level — TS encodes level in the packed coord.
+	p.level = 1
+	p.updateBuildArea()
+
+	wantZone := coordgrid.PackCoord(1, 50<<3, 50<<3)
+	if p.lastZone != wantZone {
+		t.Errorf("cross-level lastZone: got %d, want %d", p.lastZone, wantZone)
+	}
+	// activeZones now keyed at level=1; level-0 center key must be ABSENT.
+	if p.activeZones[coordgrid.ZoneIndex(50<<3, 50<<3, 0)] {
+		t.Error("cross-level activeZones must not contain level-0 center key")
+	}
+	if !p.activeZones[coordgrid.ZoneIndex(50<<3, 50<<3, 1)] {
+		t.Error("cross-level activeZones must contain level-1 center key")
+	}
+}
+
+// T5: rebuildScenery no longer pre-populates activeZones (R-D2 retirement).
+// Pins the dual-write removal: post-rebuildScenery, activeZones is empty
+// (line-649 reset still runs; line-667 write is gone).
+func TestRebuildScenery_DoesNotPrePopulateActiveZones(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.x, p.z, p.level = 50<<3, 50<<3, 0
+	p.originX, p.originZ = p.x, p.z
+	// Pre-set sentinel; rebuildScenery's line-649 reset clears it.
+	p.activeZones = map[int]bool{-1: true}
+
+	_ = p.rebuildScenery(0)
+
+	if len(p.activeZones) != 0 {
+		t.Errorf("rebuildScenery must not populate activeZones (R-D2); got len=%d", len(p.activeZones))
+	}
+}
+
+// T6: bundle-value test — cached-client cross-zone delivers fresh activeZones.
+// Pre-bundle: rebuildScenery's 13×13 superset masked the staleness; the
+// post-rebuildScenery activeZones at center (50,50) was a 169-entry set.
+// Post-bundle: updateBuildArea fires rebuildZones each cross, producing the
+// canonical 7×7 (49-entry) set centered on the new zone.
+func TestUpdateBuildArea_CachedClientCrossZoneFreshActiveZones(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.x, p.z, p.level = 50<<3, 50<<3, 0
+	p.originX, p.originZ = p.x, p.z
+	p.updateBuildArea()
+	if len(p.activeZones) != 49 {
+		t.Fatalf("first-tick 7×7 activeZones: got %d, want 49", len(p.activeZones))
+	}
+	if !p.activeZones[coordgrid.ZoneIndex(50<<3, 50<<3, 0)] {
+		t.Fatal("first-tick activeZones missing center (50,50)")
+	}
+
+	// In-window cross-zone: zone window stays anchored to origin (50,50);
+	// shouldRebuild() returns false; processOut.updateBuildArea fires.
+	p.x = 52 << 3
+	p.updateBuildArea()
+
+	if len(p.activeZones) != 49 {
+		t.Fatalf("post-cross-zone 7×7 activeZones: got %d, want 49", len(p.activeZones))
+	}
+	if !p.activeZones[coordgrid.ZoneIndex(52<<3, 50<<3, 0)] {
+		t.Error("post-cross-zone activeZones missing new center (52,50)")
+	}
+	// Old non-overlapping cell must be GONE: center moved from 50→52, so
+	// the old 7×7 [47..53] dropped (46,46), (46,47), (47,46) etc. The new
+	// 7×7 [49..55] is centered at 52. Cell (47,50) was in the old set, not
+	// in the new.
+	if p.activeZones[coordgrid.ZoneIndex(47<<3, 50<<3, 0)] {
+		t.Error("post-cross-zone activeZones still contains stale cell (47,50)")
 	}
 }
