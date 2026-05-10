@@ -534,6 +534,56 @@ func defaultOpDebugname(p *Player, s *Server) string {
 	return "_"
 }
 
+// tsTriggerForOpFire returns the TS-faithful OP* ServerTriggerType for the
+// given target/targetOp pair, used only by defaultOp's debug chat
+// (NodeDebug-gated).
+//
+// TS Player.ts:1093 emits ServerTriggerType[targetOp+7] where targetOp is
+// the AP* trigger set by setInteraction; +7 maps AP* -> OP*. Goscape stores
+// targetOp as an op-slot int (1..5) or one of the targetOp{Loc,Npc,Player,Obj}
+// {T,U} sentinels (interaction.go:36-45). This helper bridges both namespaces.
+//
+// Sentinel matches dispatch by targetOp alone (TS L1086 — APNPCT/APPLAYERT/
+// APLOCT/APOBJT all evaluate independent of target type). Numeric op-slots
+// disambiguate via target type. Returns ServerTriggerType(-1) when target is
+// nil or unrecognised, or targetOp is out-of-range — goscape defensive; TS
+// would throw via `undefined.toLowerCase()` (DEVIATION-NAI-148-D-OPFIRE-FALLBACK).
+func tsTriggerForOpFire(target entity, targetOp int) script.ServerTriggerType {
+	switch targetOp {
+	case targetOpLocT:
+		return script.TriggerOpLocT
+	case targetOpLocU:
+		return script.TriggerOpLocU
+	case targetOpNpcT:
+		return script.TriggerOpNpcT
+	case targetOpNpcU:
+		return script.TriggerOpNpcU
+	case targetOpPlayerT:
+		return script.TriggerOpPlayerT
+	case targetOpPlayerU:
+		return script.TriggerOpPlayerU
+	case targetOpObjT:
+		return script.TriggerOpObjT
+	case targetOpObjU:
+		return script.TriggerOpObjU
+	}
+	if targetOp < 1 || targetOp > 5 {
+		return script.ServerTriggerType(-1)
+	}
+	offset := script.ServerTriggerType(targetOp - 1)
+	switch target.(type) {
+	case *Npc:
+		return script.TriggerOpNpc1 + offset
+	case *entitypkg.Loc:
+		return script.TriggerOpLoc1 + offset
+	case *entitypkg.Obj:
+		return script.TriggerOpObj1 + offset
+	case *Player:
+		return script.TriggerOpPlayer1 + offset
+	}
+	return script.ServerTriggerType(-1)
+}
+
 // inOperableDistance reports whether p is in contact range of target.
 // Mirrors TS Player.inOperableDistance (Player.ts:1099-1111):
 //   - Loc targets dispatch to pkg/pathfinder/reach.Reached for shape /

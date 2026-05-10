@@ -311,3 +311,59 @@ func TestDefaultOp_NothingInteresting_AlwaysFires(t *testing.T) {
 		})
 	}
 }
+
+// TestTsTriggerForOpFire pins the goscape-targetOp → TS ServerTriggerType
+// mapping used by defaultOp's debug chat. TS Player.ts:1093 emits
+// `ServerTriggerType[targetOp+7]` where targetOp is the AP* trigger set
+// by setInteraction; +7 maps AP* → OP*. Goscape stores targetOp as an
+// op-slot int (1..5) or as one of the targetOp{Loc,Npc,Player,Obj}{T,U}
+// sentinels (interaction.go:36-45). This helper bridges both namespaces.
+//
+// Sentinels override target type (TS L1086 — APNPCT/APPLAYERT/APLOCT/
+// APOBJT all evaluate independent of target type); numeric op-slots
+// disambiguate via target type-switch.
+func TestTsTriggerForOpFire(t *testing.T) {
+	s := newTestServer(t)
+	npc := makeInteractionNpc(t, s, 1, 100, 100, 0)
+	loc := entitypkg.NewLoc(0, 100, 100, 1, 1, entitypkg.LifecycleForever, 42, 10, 0)
+	obj := entitypkg.NewObj(0, 100, 100, entitypkg.LifecycleForever, 42, 1)
+	other, otherWait := makeInteractionPlayer(t, s, 100, 100, 0)
+	defer otherWait()
+
+	cases := []struct {
+		name     string
+		target   entity
+		targetOp int
+		want     script.ServerTriggerType
+	}{
+		// Numeric op-slots — disambiguate via target type.
+		{"npc_slot1", npc, 1, script.TriggerOpNpc1},
+		{"npc_slot5", npc, 5, script.TriggerOpNpc5},
+		{"loc_slot2", loc, 2, script.TriggerOpLoc2},
+		{"obj_slot3", obj, 3, script.TriggerOpObj3},
+		{"player_slot4", other, 4, script.TriggerOpPlayer4},
+
+		// Sentinels — match by targetOp regardless of target type.
+		{"npc_T_sentinel", npc, targetOpNpcT, script.TriggerOpNpcT},
+		{"npc_U_sentinel", npc, targetOpNpcU, script.TriggerOpNpcU},
+		{"loc_T_sentinel", loc, targetOpLocT, script.TriggerOpLocT},
+		{"obj_U_sentinel", obj, targetOpObjU, script.TriggerOpObjU},
+		{"player_T_sentinel", other, targetOpPlayerT, script.TriggerOpPlayerT},
+
+		// Sentinel/target-type mismatch — sentinel wins (TS-faithful).
+		{"player_with_NpcT_sentinel", other, targetOpNpcT, script.TriggerOpNpcT},
+		{"npc_with_LocT_sentinel", npc, targetOpLocT, script.TriggerOpLocT},
+
+		// Fallback — nil target / out-of-range slot.
+		{"nil_target", nil, 1, script.ServerTriggerType(-1)},
+		{"bad_slot_99", npc, 99, script.ServerTriggerType(-1)},
+	}
+
+	for _, c := range cases {
+		got := tsTriggerForOpFire(c.target, c.targetOp)
+		if got != c.want {
+			t.Errorf("%s: tsTriggerForOpFire(%T, %d) = %v (%q), want %v (%q)",
+				c.name, c.target, c.targetOp, int(got), got.String(), int(c.want), c.want.String())
+		}
+	}
+}
