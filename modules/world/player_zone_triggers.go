@@ -16,6 +16,9 @@ import (
 // `enqueueScript(trigger, ENGINE)` shape exactly — closer than the
 // ID-roundtrip EnqueueScriptArgs form. Aligned with changeStat /
 // advanceStat precedent (player_script.go:587-615).
+//
+// (goscape defensive; TS skips this check — TS uses a static
+// ScriptProvider.getByName with no client/server chain dereference.)
 func (p *Player) triggerMapzone(x, z int) {
 	if p.client == nil || p.client.server == nil || p.client.server.scriptProvider == nil {
 		return
@@ -30,6 +33,9 @@ func (p *Player) triggerMapzone(x, z int) {
 // exit key has NO underscore between `mapzoneexit` and the level
 // segment — verified against LostCityRS/Content 2026-05-09 (17
 // [mapzoneexit,...] real declarations).
+//
+// (goscape defensive; TS skips this check — TS uses a static
+// ScriptProvider.getByName with no client/server chain dereference.)
 func (p *Player) triggerMapzoneExit(x, z int) {
 	if p.client == nil || p.client.server == nil || p.client.server.scriptProvider == nil {
 		return
@@ -43,6 +49,9 @@ func (p *Player) triggerMapzoneExit(x, z int) {
 // entered 8-tile zone. Mirrors TS Player.ts:576-585. The 5-segment
 // key encodes mapsquare (MX,MZ) plus zone-local 8-tile-aligned
 // offset within the mapsquare (LX,LZ).
+//
+// (goscape defensive; TS skips this check — TS uses a static
+// ScriptProvider.getByName with no client/server chain dereference.)
 func (p *Player) triggerZone(level, x, z int) {
 	if p.client == nil || p.client.server == nil || p.client.server.scriptProvider == nil {
 		return
@@ -61,6 +70,9 @@ func (p *Player) triggerZone(level, x, z int) {
 // underscore between `zoneexit` and the level segment — verified
 // against LostCityRS/Content 2026-05-09 (5 [zoneexit,...] real
 // declarations).
+//
+// (goscape defensive; TS skips this check — TS uses a static
+// ScriptProvider.getByName with no client/server chain dereference.)
 func (p *Player) triggerZoneExit(level, x, z int) {
 	if p.client == nil || p.client.server == nil || p.client.server.scriptProvider == nil {
 		return

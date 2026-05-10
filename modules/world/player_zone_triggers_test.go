@@ -102,3 +102,27 @@ func TestTriggerZoneExit_NoUnderscore_KeyShape(t *testing.T) {
 		t.Errorf("p.engineQueue[0].Script: got %v, want %v (key shape mismatch — check for stray underscore after `zoneexit`)", got, sf)
 	}
 }
+
+// TestTriggerMapzoneExit_KeyShape (T2b) — pins the absence of an
+// underscore between `mapzoneexit` and the level segment. Expected
+// key is [mapzoneexit,0_50_60]. Symmetric with T4 (zoneexit) and
+// T1 (mapzone) — fences key-shape regressions in the only trigger
+// method otherwise lacking a key-shape unit test.
+func TestTriggerMapzoneExit_KeyShape(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	sf := &script.ScriptFile{Name: "[mapzoneexit,0_50_60]", LookupKey: 0x12340004}
+	s.scriptProvider.Register(sf)
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+
+	p.triggerMapzoneExit(50<<6, 60<<6)
+
+	if len(p.engineQueue) != 1 {
+		t.Fatalf("p.engineQueue len: got %d, want 1 (key [mapzoneexit,0_50_60] must resolve)", len(p.engineQueue))
+	}
+	if got := p.engineQueue[0].Script; got != sf {
+		t.Errorf("p.engineQueue[0].Script: got %v, want %v (key shape mismatch — check for stray underscore after `mapzoneexit`)", got, sf)
+	}
+}
