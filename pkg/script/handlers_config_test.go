@@ -20,6 +20,7 @@ type mockConfigs struct {
 	spotAnimTypes map[int]*objtype.SpotanimType
 	varps         map[int]*objtype.VarPlayerType
 	varns         map[int]*objtype.VarNpcType
+	seqs          map[int]*objtype.SeqType
 }
 
 func (m *mockConfigs) ObjType(id int) *objtype.ObjType              { return m.objs[id] }
@@ -31,7 +32,7 @@ func (m *mockConfigs) ParamType(id int) *objtype.ParamType          { return m.p
 func (m *mockConfigs) InvType(id int) *objtype.InvType              { return m.invs[id] }
 func (m *mockConfigs) IdkType(id int) *objtype.IdkType              { return m.idks[id] }
 func (m *mockConfigs) SpotAnimType(id int) *objtype.SpotanimType    { return m.spotAnimTypes[id] }
-func (m *mockConfigs) SeqType(id int) *objtype.SeqType              { return nil }
+func (m *mockConfigs) SeqType(id int) *objtype.SeqType              { return m.seqs[id] }
 func (m *mockConfigs) DbTableType(id int) *objtype.DbTableType      { return nil }
 func (m *mockConfigs) DbRowType(id int) *objtype.DbRowType          { return nil }
 func (m *mockConfigs) DbRowsInTable(tableID int) []int              { return nil }

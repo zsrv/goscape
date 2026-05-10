@@ -89,6 +89,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpMapMembers:  handleMapMembers,
 	OpMapLive:     handleMapLive,
 	OpInZone:      handleInZone,
+	OpSeqLength:   handleSeqLength,
 
 	// NAI-35-T2: rect-bounded player-count enumeration.
 	OpMapPlayerCount: handleMapPlayerCount,

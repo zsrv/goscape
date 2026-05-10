@@ -146,6 +146,15 @@ func checkInvType(s *ScriptState, id int, op string) error {
 	return nil
 }
 
+// checkSeqType validates a SeqType id is registered in s.Configs.
+// Mirrors TS check(id, SeqTypeValid) (ScriptValidators.ts).
+func checkSeqType(s *ScriptState, id int, op string) error {
+	if s.Configs == nil || s.Configs.SeqType(id) == nil {
+		return fmt.Errorf("%s: no SeqType with value (%d) found", op, id)
+	}
+	return nil
+}
+
 // handlePAnimProtect (P_ANIMPROTECT, opcode 2066) sets the active player's
 // animProtect flag. While nonzero, the (*Player).PlayAnim reader gate at
 // TS Player.ts:1842 suppresses in-engine animation requests (NAI-56).

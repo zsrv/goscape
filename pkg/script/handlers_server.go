@@ -84,6 +84,19 @@ func handleMoveCoord(s *ScriptState) error {
 	return nil
 }
 
+// handleSeqLength (SEQ_LENGTH) pushes the configured duration of a
+// SeqType. Mirrors TS LostCityRS/Engine-TS/.../ServerOps.ts:109-111:
+//
+//	state.pushInt(check(state.popInt(), SeqTypeValid).duration);
+func handleSeqLength(s *ScriptState) error {
+	id := s.PopInt()
+	if err := checkSeqType(s, id, "SEQ_LENGTH"); err != nil {
+		return err
+	}
+	s.PushInt(s.Configs.SeqType(id).Duration)
+	return nil
+}
+
 // handleWorldDelay (WORLD_DELAY, opcode 1021) suspends the active
 // script to the world-script queue. The wakeup-tick value is NOT
 // popped here — it remains on the script's int stack and is popped by

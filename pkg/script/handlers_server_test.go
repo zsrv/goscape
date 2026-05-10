@@ -1,6 +1,11 @@
 package script
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"github.com/zsrv/goscape/pkg/objtype"
+)
 
 func TestMapClock(t *testing.T) {
 	sf := &ScriptFile{
@@ -114,5 +119,50 @@ func TestServerOpsRequireWorld(t *testing.T) {
 				t.Errorf("%v: want error with nil World", op)
 			}
 		})
+	}
+}
+
+// TestHandleSeqLength_PushesDuration pins TS ServerOps.ts:109-111
+// (NAI-149). state.pushInt(check(popInt(), SeqTypeValid).duration).
+func TestHandleSeqLength_PushesDuration(t *testing.T) {
+	seq := &objtype.SeqType{
+		ConfigType: objtype.ConfigType{ID: 42},
+		Duration:   180, // ticks
+	}
+	mc := &mockConfigs{
+		seqs: map[int]*objtype.SeqType{42: seq},
+	}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Configs:     mc,
+	}
+	s.PushInt(42)
+	if err := handleSeqLength(s); err != nil {
+		t.Fatalf("handleSeqLength: %v", err)
+	}
+	if got := s.IntStack[0]; got != 180 {
+		t.Errorf("top: got %d, want 180", got)
+	}
+}
+
+// TestHandleSeqLength_RejectsUnknownID pins TS check(id, SeqTypeValid)
+// — unknown id throws.
+func TestHandleSeqLength_RejectsUnknownID(t *testing.T) {
+	mc := &mockConfigs{
+		seqs: map[int]*objtype.SeqType{}, // empty
+	}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Configs:     mc,
+	}
+	s.PushInt(99)
+	err := handleSeqLength(s)
+	if err == nil {
+		t.Fatalf("handleSeqLength: expected error for unknown id")
+	}
+	if !strings.Contains(err.Error(), "SEQ_LENGTH") {
+		t.Errorf("error: got %q, want to contain \"SEQ_LENGTH\"", err.Error())
 	}
 }
