@@ -4632,3 +4632,94 @@ func TestHandlePlayerMember_RequiresActivePlayer(t *testing.T) {
 		t.Errorf("error: got %q, want to contain \"PLAYERMEMBER\"", err.Error())
 	}
 }
+
+// TestHandleAfkEvent_NodeDebugForcesEligible pins TS PlayerOps.ts:1058
+// — the `Environment.NODE_DEBUG ||` arm short-circuits the staff-mod
+// gate. Even with staffModLevel >= 2, NodeDebug=true + ready=true → push 1.
+func TestHandleAfkEvent_NodeDebugForcesEligible(t *testing.T) {
+	mp := &mockPlayer{
+		staffModLevelValue: 5, // would normally suppress
+		afkEventReadyValue: true,
+	}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        mp,
+		Pointers:    PtrActivePlayer,
+		NodeDebug:   true,
+	}
+	if err := handleAfkEvent(s); err != nil {
+		t.Fatalf("handleAfkEvent: %v", err)
+	}
+	if got := s.IntStack[0]; got != 1 {
+		t.Errorf("top: got %d, want 1 (NodeDebug forces eligible)", got)
+	}
+	// Both branches must clear afkEventReady.
+	if mp.afkEventReadyValue != false {
+		t.Errorf("afkEventReadyValue: got true, want false (always cleared)")
+	}
+}
+
+// TestHandleAfkEvent_StaffModSuppressesUnderProduction pins TS PlayerOps.ts:1058
+// asymmetry — under NodeDebug=false, staffMod>=2 forces 0 even when ready=true.
+func TestHandleAfkEvent_StaffModSuppressesUnderProduction(t *testing.T) {
+	mp := &mockPlayer{
+		staffModLevelValue: 2, // boundary — TS uses `< 2`
+		afkEventReadyValue: true,
+	}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        mp,
+		Pointers:    PtrActivePlayer,
+		NodeDebug:   false,
+	}
+	if err := handleAfkEvent(s); err != nil {
+		t.Fatalf("handleAfkEvent: %v", err)
+	}
+	if got := s.IntStack[0]; got != 0 {
+		t.Errorf("top: got %d, want 0 (staffMod=2 suppresses)", got)
+	}
+	// Asymmetry-pin: clearing happens REGARDLESS of eligibility.
+	if mp.afkEventReadyValue != false {
+		t.Errorf("afkEventReadyValue: got true, want false (cleared even when not eligible)")
+	}
+}
+
+// TestHandleAfkEvent_NotReadyPushesZero pins the `&& afkEventReady`
+// short-circuit at TS PlayerOps.ts:1058.
+func TestHandleAfkEvent_NotReadyPushesZero(t *testing.T) {
+	mp := &mockPlayer{
+		staffModLevelValue: 0,     // eligible
+		afkEventReadyValue: false, // but not ready
+	}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        mp,
+		Pointers:    PtrActivePlayer,
+		NodeDebug:   true,
+	}
+	if err := handleAfkEvent(s); err != nil {
+		t.Fatalf("handleAfkEvent: %v", err)
+	}
+	if got := s.IntStack[0]; got != 0 {
+		t.Errorf("top: got %d, want 0 (not ready)", got)
+	}
+}
+
+// TestHandleAfkEvent_RequiresActivePlayer pins the goscape-only
+// defensive guard (TS skips this check; see defensive_gate_doc_comment_label).
+func TestHandleAfkEvent_RequiresActivePlayer(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	err := handleAfkEvent(s)
+	if err == nil {
+		t.Fatalf("handleAfkEvent: expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "AFK_EVENT") {
+		t.Errorf("error: got %q, want to contain \"AFK_EVENT\"", err.Error())
+	}
+}

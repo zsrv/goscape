@@ -120,6 +120,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpLowMem: handleLowMem,
 	// NAI-149 T2: PLAYERMEMBER.
 	OpPlayerMember: handlePlayerMember,
+	// NAI-149 T3: AFK_EVENT.
+	OpAfkEvent: handleAfkEvent,
 
 	// S5m: last-input queries.
 	OpLastInt:        handleLastInt,

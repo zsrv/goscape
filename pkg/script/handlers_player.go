@@ -1505,3 +1505,29 @@ func handlePPreventLogout(s *ScriptState) error {
 	s.Self.SetPreventLogout(msg, s.World.CurrentTick()+ticks)
 	return nil
 }
+
+// handleAfkEvent (AFK_EVENT, opcode 2000) pushes 1 when the player is
+// eligible to receive an AFK-event prompt and clears the eligibility
+// flag. Mirrors TS LostCityRS/Engine-TS/.../PlayerOps.ts:1057-1062:
+//
+//	state.pushInt(
+//	  (Environment.NODE_DEBUG || state.activePlayer.staffModLevel < 2)
+//	    && state.activePlayer.afkEventReady ? 1 : 0
+//	);
+//	state.activePlayer.afkEventReady = false;
+//
+// The active-player guard is goscape defensive (TS skips this check;
+// see defensive_gate_doc_comment_label).
+func handleAfkEvent(s *ScriptState) error {
+	if err := requireActivePlayer(s, "AFK_EVENT"); err != nil {
+		return err
+	}
+	eligible := (s.NodeDebug || s.Self.StaffModLevel() < 2) && s.Self.AfkEventReady()
+	if eligible {
+		s.PushInt(1)
+	} else {
+		s.PushInt(0)
+	}
+	s.Self.SetAfkEventReady(false)
+	return nil
+}
