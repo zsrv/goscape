@@ -183,13 +183,6 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 	}
 	s.locTypes = locTypes
 
-	gm := gamemap.New(logger)
-	gm.SetLocTypes(locTypes)
-	if err := gm.Init(cfg.CachePath); err != nil {
-		return nil, fmt.Errorf("failed to load game map: %w", err)
-	}
-	s.gamemap = gm
-
 	params, err := objtype.LoadParams(cfg.CachePath)
 	if err != nil {
 		return nil, fmt.Errorf("load params: %w", err)
@@ -198,6 +191,16 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 	if err != nil {
 		return nil, fmt.Errorf("load obj types: %w", err)
 	}
+
+	gm := gamemap.New(logger)
+	gm.SetLocTypes(locTypes)
+	gm.SetMembers(cfg.NodeMembers)
+	gm.SetObjTypes(objTypes)
+	if err := gm.Init(cfg.CachePath); err != nil {
+		return nil, fmt.Errorf("failed to load game map: %w", err)
+	}
+	s.gamemap = gm
+
 	invTypes, err := objtype.LoadInvTypes(cfg.CachePath)
 	if err != nil {
 		return nil, fmt.Errorf("load inv types: %w", err)
@@ -317,6 +320,7 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 	}
 
 	s.populateStaticLocsIntoZones()
+	s.populateStaticObjsIntoZones()
 
 	return s, nil
 }
@@ -341,6 +345,23 @@ func (s *Server) populateStaticLocsIntoZones() {
 		z := s.zoneMap.Get(loc.Level, loc.X, loc.Z)
 		z.AddStaticLoc(loc)
 	}
+}
+
+// populateStaticObjsIntoZones constructs an *entity.Obj per parsed
+// ObjSpawn and routes it to its owning Zone via Zone.AddStaticObj.
+// Called once at server startup, adjacent to populateStaticLocsIntoZones.
+// Mirrors TS GameMap.loadObjs's inline getZone().addStaticObj() call;
+// goscape splits the parse (gamemap.loadObjs) from the zone-routing
+// (here) because the zone registry lives on Server, not GameMap.
+// NAI-151.
+func (s *Server) populateStaticObjsIntoZones() {
+	for _, spawn := range s.gamemap.ObjSpawns() {
+		obj := entitypkg.NewObj(spawn.Level, spawn.X, spawn.Z,
+			entitypkg.LifecycleRespawn, spawn.TypeID, spawn.Count)
+		z := s.zoneMap.Get(spawn.Level, spawn.X, spawn.Z)
+		z.AddStaticObj(obj)
+	}
+	s.log.Info("static objs loaded", "count", len(s.gamemap.ObjSpawns()))
 }
 
 func (s *Server) Run() error {

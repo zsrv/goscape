@@ -163,3 +163,84 @@ func TestServerChangeLocOnInactiveDespawnIsNoOp(t *testing.T) {
 		t.Error("ChangeLoc on inactive DESPAWN must early-return; angle not mutated")
 	}
 }
+
+// --- NAI-151: populateStaticObjsIntoZones wiring ---
+
+func TestPopulateStaticObjsIntoZones_RoutesByCoord(t *testing.T) {
+	s := newZoneTestServer(t)
+	gm := gamemap.New(discardLogger())
+	gm.SetMembers(false)
+	gm.SetObjTypes(&objtype.ObjTypeConfigs{Configs: []*objtype.ObjType{
+		nil,
+		{Members: false},
+	}})
+	const mapX, mapZ = 50, 50
+	const packed1 = 0<<12 | 5<<6 | 5
+	header1 := []byte{byte(packed1 >> 8), byte(packed1 & 0xFF), 0x01}
+	entry1 := []byte{0x00, 0x01, 0x07} // typeID=1, count=7
+	const packed2 = 0<<12 | 50<<6 | 50
+	header2 := []byte{byte(packed2 >> 8), byte(packed2 & 0xFF), 0x01}
+	entry2 := []byte{0x00, 0x01, 0x08} // typeID=1, count=8
+	data := append(header1, entry1...)
+	data = append(data, header2...)
+	data = append(data, entry2...)
+	gm.SetFreeMapForTest(mapX*64+5, mapZ*64+5)
+	gm.SetFreeMapForTest(mapX*64+50, mapZ*64+50)
+	gm.LoadObjsForTest(data, mapX, mapZ)
+
+	s.gamemap = gm
+	s.populateStaticObjsIntoZones()
+
+	zA := s.zoneMap.Get(0, mapX*64+5, mapZ*64+5)
+	zB := s.zoneMap.Get(0, mapX*64+50, mapZ*64+50)
+	if len(zA.Objs) != 1 || zA.Objs[0].Count != 7 {
+		t.Errorf("zone A: got Objs=%v, want one obj count=7", zA.Objs)
+	}
+	if len(zB.Objs) != 1 || zB.Objs[0].Count != 8 {
+		t.Errorf("zone B: got Objs=%v, want one obj count=8", zB.Objs)
+	}
+	if zA == zB {
+		t.Error("zone A and B should be distinct (tiles 8 zones apart)")
+	}
+}
+
+func TestPopulateStaticObjsIntoZones_LifecycleRespawnAndActive(t *testing.T) {
+	s := newZoneTestServer(t)
+	gm := gamemap.New(discardLogger())
+	gm.SetMembers(false)
+	gm.SetObjTypes(&objtype.ObjTypeConfigs{Configs: []*objtype.ObjType{
+		nil,
+		{Members: false},
+	}})
+	const mapX, mapZ = 50, 50
+	const packed = 0<<12 | 5<<6 | 5
+	header := []byte{byte(packed >> 8), byte(packed & 0xFF), 0x01}
+	entry := []byte{0x00, 0x01, 0x07}
+	gm.SetFreeMapForTest(mapX*64+5, mapZ*64+5)
+	gm.LoadObjsForTest(append(header, entry...), mapX, mapZ)
+	s.gamemap = gm
+
+	s.populateStaticObjsIntoZones()
+
+	z := s.zoneMap.Get(0, mapX*64+5, mapZ*64+5)
+	if len(z.Objs) != 1 {
+		t.Fatalf("Objs: got %d, want 1", len(z.Objs))
+	}
+	o := z.Objs[0]
+	if o.Lifecycle != entitypkg.LifecycleRespawn {
+		t.Errorf("Lifecycle: got %v, want LifecycleRespawn", o.Lifecycle)
+	}
+	if !o.IsActive {
+		t.Error("IsActive: got false, want true")
+	}
+	if o.X != mapX*64+5 || o.Z != mapZ*64+5 {
+		t.Errorf("Coords: got (%d,%d), want (%d,%d)", o.X, o.Z, mapX*64+5, mapZ*64+5)
+	}
+}
+
+func TestPopulateStaticObjsIntoZones_EmptySpawnsNoOp(t *testing.T) {
+	s := newZoneTestServer(t)
+	gm := gamemap.New(discardLogger())
+	s.gamemap = gm
+	s.populateStaticObjsIntoZones()
+}

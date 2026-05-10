@@ -238,3 +238,15 @@ func (gm *GameMap) SetLandBytesForTest(mapX, mapZ int, b []byte) {
 func (gm *GameMap) SetLocBytesForTest(mapX, mapZ int, b []byte) {
 	gm.lData[uint16((mapX<<8)|mapZ)] = b
 }
+
+// LoadObjsForTest exposes the unexported loadObjs parser for tests in
+// downstream packages (modules/world). NAI-151.
+func (gm *GameMap) LoadObjsForTest(data []byte, mapSquareX, mapSquareZ int) {
+	gm.loadObjs(data, mapSquareX, mapSquareZ)
+}
+
+// SetFreeMapForTest flags the zone containing (x, z) as F2P. Mirrors
+// the encoding used by gm.IsFreeToPlay → packZoneCoord(x, z, 0). NAI-151.
+func (gm *GameMap) SetFreeMapForTest(x, z int) {
+	gm.freemap[packZoneCoord(x, z, 0)] = true
+}
