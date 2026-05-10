@@ -887,9 +887,9 @@ func (p *Player) updateBuildArea() {
 
 func (p *Player) processOut() {
 	// NAI-93: goscape's updateMap (=TS BuildArea.rebuildNormal slot) was
-	// moved to Server.processInfo per TS World.ts:996 ordering, so
-	// processOut starts with PlayerInfo encode against already-fresh
-	// rsbuf state.
+	// moved to Server.processInfo per TS World.ts:996 ordering, so the
+	// PlayerInfo encode (updatePlayers) runs against already-fresh rsbuf
+	// state.
 	//
 	// NAI-142: updateBuildArea is the TS NetworkPlayer.updateMap slot
 	// (TS World.ts:1097) — it must run before updateZones so any

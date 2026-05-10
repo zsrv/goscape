@@ -603,12 +603,14 @@ func TestUpdateBuildArea_CrossLevelFires(t *testing.T) {
 
 // T5: rebuildScenery no longer pre-populates activeZones (R-D2 retirement).
 // Pins the dual-write removal: post-rebuildScenery, activeZones is empty
-// (line-649 reset still runs; line-667 write is gone).
+// (the activeZones reset at the top of rebuildScenery still runs; the
+// per-zone-cell write inside the nested loop is gone).
 func TestRebuildScenery_DoesNotPrePopulateActiveZones(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.x, p.z, p.level = 50<<3, 50<<3, 0
 	p.originX, p.originZ = p.x, p.z
-	// Pre-set sentinel; rebuildScenery's line-649 reset clears it.
+	// Pre-set sentinel; rebuildScenery's top-of-function activeZones
+	// reset clears it.
 	p.activeZones = map[int]bool{-1: true}
 
 	_ = p.rebuildScenery(0)
