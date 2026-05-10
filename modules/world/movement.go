@@ -50,13 +50,9 @@ func (p *Player) resolveMovement() {
 	// unfinished primary-queue OR engineQueue work, suppress movement
 	// for this tick.
 	//
-	// INERT AT HEAD: goscape currently has zero `moveClickRequest = true`
-	// assignment sites (verified at HEAD pre-NAI-144). TS sets it in
-	// World.ts:611-628 (per-tick post-decode pathfinding pass); goscape's
-	// structural equivalent lives in moveClickInner (handlers_game.go),
-	// which runs at decode-time, not per-tick. The gate is wired
-	// TS-faithful and ready to fire as soon as a setter port lands —
-	// see tracker NAI-144-D-MoveClickRequestSetter.
+	// Setter source: NAI-146 (*Player).processPostDecode (TS World.ts:
+	// 611-641 port). Closes the previously-tracked
+	// NAI-144-D-MoveClickRequestSetter; gate is now live in production.
 	//
 	// Gate body explicitly clears walkDir/runDir to avoid stale prior-tick
 	// values bleeding into the current tick's outbound info block (the
