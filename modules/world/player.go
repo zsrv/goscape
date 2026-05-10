@@ -294,7 +294,7 @@ type Player struct {
 	preventLogoutMessage                         string
 	preventLogoutUntil                           int
 	reconnecting, lowMemory, webClient           bool
-	afkEventReady, moveClickRequest              bool
+	afkEventReady, moveClickRequest, decodedThisTick bool
 	opcalled                                     bool
 
 	// === AFK zones (sub-spec 4a) ===
@@ -1061,6 +1061,7 @@ func (p *Player) processIn(currentTick int) {
 	p.clientLimit = 0
 	p.restrictedLimit = 0
 	p.opcalled = false
+	p.decodedThisTick = false // NAI-146 T1: reset before decode (TS decodeIn() return semantics)
 
 	c.inMu.Lock()
 	defer c.inMu.Unlock()
@@ -1090,6 +1091,7 @@ func (p *Player) processIn(currentTick int) {
 	if readAny {
 		p.lastResponse = currentTick // mirrors TS decodeIn() line 80
 	}
+	p.decodedThisTick = readAny // NAI-146 T1: TS decodeIn() return value
 
 	// NAI-73: per-tick input-tracking dispatch. Mirrors TS World.ts:646
 	// placement (last step of per-player client-input phase iteration).
