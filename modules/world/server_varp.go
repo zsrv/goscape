@@ -222,14 +222,36 @@ func (w worldVarsView) LookupPlayerByUID(uid int) script.ActivePlayer {
 	return w.s.LookupPlayerByUID(uid)
 }
 
-// MapProjAnim implements script.WorldVars.MapProjAnim. Stub at
-// NAI-150 T1; real delegation lands in T5.
+// MapProjAnim implements script.WorldVars.MapProjAnim. Delegates to
+// Server.MapProjAnim (modules/world/world_zone.go:164) which routes
+// the event by source-coord zone and tracks the zone for end-of-tick
+// flush. NAI-150.
 func (w worldVarsView) MapProjAnim(level, srcX, srcZ, dstX, dstZ, target, spotanim, srcHeight, dstHeight, startDelay, endDelay, peak, arc int) {
+	if w.s == nil {
+		return
+	}
+	w.s.MapProjAnim(level, srcX, srcZ, dstX, dstZ, target, spotanim,
+		srcHeight, dstHeight, startDelay, endDelay, peak, arc)
 }
 
-// LookupNpcBySlot implements script.WorldVars.LookupNpcBySlot. Stub
-// at NAI-150 T1; real lookup lands in T5.
-func (w worldVarsView) LookupNpcBySlot(slot int) script.ActiveNpc { return nil }
+// LookupNpcBySlot implements script.WorldVars.LookupNpcBySlot.
+// Returns s.npcs[slot] cast to script.ActiveNpc, or nil for OOB slot
+// or empty slot. Slot-only — does NOT verify the high-16 type bits,
+// unlike NpcLookup.FindNpcByUID. Mirrors TS World.getNpc(slot).
+// NAI-150.
+func (w worldVarsView) LookupNpcBySlot(slot int) script.ActiveNpc {
+	if w.s == nil {
+		return nil
+	}
+	if slot < 0 || slot >= len(w.s.npcs) {
+		return nil
+	}
+	n := w.s.npcs[slot]
+	if n == nil {
+		return nil
+	}
+	return n
+}
 
 // Compile-time conformance assertion for script.WorldVars. Adding any
 // new WorldVars method that worldVarsView fails to implement breaks
