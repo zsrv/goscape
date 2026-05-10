@@ -412,6 +412,20 @@ func (p *Player) RunEnergy() int {
 	return p.runenergy
 }
 
+// RunWeight returns the cached carry weight in grams.
+func (p *Player) RunWeight() int { return p.runweight }
+
+// AfkEventReady reports the AFK-event ready flag.
+func (p *Player) AfkEventReady() bool { return p.afkEventReady }
+
+// SetAfkEventReady writes the AFK-event ready flag (cleared by AFK_EVENT
+// after dispatch).
+func (p *Player) SetAfkEventReady(v bool) { p.afkEventReady = v }
+
+// SetRunEnergy writes the current run-energy value. Caller clamps; this
+// method does no validation.
+func (p *Player) SetRunEnergy(v int) { p.runenergy = v }
+
 // S5c: position / facing / teleport, stats, and animation.
 
 // CoordPacked returns the player's current position as a single RS2 coord
@@ -1108,7 +1122,10 @@ func (p *Player) SetInteractionScriptPlayer(player2 script.ActivePlayer, op int)
 func (p *Player) LowMemory() bool { return p.lowMemory }
 
 // NAI-47: SETIDKIT appearance mutation.
-func (p *Player) Gender() int                  { return p.gender }
+func (p *Player) Gender() int { return p.gender }
+
+// Members reports the per-player members flag (login RPC field).
+func (p *Player) Members() bool { return p.members }
 
 
 // AddHeroPoints implements script.ActivePlayer. Credits amount to

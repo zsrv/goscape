@@ -168,6 +168,12 @@ type mockPlayer struct {
 	// is fine for tests that don't pin a specific value.
 	runenergyValue int
 
+	// NAI-149: trivial-handler-sweep cohort backing fields.
+	membersValue         bool
+	runweightValue       int
+	afkEventReadyValue   bool
+	setAfkEventReadyCalls []bool // captures every SetAfkEventReady arg in order
+
 	// S5f: captured calls from the interface / modal-control methods.
 	lastCloseModalCalls int
 	lastOpenMain        int
@@ -510,6 +516,16 @@ func (m *mockPlayer) SetRun(v int) { m.lastSetRun = v }
 
 // NAI-117 RUNENERGY.
 func (m *mockPlayer) RunEnergy() int { return m.runenergyValue }
+
+// NAI-149.
+func (m *mockPlayer) Members() bool       { return m.membersValue }
+func (m *mockPlayer) RunWeight() int      { return m.runweightValue }
+func (m *mockPlayer) AfkEventReady() bool { return m.afkEventReadyValue }
+func (m *mockPlayer) SetAfkEventReady(v bool) {
+	m.setAfkEventReadyCalls = append(m.setAfkEventReadyCalls, v)
+	m.afkEventReadyValue = v
+}
+func (m *mockPlayer) SetRunEnergy(v int) { m.runenergyValue = v }
 
 // S5f: interface / modal control.
 

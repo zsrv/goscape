@@ -180,6 +180,26 @@ type ActivePlayer interface {
 	// at Engine-TS PlayerOps.ts:1177. NAI-117.
 	RunEnergy() int
 
+	// RunWeight returns the player's tracked carry weight in grams (TS
+	// stores 1/1000 of a kg in `runweight`; production wiring at
+	// modules/world/player.go:880 mirrors TS update site). Consumed by
+	// PlayerOps.ts:1181 WEIGHT.
+	RunWeight() int
+
+	// AfkEventReady returns the per-player AFK-event ready flag. Set true
+	// by the random tick gate at modules/world/player.go:1050 (rand <
+	// 0.0167 every 500 ticks). Consumed by PlayerOps.ts:1058 AFK_EVENT.
+	AfkEventReady() bool
+
+	// SetAfkEventReady writes the AFK-event ready flag. AFK_EVENT clears
+	// it to false after dispatching (TS PlayerOps.ts:1060).
+	SetAfkEventReady(v bool)
+
+	// SetRunEnergy writes the player's current run-energy value (range
+	// [0, 10000]). Caller is responsible for clamping; HEAL_ENERGY clamps
+	// in the handler before calling this. Mirrors TS PlayerOps.ts:1054.
+	SetRunEnergy(v int)
+
 	// S5f: interface / modal control.
 
 	// CloseModal closes any currently open main/chat/side interface and
@@ -595,6 +615,11 @@ type ActivePlayer interface {
 	// to determine the body-part slot offset (female slots = type − 7).
 	// Mirrors TS state.activePlayer.gender at PlayerOps.ts:1073.
 	Gender() int
+
+	// Members returns whether the player has a members account. Backed by
+	// the per-player members field set from the login RPC. Mirrors TS
+	// Player.members consumed by PlayerOps.ts:1212 PLAYERMEMBER.
+	Members() bool
 
 	// AddHeroPoints credits `amount` to `playerUID` on the player's
 	// hero-point ledger. Mirrors TS Player.heroPoints.addHero(...) at
