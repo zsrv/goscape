@@ -64,7 +64,13 @@ func parseObjTypes(server *packet2.Packet, jag *io.Jagfile, ptc *ParamTypeConfig
 		}
 	}
 
-	for id := range count {
+	applyPostDecodeFixups(otc, ptc)
+
+	return otc, nil
+}
+
+func applyPostDecodeFixups(otc *ObjTypeConfigs, ptc *ParamTypeConfigs) {
+	for id := range otc.Configs {
 		config := otc.Configs[id]
 
 		if config.CertTemplate != -1 {
@@ -83,8 +89,6 @@ func parseObjTypes(server *packet2.Packet, jag *io.Jagfile, ptc *ParamTypeConfig
 			}
 		}
 	}
-
-	return otc, nil
 }
 
 type ObjType struct {
