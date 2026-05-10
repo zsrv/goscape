@@ -2417,6 +2417,8 @@ func TestNpcGetMode_NoActiveNpcErrors(t *testing.T) {
 // 0" — but every such call site sets ActiveObj for handlers that don't
 // inspect IsValidFor (OBJ_COORD, OBJ_TYPE, NPC_SETMODE OPOBJ), so the
 // default is benign.
+// T3/T4 tests driving IsValidFor must set reveal: -1 for public
+// or reveal: N, receiverID: uid for private — the zero value is not neutral.
 type mockActiveObj struct {
 	objType, x, z, level int
 	count                int
