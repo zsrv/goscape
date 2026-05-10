@@ -218,18 +218,25 @@ func TestAddXPFiresChangeStatOnLevelUp(t *testing.T) {
 	p.baseLevels[objtype.PlayerStatAttack] = 2
 	p.levels[objtype.PlayerStatAttack] = 2
 
-	before := len(p.queue)
+	// NAI-144: changeStat now uses QueueEngine, not QueueNormal.
+	beforeQueue := len(p.queue)
+	beforeEngineQueue := len(p.engineQueue)
 	p.AddXP(objtype.PlayerStatAttack, 1000) // → level 3
 
-	if len(p.queue) != before+1 {
-		t.Fatalf("queue len: got %d, want %d (+1 changestat)", len(p.queue), before+1)
+	if len(p.queue) != beforeQueue {
+		t.Errorf("p.queue len: got %d, want %d (changestat must NOT land in primary queue post-NAI-144)",
+			len(p.queue), beforeQueue)
 	}
-	req := p.queue[before]
+	if len(p.engineQueue) != beforeEngineQueue+1 {
+		t.Fatalf("p.engineQueue len: got %d, want %d (+1 changestat via QueueEngine)",
+			len(p.engineQueue), beforeEngineQueue+1)
+	}
+	req := p.engineQueue[beforeEngineQueue]
 	if req.Script != sf {
-		t.Errorf("queue[%d].Script: got %v, want [changestat,attack] (%v)", before, req.Script, sf)
+		t.Errorf("p.engineQueue[%d].Script: got %v, want [changestat,attack] (%v)", beforeEngineQueue, req.Script, sf)
 	}
-	if req.Type != script.QueueNormal {
-		t.Errorf("queue[%d].Type: got %v, want QueueNormal (TS ENGINE equivalent)", before, req.Type)
+	if req.Type != script.QueueEngine {
+		t.Errorf("p.engineQueue[%d].Type: got %v, want QueueEngine (NAI-144 closes S6h deviation)", beforeEngineQueue, req.Type)
 	}
 }
 
@@ -246,11 +253,16 @@ func TestAddXPDoesNotFireChangeStatWithoutLevelUp(t *testing.T) {
 	p.levels[objtype.PlayerStatAttack] = 1
 
 	before := len(p.queue)
+	beforeEngineQueue := len(p.engineQueue)
 	p.AddXP(objtype.PlayerStatAttack, 100) // → 200, still level 1 (< 830)
 
 	if len(p.queue) != before {
 		t.Errorf("queue len: got %d, want %d (no level-up = no changestat fire)",
 			len(p.queue), before)
+	}
+	if len(p.engineQueue) != beforeEngineQueue {
+		t.Errorf("engineQueue len: got %d, want %d (no level-up = no changestat fire)",
+			len(p.engineQueue), beforeEngineQueue)
 	}
 }
 
@@ -265,11 +277,16 @@ func TestAddXPChangeStatNoScriptIsNoop(t *testing.T) {
 	p.levels[objtype.PlayerStatAttack] = 2
 
 	before := len(p.queue)
+	beforeEngineQueue := len(p.engineQueue)
 	p.AddXP(objtype.PlayerStatAttack, 1000) // level up, but no script registered
 
 	if len(p.queue) != before {
 		t.Errorf("queue len: got %d, want %d (no registered script = silent no-op)",
 			len(p.queue), before)
+	}
+	if len(p.engineQueue) != beforeEngineQueue {
+		t.Errorf("engineQueue len: got %d, want %d (no registered script = silent no-op)",
+			len(p.engineQueue), beforeEngineQueue)
 	}
 	// Verify the level-up math still happened.
 	if p.baseLevels[objtype.PlayerStatAttack] != 3 {
@@ -295,15 +312,25 @@ func TestAddXPFiresAdvanceStatOnLevelUp(t *testing.T) {
 	p.baseLevels[objtype.PlayerStatAttack] = 2
 	p.levels[objtype.PlayerStatAttack] = 2
 
-	before := len(p.queue)
+	// NAI-144: advanceStat now uses QueueEngine, not QueueNormal.
+	beforeQueue := len(p.queue)
+	beforeEngineQueue := len(p.engineQueue)
 	p.AddXP(objtype.PlayerStatAttack, 1000) // → level 3
 
-	if len(p.queue) != before+1 {
-		t.Fatalf("queue len: got %d, want %d (+1 advancestat)", len(p.queue), before+1)
+	if len(p.queue) != beforeQueue {
+		t.Errorf("p.queue len: got %d, want %d (advancestat must NOT land in primary queue post-NAI-144)",
+			len(p.queue), beforeQueue)
 	}
-	req := p.queue[before]
+	if len(p.engineQueue) != beforeEngineQueue+1 {
+		t.Fatalf("p.engineQueue len: got %d, want %d (+1 advancestat via QueueEngine)",
+			len(p.engineQueue), beforeEngineQueue+1)
+	}
+	req := p.engineQueue[beforeEngineQueue]
 	if req.Script != sf {
-		t.Errorf("queue[%d].Script: got %v, want [advancestat,attack] (%v)", before, req.Script, sf)
+		t.Errorf("p.engineQueue[%d].Script: got %v, want [advancestat,attack] (%v)", beforeEngineQueue, req.Script, sf)
+	}
+	if req.Type != script.QueueEngine {
+		t.Errorf("p.engineQueue[%d].Type: got %v, want QueueEngine (NAI-144 closes S6h deviation)", beforeEngineQueue, req.Type)
 	}
 }
 
@@ -320,11 +347,16 @@ func TestAddXPDoesNotFireAdvanceStatWithoutLevelUp(t *testing.T) {
 	p.levels[objtype.PlayerStatAttack] = 1
 
 	before := len(p.queue)
+	beforeEngineQueue := len(p.engineQueue)
 	p.AddXP(objtype.PlayerStatAttack, 100) // → 200, still level 1
 
 	if len(p.queue) != before {
 		t.Errorf("queue len: got %d, want %d (no level-up = no advancestat fire)",
 			len(p.queue), before)
+	}
+	if len(p.engineQueue) != beforeEngineQueue {
+		t.Errorf("engineQueue len: got %d, want %d (no level-up = no advancestat fire)",
+			len(p.engineQueue), beforeEngineQueue)
 	}
 }
 
@@ -344,11 +376,16 @@ func TestAddXPAdvanceStatNoFallbackToGlobal(t *testing.T) {
 	p.levels[objtype.PlayerStatAttack] = 2
 
 	before := len(p.queue)
+	beforeEngineQueue := len(p.engineQueue)
 	p.AddXP(objtype.PlayerStatAttack, 1000) // level up
 
 	if len(p.queue) != before {
 		t.Errorf("queue len: got %d, want %d (global script must NOT fire — advancestat is type-specific only)",
 			len(p.queue), before)
+	}
+	if len(p.engineQueue) != beforeEngineQueue {
+		t.Errorf("engineQueue len: got %d, want %d (global script must NOT fire — advancestat is type-specific only)",
+			len(p.engineQueue), beforeEngineQueue)
 	}
 	// Verify level-up math still happened.
 	if p.baseLevels[objtype.PlayerStatAttack] != 3 {
@@ -377,19 +414,25 @@ func TestAddXPFiresBothChangeAndAdvanceStatOnLevelUp(t *testing.T) {
 	p.baseLevels[objtype.PlayerStatAttack] = 2
 	p.levels[objtype.PlayerStatAttack] = 2
 
-	before := len(p.queue)
+	// NAI-144: both changeStat and advanceStat now use QueueEngine.
+	beforeQueue := len(p.queue)
+	beforeEngineQueue := len(p.engineQueue)
 	p.AddXP(objtype.PlayerStatAttack, 1000) // level up
 
-	if len(p.queue) != before+2 {
-		t.Fatalf("queue len: got %d, want %d (+2 — both changestat and advancestat)",
-			len(p.queue), before+2)
+	if len(p.queue) != beforeQueue {
+		t.Errorf("p.queue len: got %d, want %d (neither changestat nor advancestat must land in primary queue post-NAI-144)",
+			len(p.queue), beforeQueue)
+	}
+	if len(p.engineQueue) != beforeEngineQueue+2 {
+		t.Fatalf("p.engineQueue len: got %d, want %d (+2 — both changestat and advancestat via QueueEngine)",
+			len(p.engineQueue), beforeEngineQueue+2)
 	}
 	// Order: changeStat before advanceStat (matches TS Player.ts:1772, 1804).
-	if p.queue[before].Script != changeSF {
-		t.Errorf("queue[%d].Script: got %v, want changestat first", before, p.queue[before].Script)
+	if p.engineQueue[beforeEngineQueue].Script != changeSF {
+		t.Errorf("p.engineQueue[%d].Script: got %v, want changestat first", beforeEngineQueue, p.engineQueue[beforeEngineQueue].Script)
 	}
-	if p.queue[before+1].Script != advSF {
-		t.Errorf("queue[%d].Script: got %v, want advancestat second", before+1, p.queue[before+1].Script)
+	if p.engineQueue[beforeEngineQueue+1].Script != advSF {
+		t.Errorf("p.engineQueue[%d].Script: got %v, want advancestat second", beforeEngineQueue+1, p.engineQueue[beforeEngineQueue+1].Script)
 	}
 }
 
@@ -1390,5 +1433,59 @@ func TestHasInteraction_Op3_NonPlayerTarget(t *testing.T) {
 	p.targetOp = 3
 	if !p.HasInteraction() {
 		t.Error("HasInteraction with op=3 against non-player target: got false, want true (follow-op narrows to *Player)")
+	}
+}
+
+// TestChangeStatUsesQueueEngine is a direct regression fence for the
+// NAI-144 migration: changeStat must enqueue to p.engineQueue with
+// Type=QueueEngine, not the previous S6h QueueNormal-as-ENGINE shape.
+func TestChangeStatUsesQueueEngine(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	key := script.LookupKeyForType(script.TriggerChangeStat, objtype.PlayerStatAttack)
+	sf := &script.ScriptFile{Name: "[changestat,attack]", LookupKey: key}
+	s.scriptProvider.Register(sf)
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+
+	p.changeStat(objtype.PlayerStatAttack)
+
+	if len(p.queue) != 0 {
+		t.Errorf("p.queue len: got %d, want 0 (changeStat must NOT land in primary queue)", len(p.queue))
+	}
+	if len(p.engineQueue) != 1 {
+		t.Fatalf("p.engineQueue len: got %d, want 1 (changeStat uses QueueEngine)", len(p.engineQueue))
+	}
+	if p.engineQueue[0].Type != script.QueueEngine {
+		t.Errorf("Type: got %v, want QueueEngine", p.engineQueue[0].Type)
+	}
+	if p.engineQueue[0].Script != sf {
+		t.Errorf("Script: got %v, want %v", p.engineQueue[0].Script, sf)
+	}
+}
+
+// TestAdvanceStatUsesQueueEngine pins NAI-144 migration: advanceStat
+// uses QueueEngine to match TS Player.ts:1804-1807.
+func TestAdvanceStatUsesQueueEngine(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	key := script.LookupKeyForType(script.TriggerAdvanceStat, objtype.PlayerStatAttack)
+	sf := &script.ScriptFile{Name: "[advancestat,attack]", LookupKey: key}
+	s.scriptProvider.Register(sf)
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+
+	p.advanceStat(objtype.PlayerStatAttack)
+
+	if len(p.queue) != 0 {
+		t.Errorf("p.queue len: got %d, want 0 (advanceStat must NOT land in primary queue)", len(p.queue))
+	}
+	if len(p.engineQueue) != 1 {
+		t.Fatalf("p.engineQueue len: got %d, want 1 (advanceStat uses QueueEngine)", len(p.engineQueue))
+	}
+	if p.engineQueue[0].Type != script.QueueEngine {
+		t.Errorf("Type: got %v, want QueueEngine", p.engineQueue[0].Type)
 	}
 }

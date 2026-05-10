@@ -573,17 +573,13 @@ func (p *Player) SetCurLevel(id int, level int) {
 }
 
 // changeStat fires the [changestat,<skill>] trigger for the given stat
-// slot when a cache script is registered. Enqueued as QueueNormal so it
-// runs asynchronously through processPlayerQueue, not inline with the
-// triggering action. Matches TS Player.changeStat (Player.ts:1816-1821)
-// which uses PlayerQueueType.ENGINE.
+// slot when a cache script is registered for that exact stat (or its
+// category, or globally). Mirrors TS Player.changeStat (Player.ts:1816-1821).
 //
-// QueueNormal is goscape's closest available approximation: it runs on
-// the next tick (matching ENGINE's async semantic) but is gated by the
-// shared queue's STRONG-override delayed-player check, whereas TS's
-// engineQueue uses canAccess() at fire time. A dedicated QueueEngine
-// variant is a deferred follow-up — fine until a consumer needs the
-// distinction.
+// Enqueued as QueueEngine — TS PlayerQueueType.ENGINE: distinct from
+// the primary queue, drains in processPlayerEngineQueues between
+// processPlayerTimers and processPathing (NAI-144). Closes the S6h
+// QueueNormal-as-ENGINE deviation.
 //
 // Silent no-op if no script is registered (GetByTrigger returns nil →
 // EnqueueScriptFile's nil-check short-circuits). Called from AddXP's
@@ -593,7 +589,7 @@ func (p *Player) changeStat(stat int) {
 		return
 	}
 	sf := p.client.server.scriptProvider.GetByTrigger(script.TriggerChangeStat, stat, -1)
-	p.EnqueueScriptFile(sf, 0, nil, nil, script.QueueNormal)
+	p.EnqueueScriptFile(sf, 0, nil, nil, script.QueueEngine)
 }
 
 // advanceStat fires the [advancestat,<skill>] trigger for the given stat
@@ -604,8 +600,8 @@ func (p *Player) changeStat(stat int) {
 // scripts that say "Congratulations, you just advanced an Attack level!"
 // must be skill-keyed.
 //
-// Enqueued as QueueNormal so it runs asynchronously through
-// processPlayerQueue. Matches TS Player.ts:1804-1807 exactly.
+// Enqueued as QueueEngine — TS PlayerQueueType.ENGINE (NAI-144).
+// Matches TS Player.ts:1804-1807 exactly.
 //
 // Silent no-op if no specific script is registered (GetByTriggerSpecific
 // returns nil → EnqueueScriptFile's nil-check short-circuits). Called
@@ -615,7 +611,7 @@ func (p *Player) advanceStat(stat int) {
 		return
 	}
 	sf := p.client.server.scriptProvider.GetByTriggerSpecific(script.TriggerAdvanceStat, stat, -1)
-	p.EnqueueScriptFile(sf, 0, nil, nil, script.QueueNormal)
+	p.EnqueueScriptFile(sf, 0, nil, nil, script.QueueEngine)
 }
 
 // AddXP adds xp (scaled ×10) to the player's stored XP for skill id and
