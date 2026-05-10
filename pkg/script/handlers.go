@@ -122,6 +122,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpPlayerMember: handlePlayerMember,
 	// NAI-149 T3: AFK_EVENT.
 	OpAfkEvent: handleAfkEvent,
+	// NAI-149 T4: WEIGHT.
+	OpWeight: handleWeight,
 
 	// S5m: last-input queries.
 	OpLastInt:        handleLastInt,

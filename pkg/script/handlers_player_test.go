@@ -4723,3 +4723,54 @@ func TestHandleAfkEvent_RequiresActivePlayer(t *testing.T) {
 		t.Errorf("error: got %q, want to contain \"AFK_EVENT\"", err.Error())
 	}
 }
+
+// TestHandleWeight_PushesRunWeight pins TS PlayerOps.ts:1180-1182
+// (NAI-149). Tests both zero and non-zero weights.
+func TestHandleWeight_PushesRunWeight(t *testing.T) {
+	cases := []struct {
+		name string
+		seed int
+	}{
+		{"zero weight", 0},
+		{"non-zero weight (4500g)", 4500},
+		{"negative weight (light items)", -1500}, // TS allows negative
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mp := &mockPlayer{runweightValue: tc.seed}
+			s := &ScriptState{
+				IntStack:    make([]int, StackCapacity),
+				StringStack: make([]string, StackCapacity),
+				Self:        mp,
+				Pointers:    PtrActivePlayer | PtrProtectedActivePlayer,
+			}
+			if err := handleWeight(s); err != nil {
+				t.Fatalf("handleWeight: %v", err)
+			}
+			if got := s.IntStack[0]; got != tc.seed {
+				t.Errorf("top: got %d, want %d", got, tc.seed)
+			}
+		})
+	}
+}
+
+// TestHandleWeight_RequiresProtected pins TS checkedHandler(ProtectedActivePlayer).
+func TestHandleWeight_RequiresProtected(t *testing.T) {
+	mp := &mockPlayer{runweightValue: 100}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        mp,
+		Pointers:    PtrActivePlayer, // active, but NOT protected
+	}
+	err := handleWeight(s)
+	if err == nil {
+		t.Fatalf("handleWeight: expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "WEIGHT") {
+		t.Errorf("error: got %q, want to contain \"WEIGHT\"", err.Error())
+	}
+	if !strings.Contains(err.Error(), "not protected") {
+		t.Errorf("error: got %q, want to contain \"not protected\"", err.Error())
+	}
+}

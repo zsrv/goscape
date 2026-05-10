@@ -1531,3 +1531,14 @@ func handleAfkEvent(s *ScriptState) error {
 	s.Self.SetAfkEventReady(false)
 	return nil
 }
+
+// handleWeight (WEIGHT) pushes the player's tracked carry weight.
+// Mirrors TS LostCityRS/Engine-TS/.../PlayerOps.ts:1180-1182 —
+// checkedHandler(ProtectedActivePlayer).
+func handleWeight(s *ScriptState) error {
+	if err := requireProtectedActivePlayer(s, "WEIGHT"); err != nil {
+		return err
+	}
+	s.PushInt(s.Self.RunWeight())
+	return nil
+}
