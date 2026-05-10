@@ -1419,3 +1419,39 @@ func handleInvDropItemDelayed(s *ScriptState) error {
 	s.World.EnqueueObjDelayed(level, x, z, obj, completed, duration, delay, s.Self.UID())
 	return nil
 }
+
+// handleInvStockBase (INV_STOCKBASE, opcode 4325) returns the configured
+// stock count for an object in an inventory's stock list, or -1 if the
+// inventory has no stock or the object is not in the stock list.
+// Pop order: obj on top (popped first), inv below (popped second) —
+// matches the goscape INV_* convention (e.g. handleInvTotal).
+// Mirrors TS LostCityRS/Engine-TS/.../InvOps.ts:41-54.
+func handleInvStockBase(s *ScriptState) error {
+	obj := s.PopInt()
+	inv := s.PopInt()
+	if err := checkObjType(s, obj, "INV_STOCKBASE"); err != nil {
+		return err
+	}
+	if err := checkInvType(s, inv, "INV_STOCKBASE"); err != nil {
+		return err
+	}
+	invType := s.Configs.InvType(inv)
+	objType := s.Configs.ObjType(obj)
+	if len(invType.StockObj) == 0 || len(invType.StockCount) == 0 {
+		s.PushInt(-1)
+		return nil
+	}
+	idx := -1
+	for i, id := range invType.StockObj {
+		if int(id) == objType.ID {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		s.PushInt(-1)
+		return nil
+	}
+	s.PushInt(int(invType.StockCount[idx]))
+	return nil
+}

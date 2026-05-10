@@ -2587,3 +2587,90 @@ func TestInvDropItemDelayed_SharedScopeBypassesProtect(t *testing.T) {
 		t.Errorf("Scope=Shared: expected 1 enqueue, got %d", got)
 	}
 }
+
+// -- INV_STOCKBASE --
+
+// TestHandleInvStockBase_NilStockObjReturnsMinusOne pins TS
+// InvOps.ts:46-49 — `if (!invType.stockobj || !invType.stockcount) return -1`.
+// Pop order: obj popped first (top of stack), inv popped second.
+// Push order: inv pushed first (deeper), obj pushed second (top).
+func TestHandleInvStockBase_NilStockObjReturnsMinusOne(t *testing.T) {
+	invType := objtype.NewInvType(testInvMain)
+	invType.DebugName = "main"
+	obj := objtype.NewObjType(testObjCoin)
+	mc := &mockConfigs{
+		invs: map[int]*objtype.InvType{testInvMain: invType},
+		objs: map[int]*objtype.ObjType{testObjCoin: obj},
+	}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Configs:     mc,
+	}
+	s.PushInt(testInvMain) // deeper: inv popped second
+	s.PushInt(testObjCoin) // top: obj popped first
+
+	if err := handleInvStockBase(s); err != nil {
+		t.Fatalf("handleInvStockBase: %v", err)
+	}
+	if got := s.IntStack[s.ISP-1]; got != -1 {
+		t.Errorf("top: got %d, want -1 (nil StockObj)", got)
+	}
+}
+
+// TestHandleInvStockBase_ObjNotInListReturnsMinusOne pins TS InvOps.ts:51-52.
+// Pop order: obj popped first (top of stack), inv popped second.
+func TestHandleInvStockBase_ObjNotInListReturnsMinusOne(t *testing.T) {
+	invType := objtype.NewInvType(testInvMain)
+	invType.DebugName = "main"
+	invType.StockObj = []uint16{1, 2, 3}
+	invType.StockCount = []uint16{10, 20, 30}
+	obj := objtype.NewObjType(99) // not in stock
+	mc := &mockConfigs{
+		invs: map[int]*objtype.InvType{testInvMain: invType},
+		objs: map[int]*objtype.ObjType{99: obj},
+	}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Configs:     mc,
+	}
+	s.PushInt(testInvMain) // deeper: inv popped second
+	s.PushInt(99)          // top: obj popped first
+
+	if err := handleInvStockBase(s); err != nil {
+		t.Fatalf("handleInvStockBase: %v", err)
+	}
+	if got := s.IntStack[s.ISP-1]; got != -1 {
+		t.Errorf("top: got %d, want -1 (obj not in list)", got)
+	}
+}
+
+// TestHandleInvStockBase_ObjInListReturnsCount pins TS InvOps.ts:52
+// — push stockcount[index].
+// Pop order: obj popped first (top of stack), inv popped second.
+func TestHandleInvStockBase_ObjInListReturnsCount(t *testing.T) {
+	invType := objtype.NewInvType(testInvMain)
+	invType.DebugName = "main"
+	invType.StockObj = []uint16{10, 20, 30}
+	invType.StockCount = []uint16{100, 200, 300}
+	obj := objtype.NewObjType(20) // index=1
+	mc := &mockConfigs{
+		invs: map[int]*objtype.InvType{testInvMain: invType},
+		objs: map[int]*objtype.ObjType{20: obj},
+	}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Configs:     mc,
+	}
+	s.PushInt(testInvMain) // deeper: inv popped second
+	s.PushInt(20)          // top: obj popped first
+
+	if err := handleInvStockBase(s); err != nil {
+		t.Fatalf("handleInvStockBase: %v", err)
+	}
+	if got := s.IntStack[s.ISP-1]; got != 200 {
+		t.Errorf("top: got %d, want 200 (stockcount[1])", got)
+	}
+}
