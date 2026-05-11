@@ -401,13 +401,19 @@ func (s *Server) resumeOrFinishNpc(state *script.ScriptState, npc script.ActiveN
 	case script.NpcSuspended:
 		npc.StoreActiveScript(state)
 	case script.WorldSuspended:
-		// NAI-37: npc-bound script suspended to world queue. Symmetric
-		// to resumeOrFinish (player path). Mirrors TS Npc.ts:219-220.
+		// NAI-37 / NAI-156: npc-bound script suspended to world queue.
+		// Symmetric to resumeOrFinish (player path, NAI-155).
 		//
-		// NAI-44: TS Npc.executeScript (L226-228) only nulls activeScript
-		// on FINISHED/ABORTED. Same logic as the player-path: holding
-		// the pointer is safe because Npc.turn() does not re-fire
-		// WorldSuspended states.
+		// Clear n.activeScript BEFORE enqueue. TS Npc.executeScript
+		// (Npc.ts:219-220) does NOT assign script.activeNpc.activeScript
+		// in the WORLD_SUSPENDED arm — only NPC_SUSPENDED (L227-228) does.
+		// Retires NAI-44 retention rationale on the NPC path for
+		// TS-fidelity uniformity with the player path. The resume gate
+		// (tick.go processActiveScripts) is doubly guarded (non-nil AND
+		// Execution==Suspended), so a nil activeScript produces no
+		// false-resume. Retires NAI-155-D-NPC-RESUMEORFINISHNPC-
+		// WORLDSUSPENDED-HOLD.
+		npc.ClearActiveScript()
 		delay := state.PopInt()
 		s.EnqueueWorldScript(state, delay)
 	default:

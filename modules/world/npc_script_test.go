@@ -907,17 +907,19 @@ func TestNpcSetWalkTriggerFieldWrites(t *testing.T) {
 
 // --- NAI-37 Task 11: npc-path WorldSuspended producer test ----------------
 
-// TestResumeOrFinishNpc_WorldSuspended_EnqueuesAndPreservesActiveScript pins
+// TestResumeOrFinishNpc_WorldSuspended_EnqueuesAndClearsActiveScript pins
 // the npc-path producer: an npc-bound script whose Execute returned
 // Execution=WorldSuspended (with the wakeup-tick on the int stack)
 // is dispatched by resumeOrFinishNpc to (a) pop the wakeup-tick,
-// (b) enqueue to s.worldScriptQueue with that delay, and (c) PRESERVE
-// the npc's active script pointer. Mirrors TS Npc.ts:226-228
-// (only Finished/Aborted nulls activeScript; WorldSuspended does not).
+// (b) enqueue to s.worldScriptQueue with that delay, and (c) CLEAR
+// the npc's active script pointer. Mirrors TS Npc.ts:219-220
+// (WORLD_SUSPENDED arm does NOT assign activeNpc.activeScript).
 //
-// NAI-44 T1 closed NAI-37-D-WORLDSUSPEND-CLEARS-ACTIVE-SCRIPT: the
-// previous defensive ClearActiveScript() call has been deleted.
-func TestResumeOrFinishNpc_WorldSuspended_EnqueuesAndPreservesActiveScript(t *testing.T) {
+// NAI-156 inverts the NAI-44 T1 retention: symmetric to the player-path
+// NAI-155 fix at script.go:148, the WorldSuspended arm now clears
+// activeScript for TS-fidelity uniformity. NPCs have no CanAccess
+// analog, so the change is non-behavioral but closes the asymmetry.
+func TestResumeOrFinishNpc_WorldSuspended_EnqueuesAndClearsActiveScript(t *testing.T) {
 	s, n := buildNpcForIntegration(t)
 
 	state := &script.ScriptState{
@@ -942,12 +944,13 @@ func TestResumeOrFinishNpc_WorldSuspended_EnqueuesAndPreservesActiveScript(t *te
 	if got := s.worldScriptQueue[0].script; got != state {
 		t.Errorf("enqueued script identity: got %p, want %p", got, state)
 	}
-	// NAI-44 T1 cascade: post-T1 the WorldSuspended arm no longer calls
-	// ClearActiveScript(). TS Npc.ts:226-228 only nulls activeScript on
-	// FINISHED/ABORTED; holding the pointer is safe (processActiveScripts
-	// gates resume on Execution==Suspended only; tick.go:213-214).
-	if got := n.activeScript; got != state {
-		t.Errorf("npc.activeScript: got %p, want %p (WorldSuspended must NOT clear)", got, state)
+	// NAI-156: the WorldSuspended arm now calls ClearActiveScript() to
+	// mirror TS Npc.ts:219-220 (WORLD_SUSPENDED arm does not assign
+	// activeNpc.activeScript). Symmetric to player-path NAI-155 fix at
+	// script.go:148. The resume gate (tick.go) is doubly guarded so a
+	// nil activeScript here produces no false-resume.
+	if got := n.activeScript; got != nil {
+		t.Errorf("npc.activeScript: got %p, want nil (WorldSuspended must clear; NAI-156)", got)
 	}
 }
 
@@ -982,10 +985,10 @@ func TestNpcOnScriptFinishedOrAborted_Mismatch(t *testing.T) {
 	}
 }
 
-// TestResumeOrFinishNpcWorldSuspendedDoesNotClearActiveScript — NAI-44 T1
-// symmetric pin for the npc-path. TS Npc.ts:226-228 only nulls activeScript
-// on FINISHED/ABORTED.
-func TestResumeOrFinishNpcWorldSuspendedDoesNotClearActiveScript(t *testing.T) {
+// TestResumeOrFinishNpcWorldSuspendedClearsActiveScript — NAI-156 inverts
+// the NAI-44 T1 retention pin. TS Npc.ts:219-220 WORLD_SUSPENDED arm does
+// NOT assign activeNpc.activeScript; symmetric to player-path NAI-155.
+func TestResumeOrFinishNpcWorldSuspendedClearsActiveScript(t *testing.T) {
 	s, n := buildNpcForIntegration(t)
 
 	state := &script.ScriptState{
@@ -1001,8 +1004,8 @@ func TestResumeOrFinishNpcWorldSuspendedDoesNotClearActiveScript(t *testing.T) {
 
 	s.resumeOrFinishNpc(state, n)
 
-	if n.activeScript != state {
-		t.Errorf("activeScript: got %p, want %p (WorldSuspended must NOT clear)", n.activeScript, state)
+	if n.activeScript != nil {
+		t.Errorf("activeScript: got %p, want nil (WorldSuspended must clear; NAI-156)", n.activeScript)
 	}
 	if len(s.worldScriptQueue) != 1 {
 		t.Errorf("worldScriptQueue length: got %d, want 1", len(s.worldScriptQueue))
