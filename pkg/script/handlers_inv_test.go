@@ -3454,6 +3454,36 @@ func TestHandleBothDropSlot_NoActivePlayer(t *testing.T) {
 	}
 }
 
+// TestHandleBothDropSlot_InvDelZero: when slot lookup returns a non-nil item
+// but its Count is 0 (completed==0 path), the handler returns nil with no
+// AddObj call. Pins spec §5.4 #10.
+func TestHandleBothDropSlot_InvDelZero(t *testing.T) {
+	mc := newBothDropSlotConfigs()
+	self := &mockPlayer{uidValue: 11}
+	self2 := &mockPlayer{uidValue: 22}
+	lookup, _, _ := newTwoPlayerInvFixture()
+	lookup.self = self
+	lookup.self2 = self2
+	lookup.selfInvs[5] = inventory.New(5, 28, inventory.StackNormal)
+	lookup.self2Invs[5] = inventory.New(5, 28, inventory.StackNormal)
+	// Slot 0 has a non-nil item but Count=0; simulates slot vacated mid-handler.
+	lookup.selfInvs[5].Set(0, &inventory.Item{Id: 10, Count: 0})
+
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+	s := newBothDropState(0, self, self2, mc, lookup, world)
+	s.PushInt(5) // inv
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(0) // slot
+	s.PushInt(50)
+
+	if err := handleBothDropSlot(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(world.addedCalls) != 0 {
+		t.Errorf("AddObj: got %d calls, want 0 (completed==0 early-return)", len(world.addedCalls))
+	}
+}
+
 // --- NAI-162 B3.2 INV_DROPALL (opcode 4309) tests ---
 
 // newInvDropAllState builds a ScriptState for INV_DROPALL with the given
