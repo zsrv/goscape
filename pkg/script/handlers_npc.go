@@ -3,6 +3,7 @@ package script
 import (
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/zsrv/goscape/pkg/objtype"
 )
@@ -837,6 +838,74 @@ func handleNpcHuntAll(s *ScriptState) error {
 		s.Npcs, s.LineValidator, s.World.CurrentTick(),
 		level, x, z, distance, checkVis,
 	)
+	return nil
+}
+
+// handleNpcHunt (NPC_HUNT, opcode 2525) pops [coord, distance, huntvis] and
+// selects the closest NPC by euclidean² distance from a HuntAll-mode
+// iterator over zone-sweep candidates, then sets ActiveNpc + pushes 1. On
+// empty iterator (no candidates), nil-Npcs, or no in-range NPCs, pushes 0.
+// Mirrors TS NpcOps.ts:290-321.
+//
+// Pop order (top first): huntvis, distance, coord.
+// Validation: checkCoord, checkNotNull(distance), checkHuntVis.
+// Tie-break: TS uses `<=` (NpcOps.ts:307), so later iterator yields win
+// equidistant comparisons; pinned by TestHandleNpcHunt_TieBreak_*.
+//
+// Iterator lifetime: LOCAL to this handler — not stored in s.npcIterator
+// (unlike NPC_HUNTALL which exposes its iterator to a subsequent
+// NPC_FINDNEXT). Stale-check matches handleNpcFindNext convention.
+//
+// NAI-163 B2.
+func handleNpcHunt(s *ScriptState) error {
+	huntvis := s.PopInt()
+	distance := s.PopInt()
+	coord := s.PopInt()
+
+	level, x, z, err := checkCoord(coord, "NPC_HUNT")
+	if err != nil {
+		return err
+	}
+	if err := checkNotNull(distance, "NPC_HUNT"); err != nil {
+		return err
+	}
+	if err := checkHuntVis(huntvis, "NPC_HUNT"); err != nil {
+		return err
+	}
+
+	if s.Npcs == nil {
+		s.PushInt(0)
+		return nil
+	}
+
+	tick := s.World.CurrentTick()
+	it := NewHuntAllNpcIterator(s.Npcs, s.LineValidator, tick, level, x, z, distance, huntvis)
+
+	var closest ActiveNpc
+	closestDist := math.MaxInt
+	for {
+		if it.Stale(s.World.CurrentTick()) {
+			return fmt.Errorf("NPC_HUNT: tried to use an old iterator. Create a new iterator instead.")
+		}
+		npc, ok := it.Next()
+		if !ok {
+			break
+		}
+		dx := npc.NpcX() - x
+		dz := npc.NpcZ() - z
+		d := dx*dx + dz*dz
+		if d <= closestDist {
+			closest = npc
+			closestDist = d
+		}
+	}
+
+	if closest == nil {
+		s.PushInt(0)
+		return nil
+	}
+	setActiveNpcSlot(s, closest)
+	s.PushInt(1)
 	return nil
 }
 

@@ -2389,6 +2389,244 @@ func TestHandleNpcHuntAll_InvalidHuntVisRejected(t *testing.T) {
 	}
 }
 
+// --- NAI-163 B2: NPC_HUNT handler tests -----------------------------------
+
+// newNpcHuntState pushes (coord, distance, huntvis) — popInts(3) order
+// matching TS NpcOps.ts:296-298. Mirrors newNpcHuntAllState. NAI-163 B2.
+func newNpcHuntState(t *testing.T, coord, distance, huntvis int, lookup *mockNpcLookup) *ScriptState {
+	t.Helper()
+	mw := newMockWorld()
+	mw.tick = 100
+	s := &ScriptState{
+		Script:        &ScriptFile{IntOperands: []int32{0}},
+		PC:            0,
+		Configs:       newTestConfigsWithNpcTypes(map[int]bool{}),
+		Npcs:          lookup,
+		World:         mw,
+		LineValidator: &stubLineValidator{losReturn: true, lowReturn: true},
+		IntStack:      make([]int, StackCapacity),
+		StringStack:   make([]string, StackCapacity),
+	}
+	s.PushInt(coord)
+	s.PushInt(distance)
+	s.PushInt(huntvis)
+	return s
+}
+
+func TestHandleNpcHunt_NilNpcs_PushZero(t *testing.T) {
+	coord := (0 << 28) | (3200 << 14) | 3300
+	s := newNpcHuntState(t, coord, 5, objtype.HuntVisOff, &mockNpcLookup{})
+	s.Npcs = nil
+	if err := handleNpcHunt(s); err != nil {
+		t.Fatalf("handleNpcHunt with nil Npcs: %v", err)
+	}
+	got := s.PopInt()
+	if got != 0 {
+		t.Errorf("pushed value: got %d, want 0", got)
+	}
+	if s.ActiveNpc != nil {
+		t.Error("ActiveNpc should remain nil when Npcs is nil")
+	}
+}
+
+func TestHandleNpcHunt_NoNpcsInRange_PushZero(t *testing.T) {
+	coord := (0 << 28) | (3200 << 14) | 3300
+	lookup := &mockNpcLookup{} // byZone nil — no NPCs anywhere
+	s := newNpcHuntState(t, coord, 5, objtype.HuntVisOff, lookup)
+	if err := handleNpcHunt(s); err != nil {
+		t.Fatalf("handleNpcHunt: %v", err)
+	}
+	got := s.PopInt()
+	if got != 0 {
+		t.Errorf("pushed value: got %d, want 0", got)
+	}
+	if s.ActiveNpc != nil {
+		t.Error("ActiveNpc should remain nil when no NPCs in range")
+	}
+}
+
+func TestHandleNpcHunt_SingleNpc_PicksIt(t *testing.T) {
+	// center (level=0, x=3200, z=3300), distance=5
+	// zone for npc at (3201, 3300, 0): zoneX=3201>>3=400, zoneZ=3300>>3=412
+	// iterator queries ZoneNpcs(0, 400*8=3200, 412*8=3296)
+	coord := (0 << 28) | (3200 << 14) | 3300
+	target := &mockNpc{x: 3201, z: 3300, level: 0, typeID: 1}
+	lookup := &mockNpcLookup{
+		byZone: map[uint64][]ActiveNpc{
+			mockZoneKey(0, 3200, 3296): {target},
+		},
+	}
+	s := newNpcHuntState(t, coord, 5, objtype.HuntVisOff, lookup)
+	if err := handleNpcHunt(s); err != nil {
+		t.Fatalf("handleNpcHunt: %v", err)
+	}
+	got := s.PopInt()
+	if got != 1 {
+		t.Errorf("pushed value: got %d, want 1", got)
+	}
+	if s.ActiveNpc != target {
+		t.Errorf("ActiveNpc: got %v, want target npc", s.ActiveNpc)
+	}
+	if s.Pointers&PtrActiveNpc == 0 {
+		t.Error("PtrActiveNpc should be set after NPC_HUNT picks an NPC")
+	}
+}
+
+func TestHandleNpcHunt_PicksClosest_ByEuclideanSquared(t *testing.T) {
+	// center (0, 3200, 3300), distance=5
+	// a=(3202,3300): d²=4, b=(3200,3301): d²=1, c=(3203,3300): d²=9
+	// All zone (400, 412) → key mockZoneKey(0, 3200, 3296)
+	coord := (0 << 28) | (3200 << 14) | 3300
+	a := &mockNpc{x: 3202, z: 3300, level: 0, typeID: 1}
+	b := &mockNpc{x: 3200, z: 3301, level: 0, typeID: 2}
+	c := &mockNpc{x: 3203, z: 3300, level: 0, typeID: 3}
+	lookup := &mockNpcLookup{
+		byZone: map[uint64][]ActiveNpc{
+			mockZoneKey(0, 3200, 3296): {a, b, c},
+		},
+	}
+	s := newNpcHuntState(t, coord, 5, objtype.HuntVisOff, lookup)
+	if err := handleNpcHunt(s); err != nil {
+		t.Fatalf("handleNpcHunt: %v", err)
+	}
+	got := s.PopInt()
+	if got != 1 {
+		t.Errorf("pushed value: got %d, want 1", got)
+	}
+	if s.ActiveNpc != b {
+		t.Errorf("ActiveNpc: got typeID=%v, want b (typeID=2, d²=1)",
+			s.ActiveNpc.(*mockNpc).typeID)
+	}
+}
+
+func TestHandleNpcHunt_TieBreak_PrefersLaterYield(t *testing.T) {
+	// center (0, 3200, 3300), distance=5
+	// a=(3201,3300): d²=1, b=(3199,3300): d²=1 — equidistant
+	// TS uses `<=` so later iterator yield wins: b wins over a
+	coord := (0 << 28) | (3200 << 14) | 3300
+	a := &mockNpc{x: 3201, z: 3300, level: 0, typeID: 1}
+	b := &mockNpc{x: 3199, z: 3300, level: 0, typeID: 2}
+	// Both in zone (400, 412); seed [a, b] so b is yielded after a
+	lookup := &mockNpcLookup{
+		byZone: map[uint64][]ActiveNpc{
+			mockZoneKey(0, 3200, 3296): {a, b},
+		},
+	}
+	s := newNpcHuntState(t, coord, 5, objtype.HuntVisOff, lookup)
+	if err := handleNpcHunt(s); err != nil {
+		t.Fatalf("handleNpcHunt: %v", err)
+	}
+	s.PopInt()
+	if s.ActiveNpc != b {
+		t.Errorf("TieBreak: got typeID=%v, want b (typeID=2, later yield with <=)",
+			s.ActiveNpc.(*mockNpc).typeID)
+	}
+}
+
+// filteringLineValidator returns false for HasLineOfSight when
+// (destX, destZ) is in the blockedDest set. NAI-163 B2.
+type filteringLineValidator struct {
+	blockedDest map[[2]int]bool
+}
+
+func (f *filteringLineValidator) HasLineOfSight(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, extraFlag int) bool {
+	return !f.blockedDest[[2]int{destX, destZ}]
+}
+
+func (f *filteringLineValidator) HasLineOfWalk(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, extraFlag int) bool {
+	return true
+}
+
+func TestHandleNpcHunt_HuntVisLineOfSight_FiltersBlocked(t *testing.T) {
+	// center (0, 3200, 3300), distance=5
+	// a=(3201,3300): LoS unblocked; b=(3202,3300): LoS blocked by filteringLineValidator
+	// With HuntVisLineOfSight, b should be filtered out; a wins.
+	a := &mockNpc{x: 3201, z: 3300, level: 0, typeID: 1}
+	b := &mockNpc{x: 3202, z: 3300, level: 0, typeID: 2}
+	lookup := &mockNpcLookup{
+		byZone: map[uint64][]ActiveNpc{
+			mockZoneKey(0, 3200, 3296): {a, b},
+		},
+	}
+	mw := newMockWorld()
+	mw.tick = 100
+	s := &ScriptState{
+		Script:        &ScriptFile{IntOperands: []int32{0}},
+		PC:            0,
+		Configs:       newTestConfigsWithNpcTypes(map[int]bool{}),
+		Npcs:          lookup,
+		World:         mw,
+		LineValidator: &filteringLineValidator{blockedDest: map[[2]int]bool{{3202, 3300}: true}},
+		IntStack:      make([]int, StackCapacity),
+		StringStack:   make([]string, StackCapacity),
+	}
+	s.PushInt((0 << 28) | (3200 << 14) | 3300)
+	s.PushInt(5)
+	s.PushInt(objtype.HuntVisLineOfSight)
+	if err := handleNpcHunt(s); err != nil {
+		t.Fatalf("handleNpcHunt: %v", err)
+	}
+	got := s.PopInt()
+	if got != 1 {
+		t.Errorf("pushed value: got %d, want 1", got)
+	}
+	if s.ActiveNpc != a {
+		t.Errorf("ActiveNpc: got typeID=%v, want a (typeID=1, LoS unblocked)",
+			s.ActiveNpc.(*mockNpc).typeID)
+	}
+}
+
+// mockWorldTickAdvancing returns tick=100 on the first call, then 999
+// on all subsequent calls — triggers the Stale check inside the loop.
+// NAI-163 B2.
+type mockWorldTickAdvancing struct {
+	*mockWorld
+	calls int
+}
+
+func (m *mockWorldTickAdvancing) CurrentTick() int {
+	m.calls++
+	if m.calls == 1 {
+		return 100
+	}
+	return 999
+}
+
+func TestHandleNpcHunt_StaleIterator_ReturnsError(t *testing.T) {
+	// Seed one NPC so the loop body is entered and Stale() is re-checked.
+	// The first CurrentTick() call constructs the iterator at tick=100.
+	// Inside the loop, the second CurrentTick() returns 999 → Stale=true.
+	target := &mockNpc{x: 3201, z: 3300, level: 0, typeID: 1}
+	lookup := &mockNpcLookup{
+		byZone: map[uint64][]ActiveNpc{
+			mockZoneKey(0, 3200, 3296): {target},
+		},
+	}
+	base := newMockWorld()
+	base.tick = 100
+	mw := &mockWorldTickAdvancing{mockWorld: base}
+	s := &ScriptState{
+		Script:        &ScriptFile{IntOperands: []int32{0}},
+		PC:            0,
+		Configs:       newTestConfigsWithNpcTypes(map[int]bool{}),
+		Npcs:          lookup,
+		World:         mw,
+		LineValidator: &stubLineValidator{losReturn: true, lowReturn: true},
+		IntStack:      make([]int, StackCapacity),
+		StringStack:   make([]string, StackCapacity),
+	}
+	s.PushInt((0 << 28) | (3200 << 14) | 3300)
+	s.PushInt(5)
+	s.PushInt(objtype.HuntVisOff)
+	err := handleNpcHunt(s)
+	if err == nil {
+		t.Fatal("expected stale-iterator error, got nil")
+	}
+	if !strings.Contains(err.Error(), "old iterator") {
+		t.Errorf("error should mention 'old iterator': %v", err)
+	}
+}
+
 // --- NAI-36 Task 3: NPC_GETMODE Layer 1 unit tests -----------------------
 
 func TestNpcGetMode_PushesTargetOp(t *testing.T) {
