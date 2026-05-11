@@ -69,6 +69,28 @@ func parseObjTypes(server *packet2.Packet, jag *io.Jagfile, ptc *ParamTypeConfig
 	return otc, nil
 }
 
+// ByName returns the ObjType matching the given debugname, or nil if no
+// match exists. Mirrors TS ObjType.getByName. Uses the ConfigNames index
+// built at load time — O(1) on name-indexed configs, O(N) only if
+// ConfigNames is unpopulated.
+func (otc *ObjTypeConfigs) ByName(name string) *ObjType {
+	if otc == nil {
+		return nil
+	}
+	if id, ok := otc.ConfigNames[name]; ok {
+		if id >= 0 && id < len(otc.Configs) {
+			return otc.Configs[id]
+		}
+	}
+	// Fallback linear scan for configs loaded without a name index.
+	for _, c := range otc.Configs {
+		if c != nil && c.DebugName == name {
+			return c
+		}
+	}
+	return nil
+}
+
 func applyPostDecodeFixups(otc *ObjTypeConfigs, ptc *ParamTypeConfigs) {
 	for id := range otc.Configs {
 		config := otc.Configs[id]

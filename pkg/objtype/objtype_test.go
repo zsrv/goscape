@@ -192,6 +192,52 @@ func TestApplyPostDecodeFixupsDummyItemZeroPreservesTradeable(t *testing.T) {
 	}
 }
 
+// newTestObjTypeConfigs builds a minimal ObjTypeConfigs from a debugname→id map.
+// Used by TestObjTypeConfigs_ByName.
+func newTestObjTypeConfigs(ids map[int]string) *ObjTypeConfigs {
+	maxID := 0
+	for id := range ids {
+		if id > maxID {
+			maxID = id
+		}
+	}
+	cfg := &ObjTypeConfigs{
+		ConfigNames: make(map[string]int, len(ids)),
+		Configs:     make([]*ObjType, maxID+1),
+	}
+	for id, name := range ids {
+		ot := NewObjType(id)
+		ot.DebugName = name
+		cfg.Configs[id] = ot
+		cfg.ConfigNames[name] = id
+	}
+	return cfg
+}
+
+// TestObjTypeConfigs_ByName pins (*ObjTypeConfigs).ByName lookup by debugname.
+// Mirrors TS ObjType.getByName.
+func TestObjTypeConfigs_ByName(t *testing.T) {
+	cfg := newTestObjTypeConfigs(map[int]string{
+		558:  "mind_rune",
+		4151: "abyssal_whip",
+	})
+	got := cfg.ByName("abyssal_whip")
+	if got == nil {
+		t.Fatal("ByName(\"abyssal_whip\"): got nil, want id=4151")
+	}
+	if got.ID != 4151 {
+		t.Errorf("got ID=%d, want 4151", got.ID)
+	}
+}
+
+// TestObjTypeConfigs_ByName_Unknown pins nil return for unknown debugname.
+func TestObjTypeConfigs_ByName_Unknown(t *testing.T) {
+	cfg := newTestObjTypeConfigs(map[int]string{558: "mind_rune"})
+	if got := cfg.ByName("unknown_obj"); got != nil {
+		t.Errorf("got %v, want nil", got)
+	}
+}
+
 func TestLoadObjTypesFromPack(t *testing.T) {
 	cacheDir := filepath.Join("..", "..", "data", "pack")
 
