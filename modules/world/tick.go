@@ -685,8 +685,8 @@ func (s *Server) processCleanup() {
 // Mirrors TS's per-zone linked-list splice in World.removeNpc, which
 // goscape can't do safely mid-iteration (s.npcLoop is an append-only
 // slice). End-of-tick mark/compact is observably identical at tick
-// boundaries. Tracked deviation: NAI-19-D-DEFERRED-COMPACT-VS-
-// IMMEDIATE-SPLICE.
+// boundaries.
+// Tracked deviation: NAI-19-D-DEFERRED-COMPACT-VS-IMMEDIATE-SPLICE.
 func (s *Server) compactNpcLoop() {
 	write := 0
 	for _, n := range s.npcLoop {
