@@ -175,13 +175,64 @@ func isLineOfWalk(s *ScriptState, level, srcX, srcZ, destX, destZ int) bool {
 	return s.LineValidator.HasLineOfWalk(level, srcX, srcZ, destX, destZ, 1, 0, 0, 0)
 }
 
-// isLineOfSight delegates to s.LineValidator. See isLineOfWalk for arg-shape
-// rationale. NAI-35-T6.
+// isLineOfSight delegates to s.LineValidator. Mirrors TS
+// GameMap.ts:429-431: rsmod.hasLineOfSight(level, sX, sZ, dX, dZ, 1, 1, 1, 1, 0).
+// goscape's srcSize collapses TS srcWidth+srcHeight (both 1) into a single
+// arg via RayCast's `srcSize, srcSize` (linevalidator.go:21); destWidth and
+// destLength are passed verbatim. NAI-163-D-LOS-ARG-SHAPE-FIX widens this
+// wrapper from the pre-fix (1, 0, 0, 0) shape to TS-faithful (1, 1, 1, 0);
+// existing MapFindSquareLineOfSight callers at lines 119-120, 150-151
+// inherit the corrected endpoint semantics. NAI-35-T6 (NAI-163 B1 T0).
 func isLineOfSight(s *ScriptState, level, srcX, srcZ, destX, destZ int) bool {
 	if s.LineValidator == nil {
 		return true
 	}
-	return s.LineValidator.HasLineOfSight(level, srcX, srcZ, destX, destZ, 1, 0, 0, 0)
+	return s.LineValidator.HasLineOfSight(level, srcX, srcZ, destX, destZ, 1, 1, 1, 0)
+}
+
+// handleLineOfSight (LINEOFSIGHT, opcode 1005) pops [from, to] coords and
+// pushes 1 iff a line-of-sight ray from `from` to `to` is clear. Mirrors TS
+// ServerOps.ts:144-162:
+//
+//	const [c1, c2] = state.popInts(2);
+//	const from: CoordGrid = check(c1, CoordValid);
+//	const to:   CoordGrid = check(c2, CoordValid);
+//	if (from.level !== to.level) { state.pushInt(0); return; }
+//	if (!NODE_MEMBERS && !World.gameMap.isFreeToPlay(to.x, to.z)) {
+//	    state.pushInt(0); return;
+//	}
+//	state.pushInt(isLineOfSight(from.level, from.x, from.z, to.x, to.z) ? 1 : 0);
+//
+// Pop order (top first): c2 (to), c1 (from). Gate order pinned by tests:
+// level-mismatch fires before F2P gate, which fires before LineValidator.
+// nil-LineValidator inherits the wrapper's pessimistic-allow (handlers_map.go:181)
+// — TS calls unconditionally; goscape's nil-guard is a defensive add (goscape
+// defensive; TS skips this check). NAI-163 B1.
+func handleLineOfSight(s *ScriptState) error {
+	c2 := s.PopInt()
+	c1 := s.PopInt()
+	fromLevel, fromX, fromZ, err := checkCoord(c1, "LINEOFSIGHT")
+	if err != nil {
+		return err
+	}
+	toLevel, toX, toZ, err := checkCoord(c2, "LINEOFSIGHT")
+	if err != nil {
+		return err
+	}
+	if fromLevel != toLevel {
+		s.PushInt(0)
+		return nil
+	}
+	if s.World.MapMembers() == 0 && !s.World.IsFreeToPlay(toX, toZ) {
+		s.PushInt(0)
+		return nil
+	}
+	if isLineOfSight(s, fromLevel, fromX, fromZ, toX, toZ) {
+		s.PushInt(1)
+	} else {
+		s.PushInt(0)
+	}
+	return nil
 }
 
 // handleMapBlocked (MAP_BLOCKED, opcode 1007) reports whether the tile at

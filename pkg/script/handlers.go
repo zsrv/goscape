@@ -130,6 +130,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpObjFindNext:    handleObjFindNext,    // NAI-154 T4
 	OpObjName:        handleObjName,        // NAI-154 T5
 	OpObjParam:       handleObjParam,       // NAI-154 T5
+	OpLineOfSight: handleLineOfSight,
 	OpLineOfWalk:  handleLineOfWalk,
 	OpInvDropAll:  handleInvDropAll,
 	OpInvDropSlot: handleInvDropSlot,

@@ -960,6 +960,174 @@ func TestHandleLineOfWalkNilValidator(t *testing.T) {
 	}
 }
 
+// --- NAI-163 B1 T0: isLineOfSight wrapper arg-shape regression ---------------
+// NAI-163-D-LOS-ARG-SHAPE-FIX: widens isLineOfSight from (1,0,0,0) to
+// (1,1,1,0) to match TS GameMap.ts:429-431.
+
+// stubLineValidatorArgs records every (Has)LineOfSight call's full arg
+// tuple for the NAI-163-D-LOS-ARG-SHAPE-FIX regression. Distinct from
+// the existing npc_iterator_test.go recordingLineValidator (which only
+// captures level + src/dest, not srcSize/destWidth/destLength/extraFlag).
+type stubLineValidatorArgs struct {
+	losCalls  []losCall
+	losReturn bool
+}
+
+type losCall struct {
+	level, srcX, srcZ, destX, destZ          int
+	srcSize, destWidth, destLength, extraFlag int
+}
+
+func (st *stubLineValidatorArgs) HasLineOfSight(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, extraFlag int) bool {
+	st.losCalls = append(st.losCalls, losCall{level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, extraFlag})
+	return st.losReturn
+}
+
+func (st *stubLineValidatorArgs) HasLineOfWalk(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, extraFlag int) bool {
+	return true
+}
+
+func TestIsLineOfSightWrapper_PassesTSFaithfulArgShape(t *testing.T) {
+	// Regression pin: TS GameMap.ts:430 calls
+	//   rsmod.hasLineOfSight(level, sX, sZ, dX, dZ, 1, 1, 1, 1, 0)
+	// goscape's srcSize expands to srcWidth=srcLength=1 inside RayCast
+	// (linevalidator.go:21), so the TS-faithful arg tuple at the wrapper
+	// level is srcSize=1, destWidth=1, destLength=1, extraFlag=0.
+	// Pre-NAI-163-D-LOS-ARG-SHAPE-FIX the wrapper was (1, 0, 0, 0).
+	st := &stubLineValidatorArgs{losReturn: true}
+	s := &ScriptState{LineValidator: st}
+	_ = isLineOfSight(s, 0, 3200, 3300, 3210, 3305)
+	if len(st.losCalls) != 1 {
+		t.Fatalf("expected 1 LineValidator call, got %d", len(st.losCalls))
+	}
+	got := st.losCalls[0]
+	want := losCall{level: 0, srcX: 3200, srcZ: 3300, destX: 3210, destZ: 3305, srcSize: 1, destWidth: 1, destLength: 1, extraFlag: 0}
+	if got != want {
+		t.Fatalf("isLineOfSight arg shape mismatch:\n got=%+v\nwant=%+v", got, want)
+	}
+}
+
+// --- NAI-163 B1 T1: handleLineOfSight (LINEOFSIGHT, opcode 1005) tests ------
+// Mirrors TS ServerOps.ts:144-162. Pop order (top first): c2 (to), c1 (from).
+// Gate order: level-mismatch → F2P gate → LineValidator.
+
+func TestHandleLineOfSight_LevelMismatch_PushZero(t *testing.T) {
+	st := &stubLineValidatorArgs{losReturn: true}
+	s := newTestState(minimalScript(OpReturn))
+	mw := newMockWorld()
+	mw.mapMembers = 1
+	s.World = mw
+	s.LineValidator = st
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3300)) // from (c1)
+	s.PushInt(coordgrid.PackCoord(1, 3200, 3300)) // to (c2) — different level
+	if err := handleLineOfSight(s); err != nil {
+		t.Fatalf("handleLineOfSight: %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Fatalf("expected push 0 on level mismatch, got %d", got)
+	}
+	if len(st.losCalls) != 0 {
+		t.Fatalf("LineValidator must not be called on level mismatch; got %d calls", len(st.losCalls))
+	}
+}
+
+func TestHandleLineOfSight_F2PGate_NonMembersWorld_PushZero(t *testing.T) {
+	st := &stubLineValidatorArgs{losReturn: true}
+	s := newTestState(minimalScript(OpReturn))
+	mw := newMockWorld()
+	mw.mapMembers = 0 // F2P world; default IsFreeToPlay returns false → blocked
+	s.World = mw
+	s.LineValidator = st
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3300)) // from (c1)
+	s.PushInt(coordgrid.PackCoord(0, 3210, 3305)) // to (c2) — not F2P
+	if err := handleLineOfSight(s); err != nil {
+		t.Fatalf("handleLineOfSight: %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Fatalf("expected push 0 on F2P-gate block, got %d", got)
+	}
+	if len(st.losCalls) != 0 {
+		t.Fatalf("LineValidator must not be called when F2P gate fires; got %d calls", len(st.losCalls))
+	}
+}
+
+func TestHandleLineOfSight_F2PGate_MembersWorld_Bypasses(t *testing.T) {
+	st := &stubLineValidatorArgs{losReturn: true}
+	s := newTestState(minimalScript(OpReturn))
+	mw := newMockWorld()
+	mw.mapMembers = 1 // members world; F2P gate inert
+	s.World = mw
+	s.LineValidator = st
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3300)) // from (c1)
+	s.PushInt(coordgrid.PackCoord(0, 3210, 3305)) // to (c2)
+	if err := handleLineOfSight(s); err != nil {
+		t.Fatalf("handleLineOfSight: %v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Fatalf("expected push 1 (LV returns true, members world), got %d", got)
+	}
+	if len(st.losCalls) != 1 {
+		t.Fatalf("LineValidator must be called once in members world; got %d calls", len(st.losCalls))
+	}
+}
+
+func TestHandleLineOfSight_RayClear_PushOne(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	mw := newMockWorld()
+	mw.mapMembers = 1
+	s.World = mw
+	s.LineValidator = &stubLineValidator{losReturn: true}
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3300)) // from (c1)
+	s.PushInt(coordgrid.PackCoord(0, 3210, 3305)) // to (c2)
+	if err := handleLineOfSight(s); err != nil {
+		t.Fatalf("handleLineOfSight: %v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Fatalf("ray clear: expected 1, got %d", got)
+	}
+}
+
+func TestHandleLineOfSight_RayBlocked_PushZero(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	mw := newMockWorld()
+	mw.mapMembers = 1
+	s.World = mw
+	s.LineValidator = &stubLineValidator{losReturn: false}
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3300)) // from (c1)
+	s.PushInt(coordgrid.PackCoord(0, 3210, 3305)) // to (c2)
+	if err := handleLineOfSight(s); err != nil {
+		t.Fatalf("handleLineOfSight: %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Fatalf("ray blocked: expected 0, got %d", got)
+	}
+}
+
+func TestHandleLineOfSight_ArgShape(t *testing.T) {
+	// Pins the TS-faithful arg tuple passed to HasLineOfSight by handleLineOfSight
+	// via the isLineOfSight wrapper. NAI-163-D-LOS-ARG-SHAPE-FIX.
+	st := &stubLineValidatorArgs{losReturn: true}
+	s := newTestState(minimalScript(OpReturn))
+	mw := newMockWorld()
+	mw.mapMembers = 1
+	s.World = mw
+	s.LineValidator = st
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3300)) // from (c1)
+	s.PushInt(coordgrid.PackCoord(0, 3210, 3305)) // to (c2)
+	if err := handleLineOfSight(s); err != nil {
+		t.Fatalf("handleLineOfSight: %v", err)
+	}
+	_ = s.PopInt()
+	if len(st.losCalls) != 1 {
+		t.Fatalf("expected 1 LV call, got %d", len(st.losCalls))
+	}
+	got := st.losCalls[0]
+	want := losCall{level: 0, srcX: 3200, srcZ: 3300, destX: 3210, destZ: 3305, srcSize: 1, destWidth: 1, destLength: 1, extraFlag: 0}
+	if got != want {
+		t.Fatalf("handleLineOfSight arg shape mismatch:\n got=%+v\nwant=%+v", got, want)
+	}
+}
+
 // MAP_MULTIWAY (opcode 1014) — NAI-120 Bundle 2A.
 // Mirrors TS ServerOps.ts:376-380.
 
