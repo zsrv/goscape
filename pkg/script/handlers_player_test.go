@@ -1004,6 +1004,8 @@ func TestHandlersRequireActivePlayer(t *testing.T) {
 		{"CLEARQUEUE", OpClearQueue},
 		// NAI-161 T5.
 		{"GETQUEUE", OpGetQueue},
+		// NAI-162 B1.
+		{"LAST_LOGIN_INFO", OpLastLoginInfo},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -5315,5 +5317,24 @@ func TestClearQueueDispatch(t *testing.T) {
 	}
 	if got := mp.unlinkScriptCalls; len(got) != 1 || got[0] != 42 {
 		t.Errorf("unlinkScriptCalls: got %v, want [42]", got)
+	}
+}
+
+// TestHandleLastLoginInfo pins the single-delegation pattern. No pop,
+// no push — handler calls Self.LastLoginInfo and returns. Mirrors TS
+// PlayerOps.ts:931-933.
+func TestHandleLastLoginInfo(t *testing.T) {
+	mp := &mockPlayer{}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        mp,
+		Pointers:    PtrActivePlayer,
+	}
+	if err := handleLastLoginInfo(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if mp.lastLoginInfoCalls != 1 {
+		t.Errorf("LastLoginInfo: got %d calls, want 1", mp.lastLoginInfoCalls)
 	}
 }

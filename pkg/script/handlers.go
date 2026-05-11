@@ -562,6 +562,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpLcOp:       handleLcOp,       // opcode 4105
 	OpOcIop:      handleOcIop,      // opcode 4205
 	OpOcOp:       handleOcOp,       // opcode 4208
+
+	// NAI-162 B1: trivial-handler sweep #4.
+	OpLastLoginInfo:      handleLastLoginInfo,      // opcode 2054
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.
