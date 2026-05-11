@@ -621,6 +621,39 @@ func handlePTeleJump(s *ScriptState) error {
 	return nil
 }
 
+// handlePExactMove implements OpPExactMove (TS P_EXACTMOVE at
+// PlayerOps.ts:881-890). Pops 5 ints, validates two packed coords,
+// clears the map-flag, then calls ExactMove with horizontal coords only
+// (TS-faithful: the unpacked `level` component is discarded —
+// NAI-160-D-EXACTMOVE-COORDLEVEL-IGNORE per spec §3).
+//
+// Pop order: TS `state.popInts(5)` destructures
+// [start, end, startCycle, endCycle, direction] from push order;
+// direction is top-of-stack. Goscape pops top-first: dir → endCycle →
+// startCycle → endPacked → startPacked. Critical per
+// handler_pop_order_test_masking.md. NAI-160 T4.
+func handlePExactMove(s *ScriptState) error {
+	if err := requireProtectedActivePlayer(s, "P_EXACTMOVE"); err != nil {
+		return err
+	}
+	direction := s.PopInt()
+	endCycle := s.PopInt()
+	startCycle := s.PopInt()
+	endPacked := s.PopInt()
+	startPacked := s.PopInt()
+	_, sX, sZ, err := checkCoord(startPacked, "P_EXACTMOVE")
+	if err != nil {
+		return err
+	}
+	_, eX, eZ, err := checkCoord(endPacked, "P_EXACTMOVE")
+	if err != nil {
+		return err
+	}
+	s.Self.UnsetMapFlag()
+	s.Self.ExactMove(sX, sZ, eX, eZ, startCycle, endCycle, direction)
+	return nil
+}
+
 // handlePWalk is a stub. Real implementation requires pathfinder +
 // waypoint queue integration; pops the coord, logs, and returns nil.
 func handlePWalk(s *ScriptState) error {

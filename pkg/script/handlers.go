@@ -254,6 +254,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpFaceSquare:  handleFaceSquare,
 	OpPTeleport:   handlePTeleport,
 	OpPTeleJump:   handlePTeleJump,
+	// NAI-160 T4: P_EXACTMOVE.
+	OpPExactMove: handlePExactMove,
 	// Animation.
 	OpAnim:            handleAnim,
 	OpBothHeroPoints:  handleBothHeroPoints,

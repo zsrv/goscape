@@ -47,6 +47,14 @@ func (p *Player) SetFaceEntity(entityIndex int) {
 	p.masks |= rsbuf.MaskFaceEntity
 }
 
+// UnsetMapFlag clears the player's map-click destination by sending the
+// matching client packet. Mirrors TS Player.unsetMapFlag (called by
+// P_EXACTMOVE at PlayerOps.ts:888 and by adjacent server-script paths).
+// Thin wrapper over the package-local helper. NAI-160 T4.
+func (p *Player) UnsetMapFlag() {
+	sendUnsetMapFlag(p)
+}
+
 // ResetMasks clears mask bits + ephemeral per-tick state. Mirrors TS
 // PathingEntity.resetPathingEntity (PathingEntity.ts:577-615) plus the
 // Player-only fields TS resets in Player.resetEntity (Player.ts:454-467,

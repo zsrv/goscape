@@ -113,6 +113,19 @@ type ActivePlayer interface {
 	// (x, z) on the current level.
 	FaceSquare(x, z int)
 
+	// ExactMove schedules an exact-movement animation: the player follows
+	// a straight line from (sX, sZ) to (eX, eZ) between client ticks
+	// `begin` and `finish`, facing direction `dir`. Mirrors TS
+	// Player.exactMove (sets 7 fields + MaskExactMove). Backing impl at
+	// modules/world/player_masks.go:28. NAI-160 T4.
+	ExactMove(sX, sZ, eX, eZ, begin, finish, dir int)
+
+	// UnsetMapFlag clears the player's map-click destination by sending
+	// the matching client packet. Mirrors TS Player.unsetMapFlag — called
+	// by P_EXACTMOVE (PlayerOps.ts:888) and adjacent server-script paths
+	// that override a queued waypoint. NAI-160 T4.
+	UnsetMapFlag()
+
 	// S5c: stats.
 
 	// Stat returns the player's current (possibly boosted/drained) level

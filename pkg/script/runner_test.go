@@ -388,6 +388,10 @@ type mockPlayer struct {
 	// NAI-160 T2/T3: HEADICONS_GET / HEADICONS_SET recorders.
 	headiconsValue    int
 	setHeadIconsCalls []int
+
+	// NAI-160 T4: P_EXACTMOVE / UnsetMapFlag recorders.
+	exactMoveCalls    []struct{ sX, sZ, eX, eZ, begin, finish, dir int }
+	unsetMapFlagCalls int
 }
 
 type mockEnqueue struct {
@@ -467,6 +471,15 @@ func (m *mockPlayer) FaceSquare(x, z int) {
 	m.lastFaceSquare = struct{ x, z int }{x, z}
 	m.faceSquareCalls++
 }
+
+// ExactMove records the 7-arg call. NAI-160 T4.
+func (m *mockPlayer) ExactMove(sX, sZ, eX, eZ, begin, finish, dir int) {
+	m.exactMoveCalls = append(m.exactMoveCalls,
+		struct{ sX, sZ, eX, eZ, begin, finish, dir int }{sX, sZ, eX, eZ, begin, finish, dir})
+}
+
+// UnsetMapFlag counts invocations. NAI-160 T4.
+func (m *mockPlayer) UnsetMapFlag() { m.unsetMapFlagCalls++ }
 
 // S5c: stats.
 

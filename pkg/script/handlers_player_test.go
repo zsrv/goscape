@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
@@ -995,6 +996,8 @@ func TestHandlersRequireActivePlayer(t *testing.T) {
 		{"HEADICONS_GET", OpHeadIconsGet},
 		// NAI-160 T3.
 		{"HEADICONS_SET", OpHeadIconsSet},
+		// NAI-160 T4.
+		{"P_EXACTMOVE", OpPExactMove},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -5077,5 +5080,113 @@ func TestHandleSetSkinColour_RequiresActivePlayer(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "SETSKINCOLOUR") {
 		t.Errorf("error: got %q, want to contain \"SETSKINCOLOUR\"", err.Error())
+	}
+}
+
+// TestPExactMove pins OpPExactMove's body: pop 5 ints (top-down: dir,
+// endCycle, startCycle, end, start), unpack two coords via CoordValid,
+// call UnsetMapFlag(), then ExactMove(sX, sZ, eX, eZ, begin, finish, dir).
+// Mirrors TS PlayerOps.ts:881-890. NAI-160 T4.
+//
+// Per handler_pop_order_test_masking.md, the 5 push values are all
+// distinct so a pop-order regression mis-binds at least one slot.
+func TestPExactMove(t *testing.T) {
+	mp := &mockPlayer{}
+	startPacked := coordgrid.PackCoord(0, 3200, 3300)
+	endPacked := coordgrid.PackCoord(0, 3205, 3308)
+	sf := &ScriptFile{
+		Name: "[p_exactmove,test]",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpPushConstantInt, OpPushConstantInt,
+			OpPExactMove, OpReturn,
+		},
+		// Push order matches TS popInts(5) source order:
+		// [start, end, startCycle, endCycle, direction]
+		IntOperands:      []int32{int32(startPacked), int32(endPacked), 11, 22, 3, 0, 0},
+		StringOperands:   []string{"", "", "", "", "", "", ""},
+		InstructionCount: 7,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	state.Pointers |= PtrActivePlayer | PtrProtectedActivePlayer
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.unsetMapFlagCalls; got != 1 {
+		t.Errorf("unsetMapFlagCalls: got %d, want 1", got)
+	}
+	if got := len(mp.exactMoveCalls); got != 1 {
+		t.Fatalf("exactMoveCalls: got %d, want 1", got)
+	}
+	c := mp.exactMoveCalls[0]
+	if c.sX != 3200 || c.sZ != 3300 {
+		t.Errorf("start coord: got (sX=%d, sZ=%d), want (3200, 3300)", c.sX, c.sZ)
+	}
+	if c.eX != 3205 || c.eZ != 3308 {
+		t.Errorf("end coord: got (eX=%d, eZ=%d), want (3205, 3308)", c.eX, c.eZ)
+	}
+	if c.begin != 11 || c.finish != 22 || c.dir != 3 {
+		t.Errorf("cycle/dir: got (begin=%d, finish=%d, dir=%d), want (11, 22, 3)",
+			c.begin, c.finish, c.dir)
+	}
+}
+
+// TestPExactMoveRequiresProtected pins the ProtectedActivePlayer gate.
+// NAI-160 T4.
+func TestPExactMoveRequiresProtected(t *testing.T) {
+	mp := &mockPlayer{}
+	startPacked := coordgrid.PackCoord(0, 3200, 3300)
+	endPacked := coordgrid.PackCoord(0, 3205, 3308)
+	sf := &ScriptFile{
+		Name: "[p_exactmove_unprotected,test]",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpPushConstantInt, OpPushConstantInt,
+			OpPExactMove, OpReturn,
+		},
+		IntOperands:      []int32{int32(startPacked), int32(endPacked), 11, 22, 3, 0, 0},
+		StringOperands:   []string{"", "", "", "", "", "", ""},
+		InstructionCount: 7,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	state.Pointers |= PtrActivePlayer // protect flag intentionally unset
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: got nil err, want P_EXACTMOVE: script not protected")
+	}
+	if got := err.Error(); !strings.Contains(got, "P_EXACTMOVE") || !strings.Contains(got, "script not protected") {
+		t.Errorf("err: got %q, want substrings 'P_EXACTMOVE' and 'script not protected'", got)
+	}
+	if got := mp.unsetMapFlagCalls; got != 0 {
+		t.Errorf("unsetMapFlagCalls: got %d, want 0 (gate must fire before side effects)", got)
+	}
+}
+
+// TestPExactMoveInvalidCoord pins checkCoord's rejection. NAI-160 T4.
+func TestPExactMoveInvalidCoord(t *testing.T) {
+	mp := &mockPlayer{}
+	endPacked := coordgrid.PackCoord(0, 3205, 3308)
+	sf := &ScriptFile{
+		Name: "[p_exactmove_badcoord,test]",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpPushConstantInt, OpPushConstantInt,
+			OpPExactMove, OpReturn,
+		},
+		IntOperands:      []int32{-1, int32(endPacked), 11, 22, 3, 0, 0},
+		StringOperands:   []string{"", "", "", "", "", "", ""},
+		InstructionCount: 7,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	state.Pointers |= PtrActivePlayer | PtrProtectedActivePlayer
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: got nil err, want P_EXACTMOVE: coord out of range")
+	}
+	if got := err.Error(); !strings.Contains(got, "P_EXACTMOVE") || !strings.Contains(got, "coord out of range") {
+		t.Errorf("err: got %q, want substrings 'P_EXACTMOVE' and 'coord out of range'", got)
+	}
+	if got := mp.unsetMapFlagCalls; got != 0 {
+		t.Errorf("unsetMapFlagCalls: got %d, want 0 (validation must precede side effects)", got)
 	}
 }
