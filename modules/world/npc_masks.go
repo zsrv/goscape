@@ -229,6 +229,23 @@ func (n *Npc) ResetMasks() {
 	}
 }
 
+// resetPathingEntity resets the per-tick PathingEntity fields at end-of-tick,
+// mirroring TS PathingEntity.resetPathingEntity (PathingEntity.ts:577-587).
+// Called from processCleanup (tick.go) before ResetMasks.
+//
+// Fields reset here (matching TS L579-586):
+//   - walkDir = -1, runDir = -1 (TS L579-580; migrated from ResetMasks, NAI-157)
+//   - tele = false (TS L582)
+//   - lastTickX = n.x, lastTickZ = n.z, lastLevel = n.level (TS L583-585)
+//   - stepsTaken = 0 (TS L586)
+//
+// Out-of-scope per spec §6 (fields not yet on *Npc):
+//   - moveSpeed = defaultMoveSpeed() (TS L578) — NPC moveSpeed plumbing deferred
+//   - jump = false (TS L581) — player-only field
+//   - interacted = false (TS L587), apRangeCalled = false (TS L588) — AP-range deferred
+func (n *Npc) resetPathingEntity() {
+}
+
 // ResetHP re-seeds the levels/baseLevels Hitpoints slot from the NPC's
 // current NpcType.Stats. Called by respawn paths (on NPC death-and-respawn)
 // and by AI sub-spec code that needs to restore max HP on some trigger.

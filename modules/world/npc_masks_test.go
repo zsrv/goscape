@@ -280,29 +280,9 @@ func TestResetMasksTrailingClearSkippedWhenFaceEntityAlreadyMinusOne(t *testing.
 	}
 }
 
-// TestNpcResetMasksClearsWalkDirRunDir pins NAI-157: ResetMasks must
-// reset walkDir/runDir so a script-delayed NPC's stale step direction
-// does not leak into the next tick's NpcInfo encoding. Mirrors TS
-// PathingEntity.resetPathingEntity (PathingEntity.ts:579-580) reached
-// via Npc.resetEntity(false) from World.processCleanup (World.ts:1152).
-func TestNpcResetMasksClearsWalkDirRunDir(t *testing.T) {
-	n := newTestNpc(1)
-	n.walkDir = 4
-	n.runDir = 7
-
-	n.ResetMasks()
-
-	if n.walkDir != -1 {
-		t.Errorf("walkDir: got %d, want -1", n.walkDir)
-	}
-	if n.runDir != -1 {
-		t.Errorf("runDir: got %d, want -1", n.runDir)
-	}
-}
-
-// TestNpcDelayedAfterStepClearsStaleWalkDir pins NAI-157 root-cause
-// fix: when an NPC walks at tick N and is script-delayed at tick N+1,
-// processCleanup's ResetMasks call at the end of tick N clears the
+// TestNpcDelayedAfterStepClearsStaleWalkDir pins NAI-157 root-cause fix:
+// when an NPC walks at tick N and is script-delayed at tick N+1,
+// processCleanup's resetPathingEntity call at the end of tick N clears the
 // step dir so tick N+1's processInfo sees walkDir == -1.
 //
 // Without the fix, processMovementInteraction early-returns on
@@ -315,8 +295,8 @@ func TestNpcDelayedAfterStepClearsStaleWalkDir(t *testing.T) {
 	n.walkDir = 4
 	n.runDir = 5
 
-	// End-of-tick cleanup runs (processCleanup → ResetMasks).
-	n.ResetMasks()
+	// End-of-tick cleanup runs (processCleanup → resetPathingEntity).
+	n.resetPathingEntity()
 
 	// Simulate the NPC being script-delayed for the next tick.
 	n.delayed = true
@@ -326,6 +306,132 @@ func TestNpcDelayedAfterStepClearsStaleWalkDir(t *testing.T) {
 	// be clear at this point so processInfo pushes -1/-1 to rsbuf.
 	if n.walkDir != -1 || n.runDir != -1 {
 		t.Fatalf("stale dir leaked past cleanup: walkDir=%d runDir=%d", n.walkDir, n.runDir)
+	}
+}
+
+// TestNpc_ResetPathingEntity_ResetsWalkRunDir pins NAI-167: resetPathingEntity
+// (mirroring TS PathingEntity.ts:579-580) resets walkDir/runDir. This is the
+// new home of the NAI-157 walkDir/runDir reset (migrated from ResetMasks).
+func TestNpc_ResetPathingEntity_ResetsWalkRunDir(t *testing.T) {
+	n := newTestNpc(1)
+	n.walkDir = 4
+	n.runDir = 7
+
+	n.resetPathingEntity()
+
+	if n.walkDir != -1 {
+		t.Errorf("walkDir: got %d, want -1", n.walkDir)
+	}
+	if n.runDir != -1 {
+		t.Errorf("runDir: got %d, want -1", n.runDir)
+	}
+}
+
+// TestNpc_ResetPathingEntity_AdvancesLastTickCoords pins NAI-167: resetPathingEntity
+// advances lastTickX/Z/lastLevel to the current x/z/level at end-of-tick, mirroring
+// TS PathingEntity.ts:583-585.
+func TestNpc_ResetPathingEntity_AdvancesLastTickCoords(t *testing.T) {
+	n := newTestNpc(1)
+	n.x = 5
+	n.z = 6
+	n.level = 0
+	n.lastTickX = -1
+	n.lastTickZ = -1
+	n.lastLevel = -1
+
+	n.resetPathingEntity()
+
+	if n.lastTickX != 5 {
+		t.Errorf("lastTickX: got %d, want 5", n.lastTickX)
+	}
+	if n.lastTickZ != 6 {
+		t.Errorf("lastTickZ: got %d, want 6", n.lastTickZ)
+	}
+	if n.lastLevel != 0 {
+		t.Errorf("lastLevel: got %d, want 0", n.lastLevel)
+	}
+}
+
+// TestNpc_ResetPathingEntity_ClearsTele pins NAI-167: resetPathingEntity clears
+// n.tele at end-of-tick, mirroring TS PathingEntity.ts:582.
+func TestNpc_ResetPathingEntity_ClearsTele(t *testing.T) {
+	n := newTestNpc(1)
+	n.tele = true
+
+	n.resetPathingEntity()
+
+	if n.tele {
+		t.Errorf("tele: got true, want false")
+	}
+}
+
+// TestNpc_ResetPathingEntity_ResetsStepsTaken pins NAI-167: resetPathingEntity
+// zeroes stepsTaken at end-of-tick, mirroring TS PathingEntity.ts:586.
+func TestNpc_ResetPathingEntity_ResetsStepsTaken(t *testing.T) {
+	n := newTestNpc(1)
+	n.stepsTaken = 5
+
+	n.resetPathingEntity()
+
+	if n.stepsTaken != 0 {
+		t.Errorf("stepsTaken: got %d, want 0", n.stepsTaken)
+	}
+}
+
+// TestNpc_DelayedNpc_GetsLastTickAdvancedAtCleanup is the regression pin for
+// the delayed-NPC reset gap: a script-delayed NPC must still have its
+// lastTickX/Z advanced at processCleanup. Pre-fix, lastTickX/Z were written
+// inside processMovementInteraction which early-returns on n.delayed —
+// so delayed NPCs silently kept stale lastTick coords indefinitely.
+func TestNpc_DelayedNpc_GetsLastTickAdvancedAtCleanup(t *testing.T) {
+	n := newTestNpc(1)
+	n.delayed = true
+	n.x = 5
+	n.z = 6
+	n.lastTickX = -1
+	n.lastTickZ = -1
+
+	// End-of-tick processCleanup calls resetPathingEntity unconditionally.
+	n.resetPathingEntity()
+
+	if n.lastTickX != 5 {
+		t.Errorf("lastTickX: got %d, want 5 (delayed NPC reset gap regression)", n.lastTickX)
+	}
+	if n.lastTickZ != 6 {
+		t.Errorf("lastTickZ: got %d, want 6 (delayed NPC reset gap regression)", n.lastTickZ)
+	}
+}
+
+// TestNpc_StepsTakenResetEnablesReorientGate_AcrossTicks pins NAI-167: the
+// reorient gate at npc_interaction.go:932 (`n.targetX != -1 && n.stepsTaken == 0`)
+// was forever-broken because stepsTaken accumulated across ticks but was never
+// reset. After resetPathingEntity runs at end-of-tick, stepsTaken is 0 at the
+// start of tick N+1, so the gate fires correctly for a loc/obj target.
+//
+// Simulates: post-tick-N NPC state (stepsTaken=1 from a step) → resetPathingEntity
+// (end of tick N) → reorient() (start of tick N+1) → targetX/Z cleared.
+func TestNpc_StepsTakenResetEnablesReorientGate_AcrossTicks(t *testing.T) {
+	s := newTestServer(t)
+	n := makeInteractionNpc(t, s, 1, 100, 100, 0)
+
+	// Post-tick-N state: NPC moved toward a loc target (stepsTaken=1).
+	n.target = nil
+	n.targetX = 999
+	n.targetZ = 1001
+	n.stepsTaken = 1
+
+	// End-of-tick cleanup: resetPathingEntity zeroes stepsTaken.
+	n.resetPathingEntity()
+
+	if n.stepsTaken != 0 {
+		t.Fatalf("resetPathingEntity: stepsTaken not cleared: got %d", n.stepsTaken)
+	}
+
+	// Start of tick N+1: reorient() should fire the gate (stepsTaken==0, targetX!=−1).
+	n.reorient()
+
+	if n.targetX != -1 || n.targetZ != -1 {
+		t.Errorf("reorient gate did not fire: targetX/Z = (%d,%d), want (-1,-1)", n.targetX, n.targetZ)
 	}
 }
 
