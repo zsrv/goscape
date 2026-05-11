@@ -977,3 +977,257 @@ func TestObjFindNextStaleErrors(t *testing.T) {
 		t.Errorf("err: got %q, want substring %q", err.Error(), "old iterator")
 	}
 }
+
+// --- NAI-154: OBJ_NAME + OBJ_PARAM handler tests ---------------------
+
+// newObjNameOrParamState builds a state with s.ActiveObj installed,
+// Configs wired, and (for OBJ_PARAM) paramID pre-pushed by the caller.
+func newObjNameOrParamState(t *testing.T, obj ActiveObj, mc *mockConfigs) *ScriptState {
+	t.Helper()
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{0}},
+		PC:          0,
+		Configs:     mc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.ActiveObj = obj
+	return s
+}
+
+// TestObjNameNamePresent pins the Name branch.
+func TestObjNameNamePresent(t *testing.T) {
+	obj := &mockActiveObj{objType: 590, count: 1}
+	mc := newTestConfigs()
+	ot := objtype.NewObjType(590)
+	ot.Name = "rune sword"
+	mc.objs[590] = ot
+	s := newObjNameOrParamState(t, obj, mc)
+
+	if err := handleObjName(s); err != nil {
+		t.Fatalf("handleObjName: %v", err)
+	}
+	if got := s.PopString(); got != "rune sword" {
+		t.Errorf("name: got %q, want %q", got, "rune sword")
+	}
+}
+
+// TestObjNameDebugFallback pins the DebugName fallback (Name empty).
+func TestObjNameDebugFallback(t *testing.T) {
+	obj := &mockActiveObj{objType: 590, count: 1}
+	mc := newTestConfigs()
+	ot := objtype.NewObjType(590)
+	ot.Name = ""
+	ot.DebugName = "sword_t1"
+	mc.objs[590] = ot
+	s := newObjNameOrParamState(t, obj, mc)
+
+	if err := handleObjName(s); err != nil {
+		t.Fatalf("handleObjName: %v", err)
+	}
+	if got := s.PopString(); got != "sword_t1" {
+		t.Errorf("debugname fallback: got %q, want %q", got, "sword_t1")
+	}
+}
+
+// TestObjNameNullFallback pins the "null" fallback (both empty).
+func TestObjNameNullFallback(t *testing.T) {
+	obj := &mockActiveObj{objType: 590, count: 1}
+	mc := newTestConfigs()
+	ot := objtype.NewObjType(590)
+	ot.Name = ""
+	ot.DebugName = ""
+	mc.objs[590] = ot
+	s := newObjNameOrParamState(t, obj, mc)
+
+	if err := handleObjName(s); err != nil {
+		t.Fatalf("handleObjName: %v", err)
+	}
+	if got := s.PopString(); got != "null" {
+		t.Errorf("null fallback: got %q, want %q", got, "null")
+	}
+}
+
+// TestObjNameRequiresActiveObj pins the requireActiveObj guard.
+func TestObjNameRequiresActiveObj(t *testing.T) {
+	s := newObjNameOrParamState(t, nil, newTestConfigs())
+
+	err := handleObjName(s)
+	if err == nil {
+		t.Fatal("handleObjName(nil ActiveObj): want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "OBJ_NAME") {
+		t.Errorf("err: got %q, want substring %q", err.Error(), "OBJ_NAME")
+	}
+}
+
+// TestObjNameRequiresConfigs pins the requireConfigs guard.
+func TestObjNameRequiresConfigs(t *testing.T) {
+	obj := &mockActiveObj{objType: 590, count: 1}
+	s := newObjNameOrParamState(t, obj, nil)
+	s.Configs = nil
+
+	err := handleObjName(s)
+	if err == nil {
+		t.Fatal("handleObjName(nil Configs): want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "OBJ_NAME") {
+		t.Errorf("err: got %q, want substring %q", err.Error(), "OBJ_NAME")
+	}
+}
+
+// TestObjNameUnknownType pins the unknown-objId guard.
+func TestObjNameUnknownType(t *testing.T) {
+	obj := &mockActiveObj{objType: 999, count: 1}
+	s := newObjNameOrParamState(t, obj, newTestConfigs()) // 999 not registered
+
+	err := handleObjName(s)
+	if err == nil {
+		t.Fatal("handleObjName(unknown objId): want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "unknown obj id") {
+		t.Errorf("err: got %q, want substring %q", err.Error(), "unknown obj id")
+	}
+}
+
+// TestObjParamIntBranch pins the int-param branch.
+// ParamMap stores int param values as uint32 wire bytes (per
+// NAI-122 stretch in paramLookup). 42 is stored as uint32(42).
+func TestObjParamIntBranch(t *testing.T) {
+	obj := &mockActiveObj{objType: 590, count: 1}
+	mc := newTestConfigs()
+	ot := objtype.NewObjType(590)
+	ot.Params = objtype.ParamMap{7: uint32(42)}
+	mc.objs[590] = ot
+	paramID := 7
+	pt := objtype.NewParamType(paramID)
+	pt.Type = objtype.ScriptVarTypeInt
+	pt.DefaultInt = 0
+	mc.params[paramID] = pt
+	s := newObjNameOrParamState(t, obj, mc)
+	s.PushInt(paramID)
+
+	if err := handleObjParam(s); err != nil {
+		t.Fatalf("handleObjParam: %v", err)
+	}
+	if got := s.PopInt(); got != 42 {
+		t.Errorf("int param: got %d, want 42", got)
+	}
+}
+
+// TestObjParamStringBranch pins the string-param branch.
+func TestObjParamStringBranch(t *testing.T) {
+	obj := &mockActiveObj{objType: 590, count: 1}
+	mc := newTestConfigs()
+	ot := objtype.NewObjType(590)
+	ot.Params = objtype.ParamMap{8: "hello"}
+	mc.objs[590] = ot
+	paramID := 8
+	pt := objtype.NewParamType(paramID)
+	pt.Type = objtype.ScriptVarTypeString
+	pt.DefaultString = ""
+	mc.params[paramID] = pt
+	s := newObjNameOrParamState(t, obj, mc)
+	s.PushInt(paramID)
+
+	if err := handleObjParam(s); err != nil {
+		t.Fatalf("handleObjParam: %v", err)
+	}
+	if got := s.PopString(); got != "hello" {
+		t.Errorf("string param: got %q, want %q", got, "hello")
+	}
+}
+
+// TestObjParamIntDefaultFallback pins the int-default branch with
+// negative-default sign preservation. Empty Params falls back to
+// pt.DefaultInt; paramLookup pushes int(pt.DefaultInt) which preserves
+// the int32 sign directly (no uint32 round-trip on the default path).
+func TestObjParamIntDefaultFallback(t *testing.T) {
+	obj := &mockActiveObj{objType: 590, count: 1}
+	mc := newTestConfigs()
+	ot := objtype.NewObjType(590)
+	ot.Params = objtype.ParamMap{} // empty — fallback path
+	mc.objs[590] = ot
+	paramID := 9
+	pt := objtype.NewParamType(paramID)
+	pt.Type = objtype.ScriptVarTypeInt
+	pt.DefaultInt = int32(-7)
+	mc.params[paramID] = pt
+	s := newObjNameOrParamState(t, obj, mc)
+	s.PushInt(paramID)
+
+	if err := handleObjParam(s); err != nil {
+		t.Fatalf("handleObjParam: %v", err)
+	}
+	if got := s.PopInt(); got != -7 {
+		t.Errorf("int default: got %d, want -7 (sign-extended)", got)
+	}
+}
+
+// TestObjParamStringDefaultFallback pins the string-default branch.
+func TestObjParamStringDefaultFallback(t *testing.T) {
+	obj := &mockActiveObj{objType: 590, count: 1}
+	mc := newTestConfigs()
+	ot := objtype.NewObjType(590)
+	ot.Params = objtype.ParamMap{} // empty
+	mc.objs[590] = ot
+	paramID := 10
+	pt := objtype.NewParamType(paramID)
+	pt.Type = objtype.ScriptVarTypeString
+	pt.DefaultString = "def"
+	mc.params[paramID] = pt
+	s := newObjNameOrParamState(t, obj, mc)
+	s.PushInt(paramID)
+
+	if err := handleObjParam(s); err != nil {
+		t.Fatalf("handleObjParam: %v", err)
+	}
+	if got := s.PopString(); got != "def" {
+		t.Errorf("string default: got %q, want %q", got, "def")
+	}
+}
+
+// TestObjParamRequiresActiveObj pins the requireActiveObj guard.
+func TestObjParamRequiresActiveObj(t *testing.T) {
+	s := newObjNameOrParamState(t, nil, newTestConfigs())
+	s.PushInt(7)
+
+	err := handleObjParam(s)
+	if err == nil {
+		t.Fatal("handleObjParam(nil ActiveObj): want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "OBJ_PARAM") {
+		t.Errorf("err: got %q, want substring %q", err.Error(), "OBJ_PARAM")
+	}
+}
+
+// TestObjParamRequiresConfigs pins the requireConfigs guard.
+func TestObjParamRequiresConfigs(t *testing.T) {
+	obj := &mockActiveObj{objType: 590, count: 1}
+	s := newObjNameOrParamState(t, obj, nil)
+	s.Configs = nil
+	s.PushInt(7)
+
+	err := handleObjParam(s)
+	if err == nil {
+		t.Fatal("handleObjParam(nil Configs): want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "OBJ_PARAM") {
+		t.Errorf("err: got %q, want substring %q", err.Error(), "OBJ_PARAM")
+	}
+}
+
+// TestObjParamUnknownType pins the unknown-objId guard.
+func TestObjParamUnknownType(t *testing.T) {
+	obj := &mockActiveObj{objType: 999, count: 1}
+	s := newObjNameOrParamState(t, obj, newTestConfigs()) // 999 not registered
+	s.PushInt(7)
+
+	err := handleObjParam(s)
+	if err == nil {
+		t.Fatal("handleObjParam(unknown objId): want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "unknown obj id") {
+		t.Errorf("err: got %q, want substring %q", err.Error(), "unknown obj id")
+	}
+}

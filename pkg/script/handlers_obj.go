@@ -349,6 +349,50 @@ func handleObjFindNext(s *ScriptState) error {
 	return nil
 }
 
+// handleObjName (OBJ_NAME, opcode 3508) pushes the active obj's name
+// (or debugname fallback; "null" when both are empty). Mirrors TS
+// ObjOps.ts:106-110 and the existing handleOcName at
+// handlers_config.go:429.
+func handleObjName(s *ScriptState) error {
+	if err := requireActiveObj(s, "OBJ_NAME"); err != nil {
+		return err
+	}
+	if err := requireConfigs(s, "OBJ_NAME"); err != nil {
+		return err
+	}
+	ot := s.Configs.ObjType(s.ActiveObj.ObjType())
+	if ot == nil {
+		return fmt.Errorf("OBJ_NAME: unknown obj id %d", s.ActiveObj.ObjType())
+	}
+	if ot.Name != "" {
+		s.PushString(ot.Name)
+	} else if ot.DebugName != "" {
+		s.PushString(ot.DebugName)
+	} else {
+		s.PushString("null")
+	}
+	return nil
+}
+
+// handleObjParam (OBJ_PARAM, opcode 3509) pops a paramID and delegates
+// to paramLookup using the active obj's type Params. Mirrors TS
+// ObjOps.ts:95-104 and the existing handleOcParam at
+// handlers_config.go:449.
+func handleObjParam(s *ScriptState) error {
+	if err := requireActiveObj(s, "OBJ_PARAM"); err != nil {
+		return err
+	}
+	if err := requireConfigs(s, "OBJ_PARAM"); err != nil {
+		return err
+	}
+	paramID := s.PopInt()
+	ot := s.Configs.ObjType(s.ActiveObj.ObjType())
+	if ot == nil {
+		return fmt.Errorf("OBJ_PARAM: unknown obj id %d", s.ActiveObj.ObjType())
+	}
+	return paramLookup(s, ot.Params, paramID)
+}
+
 // handleObjType (OBJ_TYPE, opcode 3511) pushes the active obj's type id.
 // Mirrors TS ObjOps.ts:132-134:
 //

@@ -127,6 +127,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpObjFind:        handleObjFind,        // NAI-154 T3
 	OpObjFindAllZone: handleObjFindAllZone, // NAI-154 T4
 	OpObjFindNext:    handleObjFindNext,    // NAI-154 T4
+	OpObjName:        handleObjName,        // NAI-154 T5
+	OpObjParam:       handleObjParam,       // NAI-154 T5
 	OpLineOfWalk:  handleLineOfWalk,
 	OpInvDropSlot: handleInvDropSlot,
 	// NAI-115 stretch: LOWMEM surfaced by Tutorial Island smoke.
