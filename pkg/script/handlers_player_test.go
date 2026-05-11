@@ -1001,6 +1001,8 @@ func TestHandlersRequireActivePlayer(t *testing.T) {
 		{"P_EXACTMOVE", OpPExactMove},
 		// NAI-161 T4.
 		{"CLEARQUEUE", OpClearQueue},
+		// NAI-161 T5.
+		{"GETQUEUE", OpGetQueue},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -5191,6 +5193,60 @@ func TestPExactMoveInvalidCoord(t *testing.T) {
 	}
 	if got := mp.unsetMapFlagCalls; got != 0 {
 		t.Errorf("unsetMapFlagCalls: got %d, want 0 (validation must precede side effects)", got)
+	}
+}
+
+// TestGetQueueReturnsSeededCount pins OpGetQueue: pop a scriptID,
+// push ActivePlayer.QueueCount(scriptID). Mirrors TS
+// PlayerOps.ts:903-912. NAI-161 T5.
+func TestGetQueueReturnsSeededCount(t *testing.T) {
+	mp := &mockPlayer{
+		queueCountByScript: map[int]int{7: 3},
+	}
+	sf := &ScriptFile{
+		Name: "[getqueue,test]",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push scriptID=7
+			OpGetQueue,
+			OpReturn,
+		},
+		IntOperands:      []int32{7, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	state.Pointers |= PtrActivePlayer
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopInt(); got != 3 {
+		t.Errorf("GETQUEUE: got %d, want 3", got)
+	}
+}
+
+// TestGetQueueNoMatchReturnsZero pins zero-result behavior: an
+// unmapped scriptID returns the Go zero-value of int via the mock's
+// nil-map read. Mirrors TS finding zero loop iterations. NAI-161 T5.
+func TestGetQueueNoMatchReturnsZero(t *testing.T) {
+	mp := &mockPlayer{} // queueCountByScript is nil
+	sf := &ScriptFile{
+		Name: "[getqueue_zero,test]",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push scriptID=99
+			OpGetQueue,
+			OpReturn,
+		},
+		IntOperands:      []int32{99, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	state.Pointers |= PtrActivePlayer
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopInt(); got != 0 {
+		t.Errorf("GETQUEUE no-match: got %d, want 0", got)
 	}
 }
 

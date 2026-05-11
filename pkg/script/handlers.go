@@ -546,6 +546,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 
 	// NAI-161 T4: CLEARQUEUE.
 	OpClearQueue: handleClearQueue,
+
+	// NAI-161 T5: GETQUEUE.
+	OpGetQueue: handleGetQueue,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.

@@ -1678,6 +1678,19 @@ func handleHeadIconsSet(s *ScriptState) error {
 	return nil
 }
 
+// handleGetQueue implements OpGetQueue (TS GETQUEUE at
+// PlayerOps.ts:903-912). Pops a scriptID, pushes
+// ActivePlayer.QueueCount(scriptID) — the count of non-Weak queue
+// entries whose Script matches. The for-loop in the TS body lives
+// inside QueueCount per NAI-161 T2. NAI-161 T5.
+func handleGetQueue(s *ScriptState) error {
+	if err := requireActivePlayer(s, "GETQUEUE"); err != nil {
+		return err
+	}
+	s.PushInt(s.Self.QueueCount(s.PopInt()))
+	return nil
+}
+
 // handleClearQueue implements OpClearQueue (TS CLEARQUEUE at
 // PlayerOps.ts:1045-1048). Pops a scriptID, delegates to
 // ActivePlayer.UnlinkQueuedScript — which (per NAI-161 T1) walks the
