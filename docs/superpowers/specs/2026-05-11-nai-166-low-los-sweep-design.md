@@ -11,7 +11,9 @@ ts_source:
 
 # NAI-166 — Iterator/hunt-site LOW+LOS arg-shape sweep + `handleLineOfWalk` wrapper-routing
 
-**Cadence:** ~12 production lines + ~4 new tests + new modules/world stub + ~5 LOC handler refactor + 1 test inversion + doc-comment retirement. Mid-band per `runescript_cadence.md` — three-task subagent dispatch with two-stage review per task.
+**Cadence:** 4 production lines + 2 new tests + ~5 LOC handler refactor + 1 test inversion + doc-comment retirement. Mid-band per `runescript_cadence.md` — two-task subagent dispatch with two-stage review per task.
+
+**Scope correction during plan-write:** Initial brainstorm/spec drafting cited 12 production sites across 4 files. Plan-author re-grep at HEAD `6774d09` showed only 4 sites still carry the broken `(1, 0, 0, 0)` shape — both in `pkg/script/`. The `modules/world/npc_hunt.go` and `modules/world/npc_hunt_entities.go` sites already pass `(1, 1, 1, 0)`, likely fixed during NAI-9 / NAI-12. Spec inventory below reflects verified HEAD. Exemplifies `controller_preflight.md` catching stale plan premises.
 
 **Tech stack:** Go 1.26+ (`go_version.md`).
 
@@ -25,16 +27,16 @@ This sub-spec closes the **two queued tails** (Candidate A + Candidate B from th
 
 ### §1.1 Part A — call-site arg-shape sweep
 
-Twelve production lines across four files still pass `(1, 0, 0, 0)` to `s.LineValidator.HasLineOfWalk` / `HasLineOfSight`:
+Four production lines across two files in `pkg/script/` still pass `(1, 0, 0, 0)` to `it.lineValidator.HasLineOfWalk` / `HasLineOfSight`:
 
-| File | LOS line(s) | LOW line(s) |
+| File | LOS line | LOW line |
 |---|---|---|
 | `pkg/script/player_iterator.go` | 71 | 77 |
 | `pkg/script/npc_iterator.go` | 127 | 139 |
-| `modules/world/npc_hunt.go` | 163 | 168 |
-| `modules/world/npc_hunt_entities.go` | 68, 137, 214 | 73, 142, 219 |
 
-TS canonical for every site is the wrapper at `GameMap.ts:425-427` (LOW) and `:429-431` (LOS), invoked verbatim from `ScriptIterators.ts:88, 92, 113, 116, 137, 140, 160, 163, 216, 220, 284, 287, 348, 351` and from `Npc.ts` huntAll / huntEntities. goscape's `srcSize` collapses TS srcWidth+srcHeight (both 1) into a single arg via RayCast at `pkg/pathfinder/routefinder/linevalidator.go:21`; destWidth/destLength pass through verbatim. TS-faithful tuple at these sites is therefore `(srcSize=1, destWidth=1, destLength=1, extraFlag=0)`.
+TS canonical for every site is the wrapper at `GameMap.ts:425-427` (LOW) and `:429-431` (LOS), invoked verbatim from `ScriptIterators.ts:88, 92, 216, 220, 284, 287` (LOS branches) and `ScriptIterators.ts:92, 220, 287` for the LOW counterparts. goscape's `srcSize` collapses TS srcWidth+srcHeight (both 1) into a single arg via RayCast at `pkg/pathfinder/routefinder/linevalidator.go:21`; destWidth/destLength pass through verbatim. TS-faithful tuple at these sites is therefore `(srcSize=1, destWidth=1, destLength=1, extraFlag=0)`.
+
+The four `modules/world/` hunt-site callers (`npc_hunt.go:164, 169`; `npc_hunt_entities.go:69, 74, 138, 143, 215, 220`) already pass `(1, 1, 1, 0)` at HEAD — verified by `rg "1, 0, 0, 0" modules/world/` returning zero matches. No production change at those files; they are out of scope for NAI-166.
 
 **Stale doc-comments** at `pkg/script/npc_iterator.go:121-127` and `:133-139` already claim the helpers "mirror TS isLineOfSight/isLineOfWalk wrapper" but use the pre-fix `(1, 0, 0, 0)` shape — a doc-vs-code mismatch per `doc_comment_vs_code_mismatch.md`. Those comments need joint correction with the arg-shape fix.
 
@@ -54,11 +56,11 @@ Refactor: delete the explicit nil-guard from `handleLineOfWalk`, replace the dir
 
 Part A (call-site sweep) and Part B (handler refactor) share thematic root — TS-fidelity for LOW/LOS dispatch through the canonical wrapper — but no code overlap. They proceed as independent tasks under one sub-spec.
 
-### §2.2 Test infrastructure reuse + new stub
+### §2.2 Test infrastructure reuse
 
-`pkg/script/npc_iterator_test.go` already declares both `stubLineValidator` (`:11-30`, fixed-response) and `recordingLineValidator` (`:30-40`, captures full arg tuple). Same-package reuse from `player_iterator_test.go` is straightforward.
+`pkg/script/npc_iterator_test.go` already declares both `stubLineValidator` (lines 11-22, fixed-response) and `recordingLineValidator` (lines 26-40, captures level + src/dest coords; does NOT currently capture `srcSize`/`destWidth`/`destLength`/`extraFlag`). Same-package reuse from `player_iterator_test.go` works directly.
 
-`modules/world/` has NO equivalent recording stub. Hunt-site tests at `modules/world/npc_hunt_test.go` and `modules/world/npc_hunt_entities_test.go` currently exercise the real `s.gamemap.Pathfinder.LineValidator` (a `*routefinder.LineValidator` constructed by `gamemap.New`). NAI-166 introduces a fresh `recordingLineValidator` test-double in `modules/world/npc_hunt_test.go` (same-package visible from `npc_hunt_entities_test.go`, per `test_export_underscore_test_visibility.md`). Injection works by direct field assignment on `s.gamemap.Pathfinder.LineValidator` post-`gamemap.New`; plan-author confirms the field is settable at plan-write time.
+To pin the arg-shape tuple at the 4 sites, NAI-166 **extends** `recordingLineValidator` to capture the remaining four args (srcSize, destWidth, destLength, extraFlag) for both LOS and LOW. The extension is backward-compatible — existing tests that read only the existing fields keep passing.
 
 ### §2.3 `handleLineOfWalk` refactor shape
 
@@ -100,9 +102,9 @@ Same shape as `handleLineOfSight` (`:225-249`) modulo opcode label and wrapper n
 
 ## §3 Changes
 
-### §3.1 Production — Part A (12 lines)
+### §3.1 Production — Part A (4 lines)
 
-All twelve sites flip `(1, 0, 0, 0)` → `(1, 1, 1, 0)`:
+All four sites flip `(1, 0, 0, 0)` → `(1, 1, 1, 0)`:
 
 ```go
 // pkg/script/player_iterator.go:71  (LOS branch of player iterator)
@@ -111,16 +113,11 @@ return it.lineValidator.HasLineOfSight(it.level, p.X(), p.Z(), it.x, it.z, 1, 1,
 // pkg/script/player_iterator.go:77  (LOW branch of player iterator)
 return it.lineValidator.HasLineOfWalk(it.level, p.X(), p.Z(), it.x, it.z, 1, 1, 1, 0)
 
-// pkg/script/npc_iterator.go:127  (LOS helper)
+// pkg/script/npc_iterator.go:127  (LOS helper npcVisibleViaLineOfSight)
 return it.lineValidator.HasLineOfSight(it.level, it.x, it.z, npc.NpcX(), npc.NpcZ(), 1, 1, 1, 0)
 
-// pkg/script/npc_iterator.go:139  (LOW helper)
+// pkg/script/npc_iterator.go:139  (LOW helper npcVisibleViaLineOfWalk)
 return it.lineValidator.HasLineOfWalk(it.level, it.x, it.z, npc.NpcX(), npc.NpcZ(), 1, 1, 1, 0)
-
-// modules/world/npc_hunt.go:163 (LOS), :168 (LOW)
-// modules/world/npc_hunt_entities.go:68/137/214 (LOS), :73/142/219 (LOW)
-//   each call site: ...HasLineOfSight(..., 1, 1, 1, 0)
-//                   ...HasLineOfWalk(..., 1, 1, 1, 0)
 ```
 
 ### §3.2 Production — Part B (handler refactor)
@@ -146,31 +143,26 @@ if isLineOfWalk(s, fromLevel, fromX, fromZ, toX, toZ) {
 
 | File:line range | Action |
 |---|---|
-| `pkg/script/handlers_map.go:172-176` (`isLineOfWalk` wrapper preamble) | Drop the "iterator/hunt-site sweep ... tracked separately as a NAI-166 candidate" sentence; add a reference to NAI-166-D-LOW-ARG-SHAPE-SWEEP retiring the sweep. |
-| `pkg/script/handlers_map.go:188-196` (`isLineOfSight` wrapper preamble) | Audit and update if it carries any symmetric LOS-sweep foreshadow (likely none, but verify at task start). |
-| `pkg/script/handlers_map.go:402-409` (`handleLineOfWalk` preamble) | Drop the "goscape defensive ... NAI-166 candidate" paragraph; replace with: *"Nil-LineValidator: routes through `isLineOfWalk` wrapper (pessimistic-allow), matching `handleLineOfSight`. NAI-166-D-LOW-WRAPPER-ROUTING."* |
-| `pkg/script/npc_iterator.go:121-127` | Rewrite stale "mirrors TS isLineOfSight wrapper" comment to match the corrected `(1, 1, 1, 0)` shape; cite NAI-166-D-LOW-ARG-SHAPE-SWEEP. |
-| `pkg/script/npc_iterator.go:133-139` | Same for the LOW helper. |
-| `pkg/script/player_iterator.go:63-77` | Scan for any stale `(1, 0, 0, 0)` references; fix in place. |
+| `pkg/script/handlers_map.go` (`isLineOfWalk` wrapper preamble, ~lines 166-176) | Drop the "iterator/hunt-site sweep ... tracked separately as a NAI-166 candidate" sentence; add a reference to NAI-166-D-LOW-ARG-SHAPE-SWEEP retiring the sweep. |
+| `pkg/script/handlers_map.go` (`isLineOfSight` wrapper preamble, ~lines 184-191) | Audit and update if it carries any symmetric LOS-sweep foreshadow (likely none, but verify at task start). |
+| `pkg/script/handlers_map.go` (`handleLineOfWalk` preamble, ~lines 397-410) | Drop the "goscape defensive ... NAI-166 candidate" paragraph; replace with: *"Nil-LineValidator: routes through `isLineOfWalk` wrapper (pessimistic-allow), matching `handleLineOfSight`. NAI-166-D-LOW-WRAPPER-ROUTING."* |
+| `pkg/script/npc_iterator.go` (`npcVisibleViaLineOfSight` preamble, ~lines 117-122) | Rewrite stale "mirrors TS isLineOfSight wrapper" comment to match the corrected `(1, 1, 1, 0)` shape; cite NAI-166-D-LOW-ARG-SHAPE-SWEEP. The current comment-vs-code mismatch is the symptom; see `doc_comment_vs_code_mismatch.md`. |
+| `pkg/script/npc_iterator.go` (`npcVisibleViaLineOfWalk` preamble, ~lines 130-134) | Same for the LOW helper. |
+| `pkg/script/player_iterator.go` (`passesFilter`, ~lines 56-79) | Scan for any stale `(1, 0, 0, 0)` references; fix in place (only the `TS-faithful: PlayerHuntAllCommandIterator passes player-as-src` block at lines 67-70 should remain — it describes the src/dest swap, not the arg shape). |
 
 ### §3.4 Tests — Part A
 
-Four new arg-recording tests, one per affected file:
+Two new arg-recording tests, one per affected file. Both reuse the existing same-package `recordingLineValidator` (extended in this sub-spec to also capture srcSize/destWidth/destLength/extraFlag):
 
-| New test | Package | Stub used |
+| New test | File | Pins |
 |---|---|---|
-| `TestPlayerIterator_LineValidatorArgShape` | `pkg/script/player_iterator_test.go` | Existing `recordingLineValidator` (declared in `npc_iterator_test.go`, same package) |
-| `TestNpcIterator_LineValidatorArgShape` | `pkg/script/npc_iterator_test.go` | Existing `recordingLineValidator` |
-| `TestHuntPlayers_LineValidatorArgShape` | `modules/world/npc_hunt_test.go` | New `recordingLineValidator` declared in this file |
-| `TestHuntEntities_LineValidatorArgShape` | `modules/world/npc_hunt_entities_test.go` | Reuses the modules/world `recordingLineValidator` from `npc_hunt_test.go` |
+| `TestPlayerIterator_LineValidatorArgShape` | `pkg/script/player_iterator_test.go` | Both LOS (line 71) and LOW (line 77) branches inside `passesFilter`; tuple `(1, 1, 1, 0)` |
+| `TestNpcIterator_LineValidatorArgShape` | `pkg/script/npc_iterator_test.go` | Both LOS (line 127) and LOW (line 139) branches inside the helpers; tuple `(1, 1, 1, 0)` |
 
 Each test:
-- Constructs the minimum iterator/hunt state to drive one LOS and one LOW call.
-- Substitutes a `recordingLineValidator` for the production `LineValidator`.
-- Invokes the LOS branch, asserts the recorded tuple == `(level, srcX, srcZ, destX, destZ, 1, 1, 1, 0)`.
-- Invokes the LOW branch, asserts the recorded tuple == same shape.
-
-For `TestHuntEntities_LineValidatorArgShape`, the test covers all three hunt-mode branches at `npc_hunt_entities.go:67-73`, `:136-142`, `:213-219` (these correspond to the three hunt-mode arms in `Npc.ts` huntEntities — plan-author enumerates the exact HuntType configuration that selects each branch).
+- Constructs the minimum iterator state to drive one LOS and one LOW call.
+- Substitutes the extended `recordingLineValidator` for the iterator's `lineValidator` field.
+- Invokes `passesFilter` (PlayerIterator) or `npcVisibleViaLineOfSight`/`npcVisibleViaLineOfWalk` (NpcIterator), asserts the recorded srcSize/destWidth/destLength/extraFlag tuple == `(1, 1, 1, 0)`.
 
 ### §3.5 Tests — Part B (test inversion)
 
@@ -206,35 +198,31 @@ Both tags grep-discoverable from the doc-comment retirements in §3.3. Both clos
 
 ## §5 Risks
 
-- **Modules/world stub plumbing — injection-point fragility.** `s.gamemap.Pathfinder.LineValidator` injection requires that the field is settable post-`gamemap.New`. If the field is unexported or initialized through a constructor that locks it down, the plan-author must adapt (constructor extension, or test-only setter mirroring the `*ForTest` pattern in `test_export_underscore_test_visibility.md`). **Mitigation:** controller pre-flight Reads `pkg/pathfinder/Pathfinder` struct definition before T2 dispatch.
-- **Hunt-mode branch enumeration in `TestHuntEntities_LineValidatorArgShape`.** Three branches at `npc_hunt_entities.go:67/136/213` correspond to specific `HuntType` configurations; mis-identifying the selector pushes the test through the wrong branch. **Mitigation:** plan-author Reads each of the three branches in full + reads the corresponding `Npc.ts` huntEntities sections to pin the selector for each branch.
-- **`recordingLineValidator` name collision.** A new struct in `modules/world` with the same name as the `pkg/script` test struct is fine (different packages), but a future refactor that merges them risks confusion. **Mitigation:** doc-comment the modules/world copy as a deliberate package-local mirror; cross-reference the pkg/script counterpart.
-- **Test passes for wrong reason at hunt sites.** If the plan codifies hunt-test fixtures that route through an earlier filter (range/CheckVars/CheckLoc) before reaching the LV call, the recorded tuple is empty and the test silently passes by no-op. Per `test_passes_for_wrong_reason.md` and `helper_as_oracle_test_anti_pattern.md`. **Mitigation:** each new test asserts `len(rec.calls) == 1` (or the expected positive count) BEFORE inspecting the tuple; plan codifies the assertion.
-- **Nil-test inversion misses other nil-LV consumers.** Part B only touches `handleLineOfWalk`. If any other handler relies on the old pessimistic-deny semantics for nil LV at this opcode, a downstream test could flip red. **Mitigation:** controller pre-flight greps `s.LineValidator == nil` across `pkg/script/` and `modules/world/` before T3 dispatch; expects zero matches outside the deleted block.
+- **`recordingLineValidator` extension breaks existing tests.** Extending the struct with new fields and assigning them inside `HasLineOfSight`/`HasLineOfWalk` is backward-compatible as long as existing zero-value reads continue to work. **Mitigation:** keep all existing fields and field positions; only add new fields at the end of the struct.
+- **Test passes for wrong reason.** If a test fixture routes through an earlier filter (distance check at `player_iterator.go:57`, mode/HuntAll guards at `npc_iterator.go:92-110`) before reaching the LV call, the recorded tuple is empty and the test silently passes by no-op. Per `test_passes_for_wrong_reason.md` and `helper_as_oracle_test_anti_pattern.md`. **Mitigation:** each new test asserts the recorder was actually invoked (e.g. `if rec.losLevel == 0 && rec.losSrcX == 0 { t.Fatal("LOS branch not reached") }` or a dedicated "was called" boolean added to the extended struct) BEFORE inspecting the arg-shape fields. Plan codifies the assertion.
+- **Nil-test inversion misses other nil-LV consumers.** Part B only touches `handleLineOfWalk`. If any other handler relies on the old pessimistic-deny semantics for nil LV at this opcode, a downstream test could flip red. **Mitigation:** controller pre-flight greps `s.LineValidator == nil` across `pkg/script/` and `modules/world/` before T2 dispatch; expects zero matches outside the deleted block.
 
 ---
 
 ## §6 Cadence & verification
 
-**Three-task subagent-driven TDD** per `runescript_cadence.md` and `execution_mode_default.md`, two-stage review per task, reviewer model = Sonnet per `superpowers_code_reviewer_model.md`:
+**Two-task subagent-driven TDD** per `runescript_cadence.md` and `execution_mode_default.md`, two-stage review per task, reviewer model = Sonnet per `superpowers_code_reviewer_model.md`:
 
 | Task | Scope | Estimated diff |
 |---|---|---|
-| T1 | `pkg/script` sweep (player_iterator + npc_iterator) — 4 production lines, 2 new tests, doc-comment fixes | ~50 LOC |
-| T2 | `modules/world` sweep (npc_hunt + npc_hunt_entities) + new `recordingLineValidator` stub — 8 production lines, 2 new tests | ~120 LOC |
-| T3 | `handleLineOfWalk` refactor + nil-LV test inversion + doc-comment retirement at `handlers_map.go` | ~25 LOC |
+| T1 | `pkg/script` iterator sweep (player_iterator + npc_iterator) — extend `recordingLineValidator`, 4 production lines, 2 new tests, doc-comment fixes | ~80 LOC |
+| T2 | `handleLineOfWalk` refactor + nil-LV test inversion + doc-comment retirement at `handlers_map.go` | ~30 LOC |
 
-Per-task controller pre-flight per `controller_preflight.md`: ~30s grep+Read pass before each implementer dispatch to verify line refs still match HEAD (HEAD will shift between T1→T2→T3 commits).
+Per-task controller pre-flight per `controller_preflight.md`: ~30s grep+Read pass before each implementer dispatch to verify line refs still match HEAD (HEAD will shift between T1→T2 commits).
 
 **Verification commands:**
 - After T1: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/script/... -run 'PlayerIterator|NpcIterator'`
-- After T2: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/world/... -run 'HuntPlayers|HuntEntities'`
-- After T3: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/script/... -run 'HandleLineOfWalk'`
-- Full non-regression after T3: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./...`
+- After T2: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./pkg/script/... -run 'HandleLineOfWalk'`
+- Full non-regression after T2: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./...`
 
-**Close-out grep (post-T3):** `rg "NAI-166" pkg/ modules/ cmd/` enumerates remaining references; every match should be a deliberate deviation-tag header introduced by T1–T3, with zero residual "candidate" / "tracked separately" foreshadow text.
+**Close-out grep (post-T2):** `rg "NAI-166" pkg/ modules/ cmd/` enumerates remaining references; every match should be a deliberate deviation-tag header introduced by T1–T2, with zero residual "candidate" / "tracked separately" foreshadow text.
 
-**Close commit:** `chore(close): NAI-166 — iterator/hunt LOW+LOS sweep + handleLineOfWalk wrapper-routing` with `Closes memory:` trailer retiring both deviation tags.
+**Close commit:** `chore(close): NAI-166 — iterator LOW+LOS arg-shape sweep + handleLineOfWalk wrapper-routing` with `Closes memory:` trailer retiring both deviation tags.
 
 ---
 
