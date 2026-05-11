@@ -945,7 +945,7 @@ func TestHandleLineOfWalkF2PShortCircuit(t *testing.T) {
 // TestHandleLineOfWalkNilValidatorPessimisticAllow pins the post-NAI-166
 // wrapper-routed semantics: nil LineValidator pushes 1 (pessimistic-allow)
 // via the isLineOfWalk wrapper, mirroring handleLineOfSight's behavior at
-// handlers_map.go:236. Pre-NAI-166 the handler had an explicit nil-guard
+// handlers_map.go:237. Pre-NAI-166 the handler had an explicit nil-guard
 // that pushed 0 (pessimistic-deny) — that asymmetry was tracked as
 // NAI-166-D-LOW-WRAPPER-ROUTING.
 func TestHandleLineOfWalkNilValidatorPessimisticAllow(t *testing.T) {
@@ -1165,8 +1165,8 @@ func TestIsLineOfWalkWrapper_PassesTSFaithfulArgShape(t *testing.T) {
 
 func TestHandleLineOfWalk_ArgShape(t *testing.T) {
 	// Pins the TS-faithful arg tuple passed to HasLineOfWalk by handleLineOfWalk
-	// at the opcode 1006 dispatch site (direct call, NOT via the wrapper —
-	// see handleLineOfWalk in handlers_map.go). NAI-165-D-LOW-ARG-SHAPE-FIX.
+	// (via the isLineOfWalk wrapper at handlers_map.go:178). NAI-165-D-LOW-ARG-SHAPE-FIX;
+	// arg-shape unchanged by NAI-166-D-LOW-WRAPPER-ROUTING.
 	st := &stubLineValidatorArgs{lowReturn: true}
 	s := newTestState(minimalScript(OpReturn))
 	mw := newMockWorld()
