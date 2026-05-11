@@ -116,7 +116,7 @@ func TestObjIteratorExhaustionDoesNotClear(t *testing.T) {
 	if _, ok := it.Next(); ok {
 		t.Fatal("second Next: expected exhaustion")
 	}
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if obj, ok := it.Next(); ok || obj != nil {
 			t.Errorf("post-exhaustion Next #%d: got (%v, %v), want (nil, false)", i, obj, ok)
 		}

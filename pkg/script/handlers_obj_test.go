@@ -789,7 +789,7 @@ func TestObjFindUIDPropagation(t *testing.T) {
 // newObjFindAllZoneState builds a ScriptState with a coord on the int
 // stack, World wired (for CurrentTick), and IntOperands sized for the
 // handler. Mirror of newLocFindAllZoneState (handlers_loc_test.go).
-func newObjFindAllZoneState(t *testing.T, tick int, w WorldVars, coord int) *ScriptState {
+func newObjFindAllZoneState(t *testing.T, w WorldVars, coord int) *ScriptState {
 	t.Helper()
 	s := &ScriptState{
 		Script:      &ScriptFile{IntOperands: []int32{0}},
@@ -827,7 +827,7 @@ func TestObjFindAllZoneStoresIterator(t *testing.T) {
 	w := newObjIterTestWorld(nil)
 	w.tick = 100
 	coord := coordgrid.PackCoord(0, 3200, 3300)
-	s := newObjFindAllZoneState(t, 100, w, coord)
+	s := newObjFindAllZoneState(t, w, coord)
 
 	if err := handleObjFindAllZone(s); err != nil {
 		t.Fatalf("handleObjFindAllZone: %v", err)
@@ -849,7 +849,7 @@ func TestObjFindAllZoneStoresIterator(t *testing.T) {
 // nil World → handler returns nil, objIterator stays nil.
 func TestObjFindAllZoneNilWorldDegrades(t *testing.T) {
 	coord := coordgrid.PackCoord(0, 3200, 3300)
-	s := newObjFindAllZoneState(t, 100, nil, coord)
+	s := newObjFindAllZoneState(t, nil, coord)
 	s.World = nil
 
 	if err := handleObjFindAllZone(s); err != nil {
@@ -863,7 +863,7 @@ func TestObjFindAllZoneNilWorldDegrades(t *testing.T) {
 // TestObjFindAllZoneCoordValid pins the checkCoord error path.
 func TestObjFindAllZoneCoordValid(t *testing.T) {
 	w := newObjIterTestWorld(nil)
-	s := newObjFindAllZoneState(t, 100, w, -1)
+	s := newObjFindAllZoneState(t, w, -1)
 
 	err := handleObjFindAllZone(s)
 	if err == nil {

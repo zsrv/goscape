@@ -136,8 +136,10 @@ type WorldVars interface {
 
 	// ZoneObjs returns every obj in the zone owning (level, zoneX, zoneZ),
 	// in storage order, without per-tile or per-receiver filtering. The
-	// caller (OBJ_FINDNEXT) applies its own validity gates as needed.
-	// Mirrors TS Zone.getAllObjsSafe(true) consumed by ObjIterator.generator
+	// zoneX/zoneZ params are coord-grid coords (not zone indices) — the
+	// implementation does the >>3 shift internally. The caller
+	// (OBJ_FINDNEXT) applies its own validity gates as needed. Mirrors TS
+	// Zone.getAllObjsSafe(true) consumed by ObjIterator.generator
 	// (ScriptIterators.ts:400). Empty/nil slice on miss. NAI-154.
 	ZoneObjs(level, zoneX, zoneZ int) []ActiveObj
 
