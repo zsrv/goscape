@@ -146,6 +146,56 @@ func TestHandleSeqLength_PushesDuration(t *testing.T) {
 	}
 }
 
+// TestHandleMapIndoors_True pins TS ServerOps.ts MAP_INDOORS path that
+// pushes 1 when IsIndoors returns true.
+func TestHandleMapIndoors_True(t *testing.T) {
+	coord := (0 << 28) | (3200 << 14) | 3200
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		World:       &mockWorld{isIndoorsReturn: true},
+	}
+	s.PushInt(coord)
+	if err := handleMapIndoors(s); err != nil {
+		t.Fatalf("handleMapIndoors: %v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("MAP_INDOORS true: got %d, want 1", got)
+	}
+}
+
+// TestHandleMapIndoors_False pins the false path.
+func TestHandleMapIndoors_False(t *testing.T) {
+	coord := (0 << 28) | (3200 << 14) | 3200
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		World:       &mockWorld{isIndoorsReturn: false},
+	}
+	s.PushInt(coord)
+	if err := handleMapIndoors(s); err != nil {
+		t.Fatalf("handleMapIndoors: %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("MAP_INDOORS false: got %d, want 0", got)
+	}
+}
+
+// TestHandleMapIndoors_InvalidCoord pins the checkCoord guard — negative
+// packed value encodes a negative coord component and must return an error.
+func TestHandleMapIndoors_InvalidCoord(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		World:       &mockWorld{},
+	}
+	s.PushInt(-1) // negative coord → checkCoord must reject
+	err := handleMapIndoors(s)
+	if err == nil {
+		t.Fatal("MAP_INDOORS: expected error for invalid coord, got nil")
+	}
+}
+
 // TestHandleSeqLength_RejectsUnknownID pins TS check(id, SeqTypeValid)
 // — unknown id throws.
 func TestHandleSeqLength_RejectsUnknownID(t *testing.T) {

@@ -97,6 +97,31 @@ func handleSeqLength(s *ScriptState) error {
 	return nil
 }
 
+// handleMapIndoors (MAP_INDOORS, opcode 1010) pops a packed coord and
+// pushes 1 if the tile at that position has the Roof collision flag set,
+// else 0. Mirrors TS ServerOps.ts:
+//
+//	[ScriptOpcode.MAP_INDOORS]: state => {
+//	    const coord = check(state.popInt(), CoordValid);
+//	    state.pushInt(World.isIndoors(Position.level(coord), Position.x(coord), Position.z(coord)) ? 1 : 0);
+//	}
+func handleMapIndoors(s *ScriptState) error {
+	if s.World == nil {
+		return errors.New("MAP_INDOORS: no world")
+	}
+	coord := s.PopInt()
+	level, x, z, err := checkCoord(coord, "MAP_INDOORS")
+	if err != nil {
+		return err
+	}
+	if s.World.IsIndoors(x, z, level) {
+		s.PushInt(1)
+	} else {
+		s.PushInt(0)
+	}
+	return nil
+}
+
 // handleWorldDelay (WORLD_DELAY, opcode 1021) suspends the active
 // script to the world-script queue. The wakeup-tick value is NOT
 // popped here — it remains on the script's int stack and is popped by
