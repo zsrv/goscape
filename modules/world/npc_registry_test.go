@@ -9,6 +9,7 @@ import (
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/rsbuf"
+	"github.com/zsrv/goscape/pkg/script"
 )
 
 // TestRemoveNpcCollisionTogglesOff verifies that removeNpc(n, duration)
@@ -513,5 +514,87 @@ func TestAddNpc_RespawnAfterChangeType_ReseedsVarns(t *testing.T) {
 
 	if got := n.NpcVarN(0); got != -1 {
 		t.Errorf("varn after respawn re-seed: got %d, want -1", got)
+	}
+}
+
+// TestRemoveNpc_DespawnLifecycle_ClearsRegistrySlot pins the NAI-19
+// slot-release: after removeNpc on a DESPAWN-lifecycle NPC, the
+// allocated nid slot in s.npcs is nilled so allocNpcSlot can reuse it.
+// Mirrors TS World.ts:1314: this.npcs.remove(npc.nid).
+func TestRemoveNpc_DespawnLifecycle_ClearsRegistrySlot(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}}
+	n := NewNpc(0, 7, 100, 100, 0, typ)
+	n.nid = 1
+	n.server = s
+	s.npcs[1] = n
+	s.npcLoop = append(s.npcLoop, n)
+	n.lifecycle = NpcLifecycleDespawn
+
+	slot := n.nid // capture before Cleanup zeros it
+
+	s.removeNpc(n, -1)
+
+	if s.npcs[slot] != nil {
+		t.Errorf("s.npcs[%d]: got %p, want nil (slot must be released on DESPAWN)", slot, s.npcs[slot])
+	}
+}
+
+// TestRemoveNpc_DespawnLifecycle_RunsCleanup pins that the DESPAWN
+// arm of removeNpc calls n.Cleanup, zeroing identity / script / hunt /
+// queue. Mirrors TS World.ts:1315: npc.cleanup().
+func TestRemoveNpc_DespawnLifecycle_RunsCleanup(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}}
+	n := NewNpc(0, 7, 100, 100, 0, typ)
+	n.nid = 1
+	n.server = s
+	s.npcs[1] = n
+	s.npcLoop = append(s.npcLoop, n)
+	n.lifecycle = NpcLifecycleDespawn
+	n.activeScript = &script.ScriptState{}
+	n.queue = []script.NpcQueueRequest{{}}
+
+	s.removeNpc(n, -1)
+
+	if n.nid != -1 {
+		t.Errorf("nid: got %d, want -1 (Cleanup must zero)", n.nid)
+	}
+	if n.uid != -1 {
+		t.Errorf("uid: got %d, want -1", n.uid)
+	}
+	if n.activeScript != nil {
+		t.Errorf("activeScript: got %p, want nil", n.activeScript)
+	}
+	if n.queue != nil {
+		t.Errorf("queue: got %v, want nil", n.queue)
+	}
+}
+
+// TestRemoveNpc_RespawnLifecycle_PreservesRegistry pins that removeNpc
+// on a RESPAWN-lifecycle NPC does NOT release the slot or run Cleanup —
+// the NPC will respawn in place at lifecycleTick==0 (see npc_ai.go:31-45).
+func TestRemoveNpc_RespawnLifecycle_PreservesRegistry(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}}
+	n := NewNpc(0, 7, 100, 100, 0, typ)
+	n.nid = 1
+	n.uid = (7 << 16) | 1
+	n.server = s
+	s.npcs[1] = n
+	s.npcLoop = append(s.npcLoop, n)
+	n.lifecycle = NpcLifecycleRespawn
+	n.activeScript = &script.ScriptState{}
+
+	s.removeNpc(n, 50)
+
+	if s.npcs[1] != n {
+		t.Errorf("s.npcs[1]: got %p, want %p (RESPAWN must NOT release slot)", s.npcs[1], n)
+	}
+	if n.nid != 1 {
+		t.Errorf("nid: got %d, want 1 (RESPAWN must NOT run Cleanup)", n.nid)
+	}
+	if n.activeScript == nil {
+		t.Error("activeScript: got nil, want preserved (RESPAWN must NOT run Cleanup)")
 	}
 }

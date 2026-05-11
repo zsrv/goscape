@@ -204,9 +204,14 @@ func (s *Server) removeNpc(n *Npc, duration int) {
 		}
 	}
 	if n.lifecycle == NpcLifecycleDespawn {
-		// TODO(NAI-19): full registry cleanup (delete from s.npcs[],
-		// splice s.npcLoop) remains deferred per pre-existing dead-bool
-		// model — see npc_registry.go header history.
+		// NAI-19: TS World.ts:1312-1315 — rsbuf.removeNpc already fired
+		// above; release the registry slot and run Cleanup. The
+		// s.npcLoop splice is deferred to compactNpcLoop (end-of-tick)
+		// per NAI-19-D-DEFERRED-COMPACT-VS-IMMEDIATE-SPLICE to keep
+		// mid-tick iteration safe. Order matters: nil the slot BEFORE
+		// Cleanup, because Cleanup sets n.nid = -1.
+		s.npcs[n.nid] = nil
+		n.Cleanup()
 	} else if n.lifecycle == NpcLifecycleRespawn && duration > -1 {
 		n.lifecycleTick = s.scaleByPlayerCount(duration)
 	}
