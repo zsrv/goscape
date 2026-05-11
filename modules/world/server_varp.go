@@ -253,6 +253,43 @@ func (w worldVarsView) LookupNpcBySlot(slot int) script.ActiveNpc {
 	return n
 }
 
+// GetObj implements script.WorldVars.GetObj. Delegates to the existing
+// Server.GetObj at modules/world/obj_lookup.go:13 (already consumed by
+// modules/world/handler_opobj.go for OPOBJ-family handlers). The
+// returned *entity.Obj implements script.ActiveObj via the NAI-153
+// surface extension. Returns nil when no matching obj is at the tile
+// or the caller lacks visibility. NAI-154.
+func (w worldVarsView) GetObj(level, x, z, objId, receiverUID int) script.ActiveObj {
+	if w.s == nil {
+		return nil
+	}
+	o := w.s.GetObj(level, x, z, objId, receiverUID)
+	if o == nil {
+		return nil
+	}
+	return o
+}
+
+// ZoneObjs implements script.WorldVars.ZoneObjs. Reads the zone's Objs
+// slice directly via zoneMap.Get and adapts each *entity.Obj to
+// script.ActiveObj. Mirrors serverLocOps.AllLocsInZone at
+// modules/world/script_loc_ops.go:85-92. Empty zone or out-of-range
+// returns nil/empty. NAI-154.
+func (w worldVarsView) ZoneObjs(level, zoneX, zoneZ int) []script.ActiveObj {
+	if w.s == nil {
+		return nil
+	}
+	z := w.s.zoneMap.Get(level, zoneX, zoneZ)
+	if z == nil {
+		return nil
+	}
+	out := make([]script.ActiveObj, 0, len(z.Objs))
+	for _, o := range z.Objs {
+		out = append(out, o)
+	}
+	return out
+}
+
 // Compile-time conformance assertion for script.WorldVars. Adding any
 // new WorldVars method that worldVarsView fails to implement breaks
 // the build here. NAI-150 T1.

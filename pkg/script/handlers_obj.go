@@ -16,6 +16,29 @@ func requireActiveObj(s *ScriptState, op string) error {
 	return nil
 }
 
+// setActiveObjSlot writes the obj to either ActiveObj (primary) or
+// OtherActiveObj (secondary) based on the handler's IntOperand and sets
+// the corresponding Pointer flag. Mirrors TS
+// state.pointerAdd(ActiveObj[state.intOperand]) at ObjOps.ts:91, 181,
+// 199, and the parallel setActiveLocSlot at handlers_loc.go:29-40.
+//
+// IntOperand==0 → ActiveObj/PtrActiveObj (.obj syntax).
+// IntOperand==1 → OtherActiveObj/PtrActiveObj2 (.obj2 syntax).
+// Any other value panics (compiler invariant — bytecode only emits 0/1).
+func setActiveObjSlot(s *ScriptState, obj ActiveObj) {
+	operand := s.Script.IntOperands[s.PC]
+	switch operand {
+	case 0:
+		s.ActiveObj = obj
+		s.Pointers |= PtrActiveObj
+	case 1:
+		s.OtherActiveObj = obj
+		s.Pointers |= PtrActiveObj2
+	default:
+		panic(fmt.Sprintf("setActiveObjSlot: invalid IntOperand %d", operand))
+	}
+}
+
 // checkObjType validates an ObjType id is registered in s.Configs.
 // Mirrors TS check(id, ObjTypeValid) (ScriptValidators.ts).
 func checkObjType(s *ScriptState, id int, op string) error {

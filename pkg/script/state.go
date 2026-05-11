@@ -127,6 +127,20 @@ type WorldVars interface {
 	// existing `_ = duration`). Used by INV_DROPITEM_DELAYED.
 	EnqueueObjDelayed(level, x, z, typeID, count, duration, delay, receiverID int)
 
+	// GetObj returns the first ground obj at (level, x, z) whose type
+	// matches objId and is visible to the caller. receiverUID is the
+	// player UID gating private-receiver visibility (NAI-153-D2 — goscape
+	// uses player UID where TS uses hash64). Returns nil on miss. Mirrors
+	// TS World.getObj consumed via OBJ_FIND. NAI-154.
+	GetObj(level, x, z, objId, receiverUID int) ActiveObj
+
+	// ZoneObjs returns every obj in the zone owning (level, zoneX, zoneZ),
+	// in storage order, without per-tile or per-receiver filtering. The
+	// caller (OBJ_FINDNEXT) applies its own validity gates as needed.
+	// Mirrors TS Zone.getAllObjsSafe(true) consumed by ObjIterator.generator
+	// (ScriptIterators.ts:400). Empty/nil slice on miss. NAI-154.
+	ZoneObjs(level, zoneX, zoneZ int) []ActiveObj
+
 	// LookupPlayerByUID resolves a packed Player UID to the matching
 	// ActivePlayer, or nil if no logged-in player has that UID. Used by
 	// NPC_FINDHERO, FINDHERO, and DAMAGE. Mirrors TS World.getPlayerByUid
@@ -304,6 +318,16 @@ type ScriptState struct {
 	// ActiveObj is the Obj that OBJ_* and AI_*OBJ handlers target. Nil
 	// if no Obj is bound. NAI-11.
 	ActiveObj ActiveObj
+
+	// OtherActiveObj is the secondary Obj slot, parallel to OtherActiveLoc
+	// (NAI-119) and OtherActiveNpc (NAI-11). Set by OBJ_FIND / OBJ_FINDNEXT
+	// when the bytecode IntOperand is 1 (.obj2 syntax). NAI-154.
+	//
+	// NAI-154-D-NO-DOWNSTREAM-OBJ2-CONSUMERS: no existing OBJ_* read handler
+	// reads from this slot at HEAD — they all read s.ActiveObj only. Tracked
+	// deviation, mirrors NAI-119-D-NO-DOWNSTREAM-LOC2-CONSUMERS. Closure
+	// when a `.obj2` content-script consumer surfaces.
+	OtherActiveObj ActiveObj
 
 	// OtherActiveNpc is the secondary NPC slot used by AI_*NPC handlers
 	// when `Self` (an NPC) targets another NPC. NAI-11.

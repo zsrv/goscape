@@ -88,6 +88,17 @@ func (m *mockWorld) AddObj(level, x, z, typeID, count, duration, receiverID int)
 func (m *mockWorld) EnqueueObjDelayed(level, x, z, typeID, count, duration, delay, receiverID int) {
 }
 
+// NAI-154: default no-op stubs for OBJ_FIND / OBJ_FINDALLZONE test
+// fixtures. Tests exercising these override via fakeWorldObjFind /
+// fakeWorldZoneObjs wrappers defined in handlers_obj_test.go.
+func (m *mockWorld) GetObj(level, x, z, objId, receiverUID int) ActiveObj {
+	return nil
+}
+
+func (m *mockWorld) ZoneObjs(level, zoneX, zoneZ int) []ActiveObj {
+	return nil
+}
+
 func TestPushVarp(t *testing.T) {
 	sf := &ScriptFile{
 		Name:             "push_varp",
