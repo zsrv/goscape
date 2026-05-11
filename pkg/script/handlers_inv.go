@@ -1511,3 +1511,17 @@ func handleInvDebugName(s *ScriptState) error {
 	}
 	return nil
 }
+
+// handleInvTotalParamStack (INV_TOTALPARAM_STACK, opcode 4329). Pops
+// param then inv (LIFO; TS popInts(2) → [inv, param] means param is on
+// top). Delegates to Self.InvTotalParamStack and pushes the result.
+// Mirrors TS InvOps.ts:792-796.
+func handleInvTotalParamStack(s *ScriptState) error {
+	if err := requireActivePlayer(s, "INV_TOTALPARAM_STACK"); err != nil {
+		return err
+	}
+	param := s.PopInt()
+	inv := s.PopInt()
+	s.PushInt(s.Self.InvTotalParamStack(inv, param))
+	return nil
+}

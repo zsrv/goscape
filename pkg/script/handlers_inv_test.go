@@ -2816,3 +2816,35 @@ func TestPerformInvAdd_DirectCall(t *testing.T) {
 		t.Errorf("performInvAdd: inv slot 0 got %+v, want {Id:558 Count:1}", got)
 	}
 }
+
+// TestHandleInvTotalParamStack pins the pop-order [param, inv] and
+// the pushInt of the delegated sum. Mirrors TS InvOps.ts:792-796.
+// TS popInts(2) → [inv, param] means param is on top of stack (popped
+// first), then inv.
+func TestHandleInvTotalParamStack(t *testing.T) {
+	mp := &mockPlayer{invTotalParamStackReturn: 42}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        mp,
+		Pointers:    PtrActivePlayer,
+	}
+	// Push order: inv first (deeper), param on top (popped first).
+	s.PushInt(5) // inv
+	s.PushInt(7) // param (top of stack)
+
+	if err := handleInvTotalParamStack(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(mp.invTotalParamStackArgs) != 1 {
+		t.Fatalf("delegate: got %d calls, want 1", len(mp.invTotalParamStackArgs))
+	}
+	got := mp.invTotalParamStackArgs[0]
+	if got.InvID != 5 || got.ParamID != 7 {
+		t.Errorf("delegate args: got %+v, want {InvID:5, ParamID:7}", got)
+	}
+	if v := s.PopInt(); v != 42 {
+		t.Errorf("pushed: got %d, want 42", v)
+	}
+}
