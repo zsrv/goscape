@@ -1160,7 +1160,7 @@ func TestIsLineOfWalkWrapper_PassesTSFaithfulArgShape(t *testing.T) {
 func TestHandleLineOfWalk_ArgShape(t *testing.T) {
 	// Pins the TS-faithful arg tuple passed to HasLineOfWalk by handleLineOfWalk
 	// at the opcode 1006 dispatch site (direct call, NOT via the wrapper —
-	// see handlers_map.go:423). NAI-165-D-LOW-ARG-SHAPE-FIX.
+	// see handleLineOfWalk in handlers_map.go). NAI-165-D-LOW-ARG-SHAPE-FIX.
 	st := &stubLineValidatorArgs{lowReturn: true}
 	s := newTestState(minimalScript(OpReturn))
 	mw := newMockWorld()

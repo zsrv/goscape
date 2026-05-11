@@ -402,10 +402,11 @@ func handleMapLocAddUnsafe(s *ScriptState) error {
 // Nil-LineValidator: pushes 0 (fail closed) when no validator wired
 // (goscape defensive; TS routes through isLineOfWalk wrapper which is
 // pessimistic-ALLOW on nil — pre-existing asymmetry vs handleLineOfSight
-// at line 230, tracked separately as a NAI-166 candidate).
+// which delegates nil-handling to isLineOfSight (pessimistic-allow),
+// tracked separately as a NAI-166 candidate).
 //
 // Arg shape: HasLineOfWalk(..., 1, 1, 1, 0) per NAI-165-D-LOW-ARG-SHAPE-FIX;
-// matches the isLineOfWalk wrapper at line 171 and TS GameMap.ts:425-427.
+// matches the isLineOfWalk wrapper above and TS GameMap.ts:425-427.
 //
 // Mirrors TS ServerOps.ts:65-82.
 func handleLineOfWalk(s *ScriptState) error {
