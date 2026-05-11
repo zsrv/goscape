@@ -10,6 +10,7 @@ import (
 	"github.com/zsrv/goscape/pkg/gamemap"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
@@ -1687,4 +1688,92 @@ func TestAdvanceStatUsesQueueEngine(t *testing.T) {
 func TestPlayer_LastLoginInfo_StubNoOp(t *testing.T) {
 	p := &Player{}
 	p.LastLoginInfo() // must not panic; current behaviour is no-op
+}
+
+// TestPlayer_InvTotalParamStack pins the sum formula. Build a player
+// with an inv containing two slots: {id=10, count=3} + {id=20, count=5}.
+// paramType(7).defaultInt=0; obj 10 has Params[7]=100 (uint32);
+// obj 20 has Params[7]=50 (uint32). Expected: 3*100 + 5*50 = 550.
+//
+// Adaptation vs plan: helpers newTestPlayerWithInv/invSlotFixture do
+// not exist; test builds the fixture inline matching the
+// buildRunWeightServer pattern from player_runweight_test.go.
+func TestPlayer_InvTotalParamStack(t *testing.T) {
+	const invID = 5
+	const paramID = 7
+
+	invConfigs := make([]*objtype.InvType, invID+1)
+	invConfigs[invID] = &objtype.InvType{
+		ConfigType: objtype.ConfigType{ID: invID},
+		Scope:      objtype.InvTypeScopeTemp,
+		Size:       10,
+	}
+	objConfigs := make([]*objtype.ObjType, 21)
+	objConfigs[10] = &objtype.ObjType{
+		Params: objtype.ParamMap{uint32(paramID): uint32(100)},
+	}
+	objConfigs[20] = &objtype.ObjType{
+		Params: objtype.ParamMap{uint32(paramID): uint32(50)},
+	}
+	paramConfigs := make([]*objtype.ParamType, paramID+1)
+	paramConfigs[paramID] = &objtype.ParamType{DefaultInt: 0}
+
+	p, _ := newTestPlayer(t)
+	p.client.server = &Server{
+		log:        discardLogger(),
+		invTypes:   &objtype.InvTypeConfigs{Configs: invConfigs},
+		objTypes:   &objtype.ObjTypeConfigs{Configs: objConfigs},
+		paramTypes: &objtype.ParamTypeConfigs{Configs: paramConfigs},
+	}
+	if p.invs == nil {
+		p.invs = make(map[int]*inventory.Inventory)
+	}
+	inv := inventory.New(invID, 10, inventory.StackNormal)
+	inv.Items[0] = &inventory.Item{Id: 10, Count: 3}
+	inv.Items[1] = &inventory.Item{Id: 20, Count: 5}
+	p.invs[invID] = inv
+
+	got := p.InvTotalParamStack(invID, paramID)
+	if got != 550 {
+		t.Errorf("InvTotalParamStack: got %d, want 550", got)
+	}
+}
+
+// TestPlayer_InvTotalParamStack_EmptyInv pins zero return on empty inv.
+func TestPlayer_InvTotalParamStack_EmptyInv(t *testing.T) {
+	const invID = 5
+	const paramID = 7
+
+	invConfigs := make([]*objtype.InvType, invID+1)
+	invConfigs[invID] = &objtype.InvType{
+		ConfigType: objtype.ConfigType{ID: invID},
+		Scope:      objtype.InvTypeScopeTemp,
+		Size:       5,
+	}
+	paramConfigs := make([]*objtype.ParamType, paramID+1)
+	paramConfigs[paramID] = &objtype.ParamType{DefaultInt: 0}
+
+	p, _ := newTestPlayer(t)
+	p.client.server = &Server{
+		log:        discardLogger(),
+		invTypes:   &objtype.InvTypeConfigs{Configs: invConfigs},
+		objTypes:   &objtype.ObjTypeConfigs{Configs: []*objtype.ObjType{}},
+		paramTypes: &objtype.ParamTypeConfigs{Configs: paramConfigs},
+	}
+	if p.invs == nil {
+		p.invs = make(map[int]*inventory.Inventory)
+	}
+	p.invs[invID] = inventory.New(invID, 5, inventory.StackNormal)
+
+	if got := p.InvTotalParamStack(invID, paramID); got != 0 {
+		t.Errorf("empty inv: got %d, want 0", got)
+	}
+}
+
+// TestPlayer_InvTotalParamStack_NilClient pins nil-client returns zero.
+func TestPlayer_InvTotalParamStack_NilClient(t *testing.T) {
+	p := &Player{}
+	if got := p.InvTotalParamStack(999, 7); got != 0 {
+		t.Errorf("nil client: got %d, want 0", got)
+	}
 }

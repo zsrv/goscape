@@ -7,6 +7,7 @@ import (
 	"github.com/zsrv/goscape/pkg/cache"
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
+	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/objtype"
@@ -1321,4 +1322,75 @@ func (p *Player) ApplyDamage(amount, dmgType int) {
 // (*Player) client.write pattern.
 func (p *Player) LastLoginInfo() {
 	// Intentional no-op pending ServerProt port.
+}
+
+// InvTotalParamStack sums slot.count × objType.Params[paramID] (falling
+// back to paramType.DefaultInt when the key is absent) across every
+// non-empty slot of the inventory at invID. Returns zero on nil client,
+// missing inventory, or out-of-range paramID.
+//
+// Mirrors TS Player._invTotalParam(inv, param, stack=true)
+// at Player.ts:1668-1694.
+//
+// (goscape defensive; TS skips this check) Nil-client guard mirrors
+// other player methods that operate via server resolution.
+func (p *Player) InvTotalParamStack(invID, paramID int) int {
+	if p.client == nil || p.client.server == nil {
+		return 0
+	}
+	s := p.client.server
+	if s.paramTypes == nil || paramID < 0 || paramID >= len(s.paramTypes.Configs) {
+		return 0
+	}
+	pt := s.paramTypes.Configs[paramID]
+	if pt == nil {
+		return 0
+	}
+	// Resolve inventory directly (avoids depending on invLookup.s being set).
+	// Per-player inv: p.invs[invID]. World-shared inv: s.invs[invID].
+	// Mirrors invLookupView.Get scope logic at server_invs.go.
+	var inv *inventory.Inventory
+	if s.invTypes != nil && invID >= 0 && invID < len(s.invTypes.Configs) {
+		cfg := s.invTypes.Configs[invID]
+		if cfg != nil && cfg.Scope == objtype.InvTypeScopeShared {
+			if s.invs != nil {
+				inv = s.invs[invID]
+			}
+		} else {
+			if p.invs != nil {
+				inv = p.invs[invID]
+			}
+		}
+	} else if p.invs != nil {
+		inv = p.invs[invID]
+	}
+	if inv == nil {
+		return 0
+	}
+	total := 0
+	for _, item := range inv.Items {
+		if item == nil || item.Id < 0 {
+			continue
+		}
+		if s.objTypes == nil || item.Id >= len(s.objTypes.Configs) {
+			continue
+		}
+		ot := s.objTypes.Configs[item.Id]
+		if ot == nil {
+			continue
+		}
+		var paramVal int
+		if v, ok := ot.Params[uint32(paramID)]; ok {
+			if iv, ok2 := v.(uint32); ok2 {
+				// Params are stored as raw uint32 wire bytes; cast through
+				// int32 to sign-extend negative values (matches paramLookup
+				// in pkg/script/handlers_config.go).
+				paramVal = int(int32(iv))
+			}
+		} else {
+			paramVal = int(pt.DefaultInt)
+		}
+		total += item.Count * paramVal
+	}
+	return total
 }
