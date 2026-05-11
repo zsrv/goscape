@@ -3667,3 +3667,113 @@ func TestHandleInvDropAll_NoActivePlayer(t *testing.T) {
 		t.Errorf("expected 'no active player', got: %v", err)
 	}
 }
+
+// TestNAI162Probe_InvDropSlot_FiresUnderNodeDebug pins that the
+// nai162.wealth.invdropslot gateway emits exactly one record when
+// NodeDebug=true and the SCOPE_PERM path fires.
+func TestNAI162Probe_InvDropSlot_FiresUnderNodeDebug(t *testing.T) {
+	rec, lg := captureLogger()
+
+	s := newTestState(minimalScript(OpReturn))
+	w := newFakeWorldMembers()
+	s.World = w
+	mp := &mockPlayer{uidValue: 99}
+	s.Self = mp
+	s.Pointers |= PtrActivePlayer
+	s.Pointers |= PtrProtectedActivePlayer
+	s.NodeDebug = true
+	s.Log = lg
+
+	mc := newTestInvConfigs()
+	invType := objtype.NewInvType(7)
+	invType.Size = 28
+	invType.Protect = true
+	invType.Scope = objtype.InvTypeScopePerm
+	mc.invs[7] = invType
+	sword := objtype.NewObjType(1277)
+	sword.Name = "Rune Sword"
+	sword.DebugName = "rune_sword"
+	sword.Cost = 20000
+	mc.objs[1277] = sword
+	s.Configs = mc
+
+	inv := inventory.New(7, 28, inventory.StackNormal)
+	inv.Set(0, &inventory.Item{Id: 1277, Count: 1})
+	s.Inv = &mockInvLookup{invs: map[int]*inventory.Inventory{7: inv}}
+
+	s.PushInt(7)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(0)
+	s.PushInt(50)
+
+	if err := handleInvDropSlot(s); err != nil {
+		t.Fatalf("handleInvDropSlot: %v", err)
+	}
+
+	if len(rec.records) != 1 {
+		t.Fatalf("probe records: got %d, want 1", len(rec.records))
+	}
+	r := rec.records[0]
+	if r.Message != "nai162.wealth.invdropslot" {
+		t.Errorf("message: got %q, want %q", r.Message, "nai162.wealth.invdropslot")
+	}
+	got := recordAttrs(r)
+	if got["event_type"] != int64(WealthEventTypeDrop) {
+		t.Errorf(`attr "event_type": got %v, want %d`, got["event_type"], WealthEventTypeDrop)
+	}
+	if got["value"] != int64(20000) {
+		t.Errorf(`attr "value": got %v, want 20000`, got["value"])
+	}
+	if got["inv"] != int64(7) {
+		t.Errorf(`attr "inv": got %v, want 7`, got["inv"])
+	}
+	if got["count"] != int64(1) {
+		t.Errorf(`attr "count": got %v, want 1`, got["count"])
+	}
+}
+
+// TestNAI162Probe_InvDropSlot_SuppressedWhenNodeDebugFalse pins that the
+// nai162.wealth.invdropslot gateway is suppressed when NodeDebug=false.
+func TestNAI162Probe_InvDropSlot_SuppressedWhenNodeDebugFalse(t *testing.T) {
+	rec, lg := captureLogger()
+
+	s := newTestState(minimalScript(OpReturn))
+	w := newFakeWorldMembers()
+	s.World = w
+	mp := &mockPlayer{uidValue: 99}
+	s.Self = mp
+	s.Pointers |= PtrActivePlayer
+	s.Pointers |= PtrProtectedActivePlayer
+	// NodeDebug zero-value = false
+	s.Log = lg
+
+	mc := newTestInvConfigs()
+	invType := objtype.NewInvType(7)
+	invType.Size = 28
+	invType.Protect = true
+	invType.Scope = objtype.InvTypeScopePerm
+	mc.invs[7] = invType
+	sword := objtype.NewObjType(1277)
+	sword.Name = "Rune Sword"
+	sword.DebugName = "rune_sword"
+	sword.Cost = 20000
+	mc.objs[1277] = sword
+	s.Configs = mc
+
+	inv := inventory.New(7, 28, inventory.StackNormal)
+	inv.Set(0, &inventory.Item{Id: 1277, Count: 1})
+	s.Inv = &mockInvLookup{invs: map[int]*inventory.Inventory{7: inv}}
+
+	s.PushInt(7)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(0)
+	s.PushInt(50)
+
+	if err := handleInvDropSlot(s); err != nil {
+		t.Fatalf("handleInvDropSlot: %v", err)
+	}
+
+	if len(rec.records) != 0 {
+		t.Errorf("probe records under NodeDebug=false: got %d, want 0", len(rec.records))
+	}
+}

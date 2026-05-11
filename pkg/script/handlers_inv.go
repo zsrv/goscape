@@ -854,6 +854,14 @@ func handleInvDropSlot(s *ScriptState) error {
 			AccountItems: []WealthItem{{ID: objID, Name: objType.DebugName, Count: count}},
 			AccountValue: count * objType.Cost,
 		})
+		if s.NodeDebug && s.Log != nil {
+			s.Log.Info("nai162.wealth.invdropslot",
+				"event_type", WealthEventTypeDrop,
+				"value", count*objType.Cost,
+				"inv", invID,
+				"count", count,
+			)
+		}
 	}
 
 	// Slot-scoped removal: mirrors TS player.invDel(invType.id, obj.id,
@@ -1403,6 +1411,14 @@ func handleBothMoveInv(s *ScriptState) error {
 				AccountValue: fromTotal,
 				// RecipientSession: toPlayer.Session() — deferred (NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY).
 			})
+			if s.NodeDebug && s.Log != nil {
+				s.Log.Info("nai162.wealth.bothmoveinv_stake",
+					"event_type", WealthEventTypeStake,
+					"value", fromTotal,
+					"inv", from,
+					"count", len(fromItems),
+				)
+			}
 		}
 	} else if !secondary {
 		// TRADE event (mirrors TS InvOps.ts:455-492 non-secondary branch).
@@ -1438,6 +1454,14 @@ func handleBothMoveInv(s *ScriptState) error {
 				AccountValue: fromTotal,
 				// RecipientSession: toPlayer.Session() — deferred (NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY).
 			})
+			if s.NodeDebug && s.Log != nil {
+				s.Log.Info("nai162.wealth.bothmoveinv_trade",
+					"event_type", WealthEventTypeTrade,
+					"value", fromTotal,
+					"inv", from,
+					"count", len(fromItems),
+				)
+			}
 		}
 		_ = toTotal // available for future RecipientValue field; see NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY
 	}
@@ -1713,6 +1737,16 @@ func handleBothDropSlot(s *ScriptState) error {
 			AccountValue:     count * objType.Cost,
 			RecipientSession: "", // deferred per NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY
 		})
+		if s.NodeDebug && s.Log != nil {
+			s.Log.Info("nai162.wealth.bothdropslot",
+				"event_type", WealthEventTypePVP,
+				"value", count*objType.Cost,
+				"inv", invID,
+				"count", count,
+				"secondary", secondary,
+				"obj", objID,
+			)
+		}
 	}
 
 	// Slot-scoped removal (mirrors TS invDel returning completed).
@@ -1873,6 +1907,13 @@ func handleInvDropAll(s *ScriptState) error {
 			AccountItems: items,
 			AccountValue: totalValue,
 		})
+		if s.NodeDebug && s.Log != nil {
+			s.Log.Info("nai162.wealth.invdropall",
+				"event_type", WealthEventTypeDeath,
+				"value", totalValue,
+				"items", len(items),
+			)
+		}
 	}
 	return nil
 }

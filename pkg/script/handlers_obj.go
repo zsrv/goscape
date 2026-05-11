@@ -271,6 +271,13 @@ func handleObjTakeItem(s *ScriptState) error {
 			AccountItems: []WealthItem{{ID: objTypeID, Name: objCfg.DebugName, Count: objCount}},
 			AccountValue: objCount * objCfg.Cost,
 		})
+		if s.NodeDebug && s.Log != nil {
+			s.Log.Info("nai162.wealth.objtake",
+				"event_type", WealthEventTypePickup,
+				"value", objCount*objCfg.Cost,
+				"obj", objTypeID,
+			)
+		}
 	}
 
 	s.World.RemoveObj(s.ActiveObj)
