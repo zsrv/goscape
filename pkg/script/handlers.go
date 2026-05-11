@@ -543,6 +543,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 
 	// NAI-160 T3: HEADICONS_SET.
 	OpHeadIconsSet: handleHeadIconsSet,
+
+	// NAI-161 T4: CLEARQUEUE.
+	OpClearQueue: handleClearQueue,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.

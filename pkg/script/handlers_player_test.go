@@ -999,6 +999,8 @@ func TestHandlersRequireActivePlayer(t *testing.T) {
 		{"HEADICONS_SET", OpHeadIconsSet},
 		// NAI-160 T4.
 		{"P_EXACTMOVE", OpPExactMove},
+		// NAI-161 T4.
+		{"CLEARQUEUE", OpClearQueue},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -5189,5 +5191,31 @@ func TestPExactMoveInvalidCoord(t *testing.T) {
 	}
 	if got := mp.unsetMapFlagCalls; got != 0 {
 		t.Errorf("unsetMapFlagCalls: got %d, want 0 (validation must precede side effects)", got)
+	}
+}
+
+// TestClearQueueDispatch pins OpClearQueue: pop the scriptID arg,
+// delegate to ActivePlayer.UnlinkQueuedScript. Mirrors TS
+// PlayerOps.ts:1045-1048. NAI-161 T4.
+func TestClearQueueDispatch(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "[clearqueue,test]",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push scriptID=42
+			OpClearQueue,
+			OpReturn,
+		},
+		IntOperands:      []int32{42, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	state.Pointers |= PtrActivePlayer
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.unlinkScriptCalls; len(got) != 1 || got[0] != 42 {
+		t.Errorf("unlinkScriptCalls: got %v, want [42]", got)
 	}
 }

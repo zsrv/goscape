@@ -1677,3 +1677,16 @@ func handleHeadIconsSet(s *ScriptState) error {
 	s.Self.SetHeadIcons(v)
 	return nil
 }
+
+// handleClearQueue implements OpClearQueue (TS CLEARQUEUE at
+// PlayerOps.ts:1045-1048). Pops a scriptID, delegates to
+// ActivePlayer.UnlinkQueuedScript — which (per NAI-161 T1) walks the
+// player's p.queue and drops every entry whose Script resolves to that
+// scriptID. NAI-161 T4.
+func handleClearQueue(s *ScriptState) error {
+	if err := requireActivePlayer(s, "CLEARQUEUE"); err != nil {
+		return err
+	}
+	s.Self.UnlinkQueuedScript(s.PopInt())
+	return nil
+}
