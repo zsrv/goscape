@@ -304,6 +304,51 @@ func handleObjFind(s *ScriptState) error {
 	return nil
 }
 
+// handleObjFindAllZone (OBJ_FINDALLZONE, opcode 3506) pops a coord and
+// stores a single-zone ObjIterator targeting the zone containing that
+// coord. Mirrors TS ObjOps.ts:185-189.
+//
+// Nil-World degrades silently (matches LOC_FINDALLZONE convention at
+// handlers_loc.go).
+func handleObjFindAllZone(s *ScriptState) error {
+	coord := s.PopInt()
+	level, x, z, err := checkCoord(coord, "OBJ_FINDALLZONE")
+	if err != nil {
+		return err
+	}
+	if s.World == nil {
+		return nil
+	}
+	s.objIterator = NewZoneObjIterator(s.World, s.World.CurrentTick(), level, x, z)
+	return nil
+}
+
+// handleObjFindNext (OBJ_FINDNEXT, opcode 3507) advances the active
+// ObjIterator and either sets the active obj slot + pushes 1 on hit, or
+// pushes 0 on miss / nil-iterator. Mirrors TS ObjOps.ts:191-201.
+//
+// Stale-iterator semantics mirror LOC_FINDNEXT — return error on stale.
+// Pointer-set: setActiveObjSlot threads IntOperand 0/1 per TS
+// state.pointerAdd(ActiveObj[intOperand]).
+func handleObjFindNext(s *ScriptState) error {
+	it := s.objIterator
+	if it == nil {
+		s.PushInt(0)
+		return nil
+	}
+	if it.Stale(s.World.CurrentTick()) {
+		return fmt.Errorf("OBJ_FINDNEXT: tried to use an old iterator. Create a new iterator instead.")
+	}
+	obj, ok := it.Next()
+	if !ok {
+		s.PushInt(0)
+		return nil
+	}
+	setActiveObjSlot(s, obj)
+	s.PushInt(1)
+	return nil
+}
+
 // handleObjType (OBJ_TYPE, opcode 3511) pushes the active obj's type id.
 // Mirrors TS ObjOps.ts:132-134:
 //

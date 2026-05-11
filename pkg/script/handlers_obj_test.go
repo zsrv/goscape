@@ -783,3 +783,197 @@ func TestObjFindUIDPropagation(t *testing.T) {
 		t.Errorf("GetObj call: got %+v, want %+v", got, want)
 	}
 }
+
+// --- NAI-154: OBJ_FINDALLZONE + OBJ_FINDNEXT handler tests -----------
+
+// newObjFindAllZoneState builds a ScriptState with a coord on the int
+// stack, World wired (for CurrentTick), and IntOperands sized for the
+// handler. Mirror of newLocFindAllZoneState (handlers_loc_test.go).
+func newObjFindAllZoneState(t *testing.T, tick int, w WorldVars, coord int) *ScriptState {
+	t.Helper()
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{0}},
+		PC:          0,
+		World:       w,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(coord)
+	return s
+}
+
+// newObjFindNextState builds a ScriptState with World wired (for
+// CurrentTick), an optional objIterator pre-installed, and IntOperands
+// supplied for setActiveObjSlot. Mirror of newLocFindNextState.
+func newObjFindNextState(t *testing.T, tick int, iter *ObjIterator, intOperand int32) *ScriptState {
+	t.Helper()
+	mw := newMockWorld()
+	mw.tick = tick
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{intOperand}},
+		PC:          0,
+		World:       mw,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.objIterator = iter
+	return s
+}
+
+// TestObjFindAllZoneStoresIterator pins OBJ_FINDALLZONE: pop coord →
+// store iterator with creationTick from World.CurrentTick + level/x/z
+// from coord.
+func TestObjFindAllZoneStoresIterator(t *testing.T) {
+	w := newObjIterTestWorld(nil)
+	w.tick = 100
+	coord := coordgrid.PackCoord(0, 3200, 3300)
+	s := newObjFindAllZoneState(t, 100, w, coord)
+
+	if err := handleObjFindAllZone(s); err != nil {
+		t.Fatalf("handleObjFindAllZone: %v", err)
+	}
+	if s.objIterator == nil {
+		t.Fatal("objIterator: got nil, want set")
+	}
+	if s.objIterator.creationTick != 100 {
+		t.Errorf("creationTick: got %d, want 100 (from World.CurrentTick)",
+			s.objIterator.creationTick)
+	}
+	if s.objIterator.level != 0 || s.objIterator.x != 3200 || s.objIterator.z != 3300 {
+		t.Errorf("coord: got (%d, %d, %d), want (0, 3200, 3300)",
+			s.objIterator.level, s.objIterator.x, s.objIterator.z)
+	}
+}
+
+// TestObjFindAllZoneNilWorldDegrades pins the LocFindAllZone parallel:
+// nil World → handler returns nil, objIterator stays nil.
+func TestObjFindAllZoneNilWorldDegrades(t *testing.T) {
+	coord := coordgrid.PackCoord(0, 3200, 3300)
+	s := newObjFindAllZoneState(t, 100, nil, coord)
+	s.World = nil
+
+	if err := handleObjFindAllZone(s); err != nil {
+		t.Fatalf("handleObjFindAllZone: got err %v, want nil (degrade silently)", err)
+	}
+	if s.objIterator != nil {
+		t.Errorf("objIterator: got %v, want nil (no iterator on nil-world)", s.objIterator)
+	}
+}
+
+// TestObjFindAllZoneCoordValid pins the checkCoord error path.
+func TestObjFindAllZoneCoordValid(t *testing.T) {
+	w := newObjIterTestWorld(nil)
+	s := newObjFindAllZoneState(t, 100, w, -1)
+
+	err := handleObjFindAllZone(s)
+	if err == nil {
+		t.Fatal("handleObjFindAllZone(-1): want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "OBJ_FINDALLZONE") {
+		t.Errorf("err: got %q, want substring %q", err.Error(), "OBJ_FINDALLZONE")
+	}
+}
+
+// TestObjFindNextNoIterator pins the nil-iterator branch.
+func TestObjFindNextNoIterator(t *testing.T) {
+	s := newObjFindNextState(t, 100, nil, 0)
+
+	if err := handleObjFindNext(s); err != nil {
+		t.Fatalf("handleObjFindNext: %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("nil iterator: got push %d, want 0", got)
+	}
+	if s.ActiveObj != nil {
+		t.Error("ActiveObj should remain nil")
+	}
+	if s.OtherActiveObj != nil {
+		t.Error("OtherActiveObj should remain nil")
+	}
+}
+
+// TestObjFindNextHitPrimarySlot pins OBJ_FINDNEXT IntOperand=0: hit
+// sets s.ActiveObj, sets PtrActiveObj, pushes 1.
+func TestObjFindNextHitPrimarySlot(t *testing.T) {
+	obj := &mockActiveObj{objType: 590, count: 1}
+	w := newObjIterTestWorld([]ActiveObj{obj})
+	iter := NewZoneObjIterator(w, 100, 0, 3200, 3300)
+	s := newObjFindNextState(t, 100, iter, 0)
+
+	if err := handleObjFindNext(s); err != nil {
+		t.Fatalf("handleObjFindNext: %v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("push: got %d, want 1 (hit)", got)
+	}
+	if s.ActiveObj != obj {
+		t.Errorf("ActiveObj: got %v, want %v", s.ActiveObj, obj)
+	}
+	if s.Pointers&PtrActiveObj == 0 {
+		t.Error("PtrActiveObj not set")
+	}
+}
+
+// TestObjFindNextHitSecondarySlot pins OBJ_FINDNEXT IntOperand=1: hit
+// sets s.OtherActiveObj, sets PtrActiveObj2, pushes 1.
+func TestObjFindNextHitSecondarySlot(t *testing.T) {
+	obj := &mockActiveObj{objType: 590, count: 1}
+	w := newObjIterTestWorld([]ActiveObj{obj})
+	iter := NewZoneObjIterator(w, 100, 0, 3200, 3300)
+	s := newObjFindNextState(t, 100, iter, 1)
+
+	if err := handleObjFindNext(s); err != nil {
+		t.Fatalf("handleObjFindNext: %v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("push: got %d, want 1", got)
+	}
+	if s.OtherActiveObj != obj {
+		t.Errorf("OtherActiveObj: got %v, want %v", s.OtherActiveObj, obj)
+	}
+	if s.Pointers&PtrActiveObj2 == 0 {
+		t.Error("PtrActiveObj2 not set")
+	}
+	if s.ActiveObj != nil {
+		t.Error("ActiveObj should remain nil (secondary slot)")
+	}
+}
+
+// TestObjFindNextExhaustionPushesZero pins the exhaustion path.
+func TestObjFindNextExhaustionPushesZero(t *testing.T) {
+	obj := &mockActiveObj{objType: 590, count: 1}
+	w := newObjIterTestWorld([]ActiveObj{obj})
+	iter := NewZoneObjIterator(w, 100, 0, 3200, 3300)
+	// Drain.
+	if _, ok := iter.Next(); !ok {
+		t.Fatal("setup: iterator should yield once")
+	}
+	s := newObjFindNextState(t, 100, iter, 0)
+
+	if err := handleObjFindNext(s); err != nil {
+		t.Fatalf("handleObjFindNext: %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("exhausted: got push %d, want 0", got)
+	}
+	if s.ActiveObj != nil {
+		t.Error("ActiveObj should remain nil on exhaustion")
+	}
+}
+
+// TestObjFindNextStaleErrors pins the stale-iterator guard: iterator
+// created at tick=0, World.CurrentTick advanced to 1 → error.
+func TestObjFindNextStaleErrors(t *testing.T) {
+	obj := &mockActiveObj{objType: 590, count: 1}
+	w := newObjIterTestWorld([]ActiveObj{obj})
+	iter := NewZoneObjIterator(w, 0, 0, 3200, 3300) // tick=0
+	s := newObjFindNextState(t, 1, iter, 0)         // World.tick=1
+
+	err := handleObjFindNext(s)
+	if err == nil {
+		t.Fatal("handleObjFindNext on stale iterator: want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "old iterator") {
+		t.Errorf("err: got %q, want substring %q", err.Error(), "old iterator")
+	}
+}
