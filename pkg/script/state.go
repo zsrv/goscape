@@ -347,6 +347,12 @@ type ScriptState struct {
 	// Nil = no active iterator. Mirrors TS ScriptState.locIterator. NAI-119.
 	locIterator *LocIterator
 
+	// objIterator holds the active OBJ_FIND iterator state. Set by
+	// OBJ_FINDALLZONE; consumed by OBJ_FINDNEXT. Lifetime is single-tick —
+	// Stale() check enforced at FINDNEXT against s.World.CurrentTick().
+	// Nil = no active iterator. Mirrors TS ScriptState.objIterator. NAI-154.
+	objIterator *ObjIterator
+
 	// playerIterator holds the active player-iterator state. Set by
 	// HUNTALL; consumed by HUNTNEXT (T5). Single-tick lifetime — Stale()
 	// check at HUNTNEXT against s.World.CurrentTick(). Nil = no active
