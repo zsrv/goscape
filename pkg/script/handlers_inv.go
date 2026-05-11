@@ -1597,6 +1597,144 @@ func handleInvDebugName(s *ScriptState) error {
 	return nil
 }
 
+// handleBothDropSlot (BOTH_DROPSLOT, opcode 4300). Drops the entire stack
+// at slot from fromPlayer's inv at coord with private visibility for
+// duration ticks. fromPlayer/toPlayer swap is driven by the intOperand:
+// 0 → fromPlayer=Self, toPlayer=Self2 (primary / "both_dropslot");
+// 1 → fromPlayer=Self2, toPlayer=Self (secondary / ".both_dropslot").
+//
+// Pop order (LIFO): duration, slot, coord, invID
+// (TS popInts(4) → [inv, coord, slot, duration]; duration on top).
+//
+// Protect gate: when invType.Protect && scope != SCOPE_SHARED, requires
+// PtrProtectedActivePlayer (primary) or PtrProtectedActivePlayer2
+// (secondary). Gate checked after validators, before slot lookup.
+//
+// SCOPE_PERM drops emit a PVP WealthEvent on state.activePlayer (Self)
+// with RecipientSession="" per NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY
+// (Session() not exposed through the ActivePlayer interface; deferred).
+//
+// Untradeable objs stay with fromPlayer (receiverID = fromPlayer.UID());
+// tradeable objs go to toPlayer (receiverID = toPlayer.UID()).
+// Mirrors TS InvOps.ts:672-723.
+func handleBothDropSlot(s *ScriptState) error {
+	if err := requireActivePlayer(s, "BOTH_DROPSLOT"); err != nil {
+		return err
+	}
+	if s.Configs == nil {
+		return fmt.Errorf("BOTH_DROPSLOT: no configs")
+	}
+	if s.World == nil {
+		return fmt.Errorf("BOTH_DROPSLOT: no world surface")
+	}
+
+	duration := s.PopInt()
+	slot := s.PopInt()
+	coord := s.PopInt()
+	invID := s.PopInt()
+
+	// InvTypeValid.
+	invType := s.Configs.InvType(invID)
+	if invType == nil {
+		return fmt.Errorf("BOTH_DROPSLOT: invalid inv id (%d)", invID)
+	}
+
+	// DurationValid.
+	if err := checkDuration(duration); err != nil {
+		return fmt.Errorf("BOTH_DROPSLOT: %w", err)
+	}
+
+	// CoordValid.
+	level, x, z, err := checkCoord(coord, "BOTH_DROPSLOT")
+	if err != nil {
+		return err
+	}
+
+	// secondary == 1 → fromPlayer = Self2, toPlayer = Self.
+	secondary := s.Script.IntOperands[s.PC] == 1
+
+	var fromPlayer, toPlayer ActivePlayer
+	if secondary {
+		fromPlayer = s.Self2
+		toPlayer = s.Self
+	} else {
+		fromPlayer = s.Self
+		toPlayer = s.Self2
+	}
+	if fromPlayer == nil || toPlayer == nil {
+		return fmt.Errorf("BOTH_DROPSLOT: player is null")
+	}
+
+	// Protect gate: conditional on invType.Protect + scope.
+	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared {
+		if secondary {
+			if err := requireProtectedActivePlayer2(s, "BOTH_DROPSLOT"); err != nil {
+				return err
+			}
+		} else {
+			if err := requireProtectedActivePlayer(s, "BOTH_DROPSLOT"); err != nil {
+				return err
+			}
+		}
+	}
+
+	if s.Inv == nil {
+		return fmt.Errorf("BOTH_DROPSLOT: no inv lookup")
+	}
+
+	// Resolve fromPlayer's inventory.
+	inv := s.Inv.Get(fromPlayer, invID)
+	if inv == nil {
+		return fmt.Errorf("BOTH_DROPSLOT: fromPlayer inv missing")
+	}
+
+	it := inv.Get(slot)
+	if it == nil {
+		return fmt.Errorf("BOTH_DROPSLOT: $slot is empty (slot=%d)", slot)
+	}
+
+	objID := it.Id
+	count := it.Count
+
+	// Validate obj config.
+	objType := s.Configs.ObjType(objID)
+	if objType == nil {
+		return fmt.Errorf("BOTH_DROPSLOT: invalid obj id at slot (id=%d)", objID)
+	}
+
+	// SCOPE_PERM → PVP WealthEvent on state.activePlayer (Self).
+	// RecipientSession="" per NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY:
+	// toPlayer.Session() is not exposed through the ActivePlayer interface.
+	// (goscape adaptation; TS has toPlayer.session field access here.)
+	if invType.Scope == objtype.InvTypeScopePerm {
+		s.Self.AddWealthEvent(WealthEvent{
+			EventType:        WealthEventTypePVP,
+			AccountItems:     []WealthItem{{ID: objID, Name: objType.DebugName, Count: count}},
+			AccountValue:     count * objType.Cost,
+			RecipientSession: "", // deferred per NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY
+		})
+	}
+
+	// Slot-scoped removal (mirrors TS invDel returning completed).
+	completed := count
+	inv.Delete(slot)
+	if completed == 0 {
+		return nil
+	}
+
+	// Untradeable → fromPlayer; tradeable → toPlayer. Mirrors TS
+	// InvOps.ts:717-721: `!objType.tradeable ? fromPlayer.hash64 : toPlayer.hash64`.
+	var receiverID int
+	if !objType.Tradeable {
+		receiverID = fromPlayer.UID()
+	} else {
+		receiverID = toPlayer.UID()
+	}
+
+	s.World.AddObj(level, x, z, objID, completed, duration, receiverID)
+	return nil
+}
+
 // handleInvTotalParamStack (INV_TOTALPARAM_STACK, opcode 4329). Pops
 // param then inv (LIFO; TS popInts(2) → [inv, param] means param is on
 // top). Delegates to Self.InvTotalParamStack and pushes the result.

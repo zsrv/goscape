@@ -3016,3 +3016,440 @@ func TestNAI115D1Retirement_InvDropSlotScopeTempNoWealthEvent(t *testing.T) {
 		t.Errorf("AddWealthEvent: got %d, want 0 (TEMP scope = no event)", len(mp.addWealthEventCalls))
 	}
 }
+
+// --- NAI-162 B3.1 BOTH_DROPSLOT (opcode 4300) tests ---
+//
+// Helpers shared across B3 tests.
+
+// newBothDropSlotConfigs builds a mockConfigs with two obj types and two inv
+// types for BOTH_DROPSLOT / INV_DROPALL tests.
+//
+//   - obj 10 (untradeable, cost=100, debugname="rune")
+//   - obj 20 (tradeable, cost=50,  debugname="gold")
+//   - inv 5 (scope=ScopeNormal,  protect=false)
+//   - inv 6 (scope=InvTypeScopePerm, protect=true)
+func newBothDropSlotConfigs() *mockConfigs {
+	mc := &mockConfigs{
+		objs:    make(map[int]*objtype.ObjType),
+		npcs:    make(map[int]*objtype.NpcType),
+		locs:    make(map[int]*objtype.LocType),
+		enums:   make(map[int]*objtype.EnumType),
+		structs: make(map[int]*objtype.StructType),
+		params:  make(map[int]*objtype.ParamType),
+		invs:    make(map[int]*objtype.InvType),
+	}
+
+	rune := objtype.NewObjType(10)
+	rune.DebugName = "rune"
+	rune.Cost = 100
+	rune.Tradeable = false
+	mc.objs[10] = rune
+
+	gold := objtype.NewObjType(20)
+	gold.DebugName = "gold"
+	gold.Cost = 50
+	gold.Tradeable = true
+	mc.objs[20] = gold
+
+	normalInv := objtype.NewInvType(5)
+	normalInv.DebugName = "normal"
+	normalInv.Size = 28
+	normalInv.Scope = objtype.InvTypeScopeTemp
+	normalInv.Protect = false
+	mc.invs[5] = normalInv
+
+	permInv := objtype.NewInvType(6)
+	permInv.DebugName = "perm"
+	permInv.Size = 28
+	permInv.Scope = objtype.InvTypeScopePerm
+	permInv.Protect = true
+	mc.invs[6] = permInv
+
+	return mc
+}
+
+// newBothDropState builds a ScriptState for BOTH_DROPSLOT tests with
+// the given intOperand (0=primary, 1=secondary). Both Self and Self2 are
+// set; slot-0 protected by default (Init third arg=true). Callers may add
+// PtrProtectedActivePlayer2 for secondary protect tests.
+func newBothDropState(operand int32, self, self2 *mockPlayer, mc *mockConfigs, lookup InvLookup, world WorldVars) *ScriptState {
+	sf := &ScriptFile{
+		Name:             "test_BOTH_DROPSLOT",
+		Opcodes:          []Opcode{OpBothDropSlot, OpReturn},
+		IntOperands:      []int32{operand, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	s := Init(sf, self, true, nil, nil) // slot-0 protected
+	s.Self2 = self2
+	s.Pointers |= PtrActivePlayer2
+	s.Configs = mc
+	s.Inv = lookup
+	s.World = world
+	return s
+}
+
+// TestHandleBothDropSlot_PrimaryFromSelf_Untradeable: secondary=0,
+// inv.protect=false, untradeable obj → addObj.receiverID = self.UID().
+func TestHandleBothDropSlot_PrimaryFromSelf_Untradeable(t *testing.T) {
+	mc := newBothDropSlotConfigs()
+	self := &mockPlayer{uidValue: 11}
+	self2 := &mockPlayer{uidValue: 22}
+	lookup, _, _ := newTwoPlayerInvFixture()
+	lookup.self = self
+	lookup.self2 = self2
+	lookup.selfInvs[5] = inventory.New(5, 28, inventory.StackNormal)
+	lookup.self2Invs[5] = inventory.New(5, 28, inventory.StackNormal)
+	lookup.selfInvs[5].Set(0, &inventory.Item{Id: 10, Count: 3})
+
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+	s := newBothDropState(0, self, self2, mc, lookup, world)
+	// push: inv, coord, slot, duration (bottom→top; handler pops LIFO: duration, slot, coord, inv)
+	s.PushInt(5)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(0)
+	s.PushInt(50)
+
+	if err := handleBothDropSlot(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(world.addedCalls) != 1 {
+		t.Fatalf("addObj: got %d, want 1", len(world.addedCalls))
+	}
+	// Untradeable: receiver = fromPlayer (self) UID
+	if world.addedCalls[0].receiverID != 11 {
+		t.Errorf("untradeable receiver: got %d, want 11 (self.UID)", world.addedCalls[0].receiverID)
+	}
+}
+
+// TestHandleBothDropSlot_PrimaryFromSelf_Tradeable: tradeable obj →
+// addObj.receiverID = toPlayer (self2) UID.
+func TestHandleBothDropSlot_PrimaryFromSelf_Tradeable(t *testing.T) {
+	mc := newBothDropSlotConfigs()
+	self := &mockPlayer{uidValue: 11}
+	self2 := &mockPlayer{uidValue: 22}
+	lookup, _, _ := newTwoPlayerInvFixture()
+	lookup.self = self
+	lookup.self2 = self2
+	lookup.selfInvs[5] = inventory.New(5, 28, inventory.StackNormal)
+	lookup.self2Invs[5] = inventory.New(5, 28, inventory.StackNormal)
+	lookup.selfInvs[5].Set(0, &inventory.Item{Id: 20, Count: 1}) // tradeable
+
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+	s := newBothDropState(0, self, self2, mc, lookup, world)
+	s.PushInt(5)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(0)
+	s.PushInt(50)
+
+	if err := handleBothDropSlot(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(world.addedCalls) != 1 {
+		t.Fatalf("addObj: got %d, want 1", len(world.addedCalls))
+	}
+	// Tradeable: receiver = toPlayer (self2) UID
+	if world.addedCalls[0].receiverID != 22 {
+		t.Errorf("tradeable receiver: got %d, want 22 (self2.UID)", world.addedCalls[0].receiverID)
+	}
+}
+
+// TestHandleBothDropSlot_SecondaryFromSelf2_Untradeable: secondary=1 →
+// fromPlayer = Self2, toPlayer = Self. Untradeable → receiver = self2.UID.
+func TestHandleBothDropSlot_SecondaryFromSelf2_Untradeable(t *testing.T) {
+	mc := newBothDropSlotConfigs()
+	self := &mockPlayer{uidValue: 11}
+	self2 := &mockPlayer{uidValue: 22}
+	lookup, _, _ := newTwoPlayerInvFixture()
+	lookup.self = self
+	lookup.self2 = self2
+	lookup.selfInvs[5] = inventory.New(5, 28, inventory.StackNormal)
+	lookup.self2Invs[5] = inventory.New(5, 28, inventory.StackNormal)
+	lookup.self2Invs[5].Set(0, &inventory.Item{Id: 10, Count: 2}) // self2 holds the item
+
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+	s := newBothDropState(1, self, self2, mc, lookup, world) // operand=1 (secondary)
+	s.Pointers |= PtrProtectedActivePlayer2
+	s.PushInt(5)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(0)
+	s.PushInt(50)
+
+	if err := handleBothDropSlot(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(world.addedCalls) != 1 {
+		t.Fatalf("addObj: got %d, want 1", len(world.addedCalls))
+	}
+	// untradeable: receiver = fromPlayer (self2) UID
+	if world.addedCalls[0].receiverID != 22 {
+		t.Errorf("secondary untradeable receiver: got %d, want 22 (self2.UID)", world.addedCalls[0].receiverID)
+	}
+}
+
+// TestHandleBothDropSlot_SecondaryFromSelf2_Tradeable: secondary=1,
+// tradeable → receiver = toPlayer (self) UID.
+func TestHandleBothDropSlot_SecondaryFromSelf2_Tradeable(t *testing.T) {
+	mc := newBothDropSlotConfigs()
+	self := &mockPlayer{uidValue: 11}
+	self2 := &mockPlayer{uidValue: 22}
+	lookup, _, _ := newTwoPlayerInvFixture()
+	lookup.self = self
+	lookup.self2 = self2
+	lookup.selfInvs[5] = inventory.New(5, 28, inventory.StackNormal)
+	lookup.self2Invs[5] = inventory.New(5, 28, inventory.StackNormal)
+	lookup.self2Invs[5].Set(0, &inventory.Item{Id: 20, Count: 1}) // tradeable
+
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+	s := newBothDropState(1, self, self2, mc, lookup, world)
+	s.Pointers |= PtrProtectedActivePlayer2
+	s.PushInt(5)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(0)
+	s.PushInt(50)
+
+	if err := handleBothDropSlot(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(world.addedCalls) != 1 {
+		t.Fatalf("addObj: got %d, want 1", len(world.addedCalls))
+	}
+	// tradeable: receiver = toPlayer (self) UID
+	if world.addedCalls[0].receiverID != 11 {
+		t.Errorf("secondary tradeable receiver: got %d, want 11 (self.UID)", world.addedCalls[0].receiverID)
+	}
+}
+
+// TestHandleBothDropSlot_ScopePerm_EmitsPVPWealthEvent: SCOPE_PERM →
+// AddWealthEvent(PVP) on state.activePlayer (Self). RecipientSession=""
+// per NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY (Session() not on interface).
+func TestHandleBothDropSlot_ScopePerm_EmitsPVPWealthEvent(t *testing.T) {
+	mc := newBothDropSlotConfigs()
+	self := &mockPlayer{uidValue: 11}
+	self2 := &mockPlayer{uidValue: 22}
+	lookup, _, _ := newTwoPlayerInvFixture()
+	lookup.self = self
+	lookup.self2 = self2
+	lookup.selfInvs[6] = inventory.New(6, 28, inventory.StackNormal)
+	lookup.self2Invs[6] = inventory.New(6, 28, inventory.StackNormal)
+	lookup.selfInvs[6].Set(0, &inventory.Item{Id: 10, Count: 5}) // cost=100 → value=500
+
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+	s := newBothDropState(0, self, self2, mc, lookup, world)
+	s.PushInt(6) // perm inv
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(0)
+	s.PushInt(50)
+
+	if err := handleBothDropSlot(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(self.addWealthEventCalls) != 1 {
+		t.Fatalf("AddWealthEvent: got %d calls, want 1 (PVP)", len(self.addWealthEventCalls))
+	}
+	evt := self.addWealthEventCalls[0]
+	if evt.EventType != WealthEventTypePVP {
+		t.Errorf("EventType: got %d, want %d (PVP)", evt.EventType, WealthEventTypePVP)
+	}
+	if evt.AccountValue != 500 {
+		t.Errorf("AccountValue: got %d, want 500 (5*100)", evt.AccountValue)
+	}
+	if len(evt.AccountItems) != 1 || evt.AccountItems[0].ID != 10 || evt.AccountItems[0].Count != 5 {
+		t.Errorf("AccountItems: got %+v, want [{ID:10 Count:5}]", evt.AccountItems)
+	}
+}
+
+// TestHandleBothDropSlot_ScopeNormal_NoWealthEvent: non-SCOPE_PERM →
+// no wealth event emitted.
+func TestHandleBothDropSlot_ScopeNormal_NoWealthEvent(t *testing.T) {
+	mc := newBothDropSlotConfigs()
+	self := &mockPlayer{uidValue: 11}
+	self2 := &mockPlayer{uidValue: 22}
+	lookup, _, _ := newTwoPlayerInvFixture()
+	lookup.self = self
+	lookup.self2 = self2
+	lookup.selfInvs[5] = inventory.New(5, 28, inventory.StackNormal)
+	lookup.self2Invs[5] = inventory.New(5, 28, inventory.StackNormal)
+	lookup.selfInvs[5].Set(0, &inventory.Item{Id: 10, Count: 1})
+
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+	s := newBothDropState(0, self, self2, mc, lookup, world)
+	s.PushInt(5)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(0)
+	s.PushInt(50)
+
+	if err := handleBothDropSlot(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(self.addWealthEventCalls) != 0 {
+		t.Errorf("AddWealthEvent: got %d calls, want 0 (non-SCOPE_PERM)", len(self.addWealthEventCalls))
+	}
+}
+
+// TestHandleBothDropSlot_NullToPlayer: Self2 absent → error.
+func TestHandleBothDropSlot_NullToPlayer(t *testing.T) {
+	mc := newBothDropSlotConfigs()
+	self := &mockPlayer{uidValue: 11}
+	sf := &ScriptFile{
+		Name:             "test_BOTH_DROPSLOT",
+		Opcodes:          []Opcode{OpBothDropSlot, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	s := Init(sf, self, true, nil, nil)
+	// Self2 absent: Pointers has no PtrActivePlayer2
+	s.Configs = mc
+	s.World = &fakeWorldAddObj{mockWorld: newMockWorld()}
+	s.Inv = &mockInvLookup{invs: map[int]*inventory.Inventory{}}
+	s.PushInt(5)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(0)
+	s.PushInt(50)
+
+	err := Execute(s)
+	if err == nil {
+		t.Fatal("expected error for null toPlayer, got nil")
+	}
+	if !strings.Contains(err.Error(), "player is null") {
+		t.Errorf("expected 'player is null', got: %v", err)
+	}
+}
+
+// TestHandleBothDropSlot_EmptySlot: slot has no item → error "$slot is empty".
+func TestHandleBothDropSlot_EmptySlot(t *testing.T) {
+	mc := newBothDropSlotConfigs()
+	self := &mockPlayer{uidValue: 11}
+	self2 := &mockPlayer{uidValue: 22}
+	lookup, _, _ := newTwoPlayerInvFixture()
+	lookup.self = self
+	lookup.self2 = self2
+	lookup.selfInvs[5] = inventory.New(5, 28, inventory.StackNormal)
+	lookup.self2Invs[5] = inventory.New(5, 28, inventory.StackNormal)
+	// No item in slot 0.
+
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+	s := newBothDropState(0, self, self2, mc, lookup, world)
+	s.PushInt(5)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(0)
+	s.PushInt(50)
+
+	err := Execute(s)
+	if err == nil {
+		t.Fatal("expected error for empty slot, got nil")
+	}
+	if !strings.Contains(err.Error(), "$slot is empty") {
+		t.Errorf("expected '$slot is empty', got: %v", err)
+	}
+}
+
+// TestHandleBothDropSlot_ProtectedGate_PrimaryMissing: inv.protect=true,
+// scope!=SHARED, no PtrProtectedActivePlayer → error.
+func TestHandleBothDropSlot_ProtectedGate_PrimaryMissing(t *testing.T) {
+	mc := newBothDropSlotConfigs()
+	self := &mockPlayer{uidValue: 11}
+	self2 := &mockPlayer{uidValue: 22}
+	lookup, _, _ := newTwoPlayerInvFixture()
+	lookup.self = self
+	lookup.self2 = self2
+	lookup.selfInvs[6] = inventory.New(6, 28, inventory.StackNormal)
+	lookup.self2Invs[6] = inventory.New(6, 28, inventory.StackNormal)
+	lookup.selfInvs[6].Set(0, &inventory.Item{Id: 10, Count: 1})
+
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+	sf := &ScriptFile{
+		Name:             "test_BOTH_DROPSLOT",
+		Opcodes:          []Opcode{OpBothDropSlot, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	s := Init(sf, self, false, nil, nil) // NOT protected
+	s.Self2 = self2
+	s.Pointers |= PtrActivePlayer2
+	s.Configs = mc
+	s.Inv = lookup
+	s.World = world
+	s.PushInt(6) // perm+protect inv
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(0)
+	s.PushInt(50)
+
+	err := Execute(s)
+	if err == nil {
+		t.Fatal("expected protect error, got nil")
+	}
+	if !strings.Contains(err.Error(), "script not protected") {
+		t.Errorf("expected 'script not protected', got: %v", err)
+	}
+}
+
+// TestHandleBothDropSlot_ProtectedGate_SecondaryMissing: secondary=1,
+// inv.protect=true, no PtrProtectedActivePlayer2 → error.
+func TestHandleBothDropSlot_ProtectedGate_SecondaryMissing(t *testing.T) {
+	mc := newBothDropSlotConfigs()
+	self := &mockPlayer{uidValue: 11}
+	self2 := &mockPlayer{uidValue: 22}
+	lookup, _, _ := newTwoPlayerInvFixture()
+	lookup.self = self
+	lookup.self2 = self2
+	lookup.selfInvs[6] = inventory.New(6, 28, inventory.StackNormal)
+	lookup.self2Invs[6] = inventory.New(6, 28, inventory.StackNormal)
+	lookup.self2Invs[6].Set(0, &inventory.Item{Id: 10, Count: 1})
+
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+	sf := &ScriptFile{
+		Name:             "test_BOTH_DROPSLOT",
+		Opcodes:          []Opcode{OpBothDropSlot, OpReturn},
+		IntOperands:      []int32{1, 0}, // secondary
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	s := Init(sf, self, true, nil, nil) // slot-0 protected, NOT slot-1
+	s.Self2 = self2
+	s.Pointers |= PtrActivePlayer2
+	// No PtrProtectedActivePlayer2
+	s.Configs = mc
+	s.Inv = lookup
+	s.World = world
+	s.PushInt(6)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(0)
+	s.PushInt(50)
+
+	err := Execute(s)
+	if err == nil {
+		t.Fatal("expected slot-1 protect error, got nil")
+	}
+	if !strings.Contains(err.Error(), "script not protected") {
+		t.Errorf("expected 'script not protected', got: %v", err)
+	}
+}
+
+// TestHandleBothDropSlot_NoActivePlayer: Self absent → error.
+func TestHandleBothDropSlot_NoActivePlayer(t *testing.T) {
+	mc := newBothDropSlotConfigs()
+	sf := &ScriptFile{
+		Name:             "test_BOTH_DROPSLOT",
+		Opcodes:          []Opcode{OpBothDropSlot, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	s := Init(sf, nil, false, nil, nil)
+	s.Configs = mc
+	s.PushInt(5)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(0)
+	s.PushInt(50)
+
+	err := Execute(s)
+	if err == nil {
+		t.Fatal("expected no-active-player error, got nil")
+	}
+	if !strings.Contains(err.Error(), "no active player") {
+		t.Errorf("expected 'no active player', got: %v", err)
+	}
+}
