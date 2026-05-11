@@ -246,6 +246,9 @@ type mockNpc struct {
 	}
 	// NAI-160 T7: NPC_INRANGE seeded value.
 	targetWithinMaxRangeValue bool
+
+	// NAI-162 B1: NPC_STATHEAL HP-full branch recorder.
+	heroPointsClearCalls int
 }
 
 func (m *mockNpc) NpcType() int     { return m.typeID }
@@ -261,6 +264,9 @@ func (m *mockNpc) NpcCategory() int { return m.category }
 
 // TargetWithinMaxRange returns the seeded value. NAI-160 T7.
 func (m *mockNpc) TargetWithinMaxRange() bool { return m.targetWithinMaxRangeValue }
+
+// HeroPointsClear records the call count. NAI-162 B1.
+func (m *mockNpc) HeroPointsClear() { m.heroPointsClearCalls++ }
 
 func (m *mockNpc) NpcStat(stat int) int {
 	if m.levels != nil {

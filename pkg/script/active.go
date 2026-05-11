@@ -1,5 +1,40 @@
 package script
 
+// WealthEvent captures a single wealth-affecting event for analytics.
+// Mirrors TS WealthEvent payload consumed by addWealthLog callers at
+// InvOps.ts and ObjOps.ts. Goscape AddWealthEvent appends to an
+// in-memory log only per NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY;
+// analytics RPC integration deferred.
+type WealthEvent struct {
+	EventType        int
+	AccountItems     []WealthItem
+	AccountValue     int
+	RecipientSession string // optional; empty for non-PVP events
+}
+
+// WealthItem is a single line-item inside a WealthEvent.
+type WealthItem struct {
+	ID    int
+	Name  string
+	Count int
+}
+
+// WealthEventType* enum mirrors TS WealthEventType (const enum,
+// WealthEventType.ts — 0-based ordinals).
+const (
+	WealthEventTypeTrade      = 0
+	WealthEventTypePVP        = 1
+	WealthEventTypeStake      = 2
+	WealthEventTypeDeath      = 3
+	WealthEventTypeDrop       = 4
+	WealthEventTypePickup     = 5
+	WealthEventTypeShopBuy    = 6
+	WealthEventTypeShopSell   = 7
+	WealthEventTypeLowAlch    = 8
+	WealthEventTypeHighAlch   = 9
+	WealthEventTypePartyRoom  = 10
+)
+
 // ActivePlayer is the minimal surface RuneScript needs from a Player.
 // Sub-spec S2 wires modules/world.Player to this interface. S4 adds
 // suspension + queue methods.
@@ -708,6 +743,21 @@ type ActivePlayer interface {
 	// modules/world/player_script.go. NAI-161 T3 — wired by GETQUEUE
 	// (OpGetQueue).
 	QueueCount(scriptID int) int
+
+	// NAI-162 B1: trivial-handler sweep #4 widenings.
+
+	// LastLoginInfo emits the LAST_LOGIN_INFO server packet with the
+	// previous-login timestamp and IP. Current impl is a no-op pending
+	// ServerProt port (NAI-162-D-LASTLOGIN-NO-PACKET).
+	LastLoginInfo()
+
+	// InvTotalParamStack sums slot.count × objType.Params[paramID]
+	// across non-empty inv slots. Mirrors TS Player.invTotalParamStack.
+	InvTotalParamStack(invID, paramID int) int
+
+	// AddWealthEvent appends a wealth-affecting event to the server-side
+	// log. Concrete body lands in B2.2 (NAI-162).
+	AddWealthEvent(evt WealthEvent)
 }
 
 // ActiveNpc is the per-NPC surface that NPC_* opcodes and VARN
@@ -944,6 +994,11 @@ type ActiveNpc interface {
 	// modules/world/npc_interaction.go:591. Returns false defensively when
 	// the NPC has no target (TS-equivalent). NAI-160 T7.
 	TargetWithinMaxRange() bool
+
+	// HeroPointsClear resets the NPC's hero-point contributor ledger.
+	// Called by NPC_STATHEAL when HP reaches base (NpcOps.ts:253-256).
+	// NAI-162 B1.
+	HeroPointsClear()
 }
 
 // ActiveLoc is the surface that LOC_* opcodes use to read the loc

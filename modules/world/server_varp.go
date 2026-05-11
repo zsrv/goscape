@@ -290,6 +290,18 @@ func (w worldVarsView) ZoneObjs(level, zoneX, zoneZ int) []script.ActiveObj {
 	return out
 }
 
+// IsIndoors reports whether the tile at (x, z, level) carries the
+// FlagRoof bit in the global collision FlagMap. Implements
+// script.WorldVars.IsIndoors. Mirrors TS isIndoors (GameMap.ts:417-419).
+// NAI-162 B1.
+func (w worldVarsView) IsIndoors(x, z, level int) bool {
+	if w.s == nil || w.s.gamemap == nil {
+		return false
+	}
+	flag := w.s.gamemap.Pathfinder.Flags.Get(x, z, level)
+	return collision.IsIndoors(flag)
+}
+
 // Compile-time conformance assertion for script.WorldVars. Adding any
 // new WorldVars method that worldVarsView fails to implement breaks
 // the build here. NAI-150 T1.

@@ -396,6 +396,12 @@ type mockPlayer struct {
 	// NAI-161 T1/T2: queue-introspection recorders.
 	unlinkScriptCalls  []int       // every UnlinkQueuedScript call's scriptID
 	queueCountByScript map[int]int // scriptID → return value; unset entries return 0
+
+	// NAI-162 B1: trivial-handler sweep recorders.
+	lastLoginInfoCalls          int
+	invTotalParamStackReturn    int // configurable for tests
+	invTotalParamStackArgs      []invTotalParamStackArg
+	addWealthEventCalls         []WealthEvent
 }
 
 type mockEnqueue struct {
@@ -492,6 +498,23 @@ func (m *mockPlayer) UnlinkQueuedScript(scriptID int) {
 
 func (m *mockPlayer) QueueCount(scriptID int) int {
 	return m.queueCountByScript[scriptID]
+}
+
+// NAI-162 B1: trivial-handler sweep mock methods.
+
+type invTotalParamStackArg struct {
+	InvID, ParamID int
+}
+
+func (m *mockPlayer) LastLoginInfo() { m.lastLoginInfoCalls++ }
+
+func (m *mockPlayer) InvTotalParamStack(inv, p int) int {
+	m.invTotalParamStackArgs = append(m.invTotalParamStackArgs, invTotalParamStackArg{InvID: inv, ParamID: p})
+	return m.invTotalParamStackReturn
+}
+
+func (m *mockPlayer) AddWealthEvent(evt WealthEvent) {
+	m.addWealthEventCalls = append(m.addWealthEventCalls, evt)
 }
 
 // S5c: stats.

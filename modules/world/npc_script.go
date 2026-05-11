@@ -83,6 +83,14 @@ func (n *Npc) AddHeroPoints(playerUID, amount int) {
 	n.heroPoints.AddHero(playerUID, amount)
 }
 
+// HeroPointsClear resets the NPC's hero-point contributor ledger.
+// Implements script.ActiveNpc.HeroPointsClear. Mirrors TS
+// npc.heroPoints.clear() at NpcOps.ts:255 (NPC_STATHEAL HP-full branch).
+// NAI-162 B1.
+func (n *Npc) HeroPointsClear() {
+	n.heroPoints.Clear()
+}
+
 // TopContributor implements script.ActiveNpc. Returns the playerUID
 // with the largest HeroPoints credit, or 0 if the ledger is empty.
 // Mirrors TS state.activeNpc.heroPoints.findHero() at NpcOps.ts:115

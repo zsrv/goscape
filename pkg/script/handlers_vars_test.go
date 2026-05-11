@@ -18,6 +18,8 @@ type mockWorld struct {
 	// NAI-127 Bundle 1: LookupPlayerByUID lookup table. Distinct from
 	// the existing `players int` field (which backs PlayerCount).
 	playersByUID map[int]ActivePlayer
+	// NAI-162 B1: MAP_INDOORS seeded return value. Default false.
+	isIndoorsReturn bool
 }
 
 func newMockWorld() *mockWorld {
@@ -97,6 +99,13 @@ func (m *mockWorld) GetObj(level, x, z, objId, receiverUID int) ActiveObj {
 
 func (m *mockWorld) ZoneObjs(level, zoneX, zoneZ int) []ActiveObj {
 	return nil
+}
+
+// NAI-162 B1: default no-op stub for MAP_INDOORS test fixture. Tests
+// exercising MAP_INDOORS override via handlers_server_test.go mockWorld
+// embedding or a dedicated type.
+func (m *mockWorld) IsIndoors(x, z, level int) bool {
+	return m.isIndoorsReturn
 }
 
 func TestPushVarp(t *testing.T) {

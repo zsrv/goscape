@@ -1312,6 +1312,15 @@ func (p *Player) ApplyDamage(amount, dmgType int) {
 	p.Damage(amount, dmgType)
 }
 
+// AddWealthEvent appends a wealth-affecting event to the server-side
+// analytics log. Implements script.ActivePlayer.AddWealthEvent.
+// NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY: concrete body (wealthLog
+// field) lands in B2.2. This placeholder satisfies the interface so
+// B1.5 handlers compile.
+func (p *Player) AddWealthEvent(evt script.WealthEvent) {
+	// placeholder; B2.2 wires p.wealthLog.
+}
+
 // LastLoginInfo emits a LAST_LOGIN_INFO server packet with the
 // previous-login timestamp and IP. Mirrors TS Player.lastLoginInfo
 // (PlayerOps.ts:932 caller).

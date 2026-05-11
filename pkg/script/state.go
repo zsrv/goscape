@@ -155,6 +155,12 @@ type WorldVars interface {
 	// NOT verify the high-16 type bits, unlike NpcLookup.FindNpcByUID.
 	// Mirrors TS World.getNpc(slot). Used by PROJANIM_NPC. NAI-150.
 	LookupNpcBySlot(slot int) ActiveNpc
+
+	// IsIndoors reports whether the tile at (x, z, level) carries the
+	// FlagRoof bit in the global collision FlagMap. Used by MAP_INDOORS
+	// (opcode 1010). Mirrors TS isIndoors (GameMap.ts:417-419).
+	// NAI-162 B1.
+	IsIndoors(x, z, level int) bool
 }
 
 // InvLookup is the inventory resolution surface for INV_* handlers.
