@@ -211,11 +211,10 @@ func handleObjCount(s *ScriptState) error {
 
 // handleObjTakeItem (OBJ_TAKEITEM, opcode 3510) pops invType, validates,
 // guards on isValid, adds the obj to the player's inv via performInvAdd,
-// and removes the obj from the world. Mirrors TS ObjOps.ts:137-161.
-//
-// NAI-153-D1: TS calls activePlayer.addWealthEvent(...) between invAdd
-// and removeObj. Skipped per NAI-115-D1 precedent — content can emit
-// via OpWealthEvent (2131). (goscape defensive skip; TS inlines.)
+// emits a PICKUP wealth event, and removes the obj from the world.
+// Mirrors TS ObjOps.ts:137-161.
+// NAI-115-D1 retired at NAI-162 B2; wealth event now emitted inline
+// between invAdd and removeObj per TS ObjOps.ts:149-154.
 //
 // NAI-153-D3: TS OBJ_TAKEITEM (ObjOps.ts:147) calls Player.invAdd
 // directly — the bare entity method (Player.ts:1496-1504), bypassing
@@ -261,6 +260,19 @@ func handleObjTakeItem(s *ScriptState) error {
 	if err := performInvAdd(s, invID, s.ActiveObj.ObjType(), s.ActiveObj.ObjCount(), "OBJ_TAKEITEM"); err != nil {
 		return err
 	}
+
+	// TS-faithful per ObjOps.ts:149-154: emit PICKUP wealth event between
+	// invAdd and removeObj. NAI-115-D1 retired at NAI-162 B2.
+	objTypeID := s.ActiveObj.ObjType()
+	objCount := s.ActiveObj.ObjCount()
+	if objCfg := s.Configs.ObjType(objTypeID); objCfg != nil {
+		s.Self.AddWealthEvent(WealthEvent{
+			EventType:    WealthEventTypePickup,
+			AccountItems: []WealthItem{{ID: objTypeID, Name: objCfg.DebugName, Count: objCount}},
+			AccountValue: objCount * objCfg.Cost,
+		})
+	}
+
 	s.World.RemoveObj(s.ActiveObj)
 	return nil
 }

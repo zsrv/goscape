@@ -773,17 +773,13 @@ func handleInvOtherTransmit(s *ScriptState) error {
 // Pop order: [inv, coord, slot, duration] — duration on top-of-stack.
 //
 // Validation order (mirrors TS): InvTypeValid → DurationValid → CoordValid
-// → protect gate → slot lookup → empty check → addWealthEvent (D1) →
+// → protect gate → slot lookup → empty check → addWealthEvent →
 // invDel → completed check → AddObj per-item or stacked.
 //
 // Protect gate (conditional per InvType): when invType.Protect is true AND
 // invType.Scope is not InvTypeScopeShared, require PtrProtectedActivePlayer via
 // requireProtectedActivePlayer. Otherwise require only ActivePlayer.
 // Gate is checked AFTER validators, matching TS opcode dispatch order.
-//
-// NAI-115-D1 deviation: TS inlines addWealthEvent for SCOPE_PERM drops.
-// (goscape: skipped; content can emit via OpWealthEvent 2131 — TS calls
-// addWealthEvent here.)
 //
 // NAI-115-D3 retired in-bundle stretch: AddObj now returns ActiveObj;
 // state.activeObj writeback + pointerAdd(ActiveObj) wired below, matching
@@ -849,8 +845,16 @@ func handleInvDropSlot(s *ScriptState) error {
 	}
 	objType := s.Configs.ObjType(objID)
 
-	// NAI-115-D1: TS calls addWealthEvent here for SCOPE_PERM. Skipped.
-	// (goscape: content can emit via OpWealthEvent 2131.)
+	// TS-faithful per InvOps.ts:231-238: emit addWealthEvent for SCOPE_PERM
+	// drop (ammo drops are temp — avoid spamming ranged combat).
+	// NAI-115-D1 retired at NAI-162 B2.
+	if invType.Scope == objtype.InvTypeScopePerm {
+		s.Self.AddWealthEvent(WealthEvent{
+			EventType:    WealthEventTypeDrop,
+			AccountItems: []WealthItem{{ID: objID, Name: objType.DebugName, Count: count}},
+			AccountValue: count * objType.Cost,
+		})
+	}
 
 	// Slot-scoped removal: mirrors TS player.invDel(invType.id, obj.id,
 	// obj.count, slot). completed = count removed (constrained to the slot).
@@ -1240,12 +1244,12 @@ func handleInvDropItem(s *ScriptState) error {
 // to add the count to toInv at toPlayer; spill any overflow to toPlayer's
 // tile via World.AddObj using TS InvOps.ts:423-432 stackable branching
 // (per-unit loop for non-stackable / overflow==1, single stack for the
-// stackable many-overflow case).
+// stackable many-overflow case). Wealth events are emitted per TS
+// InvOps.ts:445-494: STAKE for 'dueloffer', TRADE for non-secondary trade.
+// NAI-115-D1 retired at NAI-162 B2.
 //
-// DEVIATION-NAI-115-D1 (reuse): TS InvOps.ts:445-494 emits addWealthEvent
-// for dueloffer/STAKE and trade/TRADE. Goscape skips inline emission;
-// content can emit via OpWealthEvent (2131). Single-point retire when
-// WealthEvent subsystem lands. NAI-115-D1.
+// Deviation: RecipientSession is empty (goscape lacks a Session() method
+// on ActivePlayer; analytics RPC deferred per NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY).
 func handleBothMoveInv(s *ScriptState) error {
 	operand := s.Script.IntOperands[s.PC]
 	if operand != 0 && operand != 1 {
@@ -1315,6 +1319,18 @@ func handleBothMoveInv(s *ScriptState) error {
 		return fmt.Errorf("BOTH_MOVEINV: inv is null")
 	}
 
+	// fromLogs accumulates per-obj item counts for wealth event emission.
+	// Mirrors TS InvOps.ts:410-413 fromLogs Map<id, WealthEventItem&{cost}>.
+	type logEntry struct {
+		id    int
+		name  string
+		count int
+		cost  int
+	}
+	var fromLogs []logEntry  // ordered; we merge by objID below
+	fromLogIdx := make(map[int]int) // objID → index in fromLogs
+	fromTotal := 0
+
 	for slot := 0; slot < fromInv.Capacity; slot++ {
 		it := fromInv.Get(slot)
 		if it == nil {
@@ -1351,11 +1367,69 @@ func handleBothMoveInv(s *ScriptState) error {
 				s.World.AddObj(level, x, z, objID, overflow, 200, receiverID)
 			}
 		}
+
+		// Accumulate log entry (mirrors TS InvOps.ts:435-443).
+		if idx, ok := fromLogIdx[objID]; ok {
+			fromLogs[idx].count += count
+		} else {
+			fromLogIdx[objID] = len(fromLogs)
+			fromLogs = append(fromLogs, logEntry{id: objID, name: objType.DebugName, count: count, cost: objType.Cost})
+		}
+		fromTotal += objType.Cost * count
 	}
 
-	// NAI-115-D1 (reuse): TS InvOps.ts:445-494 emits addWealthEvent for
-	// dueloffer/STAKE and trade/TRADE. Skipped — content emits via
-	// OpWealthEvent (2131).
+	// Emit wealth events per TS InvOps.ts:445-494.
+	// TS-faithful per InvOps.ts:445-494: STAKE for 'dueloffer', TRADE for
+	// non-secondary trade. NAI-115-D1 retired at NAI-162 B2.
+	if len(fromLogs) > 0 {
+		fromItems := make([]WealthItem, len(fromLogs))
+		for i, e := range fromLogs {
+			fromItems[i] = WealthItem{ID: e.id, Name: e.name, Count: e.count}
+		}
+
+		if fromInvType.DebugName == "dueloffer" {
+			// STAKE event (mirrors TS InvOps.ts:447-453).
+			fromPlayer.AddWealthEvent(WealthEvent{
+				EventType:    WealthEventTypeStake,
+				AccountItems: fromItems,
+				AccountValue: fromTotal,
+				// RecipientSession: toPlayer.Session() — deferred (NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY).
+			})
+		} else if !secondary {
+			// TRADE event (mirrors TS InvOps.ts:455-492 non-secondary branch).
+			// Read the to-player's matching inventory to build recipient side.
+			toTotal := 0
+			var toItems []WealthItem
+			if tradeInv := s.Inv.Get(toPlayer, from); tradeInv != nil {
+				toLogIdx := make(map[int]int)
+				for slot := 0; slot < tradeInv.Capacity; slot++ {
+					it := tradeInv.Get(slot)
+					if it == nil {
+						continue
+					}
+					toObjType := s.Configs.ObjType(it.Id)
+					if toObjType == nil {
+						continue
+					}
+					if idx, ok := toLogIdx[it.Id]; ok {
+						toItems[idx].Count += it.Count
+					} else {
+						toLogIdx[it.Id] = len(toItems)
+						toItems = append(toItems, WealthItem{ID: it.Id, Name: toObjType.DebugName, Count: it.Count})
+					}
+					toTotal += toObjType.Cost * it.Count
+				}
+			}
+			fromPlayer.AddWealthEvent(WealthEvent{
+				EventType:    WealthEventTypeTrade,
+				AccountItems: fromItems,
+				AccountValue: fromTotal,
+				// RecipientSession: toPlayer.Session() — deferred (NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY).
+			})
+			_ = toTotal // available for future RecipientValue field
+			_ = toItems
+		}
+	}
 
 	return nil
 }

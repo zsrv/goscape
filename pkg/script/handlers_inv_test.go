@@ -2848,3 +2848,99 @@ func TestHandleInvTotalParamStack(t *testing.T) {
 		t.Errorf("pushed: got %d, want 42", v)
 	}
 }
+
+// TestNAI115D1Retirement_InvDropSlotScopePermEmitsWealthEvent pins the
+// behaviour flip: pre-NAI-162, INV_DROPSLOT on a SCOPE_PERM inv skipped
+// AddWealthEvent (NAI-115-D1 deviation). Post-NAI-162 B2.6, the path emits
+// a DROP event. Mirrors TS InvOps.ts:231-238.
+func TestNAI115D1Retirement_InvDropSlotScopePermEmitsWealthEvent(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	w := newFakeWorldMembers()
+	s.World = w
+	mp := &mockPlayer{uidValue: 99}
+	s.Self = mp
+	s.Pointers |= PtrActivePlayer
+	s.Pointers |= PtrProtectedActivePlayer
+
+	mc := newTestInvConfigs()
+	// SCOPE_PERM inv
+	invType := objtype.NewInvType(7)
+	invType.Size = 28
+	invType.Protect = true
+	invType.Scope = objtype.InvTypeScopePerm
+	mc.invs[7] = invType
+	// Obj with cost
+	sword := objtype.NewObjType(1277)
+	sword.Name = "Rune Sword"
+	sword.DebugName = "rune_sword"
+	sword.Cost = 20000
+	mc.objs[1277] = sword
+	s.Configs = mc
+
+	inv := inventory.New(7, 28, inventory.StackNormal)
+	inv.Set(0, &inventory.Item{Id: 1277, Count: 1})
+	s.Inv = &mockInvLookup{invs: map[int]*inventory.Inventory{7: inv}}
+
+	s.PushInt(7)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(0)
+	s.PushInt(50)
+
+	if err := handleInvDropSlot(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(mp.addWealthEventCalls) != 1 {
+		t.Fatalf("AddWealthEvent: got %d, want 1 (retirement)", len(mp.addWealthEventCalls))
+	}
+	evt := mp.addWealthEventCalls[0]
+	if evt.EventType != WealthEventTypeDrop {
+		t.Errorf("EventType: got %d, want %d (DROP)", evt.EventType, WealthEventTypeDrop)
+	}
+	if evt.AccountValue != 20000 {
+		t.Errorf("AccountValue: got %d, want 20000 (1*cost)", evt.AccountValue)
+	}
+	if len(evt.AccountItems) != 1 || evt.AccountItems[0].ID != 1277 {
+		t.Errorf("AccountItems: got %+v, want [{ID:1277 ...}]", evt.AccountItems)
+	}
+}
+
+// TestNAI115D1Retirement_InvDropSlotScopeTempNoWealthEvent pins that
+// non-SCOPE_PERM drops do NOT emit wealth events (ammo/TEMP bypass).
+func TestNAI115D1Retirement_InvDropSlotScopeTempNoWealthEvent(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	w := newFakeWorldMembers()
+	s.World = w
+	mp := &mockPlayer{uidValue: 99}
+	s.Self = mp
+	s.Pointers |= PtrActivePlayer
+	s.Pointers |= PtrProtectedActivePlayer
+
+	mc := newTestInvConfigs()
+	invType := objtype.NewInvType(9)
+	invType.Size = 28
+	invType.Protect = true
+	invType.Scope = objtype.InvTypeScopeTemp // NOT SCOPE_PERM
+	mc.invs[9] = invType
+	arrow := objtype.NewObjType(882)
+	arrow.Name = "Arrow"
+	arrow.DebugName = "arrow_heads"
+	arrow.Cost = 3
+	mc.objs[882] = arrow
+	s.Configs = mc
+
+	inv := inventory.New(9, 28, inventory.StackNormal)
+	inv.Set(0, &inventory.Item{Id: 882, Count: 10})
+	s.Inv = &mockInvLookup{invs: map[int]*inventory.Inventory{9: inv}}
+
+	s.PushInt(9)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(0)
+	s.PushInt(50)
+
+	if err := handleInvDropSlot(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(mp.addWealthEventCalls) != 0 {
+		t.Errorf("AddWealthEvent: got %d, want 0 (TEMP scope = no event)", len(mp.addWealthEventCalls))
+	}
+}

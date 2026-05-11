@@ -1231,3 +1231,55 @@ func TestObjParamUnknownType(t *testing.T) {
 		t.Errorf("err: got %q, want substring %q", err.Error(), "unknown obj id")
 	}
 }
+
+// TestNAI115D1Retirement_ObjTakeItemEmitsPickupWealthEvent pins that
+// OBJ_TAKEITEM emits a PICKUP wealth event between invAdd and removeObj.
+// Pre-NAI-162 this was skipped (NAI-115-D1 deviation). Mirrors TS
+// ObjOps.ts:149-154.
+func TestNAI115D1Retirement_ObjTakeItemEmitsPickupWealthEvent(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	mp := &mockPlayer{uidValue: 12345}
+	s.Self = mp
+	s.Pointers |= PtrActivePlayer
+
+	w := &fakeWorldTakeItem{mockWorld: newMockWorld()}
+	s.World = w
+
+	mc := newTestInvConfigs()
+	invType := objtype.NewInvType(93)
+	invType.Size = 28
+	invType.Protect = false
+	mc.invs[93] = invType
+	// Obj with cost so we can verify AccountValue.
+	swordGem := objtype.NewObjType(1623)
+	swordGem.Name = "Sapphire"
+	swordGem.DebugName = "sapphire"
+	swordGem.Cost = 150
+	mc.objs[1623] = swordGem
+	s.Configs = mc
+
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	s.Inv = &mockInvLookup{invs: map[int]*inventory.Inventory{93: inv}}
+
+	active := &mockActiveObj{objType: 1623, x: 3200, z: 3200, level: 0, count: 3, reveal: -1}
+	s.ActiveObj = active
+
+	s.PushInt(93)
+
+	if err := handleObjTakeItem(s); err != nil {
+		t.Fatalf("OBJ_TAKEITEM: unexpected error: %v", err)
+	}
+	if len(mp.addWealthEventCalls) != 1 {
+		t.Fatalf("AddWealthEvent: got %d calls, want 1 (retirement)", len(mp.addWealthEventCalls))
+	}
+	evt := mp.addWealthEventCalls[0]
+	if evt.EventType != WealthEventTypePickup {
+		t.Errorf("EventType: got %d, want %d (PICKUP)", evt.EventType, WealthEventTypePickup)
+	}
+	if evt.AccountValue != 450 { // 3 * 150
+		t.Errorf("AccountValue: got %d, want 450 (3*150)", evt.AccountValue)
+	}
+	if len(evt.AccountItems) != 1 || evt.AccountItems[0].ID != 1623 || evt.AccountItems[0].Count != 3 {
+		t.Errorf("AccountItems: got %+v, want [{ID:1623 Count:3 ...}]", evt.AccountItems)
+	}
+}
