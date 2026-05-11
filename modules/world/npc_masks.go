@@ -212,17 +212,9 @@ func (n *Npc) ResetMasks() {
 	n.spotanimID = -1
 	n.spotanimHeight = -1
 	n.spotanimDelay = -1
-	// NAI-157: mirror TS PathingEntity.resetPathingEntity (Engine-TS
-	// PathingEntity.ts:579-580). TS resets walkDir/runDir for every NPC
-	// in processCleanup via Npc.resetEntity(false). Without an equivalent
-	// reset here, a script-delayed NPC retains the previous tick's
-	// walkDir/runDir — processMovementInteraction (npc_interaction.go:
-	// 158-161) early-returns on n.delayed, so updateMovement never
-	// re-resets these fields. processInfo (tick.go:558-572) then re-pushes
-	// the stale dir into rsbuf, NpcInfo encodes a walk/run delta, and the
-	// Java client visually drifts the NPC across the delay window.
-	n.walkDir = -1
-	n.runDir = -1
+	// NAI-157/NAI-167: walkDir/runDir are now reset in resetPathingEntity
+	// (called from processCleanup before ResetMasks). See resetPathingEntity
+	// doc-comment for the full NAI-157 rationale and TS source reference.
 	if n.target == nil && n.faceEntity != -1 {
 		n.masks |= n.entitymask
 		n.faceEntity = -1
@@ -244,6 +236,13 @@ func (n *Npc) ResetMasks() {
 //   - jump = false (TS L581) — player-only field
 //   - interacted = false (TS L587), apRangeCalled = false (TS L588) — AP-range deferred
 func (n *Npc) resetPathingEntity() {
+	n.walkDir = -1
+	n.runDir = -1
+	n.tele = false
+	n.lastTickX = n.x
+	n.lastTickZ = n.z
+	n.lastLevel = n.level
+	n.stepsTaken = 0
 }
 
 // ResetHP re-seeds the levels/baseLevels Hitpoints slot from the NPC's

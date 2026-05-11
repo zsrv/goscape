@@ -652,6 +652,7 @@ func (s *Server) processCleanup() {
 		p.reportAbuseProtect = false
 	}
 	for _, n := range s.npcLoop {
+		n.resetPathingEntity()
 		n.ResetMasks()
 	}
 	for z := range s.zonesTracking {

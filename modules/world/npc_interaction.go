@@ -149,19 +149,19 @@ func (n *Npc) patrolMode(s *Server) {
 //
 // Dispatch order matches TS:
 //  1. delayed / dead bail.
-//  2. Last-tick coord bookkeeping + tele flag reset.
-//  3. Null-targetOp failsafe → defaultMode.
-//  4. Targetless modes (None / Wander / Patrol).
-//  5. Targeted-mode prelude (target-nil or validateTarget-fail → resetDefaults).
-//  6. Targeted-mode dispatch: PLAYER* modes → dedicated methods (NAI-13);
+//  2. Null-targetOp failsafe → defaultMode.
+//  3. Targetless modes (None / Wander / Patrol).
+//  4. Targeted-mode prelude (target-nil or validateTarget-fail → resetDefaults).
+//  5. Targeted-mode dispatch: PLAYER* modes → dedicated methods (NAI-13);
 //     everything else routes to aiMode.
+//
+// Note: last-tick coord bookkeeping (lastTickX/Z/lastLevel) and tele flag
+// reset have moved to resetPathingEntity (npc_masks.go), called from
+// processCleanup at end-of-tick — NAI-167.
 func (n *Npc) processMovementInteraction(s *Server) {
 	if n.delayed || n.dead {
 		return
 	}
-
-	n.lastTickX, n.lastTickZ, n.lastLevel = n.x, n.z, n.level
-	n.tele = false
 
 	if n.targetOp == objtype.NPCModeNull {
 		n.targetOp = n.defaultMode()
