@@ -130,18 +130,22 @@ func (s *Server) resumeOrFinish(state *script.ScriptState, self script.ActivePla
 	case script.Suspended, script.PauseButton, script.CountDialog:
 		self.StoreActiveScript(state)
 	case script.WorldSuspended:
-		// NAI-37 T10: player-bound script suspended to world queue.
-		// Pop the wakeup-tick (which the script's bytecode pushed
-		// before WORLD_DELAY — see handlers_server.go:87-108) and
-		// enqueue. The player no longer owns this script's execution;
-		// it now belongs to the world queue. Mirrors TS Player.ts:2135-2136.
+		// NAI-37 T10 / NAI-155: player-bound script suspended to world
+		// queue. Pop the wakeup-tick (pushed before WORLD_DELAY — see
+		// handlers_server.go:87-108) and enqueue.
 		//
-		// NAI-44: TS Player.executeScript (L2143-2150) only nulls
-		// this.activeScript on FINISHED/ABORTED. Goscape's previous
-		// defensive clear here was untracked-divergent; processActiveScripts
-		// gates resume on Execution == Suspended (tick.go:213-214), so
-		// holding the pointer is safe — the player's resume loop will
-		// not re-fire a WorldSuspended state.
+		// Clear p.activeScript (via self.ClearActiveScript) BEFORE
+		// enqueue. TS Player.executeScript:2135-2136 does NOT assign
+		// script.activePlayer.activeScript in the WORLD_SUSPENDED arm —
+		// neither does it set this.protect — so the player's protect
+		// boolean remains false during the world-queue wait window.
+		// Goscape's NAI-44 divergence (hold the pointer for "safe
+		// resume") was incorrect: it made protectedScriptActive() return
+		// true for the entire wait window, blocking CanAccess and all
+		// interactions. The resume gate (tick.go:281) is doubly guarded
+		// (non-nil AND Execution==Suspended), so a nil activeScript
+		// produces no false-resume. Retiring NAI-44-D-WORLDSUSPENDED-HOLD.
+		self.ClearActiveScript()
 		delay := state.PopInt()
 		s.EnqueueWorldScript(state, delay)
 	default:

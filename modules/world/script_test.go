@@ -1245,19 +1245,23 @@ func TestOpNpc1FiresScriptAndEmitsAnimPlusSay(t *testing.T) {
 
 // --- NAI-37 Task 10: player-path WorldSuspended producer test --------------
 
-// TestResumeOrFinish_WorldSuspended_EnqueuesAndPreservesActiveScript pins
+// TestResumeOrFinish_WorldSuspended_EnqueuesAndClearsActiveScript pins
 // the player-path producer: a player-bound script whose Execute
 // returned Execution=WorldSuspended (with the wakeup-tick on the int
 // stack) is dispatched by resumeOrFinish to (a) pop the wakeup-tick,
-// (b) enqueue to s.worldScriptQueue with that delay, and (c) PRESERVE
-// the player's active script pointer. Mirrors TS Player.ts:2143-2150
-// (only Finished/Aborted nulls activeScript; WorldSuspended does not).
+// (b) enqueue to s.worldScriptQueue with that delay, and (c) CLEAR
+// the player's active script pointer. Mirrors TS Player.ts:2135-2136
+// which does NOT assign script.activePlayer.activeScript in the
+// WORLD_SUSPENDED arm.
 //
-// NAI-44 T1 closed NAI-37-D-WORLDSUSPEND-CLEARS-ACTIVE-SCRIPT: the
-// previous defensive ClearActiveScript() call has been deleted; the
-// pointer is retained and the resume loop is guarded by
-// Execution==Suspended only (tick.go:213-214), so holding the pointer
-// across the WorldSuspended transition is safe.
+// NAI-155 Stage 3B retires NAI-44-D-WORLDSUSPENDED-HOLD: the NAI-44
+// deliberate pointer-retention was incorrect — it made
+// protectedScriptActive() return true for the entire world-queue wait
+// window, blocking CanAccess and every interaction during a world_delay
+// (e.g. firelighting). TS canAccess checks this.protect (boolean), not
+// this.activeScript; the two are structurally independent in TS. The
+// resume gate at tick.go:281 is doubly guarded (non-nil AND
+// Execution==Suspended), so a nil activeScript produces no false-resume.
 //
 // The test constructs the post-Execute ScriptState directly (skipping
 // script.Execute) so it isolates the resumeOrFinish branch under test:
@@ -1271,7 +1275,7 @@ func TestOpNpc1FiresScriptAndEmitsAnimPlusSay(t *testing.T) {
 // bytecode sets WorldSuspended via the WORLD_DELAY opcode, then drive
 // resumeOrFinish through it end-to-end. This matches how the real
 // dispatch path works in production.
-func TestResumeOrFinish_WorldSuspended_EnqueuesAndPreservesActiveScript(t *testing.T) {
+func TestResumeOrFinish_WorldSuspended_EnqueuesAndClearsActiveScript(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
 	p, _ := newTestPlayer(t)
@@ -1322,12 +1326,12 @@ func TestResumeOrFinish_WorldSuspended_EnqueuesAndPreservesActiveScript(t *testi
 	if got := s.worldScriptQueue[0].script; got != state {
 		t.Errorf("enqueued script identity: got %p, want %p", got, state)
 	}
-	// NAI-44 T1 cascade: post-T1 the WorldSuspended arm no longer calls
-	// ClearActiveScript(). TS Player.ts:2143-2150 only nulls activeScript on
-	// FINISHED/ABORTED; holding the pointer is safe (processActiveScripts
-	// gates resume on Execution==Suspended only; tick.go:213-214).
-	if got := p.activeScript; got != state {
-		t.Errorf("player.activeScript: got %p, want %p (WorldSuspended must NOT clear)", got, state)
+	// NAI-155 Stage 3B: post-fix the WorldSuspended arm calls
+	// ClearActiveScript() before enqueue. TS Player.ts:2135-2136 does NOT
+	// assign script.activePlayer.activeScript in the WORLD_SUSPENDED arm.
+	// p.activeScript must be nil after the dispatch.
+	if got := p.activeScript; got != nil {
+		t.Errorf("player.activeScript: got %p, want nil (WorldSuspended must clear — NAI-155 Fix B)", got)
 	}
 }
 
@@ -1549,11 +1553,13 @@ func TestOpPlayer1_E2E_HintPlOnClicker(t *testing.T) {
 	}
 }
 
-// TestResumeOrFinishWorldSuspendedDoesNotClearActiveScript pins NAI-44 T1:
-// when a player-anchored script transitions to WorldSuspended, the
-// player's activeScript slot retains the state pointer (TS Player.ts:2143-2150
-// only nulls activeScript on FINISHED/ABORTED).
-func TestResumeOrFinishWorldSuspendedDoesNotClearActiveScript(t *testing.T) {
+// TestResumeOrFinishWorldSuspendedClearsActiveScript pins NAI-155 Fix B:
+// when a player-anchored script transitions to WorldSuspended,
+// resumeOrFinish calls ClearActiveScript() before enqueue. TS
+// Player.ts:2135-2136 does NOT assign script.activePlayer.activeScript
+// in the WORLD_SUSPENDED arm, so p.activeScript must be nil after dispatch.
+// Retires NAI-44-D-WORLDSUSPENDED-HOLD.
+func TestResumeOrFinishWorldSuspendedClearsActiveScript(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
 	p, _ := newTestPlayer(t)
@@ -1585,25 +1591,32 @@ func TestResumeOrFinishWorldSuspendedDoesNotClearActiveScript(t *testing.T) {
 
 	s.resumeOrFinish(state, p)
 
-	if p.activeScript != state {
-		t.Errorf("activeScript: got %p, want %p (WorldSuspended must NOT clear)", p.activeScript, state)
+	if p.activeScript != nil {
+		t.Errorf("activeScript: got %p, want nil (WorldSuspended must clear — NAI-155 Fix B)", p.activeScript)
 	}
 	if len(s.worldScriptQueue) != 1 {
 		t.Errorf("worldScriptQueue length: got %d, want 1 (state should have been enqueued)", len(s.worldScriptQueue))
 	}
 }
 
-// TestSuspendedThenWorldSuspendedNoDoubleFire — NAI-44 T2 R5 regression.
-// Pre-NAI-44, the defensive ClearActiveScript at the WorldSuspended arm
-// guarded against double-fire if the same state pointer was held by both
-// the player slot and the world queue. NAI-44 T1 deletes that clear,
-// leaving the player slot pointing at a WorldSuspended state.
+// TestSuspendedThenWorldSuspendedNoDoubleFire — defensive pin for
+// processActiveScripts' independent gating discipline.
 //
-// Verify the gating logic in processActiveScripts still prevents double-fire:
-// a state with Execution == WorldSuspended in the player's activeScript slot
-// is NOT re-fired by processActiveScripts, which gates on Execution ==
-// Suspended only (tick.go:213-214). A re-fire would reset Execution to
-// Running and change it; we pin that Execution stays WorldSuspended.
+// Post-NAI-155 Fix B, the production path through resumeOrFinish no longer
+// leaves p.activeScript non-nil at WorldSuspended: ClearActiveScript() is
+// called before enqueue. The WorldSuspended-in-activeScript state tested
+// here is therefore not reachable from resumeOrFinish in normal operation.
+//
+// This test is retained as a defensive pin: if any future bytecode path or
+// manual scaffolding places a WorldSuspended state in p.activeScript, the
+// processActiveScripts gate (tick.go:281 non-nil AND Execution==Suspended)
+// must still prevent a double-fire. A re-fire would reset Execution to
+// Running and change it; we pin that Execution stays WorldSuspended and
+// p.activeScript remains pointing at the same state.
+//
+// NAI-44 T2 R5 original rationale: pre-NAI-44 the defensive clear guarded
+// against this; post-NAI-155 the production path never produces it, but
+// the processActiveScripts gate is still the correct last-line defence.
 func TestSuspendedThenWorldSuspendedNoDoubleFire(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
