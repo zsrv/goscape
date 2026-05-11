@@ -1144,3 +1144,20 @@ func handleNpcFindHero(s *ScriptState) error {
 	pushed = 1
 	return nil
 }
+
+// handleNpcAttackRange implements OpNpcAttackRange (TS NPC_ATTACKRANGE at
+// NpcOps.ts:521-523). Reads the active NPC's type, validates via
+// checkNpcType, pushes NpcType.AttackRange widened from uint16 to int
+// (deviation NAI-160-D-NPC-ATTACKRANGE-WIDEN — value-faithful, width is
+// Go-side artifact). NAI-160 T6.
+func handleNpcAttackRange(s *ScriptState) error {
+	if err := requireActiveNpc(s, "NPC_ATTACKRANGE"); err != nil {
+		return err
+	}
+	typeID := s.ActiveNpc.NpcType()
+	if err := checkNpcType(s, typeID, "NPC_ATTACKRANGE"); err != nil {
+		return err
+	}
+	s.PushInt(int(s.Configs.NpcType(typeID).AttackRange))
+	return nil
+}

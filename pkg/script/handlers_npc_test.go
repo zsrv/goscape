@@ -3838,3 +3838,64 @@ func TestNpcFindHero_RequiresActiveNpc(t *testing.T) {
 		t.Fatalf("NPC_FINDHERO no-active-npc: want error, got nil")
 	}
 }
+
+// --- NAI-160 T6: NPC_ATTACKRANGE (opcode 2503) ----------------------------
+
+// TestNpcAttackRange pins OpNpcAttackRange's body: read activeNpc.type,
+// checkNpcType, push NpcType.AttackRange (widened to int). Mirrors TS
+// NpcOps.ts:521-523. NAI-160 T6.
+func TestNpcAttackRange(t *testing.T) {
+	mc := newTestConfigs()
+	mc.npcs[7] = &objtype.NpcType{
+		ConfigType:  objtype.ConfigType{ID: 7},
+		AttackRange: 5,
+	}
+	npc := &mockNpc{typeID: 7}
+	state := runNpcOp(t, npc, mc, OpNpcAttackRange, nil)
+	if got := state.PopInt(); got != 5 {
+		t.Errorf("NPC_ATTACKRANGE: got %d, want 5", got)
+	}
+}
+
+// TestNpcAttackRangeRequiresActiveNpc pins the ActiveNpc gate. NAI-160 T6.
+func TestNpcAttackRangeRequiresActiveNpc(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "[npc_attackrange_noactive,test]",
+		Opcodes:          []Opcode{OpNpcAttackRange, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: got nil err, want NPC_ATTACKRANGE: no active npc")
+	}
+	if got := err.Error(); !strings.Contains(got, "NPC_ATTACKRANGE") || !strings.Contains(got, "no active npc") {
+		t.Errorf("err: got %q, want contains 'NPC_ATTACKRANGE' and 'no active npc'", got)
+	}
+}
+
+// TestNpcAttackRangeInvalidType pins checkNpcType rejection. NAI-160 T6.
+func TestNpcAttackRangeInvalidType(t *testing.T) {
+	mc := newTestConfigs()
+	npc := &mockNpc{typeID: 99}
+	sf := &ScriptFile{
+		Name:             "[npc_attackrange_badtype,test]",
+		Opcodes:          []Opcode{OpNpcAttackRange, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	state.Pointers |= PtrActiveNpc
+	state.Configs = mc
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: got nil err, want NPC_ATTACKRANGE: no NpcType")
+	}
+	if got := err.Error(); !strings.Contains(got, "NPC_ATTACKRANGE") {
+		t.Errorf("err: got %q, want 'NPC_ATTACKRANGE' substring", got)
+	}
+}

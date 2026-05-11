@@ -431,14 +431,15 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpGetTimer:       handleGetTimer,
 
 	// S6a: NPC reads.
-	OpNpcType:     handleNpcType,
-	OpNpcCoord:    handleNpcCoord,
-	OpNpcStat:     handleNpcStat,
-	OpNpcBaseStat: handleNpcBaseStat,
-	OpNpcName:     handleNpcName,
-	OpNpcHasOp:    handleNpcHasOp,
-	OpNpcUID:      handleNpcUID,
-	OpNpcCategory: handleNpcCategory,
+	OpNpcType:        handleNpcType,
+	OpNpcCoord:       handleNpcCoord,
+	OpNpcStat:        handleNpcStat,
+	OpNpcBaseStat:    handleNpcBaseStat,
+	OpNpcName:        handleNpcName,
+	OpNpcHasOp:       handleNpcHasOp,
+	OpNpcUID:         handleNpcUID,
+	OpNpcCategory:    handleNpcCategory,
+	OpNpcAttackRange: handleNpcAttackRange, // NAI-160 T6: NPC_ATTACKRANGE.
 
 	// S6b: NPC mutating ops.
 	OpNpcSay: handleNpcSay,
