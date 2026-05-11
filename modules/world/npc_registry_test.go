@@ -598,3 +598,72 @@ func TestRemoveNpc_RespawnLifecycle_PreservesRegistry(t *testing.T) {
 		t.Error("activeScript: got nil, want preserved (RESPAWN must NOT run Cleanup)")
 	}
 }
+
+// TestCompactNpcLoop_PrunesDespawnedDead pins NAI-19 end-of-tick pruning:
+// DESPAWN-lifecycle dead NPCs are removed from s.npcLoop; alive NPCs
+// and RESPAWN-lifecycle dead NPCs are preserved. The pruning predicate
+// is (n.dead && n.lifecycle == NpcLifecycleDespawn).
+func TestCompactNpcLoop_PrunesDespawnedDead(t *testing.T) {
+	s := newTestServer(t)
+	alive := &Npc{nid: 1, lifecycle: NpcLifecycleRespawn, dead: false}
+	respawnDead := &Npc{nid: 2, lifecycle: NpcLifecycleRespawn, dead: true}
+	despawnDead := &Npc{nid: 3, lifecycle: NpcLifecycleDespawn, dead: true}
+	s.npcLoop = []*Npc{alive, respawnDead, despawnDead}
+
+	s.compactNpcLoop()
+
+	if len(s.npcLoop) != 2 {
+		t.Fatalf("len(npcLoop): got %d, want 2", len(s.npcLoop))
+	}
+	if s.npcLoop[0] != alive {
+		t.Errorf("npcLoop[0]: got %p, want %p (alive must be preserved)", s.npcLoop[0], alive)
+	}
+	if s.npcLoop[1] != respawnDead {
+		t.Errorf("npcLoop[1]: got %p, want %p (RESPAWN+dead must be preserved)", s.npcLoop[1], respawnDead)
+	}
+	for _, n := range s.npcLoop {
+		if n == despawnDead {
+			t.Errorf("npcLoop still contains DESPAWN+dead %p", despawnDead)
+		}
+	}
+}
+
+// TestCompactNpcLoop_TailNilledForGC pins defensive GC-hint: trailing
+// slots in the slice's capacity are nilled to drop pointer retention.
+func TestCompactNpcLoop_TailNilledForGC(t *testing.T) {
+	s := newTestServer(t)
+	alive := &Npc{nid: 1, lifecycle: NpcLifecycleRespawn, dead: false}
+	despawnDead := &Npc{nid: 2, lifecycle: NpcLifecycleDespawn, dead: true}
+	s.npcLoop = []*Npc{alive, despawnDead}
+
+	s.compactNpcLoop()
+
+	// After compact, len == 1; the underlying capacity-slot [1] must be nil.
+	full := s.npcLoop[:cap(s.npcLoop)]
+	if full[1] != nil {
+		t.Errorf("trailing slot full[1]: got %p, want nil (GC-hint required)", full[1])
+	}
+}
+
+// TestRemoveNpc_DespawnLifecycle_SlotReusable pins NAI-19 round-trip:
+// after removeNpc + compactNpcLoop, the allocator reuses the freed nid.
+// Moved here from T2 because compactNpcLoop is defined in T3.
+func TestRemoveNpc_DespawnLifecycle_SlotReusable(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}}
+	n1 := NewNpc(0, 7, 100, 100, 0, typ)
+	n1.nid = 1
+	n1.server = s
+	s.npcs[1] = n1
+	s.npcLoop = append(s.npcLoop, n1)
+	n1.lifecycle = NpcLifecycleDespawn
+
+	s.nextNpcSlot = 1 // force allocator to start at slot 1
+	s.removeNpc(n1, -1)
+	s.compactNpcLoop()
+
+	reused := s.allocNpcSlot()
+	if reused != 1 {
+		t.Errorf("allocNpcSlot: got %d, want 1 (freed slot must be reusable)", reused)
+	}
+}

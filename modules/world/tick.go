@@ -668,3 +668,30 @@ func (s *Server) processCleanup() {
 		s.rsbuf.Cleanup()
 	}
 }
+
+// compactNpcLoop prunes DESPAWN-lifecycle dead NPCs from s.npcLoop.
+// Called once per tick from processCleanup AFTER NpcInfo writes have
+// completed — the just-despawned NPC's removal mask is already in the
+// client write stream via rsbuf.RemoveNpc (called from removeNpc).
+// RESPAWN-lifecycle dead NPCs are preserved; their dead=true flips on
+// the next lifecycleTick==0 in npc_ai.go's processNpcLifecycle.
+//
+// Mirrors TS's per-zone linked-list splice in World.removeNpc, which
+// goscape can't do safely mid-iteration (s.npcLoop is an append-only
+// slice). End-of-tick mark/compact is observably identical at tick
+// boundaries. Tracked deviation: NAI-19-D-DEFERRED-COMPACT-VS-
+// IMMEDIATE-SPLICE.
+func (s *Server) compactNpcLoop() {
+	write := 0
+	for _, n := range s.npcLoop {
+		if n.dead && n.lifecycle == NpcLifecycleDespawn {
+			continue
+		}
+		s.npcLoop[write] = n
+		write++
+	}
+	for i := write; i < len(s.npcLoop); i++ {
+		s.npcLoop[i] = nil // GC hint: drop pointer retention
+	}
+	s.npcLoop = s.npcLoop[:write]
+}
