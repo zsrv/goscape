@@ -66,7 +66,18 @@ func emitInteractionTickFrame(
 		"steps_taken", p.stepsTaken,
 		"repathed", p.repathed,
 		"target_still_set", p.target != nil,
+		"modal_state", p.modalState,
+		"active_script_exec", activeScriptExec(p),
+		"protected_active", p.protectedScriptActive(),
 	)
+}
+
+// activeScriptExec returns -1 if p.activeScript is nil, otherwise int(Execution).
+func activeScriptExec(p *Player) int {
+	if p.activeScript == nil {
+		return -1
+	}
+	return int(p.activeScript.Execution)
 }
 
 // chebDist returns the Chebyshev distance between two tile coords.
