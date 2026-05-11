@@ -302,6 +302,25 @@ func (w worldVarsView) IsIndoors(x, z, level int) bool {
 	return collision.IsIndoors(flag)
 }
 
+// MergeLoc implements script.WorldVars.MergeLoc. Type-asserts loc to
+// *entitypkg.Loc and player to *Player to extract the concrete slot.
+// Delegates to Server.MergeLoc. Type-assert misses are silent no-ops
+// (matches RemoveObj behavior). NAI-162 B2.
+func (w worldVarsView) MergeLoc(loc script.ActiveLoc, player script.ActivePlayer, startCycle, endCycle, south, east, north, west int) {
+	if w.s == nil {
+		return
+	}
+	realLoc, ok := loc.(*entitypkg.Loc)
+	if !ok {
+		return
+	}
+	var playerSlot int
+	if player != nil {
+		playerSlot = player.Slot()
+	}
+	w.s.MergeLoc(realLoc, playerSlot, startCycle, endCycle, east, south, west, north)
+}
+
 // Compile-time conformance assertion for script.WorldVars. Adding any
 // new WorldVars method that worldVarsView fails to implement breaks
 // the build here. NAI-150 T1.

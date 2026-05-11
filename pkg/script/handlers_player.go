@@ -1716,6 +1716,41 @@ func handlePOpHeld(s *ScriptState) error {
 	return fmt.Errorf("P_OPHELD: unimplemented")
 }
 
+// handlePLocMerge (P_LOCMERGE, opcode 2074). Protected gate. Pops
+// [northWest, southEast, endCycle, startCycle] (LIFO; TS popInts(4) →
+// [startCycle, endCycle, southEast, northWest]). Validates both coords;
+// delegates to World.MergeLoc with (se.z=south, se.x=east, nw.z=north,
+// nw.x=west). Mirrors TS PlayerOps.ts:922-929.
+func handlePLocMerge(s *ScriptState) error {
+	if err := requireProtectedActivePlayer(s, "P_LOCMERGE"); err != nil {
+		return err
+	}
+	if err := requireActiveLoc(s, "P_LOCMERGE"); err != nil {
+		return err
+	}
+	if s.World == nil {
+		return fmt.Errorf("P_LOCMERGE: no world surface")
+	}
+	northWest := s.PopInt()
+	southEast := s.PopInt()
+	endCycle := s.PopInt()
+	startCycle := s.PopInt()
+
+	_, seX, seZ, err := checkCoord(southEast, "P_LOCMERGE")
+	if err != nil {
+		return err
+	}
+	_, nwX, nwZ, err := checkCoord(northWest, "P_LOCMERGE")
+	if err != nil {
+		return err
+	}
+
+	// TS: World.mergeLoc(activeLoc, activePlayer, startCycle, endCycle, se.z, se.x, nw.z, nw.x)
+	// se.z = south, se.x = east, nw.z = north, nw.x = west.
+	s.World.MergeLoc(s.ActiveLoc, s.Self, startCycle, endCycle, seZ, seX, nwZ, nwX)
+	return nil
+}
+
 // handleWealthEvent (WEALTH_EVENT, opcode 2131). Pops a string name from
 // the string stack, then 3 ints (LIFO: value, count, eventType — matching
 // TS popInts(3) → [eventType, count, value]). Resolves the obj via

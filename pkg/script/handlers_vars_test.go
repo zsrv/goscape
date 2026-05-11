@@ -108,6 +108,11 @@ func (m *mockWorld) IsIndoors(x, z, level int) bool {
 	return m.isIndoorsReturn
 }
 
+// NAI-162 B2: default no-op stub for P_LOCMERGE test fixture. Tests
+// exercising MergeLoc override via a recorder type in handlers_player_test.go.
+func (m *mockWorld) MergeLoc(loc ActiveLoc, player ActivePlayer, startCycle, endCycle, south, east, north, west int) {
+}
+
 func TestPushVarp(t *testing.T) {
 	sf := &ScriptFile{
 		Name:             "push_varp",

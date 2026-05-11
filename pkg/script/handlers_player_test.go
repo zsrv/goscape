@@ -5320,6 +5320,127 @@ func TestClearQueueDispatch(t *testing.T) {
 	}
 }
 
+// mergeLocWorld extends *mockWorld to record MergeLoc calls.
+// Used by TestHandlePLocMerge_*.
+type mergeLocWorld struct {
+	*mockWorld
+	calls []mergeLocCall
+}
+
+type mergeLocCall struct {
+	loc        ActiveLoc
+	player     ActivePlayer
+	StartCycle int
+	EndCycle   int
+	South      int
+	East       int
+	North      int
+	West       int
+}
+
+func (m *mergeLocWorld) MergeLoc(loc ActiveLoc, player ActivePlayer, startCycle, endCycle, south, east, north, west int) {
+	m.calls = append(m.calls, mergeLocCall{
+		loc:        loc,
+		player:     player,
+		StartCycle: startCycle,
+		EndCycle:   endCycle,
+		South:      south,
+		East:       east,
+		North:      north,
+		West:       west,
+	})
+}
+
+// packTestCoord packs (level, x, z) into the RS2 coord int used by checkCoord.
+// Matches TS CoordGrid.packCoord: (level<<28)|(x<<14)|z.
+func packTestCoord(level, x, z int) int {
+	return (level << 28) | (x << 14) | z
+}
+
+// TestHandlePLocMerge_Happy pins World.MergeLoc dispatch with argument
+// unpacking from TS popInts(4) → [startCycle, endCycle, se, nw].
+func TestHandlePLocMerge_Happy(t *testing.T) {
+	mp := &mockPlayer{}
+	mw := &mergeLocWorld{mockWorld: newMockWorld()}
+	loc := fakeActiveLoc{id: 1, x: 3200, z: 3200, level: 0}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        mp,
+		World:       mw,
+		ActiveLoc:   loc,
+		Pointers:    PtrActivePlayer | PtrProtectedActivePlayer | PtrActiveLoc,
+	}
+	// LIFO push order: startCycle, endCycle, southEast, northWest
+	// pop order: northWest, southEast, endCycle, startCycle
+	s.PushInt(10)                          // startCycle (deepest)
+	s.PushInt(50)                          // endCycle
+	s.PushInt(packTestCoord(0, 3200, 3200)) // southEast: x=3200(east), z=3200(south)
+	s.PushInt(packTestCoord(0, 3210, 3210)) // northWest: x=3210(west), z=3210(north)
+
+	if err := handlePLocMerge(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(mw.calls) != 1 {
+		t.Fatalf("MergeLoc: got %d calls, want 1", len(mw.calls))
+	}
+	got := mw.calls[0]
+	if got.StartCycle != 10 || got.EndCycle != 50 {
+		t.Errorf("cycles: got {%d,%d}, want {10,50}", got.StartCycle, got.EndCycle)
+	}
+	// se.z=south=3200, se.x=east=3200, nw.z=north=3210, nw.x=west=3210
+	if got.South != 3200 || got.East != 3200 || got.North != 3210 || got.West != 3210 {
+		t.Errorf("rect: got s=%d e=%d n=%d w=%d, want s=3200 e=3200 n=3210 w=3210",
+			got.South, got.East, got.North, got.West)
+	}
+}
+
+// TestHandlePLocMerge_InvalidCoord pins checkCoord error on bad southEast.
+func TestHandlePLocMerge_InvalidCoord(t *testing.T) {
+	mp := &mockPlayer{}
+	mw := &mergeLocWorld{mockWorld: newMockWorld()}
+	loc := fakeActiveLoc{id: 1}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        mp,
+		World:       mw,
+		ActiveLoc:   loc,
+		Pointers:    PtrActivePlayer | PtrProtectedActivePlayer | PtrActiveLoc,
+	}
+	s.PushInt(10)
+	s.PushInt(50)
+	s.PushInt(-1) // bad southEast
+	s.PushInt(packTestCoord(0, 3210, 3210))
+
+	if err := handlePLocMerge(s); err == nil {
+		t.Fatal("expected error on invalid southEast coord")
+	}
+}
+
+// TestHandlePLocMerge_NotProtected pins the protected-gate error.
+func TestHandlePLocMerge_NotProtected(t *testing.T) {
+	mp := &mockPlayer{}
+	mw := &mergeLocWorld{mockWorld: newMockWorld()}
+	loc := fakeActiveLoc{id: 1}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        mp,
+		World:       mw,
+		ActiveLoc:   loc,
+		Pointers:    PtrActivePlayer, // not protected
+	}
+	s.PushInt(10)
+	s.PushInt(50)
+	s.PushInt(packTestCoord(0, 3200, 3200))
+	s.PushInt(packTestCoord(0, 3210, 3210))
+
+	if err := handlePLocMerge(s); err == nil {
+		t.Fatal("expected error when not protected")
+	}
+}
+
 // TestHandleWealthEvent_KnownObj pins the happy path: ObjByName resolves;
 // AddWealthEvent called with assembled struct. Mirrors TS
 // PlayerOps.ts:1191-1202.

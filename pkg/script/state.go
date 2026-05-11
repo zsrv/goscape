@@ -161,6 +161,15 @@ type WorldVars interface {
 	// (opcode 1010). Mirrors TS isIndoors (GameMap.ts:417-419).
 	// NAI-162 B1.
 	IsIndoors(x, z, level int) bool
+
+	// MergeLoc routes a multi-tile loc merge to the zone owning the loc.
+	// player is the requesting player (used to thread the player slot into
+	// the LocMerge zone event). south, east, north, west are the four
+	// edge-coord values matching TS Zone.mergeLoc parameter order
+	// (se.z=south, se.x=east, nw.z=north, nw.x=west). Used by P_LOCMERGE
+	// (opcode 2074). Mirrors TS World.mergeLoc at World.ts:1388-1391.
+	// NAI-162 B2.
+	MergeLoc(loc ActiveLoc, player ActivePlayer, startCycle, endCycle, south, east, north, west int)
 }
 
 // InvLookup is the inventory resolution surface for INV_* handlers.
