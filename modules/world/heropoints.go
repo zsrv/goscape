@@ -55,6 +55,12 @@ func (h *HeroPoints) AddHero(playerUID, amount int) {
 	// Full: silently drop (TS-faithful — no eviction).
 }
 
+// Clear zeroes the contributor ledger. Mirrors TS HeroPoints.clear()
+// invoked from NPC_STATHEAL HP-full branch at NpcOps.ts:255.
+func (h *HeroPoints) Clear() {
+	h.entries = h.entries[:0]
+}
+
 // TopContributor returns the playerUID with the highest contribution, or 0
 // if the ledger is empty. (Stub for future loot-routing consumer.)
 func (h *HeroPoints) TopContributor() int {

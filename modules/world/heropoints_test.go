@@ -57,6 +57,34 @@ func TestHeroPoints_FullDropsNewEntry(t *testing.T) {
 	}
 }
 
+// TestHeroPoints_Clear pins (*HeroPoints).Clear() — resets the
+// contributor ledger to zero entries. Mirrors TS HeroPoints.clear()
+// called from NPC_STATHEAL HP-full branch (NpcOps.ts:255).
+func TestHeroPoints_Clear(t *testing.T) {
+	hp := NewHeroPoints(10)
+	hp.AddHero(101, 50)
+	hp.AddHero(202, 30)
+	if got := len(hp.entries); got != 2 {
+		t.Fatalf("setup: want 2 entries, got %d", got)
+	}
+
+	hp.Clear()
+
+	if got := len(hp.entries); got != 0 {
+		t.Errorf("after Clear: want 0 entries, got %d", got)
+	}
+}
+
+// TestHeroPoints_Clear_Empty pins that Clear() on an empty ledger
+// is a safe no-op (no panic).
+func TestHeroPoints_Clear_Empty(t *testing.T) {
+	hp := NewHeroPoints(10)
+	hp.Clear()
+	if got := len(hp.entries); got != 0 {
+		t.Errorf("want 0 entries, got %d", got)
+	}
+}
+
 // TestHeroPoints_TopContributor verifies the TopContributor helper returns the
 // uid with the highest total contribution.
 func TestHeroPoints_TopContributor(t *testing.T) {
