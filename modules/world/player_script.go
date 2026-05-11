@@ -139,6 +139,37 @@ func (p *Player) UnlinkQueuedScript(scriptID int) {
 	p.queue = out
 }
 
+// QueueCount returns the number of non-Weak p.queue entries whose
+// Script resolves to the script at scriptID. Mirrors TS GETQUEUE at
+// PlayerOps.ts:903-912 which walks `state.activePlayer.queue.all()`
+// only — NOT weakQueue and NOT engineQueue. Goscape's unified p.queue
+// holds Normal/Strong/Long/Weak entries; the Type != QueueWeak filter
+// reproduces TS's `queue` vs `weakQueue` partition. p.engineQueue is
+// a separate slice and is intentionally excluded.
+//
+// (goscape defensive; TS skips this check) See UnlinkQueuedScript.
+//
+// NAI-161 T2.
+func (p *Player) QueueCount(scriptID int) int {
+	if p.client == nil || p.client.server == nil || p.client.server.scriptProvider == nil {
+		return 0
+	}
+	target := p.client.server.scriptProvider.GetByID(uint32(scriptID))
+	if target == nil {
+		return 0
+	}
+	n := 0
+	for _, req := range p.queue {
+		if req.Type == script.QueueWeak {
+			continue
+		}
+		if req.Script == target {
+			n++
+		}
+	}
+	return n
+}
+
 // EnqueueScriptArgs implements script.ActivePlayer.EnqueueScriptArgs by
 // resolving scriptID → *ScriptFile via scriptProvider.GetByID and
 // delegating to EnqueueScriptFile. Returns a non-nil error when the

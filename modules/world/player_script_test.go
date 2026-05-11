@@ -316,6 +316,78 @@ func TestUnlinkQueuedScriptUnknownIDIsNoop(t *testing.T) {
 	}
 }
 
+// TestQueueCountExcludesWeak pins TS GETQUEUE semantics: walks
+// queue.all() only (NOT weakQueue). Goscape filters p.queue to
+// Type != QueueWeak. NAI-161 T2 — deviation
+// NAI-161-D-QUEUE-TYPE-MAPPING.
+func TestQueueCountExcludesWeak(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	sf10 := &script.ScriptFile{Name: "[test_id10]"}
+	s.scriptProvider.Register(sf10) // id=0
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.EnqueueScriptFile(sf10, 0, nil, nil, script.QueueNormal)
+	p.EnqueueScriptFile(sf10, 0, nil, nil, script.QueueStrong)
+	p.EnqueueScriptFile(sf10, 0, nil, nil, script.QueueLong)
+	p.EnqueueScriptFile(sf10, 0, nil, nil, script.QueueWeak)
+
+	got := p.QueueCount(0)
+	if got != 3 {
+		t.Errorf("QueueCount(0): got %d, want 3 (Normal+Strong+Long; Weak excluded)", got)
+	}
+}
+
+// TestQueueCountExcludesEngineQueue pins that engineQueue is a
+// separate slice and is never counted by QueueCount. NAI-161 T2.
+func TestQueueCountExcludesEngineQueue(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	sf10 := &script.ScriptFile{Name: "[test_id10]"}
+	s.scriptProvider.Register(sf10) // id=0
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.EnqueueScriptFile(sf10, 0, nil, nil, script.QueueNormal)
+	p.EnqueueScriptFile(sf10, 0, nil, nil, script.QueueEngine)
+
+	got := p.QueueCount(0)
+	if got != 1 {
+		t.Errorf("QueueCount(0): got %d, want 1 (engine entry excluded)", got)
+	}
+}
+
+// TestQueueCountUnknownIDReturnsZero pins that an out-of-range
+// scriptID resolves to nil → returns 0. Mirrors TS finding zero
+// matches in the same scenario. NAI-161 T2.
+func TestQueueCountUnknownIDReturnsZero(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	sf10 := &script.ScriptFile{Name: "[test_id10]"}
+	s.scriptProvider.Register(sf10) // id=0
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.EnqueueScriptFile(sf10, 0, nil, nil, script.QueueNormal)
+
+	got := p.QueueCount(99)
+	if got != 0 {
+		t.Errorf("QueueCount(99): got %d, want 0 (bogus scriptID)", got)
+	}
+}
+
+// TestQueueCountNilServerReturnsZero pins the defensive guard.
+// NAI-161 T2 — deviation NAI-161-D-CLEARQUEUE-NIL-PROVIDER.
+func TestQueueCountNilServerReturnsZero(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	// p.client.server is nil by default.
+	got := p.QueueCount(99)
+	if got != 0 {
+		t.Errorf("QueueCount on nil-server player: got %d, want 0", got)
+	}
+}
+
 func TestAddXPFiresChangeStatOnLevelUp(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
