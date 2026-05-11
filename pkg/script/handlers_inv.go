@@ -1476,6 +1476,22 @@ func handleInvStockBase(s *ScriptState) error {
 	return nil
 }
 
+// handleInvAllStock implements OpInvAllStock (TS INV_ALLSTOCK at
+// InvOps.ts:20-24). Pops a typeID, validates via checkInvType, pushes 1
+// if InvType.AllStock else 0. NAI-160 T5.
+func handleInvAllStock(s *ScriptState) error {
+	typeID := s.PopInt()
+	if err := checkInvType(s, typeID, "INV_ALLSTOCK"); err != nil {
+		return err
+	}
+	if s.Configs.InvType(typeID).AllStock {
+		s.PushInt(1)
+	} else {
+		s.PushInt(0)
+	}
+	return nil
+}
+
 // handleInvDebugName (INV_DEBUG_NAME) pushes the debug name of an
 // InvType, or "null" if the field is empty. Mirrors TS
 // LostCityRS/Engine-TS/.../InvOps.ts:34-38:

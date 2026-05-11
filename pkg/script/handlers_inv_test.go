@@ -2718,6 +2718,72 @@ func TestHandleInvDebugName_EmptyFallsBackToNullLiteral(t *testing.T) {
 	}
 }
 
+// TestInvAllStock pins OpInvAllStock's body: pop typeID, checkInvType,
+// push 1 if InvType.AllStock else 0. Mirrors TS InvOps.ts:20-24.
+// NAI-160 T5.
+func TestInvAllStock(t *testing.T) {
+	mp := &mockPlayer{}
+	mc := &mockConfigs{invs: map[int]*objtype.InvType{42: {AllStock: true}}}
+	sf := &ScriptFile{
+		Name:             "[inv_allstock_true,test]",
+		Opcodes:          []Opcode{OpPushConstantInt, OpInvAllStock, OpReturn},
+		IntOperands:      []int32{42, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	state.Configs = mc
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopInt(); got != 1 {
+		t.Errorf("INV_ALLSTOCK(AllStock=true): got %d, want 1", got)
+	}
+}
+
+// TestInvAllStockFalseDefault pins the AllStock=false path. NAI-160 T5.
+func TestInvAllStockFalseDefault(t *testing.T) {
+	mp := &mockPlayer{}
+	mc := &mockConfigs{invs: map[int]*objtype.InvType{42: {AllStock: false}}}
+	sf := &ScriptFile{
+		Name:             "[inv_allstock_false,test]",
+		Opcodes:          []Opcode{OpPushConstantInt, OpInvAllStock, OpReturn},
+		IntOperands:      []int32{42, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	state.Configs = mc
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopInt(); got != 0 {
+		t.Errorf("INV_ALLSTOCK(AllStock=false): got %d, want 0", got)
+	}
+}
+
+// TestInvAllStockInvalidType pins checkInvType rejection. NAI-160 T5.
+func TestInvAllStockInvalidType(t *testing.T) {
+	mp := &mockPlayer{}
+	mc := &mockConfigs{invs: map[int]*objtype.InvType{}}
+	sf := &ScriptFile{
+		Name:             "[inv_allstock_invalid,test]",
+		Opcodes:          []Opcode{OpPushConstantInt, OpInvAllStock, OpReturn},
+		IntOperands:      []int32{99, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	state.Configs = mc
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: got nil err, want INV_ALLSTOCK <type-error>")
+	}
+	if got := err.Error(); !strings.Contains(got, "INV_ALLSTOCK") {
+		t.Errorf("err: got %q, want 'INV_ALLSTOCK' substring", got)
+	}
+}
+
 // TestPerformInvAdd_DirectCall pins the contract that performInvAdd
 // can be called with already-typed args, bypassing the PopInt-driven
 // handleInvAdd wrapper. Mirrors the same validation chain + Inventory.Add
