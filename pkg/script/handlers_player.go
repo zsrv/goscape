@@ -1742,10 +1742,16 @@ func handlePOpPlayerT(s *ScriptState) error {
 // [startCycle, endCycle, southEast, northWest]). Validates both coords;
 // delegates to World.MergeLoc with (se.z=south, se.x=east, nw.z=north,
 // nw.x=west). Mirrors TS PlayerOps.ts:922-929.
+//
+// Note: goscape defensively requires an active loc before proceeding. TS
+// PlayerOps.ts:921 has a "// TODO: check active loc too" comment, meaning TS
+// skips this check for now. The requireActiveLoc call here is a goscape-only
+// safety guard (NAI-162 B2.6.fixup review).
 func handlePLocMerge(s *ScriptState) error {
 	if err := requireProtectedActivePlayer(s, "P_LOCMERGE"); err != nil {
 		return err
 	}
+	// (goscape defensive; TS skips this check per PlayerOps.ts:921 TODO)
 	if err := requireActiveLoc(s, "P_LOCMERGE"); err != nil {
 		return err
 	}
