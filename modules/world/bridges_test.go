@@ -32,13 +32,23 @@ type recordedInputTrackingCall struct {
 	player *Player
 	blob   []byte
 }
+type recordedPrivateMessageCall struct {
+	method         string // "PrivateMessage"
+	playerUsername string
+	staffLvl       int32
+	pmId           uint32
+	target         uint64
+	message        string
+	coord          int
+}
 
 type recordingBridges struct {
 	friends             []recordedFriendsCall
 	loginMod            []recordedLoginModCall
 	logger              []recordedLoggerCall
-	inputTracks         []recordedInputTrackingCall // NAI-73
+	inputTracks          []recordedInputTrackingCall // NAI-73
 	submittedSessionLogs [][]SessionLog              // NAI-74 — one element per tick flush
+	privateMsgs          []recordedPrivateMessageCall // NAI-158
 }
 
 func (r *recordingBridges) AddFriend(p string, t uint64) {
@@ -55,6 +65,12 @@ func (r *recordingBridges) RemoveIgnore(p string, t uint64) {
 }
 func (r *recordingBridges) SetChatMode(p string, privateChat int) {
 	r.friends = append(r.friends, recordedFriendsCall{method: "SetChatMode", playerUsername: p, privateChatMode: privateChat})
+}
+func (r *recordingBridges) PrivateMessage(p string, staffLvl int32, pmId uint32, target uint64, message string, coord int) {
+	r.privateMsgs = append(r.privateMsgs, recordedPrivateMessageCall{
+		method: "PrivateMessage", playerUsername: p, staffLvl: staffLvl,
+		pmId: pmId, target: target, message: message, coord: coord,
+	})
 }
 func (r *recordingBridges) NotifyPlayerBan(staff, username string, until time.Time) {
 	r.loginMod = append(r.loginMod, recordedLoginModCall{method: "NotifyPlayerBan", staff: staff, username: username, until: until})
@@ -109,6 +125,7 @@ func TestNoopBridgesAllMethods(t *testing.T) {
 	b.AddIgnore("u", 1)
 	b.RemoveIgnore("u", 1)
 	b.SetChatMode("u", 0)
+	b.PrivateMessage("u", 0, 0, 1, "x", 0)
 	now := time.Now()
 	b.NotifyPlayerBan("s", "u", now)
 	b.NotifyPlayerMute("s", "u", now)
@@ -146,6 +163,22 @@ func TestRecordingBridgesCapturesAllCalls(t *testing.T) {
 	rec.NotifyPlayerReport(nil, "evilbob", "MACROING")
 	if len(rec.logger) != 1 || rec.logger[0].reason != "MACROING" {
 		t.Errorf("NotifyPlayerReport record: %+v", rec.logger)
+	}
+}
+
+// TestRecordingBridgesCapturesPrivateMessage pins the NAI-158
+// PrivateMessage capture: every arg is recorded verbatim.
+func TestRecordingBridgesCapturesPrivateMessage(t *testing.T) {
+	rec := &recordingBridges{}
+	rec.PrivateMessage("alice", 2, 0xDEADBEEF, 1234, "hi bob", 0xC0DE)
+	if len(rec.privateMsgs) != 1 {
+		t.Fatalf("privateMsgs: got %d, want 1", len(rec.privateMsgs))
+	}
+	got := rec.privateMsgs[0]
+	if got.method != "PrivateMessage" || got.playerUsername != "alice" ||
+		got.staffLvl != 2 || got.pmId != 0xDEADBEEF || got.target != 1234 ||
+		got.message != "hi bob" || got.coord != 0xC0DE {
+		t.Errorf("PrivateMessage record: %+v", got)
 	}
 }
 

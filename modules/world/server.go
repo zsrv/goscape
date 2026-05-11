@@ -135,6 +135,11 @@ type Server struct {
 	sessionLogs    []SessionLog
 
 	testPathfinder pathfinderForTarget // injected by tests; nil in production
+
+	// pmCount is the monotonic counter feeding the low 16 bits of the
+	// pmId stamped on each FriendThread private_message payload.
+	// Mirrors TS World.pmCount. Used only by nextPmId (NAI-158).
+	pmCount uint32
 }
 
 // appendNewPlayer queues a player for registration on the next tick.
@@ -170,6 +175,7 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 		zonesTracking: map[*zone.Zone]struct{}{},
 		locObjTracker: newLocObjTracker(),
 		rsbuf:         rsbuf.New(),
+		pmCount:       1,
 	}
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}

@@ -11,6 +11,13 @@ type FriendsBridge interface {
 	AddIgnore(playerUsername string, target uint64)
 	RemoveIgnore(playerUsername string, target uint64)
 	SetChatMode(playerUsername string, privateChat int)
+
+	// PrivateMessage posts a /tell-style private chat message to the
+	// friends-server. Mirrors TS World.sendPrivateMessage payload
+	// (World.ts:1631-1643): {username, staffLvl, pmId, target, message,
+	// coord}. coord is the packed coordgrid.PackCoord value.
+	// Real impl deferred via NAI-72-D-FRIENDS-SERVER-BRIDGE.
+	PrivateMessage(playerUsername string, staffLvl int32, pmId uint32, target uint64, message string, coord int)
 }
 
 // LoginBridgeMod mirrors TS World.loginThread.postMessage('player_ban'/
@@ -54,6 +61,7 @@ func (noopBridges) RemoveFriend(string, uint64)                {}
 func (noopBridges) AddIgnore(string, uint64)                   {}
 func (noopBridges) RemoveIgnore(string, uint64)                {}
 func (noopBridges) SetChatMode(string, int)                    {}
+func (noopBridges) PrivateMessage(string, int32, uint32, uint64, string, int) {}
 func (noopBridges) NotifyPlayerBan(string, string, time.Time)  {}
 func (noopBridges) NotifyPlayerMute(string, string, time.Time) {}
 func (noopBridges) NotifyPlayerReport(*Player, string, string) {}
