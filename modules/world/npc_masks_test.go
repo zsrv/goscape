@@ -280,6 +280,55 @@ func TestResetMasksTrailingClearSkippedWhenFaceEntityAlreadyMinusOne(t *testing.
 	}
 }
 
+// TestNpcResetMasksClearsWalkDirRunDir pins NAI-157: ResetMasks must
+// reset walkDir/runDir so a script-delayed NPC's stale step direction
+// does not leak into the next tick's NpcInfo encoding. Mirrors TS
+// PathingEntity.resetPathingEntity (PathingEntity.ts:579-580) reached
+// via Npc.resetEntity(false) from World.processCleanup (World.ts:1152).
+func TestNpcResetMasksClearsWalkDirRunDir(t *testing.T) {
+	n := newTestNpc(1)
+	n.walkDir = 4
+	n.runDir = 7
+
+	n.ResetMasks()
+
+	if n.walkDir != -1 {
+		t.Errorf("walkDir: got %d, want -1", n.walkDir)
+	}
+	if n.runDir != -1 {
+		t.Errorf("runDir: got %d, want -1", n.runDir)
+	}
+}
+
+// TestNpcDelayedAfterStepClearsStaleWalkDir pins NAI-157 root-cause
+// fix: when an NPC walks at tick N and is script-delayed at tick N+1,
+// processCleanup's ResetMasks call at the end of tick N clears the
+// step dir so tick N+1's processInfo sees walkDir == -1.
+//
+// Without the fix, processMovementInteraction early-returns on
+// n.delayed (npc_interaction.go:159-161), updateMovement never runs,
+// and rsbuf receives the stale dir — visible client-side as the NPC
+// continuing to walk through walls.
+func TestNpcDelayedAfterStepClearsStaleWalkDir(t *testing.T) {
+	n := newTestNpc(1)
+	// Simulate updateMovement having set step dirs during tick N.
+	n.walkDir = 4
+	n.runDir = 5
+
+	// End-of-tick cleanup runs (processCleanup → ResetMasks).
+	n.ResetMasks()
+
+	// Simulate the NPC being script-delayed for the next tick.
+	n.delayed = true
+
+	// processMovementInteraction would early-return on n.delayed next
+	// tick, so updateMovement would not run. The dir state must already
+	// be clear at this point so processInfo pushes -1/-1 to rsbuf.
+	if n.walkDir != -1 || n.runDir != -1 {
+		t.Fatalf("stale dir leaked past cleanup: walkDir=%d runDir=%d", n.walkDir, n.runDir)
+	}
+}
+
 // TestChangeTypeRefreshesTypSnapshot verifies that ChangeType (CHANGETYPE
 // path with reset=true) refreshes n.typ from the npcTypes registry, so
 // post-changetype geometry reads (NAI-18 inApproachDistance LoS via

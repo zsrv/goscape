@@ -212,6 +212,17 @@ func (n *Npc) ResetMasks() {
 	n.spotanimID = -1
 	n.spotanimHeight = -1
 	n.spotanimDelay = -1
+	// NAI-157: mirror TS PathingEntity.resetPathingEntity (Engine-TS
+	// PathingEntity.ts:579-580). TS resets walkDir/runDir for every NPC
+	// in processCleanup via Npc.resetEntity(false). Without an equivalent
+	// reset here, a script-delayed NPC retains the previous tick's
+	// walkDir/runDir — processMovementInteraction (npc_interaction.go:
+	// 158-161) early-returns on n.delayed, so updateMovement never
+	// re-resets these fields. processInfo (tick.go:558-572) then re-pushes
+	// the stale dir into rsbuf, NpcInfo encodes a walk/run delta, and the
+	// Java client visually drifts the NPC across the delay window.
+	n.walkDir = -1
+	n.runDir = -1
 	if n.target == nil && n.faceEntity != -1 {
 		n.masks |= n.entitymask
 		n.faceEntity = -1
