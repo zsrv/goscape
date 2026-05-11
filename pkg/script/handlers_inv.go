@@ -1735,6 +1735,148 @@ func handleBothDropSlot(s *ScriptState) error {
 	return nil
 }
 
+// handleInvDropAll (INV_DROPALL, opcode 4309). Walks every slot of the
+// named inv, dropping each obj to the world. SCOPE_PERM accumulates a
+// per-objID wealth log keyed by objID with running count; after the
+// loop, if any items were seen, emits a single Death-type WealthEvent
+// with aggregated items and total value. Mirrors TS InvOps.ts:726-790.
+//
+// Pop order (LIFO): duration, coord, invID
+// (TS popInts(3) → [inv, coord, duration]; duration on top).
+//
+// Protect gate: when invType.Protect && scope != SCOPE_SHARED, requires
+// PtrProtectedActivePlayer (intOperand=0) or PtrProtectedActivePlayer2
+// (intOperand=1). Gate checked after validators, before slot walk.
+//
+// Per-slot receiver: untradeable → self.UID() (private); tradeable →
+// -1 (PublicReceiver / Obj.NO_RECEIVER). Mirrors TS InvOps.ts:773-778:
+// `!objType.tradeable ? state.activePlayer.hash64 : Obj.NO_RECEIVER`.
+func handleInvDropAll(s *ScriptState) error {
+	if err := requireActivePlayer(s, "INV_DROPALL"); err != nil {
+		return err
+	}
+	if s.Configs == nil {
+		return fmt.Errorf("INV_DROPALL: no configs")
+	}
+	if s.World == nil {
+		return fmt.Errorf("INV_DROPALL: no world surface")
+	}
+
+	duration := s.PopInt()
+	coord := s.PopInt()
+	invID := s.PopInt()
+
+	// InvTypeValid.
+	invType := s.Configs.InvType(invID)
+	if invType == nil {
+		return fmt.Errorf("INV_DROPALL: invalid inv id (%d)", invID)
+	}
+
+	// DurationValid.
+	if err := checkDuration(duration); err != nil {
+		return fmt.Errorf("INV_DROPALL: %w", err)
+	}
+
+	// CoordValid.
+	level, x, z, err := checkCoord(coord, "INV_DROPALL")
+	if err != nil {
+		return err
+	}
+
+	// Protect gate: ProtectedActivePlayer[intOperand].
+	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared {
+		if s.Script.IntOperands[s.PC] == 1 {
+			if err := requireProtectedActivePlayer2(s, "INV_DROPALL"); err != nil {
+				return err
+			}
+		} else {
+			if err := requireProtectedActivePlayer(s, "INV_DROPALL"); err != nil {
+				return err
+			}
+		}
+	}
+
+	if s.Inv == nil {
+		return nil
+	}
+	inv := s.Inv.Get(s.Self, invID)
+	if inv == nil {
+		return nil
+	}
+
+	// wealthLog accumulates per-objID counts for SCOPE_PERM death event.
+	// Using a pointer-to-struct map entry to avoid the value-copy gotcha
+	// (R8 per vararg_opcode_shapes_dont_share_with_fixed_arg_siblings.md).
+	type wealthEntry struct {
+		id    int
+		name  string
+		count int
+		cost  int
+	}
+	var wealthLog map[int]*wealthEntry
+	totalValue := 0
+
+	for slot := 0; slot < inv.Capacity; slot++ {
+		it := inv.Get(slot)
+		if it == nil {
+			continue
+		}
+
+		objID := it.Id
+		count := it.Count
+
+		objType := s.Configs.ObjType(objID)
+		cost := 0
+		debugName := ""
+		tradeable := false
+		if objType != nil {
+			cost = objType.Cost
+			debugName = objType.DebugName
+			tradeable = objType.Tradeable
+		}
+
+		// Accumulate wealth log for SCOPE_PERM (death-drop scenario).
+		if invType.Scope == objtype.InvTypeScopePerm {
+			if wealthLog == nil {
+				wealthLog = make(map[int]*wealthEntry)
+			}
+			if e := wealthLog[objID]; e != nil {
+				e.count += count
+			} else {
+				wealthLog[objID] = &wealthEntry{id: objID, name: debugName, count: count, cost: cost}
+			}
+			totalValue += count * cost
+		}
+
+		inv.Delete(slot)
+
+		// Untradeable stays with the player (private); tradeable goes to
+		// PublicReceiver (-1). Mirrors TS InvOps.ts:773-778.
+		var receiverID int
+		if !tradeable {
+			receiverID = s.Self.UID()
+		} else {
+			receiverID = -1 // Obj.NO_RECEIVER / PublicReceiver
+		}
+
+		s.World.AddObj(level, x, z, objID, count, duration, receiverID)
+	}
+
+	// Post-loop: emit single Death event if anything was accumulated.
+	if len(wealthLog) > 0 {
+		items := make([]WealthItem, 0, len(wealthLog))
+		for _, e := range wealthLog {
+			items = append(items, WealthItem{ID: e.id, Name: e.name, Count: e.count})
+		}
+		s.Self.AddWealthEvent(WealthEvent{
+			EventType:    WealthEventTypeDeath,
+			AccountItems: items,
+			AccountValue: totalValue,
+		})
+	}
+	return nil
+}
+
 // handleInvTotalParamStack (INV_TOTALPARAM_STACK, opcode 4329). Pops
 // param then inv (LIFO; TS popInts(2) → [inv, param] means param is on
 // top). Delegates to Self.InvTotalParamStack and pushes the result.

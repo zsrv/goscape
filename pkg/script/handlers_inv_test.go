@@ -3453,3 +3453,187 @@ func TestHandleBothDropSlot_NoActivePlayer(t *testing.T) {
 		t.Errorf("expected 'no active player', got: %v", err)
 	}
 }
+
+// --- NAI-162 B3.2 INV_DROPALL (opcode 4309) tests ---
+
+// newInvDropAllState builds a ScriptState for INV_DROPALL with the given
+// intOperand (0=slot-0 protect, 1=slot-1 protect). Self is always set.
+func newInvDropAllState(operand int32, self *mockPlayer, mc *mockConfigs, inv *inventory.Inventory, invID int, world WorldVars) *ScriptState {
+	sf := &ScriptFile{
+		Name:             "test_INV_DROPALL",
+		Opcodes:          []Opcode{OpInvDropAll, OpReturn},
+		IntOperands:      []int32{operand, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	s := Init(sf, self, true, nil, nil) // slot-0 protected
+	s.Configs = mc
+	s.World = world
+	s.Inv = &mockInvLookup{invs: map[int]*inventory.Inventory{invID: inv}}
+	return s
+}
+
+// TestHandleInvDropAll_EmptyInv: all slots nil → no addObj, no wealth event.
+func TestHandleInvDropAll_EmptyInv(t *testing.T) {
+	mc := newBothDropSlotConfigs()
+	self := &mockPlayer{uidValue: 11}
+	inv := inventory.New(5, 28, inventory.StackNormal) // all nil slots
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+
+	s := newInvDropAllState(0, self, mc, inv, 5, world)
+	s.PushInt(5)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(50)
+
+	if err := Execute(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(world.addedCalls) != 0 {
+		t.Errorf("addObj: got %d, want 0 (empty inv)", len(world.addedCalls))
+	}
+	if len(self.addWealthEventCalls) != 0 {
+		t.Errorf("AddWealthEvent: got %d, want 0 (empty inv)", len(self.addWealthEventCalls))
+	}
+}
+
+// TestHandleInvDropAll_MixedSlots_ScopeNormal: 3 non-empty slots, SCOPE_NORMAL
+// → 3 addObj calls, no wealth event.
+func TestHandleInvDropAll_MixedSlots_ScopeNormal(t *testing.T) {
+	mc := newBothDropSlotConfigs()
+	self := &mockPlayer{uidValue: 11}
+	inv := inventory.New(5, 28, inventory.StackNormal)
+	inv.Set(0, &inventory.Item{Id: 10, Count: 2}) // untradeable
+	inv.Set(1, &inventory.Item{Id: 20, Count: 3}) // tradeable
+	inv.Set(2, &inventory.Item{Id: 10, Count: 1}) // untradeable
+	// slots 3..27 remain nil
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+
+	s := newInvDropAllState(0, self, mc, inv, 5, world)
+	s.PushInt(5)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(50)
+
+	if err := Execute(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(world.addedCalls) != 3 {
+		t.Fatalf("addObj: got %d, want 3", len(world.addedCalls))
+	}
+	if len(self.addWealthEventCalls) != 0 {
+		t.Errorf("AddWealthEvent: got %d, want 0 (non-SCOPE_PERM)", len(self.addWealthEventCalls))
+	}
+}
+
+// TestHandleInvDropAll_TradeableSplit: tradeable obj → addObj.receiverID=-1
+// (PublicReceiver). Untradeable → addObj.receiverID=self.UID(). Mirrors TS
+// InvOps.ts:773-778.
+func TestHandleInvDropAll_TradeableSplit(t *testing.T) {
+	mc := newBothDropSlotConfigs()
+	self := &mockPlayer{uidValue: 11}
+	inv := inventory.New(5, 28, inventory.StackNormal)
+	inv.Set(0, &inventory.Item{Id: 10, Count: 1}) // untradeable
+	inv.Set(1, &inventory.Item{Id: 20, Count: 1}) // tradeable
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+
+	s := newInvDropAllState(0, self, mc, inv, 5, world)
+	s.PushInt(5)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(50)
+
+	if err := Execute(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(world.addedCalls) != 2 {
+		t.Fatalf("addObj: got %d, want 2", len(world.addedCalls))
+	}
+	// slot 0 (untradeable): receiverID = self.UID
+	if world.addedCalls[0].receiverID != 11 {
+		t.Errorf("untradeable receiver: got %d, want 11 (self.UID)", world.addedCalls[0].receiverID)
+	}
+	// slot 1 (tradeable): receiverID = -1 (PublicReceiver / Obj.NO_RECEIVER)
+	if world.addedCalls[1].receiverID != -1 {
+		t.Errorf("tradeable receiver: got %d, want -1 (PublicReceiver)", world.addedCalls[1].receiverID)
+	}
+}
+
+// TestHandleInvDropAll_ScopePerm_AccumulatesWealthLog: SCOPE_PERM with
+// 3 non-empty slots (ids 10, 20, 10) → 3 addObj + 1 wealth event with
+// 2 line items (id=10 has accumulated count) and summed AccountValue.
+// Mirrors TS InvOps.ts:750-763 Map accumulation (R8: keyed by objID).
+func TestHandleInvDropAll_ScopePerm_AccumulatesWealthLog(t *testing.T) {
+	mc := newBothDropSlotConfigs()
+	self := &mockPlayer{uidValue: 11}
+	inv := inventory.New(6, 28, inventory.StackNormal)
+	inv.Set(0, &inventory.Item{Id: 10, Count: 3}) // cost=100 → 300
+	inv.Set(1, &inventory.Item{Id: 20, Count: 2}) // cost=50  → 100
+	inv.Set(2, &inventory.Item{Id: 10, Count: 5}) // cost=100 → 500; merges into id=10 → total count=8
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+
+	s := newInvDropAllState(0, self, mc, inv, 6, world)
+	s.PushInt(6)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(50)
+
+	if err := Execute(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(world.addedCalls) != 3 {
+		t.Fatalf("addObj: got %d, want 3", len(world.addedCalls))
+	}
+	if len(self.addWealthEventCalls) != 1 {
+		t.Fatalf("AddWealthEvent: got %d, want 1 (SCOPE_PERM death)", len(self.addWealthEventCalls))
+	}
+	evt := self.addWealthEventCalls[0]
+	if evt.EventType != WealthEventTypeDeath {
+		t.Errorf("EventType: got %d, want %d (DEATH)", evt.EventType, WealthEventTypeDeath)
+	}
+	// AccountValue = (3+5)*100 + 2*50 = 800 + 100 = 900
+	if evt.AccountValue != 900 {
+		t.Errorf("AccountValue: got %d, want 900", evt.AccountValue)
+	}
+	// 2 distinct IDs: id=10 (count=8) and id=20 (count=2).
+	if len(evt.AccountItems) != 2 {
+		t.Fatalf("AccountItems: got %d items, want 2", len(evt.AccountItems))
+	}
+	// Validate the item with ID=10 has accumulated count=8.
+	var got10, got20 *WealthItem
+	for i := range evt.AccountItems {
+		switch evt.AccountItems[i].ID {
+		case 10:
+			got10 = &evt.AccountItems[i]
+		case 20:
+			got20 = &evt.AccountItems[i]
+		}
+	}
+	if got10 == nil || got10.Count != 8 {
+		t.Errorf("id=10 item: got %+v, want Count=8", got10)
+	}
+	if got20 == nil || got20.Count != 2 {
+		t.Errorf("id=20 item: got %+v, want Count=2", got20)
+	}
+}
+
+// TestHandleInvDropAll_NoActivePlayer: no Self → error.
+func TestHandleInvDropAll_NoActivePlayer(t *testing.T) {
+	mc := newBothDropSlotConfigs()
+	sf := &ScriptFile{
+		Name:             "test_INV_DROPALL",
+		Opcodes:          []Opcode{OpInvDropAll, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	s := Init(sf, nil, false, nil, nil)
+	s.Configs = mc
+	s.PushInt(5)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(50)
+
+	err := Execute(s)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "no active player") {
+		t.Errorf("expected 'no active player', got: %v", err)
+	}
+}
