@@ -266,6 +266,10 @@ type mockPlayer struct {
 	hasInteractionValue bool
 	hasWaypointsValue   bool
 
+	// NAI-163 B0: BUSY read-side seeds.
+	busyValue       bool
+	loggingOutValue bool
+
 	// Staff-mod level (pre-seed for STAFFMODLEVEL query).
 	staffModLevelValue int
 	uidValue           int
@@ -868,6 +872,8 @@ func (m *mockPlayer) SetInteractionScriptPlayer(player2 ActivePlayer, op int) {
 
 func (m *mockPlayer) HasInteraction() bool { return m.hasInteractionValue }
 func (m *mockPlayer) HasWaypoints() bool   { return m.hasWaypointsValue }
+func (m *mockPlayer) Busy() bool           { return m.busyValue }
+func (m *mockPlayer) LoggingOut() bool     { return m.loggingOutValue }
 
 func (m *mockPlayer) QueueWaypoint(x, z int) {
 	m.queueWaypointCalls = append(m.queueWaypointCalls, struct{ x, z int }{x, z})

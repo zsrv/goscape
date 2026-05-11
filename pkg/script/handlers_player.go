@@ -1323,6 +1323,27 @@ func handleLowMem(s *ScriptState) error {
 	return nil
 }
 
+// handleBusy (BUSY, opcode 2005) pushes 1 if the active player is busy
+// (delayed/main-or-chat-modal-open) OR is in the logout-in-progress state,
+// else 0. Mirrors TS PlayerOps.ts:893-895:
+//
+//	state.pushInt(state.activePlayer.busy() || state.activePlayer.loggingOut ? 1 : 0);
+//
+// Gate: ActivePlayer (no Protected requirement). Distinct from BUSY2
+// (opcode 2006) which uses HasInteraction()||HasWaypoints(). The
+// loggingOut arm is the conspicuous TS-asymmetry vs BUSY2. NAI-163 B0.
+func handleBusy(s *ScriptState) error {
+	if err := requireActivePlayer(s, "BUSY"); err != nil {
+		return err
+	}
+	if s.Self.Busy() || s.Self.LoggingOut() {
+		s.PushInt(1)
+	} else {
+		s.PushInt(0)
+	}
+	return nil
+}
+
 // handleBusy2 (BUSY2, opcode 2006) pushes 1 if the active player has either
 // an interaction target OR queued waypoints, else 0. Mirrors TS
 // PlayerOps.ts:898-900 (https://x.com/JagexAsh/status/1791053667228856563):

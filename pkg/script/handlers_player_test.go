@@ -4173,6 +4173,70 @@ func TestHandleLowMemNoActivePlayer(t *testing.T) {
 	}
 }
 
+// -- BUSY tests (NAI-163 B0) --------------------------------------------------
+
+func TestHandleBusy_NotBusy_NotLoggingOut_PushZero(t *testing.T) {
+	mp := &mockPlayer{busyValue: false, loggingOutValue: false}
+	s := &ScriptState{
+		Self:        mp,
+		Pointers:    PtrActivePlayer,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	if err := handleBusy(s); err != nil {
+		t.Fatalf("BUSY neither: unexpected error %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("BUSY neither: got %d, want 0", got)
+	}
+}
+
+func TestHandleBusy_Busy_PushOne(t *testing.T) {
+	mp := &mockPlayer{busyValue: true, loggingOutValue: false}
+	s := &ScriptState{
+		Self:        mp,
+		Pointers:    PtrActivePlayer,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	if err := handleBusy(s); err != nil {
+		t.Fatalf("BUSY busy: unexpected error %v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("BUSY busy: got %d, want 1", got)
+	}
+}
+
+// TestHandleBusy_LoggingOut_PushOne pins the loggingOut arm — this is the
+// conspicuous TS-asymmetry that distinguishes BUSY (opcode 2005) from BUSY2
+// (opcode 2006): BUSY2 uses hasInteraction()||hasWaypoints() and does NOT
+// gate on loggingOut. Per ts_asymmetry_dual_pin.md. NAI-163 B0.
+func TestHandleBusy_LoggingOut_PushOne(t *testing.T) {
+	mp := &mockPlayer{busyValue: false, loggingOutValue: true}
+	s := &ScriptState{
+		Self:        mp,
+		Pointers:    PtrActivePlayer,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	if err := handleBusy(s); err != nil {
+		t.Fatalf("BUSY loggingOut: unexpected error %v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("BUSY loggingOut: got %d, want 1", got)
+	}
+}
+
+func TestHandleBusy_NoActivePlayer(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	if err := handleBusy(s); err == nil {
+		t.Error("BUSY with no active player: want error")
+	}
+}
+
 // -- BUSY2 tests (NAI-120 Bundle 2B) -----------------------------------------
 
 func TestBusy2_HasInteraction(t *testing.T) {

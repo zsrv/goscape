@@ -652,6 +652,14 @@ func (p *Player) Busy() bool {
 	return p.delayed || p.modalState&(modalStateMain|modalStateChat) != 0
 }
 
+// LoggingOut returns true while the player is in the logout-in-progress
+// state. Field set by the logout pipeline; read by BUSY (PlayerOps.ts:894).
+// Mirrors TS Player.loggingOut at Engine-TS/.../Player.ts (boolean field).
+// NAI-163 B0.
+func (p *Player) LoggingOut() bool {
+	return p.loggingOut
+}
+
 // IsInWilderness returns true when the player is inside one of the two
 // hardcoded wilderness rectangles. Mirrors TS Player.isInWilderness()
 // at Engine-TS/.../Player.ts:2082-2090.

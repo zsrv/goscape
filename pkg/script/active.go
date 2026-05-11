@@ -402,6 +402,18 @@ type ActivePlayer interface {
 	// Player.hasWaypoints. NAI-120 Bundle 2B.
 	HasWaypoints() bool
 
+	// Busy reports whether the player cannot accept new interactions —
+	// either delayed (suspended by script delay) or has a main/chat modal
+	// open. Mirrors TS Player.busy() at Engine-TS/.../Player.ts:801-803.
+	// Used by BUSY (PlayerOps.ts:893-895). NAI-163 B0.
+	Busy() bool
+
+	// LoggingOut reports whether the player is in the logout-in-progress
+	// state (TS Player.loggingOut field). Distinct from delayed/modal/
+	// interaction state — set by the logout pipeline before final cleanup.
+	// Used by BUSY (PlayerOps.ts:893-895). NAI-163 B0.
+	LoggingOut() bool
+
 	// QueueWaypoint clears any existing path and sets a single
 	// destination on the active player. Mirrors TS Player.queueWaypoint
 	// (Engine-TS PathingEntity.queueWaypoint). NAI-115 T7: used by

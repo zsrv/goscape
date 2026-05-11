@@ -422,6 +422,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpPOpLoc:    handleP_OpLoc,
 	OpPOpNpc:    handleP_OpNpc,
 	OpPOpObj:    handleP_OpObj,
+	OpBusy:      handleBusy,
 	OpBusy2:     handleBusy2,
 	OpPOpNpcT:   handlePOpNpcT,
 	OpPOpPlayer: handlePOpPlayer,
