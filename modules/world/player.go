@@ -364,6 +364,11 @@ type Player struct {
 	// `lastMapZone: number = -1` + NetworkPlayer.ts:259 `!== -1` guard).
 	lastMapZone int
 
+	// wealthLog is the in-memory append-only log of wealth events.
+	// NAI-162 B2; NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY (analytics
+	// RPC deferred).
+	wealthLog []script.WealthEvent
+
 	// === BAS (basic animation set) — sub-spec 3a ===
 	readyanim, turnanim                          int
 	walkanim, walkanim_b, walkanim_l, walkanim_r int

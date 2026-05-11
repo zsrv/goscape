@@ -1312,13 +1312,12 @@ func (p *Player) ApplyDamage(amount, dmgType int) {
 	p.Damage(amount, dmgType)
 }
 
-// AddWealthEvent appends a wealth-affecting event to the server-side
-// analytics log. Implements script.ActivePlayer.AddWealthEvent.
-// NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY: concrete body (wealthLog
-// field) lands in B2.2. This placeholder satisfies the interface so
-// B1.5 handlers compile.
+// AddWealthEvent appends evt to this player's in-memory wealth log.
+// Mirrors TS Player.addWealthEvent. Per NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY,
+// goscape does not emit an analytics RPC; the log is a queryable
+// in-memory record only.
 func (p *Player) AddWealthEvent(evt script.WealthEvent) {
-	// placeholder; B2.2 wires p.wealthLog.
+	p.wealthLog = append(p.wealthLog, evt)
 }
 
 // LastLoginInfo emits a LAST_LOGIN_INFO server packet with the

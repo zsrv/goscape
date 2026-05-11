@@ -1777,3 +1777,19 @@ func TestPlayer_InvTotalParamStack_NilClient(t *testing.T) {
 		t.Errorf("nil client: got %d, want 0", got)
 	}
 }
+
+// TestPlayer_AddWealthEvent pins append-to-log behaviour. Two events
+// append to the log in order.
+func TestPlayer_AddWealthEvent(t *testing.T) {
+	p := &Player{}
+	e1 := script.WealthEvent{EventType: script.WealthEventTypeDrop, AccountValue: 1000}
+	e2 := script.WealthEvent{EventType: script.WealthEventTypePVP, AccountValue: 5000}
+	p.AddWealthEvent(e1)
+	p.AddWealthEvent(e2)
+	if got := len(p.wealthLog); got != 2 {
+		t.Fatalf("len(wealthLog): got %d, want 2", got)
+	}
+	if p.wealthLog[0].AccountValue != 1000 || p.wealthLog[1].AccountValue != 5000 {
+		t.Errorf("wealthLog values: got %v", p.wealthLog)
+	}
+}
