@@ -384,6 +384,10 @@ type mockPlayer struct {
 	// NAI-160 T1: SAY recorder. Defensive-copies the byte slice on Say()
 	// to immunize from caller-mutates-buffer after the call.
 	sayCalls [][]byte
+
+	// NAI-160 T2/T3: HEADICONS_GET / HEADICONS_SET recorders.
+	headiconsValue    int
+	setHeadIconsCalls []int
 }
 
 type mockEnqueue struct {
@@ -758,6 +762,17 @@ func (m *mockPlayer) AddSessionLog(eventType int, message string, args ...string
 // to avoid caller-mutates-buffer aliasing. NAI-160 T1.
 func (m *mockPlayer) Say(text []byte) {
 	m.sayCalls = append(m.sayCalls, append([]byte(nil), text...))
+}
+
+// HeadIcons returns the seeded headiconsValue. NAI-160 T2.
+func (m *mockPlayer) HeadIcons() int { return m.headiconsValue }
+
+// SetHeadIcons records the write AND updates headiconsValue so a
+// subsequent HeadIcons() read returns the new value (mirrors TS direct
+// field assignment). NAI-160 T3.
+func (m *mockPlayer) SetHeadIcons(v int) {
+	m.setHeadIconsCalls = append(m.setHeadIconsCalls, v)
+	m.headiconsValue = v
 }
 
 // S6l: p_aprange.

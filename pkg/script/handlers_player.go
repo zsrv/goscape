@@ -1611,3 +1611,17 @@ func handleSay(s *ScriptState) error {
 	s.Self.Say([]byte(text))
 	return nil
 }
+
+// handleHeadIconsGet implements OpHeadIconsGet (TS HEADICONS_GET at
+// PlayerOps.ts:980-982). Pushes the player's headicons bitmask.
+//
+// goscape defensive: requireActivePlayer guard fronts the dereference;
+// TS deref-panics on a nil activePlayer (no checkedHandler wrap).
+// NAI-160 T2.
+func handleHeadIconsGet(s *ScriptState) error {
+	if err := requireActivePlayer(s, "HEADICONS_GET"); err != nil {
+		return err
+	}
+	s.PushInt(s.Self.HeadIcons())
+	return nil
+}

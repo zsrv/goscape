@@ -144,6 +144,17 @@ type ActivePlayer interface {
 	// NAI-160 T1.
 	Say(text []byte)
 
+	// HeadIcons returns the player's current head-icon bitmask. Mirrors
+	// TS Player.headicons (default 0) at Player.ts:314 / PlayerOps.ts:981.
+	// NAI-160 T2.
+	HeadIcons() int
+
+	// SetHeadIcons writes `v` into the head-icon bitmask. Caller is
+	// responsible for NumberNotNull validation (handler calls checkNotNull
+	// before invoking). Mirrors TS direct assignment at PlayerOps.ts:985.
+	// NAI-160 T3.
+	SetHeadIcons(v int)
+
 	// S5c: animation.
 
 	// PlayAnim schedules sequence seqID with the given client-side delay

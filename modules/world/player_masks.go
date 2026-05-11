@@ -153,3 +153,16 @@ func (p *Player) Damage(amount, dmgType int) {
 func (p *Player) ResetHP() {
 	p.levels[objtype.PlayerStatHitpoints] = p.baseLevels[objtype.PlayerStatHitpoints]
 }
+
+// HeadIcons / SetHeadIcons expose the headicons field for the
+// HEADICONS_GET / HEADICONS_SET RuneScript handlers. Mirrors TS direct
+// read/write at PlayerOps.ts:980-986. The encoder at
+// modules/world/appearance.go:65 (`buf.P1(uint8(p.headicons))`) does
+// byte-truncation downstream, matching TS Player.ts:1314
+// `stream.p1(this.headicons)`. NAI-160 T2/T3.
+func (p *Player) HeadIcons() int { return p.headicons }
+
+// SetHeadIcons writes the validated head-icon bitmask. NumberNotNull
+// gating is the handler's responsibility (handleHeadIconsSet at
+// pkg/script/handlers_player.go).
+func (p *Player) SetHeadIcons(v int) { p.headicons = v }

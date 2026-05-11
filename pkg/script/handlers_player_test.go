@@ -875,6 +875,29 @@ func TestSayEmptyString(t *testing.T) {
 	}
 }
 
+// -- HEADICONS_GET tests -------------------------------------------------
+
+// TestHeadIconsGet pins OpHeadIconsGet's body: read the player's headicons
+// field and push it as an int. Mirrors TS PlayerOps.ts:980-982. NAI-160 T2.
+func TestHeadIconsGet(t *testing.T) {
+	mp := &mockPlayer{headiconsValue: 7}
+	sf := &ScriptFile{
+		Name:             "[headicons_get,test]",
+		Opcodes:          []Opcode{OpHeadIconsGet, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	state.Pointers |= PtrActivePlayer
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopInt(); got != 7 {
+		t.Errorf("HEADICONS_GET: got %d, want 7", got)
+	}
+}
+
 // -- Active-player-required negative tests -------------------------------
 
 // Every handler that dereferences Self must return an error when
@@ -914,6 +937,8 @@ func TestHandlersRequireActivePlayer(t *testing.T) {
 		{"RUNENERGY", OpRunEnergy},
 		// NAI-160 T1.
 		{"SAY", OpSay},
+		// NAI-160 T2.
+		{"HEADICONS_GET", OpHeadIconsGet},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
