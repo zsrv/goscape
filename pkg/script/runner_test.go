@@ -392,6 +392,10 @@ type mockPlayer struct {
 	// NAI-160 T4: P_EXACTMOVE / UnsetMapFlag recorders.
 	exactMoveCalls    []struct{ sX, sZ, eX, eZ, begin, finish, dir int }
 	unsetMapFlagCalls int
+
+	// NAI-161 T1/T2: queue-introspection recorders.
+	unlinkScriptCalls  []int       // every UnlinkQueuedScript call's scriptID
+	queueCountByScript map[int]int // scriptID → return value; unset entries return 0
 }
 
 type mockEnqueue struct {
@@ -480,6 +484,15 @@ func (m *mockPlayer) ExactMove(sX, sZ, eX, eZ, begin, finish, dir int) {
 
 // UnsetMapFlag counts invocations. NAI-160 T4.
 func (m *mockPlayer) UnsetMapFlag() { m.unsetMapFlagCalls++ }
+
+// NAI-161 T3: queue-introspection adapters.
+func (m *mockPlayer) UnlinkQueuedScript(scriptID int) {
+	m.unlinkScriptCalls = append(m.unlinkScriptCalls, scriptID)
+}
+
+func (m *mockPlayer) QueueCount(scriptID int) int {
+	return m.queueCountByScript[scriptID]
+}
 
 // S5c: stats.
 
