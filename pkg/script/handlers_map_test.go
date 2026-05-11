@@ -964,17 +964,20 @@ func TestHandleLineOfWalkNilValidator(t *testing.T) {
 // NAI-163-D-LOS-ARG-SHAPE-FIX: widens isLineOfSight from (1,0,0,0) to
 // (1,1,1,0) to match TS GameMap.ts:429-431.
 
-// stubLineValidatorArgs records every (Has)LineOfSight call's full arg
-// tuple for the NAI-163-D-LOS-ARG-SHAPE-FIX regression. Distinct from
-// the existing npc_iterator_test.go recordingLineValidator (which only
-// captures level + src/dest, not srcSize/destWidth/destLength/extraFlag).
+// stubLineValidatorArgs records every (Has)LineOfSight and (Has)LineOfWalk
+// call's full arg tuple for the NAI-163-D-LOS-ARG-SHAPE-FIX and
+// NAI-165-D-LOW-ARG-SHAPE-FIX regressions. Distinct from the existing
+// npc_iterator_test.go recordingLineValidator (which only captures level +
+// src/dest, not srcSize/destWidth/destLength/extraFlag).
 type stubLineValidatorArgs struct {
 	losCalls  []losCall
 	losReturn bool
+	lowCalls  []losCall
+	lowReturn bool
 }
 
 type losCall struct {
-	level, srcX, srcZ, destX, destZ          int
+	level, srcX, srcZ, destX, destZ           int
 	srcSize, destWidth, destLength, extraFlag int
 }
 
@@ -984,7 +987,8 @@ func (st *stubLineValidatorArgs) HasLineOfSight(level, srcX, srcZ, destX, destZ,
 }
 
 func (st *stubLineValidatorArgs) HasLineOfWalk(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, extraFlag int) bool {
-	return true
+	st.lowCalls = append(st.lowCalls, losCall{level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, extraFlag})
+	return st.lowReturn
 }
 
 func TestIsLineOfSightWrapper_PassesTSFaithfulArgShape(t *testing.T) {
@@ -1125,6 +1129,57 @@ func TestHandleLineOfSight_ArgShape(t *testing.T) {
 	want := losCall{level: 0, srcX: 3200, srcZ: 3300, destX: 3210, destZ: 3305, srcSize: 1, destWidth: 1, destLength: 1, extraFlag: 0}
 	if got != want {
 		t.Fatalf("handleLineOfSight arg shape mismatch:\n got=%+v\nwant=%+v", got, want)
+	}
+}
+
+// --- NAI-165: isLineOfWalk wrapper + handleLineOfWalk arg-shape regression ---
+// NAI-165-D-LOW-ARG-SHAPE-FIX: widens isLineOfWalk from (1, 0, 0, 0) to
+// (1, 1, 1, 0) to match TS GameMap.ts:425-427. Symmetric mirror of
+// NAI-163-D-LOS-ARG-SHAPE-FIX.
+
+func TestIsLineOfWalkWrapper_PassesTSFaithfulArgShape(t *testing.T) {
+	// Regression pin: TS GameMap.ts:426 calls
+	//   rsmod.hasLineOfWalk(level, sX, sZ, dX, dZ, 1, 1, 1, 1, 0)
+	// goscape's srcSize expands to srcWidth=srcLength=1 inside RayCast
+	// (linevalidator.go:21), so the TS-faithful arg tuple at the wrapper
+	// level is srcSize=1, destWidth=1, destLength=1, extraFlag=0.
+	// Pre-NAI-165-D-LOW-ARG-SHAPE-FIX the wrapper was (1, 0, 0, 0).
+	st := &stubLineValidatorArgs{lowReturn: true}
+	s := &ScriptState{LineValidator: st}
+	_ = isLineOfWalk(s, 0, 3200, 3300, 3210, 3305)
+	if len(st.lowCalls) != 1 {
+		t.Fatalf("expected 1 LineValidator call, got %d", len(st.lowCalls))
+	}
+	got := st.lowCalls[0]
+	want := losCall{level: 0, srcX: 3200, srcZ: 3300, destX: 3210, destZ: 3305, srcSize: 1, destWidth: 1, destLength: 1, extraFlag: 0}
+	if got != want {
+		t.Fatalf("isLineOfWalk arg shape mismatch:\n got=%+v\nwant=%+v", got, want)
+	}
+}
+
+func TestHandleLineOfWalk_ArgShape(t *testing.T) {
+	// Pins the TS-faithful arg tuple passed to HasLineOfWalk by handleLineOfWalk
+	// at the opcode 1006 dispatch site (direct call, NOT via the wrapper —
+	// see handlers_map.go:423). NAI-165-D-LOW-ARG-SHAPE-FIX.
+	st := &stubLineValidatorArgs{lowReturn: true}
+	s := newTestState(minimalScript(OpReturn))
+	mw := newMockWorld()
+	mw.mapMembers = 1
+	s.World = mw
+	s.LineValidator = st
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3300)) // from (c1)
+	s.PushInt(coordgrid.PackCoord(0, 3210, 3305)) // to (c2)
+	if err := handleLineOfWalk(s); err != nil {
+		t.Fatalf("handleLineOfWalk: %v", err)
+	}
+	_ = s.PopInt()
+	if len(st.lowCalls) != 1 {
+		t.Fatalf("expected 1 LV call, got %d", len(st.lowCalls))
+	}
+	got := st.lowCalls[0]
+	want := losCall{level: 0, srcX: 3200, srcZ: 3300, destX: 3210, destZ: 3305, srcSize: 1, destWidth: 1, destLength: 1, extraFlag: 0}
+	if got != want {
+		t.Fatalf("handleLineOfWalk arg shape mismatch:\n got=%+v\nwant=%+v", got, want)
 	}
 }
 

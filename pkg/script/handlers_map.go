@@ -163,16 +163,22 @@ func handleMapFindSquare(s *ScriptState) error {
 	return nil
 }
 
-// isLineOfWalk delegates to s.LineValidator. Pessimistic-allow on nil
-// validator (matches NpcIterator passesFilter HuntAll behavior). Calls
-// HasLineOfWalk with src=(srcX,srcZ), dest=(destX,destZ); the goscape
-// convention uses srcSize=1, destWidth=0, destLength=0, extraFlag=0,
-// matching player_iterator.go and npc_iterator.go. NAI-35-T6.
+// isLineOfWalk delegates to s.LineValidator. Mirrors TS
+// GameMap.ts:425-427: rsmod.hasLineOfWalk(level, sX, sZ, dX, dZ, 1, 1, 1, 1, 0).
+// goscape's srcSize collapses TS srcWidth+srcHeight (both 1) into a single
+// arg via RayCast's `srcSize, srcSize` (linevalidator.go:21); destWidth and
+// destLength are passed verbatim. NAI-165-D-LOW-ARG-SHAPE-FIX widens this
+// wrapper from the pre-fix (1, 0, 0, 0) shape to TS-faithful (1, 1, 1, 0);
+// existing MapFindSquareLineOfWalk callers at lines 117, 147 inherit the
+// corrected endpoint semantics. Pessimistic-allow on nil validator.
+// NAI-35-T6 (NAI-165). The iterator/hunt-site sweep at player_iterator.go,
+// npc_iterator.go, npc_hunt_entities.go, and npc_hunt.go (still on
+// (1, 0, 0, 0)) is tracked separately as a NAI-166 candidate.
 func isLineOfWalk(s *ScriptState, level, srcX, srcZ, destX, destZ int) bool {
 	if s.LineValidator == nil {
 		return true
 	}
-	return s.LineValidator.HasLineOfWalk(level, srcX, srcZ, destX, destZ, 1, 0, 0, 0)
+	return s.LineValidator.HasLineOfWalk(level, srcX, srcZ, destX, destZ, 1, 1, 1, 0)
 }
 
 // isLineOfSight delegates to s.LineValidator. Mirrors TS
@@ -393,7 +399,13 @@ func handleMapLocAddUnsafe(s *ScriptState) error {
 // Same-level guard: differing levels push 0 immediately.
 // F2P short-circuit: in a non-members world, destination tile not in
 // an F2P zone pushes 0.
-// Nil-LineValidator: pushes 0 (fail closed) when no validator wired.
+// Nil-LineValidator: pushes 0 (fail closed) when no validator wired
+// (goscape defensive; TS routes through isLineOfWalk wrapper which is
+// pessimistic-ALLOW on nil — pre-existing asymmetry vs handleLineOfSight
+// at line 230, tracked separately as a NAI-166 candidate).
+//
+// Arg shape: HasLineOfWalk(..., 1, 1, 1, 0) per NAI-165-D-LOW-ARG-SHAPE-FIX;
+// matches the isLineOfWalk wrapper at line 171 and TS GameMap.ts:425-427.
 //
 // Mirrors TS ServerOps.ts:65-82.
 func handleLineOfWalk(s *ScriptState) error {
@@ -420,7 +432,7 @@ func handleLineOfWalk(s *ScriptState) error {
 		s.PushInt(0)
 		return nil
 	}
-	if s.LineValidator.HasLineOfWalk(fromLevel, fromX, fromZ, toX, toZ, 1, 0, 0, 0) {
+	if s.LineValidator.HasLineOfWalk(fromLevel, fromX, fromZ, toX, toZ, 1, 1, 1, 0) {
 		s.PushInt(1)
 	} else {
 		s.PushInt(0)
