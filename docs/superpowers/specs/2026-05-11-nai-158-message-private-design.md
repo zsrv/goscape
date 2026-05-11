@@ -123,11 +123,11 @@ type FriendsBridge interface {
     RemoveIgnore(playerUsername string, target uint64)
     SetChatMode(playerUsername string, privateChat int)
     PrivateMessage(playerUsername string, staffLvl int32, pmId uint32,
-                   target uint64, message string, coord int32)
+                   target uint64, message string, coord int)
 }
 ```
 
-`coord` typed `int32` matching `coordgrid.PackCoord` return.
+`coord` typed `int` matching `coordgrid.PackCoord(level, x, z int) int` return.
 `pmId uint32` fits TS bit layout `(NodeID<<24) | (rand<<16) | counter`.
 
 `noopBridges` gains a no-op `PrivateMessage` impl.
@@ -167,6 +167,9 @@ func (s *Server) nextPmId() uint32 {
 }
 ```
 
+(`cfg.NodeID` is `int` per `modules/world/config.go:28`; masking with `0xff`
+before the `uint32` cast keeps the conversion safe regardless of sign.)
+
 ### 6.5 `modules/world/handler_message_private.go` — handler
 
 ```go
@@ -201,8 +204,16 @@ func handleMessagePrivate(p *Player, payload []byte) error {
 
 ### 6.6 `modules/world/handlers_game.go` — dispatcher
 
-Add a single entry for opcode 148 (shape grepped at plan-author time and
-matched to the existing dispatch convention).
+The dispatcher is a `[256]func(*Player, []byte) error` table populated in
+`init()` (see `handlers_game.go:11-90`). Add one entry alongside the
+existing social-list handlers:
+
+```go
+gameHandlers[148] = handleMessagePrivate // MESSAGE_PRIVATE
+```
+
+Placed near `gameHandlers[158] = handleMessagePublic` for thematic
+grouping.
 
 ## 7. Data flow
 
