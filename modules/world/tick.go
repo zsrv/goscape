@@ -658,6 +658,12 @@ func (s *Server) processCleanup() {
 		z.Reset()
 	}
 	clear(s.zonesTracking)
+	// NAI-19: prune DESPAWN-lifecycle dead NPCs from s.npcLoop at
+	// end-of-tick. Runs AFTER processInfo's NpcInfo writes (which
+	// fire upstream in processTick) so the just-despawned NPC's
+	// removal mask is already in the client stream via rsbuf.RemoveNpc.
+	s.compactNpcLoop()
+
 	// NAI-29 Bundle 4 Task 4.6 — clear transient rsbuf state at end of
 	// tick. Mirrors upstream cleanup at lib.rs:348-363: clears playerGrid
 	// (rebuilt fresh each tick from ComputePlayer pushes) and calls

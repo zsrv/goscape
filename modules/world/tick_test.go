@@ -162,3 +162,66 @@ func TestInitPlayerVarps_LengthMatchesRegistry(t *testing.T) {
 		t.Errorf("varpsString[2] (String): got %q, want \"\"", p.varpsString[2])
 	}
 }
+
+// TestProcessCleanup_RunsCompactNpcLoop pins the NAI-19 T4 wire-up:
+// processCleanup invokes compactNpcLoop, so a DESPAWN-lifecycle dead
+// NPC pre-seeded in s.npcLoop is gone after one processCleanup call.
+func TestProcessCleanup_RunsCompactNpcLoop(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}}
+	n := NewNpc(0, 7, 100, 100, 0, typ)
+	n.nid = 1
+	n.server = s
+	n.lifecycle = NpcLifecycleDespawn
+	n.dead = true
+	s.npcLoop = append(s.npcLoop, n)
+
+	s.processCleanup()
+
+	for _, m := range s.npcLoop {
+		if m == n {
+			t.Errorf("npcLoop still contains DESPAWN+dead NPC %p after processCleanup", n)
+		}
+	}
+}
+
+// TestRemoveNpcDuringTickIteration_NoPanic pins NAI-19 mid-tick safety:
+// when one NPC's processing triggers removeNpc on itself while
+// s.npcLoop is being iterated, the iteration completes without panic
+// and end-of-tick compact (via processCleanup) prunes the dead entry.
+//
+// Simulates a real tick by iterating s.npcLoop directly (mirrors
+// processNpcs at tick.go:577) and calling s.removeNpc inside the loop
+// on one of the entries, then running processCleanup.
+func TestRemoveNpcDuringTickIteration_NoPanic(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}}
+	target := NewNpc(0, 7, 100, 100, 0, typ)
+	target.nid = 1
+	target.server = s
+	target.lifecycle = NpcLifecycleDespawn
+	s.npcs[1] = target
+
+	bystander := NewNpc(0, 7, 101, 100, 0, typ)
+	bystander.nid = 2
+	bystander.server = s
+	bystander.lifecycle = NpcLifecycleRespawn
+	s.npcs[2] = bystander
+
+	s.npcLoop = []*Npc{target, bystander}
+
+	// Mid-tick iteration: removeNpc on first entry; iteration continues
+	// safely because s.npcLoop is not spliced mid-loop.
+	for _, n := range s.npcLoop {
+		if n == target {
+			s.removeNpc(n, -1) // does NOT mutate s.npcLoop
+		}
+	}
+
+	// End-of-tick compact runs from processCleanup.
+	s.processCleanup()
+
+	if len(s.npcLoop) != 1 || s.npcLoop[0] != bystander {
+		t.Errorf("npcLoop after compact: got %v, want [%p] (bystander only)", s.npcLoop, bystander)
+	}
+}
