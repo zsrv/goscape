@@ -400,14 +400,12 @@ func handleMapLocAddUnsafe(s *ScriptState) error {
 // Same-level guard: differing levels push 0 immediately.
 // F2P short-circuit: in a non-members world, destination tile not in
 // an F2P zone pushes 0.
-// Nil-LineValidator: pushes 0 (fail closed) when no validator wired
-// (goscape defensive; TS routes through isLineOfWalk wrapper which is
-// pessimistic-ALLOW on nil — pre-existing asymmetry vs handleLineOfSight
-// which delegates nil-handling to isLineOfSight (pessimistic-allow),
-// tracked separately as a NAI-166 candidate).
+// Nil-LineValidator: routes through the isLineOfWalk wrapper
+// (pessimistic-allow), matching handleLineOfSight. NAI-166-D-LOW-WRAPPER-ROUTING
+// closed the prior explicit nil-guard / pessimistic-deny divergence.
 //
-// Arg shape: HasLineOfWalk(..., 1, 1, 1, 0) per NAI-165-D-LOW-ARG-SHAPE-FIX;
-// matches the isLineOfWalk wrapper above and TS GameMap.ts:425-427.
+// Arg shape: HasLineOfWalk(..., 1, 1, 1, 0) via isLineOfWalk wrapper;
+// matches TS GameMap.ts:425-427. NAI-165-D-LOW-ARG-SHAPE-FIX.
 //
 // Mirrors TS ServerOps.ts:65-82.
 func handleLineOfWalk(s *ScriptState) error {
@@ -430,11 +428,7 @@ func handleLineOfWalk(s *ScriptState) error {
 		s.PushInt(0)
 		return nil
 	}
-	if s.LineValidator == nil {
-		s.PushInt(0)
-		return nil
-	}
-	if s.LineValidator.HasLineOfWalk(fromLevel, fromX, fromZ, toX, toZ, 1, 1, 1, 0) {
+	if isLineOfWalk(s, fromLevel, fromX, fromZ, toX, toZ) {
 		s.PushInt(1)
 	} else {
 		s.PushInt(0)

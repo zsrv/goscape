@@ -942,7 +942,13 @@ func TestHandleLineOfWalkF2PShortCircuit(t *testing.T) {
 	}
 }
 
-func TestHandleLineOfWalkNilValidator(t *testing.T) {
+// TestHandleLineOfWalkNilValidatorPessimisticAllow pins the post-NAI-166
+// wrapper-routed semantics: nil LineValidator pushes 1 (pessimistic-allow)
+// via the isLineOfWalk wrapper, mirroring handleLineOfSight's behavior at
+// handlers_map.go:236. Pre-NAI-166 the handler had an explicit nil-guard
+// that pushed 0 (pessimistic-deny) — that asymmetry was tracked as
+// NAI-166-D-LOW-WRAPPER-ROUTING.
+func TestHandleLineOfWalkNilValidatorPessimisticAllow(t *testing.T) {
 	s := newTestState(minimalScript(OpReturn))
 	mw := newMockWorld()
 	mw.mapMembers = 1
@@ -955,8 +961,8 @@ func TestHandleLineOfWalkNilValidator(t *testing.T) {
 	if err := handleLineOfWalk(s); err != nil {
 		t.Fatalf("handleLineOfWalk returned error: %v", err)
 	}
-	if got := s.PopInt(); got != 0 {
-		t.Errorf("LINEOFWALK nil validator: got %d, want 0", got)
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("LINEOFWALK nil validator: got %d, want 1 (pessimistic-allow via isLineOfWalk wrapper)", got)
 	}
 }
 
