@@ -4,13 +4,15 @@ import "testing"
 
 // fakeLocOps records all LocOps method calls for handler-side assertions.
 type fakeLocOps struct {
-	changeCalls []changeLocCall
-	addCalls    []addLocCall
-	removeCalls []removeLocCall
-	animCalls   []animLocCall
-	atCoord     []ActiveLoc
-	inZone      []ActiveLoc
-	addReturn   ActiveLoc // returned from AddLoc
+	changeCalls  []changeLocCall
+	addCalls     []addLocCall
+	removeCalls  []removeLocCall
+	animCalls    []animLocCall
+	atCoord      []ActiveLoc
+	inZone       []ActiveLoc
+	addReturn    ActiveLoc // returned from AddLoc
+	getLocCalls  []getLocCall
+	getLocReturn ActiveLoc // returned from GetLoc; default nil = miss
 }
 
 type changeLocCall struct {
@@ -30,6 +32,10 @@ type removeLocCall struct {
 type animLocCall struct {
 	loc ActiveLoc
 	seq int
+}
+
+type getLocCall struct {
+	level, x, z, typ int
 }
 
 func (f *fakeLocOps) ChangeLoc(loc ActiveLoc, typ, shape, angle, dur int) error {
@@ -58,6 +64,11 @@ func (f *fakeLocOps) LocsAtCoord(level, x, z int) []ActiveLoc {
 
 func (f *fakeLocOps) AllLocsInZone(level, x, z int) []ActiveLoc {
 	return f.inZone
+}
+
+func (f *fakeLocOps) GetLoc(level, x, z, typ int) ActiveLoc {
+	f.getLocCalls = append(f.getLocCalls, getLocCall{level, x, z, typ})
+	return f.getLocReturn
 }
 
 func TestScriptStateAcceptsLocOps(t *testing.T) {

@@ -90,3 +90,19 @@ func (o *serverLocOps) AllLocsInZone(level, x, zc int) []script.ActiveLoc {
 	}
 	return out
 }
+
+// GetLoc returns the script-side ActiveLoc at (level, x, zc) whose type
+// matches typ, or nil if no such loc exists. Mirrors TS Zone.getLoc
+// (Zone.ts:259-266). Sole caller is LOC_FIND.
+//
+// Explicit nil-check on Server.GetLoc's return wraps the typed-nil
+// *entity.Loc into a true interface-nil — returning the typed-nil
+// directly would produce a non-nil script.ActiveLoc holding a typed-nil
+// pointer (Go interface-nil gotcha).
+func (o *serverLocOps) GetLoc(level, x, zc, typ int) script.ActiveLoc {
+	l := o.s.GetLoc(level, x, zc, typ)
+	if l == nil {
+		return nil
+	}
+	return l
+}

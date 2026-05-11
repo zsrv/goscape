@@ -93,6 +93,43 @@ func TestServerLocOpsRejectsNonLocActiveLoc(t *testing.T) {
 	}
 }
 
+// TestServerLocOpsGetLoc pins the adapter's exact-tile + type-equality
+// scan and the typed-nil → interface-nil wrap (returning *entity.Loc
+// directly would produce a non-nil ActiveLoc holding a typed-nil pointer
+// on miss; the explicit nil-check in (*serverLocOps).GetLoc avoids that).
+func TestServerLocOpsGetLoc(t *testing.T) {
+	s := newLocTurnTestServer(t)
+	loc := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleDespawn, 42, 0, 0)
+	s.AddLoc(loc, 0)
+	ops := &serverLocOps{s: s}
+
+	t.Run("hit returns the loc", func(t *testing.T) {
+		got := ops.GetLoc(0, 3094, 3106, 42)
+		if got == nil {
+			t.Fatal("GetLoc(hit): got nil, want non-nil ActiveLoc")
+		}
+		x, z, level := got.Coords()
+		if x != 3094 || z != 3106 || level != 0 {
+			t.Errorf("Coords: got (%d,%d,%d), want (3094,3106,0)", x, z, level)
+		}
+		if got.LocType() != 42 {
+			t.Errorf("LocType: got %d, want 42", got.LocType())
+		}
+	})
+
+	t.Run("wrong type returns nil", func(t *testing.T) {
+		if got := ops.GetLoc(0, 3094, 3106, 99); got != nil {
+			t.Errorf("GetLoc(wrong type): got %v, want nil", got)
+		}
+	})
+
+	t.Run("wrong coord returns nil", func(t *testing.T) {
+		if got := ops.GetLoc(0, 9999, 9999, 42); got != nil {
+			t.Errorf("GetLoc(wrong coord): got %v, want nil", got)
+		}
+	})
+}
+
 type fakeNonLoc struct{}
 
 func (f *fakeNonLoc) LocType() int            { return 0 }
