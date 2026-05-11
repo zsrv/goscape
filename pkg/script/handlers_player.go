@@ -1726,10 +1726,14 @@ func handleGetQueue(s *ScriptState) error {
 }
 
 // handlePOpHeld implements OpPOpHeld (TS P_OPHELD at PlayerOps.ts:381-383).
-// TS-faithful 'unimplemented' error stub behind the ProtectedActivePlayer
-// gate. Stub remains until OPHELD trigger plumbing is ported (separate
-// cohort with OcOp/LcOp/OcIop). NAI-161 T6 — deviation
-// NAI-161-D-POPHELD-STUB.
+// TS-PARITY STUB (final): TS literally `throw new Error('unimplemented')`;
+// goscape returns `fmt.Errorf("P_OPHELD: unimplemented")` — both raise at
+// the same point behind the ProtectedActivePlayer gate. No goscape
+// follow-up: the OPHELD1..5/U/T trigger family fires from inv-click
+// PACKET handlers (which set lastItem/lastSlot then dispatch the trigger),
+// NOT from this script opcode — TS confirms by stubbing it. Re-port only
+// if upstream TS lands a real body. NAI-161 T6 — deviation
+// NAI-161-D-POPHELD-STUB. See memory `nai164_declined_cohort.md`.
 func handlePOpHeld(s *ScriptState) error {
 	if err := requireProtectedActivePlayer(s, "P_OPHELD"); err != nil {
 		return err

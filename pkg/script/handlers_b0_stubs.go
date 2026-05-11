@@ -24,9 +24,12 @@ func handleSetGender(s *ScriptState) error {
 	return fmt.Errorf("SET_GENDER: unimplemented")
 }
 
-// handleLcOp (LC_OP, opcode 4105) — TS-unimplemented stub. Pairs with
-// the future OPHELD trigger-plumbing cohort (NAI-161 forward-route).
-// NAI-162-D-STUB-LCOP.
+// handleLcOp (LC_OP, opcode 4105) — TS-PARITY STUB (final). Opcode is
+// declared in TS `ScriptOpcode.ts` but registers no handler entry;
+// calling it in TS hits `handlers[X] === undefined`. Goscape's typed-error
+// return is the semantic mirror (both raise at this opcode). No goscape
+// follow-up; re-port only if upstream TS lands a real body.
+// NAI-162-D-STUB-LCOP. See memory `nai164_declined_cohort.md`.
 func handleLcOp(s *ScriptState) error {
 	return fmt.Errorf("LC_OP: unimplemented")
 }

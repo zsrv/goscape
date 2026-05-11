@@ -336,7 +336,7 @@ Plan-author pre-flight per `audit_full_method_against_ts.md`: read full body lin
 | `NAI-162-D-STUB-PUSHVARBIT` | `handlePushVarbit` | TS has no handler; goscape stub returns `fmt.Errorf("PUSH_VARBIT: unimplemented")`. | TS-faithful at semantic level (both raise at this opcode). Mirrors NAI-161 `NAI-161-D-POPHELD-STUB` shape. Re-port when TS lands a real body. |
 | `NAI-162-D-STUB-POPVARBIT` | `handlePopVarbit` | Same as above for opcode 27. | Same. |
 | `NAI-162-D-STUB-SETGENDER` | `handleSetGender` | Same as above for opcode 2099. | Same. |
-| `NAI-162-D-STUB-LCOP` | `handleLcOp` | Same as above for opcode 4105. | Same. Pairs with future OPHELD trigger-plumbing cohort (NAI-161 §3 forward-route). |
+| `NAI-162-D-STUB-LCOP` | `handleLcOp` | Same as above for opcode 4105. | TS-PARITY STUB (final). **The "future OPHELD trigger-plumbing cohort" referenced previously does not exist in TS** — see memory `nai164_declined_cohort.md` (2026-05-11 NAI-164-declined audit). Re-port only if upstream TS lands a real body. |
 | `NAI-162-D-STUB-OCIOP` | `handleOcIop` | Same as above for opcode 4205. | Same. |
 | `NAI-162-D-STUB-OCOP` | `handleOcOp` | Same as above for opcode 4208. | Same. |
 | `NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY` | `(*Player).AddWealthEvent` | TS emits an analytics RPC payload. Goscape appends to in-memory `p.wealthLog` only; no analytics sink wired. | User-confirmed at brainstorm: defer analytics. The retirement of NAI-115-D1 is unblocked by in-memory append; consumer (analytics) is orthogonal. Follow-up: NAI-N analytics-sink port (un-tracked at this commit; create when an analytics consumer is wired). |
