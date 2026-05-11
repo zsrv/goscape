@@ -174,3 +174,13 @@ func (c serverConfigsView) VarnType(id int) objtype.ScriptVarType {
 	}
 	return c.s.varnTypes.Configs[id].Type
 }
+
+// ObjByName implements script.Configs.ObjByName. Delegates to
+// ObjTypeConfigs.ByName. Returns nil when the server or configs are
+// uninitialized or the name has no match. NAI-162 B2.
+func (c serverConfigsView) ObjByName(name string) *objtype.ObjType {
+	if c.s == nil || c.s.objTypes == nil {
+		return nil
+	}
+	return c.s.objTypes.ByName(name)
+}

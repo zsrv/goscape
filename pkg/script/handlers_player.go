@@ -1716,6 +1716,34 @@ func handlePOpHeld(s *ScriptState) error {
 	return fmt.Errorf("P_OPHELD: unimplemented")
 }
 
+// handleWealthEvent (WEALTH_EVENT, opcode 2131). Pops a string name from
+// the string stack, then 3 ints (LIFO: value, count, eventType — matching
+// TS popInts(3) → [eventType, count, value]). Resolves the obj via
+// Configs.ObjByName; missing name → id=-1 (mirrors TS `objType?.id`
+// undefined). Calls Self.AddWealthEvent. Mirrors TS PlayerOps.ts:1191-1202.
+func handleWealthEvent(s *ScriptState) error {
+	if err := requireActivePlayer(s, "WEALTH_EVENT"); err != nil {
+		return err
+	}
+	value := s.PopInt()
+	count := s.PopInt()
+	eventType := s.PopInt()
+	name := s.PopString()
+
+	objID := -1
+	if s.Configs != nil {
+		if t := s.Configs.ObjByName(name); t != nil {
+			objID = t.ID
+		}
+	}
+	s.Self.AddWealthEvent(WealthEvent{
+		EventType:    eventType,
+		AccountItems: []WealthItem{{ID: objID, Name: name, Count: count}},
+		AccountValue: value,
+	})
+	return nil
+}
+
 // handleLastLoginInfo (LAST_LOGIN_INFO, opcode 2054). Single delegation
 // to Self.LastLoginInfo. Mirrors TS PlayerOps.ts:931-933.
 //

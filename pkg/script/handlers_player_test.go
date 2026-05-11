@@ -5320,6 +5320,86 @@ func TestClearQueueDispatch(t *testing.T) {
 	}
 }
 
+// TestHandleWealthEvent_KnownObj pins the happy path: ObjByName resolves;
+// AddWealthEvent called with assembled struct. Mirrors TS
+// PlayerOps.ts:1191-1202.
+func TestHandleWealthEvent_KnownObj(t *testing.T) {
+	mp := &mockPlayer{}
+	mc := newTestConfigs()
+	whip := objtype.NewObjType(4151)
+	whip.DebugName = "abyssal_whip"
+	mc.objs[4151] = whip
+	if mc.objsByName == nil {
+		mc.objsByName = make(map[string]*objtype.ObjType)
+	}
+	mc.objsByName["abyssal_whip"] = whip
+
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        mp,
+		Configs:     mc,
+		Pointers:    PtrActivePlayer,
+	}
+	// Push order: name (string), eventType, count, value (ints).
+	// Pop order LIFO: value, count, eventType → PopInt ×3; name → PopString.
+	s.PushString("abyssal_whip")
+	s.PushInt(WealthEventTypeDrop) // eventType
+	s.PushInt(1)                   // count
+	s.PushInt(120000)              // value
+
+	if err := handleWealthEvent(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(mp.addWealthEventCalls) != 1 {
+		t.Fatalf("AddWealthEvent: got %d calls, want 1", len(mp.addWealthEventCalls))
+	}
+	got := mp.addWealthEventCalls[0]
+	if got.EventType != WealthEventTypeDrop {
+		t.Errorf("EventType: got %d, want %d", got.EventType, WealthEventTypeDrop)
+	}
+	if got.AccountValue != 120000 {
+		t.Errorf("AccountValue: got %d, want 120000", got.AccountValue)
+	}
+	if len(got.AccountItems) != 1 ||
+		got.AccountItems[0].ID != 4151 ||
+		got.AccountItems[0].Name != "abyssal_whip" ||
+		got.AccountItems[0].Count != 1 {
+		t.Errorf("AccountItems: got %+v, want [{ID:4151 Name:abyssal_whip Count:1}]", got.AccountItems)
+	}
+}
+
+// TestHandleWealthEvent_UnknownObj pins ObjByName→nil path:
+// AccountItems[0].ID == -1 (TS `objType?.id` undefined ≡ goscape -1).
+func TestHandleWealthEvent_UnknownObj(t *testing.T) {
+	mp := &mockPlayer{}
+	mc := newTestConfigs()
+	// no objsByName entry for "unknown_obj"
+
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        mp,
+		Configs:     mc,
+		Pointers:    PtrActivePlayer,
+	}
+	s.PushString("unknown_obj")
+	s.PushInt(WealthEventTypeDrop)
+	s.PushInt(1)
+	s.PushInt(0)
+
+	if err := handleWealthEvent(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(mp.addWealthEventCalls) != 1 {
+		t.Fatalf("AddWealthEvent: got %d calls, want 1", len(mp.addWealthEventCalls))
+	}
+	got := mp.addWealthEventCalls[0]
+	if len(got.AccountItems) != 1 || got.AccountItems[0].ID != -1 {
+		t.Errorf("AccountItems[0].ID: got %v, want -1", got.AccountItems)
+	}
+}
+
 // TestHandleLastLoginInfo pins the single-delegation pattern. No pop,
 // no push — handler calls Self.LastLoginInfo and returns. Mirrors TS
 // PlayerOps.ts:931-933.

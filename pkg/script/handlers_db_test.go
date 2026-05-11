@@ -47,7 +47,8 @@ func (f *fakeDbConfigs) FindDbRowsStr(query string, packed int) []int {
 func (f *fakeDbConfigs) VarpType(id int) (objtype.ScriptVarType, bool) {
 	return objtype.ScriptVarTypeInt, false
 }
-func (f *fakeDbConfigs) VarnType(id int) objtype.ScriptVarType { return objtype.ScriptVarTypeInt }
+func (f *fakeDbConfigs) VarnType(id int) objtype.ScriptVarType  { return objtype.ScriptVarTypeInt }
+func (f *fakeDbConfigs) ObjByName(name string) *objtype.ObjType { return nil }
 
 // newDbState builds a ScriptState with Configs wired for DB tests.
 func newDbState(cfg *fakeDbConfigs) *ScriptState {

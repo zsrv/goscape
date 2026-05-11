@@ -568,6 +568,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// NAI-162 B1: trivial-handler sweep #4.
 	OpLastLoginInfo:         handleLastLoginInfo,         // opcode 2054
 	OpInvTotalParamStack:    handleInvTotalParamStack,    // opcode 4329
+
+	// NAI-162 B2: WealthEvent + player-interaction + NAI-115-D1 retirement.
+	OpWealthEvent: handleWealthEvent, // opcode 2131
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.

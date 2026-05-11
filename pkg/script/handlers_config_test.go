@@ -10,6 +10,7 @@ import (
 // mockConfigs implements the Configs interface with in-memory fixture maps.
 type mockConfigs struct {
 	objs          map[int]*objtype.ObjType
+	objsByName    map[string]*objtype.ObjType // NAI-162 B2: ObjByName index
 	npcs          map[int]*objtype.NpcType
 	locs          map[int]*objtype.LocType
 	enums         map[int]*objtype.EnumType
@@ -38,6 +39,13 @@ func (m *mockConfigs) DbRowType(id int) *objtype.DbRowType          { return nil
 func (m *mockConfigs) DbRowsInTable(tableID int) []int              { return nil }
 func (m *mockConfigs) FindDbRowsInt(query int32, packed int) []int  { return nil }
 func (m *mockConfigs) FindDbRowsStr(query string, packed int) []int { return nil }
+
+func (m *mockConfigs) ObjByName(name string) *objtype.ObjType {
+	if m.objsByName == nil {
+		return nil
+	}
+	return m.objsByName[name]
+}
 
 func (m *mockConfigs) VarpType(id int) (objtype.ScriptVarType, bool) {
 	v, ok := m.varps[id]

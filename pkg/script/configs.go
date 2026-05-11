@@ -41,4 +41,9 @@ type Configs interface {
 	// VarnType returns the type for an NPC-var id. Out-of-range or
 	// unloaded id returns ScriptVarTypeInt (DEVIATION-NAI-121-D3).
 	VarnType(id int) objtype.ScriptVarType
+
+	// ObjByName resolves an ObjType by debugname. Used by WEALTH_EVENT
+	// (opcode 2131) to mirror TS ObjType.getByName. Returns nil when the
+	// name is unknown. NAI-162 B2.
+	ObjByName(name string) *objtype.ObjType
 }
