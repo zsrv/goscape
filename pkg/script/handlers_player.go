@@ -1703,3 +1703,15 @@ func handleGetQueue(s *ScriptState) error {
 	s.PushInt(s.Self.QueueCount(s.PopInt()))
 	return nil
 }
+
+// handlePOpHeld implements OpPOpHeld (TS P_OPHELD at PlayerOps.ts:381-383).
+// TS-faithful 'unimplemented' error stub behind the ProtectedActivePlayer
+// gate. Stub remains until OPHELD trigger plumbing is ported (separate
+// cohort with OcOp/LcOp/OcIop). NAI-161 T6 — deviation
+// NAI-161-D-POPHELD-STUB.
+func handlePOpHeld(s *ScriptState) error {
+	if err := requireProtectedActivePlayer(s, "P_OPHELD"); err != nil {
+		return err
+	}
+	return fmt.Errorf("P_OPHELD: unimplemented")
+}

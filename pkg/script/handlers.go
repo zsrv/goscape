@@ -549,6 +549,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 
 	// NAI-161 T5: GETQUEUE.
 	OpGetQueue: handleGetQueue,
+
+	// NAI-161 T6: P_OPHELD (TS-faithful unimplemented stub).
+	OpPOpHeld: handlePOpHeld,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.

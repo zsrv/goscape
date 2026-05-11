@@ -5250,6 +5250,47 @@ func TestGetQueueNoMatchReturnsZero(t *testing.T) {
 	}
 }
 
+// TestPOpHeldUnimplemented pins OpPOpHeld's TS-faithful
+// 'unimplemented' error stub. Protected gate passes (both pointer
+// flags set), then handler returns the unimplemented error.
+// Mirrors TS PlayerOps.ts:381-383
+// (`checkedHandler(ProtectedActivePlayer, () => { throw new Error('unimplemented'); })`).
+// NAI-161 T6 — deviation NAI-161-D-POPHELD-STUB.
+func TestPOpHeldUnimplemented(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := newSingleOp("[p_opheld,test]", OpPOpHeld)
+	state := Init(sf, mp, false, nil, nil)
+	state.Pointers |= PtrActivePlayer | PtrProtectedActivePlayer
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: got nil err, want P_OPHELD: unimplemented")
+	}
+	if got := err.Error(); !strings.Contains(got, "P_OPHELD") || !strings.Contains(got, "unimplemented") {
+		t.Errorf("err: got %q, want substrings 'P_OPHELD' and 'unimplemented'", got)
+	}
+}
+
+// TestPOpHeldRequiresProtected pins gate-ordering: the
+// ProtectedActivePlayer check fires BEFORE the unimplemented stub.
+// Without the protect flag, the error is "script not protected",
+// not "unimplemented". NAI-161 T6.
+func TestPOpHeldRequiresProtected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := newSingleOp("[p_opheld_unprotected,test]", OpPOpHeld)
+	state := Init(sf, mp, false, nil, nil)
+	state.Pointers |= PtrActivePlayer // protect flag intentionally unset
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: got nil err, want P_OPHELD: script not protected")
+	}
+	if got := err.Error(); !strings.Contains(got, "P_OPHELD") || !strings.Contains(got, "script not protected") {
+		t.Errorf("err: got %q, want substrings 'P_OPHELD' and 'script not protected'", got)
+	}
+	if got := err.Error(); strings.Contains(got, "unimplemented") {
+		t.Errorf("err: got %q, must NOT contain 'unimplemented' — protected gate must fire first", got)
+	}
+}
+
 // TestClearQueueDispatch pins OpClearQueue: pop the scriptID arg,
 // delegate to ActivePlayer.UnlinkQueuedScript. Mirrors TS
 // PlayerOps.ts:1045-1048. NAI-161 T4.
