@@ -3932,6 +3932,123 @@ func TestNpcInRangeFalse(t *testing.T) {
 	}
 }
 
+// TestHandleNpcStatHeal_PartialHeal pins the heal formula and the cap at
+// baseLevels[stat]. Stat=Attack (non-HP), base=10, current=2,
+// constant=3, percent=50 → healed = 2 + (3 + 10*50/100) = 10.
+// NAI-162 B1.9.
+func TestHandleNpcStatHeal_PartialHeal(t *testing.T) {
+	mn := &mockNpc{levels: make(map[int]int), baseLevels: make(map[int]int)}
+	mn.baseLevels[objtype.NpcStatAttack] = 10
+	mn.levels[objtype.NpcStatAttack] = 2
+
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		ActiveNpc:   mn,
+		Pointers:    PtrActiveNpc,
+	}
+	// LIFO push order; TS popInts(3) → [stat, constant, percent]
+	s.PushInt(objtype.NpcStatAttack) // stat — popped last
+	s.PushInt(3)                     // constant
+	s.PushInt(50)                    // percent — popped first
+
+	if err := handleNpcStatHeal(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := mn.levels[objtype.NpcStatAttack]; got != 10 {
+		t.Errorf("levels[Attack]: got %d, want 10", got)
+	}
+	if mn.heroPointsClearCalls != 0 {
+		t.Errorf("heroPointsClear: got %d calls, want 0 (Attack stat)", mn.heroPointsClearCalls)
+	}
+}
+
+// TestHandleNpcStatHeal_HpFullClearsHeroPoints pins the HP-full branch.
+// base=20, current=18, constant=5, percent=50 → healed=33;
+// min(33, 20) = 20 (full HP). Clears HeroPoints. NAI-162 B1.9.
+func TestHandleNpcStatHeal_HpFullClearsHeroPoints(t *testing.T) {
+	mn := &mockNpc{levels: make(map[int]int), baseLevels: make(map[int]int)}
+	mn.baseLevels[objtype.NpcStatHitpoints] = 20
+	mn.levels[objtype.NpcStatHitpoints] = 18
+
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		ActiveNpc:   mn,
+		Pointers:    PtrActiveNpc,
+	}
+	s.PushInt(objtype.NpcStatHitpoints) // stat
+	s.PushInt(5)                        // constant
+	s.PushInt(50)                       // percent
+
+	if err := handleNpcStatHeal(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := mn.levels[objtype.NpcStatHitpoints]; got != 20 {
+		t.Errorf("levels[Hitpoints]: got %d, want 20", got)
+	}
+	if mn.heroPointsClearCalls != 1 {
+		t.Errorf("heroPointsClear: got %d calls, want 1", mn.heroPointsClearCalls)
+	}
+}
+
+// TestHandleNpcStatHeal_HpHealsButNotFull pins that HeroPoints stays
+// untouched when HP doesn't reach base. base=20, current=10, constant=2,
+// percent=10 → healed = 10 + (2 + 2) = 14 (below base). NAI-162 B1.9.
+func TestHandleNpcStatHeal_HpHealsButNotFull(t *testing.T) {
+	mn := &mockNpc{levels: make(map[int]int), baseLevels: make(map[int]int)}
+	mn.baseLevels[objtype.NpcStatHitpoints] = 20
+	mn.levels[objtype.NpcStatHitpoints] = 10
+
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		ActiveNpc:   mn,
+		Pointers:    PtrActiveNpc,
+	}
+	s.PushInt(objtype.NpcStatHitpoints) // stat
+	s.PushInt(2)                        // constant
+	s.PushInt(10)                       // percent
+
+	if err := handleNpcStatHeal(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := mn.levels[objtype.NpcStatHitpoints]; got != 14 {
+		t.Errorf("levels[Hitpoints]: got %d, want 14", got)
+	}
+	if mn.heroPointsClearCalls != 0 {
+		t.Errorf("heroPointsClear: got %d calls, want 0 (HP not full)", mn.heroPointsClearCalls)
+	}
+}
+
+// TestHandleNpcStatHeal_NonHpStatNeverClears: even when stat reaches base,
+// only HITPOINTS gates HeroPoints.Clear(). NAI-162 B1.9.
+func TestHandleNpcStatHeal_NonHpStatNeverClears(t *testing.T) {
+	mn := &mockNpc{levels: make(map[int]int), baseLevels: make(map[int]int)}
+	mn.baseLevels[objtype.NpcStatStrength] = 10
+	mn.levels[objtype.NpcStatStrength] = 5
+
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		ActiveNpc:   mn,
+		Pointers:    PtrActiveNpc,
+	}
+	s.PushInt(objtype.NpcStatStrength) // stat
+	s.PushInt(10)                      // constant=10 fully heals
+	s.PushInt(0)                       // percent
+
+	if err := handleNpcStatHeal(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := mn.levels[objtype.NpcStatStrength]; got != 10 {
+		t.Errorf("levels[Strength]: got %d, want 10", got)
+	}
+	if mn.heroPointsClearCalls != 0 {
+		t.Errorf("heroPointsClear: got %d calls, want 0 (non-HP)", mn.heroPointsClearCalls)
+	}
+}
+
 // TestNpcInRangeRequiresActiveNpc pins the ActiveNpc gate. NAI-160 T7.
 func TestNpcInRangeRequiresActiveNpc(t *testing.T) {
 	sf := &ScriptFile{

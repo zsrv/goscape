@@ -1176,3 +1176,39 @@ func handleNpcAttackRange(s *ScriptState) error {
 	s.PushInt(int(s.Configs.NpcType(typeID).AttackRange))
 	return nil
 }
+
+// handleNpcStatHeal (NPC_STATHEAL, opcode 2539) heals the active NPC's
+// stat by `constant + (base*percent/100)`, capped at base. When the
+// healed value reaches base and the stat is HITPOINTS, the NPC's HeroPoints
+// ledger is cleared. Mirrors TS NpcOps.ts:241-257.
+//
+// Pop order (LIFO): percent (top), constant, stat (bottom) — TS popInts(3)
+// returns [stat, constant, percent].
+func handleNpcStatHeal(s *ScriptState) error {
+	if err := requireActiveNpc(s, "NPC_STATHEAL"); err != nil {
+		return err
+	}
+	percent := s.PopInt()
+	constant := s.PopInt()
+	stat := s.PopInt()
+	if err := checkNpcStatID(stat, "NPC_STATHEAL"); err != nil {
+		return err
+	}
+	if err := checkNotNull(constant, "NPC_STATHEAL"); err != nil {
+		return err
+	}
+	if err := checkNotNull(percent, "NPC_STATHEAL"); err != nil {
+		return err
+	}
+	base := s.ActiveNpc.NpcBaseStat(stat)
+	cur := s.ActiveNpc.NpcStat(stat)
+	healed := cur + (constant + (base*percent)/100) // TS `| 0` ≡ Go int truncation
+	if healed > base {
+		healed = base
+	}
+	s.ActiveNpc.SetNpcStat(stat, healed)
+	if stat == objtype.NpcStatHitpoints && healed >= base {
+		s.ActiveNpc.HeroPointsClear()
+	}
+	return nil
+}

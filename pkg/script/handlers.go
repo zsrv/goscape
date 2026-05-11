@@ -473,6 +473,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// NAI-120 Bundle 2C: NPC stat write ops + NPC spotanim.
 	OpNpcStatAdd:   handleNpcStatAdd,
 	OpNpcStatSub:   handleNpcStatSub,
+	OpNpcStatHeal:  handleNpcStatHeal,
 	OpSpotAnimNpc:  handleSpotAnimNpc,
 
 	// NAI-120 Bundle 2D: NPC hero-point ledger write.
