@@ -102,6 +102,43 @@ func (p *Player) clearWeakQueue() {
 	p.queue = out
 }
 
+// UnlinkQueuedScript removes every p.queue entry whose Script resolves
+// to the script at scriptID (default-NORMAL TS arm). Walks the entire
+// p.queue regardless of Type discriminator — this matches TS
+// unlinkQueuedScript's default branch which walks both `queue` and
+// `weakQueue` (Player.ts:843-851). p.engineQueue is intentionally
+// untouched: TS gates engineQueue iteration behind type=ENGINE, which
+// CLEARQUEUE never passes (the only consumer at this time).
+//
+// No-op when scriptID does not resolve to a registered script (zero
+// possible matches — TS iterates and finds nothing in the same
+// scenario). Goscape matches by `req.Script == target` pointer-equality
+// after a single provider lookup; pointer stability holds because
+// Provider.scripts is append-only (provider.go).
+//
+// (goscape defensive; TS skips this check) The nil-server guard mirrors
+// EnqueueScriptArgs at player_script.go:127 — load-bearing for test
+// fixtures that don't wire a Server.
+//
+// Mirrors TS Player.unlinkQueuedScript(scriptId, type=NORMAL) at
+// Engine-TS/src/engine/entity/Player.ts:833-852. NAI-161 T1.
+func (p *Player) UnlinkQueuedScript(scriptID int) {
+	if p.client == nil || p.client.server == nil || p.client.server.scriptProvider == nil {
+		return
+	}
+	target := p.client.server.scriptProvider.GetByID(uint32(scriptID))
+	if target == nil {
+		return
+	}
+	out := p.queue[:0]
+	for _, req := range p.queue {
+		if req.Script != target {
+			out = append(out, req)
+		}
+	}
+	p.queue = out
+}
+
 // EnqueueScriptArgs implements script.ActivePlayer.EnqueueScriptArgs by
 // resolving scriptID → *ScriptFile via scriptProvider.GetByID and
 // delegating to EnqueueScriptFile. Returns a non-nil error when the

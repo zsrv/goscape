@@ -201,6 +201,121 @@ func TestEnqueueScriptFileNilIsNoop(t *testing.T) {
 	}
 }
 
+// TestUnlinkQueuedScriptDropsMatchingEntries pins the basic filter
+// behavior: enqueue 3 scripts at distinct IDs, unlink the middle one,
+// assert the remaining two are preserved in original order. NAI-161 T1.
+func TestUnlinkQueuedScriptDropsMatchingEntries(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	sf10 := &script.ScriptFile{Name: "[test_id10]"}
+	sf20 := &script.ScriptFile{Name: "[test_id20]"}
+	sf30 := &script.ScriptFile{Name: "[test_id30]"}
+	s.scriptProvider.Register(sf10) // id=0
+	s.scriptProvider.Register(sf20) // id=1
+	s.scriptProvider.Register(sf30) // id=2
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.EnqueueScriptFile(sf10, 0, nil, nil, script.QueueNormal)
+	p.EnqueueScriptFile(sf20, 0, nil, nil, script.QueueNormal)
+	p.EnqueueScriptFile(sf30, 0, nil, nil, script.QueueNormal)
+
+	p.UnlinkQueuedScript(1) // id=1 → sf20
+
+	if len(p.queue) != 2 {
+		t.Fatalf("queue len: got %d, want 2", len(p.queue))
+	}
+	if p.queue[0].Script != sf10 {
+		t.Errorf("queue[0].Script: got %v, want sf10", p.queue[0].Script)
+	}
+	if p.queue[1].Script != sf30 {
+		t.Errorf("queue[1].Script: got %v, want sf30", p.queue[1].Script)
+	}
+}
+
+// TestUnlinkQueuedScriptWalksAllNonEngineTypes pins the TS-faithful
+// default-NORMAL arm: walks BOTH queue and weakQueue, regardless of
+// Type discriminator. Engine entries live in p.engineQueue (separate
+// slice) and are untouched. NAI-161 T1 — deviation
+// NAI-161-D-QUEUE-TYPE-MAPPING.
+func TestUnlinkQueuedScriptWalksAllNonEngineTypes(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	sf10 := &script.ScriptFile{Name: "[test_id10]"}
+	s.scriptProvider.Register(sf10) // id=0
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.EnqueueScriptFile(sf10, 0, nil, nil, script.QueueNormal)
+	p.EnqueueScriptFile(sf10, 0, nil, nil, script.QueueWeak)
+	p.EnqueueScriptFile(sf10, 0, nil, nil, script.QueueStrong)
+	p.EnqueueScriptFile(sf10, 0, nil, nil, script.QueueLong)
+
+	p.UnlinkQueuedScript(0)
+
+	if len(p.queue) != 0 {
+		t.Errorf("queue len after unlink: got %d, want 0 (all 4 types should match)", len(p.queue))
+	}
+}
+
+// TestUnlinkQueuedScriptLeavesEngineQueueIntact pins that the
+// engineQueue (separate slice) is NOT walked by the default-NORMAL
+// arm of unlinkQueuedScript. NAI-161 T1.
+func TestUnlinkQueuedScriptLeavesEngineQueueIntact(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	sf10 := &script.ScriptFile{Name: "[test_id10]"}
+	s.scriptProvider.Register(sf10) // id=0
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.EnqueueScriptFile(sf10, 0, nil, nil, script.QueueNormal)
+	p.EnqueueScriptFile(sf10, 0, nil, nil, script.QueueEngine)
+
+	p.UnlinkQueuedScript(0)
+
+	if len(p.queue) != 0 {
+		t.Errorf("queue len: got %d, want 0 (normal entry should be dropped)", len(p.queue))
+	}
+	if len(p.engineQueue) != 1 {
+		t.Errorf("engineQueue len: got %d, want 1 (engine entry must be preserved)", len(p.engineQueue))
+	}
+}
+
+// TestUnlinkQueuedScriptNilServerIsNoop pins the defensive guard:
+// a Player with no client.server (or no scriptProvider) does not
+// panic and is a no-op. Mirrors EnqueueScriptArgs defensive shape at
+// player_script.go:127. NAI-161 T1 — deviation
+// NAI-161-D-CLEARQUEUE-NIL-PROVIDER.
+func TestUnlinkQueuedScriptNilServerIsNoop(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	// p.client.server is nil by default — newTestPlayer doesn't wire a Server.
+	p.UnlinkQueuedScript(99)
+	if len(p.queue) != 0 {
+		t.Errorf("queue len: got %d, want 0", len(p.queue))
+	}
+}
+
+// TestUnlinkQueuedScriptUnknownIDIsNoop pins TS-equivalent "scriptId
+// has no matches → zero iterations": when GetByID returns nil for an
+// out-of-range scriptID, the queue is unchanged. NAI-161 T1.
+func TestUnlinkQueuedScriptUnknownIDIsNoop(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	sf10 := &script.ScriptFile{Name: "[test_id10]"}
+	s.scriptProvider.Register(sf10) // id=0
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.EnqueueScriptFile(sf10, 0, nil, nil, script.QueueNormal)
+
+	p.UnlinkQueuedScript(99) // id=99 is out of range
+
+	if len(p.queue) != 1 {
+		t.Errorf("queue len: got %d, want 1 (bogus scriptID is no-op)", len(p.queue))
+	}
+}
+
 func TestAddXPFiresChangeStatOnLevelUp(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
