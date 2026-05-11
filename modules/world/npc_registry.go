@@ -179,9 +179,10 @@ func (s *Server) resetEntityForRespawn(n *Npc) {
 // Per TS: scales `duration` by player count, runs zone.leave (now wired),
 // flips isActive=false (n.dead=true in goscape), toggles
 // collision flags off per n.typ.BlockWalk, and branches on lifecycle:
-//   - DESPAWN: TS removes from rsbuf + registry + cleanup. Goscape
-//     keeps the dead-bool model (registry cleanup is orthogonal; tracked
-//     by the existing npc_registry.go header comment).
+//   - DESPAWN: TS World.ts:1312-1315 — rsbuf.RemoveNpc, release the
+//     registry slot, run n.Cleanup(). The s.npcLoop splice is deferred
+//     to end-of-tick compactNpcLoop per NAI-19-D-DEFERRED-COMPACT-VS-
+//     IMMEDIATE-SPLICE (mid-iteration splice unsafe on append-only slice).
 //   - RESPAWN+duration>-1: writes n.lifecycleTick = scaledDuration.
 func (s *Server) removeNpc(n *Npc, duration int) {
 	// Zone leave — mirrors TS World.removeNpc at World.ts:1297-1299.

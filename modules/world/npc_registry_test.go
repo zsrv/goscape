@@ -67,9 +67,9 @@ func TestRemoveNpcRespawnLifecycleSetsLifecycleTick(t *testing.T) {
 }
 
 // TestRemoveNpcDespawnLifecycleSkipsLifecycleTick verifies that on the
-// DESPAWN branch, removeNpc does NOT write n.lifecycleTick. The DESPAWN
-// branch carries TODO breadcrumbs for future rsbuf.RemoveNpc + registry
-// cleanup but currently only flips n.dead.
+// DESPAWN branch, removeNpc does NOT write n.lifecycleTick. (DESPAWN's
+// full behavior — slot release, Cleanup, end-of-tick splice — is pinned
+// by the NAI-19 test suite below; this test focuses on lifecycleTick.)
 func TestRemoveNpcDespawnLifecycleSkipsLifecycleTick(t *testing.T) {
 	s := newTestServer(t)
 	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}}
