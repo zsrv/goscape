@@ -1,6 +1,7 @@
 package script
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -20,6 +21,10 @@ type mockWorld struct {
 	playersByUID map[int]ActivePlayer
 	// NAI-162 B1: MAP_INDOORS seeded return value. Default false.
 	isIndoorsReturn bool
+	// NAI-163 B3: AddNpcAt mock. Handler tests inject behavior via
+	// addNpcAtFn (default-nil returns an error so unstubbed tests fail
+	// obviously rather than silently push nil).
+	addNpcAtFn func(level, x, z, typeID, duration int) (ActiveNpc, error)
 }
 
 func newMockWorld() *mockWorld {
@@ -70,6 +75,15 @@ func (m *mockWorld) RemoveObj(obj ActiveObj) {}
 // NAI-126 Bundle 1: default no-op stub for NPC_DEL test fixture. Tests
 // exercising RemoveNpc override via fakeWorldRemoveNpc.
 func (m *mockWorld) RemoveNpc(npc ActiveNpc, duration int) {}
+
+// NAI-163 B3: AddNpcAt stub. Delegates to addNpcAtFn if set; default
+// returns a clear error so unstubbed call-sites surface as test errors.
+func (m *mockWorld) AddNpcAt(level, x, z, typeID, duration int) (ActiveNpc, error) {
+	if m.addNpcAtFn == nil {
+		return nil, errors.New("mockWorld.AddNpcAt: not stubbed")
+	}
+	return m.addNpcAtFn(level, x, z, typeID, duration)
+}
 
 func (m *mockWorld) LookupPlayerByUID(uid int) ActivePlayer {
 	if m.playersByUID == nil {

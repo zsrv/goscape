@@ -1,6 +1,7 @@
 package script
 
 import (
+	"errors"
 	"reflect"
 	"slices"
 	"strings"
@@ -4303,5 +4304,115 @@ func TestNpcInRangeRequiresActiveNpc(t *testing.T) {
 	}
 	if got := err.Error(); !strings.Contains(got, "NPC_INRANGE") || !strings.Contains(got, "no active npc") {
 		t.Errorf("err: got %q, want contains 'NPC_INRANGE' and 'no active npc'", got)
+	}
+}
+
+// --- NAI-163 B3: NPC_ADD handler tests -----------------------------------
+
+func TestHandleNpcAdd_Success_SetsActiveNpc(t *testing.T) {
+	spawned := &mockNpc{nid: 7, typeID: 42, x: 3200, z: 3300, level: 0, uid: (42 << 16) | 7}
+	called := 0
+	mw := newMockWorld()
+	mw.addNpcAtFn = func(level, x, z, typeID, duration int) (ActiveNpc, error) {
+		called++
+		if level != 0 || x != 3200 || z != 3300 || typeID != 42 || duration != 100 {
+			t.Fatalf("AddNpcAt args: level=%d x=%d z=%d typeID=%d duration=%d", level, x, z, typeID, duration)
+		}
+		return spawned, nil
+	}
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{0}},
+		PC:          0,
+		Configs:     newTestConfigsWithNpcTypes(map[int]bool{42: true}),
+		World:       mw,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	// Pop order (top first): duration, id, coord. Push bottom first.
+	s.PushInt((0 << 28) | (3200 << 14) | 3300) // coord
+	s.PushInt(42)                               // id
+	s.PushInt(100)                              // duration
+	if err := handleNpcAdd(s); err != nil {
+		t.Fatalf("handleNpcAdd: %v", err)
+	}
+	if called != 1 {
+		t.Fatalf("AddNpcAt called %d times, want 1", called)
+	}
+	if s.ActiveNpc != ActiveNpc(spawned) {
+		t.Fatalf("ActiveNpc = %v, want %v", s.ActiveNpc, spawned)
+	}
+	if s.Pointers&PtrActiveNpc == 0 {
+		t.Fatalf("PtrActiveNpc must be set")
+	}
+	if s.ISP != 0 {
+		t.Fatalf("expected stack empty (no push); ISP=%d", s.ISP)
+	}
+}
+
+func TestHandleNpcAdd_RegistryFull_ReturnsError(t *testing.T) {
+	mw := newMockWorld()
+	mw.addNpcAtFn = func(level, x, z, typeID, duration int) (ActiveNpc, error) {
+		return nil, errors.New("npc registry full")
+	}
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{0}},
+		Configs:     newTestConfigsWithNpcTypes(map[int]bool{42: true}),
+		World:       mw,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt((0 << 28) | (3200 << 14) | 3300)
+	s.PushInt(42)
+	s.PushInt(100)
+	if err := handleNpcAdd(s); err == nil {
+		t.Fatalf("expected error on registry full, got nil")
+	}
+}
+
+func TestHandleNpcAdd_InvalidCoord_ReturnsError(t *testing.T) {
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{0}},
+		Configs:     newTestConfigsWithNpcTypes(map[int]bool{42: true}),
+		World:       newMockWorld(),
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(-1) // invalid coord
+	s.PushInt(42)
+	s.PushInt(100)
+	if err := handleNpcAdd(s); err == nil {
+		t.Fatalf("expected checkCoord error on negative coord")
+	}
+}
+
+func TestHandleNpcAdd_InvalidNpcType_ReturnsError(t *testing.T) {
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{0}},
+		Configs:     newTestConfigsWithNpcTypes(map[int]bool{42: true}),
+		World:       newMockWorld(),
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt((0 << 28) | (3200 << 14) | 3300)
+	s.PushInt(999) // unknown type
+	s.PushInt(100)
+	if err := handleNpcAdd(s); err == nil {
+		t.Fatalf("expected checkNpcType error on unknown type")
+	}
+}
+
+func TestHandleNpcAdd_InvalidDuration_ReturnsError(t *testing.T) {
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{0}},
+		Configs:     newTestConfigsWithNpcTypes(map[int]bool{42: true}),
+		World:       newMockWorld(),
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt((0 << 28) | (3200 << 14) | 3300)
+	s.PushInt(42)
+	s.PushInt(-1) // < 1 → checkDuration rejects
+	if err := handleNpcAdd(s); err == nil {
+		t.Fatalf("expected checkDuration error on duration < 1")
 	}
 }

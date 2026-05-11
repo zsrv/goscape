@@ -1,6 +1,8 @@
 package world
 
 import (
+	"fmt"
+
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/script"
 
@@ -149,6 +151,35 @@ func (w worldVarsView) RemoveNpc(npc script.ActiveNpc, duration int) {
 		return
 	}
 	w.s.removeNpc(realNpc, duration)
+}
+
+// AddNpcAt implements script.WorldVars.AddNpcAt. Looks up the NpcType,
+// constructs a despawn-lifecycle Npc via NewNpc (overriding the default
+// RESPAWN lifecycle to DESPAWN), and routes through (*Server).addNpc with
+// firstSpawn=true. Bubbles errNpcsFull on registry-full; returns a
+// goscape-defensive error on unknown typeID (TS-side checkNpcType already
+// rejects at the handler — TS skips this check). Mirrors TS World.addNpc
+// consumer pattern at NpcOps.ts:42-53. NAI-163 B3.
+func (w worldVarsView) AddNpcAt(level, x, z, typeID, duration int) (script.ActiveNpc, error) {
+	if w.s == nil {
+		return nil, fmt.Errorf("AddNpcAt: no server")
+	}
+	if w.s.npcTypes == nil {
+		return nil, fmt.Errorf("AddNpcAt: no NpcTypes loaded")
+	}
+	if typeID < 0 || typeID >= len(w.s.npcTypes.Configs) {
+		return nil, fmt.Errorf("AddNpcAt: typeID %d out of range", typeID)
+	}
+	typ := w.s.npcTypes.Configs[typeID]
+	if typ == nil {
+		return nil, fmt.Errorf("AddNpcAt: no NpcType for id %d", typeID)
+	}
+	n := NewNpc(0 /* nid placeholder; allocated inside addNpc */, typeID, x, z, level, typ)
+	n.lifecycle = NpcLifecycleDespawn
+	if err := w.s.addNpc(n, duration, true); err != nil {
+		return nil, err
+	}
+	return n, nil
 }
 
 // AddObj implements script.WorldVars.AddObj. Constructs a

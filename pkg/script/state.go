@@ -109,6 +109,16 @@ type WorldVars interface {
 	// World.ts:1296-1319. Used by NPC_DEL.
 	RemoveNpc(npc ActiveNpc, duration int)
 
+	// AddNpcAt spawns a new despawn-lifecycle NPC of `typeID` at (level, x, z)
+	// with the given despawn `duration` in ticks. duration=-1 means no
+	// scheduled despawn (the caller is responsible for explicit removeNpc).
+	// Returns the spawned ActiveNpc on success or an error if the NPC
+	// registry is full or typeID is unknown. Mirrors TS NpcOps.ts:42-53
+	// (NPC_ADD) + World.addNpc at World.ts:1258-1294. Routes through
+	// (*Server).addNpc with firstSpawn=true, hard-setting
+	// EntityLifeCycle.DESPAWN. NAI-163 B3.
+	AddNpcAt(level, x, z, typeID, duration int) (ActiveNpc, error)
+
 	// AddObj routes a ground-item spawn. receiverID is the owning
 	// player's UID for caller-only drops, or zone.PublicReceiver (-1)
 	// for broadcast. Returns the just-spawned ActiveObj so handlers can

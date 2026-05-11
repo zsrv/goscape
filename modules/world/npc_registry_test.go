@@ -1,6 +1,7 @@
 package world
 
 import (
+	"errors"
 	"slices"
 	"testing"
 
@@ -665,5 +666,110 @@ func TestRemoveNpc_DespawnLifecycle_SlotReusable(t *testing.T) {
 	reused := s.allocNpcSlot()
 	if reused != 1 {
 		t.Errorf("allocNpcSlot: got %d, want 1 (freed slot must be reusable)", reused)
+	}
+}
+
+// --- NAI-163 B3: AddNpcAt adapter tests ----------------------------------
+
+// newServerForAddNpcAt builds a *Server with a seeded NpcType for typeID=1
+// and an empty zoneMap; mirrors newTestServer's defaults so the
+// adapter's addNpc path goes through cleanly. Tests can vary typ
+// per case by reassigning s.npcTypes.Configs[1].
+func newServerForAddNpcAt(t *testing.T, typ *objtype.NpcType) *Server {
+	t.Helper()
+	s := newTestServer(t)
+	s.npcTypes = &objtype.NPCTypeConfigs{
+		Configs: []*objtype.NpcType{nil, typ},
+	}
+	return s
+}
+
+func TestAddNpcAt_AllocsNidAndRegisters(t *testing.T) {
+	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 1}, Size: 1}
+	s := newServerForAddNpcAt(t, typ)
+	w := worldVarsView{s: s}
+	npc, err := w.AddNpcAt(0, 3200, 3300, 1, -1)
+	if err != nil {
+		t.Fatalf("AddNpcAt: %v", err)
+	}
+	real, ok := npc.(*Npc)
+	if !ok {
+		t.Fatalf("AddNpcAt returned %T, want *Npc", npc)
+	}
+	if real.nid < 1 || real.nid >= len(s.npcs) {
+		t.Fatalf("nid out of range: %d", real.nid)
+	}
+	if s.npcs[real.nid] != real {
+		t.Fatalf("Npc not registered at s.npcs[%d]", real.nid)
+	}
+	if !slices.Contains(s.npcLoop, real) {
+		t.Fatalf("Npc not appended to s.npcLoop")
+	}
+}
+
+func TestAddNpcAt_SetsDespawnLifecycle(t *testing.T) {
+	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 1}, Size: 1}
+	s := newServerForAddNpcAt(t, typ)
+	w := worldVarsView{s: s}
+	npc, err := w.AddNpcAt(0, 3200, 3300, 1, -1)
+	if err != nil {
+		t.Fatalf("AddNpcAt: %v", err)
+	}
+	real := npc.(*Npc)
+	if real.lifecycle != NpcLifecycleDespawn {
+		t.Fatalf("lifecycle = %d, want NpcLifecycleDespawn (%d)", real.lifecycle, NpcLifecycleDespawn)
+	}
+}
+
+func TestAddNpcAt_WritesLifecycleTick(t *testing.T) {
+	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 1}, Size: 1}
+	s := newServerForAddNpcAt(t, typ)
+	w := worldVarsView{s: s}
+	npc, err := w.AddNpcAt(0, 3200, 3300, 1, 50)
+	if err != nil {
+		t.Fatalf("AddNpcAt: %v", err)
+	}
+	real := npc.(*Npc)
+	if real.lifecycleTick != 50 {
+		t.Fatalf("lifecycleTick = %d, want 50", real.lifecycleTick)
+	}
+}
+
+func TestAddNpcAt_RegistryFull_ReturnsErrNpcsFull(t *testing.T) {
+	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 1}, Size: 1}
+	s := newServerForAddNpcAt(t, typ)
+	// Fill all slots 1..N-1 (slot 0 stays nil per allocator convention).
+	for i := 1; i < len(s.npcs); i++ {
+		s.npcs[i] = &Npc{nid: i, typeId: 1}
+	}
+	w := worldVarsView{s: s}
+	_, err := w.AddNpcAt(0, 3200, 3300, 1, -1)
+	if !errors.Is(err, errNpcsFull) {
+		t.Fatalf("err = %v, want errNpcsFull", err)
+	}
+}
+
+func TestAddNpcAt_PopulatesSizeBlockWalkMoveRestrict(t *testing.T) {
+	typ := &objtype.NpcType{
+		ConfigType:   objtype.ConfigType{ID: 1},
+		Size:         2,
+		BlockWalk:    objtype.BlockWalkNPC,
+		MoveRestrict: 1, // any non-zero MoveRestrict for the test
+	}
+	s := newServerForAddNpcAt(t, typ)
+	w := worldVarsView{s: s}
+	npc, err := w.AddNpcAt(0, 3200, 3300, 1, -1)
+	if err != nil {
+		t.Fatalf("AddNpcAt: %v", err)
+	}
+	real := npc.(*Npc)
+	if real.size != int(typ.Size) {
+		t.Fatalf("size = %d, want %d", real.size, typ.Size)
+	}
+	if real.blockWalk != typ.BlockWalk {
+		t.Fatalf("blockWalk = %v, want %v", real.blockWalk, typ.BlockWalk)
+	}
+	if real.moveRestrict != MoveRestrict(typ.MoveRestrict) {
+		t.Fatalf("moveRestrict = %v, want %v", real.moveRestrict, typ.MoveRestrict)
 	}
 }

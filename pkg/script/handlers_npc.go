@@ -8,6 +8,48 @@ import (
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
+// handleNpcAdd (NPC_ADD, opcode 2500) pops [coord, id, duration] and
+// spawns a despawn-lifecycle NPC of typeID `id` at the unpacked coord.
+// Mirrors TS NpcOps.ts:42-53:
+//
+//	const [coord, id, duration] = state.popInts(3);
+//	const position = check(coord, CoordValid);
+//	const npcType  = check(id,    NpcTypeValid);
+//	check(duration, DurationValid);
+//	const npc = new Npc(level, x, z, size, size, DESPAWN, getNextNid(),
+//	    id, moverestrict, blockwalk);
+//	World.addNpc(npc, duration);
+//	state.activeNpc = npc;
+//	state.pointerAdd(ActiveNpc[state.intOperand]);
+//
+// Pop order (top first): duration, id, coord. NO push on success
+// (TS handler does not push). Sets ActiveNpc + PtrActiveNpc via
+// setActiveNpcSlot. Errors from AddNpcAt (registry full, etc.) bubble
+// to the dispatch loop. NAI-163 B3.
+func handleNpcAdd(s *ScriptState) error {
+	duration := s.PopInt()
+	id := s.PopInt()
+	coord := s.PopInt()
+
+	level, x, z, err := checkCoord(coord, "NPC_ADD")
+	if err != nil {
+		return err
+	}
+	if err := checkNpcType(s, id, "NPC_ADD"); err != nil {
+		return err
+	}
+	if err := checkDuration(duration); err != nil {
+		return err
+	}
+
+	npc, err := s.World.AddNpcAt(level, x, z, id, duration)
+	if err != nil {
+		return err
+	}
+	setActiveNpcSlot(s, npc)
+	return nil
+}
+
 // checkCoord mirrors TS CoordValid (ScriptValidators.ts:109) — validates
 // the packed int is in [0, 2147483647] and unpacks to (level, x, z).
 // Uses the package-local unpackCoord helper at handlers_player.go:18.
