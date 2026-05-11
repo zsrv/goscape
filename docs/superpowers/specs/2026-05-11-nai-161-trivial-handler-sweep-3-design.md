@@ -3,7 +3,7 @@ status: brainstorm-approved
 date: 2026-05-11
 ts_source:
   - LostCityRS/Engine-TS/src/engine/script/handlers/PlayerOps.ts:1045-1048 (CLEARQUEUE)
-  - LostCityRS/Engine-TS/src/engine/script/handlers/PlayerOps.ts:903-912 (GETQUEUE)
+  - LostCityRS/Engine-TS/src/engine/script/handlers/PlayerOps.ts:903-920 (GETQUEUE)
   - LostCityRS/Engine-TS/src/engine/script/handlers/PlayerOps.ts:381-383 (P_OPHELD)
   - LostCityRS/Engine-TS/src/engine/entity/Player.ts:833-852 (unlinkQueuedScript)
 ---
@@ -25,7 +25,7 @@ NAI-160 shipped 7 handlers and effectively exhausted the strict "single-statemen
 | Op | Opcode | Content callers | TS body | TS file:line |
 |---|---|---|---|---|
 | `OpClearQueue` | 2011 | 42 | `state.activePlayer.unlinkQueuedScript(state.popInt())` | PlayerOps.ts:1045-1048 |
-| `OpGetQueue` | 2021 | 16 | `popInt → for(req of activePlayer.queue.all()) if(req.script.id === id) count++; pushInt(count)` | PlayerOps.ts:903-912 |
+| `OpGetQueue` | 2021 | 16 | `popInt → for(req of activePlayer.queue.all()) count++ + for(req of activePlayer.weakQueue.all()) count++; pushInt(count)` | PlayerOps.ts:903-920 |
 | `OpPOpHeld` | 2076 | 0 actual usage (only command def at `Content/scripts/engine.rs2:176`) | `checkedHandler(ProtectedActivePlayer, () => { throw new Error('unimplemented'); })` | PlayerOps.ts:381-383 |
 
 CLEARQUEUE is the hottest unhandled op by content-caller density after NAI-160's SAY landed. Its content callers include minigame state-machine teardowns (`game_duelarena/duel_arena_finish.rs2`, `game_trawler/trawler_sink.rs2`, `game_trawler/trawler_win.rs2`) — unhandled CLEARQUEUE means scripted state cleanup at minigame exit silently leaks queued scripts. GETQUEUE is the natural cohort sibling (queue-introspection write+read pair) and serves shop/tutorial scripts. P_OPHELD is a TS-fidelity freebie: TS itself throws `'unimplemented'`, so a Go-side `fmt.Errorf("P_OPHELD: unimplemented")` matches the TS surface 1-for-1.
@@ -94,13 +94,13 @@ func (p *Player) UnlinkQueuedScript(scriptID int) {
     p.queue = out
 }
 
-// QueueCount returns the number of non-Weak p.queue entries whose
-// Script resolves to the script at scriptID. Mirrors TS GETQUEUE
-// at PlayerOps.ts:903-912 which walks `state.activePlayer.queue.all()`
-// only — NOT weakQueue and NOT engineQueue. Goscape's unified p.queue
-// holds Normal/Strong/Long/Weak entries; the Type != QueueWeak filter
-// reproduces TS's `queue` vs `weakQueue` partition. p.engineQueue is
-// a separate slice and is intentionally excluded.
+// QueueCount returns the number of p.queue entries whose Script
+// resolves to the script at scriptID. Mirrors TS GETQUEUE at
+// PlayerOps.ts:903-920 which walks BOTH `state.activePlayer.queue.all()`
+// AND `state.activePlayer.weakQueue.all()`, counting any match in either.
+// Goscape's unified p.queue holds Normal/Strong/Long/Weak entries, so a
+// single loop covers both TS queues. p.engineQueue is a separate slice
+// and is intentionally excluded.
 //
 // (goscape defensive; TS skips this check) See UnlinkQueuedScript.
 func (p *Player) QueueCount(scriptID int) int {
@@ -113,15 +113,16 @@ func (p *Player) QueueCount(scriptID int) int {
     }
     n := 0
     for _, req := range p.queue {
-        if req.Type == script.QueueWeak {
-            continue
-        }
         if req.Script == target {
             n++
         }
     }
     return n
 }
+
+// Plan-author erratum: original code block above had `Type != QueueWeak`
+// filter; re-reading PlayerOps.ts:903-920 shows TS walks BOTH queue AND
+// weakQueue. Filter removed; expected count 3→4 in §5 QueueCount test #1.
 ```
 
 ### §2.2 ActivePlayer interface widening (`pkg/script/active.go`)
@@ -134,9 +135,9 @@ Two new methods on the `ActivePlayer` interface:
 // default NORMAL arm (queue + weakQueue; engineQueue untouched).
 UnlinkQueuedScript(scriptID int)
 
-// QueueCount returns the count of non-Weak queued requests whose
-// script resolves to scriptID. Mirrors TS GETQUEUE iteration over
-// queue.all() (PlayerOps.ts:907-911).
+// QueueCount returns the count of queued requests (Normal/Strong/Long/Weak)
+// whose script resolves to scriptID. Mirrors TS GETQUEUE iteration over
+// queue.all() + weakQueue.all() (PlayerOps.ts:903-920).
 QueueCount(scriptID int) int
 ```
 
@@ -156,15 +157,18 @@ func handleClearQueue(s *ScriptState) error {
 }
 
 // handleGetQueue — OpGetQueue (2021).
-// TS PlayerOps.ts:903-912:
+// TS PlayerOps.ts:903-920:
 //   const scriptId = state.popInt();
 //   let count = 0;
 //   for (const request of state.activePlayer.queue.all()) {
 //     if (request.script.id === scriptId) { count++; }
 //   }
+//   for (const request of state.activePlayer.weakQueue.all()) {
+//     if (request.script.id === scriptId) { count++; }
+//   }
 //   state.pushInt(count);
 //
-// The for-loop lives inside (*Player).QueueCount per §2.1 — handler
+// Both loops live inside (*Player).QueueCount per §2.1 — handler
 // is a 3-line popInt → delegate → pushInt.
 func handleGetQueue(s *ScriptState) error {
     if err := requireActivePlayer(s, "GETQUEUE"); err != nil {
@@ -230,7 +234,7 @@ Per `mock_recorder_field_naming_check.md`, plan-author greps the actual `mockPla
 
 | Tag | Site | Deviation | Rationale |
 |---|---|---|---|
-| `NAI-161-D-QUEUE-TYPE-MAPPING` | `(*Player).UnlinkQueuedScript` / `QueueCount` | TS data model: 3 separate LinkLists (`queue`, `weakQueue`, `engineQueue`). Goscape: unified `p.queue` with `Type` discriminator + separate `p.engineQueue`. `UnlinkQueuedScript` walks the entire `p.queue` (Normal/Strong/Long/Weak — matches TS `queue ∪ weakQueue`); `QueueCount` filters `p.queue` to `Type != QueueWeak` (matches TS `queue.all()`). | TS-faithful at semantic level. Goscape's discriminator-based queue unification was set at queue-system introduction (NAI-144 era). Doc-comments on both methods cite TS line + the mapping rule. No follow-up. |
+| `NAI-161-D-QUEUE-TYPE-MAPPING` | `(*Player).UnlinkQueuedScript` / `QueueCount` | TS data model: 3 separate LinkLists (`queue`, `weakQueue`, `engineQueue`). Goscape: unified `p.queue` with `Type` discriminator + separate `p.engineQueue`. Both `UnlinkQueuedScript` and `QueueCount` walk the entire `p.queue` (Normal/Strong/Long/Weak — matches TS `queue ∪ weakQueue`). TS GETQUEUE (PlayerOps.ts:903-920) iterates BOTH `queue.all()` AND `weakQueue.all()`; goscape's single `p.queue` loop is equivalent. | TS-faithful at semantic level. Goscape's discriminator-based queue unification was set at queue-system introduction (NAI-144 era). Doc-comments on both methods cite TS line + the mapping rule. No follow-up. |
 | `NAI-161-D-CLEARQUEUE-NIL-PROVIDER` | `(*Player).UnlinkQueuedScript` / `QueueCount` | Defensive early-return when `p.client / server / scriptProvider` is nil. TS has no such guard. | Per `defensive_gate_doc_comment_label.md` — load-bearing for test fixtures that don't wire a Server (mirrors `EnqueueScriptArgs` at `player_script.go:127`). Labeled "(goscape defensive; TS skips this check)". No follow-up. |
 | `NAI-161-D-CLEARQUEUE-RESOLVE-FIRST` | `(*Player).UnlinkQueuedScript` / `QueueCount` | Goscape resolves `scriptProvider.GetByID(scriptID)` once and pointer-equality compares `req.Script == target`. TS compares `request.script.id === scriptId` per-iteration. | Same set semantics via goscape's by-index storage model — `playerQueueRequest.Script` is a `*ScriptFile`; no `ScriptID` field exists on the struct. Alternative (adding a `ScriptID` field) would force schema change + retrofit at 4 `EnqueueScriptFile` callers in `player_zone_triggers.go`, none of which carry a scriptID (trigger-resolved via `GetByTrigger`). No follow-up. |
 | `NAI-161-D-POPHELD-STUB` | `handlePOpHeld` | TS literally throws `Error('unimplemented')`; goscape returns `fmt.Errorf("P_OPHELD: unimplemented")`. | TS-faithful — both raise an error at the same point in execution; only the surface differs (TS exception vs Go error). Stub remains until OPHELD trigger plumbing is ported (separate cohort with OcOp/LcOp/OcIop). No follow-up beyond that cohort's eventual landing. |
@@ -273,7 +277,7 @@ Per `mock_recorder_field_naming_check.md`, plan-author greps the actual `mockPla
 
 **Unit tests for `(*Player).QueueCount`** (`modules/world/player_script_test.go`):
 
-1. **Counts only Normal/Strong/Long, excludes Weak**: Register script at ID=10. Enqueue 4 entries all `Script=sf10` with Types `[Normal, Strong, Long, Weak]`. Call `QueueCount(10)` → returns `3`. Pins TS-faithful `queue.all()` semantics (no weakQueue).
+1. **Counts all queue types including Weak**: Register script at ID=10. Enqueue 4 entries all `Script=sf10` with Types `[Normal, Strong, Long, Weak]`. Call `QueueCount(10)` → returns `4`. Pins TS-faithful `queue.all() + weakQueue.all()` semantics (PlayerOps.ts:903-920).
 2. **EngineQueue excluded**: Enqueue `id=10` to both `p.queue` (Normal) and `p.engineQueue` (Engine). `QueueCount(10)` → returns `1`.
 3. **Bogus scriptID returns 0**: Enqueue `id=10`. `QueueCount(99)` → returns `0`.
 4. **Nil-server returns 0**: Fresh `*Player{}` → `QueueCount(99) == 0` and doesn't panic.
@@ -347,7 +351,7 @@ Cited in close-commit `Closes memory:` trailer per `close_commit_memory_trailer.
 Per `spec_ts_init_value_audit.md` and `spec_diagram_order_divergence.md`, this spec was authored from TS source line reads (not from neighbor-handler analogy):
 
 - **CLEARQUEUE**: `PlayerOps.ts:1045-1048` — 2 lines. `Player.unlinkQueuedScript(id, type=NORMAL)` body at `Player.ts:833-852` read verbatim — default branch walks both `queue` and `weakQueue`. Goscape mapping codified in deviation `NAI-161-D-QUEUE-TYPE-MAPPING`.
-- **GETQUEUE**: `PlayerOps.ts:903-912` — walks `state.activePlayer.queue.all()` only (NOT weakQueue, NOT engineQueue). Confirms `Type != QueueWeak` filter on goscape.
+- **GETQUEUE**: `PlayerOps.ts:903-920` — walks BOTH `state.activePlayer.queue.all()` AND `state.activePlayer.weakQueue.all()`; counts matches in either. Goscape's unified `p.queue` (Normal/Strong/Long/Weak) covers both; no Type filter. p.engineQueue excluded. (Plan-author erratum: original spec stated `queue.all()` only; re-read of PlayerOps.ts:903-920 corrects this.)
 - **P_OPHELD**: `PlayerOps.ts:381-383` — `checkedHandler(ProtectedActivePlayer, () => { throw new Error('unimplemented'); })`. Two gates: protected check + unimplemented body. Goscape preserves both; gate ordering pinned by §5 test #7.
 
 No init-value, diagram-order, or asymmetric-predicate divergences detected.

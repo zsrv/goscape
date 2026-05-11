@@ -316,11 +316,11 @@ func TestUnlinkQueuedScriptUnknownIDIsNoop(t *testing.T) {
 	}
 }
 
-// TestQueueCountExcludesWeak pins TS GETQUEUE semantics: walks
-// queue.all() only (NOT weakQueue). Goscape filters p.queue to
-// Type != QueueWeak. NAI-161 T2 — deviation
-// NAI-161-D-QUEUE-TYPE-MAPPING.
-func TestQueueCountExcludesWeak(t *testing.T) {
+// TestQueueCountIncludesAllQueueTypes pins TS GETQUEUE semantics: walks
+// BOTH queue.all() AND weakQueue.all() (PlayerOps.ts:903-920). Goscape's
+// unified p.queue holds all four types; the loop counts all matches
+// regardless of Type. NAI-161 T2.
+func TestQueueCountIncludesAllQueueTypes(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
 	sf10 := &script.ScriptFile{Name: "[test_id10]"}
@@ -334,8 +334,8 @@ func TestQueueCountExcludesWeak(t *testing.T) {
 	p.EnqueueScriptFile(sf10, 0, nil, nil, script.QueueWeak)
 
 	got := p.QueueCount(0)
-	if got != 3 {
-		t.Errorf("QueueCount(0): got %d, want 3 (Normal+Strong+Long; Weak excluded)", got)
+	if got != 4 {
+		t.Errorf("QueueCount(0): got %d, want 4 (Normal+Strong+Long+Weak all counted)", got)
 	}
 }
 
