@@ -592,3 +592,194 @@ func TestHandleObjTakeItem_NoWorld(t *testing.T) {
 		t.Errorf("OBJ_TAKEITEM: expected error on nil World, got nil")
 	}
 }
+
+// --- NAI-154: OBJ_FIND handler tests ---------------------------------
+
+// objFindCall records a single WorldVars.GetObj invocation.
+type objFindCall struct {
+	level, x, z, objId, receiverUID int
+}
+
+// fakeWorldObjFind extends mockWorld to record GetObj calls and return a
+// preset result. Mirrors fakeWorldAddObj.
+type fakeWorldObjFind struct {
+	*mockWorld
+	result ActiveObj
+	calls  []objFindCall
+}
+
+func (w *fakeWorldObjFind) GetObj(level, x, z, objId, receiverUID int) ActiveObj {
+	w.calls = append(w.calls, objFindCall{level, x, z, objId, receiverUID})
+	return w.result
+}
+
+func newFakeWorldObjFind(result ActiveObj) *fakeWorldObjFind {
+	return &fakeWorldObjFind{mockWorld: newMockWorld(), result: result}
+}
+
+// newObjFindState builds a ScriptState ready for handleObjFind: World
+// wired, Configs wired with the given objId registered, Self+UID
+// populated, IntOperand set for slot routing, and the coord+objId
+// pre-pushed onto the int stack (bottom-up matches popInts semantics:
+// coord pushed first, objId pushed second).
+func newObjFindState(t *testing.T, w WorldVars, mc *mockConfigs, intOperand int32, coord, objId, uid int) *ScriptState {
+	t.Helper()
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{intOperand}},
+		PC:          0,
+		World:       w,
+		Configs:     mc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.Self = &mockPlayer{uidValue: uid}
+	s.Pointers |= PtrActivePlayer
+	s.PushInt(coord)
+	s.PushInt(objId)
+	return s
+}
+
+// TestObjFindHitPrimarySlot pins OBJ_FIND IntOperand=0: hit sets
+// s.ActiveObj, sets PtrActiveObj, pushes 1.
+func TestObjFindHitPrimarySlot(t *testing.T) {
+	obj := &mockActiveObj{objType: 590, x: 3200, z: 3300, level: 0, count: 1}
+	w := newFakeWorldObjFind(obj)
+	mc := withObjForObjAdd(newTestConfigs(), 590, true, false, 0)
+	coord := coordgrid.PackCoord(0, 3200, 3300)
+	s := newObjFindState(t, w, mc, 0 /*intOperand*/, coord, 590, 12345)
+
+	if err := handleObjFind(s); err != nil {
+		t.Fatalf("handleObjFind: %v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("push: got %d, want 1 (hit)", got)
+	}
+	if s.ActiveObj != obj {
+		t.Errorf("ActiveObj: got %v, want %v", s.ActiveObj, obj)
+	}
+	if s.Pointers&PtrActiveObj == 0 {
+		t.Error("PtrActiveObj not set")
+	}
+	if s.OtherActiveObj != nil {
+		t.Errorf("OtherActiveObj: got %v, want nil (primary slot)", s.OtherActiveObj)
+	}
+}
+
+// TestObjFindHitSecondarySlot pins OBJ_FIND IntOperand=1: hit sets
+// s.OtherActiveObj, sets PtrActiveObj2, pushes 1.
+func TestObjFindHitSecondarySlot(t *testing.T) {
+	obj := &mockActiveObj{objType: 590, x: 3200, z: 3300, level: 0, count: 1}
+	w := newFakeWorldObjFind(obj)
+	mc := withObjForObjAdd(newTestConfigs(), 590, true, false, 0)
+	coord := coordgrid.PackCoord(0, 3200, 3300)
+	s := newObjFindState(t, w, mc, 1 /*intOperand*/, coord, 590, 12345)
+
+	if err := handleObjFind(s); err != nil {
+		t.Fatalf("handleObjFind: %v", err)
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("push: got %d, want 1", got)
+	}
+	if s.OtherActiveObj != obj {
+		t.Errorf("OtherActiveObj: got %v, want %v", s.OtherActiveObj, obj)
+	}
+	if s.Pointers&PtrActiveObj2 == 0 {
+		t.Error("PtrActiveObj2 not set")
+	}
+	if s.ActiveObj != nil {
+		t.Errorf("ActiveObj: got %v, want nil (secondary slot)", s.ActiveObj)
+	}
+}
+
+// TestObjFindMissPushesZero pins the nil-result branch: pushes 0, leaves
+// ActiveObj/OtherActiveObj untouched.
+func TestObjFindMissPushesZero(t *testing.T) {
+	w := newFakeWorldObjFind(nil)
+	mc := withObjForObjAdd(newTestConfigs(), 590, true, false, 0)
+	coord := coordgrid.PackCoord(0, 3200, 3300)
+	s := newObjFindState(t, w, mc, 0, coord, 590, 12345)
+
+	if err := handleObjFind(s); err != nil {
+		t.Fatalf("handleObjFind: %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("push: got %d, want 0 (miss)", got)
+	}
+	if s.ActiveObj != nil {
+		t.Errorf("ActiveObj: got %v, want nil on miss", s.ActiveObj)
+	}
+}
+
+// TestObjFindRequiresActivePlayer pins the requireActivePlayer guard:
+// no Self → error.
+func TestObjFindRequiresActivePlayer(t *testing.T) {
+	w := newFakeWorldObjFind(nil)
+	mc := withObjForObjAdd(newTestConfigs(), 590, true, false, 0)
+	coord := coordgrid.PackCoord(0, 3200, 3300)
+	s := newObjFindState(t, w, mc, 0, coord, 590, 12345)
+	// Clear the player.
+	s.Self = nil
+	s.Pointers &^= PtrActivePlayer
+
+	err := handleObjFind(s)
+	if err == nil {
+		t.Fatal("handleObjFind: want error (no active player), got nil")
+	}
+	if !strings.Contains(err.Error(), "OBJ_FIND") {
+		t.Errorf("err: got %q, want substring %q", err.Error(), "OBJ_FIND")
+	}
+}
+
+// TestObjFindUnknownObjId pins the Configs lookup guard: unknown objId
+// → error.
+func TestObjFindUnknownObjId(t *testing.T) {
+	w := newFakeWorldObjFind(nil)
+	mc := newTestConfigs() // no 590 registered
+	coord := coordgrid.PackCoord(0, 3200, 3300)
+	s := newObjFindState(t, w, mc, 0, coord, 590, 12345)
+
+	err := handleObjFind(s)
+	if err == nil {
+		t.Fatal("handleObjFind: want error (unknown obj id), got nil")
+	}
+	if !strings.Contains(err.Error(), "unknown obj id") {
+		t.Errorf("err: got %q, want substring %q", err.Error(), "unknown obj id")
+	}
+}
+
+// TestObjFindInvalidCoord pins the checkCoord guard: -1 → error.
+func TestObjFindInvalidCoord(t *testing.T) {
+	w := newFakeWorldObjFind(nil)
+	mc := withObjForObjAdd(newTestConfigs(), 590, true, false, 0)
+	s := newObjFindState(t, w, mc, 0, -1 /*coord*/, 590, 12345)
+
+	err := handleObjFind(s)
+	if err == nil {
+		t.Fatal("handleObjFind: want error (invalid coord), got nil")
+	}
+	if !strings.Contains(err.Error(), "OBJ_FIND") {
+		t.Errorf("err: got %q, want substring %q", err.Error(), "OBJ_FIND")
+	}
+}
+
+// TestObjFindUIDPropagation pins NAI-153-D2: receiverUID passed to
+// WorldVars.GetObj is s.Self.UID() (goscape player UID, not TS hash64).
+func TestObjFindUIDPropagation(t *testing.T) {
+	obj := &mockActiveObj{objType: 590, count: 1}
+	w := newFakeWorldObjFind(obj)
+	mc := withObjForObjAdd(newTestConfigs(), 590, true, false, 0)
+	coord := coordgrid.PackCoord(0, 3200, 3300)
+	s := newObjFindState(t, w, mc, 0, coord, 590, 98765 /*uid*/)
+
+	if err := handleObjFind(s); err != nil {
+		t.Fatalf("handleObjFind: %v", err)
+	}
+	if len(w.calls) != 1 {
+		t.Fatalf("GetObj calls: got %d, want 1", len(w.calls))
+	}
+	got := w.calls[0]
+	want := objFindCall{level: 0, x: 3200, z: 3300, objId: 590, receiverUID: 98765}
+	if got != want {
+		t.Errorf("GetObj call: got %+v, want %+v", got, want)
+	}
+}

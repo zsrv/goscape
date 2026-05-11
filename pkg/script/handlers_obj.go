@@ -265,6 +265,45 @@ func handleObjTakeItem(s *ScriptState) error {
 	return nil
 }
 
+// handleObjFind (OBJ_FIND, opcode 3505) pops [coord, objId], resolves
+// the obj via WorldVars.GetObj, and either slot-routes it via
+// setActiveObjSlot + pushes 1 on hit, or pushes 0 on miss. Mirrors TS
+// ObjOps.ts:168-183.
+//
+// Pop order: objId is at the top of the stack (last pushed); coord
+// below it. Matches TS `[coord, objId] = state.popInts(2)`.
+//
+// Receiver UID is s.Self.UID() per NAI-153-D2 (goscape UID vs TS hash64).
+func handleObjFind(s *ScriptState) error {
+	if err := requireActivePlayer(s, "OBJ_FIND"); err != nil {
+		return err
+	}
+	if err := requireConfigs(s, "OBJ_FIND"); err != nil {
+		return err
+	}
+	objId := s.PopInt()
+	coord := s.PopInt()
+	level, x, z, err := checkCoord(coord, "OBJ_FIND")
+	if err != nil {
+		return err
+	}
+	if s.Configs.ObjType(objId) == nil {
+		return fmt.Errorf("OBJ_FIND: unknown obj id %d", objId)
+	}
+	if s.World == nil {
+		s.PushInt(0)
+		return nil
+	}
+	obj := s.World.GetObj(level, x, z, objId, s.Self.UID())
+	if obj == nil {
+		s.PushInt(0)
+		return nil
+	}
+	setActiveObjSlot(s, obj)
+	s.PushInt(1)
+	return nil
+}
+
 // handleObjType (OBJ_TYPE, opcode 3511) pushes the active obj's type id.
 // Mirrors TS ObjOps.ts:132-134:
 //
