@@ -898,6 +898,60 @@ func TestHeadIconsGet(t *testing.T) {
 	}
 }
 
+// -- HEADICONS_SET tests -------------------------------------------------
+
+// TestHeadIconsSet pins OpHeadIconsSet's body: pop an int, NumberNotNull
+// check, write into headicons. Mirrors TS PlayerOps.ts:984-986. NAI-160 T3.
+func TestHeadIconsSet(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name:             "[headicons_set,test]",
+		Opcodes:          []Opcode{OpPushConstantInt, OpHeadIconsSet, OpReturn},
+		IntOperands:      []int32{42, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	state.Pointers |= PtrActivePlayer
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := len(mp.setHeadIconsCalls); got != 1 {
+		t.Fatalf("setHeadIconsCalls: got %d, want 1", got)
+	}
+	if got := mp.setHeadIconsCalls[0]; got != 42 {
+		t.Errorf("setHeadIconsCalls[0]: got %d, want 42", got)
+	}
+	if got := mp.headiconsValue; got != 42 {
+		t.Errorf("headiconsValue post-set: got %d, want 42", got)
+	}
+}
+
+// TestHeadIconsSetRejectsNull pins the NumberNotNull check (goscape
+// checkNotNull rejects -1; matches TS NumberNotNull). NAI-160 T3.
+func TestHeadIconsSetRejectsNull(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name:             "[headicons_set_null,test]",
+		Opcodes:          []Opcode{OpPushConstantInt, OpHeadIconsSet, OpReturn},
+		IntOperands:      []int32{-1, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	state.Pointers |= PtrActivePlayer
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: got nil err, want HEADICONS_SET: input number was null(-1)")
+	}
+	if got := err.Error(); !strings.Contains(got, "HEADICONS_SET: input number was null(-1)") {
+		t.Errorf("err: got %q, want substring 'HEADICONS_SET: input number was null(-1)'", got)
+	}
+	if got := len(mp.setHeadIconsCalls); got != 0 {
+		t.Errorf("setHeadIconsCalls: got %d, want 0 (write must NOT happen on validation failure)", got)
+	}
+}
+
 // -- Active-player-required negative tests -------------------------------
 
 // Every handler that dereferences Self must return an error when
@@ -939,6 +993,8 @@ func TestHandlersRequireActivePlayer(t *testing.T) {
 		{"SAY", OpSay},
 		// NAI-160 T2.
 		{"HEADICONS_GET", OpHeadIconsGet},
+		// NAI-160 T3.
+		{"HEADICONS_SET", OpHeadIconsSet},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -1625,3 +1625,22 @@ func handleHeadIconsGet(s *ScriptState) error {
 	s.PushInt(s.Self.HeadIcons())
 	return nil
 }
+
+// handleHeadIconsSet implements OpHeadIconsSet (TS HEADICONS_SET at
+// PlayerOps.ts:984-986). Pops an int, checks NumberNotNull, writes into
+// the player's headicons bitmask.
+//
+// goscape defensive: requireActivePlayer guard (TS deref-panics).
+// Order is pop → check → set so a failed gate leaves headicons untouched
+// (covered by TestHeadIconsSetRejectsNull). NAI-160 T3.
+func handleHeadIconsSet(s *ScriptState) error {
+	if err := requireActivePlayer(s, "HEADICONS_SET"); err != nil {
+		return err
+	}
+	v := s.PopInt()
+	if err := checkNotNull(v, "HEADICONS_SET"); err != nil {
+		return err
+	}
+	s.Self.SetHeadIcons(v)
+	return nil
+}
