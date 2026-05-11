@@ -1679,3 +1679,12 @@ func TestAdvanceStatUsesQueueEngine(t *testing.T) {
 		t.Errorf("Script: got %v, want %v", p.engineQueue[0].Script, sf)
 	}
 }
+
+// TestPlayer_LastLoginInfo_StubNoOp pins (*Player).LastLoginInfo() as
+// a silent no-op until LAST_LOGIN_INFO ServerProt is ported. Tracked
+// as NAI-162-D-LASTLOGIN-NO-PACKET. Test pins the method exists and
+// doesn't panic on a fresh Player.
+func TestPlayer_LastLoginInfo_StubNoOp(t *testing.T) {
+	p := &Player{}
+	p.LastLoginInfo() // must not panic; current behaviour is no-op
+}

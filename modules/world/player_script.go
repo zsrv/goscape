@@ -1310,3 +1310,15 @@ func (p *Player) SetPreventLogout(message string, untilTick int) {
 func (p *Player) ApplyDamage(amount, dmgType int) {
 	p.Damage(amount, dmgType)
 }
+
+// LastLoginInfo emits a LAST_LOGIN_INFO server packet with the
+// previous-login timestamp and IP. Mirrors TS Player.lastLoginInfo
+// (PlayerOps.ts:932 caller).
+//
+// NAI-162-D-LASTLOGIN-NO-PACKET: ServerProt absent at NAI-162 cut.
+// Method is a no-op until the prot is ported. Once the prot lands,
+// implementation queues an outgoing packet via the standard
+// (*Player) client.write pattern.
+func (p *Player) LastLoginInfo() {
+	// Intentional no-op pending ServerProt port.
+}
