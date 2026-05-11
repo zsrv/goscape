@@ -552,6 +552,16 @@ var handlers = map[Opcode]func(*ScriptState) error{
 
 	// NAI-161 T6: P_OPHELD (TS-faithful unimplemented stub).
 	OpPOpHeld: handlePOpHeld,
+
+	// NAI-162 B0: 6 TS-unimplemented opcode stubs (stub-with-pin pattern).
+	// TS declares all 6 in ScriptOpcode.ts but has no handlers/* case-label
+	// entries. Deviations NAI-162-D-STUB-* per §3. Audit: 18 → 12.
+	OpPushVarbit: handlePushVarbit, // opcode 25
+	OpPopVarbit:  handlePopVarbit,  // opcode 27
+	OpSetGender:  handleSetGender,  // opcode 2099
+	OpLcOp:       handleLcOp,       // opcode 4105
+	OpOcIop:      handleOcIop,      // opcode 4205
+	OpOcOp:       handleOcOp,       // opcode 4208
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.
