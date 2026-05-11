@@ -1381,54 +1381,65 @@ func handleBothMoveInv(s *ScriptState) error {
 	// Emit wealth events per TS InvOps.ts:445-494.
 	// TS-faithful per InvOps.ts:445-494: STAKE for 'dueloffer', TRADE for
 	// non-secondary trade. NAI-115-D1 retired at NAI-162 B2.
-	if len(fromLogs) > 0 {
-		fromItems := make([]WealthItem, len(fromLogs))
-		for i, e := range fromLogs {
-			fromItems[i] = WealthItem{ID: e.id, Name: e.name, Count: e.count}
-		}
+	//
+	// STAKE gate: TS InvOps.ts:449 `if (fromItems.length > 0)` — only emit when
+	// the staker actually moved items.
+	//
+	// TRADE gate: TS InvOps.ts:483 `if (fromItems.length > 0 || toLogs.size > 0)`
+	// — emit when EITHER side has items. The toItems scan must happen unconditionally
+	// (outside the fromLogs>0 guard) so the case "fromInv empty, toInv has items"
+	// still fires the event. See NAI-162 B2.6.fixup.
+	fromItems := make([]WealthItem, len(fromLogs))
+	for i, e := range fromLogs {
+		fromItems[i] = WealthItem{ID: e.id, Name: e.name, Count: e.count}
+	}
 
-		if fromInvType.DebugName == "dueloffer" {
-			// STAKE event (mirrors TS InvOps.ts:447-453).
+	if fromInvType.DebugName == "dueloffer" {
+		// STAKE event (mirrors TS InvOps.ts:447-453).
+		if len(fromLogs) > 0 {
 			fromPlayer.AddWealthEvent(WealthEvent{
 				EventType:    WealthEventTypeStake,
 				AccountItems: fromItems,
 				AccountValue: fromTotal,
 				// RecipientSession: toPlayer.Session() — deferred (NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY).
 			})
-		} else if !secondary {
-			// TRADE event (mirrors TS InvOps.ts:455-492 non-secondary branch).
-			// Read the to-player's matching inventory to build recipient side.
-			toTotal := 0
-			var toItems []WealthItem
-			if tradeInv := s.Inv.Get(toPlayer, from); tradeInv != nil {
-				toLogIdx := make(map[int]int)
-				for slot := 0; slot < tradeInv.Capacity; slot++ {
-					it := tradeInv.Get(slot)
-					if it == nil {
-						continue
-					}
-					toObjType := s.Configs.ObjType(it.Id)
-					if toObjType == nil {
-						continue
-					}
-					if idx, ok := toLogIdx[it.Id]; ok {
-						toItems[idx].Count += it.Count
-					} else {
-						toLogIdx[it.Id] = len(toItems)
-						toItems = append(toItems, WealthItem{ID: it.Id, Name: toObjType.DebugName, Count: it.Count})
-					}
-					toTotal += toObjType.Cost * it.Count
+		}
+	} else if !secondary {
+		// TRADE event (mirrors TS InvOps.ts:455-492 non-secondary branch).
+		// Read the to-player's matching inventory to build recipient side.
+		// This scan is unconditional so toLogs.size>0 can trigger emission.
+		toTotal := 0
+		var toItems []WealthItem
+		if tradeInv := s.Inv.Get(toPlayer, from); tradeInv != nil {
+			toLogIdx := make(map[int]int)
+			for slot := 0; slot < tradeInv.Capacity; slot++ {
+				it := tradeInv.Get(slot)
+				if it == nil {
+					continue
 				}
+				toObjType := s.Configs.ObjType(it.Id)
+				if toObjType == nil {
+					continue
+				}
+				if idx, ok := toLogIdx[it.Id]; ok {
+					toItems[idx].Count += it.Count
+				} else {
+					toLogIdx[it.Id] = len(toItems)
+					toItems = append(toItems, WealthItem{ID: it.Id, Name: toObjType.DebugName, Count: it.Count})
+				}
+				toTotal += toObjType.Cost * it.Count
 			}
+		}
+		// TS InvOps.ts:483: emit when fromItems OR toItems non-empty.
+		if len(fromLogs) > 0 || len(toItems) > 0 {
 			fromPlayer.AddWealthEvent(WealthEvent{
 				EventType:    WealthEventTypeTrade,
 				AccountItems: fromItems,
 				AccountValue: fromTotal,
 				// RecipientSession: toPlayer.Session() — deferred (NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY).
 			})
-			_ = toTotal // available for future RecipientValue field
-			_ = toItems
 		}
+		_ = toTotal // available for future RecipientValue field; see NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY
 	}
 
 	return nil

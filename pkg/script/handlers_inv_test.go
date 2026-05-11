@@ -2221,11 +2221,12 @@ func TestBothMoveInv_InvalidOperand_Errors(t *testing.T) {
 	)
 }
 
-// TestBothMoveInv_WealthEventSkip_NoEmission — D1 absence pin: even with
-// fromInvType.DebugName="dueloffer" and a non-empty drain, no
-// OpWealthEvent recorder fires. Per ts_asymmetry_dual_pin.md: pin the
-// absence so a future WealthEvent wiring escalates this test.
-func TestBothMoveInv_WealthEventSkip_NoEmission(t *testing.T) {
+// TestBothMoveInv_StakePositive_EmitsWealthEvent — post-NAI-115-D1-retirement
+// positive pin: fromInvType.DebugName="dueloffer", from-inv has 1000 coins,
+// primary operand (0). Expects exactly one STAKE WealthEvent on the fromPlayer
+// with correct EventType, AccountItems, and AccountValue.
+// Mirrors TS InvOps.ts:448-456 gate: `if (fromItems.length > 0)`.
+func TestBothMoveInv_StakePositive_EmitsWealthEvent(t *testing.T) {
 	mc := newTestInvConfigs()
 	mc.invs[testInvMain].DebugName = "dueloffer" // STAKE branch trigger in TS
 	mc.invs[testInvMain].Protect = false
@@ -2233,17 +2234,88 @@ func TestBothMoveInv_WealthEventSkip_NoEmission(t *testing.T) {
 	lookup.selfInvs[testInvMain].Items[0] = &inventory.Item{Id: testObjCoin, Count: 1000}
 	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
 
-	st := runBothMoveInv(t, 0, []int{testInvMain, testInvMain}, lookup, mc, world, self, self2, false)
-	_ = st
+	_ = runBothMoveInv(t, 0, []int{testInvMain, testInvMain}, lookup, mc, world, self, self2, false)
 
 	// Production sanity: items moved.
 	if it := lookup.self2Invs[testInvMain].Get(0); it == nil || it.Count != 1000 {
-		t.Fatalf("transfer must succeed before D1 absence-pin is meaningful: got %+v", it)
+		t.Fatalf("transfer must succeed before emission pin is meaningful: got %+v", it)
 	}
-	// D1 absence: mockPlayer has no addWealthEvent recorder; nothing to assert directly.
-	// When the WealthEvent subsystem lands, this test should be extended to assert
-	// a recorder field on mockPlayer remained empty. Until then, the comment is
-	// the contract.
+	// STAKE event pinned (NAI-162 B2.6.fixup, NAI-115-D1 retirement).
+	if len(self.addWealthEventCalls) != 1 {
+		t.Fatalf("AddWealthEvent: got %d calls, want 1 (STAKE)", len(self.addWealthEventCalls))
+	}
+	evt := self.addWealthEventCalls[0]
+	if evt.EventType != WealthEventTypeStake {
+		t.Errorf("EventType: got %d, want %d (STAKE)", evt.EventType, WealthEventTypeStake)
+	}
+	if len(evt.AccountItems) != 1 || evt.AccountItems[0].ID != testObjCoin || evt.AccountItems[0].Count != 1000 {
+		t.Errorf("AccountItems: got %+v, want [{ID:%d Count:1000}]", evt.AccountItems, testObjCoin)
+	}
+	// AccountValue = Cost(1) * Count(1000) = 1000.
+	if evt.AccountValue != 1000 {
+		t.Errorf("AccountValue: got %d, want 1000", evt.AccountValue)
+	}
+}
+
+// TestBothMoveInv_TradePositive_EmitsWealthEvent — non-secondary, non-dueloffer,
+// from-inv has items. Expects exactly one TRADE WealthEvent on the fromPlayer.
+// Covers the primary TRADE emission path (TS InvOps.ts:483-492).
+func TestBothMoveInv_TradePositive_EmitsWealthEvent(t *testing.T) {
+	mc := newTestInvConfigs()
+	// testInvMain.DebugName defaults to "main" (not "dueloffer") → TRADE branch.
+	mc.invs[testInvMain].Protect = false
+	lookup, self, self2 := newTwoPlayerInvFixture()
+	lookup.selfInvs[testInvMain].Items[0] = &inventory.Item{Id: testObjCoin, Count: 500}
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+
+	_ = runBothMoveInv(t, 0, []int{testInvMain, testInvMain}, lookup, mc, world, self, self2, false)
+
+	if len(self.addWealthEventCalls) != 1 {
+		t.Fatalf("AddWealthEvent: got %d calls, want 1 (TRADE)", len(self.addWealthEventCalls))
+	}
+	evt := self.addWealthEventCalls[0]
+	if evt.EventType != WealthEventTypeTrade {
+		t.Errorf("EventType: got %d, want %d (TRADE)", evt.EventType, WealthEventTypeTrade)
+	}
+	if len(evt.AccountItems) != 1 || evt.AccountItems[0].ID != testObjCoin || evt.AccountItems[0].Count != 500 {
+		t.Errorf("AccountItems: got %+v, want [{ID:%d Count:500}]", evt.AccountItems, testObjCoin)
+	}
+	// AccountValue = Cost(1) * Count(500) = 500.
+	if evt.AccountValue != 500 {
+		t.Errorf("AccountValue: got %d, want 500", evt.AccountValue)
+	}
+}
+
+// TestBothMoveInv_TradePositive_ToInvHasItems_EmitsWealthEvent — regression for
+// NAI-162 B2.6.fixup Issue 1: fromInv empty, toInv (self2's matching inv) has
+// items. TS InvOps.ts:483 gates on `fromItems.length > 0 || toLogs.size > 0`;
+// prior goscape code silently skipped emission when fromLogs was empty even if
+// toInv had items.
+func TestBothMoveInv_TradePositive_ToInvHasItems_EmitsWealthEvent(t *testing.T) {
+	mc := newTestInvConfigs()
+	mc.invs[testInvMain].Protect = false
+	lookup, self, self2 := newTwoPlayerInvFixture()
+	// fromInv (Self.main) is empty — nothing to drain.
+	// toPlayer's matching from-type inv (Self2.main) has items → toLogs.size > 0.
+	lookup.self2Invs[testInvMain].Items[0] = &inventory.Item{Id: testObjCoin, Count: 250}
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+
+	_ = runBothMoveInv(t, 0, []int{testInvMain, testInvMain}, lookup, mc, world, self, self2, false)
+
+	// fromInv was empty so nothing moved; sanity check.
+	_ = self2
+	// TRADE event must still fire because toLogs.size > 0.
+	if len(self.addWealthEventCalls) != 1 {
+		t.Fatalf("AddWealthEvent: got %d calls, want 1 (TRADE via toInv non-empty)", len(self.addWealthEventCalls))
+	}
+	evt := self.addWealthEventCalls[0]
+	if evt.EventType != WealthEventTypeTrade {
+		t.Errorf("EventType: got %d, want %d (TRADE)", evt.EventType, WealthEventTypeTrade)
+	}
+	// AccountItems comes from fromLogs which is empty.
+	if len(evt.AccountItems) != 0 {
+		t.Errorf("AccountItems: got %d items, want 0 (fromInv was empty)", len(evt.AccountItems))
+	}
 }
 
 // -- NAI-134 INV_DROPITEM_DELAYED tests --
