@@ -10,6 +10,12 @@ import (
 // NAI-147 T5 — TS Player.ts:1114 3-part guard
 // `!target || !hasInteraction() || !canAccess()`. Pins the new
 // short-circuit branch + regression-fences existing happy paths.
+//
+// NAI-155: the `!canAccess()` arm was removed from the tryInteract inner
+// guard (gate moved to processInteraction call sites). Tests in this file
+// now pin the remaining !target and !hasInteraction() guards. The delayed/
+// canAccess behavior at the call-site level is pinned by
+// interaction_canaccess_gate_test.go.
 
 func TestTryInteract_FollowOp_ShortCircuits(t *testing.T) {
 	s := newTestServer(t)
@@ -66,26 +72,6 @@ func TestTryInteract_NotFollowOp_NotShortCircuited(t *testing.T) {
 	}
 }
 
-func TestTryInteract_Delayed_ShortCircuits(t *testing.T) {
-	s := newTestServer(t)
-	s.currentTick = 0
-	p, wait := makeInteractionPlayer(t, s, 100, 100, 0)
-	defer wait()
-	npc := makeInteractionNpc(t, s, 1, 101, 100, 0) // adjacent position
-	npc.typ = &objtype.NpcType{ConfigType: objtype.ConfigType{ID: npc.typeId}}
-	p.SetInteraction(InteractionEngine, npc, 1, -1)
-	p.delayed = true
-	p.delayedUntil = 1
-
-	got := p.tryInteract(false)
-	if got {
-		t.Errorf("tryInteract: got true, want false (delayed → !CanAccess → short-circuit)")
-	}
-	if p.interactionFired {
-		t.Errorf("interactionFired: got true, want false (no dispatch on guard short-circuit)")
-	}
-}
-
 func TestTryInteract_NoTarget_ShortCircuits(t *testing.T) {
 	s := newTestServer(t)
 	p, wait := makeInteractionPlayer(t, s, 100, 100, 0)
@@ -97,6 +83,12 @@ func TestTryInteract_NoTarget_ShortCircuits(t *testing.T) {
 	}
 }
 
+// TestTryInteract_FollowOpDelayed_BothGatesGuard verifies tryInteract returns
+// false when follow-op + delayed are combined. Post-NAI-155 the test passes
+// via !HasInteraction() alone (follow-op sets isFollowOp=true, HasInteraction
+// returns false). The delayed guard has moved up to processInteraction's call
+// sites; p.delayed here exercises the HasInteraction short-circuit, not a
+// CanAccess arm.
 func TestTryInteract_FollowOpDelayed_BothGatesGuard(t *testing.T) {
 	s := newTestServer(t)
 	s.currentTick = 0

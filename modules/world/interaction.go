@@ -241,19 +241,24 @@ func (p *Player) processInteraction() {
 
 	interacted := false
 
-	// Pre-step interact arm (TS L1209-1224).
-	if !followOp {
-		p.processWalktrigger()
+	// Pre-step interact arm (TS L1209-1224). Gated on target + CanAccess
+	// so a modal/protected/delayed state preserves the interaction across
+	// the tick (TS L1210 mirror; NAI-155).
+	if p.target != nil && p.CanAccess() {
+		if !followOp {
+			p.processWalktrigger()
+		}
+		p.interactCallSlot = 0
+		interacted = p.tryInteract(false)
 	}
-	p.interactCallSlot = 0
-	interacted = p.tryInteract(false)
 
 	// Post-step arm (TS L1227-1252). Skipped when pre-step interacted.
 	if !interacted {
 		// Recalc path (TS L1228-1229).
 		p.pathToPathingTarget()
 
-		if p.hasWaypoints() {
+		// Process walktrigger if waypoints exist AND CanAccess (TS L1232).
+		if p.hasWaypoints() && p.CanAccess() {
 			p.processWalktrigger()
 		}
 
@@ -262,9 +267,14 @@ func (p *Player) processInteraction() {
 			p.ClearInteraction()
 		}
 
-		// Post-step interact (TS L1244-1252). Skipped when followOp
-		// (the chase keeps interaction anchored across steps).
-		if p.target != nil && !followOp {
+		// Post-step interact (TS L1244-1252). Gated on CanAccess: when a
+		// modal/protected/delayed state transiently blocks interaction,
+		// PRESERVE the anchor — do NOT fire "I can't reach!" + Clear.
+		// TS preserves the interaction across the canAccess-false tick;
+		// next tick's CanAccess()=true re-enters. Pre-NAI-155 goscape
+		// destroyed the anchor here; second-contact OPNPC1 on Tutorial
+		// Island Survival Expert (NPC #943) regressed because of this gap.
+		if p.target != nil && p.CanAccess() && !followOp {
 			p.interactCallSlot = 1
 			interacted = p.tryInteract(p.stepsTaken == 0)
 			if !interacted && !p.hasWaypoints() && p.stepsTaken == 0 {
@@ -376,15 +386,14 @@ func (p *Player) processWalktrigger() {
 // NPC side equivalent: (*Npc).tryInteract(s, allowOpScenery bool)
 // at npc_interaction.go:247.
 func (p *Player) tryInteract(allowOpScenery bool) bool {
-	// NAI-147 T5 closes NAI-78-D-HASINTERACTION-GUARD — TS
-	// Player.ts:1114 3-part guard. !HasInteraction() filters follow-op
-	// (targetOp=3 with *Player target). !CanAccess() filters delayed,
-	// modal, and protected-script states. CanAccess() is STRICTER than
-	// processInteraction:196's delayed-only check; modal/protected-script
-	// short-circuits previously reachable through tryInteract are now
-	// blocked here. Mirrors TS canAccess semantics via NAI-111 narrowed
-	// convergence.
-	if p.target == nil || !p.HasInteraction() || !p.CanAccess() {
+	// NAI-155 closes NAI-78-D-HASINTERACTION-GUARD's CanAccess half:
+	// CanAccess gate lifted to processInteraction call sites (TS L1210/
+	// L1244 parity). Inner guard now matches TS Player.ts:1114 minus
+	// canAccess: target presence + HasInteraction (follow-op filter).
+	// Production callers (interaction.go:249, 269) gate CanAccess at the
+	// call site; no other production caller of (*Player).tryInteract
+	// exists per NAI-155 controller-preflight enumeration.
+	if p.target == nil || !p.HasInteraction() {
 		recordTryInteractBranch(p, 0) // NAI-79 Stage 1 (combined early-return)
 		return false
 	}

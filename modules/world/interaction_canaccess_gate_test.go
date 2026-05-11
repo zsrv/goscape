@@ -1,0 +1,154 @@
+package world
+
+import (
+	"testing"
+
+	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/script"
+)
+
+// TestProcessInteraction_CanAccessGate_ModalChat_PreservesInteraction pins
+// TS Player.ts:1244 fidelity: when CanAccess()=false due to modalState&Chat,
+// the post-step interact block (including "I can't reach!" + ClearInteraction)
+// must NOT fire. The interaction is preserved across the tick.
+//
+// Pre-NAI-155: the missing canAccess gate at interaction.go:267 let goscape
+// reach ClearInteraction() when TS would skip the whole block. This test
+// fails (p.target==nil) before the fix and passes (p.target!=nil) after.
+func TestProcessInteraction_CanAccessGate_ModalChat_PreservesInteraction(t *testing.T) {
+	s := newTestServer(t)
+	p, wait := makeInteractionPlayer(t, s, 3105, 3096, 0)
+	defer wait()
+	npc := makeInteractionNpc(t, s, 1, 3105, 3095, 0) // cheb=1 adjacent
+
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
+	p.modalState = modalStateChat // residue from prior chatnpc dialog
+
+	if p.CanAccess() {
+		t.Fatal("test setup invalid: CanAccess should be false with modalStateChat")
+	}
+
+	p.processInteraction()
+
+	// Load-bearing assertion: interaction must be preserved (target non-nil).
+	// TS L1244 gates the entire post-step block on canAccess(); when false,
+	// clearInteraction() is not called, so p.target stays set.
+	if p.target == nil {
+		t.Fatal("interaction destroyed under modalChat residue; TS L1244 preserves interaction when canAccess()=false")
+	}
+}
+
+// TestProcessInteraction_CanAccessGate_ProtectedScript_PreservesInteraction pins
+// the same invariant for protectedScriptActive()=true (TS Player.protect path,
+// memory protect_over_clear / NAI-111-D1).
+//
+// Pre-NAI-155: same root cause — missing canAccess gate at processInteraction.
+func TestProcessInteraction_CanAccessGate_ProtectedScript_PreservesInteraction(t *testing.T) {
+	s := newTestServer(t)
+	p, wait := makeInteractionPlayer(t, s, 3105, 3096, 0)
+	defer wait()
+	npc := makeInteractionNpc(t, s, 1, 3105, 3095, 0) // cheb=1 adjacent
+
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
+	p.activeScript = &script.ScriptState{Pointers: script.PtrProtectedActivePlayer}
+
+	if p.CanAccess() {
+		t.Fatal("test setup invalid: CanAccess should be false with protectedScriptActive")
+	}
+
+	p.processInteraction()
+
+	// Load-bearing assertion: interaction must be preserved (target non-nil).
+	// TS L1244 skips the entire post-step block when canAccess()=false;
+	// ClearInteraction() is not called.
+	if p.target == nil {
+		t.Fatal("interaction destroyed under protected-script residue; TS L1244 preserves interaction when canAccess()=false")
+	}
+}
+
+// TestProcessInteraction_CanAccessGate_HappyPath_OpFires regression-pins the
+// success case: CanAccess()=true, target at cheb=1, opnpc1 script registered →
+// pre-step arm fires branch 1, auto-clear runs, p.target becomes nil.
+//
+// Pattern mirrors TestTryInteract_NotFollowOp_NotShortCircuited in
+// interaction_tryinteract_guard_test.go but exercises the full
+// processInteraction path (TS L1209-1224 pre-step arm).
+func TestProcessInteraction_CanAccessGate_HappyPath_OpFires(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.Register(&script.ScriptFile{
+		Name:      "[opnpc1,_]",
+		LookupKey: script.LookupKeyForType(script.TriggerOpNpc1, 7),
+	})
+	p, wait := makeInteractionPlayer(t, s, 100, 100, 0)
+	defer wait()
+	npc := makeInteractionNpc(t, s, 1, 101, 100, 0) // cheb=1 adjacent
+	npc.typeId = 7
+	npc.typ = &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}}
+
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
+
+	if !p.CanAccess() {
+		t.Fatal("test setup invalid: CanAccess should be true for happy path")
+	}
+
+	p.processInteraction()
+
+	// After a successful branch-1 fire the auto-clear at interaction.go:289
+	// calls ClearInteraction() → p.target = nil. Presence of nil target is the
+	// observable proof that the interaction fired rather than being preserved
+	// (which would leave target non-nil).
+	if p.target != nil {
+		t.Fatal("happy-path OPNPC1 did not fire and auto-clear; p.target non-nil after processInteraction")
+	}
+}
+
+// TestProcessInteraction_CanAccessGate_Delayed_EarlyReturnsBeforePathing pins
+// the existing early-return at interaction.go:200-202: when delayed and within
+// the delay window, processInteraction returns BEFORE any canAccess-gated arms
+// run. The interaction is preserved. (Risk R4 in spec §9.)
+//
+// This locks in TS shape symmetry: the tick-math entry guard short-circuits the
+// whole function (including Frame B emit) while the new call-site canAccess
+// gates handle the "delayed=true, tick expired" case.
+func TestProcessInteraction_CanAccessGate_Delayed_EarlyReturnsBeforePathing(t *testing.T) {
+	s := newTestServer(t)
+	s.currentTick = 100
+	p, wait := makeInteractionPlayer(t, s, 3105, 3096, 0)
+	defer wait()
+	npc := makeInteractionNpc(t, s, 1, 3105, 3095, 0) // cheb=1 adjacent
+
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
+	p.delayed = true
+	p.delayedUntil = 105 // s.currentTick (100) < delayedUntil (105) → entry guard fires
+
+	p.processInteraction()
+
+	// Entry guard at L200-202 returns before reaching any interact arm.
+	// Target must be preserved (entry guard did not clear it).
+	if p.target == nil {
+		t.Fatal("entry-guard early-return at L200-202 cleared interaction; should preserve p.target")
+	}
+}
+
+// TestProcessInteraction_CanAccessGate_NilTarget_PostStepSkipped negatively pins
+// the post-step block: when target is nil at entry, processInteraction returns
+// immediately at the first guard (interaction.go:190-192). No panic, no branch logic.
+// (TS L1244 also gates on this.target.)
+func TestProcessInteraction_CanAccessGate_NilTarget_PostStepSkipped(t *testing.T) {
+	s := newTestServer(t)
+	p, wait := makeInteractionPlayer(t, s, 3105, 3096, 0)
+	defer wait()
+
+	// p.target is nil; processInteraction short-circuits at L190-192.
+	// No interaction set — mirrors a mid-tick clear scenario.
+	p.processInteraction()
+
+	// No panic is the primary invariant. Also: branch counters are not
+	// reset (the Frame B reset at L218-220 is skipped when target==nil
+	// at entry).
+	if p.lastInteractBranchPre != 0 || p.lastInteractBranchPost != 0 {
+		t.Fatalf("branch counters mutated with nil target at entry; pre=%d post=%d",
+			p.lastInteractBranchPre, p.lastInteractBranchPost)
+	}
+}
