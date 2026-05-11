@@ -956,3 +956,39 @@ func TestNpc_GetCollisionStrategy_PerMoveRestrict(t *testing.T) {
 }
 
 func ptrTypeNpc(t collision.Type) *collision.Type { return &t }
+
+// TestNpcCleanup pins the (n *Npc) Cleanup() field-zeroing contract.
+// Mirrors TS Npc.cleanup at Engine-TS/src/engine/entity/Npc.ts:187-193:
+// nid=-1, uid=-1, activeScript=nil, huntTarget=nil, queue cleared.
+//
+// NAI-19: Cleanup is called from (*Server).removeNpc's DESPAWN-lifecycle
+// arm after the registry slot has been nilled. Defensive nullification —
+// any caller still holding the *Npc pointer post-DESPAWN reads -1
+// sentinels rather than valid-looking state.
+func TestNpcCleanup(t *testing.T) {
+	n := &Npc{
+		nid:          7,
+		uid:          (42 << 16) | 7,
+		activeScript: &script.ScriptState{},
+		huntTarget:   &Npc{nid: 99},
+		queue:        []script.NpcQueueRequest{{}, {}},
+	}
+
+	n.Cleanup()
+
+	if n.nid != -1 {
+		t.Errorf("nid: got %d, want -1", n.nid)
+	}
+	if n.uid != -1 {
+		t.Errorf("uid: got %d, want -1", n.uid)
+	}
+	if n.activeScript != nil {
+		t.Errorf("activeScript: got %p, want nil", n.activeScript)
+	}
+	if n.huntTarget != nil {
+		t.Errorf("huntTarget: got %v, want nil", n.huntTarget)
+	}
+	if n.queue != nil {
+		t.Errorf("queue: got %v, want nil", n.queue)
+	}
+}

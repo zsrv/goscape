@@ -303,6 +303,19 @@ func (n *Npc) ClearActiveScript() {
 	n.activeScript = nil
 }
 
+// Cleanup mirrors TS Npc.cleanup at Engine-TS/src/engine/entity/Npc.ts:187-193.
+// Zeros identity / script / hunt / queue fields after (*Server).removeNpc
+// has released the registry slot on DESPAWN-lifecycle. Defensive
+// nullification: any consumer still holding the *Npc pointer post-DESPAWN
+// reads -1 sentinels rather than valid-looking state. NAI-19.
+func (n *Npc) Cleanup() {
+	n.nid = -1
+	n.uid = -1
+	n.activeScript = nil
+	n.huntTarget = nil
+	n.queue = nil
+}
+
 // OnScriptFinishedOrAborted handles the Finished/Aborted post-Execute
 // tail for an npc-anchored script. If state matches the npc's
 // activeScript, nulls it; otherwise no-op. Mirrors TS
