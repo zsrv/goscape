@@ -1080,3 +1080,202 @@ func TestLocFindNextStaleErrors(t *testing.T) {
 		t.Errorf("err: got %q, want %q", err.Error(), want)
 	}
 }
+
+// --- NAI-159: LOC_FIND handler tests ---------------------------------
+
+// newLocFindState builds a ScriptState with [coord, locId] prepushed,
+// IntOperand set for setActiveLocSlot to read, Configs wired (with locId
+// pre-registered), and the given LocOps installed.
+func newLocFindState(t *testing.T, ops LocOps, intOperand int32, coord, locId int) *ScriptState {
+	t.Helper()
+	cfg := &fakeConfigs{
+		locs: map[int]*objtype.LocType{
+			locId: {ConfigType: objtype.ConfigType{ID: locId}},
+		},
+	}
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{intOperand}},
+		PC:          0,
+		Configs:     cfg,
+		LocOps:      ops,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(coord) // first pushed → second popped (TS coord)
+	s.PushInt(locId) // last pushed  → first popped (TS locId)
+	return s
+}
+
+// TestHandleLocFindHitSlot0 pins the primary-slot hit arm: IntOperand=0
+// routes to ActiveLoc + PtrActiveLoc; push 1.
+func TestHandleLocFindHitSlot0(t *testing.T) {
+	stub := fakeActiveLoc{id: 42, x: 3094, z: 3106, level: 0}
+	ops := &fakeLocOps{getLocReturn: stub}
+	coord := coordgrid.PackCoord(0, 3094, 3106)
+	s := newLocFindState(t, ops, 0, coord, 42)
+
+	if err := handleLocFind(s); err != nil {
+		t.Fatalf("handleLocFind: %v", err)
+	}
+	if s.ActiveLoc != stub {
+		t.Errorf("ActiveLoc: got %v, want stub %v", s.ActiveLoc, stub)
+	}
+	if s.OtherActiveLoc != nil {
+		t.Errorf("OtherActiveLoc: got %v, want nil (slot-0 must NOT touch slot-1)", s.OtherActiveLoc)
+	}
+	if s.Pointers&PtrActiveLoc == 0 {
+		t.Error("Pointers: PtrActiveLoc not set")
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("top of int stack: got %d, want 1", got)
+	}
+}
+
+// TestHandleLocFindHitSlot1 pins the secondary-slot hit arm: IntOperand=1
+// routes to OtherActiveLoc + PtrActiveLoc2.
+func TestHandleLocFindHitSlot1(t *testing.T) {
+	stub := fakeActiveLoc{id: 42, x: 3094, z: 3106, level: 0}
+	ops := &fakeLocOps{getLocReturn: stub}
+	coord := coordgrid.PackCoord(0, 3094, 3106)
+	s := newLocFindState(t, ops, 1, coord, 42)
+
+	if err := handleLocFind(s); err != nil {
+		t.Fatalf("handleLocFind: %v", err)
+	}
+	if s.OtherActiveLoc != stub {
+		t.Errorf("OtherActiveLoc: got %v, want stub %v", s.OtherActiveLoc, stub)
+	}
+	if s.ActiveLoc != nil {
+		t.Errorf("ActiveLoc: got %v, want nil (slot-1 must NOT touch slot-0)", s.ActiveLoc)
+	}
+	if s.Pointers&PtrActiveLoc2 == 0 {
+		t.Error("Pointers: PtrActiveLoc2 not set")
+	}
+	if got := s.PopInt(); got != 1 {
+		t.Errorf("top of int stack: got %d, want 1", got)
+	}
+}
+
+// TestHandleLocFindMissLeavesActiveLocUnchanged pins the miss-arm
+// invariant: ActiveLoc is NOT mutated when GetLoc returns nil. Critical —
+// TS only writes state.activeLoc inside the hit arm (LocOps.ts:91).
+func TestHandleLocFindMissLeavesActiveLocUnchanged(t *testing.T) {
+	sentinel := fakeActiveLoc{id: 7, x: 100, z: 200, level: 0}
+	ops := &fakeLocOps{getLocReturn: nil} // miss
+	coord := coordgrid.PackCoord(0, 3094, 3106)
+	s := newLocFindState(t, ops, 0, coord, 42)
+	s.ActiveLoc = sentinel
+	prePointers := s.Pointers
+
+	if err := handleLocFind(s); err != nil {
+		t.Fatalf("handleLocFind: %v", err)
+	}
+	if s.ActiveLoc != sentinel {
+		t.Errorf("ActiveLoc on miss: got %v, want sentinel %v", s.ActiveLoc, sentinel)
+	}
+	if s.Pointers != prePointers {
+		t.Errorf("Pointers on miss: got %x, want unchanged %x", s.Pointers, prePointers)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("top of int stack: got %d, want 0", got)
+	}
+}
+
+// TestHandleLocFindNilConfigsErrors pins requireConfigs precondition.
+func TestHandleLocFindNilConfigsErrors(t *testing.T) {
+	ops := &fakeLocOps{}
+	coord := coordgrid.PackCoord(0, 3094, 3106)
+	s := newLocFindState(t, ops, 0, coord, 42)
+	s.Configs = nil
+
+	err := handleLocFind(s)
+	if err == nil {
+		t.Fatal("handleLocFind nil-Configs: want error, got nil")
+	}
+	if got, want := err.Error(), "LOC_FIND: Configs not set on ScriptState"; got != want {
+		t.Errorf("error: got %q, want %q", got, want)
+	}
+}
+
+// TestHandleLocFindNilLocOpsErrors pins the goscape-defensive nil-LocOps
+// gate. Configs is populated; LocOps is nil; expect explicit error.
+func TestHandleLocFindNilLocOpsErrors(t *testing.T) {
+	coord := coordgrid.PackCoord(0, 3094, 3106)
+	s := newLocFindState(t, nil, 0, coord, 42)
+	s.LocOps = nil
+
+	err := handleLocFind(s)
+	if err == nil {
+		t.Fatal("handleLocFind nil-LocOps: want error, got nil")
+	}
+	if got, want := err.Error(), "LOC_FIND: LocOps unavailable"; got != want {
+		t.Errorf("error: got %q, want %q", got, want)
+	}
+}
+
+// TestHandleLocFindUnknownLocIdErrors pins the LocTypeValid analogue:
+// Configs.LocType returns nil for the popped locId → error, no push.
+func TestHandleLocFindUnknownLocIdErrors(t *testing.T) {
+	ops := &fakeLocOps{}
+	coord := coordgrid.PackCoord(0, 3094, 3106)
+	// fakeConfigs registers locId=42; pop locId=999 → unknown.
+	s := newLocFindState(t, ops, 0, coord, 42)
+	// Overwrite int stack: drop the locId=42 push and replace with 999.
+	s.IntStack = make([]int, StackCapacity)
+	s.ISP = 0
+	s.PushInt(coord)
+	s.PushInt(999)
+
+	err := handleLocFind(s)
+	if err == nil {
+		t.Fatal("handleLocFind unknown locId: want error, got nil")
+	}
+	if got, want := err.Error(), "LOC_FIND: unknown loc id 999"; got != want {
+		t.Errorf("error: got %q, want %q", got, want)
+	}
+}
+
+// TestHandleLocFindBadCoordErrors pins checkCoord wrapping.
+func TestHandleLocFindBadCoordErrors(t *testing.T) {
+	ops := &fakeLocOps{}
+	s := newLocFindState(t, ops, 0, 0, 42)
+	// Replace stack: bad coord = -1.
+	s.IntStack = make([]int, StackCapacity)
+	s.ISP = 0
+	s.PushInt(-1)
+	s.PushInt(42)
+
+	err := handleLocFind(s)
+	if err == nil {
+		t.Fatal("handleLocFind bad coord: want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "LOC_FIND") {
+		t.Errorf("error: got %q, want substring %q", err.Error(), "LOC_FIND")
+	}
+	if !strings.Contains(err.Error(), "coord out of range") {
+		t.Errorf("error: got %q, want substring %q", err.Error(), "coord out of range")
+	}
+}
+
+// TestHandleLocFindPopOrderAndUnpack pins (a) the locId-then-coord pop
+// order (catches accidental swap) and (b) checkCoord unpacking the right
+// (level, x, z) — via the recorded args on fakeLocOps. Per
+// handler_pop_order_test_masking.md.
+func TestHandleLocFindPopOrderAndUnpack(t *testing.T) {
+	stub := fakeActiveLoc{id: 42, x: 3094, z: 3106, level: 0}
+	ops := &fakeLocOps{getLocReturn: stub}
+	coord := coordgrid.PackCoord(0, 3094, 3106)
+	s := newLocFindState(t, ops, 0, coord, 42)
+
+	if err := handleLocFind(s); err != nil {
+		t.Fatalf("handleLocFind: %v", err)
+	}
+	if len(ops.getLocCalls) != 1 {
+		t.Fatalf("getLocCalls: got %d, want 1", len(ops.getLocCalls))
+	}
+	got := ops.getLocCalls[0]
+	want := getLocCall{level: 0, x: 3094, z: 3106, typ: 42}
+	if got != want {
+		t.Errorf("getLocCall: got %+v, want %+v", got, want)
+	}
+}

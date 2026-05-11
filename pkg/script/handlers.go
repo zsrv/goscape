@@ -160,9 +160,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// Account identity — persistent uid from login RPC.
 	OpUID: handleUID,
 
-	// LOC lookup + FIND iterator family. LOC_FIND (3007) remains a stub
-	// (always "not found") pending a content consumer; LOC_FINDALLZONE
-	// (3008) and LOC_FINDNEXT (3009) are wired by NAI-119.
+	// LOC lookup + FIND iterator family. LOC_FIND (3007) activated by
+	// NAI-159 T2; LOC_FINDALLZONE (3008) and LOC_FINDNEXT (3009) wired
+	// by NAI-119.
 	OpLocCoord:       handleLocCoord,
 	OpLocFind:        handleLocFind,
 	OpLocFindAllZone: handleLocFindAllZone,

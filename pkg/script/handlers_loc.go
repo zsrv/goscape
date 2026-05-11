@@ -93,21 +93,53 @@ func handleLocFindNext(s *ScriptState) error {
 	return nil
 }
 
-// handleLocFind is a stub for the LOC_FIND opcode. TS:
+// handleLocFind (LOC_FIND, opcode 3007) pops [coord, locId], looks up
+// the matching loc at that tile, and either binds it to the ActiveLoc
+// slot selected by IntOperand (0 → primary, 1 → secondary) and pushes
+// 1, or pushes 0 on miss. Mirrors TS LocOps.ts:79-94:
 //
 //	const [coord, locId] = state.popInts(2);
-//	loc = World.getLoc(coord.x, coord.z, coord.level, locType.id);
-//	if loc: activeLoc = loc; pushInt(1); else: pushInt(0);
+//	const locType = check(locId, LocTypeValid);
+//	const position = check(coord, CoordValid);
+//	const loc = World.getLoc(position.x, position.z, position.level, locType.id);
+//	if (!loc) { state.pushInt(0); return; }
+//	state.activeLoc = loc;
+//	state.pointerAdd(ActiveLoc[state.intOperand]);
+//	state.pushInt(1);
 //
-// MVP stub: pop both args, push 0 (not found). Scripts that branch
-// on "found" take the else-branch, which is almost always the safe
-// path (e.g. check_chest_macro_gas proc early-returns on LOC_FIND=0).
-// Real implementation needs world-wide loc iteration + ActiveLoc
-// setup; ships with a later S6 sub-spec.
+// Pointer-set threads IntOperand 0/1 through setActiveLocSlot
+// (handlers_loc.go:29) — same pattern as LOC_FINDNEXT.
+//
+// Miss-semantics: ActiveLoc / OtherActiveLoc are NOT mutated on miss
+// (TS only writes activeLoc inside the hit arm). Pinned by test.
+//
+// Configs/LocOps nil are surfaced as errors (LOC_ADD / LOC_CHANGE
+// precedent; goscape defensive — TS reaches via static accessor) rather
+// than silent push-0, because the TS `check` operator throws on
+// LocTypeValid lookup failure.
 func handleLocFind(s *ScriptState) error {
-	_ = s.PopInt() // locId (type)
-	_ = s.PopInt() // coord (packed)
-	s.PushInt(0)
+	if err := requireConfigs(s, "LOC_FIND"); err != nil {
+		return err
+	}
+	locId := s.PopInt()
+	coord := s.PopInt()
+	if s.Configs.LocType(locId) == nil {
+		return fmt.Errorf("LOC_FIND: unknown loc id %d", locId)
+	}
+	level, x, z, err := checkCoord(coord, "LOC_FIND")
+	if err != nil {
+		return err
+	}
+	if s.LocOps == nil {
+		return fmt.Errorf("LOC_FIND: LocOps unavailable")
+	}
+	loc := s.LocOps.GetLoc(level, x, z, locId)
+	if loc == nil {
+		s.PushInt(0)
+		return nil
+	}
+	setActiveLocSlot(s, loc)
+	s.PushInt(1)
 	return nil
 }
 
