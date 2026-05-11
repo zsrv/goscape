@@ -75,7 +75,8 @@ func init() {
 
 	gameHandlers[81] = handleEventTracking // EVENT_TRACKING
 
-	gameHandlers[158] = handleMessagePublic // MESSAGE_PUBLIC
+	gameHandlers[148] = handleMessagePrivate // MESSAGE_PRIVATE
+	gameHandlers[158] = handleMessagePublic  // MESSAGE_PUBLIC
 
 	gameHandlers[235] = handleResumePauseButton // RESUME_PAUSEBUTTON
 	gameHandlers[237] = handleResumeCountDialog // RESUME_P_COUNTDIALOG
