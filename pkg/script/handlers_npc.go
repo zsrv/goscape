@@ -1145,6 +1145,21 @@ func handleNpcFindHero(s *ScriptState) error {
 	return nil
 }
 
+// handleNpcInRange implements OpNpcInRange (TS NPC_INRANGE at
+// NpcOps.ts:556-558). Calls ActiveNpc.TargetWithinMaxRange() and pushes
+// 0/1. NAI-160 T7.
+func handleNpcInRange(s *ScriptState) error {
+	if err := requireActiveNpc(s, "NPC_INRANGE"); err != nil {
+		return err
+	}
+	if s.ActiveNpc.TargetWithinMaxRange() {
+		s.PushInt(1)
+	} else {
+		s.PushInt(0)
+	}
+	return nil
+}
+
 // handleNpcAttackRange implements OpNpcAttackRange (TS NPC_ATTACKRANGE at
 // NpcOps.ts:521-523). Reads the active NPC's type, validates via
 // checkNpcType, pushes NpcType.AttackRange widened from uint16 to int

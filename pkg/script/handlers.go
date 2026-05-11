@@ -440,6 +440,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpNpcUID:         handleNpcUID,
 	OpNpcCategory:    handleNpcCategory,
 	OpNpcAttackRange: handleNpcAttackRange, // NAI-160 T6: NPC_ATTACKRANGE.
+	// NAI-160 T7: NPC_INRANGE.
+	OpNpcInRange: handleNpcInRange,
 
 	// S6b: NPC mutating ops.
 	OpNpcSay: handleNpcSay,

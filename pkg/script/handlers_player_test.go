@@ -80,6 +80,7 @@ func (m *mockActiveNpc) SetNpcStat(_, _ int)                                   {
 func (m *mockActiveNpc) PlaySpotAnim(_, _, _ int)                              {}
 func (m *mockActiveNpc) AddHeroPoints(_, _ int)                                {}
 func (m *mockActiveNpc) TopContributor() int                                  { return 0 }
+func (m *mockActiveNpc) TargetWithinMaxRange() bool                            { return false }
 
 // newSingleOp builds a single-opcode script plus its trailing OpReturn,
 // so handler tests can run a handler in isolation and observe the state

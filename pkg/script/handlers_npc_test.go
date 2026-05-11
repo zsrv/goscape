@@ -244,6 +244,8 @@ type mockNpc struct {
 		target any
 		mode   int
 	}
+	// NAI-160 T7: NPC_INRANGE seeded value.
+	targetWithinMaxRangeValue bool
 }
 
 func (m *mockNpc) NpcType() int     { return m.typeID }
@@ -256,6 +258,9 @@ func (m *mockNpc) LastMovement() int { return m.lastMovement }
 func (m *mockNpc) Respawnrate() int  { return m.respawnrate }
 func (m *mockNpc) TopContributor() int { return m.topContributor }
 func (m *mockNpc) NpcCategory() int { return m.category }
+
+// TargetWithinMaxRange returns the seeded value. NAI-160 T7.
+func (m *mockNpc) TargetWithinMaxRange() bool { return m.targetWithinMaxRangeValue }
 
 func (m *mockNpc) NpcStat(stat int) int {
 	if m.levels != nil {
@@ -3897,5 +3902,45 @@ func TestNpcAttackRangeInvalidType(t *testing.T) {
 	}
 	if got := err.Error(); !strings.Contains(got, "NPC_ATTACKRANGE") {
 		t.Errorf("err: got %q, want 'NPC_ATTACKRANGE' substring", got)
+	}
+}
+
+// --- NAI-160 T7: NPC_INRANGE (opcode 2527) --------------------------------
+
+// TestNpcInRangeTrue pins OpNpcInRange's body when the NPC's target is
+// within max range: push 1. Mirrors TS NpcOps.ts:556-558. NAI-160 T7.
+func TestNpcInRangeTrue(t *testing.T) {
+	npc := &mockNpc{targetWithinMaxRangeValue: true}
+	state := runNpcOp(t, npc, nil, OpNpcInRange, nil)
+	if got := state.PopInt(); got != 1 {
+		t.Errorf("NPC_INRANGE(true): got %d, want 1", got)
+	}
+}
+
+// TestNpcInRangeFalse pins the false path (default zero-value). NAI-160 T7.
+func TestNpcInRangeFalse(t *testing.T) {
+	npc := &mockNpc{targetWithinMaxRangeValue: false}
+	state := runNpcOp(t, npc, nil, OpNpcInRange, nil)
+	if got := state.PopInt(); got != 0 {
+		t.Errorf("NPC_INRANGE(false): got %d, want 0", got)
+	}
+}
+
+// TestNpcInRangeRequiresActiveNpc pins the ActiveNpc gate. NAI-160 T7.
+func TestNpcInRangeRequiresActiveNpc(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "[npc_inrange_noactive,test]",
+		Opcodes:          []Opcode{OpNpcInRange, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: got nil err, want NPC_INRANGE: no active npc")
+	}
+	if got := err.Error(); !strings.Contains(got, "NPC_INRANGE") || !strings.Contains(got, "no active npc") {
+		t.Errorf("err: got %q, want contains 'NPC_INRANGE' and 'no active npc'", got)
 	}
 }

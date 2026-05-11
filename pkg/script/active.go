@@ -922,6 +922,14 @@ type ActiveNpc interface {
 	// NPC_FINDHERO (NpcOps.ts:114-130) — TS uses hash64; goscape uses
 	// int playerUID. The 0-empty-sentinel mirrors HeroPoints.TopContributor.
 	TopContributor() int
+
+	// TargetWithinMaxRange returns true if the NPC's current target is
+	// inside the per-mode maxrange envelope (HUNT-distance + corner-quirk
+	// adjustments). Mirrors TS Npc.targetWithinMaxRange — read by
+	// NPC_INRANGE (NpcOps.ts:556-558). Backing impl at
+	// modules/world/npc_interaction.go:591. Returns false defensively when
+	// the NPC has no target (TS-equivalent). NAI-160 T7.
+	TargetWithinMaxRange() bool
 }
 
 // ActiveLoc is the surface that LOC_* opcodes use to read the loc

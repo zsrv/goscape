@@ -661,6 +661,13 @@ func (n *Npc) targetWithinMaxRange() bool {
 	}
 }
 
+// TargetWithinMaxRange exports the unexported targetWithinMaxRange for
+// the ActiveNpc.TargetWithinMaxRange surface consumed by NPC_INRANGE
+// (TS NpcOps.ts:556-558). Thin wrapper; no logic. NAI-160 T7.
+func (n *Npc) TargetWithinMaxRange() bool {
+	return n.targetWithinMaxRange()
+}
+
 // inOperableDistance reports whether n is in contact range of target.
 // Mirrors TS PathingEntity.inOperableDistance (PathingEntity.ts:378-389):
 //   - Loc targets dispatch to pkg/pathfinder/reach.Reached (shape /
