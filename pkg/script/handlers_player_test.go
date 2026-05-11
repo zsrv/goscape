@@ -823,6 +823,58 @@ func TestRunEnergyDispatch(t *testing.T) {
 	}
 }
 
+// -- SAY tests -----------------------------------------------------------
+
+// TestSay pins OpSay's body: pop the top-of-stack string and pass it to
+// ActivePlayer.Say as a []byte. Mirrors TS PlayerOps.ts:462-464.
+// NAI-160 T1.
+func TestSay(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name:             "[say,test]",
+		Opcodes:          []Opcode{OpPushConstantString, OpSay, OpReturn},
+		IntOperands:      []int32{0, 0, 0},
+		StringOperands:   []string{"hello world", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	state.Pointers |= PtrActivePlayer
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := len(mp.sayCalls); got != 1 {
+		t.Fatalf("sayCalls: got %d, want 1", got)
+	}
+	if got, want := string(mp.sayCalls[0]), "hello world"; got != want {
+		t.Errorf("sayCalls[0]: got %q, want %q", got, want)
+	}
+}
+
+// TestSayEmptyString pins TS semantics that an empty bubble is legal —
+// matches the doc-comment at modules/world/player_masks.go:8-11 and
+// the parallel TestNpcSay convention. NAI-160 T1.
+func TestSayEmptyString(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name:             "[say_empty,test]",
+		Opcodes:          []Opcode{OpPushConstantString, OpSay, OpReturn},
+		IntOperands:      []int32{0, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	state.Pointers |= PtrActivePlayer
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := len(mp.sayCalls); got != 1 {
+		t.Fatalf("sayCalls: got %d, want 1", got)
+	}
+	if got := len(mp.sayCalls[0]); got != 0 {
+		t.Errorf("sayCalls[0]: got len=%d, want 0", got)
+	}
+}
+
 // -- Active-player-required negative tests -------------------------------
 
 // Every handler that dereferences Self must return an error when
@@ -860,6 +912,8 @@ func TestHandlersRequireActivePlayer(t *testing.T) {
 		{"P_RUN", OpPRun},
 		// NAI-117 T2.
 		{"RUNENERGY", OpRunEnergy},
+		// NAI-160 T1.
+		{"SAY", OpSay},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

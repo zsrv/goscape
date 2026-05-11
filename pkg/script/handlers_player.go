@@ -1599,3 +1599,15 @@ func handleSetSkinColour(s *ScriptState) error {
 	s.Self.SetColorPart(4, skin)
 	return nil
 }
+
+// handleSay implements OpSay (TS SAY at PlayerOps.ts:462-464).
+// Mirrors `state.activePlayer.say(state.popString())` —
+// checkedHandler(ActivePlayer, ...). NAI-160 T1.
+func handleSay(s *ScriptState) error {
+	if err := requireActivePlayer(s, "SAY"); err != nil {
+		return err
+	}
+	text := s.PopString()
+	s.Self.Say([]byte(text))
+	return nil
+}

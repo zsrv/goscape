@@ -136,6 +136,14 @@ type ActivePlayer interface {
 	// dropped silently.
 	AddXP(id int, xp int)
 
+	// Say buffers `text` as the player's speech bubble for the current
+	// tick, flagging MaskSay so the player-info encoder emits it. Empty
+	// text is allowed (produces an empty bubble that clears itself next
+	// tick via ResetMasks). Mirrors TS Player.say at Player.ts:1893-1896
+	// (this.sayMessage = message; this.masks |= PlayerInfoProt.SAY).
+	// NAI-160 T1.
+	Say(text []byte)
+
 	// S5c: animation.
 
 	// PlayAnim schedules sequence seqID with the given client-side delay

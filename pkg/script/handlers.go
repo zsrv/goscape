@@ -527,6 +527,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 
 	// NAI-74: SESSION_LOG opcode → ActivePlayer.AddSessionLog dispatch.
 	OpSessionLog: handleSessionLog,
+
+	// NAI-160 T1: SAY.
+	OpSay: handleSay,
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.

@@ -380,6 +380,10 @@ type mockPlayer struct {
 
 	// NAI-74: SESSION_LOG opcode + Player.AddSessionLog capture.
 	addSessionLogCalls []mockSessionLogCall
+
+	// NAI-160 T1: SAY recorder. Defensive-copies the byte slice on Say()
+	// to immunize from caller-mutates-buffer after the call.
+	sayCalls [][]byte
 }
 
 type mockEnqueue struct {
@@ -748,6 +752,12 @@ func (m *mockPlayer) AddSessionLog(eventType int, message string, args ...string
 		message:   message,
 		args:      cp,
 	})
+}
+
+// Say records the byte slice passed by handleSay. Defensive byte-copy
+// to avoid caller-mutates-buffer aliasing. NAI-160 T1.
+func (m *mockPlayer) Say(text []byte) {
+	m.sayCalls = append(m.sayCalls, append([]byte(nil), text...))
 }
 
 // S6l: p_aprange.
