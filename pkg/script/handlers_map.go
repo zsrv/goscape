@@ -171,9 +171,10 @@ func handleMapFindSquare(s *ScriptState) error {
 // wrapper from the pre-fix (1, 0, 0, 0) shape to TS-faithful (1, 1, 1, 0);
 // existing MapFindSquareLineOfWalk callers at lines 117, 147 inherit the
 // corrected endpoint semantics. Pessimistic-allow on nil validator.
-// NAI-35-T6 (NAI-165). The iterator/hunt-site sweep at player_iterator.go,
-// npc_iterator.go, npc_hunt_entities.go, and npc_hunt.go (still on
-// (1, 0, 0, 0)) is tracked separately as a NAI-166 candidate.
+// NAI-35-T6 (NAI-165). NAI-166-D-LOW-ARG-SHAPE-SWEEP retired the
+// iterator-side stragglers in pkg/script/player_iterator.go and
+// pkg/script/npc_iterator.go (the modules/world hunt sites were already
+// canonical at HEAD when NAI-166 opened).
 func isLineOfWalk(s *ScriptState, level, srcX, srcZ, destX, destZ int) bool {
 	if s.LineValidator == nil {
 		return true

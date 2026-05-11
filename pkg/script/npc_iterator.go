@@ -117,26 +117,26 @@ func (it *NpcIterator) passesFilter(npc ActiveNpc) bool {
 // npcVisibleViaLineOfSight returns true when the iterator's lineValidator
 // passes a LoS check from the iterator's center coord to the NPC. Nil
 // validator = pessimistically allow. NAI-35-T3.
-// (srcSize=1, destWidth=destLength=0, extraFlag=0) — single-tile src
-// against a zero-size NPC dest; mirrors TS isLineOfSight wrapper at
-// ScriptIterators.ts:359-361.
+// Arg tuple (1, 1, 1, 0) mirrors TS isLineOfSight wrapper at
+// GameMap.ts:429-431, invoked from ScriptIterators.ts:284.
+// NAI-166-D-LOW-ARG-SHAPE-SWEEP closes the prior (1, 0, 0, 0) shape.
 func (it *NpcIterator) npcVisibleViaLineOfSight(npc ActiveNpc) bool {
 	if it.lineValidator == nil {
 		return true
 	}
-	return it.lineValidator.HasLineOfSight(it.level, it.x, it.z, npc.NpcX(), npc.NpcZ(), 1, 0, 0, 0)
+	return it.lineValidator.HasLineOfSight(it.level, it.x, it.z, npc.NpcX(), npc.NpcZ(), 1, 1, 1, 0)
 }
 
 // npcVisibleViaLineOfWalk returns true when the iterator's lineValidator
 // passes a LoW check. Nil validator = pessimistically allow. NAI-35-T3.
-// (srcSize=1, destWidth=destLength=0, extraFlag=0) — single-tile src
-// against a zero-size NPC dest; mirrors TS isLineOfWalk wrapper at
-// ScriptIterators.ts:359-361.
+// Arg tuple (1, 1, 1, 0) mirrors TS isLineOfWalk wrapper at
+// GameMap.ts:425-427, invoked from ScriptIterators.ts:287.
+// NAI-166-D-LOW-ARG-SHAPE-SWEEP closes the prior (1, 0, 0, 0) shape.
 func (it *NpcIterator) npcVisibleViaLineOfWalk(npc ActiveNpc) bool {
 	if it.lineValidator == nil {
 		return true
 	}
-	return it.lineValidator.HasLineOfWalk(it.level, it.x, it.z, npc.NpcX(), npc.NpcZ(), 1, 0, 0, 0)
+	return it.lineValidator.HasLineOfWalk(it.level, it.x, it.z, npc.NpcX(), npc.NpcZ(), 1, 1, 1, 0)
 }
 
 // NewDistanceNpcIterator constructs an iterator that walks NPCs in zones

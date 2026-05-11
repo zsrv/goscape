@@ -356,3 +356,41 @@ func TestNpcIterator_PassesFilter_HuntAllMode_LineOfSight_IteratorAsSrc(t *testi
 		t.Errorf("LoS dest: got (%d,%d), want (3201,3202) — NPC coords", rec.losDestX, rec.losDestZ)
 	}
 }
+
+// TestNpcIterator_LineValidatorArgShape pins the TS-canonical
+// (srcSize=1, destWidth=1, destLength=1, extraFlag=0) arg tuple at both
+// LOS and LOW branches of NpcIterator (npc_iterator.go lines 127, 139).
+// Mirrors NAI-165-D-LOW-ARG-SHAPE-FIX semantics, applied to the iterator
+// family. NAI-166-D-LOW-ARG-SHAPE-SWEEP.
+//
+// TS canonical: ScriptIterators.ts:284 (LOS), :287 (LOW) — both route
+// through the GameMap.ts:425-431 wrappers (1, 1, 1, 1, 0). NpcHuntAll
+// passes iterator-as-src + npc-as-dest (REVERSE of PlayerHuntAll).
+func TestNpcIterator_LineValidatorArgShape(t *testing.T) {
+	t.Parallel()
+	// LOS branch
+	stubLOS := &stubLineValidatorArgs{losReturn: true}
+	itLOS := NewHuntAllNpcIterator(nil, stubLOS, 0, 0, 3200, 3200, 8, objtype.HuntVisLineOfSight)
+	npc := &mockNpc{x: 3201, z: 3202, level: 0}
+	_ = itLOS.passesFilter(npc)
+	if len(stubLOS.losCalls) != 1 {
+		t.Fatalf("LOS branch: expected 1 LV call, got %d", len(stubLOS.losCalls))
+	}
+	got := stubLOS.losCalls[0]
+	want := losCall{level: 0, srcX: 3200, srcZ: 3200, destX: 3201, destZ: 3202, srcSize: 1, destWidth: 1, destLength: 1, extraFlag: 0}
+	if got != want {
+		t.Fatalf("LOS arg shape:\n got=%+v\nwant=%+v", got, want)
+	}
+
+	// LOW branch
+	stubLOW := &stubLineValidatorArgs{lowReturn: true}
+	itLOW := NewHuntAllNpcIterator(nil, stubLOW, 0, 0, 3200, 3200, 8, objtype.HuntVisLineOfWalk)
+	_ = itLOW.passesFilter(npc)
+	if len(stubLOW.lowCalls) != 1 {
+		t.Fatalf("LOW branch: expected 1 LV call, got %d", len(stubLOW.lowCalls))
+	}
+	got = stubLOW.lowCalls[0]
+	if got != want {
+		t.Fatalf("LOW arg shape:\n got=%+v\nwant=%+v", got, want)
+	}
+}
