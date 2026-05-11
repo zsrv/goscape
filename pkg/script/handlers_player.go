@@ -1716,6 +1716,27 @@ func handlePOpHeld(s *ScriptState) error {
 	return fmt.Errorf("P_OPHELD: unimplemented")
 }
 
+// handlePOpPlayerT (P_OPPLAYERT, opcode 2082). Protected gate. Pops
+// spellId; validates via NumberNotNull. If Self2 absent, silently returns
+// (TS PlayerOps.ts:1130-1132). Otherwise StopAction +
+// SetInteractionScriptPlayer(Self2, spellId). Mirrors TS
+// PlayerOps.ts:1127-1135.
+func handlePOpPlayerT(s *ScriptState) error {
+	if err := requireProtectedActivePlayer(s, "P_OPPLAYERT"); err != nil {
+		return err
+	}
+	spellID := s.PopInt()
+	if err := checkNotNull(spellID, "P_OPPLAYERT"); err != nil {
+		return err
+	}
+	if s.Self2 == nil || s.Pointers&PtrActivePlayer2 == 0 {
+		return nil // silent — TS PlayerOps.ts:1130-1132
+	}
+	s.Self.StopAction()
+	s.Self.SetInteractionScriptPlayer(s.Self2, spellID)
+	return nil
+}
+
 // handlePLocMerge (P_LOCMERGE, opcode 2074). Protected gate. Pops
 // [northWest, southEast, endCycle, startCycle] (LIFO; TS popInts(4) →
 // [startCycle, endCycle, southEast, northWest]). Validates both coords;

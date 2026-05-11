@@ -5320,6 +5320,75 @@ func TestClearQueueDispatch(t *testing.T) {
 	}
 }
 
+// TestHandlePOpPlayerT_Happy pins: protected gate set, Self2 present,
+// spellId pops, StopAction + SetInteractionScriptPlayer fire.
+// Mirrors TS PlayerOps.ts:1127-1135.
+func TestHandlePOpPlayerT_Happy(t *testing.T) {
+	mp := &mockPlayer{}
+	mp2 := &mockPlayer{}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        mp,
+		Self2:       mp2,
+		Pointers:    PtrActivePlayer | PtrProtectedActivePlayer | PtrActivePlayer2,
+	}
+	s.PushInt(1234) // spellId
+
+	if err := handlePOpPlayerT(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if mp.stopActionCalls != 1 {
+		t.Errorf("StopAction: got %d calls, want 1", mp.stopActionCalls)
+	}
+	if len(mp.lastSetInteractionScriptPlayer) != 1 {
+		t.Fatalf("SetInteractionScriptPlayer: got %d, want 1", len(mp.lastSetInteractionScriptPlayer))
+	}
+	got := mp.lastSetInteractionScriptPlayer[0]
+	if got.player2 != mp2 || got.op != 1234 {
+		t.Errorf("call args: got {%v %d}, want {%v 1234}", got.player2, got.op, mp2)
+	}
+}
+
+// TestHandlePOpPlayerT_NilSelf2 pins TS PlayerOps.ts:1130-1132 silent
+// return: no error, no StopAction, no SetInteraction when Self2 absent.
+func TestHandlePOpPlayerT_NilSelf2(t *testing.T) {
+	mp := &mockPlayer{}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        mp,
+		Self2:       nil,
+		Pointers:    PtrActivePlayer | PtrProtectedActivePlayer, // no PtrActivePlayer2
+	}
+	s.PushInt(1234)
+
+	if err := handlePOpPlayerT(s); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if mp.stopActionCalls != 0 {
+		t.Errorf("StopAction: got %d, want 0 (silent return)", mp.stopActionCalls)
+	}
+	if len(mp.lastSetInteractionScriptPlayer) != 0 {
+		t.Errorf("SetInteraction calls: got %d, want 0", len(mp.lastSetInteractionScriptPlayer))
+	}
+}
+
+// TestHandlePOpPlayerT_NotProtected pins the protected-gate error.
+func TestHandlePOpPlayerT_NotProtected(t *testing.T) {
+	mp := &mockPlayer{}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        mp,
+		Pointers:    PtrActivePlayer, // not protected
+	}
+	s.PushInt(1234)
+	if err := handlePOpPlayerT(s); err == nil {
+		t.Fatal("expected error when not protected")
+	}
+}
+
 // mergeLocWorld extends *mockWorld to record MergeLoc calls.
 // Used by TestHandlePLocMerge_*.
 type mergeLocWorld struct {

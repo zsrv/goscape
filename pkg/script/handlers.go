@@ -570,8 +570,9 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpInvTotalParamStack:    handleInvTotalParamStack,    // opcode 4329
 
 	// NAI-162 B2: WealthEvent + player-interaction + NAI-115-D1 retirement.
-	OpWealthEvent: handleWealthEvent, // opcode 2131
-	OpPLocMerge:   handlePLocMerge,   // opcode 2074
+	OpWealthEvent:  handleWealthEvent,  // opcode 2131
+	OpPLocMerge:    handlePLocMerge,    // opcode 2074
+	OpPOpPlayerT:   handlePOpPlayerT,   // opcode 2082
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.
