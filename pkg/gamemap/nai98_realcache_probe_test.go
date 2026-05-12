@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 )
 
 // TestNAI98_RealCacheReachProbe_NPC943 — Repro A: player (3221, 3218),
@@ -95,7 +96,7 @@ func runRealCacheReachProbe(t *testing.T, srcX, srcZ, dstX, dstZ int) {
 			t.Skipf("Phase 1 surfaces unexpected route shape (degenerate same-tile waypoint at segment %d). Route=%+v", segIdx, route)
 		}
 		for x != wp.X() || z != wp.Z() {
-			if !gm.CanTravel(level, x, z, sx, sz) {
+			if !gm.CanTravel(level, x, z, sx, sz, 1, 0, collision.TypeNormal) {
 				t.Fatalf("H7 FIRES at sub-step (%d,%d)→(%d,%d) inside segment %d/%d (waypoint (%d,%d)→(%d,%d)) step=(%d,%d) but CanTravel=false. Route=%+v",
 					x, z, x+sx, z+sz, segIdx+1, len(route.Waypoints), x, z, wp.X(), wp.Z(), sx, sz, route)
 			}

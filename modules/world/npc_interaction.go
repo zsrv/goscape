@@ -353,7 +353,7 @@ func (n *Npc) stepOnce(s *Server) (bool, int) {
 	}
 	dx := coordgrid.DeltaX(dir)
 	dz := coordgrid.DeltaZ(dir)
-	if s != nil && s.gamemap != nil && !s.gamemap.CanTravel(n.level, n.x, n.z, dx, dz) {
+	if s != nil && s.gamemap != nil && !s.gamemap.CanTravel(n.level, n.x, n.z, dx, dz, 1, 0, collision.TypeNormal) {
 		n.waypointIndex = -1
 		return false, -1
 	}

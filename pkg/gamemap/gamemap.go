@@ -132,10 +132,16 @@ func (gm *GameMap) ChangeRoofCollision(x, z, level int, add bool) {
 }
 
 // CanTravel tests whether moving from (x, z, level) with the given offset
-// (offsetX, offsetZ) to an adjacent tile is allowed. offsetX/offsetZ must be in {-1, 0, 1}.
-func (gm *GameMap) CanTravel(level, x, z, offsetX, offsetZ int) bool {
+// (offsetX, offsetZ) to an adjacent tile is allowed under the given
+// per-entity collision strategy. offsetX/offsetZ must be in {-1, 0, 1}.
+// size is the entity's tile footprint width (1 for players and 1-tile NPCs).
+// extraFlag is the entity's blockWalkFlag() (e.g. FlagBlockPlayers for
+// players, FlagBlockNPCs for normal NPCs, FlagOpen for blocked NPCs).
+// collisionType is the entity's getCollisionStrategy() (TypeNormal,
+// TypeBlocked, TypeIndoors, TypeOutdoors).
+func (gm *GameMap) CanTravel(level, x, z, offsetX, offsetZ, size, extraFlag int, collisionType collision.Type) bool {
 	return gm.Pathfinder.StepValidator.CanTravel(
-		level, x, z, offsetX, offsetZ, 1, 0, collision.TypeNormal,
+		level, x, z, offsetX, offsetZ, size, extraFlag, collisionType,
 	)
 }
 

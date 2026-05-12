@@ -2,6 +2,7 @@ package world
 
 import (
 	"github.com/zsrv/goscape/pkg/coordgrid"
+	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/pathfinder/routefinder"
 )
 
@@ -131,7 +132,7 @@ func (p *Player) stepOnce() (coordgrid.Direction, bool) {
 	dx := coordgrid.DeltaX(dir)
 	dz := coordgrid.DeltaZ(dir)
 	if p.client != nil && p.client.server != nil && p.client.server.gamemap != nil {
-		if !p.client.server.gamemap.CanTravel(p.level, p.x, p.z, dx, dz) {
+		if !p.client.server.gamemap.CanTravel(p.level, p.x, p.z, dx, dz, 1, 0, collision.TypeNormal) {
 			p.waypointIndex = -1
 			return -1, false
 		}
