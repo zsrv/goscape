@@ -66,6 +66,18 @@ type Server struct {
 	// Mirrors TS World.shutdownTick (World.ts:166). NAI-182.
 	shutdownTick int
 
+	// shutdownGraceful is set by Server.processShutdown when zero
+	// players remain after a reboot. The tick loop returns when set,
+	// and world.go runFn distinguishes this from an "unexpected" stop
+	// by checking the flag before returning fmt.Errorf. NAI-182.
+	shutdownGraceful bool
+
+	// gracefulExit is closed by Server.processShutdown to unblock
+	// Server.Run()'s errChan select. Distinct from s.quit (which is
+	// closed by Server.Shutdown() via the dskit stoppingFn) to avoid
+	// double-close panic. NAI-182.
+	gracefulExit chan struct{}
+
 	gamemap *gamemap.GameMap
 
 	// invs is world-shared inventories (banks, shops) keyed by InvType id.
@@ -188,6 +200,7 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 		rsbuf:         rsbuf.New(),
 		pmCount:       1,
 		shutdownTick:  -1,
+		gracefulExit:  make(chan struct{}),
 	}
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}
@@ -427,7 +440,15 @@ func (s *Server) Run() error {
 
 	go s.runTickLoop()
 
-	return <-errChan
+	select {
+	case err := <-errChan:
+		return err
+	case <-s.gracefulExit:
+		// processShutdown initiated graceful exit. Return nil; world.go
+		// runFn checks s.shutdownGraceful to distinguish from
+		// "unexpected" stop. NAI-182.
+		return nil
+	}
 }
 
 // Stop unblocks Run().

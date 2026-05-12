@@ -2,6 +2,7 @@ package world
 
 import (
 	"bytes"
+	"io"
 	"testing"
 
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
@@ -134,5 +135,79 @@ func TestIsPendingShutdown_AndTicksRemaining(t *testing.T) {
 	s.currentTick = startTick + 10
 	if got := s.shutdownTicksRemaining(); got != 40 {
 		t.Errorf("shutdownTicksRemaining after +10 ticks: got %d, want 40", got)
+	}
+}
+
+// TestProcessShutdown_MarksAllConnectedPlayersForLogout verifies that
+// processShutdown sets loggingOut on every player with a live client. NAI-182 B5.
+func TestProcessShutdown_MarksAllConnectedPlayersForLogout(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	s.playerLoop = append(s.playerLoop, p)
+	go io.Copy(io.Discard, cc)
+
+	s.shutdownTick = s.currentTick
+	s.processShutdown()
+
+	if !p.loggingOut {
+		t.Errorf("player slot=%d: loggingOut not set after processShutdown", p.slot)
+	}
+}
+
+// TestProcessShutdown_ForceRemoveAfter1024Ticks verifies that processShutdown
+// sets forceRemove on players that are still present after 1024 ticks. NAI-182 B5.
+func TestProcessShutdown_ForceRemoveAfter1024Ticks(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	s.playerLoop = append(s.playerLoop, p)
+	go io.Copy(io.Discard, cc)
+
+	p.loggingOut = true
+	s.shutdownTick = s.currentTick - 1024
+
+	s.processShutdown()
+
+	if !p.forceRemove {
+		t.Errorf("p.forceRemove after 1024-tick processShutdown: got false, want true")
+	}
+}
+
+// TestProcessShutdown_ForceRemoveNotSetBeforeDuration verifies that forceRemove
+// is NOT set when fewer than 1024 ticks have elapsed. NAI-182 B5.
+func TestProcessShutdown_ForceRemoveNotSetBeforeDuration(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	s.playerLoop = append(s.playerLoop, p)
+	go io.Copy(io.Discard, cc)
+
+	p.loggingOut = true
+	s.shutdownTick = s.currentTick - 1023
+
+	s.processShutdown()
+
+	if p.forceRemove {
+		t.Errorf("p.forceRemove after 1023-tick processShutdown: got true, want false")
+	}
+}
+
+// TestProcessShutdown_ZeroPlayersTriggersGracefulExit verifies that processShutdown
+// sets shutdownGraceful and closes gracefulExit when no players are connected. NAI-182 B5.
+func TestProcessShutdown_ZeroPlayersTriggersGracefulExit(t *testing.T) {
+	s := newTestServer(t)
+	s.shutdownTick = s.currentTick
+
+	s.processShutdown()
+
+	if !s.shutdownGraceful {
+		t.Error("shutdownGraceful: got false, want true after zero-player processShutdown")
+	}
+	select {
+	case <-s.gracefulExit:
+		// pass
+	default:
+		t.Error("gracefulExit channel: not closed after zero-player processShutdown")
 	}
 }

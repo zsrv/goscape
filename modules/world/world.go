@@ -103,6 +103,9 @@ func NewWorldService(serv *Server, lc *LoginClient, servicesToWaitFor func() []s
 			if err != nil {
 				return err
 			}
+			if serv.shutdownGraceful {
+				return nil // NAI-182 — ::reboot / ::slowreboot graceful exit
+			}
 			return fmt.Errorf("server stopped unexpectedly")
 		}
 	}

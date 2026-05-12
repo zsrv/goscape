@@ -26,6 +26,17 @@ func (s *Server) runTickLoop() {
 func (s *Server) runTickLoopWithRate(rate time.Duration) {
 	nextTick := time.Now()
 	for {
+		// NAI-182 — shutdown consumer must run BEFORE any per-tick work
+		// so a doomed conn doesn't receive one more tick of activity.
+		// Mirrors TS World.cycle (World.ts:419-420 `if (this.shutdown)
+		// this.processShutdown();`).
+		if s.shutdownTick != -1 && s.currentTick >= s.shutdownTick {
+			s.processShutdown()
+			if s.shutdownGraceful {
+				return // tick loop terminates; Server.Run() returns nil via s.gracefulExit
+			}
+		}
+
 		start := time.Now()
 		drift := start.Sub(nextTick)
 		if drift < 0 {
@@ -245,6 +256,9 @@ func (s *Server) processLogouts() {
 
 	for _, p := range players {
 		force := false
+		if p.forceRemove {
+			force = true
+		}
 		if s.currentTick-p.lastResponse >= timeoutNoResponse {
 			p.loggingOut = true
 			force = true

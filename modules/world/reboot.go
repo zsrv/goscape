@@ -41,3 +41,46 @@ func (s *Server) isPendingShutdown() bool {
 func (s *Server) shutdownTicksRemaining() int {
 	return s.shutdownTick - s.currentTick
 }
+
+// processShutdown runs at the top of s.tick() when s.shutdownTick != -1
+// && s.currentTick >= s.shutdownTick. Mirrors TS World.processShutdown
+// (World.ts:1198-1226). NAI-182.
+func (s *Server) processShutdown() {
+	// (a) For every connected player, request logout. TS calls
+	// player.logout() + player.client.close() inline; goscape reuses
+	// the existing logout machinery (processLogouts drain path) by
+	// flagging p.loggingOut. The current tick's processLogouts will
+	// then run the standard logout sequence.
+	for _, p := range s.playerLoop {
+		if p != nil && p.client != nil {
+			p.loggingOut = true
+		}
+	}
+
+	duration := s.currentTick - s.shutdownTick
+
+	// (b) After 1024 ticks (~10 minutes at 600ms/tick), force-remove any
+	// player that hasn't completed logout. Mirrors TS World.processShutdown
+	// (W.ts:1207-1213). The p.forceRemove flag drives processLogouts'
+	// force-branch.
+	if duration >= 1024 {
+		for _, p := range s.playerLoop {
+			if p != nil {
+				p.forceRemove = true
+			}
+		}
+	}
+
+	// (c) Graceful exit when zero players remain. TS calls
+	// process.exit(0); goscape signals via shutdownGraceful + closes
+	// gracefulExit. The tick loop returns; Server.Run() selects on
+	// gracefulExit and returns nil; world.go runFn checks
+	// shutdownGraceful to distinguish from "unexpected" stop.
+	//
+	// We deliberately do NOT close(s.quit) — the dskit stoppingFn later
+	// calls Server.Shutdown() which closes s.quit; double-close would panic.
+	if s.getTotalPlayers() == 0 {
+		s.shutdownGraceful = true
+		close(s.gracefulExit)
+	}
+}
