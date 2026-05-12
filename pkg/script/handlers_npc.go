@@ -877,7 +877,7 @@ func handleNpcHuntAll(s *ScriptState) error {
 		return nil
 	}
 	s.npcIterator = NewHuntAllNpcIterator(
-		s.Npcs, s.LineValidator, s.World.CurrentTick(),
+		s.Npcs, s.LineValidator, s.Configs, s.World.CurrentTick(),
 		level, x, z, distance, checkVis,
 	)
 	return nil
@@ -921,7 +921,7 @@ func handleNpcHunt(s *ScriptState) error {
 	}
 
 	tick := s.World.CurrentTick()
-	it := NewHuntAllNpcIterator(s.Npcs, s.LineValidator, tick, level, x, z, distance, huntvis)
+	it := NewHuntAllNpcIterator(s.Npcs, s.LineValidator, s.Configs, tick, level, x, z, distance, huntvis)
 
 	var closest ActiveNpc
 	closestDist := math.MaxInt

@@ -61,6 +61,13 @@ type NpcIterator struct {
 	// Intra-zone snapshot (lazy: filled on zone-entry)
 	zoneNpcs []ActiveNpc
 	zoneIdx  int
+
+	// configs is the cache-loaded NpcType/LocType/etc. provider used by
+	// passesFilter's HuntAll-mode op[1] gate (TS ScriptIterators.ts:274-280).
+	// Nil = test fixture without Configs wired; pessimistic-allow per
+	// the lineValidator==nil convention. Production sets this from
+	// s.Configs at NewHuntAllNpcIterator. NAI-180.
+	configs Configs
 }
 
 // Stale reports whether the iterator was created in a prior tick.
@@ -201,12 +208,16 @@ func NewZoneNpcIterator(lookup NpcLookup, tick, level, x, z int) *NpcIterator {
 // NewHuntAllNpcIterator constructs an iterator that walks NPCs in zones
 // within `distance` of (level, x, z), filtered by huntvis (ACTIVE per
 // NAI-35-T3 — partially closes NAI-33-D1 for HuntAll mode; Distance
-// mode + FindClosest* still residual) and no typeID filter (-1).
-// Mirrors TS NpcHuntAllCommandIterator at ScriptIterators.ts:234-295.
-// Bounds math identical to NewDistanceNpcIterator. HuntAll mode is
-// distinguished only by passesFilter activating huntvis-based LoS/LoW
-// filtering.
-func NewHuntAllNpcIterator(lookup NpcLookup, lv LineValidator, tick, level, x, z, distance, huntvis int) *NpcIterator {
+// mode + FindClosest* still residual) and the NpcType.Op[1] operability
+// gate (NAI-180 closes NAI-35-T3-D1; TS ScriptIterators.ts:274-280).
+// No typeID filter (-1). Mirrors TS NpcHuntAllCommandIterator at
+// ScriptIterators.ts:234-295. Bounds math identical to
+// NewDistanceNpcIterator.
+//
+// configs is the cache-loaded NpcType provider; production passes
+// s.Configs. Nil-Configs path is goscape defensive (TS throws on
+// missing NpcType) — test fixtures pessimistically allow.
+func NewHuntAllNpcIterator(lookup NpcLookup, lv LineValidator, configs Configs, tick, level, x, z, distance, huntvis int) *NpcIterator {
 	centerX := x >> 3
 	centerZ := z >> 3
 	radius := 1 + distance/8
@@ -215,6 +226,7 @@ func NewHuntAllNpcIterator(lookup NpcLookup, lv LineValidator, tick, level, x, z
 		creationTick:  tick,
 		lookup:        lookup,
 		lineValidator: lv,
+		configs:       configs,
 		level:         level,
 		x:             x,
 		z:             z,
