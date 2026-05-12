@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
+	"github.com/zsrv/goscape/pkg/fonttype"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
@@ -51,8 +52,11 @@ func (f *fakeConfigs) FindDbRowsStr(query string, packed int) []int { return nil
 func (f *fakeConfigs) VarpType(id int) (objtype.ScriptVarType, bool) {
 	return objtype.ScriptVarTypeInt, false
 }
-func (f *fakeConfigs) VarnType(id int) objtype.ScriptVarType  { return objtype.ScriptVarTypeInt }
-func (f *fakeConfigs) ObjByName(name string) *objtype.ObjType { return nil }
+func (f *fakeConfigs) VarnType(id int) objtype.ScriptVarType        { return objtype.ScriptVarTypeInt }
+func (f *fakeConfigs) ObjByName(name string) *objtype.ObjType       { return nil }
+func (f *fakeConfigs) MesanimType(id int) *objtype.MesanimType      { return nil }
+func (f *fakeConfigs) MesanimByName(name string) int                { return -1 }
+func (f *fakeConfigs) FontType(id int) *fonttype.FontType           { return nil }
 
 // newLocOpState builds a ScriptState with ActiveLoc bound, Configs wired,
 // and a single int on the stack (the op index).

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/zsrv/goscape/pkg/fonttype"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
@@ -22,6 +23,9 @@ type mockConfigs struct {
 	varps         map[int]*objtype.VarPlayerType
 	varns         map[int]*objtype.VarNpcType
 	seqs          map[int]*objtype.SeqType
+	mesanims      map[int]*objtype.MesanimType
+	mesanimsByName map[string]int
+	fonts         map[int]*fonttype.FontType
 }
 
 func (m *mockConfigs) ObjType(id int) *objtype.ObjType              { return m.objs[id] }
@@ -34,6 +38,18 @@ func (m *mockConfigs) InvType(id int) *objtype.InvType              { return m.i
 func (m *mockConfigs) IdkType(id int) *objtype.IdkType              { return m.idks[id] }
 func (m *mockConfigs) SpotAnimType(id int) *objtype.SpotanimType    { return m.spotAnimTypes[id] }
 func (m *mockConfigs) SeqType(id int) *objtype.SeqType              { return m.seqs[id] }
+func (m *mockConfigs) MesanimType(id int) *objtype.MesanimType      { return m.mesanims[id] }
+func (m *mockConfigs) MesanimByName(name string) int {
+	if m.mesanimsByName == nil {
+		return -1
+	}
+	id, ok := m.mesanimsByName[name]
+	if !ok {
+		return -1
+	}
+	return id
+}
+func (m *mockConfigs) FontType(id int) *fonttype.FontType            { return m.fonts[id] }
 func (m *mockConfigs) DbTableType(id int) *objtype.DbTableType      { return nil }
 func (m *mockConfigs) DbRowType(id int) *objtype.DbRowType          { return nil }
 func (m *mockConfigs) DbRowsInTable(tableID int) []int              { return nil }

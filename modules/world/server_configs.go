@@ -1,6 +1,9 @@
 package world
 
-import "github.com/zsrv/goscape/pkg/objtype"
+import (
+	"github.com/zsrv/goscape/pkg/fonttype"
+	"github.com/zsrv/goscape/pkg/objtype"
+)
 
 // serverConfigsView adapts *Server to script.Configs. Kept value-typed
 // so tests can construct it without a running server.
@@ -183,4 +186,34 @@ func (c serverConfigsView) ObjByName(name string) *objtype.ObjType {
 		return nil
 	}
 	return c.s.objTypes.ByName(name)
+}
+
+// MesanimType returns the message-animation config for id or nil when
+// out of range. NAI-179.
+func (c serverConfigsView) MesanimType(id int) *objtype.MesanimType {
+	if c.s.mesanimTypes == nil || id < 0 || id >= len(c.s.mesanimTypes.Configs) {
+		return nil
+	}
+	return c.s.mesanimTypes.Configs[id]
+}
+
+// MesanimByName resolves a mesanim debugname to its config id, or -1.
+// Mirrors TS MesanimType.getId. NAI-179.
+func (c serverConfigsView) MesanimByName(name string) int {
+	if c.s.mesanimTypes == nil {
+		return -1
+	}
+	if id, ok := c.s.mesanimTypes.ConfigNames[name]; ok {
+		return id
+	}
+	return -1
+}
+
+// FontType returns the per-byte width table for font id 0..3, or nil
+// when the title cache wasn't loaded / id is out of range. NAI-179.
+func (c serverConfigsView) FontType(id int) *fonttype.FontType {
+	if id < 0 || id >= len(c.s.fontTypes) {
+		return nil
+	}
+	return c.s.fontTypes[id]
 }

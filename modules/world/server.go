@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"net"
+	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -17,6 +18,7 @@ import (
 	"github.com/zsrv/goscape/internal/dskit/signals"
 	"github.com/zsrv/goscape/pkg/cache"
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
+	"github.com/zsrv/goscape/pkg/fonttype"
 	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/inventory"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
@@ -87,6 +89,8 @@ type Server struct {
 	npcTypes      *objtype.NPCTypeConfigs
 	huntTypes     *objtype.HuntTypeConfigs
 	idkTypes       *objtype.IdkTypeConfigs
+	mesanimTypes   *objtype.MesanimTypeConfigs
+	fontTypes      []*fonttype.FontType
 	seqTypes       *objtype.SeqTypeConfigs
 	spotanimTypes  *objtype.SpotanimTypeConfigs
 	componentTypes *objtype.ComponentTypeConfigs
@@ -280,6 +284,24 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 		return nil, fmt.Errorf("load idk types: %w", err)
 	}
 	s.idkTypes = idkTypes
+
+	mesanimTypes, err := objtype.LoadMesanimTypes(cfg.CachePath)
+	if err != nil {
+		return nil, fmt.Errorf("load mesanim types: %w", err)
+	}
+	s.mesanimTypes = mesanimTypes
+
+	fontTypes, err := fonttype.Load(cfg.CachePath)
+	if err != nil {
+		// Title file is optional in test fixtures; treat NotFound as
+		// empty registry but propagate any other error.
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("load font types: %w", err)
+		}
+		s.log.Warn("client/title font cache unavailable; font split disabled", "err", err)
+		fontTypes = nil
+	}
+	s.fontTypes = fontTypes
 
 	seqFrames, err := objtype.LoadSeqFrames(cfg.CachePath)
 	if err != nil {
