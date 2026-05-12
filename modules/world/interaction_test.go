@@ -1942,30 +1942,95 @@ func TestPlayer_InOperableDistance_NilLocTypeFallback(t *testing.T) {
 	}
 }
 
-// TestPlayer_InOperableDistance_NpcTarget_UsesCheb pins that *Npc targets
-// hit the default Chebyshev arm (excludes same-tile).
-func TestPlayer_InOperableDistance_NpcTarget_UsesCheb(t *testing.T) {
-	s, _ := newInOperableTestServer(t)
-	p, _ := newTestPlayer(t)
-	p.client.server = s
-	p.x, p.z, p.level = 100, 100, 0
+// -- NAI-173 PathingEntity reach tests (replaces NAI-91-D fallback) -------
+//
+// Ports TS Player.inOperableDistance (Player.ts:1099-1111) PathingEntity arm
+// to reach.Reached(..., 0, -2, 0) (TS reachedEntity). Retires
+// NAI-91-D-OPERABLE-CHEB-FALLBACK for the *Player and *Npc target arms.
+//
+// reachRectangle1 (rectangularbounds.go:15-48) reads walk-flags AT THE SOURCE
+// tile: every src tile must be AllocateIfAbsent'd to clear FlagNull (=-1, all
+// bits set). Diagonals reject — reachRectangle1 has no diagonal arm; this is
+// TS-faithful.
 
+// TestPlayer_InOperableDistance_PathingEntity_Reach pins the production
+// reach-based PathingEntity arm. Each row asserts the post-NAI-173 result.
+func TestPlayer_InOperableDistance_PathingEntity_Reach(t *testing.T) {
 	cases := []struct {
-		name   string
-		tx, tz int
-		want   bool
+		name           string
+		px, pz, plevel int
+		tx, tz, tlevel int
+		targetIsPlayer bool
+		targetSize     int // npc.size (ignored when targetIsPlayer)
+		want           bool
 	}{
-		{"same tile", 100, 100, false},
-		{"adjacent", 100, 101, true},
-		{"2 away", 100, 102, false},
+		{"npc same-tile", 100, 100, 0, 100, 100, 0, false, 1, false},
+		{"npc adjacent N (orth)", 100, 100, 0, 100, 101, 0, false, 1, true},
+		{"npc adjacent E (orth)", 100, 100, 0, 101, 100, 0, false, 1, true},
+		{"npc adjacent NE (diag) — TS-faithful reject", 100, 100, 0, 101, 101, 0, false, 1, false},
+		{"player adjacent N (orth)", 100, 100, 0, 100, 101, 0, true, 1, true},
+		{"npc distance 2 east", 100, 100, 0, 102, 100, 0, false, 1, false},
+		{"npc cross-level", 100, 100, 0, 100, 101, 1, false, 1, false},
+		// Multi-tile NPC (size=2): occupies (100,100)-(101,101). Player one
+		// tile west of the west edge at (99,100) reaches via reachRectangle1's
+		// "srcX == destX-1" arm (destWidth=2, destLength=2 → east=101, north=101;
+		// srcZ=100 ∈ [100,101] and srcX=99 == 100-1 ✓). Chebyshev would also
+		// pass for srcX=99,srcZ=100 (|dx|=1) — non-divergent geometry; the
+		// goal here is to exercise the destWidth/destLength path, not divergence.
+		{"npc multi-tile (size=2) west of west edge", 99, 100, 0, 100, 100, 0, false, 2, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			n := &Npc{x: tc.tx, z: tc.tz, level: 0}
-			if got := inOperableDistance(p, n); got != tc.want {
-				t.Errorf("npc target: got %v want %v", got, tc.want)
+			s, _ := newInOperableTestServer(t)
+			p, _ := newTestPlayer(t)
+			p.client.server = s
+			p.x, p.z, p.level = tc.px, tc.pz, tc.plevel
+			// Allocate src tile so unallocated FlagNull doesn't spuriously
+			// block reach (per empty_flagmap_degenerate_routefinder.md).
+			s.gamemap.Pathfinder.Flags.AllocateIfAbsent(tc.px, tc.pz, tc.plevel)
+
+			var target entity
+			if tc.targetIsPlayer {
+				tp, _ := newTestPlayer(t)
+				tp.client.server = s
+				tp.x, tp.z, tp.level = tc.tx, tc.tz, tc.tlevel
+				target = tp
+			} else {
+				typ := &objtype.NpcType{Size: byte(tc.targetSize)}
+				n := NewNpc(1, 0, tc.tx, tc.tz, tc.tlevel, typ)
+				n.server = s
+				target = n
+			}
+
+			if got := inOperableDistance(p, target); got != tc.want {
+				t.Errorf("inOperableDistance got %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+// TestPlayer_InOperableDistance_PathingEntity_NilGamemap_FallsThroughToCheb
+// pins the goscape-defensive nil-gamemap arm: when srv.gamemap is nil
+// (narrow test fixtures), the PathingEntity arm falls back to Chebyshev≤1.
+func TestPlayer_InOperableDistance_PathingEntity_NilGamemap_FallsThroughToCheb(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	// Construct a Server with NO gamemap — exercises the defensive branch.
+	s := &Server{quit: make(chan interface{}), log: discardLogger()}
+	p.client.server = s
+	p.x, p.z, p.level = 100, 100, 0
+
+	typ := &objtype.NpcType{Size: 1}
+	n := NewNpc(1, 0, 101, 101, 0, typ) // diagonal — Chebyshev says true
+	n.server = s
+
+	if !inOperableDistance(p, n) {
+		t.Fatalf("nil gamemap: expected Chebyshev fallback to allow diagonal-adjacent (got false)")
+	}
+
+	n2 := NewNpc(2, 0, 100, 100, 0, typ) // same tile — Chebyshev says false
+	n2.server = s
+	if inOperableDistance(p, n2) {
+		t.Fatalf("nil gamemap: expected Chebyshev fallback to reject same-tile (got true)")
 	}
 }
 

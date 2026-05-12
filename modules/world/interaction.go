@@ -660,6 +660,24 @@ func inOperableDistance(p *Player, target entity) bool {
 		return reach.Reached(flags, p.level, p.x, p.z, tx, tz,
 			obj.Width, obj.Length, p.Width(), 0, -1, 0)
 	}
+	if t, ok := target.(pathingEntity); ok {
+		srv := p.client.server
+		// goscape defensive: production sets gamemap in Server.Init; test
+		// fixtures may construct a *Server without one. Fall through to
+		// Chebyshev so those tests keep compiling.
+		if srv.gamemap == nil {
+			return inOperableDistanceCheb(p.x, p.z, tx, tz)
+		}
+		flags := srv.gamemap.Pathfinder.Flags
+		// TS Player.ts:1104 — reachedEntity (locShape=-2, blockAccessFlags=0).
+		// reach.Reached selects rectangleExclusiveStrategy → same-tile rejects
+		// via Collides; orthogonal-adjacent passes when the src tile's
+		// matching wall-flag is clear; diagonals reject (no rect1 diag arm).
+		return reach.Reached(flags, p.level, p.x, p.z, tx, tz,
+			t.Width(), t.Length(), p.Width(), 0, -2, 0)
+	}
+	// Defensive: target is neither *Loc nor *Obj nor pathingEntity (test
+	// doubles only — production target is always one of those types).
 	return inOperableDistanceCheb(p.x, p.z, tx, tz)
 }
 
