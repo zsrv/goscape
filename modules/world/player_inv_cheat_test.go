@@ -119,6 +119,23 @@ func mustSetupTestObj(t *testing.T, s *Server, objTypeID int, stackable bool) in
 	return objTypeID
 }
 
+// mustSetupNamedObj is like mustSetupTestObj but also wires the
+// ObjTypeConfigs.ConfigNames index so that ByName(name) resolves to the
+// object. Required for ::give / ::givemany tests which look up by name.
+func mustSetupNamedObj(t *testing.T, s *Server, objTypeID int, name string, stackable bool) int {
+	t.Helper()
+	mustSetupTestObj(t, s, objTypeID, stackable)
+	// mustSetupTestObj leaves the embedded ConfigType.ID at zero; ::give
+	// callers read objType.ID so we must set it to the true obj id here.
+	s.objTypes.Configs[objTypeID].ID = objTypeID
+	s.objTypes.Configs[objTypeID].DebugName = name
+	if s.objTypes.ConfigNames == nil {
+		s.objTypes.ConfigNames = map[string]int{}
+	}
+	s.objTypes.ConfigNames[name] = objTypeID
+	return objTypeID
+}
+
 func countSlots(inv *inventory.Inventory, objID int) int {
 	n := 0
 	for _, item := range inv.Items {

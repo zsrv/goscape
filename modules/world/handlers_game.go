@@ -485,6 +485,40 @@ func handleClientCheat(p *Player, payload []byte) error {
 			p.baseLevels[stat] = 1
 			p.levels[stat] = 1
 			p.AddXP(stat, objtype.GetExpByLevel(level))
+		case "give":
+			// TS L288-302 — give <obj> [count]. Count clamps to
+			// [1, 0x7fffffff] (default 1). Routes through Player.InvAdd
+			// (the bare entity helper) with assureFullInsertion=false.
+			if args == "" {
+				return nil
+			}
+			sub := strings.SplitN(args, " ", 2)
+			objType := p.client.server.objTypes.ByName(sub[0])
+			if objType == nil {
+				return nil
+			}
+			count := 1
+			if len(sub) > 1 {
+				count = parseIntOr(sub[1], 1)
+				if count < 1 {
+					count = 1
+				}
+				if count > 0x7fffffff {
+					count = 0x7fffffff
+				}
+			}
+			p.InvAdd(p.client.server.invTypes.Inv, objType.ID, count, false)
+		case "givemany":
+			// TS L339-352 — givemany <obj>. Fixed count = 1000.
+			if args == "" {
+				return nil
+			}
+			sub := strings.SplitN(args, " ", 2)
+			objType := p.client.server.objTypes.ByName(sub[0])
+			if objType == nil {
+				return nil
+			}
+			p.InvAdd(p.client.server.invTypes.Inv, objType.ID, 1000, false)
 		case "minme":
 			// TS L432-440 — set every stat to 1 except HITPOINTS=10.
 			// TS iterates indices [0, PlayerStatEnabled.length); it does

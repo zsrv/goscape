@@ -864,3 +864,87 @@ func TestHandleClientCheat_MinMe_AllStatsSetTo1ExceptHitpoints(t *testing.T) {
 	}
 }
 
+// --- NAI-184 T6: ::give / ::givemany admin-block cheats ---
+
+// TestHandleClientCheat_Give_AddsToInv pins TS L288-302 — ::give <obj> [count].
+// Resolves obj by name via ObjTypeConfigs.ByName, count clamps to
+// [1, 0x7fffffff] (default 1 when missing), routes through Player.InvAdd
+// with assureFullInsertion=false (TS L302).
+func TestHandleClientCheat_Give_AddsToInv(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 3
+	go io.Copy(io.Discard, cc)
+	const objName = "test_coin"
+	const objID = 995
+
+	// Build the inv slot, the obj (stackable=true, debug name="test_coin"),
+	// and wire ByName via ConfigNames.
+	invID := mustSetupTestInv(t, s, 0, 28)
+	mustSetupNamedObj(t, s, objID, objName, /*stackable=*/ true)
+	s.invTypes.Inv = invID
+
+	dispatchTeleCheat(t, p, "give "+objName+" 5")
+
+	inv := s.invLookup.Get(p, invID)
+	if got := totalUnits(inv, objID); got != 5 {
+		t.Errorf("after ::give test_coin 5: total = %d, want 5", got)
+	}
+
+	// Missing count → defaults to 1.
+	dispatchTeleCheat(t, p, "give "+objName)
+	if got := totalUnits(inv, objID); got != 6 {
+		t.Errorf("after ::give test_coin (no count): total = %d, want 6 (5+1)", got)
+	}
+
+	// Unknown obj name → no mutation.
+	dispatchTeleCheat(t, p, "give fake_obj 7")
+	if got := totalUnits(inv, objID); got != 6 {
+		t.Errorf("after ::give fake_obj 7: total = %d, want 6 (unknown obj)", got)
+	}
+
+	// Empty args → reject (TS L290-294 args.length<1).
+	dispatchTeleCheat(t, p, "give")
+	if got := totalUnits(inv, objID); got != 6 {
+		t.Errorf("after ::give (no args): total = %d, want 6 (rejected)", got)
+	}
+}
+
+// TestHandleClientCheat_GiveMany_Adds1000 pins TS L339-352 — fixed count of 1000.
+func TestHandleClientCheat_GiveMany_Adds1000(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 3
+	go io.Copy(io.Discard, cc)
+	const objName = "test_coin"
+	const objID = 995
+
+	invID := mustSetupTestInv(t, s, 0, 28)
+	mustSetupNamedObj(t, s, objID, objName, true)
+	s.invTypes.Inv = invID
+
+	dispatchTeleCheat(t, p, "givemany "+objName)
+
+	inv := s.invLookup.Get(p, invID)
+	if got := totalUnits(inv, objID); got != 1000 {
+		t.Errorf("after ::givemany test_coin: total = %d, want 1000", got)
+	}
+}
+
+// TestHandleClientCheat_Give_AdminGate pins that staffModLevel < 3 silently
+// rejects (admin tier gate).
+func TestHandleClientCheat_Give_AdminGate(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 2 // below admin tier
+	go io.Copy(io.Discard, cc)
+	const objID = 995
+	invID := mustSetupTestInv(t, s, 0, 28)
+	mustSetupNamedObj(t, s, objID, "test_coin", true)
+	s.invTypes.Inv = invID
+
+	dispatchTeleCheat(t, p, "give test_coin 5")
+
+	inv := s.invLookup.Get(p, invID)
+	if got := totalUnits(inv, objID); got != 0 {
+		t.Errorf("after ::give at modLevel=2: total = %d, want 0 (admin gate rejected)", got)
+	}
+}
+
