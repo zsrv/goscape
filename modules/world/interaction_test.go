@@ -383,7 +383,7 @@ func TestClearInteractionResetsApRange(t *testing.T) {
 // apRange=-1, tryInteract returns false, player starts walking toward target.
 //
 // NAI-98 update: pathToPathingTarget is a no-op for Loc targets (TS
-// L1035-1037 alignment; DEVIATION NAI-98-D-LOC-OBJ-NO-OP-ALIGNED-TO-TS).
+// L1035-1037 alignment — retired the pre-NAI-98 once-per-interaction gate).
 // The path toward the Loc must be pre-queued (simulating what MoveClick
 // does in production) so that the post-step NIH branch ("I can't reach
 // that") does not fire and clear the interaction.

@@ -739,18 +739,18 @@ func effectiveApRange(p *Player) int {
 // Dispatch:
 //   - Loc/Obj target: no-op (TS L1035-1037). In TS, Loc/Obj targets get
 //     their initial path from MoveClick/scripts; tickloop never repaths.
-//     Pre-NAI-98 goscape ran pathToTarget once per interaction for these
-//     targets too (legacy `!p.repathed` gate). DEVIATION
-//     NAI-98-D-LOC-OBJ-NO-OP-ALIGNED-TO-TS: aligned to TS no-op as part of
-//     this fix; smoke targets are *Npc, but the gate retirement is the
-//     same code path so Loc/Obj alignment is a free byproduct. If a
-//     downstream Loc/Obj smoke surfaces a residual, revisit.
+//     NAI-98 retired the legacy goscape `!p.repathed` once-per-interaction
+//     gate that pre-emptively ran pathToTarget for these targets;
+//     post-NAI-98 the arm matches TS exactly. If a downstream Loc/Obj
+//     smoke surfaces a residual, revisit.
 //   - PathingEntity + isLastOrNoWaypoint + followOp (APPLAYER3/OPPLAYER3):
 //     queueWaypoint to target's followX/followZ (TS L1039-1042).
-//     Player-on-player chase fast-path. Goscape's *Player has followX/Z;
-//     *Npc does not (DEVIATION NAI-98-D-NPC-NO-FOLLOWXY: ports of TS
-//     PathingEntity.ts:1201-1202 base behavior limited to *Player today;
-//     followOp branch fires only when target is *Player anyway).
+//     Player-on-player chase fast-path. TS declares followX/Z on the
+//     PathingEntity base class (PathingEntity.ts:51-52); goscape
+//     declares them on *Player only — sufficient because isFollowOp's
+//     *Player type assertion (goscape defensive; TS skips this check,
+//     relying on APPLAYER3/OPPLAYER3 targetOp identity at Player.ts:1205)
+//     means *Npc targets cannot reach this arm in either engine.
 //   - !canAccess: no-op (TS L1044-1046). Gated on full p.CanAccess() —
 //     delayed + modal-Main/Chat + protectedScriptActive (player_script.go:390).
 //   - NODE_CLIENT_ROUTEFINDER + intersects: queueWaypoints via
