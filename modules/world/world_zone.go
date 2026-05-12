@@ -144,11 +144,33 @@ func (s *Server) ChangeObj(obj *entitypkg.Obj, oldCount, newCount int) {
 	s.TrackZone(z)
 }
 
-// RemoveObj routes an obj removal. Respects the lastLifecycleTick check.
-func (s *Server) RemoveObj(obj *entitypkg.Obj) {
+// RemoveObj routes an obj removal and reschedules respawn (RESPAWN) or
+// untracks (DESPAWN/FOREVER). Mirrors TS World.removeObj
+// (Engine-TS/src/engine/World.ts:1500-1518).
+//
+// IsActive=false is written by the called Zone.RemoveObj (pkg/zone/zone.go:312),
+// matching TS Zone.removeObj.
+//
+// duration > 0 + RESPAWN lifecycle → schedules respawn via
+// NonPathing.SetLifeCycle (registering the obj in s.locObjTracker for
+// per-tick processing). All other shapes (DESPAWN, FOREVER, or
+// duration<=0) untrack with SetLifeCycle(-1, ...).
+//
+// duration is scaled by current player count (low-pop worlds get faster
+// respawns) — see scaleByPlayerCount at server.go:764.
+func (s *Server) RemoveObj(obj *entitypkg.Obj, duration int) {
+	if !obj.IsActive {
+		return
+	}
+	adjustedDuration := s.scaleByPlayerCount(duration)
 	z := s.zoneMap.Get(obj.Level, obj.X, obj.Z)
 	z.RemoveObj(obj, s.currentTick)
 	s.TrackZone(z)
+	if duration > 0 && obj.Lifecycle == entitypkg.LifecycleRespawn {
+		obj.SetLifeCycle(adjustedDuration, s.currentTick, s.locObjTracker)
+	} else {
+		obj.SetLifeCycle(-1, s.currentTick, nil)
+	}
 }
 
 // RevealObj transitions a private drop to public.

@@ -39,7 +39,7 @@ func (s *Server) turnObj(o *entitypkg.Obj, now int) {
 	}
 	switch {
 	case o.Lifecycle == entitypkg.LifecycleDespawn && o.IsActive:
-		s.RemoveObj(o)
+		s.RemoveObj(o, 0)
 	case o.Lifecycle == entitypkg.LifecycleRespawn && !o.IsActive:
 		s.AddObj(o, zone.PublicReceiver, 0)
 	default:

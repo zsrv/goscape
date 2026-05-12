@@ -138,7 +138,7 @@ func (w worldVarsView) RemoveObj(obj script.ActiveObj) {
 	if !ok {
 		return
 	}
-	w.s.RemoveObj(realObj)
+	w.s.RemoveObj(realObj, 0)
 }
 
 // RemoveNpc implements script.WorldVars.RemoveNpc. Type-asserts the
