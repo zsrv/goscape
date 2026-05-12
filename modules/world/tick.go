@@ -618,8 +618,7 @@ func (s *Server) processZones() {
 			case *entitypkg.Loc:
 				s.turnLoc(p, s.currentTick)
 			case *entitypkg.Obj:
-				// TODO(NAI-86 D-N86-3): Obj.Turn ports later.
-				_ = p
+				s.turnObj(p, s.currentTick)
 			}
 		}
 	}

@@ -265,6 +265,7 @@ func (z *Zone) AddObj(obj *entity.Obj, receiverID int) {
 	if obj.Lifecycle == entity.LifecycleDespawn {
 		z.Objs = append(z.Objs, obj)
 	}
+	obj.IsActive = true
 	bytes := encodeNested(rsbuf.ZoneOpObjAdd, func(buf *packet.Packet) {
 		rsbuf.EncodeObjAdd(buf, coord, obj.Type, obj.Count)
 	})
@@ -308,6 +309,7 @@ func (z *Zone) RemoveObj(obj *entity.Obj, currentTick int) {
 			}
 		}
 	}
+	obj.IsActive = false
 	z.clearQueuedEvents(&obj.NonPathing)
 	if obj.LastLifecycleTick == currentTick {
 		return
