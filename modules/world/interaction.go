@@ -610,9 +610,11 @@ func tsTriggerForOpFire(target entity, targetOp int) script.ServerTriggerType {
 //     succeeds via the locShape=-1 short-circuit at strategy.go:37
 //     (NAI-152 B2). 1×1 Obj invariant: NewObj sets Width=Length=1
 //     unconditionally (pkg/entity/obj.go:39).
-//   - PathingEntity (Player, Npc) targets fall through to
-//     inOperableDistanceCheb (Chebyshev≤1, excludes same tile) pending
-//     entity-shape port (DEVIATION NAI-91-D-OPERABLE-CHEB-FALLBACK).
+//   - PathingEntity (Player, Npc) targets dispatch to reach.Reached with
+//     locShape=-2 (reachedEntity) (NAI-173). reachRectangle1 has no
+//     diagonal arm, so diagonally-adjacent entity targets reject —
+//     TS-faithful semantic divergence from the pre-NAI-173 Chebyshev
+//     fallback.
 //
 // target.level mismatch returns false (TS guard preserved at all arms).
 //
@@ -681,10 +683,13 @@ func inOperableDistance(p *Player, target entity) bool {
 	return inOperableDistanceCheb(p.x, p.z, tx, tz)
 }
 
-// inOperableDistanceCheb is the Chebyshev≤1 predicate (excludes same tile)
-// retained for PathingEntity (Player, Npc) targets pending the TS
-// reachedEntity port. Lives under DEVIATION
-// NAI-91-D-OPERABLE-CHEB-FALLBACK.
+// inOperableDistanceCheb is the goscape-defensive Chebyshev≤1 fallback
+// (excludes same-tile) used only by the nil-gamemap test-fixture paths in
+// inOperableDistance and (*Npc).inOperableDistance. Production never
+// reaches this since NAI-91 (Loc), NAI-152 B2 (Obj), and NAI-173
+// (PathingEntity) cover all production target types via reach.Reached.
+//
+// (goscape defensive; TS skips this check.)
 func inOperableDistanceCheb(px, pz, tx, tz int) bool {
 	dx := px - tx
 	if dx < 0 {

@@ -669,7 +669,7 @@ func (n *Npc) TargetWithinMaxRange() bool {
 }
 
 // inOperableDistance reports whether n is in contact range of target.
-// Mirrors TS PathingEntity.inOperableDistance (PathingEntity.ts:378-389):
+// Mirrors TS PathingEntity.inOperableDistance (PathingEntity.ts:378-390):
 //   - Loc targets dispatch to pkg/pathfinder/reach.Reached (shape /
 //     angle / forceapproach-aware) with srcSize=n.size (NAI-91).
 //   - Obj targets dispatch to reach.Reached with locShape=-1
@@ -677,12 +677,13 @@ func (n *Npc) TargetWithinMaxRange() bool {
 //     Player.ts:1110 overrides to OR reachedEntity but Npc inherits the
 //     base (NAI-152 B2 T3). Same-tile pickup succeeds via the
 //     strategy.go:37 short-circuit.
-//   - PathingEntity (Player, Npc) targets fall through to Chebyshev≤1
-//     excluding same-tile, pending entity-shape port (DEVIATION
-//     NAI-91-D-OPERABLE-CHEB-FALLBACK).
+//   - PathingEntity (Player, Npc) targets dispatch to reach.Reached with
+//     locShape=-2 (reachedEntity) (NAI-173). srcSize=n.size with the
+//     "if srcSize <= 0 { srcSize = 1 }" defensive guard mirrored from the
+//     Loc/Obj branches.
 //
-// Defensive: nil n.server falls through to Chebyshev so test fixtures
-// constructing minimal *Npc without a server keep working
+// Defensive: nil n.server / nil gamemap falls through to Chebyshev so test
+// fixtures constructing minimal *Npc without a server keep working
 // (goscape defensive; production Server.Init always sets gamemap).
 func (n *Npc) inOperableDistance(target entity) bool {
 	tx, tz, tlevel := target.Coords()

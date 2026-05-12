@@ -265,11 +265,13 @@ func TestClearInteractionResetsInteractionFired(t *testing.T) {
 	}
 }
 
-// TestInOperableDistanceCheb_PathingEntityFallback pins the Chebyshev≤1
-// excluding-same-tile predicate for PathingEntity (Player, Npc) targets.
-// Lives under NAI-91-D-OPERABLE-CHEB-FALLBACK pending entity-shape port.
-// Renamed from TestInOperableDistance at NAI-91 T1.
-func TestInOperableDistanceCheb_PathingEntityFallback(t *testing.T) {
+// TestInOperableDistanceCheb_DefensiveFallback pins the goscape-defensive
+// Chebyshev≤1 (excluding same-tile) predicate retained for the nil-gamemap
+// test-fixture paths in inOperableDistance / (*Npc).inOperableDistance.
+// Production never reaches inOperableDistanceCheb post-NAI-173 — see
+// TestPlayer_InOperableDistance_PathingEntity_NilGamemap_FallsThroughToCheb
+// for the production-path defensive-arm coverage.
+func TestInOperableDistanceCheb_DefensiveFallback(t *testing.T) {
 	cases := []struct {
 		dx, dz int
 		want   bool
@@ -1942,11 +1944,11 @@ func TestPlayer_InOperableDistance_NilLocTypeFallback(t *testing.T) {
 	}
 }
 
-// -- NAI-173 PathingEntity reach tests (replaces NAI-91-D fallback) -------
+// -- NAI-173 PathingEntity reach tests (replaces pre-NAI-173 Chebyshev fallback) -------
 //
 // Ports TS Player.inOperableDistance (Player.ts:1099-1111) PathingEntity arm
-// to reach.Reached(..., 0, -2, 0) (TS reachedEntity). Retires
-// NAI-91-D-OPERABLE-CHEB-FALLBACK for the *Player and *Npc target arms.
+// to reach.Reached(..., 0, -2, 0) (TS reachedEntity). Retired the
+// *Player and *Npc target arms of the pre-NAI-173 Chebyshev fallback.
 //
 // reachRectangle1 (rectangularbounds.go:15-48) reads walk-flags AT THE SOURCE
 // tile: every src tile must be AllocateIfAbsent'd to clear FlagNull (=-1, all
@@ -2614,10 +2616,10 @@ func TestPlayerApRangeCalledDoesNotLeakAcrossIdleTick(t *testing.T) {
 
 // -- NAI-152 B2 T2 Obj-target reach tests ---------------------------------
 //
-// Ports TS Player.ts:1110 — reachedEntity || reachedObj. Retires the Obj
-// clause of NAI-91-D-OPERABLE-CHEB-FALLBACK. Same-tile pickup succeeds via
-// reach.Reached's srcX==destX && srcZ==destZ early-out on the locShape=-1
-// arm.
+// Ports TS Player.ts:1110 — reachedEntity || reachedObj. Retired the Obj
+// clause of the pre-NAI-152-B2 Chebyshev fallback. Same-tile pickup succeeds
+// via reach.Reached's srcX==destX && srcZ==destZ early-out on the
+// locShape=-1 arm.
 
 // newObjReachTestServer constructs a minimal *Server with a gamemap so
 // inOperableDistance's new Obj branch can read collision flags. No
