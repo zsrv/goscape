@@ -1008,6 +1008,95 @@ func TestFollowOpRepathsOnExhaustion(t *testing.T) {
 	}
 }
 
+// TestPlayerFollow_PathToPathingTarget_QueuesValidLeaderCoord pins the
+// NAI-174 cascade end-to-end: with T1 (unconditional top writes in
+// processInteraction) + T2 (processLogins lastStep init), a stationary
+// post-login leader exposes a valid lastStepX/Z to followers via the
+// leader's per-tick refreshed followX/Z. A follower with targetOp=3 and
+// target=leader then queues a waypoint to (leader.lastStepX,
+// leader.lastStepZ) instead of the pre-NAI-174 (-1, -1) sentinel that
+// stalled pathfinding ~5 tiles SW.
+//
+// Retires the NAI-173-FU-FOLLOW-MODE-INVESTIGATION carry-forward.
+func TestPlayerFollow_PathToPathingTarget_QueuesValidLeaderCoord(t *testing.T) {
+	s := newTestServer(t)
+
+	leader, leaderWait := makeInteractionPlayer(t, s, 3220, 3220, 0)
+	defer leaderWait()
+	// Simulate post-processLogins state: lastStepX = x - 1; lastStepZ = z
+	// (NAI-174 T2 mirror). leader.target stays nil — they aren't
+	// interacting with anyone; they're being followed.
+	leader.lastStepX = leader.x - 1
+	leader.lastStepZ = leader.z
+
+	follower, followerWait := makeInteractionPlayer(t, s, 3225, 3225, 0)
+	defer followerWait()
+	follower.lastStepX = follower.x - 1
+	follower.lastStepZ = follower.z
+	follower.target = leader
+	follower.targetOp = 3 // raw op-slot 3; isFollowOp matches targetOp==3 && target.(*Player)
+
+	t.Run("stationary leader: follower queues leader's lastStepX/Z", func(t *testing.T) {
+		// Tick the leader first so their unconditional top writes (NAI-174 T1)
+		// refresh leader.followX/Z from leader.lastStepX/Z (= 3219, 3220).
+		leader.processInteraction()
+		if leader.followX != 3219 || leader.followZ != 3220 {
+			t.Fatalf("pre-condition: leader followX/Z should be (3219, 3220) post-top-writes; got (%d, %d)",
+				leader.followX, leader.followZ)
+		}
+
+		// Now tick the follower. pathToPathingTarget's followOp arm at
+		// interaction.go:802-809 should queueWaypoint(leader.followX,
+		// leader.followZ). queueWaypoint stores packed coord at waypoints[0]
+		// and sets waypointIndex=0 (from the initial -1).
+		preWaypointIdx := follower.waypointIndex
+		follower.processInteraction()
+
+		// Assert a waypoint was queued (waypointIndex advanced from -1 to 0).
+		if follower.waypointIndex == preWaypointIdx {
+			t.Fatalf("follower waypointIndex unchanged post-processInteraction; want waypointIndex=0 (new waypoint queued via pathToPathingTarget follow-op arm); got %d", follower.waypointIndex)
+		}
+		// The queued waypoint destination (waypoints[0]) should be the leader's
+		// followX/Z, NOT (-1, -1). Decode the packed coord.
+		wp := coordgrid.UnpackCoord(follower.waypoints[follower.waypointIndex])
+		if wp.X != 3219 || wp.Z != 3220 {
+			t.Errorf("follower queued waypoint: got (%d, %d), want (3219, 3220) = leader.followX/Z post-NAI-174", wp.X, wp.Z)
+		}
+	})
+
+	t.Run("leader moved one step: follower queues leader's pre-step tile", func(t *testing.T) {
+		// Simulate leader's stepOnce (movement.go:140-143): capture pre-step
+		// coord into lastStepX/Z, then mutate x. Leader walks east one tile.
+		prevX, prevZ := leader.x, leader.z
+		leader.lastStepX = prevX
+		leader.lastStepZ = prevZ
+		leader.x = prevX + 1
+		// leader.z unchanged
+
+		// Tick leader's processInteraction — top writes refresh followX/Z
+		// from the new lastStepX/Z (= 3220, 3220).
+		leader.processInteraction()
+		if leader.followX != 3220 || leader.followZ != 3220 {
+			t.Fatalf("post-step: leader followX/Z should be (3220, 3220) = pre-step tile; got (%d, %d)",
+				leader.followX, leader.followZ)
+		}
+
+		// Tick follower. isLastOrNoWaypoint() returns waypointIndex<=0, which
+		// is true (waypointIndex==0 from the first sub-test, and queueWaypoint
+		// always resets to index 0). The follow-op arm should re-queue to the
+		// leader's new followX/Z.
+		follower.processInteraction()
+
+		if follower.waypointIndex < 0 {
+			t.Fatalf("follower has no waypoints post-second-tick; expected re-queued waypoint")
+		}
+		wp := coordgrid.UnpackCoord(follower.waypoints[follower.waypointIndex])
+		if wp.X != 3220 || wp.Z != 3220 {
+			t.Errorf("follower last-queued waypoint after leader step: got (%d, %d), want (3220, 3220)", wp.X, wp.Z)
+		}
+	})
+}
+
 // TestFollowOpContactFire — NAI-44 T5 / B4 (updated for NAI-78, updated for
 // NAI-147 T5).
 // OPPLAYER3 with no registered script, adjacent target Player:
