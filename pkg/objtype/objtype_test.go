@@ -238,6 +238,36 @@ func TestObjTypeConfigs_ByName_Unknown(t *testing.T) {
 	}
 }
 
+func TestNewObjType_TradeableDefaultsTrue(t *testing.T) {
+	ot := NewObjType(123)
+	if !ot.Tradeable {
+		t.Fatalf("NewObjType(123).Tradeable: got false, want true (TS ObjType.ts:177 class-field default)")
+	}
+}
+
+func TestObjTypeDecode_Code15FlipsTradeableFalse(t *testing.T) {
+	ot := NewObjType(0)
+	if !ot.Tradeable {
+		t.Fatalf("precondition: NewObjType.Tradeable expected true")
+	}
+	if err := ot.Decode(15, packet2.NewPacket(nil)); err != nil {
+		t.Fatalf("Decode(15): unexpected error: %v", err)
+	}
+	if ot.Tradeable {
+		t.Fatalf("after Decode(15): Tradeable: got true, want false (TS ObjType.ts:211)")
+	}
+}
+
+func TestObjTypeDecode_Code200KeepsTradeableTrue(t *testing.T) {
+	ot := NewObjType(0)
+	if err := ot.Decode(200, packet2.NewPacket(nil)); err != nil {
+		t.Fatalf("Decode(200): unexpected error: %v", err)
+	}
+	if !ot.Tradeable {
+		t.Fatalf("after Decode(200): Tradeable: got false, want true (TS ObjType.ts case 200)")
+	}
+}
+
 func TestLoadObjTypesFromPack(t *testing.T) {
 	cacheDir := filepath.Join("..", "..", "data", "pack")
 
