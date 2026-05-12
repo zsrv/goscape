@@ -2145,3 +2145,38 @@ func TestNpc_InOperableDistance_Obj_OutOfReach(t *testing.T) {
 		t.Fatalf("expected NPC inOperableDistance false at distance 10")
 	}
 }
+
+
+// TestNpcStepOnce_BlockedNpcStepsOntoWaterTile pins NAI-175 root cause.
+// A MoveRestrictBlocked NPC (duck) on a FlagBlockWalk tile must be able
+// to step onto an adjacent FlagBlockWalk tile under TypeBlocked collision.
+// Mirrors TS PathingEntity.takeStep at PathingEntity.ts:617-683 with
+// getCollisionStrategy()==TypeBlocked and blockWalkFlag()==FlagOpen.
+func TestNpcStepOnce_BlockedNpcStepsOntoWaterTile(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	// Two adjacent water tiles: (3221, 3220) and (3222, 3220).
+	s.gamemap.Pathfinder.Flags.Add(3221, 3220, 0, collision.FlagBlockWalk)
+	s.gamemap.Pathfinder.Flags.Add(3222, 3220, 0, collision.FlagBlockWalk)
+
+	typ := &objtype.NpcType{
+		ConfigType:   objtype.ConfigType{ID: 1, DebugName: "duck"},
+		WanderRange:  35,
+		MoveRestrict: int(MoveRestrictBlocked),
+		Size:         1,
+	}
+	n := NewNpc(1, 1, 3221, 3220, 0, typ)
+	n.server = s
+	n.QueueWaypoint(3222, 3220)
+
+	advanced, dir := n.stepOnce(s)
+	if !advanced {
+		t.Fatalf("blocked NPC failed to step onto adjacent water tile (advanced=%v, dir=%d); want advanced=true", advanced, dir)
+	}
+	if n.x != 3222 || n.z != 3220 {
+		t.Fatalf("blocked NPC at wrong coord after step: got (%d,%d), want (3222,3220)", n.x, n.z)
+	}
+	if n.waypointIndex != -1 {
+		t.Fatalf("waypointIndex after reaching dest: got %d, want -1", n.waypointIndex)
+	}
+}
