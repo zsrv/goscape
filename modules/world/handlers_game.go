@@ -357,13 +357,18 @@ func handleClientCheat(p *Player, payload []byte) error {
 	if len(parts) == 2 {
 		args = parts[1]
 	}
-	// DEVIATION-NAI-182-D3-OTHER-CHEATS — 25 TS ClientCheatHandler cheats
-	// remain unported: reload, rebuild, speed, fly, naive, random, setvarother,
-	// getvar, getvarother, give, giveother, givecrap, givemany, broadcast,
-	// teleother, setstat, advancestat, minme, locadd, npcadd, openmain,
-	// snapshot, teleto, setvis, ban, mute, kick. Each touches an unrelated
-	// subsystem (inventory, npc-spawn, vis-toggle, friend-server, save/load,
-	// etc.); deferred to future sub-specs.
+	// DEVIATION-NAI-184-D2-D3-CARRYFORWARD — supersedes
+	// DEVIATION-NAI-182-D3-OTHER-CHEATS. 17 TS ClientCheatHandler cheats
+	// remain unported:
+	//   Dev block (!NP && >=4): reload, rebuild, speed.
+	//   Admin block (>=3):      setvar, setvarother, getvar, getvarother,
+	//                           giveother, givecrap, broadcast, locadd,
+	//                           npcadd, openmain.
+	//   Super-mod (>=2):        setvis, ban, mute, kick.
+	// Each is blocked on a missing subsystem (VarPlayerType.GetByName,
+	// World.broadcastMes, runtime tick-rate mutation, login moderation
+	// callbacks, dynamic Loc/NPC spawn, Visibility plumbing). Deferred
+	// to follow-up sub-specs.
 	// TS ClientCheatHandler.ts:52-54 — addSessionLog tier. Logs every
 	// cheat invocation from staffModLevel >= 2 to the MODERATOR session
 	// log channel. Ported via Player.AddSessionLog (modules/world/player.go).
@@ -378,36 +383,39 @@ func handleClientCheat(p *Player, payload []byte) error {
 	// false). NAI-183.
 	if !p.client.server.cfg.NodeProduction && p.staffModLevel >= 4 {
 		switch parts[0] {
+		// (NAI-184 T3 will add fly/naive/random here.)
+		}
+	}
+
+	// TS ClientCheatHandler.ts:189 — admin block. Gated on
+	// staffModLevel >= 3. NAI-184 T2 added this outer guard and
+	// relocated reboot/slowreboot/serverdrop here from the dev block
+	// (NAI-183 misclassified them — see spec §2.1).
+	if p.staffModLevel >= 3 {
+		switch parts[0] {
 		case "reboot":
-			// Mirrors TS L360-364. TS-faithful dead code: the inner
-			// `&& NodeProduction` clause never fires because the outer
-			// block runs only when NodeProduction=false. Preserved
-			// verbatim to mirror the TS quirk (likely refactor
-			// artifact). NAI-183.
+			// TS L360-364. Production-only via inner && NodeProduction;
+			// under default NodeProduction=false, this arm is dead.
 			if p.client.server.cfg.NodeProduction {
-				s := p.client.server
-				s.rebootTimer(0)
+				p.client.server.rebootTimer(0)
 			}
 		case "slowreboot":
-			// Mirrors TS L365-373. Same TS-faithful dead-code pattern
-			// as ::reboot above. Default 30 seconds when args is
-			// missing/unparseable (TS tryParseInt semantics); formula
-			// ticks = ceil(seconds * 1000 / 600). NAI-183.
+			// TS L365-373. Production-only via inner && NodeProduction;
+			// default 30s when args missing. Formula: ticks = ceil(s * 1000/600).
 			if p.client.server.cfg.NodeProduction {
 				seconds := parseIntOr(args, 30)
 				ticks := int(math.Ceil(float64(seconds) * 1000.0 / 600.0))
-				s := p.client.server
-				s.rebootTimer(ticks)
+				p.client.server.rebootTimer(ticks)
 			}
 		case "serverdrop":
-			// Mirrors TS L374-376 player.terminate(). No inner clause
-			// in TS — actually fires under the outer !NodeProduction
-			// guard. Closes the TCP conn without removing the player
-			// from s.players; the next reconnect hits this player's
-			// slot and runs the onReconnect path. NAI-183.
+			// TS L374-376 player.terminate(). No NP gate — fires at >=3
+			// regardless of NodeProduction. Closes the TCP conn without
+			// removing the player from s.players; the next reconnect hits
+			// this player's slot and runs the onReconnect path.
 			if p.client != nil && p.client.conn != nil {
 				_ = p.client.conn.Close()
 			}
+		// (NAI-184 T4–T8 will add the remaining admin-block arms here.)
 		}
 	}
 
