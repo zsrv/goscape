@@ -101,3 +101,41 @@ func TestWorldVarsViewAddObj_PublicReceiverLeavesRevealNegOne(t *testing.T) {
 		t.Errorf("obj.Reveal: got %d, want -1 (public drop)", obj.Reveal)
 	}
 }
+
+// TestWorldVarsViewEnqueueObjDelayed_ReceiverTargetedSetsReveal100 pins that
+// the INV_DROPITEM_DELAYED producer also initialises Reveal for non-public
+// receivers — without it, combat loot routed via the delayed-drop queue would
+// skip the 100-tick private window now that turnObj actively enforces it.
+// Sibling of TestWorldVarsViewAddObj_ReceiverTargetedSetsReveal100. NAI-177 B1
+// review fix.
+func TestWorldVarsViewEnqueueObjDelayed_ReceiverTargetedSetsReveal100(t *testing.T) {
+	s := newZoneTestServer(t)
+	w := worldVarsView{s: s}
+
+	const receiverID = 12345
+	w.EnqueueObjDelayed(0, 3094, 3106, 995, 1, 50, 0, receiverID)
+	if len(s.objDelayedQueue) != 1 {
+		t.Fatalf("objDelayedQueue len: got %d, want 1", len(s.objDelayedQueue))
+	}
+	obj := s.objDelayedQueue[0].obj
+	if obj.Reveal != entitypkg.ObjReveal {
+		t.Errorf("obj.Reveal: got %d, want %d (ObjReveal)", obj.Reveal, entitypkg.ObjReveal)
+	}
+}
+
+// TestWorldVarsViewEnqueueObjDelayed_PublicReceiverLeavesRevealNegOne pins
+// the else-branch sibling for the EnqueueObjDelayed Reveal init. NAI-177 B1
+// review fix.
+func TestWorldVarsViewEnqueueObjDelayed_PublicReceiverLeavesRevealNegOne(t *testing.T) {
+	s := newZoneTestServer(t)
+	w := worldVarsView{s: s}
+
+	w.EnqueueObjDelayed(0, 3094, 3106, 995, 1, 50, 0, zone.PublicReceiver)
+	if len(s.objDelayedQueue) != 1 {
+		t.Fatalf("objDelayedQueue len: got %d, want 1", len(s.objDelayedQueue))
+	}
+	obj := s.objDelayedQueue[0].obj
+	if obj.Reveal != -1 {
+		t.Errorf("obj.Reveal: got %d, want -1 (public drop)", obj.Reveal)
+	}
+}

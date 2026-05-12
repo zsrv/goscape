@@ -226,6 +226,9 @@ func (w worldVarsView) EnqueueObjDelayed(level, x, z, typeID, count, duration, d
 	}
 	obj := entitypkg.NewObj(level, x, z, entitypkg.LifecycleDespawn, typeID, count)
 	obj.ReceiverID = receiverID
+	if receiverID != zone.PublicReceiver {
+		obj.Reveal = entitypkg.ObjReveal
+	}
 	w.s.enqueueObjDelayed(obj, receiverID, duration, delay)
 	if w.s.cfg.NodeDebug && w.s.log != nil {
 		w.s.log.Info("nai134.obj.delayed.enqueue",
