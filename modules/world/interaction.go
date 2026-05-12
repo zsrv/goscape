@@ -751,11 +751,8 @@ func effectiveApRange(p *Player) int {
 //     *Npc does not (DEVIATION NAI-98-D-NPC-NO-FOLLOWXY: ports of TS
 //     PathingEntity.ts:1201-1202 base behavior limited to *Player today;
 //     followOp branch fires only when target is *Player anyway).
-//   - !canAccess: no-op (TS L1044-1046). Goscape uses the narrower local
-//     predicate !p.delayed && !p.protectedScriptActive(); TS canAccess
-//     additionally tests !containsModalInterface (Player.ts:801-812). The
-//     missing modal arm is a real TS-fidelity gap pending investigation —
-//     see NAI-169-FU-CANACCESS-LOCAL-GATE-NARROWING.
+//   - !canAccess: no-op (TS L1044-1046). Gated on full p.CanAccess() —
+//     delayed + modal-Main/Chat + protectedScriptActive (player_script.go:390).
 //   - NODE_CLIENT_ROUTEFINDER + intersects: queueWaypoints via
 //     FindNaivePath (TS L1048-1051). Mirrors the same shortcut at
 //     pathToTarget Smart/PathingEntity arm (interaction.go:638-644).
@@ -788,10 +785,10 @@ func (p *Player) pathToPathingTarget() {
 		}
 		return
 	}
-	if p.delayed || p.protectedScriptActive() {
-		// canAccess gate (TS L1044-1046). Narrower than TS canAccess
-		// (Player.ts:801-812 also tests !containsModalInterface); see
-		// NAI-169-FU-CANACCESS-LOCAL-GATE-NARROWING.
+	if !p.CanAccess() {
+		// canAccess gate (TS L1044-1046). Mirrors TS canAccess
+		// (Player.ts:805-812: !protect && !busy(); busy includes
+		// !containsModalInterface). NAI-170.
 		return
 	}
 	if p.client == nil || p.client.server == nil {
