@@ -337,11 +337,10 @@ func (n *Npc) updateMovement(s *Server) bool {
 }
 
 // stepOnce walks one tile toward the current waypoint and returns
-// (dir, status). Mirrors TS PathingEntity.takeStep (PathingEntity.ts:617-683)
-// single-tile (width=1) arm. Position update + dest-check decrement of
-// waypointIndex happen inline via applyStep; transient-block / done /
-// no-move classifications go to the validateAndAdvanceStep wrapper for
-// waypointIndex bookkeeping.
+// (dir, status). Mirrors TS PathingEntity.takeStep (PathingEntity.ts:617-683).
+// Position update + dest-check decrement of waypointIndex happen inline via
+// applyStep; transient-block / done / no-move classifications go to the
+// validateAndAdvanceStep wrapper for waypointIndex bookkeeping.
 //
 // Tri-state contract (mirrors TS takeStep return number | null):
 //
@@ -350,13 +349,8 @@ func (n *Npc) updateMovement(s *Server) bool {
 //	stepMoved   = TS number → moved; position applied via applyStep
 //
 // NAI-175 status: D0 strategy plumbing (T4) + D1 axis-fallback (T6) +
-// D2 wrapper waypoint retention (NAI-176 B1) shipped.
-//
-// NAI-175-D-SIZE-GT-1: TS takeStep PathingEntity.ts:642-651 has a
-// separate width>1 arm that uses Face(srcX, 0, x, 0) / Face(0, srcZ, 0, z)
-// for axis-only checks. goscape currently uses the same single-tile
-// logic for all sizes. No size>1 NPC observed broken in NAI-175 smoke;
-// deferred to NAI-176 B2.
+// D2 wrapper waypoint retention (NAI-176 B1) + D3 width>1 axis split
+// (NAI-176 B2) all shipped.
 func (n *Npc) stepOnce(s *Server) (int, stepStatus) {
 	if n.waypointIndex < 0 {
 		return -1, stepBlocked
@@ -370,6 +364,28 @@ func (n *Npc) stepOnce(s *Server) (int, stepStatus) {
 		return -1, stepDone
 	}
 	dest := coordgrid.UnpackCoord(n.waypoints[n.waypointIndex])
+
+	// NAI-176 D3: TS PathingEntity.takeStep:642-651 — width>1 NPCs use
+	// axis-only Face checks (no diagonal step). X-axis tried first;
+	// returns stepBlocked if both axes fail.
+	if n.size > 1 {
+		if s != nil && s.gamemap != nil {
+			tryDirX := coordgrid.Face(n.x, 0, dest.X, 0)
+			if tryDirX != -1 && s.gamemap.CanTravel(n.level, n.x, n.z, coordgrid.DeltaX(tryDirX), 0, n.Width(), extraFlag, *cs) {
+				return n.applyStep(s, dest, coordgrid.DeltaX(tryDirX), 0, int(tryDirX))
+			}
+			tryDirZ := coordgrid.Face(0, n.z, 0, dest.Z)
+			if tryDirZ != -1 && s.gamemap.CanTravel(n.level, n.x, n.z, 0, coordgrid.DeltaZ(tryDirZ), n.Width(), extraFlag, *cs) {
+				return n.applyStep(s, dest, 0, coordgrid.DeltaZ(tryDirZ), int(tryDirZ))
+			}
+			// NAI-176 D2 + D3: both axes failed → stepBlocked (TS L651 null).
+			return -1, stepBlocked
+		}
+		// Test-fixture path with no gamemap — fall through to single-tile
+		// arm below (Face on full delta). Width>1 only matters when canTravel
+		// actually runs.
+	}
+
 	dir := coordgrid.Face(n.x, n.z, dest.X, dest.Z)
 	if dir == -1 {
 		// TS L659-661: dx==0 && dz==0 → -1 (waypoint reached on current tile).

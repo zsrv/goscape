@@ -2385,3 +2385,122 @@ func TestNpcUpdateMovement_RunSpeed_RecursesThroughDoneWaypoint(t *testing.T) {
 		t.Fatalf("position after walk+run: got (%d,%d), want (3223,3220)", n.x, n.z)
 	}
 }
+
+// TestNpcStepOnce_WidthGt1_PrefersXAxis pins NAI-176 D3. TS takeStep at
+// PathingEntity.ts:642-651 splits on this.width > 1: tries Face(srcX, 0, x, 0)
+// (X-only) first, then Face(0, srcZ, 0, z) (Z-only). Width=2 NPC at (3220,3220)
+// targeting (3222, 3222). X-only step (East, 2 wide) is allowed; Z-only is
+// blocked. Expect East step + stepMoved.
+func TestNpcStepOnce_WidthGt1_PrefersXAxis(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	// Allocate the bounding box that the width=2 NPC will walk across
+	// (start footprint + east-step footprint + north-step footprint).
+	// Empty gamemap.New() FlagMap returns FlagNull for unallocated tiles
+	// which fails CanTravel; allocate so flags default to FlagOpen=0.
+	for x := 3219; x <= 3223; x++ {
+		for z := 3219; z <= 3223; z++ {
+			s.gamemap.Pathfinder.Flags.AllocateIfAbsent(x, z, 0)
+		}
+	}
+	// Width=2 NPC occupies (3220,3220)+(3221,3220)+(3220,3221)+(3221,3221).
+	// Block the Z-axis target row (3220,3222)+(3221,3222) with FlagBlockWalk.
+	s.gamemap.Pathfinder.Flags.Add(3220, 3222, 0, collision.FlagBlockWalk)
+	s.gamemap.Pathfinder.Flags.Add(3221, 3222, 0, collision.FlagBlockWalk)
+
+	typ := &objtype.NpcType{
+		ConfigType:   objtype.ConfigType{ID: 1, DebugName: "wide"},
+		MoveRestrict: int(MoveRestrictNormal),
+		Size:         2,
+	}
+	n := NewNpc(1, 1, 3220, 3220, 0, typ)
+	n.server = s
+	n.QueueWaypoint(3222, 3222)
+
+	dir, status := n.stepOnce(s)
+
+	if status != stepMoved {
+		t.Fatalf("width>1 X-axis: got status=%v, want stepMoved", status)
+	}
+	if dir != int(coordgrid.DirectionEast) {
+		t.Fatalf("width>1 X-axis: dir=%d, want East (%d)", dir, coordgrid.DirectionEast)
+	}
+	if n.x != 3221 || n.z != 3220 {
+		t.Fatalf("width>1 X-axis: stepped to (%d,%d), want (3221,3220)", n.x, n.z)
+	}
+}
+
+// TestNpcStepOnce_WidthGt1_FallsThroughToZ pins TS L647-649: when X-only
+// canTravel fails, try Z-only.
+func TestNpcStepOnce_WidthGt1_FallsThroughToZ(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	for x := 3219; x <= 3223; x++ {
+		for z := 3219; z <= 3223; z++ {
+			s.gamemap.Pathfinder.Flags.AllocateIfAbsent(x, z, 0)
+		}
+	}
+	// Width=2 NPC at (3220,3220)→(3222,3222). Block the X-axis target column
+	// (3222,3220)+(3222,3221) so X-only step fails; leave (3220,3222)+(3221,3222)
+	// open so Z-only step lands.
+	s.gamemap.Pathfinder.Flags.Add(3222, 3220, 0, collision.FlagBlockWalk)
+	s.gamemap.Pathfinder.Flags.Add(3222, 3221, 0, collision.FlagBlockWalk)
+
+	typ := &objtype.NpcType{
+		ConfigType:   objtype.ConfigType{ID: 1, DebugName: "wide"},
+		MoveRestrict: int(MoveRestrictNormal),
+		Size:         2,
+	}
+	n := NewNpc(1, 1, 3220, 3220, 0, typ)
+	n.server = s
+	n.QueueWaypoint(3222, 3222)
+
+	dir, status := n.stepOnce(s)
+
+	if status != stepMoved {
+		t.Fatalf("width>1 Z-axis: got status=%v, want stepMoved", status)
+	}
+	if dir != int(coordgrid.DirectionNorth) {
+		t.Fatalf("width>1 Z-axis: dir=%d, want North (%d)", dir, coordgrid.DirectionNorth)
+	}
+	if n.x != 3220 || n.z != 3221 {
+		t.Fatalf("width>1 Z-axis: stepped to (%d,%d), want (3220,3221)", n.x, n.z)
+	}
+}
+
+// TestNpcStepOnce_WidthGt1_BothBlocked pins TS L651 null when both axes fail.
+func TestNpcStepOnce_WidthGt1_BothBlocked(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	for x := 3219; x <= 3223; x++ {
+		for z := 3219; z <= 3223; z++ {
+			s.gamemap.Pathfinder.Flags.AllocateIfAbsent(x, z, 0)
+		}
+	}
+	// Width=2 NPC at (3220,3220)→(3222,3222). Block both X-only and Z-only
+	// target footprints.
+	s.gamemap.Pathfinder.Flags.Add(3222, 3220, 0, collision.FlagBlockWalk)
+	s.gamemap.Pathfinder.Flags.Add(3222, 3221, 0, collision.FlagBlockWalk)
+	s.gamemap.Pathfinder.Flags.Add(3220, 3222, 0, collision.FlagBlockWalk)
+	s.gamemap.Pathfinder.Flags.Add(3221, 3222, 0, collision.FlagBlockWalk)
+
+	typ := &objtype.NpcType{
+		ConfigType:   objtype.ConfigType{ID: 1, DebugName: "wide"},
+		MoveRestrict: int(MoveRestrictNormal),
+		Size:         2,
+	}
+	n := NewNpc(1, 1, 3220, 3220, 0, typ)
+	n.server = s
+	n.QueueWaypoint(3222, 3222)
+
+	wantWaypointIndex := n.waypointIndex
+	_, status := n.stepOnce(s)
+
+	if status != stepBlocked {
+		t.Fatalf("width>1 both-blocked: got status=%v, want stepBlocked", status)
+	}
+	if n.waypointIndex != wantWaypointIndex {
+		t.Fatalf("width>1 both-blocked waypointIndex: got %d, want %d (D2: preserved)",
+			n.waypointIndex, wantWaypointIndex)
+	}
+}
