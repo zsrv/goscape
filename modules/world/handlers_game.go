@@ -8,6 +8,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/io/packet"
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 // gameHandlers is indexed by decrypted game opcode. Nil means no handler
@@ -448,7 +449,55 @@ func handleClientCheat(p *Player, payload []byte) error {
 			if p.client != nil && p.client.conn != nil {
 				_ = p.client.conn.Close()
 			}
-		// (NAI-184 T4–T8 will add the remaining admin-block arms here.)
+		case "setstat":
+			// TS L401-414 — setstat <skill> <level> via PlayerStatMap.
+			if args == "" {
+				return nil
+			}
+			sub := strings.SplitN(args, " ", 2)
+			if len(sub) < 2 {
+				return nil
+			}
+			stat, ok := objtype.PlayerStatMap[strings.ToUpper(sub[0])]
+			if !ok {
+				return nil
+			}
+			level := parseIntOr(sub[1], 0)
+			p.SetStat(stat, level)
+		case "advancestat":
+			// TS L415-431 — zero stats/baseLevels/levels then AddXP to
+			// reach `level`. AddXP fires [changestat,X] and [advancestat,X]
+			// triggers on level-up.
+			if args == "" {
+				return nil
+			}
+			sub := strings.SplitN(args, " ", 2)
+			stat, ok := objtype.PlayerStatMap[strings.ToUpper(sub[0])]
+			if !ok {
+				return nil
+			}
+			levelStr := ""
+			if len(sub) > 1 {
+				levelStr = sub[1]
+			}
+			level := parseIntOr(levelStr, 0)
+			p.stats[stat] = 0
+			p.baseLevels[stat] = 1
+			p.levels[stat] = 1
+			p.AddXP(stat, objtype.GetExpByLevel(level))
+		case "minme":
+			// TS L432-440 — set every stat to 1 except HITPOINTS=10.
+			// TS iterates indices [0, PlayerStatEnabled.length); it does
+			// NOT filter on PlayerStatEnabled value. STAT18/STAT19 are
+			// reserved/unused so the call has no in-game effect, but
+			// TS-fidelity requires the SetStat invocation.
+			for i := 0; i < objtype.PlayerStatCount; i++ {
+				if i == objtype.PlayerStatHitpoints {
+					p.SetStat(i, 10)
+				} else {
+					p.SetStat(i, 1)
+				}
+			}
 		}
 	}
 

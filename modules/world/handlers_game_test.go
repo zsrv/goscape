@@ -10,6 +10,7 @@ import (
 	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
@@ -773,6 +774,93 @@ func TestHandleClientCheat_ServerDrop_StaffGate(t *testing.T) {
 
 	if _, err := p.client.conn.Write([]byte{0}); err != nil {
 		t.Errorf("p.client.conn.Write failed after ::serverdrop at staffModLevel=2: %v; want success (gate blocked, conn still open)", err)
+	}
+}
+
+// TestHandleClientCheat_SetStat_SetsBaseCurAndXP pins TS L401-414.
+// ::setstat <skill> <level> writes baseLevels/levels/stats via
+// Player.SetStat (which clamps to [1, 99]).
+func TestHandleClientCheat_SetStat_SetsBaseCurAndXP(t *testing.T) {
+	p, cc, _ := teleTestPlayer(t)
+	p.staffModLevel = 3
+	go io.Copy(io.Discard, cc)
+
+	dispatchTeleCheat(t, p, "setstat attack 50")
+	if p.baseLevels[objtype.PlayerStatAttack] != 50 {
+		t.Errorf("baseLevels[ATTACK] = %d, want 50", p.baseLevels[objtype.PlayerStatAttack])
+	}
+	if p.levels[objtype.PlayerStatAttack] != 50 {
+		t.Errorf("levels[ATTACK] = %d, want 50", p.levels[objtype.PlayerStatAttack])
+	}
+	wantXP := int32(objtype.GetExpByLevel(50))
+	if p.stats[objtype.PlayerStatAttack] != wantXP {
+		t.Errorf("stats[ATTACK] = %d, want %d", p.stats[objtype.PlayerStatAttack], wantXP)
+	}
+
+	// Unknown stat name: no mutation (TS L410-412 returns false).
+	p.baseLevels[objtype.PlayerStatDefence] = 11
+	dispatchTeleCheat(t, p, "setstat fake_stat 99")
+	if p.baseLevels[objtype.PlayerStatDefence] != 11 {
+		t.Errorf("unknown stat mutated DEFENCE: got %d, want 11", p.baseLevels[objtype.PlayerStatDefence])
+	}
+}
+
+// TestHandleClientCheat_AdvanceStat_ZerosThenAddsXP pins TS L415-431.
+// ::advancestat <skill> <level> resets stats[skill]/baseLevels/levels
+// to 0/1/1 then calls addXp(skill, getExpByLevel(level)).
+func TestHandleClientCheat_AdvanceStat_ZerosThenAddsXP(t *testing.T) {
+	p, cc, _ := teleTestPlayer(t)
+	p.staffModLevel = 3
+	go io.Copy(io.Discard, cc)
+	// Pre-populate to verify the L428-431 zero-reset before AddXP.
+	p.stats[objtype.PlayerStatAttack] = 999999
+	p.baseLevels[objtype.PlayerStatAttack] = 30
+	p.levels[objtype.PlayerStatAttack] = 30
+
+	dispatchTeleCheat(t, p, "advancestat attack 50")
+
+	wantXP := int32(objtype.GetExpByLevel(50))
+	if p.stats[objtype.PlayerStatAttack] != wantXP {
+		t.Errorf("stats[ATTACK] after advancestat = %d, want %d (= GetExpByLevel(50))",
+			p.stats[objtype.PlayerStatAttack], wantXP)
+	}
+	if p.baseLevels[objtype.PlayerStatAttack] != 50 {
+		t.Errorf("baseLevels[ATTACK] after advancestat = %d, want 50", p.baseLevels[objtype.PlayerStatAttack])
+	}
+	if p.levels[objtype.PlayerStatAttack] != 50 {
+		t.Errorf("levels[ATTACK] after advancestat = %d, want 50", p.levels[objtype.PlayerStatAttack])
+	}
+}
+
+// TestHandleClientCheat_MinMe_AllStatsSetTo1ExceptHitpoints pins TS
+// L432-440 verbatim: iterates indices 0..PlayerStatEnabled.length (21),
+// sets each to 1 except HITPOINTS which goes to 10. TS does NOT filter
+// by PlayerStatEnabled value — STAT18/19 ARE set even though they're
+// reserved/unused. Note: SetStat clamps to [1, 99], so the call still
+// goes through on disabled slots.
+func TestHandleClientCheat_MinMe_AllStatsSetTo1ExceptHitpoints(t *testing.T) {
+	p, cc, _ := teleTestPlayer(t)
+	p.staffModLevel = 3
+	go io.Copy(io.Discard, cc)
+	for i := 0; i < objtype.PlayerStatCount; i++ {
+		p.baseLevels[i] = 99
+		p.levels[i] = 99
+		p.stats[i] = int32(objtype.GetExpByLevel(99))
+	}
+
+	dispatchTeleCheat(t, p, "minme")
+
+	for i := 0; i < objtype.PlayerStatCount; i++ {
+		want := uint8(1)
+		if i == objtype.PlayerStatHitpoints {
+			want = 10
+		}
+		if p.baseLevels[i] != want {
+			t.Errorf("stat %d after minme: baseLevels = %d, want %d (TS L432-440 sets ALL 21 stats; no PlayerStatEnabled filter)", i, p.baseLevels[i], want)
+		}
+		if p.levels[i] != want {
+			t.Errorf("stat %d after minme: levels = %d, want %d", i, p.levels[i], want)
+		}
 	}
 }
 

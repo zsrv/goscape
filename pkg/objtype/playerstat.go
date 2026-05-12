@@ -59,7 +59,10 @@ var PlayerStatMap = map[string]int{
 }
 
 // PlayerStatEnabled mirrors TS PlayerStat.ts:53. False entries (STAT18,
-// STAT19) are unused 2004-era reserved slots; ::minme skips them.
+// STAT19) mark unused 2004-era reserved slots. The array is exported as
+// a sentinel mainly for its length (PlayerStatEnabled.length = 21 in
+// TS) — values are advisory only; ::minme iterates all 21 indices
+// without filtering on this array (TS ClientCheatHandler.ts:432-440).
 var PlayerStatEnabled = [PlayerStatCount]bool{
 	true, true, true, true, true, true, true, true, true, true,
 	true, true, true, true, true, true, true, true, false, false, true,
