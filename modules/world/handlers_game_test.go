@@ -504,6 +504,81 @@ func TestTeleCheat_BoundsCheck_RejectsAfterCleanup(t *testing.T) {
 	}
 }
 
+// --- NAI-184 T3: ::fly / ::naive / ::random dev-block cheats ---
+
+// TestHandleClientCheat_Fly_TogglesStrategy pins TS L168-175: ::fly
+// toggles between MoveStrategyFly and MoveStrategySmart, emitting a
+// MessageGame describing the new state each invocation.
+func TestHandleClientCheat_Fly_TogglesStrategy(t *testing.T) {
+	p, cc, _ := teleTestPlayer(t)
+	p.staffModLevel = 4
+	p.moveStrategy = MoveStrategySmart
+
+	emitted1 := drainAfterTele(t, p, cc)
+	dispatchTeleCheat(t, p, "fly")
+	emitted2 := drainAfterTele(t, p, cc)
+	all := append(emitted1, emitted2...)
+	if p.moveStrategy != MoveStrategyFly {
+		t.Errorf("after ::fly: moveStrategy = %v, want MoveStrategyFly", p.moveStrategy)
+	}
+	if !bytes.Contains(all, []byte("Changed move strategy: fly")) {
+		t.Errorf("missing 'Changed move strategy: fly' in emitted bytes")
+	}
+
+	dispatchTeleCheat(t, p, "fly")
+	emitted3 := drainAfterTele(t, p, cc)
+	if p.moveStrategy != MoveStrategySmart {
+		t.Errorf("after second ::fly: moveStrategy = %v, want MoveStrategySmart", p.moveStrategy)
+	}
+	if !bytes.Contains(emitted3, []byte("Changed move strategy: smart")) {
+		t.Errorf("missing 'Changed move strategy: smart' in second emit")
+	}
+}
+
+// TestHandleClientCheat_Naive_TogglesStrategy pins TS L176-183: ::naive
+// toggles between MoveStrategyNaive and MoveStrategySmart, emitting a
+// MessageGame each invocation.
+func TestHandleClientCheat_Naive_TogglesStrategy(t *testing.T) {
+	p, cc, _ := teleTestPlayer(t)
+	p.staffModLevel = 4
+	p.moveStrategy = MoveStrategySmart
+
+	emitted1 := drainAfterTele(t, p, cc)
+	dispatchTeleCheat(t, p, "naive")
+	emitted2 := drainAfterTele(t, p, cc)
+	all := append(emitted1, emitted2...)
+	if p.moveStrategy != MoveStrategyNaive {
+		t.Errorf("after ::naive: moveStrategy = %v, want MoveStrategyNaive", p.moveStrategy)
+	}
+	if !bytes.Contains(all, []byte("Naive move strategy: naive")) {
+		t.Errorf("missing 'Naive move strategy: naive' in emitted bytes")
+	}
+
+	dispatchTeleCheat(t, p, "naive")
+	emitted3 := drainAfterTele(t, p, cc)
+	if p.moveStrategy != MoveStrategySmart {
+		t.Errorf("after second ::naive: moveStrategy = %v, want MoveStrategySmart", p.moveStrategy)
+	}
+	if !bytes.Contains(emitted3, []byte("Naive move strategy: smart")) {
+		t.Errorf("missing 'Naive move strategy: smart' in second emit")
+	}
+}
+
+// TestHandleClientCheat_Random_SetsAfkEventReady pins TS L184-186: ::random
+// primes afkEventReady for the next tick.
+func TestHandleClientCheat_Random_SetsAfkEventReady(t *testing.T) {
+	p, cc, _ := teleTestPlayer(t)
+	p.staffModLevel = 4
+	p.afkEventReady = false
+	go io.Copy(io.Discard, cc)
+
+	dispatchTeleCheat(t, p, "random")
+
+	if !p.afkEventReady {
+		t.Errorf("after ::random: afkEventReady = false, want true")
+	}
+}
+
 // --- NAI-183: ::reboot / ::slowreboot dev-block dead-code pins ---
 
 // TS ClientCheatHandler.ts:360-373 places ::reboot and ::slowreboot

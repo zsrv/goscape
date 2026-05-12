@@ -383,7 +383,34 @@ func handleClientCheat(p *Player, payload []byte) error {
 	// false). NAI-183.
 	if !p.client.server.cfg.NodeProduction && p.staffModLevel >= 4 {
 		switch parts[0] {
-		// (NAI-184 T3 will add fly/naive/random here.)
+		case "fly":
+			// TS L168-175 — toggles between Fly and Smart strategies and
+			// emits a MessageGame describing the current state.
+			if p.moveStrategy == MoveStrategyFly {
+				p.moveStrategy = MoveStrategySmart
+			} else {
+				p.moveStrategy = MoveStrategyFly
+			}
+			if p.moveStrategy == MoveStrategyFly {
+				p.MessageGame("Changed move strategy: fly")
+			} else {
+				p.MessageGame("Changed move strategy: smart")
+			}
+		case "naive":
+			// TS L176-183 — toggles between Naive and Smart.
+			if p.moveStrategy == MoveStrategyNaive {
+				p.moveStrategy = MoveStrategySmart
+			} else {
+				p.moveStrategy = MoveStrategyNaive
+			}
+			if p.moveStrategy == MoveStrategyNaive {
+				p.MessageGame("Naive move strategy: naive")
+			} else {
+				p.MessageGame("Naive move strategy: smart")
+			}
+		case "random":
+			// TS L184-186 — primes the AFK event for the next tick.
+			p.afkEventReady = true
 		}
 	}
 
