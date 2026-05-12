@@ -114,7 +114,8 @@ func mustSetupTestObj(t *testing.T, s *Server, objTypeID int, stackable bool) in
 		s.objTypes.Configs = append(s.objTypes.Configs, nil)
 	}
 	s.objTypes.Configs[objTypeID] = &objtype.ObjType{
-		Stackable: stackable,
+		ConfigType: objtype.ConfigType{ID: objTypeID},
+		Stackable:  stackable,
 	}
 	return objTypeID
 }
@@ -125,9 +126,6 @@ func mustSetupTestObj(t *testing.T, s *Server, objTypeID int, stackable bool) in
 func mustSetupNamedObj(t *testing.T, s *Server, objTypeID int, name string, stackable bool) int {
 	t.Helper()
 	mustSetupTestObj(t, s, objTypeID, stackable)
-	// mustSetupTestObj leaves the embedded ConfigType.ID at zero; ::give
-	// callers read objType.ID so we must set it to the true obj id here.
-	s.objTypes.Configs[objTypeID].ID = objTypeID
 	s.objTypes.Configs[objTypeID].DebugName = name
 	if s.objTypes.ConfigNames == nil {
 		s.objTypes.ConfigNames = map[string]int{}
