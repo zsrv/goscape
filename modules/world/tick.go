@@ -157,6 +157,19 @@ func (s *Server) processLogins() {
 			s.runScript(sf, p, nil, true, nil, nil)
 		}
 
+		// TS Player.ts:511-512 — establish the "imaginary previous step
+		// from the west" so followX/Z reads a valid coord before the
+		// player takes their first step. Mirrors the teleport-time
+		// init at player_script.go:565-566. Required for player-follow:
+		// a follower's pathToPathingTarget arm at interaction.go:802-809
+		// reads the leader's followX/Z (= leader.lastStepX/Z, refreshed
+		// by NAI-174 T1's unconditional top writes). Without this init,
+		// a stationary post-login leader has followX/Z = (-1, -1) and
+		// followers queue queueWaypoint(-1, -1) → SW partial-path stall
+		// (NAI-174 Bug 1 — half of NAI-173-FU-FOLLOW-MODE-INVESTIGATION).
+		p.lastStepX = p.x - 1
+		p.lastStepZ = p.z
+
 		// NAI-73: allocate the InputTracking state machine. Defaults
 		// session to "headless" until LOGIN-SERVER-BRIDGE-MOD ships a
 		// real UUID assignment.
