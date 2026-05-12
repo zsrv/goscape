@@ -259,11 +259,9 @@ func handleLocType(s *ScriptState) error {
 // when the name is empty. Mirrors TS LOC_NAME: pushString(check(activeLoc.type,
 // LocTypeValid).name ?? 'null').
 //
-// Note: TS active-loc LOC_NAME does NOT fall back to debugname (only the
-// locID-arg LC_NAME does). LC_NAME itself currently uses DebugName with a
-// stale comment claiming Name is unset server-side; that's a tracked
-// follow-up (NAI-N+1 — fix LC_NAME to use Name → DebugName → "null"
-// per TS LocConfigOps.ts:12). LOC_NAME ships TS-correct from the start.
+// Note: TS active-loc LOC_NAME does NOT fall back to debugname; only the
+// locID-arg LC_NAME (handlers_config.go:159-165) does. LC_NAME is already
+// TS-correct (Name → DebugName → "null" per TS LocConfigOps.ts:12).
 func handleLocName(s *ScriptState) error {
 	if err := requireConfigs(s, "LOC_NAME"); err != nil {
 		return err
