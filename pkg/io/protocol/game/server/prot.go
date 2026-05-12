@@ -143,4 +143,33 @@ var (
 	// p1(daysSinceRecoveriesChanged), p2(messageCount). Mirrors TS
 	// ServerGameProt.LAST_LOGIN_INFO (140, 9) and LastLoginInfoEncoder.ts.
 	OpLastLoginInfo = Op{Opcode: 140, PayloadSize: 9}
+
+	// OpUpdatePid carries the player's server-side slot to the client
+	// so the client's localPlayer reference is bound to the correct
+	// PlayerInfo slot. Emitted once at onLogin. Fixed 2-byte payload:
+	// p2(slot). Mirrors TS ServerGameProt.UPDATE_PID (139, 2) and
+	// UpdatePidEncoder.ts (NAI-182).
+	OpUpdatePid = Op{Opcode: 139, PayloadSize: 2}
+
+	// OpResetAnims tells the client to clear all animation layers on the
+	// local player. Zero-byte payload. Emitted at onLogin (after varp
+	// resync) and onReconnect (after per-stat UpdateStat/UpdateRunEnergy).
+	// Mirrors TS ServerGameProt.RESET_ANIMS (136, 0) and
+	// ResetAnimsEncoder.ts (NAI-182).
+	OpResetAnims = Op{Opcode: 136, PayloadSize: 0}
+
+	// OpResetClientVarCache tells the client to drop its cached varp
+	// values so the next varp packets become authoritative. Emitted at
+	// onLogin and onReconnect immediately before the varp transmit-loop.
+	// Zero-byte payload. Mirrors TS ServerGameProt.RESET_CLIENT_VARCACHE
+	// (193, 0) and ResetClientVarCacheEncoder.ts (NAI-182).
+	OpResetClientVarCache = Op{Opcode: 193, PayloadSize: 0}
+
+	// OpUpdateRebootTimer carries the number of game ticks (600ms each)
+	// remaining until the world reboots. Sent broadcast by
+	// Server.rebootTimer and to each connecting player at processLogins
+	// if a shutdown is pending. Fixed 2-byte payload: p2(ticks). Mirrors
+	// TS ServerGameProt.UPDATE_REBOOT_TIMER (43, 2) and
+	// UpdateRebootTimerEncoder.ts (NAI-182).
+	OpUpdateRebootTimer = Op{Opcode: 43, PayloadSize: 2}
 )
