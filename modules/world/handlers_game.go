@@ -537,6 +537,29 @@ func handleClientCheat(p *Player, payload []byte) error {
 					p.SetStat(i, 1)
 				}
 			}
+		case "teleother":
+			// TS L377-400 — teleother <username> (production-only via
+			// outer arm selector; goscape mirrors with inner NP gate).
+			if !p.client.server.cfg.NodeProduction {
+				break
+			}
+			if args == "" {
+				return nil
+			}
+			other := p.client.server.LookupPlayerByUsername(args)
+			if other == nil {
+				p.MessageGame(fmt.Sprintf("%s is not logged in.", args))
+				return nil
+			}
+			other.CloseModal(true)
+			if !other.CanAccess() {
+				p.MessageGame(fmt.Sprintf("%s is busy right now.", args))
+				return nil
+			}
+			other.ClearInteraction()
+			sendUnsetMapFlag(other)
+			other.waypointIndex = -1
+			other.TeleJump(p.x, p.z, p.level)
 		case "snapshot":
 			// TS L477-480 — writes a heap snapshot. TS uses v8's JSON
 			// format; goscape uses runtime/pprof.WriteHeapProfile (Go's
@@ -603,6 +626,28 @@ func handleClientCheat(p *Player, payload []byte) error {
 				return nil
 			}
 			p.TeleJump((mx<<6)+lx, (mz<<6)+lz, level)
+		case "teleto":
+			// TS L525-548 — teleto <username> (production-only).
+			if !p.client.server.cfg.NodeProduction {
+				break
+			}
+			if args == "" {
+				return nil
+			}
+			other := p.client.server.LookupPlayerByUsername(args)
+			if other == nil {
+				p.MessageGame(fmt.Sprintf("%s is not logged in.", args))
+				return nil
+			}
+			p.CloseModal(true)
+			if !p.CanAccess() {
+				p.MessageGame("Please finish what you are doing first.")
+				return nil
+			}
+			p.ClearInteraction()
+			sendUnsetMapFlag(p)
+			p.waypointIndex = -1
+			p.TeleJump(other.x, other.z, other.level)
 		}
 	}
 

@@ -984,3 +984,141 @@ func TestHandleClientCheat_Snapshot_WritesHeapFile(t *testing.T) {
 	}
 }
 
+// addOtherTestPlayer adds a second active Player to s.playerLoop with
+// the given username and coord. Used by teleother/teleto tests.
+// Wires the minimum state for LookupPlayerByUsername + TeleJump to work:
+// active=true, username, x/z/level/originX/originZ/lastTickX/Z/lastLevel,
+// slot assignment, playerLoop append.
+func addOtherTestPlayer(t *testing.T, s *Server, username string, x, z, level int) *Player {
+	t.Helper()
+	other, otherConn := newTestPlayer(t)
+	other.client.server = s
+	// Seed encryptor so any writeOut path (e.g. sendUnsetMapFlag for
+	// teleother) doesn't NPE on ISAAC.GetNext. Drain the conn so writes
+	// don't block.
+	enc, dec := isaacPair([4]uint32{9, 9, 9, 9})
+	other.client.encryptor = enc
+	other.client.decryptor = dec
+	go io.Copy(io.Discard, otherConn)
+	other.username = username
+	other.x, other.z, other.level = x, z, level
+	other.originX, other.originZ = x, z
+	other.lastTickX, other.lastTickZ, other.lastLevel = x, z, level
+	// Find next free slot. teleTestPlayer uses slot 1.
+	slot := 2
+	for slot < len(s.players) && s.players[slot] != nil {
+		slot++
+	}
+	if slot >= len(s.players) {
+		t.Fatalf("addOtherTestPlayer: no free player slot")
+	}
+	other.slot = slot
+	s.players[slot] = other
+	s.playerLoop = append(s.playerLoop, other)
+	other.active = true
+	if s.rsbuf != nil {
+		s.rsbuf.AddPlayer(int32(slot))
+	}
+	return other
+}
+
+// TestHandleClientCheat_TeleOther_MovesTargetToSource pins TS L377-400
+// happy path: target player teleports to the caller's coord.
+func TestHandleClientCheat_TeleOther_MovesTargetToSource(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 3
+	s.cfg.NodeProduction = true
+	p.x, p.z, p.level = 3200, 3200, 0
+	go io.Copy(io.Discard, cc)
+
+	other := addOtherTestPlayer(t, s, "other_user", 3220, 3220, 0)
+
+	dispatchTeleCheat(t, p, "teleother other_user")
+
+	if other.x != 3200 || other.z != 3200 || other.level != 0 {
+		t.Errorf("after ::teleother: other at (%d, %d, %d), want (3200, 3200, 0)", other.x, other.z, other.level)
+	}
+}
+
+// TestHandleClientCheat_TeleOther_NoOpWhenNotProduction pins the
+// `&& NodeProduction` outer-arm-selector gate from TS L377.
+func TestHandleClientCheat_TeleOther_NoOpWhenNotProduction(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 3
+	s.cfg.NodeProduction = false
+	go io.Copy(io.Discard, cc)
+	other := addOtherTestPlayer(t, s, "other_user", 3220, 3220, 0)
+
+	dispatchTeleCheat(t, p, "teleother other_user")
+
+	if other.x != 3220 || other.z != 3220 {
+		t.Errorf("teleother under NP=false moved other: at (%d, %d), want (3220, 3220)", other.x, other.z)
+	}
+}
+
+// TestHandleClientCheat_TeleOther_UnknownUserMessagesCaller pins TS L385-388:
+// when LookupPlayerByUsername returns nil, message the caller and reject.
+func TestHandleClientCheat_TeleOther_UnknownUserMessagesCaller(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 3
+	s.cfg.NodeProduction = true
+
+	emitted1 := drainAfterTele(t, p, cc)
+	dispatchTeleCheat(t, p, "teleother no_such_user")
+	emitted2 := drainAfterTele(t, p, cc)
+	all := append(emitted1, emitted2...)
+
+	if !bytes.Contains(all, []byte("no_such_user is not logged in.")) {
+		t.Errorf("expected 'no_such_user is not logged in.' in emitted bytes")
+	}
+}
+
+// TestHandleClientCheat_TeleOther_AdminGate pins that staffModLevel < 3
+// silently rejects (admin tier gate).
+func TestHandleClientCheat_TeleOther_AdminGate(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 2 // below admin tier
+	s.cfg.NodeProduction = true
+	go io.Copy(io.Discard, cc)
+	other := addOtherTestPlayer(t, s, "other_user", 3220, 3220, 0)
+
+	dispatchTeleCheat(t, p, "teleother other_user")
+
+	if other.x != 3220 {
+		t.Errorf("teleother at staffModLevel=2 moved other: at x=%d, want 3220", other.x)
+	}
+}
+
+// TestHandleClientCheat_TeleTo_MovesSourceToTarget pins TS L525-548
+// happy path: caller teleports to target's coord.
+func TestHandleClientCheat_TeleTo_MovesSourceToTarget(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 2 // super-mod tier
+	s.cfg.NodeProduction = true
+	p.x, p.z, p.level = 3200, 3200, 0
+	go io.Copy(io.Discard, cc)
+	addOtherTestPlayer(t, s, "other_user", 3220, 3220, 0)
+
+	dispatchTeleCheat(t, p, "teleto other_user")
+
+	if p.x != 3220 || p.z != 3220 {
+		t.Errorf("after ::teleto: caller at (%d, %d), want (3220, 3220)", p.x, p.z)
+	}
+}
+
+// TestHandleClientCheat_TeleTo_NoOpWhenNotProduction pins NP gate on teleto.
+func TestHandleClientCheat_TeleTo_NoOpWhenNotProduction(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 2
+	p.x, p.z = 3200, 3200
+	s.cfg.NodeProduction = false
+	go io.Copy(io.Discard, cc)
+	addOtherTestPlayer(t, s, "other_user", 3220, 3220, 0)
+
+	dispatchTeleCheat(t, p, "teleto other_user")
+
+	if p.x != 3200 || p.z != 3200 {
+		t.Errorf("teleto under NP=false moved caller: at (%d, %d), want (3200, 3200)", p.x, p.z)
+	}
+}
+
