@@ -715,8 +715,21 @@ func (n *Npc) inOperableDistance(target entity) bool {
 		return reach.Reached(flags, n.level, n.x, n.z, tx, tz,
 			obj.Width, obj.Length, srcSize, 0, -1, 0)
 	}
-	// Chebyshev fallback (NAI-91-D-OPERABLE-CHEB-FALLBACK); shared with
-	// player-side via interaction.go (same package).
+	if t, ok := target.(pathingEntity); ok && n.server != nil && n.server.gamemap != nil {
+		flags := n.server.gamemap.Pathfinder.Flags
+		srcSize := n.size
+		if srcSize <= 0 {
+			srcSize = 1
+		}
+		// TS PathingEntity.ts:383 — reachedEntity (locShape=-2,
+		// blockAccessFlags=0). Npc inherits this from the base class
+		// (no Player-style Obj override; that's npc_interaction.go's Obj branch).
+		return reach.Reached(flags, n.level, n.x, n.z, tx, tz,
+			t.Width(), t.Length(), srcSize, 0, -2, 0)
+	}
+	// Defensive: nil server / nil gamemap (test fixtures), or non-pathing
+	// non-Loc non-Obj target (test doubles only). Production target is always
+	// one of those types and production server always has a gamemap.
 	return inOperableDistanceCheb(n.x, n.z, tx, tz)
 }
 
