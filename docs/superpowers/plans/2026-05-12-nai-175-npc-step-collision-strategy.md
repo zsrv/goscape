@@ -979,4 +979,50 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 
 ## Stage 1 verdict
 
-_To be appended by Task 1 subagent dispatch. Do not edit manually._
+### 1. Root cause
+CONFIRM. `(*Npc).stepOnce` at `modules/world/npc_interaction.go:356` calls `s.gamemap.CanTravel(n.level, n.x, n.z, dx, dz)` which unwraps to `pkg/gamemap/gamemap.go:138` hardcoding `CanTravel(level, x, z, offsetX, offsetZ, 1, 0, collision.TypeNormal)`. This prevents MoveRestrictBlocked NPCs (which should use `collision.TypeBlocked` per `npc.go:274`) from stepping onto FlagBlockWalk water tiles. The same issue affects `Player.stepOnce` at `movement.go:134` (though duck is NPC-specific). The correct call should plumb `n.blockWalkFlag()` and `n.getCollisionStrategy()` through to StepValidator.CanTravel.
+
+### 2. CanTravel callers
+- `modules/world/movement.go:134` (Player.stepOnce) — INCORRECT for MoveRestrictBlocked/Indoors/Outdoors (hardcodes TypeNormal); Player is always MoveRestrictNormal in practice, so latent only
+- `modules/world/npc_interaction.go:356` (Npc.stepOnce) — INCORRECT for all non-Normal NPCs (hardcodes TypeNormal + FlagOpen)
+- `pkg/pathfinder/routefinder/naiveroutefinder.go:63–68` (FindNaivePath inner loop) — CORRECT (receives extraFlag and collision type as params)
+- `pkg/gamemap/gamemap.go:137` (wrapper) — HARDCODING ROOT (delegates to StepValidator with 1, 0, TypeNormal)
+- `pkg/pathfinder/routefinder/stepvalidator_test.go:28+` (unit tests) — test-only, explicit collision types passed; no MoveRestrictBlocked+stepOnce integration test
+
+### 3. Divergence ratings
+- D1: BINDING — TS PathingEntity.takeStep:673–680 retries X-only/Z-only when diagonal fails. Go stepOnce returns false on the first blocked direction. Required for duck final-approach on crowded tiles.
+- D2: LATENT — TS validateAndAdvanceStep:208 retains waypointIndex on block; Go sets -1. Duck wander uses single-tile goals so retention/clear is indistinguishable for the duck symptom; latent correctness bug for multi-waypoint paths.
+- D3: LATENT — TS takeStep:642–651 handles size>1 NPCs via X/Z axis-only. Ducks are size=1; no current size>1 wanderer observed broken.
+- D4: LATENT — Player.stepOnce hardcodes TypeNormal but Players are always MoveRestrictNormal; structurally asymmetric to PathingEntity.takeStep but no current symptom.
+
+### 4. Tests pinning current semantics
+None found. `stepvalidator_test.go` exercises CanTravel with explicit collision types but does not test Npc/Player.stepOnce with non-Normal MoveRestrict + waypoint. `npc_test.go:TestNpc_BlockWalkFlag_PerMoveRestrict` and `TestNpc_GetCollisionStrategy_PerMoveRestrict` pin the methods but not their step interaction. No test pins the current (1, 0, TypeNormal) wrapper semantics for non-Normal NPCs.
+
+### 5. NAI-175 Stage 2 scope
+- MUST SHIP: D0 strategy plumbing (T2 refactor + T4 Npc.stepOnce port)
+- MUST SHIP: D1 axis-fallback retry (T6)
+- DEFER TO NAI-176: D2 waypoint retention on block (T5 STAGE-1-DEFERRED)
+- DEFER TO NAI-176: D3 size>1 branch (T7 STAGE-1-DEFERRED, deviation tag only)
+- DEFER TO NAI-176: D4 Player.stepOnce parity (T8 STAGE-1-DEFERRED, deviation tag only)
+
+---
+
+### Reconciliation against Tasks 2-9 (Step 3)
+
+- **Task 2** (refactor CanTravel): SHIP unchanged.
+- **Task 3** (RED blocked-NPC water-tile test): SHIP unchanged.
+- **Task 4** (GREEN D0 plumbing): SHIP unchanged — keep `n.waypointIndex = -1` on the blocked branch (current behaviour preserved; D2 deferred).
+- **Task 5** (D2 waypoint retention): **STAGE-1-DEFERRED: see NAI-176.** Skip entirely. Open deviation tag in `npc_interaction.go` above `stepOnce` instead:
+  ```
+  // NAI-175-D-WAYPOINT-RETENTION: TS validateAndAdvanceStep
+  // (PathingEntity.ts:202-213) returns -1 without decrementing
+  // waypointIndex when takeStep returns null. goscape clears it
+  // to -1. Duck wander uses single-tile goals so this is
+  // indistinguishable; deferred to NAI-176.
+  ```
+- **Task 6** (D1 axis-fallback): SHIP — but the all-directions-blocked branch retains current `n.waypointIndex = -1` (no D2). Comment should reference NAI-175 D1 only.
+- **Task 7** (D3 size>1): **STAGE-1-DEFERRED: see NAI-176.** Skip test + port; open `NAI-175-D-SIZE-GT-1` deviation tag per the in-task fallback.
+- **Task 8** (D4 Player.stepOnce parity): **STAGE-1-DEFERRED: see NAI-176.** Execute the "D4 deferral fallback" sub-section only (open `NAI-175-D-PLAYER-STEP-COLLISION` deviation tag).
+- **Task 9** (smoke handoff): unchanged.
+- **Task 10** (close): note in memory entry that D1/D2/D3/D4 status reflects this verdict (D0+D1 shipped; D2/D3/D4 deferred).
+
