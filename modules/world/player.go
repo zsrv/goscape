@@ -237,6 +237,11 @@ type Player struct {
 	chatColour, chatEffect, chatRights int
 	mutedUntil                         time.Time
 	messageCount                       int
+	// lastLoginTime is the unix-ms timestamp captured at the most recent
+	// LAST_LOGIN_INFO emission. Zero on a fresh login — see (*Player).
+	// LastLoginInfo for the lastDate==0 first-call branch. Mirrors TS
+	// Player.lastLoginTime (Player.ts:2191, 2199).
+	lastLoginTime int64
 
 	// === social spam protection (NAI-72) ===
 	// socialProtect gates FRIENDLIST_ADD/DEL, IGNORELIST_ADD/DEL, and

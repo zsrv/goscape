@@ -134,4 +134,13 @@ var (
 	// EVENT_TRACKING blobs (op 81). NAI-73; mirrors TS ServerGameProt.ts:43-44.
 	OpEnableTracking = Op{Opcode: 226, PayloadSize: 0}
 	OpFinishTracking = Op{Opcode: 133, PayloadSize: 0}
+
+	// OpLastLoginInfo carries previous-login telemetry the client renders
+	// on the welcome screen: last-login IP (always 127.0.0.1 / 2130706433
+	// per TS Player.ts:2194), days since previous login, days since
+	// recovery-questions changed (always 201, hidden), and the unread
+	// message count. Fixed 9-byte payload: p4(lastIp), p2(daysSinceLogin),
+	// p1(daysSinceRecoveriesChanged), p2(messageCount). Mirrors TS
+	// ServerGameProt.LAST_LOGIN_INFO (140, 9) and LastLoginInfoEncoder.ts.
+	OpLastLoginInfo = Op{Opcode: 140, PayloadSize: 9}
 )

@@ -1833,9 +1833,6 @@ func handleWealthEvent(s *ScriptState) error {
 
 // handleLastLoginInfo (LAST_LOGIN_INFO, opcode 2054). Single delegation
 // to Self.LastLoginInfo. Mirrors TS PlayerOps.ts:931-933.
-//
-// NAI-162-D-LASTLOGIN-NO-PACKET: underlying (*Player).LastLoginInfo is
-// a no-op pending ServerProt port.
 func handleLastLoginInfo(s *ScriptState) error {
 	if err := requireActivePlayer(s, "LAST_LOGIN_INFO"); err != nil {
 		return err

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/zsrv/goscape/pkg/cache"
 	"github.com/zsrv/goscape/pkg/gamemap"
@@ -1681,13 +1682,110 @@ func TestAdvanceStatUsesQueueEngine(t *testing.T) {
 	}
 }
 
-// TestPlayer_LastLoginInfo_StubNoOp pins (*Player).LastLoginInfo() as
-// a silent no-op until LAST_LOGIN_INFO ServerProt is ported. Tracked
-// as NAI-162-D-LASTLOGIN-NO-PACKET. Test pins the method exists and
-// doesn't panic on a fresh Player.
-func TestPlayer_LastLoginInfo_StubNoOp(t *testing.T) {
-	p := &Player{}
-	p.LastLoginInfo() // must not panic; current behaviour is no-op
+// --- NAI-181: LAST_LOGIN_INFO server packet byte-pin tests -----------------
+
+// TestLastLoginInfo_FirstCall_EmitsExactByteSequence pins all 4 encoder
+// fields' positions, ordering, and endianness for the first-call branch
+// (lastLoginTime==0 → daysSinceLogin==0).
+func TestLastLoginInfo_FirstCall_EmitsExactByteSequence(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	p.messageCount = 0x0007
+	p.lastLoginTime = 0 // first-call branch
+
+	want := []byte{
+		byte((int(gameserver.OpLastLoginInfo.Opcode) + int(enc.GetNext())) & 0xff),
+		0x7F, 0x00, 0x00, 0x01, // p4: lastIp = 2130706433 (127.0.0.1)
+		0x00, 0x00,             // p2: daysSinceLogin = 0 (first-call branch)
+		0xC9,                   // p1: daysSinceRecoveriesChanged = 201
+		0x00, 0x07,             // p2: messageCount = 7
+	}
+	received := drainConn(t, cc)
+	p.LastLoginInfo()
+	p.client.flushWrite()
+	got := <-received
+	if !bytes.Equal(got, want) {
+		t.Errorf("LastLoginInfo first-call wire: got %#x, want %#x", got, want)
+	}
+}
+
+// TestLastLoginInfo_SubsequentCall_DaysSinceLoginAdvances pins the
+// integer-truncation formula and non-zero lastDate branch. Sets
+// lastLoginTime to 5 days + 100 ms ago; asserts bytes[5:7] decode as
+// daysSinceLogin >= 5 && <= 6 (tolerant for CI jitter).
+func TestLastLoginInfo_SubsequentCall_DaysSinceLoginAdvances(t *testing.T) {
+	const dayMillis = int64(1000 * 60 * 60 * 24)
+	p, cc := newTestPlayer(t)
+	_, dec := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	p.lastLoginTime = time.Now().UnixMilli() - 5*dayMillis - 100
+
+	received := drainConn(t, cc)
+	p.LastLoginInfo()
+	p.client.flushWrite()
+	got := <-received
+
+	// Decrypt the opcode byte and skip it, then read bytes[1:] as the payload.
+	// Wire layout: got[0]=enc-opcode, got[1..4]=lastIp p4, got[5..6]=daysSinceLogin p2,
+	// got[7]=daysSinceRecoveries, got[8..9]=messageCount p2.
+	if len(got) < 10 {
+		t.Fatalf("wire too short: got %d bytes, want 10", len(got))
+	}
+	// Skip the opcode; decrypt it to verify it matches OpLastLoginInfo.
+	encOpcode := int(got[0])
+	decOpcode := (encOpcode - int(dec.GetNext())) & 0xff
+	if decOpcode != int(gameserver.OpLastLoginInfo.Opcode) {
+		t.Errorf("opcode: got %d, want %d", decOpcode, gameserver.OpLastLoginInfo.Opcode)
+	}
+	// got[0]=encrypted opcode; payload at got[1..9]
+	// got[1..4]=lastIp p4, got[5..6]=daysSinceLogin p2, got[7]=daysSinceRecoveries, got[8..9]=messageCount p2
+	daysSinceLogin := int(got[5])<<8 | int(got[6])
+	if daysSinceLogin < 5 || daysSinceLogin > 6 {
+		t.Errorf("daysSinceLogin: got %d, want 5 or 6", daysSinceLogin)
+	}
+}
+
+// TestLastLoginInfo_UpdatesLastLoginTime pins the lastLoginTime field
+// update (mirrors TS Player.ts:2199 `this.lastLoginTime = nextDate`).
+func TestLastLoginInfo_UpdatesLastLoginTime(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	before := time.Now().UnixMilli()
+	received := drainConn(t, cc)
+	p.LastLoginInfo()
+	p.client.flushWrite()
+	<-received
+	after := time.Now().UnixMilli()
+
+	if p.lastLoginTime < before || p.lastLoginTime > after {
+		t.Errorf("lastLoginTime: got %d, want in [%d, %d]", p.lastLoginTime, before, after)
+	}
+}
+
+// TestLastLoginInfo_MessageCountSerialization pins bytes [8:10] as
+// big-endian p2 for messageCount=0xABCD. Disambiguates messageCount
+// slot from daysSinceRecoveriesChanged endianness regression.
+func TestLastLoginInfo_MessageCountSerialization(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	p.messageCount = 0xABCD
+	p.lastLoginTime = 0
+
+	received := drainConn(t, cc)
+	p.LastLoginInfo()
+	p.client.flushWrite()
+	got := <-received
+
+	if len(got) < 10 {
+		t.Fatalf("wire too short: got %d bytes, want 10", len(got))
+	}
+	// got[0] = encrypted opcode; payload bytes at got[1..9]
+	// messageCount p2 is at payload[7..8] → got[8..9]
+	if got[8] != 0xAB || got[9] != 0xCD {
+		t.Errorf("messageCount bytes: got %#x %#x, want 0xAB 0xCD", got[8], got[9])
+	}
 }
 
 // TestPlayer_InvTotalParamStack pins the sum formula. Build a player

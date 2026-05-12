@@ -3,6 +3,7 @@ package world
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/zsrv/goscape/pkg/cache"
 	"github.com/zsrv/goscape/pkg/coordgrid"
@@ -1322,14 +1323,34 @@ func (p *Player) AddWealthEvent(evt script.WealthEvent) {
 
 // LastLoginInfo emits a LAST_LOGIN_INFO server packet with the
 // previous-login timestamp and IP. Mirrors TS Player.lastLoginInfo
-// (PlayerOps.ts:932 caller).
+// (Player.ts:2190-2200).
 //
-// NAI-162-D-LASTLOGIN-NO-PACKET: ServerProt absent at NAI-162 cut.
-// Method is a no-op until the prot is ported. Once the prot lands,
-// implementation queues an outgoing packet via the standard
-// (*Player) client.write pattern.
+// First call (lastLoginTime==0): daysSinceLogin computes to 0 because
+// lastDate falls back to now. Subsequent calls compute integer days
+// between previous lastLoginTime and now. After writing, lastLoginTime
+// advances to now.
+//
+// lastIp is hardcoded to 127.0.0.1 (2130706433) and
+// daysSinceRecoveriesChanged to 201 ("hide :)") per TS Player.ts:2194,2196.
 func (p *Player) LastLoginInfo() {
-	// Intentional no-op pending ServerProt port.
+	now := time.Now().UnixMilli()
+	lastDate := p.lastLoginTime
+	if lastDate == 0 {
+		lastDate = now
+	}
+	lastIp := int32(2130706433) // 127.0.0.1
+	const dayMillis = int64(1000 * 60 * 60 * 24)
+	daysSinceLogin := int((now - lastDate) / dayMillis)
+	daysSinceRecoveriesChanged := 201
+
+	payload := []byte{
+		byte(lastIp >> 24), byte(lastIp >> 16), byte(lastIp >> 8), byte(lastIp), // p4: lastIp
+		byte(daysSinceLogin >> 8), byte(daysSinceLogin),                         // p2: daysSinceLogin
+		byte(daysSinceRecoveriesChanged),                                        // p1
+		byte(p.messageCount >> 8), byte(p.messageCount),                         // p2: messageCount
+	}
+	p.writeOut(gameserver.OpLastLoginInfo, payload)
+	p.lastLoginTime = now
 }
 
 // InvTotalParamStack sums slot.count × objType.Params[paramID] (falling
