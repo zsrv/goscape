@@ -136,6 +136,27 @@ func TestPathToMoveClickNaiveTakesLastCoord(t *testing.T) {
 	}
 }
 
+// TestPathToMoveClick_FlyQueuesEndCoord pins TS PathingEntity.pathToMoveClick
+// L408-420: any moveStrategy other than SMART (including FLY) takes the
+// "queueWaypoint(last-coord)" branch. ::fly was the first runtime path
+// that put MoveStrategyFly on a live Player (NAI-184 T3); the goscape
+// switch in movement.go only had explicit Smart/Naive cases, dropping
+// the player's clicks silently. NAI-184 T3 fix.
+func TestPathToMoveClick_FlyQueuesEndCoord(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.x, p.z, p.level = 3094, 3106, 0
+	p.moveStrategy = MoveStrategyFly
+
+	packed := []int{packTestCoord(0, 3100, 3110), packTestCoord(0, 3105, 3115)}
+	p.pathToMoveClick(packed, false)
+
+	gotX := (p.waypoints[0] >> 14) & 0x3FFF
+	gotZ := p.waypoints[0] & 0x3FFF
+	if gotX != 3105 || gotZ != 3115 {
+		t.Errorf("FLY should take input[-1]: got (%d,%d), want (3105,3115)", gotX, gotZ)
+	}
+}
+
 func TestMoveGameClickAdvancesPlayer(t *testing.T) {
 	enc, dec := isaacPair([4]uint32{1, 2, 3, 4})
 	p, _ := newTestPlayer(t)

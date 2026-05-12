@@ -229,8 +229,8 @@ func (p *Player) defaultMoveSpeed() MoveSpeed {
 
 // pathToMoveClick translates a MOVE_GAMECLICK / MOVE_OPCLICK waypoint list
 // into the player's movement queue. If needsFinding is true and moveStrategy
-// is SMART, the server runs its own pathfinder; otherwise it trusts the
-// client-supplied coords.
+// is SMART, the server runs its own pathfinder; otherwise (Naive or Fly)
+// it queues a waypoint at the last coord.
 func (p *Player) pathToMoveClick(packed []int, needsFinding bool) {
 	if len(packed) == 0 {
 		return
@@ -247,7 +247,9 @@ func (p *Player) pathToMoveClick(packed []int, needsFinding bool) {
 		} else {
 			p.queueWaypoints(packed)
 		}
-	case MoveStrategyNaive:
+	case MoveStrategyNaive, MoveStrategyFly:
+		// TS PathingEntity.pathToMoveClick L408-420: any non-SMART strategy
+		// queues a single waypoint at the LAST coord of the input.
 		dest := coordgrid.UnpackCoord(packed[len(packed)-1])
 		p.queueWaypoint(dest.X, dest.Z)
 	}
