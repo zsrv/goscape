@@ -1,7 +1,12 @@
 package script
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/zsrv/goscape/pkg/fonttype"
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 // runStringOp builds a one-instruction script that runs `op`, pushing
@@ -108,6 +113,14 @@ func TestStringIndexOfString(t *testing.T) {
 // SPLIT_INIT against a fresh state, then returns the state for assertion.
 func runSplitInit(t *testing.T, text string, maxWidth, linesPerPage, fontId int) *ScriptState {
 	t.Helper()
+	return runSplitInitWithConfigs(t, newTestConfigs(), text, maxWidth, linesPerPage, fontId)
+}
+
+// runSplitInitWithConfigs is the same as runSplitInit but lets callers
+// supply a pre-seeded mockConfigs (e.g. with a fake FontType or a
+// mesanim debugname → id mapping).
+func runSplitInitWithConfigs(t *testing.T, cfg *mockConfigs, text string, maxWidth, linesPerPage, fontId int) *ScriptState {
+	t.Helper()
 	sf := &ScriptFile{
 		Name:             "test_split_init",
 		Opcodes:          []Opcode{OpSplitInit, OpReturn},
@@ -116,6 +129,7 @@ func runSplitInit(t *testing.T, text string, maxWidth, linesPerPage, fontId int)
 		InstructionCount: 2,
 	}
 	state := Init(sf, nil, false, nil, nil)
+	state.Configs = cfg
 	state.PushString(text)
 	state.PushInt(maxWidth)
 	state.PushInt(linesPerPage)
@@ -139,17 +153,19 @@ func TestSplitInitNoMesanimPrefix(t *testing.T) {
 	}
 }
 
-func TestSplitInitMesanimPrefixStripped(t *testing.T) {
+func TestSplitInitMesanimPrefixStripped_UnknownNameStaysNegOne(t *testing.T) {
+	// mockConfigs has no entry for "neutral" → MesanimByName returns -1.
+	// (The previous NAI-179-retired deviation pinned -1 unconditionally;
+	// now -1 only when the name is absent from the registry.)
 	s := runSplitInit(t, "<p,neutral>Greetings|stranger", 380, 4, 8)
-	// NAI-75-D-MESANIM-NOT-PORTED: prefix parsed but id lookup deferred,
-	// so SplitMesanim stays -1 even when a prefix is present.
 	if s.SplitMesanim != -1 {
-		t.Errorf("SplitMesanim: got %d, want -1 (NAI-75-D-MESANIM-NOT-PORTED pin)", s.SplitMesanim)
+		t.Errorf("SplitMesanim: got %d, want -1 (name not in registry)", s.SplitMesanim)
 	}
 	if len(s.SplitPages) != 1 {
 		t.Fatalf("len(SplitPages): got %d, want 1", len(s.SplitPages))
 	}
-	// Prefix stripped: text is "Greetings|stranger" → 2 lines.
+	// Prefix stripped: text is "Greetings|stranger" → mockConfigs.FontType
+	// returns nil → defensive fallback uses strings.Split(text, "|") → 2 lines.
 	if got, want := s.SplitPages[0], []string{"Greetings", "stranger"}; !equalStrings(got, want) {
 		t.Errorf("SplitPages[0]: got %v, want %v (prefix should be stripped)", got, want)
 	}
@@ -180,6 +196,7 @@ func TestSplitInitReplacesNotAppends(t *testing.T) {
 		InstructionCount: 3,
 	}
 	state := Init(sf, nil, false, nil, nil)
+	state.Configs = newTestConfigs()
 	// Push order matters: stack is LIFO, both opcodes execute in instruction
 	// order, so the FIRST opcode pops what was pushed LAST. Push the
 	// SECOND call's args FIRST (deepest), then the FIRST call's args
@@ -245,6 +262,7 @@ func runSplitInitThen(t *testing.T, initText string, linesPerPage int, follow Op
 		InstructionCount: uint32(len(ops)),
 	}
 	state := Init(sf, nil, false, nil, nil)
+	state.Configs = newTestConfigs()
 	// Push in reverse execution order: follow-up args first (deepest in
 	// stack), then SPLIT_INIT args on top (popped first by the first opcode).
 	// Follow-up opcode args (e.g. page index for SPLIT_GET).
@@ -328,15 +346,123 @@ func TestSplitGetOutOfBounds(t *testing.T) {
 	}
 }
 
-func TestSplitGetAnimReturnsMinusOne(t *testing.T) {
-	// NAI-75-D-MESANIM-NOT-PORTED: SPLIT_GETANIM unconditionally returns -1
-	// regardless of prefix, until MesanimType cache loader ports.
-	s := runSplitInitThen(t, "<p,neutral>Greetings", 4, OpSplitGetAnim, []int{0})
-	if got := s.PopInt(); got != -1 {
-		t.Errorf("SPLIT_GETANIM(0) with prefix: got %d, want -1 (NAI-75-D-MESANIM-NOT-PORTED pin)", got)
+func TestSplitGetAnim_ResolvesLen(t *testing.T) {
+	// Seed: MesanimType id 3 with Len[0]=10, Len[1]=20.
+	cfg := newTestConfigs()
+	cfg.mesanims = map[int]*objtype.MesanimType{
+		3: {Len: [4]int{10, 20, 30, 40}},
 	}
-	s = runSplitInitThen(t, "no prefix", 4, OpSplitGetAnim, []int{0})
-	if got := s.PopInt(); got != -1 {
-		t.Errorf("SPLIT_GETANIM(0) no prefix: got %d, want -1", got)
+	cfg.mesanimsByName = map[string]int{"shopkeeper": 3}
+	// SPLIT_INIT writes SplitMesanim=3 and SplitPages with 2 lines on page 0.
+	s := runSplitInitThenWithConfigs(t, cfg, "<p,shopkeeper>hello|world", 4, OpSplitGetAnim, []int{0})
+	got := s.PopInt()
+	// Page 0 has 2 lines → Len[lineCount-1] = Len[1] = 20.
+	if got != 20 {
+		t.Errorf("SPLIT_GETANIM(0): got %d, want 20 (Len[1])", got)
+	}
+}
+
+func TestSplitGetAnim_NoMesanimReturnsNegOne(t *testing.T) {
+	s := runSplitInitThen(t, "no prefix here", 4, OpSplitGetAnim, []int{0})
+	got := s.PopInt()
+	if got != -1 {
+		t.Errorf("SPLIT_GETANIM with SplitMesanim=-1: got %d, want -1", got)
+	}
+}
+
+func TestSplitGetAnim_NilConfigTypeReturnsNegOne(t *testing.T) {
+	// SplitMesanim is set to a non-negative id, but mockConfigs.MesanimType
+	// returns nil for it → defensive -1 (TS MesanimValid would throw).
+	cfg := newTestConfigs()
+	cfg.mesanimsByName = map[string]int{"ghost": 42}
+	// mesanims map is empty → MesanimType(42) returns nil.
+	s := runSplitInitThenWithConfigs(t, cfg, "<p,ghost>hello", 4, OpSplitGetAnim, []int{0})
+	got := s.PopInt()
+	if got != -1 {
+		t.Errorf("SPLIT_GETANIM with nil MesanimType: got %d, want -1", got)
+	}
+}
+
+func runSplitInitThenWithConfigs(t *testing.T, cfg *mockConfigs, initText string, linesPerPage int, follow Opcode, followInts []int) *ScriptState {
+	t.Helper()
+	ops := []Opcode{OpSplitInit, follow, OpReturn}
+	sf := &ScriptFile{
+		Name:             "test_split_init_then_" + follow.String(),
+		Opcodes:          ops,
+		IntOperands:      make([]int32, len(ops)),
+		StringOperands:   make([]string, len(ops)),
+		InstructionCount: uint32(len(ops)),
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.Configs = cfg
+	for _, v := range followInts {
+		state.PushInt(v)
+	}
+	state.PushString(initText)
+	state.PushInt(380)
+	state.PushInt(linesPerPage)
+	state.PushInt(8)
+	if err := Execute(state); err != nil {
+		t.Fatalf("SPLIT_INIT+%s: unexpected error: %v", follow.String(), err)
+	}
+	return state
+}
+
+func TestSplitInitMesanimPrefixResolves(t *testing.T) {
+	// Seed mockConfigs with a fake MesanimType named "neutral" at id 7.
+	cfg := newTestConfigs()
+	cfg.mesanimsByName = map[string]int{"neutral": 7}
+	cfg.mesanims = map[int]*objtype.MesanimType{
+		7: {Len: [4]int{10, 20, 30, 40}},
+	}
+	s := runSplitInitWithConfigs(t, cfg, "<p,neutral>hi|there", 380, 4, 8)
+	if s.SplitMesanim != 7 {
+		t.Errorf("SplitMesanim: got %d, want 7 (resolved id)", s.SplitMesanim)
+	}
+	// Text stripped: "hi|there"; fontType nil → '|' fallback path.
+	if len(s.SplitPages) != 1 {
+		t.Fatalf("len(SplitPages): got %d, want 1", len(s.SplitPages))
+	}
+	if got, want := s.SplitPages[0], []string{"hi", "there"}; !equalStrings(got, want) {
+		t.Errorf("SplitPages[0]: got %v, want %v", got, want)
+	}
+}
+
+func TestSplitInitFontWrap_BreaksOnMaxWidth(t *testing.T) {
+	if _, err := os.Stat(filepath.Join("..", "..", "data", "pack", "client", "title")); err != nil {
+		t.Skipf("data/pack/client/title unavailable: %v", err)
+	}
+	fonts, err := fonttype.Load(filepath.Join("..", "..", "data", "pack"))
+	if err != nil {
+		t.Fatalf("fonttype.Load: %v", err)
+	}
+	cfg := newTestConfigs()
+	cfg.fonts = map[int]*fonttype.FontType{0: fonts[0]}
+	// Long ASCII sentence, no '|', tight maxWidth → forces ≥ 1 wrap.
+	text := "alpha bravo charlie delta echo foxtrot golf hotel india juliet"
+	maxWidth := fonts[0].StringWidth(text) / 3
+	s := runSplitInitWithConfigs(t, cfg, text, maxWidth, 100, 0)
+	if len(s.SplitPages) != 1 {
+		t.Fatalf("len(SplitPages): got %d, want 1", len(s.SplitPages))
+	}
+	if len(s.SplitPages[0]) < 2 {
+		t.Errorf("font.Split should have produced ≥2 lines with maxWidth=%d; got %v",
+			maxWidth, s.SplitPages[0])
+	}
+}
+
+func TestSplitInitInvalidFontFallsBackToPipeSplit(t *testing.T) {
+	cfg := newTestConfigs()
+	// cfg.fonts is nil → mockConfigs.FontType returns nil for any id.
+	s := runSplitInitWithConfigs(t, cfg, "a|b", 380, 1, 999)
+	// Defensive fallback splits on '|'; linesPerPage=1 → 2 pages of 1 line.
+	if len(s.SplitPages) != 2 {
+		t.Fatalf("len(SplitPages): got %d, want 2", len(s.SplitPages))
+	}
+	if got, want := s.SplitPages[0], []string{"a"}; !equalStrings(got, want) {
+		t.Errorf("SplitPages[0]: got %v, want %v", got, want)
+	}
+	if got, want := s.SplitPages[1], []string{"b"}; !equalStrings(got, want) {
+		t.Errorf("SplitPages[1]: got %v, want %v", got, want)
 	}
 }

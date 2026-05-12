@@ -94,47 +94,50 @@ func handleTextSwitch(s *ScriptState) error {
 	return nil
 }
 
-// -- SPLIT_* stubs (dialog pagination — deferred to later sub-spec) --
+// -- SPLIT_* dialog pagination handlers (NAI-75 light-fidelity port;
+// NAI-179 wired font.Split + MesanimType resolution).
 
 // handleSplitInit ports TS SPLIT_INIT (StringOps.ts:76-96). Pops
 // (text, maxWidth, linesPerPage, fontId), parses any leading <p,name>
-// mesanim prefix, splits the prefix-stripped text on '|' (the explicit
-// line-break char used in chatnpc strings), and chunks the lines into
-// pages of linesPerPage lines each. Stores results in s.SplitPages +
-// s.SplitMesanim.
+// mesanim prefix (resolving NAME to a MesanimType id via
+// Configs.MesanimByName), splits the prefix-stripped text into lines
+// via FontType.Split (width-aware word-wrap), and chunks the lines
+// into pages of linesPerPage each.
 //
-// NAI-75-D-FONT-WRAP-NAIVE: maxWidth + fontId are popped but unused
-// (no font-aware word-wrap; relies on '|' breaks). Closure: future
-// FontType cache loader sub-spec calls font.split(text, maxWidth) here.
-//
-// NAI-75-D-MESANIM-NOT-PORTED: <p,name> prefix is parsed and stripped
-// but SplitMesanim is left at -1 (no MesanimType.getId lookup yet).
-// Closure: future MesanimType cache loader sub-spec resolves the id.
+// On invalid fontId (Configs.FontType returns nil — TS FontTypeValid
+// would throw) the handler logs slog.Warn and falls back to the
+// NAI-75 light-fidelity '|'-only split. Goscape defensive per
+// defensive_gate_doc_comment_label.md.
 func handleSplitInit(s *ScriptState) error {
-	// Pop order matches TS popInts(3) semantics: top of stack is fontId.
-	_ = s.PopInt() // fontId — unused per NAI-75-D-FONT-WRAP-NAIVE
+	fontId := s.PopInt()
 	linesPerPage := s.PopInt()
-	_ = s.PopInt() // maxWidth — unused per NAI-75-D-FONT-WRAP-NAIVE
+	maxWidth := s.PopInt()
 	text := s.PopString()
 
 	s.SplitMesanim = -1
 	if strings.HasPrefix(text, "<p,") {
 		if end := strings.IndexByte(text, '>'); end != -1 {
-			// Prefix recognised; light-fidelity skips MesanimType lookup.
-			// SplitMesanim stays -1 per NAI-75-D-MESANIM-NOT-PORTED.
+			name := text[3:end]
+			s.SplitMesanim = int32(s.Configs.MesanimByName(name))
 			text = text[end+1:]
 		}
 	}
 
-	if linesPerPage < 1 {
-		// Defensive: TS would divide-by-zero on splice(0, 0); we no-op
-		// to avoid an infinite chunking loop. Goscape defensive (TS
-		// throws); labelled per defensive_gate_doc_comment_label.md.
-		s.SplitPages = [][]string{{text}}
-		return nil
+	var lines []string
+	if font := s.Configs.FontType(fontId); font != nil {
+		lines = font.Split(text, maxWidth)
+	} else {
+		slog.Warn("SPLIT_INIT: invalid fontId; falling back to '|' split",
+			"script", s.Script.Name, "fontId", fontId)
+		lines = strings.Split(text, "|")
 	}
 
-	lines := strings.Split(text, "|")
+	if linesPerPage < 1 {
+		// Defensive: TS would divide-by-zero on splice(0, 0). Goscape
+		// defensive (TS throws).
+		s.SplitPages = [][]string{lines}
+		return nil
+	}
 	pages := make([][]string, 0, (len(lines)+linesPerPage-1)/linesPerPage)
 	for i := 0; i < len(lines); i += linesPerPage {
 		end := i + linesPerPage
@@ -174,13 +177,32 @@ func handleSplitGet(s *ScriptState) error {
 }
 
 // handleSplitGetAnim ports TS SPLIT_GETANIM (StringOps.ts:114-122).
-// Pops page; pushes -1 unconditionally per NAI-75-D-MESANIM-NOT-PORTED
-// (no MesanimType cache loader; the TS path requires
-// MesanimValid.len[lineCount-1] which depends on it). Closure: future
-// MesanimType cache loader sub-spec wires the lookup here.
+// Pops page; pushes MesanimType.Len[lineCount-1] where lineCount =
+// len(SplitPages[page]). When SplitMesanim is negative (no prefix),
+// MesanimType lookup is nil, or any index is out-of-range, pushes -1
+// (TS MesanimValid would throw; goscape defensive per
+// defensive_gate_doc_comment_label.md).
 func handleSplitGetAnim(s *ScriptState) error {
-	_ = s.PopInt() // page — unused per NAI-75-D-MESANIM-NOT-PORTED
-	s.PushInt(-1)
+	page := s.PopInt()
+	if s.SplitMesanim < 0 {
+		s.PushInt(-1)
+		return nil
+	}
+	typ := s.Configs.MesanimType(int(s.SplitMesanim))
+	if typ == nil {
+		s.PushInt(-1)
+		return nil
+	}
+	if page < 0 || page >= len(s.SplitPages) {
+		s.PushInt(-1)
+		return nil
+	}
+	idx := len(s.SplitPages[page]) - 1
+	if idx < 0 || idx >= len(typ.Len) {
+		s.PushInt(-1)
+		return nil
+	}
+	s.PushInt(typ.Len[idx])
 	return nil
 }
 

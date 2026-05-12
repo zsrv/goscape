@@ -403,11 +403,9 @@ type ScriptState struct {
 	SplitPages [][]string
 
 	// SplitMesanim is the MesanimType id parsed from a leading <p,name>
-	// prefix on SPLIT_INIT's text input, or -1 when no prefix is present.
-	// Currently set by SPLIT_INIT but consumed by SPLIT_GETANIM as -1
-	// unconditionally per NAI-75-D-MESANIM-NOT-PORTED (no MesanimType
-	// cache loader yet). Mirrors TS ScriptState.splitMesanim
-	// (StringOps.ts:85). NAI-75.
+	// prefix on a SPLIT_INIT text argument. -1 when no prefix or when
+	// the name does not resolve to a known MesanimType (NAI-179 retired
+	// the unconditional -1 deviation; MesanimType resolution now live).
 	SplitMesanim int32
 }
 
