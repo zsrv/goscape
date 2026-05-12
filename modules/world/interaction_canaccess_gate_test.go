@@ -152,3 +152,40 @@ func TestProcessInteraction_CanAccessGate_NilTarget_PostStepSkipped(t *testing.T
 			p.lastInteractBranchPre, p.lastInteractBranchPost)
 	}
 }
+
+// TestPathToPathingTarget_ModalChat_SkipsPathing pins TS Player.ts:1044
+// fidelity: when CanAccess()=false due to modalState&Chat (no delay, no
+// protected script), pathToPathingTarget must skip the waypoint-queue
+// arm entirely. Pre-NAI-170 the local gate p.delayed || p.protectedScriptActive()
+// passed through modal-only players, leaking a path queue mid-dialog.
+//
+// Fixture mirrors TestProcessInteractionRepathsAfterPathExhaustion (H8):
+// NodeClientRoutefinder=true + NPC at cheb=15 forces the pathToTarget
+// arm to fire and queue waypoints when the gate passes.
+func TestPathToPathingTarget_ModalChat_SkipsPathing(t *testing.T) {
+	s := newTestServer(t)
+	s.cfg.NodeClientRoutefinder = true
+	npc := makeInteractionNpc(t, s, 1, 115, 100, 0) // cheb=15 from player
+
+	p, cc := newTestPlayer(t)
+	_ = cc
+	p.client.server = s
+	p.x, p.z, p.level = 100, 100, 0
+
+	p.SetInteraction(InteractionEngine, npc, 1, -1)
+	p.modalState = modalStateChat
+	p.waypointIndex = -1
+
+	if p.CanAccess() {
+		t.Fatal("test setup invalid: CanAccess should be false with modalStateChat")
+	}
+	if p.delayed || p.protectedScriptActive() {
+		t.Fatal("test setup invalid: only modal-Chat should be active; narrow local gate must pass pre-fix")
+	}
+
+	p.pathToPathingTarget()
+
+	if p.waypointIndex >= 0 {
+		t.Fatalf("modalChat player got waypoints queued (waypointIndex=%d); TS L1044 canAccess gate must skip pathing", p.waypointIndex)
+	}
+}
