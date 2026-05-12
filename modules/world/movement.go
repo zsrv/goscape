@@ -118,6 +118,15 @@ func (p *Player) resolveMovement() {
 }
 
 // stepOnce advances one tile toward the current waypoint.
+//
+// NAI-175-D-PLAYER-STEP-COLLISION: (*Player).stepOnce passes
+// (size=1, extraFlag=0, TypeNormal) to gamemap.CanTravel. TS port
+// (PathingEntity.ts:617-683) calls getCollisionStrategy() and
+// blockWalkFlag() per-step. For players this is mostly correct
+// (MoveRestrictNormal almost always), but FlagBlockPlayers should
+// be the extraFlag per Player.blockWalkFlag (player.go:608-610),
+// not 0. Latent bug: players walk through NPCs whose tile carries
+// FlagBlockPlayers. Not duck-symptom-binding; tracked under NAI-176.
 func (p *Player) stepOnce() (coordgrid.Direction, bool) {
 	if p.waypointIndex < 0 {
 		return -1, false

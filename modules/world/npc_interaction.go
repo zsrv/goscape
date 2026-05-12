@@ -349,6 +349,13 @@ func (n *Npc) updateMovement(s *Server) bool {
 // NAI-175 status: D0 strategy plumbing (T4) + D1 axis-fallback (T6) shipped.
 // D2 (TS retains waypointIndex on transient block), D3 (size>1 branch), D4
 // (Player.stepOnce parity) deferred to NAI-176 per Stage 1 verdict.
+//
+// NAI-175-D-SIZE-GT-1: TS takeStep PathingEntity.ts:642-651 has a
+// separate width>1 arm that uses Face(srcX, 0, x, 0) / Face(0, srcZ, 0, z)
+// for axis-only checks. goscape currently uses the same single-tile
+// logic for all sizes. No size>1 NPC observed broken in NAI-175 smoke;
+// deferred to NAI-176. Re-grep if a size>1 wanderer (giant, dragon,
+// dagannoth) regresses.
 func (n *Npc) stepOnce(s *Server) (bool, int) {
 	if n.waypointIndex < 0 {
 		return false, -1
