@@ -573,13 +573,51 @@ func TestHandleClientCheat_SlowReboot_NonInteger_DeadUnderDefaultConfig(t *testi
 	}
 }
 
+// TestHandleClientCheat_SlowReboot_NoArgsUnderProductionRejects pins the
+// TS L367-371 args-empty rejection: under NodeProduction=true at admin
+// tier, ::slowreboot with no argument returns false (no rebootTimer call)
+// rather than silently defaulting to 30 seconds. NAI-184 T2 fix.
+func TestHandleClientCheat_SlowReboot_NoArgsUnderProductionRejects(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	s.cfg.NodeProduction = true
+	p.staffModLevel = 3
+	go io.Copy(io.Discard, cc)
+
+	dispatchTeleCheat(t, p, "slowreboot")
+
+	if s.shutdownTick != -1 {
+		t.Errorf("shutdownTick after ::slowreboot (no args, NP=true): got %d, want -1 (args-empty rejection per TS L367-371)", s.shutdownTick)
+	}
+}
+
+// TestHandleClientCheat_SlowReboot_WithArgUnderProductionSchedulesReboot
+// pins the happy path: NP=true at admin tier with a valid seconds arg
+// schedules a reboot via rebootTimer(ceil(seconds * 1000 / 600)).
+// 60 seconds → ceil(100000/600) = 167 ticks. NAI-184 T2 fix.
+func TestHandleClientCheat_SlowReboot_WithArgUnderProductionSchedulesReboot(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	s.cfg.NodeProduction = true
+	p.staffModLevel = 3
+	go io.Copy(io.Discard, cc)
+
+	dispatchTeleCheat(t, p, "slowreboot 60")
+
+	// rebootTimer sets s.shutdownTick to currentTick + ticks. Pre-flight:
+	// confirm s.shutdownTick != -1 after the call (the test pins
+	// "scheduled" rather than the exact tick value, to avoid coupling to
+	// the tick counter).
+	if s.shutdownTick == -1 {
+		t.Errorf("shutdownTick after ::slowreboot 60 (NP=true): got -1, want non-(-1) (rebootTimer should have fired)")
+	}
+}
+
 // TestHandleClientCheat_ServerDrop_ClosesConn pins that ::serverdrop
 // closes the TCP connection but leaves the player in s.players so that
 // the next reconnect hits the same slot (onReconnect path).
-// Mirrors TS ClientCheatHandler.ts:374-376 player.terminate(). Gated
-// under TS L56 dev block (!NodeProduction && staffModLevel >= 4); fires
-// because TS ::serverdrop has no inner `&& NodeProduction` clause.
-// NAI-183.
+// Mirrors TS ClientCheatHandler.ts:374-376 player.terminate(). Lives
+// in the TS L189 admin block (staffModLevel >= 3) with no NP guard,
+// so it fires under any NodeProduction value. NAI-184 T2 relocated
+// this arm from the L56 dev block (NAI-183's misclassification).
 func TestHandleClientCheat_ServerDrop_ClosesConn(t *testing.T) {
 	p, cc, s := teleTestPlayer(t)
 	p.staffModLevel = 3

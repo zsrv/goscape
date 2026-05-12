@@ -400,9 +400,15 @@ func handleClientCheat(p *Player, payload []byte) error {
 				p.client.server.rebootTimer(0)
 			}
 		case "slowreboot":
-			// TS L365-373. Production-only via inner && NodeProduction;
-			// default 30s when args missing. Formula: ticks = ceil(s * 1000/600).
+			// TS L365-373. Production-only via the outer `&& NodeProduction`
+			// arm selector; goscape mirrors with an inner `if NodeProduction`.
+			// TS L367-371 rejects with `return false` when args is empty —
+			// mirrored here as `args == "" → return nil` (no default 30s).
+			// Formula: ticks = ceil(seconds * 1000/600).
 			if p.client.server.cfg.NodeProduction {
+				if args == "" {
+					return nil
+				}
 				seconds := parseIntOr(args, 30)
 				ticks := int(math.Ceil(float64(seconds) * 1000.0 / 600.0))
 				p.client.server.rebootTimer(ticks)
