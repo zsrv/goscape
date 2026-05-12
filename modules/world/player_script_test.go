@@ -1891,3 +1891,45 @@ func TestPlayer_AddWealthEvent(t *testing.T) {
 		t.Errorf("wealthLog values: got %v", p.wealthLog)
 	}
 }
+
+func TestSetStat_WritesBaseCurAndXPClamped(t *testing.T) {
+	cases := []struct {
+		name     string
+		level    int
+		wantLvl  uint8
+		wantXP   int32
+	}{
+		{"normal mid", 50, 50, int32(objtype.GetExpByLevel(50))},
+		{"clamps to 1 from 0", 0, 1, int32(objtype.GetExpByLevel(1))},
+		{"clamps to 1 from -5", -5, 1, int32(objtype.GetExpByLevel(1))},
+		{"clamps to 99 from 100", 100, 99, int32(objtype.GetExpByLevel(99))},
+		{"clamps to 99 from 150", 150, 99, int32(objtype.GetExpByLevel(99))},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := &Player{}
+			p.SetStat(objtype.PlayerStatAttack, tc.level)
+			if p.baseLevels[objtype.PlayerStatAttack] != tc.wantLvl {
+				t.Errorf("baseLevels = %d, want %d", p.baseLevels[objtype.PlayerStatAttack], tc.wantLvl)
+			}
+			if p.levels[objtype.PlayerStatAttack] != tc.wantLvl {
+				t.Errorf("levels = %d, want %d", p.levels[objtype.PlayerStatAttack], tc.wantLvl)
+			}
+			if p.stats[objtype.PlayerStatAttack] != tc.wantXP {
+				t.Errorf("stats = %d, want %d", p.stats[objtype.PlayerStatAttack], tc.wantXP)
+			}
+		})
+	}
+}
+
+func TestSetStat_OOBStatDropsSilently(t *testing.T) {
+	p := &Player{}
+	p.SetStat(-1, 50)
+	p.SetStat(21, 50)
+	// No state mutation expected, no panic.
+	for i := 0; i < objtype.PlayerStatCount; i++ {
+		if p.baseLevels[i] != 0 || p.levels[i] != 0 || p.stats[i] != 0 {
+			t.Errorf("stat %d mutated after OOB SetStat", i)
+		}
+	}
+}

@@ -653,6 +653,29 @@ func (p *Player) SetCurLevel(id int, level int) {
 	p.levels[id] = uint8(level)
 }
 
+// SetStat clamps level to [1, 99] and writes baseLevels, levels, and
+// stats (XP) for the given stat slot. Mirrors TS Player.setLevel
+// (Player.ts:1823-1834). Used by ::setstat and ::minme cheats (NAI-184).
+//
+// DEVIATION-NAI-184-D1-SETSTAT-NO-COMBAT-REBUILD: TS additionally
+// recomputes combatLevel and calls buildAppearance(appearanceInv) on
+// change (TS L1830-1833). Combat-level recompute + appearance rebuild
+// are deferred to a future combat sub-spec.
+func (p *Player) SetStat(stat, level int) {
+	if !statBounds(stat) {
+		return
+	}
+	if level < 1 {
+		level = 1
+	}
+	if level > 99 {
+		level = 99
+	}
+	p.baseLevels[stat] = uint8(level)
+	p.levels[stat] = uint8(level)
+	p.stats[stat] = int32(objtype.GetExpByLevel(level))
+}
+
 // changeStat fires the [changestat,<skill>] trigger for the given stat
 // slot when a cache script is registered for that exact stat (or its
 // category, or globally). Mirrors TS Player.changeStat (Player.ts:1816-1821).
