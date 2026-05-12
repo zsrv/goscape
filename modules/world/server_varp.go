@@ -125,12 +125,8 @@ func (w worldVarsView) AnimMap(level, x, z, spotanim, height, delay int) {
 
 // RemoveObj implements script.WorldVars.RemoveObj. Type-asserts the
 // script-side ActiveObj to the world-side *entitypkg.Obj and routes
-// via Server.RemoveObj.
-//
-// NAI-115-D2: TS passes ObjType.respawnrate as duration to
-// World.removeObj; goscape's Server.RemoveObj has no duration arg
-// (RESPAWN-lifecycle respawn-after-delay is a foundation gap).
-func (w worldVarsView) RemoveObj(obj script.ActiveObj) {
+// via Server.RemoveObj with the caller's respawn duration.
+func (w worldVarsView) RemoveObj(obj script.ActiveObj, duration int) {
 	if w.s == nil {
 		return
 	}
@@ -138,7 +134,7 @@ func (w worldVarsView) RemoveObj(obj script.ActiveObj) {
 	if !ok {
 		return
 	}
-	w.s.RemoveObj(realObj, 0)
+	w.s.RemoveObj(realObj, duration)
 }
 
 // RemoveNpc implements script.WorldVars.RemoveNpc. Type-asserts the

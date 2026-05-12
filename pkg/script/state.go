@@ -95,11 +95,10 @@ type WorldVars interface {
 		srcHeight, dstHeight, startDelay, endDelay, peak, arc int)
 
 	// RemoveObj despawns / removes the given obj from its zone. Mirrors
-	// TS World.removeObj. NAI-115-D2: goscape's Server.RemoveObj does
-	// not accept a duration; respawn-aware delete (RESPAWN-lifecycle
-	// objs) is a foundation gap. DESPAWN-lifecycle path unaffected.
-	// Used by OBJ_DEL.
-	RemoveObj(obj ActiveObj)
+	// TS World.removeObj. duration drives the RESPAWN-after-pickup
+	// re-spawn timer when obj.IsRespawnLifecycle (else untracks). Used by
+	// OBJ_DEL, OBJ_TAKEITEM.
+	RemoveObj(obj ActiveObj, duration int)
 
 	// RemoveNpc removes the given NPC from the world. duration is passed
 	// through to Server.removeNpc, which scales it by player count and

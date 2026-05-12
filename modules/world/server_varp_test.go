@@ -3,6 +3,7 @@ package world
 import (
 	"testing"
 
+	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/zone"
 )
@@ -86,5 +87,25 @@ func TestWorldVarsView_LookupNpcBySlot(t *testing.T) {
 	wn := worldVarsView{}
 	if got := wn.LookupNpcBySlot(7); got != nil {
 		t.Errorf("nil-server: got %v, want nil", got)
+	}
+}
+
+// TestWorldVarsViewRemoveObj_PlumbsDuration pins that the adapter
+// forwards the caller's duration arg through to Server.RemoveObj.
+// Single-player world (empty s.players) gives identity scaling, so an
+// active RESPAWN obj ends up with LifecycleTick == currentTick + 42.
+// NAI-178 B2.
+func TestWorldVarsViewRemoveObj_PlumbsDuration(t *testing.T) {
+	s := newZoneTestServer(t)
+	s.currentTick = 10
+	w := worldVarsView{s: s}
+
+	obj := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleRespawn, 995, 1)
+	obj.IsActive = true
+
+	w.RemoveObj(obj, 42)
+
+	if got, want := obj.LifecycleTick, s.currentTick+42; got != want {
+		t.Errorf("obj.LifecycleTick: got %d, want %d (duration plumbed through, identity scale)", got, want)
 	}
 }

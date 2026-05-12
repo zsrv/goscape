@@ -151,7 +151,7 @@ func handleObjDel(s *ScriptState) error {
 	if s.World == nil {
 		return fmt.Errorf("OBJ_DEL: no world surface")
 	}
-	s.World.RemoveObj(s.ActiveObj)
+	s.World.RemoveObj(s.ActiveObj, 0)
 	return nil
 }
 
@@ -280,7 +280,7 @@ func handleObjTakeItem(s *ScriptState) error {
 		}
 	}
 
-	s.World.RemoveObj(s.ActiveObj)
+	s.World.RemoveObj(s.ActiveObj, 0)
 	return nil
 }
 

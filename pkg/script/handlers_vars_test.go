@@ -70,7 +70,7 @@ func (m *mockWorld) LookupNpcBySlot(slot int) ActiveNpc { return nil }
 
 // NAI-115 T2: default no-op stub for OBJ_DEL test fixture. Tests
 // exercising RemoveObj override via fakeWorldRemoveObj.
-func (m *mockWorld) RemoveObj(obj ActiveObj) {}
+func (m *mockWorld) RemoveObj(obj ActiveObj, duration int) {}
 
 // NAI-126 Bundle 1: default no-op stub for NPC_DEL test fixture. Tests
 // exercising RemoveNpc override via fakeWorldRemoveNpc.

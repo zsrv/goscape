@@ -30,15 +30,24 @@ func TestHandleObjCoordNilActive(t *testing.T) {
 	}
 }
 
+// removeObjCall captures one RemoveObj invocation: the ActiveObj
+// argument and the duration plumbed through to the world adapter.
+// Used by fakeWorldRemoveObj and fakeWorldTakeItem so handler tests
+// can assert on duration values (NAI-178 B3).
+type removeObjCall struct {
+	obj      ActiveObj
+	duration int
+}
+
 // fakeWorldRemoveObj records RemoveObj calls. Embeds *mockWorld so the
 // full WorldVars surface is satisfied.
 type fakeWorldRemoveObj struct {
 	*mockWorld
-	removed []ActiveObj
+	removed []removeObjCall
 }
 
-func (f *fakeWorldRemoveObj) RemoveObj(obj ActiveObj) {
-	f.removed = append(f.removed, obj)
+func (f *fakeWorldRemoveObj) RemoveObj(obj ActiveObj, duration int) {
+	f.removed = append(f.removed, removeObjCall{obj: obj, duration: duration})
 }
 
 func TestHandleObjDel(t *testing.T) {
@@ -51,7 +60,7 @@ func TestHandleObjDel(t *testing.T) {
 	if err := handleObjDel(s); err != nil {
 		t.Fatalf("handleObjDel returned error: %v", err)
 	}
-	if len(w.removed) != 1 || w.removed[0] != active {
+	if len(w.removed) != 1 || w.removed[0].obj != active {
 		t.Errorf("OBJ_DEL: expected 1 RemoveObj call with active, got %v", w.removed)
 	}
 }
@@ -441,12 +450,12 @@ func TestHandleObjCount_NoActivePlayer(t *testing.T) {
 // the WorldVars surface.
 type fakeWorldTakeItem struct {
 	*mockWorld
-	removed    []ActiveObj
+	removed    []removeObjCall
 	addedCalls []addObjCall
 }
 
-func (f *fakeWorldTakeItem) RemoveObj(obj ActiveObj) {
-	f.removed = append(f.removed, obj)
+func (f *fakeWorldTakeItem) RemoveObj(obj ActiveObj, duration int) {
+	f.removed = append(f.removed, removeObjCall{obj: obj, duration: duration})
 }
 
 func (f *fakeWorldTakeItem) AddObj(level, x, z, typeID, count, duration, receiverID int) ActiveObj {
@@ -498,7 +507,7 @@ func TestHandleObjTakeItem_HappyPath(t *testing.T) {
 	if got == nil || got.Id != 558 || got.Count != 1 {
 		t.Errorf("OBJ_TAKEITEM: inv slot 0 got %+v, want {Id:558 Count:1}", got)
 	}
-	if len(w.removed) != 1 || w.removed[0] != active {
+	if len(w.removed) != 1 || w.removed[0].obj != active {
 		t.Errorf("OBJ_TAKEITEM: expected 1 RemoveObj call with active, got %v", w.removed)
 	}
 	if len(w.addedCalls) != 0 {
