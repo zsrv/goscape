@@ -393,6 +393,16 @@ func (n *Npc) stepOnce(s *Server) (int, stepStatus) {
 	}
 	dx := coordgrid.DeltaX(dir)
 	dz := coordgrid.DeltaZ(dir)
+
+	// NAI-176-D-FLY-NO-CONTENT-WIRES: TS PathingEntity.takeStep:663-665
+	// — MoveStrategyFly bypasses collision entirely. No NpcType or content
+	// in goscape's cache currently assigns MoveStrategyFly; the enum +
+	// early-return ship for engine-fidelity only. To retire: when first
+	// FLY-moveStrategy content (wyvern, dragon) ports + a smoke binds.
+	if n.moveStrategy == MoveStrategyFly {
+		return n.applyStep(s, dest, dx, dz, int(dir))
+	}
+
 	if s == nil || s.gamemap == nil {
 		// Test-fixture path: no gamemap → skip collision and apply step.
 		return n.applyStep(s, dest, dx, dz, int(dir))

@@ -146,6 +146,14 @@ func (p *Player) stepOnce() (int, stepStatus) {
 	}
 	dx := coordgrid.DeltaX(dir)
 	dz := coordgrid.DeltaZ(dir)
+
+	// NAI-176-D-FLY-NO-CONTENT-WIRES: TS PathingEntity.takeStep:663-665
+	// — MoveStrategyFly bypasses collision entirely. No content currently
+	// assigns MoveStrategyFly to Player; engine-fidelity only.
+	if p.moveStrategy == MoveStrategyFly {
+		return p.applyStep(dest, dx, dz, int(dir))
+	}
+
 	if p.client == nil || p.client.server == nil || p.client.server.gamemap == nil {
 		// Test-fixture path: no gamemap → skip collision and apply step.
 		return p.applyStep(dest, dx, dz, int(dir))

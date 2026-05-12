@@ -23,12 +23,14 @@ const (
 	MoveRestrictPassthru
 )
 
-// MoveStrategy selects between SMART (pathfinder-routed) and NAIVE (straight-line) movement.
+// MoveStrategy selects between SMART (pathfinder-routed), NAIVE (straight-line),
+// and FLY (collision-bypassing) movement.
 type MoveStrategy int
 
 const (
 	MoveStrategySmart MoveStrategy = iota
 	MoveStrategyNaive
+	MoveStrategyFly
 )
 
 // BlockWalk controls whether an entity blocks others from walking through its tile.
