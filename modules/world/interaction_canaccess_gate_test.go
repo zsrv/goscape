@@ -133,20 +133,64 @@ func TestProcessInteraction_CanAccessGate_Delayed_EarlyReturnsBeforePathing(t *t
 
 // TestProcessInteraction_CanAccessGate_NilTarget_PostStepSkipped negatively pins
 // the post-step block: when target is nil at entry, processInteraction returns
-// immediately at the first guard (interaction.go:190-192). No panic, no branch logic.
-// (TS L1244 also gates on this.target.)
+// at the p.target == nil guard AFTER the NAI-174 top writes (followX/Z and
+// nextTarget — see TestProcessInteraction_TopWritesFireUnconditionally for that
+// coverage). Branch counters do not fire — they live inside the target-having
+// path. No panic. (TS L1244 also gates on this.target.)
 func TestProcessInteraction_CanAccessGate_NilTarget_PostStepSkipped(t *testing.T) {
 	s := newTestServer(t)
 	p, wait := makeInteractionPlayer(t, s, 3105, 3096, 0)
 	defer wait()
 
-	// p.target is nil; processInteraction short-circuits at L190-192.
+	// p.target is nil; processInteraction short-circuits at the p.target == nil guard after the top writes.
 	// No interaction set — mirrors a mid-tick clear scenario.
 	p.processInteraction()
 
 	// No panic is the primary invariant. Also: branch counters are not
 	// reset (the Frame B reset at L218-220 is skipped when target==nil
 	// at entry).
+	if p.lastInteractBranchPre != 0 || p.lastInteractBranchPost != 0 {
+		t.Fatalf("branch counters mutated with nil target at entry; pre=%d post=%d",
+			p.lastInteractBranchPre, p.lastInteractBranchPost)
+	}
+}
+
+// TestProcessInteraction_TopWritesFireUnconditionally pins TS
+// Player.ts:1200-1203 — the followX/Z and nextTarget writes at the top
+// of processInteraction fire EVERY tick for EVERY player, regardless
+// of whether the player has a target. Required for player-follow:
+// a leader without a target must still refresh followX/Z each tick so
+// followers can queue a valid waypoint via pathToPathingTarget at
+// interaction.go:802-809. Pre-NAI-174 the writes sat after the
+// p.target == nil early-return and never fired for targetless players.
+func TestProcessInteraction_TopWritesFireUnconditionally(t *testing.T) {
+	s := newTestServer(t)
+	p, wait := makeInteractionPlayer(t, s, 3105, 3096, 0)
+	defer wait()
+
+	// Pre-conditions: target nil; lastStepX/Z set to a real coord
+	// (production sets via processLogins or per-step movement.go); stale
+	// followX/Z + a non-nil nextTarget to verify both writes fire.
+	p.lastStepX = 3200
+	p.lastStepZ = 3210
+	p.followX = -1
+	p.followZ = -1
+	// nextTarget is a *entity; using p itself as a non-nil sentinel.
+	p.nextTarget = p
+
+	p.processInteraction()
+
+	if p.followX != 3200 {
+		t.Errorf("followX: got %d, want 3200 (= lastStepX, unconditional top write)", p.followX)
+	}
+	if p.followZ != 3210 {
+		t.Errorf("followZ: got %d, want 3210 (= lastStepZ, unconditional top write)", p.followZ)
+	}
+	if p.nextTarget != nil {
+		t.Errorf("nextTarget: got %v, want nil (unconditional top write)", p.nextTarget)
+	}
+	// The existing branch-counter invariant from TestProcessInteraction_
+	// CanAccessGate_NilTarget_PostStepSkipped — preserved post-NAI-174.
 	if p.lastInteractBranchPre != 0 || p.lastInteractBranchPost != 0 {
 		t.Fatalf("branch counters mutated with nil target at entry; pre=%d post=%d",
 			p.lastInteractBranchPre, p.lastInteractBranchPost)

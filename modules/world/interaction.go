@@ -172,7 +172,11 @@ func isFollowOp(p *Player) bool {
 // Mirrors TS Player.processInteraction (Player.ts:1200-1264).
 //
 // Branch summary:
-//   - No target / no client / delayed: no-op.
+//   - Top writes (followX/Z = lastStepX/Z; nextTarget = nil) fire
+//     UNCONDITIONALLY per TS L1200-1203 — required so a targetless
+//     leader keeps refreshing followX/Z for any follower's
+//     pathToPathingTarget arm (NAI-174).
+//   - After top writes: no target / no client / delayed → return.
 //   - Target on different level: clear + UnsetMapFlag (subset of TS
 //     validateTarget; goscape has no isValid()-style alive/visible
 //     registry).
@@ -187,6 +191,16 @@ func isFollowOp(p *Player) bool {
 // processInteractions (tick.go:39). TS embeds it inline at L1241; the
 // order-of-operations difference is by goscape design.
 func (p *Player) processInteraction() {
+	// TS L1201-1203 — unconditional top writes. These fire every tick
+	// for every player regardless of target/canAccess state. The
+	// followX/Z refresh is required for player-follow: a follower's
+	// pathToPathingTarget arm at interaction.go:802-809 reads the
+	// leader's followX/Z, so the leader must update them even when
+	// they have no target of their own (NAI-174).
+	p.followX = p.lastStepX
+	p.followZ = p.lastStepZ
+	p.nextTarget = nil
+
 	if p.target == nil {
 		return
 	}
@@ -222,12 +236,6 @@ func (p *Player) processInteraction() {
 	p.lastInteractBranchPre = 0
 	p.lastInteractBranchPost = 0
 	p.interactCallSlot = 0
-
-	// TS L1201-1202.
-	p.followX = p.lastStepX
-	p.followZ = p.lastStepZ
-	// TS L1203.
-	p.nextTarget = nil
 
 	followOp := isFollowOp(p)
 
