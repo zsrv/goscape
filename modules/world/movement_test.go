@@ -1,6 +1,12 @@
 package world
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/zsrv/goscape/pkg/coordgrid"
+	"github.com/zsrv/goscape/pkg/gamemap"
+	"github.com/zsrv/goscape/pkg/pathfinder/collision"
+)
 
 func TestQueueWaypointSetsFirstEntry(t *testing.T) {
 	p, _ := newTestPlayer(t)
@@ -178,9 +184,9 @@ func TestPlayerStepCrossZoneRefreshSubscription(t *testing.T) {
 	}
 	// Queue a step east into zone (400, 400).
 	p.queueWaypoint(3200, 3200)
-	dir, ok := p.stepOnce()
-	if !ok {
-		t.Fatalf("stepOnce ok: got false (dir=%d)", dir)
+	dir, status := p.stepOnce()
+	if status != stepMoved {
+		t.Fatalf("stepOnce status: got %v (dir=%d), want stepMoved", status, dir)
 	}
 	prevZ := s.zoneMap.Get(0, 3199, 3200)
 	newZ := s.zoneMap.Get(0, 3200, 3200)
@@ -222,8 +228,8 @@ func TestPlayerStepIntraZoneNoSubscriptionChange(t *testing.T) {
 		t.Fatalf("addPlayer: %v", err)
 	}
 	p.queueWaypoint(3201, 3201)
-	if _, ok := p.stepOnce(); !ok {
-		t.Fatal("stepOnce ok: got false")
+	if _, status := p.stepOnce(); status != stepMoved {
+		t.Fatalf("stepOnce status: got %v, want stepMoved", status)
 	}
 	z := s.zoneMap.Get(0, 3200, 3200)
 	if z.PlayersCount() != 1 {
@@ -368,5 +374,103 @@ func TestStepOnceFollowsDirectionChangePoints(t *testing.T) {
 	if p.x != 3094 || p.z != 3107 {
 		t.Fatalf("tick 1: got (%d,%d), want (3094,3107) [N step toward first_step]; "+
 			"pre-fix bug heads NE toward dest", p.x, p.z)
+	}
+}
+
+// TestPlayerStepOnce_PlumbsBlockWalkFlag pins NAI-176 D4. TS Player.blockWalkFlag
+// (Player.ts:706-708) is unconditional FlagBlockPlayers. Goscape pre-NAI-176
+// passed extraFlag=0 to gamemap.CanTravel (movement.go:144), so a tile carrying
+// only FlagBlockPlayers (e.g., one occupied by another player or a BlockWalkAll
+// NPC) was traversable by the moving player. Post-fix: the same tile should
+// block the step (status = stepBlocked).
+func TestPlayerStepOnce_PlumbsBlockWalkFlag(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.client.server = s
+	p.x, p.z, p.level = 3200, 3200, 0
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	// Allocate start + dest tiles so FlagMap defaults to FlagOpen (otherwise
+	// FlagNull degenerate-blocks). Plant FlagBlockPlayers on the dest.
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3200, 3200, 0)
+	s.gamemap.Pathfinder.Flags.Add(3201, 3200, 0, collision.FlagBlockPlayers)
+	p.queueWaypoint(3201, 3200)
+
+	wantWaypointIndex := p.waypointIndex
+	dir, status := p.stepOnce()
+
+	if status != stepBlocked {
+		t.Fatalf("player step over FlagBlockPlayers tile: got status=%v dir=%d, want stepBlocked", status, dir)
+	}
+	if p.waypointIndex != wantWaypointIndex {
+		t.Fatalf("waypointIndex after stepBlocked: got %d, want %d (D2: must NOT clear)",
+			p.waypointIndex, wantWaypointIndex)
+	}
+	if p.x != 3200 || p.z != 3200 {
+		t.Fatalf("position after blocked step: got (%d,%d), want (3200,3200) unchanged", p.x, p.z)
+	}
+}
+
+// TestPlayerStepOnce_AxisFallback_XOnly pins NAI-176 D4 + D1 for Player.
+// Direct diagonal blocked, X-only open → step east.
+func TestPlayerStepOnce_AxisFallback_XOnly(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.client.server = s
+	p.x, p.z, p.level = 3200, 3200, 0
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	// Allocate the 2x2 bounding box so unallocated FlagNull doesn't block.
+	for x := 3200; x <= 3201; x++ {
+		for z := 3200; z <= 3201; z++ {
+			s.gamemap.Pathfinder.Flags.AllocateIfAbsent(x, z, 0)
+		}
+	}
+	// Block NE-diagonal (3201, 3201); leave east (3201, 3200) open.
+	s.gamemap.Pathfinder.Flags.Add(3201, 3201, 0, collision.FlagBlockWalk)
+	p.queueWaypoint(3205, 3205)
+
+	dir, status := p.stepOnce()
+
+	if status != stepMoved {
+		t.Fatalf("axis-fallback X: got status=%v, want stepMoved", status)
+	}
+	if dir != int(coordgrid.DirectionEast) {
+		t.Fatalf("axis-fallback X: dir=%d, want East (%d)", dir, coordgrid.DirectionEast)
+	}
+	if p.x != 3201 || p.z != 3200 {
+		t.Fatalf("axis-fallback X: stepped to (%d,%d), want (3201,3200)", p.x, p.z)
+	}
+}
+
+// TestPlayerValidateAndAdvanceStep_NoMoveRestrict_ReturnsBlocked pins
+// the wrapper's response to MoveRestrictNoMove: stepDone via cs==nil,
+// wrapper decrements then sees waypointIndex<0 and returns (-1, false).
+// waypointIndex transitions 0 → -1 (legitimate decrement, not a clear).
+func TestPlayerValidateAndAdvanceStep_NoMoveRestrict_ReturnsBlocked(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+	p.client.server = s
+	p.x, p.z, p.level = 3200, 3200, 0
+	p.moveRestrict = MoveRestrictNoMove
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	p.queueWaypoint(3201, 3200)
+
+	dir, advanced := p.validateAndAdvanceStep()
+
+	if advanced {
+		t.Fatalf("NoMove: got advanced=true (dir=%d), want false", dir)
+	}
+	if p.x != 3200 || p.z != 3200 {
+		t.Fatalf("NoMove: position changed to (%d,%d), want (3200,3200)", p.x, p.z)
 	}
 }

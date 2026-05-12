@@ -88,7 +88,7 @@ func (p *Player) resolveMovement() {
 		return
 	}
 
-	dir, ok := p.stepOnce()
+	dir, ok := p.validateAndAdvanceStep()
 	if !ok {
 		p.walkDir = -1
 		p.runDir = -1
@@ -96,13 +96,13 @@ func (p *Player) resolveMovement() {
 		p.tempRun = 0
 		return
 	}
-	p.walkDir = int(dir)
+	p.walkDir = dir
 	p.runDir = -1
 
 	if p.moveSpeed == MoveSpeedRun && p.waypointIndex >= 0 {
-		dir2, ok2 := p.stepOnce()
+		dir2, ok2 := p.validateAndAdvanceStep()
 		if ok2 {
-			p.runDir = int(dir2)
+			p.runDir = dir2
 		}
 	}
 
@@ -117,50 +117,91 @@ func (p *Player) resolveMovement() {
 	}
 }
 
-// stepOnce advances one tile toward the current waypoint.
+// stepOnce walks one tile toward the current waypoint and returns
+// (dir, status). Mirrors TS PathingEntity.takeStep (PathingEntity.ts:617-683)
+// for width=1 entities (Player.Width() ≡ 1). Position update + dest-check
+// decrement of waypointIndex happen inline via applyStep; transient-block /
+// done / no-move classifications go to validateAndAdvanceStep for
+// waypointIndex bookkeeping.
 //
-// NAI-175-D-PLAYER-STEP-COLLISION: (*Player).stepOnce passes
-// (size=1, extraFlag=0, TypeNormal) to gamemap.CanTravel. TS port
-// (PathingEntity.ts:617-683) calls getCollisionStrategy() and
-// blockWalkFlag() per-step. For players this is mostly correct
-// (MoveRestrictNormal almost always), but FlagBlockPlayers should
-// be the extraFlag per Player.blockWalkFlag (player.go:608-610),
-// not 0. Latent bug: players walk through NPCs whose tile carries
-// FlagBlockPlayers. Not duck-symptom-binding; tracked under NAI-176.
-func (p *Player) stepOnce() (coordgrid.Direction, bool) {
+// NAI-176 B3: plumbs p.blockWalkFlag() (= FlagBlockPlayers) and
+// p.getCollisionStrategy() per-step + D1 axis-fallback (X-only / Z-only).
+// Retires NAI-175-D-PLAYER-STEP-COLLISION.
+func (p *Player) stepOnce() (int, stepStatus) {
 	if p.waypointIndex < 0 {
-		return -1, false
+		return -1, stepBlocked
+	}
+	cs := p.getCollisionStrategy()
+	if cs == nil {
+		return -1, stepDone
+	}
+	extraFlag := p.blockWalkFlag()
+	if extraFlag == collision.FlagNull {
+		return -1, stepDone
 	}
 	dest := coordgrid.UnpackCoord(p.waypoints[p.waypointIndex])
 	dir := coordgrid.Face(p.x, p.z, dest.X, dest.Z)
 	if dir == -1 {
-		p.waypointIndex--
-		return -1, false
+		return -1, stepDone
 	}
-
 	dx := coordgrid.DeltaX(dir)
 	dz := coordgrid.DeltaZ(dir)
-	if p.client != nil && p.client.server != nil && p.client.server.gamemap != nil {
-		if !p.client.server.gamemap.CanTravel(p.level, p.x, p.z, dx, dz, 1, 0, collision.TypeNormal) {
-			p.waypointIndex = -1
-			return -1, false
-		}
+	if p.client == nil || p.client.server == nil || p.client.server.gamemap == nil {
+		// Test-fixture path: no gamemap → skip collision and apply step.
+		return p.applyStep(dest, dx, dz, int(dir))
 	}
+	gm := p.client.server.gamemap
+	if gm.CanTravel(p.level, p.x, p.z, dx, dz, 1, extraFlag, *cs) {
+		return p.applyStep(dest, dx, dz, int(dir))
+	}
+	if dx != 0 && gm.CanTravel(p.level, p.x, p.z, dx, 0, 1, extraFlag, *cs) {
+		axisDir := coordgrid.Face(p.x, p.z, dest.X, p.z)
+		return p.applyStep(dest, dx, 0, int(axisDir))
+	}
+	if dz != 0 && gm.CanTravel(p.level, p.x, p.z, 0, dz, 1, extraFlag, *cs) {
+		axisDir := coordgrid.Face(p.x, p.z, p.x, dest.Z)
+		return p.applyStep(dest, 0, dz, int(axisDir))
+	}
+	// NAI-176 D2: TS L682 returns null (transient block); wrapper preserves
+	// waypointIndex.
+	return -1, stepBlocked
+}
 
+// applyStep advances the player one tile by (dx, dz), refreshes zone
+// presence, and decrements waypointIndex if the destination is reached.
+// lastStepX/Z capture pre-step position (consumed by interaction.go and
+// player_script.go follower paths — see NAI-174). Returns (dir, stepMoved).
+func (p *Player) applyStep(dest coordgrid.Position, dx, dz, dir int) (int, stepStatus) {
 	p.lastStepX = p.x
 	p.lastStepZ = p.z
 	p.x += dx
 	p.z += dz
 	p.stepsTaken++
-
-	// Per-step refreshZone — mirrors TS PathingEntity.ts:182-183.
-	// Level cannot change in stepOnce (single-tile delta); pass p.level for both.
 	refreshPlayerZone(p, p.lastStepX, p.lastStepZ, p.level)
-
 	if p.x == dest.X && p.z == dest.Z {
 		p.waypointIndex--
 	}
-	return dir, true
+	return dir, stepMoved
+}
+
+// validateAndAdvanceStep wraps stepOnce with waypointIndex bookkeeping
+// + recursive try-next-waypoint cascade. Mirrors TS PathingEntity.
+// validateAndAdvanceStep (PathingEntity.ts:202-232).
+func (p *Player) validateAndAdvanceStep() (int, bool) {
+	dir, status := p.stepOnce()
+	switch status {
+	case stepBlocked:
+		return -1, false
+	case stepDone:
+		p.waypointIndex--
+		if p.waypointIndex >= 0 {
+			return p.validateAndAdvanceStep()
+		}
+		return -1, false
+	case stepMoved:
+		return dir, true
+	}
+	return -1, false
 }
 
 // defaultMoveSpeed maps p.run → MoveSpeed. Mirrors TS
