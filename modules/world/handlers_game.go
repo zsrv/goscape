@@ -357,6 +357,13 @@ func handleClientCheat(p *Player, payload []byte) error {
 	if len(parts) == 2 {
 		args = parts[1]
 	}
+	// DEVIATION-NAI-182-D3-OTHER-CHEATS — 25 TS ClientCheatHandler cheats
+	// remain unported: reload, rebuild, speed, fly, naive, random, setvarother,
+	// getvar, getvarother, give, giveother, givecrap, givemany, broadcast,
+	// teleother, setstat, advancestat, minme, locadd, npcadd, openmain,
+	// snapshot, teleto, setvis, ban, mute, kick. Each touches an unrelated
+	// subsystem (inventory, npc-spawn, vis-toggle, friend-server, save/load,
+	// etc.); deferred to future sub-specs.
 	switch parts[0] {
 	case "say":
 		if args != "" {
