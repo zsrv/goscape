@@ -2,6 +2,7 @@ package world
 
 import (
 	"bytes"
+	"math"
 	"strconv"
 	"strings"
 
@@ -416,6 +417,44 @@ func handleClientCheat(p *Player, payload []byte) error {
 			return nil
 		}
 		p.TeleJump((mx<<6)+lx, (mz<<6)+lz, level)
+
+	case "reboot":
+		// Mirrors TS ClientCheatHandler.ts:360-364. duration=0 means
+		// immediate shutdown (shutdownTick = currentTick). NAI-182.
+		// DEVIATION-NAI-182-D2-CHEAT-NODE-PRODUCTION-GATE — TS gates this
+		// on Environment.NODE_PRODUCTION; goscape uses staffModLevel>=2
+		// (per-arm gate matching existing ::tele / ::getcoord arms).
+		if p.staffModLevel < 2 {
+			return nil
+		}
+		s := p.client.server
+		s.rebootTimer(0)
+
+	case "slowreboot":
+		// Mirrors TS ClientCheatHandler.ts:365-373. Default 30 seconds
+		// when args is missing or unparseable (TS tryParseInt semantics).
+		// Formula: ticks = ceil(seconds * 1000 / 600). NAI-182.
+		// DEVIATION-NAI-182-D2-CHEAT-NODE-PRODUCTION-GATE.
+		if p.staffModLevel < 2 {
+			return nil
+		}
+		seconds := parseIntOr(args, 30)
+		ticks := int(math.Ceil(float64(seconds) * 1000.0 / 600.0))
+		s := p.client.server
+		s.rebootTimer(ticks)
+
+	case "serverdrop":
+		// Mirrors TS ClientCheatHandler.ts:374-376 player.terminate().
+		// Closes the TCP conn without removing the player from
+		// s.players; the next reconnect (OpReqGameReconnect) hits this
+		// player's slot and runs the onReconnect path. NAI-182.
+		// DEVIATION-NAI-182-D2-CHEAT-NODE-PRODUCTION-GATE.
+		if p.staffModLevel < 2 {
+			return nil
+		}
+		if p.client != nil && p.client.conn != nil {
+			_ = p.client.conn.Close()
+		}
 	}
 	return nil
 }

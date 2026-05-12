@@ -2,6 +2,7 @@ package world
 
 import (
 	"bytes"
+	"io"
 	"net"
 	"testing"
 
@@ -500,5 +501,141 @@ func TestTeleCheat_BoundsCheck_RejectsAfterCleanup(t *testing.T) {
 	if p.x != startX || p.z != startZ {
 		t.Errorf("position changed despite OOB level: (%d, %d) → (%d, %d)",
 			startX, startZ, p.x, p.z)
+	}
+}
+
+// --- NAI-182 B6: ::reboot / ::slowreboot / ::serverdrop staff cheats ---
+
+// TestHandleClientCheat_Reboot_TriggersImmediateBroadcast pins that
+// ::reboot sets shutdownTick = currentTick (duration=0) and broadcasts
+// an UPDATE_REBOOT_TIMER packet with ticks=0 to each player in
+// playerLoop. Mirrors TS ClientCheatHandler.ts:360-364.
+func TestHandleClientCheat_Reboot_TriggersImmediateBroadcast(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 2
+
+	// Oracle encryptor seeded from the same key as p.client.encryptor.
+	// Both start at step 0; enc.GetNext() produces the same key byte
+	// that writeOut will consume.
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+
+	startTick := s.currentTick
+	received := drainConn(t, cc)
+	dispatchTeleCheat(t, p, "reboot")
+	p.client.flushWrite()
+	got := <-received
+
+	if s.shutdownTick != startTick {
+		t.Errorf("shutdownTick after ::reboot: got %d, want %d (currentTick)", s.shutdownTick, startTick)
+	}
+
+	// UPDATE_REBOOT_TIMER: 1-byte encrypted opcode + P2(0) = 3 bytes.
+	want := []byte{
+		byte((int(gameserver.OpUpdateRebootTimer.Opcode) + int(enc.GetNext())) & 0xff),
+		0x00, 0x00,
+	}
+	if !bytes.Equal(got, want) {
+		t.Errorf("broadcast bytes: got %#x, want %#x", got, want)
+	}
+}
+
+// TestHandleClientCheat_SlowReboot_NoArgsDefaultsTo30Seconds pins that
+// ::slowreboot with no args uses 30 seconds (TS tryParseInt default) →
+// ceil(30000/600) = 50 ticks. Mirrors TS ClientCheatHandler.ts:365-373.
+func TestHandleClientCheat_SlowReboot_NoArgsDefaultsTo30Seconds(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 2
+
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+
+	startTick := s.currentTick
+	received := drainConn(t, cc)
+	dispatchTeleCheat(t, p, "slowreboot")
+	p.client.flushWrite()
+	got := <-received
+
+	const wantTicks = 50 // ceil(30*1000/600) = ceil(50.0) = 50
+	if s.shutdownTick != startTick+wantTicks {
+		t.Errorf("shutdownTick after ::slowreboot (no args): got %d, want %d", s.shutdownTick, startTick+wantTicks)
+	}
+
+	// UPDATE_REBOOT_TIMER: encrypted opcode + P2(50) = [opEnc, 0x00, 0x32].
+	want := []byte{
+		byte((int(gameserver.OpUpdateRebootTimer.Opcode) + int(enc.GetNext())) & 0xff),
+		0x00, 0x32,
+	}
+	if !bytes.Equal(got, want) {
+		t.Errorf("broadcast bytes: got %#x, want %#x", got, want)
+	}
+}
+
+// TestHandleClientCheat_SlowReboot_WithSecondsArg pins that
+// ::slowreboot 60 → ceil(60000/600) = 100 ticks. NAI-182.
+func TestHandleClientCheat_SlowReboot_WithSecondsArg(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 2
+	go io.Copy(io.Discard, cc) // keep pipe unblocked
+
+	startTick := s.currentTick
+	dispatchTeleCheat(t, p, "slowreboot 60")
+	p.client.flushWrite()
+
+	const wantTicks = 100 // ceil(60*1000/600) = ceil(100.0) = 100
+	if s.shutdownTick != startTick+wantTicks {
+		t.Errorf("shutdownTick after ::slowreboot 60: got %d, want %d", s.shutdownTick, startTick+wantTicks)
+	}
+}
+
+// TestHandleClientCheat_SlowReboot_NonIntegerArgFallsBackToDefault pins
+// that a non-integer arg (TS tryParseInt fallback) uses the 30-second
+// default → 50 ticks. NAI-182.
+func TestHandleClientCheat_SlowReboot_NonIntegerArgFallsBackToDefault(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 2
+	go io.Copy(io.Discard, cc) // keep pipe unblocked
+
+	startTick := s.currentTick
+	dispatchTeleCheat(t, p, "slowreboot abc")
+	p.client.flushWrite()
+
+	const wantTicks = 50 // ceil(30*1000/600) = 50 (default 30s)
+	if s.shutdownTick != startTick+wantTicks {
+		t.Errorf("shutdownTick after ::slowreboot abc: got %d, want %d", s.shutdownTick, startTick+wantTicks)
+	}
+}
+
+// TestHandleClientCheat_ServerDrop_ClosesConn pins that ::serverdrop
+// closes the TCP connection but leaves the player in s.players so that
+// the next reconnect hits the same slot (onReconnect path).
+// Mirrors TS ClientCheatHandler.ts:374-376 player.terminate(). NAI-182.
+func TestHandleClientCheat_ServerDrop_ClosesConn(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 2
+	slotBefore := p.slot
+	_ = cc
+
+	dispatchTeleCheat(t, p, "serverdrop")
+
+	if s.players[slotBefore] != p {
+		t.Errorf("player removed from slot %d after ::serverdrop; should remain for reconnect", slotBefore)
+	}
+	if _, err := p.client.conn.Write([]byte{0}); err == nil {
+		t.Error("p.client.conn.Write succeeded after ::serverdrop; expected closed-conn error")
+	}
+}
+
+// TestHandleClientCheat_RebootCheats_StaffGate pins that ::reboot is
+// silently rejected (shutdownTick unchanged) when p.staffModLevel < 2.
+// Per-arm gate mirrors existing ::tele / ::getcoord pattern.
+// DEVIATION-NAI-182-D2-CHEAT-NODE-PRODUCTION-GATE. NAI-182.
+func TestHandleClientCheat_RebootCheats_StaffGate(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 1 // below the gate (>=2)
+	go io.Copy(io.Discard, cc)
+
+	dispatchTeleCheat(t, p, "reboot")
+
+	if s.shutdownTick != -1 {
+		t.Errorf("shutdownTick after ::reboot with staffModLevel=1: got %d, want -1 (gate blocked)", s.shutdownTick)
 	}
 }
