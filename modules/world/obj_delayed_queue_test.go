@@ -100,7 +100,7 @@ func TestObjDelayedQueue_MultipleEntriesIndependentDelays(t *testing.T) {
 // TestObjDelayedQueue_DurationDrainsToServerAddObj pins that duration stored
 // at enqueue is forwarded to Server.AddObj at drain, resulting in
 // obj.LifecycleTick == s.currentTick + duration after the drain fires.
-// NAI-177 B0 close of the NAI-115-D2 drain-side gap.
+// NAI-177 B0.
 func TestObjDelayedQueue_DurationDrainsToServerAddObj(t *testing.T) {
 	s := newZoneTestServer(t)
 	s.currentTick = 5

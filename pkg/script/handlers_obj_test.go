@@ -73,6 +73,28 @@ func TestHandleObjDelNilActive(t *testing.T) {
 	}
 }
 
+// TestHandleObjDel_PassesRespawnRateFromObjType pins that OBJ_DEL reads
+// ObjType.RespawnRate from Configs and plumbs it into WorldVars.RemoveObj
+// as duration. Mirrors TS ObjOps.ts:113. NAI-178 B3.
+func TestHandleObjDel_PassesRespawnRateFromObjType(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	w := &fakeWorldRemoveObj{mockWorld: newMockWorld()}
+	s.World = w
+	mc := newTestConfigs()
+	ot := objtype.NewObjType(590)
+	ot.RespawnRate = 200
+	mc.objs[590] = ot
+	s.Configs = mc
+	s.ActiveObj = &mockActiveObj{objType: 590, x: 3200, z: 3200, level: 0}
+
+	if err := handleObjDel(s); err != nil {
+		t.Fatalf("handleObjDel returned error: %v", err)
+	}
+	if len(w.removed) != 1 || w.removed[0].duration != 200 {
+		t.Errorf("OBJ_DEL: expected duration=200, got %v", w.removed)
+	}
+}
+
 // fakeWorldAddObj records AddObj calls. Embeds *mockWorld for full
 // WorldVars satisfaction. Set mapMembers on the embedded mockWorld
 // (e.g. fakeWorldAddObj{mockWorld: &mockWorld{mapMembers: 1}, ...}).
@@ -512,6 +534,48 @@ func TestHandleObjTakeItem_HappyPath(t *testing.T) {
 	}
 	if len(w.addedCalls) != 0 {
 		t.Errorf("OBJ_TAKEITEM: expected 0 AddObj calls (no overflow), got %v", w.addedCalls)
+	}
+}
+
+// TestHandleObjTakeItem_RespawnLifecyclePassesRespawnRate pins that the
+// RESPAWN-lifecycle arm reads ObjType.RespawnRate and forwards it as
+// duration to WorldVars.RemoveObj. Mirrors TS ObjOps.ts:156-157.
+// NAI-178 B3.
+func TestHandleObjTakeItem_RespawnLifecyclePassesRespawnRate(t *testing.T) {
+	s, w, _ := newTakeItemFixture(t)
+	mc := s.Configs.(*mockConfigs)
+	mc.objs[558].RespawnRate = 300
+	active := &mockActiveObj{objType: 558, x: 3200, z: 3200, level: 0, count: 1, reveal: -1, respawnLifecycle: true}
+	s.ActiveObj = active
+
+	s.PushInt(93)
+
+	if err := handleObjTakeItem(s); err != nil {
+		t.Fatalf("OBJ_TAKEITEM: returned error: %v", err)
+	}
+	if len(w.removed) != 1 || w.removed[0].duration != 300 {
+		t.Errorf("OBJ_TAKEITEM (RESPAWN): expected duration=300, got %v", w.removed)
+	}
+}
+
+// TestHandleObjTakeItem_DespawnLifecyclePassesZero pins that the
+// DESPAWN-lifecycle arm forwards duration=0 to WorldVars.RemoveObj even
+// when ObjType.RespawnRate is non-zero. Mirrors TS ObjOps.ts:158-160.
+// NAI-178 B3.
+func TestHandleObjTakeItem_DespawnLifecyclePassesZero(t *testing.T) {
+	s, w, _ := newTakeItemFixture(t)
+	mc := s.Configs.(*mockConfigs)
+	mc.objs[558].RespawnRate = 300
+	active := &mockActiveObj{objType: 558, x: 3200, z: 3200, level: 0, count: 1, reveal: -1, respawnLifecycle: false}
+	s.ActiveObj = active
+
+	s.PushInt(93)
+
+	if err := handleObjTakeItem(s); err != nil {
+		t.Fatalf("OBJ_TAKEITEM: returned error: %v", err)
+	}
+	if len(w.removed) != 1 || w.removed[0].duration != 0 {
+		t.Errorf("OBJ_TAKEITEM (DESPAWN): expected duration=0, got %v", w.removed)
 	}
 }
 

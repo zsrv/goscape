@@ -137,13 +137,12 @@ func handleObjAdd(s *ScriptState) error {
 // handleObjDel (OBJ_DEL, opcode 3504) removes the active obj. Mirrors
 // TS ObjOps.ts:112-119.
 //
-// NAI-115-D2 deviation: TS reads ObjType.respawnrate and passes it to
-// World.removeObj as duration. goscape's Server.RemoveObj has no
-// duration arg; RESPAWN-lifecycle respawn-after-delay is a foundation
-// gap. DESPAWN-lifecycle objs (the firemaking smoke target) are
-// unaffected. NAI-153 T4 extends the same gap to OBJ_TAKEITEM, which
-// also collapses TS's lifecycle-branched removeObj-with-duration into
-// a single zero-arg RemoveObj.
+// TS branches on `pointerGet(ActivePlayer)` but both arms call identical
+// World.removeObj(activeObj, duration) — collapsed here to a single
+// unconditional call (TS-side oddity).
+//
+// duration is ObjType.RespawnRate; Server.RemoveObj gates on
+// lifecycle+duration to decide between respawn-scheduling and untrack.
 func handleObjDel(s *ScriptState) error {
 	if err := requireActiveObj(s, "OBJ_DEL"); err != nil {
 		return err
@@ -151,7 +150,13 @@ func handleObjDel(s *ScriptState) error {
 	if s.World == nil {
 		return fmt.Errorf("OBJ_DEL: no world surface")
 	}
-	s.World.RemoveObj(s.ActiveObj, 0)
+	duration := 0
+	if s.Configs != nil {
+		if objCfg := s.Configs.ObjType(s.ActiveObj.ObjType()); objCfg != nil {
+			duration = objCfg.RespawnRate
+		}
+	}
+	s.World.RemoveObj(s.ActiveObj, duration)
 	return nil
 }
 
@@ -225,13 +230,6 @@ func handleObjCount(s *ScriptState) error {
 // inv 93, non-dummyitem obj). No separate bare-invAdd entity method
 // exists in goscape; the spec-author's deliberate choice is to share
 // performInvAdd rather than introduce a parallel bare path.
-//
-// NAI-115-D2 (extended to TAKEITEM): TS calls World.removeObj(obj,
-// respawnrate) for RESPAWN-lifecycle and World.removeObj(obj, 0) for
-// DESPAWN. goscape's WorldVars.RemoveObj has no duration arg — both
-// branches collapse to a single zero-arg RemoveObj call.
-// RESPAWN-lifecycle respawn-after-delay remains a foundation gap
-// (shared with OBJ_DEL; see handleObjDel).
 func handleObjTakeItem(s *ScriptState) error {
 	if err := requireActiveObj(s, "OBJ_TAKEITEM"); err != nil {
 		return err
@@ -280,7 +278,13 @@ func handleObjTakeItem(s *ScriptState) error {
 		}
 	}
 
-	s.World.RemoveObj(s.ActiveObj, 0)
+	duration := 0
+	if s.ActiveObj.IsRespawnLifecycle() {
+		if objCfg := s.Configs.ObjType(s.ActiveObj.ObjType()); objCfg != nil {
+			duration = objCfg.RespawnRate
+		}
+	}
+	s.World.RemoveObj(s.ActiveObj, duration)
 	return nil
 }
 

@@ -129,11 +129,7 @@ type WorldVars interface {
 	// EnqueueObjDelayed appends an INV_DROPITEM_DELAYED request to the
 	// world's per-tick spawn-delay queue. The Obj is constructed at the
 	// implementation side (worldVarsView in modules/world). Mirrors TS
-	// World.objDelayedQueue.addTail at InvOps.ts:208.
-	//
-	// duration is plumbed through but currently discarded at drain
-	// (NAI-115-D2 foundation gap; mirrors worldVarsView.AddObj's
-	// existing `_ = duration`). Used by INV_DROPITEM_DELAYED.
+	// World.objDelayedQueue.addTail at InvOps.ts:208. Used by INV_DROPITEM_DELAYED.
 	EnqueueObjDelayed(level, x, z, typeID, count, duration, delay, receiverID int)
 
 	// GetObj returns the first ground obj at (level, x, z) whose type
