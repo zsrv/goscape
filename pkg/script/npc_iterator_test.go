@@ -394,3 +394,43 @@ func TestNpcIterator_LineValidatorArgShape(t *testing.T) {
 		t.Fatalf("LOW arg shape:\n got=%+v\nwant=%+v", got, want)
 	}
 }
+
+// --- NAI-180: HuntAll-mode op[1] operability gate ----------------------
+
+// TestPassesFilter_HuntAll_OpEmpty_Rejects pins the TS reject filter at
+// ScriptIterators.ts:274-280: NpcType with empty Op[1] is rejected
+// regardless of distance/huntvis. NAI-180 closes NAI-35-T3-D1.
+func TestPassesFilter_HuntAll_OpEmpty_Rejects(t *testing.T) {
+	mc := &mockConfigs{npcs: map[int]*objtype.NpcType{
+		42: {Op: []string{"Talk-to", "", "", "", ""}}, // Op[1]="" → reject
+	}}
+	npc := &mockNpc{typeID: 42, x: 3203, z: 3300, level: 0}
+	it := NewHuntAllNpcIterator(nil, nil, mc, 0, 0, 3200, 3300, 5, objtype.HuntVisOff)
+	if it.passesFilter(npc) {
+		t.Errorf("passesFilter(Op[1]=\"\"): got true, want false (TS reject filter)")
+	}
+}
+
+// TestPassesFilter_HuntAll_OpNonEmpty_Allows pins acceptance when Op[1]
+// is populated. Mirrors a typical attackable NPC. NAI-180.
+func TestPassesFilter_HuntAll_OpNonEmpty_Allows(t *testing.T) {
+	mc := &mockConfigs{npcs: map[int]*objtype.NpcType{
+		42: {Op: []string{"Talk-to", "Attack", "", "", ""}}, // Op[1] populated
+	}}
+	npc := &mockNpc{typeID: 42, x: 3203, z: 3300, level: 0}
+	it := NewHuntAllNpcIterator(nil, nil, mc, 0, 0, 3200, 3300, 5, objtype.HuntVisOff)
+	if !it.passesFilter(npc) {
+		t.Errorf("passesFilter(Op[1]=\"Attack\"): got false, want true")
+	}
+}
+
+// TestPassesFilter_HuntAll_NilConfigs_Allows pins the defensive
+// pessimistic-allow path for test fixtures lacking Configs. Mirrors the
+// lineValidator==nil convention. NAI-180.
+func TestPassesFilter_HuntAll_NilConfigs_Allows(t *testing.T) {
+	npc := &mockNpc{typeID: 42, x: 3203, z: 3300, level: 0}
+	it := NewHuntAllNpcIterator(nil, nil, nil, 0, 0, 3200, 3300, 5, objtype.HuntVisOff)
+	if !it.passesFilter(npc) {
+		t.Errorf("passesFilter(nil-Configs): got false, want true (defensive pessimistic-allow)")
+	}
+}

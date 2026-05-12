@@ -93,15 +93,22 @@ func (it *NpcIterator) passesFilter(npc ActiveNpc) bool {
 	if it.mode == NpcIteratorZone {
 		return true // ZONE mode: no per-NPC filtering per TS line 329-335
 	}
+	// HuntAll-mode op[1] reject runs BEFORE distance check per TS order
+	// at ScriptIterators.ts:274-282. NAI-180 closes NAI-35-T3-D1.
+	if it.mode == NpcIteratorHuntAll && it.configs != nil {
+		// (goscape defensive; TS throws on missing NpcType) — when the
+		// configs lookup returns nil (unknown NPC type), pessimistically
+		// allow to match the lineValidator==nil convention at
+		// npcVisibleViaLineOfSight. Production NPCs always have a type.
+		npcType := it.configs.NpcType(npc.NpcType())
+		if npcType != nil && (len(npcType.Op) <= 1 || npcType.Op[1] == "") {
+			return false
+		}
+	}
 	if coordgrid.DistanceToSW(it.x, it.z, npc.NpcX(), npc.NpcZ()) > it.distance {
 		return false
 	}
 	if it.mode == NpcIteratorHuntAll {
-		// NAI-35-T3-D1 deviation: TS NpcHuntAllCommandIterator
-		// (ScriptIterators.ts:274-280) ALSO rejects NPCs whose
-		// NpcType.Op[1] is empty (operability gate). Goscape skips this
-		// filter pending plumbing Configs onto NpcIterator. Content-script
-		// audit will decide port-vs-keep; tracked in nai_followups.md.
 		switch it.huntvis {
 		case objtype.HuntVisOff:
 			// no LoS/LoW gate
