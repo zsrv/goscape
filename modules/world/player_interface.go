@@ -135,8 +135,8 @@ func (p *Player) IfSetTabActive(tab int) {
 // bit is set, and only then is its component-id read.
 //
 // modalTutorial IS initialized to -1 (see newPlayer); the != -1 guard
-// is direct because the field is write-empty until the IF_OPENTUT-
-// equivalent opcode lands (DEVIATION NAI-59-D-MODALTUTORIAL-NO-PRODUCER).
+// is direct. Producer is (*Player).OpenTutorial (player_script.go:971)
+// via the TUT_OPEN script-opcode handler (handlers_interface.go:94).
 func (p *Player) IsComponentVisible(com *objtype.ComponentType) bool {
 	if com == nil {
 		return false
