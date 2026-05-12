@@ -260,6 +260,7 @@ func TestObjTypeDecode_Code15FlipsTradeableFalse(t *testing.T) {
 
 func TestObjTypeDecode_Code200KeepsTradeableTrue(t *testing.T) {
 	ot := NewObjType(0)
+	ot.Tradeable = false // clear default to make code 200's write load-bearing
 	if err := ot.Decode(200, packet2.NewPacket(nil)); err != nil {
 		t.Fatalf("Decode(200): unexpected error: %v", err)
 	}
