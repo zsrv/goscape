@@ -2674,6 +2674,7 @@ type mockActiveObj struct {
 	count                int
 	receiverID           int
 	reveal               int
+	respawnLifecycle     bool
 }
 
 func (m *mockActiveObj) ObjType() int              { return m.objType }
@@ -2688,6 +2689,7 @@ func (m *mockActiveObj) IsValidFor(playerUID int) bool {
 	}
 	return true
 }
+func (m *mockActiveObj) IsRespawnLifecycle() bool { return m.respawnLifecycle }
 
 func TestNpcSetMode_ModeNoneClearsInteractionAndSetsOp(t *testing.T) {
 	npc := &mockNpc{}

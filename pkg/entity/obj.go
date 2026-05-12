@@ -91,3 +91,9 @@ func (o *Obj) IsValidFor(playerUID int) bool {
 	}
 	return true
 }
+
+// IsRespawnLifecycle reports whether o is engine-spawned RESPAWN
+// lifecycle. Satisfies script.ActiveObj. NAI-178.
+func (o *Obj) IsRespawnLifecycle() bool {
+	return o.Lifecycle == LifecycleRespawn
+}

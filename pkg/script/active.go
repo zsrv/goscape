@@ -1033,4 +1033,9 @@ type ActiveObj interface {
 	Coords() (x, z, level int)     // world position
 	ObjCount() int                 // current stack size; consumed by OBJ_COUNT, OBJ_TAKEITEM (NAI-153)
 	IsValidFor(playerUID int) bool // private-receiver + count>0 (NAI-153); see *entity.Obj.IsValidFor
+	// IsRespawnLifecycle reports whether the obj is RESPAWN-lifecycle
+	// (engine-spawned, comes back after a timer). Used by OBJ_TAKEITEM
+	// to gate the respawn-duration arg passed to WorldVars.RemoveObj
+	// per TS ObjOps.ts:156-160. NAI-178.
+	IsRespawnLifecycle() bool
 }
