@@ -5,6 +5,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/script"
+	"github.com/zsrv/goscape/pkg/zone"
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 )
@@ -185,21 +186,18 @@ func (w worldVarsView) AddNpcAt(level, x, z, typeID, duration int) (script.Activ
 // AddObj implements script.WorldVars.AddObj. Constructs a
 // DESPAWN-lifecycle Obj at (level, x, z) with typeID/count, sets
 // ReceiverID to the caller's UID (or PublicReceiver=-1 for broadcast),
-// and routes via Server.AddObj. Mirrors TS World.addObj for despawnable
-// drops.
-//
-// NAI-115-D2: duration is accepted but not yet honored (no
-// despawn-after-N-ticks scheduler hooked up). DESPAWN-lifecycle objs
-// (the firemaking smoke target) are unaffected because the smoke only
-// requires the obj to appear at all.
+// initialises the receiver-targeted reveal countdown, and routes via
+// Server.AddObj. Mirrors TS World.addObj (Engine-TS/.../World.ts:1467-1484).
 func (w worldVarsView) AddObj(level, x, z, typeID, count, duration, receiverID int) script.ActiveObj {
 	if w.s == nil {
 		return nil
 	}
 	obj := entitypkg.NewObj(level, x, z, entitypkg.LifecycleDespawn, typeID, count)
 	obj.ReceiverID = receiverID
-	w.s.AddObj(obj, receiverID)
-	_ = duration // NAI-115-D2: foundation gap
+	if receiverID != zone.PublicReceiver {
+		obj.Reveal = entitypkg.ObjReveal
+	}
+	w.s.AddObj(obj, receiverID, duration)
 	if w.s.cfg.NodeDebug && w.s.log != nil {
 		w.s.log.Info("nai128.obj.add",
 			"level", level,
@@ -222,11 +220,6 @@ func (w worldVarsView) AddObj(level, x, z, typeID, count, duration, receiverID i
 // The Obj is constructed at enqueue time (not drain time), mirroring TS
 // InvOps.ts:207-208 where `new Obj(...)` is the call-site argument to
 // `objDelayedQueue.addTail`.
-//
-// NAI-115-D2 sibling: duration is plumbed onto the queue entry but the
-// drain (processObjDelayedQueue, obj_delayed_queue.go) discards it
-// because Server.AddObj does not yet accept a duration param. Single-point
-// retire when NAI-115-D2 closes.
 func (w worldVarsView) EnqueueObjDelayed(level, x, z, typeID, count, duration, delay, receiverID int) {
 	if w.s == nil {
 		return

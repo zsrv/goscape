@@ -31,8 +31,8 @@ func TestServerAddObjRoutesByCoord(t *testing.T) {
 	s := newZoneTestServer(t)
 	objA := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 995, 10)
 	objB := entitypkg.NewObj(0, 3200, 3200, entitypkg.LifecycleDespawn, 995, 10)
-	s.AddObj(objA, zone.PublicReceiver)
-	s.AddObj(objB, zone.PublicReceiver)
+	s.AddObj(objA, zone.PublicReceiver, 0)
+	s.AddObj(objB, zone.PublicReceiver, 0)
 	if len(s.zonesTracking) != 2 {
 		t.Errorf("zonesTracking: got %d, want 2 (distinct zones)", len(s.zonesTracking))
 	}

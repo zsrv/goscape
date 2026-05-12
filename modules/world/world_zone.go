@@ -125,7 +125,13 @@ func (s *Server) MergeLoc(
 // per-player delivery filter at player_zone.go (writeFullFollows /
 // writePartialFollows) compares this against p.uid, mirroring TS
 // Engine-TS Zone.ts:138, 190 (obj.receiver64 vs player.hash64).
-func (s *Server) AddObj(obj *entitypkg.Obj, receiverID int) {
+//
+// duration > 0 schedules despawn via NonPathing.SetLifeCycle, registering
+// the obj in s.locObjTracker for per-tick processing. duration == 0 leaves
+// the obj untracked (preserves pre-NAI-177 behavior). Mirrors TS
+// World.addObj lifecycle wiring (Engine-TS/.../World.ts:1467-1484).
+func (s *Server) AddObj(obj *entitypkg.Obj, receiverID, duration int) {
+	obj.SetLifeCycle(duration, s.currentTick, s.locObjTracker)
 	z := s.zoneMap.Get(obj.Level, obj.X, obj.Z)
 	z.AddObj(obj, receiverID)
 	s.TrackZone(z)

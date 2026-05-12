@@ -97,11 +97,13 @@ func TestObjDelayedQueue_MultipleEntriesIndependentDelays(t *testing.T) {
 	}
 }
 
-// TestObjDelayedQueue_DurationStoredAtEnqueueDroppedAtDrain pins NAI-115-D2
-// parity: duration is stored on the queue entry verbatim at enqueue, then
-// silently discarded at drain (Server.AddObj does not yet accept duration).
-func TestObjDelayedQueue_DurationStoredAtEnqueueDroppedAtDrain(t *testing.T) {
+// TestObjDelayedQueue_DurationDrainsToServerAddObj pins that duration stored
+// at enqueue is forwarded to Server.AddObj at drain, resulting in
+// obj.LifecycleTick == s.currentTick + duration after the drain fires.
+// NAI-177 B0 close of the NAI-115-D2 drain-side gap.
+func TestObjDelayedQueue_DurationDrainsToServerAddObj(t *testing.T) {
 	s := newZoneTestServer(t)
+	s.currentTick = 5
 	obj := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 995, 10)
 	const wantDuration = 17
 	s.enqueueObjDelayed(obj, zone.PublicReceiver, wantDuration, 0)
@@ -111,12 +113,12 @@ func TestObjDelayedQueue_DurationStoredAtEnqueueDroppedAtDrain(t *testing.T) {
 	}
 
 	s.processObjDelayedQueue()
-	// No observable side-effect from duration today (NAI-115-D2 open).
-	// This test pins the *plumbing* — that the field round-trips through
-	// the queue intact — so a future NAI-115-D2 closure has the entry to
-	// read at drain time.
+
 	if got := len(s.objDelayedQueue); got != 0 {
 		t.Errorf("post-drain queue len got %d, want 0", got)
+	}
+	if got, want := obj.LifecycleTick, s.currentTick+wantDuration; got != want {
+		t.Errorf("obj.LifecycleTick after drain: got %d, want %d (currentTick+duration)", got, want)
 	}
 }
 
