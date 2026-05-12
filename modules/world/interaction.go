@@ -194,9 +194,13 @@ func (p *Player) processInteraction() {
 		return
 	}
 	s := p.client.server
-	// DEVIATION NAI-44-D-CANACCESS-NO-STUN-CHECK: TS canAccess() also tests
-	// stun/freeze; goscape has no stun system, so the !p.delayed subset is
-	// the in-tree approximation.
+	// Tick-math entry-guard short-circuit (goscape-only optimization; not a
+	// TS-fidelity gap — TS canAccess at Player.ts:805-812 is !protect && !busy,
+	// no stun/freeze). The three canonical CanAccess gates at L247/L261/L277
+	// (TS L1210/L1232/L1244 mirrors) are the actual TS-faithful layer; this
+	// pre-empts the whole function (and Frame B emit) when the player is in a
+	// delay window. Pinned by TestProcessInteraction_CanAccessGate_Delayed_
+	// EarlyReturnsBeforePathing (NAI-155, commit 249051f).
 	if p.delayed && s.currentTick < p.delayedUntil {
 		return
 	}
