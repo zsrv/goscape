@@ -49,3 +49,90 @@ func TestSendUpdateRebootTimer_ZeroTicks(t *testing.T) {
 		t.Errorf("wire: got %v, want %v", got, want)
 	}
 }
+
+// TestNewServer_ShutdownTickDefaultsToMinusOne verifies that shutdownTick is -1 on construction. NAI-182 B2.
+func TestNewServer_ShutdownTickDefaultsToMinusOne(t *testing.T) {
+	s := newTestServer(t)
+	if s.shutdownTick != -1 {
+		t.Errorf("newServer: shutdownTick = %d, want -1", s.shutdownTick)
+	}
+}
+
+// TestRebootTimer_SetsShutdownTickAndBroadcasts verifies that rebootTimer sets shutdownTick and sends wire bytes. NAI-182 B2.
+func TestRebootTimer_SetsShutdownTickAndBroadcasts(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	s.playerLoop = append(s.playerLoop, p)
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	startTick := s.currentTick
+	received := drainConn(t, cc)
+	s.rebootTimer(50)
+	p.client.flushWrite()
+	got := <-received
+
+	if s.shutdownTick != startTick+50 {
+		t.Errorf("shutdownTick after rebootTimer(50): got %d, want %d", s.shutdownTick, startTick+50)
+	}
+
+	want := []byte{
+		byte((int(gameserver.OpUpdateRebootTimer.Opcode) + int(enc.GetNext())) & 0xff),
+		0x00, 0x32,
+	}
+	if !bytes.Equal(got, want) {
+		t.Errorf("broadcast bytes: got %#x, want %#x", got, want)
+	}
+}
+
+// TestRebootTimer_DurationZero verifies that rebootTimer(0) sets shutdownTick=currentTick and sends 0x00 0x00. NAI-182 B2.
+func TestRebootTimer_DurationZero(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	s.playerLoop = append(s.playerLoop, p)
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	startTick := s.currentTick
+	received := drainConn(t, cc)
+	s.rebootTimer(0)
+	p.client.flushWrite()
+	got := <-received
+
+	if s.shutdownTick != startTick {
+		t.Errorf("shutdownTick after rebootTimer(0): got %d, want %d", s.shutdownTick, startTick)
+	}
+
+	want := []byte{
+		byte((int(gameserver.OpUpdateRebootTimer.Opcode) + int(enc.GetNext())) & 0xff),
+		0x00, 0x00,
+	}
+	if !bytes.Equal(got, want) {
+		t.Errorf("broadcast bytes: got %#x, want %#x", got, want)
+	}
+}
+
+// TestIsPendingShutdown_AndTicksRemaining verifies isPendingShutdown and shutdownTicksRemaining getters. NAI-182 B2.
+func TestIsPendingShutdown_AndTicksRemaining(t *testing.T) {
+	s := newTestServer(t)
+	if s.isPendingShutdown() {
+		t.Error("isPendingShutdown: pre-rebootTimer: got true, want false")
+	}
+
+	startTick := s.currentTick
+	s.rebootTimer(50)
+
+	if !s.isPendingShutdown() {
+		t.Error("isPendingShutdown: post-rebootTimer(50): got false, want true")
+	}
+	if got := s.shutdownTicksRemaining(); got != 50 {
+		t.Errorf("shutdownTicksRemaining: got %d, want 50", got)
+	}
+
+	s.currentTick = startTick + 10
+	if got := s.shutdownTicksRemaining(); got != 40 {
+		t.Errorf("shutdownTicksRemaining after +10 ticks: got %d, want 40", got)
+	}
+}

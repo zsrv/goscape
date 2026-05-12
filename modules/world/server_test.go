@@ -318,6 +318,7 @@ func newTestServer(t *testing.T) *Server {
 		locObjTracker:  newLocObjTracker(),
 		rsbuf:          rsbuf.New(),
 		pmCount:        1,
+		shutdownTick:   -1,
 	}
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}

@@ -59,6 +59,13 @@ type Server struct {
 	playersMu   sync.RWMutex
 	currentTick int
 
+	// shutdownTick is the tick on which the world will halt. -1 means
+	// no shutdown scheduled. Set by Server.rebootTimer; consumed by
+	// Server.processShutdown (called at top of tick body when
+	// s.currentTick >= s.shutdownTick && s.shutdownTick != -1).
+	// Mirrors TS World.shutdownTick (World.ts:166). NAI-182.
+	shutdownTick int
+
 	gamemap *gamemap.GameMap
 
 	// invs is world-shared inventories (banks, shops) keyed by InvType id.
@@ -180,6 +187,7 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 		locObjTracker: newLocObjTracker(),
 		rsbuf:         rsbuf.New(),
 		pmCount:       1,
+		shutdownTick:  -1,
 	}
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}
