@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"io"
 	"net"
+	"os"
+	"path/filepath"
 	"testing"
 
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
@@ -945,6 +947,40 @@ func TestHandleClientCheat_Give_AdminGate(t *testing.T) {
 	inv := s.invLookup.Get(p, invID)
 	if got := totalUnits(inv, objID); got != 0 {
 		t.Errorf("after ::give at modLevel=2: total = %d, want 0 (admin gate rejected)", got)
+	}
+}
+
+// TestHandleClientCheat_Snapshot_WritesHeapFile pins TS L477-480
+// (functional analog): ::snapshot at admin tier writes a heap-*.pprof
+// file under TMPDIR. TS uses v8 heap snapshot; goscape uses
+// runtime/pprof.WriteHeapProfile — different format, same dispatch
+// behavior. NAI-184 T7.
+func TestHandleClientCheat_Snapshot_WritesHeapFile(t *testing.T) {
+	p, cc, _ := teleTestPlayer(t)
+	p.staffModLevel = 3
+	go io.Copy(io.Discard, cc)
+
+	preFiles, _ := filepath.Glob(filepath.Join(os.TempDir(), "heap-*.pprof"))
+
+	dispatchTeleCheat(t, p, "snapshot")
+
+	postFiles, _ := filepath.Glob(filepath.Join(os.TempDir(), "heap-*.pprof"))
+	if len(postFiles) <= len(preFiles) {
+		t.Errorf("snapshot did not write a heap-*.pprof file (pre=%d, post=%d)", len(preFiles), len(postFiles))
+	}
+
+	// Cleanup newly-created files.
+	for _, f := range postFiles {
+		found := false
+		for _, pf := range preFiles {
+			if pf == f {
+				found = true
+				break
+			}
+		}
+		if !found {
+			os.Remove(f)
+		}
 	}
 }
 

@@ -2,9 +2,14 @@ package world
 
 import (
 	"bytes"
+	"fmt"
 	"math"
+	"os"
+	"path/filepath"
+	"runtime/pprof"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/io/packet"
@@ -531,6 +536,18 @@ func handleClientCheat(p *Player, payload []byte) error {
 				} else {
 					p.SetStat(i, 1)
 				}
+			}
+		case "snapshot":
+			// TS L477-480 — writes a heap snapshot. TS uses v8's JSON
+			// format; goscape uses runtime/pprof.WriteHeapProfile (Go's
+			// native heap-profile format). Functional analog —
+			// TS-fidelity here is dispatch behavior, not output bytes.
+			path := filepath.Join(os.TempDir(), fmt.Sprintf("heap-%d.pprof", time.Now().UnixNano()))
+			if f, err := os.Create(path); err == nil {
+				if err := pprof.WriteHeapProfile(f); err == nil && p.client.server.log != nil {
+					p.client.server.log.Info("heap snapshot written", "path", path)
+				}
+				f.Close()
 			}
 		}
 	}
