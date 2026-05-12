@@ -98,3 +98,55 @@ func TestMaxSkillXP(t *testing.T) {
 		t.Errorf("MaxSkillXP (%d) must equal GetExpByLevel(99) (%d)", MaxSkillXP, GetExpByLevel(99))
 	}
 }
+
+func TestPlayerStatMap_AllNamesResolveToValidIndices(t *testing.T) {
+	// Mirrors TS PlayerStat.ts:25-47. Every name in PlayerStatMap must
+	// map to its corresponding PlayerStat* constant.
+	cases := map[string]int{
+		"ATTACK":      PlayerStatAttack,
+		"DEFENCE":     PlayerStatDefence,
+		"STRENGTH":    PlayerStatStrength,
+		"HITPOINTS":   PlayerStatHitpoints,
+		"RANGED":      PlayerStatRanged,
+		"PRAYER":      PlayerStatPrayer,
+		"MAGIC":       PlayerStatMagic,
+		"COOKING":     PlayerStatCooking,
+		"WOODCUTTING": PlayerStatWoodcutting,
+		"FLETCHING":   PlayerStatFletching,
+		"FISHING":     PlayerStatFishing,
+		"FIREMAKING":  PlayerStatFiremaking,
+		"CRAFTING":    PlayerStatCrafting,
+		"SMITHING":    PlayerStatSmithing,
+		"MINING":      PlayerStatMining,
+		"HERBLORE":    PlayerStatHerblore,
+		"AGILITY":     PlayerStatAgility,
+		"THIEVING":    PlayerStatThieving,
+		"STAT18":      PlayerStat18,
+		"STAT19":      PlayerStat19,
+		"RUNECRAFT":   PlayerStatRunecraft,
+	}
+	if len(PlayerStatMap) != len(cases) {
+		t.Fatalf("PlayerStatMap len = %d, want %d", len(PlayerStatMap), len(cases))
+	}
+	for name, want := range cases {
+		got, ok := PlayerStatMap[name]
+		if !ok {
+			t.Errorf("PlayerStatMap[%q] missing", name)
+			continue
+		}
+		if got != want {
+			t.Errorf("PlayerStatMap[%q] = %d, want %d", name, got, want)
+		}
+	}
+}
+
+func TestPlayerStatEnabled_MatchesTSPattern(t *testing.T) {
+	// TS PlayerStat.ts:53. False only at STAT18, STAT19.
+	want := [PlayerStatCount]bool{
+		true, true, true, true, true, true, true, true, true, true,
+		true, true, true, true, true, true, true, true, false, false, true,
+	}
+	if PlayerStatEnabled != want {
+		t.Errorf("PlayerStatEnabled = %v, want %v", PlayerStatEnabled, want)
+	}
+}

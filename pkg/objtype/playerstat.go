@@ -31,6 +31,40 @@ const (
 	PlayerStatCount = 21
 )
 
+// PlayerStatMap maps uppercase stat name → stat index. Mirrors TS
+// PlayerStatMap (PlayerStat.ts:25-47). Used by ::setstat / ::advancestat
+// cheat parsing in modules/world/handlers_game.go (NAI-184).
+var PlayerStatMap = map[string]int{
+	"ATTACK":      PlayerStatAttack,
+	"DEFENCE":     PlayerStatDefence,
+	"STRENGTH":    PlayerStatStrength,
+	"HITPOINTS":   PlayerStatHitpoints,
+	"RANGED":      PlayerStatRanged,
+	"PRAYER":      PlayerStatPrayer,
+	"MAGIC":       PlayerStatMagic,
+	"COOKING":     PlayerStatCooking,
+	"WOODCUTTING": PlayerStatWoodcutting,
+	"FLETCHING":   PlayerStatFletching,
+	"FISHING":     PlayerStatFishing,
+	"FIREMAKING":  PlayerStatFiremaking,
+	"CRAFTING":    PlayerStatCrafting,
+	"SMITHING":    PlayerStatSmithing,
+	"MINING":      PlayerStatMining,
+	"HERBLORE":    PlayerStatHerblore,
+	"AGILITY":     PlayerStatAgility,
+	"THIEVING":    PlayerStatThieving,
+	"STAT18":      PlayerStat18,
+	"STAT19":      PlayerStat19,
+	"RUNECRAFT":   PlayerStatRunecraft,
+}
+
+// PlayerStatEnabled mirrors TS PlayerStat.ts:53. False entries (STAT18,
+// STAT19) are unused 2004-era reserved slots; ::minme skips them.
+var PlayerStatEnabled = [PlayerStatCount]bool{
+	true, true, true, true, true, true, true, true, true, true,
+	true, true, true, true, true, true, true, true, false, false, true,
+}
+
 // levelExperience holds the XP threshold to reach level (i+2) at index i.
 // Built once at package init from the canonical RS XP formula. Matches TS
 // levelExperience (Player.ts:77-85). XP is stored as fixed-point tenths
