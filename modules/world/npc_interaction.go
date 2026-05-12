@@ -338,18 +338,17 @@ func (n *Npc) updateMovement(s *Server) bool {
 
 // stepOnce walks one tile toward the current waypoint and returns
 // (advanced, dir). Mirrors TS PathingEntity.takeStep (PathingEntity.ts:617-683)
-// for the strategy-plumbing arm. Decrements waypointIndex when the
-// destination is reached; sets it to -1 when a CanTravel gate blocks
-// the step.
+// single-tile (width=1) arm. Decrements waypointIndex when the destination
+// is reached; sets it to -1 when all CanTravel gates block the step.
 //
 // TS short-circuits:
 //   - getCollisionStrategy() == null (MoveRestrictNoMove) → return -1
 //   - blockWalkFlag() == CollisionFlag.NULL (MoveRestrictNoMove) → return -1
 // Both map to (false, -1) here.
 //
-// NAI-175 status: D0 strategy plumbing shipped (this task). D1 axis-fallback
-// shipped in T6. D2 (TS retains waypointIndex on transient block), D3 (size>1
-// branch), D4 (Player.stepOnce parity) deferred to NAI-176 per Stage 1 verdict.
+// NAI-175 status: D0 strategy plumbing (T4) + D1 axis-fallback (T6) shipped.
+// D2 (TS retains waypointIndex on transient block), D3 (size>1 branch), D4
+// (Player.stepOnce parity) deferred to NAI-176 per Stage 1 verdict.
 func (n *Npc) stepOnce(s *Server) (bool, int) {
 	if n.waypointIndex < 0 {
 		return false, -1
@@ -370,23 +369,42 @@ func (n *Npc) stepOnce(s *Server) (bool, int) {
 	}
 	dx := coordgrid.DeltaX(dir)
 	dz := coordgrid.DeltaZ(dir)
-	if s != nil && s.gamemap != nil && !s.gamemap.CanTravel(n.level, n.x, n.z, dx, dz, n.Width(), extraFlag, *cs) {
-		// NAI-175 D2 deferred: TS validateAndAdvanceStep (PathingEntity.ts:202-213)
-		// retains waypointIndex on transient block; goscape clears to -1.
-		// Indistinguishable for duck single-tile wander; tracked under NAI-176.
-		n.waypointIndex = -1
-		return false, -1
+	if s == nil || s.gamemap == nil {
+		return n.applyStep(s, dest, dx, dz, int(dir))
 	}
+	// NAI-175 D1: TS takeStep PathingEntity.ts:668-682 — direct, then X-only,
+	// then Z-only fallback before giving up.
+	if s.gamemap.CanTravel(n.level, n.x, n.z, dx, dz, n.Width(), extraFlag, *cs) {
+		return n.applyStep(s, dest, dx, dz, int(dir))
+	}
+	if dx != 0 && s.gamemap.CanTravel(n.level, n.x, n.z, dx, 0, n.Width(), extraFlag, *cs) {
+		axisDir := coordgrid.Face(n.x, n.z, dest.X, n.z)
+		return n.applyStep(s, dest, dx, 0, int(axisDir))
+	}
+	if dz != 0 && s.gamemap.CanTravel(n.level, n.x, n.z, 0, dz, n.Width(), extraFlag, *cs) {
+		axisDir := coordgrid.Face(n.x, n.z, n.x, dest.Z)
+		return n.applyStep(s, dest, 0, dz, int(axisDir))
+	}
+	// NAI-175 D2 deferred: TS retains waypointIndex here; goscape clears.
+	// Indistinguishable for duck single-tile wander. Tracked under NAI-176.
+	n.waypointIndex = -1
+	return false, -1
+}
+
+
+// applyStep advances the NPC one tile by (dx, dz), refreshes its zone,
+// and decrements waypointIndex if the destination is reached. Factored
+// from stepOnce so axis-fallback arms share the same post-step bookkeeping.
+func (n *Npc) applyStep(s *Server, dest coordgrid.Position, dx, dz, dir int) (bool, int) {
 	prevX, prevZ := n.x, n.z
 	n.x += dx
 	n.z += dz
 	n.stepsTaken++
-	// Per-step refreshZone — mirrors TS PathingEntity.ts:182-183.
 	refreshNpcZone(s, n, prevX, prevZ, n.level)
 	if n.x == dest.X && n.z == dest.Z {
 		n.waypointIndex--
 	}
-	return true, int(dir)
+	return true, dir
 }
 
 // pathToTarget mirrors TS Npc.pathToTarget (Npc.ts:319-335). Override of

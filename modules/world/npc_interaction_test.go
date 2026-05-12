@@ -2180,3 +2180,64 @@ func TestNpcStepOnce_BlockedNpcStepsOntoWaterTile(t *testing.T) {
 		t.Fatalf("waypointIndex after reaching dest: got %d, want -1", n.waypointIndex)
 	}
 }
+
+
+// TestNpcStepOnce_AxisFallback_X pins NAI-175 D1. When the diagonal
+// is blocked but the X-only step is open, TS takeStep returns the
+// X-only direction. Mirrors PathingEntity.ts:672-675.
+func TestNpcStepOnce_AxisFallback_X(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	typ := &objtype.NpcType{
+		ConfigType:   objtype.ConfigType{ID: 1, DebugName: "diag"},
+		WanderRange:  5,
+		MoveRestrict: int(MoveRestrictNormal),
+		Size:         1,
+	}
+	n := NewNpc(1, 1, 3221, 3220, 0, typ)
+	n.server = s
+	// Block NE-diagonal destination (3222, 3221) but leave east (3222, 3220) open.
+	s.gamemap.Pathfinder.Flags.Add(3222, 3221, 0, collision.FlagBlockWalk)
+	n.QueueWaypoint(3225, 3225) // NE-ish dest
+
+	advanced, dir := n.stepOnce(s)
+	if !advanced {
+		t.Fatalf("axis-fallback X: got advanced=false, want true with East-only step")
+	}
+	if n.x != 3222 || n.z != 3220 {
+		t.Fatalf("axis-fallback X: stepped to (%d,%d), want (3222,3220)", n.x, n.z)
+	}
+	if dir != int(coordgrid.DirectionEast) {
+		t.Fatalf("axis-fallback X: dir=%d, want East (%d)", dir, coordgrid.DirectionEast)
+	}
+}
+
+// TestNpcStepOnce_AxisFallback_Z mirrors D1 for the Z-axis fallback
+// (PathingEntity.ts:677-680).
+func TestNpcStepOnce_AxisFallback_Z(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	typ := &objtype.NpcType{
+		ConfigType:   objtype.ConfigType{ID: 1, DebugName: "diag"},
+		WanderRange:  5,
+		MoveRestrict: int(MoveRestrictNormal),
+		Size:         1,
+	}
+	n := NewNpc(1, 1, 3221, 3220, 0, typ)
+	n.server = s
+	// Block NE-diagonal (3222, 3221) AND east (3222, 3220) but leave north (3221, 3221) open.
+	s.gamemap.Pathfinder.Flags.Add(3222, 3221, 0, collision.FlagBlockWalk)
+	s.gamemap.Pathfinder.Flags.Add(3222, 3220, 0, collision.FlagBlockWalk)
+	n.QueueWaypoint(3225, 3225)
+
+	advanced, dir := n.stepOnce(s)
+	if !advanced {
+		t.Fatalf("axis-fallback Z: got advanced=false, want true with North-only step")
+	}
+	if n.x != 3221 || n.z != 3221 {
+		t.Fatalf("axis-fallback Z: stepped to (%d,%d), want (3221,3221)", n.x, n.z)
+	}
+	if dir != int(coordgrid.DirectionNorth) {
+		t.Fatalf("axis-fallback Z: dir=%d, want North (%d)", dir, coordgrid.DirectionNorth)
+	}
+}
