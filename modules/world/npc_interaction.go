@@ -305,7 +305,7 @@ func (n *Npc) updateMovement(s *Server) bool {
 		}
 	}
 
-	advanced1, dir1 := n.stepOnce(s)
+	dir1, advanced1 := n.validateAndAdvanceStep(s)
 	if !advanced1 {
 		n.walkDir = -1
 		n.runDir = -1
@@ -314,7 +314,7 @@ func (n *Npc) updateMovement(s *Server) bool {
 	n.walkDir = dir1
 
 	if n.moveSpeed == MoveSpeedRun && n.waypointIndex >= 0 {
-		advanced2, dir2 := n.stepOnce(s)
+		dir2, advanced2 := n.validateAndAdvanceStep(s)
 		if advanced2 {
 			n.runDir = dir2
 		} else {
@@ -337,46 +337,48 @@ func (n *Npc) updateMovement(s *Server) bool {
 }
 
 // stepOnce walks one tile toward the current waypoint and returns
-// (advanced, dir). Mirrors TS PathingEntity.takeStep (PathingEntity.ts:617-683)
-// single-tile (width=1) arm. Decrements waypointIndex when the destination
-// is reached; sets it to -1 when all CanTravel gates block the step.
+// (dir, status). Mirrors TS PathingEntity.takeStep (PathingEntity.ts:617-683)
+// single-tile (width=1) arm. Position update + dest-check decrement of
+// waypointIndex happen inline via applyStep; transient-block / done /
+// no-move classifications go to the validateAndAdvanceStep wrapper for
+// waypointIndex bookkeeping.
 //
-// TS short-circuits:
-//   - getCollisionStrategy() == null (MoveRestrictNoMove) → return -1
-//   - blockWalkFlag() == CollisionFlag.NULL (MoveRestrictNoMove) → return -1
-// Both map to (false, -1) here.
+// Tri-state contract (mirrors TS takeStep return number | null):
 //
-// NAI-175 status: D0 strategy plumbing (T4) + D1 axis-fallback (T6) shipped.
-// D2 (TS retains waypointIndex on transient block), D3 (size>1 branch), D4
-// (Player.stepOnce parity) deferred to NAI-176 per Stage 1 verdict.
+//	stepBlocked = TS null   → all canTravel arms failed; wrapper preserves waypointIndex (NAI-176 D2)
+//	stepDone    = TS -1     → strategy null / extraFlag null / Face==-1; wrapper decrements
+//	stepMoved   = TS number → moved; position applied via applyStep
+//
+// NAI-175 status: D0 strategy plumbing (T4) + D1 axis-fallback (T6) +
+// D2 wrapper waypoint retention (NAI-176 B1) shipped.
 //
 // NAI-175-D-SIZE-GT-1: TS takeStep PathingEntity.ts:642-651 has a
 // separate width>1 arm that uses Face(srcX, 0, x, 0) / Face(0, srcZ, 0, z)
 // for axis-only checks. goscape currently uses the same single-tile
 // logic for all sizes. No size>1 NPC observed broken in NAI-175 smoke;
-// deferred to NAI-176. Re-grep if a size>1 wanderer (giant, dragon,
-// dagannoth) regresses.
-func (n *Npc) stepOnce(s *Server) (bool, int) {
+// deferred to NAI-176 B2.
+func (n *Npc) stepOnce(s *Server) (int, stepStatus) {
 	if n.waypointIndex < 0 {
-		return false, -1
+		return -1, stepBlocked
+	}
+	cs := n.getCollisionStrategy()
+	if cs == nil {
+		return -1, stepDone
+	}
+	extraFlag := n.blockWalkFlag()
+	if extraFlag == collision.FlagNull {
+		return -1, stepDone
 	}
 	dest := coordgrid.UnpackCoord(n.waypoints[n.waypointIndex])
 	dir := coordgrid.Face(n.x, n.z, dest.X, dest.Z)
 	if dir == -1 {
-		n.waypointIndex--
-		return false, -1
-	}
-	cs := n.getCollisionStrategy()
-	if cs == nil {
-		return false, -1
-	}
-	extraFlag := n.blockWalkFlag()
-	if extraFlag == collision.FlagNull {
-		return false, -1
+		// TS L659-661: dx==0 && dz==0 → -1 (waypoint reached on current tile).
+		return -1, stepDone
 	}
 	dx := coordgrid.DeltaX(dir)
 	dz := coordgrid.DeltaZ(dir)
 	if s == nil || s.gamemap == nil {
+		// Test-fixture path: no gamemap → skip collision and apply step.
 		return n.applyStep(s, dest, dx, dz, int(dir))
 	}
 	// NAI-175 D1: TS takeStep PathingEntity.ts:668-682 — direct, then X-only,
@@ -392,17 +394,17 @@ func (n *Npc) stepOnce(s *Server) (bool, int) {
 		axisDir := coordgrid.Face(n.x, n.z, n.x, dest.Z)
 		return n.applyStep(s, dest, 0, dz, int(axisDir))
 	}
-	// NAI-175 D2 deferred: TS retains waypointIndex here; goscape clears.
-	// Indistinguishable for duck single-tile wander. Tracked under NAI-176.
-	n.waypointIndex = -1
-	return false, -1
+	// NAI-176 D2: TS L682 returns null here (transient block); wrapper
+	// preserves waypointIndex.
+	return -1, stepBlocked
 }
 
 
 // applyStep advances the NPC one tile by (dx, dz), refreshes its zone,
 // and decrements waypointIndex if the destination is reached. Factored
 // from stepOnce so axis-fallback arms share the same post-step bookkeeping.
-func (n *Npc) applyStep(s *Server, dest coordgrid.Position, dx, dz, dir int) (bool, int) {
+// Returns (dir, stepMoved) — applyStep is only invoked from the moved arms.
+func (n *Npc) applyStep(s *Server, dest coordgrid.Position, dx, dz, dir int) (int, stepStatus) {
 	prevX, prevZ := n.x, n.z
 	n.x += dx
 	n.z += dz
@@ -411,7 +413,31 @@ func (n *Npc) applyStep(s *Server, dest coordgrid.Position, dx, dz, dir int) (bo
 	if n.x == dest.X && n.z == dest.Z {
 		n.waypointIndex--
 	}
-	return true, dir
+	return dir, stepMoved
+}
+
+// validateAndAdvanceStep wraps stepOnce with the TS waypointIndex
+// bookkeeping + recursive try-next-waypoint cascade. Mirrors TS
+// PathingEntity.validateAndAdvanceStep (PathingEntity.ts:202-232).
+// Returns (dir, true) when a step landed, (-1, false) when blocked /
+// done / no-move.
+func (n *Npc) validateAndAdvanceStep(s *Server) (int, bool) {
+	dir, status := n.stepOnce(s)
+	switch status {
+	case stepBlocked:
+		// NAI-176 D2: waypointIndex preserved; entity stays put this tick.
+		return -1, false
+	case stepDone:
+		n.waypointIndex--
+		if n.waypointIndex >= 0 {
+			return n.validateAndAdvanceStep(s)
+		}
+		return -1, false
+	case stepMoved:
+		// Position already applied inside stepOnce.applyStep.
+		return dir, true
+	}
+	return -1, false
 }
 
 // pathToTarget mirrors TS Npc.pathToTarget (Npc.ts:319-335). Override of

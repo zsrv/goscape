@@ -1679,9 +1679,9 @@ func TestNpcStepCrossZoneRefreshSubscription(t *testing.T) {
 	n.zoneListElement = prevZone.EnterNpc(n)
 	n.waypoints[0] = (0 << 28) | (3200 << 14) | 3200
 	n.waypointIndex = 0
-	ok, _ := n.stepOnce(s)
-	if !ok {
-		t.Fatal("stepOnce returned false")
+	_, status := n.stepOnce(s)
+	if status != stepMoved {
+		t.Fatalf("stepOnce returned status=%v, want stepMoved", status)
 	}
 	if prevZone.NpcsCount() != 0 {
 		t.Errorf("prev zone NpcsCount: got %d, want 0", prevZone.NpcsCount())
@@ -2169,9 +2169,9 @@ func TestNpcStepOnce_BlockedNpcStepsOntoWaterTile(t *testing.T) {
 	n.server = s
 	n.QueueWaypoint(3222, 3220)
 
-	advanced, dir := n.stepOnce(s)
-	if !advanced {
-		t.Fatalf("blocked NPC failed to step onto adjacent water tile (advanced=%v, dir=%d); want advanced=true", advanced, dir)
+	dir, status := n.stepOnce(s)
+	if status != stepMoved {
+		t.Fatalf("blocked NPC failed to step onto adjacent water tile (status=%v, dir=%d); want stepMoved", status, dir)
 	}
 	if n.x != 3222 || n.z != 3220 {
 		t.Fatalf("blocked NPC at wrong coord after step: got (%d,%d), want (3222,3220)", n.x, n.z)
@@ -2200,9 +2200,9 @@ func TestNpcStepOnce_AxisFallback_X(t *testing.T) {
 	s.gamemap.Pathfinder.Flags.Add(3222, 3221, 0, collision.FlagBlockWalk)
 	n.QueueWaypoint(3225, 3225) // NE-ish dest
 
-	advanced, dir := n.stepOnce(s)
-	if !advanced {
-		t.Fatalf("axis-fallback X: got advanced=false, want true with East-only step")
+	dir, status := n.stepOnce(s)
+	if status != stepMoved {
+		t.Fatalf("axis-fallback X: got status=%v, want stepMoved", status)
 	}
 	if n.x != 3222 || n.z != 3220 {
 		t.Fatalf("axis-fallback X: stepped to (%d,%d), want (3222,3220)", n.x, n.z)
@@ -2230,14 +2230,158 @@ func TestNpcStepOnce_AxisFallback_Z(t *testing.T) {
 	s.gamemap.Pathfinder.Flags.Add(3222, 3220, 0, collision.FlagBlockWalk)
 	n.QueueWaypoint(3225, 3225)
 
-	advanced, dir := n.stepOnce(s)
-	if !advanced {
-		t.Fatalf("axis-fallback Z: got advanced=false, want true with North-only step")
+	dir, status := n.stepOnce(s)
+	if status != stepMoved {
+		t.Fatalf("axis-fallback Z: got status=%v, want stepMoved", status)
 	}
 	if n.x != 3221 || n.z != 3221 {
 		t.Fatalf("axis-fallback Z: stepped to (%d,%d), want (3221,3221)", n.x, n.z)
 	}
 	if dir != int(coordgrid.DirectionNorth) {
 		t.Fatalf("axis-fallback Z: dir=%d, want North (%d)", dir, coordgrid.DirectionNorth)
+	}
+}
+
+// TestNpcStepOnce_TransientBlock_PreservesWaypointIndex pins NAI-176 D2.
+// TS PathingEntity.takeStep:682 returns null when all canTravel arms
+// fail — wrapper (validateAndAdvanceStep) returns -1 WITHOUT decrementing
+// waypointIndex. Goscape's pre-NAI-176 stepOnce cleared waypointIndex to -1
+// in this branch (npc_interaction.go:397), losing the queued destination.
+//
+// Setup: MoveRestrictNormal NPC at (3221, 3220) heading north to (3221, 3221).
+// Block the north tile with FlagBlockWalk so all canTravel arms fail.
+// The X-only fallback (dx=0) and Z-only fallback (dx=0,dz=1 = same as direct)
+// also fail — falls through to stepBlocked.
+func TestNpcStepOnce_TransientBlock_PreservesWaypointIndex(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	s.gamemap.Pathfinder.Flags.Add(3221, 3221, 0, collision.FlagBlockWalk)
+
+	typ := &objtype.NpcType{
+		ConfigType:   objtype.ConfigType{ID: 1, DebugName: "blocked"},
+		WanderRange:  5,
+		MoveRestrict: int(MoveRestrictNormal),
+		Size:         1,
+	}
+	n := NewNpc(1, 1, 3221, 3220, 0, typ)
+	n.server = s
+	n.QueueWaypoint(3221, 3221) // sets waypointIndex = 0
+
+	wantWaypointIndex := n.waypointIndex
+	dir, status := n.stepOnce(s)
+
+	if status != stepBlocked {
+		t.Fatalf("blocked stepOnce: got status=%v dir=%d, want stepBlocked", status, dir)
+	}
+	if n.waypointIndex != wantWaypointIndex {
+		t.Fatalf("waypointIndex after stepBlocked: got %d, want %d (D2: must NOT clear)",
+			n.waypointIndex, wantWaypointIndex)
+	}
+	if n.x != 3221 || n.z != 3220 {
+		t.Fatalf("position after stepBlocked: got (%d,%d), want (3221,3220) unchanged",
+			n.x, n.z)
+	}
+}
+
+// TestNpcValidateAndAdvanceStep_DoneCascade_TriesNextWaypoint pins NAI-176
+// D2 wrapper recursion. TS validateAndAdvanceStep (PathingEntity.ts:209-211)
+// recurses into itself when stepDone (TS -1) but waypointIndex still ≥ 0
+// after decrement — the next waypoint becomes the new target. Goscape pre-
+// NAI-176 had no wrapper and could not advance through a "skip-this-waypoint"
+// signal.
+//
+// Setup: NPC at (3221, 3220) with TWO queued waypoints. queueWaypoints
+// stores reversed (first_step at index n-1). To get stepDone on the first
+// pop, we queue the NPC's CURRENT tile as waypoint[1] (= index 1 = first
+// step). Then waypoint[0] is one tile east. Wrapper:
+//  1. takeStep: Face(3221,3220, 3221,3220) == -1 → stepDone
+//  2. waypointIndex--; recurse
+//  3. takeStep: Face(3221,3220, 3222,3220) == East → stepMoved
+//  4. return (East, true)
+func TestNpcValidateAndAdvanceStep_DoneCascade_TriesNextWaypoint(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	// Allocate the destination zone so CanTravel returns true (unallocated
+	// zones return FlagNull=-1 → CanTravel=false even with no obstacles set).
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3222, 3220, 0)
+	typ := &objtype.NpcType{
+		ConfigType:   objtype.ConfigType{ID: 1, DebugName: "twohop"},
+		MoveRestrict: int(MoveRestrictNormal),
+		Size:         1,
+	}
+	n := NewNpc(1, 1, 3221, 3220, 0, typ)
+	n.server = s
+
+	// queueWaypoints reverses input on copy and sets
+	// waypointIndex = len(packed)-1. stepOnce reads waypoints[waypointIndex],
+	// which is packed[0]. To pop NPC's current tile first (→ Face==-1 →
+	// stepDone), put it at packed[0]. packed[1] is the next waypoint
+	// (one tile east).
+	packed := []int{
+		coordgrid.PackCoord(0, 3221, 3220), // popped first → Face==-1 → stepDone
+		coordgrid.PackCoord(0, 3222, 3220), // popped second → step east
+	}
+	n.queueWaypoints(packed)
+	if n.waypointIndex != 1 {
+		t.Fatalf("setup: waypointIndex after queueWaypoints: got %d, want 1", n.waypointIndex)
+	}
+
+	dir, advanced := n.validateAndAdvanceStep(s)
+
+	if !advanced {
+		t.Fatalf("wrapper recursion: got advanced=false, want true (should recurse through stepDone)")
+	}
+	if dir != int(coordgrid.DirectionEast) {
+		t.Fatalf("wrapper recursion: dir=%d, want East (%d)", dir, coordgrid.DirectionEast)
+	}
+	if n.x != 3222 || n.z != 3220 {
+		t.Fatalf("wrapper recursion: stepped to (%d,%d), want (3222,3220)", n.x, n.z)
+	}
+}
+
+// TestNpcUpdateMovement_RunSpeed_RecursesThroughDoneWaypoint pins NAI-176
+// cross-arm: running NPC with two queued waypoints where the first is at
+// the NPC's tile (Face==-1 → stepDone). updateMovement's walk-arm wrapper
+// recurses through the done signal, takes one step. Run-arm wrapper then
+// runs again from the new position with waypointIndex now at the next
+// waypoint. Both walkDir and runDir should populate when both succeed.
+func TestNpcUpdateMovement_RunSpeed_RecursesThroughDoneWaypoint(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	// Allocate destination zones so CanTravel returns true.
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3222, 3220, 0)
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3223, 3220, 0)
+	typ := &objtype.NpcType{
+		ConfigType:   objtype.ConfigType{ID: 1, DebugName: "runner"},
+		MoveRestrict: int(MoveRestrictNormal),
+		Size:         1,
+	}
+	n := NewNpc(1, 1, 3221, 3220, 0, typ)
+	n.server = s
+	n.moveSpeed = MoveSpeedRun
+
+	// Input [current-tile, one-east, two-east]; queueWaypoints reverses so
+	// first-popped == input[0] (current tile, stepDone), second == east,
+	// third == 2 east.
+	packed := []int{
+		coordgrid.PackCoord(0, 3221, 3220),
+		coordgrid.PackCoord(0, 3222, 3220),
+		coordgrid.PackCoord(0, 3223, 3220),
+	}
+	n.queueWaypoints(packed)
+
+	moved := n.updateMovement(s)
+
+	if !moved {
+		t.Fatalf("updateMovement: got moved=false, want true")
+	}
+	if n.walkDir != int(coordgrid.DirectionEast) {
+		t.Fatalf("walkDir: got %d, want East (%d)", n.walkDir, coordgrid.DirectionEast)
+	}
+	if n.runDir != int(coordgrid.DirectionEast) {
+		t.Fatalf("runDir: got %d, want East (%d) — run-arm should also step", n.runDir, coordgrid.DirectionEast)
+	}
+	if n.x != 3223 || n.z != 3220 {
+		t.Fatalf("position after walk+run: got (%d,%d), want (3223,3220)", n.x, n.z)
 	}
 }
