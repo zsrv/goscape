@@ -504,113 +504,85 @@ func TestTeleCheat_BoundsCheck_RejectsAfterCleanup(t *testing.T) {
 	}
 }
 
-// --- NAI-182 B6: ::reboot / ::slowreboot / ::serverdrop staff cheats ---
+// --- NAI-183: ::reboot / ::slowreboot dev-block dead-code pins ---
 
-// TestHandleClientCheat_Reboot_TriggersImmediateBroadcast pins that
-// ::reboot sets shutdownTick = currentTick (duration=0) and broadcasts
-// an UPDATE_REBOOT_TIMER packet with ticks=0 to each player in
-// playerLoop. Mirrors TS ClientCheatHandler.ts:360-364.
-func TestHandleClientCheat_Reboot_TriggersImmediateBroadcast(t *testing.T) {
+// TS ClientCheatHandler.ts:360-373 places ::reboot and ::slowreboot
+// under `if (!Environment.NODE_PRODUCTION && staffModLevel >= 4)` with
+// inner `&& Environment.NODE_PRODUCTION` clauses. Inside that outer
+// block NODE_PRODUCTION is always false, so those inner clauses are
+// dead. goscape preserves the TS-faithful structure verbatim, so
+// ::reboot / ::slowreboot do NOT fire under default config
+// (cfg.NodeProduction=false). NAI-183.
+
+// TestHandleClientCheat_Reboot_DeadUnderDefaultConfig pins the TS-faithful
+// dead-code semantics for ::reboot at staffModLevel=4 with the default
+// cfg.NodeProduction=false: the inner `&& NodeProduction` clause blocks
+// the rebootTimer call, so shutdownTick stays at its newTestServer
+// initial value (-1). Mirrors TS ClientCheatHandler.ts:360-364.
+func TestHandleClientCheat_Reboot_DeadUnderDefaultConfig(t *testing.T) {
 	p, cc, s := teleTestPlayer(t)
-	p.staffModLevel = 2
+	p.staffModLevel = 4
+	go io.Copy(io.Discard, cc) // keep pipe unblocked
 
-	// Oracle encryptor seeded from the same key as p.client.encryptor.
-	// Both start at step 0; enc.GetNext() produces the same key byte
-	// that writeOut will consume.
-	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
-
-	startTick := s.currentTick
-	received := drainConn(t, cc)
 	dispatchTeleCheat(t, p, "reboot")
-	p.client.flushWrite()
-	got := <-received
 
-	if s.shutdownTick != startTick {
-		t.Errorf("shutdownTick after ::reboot: got %d, want %d (currentTick)", s.shutdownTick, startTick)
-	}
-
-	// UPDATE_REBOOT_TIMER: 1-byte encrypted opcode + P2(0) = 3 bytes.
-	want := []byte{
-		byte((int(gameserver.OpUpdateRebootTimer.Opcode) + int(enc.GetNext())) & 0xff),
-		0x00, 0x00,
-	}
-	if !bytes.Equal(got, want) {
-		t.Errorf("broadcast bytes: got %#x, want %#x", got, want)
+	if s.shutdownTick != -1 {
+		t.Errorf("shutdownTick after ::reboot under !NodeProduction: got %d, want -1 (TS-faithful dead code)", s.shutdownTick)
 	}
 }
 
-// TestHandleClientCheat_SlowReboot_NoArgsDefaultsTo30Seconds pins that
-// ::slowreboot with no args uses 30 seconds (TS tryParseInt default) →
-// ceil(30000/600) = 50 ticks. Mirrors TS ClientCheatHandler.ts:365-373.
-func TestHandleClientCheat_SlowReboot_NoArgsDefaultsTo30Seconds(t *testing.T) {
+// TestHandleClientCheat_SlowReboot_NoArgs_DeadUnderDefaultConfig — same
+// dead-code pin for ::slowreboot with no args. Mirrors TS L365-373.
+func TestHandleClientCheat_SlowReboot_NoArgs_DeadUnderDefaultConfig(t *testing.T) {
 	p, cc, s := teleTestPlayer(t)
-	p.staffModLevel = 2
+	p.staffModLevel = 4
+	go io.Copy(io.Discard, cc)
 
-	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
-
-	startTick := s.currentTick
-	received := drainConn(t, cc)
 	dispatchTeleCheat(t, p, "slowreboot")
-	p.client.flushWrite()
-	got := <-received
 
-	const wantTicks = 50 // ceil(30*1000/600) = ceil(50.0) = 50
-	if s.shutdownTick != startTick+wantTicks {
-		t.Errorf("shutdownTick after ::slowreboot (no args): got %d, want %d", s.shutdownTick, startTick+wantTicks)
-	}
-
-	// UPDATE_REBOOT_TIMER: encrypted opcode + P2(50) = [opEnc, 0x00, 0x32].
-	want := []byte{
-		byte((int(gameserver.OpUpdateRebootTimer.Opcode) + int(enc.GetNext())) & 0xff),
-		0x00, 0x32,
-	}
-	if !bytes.Equal(got, want) {
-		t.Errorf("broadcast bytes: got %#x, want %#x", got, want)
+	if s.shutdownTick != -1 {
+		t.Errorf("shutdownTick after ::slowreboot under !NodeProduction: got %d, want -1 (TS-faithful dead code)", s.shutdownTick)
 	}
 }
 
-// TestHandleClientCheat_SlowReboot_WithSecondsArg pins that
-// ::slowreboot 60 → ceil(60000/600) = 100 ticks. NAI-182.
-func TestHandleClientCheat_SlowReboot_WithSecondsArg(t *testing.T) {
+// TestHandleClientCheat_SlowReboot_WithArg_DeadUnderDefaultConfig — same
+// dead-code pin for ::slowreboot with a seconds arg. NAI-183.
+func TestHandleClientCheat_SlowReboot_WithArg_DeadUnderDefaultConfig(t *testing.T) {
 	p, cc, s := teleTestPlayer(t)
-	p.staffModLevel = 2
-	go io.Copy(io.Discard, cc) // keep pipe unblocked
+	p.staffModLevel = 4
+	go io.Copy(io.Discard, cc)
 
-	startTick := s.currentTick
 	dispatchTeleCheat(t, p, "slowreboot 60")
-	p.client.flushWrite()
 
-	const wantTicks = 100 // ceil(60*1000/600) = ceil(100.0) = 100
-	if s.shutdownTick != startTick+wantTicks {
-		t.Errorf("shutdownTick after ::slowreboot 60: got %d, want %d", s.shutdownTick, startTick+wantTicks)
+	if s.shutdownTick != -1 {
+		t.Errorf("shutdownTick after ::slowreboot 60 under !NodeProduction: got %d, want -1 (TS-faithful dead code)", s.shutdownTick)
 	}
 }
 
-// TestHandleClientCheat_SlowReboot_NonIntegerArgFallsBackToDefault pins
-// that a non-integer arg (TS tryParseInt fallback) uses the 30-second
-// default → 50 ticks. NAI-182.
-func TestHandleClientCheat_SlowReboot_NonIntegerArgFallsBackToDefault(t *testing.T) {
+// TestHandleClientCheat_SlowReboot_NonInteger_DeadUnderDefaultConfig —
+// same dead-code pin for the tryParseInt-fallback arg path. NAI-183.
+func TestHandleClientCheat_SlowReboot_NonInteger_DeadUnderDefaultConfig(t *testing.T) {
 	p, cc, s := teleTestPlayer(t)
-	p.staffModLevel = 2
-	go io.Copy(io.Discard, cc) // keep pipe unblocked
+	p.staffModLevel = 4
+	go io.Copy(io.Discard, cc)
 
-	startTick := s.currentTick
 	dispatchTeleCheat(t, p, "slowreboot abc")
-	p.client.flushWrite()
 
-	const wantTicks = 50 // ceil(30*1000/600) = 50 (default 30s)
-	if s.shutdownTick != startTick+wantTicks {
-		t.Errorf("shutdownTick after ::slowreboot abc: got %d, want %d", s.shutdownTick, startTick+wantTicks)
+	if s.shutdownTick != -1 {
+		t.Errorf("shutdownTick after ::slowreboot abc under !NodeProduction: got %d, want -1 (TS-faithful dead code)", s.shutdownTick)
 	}
 }
 
 // TestHandleClientCheat_ServerDrop_ClosesConn pins that ::serverdrop
 // closes the TCP connection but leaves the player in s.players so that
 // the next reconnect hits the same slot (onReconnect path).
-// Mirrors TS ClientCheatHandler.ts:374-376 player.terminate(). NAI-182.
+// Mirrors TS ClientCheatHandler.ts:374-376 player.terminate(). Gated
+// under TS L56 dev block (!NodeProduction && staffModLevel >= 4); fires
+// because TS ::serverdrop has no inner `&& NodeProduction` clause.
+// NAI-183.
 func TestHandleClientCheat_ServerDrop_ClosesConn(t *testing.T) {
 	p, cc, s := teleTestPlayer(t)
-	p.staffModLevel = 2
+	p.staffModLevel = 4
 	slotBefore := p.slot
 	_ = cc
 
@@ -625,17 +597,89 @@ func TestHandleClientCheat_ServerDrop_ClosesConn(t *testing.T) {
 }
 
 // TestHandleClientCheat_RebootCheats_StaffGate pins that ::reboot is
-// silently rejected (shutdownTick unchanged) when p.staffModLevel < 2.
-// Per-arm gate mirrors existing ::tele / ::getcoord pattern.
-// DEVIATION-NAI-182-D2-CHEAT-NODE-PRODUCTION-GATE. NAI-182.
+// silently rejected (shutdownTick unchanged) when p.staffModLevel < 4
+// (the TS L56 dev-block gate). NAI-183.
 func TestHandleClientCheat_RebootCheats_StaffGate(t *testing.T) {
 	p, cc, s := teleTestPlayer(t)
-	p.staffModLevel = 1 // below the gate (>=2)
+	p.staffModLevel = 3 // below the dev-block gate (>=4)
 	go io.Copy(io.Discard, cc)
 
 	dispatchTeleCheat(t, p, "reboot")
 
 	if s.shutdownTick != -1 {
-		t.Errorf("shutdownTick after ::reboot with staffModLevel=1: got %d, want -1 (gate blocked)", s.shutdownTick)
+		t.Errorf("shutdownTick after ::reboot with staffModLevel=3: got %d, want -1 (gate blocked)", s.shutdownTick)
+	}
+}
+
+// --- NAI-183: outer-guard restructure tests ---
+
+// TestHandleClientCheat_AddsSessionLogAtModLevel2 pins the TS L52-54
+// `if (staffModLevel >= 2) addSessionLog(MODERATOR, 'Ran cheat', cheat)`
+// tier. Dispatches an unrecognized cheat ("foo") so no arm body fires
+// and the test isolates the L52 tier. Below modLevel 2, no entry is
+// pushed. Join semantics: `message + " " + strings.Join(args, " ")` →
+// "Ran cheat foo" (cheat is the lowercased input WITHOUT the stripped
+// "::" prefix per handlers_game.go:345-347). NAI-183.
+func TestHandleClientCheat_AddsSessionLogAtModLevel2(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	go io.Copy(io.Discard, cc)
+
+	// At staffModLevel=2 the L52 tier fires.
+	p.staffModLevel = 2
+	dispatchTeleCheat(t, p, "foo")
+
+	if got := len(s.sessionLogs); got != 1 {
+		t.Fatalf("sessionLogs after L52-tier dispatch at staffModLevel=2: got %d, want 1", got)
+	}
+	if got := s.sessionLogs[0].EventType; got != LoggerEventTypeModerator {
+		t.Errorf("EventType: got %d, want %d (LoggerEventTypeModerator)", got, LoggerEventTypeModerator)
+	}
+	if got := s.sessionLogs[0].Event; got != "Ran cheat foo" {
+		t.Errorf("Event: got %q, want %q", got, "Ran cheat foo")
+	}
+
+	// Below the gate: no entry pushed.
+	s.sessionLogs = s.sessionLogs[:0]
+	p.staffModLevel = 1
+	dispatchTeleCheat(t, p, "foo")
+
+	if got := len(s.sessionLogs); got != 0 {
+		t.Errorf("sessionLogs at staffModLevel=1: got %d, want 0 (below L52 gate)", got)
+	}
+}
+
+// TestHandleClientCheat_ServerDrop_StaffGate pins that ::serverdrop is
+// silently rejected when p.staffModLevel < 4 (TS L56 dev-block gate).
+// Sibling of TestHandleClientCheat_RebootCheats_StaffGate. NAI-183.
+func TestHandleClientCheat_ServerDrop_StaffGate(t *testing.T) {
+	p, cc, _ := teleTestPlayer(t)
+	p.staffModLevel = 3 // below the dev-block gate (>=4)
+	go io.Copy(io.Discard, cc)
+
+	dispatchTeleCheat(t, p, "serverdrop")
+
+	if _, err := p.client.conn.Write([]byte{0}); err != nil {
+		t.Errorf("p.client.conn.Write failed after ::serverdrop at staffModLevel=3: %v; want success (gate blocked, conn still open)", err)
+	}
+}
+
+// TestHandleClientCheat_NodeProductionTrue_DevBlockShortCircuits pins
+// that flipping cfg.NodeProduction=true collapses the entire TS L56
+// `!NodeProduction && >=4` dev block. ::serverdrop (which fires under
+// default config at modLevel=4) does NOT fire. The L52 addSessionLog
+// tier still fires (gated independently on >=2 only). NAI-183.
+func TestHandleClientCheat_NodeProductionTrue_DevBlockShortCircuits(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	s.cfg.NodeProduction = true
+	p.staffModLevel = 4
+	go io.Copy(io.Discard, cc)
+
+	dispatchTeleCheat(t, p, "serverdrop")
+
+	if _, err := p.client.conn.Write([]byte{0}); err != nil {
+		t.Errorf("p.client.conn.Write failed after ::serverdrop with NodeProduction=true: %v; want success (dev block collapsed)", err)
+	}
+	if got := len(s.sessionLogs); got != 1 {
+		t.Errorf("sessionLogs: got %d, want 1 (L52 tier should fire independently of NodeProduction)", got)
 	}
 }
