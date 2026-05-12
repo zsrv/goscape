@@ -337,10 +337,19 @@ func (n *Npc) updateMovement(s *Server) bool {
 }
 
 // stepOnce walks one tile toward the current waypoint and returns
-// (advanced, dir). Factors the shared step logic from the old
-// advanceWaypoint at npc_ai.go:145-175. Decrements waypointIndex when
-// the destination is reached; sets it to -1 when a CanTravel gate
-// blocks the step.
+// (advanced, dir). Mirrors TS PathingEntity.takeStep (PathingEntity.ts:617-683)
+// for the strategy-plumbing arm. Decrements waypointIndex when the
+// destination is reached; sets it to -1 when a CanTravel gate blocks
+// the step.
+//
+// TS short-circuits:
+//   - getCollisionStrategy() == null (MoveRestrictNoMove) → return -1
+//   - blockWalkFlag() == CollisionFlag.NULL (MoveRestrictNoMove) → return -1
+// Both map to (false, -1) here.
+//
+// NAI-175 status: D0 strategy plumbing shipped (this task). D1 axis-fallback
+// shipped in T6. D2 (TS retains waypointIndex on transient block), D3 (size>1
+// branch), D4 (Player.stepOnce parity) deferred to NAI-176 per Stage 1 verdict.
 func (n *Npc) stepOnce(s *Server) (bool, int) {
 	if n.waypointIndex < 0 {
 		return false, -1
@@ -351,9 +360,20 @@ func (n *Npc) stepOnce(s *Server) (bool, int) {
 		n.waypointIndex--
 		return false, -1
 	}
+	cs := n.getCollisionStrategy()
+	if cs == nil {
+		return false, -1
+	}
+	extraFlag := n.blockWalkFlag()
+	if extraFlag == collision.FlagNull {
+		return false, -1
+	}
 	dx := coordgrid.DeltaX(dir)
 	dz := coordgrid.DeltaZ(dir)
-	if s != nil && s.gamemap != nil && !s.gamemap.CanTravel(n.level, n.x, n.z, dx, dz, 1, 0, collision.TypeNormal) {
+	if s != nil && s.gamemap != nil && !s.gamemap.CanTravel(n.level, n.x, n.z, dx, dz, n.Width(), extraFlag, *cs) {
+		// NAI-175 D2 deferred: TS validateAndAdvanceStep (PathingEntity.ts:202-213)
+		// retains waypointIndex on transient block; goscape clears to -1.
+		// Indistinguishable for duck single-tile wander; tracked under NAI-176.
 		n.waypointIndex = -1
 		return false, -1
 	}
