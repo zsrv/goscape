@@ -3,6 +3,7 @@ package world
 import (
 	"github.com/zsrv/goscape/pkg/io/packet"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 // sendUpdatePid writes one UPDATE_PID packet. Mirrors TS
@@ -24,4 +25,74 @@ func sendResetClientVarCache(p *Player) {
 // sendResetAnims writes one RESET_ANIMS packet (0-byte payload). NAI-182.
 func sendResetAnims(p *Player) {
 	p.writeOut(gameserver.OpResetAnims, nil)
+}
+
+// onReconnect runs the resync sequence for a reconnecting player.
+// Called from processLogins when p.reconnecting == true. Mirrors TS
+// Player.onReconnect (Player.ts:516-574).
+//
+// DEVIATION-NAI-182-D1-RECONNECT-NO-RESTORE — goscape has no save/restore
+// subsystem yet. The processLogins fresh-init block runs BEFORE this
+// function is called (when p.reconnecting==true, the branch placement
+// short-circuits AFTER processLogins's existing init), so resync packets
+// carry post-fresh-init defaults rather than restored save state. Wire
+// ordering is TS-faithful; data is default-valued. Retires when
+// PlayerLoading lands.
+func onReconnect(s *Server, p *Player) {
+	// (a) RESET_CLIENT_VARCACHE
+	sendResetClientVarCache(p)
+
+	// (b) varp transmit-loop
+	if s.varpTypes != nil {
+		for i, vt := range s.varpTypes.Configs {
+			if vt != nil && vt.Transmit {
+				p.writeVarp(i, p.varps[i])
+			}
+		}
+	}
+
+	// (c) buildArea clear + rebuild — already handled by
+	// p.reconnecting==true → shouldRebuild path at player.go:694-696.
+	// No new code; rebuildNormal fires in processInfo this tick.
+
+	// (d) reboot-timer if pending
+	if s.shutdownTick != -1 {
+		sendUpdateRebootTimer(p, s.shutdownTick-s.currentTick)
+	}
+
+	// (e) closeModal(false) — preserves main modal, drops chat/side.
+	// Does NOT emit a wire opcode; flips internal modal slots that
+	// processInfo will sync via existing IF_CLOSE wiring.
+	p.CloseModal(false)
+
+	// (f) per-tab IF_SETTAB resync. Tabs default to 0 ("no tab
+	// assigned"); skip zero entries.
+	for tab, com := range p.tabs {
+		if com != 0 {
+			p.IfSetTab(com, tab)
+		}
+	}
+
+	// (g) refreshInvs — flip every invListener's FirstSeen back to true
+	// so the NEXT updateInvs tick re-emits each as UpdateInvFull.
+	// Map-value addressability dance mirrors player.go:884-888.
+	for com, l := range p.invListeners {
+		l.FirstSeen = true
+		p.invListeners[com] = l
+	}
+
+	// (h) per-stat UPDATE_STAT for all 21 skills.
+	for i := 0; i < objtype.PlayerStatCount; i++ {
+		sendUpdateStat(p, i, int(p.stats[i]), int(p.levels[i]))
+	}
+
+	// (i) UPDATE_RUN_ENERGY.
+	sendUpdateRunEnergy(p, p.runenergy)
+
+	// (j) RESET_ANIMS.
+	sendResetAnims(p)
+
+	// (k) masks |= entitymask — resync face_entity on the next mask
+	// block. Mirrors TS Player.onReconnect (Player.ts:574).
+	p.masks |= p.entitymask
 }

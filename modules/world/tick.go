@@ -151,29 +151,34 @@ func (s *Server) processLogins() {
 		p.tele = true
 		p.jump = true
 
-		// NAI-182 B3 — fresh-login emit sequence per TS Player.onLogin
-		// (Player.ts:494-504). DEVIATION-NAI-182-D4 omits IF_CLOSE,
-		// DEVIATION-NAI-182-D5 omits ChatFilterSettings / UpdateIgnoreList
-		// (deferred social cluster).
-		//
-		// onReconnect branch (NAI-182 B4) lands here in a subsequent task
-		// — for now every login is a fresh login.
-		sendUpdatePid(p, p.slot)
-		sendResetClientVarCache(p)
-		if s.varpTypes != nil {
-			for i, vt := range s.varpTypes.Configs {
-				if vt != nil && vt.Transmit {
-					p.writeVarp(i, p.varps[i])
+		// NAI-182 — reconnect branches to onReconnect's TS-faithful
+		// resync path; fresh login runs the standard onLogin emit
+		// sequence. p.reconnecting is set by the login codec
+		// (server.go:650) based on OpReqGameReconnect.
+		if p.reconnecting {
+			onReconnect(s, p)
+			// rebuildNormal will clear p.reconnecting later in processInfo.
+		} else {
+			// Fresh-login emit sequence per TS Player.onLogin
+			// (Player.ts:494-504). DEVIATION-NAI-182-D4 omits IF_CLOSE,
+			// DEVIATION-NAI-182-D5 omits ChatFilterSettings /
+			// UpdateIgnoreList (deferred social cluster).
+			sendUpdatePid(p, p.slot)
+			sendResetClientVarCache(p)
+			if s.varpTypes != nil {
+				for i, vt := range s.varpTypes.Configs {
+					if vt != nil && vt.Transmit {
+						p.writeVarp(i, p.varps[i])
+					}
 				}
 			}
-		}
-		sendResetAnims(p)
+			sendResetAnims(p)
 
-		// NAI-182 B3 — post-onLogin UPDATE_REBOOT_TIMER emit if a
-		// shutdown is pending. Mirrors TS World.processLogins
-		// (World.ts:944-946).
-		if s.shutdownTick != -1 {
-			sendUpdateRebootTimer(p, s.shutdownTick-s.currentTick)
+			// Post-onLogin UPDATE_REBOOT_TIMER emit if shutdown pending.
+			// Mirrors TS World.processLogins (World.ts:944-946).
+			if s.shutdownTick != -1 {
+				sendUpdateRebootTimer(p, s.shutdownTick-s.currentTick)
+			}
 		}
 
 		// Fire the LOGIN trigger if the cache has one. Sub-spec RuneScript S3.
