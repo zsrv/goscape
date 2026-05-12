@@ -364,105 +364,116 @@ func handleClientCheat(p *Player, payload []byte) error {
 	// snapshot, teleto, setvis, ban, mute, kick. Each touches an unrelated
 	// subsystem (inventory, npc-spawn, vis-toggle, friend-server, save/load,
 	// etc.); deferred to future sub-specs.
+	// TS ClientCheatHandler.ts:52-54 — addSessionLog tier. Logs every
+	// cheat invocation from staffModLevel >= 2 to the MODERATOR session
+	// log channel. Ported via Player.AddSessionLog (modules/world/player.go).
+	// Join semantics: "Ran cheat" + " " + cheat. NAI-183.
+	if p.staffModLevel >= 2 {
+		p.AddSessionLog(LoggerEventTypeModerator, "Ran cheat", cheat)
+	}
+
+	// TS ClientCheatHandler.ts:56 — developer block. Gated on
+	// `!Environment.NODE_PRODUCTION && staffModLevel >= 4`. Goscape
+	// reads s.cfg.NodeProduction (modules/world/config.go:43, default
+	// false). NAI-183.
+	if !p.client.server.cfg.NodeProduction && p.staffModLevel >= 4 {
+		switch parts[0] {
+		case "reboot":
+			// Mirrors TS L360-364. TS-faithful dead code: the inner
+			// `&& NodeProduction` clause never fires because the outer
+			// block runs only when NodeProduction=false. Preserved
+			// verbatim to mirror the TS quirk (likely refactor
+			// artifact). NAI-183.
+			if p.client.server.cfg.NodeProduction {
+				s := p.client.server
+				s.rebootTimer(0)
+			}
+		case "slowreboot":
+			// Mirrors TS L365-373. Same TS-faithful dead-code pattern
+			// as ::reboot above. Default 30 seconds when args is
+			// missing/unparseable (TS tryParseInt semantics); formula
+			// ticks = ceil(seconds * 1000 / 600). NAI-183.
+			if p.client.server.cfg.NodeProduction {
+				seconds := parseIntOr(args, 30)
+				ticks := int(math.Ceil(float64(seconds) * 1000.0 / 600.0))
+				s := p.client.server
+				s.rebootTimer(ticks)
+			}
+		case "serverdrop":
+			// Mirrors TS L374-376 player.terminate(). No inner clause
+			// in TS — actually fires under the outer !NodeProduction
+			// guard. Closes the TCP conn without removing the player
+			// from s.players; the next reconnect hits this player's
+			// slot and runs the onReconnect path. NAI-183.
+			if p.client != nil && p.client.conn != nil {
+				_ = p.client.conn.Close()
+			}
+		}
+	}
+
+	// TS ClientCheatHandler.ts:483 — super-mod block. Gated on
+	// staffModLevel >= 2. NAI-183.
+	if p.staffModLevel >= 2 {
+		switch parts[0] {
+		case "getcoord":
+			// Mirrors TS L489 — `::getcoord` displays the player's
+			// current coord as level,mapX,mapZ,localX,localZ.
+			p.MessageGame(coordgrid.FormatString(p.level, p.x, p.z, ","))
+		case "tele":
+			// Mirrors TS `::tele level,mapX,mapZ[,localX,localZ]` at
+			// ClientCheatHandler.ts:491-524. Single-arg form:
+			// "::tele 0,50,50,32,32".
+			//
+			// NAI-93 closed the prior DEVIATION block here: closeModal,
+			// canAccess gate, and the unsetMapFlag bundle (sendUnsetMapFlag
+			// + waypointIndex reset, per TS Player.unsetMapFlag at
+			// Player.ts:2169-2172) are now wired. ClearInteraction
+			// preserved.
+			if args == "" {
+				return nil
+			}
+			coord := strings.Split(args, ",")
+			if len(coord) < 3 {
+				return nil
+			}
+
+			// Pre-tele cleanup chain — order per TS lines 504-512.
+			p.CloseModal(true) // TS closeModal() default-arg.
+			if !p.CanAccess() {
+				p.MessageGame("Please finish what you are doing first.")
+				return nil
+			}
+			p.ClearInteraction()
+			sendUnsetMapFlag(p)
+			p.waypointIndex = -1 // TS Player.unsetMapFlag → clearWaypoints.
+
+			level := parseIntOr(coord[0], 0)
+			mx := parseIntOr(coord[1], 50)
+			mz := parseIntOr(coord[2], 50)
+			lx := 32
+			if len(coord) > 3 {
+				lx = parseIntOr(coord[3], 32)
+			}
+			lz := 32
+			if len(coord) > 4 {
+				lz = parseIntOr(coord[4], 32)
+			}
+			if level < 0 || level > 3 || mx < 0 || mx > 255 || mz < 0 || mz > 255 || lx < 0 || lx > 63 || lz < 0 || lz > 63 {
+				return nil
+			}
+			p.TeleJump((mx<<6)+lx, (mz<<6)+lz, level)
+		}
+	}
+
+	// Ungated arms. ::say has no TS counterpart in ClientCheatHandler
+	// (TS routes it through ChatHandler instead); kept ungated. NAI-183.
 	switch parts[0] {
 	case "say":
 		if args != "" {
 			p.Say([]byte(args))
 		}
-	case "getcoord":
-		// staffModLevel >= 2 gate mirrors TS ClientCheatHandler.ts:483.
-		if p.staffModLevel < 2 {
-			return nil
-		}
-		// Mirrors TS ClientCheatHandler.ts:489 — `::getcoord` displays the
-		// player's current coord as level,mapX,mapZ,localX,localZ.
-		p.MessageGame(coordgrid.FormatString(p.level, p.x, p.z, ","))
-	case "tele":
-		// staffModLevel >= 2 gate mirrors TS ClientCheatHandler.ts:483.
-		if p.staffModLevel < 2 {
-			return nil
-		}
-		// Mirrors TS `::tele level,mapX,mapZ[,localX,localZ]` at
-		// ClientCheatHandler.ts:491-524. Single-arg form:
-		// "::tele 0,50,50,32,32".
-		//
-		// NAI-93 closed the prior DEVIATION block here: closeModal,
-		// canAccess gate, and the unsetMapFlag bundle (sendUnsetMapFlag
-		// + waypointIndex reset, per TS Player.unsetMapFlag at
-		// Player.ts:2169-2172) are now wired. ClearInteraction
-		// preserved.
-		if args == "" {
-			return nil
-		}
-		coord := strings.Split(args, ",")
-		if len(coord) < 3 {
-			return nil
-		}
-
-		// Pre-tele cleanup chain — order per TS lines 504-512.
-		p.CloseModal(true) // TS closeModal() default-arg.
-		if !p.CanAccess() {
-			p.MessageGame("Please finish what you are doing first.")
-			return nil
-		}
-		p.ClearInteraction()
-		sendUnsetMapFlag(p)
-		p.waypointIndex = -1 // TS Player.unsetMapFlag → clearWaypoints.
-
-		level := parseIntOr(coord[0], 0)
-		mx := parseIntOr(coord[1], 50)
-		mz := parseIntOr(coord[2], 50)
-		lx := 32
-		if len(coord) > 3 {
-			lx = parseIntOr(coord[3], 32)
-		}
-		lz := 32
-		if len(coord) > 4 {
-			lz = parseIntOr(coord[4], 32)
-		}
-		if level < 0 || level > 3 || mx < 0 || mx > 255 || mz < 0 || mz > 255 || lx < 0 || lx > 63 || lz < 0 || lz > 63 {
-			return nil
-		}
-		p.TeleJump((mx<<6)+lx, (mz<<6)+lz, level)
-
-	case "reboot":
-		// Mirrors TS ClientCheatHandler.ts:360-364. duration=0 means
-		// immediate shutdown (shutdownTick = currentTick). NAI-182.
-		// DEVIATION-NAI-182-D2-CHEAT-NODE-PRODUCTION-GATE — TS gates this
-		// on Environment.NODE_PRODUCTION; goscape uses staffModLevel>=2
-		// (per-arm gate matching existing ::tele / ::getcoord arms).
-		if p.staffModLevel < 2 {
-			return nil
-		}
-		s := p.client.server
-		s.rebootTimer(0)
-
-	case "slowreboot":
-		// Mirrors TS ClientCheatHandler.ts:365-373. Default 30 seconds
-		// when args is missing or unparseable (TS tryParseInt semantics).
-		// Formula: ticks = ceil(seconds * 1000 / 600). NAI-182.
-		// DEVIATION-NAI-182-D2-CHEAT-NODE-PRODUCTION-GATE.
-		if p.staffModLevel < 2 {
-			return nil
-		}
-		seconds := parseIntOr(args, 30)
-		ticks := int(math.Ceil(float64(seconds) * 1000.0 / 600.0))
-		s := p.client.server
-		s.rebootTimer(ticks)
-
-	case "serverdrop":
-		// Mirrors TS ClientCheatHandler.ts:374-376 player.terminate().
-		// Closes the TCP conn without removing the player from
-		// s.players; the next reconnect (OpReqGameReconnect) hits this
-		// player's slot and runs the onReconnect path. NAI-182.
-		// DEVIATION-NAI-182-D2-CHEAT-NODE-PRODUCTION-GATE.
-		if p.staffModLevel < 2 {
-			return nil
-		}
-		if p.client != nil && p.client.conn != nil {
-			_ = p.client.conn.Close()
-		}
 	}
+
 	return nil
 }
 
