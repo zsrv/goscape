@@ -1,8 +1,10 @@
 package world
 
 import (
+	"io"
 	"testing"
 
+	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
@@ -16,8 +18,10 @@ import (
 func TestProcessLogins_LastStepXZ_InitialisedFromOnLogin(t *testing.T) {
 	s := newTestServer(t)
 
-	p, _ := newTestPlayer(t)
+	p, conn := newTestPlayer(t)
 	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	go io.Copy(io.Discard, conn)
 	p.x, p.z, p.level = 3200, 3210, 0
 	// newTestPlayer initialises lastStepX/Z to -1, -1 (player.go:502-503).
 	// Sanity-check the pre-condition so a future fixture change doesn't
@@ -43,8 +47,10 @@ func TestProcessLogins_LastStepXZ_InitialisedFromOnLogin(t *testing.T) {
 
 func TestProcessLoginsSeedsAllSkillsToDefaults(t *testing.T) {
 	s := newTestServer(t)
-	p, _ := newTestPlayer(t)
+	p, conn := newTestPlayer(t)
 	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	go io.Copy(io.Discard, conn)
 	s.newPlayers = []*Player{p}
 	s.processLogins()
 

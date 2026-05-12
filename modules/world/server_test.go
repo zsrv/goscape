@@ -449,6 +449,8 @@ func TestProcessLoginsDrainsNewPlayers(t *testing.T) {
 	s := newTestServer(t)
 	c, clientConn := newTestClient(t)
 	c.server = s
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	c.encryptor = enc
 	go io.Copy(io.Discard, clientConn)
 
 	p := newPlayer(c)

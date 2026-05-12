@@ -1,8 +1,10 @@
 package world
 
 import (
+	"io"
 	"testing"
 
+	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
@@ -11,8 +13,10 @@ import (
 // NAI-73 T6.
 func TestProcessLoginsAllocatesInputTracking(t *testing.T) {
 	s := newTestServer(t)
-	p, _ := newTestPlayer(t)
+	p, conn := newTestPlayer(t)
 	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	go io.Copy(io.Discard, conn)
 	s.newPlayers = []*Player{p}
 	s.currentTick = 1000
 
