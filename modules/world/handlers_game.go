@@ -660,6 +660,30 @@ func handleClientCheat(p *Player, payload []byte) error {
 				return nil
 			}
 			p.MessageGame(fmt.Sprintf("get %s: %d", cfg.DebugName, p.Varp(cfg.ID)))
+		case "getvarother":
+			// TS L268-287. NP-gated via inner break. getvarother
+			// <username> <name>. Caller gets the target's varp value
+			// formatted as `get <debugname>: <value> on <other.username>`.
+			if !p.client.server.cfg.NodeProduction {
+				break
+			}
+			if args == "" {
+				return nil
+			}
+			sub := strings.SplitN(args, " ", 2)
+			if len(sub) < 2 {
+				return nil
+			}
+			other := p.client.server.LookupPlayerByUsername(sub[0])
+			if other == nil {
+				p.MessageGame(fmt.Sprintf("%s is not logged in.", sub[0]))
+				return nil
+			}
+			cfg := p.client.server.varpTypes.ByName(sub[1])
+			if cfg == nil {
+				return nil
+			}
+			p.MessageGame(fmt.Sprintf("get %s: %d on %s", cfg.DebugName, other.Varp(cfg.ID), other.username))
 		}
 	}
 

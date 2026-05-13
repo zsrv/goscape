@@ -1367,3 +1367,71 @@ func TestHandleClientCheat_GetVar_UnknownName_SilentReject(t *testing.T) {
 		t.Errorf("unknown-name getvar emitted %d bytes; want silent reject", len(emitted))
 	}
 }
+
+func TestHandleClientCheat_GetVarOther_HappyPath_MessagesValueOnTarget(t *testing.T) {
+	p, cc, s := setvarTestFixture(t)
+	s.cfg.NodeProduction = true
+	other := addOtherTestPlayer(t, s, "target", 3220, 3220, 0)
+	other.varps = make([]int32, len(s.varpTypes.Configs))
+	other.varps[0] = 77
+
+	dispatchTeleCheat(t, p, "getvarother target transmit_only")
+	emitted := drainAfterTele(t, p, cc)
+
+	if !bytes.Contains(emitted, []byte("get transmit_only: 77 on target")) {
+		t.Errorf("expected 'get transmit_only: 77 on target' in emitted bytes; got %d bytes", len(emitted))
+	}
+}
+
+func TestHandleClientCheat_GetVarOther_NoOpWhenNotProduction(t *testing.T) {
+	p, cc, s := setvarTestFixture(t)
+	s.cfg.NodeProduction = false
+	other := addOtherTestPlayer(t, s, "target", 3220, 3220, 0)
+	other.varps = make([]int32, len(s.varpTypes.Configs))
+	other.varps[0] = 77
+
+	dispatchTeleCheat(t, p, "getvarother target transmit_only")
+	emitted := drainAfterTele(t, p, cc)
+
+	if bytes.Contains(emitted, []byte("get ")) {
+		t.Errorf("getvarother under NP=false emitted 'get '; want dead. bytes=%d", len(emitted))
+	}
+}
+
+func TestHandleClientCheat_GetVarOther_MissingArgs_Rejects(t *testing.T) {
+	p, cc, s := setvarTestFixture(t)
+	s.cfg.NodeProduction = true
+	addOtherTestPlayer(t, s, "target", 3220, 3220, 0)
+
+	dispatchTeleCheat(t, p, "getvarother target") // 1 token, need 2
+	emitted := drainAfterTele(t, p, cc)
+
+	if bytes.Contains(emitted, []byte("get ")) {
+		t.Errorf("len(args)<2 getvarother emitted 'get '; want reject. bytes=%d", len(emitted))
+	}
+}
+
+func TestHandleClientCheat_GetVarOther_UnknownUser_MessagesCaller(t *testing.T) {
+	p, cc, s := setvarTestFixture(t)
+	s.cfg.NodeProduction = true
+
+	dispatchTeleCheat(t, p, "getvarother no_such_user transmit_only")
+	emitted := drainAfterTele(t, p, cc)
+
+	if !bytes.Contains(emitted, []byte("no_such_user is not logged in.")) {
+		t.Errorf("expected 'no_such_user is not logged in.' in emitted bytes; got %d bytes", len(emitted))
+	}
+}
+
+func TestHandleClientCheat_GetVarOther_UnknownVarp_SilentReject(t *testing.T) {
+	p, cc, s := setvarTestFixture(t)
+	s.cfg.NodeProduction = true
+	addOtherTestPlayer(t, s, "target", 3220, 3220, 0)
+
+	dispatchTeleCheat(t, p, "getvarother target no_such_var")
+	emitted := drainAfterTele(t, p, cc)
+
+	if bytes.Contains(emitted, []byte("get ")) {
+		t.Errorf("unknown-varp getvarother emitted 'get '; want silent reject. bytes=%d", len(emitted))
+	}
+}
