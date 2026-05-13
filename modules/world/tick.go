@@ -28,6 +28,12 @@ func (s *Server) runTickLoop() {
 }
 
 func (s *Server) runTickLoopWithRate(rate time.Duration) {
+	// Seed s.tickRate from the parameter so test-injected rates are
+	// observable via the field. The loop body below re-reads s.tickRate
+	// each iteration so ::speed mutations (NAI-188) take effect on the
+	// next sleep computation. Per spec §6: writer (cheat dispatch) and
+	// reader (this loop) both run on the tick goroutine, so no lock.
+	s.tickRate = rate
 	nextTick := time.Now()
 	for {
 		// NAI-182 — shutdown consumer must run BEFORE any per-tick work
@@ -83,8 +89,13 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		s.processSessionLogs() // NAI-74: TS World.cycle session-log block (W.ts:428-442)
 		s.currentTick++
 
-		nextTick = nextTick.Add(rate)
-		delay := rate - time.Since(start) - drift
+		// NAI-188: re-read s.tickRate every iteration so ::speed
+		// mutations take effect on the next sleep. Named currentRate
+		// (not rate) to avoid shadowing the parameter; per memory
+		// plan_var_name_collision.
+		currentRate := s.tickRate
+		nextTick = nextTick.Add(currentRate)
+		delay := currentRate - time.Since(start) - drift
 		if delay < 0 {
 			delay = 0
 		}

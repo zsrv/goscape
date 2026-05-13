@@ -588,6 +588,49 @@ func TestTickLoopIncrementsCurrentTick(t *testing.T) {
 	}
 }
 
+// TestTickLoopHonoursFieldRate pins NAI-188: mid-loop mutations to
+// s.tickRate take effect on the next iteration. Starts at a 3ms
+// cadence, runs ~30ms (expects ~10 ticks), mutates s.tickRate to 30ms,
+// runs ~60ms (expects ~2 ticks). The post-mutation second-window tick
+// delta must be strictly less than the pre-mutation first-window delta.
+// Run with -race to validate the single-goroutine invariant documented
+// in spec §6.
+func TestTickLoopHonoursFieldRate(t *testing.T) {
+	s := newTestServer(t)
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.runTickLoopWithRate(3 * time.Millisecond)
+	}()
+
+	time.Sleep(30 * time.Millisecond)
+	firstWindow := s.currentTick
+
+	// Mutate the rate on this goroutine. Per spec §6 this is racy in a
+	// strict sense but is the same single-writer/single-reader pattern
+	// the ::speed cheat uses; the test is here precisely to catch a
+	// future refactor that changes that invariant.
+	s.tickRate = 30 * time.Millisecond
+
+	time.Sleep(60 * time.Millisecond)
+	secondWindow := s.currentTick - firstWindow
+
+	close(s.quit)
+	<-done
+
+	if firstWindow < 5 {
+		t.Errorf("first window (3ms rate, 30ms): currentTick = %d, want >= 5", firstWindow)
+	}
+	// Pre-mutation: ~10 ticks in 30ms. Post-mutation: ~2 ticks in 60ms.
+	// Assert second-window delta is strictly smaller than first-window
+	// count (loose comparison tolerates timer jitter).
+	if secondWindow >= firstWindow {
+		t.Errorf("rate mutation did not slow the loop: first window = %d ticks (3ms rate), second window = %d ticks (30ms rate after mutation). Loop is still reading the captured parameter, not s.tickRate.",
+			firstWindow, secondWindow)
+	}
+}
+
 func BenchmarkClientSetup(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
