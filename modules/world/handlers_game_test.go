@@ -1435,3 +1435,104 @@ func TestHandleClientCheat_GetVarOther_UnknownVarp_SilentReject(t *testing.T) {
 		t.Errorf("unknown-varp getvarother emitted 'get '; want silent reject. bytes=%d", len(emitted))
 	}
 }
+
+// giveotherFixtureCommon wires the shared inv/obj infra for the
+// ::giveother test cohort. Returns (caller, callerConn, server, invID, objID).
+// objID=1277, debugName="test_obj", non-stackable so each unit fills a slot.
+//
+// Note: does NOT start a discard goroutine on `cc` — exactly one test
+// (UnknownUser_MessagesCaller) calls drainAfterTele(t, p, cc) and
+// must own the read side. State-only tests don't emit on `cc`.
+func giveotherFixtureCommon(t *testing.T) (*Player, net.Conn, *Server, int, int) {
+	t.Helper()
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 3
+	invID := mustSetupTestInv(t, s, 0, 28)
+	objID := mustSetupNamedObj(t, s, 1277, "test_obj", /*stackable=*/ false)
+	s.invTypes.Inv = invID
+	return p, cc, s, invID, objID
+}
+
+func TestHandleClientCheat_GiveOther_HappyPath_AddsToTarget(t *testing.T) {
+	p, _, s, invID, objID := giveotherFixtureCommon(t)
+	s.cfg.NodeProduction = true
+	other := addOtherTestPlayer(t, s, "target", 3220, 3220, 0)
+
+	dispatchTeleCheat(t, p, "giveother target test_obj 5")
+
+	inv := s.invLookup.Get(other, invID)
+	if inv == nil {
+		t.Fatalf("invLookup.Get(other, invID) = nil")
+	}
+	if got := countSlots(inv, objID); got != 5 {
+		t.Errorf("after giveother target test_obj 5: countSlots(target, 1277) = %d, want 5", got)
+	}
+}
+
+func TestHandleClientCheat_GiveOther_NoOpWhenNotProduction(t *testing.T) {
+	p, _, s, invID, objID := giveotherFixtureCommon(t)
+	s.cfg.NodeProduction = false
+	other := addOtherTestPlayer(t, s, "target", 3220, 3220, 0)
+
+	dispatchTeleCheat(t, p, "giveother target test_obj 5")
+
+	inv := s.invLookup.Get(other, invID)
+	if inv != nil {
+		if got := countSlots(inv, objID); got != 0 {
+			t.Errorf("giveother under NP=false: countSlots(target, 1277) = %d, want 0", got)
+		}
+	}
+}
+
+func TestHandleClientCheat_GiveOther_UnknownUser_MessagesCaller(t *testing.T) {
+	p, cc, s, _, _ := giveotherFixtureCommon(t)
+	s.cfg.NodeProduction = true
+
+	dispatchTeleCheat(t, p, "giveother no_such_user test_obj 5")
+	emitted := drainAfterTele(t, p, cc)
+
+	if !bytes.Contains(emitted, []byte("no_such_user is not logged in.")) {
+		t.Errorf("expected 'no_such_user is not logged in.' in emitted bytes; got %d bytes", len(emitted))
+	}
+}
+
+func TestHandleClientCheat_GiveOther_UnknownItem_SilentReject(t *testing.T) {
+	p, _, s, invID, objID := giveotherFixtureCommon(t)
+	s.cfg.NodeProduction = true
+	other := addOtherTestPlayer(t, s, "target", 3220, 3220, 0)
+
+	dispatchTeleCheat(t, p, "giveother target no_such_obj 5")
+
+	inv := s.invLookup.Get(other, invID)
+	if inv != nil {
+		if got := countSlots(inv, objID); got != 0 {
+			t.Errorf("unknown-item giveother added items: countSlots = %d, want 0", got)
+		}
+	}
+}
+
+func TestHandleClientCheat_GiveOther_MissingCountDefaultsToOne(t *testing.T) {
+	p, _, s, invID, objID := giveotherFixtureCommon(t)
+	s.cfg.NodeProduction = true
+	other := addOtherTestPlayer(t, s, "target", 3220, 3220, 0)
+
+	dispatchTeleCheat(t, p, "giveother target test_obj")
+
+	inv := s.invLookup.Get(other, invID)
+	if got := countSlots(inv, objID); got != 1 {
+		t.Errorf("after giveother target test_obj (no count): countSlots = %d, want 1", got)
+	}
+}
+
+func TestHandleClientCheat_GiveOther_CountClampsToMin1(t *testing.T) {
+	p, _, s, invID, objID := giveotherFixtureCommon(t)
+	s.cfg.NodeProduction = true
+	other := addOtherTestPlayer(t, s, "target", 3220, 3220, 0)
+
+	dispatchTeleCheat(t, p, "giveother target test_obj 0") // 0 → clamps to 1
+
+	inv := s.invLookup.Get(other, invID)
+	if got := countSlots(inv, objID); got != 1 {
+		t.Errorf("after giveother target test_obj 0: countSlots = %d, want 1 (count clamp)", got)
+	}
+}

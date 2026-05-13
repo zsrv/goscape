@@ -684,6 +684,40 @@ func handleClientCheat(p *Player, payload []byte) error {
 				return nil
 			}
 			p.MessageGame(fmt.Sprintf("get %s: %d on %s", cfg.DebugName, other.Varp(cfg.ID), other.username))
+		case "giveother":
+			// TS L303-322. NP-gated via inner break. giveother
+			// <username> <obj> [count]. Count defaults to 1, clamps
+			// to [1, 0x7fffffff].
+			if !p.client.server.cfg.NodeProduction {
+				break
+			}
+			if args == "" {
+				return nil
+			}
+			sub := strings.SplitN(args, " ", 3)
+			if len(sub) < 2 {
+				return nil
+			}
+			other := p.client.server.LookupPlayerByUsername(sub[0])
+			if other == nil {
+				p.MessageGame(fmt.Sprintf("%s is not logged in.", sub[0]))
+				return nil
+			}
+			objType := p.client.server.objTypes.ByName(sub[1])
+			if objType == nil {
+				return nil
+			}
+			count := 1
+			if len(sub) > 2 {
+				count = parseIntOr(sub[2], 1)
+				if count < 1 {
+					count = 1
+				}
+				if count > 0x7fffffff {
+					count = 0x7fffffff
+				}
+			}
+			other.InvAdd(p.client.server.invTypes.Inv, objType.ID, count, false)
 		}
 	}
 
