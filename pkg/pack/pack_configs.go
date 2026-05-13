@@ -40,6 +40,15 @@ import (
 // enter ShouldBuild's output-missing arm and write a zero-entry
 // .dat/.idx pair; goscape elides that write.
 //
+// NAI-194-D-PARAM-AFTER-VARS: TS processes .param FIRST (before jag
+// creation and before .varp/.varn/.vars) so other configs can resolve
+// param defaults during packing — see PackShared.ts:315 "We have to
+// pack params for other configs to parse correctly". Goscape runs
+// .param after the var-domain trio because NAI-194 introduces .param
+// in isolation (no other config packer yet exists that would consume
+// param outputs). NAI-195+ may need to re-evaluate ordering when
+// .loc/.obj/.npc packers land.
+//
 // TS source: tools/pack/config/PackShared.ts:261-669 (packConfigs).
 func PackConfigs(srcDir, outDir string) error {
 	constants, err := LoadConstants(srcDir)
@@ -100,6 +109,7 @@ func PackConfigs(srcDir, outDir string) error {
 		}
 	}
 
+	// NAI-194-D-PARAM-AFTER-VARS: see PackConfigs doc-comment.
 	if GetLatestModified(scriptsDir, ".param") > 0 &&
 		ShouldBuild(scriptsDir, ".param", filepath.Join(serverOut, "param.dat")) {
 		paramPack, err := NewPackFile(srcDir, "param", nil)

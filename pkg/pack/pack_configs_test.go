@@ -343,7 +343,9 @@ func TestPackConfigs_ParamMissingTypedPackFile(t *testing.T) {
 	srcDir := t.TempDir()
 	outDir := t.TempDir()
 	setupParamFixture(t, srcDir, "x", "npc", "kalphite_queen", nil)
-	// Do NOT write npc.pack — loadParamLookups should fail.
+	// Do NOT write npc.pack — NewPackFile succeeds with an empty registry
+	// (missing files are not errors), but packParamConfigs will fail when
+	// lookupParamValue cannot resolve "kalphite_queen" against the empty npcPF.
 
 	err := PackConfigs(srcDir, outDir)
 	if err == nil {
