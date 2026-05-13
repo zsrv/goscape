@@ -16,8 +16,8 @@ import (
 //   - autodisable  (boolean; yes/no/true/false/1/0)
 //   - type         (ScriptVarType name → ScriptVarType code)
 //   - default      (raw string; resolution deferred to packParamConfigs
-//                   after `type` is known — mirrors TS comment
-//                   "defer lookup to pack callback")
+//     after `type` is known — mirrors TS comment
+//     "defer lookup to pack callback")
 //
 // Return contract (matches NAI-192 ParseFn):
 //   - (value, true, nil)  → accepted
@@ -197,7 +197,10 @@ func paramIndexOrErr(pf *PackFile, value, kind string) (int, error) {
 
 // packParamConfigs walks every id ∈ [0, pf.Max), pre-scans for the
 // `type` key (needed before `default` can resolve via lookupParamValue),
-// then emits per-config opcodes on the server buffer:
+// then emits per-config opcodes on the server buffer.
+//
+// NAI-194-D-VALIDATE-DEFERRED: TS ParamConfig.ts post-pack validation
+// callback (magic-number checks) is omitted; validation is deferred.
 //
 //	type        → P1(1) P1(typechar)
 //	default     → P1(2) P4(int)        for non-STRING
