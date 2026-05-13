@@ -367,18 +367,21 @@ func handleClientCheat(p *Player, payload []byte) error {
 	if len(parts) == 2 {
 		args = parts[1]
 	}
-	// DEVIATION-NAI-187-D1-CARRYFORWARD — supersedes
-	// DEVIATION-NAI-186-D2-CARRYFORWARD. 3 TS ClientCheatHandler
-	// cheats remain unported, all in the dev block (!NP && >=4):
+	// DEVIATION-NAI-188-D1-CARRYFORWARD — supersedes
+	// DEVIATION-NAI-187-D1-CARRYFORWARD. 2 TS ClientCheatHandler
+	// cheats remain unported, both in the dev block (!NP && >=4) and
+	// both blocked on the same infra gap (cache / script hot-reload):
 	//   reload:  TS L149-150. Calls World.reload() — full cache
 	//            hot-reload pipeline. No goscape equivalent;
 	//            substantial new subsystem.
 	//   rebuild: TS L151-153. Calls World.rebuild() — script-provider
 	//            hot-reload. Same infra gap as reload.
-	//   speed:   TS L154-167. Trivial code (~10 LOC) but mutates
-	//            World.tickRate, currently a package-level const at
-	//            modules/world/tick.go:15. Right size for its own
-	//            one-shot follow-up sub-spec.
+	// NAI-188 retired ::speed (TS L154-167). The tickRate package-level
+	// const at modules/world/tick.go:15 was promoted to Server.tickRate
+	// (default initialised to defaultTickRate); the tick loop re-reads
+	// the field each iteration so the cheat-induced mutation takes
+	// effect on the next sleep. See spec §6 for the single-goroutine
+	// concurrency argument.
 	// NAI-187 retired the admin spawn/interface cluster (locadd /
 	// npcadd / openmain). Per memory tracker_entry_framing_can_be_
 	// incomplete: the prior "blocked on dynamic Loc/Npc spawn +
