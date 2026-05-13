@@ -245,3 +245,25 @@ func parseLocTypes(server *packet2.Packet, clientJag *jagfile.Jagfile) (*LocType
 		Configs:     configs,
 	}, nil
 }
+
+// ByName returns the LocType matching the given debugname, or nil
+// if no match exists. Mirrors TS LocType.getByName. Uses the
+// ConfigNames index built at load time — O(1) on name-indexed configs,
+// O(N) only if ConfigNames is unpopulated (test fixtures) or stale.
+// Consumed by ::locadd in modules/world/handlers_game.go (NAI-187).
+func (c *LocTypeConfigs) ByName(name string) *LocType {
+	if c == nil {
+		return nil
+	}
+	if id, ok := c.ConfigNames[name]; ok {
+		if id >= 0 && id < len(c.Configs) {
+			return c.Configs[id]
+		}
+	}
+	for _, t := range c.Configs {
+		if t != nil && t.DebugName == name {
+			return t
+		}
+	}
+	return nil
+}
