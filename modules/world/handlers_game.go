@@ -536,36 +536,38 @@ func handleClientCheat(p *Player, payload []byte) error {
 	if len(parts) == 2 {
 		args = parts[1]
 	}
-	// DEVIATION-NAI-189-D1-CARRYFORWARD — supersedes
-	// DEVIATION-NAI-188-D1-CARRYFORWARD. 2 TS ClientCheatHandler
-	// cheats remain unported, both in the dev block (!NP && >=4) and
-	// both blocked on the same infra gap (cache / script hot-reload):
-	//   reload:  TS L149-150. Calls World.reload() — full cache
-	//            hot-reload pipeline. No goscape equivalent;
-	//            substantial new subsystem.
-	//   rebuild: TS L151-153. Calls World.rebuild() — script-provider
-	//            hot-reload. Same infra gap as reload.
-	// NAI-189 retired the DEBUGPROC dispatch path (TS L59-148). The
-	// dev-block now branches on s.cfg.NodeDebugprocChar BEFORE the
-	// fixed-cmd switch; matching cheats route through dispatchDebugproc,
-	// which resolves [debugproc,X] via s.scriptProvider.GetByName and
-	// dispatches via s.runScript with arguments marshaled per
-	// ScriptFile.ParamTypes (12 TS arms — STRING/INT/OBJ/NAMEDOBJ/NPC/
-	// LOC/SEQ/STAT/INV/COORD/INTERFACE/SPOTANIM/IDKIT). 4 new ByName
-	// helpers added in pkg/objtype (Seq/Spotanim/Idk/Inv) — mirrors the
-	// NAI-187 cluster pattern. DEVIATION-NAI-189-D1-MIRROR-TS-COORD-
-	// FRAGILE flags the TS slice(6) fragility in the COORD arm.
-	// NAI-188 retired ::speed (TS L154-167). The tickRate package-level
-	// const at modules/world/tick.go:15 was promoted to Server.tickRate
-	// (default initialised to defaultTickRate); the tick loop re-reads
-	// the field each iteration so the cheat-induced mutation takes
-	// effect on the next sleep. See spec §6 for the single-goroutine
-	// concurrency argument.
+	// DEVIATION-NAI-190-D5-CARRYFORWARD — supersedes
+	// DEVIATION-NAI-189-D1-CARRYFORWARD. 1 TS ClientCheatHandler
+	// cheat remains unported, blocked on the cache-compiler arc:
+	//   rebuild: TS L151-153. Calls World.rebuild() — posts
+	//            'world_rebuild' to a DevThread worker that runs
+	//            packAll() (TS tools/pack/PackAll.ts; ~8200 LOC).
+	//            Blocked on NAI-191..NAI-204 — the staged port of
+	//            tools/pack/ (config compilers + RuneScript .rs2
+	//            compiler + fsnotify watcher).
+	// NAI-190 retired ::reload (TS L149-150). World.reload() is
+	// ported as (*Server).Reload(clearInvs bool) error in
+	// modules/world/reload.go. Three DEVIATION tags live in the
+	// method doc-comment:
+	//   D1-GAMEMAP-RE-INJECT — glue-only: TS reads package
+	//     singletons, goscape re-injects loc/obj types into the
+	//     GameMap struct via SetLocTypes/SetObjTypes.
+	//   D2-HALF-SWAP — TS-parity: TS does not roll back on
+	//     mid-pipeline errors. Post-step-3 errors leave s.*
+	//     partially mutated. Pinned via skip-with-pin in
+	//     reload_test.go.
+	//   D3-CANDIDATE-VARSHARED-CLOBBER — TS L259-267 clobbers
+	//     copied values; mirrored verbatim per true-to-TS gate.
+	//   D4-NO-CATEGORYTYPES — goscape has no CategoryType loader;
+	//     TS L216 has no analog.
+	// NAI-189 retired DEBUGPROC dispatch (TS L59-148). See
+	// dispatchDebugproc/marshalDebugprocArgs/parseDebugprocCoord
+	// (DEVIATION-NAI-189-D1-MIRROR-TS-COORD-FRAGILE).
+	// NAI-188 retired ::speed (TS L154-167). The tickRate
+	// package-level const at modules/world/tick.go:15 was promoted
+	// to Server.tickRate.
 	// NAI-187 retired the admin spawn/interface cluster (locadd /
-	// npcadd / openmain). Per memory tracker_entry_framing_can_be_
-	// incomplete: the prior "blocked on dynamic Loc/Npc spawn +
-	// interface routing" framing was stale at HEAD — all primitives
-	// existed; sole gap was three ByName helpers in pkg/objtype.
+	// npcadd / openmain).
 	// TS ClientCheatHandler.ts:52-54 — addSessionLog tier. Logs every
 	// cheat invocation from staffModLevel >= 2 to the MODERATOR session
 	// log channel. Ported via Player.AddSessionLog (modules/world/player.go).
