@@ -167,6 +167,7 @@ func (jf *Jagfile) Save(path string, doNotCompressWhole bool) error {
 			jf.FileUnpackedSize = slices.Delete(jf.FileUnpackedSize, index, index+1)
 			jf.FilePackedSize = slices.Delete(jf.FilePackedSize, index, index+1)
 			jf.FilePos = slices.Delete(jf.FilePos, index, index+1)
+			jf.FileWrite = slices.Delete(jf.FileWrite, index, index+1)
 			jf.FileCount--
 		}
 
