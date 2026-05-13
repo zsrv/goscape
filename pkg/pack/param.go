@@ -20,7 +20,7 @@ import (
 //   - (nil, true, err)    → recognized key with invalid value
 //   - (nil, false, nil)   → unrecognized key
 //
-// TS source: tools/pack/config/ParamConfig.ts parseParamConfig (~190-240).
+// TS source: tools/pack/config/ParamConfig.ts parseParamConfig (163-214).
 func parseParamConfig(key, value string) (ConfigValue, bool, error) {
 	switch key {
 	case "autodisable":
