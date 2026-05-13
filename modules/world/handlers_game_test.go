@@ -2,6 +2,7 @@ package world
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -15,6 +16,7 @@ import (
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
+	"github.com/zsrv/goscape/pkg/zone"
 )
 
 // TestHandleMessagePublic_SetsMaskChat pins the wire-format decode for the
@@ -1749,4 +1751,82 @@ func TestHandleClientCheat_DispatchesToNAI185Arms(t *testing.T) {
 	})
 
 	// givecrap covered by T7 dedicated tests; getvar/getvarother by T4/T5.
+}
+
+// TestHandleClientCheat_Locadd_SpawnsLoc pins TS L441-452. Resolves
+// LocType by debugname, spawns a CENTREPIECE_STRAIGHT loc with
+// angle=WEST=0, duration=500. Emits "Loc Added: <name> (ID: <id>)".
+func TestHandleClientCheat_Locadd_SpawnsLoc(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 3
+	const locName = "test_dialogue_box"
+	const locID = 42
+
+	s.locTypes = &objtype.LocTypeConfigs{
+		Configs: []*objtype.LocType{{
+			ConfigType: objtype.ConfigType{ID: locID, DebugName: locName},
+			Width:      1,
+			Length:     1,
+		}},
+		ConfigNames: map[string]int{locName: 0},
+	}
+	s.zonesTracking = map[*zone.Zone]struct{}{}
+
+	emitted1 := drainAfterTele(t, p, cc)
+	dispatchTeleCheat(t, p, "locadd "+locName)
+	emitted2 := drainAfterTele(t, p, cc)
+	all := append(emitted1, emitted2...)
+
+	// Verify the loc was appended to z.Locs (z.AddLoc on a DESPAWN
+	// lifecycle appends to z.Locs at pkg/zone/zone.go:164).
+	z := s.zoneMap.Get(p.level, p.x, p.z)
+	found := false
+	for _, l := range z.Locs {
+		if l.Type() == locID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected Loc type=%d at (%d,%d,%d); zone had %d locs",
+			locID, p.x, p.z, p.level, len(z.Locs))
+	}
+
+	wantMsg := []byte("Loc Added: " + locName + " (ID: " + fmt.Sprintf("%d", locID) + ")")
+	if !bytes.Contains(all, wantMsg) {
+		t.Errorf("missing MessageGame %q in emitted bytes (got %d bytes)", string(wantMsg), len(all))
+	}
+}
+
+// TestHandleClientCheat_Locadd_UnknownName_NoOp pins the TS L448 nil
+// guard: an unknown debugname → no spawn, no MessageGame.
+func TestHandleClientCheat_Locadd_UnknownName_NoOp(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 3
+	go io.Copy(io.Discard, cc)
+
+	s.locTypes = &objtype.LocTypeConfigs{Configs: make([]*objtype.LocType, 0)}
+
+	dispatchTeleCheat(t, p, "locadd absent_name")
+
+	z := s.zoneMap.Get(p.level, p.x, p.z)
+	if len(z.Locs) != 0 {
+		t.Errorf("expected zero locs after unknown ::locadd; got %d", len(z.Locs))
+	}
+}
+
+// TestHandleClientCheat_Locadd_EmptyArgs_NoOp pins TS L443-445 args.length<1.
+func TestHandleClientCheat_Locadd_EmptyArgs_NoOp(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 3
+	go io.Copy(io.Discard, cc)
+
+	s.locTypes = &objtype.LocTypeConfigs{Configs: make([]*objtype.LocType, 0)}
+
+	dispatchTeleCheat(t, p, "locadd")
+
+	z := s.zoneMap.Get(p.level, p.x, p.z)
+	if len(z.Locs) != 0 {
+		t.Errorf("expected zero locs after empty-args ::locadd; got %d", len(z.Locs))
+	}
 }

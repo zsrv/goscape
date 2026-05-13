@@ -13,8 +13,10 @@ import (
 	"time"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
+	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/pathfinder/loc"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
@@ -537,6 +539,33 @@ func handleClientCheat(p *Player, payload []byte) error {
 					p.SetStat(i, 1)
 				}
 			}
+		case "locadd":
+			// TS L441-452 — admin spawn. Resolves LocType by debugname,
+			// spawns a CENTREPIECE_STRAIGHT loc with angle=WEST=0,
+			// duration=500 ticks. Mirrors TS:
+			//   World.addLoc(new Loc(player.level, player.x, player.z,
+			//                        type.width, type.length,
+			//                        EntityLifeCycle.DESPAWN, type.id,
+			//                        LocShape.CENTREPIECE_STRAIGHT,
+			//                        LocAngle.WEST), 500);
+			if args == "" {
+				return nil
+			}
+			name := strings.Fields(args)[0]
+			lt := p.client.server.locTypes.ByName(name)
+			if lt == nil {
+				return nil
+			}
+			l := entitypkg.NewLoc(
+				p.level, p.x, p.z,
+				lt.Width, lt.Length,
+				entitypkg.LifecycleDespawn,
+				lt.ID,
+				int(loc.ShapeCentrepieceStraight),
+				0, // LocAngle.WEST
+			)
+			p.client.server.AddLoc(l, 500)
+			p.MessageGame(fmt.Sprintf("Loc Added: %s (ID: %d)", name, lt.ID))
 		case "teleother":
 			// TS L377-400 — teleother <username> (production-only via
 			// outer arm selector; goscape mirrors with inner NP gate).
