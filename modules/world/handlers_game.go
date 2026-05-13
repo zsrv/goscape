@@ -364,18 +364,21 @@ func handleClientCheat(p *Player, payload []byte) error {
 	if len(parts) == 2 {
 		args = parts[1]
 	}
-	// DEVIATION-NAI-184-D2-D3-CARRYFORWARD — supersedes
-	// DEVIATION-NAI-182-D3-OTHER-CHEATS. 17 TS ClientCheatHandler cheats
-	// remain unported:
+	// DEVIATION-NAI-185-D4-CARRYFORWARD — supersedes
+	// DEVIATION-NAI-184-D2-D3-CARRYFORWARD. 10 TS ClientCheatHandler
+	// cheats remain unported:
 	//   Dev block (!NP && >=4): reload, rebuild, speed.
-	//   Admin block (>=3):      setvar, setvarother, getvar, getvarother,
-	//                           giveother, givecrap, broadcast, locadd,
-	//                           npcadd, openmain.
+	//     Blocked on cache/script reload subsystem + runtime
+	//     tick-rate mutation (tick.go interval is currently fixed).
+	//   Admin block (>=3):      locadd, npcadd, openmain.
+	//     Blocked on dynamic Loc/Npc spawn + interface routing.
 	//   Super-mod (>=2):        setvis, ban, mute, kick.
-	// Each is blocked on a missing subsystem (VarPlayerType.GetByName,
-	// World.broadcastMes, runtime tick-rate mutation, login moderation
-	// callbacks, dynamic Loc/NPC spawn, Visibility plumbing). Deferred
-	// to follow-up sub-specs.
+	//     setvis blocked on Player.SetVisibility setter (trivial).
+	//     ban/mute/kick: loginBridgeMod.NotifyPlayerBan/Mute exists
+	//     (handler_reportabuse.go:50, handler_message_private.go:42);
+	//     blocker is wiring caller-vs-automated args + kick's
+	//     logout teardown, not the moderation transport itself.
+	// Each cluster warrants its own follow-up sub-spec.
 	// TS ClientCheatHandler.ts:52-54 — addSessionLog tier. Logs every
 	// cheat invocation from staffModLevel >= 2 to the MODERATOR session
 	// log channel. Ported via Player.AddSessionLog (modules/world/player.go).

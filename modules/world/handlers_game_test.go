@@ -1705,3 +1705,48 @@ func TestHandleClientCheat_Broadcast_EmptyArgs_StillBroadcastsEmpty(t *testing.T
 		t.Errorf("::broadcast with empty args produced zero bytes; expected framed empty-MES")
 	}
 }
+
+// --- NAI-185 T9: dispatch wiring smoke ---
+
+// TestHandleClientCheat_DispatchesToNAI185Arms drives one representative
+// arm of each NAI-185 shape (varp, cross-player varp, cross-player inv,
+// fan-out broadcast) end-to-end through handleClientCheat.
+// Pins:
+//   - parts[0] dispatch reaches each arm
+//   - existing staffModLevel >= 3 outer guard is honored
+func TestHandleClientCheat_DispatchesToNAI185Arms(t *testing.T) {
+	p, cc, s := setvarTestFixture(t)
+	s.cfg.NodeProduction = true
+	go io.Copy(io.Discard, cc)
+	invID := mustSetupTestInv(t, s, 0, 28)
+	objID := mustSetupNamedObj(t, s, 1277, "test_obj", false)
+	s.invTypes.Inv = invID
+	other := addOtherTestPlayer(t, s, "target", 3220, 3220, 0)
+	other.varps = make([]int32, len(s.varpTypes.Configs))
+
+	t.Run("setvar", func(t *testing.T) {
+		dispatchTeleCheat(t, p, "setvar transmit_only 1")
+		if p.varps[0] != 1 {
+			t.Errorf("setvar dispatch failed: varps[0] = %d", p.varps[0])
+		}
+	})
+	t.Run("setvarother", func(t *testing.T) {
+		dispatchTeleCheat(t, p, "setvarother target transmit_only 2")
+		if other.varps[0] != 2 {
+			t.Errorf("setvarother dispatch failed: other.varps[0] = %d", other.varps[0])
+		}
+	})
+	t.Run("giveother", func(t *testing.T) {
+		dispatchTeleCheat(t, p, "giveother target test_obj 1")
+		inv := s.invLookup.Get(other, invID)
+		if inv == nil || countSlots(inv, objID) != 1 {
+			t.Errorf("giveother dispatch failed: target missing test_obj")
+		}
+	})
+	t.Run("broadcast_no_panic", func(t *testing.T) {
+		// Wire smoke only — content assertions are in T8.
+		dispatchTeleCheat(t, p, "broadcast smoke")
+	})
+
+	// givecrap covered by T7 dedicated tests; getvar/getvarother by T4/T5.
+}
