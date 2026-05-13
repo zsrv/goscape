@@ -41,16 +41,13 @@ func LoadConstants(srcDir string) (Constants, error) {
 			if len(line) == 0 || strings.HasPrefix(line, "//") {
 				continue
 			}
-			eq := strings.IndexByte(line, '=')
-			if eq < 0 {
+			name, value, ok := strings.Cut(line, "=")
+			if !ok {
 				outerErr = fmt.Errorf("bad constant declaration in %s: %s", file, line)
 				return
 			}
-			name := strings.TrimSpace(line[:eq])
-			value := strings.TrimSpace(line[eq+1:])
-			if strings.HasPrefix(name, "^") {
-				name = name[1:]
-			}
+			name = strings.TrimPrefix(strings.TrimSpace(name), "^")
+			value = strings.TrimSpace(value)
 			if name == "" {
 				outerErr = fmt.Errorf("empty constant name in %s: %s", file, line)
 				return
