@@ -145,10 +145,15 @@ func (pt *ParamType) GetType() string {
 	}
 }
 
+// NewParamType allocates a ParamType slot. AutoDisable defaults to
+// true per TS src/cache/config/ParamType.ts:64 (NAI-194 fix — goscape
+// previously omitted the field and inherited Go zero false, silently
+// diverging from TS for params that emit no opcode-4).
 func NewParamType(id int) *ParamType {
 	return &ParamType{
 		ConfigType: ConfigType{
 			ID: id,
 		},
+		AutoDisable: true,
 	}
 }

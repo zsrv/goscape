@@ -50,3 +50,14 @@ func TestParamType_DecodeMaxInt32(t *testing.T) {
 		t.Errorf("DefaultInt: got %d, want %d", got, want)
 	}
 }
+
+// TestNewParamType_DefaultAutoDisableTrue pins TS parity:
+// src/cache/config/ParamType.ts:64 declares `autodisable = true` as the
+// default. Goscape NewParamType previously omitted the field,
+// silently producing AutoDisable=false (Go zero). NAI-194 fix.
+func TestNewParamType_DefaultAutoDisableTrue(t *testing.T) {
+	pt := NewParamType(0)
+	if !pt.AutoDisable {
+		t.Fatalf("AutoDisable default = false, want true (TS ParamType.ts:64)")
+	}
+}
