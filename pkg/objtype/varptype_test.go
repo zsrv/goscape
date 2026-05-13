@@ -201,6 +201,67 @@ func TestParseVarpTypes_DiscoversRunIDFromClientStream(t *testing.T) {
 	}
 }
 
+func TestVarpTypeConfigs_ByName_HitViaConfigNames(t *testing.T) {
+	vtc := &VarpTypeConfigs{
+		Configs:     []*VarPlayerType{{ConfigType: ConfigType{ID: 0, DebugName: "first"}}, {ConfigType: ConfigType{ID: 1, DebugName: "second"}}},
+		ConfigNames: map[string]int{"first": 0, "second": 1},
+	}
+	got := vtc.ByName("second")
+	if got == nil {
+		t.Fatalf("ByName(second) = nil, want non-nil")
+	}
+	if got.ID != 1 || got.DebugName != "second" {
+		t.Errorf("ByName(second) = {ID:%d, DebugName:%q}, want {ID:1, DebugName:\"second\"}", got.ID, got.DebugName)
+	}
+}
+
+func TestVarpTypeConfigs_ByName_MissReturnsNil(t *testing.T) {
+	vtc := &VarpTypeConfigs{
+		Configs:     []*VarPlayerType{{ConfigType: ConfigType{ID: 0, DebugName: "only"}}},
+		ConfigNames: map[string]int{"only": 0},
+	}
+	if got := vtc.ByName("absent"); got != nil {
+		t.Errorf("ByName(absent) = %+v, want nil", got)
+	}
+}
+
+func TestVarpTypeConfigs_ByName_NilReceiverReturnsNil(t *testing.T) {
+	var vtc *VarpTypeConfigs
+	if got := vtc.ByName("anything"); got != nil {
+		t.Errorf("nil-receiver ByName = %+v, want nil", got)
+	}
+}
+
+func TestVarpTypeConfigs_ByName_StaleIndexFallsThroughToLinearScan(t *testing.T) {
+	// ConfigNames points "fresh" at id=5 but Configs is only length 2.
+	// Lookup must NOT panic and must fall through to the linear scan,
+	// which finds "fresh" at id=1 by DebugName equality.
+	vtc := &VarpTypeConfigs{
+		Configs:     []*VarPlayerType{{ConfigType: ConfigType{ID: 0, DebugName: "other"}}, {ConfigType: ConfigType{ID: 1, DebugName: "fresh"}}},
+		ConfigNames: map[string]int{"fresh": 5},
+	}
+	got := vtc.ByName("fresh")
+	if got == nil {
+		t.Fatalf("stale-index ByName(fresh) = nil; want fallback hit at id=1")
+	}
+	if got.ID != 1 {
+		t.Errorf("stale-index ByName(fresh).ID = %d, want 1", got.ID)
+	}
+}
+
+func TestVarpTypeConfigs_ByName_LinearScanWhenConfigNamesEmpty(t *testing.T) {
+	// Some test fixtures construct Configs without populating ConfigNames.
+	// ByName must still resolve by DebugName.
+	vtc := &VarpTypeConfigs{
+		Configs:     []*VarPlayerType{{ConfigType: ConfigType{ID: 0, DebugName: "scan_me"}}},
+		ConfigNames: nil,
+	}
+	got := vtc.ByName("scan_me")
+	if got == nil || got.ID != 0 {
+		t.Errorf("ByName(scan_me) with nil ConfigNames = %+v, want non-nil id=0", got)
+	}
+}
+
 // TestLoadVarpTypes_ProductionCacheRunIDIs173 binds the two-stream fix to the
 // actual production cache. Skipped when data/pack/client/config is absent.
 func TestLoadVarpTypes_ProductionCacheRunIDIs173(t *testing.T) {

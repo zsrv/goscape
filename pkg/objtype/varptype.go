@@ -110,3 +110,26 @@ func parseVarpTypes(server *packet2.Packet, clientJag *jagfile.Jagfile) (*VarpTy
 		RunID:       runID,
 	}, nil
 }
+
+// ByName returns the VarPlayerType matching the given debugname, or nil
+// if no match exists. Mirrors TS VarPlayerType.getByName. Uses the
+// ConfigNames index built at load time — O(1) on name-indexed configs,
+// O(N) only if ConfigNames is unpopulated (test fixtures) or stale.
+// Consumed by ::setvar / ::setvarother / ::getvar / ::getvarother in
+// modules/world/handlers_game.go (NAI-185).
+func (vtc *VarpTypeConfigs) ByName(name string) *VarPlayerType {
+	if vtc == nil {
+		return nil
+	}
+	if id, ok := vtc.ConfigNames[name]; ok {
+		if id >= 0 && id < len(vtc.Configs) {
+			return vtc.Configs[id]
+		}
+	}
+	for _, c := range vtc.Configs {
+		if c != nil && c.DebugName == name {
+			return c
+		}
+	}
+	return nil
+}
