@@ -569,6 +569,13 @@ func handleClientCheat(p *Player, payload []byte) error {
 	// reads s.cfg.NodeProduction (modules/world/config.go:43, default
 	// false). NAI-183.
 	if !p.client.server.cfg.NodeProduction && p.staffModLevel >= 4 {
+		// TS ClientCheatHandler.ts:59 — debugproc prefix dispatch BEFORE
+		// the fixed-cmd ladder. Cmd-form is `<NodeDebugprocChar><scriptname>`
+		// (default "~scriptname"). NAI-189.
+		if prefix := p.client.server.cfg.NodeDebugprocChar; prefix != "" && strings.HasPrefix(parts[0], prefix) {
+			p.client.server.dispatchDebugproc(p, parts[0], args, cheat)
+			return nil
+		}
 		switch parts[0] {
 		case "fly":
 			// TS L168-175 — toggles between Fly and Smart strategies and

@@ -2505,3 +2505,90 @@ func TestMarshalDebugprocArgs_Coord_TwoToken(t *testing.T) {
 			intArgs, want, wantLevel, wantX, wantZ)
 	}
 }
+
+// --- NAI-189: handleClientCheat → dispatchDebugproc wiring ---
+
+func TestHandleClientCheat_Debugproc_DispatchesScript(t *testing.T) {
+	// Positive control: a registered [debugproc,X] is dispatched when
+	// staffModLevel >= 4 && !NodeProduction && cheat starts with the
+	// debugproc-char prefix.
+	p, _, s := teleTestPlayer(t)
+	p.staffModLevel = 4
+	s.cfg.NodeProduction = false
+	s.cfg.NodeDebugprocChar = "~"
+
+	sf := stageDebugprocScript(t, s, "ping", []byte{})
+
+	// Pre-dispatch: provider holds the script.
+	if s.scriptProvider.GetByName(sf.Name) == nil {
+		t.Fatal("setup: stageDebugprocScript did not register the script")
+	}
+
+	dispatchTeleCheat(t, p, "~ping")
+
+	// Post-dispatch: script ran to completion via runScript → Execute →
+	// resumeOrFinish. With OpReturn as the sole body opcode, p.activeScript
+	// must be nil (no suspension occurred).
+	if p.activeScript != nil {
+		t.Errorf("activeScript = %+v, want nil (OpReturn body should finish synchronously)", p.activeScript)
+	}
+}
+
+func TestHandleClientCheat_Debugproc_UnknownScript_NoOp(t *testing.T) {
+	p, _, s := teleTestPlayer(t)
+	p.staffModLevel = 4
+	s.cfg.NodeProduction = false
+	s.cfg.NodeDebugprocChar = "~"
+
+	beforeActive := p.activeScript
+	dispatchTeleCheat(t, p, "~nonexistent")
+
+	if p.activeScript != beforeActive {
+		t.Errorf("activeScript changed; expected silent no-op on unknown script. before=%v after=%v",
+			beforeActive, p.activeScript)
+	}
+}
+
+func TestHandleClientCheat_Debugproc_GateMod3_NoDispatch(t *testing.T) {
+	p, _, s := teleTestPlayer(t)
+	p.staffModLevel = 3
+	s.cfg.NodeProduction = false
+	s.cfg.NodeDebugprocChar = "~"
+	_ = stageDebugprocScript(t, s, "ping", []byte{})
+
+	dispatchTeleCheat(t, p, "~ping")
+
+	if p.activeScript != nil {
+		t.Errorf("Gate failed: activeScript = %+v, want nil at staffModLevel=3", p.activeScript)
+	}
+}
+
+func TestHandleClientCheat_Debugproc_GateProd_NoDispatch(t *testing.T) {
+	p, _, s := teleTestPlayer(t)
+	p.staffModLevel = 4
+	s.cfg.NodeProduction = true
+	s.cfg.NodeDebugprocChar = "~"
+	_ = stageDebugprocScript(t, s, "ping", []byte{})
+
+	dispatchTeleCheat(t, p, "~ping")
+
+	if p.activeScript != nil {
+		t.Errorf("Gate failed: activeScript = %+v, want nil under NodeProduction=true", p.activeScript)
+	}
+}
+
+func TestHandleClientCheat_Debugproc_NonPrefix_FallsThroughToSwitch(t *testing.T) {
+	// Cohort-compatibility: a cheat without the debugproc-char prefix
+	// must fall through to the existing fixed-cmd switch. Use ::fly as
+	// the witness — it toggles p.moveStrategy, an observable side effect.
+	p, _, s := teleTestPlayer(t)
+	p.staffModLevel = 4
+	s.cfg.NodeProduction = false
+	s.cfg.NodeDebugprocChar = "~"
+
+	before := p.moveStrategy
+	dispatchTeleCheat(t, p, "fly")
+	if p.moveStrategy == before {
+		t.Errorf("fly cheat did not toggle moveStrategy; prefix branch may have eaten the dispatch. before=%v after=%v", before, p.moveStrategy)
+	}
+}
