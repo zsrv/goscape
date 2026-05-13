@@ -273,6 +273,100 @@ func TestReload_NotNodeDebug_DoesNotBroadcast(t *testing.T) {
 	}
 }
 
+func TestReload_ClearInvsTrue_RebuildsSharedInvs(t *testing.T) {
+	s := newTestServerWithCachePath(t, realCacheDir())
+	sentinel := &inventory.Inventory{}
+	s.invs = map[int]*inventory.Inventory{0xDEAD: sentinel}
+	if err := s.Reload(true); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
+	if _, leaked := s.invs[0xDEAD]; leaked {
+		t.Errorf("sentinel at id 0xDEAD leaked through clearInvs=true")
+	}
+	// Find any SCOPE_SHARED id in the real cache and assert it's populated.
+	sharedFound := false
+	for id, inv := range s.invTypes.Configs {
+		if inv == nil || inv.Scope != objtype.InvTypeScopeShared {
+			continue
+		}
+		if s.invs[id] == nil {
+			t.Errorf("SHARED inv id %d not populated post-reload", id)
+		}
+		sharedFound = true
+		break
+	}
+	if !sharedFound {
+		t.Skip("no SCOPE_SHARED inv in real cache; cannot pin")
+	}
+}
+
+func TestReload_ClearInvsFalse_LeavesInvsUntouched(t *testing.T) {
+	s := newTestServerWithCachePath(t, realCacheDir())
+	sentinel := &inventory.Inventory{}
+	s.invs = map[int]*inventory.Inventory{42: sentinel}
+	if err := s.Reload(false); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
+	if s.invs[42] != sentinel {
+		t.Errorf("clearInvs=false should leave existing invs untouched")
+	}
+}
+
+func TestReload_ClearInvsTrue_DeletesTempScopeFromPlayer(t *testing.T) {
+	s := newTestServerWithCachePath(t, realCacheDir())
+	// Suppress BroadcastMes → writeOut path; players[1] has no encryptor.
+	s.broadcastMesFunc = func(string) {}
+	if err := s.Reload(false); err != nil {
+		t.Fatalf("priming reload: %v", err)
+	}
+	tempID := -1
+	for id, inv := range s.invTypes.Configs {
+		if inv != nil && inv.Scope == objtype.InvTypeScopeTemp {
+			tempID = id
+			break
+		}
+	}
+	if tempID < 0 {
+		t.Skip("no SCOPE_TEMP inv in real cache")
+	}
+	p := &Player{invs: map[int]*inventory.Inventory{tempID: {}}}
+	s.players[1] = p
+	if err := s.Reload(true); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
+	if _, ok := p.invs[tempID]; ok {
+		t.Errorf("SCOPE_TEMP inv id %d not deleted from player.invs", tempID)
+	}
+}
+
+func TestReload_VarSharedStringSlot_PreservedAcrossReload(t *testing.T) {
+	s := newTestServerWithCachePath(t, realCacheDir())
+	if err := s.Reload(true); err != nil {
+		t.Fatalf("priming reload: %v", err)
+	}
+	if len(s.vars) == 0 {
+		t.Skip("no vars in real cache")
+	}
+	// Find a STRING-typed slot if any (those survive the clobber loop).
+	stringSlot := -1
+	for i, v := range s.varsTypes.Configs {
+		if v != nil && v.Type == objtype.ScriptVarTypeString {
+			stringSlot = i
+			break
+		}
+	}
+	if stringSlot < 0 {
+		t.Skip("no STRING vars in real cache; covered by unit test instead")
+	}
+	s.varsStrings[stringSlot] = "marker"
+	if err := s.Reload(true); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
+	if s.varsStrings[stringSlot] != "marker" {
+		t.Errorf("STRING var %d was clobbered: %q", stringSlot, s.varsStrings[stringSlot])
+	}
+}
+
 // copyCacheExcept copies all files from src to a t.TempDir, OMITTING
 // the listed relative paths.
 func copyCacheExcept(t *testing.T, src string, omit ...string) string {
