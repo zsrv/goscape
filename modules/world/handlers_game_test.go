@@ -585,6 +585,129 @@ func TestHandleClientCheat_Random_SetsAfkEventReady(t *testing.T) {
 	}
 }
 
+// --- NAI-188: ::speed dev-block cheat ---
+//
+// TS ClientCheatHandler.ts:154-167 ports to the dev block at
+// modules/world/handlers_game.go. Branch matrix:
+//   args == ""       → "Usage: ::speed <ms>"; no state change.
+//   parsed < 20      → "::speed input was too low."; no state change.
+//   parsed >= 20     → "World speed was changed to {ms}ms"; s.tickRate update.
+// Per spec §7.1, non-numeric arg traces to default 20 via parseIntOr
+// (TS tryParseInt fallback), which is >= floor → success at 20ms.
+// Negative numeric arg (-5) parses to -5, which is < 20 → "too low".
+
+func TestHandleClientCheat_Speed_EmptyArgs_EmitsUsageMessage(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 4
+	priorRate := s.tickRate
+
+	emitted1 := drainAfterTele(t, p, cc)
+	dispatchTeleCheat(t, p, "speed")
+	emitted2 := drainAfterTele(t, p, cc)
+	all := append(emitted1, emitted2...)
+
+	if !bytes.Contains(all, []byte("Usage: ::speed <ms>")) {
+		t.Errorf("missing 'Usage: ::speed <ms>' in emitted bytes")
+	}
+	if s.tickRate != priorRate {
+		t.Errorf("s.tickRate: got %v, want %v (unchanged on empty args)", s.tickRate, priorRate)
+	}
+}
+
+func TestHandleClientCheat_Speed_BelowFloor_EmitsTooLow(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 4
+	priorRate := s.tickRate
+
+	emitted1 := drainAfterTele(t, p, cc)
+	dispatchTeleCheat(t, p, "speed 19")
+	emitted2 := drainAfterTele(t, p, cc)
+	all := append(emitted1, emitted2...)
+
+	if !bytes.Contains(all, []byte("::speed input was too low.")) {
+		t.Errorf("missing '::speed input was too low.' in emitted bytes")
+	}
+	if s.tickRate != priorRate {
+		t.Errorf("s.tickRate: got %v, want %v (unchanged on too-low input)", s.tickRate, priorRate)
+	}
+}
+
+func TestHandleClientCheat_Speed_AtFloor_SetsTickRate(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 4
+
+	emitted1 := drainAfterTele(t, p, cc)
+	dispatchTeleCheat(t, p, "speed 20")
+	emitted2 := drainAfterTele(t, p, cc)
+	all := append(emitted1, emitted2...)
+
+	if !bytes.Contains(all, []byte("World speed was changed to 20ms")) {
+		t.Errorf("missing 'World speed was changed to 20ms' in emitted bytes")
+	}
+	want := 20 * time.Millisecond
+	if s.tickRate != want {
+		t.Errorf("s.tickRate after ::speed 20: got %v, want %v", s.tickRate, want)
+	}
+}
+
+func TestHandleClientCheat_Speed_AboveFloor_SetsTickRate(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 4
+
+	emitted1 := drainAfterTele(t, p, cc)
+	dispatchTeleCheat(t, p, "speed 100")
+	emitted2 := drainAfterTele(t, p, cc)
+	all := append(emitted1, emitted2...)
+
+	if !bytes.Contains(all, []byte("World speed was changed to 100ms")) {
+		t.Errorf("missing 'World speed was changed to 100ms' in emitted bytes")
+	}
+	want := 100 * time.Millisecond
+	if s.tickRate != want {
+		t.Errorf("s.tickRate after ::speed 100: got %v, want %v", s.tickRate, want)
+	}
+}
+
+func TestHandleClientCheat_Speed_NonNumeric_DefaultsTo20ms(t *testing.T) {
+	// Per spec §7.1: TS tryParseInt("banana", 20) returns 20 (the
+	// default), and 20 < 20 is false → success branch at 20ms.
+	// parseIntOr mirrors this exactly.
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 4
+
+	emitted1 := drainAfterTele(t, p, cc)
+	dispatchTeleCheat(t, p, "speed banana")
+	emitted2 := drainAfterTele(t, p, cc)
+	all := append(emitted1, emitted2...)
+
+	if !bytes.Contains(all, []byte("World speed was changed to 20ms")) {
+		t.Errorf("missing 'World speed was changed to 20ms' in emitted bytes (non-numeric traces to default 20)")
+	}
+	want := 20 * time.Millisecond
+	if s.tickRate != want {
+		t.Errorf("s.tickRate after ::speed banana: got %v, want %v", s.tickRate, want)
+	}
+}
+
+func TestHandleClientCheat_Speed_Negative_EmitsTooLow(t *testing.T) {
+	// Per spec §7.1: parseIntOr("-5", 20) == -5; -5 < 20 → "too low".
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 4
+	priorRate := s.tickRate
+
+	emitted1 := drainAfterTele(t, p, cc)
+	dispatchTeleCheat(t, p, "speed -5")
+	emitted2 := drainAfterTele(t, p, cc)
+	all := append(emitted1, emitted2...)
+
+	if !bytes.Contains(all, []byte("::speed input was too low.")) {
+		t.Errorf("missing '::speed input was too low.' in emitted bytes for negative input")
+	}
+	if s.tickRate != priorRate {
+		t.Errorf("s.tickRate: got %v, want %v (unchanged on negative input)", s.tickRate, priorRate)
+	}
+}
+
 // --- NAI-183: ::reboot / ::slowreboot dev-block dead-code pins ---
 
 // TS ClientCheatHandler.ts:360-373 places ::reboot and ::slowreboot

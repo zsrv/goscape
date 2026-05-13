@@ -426,6 +426,33 @@ func handleClientCheat(p *Player, payload []byte) error {
 		case "random":
 			// TS L184-186 — primes the AFK event for the next tick.
 			p.afkEventReady = true
+		case "speed":
+			// TS ClientCheatHandler.ts:154-167. NAI-188.
+			// Args layout: single positional integer (ms). Branches:
+			//   empty args  → "Usage: ::speed <ms>"; no state change.
+			//   parsed < 20 → "::speed input was too low."; no state change.
+			//   else        → "World speed was changed to {ms}ms"; mutate s.tickRate.
+			// Non-numeric arg: parseIntOr defaults to 20 → success at 20ms
+			// (mirrors TS tryParseInt fallback). Per spec §6, no lock — this
+			// runs on the tick goroutine, same as the loop that reads s.tickRate.
+			if args == "" {
+				p.MessageGame("Usage: ::speed <ms>")
+				return nil
+			}
+			// args.shift() in TS takes the first whitespace-delimited token;
+			// goscape's `args` is the post-first-space tail. Slice the first
+			// whitespace token to match.
+			first := args
+			if i := strings.IndexAny(args, " \t"); i >= 0 {
+				first = args[:i]
+			}
+			speed := parseIntOr(first, 20)
+			if speed < 20 {
+				p.MessageGame("::speed input was too low.")
+				return nil
+			}
+			p.MessageGame(fmt.Sprintf("World speed was changed to %dms", speed))
+			p.client.server.tickRate = time.Duration(speed) * time.Millisecond
 		}
 	}
 
