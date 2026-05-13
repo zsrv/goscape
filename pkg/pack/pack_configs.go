@@ -17,8 +17,7 @@ import (
 // saved only if at least one client-side branch fires.
 //
 // All three var-domain PackFiles are constructed up-front so the
-// cross-domain uniqueness check (which retires
-// NAI-192-D-VARP-UNIQUENESS-DEFERRED) has all three name maps
+// cross-domain uniqueness check has all three name maps
 // available. Each *.pack file is small (<1 KB); cost is fixed.
 //
 // NAI-193-D-PACKFILE-SINGLETONS-DEFERRED: TS uses module-level
@@ -48,8 +47,7 @@ func PackConfigs(srcDir, outDir string) error {
 	}
 
 	// Construct all three var-domain PackFiles up-front for the
-	// cross-domain uniqueness check (retires
-	// NAI-192-D-VARP-UNIQUENESS-DEFERRED).
+	// cross-domain uniqueness check across all three name maps.
 	varpPack, err := NewPackFile(srcDir, "varp", nil)
 	if err != nil {
 		return err
@@ -114,8 +112,8 @@ func PackConfigs(srcDir, outDir string) error {
 // ignored. Error message names the duplicated identifier and the
 // pack-type ("varp", "varn", "vars") of the first declaration.
 //
-// Retires NAI-192-D-VARP-UNIQUENESS-DEFERRED — varp is the third and
-// final of the var-name trio, so this check can land now.
+// First introduced in NAI-193 once varp landed as the third and final
+// of the var-name trio, enabling the full cross-domain name check.
 //
 // TS source: tools/pack/config/PackShared.ts:292-310.
 func checkVarNameUniqueness(pfs ...*PackFile) error {

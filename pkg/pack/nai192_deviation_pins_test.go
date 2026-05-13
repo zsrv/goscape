@@ -67,12 +67,9 @@ func TestNAI192_PackFileSingletonsDeferred_NoModuleLevelVarnPack(t *testing.T) {
 	}
 }
 
-// NAI-192-D-VARP-UNIQUENESS-DEFERRED: retired by NAI-193 T4 — the
-// checkVarNameUniqueness function now exists in pack_configs.go and is
-// wired into PackConfigs in T5. The pin test is deleted here rather than
-// T7 because the function definition (not yet called by the orchestrator)
-// already trips the raw strings.Contains scan. Positive-retirement pin
-// lands in nai193_deviation_pins_test.go (T7).
+// Cross-domain var-name uniqueness check landed in NAI-193 T4; the prior
+// absence-pin test is removed. Positive-retirement pin lives in
+// nai193_deviation_pins_test.go.
 
 // NAI-192-D-DEADBRANCH-OMITTED: parseVarnConfig / parseVarsConfig
 // source must NOT contain stringKeys / numberKeys / booleanKeys
