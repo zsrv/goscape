@@ -72,6 +72,12 @@ type Server struct {
 	// by checking the flag before returning fmt.Errorf. NAI-182.
 	shutdownGraceful bool
 
+	// tickRate is the per-tick sleep interval. Initialised to
+	// defaultTickRate by New(...); mutated at runtime by the
+	// ::speed dev-block cheat (NAI-188; mirrors TS World.tickRate).
+	// Read/written exclusively on the tick goroutine.
+	tickRate time.Duration
+
 	// gracefulExit is closed by Server.processShutdown to unblock
 	// Server.Run()'s errChan select. Distinct from s.quit (which is
 	// closed by Server.Shutdown() via the dskit stoppingFn) to avoid
@@ -200,6 +206,7 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 		rsbuf:         rsbuf.New(),
 		pmCount:       1,
 		shutdownTick:  -1,
+		tickRate:      defaultTickRate,
 		gracefulExit:  make(chan struct{}),
 	}
 	s.friendsBridge = noopBridges{}

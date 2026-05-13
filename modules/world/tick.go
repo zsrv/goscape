@@ -12,7 +12,11 @@ import (
 	"github.com/zsrv/goscape/pkg/script"
 )
 
-const tickRate = 600 * time.Millisecond
+// defaultTickRate is the canonical tick interval. Mirrors TS
+// World.TICKRATE (Engine-TS World.ts:120) = 600ms. The ::speed
+// dev-block cheat (NAI-188) writes Server.tickRate to a different
+// value at runtime.
+const defaultTickRate = 600 * time.Millisecond
 
 const (
 	timeoutNoResponse   = 100 // ticks = 60s at 600ms
@@ -20,7 +24,7 @@ const (
 )
 
 func (s *Server) runTickLoop() {
-	s.runTickLoopWithRate(tickRate)
+	s.runTickLoopWithRate(s.tickRate)
 }
 
 func (s *Server) runTickLoopWithRate(rate time.Duration) {

@@ -319,6 +319,7 @@ func newTestServer(t *testing.T) *Server {
 		rsbuf:          rsbuf.New(),
 		pmCount:        1,
 		shutdownTick:   -1,
+		tickRate:       defaultTickRate,
 		gracefulExit:   make(chan struct{}),
 	}
 	s.friendsBridge = noopBridges{}
