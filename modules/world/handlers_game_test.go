@@ -16,6 +16,7 @@ import (
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
+	"github.com/zsrv/goscape/pkg/script"
 	"github.com/zsrv/goscape/pkg/zone"
 )
 
@@ -2196,5 +2197,262 @@ func TestHandleClientCheat_AdminSpawn_StaffGateRejects(t *testing.T) {
 	if p.modalMain != startModalMain {
 		t.Errorf("staff<3 ::openmain should not open modal; modalMain = %d, want %d",
 			p.modalMain, startModalMain)
+	}
+}
+
+// stageDebugprocScript registers a [debugproc,<name>] runscript with the
+// given ParamTypes onto s.scriptProvider. The script body is a no-op
+// (single OpReturn) — debugproc tests assert against the marshaled
+// intArgs/stringArgs, not against script execution side-effects.
+//
+// Replaces s.scriptProvider entirely (rather than appending to the default
+// provider) so debugproc-specific fixtures don't compose with the
+// catch-all [opnpc1,_default] script seeded by newTestServer's
+// defaultTestProvider.
+func stageDebugprocScript(t *testing.T, s *Server, name string, paramTypes []byte) *script.ScriptFile {
+	t.Helper()
+	if s.scriptProvider == nil || s.scriptProvider.Count() == 0 {
+		s.scriptProvider = script.NewProvider()
+	}
+	sf := &script.ScriptFile{
+		Name:             "[debugproc," + name + "]",
+		LookupKey:        0xFFFFFFFF,
+		ParamTypes:       paramTypes,
+		Opcodes:          []script.Opcode{script.OpReturn},
+		IntOperands:      []int32{0},
+		StringOperands:   []string{""},
+		InstructionCount: 1,
+	}
+	s.scriptProvider.Register(sf)
+	return sf
+}
+
+// --- NAI-189: dispatchDebugproc arg marshalling ---
+
+func TestMarshalDebugprocArgs_String_Hit(t *testing.T) {
+	s := newTestServer(t)
+	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeString)})
+	intArgs, stringArgs := s.marshalDebugprocArgs(sf, "hello", "~test hello")
+	if len(intArgs) != 0 {
+		t.Errorf("intArgs len = %d, want 0", len(intArgs))
+	}
+	if len(stringArgs) != 1 || stringArgs[0] != "hello" {
+		t.Errorf("stringArgs = %+v, want [\"hello\"]", stringArgs)
+	}
+}
+
+func TestMarshalDebugprocArgs_String_Missing(t *testing.T) {
+	s := newTestServer(t)
+	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeString)})
+	_, stringArgs := s.marshalDebugprocArgs(sf, "", "~test")
+	if len(stringArgs) != 1 || stringArgs[0] != "" {
+		t.Errorf("missing-arg stringArgs = %+v, want [\"\"]", stringArgs)
+	}
+}
+
+func TestMarshalDebugprocArgs_Int_Hit(t *testing.T) {
+	s := newTestServer(t)
+	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeInt)})
+	intArgs, _ := s.marshalDebugprocArgs(sf, "42", "~test 42")
+	if len(intArgs) != 1 || intArgs[0] != 42 {
+		t.Errorf("intArgs = %+v, want [42]", intArgs)
+	}
+}
+
+func TestMarshalDebugprocArgs_Int_NonNumeric(t *testing.T) {
+	s := newTestServer(t)
+	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeInt)})
+	intArgs, _ := s.marshalDebugprocArgs(sf, "banana", "~test banana")
+	if len(intArgs) != 1 || intArgs[0] != 0 {
+		t.Errorf("non-numeric intArgs = %+v, want [0]", intArgs)
+	}
+}
+
+func TestMarshalDebugprocArgs_Int_Missing(t *testing.T) {
+	s := newTestServer(t)
+	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeInt)})
+	intArgs, _ := s.marshalDebugprocArgs(sf, "", "~test")
+	if len(intArgs) != 1 || intArgs[0] != 0 {
+		t.Errorf("missing intArgs = %+v, want [0]", intArgs)
+	}
+}
+
+func TestMarshalDebugprocArgs_Obj_Hit(t *testing.T) {
+	s := newTestServer(t)
+	s.objTypes = &objtype.ObjTypeConfigs{
+		Configs:     []*objtype.ObjType{{ConfigType: objtype.ConfigType{ID: 946, DebugName: "knife"}}},
+		ConfigNames: map[string]int{"knife": 0},
+	}
+	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeObj)})
+	intArgs, _ := s.marshalDebugprocArgs(sf, "knife", "~test knife")
+	if len(intArgs) != 1 || intArgs[0] != 946 {
+		t.Errorf("Obj_Hit intArgs = %+v, want [946]", intArgs)
+	}
+}
+
+func TestMarshalDebugprocArgs_Obj_Miss(t *testing.T) {
+	s := newTestServer(t)
+	s.objTypes = &objtype.ObjTypeConfigs{
+		Configs:     []*objtype.ObjType{},
+		ConfigNames: map[string]int{},
+	}
+	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeObj)})
+	intArgs, _ := s.marshalDebugprocArgs(sf, "unknown", "~test unknown")
+	if len(intArgs) != 1 || intArgs[0] != -1 {
+		t.Errorf("Obj_Miss intArgs = %+v, want [-1]", intArgs)
+	}
+}
+
+func TestMarshalDebugprocArgs_Namedobj_Hit(t *testing.T) {
+	s := newTestServer(t)
+	s.objTypes = &objtype.ObjTypeConfigs{
+		Configs:     []*objtype.ObjType{{ConfigType: objtype.ConfigType{ID: 7, DebugName: "knife"}}},
+		ConfigNames: map[string]int{"knife": 0},
+	}
+	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeNamedObj)})
+	intArgs, _ := s.marshalDebugprocArgs(sf, "knife", "~test knife")
+	if len(intArgs) != 1 || intArgs[0] != 7 {
+		t.Errorf("Namedobj_Hit intArgs = %+v, want [7]", intArgs)
+	}
+}
+
+func TestMarshalDebugprocArgs_Npc_Hit(t *testing.T) {
+	s := newTestServer(t)
+	s.npcTypes = &objtype.NPCTypeConfigs{
+		Configs:     []*objtype.NpcType{{ConfigType: objtype.ConfigType{ID: 11, DebugName: "man"}}},
+		ConfigNames: map[string]int{"man": 0},
+	}
+	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeNPC)})
+	intArgs, _ := s.marshalDebugprocArgs(sf, "man", "~test man")
+	if len(intArgs) != 1 || intArgs[0] != 11 {
+		t.Errorf("Npc_Hit intArgs = %+v, want [11]", intArgs)
+	}
+}
+
+func TestMarshalDebugprocArgs_Loc_Hit(t *testing.T) {
+	s := newTestServer(t)
+	s.locTypes = &objtype.LocTypeConfigs{
+		Configs:     []*objtype.LocType{{ConfigType: objtype.ConfigType{ID: 33, DebugName: "table_basic"}}},
+		ConfigNames: map[string]int{"table_basic": 0},
+	}
+	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeLoc)})
+	intArgs, _ := s.marshalDebugprocArgs(sf, "table_basic", "~test table_basic")
+	if len(intArgs) != 1 || intArgs[0] != 33 {
+		t.Errorf("Loc_Hit intArgs = %+v, want [33]", intArgs)
+	}
+}
+
+func TestMarshalDebugprocArgs_Seq_Hit(t *testing.T) {
+	s := newTestServer(t)
+	s.seqTypes = &objtype.SeqTypeConfigs{
+		Configs:     []*objtype.SeqType{{ConfigType: objtype.ConfigType{ID: 13, DebugName: "human_walk"}}},
+		ConfigNames: map[string]int{"human_walk": 0},
+	}
+	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeSeq)})
+	intArgs, _ := s.marshalDebugprocArgs(sf, "human_walk", "~test human_walk")
+	if len(intArgs) != 1 || intArgs[0] != 13 {
+		t.Errorf("Seq_Hit intArgs = %+v, want [13]", intArgs)
+	}
+}
+
+func TestMarshalDebugprocArgs_Stat_Hit(t *testing.T) {
+	s := newTestServer(t)
+	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeStat)})
+	intArgs, _ := s.marshalDebugprocArgs(sf, "attack", "~test attack")
+	if len(intArgs) != 1 || intArgs[0] != objtype.PlayerStatAttack {
+		t.Errorf("Stat_Hit intArgs = %+v, want [%d]", intArgs, objtype.PlayerStatAttack)
+	}
+}
+
+func TestMarshalDebugprocArgs_Stat_Miss(t *testing.T) {
+	s := newTestServer(t)
+	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeStat)})
+	intArgs, _ := s.marshalDebugprocArgs(sf, "unknown", "~test unknown")
+	if len(intArgs) != 1 || intArgs[0] != -1 {
+		t.Errorf("Stat_Miss intArgs = %+v, want [-1]", intArgs)
+	}
+}
+
+func TestMarshalDebugprocArgs_Inv_Hit(t *testing.T) {
+	s := newTestServer(t)
+	s.invTypes = &objtype.InvTypeConfigs{
+		Configs:     []*objtype.InvType{{ConfigType: objtype.ConfigType{ID: 93, DebugName: "inv"}}},
+		ConfigNames: map[string]int{"inv": 0},
+	}
+	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeInv)})
+	intArgs, _ := s.marshalDebugprocArgs(sf, "inv", "~test inv")
+	if len(intArgs) != 1 || intArgs[0] != 93 {
+		t.Errorf("Inv_Hit intArgs = %+v, want [93]", intArgs)
+	}
+}
+
+func TestMarshalDebugprocArgs_Interface_Hit(t *testing.T) {
+	s := newTestServer(t)
+	s.componentTypes = &objtype.ComponentTypeConfigs{
+		Configs:     []*objtype.ComponentType{{ConfigType: objtype.ConfigType{ID: 137, DebugName: "welcome_screen"}}},
+		ConfigNames: map[string]int{"welcome_screen": 0},
+	}
+	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeInterface)})
+	intArgs, _ := s.marshalDebugprocArgs(sf, "welcome_screen", "~test welcome_screen")
+	if len(intArgs) != 1 || intArgs[0] != 137 {
+		t.Errorf("Interface_Hit intArgs = %+v, want [137]", intArgs)
+	}
+}
+
+func TestMarshalDebugprocArgs_Spotanim_Hit(t *testing.T) {
+	s := newTestServer(t)
+	s.spotanimTypes = &objtype.SpotanimTypeConfigs{
+		Configs:     []*objtype.SpotanimType{{ConfigType: objtype.ConfigType{ID: 70, DebugName: "air_strike"}}},
+		ConfigNames: map[string]int{"air_strike": 0},
+	}
+	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeSpotanim)})
+	intArgs, _ := s.marshalDebugprocArgs(sf, "air_strike", "~test air_strike")
+	if len(intArgs) != 1 || intArgs[0] != 70 {
+		t.Errorf("Spotanim_Hit intArgs = %+v, want [70]", intArgs)
+	}
+}
+
+func TestMarshalDebugprocArgs_Idkit_Hit(t *testing.T) {
+	s := newTestServer(t)
+	s.idkTypes = &objtype.IdkTypeConfigs{
+		Configs:     []*objtype.IdkType{{ConfigType: objtype.ConfigType{ID: 256, DebugName: "arms"}}},
+		ConfigNames: map[string]int{"arms": 0},
+	}
+	sf := stageDebugprocScript(t, s, "test", []byte{byte(objtype.ScriptVarTypeIdkit)})
+	intArgs, _ := s.marshalDebugprocArgs(sf, "arms", "~test arms")
+	if len(intArgs) != 1 || intArgs[0] != 256 {
+		t.Errorf("Idkit_Hit intArgs = %+v, want [256]", intArgs)
+	}
+}
+
+func TestMarshalDebugprocArgs_MultipleArgsMixed(t *testing.T) {
+	s := newTestServer(t)
+	s.objTypes = &objtype.ObjTypeConfigs{
+		Configs:     []*objtype.ObjType{{ConfigType: objtype.ConfigType{ID: 946, DebugName: "knife"}}},
+		ConfigNames: map[string]int{"knife": 0},
+	}
+	sf := stageDebugprocScript(t, s, "mix", []byte{
+		byte(objtype.ScriptVarTypeString),
+		byte(objtype.ScriptVarTypeInt),
+		byte(objtype.ScriptVarTypeObj),
+	})
+	intArgs, stringArgs := s.marshalDebugprocArgs(sf, "hello 42 knife", "~mix hello 42 knife")
+	if len(stringArgs) != 1 || stringArgs[0] != "hello" {
+		t.Errorf("stringArgs = %+v, want [\"hello\"]", stringArgs)
+	}
+	if len(intArgs) != 2 || intArgs[0] != 42 || intArgs[1] != 946 {
+		t.Errorf("intArgs = %+v, want [42, 946]", intArgs)
+	}
+}
+
+func TestMarshalDebugprocArgs_EmptyParamTypes(t *testing.T) {
+	s := newTestServer(t)
+	sf := stageDebugprocScript(t, s, "noargs", []byte{})
+	intArgs, stringArgs := s.marshalDebugprocArgs(sf, "ignored", "~noargs ignored")
+	if len(intArgs) != 0 {
+		t.Errorf("intArgs = %+v, want []", intArgs)
+	}
+	if len(stringArgs) != 0 {
+		t.Errorf("stringArgs = %+v, want []", stringArgs)
 	}
 }
