@@ -18,6 +18,7 @@ import (
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/pathfinder/loc"
 	"github.com/zsrv/goscape/pkg/rsbuf"
+	"github.com/zsrv/goscape/pkg/script"
 )
 
 // gameHandlers is indexed by decrypted game opcode. Nil means no handler
@@ -341,6 +342,137 @@ func handleMessagePublic(p *Player, payload []byte) error {
 	msg := bytes.Clone(payload[2:])
 	p.Chat(color, effect, int(p.staffModLevel), msg)
 	return nil
+}
+
+// marshalDebugprocArgs walks sf.ParamTypes byte-by-byte, casts each to
+// objtype.ScriptVarType, and appends to intArgs or stringArgs per the
+// 12 TS arms in ClientCheatHandler.ts:69-140. Missing tokens degrade
+// per-TS-arm:
+//   - STRING → "" (TS `?? ''`)
+//   - INT → 0 (TS `parseInt(v ?? '0', 10) | 0`)
+//   - ByName-lookup arms → -1 (TS `getId('')` returns -1)
+//   - STAT → -1 (TS `PlayerStatMap.get(undefined)` returns undefined)
+//
+// The COORD arm re-parses rawCheat (TS L113-124); mirrored verbatim
+// in parseDebugprocCoord (see DEVIATION-NAI-189-D1-MIRROR-TS-COORD-FRAGILE,
+// landing in T7).
+//
+// NAI-189.
+func (s *Server) marshalDebugprocArgs(sf *script.ScriptFile, args string, rawCheat string) ([]int, []string) {
+	tokens := strings.Fields(args)
+	take := func() string {
+		if len(tokens) == 0 {
+			return ""
+		}
+		t := tokens[0]
+		tokens = tokens[1:]
+		return t
+	}
+
+	intArgs := make([]int, 0, len(sf.ParamTypes))
+	stringArgs := make([]string, 0, len(sf.ParamTypes))
+
+	for i := range len(sf.ParamTypes) {
+		switch objtype.ScriptVarType(sf.ParamTypes[i]) {
+		case objtype.ScriptVarTypeString:
+			stringArgs = append(stringArgs, take())
+		case objtype.ScriptVarTypeInt:
+			intArgs = append(intArgs, parseIntOr(take(), 0))
+		case objtype.ScriptVarTypeObj, objtype.ScriptVarTypeNamedObj:
+			if t := s.objTypes.ByName(take()); t != nil {
+				intArgs = append(intArgs, t.ID)
+			} else {
+				intArgs = append(intArgs, -1)
+			}
+		case objtype.ScriptVarTypeNPC:
+			if t := s.npcTypes.ByName(take()); t != nil {
+				intArgs = append(intArgs, t.ID)
+			} else {
+				intArgs = append(intArgs, -1)
+			}
+		case objtype.ScriptVarTypeLoc:
+			if t := s.locTypes.ByName(take()); t != nil {
+				intArgs = append(intArgs, t.ID)
+			} else {
+				intArgs = append(intArgs, -1)
+			}
+		case objtype.ScriptVarTypeSeq:
+			if t := s.seqTypes.ByName(take()); t != nil {
+				intArgs = append(intArgs, t.ID)
+			} else {
+				intArgs = append(intArgs, -1)
+			}
+		case objtype.ScriptVarTypeStat:
+			tok := strings.ToUpper(take())
+			if stat, ok := objtype.PlayerStatMap[tok]; ok {
+				intArgs = append(intArgs, stat)
+			} else {
+				intArgs = append(intArgs, -1)
+			}
+		case objtype.ScriptVarTypeInv:
+			if t := s.invTypes.ByName(take()); t != nil {
+				intArgs = append(intArgs, t.ID)
+			} else {
+				intArgs = append(intArgs, -1)
+			}
+		case objtype.ScriptVarTypeCoord:
+			// COORD arm: TS L113-124 re-parses the whole cheat string by
+			// underscore. Implementation deferred to Task 7. Stub returns -1.
+			// DEVIATION-NAI-189-D1-MIRROR-TS-COORD-FRAGILE will land in T7.
+			intArgs = append(intArgs, -1)
+		case objtype.ScriptVarTypeInterface:
+			if t := s.componentTypes.ByName(take()); t != nil {
+				intArgs = append(intArgs, t.ID)
+			} else {
+				intArgs = append(intArgs, -1)
+			}
+		case objtype.ScriptVarTypeSpotanim:
+			if t := s.spotanimTypes.ByName(take()); t != nil {
+				intArgs = append(intArgs, t.ID)
+			} else {
+				intArgs = append(intArgs, -1)
+			}
+		case objtype.ScriptVarTypeIdkit:
+			if t := s.idkTypes.ByName(take()); t != nil {
+				intArgs = append(intArgs, t.ID)
+			} else {
+				intArgs = append(intArgs, -1)
+			}
+		default:
+			// TS has no default; any unrecognised type leaves the slot at -1.
+			intArgs = append(intArgs, -1)
+		}
+	}
+
+	_ = rawCheat // reserved for T7 COORD arm; silence unused-var until then
+	return intArgs, stringArgs
+}
+
+// dispatchDebugproc resolves a [debugproc,X] script by name and dispatches
+// it via s.runScript with arguments marshaled per the script's ParamTypes.
+// Mirrors TS ClientCheatHandler.ts:59-148.
+//
+// cmd is the lowered first token of the cheat (already verified to start
+// with s.cfg.NodeDebugprocChar). args is the post-first-space tail.
+// rawCheat is the full lowered cheat string (needed by the COORD arm).
+//
+// TS-fidelity:
+//   - Unknown script name → silent return (TS L62-64 `return false`).
+//   - ByName misses → -1 in slot; dispatch continues (TS L74-139 swallow misses).
+//
+// NAI-189.
+func (s *Server) dispatchDebugproc(p *Player, cmd string, args string, rawCheat string) {
+	prefix := s.cfg.NodeDebugprocChar
+	if prefix == "" || len(cmd) <= len(prefix) || !strings.HasPrefix(cmd, prefix) {
+		return
+	}
+	name := cmd[len(prefix):]
+	sf := s.scriptProvider.GetByName("[debugproc," + name + "]")
+	if sf == nil {
+		return
+	}
+	intArgs, stringArgs := s.marshalDebugprocArgs(sf, args, rawCheat)
+	s.runScript(sf, p, nil, false, intArgs, stringArgs)
 }
 
 func handleClientCheat(p *Player, payload []byte) error {
