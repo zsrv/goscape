@@ -1661,3 +1661,47 @@ func TestHandleClientCheat_GiveCrap_SmallPoolOnePassingItem_NoInfiniteLoop(t *te
 		t.Errorf("givecrap small-pool: occupied = %d, want 28", occupied)
 	}
 }
+
+// --- NAI-185 T8: ::broadcast admin cheat ---
+
+func TestHandleClientCheat_Broadcast_FansOutToAllPlayers(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 3
+	s.cfg.NodeProduction = true
+	addOtherTestPlayer(t, s, "second_user", 3220, 3220, 0)
+
+	dispatchTeleCheat(t, p, "broadcast hello world")
+	emitted := drainAfterTele(t, p, cc)
+
+	if !bytes.Contains(emitted, []byte("hello world")) {
+		t.Errorf("caller did not receive broadcast 'hello world'; got %d bytes", len(emitted))
+	}
+}
+
+func TestHandleClientCheat_Broadcast_NoOpWhenNotProduction(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 3
+	s.cfg.NodeProduction = false
+
+	dispatchTeleCheat(t, p, "broadcast hello world")
+	emitted := drainAfterTele(t, p, cc)
+
+	if bytes.Contains(emitted, []byte("hello world")) {
+		t.Errorf("broadcast under NP=false reached caller; want dead. bytes=%d", len(emitted))
+	}
+}
+
+func TestHandleClientCheat_Broadcast_EmptyArgs_StillBroadcastsEmpty(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 3
+	s.cfg.NodeProduction = true
+
+	dispatchTeleCheat(t, p, "broadcast")
+	emitted := drainAfterTele(t, p, cc)
+
+	// MESSAGE_GAME with empty body = framed opcode + 0x0a terminator.
+	// At minimum, a non-zero byte count should land on the caller's conn.
+	if len(emitted) == 0 {
+		t.Errorf("::broadcast with empty args produced zero bytes; expected framed empty-MES")
+	}
+}

@@ -743,6 +743,17 @@ func handleClientCheat(p *Player, payload []byte) error {
 					break
 				}
 			}
+		case "broadcast":
+			// TS L353-359. NP-gated via inner break. broadcast <message>.
+			// DEVIATION-NAI-185-D1-DEAD-GUARD: TS L355 `args.length < 0`
+			// is unreachable (array length is non-negative); not ported.
+			// TS uses cheat.substring(cmd.length+1); goscape uses `args`
+			// (already the post-first-space remainder of the lowercased
+			// input) — semantically identical for any single-token cmd.
+			if !p.client.server.cfg.NodeProduction {
+				break
+			}
+			p.client.server.BroadcastMes(args)
 		}
 	}
 
