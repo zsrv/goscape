@@ -2009,3 +2009,69 @@ func TestHandleClientCheat_Openmain_UnknownName_NoOp(t *testing.T) {
 		t.Errorf("unknown ::openmain mutated modalMain: %d → %d", startMain, p.modalMain)
 	}
 }
+
+// TestHandleClientCheat_AdminSpawn_StaffGateRejects pins the NAI-187
+// admin-tier gate: at p.staffModLevel = 2 (mod tier), none of the
+// three NAI-187 cheats fire. Mirrors the NAI-185 _Give_AdminGate
+// pattern. Three sub-assertions, one fixture.
+func TestHandleClientCheat_AdminSpawn_StaffGateRejects(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 2 // below admin tier
+	go io.Copy(io.Discard, cc)
+
+	// Seed all three config tables with valid named entries so the
+	// gate is the only thing that can reject. If the gate were absent,
+	// each cheat would mutate world state with these fixtures.
+	const locName = "gate_test_loc"
+	const npcName = "gate_test_npc"
+	const comName = "gate_test_com"
+	const locID, npcID, comID = 42, 41, 100
+
+	s.locTypes = &objtype.LocTypeConfigs{
+		Configs: []*objtype.LocType{{
+			ConfigType: objtype.ConfigType{ID: locID, DebugName: locName},
+			Width:      1,
+			Length:     1,
+		}},
+		ConfigNames: map[string]int{locName: 0},
+	}
+	s.npcTypes = &objtype.NPCTypeConfigs{
+		Configs:     make([]*objtype.NpcType, 100),
+		ConfigNames: map[string]int{npcName: npcID},
+	}
+	s.npcTypes.Configs[npcID] = &objtype.NpcType{
+		ConfigType:  objtype.ConfigType{ID: npcID, DebugName: npcName},
+		Size:        1,
+		RespawnRate: 100,
+		HuntMode:    -1,
+		BlockWalk:   objtype.BlockWalkNone,
+	}
+	s.componentTypes = &objtype.ComponentTypeConfigs{
+		Configs:     make([]*objtype.ComponentType, 200),
+		ConfigNames: map[string]int{comName: comID},
+	}
+	s.componentTypes.Configs[comID] = &objtype.ComponentType{
+		ConfigType: objtype.ConfigType{ID: comID, DebugName: comName},
+		RootLayer:  comID,
+	}
+
+	startNpcCount := len(s.npcLoop)
+	startModalMain := p.modalMain
+
+	dispatchTeleCheat(t, p, "locadd "+locName)
+	dispatchTeleCheat(t, p, "npcadd "+npcName)
+	dispatchTeleCheat(t, p, "openmain "+comName)
+
+	z := s.zoneMap.Get(p.level, p.x, p.z)
+	if len(z.Locs) != 0 {
+		t.Errorf("staff<3 ::locadd should not spawn; zone had %d locs", len(z.Locs))
+	}
+	if len(s.npcLoop) != startNpcCount {
+		t.Errorf("staff<3 ::npcadd should not spawn; npcLoop len = %d, want %d",
+			len(s.npcLoop), startNpcCount)
+	}
+	if p.modalMain != startModalMain {
+		t.Errorf("staff<3 ::openmain should not open modal; modalMain = %d, want %d",
+			p.modalMain, startModalMain)
+	}
+}
