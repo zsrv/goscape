@@ -15,6 +15,7 @@ import (
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
 // gameHandlers is indexed by decrypted game opcode. Nil means no handler
@@ -833,6 +834,26 @@ func handleClientCheat(p *Player, payload []byte) error {
 			sendUnsetMapFlag(p)
 			p.waypointIndex = -1
 			p.TeleJump(other.x, other.z, other.level)
+		case "setvis":
+			// TS ClientCheatHandler.ts:549-568 — ::setvis <level>.
+			// NodeProduction-gated. NAI-186.
+			if !p.client.server.cfg.NodeProduction {
+				return nil
+			}
+			if args == "" {
+				return nil
+			}
+			sub := strings.SplitN(args, " ", 2)
+			switch sub[0] {
+			case "0":
+				p.SetVisibility(rsbuf.VisibilityDefault)
+			case "1":
+				p.SetVisibility(rsbuf.VisibilitySoft)
+			case "2":
+				p.SetVisibility(rsbuf.VisibilityHard)
+			default:
+				return nil
+			}
 		}
 	}
 
