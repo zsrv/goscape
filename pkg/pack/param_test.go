@@ -2,6 +2,8 @@ package pack
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -554,5 +556,136 @@ func TestPackParamConfigs_EmptyClientFaithful(t *testing.T) {
 	want := []byte{0x00, 0x03, 0x00, 0x00, 0x00}
 	if !bytes.Equal(client.Dat.Data, want) {
 		t.Fatalf("empty-client violated: got % x, want % x", client.Dat.Data, want)
+	}
+}
+
+// TestParamPacker_LoaderRoundTrip binds end-to-end byte-format parity
+// through the production loader for 4 primitives + 1 typed-id, plus
+// the AutoDisable default-true fix (T1).
+func TestParamPacker_LoaderRoundTrip(t *testing.T) {
+	ClearFsCache()
+	srcDir := t.TempDir()
+	outDir := t.TempDir()
+
+	scriptsDir := filepath.Join(srcDir, "scripts")
+	packDir := filepath.Join(srcDir, "pack")
+	if err := os.MkdirAll(scriptsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(packDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// .param source — 5 slots.
+	writeFile(t, filepath.Join(scriptsDir, "test.param"), `[int_p]
+type=int
+default=42
+
+[str_p]
+type=string
+default=hello
+
+[bool_p]
+type=boolean
+default=yes
+autodisable=no
+
+[coord_p]
+type=coord
+default=0_50_50_32_32
+
+[npc_p]
+type=npc
+default=man
+autodisable=yes
+`)
+
+	// param.pack — slot order is load-bearing.
+	writeFile(t, filepath.Join(packDir, "param.pack"), `0=int_p
+1=str_p
+2=bool_p
+3=coord_p
+4=npc_p
+`)
+
+	// npc.pack — single entry.
+	writeFile(t, filepath.Join(packDir, "npc.pack"), "0=man\n")
+
+	// Stub the other 11 typed packs + var-domain packs.
+	for _, kind := range []string{"varp", "varn", "vars", "enum", "obj", "loc", "interface", "struct", "category", "spotanim", "inv", "synth", "seq", "dbrow"} {
+		writeFile(t, filepath.Join(packDir, kind+".pack"), "")
+	}
+
+	if err := PackConfigs(srcDir, outDir); err != nil {
+		t.Fatalf("PackConfigs: %v", err)
+	}
+
+	ptc, err := objtype.LoadParamTypes(outDir)
+	if err != nil {
+		t.Fatalf("LoadParamTypes: %v", err)
+	}
+	if got, want := len(ptc.Configs), 5; got != want {
+		t.Fatalf("len(Configs): got %d, want %d", got, want)
+	}
+
+	// Slot 0: int_p — type=INT, default=42, autodisable default-true.
+	c0 := ptc.Configs[0]
+	if got, want := c0.DebugName, "int_p"; got != want {
+		t.Errorf("c0.DebugName: got %q, want %q", got, want)
+	}
+	if got, want := c0.Type, objtype.ScriptVarTypeInt; got != want {
+		t.Errorf("c0.Type: got %d, want %d", got, want)
+	}
+	if got, want := c0.DefaultInt, int32(42); got != want {
+		t.Errorf("c0.DefaultInt: got %d, want %d", got, want)
+	}
+	if !c0.AutoDisable {
+		t.Errorf("c0.AutoDisable: got false, want true (default-true per T1)")
+	}
+
+	// Slot 1: str_p — type=STRING, default="hello", autodisable default-true.
+	c1 := ptc.Configs[1]
+	if got, want := c1.Type, objtype.ScriptVarTypeString; got != want {
+		t.Errorf("c1.Type: got %d, want %d", got, want)
+	}
+	if got, want := c1.DefaultString, "hello"; got != want {
+		t.Errorf("c1.DefaultString: got %q, want %q", got, want)
+	}
+	if !c1.AutoDisable {
+		t.Errorf("c1.AutoDisable: got false, want true")
+	}
+
+	// Slot 2: bool_p — type=BOOLEAN, default=yes→1, autodisable=no → AutoDisable=false.
+	c2 := ptc.Configs[2]
+	if got, want := c2.Type, objtype.ScriptVarTypeBoolean; got != want {
+		t.Errorf("c2.Type: got %d, want %d", got, want)
+	}
+	if got, want := c2.DefaultInt, int32(1); got != want {
+		t.Errorf("c2.DefaultInt: got %d, want %d", got, want)
+	}
+	if c2.AutoDisable {
+		t.Errorf("c2.AutoDisable: got true, want false (opcode 4 emitted)")
+	}
+
+	// Slot 3: coord_p — type=COORD, default=PackCoord(0, 50*64+32, 50*64+32).
+	c3 := ptc.Configs[3]
+	if got, want := c3.Type, objtype.ScriptVarTypeCoord; got != want {
+		t.Errorf("c3.Type: got %d, want %d", got, want)
+	}
+	wantCoord := int32((3232) | (3232 << 14))
+	if got := c3.DefaultInt; got != wantCoord {
+		t.Errorf("c3.DefaultInt: got %d, want %d", got, wantCoord)
+	}
+
+	// Slot 4: npc_p — type=NPC, default="man"→0, autodisable=yes → AutoDisable=true.
+	c4 := ptc.Configs[4]
+	if got, want := c4.Type, objtype.ScriptVarTypeNPC; got != want {
+		t.Errorf("c4.Type: got %d, want %d", got, want)
+	}
+	if got, want := c4.DefaultInt, int32(0); got != want {
+		t.Errorf("c4.DefaultInt: got %d, want %d", got, want)
+	}
+	if !c4.AutoDisable {
+		t.Errorf("c4.AutoDisable: got false, want true")
 	}
 }
