@@ -1,6 +1,7 @@
 package world
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"github.com/zsrv/goscape/pkg/cache"
 	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/inventory"
+	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -451,6 +453,76 @@ func TestReload_MidPipelineLoaderError_LeavesHalfSwapped_SkipPin(t *testing.T) {
 		t.Errorf("expected post-step-3 swap to have taken effect before step-5 failure")
 	}
 	t.Skip("DEVIATION-NAI-190-D2-HALF-SWAP: half-swap is the documented contract; this test pins the observed shape but does not enforce it across future refactors.")
+}
+
+// --- NAI-190 T9: ::reload cheat integration tests ---
+
+// TestHandleClientCheat_Reload_Dispatches pins that the "reload" case in the
+// dev-block fixed-cmd switch calls (*Server).Reload(true) and, when NodeDebug
+// is true, broadcasts the success "Loaded N scripts." message.
+// TS ClientCheatHandler.ts:149-150.
+func TestHandleClientCheat_Reload_Dispatches(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	s := newTestServerWithCachePath(t, realCacheDir())
+	p.client.server = s
+	s.cfg.NodeDebug = true
+	s.cfg.NodeProduction = false
+	p.staffModLevel = 4
+	var captured []string
+	s.broadcastMesFunc = func(msg string) { captured = append(captured, msg) }
+
+	// dispatchCheat sends 1 ctrlHeld byte + GJStrLF("reload") — no "::" prefix
+	// (the Java client strips it before sending; TS doc L524).
+	dispatchCheat(t, p, "reload")
+
+	if len(captured) == 0 {
+		t.Fatal("::reload did not broadcast (cheat not wired or Reload failed)")
+	}
+	if !strings.HasPrefix(captured[len(captured)-1], "Loaded ") {
+		t.Errorf("expected success broadcast; got %q", captured[len(captured)-1])
+	}
+}
+
+// TestHandleClientCheat_Reload_ErrorPath_LogsAndPrivateMes pins that when
+// (*Server).Reload returns an error, handleClientCheat swallows it (returns
+// nil) and sends a private MessageGame("Reload failed: ...") to the player.
+func TestHandleClientCheat_Reload_ErrorPath_LogsAndPrivateMes(t *testing.T) {
+	p, conn := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	s.cfg.CachePath = t.TempDir() // empty dir → all loaders fail
+	s.cfg.NodeProduction = false
+	p.staffModLevel = 4
+	// encryptor required: MessageGame → writeOut → c.encryptor.GetNext()
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	received := drainConn(t, conn)
+	dispatchCheat(t, p, "reload")
+	p.client.flushWrite()
+	out := <-received
+
+	if !bytes.Contains(out, []byte("Reload failed")) {
+		t.Errorf("expected private 'Reload failed' message; got %q", out)
+	}
+}
+
+// TestHandleClientCheat_Reload_DefaultsClearInvsTrue pins that the cheat
+// always passes clearInvs=true to Reload (TS L149-150 default). A sentinel
+// inventory in s.invs must be absent after the call.
+func TestHandleClientCheat_Reload_DefaultsClearInvsTrue(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	s := newTestServerWithCachePath(t, realCacheDir())
+	p.client.server = s
+	s.cfg.NodeProduction = false
+	p.staffModLevel = 4
+	sentinel := &inventory.Inventory{}
+	s.invs = map[int]*inventory.Inventory{0xCAFE: sentinel}
+
+	dispatchCheat(t, p, "reload")
+
+	if _, leaked := s.invs[0xCAFE]; leaked {
+		t.Errorf("::reload should default clearInvs=true (sentinel at 0xCAFE leaked)")
+	}
 }
 
 // copyCacheExcept copies all files from src to a t.TempDir, OMITTING

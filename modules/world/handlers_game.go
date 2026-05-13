@@ -642,6 +642,17 @@ func handleClientCheat(p *Player, payload []byte) error {
 			}
 			p.MessageGame(fmt.Sprintf("World speed was changed to %dms", speed))
 			p.client.server.tickRate = time.Duration(speed) * time.Millisecond
+		case "reload":
+			// TS ClientCheatHandler.ts:149-150 — World.reload() default
+			// clearInvs=true. NAI-190.
+			if err := p.client.server.Reload(true); err != nil {
+				// TS dispatches via try/catch on uncaught throws; goscape
+				// surfaces explicitly. DEVIATION-NAI-190-D2-HALF-SWAP
+				// documents the half-swap risk on post-step-3 errors.
+				p.client.server.log.Error("reload cheat failed", "err", err)
+				p.MessageGame("Reload failed: see server log.")
+			}
+			return nil
 		}
 	}
 
