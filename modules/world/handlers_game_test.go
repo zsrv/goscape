@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/gamemap"
@@ -1534,5 +1535,129 @@ func TestHandleClientCheat_GiveOther_CountClampsToMin1(t *testing.T) {
 	inv := s.invLookup.Get(other, invID)
 	if got := countSlots(inv, objID); got != 1 {
 		t.Errorf("after giveother target test_obj 0: countSlots = %d, want 1 (count clamp)", got)
+	}
+}
+
+// --- NAI-185 T7: ::givecrap admin cheat ---
+
+// givecrapFixture seeds objTypes with a controlled pool that exercises
+// every filter branch. Pool composition:
+//   id=0  nil (filter must skip)
+//   id=1  pass (members=false, dummy=0, cert=-1)
+//   id=2  pass (members=false, dummy=0, cert=-1)
+//   id=3  fail-members (members=true)
+//   id=4  fail-dummy   (dummyitem=1)
+//   id=5  fail-cert    (certtemplate=10)
+//
+// Non-stackable so each invocation occupies a fresh slot.
+func givecrapFixture(t *testing.T, nodeMembers bool) (*Player, *Server, int) {
+	t.Helper()
+	p, _, s := teleTestPlayer(t)
+	p.staffModLevel = 3
+	s.cfg.NodeMembers = nodeMembers
+	invID := mustSetupTestInv(t, s, 0, 28)
+	s.invTypes.Inv = invID
+	s.objTypes = &objtype.ObjTypeConfigs{
+		Configs: []*objtype.ObjType{
+			nil,
+			{ConfigType: objtype.ConfigType{ID: 1, DebugName: "pass1"}, CertTemplate: -1},
+			{ConfigType: objtype.ConfigType{ID: 2, DebugName: "pass2"}, CertTemplate: -1},
+			{ConfigType: objtype.ConfigType{ID: 3, DebugName: "members"}, Members: true, CertTemplate: -1},
+			{ConfigType: objtype.ConfigType{ID: 4, DebugName: "dummy"}, DummyItem: 1, CertTemplate: -1},
+			{ConfigType: objtype.ConfigType{ID: 5, DebugName: "cert"}, CertTemplate: 10},
+		},
+	}
+	return p, s, invID
+}
+
+func TestHandleClientCheat_GiveCrap_AddsTwentyEightFilteredItems(t *testing.T) {
+	p, s, invID := givecrapFixture(t, false /* NodeMembers=false */)
+
+	dispatchTeleCheat(t, p, "givecrap")
+
+	inv := s.invLookup.Get(p, invID)
+	if inv == nil {
+		t.Fatalf("invLookup.Get(p, invID) = nil")
+	}
+	// 28 non-stackable items → 28 occupied slots.
+	occupied := 0
+	for _, it := range inv.Items {
+		if it == nil {
+			continue
+		}
+		occupied++
+		// With NodeMembers=false, only id=1 or id=2 should appear.
+		if it.Id != 1 && it.Id != 2 {
+			t.Errorf("givecrap (F2P) slot has filtered-out id=%d", it.Id)
+		}
+	}
+	if occupied != 28 {
+		t.Errorf("givecrap occupied slots = %d, want 28", occupied)
+	}
+}
+
+func TestHandleClientCheat_GiveCrap_MembersWorld_NoCertOrDummy(t *testing.T) {
+	p, s, invID := givecrapFixture(t, true /* NodeMembers=true */)
+
+	dispatchTeleCheat(t, p, "givecrap")
+
+	inv := s.invLookup.Get(p, invID)
+	if inv == nil {
+		t.Fatalf("invLookup.Get(p, invID) = nil")
+	}
+	// Members items (id=3) become eligible; dummy (id=4) and cert (id=5)
+	// stay filtered. Pin invariant: no dummy/cert slots.
+	for _, it := range inv.Items {
+		if it == nil {
+			continue
+		}
+		if it.Id == 4 || it.Id == 5 {
+			t.Errorf("givecrap (members world) has dummy/cert id=%d", it.Id)
+		}
+	}
+}
+
+func TestHandleClientCheat_GiveCrap_SmallPoolOnePassingItem_NoInfiniteLoop(t *testing.T) {
+	// Pool with exactly one passing item among 5. The retry loop must
+	// terminate within a 2s budget. A real infinite loop would hang
+	// past the deadline and t.Fatal the run.
+	p, _, s := teleTestPlayer(t)
+	p.staffModLevel = 3
+	s.cfg.NodeMembers = false
+	invID := mustSetupTestInv(t, s, 0, 28)
+	s.invTypes.Inv = invID
+	s.objTypes = &objtype.ObjTypeConfigs{
+		Configs: []*objtype.ObjType{
+			{ConfigType: objtype.ConfigType{ID: 0, DebugName: "pass"}, CertTemplate: -1},
+			{ConfigType: objtype.ConfigType{ID: 1, DebugName: "members"}, Members: true, CertTemplate: -1},
+			{ConfigType: objtype.ConfigType{ID: 2, DebugName: "dummy"}, DummyItem: 1, CertTemplate: -1},
+			{ConfigType: objtype.ConfigType{ID: 3, DebugName: "cert"}, CertTemplate: 10},
+			{ConfigType: objtype.ConfigType{ID: 4, DebugName: "members2"}, Members: true, CertTemplate: -1},
+		},
+	}
+
+	done := make(chan struct{})
+	go func() {
+		dispatchTeleCheat(t, p, "givecrap")
+		close(done)
+	}()
+	select {
+	case <-done:
+		// ok
+	case <-time.After(2 * time.Second):
+		t.Fatal("givecrap did not terminate within 2s on small-pool fixture")
+	}
+	inv := s.invLookup.Get(p, invID)
+	if inv == nil {
+		t.Fatalf("invLookup.Get(p, invID) = nil")
+	}
+	occupied := 0
+	for _, it := range inv.Items {
+		if it != nil {
+			occupied++
+		}
+	}
+	if occupied != 28 {
+		t.Errorf("givecrap small-pool: occupied = %d, want 28", occupied)
 	}
 }

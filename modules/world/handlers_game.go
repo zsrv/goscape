@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"math"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"runtime/pprof"
@@ -718,6 +719,30 @@ func handleClientCheat(p *Player, payload []byte) error {
 				}
 			}
 			other.InvAdd(p.client.server.invTypes.Inv, objType.ID, count, false)
+		case "givecrap":
+			// TS L323-338. Not NP-gated. Fills inventory with 28
+			// random items filtered by NodeMembers + DummyItem + CertTemplate.
+			// Retry-loop matches TS `while (random === -1)`.
+			for i := 0; i < 28; i++ {
+				for {
+					id := rand.IntN(len(p.client.server.objTypes.Configs))
+					obj := p.client.server.objTypes.Configs[id]
+					if obj == nil {
+						continue
+					}
+					if !p.client.server.cfg.NodeMembers && obj.Members {
+						continue
+					}
+					if obj.DummyItem != 0 {
+						continue
+					}
+					if obj.CertTemplate != -1 {
+						continue
+					}
+					p.InvAdd(p.client.server.invTypes.Inv, id, 1, false)
+					break
+				}
+			}
 		}
 	}
 
