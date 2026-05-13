@@ -1,6 +1,8 @@
 package world
 
 import (
+	"fmt"
+
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
@@ -77,4 +79,158 @@ func reconcileInvs(serverInvs map[int]*inventory.Inventory, players []*Player, i
 	}
 	_ = serverInvs // input is the pre-reconcile map; we discard it (TS L222: this.invs.clear())
 	return fresh
+}
+
+// Reload re-loads all type-configs, scripts, CRCs, and preloaded client
+// assets from cfg.CachePath. Mirrors TS World.reload at World.ts:206-292.
+//
+// Callers: (1) handleClientCheat ::reload (always clearInvs=true);
+// (2) future friends-server inbound RELAY_RELOAD relay (clearInvs=false;
+// TS World.ts:2036 — caller absent at NAI-190; signature preserves the
+// parameter for the eventual wire-up).
+//
+// Runs synchronously on the tick goroutine (memory
+// plan_race_tag_for_cross_goroutine_test); no locks acquired. Tick
+// spike during cache reload matches TS's blocking-main-thread posture.
+//
+// DEVIATIONs:
+//   - D1-GAMEMAP-RE-INJECT: step 11 re-injects loc/obj types into the
+//     GameMap (TS reads package singletons; goscape goes through setters).
+//   - D2-HALF-SWAP: post-step-3 mid-pipeline errors leave s.* partially
+//     mutated. TS-parity (TS does not roll back). No rollback path.
+//   - D3-CANDIDATE-VARSHARED-CLOBBER: see resizeVarShared.
+//   - D4-NO-CATEGORYTYPES: goscape has no CategoryType loader (see
+//     pkg/script/handlers_npc.go:105-110); TS L216 has no goscape
+//     analog. Reload omits this loader.
+//
+// NAI-190.
+func (s *Server) Reload(clearInvs bool) error {
+	cachePath := s.cfg.CachePath
+
+	// ─── Step 1: load pre-inv registries into locals ───
+	varpTypes_, err := objtype.LoadVarpTypes(cachePath)
+	if err != nil {
+		return fmt.Errorf("reload: varp types: %w", err)
+	}
+	params_, err := objtype.LoadParams(cachePath)
+	if err != nil {
+		return fmt.Errorf("reload: params: %w", err)
+	}
+	objTypes_, err := objtype.LoadObjTypes(cachePath, params_)
+	if err != nil {
+		return fmt.Errorf("reload: obj types: %w", err)
+	}
+	locTypes_, err := objtype.LoadLocTypes(cachePath)
+	if err != nil {
+		return fmt.Errorf("reload: loc types: %w", err)
+	}
+	npcTypes_, err := objtype.LoadNPCTypes(cachePath)
+	if err != nil {
+		return fmt.Errorf("reload: npc types: %w", err)
+	}
+	idkTypes_, err := objtype.LoadIdkTypes(cachePath)
+	if err != nil {
+		return fmt.Errorf("reload: idk types: %w", err)
+	}
+	seqFrames_, err := objtype.LoadSeqFrames(cachePath)
+	if err != nil {
+		return fmt.Errorf("reload: seq frames: %w", err)
+	}
+	seqTypes_, err := objtype.LoadSeqTypes(cachePath, seqFrames_)
+	if err != nil {
+		return fmt.Errorf("reload: seq types: %w", err)
+	}
+	spotanim_, err := objtype.LoadSpotanimTypes(cachePath)
+	if err != nil {
+		return fmt.Errorf("reload: spotanim types: %w", err)
+	}
+	// D4-NO-CATEGORYTYPES: TS L216 has no goscape analog. Skip.
+	enumTypes_, err := objtype.LoadEnumTypes(cachePath)
+	if err != nil {
+		return fmt.Errorf("reload: enum types: %w", err)
+	}
+	structTypes_, err := objtype.LoadStructTypes(cachePath)
+	if err != nil {
+		return fmt.Errorf("reload: struct types: %w", err)
+	}
+
+	// ─── Step 2: load InvType ───
+	invTypes_, err := objtype.LoadInvTypes(cachePath)
+	if err != nil {
+		return fmt.Errorf("reload: inv types: %w", err)
+	}
+
+	// ─── Step 3: atomic swap of pre-inv registries ───
+	s.varpTypes = varpTypes_
+	s.paramTypes = params_
+	s.objTypes = objTypes_
+	s.locTypes = locTypes_
+	s.npcTypes = npcTypes_
+	s.idkTypes = idkTypes_
+	s.seqTypes = seqTypes_
+	s.spotanimTypes = spotanim_
+	s.enumTypes = enumTypes_
+	s.structTypes = structTypes_
+	s.invTypes = invTypes_
+
+	// ─── Step 4: clearInvs reconcile ───
+	if clearInvs {
+		s.invs = reconcileInvs(s.invs, s.players[:], s.invTypes)
+	}
+
+	// ─── Step 5: load post-inv configs ───
+	mesanim_, err := objtype.LoadMesanimTypes(cachePath)
+	if err != nil {
+		return fmt.Errorf("reload: mesanim types: %w", err)
+	}
+	dbTable_, err := objtype.LoadDbTableTypes(cachePath)
+	if err != nil {
+		return fmt.Errorf("reload: dbtable types: %w", err)
+	}
+	dbRow_, err := objtype.LoadDbRowTypes(cachePath)
+	if err != nil {
+		return fmt.Errorf("reload: dbrow types: %w", err)
+	}
+	huntTypes_, err := objtype.LoadHuntTypes(cachePath)
+	if err != nil {
+		return fmt.Errorf("reload: hunt types: %w", err)
+	}
+	varnTypes_, err := objtype.LoadVarnTypes(cachePath)
+	if err != nil {
+		return fmt.Errorf("reload: varn types: %w", err)
+	}
+	varsTypes_, err := objtype.LoadVarsTypes(cachePath)
+	if err != nil {
+		return fmt.Errorf("reload: vars types: %w", err)
+	}
+
+	// ─── Step 6: swap post-inv registries ───
+	s.mesanimTypes = mesanim_
+	s.dbTableTypes = dbTable_
+	s.dbRowTypes = dbRow_
+	s.dbTableIndex = objtype.BuildDbTableIndex(dbTable_, dbRow_)
+	s.huntTypes = huntTypes_
+	s.varnTypes = varnTypes_
+	s.varsTypes = varsTypes_
+
+	// ─── Step 7: VarShared resize ───
+	s.vars, s.varsStrings = resizeVarShared(s.vars, s.varsStrings, s.varsTypes.Configs)
+
+	// ─── Step 8: load + swap Component ───
+	componentTypes_, err := objtype.LoadComponentTypes(cachePath)
+	if err != nil {
+		return fmt.Errorf("reload: component types: %w", err)
+	}
+	s.componentTypes = componentTypes_
+
+	// ─── Step 9: reload scripts + broadcast result ───
+	// (Implemented in T5.)
+
+	// ─── Step 10: CRC regen + client preload ───
+	// (Implemented in T7.)
+
+	// ─── Step 11: GameMap re-injection (D1) ───
+	// (Implemented in T7.)
+
+	return nil
 }

@@ -1,11 +1,86 @@
 package world
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
+
+// realCacheDir returns the path to the project-root data/pack directory.
+// Tests run from modules/world/ so the cache is two levels up.
+func realCacheDir() string {
+	return filepath.Join("..", "..", "data", "pack")
+}
+
+func TestReload_FreshLoad_PopulatesAllRegistries(t *testing.T) {
+	s := newTestServerWithCachePath(t, realCacheDir())
+	if err := s.Reload(true); err != nil {
+		t.Fatalf("Reload returned err: %v", err)
+	}
+	if s.paramTypes == nil || len(s.paramTypes.Configs) == 0 {
+		t.Errorf("paramTypes empty post-reload")
+	}
+	if s.objTypes == nil || len(s.objTypes.Configs) == 0 {
+		t.Errorf("objTypes empty post-reload")
+	}
+	if s.locTypes == nil || len(s.locTypes.Configs) == 0 {
+		t.Errorf("locTypes empty post-reload")
+	}
+	if s.npcTypes == nil || len(s.npcTypes.Configs) == 0 {
+		t.Errorf("npcTypes empty post-reload")
+	}
+	if s.invTypes == nil || len(s.invTypes.Configs) == 0 {
+		t.Errorf("invTypes empty post-reload")
+	}
+	if s.varpTypes == nil || s.varsTypes == nil || s.varnTypes == nil {
+		t.Errorf("var*Types empty post-reload")
+	}
+	if s.enumTypes == nil || s.structTypes == nil {
+		t.Errorf("enum/struct types empty post-reload")
+	}
+	if s.seqTypes == nil || s.spotanimTypes == nil || s.idkTypes == nil {
+		t.Errorf("seq/spotanim/idk types empty post-reload")
+	}
+	if s.mesanimTypes == nil || s.dbTableTypes == nil || s.dbRowTypes == nil || s.dbTableIndex == nil {
+		t.Errorf("mesanim/dbtable/dbrow/dbtableindex empty post-reload")
+	}
+	if s.huntTypes == nil || s.componentTypes == nil {
+		t.Errorf("hunt/component types empty post-reload")
+	}
+}
+
+func TestReload_PreservesIdentitySwap(t *testing.T) {
+	s := newTestServerWithCachePath(t, realCacheDir())
+	if err := s.Reload(true); err != nil {
+		t.Fatalf("first Reload: %v", err)
+	}
+	objBefore := s.objTypes
+	locBefore := s.locTypes
+	if err := s.Reload(true); err != nil {
+		t.Fatalf("second Reload: %v", err)
+	}
+	if s.objTypes == objBefore {
+		t.Errorf("s.objTypes pointer unchanged across reloads (expected fresh instance)")
+	}
+	if s.locTypes == locBefore {
+		t.Errorf("s.locTypes pointer unchanged across reloads (expected fresh instance)")
+	}
+}
+
+// newTestServerWithCachePath builds a fresh Server using the real
+// objtype loaders against cachePath. Mirrors NewServer's loader
+// sequence (modules/world/server.go) minus tick / TCP setup.
+// Used only by reload tests that need a fully-populated registry set.
+func newTestServerWithCachePath(t *testing.T, cachePath string) *Server {
+	t.Helper()
+	s := newTestServer(t)
+	s.cfg.CachePath = cachePath
+	s.cfg.NodeDebug = true
+	s.gamemap = nil // reload's GameMap re-injection step is gated on s.gamemap != nil; tested separately in T7
+	return s
+}
 
 func TestResizeVarShared_CountUnchanged_ReturnsInputs(t *testing.T) {
 	oldVars := []int32{10, 20, 30}
