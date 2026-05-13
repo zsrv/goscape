@@ -134,3 +134,25 @@ func parseSpotanimTypes(server *packet.Packet, clientJag *io.Jagfile) (*Spotanim
 
 	return &SpotanimTypeConfigs{ConfigNames: configNames, Configs: configs}, nil
 }
+
+// ByName returns the SpotanimType matching the given debugname, or nil
+// if no match exists. Mirrors TS SpotanimType.getByName. Uses the
+// ConfigNames index built at load time — O(1) on name-indexed configs,
+// O(N) linear-scan fallback for test fixtures or stale indices.
+// Consumed by dispatchDebugproc in modules/world/handlers_game.go (NAI-189).
+func (c *SpotanimTypeConfigs) ByName(name string) *SpotanimType {
+	if c == nil {
+		return nil
+	}
+	if id, ok := c.ConfigNames[name]; ok {
+		if id >= 0 && id < len(c.Configs) {
+			return c.Configs[id]
+		}
+	}
+	for _, t := range c.Configs {
+		if t != nil && t.DebugName == name {
+			return t
+		}
+	}
+	return nil
+}
