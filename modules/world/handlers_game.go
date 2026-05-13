@@ -875,6 +875,25 @@ func handleClientCheat(p *Player, payload []byte) error {
 			}
 			p.client.server.loginBridgeMod.NotifyPlayerBan(p.username, username, time.Now().Add(time.Duration(minutes)*time.Minute))
 			p.MessageGame(fmt.Sprintf("Player '%s' has been banned for %d minutes.", username, minutes))
+		case "mute":
+			// TS ClientCheatHandler.ts:582-594 — ::mute <username> <minutes>.
+			// NodeProduction-gated. Calls World.notifyPlayerMute with
+			// staff=p.username. NAI-186.
+			if !p.client.server.cfg.NodeProduction {
+				return nil
+			}
+			sub := strings.SplitN(args, " ", 2)
+			if len(sub) < 2 || sub[0] == "" {
+				p.MessageGame("Usage: ::mute <username> <minutes>")
+				return nil
+			}
+			username := sub[0]
+			minutes := parseIntOr(sub[1], 60)
+			if minutes < 0 {
+				minutes = 0
+			}
+			p.client.server.loginBridgeMod.NotifyPlayerMute(p.username, username, time.Now().Add(time.Duration(minutes)*time.Minute))
+			p.MessageGame(fmt.Sprintf("Player '%s' has been muted for %d minutes.", username, minutes))
 		}
 	}
 

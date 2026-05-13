@@ -270,3 +270,104 @@ func TestBanDispatchNodeProductionGate(t *testing.T) {
 		t.Errorf("MessageGame: no message expected; got %q", out)
 	}
 }
+
+// TestMuteDispatchHappy pins TS L582-594 ::mute <username> <minutes>.
+func TestMuteDispatchHappy(t *testing.T) {
+	p, cc, _, rec := supermodSetup(t)
+	before := time.Now()
+	received := drainConn(t, cc)
+	dispatchCheat(t, p, "mute bob 30")
+	p.client.flushWrite()
+	out := <-received
+
+	if len(rec.loginMod) != 1 {
+		t.Fatalf("loginMod: got %d calls, want 1", len(rec.loginMod))
+	}
+	got := rec.loginMod[0]
+	if got.method != "NotifyPlayerMute" {
+		t.Errorf("method: got %q, want NotifyPlayerMute", got.method)
+	}
+	if got.staff != "alice" {
+		t.Errorf("staff: got %q, want alice", got.staff)
+	}
+	if got.username != "bob" {
+		t.Errorf("username: got %q, want bob", got.username)
+	}
+	wantUntil := before.Add(30 * time.Minute)
+	if diff := got.until.Sub(wantUntil); diff < -5*time.Second || diff > 5*time.Second {
+		t.Errorf("until off by %v from now+30m", diff)
+	}
+	if !bytes.Contains(out, []byte("Player 'bob' has been muted for 30 minutes.")) {
+		t.Errorf("MessageGame: missing ack; got %q", out)
+	}
+}
+
+func TestMuteDispatchUsage(t *testing.T) {
+	p, cc, _, rec := supermodSetup(t)
+	received := drainConn(t, cc)
+	dispatchCheat(t, p, "mute bob")
+	p.client.flushWrite()
+	out := <-received
+
+	if len(rec.loginMod) != 0 {
+		t.Errorf("loginMod: got %d calls, want 0", len(rec.loginMod))
+	}
+	if !bytes.Contains(out, []byte("Usage: ::mute <username> <minutes>")) {
+		t.Errorf("MessageGame: missing usage; got %q", out)
+	}
+}
+
+func TestMuteDispatchUnparseableMinutes(t *testing.T) {
+	p, cc, _, rec := supermodSetup(t)
+	before := time.Now()
+	received := drainConn(t, cc)
+	dispatchCheat(t, p, "mute bob abc")
+	p.client.flushWrite()
+	out := <-received
+
+	if len(rec.loginMod) != 1 {
+		t.Fatalf("loginMod: got %d, want 1", len(rec.loginMod))
+	}
+	wantUntil := before.Add(60 * time.Minute)
+	if diff := rec.loginMod[0].until.Sub(wantUntil); diff < -5*time.Second || diff > 5*time.Second {
+		t.Errorf("until off by %v from now+60m default", diff)
+	}
+	if !bytes.Contains(out, []byte("Player 'bob' has been muted for 60 minutes.")) {
+		t.Errorf("MessageGame: missing 60-minute ack; got %q", out)
+	}
+}
+
+func TestMuteDispatchNegativeClamp(t *testing.T) {
+	p, cc, _, rec := supermodSetup(t)
+	before := time.Now()
+	received := drainConn(t, cc)
+	dispatchCheat(t, p, "mute bob -5")
+	p.client.flushWrite()
+	out := <-received
+
+	if len(rec.loginMod) != 1 {
+		t.Fatalf("loginMod: got %d, want 1", len(rec.loginMod))
+	}
+	if diff := rec.loginMod[0].until.Sub(before); diff < -5*time.Second || diff > 5*time.Second {
+		t.Errorf("until off by %v from now (0-min clamp)", diff)
+	}
+	if !bytes.Contains(out, []byte("Player 'bob' has been muted for 0 minutes.")) {
+		t.Errorf("MessageGame: missing 0-minute ack; got %q", out)
+	}
+}
+
+func TestMuteDispatchNodeProductionGate(t *testing.T) {
+	p, cc, s, rec := supermodSetup(t)
+	s.cfg.NodeProduction = false
+	received := drainConn(t, cc)
+	dispatchCheat(t, p, "mute bob 30")
+	p.client.flushWrite()
+	out := <-received
+
+	if len(rec.loginMod) != 0 {
+		t.Errorf("loginMod: got %d, want 0", len(rec.loginMod))
+	}
+	if len(out) != 0 {
+		t.Errorf("MessageGame: no message expected; got %q", out)
+	}
+}
