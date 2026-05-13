@@ -1914,3 +1914,98 @@ func TestHandleClientCheat_Npcadd_EmptyArgs_NoOp(t *testing.T) {
 			len(s.npcLoop), startNpcCount)
 	}
 }
+
+// TestHandleClientCheat_Openmain_OpensMainModal pins TS L464-476.
+// Resolves ComponentType by debugname; gate type.rootLayer === type.id
+// passes only for root layers; routes through p.OpenMain which sets
+// modalMain, clears modalChat/Side, sets modalState=modalStateMain,
+// sets refreshModal=true.
+func TestHandleClientCheat_Openmain_OpensMainModal(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 3
+	go io.Copy(io.Discard, cc)
+	const comName = "test_dialogue_root"
+	const comID = 100
+
+	s.componentTypes = &objtype.ComponentTypeConfigs{
+		Configs:     make([]*objtype.ComponentType, 200),
+		ConfigNames: map[string]int{comName: comID},
+	}
+	s.componentTypes.Configs[comID] = &objtype.ComponentType{
+		ConfigType: objtype.ConfigType{ID: comID, DebugName: comName},
+		RootLayer:  comID, // root: rootLayer == id passes the gate
+	}
+
+	// Seed an open chat/side modal so we can verify OpenMain clears them.
+	p.modalChat = 999
+	p.modalSide = 888
+	p.modalState = modalStateChat | modalStateSide
+	p.refreshModal = false
+
+	dispatchTeleCheat(t, p, "openmain "+comName)
+
+	if p.modalMain != comID {
+		t.Errorf("modalMain = %d, want %d", p.modalMain, comID)
+	}
+	if p.modalChat != -1 {
+		t.Errorf("modalChat = %d, want -1 (cleared by OpenMain)", p.modalChat)
+	}
+	if p.modalSide != -1 {
+		t.Errorf("modalSide = %d, want -1 (cleared by OpenMain)", p.modalSide)
+	}
+	if p.modalState != modalStateMain {
+		t.Errorf("modalState = %d, want modalStateMain (%d)", p.modalState, modalStateMain)
+	}
+	if !p.refreshModal {
+		t.Error("refreshModal = false, want true")
+	}
+}
+
+// TestHandleClientCheat_Openmain_NonRoot_NoOp pins TS L472 rootLayer
+// guard: a component whose rootLayer != id (i.e. a child layer) is
+// rejected without opening any modal.
+func TestHandleClientCheat_Openmain_NonRoot_NoOp(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 3
+	go io.Copy(io.Discard, cc)
+	const comName = "test_child_layer"
+	const comID = 101
+
+	s.componentTypes = &objtype.ComponentTypeConfigs{
+		Configs:     make([]*objtype.ComponentType, 200),
+		ConfigNames: map[string]int{comName: comID},
+	}
+	s.componentTypes.Configs[comID] = &objtype.ComponentType{
+		ConfigType: objtype.ConfigType{ID: comID, DebugName: comName},
+		RootLayer:  50, // child: rootLayer != id fails the gate
+	}
+
+	startMain := p.modalMain
+	startState := p.modalState
+
+	dispatchTeleCheat(t, p, "openmain "+comName)
+
+	if p.modalMain != startMain {
+		t.Errorf("non-root ::openmain mutated modalMain: %d → %d", startMain, p.modalMain)
+	}
+	if p.modalState != startState {
+		t.Errorf("non-root ::openmain mutated modalState: %d → %d", startState, p.modalState)
+	}
+}
+
+// TestHandleClientCheat_Openmain_UnknownName_NoOp pins TS L472 nil
+// guard: an unknown debugname → no modal change.
+func TestHandleClientCheat_Openmain_UnknownName_NoOp(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 3
+	go io.Copy(io.Discard, cc)
+
+	s.componentTypes = &objtype.ComponentTypeConfigs{Configs: make([]*objtype.ComponentType, 0)}
+	startMain := p.modalMain
+
+	dispatchTeleCheat(t, p, "openmain absent_name")
+
+	if p.modalMain != startMain {
+		t.Errorf("unknown ::openmain mutated modalMain: %d → %d", startMain, p.modalMain)
+	}
+}

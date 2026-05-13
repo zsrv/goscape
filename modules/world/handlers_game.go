@@ -588,6 +588,22 @@ func handleClientCheat(p *Player, payload []byte) error {
 			n := NewNpc(0 /* placeholder; allocated inside addNpc */, nt.ID, p.x, p.z, p.level, nt)
 			n.lifecycle = NpcLifecycleDespawn
 			_ = p.client.server.addNpc(n, 500, true)
+		case "openmain":
+			// TS L464-476 — admin interface routing. Resolves
+			// ComponentType by debugname, gates on rootLayer == id
+			// (only root layers can be main modals), routes through
+			// p.OpenMain (which closes chat + side modals and sets
+			// refreshModal per TS Player.openMainModal modal-mutex).
+			// TS L476: player.openMainModal(type.id).
+			if args == "" {
+				return nil
+			}
+			name := strings.Fields(args)[0]
+			ct := p.client.server.componentTypes.ByName(name)
+			if ct == nil || ct.RootLayer != ct.ID {
+				return nil
+			}
+			p.OpenMain(ct.ID)
 		case "teleother":
 			// TS L377-400 — teleother <username> (production-only via
 			// outer arm selector; goscape mirrors with inner NP gate).
