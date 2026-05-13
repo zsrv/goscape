@@ -29,6 +29,11 @@ func NewProvider() *Provider {
 
 // Load reads script.dat and script.idx from cacheDir, validates the compiler
 // version, decodes every non-empty entry, and populates the lookup tables.
+// Returns the count of successfully-decoded scripts (mirrors TS
+// ScriptProvider.load return shape), or -1 with a non-nil error on
+// top-level file-read or version-mismatch failure. Per-script decode
+// failures are logged via slog and counted as a skipped entry (NOT
+// reflected in the returned count). NAI-190.
 //
 // cacheDir is typically "data/pack/server" relative to the project root.
 //
@@ -39,30 +44,30 @@ func NewProvider() *Provider {
 // The script.idx format is:
 //
 //	[u32 entryCount (ignored)][u32 size_0][u32 size_1]...
-func (p *Provider) Load(cacheDir string) error {
+func (p *Provider) Load(cacheDir string) (int, error) {
 	datPath := filepath.Join(cacheDir, "script.dat")
 	idxPath := filepath.Join(cacheDir, "script.idx")
 
 	dat, err := os.ReadFile(datPath)
 	if err != nil {
-		return fmt.Errorf("script.Load: read dat: %w", err)
+		return -1, fmt.Errorf("script.Load: read dat: %w", err)
 	}
 	idx, err := os.ReadFile(idxPath)
 	if err != nil {
-		return fmt.Errorf("script.Load: read idx: %w", err)
+		return -1, fmt.Errorf("script.Load: read idx: %w", err)
 	}
 
 	if len(dat) < 8 {
-		return fmt.Errorf("script.Load: dat file too short (%d bytes)", len(dat))
+		return -1, fmt.Errorf("script.Load: dat file too short (%d bytes)", len(dat))
 	}
 	if len(idx) < 4 {
-		return fmt.Errorf("script.Load: idx file too short (%d bytes)", len(idx))
+		return -1, fmt.Errorf("script.Load: idx file too short (%d bytes)", len(idx))
 	}
 
 	entryCount := int(binary.BigEndian.Uint32(dat[0:4]))
 	version := int(binary.BigEndian.Uint32(dat[4:8]))
 	if version != CompilerVersion {
-		return fmt.Errorf("script.Load: compiler version mismatch: got %d, want %d", version, CompilerVersion)
+		return -1, fmt.Errorf("script.Load: compiler version mismatch: got %d, want %d", version, CompilerVersion)
 	}
 
 	// idx: first 4 bytes = entryCount (skip), then u32 per entry.
@@ -102,7 +107,13 @@ func (p *Provider) Load(cacheDir string) error {
 		}
 	}
 
-	return nil
+	count := 0
+	for _, f := range p.scripts {
+		if f != nil {
+			count++
+		}
+	}
+	return count, nil
 }
 
 // GetByTrigger performs the TS-standard three-step lookup for a trigger + type/category:

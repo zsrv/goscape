@@ -355,9 +355,11 @@ func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Serv
 	s.componentTypes = componentTypes
 
 	s.scriptProvider = script.NewProvider()
-	if err := s.scriptProvider.Load(filepath.Join(cfg.CachePath, "server")); err != nil {
+	if count, err := s.scriptProvider.Load(filepath.Join(cfg.CachePath, "server")); err != nil {
 		s.log.Warn("script provider load failed; scripts will not run", "err", err)
 		s.scriptProvider = nil
+	} else {
+		s.log.Info("script provider loaded", "count", count)
 	}
 
 	for _, spawn := range s.gamemap.NpcSpawns() {

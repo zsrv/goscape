@@ -108,7 +108,7 @@ func nai128CacheFixture(t *testing.T) (*Server, string) {
 
 	// Real script provider — replaces the stub from newTestServer.
 	provider := script.NewProvider()
-	if err := provider.Load(filepath.Join(cacheDir, "server")); err != nil {
+	if _, err := provider.Load(filepath.Join(cacheDir, "server")); err != nil {
 		t.Fatalf("provider.Load: %v", err)
 	}
 	s.scriptProvider = provider

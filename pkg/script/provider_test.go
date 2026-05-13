@@ -50,7 +50,7 @@ func TestProviderRejectsVersionMismatch(t *testing.T) {
 	}
 
 	p := NewProvider()
-	err := p.Load(dir)
+	_, err := p.Load(dir)
 	if err == nil {
 		t.Fatal("expected error for version mismatch, got nil")
 	}
@@ -63,7 +63,7 @@ func TestProviderLoadRealCache(t *testing.T) {
 	}
 
 	p := NewProvider()
-	if err := p.Load(cacheDir); err != nil {
+	if _, err := p.Load(cacheDir); err != nil {
 		t.Fatalf("Load real cache: %v", err)
 	}
 	if p.Count() == 0 {
@@ -151,7 +151,7 @@ func TestProviderByNameUnique(t *testing.T) {
 	}
 
 	p := NewProvider()
-	if err := p.Load(dir); err != nil {
+	if _, err := p.Load(dir); err != nil {
 		t.Fatalf("Load: %v", err)
 	}
 
@@ -243,6 +243,44 @@ func TestGetByTriggerSpecificMissingReturnsNil(t *testing.T) {
 	p := NewProvider() // empty
 	if got := p.GetByTriggerSpecific(TriggerChangeStat, 0, -1); got != nil {
 		t.Errorf("empty provider: got %v, want nil", got)
+	}
+}
+
+func TestProviderLoad_ReturnsCountOfDecodedScripts(t *testing.T) {
+	dir := t.TempDir()
+
+	blob1 := buildTrivialScript("[proc,a]", 0xFFFFFFFF)
+	blob2 := buildTrivialScript("[proc,b]", 0xFFFFFFFF)
+	blob3 := buildTrivialScript("[proc,c]", 0xFFFFFFFF)
+
+	dat := buildFakeDat(CompilerVersion, [][]byte{blob1, blob2, blob3})
+	idx := buildFakeIdx([]int{len(blob1), len(blob2), len(blob3)})
+
+	if err := os.WriteFile(filepath.Join(dir, "script.dat"), dat, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "script.idx"), idx, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	p := NewProvider()
+	count, err := p.Load(dir)
+	if err != nil {
+		t.Fatalf("Load returned err: %v", err)
+	}
+	if count != 3 {
+		t.Errorf("count: got %d, want 3", count)
+	}
+}
+
+func TestProviderLoad_ReturnsMinusOneOnReadError(t *testing.T) {
+	p := NewProvider()
+	count, err := p.Load(t.TempDir()) // empty dir → script.dat ReadFile fails
+	if err == nil {
+		t.Fatal("Load expected to return error on missing dat")
+	}
+	if count != -1 {
+		t.Errorf("count: got %d, want -1 on top-level error", count)
 	}
 }
 
