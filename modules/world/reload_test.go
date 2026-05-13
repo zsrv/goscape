@@ -1,11 +1,14 @@
 package world
 
 import (
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/script"
 )
 
 // realCacheDir returns the path to the project-root data/pack directory.
@@ -218,4 +221,87 @@ func makeInvConfigs(n int, scopes map[int]int) []*objtype.InvType {
 		configs[id].Scope = scope
 	}
 	return configs
+}
+
+func TestReload_ScriptCount_NodeDebug_SuccessBroadcast(t *testing.T) {
+	s := newTestServerWithCachePath(t, realCacheDir())
+	s.cfg.NodeDebug = true
+	var captured []string
+	s.broadcastMesFunc = func(msg string) { captured = append(captured, msg) }
+	if err := s.Reload(true); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
+	if len(captured) == 0 {
+		t.Fatal("expected broadcast on NodeDebug=true success path")
+	}
+	last := captured[len(captured)-1]
+	if !strings.HasPrefix(last, "Loaded ") || !strings.HasSuffix(last, " scripts.") {
+		t.Errorf("broadcast: got %q, want \"Loaded N scripts.\"", last)
+	}
+}
+
+// To exercise the scripts-failure-only branch, we need a cache where
+// every loader except scripts succeeds. Copy real cache without
+// server/script.{dat,idx}.
+func TestReload_ScriptCount_NodeDebug_FailureBroadcast_PartialCache(t *testing.T) {
+	cacheDir := copyCacheExcept(t, realCacheDir(), "server/script.dat", "server/script.idx")
+	s := newTestServerWithCachePath(t, cacheDir)
+	s.cfg.NodeDebug = true
+	s.scriptProvider = script.NewProvider()
+	var captured []string
+	s.broadcastMesFunc = func(msg string) { captured = append(captured, msg) }
+	_ = s.Reload(true) // earlier loaders succeed; only scripts.Load fails
+	if len(captured) == 0 {
+		t.Fatal("expected broadcast on NodeDebug=true script-failure path")
+	}
+	last := captured[len(captured)-1]
+	if last != "There was an issue while reloading scripts." {
+		t.Errorf("broadcast: got %q, want failure message", last)
+	}
+}
+
+func TestReload_NotNodeDebug_DoesNotBroadcast(t *testing.T) {
+	s := newTestServerWithCachePath(t, realCacheDir())
+	s.cfg.NodeDebug = false
+	var captured []string
+	s.broadcastMesFunc = func(msg string) { captured = append(captured, msg) }
+	if err := s.Reload(true); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
+	if len(captured) != 0 {
+		t.Errorf("NodeDebug=false should not broadcast; got %v", captured)
+	}
+}
+
+// copyCacheExcept copies all files from src to a t.TempDir, OMITTING
+// the listed relative paths.
+func copyCacheExcept(t *testing.T, src string, omit ...string) string {
+	t.Helper()
+	dst := t.TempDir()
+	omitSet := make(map[string]bool)
+	for _, p := range omit {
+		omitSet[p] = true
+	}
+	err := filepath.Walk(src, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		rel, _ := filepath.Rel(src, path)
+		if omitSet[rel] {
+			return nil
+		}
+		target := filepath.Join(dst, rel)
+		if info.IsDir() {
+			return os.MkdirAll(target, 0o755)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(target, data, 0o644)
+	})
+	if err != nil {
+		t.Fatalf("copyCacheExcept: %v", err)
+	}
+	return dst
 }

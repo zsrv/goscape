@@ -2,9 +2,11 @@ package world
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/script"
 )
 
 // resizeVarShared mirrors TS World.reload's VarSharedType resize block
@@ -80,6 +82,16 @@ func reconcileInvs(players []*Player, invTypes *objtype.InvTypeConfigs) map[int]
 		}
 	}
 	return fresh
+}
+
+// broadcast routes through the optional capture hook (test-injected)
+// or falls back to Server.BroadcastMes (production).
+func (s *Server) broadcast(msg string) {
+	if s.broadcastMesFunc != nil {
+		s.broadcastMesFunc(msg)
+		return
+	}
+	s.BroadcastMes(msg)
 }
 
 // Reload re-loads all type-configs, scripts, CRCs, and preloaded client
@@ -224,8 +236,25 @@ func (s *Server) Reload(clearInvs bool) error {
 	}
 	s.componentTypes = componentTypes_
 
-	// ─── Step 9: reload scripts + broadcast result ───
-	// (Implemented in T5.)
+	// ─── Step 9: reload scripts + broadcast result (TS L272-285) ───
+	serverDir := filepath.Join(cachePath, "server")
+	if s.scriptProvider == nil {
+		s.scriptProvider = script.NewProvider()
+	}
+	count, scriptErr := s.scriptProvider.Load(serverDir)
+	if s.cfg.NodeDebug {
+		if scriptErr != nil {
+			s.broadcast("There was an issue while reloading scripts.")
+		} else {
+			s.broadcast(fmt.Sprintf("Loaded %d scripts.", count))
+		}
+	} else {
+		if scriptErr != nil {
+			s.log.Error("script reload failed", "err", scriptErr)
+		} else {
+			s.log.Debug("scripts reloaded", "count", count)
+		}
+	}
 
 	// ─── Step 10: CRC regen + client preload ───
 	// (Implemented in T7.)

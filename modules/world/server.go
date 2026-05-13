@@ -165,6 +165,12 @@ type Server struct {
 
 	testPathfinder pathfinderForTarget // injected by tests; nil in production
 
+	// broadcastMesFunc is the broadcast sink for Server.BroadcastMes-style
+	// fanouts. Production wiring (nil) routes to BroadcastMes; tests
+	// override to capture without exercising the player connection layer.
+	// NAI-190.
+	broadcastMesFunc func(msg string)
+
 	// pmCount is the monotonic counter feeding the low 16 bits of the
 	// pmId stamped on each FriendThread private_message payload.
 	// Mirrors TS World.pmCount. Used only by nextPmId (NAI-158).
