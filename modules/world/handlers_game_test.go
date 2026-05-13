@@ -1334,3 +1334,36 @@ func TestHandleClientCheat_SetVarOther_BusyMessageGoesToCaller(t *testing.T) {
 	}
 }
 
+func TestHandleClientCheat_GetVar_HappyPath_MessagesValue(t *testing.T) {
+	p, cc, _ := setvarTestFixture(t)
+	p.varps[0] = 42
+
+	dispatchTeleCheat(t, p, "getvar transmit_only")
+	emitted := drainAfterTele(t, p, cc)
+
+	if !bytes.Contains(emitted, []byte("get transmit_only: 42")) {
+		t.Errorf("expected 'get transmit_only: 42' in emitted bytes; got %d bytes", len(emitted))
+	}
+}
+
+func TestHandleClientCheat_GetVar_MissingArg_Rejects(t *testing.T) {
+	p, cc, _ := setvarTestFixture(t)
+
+	dispatchTeleCheat(t, p, "getvar")
+	emitted := drainAfterTele(t, p, cc)
+
+	if bytes.Contains(emitted, []byte("get ")) {
+		t.Errorf("missing-arg getvar emitted 'get '; want silent reject. bytes=%d", len(emitted))
+	}
+}
+
+func TestHandleClientCheat_GetVar_UnknownName_SilentReject(t *testing.T) {
+	p, cc, _ := setvarTestFixture(t)
+
+	dispatchTeleCheat(t, p, "getvar no_such_var")
+	emitted := drainAfterTele(t, p, cc)
+
+	if len(emitted) != 0 {
+		t.Errorf("unknown-name getvar emitted %d bytes; want silent reject", len(emitted))
+	}
+}

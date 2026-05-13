@@ -648,6 +648,18 @@ func handleClientCheat(p *Player, payload []byte) error {
 			}
 			other.SetVarp(cfg.ID, int32(value))
 			p.MessageGame(fmt.Sprintf("set %s: to %d on %s", cfg.DebugName, value, other.username))
+		case "getvar":
+			// TS L253-267. Not NP-gated. getvar <name> → caller gets
+			// `get <debugname>: <value>` where value is p.Varp(id) (0
+			// for unset).
+			if args == "" {
+				return nil
+			}
+			cfg := p.client.server.varpTypes.ByName(args)
+			if cfg == nil {
+				return nil
+			}
+			p.MessageGame(fmt.Sprintf("get %s: %d", cfg.DebugName, p.Varp(cfg.ID)))
 		}
 	}
 
