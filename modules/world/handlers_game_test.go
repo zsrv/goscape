@@ -1830,3 +1830,87 @@ func TestHandleClientCheat_Locadd_EmptyArgs_NoOp(t *testing.T) {
 		t.Errorf("expected zero locs after empty-args ::locadd; got %d", len(z.Locs))
 	}
 }
+
+// TestHandleClientCheat_Npcadd_SpawnsNpc pins TS L453-463. Resolves
+// NpcType by debugname, constructs a DESPAWN npc at the player's
+// tile with duration=500; nid allocated inside addNpc. TS has no
+// MessageGame.
+func TestHandleClientCheat_Npcadd_SpawnsNpc(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 3
+	go io.Copy(io.Discard, cc)
+	const npcName = "test_chicken"
+	const npcID = 41
+
+	// NPC registry needs s.npcTypes populated; teleTestPlayer leaves it nil.
+	s.npcTypes = &objtype.NPCTypeConfigs{
+		Configs:     make([]*objtype.NpcType, 100),
+		ConfigNames: map[string]int{npcName: npcID},
+	}
+	s.npcTypes.Configs[npcID] = &objtype.NpcType{
+		ConfigType:   objtype.ConfigType{ID: npcID, DebugName: npcName},
+		Size:         1,
+		RespawnRate:  100,
+		Timer:        0,
+		RegenRate:    0,
+		HuntMode:     -1,
+		HuntRange:    0,
+		BlockWalk:    objtype.BlockWalkNone,
+		MoveRestrict: 0,
+	}
+
+	startNpcCount := len(s.npcLoop)
+	dispatchTeleCheat(t, p, "npcadd "+npcName)
+
+	if len(s.npcLoop) != startNpcCount+1 {
+		t.Fatalf("after ::npcadd: npcLoop len = %d, want %d", len(s.npcLoop), startNpcCount+1)
+	}
+	added := s.npcLoop[len(s.npcLoop)-1]
+	if added.typeId != npcID {
+		t.Errorf("spawned npc.typeId = %d, want %d", added.typeId, npcID)
+	}
+	if added.x != p.x || added.z != p.z || added.level != p.level {
+		t.Errorf("spawned npc coord = (%d,%d,%d), want (%d,%d,%d)",
+			added.x, added.z, added.level, p.x, p.z, p.level)
+	}
+	if added.lifecycle != NpcLifecycleDespawn {
+		t.Errorf("spawned npc.lifecycle = %d, want NpcLifecycleDespawn (%d)",
+			added.lifecycle, NpcLifecycleDespawn)
+	}
+}
+
+// TestHandleClientCheat_Npcadd_UnknownName_NoOp pins the TS L460 nil
+// guard: an unknown debugname → no spawn.
+func TestHandleClientCheat_Npcadd_UnknownName_NoOp(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 3
+	go io.Copy(io.Discard, cc)
+
+	s.npcTypes = &objtype.NPCTypeConfigs{Configs: make([]*objtype.NpcType, 0)}
+	startNpcCount := len(s.npcLoop)
+
+	dispatchTeleCheat(t, p, "npcadd absent_name")
+
+	if len(s.npcLoop) != startNpcCount {
+		t.Errorf("unknown ::npcadd should not change npcLoop; len = %d, want %d",
+			len(s.npcLoop), startNpcCount)
+	}
+}
+
+// TestHandleClientCheat_Npcadd_EmptyArgs_NoOp pins TS L455-457
+// args.length<1.
+func TestHandleClientCheat_Npcadd_EmptyArgs_NoOp(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 3
+	go io.Copy(io.Discard, cc)
+
+	s.npcTypes = &objtype.NPCTypeConfigs{Configs: make([]*objtype.NpcType, 0)}
+	startNpcCount := len(s.npcLoop)
+
+	dispatchTeleCheat(t, p, "npcadd")
+
+	if len(s.npcLoop) != startNpcCount {
+		t.Errorf("empty-args ::npcadd should not change npcLoop; len = %d, want %d",
+			len(s.npcLoop), startNpcCount)
+	}
+}

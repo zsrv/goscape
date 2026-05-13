@@ -566,6 +566,28 @@ func handleClientCheat(p *Player, payload []byte) error {
 			)
 			p.client.server.AddLoc(l, 500)
 			p.MessageGame(fmt.Sprintf("Loc Added: %s (ID: %d)", name, lt.ID))
+		case "npcadd":
+			// TS L453-463 — admin spawn. Resolves NpcType by debugname,
+			// constructs a DESPAWN npc at (p.x, p.z, p.level) with
+			// duration=500 ticks. nid is allocated inside s.addNpc
+			// (firstSpawn=true). TS has no MessageGame on success.
+			// Mirrors TS:
+			//   World.addNpc(new Npc(player.level, player.x, player.z,
+			//                        type.size, type.size,
+			//                        EntityLifeCycle.DESPAWN,
+			//                        World.getNextNid(), type.id,
+			//                        type.moverestrict, type.blockwalk), 500);
+			if args == "" {
+				return nil
+			}
+			name := strings.Fields(args)[0]
+			nt := p.client.server.npcTypes.ByName(name)
+			if nt == nil {
+				return nil
+			}
+			n := NewNpc(0 /* placeholder; allocated inside addNpc */, nt.ID, p.x, p.z, p.level, nt)
+			n.lifecycle = NpcLifecycleDespawn
+			_ = p.client.server.addNpc(n, 500, true)
 		case "teleother":
 			// TS L377-400 — teleother <username> (production-only via
 			// outer arm selector; goscape mirrors with inner NP gate).
