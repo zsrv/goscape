@@ -211,7 +211,7 @@ func paramIndexOrErr(pf *PackFile, value, kind string) (int, error) {
 // Returns (server, client, err). err propagates from missing-type
 // assertion or from lookupParamValue's default-value resolution.
 //
-// TS source: tools/pack/config/ParamConfig.ts:184-248. TS uses `!`
+// TS source: tools/pack/config/ParamConfig.ts:216-265. TS uses `!`
 // non-null assertion on the type-find; goscape returns an explicit
 // error to name the failure mode.
 func packParamConfigs(configs map[string][]ConfigLine, pf *PackFile, lk *paramLookups) (server, client *PackedData, err error) {
