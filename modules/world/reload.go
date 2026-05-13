@@ -70,9 +70,7 @@ func reconcileInvs(serverInvs map[int]*inventory.Inventory, players []*Player, i
 				if p == nil || p.invs == nil {
 					continue
 				}
-				if _, ok := p.invs[id]; ok {
-					delete(p.invs, id)
-				}
+				delete(p.invs, id)
 			}
 			// SCOPE_PERM: TS does not reconcile (persisted).
 		}

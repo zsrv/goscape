@@ -140,7 +140,7 @@ func TestReconcileInvs_NilInvTypes_ReturnsEmptyMap(t *testing.T) {
 // InvTypeScopePerm, overriding specific ids per the scopes map.
 func makeInvConfigs(n int, scopes map[int]int) []*objtype.InvType {
 	configs := make([]*objtype.InvType, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		configs[i] = &objtype.InvType{Scope: objtype.InvTypeScopePerm}
 	}
 	for id, scope := range scopes {
