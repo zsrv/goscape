@@ -20,6 +20,12 @@ import (
 // VarnPack/VarsPack singletons; goscape constructs *PackFile from
 // srcDir per call (NAI-191 §2 deferred all 26 singletons).
 //
+// NAI-192-D-NO-SRC-NO-OP: goscape-only `GetLatestModified > 0`
+// pre-guard suppresses output when no source files exist. TS would
+// enter ShouldBuild's output-missing arm and write a zero-entry
+// `.dat`/`.idx` pair; goscape elides that write. Behaviourally inert
+// (an empty file vs no file).
+//
 // TS source: tools/pack/config/PackShared.ts:261-669 (packConfigs).
 func PackConfigs(srcDir, outDir string) error {
 	constants, err := LoadConstants(srcDir)
