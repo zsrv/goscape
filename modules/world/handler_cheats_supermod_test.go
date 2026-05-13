@@ -371,3 +371,90 @@ func TestMuteDispatchNodeProductionGate(t *testing.T) {
 		t.Errorf("MessageGame: no message expected; got %q", out)
 	}
 }
+
+// kickAttachTarget wires a second Player as `targetName` into s.playerLoop
+// (active=true) so s.LookupPlayerByUsername(targetName) returns it.
+// Mirrors handler_reportabuse_test.go:315 reportAbuseSetupWithOnlineOffender.
+func kickAttachTarget(t *testing.T, s *Server, targetName string) *Player {
+	t.Helper()
+	target, _ := newTestPlayer(t)
+	target.client.server = s
+	target.username = targetName
+	target.active = true
+	s.playerLoop = append(s.playerLoop, target)
+	return target
+}
+
+// TestKickDispatchHappy pins TS L605-612: lookup hit → loggingOut=true +
+// ack message. DEVIATION-NAI-186-D1: TS calls inline logout()+close();
+// goscape defers teardown to processLogouts. Test pins loggingOut=true
+// (the precondition for processLogouts to fire next tick).
+func TestKickDispatchHappy(t *testing.T) {
+	p, cc, s, _ := supermodSetup(t)
+	target := kickAttachTarget(t, s, "bob")
+
+	received := drainConn(t, cc)
+	dispatchCheat(t, p, "kick bob")
+	p.client.flushWrite()
+	out := <-received
+
+	if !target.loggingOut {
+		t.Error("target.loggingOut: must be true after ::kick (DEVIATION-NAI-186-D1: defers to processLogouts)")
+	}
+	if !bytes.Contains(out, []byte("Player 'bob' has been kicked from the game.")) {
+		t.Errorf("MessageGame: missing ack; got %q", out)
+	}
+}
+
+// TestKickDispatchLookupMiss pins TS L613-615: target not online → "does
+// not exist or is not logged in" message; no state mutation elsewhere.
+func TestKickDispatchLookupMiss(t *testing.T) {
+	p, cc, _, _ := supermodSetup(t)
+	// Do NOT call kickAttachTarget — playerLoop has only the caller.
+
+	received := drainConn(t, cc)
+	dispatchCheat(t, p, "kick ghost")
+	p.client.flushWrite()
+	out := <-received
+
+	if !bytes.Contains(out, []byte("Player 'ghost' does not exist or is not logged in.")) {
+		t.Errorf("MessageGame: missing lookup-miss ack; got %q", out)
+	}
+}
+
+// TestKickDispatchUsage pins TS L597-600 args.length < 1 → usage message.
+func TestKickDispatchUsage(t *testing.T) {
+	p, cc, s, _ := supermodSetup(t)
+	target := kickAttachTarget(t, s, "bob")
+
+	received := drainConn(t, cc)
+	dispatchCheat(t, p, "kick")
+	p.client.flushWrite()
+	out := <-received
+
+	if target.loggingOut {
+		t.Error("target.loggingOut: must remain false on empty arg")
+	}
+	if !bytes.Contains(out, []byte("Usage: ::kick <username>")) {
+		t.Errorf("MessageGame: missing usage; got %q", out)
+	}
+}
+
+// TestKickDispatchNodeProductionGate pins TS L595 && NODE_PRODUCTION.
+func TestKickDispatchNodeProductionGate(t *testing.T) {
+	p, cc, s, _ := supermodSetup(t)
+	s.cfg.NodeProduction = false
+	target := kickAttachTarget(t, s, "bob")
+
+	received := drainConn(t, cc)
+	dispatchCheat(t, p, "kick bob")
+	p.client.flushWrite()
+	out := <-received
+
+	if target.loggingOut {
+		t.Error("target.loggingOut: must remain false when NodeProduction=false")
+	}
+	if len(out) != 0 {
+		t.Errorf("MessageGame: no message expected; got %q", out)
+	}
+}

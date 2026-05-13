@@ -894,6 +894,34 @@ func handleClientCheat(p *Player, payload []byte) error {
 			}
 			p.client.server.loginBridgeMod.NotifyPlayerMute(p.username, username, time.Now().Add(time.Duration(minutes)*time.Minute))
 			p.MessageGame(fmt.Sprintf("Player '%s' has been muted for %d minutes.", username, minutes))
+
+		case "kick":
+			// TS ClientCheatHandler.ts:595-616 — ::kick <username>.
+			// NodeProduction-gated. Lookup via LookupPlayerByUsername; on
+			// hit, set loggingOut=true and ack.
+			//
+			// DEVIATION-NAI-186-D1 — TS does inline `other.logout(); other.client.close()`
+			// at L608-611. Goscape sets loggingOut=true and lets processLogouts
+			// (tick.go:277) handle teardown (writeOut OpLogout + flushWrite +
+			// conn.Close + s.removePlayer). Same end-state, ≤1 tick defer.
+			// Retire if/when goscape grows a synchronous force-logout helper.
+			//
+			// NAI-186.
+			if !p.client.server.cfg.NodeProduction {
+				return nil
+			}
+			if args == "" {
+				p.MessageGame("Usage: ::kick <username>")
+				return nil
+			}
+			sub := strings.SplitN(args, " ", 2)
+			username := sub[0]
+			if other := p.client.server.LookupPlayerByUsername(username); other != nil {
+				other.loggingOut = true
+				p.MessageGame(fmt.Sprintf("Player '%s' has been kicked from the game.", username))
+			} else {
+				p.MessageGame(fmt.Sprintf("Player '%s' does not exist or is not logged in.", username))
+			}
 		}
 	}
 
