@@ -1240,3 +1240,97 @@ func TestHandleClientCheat_SetVar_ProtectVarp_CanAccessFalse_MessagesAndRejects(
 	}
 }
 
+func TestHandleClientCheat_SetVarOther_HappyPath_SetsTargetVarpAndMessagesCaller(t *testing.T) {
+	p, cc, s := setvarTestFixture(t)
+	s.cfg.NodeProduction = true
+	other := addOtherTestPlayer(t, s, "target", 3220, 3220, 0)
+	other.varps = make([]int32, len(s.varpTypes.Configs))
+
+	dispatchTeleCheat(t, p, "setvarother target transmit_only 13")
+	emitted := drainAfterTele(t, p, cc)
+
+	if other.varps[0] != 13 {
+		t.Errorf("other.varps[0] after setvarother: got %d, want 13", other.varps[0])
+	}
+	if !bytes.Contains(emitted, []byte("set transmit_only: to 13 on target")) {
+		t.Errorf("expected 'set transmit_only: to 13 on target' in emitted bytes; got %d bytes", len(emitted))
+	}
+}
+
+func TestHandleClientCheat_SetVarOther_NoOpWhenNotProduction(t *testing.T) {
+	p, cc, s := setvarTestFixture(t)
+	s.cfg.NodeProduction = false
+	other := addOtherTestPlayer(t, s, "target", 3220, 3220, 0)
+	other.varps = make([]int32, len(s.varpTypes.Configs))
+
+	dispatchTeleCheat(t, p, "setvarother target transmit_only 13")
+	_ = drainAfterTele(t, p, cc)
+
+	if other.varps[0] != 0 {
+		t.Errorf("setvarother under NP=false mutated target: %d, want 0", other.varps[0])
+	}
+}
+
+func TestHandleClientCheat_SetVarOther_MissingArgsRejects(t *testing.T) {
+	p, cc, s := setvarTestFixture(t)
+	s.cfg.NodeProduction = true
+	other := addOtherTestPlayer(t, s, "target", 3220, 3220, 0)
+	other.varps = make([]int32, len(s.varpTypes.Configs))
+
+	dispatchTeleCheat(t, p, "setvarother target transmit_only") // 2 tokens, need 3
+	_ = drainAfterTele(t, p, cc)
+
+	if other.varps[0] != 0 {
+		t.Errorf("len(args)<3 setvarother mutated target: %d, want 0", other.varps[0])
+	}
+}
+
+func TestHandleClientCheat_SetVarOther_UnknownUser_MessagesCallerAndRejects(t *testing.T) {
+	p, cc, s := setvarTestFixture(t)
+	s.cfg.NodeProduction = true
+
+	dispatchTeleCheat(t, p, "setvarother no_such_user transmit_only 5")
+	emitted := drainAfterTele(t, p, cc)
+
+	if !bytes.Contains(emitted, []byte("no_such_user is not logged in.")) {
+		t.Errorf("expected 'no_such_user is not logged in.' in emitted bytes; got %d bytes", len(emitted))
+	}
+}
+
+func TestHandleClientCheat_SetVarOther_UnknownVarp_SilentReject(t *testing.T) {
+	p, cc, s := setvarTestFixture(t)
+	s.cfg.NodeProduction = true
+	addOtherTestPlayer(t, s, "target", 3220, 3220, 0)
+	emittedBefore := drainAfterTele(t, p, cc)
+
+	dispatchTeleCheat(t, p, "setvarother target no_such_var 5")
+	emittedAfter := drainAfterTele(t, p, cc)
+	emitted := append(emittedBefore, emittedAfter...)
+
+	if bytes.Contains(emitted, []byte("set ")) {
+		t.Errorf("unknown-varp setvarother emitted 'set '; want silent reject. bytes=%d", len(emitted))
+	}
+}
+
+// TestHandleClientCheat_SetVarOther_BusyMessageGoesToCaller pins
+// DEVIATION-NAI-185-D3: when the TARGET fails CanAccess, the
+// "<arg0> is busy right now." message is sent to the CALLER, not the
+// target. Mirrors TS L242.
+func TestHandleClientCheat_SetVarOther_BusyMessageGoesToCaller(t *testing.T) {
+	p, cc, s := setvarTestFixture(t)
+	s.cfg.NodeProduction = true
+	other := addOtherTestPlayer(t, s, "target", 3220, 3220, 0)
+	other.varps = make([]int32, len(s.varpTypes.Configs))
+	other.delayed = true // target's CanAccess() = false
+
+	dispatchTeleCheat(t, p, "setvarother target protect_var 99")
+	emittedCaller := drainAfterTele(t, p, cc)
+
+	if other.varps[1] != 0 {
+		t.Errorf("busy-target setvarother mutated target: %d, want 0 (rejected)", other.varps[1])
+	}
+	if !bytes.Contains(emittedCaller, []byte("target is busy right now.")) {
+		t.Errorf("expected 'target is busy right now.' on CALLER's conn; got %d bytes", len(emittedCaller))
+	}
+}
+

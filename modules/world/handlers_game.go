@@ -606,6 +606,48 @@ func handleClientCheat(p *Player, payload []byte) error {
 			}
 			p.SetVarp(cfg.ID, int32(value))
 			p.MessageGame(fmt.Sprintf("set %s: to %d", cfg.DebugName, value))
+		case "setvarother":
+			// TS L220-252. NP-gated via inner break (DEVIATION-NAI-185-D2).
+			// setvarother <username> <name> <value>. Missing-user message
+			// goes to caller; busy-target message ALSO goes to caller
+			// (DEVIATION-NAI-185-D3 — TS L242 asymmetry).
+			if !p.client.server.cfg.NodeProduction {
+				break
+			}
+			if args == "" {
+				return nil
+			}
+			sub := strings.SplitN(args, " ", 3)
+			if len(sub) < 3 {
+				return nil
+			}
+			other := p.client.server.LookupPlayerByUsername(sub[0])
+			if other == nil {
+				p.MessageGame(fmt.Sprintf("%s is not logged in.", sub[0]))
+				return nil
+			}
+			cfg := p.client.server.varpTypes.ByName(sub[1])
+			if cfg == nil {
+				return nil
+			}
+			if cfg.Protect {
+				other.CloseModal(true)
+				if !other.CanAccess() {
+					p.MessageGame(fmt.Sprintf("%s is busy right now.", sub[0]))
+					return nil
+				}
+				other.ClearInteraction()
+				other.unsetMapFlag()
+			}
+			value := parseIntOr(sub[2], 0)
+			if value > 0x7fffffff {
+				value = 0x7fffffff
+			}
+			if value < -0x80000000 {
+				value = -0x80000000
+			}
+			other.SetVarp(cfg.ID, int32(value))
+			p.MessageGame(fmt.Sprintf("set %s: to %d on %s", cfg.DebugName, value, other.username))
 		}
 	}
 
