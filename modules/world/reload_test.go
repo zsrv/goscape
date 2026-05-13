@@ -398,6 +398,57 @@ func TestReload_GameMapTypesReInjected(t *testing.T) {
 	}
 }
 
+func TestReload_PreStep3LoaderError_LeavesRegistriesUnmutated(t *testing.T) {
+	s := newTestServerWithCachePath(t, realCacheDir())
+	if err := s.Reload(true); err != nil {
+		t.Fatalf("priming reload: %v", err)
+	}
+	objBefore := s.objTypes
+	locBefore := s.locTypes
+
+	// Point at an empty tempdir so the FIRST loader (LoadVarpTypes) fails.
+	s.cfg.CachePath = t.TempDir()
+	err := s.Reload(true)
+	if err == nil {
+		t.Fatal("expected error from missing varp.dat")
+	}
+	if s.objTypes != objBefore {
+		t.Errorf("objTypes mutated despite pre-step-3 error (DEVIATION-NAI-190-D2 contract violated)")
+	}
+	if s.locTypes != locBefore {
+		t.Errorf("locTypes mutated despite pre-step-3 error")
+	}
+}
+
+func TestReload_MidPipelineLoaderError_LeavesHalfSwapped_SkipPin(t *testing.T) {
+	s := newTestServerWithCachePath(t, realCacheDir())
+	if err := s.Reload(true); err != nil {
+		t.Fatalf("priming reload: %v", err)
+	}
+	objBefore := s.objTypes
+
+	// Construct a partial cache: copy real cache MINUS server/dbrow.dat
+	// (step 5 loader; unlike mesanim, dbrow has no ErrNotExist leniency).
+	// Reload will succeed through step 3 (swap) and fail at step 5.
+	// objTypes must be the NEW instance (mutated); locTypes also new.
+	// This documents DEVIATION-NAI-190-D2-HALF-SWAP.
+	cacheDir := copyCacheExcept(t, realCacheDir(), "server/dbrow.dat", "server/dbrow.idx")
+	s.cfg.CachePath = cacheDir
+	err := s.Reload(true)
+	if err == nil {
+		t.Fatal("expected mid-pipeline error")
+	}
+	// Per memory skip_pin_full_struct_capture: capture verbatim, not inferred.
+	t.Logf("DEVIATION-NAI-190-D2-HALF-SWAP captured state post-error:\n"+
+		"  s.objTypes pointer changed? %v\n"+
+		"  err: %v",
+		s.objTypes != objBefore, err)
+	if s.objTypes == objBefore {
+		t.Errorf("expected post-step-3 swap to have taken effect before step-5 failure")
+	}
+	t.Skip("DEVIATION-NAI-190-D2-HALF-SWAP: half-swap is the documented contract; this test pins the observed shape but does not enforce it across future refactors.")
+}
+
 // copyCacheExcept copies all files from src to a t.TempDir, OMITTING
 // the listed relative paths.
 func copyCacheExcept(t *testing.T, src string, omit ...string) string {
