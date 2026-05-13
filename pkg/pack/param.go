@@ -195,6 +195,80 @@ func paramIndexOrErr(pf *PackFile, value, kind string) (int, error) {
 	return i, nil
 }
 
+// packParamConfigs walks every id ∈ [0, pf.Max), pre-scans for the
+// `type` key (needed before `default` can resolve via lookupParamValue),
+// then emits per-config opcodes on the server buffer:
+//
+//	type        → P1(1) P1(typechar)
+//	default     → P1(2) P4(int)        for non-STRING
+//	               P1(5) PJStr(value)   for STRING
+//	autodisable → P1(4)                 only when value is false
+//	debugname   → P1(250) PJStr(name)   when slot has a name
+//
+// The client buffer is initialized but never written between Next()
+// calls — TS-faithful per NAI-194-D-PARAM-EMPTY-CLIENT-FAITHFUL.
+//
+// Returns (server, client, err). err propagates from missing-type
+// assertion or from lookupParamValue's default-value resolution.
+//
+// TS source: tools/pack/config/ParamConfig.ts:184-248. TS uses `!`
+// non-null assertion on the type-find; goscape returns an explicit
+// error to name the failure mode.
+func packParamConfigs(configs map[string][]ConfigLine, pf *PackFile, lk *paramLookups) (server, client *PackedData, err error) {
+	server = NewPackedData(pf.Max)
+	client = NewPackedData(pf.Max)
+
+	for id := range pf.Max {
+		name := pf.GetByID(id)
+		if cfg, ok := configs[name]; ok {
+			var typ objtype.ScriptVarType
+			typFound := false
+			for _, line := range cfg {
+				if line.Key == "type" {
+					typ = line.Value.(objtype.ScriptVarType)
+					typFound = true
+					break
+				}
+			}
+			if !typFound {
+				return nil, nil, fmt.Errorf("param %q missing type", name)
+			}
+
+			for _, line := range cfg {
+				switch line.Key {
+				case "type":
+					server.P1(1)
+					server.P1(uint8(typ))
+				case "default":
+					raw := line.Value.(string)
+					resolved, lookupErr := lookupParamValue(typ, raw, lk)
+					if lookupErr != nil {
+						return nil, nil, fmt.Errorf("param %q default: %w", name, lookupErr)
+					}
+					if typ == objtype.ScriptVarTypeString {
+						server.P1(5)
+						server.PJStr(resolved.(string))
+					} else {
+						server.P1(2)
+						server.P4(uint32(resolved.(int)))
+					}
+				case "autodisable":
+					if !line.Value.(bool) {
+						server.P1(4)
+					}
+				}
+			}
+		}
+		if len(name) > 0 {
+			server.P1(250)
+			server.PJStr(name)
+		}
+		server.Next()
+		client.Next()
+	}
+	return server, client, nil
+}
+
 // parseParamCoord splits `level_mX_mZ_lX_lZ` and packs via
 // coordgrid.PackCoord. Bounds: level ∈ [0,3], mX/mZ ∈ [0,255],
 // lX/lZ ∈ [0,63]. All parts must be non-negative integers.

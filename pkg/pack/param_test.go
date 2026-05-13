@@ -1,6 +1,7 @@
 package pack
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 
@@ -342,5 +343,216 @@ func TestLookupParamValue_UnsupportedType(t *testing.T) {
 	// PlayerUid is a valid ScriptVarType but not a default-resolvable param type.
 	if _, err := lookupParamValue(objtype.ScriptVarTypePlayerUid, "anything", lk); err == nil {
 		t.Errorf("PlayerUid: want unsupported-type error, got nil")
+	}
+}
+
+// TestPackParamConfigs_IntDefaultAutodisableFalse pins one slot with
+// type=int, default=100, autodisable=no (opcode 4 emitted).
+func TestPackParamConfigs_IntDefaultAutodisableFalse(t *testing.T) {
+	pf := newTestPF("param", map[int]string{0: "health_param", 1: ""})
+	cfgs := map[string][]ConfigLine{
+		"health_param": {
+			{Key: "type", Value: objtype.ScriptVarTypeInt},
+			{Key: "default", Value: "100"},
+			{Key: "autodisable", Value: false},
+		},
+	}
+	server, client, err := packParamConfigs(cfgs, pf, &paramLookups{})
+	if err != nil {
+		t.Fatalf("packParamConfigs: %v", err)
+	}
+
+	// Server dat:
+	//   00 02              count header (size=2)
+	//   slot 0 body: 01 69 (type=int=105), 02 00 00 00 64 (default p4(100)),
+	//                04 (autodisable=false),
+	//                fa <"health_param" + LF> (debugname trailer)
+	//   slot 0 terminator: 00
+	//   slot 1 (empty, no name): 00
+	wantServerDat := []byte{
+		0x00, 0x02,
+		0x01, 0x69, // type=int (105)
+		0x02, 0x00, 0x00, 0x00, 0x64, // default=p4(100)
+		0x04, // autodisable=false
+		0xfa,
+		'h', 'e', 'a', 'l', 't', 'h', '_', 'p', 'a', 'r', 'a', 'm', '\n',
+		0x00, // slot 0 terminator
+		0x00, // slot 1 terminator
+	}
+	if !bytes.Equal(server.Dat.Data, wantServerDat) {
+		t.Fatalf("server.Dat:\n  got: % x\n  want: % x", server.Dat.Data, wantServerDat)
+	}
+
+	// Server idx: 00 02 (count) | 00 <slot 0 byte count incl. terminator>
+	// | 00 01 (slot 1: terminator only).
+	// Slot 0 byte count = 2 (type) + 5 (default p4) + 1 (autodisable=false)
+	//                   + 14 (0xfa + 12-byte name + 0x0a LF) + 1 (terminator) = 23 = 0x17
+	wantServerIdx := []byte{
+		0x00, 0x02,
+		0x00, 0x17,
+		0x00, 0x01,
+	}
+	if !bytes.Equal(server.Idx.Data, wantServerIdx) {
+		t.Fatalf("server.Idx:\n  got: % x\n  want: % x", server.Idx.Data, wantServerIdx)
+	}
+
+	// Client dat: empty content per NAI-194-D-PARAM-EMPTY-CLIENT-FAITHFUL.
+	// 00 02 (count) | 00 (slot 0 terminator) | 00 (slot 1 terminator)
+	wantClientDat := []byte{0x00, 0x02, 0x00, 0x00}
+	if !bytes.Equal(client.Dat.Data, wantClientDat) {
+		t.Fatalf("client.Dat:\n  got: % x\n  want: % x", client.Dat.Data, wantClientDat)
+	}
+	wantClientIdx := []byte{0x00, 0x02, 0x00, 0x01, 0x00, 0x01}
+	if !bytes.Equal(client.Idx.Data, wantClientIdx) {
+		t.Fatalf("client.Idx:\n  got: % x\n  want: % x", client.Idx.Data, wantClientIdx)
+	}
+}
+
+// TestPackParamConfigs_StringDefault pins the STRING path: opcode 5
+// instead of opcode 2; payload is pjstr instead of p4.
+func TestPackParamConfigs_StringDefault(t *testing.T) {
+	pf := newTestPF("param", map[int]string{0: "name_param"})
+	cfgs := map[string][]ConfigLine{
+		"name_param": {
+			{Key: "type", Value: objtype.ScriptVarTypeString},
+			{Key: "default", Value: "hello"},
+			// no autodisable → default true → no opcode 4
+		},
+	}
+	server, _, err := packParamConfigs(cfgs, pf, &paramLookups{})
+	if err != nil {
+		t.Fatalf("packParamConfigs: %v", err)
+	}
+
+	// Slot 0 body:
+	//   01 73                                type=string (115)
+	//   05 'h' 'e' 'l' 'l' 'o' 0x0a          default=pjstr("hello")
+	//   fa "name_param" 0x0a                 debugname trailer
+	//   00                                   slot terminator
+	wantSlot0 := []byte{
+		0x01, 0x73,
+		0x05, 'h', 'e', 'l', 'l', 'o', '\n',
+		0xfa, 'n', 'a', 'm', 'e', '_', 'p', 'a', 'r', 'a', 'm', '\n',
+		0x00,
+	}
+	want := append([]byte{0x00, 0x01}, wantSlot0...)
+	if !bytes.Equal(server.Dat.Data, want) {
+		t.Fatalf("server.Dat:\n  got: % x\n  want: % x", server.Dat.Data, want)
+	}
+}
+
+// TestPackParamConfigs_CoordDefault pins the COORD path: opcode 2 with
+// the packed coord integer.
+func TestPackParamConfigs_CoordDefault(t *testing.T) {
+	pf := newTestPF("param", map[int]string{0: "start"})
+	cfgs := map[string][]ConfigLine{
+		"start": {
+			{Key: "type", Value: objtype.ScriptVarTypeCoord},
+			{Key: "default", Value: "0_50_50_32_32"},
+		},
+	}
+	server, _, err := packParamConfigs(cfgs, pf, &paramLookups{})
+	if err != nil {
+		t.Fatalf("packParamConfigs: %v", err)
+	}
+	packed := uint32((3232) | (3232 << 14))
+	wantSlot0 := []byte{
+		0x01, 0x63, // type=coord (99)
+		0x02,
+		byte(packed >> 24), byte(packed >> 16), byte(packed >> 8), byte(packed),
+		0xfa, 's', 't', 'a', 'r', 't', '\n',
+		0x00,
+	}
+	want := append([]byte{0x00, 0x01}, wantSlot0...)
+	if !bytes.Equal(server.Dat.Data, want) {
+		t.Fatalf("server.Dat:\n  got: % x\n  want: % x", server.Dat.Data, want)
+	}
+}
+
+// TestPackParamConfigs_TypedDefaultViaPackFile pins NPC default
+// resolution via lookupParamValue + paramIndexOrErr.
+func TestPackParamConfigs_TypedDefaultViaPackFile(t *testing.T) {
+	pf := newTestPF("param", map[int]string{0: "boss"})
+	lk := &paramLookups{
+		npcPF: newTestPF("npc", map[int]string{42: "kalphite_queen"}),
+	}
+	cfgs := map[string][]ConfigLine{
+		"boss": {
+			{Key: "type", Value: objtype.ScriptVarTypeNPC},
+			{Key: "default", Value: "kalphite_queen"},
+		},
+	}
+	server, _, err := packParamConfigs(cfgs, pf, lk)
+	if err != nil {
+		t.Fatalf("packParamConfigs: %v", err)
+	}
+	wantSlot0 := []byte{
+		0x01, 0x6e, // type=npc (110)
+		0x02, 0x00, 0x00, 0x00, 0x2a, // default=p4(42)
+		0xfa, 'b', 'o', 's', 's', '\n',
+		0x00,
+	}
+	want := append([]byte{0x00, 0x01}, wantSlot0...)
+	if !bytes.Equal(server.Dat.Data, want) {
+		t.Fatalf("server.Dat:\n  got: % x\n  want: % x", server.Dat.Data, want)
+	}
+}
+
+// TestPackParamConfigs_MissingType errors with a clear message —
+// goscape stricter than TS's implicit `!`-assertion crash.
+func TestPackParamConfigs_MissingType(t *testing.T) {
+	pf := newTestPF("param", map[int]string{0: "broken"})
+	cfgs := map[string][]ConfigLine{
+		"broken": {
+			{Key: "default", Value: "42"},
+		},
+	}
+	_, _, err := packParamConfigs(cfgs, pf, &paramLookups{})
+	if err == nil {
+		t.Fatalf("missing type: want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "broken") {
+		t.Errorf("error should name the param: got %v", err)
+	}
+}
+
+// TestPackParamConfigs_UnknownTypedDefault propagates lookupParamValue
+// errors with the param debugname in scope.
+func TestPackParamConfigs_UnknownTypedDefault(t *testing.T) {
+	pf := newTestPF("param", map[int]string{0: "boss"})
+	lk := &paramLookups{
+		npcPF: newTestPF("npc", map[int]string{42: "kalphite_queen"}),
+	}
+	cfgs := map[string][]ConfigLine{
+		"boss": {
+			{Key: "type", Value: objtype.ScriptVarTypeNPC},
+			{Key: "default", Value: "nonexistent_npc"},
+		},
+	}
+	_, _, err := packParamConfigs(cfgs, pf, lk)
+	if err == nil {
+		t.Fatalf("unknown npc default: want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "boss") {
+		t.Errorf("error should name the param: got %v", err)
+	}
+}
+
+// TestPackParamConfigs_EmptyClientFaithful pins NAI-194-D-PARAM-EMPTY-CLIENT-FAITHFUL:
+// regardless of payload, client.Dat must be exactly count-header + N×0x00.
+func TestPackParamConfigs_EmptyClientFaithful(t *testing.T) {
+	pf := newTestPF("param", map[int]string{0: "a", 1: "b", 2: "c"})
+	cfgs := map[string][]ConfigLine{
+		"a": {{Key: "type", Value: objtype.ScriptVarTypeInt}, {Key: "default", Value: "1"}},
+		"b": {{Key: "type", Value: objtype.ScriptVarTypeString}, {Key: "default", Value: "x"}},
+		"c": {{Key: "type", Value: objtype.ScriptVarTypeInt}, {Key: "default", Value: "99"}},
+	}
+	_, client, err := packParamConfigs(cfgs, pf, &paramLookups{})
+	if err != nil {
+		t.Fatalf("packParamConfigs: %v", err)
+	}
+	want := []byte{0x00, 0x03, 0x00, 0x00, 0x00}
+	if !bytes.Equal(client.Dat.Data, want) {
+		t.Fatalf("empty-client violated: got % x, want % x", client.Dat.Data, want)
 	}
 }
