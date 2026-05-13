@@ -67,7 +67,7 @@ type paramLookups struct {
 }
 
 // paramStats / paramNpcStats are TS-hardcoded ordered lists from
-// tools/pack/config/ParamConfig.ts:6-30. The slice index becomes the
+// tools/pack/config/ParamConfig.ts:5-29. The slice index becomes the
 // packed DefaultInt. Order is load-bearing and must stay synced.
 var paramStats = []string{
 	"attack", "defence", "strength", "hitpoints", "ranged", "prayer",
@@ -86,7 +86,7 @@ var paramNpcStats = []string{
 // sentinel: returns -1 for non-STRING types and "" for STRING.
 //
 // TS source: tools/pack/config/ParamConfig.ts lookupParamValue
-// (~33-180). 20 arms over ScriptVarType + 1 null-sentinel early-return.
+// (31-161). 20 arms over ScriptVarType + 1 null-sentinel early-return.
 // NAMEDOBJ and OBJ share an arm. COMPONENT routes through interfacePF.
 // INTERFACE rejects values containing ':' before the pack lookup.
 func lookupParamValue(typ objtype.ScriptVarType, value string, lk *paramLookups) (any, error) {
@@ -130,6 +130,8 @@ func lookupParamValue(typ objtype.ScriptVarType, value string, lk *paramLookups)
 	case objtype.ScriptVarTypeLoc:
 		return paramIndexOrErr(lk.locPF, value, "loc")
 	case objtype.ScriptVarTypeComponent:
+		// COMPONENT IDs index into InterfacePack (no dedicated component
+		// pack); TS routes COMPONENT through InterfacePack.getByName.
 		return paramIndexOrErr(lk.interfacePF, value, "component")
 	case objtype.ScriptVarTypeStruct:
 		return paramIndexOrErr(lk.structPF, value, "struct")
@@ -165,6 +167,8 @@ func lookupParamValue(typ objtype.ScriptVarType, value string, lk *paramLookups)
 		return i, nil
 
 	case objtype.ScriptVarTypeInterface:
+		// The colon notation is parent:component path syntax that cannot
+		// resolve to a single interface ID, hence rejected.
 		if strings.Contains(value, ":") {
 			return nil, fmt.Errorf("interface default may not contain ':': %q", value)
 		}
@@ -195,7 +199,7 @@ func paramIndexOrErr(pf *PackFile, value, kind string) (int, error) {
 // coordgrid.PackCoord. Bounds: level ∈ [0,3], mX/mZ ∈ [0,255],
 // lX/lZ ∈ [0,63]. All parts must be non-negative integers.
 //
-// TS source: ParamConfig.ts:74-90.
+// TS source: ParamConfig.ts:77-104.
 func parseParamCoord(value string) (int, error) {
 	parts := strings.Split(value, "_")
 	if len(parts) != 5 {
