@@ -157,6 +157,28 @@ func TestReadConfigsDuplicateErrors(t *testing.T) {
 	}
 }
 
+func TestLoadDirExtFullPropagatesUnclosedCommentError(t *testing.T) {
+	dir := t.TempDir()
+	scripts := filepath.Join(dir, "scripts")
+	if err := os.MkdirAll(scripts, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(scripts, "bad.obj"),
+		[]byte("[ok]\n/* never closes\nstill open"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ClearFsCache()
+	err := LoadDirExtFull(scripts, ".obj", func(_ []string, _ string) {
+		t.Fatal("callback should not run after error")
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "unclosed multi-line comment") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestListFilesExtFiltersByExtension(t *testing.T) {
 	dir := t.TempDir()
 	for _, name := range []string{"a.obj", "b.npc", "c.obj", "d.txt"} {
