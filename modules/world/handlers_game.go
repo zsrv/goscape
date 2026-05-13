@@ -536,8 +536,8 @@ func handleClientCheat(p *Player, payload []byte) error {
 	if len(parts) == 2 {
 		args = parts[1]
 	}
-	// DEVIATION-NAI-188-D1-CARRYFORWARD — supersedes
-	// DEVIATION-NAI-187-D1-CARRYFORWARD. 2 TS ClientCheatHandler
+	// DEVIATION-NAI-189-D1-CARRYFORWARD — supersedes
+	// DEVIATION-NAI-188-D1-CARRYFORWARD. 2 TS ClientCheatHandler
 	// cheats remain unported, both in the dev block (!NP && >=4) and
 	// both blocked on the same infra gap (cache / script hot-reload):
 	//   reload:  TS L149-150. Calls World.reload() — full cache
@@ -545,6 +545,16 @@ func handleClientCheat(p *Player, payload []byte) error {
 	//            substantial new subsystem.
 	//   rebuild: TS L151-153. Calls World.rebuild() — script-provider
 	//            hot-reload. Same infra gap as reload.
+	// NAI-189 retired the DEBUGPROC dispatch path (TS L59-148). The
+	// dev-block now branches on s.cfg.NodeDebugprocChar BEFORE the
+	// fixed-cmd switch; matching cheats route through dispatchDebugproc,
+	// which resolves [debugproc,X] via s.scriptProvider.GetByName and
+	// dispatches via s.runScript with arguments marshaled per
+	// ScriptFile.ParamTypes (12 TS arms — STRING/INT/OBJ/NAMEDOBJ/NPC/
+	// LOC/SEQ/STAT/INV/COORD/INTERFACE/SPOTANIM/IDKIT). 4 new ByName
+	// helpers added in pkg/objtype (Seq/Spotanim/Idk/Inv) — mirrors the
+	// NAI-187 cluster pattern. DEVIATION-NAI-189-D1-MIRROR-TS-COORD-
+	// FRAGILE flags the TS slice(6) fragility in the COORD arm.
 	// NAI-188 retired ::speed (TS L154-167). The tickRate package-level
 	// const at modules/world/tick.go:15 was promoted to Server.tickRate
 	// (default initialised to defaultTickRate); the tick loop re-reads
