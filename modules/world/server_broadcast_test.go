@@ -2,7 +2,6 @@ package world
 
 import (
 	"bytes"
-	"io"
 	"testing"
 )
 
@@ -11,7 +10,6 @@ import (
 // body. Mirrors TS World.broadcastMes single-line forEach.
 func TestBroadcastMes_FanOutToAllPlayers(t *testing.T) {
 	p, cc, s := teleTestPlayer(t)
-	go io.Copy(io.Discard, cc)
 	other := addOtherTestPlayer(t, s, "second_user", 3220, 3220, 0)
 
 	s.BroadcastMes("ping")
@@ -38,7 +36,6 @@ func TestBroadcastMes_FanOutToAllPlayers(t *testing.T) {
 // message.
 func TestBroadcastMes_NilSlotSkipped(t *testing.T) {
 	p, cc, s := teleTestPlayer(t)
-	go io.Copy(io.Discard, cc)
 	// Slot 2 stays nil. Slot 3 gets a populated player.
 	other := addOtherTestPlayer(t, s, "third_user", 3220, 3220, 0)
 	_ = other
@@ -56,7 +53,6 @@ func TestBroadcastMes_NilSlotSkipped(t *testing.T) {
 // defensive filter on empty input, so an empty broadcast is delivered.
 func TestBroadcastMes_EmptyMessageDelivered(t *testing.T) {
 	p, cc, s := teleTestPlayer(t)
-	go io.Copy(io.Discard, cc)
 
 	s.BroadcastMes("")
 
