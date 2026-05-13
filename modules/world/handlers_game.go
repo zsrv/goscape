@@ -572,6 +572,40 @@ func handleClientCheat(p *Player, payload []byte) error {
 				}
 				f.Close()
 			}
+		case "setvar":
+			// TS L192-219. Not NP-gated. setvar <name> <value>: ByName
+			// lookup, optional protect-path modal close + canAccess gate
+			// + clearInteraction + unsetMapFlag, then SetVarp with
+			// int32-clamped value. Caller gets `set <debugname>: to <value>`.
+			if args == "" {
+				return nil
+			}
+			sub := strings.SplitN(args, " ", 2)
+			if len(sub) < 2 {
+				return nil
+			}
+			cfg := p.client.server.varpTypes.ByName(sub[0])
+			if cfg == nil {
+				return nil
+			}
+			if cfg.Protect {
+				p.CloseModal(true)
+				if !p.CanAccess() {
+					p.MessageGame("Please finish what you are doing first.")
+					return nil
+				}
+				p.ClearInteraction()
+				p.unsetMapFlag()
+			}
+			value := parseIntOr(sub[1], 0)
+			if value > 0x7fffffff {
+				value = 0x7fffffff
+			}
+			if value < -0x80000000 {
+				value = -0x80000000
+			}
+			p.SetVarp(cfg.ID, int32(value))
+			p.MessageGame(fmt.Sprintf("set %s: to %d", cfg.DebugName, value))
 		}
 	}
 

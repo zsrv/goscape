@@ -1122,3 +1122,121 @@ func TestHandleClientCheat_TeleTo_NoOpWhenNotProduction(t *testing.T) {
 	}
 }
 
+// setvarTestFixture extends teleTestPlayer with a populated VarpTypeConfigs
+// containing two varps: id=0 "transmit_only" (Transmit=true, Protect=false),
+// id=1 "protect_var" (Transmit=true, Protect=true). Returns the same
+// (player, conn, server) tuple as teleTestPlayer.
+func setvarTestFixture(t *testing.T) (*Player, net.Conn, *Server) {
+	t.Helper()
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 3
+	s.varpTypes = &objtype.VarpTypeConfigs{
+		Configs: []*objtype.VarPlayerType{
+			{ConfigType: objtype.ConfigType{ID: 0, DebugName: "transmit_only"}, Transmit: true, Protect: false},
+			{ConfigType: objtype.ConfigType{ID: 1, DebugName: "protect_var"}, Transmit: true, Protect: true},
+		},
+		ConfigNames: map[string]int{"transmit_only": 0, "protect_var": 1},
+	}
+	// Player.varps must be sized for SetVarp to be in-range.
+	p.varps = make([]int32, len(s.varpTypes.Configs))
+	return p, cc, s
+}
+
+func TestHandleClientCheat_SetVar_HappyPath_SetsVarpAndMessagesCaller(t *testing.T) {
+	p, cc, _ := setvarTestFixture(t)
+
+	dispatchTeleCheat(t, p, "setvar transmit_only 42")
+	emitted := drainAfterTele(t, p, cc)
+
+	if p.varps[0] != 42 {
+		t.Errorf("varps[0] after setvar: got %d, want 42", p.varps[0])
+	}
+	if !bytes.Contains(emitted, []byte("set transmit_only: to 42")) {
+		t.Errorf("expected 'set transmit_only: to 42' in emitted bytes; got %d bytes", len(emitted))
+	}
+}
+
+func TestHandleClientCheat_SetVar_MissingValueArg_Rejects(t *testing.T) {
+	p, cc, _ := setvarTestFixture(t)
+
+	dispatchTeleCheat(t, p, "setvar transmit_only")
+	emitted := drainAfterTele(t, p, cc)
+
+	if p.varps[0] != 0 {
+		t.Errorf("varps[0] after setvar with missing value: got %d, want 0 (unchanged)", p.varps[0])
+	}
+	if bytes.Contains(emitted, []byte("set ")) {
+		t.Errorf("unexpected 'set ' MessageGame on missing-value reject; got %d bytes", len(emitted))
+	}
+}
+
+func TestHandleClientCheat_SetVar_UnknownName_SilentReject(t *testing.T) {
+	p, cc, _ := setvarTestFixture(t)
+
+	dispatchTeleCheat(t, p, "setvar no_such_var 99")
+	emitted := drainAfterTele(t, p, cc)
+
+	if p.varps[0] != 0 || p.varps[1] != 0 {
+		t.Errorf("unknown-name setvar mutated varps: %v, want all 0", p.varps)
+	}
+	if len(emitted) != 0 {
+		t.Errorf("unknown-name setvar emitted %d bytes; want silent reject", len(emitted))
+	}
+}
+
+func TestHandleClientCheat_SetVar_ClampHigh(t *testing.T) {
+	p, cc, _ := setvarTestFixture(t)
+
+	dispatchTeleCheat(t, p, "setvar transmit_only 2147483648") // INT32_MAX + 1
+	_ = drainAfterTele(t, p, cc)
+
+	if p.varps[0] != 0x7fffffff {
+		t.Errorf("varps[0] after clamp-high setvar: got %d, want %d", p.varps[0], int32(0x7fffffff))
+	}
+}
+
+func TestHandleClientCheat_SetVar_ClampLow(t *testing.T) {
+	p, cc, _ := setvarTestFixture(t)
+
+	dispatchTeleCheat(t, p, "setvar transmit_only -2147483649") // INT32_MIN - 1
+	_ = drainAfterTele(t, p, cc)
+
+	if p.varps[0] != -0x80000000 {
+		t.Errorf("varps[0] after clamp-low setvar: got %d, want %d", p.varps[0], int32(-0x80000000))
+	}
+}
+
+func TestHandleClientCheat_SetVar_ProtectVarp_HappyPath_ClearsInteraction(t *testing.T) {
+	p, cc, _ := setvarTestFixture(t)
+	p.modalState = modalStateMain
+	p.waypointIndex = 5
+
+	dispatchTeleCheat(t, p, "setvar protect_var 7")
+	_ = drainAfterTele(t, p, cc)
+
+	if p.modalState != modalStateNone {
+		t.Errorf("modalState after protect-setvar: got %d, want modalStateNone", p.modalState)
+	}
+	if p.waypointIndex != -1 {
+		t.Errorf("waypointIndex after protect-setvar: got %d, want -1 (UnsetMapFlag)", p.waypointIndex)
+	}
+	if p.varps[1] != 7 {
+		t.Errorf("varps[1] after protect-setvar: got %d, want 7", p.varps[1])
+	}
+}
+
+func TestHandleClientCheat_SetVar_ProtectVarp_CanAccessFalse_MessagesAndRejects(t *testing.T) {
+	p, cc, _ := setvarTestFixture(t)
+	p.delayed = true // forces CanAccess() = false
+
+	dispatchTeleCheat(t, p, "setvar protect_var 99")
+	emitted := drainAfterTele(t, p, cc)
+
+	if p.varps[1] != 0 {
+		t.Errorf("CanAccess=false should have rejected setvar: varps[1] = %d, want 0", p.varps[1])
+	}
+	if !bytes.Contains(emitted, []byte("Please finish what you are doing first.")) {
+		t.Errorf("expected busy-message in emitted bytes; got %d bytes", len(emitted))
+	}
+}
+
