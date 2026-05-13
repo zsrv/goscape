@@ -156,14 +156,10 @@ func TestResizeVarShared_NilConfigSlot_Skipped(t *testing.T) {
 
 func TestReconcileInvs_Shared_RebuildsFreshFromType(t *testing.T) {
 	sentinel := &inventory.Inventory{} // distinguishable from FromType output
-	serverInvs := map[int]*inventory.Inventory{42: sentinel}
 	invTypes := &objtype.InvTypeConfigs{
 		Configs: makeInvConfigs(5, map[int]int{3: objtype.InvTypeScopeShared}),
 	}
-	fresh := reconcileInvs(serverInvs, nil, invTypes)
-	if _, ok := fresh[42]; ok {
-		t.Errorf("sentinel at id 42 leaked through clear")
-	}
+	fresh := reconcileInvs(nil, invTypes)
 	if fresh[3] == sentinel {
 		t.Errorf("SHARED id 3 not replaced with fresh inv (still sentinel)")
 	}
@@ -180,7 +176,7 @@ func TestReconcileInvs_Temp_DeletesFromAllPlayers(t *testing.T) {
 	invTypes := &objtype.InvTypeConfigs{
 		Configs: makeInvConfigs(10, map[int]int{7: objtype.InvTypeScopeTemp}),
 	}
-	_ = reconcileInvs(nil, players, invTypes)
+	_ = reconcileInvs(players, invTypes)
 	if _, ok := p1.invs[7]; ok {
 		t.Errorf("p1.invs[7] should be deleted")
 	}
@@ -195,14 +191,14 @@ func TestReconcileInvs_Perm_LeftUntouched(t *testing.T) {
 	invTypes := &objtype.InvTypeConfigs{
 		Configs: makeInvConfigs(10, map[int]int{9: objtype.InvTypeScopePerm}),
 	}
-	_ = reconcileInvs(nil, []*Player{p1}, invTypes)
+	_ = reconcileInvs([]*Player{p1}, invTypes)
 	if p1.invs[9] != sentinel {
 		t.Errorf("SCOPE_PERM inv reconciled (should be untouched)")
 	}
 }
 
 func TestReconcileInvs_NilInvTypes_ReturnsEmptyMap(t *testing.T) {
-	fresh := reconcileInvs(nil, nil, nil)
+	fresh := reconcileInvs(nil, nil)
 	if fresh == nil {
 		t.Fatal("expected empty non-nil map, got nil")
 	}

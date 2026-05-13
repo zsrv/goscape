@@ -45,8 +45,10 @@ func resizeVarShared(oldVars []int32, oldStrs []string, newConfigs []*objtype.Va
 }
 
 // reconcileInvs mirrors TS World.reload L221-236 (the `if (clearInvs)`
-// branch). Empties s.invs, rebuilds SCOPE_SHARED slots, and deletes
-// SCOPE_TEMP slots from each player's invs map.
+// branch). Returns a fresh map containing SCOPE_SHARED slots
+// rebuilt from type; deletes SCOPE_TEMP slots from each player's
+// invs map. Caller assigns the returned map to s.invs (replacing
+// the prior one, matching TS L222 this.invs.clear()).
 //
 // SCOPE_PERM invs are persisted to save files and not reconciled (TS
 // L222-235 does not touch SCOPE_PERM — only SHARED and TEMP have arms).
@@ -54,7 +56,7 @@ func resizeVarShared(oldVars []int32, oldStrs []string, newConfigs []*objtype.Va
 // Runs on the tick goroutine; no lock acquisition (memory
 // plan_race_tag_for_cross_goroutine_test: production world is
 // single-goroutine; tick is sole writer to p.invs).
-func reconcileInvs(serverInvs map[int]*inventory.Inventory, players []*Player, invTypes *objtype.InvTypeConfigs) map[int]*inventory.Inventory {
+func reconcileInvs(players []*Player, invTypes *objtype.InvTypeConfigs) map[int]*inventory.Inventory {
 	fresh := make(map[int]*inventory.Inventory)
 	if invTypes == nil {
 		return fresh
@@ -77,7 +79,6 @@ func reconcileInvs(serverInvs map[int]*inventory.Inventory, players []*Player, i
 			// SCOPE_PERM: TS does not reconcile (persisted).
 		}
 	}
-	_ = serverInvs // input is the pre-reconcile map; we discard it (TS L222: this.invs.clear())
 	return fresh
 }
 
@@ -175,7 +176,7 @@ func (s *Server) Reload(clearInvs bool) error {
 
 	// ─── Step 4: clearInvs reconcile ───
 	if clearInvs {
-		s.invs = reconcileInvs(s.invs, s.players[:], s.invTypes)
+		s.invs = reconcileInvs(s.players[:], s.invTypes)
 	}
 
 	// ─── Step 5: load post-inv configs ───
