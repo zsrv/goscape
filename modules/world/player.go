@@ -1,6 +1,7 @@
 package world
 
 import (
+	"fmt"
 	"math/rand/v2"
 	"sort"
 	"strings"
@@ -612,6 +613,32 @@ func (p *Player) Width() int { return 1 }
 
 // Length returns the player's tile footprint length. Players are always 1×1.
 func (p *Player) Length() int { return 1 }
+
+// SetVisibility mirrors TS Player.setVisibility (Engine-TS/src/engine/entity/Player.ts:1875-1891).
+// SOFT is a TS stub: emits a "not implemented" message and returns without
+// state change (TS L1876-1879). DEFAULT/HARD update visibility + blockWalk
+// and toggle per-tile collision flags. Player.width is always 1 in TS
+// (PathingEntity init); hardcoded size=1 here.
+//
+// DEVIATION-NAI-186-D1 cohort: no deviation in this method itself;
+// see kick teardown for NAI-186 D1.
+func (p *Player) SetVisibility(v rsbuf.Visibility) {
+	if v == rsbuf.VisibilitySoft {
+		p.MessageGame(fmt.Sprintf("vis: %d (not implemented - you are still on vis: %d)", int(v), int(p.visibility)))
+		return
+	}
+	p.visibility = v
+	s := p.client.server
+	if v == rsbuf.VisibilityDefault {
+		p.blockWalk = BlockWalkNpc
+		s.gamemap.ChangeNPCCollision(1, p.x, p.z, p.level, true)
+	} else {
+		p.blockWalk = BlockWalkNone
+		s.gamemap.ChangeNPCCollision(1, p.x, p.z, p.level, false)
+		s.gamemap.ChangePlayerCollision(1, p.x, p.z, p.level, false)
+	}
+	p.MessageGame(fmt.Sprintf("vis: %d", int(v)))
+}
 
 // blockWalkFlag returns the CollisionFlag this player imposes on its
 // occupied tile during pathfinding. Mirrors TS Player.blockWalkFlag

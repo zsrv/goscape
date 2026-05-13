@@ -1,6 +1,7 @@
 package world
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -8,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zsrv/goscape/pkg/gamemap"
+	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/rsbuf"
@@ -1074,3 +1077,131 @@ func TestPlayer_GetCollisionStrategy_PerMoveRestrict(t *testing.T) {
 }
 
 func ptrType(t collision.Type) *collision.Type { return &t }
+
+// TestPlayerSetVisibilityDefault pins TS Player.setVisibility(DEFAULT) at
+// Engine-TS/src/engine/entity/Player.ts:1875-1891. DEFAULT arm sets
+// visibility=Default, blockWalk=Npc, calls ChangeNPCCollision(...,true)
+// at player coords, and emits MessageGame "vis: 0".
+func TestPlayerSetVisibilityDefault(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	if err := s.gamemap.Init(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	p.x, p.z, p.level = 3200, 3200, 0
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(p.x, p.z, p.level)
+
+	// Start from Hard so we can observe the transition into Default.
+	p.visibility = rsbuf.VisibilityHard
+	p.blockWalk = BlockWalkNone
+
+	received := drainConn(t, cc)
+
+	p.SetVisibility(rsbuf.VisibilityDefault)
+
+	p.client.flushWrite()
+	out := <-received
+
+	if p.visibility != rsbuf.VisibilityDefault {
+		t.Errorf("visibility: got %d, want VisibilityDefault", p.visibility)
+	}
+	if p.blockWalk != BlockWalkNpc {
+		t.Errorf("blockWalk: got %v, want BlockWalkNpc", p.blockWalk)
+	}
+	if !s.gamemap.Pathfinder.Flags.IsFlagged(p.x, p.z, p.level, collision.FlagBlockNPCs) {
+		t.Error("FlagBlockNPCs: must be set at player tile after SetVisibility(Default)")
+	}
+	if !bytes.Contains(out, []byte("vis: 0")) {
+		t.Errorf("MessageGame: out missing 'vis: 0'; got %q", out)
+	}
+}
+
+// TestPlayerSetVisibilitySoftStub pins TS Player.setVisibility(SOFT) early
+// return at Engine-TS/src/engine/entity/Player.ts:1876-1879. SOFT is a
+// message-only stub: no state change to visibility, blockWalk, or
+// collision flags. Pinning both presence-of-message AND absence-of-state-
+// change per memory ts_asymmetry_dual_pin.
+func TestPlayerSetVisibilitySoftStub(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	if err := s.gamemap.Init(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	p.x, p.z, p.level = 3200, 3201, 0
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(p.x, p.z, p.level)
+
+	// Initial state: defaults (visibility=Default, blockWalk=BlockWalkNpc per
+	// modules/world/player.go:556+523).
+	if p.visibility != rsbuf.VisibilityDefault {
+		t.Fatalf("preflight: visibility should default to Default")
+	}
+	if p.blockWalk != BlockWalkNpc {
+		t.Fatalf("preflight: blockWalk should default to BlockWalkNpc")
+	}
+
+	received := drainConn(t, cc)
+	p.SetVisibility(rsbuf.VisibilitySoft)
+	p.client.flushWrite()
+	out := <-received
+
+	// State pins: unchanged.
+	if p.visibility != rsbuf.VisibilityDefault {
+		t.Errorf("visibility: got %d, want unchanged (Default)", p.visibility)
+	}
+	if p.blockWalk != BlockWalkNpc {
+		t.Errorf("blockWalk: got %v, want unchanged (BlockWalkNpc)", p.blockWalk)
+	}
+
+	// Message pin: includes "vis: 1 (not implemented - you are still on vis: 0)".
+	if !bytes.Contains(out, []byte("vis: 1 (not implemented - you are still on vis: 0)")) {
+		t.Errorf("MessageGame: missing TS-faithful SOFT stub string; got %q", out)
+	}
+}
+
+// TestPlayerSetVisibilityHard pins TS Player.setVisibility(HARD) at
+// Engine-TS/src/engine/entity/Player.ts:1885-1890. HARD arm sets
+// visibility=Hard, blockWalk=None, calls ChangeNPCCollision(...,false)
+// AND ChangePlayerCollision(...,false), and emits "vis: 2".
+func TestPlayerSetVisibilityHard(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	if err := s.gamemap.Init(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	p.x, p.z, p.level = 3200, 3202, 0
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(p.x, p.z, p.level)
+
+	// Seed FlagBlockNPCs at the tile so we can observe the clear.
+	s.gamemap.Pathfinder.Flags.Add(p.x, p.z, p.level, collision.FlagBlockNPCs|collision.FlagBlockPlayers)
+
+	received := drainConn(t, cc)
+	p.SetVisibility(rsbuf.VisibilityHard)
+	p.client.flushWrite()
+	out := <-received
+
+	if p.visibility != rsbuf.VisibilityHard {
+		t.Errorf("visibility: got %d, want VisibilityHard", p.visibility)
+	}
+	if p.blockWalk != BlockWalkNone {
+		t.Errorf("blockWalk: got %v, want BlockWalkNone", p.blockWalk)
+	}
+	// After HARD: both FlagBlockNPCs and FlagBlockPlayers must be cleared.
+	if s.gamemap.Pathfinder.Flags.IsFlagged(p.x, p.z, p.level, collision.FlagBlockNPCs) {
+		t.Error("FlagBlockNPCs: must be cleared at player tile after SetVisibility(Hard)")
+	}
+	if s.gamemap.Pathfinder.Flags.IsFlagged(p.x, p.z, p.level, collision.FlagBlockPlayers) {
+		t.Error("FlagBlockPlayers: must be cleared at player tile after SetVisibility(Hard)")
+	}
+	if !bytes.Contains(out, []byte("vis: 2")) {
+		t.Errorf("MessageGame: missing 'vis: 2'; got %q", out)
+	}
+}
