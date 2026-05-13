@@ -9,6 +9,7 @@ import (
 
 // PackConfigs runs the per-config packing pipeline. NAI-193 wires
 // .varp (server + client jagfile), .varn (server), and .vars (server).
+// NAI-194 adds .param (server + client jagfile).
 // Subsequent NAI-194+ sub-specs add the remaining per-config branches.
 //
 // Each branch is freshness-gated via ShouldBuild against the relevant
@@ -99,6 +100,22 @@ func PackConfigs(srcDir, outDir string) error {
 		}
 	}
 
+	if GetLatestModified(scriptsDir, ".param") > 0 &&
+		ShouldBuild(scriptsDir, ".param", filepath.Join(serverOut, "param.dat")) {
+		paramPack, err := NewPackFile(srcDir, "param", nil)
+		if err != nil {
+			return err
+		}
+		lk, err := loadParamLookups(srcDir, varpPack)
+		if err != nil {
+			return err
+		}
+		if err := packAndSaveParam(srcDir, serverOut, paramPack, lk, constants, clientJag); err != nil {
+			return err
+		}
+		clientJagDirty = true
+	}
+
 	if clientJagDirty {
 		if err := clientJag.Save(filepath.Join(clientOut, "config"), false); err != nil {
 			return err
@@ -166,4 +183,63 @@ func packAndSaveVars(srcDir, serverOut string, pf *PackFile, c Constants) error 
 	}
 	pd := packVarsConfigs(cfgs, pf)
 	return pd.Save(filepath.Join(serverOut, "vars.dat"), filepath.Join(serverOut, "vars.idx"))
+}
+
+// loadParamLookups constructs the 12 typed-id PackFiles needed by
+// lookupParamValue (the 13th, varpPF, is reused from the up-front
+// var-domain trio). Called only when .param source is present so the
+// cost is amortized for the no-source case.
+//
+// NAI-194-D-PACKFILE-SINGLETONS-DEFERRED: TS uses module-level
+// EnumPack/ObjPack/etc.; goscape constructs from srcDir per call.
+func loadParamLookups(srcDir string, varpPF *PackFile) (*paramLookups, error) {
+	lk := &paramLookups{varpPF: varpPF}
+	for _, t := range []struct {
+		name string
+		dst  **PackFile
+	}{
+		{"enum", &lk.enumPF},
+		{"obj", &lk.objPF},
+		{"loc", &lk.locPF},
+		{"interface", &lk.interfacePF},
+		{"struct", &lk.structPF},
+		{"category", &lk.categoryPF},
+		{"spotanim", &lk.spotanimPF},
+		{"npc", &lk.npcPF},
+		{"inv", &lk.invPF},
+		{"synth", &lk.synthPF},
+		{"seq", &lk.seqPF},
+		{"dbrow", &lk.dbrowPF},
+	} {
+		pf, err := NewPackFile(srcDir, t.name, nil)
+		if err != nil {
+			return nil, fmt.Errorf("load %s pack: %w", t.name, err)
+		}
+		*t.dst = pf
+	}
+	return lk, nil
+}
+
+// packAndSaveParam reads .param sources, packs them, writes server
+// .dat/.idx, and queues the empty-client param entries into clientJag.
+//
+// TS source: tools/pack/PackShared.ts (param branch of packConfigs).
+func packAndSaveParam(srcDir, serverOut string, pf *PackFile, lk *paramLookups, c Constants, clientJag *jagfile.Jagfile) error {
+	cfgs, err := ReadTypedConfigs(srcDir, ".param", nil, parseParamConfig, c)
+	if err != nil {
+		return err
+	}
+	server, client, err := packParamConfigs(cfgs, pf, lk)
+	if err != nil {
+		return err
+	}
+	if err := server.Save(
+		filepath.Join(serverOut, "param.dat"),
+		filepath.Join(serverOut, "param.idx"),
+	); err != nil {
+		return err
+	}
+	clientJag.Write("param.dat", client.Dat)
+	clientJag.Write("param.idx", client.Idx)
+	return nil
 }

@@ -1,6 +1,7 @@
 package pack
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -235,5 +236,162 @@ func TestPackConfigs_CrossDomainUniquenessRejection(t *testing.T) {
 	// before any branch fires).
 	if _, err := os.Stat(filepath.Join(outDir, "server", "varp.dat")); !os.IsNotExist(err) {
 		t.Fatalf("expected no varp.dat after early reject; got err=%v", err)
+	}
+}
+
+// helper: write a fixture .param + supporting .pack files into srcDir.
+// Returns the srcDir for convenience. Caller must call ClearFsCache().
+func setupParamFixture(t *testing.T, srcDir string, slotName, typeName, defaultVal string, extraPacks map[string]map[int]string) {
+	t.Helper()
+	scriptsDir := filepath.Join(srcDir, "scripts")
+	packDir := filepath.Join(srcDir, "pack")
+	if err := os.MkdirAll(scriptsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(packDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// .param source
+	src := fmt.Sprintf("[%s]\ntype=%s\ndefault=%s\n", slotName, typeName, defaultVal)
+	writeFile(t, filepath.Join(scriptsDir, "test.param"), src)
+
+	// param.pack (slot 0 → slotName)
+	writeFile(t, filepath.Join(packDir, "param.pack"), fmt.Sprintf("0=%s\n", slotName))
+
+	// Default-required typed-id packs (caller supplies). varp/varn/vars
+	// are always written so the up-front PackConfigs constructions don't fail.
+	writeFile(t, filepath.Join(packDir, "varp.pack"), "")
+	writeFile(t, filepath.Join(packDir, "varn.pack"), "")
+	writeFile(t, filepath.Join(packDir, "vars.pack"), "")
+
+	for kind, entries := range extraPacks {
+		var body strings.Builder
+		for id, name := range entries {
+			body.WriteString(fmt.Sprintf("%d=%s\n", id, name))
+		}
+		writeFile(t, filepath.Join(packDir, kind+".pack"), body.String())
+	}
+}
+
+// emptyTypedPacks creates the 12 non-varp typed-id .pack files as
+// empty stubs, so loadParamLookups doesn't fail when the .param branch
+// fires. Used when the test's param uses a primitive default.
+func writeEmptyTypedPacks(t *testing.T, srcDir string) {
+	t.Helper()
+	packDir := filepath.Join(srcDir, "pack")
+	for _, kind := range []string{"enum", "obj", "loc", "interface", "struct", "category", "spotanim", "npc", "inv", "synth", "seq", "dbrow"} {
+		writeFile(t, filepath.Join(packDir, kind+".pack"), "")
+	}
+}
+
+func TestPackConfigs_ParamOnly_PrimitiveDefault(t *testing.T) {
+	ClearFsCache()
+	srcDir := t.TempDir()
+	outDir := t.TempDir()
+	setupParamFixture(t, srcDir, "health_param", "int", "100", nil)
+	writeEmptyTypedPacks(t, srcDir)
+
+	if err := PackConfigs(srcDir, outDir); err != nil {
+		t.Fatalf("PackConfigs: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(outDir, "server", "param.dat")); err != nil {
+		t.Errorf("server/param.dat missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(outDir, "server", "param.idx")); err != nil {
+		t.Errorf("server/param.idx missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(outDir, "client", "config")); err != nil {
+		t.Errorf("client/config jagfile missing: %v", err)
+	}
+}
+
+func TestPackConfigs_ParamWithTypedDefault(t *testing.T) {
+	ClearFsCache()
+	srcDir := t.TempDir()
+	outDir := t.TempDir()
+	setupParamFixture(t, srcDir, "boss_param", "npc", "kalphite_queen", map[string]map[int]string{
+		"npc": {42: "kalphite_queen"},
+	})
+	// Stub the remaining 11 typed packs so loadParamLookups doesn't fail.
+	for _, kind := range []string{"enum", "obj", "loc", "interface", "struct", "category", "spotanim", "inv", "synth", "seq", "dbrow"} {
+		writeFile(t, filepath.Join(srcDir, "pack", kind+".pack"), "")
+	}
+
+	if err := PackConfigs(srcDir, outDir); err != nil {
+		t.Fatalf("PackConfigs: %v", err)
+	}
+	// Round-trip via LoadParamTypes confirms DefaultInt=42.
+	ptc, err := objtype.LoadParamTypes(outDir)
+	if err != nil {
+		t.Fatalf("LoadParamTypes: %v", err)
+	}
+	if len(ptc.Configs) != 1 {
+		t.Fatalf("got %d configs, want 1", len(ptc.Configs))
+	}
+	if got, want := ptc.Configs[0].DefaultInt, int32(42); got != want {
+		t.Errorf("DefaultInt: got %d, want %d", got, want)
+	}
+	if got, want := ptc.Configs[0].DebugName, "boss_param"; got != want {
+		t.Errorf("DebugName: got %q, want %q", got, want)
+	}
+}
+
+func TestPackConfigs_ParamMissingTypedPackFile(t *testing.T) {
+	ClearFsCache()
+	srcDir := t.TempDir()
+	outDir := t.TempDir()
+	setupParamFixture(t, srcDir, "x", "npc", "kalphite_queen", nil)
+	// Do NOT write npc.pack — loadParamLookups should fail.
+
+	err := PackConfigs(srcDir, outDir)
+	if err == nil {
+		t.Fatalf("missing npc.pack: want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "npc") {
+		t.Errorf("error should mention npc: got %v", err)
+	}
+}
+
+func TestPackConfigs_ParamNoSrcNoOp(t *testing.T) {
+	ClearFsCache()
+	srcDir := t.TempDir()
+	outDir := t.TempDir()
+	// Only var-domain .pack files; no .param source.
+	if err := os.MkdirAll(filepath.Join(srcDir, "pack"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(srcDir, "pack", "varp.pack"), "")
+	writeFile(t, filepath.Join(srcDir, "pack", "varn.pack"), "")
+	writeFile(t, filepath.Join(srcDir, "pack", "vars.pack"), "")
+	// Intentionally omit param.pack and all 12 typed-id .pack files.
+	// loadParamLookups must not run.
+
+	if err := PackConfigs(srcDir, outDir); err != nil {
+		t.Fatalf("no .param source: PackConfigs should be no-op for param branch, got error: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(outDir, "server", "param.dat")); !os.IsNotExist(err) {
+		t.Errorf("server/param.dat should NOT exist when no .param source")
+	}
+}
+
+func TestPackConfigs_ParamUnknownTypedDefault(t *testing.T) {
+	ClearFsCache()
+	srcDir := t.TempDir()
+	outDir := t.TempDir()
+	setupParamFixture(t, srcDir, "boss", "npc", "nonexistent_npc", map[string]map[int]string{
+		"npc": {0: "kalphite_queen"}, // doesn't include nonexistent_npc
+	})
+	for _, kind := range []string{"enum", "obj", "loc", "interface", "struct", "category", "spotanim", "inv", "synth", "seq", "dbrow"} {
+		writeFile(t, filepath.Join(srcDir, "pack", kind+".pack"), "")
+	}
+
+	err := PackConfigs(srcDir, outDir)
+	if err == nil {
+		t.Fatalf("unknown npc default: want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "boss") {
+		t.Errorf("error should name the param: got %v", err)
 	}
 }
