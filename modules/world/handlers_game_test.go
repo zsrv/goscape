@@ -11,6 +11,7 @@ import (
 	"time"
 
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
+	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
@@ -2454,5 +2455,53 @@ func TestMarshalDebugprocArgs_EmptyParamTypes(t *testing.T) {
 	}
 	if len(stringArgs) != 0 {
 		t.Errorf("stringArgs = %+v, want []", stringArgs)
+	}
+}
+
+func TestMarshalDebugprocArgs_Coord_OneToken(t *testing.T) {
+	// DEVIATION-NAI-189-D1-MIRROR-TS-COORD-FRAGILE: TS's slice(6) on
+	// args2[0] produces an empty/non-digit string for all reasonable
+	// debugproc names, making level coerce to -1 (Go) / NaN (TS). The
+	// (mx<<6)+lx components parse correctly. Pin the result verbatim.
+	//
+	// rawCheat "~coord_0_50_50_32_32" splits on '_' as:
+	//   parts[0]="~coord" (len=6, slice(6)="" → level=-1)
+	//   parts[1]="0"  → mx=0
+	//   parts[2]="50" → mz=50
+	//   parts[3]="50" → lx=50
+	//   parts[4]="32" → lz=32
+	// x=(0<<6)+50=50, z=(50<<6)+32=3232 → PackCoord(-1,50,3232).
+	s := newTestServer(t)
+	sf := stageDebugprocScript(t, s, "coord_0_50_50_32_32", []byte{byte(objtype.ScriptVarTypeCoord)})
+	intArgs, _ := s.marshalDebugprocArgs(sf, "", "~coord_0_50_50_32_32")
+	wantLevel := -1
+	wantX, wantZ := 50, (50<<6)+32
+	want := coordgrid.PackCoord(wantLevel, wantX, wantZ)
+	if len(intArgs) != 1 || intArgs[0] != want {
+		t.Errorf("OneToken intArgs = %+v, want [%d] (PackCoord(%d,%d,%d))",
+			intArgs, want, wantLevel, wantX, wantZ)
+	}
+}
+
+func TestMarshalDebugprocArgs_Coord_TwoToken(t *testing.T) {
+	// Same DEVIATION as OneToken; args2[0] is now "~setpos coord" (13 chars).
+	// slice(6) = "s coord"; parseInt → NaN (TS) / Atoi → err → -1 (goscape).
+	//
+	// rawCheat "~setpos coord_0_50_50_32_32" splits on '_' as:
+	//   parts[0]="~setpos coord" (slice(6)="s coord" → level=-1)
+	//   parts[1]="0"  → mx=0
+	//   parts[2]="50" → mz=50
+	//   parts[3]="50" → lx=50
+	//   parts[4]="32" → lz=32
+	// x=(0<<6)+50=50, z=(50<<6)+32=3232 → PackCoord(-1,50,3232).
+	s := newTestServer(t)
+	sf := stageDebugprocScript(t, s, "setpos", []byte{byte(objtype.ScriptVarTypeCoord)})
+	intArgs, _ := s.marshalDebugprocArgs(sf, "coord_0_50_50_32_32", "~setpos coord_0_50_50_32_32")
+	wantLevel := -1
+	wantX, wantZ := 50, (50<<6)+32
+	want := coordgrid.PackCoord(wantLevel, wantX, wantZ)
+	if len(intArgs) != 1 || intArgs[0] != want {
+		t.Errorf("TwoToken intArgs = %+v, want [%d] (PackCoord(%d,%d,%d))",
+			intArgs, want, wantLevel, wantX, wantZ)
 	}
 }

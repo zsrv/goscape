@@ -344,6 +344,35 @@ func handleMessagePublic(p *Player, payload []byte) error {
 	return nil
 }
 
+// parseDebugprocCoord mirrors TS ClientCheatHandler.ts:113-124. Returns
+// the packed coord; level coerces to -1 if the slice(6) substring fails
+// to parse (the common case — see DEVIATION-NAI-189-D1).
+func parseDebugprocCoord(rawCheat string) int {
+	parts := strings.Split(rawCheat, "_")
+	if len(parts) < 5 {
+		return -1
+	}
+
+	atoiOr := func(s string, def int) int {
+		v, err := strconv.Atoi(s)
+		if err != nil {
+			return def
+		}
+		return v
+	}
+
+	levelStr := ""
+	if len(parts[0]) >= 6 {
+		levelStr = parts[0][6:]
+	}
+	level := atoiOr(levelStr, -1)
+	mx := atoiOr(parts[1], 0)
+	mz := atoiOr(parts[2], 0)
+	lx := atoiOr(parts[3], 0)
+	lz := atoiOr(parts[4], 0)
+	return coordgrid.PackCoord(level, (mx<<6)+lx, (mz<<6)+lz)
+}
+
 // marshalDebugprocArgs walks sf.ParamTypes byte-by-byte, casts each to
 // objtype.ScriptVarType, and appends to intArgs or stringArgs per the
 // 12 TS arms in ClientCheatHandler.ts:69-140. Missing tokens degrade
@@ -416,10 +445,16 @@ func (s *Server) marshalDebugprocArgs(sf *script.ScriptFile, args string, rawChe
 				intArgs = append(intArgs, -1)
 			}
 		case objtype.ScriptVarTypeCoord:
-			// COORD arm: TS L113-124 re-parses the whole cheat string by
-			// underscore. Implementation deferred to Task 7. Stub returns -1.
-			// DEVIATION-NAI-189-D1-MIRROR-TS-COORD-FRAGILE will land in T7.
-			intArgs = append(intArgs, -1)
+			// DEVIATION-NAI-189-D1-MIRROR-TS-COORD-FRAGILE
+			// TS L113-124 re-parses the full lowered cheat string by
+			// underscore and computes level via args2[0].slice(6). For all
+			// reasonable debugproc names this produces a non-digit string
+			// → TS NaN / goscape -1 sentinel. Mirrored verbatim per the
+			// true-to-TS gate; the level component is effectively always -1
+			// while x/z parse correctly from (mx<<6)+lx and (mz<<6)+lz.
+			// A future upstream fix should derive the offset from cmd
+			// length; until then this matches TS observable behavior.
+			intArgs = append(intArgs, parseDebugprocCoord(rawCheat))
 		case objtype.ScriptVarTypeInterface:
 			if t := s.componentTypes.ByName(take()); t != nil {
 				intArgs = append(intArgs, t.ID)
@@ -444,7 +479,6 @@ func (s *Server) marshalDebugprocArgs(sf *script.ScriptFile, args string, rawChe
 		}
 	}
 
-	_ = rawCheat // reserved for T7 COORD arm; silence unused-var until then
 	return intArgs, stringArgs
 }
 
