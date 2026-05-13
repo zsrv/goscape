@@ -2228,6 +2228,42 @@ func stageDebugprocScript(t *testing.T, s *Server, name string, paramTypes []byt
 	return sf
 }
 
+// stageDebugprocSuspendScript is like stageDebugprocScript but the script
+// body has a real side-effect: OpFaceSquare with a known packed coord
+// (PackCoord(0, 3200, 3200) = 52432000), so a successful dispatch leaves
+// p.faceSquareX = 6401 (3200*2+1). Used by integration tests that need a
+// non-vacuous "did the dispatch fire?" assertion.
+//
+// Note: debugproc dispatches with protect=false (TS-faithful), so P_DELAY
+// is not usable here — it errors out without PtrProtectedActivePlayer.
+// FACESQUARE only requires PtrActivePlayer, which is set for any non-nil
+// self.
+func stageDebugprocSuspendScript(t *testing.T, s *Server, name string, paramTypes []byte) *script.ScriptFile {
+	t.Helper()
+	if s.scriptProvider == nil || s.scriptProvider.Count() == 0 {
+		s.scriptProvider = script.NewProvider()
+	}
+	// PackCoord(0, 3200, 3200) = (3200 & 0x3fff) | ((3200 & 0x3fff) << 14)
+	// = 3200 | 52428800 = 52432000.
+	// After FaceSquare(3200, 3200): faceSquareX = faceSquareZ = 6401.
+	const faceCoord int32 = 52432000
+	sf := &script.ScriptFile{
+		Name:       "[debugproc," + name + "]",
+		LookupKey:  0xFFFFFFFF,
+		ParamTypes: paramTypes,
+		Opcodes: []script.Opcode{
+			script.OpPushConstantInt,
+			script.OpFaceSquare,
+			script.OpReturn,
+		},
+		IntOperands:      []int32{faceCoord, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	s.scriptProvider.Register(sf)
+	return sf
+}
+
 // --- NAI-189: dispatchDebugproc arg marshalling ---
 
 func TestMarshalDebugprocArgs_String_Hit(t *testing.T) {
@@ -2511,26 +2547,28 @@ func TestMarshalDebugprocArgs_Coord_TwoToken(t *testing.T) {
 func TestHandleClientCheat_Debugproc_DispatchesScript(t *testing.T) {
 	// Positive control: a registered [debugproc,X] is dispatched when
 	// staffModLevel >= 4 && !NodeProduction && cheat starts with the
-	// debugproc-char prefix.
+	// debugproc-char prefix. The staged body calls FACESQUARE with a known
+	// coord, so a successful dispatch leaves p.faceSquareX = 6401 (!=
+	// default -1). A pre-wiring failure or gate-blocked dispatch would
+	// leave faceSquareX at its default -1 and fail.
 	p, _, s := teleTestPlayer(t)
 	p.staffModLevel = 4
 	s.cfg.NodeProduction = false
 	s.cfg.NodeDebugprocChar = "~"
 
-	sf := stageDebugprocScript(t, s, "ping", []byte{})
+	sf := stageDebugprocSuspendScript(t, s, "ping", []byte{})
 
-	// Pre-dispatch: provider holds the script.
 	if s.scriptProvider.GetByName(sf.Name) == nil {
-		t.Fatal("setup: stageDebugprocScript did not register the script")
+		t.Fatal("setup: stageDebugprocSuspendScript did not register the script")
 	}
 
 	dispatchTeleCheat(t, p, "~ping")
 
-	// Post-dispatch: script ran to completion via runScript → Execute →
-	// resumeOrFinish. With OpReturn as the sole body opcode, p.activeScript
-	// must be nil (no suspension occurred).
-	if p.activeScript != nil {
-		t.Errorf("activeScript = %+v, want nil (OpReturn body should finish synchronously)", p.activeScript)
+	// FACESQUARE(PackCoord(0,3200,3200)) sets faceSquareX = 3200*2+1 = 6401.
+	const wantFaceX = 6401
+	if p.faceSquareX != wantFaceX {
+		t.Errorf("faceSquareX = %d, want %d (FACESQUARE body should have fired on successful dispatch)",
+			p.faceSquareX, wantFaceX)
 	}
 }
 
@@ -2554,12 +2592,14 @@ func TestHandleClientCheat_Debugproc_GateMod3_NoDispatch(t *testing.T) {
 	p.staffModLevel = 3
 	s.cfg.NodeProduction = false
 	s.cfg.NodeDebugprocChar = "~"
-	_ = stageDebugprocScript(t, s, "ping", []byte{})
+	_ = stageDebugprocSuspendScript(t, s, "ping", []byte{})
 
 	dispatchTeleCheat(t, p, "~ping")
 
-	if p.activeScript != nil {
-		t.Errorf("Gate failed: activeScript = %+v, want nil at staffModLevel=3", p.activeScript)
+	// At mod=3 the dev-block (>= 4) is skipped — debugproc must not fire.
+	// If it did fire, the FACESQUARE body would set faceSquareX = 6401 != -1.
+	if p.faceSquareX != -1 {
+		t.Errorf("Gate failed: faceSquareX = %d, want -1 (default) at staffModLevel=3", p.faceSquareX)
 	}
 }
 
@@ -2568,12 +2608,13 @@ func TestHandleClientCheat_Debugproc_GateProd_NoDispatch(t *testing.T) {
 	p.staffModLevel = 4
 	s.cfg.NodeProduction = true
 	s.cfg.NodeDebugprocChar = "~"
-	_ = stageDebugprocScript(t, s, "ping", []byte{})
+	_ = stageDebugprocSuspendScript(t, s, "ping", []byte{})
 
 	dispatchTeleCheat(t, p, "~ping")
 
-	if p.activeScript != nil {
-		t.Errorf("Gate failed: activeScript = %+v, want nil under NodeProduction=true", p.activeScript)
+	// If the production gate failed, FACESQUARE would fire and set faceSquareX = 6401 != -1.
+	if p.faceSquareX != -1 {
+		t.Errorf("Gate failed: faceSquareX = %d, want -1 (default) under NodeProduction=true", p.faceSquareX)
 	}
 }
 
