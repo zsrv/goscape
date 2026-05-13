@@ -372,8 +372,8 @@ func (s *Server) marshalDebugprocArgs(sf *script.ScriptFile, args string, rawChe
 	intArgs := make([]int, 0, len(sf.ParamTypes))
 	stringArgs := make([]string, 0, len(sf.ParamTypes))
 
-	for i := range len(sf.ParamTypes) {
-		switch objtype.ScriptVarType(sf.ParamTypes[i]) {
+	for _, pt := range sf.ParamTypes {
+		switch objtype.ScriptVarType(pt) {
 		case objtype.ScriptVarTypeString:
 			stringArgs = append(stringArgs, take())
 		case objtype.ScriptVarTypeInt:
@@ -464,6 +464,9 @@ func (s *Server) marshalDebugprocArgs(sf *script.ScriptFile, args string, rawChe
 func (s *Server) dispatchDebugproc(p *Player, cmd string, args string, rawCheat string) {
 	prefix := s.cfg.NodeDebugprocChar
 	if prefix == "" || len(cmd) <= len(prefix) || !strings.HasPrefix(cmd, prefix) {
+		return
+	}
+	if s.scriptProvider == nil {
 		return
 	}
 	name := cmd[len(prefix):]
