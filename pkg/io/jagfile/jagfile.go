@@ -85,10 +85,13 @@ func (jf *Jagfile) Read(name string) (*packet.Packet, error) {
 func (jf *Jagfile) Write(name string, data *packet.Packet) {
 	hash := genHash(name)
 
+	// TS-faithful: use the full written payload. goscape Packet.Pos is the READ
+	// pointer (packet_rw_pointer_gotcha); for a write-built packet Pos stays 0,
+	// so data.Data[:data.Pos] would yield an empty slice.
 	jf.FileQueue = append(jf.FileQueue, JagQueueFile{
 		Hash:  hash,
 		Name:  name,
-		Data:  data.Data[:data.Pos],
+		Data:  data.Data,
 		Write: true,
 	})
 }
@@ -119,7 +122,10 @@ func (jf *Jagfile) Rename(oldName string, newName string) {
 func (jf *Jagfile) Save(path string, doNotCompressWhole bool) error {
 	buf := packet.Alloc(5)
 
-	for i := range jf.FileQueue {
+	// goscape: use a C-style loop so that i-- inside the body correctly
+	// compensates for the slices.Delete shrink (for-range evaluates the
+	// slice length once at entry and ignores in-body i mutations).
+	for i := 0; i < len(jf.FileQueue); i++ {
 		queued := jf.FileQueue[i]
 		index := slices.Index(jf.FileHash, queued.Hash)
 
@@ -127,6 +133,19 @@ func (jf *Jagfile) Save(path string, doNotCompressWhole bool) error {
 			if index == -1 {
 				index = jf.FileCount
 				jf.FileCount++
+
+				// TS-faithful: TS arrays auto-grow on indexed assignment; Go slices
+				// require explicit append. When writing a new entry into a fresh-empty
+				// Jagfile (NewJagfile(nil)), all per-field slices are nil/zero-length
+				// and would panic on jf.FileHash[index]=... without this grow step.
+				if len(jf.FileHash) < jf.FileCount {
+					jf.FileHash = append(jf.FileHash, 0)
+					jf.FileName = append(jf.FileName, "")
+					jf.FileUnpackedSize = append(jf.FileUnpackedSize, 0)
+					jf.FilePackedSize = append(jf.FilePackedSize, 0)
+					jf.FilePos = append(jf.FilePos, 0)
+					jf.FileWrite = append(jf.FileWrite, nil)
+				}
 
 				jf.FileHash[index] = queued.Hash
 				jf.FileName[index] = queued.Name
@@ -203,7 +222,9 @@ func (jf *Jagfile) Save(path string, doNotCompressWhole bool) error {
 	}
 
 	jag := packet.Alloc(5)
-	jag.P3(uint32(buf.Pos))
+	// goscape: Packet.Pos is the READ pointer; writes append to len(Data).
+	// Use len(buf.Data) for the uncompressed size, not buf.Pos (= 0).
+	jag.P3(uint32(len(buf.Data)))
 
 	if compressWhole {
 		b, err := BZip2Compress(buf.Data, false, true, 1, 0)
@@ -217,11 +238,14 @@ func (jf *Jagfile) Save(path string, doNotCompressWhole bool) error {
 		jag.P3(uint32(buf.Len()))
 		jag.PData(buf.Bytes())
 	} else {
-		jag.P3(uint32(buf.Pos))
+		// goscape: use len(buf.Data) for the packed size, not buf.Pos (= 0).
+		jag.P3(uint32(len(buf.Data)))
 		jag.PData(buf.Bytes())
 	}
 
-	if err := jag.Save(path, jag.Pos, 0); err != nil {
+	// goscape: jag.Pos is the READ pointer (= 0); use len(jag.Data) as
+	// the byte count to write to disk.
+	if err := jag.Save(path, len(jag.Data), 0); err != nil {
 		return err
 	}
 	buf.Release()

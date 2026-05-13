@@ -1,6 +1,8 @@
 package jagfile
 
 import (
+	"bytes"
+	"path/filepath"
 	"slices"
 	"testing"
 
@@ -228,5 +230,41 @@ func TestJagfileRename(t *testing.T) {
 	}
 	if jf.FileQueue[0].NewName != "gnomeball_buttons.dat" {
 		t.Fatalf("jf.FileQueue[0].NewName = %v, want %v", jf.FileQueue[0].NewName, "gnomeball_buttons.dat")
+	}
+}
+
+func TestJagfile_FreshEmptyWriteSaveRoundTrip(t *testing.T) {
+	jf, err := NewJagfile(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	a := packet.NewPacket([]byte{0xAA, 0xBB})
+	b := packet.NewPacket([]byte{0xCC, 0xDD, 0xEE})
+	jf.Write("a.dat", a)
+	jf.Write("b.dat", b)
+
+	path := filepath.Join(t.TempDir(), "config")
+	if err := jf.Save(path, false); err != nil {
+		t.Fatal(err)
+	}
+
+	reloaded, err := LoadJagfile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotA, err := reloaded.Read("a.dat")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(gotA.Data, []byte{0xAA, 0xBB}) {
+		t.Fatalf("a.dat=% x, want AA BB", gotA.Data)
+	}
+	gotB, err := reloaded.Read("b.dat")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(gotB.Data, []byte{0xCC, 0xDD, 0xEE}) {
+		t.Fatalf("b.dat=% x, want CC DD EE", gotB.Data)
 	}
 }
