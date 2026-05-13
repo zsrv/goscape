@@ -67,20 +67,12 @@ func TestNAI192_PackFileSingletonsDeferred_NoModuleLevelVarnPack(t *testing.T) {
 	}
 }
 
-// NAI-192-D-VARP-UNIQUENESS-DEFERRED: PackConfigs source must NOT
-// reference a cross-domain uniqueness check identifier.
-func TestNAI192_VarpUniquenessDeferred_NoCheckInOrchestrator(t *testing.T) {
-	body, err := os.ReadFile("pack_configs.go")
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Heuristic: any identifier containing "Unique" in the orchestrator
-	// would imply the check landed early.
-	if strings.Contains(string(body), "checkVarNameUniqueness") ||
-		strings.Contains(string(body), "uniqueVarNames") {
-		t.Error("PackConfigs references a uniqueness-check identifier — violates NAI-192-D-VARP-UNIQUENESS-DEFERRED")
-	}
-}
+// NAI-192-D-VARP-UNIQUENESS-DEFERRED: retired by NAI-193 T4 — the
+// checkVarNameUniqueness function now exists in pack_configs.go and is
+// wired into PackConfigs in T5. The pin test is deleted here rather than
+// T7 because the function definition (not yet called by the orchestrator)
+// already trips the raw strings.Contains scan. Positive-retirement pin
+// lands in nai193_deviation_pins_test.go (T7).
 
 // NAI-192-D-DEADBRANCH-OMITTED: parseVarnConfig / parseVarsConfig
 // source must NOT contain stringKeys / numberKeys / booleanKeys

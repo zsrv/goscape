@@ -1,6 +1,7 @@
 package pack
 
 import (
+	"fmt"
 	"path/filepath"
 )
 
@@ -52,6 +53,32 @@ func PackConfigs(srcDir, outDir string) error {
 		}
 	}
 
+	return nil
+}
+
+// checkVarNameUniqueness rejects when any debugname appears in more
+// than one of the supplied PackFiles. Sparse slots (empty name) are
+// ignored. Error message names the duplicated identifier and the
+// pack-type ("varp", "varn", "vars") of the first declaration.
+//
+// Retires NAI-192-D-VARP-UNIQUENESS-DEFERRED — varp is the third and
+// final of the var-name trio, so this check can land now.
+//
+// TS source: tools/pack/config/PackShared.ts:292-310.
+func checkVarNameUniqueness(pfs ...*PackFile) error {
+	seen := map[string]string{} // name → pack type that first declared it
+	for _, pf := range pfs {
+		for id := range pf.Max {
+			name := pf.GetByID(id)
+			if name == "" {
+				continue
+			}
+			if prior, dup := seen[name]; dup {
+				return fmt.Errorf("non-unique var name %q (declared in %s and again in %s)", name, prior, pf.Type)
+			}
+			seen[name] = pf.Type
+		}
+	}
 	return nil
 }
 
