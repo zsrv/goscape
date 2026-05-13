@@ -367,16 +367,23 @@ func handleClientCheat(p *Player, payload []byte) error {
 	if len(parts) == 2 {
 		args = parts[1]
 	}
-	// DEVIATION-NAI-186-D2-CARRYFORWARD — supersedes
-	// DEVIATION-NAI-185-D4-CARRYFORWARD. 6 TS ClientCheatHandler
-	// cheats remain unported:
-	//   Dev block (!NP && >=4): reload, rebuild, speed.
-	//     Blocked on cache/script reload subsystem + runtime
-	//     tick-rate mutation (tick.go interval is currently fixed).
-	//   Admin block (>=3):      locadd, npcadd, openmain.
-	//     Blocked on dynamic Loc/Npc spawn + interface routing.
-	// NAI-186 retired the super-mod cluster (setvis/ban/mute/kick).
-	// Each cluster warrants its own follow-up sub-spec.
+	// DEVIATION-NAI-187-D1-CARRYFORWARD — supersedes
+	// DEVIATION-NAI-186-D2-CARRYFORWARD. 3 TS ClientCheatHandler
+	// cheats remain unported, all in the dev block (!NP && >=4):
+	//   reload:  TS L149-150. Calls World.reload() — full cache
+	//            hot-reload pipeline. No goscape equivalent;
+	//            substantial new subsystem.
+	//   rebuild: TS L151-153. Calls World.rebuild() — script-provider
+	//            hot-reload. Same infra gap as reload.
+	//   speed:   TS L154-167. Trivial code (~10 LOC) but mutates
+	//            World.tickRate, currently a package-level const at
+	//            modules/world/tick.go:15. Right size for its own
+	//            one-shot follow-up sub-spec.
+	// NAI-187 retired the admin spawn/interface cluster (locadd /
+	// npcadd / openmain). Per memory tracker_entry_framing_can_be_
+	// incomplete: the prior "blocked on dynamic Loc/Npc spawn +
+	// interface routing" framing was stale at HEAD — all primitives
+	// existed; sole gap was three ByName helpers in pkg/objtype.
 	// TS ClientCheatHandler.ts:52-54 — addSessionLog tier. Logs every
 	// cheat invocation from staffModLevel >= 2 to the MODERATOR session
 	// log channel. Ported via Player.AddSessionLog (modules/world/player.go).
