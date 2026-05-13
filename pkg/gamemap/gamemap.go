@@ -83,6 +83,16 @@ func (gm *GameMap) SetObjTypes(cfgs *objtype.ObjTypeConfigs) {
 	gm.objTypes = cfgs
 }
 
+// LocTypesForTest exposes the injected loctypes ref for cross-package
+// tests. Production callers use SetLocTypes-injected refs internally.
+// NAI-190 T7 (GameMap re-injection pin).
+func (gm *GameMap) LocTypesForTest() *objtype.LocTypeConfigs { return gm.locTypes }
+
+// ObjTypesForTest exposes the injected objtypes ref for cross-package
+// tests. Production callers use SetObjTypes-injected refs internally.
+// NAI-190 T7 (GameMap re-injection pin).
+func (gm *GameMap) ObjTypesForTest() *objtype.ObjTypeConfigs { return gm.objTypes }
+
 // ChangeLandCollision marks or clears a floor tile as walkable.
 func (gm *GameMap) ChangeLandCollision(x, z, level int, add bool) {
 	gm.Pathfinder.ChangeFloor(x, z, level, add)

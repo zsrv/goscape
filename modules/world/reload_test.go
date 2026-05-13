@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/zsrv/goscape/pkg/cache"
+	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
@@ -364,6 +366,35 @@ func TestReload_VarSharedStringSlot_PreservedAcrossReload(t *testing.T) {
 	}
 	if s.varsStrings[stringSlot] != "marker" {
 		t.Errorf("STRING var %d was clobbered: %q", stringSlot, s.varsStrings[stringSlot])
+	}
+}
+
+func TestReload_CRCRegen_OverwritesGlobalCrcBuffer(t *testing.T) {
+	s := newTestServerWithCachePath(t, realCacheDir())
+	cache.CrcBuffer32 = 0xDEAD
+	if err := s.Reload(true); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
+	if cache.CrcBuffer32 == 0xDEAD {
+		t.Errorf("CrcBuffer32 not regenerated post-reload")
+	}
+	if len(cache.CrcTable) == 0 {
+		t.Errorf("CrcTable empty post-reload")
+	}
+}
+
+func TestReload_GameMapTypesReInjected(t *testing.T) {
+	s := newTestServerWithCachePath(t, realCacheDir())
+	gm := gamemap.New(s.log)
+	s.gamemap = gm
+	if err := s.Reload(true); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
+	if gm.LocTypesForTest() != s.locTypes {
+		t.Errorf("GameMap loc types not re-injected post-reload (DEVIATION-NAI-190-D1)")
+	}
+	if gm.ObjTypesForTest() != s.objTypes {
+		t.Errorf("GameMap obj types not re-injected post-reload (DEVIATION-NAI-190-D1)")
 	}
 }
 

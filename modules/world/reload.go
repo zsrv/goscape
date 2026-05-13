@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/zsrv/goscape/pkg/cache"
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
@@ -256,11 +257,22 @@ func (s *Server) Reload(clearInvs bool) error {
 		}
 	}
 
-	// ─── Step 10: CRC regen + client preload ───
-	// (Implemented in T7.)
+	// ─── Step 10: CRC regen + client preload (TS L288, L291) ───
+	cache.MakeCRCs()
+	clientDir := filepath.Join(cachePath, "client")
+	if err := cache.PreloadClient(clientDir); err != nil {
+		// TS preloadClient throws on error; goscape returns. Per
+		// DEVIATION-NAI-190-D2-HALF-SWAP, the post-step-3 swap is
+		// already committed.
+		return fmt.Errorf("reload: preload client: %w", err)
+	}
 
-	// ─── Step 11: GameMap re-injection (D1) ───
-	// (Implemented in T7.)
+	// ─── Step 11: GameMap re-injection (DEVIATION-NAI-190-D1) ───
+	if s.gamemap != nil {
+		s.gamemap.SetLocTypes(s.locTypes)
+		s.gamemap.SetObjTypes(s.objTypes)
+		s.gamemap.SetMembers(s.cfg.NodeMembers)
+	}
 
 	return nil
 }
