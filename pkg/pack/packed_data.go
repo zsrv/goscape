@@ -45,10 +45,10 @@ func (pd *PackedData) Next() {
 	pd.marker = pd.Dat.Length()
 }
 
-func (pd *PackedData) P1(v uint8)  { pd.Dat.P1(v) }
-func (pd *PackedData) P2(v uint16) { pd.Dat.P2(v) }
-func (pd *PackedData) P3(v uint32) { pd.Dat.P3(v) }
-func (pd *PackedData) P4(v uint32) { pd.Dat.P4(v) }
+func (pd *PackedData) P1(v uint8)   { pd.Dat.P1(v) }
+func (pd *PackedData) P2(v uint16)  { pd.Dat.P2(v) }
+func (pd *PackedData) P3(v uint32)  { pd.Dat.P3(v) }
+func (pd *PackedData) P4(v uint32)  { pd.Dat.P4(v) }
 func (pd *PackedData) PBool(v bool) { pd.Dat.PBool(v) }
 
 // PJStr writes a JagString with an LF (0x0a) terminator, matching
