@@ -24,7 +24,6 @@ func DecodeParams(dat *packet2.Packet) ParamMap {
 	return params
 }
 
-
 type ParamTypeConfigs struct {
 	ConfigNames map[string]int
 	Configs     []*ParamType
