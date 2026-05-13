@@ -854,6 +854,27 @@ func handleClientCheat(p *Player, payload []byte) error {
 			default:
 				return nil
 			}
+		case "ban":
+			// TS ClientCheatHandler.ts:569-581 — ::ban <username> <minutes>.
+			// NodeProduction-gated. Calls World.notifyPlayerBan with
+			// staff=p.username (manual-staff invocation; distinct from the
+			// "automated" callers at handler_reportabuse.go:50 and
+			// handler_message_private.go:42). NAI-186.
+			if !p.client.server.cfg.NodeProduction {
+				return nil
+			}
+			sub := strings.SplitN(args, " ", 2)
+			if len(sub) < 2 || sub[0] == "" {
+				p.MessageGame("Usage: ::ban <username> <minutes>")
+				return nil
+			}
+			username := sub[0]
+			minutes := parseIntOr(sub[1], 60)
+			if minutes < 0 {
+				minutes = 0
+			}
+			p.client.server.loginBridgeMod.NotifyPlayerBan(p.username, username, time.Now().Add(time.Duration(minutes)*time.Minute))
+			p.MessageGame(fmt.Sprintf("Player '%s' has been banned for %d minutes.", username, minutes))
 		}
 	}
 

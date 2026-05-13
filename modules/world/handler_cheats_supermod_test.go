@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/zsrv/goscape/pkg/gamemap"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
@@ -154,5 +155,118 @@ func TestSetvisDispatchNodeProductionGate(t *testing.T) {
 	}
 	if len(out) != 0 {
 		t.Errorf("MessageGame: no message expected when NodeProduction=false; got %q", out)
+	}
+}
+
+// TestBanDispatchHappy pins TS L569-581 ::ban <username> <minutes>.
+// Asserts recordingBridges.loginMod[0] = {method:NotifyPlayerBan,
+// staff:p.username, username:<arg>, until:≈now+minutes}. Note: TS
+// lowercases args (L42), so "bob" stays "bob".
+func TestBanDispatchHappy(t *testing.T) {
+	p, cc, _, rec := supermodSetup(t)
+	before := time.Now()
+	received := drainConn(t, cc)
+	dispatchCheat(t, p, "ban bob 30")
+	p.client.flushWrite()
+	out := <-received
+
+	if len(rec.loginMod) != 1 {
+		t.Fatalf("loginMod: got %d calls, want 1", len(rec.loginMod))
+	}
+	got := rec.loginMod[0]
+	if got.method != "NotifyPlayerBan" {
+		t.Errorf("method: got %q, want NotifyPlayerBan", got.method)
+	}
+	if got.staff != "alice" {
+		t.Errorf("staff: got %q, want alice (the calling moderator)", got.staff)
+	}
+	if got.username != "bob" {
+		t.Errorf("username: got %q, want bob", got.username)
+	}
+	wantUntil := before.Add(30 * time.Minute)
+	if diff := got.until.Sub(wantUntil); diff < -5*time.Second || diff > 5*time.Second {
+		t.Errorf("until off by %v from now+30m; want within 5s", diff)
+	}
+	if !bytes.Contains(out, []byte("Player 'bob' has been banned for 30 minutes.")) {
+		t.Errorf("MessageGame: missing ack; got %q", out)
+	}
+}
+
+// TestBanDispatchUsage pins TS L571-574: args.length < 2 → usage message,
+// no bridge call.
+func TestBanDispatchUsage(t *testing.T) {
+	p, cc, _, rec := supermodSetup(t)
+	received := drainConn(t, cc)
+	dispatchCheat(t, p, "ban bob")
+	p.client.flushWrite()
+	out := <-received
+
+	if len(rec.loginMod) != 0 {
+		t.Errorf("loginMod: got %d calls, want 0 on missing minutes arg", len(rec.loginMod))
+	}
+	if !bytes.Contains(out, []byte("Usage: ::ban <username> <minutes>")) {
+		t.Errorf("MessageGame: missing usage; got %q", out)
+	}
+}
+
+// TestBanDispatchUnparseableMinutes pins TS L578: tryParseInt default 60
+// applied when minutes arg fails to parse.
+func TestBanDispatchUnparseableMinutes(t *testing.T) {
+	p, cc, _, rec := supermodSetup(t)
+	before := time.Now()
+	received := drainConn(t, cc)
+	dispatchCheat(t, p, "ban bob abc")
+	p.client.flushWrite()
+	out := <-received
+
+	if len(rec.loginMod) != 1 {
+		t.Fatalf("loginMod: got %d, want 1", len(rec.loginMod))
+	}
+	wantUntil := before.Add(60 * time.Minute)
+	if diff := rec.loginMod[0].until.Sub(wantUntil); diff < -5*time.Second || diff > 5*time.Second {
+		t.Errorf("until off by %v from now+60m default", diff)
+	}
+	if !bytes.Contains(out, []byte("Player 'bob' has been banned for 60 minutes.")) {
+		t.Errorf("MessageGame: missing 60-minute ack; got %q", out)
+	}
+}
+
+// TestBanDispatchNegativeClamp pins TS L578 Math.max(0, ...) — negative
+// minutes clamps to 0.
+func TestBanDispatchNegativeClamp(t *testing.T) {
+	p, cc, _, rec := supermodSetup(t)
+	before := time.Now()
+	received := drainConn(t, cc)
+	dispatchCheat(t, p, "ban bob -5")
+	p.client.flushWrite()
+	out := <-received
+
+	if len(rec.loginMod) != 1 {
+		t.Fatalf("loginMod: got %d, want 1", len(rec.loginMod))
+	}
+	// 0 minutes → until ≈ now.
+	if diff := rec.loginMod[0].until.Sub(before); diff < -5*time.Second || diff > 5*time.Second {
+		t.Errorf("until off by %v from now (0-min clamp)", diff)
+	}
+	if !bytes.Contains(out, []byte("Player 'bob' has been banned for 0 minutes.")) {
+		t.Errorf("MessageGame: missing 0-minute ack; got %q", out)
+	}
+}
+
+// TestBanDispatchNodeProductionGate pins TS L569 && NODE_PRODUCTION.
+// NodeProduction=false → arm inert (no bridge call, no message).
+func TestBanDispatchNodeProductionGate(t *testing.T) {
+	p, cc, s, rec := supermodSetup(t)
+	s.cfg.NodeProduction = false
+	received := drainConn(t, cc)
+	dispatchCheat(t, p, "ban bob 30")
+	p.client.flushWrite()
+	out := <-received
+
+	if len(rec.loginMod) != 0 {
+		t.Errorf("loginMod: got %d, want 0 (NodeProduction=false)", len(rec.loginMod))
+	}
+	if len(out) != 0 {
+		t.Errorf("MessageGame: no message expected; got %q", out)
 	}
 }
