@@ -3,29 +3,42 @@ package pack
 import (
 	"fmt"
 	"path/filepath"
+
+	"github.com/zsrv/goscape/pkg/io/jagfile"
 )
 
-// PackConfigs runs the per-config packing pipeline. NAI-192 wires only
-// .varn and .vars; subsequent NAI-193+ sub-specs add branches.
+// PackConfigs runs the per-config packing pipeline. NAI-193 wires
+// .varp (server + client jagfile), .varn (server), and .vars (server).
+// Subsequent NAI-194+ sub-specs add the remaining per-config branches.
 //
 // Each branch is freshness-gated via ShouldBuild against the relevant
-// source extension. Outputs land at <outDir>/server/<type>.{dat,idx}.
+// source extension. Server outputs land at <outDir>/server/<type>.{dat,idx}.
+// Client outputs land in a fresh jagfile at <outDir>/client/config —
+// saved only if at least one client-side branch fires.
 //
-// NAI-192-D-VARP-UNIQUENESS-DEFERRED: TS PackShared.packConfigs runs
-// a cross-domain var-name uniqueness check across {VarpPack, VarnPack,
-// VarsPack}. Deferred — lands with whichever of {varp, varn, vars} is
-// last to ship. No production callsite this slice, so fixture-driven
-// duplicates cannot reach the orchestrator.
+// All three var-domain PackFiles are constructed up-front so the
+// cross-domain uniqueness check (which retires
+// NAI-192-D-VARP-UNIQUENESS-DEFERRED) has all three name maps
+// available. Each *.pack file is small (<1 KB); cost is fixed.
 //
-// NAI-192-D-PACKFILE-SINGLETONS-DEFERRED: TS uses module-level
-// VarnPack/VarsPack singletons; goscape constructs *PackFile from
-// srcDir per call (NAI-191 §2 deferred all 26 singletons).
+// NAI-193-D-PACKFILE-SINGLETONS-DEFERRED: TS uses module-level
+// VarpPack/VarnPack/VarsPack singletons; goscape constructs *PackFile
+// from srcDir per call (continuation of NAI-191 §2 / NAI-192
+// deferral of all 26 module-level pack singletons).
+//
+// NAI-193-D-FRESH-CLIENT-JAGFILE: client jagfile starts fresh
+// (NewJagfile(nil)). Pre-existing entries in <outDir>/client/config
+// are truncated if only a subset of client-side branches rebuild.
+// Mirrors TS Jagfile.new() at PackShared.ts:336.
+//
+// NAI-193-D-VALIDATE-DEFERRED: TS BUILD_VERIFY callback (.varp magic
+// 705633567 at PackShared.ts:631-633) deferred — continuation of
+// NAI-191 §2.
 //
 // NAI-192-D-NO-SRC-NO-OP: goscape-only `GetLatestModified > 0`
 // pre-guard suppresses output when no source files exist. TS would
 // enter ShouldBuild's output-missing arm and write a zero-entry
-// `.dat`/`.idx` pair; goscape elides that write. Behaviourally inert
-// (an empty file vs no file).
+// .dat/.idx pair; goscape elides that write.
 //
 // TS source: tools/pack/config/PackShared.ts:261-669 (packConfigs).
 func PackConfigs(srcDir, outDir string) error {
@@ -34,25 +47,65 @@ func PackConfigs(srcDir, outDir string) error {
 		return err
 	}
 
-	// TODO(NAI-VARP+): var-name uniqueness across {VarpPack, VarnPack, VarsPack}.
+	// Construct all three var-domain PackFiles up-front for the
+	// cross-domain uniqueness check (retires
+	// NAI-192-D-VARP-UNIQUENESS-DEFERRED).
+	varpPack, err := NewPackFile(srcDir, "varp", nil)
+	if err != nil {
+		return err
+	}
+	varnPack, err := NewPackFile(srcDir, "varn", nil)
+	if err != nil {
+		return err
+	}
+	varsPack, err := NewPackFile(srcDir, "vars", nil)
+	if err != nil {
+		return err
+	}
+
+	if err := checkVarNameUniqueness(varpPack, varnPack, varsPack); err != nil {
+		return err
+	}
 
 	scriptsDir := filepath.Join(srcDir, "scripts")
 	serverOut := filepath.Join(outDir, "server")
+	clientOut := filepath.Join(outDir, "client")
+
+	// Fresh client jagfile per NAI-193-D-FRESH-CLIENT-JAGFILE. Saved
+	// only when at least one client-side branch contributes a write.
+	clientJag, err := jagfile.NewJagfile(nil)
+	if err != nil {
+		return err
+	}
+	clientJagDirty := false
+
+	if GetLatestModified(scriptsDir, ".varp") > 0 &&
+		ShouldBuild(scriptsDir, ".varp", filepath.Join(serverOut, "varp.dat")) {
+		if err := packAndSaveVarp(srcDir, serverOut, varpPack, constants, clientJag); err != nil {
+			return err
+		}
+		clientJagDirty = true
+	}
 
 	if GetLatestModified(scriptsDir, ".varn") > 0 &&
 		ShouldBuild(scriptsDir, ".varn", filepath.Join(serverOut, "varn.dat")) {
-		if err := packAndSaveVarn(srcDir, serverOut, constants); err != nil {
+		if err := packAndSaveVarn(srcDir, serverOut, varnPack, constants); err != nil {
 			return err
 		}
 	}
 
 	if GetLatestModified(scriptsDir, ".vars") > 0 &&
 		ShouldBuild(scriptsDir, ".vars", filepath.Join(serverOut, "vars.dat")) {
-		if err := packAndSaveVars(srcDir, serverOut, constants); err != nil {
+		if err := packAndSaveVars(srcDir, serverOut, varsPack, constants); err != nil {
 			return err
 		}
 	}
 
+	if clientJagDirty {
+		if err := clientJag.Save(filepath.Join(clientOut, "config"), false); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -82,11 +135,24 @@ func checkVarNameUniqueness(pfs ...*PackFile) error {
 	return nil
 }
 
-func packAndSaveVarn(srcDir, serverOut string, c Constants) error {
-	pf, err := NewPackFile(srcDir, "varn", nil)
+func packAndSaveVarp(srcDir, serverOut string, pf *PackFile, c Constants, clientJag *jagfile.Jagfile) error {
+	cfgs, err := ReadTypedConfigs(srcDir, ".varp", nil, parseVarpConfig, c)
 	if err != nil {
 		return err
 	}
+	server, client := packVarpConfigs(cfgs, pf)
+	if err := server.Save(
+		filepath.Join(serverOut, "varp.dat"),
+		filepath.Join(serverOut, "varp.idx"),
+	); err != nil {
+		return err
+	}
+	clientJag.Write("varp.dat", client.Dat)
+	clientJag.Write("varp.idx", client.Idx)
+	return nil
+}
+
+func packAndSaveVarn(srcDir, serverOut string, pf *PackFile, c Constants) error {
 	cfgs, err := ReadTypedConfigs(srcDir, ".varn", nil, parseVarnConfig, c)
 	if err != nil {
 		return err
@@ -95,11 +161,7 @@ func packAndSaveVarn(srcDir, serverOut string, c Constants) error {
 	return pd.Save(filepath.Join(serverOut, "varn.dat"), filepath.Join(serverOut, "varn.idx"))
 }
 
-func packAndSaveVars(srcDir, serverOut string, c Constants) error {
-	pf, err := NewPackFile(srcDir, "vars", nil)
-	if err != nil {
-		return err
-	}
+func packAndSaveVars(srcDir, serverOut string, pf *PackFile, c Constants) error {
 	cfgs, err := ReadTypedConfigs(srcDir, ".vars", nil, parseVarsConfig, c)
 	if err != nil {
 		return err
