@@ -43,9 +43,9 @@ import (
 // per NAI-196 §"R5 resolution" — also on .param so that all
 // client-jagfile entries are always present. NAI-197 extends the
 // scope to the four additional client+server configs ported in that
-// slice (.seq, .flo, .spotanim, .idk). The server-only six (.enum,
-// .inv, .mesanim, .struct, .varn, .vars) retain their ShouldBuild +
-// GetLatestModified freshness gates.
+// slice (.seq, .flo, .spotanim, .idk). The server-only nine (.enum,
+// .inv, .mesanim, .struct, .dbtable, .dbrow, .hunt, .varn, .vars)
+// retain their ShouldBuild + GetLatestModified freshness gates.
 //
 // NAI-192-D-NO-SRC-NO-OP: applies only to the nine server-only
 // freshness-gated branches (.enum, .inv, .mesanim, .struct, .dbtable,
