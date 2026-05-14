@@ -517,6 +517,34 @@ func TestPackNpcConfigs_Resizex(t *testing.T) {
 	}
 }
 
+func TestPackNpcConfigs_Resizey(t *testing.T) {
+	npcPack := npcOneSlotPack("x")
+	configs := map[string][]ConfigLine{"x": {{Key: "resizey", Value: 100}}}
+	_, client, err := packNpcConfigs(configs, npcPack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// opcode 91 + p2(100)
+	want := expectClient("x", 0x5B, 0x00, 0x64)
+	if !bytes.Equal(client.Dat.Data, want) {
+		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
+	}
+}
+
+func TestPackNpcConfigs_Resizez(t *testing.T) {
+	npcPack := npcOneSlotPack("x")
+	configs := map[string][]ConfigLine{"x": {{Key: "resizez", Value: 100}}}
+	_, client, err := packNpcConfigs(configs, npcPack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// opcode 92 + p2(100)
+	want := expectClient("x", 0x5C, 0x00, 0x64)
+	if !bytes.Equal(client.Dat.Data, want) {
+		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
+	}
+}
+
 func TestPackNpcConfigs_MinimapFalse(t *testing.T) {
 	npcPack := npcOneSlotPack("x")
 	configs := map[string][]ConfigLine{"x": {{Key: "minimap", Value: false}}}
