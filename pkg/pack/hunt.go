@@ -50,7 +50,6 @@ func parseHuntConfigFor(
 		switch key {
 		case "rate":
 			var number int
-			var err error
 			if len(value) > 2 && value[:2] == "0x" {
 				n, e := strconv.ParseInt(value[2:], 16, 64)
 				if e != nil {
@@ -63,9 +62,6 @@ func parseHuntConfigFor(
 					return nil, true, fmt.Errorf("invalid rate: %s", value)
 				}
 				number = int(n)
-			}
-			if err != nil {
-				return nil, true, err
 			}
 			if number < 1 || number > 255 {
 				return nil, true, fmt.Errorf("rate out of range [1,255]: %d", number)
