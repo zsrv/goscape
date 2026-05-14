@@ -45,7 +45,11 @@ import (
 // scope to the four additional client+server configs ported in that
 // slice (.seq, .flo, .spotanim, .idk). The server-only nine retain
 // their ShouldBuild + GetLatestModified freshness gates (enumerated
-// in the NAI-192-D-NO-SRC-NO-OP paragraph below).
+// in the NAI-192-D-NO-SRC-NO-OP paragraph below). NAI-199 adds two
+// more server-only outputs (category.dat, frame_del.dat) that sit
+// outside the NAI-192 scope — both use distinct gate shapes
+// (ShouldBuildFile and GetLatestModified+ShouldBuild, respectively)
+// and produce .dat without .idx.
 //
 // NAI-192-D-NO-SRC-NO-OP: applies only to the nine server-only
 // freshness-gated branches (.enum, .inv, .mesanim, .struct, .dbtable,
