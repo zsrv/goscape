@@ -144,7 +144,7 @@ func PackConfigs(srcDir, outDir string) error {
 		if paramTypes != nil {
 			return nil
 		}
-		pt, err := objtype.LoadParamTypes(serverOut)
+		pt, err := objtype.LoadParamTypes(outDir)
 		if err != nil {
 			return fmt.Errorf("load param types: %w", err)
 		}
