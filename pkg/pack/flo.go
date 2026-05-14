@@ -6,10 +6,12 @@ import (
 	"strings"
 )
 
+// floNumberKeys mirrors TS FloConfig.ts:7-9 numberKeys[].
 var floNumberKeys = map[string]struct{}{
 	"colour": {},
 }
 
+// floBooleanKeys mirrors TS FloConfig.ts:11-13 booleanKeys[].
 var floBooleanKeys = map[string]struct{}{
 	"overlay": {},
 	"occlude": {},
@@ -25,13 +27,7 @@ var floBooleanKeys = map[string]struct{}{
 func parseFloConfigFor(texturePack *PackFile) ParseFn {
 	return func(key, value string) (ConfigValue, bool, error) {
 		if _, ok := floNumberKeys[key]; ok {
-			var n int64
-			var err error
-			if strings.HasPrefix(value, "0x") {
-				n, err = strconv.ParseInt(value[2:], 16, 64)
-			} else {
-				n, err = strconv.ParseInt(value, 10, 64)
-			}
+			n, err := strconv.ParseInt(value, 0, 64)
 			if err != nil {
 				return nil, true, fmt.Errorf("invalid number for %s: %s", key, value)
 			}
