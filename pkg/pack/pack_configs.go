@@ -47,7 +47,7 @@ import (
 // GetLatestModified freshness gates.
 //
 // NAI-192-D-NO-SRC-NO-OP: applies only to the six server-only
-// freshness-gated branches. The five unconditional branches always
+// freshness-gated branches. The nine unconditional branches always
 // run; an empty source directory produces an empty .dat/.idx pair
 // (matching TS shouldBuild-output-missing arm).
 //
