@@ -72,7 +72,9 @@ func parseSpotAnimConfigFor(modelPack, seqPack *PackFile) ParseFn {
 			return idx, true, nil
 		}
 		if strings.HasPrefix(key, "recol") && len(key) >= 6 {
-			// TS SpotAnimConfig.ts:81-86: parseInt(key[5]) > 9 → reject.
+			// TS SpotAnimConfig.ts:81-86: parseInt(key[5]) > 9 → null. Note NaN > 9
+			// is false in TS, so non-digit key[5] slips through there; goscape
+			// rejects non-digit key[5] defensively.
 			idxChar := key[5]
 			if idxChar < '0' || idxChar > '9' {
 				return nil, false, nil

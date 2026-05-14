@@ -145,3 +145,24 @@ func TestPackSpotAnimConfigs_ServerDebugTrailer(t *testing.T) {
 		t.Fatalf("server:\n got % x\nwant % x", server.Dat.Data, spotanimServerDebugTrailer("flame"))
 	}
 }
+
+func TestParseSpotAnimConfig_UnknownKey(t *testing.T) {
+	mp, sp := spotanimTestRegistries(t)
+	parse := parseSpotAnimConfigFor(mp, sp)
+	_, accepted, err := parse("zzz_unknown", "anything")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if accepted {
+		t.Fatal("unknown key should not be claimed")
+	}
+}
+
+func TestPackSpotAnimConfigs_NoDebugnameNoTrailer(t *testing.T) {
+	pf := newTestPF("spotanim", map[int]string{0: ""})
+	server, _ := packSpotAnimConfigs(map[string][]ConfigLine{}, pf)
+	want := []byte{0x00, 0x01, 0x00}
+	if !bytes.Equal(server.Dat.Data, want) {
+		t.Fatalf("server:\n got % x\nwant % x", server.Dat.Data, want)
+	}
+}
