@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/zsrv/goscape/pkg/io/jagfile"
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 // PackConfigs runs the per-config packing pipeline. NAI-193 wires
@@ -49,6 +50,18 @@ import (
 // param outputs). NAI-195+ may need to re-evaluate ordering when
 // .loc/.obj/.npc packers land.
 //
+// NAI-195-D-CONFIG-ORDER-EXTENDS-PARAM-AFTER-VARS: TS interleaves
+// .enum/.inv/.mesanim/.struct before .varp (PackShared.ts:417/425/
+// 434/443); goscape places all four AFTER .param (which is itself
+// after .varp via PARAM-AFTER-VARS). Retire together with
+// PARAM-AFTER-VARS when .loc/.obj/.npc force a full ordering rewrite.
+//
+// Between .param save and .struct parse, goscape calls
+// objtype.LoadParamTypes(serverOut) to populate a runtime registry
+// consumed by parseStructConfig — direct port of TS
+// PackShared.ts:334 (ParamType.load). Lazy-loaded on first .struct
+// consumer when .param did not rebuild this run.
+//
 // TS source: tools/pack/config/PackShared.ts:261-669 (packConfigs).
 func PackConfigs(srcDir, outDir string) error {
 	constants, err := LoadConstants(srcDir)
@@ -87,6 +100,58 @@ func PackConfigs(srcDir, outDir string) error {
 	}
 	clientJagDirty := false
 
+	// Lazy lookups reused across .enum/.inv/.mesanim/.struct branches.
+	var (
+		lk         *paramLookups
+		objPack    *PackFile
+		seqPack    *PackFile
+		paramTypes *objtype.ParamTypeConfigs
+	)
+	ensureLk := func() error {
+		if lk != nil {
+			return nil
+		}
+		newLk, err := loadParamLookups(srcDir, varpPack)
+		if err != nil {
+			return err
+		}
+		lk = newLk
+		return nil
+	}
+	ensureObjPack := func() error {
+		if objPack != nil {
+			return nil
+		}
+		pf, err := NewPackFile(srcDir, "obj", nil)
+		if err != nil {
+			return err
+		}
+		objPack = pf
+		return nil
+	}
+	ensureSeqPack := func() error {
+		if seqPack != nil {
+			return nil
+		}
+		pf, err := NewPackFile(srcDir, "seq", nil)
+		if err != nil {
+			return err
+		}
+		seqPack = pf
+		return nil
+	}
+	ensureParamTypes := func() error {
+		if paramTypes != nil {
+			return nil
+		}
+		pt, err := objtype.LoadParamTypes(serverOut)
+		if err != nil {
+			return fmt.Errorf("load param types: %w", err)
+		}
+		paramTypes = pt
+		return nil
+	}
+
 	if GetLatestModified(scriptsDir, ".varp") > 0 &&
 		ShouldBuild(scriptsDir, ".varp", filepath.Join(serverOut, "varp.dat")) {
 		if err := packAndSaveVarp(srcDir, serverOut, varpPack, constants, clientJag); err != nil {
@@ -116,14 +181,73 @@ func PackConfigs(srcDir, outDir string) error {
 		if err != nil {
 			return err
 		}
-		lk, err := loadParamLookups(srcDir, varpPack)
-		if err != nil {
+		if err := ensureLk(); err != nil {
 			return err
 		}
 		if err := packAndSaveParam(srcDir, serverOut, paramPack, lk, constants, clientJag); err != nil {
 			return err
 		}
 		clientJagDirty = true
+	}
+
+	// NAI-195-D-CONFIG-ORDER-EXTENDS-PARAM-AFTER-VARS: see PackConfigs doc-comment.
+	if GetLatestModified(scriptsDir, ".enum") > 0 &&
+		ShouldBuild(scriptsDir, ".enum", filepath.Join(serverOut, "enum.dat")) {
+		if err := ensureLk(); err != nil {
+			return err
+		}
+		enumPack, err := NewPackFile(srcDir, "enum", nil)
+		if err != nil {
+			return err
+		}
+		if err := packAndSaveEnum(srcDir, serverOut, enumPack, lk, constants); err != nil {
+			return err
+		}
+	}
+
+	if GetLatestModified(scriptsDir, ".inv") > 0 &&
+		ShouldBuild(scriptsDir, ".inv", filepath.Join(serverOut, "inv.dat")) {
+		if err := ensureObjPack(); err != nil {
+			return err
+		}
+		invPack, err := NewPackFile(srcDir, "inv", nil)
+		if err != nil {
+			return err
+		}
+		if err := packAndSaveInv(srcDir, serverOut, invPack, objPack, constants); err != nil {
+			return err
+		}
+	}
+
+	if GetLatestModified(scriptsDir, ".mesanim") > 0 &&
+		ShouldBuild(scriptsDir, ".mesanim", filepath.Join(serverOut, "mesanim.dat")) {
+		if err := ensureSeqPack(); err != nil {
+			return err
+		}
+		mesPack, err := NewPackFile(srcDir, "mesanim", nil)
+		if err != nil {
+			return err
+		}
+		if err := packAndSaveMesAnim(srcDir, serverOut, mesPack, seqPack, constants); err != nil {
+			return err
+		}
+	}
+
+	if GetLatestModified(scriptsDir, ".struct") > 0 &&
+		ShouldBuild(scriptsDir, ".struct", filepath.Join(serverOut, "struct.dat")) {
+		if err := ensureParamTypes(); err != nil {
+			return err
+		}
+		if err := ensureLk(); err != nil {
+			return err
+		}
+		structPack, err := NewPackFile(srcDir, "struct", nil)
+		if err != nil {
+			return err
+		}
+		if err := packAndSaveStruct(srcDir, serverOut, structPack, paramTypes, lk, constants); err != nil {
+			return err
+		}
 	}
 
 	if clientJagDirty {
@@ -252,4 +376,46 @@ func packAndSaveParam(srcDir, serverOut string, pf *PackFile, lk *paramLookups, 
 	clientJag.Write("param.dat", client.Dat)
 	clientJag.Write("param.idx", client.Idx)
 	return nil
+}
+
+func packAndSaveEnum(srcDir, serverOut string, pf *PackFile, lk *paramLookups, c Constants) error {
+	cfgs, err := ReadTypedConfigs(srcDir, ".enum", nil, parseEnumConfig, c)
+	if err != nil {
+		return err
+	}
+	pd, err := packEnumConfigs(cfgs, pf, lk)
+	if err != nil {
+		return err
+	}
+	return pd.Save(filepath.Join(serverOut, "enum.dat"), filepath.Join(serverOut, "enum.idx"))
+}
+
+func packAndSaveInv(srcDir, serverOut string, pf, objPack *PackFile, c Constants) error {
+	cfgs, err := ReadTypedConfigs(srcDir, ".inv", nil, parseInvConfigFor(objPack), c)
+	if err != nil {
+		return err
+	}
+	pd, err := packInvConfigs(cfgs, pf)
+	if err != nil {
+		return err
+	}
+	return pd.Save(filepath.Join(serverOut, "inv.dat"), filepath.Join(serverOut, "inv.idx"))
+}
+
+func packAndSaveMesAnim(srcDir, serverOut string, pf, seqPack *PackFile, c Constants) error {
+	cfgs, err := ReadTypedConfigs(srcDir, ".mesanim", nil, parseMesAnimConfigFor(seqPack), c)
+	if err != nil {
+		return err
+	}
+	pd := packMesAnimConfigs(cfgs, pf)
+	return pd.Save(filepath.Join(serverOut, "mesanim.dat"), filepath.Join(serverOut, "mesanim.idx"))
+}
+
+func packAndSaveStruct(srcDir, serverOut string, pf *PackFile, paramTypes *objtype.ParamTypeConfigs, lk *paramLookups, c Constants) error {
+	cfgs, err := ReadTypedConfigs(srcDir, ".struct", nil, parseStructConfigFor(paramTypes, lk), c)
+	if err != nil {
+		return err
+	}
+	pd := packStructConfigs(cfgs, pf)
+	return pd.Save(filepath.Join(serverOut, "struct.dat"), filepath.Join(serverOut, "struct.idx"))
 }
