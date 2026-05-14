@@ -53,9 +53,12 @@ var npcBooleanKeys = map[string]struct{}{
 	"givechase": {},
 }
 
-// npcHeadKeyRE matches keys of the form headN (digits only) per TS L294
-// `key.match(/head\d+/)`. Used only by the packer; the parser routes all
-// `head`-prefixed keys through the model lookup (TS L103-109).
+// npcHeadKeyRE matches keys of the form headN or headNN (anchored: full key
+// must be "head" + digits). More restrictive than TS L294 key.match(/head\d+/)
+// (unanchored), but functionally equivalent for real content — the parser's
+// strings.HasPrefix(key, "head") gate accepts the same key set in practice.
+// Used only by the packer; the parser routes all `head`-prefixed keys through
+// the model lookup (TS L103-109).
 var npcHeadKeyRE = regexp.MustCompile(`^head\d+$`)
 
 // npcPatrolEntry is the parsed value of a patrol{N}= line.
