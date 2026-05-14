@@ -219,3 +219,15 @@ func TestPackIdkConfigs_NoDebugnameNoTrailer(t *testing.T) {
 		t.Fatalf("server:\n got % x\nwant % x", server.Dat.Data, want)
 	}
 }
+
+func TestPackIdkConfigs_DisableFalseNoEmit(t *testing.T) {
+	pf := idkOneSlotPack("idk0")
+	configs := map[string][]ConfigLine{
+		"idk0": {{Key: "disable", Value: false}},
+	}
+	_, client := packIdkConfigs(configs, pf)
+	want := []byte{0x00, 0x01, 0x00}
+	if !bytes.Equal(client.Dat.Data, want) {
+		t.Fatalf("client:\n got % x\nwant % x", client.Dat.Data, want)
+	}
+}
