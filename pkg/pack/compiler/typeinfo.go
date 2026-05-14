@@ -1,0 +1,91 @@
+// Package compiler ports the symbol-table data type that the bytecode
+// compiler consumes. TS source: tools/pack/Compiler.ts:21-107
+// (CompilerTypeInfo class). NAI-201 will port the runServerCompiler
+// driver (TS Compiler.ts:109-367) that populates one TypeInfo per symbol
+// category and hands them to the lexer/parser/typechecker (NAI-202+
+// arc — the external @lostcityrs/runescript package).
+package compiler
+
+// TypeInfo holds the name/id/type-info maps for ONE symbol category
+// (commands, varp, obj, …) consumed by the bytecode compiler.
+//
+// Per TS Compiler.ts:21-36 (class CompilerTypeInfo):
+//
+//	max: number = -1;
+//	map: Record<string, string> = {};
+//	vartype: Record<string, string> = {};
+//	protect: Record<string, boolean> = {};
+//	require, require2, set, set2, corrupt, corrupt2: Record<string, string>;
+//	conditional: Record<string, boolean>;
+//
+// NAI-200-D-DUAL-MAP: TS `map: Record<string, string>` accepts BOTH
+// numeric-IDs-coerced-to-strings (from add(id, name)) AND genuine
+// string keys (from loadRecords/loadMap). Go cannot mix int and string
+// keys in one map. The single TS field is split here into:
+//
+//   - Map     map[int]string    — int-keyed; Load + LoadArray write.
+//   - NameMap map[string]string — string-keyed; LoadRecords + LoadMap write.
+//
+// Auxiliary maps (VarType, Protect, Require, …) are all map[int]<T>
+// because every TS write to them uses a numeric ID — falls out of the
+// dual-map split.
+//
+// NAI-200 ships zero writers for the auxiliary maps. NAI-201 will be
+// the first slice that populates them (see spec §9 R2).
+type TypeInfo struct {
+	Max int // upper-exclusive bound; -1 = empty (TS-faithful)
+
+	Map     map[int]string
+	NameMap map[string]string
+
+	VarType     map[int]string
+	Protect     map[int]bool
+	Require     map[int]string
+	Require2    map[int]string
+	Conditional map[int]bool
+	Set         map[int]string
+	Set2        map[int]string
+	Corrupt     map[int]string
+	Corrupt2    map[int]string
+}
+
+// newTypeInfo returns a zero-valued *TypeInfo with all maps initialized
+// and Max=-1. All five public constructors call this so callers may
+// invoke Add immediately without nil-map panic. Mirrors TS class field
+// defaults at Compiler.ts:22-36.
+func newTypeInfo() *TypeInfo {
+	return &TypeInfo{
+		Max:         -1,
+		Map:         map[int]string{},
+		NameMap:     map[string]string{},
+		VarType:     map[int]string{},
+		Protect:     map[int]bool{},
+		Require:     map[int]string{},
+		Require2:    map[int]string{},
+		Conditional: map[int]bool{},
+		Set:         map[int]string{},
+		Set2:        map[int]string{},
+		Corrupt:     map[int]string{},
+		Corrupt2:    map[int]string{},
+	}
+}
+
+// Add records id→name in Map. If updateMax is true and id exceeds the
+// current Max, Max is set to id+1 (TS-faithful off-by-one: Max is the
+// upper-exclusive bound, so iteration uses `for i := 0; i <= Max; i++`
+// in callers like runServerCompiler).
+//
+// TS Compiler.ts:100-106:
+//
+//	add(id: number, name: string, updateMax: boolean = true) {
+//	    this.map[id] = name;
+//	    if (updateMax && this.max < id) {
+//	        this.max = id + 1;
+//	    }
+//	}
+func (p *TypeInfo) Add(id int, name string, updateMax bool) {
+	p.Map[id] = name
+	if updateMax && p.Max < id {
+		p.Max = id + 1
+	}
+}
