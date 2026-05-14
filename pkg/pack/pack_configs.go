@@ -99,6 +99,10 @@ func PackConfigs(srcDir, outDir string) error {
 		categoryPack *PackFile
 		huntPack     *PackFile
 		texturePack  *PackFile
+		animPack     *PackFile
+		floPack      *PackFile
+		spotanimPack *PackFile
+		idkPack      *PackFile
 	)
 	ensureLk := func() error {
 		if lk != nil {
@@ -199,6 +203,56 @@ func PackConfigs(srcDir, outDir string) error {
 		texturePack = pf
 		return nil
 	}
+	ensureAnimPack := func() error {
+		if animPack != nil {
+			return nil
+		}
+		pf, err := NewPackFile(srcDir, "anim", nil)
+		if err != nil {
+			return err
+		}
+		animPack = pf
+		return nil
+	}
+	ensureFloPack := func() error {
+		if floPack != nil {
+			return nil
+		}
+		pf, err := NewPackFile(srcDir, "flo", nil)
+		if err != nil {
+			return err
+		}
+		floPack = pf
+		return nil
+	}
+	ensureSpotAnimPack := func() error {
+		if spotanimPack != nil {
+			return nil
+		}
+		pf, err := NewPackFile(srcDir, "spotanim", nil)
+		if err != nil {
+			return err
+		}
+		spotanimPack = pf
+		return nil
+	}
+	ensureIdkPack := func() error {
+		if idkPack != nil {
+			return nil
+		}
+		pf, err := NewPackFile(srcDir, "idk", nil)
+		if err != nil {
+			return err
+		}
+		idkPack = pf
+		return nil
+	}
+	// NAI-197 T1: helpers landed without callers; T6 wires them. Suppress
+	// unused-variable diagnostics until then.
+	_ = ensureAnimPack
+	_ = ensureFloPack
+	_ = ensureSpotAnimPack
+	_ = ensureIdkPack
 
 	// .param — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
 	// Matches TS PackShared.ts:315 "We have to pack params for other
