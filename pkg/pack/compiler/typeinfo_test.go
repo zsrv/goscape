@@ -203,10 +203,10 @@ func TestLoadArray_Empty(t *testing.T) {
 // TestLoadRecords_ValueAsKeyFalse pins spec §7.8: with valueAsKey=false,
 // NameMap[key] = lowercase(value); key UNCHANGED.
 func TestLoadRecords_ValueAsKeyFalse(t *testing.T) {
-	p := LoadRecords(map[string]string{"foo": "BAR", "baz": "QUX"}, false)
+	p := LoadRecords(map[string]string{"Foo": "BAR", "Baz": "QUX"}, false)
 
-	if p.NameMap["foo"] != "bar" || p.NameMap["baz"] != "qux" {
-		t.Fatalf("NameMap: got %v, want {foo:bar,baz:qux}", p.NameMap)
+	if p.NameMap["Foo"] != "bar" || p.NameMap["Baz"] != "qux" {
+		t.Fatalf("NameMap: got %v, want {Foo:bar,Baz:qux}", p.NameMap)
 	}
 	if len(p.Map) != 0 {
 		t.Fatalf("Map: got %v, want empty (LoadRecords writes only NameMap)", p.Map)
