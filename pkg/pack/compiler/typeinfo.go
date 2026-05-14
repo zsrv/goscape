@@ -170,3 +170,24 @@ func LoadArray(input []string) *TypeInfo {
 	}
 	return p
 }
+
+// LoadRecords builds a *TypeInfo from a string-keyed map. The
+// valueAsKey flag flips which side of the input becomes the NameMap
+// key. Mirrors TS Compiler.ts:72-84 (CompilerTypeInfo.loadRecords).
+//
+//	false: NameMap[k] = lowercase(v)
+//	true:  NameMap[v] = lowercase(k)
+//
+// Used by runServerCompiler (NAI-201) for the constant table loaded
+// from data/src/scripts/**/*.constant files.
+func LoadRecords(input map[string]string, valueAsKey bool) *TypeInfo {
+	p := newTypeInfo()
+	for k, v := range input {
+		if valueAsKey {
+			p.NameMap[v] = strings.ToLower(k)
+		} else {
+			p.NameMap[k] = strings.ToLower(v)
+		}
+	}
+	return p
+}

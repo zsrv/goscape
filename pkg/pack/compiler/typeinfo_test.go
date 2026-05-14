@@ -199,3 +199,34 @@ func TestLoadArray_Empty(t *testing.T) {
 		t.Fatalf("Map: got %v, want empty", p.Map)
 	}
 }
+
+// TestLoadRecords_ValueAsKeyFalse pins spec §7.8: with valueAsKey=false,
+// NameMap[key] = lowercase(value); key UNCHANGED.
+func TestLoadRecords_ValueAsKeyFalse(t *testing.T) {
+	p := LoadRecords(map[string]string{"foo": "BAR", "baz": "QUX"}, false)
+
+	if p.NameMap["foo"] != "bar" || p.NameMap["baz"] != "qux" {
+		t.Fatalf("NameMap: got %v, want {foo:bar,baz:qux}", p.NameMap)
+	}
+	if len(p.Map) != 0 {
+		t.Fatalf("Map: got %v, want empty (LoadRecords writes only NameMap)", p.Map)
+	}
+	if p.Max != -1 {
+		t.Fatalf("Max: got %d, want -1 (LoadRecords doesn't call Add)", p.Max)
+	}
+}
+
+// TestLoadRecords_ValueAsKeyTrue pins spec §7.9: with valueAsKey=true,
+// NameMap[value] = lowercase(key). The new map KEY (the TS `value`)
+// is UNCHANGED — only the new map VALUE (the TS `key`) is lowercased.
+// This pins the TS asymmetry at Compiler.ts:77 (`pack.map[value] =
+// key.toLowerCase()`).
+func TestLoadRecords_ValueAsKeyTrue(t *testing.T) {
+	p := LoadRecords(map[string]string{"FOO": "BAR", "BAZ": "QUX"}, true)
+
+	// KEYS of NameMap should be original (uppercase) values "BAR"/"QUX";
+	// VALUES should be lowercased original keys "foo"/"baz".
+	if p.NameMap["BAR"] != "foo" || p.NameMap["QUX"] != "baz" {
+		t.Fatalf("NameMap: got %v, want {BAR:foo,QUX:baz} — key=value-preserved, value=lowercase(key)", p.NameMap)
+	}
+}
