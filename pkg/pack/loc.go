@@ -138,10 +138,6 @@ func parseLocConfigFor(modelPack, categoryPack, seqPack, texturePack *PackFile, 
 			if idxChar < '0' || idxChar > '9' {
 				return nil, false, nil
 			}
-			idx := int(idxChar - '0')
-			if idx > 9 {
-				return nil, true, fmt.Errorf("recol index out of range: %s", key)
-			}
 			n, err := strconv.ParseInt(value, 0, 64)
 			if err != nil {
 				return nil, true, fmt.Errorf("invalid recol value: %s", value)
@@ -153,10 +149,6 @@ func parseLocConfigFor(modelPack, categoryPack, seqPack, texturePack *PackFile, 
 			idxChar := key[5]
 			if idxChar < '0' || idxChar > '9' {
 				return nil, false, nil
-			}
-			idx := int(idxChar - '0')
-			if idx > 9 {
-				return nil, true, fmt.Errorf("retex index out of range: %s", key)
 			}
 			texIdx := texturePack.GetByName(value)
 			if texIdx == -1 {
@@ -223,7 +215,6 @@ func parseLocConfigFor(modelPack, categoryPack, seqPack, texturePack *PackFile, 
 		// `op{N}` — handled by locStringKeys above for op1..op5. Anything
 		// starting with "op" beyond op1..op5 falls through to unknown.
 
-		_ = locShapeCentrepieceStraight
 		return nil, false, nil
 	}
 }
