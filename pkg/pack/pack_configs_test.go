@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zsrv/goscape/pkg/io/jagfile"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
@@ -186,12 +187,13 @@ func TestPackConfigs_MixedVarpVarnVars(t *testing.T) {
 	}
 }
 
-func TestPackConfigs_NoVarpSource_NoClientJagfileWritten(t *testing.T) {
+func TestPackConfigs_NoVarpSource_ClientJagfileAlwaysWritten(t *testing.T) {
 	srcDir := t.TempDir()
 	outDir := t.TempDir()
 
-	// .varn only. No .varp source => no client-side branch fires =>
-	// client/config jagfile must NOT be written.
+	// .varn only. No .varp source. Per NAI-196-D-UNCONDITIONAL-CLIENT-PACK
+	// the client jagfile is ALWAYS saved (with empty entries for the five
+	// unconditional client-side branches) regardless of source presence.
 	writeFile(t, filepath.Join(srcDir, "scripts", "b.varn"),
 		"[npctier]\ntype=int\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "varp.pack"), "")
@@ -206,8 +208,8 @@ func TestPackConfigs_NoVarpSource_NoClientJagfileWritten(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(outDir, "server", "varn.dat")); err != nil {
 		t.Fatalf("expected varn.dat to exist: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(outDir, "client", "config")); !os.IsNotExist(err) {
-		t.Fatalf("expected client/config to NOT exist; got err=%v", err)
+	if _, err := os.Stat(filepath.Join(outDir, "client", "config")); err != nil {
+		t.Fatalf("expected client/config to exist: %v", err)
 	}
 }
 
@@ -356,7 +358,7 @@ func TestPackConfigs_ParamMissingTypedPackFile(t *testing.T) {
 	}
 }
 
-func TestPackConfigs_ParamNoSrcNoOp(t *testing.T) {
+func TestPackConfigs_ParamNoSrc_WritesEmptyOutputs(t *testing.T) {
 	ClearFsCache()
 	srcDir := t.TempDir()
 	outDir := t.TempDir()
@@ -368,13 +370,17 @@ func TestPackConfigs_ParamNoSrcNoOp(t *testing.T) {
 	writeFile(t, filepath.Join(srcDir, "pack", "varn.pack"), "")
 	writeFile(t, filepath.Join(srcDir, "pack", "vars.pack"), "")
 	// Intentionally omit param.pack and all 12 typed-id .pack files.
-	// loadParamLookups must not run.
+	// loadParamLookups still runs (NAI-196-D-UNCONDITIONAL-CLIENT-PACK)
+	// but with empty registries — pack succeeds and writes empty
+	// .dat/.idx pairs.
 
 	if err := PackConfigs(srcDir, outDir); err != nil {
-		t.Fatalf("no .param source: PackConfigs should be no-op for param branch, got error: %v", err)
+		t.Fatalf("PackConfigs: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(outDir, "server", "param.dat")); !os.IsNotExist(err) {
-		t.Errorf("server/param.dat should NOT exist when no .param source")
+	// NAI-196-D-UNCONDITIONAL-CLIENT-PACK: .param always runs, so
+	// server/param.dat exists (empty when no source).
+	if _, err := os.Stat(filepath.Join(outDir, "server", "param.dat")); err != nil {
+		t.Errorf("server/param.dat should exist (empty): %v", err)
 	}
 }
 
@@ -398,7 +404,7 @@ func TestPackConfigs_ParamUnknownTypedDefault(t *testing.T) {
 	}
 }
 
-func TestPackConfigs_EightConfigsLand(t *testing.T) {
+func TestPackConfigs_ElevenConfigsLand(t *testing.T) {
 	srcDir := t.TempDir()
 	outDir := t.TempDir()
 
@@ -410,7 +416,9 @@ func TestPackConfigs_EightConfigsLand(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Pack files for all referenced typed-ids
+	// Pack files for all referenced typed-ids (16 in total: 11 configs
+	// plus model/category/hunt/texture/interface/spotanim/synth/dbrow
+	// support files).
 	writeFile(t, filepath.Join(srcDir, "pack", "varp.pack"), "0=quest_points\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "varn.pack"), "0=npc_state\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "vars.pack"), "0=server_clock\n")
@@ -419,9 +427,15 @@ func TestPackConfigs_EightConfigsLand(t *testing.T) {
 	writeFile(t, filepath.Join(srcDir, "pack", "inv.pack"), "0=bank\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "mesanim.pack"), "0=hero_chat\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "struct.pack"), "0=goblin_loot\n")
+	writeFile(t, filepath.Join(srcDir, "pack", "loc.pack"), "0=table\n")
+	writeFile(t, filepath.Join(srcDir, "pack", "npc.pack"), "0=rat\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "obj.pack"), "0=egg\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "seq.pack"), "0=walk\n")
-	for _, p := range []string{"loc", "interface", "category", "spotanim", "npc", "synth", "dbrow"} {
+	writeFile(t, filepath.Join(srcDir, "pack", "model.pack"), "")
+	writeFile(t, filepath.Join(srcDir, "pack", "category.pack"), "")
+	writeFile(t, filepath.Join(srcDir, "pack", "hunt.pack"), "")
+	writeFile(t, filepath.Join(srcDir, "pack", "texture.pack"), "")
+	for _, p := range []string{"interface", "spotanim", "synth", "dbrow"} {
 		writeFile(t, filepath.Join(srcDir, "pack", p+".pack"), "")
 	}
 
@@ -441,15 +455,21 @@ func TestPackConfigs_EightConfigsLand(t *testing.T) {
 		"[hero_chat]\nlen1=walk\n")
 	writeFile(t, filepath.Join(scripts, "x.struct"),
 		"[goblin_loot]\nparam=damage,7\n")
+	writeFile(t, filepath.Join(scripts, "l.loc"),
+		"[table]\nname=Table\n")
+	writeFile(t, filepath.Join(scripts, "k.npc"),
+		"[rat]\nname=Rat\n")
+	writeFile(t, filepath.Join(scripts, "o.obj"),
+		"[egg]\nname=Egg\n")
 
 	ClearFsCache()
 	if err := PackConfigs(srcDir, outDir); err != nil {
 		t.Fatalf("PackConfigs: %v", err)
 	}
 
-	// All 8 server-side .dat/.idx pairs landed
+	// All 11 server-side .dat/.idx pairs landed.
 	server := filepath.Join(outDir, "server")
-	for _, typ := range []string{"varp", "varn", "vars", "param", "enum", "inv", "mesanim", "struct"} {
+	for _, typ := range []string{"varp", "varn", "vars", "param", "enum", "inv", "mesanim", "struct", "loc", "npc", "obj"} {
 		if _, err := os.Stat(filepath.Join(server, typ+".dat")); err != nil {
 			t.Errorf("%s.dat missing: %v", typ, err)
 		}
@@ -458,8 +478,29 @@ func TestPackConfigs_EightConfigsLand(t *testing.T) {
 		}
 	}
 
-	// Client jagfile contains only varp + param entries (per NAI-193 / NAI-194)
-	if _, err := os.Stat(filepath.Join(outDir, "client", "config")); err != nil {
-		t.Errorf("client/config jagfile missing: %v", err)
+	// Client jagfile contains all 10 client-side entries (5 client+server
+	// configs × .dat/.idx pair = 10): param, loc, npc, obj, varp.
+	jagPath := filepath.Join(outDir, "client", "config")
+	if _, err := os.Stat(jagPath); err != nil {
+		t.Fatalf("client/config jagfile missing: %v", err)
+	}
+	jag, err := jagfile.LoadJagfile(jagPath)
+	if err != nil {
+		t.Fatalf("LoadJagfile: %v", err)
+	}
+	expected := []string{
+		"param.dat", "param.idx",
+		"loc.dat", "loc.idx",
+		"npc.dat", "npc.idx",
+		"obj.dat", "obj.idx",
+		"varp.dat", "varp.idx",
+	}
+	for _, name := range expected {
+		if _, err := jag.Read(name); err != nil {
+			t.Errorf("client jagfile missing entry %q: %v", name, err)
+		}
+	}
+	if jag.FileCount != len(expected) {
+		t.Errorf("client jagfile has %d entries, want %d (names=%v)", jag.FileCount, len(expected), jag.FileName)
 	}
 }

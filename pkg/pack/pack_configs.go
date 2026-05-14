@@ -8,59 +8,48 @@ import (
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
-// PackConfigs runs the per-config packing pipeline. NAI-193 wires
-// .varp (server + client jagfile), .varn (server), and .vars (server).
-// NAI-194 adds .param (server + client jagfile).
-// Subsequent NAI-194+ sub-specs add the remaining per-config branches.
+// PackConfigs runs the per-config packing pipeline. NAI-191–195 wired
+// .varp/.varn/.vars/.param/.enum/.inv/.mesanim/.struct. NAI-196 wires
+// .loc/.npc/.obj and re-orders the pipeline to TS-canonical layout per
+// tools/pack/config/PackShared.ts:261-669 (filtered to currently
+// implemented configs).
 //
-// Each branch is freshness-gated via ShouldBuild against the relevant
-// source extension. Server outputs land at <outDir>/server/<type>.{dat,idx}.
-// Client outputs land in a fresh jagfile at <outDir>/client/config —
-// saved only if at least one client-side branch fires.
+// Server outputs land at <outDir>/server/<type>.{dat,idx}.
+// Client outputs land in a fresh jagfile at <outDir>/client/config.
 //
-// All three var-domain PackFiles are constructed up-front so the
-// cross-domain uniqueness check has all three name maps
-// available. Each *.pack file is small (<1 KB); cost is fixed.
+// The three var-domain PackFiles (varp/varn/vars) are constructed
+// up-front so the cross-domain uniqueness check has all three name
+// maps available. Each *.pack file is small (<1 KB); cost is fixed.
 //
 // NAI-193-D-PACKFILE-SINGLETONS-DEFERRED: TS uses module-level
 // VarpPack/VarnPack/VarsPack singletons; goscape constructs *PackFile
-// from srcDir per call (continuation of NAI-191 §2 / NAI-192
-// deferral of all 26 module-level pack singletons).
+// from srcDir per call (continuation of NAI-191 §2 / NAI-192).
 //
-// NAI-193-D-FRESH-CLIENT-JAGFILE: client jagfile starts fresh
-// (NewJagfile(nil)). Pre-existing entries in <outDir>/client/config
-// are truncated if only a subset of client-side branches rebuild.
-// Mirrors TS Jagfile.new() at PackShared.ts:336.
+// NAI-191-D-VALIDATE-FLAGS-DEFERRED: TS BUILD_VERIFY callback (.varp
+// magic 705633567 at PackShared.ts:631-633) deferred — continuation
+// of NAI-191 §2.
 //
-// NAI-193-D-VALIDATE-DEFERRED: TS BUILD_VERIFY callback (.varp magic
-// 705633567 at PackShared.ts:631-633) deferred — continuation of
-// NAI-191 §2.
+// NAI-194-D-PARAM-EMPTY-CLIENT-FAITHFUL: .param contributes empty
+// param.dat/param.idx to client jagfile; TS callback is no-op (does
+// not contribute to client jag). Preserved for client-jagfile entry
+// completeness.
 //
-// NAI-192-D-NO-SRC-NO-OP: goscape-only `GetLatestModified > 0`
-// pre-guard suppresses output when no source files exist. TS would
-// enter ShouldBuild's output-missing arm and write a zero-entry
-// .dat/.idx pair; goscape elides that write.
+// NAI-196-D-UNCONDITIONAL-CLIENT-PACK: .param, .loc, .npc, .obj, .varp
+// run on EVERY PackConfigs invocation regardless of source freshness,
+// matching TS PackShared.ts:337 (`const rebuildClient = true`) which
+// ungates shouldBuild on the four configs that write to client jag
+// (loc/npc/obj/varp) and — per NAI-196 §"R5 resolution" — also on
+// .param so that all client-jagfile entries are always present.
+// The server-only six (.enum, .inv, .mesanim, .struct, .varn, .vars)
+// retain their ShouldBuild + GetLatestModified freshness gates.
 //
-// NAI-194-D-PARAM-AFTER-VARS: TS processes .param FIRST (before jag
-// creation and before .varp/.varn/.vars) so other configs can resolve
-// param defaults during packing — see PackShared.ts:315 "We have to
-// pack params for other configs to parse correctly". Goscape runs
-// .param after the var-domain trio because NAI-194 introduces .param
-// in isolation (no other config packer yet exists that would consume
-// param outputs). NAI-195+ may need to re-evaluate ordering when
-// .loc/.obj/.npc packers land.
+// NAI-192-D-NO-SRC-NO-OP: applies only to the six server-only
+// freshness-gated branches. The five unconditional branches always
+// run; an empty source directory produces an empty .dat/.idx pair
+// (matching TS shouldBuild-output-missing arm).
 //
-// NAI-195-D-CONFIG-ORDER-EXTENDS-PARAM-AFTER-VARS: TS interleaves
-// .enum/.inv/.mesanim/.struct before .varp (PackShared.ts:417/425/
-// 434/443); goscape places all four AFTER .param (which is itself
-// after .varp via PARAM-AFTER-VARS). Retire together with
-// PARAM-AFTER-VARS when .loc/.obj/.npc force a full ordering rewrite.
-//
-// Between .param save and .struct parse, goscape calls
-// objtype.LoadParamTypes(serverOut) to populate a runtime registry
-// consumed by parseStructConfig — direct port of TS
-// PackShared.ts:334 (ParamType.load). Lazy-loaded on first .struct
-// consumer when .param did not rebuild this run.
+// NAI-195-D-DEADBRANCH-OMITTED: per-config parsers omit dead TS
+// branches (empty stringKeys/numberKeys/booleanKeys arrays).
 //
 // TS source: tools/pack/config/PackShared.ts:261-669 (packConfigs).
 func PackConfigs(srcDir, outDir string) error {
@@ -92,15 +81,14 @@ func PackConfigs(srcDir, outDir string) error {
 	serverOut := filepath.Join(outDir, "server")
 	clientOut := filepath.Join(outDir, "client")
 
-	// Fresh client jagfile per NAI-193-D-FRESH-CLIENT-JAGFILE. Saved
-	// only when at least one client-side branch contributes a write.
+	// Fresh client jagfile; saved unconditionally at end of pipeline
+	// per NAI-196-D-UNCONDITIONAL-CLIENT-PACK.
 	clientJag, err := jagfile.NewJagfile(nil)
 	if err != nil {
 		return err
 	}
-	clientJagDirty := false
 
-	// Lazy lookups reused across .enum/.inv/.mesanim/.struct branches.
+	// Lazy registry helpers reused across multiple branches.
 	var (
 		lk           *paramLookups
 		objPack      *PackFile
@@ -111,7 +99,6 @@ func PackConfigs(srcDir, outDir string) error {
 		categoryPack *PackFile
 		huntPack     *PackFile
 		texturePack  *PackFile
-		paramTypes   *objtype.ParamTypeConfigs
 	)
 	ensureLk := func() error {
 		if lk != nil {
@@ -144,17 +131,6 @@ func PackConfigs(srcDir, outDir string) error {
 			return err
 		}
 		seqPack = pf
-		return nil
-	}
-	ensureParamTypes := func() error {
-		if paramTypes != nil {
-			return nil
-		}
-		pt, err := objtype.LoadParamTypes(outDir)
-		if err != nil {
-			return fmt.Errorf("load param types: %w", err)
-		}
-		paramTypes = pt
 		return nil
 	}
 	ensureLocPack := func() error {
@@ -223,59 +199,33 @@ func PackConfigs(srcDir, outDir string) error {
 		texturePack = pf
 		return nil
 	}
-	// NAI-196 T1: helpers landed without callers; T5 wires them. Suppressing
-	// unused-variable diagnostics until then.
-	_ = ensureLocPack
-	_ = ensureNpcPack
-	_ = ensureModelPack
-	_ = ensureCategoryPack
-	_ = ensureHuntPack
-	_ = ensureTexturePack
 
-	if GetLatestModified(scriptsDir, ".varp") > 0 &&
-		ShouldBuild(scriptsDir, ".varp", filepath.Join(serverOut, "varp.dat")) {
-		if err := packAndSaveVarp(srcDir, serverOut, varpPack, constants, clientJag); err != nil {
-			return err
-		}
-		clientJagDirty = true
+	// .param — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
+	// Matches TS PackShared.ts:315 "We have to pack params for other
+	// configs to parse correctly" — must run before .struct/.loc/.npc/.obj.
+	paramPack, err := NewPackFile(srcDir, "param", nil)
+	if err != nil {
+		return err
+	}
+	if err := ensureLk(); err != nil {
+		return err
+	}
+	if err := packAndSaveParam(srcDir, serverOut, paramPack, lk, constants, clientJag); err != nil {
+		return err
 	}
 
-	if GetLatestModified(scriptsDir, ".varn") > 0 &&
-		ShouldBuild(scriptsDir, ".varn", filepath.Join(serverOut, "varn.dat")) {
-		if err := packAndSaveVarn(srcDir, serverOut, varnPack, constants); err != nil {
-			return err
-		}
+	// Eager LoadParamTypes (replaces former lazy ensureParamTypes).
+	// .param was just packed above; param.dat/idx now exist on disk
+	// for downstream consumers (.struct, .loc, .npc, .obj).
+	// TS source: PackShared.ts:334 (ParamType.load).
+	paramTypes, err := objtype.LoadParamTypes(outDir)
+	if err != nil {
+		return fmt.Errorf("load param types: %w", err)
 	}
 
-	if GetLatestModified(scriptsDir, ".vars") > 0 &&
-		ShouldBuild(scriptsDir, ".vars", filepath.Join(serverOut, "vars.dat")) {
-		if err := packAndSaveVars(srcDir, serverOut, varsPack, constants); err != nil {
-			return err
-		}
-	}
-
-	// NAI-194-D-PARAM-AFTER-VARS: see PackConfigs doc-comment.
-	if GetLatestModified(scriptsDir, ".param") > 0 &&
-		ShouldBuild(scriptsDir, ".param", filepath.Join(serverOut, "param.dat")) {
-		paramPack, err := NewPackFile(srcDir, "param", nil)
-		if err != nil {
-			return err
-		}
-		if err := ensureLk(); err != nil {
-			return err
-		}
-		if err := packAndSaveParam(srcDir, serverOut, paramPack, lk, constants, clientJag); err != nil {
-			return err
-		}
-		clientJagDirty = true
-	}
-
-	// NAI-195-D-CONFIG-ORDER-EXTENDS-PARAM-AFTER-VARS: see PackConfigs doc-comment.
+	// .enum — server-only, freshness-gated.
 	if GetLatestModified(scriptsDir, ".enum") > 0 &&
 		ShouldBuild(scriptsDir, ".enum", filepath.Join(serverOut, "enum.dat")) {
-		if err := ensureLk(); err != nil {
-			return err
-		}
 		enumPack, err := NewPackFile(srcDir, "enum", nil)
 		if err != nil {
 			return err
@@ -285,6 +235,7 @@ func PackConfigs(srcDir, outDir string) error {
 		}
 	}
 
+	// .inv — server-only, freshness-gated.
 	if GetLatestModified(scriptsDir, ".inv") > 0 &&
 		ShouldBuild(scriptsDir, ".inv", filepath.Join(serverOut, "inv.dat")) {
 		if err := ensureObjPack(); err != nil {
@@ -299,6 +250,7 @@ func PackConfigs(srcDir, outDir string) error {
 		}
 	}
 
+	// .mesanim — server-only, freshness-gated.
 	if GetLatestModified(scriptsDir, ".mesanim") > 0 &&
 		ShouldBuild(scriptsDir, ".mesanim", filepath.Join(serverOut, "mesanim.dat")) {
 		if err := ensureSeqPack(); err != nil {
@@ -313,14 +265,9 @@ func PackConfigs(srcDir, outDir string) error {
 		}
 	}
 
+	// .struct — server-only, freshness-gated.
 	if GetLatestModified(scriptsDir, ".struct") > 0 &&
 		ShouldBuild(scriptsDir, ".struct", filepath.Join(serverOut, "struct.dat")) {
-		if err := ensureParamTypes(); err != nil {
-			return err
-		}
-		if err := ensureLk(); err != nil {
-			return err
-		}
 		structPack, err := NewPackFile(srcDir, "struct", nil)
 		if err != nil {
 			return err
@@ -330,12 +277,85 @@ func PackConfigs(srcDir, outDir string) error {
 		}
 	}
 
-	if clientJagDirty {
-		if err := clientJag.Save(filepath.Join(clientOut, "config"), false); err != nil {
+	// .loc — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
+	if err := ensureLocPack(); err != nil {
+		return err
+	}
+	if err := ensureModelPack(); err != nil {
+		return err
+	}
+	if err := ensureCategoryPack(); err != nil {
+		return err
+	}
+	if err := ensureSeqPack(); err != nil {
+		return err
+	}
+	if err := ensureTexturePack(); err != nil {
+		return err
+	}
+	if err := packAndSaveLoc(srcDir, serverOut, locPack, modelPack, categoryPack, seqPack, texturePack, lk, paramTypes, constants, clientJag); err != nil {
+		return err
+	}
+
+	// .npc — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
+	if err := ensureNpcPack(); err != nil {
+		return err
+	}
+	if err := ensureModelPack(); err != nil {
+		return err
+	}
+	if err := ensureCategoryPack(); err != nil {
+		return err
+	}
+	if err := ensureSeqPack(); err != nil {
+		return err
+	}
+	if err := ensureHuntPack(); err != nil {
+		return err
+	}
+	if err := packAndSaveNpc(srcDir, serverOut, npcPack, modelPack, categoryPack, seqPack, huntPack, lk, paramTypes, constants, clientJag); err != nil {
+		return err
+	}
+
+	// .obj — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
+	if err := ensureObjPack(); err != nil {
+		return err
+	}
+	if err := ensureModelPack(); err != nil {
+		return err
+	}
+	if err := ensureCategoryPack(); err != nil {
+		return err
+	}
+	if err := ensureSeqPack(); err != nil {
+		return err
+	}
+	if err := packAndSaveObj(srcDir, serverOut, objPack, modelPack, categoryPack, seqPack, lk, paramTypes, constants, clientJag); err != nil {
+		return err
+	}
+
+	// .varp — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
+	if err := packAndSaveVarp(srcDir, serverOut, varpPack, constants, clientJag); err != nil {
+		return err
+	}
+
+	// .varn — server-only, freshness-gated.
+	if GetLatestModified(scriptsDir, ".varn") > 0 &&
+		ShouldBuild(scriptsDir, ".varn", filepath.Join(serverOut, "varn.dat")) {
+		if err := packAndSaveVarn(srcDir, serverOut, varnPack, constants); err != nil {
 			return err
 		}
 	}
-	return nil
+
+	// .vars — server-only, freshness-gated.
+	if GetLatestModified(scriptsDir, ".vars") > 0 &&
+		ShouldBuild(scriptsDir, ".vars", filepath.Join(serverOut, "vars.dat")) {
+		if err := packAndSaveVars(srcDir, serverOut, varsPack, constants); err != nil {
+			return err
+		}
+	}
+
+	return clientJag.Save(filepath.Join(clientOut, "config"), false)
 }
 
 // checkVarNameUniqueness rejects when any debugname appears in more
@@ -498,4 +518,89 @@ func packAndSaveStruct(srcDir, serverOut string, pf *PackFile, paramTypes *objty
 	}
 	pd := packStructConfigs(cfgs, pf)
 	return pd.Save(filepath.Join(serverOut, "struct.dat"), filepath.Join(serverOut, "struct.idx"))
+}
+
+// packAndSaveLoc reads .loc sources, packs them, writes server
+// .dat/.idx, and queues the client .dat/.idx into clientJag.
+//
+// NAI-196-D-UNCONDITIONAL-CLIENT-PACK: this branch runs every
+// PackConfigs invocation regardless of source freshness, matching
+// TS PackShared.ts:477 (rebuildClient=true ungates shouldBuild).
+//
+// TS source: tools/pack/config/LocConfig.ts:172-432.
+func packAndSaveLoc(srcDir, serverOut string, locPack, modelPack, categoryPack, seqPack, texturePack *PackFile, lk *paramLookups, paramTypes *objtype.ParamTypeConfigs, c Constants, clientJag *jagfile.Jagfile) error {
+	parse := parseLocConfigFor(modelPack, categoryPack, seqPack, texturePack, lk, paramTypes)
+	cfgs, err := ReadTypedConfigs(srcDir, ".loc", nil, parse, c)
+	if err != nil {
+		return err
+	}
+	server, client, err := packLocConfigs(cfgs, locPack, modelPack)
+	if err != nil {
+		return err
+	}
+	if err := server.Save(
+		filepath.Join(serverOut, "loc.dat"),
+		filepath.Join(serverOut, "loc.idx"),
+	); err != nil {
+		return err
+	}
+	clientJag.Write("loc.dat", client.Dat)
+	clientJag.Write("loc.idx", client.Idx)
+	return nil
+}
+
+// packAndSaveNpc reads .npc sources, packs them, writes server
+// .dat/.idx, and queues the client .dat/.idx into clientJag.
+//
+// NAI-196-D-UNCONDITIONAL-CLIENT-PACK: this branch runs every
+// PackConfigs invocation regardless of source freshness.
+//
+// TS source: tools/pack/config/NpcConfig.ts:265-509.
+func packAndSaveNpc(srcDir, serverOut string, npcPack, modelPack, categoryPack, seqPack, huntPack *PackFile, lk *paramLookups, paramTypes *objtype.ParamTypeConfigs, c Constants, clientJag *jagfile.Jagfile) error {
+	parse := parseNpcConfigFor(modelPack, categoryPack, seqPack, huntPack, lk, paramTypes)
+	cfgs, err := ReadTypedConfigs(srcDir, ".npc", nil, parse, c)
+	if err != nil {
+		return err
+	}
+	server, client, err := packNpcConfigs(cfgs, npcPack)
+	if err != nil {
+		return err
+	}
+	if err := server.Save(
+		filepath.Join(serverOut, "npc.dat"),
+		filepath.Join(serverOut, "npc.idx"),
+	); err != nil {
+		return err
+	}
+	clientJag.Write("npc.dat", client.Dat)
+	clientJag.Write("npc.idx", client.Idx)
+	return nil
+}
+
+// packAndSaveObj reads .obj sources, packs them, writes server
+// .dat/.idx, and queues the client .dat/.idx into clientJag.
+//
+// NAI-196-D-UNCONDITIONAL-CLIENT-PACK: this branch runs every
+// PackConfigs invocation regardless of source freshness.
+//
+// TS source: tools/pack/config/ObjConfig.ts:196-440.
+func packAndSaveObj(srcDir, serverOut string, objPack, modelPack, categoryPack, seqPack *PackFile, lk *paramLookups, paramTypes *objtype.ParamTypeConfigs, c Constants, clientJag *jagfile.Jagfile) error {
+	parse := parseObjConfigFor(modelPack, categoryPack, seqPack, objPack, lk, paramTypes)
+	cfgs, err := ReadTypedConfigs(srcDir, ".obj", nil, parse, c)
+	if err != nil {
+		return err
+	}
+	server, client, err := packObjConfigs(cfgs, objPack)
+	if err != nil {
+		return err
+	}
+	if err := server.Save(
+		filepath.Join(serverOut, "obj.dat"),
+		filepath.Join(serverOut, "obj.idx"),
+	); err != nil {
+		return err
+	}
+	clientJag.Write("obj.dat", client.Dat)
+	clientJag.Write("obj.idx", client.Idx)
+	return nil
 }
