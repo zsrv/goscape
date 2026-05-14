@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"strings"
 	"testing"
-
-	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 // buildParamLookupsForDbTableTest constructs a paramLookups with empty PackFiles for
@@ -193,5 +191,3 @@ func TestParseDbTableConfig_UnknownKey(t *testing.T) {
 	}
 }
 
-// Suppress import-unused complaints for the objtype import used by future round-trip tests.
-var _ = objtype.DbTableFlagIndexed

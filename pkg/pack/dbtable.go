@@ -1,6 +1,7 @@
 package pack
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/zsrv/goscape/pkg/objtype"
@@ -81,17 +82,7 @@ func packDbTableConfigs(configs map[string][]ConfigLine, pf *PackFile, lk *param
 						col.types = append(col.types, t)
 					}
 				}
-				hasIndexed := false
-				hasRequired := false
-				for _, p := range col.properties {
-					switch p {
-					case "INDEXED":
-						hasIndexed = true
-					case "REQUIRED":
-						hasRequired = true
-					}
-				}
-				if hasIndexed && !hasRequired {
+				if slices.Contains(col.properties, "INDEXED") && !slices.Contains(col.properties, "REQUIRED") {
 					return nil, packStepError(name, "INDEXED columns must be marked REQUIRED as well")
 				}
 				columns = append(columns, col)
@@ -118,10 +109,8 @@ func packDbTableConfigs(configs map[string][]ConfigLine, pf *PackFile, lk *param
 				if colIdx == -1 {
 					return nil, packStepError(name, "unknown default column %q", colName)
 				}
-				for _, p := range columns[colIdx].properties {
-					if p == "REQUIRED" {
-						return nil, packStepError(name, "%s cannot have a default value because it is marked REQUIRED", colName)
-					}
+				if slices.Contains(columns[colIdx].properties, "REQUIRED") {
+					return nil, packStepError(name, "%s cannot have a default value because it is marked REQUIRED", colName)
 				}
 				defaults[colIdx] = values
 			}
