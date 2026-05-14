@@ -407,7 +407,7 @@ func TestPackConfigs_ParamUnknownTypedDefault(t *testing.T) {
 	}
 }
 
-func TestPackConfigs_ElevenConfigsLand(t *testing.T) {
+func TestPackConfigs_FifteenConfigsLand(t *testing.T) {
 	srcDir := t.TempDir()
 	outDir := t.TempDir()
 
@@ -419,9 +419,6 @@ func TestPackConfigs_ElevenConfigsLand(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Pack files for all referenced typed-ids (16 in total: 11 configs
-	// plus model/category/hunt/texture/interface/spotanim/synth/dbrow
-	// support files).
 	writeFile(t, filepath.Join(srcDir, "pack", "varp.pack"), "0=quest_points\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "varn.pack"), "0=npc_state\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "vars.pack"), "0=server_clock\n")
@@ -434,11 +431,15 @@ func TestPackConfigs_ElevenConfigsLand(t *testing.T) {
 	writeFile(t, filepath.Join(srcDir, "pack", "npc.pack"), "0=rat\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "obj.pack"), "0=egg\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "seq.pack"), "0=walk\n")
+	writeFile(t, filepath.Join(srcDir, "pack", "flo.pack"), "0=red\n")
+	writeFile(t, filepath.Join(srcDir, "pack", "spotanim.pack"), "0=flame\n")
+	writeFile(t, filepath.Join(srcDir, "pack", "idk.pack"), "0=man_hair_default\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "model.pack"), "")
 	writeFile(t, filepath.Join(srcDir, "pack", "category.pack"), "")
 	writeFile(t, filepath.Join(srcDir, "pack", "hunt.pack"), "")
 	writeFile(t, filepath.Join(srcDir, "pack", "texture.pack"), "")
-	for _, p := range []string{"interface", "spotanim", "synth", "dbrow"} {
+	writeFile(t, filepath.Join(srcDir, "pack", "anim.pack"), "")
+	for _, p := range []string{"interface", "synth", "dbrow"} {
 		writeFile(t, filepath.Join(srcDir, "pack", p+".pack"), "")
 	}
 
@@ -464,15 +465,25 @@ func TestPackConfigs_ElevenConfigsLand(t *testing.T) {
 		"[rat]\nname=Rat\n")
 	writeFile(t, filepath.Join(scripts, "o.obj"),
 		"[egg]\nname=Egg\n")
+	writeFile(t, filepath.Join(scripts, "q.seq"),
+		"[walk]\nloops=1\n")
+	writeFile(t, filepath.Join(scripts, "f.flo"),
+		"[red]\ncolour=0xFF0000\n")
+	writeFile(t, filepath.Join(scripts, "a.spotanim"),
+		"[flame]\nangle=180\n")
+	writeFile(t, filepath.Join(scripts, "d.idk"),
+		"[man_hair_default]\ntype=man_hair\n")
 
 	ClearFsCache()
 	if err := PackConfigs(srcDir, outDir); err != nil {
 		t.Fatalf("PackConfigs: %v", err)
 	}
 
-	// All 11 server-side .dat/.idx pairs landed.
 	server := filepath.Join(outDir, "server")
-	for _, typ := range []string{"varp", "varn", "vars", "param", "enum", "inv", "mesanim", "struct", "loc", "npc", "obj"} {
+	for _, typ := range []string{
+		"varp", "varn", "vars", "param", "enum", "inv", "mesanim", "struct",
+		"loc", "npc", "obj", "seq", "flo", "spotanim", "idk",
+	} {
 		if _, err := os.Stat(filepath.Join(server, typ+".dat")); err != nil {
 			t.Errorf("%s.dat missing: %v", typ, err)
 		}
@@ -481,8 +492,6 @@ func TestPackConfigs_ElevenConfigsLand(t *testing.T) {
 		}
 	}
 
-	// Client jagfile contains all 10 client-side entries (5 client+server
-	// configs × .dat/.idx pair = 10): param, loc, npc, obj, varp.
 	jagPath := filepath.Join(outDir, "client", "config")
 	if _, err := os.Stat(jagPath); err != nil {
 		t.Fatalf("client/config jagfile missing: %v", err)
@@ -493,9 +502,13 @@ func TestPackConfigs_ElevenConfigsLand(t *testing.T) {
 	}
 	expected := []string{
 		"param.dat", "param.idx",
+		"seq.dat", "seq.idx",
 		"loc.dat", "loc.idx",
+		"flo.dat", "flo.idx",
+		"spotanim.dat", "spotanim.idx",
 		"npc.dat", "npc.idx",
 		"obj.dat", "obj.idx",
+		"idk.dat", "idk.idx",
 		"varp.dat", "varp.idx",
 	}
 	for _, name := range expected {
@@ -506,8 +519,17 @@ func TestPackConfigs_ElevenConfigsLand(t *testing.T) {
 	if jag.FileCount != len(expected) {
 		t.Errorf("client jagfile has %d entries, want %d (names=%v)", jag.FileCount, len(expected), jag.FileName)
 	}
-	// Entry order must match Write insertion order: param → loc → npc → obj → varp.
-	wantOrder := []string{"param.dat", "param.idx", "loc.dat", "loc.idx", "npc.dat", "npc.idx", "obj.dat", "obj.idx", "varp.dat", "varp.idx"}
+	wantOrder := []string{
+		"param.dat", "param.idx",
+		"seq.dat", "seq.idx",
+		"loc.dat", "loc.idx",
+		"flo.dat", "flo.idx",
+		"spotanim.dat", "spotanim.idx",
+		"npc.dat", "npc.idx",
+		"obj.dat", "obj.idx",
+		"idk.dat", "idk.idx",
+		"varp.dat", "varp.idx",
+	}
 	if !slices.Equal(jag.FileName, wantOrder) {
 		t.Errorf("client jag entry order: got %v, want %v", jag.FileName, wantOrder)
 	}

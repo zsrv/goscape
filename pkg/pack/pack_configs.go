@@ -34,14 +34,17 @@ import (
 // not contribute to client jag). Preserved for client-jagfile entry
 // completeness.
 //
-// NAI-196-D-UNCONDITIONAL-CLIENT-PACK: .param, .loc, .npc, .obj, .varp
-// run on EVERY PackConfigs invocation regardless of source freshness,
-// matching TS PackShared.ts:337 (`const rebuildClient = true`) which
-// ungates shouldBuild on the four configs that write to client jag
-// (loc/npc/obj/varp) and — per NAI-196 §"R5 resolution" — also on
-// .param so that all client-jagfile entries are always present.
-// The server-only six (.enum, .inv, .mesanim, .struct, .varn, .vars)
-// retain their ShouldBuild + GetLatestModified freshness gates.
+// NAI-196-D-UNCONDITIONAL-CLIENT-PACK: .param, .seq, .loc, .flo,
+// .spotanim, .npc, .obj, .idk, .varp run on EVERY PackConfigs
+// invocation regardless of source freshness, matching TS
+// PackShared.ts:337 (`const rebuildClient = true`) which ungates
+// shouldBuild on the eight configs that write to client jag and —
+// per NAI-196 §"R5 resolution" — also on .param so that all
+// client-jagfile entries are always present. NAI-197 extends the
+// scope to the four additional client+server configs ported in that
+// slice (.seq, .flo, .spotanim, .idk). The server-only six (.enum,
+// .inv, .mesanim, .struct, .varn, .vars) retain their ShouldBuild +
+// GetLatestModified freshness gates.
 //
 // NAI-192-D-NO-SRC-NO-OP: applies only to the six server-only
 // freshness-gated branches. The five unconditional branches always
@@ -247,13 +250,6 @@ func PackConfigs(srcDir, outDir string) error {
 		idkPack = pf
 		return nil
 	}
-	// NAI-197 T1: helpers landed without callers; T6 wires them. Suppress
-	// unused-variable diagnostics until then.
-	_ = ensureAnimPack
-	_ = ensureFloPack
-	_ = ensureSpotAnimPack
-	_ = ensureIdkPack
-
 	// .param — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
 	// Matches TS PackShared.ts:315 "We have to pack params for other
 	// configs to parse correctly" — must run before .struct/.loc/.npc/.obj.
@@ -331,6 +327,21 @@ func PackConfigs(srcDir, outDir string) error {
 		}
 	}
 
+	// .seq — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
+	// TS PackShared.ts:454-475.
+	if err := ensureSeqPack(); err != nil {
+		return err
+	}
+	if err := ensureAnimPack(); err != nil {
+		return err
+	}
+	if err := ensureObjPack(); err != nil {
+		return err
+	}
+	if err := packAndSaveSeq(srcDir, serverOut, seqPack, animPack, objPack, constants, clientJag); err != nil {
+		return err
+	}
+
 	// .loc — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
 	if err := ensureLocPack(); err != nil {
 		return err
@@ -348,6 +359,33 @@ func PackConfigs(srcDir, outDir string) error {
 		return err
 	}
 	if err := packAndSaveLoc(srcDir, serverOut, locPack, modelPack, categoryPack, seqPack, texturePack, lk, paramTypes, constants, clientJag); err != nil {
+		return err
+	}
+
+	// .flo — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
+	// TS PackShared.ts:500-521.
+	if err := ensureFloPack(); err != nil {
+		return err
+	}
+	if err := ensureTexturePack(); err != nil {
+		return err
+	}
+	if err := packAndSaveFlo(srcDir, serverOut, floPack, texturePack, constants, clientJag); err != nil {
+		return err
+	}
+
+	// .spotanim — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
+	// TS PackShared.ts:523-544.
+	if err := ensureSpotAnimPack(); err != nil {
+		return err
+	}
+	if err := ensureModelPack(); err != nil {
+		return err
+	}
+	if err := ensureSeqPack(); err != nil {
+		return err
+	}
+	if err := packAndSaveSpotAnim(srcDir, serverOut, spotanimPack, modelPack, seqPack, constants, clientJag); err != nil {
 		return err
 	}
 
@@ -385,6 +423,18 @@ func PackConfigs(srcDir, outDir string) error {
 		return err
 	}
 	if err := packAndSaveObj(srcDir, serverOut, objPack, modelPack, categoryPack, seqPack, lk, paramTypes, constants, clientJag); err != nil {
+		return err
+	}
+
+	// .idk — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
+	// TS PackShared.ts:592-613.
+	if err := ensureIdkPack(); err != nil {
+		return err
+	}
+	if err := ensureModelPack(); err != nil {
+		return err
+	}
+	if err := packAndSaveIdk(srcDir, serverOut, idkPack, modelPack, constants, clientJag); err != nil {
 		return err
 	}
 
@@ -656,5 +706,104 @@ func packAndSaveObj(srcDir, serverOut string, objPack, modelPack, categoryPack, 
 	}
 	clientJag.Write("obj.dat", client.Dat)
 	clientJag.Write("obj.idx", client.Idx)
+	return nil
+}
+
+// packAndSaveSeq reads .seq sources, packs them, writes server
+// .dat/.idx, and queues the client .dat/.idx into clientJag.
+//
+// NAI-196-D-UNCONDITIONAL-CLIENT-PACK: this branch runs every
+// PackConfigs invocation regardless of source freshness, matching
+// TS PackShared.ts:460 (rebuildClient=true ungates shouldBuild).
+//
+// TS source: tools/pack/config/SeqConfig.ts:121-208.
+func packAndSaveSeq(srcDir, serverOut string, seqPack, animPack, objPack *PackFile, c Constants, clientJag *jagfile.Jagfile) error {
+	parse := parseSeqConfigFor(animPack, objPack)
+	cfgs, err := ReadTypedConfigs(srcDir, ".seq", nil, parse, c)
+	if err != nil {
+		return err
+	}
+	server, client := packSeqConfigs(cfgs, seqPack)
+	if err := server.Save(
+		filepath.Join(serverOut, "seq.dat"),
+		filepath.Join(serverOut, "seq.idx"),
+	); err != nil {
+		return err
+	}
+	clientJag.Write("seq.dat", client.Dat)
+	clientJag.Write("seq.idx", client.Idx)
+	return nil
+}
+
+// packAndSaveFlo reads .flo sources, packs them, writes server
+// .dat/.idx (which contain only per-id Next() boundaries — no opcode
+// bytes), and queues the client .dat/.idx into clientJag.
+//
+// NAI-196-D-UNCONDITIONAL-CLIENT-PACK: unconditional.
+//
+// TS source: tools/pack/config/FloConfig.ts:63-104.
+func packAndSaveFlo(srcDir, serverOut string, floPack, texturePack *PackFile, c Constants, clientJag *jagfile.Jagfile) error {
+	parse := parseFloConfigFor(texturePack)
+	cfgs, err := ReadTypedConfigs(srcDir, ".flo", nil, parse, c)
+	if err != nil {
+		return err
+	}
+	server, client := packFloConfigs(cfgs, floPack)
+	if err := server.Save(
+		filepath.Join(serverOut, "flo.dat"),
+		filepath.Join(serverOut, "flo.idx"),
+	); err != nil {
+		return err
+	}
+	clientJag.Write("flo.dat", client.Dat)
+	clientJag.Write("flo.idx", client.Idx)
+	return nil
+}
+
+// packAndSaveSpotAnim reads .spotanim sources, packs them, writes
+// server .dat/.idx, and queues the client .dat/.idx into clientJag.
+//
+// NAI-196-D-UNCONDITIONAL-CLIENT-PACK: unconditional.
+//
+// TS source: tools/pack/config/SpotAnimConfig.ts:92-152.
+func packAndSaveSpotAnim(srcDir, serverOut string, spotanimPack, modelPack, seqPack *PackFile, c Constants, clientJag *jagfile.Jagfile) error {
+	parse := parseSpotAnimConfigFor(modelPack, seqPack)
+	cfgs, err := ReadTypedConfigs(srcDir, ".spotanim", nil, parse, c)
+	if err != nil {
+		return err
+	}
+	server, client := packSpotAnimConfigs(cfgs, spotanimPack)
+	if err := server.Save(
+		filepath.Join(serverOut, "spotanim.dat"),
+		filepath.Join(serverOut, "spotanim.idx"),
+	); err != nil {
+		return err
+	}
+	clientJag.Write("spotanim.dat", client.Dat)
+	clientJag.Write("spotanim.idx", client.Idx)
+	return nil
+}
+
+// packAndSaveIdk reads .idk sources, packs them, writes server
+// .dat/.idx, and queues the client .dat/.idx into clientJag.
+//
+// NAI-196-D-UNCONDITIONAL-CLIENT-PACK: unconditional.
+//
+// TS source: tools/pack/config/IdkConfig.ts:126-205.
+func packAndSaveIdk(srcDir, serverOut string, idkPack, modelPack *PackFile, c Constants, clientJag *jagfile.Jagfile) error {
+	parse := parseIdkConfigFor(modelPack)
+	cfgs, err := ReadTypedConfigs(srcDir, ".idk", nil, parse, c)
+	if err != nil {
+		return err
+	}
+	server, client := packIdkConfigs(cfgs, idkPack)
+	if err := server.Save(
+		filepath.Join(serverOut, "idk.dat"),
+		filepath.Join(serverOut, "idk.idx"),
+	); err != nil {
+		return err
+	}
+	clientJag.Write("idk.dat", client.Dat)
+	clientJag.Write("idk.idx", client.Idx)
 	return nil
 }
