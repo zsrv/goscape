@@ -132,12 +132,16 @@ func Load(path string) (*TypeInfo, error) {
 		if len(line) == 0 {
 			continue
 		}
-		eq := strings.IndexByte(line, '=')
-		if eq < 0 {
+		// TS Compiler.ts:46 uses `const [id, name] = line.split('=')`,
+		// a destructure of an unbounded split — segments past the second
+		// are discarded. SplitN with cap 3 mirrors that: parts[0] = id,
+		// parts[1] = name; anything past the second '=' is dropped.
+		parts := strings.SplitN(line, "=", 3)
+		if len(parts) < 2 {
 			continue
 		}
-		idStr := line[:eq]
-		name := line[eq+1:]
+		idStr := parts[0]
+		name := parts[1]
 		if name == "null" || name == "null:null" {
 			continue
 		}
