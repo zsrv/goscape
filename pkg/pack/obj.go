@@ -222,29 +222,29 @@ func parseObjConfigFor(modelPack, categoryPack, seqPack, objPack *PackFile, lk *
 			var grams float64
 			switch {
 			case strings.Contains(value, "kg"):
-				idx := strings.Index(value, "kg")
-				f, err := strconv.ParseFloat(value[:idx], 64)
+				numStr, _, _ := strings.Cut(value, "kg")
+				f, err := strconv.ParseFloat(numStr, 64)
 				if err != nil {
 					return nil, true, fmt.Errorf("invalid weight: %s", value)
 				}
 				grams = f * 1000
 			case strings.Contains(value, "oz"):
-				idx := strings.Index(value, "oz")
-				f, err := strconv.ParseFloat(value[:idx], 64)
+				numStr, _, _ := strings.Cut(value, "oz")
+				f, err := strconv.ParseFloat(numStr, 64)
 				if err != nil {
 					return nil, true, fmt.Errorf("invalid weight: %s", value)
 				}
 				grams = f * 28.3495
 			case strings.Contains(value, "lb"):
-				idx := strings.Index(value, "lb")
-				f, err := strconv.ParseFloat(value[:idx], 64)
+				numStr, _, _ := strings.Cut(value, "lb")
+				f, err := strconv.ParseFloat(numStr, 64)
 				if err != nil {
 					return nil, true, fmt.Errorf("invalid weight: %s", value)
 				}
 				grams = f * 453.592
 			case strings.Contains(value, "g"):
-				idx := strings.Index(value, "g")
-				f, err := strconv.ParseFloat(value[:idx], 64)
+				numStr, _, _ := strings.Cut(value, "g")
+				f, err := strconv.ParseFloat(numStr, 64)
 				if err != nil {
 					return nil, true, fmt.Errorf("invalid weight: %s", value)
 				}
@@ -536,6 +536,11 @@ func packObjConfigs(configs map[string][]ConfigLine, objPack *PackFile) (server,
 
 			// Reverse-lookup the certificate (TS L389-394). Only fires for
 			// NON-cert names (cfg above is the synthesised pair for cert_).
+			//
+			// NAI-196-D-CERT-REVLOOKUP: TS enters the reverse-lookup block for
+			// cert_ names (config is the synthesised pair = truthy) but gets -1
+			// (no "cert_cert_X" names exist) and silently skips. Goscape guards
+			// with !isCert for clarity; output is identical.
 			if !isCert {
 				cert := objPack.GetByName("cert_" + debugname)
 				if cert != -1 {
