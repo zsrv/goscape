@@ -407,7 +407,7 @@ func TestPackConfigs_ParamUnknownTypedDefault(t *testing.T) {
 	}
 }
 
-func TestPackConfigs_FifteenConfigsLand(t *testing.T) {
+func TestPackConfigs_EighteenConfigsLand(t *testing.T) {
 	srcDir := t.TempDir()
 	outDir := t.TempDir()
 
@@ -436,10 +436,12 @@ func TestPackConfigs_FifteenConfigsLand(t *testing.T) {
 	writeFile(t, filepath.Join(srcDir, "pack", "idk.pack"), "0=man_hair_default\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "model.pack"), "")
 	writeFile(t, filepath.Join(srcDir, "pack", "category.pack"), "")
-	writeFile(t, filepath.Join(srcDir, "pack", "hunt.pack"), "")
+	writeFile(t, filepath.Join(srcDir, "pack", "hunt.pack"), "0=h_off\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "texture.pack"), "")
 	writeFile(t, filepath.Join(srcDir, "pack", "anim.pack"), "")
-	for _, p := range []string{"interface", "synth", "dbrow"} {
+	writeFile(t, filepath.Join(srcDir, "pack", "dbtable.pack"), "0=t_simple\n")
+	writeFile(t, filepath.Join(srcDir, "pack", "dbrow.pack"), "0=r_one\n")
+	for _, p := range []string{"interface", "synth"} {
 		writeFile(t, filepath.Join(srcDir, "pack", p+".pack"), "")
 	}
 
@@ -473,6 +475,12 @@ func TestPackConfigs_FifteenConfigsLand(t *testing.T) {
 		"[flame]\nangle=180\n")
 	writeFile(t, filepath.Join(scripts, "d.idk"),
 		"[man_hair_default]\ntype=man_hair\n")
+	writeFile(t, filepath.Join(scripts, "t.dbtable"),
+		"[t_simple]\ncolumn=score,int\n")
+	writeFile(t, filepath.Join(scripts, "r.dbrow"),
+		"[r_one]\ntable=t_simple\ndata=score,7\n")
+	writeFile(t, filepath.Join(scripts, "h.hunt"),
+		"[h_off]\ntype=off\n")
 
 	ClearFsCache()
 	if err := PackConfigs(srcDir, outDir); err != nil {
@@ -482,7 +490,7 @@ func TestPackConfigs_FifteenConfigsLand(t *testing.T) {
 	server := filepath.Join(outDir, "server")
 	for _, typ := range []string{
 		"varp", "varn", "vars", "param", "enum", "inv", "mesanim", "struct",
-		"loc", "npc", "obj", "seq", "flo", "spotanim", "idk",
+		"dbtable", "dbrow", "loc", "npc", "obj", "seq", "flo", "spotanim", "idk", "hunt",
 	} {
 		if _, err := os.Stat(filepath.Join(server, typ+".dat")); err != nil {
 			t.Errorf("%s.dat missing: %v", typ, err)

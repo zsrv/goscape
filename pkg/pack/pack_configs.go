@@ -11,8 +11,9 @@ import (
 // PackConfigs runs the per-config packing pipeline. NAI-191–195 wired
 // .varp/.varn/.vars/.param/.enum/.inv/.mesanim/.struct. NAI-196 wires
 // .loc/.npc/.obj and re-orders the pipeline to TS-canonical layout per
-// tools/pack/config/PackShared.ts:261-669 (filtered to currently
-// implemented configs).
+// tools/pack/config/PackShared.ts:261-669. NAI-197 wires
+// .seq/.flo/.spotanim/.idk. NAI-198 wires .hunt/.dbtable/.dbrow and
+// closes the per-config layer (18/18 TS configs ported).
 //
 // Server outputs land at <outDir>/server/<type>.{dat,idx}.
 // Client outputs land in a fresh jagfile at <outDir>/client/config.
@@ -46,8 +47,9 @@ import (
 // .inv, .mesanim, .struct, .varn, .vars) retain their ShouldBuild +
 // GetLatestModified freshness gates.
 //
-// NAI-192-D-NO-SRC-NO-OP: applies only to the six server-only
-// freshness-gated branches. The nine unconditional branches always
+// NAI-192-D-NO-SRC-NO-OP: applies only to the nine server-only
+// freshness-gated branches (.enum, .inv, .mesanim, .struct, .dbtable,
+// .dbrow, .hunt, .varn, .vars). The nine unconditional branches always
 // run; an empty source directory produces an empty .dat/.idx pair
 // (matching TS shouldBuild-output-missing arm).
 //
@@ -298,8 +300,6 @@ func PackConfigs(srcDir, outDir string) error {
 		dbrowPack = pf
 		return nil
 	}
-	_ = ensureDbTablePack
-	_ = ensureDbRowPack
 	// .param — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
 	// Matches TS PackShared.ts:315 "We have to pack params for other
 	// configs to parse correctly" — must run before .struct/.loc/.npc/.obj.
@@ -372,6 +372,37 @@ func PackConfigs(srcDir, outDir string) error {
 		}
 		if err := packAndSaveStruct(srcDir, serverOut, structPack, paramTypes, lk, constants); err != nil {
 			return err
+		}
+	}
+
+	// .dbtable + .dbrow — paired server-only joint freshness-gated.
+	// TS PackShared.ts:393-414 — joint shouldBuild gate, DbTableType.load
+	// between packers. Goscape mirrors via mid-pipeline objtype.LoadDbTableTypes.
+	if GetLatestModified(scriptsDir, ".dbrow") > 0 || GetLatestModified(scriptsDir, ".dbtable") > 0 {
+		if ShouldBuild(scriptsDir, ".dbrow", filepath.Join(serverOut, "dbrow.dat")) ||
+			ShouldBuild(scriptsDir, ".dbtable", filepath.Join(serverOut, "dbtable.dat")) {
+			if err := ensureDbTablePack(); err != nil {
+				return err
+			}
+			if err := packAndSaveDbTable(srcDir, serverOut, dbtablePack, lk, constants); err != nil {
+				return err
+			}
+
+			// Mid-pipeline DbTableType cache load — .dbrow needs to resolve
+			// table=NAME → *DbTableType at pack time. Per
+			// [[load_param_types_dir_arg]]: LoadDbTableTypes takes outDir
+			// (parent of server/), NOT serverOut.
+			dbtableTypes, err := objtype.LoadDbTableTypes(outDir)
+			if err != nil {
+				return fmt.Errorf("load dbtable types between dbtable/dbrow packers: %w", err)
+			}
+
+			if err := ensureDbRowPack(); err != nil {
+				return err
+			}
+			if err := packAndSaveDbRow(srcDir, serverOut, dbrowPack, dbtablePack, dbtableTypes, lk, constants); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -489,6 +520,37 @@ func PackConfigs(srcDir, outDir string) error {
 	// .varp — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
 	if err := packAndSaveVarp(srcDir, serverOut, varpPack, constants, clientJag); err != nil {
 		return err
+	}
+
+	// .hunt — server-only, freshness-gated.
+	// TS PackShared.ts:638-645. Eight reference registries — largest
+	// fan-out of any single config.
+	if GetLatestModified(scriptsDir, ".hunt") > 0 &&
+		ShouldBuild(scriptsDir, ".hunt", filepath.Join(serverOut, "hunt.dat")) {
+		if err := ensureCategoryPack(); err != nil {
+			return err
+		}
+		if err := ensureHuntPack(); err != nil {
+			return err
+		}
+		if err := ensureInvPack(); err != nil {
+			return err
+		}
+		if err := ensureLocPack(); err != nil {
+			return err
+		}
+		if err := ensureNpcPack(); err != nil {
+			return err
+		}
+		if err := ensureObjPack(); err != nil {
+			return err
+		}
+		if err := ensureParamPack(); err != nil {
+			return err
+		}
+		if err := packAndSaveHunt(srcDir, serverOut, huntPack, categoryPack, invPack, locPack, npcPack, objPack, paramPack, varnPack, varpPack, constants); err != nil {
+			return err
+		}
 	}
 
 	// .varn — server-only, freshness-gated.
@@ -830,6 +892,60 @@ func packAndSaveSpotAnim(srcDir, serverOut string, spotanimPack, modelPack, seqP
 	clientJag.Write("spotanim.dat", client.Dat)
 	clientJag.Write("spotanim.idx", client.Idx)
 	return nil
+}
+
+// packAndSaveDbTable reads .dbtable sources, packs them, and writes
+// server .dat/.idx. Server-only — does NOT contribute to clientJag.
+//
+// TS source: tools/pack/config/DbTableConfig.ts:78-224.
+func packAndSaveDbTable(srcDir, serverOut string, dbtablePack *PackFile, lk *paramLookups, c Constants) error {
+	cfgs, err := ReadTypedConfigs(srcDir, ".dbtable", nil, parseDbTableConfig, c)
+	if err != nil {
+		return err
+	}
+	pd, err := packDbTableConfigs(cfgs, dbtablePack, lk)
+	if err != nil {
+		return err
+	}
+	return pd.Save(filepath.Join(serverOut, "dbtable.dat"), filepath.Join(serverOut, "dbtable.idx"))
+}
+
+// packAndSaveDbRow reads .dbrow sources, packs them, and writes server
+// .dat/.idx. Server-only. Consumes the *DbTableTypeConfigs loaded from
+// the just-written dbtable.dat for schema lookup.
+//
+// TS source: tools/pack/config/DbRowConfig.ts:84-185.
+func packAndSaveDbRow(srcDir, serverOut string, dbrowPack, dbtablePack *PackFile, dbtableTypes *objtype.DbTableTypeConfigs, lk *paramLookups, c Constants) error {
+	parse := parseDbRowConfigFor(dbtablePack)
+	cfgs, err := ReadTypedConfigs(srcDir, ".dbrow", nil, parse, c)
+	if err != nil {
+		return err
+	}
+	pd, err := packDbRowConfigs(cfgs, dbrowPack, dbtableTypes, lk)
+	if err != nil {
+		return err
+	}
+	return pd.Save(filepath.Join(serverOut, "dbrow.dat"), filepath.Join(serverOut, "dbrow.idx"))
+}
+
+// packAndSaveHunt reads .hunt sources, packs them, and writes server
+// .dat/.idx. Server-only — does NOT contribute to clientJag. Takes
+// nine *PackFile parameters (eight reference registries + the Hunt
+// pack itself); largest registry-dependency surface of any NAI-198
+// config.
+//
+// TS source: tools/pack/config/HuntConfig.ts:383-545.
+func packAndSaveHunt(srcDir, serverOut string, huntPack, categoryPack, invPack, locPack, npcPack, objPack, paramPack, varnPack, varpPack *PackFile, c Constants) error {
+	parse := parseHuntConfigFor(categoryPack, invPack, locPack, npcPack, objPack, paramPack, varnPack, varpPack)
+	cfgs, err := ReadTypedConfigs(srcDir, ".hunt", nil, parse, c)
+	if err != nil {
+		return err
+	}
+	pd, err := packHuntConfigs(cfgs, huntPack)
+	if err != nil {
+		return err
+	}
+	return pd.Save(filepath.Join(serverOut, "hunt.dat"), filepath.Join(serverOut, "hunt.idx"))
 }
 
 // packAndSaveIdk reads .idk sources, packs them, writes server
