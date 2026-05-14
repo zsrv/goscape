@@ -173,3 +173,29 @@ func TestLoad_DuplicateID(t *testing.T) {
 		t.Fatalf("Max: got %d, want 1", p.Max)
 	}
 }
+
+// TestLoadArray_HappyPath pins spec §7.6: each index → Add(i,
+// lowercase(s), true); Max = len(input).
+func TestLoadArray_HappyPath(t *testing.T) {
+	p := LoadArray([]string{"Alpha", "BRAVO", "Charlie"})
+
+	if p.Map[0] != "alpha" || p.Map[1] != "bravo" || p.Map[2] != "charlie" {
+		t.Fatalf("Map: got %v, want {0:alpha,1:bravo,2:charlie}", p.Map)
+	}
+	if p.Max != 3 {
+		t.Fatalf("Max: got %d, want 3 (len-1 + 1)", p.Max)
+	}
+}
+
+// TestLoadArray_Empty pins spec §7.7: empty input → no Add calls →
+// Max remains -1.
+func TestLoadArray_Empty(t *testing.T) {
+	p := LoadArray([]string{})
+
+	if p.Max != -1 {
+		t.Fatalf("Max: got %d, want -1", p.Max)
+	}
+	if len(p.Map) != 0 {
+		t.Fatalf("Map: got %v, want empty", p.Map)
+	}
+}

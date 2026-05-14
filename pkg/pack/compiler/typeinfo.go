@@ -156,3 +156,17 @@ func Load(path string) (*TypeInfo, error) {
 	}
 	return p, nil
 }
+
+// LoadArray builds a *TypeInfo by treating each slice index as an ID
+// and lowercasing the value. Mirrors TS Compiler.ts:62-70
+// (CompilerTypeInfo.loadArray).
+//
+// Used by runServerCompiler (NAI-201) for static enum-like sources:
+// fontmetrics (['p11','p12','b12','q8']) and locshape (23 entries).
+func LoadArray(input []string) *TypeInfo {
+	p := newTypeInfo()
+	for i, s := range input {
+		p.Add(i, strings.ToLower(s), true)
+	}
+	return p
+}
