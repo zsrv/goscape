@@ -106,6 +106,10 @@ func PackConfigs(srcDir, outDir string) error {
 		floPack      *PackFile
 		spotanimPack *PackFile
 		idkPack      *PackFile
+		paramPack    *PackFile // NAI-198: lazy-promoted from eager at top of fn
+		invPack      *PackFile // NAI-198: lazy-promoted from inline inside .inv branch
+		dbtablePack  *PackFile // NAI-198
+		dbrowPack    *PackFile // NAI-198
 	)
 	ensureLk := func() error {
 		if lk != nil {
@@ -250,11 +254,56 @@ func PackConfigs(srcDir, outDir string) error {
 		idkPack = pf
 		return nil
 	}
+	ensureParamPack := func() error {
+		if paramPack != nil {
+			return nil
+		}
+		pf, err := NewPackFile(srcDir, "param", nil)
+		if err != nil {
+			return err
+		}
+		paramPack = pf
+		return nil
+	}
+	ensureInvPack := func() error {
+		if invPack != nil {
+			return nil
+		}
+		pf, err := NewPackFile(srcDir, "inv", nil)
+		if err != nil {
+			return err
+		}
+		invPack = pf
+		return nil
+	}
+	ensureDbTablePack := func() error {
+		if dbtablePack != nil {
+			return nil
+		}
+		pf, err := NewPackFile(srcDir, "dbtable", nil)
+		if err != nil {
+			return err
+		}
+		dbtablePack = pf
+		return nil
+	}
+	ensureDbRowPack := func() error {
+		if dbrowPack != nil {
+			return nil
+		}
+		pf, err := NewPackFile(srcDir, "dbrow", nil)
+		if err != nil {
+			return err
+		}
+		dbrowPack = pf
+		return nil
+	}
+	_ = ensureDbTablePack
+	_ = ensureDbRowPack
 	// .param — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
 	// Matches TS PackShared.ts:315 "We have to pack params for other
 	// configs to parse correctly" — must run before .struct/.loc/.npc/.obj.
-	paramPack, err := NewPackFile(srcDir, "param", nil)
-	if err != nil {
+	if err := ensureParamPack(); err != nil {
 		return err
 	}
 	if err := ensureLk(); err != nil {
@@ -291,8 +340,7 @@ func PackConfigs(srcDir, outDir string) error {
 		if err := ensureObjPack(); err != nil {
 			return err
 		}
-		invPack, err := NewPackFile(srcDir, "inv", nil)
-		if err != nil {
+		if err := ensureInvPack(); err != nil {
 			return err
 		}
 		if err := packAndSaveInv(srcDir, serverOut, invPack, objPack, constants); err != nil {
