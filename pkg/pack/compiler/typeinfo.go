@@ -40,7 +40,7 @@ import (
 // NAI-200 ships zero writers for the auxiliary maps. NAI-201 will be
 // the first slice that populates them (see spec §9 R2).
 type TypeInfo struct {
-	Max int // upper-exclusive bound; -1 = empty (TS-faithful)
+	Max int // = lastId + 1 (TS-faithful); -1 = empty. See Add doc.
 
 	Map     map[int]string
 	NameMap map[string]string
@@ -78,9 +78,12 @@ func newTypeInfo() *TypeInfo {
 }
 
 // Add records id→name in Map. If updateMax is true and id exceeds the
-// current Max, Max is set to id+1 (TS-faithful off-by-one: Max is the
-// upper-exclusive bound, so iteration uses `for i := 0; i <= Max; i++`
-// in callers like runServerCompiler).
+// current Max, Max is set to id+1. TS callers iterate inclusively
+// (`for id := 0; id <= info.max; id++`, e.g. Compiler.ts:205, 215,
+// 235, 246, 256, 266) and guard absent ids inside the loop body —
+// the loop visits one slot past the last assigned id, intentionally
+// empty. NAI-201's runServerCompiler port must mirror this `<= Max`
+// pattern with a `Map[id]` presence check.
 //
 // TS Compiler.ts:100-106:
 //
