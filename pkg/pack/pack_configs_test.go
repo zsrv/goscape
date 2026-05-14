@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -106,7 +107,9 @@ func TestPackConfigs_NoSourceFilesReturnsNoError(t *testing.T) {
 	if err := PackConfigs(dir, filepath.Join(dir, "out")); err != nil {
 		t.Fatal(err)
 	}
-	// No outputs expected.
+	// Freshness-gated outputs (varn, vars, enum, inv, mesanim, struct) not written;
+	// unconditional branches (param, loc, npc, obj, varp + client/config jagfile)
+	// are written with empty bodies.
 	if _, err := os.Stat(filepath.Join(dir, "out", "server", "varn.dat")); !os.IsNotExist(err) {
 		t.Fatalf("varn.dat should not exist; err=%v", err)
 	}
@@ -502,5 +505,10 @@ func TestPackConfigs_ElevenConfigsLand(t *testing.T) {
 	}
 	if jag.FileCount != len(expected) {
 		t.Errorf("client jagfile has %d entries, want %d (names=%v)", jag.FileCount, len(expected), jag.FileName)
+	}
+	// Entry order must match Write insertion order: param → loc → npc → obj → varp.
+	wantOrder := []string{"param.dat", "param.idx", "loc.dat", "loc.idx", "npc.dat", "npc.idx", "obj.dat", "obj.idx", "varp.dat", "varp.idx"}
+	if !slices.Equal(jag.FileName, wantOrder) {
+		t.Errorf("client jag entry order: got %v, want %v", jag.FileName, wantOrder)
 	}
 }

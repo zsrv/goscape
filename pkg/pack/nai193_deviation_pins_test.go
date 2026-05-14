@@ -30,20 +30,23 @@ func TestNAI193_ValidateDeferred_NoBuildVerifyInVarpSource(t *testing.T) {
 	}
 }
 
-// NAI-193-D-FRESH-CLIENT-JAGFILE: PackConfigs must construct the client
+// NAI-196-D-UNCONDITIONAL-CLIENT-PACK: PackConfigs must construct the client
 // jagfile via NewJagfile(nil) and must NOT call LoadJagfile (which
 // would indicate the deviation has flipped to "preserve existing
 // entries").
+//
+// NAI-193-D-FRESH-CLIENT-JAGFILE was retired by NAI-196 T5; this behavior is
+// now a sub-invariant of NAI-196-D-UNCONDITIONAL-CLIENT-PACK.
 func TestNAI193_FreshClientJagfile_NewNotLoad(t *testing.T) {
 	body, err := os.ReadFile("pack_configs.go")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(body), "NewJagfile(nil)") {
-		t.Errorf("pkg/pack/pack_configs.go must call NewJagfile(nil) — NAI-193-D-FRESH-CLIENT-JAGFILE")
+		t.Errorf("pkg/pack/pack_configs.go must call NewJagfile(nil) — NAI-196-D-UNCONDITIONAL-CLIENT-PACK")
 	}
 	if strings.Contains(string(body), "LoadJagfile") {
-		t.Errorf("pkg/pack/pack_configs.go must NOT call LoadJagfile — flipping NAI-193-D-FRESH-CLIENT-JAGFILE would require a new deviation tag")
+		t.Errorf("pkg/pack/pack_configs.go must NOT call LoadJagfile — flipping NAI-196-D-UNCONDITIONAL-CLIENT-PACK would require a new deviation tag")
 	}
 }
 
