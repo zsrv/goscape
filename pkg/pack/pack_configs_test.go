@@ -397,3 +397,69 @@ func TestPackConfigs_ParamUnknownTypedDefault(t *testing.T) {
 		t.Errorf("error should name the param: got %v", err)
 	}
 }
+
+func TestPackConfigs_EightConfigsLand(t *testing.T) {
+	srcDir := t.TempDir()
+	outDir := t.TempDir()
+
+	scripts := filepath.Join(srcDir, "scripts")
+	if err := os.MkdirAll(scripts, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(srcDir, "pack"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Pack files for all referenced typed-ids
+	writeFile(t, filepath.Join(srcDir, "pack", "varp.pack"), "0=quest_points\n")
+	writeFile(t, filepath.Join(srcDir, "pack", "varn.pack"), "0=npc_state\n")
+	writeFile(t, filepath.Join(srcDir, "pack", "vars.pack"), "0=server_clock\n")
+	writeFile(t, filepath.Join(srcDir, "pack", "param.pack"), "0=damage\n")
+	writeFile(t, filepath.Join(srcDir, "pack", "enum.pack"), "0=days\n")
+	writeFile(t, filepath.Join(srcDir, "pack", "inv.pack"), "0=bank\n")
+	writeFile(t, filepath.Join(srcDir, "pack", "mesanim.pack"), "0=hero_chat\n")
+	writeFile(t, filepath.Join(srcDir, "pack", "struct.pack"), "0=goblin_loot\n")
+	writeFile(t, filepath.Join(srcDir, "pack", "obj.pack"), "0=egg\n")
+	writeFile(t, filepath.Join(srcDir, "pack", "seq.pack"), "0=walk\n")
+	for _, p := range []string{"loc", "interface", "category", "spotanim", "npc", "synth", "dbrow"} {
+		writeFile(t, filepath.Join(srcDir, "pack", p+".pack"), "")
+	}
+
+	writeFile(t, filepath.Join(scripts, "v.varp"),
+		"[quest_points]\ntype=int\nscope=perm\n")
+	writeFile(t, filepath.Join(scripts, "n.varn"),
+		"[npc_state]\ntype=int\n")
+	writeFile(t, filepath.Join(scripts, "s.vars"),
+		"[server_clock]\ntype=int\n")
+	writeFile(t, filepath.Join(scripts, "p.param"),
+		"[damage]\ntype=int\ndefault=10\n")
+	writeFile(t, filepath.Join(scripts, "e.enum"),
+		"[days]\ninputtype=int\noutputtype=int\ndefault=0\nval=1,1\n")
+	writeFile(t, filepath.Join(scripts, "i.inv"),
+		"[bank]\nscope=shared\nsize=1\n")
+	writeFile(t, filepath.Join(scripts, "m.mesanim"),
+		"[hero_chat]\nlen1=walk\n")
+	writeFile(t, filepath.Join(scripts, "x.struct"),
+		"[goblin_loot]\nparam=damage,7\n")
+
+	ClearFsCache()
+	if err := PackConfigs(srcDir, outDir); err != nil {
+		t.Fatalf("PackConfigs: %v", err)
+	}
+
+	// All 8 server-side .dat/.idx pairs landed
+	server := filepath.Join(outDir, "server")
+	for _, typ := range []string{"varp", "varn", "vars", "param", "enum", "inv", "mesanim", "struct"} {
+		if _, err := os.Stat(filepath.Join(server, typ+".dat")); err != nil {
+			t.Errorf("%s.dat missing: %v", typ, err)
+		}
+		if _, err := os.Stat(filepath.Join(server, typ+".idx")); err != nil {
+			t.Errorf("%s.idx missing: %v", typ, err)
+		}
+	}
+
+	// Client jagfile contains only varp + param entries (per NAI-193 / NAI-194)
+	if _, err := os.Stat(filepath.Join(outDir, "client", "config")); err != nil {
+		t.Errorf("client/config jagfile missing: %v", err)
+	}
+}
