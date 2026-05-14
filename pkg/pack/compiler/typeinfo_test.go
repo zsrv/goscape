@@ -242,8 +242,9 @@ func TestLoadMap_ValueAsKeyFalse(t *testing.T) {
 }
 
 // TestLoadMap_ValueAsKeyTrue pins spec §7.10: with valueAsKey=true,
-// NameMap[Itoa(v)] = lowercase(k). Both sides lowercased on the
-// string-key side per TS.
+// NameMap[Itoa(v)] = lowercase(k). The numeric value is stringified
+// via Itoa (no lowercase op); only the original string key k is
+// lowercased. Mirrors TS Compiler.ts:91 (key.toLowerCase()).
 func TestLoadMap_ValueAsKeyTrue(t *testing.T) {
 	p := LoadMap(map[string]int{"FOO": 7, "BAR": 9}, true)
 
