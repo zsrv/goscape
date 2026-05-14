@@ -102,10 +102,16 @@ func PackConfigs(srcDir, outDir string) error {
 
 	// Lazy lookups reused across .enum/.inv/.mesanim/.struct branches.
 	var (
-		lk         *paramLookups
-		objPack    *PackFile
-		seqPack    *PackFile
-		paramTypes *objtype.ParamTypeConfigs
+		lk           *paramLookups
+		objPack      *PackFile
+		seqPack      *PackFile
+		locPack      *PackFile
+		npcPack      *PackFile
+		modelPack    *PackFile
+		categoryPack *PackFile
+		huntPack     *PackFile
+		texturePack  *PackFile
+		paramTypes   *objtype.ParamTypeConfigs
 	)
 	ensureLk := func() error {
 		if lk != nil {
@@ -151,6 +157,80 @@ func PackConfigs(srcDir, outDir string) error {
 		paramTypes = pt
 		return nil
 	}
+	ensureLocPack := func() error {
+		if locPack != nil {
+			return nil
+		}
+		pf, err := NewPackFile(srcDir, "loc", nil)
+		if err != nil {
+			return err
+		}
+		locPack = pf
+		return nil
+	}
+	ensureNpcPack := func() error {
+		if npcPack != nil {
+			return nil
+		}
+		pf, err := NewPackFile(srcDir, "npc", nil)
+		if err != nil {
+			return err
+		}
+		npcPack = pf
+		return nil
+	}
+	ensureModelPack := func() error {
+		if modelPack != nil {
+			return nil
+		}
+		pf, err := NewPackFile(srcDir, "model", nil)
+		if err != nil {
+			return err
+		}
+		modelPack = pf
+		return nil
+	}
+	ensureCategoryPack := func() error {
+		if categoryPack != nil {
+			return nil
+		}
+		pf, err := NewPackFile(srcDir, "category", nil)
+		if err != nil {
+			return err
+		}
+		categoryPack = pf
+		return nil
+	}
+	ensureHuntPack := func() error {
+		if huntPack != nil {
+			return nil
+		}
+		pf, err := NewPackFile(srcDir, "hunt", nil)
+		if err != nil {
+			return err
+		}
+		huntPack = pf
+		return nil
+	}
+	ensureTexturePack := func() error {
+		if texturePack != nil {
+			return nil
+		}
+		pf, err := NewPackFile(srcDir, "texture", nil)
+		if err != nil {
+			return err
+		}
+		texturePack = pf
+		return nil
+	}
+	// NAI-196 T1: helpers landed without callers; T5 wires them. Suppressing
+	// unused-variable diagnostics until then.
+	_ = ensureLocPack
+	_ = ensureNpcPack
+	_ = ensureModelPack
+	_ = ensureCategoryPack
+	_ = ensureHuntPack
+	_ = ensureTexturePack
 
 	if GetLatestModified(scriptsDir, ".varp") > 0 &&
 		ShouldBuild(scriptsDir, ".varp", filepath.Join(serverOut, "varp.dat")) {
