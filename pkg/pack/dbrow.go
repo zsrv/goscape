@@ -62,7 +62,6 @@ type dbRowDataField struct {
 func packDbRowConfigs(
 	configs map[string][]ConfigLine,
 	pf *PackFile,
-	dbtablePF *PackFile,
 	dbtableTypes *objtype.DbTableTypeConfigs,
 	lk *paramLookups,
 ) (*PackedData, error) {

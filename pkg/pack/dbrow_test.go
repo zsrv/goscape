@@ -50,14 +50,13 @@ func TestPackDbRowConfigs_RowWithSingleColumn(t *testing.T) {
 		[]uint8{0},
 	)
 	pf := newTestPF("dbrow", map[int]string{0: "r_one"})
-	dbtablePF := newTestPF("dbtable", map[int]string{0: "t_test"})
 	configs := map[string][]ConfigLine{
 		"r_one": {
 			{Key: "table", Value: 0},  // already resolved by parser
 			{Key: "data", Value: "col_name,42"},
 		},
 	}
-	pd, err := packDbRowConfigs(configs, pf, dbtablePF, dbtableTypes, buildParamLookupsForDbRowTest(t))
+	pd, err := packDbRowConfigs(configs, pf, dbtableTypes, buildParamLookupsForDbRowTest(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,14 +85,13 @@ func TestPackDbRowConfigs_NoTableDefinedError(t *testing.T) {
 		[]uint8{0},
 	)
 	pf := newTestPF("dbrow", map[int]string{0: "r_notbl"})
-	dbtablePF := newTestPF("dbtable", map[int]string{0: "t_test"})
 	// No "table" line in config
 	configs := map[string][]ConfigLine{
 		"r_notbl": {
 			{Key: "data", Value: "col_name,42"},
 		},
 	}
-	_, err := packDbRowConfigs(configs, pf, dbtablePF, dbtableTypes, buildParamLookupsForDbRowTest(t))
+	_, err := packDbRowConfigs(configs, pf, dbtableTypes, buildParamLookupsForDbRowTest(t))
 	if err == nil {
 		t.Fatal("want error for missing table, got nil")
 	}
@@ -120,7 +118,6 @@ func TestPackDbRowConfigs_RequiredColumnMissingError(t *testing.T) {
 		[]uint8{objtype.DbTableFlagRequired, 0},
 	)
 	pf := newTestPF("dbrow", map[int]string{0: "r_req"})
-	dbtablePF := newTestPF("dbtable", map[int]string{0: "t_test"})
 	configs := map[string][]ConfigLine{
 		"r_req": {
 			{Key: "table", Value: 0},
@@ -128,7 +125,7 @@ func TestPackDbRowConfigs_RequiredColumnMissingError(t *testing.T) {
 			{Key: "data", Value: "optional_col,99"},
 		},
 	}
-	_, err := packDbRowConfigs(configs, pf, dbtablePF, dbtableTypes, buildParamLookupsForDbRowTest(t))
+	_, err := packDbRowConfigs(configs, pf, dbtableTypes, buildParamLookupsForDbRowTest(t))
 	if err == nil {
 		t.Fatal("want error for REQUIRED column missing data, got nil")
 	}
@@ -148,7 +145,6 @@ func TestPackDbRowConfigs_NonListColumnWithMultipleDataError(t *testing.T) {
 		[]uint8{0},
 	)
 	pf := newTestPF("dbrow", map[int]string{0: "r_multi"})
-	dbtablePF := newTestPF("dbtable", map[int]string{0: "t_test"})
 	configs := map[string][]ConfigLine{
 		"r_multi": {
 			{Key: "table", Value: 0},
@@ -156,7 +152,7 @@ func TestPackDbRowConfigs_NonListColumnWithMultipleDataError(t *testing.T) {
 			{Key: "data", Value: "plain_col,2"},
 		},
 	}
-	_, err := packDbRowConfigs(configs, pf, dbtablePF, dbtableTypes, buildParamLookupsForDbRowTest(t))
+	_, err := packDbRowConfigs(configs, pf, dbtableTypes, buildParamLookupsForDbRowTest(t))
 	if err == nil {
 		t.Fatal("want error for non-LIST column with multiple data, got nil")
 	}
@@ -176,13 +172,12 @@ func TestPackDbRowConfigs_OnlyTableNoData(t *testing.T) {
 		[]uint8{0},
 	)
 	pf := newTestPF("dbrow", map[int]string{0: "r_nodata"})
-	dbtablePF := newTestPF("dbtable", map[int]string{0: "t_test"})
 	configs := map[string][]ConfigLine{
 		"r_nodata": {
 			{Key: "table", Value: 0},
 		},
 	}
-	pd, err := packDbRowConfigs(configs, pf, dbtablePF, dbtableTypes, buildParamLookupsForDbRowTest(t))
+	pd, err := packDbRowConfigs(configs, pf, dbtableTypes, buildParamLookupsForDbRowTest(t))
 	if err != nil {
 		t.Fatal(err)
 	}
