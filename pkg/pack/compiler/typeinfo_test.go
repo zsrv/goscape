@@ -230,3 +230,24 @@ func TestLoadRecords_ValueAsKeyTrue(t *testing.T) {
 		t.Fatalf("NameMap: got %v, want {BAR:foo,QUX:baz} — key=value-preserved, value=lowercase(key)", p.NameMap)
 	}
 }
+
+// TestLoadMap_ValueAsKeyFalse pins spec §7.10: with valueAsKey=false,
+// NameMap[lowercase(k)] = Itoa(v).
+func TestLoadMap_ValueAsKeyFalse(t *testing.T) {
+	p := LoadMap(map[string]int{"FOO": 7, "BAR": 9}, false)
+
+	if p.NameMap["foo"] != "7" || p.NameMap["bar"] != "9" {
+		t.Fatalf("NameMap: got %v, want {foo:7,bar:9}", p.NameMap)
+	}
+}
+
+// TestLoadMap_ValueAsKeyTrue pins spec §7.10: with valueAsKey=true,
+// NameMap[Itoa(v)] = lowercase(k). Both sides lowercased on the
+// string-key side per TS.
+func TestLoadMap_ValueAsKeyTrue(t *testing.T) {
+	p := LoadMap(map[string]int{"FOO": 7, "BAR": 9}, true)
+
+	if p.NameMap["7"] != "foo" || p.NameMap["9"] != "bar" {
+		t.Fatalf("NameMap: got %v, want {7:foo,9:bar}", p.NameMap)
+	}
+}

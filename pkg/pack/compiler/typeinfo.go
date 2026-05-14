@@ -191,3 +191,30 @@ func LoadRecords(input map[string]string, valueAsKey bool) *TypeInfo {
 	}
 	return p
 }
+
+// LoadMap builds a *TypeInfo from a map[string]int (mirroring TS
+// Map<string, number>). The valueAsKey flag flips the direction.
+// Mirrors TS Compiler.ts:86-98 (CompilerTypeInfo.loadMap).
+//
+//	false: NameMap[lowercase(k)] = Itoa(v)
+//	true:  NameMap[Itoa(v)]      = lowercase(k)
+//
+// Iteration-order note: TS Map<string,number> is insertion-ordered;
+// Go map[string]int iteration is randomized. Order only matters when
+// two distinct keys collide on the same value (valueAsKey=true case).
+// In every Compiler.ts call site the input is a static enum
+// (PlayerStatMap, NpcStatMap, NpcModeMap) with unique-value-per-key —
+// collisions don't occur. See spec §5.6 / §9 R6.
+//
+// Used by runServerCompiler (NAI-201) for stat / npc_stat / npc_mode.
+func LoadMap(input map[string]int, valueAsKey bool) *TypeInfo {
+	p := newTypeInfo()
+	for k, v := range input {
+		if valueAsKey {
+			p.NameMap[strconv.Itoa(v)] = strings.ToLower(k)
+		} else {
+			p.NameMap[strings.ToLower(k)] = strconv.Itoa(v)
+		}
+	}
+	return p
+}
