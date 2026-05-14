@@ -322,6 +322,43 @@ func PackConfigs(srcDir, outDir string) error {
 		return fmt.Errorf("load param types: %w", err)
 	}
 
+	// category — server-only special. TS PackShared.ts:341-352.
+	// Reads <srcDir>/pack/category.pack (already loaded by
+	// ensureCategoryPack). NAI-199-D-TS-CODE-STALENESS-GATE drops TS's
+	// second arm `shouldBuild('tools/pack/config', '.ts', dest)`.
+	if ShouldBuildFile(
+		filepath.Join(srcDir, "pack", "category.pack"),
+		filepath.Join(serverOut, "category.dat"),
+	) {
+		if err := ensureCategoryPack(); err != nil {
+			return err
+		}
+		if err := packAndSaveCategoryDat(serverOut, categoryPack); err != nil {
+			return err
+		}
+	}
+
+	// frame_del — server-only special. TS PackShared.ts:355-388.
+	// Reads AnimPack + <srcDir>/models/**/*.frame trailers.
+	// Server-only; no idx. Empty models dir → branch skipped
+	// (GetLatestModified guard); empty AnimPack registry inside the
+	// branch → 0-byte frame_del.dat (per packAndSaveFrameDel docs).
+	// NAI-199-D-TS-CODE-STALENESS-GATE drops TS's second arm
+	// `shouldBuild('tools/pack/config', '.ts', dest)`.
+	if GetLatestModified(filepath.Join(srcDir, "models"), ".frame") > 0 &&
+		ShouldBuild(
+			filepath.Join(srcDir, "models"),
+			".frame",
+			filepath.Join(serverOut, "frame_del.dat"),
+		) {
+		if err := ensureAnimPack(); err != nil {
+			return err
+		}
+		if err := packAndSaveFrameDel(srcDir, serverOut, animPack); err != nil {
+			return err
+		}
+	}
+
 	// .enum — server-only, freshness-gated.
 	if GetLatestModified(scriptsDir, ".enum") > 0 &&
 		ShouldBuild(scriptsDir, ".enum", filepath.Join(serverOut, "enum.dat")) {

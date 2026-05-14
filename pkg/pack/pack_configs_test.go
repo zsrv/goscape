@@ -1,6 +1,7 @@
 package pack
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -407,7 +408,7 @@ func TestPackConfigs_ParamUnknownTypedDefault(t *testing.T) {
 	}
 }
 
-func TestPackConfigs_EighteenConfigsLand(t *testing.T) {
+func TestPackConfigs_TwentyConfigsLand(t *testing.T) {
 	srcDir := t.TempDir()
 	outDir := t.TempDir()
 
@@ -435,10 +436,21 @@ func TestPackConfigs_EighteenConfigsLand(t *testing.T) {
 	writeFile(t, filepath.Join(srcDir, "pack", "spotanim.pack"), "0=flame\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "idk.pack"), "0=man_hair_default\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "model.pack"), "")
-	writeFile(t, filepath.Join(srcDir, "pack", "category.pack"), "")
+	writeFile(t, filepath.Join(srcDir, "pack", "category.pack"), "0=cat_one\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "hunt.pack"), "0=h_off\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "texture.pack"), "")
-	writeFile(t, filepath.Join(srcDir, "pack", "anim.pack"), "")
+	writeFile(t, filepath.Join(srcDir, "pack", "anim.pack"), "0=walk\n")
+	walkFrame := []byte{
+		0xab,                                           // del[0] sentinel
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, // trailer: head=0,tran1=0,tran2=0,delLen=1
+	}
+	modelsDir := filepath.Join(srcDir, "models")
+	if err := os.MkdirAll(modelsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(modelsDir, "walk.frame"), walkFrame, 0o644); err != nil {
+		t.Fatal(err)
+	}
 	writeFile(t, filepath.Join(srcDir, "pack", "dbtable.pack"), "0=t_simple\n")
 	writeFile(t, filepath.Join(srcDir, "pack", "dbrow.pack"), "0=r_one\n")
 	for _, p := range []string{"interface", "synth"} {
@@ -498,6 +510,29 @@ func TestPackConfigs_EighteenConfigsLand(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(server, typ+".idx")); err != nil {
 			t.Errorf("%s.idx missing: %v", typ, err)
 		}
+	}
+
+	for _, name := range []string{"category.dat", "frame_del.dat"} {
+		if _, err := os.Stat(filepath.Join(server, name)); err != nil {
+			t.Errorf("%s missing: %v", name, err)
+		}
+	}
+
+	frameDel, err := os.ReadFile(filepath.Join(server, "frame_del.dat"))
+	if err != nil {
+		t.Fatalf("read frame_del.dat: %v", err)
+	}
+	if len(frameDel) != 1 || frameDel[0] != 0xab {
+		t.Fatalf("frame_del.dat: got % x, want ab", frameDel)
+	}
+
+	cat, err := os.ReadFile(filepath.Join(server, "category.dat"))
+	if err != nil {
+		t.Fatalf("read category.dat: %v", err)
+	}
+	wantCat := []byte{0x00, 0x01, 0x01, 'c', 'a', 't', '_', 'o', 'n', 'e', 0x0a, 0x00}
+	if !bytes.Equal(cat, wantCat) {
+		t.Fatalf("category.dat mismatch:\ngot  % x\nwant % x", cat, wantCat)
 	}
 
 	jagPath := filepath.Join(outDir, "client", "config")
