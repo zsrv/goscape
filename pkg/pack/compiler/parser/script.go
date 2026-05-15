@@ -297,11 +297,3 @@ func isAdvancedIdentifierStart(tt lexer.TokenType) bool {
 	return false
 }
 
-// parseStatement is implemented by T6 — for T5, it's a placeholder
-// that just reports "statement parsing not yet supported".
-//
-// (T6 deletes this stub and provides the real dispatch.)
-func (p *Parser) parseStatement() ast.Statement {
-	p.reportError(p.ts.LT(1), "statement parsing unimplemented in T5 (token: %s)", p.ts.LA(1))
-	return nil
-}
