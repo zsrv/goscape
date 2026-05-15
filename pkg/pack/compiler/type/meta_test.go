@@ -85,3 +85,31 @@ func TestNewMetaScript_TSParity(t *testing.T) {
 func TestNewMetaScript_SatisfiesAstTypeRef(t *testing.T) {
 	var _ astTypeRef = NewMetaScript("proc", PrimitiveInt, PrimitiveInt)
 }
+
+func TestIsMetaScript_DiscriminatesAndRecoversComponents(t *testing.T) {
+	ms := NewMetaScript("proc", PrimitiveInt, PrimitiveString)
+	params, returns, ok := IsMetaScript(ms)
+	if !ok {
+		t.Fatal("IsMetaScript(MetaScript) ok=false, want true")
+	}
+	if params != PrimitiveInt {
+		t.Fatalf("params = %v, want PrimitiveInt", params)
+	}
+	if returns != PrimitiveString {
+		t.Fatalf("returns = %v, want PrimitiveString", returns)
+	}
+}
+
+func TestIsMetaScript_RejectsNonScriptTypes(t *testing.T) {
+	cases := []Type{
+		PrimitiveInt,
+		MetaAny,
+		MetaUnit,
+		NewMetaWrapping(PrimitiveInt),
+	}
+	for _, c := range cases {
+		if _, _, ok := IsMetaScript(c); ok {
+			t.Fatalf("IsMetaScript(%v) ok=true, want false", c)
+		}
+	}
+}

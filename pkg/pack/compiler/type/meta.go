@@ -103,3 +103,25 @@ func NewMetaScript(triggerIdent string, params, returns Type) Type {
 	mb.options.AllowParameter = true
 	return &metaScript{metaBase: mb, params: params, returns: returns}
 }
+
+// IsMetaScript returns (params, returns, true) when t is a MetaType.Script
+// instance produced by NewMetaScript; otherwise (nil, nil, false).
+//
+// NAI-206's TypeChecking port will need to discriminate MetaType.Script
+// from other Type instances (TS uses `instanceof MetaType.Script` at
+// TypeChecking.ts L1249) and read back its parameter/return components
+// (TS reads `.params`/`.returns` directly). Goscape's `metaScript` struct
+// + its fields are unexported to keep the API surface tight; this
+// discriminator is the package-public boundary.
+//
+// The trigger field is NOT recoverable from metaScript by design (only
+// the identifier string is stored, to avoid a type → trigger import
+// cycle). NAI-206 callers reconstruct the full *trigger.TriggerType
+// via the enclosing ServerScriptSymbol.Trigger when needed.
+func IsMetaScript(t Type) (params, returns Type, ok bool) {
+	ms, ok := t.(*metaScript)
+	if !ok {
+		return nil, nil, false
+	}
+	return ms.params, ms.returns, true
+}

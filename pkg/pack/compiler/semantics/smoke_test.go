@@ -64,4 +64,13 @@ func TestSmoke_Parser_ScriptRegistration_E2E(t *testing.T) {
 	if labelScript.ReturnType != typ.MetaNothing {
 		t.Fatalf("label script ReturnType = %v, want MetaNothing", labelScript.ReturnType)
 	}
+
+	// Per spec §8.5: each Script's ParameterType must be populated.
+	// Both scripts here have no parameters → TupleFromList([]) == MetaUnit.
+	for _, s := range file.Scripts {
+		if s.ParameterType != typ.MetaUnit {
+			t.Fatalf("script %q ParameterType = %v, want MetaUnit (no params)",
+				s.NameString(), s.ParameterType)
+		}
+	}
 }
