@@ -114,27 +114,6 @@ func (p *Parser) ParseClientScript() *ast.ClientScriptExpression {
 	return c
 }
 
-// parseScriptFileBody is a placeholder until T5 lands; returns an empty
-// ScriptFile when the token stream starts at EOF, otherwise reports
-// "expected EOF" once and returns nil.
-//
-// (T5 replaces this with the real implementation.)
-func (p *Parser) parseScriptFileBody() *ast.ScriptFile {
-	if p.ts.LA(1) == lexer.EOF {
-		return &ast.ScriptFile{
-			SrcLoc: lexer.NodeSourceLocation{Name: p.sourceName, Line: 1, Column: 1, EndLine: 1, EndColumn: 1},
-		}
-	}
-	p.reportError(p.ts.LT(1), "expected EOF (parser entry rules unimplemented in T4 skeleton)")
-	return nil
-}
-
-// parseScript is a placeholder until T5 lands.
-func (p *Parser) parseScript() *ast.Script {
-	p.reportError(p.ts.LT(1), "parseScript unimplemented in T4 skeleton")
-	return nil
-}
-
 // parseClientScriptBody is a placeholder until T10 lands.
 func (p *Parser) parseClientScriptBody() *ast.ClientScriptExpression {
 	p.reportError(p.ts.LT(1), "parseClientScriptBody unimplemented in T4 skeleton")
