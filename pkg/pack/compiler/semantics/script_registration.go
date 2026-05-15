@@ -2,6 +2,8 @@
 package semantics
 
 import (
+	"strings"
+
 	"github.com/zsrv/goscape/pkg/pack/compiler/ast"
 	"github.com/zsrv/goscape/pkg/pack/compiler/diagnostics"
 	"github.com/zsrv/goscape/pkg/pack/compiler/symbol"
@@ -92,9 +94,174 @@ func (sr *ScriptRegistration) Visit(file *ast.ScriptFile) {
 	}
 }
 
-// visitScript is the per-script walker. Skeleton — implementation lands
-// in T10/T11/T12.
+// isDisabledTypeName mirrors TS L52-62 — feature-flag-based disable of
+// boolean / enum / struct / dbtable / dbrow / dbcolumn (+ their array forms).
+func (sr *ScriptRegistration) isDisabledTypeName(typeText string) bool {
+	text := strings.ToLower(typeText)
+	base := text
+	if strings.HasSuffix(text, "array") {
+		base = text[:len(text)-5]
+	}
+	if sr.features.DisableBooleans && base == typ.PrimitiveBoolean.Representation() {
+		return true
+	}
+	if sr.features.DisableEnums && base == "enum" {
+		return true
+	}
+	if sr.features.DisableStructs && base == "struct" {
+		return true
+	}
+	if sr.features.DisableDBTables && (base == "dbtable" || base == "dbrow" || base == "dbcolumn") {
+		return true
+	}
+	return false
+}
+
+// isDisabledTrigger mirrors TS L64-68.
+func (sr *ScriptRegistration) isDisabledTrigger(t *trigger.TriggerType) bool {
+	if t == nil {
+		return false
+	}
+	if sr.features.DisableProcs && t.Identifier == "proc" {
+		return true
+	}
+	return false
+}
+
+// visitScript is the per-script walker. Mirrors TS ScriptRegistration.ts L96-180.
 func (sr *ScriptRegistration) visitScript(script *ast.Script) {
-	// T10 fills this in.
+	// L98-105: trigger lookup.
+	trig := sr.triggerManager.FindOrNil(script.Trigger.Text)
+	if trig == nil {
+		diagnostics.ReportErrorAt(sr.diagnostics, script.Trigger,
+			diagnostics.MessageScriptTriggerInvalid, script.Trigger.Text)
+	} else {
+		script.TriggerType = trig
+		if sr.isDisabledTrigger(trig) {
+			diagnostics.ReportErrorAt(sr.diagnostics, script.Trigger,
+				diagnostics.MessageFeatureDisabledTrigger, trig.Identifier)
+		}
+	}
+
+	// L107-117: '*' suffix only valid on command trigger.
+	if script.IsStar && trig != trigger.CommandTrigger {
+		diagnostics.ReportErrorAt(sr.diagnostics, script.Name,
+			diagnostics.MessageScriptCommandOnly)
+	}
+
+	// L119-120: subject validation. Implementation lives in T11.
+	sr.checkScriptSubject(trig, script)
+
+	// L122-125: visit parameters (T12 fills in visitParameter).
+	for _, p := range script.Parameters {
+		sr.visitParameter(p)
+	}
+
+	// L127-128: ParameterType = TupleFromList(params' symbol types).
+	paramTypes := make([]typ.Type, 0, len(script.Parameters))
+	for _, p := range script.Parameters {
+		var pt typ.Type = typ.MetaError
+		if p.Symbol != nil {
+			if local, ok := p.Symbol.(*symbol.LocalVariableSymbol); ok {
+				pt = local.Type
+			}
+		}
+		paramTypes = append(paramTypes, pt)
+	}
+	script.ParameterType = typ.TupleFromList(paramTypes)
+
+	// L130-131: parameter-vs-trigger compat check (T12).
+	sr.checkScriptParameters(trig, script, script.Parameters)
+
+	// L133-153: return type construction.
+	if len(script.ReturnTokens) > 0 {
+		returns := make([]typ.Type, 0, len(script.ReturnTokens))
+		for _, tok := range script.ReturnTokens {
+			var ty typ.Type
+			if sr.isDisabledTypeName(tok.Text) {
+				diagnostics.ReportErrorAt(sr.diagnostics, tok,
+					diagnostics.MessageFeatureDisabledType, tok.Text)
+				ty = typ.MetaError
+			} else {
+				ty = sr.typeManager.FindOrNil(tok.Text, false)
+				if ty == nil {
+					diagnostics.ReportErrorAt(sr.diagnostics, tok,
+						diagnostics.MessageGenericInvalidType, tok.Text)
+					ty = typ.MetaError
+				}
+			}
+			returns = append(returns, ty)
+		}
+		script.ReturnType = typ.TupleFromList(returns)
+	} else {
+		// L154-155: default based on trigger.
+		switch {
+		case trig == nil:
+			script.ReturnType = typ.MetaError
+		case trig.AllowReturns:
+			script.ReturnType = typ.MetaUnit
+		default:
+			script.ReturnType = typ.MetaNothing
+		}
+	}
+
+	// L157: return-vs-trigger compat check (T12).
+	sr.checkScriptReturns(trig, script)
+
+	// L159-169: insert ServerScriptSymbol into root table (gated on trigger
+	// being present + not disabled).
+	if trig != nil && !sr.isDisabledTrigger(trig) {
+		ssym := &symbol.ServerScriptSymbol{
+			ScriptSymbolFields: symbol.ScriptSymbolFields{
+				Trigger:    trig,
+				Name:       script.NameString(),
+				Parameters: typeRefAsType(script.ParameterType),
+				Returns:    typeRefAsType(script.ReturnType),
+			},
+		}
+		inserted := sr.rootTable.Insert(symbol.SymbolTypeServerScript(trig), ssym)
+		if !inserted {
+			diagnostics.ReportErrorAt(sr.diagnostics, script,
+				diagnostics.MessageScriptRedeclaration, trig.Identifier, script.NameString())
+		} else {
+			script.Symbol = ssym
+		}
+	}
+
+	// L172: file-level block table assignment.
+	script.Block = sr.activeTable()
+}
+
+// typeRefAsType unwraps an ast.TypeRef that this package wrote (always a
+// typ.Type) back into typ.Type. The field is interface-typed only for the
+// cyclic-import bridge; the concrete value is always typ.Type.
+func typeRefAsType(t ast.TypeRef) typ.Type {
+	if t == nil {
+		return typ.MetaError
+	}
+	return t.(typ.Type)
+}
+
+// checkScriptSubject is the T11 stub.
+func (sr *ScriptRegistration) checkScriptSubject(t *trigger.TriggerType, script *ast.Script) {
+	_ = t
+	_ = script
+}
+
+// visitParameter is the T12 stub.
+func (sr *ScriptRegistration) visitParameter(p *ast.Parameter) {
+	_ = p
+}
+
+// checkScriptParameters is the T12 stub.
+func (sr *ScriptRegistration) checkScriptParameters(t *trigger.TriggerType, script *ast.Script, params []*ast.Parameter) {
+	_ = t
+	_ = script
+	_ = params
+}
+
+// checkScriptReturns is the T12 stub.
+func (sr *ScriptRegistration) checkScriptReturns(t *trigger.TriggerType, script *ast.Script) {
+	_ = t
 	_ = script
 }
