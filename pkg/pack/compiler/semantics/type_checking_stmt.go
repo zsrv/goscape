@@ -1,20 +1,22 @@
 // pkg/pack/compiler/semantics/type_checking_stmt.go
 //
-// Statement walker arms — NAI-206 T8, T9.
+// Statement walker arms — NAI-206 T8, T9, T10.
 //
 // Each arm mirrors TS src/compiler/semantics/TypeChecking.ts at HEAD
 // b8c338801fbb72d294ff9576a58925a8d3f6de47.
 //
 // Arms covered in this file:
-//   - visitScriptFile      (L174-178)
-//   - visitScript          (L179-188)
-//   - visitBlockStatement  (L189-195)
-//   - visitReturnStatement (L196-217)
-//   - visitIfStatement     (L218-223)
-//   - visitWhileStatement  (L224-228)
-//   - visitSwitchStatement (L278-313)
-//   - visitSwitchCase      (L315-342)
-//   - visitEmptyStatement  (L507-509)
+//   - visitScriptFile              (L174-178)
+//   - visitScript                  (L179-188)
+//   - visitBlockStatement          (L189-195)
+//   - visitReturnStatement         (L196-217)
+//   - visitIfStatement             (L218-223)
+//   - visitWhileStatement          (L224-228)
+//   - visitSwitchStatement         (L278-313)
+//   - visitSwitchCase              (L315-342)
+//   - visitEmptyStatement          (L507-509)
+//   - visitDeclarationStatement    (L380-422)
+//   - visitArrayDeclarationStatement (L423-472)
 package semantics
 
 import (
@@ -213,4 +215,95 @@ func (tc *TypeChecker) checkCondition(expr ast.Expression) {
 	}
 	setTypeHint(expr, typ.PrimitiveBoolean)
 	tc.Visit(expr)
+}
+
+// visitDeclarationStatement mirrors TS visitDeclarationStatement (L380-422)
+// at HEAD b8c338801fbb72d294ff9576a58925a8d3f6de47. Reports
+// FeatureDisabledLocal when locals/procs are disabled (TS ties these
+// together since proc declarations are the only context for locals).
+// Reports NotTopLevel when TopLevelDefOnly is set and we're not at script
+// top level (tc.atScriptTopLevel — NAI-206-D-WALKER-OWNS-CONTEXT).
+func (tc *TypeChecker) visitDeclarationStatement(d *ast.DeclarationStatement) {
+	if tc.features.DisableProcs {
+		diagnostics.ReportErrorAt(tc.diagnostics, d, diagnostics.MessageFeatureDisabledLocal)
+		return
+	}
+	if tc.features.TopLevelDefOnly && !tc.atScriptTopLevel {
+		diagnostics.ReportErrorAt(tc.diagnostics, d, diagnostics.MessageLocalDeclarationNotTopLevel)
+		return
+	}
+	typeName := strings.TrimPrefix(d.TypeToken.Text, "def_")
+	name := d.Name.Text
+	t := tc.typeManager.FindOrNil(typeName, false)
+	switch {
+	case tc.isDisabledTypeName(typeName):
+		diagnostics.ReportErrorAt(tc.diagnostics, d.TypeToken, diagnostics.MessageFeatureDisabledType, typeName)
+		t = typ.MetaError
+	case t == nil:
+		diagnostics.ReportErrorAt(tc.diagnostics, d.TypeToken, diagnostics.MessageGenericInvalidType, typeName)
+		t = typ.MetaError
+	case t != typ.MetaError && !t.Options().AllowDeclaration:
+		diagnostics.ReportErrorAt(tc.diagnostics, d.TypeToken, diagnostics.MessageLocalDeclarationInvalidType, t.Representation())
+	}
+	sym := &symbol.LocalVariableSymbol{Name: name, Type: t}
+	if !tc.table.Insert(symbol.SymbolTypeLocalVariable(), sym) {
+		diagnostics.ReportErrorAt(tc.diagnostics, d.Name, diagnostics.MessageScriptLocalRedeclaration, name)
+	}
+	if d.Initializer != nil {
+		setTypeHint(d.Initializer, sym.Type)
+		tc.visitNodeOrNull(d.Initializer)
+		tc.checkTypeMatch(d.Initializer, sym.Type, tc.getSafeType(d.Initializer), true)
+	}
+	d.Symbol = sym
+}
+
+// visitArrayDeclarationStatement mirrors TS visitArrayDeclarationStatement
+// (L423-472). Wraps the base type in ArrayType, hints Initializer (size)
+// to PrimitiveInt, inserts the local symbol.
+func (tc *TypeChecker) visitArrayDeclarationStatement(d *ast.ArrayDeclarationStatement) {
+	if tc.features.DisableProcs {
+		diagnostics.ReportErrorAt(tc.diagnostics, d, diagnostics.MessageFeatureDisabledLocal)
+		return
+	}
+	if tc.features.TopLevelDefOnly && !tc.atScriptTopLevel {
+		diagnostics.ReportErrorAt(tc.diagnostics, d, diagnostics.MessageLocalDeclarationNotTopLevel)
+		return
+	}
+	typeName := strings.TrimPrefix(d.TypeToken.Text, "def_")
+	name := d.Name.Text
+	t := tc.typeManager.FindOrNil(typeName, false)
+	switch {
+	case tc.isDisabledTypeName(typeName):
+		diagnostics.ReportErrorAt(tc.diagnostics, d.TypeToken, diagnostics.MessageFeatureDisabledType, typeName)
+		t = typ.MetaError
+	case t == nil:
+		diagnostics.ReportErrorAt(tc.diagnostics, d.TypeToken, diagnostics.MessageGenericInvalidType, typeName)
+		t = typ.MetaError
+	case t != typ.MetaError && !t.Options().AllowDeclaration:
+		diagnostics.ReportErrorAt(tc.diagnostics, d.TypeToken, diagnostics.MessageLocalDeclarationInvalidType, t.Representation())
+	case t != typ.MetaError && !t.Options().AllowArray:
+		diagnostics.ReportErrorAt(tc.diagnostics, d.TypeToken, diagnostics.MessageLocalArrayInvalidType, t.Representation())
+	}
+	var wrapped typ.Type
+	if t == typ.MetaError {
+		wrapped = typ.MetaError
+	} else {
+		arr, err := typ.NewArrayType(t)
+		if err != nil {
+			diagnostics.ReportErrorAt(tc.diagnostics, d.TypeToken, diagnostics.MessageLocalArrayInvalidType, t.Representation())
+			wrapped = typ.MetaError
+		} else {
+			wrapped = arr
+		}
+	}
+	if d.Initializer != nil {
+		setTypeHint(d.Initializer, typ.PrimitiveInt)
+		tc.visitNodeOrNull(d.Initializer)
+		tc.checkTypeMatch(d.Initializer, typ.PrimitiveInt, tc.getSafeType(d.Initializer), true)
+	}
+	sym := &symbol.LocalVariableSymbol{Name: name, Type: wrapped}
+	if !tc.table.Insert(symbol.SymbolTypeLocalVariable(), sym) {
+		diagnostics.ReportErrorAt(tc.diagnostics, d.Name, diagnostics.MessageScriptLocalRedeclaration, name)
+	}
+	d.Symbol = sym
 }
