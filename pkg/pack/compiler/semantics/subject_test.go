@@ -238,12 +238,11 @@ func TestSubject_CoordSubject_PackedAndStoredAsBasicSymbol(t *testing.T) {
 	bs := s.SubjectReference.(*symbol.BasicSymbol)
 	// Per tryParseZone: x = (((mx<<6)|lx)>>3)<<3, z = (((mz<<6)|lz)>>3)<<3
 	// "0_50_50_0_0": mx=mz=50, lx=lz=0, level=0
-	// x = (((50<<6)|0)>>3)<<3 = (3200>>3)<<3 = 400<<3 = 3200
-	// z = 3200
-	// packed = (z & 0x3fff) | ((x & 0x3fff) << 14) | ((level & 0x3) << 28)
-	x := int32((((50 << 6) | 0) >> 3) << 3)
-	z := int32((((50 << 6) | 0) >> 3) << 3)
-	level := int32(0)
+	// Components named as vars so the parity with the input string is visible
+	// and the `| lx` term doesn't trip staticcheck SA4016 ("| 0 is a no-op").
+	mx, mz, lx, lz, level := int32(50), int32(50), int32(0), int32(0), int32(0)
+	x := (((mx << 6) | lx) >> 3) << 3
+	z := (((mz << 6) | lz) >> 3) << 3
 	want := (z & 0x3fff) | ((x & 0x3fff) << 14) | ((level & 0x3) << 28)
 	if bs.Name != strconv.Itoa(int(want)) {
 		t.Fatalf("SubjectReference name = %q, want %q (packed %d)", bs.Name, strconv.Itoa(int(want)), want)
