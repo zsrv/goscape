@@ -99,7 +99,10 @@ type TypeChecker struct {
 	atScriptTopLevel bool
 
 	// Constant-expression evaluation guards (NAI-206-D-CONST-CACHE-AST).
-	constantsBeingEvaluated map[ast.Expression]bool
+	// constantsBeingEvaluated keys on the resolved symbol (mirroring TS
+	// cycle detection on RuneScriptSymbol identity); T9 wires the writer
+	// side when isConstantExpression / parseConstantExpression land.
+	constantsBeingEvaluated map[symbol.Symbol]bool
 	constantExpressionCache map[string]ast.Expression
 }
 
@@ -129,7 +132,7 @@ func NewTypeChecker(
 		clientscriptTrigger:     trm.FindOrNil("clientscript"),
 		labelTrigger:            trm.FindOrNil("label"),
 		table:                   root,
-		constantsBeingEvaluated: map[ast.Expression]bool{},
+		constantsBeingEvaluated: map[symbol.Symbol]bool{},
 		constantExpressionCache: map[string]ast.Expression{},
 	}
 	return tc
