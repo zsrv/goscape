@@ -346,6 +346,16 @@ func (sr *ScriptRegistration) checkTypeScriptSubject(t *trigger.TriggerType, scr
 	// Unexpected mode: unreachable given sealed SubjectMode interface.
 }
 
+// NAI-205-D-MAPZONE-ATOI-STRICT: TS uses parseInt which returns NaN on
+// non-numeric input; NaN passes all numeric comparisons (NaN < 0 → false,
+// NaN > 255 → false, NaN !== 0 → true), so an input like "abc_x_y" would
+// reach the level check and emit MessageMapzoneOnlyLevelZero. Goscape uses
+// strconv.Atoi which returns an error on non-numeric input, so we emit
+// MessageMapzoneSubjectForm + return -1 at that point instead. Same
+// behaviour applies to tryParseZone. The affected input (non-numeric coord
+// component) is invalid RuneScript regardless of which diagnostic emits;
+// the stricter Go behaviour is functionally equivalent for valid programs.
+
 // tryParseMapZone parses `level_mx_mz`. Returns the packed int32 (which may
 // be -1 on parse failure). Reports diagnostics via script.Name. Mirrors TS
 // L292-318.

@@ -219,3 +219,63 @@ func TestSubject_CategorySubject_TypeMode_CategoryFalse_Errors(t *testing.T) {
 		t.Fatalf("no SCRIPT_SUBJECT_NO_CATEGORY diagnostic: %+v", d.List())
 	}
 }
+
+func TestSubject_CoordSubject_PackedAndStoredAsBasicSymbol(t *testing.T) {
+	tm, trm, root, d := newTestFixture(t)
+	_ = tm.RegisterByRepresentation(typ.PrimitiveCoord)
+	t1 := triggerWithSubjectMode("foo", trigger.NewModeType(typ.PrimitiveCoord, true, true))
+	_ = trm.RegisterTrigger(t1)
+	sr := NewScriptRegistration(tm, trm, root, d, StrictFeatureLevel{})
+	s := scriptFor("foo", "0_50_50_0_0")
+	sr.Visit(&ast.ScriptFile{Scripts: []*ast.Script{s}})
+
+	if d.HasErrors() {
+		t.Fatalf("HasErrors for valid coord: %+v", d.List())
+	}
+	if s.SubjectReference == nil {
+		t.Fatal("SubjectReference nil")
+	}
+	bs := s.SubjectReference.(*symbol.BasicSymbol)
+	// Per tryParseZone: x = (((mx<<6)|lx)>>3)<<3, z = (((mz<<6)|lz)>>3)<<3
+	// "0_50_50_0_0": mx=mz=50, lx=lz=0, level=0
+	// x = (((50<<6)|0)>>3)<<3 = (3200>>3)<<3 = 400<<3 = 3200
+	// z = 3200
+	// packed = (z & 0x3fff) | ((x & 0x3fff) << 14) | ((level & 0x3) << 28)
+	x := int32((((50 << 6) | 0) >> 3) << 3)
+	z := int32((((50 << 6) | 0) >> 3) << 3)
+	level := int32(0)
+	want := (z & 0x3fff) | ((x & 0x3fff) << 14) | ((level & 0x3) << 28)
+	if bs.Name != strconv.Itoa(int(want)) {
+		t.Fatalf("SubjectReference name = %q, want %q (packed %d)", bs.Name, strconv.Itoa(int(want)), want)
+	}
+}
+
+func TestSubject_CoordSubject_BadAlignment_EmitsErrorAndStillSetsSubjectReference(t *testing.T) {
+	// lx=4 is not a multiple of 8; tryParseZone emits
+	// MessageZoneLocalCoordMultipleOf8 and returns -1. resolveSubjectSymbol
+	// still constructs the BasicSymbol (with "-1") and assigns SubjectReference.
+	tm, trm, root, d := newTestFixture(t)
+	_ = tm.RegisterByRepresentation(typ.PrimitiveCoord)
+	t1 := triggerWithSubjectMode("foo", trigger.NewModeType(typ.PrimitiveCoord, true, true))
+	_ = trm.RegisterTrigger(t1)
+	sr := NewScriptRegistration(tm, trm, root, d, StrictFeatureLevel{})
+	s := scriptFor("foo", "0_50_50_4_0") // lx=4, not a multiple of 8
+	sr.Visit(&ast.ScriptFile{Scripts: []*ast.Script{s}})
+
+	found := false
+	for _, e := range d.List() {
+		if e.Message == diagnostics.MessageZoneLocalCoordMultipleOf8 {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("no MessageZoneLocalCoordMultipleOf8 diagnostic: %+v", d.List())
+	}
+	if s.SubjectReference == nil {
+		t.Fatal("SubjectReference nil; resolveSubjectSymbol sets it even on error")
+	}
+	bs := s.SubjectReference.(*symbol.BasicSymbol)
+	if bs.Name != "-1" {
+		t.Fatalf("SubjectReference name = %q, want \"-1\" (sentinel)", bs.Name)
+	}
+}
