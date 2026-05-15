@@ -215,3 +215,44 @@ func scriptVarTypeName(t objtype.ScriptVarType) string {
 		return "unknown"
 	}
 }
+
+// populateInterfaceOverlay derives the `interface` and `overlayinterface`
+// TypeInfos from componentInfo (loaded from interface.pack) enriched
+// with Component.ComName / Component.Overlay from the cache loader.
+// Mirrors TS Compiler.ts:214-232.
+//
+// `name` is com.ComName if non-empty, else componentInfo.Map[id]
+// (TS `com.comName || componentInfo.map[id]`).
+//
+// Per TS Compiler.ts:215, the loop bound is `id <= componentInfo.Max`
+// and the inner guards are the standard `Map[id]` presence check + a
+// `Configs[id] != nil` check.
+func populateInterfaceOverlay(
+	componentInfo, interfaceInfo, overlayInfo *TypeInfo,
+	components *objtype.ComponentTypeConfigs,
+) {
+	if components == nil {
+		return
+	}
+	for id := 0; id <= componentInfo.Max; id++ {
+		baseName, present := componentInfo.Map[id]
+		if !present {
+			continue
+		}
+		if id < 0 || id >= len(components.Configs) {
+			continue
+		}
+		com := components.Configs[id]
+		if com == nil {
+			continue
+		}
+		name := com.ComName
+		if name == "" {
+			name = baseName
+		}
+		interfaceInfo.Add(id, name, true)
+		if com.Overlay {
+			overlayInfo.Add(id, name, true)
+		}
+	}
+}

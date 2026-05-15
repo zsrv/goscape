@@ -373,6 +373,124 @@ func TestPopulateCommandInfo_RealData(t *testing.T) {
 	_ = sort.Slice
 }
 
+// TestPopulateInterfaceOverlay_PrefersComName pins TS Compiler.ts:225 —
+// when com.comName is non-empty, that name takes precedence over the
+// componentInfo.Map[id] fallback.
+func TestPopulateInterfaceOverlay_PrefersComName(t *testing.T) {
+	componentInfo := newTypeInfo()
+	componentInfo.Add(5, "fallback_name", true)
+
+	components := &objtype.ComponentTypeConfigs{
+		Configs: make([]*objtype.ComponentType, 10),
+	}
+	components.Configs[5] = &objtype.ComponentType{
+		ComName: "preferred_name",
+		Overlay: false,
+	}
+
+	interfaceInfo := newTypeInfo()
+	overlayInfo := newTypeInfo()
+	populateInterfaceOverlay(componentInfo, interfaceInfo, overlayInfo, components)
+
+	if got, want := interfaceInfo.Map[5], "preferred_name"; got != want {
+		t.Errorf("interface.Map[5] = %q, want %q (com.comName must override fallback)", got, want)
+	}
+}
+
+// TestPopulateInterfaceOverlay_FallsBackToComponentInfoMap pins the
+// `com.comName || componentInfo.map[id]` fallback at TS Compiler.ts:225.
+func TestPopulateInterfaceOverlay_FallsBackToComponentInfoMap(t *testing.T) {
+	componentInfo := newTypeInfo()
+	componentInfo.Add(3, "from_pack_file", true)
+
+	components := &objtype.ComponentTypeConfigs{
+		Configs: make([]*objtype.ComponentType, 10),
+	}
+	components.Configs[3] = &objtype.ComponentType{
+		ComName: "",
+		Overlay: false,
+	}
+
+	interfaceInfo := newTypeInfo()
+	overlayInfo := newTypeInfo()
+	populateInterfaceOverlay(componentInfo, interfaceInfo, overlayInfo, components)
+
+	if got, want := interfaceInfo.Map[3], "from_pack_file"; got != want {
+		t.Errorf("interface.Map[3] = %q, want %q (fallback to componentInfo)", got, want)
+	}
+}
+
+// TestPopulateInterfaceOverlay_OverlayOnlyOnTrue pins TS Compiler.ts:229-231
+// — overlayInfo gets the entry only when com.Overlay == true.
+func TestPopulateInterfaceOverlay_OverlayOnlyOnTrue(t *testing.T) {
+	componentInfo := newTypeInfo()
+	componentInfo.Add(1, "a", true)
+	componentInfo.Add(2, "b", true)
+
+	components := &objtype.ComponentTypeConfigs{
+		Configs: make([]*objtype.ComponentType, 10),
+	}
+	components.Configs[1] = &objtype.ComponentType{ComName: "a", Overlay: true}
+	components.Configs[2] = &objtype.ComponentType{ComName: "b", Overlay: false}
+
+	interfaceInfo := newTypeInfo()
+	overlayInfo := newTypeInfo()
+	populateInterfaceOverlay(componentInfo, interfaceInfo, overlayInfo, components)
+
+	if _, ok := overlayInfo.Map[1]; !ok {
+		t.Errorf("overlay.Map[1]: missing; want present (overlay=true)")
+	}
+	if _, ok := overlayInfo.Map[2]; ok {
+		t.Errorf("overlay.Map[2]: present; want absent (overlay=false)")
+	}
+}
+
+// TestPopulateInterfaceOverlay_SkipsNilConfig pins TS Compiler.ts:221-223
+// — Configs[id] == nil triggers `continue`.
+func TestPopulateInterfaceOverlay_SkipsNilConfig(t *testing.T) {
+	componentInfo := newTypeInfo()
+	componentInfo.Add(4, "x", true)
+
+	components := &objtype.ComponentTypeConfigs{
+		Configs: make([]*objtype.ComponentType, 10),
+	}
+	// Configs[4] left nil.
+
+	interfaceInfo := newTypeInfo()
+	overlayInfo := newTypeInfo()
+	populateInterfaceOverlay(componentInfo, interfaceInfo, overlayInfo, components)
+
+	if _, ok := interfaceInfo.Map[4]; ok {
+		t.Errorf("interface.Map[4]: present; want absent (nil Configs[4] should skip)")
+	}
+	if _, ok := overlayInfo.Map[4]; ok {
+		t.Errorf("overlay.Map[4]: present; want absent")
+	}
+}
+
+// TestPopulateInterfaceOverlay_SkipsIdsAbsentFromComponentInfo pins TS
+// Compiler.ts:216-218 — ids without a componentInfo.Map[id] entry get
+// skipped (inclusive <= Max loop with map-presence guard).
+func TestPopulateInterfaceOverlay_SkipsIdsAbsentFromComponentInfo(t *testing.T) {
+	componentInfo := newTypeInfo()
+	componentInfo.Add(0, "zero", true)
+	componentInfo.Add(5, "five", true) // Max becomes 6; ids 1-4 absent
+
+	components := &objtype.ComponentTypeConfigs{
+		Configs: make([]*objtype.ComponentType, 10),
+	}
+	// Populate Configs[2] even though componentInfo skips id 2.
+	components.Configs[2] = &objtype.ComponentType{ComName: "two", Overlay: true}
+
+	interfaceInfo := newTypeInfo()
+	overlayInfo := newTypeInfo()
+	populateInterfaceOverlay(componentInfo, interfaceInfo, overlayInfo, components)
+
+	if _, ok := interfaceInfo.Map[2]; ok {
+		t.Errorf("interface.Map[2]: present; want absent (componentInfo.Map[2] missing → skip)")
+	}
+}
+
 // writeConstantFile writes content to <dir>/scripts/<rel>, creating the
 // scripts subdir + any intermediate dirs of rel.
 func writeConstantFile(t *testing.T, dir, rel, content string) {
