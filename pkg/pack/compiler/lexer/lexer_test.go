@@ -86,3 +86,104 @@ func TestLex_AddRemoveErrorListeners(t *testing.T) {
 		t.Errorf("after Remove, no new errors should arrive: c1=%d c2=%d", len(c1.Errors), len(c2.Errors))
 	}
 }
+
+// TestLex_Whitespace pins single WHITESPACE emission on hidden channel
+// for [ \t\n\r]+ runs (RuneScriptLexer.g4:75).
+func TestLex_Whitespace(t *testing.T) {
+	cases := []string{" ", "\t", "\n", "\r", " \t\n\r ", "   \t  "}
+	for _, src := range cases {
+		l := NewLexer(src, "ws.rs2")
+		tok := l.NextToken()
+		if tok.Type != WHITESPACE {
+			t.Errorf("input %q: type = %s, want WHITESPACE", src, tok.Type)
+		}
+		if tok.Channel != ChannelHidden {
+			t.Errorf("input %q: channel = %d, want Hidden(1)", src, tok.Channel)
+		}
+		if tok.Text != src {
+			t.Errorf("input %q: text = %q, want %q", src, tok.Text, src)
+		}
+		if l.NextToken().Type != EOF {
+			t.Errorf("input %q: token after WHITESPACE not EOF", src)
+		}
+	}
+}
+
+// TestLex_LineComment pins LINE_COMMENT semantics: // ... \n consumed
+// as a single hidden token (text includes the trailing \n).
+func TestLex_LineComment(t *testing.T) {
+	l := NewLexer("// hi\n", "lc.rs2")
+	tok := l.NextToken()
+	if tok.Type != LINE_COMMENT {
+		t.Fatalf("type = %s, want LINE_COMMENT", tok.Type)
+	}
+	if tok.Channel != ChannelHidden {
+		t.Errorf("channel = %d, want Hidden", tok.Channel)
+	}
+	if tok.Text != "// hi\n" {
+		t.Errorf("text = %q, want %q", tok.Text, "// hi\n")
+	}
+	if l.NextToken().Type != EOF {
+		t.Errorf("token after LINE_COMMENT not EOF")
+	}
+}
+
+// TestLex_LineComment_EOF pins the trailing-no-newline case: // ... EOF
+// is also one LINE_COMMENT spanning to end-of-input.
+func TestLex_LineComment_EOF(t *testing.T) {
+	l := NewLexer("// no newline", "lce.rs2")
+	tok := l.NextToken()
+	if tok.Type != LINE_COMMENT {
+		t.Fatalf("type = %s, want LINE_COMMENT", tok.Type)
+	}
+	if tok.Text != "// no newline" {
+		t.Errorf("text = %q", tok.Text)
+	}
+}
+
+// TestLex_BlockComment pins single-line /* */ → one hidden token.
+func TestLex_BlockComment(t *testing.T) {
+	l := NewLexer("/* foo */", "bc.rs2")
+	tok := l.NextToken()
+	if tok.Type != BLOCK_COMMENT {
+		t.Fatalf("type = %s, want BLOCK_COMMENT", tok.Type)
+	}
+	if tok.Channel != ChannelHidden {
+		t.Errorf("channel = %d, want Hidden", tok.Channel)
+	}
+	if tok.Text != "/* foo */" {
+		t.Errorf("text = %q", tok.Text)
+	}
+}
+
+// TestLex_BlockComment_MultiLine pins multi-line BLOCK_COMMENT with
+// endLine > line.
+func TestLex_BlockComment_MultiLine(t *testing.T) {
+	l := NewLexer("/* a\nb */", "bcm.rs2")
+	tok := l.NextToken()
+	if tok.Type != BLOCK_COMMENT {
+		t.Fatalf("type = %s, want BLOCK_COMMENT", tok.Type)
+	}
+	if tok.Source.Line != 1 {
+		t.Errorf("start line = %d, want 1", tok.Source.Line)
+	}
+	if tok.Source.EndLine != 2 {
+		t.Errorf("end line = %d, want 2", tok.Source.EndLine)
+	}
+}
+
+// TestLex_SourceLocation_NewlineLf pins line-counter behavior on \n.
+func TestLex_SourceLocation_NewlineLf(t *testing.T) {
+	l := NewLexer("\n\n", "nl.rs2") // two WS tokens? no — one run
+	tok := l.NextToken()
+	if tok.Type != WHITESPACE {
+		t.Fatalf("type = %s, want WHITESPACE", tok.Type)
+	}
+	if tok.Source.Line != 1 || tok.Source.Column != 1 {
+		t.Errorf("start = (%d,%d), want (1,1)", tok.Source.Line, tok.Source.Column)
+	}
+	if tok.Source.EndLine != 3 || tok.Source.EndColumn != 1 {
+		t.Errorf("end = (%d,%d), want (3,1) — two \\n advance line to 3, col resets to 0=>1-based 1",
+			tok.Source.EndLine, tok.Source.EndColumn)
+	}
+}
