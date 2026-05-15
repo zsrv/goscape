@@ -109,10 +109,9 @@ func NewMetaScript(triggerIdent string, params, returns Type) Type {
 // literal is then re-parsed as a clientscript expression — see
 // TypeChecking.ts L840-866 at HEAD b8c338801fbb72d294ff9576a58925a8d3f6de47).
 //
-// NAI-206-D-HOOK-REP: TS MetaType.Hook sets representation =
-// `hook<${transmitListType.representation}>` (MetaType.ts L110), NOT the
-// plain "hook" string that super('hook') initialises. Goscape mirrors this
-// by overriding rep in NewMetaHook after newMetaBase.
+// Representation is "hook<inner.representation>" per MetaType.ts L110
+// (note: super('hook') sets rep to "hook"; constructor overrides with
+// the parameterised form). Mirrored verbatim by NewMetaHook.
 type metaHook struct {
 	metaBase
 	transmitListType Type

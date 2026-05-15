@@ -160,3 +160,7 @@ func TestMetaHook_Options(t *testing.T) {
 		t.Error("AllowParameter = true, want false")
 	}
 }
+
+func TestNewMetaHook_SatisfiesAstTypeRef(t *testing.T) {
+	var _ astTypeRef = NewMetaHook(PrimitiveInt)
+}
