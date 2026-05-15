@@ -131,8 +131,3 @@ func (lx *Lexer) makeToken(tt TokenType, start, stop int, text string, startLn, 
 	return tok
 }
 
-// nextString is the modeString dispatch — body lands in T9 when
-// String-mode rules are added. Stub returns EOF.
-func (lx *Lexer) nextString() Token {
-	return lx.makeToken(EOF, lx.pos, lx.pos-1, "", lx.line, lx.col+1, lx.line, lx.col+1)
-}
