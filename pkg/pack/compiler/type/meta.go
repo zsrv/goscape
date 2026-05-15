@@ -104,6 +104,51 @@ func NewMetaScript(triggerIdent string, params, returns Type) Type {
 	return &metaScript{metaBase: mb, params: params, returns: returns}
 }
 
+// metaHook is the TS MetaType.Hook(transmitListType) shape. Used by
+// TypeChecking when a string literal's type hint is a hook (the
+// literal is then re-parsed as a clientscript expression — see
+// TypeChecking.ts L840-866 at HEAD b8c338801fbb72d294ff9576a58925a8d3f6de47).
+//
+// NAI-206-D-HOOK-REP: TS MetaType.Hook sets representation =
+// `hook<${transmitListType.representation}>` (MetaType.ts L110), NOT the
+// plain "hook" string that super('hook') initialises. Goscape mirrors this
+// by overriding rep in NewMetaHook after newMetaBase.
+type metaHook struct {
+	metaBase
+	transmitListType Type
+}
+
+func (m *metaHook) Representation() string        { return m.rep }
+func (m *metaHook) Code() (string, bool)          { return "", false }
+func (m *metaHook) BaseType() (BaseVarType, bool) { return BaseVarInteger, true }
+func (m *metaHook) DefaultValue() any             { return -1 }
+func (m *metaHook) Options() TypeOptions          { return m.options }
+func (m *metaHook) AsTypeRef()                    {}
+
+// NewMetaHook constructs a MetaType.Hook(transmitListType) instance.
+// Mirrors TS MetaType.Hook constructor (MetaType.ts L103-112):
+//   - representation = "hook<transmitListType.representation>"
+//   - all four TypeOptions flags remain false (no override, unlike Script)
+func NewMetaHook(transmitListType Type) Type {
+	mb := newMetaBase("hook")
+	mb.rep = "hook<" + transmitListType.Representation() + ">"
+	return &metaHook{metaBase: mb, transmitListType: transmitListType}
+}
+
+// IsMetaHook returns (transmitListType, true) if t is a MetaType.Hook
+// produced by NewMetaHook; otherwise (nil, false).
+//
+// TypeChecking (NAI-206) uses this discriminator at the visitStringLiteral
+// dispatch and at visitClientScriptExpression's typeHint check (TS
+// TypeChecking.ts L843, L852).
+func IsMetaHook(t Type) (transmitListType Type, ok bool) {
+	mh, ok := t.(*metaHook)
+	if !ok {
+		return nil, false
+	}
+	return mh.transmitListType, true
+}
+
 // IsMetaScript returns (params, returns, true) when t is a MetaType.Script
 // instance produced by NewMetaScript; otherwise (nil, nil, false).
 //

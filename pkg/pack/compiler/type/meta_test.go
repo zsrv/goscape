@@ -113,3 +113,50 @@ func TestIsMetaScript_RejectsNonScriptTypes(t *testing.T) {
 		}
 	}
 }
+
+// TestMetaHook_Representation verifies the representation string matches
+// TS MetaType.Hook constructor: `hook<${transmitListType.representation}>`.
+// TS MetaType.ts L103-112, HEAD b8c338801fbb72d294ff9576a58925a8d3f6de47.
+func TestMetaHook_Representation(t *testing.T) {
+	h := NewMetaHook(PrimitiveInt)
+	if got, want := h.Representation(), "hook<int>"; got != want {
+		t.Fatalf("Representation() = %q, want %q", got, want)
+	}
+}
+
+func TestMetaHook_TransmitListAccess(t *testing.T) {
+	h := NewMetaHook(PrimitiveInt)
+	transmit, ok := IsMetaHook(h)
+	if !ok {
+		t.Fatal("IsMetaHook(h) = false, want true")
+	}
+	if transmit != PrimitiveInt {
+		t.Fatalf("transmit = %v, want PrimitiveInt", transmit)
+	}
+}
+
+func TestIsMetaHook_NonHook(t *testing.T) {
+	if _, ok := IsMetaHook(MetaAny); ok {
+		t.Fatal("IsMetaHook(MetaAny) = true, want false")
+	}
+	if _, ok := IsMetaHook(PrimitiveInt); ok {
+		t.Fatal("IsMetaHook(PrimitiveInt) = true, want false")
+	}
+}
+
+func TestMetaHook_Options(t *testing.T) {
+	h := NewMetaHook(MetaUnit)
+	opts := h.Options()
+	if opts.AllowSwitch {
+		t.Error("AllowSwitch = true, want false")
+	}
+	if opts.AllowArray {
+		t.Error("AllowArray = true, want false")
+	}
+	if opts.AllowDeclaration {
+		t.Error("AllowDeclaration = true, want false")
+	}
+	if opts.AllowParameter {
+		t.Error("AllowParameter = true, want false")
+	}
+}
