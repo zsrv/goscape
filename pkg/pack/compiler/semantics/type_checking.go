@@ -218,7 +218,12 @@ func (tc *TypeChecker) Visit(n ast.Node) {
 		tc.visitDeclarationStatement(v)
 	case *ast.ArrayDeclarationStatement:
 		tc.visitArrayDeclarationStatement(v)
-	// T11-T18 will insert additional cases here.
+	// T11 assignment + expression-statement arms.
+	case *ast.AssignmentStatement:
+		tc.visitAssignmentStatement(v)
+	case *ast.ExpressionStatement:
+		tc.visitExpressionStatement(v)
+	// T12-T18 will insert additional cases here.
 	default:
 		tc.visitNodeFallback(n)
 	}

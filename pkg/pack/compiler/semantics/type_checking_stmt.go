@@ -1,6 +1,6 @@
 // pkg/pack/compiler/semantics/type_checking_stmt.go
 //
-// Statement walker arms — NAI-206 T8, T9, T10.
+// Statement walker arms — NAI-206 T8, T9, T10, T11.
 //
 // Each arm mirrors TS src/compiler/semantics/TypeChecking.ts at HEAD
 // b8c338801fbb72d294ff9576a58925a8d3f6de47.
@@ -17,6 +17,10 @@
 //   - visitEmptyStatement          (L507-509)
 //   - visitDeclarationStatement    (L380-422)
 //   - visitArrayDeclarationStatement (L423-472)
+//   - visitAssignmentStatement     (L474-495)
+//   - visitExpressionStatement     (L497-505)
+//   - expressionHasSideEffects     (L1290-1345)
+//   - commandHasSideEffects        (L1347-1361)
 package semantics
 
 import (
@@ -306,4 +310,124 @@ func (tc *TypeChecker) visitArrayDeclarationStatement(d *ast.ArrayDeclarationSta
 		diagnostics.ReportErrorAt(tc.diagnostics, d.Name, diagnostics.MessageScriptLocalRedeclaration, name)
 	}
 	d.Symbol = sym
+}
+
+// visitAssignmentStatement mirrors TS visitAssignmentStatement (L474-495)
+// at HEAD b8c338801fbb72d294ff9576a58925a8d3f6de47. Walks each LHS var,
+// collects their types as the type-hint vector for the RHS expression
+// list, type-checks the tuple-match, and reports MessageAssignMultiArray
+// when an array element appears among multiple LHS vars.
+func (tc *TypeChecker) visitAssignmentStatement(a *ast.AssignmentStatement) {
+	leftTypes := make([]typ.Type, 0, len(a.Vars))
+	for _, v := range a.Vars {
+		tc.visitNodeOrNull(v)
+		leftTypes = append(leftTypes, tc.getSafeType(v))
+	}
+	rightTypes := tc.typeHintExpressionList(leftTypes, a.Expressions)
+	leftType := typ.TupleFromList(leftTypes)
+	rightType := typ.TupleFromList(rightTypes)
+	tc.checkTypeMatch(a, leftType, rightType, true)
+
+	if len(a.Vars) > 1 {
+		for _, v := range a.Vars {
+			if lv, ok := v.(*ast.LocalVariableExpression); ok && lv.IsArray() {
+				diagnostics.ReportErrorAt(tc.diagnostics, lv, diagnostics.MessageAssignMultiArray)
+				break
+			}
+		}
+	}
+}
+
+// visitExpressionStatement mirrors TS visitExpressionStatement (L497-505).
+// Visits the inner expression; warns when the expression has a non-error
+// type but no side effects.
+func (tc *TypeChecker) visitExpressionStatement(es *ast.ExpressionStatement) {
+	tc.visitNodeOrNull(es.Expression)
+	t := getType(es.Expression)
+	if t == nil || t == typ.MetaError {
+		return
+	}
+	if !tc.expressionHasSideEffects(es.Expression) {
+		diagnostics.ReportAt(tc.diagnostics, es, diagnostics.DiagnosticWarning, diagnostics.MessageExpressionStatementNoSideEffect)
+	}
+}
+
+// expressionHasSideEffects mirrors TS expressionHasSideEffects (L1290-1345)
+// at HEAD b8c338801fbb72d294ff9576a58925a8d3f6de47. Command and
+// identifier-resolving-to-command have side effects iff their return type
+// is unit-like (commandHasSideEffects). Proc/jump/clientscript always have
+// side effects. Compound expressions recurse.
+func (tc *TypeChecker) expressionHasSideEffects(expr ast.Expression) bool {
+	if expr == nil {
+		return false
+	}
+	switch e := expr.(type) {
+	case *ast.CommandCallExpression:
+		return tc.commandHasSideEffects(getType(e))
+	case *ast.ProcCallExpression:
+		return true
+	case *ast.JumpCallExpression:
+		return true
+	case *ast.ClientScriptExpression:
+		return true
+	case *ast.Identifier:
+		ref, ok := e.Reference.(*symbol.ServerScriptSymbol)
+		if !ok || ref == nil {
+			return false
+		}
+		if tc.commandTrigger == nil || ref.Trigger != tc.commandTrigger {
+			return false
+		}
+		t := getType(e)
+		if t == nil {
+			t = ref.Returns
+		}
+		return tc.commandHasSideEffects(t)
+	case *ast.LocalVariableExpression:
+		return tc.expressionHasSideEffects(e.Index)
+	case *ast.ConstantVariableExpression:
+		return tc.expressionHasSideEffects(e.SubExpression)
+	case *ast.ParenthesizedExpression:
+		return tc.expressionHasSideEffects(e.Expression)
+	case *ast.CalcExpression:
+		return tc.expressionHasSideEffects(e.Expression)
+	case *ast.ArithmeticExpression:
+		return tc.expressionHasSideEffects(e.Left) || tc.expressionHasSideEffects(e.Right)
+	case *ast.ConditionExpression:
+		return tc.expressionHasSideEffects(e.Left) || tc.expressionHasSideEffects(e.Right)
+	case *ast.JoinedStringExpression:
+		for _, part := range e.Parts {
+			if esp, ok := part.(*ast.ExpressionStringPart); ok {
+				if tc.expressionHasSideEffects(esp.Expression) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	return false
+}
+
+// commandHasSideEffects mirrors TS commandHasSideEffects (L1347-1361)
+// at HEAD b8c338801fbb72d294ff9576a58925a8d3f6de47. A command "has side
+// effects" when its return type is unit-like (MetaUnit, MetaError, nil,
+// or a tuple whose every child is MetaUnit). Non-unit returns mean the
+// value is meaningful and absence of a consumer (statement-position) is
+// suspect.
+func (tc *TypeChecker) commandHasSideEffects(t typ.Type) bool {
+	if t == nil || t == typ.MetaError {
+		return true
+	}
+	if t == typ.MetaUnit {
+		return true
+	}
+	if tup, ok := t.(*typ.TupleType); ok {
+		for _, ch := range tup.Children {
+			if ch != typ.MetaUnit {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
