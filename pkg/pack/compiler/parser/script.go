@@ -69,7 +69,14 @@ func (p *Parser) parseScript() *ast.Script {
 	// Optional `(parameterList?) (typeList?)?` block — both lists are
 	// LPAREN-delimited; second LPAREN only exists when first one was
 	// present (per grammar).
-	if p.ts.LA(1) == lexer.LPAREN {
+	//
+	// Disambiguation: LPAREN starts a parameter list only when LA(2) is
+	// RPAREN (empty list), IDENTIFIER, or TYPE_ARRAY (type token). Any
+	// other LA(2) means the LPAREN starts a body expression statement.
+	la2 := p.ts.LA(2)
+	isParamList := p.ts.LA(1) == lexer.LPAREN &&
+		(la2 == lexer.RPAREN || la2 == lexer.IDENTIFIER || la2 == lexer.TYPE_ARRAY)
+	if isParamList {
 		p.ts.Consume() // LPAREN
 		parameters = p.parseParameterList()
 		if parameters == nil {

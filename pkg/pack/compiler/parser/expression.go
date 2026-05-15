@@ -34,15 +34,197 @@ func (p *Parser) parseExpression() ast.Expression {
 		return p.parseGameVariable()
 	case lexer.CARET:
 		return p.parseConstantVariable()
+
+	// Call shapes
+	case lexer.TILDE:
+		return p.parseProcCall()
+	case lexer.AT:
+		return p.parseJumpCall()
+
+	// Parenthesized expression or calc
+	case lexer.LPAREN:
+		return p.parseParenthesizedExpression()
+	case lexer.CALC:
+		return p.parseCalcExpression()
 	}
 
-	// Bare identifier — covers all identifier-start tokens.
+	// Bare identifier — covers all identifier-start tokens per grammar
+	// `identifier` rule. May be followed by LPAREN for a command call.
 	if isIdentifierStart(p.ts.LA(1)) {
-		return p.parseIdentifier()
+		name := p.parseIdentifier()
+		if name == nil {
+			return nil
+		}
+		if p.ts.LA(1) == lexer.LPAREN {
+			return p.parseCommandCallTail(name, /*star=*/ false)
+		}
+		if p.ts.LA(1) == lexer.MUL && p.ts.LA(2) == lexer.LPAREN {
+			p.ts.Consume() // MUL
+			return p.parseCommandCallTail(name, /*star=*/ true)
+		}
+		return name
 	}
 
 	p.reportError(p.ts.LT(1), "expected expression but found %s", p.ts.LA(1))
 	return nil
+}
+
+// parseCommandCallTail parses the LPAREN expressionList? RPAREN (one or
+// two times for `name*(args)(args2)`). `star` reflects whether the
+// caller already consumed the MUL.
+func (p *Parser) parseCommandCallTail(name *ast.Identifier, star bool) *ast.CommandCallExpression {
+	if _, ok := p.consumeIf(lexer.LPAREN); !ok {
+		p.reportError(p.ts.LT(1), "expected LPAREN after command name but found %s", p.ts.LA(1))
+		return nil
+	}
+	args := p.parseExpressionList()
+	if args == nil {
+		return nil
+	}
+	rparen1, ok := p.consumeIf(lexer.RPAREN)
+	if !ok {
+		p.reportError(p.ts.LT(1), "expected RPAREN to close command args but found %s", p.ts.LA(1))
+		return nil
+	}
+	var args2 []ast.Expression
+	endTok := rparen1
+	if star {
+		if _, ok := p.consumeIf(lexer.LPAREN); !ok {
+			p.reportError(p.ts.LT(1), "expected LPAREN after `*` for star command but found %s", p.ts.LA(1))
+			return nil
+		}
+		args2 = p.parseExpressionList()
+		if args2 == nil {
+			return nil
+		}
+		rparen2, ok := p.consumeIf(lexer.RPAREN)
+		if !ok {
+			p.reportError(p.ts.LT(1), "expected RPAREN to close star command args2 but found %s", p.ts.LA(1))
+			return nil
+		}
+		endTok = rparen2
+	}
+	startLoc := name.SrcLoc
+	return &ast.CommandCallExpression{
+		SrcLoc: lexer.NodeSourceLocation{
+			Name: startLoc.Name, Line: startLoc.Line, Column: startLoc.Column,
+			EndLine: endTok.Source.EndLine, EndColumn: endTok.Source.EndColumn,
+		},
+		Name:       name,
+		Arguments:  args,
+		Arguments2: args2,
+	}
+}
+
+// parseProcCall parses `TILDE identifier (LPAREN expressionList? RPAREN)?`.
+func (p *Parser) parseProcCall() *ast.ProcCallExpression {
+	startTok := p.ts.LT(1)
+	p.ts.Consume() // TILDE
+	name := p.parseIdentifier()
+	if name == nil {
+		return nil
+	}
+	var args []ast.Expression
+	endLoc := name.SrcLoc
+	if _, ok := p.consumeIf(lexer.LPAREN); ok {
+		args = p.parseExpressionList()
+		if args == nil {
+			return nil
+		}
+		rparen, ok := p.consumeIf(lexer.RPAREN)
+		if !ok {
+			p.reportError(p.ts.LT(1), "expected RPAREN to close proc args but found %s", p.ts.LA(1))
+			return nil
+		}
+		endLoc = rparen.Source
+	} else {
+		args = []ast.Expression{}
+	}
+	return &ast.ProcCallExpression{
+		SrcLoc: lexer.NodeSourceLocation{
+			Name: startTok.Source.Name, Line: startTok.Source.Line, Column: startTok.Source.Column,
+			EndLine: endLoc.EndLine, EndColumn: endLoc.EndColumn,
+		},
+		Name:      name,
+		Arguments: args,
+	}
+}
+
+// parseJumpCall parses `AT identifier (LPAREN expressionList? RPAREN)?`.
+func (p *Parser) parseJumpCall() *ast.JumpCallExpression {
+	startTok := p.ts.LT(1)
+	p.ts.Consume() // AT
+	name := p.parseIdentifier()
+	if name == nil {
+		return nil
+	}
+	var args []ast.Expression
+	endLoc := name.SrcLoc
+	if _, ok := p.consumeIf(lexer.LPAREN); ok {
+		args = p.parseExpressionList()
+		if args == nil {
+			return nil
+		}
+		rparen, ok := p.consumeIf(lexer.RPAREN)
+		if !ok {
+			p.reportError(p.ts.LT(1), "expected RPAREN to close jump args but found %s", p.ts.LA(1))
+			return nil
+		}
+		endLoc = rparen.Source
+	} else {
+		args = []ast.Expression{}
+	}
+	return &ast.JumpCallExpression{
+		SrcLoc: lexer.NodeSourceLocation{
+			Name: startTok.Source.Name, Line: startTok.Source.Line, Column: startTok.Source.Column,
+			EndLine: endLoc.EndLine, EndColumn: endLoc.EndColumn,
+		},
+		Name:      name,
+		Arguments: args,
+	}
+}
+
+// parseParenthesizedExpression parses `LPAREN expression RPAREN`.
+func (p *Parser) parseParenthesizedExpression() *ast.ParenthesizedExpression {
+	startTok := p.ts.LT(1)
+	p.ts.Consume() // LPAREN
+	inner := p.parseExpression()
+	if inner == nil {
+		return nil
+	}
+	rparen, ok := p.consumeIf(lexer.RPAREN)
+	if !ok {
+		p.reportError(p.ts.LT(1), "expected RPAREN to close parenthesized expression but found %s", p.ts.LA(1))
+		return nil
+	}
+	return &ast.ParenthesizedExpression{
+		SrcLoc:     spanOf(startTok, &rparen),
+		Expression: inner,
+	}
+}
+
+// parseCalcExpression parses `CALC LPAREN arithmetic RPAREN`. Inner
+// expression is parsed via the arithmetic precedence climber.
+func (p *Parser) parseCalcExpression() *ast.CalcExpression {
+	startTok := p.ts.LT(1)
+	p.ts.Consume() // CALC
+	if _, ok := p.consumeIf(lexer.LPAREN); !ok {
+		p.reportError(p.ts.LT(1), "expected LPAREN after calc but found %s", p.ts.LA(1))
+		return nil
+	}
+	arith := p.parseArithmetic()
+	if arith == nil {
+		return nil
+	}
+	rparen, ok := p.consumeIf(lexer.RPAREN)
+	if !ok {
+		p.reportError(p.ts.LT(1), "expected RPAREN to close calc but found %s", p.ts.LA(1))
+		return nil
+	}
+	return &ast.CalcExpression{
+		SrcLoc:     spanOf(startTok, &rparen),
+		Expression: arith,
+	}
 }
 
 // parseIntegerLiteral handles INTEGER_LITERAL / HEX_LITERAL / BIN_LITERAL.

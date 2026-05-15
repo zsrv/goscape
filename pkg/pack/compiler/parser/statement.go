@@ -443,12 +443,6 @@ func (p *Parser) tryParseAssignableVariable() ast.VariableExpressionNode {
 	return nil
 }
 
-// parseCondition is implemented by T9 — for T8 it stubs to
-// parseExpression (sufficient for the `if (true) ;` tests).
-func (p *Parser) parseCondition() ast.Expression {
-	return p.parseExpression()
-}
-
 // suppressedState saves listener+numErrors for backtracking.
 type suppressedState struct {
 	listeners []lexer.ErrorListener
