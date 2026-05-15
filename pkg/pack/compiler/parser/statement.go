@@ -349,55 +349,122 @@ func (p *Parser) parseDeclOrArrayDecl() ast.Statement {
 	return nil
 }
 
-// parseAssignOrExprStatement is implemented by T8.
+// parseAssignOrExprStatement disambiguates between:
+//
+//	assignmentStatement : assignableVariableList EQ expressionList SEMICOLON
+//	expressionStatement : expression SEMICOLON
+//
+// Both can start with a $local, %game, or .%game variable. The parser
+// marks the current position, attempts to parse an assignable-variable
+// list with errors suppressed, and if LA(1) lands on EQ it's an
+// assignment — otherwise it rewinds and parses as an expression statement.
 func (p *Parser) parseAssignOrExprStatement() ast.Statement {
-	p.reportError(p.ts.LT(1), "assignment/expression-statement parsing unimplemented in T6 (token: %s)", p.ts.LA(1))
+	startTok := p.ts.LT(1)
+
+	la := p.ts.LA(1)
+	if la == lexer.DOLLAR || la == lexer.MOD || la == lexer.DOTMOD {
+		mark := p.ts.Mark()
+		vars := p.tryParseAssignableVariableList()
+		if vars != nil && p.ts.LA(1) == lexer.EQ {
+			p.ts.Consume() // EQ
+			exprs := p.parseExpressionList()
+			if exprs == nil {
+				return nil
+			}
+			semiTok, ok := p.consumeIf(lexer.SEMICOLON)
+			if !ok {
+				p.reportError(p.ts.LT(1), "expected SEMICOLON after assignment but found %s", p.ts.LA(1))
+				return nil
+			}
+			return &ast.AssignmentStatement{
+				SrcLoc:      spanOf(startTok, &semiTok),
+				Vars:        vars,
+				Expressions: exprs,
+			}
+		}
+		// Not an assignment — rewind and fall through.
+		p.ts.Rewind(mark)
+	}
+
+	expr := p.parseExpression()
+	if expr == nil {
+		return nil
+	}
+	semiTok, ok := p.consumeIf(lexer.SEMICOLON)
+	if !ok {
+		p.reportError(p.ts.LT(1), "expected SEMICOLON after expression but found %s", p.ts.LA(1))
+		return nil
+	}
+	return &ast.ExpressionStatement{
+		SrcLoc:     spanOf(startTok, &semiTok),
+		Expression: expr,
+	}
+}
+
+// tryParseAssignableVariableList attempts to parse
+// `assignableVariable (COMMA assignableVariable)*` without reporting
+// any errors. Returns nil if the prefix doesn't match an assignable
+// variable shape.
+func (p *Parser) tryParseAssignableVariableList() []ast.VariableExpressionNode {
+	out := []ast.VariableExpressionNode{}
+	suppressed := p.suppressErrorsBegin()
+	defer p.suppressErrorsEnd(suppressed)
+
+	first := p.tryParseAssignableVariable()
+	if first == nil {
+		return nil
+	}
+	out = append(out, first)
+	for p.ts.LA(1) == lexer.COMMA {
+		p.ts.Consume()
+		nxt := p.tryParseAssignableVariable()
+		if nxt == nil {
+			return nil
+		}
+		out = append(out, nxt)
+	}
+	return out
+}
+
+// tryParseAssignableVariable parses one of:
+//
+//	localVariable      : DOLLAR advancedIdentifier
+//	localArrayVariable : DOLLAR advancedIdentifier parenthesis
+//	gameVariable       : (MOD | DOTMOD) advancedIdentifier
+//
+// Returns nil if LA(1) doesn't match.
+func (p *Parser) tryParseAssignableVariable() ast.VariableExpressionNode {
+	switch p.ts.LA(1) {
+	case lexer.DOLLAR:
+		return p.parseLocalVariableOrArray()
+	case lexer.MOD, lexer.DOTMOD:
+		return p.parseGameVariable()
+	}
 	return nil
 }
 
-// parseCondition is implemented by T9 — for T6 it stubs to
-// parseExpression (sufficient for the `if (true) ;` tests which use
-// BOOLEAN_LITERAL as the entire condition).
+// parseCondition is implemented by T9 — for T8 it stubs to
+// parseExpression (sufficient for the `if (true) ;` tests).
 func (p *Parser) parseCondition() ast.Expression {
 	return p.parseExpression()
 }
 
-// parseExpression is implemented by T8 — for T6 we provide a minimal
-// version that handles only INTEGER_LITERAL and BOOLEAN_LITERAL so the
-// statement tests can construct return/if/while bodies.
-func (p *Parser) parseExpression() ast.Expression {
-	switch p.ts.LA(1) {
-	case lexer.INTEGER_LITERAL:
-		tok := p.consume()
-		v, _ := parseIntegerLiteralValue(tok.Text)
-		return &ast.IntegerLiteral{SrcLoc: tok.Source, Value: v}
-	case lexer.BOOLEAN_LITERAL:
-		tok := p.consume()
-		return &ast.BooleanLiteral{SrcLoc: tok.Source, Value: tok.Text == "true"}
-	}
-	p.reportError(p.ts.LT(1), "expected expression but found %s", p.ts.LA(1))
-	return nil
+// suppressedState saves listener+numErrors for backtracking.
+type suppressedState struct {
+	listeners []lexer.ErrorListener
+	numErrors int
 }
 
-// parseIntegerLiteralValue parses decimal integer text into an int32.
-// T6-provisional implementation — T8 expands to hex/bin.
-func parseIntegerLiteralValue(text string) (int32, error) {
-	var v int64
-	negative := false
-	i := 0
-	if len(text) > 0 && text[0] == '-' {
-		negative = true
-		i = 1
-	}
-	for ; i < len(text); i++ {
-		c := text[i]
-		if c < '0' || c > '9' {
-			return 0, nil
-		}
-		v = v*10 + int64(c-'0')
-	}
-	if negative {
-		v = -v
-	}
-	return int32(v), nil
+// suppressErrorsBegin replaces listeners with nil and snapshots
+// numErrors so backtracking attempts can be silently undone.
+func (p *Parser) suppressErrorsBegin() suppressedState {
+	prev := suppressedState{listeners: p.listeners, numErrors: p.numErrors}
+	p.listeners = nil
+	return prev
+}
+
+// suppressErrorsEnd restores the previous listener + numErrors state.
+func (p *Parser) suppressErrorsEnd(prev suppressedState) {
+	p.listeners = prev.listeners
+	p.numErrors = prev.numErrors
 }
