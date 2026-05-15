@@ -1,6 +1,7 @@
 package script
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -78,5 +79,54 @@ func TestScriptOpcodeMap_SpotChecks(t *testing.T) {
 		if got != c.want {
 			t.Errorf("ScriptOpcodeMap[%q]: got %d, want %d", c.name, got, c.want)
 		}
+	}
+}
+
+// excludedOpcodes lists Op* constants intentionally absent from
+// ScriptOpcodeMap (e.g., internal-only opcodes the script source can
+// never reference by name). Empty at NAI-202 land. Entries get added
+// only with a justifying comment.
+var excludedOpcodes = map[Opcode]string{}
+
+// TestScriptOpcodeMap_ReverseCoverage pins: every Op* constant declared
+// in pkg/script/opcode.go either appears as a value in ScriptOpcodeMap
+// or is explicitly listed in excludedOpcodes with rationale. Catches
+// the failure mode where a new Op* constant is added (e.g., during
+// NAI-203+ work) without the corresponding ScriptOpcodeMap entry.
+//
+// Detection strategy: walks the closed range [0, OpTimeSpent] and uses
+// Opcode(i).String() — named opcodes return UPPER_SNAKE_CASE; unnamed
+// values return "opcode_N". A named opcode missing from both
+// ScriptOpcodeMap (values) and excludedOpcodes is a coverage gap.
+func TestScriptOpcodeMap_ReverseCoverage(t *testing.T) {
+	// Build the set of opcodes present in ScriptOpcodeMap as values.
+	mapped := make(map[Opcode]struct{}, len(ScriptOpcodeMap))
+	for _, op := range ScriptOpcodeMap {
+		mapped[op] = struct{}{}
+	}
+
+	missing := []Opcode{}
+	for i := 0; i <= int(OpTimeSpent); i++ {
+		op := Opcode(i)
+		name := op.String()
+		if strings.HasPrefix(name, "opcode_") {
+			continue // unnamed slot in the sparse enum
+		}
+		if _, ok := mapped[op]; ok {
+			continue
+		}
+		if _, excluded := excludedOpcodes[op]; excluded {
+			continue
+		}
+		missing = append(missing, op)
+	}
+
+	if len(missing) > 0 {
+		// Format the missing list for the failure message.
+		lines := make([]string, 0, len(missing))
+		for _, op := range missing {
+			lines = append(lines, fmt.Sprintf("\t%s (Opcode=%d)", op.String(), uint16(op)))
+		}
+		t.Fatalf("ReverseCoverage: %d named Op* constants are absent from ScriptOpcodeMap AND not listed in excludedOpcodes:\n%s\n\nFix: either add the entry to ScriptOpcodeMap (preferred — opcodes are reachable from script source) or add an excludedOpcodes entry with a justifying comment.", len(missing), strings.Join(lines, "\n"))
 	}
 }
