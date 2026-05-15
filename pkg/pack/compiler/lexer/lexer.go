@@ -89,8 +89,19 @@ func (lx *Lexer) reportError(line, column int, msg string) {
 // and modeString (lexer_string.go:nextString) based on the mode stack
 // top. The two dispatch functions are responsible for advancing pos
 // and (where applicable) line/col.
+//
+// NAI-203-D-LEXER-ERROR-RECOVERY: EOF inside modeString fires
+// SyntaxError once and resets the mode stack to modeDefault before
+// emitting EOF.
 func (lx *Lexer) NextToken() Token {
 	if lx.pos >= len(lx.input) {
+		if lx.currentMode() == modeString {
+			// NAI-203-D-LEXER-ERROR-RECOVERY: EOF inside string. Fire
+			// SyntaxError once, drop mode stack to modeDefault.
+			lx.reportError(lx.line, lx.col+1, "unterminated string literal at EOF")
+			lx.modes = []mode{modeDefault}
+			lx.depth = 0
+		}
 		return lx.makeToken(EOF, lx.pos, lx.pos-1, "", lx.line, lx.col+1, lx.line, lx.col+1)
 	}
 	switch lx.currentMode() {

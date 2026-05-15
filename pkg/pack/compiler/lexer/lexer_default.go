@@ -134,9 +134,19 @@ func (lx *Lexer) nextDefault() Token {
 		return lx.consumeIdentifierOrKeyword()
 	}
 
-	// Unrecognized — advance past the byte so the lexer makes progress.
+	// NAI-203-D-LEXER-ERROR-RECOVERY: hand-coded recovery for
+	// unrecognized characters. Antlr4ng's DefaultErrorStrategy.recover
+	// would synthesize an error token and skip one char; we do the
+	// same but emit through the SyntaxError listener path. The byte
+	// is consumed; lex restarts from the next byte. If at EOF after
+	// consumption, emit EOF.
+	startLn, startCol := lx.line, lx.col
+	lx.reportError(startLn, startCol+1, "unrecognized character: "+string(c))
 	lx.advance(1)
-	return lx.makeToken(EOF, lx.pos, lx.pos-1, "", lx.line, lx.col+1, lx.line, lx.col+1)
+	if lx.pos >= len(lx.input) {
+		return lx.makeToken(EOF, lx.pos, lx.pos-1, "", lx.line, lx.col+1, lx.line, lx.col+1)
+	}
+	return lx.NextToken()
 }
 
 // isWhitespace mirrors .g4 WHITESPACE charclass: [ \t\n\r].
@@ -239,35 +249,32 @@ func singleCharSymbol(c byte) (TokenType, bool) {
 
 // consumeCharLiteral handles `'X'` where X is either a single non-
 // special char or one of the CharEscapeSequence escapes (\\ or \').
-// On unterminated, returns CHAR_LITERAL with partial text — error
-// recovery + listener fire are wired in T11 (NAI-203-D-LEXER-ERROR-
-// RECOVERY).
+// On unterminated, fires SyntaxError and returns CHAR_LITERAL with
+// partial text (NAI-203-D-LEXER-ERROR-RECOVERY).
 func (lx *Lexer) consumeCharLiteral() Token {
 	start := lx.pos
 	startLn, startCol := lx.line, lx.col
-	// Consume opening `'`
-	lx.advance(1)
+	lx.advance(1) // opening `'`
 	if lx.pos >= len(lx.input) {
-		// Unterminated — T11 wires reportError.
+		lx.reportError(startLn, startCol+1, "unterminated char literal")
 		return lx.makeToken(CHAR_LITERAL, start, lx.pos-1, lx.input[start:lx.pos], startLn, startCol+1, lx.line, lx.col)
 	}
-	// One inner char: either `\\` `\'` (escape) or any byte that isn't
-	// `'` `\\` `\r` `\n` (.g4 CharEscapeSequence + ~['\\\r\n]).
 	c := lx.input[lx.pos]
 	if c == '\\' && lx.pos+1 < len(lx.input) {
 		next := lx.input[lx.pos+1]
 		if next == '\\' || next == '\'' {
 			lx.advance(2)
 		} else {
-			// Invalid escape — consume what we can; T11 wires error.
 			lx.advance(1)
 		}
 	} else if c != '\'' && c != '\r' && c != '\n' {
 		lx.advance(1)
 	}
-	// Expect closing `'`
 	if lx.pos < len(lx.input) && lx.input[lx.pos] == '\'' {
 		lx.advance(1)
+	} else {
+		// NAI-203-D-LEXER-ERROR-RECOVERY: no closing `'`.
+		lx.reportError(startLn, startCol+1, "unterminated char literal")
 	}
 	stop := lx.pos - 1
 	endLn, endCol := lx.lineColAt(stop)
@@ -566,14 +573,13 @@ func (lx *Lexer) consumeBlockComment() Token {
 		lx.advance(1)
 	}
 	if !closed {
-		// Consume any tail (1 byte left) so the BLOCK_COMMENT spans
-		// to EOF.
+		// NAI-203-D-LEXER-ERROR-RECOVERY: consume the tail to EOF,
+		// emit SyntaxError, and emit the partial BLOCK_COMMENT on
+		// hidden channel.
 		for lx.pos < len(lx.input) {
 			lx.advance(1)
 		}
-		// Error recovery firing is deferred to T11 — left silent here
-		// to keep T5 happy-path scoped. T11 wires reportError + a
-		// NAI-203-D-LEXER-ERROR-RECOVERY tag.
+		lx.reportError(startLn, startCol+1, "unterminated block comment")
 	}
 	stop := lx.pos - 1
 	endLn, endCol := lx.lineColAt(stop)

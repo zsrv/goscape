@@ -78,9 +78,14 @@ func (lx *Lexer) consumeStringExprStart() Token {
 // and emits STRING_TEXT. Escapes recognized: \\ \" \< (per .g4
 // StringEscapeSequence fragment). Excluded chars: " < \r \n \\ (\\ is
 // included via escape match).
+//
+// NAI-203-D-LEXER-ERROR-RECOVERY: if the break is caused by a newline,
+// fires SyntaxError and force-pops to modeDefault so subsequent tokens
+// don't all parse as String-mode garbage.
 func (lx *Lexer) consumeStringText() Token {
 	start := lx.pos
 	startLn, startCol := lx.line, lx.col
+	hitNewline := false
 	for lx.pos < len(lx.input) {
 		c := lx.input[lx.pos]
 		if c == '\\' && lx.pos+1 < len(lx.input) {
@@ -91,14 +96,29 @@ func (lx *Lexer) consumeStringText() Token {
 			}
 			break
 		}
-		if c == '"' || c == '<' || c == '\r' || c == '\n' {
+		if c == '"' || c == '<' {
+			break
+		}
+		if c == '\r' || c == '\n' {
+			hitNewline = true
 			break
 		}
 		lx.advance(1)
 	}
 	stop := lx.pos - 1
 	endLn, endCol := lx.lineColAt(stop)
-	return lx.makeToken(STRING_TEXT, start, stop, lx.input[start:lx.pos], startLn, startCol+1, endLn, endCol+1)
+	tok := lx.makeToken(STRING_TEXT, start, stop, lx.input[start:lx.pos], startLn, startCol+1, endLn, endCol+1)
+	if hitNewline {
+		// NAI-203-D-LEXER-ERROR-RECOVERY: unterminated string. Emit
+		// error and force-pop to modeDefault so subsequent tokens
+		// don't all parse as String-mode garbage.
+		lx.reportError(startLn, startCol+1, "unterminated string literal")
+		if lx.currentMode() == modeString {
+			lx.popMode()
+			lx.depth--
+		}
+	}
+	return tok
 }
 
 // matchStringTag — `'<' Tag ('=' ~('<' | '>')+)? '>'`.
