@@ -1,13 +1,29 @@
 package script
 
-// PointerGroupFind is the 5-element list of find_* pointer names that
-// many opcodes spread into their corrupt list. Mirrors TS
-// POINTER_GROUP_FIND (ScriptOpcodePointers.ts:3).
+// pointerGroupFind is the 5-element find_* pointer-name list (unexported
+// to prevent caller mutation). Mirrors TS POINTER_GROUP_FIND
+// (ScriptOpcodePointers.ts:3). External callers reach it through the
+// PointerGroupFind() accessor which returns a fresh copy.
+//
+// NAI-202-D-POINTER-GROUP-FIND-HARDENED: NAI-201 originally shipped this
+// as `var PointerGroupFind = []string{...}` (exported slice). NAI-202
+// closes a NAI-201 final-review follow-up by hiding the storage and
+// returning copies, defending against accidental mutation of package
+// state by callers that grow into existence in NAI-203+.
 //
 // Order matters: corrupt-slice content is concatenated in this exact
 // order on all 6 TS spread sites.
-var PointerGroupFind = []string{
+var pointerGroupFind = [5]string{
 	"find_player", "find_npc", "find_loc", "find_obj", "find_db",
+}
+
+// PointerGroupFind returns a fresh slice copy of the find_* pointer-name
+// list. Returning a copy ensures callers cannot mutate package-internal
+// state — see NAI-202-D-POINTER-GROUP-FIND-HARDENED.
+func PointerGroupFind() []string {
+	out := make([]string, len(pointerGroupFind))
+	copy(out, pointerGroupFind[:])
+	return out
 }
 
 // Pointers holds the pointer-gate flags for one script opcode. Mirrors
@@ -53,8 +69,8 @@ type Pointers struct {
 // corruptExceptActive) because the prefix breaks the helper symmetry —
 // see deviation NAI-201-D-POINTERS-SPREAD-HELPER.
 func corruptExceptActive(extras ...string) []string {
-	out := make([]string, 0, len(PointerGroupFind)+len(extras))
-	out = append(out, PointerGroupFind...)
+	out := make([]string, 0, len(pointerGroupFind)+len(extras))
+	out = append(out, pointerGroupFind[:]...)
 	out = append(out, extras...)
 	return out
 }

@@ -12,8 +12,8 @@ import (
 // because corrupt-slice content is concatenated in this order.
 func TestPointerGroupFind_Content(t *testing.T) {
 	want := []string{"find_player", "find_npc", "find_loc", "find_obj", "find_db"}
-	if !reflect.DeepEqual(PointerGroupFind, want) {
-		t.Fatalf("PointerGroupFind\n got = %v\nwant = %v", PointerGroupFind, want)
+	if !reflect.DeepEqual(PointerGroupFind(), want) {
+		t.Fatalf("PointerGroupFind()\n got = %v\nwant = %v", PointerGroupFind(), want)
 	}
 }
 
@@ -28,10 +28,10 @@ func TestCorruptExceptActive_Behavior(t *testing.T) {
 	}
 
 	// Independence: mutating the returned slice must not corrupt
-	// PointerGroupFind.
+	// the package-internal storage.
 	got[0] = "MUTATED"
-	if PointerGroupFind[0] != "find_player" {
-		t.Fatalf("PointerGroupFind[0] = %q after caller mutation; want %q (helper must return a fresh slice)", PointerGroupFind[0], "find_player")
+	if PointerGroupFind()[0] != "find_player" {
+		t.Fatalf("PointerGroupFind()[0] = %q after caller mutation; want %q (helper must return a fresh slice)", PointerGroupFind()[0], "find_player")
 	}
 }
 
@@ -192,6 +192,31 @@ func TestScriptOpcodePointers_KeysAreBoundedOpcodes(t *testing.T) {
 		if op > maxOp {
 			t.Errorf("ScriptOpcodePointers[op=%d]: exceeds known max Op* = %d", op, maxOp)
 		}
+	}
+}
+
+// TestPointerGroupFind_AccessorReturnsFreshCopy pins
+// NAI-202-D-POINTER-GROUP-FIND-HARDENED: the public PointerGroupFind()
+// accessor must return a fresh slice on each call so callers cannot
+// mutate package-internal state.
+func TestPointerGroupFind_AccessorReturnsFreshCopy(t *testing.T) {
+	first := PointerGroupFind()
+	want := []string{"find_player", "find_npc", "find_loc", "find_obj", "find_db"}
+
+	if len(first) != len(want) {
+		t.Fatalf("len(PointerGroupFind()) = %d, want %d", len(first), len(want))
+	}
+	for i, name := range want {
+		if first[i] != name {
+			t.Errorf("PointerGroupFind()[%d] = %q, want %q", i, first[i], name)
+		}
+	}
+
+	// Mutate the returned slice — must not affect subsequent calls.
+	first[0] = "MUTATED"
+	second := PointerGroupFind()
+	if second[0] != "find_player" {
+		t.Errorf("after caller mutation of returned slice, second call returned %q at [0]; want %q (accessor must return fresh copies)", second[0], "find_player")
 	}
 }
 
