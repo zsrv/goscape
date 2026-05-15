@@ -24,8 +24,11 @@ func (s *ScriptFile) isNode() {}
 // Mirrors TS src/parser/ast/Scripts.ts.
 //
 // NAI-204-D-AST-NO-TYPE-FIELDS: TS Script.symbol, .block, .returnType,
-// .triggerType, .subjectReference, .parameterType fields are NAI-205-owned
-// and not present here.
+// .triggerType, .subjectReference, .parameterType landed in NAI-205 (this
+// file). The remaining TypeChecking-owned fields (.defaultCase/.type on
+// SwitchStatement, .symbol on Declaration*/CallExpression, .reference on
+// Identifier/Literal/VariableExpression, .subExpression on
+// ConstantVariableExpression/StringLiteral) are NAI-206-owned.
 type Script struct {
 	SrcLoc       lexer.NodeSourceLocation
 	Trigger      *Identifier
@@ -34,6 +37,35 @@ type Script struct {
 	Parameters   []*Parameter // nil if header had no parameter list
 	ReturnTokens []*Token     // nil if header had no return-type list
 	Statements   []Statement
+
+	// NAI-205-populated fields (lifted from NAI-204-D-AST-NO-TYPE-FIELDS).
+	// Set by pkg/pack/compiler/semantics.ScriptRegistration.
+
+	// TriggerType is the resolved trigger; nil if trigger lookup failed
+	// during ScriptRegistration. Concrete type: *trigger.TriggerType.
+	TriggerType TriggerRef
+
+	// Symbol is the ServerScriptSymbol inserted into the root SymbolTable
+	// for this script; nil if the insert failed (redeclaration).
+	// Concrete type: *symbol.ServerScriptSymbol.
+	Symbol SymbolRef
+
+	// Block is the per-script local SymbolTable holding parameter symbols.
+	// nil before ScriptRegistration runs. Concrete type: *symbol.SymbolTable.
+	Block SymbolTableRef
+
+	// ParameterType is the TupleType (or MetaUnit for no params, or single
+	// param's type) summarising the parameter list. Concrete type: type.Type.
+	ParameterType TypeRef
+
+	// ReturnType mirrors ParameterType for the returns list. Concrete type:
+	// type.Type.
+	ReturnType TypeRef
+
+	// SubjectReference is the BasicSymbol resolved for type/category subjects;
+	// nil for global (`_`) subjects or unresolved references.
+	// Concrete type: *symbol.BasicSymbol.
+	SubjectReference SymbolRef
 }
 
 func (s *Script) Source() lexer.NodeSourceLocation { return s.SrcLoc }
@@ -73,11 +105,17 @@ func (s *Script) NameString() string {
 // Parameter is one `type DOLLAR advancedIdentifier` in a script header.
 // Mirrors TS src/parser/ast/Parameter.ts.
 //
-// NAI-204-D-AST-NO-TYPE-FIELDS: TS Parameter.symbol is NAI-205-owned.
+// NAI-204-D-AST-NO-TYPE-FIELDS: TS Parameter.symbol landed in NAI-205
+// (Symbol field below). No further Parameter fields are deferred to NAI-206.
 type Parameter struct {
 	SrcLoc    lexer.NodeSourceLocation
 	TypeToken *Token
 	Name      *Identifier
+
+	// Symbol is the LocalVariableSymbol inserted into the script's Block
+	// table for this parameter. nil before ScriptRegistration runs.
+	// Concrete type: *symbol.LocalVariableSymbol.
+	Symbol SymbolRef
 }
 
 func (p *Parameter) Source() lexer.NodeSourceLocation { return p.SrcLoc }
@@ -111,7 +149,8 @@ func (t *Token) isNode()                          {}
 // src/parser/ast/expr/Identifier.ts. Implements Expression — used both
 // for bare identifiers and as a sub-node for variable/call names.
 //
-// NAI-204-D-AST-NO-TYPE-FIELDS: TS Identifier.reference is NAI-205-owned.
+// NAI-204-D-AST-NO-TYPE-FIELDS: TS Identifier.reference is NAI-206-owned
+// (lifted by TypeChecking; NAI-205 doesn't write to Identifier).
 type Identifier struct {
 	SrcLoc lexer.NodeSourceLocation
 	Text   string

@@ -31,7 +31,7 @@ type Node interface {
 
 // Expression marks nodes that produce a value (mirrors TS Expression
 // base class). NAI-204-D-AST-NO-TYPE-FIELDS: TS Expression.type and
-// Expression.typeHint are not modeled here — NAI-205 adds them.
+// Expression.typeHint remain absent — NAI-206 (TypeChecking) adds them.
 type Expression interface {
 	Node
 	isExpression()
