@@ -596,3 +596,68 @@ func TestLex_MinusInteger_WithSpaces(t *testing.T) {
 		}
 	}
 }
+
+// TestLex_SourceLocation_OneLine pins basic same-line column tracking.
+func TestLex_SourceLocation_OneLine(t *testing.T) {
+	l := NewLexer("abc def", "sl.rs2")
+	t1 := l.NextToken() // IDENTIFIER "abc"
+	if t1.Type != IDENTIFIER {
+		t.Fatalf("t1.Type = %s, want IDENTIFIER", t1.Type)
+	}
+	if t1.Source.Line != 1 || t1.Source.Column != 1 || t1.Source.EndLine != 1 || t1.Source.EndColumn != 3 {
+		t.Errorf("t1 src = (%d:%d-%d:%d), want (1:1-1:3)", t1.Source.Line, t1.Source.Column, t1.Source.EndLine, t1.Source.EndColumn)
+	}
+	_ = l.NextToken() // WHITESPACE
+	t3 := l.NextToken() // IDENTIFIER "def"
+	if t3.Source.Line != 1 || t3.Source.Column != 5 || t3.Source.EndColumn != 7 {
+		t.Errorf("t3 src = (%d:%d-?:%d), want (1:5-?:7)", t3.Source.Line, t3.Source.Column, t3.Source.EndColumn)
+	}
+}
+
+// TestLex_SourceLocation_NewlineCrLf pins \r\n line-counting.
+func TestLex_SourceLocation_NewlineCrLf(t *testing.T) {
+	l := NewLexer("a\r\nb", "crlf.rs2")
+	t1 := l.NextToken() // IDENT a
+	if t1.Source.Line != 1 || t1.Source.Column != 1 {
+		t.Errorf("t1 = (%d:%d), want (1:1)", t1.Source.Line, t1.Source.Column)
+	}
+	_ = l.NextToken() // WS \r\n
+	t3 := l.NextToken() // IDENT b
+	if t3.Source.Line != 2 || t3.Source.Column != 1 {
+		t.Errorf("t3 = (%d:%d), want (2:1)", t3.Source.Line, t3.Source.Column)
+	}
+}
+
+// TestLex_SourceLocation_NewlineCr pins bare \r line-counting.
+func TestLex_SourceLocation_NewlineCr(t *testing.T) {
+	l := NewLexer("a\rb", "cr.rs2")
+	_ = l.NextToken() // IDENT a
+	_ = l.NextToken() // WS \r
+	t3 := l.NextToken() // IDENT b
+	if t3.Source.Line != 2 || t3.Source.Column != 1 {
+		t.Errorf("t3 = (%d:%d), want (2:1)", t3.Source.Line, t3.Source.Column)
+	}
+}
+
+// TestLex_SourceLocation_BlockComment_EndPosition pins that a
+// multi-line BLOCK_COMMENT reports endLine/endColumn correctly.
+// NOTE: plan-author traced advance/lineColAt arithmetic to pre-correct
+// the expected values: BC end=(2:4), IDENT 'c' col=5. The original plan
+// pre-correction was (2:5) and col=6; corrected by the plan-author note.
+func TestLex_SourceLocation_BlockComment_EndPosition(t *testing.T) {
+	l := NewLexer("/* a\nb */c", "bce.rs2")
+	t1 := l.NextToken() // BLOCK_COMMENT
+	if t1.Type != BLOCK_COMMENT {
+		t.Fatalf("t1.Type = %s, want BLOCK_COMMENT", t1.Type)
+	}
+	if t1.Source.Line != 1 || t1.Source.Column != 1 {
+		t.Errorf("BC start = (%d:%d), want (1:1)", t1.Source.Line, t1.Source.Column)
+	}
+	if t1.Source.EndLine != 2 || t1.Source.EndColumn != 4 {
+		t.Errorf("BC end = (%d:%d), want (2:4)", t1.Source.EndLine, t1.Source.EndColumn)
+	}
+	t2 := l.NextToken() // IDENT c
+	if t2.Source.Line != 2 || t2.Source.Column != 5 {
+		t.Errorf("IDENT 'c' = (%d:%d), want (2:5)", t2.Source.Line, t2.Source.Column)
+	}
+}
