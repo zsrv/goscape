@@ -1,7 +1,9 @@
 package script
 
 import (
+	"os"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -171,6 +173,71 @@ func TestScriptOpcodePointers_SpotChecks(t *testing.T) {
 		}
 		if !reflect.DeepEqual(got, c.want) {
 			t.Errorf("%s:\n got = %+v\nwant = %+v", c.desc, got, c.want)
+		}
+	}
+}
+
+// TestScriptOpcodePointers_KeysAreBoundedOpcodes pins spec §7.9: every
+// ScriptOpcodePointers key is in the valid Opcode range — i.e. ≤ the
+// max Op* constant defined in pkg/script/opcode.go. Enumerating all
+// Op* constants in this test would be brittle; the weaker bound
+// (≤ OpTimeSpent, the highest goscape constant at HEAD `2755389`)
+// catches typo cases that would assign a wildly-out-of-range value.
+//
+// If pkg/script/opcode.go adds a new Op* constant with value >
+// OpTimeSpent, update this constant.
+func TestScriptOpcodePointers_KeysAreBoundedOpcodes(t *testing.T) {
+	const maxOp = OpTimeSpent // 10003 at HEAD 2755389
+	for op := range ScriptOpcodePointers {
+		if op > maxOp {
+			t.Errorf("ScriptOpcodePointers[op=%d]: exceeds known max Op* = %d", op, maxOp)
+		}
+	}
+}
+
+// TestScriptOpcodePointers_CorruptExceptActiveCallSites pins deviation
+// NAI-201-D-POINTERS-SPREAD-HELPER. Spec §7.10 asserts BOTH:
+//
+//	(a) the helper is called exactly 4 times in opcode_pointers.go
+//	    (matching TS simple-spread sites at lines 286, 301, 314, 370),
+//	(b) the 2 extended-spread entries (NPC_DELAY, NPC_ARRIVEDELAY)
+//	    contain the expected 14-element Corrupt slice via literal
+//	    expansion.
+//
+// If a future entry adds another spread site, the count check fails
+// and the author updates after re-grepping TS.
+func TestScriptOpcodePointers_CorruptExceptActiveCallSites(t *testing.T) {
+	// (a) Helper call-site count. The function declaration line is
+	// "func corruptExceptActive(" — exclude it via the leading
+	// "Corrupt:" prefix.
+	src, err := os.ReadFile("opcode_pointers.go")
+	if err != nil {
+		t.Fatalf("read opcode_pointers.go: %v", err)
+	}
+	const wantHelperCalls = 4
+	got := 0
+	for _, line := range strings.Split(string(src), "\n") {
+		trim := strings.TrimSpace(line)
+		if strings.HasPrefix(trim, "Corrupt: corruptExceptActive(") || strings.HasPrefix(trim, "Corrupt:corruptExceptActive(") {
+			got++
+		}
+	}
+	if got != wantHelperCalls {
+		t.Errorf("Corrupt: corruptExceptActive(...) call-site count: got %d, want %d (re-verify TS POINTER_GROUP_FIND simple-spread sites)", got, wantHelperCalls)
+	}
+
+	// (b) Extended-spread entries: NPC_DELAY and NPC_ARRIVEDELAY share
+	// the same 14-element Corrupt slice shape. Pin the exact contents.
+	wantExtendedCorrupt := []string{
+		"p_active_player", "p_active_player2",
+		"find_player", "find_npc", "find_loc", "find_obj", "find_db",
+		"last_com", "last_int", "last_item", "last_slot",
+		"last_targetslot", "last_useitem", "last_useslot",
+	}
+	for _, op := range []Opcode{OpNpcDelay, OpNpcArriveDelay} {
+		entry := ScriptOpcodePointers[op]
+		if !reflect.DeepEqual(entry.Corrupt, wantExtendedCorrupt) {
+			t.Errorf("Op=%d extended-spread Corrupt: got %v, want %v", op, entry.Corrupt, wantExtendedCorrupt)
 		}
 	}
 }
