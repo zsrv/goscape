@@ -265,14 +265,28 @@ func (p *Parser) parseSwitchCase() *ast.SwitchCase {
 		}
 		stmts = append(stmts, st)
 	}
-	endTok := p.ts.LT(1)
+	// Span end: prefer the last consumed sub-node (TS uses ctx.stop —
+	// the last token within the SwitchCase rule body). Fall back to the
+	// lookahead for empty default cases where no statements/keys were
+	// consumed.
+	var endLine, endCol int
+	if len(stmts) > 0 {
+		last := stmts[len(stmts)-1].Source()
+		endLine, endCol = last.EndLine, last.EndColumn
+	} else if len(keys) > 0 {
+		last := keys[len(keys)-1].Source()
+		endLine, endCol = last.EndLine, last.EndColumn
+	} else {
+		endTok := p.ts.LT(1)
+		endLine, endCol = endTok.Source.EndLine, endTok.Source.EndColumn
+	}
 	return &ast.SwitchCase{
 		SrcLoc: lexer.NodeSourceLocation{
 			Name:      startTok.Source.Name,
 			Line:      startTok.Source.Line,
 			Column:    startTok.Source.Column,
-			EndLine:   endTok.Source.EndLine,
-			EndColumn: endTok.Source.EndColumn,
+			EndLine:   endLine,
+			EndColumn: endCol,
 		},
 		Keys:       keys,
 		Statements: stmts,

@@ -247,3 +247,30 @@ func TestParseAssignmentStatement_GameVarLhs(t *testing.T) {
 		t.Fatalf("Vars[0] = %T, want *GameVariableExpression", as.Vars[0])
 	}
 }
+
+// TestParseExpression_StringWithTagOnlyIsJoined pins the spec §8 rule:
+// a string containing a tag (but no interpolation) collapses to
+// JoinedStringExpression, not StringLiteral.
+func TestParseExpression_StringWithTagOnlyIsJoined(t *testing.T) {
+	e := parseSingleExprStmt(t, `"<br>"`)
+	if _, ok := e.(*ast.JoinedStringExpression); !ok {
+		t.Fatalf("expr = %T, want *JoinedStringExpression for tag-only string", e)
+	}
+}
+
+// TestParseExpression_StringWithPTagIsJoinedWithPTagPart pins parser-
+// level handling of STRING_P_TAG: the `<p,name>` tag must produce a
+// PTagStringPart inside a JoinedStringExpression.
+func TestParseExpression_StringWithPTagIsJoinedWithPTagPart(t *testing.T) {
+	e := parseSingleExprStmt(t, `"<p,head>text"`)
+	js, ok := e.(*ast.JoinedStringExpression)
+	if !ok {
+		t.Fatalf("expr = %T, want *JoinedStringExpression", e)
+	}
+	if len(js.Parts) == 0 {
+		t.Fatal("Parts is empty")
+	}
+	if _, ok := js.Parts[0].(*ast.PTagStringPart); !ok {
+		t.Fatalf("Parts[0] = %T, want *PTagStringPart", js.Parts[0])
+	}
+}

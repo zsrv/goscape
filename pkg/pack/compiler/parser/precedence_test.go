@@ -171,3 +171,22 @@ func TestParseExpression_ClientScriptStandaloneNotApplicable(t *testing.T) {
 	stmts, _ := parseSingleScript(t, "mes(\"hi\");")
 	_ = stmts
 }
+
+// TestParseCalcExpression_SpanCoversMultiLine pins the spec §8 rule:
+// spanOfNodes must extend EndLine past the start Line for a binary
+// expression whose operands are on different lines.
+func TestParseCalcExpression_SpanCoversMultiLine(t *testing.T) {
+	src := "[proc,t]\ncalc(1\n+\n2);"
+	p, cl := newTestParserCollecting(t, src)
+	sf := p.ParseScriptFile()
+	if sf == nil {
+		t.Fatalf("ParseScriptFile() = nil; errors: %+v", cl.Errors)
+	}
+	es := sf.Scripts[0].Statements[0].(*ast.ExpressionStatement)
+	ce := es.Expression.(*ast.CalcExpression)
+	ae := ce.Expression.(*ast.ArithmeticExpression)
+	if ae.Source().EndLine <= ae.Source().Line {
+		t.Errorf("span does not span multiple lines: Line=%d EndLine=%d",
+			ae.Source().Line, ae.Source().EndLine)
+	}
+}
