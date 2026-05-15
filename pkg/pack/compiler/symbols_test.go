@@ -504,6 +504,195 @@ func writeConstantFile(t *testing.T, dir, rel, content string) {
 	}
 }
 
+// TestBuildSymbolsCore_AllCategoriesPresent pins §5.8: the returned map
+// has exactly 32 keys covering the TS symbols dict at Compiler.ts:330-365.
+func TestBuildSymbolsCore_AllCategoriesPresent(t *testing.T) {
+	dir := t.TempDir()
+	// Seed a few .pack files so Load returns non-nil TypeInfo; absent ones
+	// also return non-nil (Load is silent-on-missing).
+	writePackFile(t, dir, "npc.pack", "0=goblin\n")
+	writePackFile(t, dir, "obj.pack", "0=bronze_sword\n")
+
+	loaders := emptyConfigLoaders()
+
+	symbols, err := buildSymbolsCore(dir, loaders)
+	if err != nil {
+		t.Fatalf("buildSymbolsCore: %v", err)
+	}
+
+	wantKeys := []string{
+		"command", "constant", "npc", "obj", "inv", "writeinv", "seq",
+		"idk", "spotanim", "loc", "component", "interface",
+		"overlayinterface", "varp", "varn", "vars", "param", "struct",
+		"enum", "hunt", "mesanim", "synth", "category", "runescript",
+		"dbtable", "dbcolumn", "dbrow", "stat", "npc_stat", "npc_mode",
+		"fontmetrics", "locshape",
+	}
+	if got, want := len(symbols), len(wantKeys); got != want {
+		t.Errorf("len(symbols) = %d, want %d", got, want)
+	}
+	for _, k := range wantKeys {
+		if _, ok := symbols[k]; !ok {
+			t.Errorf("symbols[%q]: missing", k)
+		}
+		if symbols[k] == nil {
+			t.Errorf("symbols[%q]: nil *TypeInfo (every category must be non-nil)", k)
+		}
+	}
+}
+
+// TestBuildSymbolsCore_StaticArraysPopulated pins the LoadArray inputs
+// (fontmetrics, locshape) against TS Compiler.ts:303-328.
+func TestBuildSymbolsCore_StaticArraysPopulated(t *testing.T) {
+	dir := t.TempDir()
+	loaders := emptyConfigLoaders()
+	symbols, err := buildSymbolsCore(dir, loaders)
+	if err != nil {
+		t.Fatalf("buildSymbolsCore: %v", err)
+	}
+
+	// fontmetrics — 4 entries.
+	fm := symbols["fontmetrics"]
+	wantFm := []string{"p11", "p12", "b12", "q8"}
+	if got, want := len(fm.Map), len(wantFm); got != want {
+		t.Errorf("len(fontmetrics.Map) = %d, want %d", got, want)
+	}
+	for i, name := range wantFm {
+		if got := fm.Map[i]; got != name {
+			t.Errorf("fontmetrics.Map[%d] = %q, want %q", i, got, name)
+		}
+	}
+
+	// locshape — 23 entries.
+	ls := symbols["locshape"]
+	if got, want := len(ls.Map), 23; got != want {
+		t.Errorf("len(locshape.Map) = %d, want %d", got, want)
+	}
+	if got, want := ls.Map[0], "wall_straight"; got != want {
+		t.Errorf("locshape.Map[0] = %q, want %q", got, want)
+	}
+	if got, want := ls.Map[22], "grounddecor"; got != want {
+		t.Errorf("locshape.Map[22] = %q, want %q (final entry)", got, want)
+	}
+}
+
+// TestBuildSymbolsCore_MetaMaps pins TS Compiler.ts:300-302 — the three
+// LoadMap(valueAsKey=true) outputs (stat, npc_stat, npc_mode).
+func TestBuildSymbolsCore_MetaMaps(t *testing.T) {
+	dir := t.TempDir()
+	loaders := emptyConfigLoaders()
+	symbols, err := buildSymbolsCore(dir, loaders)
+	if err != nil {
+		t.Fatalf("buildSymbolsCore: %v", err)
+	}
+
+	// stat: PlayerStatMap with valueAsKey=true → NameMap["0"] = "attack" etc.
+	stat := symbols["stat"]
+	if got, want := stat.NameMap["0"], "attack"; got != want {
+		t.Errorf("stat.NameMap[\"0\"] = %q, want %q", got, want)
+	}
+
+	// npc_stat: NpcStatMap with valueAsKey=true → NameMap["0"] = "attack" etc.
+	npcStat := symbols["npc_stat"]
+	if got, want := npcStat.NameMap["0"], "attack"; got != want {
+		t.Errorf("npc_stat.NameMap[\"0\"] = %q, want %q", got, want)
+	}
+
+	// npc_mode: NpcModeMap with valueAsKey=true → NameMap["-1"] = "null" etc.
+	npcMode := symbols["npc_mode"]
+	if got, want := npcMode.NameMap["-1"], "null"; got != want {
+		t.Errorf("npc_mode.NameMap[\"-1\"] = %q, want %q", got, want)
+	}
+}
+
+// TestBuildSymbolsCore_ConstantsLoaded pins TS Compiler.ts:152-174 ->
+// LoadRecords flow.
+func TestBuildSymbolsCore_ConstantsLoaded(t *testing.T) {
+	dir := t.TempDir()
+	writeConstantFile(t, dir, "a.constant", "^FOO=bar\nBAZ=\"quoted\"\n")
+
+	loaders := emptyConfigLoaders()
+	symbols, err := buildSymbolsCore(dir, loaders)
+	if err != nil {
+		t.Fatalf("buildSymbolsCore: %v", err)
+	}
+
+	c := symbols["constant"]
+	if got, want := c.NameMap["FOO"], "bar"; got != want {
+		t.Errorf("constant.NameMap[FOO] = %q, want %q", got, want)
+	}
+	if got, want := c.NameMap["BAZ"], "quoted"; got != want {
+		t.Errorf("constant.NameMap[BAZ] = %q, want %q (quote-stripped)", got, want)
+	}
+}
+
+// TestBuildSymbolsCore_PackFilesConsumed pins TS Compiler.ts:177-200 — each
+// of the 22 .pack files lands as the named TypeInfo.
+func TestBuildSymbolsCore_PackFilesConsumed(t *testing.T) {
+	dir := t.TempDir()
+	writePackFile(t, dir, "inv.pack", "5=secret_stash\n")
+	writePackFile(t, dir, "script.pack", "99=some_script\n")
+
+	loaders := emptyConfigLoaders()
+	symbols, err := buildSymbolsCore(dir, loaders)
+	if err != nil {
+		t.Fatalf("buildSymbolsCore: %v", err)
+	}
+
+	if got, want := symbols["inv"].Map[5], "secret_stash"; got != want {
+		t.Errorf("inv.Map[5] = %q, want %q", got, want)
+	}
+	// script.pack → "runescript" symbol key.
+	if got, want := symbols["runescript"].Map[99], "some_script"; got != want {
+		t.Errorf("runescript.Map[99] = %q, want %q (script.pack → \"runescript\" key)", got, want)
+	}
+}
+
+// TestBuildSymbolsCore_CommandPopulated pins the commandInfo step at
+// integration level (T5 covers the unit-level behaviour).
+func TestBuildSymbolsCore_CommandPopulated(t *testing.T) {
+	dir := t.TempDir()
+	loaders := emptyConfigLoaders()
+	symbols, err := buildSymbolsCore(dir, loaders)
+	if err != nil {
+		t.Fatalf("buildSymbolsCore: %v", err)
+	}
+
+	cmd := symbols["command"]
+	if got, want := len(cmd.Map), len(script.ScriptOpcodeMap); got != want {
+		t.Errorf("len(command.Map) = %d, want %d", got, want)
+	}
+}
+
+// emptyConfigLoaders returns a *configLoaders with every field set to an
+// empty (but non-nil) Configs slice — exercises the
+// inclusive-<=Max-with-presence-guard pattern for the case where no
+// entity-type data is available.
+func emptyConfigLoaders() *configLoaders {
+	return &configLoaders{
+		inv:     &objtype.InvTypeConfigs{Configs: []*objtype.InvType{}},
+		comp:    &objtype.ComponentTypeConfigs{Configs: []*objtype.ComponentType{}},
+		varp:    &objtype.VarpTypeConfigs{Configs: []*objtype.VarPlayerType{}},
+		varn:    &objtype.VarnTypeConfigs{Configs: []*objtype.VarNpcType{}},
+		varsCfg: &objtype.VarsTypeConfigs{Configs: []*objtype.VarSharedType{}},
+		param:   &objtype.ParamTypeConfigs{Configs: []*objtype.ParamType{}},
+		dbtable: &objtype.DbTableTypeConfigs{Configs: []*objtype.DbTableType{}},
+	}
+}
+
+// writePackFile writes content to <dir>/pack/<name> creating the pack/
+// subdir.
+func writePackFile(t *testing.T, dir, name, content string) {
+	t.Helper()
+	packDir := filepath.Join(dir, "pack")
+	if err := os.MkdirAll(packDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(packDir, name), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // TestPopulateDbColumns_SingleTypeColumn pins TS Compiler.ts:285-287 for
 // a 1-type column: one primary entry, no tuple entries, Max unchanged.
 func TestPopulateDbColumns_SingleTypeColumn(t *testing.T) {

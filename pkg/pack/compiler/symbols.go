@@ -379,6 +379,209 @@ func enrichParamInfo(info *TypeInfo, configs *objtype.ParamTypeConfigs) {
 	}
 }
 
+// configLoaders bundles the entity-type configurations consumed by the
+// enrichment passes. Unexported — internal seam for testability so
+// buildSymbolsCore can be exercised with synthetic in-memory configs
+// instead of binary .dat/.idx fixtures.
+type configLoaders struct {
+	inv     *objtype.InvTypeConfigs
+	comp    *objtype.ComponentTypeConfigs
+	varp    *objtype.VarpTypeConfigs
+	varn    *objtype.VarnTypeConfigs
+	varsCfg *objtype.VarsTypeConfigs
+	param   *objtype.ParamTypeConfigs
+	dbtable *objtype.DbTableTypeConfigs
+}
+
+// loadConfigs reads the 7 entity-type configurations from dataPackDir.
+// Mirrors the cluster of TS .load() calls at Compiler.ts:203, 214, 234,
+// 245, 255, 265, 275.
+func loadConfigs(dataPackDir string) (*configLoaders, error) {
+	inv, err := objtype.LoadInvTypes(dataPackDir)
+	if err != nil {
+		return nil, fmt.Errorf("LoadInvTypes: %w", err)
+	}
+	comp, err := objtype.LoadComponentTypes(dataPackDir)
+	if err != nil {
+		return nil, fmt.Errorf("LoadComponentTypes: %w", err)
+	}
+	varp, err := objtype.LoadVarpTypes(dataPackDir)
+	if err != nil {
+		return nil, fmt.Errorf("LoadVarpTypes: %w", err)
+	}
+	varn, err := objtype.LoadVarnTypes(dataPackDir)
+	if err != nil {
+		return nil, fmt.Errorf("LoadVarnTypes: %w", err)
+	}
+	varsCfg, err := objtype.LoadVarsTypes(dataPackDir)
+	if err != nil {
+		return nil, fmt.Errorf("LoadVarsTypes: %w", err)
+	}
+	param, err := objtype.LoadParamTypes(dataPackDir)
+	if err != nil {
+		return nil, fmt.Errorf("LoadParamTypes: %w", err)
+	}
+	dbtable, err := objtype.LoadDbTableTypes(dataPackDir)
+	if err != nil {
+		return nil, fmt.Errorf("LoadDbTableTypes: %w", err)
+	}
+	return &configLoaders{
+		inv: inv, comp: comp, varp: varp, varn: varn,
+		varsCfg: varsCfg, param: param, dbtable: dbtable,
+	}, nil
+}
+
+// BuildSymbols ports TS runServerCompiler (Compiler.ts:109-329) up to —
+// but not including — the final CompileServerScript({symbols}) call,
+// which is deferred to NAI-203+.
+//
+// srcDir: path containing scripts/ and pack/ subdirs.
+// dataPackDir: path containing client/ and server/ subdirs with cache
+// .dat/.idx for InvType, Component, VarP, VarN, VarS, Param, DbTableType.
+//
+// Returns the 32-key symbol-category dict the bytecode compiler's
+// typechecker consumes. Categories match TS Compiler.ts:330-365 exactly.
+func BuildSymbols(srcDir, dataPackDir string) (map[string]*TypeInfo, error) {
+	loaders, err := loadConfigs(dataPackDir)
+	if err != nil {
+		return nil, fmt.Errorf("BuildSymbols: %w", err)
+	}
+	return buildSymbolsCore(srcDir, loaders)
+}
+
+// buildSymbolsCore is the testable seam under BuildSymbols. Takes
+// pre-loaded *configLoaders so unit tests can construct synthetic
+// configs without writing binary cache fixtures.
+func buildSymbolsCore(srcDir string, loaders *configLoaders) (map[string]*TypeInfo, error) {
+	packDir := filepath.Join(srcDir, "pack")
+	scriptsDir := filepath.Join(srcDir, "scripts")
+
+	// 1. commandInfo from ScriptOpcodeMap + ScriptOpcodePointers.
+	commandInfo := newTypeInfo()
+	populateCommandInfo(commandInfo)
+
+	// 2. constantInfo from <srcDir>/scripts/**/*.constant.
+	constants, err := loadCompilerConstants(scriptsDir)
+	if err != nil {
+		return nil, fmt.Errorf("BuildSymbols: constants: %w", err)
+	}
+	constantInfo := LoadRecords(constants, false)
+
+	// 3. 22 .pack file Loads.
+	var loadErr error
+	loadOrFail := func(packType string) *TypeInfo {
+		p := filepath.Join(packDir, packType+".pack")
+		info, lerr := Load(p)
+		if lerr != nil && loadErr == nil {
+			loadErr = fmt.Errorf("Load(%s): %w", packType, lerr)
+		}
+		return info
+	}
+	npcInfo := loadOrFail("npc")
+	objInfo := loadOrFail("obj")
+	invInfo := loadOrFail("inv")
+	seqInfo := loadOrFail("seq")
+	idkInfo := loadOrFail("idk")
+	spotanimInfo := loadOrFail("spotanim")
+	locInfo := loadOrFail("loc")
+	componentInfo := loadOrFail("interface")
+	interfaceInfo := newTypeInfo() // synthesized below
+	overlayInfo := newTypeInfo()   // synthesized below
+	varpInfo := loadOrFail("varp")
+	varnInfo := loadOrFail("varn")
+	varsInfo := loadOrFail("vars")
+	paramInfo := loadOrFail("param")
+	structInfo := loadOrFail("struct")
+	enumInfo := loadOrFail("enum")
+	huntInfo := loadOrFail("hunt")
+	mesanimInfo := loadOrFail("mesanim")
+	synthInfo := loadOrFail("synth")
+	categoryInfo := loadOrFail("category")
+	runescriptInfo := loadOrFail("script") // script.pack → "runescript" symbol key
+	dbtableInfo := loadOrFail("dbtable")
+	dbcolumnInfo := newTypeInfo() // synthesized below
+	dbrowInfo := loadOrFail("dbrow")
+	// TS Compiler.ts:204 re-loads inv.pack for writeinv (separate
+	// TypeInfo with its own .Protect map enriched below).
+	writeinvInfo := loadOrFail("inv")
+	if loadErr != nil {
+		return nil, fmt.Errorf("BuildSymbols: %w", loadErr)
+	}
+
+	// 4. writeinv (InvType.Protect).
+	enrichWriteinvInfo(writeinvInfo, loaders.inv)
+
+	// 5. interface / overlayinterface (Component.ComName + Component.Overlay).
+	populateInterfaceOverlay(componentInfo, interfaceInfo, overlayInfo, loaders.comp)
+
+	// 6. varp/varn/vars/param vartype + protect enrichments.
+	enrichVarpInfo(varpInfo, loaders.varp)
+	enrichVarnInfo(varnInfo, loaders.varn)
+	enrichVarsInfo(varsInfo, loaders.varsCfg)
+	enrichParamInfo(paramInfo, loaders.param)
+
+	// 7. dbcolumn synth.
+	populateDbColumns(dbcolumnInfo, loaders.dbtable)
+
+	// 8. stat / npc_stat / npc_mode via LoadMap valueAsKey=true.
+	statInfo := LoadMap(objtype.PlayerStatMap, true)
+	npcStatInfo := LoadMap(objtype.NpcStatMap, true)
+	npcModeInfo := LoadMap(objtype.NpcModeMap, true)
+
+	// 9. fontmetrics / locshape (static LoadArray).
+	fontmetricsInfo := LoadArray([]string{"p11", "p12", "b12", "q8"})
+	locshapeInfo := LoadArray([]string{
+		"wall_straight", "wall_diagonalcorner", "wall_l", "wall_squarecorner",
+		"walldecor_straight_nooffset", "walldecor_straight_offset",
+		"walldecor_diagonal_offset", "walldecor_diagonal_nooffset",
+		"walldecor_diagonal_both", "wall_diagonal",
+		"centrepiece_straight", "centrepiece_diagonal",
+		"roof_straight", "roof_diagonal_with_roofedge", "roof_diagonal",
+		"roof_l_concave", "roof_l_convex", "roof_flat",
+		"roofedge_straight", "roofedge_diagonalcorner", "roofedge_l",
+		"roofedge_squarecorner",
+		"grounddecor",
+	})
+
+	// 10. Assemble the 32-key dict, mirroring TS Compiler.ts:330-365 order.
+	symbols := map[string]*TypeInfo{
+		"command":          commandInfo,
+		"constant":         constantInfo,
+		"npc":              npcInfo,
+		"obj":              objInfo,
+		"inv":              invInfo,
+		"writeinv":         writeinvInfo,
+		"seq":              seqInfo,
+		"idk":              idkInfo,
+		"spotanim":         spotanimInfo,
+		"loc":              locInfo,
+		"component":        componentInfo,
+		"interface":        interfaceInfo,
+		"overlayinterface": overlayInfo,
+		"varp":             varpInfo,
+		"varn":             varnInfo,
+		"vars":             varsInfo,
+		"param":            paramInfo,
+		"struct":           structInfo,
+		"enum":             enumInfo,
+		"hunt":             huntInfo,
+		"mesanim":          mesanimInfo,
+		"synth":            synthInfo,
+		"category":         categoryInfo,
+		"runescript":       runescriptInfo,
+		"dbtable":          dbtableInfo,
+		"dbcolumn":         dbcolumnInfo,
+		"dbrow":            dbrowInfo,
+		"stat":             statInfo,
+		"npc_stat":         npcStatInfo,
+		"npc_mode":         npcModeInfo,
+		"fontmetrics":      fontmetricsInfo,
+		"locshape":         locshapeInfo,
+	}
+
+	return symbols, nil
+}
+
 // populateInterfaceOverlay derives the `interface` and `overlayinterface`
 // TypeInfos from componentInfo (loaded from interface.pack) enriched
 // with Component.ComName / Component.Overlay from the cache loader.
