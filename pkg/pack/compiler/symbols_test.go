@@ -503,3 +503,169 @@ func writeConstantFile(t *testing.T, dir, rel, content string) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 }
+
+// TestPopulateDbColumns_SingleTypeColumn pins TS Compiler.ts:285-287 for
+// a 1-type column: one primary entry, no tuple entries, Max unchanged.
+func TestPopulateDbColumns_SingleTypeColumn(t *testing.T) {
+	tables := &objtype.DbTableTypeConfigs{
+		Configs: []*objtype.DbTableType{
+			{
+				ConfigType:  objtype.ConfigType{ID: 1, DebugName: "tbl1"},
+				ColumnNames: []string{"col0"},
+				Types:       [][]objtype.ScriptVarType{{objtype.ScriptVarTypeInt}},
+			},
+		},
+	}
+
+	info := newTypeInfo()
+	populateDbColumns(info, tables)
+
+	primaryID := (1 << 12) | (0 << 4) // = 4096
+	if got, want := info.Map[primaryID], "tbl1:col0"; got != want {
+		t.Errorf("Map[%d] = %q, want %q", primaryID, got, want)
+	}
+	if got, want := info.VarType[primaryID], "int"; got != want {
+		t.Errorf("VarType[%d] = %q, want %q", primaryID, got, want)
+	}
+	if info.Max != -1 {
+		t.Errorf("Max = %d, want -1 (updateMax=false)", info.Max)
+	}
+	// No tuple entries.
+	for id := range info.Map {
+		if id != primaryID {
+			t.Errorf("unexpected Map entry at %d: %q (single-type column should produce no tuples)", id, info.Map[id])
+		}
+	}
+}
+
+// TestPopulateDbColumns_MultiTypeColumn pins TS Compiler.ts:289-294 for a
+// 2-type column: primary entry with comma-joined vartypes + 2 tuple
+// entries with single vartype each.
+func TestPopulateDbColumns_MultiTypeColumn(t *testing.T) {
+	tables := &objtype.DbTableTypeConfigs{
+		Configs: []*objtype.DbTableType{
+			{
+				ConfigType:  objtype.ConfigType{ID: 1, DebugName: "tbl1"},
+				ColumnNames: []string{"col0"},
+				Types: [][]objtype.ScriptVarType{
+					{objtype.ScriptVarTypeInt, objtype.ScriptVarTypeObj},
+				},
+			},
+		},
+	}
+
+	info := newTypeInfo()
+	populateDbColumns(info, tables)
+
+	primary := (1 << 12) | (0 << 4) // 4096
+	tup1 := primary | 1             // 4097
+	tup2 := primary | 2             // 4098
+
+	if got, want := info.Map[primary], "tbl1:col0"; got != want {
+		t.Errorf("Map[primary=%d] = %q, want %q", primary, got, want)
+	}
+	if got, want := info.VarType[primary], "int,obj"; got != want {
+		t.Errorf("VarType[primary] = %q, want %q", got, want)
+	}
+	if got, want := info.Map[tup1], "tbl1:col0:0"; got != want {
+		t.Errorf("Map[tup1=%d] = %q, want %q", tup1, got, want)
+	}
+	if got, want := info.VarType[tup1], "int"; got != want {
+		t.Errorf("VarType[tup1] = %q, want %q", got, want)
+	}
+	if got, want := info.Map[tup2], "tbl1:col0:1"; got != want {
+		t.Errorf("Map[tup2=%d] = %q, want %q", tup2, got, want)
+	}
+	if got, want := info.VarType[tup2], "obj"; got != want {
+		t.Errorf("VarType[tup2] = %q, want %q", got, want)
+	}
+}
+
+// TestPopulateDbColumns_BitfieldEncoding pins the exact ID arithmetic for
+// non-trivial (table, column) values. table=2, column=5, types=[STRING]
+// → primary id = (2<<12) | (5<<4) = 8192 | 80 = 8272.
+func TestPopulateDbColumns_BitfieldEncoding(t *testing.T) {
+	tables := &objtype.DbTableTypeConfigs{
+		Configs: []*objtype.DbTableType{
+			nil, nil,
+			{
+				ConfigType:  objtype.ConfigType{ID: 2, DebugName: "tbl2"},
+				ColumnNames: []string{"a", "b", "c", "d", "e", "col5"},
+				Types: [][]objtype.ScriptVarType{
+					nil, nil, nil, nil, nil,
+					{objtype.ScriptVarTypeString},
+				},
+			},
+		},
+	}
+
+	info := newTypeInfo()
+	populateDbColumns(info, tables)
+
+	want := (2 << 12) | (5 << 4)
+	if want != 8272 {
+		t.Fatalf("want arithmetic wrong: (2<<12)|(5<<4) = %d, expected 8272", want)
+	}
+	if got, ok := info.Map[want]; !ok || got != "tbl2:col5" {
+		t.Errorf("Map[%d] = %q (present=%v), want \"tbl2:col5\"", want, got, ok)
+	}
+}
+
+// TestPopulateDbColumns_NilColumnTypes pins: a column whose Types[col]
+// is nil (no `code 1` block written) is skipped.
+func TestPopulateDbColumns_NilColumnTypes(t *testing.T) {
+	tables := &objtype.DbTableTypeConfigs{
+		Configs: []*objtype.DbTableType{
+			{
+				ConfigType:  objtype.ConfigType{ID: 1, DebugName: "tbl1"},
+				ColumnNames: []string{"present", "absent"},
+				Types: [][]objtype.ScriptVarType{
+					{objtype.ScriptVarTypeInt},
+					nil,
+				},
+			},
+		},
+	}
+
+	info := newTypeInfo()
+	populateDbColumns(info, tables)
+
+	presentID := (1 << 12) | (0 << 4)
+	if _, ok := info.Map[presentID]; !ok {
+		t.Errorf("Map[%d]: missing; want present (column 0 has types)", presentID)
+	}
+	absentID := (1 << 12) | (1 << 4)
+	if _, ok := info.Map[absentID]; ok {
+		t.Errorf("Map[%d]: present; want absent (column 1 has nil types)", absentID)
+	}
+}
+
+// TestPopulateDbColumns_SkipsNilTable pins: a nil entry in tables.Configs
+// is skipped (TS Compiler.ts:277 inclusive-loop with `Map[id]` guard;
+// goscape mirrors by guarding on Configs[id] != nil).
+func TestPopulateDbColumns_SkipsNilTable(t *testing.T) {
+	tables := &objtype.DbTableTypeConfigs{
+		Configs: []*objtype.DbTableType{
+			nil,
+			{
+				ConfigType:  objtype.ConfigType{ID: 1, DebugName: "tbl1"},
+				ColumnNames: []string{"col0"},
+				Types:       [][]objtype.ScriptVarType{{objtype.ScriptVarTypeInt}},
+			},
+		},
+	}
+
+	info := newTypeInfo()
+	populateDbColumns(info, tables)
+
+	// Table 0 is nil → no entries.
+	id0 := (0 << 12) | (0 << 4) // = 0
+	if _, ok := info.Map[id0]; ok {
+		t.Errorf("Map[0]: present; want absent (Configs[0] nil)")
+	}
+	// Table 1 → present.
+	id1 := (1 << 12) | (0 << 4)
+	if _, ok := info.Map[id1]; !ok {
+		t.Errorf("Map[%d]: missing; want present", id1)
+	}
+}

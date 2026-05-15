@@ -216,6 +216,58 @@ func scriptVarTypeName(t objtype.ScriptVarType) string {
 	}
 }
 
+// populateDbColumns synthesizes the dbcolumn TypeInfo from DbTableType
+// column metadata. Mirrors TS Compiler.ts:275-297.
+//
+// Bitfield-encoded column ids:
+//   - primary id  = (table.ID & 0xffff) << 12 | (column & 0x7f) << 4
+//   - tuple id    = primary | ((tuple + 1) & 0xf)     // only if len(types) > 1
+//
+// .Add is called with updateMax=false on all entries — dbcolumn.Max
+// stays at -1 (matching TS Compiler.ts:286,292 third arg).
+//
+// .VarType[primary] is the comma-joined list of all type names.
+// .VarType[tuple_n] is the single tuple type name.
+//
+// Skips: nil table entries; columns whose Types[col] is nil.
+func populateDbColumns(info *TypeInfo, tables *objtype.DbTableTypeConfigs) {
+	if tables == nil {
+		return
+	}
+	for _, table := range tables.Configs {
+		if table == nil {
+			continue
+		}
+		for column, types := range table.Types {
+			if types == nil {
+				continue
+			}
+			primary := int(((table.ID & 0xffff) << 12) | ((column & 0x7f) << 4))
+
+			typeNames := make([]string, len(types))
+			for i, t := range types {
+				typeNames[i] = scriptVarTypeName(t)
+			}
+			columnName := ""
+			if column < len(table.ColumnNames) {
+				columnName = table.ColumnNames[column]
+			}
+			primaryLabel := fmt.Sprintf("%s:%s", table.DebugName, columnName)
+			info.Add(primary, primaryLabel, false)
+			info.VarType[primary] = strings.Join(typeNames, ",")
+
+			if len(types) > 1 {
+				for tuple := range types {
+					tupleID := primary | ((tuple + 1) & 0xf)
+					tupleLabel := fmt.Sprintf("%s:%s:%d", table.DebugName, columnName, tuple)
+					info.Add(tupleID, tupleLabel, false)
+					info.VarType[tupleID] = typeNames[tuple]
+				}
+			}
+		}
+	}
+}
+
 // populateInterfaceOverlay derives the `interface` and `overlayinterface`
 // TypeInfos from componentInfo (loaded from interface.pack) enriched
 // with Component.ComName / Component.Overlay from the cache loader.
