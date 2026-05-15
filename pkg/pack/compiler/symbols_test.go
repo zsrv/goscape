@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 // TestLoadCompilerConstants_StripsLeadingCaret pins TS Compiler.ts:162-164:
@@ -143,6 +145,54 @@ func TestLoadCompilerConstants_EmptyScriptsDir(t *testing.T) {
 	}
 	if len(m) != 0 {
 		t.Errorf("len(m) = %d, want 0", len(m))
+	}
+}
+
+// TestScriptVarTypeName_KnownCodes pins the name returned for each
+// ScriptVarType constant, mirroring TS ScriptVarType.getType
+// (ScriptVarType.ts:85-170) and goscape's existing
+// objtype.ParamType.GetType() (paramtype.go:105).
+func TestScriptVarTypeName_KnownCodes(t *testing.T) {
+	cases := []struct {
+		t    objtype.ScriptVarType
+		want string
+	}{
+		{objtype.ScriptVarTypeInt, "int"},
+		{objtype.ScriptVarTypeString, "string"},
+		{objtype.ScriptVarTypeEnum, "enum"},
+		{objtype.ScriptVarTypeObj, "obj"},
+		{objtype.ScriptVarTypeLoc, "loc"},
+		{objtype.ScriptVarTypeComponent, "component"},
+		{objtype.ScriptVarTypeNamedObj, "namedobj"},
+		{objtype.ScriptVarTypeStruct, "struct"},
+		{objtype.ScriptVarTypeBoolean, "boolean"},
+		{objtype.ScriptVarTypeCoord, "coord"},
+		{objtype.ScriptVarTypeCategory, "category"},
+		{objtype.ScriptVarTypeSpotanim, "spotanim"},
+		{objtype.ScriptVarTypeNPC, "npc"},
+		{objtype.ScriptVarTypeInv, "inv"},
+		{objtype.ScriptVarTypeSynth, "synth"},
+		{objtype.ScriptVarTypeSeq, "seq"},
+		{objtype.ScriptVarTypeStat, "stat"},
+		{objtype.ScriptVarTypeInterface, "interface"},
+	}
+	for _, c := range cases {
+		if got := scriptVarTypeName(c.t); got != c.want {
+			t.Errorf("scriptVarTypeName(%d) = %q, want %q", c.t, got, c.want)
+		}
+	}
+}
+
+// TestScriptVarTypeName_UnknownCode pins the "unknown" return for type
+// codes not in the switch (matches ParamType.GetType()).
+// Note: constants use ASCII codepoints (e.g. 99='c'=coord, 105='i'=int);
+// values 0 and 1 are not assigned to any ScriptVarType constant.
+func TestScriptVarTypeName_UnknownCode(t *testing.T) {
+	if got := scriptVarTypeName(objtype.ScriptVarType(0)); got != "unknown" {
+		t.Errorf("scriptVarTypeName(0) = %q, want \"unknown\"", got)
+	}
+	if got := scriptVarTypeName(objtype.ScriptVarType(1)); got != "unknown" {
+		t.Errorf("scriptVarTypeName(1) = %q, want \"unknown\"", got)
 	}
 }
 

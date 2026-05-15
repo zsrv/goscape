@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 // loadCompilerConstants walks scriptsDir recursively for *.constant
@@ -90,4 +92,56 @@ func loadCompilerConstants(scriptsDir string) (map[string]string, error) {
 		return nil, err
 	}
 	return m, nil
+}
+
+// scriptVarTypeName returns the TS-style name for a ScriptVarType code.
+// Mirrors TS ScriptVarType.getType (ScriptVarType.ts:85-170). Unexported;
+// used internally by the varp/varn/vars enrichment passes (NAI-202).
+//
+// Why not method on each VarPlayerType/VarNpcType/VarSharedType:
+// goscape's existing objtype.ParamType.GetType() (paramtype.go:105) is
+// the only entity that has this method. Adding three more parallel
+// methods scatters identical switch statements across four files.
+// Centralizing here is the cheaper maintenance posture.
+func scriptVarTypeName(t objtype.ScriptVarType) string {
+	switch t {
+	case objtype.ScriptVarTypeInt:
+		return "int"
+	case objtype.ScriptVarTypeString:
+		return "string"
+	case objtype.ScriptVarTypeEnum:
+		return "enum"
+	case objtype.ScriptVarTypeObj:
+		return "obj"
+	case objtype.ScriptVarTypeLoc:
+		return "loc"
+	case objtype.ScriptVarTypeComponent:
+		return "component"
+	case objtype.ScriptVarTypeNamedObj:
+		return "namedobj"
+	case objtype.ScriptVarTypeStruct:
+		return "struct"
+	case objtype.ScriptVarTypeBoolean:
+		return "boolean"
+	case objtype.ScriptVarTypeCoord:
+		return "coord"
+	case objtype.ScriptVarTypeCategory:
+		return "category"
+	case objtype.ScriptVarTypeSpotanim:
+		return "spotanim"
+	case objtype.ScriptVarTypeNPC:
+		return "npc"
+	case objtype.ScriptVarTypeInv:
+		return "inv"
+	case objtype.ScriptVarTypeSynth:
+		return "synth"
+	case objtype.ScriptVarTypeSeq:
+		return "seq"
+	case objtype.ScriptVarTypeStat:
+		return "stat"
+	case objtype.ScriptVarTypeInterface:
+		return "interface"
+	default:
+		return "unknown"
+	}
 }
