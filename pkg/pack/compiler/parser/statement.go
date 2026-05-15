@@ -195,17 +195,157 @@ func (p *Parser) parseExpressionList() []ast.Expression {
 	return out
 }
 
-// --- T6 placeholders that T7/T8/T9 will replace ---
-
-// parseSwitchStatement is implemented by T7.
+// parseSwitchStatement parses `SWITCH_TYPE parenthesis LBRACE switchCase* RBRACE`.
+// Mirrors TS AstBuilder.visitSwitchStatement.
 func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
-	p.reportError(p.ts.LT(1), "switch parsing unimplemented in T6 (token: %s)", p.ts.LA(1))
-	return nil
+	startTok := p.ts.LT(1)
+	typeToken := p.consume() // SWITCH_TYPE
+	if _, ok := p.consumeIf(lexer.LPAREN); !ok {
+		p.reportError(p.ts.LT(1), "expected LPAREN after switch type but found %s", p.ts.LA(1))
+		return nil
+	}
+	cond := p.parseExpression()
+	if cond == nil {
+		return nil
+	}
+	if _, ok := p.consumeIf(lexer.RPAREN); !ok {
+		p.reportError(p.ts.LT(1), "expected RPAREN after switch condition but found %s", p.ts.LA(1))
+		return nil
+	}
+	if _, ok := p.consumeIf(lexer.LBRACE); !ok {
+		p.reportError(p.ts.LT(1), "expected LBRACE to open switch body but found %s", p.ts.LA(1))
+		return nil
+	}
+	cases := []*ast.SwitchCase{}
+	for p.ts.LA(1) == lexer.CASE {
+		c := p.parseSwitchCase()
+		if c == nil {
+			return nil
+		}
+		cases = append(cases, c)
+	}
+	closeTok, ok := p.consumeIf(lexer.RBRACE)
+	if !ok {
+		p.reportError(p.ts.LT(1), "expected RBRACE to close switch body but found %s", p.ts.LA(1))
+		return nil
+	}
+	return &ast.SwitchStatement{
+		SrcLoc:    spanOf(startTok, &closeTok),
+		TypeToken: &ast.Token{SrcLoc: typeToken.Source, Text: typeToken.Text},
+		Condition: cond,
+		Cases:     cases,
+	}
 }
 
-// parseDeclOrArrayDecl is implemented by T7.
+// parseSwitchCase parses `CASE (DEFAULT | expressionList) COLON statement*`.
+// Mirrors TS AstBuilder.visitSwitchCase. DEFAULT keyword → empty Keys
+// slice (parity with TS SwitchCase.isDefault: keys.length === 0).
+func (p *Parser) parseSwitchCase() *ast.SwitchCase {
+	startTok := p.ts.LT(1)
+	p.ts.Consume() // CASE
+	var keys []ast.Expression
+	if _, ok := p.consumeIf(lexer.DEFAULT); ok {
+		keys = []ast.Expression{}
+	} else {
+		keys = p.parseExpressionList()
+		if keys == nil {
+			return nil
+		}
+	}
+	if _, ok := p.consumeIf(lexer.COLON); !ok {
+		p.reportError(p.ts.LT(1), "expected COLON after case keys but found %s", p.ts.LA(1))
+		return nil
+	}
+	stmts := []ast.Statement{}
+	for p.ts.LA(1) != lexer.CASE && p.ts.LA(1) != lexer.RBRACE && p.ts.LA(1) != lexer.EOF {
+		st := p.parseStatement()
+		if st == nil {
+			p.syncToStatement()
+			continue
+		}
+		stmts = append(stmts, st)
+	}
+	endTok := p.ts.LT(1)
+	return &ast.SwitchCase{
+		SrcLoc: lexer.NodeSourceLocation{
+			Name:      startTok.Source.Name,
+			Line:      startTok.Source.Line,
+			Column:    startTok.Source.Column,
+			EndLine:   endTok.Source.EndLine,
+			EndColumn: endTok.Source.EndColumn,
+		},
+		Keys:       keys,
+		Statements: stmts,
+	}
+}
+
+// parseDeclOrArrayDecl handles both:
+//
+//	declarationStatement      : DEF_TYPE DOLLAR advancedIdentifier (EQ expression)? SEMICOLON
+//	arrayDeclarationStatement : DEF_TYPE DOLLAR advancedIdentifier parenthesis SEMICOLON
+//
+// Dispatch happens after consuming `DEF_TYPE DOLLAR advancedIdentifier`:
+// LA(1) == LPAREN → array; LA(1) == EQ → decl-with-init; LA(1) == SEMICOLON → decl-no-init.
 func (p *Parser) parseDeclOrArrayDecl() ast.Statement {
-	p.reportError(p.ts.LT(1), "def_T parsing unimplemented in T6 (token: %s)", p.ts.LA(1))
+	startTok := p.ts.LT(1)
+	typeToken := p.consume() // DEF_TYPE
+	if _, ok := p.consumeIf(lexer.DOLLAR); !ok {
+		p.reportError(p.ts.LT(1), "expected DOLLAR after type %q but found %s", typeToken.Text, p.ts.LA(1))
+		return nil
+	}
+	name := p.parseAdvancedIdentifier()
+	if name == nil {
+		return nil
+	}
+	switch p.ts.LA(1) {
+	case lexer.LPAREN:
+		p.ts.Consume() // LPAREN
+		size := p.parseExpression()
+		if size == nil {
+			return nil
+		}
+		if _, ok := p.consumeIf(lexer.RPAREN); !ok {
+			p.reportError(p.ts.LT(1), "expected RPAREN after array size but found %s", p.ts.LA(1))
+			return nil
+		}
+		semiTok, ok := p.consumeIf(lexer.SEMICOLON)
+		if !ok {
+			p.reportError(p.ts.LT(1), "expected SEMICOLON after array declaration but found %s", p.ts.LA(1))
+			return nil
+		}
+		return &ast.ArrayDeclarationStatement{
+			SrcLoc:      spanOf(startTok, &semiTok),
+			TypeToken:   &ast.Token{SrcLoc: typeToken.Source, Text: typeToken.Text},
+			Name:        name,
+			Initializer: size,
+		}
+	case lexer.EQ:
+		p.ts.Consume() // EQ
+		init := p.parseExpression()
+		if init == nil {
+			return nil
+		}
+		semiTok, ok := p.consumeIf(lexer.SEMICOLON)
+		if !ok {
+			p.reportError(p.ts.LT(1), "expected SEMICOLON after declaration initializer but found %s", p.ts.LA(1))
+			return nil
+		}
+		return &ast.DeclarationStatement{
+			SrcLoc:      spanOf(startTok, &semiTok),
+			TypeToken:   &ast.Token{SrcLoc: typeToken.Source, Text: typeToken.Text},
+			Name:        name,
+			Initializer: init,
+		}
+	case lexer.SEMICOLON:
+		semiTok := p.consume()
+		return &ast.DeclarationStatement{
+			SrcLoc:      spanOf(startTok, &semiTok),
+			TypeToken:   &ast.Token{SrcLoc: typeToken.Source, Text: typeToken.Text},
+			Name:        name,
+			Initializer: nil,
+		}
+	}
+	p.reportError(p.ts.LT(1), "expected LPAREN/EQ/SEMICOLON after declaration name but found %s", p.ts.LA(1))
 	return nil
 }
 

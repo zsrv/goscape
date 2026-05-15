@@ -132,3 +132,92 @@ func TestParseWhileStatement(t *testing.T) {
 		t.Fatalf("ThenStatement = %T, want *EmptyStatement", ws.ThenStatement)
 	}
 }
+
+func TestParseSwitchStatement_SingleCase(t *testing.T) {
+	stmts, _ := parseSingleScript(t, "switch_int (1) { case 1 : return; }")
+	s, ok := stmts[0].(*ast.SwitchStatement)
+	if !ok {
+		t.Fatalf("stmts[0] = %T, want *SwitchStatement", stmts[0])
+	}
+	if s.TypeToken.Text != "switch_int" {
+		t.Errorf("TypeToken.Text = %q, want %q", s.TypeToken.Text, "switch_int")
+	}
+	if got, want := len(s.Cases), 1; got != want {
+		t.Fatalf("len(Cases) = %d, want %d", got, want)
+	}
+	if got, want := len(s.Cases[0].Keys), 1; got != want {
+		t.Fatalf("len(Cases[0].Keys) = %d, want %d", got, want)
+	}
+	if s.Cases[0].IsDefault() {
+		t.Fatal("Cases[0] should not be default")
+	}
+}
+
+func TestParseSwitchStatement_DefaultCase(t *testing.T) {
+	stmts, _ := parseSingleScript(t, "switch_int (1) { case default : return; }")
+	s := stmts[0].(*ast.SwitchStatement)
+	if !s.Cases[0].IsDefault() {
+		t.Fatal("Cases[0] should be default (empty Keys)")
+	}
+	if got, want := len(s.Cases[0].Keys), 0; got != want {
+		t.Fatalf("len(Keys) = %d, want %d", got, want)
+	}
+}
+
+func TestParseSwitchStatement_MultiKeyCase(t *testing.T) {
+	stmts, _ := parseSingleScript(t, "switch_int (1) { case 1, 2, 3 : return; }")
+	s := stmts[0].(*ast.SwitchStatement)
+	if got, want := len(s.Cases[0].Keys), 3; got != want {
+		t.Fatalf("len(Keys) = %d, want %d", got, want)
+	}
+}
+
+func TestParseDeclarationStatement_NoInit(t *testing.T) {
+	stmts, _ := parseSingleScript(t, "def_int $var;")
+	d, ok := stmts[0].(*ast.DeclarationStatement)
+	if !ok {
+		t.Fatalf("stmts[0] = %T, want *DeclarationStatement", stmts[0])
+	}
+	if d.TypeToken.Text != "def_int" {
+		t.Errorf("TypeToken.Text = %q, want %q", d.TypeToken.Text, "def_int")
+	}
+	if d.Name.Text != "var" {
+		t.Errorf("Name.Text = %q, want %q", d.Name.Text, "var")
+	}
+	if d.Initializer != nil {
+		t.Errorf("Initializer = %+v, want nil", d.Initializer)
+	}
+}
+
+func TestParseDeclarationStatement_WithInit(t *testing.T) {
+	stmts, _ := parseSingleScript(t, "def_int $var = 0;")
+	d := stmts[0].(*ast.DeclarationStatement)
+	if d.Initializer == nil {
+		t.Fatal("Initializer = nil, want non-nil")
+	}
+	lit, ok := d.Initializer.(*ast.IntegerLiteral)
+	if !ok {
+		t.Fatalf("Initializer type = %T, want *IntegerLiteral", d.Initializer)
+	}
+	if lit.Value != 0 {
+		t.Errorf("Value = %d, want 0", lit.Value)
+	}
+}
+
+func TestParseArrayDeclarationStatement(t *testing.T) {
+	stmts, _ := parseSingleScript(t, "def_int $ints(50);")
+	a, ok := stmts[0].(*ast.ArrayDeclarationStatement)
+	if !ok {
+		t.Fatalf("stmts[0] = %T, want *ArrayDeclarationStatement", stmts[0])
+	}
+	if a.Name.Text != "ints" {
+		t.Errorf("Name.Text = %q, want %q", a.Name.Text, "ints")
+	}
+	lit, ok := a.Initializer.(*ast.IntegerLiteral)
+	if !ok {
+		t.Fatalf("Initializer = %T, want *IntegerLiteral", a.Initializer)
+	}
+	if lit.Value != 50 {
+		t.Errorf("Initializer value = %d, want 50", lit.Value)
+	}
+}
