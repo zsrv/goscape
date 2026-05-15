@@ -75,12 +75,20 @@ func (m *TypeManager) RegisterNew(name, code string, base BaseVarType, defaultVa
 }
 
 // ChangeOptions mutates the options of a previously-registered Type via the
-// builder fn. Errors if name is unknown. Mirrors TS changeOptions L77-82.
+// builder fn. Errors if name is unknown OR the registered Type isn't a
+// *PrimitiveType (only PrimitiveType has mutable options in the current
+// type system; ArrayType/GameVarType/MetaType/TupleType all return
+// computed/derived options).
 //
-// Note: only types stored as *PrimitiveType (created via RegisterNew or
-// constructed locally) carry mutable options. Singletons (PrimitiveInt
-// etc.) have package-level options. ChangeOptions therefore mutates the
-// stored TypeOptions struct directly via pointer.
+// CAUTION: if t was registered by passing a package-level singleton pointer
+// (e.g. RegisterByRepresentation(PrimitiveInt)), this mutates the singleton
+// globally — every other TypeManager + every consumer that reads
+// PrimitiveInt.options() across the process sees the mutation. Only call
+// ChangeOptions on Types created via RegisterNew (which always allocates
+// a fresh *PrimitiveType).
+//
+// Mirrors TS changeOptions L77-82 (which has the same hazard — TS callers
+// rely on the convention that registry-owned types are local instances).
 func (m *TypeManager) ChangeOptions(name string, build TypeBuilder) error {
 	t, ok := m.nameToType[name]
 	if !ok {

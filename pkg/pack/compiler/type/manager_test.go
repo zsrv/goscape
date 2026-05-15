@@ -138,3 +138,32 @@ func TestTypeManager_Check_EmptyChain(t *testing.T) {
 		t.Fatal("Check on empty checker chain: true, want false")
 	}
 }
+
+func TestTypeManager_RegisterAll_HappyPath(t *testing.T) {
+	m := NewTypeManager()
+	types := []Type{PrimitiveInt, PrimitiveBoolean}
+	if err := m.RegisterAll(types); err != nil {
+		t.Fatalf("RegisterAll: %v", err)
+	}
+	got, err := m.Find("int", false)
+	if err != nil || got != PrimitiveInt {
+		t.Fatalf("Find int after RegisterAll: got=%v err=%v", got, err)
+	}
+	if got, _ := m.Find("boolean", false); got != PrimitiveBoolean {
+		t.Fatalf("Find boolean after RegisterAll: got %v", got)
+	}
+}
+
+func TestTypeManager_RegisterAll_StopsOnFirstDuplicate(t *testing.T) {
+	m := NewTypeManager()
+	if err := m.Register("int", PrimitiveInt); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.RegisterAll([]Type{PrimitiveBoolean, PrimitiveInt}); err == nil {
+		t.Fatal("RegisterAll with duplicate: nil error, want collision error")
+	}
+	// Boolean WAS registered (before the int collision short-circuited).
+	if _, err := m.Find("boolean", false); err != nil {
+		t.Fatalf("Boolean should be registered before int collision: %v", err)
+	}
+}
