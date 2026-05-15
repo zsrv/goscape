@@ -12,7 +12,7 @@ package semantics
 //   - getSafeType / checkTypeMatch / checkTypeMatchAny.
 //   - flattenTuple (thin wrapper over typ.TupleToList).
 //   - typeHintExpressionList.
-//   - isConstantExpression stub (T9 wires the real impl).
+//   - isConstantExpression + isConstantSymbol (T9).
 //   - lowerASCII helper.
 //
 // NAI-206-D-WALKER-OWNS-CONTEXT: walker carries currentScript /
@@ -28,10 +28,6 @@ package semantics
 // that don't register these triggers don't panic. T14 (call infra) must guard
 // against nil before consulting commandTrigger/procTrigger.
 //
-// NAI-206-D-CONSTEXPR-STUB-T9: isConstantExpression returns false here
-// (conservative — treats every expression as non-constant). T9 wires the full
-// constant-detection logic.
-
 import (
 	"github.com/zsrv/goscape/pkg/pack/compiler/ast"
 	"github.com/zsrv/goscape/pkg/pack/compiler/diagnostics"
@@ -212,7 +208,12 @@ func (tc *TypeChecker) Visit(n ast.Node) {
 		tc.visitWhileStatement(v)
 	case *ast.EmptyStatement:
 		tc.visitEmptyStatement(v)
-	// T9-T18 will insert additional cases here.
+	// T9 switch arms.
+	case *ast.SwitchStatement:
+		tc.visitSwitchStatement(v)
+	case *ast.SwitchCase:
+		tc.visitSwitchCase(v)
+	// T10-T18 will insert additional cases here.
 	default:
 		tc.visitNodeFallback(n)
 	}
@@ -341,14 +342,45 @@ func (tc *TypeChecker) typeHintExpressionList(expectedTypes []typ.Type, expressi
 	return actualTypes
 }
 
-// isConstantExpression returns whether e is a constant expression.
-// Stub for NAI-206 T7 — T9 wires the full impl. Default conservative
-// answer is false (treats every expression as non-constant).
+// isConstantExpression mirrors TS isConstantExpression (L347-374) at HEAD
+// b8c338801fbb72d294ff9576a58925a8d3f6de47. Returns true for literals
+// (Integer/Coord/Boolean/Character/Null), constant variable expressions,
+// and identifiers resolving to a Basic or Constant symbol.
 //
-// NAI-206-D-CONSTEXPR-STUB-T9: Constant-expression analysis lives in T9.
-// Returning false here is conservative (treats every expression as
-// non-constant).
-func (tc *TypeChecker) isConstantExpression(e ast.Expression) bool {
+// StringLiteral is constant only when its SubExpression is nil (a raw
+// quoted string) — when SubExpression is non-nil (a re-parsed clientscript
+// hint), it recurses on the SubExpression.
+func (tc *TypeChecker) isConstantExpression(expr ast.Expression) bool {
+	switch e := expr.(type) {
+	case *ast.ConstantVariableExpression:
+		return true
+	case *ast.StringLiteral:
+		if e.SubExpression == nil {
+			return true
+		}
+		return tc.isConstantExpression(e.SubExpression)
+	case *ast.IntegerLiteral, *ast.CoordLiteral, *ast.BooleanLiteral, *ast.CharacterLiteral, *ast.NullLiteral:
+		return true
+	case *ast.Identifier:
+		if e.Reference == nil {
+			return true
+		}
+		ref, ok := e.Reference.(symbol.Symbol)
+		if !ok {
+			return true
+		}
+		return tc.isConstantSymbol(ref)
+	}
+	return false
+}
+
+// isConstantSymbol mirrors TS isConstantSymbol (L376-378). BasicSymbol
+// and ConstantSymbol are constant; all other symbol types are not.
+func (tc *TypeChecker) isConstantSymbol(s symbol.Symbol) bool {
+	switch s.(type) {
+	case *symbol.BasicSymbol, *symbol.ConstantSymbol:
+		return true
+	}
 	return false
 }
 
