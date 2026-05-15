@@ -2,6 +2,7 @@
 package semantics
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/zsrv/goscape/pkg/pack/compiler/ast"
@@ -242,10 +243,207 @@ func typeRefAsType(t ast.TypeRef) typ.Type {
 	return t.(typ.Type)
 }
 
-// checkScriptSubject is the T11 stub.
+// checkScriptSubject validates that the script's subject (the name field
+// after the trigger) is allowed by the trigger's SubjectMode.
+// Mirrors TS L184-217.
 func (sr *ScriptRegistration) checkScriptSubject(t *trigger.TriggerType, script *ast.Script) {
-	_ = t
-	_ = script
+	if t == nil {
+		return
+	}
+	mode := t.SubjectMode
+	if mode == nil {
+		return
+	}
+
+	subject := script.Name.Text
+	if strings.Contains(subject, " ") {
+		_, isType := trigger.IsTypeMode(mode)
+		if !isType {
+			diagnostics.ReportErrorAt(sr.diagnostics, script.Name,
+				diagnostics.MessageScriptSubjectNoSpaces, t.Identifier)
+			return
+		}
+	}
+
+	// Name mode allows anything as the subject.
+	if mode == trigger.ModeName {
+		return
+	}
+
+	// Check for global subject.
+	if subject == "_" {
+		sr.checkGlobalScriptSubject(t, script)
+		return
+	}
+
+	// Check for category reference subject.
+	if strings.HasPrefix(subject, "_") {
+		sr.checkCategoryScriptSubject(t, script, subject[1:])
+		return
+	}
+
+	// Check for reference subject.
+	sr.checkTypeScriptSubject(t, script, subject)
+}
+
+// checkGlobalScriptSubject validates that `_` subjects are allowed for this
+// trigger's SubjectMode. Mirrors TS L222-239.
+func (sr *ScriptRegistration) checkGlobalScriptSubject(t *trigger.TriggerType, script *ast.Script) {
+	mode := t.SubjectMode
+	if mode == trigger.ModeNone {
+		return
+	}
+	if tm, ok := trigger.IsTypeMode(mode); ok {
+		if !tm.Global {
+			diagnostics.ReportErrorAt(sr.diagnostics, script.Name,
+				diagnostics.MessageScriptSubjectNoGlobal, t.Identifier)
+		}
+		return
+	}
+	// Unexpected mode: TS throws. Goscape silently no-ops since this state is
+	// unreachable given the sealed SubjectMode interface.
+}
+
+// checkCategoryScriptSubject validates `_FOO`-shaped subjects. Mirrors TS L244-268.
+func (sr *ScriptRegistration) checkCategoryScriptSubject(t *trigger.TriggerType, script *ast.Script, subject string) {
+	mode := t.SubjectMode
+	cat := sr.categoryType
+	if cat == nil {
+		// TS throws "'category' type not defined." Goscape mirrors as a panic
+		// since this is an impossible state when the type registry is correct.
+		panic("'category' type not defined.")
+	}
+	if mode == trigger.ModeNone {
+		diagnostics.ReportErrorAt(sr.diagnostics, script.Name,
+			diagnostics.MessageScriptSubjectOnlyGlobal, t.Identifier)
+		return
+	}
+	if tm, ok := trigger.IsTypeMode(mode); ok {
+		if !tm.Category {
+			diagnostics.ReportErrorAt(sr.diagnostics, script.Name,
+				diagnostics.MessageScriptSubjectNoCategory, t.Identifier)
+			return
+		}
+		sr.resolveSubjectSymbol(script, subject, cat)
+		return
+	}
+	// Unexpected mode: unreachable given sealed SubjectMode interface.
+}
+
+// checkTypeScriptSubject validates type-reference subjects (e.g. "obj_bowl").
+// Mirrors TS L273-290.
+func (sr *ScriptRegistration) checkTypeScriptSubject(t *trigger.TriggerType, script *ast.Script, subject string) {
+	mode := t.SubjectMode
+	if mode == trigger.ModeNone {
+		diagnostics.ReportErrorAt(sr.diagnostics, script.Name,
+			diagnostics.MessageScriptSubjectOnlyGlobal, t.Identifier)
+		return
+	}
+	if tm, ok := trigger.IsTypeMode(mode); ok {
+		sr.resolveSubjectSymbol(script, subject, tm.Type)
+		return
+	}
+	// Unexpected mode: unreachable given sealed SubjectMode interface.
+}
+
+// tryParseMapZone parses `level_mx_mz`. Returns the packed int32 (which may
+// be -1 on parse failure). Reports diagnostics via script.Name. Mirrors TS
+// L292-318.
+func (sr *ScriptRegistration) tryParseMapZone(script *ast.Script, coord string) int32 {
+	parts := strings.Split(coord, "_")
+	if len(parts) != 3 {
+		diagnostics.ReportErrorAt(sr.diagnostics, script.Name,
+			diagnostics.MessageMapzoneSubjectForm)
+		return -1
+	}
+	level, errA := strconv.Atoi(parts[0])
+	mx, errB := strconv.Atoi(parts[1])
+	mz, errC := strconv.Atoi(parts[2])
+	if errA != nil || errB != nil || errC != nil {
+		diagnostics.ReportErrorAt(sr.diagnostics, script.Name,
+			diagnostics.MessageMapzoneSubjectForm)
+		return -1
+	}
+	if mx < 0 || mx > 255 || mz < 0 || mz > 255 {
+		diagnostics.ReportErrorAt(sr.diagnostics, script.Name,
+			diagnostics.MessageMapzoneInvalidCoord)
+	}
+	if level != 0 {
+		diagnostics.ReportErrorAt(sr.diagnostics, script.Name,
+			diagnostics.MessageMapzoneOnlyLevelZero)
+		return -1
+	}
+	x := int32(mx) << 6
+	z := int32(mz) << 6
+	return (z & 0x3fff) | ((x & 0x3fff) << 14)
+}
+
+// tryParseZone parses `level_mx_mz_lx_lz`. Returns packed int32 (may be -1
+// on parse failure). Mirrors TS L320-348.
+func (sr *ScriptRegistration) tryParseZone(script *ast.Script, coord string) int32 {
+	parts := strings.Split(coord, "_")
+	if len(parts) != 5 {
+		diagnostics.ReportErrorAt(sr.diagnostics, script.Name,
+			diagnostics.MessageZoneSubjectForm)
+		return -1
+	}
+	level, errA := strconv.Atoi(parts[0])
+	mx, errB := strconv.Atoi(parts[1])
+	mz, errC := strconv.Atoi(parts[2])
+	lx, errD := strconv.Atoi(parts[3])
+	lz, errE := strconv.Atoi(parts[4])
+	if errA != nil || errB != nil || errC != nil || errD != nil || errE != nil {
+		diagnostics.ReportErrorAt(sr.diagnostics, script.Name,
+			diagnostics.MessageZoneSubjectForm)
+		return -1
+	}
+	if level < 0 || level > 3 || mx < 0 || mx > 255 || mz < 0 || mz > 255 ||
+		lx < 0 || lx > 63 || lz < 0 || lz > 63 {
+		diagnostics.ReportErrorAt(sr.diagnostics, script.Name,
+			diagnostics.MessageZoneInvalidCoord)
+	}
+	if lx%8 != 0 || lz%8 != 0 {
+		diagnostics.ReportErrorAt(sr.diagnostics, script.Name,
+			diagnostics.MessageZoneLocalCoordMultipleOf8)
+		return -1
+	}
+	x := (((int32(mx) << 6) | int32(lx)) >> 3) << 3
+	z := (((int32(mz) << 6) | int32(lz)) >> 3) << 3
+	return (z & 0x3fff) | ((x & 0x3fff) << 14) | ((int32(level) & 0x3) << 28)
+}
+
+// resolveSubjectSymbol finds the symbol-table entry for the subject + type.
+// Mirrors TS L353-378.
+func (sr *ScriptRegistration) resolveSubjectSymbol(script *ast.Script, subject string, t typ.Type) {
+	if t == typ.PrimitiveMapzone {
+		packed := sr.tryParseMapZone(script, subject)
+		script.SubjectReference = &symbol.BasicSymbol{
+			Name: strconv.Itoa(int(packed)),
+			Type: t,
+		}
+		return
+	}
+	if t == typ.PrimitiveCoord {
+		packed := sr.tryParseZone(script, subject)
+		script.SubjectReference = &symbol.BasicSymbol{
+			Name: strconv.Itoa(int(packed)),
+			Type: t,
+		}
+		return
+	}
+	found := sr.rootTable.Find(symbol.SymbolTypeBasic(t), subject)
+	if found == nil {
+		diagnostics.ReportErrorAt(sr.diagnostics, script.Name,
+			diagnostics.MessageGenericUnresolvedSymbol, subject)
+		return
+	}
+	bs, ok := found.(*symbol.BasicSymbol)
+	if !ok {
+		diagnostics.ReportErrorAt(sr.diagnostics, script.Name,
+			diagnostics.MessageGenericUnresolvedSymbol, subject)
+		return
+	}
+	script.SubjectReference = bs
 }
 
 // visitParameter is the T12 stub.
