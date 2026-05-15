@@ -1,7 +1,10 @@
 // pkg/pack/compiler/symbol/table.go
 package symbol
 
-import "strings"
+import (
+	"strings"
+	"unicode"
+)
 
 // SymbolTable is the goscape port of TS class SymbolTable.
 //
@@ -25,28 +28,42 @@ func (st *SymbolTable) CreateSubTable() *SymbolTable {
 	return NewSymbolTable(st)
 }
 
+// normalize applies the Basic-kind name normalisation rule used by Insert/Find.
+// Lowercases ASCII letters; collapses runs of Unicode-whitespace to a single
+// '_'. Non-Basic kinds pass through unchanged.
+//
+// NAI-205-D-NORMALIZE-UNICODE-SUBSET: TS uses `name.toLowerCase().replace(/\s+/g, '_')`.
+// The JS `\s` class covers 21 code points including U+FEFF (BOM). Goscape uses
+// unicode.IsSpace which covers 20 — same 6 ASCII whitespace chars TS handles plus
+// NEL (U+0085), NBSP (U+00A0), and all category Z separators (U+1680, U+2000-200A,
+// U+2028, U+2029, U+202F, U+205F, U+3000). The only TS-side whitespace goscape
+// doesn't cover is U+FEFF (zero-width no-break space / BOM), which is never present
+// in RuneScript symbol names in practice. Documented as a deviation rather than fixed
+// because adding a single-char carve-out for U+FEFF is more code than it's worth.
+//
+// `toLowerCase` is ASCII-only here (TS would also lowercase non-ASCII letters per
+// Unicode rules); RuneScript symbol names are ASCII-only in practice. The lowerASCII
+// helper in primitive.go documents the same simplification.
 func (st *SymbolTable) normalize(kind SymbolKind, name string) string {
 	if kind != SymbolKindBasic {
 		return name
 	}
-	// lowercase + collapse any run of whitespace to a single underscore.
 	var b strings.Builder
 	b.Grow(len(name))
 	prevSpace := false
 	for _, r := range name {
-		switch {
-		case r == ' ' || r == '\t' || r == '\n' || r == '\r' || r == '\v' || r == '\f':
+		if unicode.IsSpace(r) {
 			if !prevSpace {
 				b.WriteRune('_')
 			}
 			prevSpace = true
-		default:
-			prevSpace = false
-			if r >= 'A' && r <= 'Z' {
-				r += 'a' - 'A'
-			}
-			b.WriteRune(r)
+			continue
 		}
+		prevSpace = false
+		if r >= 'A' && r <= 'Z' {
+			r += 'a' - 'A'
+		}
+		b.WriteRune(r)
 	}
 	return b.String()
 }
@@ -89,6 +106,48 @@ func (st *SymbolTable) Find(t SymbolType, name string) Symbol {
 		}
 	}
 	return nil
+}
+
+// FindAll returns every Symbol matching name across all symbol-type kinds,
+// walking the parent chain. Mirrors TS SymbolTable.findAll (L65-71) which
+// collects from findAllIter without a kind filter.
+//
+// Name normalisation is applied per-kind via the same rules as Find — a Basic
+// "Wooden Bowl" symbol matches a "wooden_bowl" query; ServerScript names are
+// case-sensitive.
+//
+// The result slice is fresh; mutating it does not affect the table.
+func (st *SymbolTable) FindAll(name string) []Symbol {
+	var out []Symbol
+	st.findAllInto(name, &out)
+	return out
+}
+
+// findAllInto walks the parent chain accumulating into out.
+func (st *SymbolTable) findAllInto(name string, out *[]Symbol) {
+	for outerKey, inner := range st.symbols {
+		// Reverse-derive the kind from the outer key prefix to pick the right
+		// normalisation rule. Avoids constructing a SymbolType per-pair.
+		kind := keyToKind(outerKey)
+		nk := st.normalize(kind, name)
+		if s, ok := inner[nk]; ok {
+			*out = append(*out, s)
+		}
+	}
+	if st.parent != nil {
+		st.parent.findAllInto(name, out)
+	}
+}
+
+// keyToKind maps the Key() prefix back to a SymbolKind for the purpose of
+// driving normalize(). Only Basic vs non-Basic actually matters; the function
+// returns SymbolKindBasic for "basic:*" keys and any other kind otherwise.
+func keyToKind(outerKey string) SymbolKind {
+	if len(outerKey) >= 6 && outerKey[:6] == "basic:" {
+		return SymbolKindBasic
+	}
+	// Any non-Basic kind suffices; pick LocalVariable.
+	return SymbolKindLocalVariable
 }
 
 // AsSymbolTableRef satisfies ast.SymbolTableRef.

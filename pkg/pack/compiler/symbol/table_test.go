@@ -122,3 +122,41 @@ func TestSymbolTable_SatisfiesAstSymbolTableRef(t *testing.T) {
 type astSymbolTableRef interface {
 	AsSymbolTableRef()
 }
+
+func TestSymbolTable_FindAll_AcrossKinds(t *testing.T) {
+	tg := makeTriggerStub("proc")
+	st := NewSymbolTable(nil)
+	// Two symbols share name "foo" across different kinds.
+	st.Insert(SymbolTypeServerScript(tg), &ServerScriptSymbol{
+		ScriptSymbolFields: ScriptSymbolFields{Trigger: tg, Name: "foo"},
+	})
+	st.Insert(SymbolTypeLocalVariable(), &LocalVariableSymbol{Name: "foo"})
+
+	got := st.FindAll("foo")
+	if len(got) != 2 {
+		t.Fatalf("FindAll(\"foo\") len = %d, want 2", len(got))
+	}
+}
+
+func TestSymbolTable_FindAll_WalksParent(t *testing.T) {
+	tg := makeTriggerStub("proc")
+	root := NewSymbolTable(nil)
+	root.Insert(SymbolTypeServerScript(tg), &ServerScriptSymbol{
+		ScriptSymbolFields: ScriptSymbolFields{Trigger: tg, Name: "x"},
+	})
+	child := root.CreateSubTable()
+	child.Insert(SymbolTypeLocalVariable(), &LocalVariableSymbol{Name: "x"})
+
+	got := child.FindAll("x")
+	if len(got) != 2 {
+		t.Fatalf("child.FindAll(\"x\") len = %d, want 2 (one from child + one from parent)", len(got))
+	}
+}
+
+func TestSymbolTable_FindAll_Miss(t *testing.T) {
+	st := NewSymbolTable(nil)
+	got := st.FindAll("nope")
+	if len(got) != 0 {
+		t.Fatalf("FindAll miss len = %d, want 0", len(got))
+	}
+}
