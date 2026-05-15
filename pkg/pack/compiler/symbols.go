@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/script"
 )
 
 // loadCompilerConstants walks scriptsDir recursively for *.constant
@@ -92,6 +94,74 @@ func loadCompilerConstants(scriptsDir string) (map[string]string, error) {
 		return nil, err
 	}
 	return m, nil
+}
+
+// populateCommandInfo populates the command TypeInfo with one entry per
+// ScriptOpcodeMap key plus pointer-flag enrichments from
+// ScriptOpcodePointers. Wraps populateCommandInfoFrom with the package
+// globals; the seam exists so tests can pass synthetic data.
+func populateCommandInfo(info *TypeInfo) {
+	populateCommandInfoFrom(info, script.ScriptOpcodeMap, script.ScriptOpcodePointers)
+}
+
+// populateCommandInfoFrom is the testable seam under populateCommandInfo.
+// Mirrors TS Compiler.ts:110-150 (allCommands sort + commandInfo build).
+//
+// NAI-202-D-CORRUPT2-FIELD: TS Compiler.ts:146-147 has a typo — the
+// corrupt2 arm assigns to commandInfo.corrupt[opcode] (overwriting
+// commandInfo.corrupt[opcode] just-written one line above) instead of
+// commandInfo.corrupt2[opcode]. Goscape writes to info.Corrupt2[op].
+func populateCommandInfoFrom(
+	info *TypeInfo,
+	opmap map[string]script.Opcode,
+	pointers map[script.Opcode]script.Pointers,
+) {
+	type entry struct {
+		name   string
+		opcode script.Opcode
+	}
+	entries := make([]entry, 0, len(opmap))
+	for n, op := range opmap {
+		entries = append(entries, entry{n, op})
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].opcode < entries[j].opcode
+	})
+
+	for _, e := range entries {
+		op := int(e.opcode)
+		info.Add(op, strings.ToLower(e.name), true)
+
+		ptrs, hasPtrs := pointers[e.opcode]
+		if !hasPtrs {
+			continue
+		}
+
+		if len(ptrs.Require) > 0 {
+			info.Require[op] = strings.Join(ptrs.Require, ",")
+			if len(ptrs.Require2) > 0 {
+				info.Require2[op] = strings.Join(ptrs.Require2, ",")
+			}
+		}
+
+		if len(ptrs.Set) > 0 {
+			if ptrs.Conditional {
+				info.Conditional[op] = true
+			}
+			info.Set[op] = strings.Join(ptrs.Set, ",")
+			if len(ptrs.Set2) > 0 {
+				info.Set2[op] = strings.Join(ptrs.Set2, ",")
+			}
+		}
+
+		if len(ptrs.Corrupt) > 0 {
+			info.Corrupt[op] = strings.Join(ptrs.Corrupt, ",")
+			if len(ptrs.Corrupt2) > 0 {
+				// NAI-202-D-CORRUPT2-FIELD: write to Corrupt2, not Corrupt.
+				info.Corrupt2[op] = strings.Join(ptrs.Corrupt2, ",")
+			}
+		}
+	}
 }
 
 // scriptVarTypeName returns the TS-style name for a ScriptVarType code.
