@@ -196,8 +196,23 @@ func (tc *TypeChecker) Visit(n ast.Node) {
 	if n == nil {
 		return
 	}
-	switch n.(type) {
-	// T8-T18 will insert cases here.
+	switch v := n.(type) {
+	// T8 statement arms.
+	case *ast.ScriptFile:
+		tc.visitScriptFile(v)
+	case *ast.Script:
+		tc.visitScript(v)
+	case *ast.BlockStatement:
+		tc.visitBlockStatement(v)
+	case *ast.ReturnStatement:
+		tc.visitReturnStatement(v)
+	case *ast.IfStatement:
+		tc.visitIfStatement(v)
+	case *ast.WhileStatement:
+		tc.visitWhileStatement(v)
+	case *ast.EmptyStatement:
+		tc.visitEmptyStatement(v)
+	// T9-T18 will insert additional cases here.
 	default:
 		tc.visitNodeFallback(n)
 	}
