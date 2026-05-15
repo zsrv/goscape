@@ -40,6 +40,12 @@ type ScriptRegistration struct {
 	// Cached lookup for the `category` type, used for category-subject
 	// resolution. nil if the TypeManager has no 'category' type registered.
 	categoryType typ.Type
+
+	// activeScript is the Script currently being visited. Set at the start of
+	// visitScript and cleared at exit. Used by visitParameter to consult the
+	// enclosing script's TriggerType. TS uses findParentByType(Script);
+	// goscape uses this explicit side-channel.
+	activeScript *ast.Script
 }
 
 // NewScriptRegistration constructs a ScriptRegistration walker.
@@ -131,6 +137,9 @@ func (sr *ScriptRegistration) isDisabledTrigger(t *trigger.TriggerType) bool {
 
 // visitScript is the per-script walker. Mirrors TS ScriptRegistration.ts L107-182.
 func (sr *ScriptRegistration) visitScript(script *ast.Script) {
+	sr.activeScript = script
+	defer func() { sr.activeScript = nil }()
+
 	// L98-105: trigger lookup.
 	trig := sr.triggerManager.FindOrNil(script.Trigger.Text)
 	if trig == nil {
@@ -456,20 +465,100 @@ func (sr *ScriptRegistration) resolveSubjectSymbol(script *ast.Script, subject s
 	script.SubjectReference = bs
 }
 
-// visitParameter is the T12 stub.
+// visitParameter mirrors TS ScriptRegistration.ts L412-451.
 func (sr *ScriptRegistration) visitParameter(p *ast.Parameter) {
-	_ = p
+	name := p.Name.Text
+	typeText := p.TypeToken.Text
+	var ty typ.Type
+
+	// Find the enclosing Script. TS uses findParentByType; goscape stores
+	// the active script on sr.activeScript during visitScript.
+	script := sr.activeScript
+
+	// Helper: returns true iff the enclosing script's resolved trigger is
+	// the CommandTrigger singleton. False when script is nil OR trigger
+	// lookup failed (TriggerType is nil) OR concrete type isn't CommandTrigger.
+	enclosingIsCommand := func() bool {
+		if script == nil || script.TriggerType == nil {
+			return false
+		}
+		t, ok := script.TriggerType.(*trigger.TriggerType)
+		return ok && t == trigger.CommandTrigger
+	}
+
+	if sr.features.DisableProcs && !enclosingIsCommand() {
+		// TS L420-421: features.procs===false on non-command triggers => disabled.
+		diagnostics.ReportErrorAt(sr.diagnostics, p,
+			diagnostics.MessageFeatureDisabledLocal)
+		ty = typ.MetaError
+	} else if sr.isDisabledTypeName(typeText) {
+		diagnostics.ReportErrorAt(sr.diagnostics, p,
+			diagnostics.MessageFeatureDisabledType, typeText)
+		ty = typ.MetaError
+	} else {
+		ty = sr.typeManager.FindOrNil(typeText, true)
+		if ty != nil && ty != typ.MetaError {
+			// TS L426: non-command + non-AllowParameter type → error.
+			if !enclosingIsCommand() && !ty.Options().AllowParameter {
+				diagnostics.ReportErrorAt(sr.diagnostics, p.TypeToken,
+					diagnostics.MessageLocalParameterInvalidType, ty.Representation())
+			}
+		}
+	}
+
+	if ty == nil {
+		diagnostics.ReportErrorAt(sr.diagnostics, p,
+			diagnostics.MessageGenericInvalidType, typeText)
+	}
+
+	var symType typ.Type = ty
+	if symType == nil {
+		symType = typ.MetaError
+	}
+	sym := &symbol.LocalVariableSymbol{Name: name, Type: symType}
+	inserted := sr.activeTable().Insert(symbol.SymbolTypeLocalVariable(), sym)
+	if !inserted {
+		diagnostics.ReportErrorAt(sr.diagnostics, p,
+			diagnostics.MessageScriptLocalRedeclaration, name)
+	}
+
+	p.Symbol = sym
 }
 
-// checkScriptParameters is the T12 stub.
+// checkScriptParameters mirrors TS ScriptRegistration.ts L385-396.
 func (sr *ScriptRegistration) checkScriptParameters(t *trigger.TriggerType, script *ast.Script, params []*ast.Parameter) {
-	_ = t
-	_ = script
-	_ = params
+	if t == nil {
+		return
+	}
+	if !t.AllowParameters && len(params) > 0 {
+		diagnostics.ReportErrorAt(sr.diagnostics, params[0],
+			diagnostics.MessageScriptTriggerNoParameters, t.Identifier)
+		return
+	}
+	if t.Parameters != nil {
+		scriptParams := typeRefAsType(script.ParameterType)
+		if scriptParams != t.Parameters {
+			diagnostics.ReportErrorAt(sr.diagnostics, script,
+				diagnostics.MessageScriptTriggerExpectedParameters,
+				script.Trigger.Text, t.Parameters.Representation())
+		}
+	}
 }
 
-// checkScriptReturns is the T12 stub.
+// checkScriptReturns mirrors TS ScriptRegistration.ts L400-410.
 func (sr *ScriptRegistration) checkScriptReturns(t *trigger.TriggerType, script *ast.Script) {
-	_ = t
-	_ = script
+	if t == nil {
+		return
+	}
+	scriptReturns := typeRefAsType(script.ReturnType)
+	if !t.AllowReturns && scriptReturns != typ.MetaNothing {
+		diagnostics.ReportErrorAt(sr.diagnostics, script,
+			diagnostics.MessageScriptTriggerNoReturns, t.Identifier)
+		return
+	}
+	if t.Returns != nil && scriptReturns != t.Returns {
+		diagnostics.ReportErrorAt(sr.diagnostics, script,
+			diagnostics.MessageScriptTriggerExpectedReturns,
+			script.Trigger.Text, t.Returns.Representation())
+	}
 }
