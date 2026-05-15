@@ -187,3 +187,117 @@ func TestLex_SourceLocation_NewlineLf(t *testing.T) {
 			tok.Source.EndLine, tok.Source.EndColumn)
 	}
 }
+
+// TestLex_Symbols_SingleChar covers the 24 single-char symbol tokens.
+func TestLex_Symbols_SingleChar(t *testing.T) {
+	cases := []struct {
+		src  string
+		want TokenType
+	}{
+		{"(", LPAREN}, {")", RPAREN}, {":", COLON}, {";", SEMICOLON},
+		{",", COMMA}, {"[", LBRACK}, {"]", RBRACK}, {"{", LBRACE},
+		{"}", RBRACE}, {"*", MUL}, {"/", DIV}, {"%", MOD},
+		{"&", AND}, {"|", OR}, {"=", EQ}, {"!", EXCL},
+		{"$", DOLLAR}, {"^", CARET}, {"~", TILDE}, {"@", AT},
+		{">", GT}, {"<", LT},
+	}
+	// Plus the two that need leading-char-only context: + and -
+	// (handled separately when followed by id-class / digit).
+	cases = append(cases, struct {
+		src  string
+		want TokenType
+	}{"+", PLUS}, struct {
+		src  string
+		want TokenType
+	}{"-", MINUS})
+	for _, c := range cases {
+		l := NewLexer(c.src, "sym.rs2")
+		tok := l.NextToken()
+		if tok.Type != c.want {
+			t.Errorf("input %q: type = %s, want %s", c.src, tok.Type, c.want)
+		}
+		if tok.Text != c.src {
+			t.Errorf("input %q: text = %q", c.src, tok.Text)
+		}
+		if next := l.NextToken(); next.Type != EOF {
+			t.Errorf("input %q: token after symbol = %s, want EOF", c.src, next.Type)
+		}
+	}
+}
+
+// TestLex_Symbols_MultiChar pins GTE/LTE/DOTMOD longest-match.
+func TestLex_Symbols_MultiChar(t *testing.T) {
+	cases := []struct {
+		src  string
+		want TokenType
+	}{
+		{">=", GTE}, {"<=", LTE}, {".%", DOTMOD},
+	}
+	for _, c := range cases {
+		l := NewLexer(c.src, "mc.rs2")
+		tok := l.NextToken()
+		if tok.Type != c.want {
+			t.Errorf("input %q: type = %s, want %s", c.src, tok.Type, c.want)
+		}
+		if tok.Text != c.src {
+			t.Errorf("input %q: text = %q", c.src, tok.Text)
+		}
+	}
+}
+
+// TestLex_Symbols_GteVsGt pins that `>= ` is GTE, `> =` is GT + WS + EQ.
+func TestLex_Symbols_GteVsGt(t *testing.T) {
+	l1 := NewLexer(">=", "x.rs2")
+	if got := l1.NextToken().Type; got != GTE {
+		t.Errorf("'>=' = %s, want GTE", got)
+	}
+
+	l2 := NewLexer("> =", "x.rs2")
+	if got := l2.NextToken().Type; got != GT {
+		t.Errorf("'> =' first token = %s, want GT", got)
+	}
+	if got := l2.NextToken().Type; got != WHITESPACE {
+		t.Errorf("'> =' second token = %s, want WHITESPACE", got)
+	}
+	if got := l2.NextToken().Type; got != EQ {
+		t.Errorf("'> =' third token = %s, want EQ", got)
+	}
+}
+
+// TestLex_Symbols_GtSemanticAction_OutsideString pins that `>` outside
+// any string emits plain GT (not STRING_EXPR_END) and depth stays 0.
+func TestLex_Symbols_GtSemanticAction_OutsideString(t *testing.T) {
+	l := NewLexer(">", "x.rs2")
+	tok := l.NextToken()
+	if tok.Type != GT {
+		t.Errorf("type = %s, want GT", tok.Type)
+	}
+	if l.depth != 0 {
+		t.Errorf("depth = %d, want 0", l.depth)
+	}
+}
+
+// TestLex_CharLiteral pins CHAR_LITERAL: 'X' for one inner char,
+// with escape support for \\ and \'.
+func TestLex_CharLiteral(t *testing.T) {
+	cases := []struct {
+		src  string
+		want string
+	}{
+		{"'a'", "'a'"},
+		{`'\\'`, `'\\'`}, // \\ escape — backslash
+		{`'\''`, `'\''`}, // \' escape — single quote
+		{"'Z'", "'Z'"},
+		{"'5'", "'5'"},
+	}
+	for _, c := range cases {
+		l := NewLexer(c.src, "ch.rs2")
+		tok := l.NextToken()
+		if tok.Type != CHAR_LITERAL {
+			t.Errorf("input %q: type = %s, want CHAR_LITERAL", c.src, tok.Type)
+		}
+		if tok.Text != c.want {
+			t.Errorf("input %q: text = %q, want %q", c.src, tok.Text, c.want)
+		}
+	}
+}

@@ -36,9 +36,72 @@ func (lx *Lexer) nextDefault() Token {
 		}
 	}
 
-	// Subsequent tasks (T6+) replace this fallthrough with full
-	// DEFAULT-mode dispatch. Until then, advance one byte and return
-	// EOF so partial integration tests progress.
+	// CHAR_LITERAL (.g4:55)
+	if c == '\'' {
+		return lx.consumeCharLiteral()
+	}
+
+	// QUOTE_OPEN — String mode entry (.g4:73). T9 wires the body;
+	// for T6, just emit the token and push mode.
+	if c == '"' {
+		return lx.consumeQuoteOpen()
+	}
+
+	// Symbols with multi-char extensions (longest-match within family)
+	if c == '>' {
+		return lx.consumeGt()
+	}
+	if c == '<' {
+		return lx.consumeLt()
+	}
+	if c == '.' {
+		// .% (DOTMOD, line 21) or . (single-char IDENTIFIER — handled in T7).
+		if lx.pos+1 < len(lx.input) && lx.input[lx.pos+1] == '%' {
+			start := lx.pos
+			startLn, startCol := lx.line, lx.col
+			lx.advance(2)
+			return lx.makeToken(DOTMOD, start, lx.pos-1, ".%", startLn, startCol+1, lx.line, lx.col)
+		}
+		// fall through to identifier path in T7
+	}
+
+	// Single-char symbols (no id-class overlap)
+	if tt, ok := singleCharSymbol(c); ok {
+		start := lx.pos
+		startLn, startCol := lx.line, lx.col
+		lx.advance(1)
+		return lx.makeToken(tt, start, start, string(c), startLn, startCol+1, startLn, startCol+1)
+	}
+
+	// PLUS / MINUS — special-case because they're in identifier class
+	// AND have their own token. For T6: if standalone (no id-class
+	// follow), emit single-char. T7+ extends with id-path routing.
+	if c == '+' {
+		if lx.pos+1 < len(lx.input) && isIdentChar(lx.input[lx.pos+1]) {
+			// Fall through to identifier dispatch — T7 lands the code.
+		} else {
+			start := lx.pos
+			startLn, startCol := lx.line, lx.col
+			lx.advance(1)
+			return lx.makeToken(PLUS, start, start, "+", startLn, startCol+1, startLn, startCol+1)
+		}
+	}
+	if c == '-' {
+		// If followed by digit → INTEGER_LITERAL with leading `-` (T8).
+		// Otherwise MINUS.
+		if lx.pos+1 < len(lx.input) && isDigit(lx.input[lx.pos+1]) {
+			// Fall through to numeric dispatch — T8 lands the code.
+		} else {
+			start := lx.pos
+			startLn, startCol := lx.line, lx.col
+			lx.advance(1)
+			return lx.makeToken(MINUS, start, start, "-", startLn, startCol+1, startLn, startCol+1)
+		}
+	}
+
+	// T7/T8 add identifier + numeric dispatch here. For T6, anything
+	// unrecognized falls through to the bottom EOF emit (preserves
+	// type-check; replaced in T7+).
 	lx.advance(1)
 	return lx.makeToken(EOF, lx.pos, lx.pos-1, "", lx.line, lx.col+1, lx.line, lx.col+1)
 }
@@ -46,6 +109,145 @@ func (lx *Lexer) nextDefault() Token {
 // isWhitespace mirrors .g4 WHITESPACE charclass: [ \t\n\r].
 func isWhitespace(c byte) bool {
 	return c == ' ' || c == '\t' || c == '\n' || c == '\r'
+}
+
+// consumeQuoteOpen emits QUOTE_OPEN, increments depth, pushes
+// modeString. The String-mode body is wired in T9.
+func (lx *Lexer) consumeQuoteOpen() Token {
+	start := lx.pos
+	startLn, startCol := lx.line, lx.col
+	lx.advance(1)
+	lx.depth++
+	lx.pushMode(modeString)
+	return lx.makeToken(QUOTE_OPEN, start, start, `"`, startLn, startCol+1, startLn, startCol+1)
+}
+
+// consumeGt handles `>` — GTE if followed by `=`, otherwise GT. The
+// semantic action (.g4:31 — if depth>0, retype to STRING_EXPR_END and
+// popMode) is added in T10.
+func (lx *Lexer) consumeGt() Token {
+	start := lx.pos
+	startLn, startCol := lx.line, lx.col
+	if lx.pos+1 < len(lx.input) && lx.input[lx.pos+1] == '=' {
+		lx.advance(2)
+		return lx.makeToken(GTE, start, start+1, ">=", startLn, startCol+1, startLn, startCol+2)
+	}
+	lx.advance(1)
+	// T10 inserts the depth>0 retype here.
+	return lx.makeToken(GT, start, start, ">", startLn, startCol+1, startLn, startCol+1)
+}
+
+// consumeLt handles `<` — LTE if followed by `=`, otherwise LT. In
+// DEFAULT mode the bare `<` is NOT STRING_EXPR_START (that lives in
+// String mode only).
+func (lx *Lexer) consumeLt() Token {
+	start := lx.pos
+	startLn, startCol := lx.line, lx.col
+	if lx.pos+1 < len(lx.input) && lx.input[lx.pos+1] == '=' {
+		lx.advance(2)
+		return lx.makeToken(LTE, start, start+1, "<=", startLn, startCol+1, startLn, startCol+2)
+	}
+	lx.advance(1)
+	return lx.makeToken(LT, start, start, "<", startLn, startCol+1, startLn, startCol+1)
+}
+
+// singleCharSymbol maps an unambiguous single-byte symbol char to its
+// TokenType. Returns ok=false for chars that belong to multi-char
+// families (>, <, ., +, -) or to other dispatch paths.
+func singleCharSymbol(c byte) (TokenType, bool) {
+	switch c {
+	case '(':
+		return LPAREN, true
+	case ')':
+		return RPAREN, true
+	case ':':
+		return COLON, true
+	case ';':
+		return SEMICOLON, true
+	case ',':
+		return COMMA, true
+	case '[':
+		return LBRACK, true
+	case ']':
+		return RBRACK, true
+	case '{':
+		return LBRACE, true
+	case '}':
+		return RBRACE, true
+	case '*':
+		return MUL, true
+	case '/':
+		return DIV, true
+	case '%':
+		return MOD, true
+	case '&':
+		return AND, true
+	case '|':
+		return OR, true
+	case '=':
+		return EQ, true
+	case '!':
+		return EXCL, true
+	case '$':
+		return DOLLAR, true
+	case '^':
+		return CARET, true
+	case '~':
+		return TILDE, true
+	case '@':
+		return AT, true
+	}
+	return 0, false
+}
+
+// consumeCharLiteral handles `'X'` where X is either a single non-
+// special char or one of the CharEscapeSequence escapes (\\ or \').
+// On unterminated, returns CHAR_LITERAL with partial text — error
+// recovery + listener fire are wired in T11 (NAI-203-D-LEXER-ERROR-
+// RECOVERY).
+func (lx *Lexer) consumeCharLiteral() Token {
+	start := lx.pos
+	startLn, startCol := lx.line, lx.col
+	// Consume opening `'`
+	lx.advance(1)
+	if lx.pos >= len(lx.input) {
+		// Unterminated — T11 wires reportError.
+		return lx.makeToken(CHAR_LITERAL, start, lx.pos-1, lx.input[start:lx.pos], startLn, startCol+1, lx.line, lx.col)
+	}
+	// One inner char: either `\\` `\'` (escape) or any byte that isn't
+	// `'` `\\` `\r` `\n` (.g4 CharEscapeSequence + ~['\\\r\n]).
+	c := lx.input[lx.pos]
+	if c == '\\' && lx.pos+1 < len(lx.input) {
+		next := lx.input[lx.pos+1]
+		if next == '\\' || next == '\'' {
+			lx.advance(2)
+		} else {
+			// Invalid escape — consume what we can; T11 wires error.
+			lx.advance(1)
+		}
+	} else if c != '\'' && c != '\r' && c != '\n' {
+		lx.advance(1)
+	}
+	// Expect closing `'`
+	if lx.pos < len(lx.input) && lx.input[lx.pos] == '\'' {
+		lx.advance(1)
+	}
+	stop := lx.pos - 1
+	endLn, endCol := lx.lineColAt(stop)
+	return lx.makeToken(CHAR_LITERAL, start, stop, lx.input[start:lx.pos], startLn, startCol+1, endLn, endCol+1)
+}
+
+// isDigit mirrors .g4 fragment Digit: [0-9].
+func isDigit(c byte) bool {
+	return c >= '0' && c <= '9'
+}
+
+// isIdentChar mirrors .g4 IDENTIFIER charclass: [a-zA-Z0-9_+.:].
+func isIdentChar(c byte) bool {
+	return (c >= 'a' && c <= 'z') ||
+		(c >= 'A' && c <= 'Z') ||
+		(c >= '0' && c <= '9') ||
+		c == '_' || c == '+' || c == '.' || c == ':'
 }
 
 // consumeWhitespace consumes [ \t\n\r]+ from pos and emits one
