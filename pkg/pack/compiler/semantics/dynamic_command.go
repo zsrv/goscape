@@ -1,0 +1,340 @@
+// pkg/pack/compiler/semantics/dynamic_command.go
+package semantics
+
+// DynamicCommandHandler and TypeCheckingContext — port of TS
+// DynamicCommandHandler.ts + TypeCheckingContext.ts.
+//
+// NAI-206-D-DYNCOMMAND-EMPTY: no concrete handlers are registered here;
+// the follow-up handler cohort (enum/struct_param/db_*) wires them in a
+// separate NAI.
+//
+// NAI-206-D-DYNCOMMAND-NO-CODEGEN: generateCode side deferred to NAI-207.
+// DynamicCommandHandler exposes only TypeCheck for now.
+//
+// The type-switch helpers setTypeHint / getType / setType / asType cover all
+// 19 concrete Expression types that embed ExpressionBase. They are the
+// cross-cutting plumbing the walker arms (T8-T18) use to read/write the
+// ExpressionBase mixin fields (Type and TypeHint) without per-arm boilerplate,
+// since the fields are embedded in the concrete structs (not accessible via the
+// Expression interface).
+
+import (
+	"github.com/zsrv/goscape/pkg/pack/compiler/ast"
+	"github.com/zsrv/goscape/pkg/pack/compiler/diagnostics"
+	typ "github.com/zsrv/goscape/pkg/pack/compiler/type"
+)
+
+// DynamicCommandHandler allows complex commands to do custom type checking.
+// Implementations must set expression.Type in TypeCheck. Mirrors TS interface
+// DynamicCommandHandler (DynamicCommandHandler.ts).
+//
+// generateCode is deferred to NAI-207 (NAI-206-D-DYNCOMMAND-NO-CODEGEN).
+type DynamicCommandHandler interface {
+	// TypeCheck performs type-checking for the dynamic command call. The
+	// expression will be a *CommandCallExpression or *Identifier. The
+	// implementation MUST set the expression's Type field via
+	// ctx.SetType/ctx.CheckArgument or equivalent.
+	TypeCheck(ctx *TypeCheckingContext)
+}
+
+// TypeCheckingContext carries the context of a TypeChecker visit for use by
+// DynamicCommandHandler implementations. Mirrors TS class TypeCheckingContext
+// (TypeCheckingContext.ts).
+type TypeCheckingContext struct {
+	// typeChecker is the owning TypeChecker; used for visitNodeOrNull, etc.
+	typeChecker *TypeChecker
+
+	// TypeManager is the global type registry. Exported for handler use.
+	TypeManager *typ.TypeManager
+
+	// expression is the AST node being checked (CommandCallExpression or Identifier).
+	expression ast.Expression
+
+	// Diagnostics is the shared diagnostic collector. Exported for handler use.
+	Diagnostics *diagnostics.Diagnostics
+}
+
+// newTypeCheckingContext constructs a TypeCheckingContext. Used by the walker
+// arms (T14-T18) when dispatching to a DynamicCommandHandler.
+func newTypeCheckingContext(
+	tc *TypeChecker,
+	tm *typ.TypeManager,
+	expr ast.Expression,
+	d *diagnostics.Diagnostics,
+) *TypeCheckingContext {
+	return &TypeCheckingContext{
+		typeChecker: tc,
+		TypeManager: tm,
+		expression:  expr,
+		Diagnostics: d,
+	}
+}
+
+// Arguments returns the argument list if expression is a CallExpressionNode,
+// otherwise returns nil. Mirrors TS get arguments() in TypeCheckingContext.
+func (ctx *TypeCheckingContext) Arguments() []ast.Expression {
+	if call, ok := ctx.expression.(ast.CallExpressionNode); ok {
+		return argumentsList(call, false)
+	}
+	return nil
+}
+
+// argumentsList returns the argument list for a CallExpressionNode. When
+// args2 is true and the call is a *CommandCallExpression with a secondary
+// argument list, returns Arguments2 instead. Mirrors TS
+// TypeCheckingContext.getArgumentsList().
+func argumentsList(call ast.CallExpressionNode, args2 bool) []ast.Expression {
+	if args2 {
+		if cmd, ok := call.(*ast.CommandCallExpression); ok && cmd.Arguments2 != nil {
+			return cmd.Arguments2
+		}
+	}
+	switch c := call.(type) {
+	case *ast.CommandCallExpression:
+		return c.Arguments
+	case *ast.ProcCallExpression:
+		return c.Arguments
+	case *ast.JumpCallExpression:
+		return c.Arguments
+	case *ast.ClientScriptExpression:
+		return c.Arguments
+	}
+	return nil
+}
+
+// CheckArgument visits the argument at index with an optional typeHint. Returns
+// the argument expression or nil if out of bounds. Mirrors TS
+// TypeCheckingContext.checkArgument().
+func (ctx *TypeCheckingContext) CheckArgument(index int, typeHint typ.Type, args2 bool) ast.Expression {
+	var args []ast.Expression
+	if call, ok := ctx.expression.(ast.CallExpressionNode); ok {
+		args = argumentsList(call, args2)
+	}
+	if index < 0 || index >= len(args) {
+		return nil
+	}
+	arg := args[index]
+	if typeHint != nil {
+		setTypeHint(arg, typeHint)
+	}
+	if ctx.typeChecker != nil {
+		ctx.typeChecker.visitNodeOrNull(arg)
+	}
+	return arg
+}
+
+// IsConstant reports whether the expression is a constant expression. Delegates
+// to TypeChecker.isConstantExpression (which is a stub returning false until T9).
+// Mirrors TS TypeCheckingContext.isConstant getter.
+func (ctx *TypeCheckingContext) IsConstant() bool {
+	if ctx.expression == nil {
+		return false
+	}
+	if ctx.typeChecker == nil {
+		return false
+	}
+	return ctx.typeChecker.isConstantExpression(ctx.expression)
+}
+
+// VisitNode passes node through the type checker. Mirrors TS
+// TypeCheckingContext.visitNode().
+func (ctx *TypeCheckingContext) VisitNode(n ast.Node) {
+	if n == nil || ctx.typeChecker == nil {
+		return
+	}
+	ctx.typeChecker.visitNodeOrNull(n)
+}
+
+// VisitExpression visits expr with an optional type hint. Mirrors TS
+// TypeCheckingContext.visitExpression().
+func (ctx *TypeCheckingContext) VisitExpression(expr ast.Expression, typeHint typ.Type) {
+	if expr == nil {
+		return
+	}
+	if typeHint != nil {
+		setTypeHint(expr, typeHint)
+	}
+	if ctx.typeChecker != nil {
+		ctx.typeChecker.visitNodeOrNull(expr)
+	}
+}
+
+// VisitNodeList passes all nodes through the type checker. Mirrors TS
+// TypeCheckingContext.visitNodeList().
+func (ctx *TypeCheckingContext) VisitNodeList(nodes []ast.Node) {
+	if ctx.typeChecker == nil {
+		return
+	}
+	for _, n := range nodes {
+		ctx.typeChecker.visitNodeOrNull(n)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Type-switch helpers — setTypeHint / getType / setType / asType
+//
+// These provide read/write access to ExpressionBase.Type and
+// ExpressionBase.TypeHint on any concrete Expression without requiring a
+// cast at each call site. The type-switch exhaustively covers all 19 concrete
+// Expression types that embed ExpressionBase (verified against T1 audit).
+// ---------------------------------------------------------------------------
+
+// setTypeHint sets the TypeHint field on the ExpressionBase embedded in expr.
+// Mirrors TS `expr.typeHint = t` in TypeChecking / TypeCheckingContext.
+func setTypeHint(expr ast.Expression, t typ.Type) {
+	switch e := expr.(type) {
+	case *ast.IntegerLiteral:
+		e.TypeHint = t
+	case *ast.CoordLiteral:
+		e.TypeHint = t
+	case *ast.BooleanLiteral:
+		e.TypeHint = t
+	case *ast.CharacterLiteral:
+		e.TypeHint = t
+	case *ast.StringLiteral:
+		e.TypeHint = t
+	case *ast.NullLiteral:
+		e.TypeHint = t
+	case *ast.Identifier:
+		e.TypeHint = t
+	case *ast.LocalVariableExpression:
+		e.TypeHint = t
+	case *ast.GameVariableExpression:
+		e.TypeHint = t
+	case *ast.ConstantVariableExpression:
+		e.TypeHint = t
+	case *ast.ConditionExpression:
+		e.TypeHint = t
+	case *ast.ArithmeticExpression:
+		e.TypeHint = t
+	case *ast.CalcExpression:
+		e.TypeHint = t
+	case *ast.ParenthesizedExpression:
+		e.TypeHint = t
+	case *ast.JoinedStringExpression:
+		e.TypeHint = t
+	case *ast.CommandCallExpression:
+		e.TypeHint = t
+	case *ast.ProcCallExpression:
+		e.TypeHint = t
+	case *ast.JumpCallExpression:
+		e.TypeHint = t
+	case *ast.ClientScriptExpression:
+		e.TypeHint = t
+	}
+}
+
+// getType reads the Type field from the ExpressionBase embedded in expr.
+// Returns nil if expr is nil or if the type has not been set yet.
+// Mirrors TS `expr.type` / `expr.getNullableType()`.
+func getType(expr ast.Expression) typ.Type {
+	if expr == nil {
+		return nil
+	}
+	return asType(typeRefOf(expr))
+}
+
+// setType sets the Type field on the ExpressionBase embedded in expr.
+// Mirrors TS `expr.type = t`.
+func setType(expr ast.Expression, t typ.Type) {
+	switch e := expr.(type) {
+	case *ast.IntegerLiteral:
+		e.Type = t
+	case *ast.CoordLiteral:
+		e.Type = t
+	case *ast.BooleanLiteral:
+		e.Type = t
+	case *ast.CharacterLiteral:
+		e.Type = t
+	case *ast.StringLiteral:
+		e.Type = t
+	case *ast.NullLiteral:
+		e.Type = t
+	case *ast.Identifier:
+		e.Type = t
+	case *ast.LocalVariableExpression:
+		e.Type = t
+	case *ast.GameVariableExpression:
+		e.Type = t
+	case *ast.ConstantVariableExpression:
+		e.Type = t
+	case *ast.ConditionExpression:
+		e.Type = t
+	case *ast.ArithmeticExpression:
+		e.Type = t
+	case *ast.CalcExpression:
+		e.Type = t
+	case *ast.ParenthesizedExpression:
+		e.Type = t
+	case *ast.JoinedStringExpression:
+		e.Type = t
+	case *ast.CommandCallExpression:
+		e.Type = t
+	case *ast.ProcCallExpression:
+		e.Type = t
+	case *ast.JumpCallExpression:
+		e.Type = t
+	case *ast.ClientScriptExpression:
+		e.Type = t
+	}
+}
+
+// typeRefOf reads the raw ast.TypeRef (which carries a typ.Type under the
+// AsTypeRef() contract) from the concrete ExpressionBase. Used internally
+// by getType.
+func typeRefOf(expr ast.Expression) ast.TypeRef {
+	switch e := expr.(type) {
+	case *ast.IntegerLiteral:
+		return e.Type
+	case *ast.CoordLiteral:
+		return e.Type
+	case *ast.BooleanLiteral:
+		return e.Type
+	case *ast.CharacterLiteral:
+		return e.Type
+	case *ast.StringLiteral:
+		return e.Type
+	case *ast.NullLiteral:
+		return e.Type
+	case *ast.Identifier:
+		return e.Type
+	case *ast.LocalVariableExpression:
+		return e.Type
+	case *ast.GameVariableExpression:
+		return e.Type
+	case *ast.ConstantVariableExpression:
+		return e.Type
+	case *ast.ConditionExpression:
+		return e.Type
+	case *ast.ArithmeticExpression:
+		return e.Type
+	case *ast.CalcExpression:
+		return e.Type
+	case *ast.ParenthesizedExpression:
+		return e.Type
+	case *ast.JoinedStringExpression:
+		return e.Type
+	case *ast.CommandCallExpression:
+		return e.Type
+	case *ast.ProcCallExpression:
+		return e.Type
+	case *ast.JumpCallExpression:
+		return e.Type
+	case *ast.ClientScriptExpression:
+		return e.Type
+	}
+	return nil
+}
+
+// asType converts an ast.TypeRef to typ.Type. Both interfaces satisfy the
+// AsTypeRef() method (it is the marker). Returns nil if ref is nil.
+func asType(ref ast.TypeRef) typ.Type {
+	if ref == nil {
+		return nil
+	}
+	t, ok := ref.(typ.Type)
+	if !ok {
+		return nil
+	}
+	return t
+}
