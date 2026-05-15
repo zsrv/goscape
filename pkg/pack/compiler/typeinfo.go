@@ -1,9 +1,7 @@
 // Package compiler ports the symbol-table data type that the bytecode
 // compiler consumes. TS source: tools/pack/Compiler.ts:21-107
-// (CompilerTypeInfo class). NAI-201 will port the runServerCompiler
-// driver (TS Compiler.ts:109-367) that populates one TypeInfo per symbol
-// category and hands them to the lexer/parser/typechecker (NAI-202+
-// arc — the external @lostcityrs/runescript package).
+// (CompilerTypeInfo class). The runServerCompiler driver assembles a
+// TypeInfo per source kind and hands the result to CompileServerScript.
 package compiler
 
 import (
@@ -37,8 +35,8 @@ import (
 // because every TS write to them uses a numeric ID — falls out of the
 // dual-map split.
 //
-// NAI-200 ships zero writers for the auxiliary maps. NAI-201 will be
-// the first slice that populates them (see spec §9 R2).
+// NAI-200 ships zero writers for the auxiliary maps. The runServerCompiler
+// driver is the first caller that populates them (see spec §9 R2).
 type TypeInfo struct {
 	Max int // = lastId + 1 (TS-faithful); -1 = empty. See Add doc.
 
@@ -82,7 +80,7 @@ func newTypeInfo() *TypeInfo {
 // (`for id := 0; id <= info.max; id++`, e.g. Compiler.ts:205, 215,
 // 235, 246, 256, 266) and guard absent ids inside the loop body —
 // the loop visits one slot past the last assigned id, intentionally
-// empty. NAI-201's runServerCompiler port must mirror this `<= Max`
+// empty. runServerCompiler's symbol-table assembly mirrors this `<= Max`
 // pattern with a `Map[id]` presence check.
 //
 // TS Compiler.ts:100-106:
@@ -164,7 +162,7 @@ func Load(path string) (*TypeInfo, error) {
 // and lowercasing the value. Mirrors TS Compiler.ts:62-70
 // (CompilerTypeInfo.loadArray).
 //
-// Used by runServerCompiler (NAI-201) for static enum-like sources:
+// Used by runServerCompiler for static enum-like sources:
 // fontmetrics (['p11','p12','b12','q8']) and locshape (23 entries).
 func LoadArray(input []string) *TypeInfo {
 	p := newTypeInfo()
@@ -181,7 +179,7 @@ func LoadArray(input []string) *TypeInfo {
 //	false: NameMap[k] = lowercase(v)
 //	true:  NameMap[v] = lowercase(k)
 //
-// Used by runServerCompiler (NAI-201) for the constant table loaded
+// Used by runServerCompiler for the constant table loaded
 // from data/src/scripts/**/*.constant files.
 func LoadRecords(input map[string]string, valueAsKey bool) *TypeInfo {
 	p := newTypeInfo()
@@ -209,7 +207,7 @@ func LoadRecords(input map[string]string, valueAsKey bool) *TypeInfo {
 // (PlayerStatMap, NpcStatMap, NpcModeMap) with unique-value-per-key —
 // collisions don't occur. See spec §5.6 / §9 R6.
 //
-// Used by runServerCompiler (NAI-201) for stat / npc_stat / npc_mode.
+// Used by runServerCompiler for stat / npc_stat / npc_mode.
 func LoadMap(input map[string]int, valueAsKey bool) *TypeInfo {
 	p := newTypeInfo()
 	for k, v := range input {

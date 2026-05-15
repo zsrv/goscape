@@ -1,5 +1,7 @@
 package script
 
+import "slices"
+
 // pointerGroupFind is the 5-element find_* pointer-name list (unexported
 // to prevent caller mutation). Mirrors TS POINTER_GROUP_FIND
 // (ScriptOpcodePointers.ts:3). External callers reach it through the
@@ -21,9 +23,7 @@ var pointerGroupFind = [5]string{
 // list. Returning a copy ensures callers cannot mutate package-internal
 // state — see NAI-202-D-POINTER-GROUP-FIND-HARDENED.
 func PointerGroupFind() []string {
-	out := make([]string, len(pointerGroupFind))
-	copy(out, pointerGroupFind[:])
-	return out
+	return slices.Clone(pointerGroupFind[:])
 }
 
 // Pointers holds the pointer-gate flags for one script opcode. Mirrors
@@ -70,10 +70,7 @@ type Pointers struct {
 // corruptExceptActive) because the prefix breaks the helper symmetry —
 // see deviation NAI-201-D-POINTERS-SPREAD-HELPER.
 func corruptExceptActive(extras ...string) []string {
-	out := make([]string, 0, len(pointerGroupFind)+len(extras))
-	out = append(out, pointerGroupFind[:]...)
-	out = append(out, extras...)
-	return out
+	return slices.Concat(pointerGroupFind[:], extras)
 }
 
 // ScriptOpcodePointers maps Opcode → Pointers describing the
