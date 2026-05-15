@@ -1,0 +1,111 @@
+// pkg/pack/compiler/type/meta.go
+package typ
+
+// MetaType represents internal compiler types (Any/Nothing/Error/Unit) plus
+// the parameterised wrapping types. Mirrors TS MetaType.ts.
+//
+// NAI-205-D-METATYPE-FLAT: TS nests MetaType.Type and MetaType.Script as
+// static class properties extending MetaType. Goscape uses one base struct
+// for the four named singletons + two distinct types (metaWrapping,
+// metaScript) for the parameterised cases. Each implements Type.
+
+type metaBase struct {
+	rep     string
+	options TypeOptions
+}
+
+func newMetaBase(name string) metaBase {
+	return metaBase{
+		rep: lowerASCII(name),
+		options: NewTypeOptions(func(o *TypeOptions) {
+			o.AllowSwitch = false
+			o.AllowArray = false
+			o.AllowDeclaration = false
+			o.AllowParameter = false
+		}),
+	}
+}
+
+// metaPrimitive is the concrete impl for the four named singletons.
+type metaPrimitive struct {
+	metaBase
+}
+
+func (m *metaPrimitive) Representation() string        { return m.rep }
+func (m *metaPrimitive) Code() (string, bool)          { return "", false }
+func (m *metaPrimitive) BaseType() (BaseVarType, bool) { return BaseVarInteger, true }
+func (m *metaPrimitive) DefaultValue() any             { return -1 }
+func (m *metaPrimitive) Options() TypeOptions          { return m.options }
+func (m *metaPrimitive) AsTypeRef()                    {}
+
+var (
+	MetaAny     Type = &metaPrimitive{newMetaBase("any")}
+	MetaNothing Type = &metaPrimitive{newMetaBase("nothing")}
+	MetaError   Type = &metaPrimitive{newMetaBase("error")}
+	MetaUnit    Type = &metaPrimitive{newMetaBase("unit")}
+)
+
+// metaWrapping is the TS MetaType.Type(inner) shape.
+type metaWrapping struct {
+	metaBase
+	inner Type
+}
+
+func (m *metaWrapping) Representation() string        { return m.rep }
+func (m *metaWrapping) Code() (string, bool)          { return "", false }
+func (m *metaWrapping) BaseType() (BaseVarType, bool) { return BaseVarInteger, true }
+func (m *metaWrapping) DefaultValue() any             { return -1 }
+func (m *metaWrapping) Options() TypeOptions          { return m.options }
+func (m *metaWrapping) AsTypeRef()                    {}
+func (m *metaWrapping) Inner() Type                   { return m.inner }
+
+// NewMetaWrapping returns the MetaType.Type(inner) shape.
+// When inner == MetaAny, rep = "type"; otherwise rep = "type<inner>".
+// Mirrors TS MetaType.ts L80-87.
+func NewMetaWrapping(inner Type) Type {
+	rep := "type"
+	if inner != MetaAny {
+		rep = "type<" + inner.Representation() + ">"
+	}
+	mb := newMetaBase("type")
+	mb.rep = rep
+	return &metaWrapping{metaBase: mb, inner: inner}
+}
+
+// metaScript is the TS MetaType.Script(trigger, params, returns) shape.
+// Deferred surface — ScriptRegistration doesn't construct these. We ship
+// the shape so TypeChecking (NAI-206) doesn't need a follow-up type to land.
+type metaScript struct {
+	metaBase
+	// trigger field intentionally typed as the ast.TriggerRef marker to avoid
+	// cycle on type → trigger. Read-only — set by NewMetaScript and never mutated.
+	trigger anyMarkerInterfaceForTrigger
+	params  Type
+	returns Type
+}
+
+// anyMarkerInterfaceForTrigger is the locally-named alias for ast.TriggerRef.
+// Goscape's type pkg never imports ast (cyclic). The constructor below takes
+// an `any` and stores it; consumers in semantics/codegen retain the original
+// concrete pointer via separate parameter passing rather than reading it back
+// out of the metaScript. This is acceptable because metaScript exists only
+// for type-system *representation* parity — its trigger field is not read
+// during NAI-205. NAI-206 may need a different approach.
+type anyMarkerInterfaceForTrigger = any
+
+func (m *metaScript) Representation() string        { return m.rep }
+func (m *metaScript) Code() (string, bool)          { return "", false }
+func (m *metaScript) BaseType() (BaseVarType, bool) { return BaseVarInteger, true }
+func (m *metaScript) DefaultValue() any             { return -1 }
+func (m *metaScript) Options() TypeOptions          { return m.options }
+func (m *metaScript) AsTypeRef()                    {}
+
+// NewMetaScript constructs the TS MetaType.Script shape. NAI-205 doesn't
+// consume it; ports the constructor only for symmetry with MetaType.ts.
+// triggerRef is opaque (see anyMarkerInterfaceForTrigger).
+func NewMetaScript(triggerRef any, params, returns Type) Type {
+	rep := "script(" + params.Representation() + ")->(" + returns.Representation() + ")"
+	mb := newMetaBase("script")
+	mb.rep = rep
+	return &metaScript{metaBase: mb, trigger: triggerRef, params: params, returns: returns}
+}
