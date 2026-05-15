@@ -171,6 +171,51 @@ func (p *Parser) parseClientScriptBody() *ast.ClientScriptExpression {
 	}
 }
 
+// NewSingleExpressionParser constructs a Parser positioned at the
+// single-expression entry rule. Used by TypeChecking (NAI-206) to
+// re-parse constant values (TS parseConstantExpressionTree at
+// src/compiler/semantics/TypeChecking.ts L1340-1356, HEAD
+// b8c338801fbb72d294ff9576a58925a8d3f6de47).
+//
+// TS uses ANTLR's DISCARD_ERROR_LISTENER static singleton to silence
+// syntax errors; goscape's hand-written parser accumulates errors via
+// the listener chain — callers RemoveErrorListeners() after construction
+// to mirror that behaviour, then check the return value of
+// ParseSingleExpression (nil ⇒ syntax error, parity with TS
+// numberOfSyntaxErrors > 0 ⇒ return null).
+//
+// NAI-206-D-CONST-PARSE: TS uses ANTLR static DISCARD_ERROR_LISTENER;
+// goscape uses RemoveErrorListeners() + return-value check. Behaviour-
+// equivalent: syntax errors yield nil.
+func NewSingleExpressionParser(input, sourceName string) *Parser {
+	return &Parser{
+		lx:         lexer.NewLexer(input, sourceName),
+		sourceName: sourceName,
+	}
+}
+
+// ParseSingleExpression parses the input as a single expression. Mirrors
+// TS RuneScriptParser.singleExpression() entry rule. Returns nil on
+// syntax error (parity with TS numberOfSyntaxErrors > 0 ⇒ null).
+//
+// Requires EOF after the expression; trailing tokens are reported as a
+// syntax error and the function returns nil.
+func (p *Parser) ParseSingleExpression() ast.Expression {
+	p.ensureStream()
+	expr := p.parseExpression()
+	if expr == nil {
+		return nil
+	}
+	if p.numErrors > 0 {
+		return nil
+	}
+	if p.ts.LA(1) != lexer.EOF {
+		p.reportError(p.ts.LT(1), "expected EOF after expression but found %s", p.ts.LA(1))
+		return nil
+	}
+	return expr
+}
+
 // parseTransmitList parses `expression (COMMA expression)*` stopping at
 // RBRACE. Returns a non-nil possibly-empty slice. Mirrors the
 // expressionList grammar rule but terminates on RBRACE instead of
