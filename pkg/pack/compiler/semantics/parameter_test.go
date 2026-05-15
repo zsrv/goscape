@@ -135,3 +135,30 @@ func TestVisitParameter_ProcsDisabled_NonCommand_EmitsFeatureDisabledLocal(t *te
 		t.Fatalf("no FEATURE_DISABLED_LOCAL: %+v", d.List())
 	}
 }
+
+func TestVisitParameter_NonAllowParameterType_NonCommand_EmitsLocalParameterInvalidType(t *testing.T) {
+	// Per TS ScriptRegistration.ts L427-430: when the enclosing trigger is
+	// not the CommandTrigger AND the parameter's type has
+	// Options.AllowParameter=false, emit LOCAL_PARAMETER_INVALID_TYPE.
+	// VarPlayerType has AllowParameter=false by construction (gamevar.go).
+	tm, trm, root, d := newTestFixture(t)
+	proc := makeProcTrigger()
+	_ = trm.RegisterTrigger(proc)
+	vp := typ.NewVarPlayerType(typ.PrimitiveInt)
+	_ = tm.RegisterByRepresentation(vp)
+
+	sr := NewScriptRegistration(tm, trm, root, d, StrictFeatureLevel{})
+	s := scriptFor("proc", "foo")
+	s.Parameters = []*ast.Parameter{paramFor(vp.Representation(), "x")}
+	sr.Visit(&ast.ScriptFile{Scripts: []*ast.Script{s}})
+
+	found := false
+	for _, e := range d.List() {
+		if e.Message == diagnostics.MessageLocalParameterInvalidType {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("no LOCAL_PARAMETER_INVALID_TYPE: %+v", d.List())
+	}
+}
