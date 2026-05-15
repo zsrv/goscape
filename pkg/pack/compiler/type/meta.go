@@ -77,21 +77,9 @@ func NewMetaWrapping(inner Type) Type {
 // the shape so TypeChecking (NAI-206) doesn't need a follow-up type to land.
 type metaScript struct {
 	metaBase
-	// trigger field intentionally typed as the ast.TriggerRef marker to avoid
-	// cycle on type → trigger. Read-only — set by NewMetaScript and never mutated.
-	trigger anyMarkerInterfaceForTrigger
 	params  Type
 	returns Type
 }
-
-// anyMarkerInterfaceForTrigger is the locally-named alias for ast.TriggerRef.
-// Goscape's type pkg never imports ast (cyclic). The constructor below takes
-// an `any` and stores it; consumers in semantics/codegen retain the original
-// concrete pointer via separate parameter passing rather than reading it back
-// out of the metaScript. This is acceptable because metaScript exists only
-// for type-system *representation* parity — its trigger field is not read
-// during NAI-205. NAI-206 may need a different approach.
-type anyMarkerInterfaceForTrigger = any
 
 func (m *metaScript) Representation() string        { return m.rep }
 func (m *metaScript) Code() (string, bool)          { return "", false }
@@ -102,10 +90,16 @@ func (m *metaScript) AsTypeRef()                    {}
 
 // NewMetaScript constructs the TS MetaType.Script shape. NAI-205 doesn't
 // consume it; ports the constructor only for symmetry with MetaType.ts.
-// triggerRef is opaque (see anyMarkerInterfaceForTrigger).
-func NewMetaScript(triggerRef any, params, returns Type) Type {
-	rep := "script(" + params.Representation() + ")->(" + returns.Representation() + ")"
+//
+// The first argument is the trigger's identifier string (TS reads
+// `trigger.identifier` for `representation` — see MetaType.ts L94). Passing
+// the identifier string directly avoids the type → trigger import cycle
+// that storing a *trigger.TriggerType pointer would create. Consumers in
+// NAI-206 may revisit this if metaScript starts carrying trigger semantics
+// beyond just representation.
+func NewMetaScript(triggerIdent string, params, returns Type) Type {
 	mb := newMetaBase("script")
-	mb.rep = rep
-	return &metaScript{metaBase: mb, trigger: triggerRef, params: params, returns: returns}
+	mb.rep = triggerIdent
+	mb.options.AllowParameter = true
+	return &metaScript{metaBase: mb, params: params, returns: returns}
 }

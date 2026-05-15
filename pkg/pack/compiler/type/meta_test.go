@@ -68,3 +68,20 @@ func TestMetaType_SatisfiesAstTypeRef(t *testing.T) {
 	var _ astTypeRef = MetaAny
 	var _ astTypeRef = NewMetaWrapping(PrimitiveInt)
 }
+
+func TestNewMetaScript_TSParity(t *testing.T) {
+	// TS MetaType.Script (MetaType.ts L90-99):
+	// - representation = trigger.identifier (NOT a synthesised "script(...)->(...)" form)
+	// - options.allowParameter = true (override of MetaType's default false)
+	m := NewMetaScript("proc", PrimitiveInt, PrimitiveInt)
+	if got, want := m.Representation(), "proc"; got != want {
+		t.Fatalf("Representation() = %q, want %q (TS reads trigger.identifier)", got, want)
+	}
+	if !m.Options().AllowParameter {
+		t.Fatalf("Options().AllowParameter = false, want true (TS MetaType.ts L96)")
+	}
+}
+
+func TestNewMetaScript_SatisfiesAstTypeRef(t *testing.T) {
+	var _ astTypeRef = NewMetaScript("proc", PrimitiveInt, PrimitiveInt)
+}
