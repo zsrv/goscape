@@ -41,11 +41,11 @@ func TestLoadCompilerConstants_StripsSurroundingQuotes(t *testing.T) {
 		t.Fatalf("loadCompilerConstants: %v", err)
 	}
 	cases := map[string]string{
-		"A": "quoted",      // both-sided quotes stripped
-		"B": "unquoted",    // no quotes, unchanged
-		"C": "\"mismatch",  // open-only, unchanged
-		"D": "mismatch\"",  // close-only, unchanged
-		"E": "in\"middle",  // input "in"middle" — outer pair stripped, inner quote retained
+		"A": "quoted",     // both-sided quotes stripped
+		"B": "unquoted",   // no quotes, unchanged
+		"C": "\"mismatch", // open-only, unchanged
+		"D": "mismatch\"", // close-only, unchanged
+		"E": "in\"middle", // input "in"middle" — outer pair stripped, inner quote retained
 	}
 	for k, want := range cases {
 		if got := m[k]; got != want {
