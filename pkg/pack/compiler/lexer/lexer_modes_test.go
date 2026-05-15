@@ -100,3 +100,89 @@ func drainTokens(t *testing.T, l *Lexer) []Token {
 	t.Fatalf("drainTokens exceeded 1000 tokens — likely infinite loop")
 	return nil
 }
+
+// TestLex_StringInterpolation_Simple pins `"a<$x>b"` end-to-end:
+// QO TEXT(a) EXPR_START DOLLAR IDENT(x) EXPR_END TEXT(b) QC.
+func TestLex_StringInterpolation_Simple(t *testing.T) {
+	l := NewLexer(`"a<$x>b"`, "si.rs2")
+	tokens := drainTokens(t, l)
+	want := []struct {
+		tt   TokenType
+		text string
+	}{
+		{QUOTE_OPEN, `"`},
+		{STRING_TEXT, "a"},
+		{STRING_EXPR_START, "<"},
+		{DOLLAR, "$"},
+		{IDENTIFIER, "x"},
+		{STRING_EXPR_END, ">"},
+		{STRING_TEXT, "b"},
+		{QUOTE_CLOSE, `"`},
+		{EOF, ""},
+	}
+	if len(tokens) != len(want) {
+		t.Fatalf("got %d tokens, want %d: %v", len(tokens), len(want), tokens)
+	}
+	for i, w := range want {
+		if tokens[i].Type != w.tt {
+			t.Errorf("token %d = %s, want %s (text=%q)", i, tokens[i].Type, w.tt, tokens[i].Text)
+		}
+		if w.text != "" && tokens[i].Text != w.text {
+			t.Errorf("token %d text = %q, want %q", i, tokens[i].Text, w.text)
+		}
+	}
+	if l.depth != 0 {
+		t.Errorf("final depth = %d, want 0", l.depth)
+	}
+}
+
+// TestLex_StringInterpolation_NestedString pins the depth-counter:
+// `"a<"b">c"` should drive depth to 2 inside, then back to 0.
+func TestLex_StringInterpolation_NestedString(t *testing.T) {
+	l := NewLexer(`"a<"b">c"`, "sn.rs2")
+	tokens := drainTokens(t, l)
+	want := []TokenType{
+		QUOTE_OPEN,        // depth 0→1, push modeString
+		STRING_TEXT,       // "a"
+		STRING_EXPR_START, // "<", push modeDefault
+		QUOTE_OPEN,        // depth 1→2, push modeString
+		STRING_TEXT,       // "b"
+		QUOTE_CLOSE,       // depth 2→1, pop modeString
+		STRING_EXPR_END,   // ">", retyped from GT because depth>0, pop modeDefault
+		STRING_TEXT,       // "c"
+		QUOTE_CLOSE,       // depth 1→0, pop modeString
+		EOF,
+	}
+	if len(tokens) != len(want) {
+		t.Fatalf("got %d tokens, want %d: %v", len(tokens), len(want), tokens)
+	}
+	for i, w := range want {
+		if tokens[i].Type != w {
+			t.Errorf("token %d = %s, want %s", i, tokens[i].Type, w)
+		}
+	}
+}
+
+// TestLex_StringInterpolation_GtInsideExpr pins that `>` inside an
+// interpolation expression retypes to STRING_EXPR_END regardless of
+// what's "actually" parseable. .g4 semantic action: depth>0 → retype.
+func TestLex_StringInterpolation_GtInsideExpr(t *testing.T) {
+	l := NewLexer(`"<x>"`, "gi.rs2")
+	tokens := drainTokens(t, l)
+	want := []TokenType{
+		QUOTE_OPEN,
+		STRING_EXPR_START,
+		IDENTIFIER,
+		STRING_EXPR_END,
+		QUOTE_CLOSE,
+		EOF,
+	}
+	if len(tokens) != len(want) {
+		t.Fatalf("got %d tokens, want %d: %v", len(tokens), len(want), tokens)
+	}
+	for i, w := range want {
+		if tokens[i].Type != w {
+			t.Errorf("token %d = %s, want %s", i, tokens[i].Type, w)
+		}
+	}
+}

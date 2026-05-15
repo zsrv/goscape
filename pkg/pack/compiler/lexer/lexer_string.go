@@ -62,14 +62,15 @@ func (lx *Lexer) emitStringMode(tt TokenType, n int) Token {
 	return lx.makeToken(tt, start, stop, lx.input[start:lx.pos], startLn, startCol+1, endLn, endCol+1)
 }
 
-// consumeStringExprStart emits STRING_EXPR_START. T10 adds
-// pushMode(modeDefault) here. For T9, just emit the token and stay in
-// String mode (interpolation tests are deferred to T10).
+// consumeStringExprStart emits STRING_EXPR_START and pushes modeDefault
+// (.g4:86). The inner expression is then lexed with DEFAULT-mode rules;
+// the closing `>` retypes to STRING_EXPR_END via consumeGt's depth-check
+// and pops back to modeString.
 func (lx *Lexer) consumeStringExprStart() Token {
 	start := lx.pos
 	startLn, startCol := lx.line, lx.col
 	lx.advance(1)
-	// T10: lx.pushMode(modeDefault)
+	lx.pushMode(modeDefault)
 	return lx.makeToken(STRING_EXPR_START, start, start, "<", startLn, startCol+1, startLn, startCol+1)
 }
 

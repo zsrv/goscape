@@ -16,8 +16,7 @@ import "strings"
 //	T6  — symbols (single+multi char) + CHAR_LITERAL
 //	T7  — identifier + keyword + suffix-keyword (§5.5.2)
 //	T8  — numeric-or-identifier dispatch (§5.5.1)
-//	T10 — String-mode wiring
-//	T11 — GT semantic action (depth>0 → STRING_EXPR_END + popMode)
+//	T10 — String-mode wiring + GT semantic action (depth>0 → STRING_EXPR_END + popMode)
 //	T11 — error recovery (unterminated comment, etc.)
 func (lx *Lexer) nextDefault() Token {
 	c := lx.input[lx.pos]
@@ -156,9 +155,9 @@ func (lx *Lexer) consumeQuoteOpen() Token {
 	return lx.makeToken(QUOTE_OPEN, start, start, `"`, startLn, startCol+1, startLn, startCol+1)
 }
 
-// consumeGt handles `>` — GTE if followed by `=`, otherwise GT. The
-// semantic action (.g4:31 — if depth>0, retype to STRING_EXPR_END and
-// popMode) is added in T10.
+// consumeGt handles `>` — GTE if followed by `=`, otherwise GT. Per
+// .g4:31 semantic action: if depth > 0, retype to STRING_EXPR_END and
+// popMode (closing an interpolation expression inside a string).
 func (lx *Lexer) consumeGt() Token {
 	start := lx.pos
 	startLn, startCol := lx.line, lx.col
@@ -167,7 +166,13 @@ func (lx *Lexer) consumeGt() Token {
 		return lx.makeToken(GTE, start, start+1, ">=", startLn, startCol+1, startLn, startCol+2)
 	}
 	lx.advance(1)
-	// T10 inserts the depth>0 retype here.
+	// .g4:31 semantic action: if depth > 0, retype to STRING_EXPR_END
+	// and popMode (we're closing an interpolation expression that's
+	// inside a string).
+	if lx.depth > 0 {
+		lx.popMode()
+		return lx.makeToken(STRING_EXPR_END, start, start, ">", startLn, startCol+1, startLn, startCol+1)
+	}
 	return lx.makeToken(GT, start, start, ">", startLn, startCol+1, startLn, startCol+1)
 }
 
