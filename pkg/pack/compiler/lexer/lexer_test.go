@@ -301,3 +301,152 @@ func TestLex_CharLiteral(t *testing.T) {
 		}
 	}
 }
+
+// TestLex_Keywords_Exact pins each exact-match keyword/literal.
+func TestLex_Keywords_Exact(t *testing.T) {
+	cases := []struct {
+		src  string
+		want TokenType
+	}{
+		{"if", IF}, {"else", ELSE}, {"while", WHILE}, {"case", CASE},
+		{"default", DEFAULT}, {"return", RETURN}, {"calc", CALC},
+		{"true", BOOLEAN_LITERAL}, {"false", BOOLEAN_LITERAL},
+		{"null", NULL_LITERAL},
+	}
+	for _, c := range cases {
+		l := NewLexer(c.src, "kw.rs2")
+		tok := l.NextToken()
+		if tok.Type != c.want {
+			t.Errorf("input %q: type = %s, want %s", c.src, tok.Type, c.want)
+		}
+		if tok.Text != c.src {
+			t.Errorf("input %q: text = %q", c.src, tok.Text)
+		}
+	}
+}
+
+// TestLex_Keywords_PrefixIsIdentifier pins longest-match: `elsex` is
+// IDENTIFIER (length 5), not ELSE + IDENT.
+func TestLex_Keywords_PrefixIsIdentifier(t *testing.T) {
+	cases := []struct {
+		src  string
+		want TokenType
+	}{
+		{"elsex", IDENTIFIER},
+		{"ifthen", IDENTIFIER},
+		{"true_x", IDENTIFIER},
+		{"nullx", IDENTIFIER},
+	}
+	for _, c := range cases {
+		l := NewLexer(c.src, "kp.rs2")
+		tok := l.NextToken()
+		if tok.Type != c.want {
+			t.Errorf("input %q: type = %s, want %s", c.src, tok.Type, c.want)
+		}
+		if tok.Text != c.src {
+			t.Errorf("input %q: text = %q", c.src, tok.Text)
+		}
+	}
+}
+
+// TestLex_TypeArray pins suffix-pattern TYPE_ARRAY.
+func TestLex_TypeArray(t *testing.T) {
+	cases := []struct {
+		src  string
+		want TokenType
+	}{
+		{"int_array", TYPE_ARRAY},
+		{"_array", TYPE_ARRAY},
+		{"array", IDENTIFIER},
+		{"arrayfoo", IDENTIFIER},
+	}
+	for _, c := range cases {
+		l := NewLexer(c.src, "ta.rs2")
+		tok := l.NextToken()
+		if tok.Type != c.want {
+			t.Errorf("input %q: type = %s, want %s", c.src, tok.Type, c.want)
+		}
+		if tok.Text != c.src {
+			t.Errorf("input %q: text = %q", c.src, tok.Text)
+		}
+	}
+}
+
+// TestLex_DefType pins DEF_TYPE (def_X) including the bare-prefix case.
+func TestLex_DefType(t *testing.T) {
+	cases := []struct {
+		src  string
+		want TokenType
+	}{
+		{"def_int", DEF_TYPE},
+		{"def_x", DEF_TYPE},
+		{"def_", IDENTIFIER},
+		{"default", DEFAULT},
+	}
+	for _, c := range cases {
+		l := NewLexer(c.src, "dt.rs2")
+		tok := l.NextToken()
+		if tok.Type != c.want {
+			t.Errorf("input %q: type = %s, want %s", c.src, tok.Type, c.want)
+		}
+	}
+}
+
+// TestLex_SwitchType pins SWITCH_TYPE (switch_X).
+func TestLex_SwitchType(t *testing.T) {
+	cases := []struct {
+		src  string
+		want TokenType
+	}{
+		{"switch_int", SWITCH_TYPE},
+		{"switch_x", SWITCH_TYPE},
+		{"switch_", IDENTIFIER},
+	}
+	for _, c := range cases {
+		l := NewLexer(c.src, "st.rs2")
+		tok := l.NextToken()
+		if tok.Type != c.want {
+			t.Errorf("input %q: type = %s, want %s", c.src, tok.Type, c.want)
+		}
+	}
+}
+
+// TestLex_Identifier_PlainStart pins IDENTIFIER on plain
+// letter-starting input.
+func TestLex_Identifier_PlainStart(t *testing.T) {
+	cases := []string{"foo", "foo_bar", "abc123", "_x", "X", "snake_case"}
+	for _, src := range cases {
+		l := NewLexer(src, "id.rs2")
+		tok := l.NextToken()
+		if tok.Type != IDENTIFIER {
+			t.Errorf("input %q: type = %s, want IDENTIFIER", src, tok.Type)
+		}
+		if tok.Text != src {
+			t.Errorf("input %q: text = %q", src, tok.Text)
+		}
+	}
+}
+
+// TestLex_Identifier_SymbolPrefix pins identifiers starting with id-
+// class symbols (+, ., :). Per spec §5.5 step 6/7/8.
+func TestLex_Identifier_SymbolPrefix(t *testing.T) {
+	cases := []struct {
+		src  string
+		want TokenType
+	}{
+		{"+abc", IDENTIFIER},
+		{".abc", IDENTIFIER},
+		{":abc", IDENTIFIER},
+		{".", IDENTIFIER},
+	}
+	for _, c := range cases {
+		l := NewLexer(c.src, "sp.rs2")
+		tok := l.NextToken()
+		if tok.Type != c.want {
+			t.Errorf("input %q: type = %s, want %s", c.src, tok.Type, c.want)
+		}
+		if tok.Text != c.src {
+			t.Errorf("input %q: text = %q", c.src, tok.Text)
+		}
+	}
+}

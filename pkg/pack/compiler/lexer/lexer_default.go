@@ -1,5 +1,7 @@
 package lexer
 
+import "strings"
+
 // nextDefault is the DEFAULT-mode token dispatcher. Returns the next
 // token (possibly hidden-channel). EOF when pos >= len(input).
 //
@@ -62,7 +64,22 @@ func (lx *Lexer) nextDefault() Token {
 			lx.advance(2)
 			return lx.makeToken(DOTMOD, start, lx.pos-1, ".%", startLn, startCol+1, lx.line, lx.col)
 		}
-		// fall through to identifier path in T7
+		// fall through to identifier path below
+	}
+
+	// COLON — special-case because it's in identifier class AND has its
+	// own token. Longest-match: ':' followed by an id-class char starts
+	// an IDENTIFIER run (.g4:74 beats :10 when the run is longer).
+	// Bare ':' falls to singleCharSymbol and emits COLON.
+	if c == ':' {
+		if lx.pos+1 < len(lx.input) && isIdentChar(lx.input[lx.pos+1]) {
+			// Fall through to identifier dispatch below.
+		} else {
+			start := lx.pos
+			startLn, startCol := lx.line, lx.col
+			lx.advance(1)
+			return lx.makeToken(COLON, start, start, ":", startLn, startCol+1, startLn, startCol+1)
+		}
 	}
 
 	// Single-char symbols (no id-class overlap)
@@ -99,9 +116,17 @@ func (lx *Lexer) nextDefault() Token {
 		}
 	}
 
-	// T7/T8 add identifier + numeric dispatch here. For T6, anything
-	// unrecognized falls through to the bottom EOF emit (preserves
-	// type-check; replaced in T7+).
+	// Identifier-class dispatch (.g4 IDENTIFIER charclass [a-zA-Z0-9_+.:]).
+	// Per §5.5 steps 4-8: digit starts route to numeric dispatch (T8 —
+	// added below in T8); letter/_ starts route to identifier-or-keyword
+	// here. Symbol-class chars (+ . :) are id-class too; the prior
+	// checks in this dispatch already routed them.
+	if isLetterOrUnderscore(c) || c == '+' || c == '.' || c == ':' {
+		return lx.consumeIdentifierOrKeyword()
+	}
+
+	// T8 adds numeric dispatch here. Anything unrecognized (including
+	// bare `-` handled above and digit starts) falls through.
 	lx.advance(1)
 	return lx.makeToken(EOF, lx.pos, lx.pos-1, "", lx.line, lx.col+1, lx.line, lx.col+1)
 }
@@ -160,8 +185,6 @@ func singleCharSymbol(c byte) (TokenType, bool) {
 		return LPAREN, true
 	case ')':
 		return RPAREN, true
-	case ':':
-		return COLON, true
 	case ';':
 		return SEMICOLON, true
 	case ',':
@@ -240,6 +263,70 @@ func (lx *Lexer) consumeCharLiteral() Token {
 // isDigit mirrors .g4 fragment Digit: [0-9].
 func isDigit(c byte) bool {
 	return c >= '0' && c <= '9'
+}
+
+// isLetterOrUnderscore returns true for the id-class start chars
+// [a-zA-Z_].
+func isLetterOrUnderscore(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'
+}
+
+// consumeIdentifierOrKeyword implements §5.5.2 of the spec. Consumes
+// the maximal IDENTIFIER run, then classifies:
+//  1. Exact-match keyword/literal (declaration order line 37-56 in .g4
+//     wins ties over IDENTIFIER line 74).
+//  2. Suffix-pattern keyword (TYPE_ARRAY / DEF_TYPE / SWITCH_TYPE,
+//     lines 44-46).
+//  3. Else IDENTIFIER.
+func (lx *Lexer) consumeIdentifierOrKeyword() Token {
+	start := lx.pos
+	startLn, startCol := lx.line, lx.col
+	for lx.pos < len(lx.input) && isIdentChar(lx.input[lx.pos]) {
+		lx.advance(1)
+	}
+	stop := lx.pos - 1
+	endLn, endCol := lx.lineColAt(stop)
+	text := lx.input[start:lx.pos]
+
+	tt := classifyIdentifierRun(text)
+	return lx.makeToken(tt, start, stop, text, startLn, startCol+1, endLn, endCol+1)
+}
+
+// classifyIdentifierRun applies §5.5.2 disambiguation. Pure function on
+// the matched text — no Lexer state.
+func classifyIdentifierRun(text string) TokenType {
+	switch text {
+	case "if":
+		return IF
+	case "else":
+		return ELSE
+	case "while":
+		return WHILE
+	case "case":
+		return CASE
+	case "default":
+		return DEFAULT
+	case "return":
+		return RETURN
+	case "calc":
+		return CALC
+	case "true", "false":
+		return BOOLEAN_LITERAL
+	case "null":
+		return NULL_LITERAL
+	}
+
+	if strings.HasPrefix(text, "def_") && len(text) > 4 {
+		return DEF_TYPE
+	}
+	if strings.HasPrefix(text, "switch_") && len(text) > 7 {
+		return SWITCH_TYPE
+	}
+	if strings.HasSuffix(text, "array") && len(text) > 5 {
+		return TYPE_ARRAY
+	}
+
+	return IDENTIFIER
 }
 
 // isIdentChar mirrors .g4 IDENTIFIER charclass: [a-zA-Z0-9_+.:].
