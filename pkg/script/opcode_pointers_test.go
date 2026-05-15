@@ -216,7 +216,7 @@ func TestScriptOpcodePointers_CorruptExceptActiveCallSites(t *testing.T) {
 	}
 	const wantHelperCalls = 4
 	got := 0
-	for _, line := range strings.Split(string(src), "\n") {
+	for line := range strings.SplitSeq(string(src), "\n") {
 		trim := strings.TrimSpace(line)
 		if strings.HasPrefix(trim, "Corrupt: corruptExceptActive(") || strings.HasPrefix(trim, "Corrupt:corruptExceptActive(") {
 			got++
