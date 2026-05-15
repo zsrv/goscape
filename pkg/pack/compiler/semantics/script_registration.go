@@ -94,7 +94,7 @@ func (sr *ScriptRegistration) Visit(file *ast.ScriptFile) {
 	}
 }
 
-// isDisabledTypeName mirrors TS L52-62 — feature-flag-based disable of
+// isDisabledTypeName mirrors TS L66-74 — feature-flag-based disable of
 // boolean / enum / struct / dbtable / dbrow / dbcolumn (+ their array forms).
 func (sr *ScriptRegistration) isDisabledTypeName(typeText string) bool {
 	text := strings.ToLower(typeText)
@@ -117,7 +117,7 @@ func (sr *ScriptRegistration) isDisabledTypeName(typeText string) bool {
 	return false
 }
 
-// isDisabledTrigger mirrors TS L64-68.
+// isDisabledTrigger mirrors TS L76-80.
 func (sr *ScriptRegistration) isDisabledTrigger(t *trigger.TriggerType) bool {
 	if t == nil {
 		return false
@@ -128,7 +128,7 @@ func (sr *ScriptRegistration) isDisabledTrigger(t *trigger.TriggerType) bool {
 	return false
 }
 
-// visitScript is the per-script walker. Mirrors TS ScriptRegistration.ts L96-180.
+// visitScript is the per-script walker. Mirrors TS ScriptRegistration.ts L107-182.
 func (sr *ScriptRegistration) visitScript(script *ast.Script) {
 	// L98-105: trigger lookup.
 	trig := sr.triggerManager.FindOrNil(script.Trigger.Text)
