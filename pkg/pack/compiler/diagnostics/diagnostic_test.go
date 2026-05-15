@@ -26,6 +26,25 @@ func TestDiagnosticType_IsErrorTypes(t *testing.T) {
 	}
 }
 
+func TestDiagnosticType_String(t *testing.T) {
+	cases := []struct {
+		typ  DiagnosticType
+		want string
+	}{
+		{DiagnosticInfo, "INFO"},
+		{DiagnosticHint, "HINT"},
+		{DiagnosticWarning, "WARNING"},
+		{DiagnosticError, "ERROR"},
+		{DiagnosticSyntaxError, "SYNTAX_ERROR"},
+		{DiagnosticType(99), "UNKNOWN"}, // out-of-range sentinel
+	}
+	for _, c := range cases {
+		if got := c.typ.String(); got != c.want {
+			t.Fatalf("DiagnosticType(%d).String() = %q, want %q", c.typ, got, c.want)
+		}
+	}
+}
+
 func TestNewDiagnostic_FieldShape(t *testing.T) {
 	loc := lexer.NodeSourceLocation{Name: "f.rs2", Line: 3, Column: 4}
 	d := NewDiagnostic(loc, DiagnosticError, MessageScriptTriggerInvalid, "proc")
