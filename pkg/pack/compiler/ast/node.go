@@ -6,8 +6,10 @@
 // visitor pattern. See deviation tag NAI-204-D-AST-NO-VISITOR.
 //
 // Semantic-analysis fields on TS classes (Expression.type, Identifier.reference,
-// Script.symbol, etc.) are intentionally absent here; NAI-205 lifts the
-// NAI-204-D-AST-NO-TYPE-FIELDS deviation when it adds them.
+// Script.symbol, etc.) are intentionally absent here; NAI-205 partially lifts the
+// NAI-204-D-AST-NO-TYPE-FIELDS deviation (Script/Parameter fields populated by
+// ScriptRegistration); NAI-206 completes the lift by adding the
+// TypeChecking-owned fields.
 package ast
 
 import "github.com/zsrv/goscape/pkg/pack/compiler/lexer"

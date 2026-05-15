@@ -6,7 +6,7 @@ import "github.com/zsrv/goscape/pkg/pack/compiler/lexer"
 // LocalVariableExpression (which TS uses for both LocalVariable and
 // LocalArrayVariable contexts — distinguished by Index nil/non-nil).
 //
-// NAI-204-D-AST-NO-TYPE-FIELDS: TS .reference is NAI-205-owned.
+// NAI-204-D-AST-NO-TYPE-FIELDS: TS .reference is NAI-206-owned.
 type LocalVariableExpression struct {
 	SrcLoc lexer.NodeSourceLocation
 	Name   *Identifier
@@ -54,7 +54,7 @@ func (v *GameVariableExpression) isVariableExpression() {}
 
 // ConstantVariableExpression is `^name`. Mirrors TS ConstantVariableExpression.
 //
-// NAI-204-D-AST-NO-TYPE-FIELDS: TS .subExpression is NAI-205-owned.
+// NAI-204-D-AST-NO-TYPE-FIELDS: TS .subExpression is NAI-206-owned.
 type ConstantVariableExpression struct {
 	SrcLoc lexer.NodeSourceLocation
 	Name   *Identifier

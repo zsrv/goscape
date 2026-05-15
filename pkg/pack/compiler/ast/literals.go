@@ -66,7 +66,7 @@ func (l *CharacterLiteral) isExpression()                    {}
 // parts (no tags, no interpolation). Strings with tags / interpolation
 // parse to JoinedStringExpression. Mirrors TS StringLiteral.
 //
-// NAI-204-D-AST-NO-TYPE-FIELDS: TS .subExpression is NAI-205-owned.
+// NAI-204-D-AST-NO-TYPE-FIELDS: TS .subExpression is NAI-206-owned.
 type StringLiteral struct {
 	SrcLoc lexer.NodeSourceLocation
 	Value  string // unescaped

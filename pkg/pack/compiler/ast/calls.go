@@ -6,7 +6,7 @@ import "github.com/zsrv/goscape/pkg/pack/compiler/lexer"
 // TS CommandCallExpression. IsStar() reports the latter (parity with
 // TS .isStar getter: Arguments2 != null).
 //
-// NAI-204-D-AST-NO-TYPE-FIELDS: TS CallExpression.symbol is NAI-205-owned.
+// NAI-204-D-AST-NO-TYPE-FIELDS: TS CallExpression.symbol is NAI-206-owned.
 type CommandCallExpression struct {
 	SrcLoc     lexer.NodeSourceLocation
 	Name       *Identifier
