@@ -116,17 +116,26 @@ func (lx *Lexer) nextDefault() Token {
 		}
 	}
 
+	// Numeric-or-identifier dispatch (.g4 INTEGER/HEX/BIN/COORD/MAPZONE
+	// + IDENTIFIER overlap on digit start). Per §5.5.1 worked-example
+	// table: tentatively try each numeric candidate + identifier, pick
+	// longest then declaration order.
+	//
+	// Also catches the `-`+digit fall-through from the MINUS branch above
+	// (that branch does not return when pos+1 is a digit).
+	if isDigit(c) || (c == '-' && lx.pos+1 < len(lx.input) && isDigit(lx.input[lx.pos+1])) {
+		return lx.consumeNumericOrIdentifier()
+	}
+
 	// Identifier-class dispatch (.g4 IDENTIFIER charclass [a-zA-Z0-9_+.:]).
-	// Per §5.5 steps 4-8: digit starts route to numeric dispatch (T8 —
-	// added below in T8); letter/_ starts route to identifier-or-keyword
-	// here. Symbol-class chars (+ . :) are id-class too; the prior
-	// checks in this dispatch already routed them.
+	// Per §5.5 steps 4-8: digit starts route to numeric dispatch above;
+	// letter/_ starts route to identifier-or-keyword here. Symbol-class
+	// chars (+ . :) are id-class too; the prior checks already routed them.
 	if isLetterOrUnderscore(c) || c == '+' || c == '.' || c == ':' {
 		return lx.consumeIdentifierOrKeyword()
 	}
 
-	// T8 adds numeric dispatch here. Anything unrecognized (including
-	// bare `-` handled above and digit starts) falls through.
+	// Unrecognized — advance past the byte so the lexer makes progress.
 	lx.advance(1)
 	return lx.makeToken(EOF, lx.pos, lx.pos-1, "", lx.line, lx.col+1, lx.line, lx.col+1)
 }
@@ -335,6 +344,163 @@ func isIdentChar(c byte) bool {
 		(c >= 'A' && c <= 'Z') ||
 		(c >= '0' && c <= '9') ||
 		c == '_' || c == '+' || c == '.' || c == ':'
+}
+
+// consumeNumericOrIdentifier implements §5.5.1 of the spec. Tentatively
+// matches every candidate (HEX, BIN, COORD, MAPZONE, INTEGER, IDENTIFIER)
+// at lx.pos, picks the longest, breaks ties by .g4 declaration order
+// (TokenType comparison, lower value = earlier declaration = wins).
+//
+// Precondition: lx.input[lx.pos] is [0-9] OR `-` followed by [0-9].
+func (lx *Lexer) consumeNumericOrIdentifier() Token {
+	start := lx.pos
+	startLn, startCol := lx.line, lx.col
+
+	// IDENTIFIER candidate — maximal id-class run starting at pos.
+	// `-` is NOT in id class, so if pos starts with `-`, IDENTIFIER
+	// candidate length is zero.
+	identLen := 0
+	if lx.input[lx.pos] != '-' {
+		idEnd := lx.pos
+		for idEnd < len(lx.input) && isIdentChar(lx.input[idEnd]) {
+			idEnd++
+		}
+		identLen = idEnd - lx.pos
+	}
+
+	hexLen := matchHex(lx.input, lx.pos)
+	binLen := matchBin(lx.input, lx.pos)
+	coordLen := matchCoord(lx.input, lx.pos)
+	mapzoneLen := matchMapzone(lx.input, lx.pos)
+	integerLen := matchInteger(lx.input, lx.pos)
+
+	type cand struct {
+		tt     TokenType
+		length int
+	}
+	// Listed in .g4 declaration order; tie-breaking prefers the first
+	// entry with the winning length (lower TokenType value = earlier decl).
+	candidates := []cand{
+		{INTEGER_LITERAL, integerLen},
+		{HEX_LITERAL, hexLen},
+		{BIN_LITERAL, binLen},
+		{COORD_LITERAL, coordLen},
+		{MAPZONE_LITERAL, mapzoneLen},
+		{IDENTIFIER, identLen},
+	}
+	best := candidates[0]
+	for _, c := range candidates[1:] {
+		if c.length > best.length || (c.length == best.length && c.tt < best.tt) {
+			best = c
+		}
+	}
+
+	for i := 0; i < best.length; i++ {
+		lx.advance(1)
+	}
+	stop := lx.pos - 1
+	endLn, endCol := lx.lineColAt(stop)
+	return lx.makeToken(best.tt, start, stop, lx.input[start:lx.pos], startLn, startCol+1, endLn, endCol+1)
+}
+
+// matchHex returns the byte-length of a HEX_LITERAL starting at pos, or
+// 0 if none. Pattern: 0[xX][0-9a-fA-F]+.
+func matchHex(input string, pos int) int {
+	if pos+1 >= len(input) || input[pos] != '0' {
+		return 0
+	}
+	if input[pos+1] != 'x' && input[pos+1] != 'X' {
+		return 0
+	}
+	end := pos + 2
+	for end < len(input) && isHexDigit(input[end]) {
+		end++
+	}
+	if end == pos+2 {
+		// No hex digits after the prefix — not a valid HEX_LITERAL.
+		return 0
+	}
+	return end - pos
+}
+
+// matchBin returns the byte-length of a BIN_LITERAL starting at pos, or
+// 0 if none. Pattern: 0[bB][01]+.
+func matchBin(input string, pos int) int {
+	if pos+1 >= len(input) || input[pos] != '0' {
+		return 0
+	}
+	if input[pos+1] != 'b' && input[pos+1] != 'B' {
+		return 0
+	}
+	end := pos + 2
+	for end < len(input) && (input[end] == '0' || input[end] == '1') {
+		end++
+	}
+	if end == pos+2 {
+		// No binary digits after the prefix — not a valid BIN_LITERAL.
+		return 0
+	}
+	return end - pos
+}
+
+// matchInteger returns the byte-length of an INTEGER_LITERAL starting at
+// pos, or 0 if none. Pattern: -? [0-9]+.
+func matchInteger(input string, pos int) int {
+	p := pos
+	if p < len(input) && input[p] == '-' {
+		p++
+	}
+	digitStart := p
+	for p < len(input) && isDigit(input[p]) {
+		p++
+	}
+	if p == digitStart {
+		// No digits — not a valid INTEGER_LITERAL.
+		return 0
+	}
+	return p - pos
+}
+
+// matchCoord returns the byte-length of a COORD_LITERAL (5-group
+// digit run separated by underscores) starting at pos, or 0 if none.
+func matchCoord(input string, pos int) int {
+	return matchUnderscoreGroups(input, pos, 5)
+}
+
+// matchMapzone returns the byte-length of a MAPZONE_LITERAL (3-group
+// digit run) starting at pos, or 0 if none.
+func matchMapzone(input string, pos int) int {
+	return matchUnderscoreGroups(input, pos, 3)
+}
+
+// matchUnderscoreGroups returns the byte-length of exactly n digit-groups
+// separated by underscores, or 0 if the input at pos doesn't match.
+// Each group must contain at least one digit.
+func matchUnderscoreGroups(input string, pos int, n int) int {
+	p := pos
+	for i := 0; i < n; i++ {
+		groupStart := p
+		for p < len(input) && isDigit(input[p]) {
+			p++
+		}
+		if p == groupStart {
+			// Empty digit group — no match.
+			return 0
+		}
+		if i < n-1 {
+			// Expect underscore separator between groups.
+			if p >= len(input) || input[p] != '_' {
+				return 0
+			}
+			p++
+		}
+	}
+	return p - pos
+}
+
+// isHexDigit returns true for [0-9a-fA-F].
+func isHexDigit(c byte) bool {
+	return isDigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
 }
 
 // consumeWhitespace consumes [ \t\n\r]+ from pos and emits one

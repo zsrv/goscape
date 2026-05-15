@@ -450,3 +450,149 @@ func TestLex_Identifier_SymbolPrefix(t *testing.T) {
 		}
 	}
 }
+
+// TestLex_IntegerLiteral pins INTEGER variants.
+func TestLex_IntegerLiteral(t *testing.T) {
+	cases := []struct {
+		src  string
+		want string
+	}{
+		{"0", "0"},
+		{"12345", "12345"},
+		{"-5", "-5"},
+		{"9999999999", "9999999999"},
+	}
+	for _, c := range cases {
+		l := NewLexer(c.src, "int.rs2")
+		tok := l.NextToken()
+		if tok.Type != INTEGER_LITERAL {
+			t.Errorf("input %q: type = %s, want INTEGER_LITERAL", c.src, tok.Type)
+		}
+		if tok.Text != c.want {
+			t.Errorf("input %q: text = %q, want %q", c.src, tok.Text, c.want)
+		}
+	}
+}
+
+func TestLex_HexLiteral(t *testing.T) {
+	cases := []string{"0x1F", "0X1f", "0xDEADBEEF", "0x0"}
+	for _, src := range cases {
+		l := NewLexer(src, "hex.rs2")
+		tok := l.NextToken()
+		if tok.Type != HEX_LITERAL {
+			t.Errorf("input %q: type = %s, want HEX_LITERAL", src, tok.Type)
+		}
+		if tok.Text != src {
+			t.Errorf("input %q: text = %q", src, tok.Text)
+		}
+	}
+}
+
+func TestLex_HexLiteral_NoHexDigit(t *testing.T) {
+	l := NewLexer("0x", "h0.rs2")
+	tok := l.NextToken()
+	if tok.Type != IDENTIFIER {
+		t.Errorf("'0x' alone: type = %s, want IDENTIFIER", tok.Type)
+	}
+	if tok.Text != "0x" {
+		t.Errorf("text = %q", tok.Text)
+	}
+}
+
+func TestLex_BinLiteral(t *testing.T) {
+	cases := []string{"0b101", "0B0", "0b11111111"}
+	for _, src := range cases {
+		l := NewLexer(src, "bin.rs2")
+		tok := l.NextToken()
+		if tok.Type != BIN_LITERAL {
+			t.Errorf("input %q: type = %s, want BIN_LITERAL", src, tok.Type)
+		}
+		if tok.Text != src {
+			t.Errorf("input %q: text = %q", src, tok.Text)
+		}
+	}
+}
+
+func TestLex_CoordLiteral(t *testing.T) {
+	l := NewLexer("0_50_50_50_50", "c.rs2")
+	tok := l.NextToken()
+	if tok.Type != COORD_LITERAL {
+		t.Errorf("type = %s, want COORD_LITERAL", tok.Type)
+	}
+	if tok.Text != "0_50_50_50_50" {
+		t.Errorf("text = %q", tok.Text)
+	}
+}
+
+func TestLex_MapzoneLiteral(t *testing.T) {
+	l := NewLexer("1_50_50", "m.rs2")
+	tok := l.NextToken()
+	if tok.Type != MAPZONE_LITERAL {
+		t.Errorf("type = %s, want MAPZONE_LITERAL", tok.Type)
+	}
+	if tok.Text != "1_50_50" {
+		t.Errorf("text = %q", tok.Text)
+	}
+}
+
+func TestLex_FourGroupUnderscores_IDENTIFIER(t *testing.T) {
+	l := NewLexer("1_2_3_4", "fg.rs2")
+	tok := l.NextToken()
+	if tok.Type != IDENTIFIER {
+		t.Errorf("type = %s, want IDENTIFIER (longest-match)", tok.Type)
+	}
+	if tok.Text != "1_2_3_4" {
+		t.Errorf("text = %q", tok.Text)
+	}
+}
+
+func TestLex_SixGroupUnderscores_IDENTIFIER(t *testing.T) {
+	l := NewLexer("1_2_3_4_5_6", "sg.rs2")
+	tok := l.NextToken()
+	if tok.Type != IDENTIFIER {
+		t.Errorf("type = %s, want IDENTIFIER", tok.Type)
+	}
+	if tok.Text != "1_2_3_4_5_6" {
+		t.Errorf("text = %q", tok.Text)
+	}
+}
+
+func TestLex_DigitsThenLetters_IDENTIFIER(t *testing.T) {
+	l := NewLexer("5abc", "dtl.rs2")
+	tok := l.NextToken()
+	if tok.Type != IDENTIFIER {
+		t.Errorf("type = %s, want IDENTIFIER", tok.Type)
+	}
+	if tok.Text != "5abc" {
+		t.Errorf("text = %q", tok.Text)
+	}
+}
+
+// TestLex_MinusInteger_NoSpaces pins `5-3` → INTEGER `5` + INTEGER `-3`.
+// ANTLR's lexer is context-free: leading `-` bonds with the next digit
+// run. Per spec §5.5.1 closing paragraph + open question §8.
+func TestLex_MinusInteger_NoSpaces(t *testing.T) {
+	l := NewLexer("5-3", "mi.rs2")
+	t1 := l.NextToken()
+	if t1.Type != INTEGER_LITERAL || t1.Text != "5" {
+		t.Errorf("first token = %s %q, want INTEGER_LITERAL '5'", t1.Type, t1.Text)
+	}
+	t2 := l.NextToken()
+	if t2.Type != INTEGER_LITERAL || t2.Text != "-3" {
+		t.Errorf("second token = %s %q, want INTEGER_LITERAL '-3'", t2.Type, t2.Text)
+	}
+	if l.NextToken().Type != EOF {
+		t.Errorf("third token not EOF")
+	}
+}
+
+func TestLex_MinusInteger_WithSpaces(t *testing.T) {
+	l := NewLexer("5 - 3", "mis.rs2")
+	want := []TokenType{INTEGER_LITERAL, WHITESPACE, MINUS, WHITESPACE, INTEGER_LITERAL, EOF}
+	for i, w := range want {
+		got := l.NextToken().Type
+		if got != w {
+			t.Errorf("token %d = %s, want %s", i, got, w)
+		}
+	}
+}
