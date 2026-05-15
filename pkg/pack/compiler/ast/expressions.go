@@ -6,6 +6,7 @@ import "github.com/zsrv/goscape/pkg/pack/compiler/lexer"
 type ParenthesizedExpression struct {
 	SrcLoc     lexer.NodeSourceLocation
 	Expression Expression
+	ExpressionBase
 }
 
 func (p *ParenthesizedExpression) Source() lexer.NodeSourceLocation { return p.SrcLoc }
@@ -24,6 +25,7 @@ func (p *ParenthesizedExpression) isExpression() {}
 type JoinedStringExpression struct {
 	SrcLoc lexer.NodeSourceLocation
 	Parts  []StringPart
+	ExpressionBase
 }
 
 func (j *JoinedStringExpression) Source() lexer.NodeSourceLocation { return j.SrcLoc }

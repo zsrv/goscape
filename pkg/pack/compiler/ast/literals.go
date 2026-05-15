@@ -7,8 +7,10 @@ import "github.com/zsrv/goscape/pkg/pack/compiler/lexer"
 // them into one IntegerLiteral with a parsed numeric Value — parity
 // with AstBuilder.visitIntegerLiteral lines 296-303).
 type IntegerLiteral struct {
-	SrcLoc lexer.NodeSourceLocation
-	Value  int32
+	SrcLoc    lexer.NodeSourceLocation
+	Value     int32
+	Reference SymbolRef // NAI-206-owned (TS Literal.reference)
+	ExpressionBase
 }
 
 func (l *IntegerLiteral) Source() lexer.NodeSourceLocation { return l.SrcLoc }
@@ -28,6 +30,7 @@ func (l *IntegerLiteral) isExpression()                    {}
 type CoordLiteral struct {
 	SrcLoc lexer.NodeSourceLocation
 	Value  int32
+	ExpressionBase
 }
 
 func (l *CoordLiteral) Source() lexer.NodeSourceLocation { return l.SrcLoc }
@@ -40,6 +43,7 @@ func (l *CoordLiteral) isExpression()                    {}
 type BooleanLiteral struct {
 	SrcLoc lexer.NodeSourceLocation
 	Value  bool
+	ExpressionBase
 }
 
 func (l *BooleanLiteral) Source() lexer.NodeSourceLocation { return l.SrcLoc }
@@ -54,6 +58,7 @@ func (l *BooleanLiteral) isExpression()                    {}
 type CharacterLiteral struct {
 	SrcLoc lexer.NodeSourceLocation
 	Value  string // exactly 1 unicode codepoint when valid
+	ExpressionBase
 }
 
 func (l *CharacterLiteral) Source() lexer.NodeSourceLocation { return l.SrcLoc }
@@ -65,11 +70,12 @@ func (l *CharacterLiteral) isExpression()                    {}
 // StringLiteral is a quote-delimited string containing only STRING_TEXT
 // parts (no tags, no interpolation). Strings with tags / interpolation
 // parse to JoinedStringExpression. Mirrors TS StringLiteral.
-//
-// NAI-204-D-AST-NO-TYPE-FIELDS: TS .subExpression is NAI-206-owned.
 type StringLiteral struct {
-	SrcLoc lexer.NodeSourceLocation
-	Value  string // unescaped
+	SrcLoc        lexer.NodeSourceLocation
+	Value         string    // unescaped
+	Reference     SymbolRef // NAI-206-owned (TS Literal.reference)
+	SubExpression Expression // NAI-206-owned (clientscript re-parse target)
+	ExpressionBase
 }
 
 func (l *StringLiteral) Source() lexer.NodeSourceLocation { return l.SrcLoc }
@@ -82,6 +88,7 @@ func (l *StringLiteral) isExpression()                    {}
 // with TS NullLiteral which extends Literal<number> with value=-1).
 type NullLiteral struct {
 	SrcLoc lexer.NodeSourceLocation
+	ExpressionBase
 }
 
 func (l *NullLiteral) Source() lexer.NodeSourceLocation { return l.SrcLoc }

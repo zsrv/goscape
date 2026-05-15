@@ -98,14 +98,13 @@ func (w *WhileStatement) isNode()      {}
 func (w *WhileStatement) isStatement() {}
 
 // SwitchStatement is `switch_T (cond) { case ... }`. Mirrors TS SwitchStatement.
-//
-// NAI-204-D-AST-NO-TYPE-FIELDS: TS .defaultCase and .type fields are
-// NAI-206-owned.
 type SwitchStatement struct {
-	SrcLoc    lexer.NodeSourceLocation
-	TypeToken *Token
-	Condition Expression
-	Cases     []*SwitchCase
+	SrcLoc      lexer.NodeSourceLocation
+	TypeToken   *Token
+	Condition   Expression
+	Cases       []*SwitchCase
+	DefaultCase *SwitchCase // NAI-206-owned (cached pointer to default case if any)
+	Type        TypeRef     // NAI-206-owned (resolved switch type)
 }
 
 func (s *SwitchStatement) Source() lexer.NodeSourceLocation { return s.SrcLoc }
@@ -152,13 +151,12 @@ func (c *SwitchCase) isNode() {}
 func (c *SwitchCase) IsDefault() bool { return len(c.Keys) == 0 }
 
 // DeclarationStatement is `def_T $name (= expr)? ;`. Mirrors TS DeclarationStatement.
-//
-// NAI-204-D-AST-NO-TYPE-FIELDS: TS .symbol is NAI-206-owned.
 type DeclarationStatement struct {
 	SrcLoc      lexer.NodeSourceLocation
 	TypeToken   *Token
 	Name        *Identifier
 	Initializer Expression // nil if no `= expr`
+	Symbol      SymbolRef  // NAI-206-owned (TS .symbol)
 }
 
 func (d *DeclarationStatement) Source() lexer.NodeSourceLocation { return d.SrcLoc }
@@ -180,13 +178,12 @@ func (d *DeclarationStatement) isNode()      {}
 func (d *DeclarationStatement) isStatement() {}
 
 // ArrayDeclarationStatement is `def_T $name(size);`. Mirrors TS ArrayDeclarationStatement.
-//
-// NAI-204-D-AST-NO-TYPE-FIELDS: TS .symbol is NAI-206-owned.
 type ArrayDeclarationStatement struct {
 	SrcLoc      lexer.NodeSourceLocation
 	TypeToken   *Token
 	Name        *Identifier
 	Initializer Expression // size expression — non-nil per grammar
+	Symbol      SymbolRef  // NAI-206-owned (TS .symbol)
 }
 
 func (a *ArrayDeclarationStatement) Source() lexer.NodeSourceLocation { return a.SrcLoc }

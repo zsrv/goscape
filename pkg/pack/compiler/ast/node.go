@@ -32,8 +32,8 @@ type Node interface {
 }
 
 // Expression marks nodes that produce a value (mirrors TS Expression
-// base class). NAI-204-D-AST-NO-TYPE-FIELDS: TS Expression.type and
-// Expression.typeHint remain absent — NAI-206 (TypeChecking) adds them.
+// base class). Type and TypeHint are provided via the ExpressionBase
+// mixin embedded by each concrete implementation (NAI-206).
 type Expression interface {
 	Node
 	isExpression()

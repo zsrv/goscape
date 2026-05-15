@@ -5,13 +5,13 @@ import "github.com/zsrv/goscape/pkg/pack/compiler/lexer"
 // CommandCallExpression is `name(args)` or `name*(args)(args2)`. Mirrors
 // TS CommandCallExpression. IsStar() reports the latter (parity with
 // TS .isStar getter: Arguments2 != null).
-//
-// NAI-204-D-AST-NO-TYPE-FIELDS: TS CallExpression.symbol is NAI-206-owned.
 type CommandCallExpression struct {
 	SrcLoc     lexer.NodeSourceLocation
 	Name       *Identifier
 	Arguments  []Expression
 	Arguments2 []Expression // nil if not `name*(...)(...)` form
+	Symbol     SymbolRef    // NAI-206-owned (TS CallExpression.symbol)
+	ExpressionBase
 }
 
 func (c *CommandCallExpression) Source() lexer.NodeSourceLocation { return c.SrcLoc }
@@ -50,6 +50,8 @@ type ProcCallExpression struct {
 	SrcLoc    lexer.NodeSourceLocation
 	Name      *Identifier
 	Arguments []Expression
+	Symbol    SymbolRef // NAI-206-owned (TS CallExpression.symbol)
+	ExpressionBase
 }
 
 func (c *ProcCallExpression) Source() lexer.NodeSourceLocation { return c.SrcLoc }
@@ -73,6 +75,8 @@ type JumpCallExpression struct {
 	SrcLoc    lexer.NodeSourceLocation
 	Name      *Identifier
 	Arguments []Expression
+	Symbol    SymbolRef // NAI-206-owned (TS CallExpression.symbol)
+	ExpressionBase
 }
 
 func (c *JumpCallExpression) Source() lexer.NodeSourceLocation { return c.SrcLoc }
@@ -98,6 +102,8 @@ type ClientScriptExpression struct {
 	Name         *Identifier
 	Arguments    []Expression
 	TransmitList []Expression
+	Symbol       SymbolRef // NAI-206-owned (TS CallExpression.symbol)
+	ExpressionBase
 }
 
 func (c *ClientScriptExpression) Source() lexer.NodeSourceLocation { return c.SrcLoc }

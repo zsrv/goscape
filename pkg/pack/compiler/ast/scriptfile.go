@@ -23,12 +23,10 @@ func (s *ScriptFile) isNode() {}
 // Script is a single `[trigger,name] params returns statements*` block.
 // Mirrors TS src/parser/ast/Scripts.ts.
 //
-// NAI-204-D-AST-NO-TYPE-FIELDS: TS Script.symbol, .block, .returnType,
-// .triggerType, .subjectReference, .parameterType landed in NAI-205 (this
-// file). The remaining TypeChecking-owned fields (.defaultCase/.type on
-// SwitchStatement, .symbol on Declaration*/CallExpression, .reference on
-// Identifier/Literal/VariableExpression, .subExpression on
-// ConstantVariableExpression/StringLiteral) are NAI-206-owned.
+// NAI-205+NAI-206 fields below are populated by the two semantic passes
+// (ScriptRegistration sets Script-level fields; TypeChecking populates
+// node-level Type/Reference/Symbol across all expression and statement
+// nodes via the ExpressionBase mixin and per-node fields).
 type Script struct {
 	SrcLoc       lexer.NodeSourceLocation
 	Trigger      *Identifier
@@ -148,12 +146,11 @@ func (t *Token) isNode()                          {}
 // Identifier is an identifier expression. Mirrors TS
 // src/parser/ast/expr/Identifier.ts. Implements Expression — used both
 // for bare identifiers and as a sub-node for variable/call names.
-//
-// NAI-204-D-AST-NO-TYPE-FIELDS: TS Identifier.reference is NAI-206-owned
-// (lifted by TypeChecking; NAI-205 doesn't write to Identifier).
 type Identifier struct {
-	SrcLoc lexer.NodeSourceLocation
-	Text   string
+	SrcLoc    lexer.NodeSourceLocation
+	Text      string
+	Reference SymbolRef // NAI-206-owned (TS Identifier.reference)
+	ExpressionBase
 }
 
 func (i *Identifier) Source() lexer.NodeSourceLocation { return i.SrcLoc }

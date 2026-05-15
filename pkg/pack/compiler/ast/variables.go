@@ -5,12 +5,12 @@ import "github.com/zsrv/goscape/pkg/pack/compiler/lexer"
 // LocalVariableExpression is `$name` or `$name(index)`. Mirrors TS
 // LocalVariableExpression (which TS uses for both LocalVariable and
 // LocalArrayVariable contexts — distinguished by Index nil/non-nil).
-//
-// NAI-204-D-AST-NO-TYPE-FIELDS: TS .reference is NAI-206-owned.
 type LocalVariableExpression struct {
-	SrcLoc lexer.NodeSourceLocation
-	Name   *Identifier
-	Index  Expression // nil if plain $name
+	SrcLoc    lexer.NodeSourceLocation
+	Name      *Identifier
+	Index     Expression // nil if plain $name
+	Reference SymbolRef  // NAI-206-owned (TS .reference)
+	ExpressionBase
 }
 
 func (v *LocalVariableExpression) Source() lexer.NodeSourceLocation { return v.SrcLoc }
@@ -35,9 +35,11 @@ func (v *LocalVariableExpression) IsArray() bool { return v.Index != nil }
 // GameVariableExpression is `%name` or `.%name`. Dot==true for `.%`.
 // Mirrors TS GameVariableExpression.
 type GameVariableExpression struct {
-	SrcLoc lexer.NodeSourceLocation
-	Dot    bool
-	Name   *Identifier
+	SrcLoc    lexer.NodeSourceLocation
+	Dot       bool
+	Name      *Identifier
+	Reference SymbolRef // NAI-206-owned (TS .reference)
+	ExpressionBase
 }
 
 func (v *GameVariableExpression) Source() lexer.NodeSourceLocation { return v.SrcLoc }
@@ -53,11 +55,11 @@ func (v *GameVariableExpression) isExpression()         {}
 func (v *GameVariableExpression) isVariableExpression() {}
 
 // ConstantVariableExpression is `^name`. Mirrors TS ConstantVariableExpression.
-//
-// NAI-204-D-AST-NO-TYPE-FIELDS: TS .subExpression is NAI-206-owned.
 type ConstantVariableExpression struct {
-	SrcLoc lexer.NodeSourceLocation
-	Name   *Identifier
+	SrcLoc        lexer.NodeSourceLocation
+	Name          *Identifier
+	SubExpression Expression // NAI-206-owned (re-parsed constant tree)
+	ExpressionBase
 }
 
 func (v *ConstantVariableExpression) Source() lexer.NodeSourceLocation { return v.SrcLoc }

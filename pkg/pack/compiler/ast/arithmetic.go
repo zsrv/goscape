@@ -10,6 +10,7 @@ type ArithmeticExpression struct {
 	Left     Expression
 	Operator *Token
 	Right    Expression
+	ExpressionBase
 }
 
 func (a *ArithmeticExpression) Source() lexer.NodeSourceLocation { return a.SrcLoc }
@@ -34,6 +35,7 @@ func (a *ArithmeticExpression) isExpression() {}
 type CalcExpression struct {
 	SrcLoc     lexer.NodeSourceLocation
 	Expression Expression
+	ExpressionBase
 }
 
 func (c *CalcExpression) Source() lexer.NodeSourceLocation { return c.SrcLoc }

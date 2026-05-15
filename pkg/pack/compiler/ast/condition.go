@@ -10,6 +10,7 @@ type ConditionExpression struct {
 	Left     Expression
 	Operator *Token
 	Right    Expression
+	ExpressionBase
 }
 
 func (c *ConditionExpression) Source() lexer.NodeSourceLocation { return c.SrcLoc }
