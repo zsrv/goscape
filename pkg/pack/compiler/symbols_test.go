@@ -669,3 +669,165 @@ func TestPopulateDbColumns_SkipsNilTable(t *testing.T) {
 		t.Errorf("Map[%d]: missing; want present", id1)
 	}
 }
+
+// TestEnrichWriteinvInfo pins TS Compiler.ts:203-212 — writeinv.Protect[id]
+// reflects the loaded InvType.Protect (which defaults to true, falsified
+// by op-code-7 in the .dat).
+func TestEnrichWriteinvInfo(t *testing.T) {
+	writeinv := newTypeInfo()
+	writeinv.Add(0, "main_inv", true)
+	writeinv.Add(1, "worn_inv", true)
+
+	invs := &objtype.InvTypeConfigs{
+		Configs: []*objtype.InvType{
+			{ConfigType: objtype.ConfigType{ID: 0}, Protect: true},
+			{ConfigType: objtype.ConfigType{ID: 1}, Protect: false},
+		},
+	}
+
+	enrichWriteinvInfo(writeinv, invs)
+
+	if got, want := writeinv.Protect[0], true; got != want {
+		t.Errorf("Protect[0] = %v, want %v", got, want)
+	}
+	if got, want := writeinv.Protect[1], false; got != want {
+		t.Errorf("Protect[1] = %v, want %v", got, want)
+	}
+}
+
+// TestEnrichVarpInfo pins TS Compiler.ts:234-243 — varp.VarType[id] and
+// varp.Protect[id] reflect VarPlayerType.Type / VarPlayerType.Protect.
+func TestEnrichVarpInfo(t *testing.T) {
+	varp := newTypeInfo()
+	varp.Add(0, "v0", true)
+
+	configs := &objtype.VarpTypeConfigs{
+		Configs: []*objtype.VarPlayerType{
+			{
+				ConfigType: objtype.ConfigType{ID: 0},
+				Type:       objtype.ScriptVarTypeInt,
+				Protect:    true,
+			},
+		},
+	}
+
+	enrichVarpInfo(varp, configs)
+
+	if got, want := varp.VarType[0], "int"; got != want {
+		t.Errorf("VarType[0] = %q, want %q", got, want)
+	}
+	if got, want := varp.Protect[0], true; got != want {
+		t.Errorf("Protect[0] = %v, want %v", got, want)
+	}
+}
+
+// TestEnrichVarnInfo_HappyPath pins TS Compiler.ts:245-253 (corrected
+// per NAI-202-D-VARN-LOOP-GUARD).
+func TestEnrichVarnInfo_HappyPath(t *testing.T) {
+	varn := newTypeInfo()
+	varn.Add(0, "n0", true)
+
+	configs := &objtype.VarnTypeConfigs{
+		Configs: []*objtype.VarNpcType{
+			{ConfigType: objtype.ConfigType{ID: 0}, Type: objtype.ScriptVarTypeString},
+		},
+	}
+
+	enrichVarnInfo(varn, configs)
+
+	if got, want := varn.VarType[0], "string"; got != want {
+		t.Errorf("VarType[0] = %q, want %q", got, want)
+	}
+}
+
+// TestEnrichVarnInfo_VarnLoopGuardFix pins NAI-202-D-VARN-LOOP-GUARD: a
+// varn id that has no corresponding varp at the same id MUST still get
+// a vartype emitted. TS Compiler.ts:247 reads `varpInfo.map[id]` (typo);
+// goscape reads varn's own .Map.
+func TestEnrichVarnInfo_VarnLoopGuardFix(t *testing.T) {
+	varn := newTypeInfo()
+	varn.Add(7, "lonely_varn", true) // id=7 — no varp at this id
+
+	configs := &objtype.VarnTypeConfigs{
+		Configs: make([]*objtype.VarNpcType, 10),
+	}
+	configs.Configs[7] = &objtype.VarNpcType{
+		ConfigType: objtype.ConfigType{ID: 7},
+		Type:       objtype.ScriptVarTypeBoolean,
+	}
+
+	enrichVarnInfo(varn, configs)
+
+	if got, want := varn.VarType[7], "boolean"; got != want {
+		t.Errorf("VarType[7] = %q, want %q (NAI-202-D-VARN-LOOP-GUARD: varn-only id must enrich)", got, want)
+	}
+}
+
+// TestEnrichVarsInfo pins TS Compiler.ts:255-263.
+func TestEnrichVarsInfo(t *testing.T) {
+	vars := newTypeInfo()
+	vars.Add(0, "s0", true)
+
+	configs := &objtype.VarsTypeConfigs{
+		Configs: []*objtype.VarSharedType{
+			{ConfigType: objtype.ConfigType{ID: 0}, Type: objtype.ScriptVarTypeCoord},
+		},
+	}
+
+	enrichVarsInfo(vars, configs)
+
+	if got, want := vars.VarType[0], "coord"; got != want {
+		t.Errorf("VarType[0] = %q, want %q", got, want)
+	}
+}
+
+// TestEnrichParamInfo pins TS Compiler.ts:265-273 — uses ParamType.GetType()
+// directly (rather than scriptVarTypeName) to honour the existing
+// instance method.
+func TestEnrichParamInfo(t *testing.T) {
+	param := newTypeInfo()
+	param.Add(0, "p0", true)
+
+	configs := &objtype.ParamTypeConfigs{
+		Configs: []*objtype.ParamType{
+			{
+				ConfigType: objtype.ConfigType{ID: 0},
+				Type:       objtype.ScriptVarTypeNamedObj,
+			},
+		},
+	}
+
+	enrichParamInfo(param, configs)
+
+	if got, want := param.VarType[0], "namedobj"; got != want {
+		t.Errorf("VarType[0] = %q, want %q", got, want)
+	}
+}
+
+// TestEnrich_SkipsIdsAbsentFromMap pins the inclusive-<=Max + Map-presence
+// guard on every enricher (TS Compiler.ts:206-208 etc.).
+func TestEnrich_SkipsIdsAbsentFromMap(t *testing.T) {
+	// One enricher exercises the pattern; the others share the same
+	// loop shape.
+	writeinv := newTypeInfo()
+	writeinv.Add(0, "present", true)
+	writeinv.Add(5, "present", true) // Max=6; ids 1..4 absent
+
+	invs := &objtype.InvTypeConfigs{
+		Configs: make([]*objtype.InvType, 10),
+	}
+	for i := range invs.Configs {
+		invs.Configs[i] = &objtype.InvType{
+			ConfigType: objtype.ConfigType{ID: i},
+			Protect:    true,
+		}
+	}
+
+	enrichWriteinvInfo(writeinv, invs)
+
+	for i := 1; i <= 4; i++ {
+		if _, ok := writeinv.Protect[i]; ok {
+			t.Errorf("Protect[%d]: present; want absent (id missing from Map)", i)
+		}
+	}
+}

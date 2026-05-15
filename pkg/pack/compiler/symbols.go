@@ -268,6 +268,117 @@ func populateDbColumns(info *TypeInfo, tables *objtype.DbTableTypeConfigs) {
 	}
 }
 
+// enrichWriteinvInfo populates writeinv.Protect[id] from
+// InvType.Protect for every id present in writeinv.Map. Mirrors TS
+// Compiler.ts:203-212.
+func enrichWriteinvInfo(info *TypeInfo, configs *objtype.InvTypeConfigs) {
+	if configs == nil {
+		return
+	}
+	for id := 0; id <= info.Max; id++ {
+		if _, ok := info.Map[id]; !ok {
+			continue
+		}
+		if id < 0 || id >= len(configs.Configs) {
+			continue
+		}
+		inv := configs.Configs[id]
+		if inv == nil {
+			continue
+		}
+		info.Protect[id] = inv.Protect
+	}
+}
+
+// enrichVarpInfo populates varp.VarType and varp.Protect from
+// VarPlayerType fields. Mirrors TS Compiler.ts:234-243.
+func enrichVarpInfo(info *TypeInfo, configs *objtype.VarpTypeConfigs) {
+	if configs == nil {
+		return
+	}
+	for id := 0; id <= info.Max; id++ {
+		if _, ok := info.Map[id]; !ok {
+			continue
+		}
+		if id < 0 || id >= len(configs.Configs) {
+			continue
+		}
+		varp := configs.Configs[id]
+		if varp == nil {
+			continue
+		}
+		info.VarType[id] = scriptVarTypeName(varp.Type)
+		info.Protect[id] = varp.Protect
+	}
+}
+
+// enrichVarnInfo populates varn.VarType from VarNpcType.Type. Mirrors TS
+// Compiler.ts:245-253 with NAI-202-D-VARN-LOOP-GUARD fix: the loop guard
+// reads info.Map[id] (this TypeInfo's own Map), not varpInfo.Map[id]
+// (the TS typo).
+func enrichVarnInfo(info *TypeInfo, configs *objtype.VarnTypeConfigs) {
+	if configs == nil {
+		return
+	}
+	for id := 0; id <= info.Max; id++ {
+		if _, ok := info.Map[id]; !ok {
+			continue
+		}
+		if id < 0 || id >= len(configs.Configs) {
+			continue
+		}
+		varn := configs.Configs[id]
+		if varn == nil {
+			continue
+		}
+		info.VarType[id] = scriptVarTypeName(varn.Type)
+	}
+}
+
+// enrichVarsInfo populates vars.VarType from VarSharedType.Type. Mirrors
+// TS Compiler.ts:255-263.
+func enrichVarsInfo(info *TypeInfo, configs *objtype.VarsTypeConfigs) {
+	if configs == nil {
+		return
+	}
+	for id := 0; id <= info.Max; id++ {
+		if _, ok := info.Map[id]; !ok {
+			continue
+		}
+		if id < 0 || id >= len(configs.Configs) {
+			continue
+		}
+		vars := configs.Configs[id]
+		if vars == nil {
+			continue
+		}
+		info.VarType[id] = scriptVarTypeName(vars.Type)
+	}
+}
+
+// enrichParamInfo populates param.VarType from ParamType.GetType(). Mirrors
+// TS Compiler.ts:265-273. Uses ParamType's existing instance method
+// rather than scriptVarTypeName — they share the same switch but the
+// method is already exported.
+func enrichParamInfo(info *TypeInfo, configs *objtype.ParamTypeConfigs) {
+	if configs == nil {
+		return
+	}
+	for id := 0; id <= info.Max; id++ {
+		if _, ok := info.Map[id]; !ok {
+			continue
+		}
+		if id < 0 || id >= len(configs.Configs) {
+			continue
+		}
+		param := configs.Configs[id]
+		if param == nil {
+			continue
+		}
+		info.VarType[id] = param.GetType()
+	}
+}
+
 // populateInterfaceOverlay derives the `interface` and `overlayinterface`
 // TypeInfos from componentInfo (loaded from interface.pack) enriched
 // with Component.ComName / Component.Overlay from the cache loader.
