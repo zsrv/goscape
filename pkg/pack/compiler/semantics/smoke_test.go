@@ -54,5 +54,14 @@ func TestSmoke_Parser_ScriptRegistration_E2E(t *testing.T) {
 		t.Fatal("root table missing label/bar")
 	}
 
-	_ = typ.MetaUnit // keep import even if not asserted
+	// End-to-end ReturnType wiring per trigger.AllowReturns default:
+	// proc (AllowReturns=true, no return tokens)  → MetaUnit
+	// label (AllowReturns=false, no return tokens) → MetaNothing
+	procScript, labelScript := file.Scripts[0], file.Scripts[1]
+	if procScript.ReturnType != typ.MetaUnit {
+		t.Fatalf("proc script ReturnType = %v, want MetaUnit", procScript.ReturnType)
+	}
+	if labelScript.ReturnType != typ.MetaNothing {
+		t.Fatalf("label script ReturnType = %v, want MetaNothing", labelScript.ReturnType)
+	}
 }
