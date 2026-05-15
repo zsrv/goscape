@@ -90,11 +90,17 @@ func (lx *Lexer) consumeStringText() Token {
 		c := lx.input[lx.pos]
 		if c == '\\' && lx.pos+1 < len(lx.input) {
 			next := lx.input[lx.pos+1]
-			if next == '\\' || next == '"' || next == '<' {
-				lx.advance(2)
-				continue
+			if next == '\r' || next == '\n' {
+				// Escape followed by newline — treat as unterminated
+				// string (lexer will report via hitNewline path below).
+				break
 			}
-			break
+			// Consume the escape sequence verbatim (both chars) whether
+			// recognised or not. Unrecognised escapes are flagged later
+			// in unescapeStringPart so the full STRING_TEXT token reaches
+			// the parser for a better error message.
+			lx.advance(2)
+			continue
 		}
 		if c == '"' || c == '<' {
 			break

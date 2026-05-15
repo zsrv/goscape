@@ -114,8 +114,84 @@ func (p *Parser) ParseClientScript() *ast.ClientScriptExpression {
 	return c
 }
 
-// parseClientScriptBody is a placeholder until T10 lands.
+// parseClientScriptBody parses the standalone `clientScript` grammar
+// entry rule:
+//
+//	clientScript
+//	    : identifier (LPAREN args=expressionList? RPAREN)?
+//	      (LBRACE triggers=expressionList? RBRACE)? EOF
+//	    ;
+//
+// Mirrors TS AstBuilder.visitClientScript.
 func (p *Parser) parseClientScriptBody() *ast.ClientScriptExpression {
-	p.reportError(p.ts.LT(1), "parseClientScriptBody unimplemented in T4 skeleton")
-	return nil
+	startTok := p.ts.LT(1)
+	name := p.parseIdentifier()
+	if name == nil {
+		return nil
+	}
+
+	var args []ast.Expression
+	if _, ok := p.consumeIf(lexer.LPAREN); ok {
+		args = p.parseExpressionList()
+		if args == nil {
+			return nil
+		}
+		if _, ok := p.consumeIf(lexer.RPAREN); !ok {
+			p.reportError(p.ts.LT(1), "expected RPAREN to close clientscript args but found %s", p.ts.LA(1))
+			return nil
+		}
+	} else {
+		args = []ast.Expression{}
+	}
+
+	var triggers []ast.Expression
+	if _, ok := p.consumeIf(lexer.LBRACE); ok {
+		triggers = p.parseTransmitList()
+		if triggers == nil {
+			return nil
+		}
+		if _, ok := p.consumeIf(lexer.RBRACE); !ok {
+			p.reportError(p.ts.LT(1), "expected RBRACE to close clientscript triggers but found %s", p.ts.LA(1))
+			return nil
+		}
+	} else {
+		triggers = []ast.Expression{}
+	}
+
+	if p.ts.LA(1) != lexer.EOF {
+		p.reportError(p.ts.LT(1), "expected EOF after clientscript but found %s", p.ts.LA(1))
+		return nil
+	}
+	endTok := p.ts.LT(1) // EOF
+	return &ast.ClientScriptExpression{
+		SrcLoc:       spanOf(startTok, endTok),
+		Name:         name,
+		Arguments:    args,
+		TransmitList: triggers,
+	}
+}
+
+// parseTransmitList parses `expression (COMMA expression)*` stopping at
+// RBRACE. Returns a non-nil possibly-empty slice. Mirrors the
+// expressionList grammar rule but terminates on RBRACE instead of
+// RPAREN (used exclusively by parseClientScriptBody's trigger list).
+func (p *Parser) parseTransmitList() []ast.Expression {
+	out := []ast.Expression{}
+	if p.ts.LA(1) == lexer.RBRACE {
+		return out
+	}
+	first := p.parseExpression()
+	if first == nil {
+		return nil
+	}
+	out = append(out, first)
+	for p.ts.LA(1) == lexer.COMMA {
+		p.ts.Consume()
+		nxt := p.parseExpression()
+		if nxt == nil {
+			return nil
+		}
+		out = append(out, nxt)
+	}
+	return out
 }
