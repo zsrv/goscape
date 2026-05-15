@@ -10,6 +10,9 @@ func TestLex_EmptyInput_ReturnsEOF(t *testing.T) {
 	if tok.Type != EOF {
 		t.Errorf("NextToken on empty input = %s, want EOF", tok.Type)
 	}
+	if tok.Source.Line != 1 || tok.Source.Column != 1 {
+		t.Errorf("EOF source = (line=%d, col=%d), want (1,1)", tok.Source.Line, tok.Source.Column)
+	}
 	// Repeated calls must keep returning EOF (caller-friendly).
 	for i := 0; i < 3; i++ {
 		if l.NextToken().Type != EOF {

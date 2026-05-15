@@ -91,7 +91,7 @@ func (lx *Lexer) reportError(line, column int, msg string) {
 // and (where applicable) line/col.
 func (lx *Lexer) NextToken() Token {
 	if lx.pos >= len(lx.input) {
-		return lx.makeToken(EOF, lx.pos, lx.pos-1, "", lx.line, lx.col, lx.line, lx.col)
+		return lx.makeToken(EOF, lx.pos, lx.pos-1, "", lx.line, lx.col+1, lx.line, lx.col+1)
 	}
 	switch lx.currentMode() {
 	case modeDefault:
