@@ -102,3 +102,20 @@ func TestRunPack_FlagParseErrorReturns2(t *testing.T) {
 		t.Errorf("stderr %q does not mention unknown flag", stderr.String())
 	}
 }
+
+// TestRunPack_HelpFlagReturns0 verifies runPack returns 0 (not 2) when
+// invoked with -h or --help, and writes the flag-set usage to stderr.
+func TestRunPack_HelpFlagReturns0(t *testing.T) {
+	for _, arg := range []string{"-h", "--help"} {
+		t.Run(arg, func(t *testing.T) {
+			var stderr bytes.Buffer
+			code := runPack([]string{arg}, &stderr)
+			if code != 0 {
+				t.Fatalf("runPack(%q) returned %d, want 0", arg, code)
+			}
+			if !strings.Contains(stderr.String(), "src-dir") {
+				t.Errorf("stderr %q missing pack flag listing", stderr.String())
+			}
+		})
+	}
+}

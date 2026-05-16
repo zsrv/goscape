@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -18,7 +19,7 @@ import (
 //
 // Exit codes:
 //
-//	0 — success
+//	0 — success (or `-h`/`--help` print)
 //	1 — logger init failed or pack.PackAll returned an error
 //	2 — flag parse error
 func runPack(args []string, stderr io.Writer) int {
@@ -39,6 +40,9 @@ func runPack(args []string, stderr io.Writer) int {
 		"Log format (text|json).")
 
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
 		return 2
 	}
 
