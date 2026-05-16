@@ -39,9 +39,11 @@ func TestIsDbColumnType_NonMatch(t *testing.T) {
 	}
 }
 
-// TestDbColumnType_BaseType verifies that the base type delegates to the inner type.
+// TestDbColumnType_BaseType verifies that BaseType() returns BaseVarInteger always
+// (TS hardcoded, not delegated to inner). Uses a non-integer inner (PrimitiveString)
+// to demonstrate the hardcoding rather than masking it.
 func TestDbColumnType_BaseType(t *testing.T) {
-	col := NewDbColumnType(PrimitiveInt)
+	col := NewDbColumnType(PrimitiveString)
 	base, ok := col.BaseType()
 	if !ok {
 		t.Fatal("BaseType() ok: want true, got false")
@@ -49,6 +51,48 @@ func TestDbColumnType_BaseType(t *testing.T) {
 	if base != BaseVarInteger {
 		t.Fatalf("BaseType() base: want BaseVarInteger (%d), got %d", BaseVarInteger, base)
 	}
+}
+
+// TestDbColumnType_DefaultValue verifies that DefaultValue() returns -1 always
+// (TS hardcoded, L15 — not delegated to inner).
+func TestDbColumnType_DefaultValue(t *testing.T) {
+	col := NewDbColumnType(PrimitiveInt)
+	dv := col.DefaultValue()
+	if dv != -1 {
+		t.Fatalf("DefaultValue(): want -1, got %v (%T)", dv, dv)
+	}
+}
+
+// TestDbColumnType_AllowParameter verifies that AllowParameter is true.
+// TS DbColumnType.ts L24: allowParameter: true.
+func TestDbColumnType_AllowParameter(t *testing.T) {
+	col := NewDbColumnType(PrimitiveInt)
+	if got := col.Options().AllowParameter; !got {
+		t.Fatal("AllowParameter: want true, got false")
+	}
+}
+
+// TestDbColumnType_Code verifies that Code() returns ("", false).
+// TS DbColumnType.code is declared but never assigned (always undefined).
+func TestDbColumnType_Code(t *testing.T) {
+	col := NewDbColumnType(PrimitiveInt)
+	code, ok := col.Code()
+	if ok {
+		t.Fatalf("Code() ok: want false, got true (code=%q)", code)
+	}
+	if code != "" {
+		t.Fatalf("Code() code: want \"\", got %q", code)
+	}
+}
+
+// TestNewDbColumnType_NilPanics verifies that NewDbColumnType panics on nil inner.
+func TestNewDbColumnType_NilPanics(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("NewDbColumnType(nil): want panic, got none")
+		}
+	}()
+	NewDbColumnType(nil)
 }
 
 // TestDbColumnType_FullTypeInterface verifies that NewDbColumnType returns a

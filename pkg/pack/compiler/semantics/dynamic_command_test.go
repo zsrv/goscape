@@ -126,6 +126,16 @@ func TestTypeCheckingContext_Arguments2(t *testing.T) {
 		t.Fatalf("Arguments2()[0]: want *StringLiteral, got %T", a2[0])
 	}
 
+	// CommandCallExpression with nil Arguments2 → must return nil
+	cmdNoArgs2 := &ast.CommandCallExpression{
+		Arguments:  []ast.Expression{&ast.IntegerLiteral{}},
+		Arguments2: nil,
+	}
+	ctx = newTypeCheckingContext(nil, nil, cmdNoArgs2, &diagnostics.Diagnostics{})
+	if got := ctx.Arguments2(); got != nil {
+		t.Fatalf("Arguments2() for CommandCall with nil Arguments2: want nil, got %v", got)
+	}
+
 	proc := &ast.ProcCallExpression{Arguments: []ast.Expression{&ast.IntegerLiteral{}}}
 	ctx = newTypeCheckingContext(nil, nil, proc, &diagnostics.Diagnostics{})
 	if got := ctx.Arguments2(); got != nil {
