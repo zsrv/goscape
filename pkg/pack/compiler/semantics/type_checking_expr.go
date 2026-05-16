@@ -215,6 +215,92 @@ func (tc *TypeChecker) findInvalidConditionExpression(expr ast.Expression) ast.N
 	return expr
 }
 
+// allowedArithmeticTypes is the set of types allowed for arithmetic
+// operands and calc(...) results. Mirrors TS TypeChecking.ALLOWED_ARITHMETIC_TYPES.
+func allowedArithmeticTypes() []typ.Type {
+	return []typ.Type{typ.PrimitiveInt, typ.PrimitiveLong}
+}
+
+// safeType replaces a nil type with MetaError. Mirrors the lookup-then-
+// fallback pattern TS uses inline (e.g. `left.type ?? MetaType.Error`).
+func safeType(t typ.Type) typ.Type {
+	if t == nil {
+		return typ.MetaError
+	}
+	return t
+}
+
+// visitArithmeticExpression mirrors TS visitArithmeticExpression (L650-682)
+// at HEAD b8c338801fbb72d294ff9576a58925a8d3f6de47. Defaults the expected
+// type to PrimitiveInt when no hint is supplied; type-hints both sides to
+// the expected type and walks them; reports BinopInvalidTypes if either
+// side fails the allowed-type check or assignability against the expected type.
+//
+// NAI-206-D-ARITH-RIGHT-NODE: TS L671 passes `left` as the node for both
+// the left-type and right-type allowed-type checks (copy-paste in TS). goscape
+// passes the correct node (a.Right) for the right-side check to ensure
+// diagnostic source locations are accurate.
+func (tc *TypeChecker) visitArithmeticExpression(a *ast.ArithmeticExpression) {
+	expected := asType(a.TypeHint)
+	if expected == nil {
+		expected = typ.PrimitiveInt
+	}
+	setTypeHint(a.Left, expected)
+	tc.visitNodeOrNull(a.Left)
+	setTypeHint(a.Right, expected)
+	tc.visitNodeOrNull(a.Right)
+
+	leftType := getType(a.Left)
+	rightType := getType(a.Right)
+	allowed := allowedArithmeticTypes()
+	if leftType == nil || rightType == nil ||
+		!tc.checkTypeMatchAny(a.Left, allowed, safeType(leftType)) ||
+		!tc.checkTypeMatchAny(a.Right, allowed, safeType(rightType)) ||
+		!tc.checkTypeMatch(a.Left, expected, safeType(leftType), false) ||
+		!tc.checkTypeMatch(a.Right, expected, safeType(rightType), false) {
+		leftRep := "<null>"
+		if leftType != nil {
+			leftRep = leftType.Representation()
+		}
+		rightRep := "<null>"
+		if rightType != nil {
+			rightRep = rightType.Representation()
+		}
+		diagnostics.ReportErrorAt(tc.diagnostics, a.Operator, diagnostics.MessageBinopInvalidTypes, a.Operator.Text, leftRep, rightRep)
+		a.Type = typ.MetaError
+		return
+	}
+	a.Type = expected
+}
+
+// visitCalcExpression mirrors TS visitCalcExpression (L683-704).
+// DisableCalc feature-gate first; then defaults hint to PrimitiveInt; walks the
+// inner expression and asserts its type is in allowedArithmeticTypes (int|long).
+func (tc *TypeChecker) visitCalcExpression(c *ast.CalcExpression) {
+	if tc.features.DisableCalc {
+		diagnostics.ReportErrorAt(tc.diagnostics, c, diagnostics.MessageFeatureDisabledCalc)
+		c.Type = typ.MetaError
+		return
+	}
+	hint := asType(c.TypeHint)
+	if hint == nil {
+		hint = typ.PrimitiveInt
+	}
+	setTypeHint(c.Expression, hint)
+	tc.visitNodeOrNull(c.Expression)
+	inner := getType(c.Expression)
+	if inner == nil || !tc.checkTypeMatchAny(c.Expression, allowedArithmeticTypes(), safeType(inner)) {
+		rep := "<null>"
+		if inner != nil {
+			rep = inner.Representation()
+		}
+		diagnostics.ReportErrorAt(tc.diagnostics, c.Expression, diagnostics.MessageArithmeticInvalidType, rep)
+		c.Type = typ.MetaError
+		return
+	}
+	c.Type = inner
+}
+
 // getTypeHintRef returns the raw ast.TypeRef from the ExpressionBase.TypeHint
 // embedded in each concrete Expression type. Unlike asType(e.TypeHint), this
 // returns the interface value itself so callers can distinguish "nil interface"
