@@ -589,3 +589,107 @@ func TestCodeGenerator_CommandCall_NoDynHandler_DefaultPath(t *testing.T) {
 func TestCodeGenerator_CommandCall_DynamicHandler_Override(t *testing.T) {
 	t.Skip("requires command-symbol-registry helper + dyn handler dispatch e2e; revisit T14 smoke")
 }
+
+// --- T10: literals + JoinedString + Identifier ----------------------------------
+
+// TestCodeGenerator_IntegerLiteral_Plain pins that `return(42);` in a proc
+// with return type int emits PushConstantInt(42) + Return (plus default Return).
+// Exercises the full visitIntegerLiteral path (no Reference, non-string type).
+func TestCodeGenerator_IntegerLiteral_Plain(t *testing.T) {
+	rs := compileForTest(t, "[proc,foo]()(int)\nreturn(42);\n")
+	got := opcodesOf(rs.Blocks[0])
+	want := []Opcode{PushConstantInt, Return, PushConstantInt, Return}
+	if !sameOps(got, want) {
+		t.Errorf("opcodes: got %v, want %v", names(got), names(want))
+	}
+	if rs.Blocks[0].Instructions[0].Operand.(int) != 42 {
+		t.Errorf("operand: got %v, want 42", rs.Blocks[0].Instructions[0].Operand)
+	}
+}
+
+// TestCodeGenerator_StringLiteral_Plain pins that `return("hi");` in a proc
+// with return type string emits PushConstantString("hi") + Return (plus default Return).
+func TestCodeGenerator_StringLiteral_Plain(t *testing.T) {
+	rs := compileForTest(t, "[proc,foo]()(string)\nreturn(\"hi\");\n")
+	got := opcodesOf(rs.Blocks[0])
+	want := []Opcode{PushConstantString, Return, PushConstantString, Return}
+	if !sameOps(got, want) {
+		t.Errorf("opcodes: got %v, want %v", names(got), names(want))
+	}
+	if rs.Blocks[0].Instructions[0].Operand.(string) != "hi" {
+		t.Errorf("operand: got %v, want %q", rs.Blocks[0].Instructions[0].Operand, "hi")
+	}
+}
+
+// TestCodeGenerator_BooleanLiteral_TrueAsInt1 pins that `return(true);` in a
+// proc with return type boolean emits PushConstantInt(1) + Return (plus default Return).
+func TestCodeGenerator_BooleanLiteral_TrueAsInt1(t *testing.T) {
+	rs := compileForTest(t, "[proc,foo]()(boolean)\nreturn(true);\n")
+	got := opcodesOf(rs.Blocks[0])
+	want := []Opcode{PushConstantInt, Return, PushConstantInt, Return}
+	if !sameOps(got, want) {
+		t.Errorf("opcodes: got %v, want %v", names(got), names(want))
+	}
+	if rs.Blocks[0].Instructions[0].Operand.(int) != 1 {
+		t.Errorf("true operand: got %v, want 1", rs.Blocks[0].Instructions[0].Operand)
+	}
+}
+
+// TestCodeGenerator_NullLiteral_IntDefault pins that `return(null);` in a proc
+// with return type coord (BaseVarInteger, non-int) emits PushConstantInt(-1) + Return.
+// Note: "obj" is not in PrimitiveAll so "coord" is used as the BaseVarInteger
+// representative (NAI-207-D-NULL-NO-OBJ-PRIM: obj absent from test fixture).
+func TestCodeGenerator_NullLiteral_IntDefault(t *testing.T) {
+	rs := compileForTest(t, "[proc,foo]()(coord)\nreturn(null);\n")
+	got := opcodesOf(rs.Blocks[0])
+	want := []Opcode{PushConstantInt, Return, PushConstantInt, Return}
+	if !sameOps(got, want) {
+		t.Errorf("opcodes: got %v, want %v", names(got), names(want))
+	}
+	if rs.Blocks[0].Instructions[0].Operand.(int) != -1 {
+		t.Errorf("null operand: got %v, want -1", rs.Blocks[0].Instructions[0].Operand)
+	}
+}
+
+// TestCodeGenerator_CoordLiteral pins that `return(0_50_50_0_0);` in a proc
+// with return type coord emits PushConstantInt (the packed coord value) + Return.
+func TestCodeGenerator_CoordLiteral(t *testing.T) {
+	rs := compileForTest(t, "[proc,foo]()(coord)\nreturn(0_50_50_0_0);\n")
+	got := opcodesOf(rs.Blocks[0])
+	want := []Opcode{PushConstantInt, Return, PushConstantInt, Return}
+	if !sameOps(got, want) {
+		t.Errorf("opcodes: got %v, want %v", names(got), names(want))
+	}
+}
+
+// TestCodeGenerator_JoinedString_TwoParts pins that `return("<$x>!");` in a
+// proc with parameter `string $x` and return type string emits:
+// PushLocalVar $x, PushConstantString "!", JoinString 2, Return,
+// PushConstantString "", Return.
+//
+// Note: the fixture uses `string $x` (not `int $x`). The identity type checker
+// in compileForTest disallows int→string coercion (NAI-207-D-JOINEDSTR-STR-PARAM:
+// int-in-string-interp requires a permissive type checker not available in this
+// minimal fixture; string param is the minimal exercise for visitJoinedString).
+func TestCodeGenerator_JoinedString_TwoParts(t *testing.T) {
+	src := "[proc,foo](string $x)(string)\nreturn(\"<$x>!\");\n"
+	rs := compileForTest(t, src)
+	got := opcodesOf(rs.Blocks[0])
+	// PushLocalVar $x, PushConstantString "!", JoinString 2, Return, PushConstantString "", Return
+	want := []Opcode{PushLocalVar, PushConstantString, JoinString, Return, PushConstantString, Return}
+	if !sameOps(got, want) {
+		t.Errorf("opcodes: got %v, want %v", names(got), names(want))
+	}
+	// JoinString operand is the count.
+	if rs.Blocks[0].Instructions[2].Operand.(int) != 2 {
+		t.Errorf("JoinString count: got %v, want 2", rs.Blocks[0].Instructions[2].Operand)
+	}
+}
+
+// TestCodeGenerator_Identifier_StringFallback is skipped because wiring an
+// un-referenced string-typed Identifier requires a fixture not available until
+// T14 smoke. (NAI-207-D-IDENT-STRFB-T14: un-ref'd string identifier context
+// deferred to T14 integration smoke.)
+func TestCodeGenerator_Identifier_StringFallback(t *testing.T) {
+	t.Skip("requires fixture for un-referenced string-typed identifier; covered by NAI-207 T14 smoke")
+}

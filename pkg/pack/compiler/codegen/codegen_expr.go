@@ -1,13 +1,17 @@
 // pkg/pack/compiler/codegen/codegen_expr.go — ports the expression visitor
-// arms from TS CodeGenerator.ts (T7: variable/paren/calc; T8: arithmetic).
+// arms from TS CodeGenerator.ts (T7: variable/paren/calc; T8: arithmetic;
+// T10: literals + JoinedString + Identifier).
 package codegen
 
 import (
 	"fmt"
+	"strconv"
+	"unicode/utf8"
 
 	"github.com/zsrv/goscape/pkg/pack/compiler/ast"
 	"github.com/zsrv/goscape/pkg/pack/compiler/diagnostics"
 	"github.com/zsrv/goscape/pkg/pack/compiler/symbol"
+	"github.com/zsrv/goscape/pkg/pack/compiler/trigger"
 	typ "github.com/zsrv/goscape/pkg/pack/compiler/type"
 )
 
@@ -88,6 +92,177 @@ var longOperations = map[string]Opcode{
 	"%": LongModulo,
 	"&": LongAnd,
 	"|": LongOr,
+}
+
+// visitIntegerLiteral lowers an integer literal. When the literal carries a
+// Reference (resolved by type-checking), emit PushConstantSymbol; when the
+// expression type is string (enum-constant-as-string context), emit
+// PushConstantString of the decimal text; otherwise PushConstantInt.
+// Mirrors TS visitIntegerLiteral (CodeGenerator.ts L700-L720).
+//
+// Retires NAI-207-D-INTLIT-T5-STUB: the T5 inline stub in Visit dispatch is
+// replaced by delegation to this function in T10.
+func (g *CodeGenerator) visitIntegerLiteral(il *ast.IntegerLiteral) {
+	g.LineInstruction(il)
+	if il.Reference != nil {
+		g.Instruction(PushConstantSymbol, il.Reference, il.Source())
+		return
+	}
+	t := getExpressionType(il)
+	if t == typ.PrimitiveString {
+		g.Instruction(PushConstantString, strconv.Itoa(int(il.Value)), il.Source())
+		return
+	}
+	g.Instruction(PushConstantInt, int(il.Value), il.Source())
+}
+
+// visitCoordLiteral lowers a coord literal (packed int32 from N_N_N_N_N syntax).
+// Mirrors TS visitCoordLiteral (CodeGenerator.ts L722-L725).
+func (g *CodeGenerator) visitCoordLiteral(cl *ast.CoordLiteral) {
+	g.LineInstruction(cl)
+	g.Instruction(PushConstantInt, int(cl.Value), cl.Source())
+}
+
+// visitBooleanLiteral lowers true/false. When the expression type is string,
+// emits the string representation; otherwise emits PushConstantInt(0 or 1).
+// Mirrors TS visitBooleanLiteral (CodeGenerator.ts L727-L736).
+func (g *CodeGenerator) visitBooleanLiteral(bl *ast.BooleanLiteral) {
+	g.LineInstruction(bl)
+	t := getExpressionType(bl)
+	if t == typ.PrimitiveString {
+		s := "false"
+		if bl.Value {
+			s = "true"
+		}
+		g.Instruction(PushConstantString, s, bl.Source())
+		return
+	}
+	v := 0
+	if bl.Value {
+		v = 1
+	}
+	g.Instruction(PushConstantInt, v, bl.Source())
+}
+
+// visitCharacterLiteral lowers a character literal. cl.Value is a string
+// containing exactly one unicode codepoint; extract with DecodeRuneInString
+// and emit its codepoint as PushConstantInt.
+// Mirrors TS visitCharacterLiteral (CodeGenerator.ts L738-L741).
+func (g *CodeGenerator) visitCharacterLiteral(cl *ast.CharacterLiteral) {
+	g.LineInstruction(cl)
+	if len(cl.Value) == 0 {
+		return
+	}
+	r, _ := utf8.DecodeRuneInString(cl.Value)
+	g.Instruction(PushConstantInt, int(r), cl.Source())
+}
+
+// visitNullLiteral lowers the null literal. Dispatches on the expression base
+// type: BaseVarString → PushConstantString("null"), BaseVarLong →
+// PushConstantLong(-1), default → PushConstantInt(-1). When the expression
+// type is a MetaType.Hook, an extra PushConstantString("") is emitted after
+// the int. Mirrors TS visitNullLiteral (CodeGenerator.ts L743-L762).
+func (g *CodeGenerator) visitNullLiteral(nl *ast.NullLiteral) {
+	g.LineInstruction(nl)
+	t := getExpressionType(nl)
+	var base typ.BaseVarType
+	var hasBase bool
+	if t != nil {
+		base, hasBase = t.BaseType()
+	}
+	if hasBase {
+		switch base {
+		case typ.BaseVarString:
+			g.Instruction(PushConstantString, "null", nl.Source())
+			return
+		case typ.BaseVarLong:
+			g.Instruction(PushConstantLong, int64(-1), nl.Source())
+			return
+		}
+	}
+	g.Instruction(PushConstantInt, -1, nl.Source())
+
+	// Hook special case: MetaType.Hook context emits trailing PushConstantString("").
+	// Mirrors TS L756-L760.
+	if _, isHook := typ.IsMetaHook(t); isHook {
+		g.Instruction(PushConstantString, "", nl.Source())
+	}
+}
+
+// visitStringLiteral lowers a plain string literal. When SubExpression is set
+// (clientscript re-parse target, NAI-206), delegates to VisitNodeOrNull.
+// When Reference is set, emits PushConstantSymbol. Otherwise PushConstantString.
+// Mirrors TS visitStringLiteral (CodeGenerator.ts L764-L773).
+func (g *CodeGenerator) visitStringLiteral(sl *ast.StringLiteral) {
+	g.LineInstruction(sl)
+	if sl.SubExpression != nil {
+		g.VisitNodeOrNull(sl.SubExpression)
+		return
+	}
+	if sl.Reference != nil {
+		g.Instruction(PushConstantSymbol, sl.Reference, sl.Source())
+		return
+	}
+	g.Instruction(PushConstantString, sl.Value, sl.Source())
+}
+
+// visitJoinedString lowers an interpolated string. Emits each part in order;
+// when there are 2+ parts, emits JoinString(count) after them.
+// Mirrors TS visitJoinedStringExpression (CodeGenerator.ts L775-L783).
+func (g *CodeGenerator) visitJoinedString(je *ast.JoinedStringExpression) {
+	for _, part := range je.Parts {
+		g.visitJoinedStringPart(part)
+	}
+	if len(je.Parts) > 1 {
+		g.LineInstruction(je)
+		g.Instruction(JoinString, len(je.Parts), je.Source())
+	}
+}
+
+// visitJoinedStringPart lowers one part of a JoinedStringExpression.
+// BasicStringPart → PushConstantString; ExpressionStringPart → VisitNodeOrNull
+// on the inner expression. Mirrors TS visitStringPart (CodeGenerator.ts L785-L793).
+func (g *CodeGenerator) visitJoinedStringPart(part ast.StringPart) {
+	g.LineInstruction(part)
+	switch p := part.(type) {
+	case *ast.BasicStringPart:
+		g.Instruction(PushConstantString, p.Value, p.Source())
+	case *ast.ExpressionStringPart:
+		g.VisitNodeOrNull(p.Expression)
+	default:
+		panic(fmt.Sprintf("visitJoinedStringPart: unsupported StringPart %T", part))
+	}
+}
+
+// visitIdentifier lowers an identifier expression. When the reference is nil
+// but the type is string, emits PushConstantString(id.Text) (bare-name
+// enum-key context). When the reference is nil for any other type, reports a
+// diagnostic. When the reference is a ServerScriptSymbol with CommandTrigger,
+// routes through emitDynamicCommand or falls back to Command(ref). Otherwise
+// emits PushConstantSymbol(ref). Mirrors TS visitIdentifier (CodeGenerator.ts
+// L795-L826).
+func (g *CodeGenerator) visitIdentifier(id *ast.Identifier) {
+	g.LineInstruction(id)
+	ref := id.Reference
+	t := getExpressionType(id)
+	if ref == nil && t == typ.PrimitiveString {
+		g.Instruction(PushConstantString, id.Text, id.Source())
+		return
+	}
+	if ref == nil {
+		diagnostics.ReportErrorAt(g.diagnostics, id, diagnostics.MessageSymbolIsNull)
+		return
+	}
+	// ServerScriptSymbol + CommandTrigger: route through emitDynamicCommand
+	// or fall back to Command(ref). ss.Trigger is a field on ScriptSymbolFields.
+	if ss, ok := ref.(*symbol.ServerScriptSymbol); ok && ss.Trigger == trigger.CommandTrigger {
+		if g.emitDynamicCommand(id.Text, id) {
+			return
+		}
+		g.Instruction(Command, ss, id.Source())
+		return
+	}
+	g.Instruction(PushConstantSymbol, ref, id.Source())
 }
 
 // visitArith lowers a binary arithmetic expression inside calc(). The opcode

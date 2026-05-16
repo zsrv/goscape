@@ -163,7 +163,7 @@ func (g *CodeGenerator) Visit(n ast.Node) {
 		g.visitExpressionStatement(v)
 	case *ast.EmptyStatement:
 		g.visitEmptyStatement(v)
-	// Expression arms added in T7–T11.
+	// Expression arms added in T7–T10 (variable/paren/calc/arith/literals/identifier).
 	case *ast.LocalVariableExpression:
 		g.visitLocalVar(v)
 	case *ast.GameVariableExpression:
@@ -176,25 +176,36 @@ func (g *CodeGenerator) Visit(n ast.Node) {
 		g.visitCalc(v)
 	case *ast.ArithmeticExpression:
 		g.visitArith(v)
+	// Literal + joined-string + identifier arms added in T10.
+	// NAI-207-D-INTLIT-T5-STUB retired: T5 inline stub replaced by full
+	// visitIntegerLiteral delegation here.
 	case *ast.IntegerLiteral:
-		// NAI-207-D-INTLIT-T5-STUB: T5 needs IntegerLiteral emission for
-		// condition and return-expression tests (generateConditionBinary and
-		// visitReturnStatement call VisitNodeOrNull on their sub-expressions).
-		// T10 will port the full visitIntegerLiteral (Reference + string-base
-		// type promotion). This stub covers the no-reference int case only.
-		g.LineInstruction(v)
-		if v.Reference == nil {
-			g.Instruction(PushConstantInt, v.Value, v.Source())
-		} else {
-			g.Instruction(PushConstantSymbol, v.Reference, v.Source())
-		}
+		g.visitIntegerLiteral(v)
+	case *ast.CoordLiteral:
+		g.visitCoordLiteral(v)
+	case *ast.BooleanLiteral:
+		g.visitBooleanLiteral(v)
+	case *ast.CharacterLiteral:
+		g.visitCharacterLiteral(v)
+	case *ast.NullLiteral:
+		g.visitNullLiteral(v)
+	case *ast.StringLiteral:
+		g.visitStringLiteral(v)
+	case *ast.JoinedStringExpression:
+		g.visitJoinedString(v)
+	case *ast.BasicStringPart:
+		g.visitJoinedStringPart(v)
+	case *ast.ExpressionStringPart:
+		g.visitJoinedStringPart(v)
+	case *ast.Identifier:
+		g.visitIdentifier(v)
 	case *ast.CommandCallExpression:
 		g.visitCommandCall(v)
 	case *ast.ProcCallExpression:
 		g.visitProcCall(v)
 	case *ast.JumpCallExpression:
 		g.visitJumpCall(v)
-	// Remaining expression arms added in T11.
+	// Remaining expression arms (client-script calls etc.) added in T11.
 	case nil:
 		return
 	default:
