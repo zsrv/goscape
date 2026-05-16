@@ -3,6 +3,7 @@
 package codegen_test
 
 import (
+	"encoding/binary"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/pack/compiler/cfg"
@@ -11,6 +12,7 @@ import (
 	"github.com/zsrv/goscape/pkg/pack/compiler/diagnostics"
 	"github.com/zsrv/goscape/pkg/pack/compiler/parser"
 	"github.com/zsrv/goscape/pkg/pack/compiler/pointer"
+	"github.com/zsrv/goscape/pkg/pack/compiler/runescript"
 	"github.com/zsrv/goscape/pkg/pack/compiler/semantics"
 	"github.com/zsrv/goscape/pkg/pack/compiler/symbol"
 	"github.com/zsrv/goscape/pkg/pack/compiler/trigger"
@@ -208,4 +210,118 @@ require_player;
 	if len(errs) != 1 {
 		t.Fatalf("expected exactly 1 error diagnostic, got %d: %v", len(errs), d.List())
 	}
+}
+
+// TestPipeline_FullSliceWithWriter extends the codegen+pointer pipeline by
+// running BinaryScriptWriter on the two-script source and pins the writer
+// output for the `helper` script. Mirrors the existing TestPipeline_FullSlice
+// setup but adds a writer hop after PointerChecker.
+func TestPipeline_FullSliceWithWriter(t *testing.T) {
+	src := `[proc,helper](int $n)(int)
+return(calc($n * 2));
+
+[proc,foo](int $x, string $name)(int)
+def_int $result = 0;
+if ($x > 0) {
+  $result = ~helper($x);
+} else {
+  $result = 0;
+}
+while ($result < 100) {
+  $result = calc($result + 1);
+}
+return($result);
+`
+
+	tm := typ.NewTypeManager()
+	for _, p := range typ.PrimitiveAll {
+		_ = tm.RegisterByRepresentation(p)
+	}
+	tm.AddTypeChecker(func(left, right typ.Type) bool { return left == right })
+
+	trm := trigger.NewTriggerManager()
+	proc := &trigger.TriggerType{
+		ID:              0,
+		Identifier:      "proc",
+		SubjectMode:     trigger.ModeName,
+		AllowParameters: true,
+		AllowReturns:    true,
+	}
+	_ = trm.RegisterTrigger(proc)
+
+	root := symbol.NewSymbolTable(nil)
+	d := &diagnostics.Diagnostics{}
+	dyn := map[string]semantics.DynamicCommandHandler{}
+	command.RegisterAllDynCommands(tm, semantics.StrictFeatureLevel{}, func(name string, h semantics.DynamicCommandHandler) {
+		dyn[name] = h
+	})
+
+	p := parser.NewScriptFileParser(src, "smoke.rs2")
+	sf := p.ParseScriptFile()
+	if sf == nil {
+		t.Fatalf("parse failed")
+	}
+	sr := semantics.NewScriptRegistration(tm, trm, root, d, semantics.StrictFeatureLevel{})
+	sr.Visit(sf)
+	tc := semantics.NewTypeChecker(tm, trm, root, dyn, d, semantics.StrictFeatureLevel{})
+	tc.Visit(sf)
+	cg := codegen.NewCodeGenerator(root, dyn, d)
+	cg.Visit(sf)
+	pc := cfg.NewPointerChecker(d, cg.Scripts(), map[string]*pointer.PointerHolder{}, semantics.StrictFeatureLevel{})
+	pc.Run()
+	if d.HasErrors() {
+		t.Fatalf("unexpected diagnostics: %+v", d.List())
+	}
+
+	mapper := runescript.NewSymbolMapper(d)
+	mapper.PutScript(0, "[proc,helper]")
+	mapper.PutScript(1, "[proc,foo]")
+
+	rec := &smokeRec{}
+	w := runescript.NewBinaryScriptWriter(mapper, rec)
+	for _, s := range cg.Scripts() {
+		w.Write(s)
+	}
+
+	if d.HasErrors() {
+		t.Fatalf("writer-phase diagnostics: %+v", d.List())
+	}
+
+	if len(rec.scripts) != 2 {
+		t.Fatalf("writer emitted %d scripts, want 2", len(rec.scripts))
+	}
+
+	// Byte-pin: the first 29 bytes of the `helper` blob are deterministic.
+	// fullName "[proc,helper]\x00" (14) + sourceName "smoke.rs2\x00" (10) +
+	// lookupKey 0xFFFFFFFF (4) + debugproc-zero 0x00 (1) = 29 bytes.
+	helperBlob := rec.scripts[0]
+	if got := string(helperBlob[:13]); got != "[proc,helper]" {
+		t.Errorf("helper.fullName prefix = %q, want %q", got, "[proc,helper]")
+	}
+	if helperBlob[13] != 0 {
+		t.Errorf("helper.fullName terminator missing")
+	}
+	if got := string(helperBlob[14:23]); got != "smoke.rs2" {
+		t.Errorf("helper.sourceName = %q, want %q", got, "smoke.rs2")
+	}
+	if helperBlob[23] != 0 {
+		t.Errorf("helper.sourceName terminator missing")
+	}
+	// lookupKey = -1 (SubjectMode.Name) at offset 24.
+	if got := int32(binary.BigEndian.Uint32(helperBlob[24:28])); got != -1 {
+		t.Errorf("helper.lookupKey = %d, want -1", got)
+	}
+	if helperBlob[28] != 0 {
+		t.Errorf("helper debugproc-zero = %d, want 0", helperBlob[28])
+	}
+}
+
+type smokeRec struct {
+	scripts [][]byte
+}
+
+func (r *smokeRec) OutputScript(s *codegen.RuneScript, data []byte) {
+	d := make([]byte, len(data))
+	copy(d, data)
+	r.scripts = append(r.scripts, d)
 }
