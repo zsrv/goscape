@@ -14,7 +14,6 @@ var nai209DeviationTags = []struct {
 	tag       string
 	rationale string // human-readable hint for failure messages
 }{
-	{"NAI-209-D-BYTEPACKET-DEFER", "BytePacket deferred to NAI-210"},
 	{"NAI-209-D-SYMMAPPER-DIAG-CTOR", "SymbolMapper takes diagnostics in ctor"},
 	{"NAI-209-D-PUSHLONG-PANIC", "WritePushConstantLong panics on TS throw parity"},
 	{"NAI-209-D-MAPZONE-COORD-PARSE-PANIC", "Atoi failure panics, not silent NaN"},

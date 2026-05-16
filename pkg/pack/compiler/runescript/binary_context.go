@@ -18,12 +18,11 @@ const binaryCtxInitialCapacity = 512
 // on-disk script format. Embeds *writer.BaseContext for CurIndex + line/jump
 // tables. Mirrors TS BinaryScriptWriterContext.ts.
 //
-// NAI-209-D-BYTEPACKET-DEFER: TS uses ByteWriter (crc32 + append-only byte
-// writer from n.ts) for its output buffers. BinaryScriptWriterContext instead
-// uses plain []byte slices with direct binary.BigEndian writes, because the
+// Internally uses plain []byte slices with direct binary.BigEndian writes
+// rather than the append-only ByteWriter from bytepacket.go, because the
 // switch-buffer backpatching (`writeUInt16BE(total, sizePos)`) requires
-// random-access writes that ByteWriter does not expose. ByteWriter is deferred
-// to NAI-210, which ports the file-output sinks that actually need it.
+// random-access writes. ByteWriter is reserved for the append-only file
+// sinks (JagFileScriptWriter / Js5PackScriptWriter).
 type BinaryScriptWriterContext struct {
 	*writer.BaseContext
 
