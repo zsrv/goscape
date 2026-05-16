@@ -2,6 +2,7 @@
 package trigger
 
 import (
+	"github.com/zsrv/goscape/pkg/pack/compiler/pointer"
 	typ "github.com/zsrv/goscape/pkg/pack/compiler/type"
 )
 
@@ -11,10 +12,9 @@ import (
 // goscape uses a struct since every trigger is a frozen data record.
 // Pointer receivers satisfy ast.TriggerRef.
 //
-// NAI-205-D-TRIGGER-POINTERS-DEFERRED: TS field `pointers: Set<PointerType>`
-// pulls in PointerType (codegen package, NAI-207). Goscape keeps the field
-// as `any` (unread by ScriptRegistration; set to nil for the test fixtures
-// in NAI-205 and for the production CommandTrigger).
+// (NAI-205-D-TRIGGER-POINTERS-DEFERRED retired by NAI-208: Pointers is now
+// *pointer.PointerSet, populated by the trigger-registry caller when the
+// trigger implicitly sets the pointer on invocation.)
 type TriggerType struct {
 	ID              int
 	Identifier      string
@@ -23,7 +23,7 @@ type TriggerType struct {
 	Parameters      typ.Type // nil = trigger expects no specific param shape
 	AllowReturns    bool
 	Returns         typ.Type // nil = trigger expects no specific return shape
-	Pointers        any
+	Pointers        *pointer.PointerSet
 }
 
 // AsTriggerRef satisfies ast.TriggerRef so *TriggerType may be stored in

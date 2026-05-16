@@ -9,9 +9,10 @@ import (
 // ScriptSymbolFields is the shared field shape for ServerScriptSymbol +
 // ClientScriptSymbol. TS uses subclass; goscape uses struct embedding.
 //
-// NAI-205-D-SCRIPTSYMBOL-NO-POINTERS: TS adds a `pointers(checker)` method
-// that returns a PointerHolder. PointerChecker lives in codegen (NAI-207).
-// Goscape omits the method; the field-shape carries forward.
+// (NAI-205-D-SCRIPTSYMBOL-NO-POINTERS retired by NAI-208: the TS
+// ScriptSymbol.pointers(checker) method is lifted to
+// cfg.PointerChecker.GetPointers(symbol.Symbol) to keep this package free
+// of a symbol→cfg import cycle. See NAI-208-D-SYMBOL-NO-METHOD-CYCLE-AVOID.)
 type ScriptSymbolFields struct {
 	Trigger    *trigger.TriggerType
 	Name       string
