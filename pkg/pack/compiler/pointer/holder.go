@@ -8,8 +8,10 @@ package pointer
 // scatter map-literal boilerplate; PointerChecker analysis arrays use the
 // same shape via map[*InstructionNode]struct{}.
 //
-// All methods are nil-safe (zero-value reads return false/0) to simplify
-// the cfg.PointerChecker code path where empty holders short-circuit.
+// Read methods (Has, Len, All, Clone) are nil-safe; the zero-value receiver
+// reads as empty. Mutating methods (Add, NewPointerSet) require a non-nil
+// receiver. The cfg.PointerChecker code path uses the nil-read leniency to
+// short-circuit empty holders.
 type PointerSet struct {
 	m map[*PointerType]struct{}
 }

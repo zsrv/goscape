@@ -58,7 +58,7 @@ var All = []*PointerType{
 }
 
 // indexByPointer maps every singleton in All to its 0-based position.
-// Populated by init() once per program; reads are lookup-only.
+// Initialized once at package load via package-level var init; reads are lookup-only.
 var indexByPointer = func() map[*PointerType]int {
 	m := make(map[*PointerType]int, len(All))
 	for i, p := range All {
@@ -78,7 +78,8 @@ func Index(pt *PointerType) int {
 	return i
 }
 
-// nameToType maps lowercase Representation → singleton. Populated once.
+// nameToType maps lowercase Representation → singleton. Initialized once at
+// package load via package-level var init.
 var nameToType = func() map[string]*PointerType {
 	m := make(map[string]*PointerType, len(All))
 	for _, p := range All {
