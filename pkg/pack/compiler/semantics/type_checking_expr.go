@@ -12,11 +12,22 @@
 //   - isConditionExpression         (L642-648)
 //   - findInvalidConditionExpression (L258-275)
 //   - getTypeHintRef                (internal helper)
+//
+// Arms covered in this file (T14):
+//   - visitCommandCallExpression (L706-722)
+//   - visitProcCallExpression    (L724-733)
+//   - visitJumpCallExpression    (L735-754)
+//   - checkCallExpression        (L797-815)
+//   - typeCheckArguments         (L825-867)
+//   - checkDynamicCommand        (stub — NAI-206-D-DYNCOMMAND-STUB-T15)
+//   - callName / setCallSymbol / callArgs (helpers)
 package semantics
 
 import (
 	"github.com/zsrv/goscape/pkg/pack/compiler/ast"
 	"github.com/zsrv/goscape/pkg/pack/compiler/diagnostics"
+	"github.com/zsrv/goscape/pkg/pack/compiler/symbol"
+	"github.com/zsrv/goscape/pkg/pack/compiler/trigger"
 	typ "github.com/zsrv/goscape/pkg/pack/compiler/type"
 )
 
@@ -348,4 +359,195 @@ func getTypeHintRef(e ast.Expression) ast.TypeRef {
 		return v.TypeHint
 	}
 	return nil
+}
+
+// ---------------------------------------------------------------------------
+// T14 — Call dispatch: visitCommandCallExpression, visitProcCallExpression,
+//        visitJumpCallExpression, checkCallExpression, typeCheckArguments,
+//        checkDynamicCommand (stub), callName, setCallSymbol, callArgs.
+//
+// TS reference: TypeChecking.ts HEAD b8c338801fbb72d294ff9576a58925a8d3f6de47
+//   visitCommandCallExpression L706-722
+//   visitProcCallExpression    L724-733
+//   visitJumpCallExpression    L735-754
+//   checkCallExpression        L797-815
+//   typeCheckArguments         L825-867
+// ---------------------------------------------------------------------------
+
+// visitCommandCallExpression mirrors TS visitCommandCallExpression (L706-722).
+// Routes through checkDynamicCommand first (dynamic-cmd registry), then falls
+// back to the standard server-script lookup.
+func (tc *TypeChecker) visitCommandCallExpression(cc *ast.CommandCallExpression) {
+	name := cc.NameString()
+	if tc.isDisabledCommandName(name) {
+		diagnostics.ReportErrorAt(tc.diagnostics, cc, diagnostics.MessageFeatureDisabledCommand, name)
+		cc.Type = typ.MetaError
+		return
+	}
+	if tc.checkDynamicCommand(name, cc) {
+		return
+	}
+	tc.checkCallExpression(cc, tc.commandTrigger, diagnostics.MessageCommandReferenceUnresolved)
+}
+
+// visitProcCallExpression mirrors TS visitProcCallExpression (L724-733).
+func (tc *TypeChecker) visitProcCallExpression(pc *ast.ProcCallExpression) {
+	if tc.features.DisableProcs {
+		diagnostics.ReportErrorAt(tc.diagnostics, pc, diagnostics.MessageFeatureDisabledTrigger, "proc")
+		pc.Type = typ.MetaError
+		return
+	}
+	tc.checkCallExpression(pc, tc.procTrigger, diagnostics.MessageProcReferenceUnresolved)
+}
+
+// visitJumpCallExpression mirrors TS visitJumpCallExpression (L735-754).
+// Rejects jumps when label trigger is unregistered or when called from
+// inside a proc (procs return values; jumps don't).
+//
+// NAI-206-D-WALKER-OWNS-CONTEXT: TS findParentByType(Script) is replaced by
+// tc.currentScript set by visitScript. When currentScript is nil (e.g. bare
+// expression tests) the parent-not-found branch emits an internal-error.
+func (tc *TypeChecker) visitJumpCallExpression(jc *ast.JumpCallExpression) {
+	if tc.labelTrigger == nil {
+		diagnostics.ReportErrorAt(tc.diagnostics, jc, "Jump expression not allowed.")
+		return
+	}
+	if tc.currentScript == nil {
+		diagnostics.ReportErrorAt(tc.diagnostics, jc, "Internal compiler error: Parent script not found.")
+		return
+	}
+	if scriptTrigger, ok := tc.currentScript.TriggerType.(*trigger.TriggerType); ok && scriptTrigger == tc.procTrigger {
+		diagnostics.ReportErrorAt(tc.diagnostics, jc, "Unable to jump to labels from within a proc.")
+		return
+	}
+	tc.checkCallExpression(jc, tc.labelTrigger, diagnostics.MessageJumpReferenceUnresolved)
+}
+
+// checkCallExpression mirrors TS checkCallExpression (L797-815). Resolves
+// the (trigger, name) lookup in rootTable, populates Call.Symbol + Call.Type,
+// then delegates argument type-checking.
+//
+// NAI-206-D-TRIGGER-LOOKUPS-NILABLE: trigger may be nil when the trigger was
+// never registered (test fixtures). Guard before calling SymbolTypeServerScript.
+func (tc *TypeChecker) checkCallExpression(call ast.CallExpressionNode, tr *trigger.TriggerType, unresolvedMsg string) {
+	name := callName(call)
+	var script *symbol.ServerScriptSymbol
+	if tr != nil {
+		sym := tc.rootTable.Find(symbol.SymbolTypeServerScript(tr), name)
+		if sym != nil {
+			script, _ = sym.(*symbol.ServerScriptSymbol)
+		}
+	}
+	if script == nil {
+		setType(call, typ.MetaError)
+		diagnostics.ReportErrorAt(tc.diagnostics, call, unresolvedMsg, name)
+	} else {
+		setCallSymbol(call, script)
+		setType(call, script.Returns)
+	}
+	tc.typeCheckArguments(script, call, name)
+}
+
+// callName returns the identifier text for any call-expression shape.
+func callName(c ast.CallExpressionNode) string {
+	switch v := c.(type) {
+	case *ast.CommandCallExpression:
+		return v.Name.Text
+	case *ast.ProcCallExpression:
+		return v.Name.Text
+	case *ast.JumpCallExpression:
+		return v.Name.Text
+	case *ast.ClientScriptExpression:
+		return v.Name.Text
+	}
+	return ""
+}
+
+// setCallSymbol writes s into the Symbol field of the concrete call node.
+func setCallSymbol(c ast.CallExpressionNode, s symbol.Symbol) {
+	switch v := c.(type) {
+	case *ast.CommandCallExpression:
+		v.Symbol = s
+	case *ast.ProcCallExpression:
+		v.Symbol = s
+	case *ast.JumpCallExpression:
+		v.Symbol = s
+	case *ast.ClientScriptExpression:
+		v.Symbol = s
+	}
+}
+
+// callArgs returns the arguments slice for any call-expression shape.
+func callArgs(c ast.CallExpressionNode) []ast.Expression {
+	switch v := c.(type) {
+	case *ast.CommandCallExpression:
+		return v.Arguments
+	case *ast.ProcCallExpression:
+		return v.Arguments
+	case *ast.JumpCallExpression:
+		return v.Arguments
+	case *ast.ClientScriptExpression:
+		return v.Arguments
+	}
+	return nil
+}
+
+// typeCheckArguments mirrors TS typeCheckArguments (L825-867). Type-hints then
+// walks each argument expression against the script's parameter types; reports
+// call-shape-specific NoArgsExpected diagnostics when expected==Unit but actual
+// arguments were supplied; otherwise asserts type-match.
+func (tc *TypeChecker) typeCheckArguments(script *symbol.ServerScriptSymbol, call ast.CallExpressionNode, name string) {
+	var parameterTypes typ.Type
+	if script == nil {
+		parameterTypes = typ.MetaError
+	} else {
+		parameterTypes = script.Parameters
+	}
+	expectedTypes := typ.TupleToList(parameterTypes)
+	args := callArgs(call)
+	actualTypes := tc.typeHintExpressionList(expectedTypes, args)
+	expectedType := typ.TupleFromList(expectedTypes)
+	actualType := typ.TupleFromList(actualTypes)
+
+	if expectedType == typ.MetaUnit && actualType != typ.MetaUnit {
+		var msg string
+		switch call.(type) {
+		case *ast.CommandCallExpression:
+			msg = diagnostics.MessageCommandNoArgsExpected
+		case *ast.ProcCallExpression:
+			msg = diagnostics.MessageProcNoArgsExpected
+		case *ast.JumpCallExpression:
+			msg = diagnostics.MessageJumpNoArgsExpected
+		case *ast.ClientScriptExpression:
+			msg = diagnostics.MessageClientScriptNoArgsExpected
+		default:
+			return
+		}
+		diagnostics.ReportErrorAt(tc.diagnostics, call, msg, name, actualType.Representation())
+		return
+	}
+	tc.checkTypeMatch(call, expectedType, actualType, true)
+}
+
+// checkDynamicCommand is a STUB for T14 — T15 lands the full invocation
+// path. Returns true if dynamic-disabled blocking fired; otherwise false
+// (so the caller falls through to standard command lookup).
+//
+// NAI-206-D-DYNCOMMAND-STUB-T15: T15 wires the full handler-invocation
+// path including Reference fixup + Custom Handler diagnostics.
+func (tc *TypeChecker) checkDynamicCommand(name string, expr ast.Expression) bool {
+	if tc.isDisabledCommandName(name) {
+		diagnostics.ReportErrorAt(tc.diagnostics, expr, diagnostics.MessageFeatureDisabledCommand, name)
+		setType(expr, typ.MetaError)
+		return true
+	}
+	// dynamicCommands registry is empty by NAI-206-D-DYNCOMMAND-EMPTY;
+	// fall through to standard server-script lookup.
+	_, ok := tc.dynamicCommands[name]
+	if !ok {
+		return false
+	}
+	// Handler registered but T14 doesn't invoke — return false so caller
+	// falls back to standard lookup. T15 replaces this branch.
+	return false
 }

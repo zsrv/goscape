@@ -233,7 +233,14 @@ func (tc *TypeChecker) Visit(n ast.Node) {
 		tc.visitArithmeticExpression(v)
 	case *ast.CalcExpression:
 		tc.visitCalcExpression(v)
-	// T14-T18 will insert additional cases here.
+	// T14 call expression arms.
+	case *ast.CommandCallExpression:
+		tc.visitCommandCallExpression(v)
+	case *ast.ProcCallExpression:
+		tc.visitProcCallExpression(v)
+	case *ast.JumpCallExpression:
+		tc.visitJumpCallExpression(v)
+	// T15-T18 will insert additional cases here.
 	default:
 		tc.visitNodeFallback(n)
 	}
