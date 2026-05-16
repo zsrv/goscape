@@ -18,7 +18,7 @@ import (
 // required pointers propagate back to the call site.
 func TestPointerChecker_LabelJump_RequirementPropagates(t *testing.T) {
 	procTr := &trigger.TriggerType{ID: 0, Identifier: "proc"}
-	labelTr := &trigger.TriggerType{ID: 1, Identifier: "label"}
+	labelTr := &trigger.TriggerType{ID: 1, Identifier: "label", Pointers: pointer.NewPointerSet(pointer.ActivePlayer)}
 
 	// label symbol — body requires ACTIVE_PLAYER
 	labelSym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: labelTr, Name: "mylabel"}}

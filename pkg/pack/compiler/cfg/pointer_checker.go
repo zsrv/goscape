@@ -450,9 +450,7 @@ func (p *PointerChecker) getAnalysis(script *codegen.RuneScript) *scriptPointerA
 			addPointersToArray(setArr, holder.Set, node)
 			addPointersToArray(corrupted, holder.Corrupted, node)
 			if staticArgs, present := staticLabelArgsByCall[inst]; present {
-				if scriptSym, ok := sym.(symbol.Symbol); ok {
-					p.addStaticLabelRequirements(required, node, scriptSym, staticArgs)
-				}
+				p.addStaticLabelRequirements(required, node, sym, staticArgs)
 			}
 
 		case codegen.PushVar:
