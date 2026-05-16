@@ -118,6 +118,18 @@ func (c *CodeGeneratorContext) Arguments2() []ast.Expression {
 	return nil
 }
 
+// ActiveScript returns the RuneScript currently being generated, or nil if
+// called outside a script context. Used by ScriptCommandHandler to obtain the
+// enclosing script's name without an AST parent pointer.
+//
+// NAI-207-D-COHORT-B-SCRIPT-MINIMAL: TS ScriptCommandHandler uses
+// expression.findParentByType(Script) (NAI-204-D-AST-NO-PARENT). Goscape
+// exposes the active RuneScript through CodeGeneratorContext instead, since
+// the CodeGenerator already tracks it for instruction emission.
+func (c *CodeGeneratorContext) ActiveScript() *RuneScript {
+	return c.generator.activeScript()
+}
+
 // Command emits the full Command instruction sequence for the expression: a
 // LineInstruction followed by Command(sym). Panics if no symbol can be resolved.
 // Mirrors TS CodeGeneratorContext.command().

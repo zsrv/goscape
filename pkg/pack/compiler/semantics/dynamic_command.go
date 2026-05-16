@@ -241,6 +241,13 @@ func ExprType(expr ast.Expression) typ.Type {
 	return getType(expr)
 }
 
+// Expression returns the AST expression being type-checked. Handlers that
+// need to report a diagnostic on the command-call expression itself (not on
+// an argument) use this accessor. Mirrors TS `context.expression`.
+func (ctx *TypeCheckingContext) Expression() ast.Expression {
+	return ctx.expression
+}
+
 // SetType sets the Type field on the wrapped expression. This is the
 // primary mechanism for DynamicCommandHandler implementations to report
 // their computed return type. Mirrors TS `context.expression.type = t`.
