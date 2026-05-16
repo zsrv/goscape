@@ -28,6 +28,13 @@
 //   - visitConstantVariableExpression (L987-1082)
 //   - parseConstantExpression        (L1053-1081)
 //   - isGameVarType / gameVarInner   (helpers)
+//
+// Arms covered in this file (T18):
+//   - visitIdentifier        (L1214-1238)
+//   - resolveSymbol          (L1240-1287) — full impl replaces T17 stub
+//   - symbolToType           (L1357-1391)
+//   - allowStringConversion  (L1353-1356)
+//   - symbolKindName         (internal helper)
 package semantics
 
 import (
@@ -933,13 +940,146 @@ func isHookType(t typ.Type) bool {
 	return ok
 }
 
-// resolveSymbol stub — T18 replaces with the full impl. Returns nil so
-// the literal/integer/string symbol-hint fallback paths leave .Reference
-// unset until T18 wires the real resolution.
+// resolveSymbol mirrors TS resolveSymbol (L1240-1287) at HEAD
+// b8c338801fbb72d294ff9576a58925a8d3f6de47. Walks every symbol named
+// `name` in the active table (using FindAll), preferring the first one
+// whose type is assignable from the hint. Falls back to the first
+// resolved-with-a-type symbol when no exact match. Special-case for
+// string-conversion: a string-hint and a string-convertible symbol
+// resolves to "node.Type = string, return nil" (no symbol reference).
 //
-// NAI-206-D-RESOLVE-SYMBOL-STUB-T18.
+// Retires NAI-206-D-RESOLVE-SYMBOL-STUB-T18 — real impl is here.
 func (tc *TypeChecker) resolveSymbol(node ast.Expression, name string, hint typ.Type, allowToString bool) symbol.Symbol {
+	var sym symbol.Symbol
+	var symbolType typ.Type
+	for _, tmp := range tc.table.FindAll(name) {
+		tt := tc.symbolToType(tmp)
+		if tt == nil {
+			continue
+		}
+		if hint == nil {
+			if _, _, ok := typ.IsMetaScript(tt); ok {
+				continue
+			}
+		}
+		if hint == nil || tc.typeManager.Check(hint, tt) {
+			sym = tmp
+			symbolType = tt
+			break
+		}
+		if sym == nil {
+			sym = tmp
+			symbolType = tt
+		}
+	}
+	if allowToString && hint == typ.PrimitiveString && tc.allowStringConversion(sym) {
+		setType(node, typ.PrimitiveString)
+		return nil
+	}
+	if sym == nil {
+		setType(node, typ.MetaError)
+		diagnostics.ReportErrorAt(tc.diagnostics, node, diagnostics.MessageGenericUnresolvedSymbol, name)
+		return nil
+	}
+	if symbolType == nil {
+		setType(node, typ.MetaError)
+		diagnostics.ReportErrorAt(tc.diagnostics, node, diagnostics.MessageUnsupportedSymbolTypeToType, symbolKindName(sym))
+		return nil
+	}
+	setType(node, symbolType)
+	return sym
+}
+
+// symbolKindName returns a human-readable kind label for diagnostic
+// messages (mirrors TS symbol-class names).
+func symbolKindName(s symbol.Symbol) string {
+	switch s.(type) {
+	case *symbol.ServerScriptSymbol:
+		return "ServerScriptSymbol"
+	case *symbol.ClientScriptSymbol:
+		return "ClientScriptSymbol"
+	case *symbol.LocalVariableSymbol:
+		return "LocalVariableSymbol"
+	case *symbol.BasicSymbol:
+		return "BasicSymbol"
+	case *symbol.ConstantSymbol:
+		return "ConstantSymbol"
+	}
+	return "Unknown"
+}
+
+// symbolToType mirrors TS symbolToType (L1357-1391). Maps a symbol to
+// the type used during identifier resolution:
+//   - ServerScriptSymbol with the command trigger ⇒ Returns
+//   - ServerScriptSymbol with any other trigger    ⇒ MetaType.Script
+//   - LocalVariableSymbol (array) ⇒ ArrayType
+//   - LocalVariableSymbol (scalar) ⇒ nil  (only arrays are identifier-resolvable)
+//   - BasicSymbol ⇒ Type
+//   - ConstantSymbol ⇒ nil (consumed via the ^FOO syntax, not by identifier)
+func (tc *TypeChecker) symbolToType(s symbol.Symbol) typ.Type {
+	switch v := s.(type) {
+	case *symbol.ServerScriptSymbol:
+		if tc.commandTrigger != nil && v.Trigger == tc.commandTrigger {
+			return v.Returns
+		}
+		if v.Trigger == nil {
+			return nil
+		}
+		return typ.NewMetaScript(v.Trigger.Identifier, v.Parameters, v.Returns)
+	case *symbol.LocalVariableSymbol:
+		if _, isArr := v.Type.(*typ.ArrayType); isArr {
+			return v.Type
+		}
+		return nil
+	case *symbol.BasicSymbol:
+		return v.Type
+	case *symbol.ConstantSymbol:
+		return nil
+	}
 	return nil
+}
+
+// allowStringConversion mirrors TS allowStringConversion (L1353-1356).
+// Commands cannot be string-converted (their names are not values);
+// every other symbol kind can. Nil symbol ⇒ true (no constraint).
+func (tc *TypeChecker) allowStringConversion(s symbol.Symbol) bool {
+	if s == nil {
+		return true
+	}
+	if script, ok := s.(*symbol.ServerScriptSymbol); ok {
+		if tc.commandTrigger != nil && script.Trigger == tc.commandTrigger {
+			return false
+		}
+	}
+	return true
+}
+
+// visitIdentifier mirrors TS visitIdentifier (L1214-1238). Routes
+// through checkDynamicCommand first (dynamic-cmd registry path); then
+// resolves the symbol via resolveSymbol; emits diagnostics if the
+// resolved command symbol has parameters but is referenced as a bare
+// identifier (TS line 1226-1230) OR is feature-disabled.
+func (tc *TypeChecker) visitIdentifier(id *ast.Identifier) {
+	name := id.Text
+	if tc.checkDynamicCommand(name, id) {
+		return
+	}
+	hint := asType(id.TypeHint)
+	sym := tc.resolveSymbol(id, name, hint, true)
+	if sym == nil {
+		return
+	}
+	if script, ok := sym.(*symbol.ServerScriptSymbol); ok && tc.commandTrigger != nil && script.Trigger == tc.commandTrigger {
+		if script.Parameters != typ.MetaUnit {
+			diagnostics.ReportErrorAt(tc.diagnostics, id, diagnostics.MessageGenericTypeMismatch, "<unit>", script.Parameters.Representation())
+		}
+		if tc.isDisabledCommandName(script.Name) {
+			diagnostics.ReportErrorAt(tc.diagnostics, id, diagnostics.MessageFeatureDisabledCommand, script.Name)
+			id.Type = typ.MetaError
+			return
+		}
+	}
+	id.Reference = sym
 }
 
 // intToString formats an int32 as a decimal string, used by

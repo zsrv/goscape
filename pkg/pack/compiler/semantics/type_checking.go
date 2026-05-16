@@ -265,7 +265,9 @@ func (tc *TypeChecker) Visit(n ast.Node) {
 		tc.visitStringLiteral(v)
 	case *ast.JoinedStringExpression:
 		tc.visitJoinedStringExpression(v)
-	// T18 will insert additional cases here.
+	// T18 identifier arm.
+	case *ast.Identifier:
+		tc.visitIdentifier(v)
 	default:
 		tc.visitNodeFallback(n)
 	}
