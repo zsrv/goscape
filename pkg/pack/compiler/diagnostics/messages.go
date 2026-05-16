@@ -19,6 +19,10 @@ const (
 	MessageCustomHandlerNoType   = "Internal compiler error: Custom command handler did not assign return type."
 	MessageCustomHandlerNoSymbol = "Internal compiler error: Custom command handler did not assign symbol."
 
+	// Dynamic command type-argument validation (CheckTypeArgument)
+	// Mirrors TS TypeCheckingContext.DIAGNOSTIC_TYPEREF_EXPECTED.
+	MessageTypeRefExpected = "Type reference expected."
+
 	// Code gen internal compiler errors
 	MessageSymbolIsNull        = "Internal compiler error: Symbol has not been defined for the node."
 	MessageTypeHasNoBaseType   = "Internal compiler error: Type has no defined base type: %s."

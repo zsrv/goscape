@@ -24,6 +24,7 @@ package semantics
 import (
 	"github.com/zsrv/goscape/pkg/pack/compiler/ast"
 	"github.com/zsrv/goscape/pkg/pack/compiler/diagnostics"
+	"github.com/zsrv/goscape/pkg/pack/compiler/symbol"
 	typ "github.com/zsrv/goscape/pkg/pack/compiler/type"
 )
 
@@ -228,6 +229,60 @@ func (ctx *TypeCheckingContext) VisitNodeList(nodes []ast.Node) {
 	for _, n := range nodes {
 		ctx.typeChecker.visitNodeOrNull(n)
 	}
+}
+
+// ExprType reads the Type field from any ast.Expression. This is the
+// public sibling of the unexported getType helper, exposed so that
+// DynamicCommandHandler implementations in external packages (e.g.
+// pkg/pack/compiler/command) can inspect the type of argument expressions
+// returned by CheckArgument / CheckTypeArgument. Mirrors TS
+// `expression.getNullableType()` / `expression.type`.
+func ExprType(expr ast.Expression) typ.Type {
+	return getType(expr)
+}
+
+// SetType sets the Type field on the wrapped expression. This is the
+// primary mechanism for DynamicCommandHandler implementations to report
+// their computed return type. Mirrors TS `context.expression.type = t`.
+func (ctx *TypeCheckingContext) SetType(t typ.Type) {
+	setType(ctx.expression, t)
+}
+
+// CheckTypeArgument validates the argument at index as a type reference.
+// If the argument is an *ast.Identifier, it looks up the identifier text
+// in TypeManager; on success, sets the argument's Type to
+// NewMetaWrapping(found) and its Reference to a BasicSymbol, then returns
+// the argument expression. On failure (out-of-bounds, not an Identifier,
+// or unknown type), emits a diagnostic and sets the argument's Type to
+// MetaError. Mirrors TS TypeCheckingContext.checkTypeArgument().
+//
+// Used by EnumCommandHandler to resolve the input/output type arguments
+// of the `enum` command.
+func (ctx *TypeCheckingContext) CheckTypeArgument(index int) ast.Expression {
+	var args []ast.Expression
+	if call, ok := ctx.expression.(ast.CallExpressionNode); ok {
+		args = argumentsList(call, false)
+	}
+	if index < 0 || index >= len(args) {
+		return nil
+	}
+	arg := args[index]
+	id, ok := arg.(*ast.Identifier)
+	if !ok {
+		diagnostics.ReportErrorAt(ctx.Diagnostics, arg, diagnostics.MessageTypeRefExpected)
+		setType(arg, typ.MetaError)
+		return arg
+	}
+	found := ctx.TypeManager.FindOrNil(id.Text, false)
+	if found == nil {
+		diagnostics.ReportErrorAt(ctx.Diagnostics, id, diagnostics.MessageGenericInvalidType, id.Text)
+		id.Type = typ.MetaError
+		return id
+	}
+	wrapped := typ.NewMetaWrapping(found)
+	id.Type = wrapped
+	id.Reference = &symbol.BasicSymbol{Name: id.Text, Type: wrapped}
+	return id
 }
 
 // ---------------------------------------------------------------------------

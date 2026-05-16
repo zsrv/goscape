@@ -148,6 +148,18 @@ func IsMetaHook(t Type) (transmitListType Type, ok bool) {
 	return mh.transmitListType, true
 }
 
+// IsMetaWrapping returns (inner, true) when t is a MetaType.Type(inner) instance
+// produced by NewMetaWrapping; otherwise (nil, false). Mirrors TS
+// `instanceof MetaType.Type` used by EnumCommandHandler and ParamCommandHandler
+// to extract the inner type from type-argument expressions.
+func IsMetaWrapping(t Type) (inner Type, ok bool) {
+	mw, ok := t.(*metaWrapping)
+	if !ok {
+		return nil, false
+	}
+	return mw.inner, true
+}
+
 // IsMetaScript returns (params, returns, true) when t is a MetaType.Script
 // instance produced by NewMetaScript; otherwise (nil, nil, false).
 //
