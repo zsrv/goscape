@@ -21,9 +21,18 @@
 //   - typeCheckArguments         (L825-867)
 //   - checkDynamicCommand        (stub — NAI-206-D-DYNCOMMAND-STUB-T15)
 //   - callName / setCallSymbol / callArgs (helpers)
+//
+// Arms covered in this file (T16):
+//   - visitLocalVariableExpression   (L909-949)
+//   - visitGameVariableExpression    (L950-985)
+//   - visitConstantVariableExpression (L987-1082)
+//   - parseConstantExpression        (L1053-1081)
+//   - isGameVarType / gameVarInner   (helpers)
 package semantics
 
 import (
+	"strings"
+
 	"github.com/zsrv/goscape/pkg/pack/compiler/ast"
 	"github.com/zsrv/goscape/pkg/pack/compiler/diagnostics"
 	"github.com/zsrv/goscape/pkg/pack/compiler/lexer"
@@ -694,4 +703,198 @@ type clientScriptReparseListener struct {
 
 func (c *clientScriptReparseListener) SyntaxError(sourceName string, line, column int, msg string) {
 	c.d.Report(diagnostics.NewDiagnostic(c.hostLoc, diagnostics.DiagnosticError, "%s", msg))
+}
+
+// ---------------------------------------------------------------------------
+// T16 — Variable expressions: Local, Game, Constant.
+//
+// TS reference: TypeChecking.ts HEAD b8c338801fbb72d294ff9576a58925a8d3f6de47
+//   visitLocalVariableExpression   L909-949
+//   visitGameVariableExpression    L950-985
+//   visitConstantVariableExpression L987-1082
+//   parseConstantExpression        L1053-1063 (goscape caches AST not parse tree)
+// ---------------------------------------------------------------------------
+
+// visitLocalVariableExpression mirrors TS visitLocalVariableExpression
+// (L909-949) at HEAD b8c338801fbb72d294ff9576a58925a8d3f6de47.
+// Resolves $name in the active local symbol table; validates array vs
+// scalar usage; visits and type-checks the index when present.
+func (tc *TypeChecker) visitLocalVariableExpression(lv *ast.LocalVariableExpression) {
+	if tc.features.DisableProcs {
+		diagnostics.ReportErrorAt(tc.diagnostics, lv, diagnostics.MessageFeatureDisabledLocal)
+		lv.Type = typ.MetaError
+		return
+	}
+	name := lv.Name.Text
+	sym := tc.table.Find(symbol.SymbolTypeLocalVariable(), name)
+	var local *symbol.LocalVariableSymbol
+	if sym != nil {
+		local, _ = sym.(*symbol.LocalVariableSymbol)
+	}
+	if local == nil {
+		diagnostics.ReportErrorAt(tc.diagnostics, lv, diagnostics.MessageLocalReferenceUnresolved, name)
+		lv.Type = typ.MetaError
+		return
+	}
+	_, isArr := local.Type.(*typ.ArrayType)
+	if !isArr && lv.IsArray() {
+		diagnostics.ReportErrorAt(tc.diagnostics, lv, diagnostics.MessageLocalReferenceNotArray, name)
+		lv.Type = typ.MetaError
+		return
+	}
+	if isArr && !lv.IsArray() {
+		diagnostics.ReportErrorAt(tc.diagnostics, lv, diagnostics.MessageLocalArrayReferenceNoIndex, name)
+		lv.Type = typ.MetaError
+		return
+	}
+	if isArr && lv.Index != nil {
+		setTypeHint(lv.Index, typ.PrimitiveInt)
+		tc.visitNodeOrNull(lv.Index)
+		tc.checkTypeMatch(lv.Index, typ.PrimitiveInt, tc.getSafeType(lv.Index), true)
+	}
+	lv.Reference = local
+	if arr, ok := local.Type.(*typ.ArrayType); ok {
+		lv.Type = arr.Inner()
+	} else {
+		lv.Type = local.Type
+	}
+}
+
+// visitGameVariableExpression mirrors TS visitGameVariableExpression
+// (L950-985). Looks up `name` across all SymbolTypes in the root table,
+// finds the first BasicSymbol whose Type is one of the game-var shapes
+// (VarPlayer/VarBit/VarNpc/VarShared), and unwraps its Inner() type.
+func (tc *TypeChecker) visitGameVariableExpression(gv *ast.GameVariableExpression) {
+	name := gv.Name.Text
+	all := tc.rootTable.FindAll(name)
+	var found *symbol.BasicSymbol
+	for _, s := range all {
+		bs, ok := s.(*symbol.BasicSymbol)
+		if !ok {
+			continue
+		}
+		if isGameVarType(bs.Type) {
+			found = bs
+			break
+		}
+	}
+	if found == nil {
+		gv.Type = typ.MetaError
+		diagnostics.ReportErrorAt(tc.diagnostics, gv, diagnostics.MessageGameReferenceUnresolved, name)
+		return
+	}
+	gv.Reference = found
+	gv.Type = gameVarInner(found.Type)
+}
+
+// isGameVarType returns true when t is one of the four game-var shapes.
+func isGameVarType(t typ.Type) bool {
+	switch t.(type) {
+	case *typ.VarPlayerType, *typ.VarBitType, *typ.VarNpcType, *typ.VarSharedType:
+		return true
+	}
+	return false
+}
+
+// gameVarInner returns the inner Type of a game-var, or t itself when t
+// is not a game-var.
+func gameVarInner(t typ.Type) typ.Type {
+	switch v := t.(type) {
+	case *typ.VarPlayerType:
+		return v.Inner()
+	case *typ.VarBitType:
+		return v.Inner()
+	case *typ.VarNpcType:
+		return v.Inner()
+	case *typ.VarSharedType:
+		return v.Inner()
+	}
+	return t
+}
+
+// visitConstantVariableExpression mirrors TS visitConstantVariableExpression
+// (L987-1082). Requires a type hint, looks up the constant symbol, parses
+// the constant value as an expression (with cycle detection), visits the
+// parsed AST, and asserts the result is itself a constant expression.
+func (tc *TypeChecker) visitConstantVariableExpression(cv *ast.ConstantVariableExpression) {
+	name := cv.Name.Text
+	hint := asType(cv.TypeHint)
+	if hint == nil {
+		diagnostics.ReportErrorAt(tc.diagnostics, cv, diagnostics.MessageConstantUnknownType, name)
+		cv.Type = typ.MetaError
+		return
+	}
+	if hint == typ.MetaError {
+		// Avoid attempting to parse the constant if it was type hinted to
+		// error. An error will have been reported elsewhere.
+		cv.Type = typ.MetaError
+		return
+	}
+	sym := tc.rootTable.Find(symbol.SymbolTypeConstant(), name)
+	constant, _ := sym.(*symbol.ConstantSymbol)
+	if constant == nil {
+		diagnostics.ReportErrorAt(tc.diagnostics, cv, diagnostics.MessageConstantReferenceUnresolved, name)
+		cv.Type = typ.MetaError
+		return
+	}
+	if tc.constantsBeingEvaluated[constant] {
+		// Build a cycle-stack string (mirrors TS Set iteration + append).
+		parts := make([]string, 0, len(tc.constantsBeingEvaluated)+1)
+		for k := range tc.constantsBeingEvaluated {
+			parts = append(parts, "^"+k.SymbolName())
+		}
+		parts = append(parts, "^"+constant.SymbolName())
+		stack := strings.Join(parts, " -> ")
+		diagnostics.ReportErrorAt(tc.diagnostics, cv, diagnostics.MessageConstantCyclicRef, stack)
+		cv.Type = typ.MetaError
+		return
+	}
+	tc.constantsBeingEvaluated[constant] = true
+	defer delete(tc.constantsBeingEvaluated, constant)
+
+	src := cv.Source()
+	graphicType := tc.typeManager.FindOrNil("graphic", false)
+	stringExpected := hint == typ.PrimitiveString || (graphicType != nil && hint == graphicType)
+
+	var parsed ast.Expression
+	if stringExpected {
+		// String constants: wrap raw value in a StringLiteral at the host
+		// location (TS does the same — no re-parse needed for strings).
+		parsed = &ast.StringLiteral{
+			SrcLoc: src,
+			Value:  constant.Value,
+		}
+	} else {
+		parsed = tc.parseConstantExpression(constant.Value, src)
+	}
+	if parsed == nil {
+		diagnostics.ReportErrorAt(tc.diagnostics, cv, diagnostics.MessageConstantParseError, constant.Value, hint.Representation())
+		cv.Type = typ.MetaError
+		return
+	}
+	setTypeHint(parsed, hint)
+	tc.visitNodeOrNull(parsed)
+	if !tc.isConstantExpression(parsed) {
+		diagnostics.ReportErrorAt(tc.diagnostics, cv, diagnostics.MessageConstantNonConstant, constant.Value)
+		cv.Type = typ.MetaError
+		return
+	}
+	cv.SubExpression = parsed
+	cv.Type = getType(parsed)
+}
+
+// parseConstantExpression mirrors TS parseConstantExpression /
+// parseConstantExpressionTree (L1053-1081 combined). Caches parsed AST
+// nodes per value-string (NAI-206-D-CONST-CACHE-AST: goscape parses
+// straight to AST so we cache the AST expression, unlike TS which caches
+// the ParserRuleContext and runs AstBuilder on each read).
+func (tc *TypeChecker) parseConstantExpression(value string, source lexer.NodeSourceLocation) ast.Expression {
+	if cached, ok := tc.constantExpressionCache[value]; ok {
+		return cached
+	}
+	p := parser.NewSingleExpressionParser(value, source.Name)
+	p.RemoveErrorListeners()
+	expr := p.ParseSingleExpression()
+	tc.constantExpressionCache[value] = expr
+	return expr
 }

@@ -243,7 +243,14 @@ func (tc *TypeChecker) Visit(n ast.Node) {
 	// T15 clientscript arm.
 	case *ast.ClientScriptExpression:
 		tc.visitClientScriptExpression(v)
-	// T16-T18 will insert additional cases here.
+	// T16 variable expression arms.
+	case *ast.LocalVariableExpression:
+		tc.visitLocalVariableExpression(v)
+	case *ast.GameVariableExpression:
+		tc.visitGameVariableExpression(v)
+	case *ast.ConstantVariableExpression:
+		tc.visitConstantVariableExpression(v)
+	// T17-T18 will insert additional cases here.
 	default:
 		tc.visitNodeFallback(n)
 	}
