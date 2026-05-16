@@ -139,15 +139,25 @@ func TestCompile_JagWriter_PinsScriptHeader(t *testing.T) {
 	}
 }
 
-// TestCompile_Js5Writer_EndToEnd ports the same scenario for Js5 writer.
-func TestCompile_Js5Writer_EndToEnd(t *testing.T) {
+// TestCompile_Js5Writer_PinsScriptHeader runs the full Compile() pipeline
+// against a single-proc fixture, then asserts deterministic envelope bytes
+// in the produced .js5 file. Replaces the prior header-only smoke. The
+// gzip OS byte pin re-asserts NAI-210-D-GZIP-OS-BYTE-ZEROED at the driver
+// level (the per-writer pin lives in js5_pack_writer_test.go).
+//
+// Closes NAI-210 follow-up #1 (RICHER-DRIVER-SMOKE) for the Js5 sink.
+//
+// Note: as in TestCompile_JagWriter_PinsScriptHeader, the runescript
+// CompilerTypeInfo Map registers id 0 → "[proc,helper]" so the
+// SymbolMapper resolves the compiled script to a non-negative id.
+func TestCompile_Js5Writer_PinsScriptHeader(t *testing.T) {
 	tmp := t.TempDir()
 	scriptsDir := filepath.Join(tmp, "scripts")
 	if err := os.MkdirAll(scriptsDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(scriptsDir, "hello.rs2"),
-		[]byte("[proc,hello]\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(scriptsDir, "helper.rs2"),
+		[]byte("[proc,helper](int $n)(int)\nreturn(calc($n * 2));\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	js5Out := filepath.Join(tmp, "pack", "scripts.js5")
@@ -156,7 +166,7 @@ func TestCompile_Js5Writer_EndToEnd(t *testing.T) {
 		SourcePaths: []string{scriptsDir},
 		Symbols: map[string]*CompilerTypeInfo{
 			"command":    {Map: map[string]string{"0": "return"}, Require: map[string]string{"0": "active_player"}},
-			"runescript": {Map: map[string]string{}},
+			"runescript": {Map: map[string]string{"0": "[proc,helper]"}},
 		},
 		Features: semantics.StrictFeatureLevel{},
 		Writer:   WriterConfig{Js5: &Js5WriterConfig{Output: js5Out}},
@@ -164,7 +174,34 @@ func TestCompile_Js5Writer_EndToEnd(t *testing.T) {
 	if err := Compile(cfg); err != nil {
 		t.Fatalf("Compile: %v", err)
 	}
-	_ = js5Out
+
+	data, err := os.ReadFile(js5Out)
+	if err != nil {
+		t.Fatalf("read %s: %v", js5Out, err)
+	}
+
+	// packedIndex envelope: P1(type=2 gzip) + P4(compLen) + P4(origLen) +
+	// gzip stream. Gzip stream starts at file offset 9.
+	if data[0] != 0x02 {
+		t.Errorf("data[0] compressionType = %#x, want 0x02 (gzip)", data[0])
+	}
+	if got := binary.BigEndian.Uint32(data[1:5]); got == 0 {
+		t.Errorf("data[1:5] compressedLen = 0, want > 0")
+	}
+	if got := binary.BigEndian.Uint32(data[5:9]); got == 0 {
+		t.Errorf("data[5:9] origLen = 0, want > 0")
+	}
+	if data[9] != 0x1f || data[10] != 0x8b {
+		t.Errorf("data[9:11] gzip magic = %#x %#x, want 0x1f 0x8b", data[9], data[10])
+	}
+	// NAI-210-D-GZIP-OS-BYTE-ZEROED: gzip OS byte = stream byte 9, at
+	// file offset 9 (envelope: P1+P4+P4) + 9 (stream offset) = 18.
+	if data[18] != 0 {
+		t.Errorf("data[18] gzip OS byte = %#x, want 0 (NAI-210-D-GZIP-OS-BYTE-ZEROED)", data[18])
+	}
+	if len(data) <= 50 {
+		t.Errorf("js5 file len = %d, want > 50 (envelope + packedGroup + lengths)", len(data))
+	}
 }
 
 // TestCompile_HandlerInjectionUsedDuringRun pins that Config.Handler is
