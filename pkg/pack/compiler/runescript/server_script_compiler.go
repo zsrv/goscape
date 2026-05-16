@@ -40,7 +40,14 @@ type ServerScriptCompiler struct {
 	CommandPointers map[string]*pointer.PointerHolder
 	Features        semantics.StrictFeatureLevel
 
-	DiagHandler *diagnostics.Diagnostics
+	// NAI-211-D-PHASE-DIAGNOSTICS-FRESH: each phase allocates its own
+	// *diagnostics.Diagnostics; the pre-NAI-211 shared accumulator
+	// (`DiagHandler *diagnostics.Diagnostics`) is retired. This field
+	// holds the user-pluggable Handler that receives the per-phase
+	// Diagnostics via HandleParse / HandleTypeChecking /
+	// HandleCodeGeneration / HandlePointerChecking. Nil defaults to
+	// NopHandler{} in Run().
+	Handler diagnostics.Handler
 
 	BinaryWriter *BinaryScriptWriter
 	Writer       BinaryOutput
@@ -66,19 +73,20 @@ var _ symbol.CompilerContext = (*ServerScriptCompiler)(nil)
 // write(). This is TS-faithful but produces no output when CommandPointers
 // is empty.
 func (c *ServerScriptCompiler) Run(ext string) error {
-	if c.DiagHandler == nil {
-		c.DiagHandler = &diagnostics.Diagnostics{}
+	if c.Handler == nil {
+		c.Handler = diagnostics.NopHandler{}
 	}
 
 	if err := c.loadSymbols(); err != nil {
 		return err
 	}
 
-	files, err := c.parsePhase(ext)
+	files, parseDiag, err := c.parsePhase(ext)
 	if err != nil {
 		return err
 	}
-	if c.DiagHandler.HasErrors() {
+	c.Handler.HandleParse(parseDiag)
+	if parseDiag.HasErrors() {
 		return fmt.Errorf("parse: diagnostics reported errors")
 	}
 
@@ -118,7 +126,8 @@ func (c *ServerScriptCompiler) loadSymbols() error {
 // extension, and returns the resulting ScriptFile nodes. Mirrors TS
 // ScriptCompiler.parse L270-337 (macro support deferred — goscape ports
 // macros in a future slice).
-func (c *ServerScriptCompiler) parsePhase(ext string) ([]*ast.ScriptFile, error) {
+func (c *ServerScriptCompiler) parsePhase(ext string) ([]*ast.ScriptFile, *diagnostics.Diagnostics, error) {
+	d := &diagnostics.Diagnostics{}
 	var files []*ast.ScriptFile
 	for _, sourcePath := range c.SourcePaths {
 		err := filepath.Walk(sourcePath, func(path string, info os.FileInfo, err error) error {
@@ -140,29 +149,31 @@ func (c *ServerScriptCompiler) parsePhase(ext string) ([]*ast.ScriptFile, error)
 			return nil
 		})
 		if err != nil && !os.IsNotExist(err) {
-			return nil, err
+			return nil, d, err
 		}
 	}
-	return files, nil
+	return files, d, nil
 }
 
 // analyzePhase drives ScriptRegistration then registerSecondaryCommands then
 // TypeChecker over every parsed file. Mirrors TS ScriptCompiler.analyze
 // L343-382.
 func (c *ServerScriptCompiler) analyzePhase(files []*ast.ScriptFile) error {
-	reg := semantics.NewScriptRegistration(c.TypeManager, c.Triggers, c.RootTable, c.DiagHandler, c.Features)
+	d := &diagnostics.Diagnostics{}
+	reg := semantics.NewScriptRegistration(c.TypeManager, c.Triggers, c.RootTable, d, c.Features)
 	for _, f := range files {
 		reg.Visit(f)
 	}
 
 	c.registerSecondaryCommands()
 
-	tc := semantics.NewTypeChecker(c.TypeManager, c.Triggers, c.RootTable, c.DynHandlers, c.DiagHandler, c.Features)
+	tc := semantics.NewTypeChecker(c.TypeManager, c.Triggers, c.RootTable, c.DynHandlers, d, c.Features)
 	for _, f := range files {
 		tc.Visit(f)
 	}
 
-	if c.DiagHandler.HasErrors() {
+	c.Handler.HandleTypeChecking(d)
+	if d.HasErrors() {
 		return fmt.Errorf("analyze: diagnostics reported errors")
 	}
 	return nil
@@ -211,13 +222,15 @@ func (c *ServerScriptCompiler) registerSecondaryCommands() {
 // codegenPhase runs a fresh CodeGenerator per file and gathers the emitted
 // RuneScripts. Mirrors TS ScriptCompiler.codegen L418-446.
 func (c *ServerScriptCompiler) codegenPhase(files []*ast.ScriptFile) ([]*codegen.RuneScript, error) {
+	d := &diagnostics.Diagnostics{}
 	var scripts []*codegen.RuneScript
 	for _, f := range files {
-		gen := codegen.NewCodeGenerator(c.RootTable, c.DynHandlers, c.DiagHandler)
+		gen := codegen.NewCodeGenerator(c.RootTable, c.DynHandlers, d)
 		gen.Visit(f)
 		scripts = append(scripts, gen.Scripts()...)
 	}
-	if c.DiagHandler.HasErrors() {
+	c.Handler.HandleCodeGeneration(d)
+	if d.HasErrors() {
 		return nil, fmt.Errorf("codegen: diagnostics reported errors")
 	}
 	return scripts, nil
@@ -228,12 +241,17 @@ func (c *ServerScriptCompiler) codegenPhase(files []*ast.ScriptFile) ([]*codegen
 // when CommandPointers is empty (NAI-210-D-EMPTYPOINTERS-RETURNS-FALSE) or
 // when the PointerChecker reported diagnostic errors.
 func (c *ServerScriptCompiler) checkPointersPhase(scripts []*codegen.RuneScript) (halt bool) {
+	// TS-faithful: NAI-210-D-EMPTYPOINTERS-RETURNS-FALSE early-returns
+	// BEFORE allocating Diagnostics or dispatching the handler. The
+	// pointer-checking Handler is NOT called on this path.
 	if len(c.CommandPointers) < 1 {
 		return true
 	}
-	checker := NewServerPointerChecker(c.DiagHandler, scripts, c.CommandPointers, c.Features, c.collectOverlayInterfaces())
+	d := &diagnostics.Diagnostics{}
+	checker := NewServerPointerChecker(d, scripts, c.CommandPointers, c.Features, c.collectOverlayInterfaces())
 	checker.Run()
-	return c.DiagHandler.HasErrors()
+	c.Handler.HandlePointerChecking(d)
+	return d.HasErrors()
 }
 
 // collectOverlayInterfaces harvests the overlay-interface name list passed
