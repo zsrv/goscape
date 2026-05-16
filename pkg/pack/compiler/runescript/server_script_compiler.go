@@ -231,9 +231,28 @@ func (c *ServerScriptCompiler) checkPointersPhase(scripts []*codegen.RuneScript)
 	if len(c.CommandPointers) < 1 {
 		return true
 	}
-	checker := NewServerPointerChecker(c.DiagHandler, scripts, c.CommandPointers, c.Features, nil)
+	checker := NewServerPointerChecker(c.DiagHandler, scripts, c.CommandPointers, c.Features, c.collectOverlayInterfaces())
 	checker.Run()
 	return c.DiagHandler.HasErrors()
+}
+
+// collectOverlayInterfaces harvests the overlay-interface name list passed
+// to ServerPointerChecker. Mirrors TS ServerScriptCompiler.createPointerChecker
+// L237-241: reads the "overlayinterface" CompilerTypeInfo and returns the
+// Map values (the symbol names). Returns nil when no overlay symbols are
+// configured. Names are emitted in numeric-id-sorted order
+// (NAI-210-D-LOADER-SORTED-ITERATION).
+func (c *ServerScriptCompiler) collectOverlayInterfaces() []string {
+	info, ok := c.CompilerSymbols["overlayinterface"]
+	if !ok || info == nil {
+		return nil
+	}
+	keys := sortedNumericKeys(info.Map)
+	out := make([]string, 0, len(keys))
+	for _, k := range keys {
+		out = append(out, info.Map[k])
+	}
+	return out
 }
 
 // writePhase writes every emitted script through BinaryWriter, skipping any

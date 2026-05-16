@@ -60,6 +60,39 @@ func TestServerScriptCompiler_Run_EmptyCommandPointers_HaltsBeforeWrite(t *testi
 	}
 }
 
+// TestServerScriptCompiler_collectOverlayInterfaces_HarvestsFromCompilerSymbols
+// pins the port of TS ServerScriptCompiler.createPointerChecker L237-241:
+// overlay interface names come from CompilerSymbols["overlayinterface"].Map
+// values, sorted by numeric id (NAI-210-D-LOADER-SORTED-ITERATION) for
+// deterministic ordering.
+func TestServerScriptCompiler_collectOverlayInterfaces_HarvestsFromCompilerSymbols(t *testing.T) {
+	c := &ServerScriptCompiler{
+		CompilerSymbols: map[string]*CompilerTypeInfo{
+			"overlayinterface": {Map: map[string]string{"2": "second", "10": "tenth", "1": "first"}},
+		},
+	}
+	got := c.collectOverlayInterfaces()
+	want := []string{"first", "second", "tenth"}
+	if len(got) != len(want) {
+		t.Fatalf("collectOverlayInterfaces len: got %d %v, want %d %v", len(got), got, len(want), want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("collectOverlayInterfaces[%d]: got %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+// TestServerScriptCompiler_collectOverlayInterfaces_NilWhenAbsent pins the
+// nil-return contract when CompilerSymbols has no "overlayinterface" entry,
+// matching TS's `overlaySymbols ? ... : []` ternary at L238-239.
+func TestServerScriptCompiler_collectOverlayInterfaces_NilWhenAbsent(t *testing.T) {
+	c := &ServerScriptCompiler{CompilerSymbols: map[string]*CompilerTypeInfo{}}
+	if got := c.collectOverlayInterfaces(); got != nil {
+		t.Errorf("collectOverlayInterfaces with no overlayinterface entry: got %v, want nil", got)
+	}
+}
+
 type noopBinaryOutput struct {
 	writeCount int
 }
