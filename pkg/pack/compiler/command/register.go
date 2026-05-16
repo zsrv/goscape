@@ -14,12 +14,9 @@ import (
 // passed to both TypeChecker and CodeGenerator constructors. Mirrors TS
 // addDynamicCommandHandler-call sites in setupDefaultTypeCheckers.
 //
-// features is accepted for forward-compatibility; no StrictFeatureLevel
-// field currently gates any handler registration in goscape's HEAD
-// (NAI-207-D-REGISTERALL-NO-FEATURES: TS feature-flag equivalents
-// DisableQueueVarArg, DisableLongQueueVarArg, DisableEnumStructParam,
-// DisableDbCommands are absent from goscape's StrictFeatureLevel; all
-// handlers are registered unconditionally until those flags are added).
+// features.DisableX gates per-handler registration so the compiler can
+// honor a feature-disabled cache build. Mirrors TS
+// ServerScriptCompiler.setup() L84-212 per-feature `if features.X` blocks.
 func RegisterAllDynCommands(
 	tm *typ.TypeManager,
 	features semantics.StrictFeatureLevel,
@@ -36,19 +33,22 @@ func RegisterAllDynCommands(
 	}
 
 	// queue* vararg variants. Mirrors TS L95-L102.
-	// NAI-207-D-REGISTERALL-NO-FEATURES: TS gates these on features.queueTyped;
-	// goscape registers unconditionally (no DisableQueueVarArg flag at HEAD).
-	for _, name := range []string{"queue*", ".queue*", "weakqueue*", ".weakqueue*", "strongqueue*", ".strongqueue*"} {
-		register(name, NewQueueVarArgCommandHandler(queueType))
+	// Gated on features.DisableQueueTyped per TS L95-102.
+	if !features.DisableQueueTyped {
+		for _, name := range []string{"queue*", ".queue*", "weakqueue*", ".weakqueue*", "strongqueue*", ".strongqueue*"} {
+			register(name, NewQueueVarArgCommandHandler(queueType))
+		}
 	}
 
 	// longqueue / .longqueue + vararg variants. Mirrors TS L103-L110.
 	for _, name := range []string{"longqueue", ".longqueue"} {
 		register(name, NewLongQueueCommandHandler(queueType))
 	}
-	// NAI-207-D-REGISTERALL-NO-FEATURES: TS gates longqueue* on features.queueTyped.
-	for _, name := range []string{"longqueue*", ".longqueue*"} {
-		register(name, NewLongQueueVarArgCommandHandler(queueType))
+	// Gated on features.DisableQueueTyped per TS L108-110.
+	if !features.DisableQueueTyped {
+		for _, name := range []string{"longqueue*", ".longqueue*"} {
+			register(name, NewLongQueueVarArgCommandHandler(queueType))
+		}
 	}
 
 	// settimer / .settimer. Mirrors TS L111-L116.
@@ -73,28 +73,30 @@ func RegisterAllDynCommands(
 	register("obj_param", NewParamCommandHandler(nil))
 
 	// enum. Mirrors TS L123-L125.
-	// NAI-207-D-REGISTERALL-NO-FEATURES: TS gates on features.enums; registered
-	// unconditionally (no DisableEnumStructParam flag at HEAD).
-	register("enum", &EnumCommandHandler{})
+	// Gated on features.DisableEnums per TS L123-125.
+	if !features.DisableEnums {
+		register("enum", &EnumCommandHandler{})
+	}
 
 	// struct_param. Mirrors TS L126-L128.
-	// NAI-207-D-PARAM-NO-CONSTRAINT + NAI-207-D-REGISTERALL-NO-FEATURES: nil
-	// constraint; registered unconditionally.
-	register("struct_param", NewParamCommandHandler(nil))
+	// Gated on features.DisableStructs per TS L126-128. NAI-207-D-PARAM-NO-CONSTRAINT:
+	// nil constraint (no ScriptVarType narrowing yet).
+	if !features.DisableStructs {
+		register("struct_param", NewParamCommandHandler(nil))
+	}
 
 	// db_find / db_find_refine / db_find_with_count / db_find_refine_with_count /
 	// db_getfield. Mirrors TS L129-L155.
-	// NAI-207-D-REGISTERALL-NO-FEATURES: TS gates on features.dbTables;
-	// registered unconditionally (no DisableDbCommands flag at HEAD).
-	register("db_find", NewDbFindCommandHandler(false))
-	register("db_find_refine", NewDbFindCommandHandler(false))
-	register("db_find_with_count", NewDbFindCommandHandler(true))
-	register("db_find_refine_with_count", NewDbFindCommandHandler(true))
-	register("db_getfield", &DbGetFieldCommandHandler{})
+	// Gated on features.DisableDBTables per TS L129-155.
+	if !features.DisableDBTables {
+		register("db_find", NewDbFindCommandHandler(false))
+		register("db_find_refine", NewDbFindCommandHandler(false))
+		register("db_find_with_count", NewDbFindCommandHandler(true))
+		register("db_find_refine_with_count", NewDbFindCommandHandler(true))
+		register("db_getfield", &DbGetFieldCommandHandler{})
+	}
 
 	// debug commands. Mirrors TS L156-L160.
 	register("dump", &DumpCommandHandler{})
 	register("script", &ScriptCommandHandler{})
-
-	_ = features // consumed above: see NAI-207-D-REGISTERALL-NO-FEATURES
 }
