@@ -9,10 +9,13 @@ import (
 	"github.com/zsrv/goscape/pkg/pack/compiler/symbol"
 )
 
+// Compile-time pin: *CodeGeneratorContext must satisfy semantics.CodeGenContext.
+// Sibling-marker pattern; see NAI-207-D-CODEGENCONTEXT-EXPORTEDMARKER.
+var _ semantics.CodeGenContext = (*CodeGeneratorContext)(nil)
+
 func TestCodeGeneratorContext_SatisfiesMarker(t *testing.T) {
 	cg := &CodeGenerator{}
-	cgc := NewCodeGeneratorContext(cg, symbol.NewSymbolTable(nil), &ast.IntegerLiteral{}, &diagnostics.Diagnostics{})
-	var _ semantics.CodeGenContext = cgc
+	_ = NewCodeGeneratorContext(cg, symbol.NewSymbolTable(nil), &ast.IntegerLiteral{}, &diagnostics.Diagnostics{})
 }
 
 func TestCodeGeneratorContext_ArgumentsExtraction(t *testing.T) {

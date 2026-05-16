@@ -11,9 +11,12 @@ import (
 // by DynamicCommandHandler.GenerateCode implementations. Mirrors TS class
 // CodeGeneratorContext (CodeGeneratorContext.ts).
 //
-// NAI-207-D-CODEGENCONTEXT-MARKER: satisfies semantics.CodeGenContext via the
-// unexported isCodeGenContext() method, placing the marker interface in
-// semantics to avoid a codegen→semantics import cycle.
+// NAI-207-D-CODEGENCONTEXT-MARKER: satisfies semantics.CodeGenContext by
+// placing the marker interface in semantics to avoid a codegen→semantics
+// import cycle. NAI-207-D-CODEGENCONTEXT-EXPORTEDMARKER: the marker method
+// is exported (IsCodeGenContext()), not unexported, because Go's interface
+// rules prevent a type in package codegen from satisfying an unexported method
+// declared in package semantics.
 type CodeGeneratorContext struct {
 	// generator is the owning CodeGenerator; used for Instruction,
 	// LineInstruction, and VisitNodeOrNull.
@@ -47,9 +50,10 @@ func NewCodeGeneratorContext(
 
 // IsCodeGenContext satisfies semantics.CodeGenContext. Production code in
 // codegen must NOT import semantics (cycle); the marker is declared there
-// and satisfied here via this exported method. The method name is exported
-// because Go's interface rules prevent a type in package codegen from
-// satisfying an unexported method declared in package semantics.
+// and satisfied here via this exported method.
+// NAI-207-D-CODEGENCONTEXT-EXPORTEDMARKER: the method is exported because
+// Go's interface rules prevent a type in package codegen from satisfying an
+// unexported method declared in package semantics.
 func (*CodeGeneratorContext) IsCodeGenContext() {}
 
 // Instruction delegates to the owning CodeGenerator to emit one instruction.
@@ -87,8 +91,19 @@ func (c *CodeGeneratorContext) VisitNodes(nodes []ast.Node) {
 // Arguments returns the argument list if Expression is a CallExpressionNode,
 // otherwise returns nil. Mirrors TS get arguments() in CodeGeneratorContext.
 func (c *CodeGeneratorContext) Arguments() []ast.Expression {
-	if call, ok := c.Expression.(ast.CallExpressionNode); ok {
-		return cgArgumentsList(call, false)
+	call, ok := c.Expression.(ast.CallExpressionNode)
+	if !ok {
+		return nil
+	}
+	switch cl := call.(type) {
+	case *ast.CommandCallExpression:
+		return cl.Arguments
+	case *ast.ProcCallExpression:
+		return cl.Arguments
+	case *ast.JumpCallExpression:
+		return cl.Arguments
+	case *ast.ClientScriptExpression:
+		return cl.Arguments
 	}
 	return nil
 }
@@ -123,26 +138,4 @@ func (c *CodeGeneratorContext) Command() {
 	}
 	c.LineInstruction(c.Expression)
 	c.Instruction(Command, sym, c.Expression.Source())
-}
-
-// cgArgumentsList returns the argument list for a CallExpressionNode. When
-// args2 is true and the call is a *CommandCallExpression with a secondary
-// argument list, returns Arguments2 instead.
-func cgArgumentsList(call ast.CallExpressionNode, args2 bool) []ast.Expression {
-	if args2 {
-		if cmd, ok := call.(*ast.CommandCallExpression); ok && cmd.Arguments2 != nil {
-			return cmd.Arguments2
-		}
-	}
-	switch c := call.(type) {
-	case *ast.CommandCallExpression:
-		return c.Arguments
-	case *ast.ProcCallExpression:
-		return c.Arguments
-	case *ast.JumpCallExpression:
-		return c.Arguments
-	case *ast.ClientScriptExpression:
-		return c.Arguments
-	}
-	return nil
 }

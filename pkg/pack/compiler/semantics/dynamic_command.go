@@ -33,11 +33,15 @@ import (
 //
 // NAI-207-D-CODEGENCONTEXT-MARKER: goscape places this marker in semantics
 // rather than codegen; the concrete *codegen.CodeGeneratorContext satisfies it
-// via IsCodeGenContext(). The marker method is exported (deviation from the
-// unexported-method plan) because Go's interface rules prevent a type in
-// package codegen from satisfying an unexported method declared in package
-// semantics — unexported interface methods are only satisfiable within the
-// declaring package.
+// via IsCodeGenContext(). NAI-207-D-CODEGENCONTEXT-EXPORTEDMARKER: the marker
+// method is exported because Go's interface rules prevent a type in package
+// codegen from satisfying an unexported method declared in package semantics —
+// unexported interface methods are only satisfiable within the declaring package.
+// Because the method is exported, marker-protection relies on convention +
+// doc-comment rather than Go enforcement. Mirrors the sibling pattern in
+// pkg/pack/compiler/ast/symbol_refs.go (NAI-205-D-AST-REF-INTERFACES) where
+// AsSymbolRef()/AsTypeRef() are also exported markers for the same cross-package
+// reason.
 type CodeGenContext interface {
 	IsCodeGenContext()
 }
