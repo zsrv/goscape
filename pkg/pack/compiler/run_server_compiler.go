@@ -130,3 +130,33 @@ func translateCommandPointerNames(cmd *runescript.CompilerTypeInfo) {
 		cmd.Corrupt2[k] = translatePointerNameList(v)
 	}
 }
+
+// LoadCompilerSymbols assembles the symbol map the runescript compiler
+// needs to type-check and codegen. Identical to the prep stages
+// RunServerCompiler runs before invoking runescript.Compile.
+//
+// srcDir: directory containing scripts/ and pack/ subdirs.
+// dataPackDir: cache directory with the 7 .dat/.idx pairs (read back
+// the cache PackConfigs writes).
+//
+// The NAI-212-D-POINTER-NAME-TRANSLATION translation is applied to the
+// "command" entry so callers can invoke runescript.Compile directly
+// with the returned map.
+func LoadCompilerSymbols(srcDir, dataPackDir string) (map[string]*runescript.CompilerTypeInfo, error) {
+	loaders, err := loadConfigs(dataPackDir)
+	if err != nil {
+		return nil, fmt.Errorf("LoadCompilerSymbols: %w", err)
+	}
+	symbols, err := buildSymbolsCore(srcDir, loaders)
+	if err != nil {
+		return nil, fmt.Errorf("LoadCompilerSymbols: %w", err)
+	}
+	bridged := make(map[string]*runescript.CompilerTypeInfo, len(symbols))
+	for k, v := range symbols {
+		bridged[k] = ToCompilerTypeInfo(v)
+	}
+	if cmd, ok := bridged["command"]; ok {
+		translateCommandPointerNames(cmd)
+	}
+	return bridged, nil
+}
