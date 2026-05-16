@@ -51,8 +51,10 @@ func (n *InstructionNode) AddNext(other *InstructionNode) {
 //
 // Embeds InstructionNode (not subclasses it). The embedded address is the
 // identity used by PointerChecker analysis arrays — callers MUST reference
-// &pn.InstructionNode (or pass *PointerInstructionNode through a
-// *InstructionNode parameter, where field-promotion does this automatically).
+// &pn.InstructionNode explicitly. Method calls on *PointerInstructionNode
+// (e.g. pn.AddNext) compile via Go's method-set promotion, but that
+// promotion does NOT make *PointerInstructionNode assignable to
+// *InstructionNode at value positions.
 type PointerInstructionNode struct {
 	InstructionNode
 	Set *pointer.PointerSet
