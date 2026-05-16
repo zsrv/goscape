@@ -88,3 +88,57 @@ func TestCompile_Js5Writer_EndToEnd(t *testing.T) {
 	}
 	_ = js5Out
 }
+
+// TestCompile_HandlerInjectionUsedDuringRun pins that Config.Handler is
+// threaded into the constructed ServerScriptCompiler and receives the
+// phase callbacks. Uses an empty SourcePaths + non-empty Symbols to
+// reach Run without doing any real work.
+func TestCompile_HandlerInjectionUsedDuringRun(t *testing.T) {
+	tmpDir := t.TempDir()
+	rh := newRecordingHandler()
+
+	// Minimal Symbols sufficient to pass Compile's required-symbols check.
+	syms := map[string]*CompilerTypeInfo{
+		"command":    {Map: map[string]string{}},
+		"runescript": {Map: map[string]string{}},
+	}
+
+	err := Compile(Config{
+		SourcePaths: []string{tmpDir}, // empty dir → parsePhase walks zero files
+		Symbols:     syms,
+		Writer:      WriterConfig{Jag: &JagWriterConfig{Output: filepath.Join(tmpDir, "out")}},
+		Handler:     rh,
+	})
+	// CommandPointers stays empty after LoadSpecialSymbols on these empty
+	// CompilerTypeInfo maps; HandlePointerChecking is NOT called per
+	// NAI-210-D-EMPTYPOINTERS-RETURNS-FALSE.
+	if err != nil {
+		t.Fatalf("Compile: %v", err)
+	}
+	want := []string{"HandleParse", "HandleTypeChecking", "HandleCodeGeneration"}
+	if !equalStrings(rh.calls, want) {
+		t.Errorf("Compile dispatch order: got %v, want %v", rh.calls, want)
+	}
+}
+
+// TestCompile_NilHandlerDefaultsToBase pins that a nil Config.Handler is
+// replaced with *BaseDiagnosticsHandler before Run() is invoked. Asserts
+// no panic + completion; the printed output goes to BaseDiagnosticsHandler's
+// default os.Stdout (acceptable for this test — there will be zero
+// diagnostics from an empty SourcePaths).
+func TestCompile_NilHandlerDefaultsToBase(t *testing.T) {
+	tmpDir := t.TempDir()
+	syms := map[string]*CompilerTypeInfo{
+		"command":    {Map: map[string]string{}},
+		"runescript": {Map: map[string]string{}},
+	}
+	err := Compile(Config{
+		SourcePaths: []string{tmpDir},
+		Symbols:     syms,
+		Writer:      WriterConfig{Jag: &JagWriterConfig{Output: filepath.Join(tmpDir, "out")}},
+		Handler:     nil,
+	})
+	if err != nil {
+		t.Fatalf("Compile with nil Handler: %v", err)
+	}
+}

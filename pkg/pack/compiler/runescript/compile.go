@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/zsrv/goscape/pkg/pack/compiler/diagnostics"
 	"github.com/zsrv/goscape/pkg/pack/compiler/pointer"
 	"github.com/zsrv/goscape/pkg/pack/compiler/semantics"
 	"github.com/zsrv/goscape/pkg/pack/compiler/symbol"
@@ -22,6 +23,12 @@ type Config struct {
 	CheckPointers *bool // nil → default true
 	Features      semantics.StrictFeatureLevel
 	Writer        WriterConfig
+	// Handler receives the per-phase Diagnostics from each phase of
+	// ServerScriptCompiler.Run. Nil defaults to
+	// &diagnostics.BaseDiagnosticsHandler{} (TS-faithful: TS uses
+	// BaseDiagnosticsHandler when CompileServerScript is invoked without
+	// an override).
+	Handler diagnostics.Handler
 }
 
 // WriterConfig selects between the Jag-format and JS5-format writer sinks.
@@ -104,6 +111,10 @@ func Compile(cfg Config) error {
 		return fmt.Errorf("LoadSpecialSymbols: %w", err)
 	}
 
+	handler := cfg.Handler
+	if handler == nil {
+		handler = &diagnostics.BaseDiagnosticsHandler{}
+	}
 	c := &ServerScriptCompiler{
 		SourcePaths:     absSources,
 		ExcludePaths:    absExcludes,
@@ -116,6 +127,7 @@ func Compile(cfg Config) error {
 		CommandPointers: commandPointers,
 		Features:        cfg.Features,
 		Writer:          writer,
+		Handler:         handler,
 	}
 	c.Setup()
 	c.BinaryWriter = NewBinaryScriptWriter(mapper, c.Writer)
