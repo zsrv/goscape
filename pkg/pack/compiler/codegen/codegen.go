@@ -188,7 +188,13 @@ func (g *CodeGenerator) Visit(n ast.Node) {
 		} else {
 			g.Instruction(PushConstantSymbol, v.Reference, v.Source())
 		}
-	// Remaining expression arms added in T9–T11.
+	case *ast.CommandCallExpression:
+		g.visitCommandCall(v)
+	case *ast.ProcCallExpression:
+		g.visitProcCall(v)
+	case *ast.JumpCallExpression:
+		g.visitJumpCall(v)
+	// Remaining expression arms added in T11.
 	case nil:
 		return
 	default:

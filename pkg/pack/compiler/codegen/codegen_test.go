@@ -505,3 +505,87 @@ switch_int ($x) {
 		}
 	}
 }
+
+// --- T9: call expressions + emitDynamicCommand ----------------------------------
+
+// compileForTestByName parses + registers + type-checks + codegens src and
+// returns the RuneScript whose FullName matches fullName. Fatals if parse,
+// diagnostics, or the named script is not found.
+func compileForTestByName(t *testing.T, src, fullName string) *RuneScript {
+	t.Helper()
+	tm := typ.NewTypeManager()
+	for _, p := range typ.PrimitiveAll {
+		_ = tm.RegisterByRepresentation(p)
+	}
+	tm.AddTypeChecker(func(left, right typ.Type) bool { return left == right })
+	trm := trigger.NewTriggerManager()
+	_ = trm.RegisterTrigger(makeProcTrigger())
+	root := symbol.NewSymbolTable(nil)
+	d := &diagnostics.Diagnostics{}
+
+	p := parser.NewScriptFileParser(src, "test.rs2")
+	sf := p.ParseScriptFile()
+	if sf == nil {
+		t.Fatalf("parse failed")
+	}
+
+	sr := semantics.NewScriptRegistration(tm, trm, root, d, semantics.StrictFeatureLevel{})
+	sr.Visit(sf)
+	tc := semantics.NewTypeChecker(tm, trm, root, map[string]semantics.DynamicCommandHandler{}, d, semantics.StrictFeatureLevel{})
+	tc.Visit(sf)
+
+	cg := NewCodeGenerator(root, map[string]semantics.DynamicCommandHandler{}, d)
+	cg.Visit(sf)
+
+	if d.HasErrors() {
+		t.Fatalf("unexpected diagnostics: %+v", d.List())
+	}
+	for _, s := range cg.Scripts() {
+		if s.FullName == fullName {
+			return s
+		}
+	}
+	t.Fatalf("script %q not found among: %v", fullName, scriptNames(cg.Scripts()))
+	return nil
+}
+
+func scriptNames(scripts []*RuneScript) []string {
+	out := make([]string, len(scripts))
+	for i, s := range scripts {
+		out[i] = s.FullName
+	}
+	return out
+}
+
+// TestCodeGenerator_ProcCall_NoArgs pins that `~bar;` in [proc,foo] emits
+// Gosub + Return (default trailing Return from generateDefaultReturns).
+func TestCodeGenerator_ProcCall_NoArgs(t *testing.T) {
+	src := `[proc,bar]
+[proc,foo]
+~bar;
+`
+	rs := compileForTestByName(t, src, "[proc,foo]")
+	got := opcodesOf(rs.Blocks[0])
+	want := []Opcode{Gosub, Return}
+	if !sameOps(got, want) {
+		t.Errorf("opcodes: got %v, want %v", names(got), names(want))
+	}
+}
+
+// TestCodeGenerator_JumpCall is skipped until jump-call parse syntax and a
+// label-trigger fixture are available.
+func TestCodeGenerator_JumpCall(t *testing.T) {
+	t.Skip("requires jump-call parse syntax + label trigger fixture; revisit T14")
+}
+
+// TestCodeGenerator_CommandCall_NoDynHandler_DefaultPath is skipped until the
+// command registry and T10 StringLiteral emission are available.
+func TestCodeGenerator_CommandCall_NoDynHandler_DefaultPath(t *testing.T) {
+	t.Skip("requires command registry + T10 StringLiteral (mes(\"hello\")); revisit T14 smoke")
+}
+
+// TestCodeGenerator_CommandCall_DynamicHandler_Override is skipped until the
+// command-symbol-registry helper and dynamic-handler dispatch e2e are available.
+func TestCodeGenerator_CommandCall_DynamicHandler_Override(t *testing.T) {
+	t.Skip("requires command-symbol-registry helper + dyn handler dispatch e2e; revisit T14 smoke")
+}
