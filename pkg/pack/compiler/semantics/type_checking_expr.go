@@ -31,6 +31,7 @@
 package semantics
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/zsrv/goscape/pkg/pack/compiler/ast"
@@ -897,4 +898,173 @@ func (tc *TypeChecker) parseConstantExpression(value string, source lexer.NodeSo
 	expr := p.ParseSingleExpression()
 	tc.constantExpressionCache[value] = expr
 	return expr
+}
+
+// ---------------------------------------------------------------------------
+// T17 — Literals: Integer, Coord, Boolean, Character, Null, StringLiteral,
+//        JoinedStringExpression, JoinedStringPart.
+//
+// TS reference: TypeChecking.ts HEAD b8c338801fbb72d294ff9576a58925a8d3f6de47
+//   visitIntegerLiteral        L1083-1098
+//   visitCoordLiteral          L1100-1102
+//   visitBooleanLiteral        L1104-1118
+//   visitCharacterLiteral      L1120-1122
+//   visitNullLiteral           L1124-1132
+//   visitStringLiteral         L1134-1154
+//   visitJoinedStringExpression L1192-1198
+//   visitJoinedStringPart      L1200-1212
+// ---------------------------------------------------------------------------
+
+// literalTypes is the set of primitive types that a literal can naturally
+// have without invoking the symbol-resolution fallback. Mirrors TS
+// TypeChecking.LITERAL_TYPES static field.
+var literalTypes = map[typ.Type]bool{
+	typ.PrimitiveInt:     true,
+	typ.PrimitiveBoolean: true,
+	typ.PrimitiveCoord:   true,
+	typ.PrimitiveString:  true,
+	typ.PrimitiveChar:    true,
+	typ.PrimitiveLong:    true,
+}
+
+// isHookType returns true when t is a MetaType.Hook(transmitListType).
+func isHookType(t typ.Type) bool {
+	_, ok := typ.IsMetaHook(t)
+	return ok
+}
+
+// resolveSymbol stub — T18 replaces with the full impl. Returns nil so
+// the literal/integer/string symbol-hint fallback paths leave .Reference
+// unset until T18 wires the real resolution.
+//
+// NAI-206-D-RESOLVE-SYMBOL-STUB-T18.
+func (tc *TypeChecker) resolveSymbol(node ast.Expression, name string, hint typ.Type, allowToString bool) symbol.Symbol {
+	return nil
+}
+
+// intToString formats an int32 as a decimal string, used by
+// visitIntegerLiteral to pass the integer value as a name to resolveSymbol.
+func intToString(n int32) string {
+	return fmt.Sprintf("%d", n)
+}
+
+// visitIntegerLiteral mirrors TS visitIntegerLiteral (L1083-1098).
+// Branch order is preserved exactly from TS:
+//  1. No hint / Unit hint / int-assignable hint → int.
+//  2. Non-literal hint → resolveSymbol (sets .Type and .Reference).
+//  3. Boolean hint with value 0 or 1 → boolean.
+//  4. String hint → string.
+//  5. Any other literal hint → int.
+func (tc *TypeChecker) visitIntegerLiteral(il *ast.IntegerLiteral) {
+	hint := asType(il.TypeHint)
+	if hint == nil || hint == typ.MetaUnit || tc.typeManager.Check(hint, typ.PrimitiveInt) {
+		il.Type = typ.PrimitiveInt
+	} else if !literalTypes[hint] {
+		il.Reference = tc.resolveSymbol(il, intToString(il.Value), hint, false)
+		// resolveSymbol (T18) always sets il.Type; the stub (T17) returns nil
+		// without setting it, so guard with a fallback.
+		if il.Type == nil {
+			il.Type = typ.PrimitiveInt
+		}
+	} else if hint == typ.PrimitiveBoolean && (il.Value == 0 || il.Value == 1) {
+		il.Type = typ.PrimitiveBoolean
+	} else if hint == typ.PrimitiveString {
+		il.Type = typ.PrimitiveString
+	} else {
+		il.Type = typ.PrimitiveInt
+	}
+}
+
+// visitCoordLiteral mirrors TS visitCoordLiteral (L1100-1102).
+func (tc *TypeChecker) visitCoordLiteral(cl *ast.CoordLiteral) {
+	cl.Type = typ.PrimitiveCoord
+}
+
+// visitBooleanLiteral mirrors TS visitBooleanLiteral (L1104-1118).
+// TS reads hint from booleanLiteral.type (not .typeHint) — this is a TS
+// quirk where the type field is populated before the visitor runs. In
+// goscape the hint is always in .TypeHint; .Type is only set by visitors.
+//
+// NAI-206-D-BOOL-HINT-FIELD: TS L1111 reads `booleanLiteral.type` (the
+// type field) as the hint; goscape reads TypeHint (the intended hint
+// field). Semantics are identical: the AstBuilder sets neither field, so
+// both are nil in normal use; the only difference surfaces in tests that
+// manually set one field or the other.
+func (tc *TypeChecker) visitBooleanLiteral(bl *ast.BooleanLiteral) {
+	if tc.features.DisableBooleans {
+		diagnostics.ReportErrorAt(tc.diagnostics, bl, diagnostics.MessageFeatureDisabledBoolean)
+		bl.Type = typ.MetaError
+		return
+	}
+	if asType(bl.TypeHint) == typ.PrimitiveString {
+		bl.Type = typ.PrimitiveString
+		return
+	}
+	bl.Type = typ.PrimitiveBoolean
+}
+
+// visitCharacterLiteral mirrors TS visitCharacterLiteral (L1120-1122).
+func (tc *TypeChecker) visitCharacterLiteral(cl *ast.CharacterLiteral) {
+	cl.Type = typ.PrimitiveChar
+}
+
+// visitNullLiteral mirrors TS visitNullLiteral (L1124-1132). NullLiteral
+// is a generic -1; defaults to int when no hint, else inherits hint.
+func (tc *TypeChecker) visitNullLiteral(nl *ast.NullLiteral) {
+	if hint := asType(nl.TypeHint); hint != nil {
+		nl.Type = hint
+		return
+	}
+	nl.Type = typ.PrimitiveInt
+}
+
+// visitStringLiteral mirrors TS visitStringLiteral (L1134-1154).
+// No-hint or string-assignable hint ⇒ string.
+// Hook hint ⇒ re-parse the value as a clientscript reference via
+// handleClientScriptExpression (T15).
+// Non-literal hint ⇒ route to resolveSymbol (T18).
+// Any other literal hint ⇒ string.
+func (tc *TypeChecker) visitStringLiteral(sl *ast.StringLiteral) {
+	hint := asType(sl.TypeHint)
+	if hint == nil || tc.typeManager.Check(hint, typ.PrimitiveString) {
+		sl.Type = typ.PrimitiveString
+	} else if isHookType(hint) {
+		tc.handleClientScriptExpression(sl, hint)
+	} else if !literalTypes[hint] {
+		sl.Reference = tc.resolveSymbol(sl, sl.Value, hint, false)
+		// resolveSymbol (T18) always sets sl.Type; the stub returns nil
+		// without setting it, so guard with a fallback.
+		if sl.Type == nil {
+			sl.Type = typ.PrimitiveString
+		}
+	} else {
+		sl.Type = typ.PrimitiveString
+	}
+}
+
+// visitJoinedStringExpression mirrors TS visitJoinedStringExpression
+// (L1192-1198). Walks each part via visitJoinedStringPart; result type is
+// always string.
+func (tc *TypeChecker) visitJoinedStringExpression(jse *ast.JoinedStringExpression) {
+	for _, part := range jse.Parts {
+		tc.visitJoinedStringPart(part)
+	}
+	jse.Type = typ.PrimitiveString
+}
+
+// visitJoinedStringPart mirrors TS visitJoinedStringPart (L1200-1212).
+// For ExpressionStringPart, type-hints the inner expression to string,
+// walks it, then asserts the result is assignable to string.
+// BasicStringPart and PTagStringPart carry no expression — no action taken.
+func (tc *TypeChecker) visitJoinedStringPart(part ast.StringPart) {
+	esp, ok := part.(*ast.ExpressionStringPart)
+	if !ok {
+		return
+	}
+	if esp.Expression == nil {
+		return
+	}
+	setTypeHint(esp.Expression, typ.PrimitiveString)
+	tc.Visit(esp.Expression)
+	tc.checkTypeMatch(esp.Expression, typ.PrimitiveString, tc.getSafeType(esp.Expression), true)
 }

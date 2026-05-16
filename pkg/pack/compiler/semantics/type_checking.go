@@ -250,7 +250,22 @@ func (tc *TypeChecker) Visit(n ast.Node) {
 		tc.visitGameVariableExpression(v)
 	case *ast.ConstantVariableExpression:
 		tc.visitConstantVariableExpression(v)
-	// T17-T18 will insert additional cases here.
+	// T17 literal + joined-string arms.
+	case *ast.IntegerLiteral:
+		tc.visitIntegerLiteral(v)
+	case *ast.CoordLiteral:
+		tc.visitCoordLiteral(v)
+	case *ast.BooleanLiteral:
+		tc.visitBooleanLiteral(v)
+	case *ast.CharacterLiteral:
+		tc.visitCharacterLiteral(v)
+	case *ast.NullLiteral:
+		tc.visitNullLiteral(v)
+	case *ast.StringLiteral:
+		tc.visitStringLiteral(v)
+	case *ast.JoinedStringExpression:
+		tc.visitJoinedStringExpression(v)
+	// T18 will insert additional cases here.
 	default:
 		tc.visitNodeFallback(n)
 	}
