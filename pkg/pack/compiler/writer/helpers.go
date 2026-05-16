@@ -81,9 +81,11 @@ func GetLocalCount(locals *codegen.LocalTable, baseType typ.BaseVarType) int {
 // (array-vs-scalar; scalar further partitioned by BaseVarType, with
 // non-parameter arrays excluded from the scalar pool).
 //
-// Returns -1 if local is not a member of locals.All; callers must treat -1
-// as a programming-error sentinel — it would corrupt the binary output if
-// emitted as an opcode operand.
+// Returns -1 if local is not a member of locals.All. The binary writer
+// emits -1 verbatim (as 0xFFFFFFFF) — TS does the same since
+// Array.prototype.indexOf returns -1 silently — so this signals a stage
+// upstream of the writer (typecheck/codegen) failed to register the local.
+// In a healthy pipeline this code path is unreachable.
 //
 // Mirrors TS getVariableId L276-282.
 func GetVariableId(locals *codegen.LocalTable, local *symbol.LocalVariableSymbol) int {
