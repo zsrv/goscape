@@ -240,7 +240,10 @@ func (tc *TypeChecker) Visit(n ast.Node) {
 		tc.visitProcCallExpression(v)
 	case *ast.JumpCallExpression:
 		tc.visitJumpCallExpression(v)
-	// T15-T18 will insert additional cases here.
+	// T15 clientscript arm.
+	case *ast.ClientScriptExpression:
+		tc.visitClientScriptExpression(v)
+	// T16-T18 will insert additional cases here.
 	default:
 		tc.visitNodeFallback(n)
 	}

@@ -26,6 +26,8 @@ package semantics
 import (
 	"github.com/zsrv/goscape/pkg/pack/compiler/ast"
 	"github.com/zsrv/goscape/pkg/pack/compiler/diagnostics"
+	"github.com/zsrv/goscape/pkg/pack/compiler/lexer"
+	"github.com/zsrv/goscape/pkg/pack/compiler/parser"
 	"github.com/zsrv/goscape/pkg/pack/compiler/symbol"
 	"github.com/zsrv/goscape/pkg/pack/compiler/trigger"
 	typ "github.com/zsrv/goscape/pkg/pack/compiler/type"
@@ -529,25 +531,167 @@ func (tc *TypeChecker) typeCheckArguments(script *symbol.ServerScriptSymbol, cal
 	tc.checkTypeMatch(call, expectedType, actualType, true)
 }
 
-// checkDynamicCommand is a STUB for T14 — T15 lands the full invocation
-// path. Returns true if dynamic-disabled blocking fired; otherwise false
-// (so the caller falls through to standard command lookup).
+// checkDynamicCommand mirrors TS checkDynamicCommand (L756-797) at HEAD
+// b8c338801fbb72d294ff9576a58925a8d3f6de47. Looks up the handler in the
+// dynamic-command registry, invokes its TypeCheck, then validates the
+// handler populated Type + Symbol (or Reference for Identifier) on the
+// expression. Returns true if either: the command name is feature-
+// disabled OR a registered handler ran.
 //
-// NAI-206-D-DYNCOMMAND-STUB-T15: T15 wires the full handler-invocation
-// path including Reference fixup + Custom Handler diagnostics.
+// Retires NAI-206-D-DYNCOMMAND-STUB-T15 — full impl is here.
 func (tc *TypeChecker) checkDynamicCommand(name string, expr ast.Expression) bool {
 	if tc.isDisabledCommandName(name) {
 		diagnostics.ReportErrorAt(tc.diagnostics, expr, diagnostics.MessageFeatureDisabledCommand, name)
 		setType(expr, typ.MetaError)
 		return true
 	}
-	// dynamicCommands registry is empty by NAI-206-D-DYNCOMMAND-EMPTY;
-	// fall through to standard server-script lookup.
-	_, ok := tc.dynamicCommands[name]
+	h, ok := tc.dynamicCommands[name]
 	if !ok {
 		return false
 	}
-	// Handler registered but T14 doesn't invoke — return false so caller
-	// falls back to standard lookup. T15 replaces this branch.
-	return false
+	ctx := newTypeCheckingContext(tc, tc.typeManager, expr, tc.diagnostics)
+	h.TypeCheck(ctx)
+	if getType(expr) == nil {
+		diagnostics.ReportErrorAt(tc.diagnostics, expr, diagnostics.MessageCustomHandlerNoType)
+	}
+	// Symbol/Reference fixup. TS checks: Identifier.reference || CallExpression.symbol.
+	// Goscape covers all concrete call shapes + Identifier.
+	needsSymbol := false
+	switch e := expr.(type) {
+	case *ast.Identifier:
+		if e.Reference == nil {
+			needsSymbol = true
+		}
+	case *ast.CommandCallExpression:
+		if e.Symbol == nil {
+			needsSymbol = true
+		}
+	case *ast.ProcCallExpression:
+		if e.Symbol == nil {
+			needsSymbol = true
+		}
+	case *ast.JumpCallExpression:
+		if e.Symbol == nil {
+			needsSymbol = true
+		}
+	case *ast.ClientScriptExpression:
+		if e.Symbol == nil {
+			needsSymbol = true
+		}
+	}
+	if needsSymbol {
+		var s symbol.Symbol
+		if tc.commandTrigger != nil {
+			s = tc.rootTable.Find(symbol.SymbolTypeServerScript(tc.commandTrigger), name)
+		}
+		if s == nil {
+			diagnostics.ReportErrorAt(tc.diagnostics, expr, diagnostics.MessageCustomHandlerNoSymbol)
+		}
+		switch e := expr.(type) {
+		case *ast.Identifier:
+			e.Reference = s
+		case *ast.CommandCallExpression:
+			e.Symbol = s
+		case *ast.ProcCallExpression:
+			e.Symbol = s
+		case *ast.JumpCallExpression:
+			e.Symbol = s
+		case *ast.ClientScriptExpression:
+			e.Symbol = s
+		}
+	}
+	return true
+}
+
+// visitClientScriptExpression mirrors TS visitClientScriptExpression
+// (L817-869) at HEAD b8c338801fbb72d294ff9576a58925a8d3f6de47.
+//
+// Requires the clientscript trigger to be registered. Requires the
+// TypeHint to be a MetaType.Hook (a clientscript reference is always
+// inside a hook hint, set by the dynamic-command surface).
+//
+// NAI-206-D-CLIENTSCRIPT-NO-PANIC: TS throws "Expected MetaType Hook"
+// when the hint is wrong; goscape emits an internal-compiler diagnostic
+// and bails. End state for downstream consumers is identical.
+func (tc *TypeChecker) visitClientScriptExpression(cse *ast.ClientScriptExpression) {
+	if tc.clientscriptTrigger == nil {
+		diagnostics.ReportErrorAt(tc.diagnostics, cse, diagnostics.MessageTriggerTypeNotFound, "clientscript")
+		setType(cse, typ.MetaError)
+		return
+	}
+	hint := asType(cse.TypeHint)
+	transmitListType, isHook := typ.IsMetaHook(hint)
+	if !isHook {
+		diagnostics.ReportErrorAt(tc.diagnostics, cse, "Internal compiler error: Expected MetaType.Hook hint on ClientScriptExpression.")
+		setType(cse, typ.MetaError)
+		return
+	}
+	name := cse.Name.Text
+	sym := tc.rootTable.Find(symbol.SymbolTypeClientScript(tc.clientscriptTrigger), name)
+	clientSym, _ := sym.(*symbol.ClientScriptSymbol)
+	if clientSym == nil {
+		diagnostics.ReportErrorAt(tc.diagnostics, cse, diagnostics.MessageClientScriptReferenceUnresolved, name)
+		cse.Type = typ.MetaError
+	} else {
+		cse.Symbol = clientSym
+		cse.Type = hint
+	}
+	// Arg type-check via the shared helper. typeCheckArguments takes a
+	// *ServerScriptSymbol; ClientScriptSymbol shares ScriptSymbolFields,
+	// so we adapt by constructing a temporary ServerScriptSymbol view.
+	var asServer *symbol.ServerScriptSymbol
+	if clientSym != nil {
+		asServer = &symbol.ServerScriptSymbol{ScriptSymbolFields: clientSym.ScriptSymbolFields}
+	}
+	tc.typeCheckArguments(asServer, cse, name)
+
+	if transmitListType == typ.MetaUnit && len(cse.TransmitList) > 0 {
+		diagnostics.ReportErrorAt(tc.diagnostics, cse.TransmitList[0], diagnostics.MessageHookTransmitListUnexpected)
+		cse.Type = typ.MetaError
+		return
+	}
+	for _, expr := range cse.TransmitList {
+		setTypeHint(expr, transmitListType)
+		tc.visitNodeOrNull(expr)
+		if transmitListType != nil {
+			tc.checkTypeMatch(expr, transmitListType, tc.getSafeType(expr), true)
+		}
+	}
+}
+
+// handleClientScriptExpression mirrors TS L1156-1184. Called from T17's
+// visitStringLiteral when the hint is a Hook — re-parses the literal as
+// a clientscript expression, hints + visits it, and copies the type back
+// to the host StringLiteral.
+func (tc *TypeChecker) handleClientScriptExpression(sl *ast.StringLiteral, hint typ.Type) {
+	src := sl.Source()
+	p := parser.NewClientScriptParser(sl.Value, src.Name)
+	// NAI-206-D-CONST-PARSE: re-parse silences default listeners; the
+	// adapter below routes syntax errors back to the diagnostics sink
+	// using the HOST literal's source location (cheaper than re-mapping
+	// inner re-parse line/col onto host).
+	p.RemoveErrorListeners()
+	p.AddErrorListener(&clientScriptReparseListener{d: tc.diagnostics, hostLoc: src})
+	cse := p.ParseClientScript()
+	if cse == nil {
+		sl.Type = typ.MetaError
+		return
+	}
+	cse.TypeHint = hint
+	tc.Visit(cse)
+	sl.SubExpression = cse
+	sl.Type = getType(cse)
+}
+
+// clientScriptReparseListener adapts parser syntax errors back to
+// diagnostics at the host literal's source location. NAI-206-D-CONST-PARSE-LOC:
+// TS re-maps inner re-parse line/col onto host literal via offset arithmetic;
+// goscape attaches at the host literal location (simpler, less precise).
+type clientScriptReparseListener struct {
+	d       *diagnostics.Diagnostics
+	hostLoc lexer.NodeSourceLocation
+}
+
+func (c *clientScriptReparseListener) SyntaxError(sourceName string, line, column int, msg string) {
+	c.d.Report(diagnostics.NewDiagnostic(c.hostLoc, diagnostics.DiagnosticError, "%s", msg))
 }
