@@ -144,11 +144,25 @@ func TestTypeCheckingContext_Arguments2(t *testing.T) {
 }
 
 // Compile-time guard: an empty struct satisfies DynamicCommandHandler.
+// Updated by NAI-207 to include GenerateCode.
 type _stubHandler struct{}
 
-func (_stubHandler) TypeCheck(ctx *TypeCheckingContext) {}
+func (_stubHandler) TypeCheck(ctx *TypeCheckingContext)    {}
+func (_stubHandler) GenerateCode(ctx CodeGenContext) bool  { return false }
 
 func TestDynamicCommandHandler_Interface(t *testing.T) {
 	var _ DynamicCommandHandler = _stubHandler{}
 	_ = typ.MetaUnit // import-keepalive
 }
+
+// TestDynamicCommandHandler_GenerateCodeIsRequired compile-time pins that
+// a struct satisfies DynamicCommandHandler only with both TypeCheck AND
+// GenerateCode. Retires NAI-206-D-DYNCOMMAND-NO-CODEGEN.
+func TestDynamicCommandHandler_GenerateCodeIsRequired(t *testing.T) {
+	var _ DynamicCommandHandler = (*fakeHandlerComplete)(nil)
+}
+
+type fakeHandlerComplete struct{}
+
+func (f *fakeHandlerComplete) TypeCheck(ctx *TypeCheckingContext)   {}
+func (f *fakeHandlerComplete) GenerateCode(ctx CodeGenContext) bool { return false }

@@ -8,8 +8,11 @@ package semantics
 // the follow-up handler cohort (enum/struct_param/db_*) wires them in a
 // separate NAI.
 //
-// NAI-206-D-DYNCOMMAND-NO-CODEGEN: generateCode side deferred to NAI-207.
-// DynamicCommandHandler exposes only TypeCheck for now.
+// NAI-207 extends DynamicCommandHandler with GenerateCode, retiring
+// NAI-206-D-DYNCOMMAND-NO-CODEGEN. See also NAI-207-D-DYNCOMMAND-BOOLRESULT
+// (GenerateCode returns bool, not void, per goscape convention) and
+// NAI-207-D-CODEGENCONTEXT-MARKER (CodeGenContext is a marker interface in
+// semantics to avoid a codegen→semantics import cycle).
 //
 // The type-switch helpers setTypeHint / getType / setType / asType cover all
 // 19 concrete Expression types that embed ExpressionBase. They are the
@@ -24,17 +27,40 @@ import (
 	typ "github.com/zsrv/goscape/pkg/pack/compiler/type"
 )
 
-// DynamicCommandHandler allows complex commands to do custom type checking.
-// Implementations must set expression.Type in TypeCheck. Mirrors TS interface
+// CodeGenContext is a marker interface passed to DynamicCommandHandler.GenerateCode.
+// Defined here (in semantics) so that codegen can implement it without importing
+// semantics, avoiding a circular dependency. Mirrors TS CodeGenContext.ts.
+//
+// NAI-207-D-CODEGENCONTEXT-MARKER: goscape places this marker in semantics
+// rather than codegen; the concrete *codegen.CodeGeneratorContext satisfies it
+// via IsCodeGenContext(). The marker method is exported (deviation from the
+// unexported-method plan) because Go's interface rules prevent a type in
+// package codegen from satisfying an unexported method declared in package
+// semantics — unexported interface methods are only satisfiable within the
+// declaring package.
+type CodeGenContext interface {
+	IsCodeGenContext()
+}
+
+// DynamicCommandHandler allows complex commands to do custom type checking
+// and code generation. Implementations must set expression.Type in TypeCheck
+// and emit instructions in GenerateCode. Mirrors TS interface
 // DynamicCommandHandler (DynamicCommandHandler.ts).
 //
-// generateCode is deferred to NAI-207 (NAI-206-D-DYNCOMMAND-NO-CODEGEN).
+// Retires NAI-206-D-DYNCOMMAND-NO-CODEGEN.
+// See NAI-207-D-DYNCOMMAND-BOOLRESULT for the bool return convention.
 type DynamicCommandHandler interface {
 	// TypeCheck performs type-checking for the dynamic command call. The
 	// expression will be a *CommandCallExpression or *Identifier. The
 	// implementation MUST set the expression's Type field via
 	// ctx.SetType/ctx.CheckArgument or equivalent.
 	TypeCheck(ctx *TypeCheckingContext)
+
+	// GenerateCode emits codegen instructions for the dynamic command call.
+	// Returns true if code was emitted, false if the default Command emission
+	// should proceed. NAI-207-D-DYNCOMMAND-BOOLRESULT: TS returns void;
+	// goscape returns bool so callers can apply a default fallback.
+	GenerateCode(ctx CodeGenContext) bool
 }
 
 // TypeCheckingContext carries the context of a TypeChecker visit for use by
