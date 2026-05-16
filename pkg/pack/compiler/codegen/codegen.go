@@ -163,6 +163,19 @@ func (g *CodeGenerator) Visit(n ast.Node) {
 		g.visitExpressionStatement(v)
 	case *ast.EmptyStatement:
 		g.visitEmptyStatement(v)
+	// Expression arms added in T7–T11.
+	case *ast.LocalVariableExpression:
+		g.visitLocalVar(v)
+	case *ast.GameVariableExpression:
+		g.visitGameVar(v)
+	case *ast.ConstantVariableExpression:
+		g.visitConstantVar(v)
+	case *ast.ParenthesizedExpression:
+		g.visitParenthesized(v)
+	case *ast.CalcExpression:
+		g.visitCalc(v)
+	case *ast.ArithmeticExpression:
+		g.visitArith(v)
 	case *ast.IntegerLiteral:
 		// NAI-207-D-INTLIT-T5-STUB: T5 needs IntegerLiteral emission for
 		// condition and return-expression tests (generateConditionBinary and
@@ -175,7 +188,7 @@ func (g *CodeGenerator) Visit(n ast.Node) {
 		} else {
 			g.Instruction(PushConstantSymbol, v.Reference, v.Source())
 		}
-	// Expression arms added in T7–T11.
+	// Remaining expression arms added in T9–T11.
 	case nil:
 		return
 	default:

@@ -391,6 +391,54 @@ func TestCodeGenerator_ExpressionStatement_DiscardsInt(t *testing.T) {
 	}
 }
 
+// --- T7: variable expressions ---------------------------------------------------
+
+// TestCodeGenerator_LocalVar_Push pins that `return($x)` in a proc with
+// parameter `int $x` emits PushLocalVar + Return (plus default Return).
+func TestCodeGenerator_LocalVar_Push(t *testing.T) {
+	src := "[proc,foo](int $x)(int)\nreturn($x);\n"
+	rs := compileForTest(t, src)
+	got := opcodesOf(rs.Blocks[0])
+	want := []Opcode{PushLocalVar, Return, PushConstantInt, Return}
+	if !sameOps(got, want) {
+		t.Errorf("opcodes: got %v, want %v", names(got), names(want))
+	}
+}
+
+// TestCodeGenerator_GameVar_Plain_And_Dot is skipped until T14 smoke
+// wires a game-var symbol fixture.
+func TestCodeGenerator_GameVar_Plain_And_Dot(t *testing.T) {
+	t.Skip("requires game-var symbol fixture; revisit in T14 smoke")
+}
+
+// TestCodeGenerator_ConstantVariableExpression_VisitsSub is skipped until
+// T14 smoke wires a constant-variable fixture.
+func TestCodeGenerator_ConstantVariableExpression_VisitsSub(t *testing.T) {
+	t.Skip("requires constant fixture; revisit in T14 smoke")
+}
+
+// TestCodeGenerator_Parenthesized_VisitsInner pins that `return((42))` emits
+// PushConstantInt + Return (plus default Return). The outer parentheses are
+// stripped by visitParenthesized → inner IntegerLiteral stub (T5) emits push.
+func TestCodeGenerator_Parenthesized_VisitsInner(t *testing.T) {
+	src := "[proc,foo]()(int)\nreturn((42));\n"
+	rs := compileForTest(t, src)
+	got := opcodesOf(rs.Blocks[0])
+	want := []Opcode{PushConstantInt, Return, PushConstantInt, Return}
+	if !sameOps(got, want) {
+		t.Errorf("opcodes: got %v, want %v", names(got), names(want))
+	}
+}
+
+// TestCodeGenerator_Calc_VisitsInner pins that `calc(1 + 2)` emits
+// PushConstantInt, PushConstantInt, Add, Return (plus default Return).
+// Un-skipped in T8 once ArithmeticExpression dispatch is wired.
+//
+// NAI-207-D-CALC-T7-SKIP: blocked on T8 (ArithmeticExpression dispatch).
+func TestCodeGenerator_Calc_VisitsInner(t *testing.T) {
+	t.Skip("blocks on T8 (ArithmeticExpression dispatch)")
+}
+
 // TestCodeGenerator_Switch pins a one-case switch.
 func TestCodeGenerator_Switch(t *testing.T) {
 	src := `[proc,foo](int $x)
