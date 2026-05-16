@@ -404,7 +404,9 @@ func (p *PointerChecker) getAnalysis(script *codegen.RuneScript) *scriptPointerA
 	setArr := make([][]*InstructionNode, pointerCount)
 	corrupted := make([][]*InstructionNode, pointerCount)
 	var returns []*InstructionNode
-	staticLabelArgsByCall := map[*codegen.Instruction]map[int]symbol.Symbol{} // T6 populates
+	staticLabelArgsByCall := p.buildStaticLabelArgsByCall(script)
+	// Pre-populate getJumpParamNodes cache.
+	p.getJumpParamNodes(script)
 
 	for _, node := range graph {
 		// Synthetic pointer-set node (no instruction, has PointerSet).
@@ -447,7 +449,11 @@ func (p *PointerChecker) getAnalysis(script *codegen.RuneScript) *scriptPointerA
 			addPointersToArray(required, holder.Required, node)
 			addPointersToArray(setArr, holder.Set, node)
 			addPointersToArray(corrupted, holder.Corrupted, node)
-			// T6 hooks here: staticLabelArgsByCall lookup + addStaticLabelRequirements.
+			if staticArgs, present := staticLabelArgsByCall[inst]; present {
+				if scriptSym, ok := sym.(symbol.Symbol); ok {
+					p.addStaticLabelRequirements(required, node, scriptSym, staticArgs)
+				}
+			}
 
 		case codegen.PushVar:
 			if sym, ok := inst.Operand.(*symbol.BasicSymbol); ok {

@@ -181,3 +181,20 @@ func IsMetaScript(t Type) (params, returns Type, ok bool) {
 	}
 	return ms.params, ms.returns, true
 }
+
+// MetaScriptTriggerIdent returns the trigger identifier (e.g. "label",
+// "proc") stored on a metaScript instance. Mirrors TS reads of
+// `type.trigger.identifier` from PointerChecker.isLabelType (TS
+// PointerChecker.ts L475). Returns ("", false) for non-metaScript types.
+//
+// NAI-208-D-METASCRIPT-IDENT-EXPORTER: NAI-205 deliberately did not expose
+// triggerIdent (only stored as mb.rep) to avoid a type→trigger import
+// cycle. NAI-208 needs it for label-jump-arg analysis; exposing it as a
+// read-only accessor preserves the cycle-avoidance.
+func MetaScriptTriggerIdent(t Type) (string, bool) {
+	ms, ok := t.(*metaScript)
+	if !ok {
+		return "", false
+	}
+	return ms.rep, true
+}
