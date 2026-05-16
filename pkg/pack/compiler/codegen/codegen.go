@@ -205,7 +205,8 @@ func (g *CodeGenerator) Visit(n ast.Node) {
 		g.visitProcCall(v)
 	case *ast.JumpCallExpression:
 		g.visitJumpCall(v)
-	// Remaining expression arms (client-script calls etc.) added in T11.
+	case *ast.ClientScriptExpression:
+		g.visitClientScript(v)
 	case nil:
 		return
 	default:

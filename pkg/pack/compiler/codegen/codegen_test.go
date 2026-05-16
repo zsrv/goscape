@@ -4,6 +4,7 @@ package codegen
 import (
 	"testing"
 
+	"github.com/zsrv/goscape/pkg/pack/compiler/ast"
 	"github.com/zsrv/goscape/pkg/pack/compiler/diagnostics"
 	"github.com/zsrv/goscape/pkg/pack/compiler/parser"
 	"github.com/zsrv/goscape/pkg/pack/compiler/semantics"
@@ -692,4 +693,129 @@ func TestCodeGenerator_JoinedString_TwoParts(t *testing.T) {
 // deferred to T14 integration smoke.)
 func TestCodeGenerator_Identifier_StringFallback(t *testing.T) {
 	t.Skip("requires fixture for un-referenced string-typed identifier; covered by NAI-207 T14 smoke")
+}
+
+// --- T11: ClientScriptExpression ------------------------------------------------
+
+// makeClientScriptTrigger builds a minimal clientscript TriggerType for tests.
+func makeClientScriptTrigger() *trigger.TriggerType {
+	return &trigger.TriggerType{
+		ID:              1,
+		Identifier:      "clientscript",
+		SubjectMode:     trigger.ModeName,
+		AllowParameters: true,
+		AllowReturns:    false,
+	}
+}
+
+// makeTestRuneScriptForCse creates a RuneScript + bound entry block for
+// hand-constructed codegen tests. Returns the CodeGenerator and the script.
+func makeTestRuneScriptForCse(sym symbol.Symbol, tr *trigger.TriggerType) (*CodeGenerator, *RuneScript) {
+	d := &diagnostics.Diagnostics{}
+	cg := NewCodeGenerator(symbol.NewSymbolTable(nil), nil, d)
+	rs := NewRuneScript("test.rs2", sym, tr, "foo", nil)
+	cg.scripts = append(cg.scripts, rs)
+	cg.bind(cg.generateBlock("entry", false))
+	return cg, rs
+}
+
+// TestCodeGenerator_ClientScript_NoTransmit_HandConstructed pins the
+// instruction shape for a ClientScriptExpression with one int argument and no
+// transmit list: [PushConstantSymbol, PushConstantInt, PushConstantString].
+//
+// The ClientScriptSymbol has Parameters=PrimitiveInt (code "i"), so the final
+// typecode string is "i".
+func TestCodeGenerator_ClientScript_NoTransmit_HandConstructed(t *testing.T) {
+	tr := makeClientScriptTrigger()
+	cs := &symbol.ClientScriptSymbol{
+		ScriptSymbolFields: symbol.ScriptSymbolFields{
+			Trigger:    tr,
+			Name:       "foo",
+			Parameters: typ.PrimitiveInt,
+		},
+	}
+	cse := &ast.ClientScriptExpression{
+		Name: &ast.Identifier{Text: "foo"},
+		Arguments: []ast.Expression{
+			&ast.IntegerLiteral{
+				Value:          42,
+				ExpressionBase: ast.ExpressionBase{Type: typ.PrimitiveInt},
+			},
+		},
+		TransmitList: []ast.Expression{},
+		Symbol:       cs,
+	}
+
+	cg, rs := makeTestRuneScriptForCse(cs, tr)
+	cg.Visit(cse)
+
+	got := opcodesOf(rs.Blocks[0])
+	// PushConstantSymbol(cs), PushConstantInt(42), PushConstantString("i")
+	want := []Opcode{PushConstantSymbol, PushConstantInt, PushConstantString}
+	if !sameOps(got, want) {
+		t.Errorf("opcodes: got %v, want %v", names(got), names(want))
+	}
+	if rs.Blocks[0].Instructions[2].Operand.(string) != "i" {
+		t.Errorf("typecode: got %v, want %q", rs.Blocks[0].Instructions[2].Operand, "i")
+	}
+	if rs.Blocks[0].Instructions[0].Operand != symbol.Symbol(cs) {
+		t.Errorf("symbol operand: got %v, want cs", rs.Blocks[0].Instructions[0].Operand)
+	}
+}
+
+// TestCodeGenerator_ClientScript_WithTransmit_HandConstructed pins the
+// instruction shape when a non-empty TransmitList is present.
+//
+// Parameters = PrimitiveInt (code "i"), one transmit arg (PrimitiveCoord).
+// Expected opcodes: PushConstantSymbol, PushConstantInt(42), PushConstantInt(0_0_0_0_0),
+// PushConstantInt(len=1), PushConstantString("iY").
+//
+// Per TS: transmit args are emitted after main args, then 'Y' is appended to
+// the typecode string, then PushConstantInt(len(transmitList)).
+// Final typecode string is "iY".
+func TestCodeGenerator_ClientScript_WithTransmit_HandConstructed(t *testing.T) {
+	tr := makeClientScriptTrigger()
+	cs := &symbol.ClientScriptSymbol{
+		ScriptSymbolFields: symbol.ScriptSymbolFields{
+			Trigger:    tr,
+			Name:       "bar",
+			Parameters: typ.PrimitiveInt,
+		},
+	}
+	cse := &ast.ClientScriptExpression{
+		Name: &ast.Identifier{Text: "bar"},
+		Arguments: []ast.Expression{
+			&ast.IntegerLiteral{
+				Value:          42,
+				ExpressionBase: ast.ExpressionBase{Type: typ.PrimitiveInt},
+			},
+		},
+		TransmitList: []ast.Expression{
+			// A coord literal as the transmit element (int-typed for the push).
+			&ast.IntegerLiteral{
+				Value:          0,
+				ExpressionBase: ast.ExpressionBase{Type: typ.PrimitiveInt},
+			},
+		},
+		Symbol: cs,
+	}
+
+	cg, rs := makeTestRuneScriptForCse(cs, tr)
+	cg.Visit(cse)
+
+	got := opcodesOf(rs.Blocks[0])
+	// PushConstantSymbol, PushConstantInt(42), PushConstantInt(0 transmit),
+	// PushConstantInt(1 = len(transmitList)), PushConstantString("iY")
+	want := []Opcode{PushConstantSymbol, PushConstantInt, PushConstantInt, PushConstantInt, PushConstantString}
+	if !sameOps(got, want) {
+		t.Errorf("opcodes: got %v, want %v", names(got), names(want))
+	}
+	// Transmit count.
+	if rs.Blocks[0].Instructions[3].Operand.(int) != 1 {
+		t.Errorf("transmit count: got %v, want 1", rs.Blocks[0].Instructions[3].Operand)
+	}
+	// Typecode includes 'Y' suffix.
+	if rs.Blocks[0].Instructions[4].Operand.(string) != "iY" {
+		t.Errorf("typecode: got %v, want %q", rs.Blocks[0].Instructions[4].Operand, "iY")
+	}
 }
