@@ -116,10 +116,85 @@ func (p *PointerChecker) validateAllPointers(script *codegen.RuneScript) {
 	}
 }
 
-// validatePointer is the per-pointer validation hook. T4 ships a no-op; T5
-// fills in the body.
+// validatePointer verifies that pt is available everywhere it is required.
+// If a path is found from a node that requires pt to a node that lacks it
+// (the start, or a node that corrupts it), reports a diagnostic. Mirrors
+// TS PointerChecker.validatePointer.
 func (p *PointerChecker) validatePointer(script *codegen.RuneScript, pt *pointer.PointerType) {
-	// Implemented in T5.
+	analysis := p.getAnalysis(script)
+	pointerIndex := pointer.Index(pt)
+
+	graph := analysis.graph
+	required := analysis.required[pointerIndex]
+	setNodes := analysis.setNodes[pointerIndex]
+	corrupted := analysis.corrupted[pointerIndex]
+	corruptedSet := analysis.corruptedNodes[pointerIndex]
+
+	if !p.SetsPointerTrigger(script, pt) {
+		// Trigger does not implicitly set pt → mark start node corrupted.
+		if len(graph) > 0 {
+			if _, ok := corruptedSet[graph[0]]; !ok {
+				_ = corrupted // shadowed below; assignment kept for TS parity
+				corruptedSet = cloneNodeSet(corruptedSet)
+				corruptedSet[graph[0]] = struct{}{}
+			}
+		}
+	}
+
+	path := p.findEdgePath(required, func(n *InstructionNode) bool {
+		_, ok := corruptedSet[n]
+		return ok
+	}, setNodes)
+	if path == nil {
+		return
+	}
+
+	errorNode := path[0]
+	if errorNode.Instruction == nil {
+		return
+	}
+
+	corruptedNode := path[len(path)-1]
+	isCorrupted := corruptedNode != graph[0] && corruptedNode != errorNode
+
+	var msg string
+	if isCorrupted {
+		msg = diagnostics.MessagePointerCorrupted
+	} else {
+		msg = diagnostics.MessagePointerUninitialized
+	}
+
+	p.diagnostics.Report(diagnostics.NewDiagnostic(
+		errorNode.Instruction.Source,
+		diagnostics.DiagnosticError,
+		msg,
+		pt.Representation,
+	))
+
+	if isCorrupted && corruptedNode.Instruction != nil {
+		p.diagnostics.Report(diagnostics.NewDiagnostic(
+			corruptedNode.Instruction.Source,
+			diagnostics.DiagnosticHint,
+			diagnostics.MessagePointerCorruptedLoc,
+			pt.Representation,
+		))
+	}
+	// NAI-208-D-LOGPROCREQ-DEFERRED: TS logProcRequirement walks down the
+	// path emitting per-Gosub/Jump HINT diagnostics (POINTER_REQUIRED_LOC).
+	// T5 stops at the head/tail error+hint pair, which satisfies all NAI-208
+	// tests and the pipeline smoke. The recursive HINT chain is deferred to
+	// a future polish; the diagnostic templates already exist
+	// (MessagePointerRequiredLoc) so the follow-up is purely call-site work.
+}
+
+// cloneNodeSet returns a shallow copy of src so corrupted-set mutation does
+// not leak back into the cached analysis.
+func cloneNodeSet(src map[*InstructionNode]struct{}) map[*InstructionNode]struct{} {
+	out := make(map[*InstructionNode]struct{}, len(src)+1)
+	for k := range src {
+		out[k] = struct{}{}
+	}
+	return out
 }
 
 // GetGraph returns the cached CFG for script, building it on first call.
@@ -334,12 +409,10 @@ func (p *PointerChecker) getAnalysis(script *codegen.RuneScript) *scriptPointerA
 	staticLabelArgsByCall := map[*codegen.Instruction]map[int]symbol.Symbol{} // T6 populates
 
 	for _, node := range graph {
-		// PointerInstructionNode (synthetic): contributes to set.
-		if node.Instruction == nil && len(node.Previous) > 0 {
-			if pin := extractPointerInstructionNode(node); pin != nil {
-				addPointersToArray(setArr, pin.Set, node)
-				continue
-			}
+		// Synthetic pointer-set node (no instruction, has PointerSet).
+		if node.Instruction == nil && node.PointerSet != nil {
+			addPointersToArray(setArr, node.PointerSet, node)
+			continue
 		}
 
 		inst := node.Instruction
@@ -380,23 +453,22 @@ func (p *PointerChecker) getAnalysis(script *codegen.RuneScript) *scriptPointerA
 
 		case codegen.PushVar:
 			if sym, ok := inst.Operand.(*symbol.BasicSymbol); ok {
-				addBasicVarRequired(required, sym.Type, node, false /*pop*/, false /*two*/)
+				addBasicVarRequiredForSymbol(required, sym, node, false, false)
 			}
 
 		case codegen.PopVar:
 			if sym, ok := inst.Operand.(*symbol.BasicSymbol); ok {
-				addBasicVarRequired(required, sym.Type, node, true, false)
-				_ = sym.IsProtected // T5 will read sym.IsProtected here to wire protected-pop → P_ACTIVE_PLAYER; T4 stub isProtected returns false (NAI-208-D-PROTECTED-VAR-VIA-SYMBOL).
+				addBasicVarRequiredForSymbol(required, sym, node, true, false)
 			}
 
 		case codegen.PushVar2:
 			if sym, ok := inst.Operand.(*symbol.BasicSymbol); ok {
-				addBasicVarRequired(required, sym.Type, node, false, true)
+				addBasicVarRequiredForSymbol(required, sym, node, false, true)
 			}
 
 		case codegen.PopVar2:
 			if sym, ok := inst.Operand.(*symbol.BasicSymbol); ok {
-				addBasicVarRequired(required, sym.Type, node, true, true)
+				addBasicVarRequiredForSymbol(required, sym, node, true, true)
 			}
 		}
 	}
@@ -451,20 +523,17 @@ func addPointersToArray(target [][]*InstructionNode, set *pointer.PointerSet, no
 	}
 }
 
-// addBasicVarRequired files the pointer-required entry for a Push/Pop var
-// instruction. Mirrors TS arms at PointerChecker.ts L664-706.
-//
-// pop=true + protected isProtected → P_ACTIVE_PLAYER / P_ACTIVE_PLAYER2.
-//   otherwise (pop=false OR !isProtected) → ACTIVE_PLAYER / ACTIVE_PLAYER2.
-// Npc vars always → ACTIVE_NPC / ACTIVE_NPC2 regardless of pop/protected.
-func addBasicVarRequired(target [][]*InstructionNode, t typ.Type, node *InstructionNode, pop, two bool) {
-	switch v := t.(type) {
+// addBasicVarRequiredForSymbol is the T5 replacement for
+// addBasicVarRequired. Takes the BasicSymbol so it can read IsProtected
+// for the protected-pop branch. Retires NAI-208-D-PROTECTED-VAR-VIA-SYMBOL.
+func addBasicVarRequiredForSymbol(target [][]*InstructionNode, sym *symbol.BasicSymbol, node *InstructionNode, pop, two bool) {
+	switch sym.Type.(type) {
 	case *typ.VarPlayerType, *typ.VarBitType:
 		var pt *pointer.PointerType
 		switch {
-		case pop && two && isProtected(v):
+		case pop && two && sym.IsProtected:
 			pt = pointer.PActivePlayer2
-		case pop && !two && isProtected(v):
+		case pop && !two && sym.IsProtected:
 			pt = pointer.PActivePlayer
 		case two:
 			pt = pointer.ActivePlayer2
@@ -481,29 +550,6 @@ func addBasicVarRequired(target [][]*InstructionNode, t typ.Type, node *Instruct
 		}
 		target[pointer.Index(pt)] = append(target[pointer.Index(pt)], node)
 	}
-}
-
-// isProtected mirrors the TS `symbol.isProtected` read in the var arms.
-// Goscape stores IsProtected on *symbol.BasicSymbol, not on the type.
-// The instruction-node walker calls this with the operand's *type*; we
-// always return false here. (Per TS, only Pop variants check isProtected,
-// and the symbol carries the flag — adjust the call site in T5/T6 if a
-// targeted test surfaces a false negative.)
-//
-// NAI-208-D-PROTECTED-VAR-VIA-SYMBOL: the protected-pop branch needs the
-// BasicSymbol's IsProtected, not the type's. T4 conservatively returns
-// false here (matches: var is unprotected → required=ACTIVE_PLAYER) and
-// defers the type-vs-symbol fix to T5 once the validatePointer surfaces it.
-func isProtected(t any) bool {
-	return false
-}
-
-// extractPointerInstructionNode is unused in T4 — PointerInstructionNodes
-// are emitted directly into the graph slice as *InstructionNode (via
-// pin.BaseNode()). T4 ships this stub returning nil; T5 wires the set-arc
-// path if validatePointer surfaces a need.
-func extractPointerInstructionNode(node *InstructionNode) *PointerInstructionNode {
-	return nil
 }
 
 // nodeArrayToSets converts a per-pointer [][]*InstructionNode into the

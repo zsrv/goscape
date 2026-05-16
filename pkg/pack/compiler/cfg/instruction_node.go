@@ -1,11 +1,17 @@
 // Package cfg ports TS src/compiler/codegen/script/config/ at HEAD
 // b8c338801fbb72d294ff9576a58925a8d3f6de47. Provides control-flow-graph
-// types (InstructionNode + PointerInstructionNode), the GraphGenerator that
-// builds a CFG from a RuneScript's Blocks, and PointerChecker which
-// validates entity-pointer flow over that CFG.
+// types (InstructionNode), the GraphGenerator that builds a CFG from a
+// RuneScript's Blocks, and PointerChecker which validates entity-pointer
+// flow over that CFG.
 //
 // NAI-208-D-PACKAGE-NAMES: TS path codegen/script/config/ → goscape cfg/
 // (avoids deep nesting; mirrors NAI-207's flat codegen/ choice).
+//
+// T5 inlines the PointerSet field onto InstructionNode (rather than using a
+// separate PointerInstructionNode subtype) to keep the graph slice
+// homogeneous. NewPointerInstructionNode is retained as a named constructor
+// so call-site intent stays explicit. Compare TS PointerInstructionNode
+// subclass.
 package cfg
 
 import (
@@ -13,6 +19,16 @@ import (
 	"github.com/zsrv/goscape/pkg/pack/compiler/pointer"
 )
 
+// pointerSet, if non-nil, marks this node as a synthetic
+// pointer-instruction node carrying the set of pointers a
+// conditional-pointer-setter command marks on this arc. GraphGenerator
+// injects these via NewPointerInstructionNode; cfg.PointerChecker
+// consumes them in getAnalysis.
+//
+// Inlining the field onto InstructionNode (rather than using a separate
+// subtype + interface) keeps the graph slice homogeneous. Compare TS
+// PointerInstructionNode subclass.
+//
 // InstructionNode is one CFG node wrapping a single Instruction. The Next
 // and Previous edges form a directed graph. Mirrors TS InstructionNode.
 //
@@ -23,11 +39,12 @@ import (
 //
 // Instruction is nil for two synthetic node kinds:
 //   - the GraphGenerator's start node prepended to every graph
-//   - PointerInstructionNode injected for conditional-pointer set arcs
+//   - nodes returned by NewPointerInstructionNode (conditional-pointer set arcs)
 type InstructionNode struct {
 	Instruction *codegen.Instruction
 	Next        []*InstructionNode
 	Previous    []*InstructionNode
+	PointerSet  *pointer.PointerSet
 }
 
 // NewInstructionNode constructs an InstructionNode wrapping inst (which may
@@ -43,32 +60,8 @@ func (n *InstructionNode) AddNext(other *InstructionNode) {
 	other.Previous = append(other.Previous, n)
 }
 
-// PointerInstructionNode is a synthetic node that records pointers
-// explicitly set by a conditional-pointer-setter command. Injected by
-// GraphGenerator on the conditional arc when a `command + push 1 +
-// branch_equals` triple appears (or push-0+branch for the inverted form).
-// Mirrors TS PointerInstructionNode.
-//
-// Embeds InstructionNode (not subclasses it). The embedded address is the
-// identity used by PointerChecker analysis arrays — callers MUST reference
-// &pn.InstructionNode explicitly. Method calls on *PointerInstructionNode
-// (e.g. pn.AddNext) compile via Go's method-set promotion, but that
-// promotion does NOT make *PointerInstructionNode assignable to
-// *InstructionNode at value positions.
-type PointerInstructionNode struct {
-	InstructionNode
-	Set *pointer.PointerSet
-}
-
-// NewPointerInstructionNode constructs a synthetic node whose Set holds the
-// pointers that the preceding conditional command marks as set on this arc.
-func NewPointerInstructionNode(set *pointer.PointerSet) *PointerInstructionNode {
-	return &PointerInstructionNode{Set: set}
-}
-
-// BaseNode returns the embedded *InstructionNode address — used by
-// PointerChecker.getAnalysis to file the synthetic node in analysis maps
-// under the same identity AddNext stores in Previous edges.
-func (p *PointerInstructionNode) BaseNode() *InstructionNode {
-	return &p.InstructionNode
+// NewPointerInstructionNode returns a synthetic node with PointerSet set.
+// Kept as a constructor (not a type) so callers' intent stays explicit.
+func NewPointerInstructionNode(set *pointer.PointerSet) *InstructionNode {
+	return &InstructionNode{PointerSet: set}
 }

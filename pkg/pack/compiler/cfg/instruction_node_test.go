@@ -44,21 +44,19 @@ func TestPointerInstructionNode_CarriesSet(t *testing.T) {
 	if pn.Instruction != nil {
 		t.Error("PointerInstructionNode.Instruction should be nil (synthetic)")
 	}
-	if !pn.Set.Has(pointer.ActivePlayer) {
-		t.Error("PointerInstructionNode.Set lost ActivePlayer")
+	if !pn.PointerSet.Has(pointer.ActivePlayer) {
+		t.Error("PointerInstructionNode.PointerSet lost ActivePlayer")
 	}
 }
 
-func TestPointerInstructionNode_EmbedsInstructionNode(t *testing.T) {
-	set := pointer.NewPointerSet()
-	pn := NewPointerInstructionNode(set)
+func TestPointerInstructionNode_NextWiring(t *testing.T) {
+	pn := NewPointerInstructionNode(pointer.NewPointerSet())
 	other := NewInstructionNode(nil)
-	pn.AddNext(other) // method promoted from InstructionNode
-
+	pn.AddNext(other)
 	if len(pn.Next) != 1 || pn.Next[0] != other {
-		t.Error("AddNext promotion broken")
+		t.Error("AddNext broken")
 	}
-	if len(other.Previous) != 1 || other.Previous[0] != &pn.InstructionNode {
-		t.Errorf("AddNext sets Previous to embedded base address; got %p want %p", other.Previous[0], &pn.InstructionNode)
+	if other.Previous[0] != pn {
+		t.Error("Previous mis-wired")
 	}
 }

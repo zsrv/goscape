@@ -118,8 +118,8 @@ func (g *GraphGenerator) Generate(blocks []*codegen.Block) []*InstructionNode {
 						panic(fmt.Sprintf("graph_generator: missing commandPointers for %q", commandName))
 					}
 					pin := NewPointerInstructionNode(holder.Set)
-					nodes = append(nodes, &pin.InstructionNode)
-					node.AddNext(&pin.InstructionNode)
+					nodes = append(nodes, pin)
+					node.AddNext(pin)
 					pin.AddNext(nextNode)
 				} else if _, terminal := terminalOpcodes[inst.Opcode]; !terminal {
 					var next *codegen.Instruction
@@ -164,8 +164,8 @@ func (g *GraphGenerator) Generate(blocks []*codegen.Block) []*InstructionNode {
 					panic(fmt.Sprintf("graph_generator: missing commandPointers for %q", commandName))
 				}
 				pin := NewPointerInstructionNode(holder.Set)
-				nodes = append(nodes, &pin.InstructionNode)
-				node.AddNext(&pin.InstructionNode)
+				nodes = append(nodes, pin)
+				node.AddNext(pin)
 				pin.AddNext(g.firstInstruction(jumpBlock, nodeCache, blocks, blockIndex, firstValidByBlock))
 
 				potentialConditionalPointer = false
