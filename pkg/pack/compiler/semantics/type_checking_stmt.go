@@ -208,17 +208,27 @@ func (tc *TypeChecker) visitSwitchCase(sc *ast.SwitchCase) {
 	})
 }
 
-// checkCondition propagates a Boolean type-hint into the condition expression
-// and descends into it. Full condition validation (Logical AND coercion,
-// boolean enforcement) lands in T12.
+// checkCondition mirrors TS code path called by visitIf/visitWhile when
+// validating a condition. Type-hints to Boolean, runs the validator,
+// then either emits InvalidNodeType OR walks + asserts Boolean match.
 //
-// NAI-206-D-CHECK-COND-STUB-T12: condition-arm validators land in T12.
+// Retires NAI-206-D-CHECK-COND-STUB-T12 — the T12 implementation is here.
 func (tc *TypeChecker) checkCondition(expr ast.Expression) {
 	if expr == nil {
 		return
 	}
 	setTypeHint(expr, typ.PrimitiveBoolean)
-	tc.Visit(expr)
+	invalid := tc.findInvalidConditionExpression(expr)
+	if invalid != nil {
+		diagnostics.ReportErrorAt(tc.diagnostics, invalid, diagnostics.MessageConditionInvalidNodeType)
+		return
+	}
+	tc.visitNodeOrNull(expr)
+	t := getType(expr)
+	if t == nil {
+		t = typ.MetaError
+	}
+	tc.checkTypeMatch(expr, typ.PrimitiveBoolean, t, true)
 }
 
 // visitDeclarationStatement mirrors TS visitDeclarationStatement (L380-422)

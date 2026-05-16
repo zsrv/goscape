@@ -223,7 +223,12 @@ func (tc *TypeChecker) Visit(n ast.Node) {
 		tc.visitAssignmentStatement(v)
 	case *ast.ExpressionStatement:
 		tc.visitExpressionStatement(v)
-	// T12-T18 will insert additional cases here.
+	// T12 expression arms.
+	case *ast.ParenthesizedExpression:
+		tc.visitParenthesizedExpression(v)
+	case *ast.ConditionExpression:
+		tc.visitConditionExpression(v)
+	// T13-T18 will insert additional cases here.
 	default:
 		tc.visitNodeFallback(n)
 	}
