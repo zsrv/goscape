@@ -91,7 +91,10 @@ func compileForTestOptional(t *testing.T, src string) *RuneScript {
 	cg := NewCodeGenerator(root, map[string]semantics.DynamicCommandHandler{}, d)
 	cg.Visit(sf)
 
-	if len(cg.Scripts()) == 0 {
+	if d.HasErrors() {
+		t.Fatalf("unexpected diagnostics: %+v", d.List())
+	}
+	if got := len(cg.Scripts()); got == 0 {
 		return nil
 	}
 	return cg.Scripts()[0]

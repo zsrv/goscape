@@ -84,7 +84,8 @@ func (g *CodeGenerator) generateBlock(name string, generateUniqueName bool) *Blo
 }
 
 // generateBlockLabel constructs a Block from an existing Label (used when the
-// caller has already generated the label, e.g. inside generateCondition).
+// caller has already generated the label). Forward-scaffolding for T5
+// (generateCondition is the first consumer).
 // Mirrors TS generateBlockLabel.
 func (g *CodeGenerator) generateBlockLabel(lbl *Label) *Block {
 	b := NewBlock(lbl)
@@ -161,7 +162,8 @@ func (g *CodeGenerator) VisitNodes(ns []ast.Node) {
 	}
 }
 
-// visitExpressions visits each expression in es.
+// visitExpressions visits each expression in es. Forward-scaffolding for
+// T5/T6 (statement arms are the first consumers).
 func (g *CodeGenerator) visitExpressions(es []ast.Expression) {
 	for _, e := range es {
 		g.VisitNodeOrNull(e)
