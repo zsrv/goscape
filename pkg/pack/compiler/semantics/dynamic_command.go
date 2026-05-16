@@ -102,6 +102,36 @@ func argumentsList(call ast.CallExpressionNode, args2 bool) []ast.Expression {
 	return nil
 }
 
+// Arguments2 returns the secondary argument list if expression is a
+// *ast.CommandCallExpression with a non-nil Arguments2, otherwise returns nil.
+// Mirrors TS get arguments2() in TypeCheckingContext.
+func (ctx *TypeCheckingContext) Arguments2() []ast.Expression {
+	if call, ok := ctx.expression.(ast.CallExpressionNode); ok {
+		if cmd, ok := call.(*ast.CommandCallExpression); ok && cmd.Arguments2 != nil {
+			return argumentsList(cmd, true)
+		}
+	}
+	return nil
+}
+
+// CheckArgumentTypes compares the wrapped call's actual argument types against
+// expected (a tuple). Returns true iff they match. When reportError is true and
+// there is a mismatch, emits a diagnostic via checkTypeMatch. args2 controls
+// whether to use the secondary argument list (Arguments2). Mirrors TS
+// TypeCheckingContext.checkArgumentTypes() (TypeCheckingContext.ts L156).
+func (ctx *TypeCheckingContext) CheckArgumentTypes(expected typ.Type, reportError bool, args2 bool) bool {
+	var args []ast.Expression
+	if call, ok := ctx.expression.(ast.CallExpressionNode); ok {
+		args = argumentsList(call, args2)
+	}
+	actualList := make([]typ.Type, 0, len(args))
+	for _, a := range args {
+		actualList = append(actualList, getType(a))
+	}
+	actual := typ.TupleFromList(actualList)
+	return ctx.typeChecker.checkTypeMatch(ctx.expression, expected, actual, reportError)
+}
+
 // CheckArgument visits the argument at index with an optional typeHint. Returns
 // the argument expression or nil if out of bounds. Mirrors TS
 // TypeCheckingContext.checkArgument().
