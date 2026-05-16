@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
 // BaseDiagnosticsHandler is the default user-facing Handler implementation.
@@ -41,16 +43,60 @@ func (h *BaseDiagnosticsHandler) HandleCodeGeneration(d *Diagnostics) { h.handle
 func (h *BaseDiagnosticsHandler) HandlePointerChecking(d *Diagnostics) { h.handleShared(d) }
 
 // handleShared prints every diagnostic in d to h.Out (or os.Stdout when
-// h.Out is nil). Mirrors TS handleShared L74-146. Source-line + caret
-// rendering land in T2; edge-case handling lands in T3.
+// h.Out is nil). Mirrors TS handleShared L74-146. Edge-case handling
+// (file-missing, line out-of-bounds) lands in T3.
 func (h *BaseDiagnosticsHandler) handleShared(d *Diagnostics) {
 	out := h.Out
 	if out == nil {
 		out = os.Stdout
 	}
+	// Per-call file-line cache (mirrors TS L75 `const fileLines = new Map()`).
+	fileLines := map[string][]string{}
+
 	for _, diag := range d.List() {
 		loc := diag.SourceLocation
 		msg := fmt.Sprintf(diag.Message, diag.MessageArgs...)
 		fmt.Fprintf(out, "%s:%d:%d: %s: %s\n", loc.Name, loc.Line, loc.Column, diag.Type, msg)
+
+		// Lazy-load source lines.
+		absPath, err := filepath.Abs(loc.Name)
+		if err != nil {
+			continue
+		}
+		lines, ok := fileLines[absPath]
+		if !ok {
+			b, rerr := os.ReadFile(absPath)
+			if rerr != nil {
+				fileLines[absPath] = nil // negative-cache; T3 covers display
+				continue
+			}
+			lines = strings.Split(string(b), "\n")
+			// Mirrors TS split(/\r?\n/) — also drop trailing \r from each line.
+			for i, ln := range lines {
+				lines[i] = strings.TrimSuffix(ln, "\r")
+			}
+			fileLines[absPath] = lines
+		}
+		if lines == nil {
+			continue
+		}
+
+		lineIdx := loc.Line - 1
+		if lineIdx < 0 || lineIdx >= len(lines) {
+			continue
+		}
+		line := lines[lineIdx]
+		lineNoTabs := strings.ReplaceAll(line, "\t", "    ")
+		tabCount := strings.Count(line, "\t")
+		col := loc.Column
+		if col < 1 {
+			col = 1
+		}
+		caretOffset := tabCount*3 + (col - 1)
+		if caretOffset < 0 {
+			caretOffset = 0
+		}
+		fmt.Fprintf(out, "    > %s\n", lineNoTabs)
+		fmt.Fprintf(out, "    > %s^\n", strings.Repeat(" ", caretOffset))
 	}
 }
