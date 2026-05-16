@@ -24,7 +24,6 @@ var nai209DeviationTags = []struct {
 	{"NAI-209-D-DEBUGPROC-TRIGGER-STRING-CHECK", "DEBUGPROC trigger singleton not yet ported"},
 	{"NAI-209-D-LONGBRANCH-OBJBRANCH-PANIC", "LongBranch/ObjBranch opcodes panic (TS-faithful unsupported)"},
 	{"NAI-209-D-LONGMATH-PANIC", "LongMath opcodes panic (TS-faithful unsupported)"},
-	{"NAI-209-D-TYPEMARKER-CATEGORY-DISCRIMINATOR", "TS per-subject vs goscape per-trigger semantic"},
 }
 
 // productionFiles lists every NAI-209 production source. The pin test

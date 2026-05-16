@@ -91,9 +91,9 @@ func TestPrimitiveType_LONG_NoArrayNoSwitch(t *testing.T) {
 }
 
 func TestPrimitiveType_AllList(t *testing.T) {
-	// Per TS L57: ALL contains [INT, BOOLEAN, COORD, STRING, CHAR, LONG, MAPZONE]
+	// Per TS L57: ALL contains [INT, BOOLEAN, COORD, STRING, CHAR, LONG, MAPZONE, CATEGORY]
 	// in that order. Order matters because PrimitiveAll is used for round-trips.
-	want := []string{"int", "boolean", "coord", "string", "char", "long", "mapzone"}
+	want := []string{"int", "boolean", "coord", "string", "char", "long", "mapzone", "category"}
 	if got := len(PrimitiveAll); got != len(want) {
 		t.Fatalf("PrimitiveAll length = %d, want %d", got, len(want))
 	}
@@ -117,6 +117,18 @@ func TestPrimitiveType_SatisfiesAstTypeRef(t *testing.T) {
 	// NAI-205-D-AST-REF-INTERFACES contract: every concrete Type implementation
 	// must satisfy ast.TypeRef. Pin by attempting interface assignment.
 	var _ astTypeRef = PrimitiveInt
+}
+
+// TestPrimitiveCategory_Code pins the TS ScriptVarType.CATEGORY code.
+// Mirrors TS src/runescript/type/ScriptVarType.ts L36.
+func TestPrimitiveCategory_Code(t *testing.T) {
+	code, ok := PrimitiveCategory.Code()
+	if !ok || code != "y" {
+		t.Errorf("PrimitiveCategory.Code() = (%q, %v), want (\"y\", true)", code, ok)
+	}
+	if got := PrimitiveCategory.Representation(); got != "category" {
+		t.Errorf("PrimitiveCategory.Representation() = %q, want \"category\"", got)
+	}
 }
 
 // astTypeRef mirrors ast.TypeRef without importing ast (avoid back-edge).

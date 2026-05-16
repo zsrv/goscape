@@ -347,6 +347,7 @@ func mathOpcode(opcode codegen.Opcode) *writer.ServerScriptOpcode {
 // Three arms:
 //   - SubjectMode.Name           → -1
 //   - SubjectMode.Type + subject → trigger.ID + (typeMarker<<8) + (subjectId<<10)
+//     (TS uses `|`; `+` is equivalent here since the bit ranges are disjoint)
 //   - otherwise (Mode.None)      → trigger.ID
 //
 // subjectId comes from strconv.Atoi(subject.SymbolName()) for MAPZONE/COORD
@@ -355,21 +356,16 @@ func mathOpcode(opcode codegen.Opcode) *writer.ServerScriptOpcode {
 // NAI-209-D-MAPZONE-COORD-PARSE-PANIC: invalid Atoi panics (TS would silently
 // produce NaN-corrupted output).
 //
-// NAI-209-D-TYPEMARKER-CATEGORY-DISCRIMINATOR: TS L80 reads
-// `subjectType === ScriptVarType.CATEGORY` — a per-script check on the
-// subject symbol's runtime type. Goscape currently reads `tm.Category` — a
-// per-trigger flag on TypeMode — because no `PrimitiveCategory` primitive is
-// ported yet. The result diverges when a trigger has tm.Category=true and is
-// used with a non-category subject: TS emits typeMarker=2, goscape emits 1.
-// Resolving requires porting PrimitiveCategory and the per-subject type
-// check; tracked for NAI-210 or a follow-up slice.
+// Per-subject category check (TS L80):
+//   typeMarker = (subjectType === ScriptVarType.CATEGORY) ? 1 : 2.
+// goscape reads the subject symbol's runtime Type field rather than the
+// trigger's TypeMode flag.
 func (b *BinaryScriptWriter) generateLookupKey(script *codegen.RuneScript) int32 {
 	if trigger.IsNameMode(script.Trigger.SubjectMode) {
 		return -1
 	}
 	key := int32(script.Trigger.ID)
-	tm, ok := trigger.IsTypeMode(script.Trigger.SubjectMode)
-	if !ok || script.SubjectReference == nil {
+	if _, ok := trigger.IsTypeMode(script.Trigger.SubjectMode); !ok || script.SubjectReference == nil {
 		return key
 	}
 	subject, ok := script.SubjectReference.(symbol.Symbol)
@@ -378,7 +374,7 @@ func (b *BinaryScriptWriter) generateLookupKey(script *codegen.RuneScript) int32
 	}
 	subjectId := b.resolveSubjectId(subject)
 	var typeMarker int32 = 2
-	if tm.Category {
+	if bs, ok := subject.(*symbol.BasicSymbol); ok && bs.Type == typ.PrimitiveCategory {
 		typeMarker = 1
 	}
 	key += (typeMarker << 8) + (subjectId << 10)

@@ -55,17 +55,16 @@ func TestLookupKey_TypeMode_NonCategory(t *testing.T) {
 	}
 }
 
-// TestLookupKey_TypeMode_Category pins category=true → typeMarker = 1.
-// Trigger.ID = 5; subject id 17; key = 5 + (1<<8) + (17<<10) = 5 + 256 + 17408 = 17669.
-//
-// NAI-209-D-TYPEMARKER-CATEGORY-DISCRIMINATOR: this asserts the goscape
-// per-trigger interpretation. TS asserts per-subject. The test pins the
-// current behavior; resolving the deviation will require updating this test.
+// TestLookupKey_TypeMode_Category pins the per-subject category check.
+// Subject's Type is PrimitiveCategory → typeMarker=1, independent of the
+// trigger's TypeMode flag. Mirrors TS BinaryScriptWriter.ts L80:
+//   typeMarker = subjectType === ScriptVarType.CATEGORY ? 1 : 2
+// Trigger.ID = 5; subject id 17; key = 5 + (1<<8) + (17<<10) = 17669.
 func TestLookupKey_TypeMode_Category(t *testing.T) {
-	tm := trigger.NewModeType(typ.PrimitiveInt, true, false)
+	tm := trigger.NewModeType(typ.PrimitiveInt, false, false)
 	tr := &trigger.TriggerType{ID: 5, Identifier: "opheld1", SubjectMode: tm}
 	ss := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: tr, Name: "x", Parameters: typ.MetaUnit, Returns: typ.MetaUnit}}
-	subject := &symbol.BasicSymbol{Name: "weapons", Type: typ.PrimitiveInt}
+	subject := &symbol.BasicSymbol{Name: "wooden_bowls", Type: typ.PrimitiveCategory}
 	s := codegen.NewRuneScript("smoke.rs2", ss, tr, "x", subject)
 
 	if got := runAndExtractLookupKey(t, s, stubIdProvider{id: 17}); got != 17669 {

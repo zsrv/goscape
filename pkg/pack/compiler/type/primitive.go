@@ -1,10 +1,10 @@
 // pkg/pack/compiler/type/primitive.go
 package typ
 
-// PrimitiveType represents one of the seven main RuneScript primitive types.
+// PrimitiveType represents one of the eight main RuneScript primitive types.
 // Mirrors TS src/compiler/type/PrimitiveType.ts.
 //
-// All seven singletons are package-level vars; the constructor is unexported.
+// All eight singletons are package-level vars; the constructor is unexported.
 type PrimitiveType struct {
 	rep      string
 	code     string // "" means "no code" — see Code().
@@ -46,13 +46,14 @@ var (
 		o.AllowArray = false
 		o.AllowSwitch = false
 	})
-	PrimitiveMapzone = newPrimitiveType("MAPZONE", "0", BaseVarInteger, -1)
+	PrimitiveMapzone  = newPrimitiveType("MAPZONE", "0", BaseVarInteger, -1)
+	PrimitiveCategory = newPrimitiveType("CATEGORY", "y", BaseVarInteger, -1)
 )
 
 // PrimitiveAll preserves TS L57 ordering. Used for round-trip / table-driven tests.
 var PrimitiveAll = []*PrimitiveType{
 	PrimitiveInt, PrimitiveBoolean, PrimitiveCoord, PrimitiveString,
-	PrimitiveChar, PrimitiveLong, PrimitiveMapzone,
+	PrimitiveChar, PrimitiveLong, PrimitiveMapzone, PrimitiveCategory,
 }
 
 // PrimitiveByRepresentation returns the matching singleton or nil. Mirrors TS L59-61.
