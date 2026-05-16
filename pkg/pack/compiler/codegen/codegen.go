@@ -151,6 +151,18 @@ func (g *CodeGenerator) Visit(n ast.Node) {
 		g.visitWhileStatement(v)
 	case *ast.SwitchStatement:
 		g.visitSwitchStatement(v)
+	case *ast.BlockStatement:
+		g.visitBlockStatement(v)
+	case *ast.DeclarationStatement:
+		g.visitDeclaration(v)
+	case *ast.ArrayDeclarationStatement:
+		g.visitArrayDeclaration(v)
+	case *ast.AssignmentStatement:
+		g.visitAssignment(v)
+	case *ast.ExpressionStatement:
+		g.visitExpressionStatement(v)
+	case *ast.EmptyStatement:
+		g.visitEmptyStatement(v)
 	case *ast.IntegerLiteral:
 		// NAI-207-D-INTLIT-T5-STUB: T5 needs IntegerLiteral emission for
 		// condition and return-expression tests (generateConditionBinary and

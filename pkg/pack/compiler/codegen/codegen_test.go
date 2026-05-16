@@ -315,6 +315,82 @@ if (1 = 1 & 2 = 2) {
 	}
 }
 
+// TestCodeGenerator_Declaration_WithInitializer pins `def_int $x = 42;`.
+func TestCodeGenerator_Declaration_WithInitializer(t *testing.T) {
+	src := "[proc,foo]\ndef_int $x = 42;\n"
+	rs := compileForTest(t, src)
+	got := opcodesOf(rs.Blocks[0])
+	want := []Opcode{PushConstantInt, PopLocalVar, Return}
+	if !sameOps(got, want) {
+		t.Errorf("opcodes: got %v, want %v", names(got), names(want))
+	}
+	// The local symbol is recorded in LocalTable.
+	if got := len(rs.Locals.All); got != 1 {
+		t.Fatalf("Locals.All: got %d, want 1", got)
+	}
+}
+
+// TestCodeGenerator_Declaration_NoInitializer_IntDefault pins `def_int $x;`.
+// No-initializer int default is 0 (typ.PrimitiveInt.DefaultValue==0).
+func TestCodeGenerator_Declaration_NoInitializer_IntDefault(t *testing.T) {
+	src := "[proc,foo]\ndef_int $x;\n"
+	rs := compileForTest(t, src)
+	got := opcodesOf(rs.Blocks[0])
+	want := []Opcode{PushConstantInt, PopLocalVar, Return}
+	if !sameOps(got, want) {
+		t.Errorf("opcodes: got %v, want %v", names(got), names(want))
+	}
+	if rs.Blocks[0].Instructions[0].Operand.(int) != 0 {
+		t.Errorf("default-int operand: got %v, want 0", rs.Blocks[0].Instructions[0].Operand)
+	}
+}
+
+// TestCodeGenerator_ArrayDeclaration pins array declaration codegen.
+//
+// NAI-207-D-ARRAY-DECL-SYNTAX: The plan prescribed `def_intarray $arr(10)` as
+// the test source. The RuneScript parser tokenises `def_intarray` as DEF_TYPE
+// and the type-checker strips the `def_` prefix, yielding typeName="intarray".
+// TypeManager.FindOrNil("intarray", allowArray=false) returns nil (the name-map
+// only holds the base-type names; array expansion requires allowArray=true which
+// the declaration checker doesn't pass). The correct source syntax is
+// `def_int $arr(10)` — the DEF_TYPE carries the base-type name; the LPAREN
+// suffix is what signals an array declaration to the parser.
+func TestCodeGenerator_ArrayDeclaration(t *testing.T) {
+	src := "[proc,foo]\ndef_int $arr(10);\n"
+	rs := compileForTest(t, src)
+	got := opcodesOf(rs.Blocks[0])
+	// Visit init (PushConstantInt 10) then DefineArray.
+	want := []Opcode{PushConstantInt, DefineArray, Return}
+	if !sameOps(got, want) {
+		t.Errorf("opcodes: got %v, want %v", names(got), names(want))
+	}
+}
+
+// TestCodeGenerator_Assignment_SingleLocal pins `$x = 99;` for a parameter.
+func TestCodeGenerator_Assignment_SingleLocal(t *testing.T) {
+	src := "[proc,foo](int $x)\n$x = 99;\n"
+	rs := compileForTest(t, src)
+	got := opcodesOf(rs.Blocks[0])
+	want := []Opcode{PushConstantInt, PopLocalVar, Return}
+	if !sameOps(got, want) {
+		t.Errorf("opcodes: got %v, want %v", names(got), names(want))
+	}
+}
+
+// TestCodeGenerator_ExpressionStatement_DiscardsInt pins that a bare integer
+// expression statement emits PushConstantInt + Discard. The warning for
+// "no side effect" is a DiagnosticWarning (not an error) so compileForTest
+// does not fatal on it.
+func TestCodeGenerator_ExpressionStatement_DiscardsInt(t *testing.T) {
+	src := "[proc,foo]\n42;\n"
+	rs := compileForTest(t, src)
+	got := opcodesOf(rs.Blocks[0])
+	want := []Opcode{PushConstantInt, Discard, Return}
+	if !sameOps(got, want) {
+		t.Errorf("opcodes: got %v, want %v", names(got), names(want))
+	}
+}
+
 // TestCodeGenerator_Switch pins a one-case switch.
 func TestCodeGenerator_Switch(t *testing.T) {
 	src := `[proc,foo](int $x)

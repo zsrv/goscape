@@ -7,6 +7,8 @@ import (
 
 	"github.com/zsrv/goscape/pkg/pack/compiler/ast"
 	"github.com/zsrv/goscape/pkg/pack/compiler/diagnostics"
+	"github.com/zsrv/goscape/pkg/pack/compiler/symbol"
+	typ "github.com/zsrv/goscape/pkg/pack/compiler/type"
 )
 
 func (g *CodeGenerator) visitReturnStatement(rs *ast.ReturnStatement) {
@@ -124,6 +126,170 @@ func (g *CodeGenerator) visitSwitchStatement(ss *ast.SwitchStatement) {
 	}
 
 	g.bind(g.generateBlockLabel(switchEnd))
+}
+
+// visitBlockStatement iterates over the block's statements. Mirrors TS
+// visitBlockStatement (CodeGenerator.ts L271).
+func (g *CodeGenerator) visitBlockStatement(bs *ast.BlockStatement) {
+	for _, st := range bs.Statements {
+		g.VisitNodeOrNull(st)
+	}
+}
+
+// visitDeclaration lowers a `def_T $name (= expr)?;` declaration.
+// Mirrors TS visitDeclarationStatement (CodeGenerator.ts L415-L440).
+//
+// If an initializer is present it is visited (pushes value); otherwise the
+// type's default value is pushed. PopLocalVar is always emitted at the end.
+func (g *CodeGenerator) visitDeclaration(ds *ast.DeclarationStatement) {
+	sym, _ := ds.Symbol.(*symbol.LocalVariableSymbol)
+	if rs := g.activeScript(); rs != nil && sym != nil {
+		rs.Locals.All = append(rs.Locals.All, sym)
+	}
+	if ds.Initializer != nil {
+		g.VisitNodeOrNull(ds.Initializer)
+	} else if sym != nil {
+		def := defaultValueFor(sym.Type)
+		switch dv := def.(type) {
+		case int:
+			g.Instruction(PushConstantInt, dv, ds.Source())
+		case string:
+			g.Instruction(PushConstantString, dv, ds.Source())
+		case int64:
+			g.Instruction(PushConstantLong, dv, ds.Source())
+		default:
+			panic(fmt.Sprintf("visitDeclaration: unsupported default-value type %T for symbol %v", def, sym))
+		}
+	}
+	g.Instruction(PopLocalVar, sym, ds.Source())
+}
+
+// visitArrayDeclaration lowers a `def_Tarray $name(size);` declaration.
+// Mirrors TS visitArrayDeclarationStatement (CodeGenerator.ts L442-L449).
+func (g *CodeGenerator) visitArrayDeclaration(ads *ast.ArrayDeclarationStatement) {
+	sym, _ := ads.Symbol.(*symbol.LocalVariableSymbol)
+	if rs := g.activeScript(); rs != nil && sym != nil {
+		rs.Locals.All = append(rs.Locals.All, sym)
+	}
+	g.VisitNodeOrNull(ads.Initializer)
+	g.Instruction(DefineArray, sym, ads.Source())
+}
+
+// visitAssignment lowers an assignment statement. Mirrors TS
+// visitAssignmentStatement (CodeGenerator.ts L451-L487).
+//
+// Array-index special case: if the first LHS is a LocalVariableExpression
+// with a non-nil Index, push the index before visiting the RHS — mirrors
+// TS L451-L454.
+//
+// Vars are popped in reverse order so the pop sequence matches the order RHS
+// values were pushed — mirrors TS L460-L480 reverse-for.
+func (g *CodeGenerator) visitAssignment(as *ast.AssignmentStatement) {
+	vars := as.Vars
+	if len(vars) == 0 {
+		return
+	}
+	// Array-index special case: push index before RHS expressions.
+	if lv, ok := vars[0].(*ast.LocalVariableExpression); ok && lv.Index != nil {
+		g.VisitNodeOrNull(lv.Index)
+	}
+
+	g.visitExpressions(as.Expressions)
+
+	// Reverse-iterate so pops match RHS push order.
+	for i := len(vars) - 1; i >= 0; i-- {
+		variable := vars[i]
+		ref := referenceOf(variable)
+		if ref == nil {
+			diagnostics.ReportErrorAt(g.diagnostics, variable, diagnostics.MessageSymbolIsNull)
+			return
+		}
+		switch refTyped := ref.(type) {
+		case *symbol.LocalVariableSymbol:
+			g.Instruction(PopLocalVar, refTyped, variable.Source())
+		case *symbol.BasicSymbol:
+			gv, ok := variable.(*ast.GameVariableExpression)
+			if !ok {
+				panic("visitAssignment: expected GameVariableExpression for BasicSymbol reference")
+			}
+			if gv.Dot {
+				g.Instruction(PopVar2, refTyped, variable.Source())
+			} else {
+				g.Instruction(PopVar, refTyped, variable.Source())
+			}
+		default:
+			panic(fmt.Sprintf("visitAssignment: unsupported reference type %T", ref))
+		}
+	}
+}
+
+// visitExpressionStatement lowers an expression-as-statement. Mirrors TS
+// visitExpressionStatement (CodeGenerator.ts L489-L501).
+//
+// The expression is visited (pushes values); each returned type is discarded
+// via a Discard instruction with the appropriate BaseVarType operand.
+func (g *CodeGenerator) visitExpressionStatement(es *ast.ExpressionStatement) {
+	g.VisitNodeOrNull(es.Expression)
+	exprType := getExpressionType(es.Expression)
+	types := typ.TupleToList(exprType)
+	for _, t := range types {
+		if t == nil {
+			continue
+		}
+		base, ok := t.BaseType()
+		if !ok {
+			diagnostics.ReportErrorAt(g.diagnostics, es, diagnostics.MessageTypeHasNoBaseType, t)
+			return
+		}
+		g.Instruction(Discard, base, es.Source())
+	}
+}
+
+// visitEmptyStatement is a no-op. Mirrors TS visitEmptyStatement (CodeGenerator.ts L501).
+func (g *CodeGenerator) visitEmptyStatement(es *ast.EmptyStatement) {
+	_ = es
+}
+
+// defaultValueFor returns the language-level zero value for a type. Mirrors
+// TS Type.defaultValue, but for the subset codegen actually emits:
+//   - PrimitiveInt → int(0) (special-cased to 0, not -1)
+//   - BaseVarInteger (non-int) → int(-1)
+//   - BaseVarString → string("")
+//   - BaseVarLong → int64(-1)
+//   - other/unknown → int(0)
+//
+// PRECONDITION: t is non-nil. Caller (visitDeclaration) guards sym != nil.
+func defaultValueFor(t typ.Type) any {
+	if t == typ.PrimitiveInt {
+		return 0
+	}
+	base, ok := t.BaseType()
+	if !ok {
+		return 0
+	}
+	switch base {
+	case typ.BaseVarInteger:
+		return -1
+	case typ.BaseVarString:
+		return ""
+	case typ.BaseVarLong:
+		return int64(-1)
+	default:
+		return 0
+	}
+}
+
+// referenceOf reads the Reference field from a variable AST expression.
+// Returns nil if the expression has no reference or is not a variable expression.
+// Mirrors TS CodeGenerator.ts L465-L475 per-variable reference dispatch.
+func referenceOf(expr ast.Expression) any {
+	switch e := expr.(type) {
+	case *ast.LocalVariableExpression:
+		return e.Reference
+	case *ast.GameVariableExpression:
+		return e.Reference
+	}
+	return nil
 }
 
 // resolveConstantValue attempts to read a constant value from an expression.
