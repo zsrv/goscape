@@ -224,6 +224,19 @@ func (p *PointerChecker) SetsPointerTrigger(script *codegen.RuneScript, pt *poin
 	return p.setsPointerTriggerFn(script, pt)
 }
 
+// SetSetsPointerTriggerFn overwrites the polymorphic setsPointerTrigger
+// hook. Used by ServerPointerChecker to install its override. The default
+// hook reads script.Trigger.Pointers.Has(pt).
+func (p *PointerChecker) SetSetsPointerTriggerFn(fn func(*codegen.RuneScript, *pointer.PointerType) bool) {
+	p.setsPointerTriggerFn = fn
+}
+
+// DefaultSetsPointerTrigger exposes the base implementation so overrides
+// can call back into it for the non-overridden pointer kinds.
+func (p *PointerChecker) DefaultSetsPointerTrigger(script *codegen.RuneScript, pt *pointer.PointerType) bool {
+	return p.defaultSetsPointerTrigger(script, pt)
+}
+
 // defaultSetsPointerTrigger is the base behaviour: trigger.Pointers.Has(pt).
 func (p *PointerChecker) defaultSetsPointerTrigger(script *codegen.RuneScript, pt *pointer.PointerType) bool {
 	return script.Trigger.Pointers.Has(pt)
