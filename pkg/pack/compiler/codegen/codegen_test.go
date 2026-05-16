@@ -432,11 +432,47 @@ func TestCodeGenerator_Parenthesized_VisitsInner(t *testing.T) {
 
 // TestCodeGenerator_Calc_VisitsInner pins that `calc(1 + 2)` emits
 // PushConstantInt, PushConstantInt, Add, Return (plus default Return).
-// Un-skipped in T8 once ArithmeticExpression dispatch is wired.
-//
-// NAI-207-D-CALC-T7-SKIP: blocked on T8 (ArithmeticExpression dispatch).
+// Un-skipped in T8 (NAI-207-D-CALC-T7-SKIP retired).
 func TestCodeGenerator_Calc_VisitsInner(t *testing.T) {
-	t.Skip("blocks on T8 (ArithmeticExpression dispatch)")
+	src := "[proc,foo]()(int)\nreturn(calc(1 + 2));\n"
+	rs := compileForTest(t, src)
+	got := opcodesOf(rs.Blocks[0])
+	want := []Opcode{PushConstantInt, PushConstantInt, Add, Return, PushConstantInt, Return}
+	if !sameOps(got, want) {
+		t.Errorf("opcodes: got %v, want %v", names(got), names(want))
+	}
+}
+
+// --- T8: arithmetic expressions --------------------------------------------------
+
+// TestCodeGenerator_Arithmetic_Int pins all seven integer arithmetic opcodes.
+// IntegerLiteral stub (NAI-207-D-INTLIT-T5-STUB) covers operand pushes; the
+// type-checker in compileForTest annotates the literal's ExpressionBase.Type
+// so visitArith can dispatch on BaseVarInteger.
+func TestCodeGenerator_Arithmetic_Int(t *testing.T) {
+	cases := []struct {
+		op   string
+		want Opcode
+	}{
+		{"+", Add},
+		{"-", Sub},
+		{"*", Multiply},
+		{"/", Divide},
+		{"%", Modulo},
+		{"&", And},
+		{"|", Or},
+	}
+	for _, c := range cases {
+		t.Run(c.op, func(t *testing.T) {
+			src := "[proc,foo]()(int)\nreturn(calc(1 " + c.op + " 2));\n"
+			rs := compileForTest(t, src)
+			got := opcodesOf(rs.Blocks[0])
+			want := []Opcode{PushConstantInt, PushConstantInt, c.want, Return, PushConstantInt, Return}
+			if !sameOps(got, want) {
+				t.Errorf("opcodes: got %v, want %v", names(got), names(want))
+			}
+		})
+	}
 }
 
 // TestCodeGenerator_Switch pins a one-case switch.
