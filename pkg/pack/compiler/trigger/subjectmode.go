@@ -50,3 +50,10 @@ func IsTypeMode(m SubjectMode) (TypeMode, bool) {
 	tm, ok := m.(TypeMode)
 	return tm, ok
 }
+
+// IsNameMode returns true when m is the ModeName singleton. Mirrors TS
+// `subjectMode === SubjectMode.Name` reference-equality check.
+func IsNameMode(m SubjectMode) bool {
+	_, ok := m.(modeNameT)
+	return ok
+}

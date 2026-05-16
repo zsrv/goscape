@@ -3,6 +3,7 @@ package runescript
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/zsrv/goscape/pkg/pack/compiler/codegen"
@@ -341,12 +342,60 @@ func mathOpcode(opcode codegen.Opcode) *writer.ServerScriptOpcode {
 	return nil
 }
 
-// generateLookupKey is a stub here so T6 can land independently; full
-// implementation arrives in T7. For now: returns -1 for ModeName (the
-// most-common case in tests), 0 otherwise. T7 replaces this body.
+// generateLookupKey ports TS BinaryScriptWriter.generateLookupKey (L58-85).
+//
+// Three arms:
+//   - SubjectMode.Name           → -1
+//   - SubjectMode.Type + subject → trigger.ID + (typeMarker<<8) + (subjectId<<10)
+//   - otherwise (Mode.None)      → trigger.ID
+//
+// subjectId comes from strconv.Atoi(subject.SymbolName()) for MAPZONE/COORD
+// primitives, or from IdProvider.Get for any other type.
+//
+// NAI-209-D-MAPZONE-COORD-PARSE-PANIC: invalid Atoi panics (TS would silently
+// produce NaN-corrupted output).
+//
+// NAI-209-D-TYPEMARKER-CATEGORY-DISCRIMINATOR: TS L80 reads
+// `subjectType === ScriptVarType.CATEGORY` — a per-script check on the
+// subject symbol's runtime type. Goscape currently reads `tm.Category` — a
+// per-trigger flag on TypeMode — because no `PrimitiveCategory` primitive is
+// ported yet. The result diverges when a trigger has tm.Category=true and is
+// used with a non-category subject: TS emits typeMarker=2, goscape emits 1.
+// Resolving requires porting PrimitiveCategory and the per-subject type
+// check; tracked for NAI-210 or a follow-up slice.
 func (b *BinaryScriptWriter) generateLookupKey(script *codegen.RuneScript) int32 {
-	if script.Trigger.SubjectMode == trigger.ModeName {
+	if trigger.IsNameMode(script.Trigger.SubjectMode) {
 		return -1
 	}
-	return 0
+	key := int32(script.Trigger.ID)
+	tm, ok := trigger.IsTypeMode(script.Trigger.SubjectMode)
+	if !ok || script.SubjectReference == nil {
+		return key
+	}
+	subject, ok := script.SubjectReference.(symbol.Symbol)
+	if !ok {
+		panic(fmt.Sprintf("BinaryScriptWriter: SubjectReference %T is not a symbol.Symbol", script.SubjectReference))
+	}
+	subjectId := b.resolveSubjectId(subject)
+	var typeMarker int32 = 2
+	if tm.Category {
+		typeMarker = 1
+	}
+	key += (typeMarker << 8) + (subjectId << 10)
+	return key
+}
+
+func (b *BinaryScriptWriter) resolveSubjectId(subject symbol.Symbol) int32 {
+	if bs, ok := subject.(*symbol.BasicSymbol); ok {
+		switch bs.Type {
+		case typ.PrimitiveMapzone, typ.PrimitiveCoord:
+			n, err := strconv.Atoi(subject.SymbolName())
+			if err != nil {
+				panic(fmt.Sprintf("BinaryScriptWriter: invalid MAPZONE/COORD subject %q: %v",
+					subject.SymbolName(), err))
+			}
+			return int32(n)
+		}
+	}
+	return int32(b.IdProvider.Get(subject))
 }
