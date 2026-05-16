@@ -47,21 +47,27 @@ func seedMinimalPackFixture(t *testing.T, dir string) {
 
 // TestRunPack_HappyPath verifies runPack returns 0 when PackAll succeeds.
 // Implicitly covers --datapack-dir empty → --out-dir fallback.
+// Also pins that the logger writes its output to the injected stderr
+// writer (not os.Stdout).
 func TestRunPack_HappyPath(t *testing.T) {
 	dir := t.TempDir()
 	seedMinimalPackFixture(t, dir)
 	outDir := filepath.Join(dir, "out")
 
+	var stderr bytes.Buffer
 	code := runPack([]string{
 		"--src-dir", dir,
 		"--out-dir", outDir,
-	}, io.Discard)
+	}, &stderr)
 
 	if code != 0 {
 		t.Fatalf("runPack returned %d, want 0", code)
 	}
 	if _, err := os.Stat(filepath.Join(outDir, "server", "obj.dat")); err != nil {
 		t.Errorf("expected pack output missing: %v", err)
+	}
+	if !strings.Contains(stderr.String(), "pack succeeded") {
+		t.Errorf("stderr %q missing logger output", stderr.String())
 	}
 }
 

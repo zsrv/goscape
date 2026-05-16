@@ -14,8 +14,8 @@ import (
 // runPack implements the `pack` verb: parses flags, calls
 // pack.PackAll, returns an exit code.
 //
-// stderr receives flag-parse error output (for testability — the
-// dispatcher in main.go passes os.Stderr).
+// stderr receives both flag-parse error output and slog logger
+// output. The dispatcher in main.go passes os.Stderr.
 //
 // Exit codes:
 //
@@ -46,7 +46,7 @@ func runPack(args []string, stderr io.Writer) int {
 		return 2
 	}
 
-	logger, err := log.NewLogger(logLevel, *logFormat)
+	logger, err := log.NewLogger(logLevel, *logFormat, stderr)
 	if err != nil {
 		fmt.Fprintf(stderr, "failed to create logger: %v\n", err)
 		return 1
