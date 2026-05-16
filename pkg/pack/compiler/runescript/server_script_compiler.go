@@ -142,6 +142,7 @@ func (c *ServerScriptCompiler) parsePhase(ext string) ([]*ast.ScriptFile, *diagn
 				return rerr
 			}
 			p := parser.NewScriptFileParser(string(content), path)
+			p.AddErrorListener(diagnostics.NewParserErrorListener(path, d))
 			node := p.ParseScriptFile()
 			if node != nil {
 				files = append(files, node)

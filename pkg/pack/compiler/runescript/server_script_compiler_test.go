@@ -2,6 +2,8 @@
 package runescript
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/pack/compiler/codegen"
@@ -234,6 +236,44 @@ func TestRun_NilHandlerDefaultsToNop(t *testing.T) {
 	}
 	if _, ok := c.Handler.(diagnostics.NopHandler); !ok {
 		t.Errorf("nil Handler should default to NopHandler{}, got %T", c.Handler)
+	}
+}
+
+// TestRun_ParserSyntaxErrorReachesParseDiagnostics pins that a syntactically
+// invalid source file produces at least one diagnostic in the parse-phase
+// *Diagnostics handed to HandleParse. The fixture uses an obviously bad
+// `[` start with no closing bracket; the lexer/parser will report a
+// SyntaxError which the new ParserErrorListener forwards into d.
+func TestRun_ParserSyntaxErrorReachesParseDiagnostics(t *testing.T) {
+	tmpDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmpDir, "bad.rs2"), []byte("[proc,\n"), 0o644); err != nil {
+		t.Fatalf("write bad.rs2: %v", err)
+	}
+
+	mapper := NewSymbolMapper(nil)
+	rh := newRecordingHandler()
+	c := &ServerScriptCompiler{
+		SourcePaths:     []string{tmpDir},
+		TypeManager:     typ.NewTypeManager(),
+		Mapper:          mapper,
+		CommandPointers: map[string]*pointer.PointerHolder{"foo": {Required: pointer.NewPointerSet()}},
+		Writer:          &noopBinaryOutput{},
+		Handler:         rh,
+	}
+	c.Setup()
+	c.BinaryWriter = NewBinaryScriptWriter(mapper, c.Writer)
+
+	err := c.Run("rs2")
+	// Run returns an error from parsePhase ("parse: diagnostics reported errors").
+	if err == nil {
+		t.Fatal("Run on syntactically invalid source: got nil error, want non-nil")
+	}
+	parseDiag, ok := rh.capDiags["HandleParse"]
+	if !ok || parseDiag == nil {
+		t.Fatal("HandleParse was not called")
+	}
+	if !parseDiag.HasErrors() {
+		t.Errorf("parse-phase Diagnostics has no errors after invalid source; got %d entries", len(parseDiag.List()))
 	}
 }
 
