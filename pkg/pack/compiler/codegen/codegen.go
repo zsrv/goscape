@@ -84,9 +84,7 @@ func (g *CodeGenerator) generateBlock(name string, generateUniqueName bool) *Blo
 }
 
 // generateBlockLabel constructs a Block from an existing Label (used when the
-// caller has already generated the label). Forward-scaffolding for T5
-// (generateCondition is the first consumer).
-// Mirrors TS generateBlockLabel.
+// caller has already generated the label). Mirrors TS generateBlockLabel.
 func (g *CodeGenerator) generateBlockLabel(lbl *Label) *Block {
 	b := NewBlock(lbl)
 	if s := g.activeScript(); s != nil {
@@ -145,7 +143,26 @@ func (g *CodeGenerator) Visit(n ast.Node) {
 		g.visitScript(v)
 	case *ast.Parameter:
 		g.visitParameter(v)
-	// Statement arms added in T5/T6.
+	case *ast.ReturnStatement:
+		g.visitReturnStatement(v)
+	case *ast.IfStatement:
+		g.visitIfStatement(v)
+	case *ast.WhileStatement:
+		g.visitWhileStatement(v)
+	case *ast.SwitchStatement:
+		g.visitSwitchStatement(v)
+	case *ast.IntegerLiteral:
+		// NAI-207-D-INTLIT-T5-STUB: T5 needs IntegerLiteral emission for
+		// condition and return-expression tests (generateConditionBinary and
+		// visitReturnStatement call VisitNodeOrNull on their sub-expressions).
+		// T10 will port the full visitIntegerLiteral (Reference + string-base
+		// type promotion). This stub covers the no-reference int case only.
+		g.LineInstruction(v)
+		if v.Reference == nil {
+			g.Instruction(PushConstantInt, v.Value, v.Source())
+		} else {
+			g.Instruction(PushConstantSymbol, v.Reference, v.Source())
+		}
 	// Expression arms added in T7–T11.
 	case nil:
 		return
@@ -162,8 +179,7 @@ func (g *CodeGenerator) VisitNodes(ns []ast.Node) {
 	}
 }
 
-// visitExpressions visits each expression in es. Forward-scaffolding for
-// T5/T6 (statement arms are the first consumers).
+// visitExpressions visits each expression in es.
 func (g *CodeGenerator) visitExpressions(es []ast.Expression) {
 	for _, e := range es {
 		g.VisitNodeOrNull(e)

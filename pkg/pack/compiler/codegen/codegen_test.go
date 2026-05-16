@@ -33,6 +33,10 @@ func compileForTest(t *testing.T, src string) *RuneScript {
 	for _, p := range typ.PrimitiveAll {
 		_ = tm.RegisterByRepresentation(p)
 	}
+	// Identity checker: identical types are assignable. Required for the type
+	// checker to accept `int = int`, `int < int`, etc. in conditions.
+	// Mirrors semantics.newBasicCheckingFixture (type_checking_test.go L23).
+	tm.AddTypeChecker(func(left, right typ.Type) bool { return left == right })
 	trm := trigger.NewTriggerManager()
 	_ = trm.RegisterTrigger(makeProcTrigger())
 	root := symbol.NewSymbolTable(nil)
@@ -70,6 +74,7 @@ func compileForTestOptional(t *testing.T, src string) *RuneScript {
 	for _, p := range typ.PrimitiveAll {
 		_ = tm.RegisterByRepresentation(p)
 	}
+	tm.AddTypeChecker(func(left, right typ.Type) bool { return left == right })
 	trm := trigger.NewTriggerManager()
 	_ = trm.RegisterTrigger(makeProcTrigger())
 	// Register CommandTrigger for the skip test.
@@ -217,5 +222,126 @@ func TestCodeGenerator_SkipsCommandScripts(t *testing.T) {
 	rs := compileForTestOptional(t, src)
 	if rs != nil {
 		t.Fatalf("Scripts: want 0 (command-trigger skipped), got 1: %v", rs)
+	}
+}
+
+// TestCodeGenerator_ReturnEmpty pins `return;` ⇒ Return only.
+func TestCodeGenerator_ReturnEmpty(t *testing.T) {
+	rs := compileForTest(t, "[proc,foo]\nreturn;\n")
+	got := opcodesOf(rs.Blocks[0])
+	want := []Opcode{Return, Return} // explicit return + generateDefaultReturns trailing
+	if !sameOps(got, want) {
+		t.Errorf("opcodes: got %v, want %v", names(got), names(want))
+	}
+}
+
+// TestCodeGenerator_ReturnExpression pins `return(42);`.
+func TestCodeGenerator_ReturnExpression(t *testing.T) {
+	rs := compileForTest(t, "[proc,foo]()(int)\nreturn(42);\n")
+	got := opcodesOf(rs.Blocks[0])
+	// PushConstantInt(42) Return PushConstantInt(0) Return
+	want := []Opcode{PushConstantInt, Return, PushConstantInt, Return}
+	if !sameOps(got, want) {
+		t.Errorf("opcodes: got %v, want %v", names(got), names(want))
+	}
+}
+
+// TestCodeGenerator_IfElse_StraightCondition pins the if/else block layout.
+func TestCodeGenerator_IfElse_StraightCondition(t *testing.T) {
+	src := `[proc,foo]
+if (1 = 2) {
+} else {
+}
+`
+	rs := compileForTest(t, src)
+	// Expected blocks: entry, if_true_0, if_else_0, if_end_0
+	if len(rs.Blocks) != 4 {
+		t.Fatalf("Blocks: got %d, want 4 (entry+if_true+if_else+if_end)", len(rs.Blocks))
+	}
+	labels := []string{"entry", "if_true_0", "if_else_0", "if_end_0"}
+	for i, name := range labels {
+		if rs.Blocks[i].Label.Name != name {
+			t.Errorf("Blocks[%d].Label: got %q, want %q", i, rs.Blocks[i].Label.Name, name)
+		}
+	}
+	// entry block: PushConstantInt 1, PushConstantInt 2, BranchEquals if_true_0, Branch if_else_0
+	got := opcodesOf(rs.Blocks[0])
+	want := []Opcode{PushConstantInt, PushConstantInt, BranchEquals, Branch}
+	if !sameOps(got, want) {
+		t.Errorf("entry opcodes: got %v, want %v", names(got), names(want))
+	}
+}
+
+// TestCodeGenerator_While pins the loop block layout.
+func TestCodeGenerator_While(t *testing.T) {
+	src := `[proc,foo]
+while (1 < 2) {
+}
+`
+	rs := compileForTest(t, src)
+	// Expected blocks: entry, while_start_0, while_body_0, while_end_0
+	if len(rs.Blocks) != 4 {
+		t.Fatalf("Blocks: got %d, want 4 (entry+while_start+while_body+while_end)", len(rs.Blocks))
+	}
+	labels := []string{"entry", "while_start_0", "while_body_0", "while_end_0"}
+	for i, name := range labels {
+		if rs.Blocks[i].Label.Name != name {
+			t.Errorf("Blocks[%d].Label: got %q, want %q", i, rs.Blocks[i].Label.Name, name)
+		}
+	}
+	// while_body: Branch while_start_0 (back-edge)
+	bodyOps := opcodesOf(rs.Blocks[2])
+	if len(bodyOps) != 1 || bodyOps[0] != Branch {
+		t.Errorf("while_body opcodes: got %v, want [Branch]", names(bodyOps))
+	}
+}
+
+// TestCodeGenerator_GenerateCondition_LogicalAnd pins the recursive chain.
+func TestCodeGenerator_GenerateCondition_LogicalAnd(t *testing.T) {
+	src := `[proc,foo]
+if (1 = 1 & 2 = 2) {
+}
+`
+	rs := compileForTest(t, src)
+	// Expected blocks: entry, condition_and_0, if_true_0, if_end_0
+	labels := []string{"entry", "condition_and_0", "if_true_0", "if_end_0"}
+	if len(rs.Blocks) != len(labels) {
+		t.Fatalf("Blocks: got %d, want %d", len(rs.Blocks), len(labels))
+	}
+	for i, name := range labels {
+		if rs.Blocks[i].Label.Name != name {
+			t.Errorf("Blocks[%d].Label: got %q, want %q", i, rs.Blocks[i].Label.Name, name)
+		}
+	}
+}
+
+// TestCodeGenerator_Switch pins a one-case switch.
+func TestCodeGenerator_Switch(t *testing.T) {
+	src := `[proc,foo](int $x)
+switch_int ($x) {
+  case 1 :
+}
+`
+	rs := compileForTest(t, src)
+	if len(rs.SwitchTables) != 1 {
+		t.Fatalf("SwitchTables: got %d, want 1", len(rs.SwitchTables))
+	}
+	st := rs.SwitchTables[0]
+	cases := st.Cases()
+	if len(cases) != 1 {
+		t.Fatalf("Cases: got %d, want 1", len(cases))
+	}
+	if len(cases[0].Keys) != 1 || cases[0].Keys[0].(int32) != 1 {
+		t.Errorf("Cases[0].Keys: got %v, want [1]", cases[0].Keys)
+	}
+	// Expected block names: entry, switch_0_case_0, switch_end_0
+	wantLabels := []string{"entry", "switch_0_case_0", "switch_end_0"}
+	if len(rs.Blocks) != len(wantLabels) {
+		t.Fatalf("Blocks: got %d, want %d", len(rs.Blocks), len(wantLabels))
+	}
+	for i, name := range wantLabels {
+		if rs.Blocks[i].Label.Name != name {
+			t.Errorf("Blocks[%d].Label: got %q, want %q", i, rs.Blocks[i].Label.Name, name)
+		}
 	}
 }
