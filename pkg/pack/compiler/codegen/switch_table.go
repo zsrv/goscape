@@ -20,7 +20,8 @@ func NewSwitchTable(id int) *SwitchTable {
 	return &SwitchTable{ID: id}
 }
 
-// Cases returns an immutable view of the table's cases. Mirrors TS
+// Cases returns an immutable view of the table's cases (slice header is
+// copied; SwitchCase.Keys element content is shared). Mirrors TS
 // SwitchTable.cases getter (TS uses Readonly<>; goscape uses copy-on-read).
 func (s *SwitchTable) Cases() []SwitchCase {
 	out := make([]SwitchCase, len(s.cases))

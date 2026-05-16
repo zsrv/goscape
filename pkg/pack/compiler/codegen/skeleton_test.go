@@ -127,6 +127,13 @@ func TestSwitchTable_AddsCases(t *testing.T) {
 	if !reflect.DeepEqual(cases[0].Keys, []any{1, 2, 3}) {
 		t.Errorf("Cases[0].Keys: got %v, want [1 2 3]", cases[0].Keys)
 	}
+
+	// Mutating the returned slice must not affect internal state.
+	cases[0] = SwitchCase{}
+	fresh := st.Cases()
+	if len(fresh) != 1 || fresh[0].Label != lbl {
+		t.Error("Cases() copy-on-read violated: mutation of returned slice affected internal state")
+	}
 }
 
 func TestRuneScript_FullNameAndSwitchTable(t *testing.T) {

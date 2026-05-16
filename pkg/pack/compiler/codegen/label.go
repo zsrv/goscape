@@ -15,7 +15,6 @@ type LabelGenerator struct {
 	names map[string]int
 }
 
-// NewLabelGenerator returns a fresh LabelGenerator.
 func NewLabelGenerator() *LabelGenerator {
 	return &LabelGenerator{names: map[string]int{}}
 }
