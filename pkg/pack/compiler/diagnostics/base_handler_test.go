@@ -78,3 +78,127 @@ func TestBaseDiagnosticsHandler_RendersSourceLineAndCaret(t *testing.T) {
 		t.Errorf("output missing caret line %q; got:\n%s", wantCaret, got)
 	}
 }
+
+// TestBaseDiagnosticsHandler_LineOutOfBoundsSkipsSource asserts no `>` line
+// is emitted when the diagnostic line exceeds the file length. The header
+// still prints.
+func TestBaseDiagnosticsHandler_LineOutOfBoundsSkipsSource(t *testing.T) {
+	tmp := filepath.Join(t.TempDir(), "f.rs2")
+	if err := writeFile(t, tmp, "a\nb\nc\n"); err != nil {
+		t.Fatalf("write tmp: %v", err)
+	}
+
+	var buf bytes.Buffer
+	h := &BaseDiagnosticsHandler{Out: &buf}
+	d := &Diagnostics{}
+	d.Report(Diagnostic{
+		Type:           DiagnosticError,
+		SourceLocation: lexer.NodeSourceLocation{Name: tmp, Line: 99, Column: 1},
+		Message:        "oob",
+	})
+
+	h.HandleParse(d)
+
+	got := buf.String()
+	if !strings.Contains(got, "ERROR: oob") {
+		t.Errorf("header missing; got:\n%s", got)
+	}
+	if strings.Contains(got, "    >") {
+		t.Errorf("source/caret line should be skipped; got:\n%s", got)
+	}
+}
+
+// TestBaseDiagnosticsHandler_FileMissingSkipsSource asserts no panic + no
+// `>` line when the path does not exist on disk. The header still prints.
+func TestBaseDiagnosticsHandler_FileMissingSkipsSource(t *testing.T) {
+	var buf bytes.Buffer
+	h := &BaseDiagnosticsHandler{Out: &buf}
+	d := &Diagnostics{}
+	d.Report(Diagnostic{
+		Type:           DiagnosticError,
+		SourceLocation: lexer.NodeSourceLocation{Name: "/nonexistent/path.rs2", Line: 1, Column: 1},
+		Message:        "ghost",
+	})
+
+	h.HandleParse(d) // must not panic
+	got := buf.String()
+	if !strings.Contains(got, "ERROR: ghost") {
+		t.Errorf("header missing; got:\n%s", got)
+	}
+	if strings.Contains(got, "    >") {
+		t.Errorf("source/caret line should be skipped; got:\n%s", got)
+	}
+}
+
+// TestBaseDiagnosticsHandler_MessageArgsFormatted pins that printf-style
+// %s verbs in Message are substituted from MessageArgs (mirrors TS L100
+// `util.format(message, ...messageArgs)`).
+func TestBaseDiagnosticsHandler_MessageArgsFormatted(t *testing.T) {
+	var buf bytes.Buffer
+	h := &BaseDiagnosticsHandler{Out: &buf}
+	d := &Diagnostics{}
+	d.Report(Diagnostic{
+		Type:           DiagnosticError,
+		SourceLocation: lexer.NodeSourceLocation{Name: "x", Line: 1, Column: 1},
+		Message:        "bad %s",
+		MessageArgs:    []any{"foo"},
+	})
+
+	h.HandleParse(d)
+
+	if !strings.Contains(buf.String(), "ERROR: bad foo") {
+		t.Errorf("MessageArgs not formatted; got:\n%s", buf.String())
+	}
+}
+
+// TestBaseDiagnosticsHandler_AllFourPhaseMethodsDispatchSame pins TS
+// L58-72: each of the four HandleXxx methods delegates to handleShared
+// with identical output.
+func TestBaseDiagnosticsHandler_AllFourPhaseMethodsDispatchSame(t *testing.T) {
+	mkDiag := func() *Diagnostics {
+		d := &Diagnostics{}
+		d.Report(Diagnostic{
+			Type:           DiagnosticError,
+			SourceLocation: lexer.NodeSourceLocation{Name: "x", Line: 1, Column: 1},
+			Message:        "shared",
+		})
+		return d
+	}
+
+	captures := []string{}
+	for _, call := range []func(h *BaseDiagnosticsHandler, d *Diagnostics){
+		func(h *BaseDiagnosticsHandler, d *Diagnostics) { h.HandleParse(d) },
+		func(h *BaseDiagnosticsHandler, d *Diagnostics) { h.HandleTypeChecking(d) },
+		func(h *BaseDiagnosticsHandler, d *Diagnostics) { h.HandleCodeGeneration(d) },
+		func(h *BaseDiagnosticsHandler, d *Diagnostics) { h.HandlePointerChecking(d) },
+	} {
+		var buf bytes.Buffer
+		call(&BaseDiagnosticsHandler{Out: &buf}, mkDiag())
+		captures = append(captures, buf.String())
+	}
+
+	for i := 1; i < len(captures); i++ {
+		if captures[i] != captures[0] {
+			t.Errorf("phase method %d output diverges:\nfirst:\n%s\nthis:\n%s", i, captures[0], captures[i])
+		}
+	}
+}
+
+// TestBaseDiagnosticsHandler_NoOsExit pins NAI-211-D-NO-PROCESS-EXIT:
+// even when diagnostics contain ERRORs, handleShared returns normally
+// (no os.Exit). Test-process survival is the assertion.
+func TestBaseDiagnosticsHandler_NoOsExit(t *testing.T) {
+	var buf bytes.Buffer
+	h := &BaseDiagnosticsHandler{Out: &buf}
+	d := &Diagnostics{}
+	d.Report(Diagnostic{
+		Type:           DiagnosticError,
+		SourceLocation: lexer.NodeSourceLocation{Name: "x", Line: 1, Column: 1},
+		Message:        "fatal-but-not-really",
+	})
+	if !d.HasErrors() {
+		t.Fatal("test setup: expected HasErrors()==true")
+	}
+	h.HandleParse(d) // would call os.Exit(1) if NAI-211-D-NO-PROCESS-EXIT regressed
+	// If we got here, the deviation is honored.
+}
