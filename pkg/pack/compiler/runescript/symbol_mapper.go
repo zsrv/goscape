@@ -49,7 +49,7 @@ var _ writer.IdProvider = (*SymbolMapper)(nil)
 // Mirrors TS SymbolMapper.putSymbol L32-40.
 func (m *SymbolMapper) PutSymbol(id int, s symbol.Symbol) {
 	if _, dup := m.symbols[s]; dup {
-		m.report(fmt.Sprintf("Duplicate symbol: %s.", s.SymbolName()))
+		m.report("Duplicate symbol: %s.", s.SymbolName())
 		return
 	}
 	m.symbols[s] = id
@@ -81,9 +81,9 @@ func (m *SymbolMapper) PutScript(id int, name string) {
 func (m *SymbolMapper) Get(s symbol.Symbol) int {
 	switch ss := s.(type) {
 	case *symbol.ServerScriptSymbol:
-		return m.getScript(ss.Trigger, ss.Name, s.SymbolName())
+		return m.getScript(ss.Trigger, ss.Name)
 	case *symbol.ClientScriptSymbol:
-		return m.getScript(ss.Trigger, ss.Name, s.SymbolName())
+		return m.getScript(ss.Trigger, ss.Name)
 	}
 	id, ok := m.symbols[s]
 	if !ok {
@@ -92,7 +92,7 @@ func (m *SymbolMapper) Get(s symbol.Symbol) int {
 	return id
 }
 
-func (m *SymbolMapper) getScript(t *trigger.TriggerType, name, repr string) int {
+func (m *SymbolMapper) getScript(t *trigger.TriggerType, name string) int {
 	if t == trigger.CommandTrigger {
 		// Trim everything up to and including the first dot (TS substring).
 		key := name
@@ -101,7 +101,7 @@ func (m *SymbolMapper) getScript(t *trigger.TriggerType, name, repr string) int 
 		}
 		id, ok := m.commands[key]
 		if !ok {
-			m.report(fmt.Sprintf("Unable to find id for '%s'.", repr))
+			m.report(diagnostics.MessageGenericUnresolvedSymbol, name)
 			return -1
 		}
 		return id
@@ -109,20 +109,20 @@ func (m *SymbolMapper) getScript(t *trigger.TriggerType, name, repr string) int 
 	key := "[" + t.Identifier + "," + name + "]"
 	id, ok := m.scripts[key]
 	if !ok {
-		m.report(fmt.Sprintf("Unable to find id for '%s'.", repr))
+		m.report(diagnostics.MessageGenericUnresolvedSymbol, fmt.Sprintf("[%s,%s]", t.Identifier, name))
 		return -1
 	}
 	return id
 }
 
-func (m *SymbolMapper) report(msg string) {
+func (m *SymbolMapper) report(msg string, args ...any) {
 	if m.diags == nil {
 		return
 	}
 	m.diags.Report(diagnostics.NewDiagnostic(
-		lexer.NodeSourceLocation{},
+		lexer.NodeSourceLocation{}, // no source location in writer phase
 		diagnostics.DiagnosticError,
-		diagnostics.MessageGenericUnresolvedSymbol,
 		msg,
+		args...,
 	))
 }

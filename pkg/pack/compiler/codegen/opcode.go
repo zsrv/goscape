@@ -3,7 +3,7 @@
 // Blocks. Ports src/compiler/codegen/ (TS) — see NAI-207 spec.
 //
 // The abstract Opcode is distinct from the runtime numeric opcodes in
-// pkg/script/opcode.go. NAI-208's writer pass maps abstract → numeric.
+// pkg/script/opcode.go. NAI-209's writer pass maps abstract → numeric.
 package codegen
 
 // OperandKind classifies the dynamic type of Instruction.Operand. Consumers

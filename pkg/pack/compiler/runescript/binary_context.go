@@ -17,6 +17,13 @@ const binaryCtxInitialCapacity = 512
 // BinaryScriptWriterContext is the concrete writer context for the binary
 // on-disk script format. Embeds *writer.BaseContext for CurIndex + line/jump
 // tables. Mirrors TS BinaryScriptWriterContext.ts.
+//
+// NAI-209-D-BYTEPACKET-DEFER: TS uses ByteWriter (crc32 + append-only byte
+// writer from n.ts) for its output buffers. BinaryScriptWriterContext instead
+// uses plain []byte slices with direct binary.BigEndian writes, because the
+// switch-buffer backpatching (`writeUInt16BE(total, sizePos)`) requires
+// random-access writes that ByteWriter does not expose. ByteWriter is deferred
+// to NAI-210, which ports the file-output sinks that actually need it.
 type BinaryScriptWriterContext struct {
 	*writer.BaseContext
 
