@@ -22,3 +22,4 @@ login:
 world:
   enable: true
   tcp_keepalive_period: 30s
+  node_debug: false
