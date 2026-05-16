@@ -330,11 +330,6 @@ func (p *PointerChecker) getAnalysis(script *codegen.RuneScript) *scriptPointerA
 	required := make([][]*InstructionNode, pointerCount)
 	setArr := make([][]*InstructionNode, pointerCount)
 	corrupted := make([][]*InstructionNode, pointerCount)
-	for i := 0; i < pointerCount; i++ {
-		required[i] = nil
-		setArr[i] = nil
-		corrupted[i] = nil
-	}
 	var returns []*InstructionNode
 	staticLabelArgsByCall := map[*codegen.Instruction]map[int]symbol.Symbol{} // T6 populates
 
@@ -391,7 +386,7 @@ func (p *PointerChecker) getAnalysis(script *codegen.RuneScript) *scriptPointerA
 		case codegen.PopVar:
 			if sym, ok := inst.Operand.(*symbol.BasicSymbol); ok {
 				addBasicVarRequired(required, sym.Type, node, true, false)
-				_ = sym.IsProtected // consumed inside addBasicVarRequired indirectly via the false/false combo; see helper below
+				_ = sym.IsProtected // T5 will read sym.IsProtected here to wire protected-pop → P_ACTIVE_PLAYER; T4 stub isProtected returns false (NAI-208-D-PROTECTED-VAR-VIA-SYMBOL).
 			}
 
 		case codegen.PushVar2:
