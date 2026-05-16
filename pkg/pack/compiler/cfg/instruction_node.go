@@ -19,27 +19,25 @@ import (
 	"github.com/zsrv/goscape/pkg/pack/compiler/pointer"
 )
 
-// pointerSet, if non-nil, marks this node as a synthetic
-// pointer-instruction node carrying the set of pointers a
-// conditional-pointer-setter command marks on this arc. GraphGenerator
-// injects these via NewPointerInstructionNode; cfg.PointerChecker
-// consumes them in getAnalysis.
-//
-// Inlining the field onto InstructionNode (rather than using a separate
-// subtype + interface) keeps the graph slice homogeneous. Compare TS
-// PointerInstructionNode subclass.
-//
 // InstructionNode is one CFG node wrapping a single Instruction. The Next
 // and Previous edges form a directed graph. Mirrors TS InstructionNode.
 //
 // Instruction is *codegen.Instruction pointing into a Block.Instructions
 // slice element. Per NAI-208-D-INSTRUCTION-POINTER-KEY, post-codegen
 // Block.Instructions slices are not appended to, so &block.Instructions[i]
-// is a stable map key.
+// is a stable map key for the cfg pass.
 //
 // Instruction is nil for two synthetic node kinds:
 //   - the GraphGenerator's start node prepended to every graph
-//   - nodes returned by NewPointerInstructionNode (conditional-pointer set arcs)
+//   - synthetic pointer-set nodes injected on conditional-pointer-set arcs
+//     (PointerSet is non-nil for these)
+//
+// PointerSet is set on synthetic pointer-instruction nodes carrying the set
+// of pointers a conditional-pointer-setter command marks on this arc.
+// GraphGenerator injects these via NewPointerInstructionNode;
+// cfg.PointerChecker consumes them in getAnalysis. Inlining the field onto
+// InstructionNode (rather than using a separate subtype + interface) keeps
+// the graph slice homogeneous. Compare TS PointerInstructionNode subclass.
 type InstructionNode struct {
 	Instruction *codegen.Instruction
 	Next        []*InstructionNode

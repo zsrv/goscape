@@ -127,14 +127,12 @@ func (p *PointerChecker) validatePointer(script *codegen.RuneScript, pt *pointer
 	graph := analysis.graph
 	required := analysis.required[pointerIndex]
 	setNodes := analysis.setNodes[pointerIndex]
-	corrupted := analysis.corrupted[pointerIndex]
 	corruptedSet := analysis.corruptedNodes[pointerIndex]
 
 	if !p.SetsPointerTrigger(script, pt) {
 		// Trigger does not implicitly set pt → mark start node corrupted.
 		if len(graph) > 0 {
 			if _, ok := corruptedSet[graph[0]]; !ok {
-				_ = corrupted // shadowed below; assignment kept for TS parity
 				corruptedSet = cloneNodeSet(corruptedSet)
 				corruptedSet[graph[0]] = struct{}{}
 			}
