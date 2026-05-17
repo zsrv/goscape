@@ -8,12 +8,12 @@ import (
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
-// PackConfigs runs the per-config packing pipeline. NAI-191–195 wired
-// .varp/.varn/.vars/.param/.enum/.inv/.mesanim/.struct. NAI-196 wires
-// .loc/.npc/.obj and re-orders the pipeline to TS-canonical layout per
-// tools/pack/config/PackShared.ts:261-669. NAI-197 wires
-// .seq/.flo/.spotanim/.idk. NAI-198 wires .hunt/.dbtable/.dbrow and
-// closes the per-config layer (18/18 TS configs ported).
+// PackConfigsForRegistry runs the per-config packing pipeline,
+// returning a *Registry whose fields (Obj, Seq, Loc, ...) are the
+// *PackFile singletons constructed during the run. NAI-191-NAI-198
+// wired the 18 TS configs ported to date; this entry point was added
+// at NAI-213 T1 to expose those singletons to subsequent client-pack
+// stages (clientinterface, sprites, audio, graphics).
 //
 // Server outputs land at <outDir>/server/<type>.{dat,idx}.
 // Client outputs land in a fresh jagfile at <outDir>/client/config.
@@ -61,12 +61,6 @@ import (
 // branches (empty stringKeys/numberKeys/booleanKeys arrays).
 //
 // TS source: tools/pack/config/PackShared.ts:261-669 (packConfigs).
-//
-// PackConfigsForRegistry is the registry-returning entry point added
-// for the client-pack arc (NAI-213 T1). PackConfigs remains a wrapper
-// for backward-compat. Lifts the previously-inline ensureX closures
-// onto a *Registry whose fields client stages can read after this
-// returns.
 func PackConfigsForRegistry(srcDir, outDir string) (*Registry, error) {
 	reg := &Registry{SrcDir: srcDir}
 	if err := packConfigsCore(srcDir, outDir, reg); err != nil {
@@ -221,11 +215,10 @@ func packConfigsCore(srcDir, outDir string, reg *Registry) error {
 		if _, err := reg.EnsureSeq(); err != nil {
 			return err
 		}
-		mesPack, err := NewPackFile(srcDir, "mesanim", nil)
-		if err != nil {
+		if _, err := reg.EnsureMesAnim(); err != nil {
 			return err
 		}
-		if err := packAndSaveMesAnim(srcDir, serverOut, mesPack, reg.Seq, constants); err != nil {
+		if err := packAndSaveMesAnim(srcDir, serverOut, reg.MesAnim, reg.Seq, constants); err != nil {
 			return err
 		}
 	}
@@ -233,11 +226,10 @@ func packConfigsCore(srcDir, outDir string, reg *Registry) error {
 	// .struct — server-only, freshness-gated.
 	if GetLatestModified(scriptsDir, ".struct") > 0 &&
 		ShouldBuild(scriptsDir, ".struct", filepath.Join(serverOut, "struct.dat")) {
-		structPack, err := NewPackFile(srcDir, "struct", nil)
-		if err != nil {
+		if _, err := reg.EnsureStruct(); err != nil {
 			return err
 		}
-		if err := packAndSaveStruct(srcDir, serverOut, structPack, paramTypes, lk, constants); err != nil {
+		if err := packAndSaveStruct(srcDir, serverOut, reg.Struct, paramTypes, lk, constants); err != nil {
 			return err
 		}
 	}
