@@ -17,6 +17,7 @@ type Config struct {
 	TCPListenAddress                 string        `yaml:"tcp_listen_address"`
 	NodeProfile                      string        `yaml:"node_profile"`
 	CachePath                        string        `yaml:"cache_path"`
+	ContentPath                      string        `yaml:"content_path"`
 	LoginServerAddress               string        `yaml:"login_server_address"`
 	TCPServerIdleTimeout             time.Duration `yaml:"tcp_server_idle_timeout"`
 	NodeMaxNPCs                      int           `yaml:"node_max_npcs"`
@@ -80,6 +81,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.IntVar((*int)(&c.NodeWalktriggerSetting), "world.node-walk-trigger-setting", int(WalkTriggerSettingPlayerpacket), "WalkTriggerSetting: 0=PLAYERPACKET (default), 1=PLAYERSETUP, 2=PLAYERMOVEMENT")
 	f.StringVar(&c.NodeProfile, "world.node-profile", "main", "")
 	f.StringVar(&c.CachePath, "world.cache-path", "./data/pack", "Cache root; gamemap loads map-pack files from <path>/maps/")
+	f.StringVar(&c.ContentPath, "world.content-path", "", "Source content root for ::rebuild's in-process PackAll. Empty disables the cheat.")
 	f.IntVar(&c.NodeMaxPlayers, "world.node-max-players", 2047, "")
 	f.IntVar(&c.NodeMaxConnected, "world.node-max-connected", 1000, "")
 	f.IntVar(&c.NodeMaxNPCs, "world.node-max-npcs", 8191, "")
