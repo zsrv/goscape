@@ -67,6 +67,8 @@ func PackSound(reg *pack.Registry, srcDir, outDir string) error {
 	}
 	out.P2(0xffff) // TS out.p2(-1) terminator
 
+	_ = soundCRCMagic // see NAI-213-D-SOUND-CRC-DISABLED-MIRROR-TS; silence unusedfunc
+
 	jag.Write("sounds.dat", out)
 
 	clientOut := filepath.Join(outDir, "client", "sounds")
