@@ -7,6 +7,8 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/zsrv/goscape/pkg/pack"
 	"github.com/zsrv/goscape/pkg/pack/audio"
@@ -125,9 +127,41 @@ func (s stageStatus) String() string {
 }
 
 type stageResult struct {
-	Name   string
-	Status stageStatus
-	Err    error
+	Name        string
+	Status      stageStatus
+	Elapsed     time.Duration
+	OutputFiles int
+	OutputBytes int64
+	Err         error
+}
+
+// walkOutDir returns (fileCount, totalBytes) for regular files under
+// dir. Missing dir → (0, 0, nil). Other errors propagate so the driver
+// can log them but still record the stage.
+func walkOutDir(dir string) (int, int64, error) {
+	var files int
+	var bytes int64
+	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return err
+		}
+		if d.Type().IsRegular() {
+			info, statErr := d.Info()
+			if statErr != nil {
+				return statErr
+			}
+			files++
+			bytes += info.Size()
+		}
+		return nil
+	})
+	if err != nil && !os.IsNotExist(err) {
+		return files, bytes, err
+	}
+	return files, bytes, nil
 }
 
 // runStages drives the 10 PackAll stages best-effort. PackConfigs is
@@ -139,10 +173,13 @@ func runStages(srcDir, outDir, dataPackDir string, logger *slog.Logger) []stageR
 	results := make([]stageResult, 0, 11)
 
 	logger.Info("stage_start", "stage", "PackConfigs")
-	reg, err := pack.PackConfigsForRegistry(srcDir, outDir)
-	if err != nil {
-		logger.Error("stage_err", "stage", "PackConfigs", "err", err)
-		results = append(results, stageResult{Name: "PackConfigs", Status: stageErr, Err: err})
+	pcStart := time.Now()
+	reg, pcErr := pack.PackConfigsForRegistry(srcDir, outDir)
+	pcElapsed := time.Since(pcStart)
+	pcFiles, pcBytes, _ := walkOutDir(outDir)
+	if pcErr != nil {
+		logger.Error("stage_err", "stage", "PackConfigs", "elapsed_ms", pcElapsed.Milliseconds(), "files", pcFiles, "bytes", pcBytes, "err", pcErr)
+		results = append(results, stageResult{Name: "PackConfigs", Status: stageErr, Elapsed: pcElapsed, OutputFiles: pcFiles, OutputBytes: pcBytes, Err: pcErr})
 		for _, name := range []string{
 			"ClientInterface", "RunServerCompiler", "Title", "Media", "Texture",
 			"Wordenc", "Sound", "Graphics", "Midi", "Maps",
@@ -151,8 +188,8 @@ func runStages(srcDir, outDir, dataPackDir string, logger *slog.Logger) []stageR
 		}
 		return results
 	}
-	logger.Info("stage_done", "stage", "PackConfigs")
-	results = append(results, stageResult{Name: "PackConfigs", Status: stageOK})
+	logger.Info("stage_done", "stage", "PackConfigs", "elapsed_ms", pcElapsed.Milliseconds(), "files", pcFiles, "bytes", pcBytes)
+	results = append(results, stageResult{Name: "PackConfigs", Status: stageOK, Elapsed: pcElapsed, OutputFiles: pcFiles, OutputBytes: pcBytes})
 
 	type stage struct {
 		name string
@@ -172,13 +209,17 @@ func runStages(srcDir, outDir, dataPackDir string, logger *slog.Logger) []stageR
 	}
 	for _, st := range rest {
 		logger.Info("stage_start", "stage", st.name)
-		if err := st.run(); err != nil {
-			logger.Error("stage_err", "stage", st.name, "err", err)
-			results = append(results, stageResult{Name: st.name, Status: stageErr, Err: err})
+		start := time.Now()
+		err := st.run()
+		elapsed := time.Since(start)
+		files, bytesSum, _ := walkOutDir(outDir)
+		if err != nil {
+			logger.Error("stage_err", "stage", st.name, "elapsed_ms", elapsed.Milliseconds(), "files", files, "bytes", bytesSum, "err", err)
+			results = append(results, stageResult{Name: st.name, Status: stageErr, Elapsed: elapsed, OutputFiles: files, OutputBytes: bytesSum, Err: err})
 			continue
 		}
-		logger.Info("stage_done", "stage", st.name)
-		results = append(results, stageResult{Name: st.name, Status: stageOK})
+		logger.Info("stage_done", "stage", st.name, "elapsed_ms", elapsed.Milliseconds(), "files", files, "bytes", bytesSum)
+		results = append(results, stageResult{Name: st.name, Status: stageOK, Elapsed: elapsed, OutputFiles: files, OutputBytes: bytesSum})
 	}
 	return results
 }

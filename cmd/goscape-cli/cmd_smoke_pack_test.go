@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // seedSmokeFixture mirrors seedMinimalPackFixture (cmd_pack_test.go) and
@@ -108,6 +109,34 @@ func TestRunSmokePack_MissingContentDirReturns3(t *testing.T) {
 	if !strings.Contains(stderr.String(), "content-dir") {
 		t.Errorf("stderr %q missing content-dir mention", stderr.String())
 	}
+}
+
+// TestRunSmokePack_TelemetryPopulated pins that telemetry fields appear
+// in per-stage log lines (elapsed_ms, files, bytes).
+func TestRunSmokePack_TelemetryPopulated(t *testing.T) {
+	dir := t.TempDir()
+	seedSmokeFixture(t, dir)
+	outDir := filepath.Join(dir, "out")
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		t.Fatalf("mkdir out: %v", err)
+	}
+
+	var stderr bytes.Buffer
+	code := runSmokePack([]string{
+		"--content-dir", dir,
+		"--out-dir", outDir,
+		"--log.format", "json",
+	}, io.Discard, &stderr)
+	if code != 0 && code != 1 {
+		t.Fatalf("runSmokePack returned %d, want 0 or 1", code)
+	}
+	for _, field := range []string{`"elapsed_ms"`, `"files"`, `"bytes"`} {
+		if !strings.Contains(stderr.String(), field) {
+			t.Errorf("stderr missing telemetry field %s; got:\n%s", field, stderr.String())
+		}
+	}
+	// Suppress unused-import warning during fail-first run.
+	_ = time.Now()
 }
 
 // TestRunSmokePack_NonExistentContentDirReturns3 pins setup error → exit 3.
