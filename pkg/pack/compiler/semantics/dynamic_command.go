@@ -149,7 +149,13 @@ func (ctx *TypeCheckingContext) Arguments2() []ast.Expression {
 // expected (a tuple). Returns true iff they match. When reportError is true and
 // there is a mismatch, emits a diagnostic via checkTypeMatch. args2 controls
 // whether to use the secondary argument list (Arguments2). Mirrors TS
-// TypeCheckingContext.checkArgumentTypes() (TypeCheckingContext.ts L156).
+// TypeCheckingContext.checkArgumentTypes() (TypeCheckingContext.ts L156-169).
+//
+// TS visits any arg whose type is still null and falls back to MetaError when
+// the type remains null after visiting. Mirror both — handlers like
+// QueueVarArgCommandHandler intentionally defer arg-visiting to this fn for the
+// secondary (vararg) argument list; without the visit-fallback the actual-tuple
+// contains nils and checkTypeMatch panics on `actual.Representation()`.
 func (ctx *TypeCheckingContext) CheckArgumentTypes(expected typ.Type, reportError bool, args2 bool) bool {
 	var args []ast.Expression
 	if call, ok := ctx.expression.(ast.CallExpressionNode); ok {
@@ -157,7 +163,14 @@ func (ctx *TypeCheckingContext) CheckArgumentTypes(expected typ.Type, reportErro
 	}
 	actualList := make([]typ.Type, 0, len(args))
 	for _, a := range args {
-		actualList = append(actualList, getType(a))
+		if getType(a) == nil && ctx.typeChecker != nil {
+			ctx.typeChecker.visitNodeOrNull(a)
+		}
+		t := getType(a)
+		if t == nil {
+			t = typ.MetaError
+		}
+		actualList = append(actualList, t)
 	}
 	actual := typ.TupleFromList(actualList)
 	return ctx.typeChecker.checkTypeMatch(ctx.expression, expected, actual, reportError)

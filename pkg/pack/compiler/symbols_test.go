@@ -445,9 +445,14 @@ func TestPopulateInterfaceOverlay_OverlayOnlyOnTrue(t *testing.T) {
 	}
 }
 
-// TestPopulateInterfaceOverlay_SkipsNilConfig pins TS Compiler.ts:221-223
-// — Configs[id] == nil triggers `continue`.
-func TestPopulateInterfaceOverlay_SkipsNilConfig(t *testing.T) {
+// TestPopulateInterfaceOverlay_NilConfig_FallsBack pins
+// NAI-212-D-INTERFACE-FALLBACK-FROM-COMPONENTINFO: when the component
+// cache is empty (packClientInterface deferred), populateInterfaceOverlay
+// still populates interfaceInfo from componentInfo.Map alone using the
+// base name. Diverges from TS Compiler.ts:221-223 (`if (!com) continue`)
+// because TS never reaches the empty-cache state — its packAll runs
+// packClientInterface first. Retires when packClientInterface lands.
+func TestPopulateInterfaceOverlay_NilConfig_FallsBack(t *testing.T) {
 	componentInfo := newTypeInfo()
 	componentInfo.Add(4, "x", true)
 
@@ -460,11 +465,11 @@ func TestPopulateInterfaceOverlay_SkipsNilConfig(t *testing.T) {
 	overlayInfo := newTypeInfo()
 	populateInterfaceOverlay(componentInfo, interfaceInfo, overlayInfo, components)
 
-	if _, ok := interfaceInfo.Map[4]; ok {
-		t.Errorf("interface.Map[4]: present; want absent (nil Configs[4] should skip)")
+	if got, want := interfaceInfo.Map[4], "x"; got != want {
+		t.Errorf("interface.Map[4] = %q, want %q (fallback to componentInfo.Map base name)", got, want)
 	}
 	if _, ok := overlayInfo.Map[4]; ok {
-		t.Errorf("overlay.Map[4]: present; want absent")
+		t.Errorf("overlay.Map[4]: present; want absent (no Overlay flag without cache)")
 	}
 }
 

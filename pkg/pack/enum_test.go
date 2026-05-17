@@ -130,14 +130,17 @@ func TestPackEnumConfigs_StringOutputType_StringDefaultAndVal(t *testing.T) {
 	}
 }
 
-func TestPackEnumConfigs_AutoIntInputType_RequiresCommaInVal(t *testing.T) {
+func TestPackEnumConfigs_AutoIntInputType_BareVal(t *testing.T) {
+	// Mirrors TS substring(indexOf(',') + 1): when val has no comma the
+	// whole string is the value (JS indexOf returns -1, +1 = 0). Real
+	// content uses bare `val=N` form, e.g. levelup_unlocks_attack.
 	pf := newTestPF("enum", map[int]string{0: "e"})
 	lk := newEnumLk(t)
 	cfgs := map[string][]ConfigLine{
 		"e": {
 			{Key: "inputtype", Value: objtype.ScriptVarTypeAutoInt},
 			{Key: "outputtype", Value: objtype.ScriptVarTypeInt},
-			{Key: "val", Value: "ignored,555"},
+			{Key: "val", Value: "555"},
 		},
 	}
 	pd, err := packEnumConfigs(cfgs, pf, lk)
@@ -156,6 +159,74 @@ func TestPackEnumConfigs_AutoIntInputType_RequiresCommaInVal(t *testing.T) {
 		0xfa, 'e', 0x0a,
 		0x00,
 	}
+	if !bytes.Equal(pd.Dat.Data, want) {
+		t.Fatalf("got % x\nwant % x", pd.Dat.Data, want)
+	}
+}
+
+func TestPackEnumConfigs_AutoIntInputType_CommaVal_IgnoresKeyHalf(t *testing.T) {
+	// When val does contain a comma, only the post-comma half is the value;
+	// the pre-comma half is silently ignored (AUTOINT input writes p4(i)).
+	pf := newTestPF("enum", map[int]string{0: "e"})
+	lk := newEnumLk(t)
+	cfgs := map[string][]ConfigLine{
+		"e": {
+			{Key: "inputtype", Value: objtype.ScriptVarTypeAutoInt},
+			{Key: "outputtype", Value: objtype.ScriptVarTypeInt},
+			{Key: "val", Value: "ignored,555"},
+		},
+	}
+	pd, err := packEnumConfigs(cfgs, pf, lk)
+	if err != nil {
+		t.Fatalf("packEnumConfigs: %v", err)
+	}
+	want := []byte{
+		0x00, 0x01,
+		0x01, 105,
+		0x02, 105,
+		0x06,
+		0x00, 0x01,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x02, 0x2b,
+		0xfa, 'e', 0x0a,
+		0x00,
+	}
+	if !bytes.Equal(pd.Dat.Data, want) {
+		t.Fatalf("got % x\nwant % x", pd.Dat.Data, want)
+	}
+}
+
+func TestPackEnumConfigs_DefaultLookupFails_CoercesToZero(t *testing.T) {
+	// TS-D-ENUM-DEFAULT-NULL-TOLERANT: real-world stat.enum has
+	// `[stat_members] outputtype=int default=stat` (likely a copy-paste
+	// from the adjacent [stat_names] block). TS lookupParamValue returns
+	// null, then `server.p4(null)` coerces to 0 via setInt32. Mirror.
+	pf := newTestPF("enum", map[int]string{0: "e"})
+	lk := newEnumLk(t)
+	cfgs := map[string][]ConfigLine{
+		"e": {
+			{Key: "inputtype", Value: objtype.ScriptVarTypeStat},
+			{Key: "outputtype", Value: objtype.ScriptVarTypeInt},
+			{Key: "default", Value: "stat"}, // unresolvable for INT
+		},
+	}
+	pd, err := packEnumConfigs(cfgs, pf, lk)
+	if err != nil {
+		t.Fatalf("packEnumConfigs: %v", err)
+	}
+	want := []byte{
+		0x00, 0x01,
+		0x01, 105, // inputtype=STAT(115)? — actually verify next
+		0x02, 105, // outputtype=INT(105)
+		0x04, 0x00, 0x00, 0x00, 0x00, // op4 default=p4(0) silent coerce
+		0x06,
+		0x00, 0x00, // count=0 vals
+		0xfa, 'e', 0x0a,
+		0x00,
+	}
+	// Cheap sanity: re-derive the inputtype byte from the actual enum constants
+	// instead of hardcoding — STAT's typechar is what matters, not its hex.
+	want[3] = uint8(objtype.ScriptVarTypeStat)
 	if !bytes.Equal(pd.Dat.Data, want) {
 		t.Fatalf("got % x\nwant % x", pd.Dat.Data, want)
 	}

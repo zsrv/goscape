@@ -64,4 +64,5 @@ func (d *dbColumnType) BaseType() (BaseVarType, bool) { return BaseVarInteger, t
 func (d *dbColumnType) DefaultValue() any { return -1 }
 
 func (d *dbColumnType) Options() TypeOptions { return d.options }
-func (d *dbColumnType) AsTypeRef()           {}
+func (d *dbColumnType) Inner() Type           { return d.inner }
+func (d *dbColumnType) AsTypeRef()            {}

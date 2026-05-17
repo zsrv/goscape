@@ -590,34 +590,33 @@ func buildSymbolsCore(srcDir string, loaders *configLoaders) (map[string]*TypeIn
 // `name` is com.ComName if non-empty, else componentInfo.Map[id]
 // (TS `com.comName || componentInfo.map[id]`).
 //
-// Per TS Compiler.ts:215, the loop bound is `id <= componentInfo.Max`
-// and the inner guards are the standard `Map[id]` presence check + a
-// `Configs[id] != nil` check.
+// NAI-212-D-INTERFACE-FALLBACK-FROM-COMPONENTINFO: with packClientInterface
+// deferred (see pack_all.go NAI-212-D-CLIENT-PACKERS-DEFERRED), the cache
+// is empty when compile runs and Component.get-equivalent has no data.
+// TS would also skip in that state, but TS never reaches it because its
+// packAll runs packClientInterface first. Goscape falls back to populating
+// interfaceInfo from componentInfo.Map alone (base names, no ComName
+// override, no overlay flag) so `interface`-typed identifier lookups
+// resolve to the right BasicSymbol. Retires when packClientInterface lands.
 func populateInterfaceOverlay(
 	componentInfo, interfaceInfo, overlayInfo *TypeInfo,
 	components *objtype.ComponentTypeConfigs,
 ) {
-	if components == nil {
-		return
-	}
 	for id := 0; id <= componentInfo.Max; id++ {
 		baseName, present := componentInfo.Map[id]
 		if !present {
 			continue
 		}
-		if id < 0 || id >= len(components.Configs) {
-			continue
+		var com *objtype.ComponentType
+		if components != nil && id >= 0 && id < len(components.Configs) {
+			com = components.Configs[id]
 		}
-		com := components.Configs[id]
-		if com == nil {
-			continue
-		}
-		name := com.ComName
-		if name == "" {
-			name = baseName
+		name := baseName
+		if com != nil && com.ComName != "" {
+			name = com.ComName
 		}
 		interfaceInfo.Add(id, name, true)
-		if com.Overlay {
+		if com != nil && com.Overlay {
 			overlayInfo.Add(id, name, true)
 		}
 	}

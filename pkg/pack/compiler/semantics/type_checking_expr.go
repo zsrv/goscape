@@ -515,6 +515,14 @@ func callArgs(c ast.CallExpressionNode) []ast.Expression {
 // walks each argument expression against the script's parameter types; reports
 // call-shape-specific NoArgsExpected diagnostics when expected==Unit but actual
 // arguments were supplied; otherwise asserts type-match.
+//
+// TS builds expectedTypes as `parameters instanceof TupleType ? children : [parameters]`
+// — a non-tuple `parameters` (including MetaUnit) becomes a SINGLE-ELEMENT list,
+// not empty. This shape matters for `~no_arg_proc(null)`: the null arg gets
+// typeHint=MetaUnit, visitNullLiteral sets its type to MetaUnit, the actual
+// tuple collapses to MetaUnit, and the check passes. Mirror that exactly —
+// TupleToList(MetaUnit) returns nil, which would mis-hint the arg as int.
+// Real content (gnomeball_pass.rs2) relies on this TS-quirk.
 func (tc *TypeChecker) typeCheckArguments(script *symbol.ServerScriptSymbol, call ast.CallExpressionNode, name string) {
 	var parameterTypes typ.Type
 	if script == nil {
@@ -522,7 +530,12 @@ func (tc *TypeChecker) typeCheckArguments(script *symbol.ServerScriptSymbol, cal
 	} else {
 		parameterTypes = script.Parameters
 	}
-	expectedTypes := typ.TupleToList(parameterTypes)
+	var expectedTypes []typ.Type
+	if tup, ok := parameterTypes.(*typ.TupleType); ok {
+		expectedTypes = tup.Children
+	} else {
+		expectedTypes = []typ.Type{parameterTypes}
+	}
 	args := callArgs(call)
 	actualTypes := tc.typeHintExpressionList(expectedTypes, args)
 	expectedType := typ.TupleFromList(expectedTypes)

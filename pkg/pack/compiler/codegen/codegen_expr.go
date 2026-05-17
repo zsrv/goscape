@@ -220,12 +220,20 @@ func (g *CodeGenerator) visitJoinedString(je *ast.JoinedStringExpression) {
 }
 
 // visitJoinedStringPart lowers one part of a JoinedStringExpression.
-// BasicStringPart → PushConstantString; ExpressionStringPart → VisitNodeOrNull
-// on the inner expression. Mirrors TS visitStringPart (CodeGenerator.ts L785-L793).
+// BasicStringPart and PTagStringPart → PushConstantString;
+// ExpressionStringPart → VisitNodeOrNull on the inner expression.
+// Mirrors TS visitStringPart (CodeGenerator.ts L785-L793).
+//
+// PTagStringPart `extends BasicStringPart` in TS — `_ instanceof BasicStringPart`
+// is true for PTag instances via JS prototype-chain semantics, so TS routes
+// them through the same emit path. Goscape's struct types are distinct, so
+// emit the PTag branch explicitly.
 func (g *CodeGenerator) visitJoinedStringPart(part ast.StringPart) {
 	g.LineInstruction(part)
 	switch p := part.(type) {
 	case *ast.BasicStringPart:
+		g.Instruction(PushConstantString, p.Value, p.Source())
+	case *ast.PTagStringPart:
 		g.Instruction(PushConstantString, p.Value, p.Source())
 	case *ast.ExpressionStringPart:
 		g.VisitNodeOrNull(p.Expression)

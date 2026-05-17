@@ -60,16 +60,23 @@ func RegisterAllDynCommands(
 		register(name, NewTimerCommandHandler(softTimerType))
 	}
 
-	// loc/npc/obj _param variants. Mirrors TS L104-L113.
-	// NAI-207-D-PARAM-NO-CONSTRAINT: TS passes ScriptVarType.loc/npc/obj/struct
-	// as the paramReturnType constraint; goscape has no equivalent ScriptVarType
-	// constants at HEAD. nil is passed instead (unconstrained), deferring type
-	// narrowing to a later NAI.
-	register("lc_param", NewParamCommandHandler(nil))
+	// loc/npc/obj _param variants. Mirrors TS L104-L113 — the lc/nc/oc shapes
+	// take a leading entity argument typed via the constructor; the .._param
+	// shapes (loc_param/npc_param/obj_param) use the active pointer and take
+	// only the param-ref argument.
+	//
+	// Retires NAI-207-D-PARAM-NO-CONSTRAINT: ScriptVarLoc/Npc/Obj/Struct
+	// constants exist now, so the nil-constraint workaround is no longer
+	// needed. Required for real content packs — bare `oc_param($obj, $param)`
+	// calls fail type-check without the OBJ constraint because the handler's
+	// expected-tuple collapses from [obj, param<T>] to just [param<T>],
+	// reporting an `'obj,param<T>' was given but 'param' was expected'`
+	// length-mismatch instead of accepting the call.
+	register("lc_param", NewParamCommandHandler(typ.ScriptVarLoc))
 	register("loc_param", NewParamCommandHandler(nil))
-	register("nc_param", NewParamCommandHandler(nil))
+	register("nc_param", NewParamCommandHandler(typ.ScriptVarNpc))
 	register("npc_param", NewParamCommandHandler(nil))
-	register("oc_param", NewParamCommandHandler(nil))
+	register("oc_param", NewParamCommandHandler(typ.ScriptVarObj))
 	register("obj_param", NewParamCommandHandler(nil))
 
 	// enum. Mirrors TS L123-L125.
@@ -78,11 +85,9 @@ func RegisterAllDynCommands(
 		register("enum", &EnumCommandHandler{})
 	}
 
-	// struct_param. Mirrors TS L126-L128.
-	// Gated on features.DisableStructs per TS L126-128. NAI-207-D-PARAM-NO-CONSTRAINT:
-	// nil constraint (no ScriptVarType narrowing yet).
+	// struct_param. Mirrors TS L126-L128 — gated on features.DisableStructs.
 	if !features.DisableStructs {
-		register("struct_param", NewParamCommandHandler(nil))
+		register("struct_param", NewParamCommandHandler(typ.ScriptVarStruct))
 	}
 
 	// db_find / db_find_refine / db_find_with_count / db_find_refine_with_count /

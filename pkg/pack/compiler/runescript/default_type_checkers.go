@@ -22,8 +22,16 @@ func registerDefaultTypeCheckers(tm *typ.TypeManager) {
 		return left == typ.MetaAny
 	})
 
-	// 2) Allow nothing → any (BOTTOM). TS L130-131 has this commented out.
-	//   tm.AddTypeChecker(func(_, right typ.Type) bool { return right == typ.MetaNothing })
+	// 2) MetaNothing → anything (BOTTOM). The RuneScriptTS source has this
+	// commented out at ScriptCompiler.ts:134, but the published
+	// @lostcityrs/runescript@0.9.4 artifact (what Engine-TS bundles) ships
+	// with it enabled. Real content relies on it: jump-call expressions
+	// (e.g. `@head_wizard_nothing`) have call.type=MetaNothing, but get
+	// passed where `label` is expected (e.g. `@multi2("...", @head_wizard_nothing, ...)`).
+	// Without this axiom every dialogue-multi caller fails type-check.
+	tm.AddTypeChecker(func(_, right typ.Type) bool {
+		return right == typ.MetaNothing
+	})
 
 	// 3) Anything ↔ MetaError (propagation).
 	tm.AddTypeChecker(func(left, right typ.Type) bool {

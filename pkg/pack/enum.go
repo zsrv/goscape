@@ -97,11 +97,18 @@ func packEnumConfigs(configs map[string][]ConfigLine, pf *PackFile, lk *paramLoo
 						pd.PJStr(v.(string))
 					} else {
 						pd.P1(4)
+						// TS-D-ENUM-DEFAULT-NULL-TOLERANT: EnumConfig.ts:91-99
+						// has no null-check on the default lookup (asymmetric
+						// with packParamConfigs and with this fn's val-lookup
+						// branches). `p4(null)` coerces to 0 via setInt32.
+						// Real content relies on it: stat_members `default=stat`
+						// with outputtype=int. Mirror TS silent-coerce.
 						v, err := lookupParamValue(outputtype, rawDefault, lk)
 						if err != nil {
-							return nil, fmt.Errorf("%s: default: %w", name, err)
+							pd.P4(0)
+						} else {
+							pd.P4(uint32(v.(int)))
 						}
-						pd.P4(uint32(v.(int)))
 					}
 				case "val":
 					vals = append(vals, line.Value.(string))
@@ -119,11 +126,10 @@ func packEnumConfigs(configs map[string][]ConfigLine, pf *PackFile, lk *paramLoo
 				if inputtype == objtype.ScriptVarTypeAutoInt {
 					pd.P4(uint32(i))
 				} else {
-					comma := strings.Index(raw, ",")
-					if comma < 0 {
+					keyPart, _, ok := strings.Cut(raw, ",")
+					if !ok {
 						return nil, fmt.Errorf("%s: val missing comma: %s", name, raw)
 					}
-					keyPart := raw[:comma]
 					v, err := lookupParamValue(inputtype, keyPart, lk)
 					if err != nil {
 						return nil, fmt.Errorf("%s: val key %q: %w", name, raw, err)
@@ -138,11 +144,13 @@ func packEnumConfigs(configs map[string][]ConfigLine, pf *PackFile, lk *paramLoo
 					}
 					pd.P4(uint32(v.(int)))
 				} else {
-					comma := strings.Index(raw, ",")
-					if comma < 0 {
-						return nil, fmt.Errorf("%s: val missing comma: %s", name, raw)
+					// TS substring(indexOf(',') + 1): no comma → whole string
+					// (JS indexOf returns -1, +1 = 0). Real content uses bare
+					// `val=N` with AUTOINT inputtype, e.g. levelup_unlocks_attack.
+					valuePart := raw
+					if _, after, ok := strings.Cut(raw, ","); ok {
+						valuePart = after
 					}
-					valuePart := raw[comma+1:]
 					v, err := lookupParamValue(outputtype, valuePart, lk)
 					if err != nil {
 						return nil, fmt.Errorf("%s: val value %q: %w", name, raw, err)
