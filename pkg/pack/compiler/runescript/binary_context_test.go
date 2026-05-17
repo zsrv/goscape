@@ -66,6 +66,23 @@ func TestBinaryContext_InstructionString(t *testing.T) {
 	}
 }
 
+// TestBinaryContext_InstructionString_BmpCharCodeTruncation pins the TS
+// charCodeAt(i) & 0xff semantics for non-ASCII BMP characters. U+2019
+// (right single quotation mark, e.g. in "you're") is the canonical case
+// in Content: JS yields one UTF-16 code unit 0x2019, truncated to 0x19.
+// Go must iterate by rune (not byte) and take the low byte; iterating
+// over the UTF-8 byte slice would write 0xE2 0x80 0x99.
+func TestBinaryContext_InstructionString_BmpCharCodeTruncation(t *testing.T) {
+	s := newEmptyScript(t)
+	ctx := runescript.NewBinaryScriptWriterContext(s, 0)
+	ctx.InstructionString(writer.OpPushConstantString, "a’b")
+
+	want := []byte{0x00, 0x03, 'a', 0x19, 'b', 0x00}
+	if got := ctx.InstructionBytesForTest(); !bytes.Equal(got, want) {
+		t.Errorf("instruction bytes = %x, want %x", got, want)
+	}
+}
+
 // TestBinaryContext_InstructionRaw pins opcode + 1-byte operand for raw form.
 func TestBinaryContext_InstructionRaw(t *testing.T) {
 	s := newEmptyScript(t)

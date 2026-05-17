@@ -92,14 +92,17 @@ func (c *BinaryScriptWriterContext) InstructionRaw(opcode, operand int) {
 
 // InstructionString emits a 2-BE-byte opcode followed by the operand string,
 // each byte being `charCodeAt(i) & 0xff` (TS), terminated by 0x00.
-// Mirrors TS L91-101.
+// Mirrors TS L91-101. Iterates by rune so BMP characters above U+00FF
+// (notably U+2019 in Content) truncate to one byte the way JS strings do
+// (UTF-16 code unit & 0xff); ranging over the UTF-8 byte slice would
+// instead emit each UTF-8 continuation byte.
 func (c *BinaryScriptWriterContext) InstructionString(op *writer.ServerScriptOpcode, operand string) {
 	c.instructionCount++
 	c.ensureInstruction(2 + len(operand) + 1)
 	binary.BigEndian.PutUint16(c.instructionBuffer[c.instructionOffset:], op.ID)
 	c.instructionOffset += 2
-	for i := 0; i < len(operand); i++ {
-		c.instructionBuffer[c.instructionOffset] = operand[i] & 0xff
+	for _, r := range operand {
+		c.instructionBuffer[c.instructionOffset] = byte(r & 0xff)
 		c.instructionOffset++
 	}
 	c.instructionBuffer[c.instructionOffset] = 0
@@ -197,10 +200,11 @@ func paramCodes(script *codegen.RuneScript) []int {
 }
 
 // appendNULString appends each byte of s (low 8 bits, per TS L207-213) plus
-// a trailing 0x00.
+// a trailing 0x00. Iterates by rune to match TS charCodeAt(i) & 0xff for
+// BMP characters above U+00FF; see InstructionString for rationale.
 func appendNULString(buf []byte, s string) []byte {
-	for i := 0; i < len(s); i++ {
-		buf = append(buf, s[i]&0xff)
+	for _, r := range s {
+		buf = append(buf, byte(r&0xff))
 	}
 	return append(buf, 0)
 }
