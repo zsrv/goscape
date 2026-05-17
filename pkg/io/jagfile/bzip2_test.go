@@ -20,6 +20,11 @@ func TestBZip2Compress(t *testing.T) {
 		wantErr bool
 	}{
 		{
+			// `want` is byte-for-byte `bzip2 -1 -c` from system libbzip2 1.0.8,
+			// asserting our vendored pkg/io/bzip2 with K-means + libbzip2-Huffman
+			// matches the canonical encoder. (The previous pin reflected the
+			// upstream dsnet/compress round-robin-tree output, which drifted ~10%
+			// larger than libbzip2 for any non-trivial input.)
 			name: "valid with header, no length prefix, compression level 1",
 			args: args{
 				decompressed:     []byte("Hello World!"),
@@ -28,7 +33,7 @@ func TestBZip2Compress(t *testing.T) {
 				blockSize:        1,
 				compressedLength: 0,
 			},
-			want:    []byte{66, 90, 104, 49, 49, 65, 89, 38, 83, 89, 107, 26, 124, 174, 0, 0, 1, 23, 128, 96, 0, 0, 64, 0, 128, 6, 4, 144, 0, 32, 0, 34, 42, 55, 250, 169, 250, 167, 237, 8, 6, 11, 2, 197, 57, 112, 187, 146, 41, 194, 132, 131, 88, 211, 229, 112},
+			want:    []byte{66, 90, 104, 49, 49, 65, 89, 38, 83, 89, 107, 26, 124, 174, 0, 0, 1, 23, 128, 96, 0, 0, 64, 0, 128, 6, 4, 144, 0, 32, 0, 34, 6, 154, 61, 66, 12, 152, 142, 105, 115, 5, 1, 226, 238, 72, 167, 10, 18, 13, 99, 79, 149, 192},
 			wantErr: false,
 		},
 		{
@@ -40,7 +45,7 @@ func TestBZip2Compress(t *testing.T) {
 				blockSize:        1,
 				compressedLength: 0,
 			},
-			want:    []byte{49, 65, 89, 38, 83, 89, 107, 26, 124, 174, 0, 0, 1, 23, 128, 96, 0, 0, 64, 0, 128, 6, 4, 144, 0, 32, 0, 34, 42, 55, 250, 169, 250, 167, 237, 8, 6, 11, 2, 197, 57, 112, 187, 146, 41, 194, 132, 131, 88, 211, 229, 112},
+			want:    []byte{49, 65, 89, 38, 83, 89, 107, 26, 124, 174, 0, 0, 1, 23, 128, 96, 0, 0, 64, 0, 128, 6, 4, 144, 0, 32, 0, 34, 6, 154, 61, 66, 12, 152, 142, 105, 115, 5, 1, 226, 238, 72, 167, 10, 18, 13, 99, 79, 149, 192},
 			wantErr: false,
 		},
 	}

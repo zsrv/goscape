@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/dsnet/compress/bzip2"
+	"github.com/zsrv/goscape/pkg/io/bzip2"
 )
 
 func BZip2Compress(decompressed []byte, prefixLength bool, removeHeader bool, blockSize int, compressedLength int) ([]byte, error) {
