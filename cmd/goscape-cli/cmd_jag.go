@@ -29,7 +29,7 @@ func reorderFlagsFirst(args []string, valueFlags map[string]bool) []string {
 	var flags, positionals []string
 	for i := 0; i < len(args); i++ {
 		a := args[i]
-		if strings.HasPrefix(a, "-") && a != "-" {
+		if strings.HasPrefix(a, "-") && a != "-" && a != "--" {
 			flags = append(flags, a)
 			// If form is `--name value` (no `=`) and the flag name
 			// expects a value, consume next arg too.
@@ -112,8 +112,12 @@ func runJagList(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	for i := 0; i < jf.FileCount; i++ {
+		name := jf.FileName[i]
+		if name == "" {
+			name = fmt.Sprintf("0x%08x", jf.FileHash[i])
+		}
 		fmt.Fprintf(stdout, "%s\t%d\t%d\n",
-			jf.FileName[i], jf.FileUnpackedSize[i], jf.FilePackedSize[i])
+			name, jf.FileUnpackedSize[i], jf.FilePackedSize[i])
 	}
 	return 0
 }
@@ -210,6 +214,10 @@ func runJagDump(args []string, stdout, stderr io.Writer) int {
 	}
 	for i := 0; i < jf.FileCount; i++ {
 		name := jf.FileName[i]
+		if name == "" {
+			fmt.Fprintf(stderr, "jag dump: entry %d: hash 0x%08x not in known-names table, skipping\n", i, jf.FileHash[i])
+			continue
+		}
 		pkt, err := jf.Get(i)
 		if err != nil {
 			fmt.Fprintf(stderr, "jag dump: %s: %v\n", name, err)

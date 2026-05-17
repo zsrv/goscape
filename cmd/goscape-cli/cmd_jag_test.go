@@ -52,6 +52,60 @@ func makeTestJagPath(t *testing.T) string {
 	return path
 }
 
+// makeTestJagPathWithUnknownEntry writes a single-entry Jagfile whose
+// FileHash[0] is a value (0xDEADBEEF) not present in jagfile.knownNames.
+// NewJagfile's reverse-resolution leaves FileName[0] as "", letting
+// us exercise the runJagDump unknown-hash skip path.
+func makeTestJagPathWithUnknownEntry(t *testing.T) string {
+	t.Helper()
+	p := packet.NewPacket(make([]byte, 0, 19))
+	p.P3(1)          // UnpackedSize
+	p.P3(1)          // PackedSize
+	p.P2(1)          // FileCount
+	p.P4(0xDEADBEEF) // hash NOT in knownNames
+	p.P3(1)          // FileUnpackedSize[0]
+	p.P3(1)          // FilePackedSize[0]
+	p.P1(255)        // payload byte
+	p.Pos = 0
+
+	jf, err := jagfile.NewJagfile(p)
+	if err != nil {
+		t.Fatalf("NewJagfile: %v", err)
+	}
+	// Seed FileWrite (see makeTestJagPath for rationale).
+	jf.FileWrite = [][]uint8{{0xFF}}
+
+	path := filepath.Join(t.TempDir(), "test.jag")
+	if err := jf.Save(path, false); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	return path
+}
+
+// TestRunJag_DumpUnknownHash verifies that entries whose hash isn't
+// in jagfile.knownNames are skipped with a stderr warning, instead of
+// silently writing to the outDir path itself via filepath.Join("dump", "").
+func TestRunJag_DumpUnknownHash(t *testing.T) {
+	path := makeTestJagPathWithUnknownEntry(t)
+	outDir := filepath.Join(t.TempDir(), "dump")
+
+	var stdout, stderr bytes.Buffer
+	code := runJag([]string{"dump", path, "--out", outDir}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("runJag returned %d, want 0; stderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "not in known-names table") {
+		t.Errorf("stderr %q missing 'not in known-names table'", stderr.String())
+	}
+	entries, err := os.ReadDir(outDir)
+	if err != nil {
+		t.Fatalf("ReadDir: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("outDir has %d entries, want 0 (unknown-hash entry should be skipped)", len(entries))
+	}
+}
+
 // TestRunJag_List verifies `jag list` writes one TAB-separated line
 // per entry to stdout.
 func TestRunJag_List(t *testing.T) {
