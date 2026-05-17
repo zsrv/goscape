@@ -745,9 +745,10 @@ func TestLoadComponentTypes_MissingClientJagfileReturnsEmpty(t *testing.T) {
 // buildMinimalJagfile constructs a valid single-entry jagfile binary
 // and returns its bytes. nameHash is the genHash of the entry name; fileData
 // is the raw entry content, which is BZip2-compressed for per-file storage.
-// The outer unpackedSize == packedSize so NewJagfile takes the Unpacked=false
-// path; each file is BZip2-compressed individually (removeHeader=true so
-// BZip2Decompress(prependHeader=true) can reconstruct the stream).
+// The outer unpackedSize == packedSize so NewJagfile takes the
+// CompressWhole=false path; each file is BZip2-compressed individually
+// (removeHeader=true so BZip2Decompress(prependHeader=true) can
+// reconstruct the stream).
 func buildMinimalJagfile(t *testing.T, nameHash uint32, fileData []byte) []byte {
 	t.Helper()
 	compressed, err := jag.BZip2Compress(fileData, false, true, 1, 0)
@@ -756,7 +757,7 @@ func buildMinimalJagfile(t *testing.T, nameHash uint32, fileData []byte) []byte 
 	}
 
 	p := packet.NewPacket(nil)
-	p.P3(1)                          // unpackedSize (equal → Unpacked=false path)
+	p.P3(1)                          // unpackedSize (equal → CompressWhole=false path)
 	p.P3(1)                          // packedSize
 	p.P2(1)                          // fileCount = 1
 	p.P4(nameHash)                   // file hash

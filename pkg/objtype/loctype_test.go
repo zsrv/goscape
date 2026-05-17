@@ -101,7 +101,7 @@ func buildClientJag(t *testing.T, locDatBytes []byte) *jag.Jagfile {
 		t.Fatalf("BZip2Compress: %v", err)
 	}
 	p := packet2.NewPacket(nil)
-	p.P3(1)                        // unpackedSize (== packedSize → Unpacked=false outer path)
+	p.P3(1)                        // unpackedSize (== packedSize → CompressWhole=false outer path)
 	p.P3(1)                        // packedSize
 	p.P2(1)                        // fileCount = 1
 	p.P4(hashLocDat)               // file hash

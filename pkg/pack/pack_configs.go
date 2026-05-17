@@ -610,7 +610,7 @@ func PackConfigs(srcDir, outDir string) error {
 		}
 	}
 
-	return clientJag.Save(filepath.Join(clientOut, "config"), false)
+	return clientJag.Save(filepath.Join(clientOut, "config"))
 }
 
 // checkVarNameUniqueness rejects when any debugname appears in more

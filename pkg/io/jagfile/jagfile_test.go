@@ -2,6 +2,7 @@ package jagfile
 
 import (
 	"bytes"
+	"os"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -127,8 +128,8 @@ func TestJagfileCreation(t *testing.T) {
 		t.Fatalf("jf.FilePos[0] = %v, want %v", jf.FilePos[0], 18)
 	}
 
-	// force it unpacked bcos bzip cba
-	jf.Unpacked = true
+	// force whole-compressed form bcos bzip cba
+	jf.CompressWhole = true
 
 	if _, err := jf.Read("kekw"); err == nil {
 		t.Fatal("jf.Read('kekw') should fail")
@@ -246,7 +247,7 @@ func TestJagfile_LoadSaveRoundTripNoWrites(t *testing.T) {
 	}
 	jf.Write("foo.dat", packet.NewPacket([]byte{0x12, 0x34}))
 	path := filepath.Join(t.TempDir(), "rt.jag")
-	if err := jf.Save(path, false); err != nil {
+	if err := jf.Save(path); err != nil {
 		t.Fatalf("initial Save: %v", err)
 	}
 
@@ -256,7 +257,7 @@ func TestJagfile_LoadSaveRoundTripNoWrites(t *testing.T) {
 	}
 
 	path2 := filepath.Join(t.TempDir(), "rt2.jag")
-	if err := loaded.Save(path2, false); err != nil {
+	if err := loaded.Save(path2); err != nil {
 		t.Fatalf("re-Save: %v", err)
 	}
 
@@ -273,6 +274,86 @@ func TestJagfile_LoadSaveRoundTripNoWrites(t *testing.T) {
 	}
 }
 
+// TestJagfile_MultiEntryWholeCompressedRoundTrip pins that a multi-entry
+// whole-bzip2 jagfile survives a load → Save → load → Read round-trip
+// without losing or corrupting any entry. Mirrors the TS contract:
+// `compressWhole` (renamed CompressWhole here) is a persistent flag on
+// the Jagfile, set by the loader to track the on-disk form, and honored
+// by Save.
+//
+// Pre-fix bug: Save discarded jf.CompressWhole and used a local
+// `FileCount==1` heuristic. For a multi-entry whole-compressed source,
+// no Writes meant FileWrite[i]==nil for all i → save emitted raw
+// per-entry bytes with FilePackedSize==FileUnpackedSize, the outer
+// header reported unpackedSize==packedSize (not-whole-compressed), and
+// reload's Get path called BZip2Decompress on raw bytes — error.
+func TestJagfile_MultiEntryWholeCompressedRoundTrip(t *testing.T) {
+	// Inner blob: count(2) + 2*header(10 bytes) + raw per-entry payloads.
+	inner := packet.NewPacket(make([]byte, 0, 32))
+	inner.P2(2)                          // FileCount
+	inner.P4(genHash("hitmarks.dat"))    // hash[0]
+	inner.P3(2)                          // FileUnpackedSize[0]
+	inner.P3(2)                          // FilePackedSize[0] (raw == unpacked)
+	inner.P4(genHash("compass.dat"))     // hash[1]
+	inner.P3(3)                          // FileUnpackedSize[1]
+	inner.P3(3)                          // FilePackedSize[1] (raw == unpacked)
+	inner.PData([]byte{0xAA, 0xBB})      // hitmarks.dat payload
+	inner.PData([]byte{0xCC, 0xDD, 0xEE}) // compass.dat payload
+
+	compressed, err := BZip2Compress(inner.Data, false, true, 1, 0)
+	if err != nil {
+		t.Fatalf("BZip2Compress: %v", err)
+	}
+
+	// Outer: unpackedSize(3) + packedSize(3) + compressed body.
+	src := make([]byte, 0, 6+len(compressed))
+	hdr := packet.NewPacket(make([]byte, 0, 6))
+	hdr.P3(uint32(len(inner.Data)))
+	hdr.P3(uint32(len(compressed)))
+	src = append(src, hdr.Data...)
+	src = append(src, compressed...)
+
+	path1 := filepath.Join(t.TempDir(), "in.jag")
+	if err := os.WriteFile(path1, src, 0644); err != nil {
+		t.Fatalf("write src: %v", err)
+	}
+
+	loaded, err := LoadJagfile(path1)
+	if err != nil {
+		t.Fatalf("LoadJagfile: %v", err)
+	}
+	if !loaded.CompressWhole {
+		t.Fatalf("loaded.CompressWhole = false, want true (whole-bzip2 source)")
+	}
+	if loaded.FileCount != 2 {
+		t.Fatalf("loaded.FileCount = %d, want 2", loaded.FileCount)
+	}
+
+	path2 := filepath.Join(t.TempDir(), "rt.jag")
+	if err := loaded.Save(path2); err != nil {
+		t.Fatalf("re-Save: %v", err)
+	}
+
+	reloaded, err := LoadJagfile(path2)
+	if err != nil {
+		t.Fatalf("re-Load: %v", err)
+	}
+	gotA, err := reloaded.Read("hitmarks.dat")
+	if err != nil {
+		t.Fatalf("Read hitmarks.dat: %v", err)
+	}
+	if !bytes.Equal(gotA.Data, []byte{0xAA, 0xBB}) {
+		t.Fatalf("hitmarks.dat = % x, want AA BB", gotA.Data)
+	}
+	gotB, err := reloaded.Read("compass.dat")
+	if err != nil {
+		t.Fatalf("Read compass.dat: %v", err)
+	}
+	if !bytes.Equal(gotB.Data, []byte{0xCC, 0xDD, 0xEE}) {
+		t.Fatalf("compass.dat = % x, want CC DD EE", gotB.Data)
+	}
+}
+
 func TestJagfile_FreshEmptyWriteSaveRoundTrip(t *testing.T) {
 	jf, err := NewJagfile(nil)
 	if err != nil {
@@ -285,7 +366,7 @@ func TestJagfile_FreshEmptyWriteSaveRoundTrip(t *testing.T) {
 	jf.Write("b.dat", b)
 
 	path := filepath.Join(t.TempDir(), "config")
-	if err := jf.Save(path, false); err != nil {
+	if err := jf.Save(path); err != nil {
 		t.Fatal(err)
 	}
 

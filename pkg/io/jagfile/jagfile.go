@@ -43,7 +43,12 @@ type Jagfile struct {
 	FileUnpackedSize []uint32
 	FilePackedSize   []uint32
 	FilePos          []int
-	Unpacked         bool
+
+	// CompressWhole tracks whether the jagfile uses whole-blob bzip2
+	// (true) or per-file bzip2 (false). Set by NewJagfile from the outer
+	// header (whole-bzip2 ⇒ true) or by NewEmptyJagfile, and honored by
+	// Save as a persistent flag — mirroring TS Jagfile.compressWhole.
+	CompressWhole bool
 
 	FileQueue []JagQueueFile
 	FileWrite [][]uint8
@@ -59,7 +64,7 @@ func (jf *Jagfile) Get(index int) (*packet.Packet, error) {
 	}
 
 	src := jf.Data[jf.FilePos[index] : jf.FilePos[index]+int(jf.FilePackedSize[index])]
-	if jf.Unpacked {
+	if jf.CompressWhole {
 		return packet.NewPacket(src), nil
 	} else {
 		decompressed, err := BZip2Decompress(src, int(jf.FileUnpackedSize[index]), true, false)
@@ -119,7 +124,7 @@ func (jf *Jagfile) Rename(oldName string, newName string) {
 	})
 }
 
-func (jf *Jagfile) Save(path string, doNotCompressWhole bool) error {
+func (jf *Jagfile) Save(path string) error {
 	buf := packet.Alloc(5)
 
 	// goscape: use a C-style loop so that i-- inside the body correctly
@@ -188,14 +193,13 @@ func (jf *Jagfile) Save(path string, doNotCompressWhole bool) error {
 		i--
 	}
 
-	var compressWhole bool
-	if jf.FileCount == 1 {
-		compressWhole = true
-	}
-
-	if doNotCompressWhole && compressWhole {
-		compressWhole = false
-	}
+	// goscape: TS sets `compressWhole` at construction time (load or
+	// Jagfile.new(bool)) and Save honors it directly. Earlier goscape
+	// used a `FileCount==1` heuristic plus a `doNotCompressWhole` arg,
+	// which discarded the loaded form and corrupted round-trips of
+	// multi-entry whole-compressed jagfiles. Honoring jf.CompressWhole
+	// matches TS contract.
+	compressWhole := jf.CompressWhole
 
 	// Lazy-grow FileWrite to FileCount slots. NewJagfile populates the
 	// per-field arrays but not FileWrite (that's the Write-queue's
@@ -301,10 +305,18 @@ func (jf *Jagfile) Deconstruct(name string) (uint16, []int, []int, []uint32, err
 	return count, sizes, offsets, checksums, nil
 }
 
+// NewEmptyJagfile constructs a fresh Jagfile not backed by any source
+// data. compressWhole sets the persistent CompressWhole flag, mirroring
+// TS `Jagfile.new(compressWhole)`. Pass false for per-file bzip2 (the
+// usual config-pack target); true for a whole-blob bzip2 output.
+func NewEmptyJagfile(compressWhole bool) *Jagfile {
+	return &Jagfile{CompressWhole: compressWhole}
+}
+
 func NewJagfile(src *packet.Packet) (*Jagfile, error) {
 	if src == nil {
-		// TODO: split NewJagfile into two funcs: one with src arg, one with no args
-		// NewJagfile, NewJagfileFromPacket?
+		// Back-compat shim: keeps existing NewJagfile(nil) callers working.
+		// New code should call NewEmptyJagfile(compressWhole) directly.
 		return &Jagfile{}, nil
 	}
 
@@ -315,7 +327,7 @@ func NewJagfile(src *packet.Packet) (*Jagfile, error) {
 
 	if unpackedSize == packedSize {
 		jf.Data = src.Data
-		jf.Unpacked = false
+		jf.CompressWhole = false
 	} else {
 		var err error
 		jf.Data, err = BZip2Decompress(src.Data[src.Pos:], int(unpackedSize), true, false)
@@ -324,7 +336,7 @@ func NewJagfile(src *packet.Packet) (*Jagfile, error) {
 		}
 
 		src = packet.NewPacket(jf.Data)
-		jf.Unpacked = true
+		jf.CompressWhole = true
 	}
 
 	jf.FileCount = int(src.G2())

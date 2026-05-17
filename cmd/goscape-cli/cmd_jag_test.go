@@ -13,58 +13,30 @@ import (
 
 // makeTestJagPath writes a small single-entry Jagfile (one file
 // "hitmarks.dat" with payload []byte{0xFF}) to t.TempDir() and
-// returns the path. Byte layout mirrors
-// pkg/io/jagfile/jagfile_test.go:MakeTestJagfile, which lives in
-// _test.go and is invisible cross-package.
+// returns the path. Uses CompressWhole=true so the per-entry payload
+// stays raw on disk (after whole-blob bzip2), giving per-entry
+// FileUnpackedSize == FilePackedSize == 1 for the `list` byte-pin.
 func makeTestJagPath(t *testing.T) string {
 	t.Helper()
-	p := packet.NewPacket(make([]byte, 0, 19))
-	p.P3(1)                        // UnpackedSize
-	p.P3(1)                        // PackedSize
-	p.P2(1)                        // FileCount
-	p.P4(-1502153170 & 0xFFFFFFFF) // hash("hitmarks.dat")
-	p.P3(1)                        // FileUnpackedSize[0]
-	p.P3(1)                        // FilePackedSize[0]
-	p.P1(255)                      // payload byte
-	p.Pos = 0
-
-	jf, err := jagfile.NewJagfile(p)
-	if err != nil {
-		t.Fatalf("NewJagfile: %v", err)
-	}
-	// NewJagfile reverse-resolves FileName[i] from FileHash[i] via
-	// the package's knownNames table (which includes "hitmarks.dat"),
-	// so FileName is already populated here. FileWrite stays nil and
-	// Save falls back to the loaded jf.Data for the payload.
+	jf := jagfile.NewEmptyJagfile(true)
+	jf.Write("hitmarks.dat", packet.NewPacket([]byte{0xFF}))
 	path := filepath.Join(t.TempDir(), "test.jag")
-	if err := jf.Save(path, false); err != nil {
+	if err := jf.Save(path); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 	return path
 }
 
 // makeTestJagPathWithUnknownEntry writes a single-entry Jagfile whose
-// FileHash[0] is a value (0xDEADBEEF) not present in jagfile.knownNames.
-// NewJagfile's reverse-resolution leaves FileName[0] as "", letting
-// us exercise the runJagDump unknown-hash skip path.
+// entry name (and therefore hash) is NOT present in jagfile.knownNames.
+// NewJagfile's reverse-resolution leaves FileName[0] as "" on reload,
+// letting us exercise the runJagDump unknown-hash skip path.
 func makeTestJagPathWithUnknownEntry(t *testing.T) string {
 	t.Helper()
-	p := packet.NewPacket(make([]byte, 0, 19))
-	p.P3(1)          // UnpackedSize
-	p.P3(1)          // PackedSize
-	p.P2(1)          // FileCount
-	p.P4(0xDEADBEEF) // hash NOT in knownNames
-	p.P3(1)          // FileUnpackedSize[0]
-	p.P3(1)          // FilePackedSize[0]
-	p.P1(255)        // payload byte
-	p.Pos = 0
-
-	jf, err := jagfile.NewJagfile(p)
-	if err != nil {
-		t.Fatalf("NewJagfile: %v", err)
-	}
+	jf := jagfile.NewEmptyJagfile(true)
+	jf.Write("unknownentry.dat", packet.NewPacket([]byte{0xFF}))
 	path := filepath.Join(t.TempDir(), "test.jag")
-	if err := jf.Save(path, false); err != nil {
+	if err := jf.Save(path); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 	return path
