@@ -343,6 +343,205 @@ func TestRunSmokePack_StopOnError(t *testing.T) {
 	}
 }
 
+// TestRunSmokePack_RefDirMissingReturns3 pins setup error → exit 3 when
+// --reference-dir points at a non-existent path.
+func TestRunSmokePack_RefDirMissingReturns3(t *testing.T) {
+	dir := t.TempDir()
+	seedSmokeFixture(t, dir)
+	outDir := filepath.Join(dir, "out")
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		t.Fatalf("mkdir out: %v", err)
+	}
+	missing := filepath.Join(t.TempDir(), "does-not-exist")
+
+	var stderr bytes.Buffer
+	code := runSmokePack([]string{
+		"--content-dir", dir,
+		"--out-dir", outDir,
+		"--reference-dir", missing,
+	}, io.Discard, &stderr)
+	if code != 3 {
+		t.Fatalf("runSmokePack returned %d, want 3 (missing reference-dir)", code)
+	}
+	if !strings.Contains(stderr.String(), "reference-dir") {
+		t.Errorf("stderr %q missing 'reference-dir' mention", stderr.String())
+	}
+}
+
+// TestRunSmokePack_RefDirEmpty_DiffColumnAbsent pins Phase 1 parity:
+// without --reference-dir, stdout has no DIFF column.
+func TestRunSmokePack_RefDirEmpty_DiffColumnAbsent(t *testing.T) {
+	dir := t.TempDir()
+	seedSmokeFixture(t, dir)
+	outDir := filepath.Join(dir, "out")
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		t.Fatalf("mkdir out: %v", err)
+	}
+	var stdout bytes.Buffer
+	code := runSmokePack([]string{
+		"--content-dir", dir,
+		"--out-dir", outDir,
+	}, &stdout, io.Discard)
+	if code != 0 && code != 1 {
+		t.Fatalf("runSmokePack returned %d, want 0 or 1", code)
+	}
+	header := firstHeaderLine(stdout.String())
+	if strings.Contains(header, "DIFF") {
+		t.Errorf("Phase 1 header contains DIFF column: %q", header)
+	}
+}
+
+// TestRunSmokePack_RefDir_DiffColumnPresent pins that --reference-dir
+// adds a DIFF column to the summary header.
+func TestRunSmokePack_RefDir_DiffColumnPresent(t *testing.T) {
+	dir := t.TempDir()
+	seedSmokeFixture(t, dir)
+	outDir := filepath.Join(dir, "out")
+	refDir := filepath.Join(dir, "ref")
+	for _, d := range []string{outDir, refDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", d, err)
+		}
+	}
+	var stdout bytes.Buffer
+	code := runSmokePack([]string{
+		"--content-dir", dir,
+		"--out-dir", outDir,
+		"--reference-dir", refDir,
+	}, &stdout, io.Discard)
+	if code != 0 && code != 1 {
+		t.Fatalf("runSmokePack returned %d, want 0 or 1", code)
+	}
+	header := firstHeaderLine(stdout.String())
+	if !strings.Contains(header, "DIFF") {
+		t.Errorf("--reference-dir header missing DIFF column: %q\nfull stdout:\n%s", header, stdout.String())
+	}
+}
+
+// TestRunSmokePack_RefDir_IdenticalRunYieldsZeroDiffs pins that running
+// the smoke twice against the same fixture, with the first run's output
+// as the reference for the second, produces zero diffs for every stage.
+func TestRunSmokePack_RefDir_IdenticalRunYieldsZeroDiffs(t *testing.T) {
+	dir := t.TempDir()
+	seedSmokeFixture(t, dir)
+	refDir := filepath.Join(dir, "ref")
+	if err := os.MkdirAll(refDir, 0o755); err != nil {
+		t.Fatalf("mkdir ref: %v", err)
+	}
+	// Run #1: populate refDir.
+	if code := runSmokePack([]string{
+		"--content-dir", dir,
+		"--out-dir", refDir,
+	}, io.Discard, io.Discard); code != 0 && code != 1 {
+		t.Fatalf("seed run returned %d, want 0 or 1", code)
+	}
+	// Run #2: outDir compared against refDir.
+	outDir := filepath.Join(dir, "out")
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		t.Fatalf("mkdir out: %v", err)
+	}
+	var stdout bytes.Buffer
+	code := runSmokePack([]string{
+		"--content-dir", dir,
+		"--out-dir", outDir,
+		"--reference-dir", refDir,
+	}, &stdout, io.Discard)
+	if code != 0 && code != 1 {
+		t.Fatalf("compare run returned %d, want 0 or 1", code)
+	}
+	out := stdout.String()
+	// "Diff details:" must NOT appear when every diff count is 0.
+	if strings.Contains(out, "Diff details:") {
+		t.Errorf("identical runs should produce no Diff details block; got:\n%s", out)
+	}
+	// Every per-stage DIFF cell must be "0" (or "-" for SKIP/ERR rows).
+	// Robust check: assert there's no positive-integer DIFF anywhere by
+	// scanning for non-zero diff details patterns ("offset=" or "out=" or
+	// MISS lines).
+	for _, marker := range []string{"offset=", "out=", "MISS"} {
+		if strings.Contains(out, marker) {
+			t.Errorf("identical run contains diff marker %q; got:\n%s", marker, out)
+		}
+	}
+}
+
+// TestRunSmokePack_RefDir_PerturbedReferenceSurfacesDiff pins that
+// modifying a known-stable output file in the reference tree surfaces a
+// DIFF in the relevant stage.
+func TestRunSmokePack_RefDir_PerturbedReferenceSurfacesDiff(t *testing.T) {
+	dir := t.TempDir()
+	seedSmokeFixture(t, dir)
+	refDir := filepath.Join(dir, "ref")
+	if err := os.MkdirAll(refDir, 0o755); err != nil {
+		t.Fatalf("mkdir ref: %v", err)
+	}
+	if code := runSmokePack([]string{
+		"--content-dir", dir,
+		"--out-dir", refDir,
+	}, io.Discard, io.Discard); code != 0 && code != 1 {
+		t.Fatalf("seed run returned %d, want 0 or 1", code)
+	}
+	// Perturb a file in refDir. Pick any regular file by walking.
+	var victim string
+	_ = filepath.WalkDir(refDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil || victim != "" {
+			return err
+		}
+		if d.Type().IsRegular() {
+			victim = path
+		}
+		return nil
+	})
+	if victim == "" {
+		t.Fatalf("no files in refDir %q to perturb", refDir)
+	}
+	b, err := os.ReadFile(victim)
+	if err != nil {
+		t.Fatalf("read %s: %v", victim, err)
+	}
+	if len(b) == 0 {
+		t.Skip("first refDir file is empty; cannot perturb")
+	}
+	b[0] ^= 0xff
+	if err := os.WriteFile(victim, b, 0o644); err != nil {
+		t.Fatalf("write %s: %v", victim, err)
+	}
+
+	outDir := filepath.Join(dir, "out")
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		t.Fatalf("mkdir out: %v", err)
+	}
+	var stdout bytes.Buffer
+	code := runSmokePack([]string{
+		"--content-dir", dir,
+		"--out-dir", outDir,
+		"--reference-dir", refDir,
+	}, &stdout, io.Discard)
+	if code != 0 && code != 1 {
+		t.Fatalf("compare run returned %d, want 0 or 1", code)
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "Diff details:") {
+		t.Errorf("perturbed reference: missing 'Diff details:' block in stdout:\n%s", out)
+	}
+	// Detail line for the DIFF kind must include offset= (we know byte 0
+	// was flipped, so offset=0).
+	if !strings.Contains(out, "offset=0") {
+		t.Errorf("perturbed reference: missing offset=0 in Diff details:\n%s", out)
+	}
+}
+
+// firstHeaderLine returns the first stdout line that begins with "STAGE"
+// (i.e., the table header). Returns empty string if absent.
+func firstHeaderLine(stdout string) string {
+	for _, line := range strings.Split(stdout, "\n") {
+		if strings.HasPrefix(line, "STAGE") {
+			return line
+		}
+	}
+	return ""
+}
+
 // extractOutDirPath scans the summary line of the form
 // "out-dir: <path>" (optionally followed by " (kept; --keep)") and
 // returns the path. Fails the test if no such line is present.

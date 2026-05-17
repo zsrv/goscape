@@ -46,6 +46,8 @@ func runSmokePack(args []string, stdout, stderr io.Writer) int {
 		"Output directory. Empty → auto-create temp dir (deleted on exit unless --keep).")
 	dataPackDir := fs.String("datapack-dir", "",
 		"Entity-type cache directory (default: effective --out-dir).")
+	refDir := fs.String("reference-dir", "",
+		"Reference pack output to byte-diff against (typically Engine-TS/data/pack). Empty → diff disabled.")
 	keep := fs.Bool("keep", false,
 		"Preserve auto-created --out-dir on exit.")
 	stopOnError := fs.Bool("stop-on-error", false,
@@ -71,6 +73,12 @@ func runSmokePack(args []string, stdout, stderr io.Writer) int {
 	if info, err := os.Stat(*contentDir); err != nil || !info.IsDir() {
 		fmt.Fprintf(stderr, "smoke-pack: --content-dir %q is not a readable directory\n", *contentDir)
 		return 3
+	}
+	if *refDir != "" {
+		if info, err := os.Stat(*refDir); err != nil || !info.IsDir() {
+			fmt.Fprintf(stderr, "smoke-pack: --reference-dir %q is not a readable directory\n", *refDir)
+			return 3
+		}
 	}
 
 	logger, err := log.NewLogger(logLevel, *logFormat, stderr)
@@ -100,9 +108,9 @@ func runSmokePack(args []string, stdout, stderr io.Writer) int {
 		effectiveDataPack = effectiveOut
 	}
 	runStart := time.Now()
-	results := runStages(*contentDir, effectiveOut, effectiveDataPack, *stopOnError, logger)
+	results := runStages(*contentDir, effectiveOut, effectiveDataPack, *refDir, *stopOnError, logger)
 	totalElapsed := time.Since(runStart)
-	printSummary(stdout, results, totalElapsed)
+	printSummary(stdout, results, totalElapsed, *refDir != "")
 
 	suffix := ""
 	if autoCreated {
@@ -128,10 +136,16 @@ func runSmokePack(args []string, stdout, stderr io.Writer) int {
 }
 
 // printSummary renders the per-stage report + result line to w.
-// elapsed is the whole-run wall clock for the Result line.
-func printSummary(w io.Writer, results []stageResult, elapsed time.Duration) {
+// elapsed is the whole-run wall clock for the Result line. When
+// withDiff is true, a DIFF column is inserted between BYTES and ERR
+// and a "Diff details:" block is appended after the Result line.
+func printSummary(w io.Writer, results []stageResult, elapsed time.Duration, withDiff bool) {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "STAGE\tSTATUS\tELAPSED\tFILES\tBYTES\tERR")
+	if withDiff {
+		fmt.Fprintln(tw, "STAGE\tSTATUS\tELAPSED\tFILES\tBYTES\tDIFF\tERR")
+	} else {
+		fmt.Fprintln(tw, "STAGE\tSTATUS\tELAPSED\tFILES\tBYTES\tERR")
+	}
 	var ok, errCount, skip int
 	for _, r := range results {
 		switch r.Status {
@@ -145,19 +159,90 @@ func printSummary(w io.Writer, results []stageResult, elapsed time.Duration) {
 		elapsedStr := "-"
 		filesStr := "-"
 		bytesStr := "-"
+		diffStr := "-"
 		errStr := ""
 		if r.Status != stageSkip {
 			elapsedStr = r.Elapsed.Round(time.Millisecond).String()
 			filesStr = fmt.Sprintf("%d", r.OutputFiles)
 			bytesStr = fmt.Sprintf("%d", r.OutputBytes)
 		}
+		if withDiff && r.Status == stageOK {
+			diffStr = fmt.Sprintf("%d", len(r.Diffs))
+		}
 		if r.Err != nil {
 			errStr = r.Err.Error()
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", r.Name, r.Status, elapsedStr, filesStr, bytesStr, errStr)
+		if withDiff {
+			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", r.Name, r.Status, elapsedStr, filesStr, bytesStr, diffStr, errStr)
+		} else {
+			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", r.Name, r.Status, elapsedStr, filesStr, bytesStr, errStr)
+		}
 	}
 	tw.Flush()
 	fmt.Fprintf(w, "\nResult: %d OK, %d ERR, %d SKIP  total elapsed: %s\n", ok, errCount, skip, elapsed.Round(time.Millisecond))
+	if withDiff {
+		printDiffDetails(w, results)
+	}
+}
+
+// printDiffDetails emits a "Diff details:" block when any stage carried
+// non-empty Diffs. Each stage's diffs are capped at diffDetailsPerStage
+// lines; truncated entries are summarised in a trailing "... +K more"
+// line aggregated across stages.
+func printDiffDetails(w io.Writer, results []stageResult) {
+	anyDiffs := false
+	for _, r := range results {
+		if len(r.Diffs) > 0 {
+			anyDiffs = true
+			break
+		}
+	}
+	if !anyDiffs {
+		return
+	}
+	fmt.Fprintln(w, "\nDiff details:")
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	var truncated int
+	var truncatedStages int
+	for _, r := range results {
+		if len(r.Diffs) == 0 {
+			continue
+		}
+		shown := 0
+		for _, d := range r.Diffs {
+			if shown >= diffDetailsPerStage {
+				break
+			}
+			fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\n", r.Name, d.Kind, d.Path, formatDiffSuffix(d))
+			shown++
+		}
+		if len(r.Diffs) > shown {
+			truncated += len(r.Diffs) - shown
+			truncatedStages++
+		}
+	}
+	tw.Flush()
+	if truncated > 0 {
+		fmt.Fprintf(w, "  ... +%d more across %d stage(s)\n", truncated, truncatedStages)
+	}
+}
+
+const diffDetailsPerStage = 10
+
+// formatDiffSuffix renders the kind-specific tail of a Diff details line
+// (offset/got/want, out/ref sizes, MISS marker, or ERR note).
+func formatDiffSuffix(d fileDiff) string {
+	switch d.Kind {
+	case "DIFF":
+		return fmt.Sprintf("offset=%d got=%#x want=%#x", d.Offset, d.Got, d.Want)
+	case "SIZE":
+		return fmt.Sprintf("out=%d ref=%d", d.OutSize, d.RefSize)
+	case "MISS":
+		return "(absent from reference)"
+	case "ERR":
+		return d.Note
+	}
+	return ""
 }
 
 type stageStatus int
@@ -187,6 +272,11 @@ type stageResult struct {
 	OutputFiles int
 	OutputBytes int64
 	Err         error
+	// Diffs is the per-stage list of byte-divergences from --reference-dir.
+	// Populated only when --reference-dir is set and the stage succeeded;
+	// nil otherwise. Files are attributed to the stage that most recently
+	// modified them via the snapshot-delta machinery in runStages.
+	Diffs []fileDiff
 }
 
 // walkOutDir returns (fileCount, totalBytes) for regular files under
@@ -235,11 +325,21 @@ func safeRun(fn func() error) (err error) {
 // runStages drives all 11 PackAll stages best-effort (PackConfigs + 10
 // downstream). PackConfigs is special: if it fails, all 10 downstream
 // stages render as SKIP because they consume the *pack.Registry it
-// produces.
-func runStages(srcDir, outDir, dataPackDir string, stopOnError bool, logger *slog.Logger) []stageResult {
+// produces. When refDir != "", every successful stage is also
+// byte-diffed against the same relpath under refDir; results are
+// attached to stageResult.Diffs.
+func runStages(srcDir, outDir, dataPackDir, refDir string, stopOnError bool, logger *slog.Logger) []stageResult {
 	pack.ClearFsCache()
 
 	results := make([]stageResult, 0, 11)
+
+	// prevSnapshot is the outDir state after the most recently
+	// successful stage. Empty when refDir is unset (snapshots are
+	// only useful for diffing).
+	var prevSnapshot stageSnapshot
+	if refDir != "" {
+		prevSnapshot, _ = snapshotOutDir(outDir)
+	}
 
 	logger.Info("stage_start", "stage", "PackConfigs")
 	pcStart := time.Now()
@@ -265,8 +365,10 @@ func runStages(srcDir, outDir, dataPackDir string, stopOnError bool, logger *slo
 		}
 		return results
 	}
+	pcDiffs, pcPrev := computeStageDiffs(refDir, outDir, prevSnapshot)
+	prevSnapshot = pcPrev
 	logger.Info("stage_done", "stage", "PackConfigs", "elapsed_ms", pcElapsed.Milliseconds(), "files", pcFiles, "bytes", pcBytes)
-	results = append(results, stageResult{Name: "PackConfigs", Status: stageOK, Elapsed: pcElapsed, OutputFiles: pcFiles, OutputBytes: pcBytes})
+	results = append(results, stageResult{Name: "PackConfigs", Status: stageOK, Elapsed: pcElapsed, OutputFiles: pcFiles, OutputBytes: pcBytes, Diffs: pcDiffs})
 
 	type stage struct {
 		name string
@@ -294,7 +396,6 @@ func runStages(srcDir, outDir, dataPackDir string, stopOnError bool, logger *slo
 			logger.Error("stage_err", "stage", st.name, "elapsed_ms", elapsed.Milliseconds(), "files", files, "bytes", bytesSum, "err", err)
 			results = append(results, stageResult{Name: st.name, Status: stageErr, Elapsed: elapsed, OutputFiles: files, OutputBytes: bytesSum, Err: err})
 			if stopOnError {
-				// Mark every remaining stage as SKIP and return.
 				for _, remaining := range rest[i+1:] {
 					results = append(results, stageResult{Name: remaining.name, Status: stageSkip})
 				}
@@ -302,8 +403,36 @@ func runStages(srcDir, outDir, dataPackDir string, stopOnError bool, logger *slo
 			}
 			continue
 		}
+		diffs, nextSnap := computeStageDiffs(refDir, outDir, prevSnapshot)
+		prevSnapshot = nextSnap
 		logger.Info("stage_done", "stage", st.name, "elapsed_ms", elapsed.Milliseconds(), "files", files, "bytes", bytesSum)
-		results = append(results, stageResult{Name: st.name, Status: stageOK, Elapsed: elapsed, OutputFiles: files, OutputBytes: bytesSum})
+		results = append(results, stageResult{Name: st.name, Status: stageOK, Elapsed: elapsed, OutputFiles: files, OutputBytes: bytesSum, Diffs: diffs})
 	}
 	return results
+}
+
+// computeStageDiffs is a no-op when refDir is empty. Otherwise it
+// snapshots outDir, computes the delta against prev, and byte-diffs
+// each added/modified file against the same relpath under refDir.
+// Returns the diff list and the new snapshot (for use as `prev` in the
+// next stage).
+func computeStageDiffs(refDir, outDir string, prev stageSnapshot) ([]fileDiff, stageSnapshot) {
+	if refDir == "" {
+		return nil, nil
+	}
+	next, _ := snapshotOutDir(outDir)
+	delta := deltaFiles(prev, next)
+	var diffs []fileDiff
+	for _, rel := range delta {
+		d, err := diffOneFile(filepath.Join(outDir, rel), filepath.Join(refDir, rel))
+		if err != nil {
+			diffs = append(diffs, fileDiff{Path: rel, Kind: "ERR", Note: err.Error()})
+			continue
+		}
+		if d != nil {
+			d.Path = rel
+			diffs = append(diffs, *d)
+		}
+	}
+	return diffs, next
 }
