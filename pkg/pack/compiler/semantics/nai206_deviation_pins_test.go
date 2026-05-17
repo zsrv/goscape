@@ -30,7 +30,7 @@ func TestNAI206_DeviationPins(t *testing.T) {
 	}{
 		{"NAI-206-D-EXPR-BASE", "../ast/expression_base.go"},
 		{"NAI-206-D-WALKER-OWNS-CONTEXT", "type_checking.go"},
-		{"NAI-206-D-CONST-CACHE-AST", "type_checking.go"},
+		{"NAI-206-D-CONST-NO-CACHE", "type_checking.go"},
 		{"NAI-206-D-TRIGGER-LOOKUPS-NILABLE", "type_checking.go"},
 		{"NAI-206-D-CONST-PARSE", "../parser/parser.go"},
 		{"NAI-206-D-DYNCOMMAND-EMPTY", "dynamic_command.go"},

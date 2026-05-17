@@ -188,8 +188,17 @@ func (p *Parser) parseClientScriptBody() *ast.ClientScriptExpression {
 // goscape uses RemoveErrorListeners() + return-value check. Behaviour-
 // equivalent: syntax errors yield nil.
 func NewSingleExpressionParser(input, sourceName string) *Parser {
+	return NewSingleExpressionParserAt(input, sourceName, 1, 0)
+}
+
+// NewSingleExpressionParserAt is NewSingleExpressionParser with explicit
+// (lineBase, colBase) lexer offsets so the parsed AST's source locations map
+// back to the host call site. Mirrors the TS pattern
+// `new AstBuilder(source.name, source.line - 1, source.column - 1)` from
+// parseConstantExpression — see lexer.NewLexerAt.
+func NewSingleExpressionParserAt(input, sourceName string, lineBase, colBase int) *Parser {
 	return &Parser{
-		lx:         lexer.NewLexer(input, sourceName),
+		lx:         lexer.NewLexerAt(input, sourceName, lineBase, colBase),
 		sourceName: sourceName,
 	}
 }

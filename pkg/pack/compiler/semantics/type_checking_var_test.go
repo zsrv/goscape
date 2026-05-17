@@ -15,6 +15,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/pack/compiler/ast"
 	"github.com/zsrv/goscape/pkg/pack/compiler/diagnostics"
+	"github.com/zsrv/goscape/pkg/pack/compiler/lexer"
 	"github.com/zsrv/goscape/pkg/pack/compiler/symbol"
 	typ "github.com/zsrv/goscape/pkg/pack/compiler/type"
 )
@@ -230,6 +231,34 @@ func TestVisitConstantVariableExpression_CyclicRef(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("expected MessageConstantCyclicRef; got %v", tc.diagnostics.List())
+	}
+}
+
+// TestParseConstantExpression_AppliesCallSiteOffset pins the per-call-site
+// source offset behavior. TS parseConstantExpression constructs AstBuilder
+// with (source.line - 1, source.column - 1) so the parsed inner expression's
+// source maps back to the call site, not to line=1 of the value string.
+//
+// Regression: without offset application, an inlined `^const` push emits
+// PushConstantInt with source.Line=1 (the value-string's intrinsic position),
+// inflating the script's LineNumberTable by N extra entries — see
+// memory codegen_branch_unsourced_fix for the prior family of this bug.
+func TestParseConstantExpression_AppliesCallSiteOffset(t *testing.T) {
+	tc := newBasicCheckingFixture(t)
+	callSite := lexer.NodeSourceLocation{Name: "caller.rs2", Line: 70, Column: 25}
+	expr := tc.parseConstantExpression("0", callSite)
+	if expr == nil {
+		t.Fatal("parseConstantExpression returned nil for value=\"0\"")
+	}
+	src := expr.Source()
+	if src.Line != 70 {
+		t.Errorf("Source.Line: got=%d want=70 (call-site line)", src.Line)
+	}
+	if src.Column != 25 {
+		t.Errorf("Source.Column: got=%d want=25 (call-site column)", src.Column)
+	}
+	if src.Name != "caller.rs2" {
+		t.Errorf("Source.Name: got=%q want=%q", src.Name, "caller.rs2")
 	}
 }
 

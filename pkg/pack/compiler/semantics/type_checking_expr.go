@@ -879,11 +879,28 @@ func (tc *TypeChecker) visitConstantVariableExpression(cv *ast.ConstantVariableE
 
 	var parsed ast.Expression
 	if stringExpected {
-		// String constants: wrap raw value in a StringLiteral at the host
-		// location (TS does the same — no re-parse needed for strings).
+		// String constants: synthesize a StringLiteral whose source matches
+		// the TS construction
+		//   new StringLiteral({ name, line: line - 1, column: column - 1,
+		//                       endLine: line - 1, endColumn: column },
+		//                     symbol.value)
+		// at TypeChecking.ts L1023. The `line - 1` / `column - 1` mirror
+		// the same pre-offset arithmetic that parseConstantExpression
+		// applies via AstBuilder lineOffset = source.line - 1 — but on
+		// this branch there is no re-parse, so the offset is baked into
+		// the literal's source directly. Byte-identity to TS requires
+		// matching the off-by-one source.line, which differs from
+		// call_site.line by one and adds an LNT entry the codegen would
+		// otherwise drop.
 		parsed = &ast.StringLiteral{
-			SrcLoc: src,
-			Value:  constant.Value,
+			SrcLoc: lexer.NodeSourceLocation{
+				Name:      src.Name,
+				Line:      src.Line - 1,
+				Column:    src.Column - 1,
+				EndLine:   src.Line - 1,
+				EndColumn: src.Column,
+			},
+			Value: constant.Value,
 		}
 	} else {
 		parsed = tc.parseConstantExpression(constant.Value, src)
@@ -905,19 +922,23 @@ func (tc *TypeChecker) visitConstantVariableExpression(cv *ast.ConstantVariableE
 }
 
 // parseConstantExpression mirrors TS parseConstantExpression /
-// parseConstantExpressionTree (L1053-1081 combined). Caches parsed AST
-// nodes per value-string (NAI-206-D-CONST-CACHE-AST: goscape parses
-// straight to AST so we cache the AST expression, unlike TS which caches
-// the ParserRuleContext and runs AstBuilder on each read).
+// parseConstantExpressionTree (L1053-1081 combined). The parser is seeded
+// with (source.Line, source.Column-1) so the parsed AST's source locations
+// map back to the host call site, matching TS
+// `new AstBuilder(source.name, source.line - 1, source.column - 1)`.
+//
+// No cache: per-call-site offsets mean two uses of the same constant value
+// at different call sites must yield different AST sources. Caching the AST
+// would either share the first site's offsets (incorrect — drops LNT
+// entries against TS) or require a deep-clone-with-rebase per call (which
+// gains nothing over re-parsing tiny constant values). TS caches the
+// ParserRuleContext and runs AstBuilder fresh per call to achieve the same
+// per-site rebase; goscape parses straight to AST, so the equivalent
+// per-site work is the parse itself.
 func (tc *TypeChecker) parseConstantExpression(value string, source lexer.NodeSourceLocation) ast.Expression {
-	if cached, ok := tc.constantExpressionCache[value]; ok {
-		return cached
-	}
-	p := parser.NewSingleExpressionParser(value, source.Name)
+	p := parser.NewSingleExpressionParserAt(value, source.Name, source.Line, source.Column-1)
 	p.RemoveErrorListeners()
-	expr := p.ParseSingleExpression()
-	tc.constantExpressionCache[value] = expr
-	return expr
+	return p.ParseSingleExpression()
 }
 
 // ---------------------------------------------------------------------------

@@ -36,11 +36,25 @@ const (
 // ErrorListener.SyntaxError calls) — typically the file path. Pass
 // "<source>" for in-memory inputs to mirror TS ScriptParser convention.
 func NewLexer(input, sourceName string) *Lexer {
+	return NewLexerAt(input, sourceName, 1, 0)
+}
+
+// NewLexerAt constructs a Lexer with the position counters initialised to
+// (lineBase, colBase). All emitted tokens are reported as if the input
+// started at that position — used for sub-expression re-parsers
+// (TS AstBuilder lineOffset/columnOffset) so the parsed AST's sources map
+// back to the host call site instead of (1, 1) within the re-parsed string.
+//
+// lineBase is 1-based; colBase is 0-based to match the lexer's internal
+// convention (callers convert col → col+1 before makeToken). To mirror the
+// TS pattern from src/compiler/semantics/TypeChecking.ts parseConstantExpression
+// (HEAD b8c3388), pass (callSite.Line, callSite.Column-1).
+func NewLexerAt(input, sourceName string, lineBase, colBase int) *Lexer {
 	return &Lexer{
 		input:      input,
 		sourceName: sourceName,
-		line:       1,
-		col:        0,
+		line:       lineBase,
+		col:        colBase,
 		modes:      []mode{modeDefault},
 	}
 }

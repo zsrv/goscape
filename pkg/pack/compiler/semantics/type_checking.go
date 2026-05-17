@@ -19,9 +19,13 @@ package semantics
 // currentSwitch / atScriptTopLevel context fields, replacing TS
 // findParentByType. Arms in T8-T18 set/read these fields.
 //
-// NAI-206-D-CONST-CACHE-AST: constantExpressionCache maps string keys to
-// ast.Expression nodes (TS caches ParserRuleContext because AstBuilder runs
-// per-read; goscape parses straight to AST so we cache AST nodes).
+// NAI-206-D-CONST-NO-CACHE: parseConstantExpression re-parses on every call
+// instead of caching the AST. TS caches the ParserRuleContext and runs
+// AstBuilder fresh per call to apply per-call-site line/column offsets;
+// goscape parses straight to AST, so the equivalent per-site work is the
+// parse itself. Caching the AST would either share the first call site's
+// offsets (incorrect — see fix for script.dat residual after 08efc5e8) or
+// require a deep-clone-with-rebase per call (no perf win on tiny values).
 //
 // NAI-206-D-TRIGGER-LOOKUPS-NILABLE: plan codified Find() panic-on-miss for
 // command/proc triggers; goscape uses FindOrNil throughout so test fixtures
@@ -94,12 +98,11 @@ type TypeChecker struct {
 	currentSwitch    *ast.SwitchStatement
 	atScriptTopLevel bool
 
-	// Constant-expression evaluation guards (NAI-206-D-CONST-CACHE-AST).
-	// constantsBeingEvaluated keys on the resolved symbol (mirroring TS
-	// cycle detection on RuneScriptSymbol identity); T9 wires the writer
-	// side when isConstantExpression / parseConstantExpression land.
+	// Constant-expression evaluation guard. constantsBeingEvaluated keys on
+	// the resolved symbol, mirroring TS cycle detection on RuneScriptSymbol
+	// identity. Parsed-AST cache is intentionally absent — see
+	// NAI-206-D-CONST-NO-CACHE.
 	constantsBeingEvaluated map[symbol.Symbol]bool
-	constantExpressionCache map[string]ast.Expression
 }
 
 // NewTypeChecker constructs a TypeChecker. All four trigger names are looked
@@ -129,7 +132,6 @@ func NewTypeChecker(
 		labelTrigger:            trm.FindOrNil("label"),
 		table:                   root,
 		constantsBeingEvaluated: map[symbol.Symbol]bool{},
-		constantExpressionCache: map[string]ast.Expression{},
 	}
 	return tc
 }
