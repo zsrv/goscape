@@ -99,10 +99,8 @@ func runSmokePack(args []string, stdout, stderr io.Writer) int {
 	if effectiveDataPack == "" {
 		effectiveDataPack = effectiveOut
 	}
-	_ = stopOnError
-
 	runStart := time.Now()
-	results := runStages(*contentDir, effectiveOut, effectiveDataPack, logger)
+	results := runStages(*contentDir, effectiveOut, effectiveDataPack, *stopOnError, logger)
 	totalElapsed := time.Since(runStart)
 	printSummary(stdout, results, totalElapsed)
 
@@ -224,7 +222,7 @@ func walkOutDir(dir string) (int, int64, error) {
 // downstream). PackConfigs is special: if it fails, all 10 downstream
 // stages render as SKIP because they consume the *pack.Registry it
 // produces.
-func runStages(srcDir, outDir, dataPackDir string, logger *slog.Logger) []stageResult {
+func runStages(srcDir, outDir, dataPackDir string, stopOnError bool, logger *slog.Logger) []stageResult {
 	pack.ClearFsCache()
 
 	results := make([]stageResult, 0, 11)
@@ -264,7 +262,7 @@ func runStages(srcDir, outDir, dataPackDir string, logger *slog.Logger) []stageR
 		{"Midi", func() error { return audio.PackMidi(srcDir, outDir) }},
 		{"Maps", func() error { return maps.Pack(srcDir, outDir) }},
 	}
-	for _, st := range rest {
+	for i, st := range rest {
 		logger.Info("stage_start", "stage", st.name)
 		start := time.Now()
 		err := st.run()
@@ -273,6 +271,13 @@ func runStages(srcDir, outDir, dataPackDir string, logger *slog.Logger) []stageR
 		if err != nil {
 			logger.Error("stage_err", "stage", st.name, "elapsed_ms", elapsed.Milliseconds(), "files", files, "bytes", bytesSum, "err", err)
 			results = append(results, stageResult{Name: st.name, Status: stageErr, Elapsed: elapsed, OutputFiles: files, OutputBytes: bytesSum, Err: err})
+			if stopOnError {
+				// Mark every remaining stage as SKIP and return.
+				for _, remaining := range rest[i+1:] {
+					results = append(results, stageResult{Name: remaining.name, Status: stageSkip})
+				}
+				return results
+			}
 			continue
 		}
 		logger.Info("stage_done", "stage", st.name, "elapsed_ms", elapsed.Milliseconds(), "files", files, "bytes", bytesSum)

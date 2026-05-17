@@ -242,6 +242,74 @@ func TestRunSmokePack_OperatorOutDirPreserved(t *testing.T) {
 	}
 }
 
+// TestRunSmokePack_StopOnError verifies --stop-on-error causes every
+// stage after the first ERR to render as SKIP. We induce a
+// non-PackConfigs failure by passing a regular file as --datapack-dir,
+// which causes RunServerCompiler (stage 3, after PackConfigs +
+// ClientInterface) to fail when loadConfigs tries to read
+// <datapack-dir>/server/inv.dat. PackConfigs writes to outDir
+// independently, so it still succeeds — exercising the cascade path
+// distinct from the PackConfigs special-case SKIPs.
+func TestRunSmokePack_StopOnError(t *testing.T) {
+	dir := t.TempDir()
+	seedSmokeFixture(t, dir)
+	notADir := filepath.Join(dir, "file-not-dir")
+	if err := os.WriteFile(notADir, []byte("not a directory"), 0o644); err != nil {
+		t.Fatalf("write notADir: %v", err)
+	}
+	outDir := filepath.Join(dir, "out")
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		t.Fatalf("mkdir out: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	code := runSmokePack([]string{
+		"--content-dir", dir,
+		"--out-dir", outDir,
+		"--datapack-dir", notADir,
+		"--stop-on-error",
+	}, &stdout, io.Discard)
+	if code != 1 {
+		t.Fatalf("runSmokePack returned %d, want 1 (induced ERR)", code)
+	}
+	out := stdout.String()
+	// Find the Result line and assert SKIP count > 0. The Result line
+	// has the form "Result: N OK, M ERR, K SKIP ..." where a working
+	// --stop-on-error must produce K >= 1 (every stage after the
+	// RunServerCompiler ERR — 8 downstream stages — should SKIP).
+	var resultLine string
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(line, "Result:") {
+			resultLine = line
+			break
+		}
+	}
+	if resultLine == "" {
+		t.Fatalf("stdout missing Result line; got:\n%s", out)
+	}
+	if strings.Contains(resultLine, "0 SKIP") {
+		t.Errorf("Result line shows 0 SKIP; --stop-on-error should cascade SKIPs; got: %q\nfull stdout:\n%s", resultLine, out)
+	}
+	// Cross-check: at least one row in the table must be a non-PackConfigs
+	// stage rendered as SKIP. We look for "SKIP" preceded by a stage name
+	// other than the result-line context.
+	skipRowFound := false
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(line, "Result:") {
+			continue
+		}
+		// Match a stage row by leading non-space then "SKIP" as STATUS column.
+		fields := strings.Fields(line)
+		if len(fields) >= 2 && fields[1] == "SKIP" {
+			skipRowFound = true
+			break
+		}
+	}
+	if !skipRowFound {
+		t.Errorf("stdout missing SKIP table row after ERR; got:\n%s", out)
+	}
+}
+
 // extractOutDirPath scans the summary line of the form
 // "out-dir: <path>" (optionally followed by " (kept; --keep)") and
 // returns the path. Fails the test if no such line is present.
