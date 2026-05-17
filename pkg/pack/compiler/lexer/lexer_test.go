@@ -141,6 +141,57 @@ func TestLex_LineComment_EOF(t *testing.T) {
 	}
 }
 
+// TestLex_LineComment_CrLf pins that `// foo\r\n` ends the comment at the
+// CRLF, not later. Regression for Content/scripts/drop tables/scripts/man.rs2
+// where the file's first line ended with \r\n and the comment loop swallowed
+// the 5 following script declarations because it only broke on bare \n.
+func TestLex_LineComment_CrLf(t *testing.T) {
+	l := NewLexer("// hi\r\n[", "lc-crlf.rs2")
+	tok := l.NextToken()
+	if tok.Type != LINE_COMMENT {
+		t.Fatalf("type = %s, want LINE_COMMENT", tok.Type)
+	}
+	if tok.Text != "// hi\r\n" {
+		t.Errorf("text = %q, want %q", tok.Text, "// hi\r\n")
+	}
+	// Hidden WHITESPACE may or may not exist; what matters is the next
+	// default-channel token is LBRACK, not nothing.
+	for {
+		next := l.NextToken()
+		if next.Channel == ChannelHidden {
+			continue
+		}
+		if next.Type != LBRACK {
+			t.Fatalf("token after LINE_COMMENT type = %s, want LBRACK", next.Type)
+		}
+		break
+	}
+}
+
+// TestLex_LineComment_BareCr pins that `// foo\r` (classic-Mac line ending)
+// ends the comment at the \r. Lexer.advance treats bare \r as a line break,
+// so consumeLineComment should too.
+func TestLex_LineComment_BareCr(t *testing.T) {
+	l := NewLexer("// hi\r[", "lc-cr.rs2")
+	tok := l.NextToken()
+	if tok.Type != LINE_COMMENT {
+		t.Fatalf("type = %s, want LINE_COMMENT", tok.Type)
+	}
+	if tok.Text != "// hi\r" {
+		t.Errorf("text = %q, want %q", tok.Text, "// hi\r")
+	}
+	for {
+		next := l.NextToken()
+		if next.Channel == ChannelHidden {
+			continue
+		}
+		if next.Type != LBRACK {
+			t.Fatalf("token after LINE_COMMENT type = %s, want LBRACK", next.Type)
+		}
+		break
+	}
+}
+
 // TestLex_BlockComment pins single-line /* */ → one hidden token.
 func TestLex_BlockComment(t *testing.T) {
 	l := NewLexer("/* foo */", "bc.rs2")

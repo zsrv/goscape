@@ -531,18 +531,25 @@ func (lx *Lexer) consumeWhitespace() Token {
 }
 
 // consumeLineComment consumes // ... (\n | EOF) and emits one
-// LINE_COMMENT token on the hidden channel. The trailing \n is INCLUDED
-// in Text per .g4 rule `'//' .*? ('\n' | EOF)`.
+// LINE_COMMENT token on the hidden channel. The trailing line terminator
+// is INCLUDED in Text per .g4 rule `'//' .*? ('\n' | EOF)`.
+//
+// Breaks on either '\n' or '\r' to match advance()'s treatment of both
+// as line terminators. Without the '\r' check, advance(1) over '\r' in a
+// CRLF pair silently consumes the trailing '\n' too, so the loop's
+// `c == '\n'` check never fires and the comment swallows the rest of the
+// file up to the next bare LF. Regression: Content/scripts/drop tables/
+// scripts/man.rs2 (CRLF header line) silently dropped 5 scripts.
 func (lx *Lexer) consumeLineComment() Token {
 	start := lx.pos
 	startLn, startCol := lx.line, lx.col
 	// Consume `//`
 	lx.advance(2)
-	// Consume to first \n inclusive or to EOF
+	// Consume to first line terminator inclusive or to EOF
 	for lx.pos < len(lx.input) {
 		c := lx.input[lx.pos]
 		lx.advance(1)
-		if c == '\n' {
+		if c == '\n' || c == '\r' {
 			break
 		}
 	}
