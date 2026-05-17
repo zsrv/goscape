@@ -1,11 +1,15 @@
 package pixpack
 
-import "github.com/zsrv/goscape/pkg/io/packet"
+import (
+	"slices"
+
+	"github.com/zsrv/goscape/pkg/io/packet"
+)
 
 // SpriteMeta is the parsed <srcDir>/meta/<name>.opt sidecar.
 //
 // Fields mirror the TS Sprite type (PixPack.ts:106-112). PixelOrder
-// is 0 for column-major and 1 for row-major.
+// is 0 for row-major and 1 for column-major.
 type SpriteMeta struct {
 	X, Y, W, H int
 	PixelOrder int
@@ -62,7 +66,7 @@ func WriteImage(img *Bitmap, data, index *packet.Packet, colors []int32, meta *S
 			blue := int32(img.Data[pos+2])
 			rgb := (red << 16) | (green << 8) | blue
 
-			idx := indexOf(colors, rgb)
+			idx := slices.Index(colors, rgb)
 			if idx == -1 {
 				break
 			}
@@ -82,7 +86,7 @@ func WriteImage(img *Bitmap, data, index *packet.Packet, colors []int32, meta *S
 				blue := int32(img.Data[pos+2])
 				rgb := (red << 16) | (green << 8) | blue
 
-				idx := indexOf(colors, rgb)
+				idx := slices.Index(colors, rgb)
 				if idx == -1 {
 					break
 				}
@@ -92,13 +96,3 @@ func WriteImage(img *Bitmap, data, index *packet.Packet, colors []int32, meta *S
 	}
 }
 
-// indexOf returns the index of target in colors, or -1 if absent.
-// Mirrors TS Array.prototype.indexOf semantics.
-func indexOf(colors []int32, target int32) int {
-	for i, c := range colors {
-		if c == target {
-			return i
-		}
-	}
-	return -1
-}

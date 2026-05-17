@@ -1,5 +1,7 @@
 package pixpack
 
+import "slices"
+
 // generatePalette walks the Bitmap pixels and returns the unique RGB
 // values encountered, with 0xff00ff reserved as the first entry
 // (transparency sentinel — TS PixPack.ts:114-133).
@@ -14,21 +16,14 @@ func generatePalette(img *Bitmap) []int32 {
 		if rgb == 0xff00ff {
 			continue
 		}
-		seen := false
-		for _, c := range colors {
-			if c == rgb {
-				seen = true
-				break
-			}
-		}
-		if !seen {
+		if !slices.Contains(colors, rgb) {
 			colors = append(colors, rgb)
 		}
 	}
 	return colors
 }
 
-// GeneratePixelOrder returns 1 for row-major and 0 for column-major
+// GeneratePixelOrder returns 0 for row-major and 1 for column-major
 // based on cumulative absolute RGB-delta minimization (TS PixPack.ts:8-32).
 //
 // Note: TS iterates j += 4 in the row-major pass (skipping 3 of every
