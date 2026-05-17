@@ -186,7 +186,7 @@ func writeLocs(m mapData, clientPath, serverPath string) error {
 			list = append(list, locRecord{ID: e.ID, Level: level, X: x, Z: z, Shape: e.Shape, Angle: e.Angle})
 		}
 	}
-	slices.SortFunc(list, func(a, b locRecord) int {
+	slices.SortStableFunc(list, func(a, b locRecord) int {
 		if c := cmp.Compare(a.ID, b.ID); c != 0 {
 			return c
 		}
