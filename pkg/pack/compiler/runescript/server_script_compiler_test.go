@@ -9,8 +9,139 @@ import (
 	"github.com/zsrv/goscape/pkg/pack/compiler/codegen"
 	"github.com/zsrv/goscape/pkg/pack/compiler/diagnostics"
 	"github.com/zsrv/goscape/pkg/pack/compiler/pointer"
+	"github.com/zsrv/goscape/pkg/pack/compiler/symbol"
+	"github.com/zsrv/goscape/pkg/pack/compiler/trigger"
 	typ "github.com/zsrv/goscape/pkg/pack/compiler/type"
 )
+
+// scriptWithUnsetActivePlayer builds a one-block RuneScript whose proc-trigger
+// (Identifier="proc") does NOT set ACTIVE_PLAYER, then invokes a Command
+// symbol named "p_kickout" that requires ACTIVE_PLAYER. Mirrors the fixture
+// shape from cfg.TestPointerChecker_Run_UninitializedReported.
+func scriptWithUnsetActivePlayer() *codegen.RuneScript {
+	tr := &trigger.TriggerType{ID: 0, Identifier: "proc"}
+	sym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: tr, Name: "p1"}}
+	rs := codegen.NewRuneScript("test.rs2", sym, tr, "p1", nil)
+	b := codegen.NewBlock(&codegen.Label{Name: "entry"})
+	cmd := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{
+		Trigger: &trigger.TriggerType{Identifier: "command"},
+		Name:    "p_kickout",
+	}}
+	b.Add(codegen.Instruction{Opcode: codegen.Command, Operand: cmd})
+	b.Add(codegen.Instruction{Opcode: codegen.Return})
+	rs.Blocks = []*codegen.Block{b}
+	return rs
+}
+
+// TestCheckPointersPhase_EmptyCommandPointers_HaltsWithoutError pins the
+// NAI-210-D-EMPTYPOINTERS-RETURNS-FALSE early-return: empty CommandPointers
+// halts BEFORE write but is NOT an error condition — Run() must still
+// return nil. Function returns (halt=true, err=nil).
+func TestCheckPointersPhase_EmptyCommandPointers_HaltsWithoutError(t *testing.T) {
+	c := &ServerScriptCompiler{
+		CommandPointers: map[string]*pointer.PointerHolder{},
+		Handler:         diagnostics.NopHandler{},
+	}
+	halt, err := c.checkPointersPhase(nil)
+	if err != nil {
+		t.Errorf("empty CommandPointers: got err=%v, want nil", err)
+	}
+	if !halt {
+		t.Errorf("empty CommandPointers: got halt=false, want true (TS-faithful early-return)")
+	}
+}
+
+// TestCheckPointersPhase_DiagnosticErrors_HaltsWithError pins the new
+// observability contract: when the PointerChecker reports a real diagnostic
+// error (uninitialized/corrupted pointer), checkPointersPhase returns
+// (halt=true, err=non-nil) so Run() can surface it.
+func TestCheckPointersPhase_DiagnosticErrors_HaltsWithError(t *testing.T) {
+	rs := scriptWithUnsetActivePlayer()
+	c := &ServerScriptCompiler{
+		CommandPointers: map[string]*pointer.PointerHolder{
+			"p_kickout": {Required: pointer.NewPointerSet(pointer.ActivePlayer)},
+		},
+		Handler: diagnostics.NopHandler{},
+	}
+	halt, err := c.checkPointersPhase([]*codegen.RuneScript{rs})
+	if err == nil {
+		t.Fatal("pointer-check diagnostic errors: got err=nil, want non-nil")
+	}
+	if !halt {
+		t.Errorf("pointer-check diagnostic errors: got halt=false, want true (halt before write)")
+	}
+}
+
+// TestCheckPointersPhase_NoErrors_Proceeds pins the success path: non-empty
+// CommandPointers with a clean script returns (halt=false, err=nil) so the
+// pipeline proceeds to writePhase.
+func TestCheckPointersPhase_NoErrors_Proceeds(t *testing.T) {
+	c := &ServerScriptCompiler{
+		CommandPointers: map[string]*pointer.PointerHolder{
+			"p_kickout": {Required: pointer.NewPointerSet(pointer.ActivePlayer)},
+		},
+		Handler: diagnostics.NopHandler{},
+	}
+	// Empty scripts → no commands inspected → no diagnostics.
+	halt, err := c.checkPointersPhase(nil)
+	if err != nil {
+		t.Errorf("no scripts, no errors: got err=%v, want nil", err)
+	}
+	if halt {
+		t.Errorf("no scripts, no errors: got halt=true, want false (proceed to write)")
+	}
+}
+
+// TestRun_PointerCheckErrors_ReturnsError pins the user-facing contract:
+// when checkPointersPhase reports diagnostic errors, Run() surfaces them
+// as a non-nil error return rather than silently halting. Mirrors the
+// intent in the NAI-211-D-NO-PROCESS-EXIT deviation comment
+// ("returns errors up through ServerScriptCompiler.Run").
+//
+// Fixture uses the corrupted-pointer arm (a `proc` trigger sets all
+// pointers, so uninitialized won't fire): one command corrupts
+// ACTIVE_PLAYER, the next requires it.
+func TestRun_PointerCheckErrors_ReturnsError(t *testing.T) {
+	tmpDir := t.TempDir()
+	src := "[proc,helper]\np_corrupt;\np_kickout;\n"
+	if err := os.WriteFile(filepath.Join(tmpDir, "helper.rs2"), []byte(src), 0o644); err != nil {
+		t.Fatalf("write helper.rs2: %v", err)
+	}
+
+	mapper := NewSymbolMapper(nil)
+	c := &ServerScriptCompiler{
+		SourcePaths: []string{tmpDir},
+		TypeManager: typ.NewTypeManager(),
+		Mapper:      mapper,
+		CommandPointers: map[string]*pointer.PointerHolder{
+			"p_corrupt": {Corrupted: pointer.NewPointerSet(pointer.ActivePlayer)},
+			"p_kickout": {Required: pointer.NewPointerSet(pointer.ActivePlayer)},
+		},
+		Writer: &noopBinaryOutput{},
+	}
+	c.Setup()
+	// Register p_corrupt and p_kickout as void-returning, no-arg commands so
+	// the parser and type-checker accept `p_corrupt;` / `p_kickout;` in the
+	// proc body. SymbolMapper must also know their opcode ids so codegen
+	// doesn't fail before pointer-check (Run() returns from checkPointersPhase
+	// before writePhase; but codegen still emits Command instructions with the
+	// symbol operand, which doesn't need a mapped opcode id).
+	for _, name := range []string{"p_corrupt", "p_kickout"} {
+		sym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{
+			Trigger:    trigger.CommandTrigger,
+			Name:       name,
+			Parameters: typ.MetaUnit,
+			Returns:    typ.MetaUnit,
+		}}
+		c.RootTable.Insert(symbol.SymbolTypeServerScript(trigger.CommandTrigger), sym)
+	}
+	c.BinaryWriter = NewBinaryScriptWriter(mapper, c.Writer)
+
+	err := c.Run("rs2")
+	if err == nil {
+		t.Fatal("Run with pointer-check errors: got nil error, want non-nil")
+	}
+}
 
 // TestServerScriptCompiler_StructIsConstructable pins that a fresh
 // ServerScriptCompiler literal compiles + has the expected zero-value shape.

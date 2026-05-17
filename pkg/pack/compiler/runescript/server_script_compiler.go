@@ -99,7 +99,11 @@ func (c *ServerScriptCompiler) Run(ext string) error {
 		return err
 	}
 
-	if c.checkPointersPhase(scripts) {
+	halt, err := c.checkPointersPhase(scripts)
+	if err != nil {
+		return err
+	}
+	if halt {
 		return nil // NAI-210-D-EMPTYPOINTERS-RETURNS-FALSE early-return
 	}
 
@@ -237,22 +241,34 @@ func (c *ServerScriptCompiler) codegenPhase(files []*ast.ScriptFile) ([]*codegen
 	return scripts, nil
 }
 
-// checkPointersPhase reports whether the pipeline should halt before write.
-// Mirrors TS ScriptCompiler.checkPointers L388-406. Returns true ("halt")
-// when CommandPointers is empty (NAI-210-D-EMPTYPOINTERS-RETURNS-FALSE) or
-// when the PointerChecker reported diagnostic errors.
-func (c *ServerScriptCompiler) checkPointersPhase(scripts []*codegen.RuneScript) (halt bool) {
+// checkPointersPhase reports whether the pipeline should halt before write
+// and whether pointer-check diagnostics surfaced errors. Mirrors TS
+// ScriptCompiler.checkPointers L388-406.
+//
+// Three outcomes distinguished for caller observability
+// (NAI-211-D-NO-PROCESS-EXIT — Run() surfaces errors via return value
+// rather than process.exit(1)):
+//
+//   - empty CommandPointers (NAI-210-D-EMPTYPOINTERS-RETURNS-FALSE):
+//     halt=true, err=nil — TS-faithful deferral; pipeline returns nil.
+//   - PointerChecker reported diagnostic errors: halt=true, err non-nil
+//     so Run() surfaces them to the caller (smoke-pack / driver).
+//   - no errors: halt=false, err=nil — pipeline proceeds to writePhase.
+func (c *ServerScriptCompiler) checkPointersPhase(scripts []*codegen.RuneScript) (halt bool, err error) {
 	// TS-faithful: NAI-210-D-EMPTYPOINTERS-RETURNS-FALSE early-returns
 	// BEFORE allocating Diagnostics or dispatching the handler. The
 	// pointer-checking Handler is NOT called on this path.
 	if len(c.CommandPointers) < 1 {
-		return true
+		return true, nil
 	}
 	d := &diagnostics.Diagnostics{}
 	checker := NewServerPointerChecker(d, scripts, c.CommandPointers, c.Features, c.collectOverlayInterfaces())
 	checker.Run()
 	c.Handler.HandlePointerChecking(d)
-	return d.HasErrors()
+	if d.HasErrors() {
+		return true, fmt.Errorf("check-pointers: diagnostics reported errors")
+	}
+	return false, nil
 }
 
 // collectOverlayInterfaces harvests the overlay-interface name list passed
