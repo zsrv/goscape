@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"text/tabwriter"
 	"time"
 
 	"github.com/zsrv/goscape/pkg/pack"
@@ -89,9 +90,11 @@ func runSmokePack(args []string, stdout, stderr io.Writer) int {
 	}
 	_ = keep
 	_ = stopOnError
-	_ = stdout
 
+	runStart := time.Now()
 	results := runStages(*contentDir, effectiveOut, effectiveDataPack, logger)
+	totalElapsed := time.Since(runStart)
+	printSummary(stdout, results, totalElapsed)
 
 	anyErr := false
 	for _, r := range results {
@@ -104,6 +107,39 @@ func runSmokePack(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	return 0
+}
+
+// printSummary renders the per-stage report + result line to w.
+// elapsed is the whole-run wall clock for the Result line.
+func printSummary(w io.Writer, results []stageResult, elapsed time.Duration) {
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "STAGE\tSTATUS\tELAPSED\tFILES\tBYTES\tERR")
+	var ok, errCount, skip int
+	for _, r := range results {
+		switch r.Status {
+		case stageOK:
+			ok++
+		case stageErr:
+			errCount++
+		case stageSkip:
+			skip++
+		}
+		elapsedStr := "-"
+		filesStr := "-"
+		bytesStr := "-"
+		errStr := ""
+		if r.Status != stageSkip {
+			elapsedStr = r.Elapsed.Round(time.Millisecond).String()
+			filesStr = fmt.Sprintf("%d", r.OutputFiles)
+			bytesStr = fmt.Sprintf("%d", r.OutputBytes)
+		}
+		if r.Err != nil {
+			errStr = r.Err.Error()
+		}
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", r.Name, r.Status, elapsedStr, filesStr, bytesStr, errStr)
+	}
+	tw.Flush()
+	fmt.Fprintf(w, "\nResult: %d OK, %d ERR, %d SKIP\ttotal elapsed: %s\n", ok, errCount, skip, elapsed.Round(time.Millisecond))
 }
 
 type stageStatus int

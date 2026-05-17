@@ -136,6 +136,40 @@ func TestRunSmokePack_TelemetryPopulated(t *testing.T) {
 	}
 }
 
+// TestRunSmokePack_SummaryTableShape pins the structural properties of
+// the summary table on stdout: header row, one row per stage, a Result
+// line, and OK/ERR/SKIP status values only.
+func TestRunSmokePack_SummaryTableShape(t *testing.T) {
+	dir := t.TempDir()
+	seedSmokeFixture(t, dir)
+	outDir := filepath.Join(dir, "out")
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		t.Fatalf("mkdir out: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	code := runSmokePack([]string{
+		"--content-dir", dir,
+		"--out-dir", outDir,
+	}, &stdout, io.Discard)
+	if code != 0 && code != 1 {
+		t.Fatalf("runSmokePack returned %d, want 0 or 1", code)
+	}
+
+	out := stdout.String()
+	for _, want := range []string{"STAGE", "STATUS", "ELAPSED", "FILES", "BYTES", "PackConfigs", "Maps", "Result:"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("stdout missing %q; got:\n%s", want, out)
+		}
+	}
+	// Status column must only contain OK / ERR / SKIP — surface unexpected tokens.
+	for _, bad := range []string{"PANIC", "?", "FAIL"} {
+		if strings.Contains(out, " "+bad+" ") {
+			t.Errorf("stdout contains unexpected status %q; got:\n%s", bad, out)
+		}
+	}
+}
+
 // TestRunSmokePack_NonExistentContentDirReturns3 pins setup error → exit 3.
 func TestRunSmokePack_NonExistentContentDirReturns3(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "does-not-exist")
