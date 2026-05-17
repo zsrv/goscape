@@ -8,6 +8,14 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/zsrv/goscape/pkg/pack"
+	"github.com/zsrv/goscape/pkg/pack/audio"
+	"github.com/zsrv/goscape/pkg/pack/clientinterface"
+	"github.com/zsrv/goscape/pkg/pack/compiler"
+	"github.com/zsrv/goscape/pkg/pack/graphics"
+	"github.com/zsrv/goscape/pkg/pack/maps"
+	"github.com/zsrv/goscape/pkg/pack/sprites"
+	"github.com/zsrv/goscape/pkg/pack/wordenc"
 	"github.com/zsrv/goscape/pkg/util/log"
 )
 
@@ -67,12 +75,110 @@ func runSmokePack(args []string, stdout, stderr io.Writer) int {
 		return 3
 	}
 
-	// Out-dir lifecycle, stage driver, summary printer land in later tasks.
-	_ = outDir
-	_ = dataPackDir
+	// Out-dir lifecycle lands in Task 5; for now, --out-dir is required.
+	if *outDir == "" {
+		fmt.Fprintln(stderr, "smoke-pack: --out-dir is required (auto-create lands in a later task)")
+		return 3
+	}
+	effectiveOut := *outDir
+	effectiveDataPack := *dataPackDir
+	if effectiveDataPack == "" {
+		effectiveDataPack = effectiveOut
+	}
 	_ = keep
 	_ = stopOnError
 	_ = stdout
-	logger.Info("smoke-pack skeleton — stage driver lands in subsequent tasks")
+
+	results := runStages(*contentDir, effectiveOut, effectiveDataPack, logger)
+
+	anyErr := false
+	for _, r := range results {
+		if r.Status == stageErr {
+			anyErr = true
+			break
+		}
+	}
+	if anyErr {
+		return 1
+	}
 	return 0
+}
+
+type stageStatus int
+
+const (
+	stageOK stageStatus = iota
+	stageErr
+	stageSkip
+)
+
+func (s stageStatus) String() string {
+	switch s {
+	case stageOK:
+		return "OK"
+	case stageErr:
+		return "ERR"
+	case stageSkip:
+		return "SKIP"
+	}
+	return "?"
+}
+
+type stageResult struct {
+	Name   string
+	Status stageStatus
+	Err    error
+}
+
+// runStages drives the 10 PackAll stages best-effort. PackConfigs is
+// special: if it fails, all downstream stages render as SKIP because
+// they consume the *pack.Registry it produces.
+func runStages(srcDir, outDir, dataPackDir string, logger *slog.Logger) []stageResult {
+	pack.ClearFsCache()
+
+	results := make([]stageResult, 0, 11)
+
+	logger.Info("stage_start", "stage", "PackConfigs")
+	reg, err := pack.PackConfigsForRegistry(srcDir, outDir)
+	if err != nil {
+		logger.Error("stage_err", "stage", "PackConfigs", "err", err)
+		results = append(results, stageResult{Name: "PackConfigs", Status: stageErr, Err: err})
+		for _, name := range []string{
+			"ClientInterface", "RunServerCompiler", "Title", "Media", "Texture",
+			"Wordenc", "Sound", "Graphics", "Midi", "Maps",
+		} {
+			results = append(results, stageResult{Name: name, Status: stageSkip})
+		}
+		return results
+	}
+	logger.Info("stage_done", "stage", "PackConfigs")
+	results = append(results, stageResult{Name: "PackConfigs", Status: stageOK})
+
+	type stage struct {
+		name string
+		run  func() error
+	}
+	rest := []stage{
+		{"ClientInterface", func() error { return clientinterface.Pack(reg, srcDir, outDir) }},
+		{"RunServerCompiler", func() error { return compiler.RunServerCompiler(srcDir, outDir, dataPackDir) }},
+		{"Title", func() error { return sprites.PackTitle(srcDir, outDir) }},
+		{"Media", func() error { return sprites.PackMedia(srcDir, outDir) }},
+		{"Texture", func() error { return sprites.PackTexture(reg, srcDir, outDir) }},
+		{"Wordenc", func() error { return wordenc.Pack(srcDir, outDir) }},
+		{"Sound", func() error { return audio.PackSound(reg, srcDir, outDir) }},
+		{"Graphics", func() error { return graphics.Pack(reg, srcDir, outDir) }},
+		{"Midi", func() error { return audio.PackMidi(srcDir, outDir) }},
+		{"Maps", func() error { return maps.Pack(srcDir, outDir) }},
+	}
+	for _, st := range rest {
+		logger.Info("stage_start", "stage", st.name)
+		if err := st.run(); err != nil {
+			logger.Error("stage_err", "stage", st.name, "err", err)
+			results = append(results, stageResult{Name: st.name, Status: stageErr, Err: err})
+			continue
+		}
+		logger.Info("stage_done", "stage", st.name)
+		results = append(results, stageResult{Name: st.name, Status: stageOK})
+	}
+	return results
 }
