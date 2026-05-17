@@ -16,8 +16,6 @@ import (
 //   - pkg/script/          — PointerGroupFind hardening
 func TestNAI202Deviations_Pinned(t *testing.T) {
 	wantTags := []string{
-		"NAI-202-D-CORRUPT2-FIELD",
-		"NAI-202-D-VARN-LOOP-GUARD",
 		"NAI-202-D-CONSTANT-LOOSE-PARSER",
 		"NAI-202-D-POINTER-GROUP-FIND-HARDENED",
 	}

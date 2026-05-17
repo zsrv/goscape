@@ -290,10 +290,11 @@ func TestPopulateCommandInfoFrom_Conditional(t *testing.T) {
 	}
 }
 
-// TestPopulateCommandInfoFrom_Corrupt2FieldFix pins NAI-202-D-CORRUPT2-FIELD:
-// TS Compiler.ts:146-147 had a typo (corrupt2 arm assigned to .corrupt,
-// overwriting). Goscape fixes by assigning corrupt2 to .Corrupt2.
-func TestPopulateCommandInfoFrom_Corrupt2FieldFix(t *testing.T) {
+// TestPopulateCommandInfoFrom_Corrupt2OverwritesCorrupt pins TS-faithful
+// behavior at TS Compiler.ts:147: the corrupt2 arm assigns to
+// commandInfo.corrupt[opcode], overwriting the value written by the
+// corrupt arm one line above. commandInfo.corrupt2 is never populated.
+func TestPopulateCommandInfoFrom_Corrupt2OverwritesCorrupt(t *testing.T) {
 	op := script.Opcode(7)
 	opmap := map[string]script.Opcode{"OP": op}
 	pointers := map[script.Opcode]script.Pointers{
@@ -306,11 +307,11 @@ func TestPopulateCommandInfoFrom_Corrupt2FieldFix(t *testing.T) {
 	info := newTypeInfo()
 	populateCommandInfoFrom(info, opmap, pointers)
 
-	if got, want := info.Corrupt[7], "corrupt_a,corrupt_b"; got != want {
-		t.Errorf("Corrupt[7] = %q, want %q (must NOT be overwritten by corrupt2)", got, want)
+	if got, want := info.Corrupt[7], "corrupt2_x,corrupt2_y"; got != want {
+		t.Errorf("Corrupt[7] = %q, want %q (TS-faithful: corrupt2 arm overwrites Corrupt)", got, want)
 	}
-	if got, want := info.Corrupt2[7], "corrupt2_x,corrupt2_y"; got != want {
-		t.Errorf("Corrupt2[7] = %q, want %q (NAI-202-D-CORRUPT2-FIELD: corrected destination)", got, want)
+	if _, present := info.Corrupt2[7]; present {
+		t.Errorf("Corrupt2[7] present; want absent (TS-faithful: Corrupt2 is never written)")
 	}
 }
 
@@ -915,11 +916,15 @@ func TestEnrichVarpInfo(t *testing.T) {
 	}
 }
 
-// TestEnrichVarnInfo_HappyPath pins TS Compiler.ts:245-253 (corrected
-// per NAI-202-D-VARN-LOOP-GUARD).
+// TestEnrichVarnInfo_HappyPath pins TS Compiler.ts:245-253 with the
+// varpInfo.map[id] loop guard. A varn id is enriched only when a varp
+// exists at the same id slot.
 func TestEnrichVarnInfo_HappyPath(t *testing.T) {
 	varn := newTypeInfo()
 	varn.Add(0, "n0", true)
+
+	varp := newTypeInfo()
+	varp.Add(0, "p0", true)
 
 	configs := &objtype.VarnTypeConfigs{
 		Configs: []*objtype.VarNpcType{
@@ -927,20 +932,21 @@ func TestEnrichVarnInfo_HappyPath(t *testing.T) {
 		},
 	}
 
-	enrichVarnInfo(varn, configs)
+	enrichVarnInfo(varn, varp, configs)
 
 	if got, want := varn.VarType[0], "string"; got != want {
 		t.Errorf("VarType[0] = %q, want %q", got, want)
 	}
 }
 
-// TestEnrichVarnInfo_VarnLoopGuardFix pins NAI-202-D-VARN-LOOP-GUARD: a
-// varn id that has no corresponding varp at the same id MUST still get
-// a vartype emitted. TS Compiler.ts:247 reads `varpInfo.map[id]` (typo);
-// goscape reads varn's own .Map.
-func TestEnrichVarnInfo_VarnLoopGuardFix(t *testing.T) {
+// TestEnrichVarnInfo_VarnOnlyIDSkipped pins TS-faithful behavior at TS
+// Compiler.ts:247: the loop iterates varpInfo.map keys. A varn id with
+// no varp at the same id MUST NOT receive a vartype.
+func TestEnrichVarnInfo_VarnOnlyIDSkipped(t *testing.T) {
 	varn := newTypeInfo()
 	varn.Add(7, "lonely_varn", true) // id=7 — no varp at this id
+
+	varp := newTypeInfo() // empty — no varp ids
 
 	configs := &objtype.VarnTypeConfigs{
 		Configs: make([]*objtype.VarNpcType, 10),
@@ -950,10 +956,10 @@ func TestEnrichVarnInfo_VarnLoopGuardFix(t *testing.T) {
 		Type:       objtype.ScriptVarTypeBoolean,
 	}
 
-	enrichVarnInfo(varn, configs)
+	enrichVarnInfo(varn, varp, configs)
 
-	if got, want := varn.VarType[7], "boolean"; got != want {
-		t.Errorf("VarType[7] = %q, want %q (NAI-202-D-VARN-LOOP-GUARD: varn-only id must enrich)", got, want)
+	if got, present := varn.VarType[7]; present {
+		t.Errorf("VarType[7] = %q present; want absent (TS-faithful: varpInfo.map guard skips varn-only ids)", got)
 	}
 }
 

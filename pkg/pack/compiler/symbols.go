@@ -107,10 +107,10 @@ func populateCommandInfo(info *TypeInfo) {
 // populateCommandInfoFrom is the testable seam under populateCommandInfo.
 // Mirrors TS Compiler.ts:110-150 (allCommands sort + commandInfo build).
 //
-// NAI-202-D-CORRUPT2-FIELD: TS Compiler.ts:146-147 has a typo — the
-// corrupt2 arm assigns to commandInfo.corrupt[opcode] (overwriting
-// commandInfo.corrupt[opcode] just-written one line above) instead of
-// commandInfo.corrupt2[opcode]. Goscape writes to info.Corrupt2[op].
+// TS Compiler.ts:147 writes the corrupt2 arm to commandInfo.corrupt[opcode]
+// (overwriting the corrupt arm assigned one line above) rather than to
+// commandInfo.corrupt2[opcode]. Goscape preserves this behavior for
+// TS parity — info.Corrupt2 is never populated.
 func populateCommandInfoFrom(
 	info *TypeInfo,
 	opmap map[string]script.Opcode,
@@ -157,8 +157,7 @@ func populateCommandInfoFrom(
 		if len(ptrs.Corrupt) > 0 {
 			info.Corrupt[op] = strings.Join(ptrs.Corrupt, ",")
 			if len(ptrs.Corrupt2) > 0 {
-				// NAI-202-D-CORRUPT2-FIELD: write to Corrupt2, not Corrupt.
-				info.Corrupt2[op] = strings.Join(ptrs.Corrupt2, ",")
+				info.Corrupt[op] = strings.Join(ptrs.Corrupt2, ",")
 			}
 		}
 	}
@@ -313,15 +312,17 @@ func enrichVarpInfo(info *TypeInfo, configs *objtype.VarpTypeConfigs) {
 }
 
 // enrichVarnInfo populates varn.VarType from VarNpcType.Type. Mirrors TS
-// Compiler.ts:245-253 with NAI-202-D-VARN-LOOP-GUARD fix: the loop guard
-// reads info.Map[id] (this TypeInfo's own Map), not varpInfo.Map[id]
-// (the TS typo).
-func enrichVarnInfo(info *TypeInfo, configs *objtype.VarnTypeConfigs) {
+// Compiler.ts:245-253 faithfully, including the typo at line 247 where
+// the loop guard reads varpInfo.map[id] (NOT varnInfo.map[id]). Net
+// effect: varn ids without a varp at the same id are skipped, and
+// varp-only ids may still receive a vartype write if a varn config
+// exists at that id slot.
+func enrichVarnInfo(info *TypeInfo, varpInfo *TypeInfo, configs *objtype.VarnTypeConfigs) {
 	if configs == nil {
 		return
 	}
-	for id := 0; id <= info.Max; id++ {
-		if _, ok := info.Map[id]; !ok {
+	for id := 0; id <= varpInfo.Max; id++ {
+		if _, ok := varpInfo.Map[id]; !ok {
 			continue
 		}
 		if id < 0 || id >= len(configs.Configs) {
@@ -516,7 +517,7 @@ func buildSymbolsCore(srcDir string, loaders *configLoaders) (map[string]*TypeIn
 
 	// 6. varp/varn/vars/param vartype + protect enrichments.
 	enrichVarpInfo(varpInfo, loaders.varp)
-	enrichVarnInfo(varnInfo, loaders.varn)
+	enrichVarnInfo(varnInfo, varpInfo, loaders.varn)
 	enrichVarsInfo(varsInfo, loaders.varsCfg)
 	enrichParamInfo(paramInfo, loaders.param)
 
