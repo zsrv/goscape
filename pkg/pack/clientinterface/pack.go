@@ -208,7 +208,7 @@ func packInterface(reg *pack.Registry, srcDir string) (client, server *packet.Pa
 		client.P2(uint16(id))
 
 		server.P2(uint16(id))
-		server.PJStrNUL(interfacePack.GetByID(id))
+		server.PJStrLF(interfacePack.GetByID(id))
 		server.PBool(src["type"] == "overlay")
 
 		comType := nameToType(src["type"])
@@ -346,13 +346,13 @@ func packInterface(reg *pack.Registry, srcDir string) (client, server *packet.Pa
 					}
 					client.P2(uint16(atoiOr0(x)))
 					client.P2(uint16(atoiOr0(y)))
-					client.PJStrNUL(sprite)
+					client.PJStrLF(sprite)
 				} else {
 					client.PBool(false)
 				}
 			}
 			for j := 1; j <= 5; j++ {
-				client.PJStrNUL(src[fmt.Sprintf("option%d", j)])
+				client.PJStrLF(src[fmt.Sprintf("option%d", j)])
 			}
 		case 3:
 			client.PBool(src["fill"] == "yes")
@@ -360,8 +360,8 @@ func packInterface(reg *pack.Registry, srcDir string) (client, server *packet.Pa
 			client.PBool(src["center"] == "yes")
 			client.P1(uint8(nameToFont(src["font"])))
 			client.PBool(src["shadowed"] == "yes")
-			client.PJStrNUL(src["text"])
-			client.PJStrNUL(src["activetext"])
+			client.PJStrLF(src["text"])
+			client.PJStrLF(src["activetext"])
 		}
 
 		if comType == 3 || comType == 4 {
@@ -371,8 +371,8 @@ func packInterface(reg *pack.Registry, srcDir string) (client, server *packet.Pa
 		}
 
 		if comType == 5 {
-			client.PJStrNUL(src["graphic"])
-			client.PJStrNUL(src["activegraphic"])
+			client.PJStrLF(src["graphic"])
+			client.PJStrLF(src["activegraphic"])
 		}
 
 		if comType == 6 {
@@ -436,13 +436,13 @@ func packInterface(reg *pack.Registry, srcDir string) (client, server *packet.Pa
 			}
 			client.PBool(src["interactable"] == "yes")
 			for j := 1; j <= 5; j++ {
-				client.PJStrNUL(src[fmt.Sprintf("option%d", j)])
+				client.PJStrLF(src[fmt.Sprintf("option%d", j)])
 			}
 		}
 
 		if buttonType == 2 || comType == 2 {
-			client.PJStrNUL(src["actionverb"])
-			client.PJStrNUL(src["action"])
+			client.PJStrLF(src["actionverb"])
+			client.PJStrLF(src["action"])
 			flags := 0
 			if target, ok := src["actiontarget"]; ok && target != "" {
 				ts := strings.Split(target, ",")
@@ -466,7 +466,7 @@ func packInterface(reg *pack.Registry, srcDir string) (client, server *packet.Pa
 		}
 
 		if buttonType == 1 || buttonType == 4 || buttonType == 5 || buttonType == 6 {
-			client.PJStrNUL(src["option"])
+			client.PJStrLF(src["option"])
 		}
 	}
 
