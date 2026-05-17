@@ -15,14 +15,16 @@ import (
 // pack.PackAll, returns an exit code.
 //
 // stderr receives both flag-parse error output and slog logger
-// output. The dispatcher in main.go passes os.Stderr.
+// output. stdout is unused — pack has no human-readable success
+// output beyond the logger.
 //
 // Exit codes:
 //
 //	0 — success (or `-h`/`--help` print)
 //	1 — logger init failed or pack.PackAll returned an error
 //	2 — flag parse error
-func runPack(args []string, stderr io.Writer) int {
+func runPack(args []string, stdout, stderr io.Writer) int {
+	_ = stdout // unused
 	fs := flag.NewFlagSet("pack", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 

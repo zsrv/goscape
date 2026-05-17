@@ -19,7 +19,8 @@ import (
 // runescript.Compile on a single .rs2 source file.
 //
 // stderr receives both flag-parse error output and slog logger
-// output. The dispatcher in main.go passes os.Stderr.
+// output. stdout is unused — compile has no human-readable success
+// output beyond the logger.
 //
 // Exit codes:
 //
@@ -27,7 +28,8 @@ import (
 //	1 — symbol load failed, compile failed, logger init failed, or
 //	    temp-dir creation failed
 //	2 — flag parse error or missing/extra positional argument
-func runCompile(args []string, stderr io.Writer) int {
+func runCompile(args []string, stdout, stderr io.Writer) int {
+	_ = stdout // unused
 	fs := flag.NewFlagSet("compile", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 

@@ -58,7 +58,7 @@ func TestRunPack_HappyPath(t *testing.T) {
 	code := runPack([]string{
 		"--src-dir", dir,
 		"--out-dir", outDir,
-	}, &stderr)
+	}, io.Discard, &stderr)
 
 	if code != 0 {
 		t.Fatalf("runPack returned %d, want 0", code)
@@ -89,7 +89,7 @@ func TestRunPack_PackAllErrorReturns1(t *testing.T) {
 	code := runPack([]string{
 		"--src-dir", dir,
 		"--out-dir", outDir,
-	}, io.Discard)
+	}, io.Discard, io.Discard)
 
 	if code != 1 {
 		t.Fatalf("runPack returned %d, want 1", code)
@@ -100,7 +100,7 @@ func TestRunPack_PackAllErrorReturns1(t *testing.T) {
 // flag parse failure (unknown flag).
 func TestRunPack_FlagParseErrorReturns2(t *testing.T) {
 	var stderr bytes.Buffer
-	code := runPack([]string{"--no-such-flag"}, &stderr)
+	code := runPack([]string{"--no-such-flag"}, io.Discard, &stderr)
 	if code != 2 {
 		t.Fatalf("runPack returned %d, want 2", code)
 	}
@@ -115,7 +115,7 @@ func TestRunPack_HelpFlagReturns0(t *testing.T) {
 	for _, arg := range []string{"-h", "--help"} {
 		t.Run(arg, func(t *testing.T) {
 			var stderr bytes.Buffer
-			code := runPack([]string{arg}, &stderr)
+			code := runPack([]string{arg}, io.Discard, &stderr)
 			if code != 0 {
 				t.Fatalf("runPack(%q) returned %d, want 0", arg, code)
 			}

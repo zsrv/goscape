@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -30,7 +31,7 @@ func TestRunCompile_HappyPath_Check(t *testing.T) {
 		"--datapack-dir", dir,
 		"--check",
 		filepath.Join(dir, "scripts", "helper.rs2"),
-	}, &stderr)
+	}, io.Discard, &stderr)
 
 	if code != 0 {
 		t.Fatalf("runCompile returned %d, want 0; stderr=%q", code, stderr.String())
@@ -59,7 +60,7 @@ func TestRunCompile_SourceError(t *testing.T) {
 		"--datapack-dir", dir,
 		"--check",
 		filepath.Join(dir, "scripts", "helper.rs2"),
-	}, &stderr)
+	}, io.Discard, &stderr)
 
 	if code != 1 {
 		t.Fatalf("runCompile returned %d, want 1; stderr=%q", code, stderr.String())
@@ -72,7 +73,7 @@ func TestRunCompile_MissingPath(t *testing.T) {
 	var stderr bytes.Buffer
 	code := runCompile([]string{
 		"--src-dir", "irrelevant",
-	}, &stderr)
+	}, io.Discard, &stderr)
 	if code != 2 {
 		t.Fatalf("runCompile returned %d, want 2", code)
 	}
