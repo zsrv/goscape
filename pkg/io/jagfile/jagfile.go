@@ -197,6 +197,15 @@ func (jf *Jagfile) Save(path string, doNotCompressWhole bool) error {
 		compressWhole = false
 	}
 
+	// Lazy-grow FileWrite to FileCount slots. NewJagfile populates the
+	// per-field arrays but not FileWrite (that's the Write-queue's
+	// output slot), so a load-then-Save round-trip arrives here with
+	// len(FileWrite) < FileCount and would otherwise index-panic in
+	// both loops below.
+	for len(jf.FileWrite) < jf.FileCount {
+		jf.FileWrite = append(jf.FileWrite, nil)
+	}
+
 	// write header
 	buf.P2(uint16(jf.FileCount))
 	for i := range jf.FileCount {
@@ -219,6 +228,11 @@ func (jf *Jagfile) Save(path string, doNotCompressWhole bool) error {
 	// write files
 	for i := range jf.FileCount {
 		data := jf.FileWrite[i]
+		if data == nil {
+			// Entry came from a loaded source and wasn't rewritten via
+			// the Write queue; emit the original packed bytes verbatim.
+			data = jf.Data[jf.FilePos[i] : jf.FilePos[i]+int(jf.FilePackedSize[i])]
+		}
 		buf.PData(data)
 	}
 

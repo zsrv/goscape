@@ -233,6 +233,46 @@ func TestJagfileRename(t *testing.T) {
 	}
 }
 
+// TestJagfile_LoadSaveRoundTripNoWrites pins that a Jagfile loaded
+// from disk can be Save'd again without manually seeding FileWrite.
+// NewJagfile populates FileHash/FileName/Size arrays but not FileWrite
+// (which is the Write/Delete queue's output slot). Before the fix Save
+// panicked on index-out-of-range in the header and payload loops; now
+// it lazy-grows FileWrite and falls back to jf.Data for nil entries.
+func TestJagfile_LoadSaveRoundTripNoWrites(t *testing.T) {
+	jf, err := NewJagfile(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	jf.Write("foo.dat", packet.NewPacket([]byte{0x12, 0x34}))
+	path := filepath.Join(t.TempDir(), "rt.jag")
+	if err := jf.Save(path, false); err != nil {
+		t.Fatalf("initial Save: %v", err)
+	}
+
+	loaded, err := LoadJagfile(path)
+	if err != nil {
+		t.Fatalf("LoadJagfile: %v", err)
+	}
+
+	path2 := filepath.Join(t.TempDir(), "rt2.jag")
+	if err := loaded.Save(path2, false); err != nil {
+		t.Fatalf("re-Save: %v", err)
+	}
+
+	reloaded, err := LoadJagfile(path2)
+	if err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	got, err := reloaded.Read("foo.dat")
+	if err != nil {
+		t.Fatalf("Read: %v", err)
+	}
+	if !bytes.Equal(got.Data, []byte{0x12, 0x34}) {
+		t.Fatalf("round-tripped foo.dat=% x, want 12 34", got.Data)
+	}
+}
+
 func TestJagfile_FreshEmptyWriteSaveRoundTrip(t *testing.T) {
 	jf, err := NewJagfile(nil)
 	if err != nil {

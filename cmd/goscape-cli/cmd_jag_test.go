@@ -33,18 +33,9 @@ func makeTestJagPath(t *testing.T) string {
 		t.Fatalf("NewJagfile: %v", err)
 	}
 	// NewJagfile reverse-resolves FileName[i] from FileHash[i] via
-	// the package's knownNames table (which includes "hitmarks.dat"
-	// at jagfile.go:432), so FileName is already populated here.
-	//
-	// However, NewJagfile parses bytes into FileHash/FileName/Size
-	// arrays only — it does NOT populate FileWrite (the per-entry
-	// blob slice consumed by Save). Save iterates FileWrite[i] for
-	// i in [0, FileCount), so without manual seeding it panics with
-	// index-out-of-range. Inject a one-byte payload to mirror the
-	// fixture's intent. (Plan-codified fixture did not anticipate
-	// this; deviation logged in commit body.)
-	jf.FileWrite = [][]uint8{{0xFF}}
-
+	// the package's knownNames table (which includes "hitmarks.dat"),
+	// so FileName is already populated here. FileWrite stays nil and
+	// Save falls back to the loaded jf.Data for the payload.
 	path := filepath.Join(t.TempDir(), "test.jag")
 	if err := jf.Save(path, false); err != nil {
 		t.Fatalf("Save: %v", err)
@@ -72,9 +63,6 @@ func makeTestJagPathWithUnknownEntry(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("NewJagfile: %v", err)
 	}
-	// Seed FileWrite (see makeTestJagPath for rationale).
-	jf.FileWrite = [][]uint8{{0xFF}}
-
 	path := filepath.Join(t.TempDir(), "test.jag")
 	if err := jf.Save(path, false); err != nil {
 		t.Fatalf("Save: %v", err)
