@@ -34,7 +34,12 @@ func TestNAI194_ValidateDeferred_NoBuildVerifyInParamSource(t *testing.T) {
 	}
 }
 
-func TestNAI194_ParamEmptyClientFaithful(t *testing.T) {
+// packParamConfigs's client output is TS-faithful "empty": p2(count)
+// then count*p1(0). Pinned because the field is the TS contract for
+// the client return even though TS PackShared.ts:323 discards it
+// (`() => {}`) and goscape's packAndSaveParam likewise does not
+// write it into the client jagfile.
+func TestPackParamConfigs_ClientOutputAllZeroPerTSCallback(t *testing.T) {
 	pf := newTestPF("param", map[int]string{0: "a", 1: "b", 2: "c", 3: "d"})
 	cfgs := map[string][]ConfigLine{
 		"a": {{Key: "type", Value: objtype.ScriptVarTypeInt}, {Key: "default", Value: "1"}},
@@ -47,6 +52,6 @@ func TestNAI194_ParamEmptyClientFaithful(t *testing.T) {
 	}
 	want := []byte{0x00, 0x04, 0x00, 0x00, 0x00, 0x00}
 	if !bytes.Equal(client.Dat.Data, want) {
-		t.Fatalf("client.Dat violates EMPTY-CLIENT-FAITHFUL: got % x, want % x", client.Dat.Data, want)
+		t.Fatalf("client.Dat: got % x, want % x", client.Dat.Data, want)
 	}
 }

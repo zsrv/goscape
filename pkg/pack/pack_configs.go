@@ -30,20 +30,18 @@ import (
 // magic 705633567 at PackShared.ts:631-633) deferred — continuation
 // of NAI-191 §2.
 //
-// NAI-194-D-PARAM-EMPTY-CLIENT-FAITHFUL: .param contributes empty
-// param.dat/param.idx to client jagfile; TS callback is no-op (does
-// not contribute to client jag). Preserved for client-jagfile entry
-// completeness.
-//
 // NAI-196-D-UNCONDITIONAL-CLIENT-PACK: .param, .seq, .loc, .flo,
 // .spotanim, .npc, .obj, .idk, .varp run on EVERY PackConfigs
 // invocation regardless of source freshness, matching TS
 // PackShared.ts:337 (`const rebuildClient = true`) which ungates
-// shouldBuild on the eight configs that write to client jag and —
-// per NAI-196 §"R5 resolution" — also on .param so that all
-// client-jagfile entries are always present. NAI-197 extends the
-// scope to the four additional client+server configs ported in that
-// slice (.seq, .flo, .spotanim, .idk). The server-only nine retain
+// shouldBuild on the eight configs that write to client jag, plus
+// .param whose server-side output (param.dat/.idx) other configs
+// (.struct/.loc/.npc/.obj) depend on for parsing — TS gates .param
+// separately at PackShared.ts:315-331 ("We have to pack params for
+// other configs to parse correctly"). .param contributes nothing to
+// the client jagfile (TS callback is `() => {}`). NAI-197 extends
+// the scope to the four additional client+server configs ported in
+// that slice (.seq, .flo, .spotanim, .idk). The server-only nine retain
 // their ShouldBuild + GetLatestModified freshness gates (enumerated
 // in the NAI-192-D-NO-SRC-NO-OP paragraph below). NAI-199 adds two
 // more server-only outputs (category.dat, frame_del.dat) that sit
@@ -133,7 +131,7 @@ func packConfigsCore(srcDir, outDir string, reg *Registry) error {
 	if err := ensureLk(); err != nil {
 		return err
 	}
-	if err := packAndSaveParam(srcDir, serverOut, reg.Param, lk, constants, clientJag); err != nil {
+	if err := packAndSaveParam(srcDir, serverOut, reg.Param, lk, constants); err != nil {
 		return err
 	}
 
@@ -527,28 +525,25 @@ func loadParamLookups(srcDir string, varpPF *PackFile) (*paramLookups, error) {
 	return lk, nil
 }
 
-// packAndSaveParam reads .param sources, packs them, writes server
-// .dat/.idx, and queues the empty-client param entries into clientJag.
+// packAndSaveParam reads .param sources, packs them, and writes the
+// server .dat/.idx. TS callback is server-only — the param branch is
+// not added to the client jagfile (PackShared.ts:323 passes `() => {}`
+// as the read-side callback).
 //
 // TS source: tools/pack/PackShared.ts (param branch of packConfigs).
-func packAndSaveParam(srcDir, serverOut string, pf *PackFile, lk *paramLookups, c Constants, clientJag *jagfile.Jagfile) error {
+func packAndSaveParam(srcDir, serverOut string, pf *PackFile, lk *paramLookups, c Constants) error {
 	cfgs, err := ReadTypedConfigs(srcDir, ".param", nil, parseParamConfig, c)
 	if err != nil {
 		return err
 	}
-	server, client, err := packParamConfigs(cfgs, pf, lk)
+	server, _, err := packParamConfigs(cfgs, pf, lk)
 	if err != nil {
 		return err
 	}
-	if err := server.Save(
+	return server.Save(
 		filepath.Join(serverOut, "param.dat"),
 		filepath.Join(serverOut, "param.idx"),
-	); err != nil {
-		return err
-	}
-	clientJag.Write("param.dat", client.Dat)
-	clientJag.Write("param.idx", client.Idx)
-	return nil
+	)
 }
 
 func packAndSaveEnum(srcDir, serverOut string, pf *PackFile, lk *paramLookups, c Constants) error {

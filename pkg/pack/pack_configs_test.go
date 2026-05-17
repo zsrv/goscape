@@ -544,7 +544,6 @@ func TestPackConfigs_TwentyConfigsLand(t *testing.T) {
 		t.Fatalf("LoadJagfile: %v", err)
 	}
 	expected := []string{
-		"param.dat", "param.idx",
 		"seq.dat", "seq.idx",
 		"loc.dat", "loc.idx",
 		"flo.dat", "flo.idx",
@@ -563,7 +562,6 @@ func TestPackConfigs_TwentyConfigsLand(t *testing.T) {
 		t.Errorf("client jagfile has %d entries, want %d (names=%v)", jag.FileCount, len(expected), jag.FileName)
 	}
 	wantOrder := []string{
-		"param.dat", "param.idx",
 		"seq.dat", "seq.idx",
 		"loc.dat", "loc.idx",
 		"flo.dat", "flo.idx",
