@@ -297,6 +297,105 @@ while (1 < 2) {
 	}
 }
 
+// TestCodeGenerator_ControlFlowBranchesUnsourced pins that synthesised
+// control-flow Branch instructions emitted by visitIfStatement,
+// visitWhileStatement, visitSwitchStatement, and generateCondition carry a
+// zero-value Source location, mirroring TS CodeGenerator.ts which passes
+// `undefined` for source on these instructions (L254, L263, L282, L310-311,
+// L346, L380). The zero source is the load-bearing signal that the
+// LineNumberTable writer (helpers.go:GenerateLineNumberTable) uses to skip
+// these synthetic instructions: a real source line on the back-edge Branch
+// (e.g. the if-statement's line) creates a spurious LineNumberTable entry
+// when control returns from a later body line, inflating script.dat by
+// 8 bytes per occurrence.
+func TestCodeGenerator_ControlFlowBranchesUnsourced(t *testing.T) {
+	cases := []struct {
+		name   string
+		src    string
+		blocks []string // trailing-branch blocks to check
+	}{
+		{
+			name: "if_else",
+			src: `[proc,foo]
+if (1 = 2) {
+} else {
+}
+`,
+			blocks: []string{"if_true_0", "if_else_0"},
+		},
+		{
+			name: "while",
+			src: `[proc,foo]
+while (1 < 2) {
+}
+`,
+			blocks: []string{"while_body_0"},
+		},
+		{
+			name: "switch",
+			src: `[proc,foo](int $x)
+switch_int ($x) {
+  case 1 :
+}
+`,
+			blocks: []string{"switch_0_case_0"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rs := compileForTest(t, tc.src)
+			byName := map[string]*Block{}
+			for _, b := range rs.Blocks {
+				byName[b.Label.Name] = b
+			}
+			for _, name := range tc.blocks {
+				b, ok := byName[name]
+				if !ok {
+					t.Errorf("block %q not found (got %v)", name, blockNames(rs.Blocks))
+					continue
+				}
+				if len(b.Instructions) == 0 {
+					t.Errorf("block %q: empty", name)
+					continue
+				}
+				last := b.Instructions[len(b.Instructions)-1]
+				if last.Opcode != Branch {
+					t.Errorf("block %q: last opcode = %v, want Branch", name, last.Opcode.Name)
+					continue
+				}
+				if last.Source.Line != 0 {
+					t.Errorf("block %q: trailing Branch.Source.Line = %d, want 0 (TS undefined)",
+						name, last.Source.Line)
+				}
+			}
+			// Entry block: the condition's true/false Branch pair (TS L310-311)
+			// also has undefined source.
+			entry := byName["entry"]
+			if entry == nil {
+				t.Fatalf("entry block missing")
+			}
+			for i, in := range entry.Instructions {
+				switch in.Opcode {
+				case Branch, BranchEquals, BranchLessThan, BranchGreaterThan,
+					BranchNot, BranchLessThanOrEquals, BranchGreaterThanOrEquals:
+					if in.Source.Line != 0 {
+						t.Errorf("entry[%d]: %s.Source.Line = %d, want 0 (TS undefined)",
+							i, in.Opcode.Name, in.Source.Line)
+					}
+				}
+			}
+		})
+	}
+}
+
+func blockNames(bs []*Block) []string {
+	out := make([]string, len(bs))
+	for i, b := range bs {
+		out[i] = b.Label.Name
+	}
+	return out
+}
+
 // TestCodeGenerator_GenerateCondition_LogicalAnd pins the recursive chain.
 func TestCodeGenerator_GenerateCondition_LogicalAnd(t *testing.T) {
 	src := `[proc,foo]

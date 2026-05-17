@@ -7,6 +7,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/pack/compiler/ast"
 	"github.com/zsrv/goscape/pkg/pack/compiler/diagnostics"
+	"github.com/zsrv/goscape/pkg/pack/compiler/lexer"
 	"github.com/zsrv/goscape/pkg/pack/compiler/symbol"
 	typ "github.com/zsrv/goscape/pkg/pack/compiler/type"
 )
@@ -32,16 +33,19 @@ func (g *CodeGenerator) visitIfStatement(is *ast.IfStatement) {
 	}
 	g.generateCondition(is.Condition, g.block, ifTrue, falseTarget)
 
-	// if_true block.
+	// if_true block. The trailing Branch carries no source — mirrors TS
+	// CodeGenerator.ts L254 (`this.instruction(Opcode.Branch, ifEnd)` with
+	// undefined source). A real source would inflate LineNumberTable with a
+	// spurious back-edge entry.
 	g.bind(g.generateBlockLabel(ifTrue))
 	g.VisitNodeOrNull(is.ThenStatement)
-	g.Instruction(Branch, ifEnd, is.Source())
+	g.Instruction(Branch, ifEnd, lexer.NodeSourceLocation{})
 
-	// Optional if_else block.
+	// Optional if_else block. Trailing Branch unsourced (TS L263).
 	if ifElse != nil {
 		g.bind(g.generateBlockLabel(ifElse))
 		g.VisitNodeOrNull(is.ElseStatement)
-		g.Instruction(Branch, ifEnd, is.Source())
+		g.Instruction(Branch, ifEnd, lexer.NodeSourceLocation{})
 	}
 
 	// if_end block.
@@ -58,7 +62,8 @@ func (g *CodeGenerator) visitWhileStatement(ws *ast.WhileStatement) {
 
 	g.bind(g.generateBlockLabel(whileBody))
 	g.VisitNodeOrNull(ws.ThenStatement)
-	g.Instruction(Branch, whileStart, ws.Source())
+	// Body's back-edge Branch unsourced (TS L282).
+	g.Instruction(Branch, whileStart, lexer.NodeSourceLocation{})
 
 	g.bind(g.generateBlockLabel(whileEnd))
 }
@@ -92,7 +97,8 @@ func (g *CodeGenerator) visitSwitchStatement(ss *ast.SwitchStatement) {
 		if switchDefault != nil {
 			target = switchDefault
 		}
-		g.Instruction(Branch, target, ss.Source())
+		// Fallthrough Branch unsourced (TS L346).
+		g.Instruction(Branch, target, lexer.NodeSourceLocation{})
 	}
 
 	for _, caseEntry := range ss.Cases {
@@ -122,7 +128,8 @@ func (g *CodeGenerator) visitSwitchStatement(ss *ast.SwitchStatement) {
 		for _, st := range caseEntry.Statements {
 			g.VisitNodeOrNull(st)
 		}
-		g.Instruction(Branch, switchEnd, ss.Source())
+		// Case-trailer Branch unsourced (TS L380).
+		g.Instruction(Branch, switchEnd, lexer.NodeSourceLocation{})
 	}
 
 	g.bind(g.generateBlockLabel(switchEnd))

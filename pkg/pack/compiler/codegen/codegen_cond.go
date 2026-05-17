@@ -127,8 +127,12 @@ func (g *CodeGenerator) generateConditionBinary(opText string, left, right ast.E
 
 	g.VisitNodeOrNull(left)
 	g.VisitNodeOrNull(right)
-	g.Instruction(branchOp, branchTrue, leftSrc(left))
-	g.Instruction(Branch, branchFalse, leftSrc(left))
+	// Condition branches carry no source — mirrors TS CodeGenerator.ts
+	// L310-311 (`undefined` source). leftSrc(left) was emitting a real
+	// source that, while subsumed by prior pushes on the same line in most
+	// cases, is a TS-parity divergence.
+	g.Instruction(branchOp, branchTrue, lexer.NodeSourceLocation{})
+	g.Instruction(Branch, branchFalse, lexer.NodeSourceLocation{})
 	_ = block // present for parity with TS; the active-block contract handles it.
 }
 
@@ -205,10 +209,3 @@ func opShorthand(n ast.Node) string {
 	return fmt.Sprintf("%T", n)
 }
 
-// leftSrc returns the source location of left, or a zero value if nil.
-func leftSrc(left ast.Expression) lexer.NodeSourceLocation {
-	if left == nil {
-		return lexer.NodeSourceLocation{}
-	}
-	return left.Source()
-}
