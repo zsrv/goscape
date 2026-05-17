@@ -22,8 +22,8 @@ import (
 )
 
 // runSmokePack implements the `smoke-pack` verb: a best-effort driver
-// over packall.PackAll's 10 stages with per-stage logging and an
-// end-of-run summary table. See
+// over all 11 packall.PackAll stages (PackConfigs + 10 downstream) with
+// per-stage logging and an end-of-run summary table. See
 // docs/superpowers/specs/2026-05-17-smoke-pack-verb-design.md for the
 // design contract. Stage order mirrors pkg/packall/packall.go.
 //
@@ -140,7 +140,7 @@ type stageResult struct {
 // can log them but still record the stage.
 func walkOutDir(dir string) (int, int64, error) {
 	var files int
-	var bytes int64
+	var totalBytes int64
 	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -154,19 +154,20 @@ func walkOutDir(dir string) (int, int64, error) {
 				return statErr
 			}
 			files++
-			bytes += info.Size()
+			totalBytes += info.Size()
 		}
 		return nil
 	})
 	if err != nil && !os.IsNotExist(err) {
-		return files, bytes, err
+		return files, totalBytes, err
 	}
-	return files, bytes, nil
+	return files, totalBytes, nil
 }
 
-// runStages drives the 10 PackAll stages best-effort. PackConfigs is
-// special: if it fails, all downstream stages render as SKIP because
-// they consume the *pack.Registry it produces.
+// runStages drives all 11 PackAll stages best-effort (PackConfigs + 10
+// downstream). PackConfigs is special: if it fails, all 10 downstream
+// stages render as SKIP because they consume the *pack.Registry it
+// produces.
 func runStages(srcDir, outDir, dataPackDir string, logger *slog.Logger) []stageResult {
 	pack.ClearFsCache()
 
