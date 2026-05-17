@@ -172,6 +172,30 @@ func TestRunJag_ExtractMissingEntry(t *testing.T) {
 	}
 }
 
+// TestSafeBasename verifies the path-traversal guard rejects entries
+// that would escape the dump directory when joined as a leaf.
+func TestSafeBasename(t *testing.T) {
+	for _, tc := range []struct {
+		in   string
+		want bool
+	}{
+		{"hitmarks.dat", true},
+		{"a", true},
+		{"foo.bar.baz", true},
+		{"", false},
+		{".", false},
+		{"..", false},
+		{"../escape.txt", false},
+		{"../../etc/passwd", false},
+		{"a/b", false},
+		{`a\b`, false},
+	} {
+		if got := safeBasename(tc.in); got != tc.want {
+			t.Errorf("safeBasename(%q) = %v, want %v", tc.in, got, tc.want)
+		}
+	}
+}
+
 // TestRunJag_Dump writes every entry into --out <dir>. With a one-
 // entry fixture, asserts <dir>/hitmarks.dat exists with the right
 // bytes.

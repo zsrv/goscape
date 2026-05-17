@@ -218,6 +218,10 @@ func runJagDump(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "jag dump: entry %d: hash 0x%08x not in known-names table, skipping\n", i, jf.FileHash[i])
 			continue
 		}
+		if !safeBasename(name) {
+			fmt.Fprintf(stderr, "jag dump: entry %d: name %q rejected (path traversal)\n", i, name)
+			continue
+		}
 		pkt, err := jf.Get(i)
 		if err != nil {
 			fmt.Fprintf(stderr, "jag dump: %s: %v\n", name, err)
@@ -229,4 +233,16 @@ func runJagDump(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 	return 0
+}
+
+// safeBasename reports whether name is safe to use as the leaf of
+// filepath.Join(outDir, name) — i.e. it can't escape outDir via "..",
+// path separators, or the special "." entry. Defends against untrusted
+// jagfile sources; today's knownNames table contains only safe names,
+// but a future loader pulling names from arbitrary archives needs this.
+func safeBasename(name string) bool {
+	if name == "" || name == "." || name == ".." {
+		return false
+	}
+	return !strings.ContainsAny(name, `/\`)
 }
