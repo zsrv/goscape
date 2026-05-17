@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 // seedSmokeFixture mirrors seedMinimalPackFixture (cmd_pack_test.go) and
@@ -55,7 +54,7 @@ func TestRunSmokePack_AllStagesRunBestEffort(t *testing.T) {
 
 	// We don't pin "all stages pass" — that depends on stage-specific
 	// behavior against a minimal fixture, which is exactly what the
-	// smoke surfaces. We DO pin: the driver ran all 10 stages and exit
+	// smoke surfaces. We DO pin: the driver ran all 11 stages and exit
 	// is 0 or 1 (not panic, not 3).
 	if code != 0 && code != 1 {
 		t.Fatalf("runSmokePack returned %d, want 0 or 1", code)
@@ -135,8 +134,6 @@ func TestRunSmokePack_TelemetryPopulated(t *testing.T) {
 			t.Errorf("stderr missing telemetry field %s; got:\n%s", field, stderr.String())
 		}
 	}
-	// Suppress unused-import warning during fail-first run.
-	_ = time.Now()
 }
 
 // TestRunSmokePack_NonExistentContentDirReturns3 pins setup error → exit 3.
