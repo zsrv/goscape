@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -158,7 +159,7 @@ func printSummary(w io.Writer, results []stageResult, elapsed time.Duration) {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", r.Name, r.Status, elapsedStr, filesStr, bytesStr, errStr)
 	}
 	tw.Flush()
-	fmt.Fprintf(w, "\nResult: %d OK, %d ERR, %d SKIP\ttotal elapsed: %s\n", ok, errCount, skip, elapsed.Round(time.Millisecond))
+	fmt.Fprintf(w, "\nResult: %d OK, %d ERR, %d SKIP  total elapsed: %s\n", ok, errCount, skip, elapsed.Round(time.Millisecond))
 }
 
 type stageStatus int
@@ -198,7 +199,7 @@ func walkOutDir(dir string) (int, int64, error) {
 	var totalBytes int64
 	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
-			if os.IsNotExist(err) {
+			if errors.Is(err, fs.ErrNotExist) {
 				return nil
 			}
 			return err
@@ -213,7 +214,7 @@ func walkOutDir(dir string) (int, int64, error) {
 		}
 		return nil
 	})
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return files, totalBytes, err
 	}
 	return files, totalBytes, nil
