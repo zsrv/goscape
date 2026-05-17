@@ -36,7 +36,7 @@ func seedSmokeFixture(t *testing.T, dir string) {
 }
 
 // TestRunSmokePack_AllStagesRunBestEffort verifies that against the
-// synthetic fixture, the driver runs all 10 stages (no early return)
+// synthetic fixture, the driver runs all 11 stages (no early return)
 // and returns 0 if all stages succeed.
 func TestRunSmokePack_AllStagesRunBestEffort(t *testing.T) {
 	dir := t.TempDir()
