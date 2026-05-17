@@ -19,8 +19,9 @@ type SpriteMeta struct {
 // W/H the crop/pixel-order from meta is used instead.
 //
 // Indexing terminates early (TS uses `break`) when an unknown RGB
-// value is encountered; the corresponding pixel and all subsequent
-// pixels for this frame are dropped.
+// value is encountered. In row-major (pixelOrder==0) this drops the
+// rest of the frame; in column-major (pixelOrder==1) it drops only
+// the rest of the current column — the outer x-loop continues.
 func WriteImage(img *Bitmap, data, index *packet.Packet, colors []int32, meta *SpriteMeta) {
 	left := 0
 	top := 0
@@ -63,7 +64,7 @@ func WriteImage(img *Bitmap, data, index *packet.Packet, colors []int32, meta *S
 
 			idx := indexOf(colors, rgb)
 			if idx == -1 {
-				return
+				break
 			}
 			data.P1(uint8(idx))
 		}
@@ -83,7 +84,7 @@ func WriteImage(img *Bitmap, data, index *packet.Packet, colors []int32, meta *S
 
 				idx := indexOf(colors, rgb)
 				if idx == -1 {
-					return
+					break
 				}
 				data.P1(uint8(idx))
 			}
