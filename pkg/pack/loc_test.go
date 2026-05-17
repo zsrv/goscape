@@ -42,8 +42,8 @@ func locTestRegistries(t *testing.T) (modelPack, categoryPack, seqPack, textureP
 // ── Parser tests ────────────────────────────────────────────────────────────
 
 func TestParseLocConfig_Name(t *testing.T) {
-	mp, cp, sp, tp, pt, lk := locTestRegistries(t)
-	parse := parseLocConfigFor(mp, cp, sp, tp, lk, pt)
+	_, cp, sp, tp, pt, lk := locTestRegistries(t)
+	parse := parseLocConfigFor(cp, sp, tp, lk, pt)
 
 	val, accepted, err := parse("name", "Table")
 	if err != nil {
@@ -59,8 +59,8 @@ func TestParseLocConfig_Name(t *testing.T) {
 }
 
 func TestParseLocConfig_Width(t *testing.T) {
-	mp, cp, sp, tp, pt, lk := locTestRegistries(t)
-	parse := parseLocConfigFor(mp, cp, sp, tp, lk, pt)
+	_, cp, sp, tp, pt, lk := locTestRegistries(t)
+	parse := parseLocConfigFor(cp, sp, tp, lk, pt)
 
 	val, accepted, err := parse("width", "3")
 	if err != nil {
@@ -76,8 +76,8 @@ func TestParseLocConfig_Width(t *testing.T) {
 }
 
 func TestParseLocConfig_Param(t *testing.T) {
-	mp, cp, sp, tp, pt, lk := locTestRegistries(t)
-	parse := parseLocConfigFor(mp, cp, sp, tp, lk, pt)
+	_, cp, sp, tp, pt, lk := locTestRegistries(t)
+	parse := parseLocConfigFor(cp, sp, tp, lk, pt)
 
 	val, accepted, err := parse("param", "flammable,1")
 	if err != nil {
@@ -103,8 +103,8 @@ func TestParseLocConfig_Param(t *testing.T) {
 }
 
 func TestParseLocConfig_UnknownKey(t *testing.T) {
-	mp, cp, sp, tp, pt, lk := locTestRegistries(t)
-	parse := parseLocConfigFor(mp, cp, sp, tp, lk, pt)
+	_, cp, sp, tp, pt, lk := locTestRegistries(t)
+	parse := parseLocConfigFor(cp, sp, tp, lk, pt)
 
 	val, accepted, err := parse("zzz_unknown", "value")
 	if err != nil {

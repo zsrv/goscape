@@ -784,7 +784,7 @@ func packAndSaveStruct(srcDir, serverOut string, pf *PackFile, paramTypes *objty
 //
 // TS source: tools/pack/config/LocConfig.ts:172-432.
 func packAndSaveLoc(srcDir, serverOut string, locPack, modelPack, categoryPack, seqPack, texturePack *PackFile, lk *paramLookups, paramTypes *objtype.ParamTypeConfigs, c Constants, clientJag *jagfile.Jagfile) error {
-	parse := parseLocConfigFor(modelPack, categoryPack, seqPack, texturePack, lk, paramTypes)
+	parse := parseLocConfigFor(categoryPack, seqPack, texturePack, lk, paramTypes)
 	cfgs, err := ReadTypedConfigs(srcDir, ".loc", nil, parse, c)
 	if err != nil {
 		return err

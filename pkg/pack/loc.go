@@ -101,11 +101,13 @@ var locStringKeys = map[string]struct{}{
 }
 
 // parseLocConfigFor returns the per-key=value parser for .loc config
-// blocks. Closure-captures four name-map registries plus paramLookups +
-// ParamTypeConfigs for `param=` resolution.
+// blocks. Closure-captures three name-map registries plus paramLookups +
+// ParamTypeConfigs for `param=` resolution. `model{N}` values pass
+// through raw — model resolution is deferred to the packer
+// (resolveLocModels), matching TS LocConfig.ts:41.
 //
 // TS source: tools/pack/config/LocConfig.ts:35-168.
-func parseLocConfigFor(modelPack, categoryPack, seqPack, texturePack *PackFile, lk *paramLookups, paramTypes *objtype.ParamTypeConfigs) ParseFn {
+func parseLocConfigFor(categoryPack, seqPack, texturePack *PackFile, lk *paramLookups, paramTypes *objtype.ParamTypeConfigs) ParseFn {
 	return func(key, value string) (ConfigValue, bool, error) {
 		// Strict-named simple cases first.
 
