@@ -39,6 +39,29 @@ func TestLibbzip2Parity(t *testing.T) {
 			}
 			return b
 		}()},
+		// Multi-block inputs exercise the RLE state-carry-over across block
+		// boundaries (mirrors libbzip2 state_in_ch/state_in_len; see rle1.go).
+		// Before the carry-over port, these diverged by a few bytes (smoke-pack
+		// Graphics/client/models residual).
+		{"multi_block_runs_at_boundary", func() []byte {
+			b := make([]byte, 0, 200000)
+			for i := 0; i < 90000; i++ {
+				b = append(b, byte(i*7))
+			}
+			b = append(b, bytes.Repeat([]byte{'A'}, 50000)...)
+			for i := 0; i < 60000; i++ {
+				b = append(b, byte(i*13+1))
+			}
+			return b
+		}()},
+		{"multi_block_pure_run", bytes.Repeat([]byte{'A'}, 200000)},
+		{"multi_block_long_input", func() []byte {
+			b := make([]byte, 456725)
+			for i := range b {
+				b[i] = byte(i*131 ^ (i >> 5))
+			}
+			return b
+		}()},
 	}
 
 	for _, tc := range cases {

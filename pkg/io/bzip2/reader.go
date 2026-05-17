@@ -120,7 +120,7 @@ func (zr *Reader) Read(buf []byte) (int, error) {
 				zr.endCRC = (zr.endCRC<<1 | zr.endCRC>>31) ^ zr.blkCRC
 			}
 			buf := zr.decodeBlock()
-			zr.rle.Init(buf)
+			zr.rle.Init(buf, len(buf))
 		}()
 		if zr.InputOffset, err = zr.rd.Flush(); zr.err == nil {
 			zr.err = err
@@ -134,7 +134,7 @@ func (zr *Reader) Read(buf []byte) (int, error) {
 
 func (zr *Reader) Close() error {
 	if zr.err == io.EOF || zr.err == errClosed {
-		zr.rle.Init(nil) // Make sure future reads fail
+		zr.rle.Init(nil, 0) // Make sure future reads fail
 		zr.err = errClosed
 		return nil
 	}

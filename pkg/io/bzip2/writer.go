@@ -76,14 +76,21 @@ func (zw *Writer) Reset(w io.Writer) error {
 		trees1D:     zw.trees1D,
 	}
 	zw.wr.Init(w)
-	// Block size cap mirrors libbzip2 bzlib.c:194 — `nblockMAX = 100000 *
-	// blockSize100k - 19`. The 19-byte safety overhead is needed for byte-
-	// identical output: without it, dsnet/compress packs ~19 extra post-RLE
-	// bytes into each block, shifting all subsequent block boundaries.
-	if len(zw.buf) != zw.level*blockSize-19 {
-		zw.buf = make([]byte, zw.level*blockSize-19)
+	// Block sizing mirrors libbzip2 bzlib.c:194 — `nblockMAX = 100000 *
+	// blockSize100k - 19`. The soft cap (maxIdx) stops feeding chars when
+	// idx ≥ nblockMAX; the physical buf is sized to nblockMAX + 5 so a
+	// final pair-flush (up to 5 bytes) past the cap always fits, matching
+	// libbzip2's behavior where nblock may grow to nblockMAX+4 (see
+	// ADD_PAIR_TO_BLOCK and bzlib.c:298,314 break-after-overflow).
+	nblockMAX := zw.level*blockSize - 19
+	// Physical = nblockMAX + 10 covers worst-case Write end-state
+	// (idx ≤ nblockMAX+4 after a final pair-flush past the cap) plus one
+	// more 5-byte pair-flush from Close's flush_RL-equivalent.
+	physical := nblockMAX + 10
+	if len(zw.buf) != physical {
+		zw.buf = make([]byte, physical)
 	}
-	zw.rle.Init(zw.buf)
+	zw.rle.Init(zw.buf, nblockMAX)
 	return nil
 }
 
@@ -94,11 +101,10 @@ func (zw *Writer) Write(buf []byte) (int, error) {
 
 	cnt := len(buf)
 	for {
-		wrCnt, err := zw.rle.Write(buf)
+		wrCnt, err := zw.rle.Write(buf, &zw.crc)
 		if err != rleDone && zw.err == nil {
 			zw.err = err
 		}
-		zw.crc.update(buf[:wrCnt])
 		buf = buf[wrCnt:]
 		if len(buf) == 0 {
 			zw.InputOffset += int64(cnt)
@@ -137,7 +143,8 @@ func (zw *Writer) flush() error {
 	}
 	zw.endCRC = (zw.endCRC<<1 | zw.endCRC>>31) ^ zw.blkCRC
 	zw.blkCRC = 0
-	zw.rle.Init(zw.buf)
+	// Preserve pending RLE state across block boundaries to match libbzip2.
+	zw.rle.ResetBuf()
 	return nil
 }
 
@@ -146,6 +153,11 @@ func (zw *Writer) Close() error {
 		return nil
 	}
 
+	// Drain any pending RLE state into buf — mirrors libbzip2 flush_RL
+	// (bzlib.c:252-256) called from BZ2_bzCompress at end-of-stream.
+	// Physical buf is sized maxIdx+10 (≥ worst-case Write end-state of
+	// maxIdx+4 plus a final 5-byte pair-flush), so this can't overflow.
+	zw.rle.EmitPending(&zw.crc)
 	// Flush RLE buffer if there is left-over data.
 	if zw.err = zw.flush(); zw.err != nil {
 		return zw.err
