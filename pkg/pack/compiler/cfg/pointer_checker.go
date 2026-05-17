@@ -417,9 +417,16 @@ func (p *PointerChecker) getAnalysis(script *codegen.RuneScript) *scriptPointerA
 	setArr := make([][]*InstructionNode, pointerCount)
 	corrupted := make([][]*InstructionNode, pointerCount)
 	var returns []*InstructionNode
-	staticLabelArgsByCall := p.buildStaticLabelArgsByCall(script)
-	// Pre-populate getJumpParamNodes cache.
-	p.getJumpParamNodes(script)
+	// StrictFeatureLevel.DisableStaticLabelArgPropagation matches
+	// RuneScriptTS v0.9.4 (pre-50c9bb1): no opportunistic label-ref pointer
+	// checking. With propagation off, the static-arg map is left empty and
+	// the per-instruction propagation in the Gosub/Jump arm below becomes
+	// a no-op; the getJumpParamNodes cache is also unused.
+	staticLabelArgsByCall := map[*codegen.Instruction]map[int]symbol.Symbol{}
+	if !p.features.DisableStaticLabelArgPropagation {
+		staticLabelArgsByCall = p.buildStaticLabelArgsByCall(script)
+		p.getJumpParamNodes(script)
+	}
 
 	for _, node := range graph {
 		// Synthetic pointer-set node (no instruction, has PointerSet).

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/zsrv/goscape/pkg/pack/compiler/runescript"
+	"github.com/zsrv/goscape/pkg/pack/compiler/semantics"
 )
 
 // RunServerCompiler is the goscape equivalent of TS runServerCompiler's
@@ -53,6 +54,18 @@ func runServerCompilerCore(srcDir, outDir string, loaders *configLoaders) error 
 	cfg := runescript.Config{
 		SourcePaths: []string{filepath.Join(srcDir, "scripts")},
 		Symbols:     bridged,
+		// Match Engine-TS's bundled @lostcityrs/runescript@0.9.4 leniency:
+		// disable the two RuneScriptTS-HEAD pointer-checker features that
+		// post-date v0.9.4 (overlay-aware IF_BUTTON P_ACTIVE_PLAYER
+		// override + opportunistic static-label-arg propagation). Direct
+		// runescript.Compile callers keep the strict (zero-value)
+		// RuneScriptTS-HEAD defaults; the goscape compile boundary picks
+		// leniency because real Content scripts were authored against
+		// v0.9.4. See memory pointer_checker_runescriptts_version_divergence.
+		Features: semantics.StrictFeatureLevel{
+			DisableOverlayInterfaceProtection: true,
+			DisableStaticLabelArgPropagation:  true,
+		},
 		Writer: runescript.WriterConfig{
 			Jag: &runescript.JagWriterConfig{Output: serverOut},
 		},

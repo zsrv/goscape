@@ -27,4 +27,24 @@ type StrictFeatureLevel struct {
 	DisableQueueTyped       bool // TS queueTyped (default true; disabled → typed queue variants rejected)
 	DisablePointerInversion bool // TS pointerInversion (default true; disabled → conditional pointer-setter inversion rejected)
 	TopLevelDefOnly         bool // TS topLevelDefOnly (default false; enabling rejects non-top-level def_T)
+
+	// DisableOverlayInterfaceProtection skips ServerPointerChecker's
+	// IF_BUTTON/INV_BUTTON* overlay-aware P_ACTIVE_PLAYER override
+	// (RuneScriptTS commit fe0ae0a "feat: Conditionally set
+	// p_active_player on if_button/inv_button triggers"). When true the
+	// override is short-circuited and the base default
+	// `script.trigger.pointers.has(pt)` runs unchanged — matching the
+	// behaviour of `@lostcityrs/runescript@0.9.4` bundled by Engine-TS.
+	// RunServerCompiler sets this to true so goscape's compile output
+	// stays Engine-TS-compatible against real Content; the strict (zero)
+	// default tracks RuneScriptTS HEAD when callers wire Compile directly.
+	DisableOverlayInterfaceProtection bool
+	// DisableStaticLabelArgPropagation skips PointerChecker's
+	// buildStaticLabelArgsByCall / addStaticLabelRequirements stage
+	// (RuneScriptTS commit 50c9bb1 "feat: Opportunistic label reference
+	// pointer checking"). When true, label-typed args passed
+	// PushConstantSymbol-style do not contribute required-pointer
+	// edges to the caller — matching the bundled v0.9.4 behaviour.
+	// Same RunServerCompiler default as above.
+	DisableStaticLabelArgPropagation bool
 }

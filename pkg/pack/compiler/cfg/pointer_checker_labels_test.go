@@ -73,3 +73,62 @@ func TestPointerChecker_LabelJump_RequirementPropagates(t *testing.T) {
 		t.Fatalf("expected at least one error diagnostic from label propagation; got %v", d.List())
 	}
 }
+
+// TestPointerChecker_LabelJump_DisableStaticLabelArgPropagation pins the
+// inverse of the previous test: with the propagation flag disabled, the
+// same fixture produces no errors because static-label-arg requirements
+// stop reaching the caller. Matches RuneScriptTS v0.9.4 bundled in
+// Engine-TS.
+func TestPointerChecker_LabelJump_DisableStaticLabelArgPropagation(t *testing.T) {
+	procTr := &trigger.TriggerType{ID: 0, Identifier: "proc"}
+	labelTr := &trigger.TriggerType{ID: 1, Identifier: "label", Pointers: pointer.NewPointerSet(pointer.ActivePlayer)}
+
+	labelSym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: labelTr, Name: "mylabel"}}
+	labelScript := codegen.NewRuneScript("test.rs2", labelSym, labelTr, "mylabel", nil)
+	lb := codegen.NewBlock(&codegen.Label{Name: "entry"})
+	require := makeCommandSymbol("p_kickout")
+	lb.Add(codegen.Instruction{Opcode: codegen.Command, Operand: require})
+	lb.Add(codegen.Instruction{Opcode: codegen.Return})
+	labelScript.Blocks = []*codegen.Block{lb}
+
+	labelMetaType := typ.NewMetaScript("label", typ.PrimitiveInt, typ.PrimitiveInt)
+	consumerSym := &symbol.ServerScriptSymbol{
+		ScriptSymbolFields: symbol.ScriptSymbolFields{
+			Trigger:    procTr,
+			Name:       "consumer",
+			Parameters: labelMetaType,
+		},
+	}
+	consumerScript := codegen.NewRuneScript("test.rs2", consumerSym, procTr, "consumer", nil)
+	cb := codegen.NewBlock(&codegen.Label{Name: "entry"})
+	labelParam := &symbol.LocalVariableSymbol{Name: "lbl", Type: labelMetaType}
+	consumerScript.Locals = &codegen.LocalTable{
+		Parameters: []*symbol.LocalVariableSymbol{labelParam},
+		All:        []*symbol.LocalVariableSymbol{labelParam},
+	}
+	jumpCmd := makeCommandSymbol("jump")
+	cb.Add(codegen.Instruction{Opcode: codegen.PushLocalVar, Operand: labelParam})
+	cb.Add(codegen.Instruction{Opcode: codegen.Command, Operand: jumpCmd})
+	cb.Add(codegen.Instruction{Opcode: codegen.Return})
+	consumerScript.Blocks = []*codegen.Block{cb}
+
+	callerSym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procTr, Name: "caller"}}
+	callerScript := codegen.NewRuneScript("test.rs2", callerSym, procTr, "caller", nil)
+	calb := codegen.NewBlock(&codegen.Label{Name: "entry"})
+	calb.Add(codegen.Instruction{Opcode: codegen.PushConstantSymbol, Operand: labelSym})
+	calb.Add(codegen.Instruction{Opcode: codegen.Gosub, Operand: consumerSym})
+	calb.Add(codegen.Instruction{Opcode: codegen.Return})
+	callerScript.Blocks = []*codegen.Block{calb}
+
+	cp := map[string]*pointer.PointerHolder{
+		"p_kickout": {Required: pointer.NewPointerSet(pointer.ActivePlayer)},
+	}
+	d := &diagnostics.Diagnostics{}
+	feats := semantics.StrictFeatureLevel{DisableStaticLabelArgPropagation: true}
+	pc := NewPointerChecker(d, []*codegen.RuneScript{labelScript, consumerScript, callerScript}, cp, feats)
+	pc.Run()
+
+	if errs := errorDiagnostics(d); len(errs) != 0 {
+		t.Fatalf("with propagation disabled, expected zero error diagnostics; got %v", errs)
+	}
+}

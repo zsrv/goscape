@@ -63,6 +63,7 @@ var buttonTriggerIDs = map[int]struct{}{
 type ServerPointerChecker struct {
 	*cfg.PointerChecker
 	overlayInterfaces map[string]struct{}
+	features          semantics.StrictFeatureLevel
 }
 
 // NewServerPointerChecker constructs the override and wires the polymorphic
@@ -84,6 +85,7 @@ func NewServerPointerChecker(
 	s := &ServerPointerChecker{
 		PointerChecker:    base,
 		overlayInterfaces: overlay,
+		features:          features,
 	}
 	// Install the polymorphic hook.
 	base.SetSetsPointerTriggerFn(s.setsPointerTrigger)
@@ -96,6 +98,16 @@ func (s *ServerPointerChecker) setsPointerTrigger(script *codegen.RuneScript, pt
 	}
 	if _, ok := buttonTriggerIDs[script.Trigger.ID]; !ok {
 		return s.PointerChecker.DefaultSetsPointerTrigger(script, pt)
+	}
+	// pt == PActivePlayer and the trigger is in the button family.
+	// StrictFeatureLevel.DisableOverlayInterfaceProtection matches the
+	// behaviour of RuneScriptTS v0.9.4 (pre-fe0ae0a): every button
+	// trigger unconditionally sets P_ACTIVE_PLAYER (the v0.9.4 trigger
+	// table simply listed it in `pointers`). HEAD removed P_ACTIVE_PLAYER
+	// from those Pointer sets and now conditionally re-adds it here based
+	// on overlay status of the subject interface.
+	if s.features.DisableOverlayInterfaceProtection {
+		return true
 	}
 	subj := script.SubjectReference
 	if subj == nil {

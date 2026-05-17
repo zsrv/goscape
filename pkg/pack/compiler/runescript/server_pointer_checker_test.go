@@ -44,6 +44,28 @@ func TestServerPointerChecker_PActivePlayer_Overlay_ButtonTriggerDoesNotSet(t *t
 	}
 }
 
+func TestServerPointerChecker_DisableOverlayInterfaceProtection_AlwaysSetsOnButtons(t *testing.T) {
+	// With the flag set, P_ACTIVE_PLAYER is always set by any button
+	// trigger regardless of subject-interface overlay status — matching
+	// RuneScriptTS v0.9.4 bundled in Engine-TS, whose button triggers
+	// listed P_ACTIVE_PLAYER directly in their `pointers` set. The
+	// goscape trigger table (server_trigger_type.go) follows HEAD and
+	// omits it; the gate restores v0.9.4-equivalent semantics.
+	feats := semantics.StrictFeatureLevel{DisableOverlayInterfaceProtection: true}
+	overlayed := newIfButtonScript("overlay_x", "if_button")
+	d := &diagnostics.Diagnostics{}
+	spc := NewServerPointerChecker(d, []*codegen.RuneScript{overlayed}, map[string]*pointer.PointerHolder{}, feats, []string{"Overlay X"})
+	if !spc.PointerChecker.SetsPointerTrigger(overlayed, pointer.PActivePlayer) {
+		t.Error("with DisableOverlayInterfaceProtection, P_ACTIVE_PLAYER must be set on overlay subjects too")
+	}
+	plain := newIfButtonScript("inv", "if_button")
+	d2 := &diagnostics.Diagnostics{}
+	spc2 := NewServerPointerChecker(d2, []*codegen.RuneScript{plain}, map[string]*pointer.PointerHolder{}, feats, nil)
+	if !spc2.PointerChecker.SetsPointerTrigger(plain, pointer.PActivePlayer) {
+		t.Error("with DisableOverlayInterfaceProtection, non-overlay buttons must still set P_ACTIVE_PLAYER")
+	}
+}
+
 func TestServerPointerChecker_OtherPointers_DelegateToBase(t *testing.T) {
 	rs := newIfButtonScript("inv", "if_button")
 	rs.Trigger.Pointers = pointer.NewPointerSet(pointer.ActiveNpc)
