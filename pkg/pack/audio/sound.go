@@ -47,6 +47,7 @@ func PackSound(reg *pack.Registry, srcDir, outDir string) error {
 
 	jag := jagfile.NewEmptyJagfile(false)
 	out := packet.Alloc(5)
+	defer out.Release()
 
 	for _, id := range order {
 		name := synthPack.GetByID(id)
@@ -65,8 +66,6 @@ func PackSound(reg *pack.Registry, srcDir, outDir string) error {
 		out.PData(data)
 	}
 	out.P2(0xffff) // TS out.p2(-1) terminator
-
-	_ = soundCRCMagic // retain constant; see NAI-213-D-SOUND-CRC-DISABLED-MIRROR-TS
 
 	jag.Write("sounds.dat", out)
 
