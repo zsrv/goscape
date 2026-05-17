@@ -134,6 +134,35 @@ func TestPack_StringFieldsRoundTrip(t *testing.T) {
 	}
 }
 
+// TestAtoiOr0 pins parseInt-equivalent semantics for 0x/0X-prefixed hex,
+// the form Content uses for colour/activecolour/overcolour. Without the
+// hex branch, strconv.Atoi returns 0 for every "0xRRGGBB", zeroing all
+// label/rect/paragraph colour P4s and diverging from TS at offset ~3430
+// of the client/interface payload on real Content.
+func TestAtoiOr0(t *testing.T) {
+	tests := []struct {
+		in   string
+		want int
+	}{
+		{"", 0},
+		{"0", 0},
+		{"123", 123},
+		{"-7", -7},
+		{"0xFF0000", 0xFF0000},
+		{"0xFFFFFF", 0xFFFFFF},
+		{"0X00FF00", 0x00FF00},
+		{"0xff0000", 0xff0000},
+		{"0xFF000000", -16777216}, // 0xFF000000 wraps to int32 -16777216
+		{"abc", 0},
+		{"0xZZ", 0},
+	}
+	for _, tt := range tests {
+		if got := atoiOr0(tt.in); got != tt.want {
+			t.Errorf("atoiOr0(%q) = %d, want %d", tt.in, got, tt.want)
+		}
+	}
+}
+
 func TestPack_MissingSrcReturnsNil(t *testing.T) {
 	tmp := t.TempDir()
 	reg := &pack.Registry{SrcDir: filepath.Join(tmp, "src")}

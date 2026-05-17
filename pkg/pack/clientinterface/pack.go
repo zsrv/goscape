@@ -473,7 +473,19 @@ func packInterface(reg *pack.Registry, srcDir string) (client, server *packet.Pa
 	return client, server, nil
 }
 
+// atoiOr0 ports TS PackShared.ts uses of parseInt(s).
+//
+// JS parseInt auto-detects a leading "0x"/"0X" prefix as hex; strconv.Atoi
+// is strict base-10 and errors on the prefix, silently returning 0. Without
+// this branch, every colour/activecolour/overcolour field in a Content
+// .if file (all written as 0xRRGGBB hex literals) zeros out, producing
+// a 297761-byte client/interface payload whose bytes diverge from TS at
+// the first comType==4 colour P4.
 func atoiOr0(s string) int {
+	if strings.HasPrefix(s, "0x") || strings.HasPrefix(s, "0X") {
+		n, _ := strconv.ParseUint(s[2:], 16, 64)
+		return int(int32(uint32(n)))
+	}
 	n, _ := strconv.Atoi(s)
 	return n
 }
