@@ -12,7 +12,7 @@ import (
 	"github.com/zsrv/goscape/pkg/pack"
 )
 
-// soundCRCMagic is the TS sound/pack.ts:46 BUILD_VERIFY constant.
+// soundCRCMagic is the TS sound/pack.ts:46 build-verify constant.
 //
 // NAI-213-D-SOUND-CRC-DISABLED-MIRROR-TS: TS has the CRC check
 // commented out; we mirror, retaining the constant for future activation.

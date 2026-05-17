@@ -23,7 +23,12 @@ import (
 // Reads 4 PNGs from <srcDir>/title, 4 fonts from <srcDir>/fonts, and
 // raw title.jpg from <srcDir>/binary. Bundles into Jagfile at
 // <outDir>/client/title.
+//
+// NAI-192-D-NO-SRC-NO-OP mirror: missing <srcDir>/title → no-op cleanly.
 func PackTitle(srcDir, outDir string) error {
+	if _, err := os.Stat(filepath.Join(srcDir, "title")); os.IsNotExist(err) {
+		return nil
+	}
 	index := packet.Alloc(3)
 
 	type entry struct{ name, subdir string }

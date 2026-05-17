@@ -7,12 +7,12 @@ import (
 	"io"
 	"log/slog"
 
-	"github.com/zsrv/goscape/pkg/pack"
+	"github.com/zsrv/goscape/pkg/packall"
 	"github.com/zsrv/goscape/pkg/util/log"
 )
 
 // runPack implements the `pack` verb: parses flags, calls
-// pack.PackAll, returns an exit code.
+// packall.PackAll, returns an exit code.
 //
 // stderr receives both flag-parse error output and slog logger
 // output. stdout is unused — pack has no human-readable success
@@ -21,7 +21,7 @@ import (
 // Exit codes:
 //
 //	0 — success (or `-h`/`--help` print)
-//	1 — logger init failed or pack.PackAll returned an error
+//	1 — logger init failed or packall.PackAll returned an error
 //	2 — flag parse error
 func runPack(args []string, stdout, stderr io.Writer) int {
 	_ = stdout // unused
@@ -64,7 +64,7 @@ func runPack(args []string, stdout, stderr io.Writer) int {
 		"out_dir", *outDir,
 		"datapack_dir", dpd,
 	)
-	if err := pack.PackAll(*srcDir, *outDir, dpd); err != nil {
+	if err := packall.PackAll(*srcDir, *outDir, dpd); err != nil {
 		logger.Error("pack failed", "err", err)
 		return 1
 	}

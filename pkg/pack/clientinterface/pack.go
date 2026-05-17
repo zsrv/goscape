@@ -14,7 +14,7 @@ import (
 	"github.com/zsrv/goscape/pkg/pack"
 )
 
-// interfaceCRCMagic is the TS PackClient.ts:16 BUILD_VERIFY constant.
+// interfaceCRCMagic is the TS PackClient.ts:16 build-verify constant.
 const interfaceCRCMagic int32 = -2146838800
 
 // component mirrors the TS Component type (PackShared.ts:156-160).
@@ -31,7 +31,7 @@ type component struct {
 // Pack ports tools/pack/interface/PackClient.ts:packClientInterface.
 //
 // Calls packInterface (the workhorse from PackShared.ts:162-597) to
-// produce both client and server Packets, BUILD_VERIFY-checks the
+// produce both client and server Packets, build-verify-checks the
 // client output, then saves both. compressWhole=true matches TS
 // Jagfile.new(true) at PackClient.ts:8.
 //

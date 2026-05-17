@@ -7,20 +7,18 @@ import (
 	"testing"
 )
 
-// TestNAI212DeviationPin_ClientPackersDeferred ensures the
-// CLIENT-PACKERS-DEFERRED tag remains grep-discoverable in pack_all.go.
-// Retires when the client-pack arc lands and the tag's doc-paragraph
-// is removed.
-func TestNAI212DeviationPin_ClientPackersDeferred(t *testing.T) {
-	requireTagInFile(t, "pack_all.go", "NAI-212-D-CLIENT-PACKERS-DEFERRED")
-}
-
 // TestNAI212DeviationPin_RevalidatePackInsidePackConfigs ensures the
 // REVALIDATEPACK-INSIDE-PACKCONFIGS tag remains grep-discoverable in
-// pack_all.go. Permanent (no retirement plan unless PackConfigs is
-// refactored to decouple namemap refresh from packing).
+// pkg/packall/packall.go. Permanent (no retirement plan unless
+// PackConfigs is refactored to decouple namemap refresh from packing).
+//
+// NAI-213 moved PackAll out of pkg/pack into its own top-level
+// package pkg/packall to break the import cycle that arose when
+// client-stage subpackages (clientinterface, sprites, audio, graphics,
+// wordenc, maps) started importing pkg/pack for the *Registry shared
+// type.
 func TestNAI212DeviationPin_RevalidatePackInsidePackConfigs(t *testing.T) {
-	requireTagInFile(t, "pack_all.go", "NAI-212-D-REVALIDATEPACK-INSIDE-PACKCONFIGS")
+	requireTagInFile(t, "../packall/packall.go", "NAI-212-D-REVALIDATEPACK-INSIDE-PACKCONFIGS")
 }
 
 // TestNAI212DeviationPin_ExplicitSourcePaths ensures the

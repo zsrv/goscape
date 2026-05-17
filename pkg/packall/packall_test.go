@@ -1,4 +1,4 @@
-package pack
+package packall
 
 import (
 	"os"
@@ -7,14 +7,29 @@ import (
 	"testing"
 )
 
-// TestPackAll_ThreeStageSmoke pins NAI-212 spec §7 PackAll test 1.
+func writeFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestPackAll_TwelveStageSmoke pins NAI-213 spec §PackAll arc-close.
 //
-// Drives a fixture with one .obj source + one .rs2 script through the
-// full three-stage pipeline. Asserts each stage produced its expected
+// Drives a fixture with minimal sources for the relevant stages through
+// the full 12-stage pipeline (PackConfigs + ClientInterface +
+// RunServerCompiler + Title + Media + Texture + Wordenc + Sound +
+// Graphics + Midi + Maps). Asserts each stage produced its expected
 // artifact:
-//   - Stage A (PackConfigs server): <outDir>/server/obj.dat exists.
-//   - Stage B (PackConfigs client): <outDir>/client/config jagfile exists.
-//   - Stage C (RunServerCompiler): <outDir>/server/script.dat exists.
+//   - PackConfigs server: <outDir>/server/obj.dat exists.
+//   - PackConfigs client: <outDir>/client/config jagfile exists.
+//   - RunServerCompiler: <outDir>/server/script.dat exists.
+//   - Wordenc: <outDir>/client/wordenc jagfile exists.
+//   - Sound: <outDir>/client/sounds jagfile exists.
+//   - Texture: <outDir>/client/textures jagfile exists.
 //
 // dataPackDir is passed as outDir so RunServerCompiler reads back the
 // cache PackConfigs just wrote.
@@ -27,7 +42,12 @@ import (
 // The other three loadConfigs entries need no seeding: component
 // (LoadComponentTypes is lenient on ErrNotExist), param and varp
 // (+ client/config jagfile, always written by PackConfigs).
-func TestPackAll_ThreeStageSmoke(t *testing.T) {
+//
+// Client-stage no-src/no-op tolerance: title/fonts/binary/sprites/models/
+// jingles/songs/maps are NOT seeded; those stages either no-op (via
+// NAI-192-D-NO-SRC-NO-OP mirrors) or write minimal jagfiles iterating
+// empty registries.
+func TestPackAll_TwelveStageSmoke(t *testing.T) {
 	dir := t.TempDir()
 
 	// Minimal .obj fixture mirrors pkg/pack/obj_test.go shape.
@@ -54,6 +74,15 @@ func TestPackAll_ThreeStageSmoke(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "scripts", "d.dbtable"), "[records]\n")
 	writeFile(t, filepath.Join(dir, "pack", "dbtable.pack"), "0=records\n")
 
+	// Seed minimal client-stage fixtures to exercise wiring without errors.
+	// Wordenc: 4 empty txt files.
+	_ = os.MkdirAll(filepath.Join(dir, "wordenc"), 0o755)
+	for _, name := range []string{"badenc.txt", "fragmentsenc.txt", "tldlist.txt", "domainenc.txt"} {
+		_ = os.WriteFile(filepath.Join(dir, "wordenc", name), []byte("\n"), 0o644)
+	}
+	// Sound: empty .pack/.order so PackSound writes a terminator-only sounds.dat.
+	_ = os.WriteFile(filepath.Join(dir, "pack", "synth.order"), []byte(""), 0o644)
+
 	outDir := filepath.Join(dir, "out")
 	if err := PackAll(dir, outDir, outDir); err != nil {
 		t.Fatalf("PackAll: %v", err)
@@ -70,6 +99,16 @@ func TestPackAll_ThreeStageSmoke(t *testing.T) {
 			// Header-only files (8 bytes) are acceptable; truly-empty
 			// (0 bytes) is not.
 			t.Errorf("%s is 0 bytes", p)
+		}
+	}
+
+	for _, p := range []string{
+		filepath.Join(outDir, "client", "wordenc"),
+		filepath.Join(outDir, "client", "sounds"),
+		filepath.Join(outDir, "client", "textures"),
+	} {
+		if _, err := os.Stat(p); err != nil {
+			t.Errorf("expected client artifact %s: %v", p, err)
 		}
 	}
 }

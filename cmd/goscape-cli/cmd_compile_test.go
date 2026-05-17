@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zsrv/goscape/pkg/pack"
+	"github.com/zsrv/goscape/pkg/packall"
 )
 
 // TestRunCompile_HappyPath_Check seeds the same minimal fixture pack
@@ -21,7 +21,7 @@ func TestRunCompile_HappyPath_Check(t *testing.T) {
 	// <datapack-dir>/server/, which the source-only fixture does not
 	// create. Pack first so the cache exists; --datapack-dir then
 	// points to a real packed dir.
-	if err := pack.PackAll(dir, dir, dir); err != nil {
+	if err := packall.PackAll(dir, dir, dir); err != nil {
 		t.Fatalf("PackAll seed: %v", err)
 	}
 
@@ -46,7 +46,7 @@ func TestRunCompile_HappyPath_Check(t *testing.T) {
 func TestRunCompile_SourceError(t *testing.T) {
 	dir := t.TempDir()
 	seedMinimalPackFixture(t, dir)
-	if err := pack.PackAll(dir, dir, dir); err != nil {
+	if err := packall.PackAll(dir, dir, dir); err != nil {
 		t.Fatalf("PackAll seed: %v", err)
 	}
 	// Overwrite helper.rs2 with a clearly-broken source (unknown
