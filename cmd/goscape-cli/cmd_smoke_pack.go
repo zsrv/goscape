@@ -47,7 +47,11 @@ func runSmokePack(args []string, stdout, stderr io.Writer) int {
 	dataPackDir := fs.String("datapack-dir", "",
 		"Entity-type cache directory (default: effective --out-dir).")
 	refDir := fs.String("reference-dir", "",
-		"Reference pack output to byte-diff against (typically Engine-TS/data/pack). Empty → diff disabled.")
+		"Reference pack output to byte-diff against (typically Engine-TS/data/pack). Empty → diff disabled. "+
+			"Note: SourceName is embedded in server/script.dat as the literal path passed via --content-dir "+
+			"(both goscape and TS are case-faithful to the build environment). For byte-faithful diffs against "+
+			"a TS ref packed via Engine-TS' default ../content path, point --content-dir at a directory whose "+
+			"absolute path matches the ref build's (e.g., the LostCityRS/content lowercase symlink).")
 	keep := fs.Bool("keep", false,
 		"Preserve auto-created --out-dir on exit.")
 	stopOnError := fs.Bool("stop-on-error", false,
