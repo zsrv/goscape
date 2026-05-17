@@ -44,28 +44,9 @@ func RunServerCompiler(srcDir, outDir, dataPackDir string) error {
 // so unit tests can pass synthetic in-memory configs without writing
 // binary cache fixtures.
 func runServerCompilerCore(srcDir, outDir string, loaders *configLoaders) error {
-	symbols, err := buildSymbolsCore(srcDir, loaders)
+	bridged, err := bridgedSymbolsCore(srcDir, loaders)
 	if err != nil {
 		return fmt.Errorf("RunServerCompiler: %w", err)
-	}
-
-	bridged := make(map[string]*runescript.CompilerTypeInfo, len(symbols))
-	for k, v := range symbols {
-		bridged[k] = ToCompilerTypeInfo(v)
-	}
-
-	// NAI-212-D-POINTER-NAME-TRANSLATION: pkg/script.Pointers uses
-	// "active_player2" / "active_npc2" / "active_loc2" / "active_obj2" /
-	// "p_active_player2" naming (matching TS ScriptOpcodePointers.ts), but
-	// pkg/pack/compiler/pointer.ForName resolves by Representation
-	// (".active_player", ".active_npc", etc.) rather than by static-property
-	// name ("active_player2"). Translate the "_2" suffixed names in the
-	// bridged command TypeInfo's pointer maps so LoadSpecialSymbols can
-	// resolve them. Permanent deviation: the mismatch lives across two
-	// independently-ported packages; fixing it in pointer/type.go would
-	// require adding a secondary alias map there.
-	if cmd, ok := bridged["command"]; ok {
-		translateCommandPointerNames(cmd)
 	}
 
 	serverOut := filepath.Join(outDir, "server")
@@ -147,9 +128,32 @@ func LoadCompilerSymbols(srcDir, dataPackDir string) (map[string]*runescript.Com
 	if err != nil {
 		return nil, fmt.Errorf("LoadCompilerSymbols: %w", err)
 	}
-	symbols, err := buildSymbolsCore(srcDir, loaders)
+	bridged, err := bridgedSymbolsCore(srcDir, loaders)
 	if err != nil {
 		return nil, fmt.Errorf("LoadCompilerSymbols: %w", err)
+	}
+	return bridged, nil
+}
+
+// bridgedSymbolsCore runs buildSymbolsCore and converts each entry into the
+// runescript.CompilerTypeInfo shape runescript.Compile consumes, applying
+// the NAI-212-D-POINTER-NAME-TRANSLATION rewrite to the "command" entry.
+// Shared prep chain between LoadCompilerSymbols and runServerCompilerCore.
+//
+// NAI-212-D-POINTER-NAME-TRANSLATION: pkg/script.Pointers uses
+// "active_player2" / "active_npc2" / "active_loc2" / "active_obj2" /
+// "p_active_player2" naming (matching TS ScriptOpcodePointers.ts), but
+// pkg/pack/compiler/pointer.ForName resolves by Representation
+// (".active_player", ".active_npc", etc.) rather than by static-property
+// name ("active_player2"). Translate the "_2" suffixed names in the
+// bridged command TypeInfo's pointer maps so LoadSpecialSymbols can
+// resolve them. Permanent deviation: the mismatch lives across two
+// independently-ported packages; fixing it in pointer/type.go would
+// require adding a secondary alias map there.
+func bridgedSymbolsCore(srcDir string, loaders *configLoaders) (map[string]*runescript.CompilerTypeInfo, error) {
+	symbols, err := buildSymbolsCore(srcDir, loaders)
+	if err != nil {
+		return nil, err
 	}
 	bridged := make(map[string]*runescript.CompilerTypeInfo, len(symbols))
 	for k, v := range symbols {
