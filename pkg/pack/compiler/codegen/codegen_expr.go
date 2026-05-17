@@ -10,6 +10,7 @@ import (
 
 	"github.com/zsrv/goscape/pkg/pack/compiler/ast"
 	"github.com/zsrv/goscape/pkg/pack/compiler/diagnostics"
+	"github.com/zsrv/goscape/pkg/pack/compiler/lexer"
 	"github.com/zsrv/goscape/pkg/pack/compiler/symbol"
 	"github.com/zsrv/goscape/pkg/pack/compiler/trigger"
 	typ "github.com/zsrv/goscape/pkg/pack/compiler/type"
@@ -300,5 +301,10 @@ func (g *CodeGenerator) visitArith(ae *ast.ArithmeticExpression) {
 	}
 	g.VisitNodeOrNull(ae.Left)
 	g.VisitNodeOrNull(ae.Right)
-	g.instructionUnit(op, ae.Source())
+	// TS CodeGenerator.ts visitArithmeticExpression L568 calls
+	// `this.instructionUnit(opcode)` with no source argument — the
+	// arithmetic opcode itself carries no line-number entry. Passing
+	// ae.Source() here inflates the LineNumberTable on every chained calc
+	// (same bug family as 08efc5e8 / codegen_branch_unsourced_fix).
+	g.instructionUnit(op, lexer.NodeSourceLocation{})
 }

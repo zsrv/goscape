@@ -388,6 +388,55 @@ switch_int ($x) {
 	}
 }
 
+// TestCodeGenerator_ArithUnsourced pins that arithmetic opcodes (Add/Sub/
+// Multiply/Divide/Modulo/And/Or) emit with a zero-value Source location,
+// mirroring TS CodeGenerator.ts visitArithmeticExpression L568 which calls
+// `instructionUnit(opcode)` with no source argument.
+//
+// Same bug family as ControlFlowBranchesUnsourced: passing ae.Source() here
+// inflates the LineNumberTable on every chained calc, because each Add
+// instruction would re-trigger an entry at the AST node's start line —
+// stomping over the actual line of the operator's RHS operand. Surfaced
+// against TS reference in script 5971 (legends_furnace_pieces) which had
+// `calc(getbit_range(...) + getbit_range(...) + getbit_range(...))` across
+// three lines; goscape emitted extra LNT entries pointing back at the calc
+// start line at every Add.
+func TestCodeGenerator_ArithUnsourced(t *testing.T) {
+	rs := compileForTest(t, `[proc,foo]
+def_int $x = calc(1
+    + 2
+    + 3);
+`)
+	var entry *Block
+	for _, b := range rs.Blocks {
+		if b.Label.Name == "entry" {
+			entry = b
+			break
+		}
+	}
+	if entry == nil {
+		t.Fatal("entry block missing")
+	}
+	arithOps := map[Opcode]bool{
+		Add: true, Sub: true, Multiply: true, Divide: true, Modulo: true,
+		And: true, Or: true,
+	}
+	saw := 0
+	for i, in := range entry.Instructions {
+		if !arithOps[in.Opcode] {
+			continue
+		}
+		saw++
+		if in.Source.Line != 0 {
+			t.Errorf("entry[%d]: %s.Source.Line = %d, want 0 (TS undefined)",
+				i, in.Opcode.Name, in.Source.Line)
+		}
+	}
+	if saw == 0 {
+		t.Fatal("no arithmetic opcodes emitted; fixture failed to lower calc")
+	}
+}
+
 func blockNames(bs []*Block) []string {
 	out := make([]string, len(bs))
 	for i, b := range bs {
