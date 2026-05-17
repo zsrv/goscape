@@ -78,23 +78,42 @@ func runSmokePack(args []string, stdout, stderr io.Writer) int {
 		return 3
 	}
 
-	// Out-dir lifecycle lands in Task 5; for now, --out-dir is required.
-	if *outDir == "" {
-		fmt.Fprintln(stderr, "smoke-pack: --out-dir is required (auto-create lands in a later task)")
-		return 3
-	}
 	effectiveOut := *outDir
+	autoCreated := false
+	if effectiveOut == "" {
+		tmp, mkErr := os.MkdirTemp("", "goscape-smoke-pack-*")
+		if mkErr != nil {
+			fmt.Fprintf(stderr, "smoke-pack: mkdtemp failed: %v\n", mkErr)
+			return 3
+		}
+		effectiveOut = tmp
+		autoCreated = true
+		defer func() {
+			if !*keep {
+				_ = os.RemoveAll(effectiveOut)
+			}
+		}()
+	}
 	effectiveDataPack := *dataPackDir
 	if effectiveDataPack == "" {
 		effectiveDataPack = effectiveOut
 	}
-	_ = keep
 	_ = stopOnError
 
 	runStart := time.Now()
 	results := runStages(*contentDir, effectiveOut, effectiveDataPack, logger)
 	totalElapsed := time.Since(runStart)
 	printSummary(stdout, results, totalElapsed)
+
+	suffix := ""
+	if autoCreated {
+		if *keep {
+			suffix = " (kept; --keep)"
+		} else {
+			suffix = " (auto-deleted)"
+		}
+	}
+	fmt.Fprintf(stdout, "out-dir: %s%s\n", effectiveOut, suffix)
 
 	anyErr := false
 	for _, r := range results {

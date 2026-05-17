@@ -182,3 +182,84 @@ func TestRunSmokePack_NonExistentContentDirReturns3(t *testing.T) {
 		t.Errorf("stderr %q missing path or content-dir mention", stderr.String())
 	}
 }
+
+// TestRunSmokePack_AutoOutDirCleanup verifies that when --out-dir is
+// empty and --keep is unset, the auto-created out-dir is deleted on exit.
+// We discover the path by parsing the stdout "out-dir:" line.
+func TestRunSmokePack_AutoOutDirCleanup(t *testing.T) {
+	dir := t.TempDir()
+	seedSmokeFixture(t, dir)
+
+	var stdout bytes.Buffer
+	code := runSmokePack([]string{"--content-dir", dir}, &stdout, io.Discard)
+	if code != 0 && code != 1 {
+		t.Fatalf("runSmokePack returned %d, want 0 or 1", code)
+	}
+
+	path := extractOutDirPath(t, stdout.String())
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("auto out-dir %q should have been deleted; stat err=%v", path, err)
+	}
+}
+
+// TestRunSmokePack_AutoOutDirKept verifies --keep preserves auto-created out-dir.
+func TestRunSmokePack_AutoOutDirKept(t *testing.T) {
+	dir := t.TempDir()
+	seedSmokeFixture(t, dir)
+
+	var stdout bytes.Buffer
+	code := runSmokePack([]string{"--content-dir", dir, "--keep"}, &stdout, io.Discard)
+	if code != 0 && code != 1 {
+		t.Fatalf("runSmokePack returned %d, want 0 or 1", code)
+	}
+
+	path := extractOutDirPath(t, stdout.String())
+	defer os.RemoveAll(path)
+	if info, err := os.Stat(path); err != nil || !info.IsDir() {
+		t.Errorf("auto out-dir %q should be preserved with --keep; stat err=%v", path, err)
+	}
+}
+
+// TestRunSmokePack_OperatorOutDirPreserved verifies operator-supplied
+// --out-dir is never deleted, even without --keep.
+func TestRunSmokePack_OperatorOutDirPreserved(t *testing.T) {
+	dir := t.TempDir()
+	seedSmokeFixture(t, dir)
+	outDir := filepath.Join(dir, "out")
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		t.Fatalf("mkdir out: %v", err)
+	}
+
+	code := runSmokePack([]string{
+		"--content-dir", dir,
+		"--out-dir", outDir,
+	}, io.Discard, io.Discard)
+	if code != 0 && code != 1 {
+		t.Fatalf("runSmokePack returned %d, want 0 or 1", code)
+	}
+	if info, err := os.Stat(outDir); err != nil || !info.IsDir() {
+		t.Errorf("operator out-dir %q should be preserved; stat err=%v", outDir, err)
+	}
+}
+
+// extractOutDirPath scans the summary line of the form
+// "out-dir: <path>" (optionally followed by " (kept; --keep)") and
+// returns the path. Fails the test if no such line is present.
+func extractOutDirPath(t *testing.T, stdout string) string {
+	t.Helper()
+	for _, line := range strings.Split(stdout, "\n") {
+		const prefix = "out-dir:"
+		idx := strings.Index(line, prefix)
+		if idx < 0 {
+			continue
+		}
+		rest := strings.TrimSpace(line[idx+len(prefix):])
+		// Strip optional " (kept; --keep)" or " (auto-deleted)" suffix.
+		if paren := strings.Index(rest, " ("); paren >= 0 {
+			rest = rest[:paren]
+		}
+		return rest
+	}
+	t.Fatalf("stdout missing 'out-dir:' line; got:\n%s", stdout)
+	return ""
+}
