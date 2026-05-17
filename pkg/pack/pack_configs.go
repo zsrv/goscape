@@ -61,7 +61,28 @@ import (
 // branches (empty stringKeys/numberKeys/booleanKeys arrays).
 //
 // TS source: tools/pack/config/PackShared.ts:261-669 (packConfigs).
+//
+// PackConfigsForRegistry is the registry-returning entry point added
+// for the client-pack arc (NAI-213 T1). PackConfigs remains a wrapper
+// for backward-compat. Lifts the previously-inline ensureX closures
+// onto a *Registry whose fields client stages can read after this
+// returns.
+func PackConfigsForRegistry(srcDir, outDir string) (*Registry, error) {
+	reg := &Registry{SrcDir: srcDir}
+	if err := packConfigsCore(srcDir, outDir, reg); err != nil {
+		return nil, err
+	}
+	return reg, nil
+}
+
+// PackConfigs is the original entry point (2-arg). Kept for backward
+// compatibility with non-PackAll callers.
 func PackConfigs(srcDir, outDir string) error {
+	_, err := PackConfigsForRegistry(srcDir, outDir)
+	return err
+}
+
+func packConfigsCore(srcDir, outDir string, reg *Registry) error {
 	constants, err := LoadConstants(srcDir)
 	if err != nil {
 		return err
@@ -69,20 +90,17 @@ func PackConfigs(srcDir, outDir string) error {
 
 	// Construct all three var-domain PackFiles up-front for the
 	// cross-domain uniqueness check across all three name maps.
-	varpPack, err := NewPackFile(srcDir, "varp", nil)
-	if err != nil {
+	if _, err := reg.EnsureVarp(); err != nil {
 		return err
 	}
-	varnPack, err := NewPackFile(srcDir, "varn", nil)
-	if err != nil {
+	if _, err := reg.EnsureVarn(); err != nil {
 		return err
 	}
-	varsPack, err := NewPackFile(srcDir, "vars", nil)
-	if err != nil {
+	if _, err := reg.EnsureVars(); err != nil {
 		return err
 	}
 
-	if err := checkVarNameUniqueness(varpPack, varnPack, varsPack); err != nil {
+	if err := checkVarNameUniqueness(reg.Varp, reg.Varn, reg.Vars); err != nil {
 		return err
 	}
 
@@ -97,223 +115,31 @@ func PackConfigs(srcDir, outDir string) error {
 		return err
 	}
 
-	// Lazy registry helpers reused across multiple branches.
-	var (
-		lk           *paramLookups
-		objPack      *PackFile
-		seqPack      *PackFile
-		locPack      *PackFile
-		npcPack      *PackFile
-		modelPack    *PackFile
-		categoryPack *PackFile
-		huntPack     *PackFile
-		texturePack  *PackFile
-		animPack     *PackFile
-		floPack      *PackFile
-		spotanimPack *PackFile
-		idkPack      *PackFile
-		paramPack    *PackFile // NAI-198: lazy-promoted from eager at top of fn
-		invPack      *PackFile // NAI-198: lazy-promoted from inline inside .inv branch
-		dbtablePack  *PackFile // NAI-198
-		dbrowPack    *PackFile // NAI-198
-	)
+	// `lk` is NOT promoted to Registry — it carries *paramLookups, not
+	// a *PackFile, and is consumed only within packConfigsCore.
+	var lk *paramLookups
 	ensureLk := func() error {
 		if lk != nil {
 			return nil
 		}
-		newLk, err := loadParamLookups(srcDir, varpPack)
+		newLk, err := loadParamLookups(srcDir, reg.Varp)
 		if err != nil {
 			return err
 		}
 		lk = newLk
 		return nil
 	}
-	ensureObjPack := func() error {
-		if objPack != nil {
-			return nil
-		}
-		pf, err := NewPackFile(srcDir, "obj", nil)
-		if err != nil {
-			return err
-		}
-		objPack = pf
-		return nil
-	}
-	ensureSeqPack := func() error {
-		if seqPack != nil {
-			return nil
-		}
-		pf, err := NewPackFile(srcDir, "seq", nil)
-		if err != nil {
-			return err
-		}
-		seqPack = pf
-		return nil
-	}
-	ensureLocPack := func() error {
-		if locPack != nil {
-			return nil
-		}
-		pf, err := NewPackFile(srcDir, "loc", nil)
-		if err != nil {
-			return err
-		}
-		locPack = pf
-		return nil
-	}
-	ensureNpcPack := func() error {
-		if npcPack != nil {
-			return nil
-		}
-		pf, err := NewPackFile(srcDir, "npc", nil)
-		if err != nil {
-			return err
-		}
-		npcPack = pf
-		return nil
-	}
-	ensureModelPack := func() error {
-		if modelPack != nil {
-			return nil
-		}
-		pf, err := NewPackFile(srcDir, "model", nil)
-		if err != nil {
-			return err
-		}
-		modelPack = pf
-		return nil
-	}
-	ensureCategoryPack := func() error {
-		if categoryPack != nil {
-			return nil
-		}
-		pf, err := NewPackFile(srcDir, "category", nil)
-		if err != nil {
-			return err
-		}
-		categoryPack = pf
-		return nil
-	}
-	ensureHuntPack := func() error {
-		if huntPack != nil {
-			return nil
-		}
-		pf, err := NewPackFile(srcDir, "hunt", nil)
-		if err != nil {
-			return err
-		}
-		huntPack = pf
-		return nil
-	}
-	ensureTexturePack := func() error {
-		if texturePack != nil {
-			return nil
-		}
-		pf, err := NewPackFile(srcDir, "texture", nil)
-		if err != nil {
-			return err
-		}
-		texturePack = pf
-		return nil
-	}
-	ensureAnimPack := func() error {
-		if animPack != nil {
-			return nil
-		}
-		pf, err := NewPackFile(srcDir, "anim", nil)
-		if err != nil {
-			return err
-		}
-		animPack = pf
-		return nil
-	}
-	ensureFloPack := func() error {
-		if floPack != nil {
-			return nil
-		}
-		pf, err := NewPackFile(srcDir, "flo", nil)
-		if err != nil {
-			return err
-		}
-		floPack = pf
-		return nil
-	}
-	ensureSpotAnimPack := func() error {
-		if spotanimPack != nil {
-			return nil
-		}
-		pf, err := NewPackFile(srcDir, "spotanim", nil)
-		if err != nil {
-			return err
-		}
-		spotanimPack = pf
-		return nil
-	}
-	ensureIdkPack := func() error {
-		if idkPack != nil {
-			return nil
-		}
-		pf, err := NewPackFile(srcDir, "idk", nil)
-		if err != nil {
-			return err
-		}
-		idkPack = pf
-		return nil
-	}
-	ensureParamPack := func() error {
-		if paramPack != nil {
-			return nil
-		}
-		pf, err := NewPackFile(srcDir, "param", nil)
-		if err != nil {
-			return err
-		}
-		paramPack = pf
-		return nil
-	}
-	ensureInvPack := func() error {
-		if invPack != nil {
-			return nil
-		}
-		pf, err := NewPackFile(srcDir, "inv", nil)
-		if err != nil {
-			return err
-		}
-		invPack = pf
-		return nil
-	}
-	ensureDbTablePack := func() error {
-		if dbtablePack != nil {
-			return nil
-		}
-		pf, err := NewPackFile(srcDir, "dbtable", nil)
-		if err != nil {
-			return err
-		}
-		dbtablePack = pf
-		return nil
-	}
-	ensureDbRowPack := func() error {
-		if dbrowPack != nil {
-			return nil
-		}
-		pf, err := NewPackFile(srcDir, "dbrow", nil)
-		if err != nil {
-			return err
-		}
-		dbrowPack = pf
-		return nil
-	}
+
 	// .param — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
 	// Matches TS PackShared.ts:315 "We have to pack params for other
 	// configs to parse correctly" — must run before .struct/.loc/.npc/.obj.
-	if err := ensureParamPack(); err != nil {
+	if _, err := reg.EnsureParam(); err != nil {
 		return err
 	}
 	if err := ensureLk(); err != nil {
 		return err
 	}
-	if err := packAndSaveParam(srcDir, serverOut, paramPack, lk, constants, clientJag); err != nil {
+	if err := packAndSaveParam(srcDir, serverOut, reg.Param, lk, constants, clientJag); err != nil {
 		return err
 	}
 
@@ -328,16 +154,16 @@ func PackConfigs(srcDir, outDir string) error {
 
 	// category — server-only special. TS PackShared.ts:341-352.
 	// Reads <srcDir>/pack/category.pack (already loaded by
-	// ensureCategoryPack). NAI-199-D-TS-CODE-STALENESS-GATE drops TS's
+	// EnsureCategory). NAI-199-D-TS-CODE-STALENESS-GATE drops TS's
 	// second arm `shouldBuild('tools/pack/config', '.ts', dest)`.
 	if ShouldBuildFile(
 		filepath.Join(srcDir, "pack", "category.pack"),
 		filepath.Join(serverOut, "category.dat"),
 	) {
-		if err := ensureCategoryPack(); err != nil {
+		if _, err := reg.EnsureCategory(); err != nil {
 			return err
 		}
-		if err := packAndSaveCategoryDat(serverOut, categoryPack); err != nil {
+		if err := packAndSaveCategoryDat(serverOut, reg.Category); err != nil {
 			return err
 		}
 	}
@@ -355,10 +181,10 @@ func PackConfigs(srcDir, outDir string) error {
 			".frame",
 			filepath.Join(serverOut, "frame_del.dat"),
 		) {
-		if err := ensureAnimPack(); err != nil {
+		if _, err := reg.EnsureAnim(); err != nil {
 			return err
 		}
-		if err := packAndSaveFrameDel(srcDir, serverOut, animPack); err != nil {
+		if err := packAndSaveFrameDel(srcDir, serverOut, reg.Anim); err != nil {
 			return err
 		}
 	}
@@ -378,13 +204,13 @@ func PackConfigs(srcDir, outDir string) error {
 	// .inv — server-only, freshness-gated.
 	if GetLatestModified(scriptsDir, ".inv") > 0 &&
 		ShouldBuild(scriptsDir, ".inv", filepath.Join(serverOut, "inv.dat")) {
-		if err := ensureObjPack(); err != nil {
+		if _, err := reg.EnsureObj(); err != nil {
 			return err
 		}
-		if err := ensureInvPack(); err != nil {
+		if _, err := reg.EnsureInv(); err != nil {
 			return err
 		}
-		if err := packAndSaveInv(srcDir, serverOut, invPack, objPack, constants); err != nil {
+		if err := packAndSaveInv(srcDir, serverOut, reg.Inv, reg.Obj, constants); err != nil {
 			return err
 		}
 	}
@@ -392,14 +218,14 @@ func PackConfigs(srcDir, outDir string) error {
 	// .mesanim — server-only, freshness-gated.
 	if GetLatestModified(scriptsDir, ".mesanim") > 0 &&
 		ShouldBuild(scriptsDir, ".mesanim", filepath.Join(serverOut, "mesanim.dat")) {
-		if err := ensureSeqPack(); err != nil {
+		if _, err := reg.EnsureSeq(); err != nil {
 			return err
 		}
 		mesPack, err := NewPackFile(srcDir, "mesanim", nil)
 		if err != nil {
 			return err
 		}
-		if err := packAndSaveMesAnim(srcDir, serverOut, mesPack, seqPack, constants); err != nil {
+		if err := packAndSaveMesAnim(srcDir, serverOut, mesPack, reg.Seq, constants); err != nil {
 			return err
 		}
 	}
@@ -422,10 +248,10 @@ func PackConfigs(srcDir, outDir string) error {
 	if GetLatestModified(scriptsDir, ".dbrow") > 0 || GetLatestModified(scriptsDir, ".dbtable") > 0 {
 		if ShouldBuild(scriptsDir, ".dbrow", filepath.Join(serverOut, "dbrow.dat")) ||
 			ShouldBuild(scriptsDir, ".dbtable", filepath.Join(serverOut, "dbtable.dat")) {
-			if err := ensureDbTablePack(); err != nil {
+			if _, err := reg.EnsureDbTable(); err != nil {
 				return err
 			}
-			if err := packAndSaveDbTable(srcDir, serverOut, dbtablePack, lk, constants); err != nil {
+			if err := packAndSaveDbTable(srcDir, serverOut, reg.DbTable, lk, constants); err != nil {
 				return err
 			}
 
@@ -438,10 +264,10 @@ func PackConfigs(srcDir, outDir string) error {
 				return fmt.Errorf("load dbtable types between dbtable/dbrow packers: %w", err)
 			}
 
-			if err := ensureDbRowPack(); err != nil {
+			if _, err := reg.EnsureDbRow(); err != nil {
 				return err
 			}
-			if err := packAndSaveDbRow(srcDir, serverOut, dbrowPack, dbtablePack, dbtableTypes, lk, constants); err != nil {
+			if err := packAndSaveDbRow(srcDir, serverOut, reg.DbRow, reg.DbTable, dbtableTypes, lk, constants); err != nil {
 				return err
 			}
 		}
@@ -449,117 +275,117 @@ func PackConfigs(srcDir, outDir string) error {
 
 	// .seq — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
 	// TS PackShared.ts:454-475.
-	if err := ensureSeqPack(); err != nil {
+	if _, err := reg.EnsureSeq(); err != nil {
 		return err
 	}
-	if err := ensureAnimPack(); err != nil {
+	if _, err := reg.EnsureAnim(); err != nil {
 		return err
 	}
-	if err := ensureObjPack(); err != nil {
+	if _, err := reg.EnsureObj(); err != nil {
 		return err
 	}
-	if err := packAndSaveSeq(srcDir, serverOut, seqPack, animPack, objPack, constants, clientJag); err != nil {
+	if err := packAndSaveSeq(srcDir, serverOut, reg.Seq, reg.Anim, reg.Obj, constants, clientJag); err != nil {
 		return err
 	}
 
 	// .loc — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
-	if err := ensureLocPack(); err != nil {
+	if _, err := reg.EnsureLoc(); err != nil {
 		return err
 	}
-	if err := ensureModelPack(); err != nil {
+	if _, err := reg.EnsureModel(); err != nil {
 		return err
 	}
-	if err := ensureCategoryPack(); err != nil {
+	if _, err := reg.EnsureCategory(); err != nil {
 		return err
 	}
-	if err := ensureSeqPack(); err != nil {
+	if _, err := reg.EnsureSeq(); err != nil {
 		return err
 	}
-	if err := ensureTexturePack(); err != nil {
+	if _, err := reg.EnsureTexture(); err != nil {
 		return err
 	}
-	if err := packAndSaveLoc(srcDir, serverOut, locPack, modelPack, categoryPack, seqPack, texturePack, lk, paramTypes, constants, clientJag); err != nil {
+	if err := packAndSaveLoc(srcDir, serverOut, reg.Loc, reg.Model, reg.Category, reg.Seq, reg.Texture, lk, paramTypes, constants, clientJag); err != nil {
 		return err
 	}
 
 	// .flo — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
 	// TS PackShared.ts:500-521.
-	if err := ensureFloPack(); err != nil {
+	if _, err := reg.EnsureFlo(); err != nil {
 		return err
 	}
-	if err := ensureTexturePack(); err != nil {
+	if _, err := reg.EnsureTexture(); err != nil {
 		return err
 	}
-	if err := packAndSaveFlo(srcDir, serverOut, floPack, texturePack, constants, clientJag); err != nil {
+	if err := packAndSaveFlo(srcDir, serverOut, reg.Flo, reg.Texture, constants, clientJag); err != nil {
 		return err
 	}
 
 	// .spotanim — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
 	// TS PackShared.ts:523-544.
-	if err := ensureSpotAnimPack(); err != nil {
+	if _, err := reg.EnsureSpotAnim(); err != nil {
 		return err
 	}
-	if err := ensureModelPack(); err != nil {
+	if _, err := reg.EnsureModel(); err != nil {
 		return err
 	}
-	if err := ensureSeqPack(); err != nil {
+	if _, err := reg.EnsureSeq(); err != nil {
 		return err
 	}
-	if err := packAndSaveSpotAnim(srcDir, serverOut, spotanimPack, modelPack, seqPack, constants, clientJag); err != nil {
+	if err := packAndSaveSpotAnim(srcDir, serverOut, reg.SpotAnim, reg.Model, reg.Seq, constants, clientJag); err != nil {
 		return err
 	}
 
 	// .npc — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
-	if err := ensureNpcPack(); err != nil {
+	if _, err := reg.EnsureNpc(); err != nil {
 		return err
 	}
-	if err := ensureModelPack(); err != nil {
+	if _, err := reg.EnsureModel(); err != nil {
 		return err
 	}
-	if err := ensureCategoryPack(); err != nil {
+	if _, err := reg.EnsureCategory(); err != nil {
 		return err
 	}
-	if err := ensureSeqPack(); err != nil {
+	if _, err := reg.EnsureSeq(); err != nil {
 		return err
 	}
-	if err := ensureHuntPack(); err != nil {
+	if _, err := reg.EnsureHunt(); err != nil {
 		return err
 	}
-	if err := packAndSaveNpc(srcDir, serverOut, npcPack, modelPack, categoryPack, seqPack, huntPack, lk, paramTypes, constants, clientJag); err != nil {
+	if err := packAndSaveNpc(srcDir, serverOut, reg.Npc, reg.Model, reg.Category, reg.Seq, reg.Hunt, lk, paramTypes, constants, clientJag); err != nil {
 		return err
 	}
 
 	// .obj — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
-	if err := ensureObjPack(); err != nil {
+	if _, err := reg.EnsureObj(); err != nil {
 		return err
 	}
-	if err := ensureModelPack(); err != nil {
+	if _, err := reg.EnsureModel(); err != nil {
 		return err
 	}
-	if err := ensureCategoryPack(); err != nil {
+	if _, err := reg.EnsureCategory(); err != nil {
 		return err
 	}
-	if err := ensureSeqPack(); err != nil {
+	if _, err := reg.EnsureSeq(); err != nil {
 		return err
 	}
-	if err := packAndSaveObj(srcDir, serverOut, objPack, modelPack, categoryPack, seqPack, lk, paramTypes, constants, clientJag); err != nil {
+	if err := packAndSaveObj(srcDir, serverOut, reg.Obj, reg.Model, reg.Category, reg.Seq, lk, paramTypes, constants, clientJag); err != nil {
 		return err
 	}
 
 	// .idk — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
 	// TS PackShared.ts:592-613.
-	if err := ensureIdkPack(); err != nil {
+	if _, err := reg.EnsureIdk(); err != nil {
 		return err
 	}
-	if err := ensureModelPack(); err != nil {
+	if _, err := reg.EnsureModel(); err != nil {
 		return err
 	}
-	if err := packAndSaveIdk(srcDir, serverOut, idkPack, modelPack, constants, clientJag); err != nil {
+	if err := packAndSaveIdk(srcDir, serverOut, reg.Idk, reg.Model, constants, clientJag); err != nil {
 		return err
 	}
 
 	// .varp — unconditional (NAI-196-D-UNCONDITIONAL-CLIENT-PACK).
-	if err := packAndSaveVarp(srcDir, serverOut, varpPack, constants, clientJag); err != nil {
+	if err := packAndSaveVarp(srcDir, serverOut, reg.Varp, constants, clientJag); err != nil {
 		return err
 	}
 
@@ -568,28 +394,28 @@ func PackConfigs(srcDir, outDir string) error {
 	// fan-out of any single config.
 	if GetLatestModified(scriptsDir, ".hunt") > 0 &&
 		ShouldBuild(scriptsDir, ".hunt", filepath.Join(serverOut, "hunt.dat")) {
-		if err := ensureCategoryPack(); err != nil {
+		if _, err := reg.EnsureCategory(); err != nil {
 			return err
 		}
-		if err := ensureHuntPack(); err != nil {
+		if _, err := reg.EnsureHunt(); err != nil {
 			return err
 		}
-		if err := ensureInvPack(); err != nil {
+		if _, err := reg.EnsureInv(); err != nil {
 			return err
 		}
-		if err := ensureLocPack(); err != nil {
+		if _, err := reg.EnsureLoc(); err != nil {
 			return err
 		}
-		if err := ensureNpcPack(); err != nil {
+		if _, err := reg.EnsureNpc(); err != nil {
 			return err
 		}
-		if err := ensureObjPack(); err != nil {
+		if _, err := reg.EnsureObj(); err != nil {
 			return err
 		}
-		if err := ensureParamPack(); err != nil {
+		if _, err := reg.EnsureParam(); err != nil {
 			return err
 		}
-		if err := packAndSaveHunt(srcDir, serverOut, huntPack, categoryPack, invPack, locPack, npcPack, objPack, paramPack, varnPack, varpPack, constants); err != nil {
+		if err := packAndSaveHunt(srcDir, serverOut, reg.Hunt, reg.Category, reg.Inv, reg.Loc, reg.Npc, reg.Obj, reg.Param, reg.Varn, reg.Varp, constants); err != nil {
 			return err
 		}
 	}
@@ -597,7 +423,7 @@ func PackConfigs(srcDir, outDir string) error {
 	// .varn — server-only, freshness-gated.
 	if GetLatestModified(scriptsDir, ".varn") > 0 &&
 		ShouldBuild(scriptsDir, ".varn", filepath.Join(serverOut, "varn.dat")) {
-		if err := packAndSaveVarn(srcDir, serverOut, varnPack, constants); err != nil {
+		if err := packAndSaveVarn(srcDir, serverOut, reg.Varn, constants); err != nil {
 			return err
 		}
 	}
@@ -605,7 +431,7 @@ func PackConfigs(srcDir, outDir string) error {
 	// .vars — server-only, freshness-gated.
 	if GetLatestModified(scriptsDir, ".vars") > 0 &&
 		ShouldBuild(scriptsDir, ".vars", filepath.Join(serverOut, "vars.dat")) {
-		if err := packAndSaveVars(srcDir, serverOut, varsPack, constants); err != nil {
+		if err := packAndSaveVars(srcDir, serverOut, reg.Vars, constants); err != nil {
 			return err
 		}
 	}
