@@ -218,6 +218,20 @@ func walkOutDir(dir string) (int, int64, error) {
 	return files, totalBytes, nil
 }
 
+// safeRun invokes fn and converts any panic into an error so a single
+// crashing stage cannot halt the rest of the best-effort smoke run.
+// Without this, a panic inside a stage (e.g. an EOF panic in a packet
+// parser) would unwind past runStages and abort the whole binary,
+// hiding downstream divergences from the operator.
+func safeRun(fn func() error) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic: %v", r)
+		}
+	}()
+	return fn()
+}
+
 // runStages drives all 11 PackAll stages best-effort (PackConfigs + 10
 // downstream). PackConfigs is special: if it fails, all 10 downstream
 // stages render as SKIP because they consume the *pack.Registry it
@@ -229,10 +243,18 @@ func runStages(srcDir, outDir, dataPackDir string, stopOnError bool, logger *slo
 
 	logger.Info("stage_start", "stage", "PackConfigs")
 	pcStart := time.Now()
-	reg, pcErr := pack.PackConfigsForRegistry(srcDir, outDir)
+	var reg *pack.Registry
+	pcErr := safeRun(func() error {
+		var err error
+		reg, err = pack.PackConfigsForRegistry(srcDir, outDir)
+		return err
+	})
 	pcElapsed := time.Since(pcStart)
 	pcFiles, pcBytes, _ := walkOutDir(outDir)
-	if pcErr != nil {
+	if pcErr != nil || reg == nil {
+		if pcErr == nil {
+			pcErr = fmt.Errorf("PackConfigsForRegistry returned nil registry")
+		}
 		logger.Error("stage_err", "stage", "PackConfigs", "elapsed_ms", pcElapsed.Milliseconds(), "files", pcFiles, "bytes", pcBytes, "err", pcErr)
 		results = append(results, stageResult{Name: "PackConfigs", Status: stageErr, Elapsed: pcElapsed, OutputFiles: pcFiles, OutputBytes: pcBytes, Err: pcErr})
 		for _, name := range []string{
@@ -265,7 +287,7 @@ func runStages(srcDir, outDir, dataPackDir string, stopOnError bool, logger *slo
 	for i, st := range rest {
 		logger.Info("stage_start", "stage", st.name)
 		start := time.Now()
-		err := st.run()
+		err := safeRun(st.run)
 		elapsed := time.Since(start)
 		files, bytesSum, _ := walkOutDir(outDir)
 		if err != nil {

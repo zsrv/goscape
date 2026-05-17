@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -112,6 +113,38 @@ func TestRunSmokePack_MissingContentDirReturns3(t *testing.T) {
 
 // TestRunSmokePack_TelemetryPopulated pins that telemetry fields appear
 // in per-stage log lines (elapsed_ms, files, bytes).
+// TestSafeRun_RecoversPanic pins that a panic inside a stage closure is
+// converted to an error rather than aborting the binary. Surfaced
+// during T7 real-Content shakedown: RunServerCompiler → LoadComponentTypes
+// → packet.G2 panics on EOF against real component.dat, halting all
+// downstream stages.
+func TestSafeRun_RecoversPanic(t *testing.T) {
+	err := safeRun(func() error { panic("boom") })
+	if err == nil {
+		t.Fatalf("safeRun returned nil; want error wrapping panic")
+	}
+	if !strings.Contains(err.Error(), "panic") || !strings.Contains(err.Error(), "boom") {
+		t.Errorf("safeRun err = %q; want substring 'panic' and 'boom'", err.Error())
+	}
+}
+
+// TestSafeRun_PassesThroughError pins that a normal error return is not
+// re-wrapped.
+func TestSafeRun_PassesThroughError(t *testing.T) {
+	sentinel := errors.New("sentinel-error")
+	err := safeRun(func() error { return sentinel })
+	if err != sentinel {
+		t.Errorf("safeRun returned %v; want exact sentinel", err)
+	}
+}
+
+// TestSafeRun_PassesThroughNil pins success path.
+func TestSafeRun_PassesThroughNil(t *testing.T) {
+	if err := safeRun(func() error { return nil }); err != nil {
+		t.Errorf("safeRun returned %v; want nil", err)
+	}
+}
+
 func TestRunSmokePack_TelemetryPopulated(t *testing.T) {
 	dir := t.TempDir()
 	seedSmokeFixture(t, dir)
