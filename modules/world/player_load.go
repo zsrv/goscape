@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	"github.com/zsrv/goscape/pkg/io/packet"
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 const (
@@ -64,6 +65,19 @@ func VerifySave(sav []byte) bool {
 // (PlayerLoading.ts:31-159). Returns an error on magic mismatch,
 // unsupported version, or CRC mismatch.
 func LoadSave(p *Player, sav []byte) error {
-	// TODO(T3+): implement
+	if len(sav) < 2 {
+		// Empty-save bootstrap. Mirrors PlayerLoading.ts:41-53.
+		for i := range objtype.PlayerStatCount {
+			p.stats[i] = 0
+			p.baseLevels[i] = 1
+			p.levels[i] = 1
+		}
+		// Hitpoints starts at level 10.
+		p.stats[objtype.PlayerStatHitpoints] = int32(objtype.GetExpByLevel(10))
+		p.baseLevels[objtype.PlayerStatHitpoints] = 10
+		p.levels[objtype.PlayerStatHitpoints] = 10
+		return nil
+	}
+	// TODO(T4+): full decode
 	return nil
 }

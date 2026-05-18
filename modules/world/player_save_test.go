@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/io/packet"
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 func TestVerifySave_RejectsTooSmall(t *testing.T) {
@@ -47,6 +48,40 @@ func TestVerifySave_RejectsCorruptCRC(t *testing.T) {
 	sav[len(sav)-1] ^= 0xFF
 	if VerifySave(sav) {
 		t.Error("VerifySave with corrupted CRC should be false")
+	}
+}
+
+func TestLoadSave_EmptyByteSliceBootstraps(t *testing.T) {
+	p := &Player{}
+	if err := LoadSave(p, []byte{}); err != nil {
+		t.Fatalf("LoadSave(empty) returned err: %v", err)
+	}
+	for i := range objtype.PlayerStatCount {
+		if i == objtype.PlayerStatHitpoints {
+			continue
+		}
+		if p.stats[i] != 0 || p.baseLevels[i] != 1 || p.levels[i] != 1 {
+			t.Errorf("stat %d: got (stats=%d, base=%d, lvl=%d), want (0, 1, 1)",
+				i, p.stats[i], p.baseLevels[i], p.levels[i])
+		}
+	}
+	wantHpExp := int32(objtype.GetExpByLevel(10))
+	if p.stats[objtype.PlayerStatHitpoints] != wantHpExp {
+		t.Errorf("hp stats: got %d, want %d", p.stats[objtype.PlayerStatHitpoints], wantHpExp)
+	}
+	if p.baseLevels[objtype.PlayerStatHitpoints] != 10 || p.levels[objtype.PlayerStatHitpoints] != 10 {
+		t.Errorf("hp levels: got (base=%d, lvl=%d), want (10, 10)",
+			p.baseLevels[objtype.PlayerStatHitpoints], p.levels[objtype.PlayerStatHitpoints])
+	}
+}
+
+func TestLoadSave_NilSliceBootstraps(t *testing.T) {
+	p := &Player{}
+	if err := LoadSave(p, nil); err != nil {
+		t.Fatalf("LoadSave(nil) returned err: %v", err)
+	}
+	if p.stats[objtype.PlayerStatHitpoints] != int32(objtype.GetExpByLevel(10)) {
+		t.Errorf("nil-slice path didn't bootstrap hp like empty-slice path")
 	}
 }
 
