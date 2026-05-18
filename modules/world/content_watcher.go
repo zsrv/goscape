@@ -21,6 +21,40 @@ var canonicalContentSubdirs = []string{
 // fires. Mirrors TS DevThread setTimeout(processChangedFiles, 1000).
 const debounceWindow = 1 * time.Second
 
+// Watcher restart backoff parameters. Exposed as var (not const) so
+// tests can rescale to ms via t.Cleanup-restored helpers. Production
+// code MUST NOT mutate these. Spec §3.1.
+var (
+	// watcherBackoffBase is the initial restart delay after a session
+	// ends (NewWatcher fail, Events/Errors close).
+	watcherBackoffBase = 1 * time.Second
+	// watcherBackoffMax caps the exponential growth.
+	watcherBackoffMax = 30 * time.Second
+	// watcherBackoffResetWindow: a session that ran at least this long
+	// before ending resets the attempt counter, so the next restart
+	// starts from watcherBackoffBase instead of continuing to grow.
+	watcherBackoffResetWindow = 60 * time.Second
+)
+
+// nextWatcherBackoff returns watcherBackoffBase * 2^(attempt-1), clamped
+// to [watcherBackoffBase, watcherBackoffMax]. attempt < 1 is treated as
+// attempt == 1.
+func nextWatcherBackoff(attempt int) time.Duration {
+	if attempt < 1 {
+		attempt = 1
+	}
+	// Guard the shift: attempt > 62 would overflow int64 nanoseconds
+	// even with sub-second base. Short-circuit to max.
+	if attempt > 30 {
+		return watcherBackoffMax
+	}
+	d := watcherBackoffBase << uint(attempt-1)
+	if d <= 0 || d > watcherBackoffMax {
+		return watcherBackoffMax
+	}
+	return d
+}
+
 // addWatchesRecursive registers every directory under root with the
 // fsnotify watcher. Missing root is OK (subset of content not present);
 // only logs+returns nil. Other walk errors propagate.

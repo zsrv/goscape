@@ -182,3 +182,36 @@ func TestContentWatcher_QuitClosesCleanly(t *testing.T) {
 		t.Fatal("watcher did not exit within 1s after s.quit close")
 	}
 }
+
+// TestNextWatcherBackoff_DoublesThenCaps pins the backoff curve:
+// attempt 1 → base, doubling each step, capped at max.
+func TestNextWatcherBackoff_DoublesThenCaps(t *testing.T) {
+	oldBase, oldMax := watcherBackoffBase, watcherBackoffMax
+	watcherBackoffBase = 1 * time.Millisecond
+	watcherBackoffMax = 16 * time.Millisecond
+	t.Cleanup(func() {
+		watcherBackoffBase = oldBase
+		watcherBackoffMax = oldMax
+	})
+
+	cases := []struct {
+		attempt int
+		want    time.Duration
+	}{
+		{1, 1 * time.Millisecond},
+		{2, 2 * time.Millisecond},
+		{3, 4 * time.Millisecond},
+		{4, 8 * time.Millisecond},
+		{5, 16 * time.Millisecond}, // cap kicks in
+		{6, 16 * time.Millisecond},
+		{100, 16 * time.Millisecond},
+		{0, 1 * time.Millisecond}, // clamp to attempt >= 1
+		{-5, 1 * time.Millisecond},
+	}
+	for _, tc := range cases {
+		got := nextWatcherBackoff(tc.attempt)
+		if got != tc.want {
+			t.Errorf("nextWatcherBackoff(%d) = %v, want %v", tc.attempt, got, tc.want)
+		}
+	}
+}
