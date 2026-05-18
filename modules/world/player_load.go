@@ -229,6 +229,16 @@ func LoadSave(p *Player, sav []byte, invTypes *objtype.InvTypeConfigs) error {
 		p.tradeDuel = int(packed & 0b11)
 	}
 
-	// TODO(T9): v6 lastLoginTime.
+	// v6+: lastLoginTime is i64 unix-ms.
+	if version >= 6 {
+		p.lastLoginTime = int64(pkt.G8())
+	}
+
+	// NAI-PLAYERLOADING-D-COMBAT-LEVEL-NOT-RECOMPUTED-ON-LOAD: TS
+	// PlayerLoading.ts:156 recomputes player.combatLevel via
+	// getCombatLevel(). Goscape has no equivalent method on Player;
+	// combatLevel is set at appearance-rebuild time elsewhere in the
+	// tick. Loaded baseLevels propagate to combat level on the next
+	// appearance refresh.
 	return nil
 }

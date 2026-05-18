@@ -361,6 +361,17 @@ func TestLoadSave_V5_DecodesPerInvSizeSyntheticBuffer(t *testing.T) {
 	}
 }
 
+func TestLoadSave_V6_DecodesLastLoginTime(t *testing.T) {
+	raw := mustReadFixture(t, "v6.sav")
+	p, cfgs := newTestPlayerForLoadSave(t)
+	if err := LoadSave(p, raw, cfgs); err != nil {
+		t.Fatalf("LoadSave(v6): %v", err)
+	}
+	if p.lastLoginTime != fixturePlayerValues.LastLoginTime {
+		t.Errorf("lastLoginTime: got %d, want %d", p.lastLoginTime, fixturePlayerValues.LastLoginTime)
+	}
+}
+
 // buildValidSav constructs a minimal SAV with the given version and
 // payload bytes, including a trailing valid CRC. Used by Verify tests.
 func buildValidSav(t *testing.T, version uint16, payload []byte) []byte {
