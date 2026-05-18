@@ -2,8 +2,12 @@ package world
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
+
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/zsrv/goscape/pkg/friendspb"
 	jstring "github.com/zsrv/goscape/pkg/util/jstring"
@@ -200,5 +204,129 @@ func TestDefaultFriendsBridge_NilClient_ReturnsNoop(t *testing.T) {
 	got := defaultFriendsBridge(nil, testWorldID, discardLogger())
 	if _, ok := got.(noopBridges); !ok {
 		t.Fatalf("defaultFriendsBridge: got %T, want noopBridges", got)
+	}
+}
+
+// mockFriendsPBClient embeds friendspb.FriendsServiceClient so we can override
+// individual methods. The embedded nil-interface gives no default implementation
+// for non-overridden methods — calling them would nil-deref. The table-driven
+// test below routes each test case through exactly one overridden method.
+type mockFriendsPBClient struct {
+	friendspb.FriendsServiceClient
+	worldConnectFn   func(ctx context.Context, in *friendspb.WorldConnectRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	playerLoginFn    func(ctx context.Context, in *friendspb.PlayerLoginRequest, opts ...grpc.CallOption) (*friendspb.PlayerLoginResponse, error)
+	playerLogoutFn   func(ctx context.Context, in *friendspb.PlayerLogoutRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	chatSetModeFn    func(ctx context.Context, in *friendspb.ChatSetModeRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	friendlistAddFn  func(ctx context.Context, in *friendspb.FriendlistAddRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	friendlistDelFn  func(ctx context.Context, in *friendspb.FriendlistDelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ignorelistAddFn  func(ctx context.Context, in *friendspb.IgnorelistAddRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ignorelistDelFn  func(ctx context.Context, in *friendspb.IgnorelistDelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	privateMessageFn func(ctx context.Context, in *friendspb.PrivateMessageRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+func (m *mockFriendsPBClient) WorldConnect(ctx context.Context, in *friendspb.WorldConnectRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return m.worldConnectFn(ctx, in, opts...)
+}
+func (m *mockFriendsPBClient) PlayerLogin(ctx context.Context, in *friendspb.PlayerLoginRequest, opts ...grpc.CallOption) (*friendspb.PlayerLoginResponse, error) {
+	return m.playerLoginFn(ctx, in, opts...)
+}
+func (m *mockFriendsPBClient) PlayerLogout(ctx context.Context, in *friendspb.PlayerLogoutRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return m.playerLogoutFn(ctx, in, opts...)
+}
+func (m *mockFriendsPBClient) ChatSetMode(ctx context.Context, in *friendspb.ChatSetModeRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return m.chatSetModeFn(ctx, in, opts...)
+}
+func (m *mockFriendsPBClient) FriendlistAdd(ctx context.Context, in *friendspb.FriendlistAddRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return m.friendlistAddFn(ctx, in, opts...)
+}
+func (m *mockFriendsPBClient) FriendlistDel(ctx context.Context, in *friendspb.FriendlistDelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return m.friendlistDelFn(ctx, in, opts...)
+}
+func (m *mockFriendsPBClient) IgnorelistAdd(ctx context.Context, in *friendspb.IgnorelistAddRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return m.ignorelistAddFn(ctx, in, opts...)
+}
+func (m *mockFriendsPBClient) IgnorelistDel(ctx context.Context, in *friendspb.IgnorelistDelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return m.ignorelistDelFn(ctx, in, opts...)
+}
+func (m *mockFriendsPBClient) PrivateMessage(ctx context.Context, in *friendspb.PrivateMessageRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return m.privateMessageFn(ctx, in, opts...)
+}
+
+// TestGRPCFriendsClient_LogsErrorOnFailure verifies that every fire-and-forget
+// RPC method on grpcFriendsClient logs warn + swallows the error when the
+// underlying gRPC client returns an error. Uses a discard logger so the
+// test asserts on the swallow contract: the method returns normally
+// (no panic, no propagation) even though the RPC errored.
+func TestGRPCFriendsClient_LogsErrorOnFailure(t *testing.T) {
+	rpcErr := errors.New("simulated RPC failure")
+
+	cases := []struct {
+		name string
+		call func(c *grpcFriendsClient)
+	}{
+		{"WorldConnect", func(c *grpcFriendsClient) {
+			c.WorldConnect(context.Background(), 10, "main")
+		}},
+		{"PlayerLogin", func(c *grpcFriendsClient) {
+			c.PlayerLogin(context.Background(), &friendspb.PlayerLoginRequest{Username37: 1})
+		}},
+		{"PlayerLogout", func(c *grpcFriendsClient) {
+			c.PlayerLogout(context.Background(), &friendspb.PlayerLogoutRequest{Username37: 1})
+		}},
+		{"ChatSetMode", func(c *grpcFriendsClient) {
+			c.ChatSetMode(context.Background(), &friendspb.ChatSetModeRequest{Username37: 1})
+		}},
+		{"FriendlistAdd", func(c *grpcFriendsClient) {
+			c.FriendlistAdd(context.Background(), &friendspb.FriendlistAddRequest{Username37: 1})
+		}},
+		{"FriendlistDel", func(c *grpcFriendsClient) {
+			c.FriendlistDel(context.Background(), &friendspb.FriendlistDelRequest{Username37: 1})
+		}},
+		{"IgnorelistAdd", func(c *grpcFriendsClient) {
+			c.IgnorelistAdd(context.Background(), &friendspb.IgnorelistAddRequest{Username37: 1})
+		}},
+		{"IgnorelistDel", func(c *grpcFriendsClient) {
+			c.IgnorelistDel(context.Background(), &friendspb.IgnorelistDelRequest{Username37: 1})
+		}},
+		{"PrivateMessage", func(c *grpcFriendsClient) {
+			c.PrivateMessage(context.Background(), &friendspb.PrivateMessageRequest{Username37: 1, TargetUsername37: 2})
+		}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mock := &mockFriendsPBClient{
+				worldConnectFn: func(ctx context.Context, in *friendspb.WorldConnectRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+					return nil, rpcErr
+				},
+				playerLoginFn: func(ctx context.Context, in *friendspb.PlayerLoginRequest, opts ...grpc.CallOption) (*friendspb.PlayerLoginResponse, error) {
+					return nil, rpcErr
+				},
+				playerLogoutFn: func(ctx context.Context, in *friendspb.PlayerLogoutRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+					return nil, rpcErr
+				},
+				chatSetModeFn: func(ctx context.Context, in *friendspb.ChatSetModeRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+					return nil, rpcErr
+				},
+				friendlistAddFn: func(ctx context.Context, in *friendspb.FriendlistAddRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+					return nil, rpcErr
+				},
+				friendlistDelFn: func(ctx context.Context, in *friendspb.FriendlistDelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+					return nil, rpcErr
+				},
+				ignorelistAddFn: func(ctx context.Context, in *friendspb.IgnorelistAddRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+					return nil, rpcErr
+				},
+				ignorelistDelFn: func(ctx context.Context, in *friendspb.IgnorelistDelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+					return nil, rpcErr
+				},
+				privateMessageFn: func(ctx context.Context, in *friendspb.PrivateMessageRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+					return nil, rpcErr
+				},
+			}
+			c := &grpcFriendsClient{client: mock, log: discardLogger()}
+			// Must not panic; must return normally.
+			tc.call(c)
+		})
 	}
 }
