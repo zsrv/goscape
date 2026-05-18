@@ -3,6 +3,7 @@ package world
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -483,5 +484,51 @@ func TestSave_InvsWrittenInTypeIDAscOrder(t *testing.T) {
 				seen, want)
 			break
 		}
+	}
+}
+
+func TestLoadSave_BadMagicReturnsErr(t *testing.T) {
+	raw := mustReadFixture(t, "v6.sav")
+	raw[0] = 0xFF
+	p, cfgs := newTestPlayerForLoadSave(t)
+	err := LoadSave(p, raw, cfgs)
+	if !errors.Is(err, ErrSavInvalidMagic) {
+		t.Errorf("got err=%v, want ErrSavInvalidMagic", err)
+	}
+}
+
+func TestLoadSave_VersionTooHigh_Err(t *testing.T) {
+	raw := mustReadFixture(t, "v6.sav")
+	raw[2] = 0x00
+	raw[3] = 0x07 // version 7
+	// Header mutation invalidates the trailing CRC. Recompute so the
+	// version-check arm fires, not the CRC arm.
+	binary.BigEndian.PutUint32(raw[len(raw)-4:], packet.GetCRC(raw, 0, len(raw)-4))
+	p, cfgs := newTestPlayerForLoadSave(t)
+	err := LoadSave(p, raw, cfgs)
+	if !errors.Is(err, ErrSavUnsupportedVer) {
+		t.Errorf("got err=%v, want ErrSavUnsupportedVer", err)
+	}
+}
+
+func TestLoadSave_VersionZero_Err(t *testing.T) {
+	raw := mustReadFixture(t, "v6.sav")
+	raw[2] = 0x00
+	raw[3] = 0x00 // version 0
+	binary.BigEndian.PutUint32(raw[len(raw)-4:], packet.GetCRC(raw, 0, len(raw)-4))
+	p, cfgs := newTestPlayerForLoadSave(t)
+	err := LoadSave(p, raw, cfgs)
+	if !errors.Is(err, ErrSavUnsupportedVer) {
+		t.Errorf("got err=%v, want ErrSavUnsupportedVer", err)
+	}
+}
+
+func TestLoadSave_CRCMismatch_Err(t *testing.T) {
+	raw := mustReadFixture(t, "v6.sav")
+	raw[len(raw)-1] ^= 0x01 // flip last CRC byte
+	p, cfgs := newTestPlayerForLoadSave(t)
+	err := LoadSave(p, raw, cfgs)
+	if !errors.Is(err, ErrSavCorrupt) {
+		t.Errorf("got err=%v, want ErrSavCorrupt", err)
 	}
 }
