@@ -92,3 +92,35 @@ func (h *handler) ChatSetMode(_ context.Context, req *friendspb.ChatSetModeReque
 	h.repo.SetChatMode(req.Username37, coercePrivateChat(req.PrivateChat))
 	return &emptypb.Empty{}, nil
 }
+
+// FriendlistAdd appends target to the player's friend set (idempotent).
+// NAI-S1-D-NO-FOLLOWER-BROADCAST — slice 4 will broadcast.
+func (h *handler) FriendlistAdd(_ context.Context, req *friendspb.FriendlistAddRequest) (*emptypb.Empty, error) {
+	h.ensureWorld(req.WorldId)
+	h.repo.AddFriend(req.Username37, req.TargetUsername37)
+	return &emptypb.Empty{}, nil
+}
+
+// FriendlistDel removes target from the player's friend set (idempotent).
+// NAI-S1-D-NO-FOLLOWER-BROADCAST — slice 4 will broadcast.
+func (h *handler) FriendlistDel(_ context.Context, req *friendspb.FriendlistDelRequest) (*emptypb.Empty, error) {
+	h.ensureWorld(req.WorldId)
+	h.repo.DeleteFriend(req.Username37, req.TargetUsername37)
+	return &emptypb.Empty{}, nil
+}
+
+// IgnorelistAdd appends target to the player's ignore set (idempotent).
+// NAI-S1-D-NO-FOLLOWER-BROADCAST — slice 4 will broadcast.
+func (h *handler) IgnorelistAdd(_ context.Context, req *friendspb.IgnorelistAddRequest) (*emptypb.Empty, error) {
+	h.ensureWorld(req.WorldId)
+	h.repo.AddIgnore(req.Username37, req.TargetUsername37)
+	return &emptypb.Empty{}, nil
+}
+
+// IgnorelistDel removes target from the player's ignore set (idempotent).
+// NAI-S1-D-NO-FOLLOWER-BROADCAST — slice 4 will broadcast.
+func (h *handler) IgnorelistDel(_ context.Context, req *friendspb.IgnorelistDelRequest) (*emptypb.Empty, error) {
+	h.ensureWorld(req.WorldId)
+	h.repo.DeleteIgnore(req.Username37, req.TargetUsername37)
+	return &emptypb.Empty{}, nil
+}
