@@ -2,6 +2,7 @@ package world
 
 import (
 	"errors"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -189,6 +190,90 @@ func TestRebuildWorker_QuitMidIdle_ExitsCleanly(t *testing.T) {
 	case <-done:
 	case <-time.After(1 * time.Second):
 		t.Fatal("worker did not exit within 1s after s.quit close")
+	}
+}
+
+// TestHandleRebuildResult_Success_WritesStamp pins that the success
+// path writes CachePath/.pack-stamp with r.startedAt. Uses a real
+// t.TempDir() for CachePath and reads back via readPackStamp.
+func TestHandleRebuildResult_Success_WritesStamp(t *testing.T) {
+	s := newTestServer(t)
+	cachePath := t.TempDir()
+	s.cfg.CachePath = cachePath
+	s.reloadFn = func(clearInvs bool) error { return nil }
+
+	want := time.Unix(0, 1747569600123456789)
+	s.handleRebuildResult(rebuildResult{err: nil, duration: 42 * time.Millisecond, startedAt: want})
+
+	got, ok, err := readPackStamp(filepath.Join(cachePath, ".pack-stamp"))
+	if err != nil {
+		t.Fatalf("readPackStamp err: %v", err)
+	}
+	if !ok {
+		t.Fatal("readPackStamp ok=false; expected stamp file present after success")
+	}
+	if !got.Equal(want) {
+		t.Errorf("stamp ts = %v (unix=%d); want %v (unix=%d)",
+			got, got.UnixNano(), want, want.UnixNano())
+	}
+}
+
+// TestHandleRebuildResult_PackFailed_StampUntouched pins that a result
+// with err != nil leaves any pre-existing stamp unchanged.
+func TestHandleRebuildResult_PackFailed_StampUntouched(t *testing.T) {
+	s := newTestServer(t)
+	cachePath := t.TempDir()
+	s.cfg.CachePath = cachePath
+	preExisting := time.Unix(0, 1000000000)
+	stampPath := filepath.Join(cachePath, ".pack-stamp")
+	if err := writePackStamp(stampPath, preExisting); err != nil {
+		t.Fatalf("seed stamp: %v", err)
+	}
+
+	s.handleRebuildResult(rebuildResult{
+		err:       errors.New("pack boom"),
+		duration:  10 * time.Millisecond,
+		startedAt: time.Unix(0, 2000000000), // would-be-newer if path bumped it
+	})
+
+	got, ok, err := readPackStamp(stampPath)
+	if err != nil || !ok {
+		t.Fatalf("readPackStamp: ok=%v err=%v", ok, err)
+	}
+	if !got.Equal(preExisting) {
+		t.Errorf("stamp ts = %v, want unchanged at %v (pack failure must not bump stamp)",
+			got, preExisting)
+	}
+}
+
+// TestHandleRebuildResult_ReloadFailed_StampUntouched pins that a pack
+// success followed by reload failure leaves any pre-existing stamp
+// unchanged.
+func TestHandleRebuildResult_ReloadFailed_StampUntouched(t *testing.T) {
+	s := newTestServer(t)
+	cachePath := t.TempDir()
+	s.cfg.CachePath = cachePath
+	preExisting := time.Unix(0, 1000000000)
+	stampPath := filepath.Join(cachePath, ".pack-stamp")
+	if err := writePackStamp(stampPath, preExisting); err != nil {
+		t.Fatalf("seed stamp: %v", err)
+	}
+
+	s.reloadFn = func(clearInvs bool) error { return errors.New("reload boom") }
+
+	s.handleRebuildResult(rebuildResult{
+		err:       nil,
+		duration:  10 * time.Millisecond,
+		startedAt: time.Unix(0, 2000000000),
+	})
+
+	got, ok, err := readPackStamp(stampPath)
+	if err != nil || !ok {
+		t.Fatalf("readPackStamp: ok=%v err=%v", ok, err)
+	}
+	if !got.Equal(preExisting) {
+		t.Errorf("stamp ts = %v, want unchanged at %v (reload failure must not bump stamp)",
+			got, preExisting)
 	}
 }
 

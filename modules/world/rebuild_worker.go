@@ -2,6 +2,7 @@ package world
 
 import (
 	"fmt"
+	"path/filepath"
 	"time"
 )
 
@@ -92,6 +93,10 @@ func (s *Server) handleRebuildResult(r rebuildResult) {
 		s.log.Error("rebuild: Reload failed", "err", err)
 		s.broadcastRebuildStaff(r.invoker, "Rebuild failed: reload returned error (see server log).")
 		return
+	}
+	if err := writePackStamp(filepath.Join(s.cfg.CachePath, ".pack-stamp"), r.startedAt); err != nil {
+		s.log.Warn("rebuild: writePackStamp failed", "err", err)
+		// continue — next session triggers one spurious replay, self-heals.
 	}
 	msg := fmt.Sprintf("Rebuilt: %s.", r.duration.Round(time.Millisecond))
 	s.broadcastRebuildStaff(r.invoker, msg)
