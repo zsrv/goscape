@@ -5,7 +5,9 @@ package world
 
 import (
 	"errors"
+	"fmt"
 
+	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
@@ -64,7 +66,12 @@ func VerifySave(sav []byte) bool {
 // at level 10 with matching XP). Mirrors PlayerLoading.load
 // (PlayerLoading.ts:31-159). Returns an error on magic mismatch,
 // unsupported version, or CRC mismatch.
-func LoadSave(p *Player, sav []byte) error {
+//
+// invTypes is consulted only when decoding v1..v4 inv sections, which
+// did not embed per-inv size and must look up InvType.Size by typeId.
+// v5+ saves carry inv size inline; passing nil is acceptable for the
+// empty-bootstrap branch and for v5+ saves.
+func LoadSave(p *Player, sav []byte, invTypes *objtype.InvTypeConfigs) error {
 	if len(sav) < 2 {
 		// Empty-save bootstrap. Mirrors PlayerLoading.ts:41-53.
 		for i := range objtype.PlayerStatCount {
@@ -78,6 +85,128 @@ func LoadSave(p *Player, sav []byte) error {
 		p.levels[objtype.PlayerStatHitpoints] = 10
 		return nil
 	}
-	// TODO(T4+): full decode
+
+	// Header: magic + version.
+	pkt := packet.NewPacket(sav)
+	if pkt.G2() != SavMagic {
+		return ErrSavInvalidMagic
+	}
+	version := pkt.G2()
+	if version < 1 || version > SavVersion {
+		return ErrSavUnsupportedVer
+	}
+
+	// CRC check: last 4 bytes are CRC of bytes [0, len-4).
+	bodyLen := len(sav) - 4
+	if bodyLen < 4 {
+		return ErrSavCorrupt
+	}
+	pkt.Pos = bodyLen
+	if pkt.G4() != packet.GetCRC(sav, 0, bodyLen) {
+		return ErrSavCorrupt
+	}
+
+	// Rewind to body start (byte 4 — after magic + version).
+	pkt.Pos = 4
+
+	p.x = int(pkt.G2())
+	p.z = int(pkt.G2())
+	p.level = int(pkt.G1())
+	for i := range 7 {
+		b := int(pkt.G1())
+		if b == 255 {
+			b = -1
+		}
+		p.body[i] = b
+	}
+	for i := range 5 {
+		p.colors[i] = int(pkt.G1())
+	}
+	p.gender = int(pkt.G1())
+	p.runenergy = int(pkt.G2())
+
+	// Playtime: v1 is u16, v2+ is i32. (TS comment: "oops playtime overflow".)
+	if version >= 2 {
+		p.playtime = int(int32(pkt.G4()))
+	} else {
+		p.playtime = int(pkt.G2())
+	}
+
+	// 21 stats: i32 exp + u8 current level. baseLevel derives from exp.
+	for i := range objtype.PlayerStatCount {
+		p.stats[i] = int32(pkt.G4())
+		p.baseLevels[i] = uint8(objtype.GetLevelByExp(int(p.stats[i])))
+		p.levels[i] = pkt.G1()
+	}
+
+	// Varps: u16 count, then count × i32.
+	varpCount := int(pkt.G2())
+	if cap(p.varps) < varpCount {
+		p.varps = make([]int32, varpCount)
+	} else {
+		p.varps = p.varps[:varpCount]
+	}
+	for i := range varpCount {
+		p.varps[i] = int32(pkt.G4())
+	}
+
+	// Inventories: u1 count, then per-inv:
+	//   typeId u2;
+	//   v5+: size u2  (v1-v4: size from invTypes.Configs[typeId].Size);
+	//   `size` × slot: obj u2 (id+1; 0 → -1 = empty slot, skip);
+	//     count u1 (255 → read extended i32).
+	invCount := int(pkt.G1())
+	for range invCount {
+		typeID := int(pkt.G2())
+		var size int
+		if version >= 5 {
+			size = int(pkt.G2())
+		} else {
+			if invTypes == nil {
+				return fmt.Errorf("playerloading: v%d decode requires invTypes; got nil", version)
+			}
+			if typeID < 0 || typeID >= len(invTypes.Configs) || invTypes.Configs[typeID] == nil {
+				return fmt.Errorf("playerloading: unknown invType %d", typeID)
+			}
+			size = invTypes.Configs[typeID].Size
+		}
+		// Drain the slot payload first, then conditionally apply. This
+		// matches TS PlayerLoading.ts:109-131 (always read all slots,
+		// only write back when scope == SCOPE_PERM and inv exists).
+		type slotEntry struct {
+			slot, id, count int
+		}
+		var objs []slotEntry
+		for slot := range size {
+			objID := int(pkt.G2()) - 1
+			if objID == -1 {
+				continue
+			}
+			count := int(pkt.G1())
+			if count == 255 {
+				count = int(int32(pkt.G4()))
+			}
+			objs = append(objs, slotEntry{slot, objID, count})
+		}
+		// Only write to perm-scoped invs. If invTypes provided, honour
+		// it; if invTypes is nil (v5+ path with no config), assume perm
+		// (all fixture invs are perm).
+		if invTypes != nil {
+			cfg := invTypes.Configs[typeID]
+			if cfg == nil || cfg.Scope != objtype.InvTypeScopePerm {
+				continue
+			}
+		}
+		inv, ok := p.invs[typeID]
+		if !ok {
+			// Mirror TS getInventory() returning null: skip silently.
+			continue
+		}
+		for _, o := range objs {
+			inv.Set(o.slot, &inventory.Item{Id: o.id, Count: o.count})
+		}
+	}
+
+	// TODO(T5+): v3 afkZones, v4 chat modes, v6 lastLoginTime.
 	return nil
 }
