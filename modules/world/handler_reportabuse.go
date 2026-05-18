@@ -25,9 +25,10 @@ import (
 // bridge. Mirrors TS World.notifyPlayerReport at World.ts:2298-2304.
 // Closes NAI-73's retroactive REPORT_ABUSE polish.
 //
-// Friends and login bridges are stubbed (noopBridges); see
-// NAI-72-D-FRIENDS-SERVER-BRIDGE and NAI-72-D-LOGIN-SERVER-BRIDGE-MOD.
-// Logger bridge ships the slogLoggerBridge default impl as of NAI-73.
+// Friends bridge is stubbed (noopBridges); see
+// NAI-72-D-FRIENDS-SERVER-BRIDGE. Login bridge ships
+// loginGRPCBridgeMod as of NAI-214. Logger bridge ships the
+// slogLoggerBridge default impl as of NAI-73.
 func handleReportAbuse(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		// goscape defensive; TS reaches via static accessor.

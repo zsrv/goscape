@@ -289,8 +289,9 @@ type Player struct {
 	submitInput bool
 	// session is the per-player session correlation key for the logger
 	// bridge. Defaults to "headless" (TS Player.session = 'headless',
-	// Player.ts:304). Real UUID assignment is owned by login-server-bridge
-	// integration — tracked as NAI-72-D-LOGIN-SERVER-BRIDGE-MOD.
+	// Player.ts:304). Real per-login UUID assignment is a carry-forward
+	// from the original NAI-72 social-subsystem deferral — not wired by
+	// NAI-214, which only ported the ban/mute half of that umbrella.
 	session string
 
 	// === session flags ===
