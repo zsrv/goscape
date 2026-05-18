@@ -708,25 +708,10 @@ func (c *client) handleLogin() error {
 				HasSave:       false,
 			}
 
-			resp, err := c.server.loginClient.PlayerLogin(context.TODO(), loginReq)
+			var err error
+			reply, err = c.callPlayerLoginRPC(loginReq, safeName)
 			if err != nil {
-				c.log.Warn("PlayerLogin RPC failed", "error", err)
-				return c.sendLoginError(loginresp.OpLoginServerOffline.Opcode)
-			}
-
-			c.log.Info("PlayerLogin RPC response", "result", resp.GetResult())
-
-			result := resp.GetResult()
-			reply = loginResultToRS2(result)
-
-			// Only cache session details if the login was accepted.
-			if result == loginpb.LoginResult_LOGIN_RESULT_OK ||
-				result == loginpb.LoginResult_LOGIN_RESULT_NEW_PLAYER ||
-				result == loginpb.LoginResult_LOGIN_RESULT_RECONNECT_OK {
-				c.staffModLevel = resp.GetStaffModLevel()
-				c.members = resp.GetMembers()
-				c.username = safeName
-				c.savePayload = resp.GetSave()
+				return c.sendLoginError(reply)
 			}
 		} else {
 			// login server not configured — reject with try again
@@ -749,6 +734,34 @@ func (c *client) handleLogin() error {
 		return c.sendLoginOK()
 
 	}
+}
+
+// callPlayerLoginRPC runs the PlayerLogin RPC against c.server.loginClient,
+// maps the result to the RS2 wire reply byte, and caches accepted-session
+// fields on c. Returns (reply, nil) on success; (loginresp.OpLoginServerOffline.Opcode, err)
+// on RPC error so the caller can fail-fast via sendLoginError. Extracted from
+// handleLogin to enable unit testing with a stubbed LoginClient.
+func (c *client) callPlayerLoginRPC(req *loginpb.PlayerLoginRequest, safeName string) (byte, error) {
+	resp, err := c.server.loginClient.PlayerLogin(context.TODO(), req)
+	if err != nil {
+		c.log.Warn("PlayerLogin RPC failed", "error", err)
+		return loginresp.OpLoginServerOffline.Opcode, err
+	}
+	c.log.Info("PlayerLogin RPC response", "result", resp.GetResult())
+
+	result := resp.GetResult()
+	reply := loginResultToRS2(result)
+
+	// Only cache session details if the login was accepted.
+	if result == loginpb.LoginResult_LOGIN_RESULT_OK ||
+		result == loginpb.LoginResult_LOGIN_RESULT_NEW_PLAYER ||
+		result == loginpb.LoginResult_LOGIN_RESULT_RECONNECT_OK {
+		c.staffModLevel = resp.GetStaffModLevel()
+		c.members = resp.GetMembers()
+		c.username = safeName
+		c.savePayload = resp.GetSave()
+	}
+	return reply, nil
 }
 
 // loginResultToRS2 maps a gRPC LoginResult enum to the RS2 wire response byte
