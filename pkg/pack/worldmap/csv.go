@@ -26,6 +26,10 @@ type Label struct {
 //   - "fromLine,toLine" (5 fields each)   — rectangle expansion
 //
 // In the range form only fromLevel is used; toLevel is discarded.
+//
+// Overlap detection is only performed in the range form; duplicate
+// single-zone rows are silently merged (TS parity — the single-zone
+// loop in TS Worldmap.ts:93-97 also has no duplicate check).
 func processCsv(lines []string, name string, lg *slog.Logger) map[int]struct{} {
 	result := make(map[int]struct{})
 	for _, line := range lines {
@@ -113,8 +117,11 @@ func parseLabels(src string) []Label {
 	return out
 }
 
-// atoi parses base-10 ints. Returns 0 on parse error (TS parseInt
-// returns NaN on invalid input; our callers don't distinguish).
+// atoi parses a trimmed base-10 integer, returning 0 on error.
+// TS parseInt trims whitespace and accepts leading-digit strings
+// ("5abc" → 5); strconv.Atoi rejects non-numeric tails. The callers
+// here only receive purely numeric fields (coord components and
+// label coordinates), so the divergence is harmless.
 func atoi(s string) int {
 	n, _ := strconv.Atoi(strings.TrimSpace(s))
 	return n
