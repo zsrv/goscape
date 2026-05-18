@@ -1,6 +1,7 @@
 package world
 
 import (
+	"log/slog"
 	"sort"
 	"time"
 
@@ -154,19 +155,16 @@ func (s *Server) processLogins() {
 				p.invs[s.invTypes.Worn] = worn
 			}
 		}
-		// Default-player skill init — 21 skills at level 1 with 0 XP, then
-		// Hitpoints overridden to level 10 with the matching XP. Matches TS
-		// PlayerLoading.ts:41-53 (the "no save data" branch). Save-file load
-		// + restore is a future sub-spec; this default becomes the no-save
-		// fallback when that lands.
-		for i := range objtype.PlayerStatCount {
-			p.stats[i] = 0
-			p.baseLevels[i] = 1
-			p.levels[i] = 1
+		// Player state load. Delegates to LoadSave which handles both
+		// populated-save (full decode) and empty-save bootstrap paths.
+		// On decode error, log + fall back to empty bootstrap so a
+		// corrupt SAV doesn't deny login. Deviation
+		// NAI-PLAYERLOADING-D-DECODE-ERR-FALLS-BACK-TO-BOOTSTRAP.
+		if err := LoadSave(p, p.client.savePayload, s.invTypes); err != nil {
+			s.log.Warn("LoadSave failed; falling back to empty bootstrap",
+				slog.String("username", p.username), slog.Any("err", err))
+			_ = LoadSave(p, nil, s.invTypes)
 		}
-		p.stats[objtype.PlayerStatHitpoints] = int32(objtype.GetExpByLevel(10))
-		p.baseLevels[objtype.PlayerStatHitpoints] = 10
-		p.levels[objtype.PlayerStatHitpoints] = 10
 
 		p.masks |= MaskAppearance
 

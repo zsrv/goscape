@@ -68,6 +68,12 @@ type client struct {
 	// branch. Copied onto Player at newPlayer(). Read by buildArea.ShouldRebuild
 	// to skip a full rebuild on actual reconnects.
 	reconnecting bool
+	// savePayload is the optional SAV bytes returned by the login server
+	// on PlayerLogin (resp.GetSave()). Read once by processLogins on the
+	// tick goroutine to populate the freshly-constructed Player via
+	// LoadSave. Nil for fresh accounts; arbitrary length for returning
+	// players.
+	savePayload []byte
 }
 
 func newClient(conn net.Conn, writeTimeout time.Duration /*server *World,*/, logger *slog.Logger) *client {

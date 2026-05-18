@@ -726,6 +726,7 @@ func (c *client) handleLogin() error {
 				c.staffModLevel = resp.GetStaffModLevel()
 				c.members = resp.GetMembers()
 				c.username = safeName
+				c.savePayload = resp.GetSave()
 			}
 		} else {
 			// login server not configured — reject with try again
