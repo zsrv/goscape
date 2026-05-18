@@ -3,6 +3,8 @@ package world
 import (
 	"testing"
 	"time"
+
+	"github.com/zsrv/goscape/pkg/loginpb"
 )
 
 // TestRemovePlayerOnTick_FiresPlayerLogoutWithSave pins server.go:897-917 —
@@ -103,5 +105,56 @@ func TestRemovePlayerOnTick_EmptyUsername_NoRPC(t *testing.T) {
 	}
 	if got := fake.snapshotPlayerLogoutReq(); got != nil {
 		t.Errorf("PlayerLogoutRequest captured despite empty username: %+v", got)
+	}
+}
+
+func TestRemovePlayerOnDisconnect_FiresPlayerForceLogout(t *testing.T) {
+	fake := newFakeLoginClient()
+	s := newTestServer(t)
+	s.cfg.NodeID = 7
+	s.cfg.NodeProfile = "dev"
+	s.loginClient = fake
+
+	c, _ := newTestClient(t)
+	c.server = s
+	p := newPlayer(c)
+	p.username = "bob"
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+
+	s.removePlayerOnDisconnect(p)
+
+	var got *loginpb.PlayerForceLogoutRequest
+	select {
+	case got = <-fake.forceLogoutReqs:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for PlayerForceLogout RPC")
+	}
+
+	if got.NodeId != 7 || got.Profile != "dev" || got.Username != "bob" {
+		t.Errorf("force-logout fields: got NodeId=%d Profile=%q Username=%q; want 7 dev bob",
+			got.NodeId, got.Profile, got.Username)
+	}
+
+	// PlayerLogout must NOT have been called (no save on ungraceful disconnect).
+	if got := fake.snapshotPlayerLogoutReq(); got != nil {
+		t.Errorf("PlayerLogout fired on disconnect path: %+v", got)
+	}
+}
+
+func TestRemovePlayerOnDisconnect_NoLoginClient_NoRPC(t *testing.T) {
+	s := newTestServer(t)
+	c, _ := newTestClient(t)
+	c.server = s
+	p := newPlayer(c)
+	p.username = "bob"
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+
+	s.removePlayerOnDisconnect(p) // must not panic
+	if s.players[p.slot] != nil {
+		t.Error("removePlayerInternal must still run when loginClient is nil")
 	}
 }

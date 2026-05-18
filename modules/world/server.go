@@ -922,10 +922,8 @@ func (s *Server) removePlayerOnTick(p *Player) {
 // last autosave is lost on ungraceful disconnect. Autosave cadence
 // (15 min) caps the loss window. TS has the same window.
 //
-// TODO(NAI-PLAYERLOADING-FU-DISCONNECT-INTEGRATION-TESTS): pin that
-// PlayerForceLogout fires and PlayerLogout does NOT fire (T17 of
-// NAI-PLAYERLOADING). Mirror the fakeLoginClient pattern used by
-// TestRemovePlayerOnTick_* (server_logout_test.go).
+// PlayerForceLogout RPC + "no PlayerLogout" assertion pinned by
+// TestRemovePlayerOnDisconnect_* (server_logout_test.go).
 func (s *Server) removePlayerOnDisconnect(p *Player) {
 	if s.loginClient != nil && p.username != "" {
 		go s.loginClient.PlayerForceLogout(context.Background(),
