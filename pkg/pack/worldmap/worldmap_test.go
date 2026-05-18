@@ -125,6 +125,167 @@ func TestProcessMap_EmptyLandFile_ProducesHeaderOnlyBytes(t *testing.T) {
 	}
 }
 
+// writeGSmart writes v in the goscape GSmart encoding (= TS gsmarts):
+// byte form if v < 0x80, otherwise 2-byte form (v | 0x8000).
+func writeGSmart(p *packet2.Packet, v int) {
+	if v < 0x80 {
+		p.P1(uint8(v))
+	} else {
+		p.P2(uint16(v) | 0x8000)
+	}
+}
+
+func TestProcessMap_WallShapeDecoding(t *testing.T) {
+	t.Parallel()
+
+	land := packet2.Alloc(1)
+	defer land.Release()
+	for range 4 * 64 * 64 {
+		land.P1(0)
+	}
+
+	type spec struct {
+		shape  int
+		angle  int
+		active int
+		x, z   int
+		want   uint8 // expected walls byte
+	}
+	// All four locs at level=0 (the default selected level for mx=50, mz=50).
+	// Each at a distinct (x, z) so they don't collide.
+	locs := []spec{
+		{shape: 0, angle: 2, active: 1, x: 1, z: 1, want: 7},  // WallStraight: 1+2+4
+		{shape: 2, angle: 1, active: 0, x: 2, z: 2, want: 10}, // WallL: 9+1
+		{shape: 4, angle: 3, active: 0, x: 3, z: 3, want: 20}, // WallDecorStraightNoOffset: 17+3
+		{shape: 9, angle: 1, active: 0, x: 4, z: 4, want: 26}, // WallDiagonal: 25+(1%2)
+	}
+
+	locBuf := packet2.Alloc(1)
+	defer locBuf.Release()
+	prevId := -1
+	for i, l := range locs {
+		writeGSmart(locBuf, i-prevId) // locId delta
+		prevId = i
+		coord := (0 << 12) | (l.x << 6) | l.z
+		writeGSmart(locBuf, coord+1)               // coordOffset; previous coord = 0
+		locBuf.P1(uint8((l.shape << 2) | l.angle)) // info byte
+		writeGSmart(locBuf, 0)                     // coord inner-loop terminator
+	}
+	writeGSmart(locBuf, 0) // locId outer-loop terminator
+
+	obj := packet2.Alloc(1)
+	defer obj.Release()
+	npc := packet2.Alloc(1)
+	defer npc.Release()
+
+	flo := &objtype.FloTypeConfigs{ConfigNames: map[string]int{"muddygrass": 0, "water": 1}}
+	locConfigs := []*objtype.LocType{
+		{Active: 1, MapScene: -1, MapFunction: -1},
+		{Active: 0, MapScene: -1, MapFunction: -1},
+		{Active: 0, MapScene: -1, MapFunction: -1},
+		{Active: 0, MapScene: -1, MapFunction: -1},
+	}
+
+	out := newMapPackets()
+	defer out.release()
+	ctx := mapCtx{
+		flo:      flo,
+		locTypes: &objtype.LocTypeConfigs{Configs: locConfigs},
+		npcTypes: &objtype.NPCTypeConfigs{},
+		multimap: map[int]struct{}{},
+		freemap:  map[int]struct{}{},
+	}
+
+	if err := processMap(ctx, out, 50, 50, land, locBuf, obj, npc); err != nil {
+		t.Fatalf("processMap: %v", err)
+	}
+
+	// Decode out.loc: header(2) + per-(x,z) slot. Each slot is 0..N
+	// bytes terminated by a 0. We set no MapScene/MapFunction, so wall
+	// slots have exactly (wall, 0); empty slots have just (0).
+	out.loc.Pos = 2
+	walls := make(map[[2]int]uint8)
+	for x := range 64 {
+		for z := range 64 {
+			for {
+				b := out.loc.G1()
+				if b == 0 {
+					break
+				}
+				walls[[2]int{x, z}] = b
+			}
+		}
+	}
+
+	for _, l := range locs {
+		got, ok := walls[[2]int{l.x, l.z}]
+		if !ok {
+			t.Errorf("walls[%d,%d] missing; want %d", l.x, l.z, l.want)
+			continue
+		}
+		if got != l.want {
+			t.Errorf("walls[%d,%d] = %d, want %d (shape=%d angle=%d active=%d)",
+				l.x, l.z, got, l.want, l.shape, l.angle, l.active)
+		}
+	}
+}
+
+func TestProcessMap_ObjPathEmitsPBoolMask(t *testing.T) {
+	t.Parallel()
+
+	land := packet2.Alloc(1)
+	defer land.Release()
+	for range 4 * 64 * 64 {
+		land.P1(0)
+	}
+	locBuf := packet2.Alloc(1)
+	defer locBuf.Release()
+	locBuf.P1(0)
+	npc := packet2.Alloc(1)
+	defer npc.Release()
+
+	// One obj entry at level=0, lx=5, lz=5.
+	obj := packet2.Alloc(1)
+	defer obj.Release()
+	pos := (0 << 12) | (5 << 6) | 5
+	obj.P2(uint16(pos))
+	obj.P1(1)      // count
+	obj.P2(0x1234) // objId
+	obj.P1(1)      // objCount (discarded)
+
+	flo := &objtype.FloTypeConfigs{ConfigNames: map[string]int{"muddygrass": 0, "water": 1}}
+	out := newMapPackets()
+	defer out.release()
+	ctx := mapCtx{
+		flo:      flo,
+		locTypes: &objtype.LocTypeConfigs{},
+		npcTypes: &objtype.NPCTypeConfigs{},
+		multimap: map[int]struct{}{},
+		freemap:  map[int]struct{}{},
+	}
+
+	if err := processMap(ctx, out, 10, 10, land, locBuf, obj, npc); err != nil {
+		t.Fatalf("processMap: %v", err)
+	}
+
+	if got, want := out.obj.Length(), 2+4096; got != want {
+		t.Fatalf("obj length = %d, want %d", got, want)
+	}
+	out.obj.Pos = 0
+	if h1, h2 := out.obj.G1(), out.obj.G1(); h1 != 10 || h2 != 10 {
+		t.Errorf("obj header = (%d, %d), want (10, 10)", h1, h2)
+	}
+	for x := range 64 {
+		for z := range 64 {
+			got := out.obj.G1()
+			wantTrue := x == 5 && z == 5
+			if (got == 1) != wantTrue {
+				t.Errorf("obj[%d,%d] = %d, want %v", x, z, got, wantTrue)
+			}
+		}
+	}
+}
+
 func TestProcessMap_UndergroundPassLevelOverride(t *testing.T) {
 	t.Parallel()
 	land := packet2.Alloc(1)
