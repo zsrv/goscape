@@ -532,3 +532,36 @@ func TestLoadSave_CRCMismatch_Err(t *testing.T) {
 		t.Errorf("got err=%v, want ErrSavCorrupt", err)
 	}
 }
+
+func TestSave_CRCHighBitSet_RoundTrips(t *testing.T) {
+	// Construct players varying x until one yields a CRC with the high
+	// bit set. Pins that goscape's u32 CRC read/write round-trips
+	// identically vs TS's g4s (signed-i32) read.
+	cfg := &objtype.InvType{Scope: objtype.InvTypeScopePerm, Size: 4}
+	cfg.ID = 0
+	cfgs := &objtype.InvTypeConfigs{Configs: []*objtype.InvType{cfg}}
+	var savedBytes []byte
+	for x := range 65535 {
+		p := &Player{
+			invs:  map[int]*inventory.Inventory{0: inventory.New(0, 4, inventory.StackNormal)},
+			varps: []int32{},
+		}
+		p.x = x
+		out := p.Save(cfgs)
+		crc := binary.BigEndian.Uint32(out[len(out)-4:])
+		if crc&0x80000000 != 0 {
+			savedBytes = out
+			break
+		}
+	}
+	if savedBytes == nil {
+		t.Fatal("could not find a CRC with high bit set across x=[0..65535)")
+	}
+	p := &Player{
+		invs:  map[int]*inventory.Inventory{0: inventory.New(0, 4, inventory.StackNormal)},
+		varps: []int32{},
+	}
+	if err := LoadSave(p, savedBytes, cfgs); err != nil {
+		t.Fatalf("LoadSave(CRC with high bit set): %v — pins TS signedness parity", err)
+	}
+}
