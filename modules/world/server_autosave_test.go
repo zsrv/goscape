@@ -128,7 +128,7 @@ func TestAutosavePlayers_EmptyUsername_Skipped(t *testing.T) {
 }
 
 // TestAutosavePlayers_TickCadenceGate pins the gate at tick.go:55 — autosave
-// fires on ticks where currentTick > 0 && currentTick % PlayerSaveRate == 0,
+// fires on ticks where currentTick % PlayerSaveRate == 0 && currentTick > 0,
 // and not otherwise. Test by calling the gate inline (no tick loop needed).
 func TestAutosavePlayers_TickCadenceGate(t *testing.T) {
 	cases := []struct {
