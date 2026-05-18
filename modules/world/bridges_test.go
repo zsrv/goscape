@@ -329,3 +329,17 @@ func TestLoginGRPCBridgeMod_FireAndForget_DoesNotBlock(t *testing.T) {
 		t.Fatal("timeout waiting for gated PlayerBan to fire")
 	}
 }
+
+func TestDefaultLoginBridgeMod_NonNilClient_ReturnsGRPCBridge(t *testing.T) {
+	got := defaultLoginBridgeMod(newFakeLoginClient(), discardLogger())
+	if _, ok := got.(*loginGRPCBridgeMod); !ok {
+		t.Fatalf("defaultLoginBridgeMod: got %T, want *loginGRPCBridgeMod", got)
+	}
+}
+
+func TestDefaultLoginBridgeMod_NilClient_ReturnsNoop(t *testing.T) {
+	got := defaultLoginBridgeMod(nil, discardLogger())
+	if _, ok := got.(noopBridges); !ok {
+		t.Fatalf("defaultLoginBridgeMod: got %T, want noopBridges", got)
+	}
+}

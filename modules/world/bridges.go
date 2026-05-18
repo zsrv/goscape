@@ -104,3 +104,14 @@ func (b *loginGRPCBridgeMod) NotifyPlayerMute(staff, username string, until time
 }
 
 var _ LoginBridgeMod = (*loginGRPCBridgeMod)(nil)
+
+// defaultLoginBridgeMod returns the production LoginBridgeMod for the
+// given LoginClient: a goroutine-fanout gRPC adapter when client != nil,
+// otherwise noopBridges{}. Called from NewServer; broken out for
+// testability without spinning up the full Server.
+func defaultLoginBridgeMod(client LoginClient, log *slog.Logger) LoginBridgeMod {
+	if client != nil {
+		return &loginGRPCBridgeMod{client: client, log: log}
+	}
+	return noopBridges{}
+}
