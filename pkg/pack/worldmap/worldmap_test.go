@@ -374,6 +374,132 @@ func TestProcessMap_ObjPathEmitsPBoolMask(t *testing.T) {
 	}
 }
 
+func TestProcessMap_NpcPathEmitsPBoolMask(t *testing.T) {
+	t.Parallel()
+
+	land := packet2.Alloc(1)
+	defer land.Release()
+	for range 4 * 64 * 64 {
+		land.P1(0)
+	}
+	locBuf := packet2.Alloc(1)
+	defer locBuf.Release()
+	locBuf.P1(0)
+	obj := packet2.Alloc(1)
+	defer obj.Release()
+
+	// Two npc entries: id=5 with Minimap=true at (lx=10,lz=10),
+	// id=7 with Minimap=false at (lx=20,lz=20). Only the former
+	// should set its PBool bit.
+	npc := packet2.Alloc(1)
+	defer npc.Release()
+	pos1 := (0 << 12) | (10 << 6) | 10
+	npc.P2(uint16(pos1))
+	npc.P1(1) // count
+	npc.P2(5) // npcId
+	pos2 := (0 << 12) | (20 << 6) | 20
+	npc.P2(uint16(pos2))
+	npc.P1(1) // count
+	npc.P2(7) // npcId
+
+	flo := &objtype.FloTypeConfigs{ConfigNames: map[string]int{"muddygrass": 0, "water": 1}}
+	npcConfigs := make([]*objtype.NpcType, 8)
+	npcConfigs[5] = &objtype.NpcType{Minimap: true}
+	npcConfigs[7] = &objtype.NpcType{Minimap: false}
+
+	out := newMapPackets()
+	defer out.release()
+	ctx := mapCtx{
+		flo:      flo,
+		locTypes: &objtype.LocTypeConfigs{},
+		npcTypes: &objtype.NPCTypeConfigs{Configs: npcConfigs},
+		multimap: map[int]struct{}{},
+		freemap:  map[int]struct{}{},
+	}
+
+	if err := processMap(ctx, out, 12, 13, land, locBuf, obj, npc); err != nil {
+		t.Fatalf("processMap: %v", err)
+	}
+
+	if got, want := out.npc.Length(), 2+4096; got != want {
+		t.Fatalf("npc length = %d, want %d", got, want)
+	}
+	out.npc.Pos = 0
+	if h1, h2 := out.npc.G1(), out.npc.G1(); h1 != 12 || h2 != 13 {
+		t.Errorf("npc header = (%d, %d), want (12, 13)", h1, h2)
+	}
+	for x := range 64 {
+		for z := range 64 {
+			got := out.npc.G1()
+			wantTrue := x == 10 && z == 10 // (id=5, Minimap=true) only
+			if (got == 1) != wantTrue {
+				t.Errorf("npc[%d,%d] = %d, want %v", x, z, got, wantTrue)
+			}
+		}
+	}
+}
+
+func TestProcessMap_MapScene22SkipsLoc(t *testing.T) {
+	t.Parallel()
+
+	land := packet2.Alloc(1)
+	defer land.Release()
+	for range 4 * 64 * 64 {
+		land.P1(0)
+	}
+
+	// One loc at (level=0, x=5, z=5) with shape=0 (WallStraight),
+	// angle=0. Its LocType has MapScene=22 → processMap continues
+	// before emitting any wall/mapscene/mapfunction byte.
+	locBuf := packet2.Alloc(1)
+	defer locBuf.Release()
+	writeGSmart(locBuf, 0) // locId delta (locId becomes 0)
+	coord := (0 << 12) | (5 << 6) | 5
+	writeGSmart(locBuf, coord+1)               // coordOffset; previous coord = 0
+	locBuf.P1(uint8((0 << 2) | 0))             // info byte (shape=0, angle=0)
+	writeGSmart(locBuf, 0)                     // coord inner-loop terminator
+	writeGSmart(locBuf, 0)                     // locId outer-loop terminator
+
+	obj := packet2.Alloc(1)
+	defer obj.Release()
+	npc := packet2.Alloc(1)
+	defer npc.Release()
+
+	flo := &objtype.FloTypeConfigs{ConfigNames: map[string]int{"muddygrass": 0, "water": 1}}
+	locConfigs := []*objtype.LocType{
+		{Active: 1, MapScene: 22, MapFunction: -1},
+	}
+
+	out := newMapPackets()
+	defer out.release()
+	ctx := mapCtx{
+		flo:      flo,
+		locTypes: &objtype.LocTypeConfigs{Configs: locConfigs},
+		npcTypes: &objtype.NPCTypeConfigs{},
+		multimap: map[int]struct{}{},
+		freemap:  map[int]struct{}{},
+	}
+
+	if err := processMap(ctx, out, 50, 50, land, locBuf, obj, npc); err != nil {
+		t.Fatalf("processMap: %v", err)
+	}
+
+	// header (2) + one terminator-0 per tile (4096) and no wall /
+	// mapscene / mapfunction bytes — because MapScene==22 short-
+	// circuits before any of those are recorded.
+	if got, want := out.loc.Length(), 2+4096; got != want {
+		t.Fatalf("loc length = %d, want %d", got, want)
+	}
+	out.loc.Pos = 2
+	for x := range 64 {
+		for z := range 64 {
+			if b := out.loc.G1(); b != 0 {
+				t.Fatalf("loc[%d,%d] body byte = %d, want 0", x, z, b)
+			}
+		}
+	}
+}
+
 func TestProcessMap_UndergroundPassLevelOverride(t *testing.T) {
 	t.Parallel()
 	land := packet2.Alloc(1)

@@ -45,6 +45,7 @@ func buildFloFixture(t *testing.T, entries []string) (*packet2.Packet, *jagfile.
 	}
 
 	clientFlo := packet2.Alloc(1)
+	defer clientFlo.Release()
 	clientFlo.P2(uint16(len(entries)))
 	for _, name := range entries {
 		// Only emit debugname (opcode 6) — matches the "no flo_ prefix"

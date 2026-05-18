@@ -8,8 +8,8 @@ import (
 	"github.com/zsrv/goscape/pkg/coordgrid"
 )
 
-// Label is one parsed entry from labels.txt.
-type Label struct {
+// label is one parsed entry from labels.txt.
+type label struct {
 	Text string
 	X    int
 	Z    int
@@ -96,9 +96,9 @@ func processCsv(lines []string, name string, lg *slog.Logger) map[int]struct{} {
 // as "text,x,z,type". The first 4 comma-separated fields are kept;
 // trailing extras are absorbed into the last field (TS destructure
 // discards them after parseInt-on-leading-digits coercion).
-func parseLabels(src string) []Label {
+func parseLabels(src string) []label {
 	rawLines := strings.Split(strings.ReplaceAll(src, "\r\n", "\n"), "\n")
-	out := make([]Label, 0, len(rawLines))
+	out := make([]label, 0, len(rawLines))
 	for _, line := range rawLines {
 		if !strings.HasPrefix(line, "=") {
 			continue
@@ -107,7 +107,7 @@ func parseLabels(src string) []Label {
 		if len(fields) != 4 {
 			continue
 		}
-		out = append(out, Label{
+		out = append(out, label{
 			Text: fields[0],
 			X:    atoi(fields[1]),
 			Z:    atoi(fields[2]),
