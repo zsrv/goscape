@@ -127,6 +127,8 @@ func (s *Server) runWatchSession() bool {
 		}
 	}
 
+	s.maybeReplayDispatch()
+
 	var debounceC <-chan time.Time
 
 	for {
@@ -202,6 +204,47 @@ func writePackStamp(path string, t time.Time) error {
 		return fmt.Errorf("writePackStamp: rename: %w", err)
 	}
 	return nil
+}
+
+// maybeReplayDispatch reads CachePath/.pack-stamp and scans the content
+// tree against it. If the stamp is missing, unreadable, or corrupt, or
+// if any content file has mtime newer than the stamp, calls
+// dispatchRebuildRequest exactly once. Returns true iff dispatch fired.
+//
+// Caller invariant: must be called from inside runWatchSession AFTER
+// addWatchesRecursive has succeeded, so any edit that races the scan is
+// also caught by the active fsnotify watcher (dispatchRebuildRequest's
+// pending-flag coalescing dedupes). Scan walk errors result in no
+// dispatch — we don't trigger a rebuild we can't justify. Stamp read
+// errors result in dispatch — unknown cache state is safer to rebuild.
+func (s *Server) maybeReplayDispatch() bool {
+	stampPath := filepath.Join(s.cfg.CachePath, ".pack-stamp")
+	ref, ok, err := readPackStamp(stampPath)
+	if err != nil {
+		s.log.Warn("contentWatcher: pack stamp unreadable, treating as stale",
+			"path", stampPath, "err", err)
+		s.dispatchRebuildRequest()
+		return true
+	}
+	if !ok {
+		s.log.Info("contentWatcher: no pack stamp, triggering replay rebuild",
+			"path", stampPath)
+		s.dispatchRebuildRequest()
+		return true
+	}
+	newer, err := scanContentNewerThan(s.cfg.ContentPath, canonicalContentSubdirs, ref)
+	if err != nil {
+		s.log.Warn("contentWatcher: replay scan failed, skipping replay",
+			"err", err)
+		return false
+	}
+	if newer {
+		s.log.Info("contentWatcher: detected post-stamp edits, triggering replay rebuild",
+			"stamp", ref)
+		s.dispatchRebuildRequest()
+		return true
+	}
+	return false
 }
 
 // scanContentNewerThan walks each existing subdir under root and returns

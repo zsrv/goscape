@@ -51,6 +51,14 @@ func TestContentWatcher_FileWrite_TriggersRebuildAfterDebounce(t *testing.T) {
 	// avoid a race on slower CI.
 	time.Sleep(100 * time.Millisecond)
 
+	// Drain the boot replay-dispatch fired by maybeReplayDispatch on
+	// session start (no stamp yet → infinitely stale).
+	select {
+	case <-s.rebuildReq:
+	case <-time.After(2 * time.Second):
+		t.Fatal("boot replay dispatch did not fire")
+	}
+
 	target := filepath.Join(root, "scripts", "foo.rs2")
 	if err := os.WriteFile(target, []byte("[proc,foo]\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
@@ -71,6 +79,14 @@ func TestContentWatcher_BurstCoalesces(t *testing.T) {
 	s := newTestServer(t)
 	_ = startWatcher(t, s, root, "scripts")
 	time.Sleep(100 * time.Millisecond)
+
+	// Drain the boot replay-dispatch fired by maybeReplayDispatch on
+	// session start (no stamp yet → infinitely stale).
+	select {
+	case <-s.rebuildReq:
+	case <-time.After(2 * time.Second):
+		t.Fatal("boot replay dispatch did not fire")
+	}
 
 	for i := 0; i < 10; i++ {
 		target := filepath.Join(root, "scripts", "foo.rs2")
@@ -105,6 +121,14 @@ func TestContentWatcher_NewSubdir_AddedToWatch(t *testing.T) {
 	s := newTestServer(t)
 	_ = startWatcher(t, s, root, "scripts")
 	time.Sleep(100 * time.Millisecond)
+
+	// Drain the boot replay-dispatch fired by maybeReplayDispatch on
+	// session start (no stamp yet → infinitely stale).
+	select {
+	case <-s.rebuildReq:
+	case <-time.After(2 * time.Second):
+		t.Fatal("boot replay dispatch did not fire")
+	}
 
 	newDir := filepath.Join(root, "scripts", "newdir")
 	if err := os.Mkdir(newDir, 0o755); err != nil {
@@ -147,6 +171,14 @@ func TestContentWatcher_NonWatchedDirIgnored(t *testing.T) {
 		t.Fatalf("mkdir node_modules: %v", err)
 	}
 	time.Sleep(100 * time.Millisecond)
+
+	// Drain the boot replay-dispatch fired by maybeReplayDispatch on
+	// session start (no stamp yet → infinitely stale).
+	select {
+	case <-s.rebuildReq:
+	case <-time.After(2 * time.Second):
+		t.Fatal("boot replay dispatch did not fire")
+	}
 
 	target := filepath.Join(root, "node_modules", "foo")
 	if err := os.WriteFile(target, []byte("ignored"), 0o644); err != nil {
@@ -589,6 +621,173 @@ func TestScanContentNewerThan_MissingSubdirSkipsContinues(t *testing.T) {
 	}
 	if !got {
 		t.Errorf("got false, want true (models/a.dat newer than ref; missing scripts must not abort)")
+	}
+}
+
+// startWatchSession runs a single runWatchSession() in a goroutine with
+// a CachePath at t.TempDir(). Closes s.quit on cleanup. Returns the
+// CachePath for stamp seeding/inspection by the test.
+func startWatchSession(t *testing.T, s *Server, root string, subs ...string) string {
+	t.Helper()
+	cachePath := t.TempDir()
+	s.cfg.CachePath = cachePath
+	s.cfg.ContentPath = root
+	for _, sub := range subs {
+		if err := os.MkdirAll(filepath.Join(root, sub), 0o755); err != nil {
+			t.Fatalf("mkdir %s/%s: %v", root, sub, err)
+		}
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.runWatchSession()
+	}()
+	t.Cleanup(func() {
+		close(s.quit)
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Fatal("runWatchSession did not exit within 2s after s.quit close")
+		}
+	})
+	return cachePath
+}
+
+// TestRunWatchSession_NoStamp_Dispatches pins the boot path: empty
+// cache + content directory triggers exactly one dispatchRebuildRequest
+// via the stamp-missing branch.
+func TestRunWatchSession_NoStamp_Dispatches(t *testing.T) {
+	s := newTestServer(t)
+	root := t.TempDir()
+	_ = startWatchSession(t, s, root, "scripts")
+
+	select {
+	case <-s.rebuildReq:
+		// good — replay dispatched on missing stamp
+	case <-time.After(2 * time.Second):
+		t.Fatal("no rebuildReq within 2s; missing-stamp branch did not dispatch")
+	}
+}
+
+// TestRunWatchSession_StampOlderThanContent_Dispatches pins the
+// down-window path: a content file with mtime > stamp triggers
+// dispatch via the scan branch.
+func TestRunWatchSession_StampOlderThanContent_Dispatches(t *testing.T) {
+	s := newTestServer(t)
+	root := t.TempDir()
+
+	// Pre-create content + a stamp older than any content file. Use
+	// a stamp 1 hour in the past to dwarf any clock granularity.
+	if err := os.MkdirAll(filepath.Join(root, "scripts"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "scripts", "a.rs2"), []byte("x"), 0o644); err != nil {
+		t.Fatalf("write content: %v", err)
+	}
+
+	// Seed stamp BEFORE startWatchSession so it exists when the session
+	// reads it. startWatchSession sets s.cfg.CachePath, so we must
+	// allocate the cache dir manually here.
+	cachePath := t.TempDir()
+	s.cfg.CachePath = cachePath
+	if err := writePackStamp(filepath.Join(cachePath, ".pack-stamp"), time.Now().Add(-1*time.Hour)); err != nil {
+		t.Fatalf("seed stamp: %v", err)
+	}
+
+	s.cfg.ContentPath = root
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.runWatchSession()
+	}()
+	t.Cleanup(func() {
+		close(s.quit)
+		<-done
+	})
+
+	select {
+	case <-s.rebuildReq:
+		// good — replay dispatched on stale stamp
+	case <-time.After(2 * time.Second):
+		t.Fatal("no rebuildReq within 2s; stale-stamp branch did not dispatch")
+	}
+}
+
+// TestRunWatchSession_StampNewerThanContent_NoDispatch pins the quiet
+// path: a stamp newer than every content file results in no dispatch.
+func TestRunWatchSession_StampNewerThanContent_NoDispatch(t *testing.T) {
+	s := newTestServer(t)
+	root := t.TempDir()
+
+	if err := os.MkdirAll(filepath.Join(root, "scripts"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "scripts", "a.rs2"), []byte("x"), 0o644); err != nil {
+		t.Fatalf("write content: %v", err)
+	}
+
+	cachePath := t.TempDir()
+	s.cfg.CachePath = cachePath
+	// Stamp 1 hour in the future — guaranteed newer than any file mtime.
+	if err := writePackStamp(filepath.Join(cachePath, ".pack-stamp"), time.Now().Add(1*time.Hour)); err != nil {
+		t.Fatalf("seed stamp: %v", err)
+	}
+
+	s.cfg.ContentPath = root
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.runWatchSession()
+	}()
+	t.Cleanup(func() {
+		close(s.quit)
+		<-done
+	})
+
+	// Watcher needs a moment to register + run replay scan + enter the
+	// event loop. After ~200ms, if no dispatch fired, the quiet path is
+	// confirmed (no edits → no fsnotify event → no other dispatch source).
+	select {
+	case <-s.rebuildReq:
+		t.Errorf("rebuildReq fired with fresh stamp; quiet branch broken")
+	case <-time.After(500 * time.Millisecond):
+		// good — no dispatch
+	}
+}
+
+// TestRunWatchSession_StampCorrupt_Dispatches pins that a corrupt
+// stamp (non-numeric content) is treated as infinitely stale and
+// triggers dispatch.
+func TestRunWatchSession_StampCorrupt_Dispatches(t *testing.T) {
+	s := newTestServer(t)
+	root := t.TempDir()
+
+	if err := os.MkdirAll(filepath.Join(root, "scripts"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	cachePath := t.TempDir()
+	s.cfg.CachePath = cachePath
+	if err := os.WriteFile(filepath.Join(cachePath, ".pack-stamp"), []byte("not-a-number\n"), 0o644); err != nil {
+		t.Fatalf("seed corrupt stamp: %v", err)
+	}
+
+	s.cfg.ContentPath = root
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.runWatchSession()
+	}()
+	t.Cleanup(func() {
+		close(s.quit)
+		<-done
+	})
+
+	select {
+	case <-s.rebuildReq:
+		// good — corrupt stamp dispatched
+	case <-time.After(2 * time.Second):
+		t.Fatal("no rebuildReq within 2s; corrupt-stamp branch did not dispatch")
 	}
 }
 
