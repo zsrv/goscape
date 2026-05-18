@@ -20,6 +20,7 @@ type World struct {
 	subservicesWatcher *services.FailureWatcher
 	Server             *Server
 	loginClient        LoginClient
+	friendsClient      FriendsClient
 	cfg                Config
 }
 
@@ -61,7 +62,18 @@ func New(cfg Config, logger *slog.Logger) (*World, error) {
 	}
 	w.loginClient = loginClient
 
-	server, err := NewServer(cfg, loginClient, nil, logger)
+	var friendsClient FriendsClient
+	if cfg.FriendsServerEnabled {
+		fc, err := NewFriendsClient(cfg.FriendsServerAddress, logger)
+		if err != nil {
+			logger.Warn("failed to create friends client", slog.Any("err", err))
+		} else {
+			friendsClient = fc
+		}
+	}
+	w.friendsClient = friendsClient
+
+	server, err := NewServer(cfg, loginClient, friendsClient, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create server: %w", err)
 	}
@@ -73,10 +85,13 @@ func New(cfg Config, logger *slog.Logger) (*World, error) {
 // GetLoginClient returns the LoginClient for this world (may be nil if disabled).
 func (w *World) GetLoginClient() LoginClient { return w.loginClient }
 
+// GetFriendsClient returns the FriendsClient for this world (may be nil if disabled).
+func (w *World) GetFriendsClient() FriendsClient { return w.friendsClient }
+
 // NewWorldService constructs a services.Service from a Server component.
 // The Server should not react to signals. Early return from Run function
 // is considered to be an error.
-func NewWorldService(serv *Server, lc LoginClient, servicesToWaitFor func() []services.Service) services.Service {
+func NewWorldService(serv *Server, lc LoginClient, fc FriendsClient, servicesToWaitFor func() []services.Service) services.Service {
 	serverDone := make(chan error, 1)
 
 	startingFn := func(ctx context.Context) error {
@@ -86,6 +101,9 @@ func NewWorldService(serv *Server, lc LoginClient, servicesToWaitFor func() []se
 		cache.MakeCRCs()
 		if lc != nil {
 			lc.WorldStartup(ctx, int32(serv.cfg.NodeID), serv.cfg.NodeProfile)
+		}
+		if fc != nil {
+			fc.WorldConnect(ctx, int32(serv.cfg.NodeID), serv.cfg.NodeProfile)
 		}
 		// NAI-REBUILD-ASYNC: spawn long-lived pack worker + optional
 		// fsnotify watcher when ContentPath is configured. Both exit
@@ -137,6 +155,11 @@ func NewWorldService(serv *Server, lc LoginClient, servicesToWaitFor func() []se
 		if lc != nil {
 			if err := lc.Close(); err != nil {
 				serv.log.Warn("failed to close login client", slog.Any("err", err))
+			}
+		}
+		if fc != nil {
+			if err := fc.Close(); err != nil {
+				serv.log.Warn("failed to close friends client", slog.Any("err", err))
 			}
 		}
 		return nil
