@@ -19,6 +19,7 @@ type Config struct {
 	CachePath                        string        `yaml:"cache_path"`
 	ContentPath                      string        `yaml:"content_path"`
 	LoginServerAddress               string        `yaml:"login_server_address"`
+	FriendsServerAddress             string        `yaml:"friends_server_address"`
 	TCPServerIdleTimeout             time.Duration `yaml:"tcp_server_idle_timeout"`
 	NodeMaxNPCs                      int           `yaml:"node_max_npcs"`
 	TCPServerWriteTimeout            time.Duration `yaml:"tcp_server_write_timeout"`
@@ -36,6 +37,7 @@ type Config struct {
 	NodeMinimumWealthValueEvent      int           `yaml:"node_minimum_wealth_value_event"`
 	NodeMembers                      bool          `yaml:"node_members"`
 	LoginServerEnabled               bool          `yaml:"login_server_enabled"`
+	FriendsServerEnabled             bool          `yaml:"friends_server_enabled"`
 	NodeDebugProfile                 bool          `yaml:"node_debug_profile"`
 	NodeDebugSocket                  bool          `yaml:"node_debug_socket"`
 	NodeClientRoutefinder            bool          `yaml:"node_client_routefinder"`
@@ -91,6 +93,8 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 
 	f.StringVar(&c.LoginServerAddress, "world.login-server-address", "127.0.0.1:2004", "Login server gRPC address.")
 	f.BoolVar(&c.LoginServerEnabled, "world.login-server-enabled", true, "Whether to connect to the login server.")
+	f.StringVar(&c.FriendsServerAddress, "world.friends-server-address", "127.0.0.1:2005", "Friends server gRPC address.")
+	f.BoolVar(&c.FriendsServerEnabled, "world.friends-server-enabled", false, "Whether to connect to the friends server.")
 }
 
 func (c *Config) Validate() error {
