@@ -453,12 +453,12 @@ func TestProcessMap_MapScene22SkipsLoc(t *testing.T) {
 	// before emitting any wall/mapscene/mapfunction byte.
 	locBuf := packet2.Alloc(1)
 	defer locBuf.Release()
-	writeGSmart(locBuf, 0) // locId delta (locId becomes 0)
+	writeGSmart(locBuf, 1) // locId delta (locId: -1 → 0)
 	coord := (0 << 12) | (5 << 6) | 5
-	writeGSmart(locBuf, coord+1)               // coordOffset; previous coord = 0
-	locBuf.P1(uint8((0 << 2) | 0))             // info byte (shape=0, angle=0)
-	writeGSmart(locBuf, 0)                     // coord inner-loop terminator
-	writeGSmart(locBuf, 0)                     // locId outer-loop terminator
+	writeGSmart(locBuf, coord+1) // coordOffset; previous coord = 0
+	locBuf.P1(0)                 // info byte (shape=0, angle=0)
+	writeGSmart(locBuf, 0)       // coord inner-loop terminator
+	writeGSmart(locBuf, 0)       // locId outer-loop terminator
 
 	obj := packet2.Alloc(1)
 	defer obj.Release()
