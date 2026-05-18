@@ -269,7 +269,7 @@ func NewServer(cfg Config, loginClient LoginClient, logger *slog.Logger) (*Serve
 	s.reloadFn = s.Reload
 	s.watchSessionFn = s.runWatchSession
 	s.friendsBridge = noopBridges{}
-	s.loginBridgeMod = noopBridges{}
+	s.loginBridgeMod = defaultLoginBridgeMod(loginClient, s.log)
 	s.loggerBridge = NewSlogLoggerBridge(s.log)
 	s.locOps = &serverLocOps{s: s}
 	s.tcpWg.Add(1)
