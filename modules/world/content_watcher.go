@@ -74,19 +74,24 @@ func addWatchesRecursive(w *fsnotify.Watcher, root string) error {
 }
 
 // runContentWatcher is the goroutine entry-point for content-directory
-// auto-rebuild. Spawned by world.go startingFn iff ContentPath != ""
-// && ContentWatch. Supervises one or more s.watchSessionFn invocations
-// (default: s.runWatchSession), restarting on `true` returns and
-// exiting on `false` (s.quit fired). Spec §3.1.
+// auto-rebuild. Supervises one or more s.watchSessionFn invocations
+// (default: s.runWatchSession), restarting on `true` returns with
+// exponential backoff and exiting on `false` (s.quit fired). Spec §3.1.
 //
-// T3 of NAI-CONTENT-WATCHER-RESTART: minimal restart loop with no
-// backoff. T4 adds time.After backoff; T5 adds quit-aware sleep;
-// T6 adds reset-after-steady-run logic.
+// T4 of NAI-CONTENT-WATCHER-RESTART: adds time.After backoff via
+// nextWatcherBackoff. T5 adds quit-awareness to the sleep; T6 adds
+// reset-after-steady-run.
 func (s *Server) runContentWatcher() {
+	attempt := 0
 	for {
 		if !s.watchSessionFn() {
 			return
 		}
+		attempt++
+		delay := nextWatcherBackoff(attempt)
+		s.log.Warn("contentWatcher: session ended, restarting",
+			"attempt", attempt, "delay", delay)
+		<-time.After(delay)
 	}
 }
 

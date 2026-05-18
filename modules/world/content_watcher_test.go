@@ -295,3 +295,79 @@ func TestContentWatcher_SessionExitsRestart_RetriesUntilQuit(t *testing.T) {
 		t.Errorf("watchSessionFn call count = %d, want %d", final, wantRestarts+1)
 	}
 }
+
+// TestContentWatcher_BackoffDoubles pins the exponential-backoff curve.
+// With base=1ms and max=16ms, the 6 inter-call deltas for 7 calls are
+// [1, 2, 4, 8, 16, 16] ms. Cap kicks in at attempt 5.
+func TestContentWatcher_BackoffDoubles(t *testing.T) {
+	s := newTestServer(t)
+	withFastBackoff(t)
+
+	const wantCalls = 7
+	var mu sync.Mutex
+	var timestamps []time.Time
+	stubEntered := make(chan int, wantCalls+1)
+
+	s.watchSessionFn = func() bool {
+		mu.Lock()
+		timestamps = append(timestamps, time.Now())
+		n := len(timestamps)
+		mu.Unlock()
+		stubEntered <- n
+		if n >= wantCalls {
+			// Final call: block until quit so the supervisor doesn't
+			// sleep+enter an 8th call before we close s.quit.
+			<-s.quit
+			return false
+		}
+		return true
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.runContentWatcher()
+	}()
+
+	deadline := time.After(2 * time.Second)
+	for i := 0; i < wantCalls; i++ {
+		select {
+		case <-stubEntered:
+		case <-deadline:
+			mu.Lock()
+			got := len(timestamps)
+			mu.Unlock()
+			t.Fatalf("only %d/%d stub entries within 2s", got, wantCalls)
+		}
+	}
+
+	close(s.quit)
+	<-done
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(timestamps) != wantCalls {
+		t.Fatalf("got %d timestamps, want %d", len(timestamps), wantCalls)
+	}
+
+	wantDeltas := []time.Duration{
+		1 * time.Millisecond,
+		2 * time.Millisecond,
+		4 * time.Millisecond,
+		8 * time.Millisecond,
+		16 * time.Millisecond,
+		16 * time.Millisecond, // capped
+	}
+	for i, want := range wantDeltas {
+		got := timestamps[i+1].Sub(timestamps[i])
+		// Lower bound: at least 80% of want (allow small overshoot of
+		// the timer firing slightly early; in practice time.After never
+		// undershoots but we leave slack for clock granularity).
+		// Upper bound: want + 25ms scheduler-jitter budget under -race.
+		lo := want * 4 / 5
+		hi := want + 25*time.Millisecond
+		if got < lo || got > hi {
+			t.Errorf("delta[%d] = %v, want in [%v, %v]", i, got, lo, hi)
+		}
+	}
+}
