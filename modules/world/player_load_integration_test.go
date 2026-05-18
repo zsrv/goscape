@@ -87,8 +87,8 @@ func TestProcessLogins_ValidSavePayload_LoadsSuccessfully(t *testing.T) {
 
 func TestProcessLogins_CorruptSavePayload_FallsBackToBootstrap(t *testing.T) {
 	_, invTypes := newTestPlayerForLoadSave(t)
-	// 4-byte payload (>= 2 so LoadSave attempts decode) with wrong magic —
-	// must trip the magic check in LoadSave.
+	// 4-byte payload: bodyLen = len-4 = 0 < 4, so LoadSave returns
+	// ErrSavCorrupt at the body-length guard before reaching the magic check.
 	corrupt := []byte{0x00, 0x01, 0x02, 0x03}
 
 	// Sanity: VerifySave rejects the corrupt bytes (size < 8 → false).
