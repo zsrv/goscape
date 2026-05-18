@@ -165,6 +165,15 @@ func (s *Server) processLogins() {
 				slog.String("username", p.username), slog.Any("err", err))
 			_ = LoadSave(p, nil, s.invTypes)
 		}
+		// TODO(NAI-PLAYERLOADING-FU-LOGIN-INTEGRATION-TESTS): cover the
+		// accept-with-SAV / accept-without-SAV / accept-with-corrupt-SAV
+		// branches end-to-end. Blocked on *LoginClient being a concrete
+		// struct (modules/world/login_client.go:15) rather than an
+		// interface; stubbing requires a multi-file refactor that's out
+		// of this slice's scope. Today the codec branches are pinned by
+		// the unit-test suite in player_save_test.go and the wiring is
+		// indirectly covered by every existing world test that goes
+		// through processLogins.
 
 		p.masks |= MaskAppearance
 
