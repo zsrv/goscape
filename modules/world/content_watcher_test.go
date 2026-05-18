@@ -429,3 +429,84 @@ func TestContentWatcher_QuitDuringBackoff_ExitsCleanly(t *testing.T) {
 		t.Fatal("supervisor did not exit within 200ms after s.quit close")
 	}
 }
+
+// TestContentWatcher_BackoffResetsAfterSteadyRun pins reset semantics:
+// a session that runs >= resetWindow before ending resets the attempt
+// counter, so the next backoff is base (1x) not 2x. With fast backoff,
+// base=1ms, reset=100ms. Sequence:
+//   call 1: returns true immediately → delay = 1ms
+//   call 2: blocks 200ms (> resetWindow), returns true → attempt
+//           resets to 0 then increments to 1 → delay = 1ms
+//   call 3: captures elapsed-since-call-2-return; asserts ≈ 1ms (NOT 2ms)
+func TestContentWatcher_BackoffResetsAfterSteadyRun(t *testing.T) {
+	s := newTestServer(t)
+	withFastBackoff(t) // base=1ms, max=16ms, resetWindow=100ms
+
+	var mu sync.Mutex
+	var (
+		call2Return  time.Time
+		call3Enter   time.Time
+		callCount    int
+		thirdEntered = make(chan struct{})
+	)
+
+	s.watchSessionFn = func() bool {
+		mu.Lock()
+		callCount++
+		n := callCount
+		mu.Unlock()
+
+		switch n {
+		case 1:
+			return true // immediate restart
+		case 2:
+			// Block longer than resetWindow.
+			time.Sleep(200 * time.Millisecond)
+			mu.Lock()
+			call2Return = time.Now()
+			mu.Unlock()
+			return true
+		case 3:
+			mu.Lock()
+			call3Enter = time.Now()
+			mu.Unlock()
+			close(thirdEntered)
+			<-s.quit
+			return false
+		}
+		<-s.quit
+		return false
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.runContentWatcher()
+	}()
+
+	select {
+	case <-thirdEntered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("third stub call did not happen within 2s")
+	}
+
+	mu.Lock()
+	pre, post := call2Return, call3Enter
+	mu.Unlock()
+	delta := post.Sub(pre)
+
+	close(s.quit)
+	<-done
+
+	// Expect ≈ 1ms (base). Without reset, after call 2 the supervisor
+	// would have attempt=2 and sleep ≈ 2ms. The 1.5ms upper bound is
+	// the discriminator that makes this test fail when reset is broken.
+	// Lower bound 800µs guards against a "delay never applied" pathology
+	// (e.g., a future refactor accidentally dropping the sleep).
+	if delta < 800*time.Microsecond {
+		t.Errorf("call-2-return → call-3-enter = %v, expected ≈ 1ms (base); too short — sleep dropped?", delta)
+	}
+	if delta > 1500*time.Microsecond {
+		t.Errorf("call-2-return → call-3-enter = %v, expected ≈ 1ms (base, reset). Without reset would be ≈ 2ms; >1.5ms means reset broken (or scheduler stall — rerun)", delta)
+	}
+}
