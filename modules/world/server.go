@@ -26,6 +26,7 @@ import (
 	"github.com/zsrv/goscape/pkg/io/protocol"
 	loginreq "github.com/zsrv/goscape/pkg/io/protocol/login/req"
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
+	"github.com/zsrv/goscape/pkg/friendspb"
 	"github.com/zsrv/goscape/pkg/loginpb"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/packall"
@@ -969,6 +970,14 @@ func (s *Server) removePlayerOnTick(p *Player) {
 			}
 		}()
 	}
+	if s.friendsClient != nil && p.username != "" {
+		username37 := p.username37
+		worldID := int32(s.cfg.NodeID)
+		go s.friendsClient.PlayerLogout(context.Background(), &friendspb.PlayerLogoutRequest{
+			WorldId:    worldID,
+			Username37: username37,
+		})
+	}
 	s.removePlayerInternal(p)
 }
 
@@ -990,6 +999,12 @@ func (s *Server) removePlayerOnDisconnect(p *Player) {
 				Profile:  s.cfg.NodeProfile,
 				Username: p.username,
 			})
+	}
+	if s.friendsClient != nil && p.username != "" {
+		go s.friendsClient.PlayerLogout(context.Background(), &friendspb.PlayerLogoutRequest{
+			WorldId:    int32(s.cfg.NodeID),
+			Username37: p.username37,
+		})
 	}
 	s.removePlayerInternal(p)
 }
