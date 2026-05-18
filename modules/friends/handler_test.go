@@ -237,3 +237,42 @@ func TestHandler_IgnorelistDel_RemovesEntry(t *testing.T) {
 		t.Errorf("GetIgnores after IgnorelistDel: got %v, want empty", got)
 	}
 }
+
+func TestHandler_PrivateMessage_NoOp_Slice1(t *testing.T) {
+	h := newTestHandler(t)
+	// Acceptance is the assertion: returns OK without erroring. Delivery
+	// is slice 4, persistence is slice 6.
+	if _, err := h.PrivateMessage(t.Context(), &friendspb.PrivateMessageRequest{
+		WorldId:          1,
+		Username37:       0xAAAA,
+		TargetUsername37: 0xBBBB,
+		StaffLvl:         0,
+		PmId:             1,
+		Chat:             "hi",
+		Coord:            12345,
+	}); err != nil {
+		t.Fatalf("PrivateMessage: %v", err)
+	}
+}
+
+// subscribeUpdatesRecorder is a minimal in-package implementation of
+// friendspb.FriendsService_SubscribeUpdatesServer for testing the
+// Unimplemented stub. We never actually send on this stream — the
+// handler must error out before reaching any Send call.
+type subscribeUpdatesRecorder struct {
+	friendspb.FriendsService_SubscribeUpdatesServer
+}
+
+func TestHandler_SubscribeUpdates_Unimplemented(t *testing.T) {
+	h := newTestHandler(t)
+	err := h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{
+		WorldId:    1,
+		Username37: 0xAAAA,
+	}, &subscribeUpdatesRecorder{})
+	if err == nil {
+		t.Fatalf("SubscribeUpdates: got nil error, want Unimplemented")
+	}
+	if got := status.Code(err); got != codes.Unimplemented {
+		t.Errorf("status code: got %v, want Unimplemented", got)
+	}
+}

@@ -124,3 +124,20 @@ func (h *handler) IgnorelistDel(_ context.Context, req *friendspb.IgnorelistDelR
 	h.repo.DeleteIgnore(req.Username37, req.TargetUsername37)
 	return &emptypb.Empty{}, nil
 }
+
+// PrivateMessage accepts and logs the call. Delivery is deferred to
+// slice 4 (server -> world push via SubscribeUpdates). Persistence is
+// deferred to slice 6 (private_chat DB table).
+//
+// NAI-S1-D-PM-NO-DELIVERY — slice 4 retires.
+// NAI-S1-D-PM-NO-PERSISTENCE — slice 6 retires.
+func (h *handler) PrivateMessage(_ context.Context, req *friendspb.PrivateMessageRequest) (*emptypb.Empty, error) {
+	h.ensureWorld(req.WorldId)
+	h.log.Debug("friends-server received private message",
+		slog.Int("world_id", int(req.WorldId)),
+		slog.Uint64("from", req.Username37),
+		slog.Uint64("to", req.TargetUsername37),
+		slog.Uint64("pm_id", uint64(req.PmId)),
+	)
+	return &emptypb.Empty{}, nil
+}
