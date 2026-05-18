@@ -221,6 +221,14 @@ func LoadSave(p *Player, sav []byte, invTypes *objtype.InvTypeConfigs) error {
 		p.lastAfkZone = int(pkt.G2())
 	}
 
-	// TODO(T7+): v4 chat modes, v6 lastLoginTime.
+	// v4+: chat modes packed into one u1 byte.
+	if version >= 4 {
+		packed := pkt.G1()
+		p.publicChat = int((packed >> 4) & 0b11)
+		p.privateChat = int((packed >> 2) & 0b11)
+		p.tradeDuel = int(packed & 0b11)
+	}
+
+	// TODO(T9): v6 lastLoginTime.
 	return nil
 }
