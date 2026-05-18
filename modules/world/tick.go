@@ -48,6 +48,18 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 			}
 		}
 
+		// NAI-PLAYERLOADING — autosave every PlayerSaveRate (1500) ticks.
+		// Gate at top-of-body so currentTick has been incremented by the
+		// previous iteration's tail. currentTick==0 on the very first
+		// iteration is excluded by the >0 guard.
+		if s.currentTick%PlayerSaveRate == 0 && s.currentTick > 0 {
+			s.autosavePlayers()
+			// TODO(NAI-PLAYERLOADING-FU-AUTOSAVE-INTEGRATION-TEST): pin that
+			// PlayerAutosave fires exactly N times across N*PlayerSaveRate
+			// ticks (T18 of NAI-PLAYERLOADING). Same LoginClient-stubbing
+			// blocker as the login/logout integration tests.
+		}
+
 		start := time.Now()
 		drift := start.Sub(nextTick)
 		if drift < 0 {

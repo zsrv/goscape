@@ -927,6 +927,36 @@ func (s *Server) removePlayerOnDisconnect(p *Player) {
 	s.removePlayerInternal(p)
 }
 
+// PlayerSaveRate is the autosave cadence in ticks. 1500 ticks at ~600ms
+// ≈ 15 minutes. Mirrors TS World.PLAYER_SAVERATE.
+const PlayerSaveRate = 1500
+
+// autosavePlayers fires a best-effort PlayerAutosave RPC for each
+// active player. Must only be called from the tick goroutine
+// (reads s.playerLoop and captures per-player Save() bytes on-tick
+// for goroutine-safety).
+//
+// Deviation NAI-PLAYERLOADING-D-AUTOSAVE-FIRE-AND-FORGET: per-call
+// failures log only (PlayerAutosave is best-effort by design); no
+// automatic remediation.
+func (s *Server) autosavePlayers() {
+	if s.loginClient == nil {
+		return
+	}
+	for _, p := range s.playerLoop {
+		if p == nil || p.username == "" {
+			continue
+		}
+		save := p.Save(s.invTypes)
+		req := &loginpb.PlayerAutosaveRequest{
+			Profile:  s.cfg.NodeProfile,
+			Username: p.username,
+			Save:     save,
+		}
+		go s.loginClient.PlayerAutosave(context.Background(), req)
+	}
+}
+
 const expectedRevision = 225
 
 // TrackZone marks a zone as modified this tick. Idempotent (map semantics).
