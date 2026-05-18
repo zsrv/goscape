@@ -38,9 +38,24 @@ var (
 // and a matching trailing CRC. Mirrors PlayerLoading.verify
 // (PlayerLoading.ts:16-29).
 func VerifySave(sav []byte) bool {
-	// TODO(T2): implement
-	_ = packet.GetCRC
-	return false
+	// Minimum SAV: 2 (magic) + 2 (version) + 4 (CRC) = 8.
+	if len(sav) < 8 {
+		return false
+	}
+	p := packet.NewPacket(sav)
+	if p.G2() != SavMagic {
+		return false
+	}
+	version := p.G2()
+	if version < 1 || version > SavVersion {
+		return false
+	}
+	// CRC covers bytes [0, len-4); trailing 4 bytes are the CRC itself.
+	bodyLen := len(sav) - 4
+	expected := packet.GetCRC(sav, 0, bodyLen)
+	p.Pos = bodyLen
+	got := p.G4()
+	return got == expected
 }
 
 // LoadSave populates p from sav. If len(sav) < 2 it applies the
