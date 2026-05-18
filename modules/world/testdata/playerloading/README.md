@@ -45,6 +45,11 @@ The script (commit to Engine-TS, not goscape):
 
 ```typescript
 // scripts/gen-playerloading-fixtures.ts
+// NB: addInv, getLevelByExp, and savePatched are not implemented here.
+// Port addInv + getLevelByExp from Engine-TS Player.ts; copy
+// Player.save() into savePatched and wrap version-gated sections with
+// `if (version >= N)` guards. The bottom of this file shows the
+// savePatched contract.
 import 'dotenv/config';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -52,7 +57,6 @@ import Player from '#/engine/entity/Player.js';
 import { PlayerLoading } from '#/engine/entity/PlayerLoading.js';
 import World from '#/engine/World.js';
 import VarPlayerType from '#/cache/config/VarPlayerType.js';
-import InvType from '#/cache/config/InvType.js';
 
 const OUT_DIR = '/path/to/goscape/modules/world/testdata/playerloading';
 

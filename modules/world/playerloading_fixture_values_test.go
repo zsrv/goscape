@@ -32,7 +32,7 @@ var fixturePlayerValues = struct {
 	PlaytimeV1:     12345,
 	PlaytimeV2Plus: 1234567,
 	Stats: func() (s [21]int32) {
-		for i := 0; i < 21; i++ {
+		for i := range 21 {
 			s[i] = int32(i) * 1000
 		}
 		return
