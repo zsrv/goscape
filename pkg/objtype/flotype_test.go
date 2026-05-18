@@ -1,7 +1,9 @@
 package objtype
 
 import (
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/io/jagfile"
@@ -90,6 +92,7 @@ func TestFloTypeConfigs_AllOpcodes(t *testing.T) {
 	server.P1(0)
 
 	clientFlo := packet2.Alloc(1)
+	defer clientFlo.Release()
 	clientFlo.P2(1)
 	clientFlo.P1(1) // rgb (G3)
 	clientFlo.P3(0xaabbcc)
@@ -112,12 +115,35 @@ func TestFloTypeConfigs_AllOpcodes(t *testing.T) {
 	}
 }
 
+func TestParseFloTypes_UnknownOpcodeReturnsError(t *testing.T) {
+	t.Parallel()
+	server := packet2.Alloc(1)
+	defer server.Release()
+	server.P2(1)
+	server.P1(0) // one zero terminator on the server side
+
+	clientFlo := packet2.Alloc(1)
+	defer clientFlo.Release()
+	clientFlo.P2(1)
+	clientFlo.P1(99) // not in {0,1,2,3,5,6}
+
+	jag := buildJagWithFloDat(t, clientFlo)
+
+	_, err := parseFloTypes(server, jag)
+	if err == nil {
+		t.Fatalf("parseFloTypes: expected error for opcode 99, got nil")
+	}
+	if !strings.Contains(err.Error(), "99") {
+		t.Errorf("error %q does not mention the offending opcode", err.Error())
+	}
+}
+
 func TestLoadFloTypes_RealContent(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping in -short mode")
 	}
 	dir := "/home/owner/Code/github.com/LostCityRS/Engine-TS/data/pack"
-	if _, err := filepath.Abs(dir); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, "server", "flo.dat")); err != nil {
 		t.Skipf("real flo.dat not available: %v", err)
 	}
 	cfg, err := LoadFloTypes(dir)
