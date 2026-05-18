@@ -374,9 +374,9 @@ func TestContentWatcher_BackoffDoubles(t *testing.T) {
 
 // TestContentWatcher_QuitDuringBackoff_ExitsCleanly pins that closing
 // s.quit while the supervisor is asleep in its inter-restart backoff
-// causes prompt exit, not wait-out-the-full-delay. With base=16ms
-// (max), one restart sleep is 16ms; we close quit ~2ms in and assert
-// exit within 10ms — well under the 16ms full delay.
+// causes prompt exit, not wait-out-the-full-delay. With base=100ms
+// (max), one restart sleep is 100ms; we close quit ~10ms in and
+// assert exit within 50ms — well under the 100ms full delay.
 func TestContentWatcher_QuitDuringBackoff_ExitsCleanly(t *testing.T) {
 	s := newTestServer(t)
 
