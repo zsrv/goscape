@@ -87,6 +87,14 @@ func NewWorldService(serv *Server, lc LoginClient, servicesToWaitFor func() []se
 		if lc != nil {
 			lc.WorldStartup(ctx, int32(serv.cfg.NodeID), serv.cfg.NodeProfile)
 		}
+		// NAI-REBUILD-ASYNC: spawn the long-lived pack worker if
+		// ContentPath is configured. Exits when serv.quit closes (via
+		// stoppingFn → Shutdown).
+		if serv.cfg.ContentPath != "" {
+			go serv.runRebuildWorker()
+		} else if serv.cfg.ContentWatch {
+			serv.log.Warn("world: --world.content-watch is set but --world.content-path is empty; auto-rebuild disabled")
+		}
 		return nil
 	}
 
