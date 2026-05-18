@@ -57,7 +57,6 @@ func TestPackWater_ByteLayout(t *testing.T) {
 	for i := range 4096 {
 		if got := underlay.G1(); got != 8 {
 			t.Fatalf("underlay body byte %d = %d, want 8", i, got)
-			break
 		}
 	}
 
@@ -70,7 +69,6 @@ func TestPackWater_ByteLayout(t *testing.T) {
 		z := overlay.G1()
 		if v != 12 || z != 0 {
 			t.Fatalf("overlay body pair %d = (%d, %d), want (12, 0)", i, v, z)
-			break
 		}
 	}
 }
