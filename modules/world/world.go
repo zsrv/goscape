@@ -19,7 +19,7 @@ type World struct {
 	subservices        *services.Manager
 	subservicesWatcher *services.FailureWatcher
 	Server             *Server
-	loginClient        *LoginClient
+	loginClient        LoginClient
 	cfg                Config
 }
 
@@ -49,7 +49,7 @@ func New(cfg Config, logger *slog.Logger) (*World, error) {
 		handler = signals.NewHandler(logger)
 	}
 
-	var loginClient *LoginClient
+	var loginClient LoginClient
 	if cfg.LoginServerEnabled {
 		lc, err := NewLoginClient(cfg.LoginServerAddress, logger)
 		if err != nil {
@@ -71,12 +71,12 @@ func New(cfg Config, logger *slog.Logger) (*World, error) {
 }
 
 // GetLoginClient returns the LoginClient for this world (may be nil if disabled).
-func (w *World) GetLoginClient() *LoginClient { return w.loginClient }
+func (w *World) GetLoginClient() LoginClient { return w.loginClient }
 
 // NewWorldService constructs a services.Service from a Server component.
 // The Server should not react to signals. Early return from Run function
 // is considered to be an error.
-func NewWorldService(serv *Server, lc *LoginClient, servicesToWaitFor func() []services.Service) services.Service {
+func NewWorldService(serv *Server, lc LoginClient, servicesToWaitFor func() []services.Service) services.Service {
 	serverDone := make(chan error, 1)
 
 	startingFn := func(ctx context.Context) error {

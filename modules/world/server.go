@@ -49,7 +49,7 @@ type Server struct {
 	tcpListener net.Listener
 	quit        chan interface{}
 	log         *slog.Logger
-	loginClient *LoginClient
+	loginClient LoginClient
 	cfg         Config
 	tcpWg       sync.WaitGroup
 
@@ -184,7 +184,7 @@ func (s *Server) appendNewPlayer(p *Player) {
 	s.playersMu.Unlock()
 }
 
-func NewServer(cfg Config, loginClient *LoginClient, logger *slog.Logger) (*Server, error) {
+func NewServer(cfg Config, loginClient LoginClient, logger *slog.Logger) (*Server, error) {
 	tcpListener, err := net.Listen(cfg.TCPListenNetwork, net.JoinHostPort(cfg.TCPListenAddress, strconv.Itoa(cfg.TCPListenPort)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create tcp listener: %w", err)
