@@ -3,6 +3,8 @@ package friends
 import (
 	"io"
 	"log/slog"
+	"slices"
+	"sync"
 	"testing"
 )
 
@@ -73,4 +75,150 @@ func TestRepository_Unregister_UnknownPlayer_NoOp(t *testing.T) {
 	r := NewRepository()
 	r.InitializeWorld(1, 10)
 	r.Unregister(0xDEADBEEF) // must not panic
+}
+
+func TestRepository_SetChatMode_Updates(t *testing.T) {
+	r := NewRepository()
+	r.InitializeWorld(1, 10)
+	r.Register(1, 0xAAAA, 0, 0)
+	r.SetChatMode(0xAAAA, 2)
+	if got := r.GetChatMode(0xAAAA); got != 2 {
+		t.Errorf("GetChatMode after Set: got %d, want 2", got)
+	}
+}
+
+func TestRepository_GetChatMode_UnknownPlayer_ReturnsZero(t *testing.T) {
+	r := NewRepository()
+	if got := r.GetChatMode(0xDEADBEEF); got != 0 {
+		t.Errorf("GetChatMode on unknown: got %d, want 0", got)
+	}
+}
+
+func TestRepository_SetChatMode_UnknownPlayer_NoOp(t *testing.T) {
+	r := NewRepository()
+	r.SetChatMode(0xDEADBEEF, 2) // must not panic
+}
+
+func TestRepository_AddFriend_Idempotent(t *testing.T) {
+	r := NewRepository()
+	r.AddFriend(0xAAAA, 0xBBBB)
+	r.AddFriend(0xAAAA, 0xBBBB)
+	got := r.GetFriends(0xAAAA)
+	if len(got) != 1 || got[0] != 0xBBBB {
+		t.Errorf("GetFriends after double-add: got %v, want [0xBBBB]", got)
+	}
+}
+
+func TestRepository_DeleteFriend_AbsentNoOp(t *testing.T) {
+	r := NewRepository()
+	r.DeleteFriend(0xAAAA, 0xBBBB) // must not panic
+	if got := r.GetFriends(0xAAAA); len(got) != 0 {
+		t.Errorf("GetFriends after delete-missing: got %v, want empty", got)
+	}
+}
+
+func TestRepository_AddIgnore_Idempotent(t *testing.T) {
+	r := NewRepository()
+	r.AddIgnore(0xAAAA, 0xBBBB)
+	r.AddIgnore(0xAAAA, 0xBBBB)
+	got := r.GetIgnores(0xAAAA)
+	if len(got) != 1 || got[0] != 0xBBBB {
+		t.Errorf("GetIgnores after double-add: got %v, want [0xBBBB]", got)
+	}
+}
+
+func TestRepository_DeleteIgnore_Removes(t *testing.T) {
+	r := NewRepository()
+	r.AddIgnore(0xAAAA, 0xBBBB)
+	r.DeleteIgnore(0xAAAA, 0xBBBB)
+	if got := r.GetIgnores(0xAAAA); len(got) != 0 {
+		t.Errorf("GetIgnores after delete: got %v, want empty", got)
+	}
+}
+
+func TestRepository_GetFollowers_TraversesCorrectly(t *testing.T) {
+	r := NewRepository()
+	r.AddFriend(0xAAAA, 0xBBBB)
+	r.AddFriend(0xCCCC, 0xBBBB)
+	r.AddFriend(0xDDDD, 0xEEEE)
+	got := r.GetFollowers(0xBBBB)
+	slices.Sort(got)
+	want := []uint64{0xAAAA, 0xCCCC}
+	if !slices.Equal(got, want) {
+		t.Errorf("GetFollowers(B): got %v, want %v", got, want)
+	}
+}
+
+func TestRepository_GetFollowers_NoFollowers_Nil(t *testing.T) {
+	r := NewRepository()
+	if got := r.GetFollowers(0xBBBB); got != nil {
+		t.Errorf("GetFollowers on no-followers: got %v, want nil", got)
+	}
+}
+
+func TestRepository_IsVisibleTo_ChatModeOn_Always(t *testing.T) {
+	r := NewRepository()
+	r.InitializeWorld(1, 10)
+	r.Register(1, 0xAAAA, 0, 0) // privateChat=ON
+	if !r.IsVisibleTo(0xBBBB, 0xAAAA) {
+		t.Errorf("IsVisibleTo with ON: got false, want true")
+	}
+}
+
+func TestRepository_IsVisibleTo_ChatModeOff_Never(t *testing.T) {
+	r := NewRepository()
+	r.InitializeWorld(1, 10)
+	r.Register(1, 0xAAAA, 2, 0) // privateChat=OFF
+	r.AddFriend(0xAAAA, 0xBBBB) // even friends don't see
+	if r.IsVisibleTo(0xBBBB, 0xAAAA) {
+		t.Errorf("IsVisibleTo with OFF: got true, want false")
+	}
+}
+
+func TestRepository_IsVisibleTo_ChatModeFriends_OnlyFriends(t *testing.T) {
+	r := NewRepository()
+	r.InitializeWorld(1, 10)
+	r.Register(1, 0xAAAA, 1, 0)  // privateChat=FRIENDS
+	r.AddFriend(0xAAAA, 0xBBBB) // A friends B
+	if !r.IsVisibleTo(0xBBBB, 0xAAAA) {
+		t.Errorf("IsVisibleTo for friend with FRIENDS: got false, want true")
+	}
+	if r.IsVisibleTo(0xCCCC, 0xAAAA) {
+		t.Errorf("IsVisibleTo for non-friend with FRIENDS: got true, want false")
+	}
+}
+
+func TestRepository_IsVisibleTo_UnknownPlayer_NotVisible(t *testing.T) {
+	r := NewRepository()
+	if r.IsVisibleTo(0xBBBB, 0xDEADBEEF) {
+		t.Errorf("IsVisibleTo on unknown other: got true, want false")
+	}
+}
+
+func TestRepository_Concurrent_RaceClean(t *testing.T) {
+	r := NewRepository()
+	r.InitializeWorld(1, 10000)
+
+	const goroutines = 16
+	const iterations = 200
+
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+	for g := range goroutines {
+		go func(id int) {
+			defer wg.Done()
+			base := uint64(id) * 1000
+			for i := range iterations {
+				u := base + uint64(i)
+				r.Register(1, u, int32(i%3), 0)
+				r.AddFriend(u, u+1)
+				r.SetChatMode(u, int32((i+1)%3))
+				_ = r.GetFriends(u)
+				_ = r.IsVisibleTo(u+1, u)
+				r.DeleteFriend(u, u+1)
+				r.Unregister(u)
+			}
+		}(g)
+	}
+	wg.Wait()
 }
