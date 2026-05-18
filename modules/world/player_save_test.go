@@ -1,6 +1,7 @@
 package world
 
 import (
+	"bytes"
 	"encoding/binary"
 	"os"
 	"path/filepath"
@@ -387,4 +388,103 @@ func buildValidSav(t *testing.T, version uint16, payload []byte) []byte {
 	out := append(body, 0, 0, 0, 0)
 	binary.BigEndian.PutUint32(out[len(body):], crc)
 	return out
+}
+
+func TestSave_V6_RoundTripsBytePerfect(t *testing.T) {
+	raw := mustReadFixture(t, "v6.sav")
+	p, cfgs := newTestPlayerForLoadSave(t)
+	if err := LoadSave(p, raw, cfgs); err != nil {
+		t.Fatalf("LoadSave(v6): %v", err)
+	}
+	// The committed v6.sav fixture has invCount=0 — the tsx
+	// fixture-generation script's addInv helper did not populate
+	// player.invs in Engine-TS's checkout. newTestPlayerForLoadSave
+	// pre-seeds p.invs with two empty perm-scoped inventories so the
+	// decode-side tests have somewhere to write into; but on the
+	// round-trip we must clear them, because TS save() emits every
+	// entry in `this.invs` regardless of contents and the source
+	// player on the TS side had an empty map.
+	p.invs = nil
+	got := p.Save(cfgs)
+	if !bytes.Equal(got, raw) {
+		diff := firstDiff(got, raw)
+		t.Fatalf("Save() drift vs v6.sav (got %d bytes, want %d):\n"+
+			"  first-diff at byte %d\n"+
+			"  got [%d..%d]: %x\n"+
+			"  want[%d..%d]: %x",
+			len(got), len(raw), diff,
+			max(0, diff-8), min(len(got), diff+16), got[max(0, diff-8):min(len(got), diff+16)],
+			max(0, diff-8), min(len(raw), diff+16), raw[max(0, diff-8):min(len(raw), diff+16)])
+	}
+}
+
+func firstDiff(a, b []byte) int {
+	n := len(a)
+	if len(b) < n {
+		n = len(b)
+	}
+	for i := range n {
+		if a[i] != b[i] {
+			return i
+		}
+	}
+	if len(a) != len(b) {
+		return n
+	}
+	return -1
+}
+
+func TestSave_InvsWrittenInTypeIDAscOrder(t *testing.T) {
+	cfgs := &objtype.InvTypeConfigs{
+		Configs: make([]*objtype.InvType, 10),
+	}
+	for _, id := range []int{1, 2, 5, 7} {
+		cfg := &objtype.InvType{Scope: objtype.InvTypeScopePerm, Size: 4}
+		cfg.ID = id
+		cfgs.Configs[id] = cfg
+	}
+	p := &Player{
+		invs:  map[int]*inventory.Inventory{},
+		varps: []int32{},
+	}
+	// Insert in deliberately non-ascending order. Go map iteration is
+	// randomized, so without sort.Ints in Save, this test would be
+	// flaky-positive sometimes; sort.Ints makes it deterministic.
+	for _, id := range []int{5, 2, 7, 1} {
+		p.invs[id] = inventory.New(id, 4, inventory.StackNormal)
+	}
+	out := p.Save(cfgs)
+
+	// Walk past the fixed-size header to the inv section. Header layout
+	// up through invCount byte:
+	//   2 magic + 2 version  = 4
+	//   2 x + 2 z + 1 level   = 5
+	//   7 body + 5 colors     = 12
+	//   1 gender + 2 runenergy = 3
+	//   4 playtime            = 4
+	//   21 * (4 exp + 1 level) = 105
+	//   2 varpCount + 0 varps  = 2
+	//   = 4 + 5 + 12 + 3 + 4 + 105 + 2 = 135. Next byte = invCount.
+	pos := 4 + 5 + 12 + 3 + 4 + 21*(4+1) + 2
+	if int(out[pos]) != 4 {
+		t.Fatalf("invCount byte at offset %d: got %d, want 4", pos, out[pos])
+	}
+	pos++
+	// Each inv: typeID(2) + capacity(2) + 4 * empty-slot(2 = 0x00 0x00)
+	var seen []int
+	for range 4 {
+		tid := int(out[pos])<<8 | int(out[pos+1])
+		seen = append(seen, tid)
+		pos += 2     // typeID
+		pos += 2     // capacity
+		pos += 2 * 4 // 4 empty slots
+	}
+	want := []int{1, 2, 5, 7}
+	for i := range want {
+		if seen[i] != want[i] {
+			t.Errorf("inv order: got %v, want %v (pins NAI-PLAYERLOADING-D-INVS-SORTED-BY-TYPEID)",
+				seen, want)
+			break
+		}
+	}
 }
