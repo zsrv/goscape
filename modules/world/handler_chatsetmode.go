@@ -10,7 +10,9 @@ import "github.com/zsrv/goscape/pkg/io/packet"
 // / .tradeDuel which are declared at player.go:172 but were unwritten
 // prior to NAI-72.
 //
-// Friends-server propagation deferred via NAI-72-D-FRIENDS-SERVER-BRIDGE.
+// Friends-server propagation: grpcFriendsBridge (bridges.go) fans the
+// call out as a friendspb RPC; wired by NewServer at server.go:277 via
+// defaultFriendsBridge.
 func handleChatSetMode(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		// goscape defensive; TS reaches via static accessor.

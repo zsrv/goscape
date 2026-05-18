@@ -20,9 +20,11 @@ import (
 //  3. invalid_name base37 → automated 48h ban; return.
 //  4. WordPack.Unpack; friendsBridge.PrivateMessage; socialProtect=true.
 //
-// Friends-server propagation deferred via NAI-72-D-FRIENDS-SERVER-BRIDGE
-// (PrivateMessage bridge is a stub). LoginBridgeMod.NotifyPlayerBan is
-// the same stub pattern used by handler_reportabuse.go:50.
+// Friends-server propagation: grpcFriendsBridge.PrivateMessage
+// (bridges.go) fans the call out as a friendspb.PrivateMessageRequest;
+// wired by NewServer at server.go:277 via defaultFriendsBridge.
+// LoginBridgeMod.NotifyPlayerBan ships loginGRPCBridgeMod as of NAI-214
+// (matches handler_reportabuse.go:50).
 func handleMessagePrivate(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		// goscape defensive; TS reaches via static accessor.

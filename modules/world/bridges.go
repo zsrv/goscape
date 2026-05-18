@@ -13,8 +13,10 @@ import (
 )
 
 // FriendsBridge mirrors TS World.friendThread.postMessage(...) for
-// social-list mutations and chat-mode propagation. Real impl is a
-// future friends-server module (see NAI-72-D-FRIENDS-SERVER-BRIDGE).
+// social-list mutations and chat-mode propagation. Real impl bridges
+// to the modules/friends gRPC service (slice 1). Production impl is
+// grpcFriendsBridge (this file); wired by NewServer via
+// defaultFriendsBridge.
 type FriendsBridge interface {
 	AddFriend(playerUsername string, target uint64)
 	RemoveFriend(playerUsername string, target uint64)
@@ -26,7 +28,8 @@ type FriendsBridge interface {
 	// friends-server. Mirrors TS World.sendPrivateMessage payload
 	// (World.ts:1631-1643): {username, staffLvl, pmId, target, message,
 	// coord}. coord is the packed coordgrid.PackCoord value.
-	// Real impl deferred via NAI-72-D-FRIENDS-SERVER-BRIDGE.
+	// Real impl: grpcFriendsBridge.PrivateMessage (this file) fans a
+	// friendspb.PrivateMessageRequest out to the friends server.
 	PrivateMessage(playerUsername string, staffLvl int32, pmId uint32, target uint64, message string, coord int)
 }
 

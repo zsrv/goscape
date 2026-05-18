@@ -27,7 +27,9 @@ const (
 // Mirrors TS {Friend,Ignore}List{Add,Del}Handler.ts:8-15 (all four share
 // an identical body shape modulo the World call).
 //
-// Friends-server propagation deferred via NAI-72-D-FRIENDS-SERVER-BRIDGE.
+// Friends-server propagation: grpcFriendsBridge (bridges.go) fans the
+// call out as a friendspb RPC; wired by NewServer at server.go:277 via
+// defaultFriendsBridge.
 func handleSocialList(p *Player, payload []byte, action socialListAction) error {
 	if p.client == nil || p.client.server == nil {
 		// goscape defensive; TS reaches via static accessor.
