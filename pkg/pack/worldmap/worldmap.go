@@ -108,29 +108,34 @@ func Pack(srcDir, outDir string) error {
 		if _, skip := ignoremap[coordgrid.PackCoord(0, mx<<6, mz<<6)]; skip {
 			continue
 		}
-		land, err := packet2.Load(filepath.Join(mapsDir, name), false)
-		if err != nil {
-			return fmt.Errorf("load %s: %w", name, err)
+		if err := func() error {
+			land, err := packet2.Load(filepath.Join(mapsDir, name), false)
+			if err != nil {
+				return fmt.Errorf("load %s: %w", name, err)
+			}
+			defer land.Release()
+			loc, err := packet2.Load(filepath.Join(mapsDir, fmt.Sprintf("l%d_%d", mx, mz)), false)
+			if err != nil {
+				return fmt.Errorf("load l%d_%d: %w", mx, mz, err)
+			}
+			defer loc.Release()
+			obj, err := packet2.Load(filepath.Join(mapsDir, fmt.Sprintf("o%d_%d", mx, mz)), false)
+			if err != nil {
+				return fmt.Errorf("load o%d_%d: %w", mx, mz, err)
+			}
+			defer obj.Release()
+			npc, err := packet2.Load(filepath.Join(mapsDir, fmt.Sprintf("n%d_%d", mx, mz)), false)
+			if err != nil {
+				return fmt.Errorf("load n%d_%d: %w", mx, mz, err)
+			}
+			defer npc.Release()
+			if err := processMap(ctx, out, mx, mz, land, loc, obj, npc); err != nil {
+				return fmt.Errorf("processMap %d,%d: %w", mx, mz, err)
+			}
+			return nil
+		}(); err != nil {
+			return err
 		}
-		loc, err := packet2.Load(filepath.Join(mapsDir, fmt.Sprintf("l%d_%d", mx, mz)), false)
-		if err != nil {
-			return fmt.Errorf("load l%d_%d: %w", mx, mz, err)
-		}
-		obj, err := packet2.Load(filepath.Join(mapsDir, fmt.Sprintf("o%d_%d", mx, mz)), false)
-		if err != nil {
-			return fmt.Errorf("load o%d_%d: %w", mx, mz, err)
-		}
-		npc, err := packet2.Load(filepath.Join(mapsDir, fmt.Sprintf("n%d_%d", mx, mz)), false)
-		if err != nil {
-			return fmt.Errorf("load n%d_%d: %w", mx, mz, err)
-		}
-		if err := processMap(ctx, out, mx, mz, land, loc, obj, npc); err != nil {
-			return fmt.Errorf("processMap %d,%d: %w", mx, mz, err)
-		}
-		land.Release()
-		loc.Release()
-		obj.Release()
-		npc.Release()
 	}
 
 	// Hardcoded water tiles (TS:513-528).
@@ -144,6 +149,9 @@ func Pack(srcDir, outDir string) error {
 	}
 
 	// floorcol
+	if len(flo.Configs) > len(refColors) {
+		return fmt.Errorf("floorcol: flo.Configs has %d entries but refColors only covers %d; update refcolors.go to add the new rows in TS Worldmap.ts:534-612 order", len(flo.Configs), len(refColors))
+	}
 	floorcol := packet2.Alloc(1)
 	defer floorcol.Release()
 	floorcol.P2(uint16(len(flo.Configs)))

@@ -12,15 +12,21 @@ import (
 func TestPack_NoMapsDir_NoOp(t *testing.T) {
 	t.Parallel()
 	tmp := t.TempDir()
-	src := t.TempDir()
 	// outDir/server/maps does not exist → TS parity early-return.
-	if err := Pack(src, tmp); err != nil {
+	if err := Pack(tmp, tmp); err != nil {
 		t.Fatalf("Pack: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(tmp, "mapview", "worldmap.jag")); err == nil {
 		t.Errorf("worldmap.jag created despite missing server/maps")
 	}
 }
+
+// Coverage note: there is no unit test for "maps dir exists but is
+// empty" because synthesising the type-loader inputs (flo/loc/npc
+// dat + client jagfile), CSVs, fonts, sprites, and labels.txt for
+// a goscape-only fixture is heavier than the path is worth in
+// isolation. The env-gated TestPack_RealContent_Integration in
+// Task 8 covers this end-to-end against real Content.
 
 func TestUnpackCoord(t *testing.T) {
 	t.Parallel()
