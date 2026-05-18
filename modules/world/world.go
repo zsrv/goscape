@@ -61,7 +61,7 @@ func New(cfg Config, logger *slog.Logger) (*World, error) {
 	}
 	w.loginClient = loginClient
 
-	server, err := NewServer(cfg, loginClient, logger)
+	server, err := NewServer(cfg, loginClient, nil, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create server: %w", err)
 	}

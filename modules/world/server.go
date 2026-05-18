@@ -51,8 +51,12 @@ type Server struct {
 	quit        chan interface{}
 	log         *slog.Logger
 	loginClient LoginClient
-	cfg         Config
-	tcpWg       sync.WaitGroup
+	// friendsClient is the gRPC seam to the friends server. Nil when
+	// FriendsServerEnabled=false; in that case s.friendsBridge resolves
+	// to noopBridges{} via defaultFriendsBridge.
+	friendsClient FriendsClient
+	cfg           Config
+	tcpWg         sync.WaitGroup
 
 	players     [2048]*Player
 	playerLoop  []*Player
@@ -232,7 +236,7 @@ func (s *Server) appendNewPlayer(p *Player) {
 	s.playersMu.Unlock()
 }
 
-func NewServer(cfg Config, loginClient LoginClient, logger *slog.Logger) (*Server, error) {
+func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient, logger *slog.Logger) (*Server, error) {
 	tcpListener, err := net.Listen(cfg.TCPListenNetwork, net.JoinHostPort(cfg.TCPListenAddress, strconv.Itoa(cfg.TCPListenPort)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create tcp listener: %w", err)
@@ -246,11 +250,12 @@ func NewServer(cfg Config, loginClient LoginClient, logger *slog.Logger) (*Serve
 	}
 
 	s := &Server{
-		cfg:         cfg,
-		handler:     handler,
-		tcpListener: tcpListener,
-		loginClient: loginClient,
-		quit:        make(chan interface{}),
+		cfg:           cfg,
+		handler:       handler,
+		tcpListener:   tcpListener,
+		loginClient:   loginClient,
+		friendsClient: friendsClient,
+		quit:          make(chan interface{}),
 
 		log:           logger,
 		invs:          make(map[int]*inventory.Inventory),
@@ -268,7 +273,7 @@ func NewServer(cfg Config, loginClient LoginClient, logger *slog.Logger) (*Serve
 	s.packFn = packall.PackAll
 	s.reloadFn = s.Reload
 	s.watchSessionFn = s.runWatchSession
-	s.friendsBridge = noopBridges{}
+	s.friendsBridge = defaultFriendsBridge(friendsClient, int32(cfg.NodeID), s.log)
 	s.loginBridgeMod = defaultLoginBridgeMod(loginClient, s.log)
 	s.loggerBridge = NewSlogLoggerBridge(s.log)
 	s.locOps = &serverLocOps{s: s}
