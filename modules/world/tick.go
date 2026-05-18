@@ -54,10 +54,8 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		// iteration is excluded by the >0 guard.
 		if s.currentTick%PlayerSaveRate == 0 && s.currentTick > 0 {
 			s.autosavePlayers()
-			// TODO(NAI-PLAYERLOADING-FU-AUTOSAVE-INTEGRATION-TEST): pin that
-			// PlayerAutosave fires exactly N times across N*PlayerSaveRate
-			// ticks (T18 of NAI-PLAYERLOADING). Same LoginClient-stubbing
-			// blocker as the login/logout integration tests.
+			// PlayerAutosave RPC + cadence gate pinned by TestAutosavePlayers_*
+			// (server_autosave_test.go).
 		}
 
 		start := time.Now()
