@@ -270,6 +270,20 @@ func TestLoadSave_V2_DecodesPlaytimeAs4Byte(t *testing.T) {
 	}
 }
 
+func TestLoadSave_V3_DecodesAfkZones(t *testing.T) {
+	raw := mustReadFixture(t, "v3.sav")
+	p, cfgs := newTestPlayerForLoadSave(t)
+	if err := LoadSave(p, raw, cfgs); err != nil {
+		t.Fatalf("LoadSave(v3): %v", err)
+	}
+	if p.afkZones != fixturePlayerValues.AfkZones {
+		t.Errorf("afkZones: got %v, want %v", p.afkZones, fixturePlayerValues.AfkZones)
+	}
+	if p.lastAfkZone != fixturePlayerValues.LastAfkZone {
+		t.Errorf("lastAfkZone: got %d, want %d", p.lastAfkZone, fixturePlayerValues.LastAfkZone)
+	}
+}
+
 // buildValidSav constructs a minimal SAV with the given version and
 // payload bytes, including a trailing valid CRC. Used by Verify tests.
 func buildValidSav(t *testing.T, version uint16, payload []byte) []byte {

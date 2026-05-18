@@ -207,6 +207,20 @@ func LoadSave(p *Player, sav []byte, invTypes *objtype.InvTypeConfigs) error {
 		}
 	}
 
-	// TODO(T5+): v3 afkZones, v4 chat modes, v6 lastLoginTime.
+	// v3+: afk zones. Count is u1, then `count` × i32; then lastAfkZone u2.
+	// Goscape's p.afkZones is fixed [2]int32 — bound the loop at 2.
+	if version >= 3 {
+		afkCount := int(pkt.G1())
+		for i := range afkCount {
+			v := int32(pkt.G4())
+			if i < len(p.afkZones) {
+				p.afkZones[i] = v
+			}
+			// else: silently drop excess (TS would OOB-write Int32Array).
+		}
+		p.lastAfkZone = int(pkt.G2())
+	}
+
+	// TODO(T7+): v4 chat modes, v6 lastLoginTime.
 	return nil
 }
