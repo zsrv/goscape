@@ -62,6 +62,20 @@ func (r *Repository) InitializeWorld(worldId int32, limit int) {
 	r.worlds[worldId] = &worldState{playerCount: 0, limit: limit}
 }
 
+// initializeWorldIfAbsent is the lazy-init variant of InitializeWorld:
+// it only creates the world slot if it does not already exist, leaving
+// existing playerCount untouched. Used by ensureWorld in the handler
+// for the TS-faithful lazy-init paths (non-WorldConnect first message
+// from an unknown world).
+func (r *Repository) initializeWorldIfAbsent(worldId int32, limit int) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.worlds[worldId]; ok {
+		return
+	}
+	r.worlds[worldId] = &worldState{playerCount: 0, limit: limit}
+}
+
 // Register places the player on the given world. Returns false iff the
 // world's playerCount has already hit its limit, or the world has not
 // been initialized. Callers must Unregister the player first to dedupe
