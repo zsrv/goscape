@@ -542,7 +542,7 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 
 	defer func() {
 		if c.player != nil {
-			s.removePlayer(c.player)
+			s.removePlayerOnDisconnect(c.player)
 			c.player = nil
 		}
 		if err := c.flushWrite(); err != nil {
@@ -833,7 +833,12 @@ func (s *Server) scaleByPlayerCount(rate int) int {
 	return ((4000 - playerCount) * rate) / 4000
 }
 
-func (s *Server) removePlayer(p *Player) {
+// removePlayerInternal performs the slot/zone/playerLoop cleanup for p.
+// Must only be called from the tick goroutine.
+//
+// Callers should use removePlayerOnTick or removePlayerOnDisconnect,
+// which add the appropriate gRPC-side cleanup before invoking this.
+func (s *Server) removePlayerInternal(p *Player) {
 	p.active = false
 	s.playersMu.Lock()
 	defer s.playersMu.Unlock()
@@ -862,6 +867,54 @@ func (s *Server) removePlayer(p *Player) {
 			break
 		}
 	}
+}
+
+// removePlayerOnTick handles graceful logout from the tick goroutine.
+// Captures p.Save() while still on-tick (thread-safe) and fires a
+// best-effort PlayerLogout RPC in a goroutine, then performs internal
+// cleanup.
+//
+// Deviation NAI-PLAYERLOADING-D-LOGOUT-NO-FORCE-FALLBACK: on RPC
+// failure, log only — no PlayerForceLogout belt-and-braces (TS parity).
+func (s *Server) removePlayerOnTick(p *Player) {
+	if s.loginClient != nil && p.username != "" {
+		save := p.Save(s.invTypes)
+		username := p.username
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_, err := s.loginClient.PlayerLogout(ctx, &loginpb.PlayerLogoutRequest{
+				NodeId:   int32(s.cfg.NodeID),
+				Profile:  s.cfg.NodeProfile,
+				Username: username,
+				Save:     save,
+			})
+			if err != nil {
+				s.log.Warn("PlayerLogout RPC failed",
+					slog.String("username", username), slog.Any("err", err))
+			}
+		}()
+	}
+	s.removePlayerInternal(p)
+}
+
+// removePlayerOnDisconnect handles ungraceful disconnect from the
+// per-conn goroutine. Cannot safely call p.Save() (would race tick
+// goroutine), so calls PlayerForceLogout instead.
+//
+// Deviation NAI-PLAYERLOADING-D-DISCONNECT-NO-SAVE: state since the
+// last autosave is lost on ungraceful disconnect. Autosave cadence
+// (15 min) caps the loss window. TS has the same window.
+func (s *Server) removePlayerOnDisconnect(p *Player) {
+	if s.loginClient != nil && p.username != "" {
+		go s.loginClient.PlayerForceLogout(context.Background(),
+			&loginpb.PlayerForceLogoutRequest{
+				NodeId:   int32(s.cfg.NodeID),
+				Profile:  s.cfg.NodeProfile,
+				Username: p.username,
+			})
+	}
+	s.removePlayerInternal(p)
 }
 
 const expectedRevision = 225

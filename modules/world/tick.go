@@ -305,11 +305,11 @@ func (s *Server) processLogouts() {
 			_ = p.client.conn.Close()
 
 			// NAI-30 Bundle 4: per-Buf observer decrement for every NPC this
-			// player tracked is performed inside s.removePlayer →
+			// player tracked is performed inside removePlayerInternal →
 			// s.rsbuf.RemovePlayer (server.go), mirroring upstream rsbuf
 			// remove_player(pid) at lib.rs:186-203. The legacy package-level
 			// rsbuf.RemovePlayer + p.buildArea.Npcs producer was retired here.
-			s.removePlayer(p)
+			s.removePlayerOnTick(p)
 		}
 	}
 }

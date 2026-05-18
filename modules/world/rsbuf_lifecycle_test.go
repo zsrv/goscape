@@ -19,7 +19,7 @@ func TestServer_PlayerLifecycleRoundTripSmoke(t *testing.T) {
 	}
 	pid := p.slot
 
-	s.removePlayer(p)
+	s.removePlayerInternal(p)
 
 	// After removePlayer:
 	//  - s.players[slot] should be nil (existing assertion)

@@ -1225,7 +1225,7 @@ func handleClientCheat(p *Player, payload []byte) error {
 			// DEVIATION-NAI-186-D1 — TS does inline `other.logout(); other.client.close()`
 			// at L608-611. Goscape sets loggingOut=true and lets processLogouts
 			// (tick.go:277) handle teardown (writeOut OpLogout + flushWrite +
-			// conn.Close + s.removePlayer). Same end-state, ≤1 tick defer.
+			// conn.Close + removePlayerOnTick). Same end-state, ≤1 tick defer.
 			// Retire if/when goscape grows a synchronous force-logout helper.
 			//
 			// NAI-186.

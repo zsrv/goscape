@@ -672,7 +672,7 @@ func TestProcessLogoutsDecrementsSubscribedNpcObservers(t *testing.T) {
 
 	s.processLogouts()
 
-	// processLogouts -> s.removePlayer -> s.rsbuf.RemovePlayer iterates
+	// processLogouts -> removePlayerOnTick -> removePlayerInternal -> s.rsbuf.RemovePlayer iterates
 	// player.Build.Npcs and decrements per-Buf observer counts. Verify
 	// via the per-Buf accessor (NAI-30 Bundle 4 retired the package-level
 	// rsbuf.GetNpcObservers shim consumer here).

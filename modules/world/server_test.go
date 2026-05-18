@@ -375,7 +375,7 @@ func TestRemovePlayerClearsSlot(t *testing.T) {
 	_ = s.addPlayer(p)
 	slot := p.slot
 
-	s.removePlayer(p)
+	s.removePlayerInternal(p)
 
 	if s.players[slot] != nil {
 		t.Error("players[slot] should be nil after remove")
@@ -409,7 +409,7 @@ func TestAddPlayerConcurrentSafety(t *testing.T) {
 			c, _ := newTestClient(t)
 			p := newPlayer(c)
 			if err := s.addPlayer(p); err == nil {
-				s.removePlayer(p)
+				s.removePlayerInternal(p)
 			}
 		}
 	}()
@@ -761,7 +761,7 @@ func TestRemovePlayerLeavesZoneAndUnflagsGrid(t *testing.T) {
 	if err := s.addPlayer(p); err != nil {
 		t.Fatalf("addPlayer: %v", err)
 	}
-	s.removePlayer(p)
+	s.removePlayerInternal(p)
 	z := s.zoneMap.Get(0, 3200, 3200)
 	if z.PlayersCount() != 0 {
 		t.Errorf("after removePlayer, Zone.PlayersCount: got %d, want 0", z.PlayersCount())
@@ -782,9 +782,9 @@ func TestRemovePlayerDoubleCallIsNoop(t *testing.T) {
 	if err := s.addPlayer(p); err != nil {
 		t.Fatalf("addPlayer: %v", err)
 	}
-	s.removePlayer(p)
+	s.removePlayerInternal(p)
 	// Second call must not panic.
-	s.removePlayer(p)
+	s.removePlayerInternal(p)
 	z := s.zoneMap.Get(0, 3200, 3200)
 	if z.PlayersCount() != 0 {
 		t.Errorf("PlayersCount after double removePlayer: got %d, want 0", z.PlayersCount())
