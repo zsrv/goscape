@@ -1,6 +1,14 @@
 package world
 
-import "time"
+import (
+	"context"
+	"log/slog"
+	"time"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/zsrv/goscape/pkg/loginpb"
+)
 
 // FriendsBridge mirrors TS World.friendThread.postMessage(...) for
 // social-list mutations and chat-mode propagation. Real impl is a
@@ -21,9 +29,8 @@ type FriendsBridge interface {
 }
 
 // LoginBridgeMod mirrors TS World.loginThread.postMessage('player_ban'/
-// 'player_mute', ...). The existing LoginClient is auth-only; this is a
-// separate moderation channel. Real impl deferred via
-// NAI-72-D-LOGIN-SERVER-BRIDGE-MOD.
+// 'player_mute', ...). Production impl is loginGRPCBridgeMod (below),
+// which delegates to LoginClient.PlayerBan / .PlayerMute.
 type LoginBridgeMod interface {
 	NotifyPlayerBan(staff, username string, until time.Time)
 	NotifyPlayerMute(staff, username string, until time.Time)
@@ -67,3 +74,33 @@ func (noopBridges) NotifyPlayerMute(string, string, time.Time) {}
 func (noopBridges) NotifyPlayerReport(*Player, string, string) {}
 func (noopBridges) SubmitInputTracking(*Player, []byte)        {}
 func (noopBridges) SubmitSessionLogs([]SessionLog)             {}
+
+// loginGRPCBridgeMod is the production LoginBridgeMod impl. Translates
+// moderation actions into gRPC RPCs against the login server. Calls are
+// fired in a goroutine so packet handlers and the tick loop never block
+// on network I/O — mirrors the goroutine fan-out used by autosave
+// (server.go:1018) and force-logout (server.go:982). Callers must
+// compute the absolute deadline (time.Now().Add(d)) before invocation;
+// the bridge does not coerce zero times.
+type loginGRPCBridgeMod struct {
+	client LoginClient
+	log    *slog.Logger
+}
+
+func (b *loginGRPCBridgeMod) NotifyPlayerBan(staff, username string, until time.Time) {
+	go b.client.PlayerBan(context.Background(), &loginpb.PlayerBanRequest{
+		Staff:    staff,
+		Username: username,
+		Until:    timestamppb.New(until),
+	})
+}
+
+func (b *loginGRPCBridgeMod) NotifyPlayerMute(staff, username string, until time.Time) {
+	go b.client.PlayerMute(context.Background(), &loginpb.PlayerMuteRequest{
+		Staff:    staff,
+		Username: username,
+		Until:    timestamppb.New(until),
+	})
+}
+
+var _ LoginBridgeMod = (*loginGRPCBridgeMod)(nil)

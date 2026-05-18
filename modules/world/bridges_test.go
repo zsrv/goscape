@@ -2,8 +2,11 @@ package world
 
 import (
 	"bytes"
+	"context"
 	"testing"
 	"time"
+
+	"github.com/zsrv/goscape/pkg/loginpb"
 )
 
 // recordingBridges captures every bridge call into typed slices for
@@ -230,5 +233,99 @@ func TestRecordingBridgesCapturesSubmitSessionLogs(t *testing.T) {
 	caller[0].SessionUUID = "MUTATED"
 	if rec.submittedSessionLogs[0][0].SessionUUID != "alice" {
 		t.Error("snapshot must not alias caller slice")
+	}
+}
+
+func TestLoginGRPCBridgeMod_NotifyPlayerBan_FiresRPC(t *testing.T) {
+	fake := newFakeLoginClient()
+	bridge := &loginGRPCBridgeMod{client: fake, log: discardLogger()}
+
+	until := time.Unix(1747569600, 0)
+	bridge.NotifyPlayerBan("alice", "evilbob", until)
+
+	select {
+	case got := <-fake.playerBanReqs:
+		if got.Staff != "alice" {
+			t.Errorf("Staff: got %q, want alice", got.Staff)
+		}
+		if got.Username != "evilbob" {
+			t.Errorf("Username: got %q, want evilbob", got.Username)
+		}
+		if !got.Until.AsTime().Equal(until) {
+			t.Errorf("Until: got %v, want %v", got.Until.AsTime(), until)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for PlayerBan RPC")
+	}
+}
+
+func TestLoginGRPCBridgeMod_NotifyPlayerMute_FiresRPC(t *testing.T) {
+	fake := newFakeLoginClient()
+	bridge := &loginGRPCBridgeMod{client: fake, log: discardLogger()}
+
+	until := time.Unix(1747569600, 0)
+	bridge.NotifyPlayerMute("alice", "evilbob", until)
+
+	select {
+	case got := <-fake.playerMuteReqs:
+		if got.Staff != "alice" {
+			t.Errorf("Staff: got %q, want alice", got.Staff)
+		}
+		if got.Username != "evilbob" {
+			t.Errorf("Username: got %q, want evilbob", got.Username)
+		}
+		if !got.Until.AsTime().Equal(until) {
+			t.Errorf("Until: got %v, want %v", got.Until.AsTime(), until)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for PlayerMute RPC")
+	}
+}
+
+// gatedLoginClient is a one-off fake whose PlayerBan blocks on <-gate
+// before recording. Used to verify the bridge's go-fan-out: the
+// synchronous NotifyPlayerBan call must return before the underlying
+// RPC completes.
+type gatedLoginClient struct {
+	*fakeLoginClient
+	gate chan struct{}
+	hit  chan struct{}
+}
+
+func (g *gatedLoginClient) PlayerBan(ctx context.Context, req *loginpb.PlayerBanRequest) {
+	<-g.gate
+	g.fakeLoginClient.PlayerBan(ctx, req)
+	close(g.hit)
+}
+
+func TestLoginGRPCBridgeMod_FireAndForget_DoesNotBlock(t *testing.T) {
+	gate := make(chan struct{})
+	gated := &gatedLoginClient{
+		fakeLoginClient: newFakeLoginClient(),
+		gate:            gate,
+		hit:             make(chan struct{}),
+	}
+	bridge := &loginGRPCBridgeMod{client: gated, log: discardLogger()}
+
+	done := make(chan struct{})
+	go func() {
+		bridge.NotifyPlayerBan("alice", "evilbob", time.Now())
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// expected: synchronous call returned before gate opened
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("NotifyPlayerBan blocked on RPC despite go-fan-out")
+	}
+
+	close(gate)
+
+	select {
+	case <-gated.hit:
+		// expected: after gate, underlying PlayerBan completed
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for gated PlayerBan to fire")
 	}
 }
