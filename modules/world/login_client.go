@@ -20,6 +20,8 @@ type LoginClient interface {
 	PlayerLogout(ctx context.Context, req *loginpb.PlayerLogoutRequest) (*loginpb.PlayerLogoutResponse, error)
 	PlayerAutosave(ctx context.Context, req *loginpb.PlayerAutosaveRequest)
 	PlayerForceLogout(ctx context.Context, req *loginpb.PlayerForceLogoutRequest)
+	PlayerBan(ctx context.Context, req *loginpb.PlayerBanRequest)
+	PlayerMute(ctx context.Context, req *loginpb.PlayerMuteRequest)
 	Close() error
 }
 
@@ -87,6 +89,26 @@ func (c *grpcLoginClient) PlayerAutosave(ctx context.Context, req *loginpb.Playe
 func (c *grpcLoginClient) PlayerForceLogout(ctx context.Context, req *loginpb.PlayerForceLogoutRequest) {
 	if _, err := c.client.PlayerForceLogout(ctx, req); err != nil {
 		c.log.Warn("PlayerForceLogout RPC failed",
+			slog.String("username", req.Username),
+			slog.Any("err", err),
+		)
+	}
+}
+
+// PlayerBan sets the banned_until timestamp on the login server (fire-and-forget).
+func (c *grpcLoginClient) PlayerBan(ctx context.Context, req *loginpb.PlayerBanRequest) {
+	if _, err := c.client.PlayerBan(ctx, req); err != nil {
+		c.log.Warn("PlayerBan RPC failed",
+			slog.String("username", req.Username),
+			slog.Any("err", err),
+		)
+	}
+}
+
+// PlayerMute sets the muted_until timestamp on the login server (fire-and-forget).
+func (c *grpcLoginClient) PlayerMute(ctx context.Context, req *loginpb.PlayerMuteRequest) {
+	if _, err := c.client.PlayerMute(ctx, req); err != nil {
+		c.log.Warn("PlayerMute RPC failed",
 			slog.String("username", req.Username),
 			slog.Any("err", err),
 		)

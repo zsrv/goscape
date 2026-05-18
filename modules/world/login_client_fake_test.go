@@ -22,6 +22,8 @@ type fakeLoginClient struct {
 
 	autosaveReqs    chan *loginpb.PlayerAutosaveRequest
 	forceLogoutReqs chan *loginpb.PlayerForceLogoutRequest
+	playerBanReqs   chan *loginpb.PlayerBanRequest
+	playerMuteReqs  chan *loginpb.PlayerMuteRequest
 
 	playerLoginResp  *loginpb.PlayerLoginResponse
 	playerLoginErr   error
@@ -48,6 +50,8 @@ func newFakeLoginClient() *fakeLoginClient {
 	return &fakeLoginClient{
 		autosaveReqs:      make(chan *loginpb.PlayerAutosaveRequest, 16),
 		forceLogoutReqs:   make(chan *loginpb.PlayerForceLogoutRequest, 16),
+		playerBanReqs:     make(chan *loginpb.PlayerBanRequest, 16),
+		playerMuteReqs:    make(chan *loginpb.PlayerMuteRequest, 16),
 		playerLogoutFired: make(chan struct{}, 16),
 	}
 }
@@ -96,6 +100,20 @@ func (f *fakeLoginClient) PlayerAutosave(ctx context.Context, req *loginpb.Playe
 func (f *fakeLoginClient) PlayerForceLogout(ctx context.Context, req *loginpb.PlayerForceLogoutRequest) {
 	select {
 	case f.forceLogoutReqs <- req:
+	default:
+	}
+}
+
+func (f *fakeLoginClient) PlayerBan(ctx context.Context, req *loginpb.PlayerBanRequest) {
+	select {
+	case f.playerBanReqs <- req:
+	default:
+	}
+}
+
+func (f *fakeLoginClient) PlayerMute(ctx context.Context, req *loginpb.PlayerMuteRequest) {
+	select {
+	case f.playerMuteReqs <- req:
 	default:
 	}
 }
