@@ -1,11 +1,13 @@
 package world
 
 import (
+	"context"
 	"log/slog"
 	"sort"
 	"time"
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
+	"github.com/zsrv/goscape/pkg/friendspb"
 	"github.com/zsrv/goscape/pkg/inventory"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/objtype"
@@ -160,6 +162,19 @@ func (s *Server) processLogins() {
 		p.lastResponse = s.currentTick
 		p.originX = p.x
 		p.originZ = p.z
+
+		// NAI-S2-D-PLAYERLOGIN-AT-PROCESSLOGINS: register the player on
+		// the friends server when they enter the world. Mirrors TS's
+		// PLAYER_LOGIN-on-world-entry semantics. Response is ignored
+		// (NAI-S2-D-PLAYERLOGIN-IGNORES-ACCEPTED).
+		if s.friendsClient != nil && p.username != "" {
+			go s.friendsClient.PlayerLogin(context.Background(), &friendspb.PlayerLoginRequest{
+				WorldId:     int32(s.cfg.NodeID),
+				Username37:  p.username37,
+				PrivateChat: int32(p.privateChat),
+				StaffLvl:    p.staffModLevel,
+			})
+		}
 
 		// sub-spec 3a: initialise worn inventory, and appearance dirty flag.
 		// (Scenery-window state is initialised in newPlayer as flat fields
