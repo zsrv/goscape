@@ -510,6 +510,88 @@ func TestWritePackStamp_AtomicNoTmpLeak(t *testing.T) {
 	}
 }
 
+// TestScanContentNewerThan_Match pins true return when a single file
+// under a single subdir has mtime strictly after ref.
+func TestScanContentNewerThan_Match(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "scripts"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	target := filepath.Join(root, "scripts", "a.rs2")
+	if err := os.WriteFile(target, []byte("x"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	// Reference timestamp 1 minute before file write — file must be newer.
+	ref := time.Now().Add(-1 * time.Minute)
+
+	got, err := scanContentNewerThan(root, []string{"scripts"}, ref)
+	if err != nil {
+		t.Fatalf("scan err: %v", err)
+	}
+	if !got {
+		t.Errorf("got false, want true (file mtime > ref by ~1m)")
+	}
+}
+
+// TestScanContentNewerThan_NoMatch pins false return when every file's
+// mtime is strictly older than ref.
+func TestScanContentNewerThan_NoMatch(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "scripts"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	target := filepath.Join(root, "scripts", "a.rs2")
+	if err := os.WriteFile(target, []byte("x"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	// Reference timestamp 1 minute after file write.
+	ref := time.Now().Add(1 * time.Minute)
+
+	got, err := scanContentNewerThan(root, []string{"scripts"}, ref)
+	if err != nil {
+		t.Fatalf("scan err: %v", err)
+	}
+	if got {
+		t.Errorf("got true, want false (file mtime < ref by ~1m)")
+	}
+}
+
+// TestScanContentNewerThan_MissingRoot pins that root not existing
+// returns (false, nil) — every subdir is treated as missing and skipped.
+func TestScanContentNewerThan_MissingRoot(t *testing.T) {
+	got, err := scanContentNewerThan("/nonexistent/path", []string{"scripts"}, time.Now())
+	if err != nil {
+		t.Errorf("err=%v, want nil for missing root", err)
+	}
+	if got {
+		t.Errorf("got true, want false for missing root")
+	}
+}
+
+// TestScanContentNewerThan_MissingSubdirSkipsContinues pins that one
+// missing subdir does not abort the scan: the next subdir's file is
+// still detected.
+func TestScanContentNewerThan_MissingSubdirSkipsContinues(t *testing.T) {
+	root := t.TempDir()
+	// Only "models" exists; "scripts" is absent.
+	if err := os.MkdirAll(filepath.Join(root, "models"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	target := filepath.Join(root, "models", "a.dat")
+	if err := os.WriteFile(target, []byte("x"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	ref := time.Now().Add(-1 * time.Minute)
+
+	got, err := scanContentNewerThan(root, []string{"scripts", "models"}, ref)
+	if err != nil {
+		t.Fatalf("scan err: %v", err)
+	}
+	if !got {
+		t.Errorf("got false, want true (models/a.dat newer than ref; missing scripts must not abort)")
+	}
+}
+
 // TestContentWatcher_BackoffResetsAfterSteadyRun pins reset semantics:
 // a session that runs >= resetWindow before ending resets the attempt
 // counter, so the next backoff is base (1x) not 2x. Uses a local

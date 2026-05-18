@@ -203,3 +203,45 @@ func writePackStamp(path string, t time.Time) error {
 	}
 	return nil
 }
+
+// scanContentNewerThan walks each existing subdir under root and returns
+// true on the first regular file whose ModTime() is strictly after ref.
+// Missing subdirs are skipped (mirrors addWatchesRecursive's
+// fs.ErrNotExist tolerance). Walk errors other than fs.ErrNotExist
+// propagate as a returned error. Returns false if no qualifying file is
+// found.
+//
+// Used by maybeReplayDispatch to detect edits made outside an active
+// fsnotify session (cold boot or supervisor down-window).
+func scanContentNewerThan(root string, subdirs []string, ref time.Time) (bool, error) {
+	for _, sub := range subdirs {
+		var newer bool
+		err := filepath.WalkDir(filepath.Join(root, sub), func(path string, d fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				if errors.Is(walkErr, fs.ErrNotExist) {
+					return fs.SkipDir
+				}
+				return walkErr
+			}
+			if d.IsDir() {
+				return nil
+			}
+			info, err := d.Info()
+			if err != nil {
+				return err
+			}
+			if info.ModTime().After(ref) {
+				newer = true
+				return fs.SkipAll
+			}
+			return nil
+		})
+		if err != nil {
+			return false, err
+		}
+		if newer {
+			return true, nil
+		}
+	}
+	return false, nil
+}
