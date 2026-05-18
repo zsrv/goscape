@@ -876,6 +876,11 @@ func (s *Server) removePlayerInternal(p *Player) {
 //
 // Deviation NAI-PLAYERLOADING-D-LOGOUT-NO-FORCE-FALLBACK: on RPC
 // failure, log only — no PlayerForceLogout belt-and-braces (TS parity).
+//
+// TODO(NAI-PLAYERLOADING-FU-LOGOUT-INTEGRATION-TESTS): pin the captured
+// PlayerLogout request via a fake LoginClient (T16 of NAI-PLAYERLOADING).
+// Blocked on *LoginClient being a concrete struct (login_client.go:15);
+// see the same blocker noted at the LoadSave call site in tick.go.
 func (s *Server) removePlayerOnTick(p *Player) {
 	if s.loginClient != nil && p.username != "" {
 		save := p.Save(s.invTypes)
@@ -905,6 +910,11 @@ func (s *Server) removePlayerOnTick(p *Player) {
 // Deviation NAI-PLAYERLOADING-D-DISCONNECT-NO-SAVE: state since the
 // last autosave is lost on ungraceful disconnect. Autosave cadence
 // (15 min) caps the loss window. TS has the same window.
+//
+// TODO(NAI-PLAYERLOADING-FU-DISCONNECT-INTEGRATION-TESTS): pin that
+// PlayerForceLogout fires and PlayerLogout does NOT fire (T17 of
+// NAI-PLAYERLOADING). Same LoginClient-stubbing blocker as
+// NAI-PLAYERLOADING-FU-LOGOUT-INTEGRATION-TESTS.
 func (s *Server) removePlayerOnDisconnect(p *Player) {
 	if s.loginClient != nil && p.username != "" {
 		go s.loginClient.PlayerForceLogout(context.Background(),
