@@ -3,6 +3,7 @@ package world
 import (
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 )
@@ -213,5 +214,84 @@ func TestNextWatcherBackoff_DoublesThenCaps(t *testing.T) {
 		if got != tc.want {
 			t.Errorf("nextWatcherBackoff(%d) = %v, want %v", tc.attempt, got, tc.want)
 		}
+	}
+}
+
+// withFastBackoff rescales the watcher-backoff vars to milliseconds so
+// supervisor tests finish in tens of ms instead of tens of seconds.
+// Restored via t.Cleanup; tests MUST NOT use t.Parallel together with
+// this helper because the vars are package-level.
+func withFastBackoff(t *testing.T) {
+	t.Helper()
+	oldBase, oldMax, oldReset := watcherBackoffBase, watcherBackoffMax, watcherBackoffResetWindow
+	watcherBackoffBase = 1 * time.Millisecond
+	watcherBackoffMax = 16 * time.Millisecond
+	watcherBackoffResetWindow = 100 * time.Millisecond
+	t.Cleanup(func() {
+		watcherBackoffBase = oldBase
+		watcherBackoffMax = oldMax
+		watcherBackoffResetWindow = oldReset
+	})
+}
+
+// TestContentWatcher_SessionExitsRestart_RetriesUntilQuit pins the
+// supervisor's core loop: each watchSessionFn return value of `true`
+// causes another invocation; a return of `false` causes the supervisor
+// to exit. With s.quit closure, the supervisor exits within slack.
+func TestContentWatcher_SessionExitsRestart_RetriesUntilQuit(t *testing.T) {
+	s := newTestServer(t)
+	withFastBackoff(t)
+
+	var mu sync.Mutex
+	count := 0
+	const wantRestarts = 3 // session returns true this many times
+	stubEntered := make(chan int, wantRestarts+2)
+
+	s.watchSessionFn = func() bool {
+		mu.Lock()
+		count++
+		n := count
+		mu.Unlock()
+		stubEntered <- n
+		if n <= wantRestarts {
+			return true // request restart
+		}
+		// (wantRestarts+1)th call: block until quit, then signal exit.
+		<-s.quit
+		return false
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.runContentWatcher()
+	}()
+
+	// Wait for stub to be entered (wantRestarts+1) times in total.
+	deadline := time.After(2 * time.Second)
+	for i := 0; i < wantRestarts+1; i++ {
+		select {
+		case <-stubEntered:
+			// good
+		case <-deadline:
+			mu.Lock()
+			got := count
+			mu.Unlock()
+			t.Fatalf("only %d/%d stub entries within 2s", got, wantRestarts+1)
+		}
+	}
+
+	close(s.quit)
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("supervisor did not exit within 2s after s.quit close")
+	}
+
+	mu.Lock()
+	final := count
+	mu.Unlock()
+	if final != wantRestarts+1 {
+		t.Errorf("watchSessionFn call count = %d, want %d", final, wantRestarts+1)
 	}
 }
