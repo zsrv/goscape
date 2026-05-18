@@ -170,3 +170,24 @@ func TestRebuildWorker_BusyCoalesce_PendingTriggersSecondRun(t *testing.T) {
 		t.Errorf("expected exactly 2 packFn calls, got %d", c)
 	}
 }
+
+// TestRebuildWorker_QuitMidIdle_ExitsCleanly pins that closing s.quit
+// causes runRebuildWorker to return promptly when idle.
+func TestRebuildWorker_QuitMidIdle_ExitsCleanly(t *testing.T) {
+	s := newTestServer(t)
+	s.packFn = func(srcDir, outDir, dataPackDir string) error { return nil }
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.runRebuildWorker()
+	}()
+
+	close(s.quit)
+
+	select {
+	case <-done:
+	case <-time.After(1 * time.Second):
+		t.Fatal("worker did not exit within 1s after s.quit close")
+	}
+}
