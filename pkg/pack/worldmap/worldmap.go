@@ -2,20 +2,260 @@ package worldmap
 
 import (
 	"errors"
+	"fmt"
+	"io/fs"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
+	"github.com/zsrv/goscape/pkg/io/jagfile"
 	packet2 "github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/objtype"
 	pf "github.com/zsrv/goscape/pkg/pathfinder/loc"
+	"github.com/zsrv/goscape/pkg/pixpack"
 )
 
-// Pack is the worldmap packer entry point. Implementation lands in
-// the Pack-entry-point task; this stub exists so callers can compile
-// against the public surface while the per-map loop is being ported.
+// Pack builds outDir/mapview/worldmap.jag from server-side map
+// outputs (outDir/server/maps/{m,l,o,n}*) plus fonts/sprites/CSVs
+// in srcDir. Returns nil if outDir/server/maps is missing (TS
+// parity with Worldmap.ts:31-33).
+//
+// Tag NAI-WORLDMAP-D-READDIR-SORTED: os.ReadDir returns lexically
+// sorted entries; TS fs.readdirSync is filesystem-order. No
+// checked-in TS reference exists for worldmap.jag, so deterministic
+// ordering is preferred over byte-pin equivalence.
 func Pack(srcDir, outDir string) error {
-	_ = srcDir
-	_ = outDir
-	return errors.New("worldmap.Pack: not implemented")
+	mapsDir := filepath.Join(outDir, "server", "maps")
+	if _, err := os.Stat(mapsDir); errors.Is(err, fs.ErrNotExist) {
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("stat %s: %w", mapsDir, err)
+	}
+
+	lg := slog.Default().With("pack", "worldmap")
+
+	flo, err := objtype.LoadFloTypes(outDir)
+	if err != nil {
+		return fmt.Errorf("LoadFloTypes: %w", err)
+	}
+	locTypes, err := objtype.LoadLocTypes(outDir)
+	if err != nil {
+		return fmt.Errorf("LoadLocTypes: %w", err)
+	}
+	npcTypes, err := objtype.LoadNPCTypes(outDir)
+	if err != nil {
+		return fmt.Errorf("LoadNPCTypes: %w", err)
+	}
+
+	readCsv := func(name string) ([]string, error) {
+		path := filepath.Join(srcDir, "maps", name)
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("read %s: %w", path, err)
+		}
+		return strings.Split(strings.ReplaceAll(string(raw), "\r\n", "\n"), "\n"), nil
+	}
+
+	multilines, err := readCsv("multiway.csv")
+	if err != nil {
+		return err
+	}
+	multimap := processCsv(multilines, "multiway", lg)
+
+	freeLines, err := readCsv("free2play.csv")
+	if err != nil {
+		return err
+	}
+	freemap := processCsv(freeLines, "free", lg)
+
+	ignoreLines, err := readCsv("ignore.csv")
+	if err != nil {
+		return err
+	}
+	ignoremap := processCsv(ignoreLines, "ignore", lg)
+
+	ctx := mapCtx{
+		flo:      flo,
+		locTypes: locTypes,
+		npcTypes: npcTypes,
+		multimap: multimap,
+		freemap:  freemap,
+	}
+	out := newMapPackets()
+	defer out.release()
+
+	entries, err := os.ReadDir(mapsDir)
+	if err != nil {
+		return fmt.Errorf("readdir %s: %w", mapsDir, err)
+	}
+	for _, ent := range entries {
+		name := ent.Name()
+		if !strings.HasPrefix(name, "m") {
+			continue
+		}
+		parts := strings.Split(name[1:], "_")
+		if len(parts) != 2 {
+			continue
+		}
+		mx, err1 := strconv.Atoi(parts[0])
+		mz, err2 := strconv.Atoi(parts[1])
+		if err1 != nil || err2 != nil {
+			continue
+		}
+		if _, skip := ignoremap[coordgrid.PackCoord(0, mx<<6, mz<<6)]; skip {
+			continue
+		}
+		land, err := packet2.Load(filepath.Join(mapsDir, name), false)
+		if err != nil {
+			return fmt.Errorf("load %s: %w", name, err)
+		}
+		loc, err := packet2.Load(filepath.Join(mapsDir, fmt.Sprintf("l%d_%d", mx, mz)), false)
+		if err != nil {
+			return fmt.Errorf("load l%d_%d: %w", mx, mz, err)
+		}
+		obj, err := packet2.Load(filepath.Join(mapsDir, fmt.Sprintf("o%d_%d", mx, mz)), false)
+		if err != nil {
+			return fmt.Errorf("load o%d_%d: %w", mx, mz, err)
+		}
+		npc, err := packet2.Load(filepath.Join(mapsDir, fmt.Sprintf("n%d_%d", mx, mz)), false)
+		if err != nil {
+			return fmt.Errorf("load n%d_%d: %w", mx, mz, err)
+		}
+		if err := processMap(ctx, out, mx, mz, land, loc, obj, npc); err != nil {
+			return fmt.Errorf("processMap %d,%d: %w", mx, mz, err)
+		}
+		land.Release()
+		loc.Release()
+		obj.Release()
+		npc.Release()
+	}
+
+	// Hardcoded water tiles (TS:513-528).
+	for _, mxmz := range [][2]int{
+		{39, 56}, {40, 56},
+		{42, 44}, {42, 45}, {42, 46}, {42, 47}, {42, 48},
+		{43, 44}, {44, 44}, {45, 44}, {46, 44}, {47, 44},
+		{47, 45}, {47, 46}, {48, 45}, {48, 46},
+	} {
+		packWater(flo, out.underlay, out.overlay, mxmz[0], mxmz[1])
+	}
+
+	// floorcol
+	floorcol := packet2.Alloc(1)
+	defer floorcol.Release()
+	floorcol.P2(uint16(len(flo.Configs)))
+	for i := range len(flo.Configs) {
+		floorcol.P4(refColors[i][0])
+		floorcol.P4(refColors[i][1])
+	}
+
+	// Sprites + fonts.
+	spriteDir := filepath.Join(srcDir, "sprites")
+	fontDir := filepath.Join(srcDir, "fonts")
+	index := packet2.Alloc(1)
+	defer index.Release()
+
+	convert := func(dir, name string) (*packet2.Packet, error) {
+		p, err := pixpack.ConvertImage(index, dir, name)
+		if err != nil {
+			return nil, fmt.Errorf("convertImage %s/%s: %w", dir, name, err)
+		}
+		return p, nil
+	}
+
+	mapscene, err := convert(spriteDir, "mapscene")
+	if err != nil {
+		return err
+	}
+	defer mapscene.Release()
+	mapfunction, err := convert(spriteDir, "mapfunction")
+	if err != nil {
+		return err
+	}
+	defer mapfunction.Release()
+	b12, err := convert(fontDir, "b12")
+	if err != nil {
+		return err
+	}
+	defer b12.Release()
+	mapdots, err := convert(spriteDir, "mapdots")
+	if err != nil {
+		return err
+	}
+	defer mapdots.Release()
+
+	loadFM := func(name string) (*packet2.Packet, error) {
+		p, err := packet2.Load(filepath.Join(fontDir, name), false)
+		if err != nil {
+			return nil, fmt.Errorf("load font %s: %w", name, err)
+		}
+		return p, nil
+	}
+	fontNames := []string{"f11.fm", "f12.fm", "f14.fm", "f17.fm", "f19.fm", "f22.fm", "f26.fm", "f30.fm"}
+	fonts := make(map[string]*packet2.Packet, len(fontNames))
+	for _, n := range fontNames {
+		p, err := loadFM(n)
+		if err != nil {
+			return err
+		}
+		fonts[n] = p
+		// Deferred Release; accumulates until function return, which is
+		// safe since fonts are referenced by the jagfile until Save().
+		defer p.Release()
+	}
+
+	// labels
+	labelsRaw, err := os.ReadFile(filepath.Join(srcDir, "maps", "labels.txt"))
+	if err != nil {
+		return fmt.Errorf("read labels.txt: %w", err)
+	}
+	labels := parseLabels(string(labelsRaw))
+	labelsPkt := packet2.Alloc(1)
+	defer labelsPkt.Release()
+	labelsPkt.P2(uint16(len(labels)))
+	for _, lab := range labels {
+		labelsPkt.PJStrLF(lab.Text)
+		labelsPkt.P2(uint16(lab.X))
+		labelsPkt.P2(uint16(lab.Z))
+		labelsPkt.P1(uint8(lab.Type))
+	}
+
+	// Assemble jagfile (22 entries, TS:657-678 order).
+	jag := jagfile.NewEmptyJagfile(false)
+	jag.Write("underlay.dat", out.underlay)
+	jag.Write("overlay.dat", out.overlay)
+	jag.Write("loc.dat", out.loc)
+	jag.Write("obj.dat", out.obj)
+	jag.Write("npc.dat", out.npc)
+	jag.Write("multi.dat", out.multi)
+	jag.Write("free.dat", out.free)
+	jag.Write("floorcol.dat", floorcol)
+	jag.Write("mapscene.dat", mapscene)
+	jag.Write("mapfunction.dat", mapfunction)
+	jag.Write("b12.dat", b12)
+	jag.Write("f11.dat", fonts["f11.fm"])
+	jag.Write("f12.dat", fonts["f12.fm"])
+	jag.Write("f14.dat", fonts["f14.fm"])
+	jag.Write("f17.dat", fonts["f17.fm"])
+	jag.Write("f19.dat", fonts["f19.fm"])
+	jag.Write("f22.dat", fonts["f22.fm"])
+	jag.Write("f26.dat", fonts["f26.fm"])
+	jag.Write("f30.dat", fonts["f30.fm"])
+	jag.Write("mapdots.dat", mapdots)
+	jag.Write("index.dat", index)
+	jag.Write("labels.dat", labelsPkt)
+
+	outPath := filepath.Join(outDir, "mapview", "worldmap.jag")
+	if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
+		return fmt.Errorf("mkdir %s: %w", filepath.Dir(outPath), err)
+	}
+	if err := jag.Save(outPath); err != nil {
+		return fmt.Errorf("save jagfile %s: %w", outPath, err)
+	}
+	return nil
 }
 
 // packWater appends one "ocean" map square (mx, mz) to underlay

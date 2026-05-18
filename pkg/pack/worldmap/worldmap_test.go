@@ -1,11 +1,26 @@
 package worldmap
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	packet2 "github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
+
+func TestPack_NoMapsDir_NoOp(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	src := t.TempDir()
+	// outDir/server/maps does not exist → TS parity early-return.
+	if err := Pack(src, tmp); err != nil {
+		t.Fatalf("Pack: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "mapview", "worldmap.jag")); err == nil {
+		t.Errorf("worldmap.jag created despite missing server/maps")
+	}
+}
 
 func TestUnpackCoord(t *testing.T) {
 	t.Parallel()
