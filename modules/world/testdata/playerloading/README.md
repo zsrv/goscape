@@ -41,42 +41,58 @@ cd ~/Code/github.com/LostCityRS/Engine-TS
 bun run scripts/gen-playerloading-fixtures.ts
 ```
 
-The script (commit to Engine-TS, not goscape):
+The script (commit to Engine-TS, not goscape). Important shape rules:
+
+1. **Use dynamic imports for the entity classes.** `Player` ↔ `NetworkPlayer`
+   form a circular import (NetworkPlayer extends Player). A static
+   `import Player from '#/engine/entity/Player.js'` at the top of the
+   script triggers `ReferenceError: Cannot access 'Player' before
+   initialization` under Bun. `await World.start(...)` fully evaluates
+   the entity class graph, so a dynamic `await import(...)` after that
+   point resolves cleanly.
+2. **Port the helper stubs.** `addInv`, `getLevelByExp`, and
+   `savePatched` are NOT defined here — port them from Engine-TS source
+   (`addInv` via `p.getInventory(typeId)` + slot setters from `Inv.ts`;
+   `getLevelByExp` lives next to `getExpByLevel` in `Player.ts` /
+   `PlayerStats.ts`; `savePatched` is `Player.save()` copied verbatim
+   with each `v2+`/`v3+`/`v4+`/`v5+`/`v6+` section wrapped in
+   `if (version >= N)` and `p.invs` sorted by typeId ascending).
 
 ```typescript
 // scripts/gen-playerloading-fixtures.ts
-// NB: addInv, getLevelByExp, and savePatched are not implemented here.
-// Port addInv + getLevelByExp from Engine-TS Player.ts; copy
-// Player.save() into savePatched and wrap version-gated sections with
-// `if (version >= N)` guards. The bottom of this file shows the
-// savePatched contract.
 import 'dotenv/config';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import Player from '#/engine/entity/Player.js';
-import { PlayerLoading } from '#/engine/entity/PlayerLoading.js';
 import World from '#/engine/World.js';
-import VarPlayerType from '#/cache/config/VarPlayerType.js';
 
 const OUT_DIR = '/path/to/goscape/modules/world/testdata/playerloading';
 
 async function main() {
-    // World init so VarPlayerType / InvType are populated.
+    // Initialise caches AND fully evaluate the entity class graph
+    // (Player, NetworkPlayer, PlayerLoading). After this point the
+    // dynamic imports below resolve without circular issues.
     await World.start({ skipMaps: true, startCycle: false });
 
+    const { default: Player }      = await import('#/engine/entity/Player.js');
+    const { PlayerLoading }        = await import('#/engine/entity/PlayerLoading.js');
+    const { default: VarPlayerType } = await import('#/cache/config/VarPlayerType.js');
+    // getLevelByExp lives near getExpByLevel — adjust the path if your
+    // checkout exports it elsewhere (e.g., PlayerStats.js).
+    const { getLevelByExp }        = await import('#/engine/entity/Player.js');
+
     for (let version = 1; version <= 6; version++) {
-        const p = makeFixturePlayer(version);
-        // Monkey-patch SAV_VERSION for this iteration.
+        const p = makeFixturePlayer(Player, VarPlayerType, getLevelByExp, version);
         (PlayerLoading as any).SAV_VERSION = version;
-        // Save body must skip version-gated sections above current version
-        // via the version-aware patched save (see savePatched below).
         const bytes = savePatched(p, version);
         fs.writeFileSync(path.join(OUT_DIR, `v${version}.sav`), bytes);
         console.log(`wrote v${version}.sav (${bytes.length} bytes)`);
     }
 }
 
-function makeFixturePlayer(version: number): Player {
+function makeFixturePlayer(
+    Player: any, VarPlayerType: any, getLevelByExp: (xp: number) => number,
+    version: number,
+): any {
     const p = new Player('fixture', 0n, 0n);
     p.x = 3094;
     p.z = 3106;
@@ -124,15 +140,44 @@ function makeFixturePlayer(version: number): Player {
     return p;
 }
 
-// savePatched mirrors Player.save() but skips version-gated sections above N.
-function savePatched(p: Player, version: number): Uint8Array {
-    // ... (copy Player.save() body verbatim, wrap v2+/v3+/v4+/v5+/v6+
-    //     sections with `if (version >= N)` guards; iterate p.invs sorted
-    //     by typeId ascending).
+// addInv lazily creates the inv via p.getInventory(typeId) and sets each
+// requested slot. Replace `inv.set(...)` with the actual Inv-side
+// setter in your checkout (e.g., `inv.add(slot, id, count)` or
+// `inv.setSlot(slot, id, count)`).
+function addInv(
+    p: any, typeId: number, _size: number,
+    slots: {slot: number, id: number, count: number}[],
+): void {
+    const inv = p.getInventory(typeId);
+    for (const s of slots) {
+        inv.set(s.slot, { id: s.id, count: s.count });
+    }
+}
+
+// savePatched mirrors Player.save() but skips version-gated sections
+// above N. Copy Player.save() body verbatim and wrap each version-gated
+// section in `if (version >= N) { ... }`. CRITICAL: iterate p.invs
+// sorted by typeId ascending (not Map insertion order) so the bytes
+// match goscape's deterministic encoder.
+function savePatched(p: any, version: number): Uint8Array {
+    // ...
 }
 
 main().catch(e => { console.error(e); process.exit(1); });
 ```
+
+### Known gotchas
+
+- **`World.start` signature** — if your Engine-TS checkout doesn't accept
+  `{ skipMaps, startCycle }`, grep `tests/` for the entry point your test
+  suite uses (often a thin wrapper that calls `World.readyData()` /
+  similar without entering the tick loop).
+- **`getLevelByExp` import path** — exported from `Player.ts` in most
+  recent revisions but historically lived in a `PlayerStats.ts` /
+  `getStats.ts` sibling. Adjust the dynamic-import path if the named
+  export isn't found.
+- **`addInv` slot setter** — `Inv.ts` API has churned. Use whichever of
+  `inv.set` / `inv.add` / `inv.setSlot` your checkout exposes.
 
 ## Why this script and not just `player.save()`
 
