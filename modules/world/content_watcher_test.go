@@ -432,15 +432,27 @@ func TestContentWatcher_QuitDuringBackoff_ExitsCleanly(t *testing.T) {
 
 // TestContentWatcher_BackoffResetsAfterSteadyRun pins reset semantics:
 // a session that runs >= resetWindow before ending resets the attempt
-// counter, so the next backoff is base (1x) not 2x. With fast backoff,
-// base=1ms, reset=100ms. Sequence:
-//   call 1: returns true immediately → delay = 1ms
+// counter, so the next backoff is base (1x) not 2x. Uses a local
+// 10ms base (instead of withFastBackoff's 1ms) so the reset/no-reset
+// discriminator (10ms vs 20ms) has 5ms headroom against Linux timer
+// granularity (CONFIG_HZ=250 → ~4ms tick) under -race overhead.
+// Sequence:
+//   call 1: returns true immediately → delay = 10ms
 //   call 2: blocks 200ms (> resetWindow), returns true → attempt
-//           resets to 0 then increments to 1 → delay = 1ms
-//   call 3: captures elapsed-since-call-2-return; asserts ≈ 1ms (NOT 2ms)
+//           resets to 0 then increments to 1 → delay = 10ms
+//   call 3: captures elapsed-since-call-2-return; asserts ≈ 10ms (NOT 20ms)
 func TestContentWatcher_BackoffResetsAfterSteadyRun(t *testing.T) {
 	s := newTestServer(t)
-	withFastBackoff(t) // base=1ms, max=16ms, resetWindow=100ms
+
+	oldBase, oldMax, oldReset := watcherBackoffBase, watcherBackoffMax, watcherBackoffResetWindow
+	watcherBackoffBase = 10 * time.Millisecond
+	watcherBackoffMax = 160 * time.Millisecond
+	watcherBackoffResetWindow = 100 * time.Millisecond
+	t.Cleanup(func() {
+		watcherBackoffBase = oldBase
+		watcherBackoffMax = oldMax
+		watcherBackoffResetWindow = oldReset
+	})
 
 	var mu sync.Mutex
 	var (
@@ -498,15 +510,16 @@ func TestContentWatcher_BackoffResetsAfterSteadyRun(t *testing.T) {
 	close(s.quit)
 	<-done
 
-	// Expect ≈ 1ms (base). Without reset, after call 2 the supervisor
-	// would have attempt=2 and sleep ≈ 2ms. The 1.5ms upper bound is
-	// the discriminator that makes this test fail when reset is broken.
-	// Lower bound 800µs guards against a "delay never applied" pathology
+	// Expect ≈ 10ms (base). Without reset, after call 2 the supervisor
+	// would have attempt=2 and sleep ≈ 20ms. The 15ms upper bound is
+	// the discriminator that makes this test fail when reset is broken
+	// (with 5ms headroom against ~4ms Linux timer tick under -race).
+	// Lower bound 5ms guards against a "delay never applied" pathology
 	// (e.g., a future refactor accidentally dropping the sleep).
-	if delta < 800*time.Microsecond {
-		t.Errorf("call-2-return → call-3-enter = %v, expected ≈ 1ms (base); too short — sleep dropped?", delta)
+	if delta < 5*time.Millisecond {
+		t.Errorf("call-2-return → call-3-enter = %v, expected ≈ 10ms (base); too short — sleep dropped?", delta)
 	}
-	if delta > 1500*time.Microsecond {
-		t.Errorf("call-2-return → call-3-enter = %v, expected ≈ 1ms (base, reset). Without reset would be ≈ 2ms; >1.5ms means reset broken (or scheduler stall — rerun)", delta)
+	if delta > 15*time.Millisecond {
+		t.Errorf("call-2-return → call-3-enter = %v, expected ≈ 10ms (base, reset). Without reset would be ≈ 20ms; >15ms means reset broken (or scheduler stall — rerun)", delta)
 	}
 }
