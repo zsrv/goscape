@@ -60,3 +60,36 @@ func TestContentWatcher_FileWrite_TriggersRebuildAfterDebounce(t *testing.T) {
 		t.Fatal("did not receive on rebuildReq within 3s")
 	}
 }
+
+// TestContentWatcher_BurstCoalesces pins that a rapid burst of file
+// writes collapses into a single rebuildReq via the 1s debounce.
+func TestContentWatcher_BurstCoalesces(t *testing.T) {
+	root := t.TempDir()
+	s := newTestServer(t)
+	_ = startWatcher(t, s, root, "scripts")
+	time.Sleep(100 * time.Millisecond)
+
+	for i := 0; i < 10; i++ {
+		target := filepath.Join(root, "scripts", "foo.rs2")
+		if err := os.WriteFile(target, []byte{byte(i)}, 0o644); err != nil {
+			t.Fatalf("write %d: %v", i, err)
+		}
+		time.Sleep(20 * time.Millisecond) // well inside the 1s window
+	}
+
+	// Drain the first rebuildReq within debounce + slack.
+	select {
+	case <-s.rebuildReq:
+	case <-time.After(3 * time.Second):
+		t.Fatal("did not receive first rebuildReq")
+	}
+
+	// Window after the burst: no further rebuildReqs should fire (chan
+	// stays empty for the slack window).
+	select {
+	case <-s.rebuildReq:
+		t.Errorf("burst coalesce broken — second rebuildReq fired")
+	case <-time.After(500 * time.Millisecond):
+		// good
+	}
+}
