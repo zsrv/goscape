@@ -1,6 +1,7 @@
 package world
 
 import (
+	"errors"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -54,5 +55,35 @@ func TestRebuildWorker_Request_RunsPackAndPostsResult(t *testing.T) {
 	if gotSrc != "/content" || gotOut != "/cache" || gotPack != "/cache" {
 		t.Errorf("packFn args: src=%q out=%q pack=%q; want /content,/cache,/cache",
 			gotSrc, gotOut, gotPack)
+	}
+}
+
+// TestRebuildWorker_PackError_PostsErrorResult pins that packFn errors
+// propagate to rebuildResult.err verbatim. handleRebuildResult (tested
+// elsewhere) is responsible for not calling reloadFn on error.
+func TestRebuildWorker_PackError_PostsErrorResult(t *testing.T) {
+	s := newTestServer(t)
+	wantErr := errors.New("boom")
+	s.packFn = func(srcDir, outDir, dataPackDir string) error { return wantErr }
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.runRebuildWorker()
+	}()
+	t.Cleanup(func() {
+		close(s.quit)
+		<-done
+	})
+
+	s.dispatchRebuildRequest()
+
+	select {
+	case r := <-s.rebuildResult:
+		if !errors.Is(r.err, wantErr) {
+			t.Errorf("expected errors.Is err == wantErr; got %v", r.err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for rebuildResult")
 	}
 }
