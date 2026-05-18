@@ -191,3 +191,47 @@ func TestRebuildWorker_QuitMidIdle_ExitsCleanly(t *testing.T) {
 		t.Fatal("worker did not exit within 1s after s.quit close")
 	}
 }
+
+// TestRunRebuildWorker_PropagatesStartedAt pins that rebuildResult
+// carries the pack-start time (time.Now() at packFn entry), not the
+// pack-end time. Asserts startedAt falls within [before, after] where
+// before/after bracket the dispatchRebuildRequest call.
+func TestRunRebuildWorker_PropagatesStartedAt(t *testing.T) {
+	s := newTestServer(t)
+	s.packFn = func(srcDir, outDir, dataPackDir string) error {
+		time.Sleep(10 * time.Millisecond) // ensure pack-start < pack-end measurably
+		return nil
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.runRebuildWorker()
+	}()
+	t.Cleanup(func() {
+		close(s.quit)
+		<-done
+	})
+
+	before := time.Now()
+	s.dispatchRebuildRequest()
+
+	select {
+	case r := <-s.rebuildResult:
+		after := time.Now()
+		if r.startedAt.IsZero() {
+			t.Fatal("startedAt is zero — not populated")
+		}
+		if r.startedAt.Before(before) || r.startedAt.After(after) {
+			t.Errorf("startedAt %v outside [%v, %v]", r.startedAt, before, after)
+		}
+		// Sanity: startedAt should be at least 10ms before the result
+		// arrival (since packFn slept 10ms).
+		if after.Sub(r.startedAt) < 10*time.Millisecond {
+			t.Errorf("after - startedAt = %v, want >= 10ms (packFn slept 10ms)",
+				after.Sub(r.startedAt))
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for rebuildResult")
+	}
+}

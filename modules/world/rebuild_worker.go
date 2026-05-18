@@ -7,10 +7,15 @@ import (
 
 // rebuildResult is the completion event posted by runRebuildWorker and
 // drained on the tick goroutine. Spec 2026-05-18-rebuild-async-fsnotify §3.
+// startedAt is the time.Now() snapshot taken immediately before packFn;
+// used by handleRebuildResult to write CachePath/.pack-stamp on the
+// success path so the next runWatchSession can detect content edits made
+// after this pack (spec 2026-05-18-content-watcher-replay §3.5).
 type rebuildResult struct {
-	err      error
-	duration time.Duration
-	invoker  *Player // nil for fsnotify-triggered rebuilds
+	err       error
+	duration  time.Duration
+	invoker   *Player // nil for fsnotify-triggered rebuilds
+	startedAt time.Time
 }
 
 // dispatchRebuildRequest is the single non-blocking-send helper used by
@@ -53,7 +58,7 @@ func (s *Server) runRebuildWorker() {
 		// drains and runs Reload before worker accepts the next
 		// request. Worst-case wait ≈ 1 tick.
 		select {
-		case s.rebuildResult <- rebuildResult{err: err, duration: elapsed, invoker: invoker}:
+		case s.rebuildResult <- rebuildResult{err: err, duration: elapsed, invoker: invoker, startedAt: start}:
 		case <-s.quit:
 			return
 		}
