@@ -133,3 +133,27 @@ func TestContentWatcher_NewSubdir_AddedToWatch(t *testing.T) {
 		t.Fatal("write under newly-created subdir did not trigger rebuildReq; dynamic add broken")
 	}
 }
+
+// TestContentWatcher_NonWatchedDirIgnored pins that writes outside the
+// 12 canonical subdirs do NOT trigger rebuildReq.
+func TestContentWatcher_NonWatchedDirIgnored(t *testing.T) {
+	root := t.TempDir()
+	s := newTestServer(t)
+	_ = startWatcher(t, s, root, "scripts") // only scripts watched
+	if err := os.MkdirAll(filepath.Join(root, "node_modules"), 0o755); err != nil {
+		t.Fatalf("mkdir node_modules: %v", err)
+	}
+	time.Sleep(100 * time.Millisecond)
+
+	target := filepath.Join(root, "node_modules", "foo")
+	if err := os.WriteFile(target, []byte("ignored"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	select {
+	case <-s.rebuildReq:
+		t.Errorf("rebuildReq fired for non-watched node_modules/")
+	case <-time.After(2 * time.Second):
+		// good — debounce window elapsed with no event
+	}
+}
