@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/zsrv/goscape/pkg/io/jagfile"
 	packet2 "github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
@@ -27,6 +28,72 @@ func TestPack_NoMapsDir_NoOp(t *testing.T) {
 // a goscape-only fixture is heavier than the path is worth in
 // isolation. The env-gated TestPack_RealContent_Integration in
 // Task 8 covers this end-to-end against real Content.
+
+func TestPack_RealContent_Integration(t *testing.T) {
+	if os.Getenv("GOSCAPE_WORLDMAP_INTEGRATION") != "1" {
+		t.Skip("set GOSCAPE_WORLDMAP_INTEGRATION=1 to enable")
+	}
+
+	srcDir := os.Getenv("GOSCAPE_CONTENT_DIR")
+	if srcDir == "" {
+		srcDir = "/home/owner/Code/github.com/LostCityRS/content"
+	}
+	packDir := os.Getenv("GOSCAPE_PACK_DIR")
+	if packDir == "" {
+		t.Skip("set GOSCAPE_PACK_DIR to a directory containing server/maps/")
+	}
+	if _, err := os.Stat(filepath.Join(packDir, "server", "maps")); err != nil {
+		t.Skipf("%s/server/maps missing: %v", packDir, err)
+	}
+
+	outDir := t.TempDir()
+	if err := os.Symlink(filepath.Join(packDir, "server"), filepath.Join(outDir, "server")); err != nil {
+		t.Fatalf("symlink server: %v", err)
+	}
+	if err := os.Symlink(filepath.Join(packDir, "client"), filepath.Join(outDir, "client")); err != nil {
+		t.Fatalf("symlink client: %v", err)
+	}
+
+	if err := Pack(srcDir, outDir); err != nil {
+		t.Fatalf("Pack: %v", err)
+	}
+
+	jagPath := filepath.Join(outDir, "mapview", "worldmap.jag")
+	st, err := os.Stat(jagPath)
+	if err != nil {
+		t.Fatalf("stat output: %v", err)
+	}
+	if st.Size() == 0 {
+		t.Fatalf("output jag is empty")
+	}
+
+	jag, err := jagfile.LoadJagfile(jagPath)
+	if err != nil {
+		t.Fatalf("LoadJagfile: %v", err)
+	}
+
+	expectedNames := []string{
+		"underlay.dat", "overlay.dat", "loc.dat", "obj.dat", "npc.dat",
+		"multi.dat", "free.dat", "floorcol.dat",
+		"mapscene.dat", "mapfunction.dat", "b12.dat",
+		"f11.dat", "f12.dat", "f14.dat", "f17.dat", "f19.dat",
+		"f22.dat", "f26.dat", "f30.dat",
+		"mapdots.dat", "index.dat", "labels.dat",
+	}
+	for _, n := range expectedNames {
+		p, err := jag.Read(n)
+		if err != nil {
+			t.Errorf("missing entry %q: %v", n, err)
+			continue
+		}
+		switch n {
+		case "underlay.dat", "overlay.dat", "loc.dat", "floorcol.dat", "labels.dat":
+			if p.Length() == 0 {
+				t.Errorf("entry %q is empty (expected non-zero)", n)
+			}
+		}
+	}
+}
 
 func TestUnpackCoord(t *testing.T) {
 	t.Parallel()
