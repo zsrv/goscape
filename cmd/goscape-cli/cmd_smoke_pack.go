@@ -20,14 +20,17 @@ import (
 	"github.com/zsrv/goscape/pkg/pack/maps"
 	"github.com/zsrv/goscape/pkg/pack/sprites"
 	"github.com/zsrv/goscape/pkg/pack/wordenc"
+	"github.com/zsrv/goscape/pkg/pack/worldmap"
 	"github.com/zsrv/goscape/pkg/util/log"
 )
 
 // runSmokePack implements the `smoke-pack` verb: a best-effort driver
-// over all 11 packall.PackAll stages (PackConfigs + 10 downstream) with
-// per-stage logging and an end-of-run summary table. See
-// docs/superpowers/specs/2026-05-17-smoke-pack-verb-design.md for the
-// design contract. Stage order mirrors pkg/packall/packall.go.
+// over all 11 packall.PackAll stages (PackConfigs + 10 downstream) plus
+// the standalone Worldmap packer, with per-stage logging and an end-of-run
+// summary table. See docs/superpowers/specs/2026-05-17-smoke-pack-verb-design.md
+// for the design contract. The first 11 stages mirror pkg/packall/packall.go;
+// Worldmap is appended last (TS parity keeps it out of PackAll itself but it
+// produces a Jagfile worth byte-pinning against the TS reference).
 //
 // Exit codes:
 //
@@ -326,12 +329,12 @@ func safeRun(fn func() error) (err error) {
 	return fn()
 }
 
-// runStages drives all 11 PackAll stages best-effort (PackConfigs + 10
-// downstream). PackConfigs is special: if it fails, all 10 downstream
-// stages render as SKIP because they consume the *pack.Registry it
-// produces. When refDir != "", every successful stage is also
-// byte-diffed against the same relpath under refDir; results are
-// attached to stageResult.Diffs.
+// runStages drives all 11 PackAll stages plus the standalone Worldmap
+// packer best-effort (PackConfigs + 11 downstream). PackConfigs is
+// special: if it fails, all 11 downstream stages render as SKIP because
+// they consume the *pack.Registry it produces. When refDir != "", every
+// successful stage is also byte-diffed against the same relpath under
+// refDir; results are attached to stageResult.Diffs.
 func runStages(srcDir, outDir, dataPackDir, refDir string, stopOnError bool, logger *slog.Logger) []stageResult {
 	pack.ClearFsCache()
 
@@ -363,7 +366,7 @@ func runStages(srcDir, outDir, dataPackDir, refDir string, stopOnError bool, log
 		results = append(results, stageResult{Name: "PackConfigs", Status: stageErr, Elapsed: pcElapsed, OutputFiles: pcFiles, OutputBytes: pcBytes, Err: pcErr})
 		for _, name := range []string{
 			"ClientInterface", "RunServerCompiler", "Title", "Media", "Texture",
-			"Wordenc", "Sound", "Graphics", "Midi", "Maps",
+			"Wordenc", "Sound", "Graphics", "Midi", "Maps", "Worldmap",
 		} {
 			results = append(results, stageResult{Name: name, Status: stageSkip})
 		}
@@ -389,6 +392,7 @@ func runStages(srcDir, outDir, dataPackDir, refDir string, stopOnError bool, log
 		{"Graphics", func() error { return graphics.Pack(reg, srcDir, outDir) }},
 		{"Midi", func() error { return audio.PackMidi(srcDir, outDir) }},
 		{"Maps", func() error { return maps.Pack(srcDir, outDir) }},
+		{"Worldmap", func() error { return worldmap.Pack(srcDir, outDir) }},
 	}
 	for i, st := range rest {
 		logger.Info("stage_start", "stage", st.name)

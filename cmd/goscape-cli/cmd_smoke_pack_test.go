@@ -37,7 +37,7 @@ func seedSmokeFixture(t *testing.T, dir string) {
 }
 
 // TestRunSmokePack_AllStagesRunBestEffort verifies that against the
-// synthetic fixture, the driver runs all 11 stages (no early return)
+// synthetic fixture, the driver runs all 12 stages (no early return)
 // and returns 0 if all stages succeed.
 func TestRunSmokePack_AllStagesRunBestEffort(t *testing.T) {
 	dir := t.TempDir()
@@ -55,7 +55,7 @@ func TestRunSmokePack_AllStagesRunBestEffort(t *testing.T) {
 
 	// We don't pin "all stages pass" — that depends on stage-specific
 	// behavior against a minimal fixture, which is exactly what the
-	// smoke surfaces. We DO pin: the driver ran all 11 stages and exit
+	// smoke surfaces. We DO pin: the driver ran all 12 stages and exit
 	// is 0 or 1 (not panic, not 3).
 	if code != 0 && code != 1 {
 		t.Fatalf("runSmokePack returned %d, want 0 or 1", code)
@@ -63,7 +63,7 @@ func TestRunSmokePack_AllStagesRunBestEffort(t *testing.T) {
 	// Stage-start log for each stage must appear (one per stage).
 	for _, name := range []string{
 		"PackConfigs", "ClientInterface", "RunServerCompiler",
-		"Title", "Media", "Texture", "Wordenc", "Sound", "Graphics", "Midi", "Maps",
+		"Title", "Media", "Texture", "Wordenc", "Sound", "Graphics", "Midi", "Maps", "Worldmap",
 	} {
 		if !strings.Contains(stderr.String(), name) {
 			t.Errorf("stderr missing stage %q; got:\n%s", name, stderr.String())
@@ -309,7 +309,7 @@ func TestRunSmokePack_StopOnError(t *testing.T) {
 	// Find the Result line and assert SKIP count > 0. The Result line
 	// has the form "Result: N OK, M ERR, K SKIP ..." where a working
 	// --stop-on-error must produce K >= 1 (every stage after the
-	// RunServerCompiler ERR — 8 downstream stages — should SKIP).
+	// RunServerCompiler ERR — 9 downstream stages — should SKIP).
 	var resultLine string
 	for _, line := range strings.Split(out, "\n") {
 		if strings.HasPrefix(line, "Result:") {
