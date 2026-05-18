@@ -116,6 +116,7 @@ var (
 	_ FriendsBridge  = noopBridges{}
 	_ LoginBridgeMod = noopBridges{}
 	_ LoggerBridge   = noopBridges{}
+	_ FriendsBridge  = (*grpcFriendsBridge)(nil)
 )
 
 // TestNoopBridgesAllMethods exercises every noopBridges method to keep

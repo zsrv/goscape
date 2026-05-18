@@ -7,7 +7,9 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/zsrv/goscape/pkg/friendspb"
 	"github.com/zsrv/goscape/pkg/loginpb"
+	jstring "github.com/zsrv/goscape/pkg/util/jstring"
 )
 
 // FriendsBridge mirrors TS World.friendThread.postMessage(...) for
@@ -112,6 +114,83 @@ var _ LoginBridgeMod = (*loginGRPCBridgeMod)(nil)
 func defaultLoginBridgeMod(client LoginClient, log *slog.Logger) LoginBridgeMod {
 	if client != nil {
 		return &loginGRPCBridgeMod{client: client, log: log}
+	}
+	return noopBridges{}
+}
+
+// grpcFriendsBridge is the production FriendsBridge impl. Translates
+// social-list mutations / chat-mode propagation / private-message
+// posting into gRPC RPCs against the friends server. Each call is
+// fired in a goroutine so packet handlers and the tick loop never
+// block on network I/O — mirrors loginGRPCBridgeMod's fan-out pattern.
+// worldID is captured at construction time from cfg.NodeID.
+type grpcFriendsBridge struct {
+	client  FriendsClient
+	worldID int32
+	log     *slog.Logger
+}
+
+func (b *grpcFriendsBridge) AddFriend(playerUsername string, target uint64) {
+	go b.client.FriendlistAdd(context.Background(), &friendspb.FriendlistAddRequest{
+		WorldId:          b.worldID,
+		Username37:       jstring.ToBase37(playerUsername),
+		TargetUsername37: target,
+	})
+}
+
+func (b *grpcFriendsBridge) RemoveFriend(playerUsername string, target uint64) {
+	go b.client.FriendlistDel(context.Background(), &friendspb.FriendlistDelRequest{
+		WorldId:          b.worldID,
+		Username37:       jstring.ToBase37(playerUsername),
+		TargetUsername37: target,
+	})
+}
+
+func (b *grpcFriendsBridge) AddIgnore(playerUsername string, target uint64) {
+	go b.client.IgnorelistAdd(context.Background(), &friendspb.IgnorelistAddRequest{
+		WorldId:          b.worldID,
+		Username37:       jstring.ToBase37(playerUsername),
+		TargetUsername37: target,
+	})
+}
+
+func (b *grpcFriendsBridge) RemoveIgnore(playerUsername string, target uint64) {
+	go b.client.IgnorelistDel(context.Background(), &friendspb.IgnorelistDelRequest{
+		WorldId:          b.worldID,
+		Username37:       jstring.ToBase37(playerUsername),
+		TargetUsername37: target,
+	})
+}
+
+func (b *grpcFriendsBridge) SetChatMode(playerUsername string, privateChat int) {
+	go b.client.ChatSetMode(context.Background(), &friendspb.ChatSetModeRequest{
+		WorldId:     b.worldID,
+		Username37:  jstring.ToBase37(playerUsername),
+		PrivateChat: int32(privateChat),
+	})
+}
+
+func (b *grpcFriendsBridge) PrivateMessage(playerUsername string, staffLvl int32, pmId uint32, target uint64, message string, coord int) {
+	go b.client.PrivateMessage(context.Background(), &friendspb.PrivateMessageRequest{
+		WorldId:          b.worldID,
+		Username37:       jstring.ToBase37(playerUsername),
+		TargetUsername37: target,
+		StaffLvl:         staffLvl,
+		PmId:             pmId,
+		Chat:             message,
+		Coord:            int32(coord),
+	})
+}
+
+var _ FriendsBridge = (*grpcFriendsBridge)(nil)
+
+// defaultFriendsBridge returns the production FriendsBridge for the
+// given FriendsClient + worldID: a goroutine-fanout gRPC adapter when
+// client != nil, otherwise noopBridges{}. Called from NewServer; broken
+// out for testability without spinning up the full Server.
+func defaultFriendsBridge(client FriendsClient, worldID int32, log *slog.Logger) FriendsBridge {
+	if client != nil {
+		return &grpcFriendsBridge{client: client, worldID: worldID, log: log}
 	}
 	return noopBridges{}
 }
