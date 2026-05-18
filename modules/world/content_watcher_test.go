@@ -430,6 +430,48 @@ func TestContentWatcher_QuitDuringBackoff_ExitsCleanly(t *testing.T) {
 	}
 }
 
+// TestReadPackStamp pins the four return cases: present-valid, missing,
+// corrupt-non-numeric, empty. Permission-denied is omitted as it is not
+// portable to test reliably (root, container, FS).
+func TestReadPackStamp(t *testing.T) {
+	dir := t.TempDir()
+
+	// Case 1: missing file → (zero, false, nil).
+	if ts, ok, err := readPackStamp(filepath.Join(dir, "absent.stamp")); err != nil || ok || !ts.IsZero() {
+		t.Errorf("missing: got (%v, %v, %v); want (zero, false, nil)", ts, ok, err)
+	}
+
+	// Case 2: valid stamp → (parsed, true, nil).
+	valid := filepath.Join(dir, "valid.stamp")
+	want := time.Unix(0, 1747569600123456789)
+	if err := os.WriteFile(valid, []byte("1747569600123456789\n"), 0o644); err != nil {
+		t.Fatalf("write valid: %v", err)
+	}
+	if ts, ok, err := readPackStamp(valid); err != nil || !ok || !ts.Equal(want) {
+		t.Errorf("valid: got (%v, %v, %v); want (%v, true, nil)", ts, ok, err, want)
+	}
+
+	// Case 3: corrupt non-numeric → (zero, false, err).
+	corrupt := filepath.Join(dir, "corrupt.stamp")
+	if err := os.WriteFile(corrupt, []byte("not-a-number\n"), 0o644); err != nil {
+		t.Fatalf("write corrupt: %v", err)
+	}
+	ts, ok, err := readPackStamp(corrupt)
+	if err == nil || ok || !ts.IsZero() {
+		t.Errorf("corrupt: got (%v, %v, %v); want (zero, false, err)", ts, ok, err)
+	}
+
+	// Case 4: empty file → (zero, false, err).
+	empty := filepath.Join(dir, "empty.stamp")
+	if err := os.WriteFile(empty, []byte(""), 0o644); err != nil {
+		t.Fatalf("write empty: %v", err)
+	}
+	ts, ok, err = readPackStamp(empty)
+	if err == nil || ok || !ts.IsZero() {
+		t.Errorf("empty: got (%v, %v, %v); want (zero, false, err)", ts, ok, err)
+	}
+}
+
 // TestContentWatcher_BackoffResetsAfterSteadyRun pins reset semantics:
 // a session that runs >= resetWindow before ending resets the attempt
 // counter, so the next backoff is base (1x) not 2x. Uses a local

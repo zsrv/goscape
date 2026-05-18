@@ -2,9 +2,12 @@ package world
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -157,4 +160,30 @@ func (s *Server) runWatchSession() bool {
 			s.dispatchRebuildRequest()
 		}
 	}
+}
+
+// readPackStamp loads the pack-stamp file at path. Returns
+// (zero, false, nil) if the file does not exist. Returns
+// (zero, false, err) on any other I/O or parse error. Returns
+// (parsed, true, nil) on success.
+//
+// Stamp format: a single line containing the decimal time.UnixNano() of
+// the pack-start time, optionally followed by a trailing newline.
+func readPackStamp(path string) (time.Time, bool, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return time.Time{}, false, nil
+		}
+		return time.Time{}, false, err
+	}
+	s := strings.TrimSpace(string(b))
+	if s == "" {
+		return time.Time{}, false, fmt.Errorf("readPackStamp: empty stamp at %s", path)
+	}
+	n, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return time.Time{}, false, fmt.Errorf("readPackStamp: parse %q: %w", path, err)
+	}
+	return time.Unix(0, n), true, nil
 }
