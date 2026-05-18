@@ -43,6 +43,7 @@ type Config struct {
 	NodeSubmitInput                  bool          `yaml:"node_submit_input"`
 	NodeProduction                   bool          `yaml:"node_production"`
 	NodeAutoSubscribeMembers         bool          `yaml:"node_auto_subscribe_members"`
+	ContentWatch                     bool          `yaml:"content_watch"`
 	Enable                           bool          `yaml:"enable"`
 	EnableTCPServer                  bool          `yaml:"enable_tcp_server"`
 }
@@ -82,6 +83,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.StringVar(&c.NodeProfile, "world.node-profile", "main", "")
 	f.StringVar(&c.CachePath, "world.cache-path", "./data/pack", "Cache root; gamemap loads map-pack files from <path>/maps/")
 	f.StringVar(&c.ContentPath, "world.content-path", "", "Source content root for ::rebuild's in-process PackAll. Empty disables the cheat.")
+	f.BoolVar(&c.ContentWatch, "world.content-watch", false, "Watch ContentPath subdirs and auto-trigger ::rebuild on changes (debounced 1s). Requires --world.content-path.")
 	f.IntVar(&c.NodeMaxPlayers, "world.node-max-players", 2047, "")
 	f.IntVar(&c.NodeMaxConnected, "world.node-max-connected", 1000, "")
 	f.IntVar(&c.NodeMaxNPCs, "world.node-max-npcs", 8191, "")
