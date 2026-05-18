@@ -321,11 +321,15 @@ func newTestServer(t *testing.T) *Server {
 		shutdownTick:   -1,
 		tickRate:       defaultTickRate,
 		gracefulExit:   make(chan struct{}),
+		rebuildReq:    make(chan struct{}, 1),
+		rebuildResult: make(chan rebuildResult, 1),
 	}
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}
 	s.loggerBridge = noopBridges{}
 	s.locOps = &serverLocOps{s: s}
+	s.reloadFn = s.Reload
+	// packFn intentionally left nil; tests that exercise the worker set it explicitly.
 	return s
 }
 

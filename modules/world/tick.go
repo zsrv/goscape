@@ -37,6 +37,15 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 	s.tickRate = rate
 	nextTick := time.Now()
 	for {
+		// NAI-REBUILD-ASYNC — drain at top-of-body so Reload runs before
+		// any per-tick work observes mid-swap state. Mirrors
+		// processShutdown's top-of-body placement.
+		select {
+		case r := <-s.rebuildResult:
+			s.handleRebuildResult(r)
+		default:
+		}
+
 		// NAI-182 — shutdown consumer must run BEFORE any per-tick work
 		// so a doomed conn doesn't receive one more tick of activity.
 		// Mirrors TS World.cycle (World.ts:419-420 `if (this.shutdown)

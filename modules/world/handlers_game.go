@@ -16,7 +16,6 @@ import (
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/objtype"
-	"github.com/zsrv/goscape/pkg/packall"
 	"github.com/zsrv/goscape/pkg/pathfinder/loc"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
@@ -537,12 +536,10 @@ func handleClientCheat(p *Player, payload []byte) error {
 	if len(parts) == 2 {
 		args = parts[1]
 	}
-	// Retired DEVIATION-NAI-190-D5-CARRYFORWARD (supersession of
-	// NAI-189-D1): the last carried-forward cheat ::rebuild is now
-	// ported in-process via pkg/packall + (*Server).Reload (see the
-	// `case "rebuild":` arm below). Async-via-worker and fsnotify
-	// auto-rebuild remain TS-only and are tracked as separate
-	// follow-ups outside the deviation system.
+	// NAI-189-D1 / NAI-REBUILD-ASYNC: the ::rebuild cheat dispatches
+	// asynchronously via rebuildWorker; see rebuild_worker.go and the
+	// case "rebuild": arm below. Spec
+	// docs/superpowers/specs/2026-05-18-rebuild-async-fsnotify-design.md.
 	// NAI-190 retired ::reload (TS L149-150). World.reload() is
 	// ported as (*Server).Reload(clearInvs bool) error in
 	// modules/world/reload.go. Three DEVIATION tags live in the
@@ -654,30 +651,22 @@ func handleClientCheat(p *Player, payload []byte) error {
 			}
 			return nil
 		case "rebuild":
-			// TS ClientCheatHandler.ts:151-153 — World.rebuild() →
-			// posts 'world_rebuild' to a DevThread worker that runs
-			// tools/pack/PackAll, then triggers World.reload(). Goscape
-			// ports the synchronous-on-tick variant: pack + reload run
-			// blocking on the tick goroutine. Async-via-worker is a
-			// deferred follow-up.
+			// NAI-REBUILD-ASYNC (spec 2026-05-18-rebuild-async-fsnotify).
+			// Async dispatch via rebuildWorker. Mirrors TS
+			// ClientCheatHandler.ts:151-153 → World.rebuild() →
+			// DevThread.processChangedFiles. Handler returns
+			// immediately; result is drained at top-of-tick.
 			if p.client.server.cfg.ContentPath == "" {
 				p.MessageGame("Rebuild failed: --world.content-path is not configured.")
 				return nil
 			}
-			p.MessageGame("Rebuilding scripts...")
-			rebuildStart := time.Now()
-			cachePath := p.client.server.cfg.CachePath
-			if err := packall.PackAll(p.client.server.cfg.ContentPath, cachePath, cachePath); err != nil {
-				p.client.server.log.Error("rebuild cheat: PackAll failed", "err", err)
-				p.MessageGame("Rebuild failed: " + err.Error())
-				return nil
+			p.client.server.rebuildMu.Lock()
+			if p.client.server.rebuildManualInvoker == nil {
+				p.client.server.rebuildManualInvoker = p
 			}
-			if err := p.client.server.Reload(true); err != nil {
-				p.client.server.log.Error("rebuild cheat: Reload failed", "err", err)
-				p.MessageGame("Rebuild failed: reload returned error (see server log).")
-				return nil
-			}
-			p.MessageGame(fmt.Sprintf("Rebuilt: %s.", time.Since(rebuildStart).Round(time.Millisecond)))
+			p.client.server.rebuildMu.Unlock()
+			p.client.server.broadcastRebuildStaff(p, "Rebuilding scripts...")
+			p.client.server.dispatchRebuildRequest()
 			return nil
 		}
 	}

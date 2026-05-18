@@ -28,6 +28,7 @@ import (
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
 	"github.com/zsrv/goscape/pkg/loginpb"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/packall"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 	util "github.com/zsrv/goscape/pkg/util/jstring"
@@ -175,6 +176,46 @@ type Server struct {
 	// pmId stamped on each FriendThread private_message payload.
 	// Mirrors TS World.pmCount. Used only by nextPmId (NAI-158).
 	pmCount uint32
+
+	// --- rebuild async worker plane (spec 2026-05-18-rebuild-async-fsnotify) ---
+
+	// rebuildReq carries pack-and-reload requests from the ::rebuild handler
+	// and the contentWatcher to runRebuildWorker. Depth 1 with non-blocking
+	// send: a queued request coalesces all concurrent senders into one pack.
+	rebuildReq chan struct{}
+
+	// rebuildResult carries completion events back to the tick goroutine,
+	// drained non-blocking at the top of runTickLoopWithRate's for-body.
+	// Depth 1; worker waits for in-flight result to be drained before
+	// accepting the next request, so a second concurrent enqueue is
+	// impossible.
+	rebuildResult chan rebuildResult
+
+	// rebuildMu guards rebuildBusy + rebuildPending + rebuildManualInvoker.
+	// Held only across state transitions; never across packFn.
+	rebuildMu sync.Mutex
+
+	// rebuildBusy is true while packFn is running on the worker.
+	rebuildBusy bool
+
+	// rebuildPending is set by dispatchRebuildRequest. Worker re-queues
+	// itself on completion if pending is true (closes the race where a
+	// request arrives during the brief window between worker drain and
+	// busy=false). Mirrors TS DevThread.processNextQueue.
+	rebuildPending bool
+
+	// rebuildManualInvoker holds the *Player that triggered the in-flight
+	// rebuild via ::rebuild. nil for fsnotify-triggered. Cleared when the
+	// worker posts the result.
+	rebuildManualInvoker *Player
+
+	// packFn is the function the worker invokes. Defaults to
+	// packall.PackAll; test code overrides to avoid 7s real-content packs.
+	packFn func(srcDir, outDir, dataPackDir string) error
+
+	// reloadFn is the function the tick-drain invokes on success. Defaults
+	// to s.Reload; test code overrides to record invocations / inject errors.
+	reloadFn func(clearInvs bool) error
 }
 
 // appendNewPlayer queues a player for registration on the next tick.
@@ -214,7 +255,11 @@ func NewServer(cfg Config, loginClient LoginClient, logger *slog.Logger) (*Serve
 		shutdownTick:  -1,
 		tickRate:      defaultTickRate,
 		gracefulExit:  make(chan struct{}),
+		rebuildReq:    make(chan struct{}, 1),
+		rebuildResult: make(chan rebuildResult, 1),
 	}
+	s.packFn = packall.PackAll
+	s.reloadFn = s.Reload
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}
 	s.loggerBridge = NewSlogLoggerBridge(s.log)
