@@ -187,3 +187,19 @@ func readPackStamp(path string) (time.Time, bool, error) {
 	}
 	return time.Unix(0, n), true, nil
 }
+
+// writePackStamp atomically writes t.UnixNano() to path via a sibling
+// `.tmp` file + os.Rename. Crash mid-write leaves the previous stamp (or
+// no stamp) intact; the orphaned `.tmp` will be overwritten on the next
+// successful write.
+func writePackStamp(path string, t time.Time) error {
+	tmp := path + ".tmp"
+	data := []byte(strconv.FormatInt(t.UnixNano(), 10) + "\n")
+	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+		return fmt.Errorf("writePackStamp: write tmp: %w", err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		return fmt.Errorf("writePackStamp: rename: %w", err)
+	}
+	return nil
+}

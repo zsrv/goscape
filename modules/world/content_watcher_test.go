@@ -1,6 +1,8 @@
 package world
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sync"
@@ -469,6 +471,42 @@ func TestReadPackStamp(t *testing.T) {
 	ts, ok, err = readPackStamp(empty)
 	if err == nil || ok || !ts.IsZero() {
 		t.Errorf("empty: got (%v, %v, %v); want (zero, false, err)", ts, ok, err)
+	}
+}
+
+// TestWritePackStamp_Roundtrip pins UnixNano precision: a time written
+// via writePackStamp then read via readPackStamp equals the original at
+// nanosecond granularity.
+func TestWritePackStamp_Roundtrip(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "x.stamp")
+
+	want := time.Unix(0, 1747569600123456789)
+	if err := writePackStamp(path, want); err != nil {
+		t.Fatalf("writePackStamp: %v", err)
+	}
+
+	got, ok, err := readPackStamp(path)
+	if err != nil || !ok {
+		t.Fatalf("readPackStamp: got (%v, %v, %v); want (..., true, nil)", got, ok, err)
+	}
+	if !got.Equal(want) {
+		t.Errorf("roundtrip: got %v (unix=%d), want %v (unix=%d)",
+			got, got.UnixNano(), want, want.UnixNano())
+	}
+}
+
+// TestWritePackStamp_AtomicNoTmpLeak pins that no `.tmp` sibling lingers
+// on the happy path. (Crash-mid-rename is not directly testable; absence
+// of the tmp file proves the rename completed.)
+func TestWritePackStamp_AtomicNoTmpLeak(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "x.stamp")
+	if err := writePackStamp(path, time.Unix(0, 42)); err != nil {
+		t.Fatalf("writePackStamp: %v", err)
+	}
+	if _, err := os.Stat(path + ".tmp"); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("expected %s.tmp to be absent (got err=%v)", path, err)
 	}
 }
 
