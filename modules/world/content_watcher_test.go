@@ -157,3 +157,28 @@ func TestContentWatcher_NonWatchedDirIgnored(t *testing.T) {
 		// good — debounce window elapsed with no event
 	}
 }
+
+// TestContentWatcher_QuitClosesCleanly pins that closing s.quit makes
+// runContentWatcher return promptly (within 1s).
+func TestContentWatcher_QuitClosesCleanly(t *testing.T) {
+	root := t.TempDir()
+	s := newTestServer(t)
+	s.cfg.ContentPath = root
+	if err := os.MkdirAll(filepath.Join(root, "scripts"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.runContentWatcher()
+	}()
+	time.Sleep(100 * time.Millisecond)
+
+	close(s.quit)
+	select {
+	case <-done:
+	case <-time.After(1 * time.Second):
+		t.Fatal("watcher did not exit within 1s after s.quit close")
+	}
+}
