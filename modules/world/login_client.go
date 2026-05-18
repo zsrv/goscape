@@ -95,7 +95,7 @@ func (c *grpcLoginClient) PlayerForceLogout(ctx context.Context, req *loginpb.Pl
 	}
 }
 
-// PlayerBan sets the banned_until timestamp on the login server (fire-and-forget).
+// PlayerBan sets the banned_until timestamp on the login server (best-effort; errors are logged and swallowed).
 func (c *grpcLoginClient) PlayerBan(ctx context.Context, req *loginpb.PlayerBanRequest) {
 	if _, err := c.client.PlayerBan(ctx, req); err != nil {
 		c.log.Warn("PlayerBan RPC failed",
@@ -105,7 +105,7 @@ func (c *grpcLoginClient) PlayerBan(ctx context.Context, req *loginpb.PlayerBanR
 	}
 }
 
-// PlayerMute sets the muted_until timestamp on the login server (fire-and-forget).
+// PlayerMute sets the muted_until timestamp on the login server (best-effort; errors are logged and swallowed).
 func (c *grpcLoginClient) PlayerMute(ctx context.Context, req *loginpb.PlayerMuteRequest) {
 	if _, err := c.client.PlayerMute(ctx, req); err != nil {
 		c.log.Warn("PlayerMute RPC failed",
