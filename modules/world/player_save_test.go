@@ -258,6 +258,18 @@ func TestLoadSave_V1_DecodesInvsSyntheticBuffer(t *testing.T) {
 	}
 }
 
+func TestLoadSave_V2_DecodesPlaytimeAs4Byte(t *testing.T) {
+	raw := mustReadFixture(t, "v2.sav")
+	p, cfgs := newTestPlayerForLoadSave(t)
+	if err := LoadSave(p, raw, cfgs); err != nil {
+		t.Fatalf("LoadSave(v2): %v", err)
+	}
+	if p.playtime != fixturePlayerValues.PlaytimeV2Plus {
+		t.Errorf("playtime: got %d, want %d (v2 must read 4 bytes, not 2)",
+			p.playtime, fixturePlayerValues.PlaytimeV2Plus)
+	}
+}
+
 // buildValidSav constructs a minimal SAV with the given version and
 // payload bytes, including a trailing valid CRC. Used by Verify tests.
 func buildValidSav(t *testing.T, version uint16, payload []byte) []byte {
