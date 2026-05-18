@@ -298,6 +298,69 @@ func TestLoadSave_V4_DecodesChatModes(t *testing.T) {
 	}
 }
 
+// TestLoadSave_V5_DecodesPerInvSizeSyntheticBuffer pins the v5+
+// per-inv-size branch. T4's TestLoadSave_V1_DecodesInvsSyntheticBuffer
+// covers v1-style invType.Size lookup; this test exercises the v5+
+// inline u2 size read. Fixture-based pin omitted because v5.sav has
+// invCount=0 (see T4 close commit message).
+func TestLoadSave_V5_DecodesPerInvSizeSyntheticBuffer(t *testing.T) {
+	pkt := packet.NewPacket(make([]byte, 0, 256))
+	pkt.P2(SavMagic)
+	pkt.P2(5) // version
+	pkt.P2(0)
+	pkt.P2(0)
+	pkt.P1(0) // x, z, level
+	for range 7 {
+		pkt.P1(0)
+	}
+	for range 5 {
+		pkt.P1(0)
+	}
+	pkt.P1(0)   // gender
+	pkt.P2(100) // runenergy
+	pkt.P4(0)   // playtime (v2+ = 4 bytes)
+	for range 21 {
+		pkt.P4(0)
+		pkt.P1(1)
+	}
+	pkt.P2(0) // varpCount=0
+	pkt.P1(1) // invCount=1
+	pkt.P2(0) // typeId=0
+	pkt.P2(4) // v5+ per-inv size = 4
+	// 4 slots: [(id=995, count=10), empty, empty, (id=1, count=1)]
+	pkt.P2(996)
+	pkt.P1(10) // slot 0: id+1=996, count=10
+	pkt.P2(0)  // slot 1: empty
+	pkt.P2(0)  // slot 2: empty
+	pkt.P2(2)
+	pkt.P1(1) // slot 3: id+1=2, count=1
+
+	// v3+ afk: count=0, lastAfkZone=0
+	pkt.P1(0) // afkCount
+	pkt.P2(0) // lastAfkZone
+	// v4+ chat modes packed byte = 0
+	pkt.P1(0)
+
+	body := pkt.Data
+	crc := packet.GetCRC(body, 0, len(body))
+	pkt.P4(crc)
+	sav := pkt.Data
+
+	p, cfgs := newTestPlayerForLoadSave(t)
+	if err := LoadSave(p, sav, cfgs); err != nil {
+		t.Fatalf("LoadSave(synthetic v5): %v", err)
+	}
+	if item := p.invs[0].Items[0]; item == nil || item.Id != 995 || item.Count != 10 {
+		t.Errorf("v5 inv[0][0]: got %+v, want {Id:995 Count:10}", item)
+	}
+	if item := p.invs[0].Items[3]; item == nil || item.Id != 1 || item.Count != 1 {
+		t.Errorf("v5 inv[0][3]: got %+v, want {Id:1 Count:1}", item)
+	}
+	if p.invs[0].Items[1] != nil || p.invs[0].Items[2] != nil {
+		t.Errorf("v5 inv[0] mid slots: should be nil")
+	}
+}
+
 // buildValidSav constructs a minimal SAV with the given version and
 // payload bytes, including a trailing valid CRC. Used by Verify tests.
 func buildValidSav(t *testing.T, version uint16, payload []byte) []byte {
