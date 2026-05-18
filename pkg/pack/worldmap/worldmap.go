@@ -24,9 +24,17 @@ import (
 // parity with Worldmap.ts:31-33).
 //
 // Tag NAI-WORLDMAP-D-READDIR-SORTED: os.ReadDir returns lexically
-// sorted entries; TS fs.readdirSync is filesystem-order. No
-// checked-in TS reference exists for worldmap.jag, so deterministic
-// ordering is preferred over byte-pin equivalence.
+// sorted entries; TS fs.readdirSync is filesystem-order. The per-
+// (mx,mz) data blocks in the seven mapsquare-output entries
+// (underlay/overlay/loc/obj/npc/multi/free) are concatenated in
+// iteration order, so reordering changes bzip2 output bytes even
+// though the total uncompressed size and decoded data are unchanged.
+// Goscape uses sorted order for cross-machine determinism. Sample
+// canonical RS jags (openrs2 #33025, #33160, #33021) and Engine-TS's
+// own pack output are each in different ad-hoc orders (historical
+// build add-order or filesystem-baked), with no portable algorithmic
+// rule, so byte-pin against any external reference is intrinsically
+// fragile. Sorted iteration is the defensible permanent choice.
 func Pack(srcDir, outDir string) error {
 	mapsDir := filepath.Join(outDir, "server", "maps")
 	if _, err := os.Stat(mapsDir); errors.Is(err, fs.ErrNotExist) {
