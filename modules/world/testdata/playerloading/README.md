@@ -73,17 +73,19 @@ async function main() {
     // dynamic imports below resolve without circular issues.
     await World.start({ skipMaps: true, startCycle: false });
 
-    const { default: Player }      = await import('#/engine/entity/Player.js');
-    const { PlayerLoading }        = await import('#/engine/entity/PlayerLoading.js');
+    const { default: Player }        = await import('#/engine/entity/Player.js');
+    const { PlayerLoading }          = await import('#/engine/entity/PlayerLoading.js');
     const { default: VarPlayerType } = await import('#/cache/config/VarPlayerType.js');
+    const { default: InvType }       = await import('#/cache/config/InvType.js');
+    const { default: Packet }        = await import('#/io/Packet.js');
     // getLevelByExp lives near getExpByLevel — adjust the path if your
     // checkout exports it elsewhere (e.g., PlayerStats.js).
-    const { getLevelByExp }        = await import('#/engine/entity/Player.js');
+    const { getLevelByExp }          = await import('#/engine/entity/Player.js');
 
     for (let version = 1; version <= 6; version++) {
         const p = makeFixturePlayer(Player, VarPlayerType, getLevelByExp, version);
         (PlayerLoading as any).SAV_VERSION = version;
-        const bytes = savePatched(p, version);
+        const bytes = savePatched(p, version, Packet, VarPlayerType, InvType);
         fs.writeFileSync(path.join(OUT_DIR, `v${version}.sav`), bytes);
         console.log(`wrote v${version}.sav (${bytes.length} bytes)`);
     }
@@ -154,13 +156,99 @@ function addInv(
     }
 }
 
-// savePatched mirrors Player.save() but skips version-gated sections
-// above N. Copy Player.save() body verbatim and wrap each version-gated
-// section in `if (version >= N) { ... }`. CRITICAL: iterate p.invs
-// sorted by typeId ascending (not Map insertion order) so the bytes
-// match goscape's deterministic encoder.
-function savePatched(p: any, version: number): Uint8Array {
-    // ...
+// savePatched mirrors Player.save() but
+//   (a) skips fields that didn't exist at SAV_VERSION = N, and
+//   (b) iterates p.invs in ascending typeId order (not Map-insertion
+//       order) so bytes match goscape's deterministic encoder
+//       (deviation NAI-PLAYERLOADING-D-INVS-SORTED-BY-TYPEID).
+//
+// Version-gated sections (everything else is in v1 baseline):
+//   v1  : playtime is 2-byte (p2). All later versions overwrite this
+//         with p4.
+//   v2+ : playtime is 4-byte (p4).
+//   v5+ : each inv writes a 2-byte size (capacity) before the slot loop.
+//   v3+ : afkZones[0..1] + lastAfkZone.
+//   v4+ : packed chat modes byte.
+//   v6+ : 8-byte lastLoginTime.
+//
+// Replace `Packet` / `VarPlayerType` / `InvType` with whatever your
+// dynamic-import block bound them to. Easiest: add them to the
+// `await import(...)` block in main() and pass through.
+function savePatched(
+    p: any, version: number,
+    Packet: any, VarPlayerType: any, InvType: any,
+): Uint8Array {
+    const sav = Packet.alloc(1);
+    sav.p2(0x2004); // SAV_MAGIC
+    sav.p2(version);
+
+    sav.p2(p.x);
+    sav.p2(p.z);
+    sav.p1(p.level);
+    for (let i = 0; i < 7; i++) sav.p1(p.body[i]);
+    for (let i = 0; i < 5; i++) sav.p1(p.colors[i]);
+    sav.p1(p.gender);
+    sav.p2(p.runenergy);
+
+    // v1: 2-byte playtime; v2+: 4-byte playtime.
+    if (version >= 2) sav.p4(p.playtime);
+    else              sav.p2(p.playtime);
+
+    for (let i = 0; i < 21; i++) {
+        sav.p4(p.stats[i]);
+        sav.p1(p.levels[i]);
+    }
+
+    sav.p2(p.vars.length);
+    for (let i = 0; i < p.vars.length; i++) {
+        const type = VarPlayerType.get(i);
+        if (type.scope === VarPlayerType.SCOPE_PERM) sav.p4(p.vars[i]);
+        else                                         sav.p4(0);
+    }
+
+    // Inv section — typeId-sorted ascending (goscape parity).
+    let invCount = 0;
+    const invStartPos = sav.pos;
+    sav.p1(0); // placeholder
+    const sortedTypeIds = [...p.invs.keys()].sort((a: number, b: number) => a - b);
+    for (const typeId of sortedTypeIds) {
+        const inventory = p.invs.get(typeId);
+        const invType = InvType.get(typeId);
+        if (invType.scope !== InvType.SCOPE_PERM) continue;
+
+        sav.p2(typeId);
+        // v5+: per-inv size (capacity) field.
+        if (version >= 5) sav.p2(inventory.capacity);
+        for (let slot = 0; slot < inventory.capacity; slot++) {
+            const obj = inventory.get(slot);
+            if (!obj) { sav.p2(0); continue; }
+            sav.p2(obj.id + 1);
+            if (obj.count >= 255) { sav.p1(255); sav.p4(obj.count); }
+            else                  { sav.p1(obj.count); }
+        }
+        invCount++;
+    }
+    sav.data[invStartPos] = invCount;
+
+    // v3+: afk zones.
+    if (version >= 3) {
+        sav.p1(p.afkZones.length);
+        for (let i = 0; i < p.afkZones.length; i++) sav.p4(p.afkZones[i]);
+        sav.p2(p.lastAfkZone);
+    }
+
+    // v4+: packed chat modes.
+    if (version >= 4) {
+        sav.p1((p.publicChat << 4) | (p.privateChat << 2) | p.tradeDuel);
+    }
+
+    // v6+: last login time.
+    if (version >= 6) {
+        sav.p8(p.lastLoginTime);
+    }
+
+    sav.p4(Packet.getcrc(sav.data, 0, sav.pos));
+    return sav.data.subarray(0, sav.pos);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });
