@@ -216,6 +216,13 @@ type Server struct {
 	// reloadFn is the function the tick-drain invokes on success. Defaults
 	// to s.Reload; test code overrides to record invocations / inject errors.
 	reloadFn func(clearInvs bool) error
+
+	// watchSessionFn is the function runContentWatcher's supervisor loop
+	// invokes for each fsnotify watcher session. Defaults to
+	// s.runWatchSession; test code overrides to stub session lifecycle.
+	// Mirrors the packFn/reloadFn seam pattern. Returns true to request
+	// a supervisor restart, false to exit cleanly.
+	watchSessionFn func() bool
 }
 
 // appendNewPlayer queues a player for registration on the next tick.
@@ -260,6 +267,7 @@ func NewServer(cfg Config, loginClient LoginClient, logger *slog.Logger) (*Serve
 	}
 	s.packFn = packall.PackAll
 	s.reloadFn = s.Reload
+	s.watchSessionFn = s.runWatchSession
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}
 	s.loggerBridge = NewSlogLoggerBridge(s.log)

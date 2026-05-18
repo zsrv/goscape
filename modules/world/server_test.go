@@ -329,6 +329,7 @@ func newTestServer(t *testing.T) *Server {
 	s.loggerBridge = noopBridges{}
 	s.locOps = &serverLocOps{s: s}
 	s.reloadFn = s.Reload
+	s.watchSessionFn = s.runWatchSession
 	// packFn intentionally left nil; tests that exercise the worker set it explicitly.
 	return s
 }

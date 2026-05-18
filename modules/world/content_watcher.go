@@ -39,14 +39,26 @@ func addWatchesRecursive(w *fsnotify.Watcher, root string) error {
 	})
 }
 
-// runContentWatcher is the body of the fsnotify watcher goroutine.
-// Spawned by world.go startingFn iff ContentPath != "" && ContentWatch.
-// Exits when s.quit is closed. Spec §4.6.
+// runContentWatcher is the goroutine entry-point for content-directory
+// auto-rebuild. Spawned by world.go startingFn iff ContentPath != ""
+// && ContentWatch. Delegates per-session lifecycle to s.watchSessionFn
+// (default: s.runWatchSession). Exits when s.quit is closed.
+//
+// T1 of NAI-CONTENT-WATCHER-RESTART: this is a one-shot caller of
+// watchSessionFn. T3 will wrap it in a restart loop with backoff.
 func (s *Server) runContentWatcher() {
+	s.watchSessionFn()
+}
+
+// runWatchSession runs one fsnotify.Watcher from init to close. Returns
+// true if the session ended due to a transient failure (NewWatcher
+// error, Events/Errors close) and the supervisor should restart; false
+// if s.quit fired and the supervisor should exit. Spec §3.2.
+func (s *Server) runWatchSession() bool {
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
 		s.log.Error("contentWatcher: fsnotify init failed", "err", err)
-		return
+		return true
 	}
 	defer w.Close()
 
@@ -63,12 +75,12 @@ func (s *Server) runContentWatcher() {
 	for {
 		select {
 		case <-s.quit:
-			return
+			return false
 
 		case ev, ok := <-w.Events:
 			if !ok {
 				s.log.Warn("contentWatcher: Events chan closed")
-				return
+				return true
 			}
 			// Dynamic add-on-CREATE-dir: subdirs created mid-session
 			// get watched too. Mirrors TS DevThread.trackDir recursion.
@@ -82,7 +94,7 @@ func (s *Server) runContentWatcher() {
 		case err, ok := <-w.Errors:
 			if !ok {
 				s.log.Warn("contentWatcher: Errors chan closed")
-				return
+				return true
 			}
 			s.log.Warn("contentWatcher: fsnotify error", "err", err)
 
