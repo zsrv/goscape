@@ -50,3 +50,130 @@ func TestHandler_WorldConnect_ProfileMismatch(t *testing.T) {
 		t.Errorf("status code: got %v, want InvalidArgument", got)
 	}
 }
+
+func TestHandler_PlayerLogin_BeforeWorldConnect_LazyInit(t *testing.T) {
+	h := newTestHandler(t)
+	resp, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{
+		WorldId:     1,
+		Username37:  0xAAAA,
+		PrivateChat: 0,
+		StaffLvl:    0,
+	})
+	if err != nil {
+		t.Fatalf("PlayerLogin without prior WorldConnect: %v", err)
+	}
+	if !resp.Accepted {
+		t.Errorf("Accepted: got false, want true")
+	}
+	if got := h.repo.GetWorld(0xAAAA); got != 1 {
+		t.Errorf("GetWorld after lazy-init login: got %d, want 1", got)
+	}
+}
+
+func TestHandler_PlayerLogin_PrivateChatCoercion(t *testing.T) {
+	h := newTestHandler(t)
+	if _, err := h.WorldConnect(t.Context(), &friendspb.WorldConnectRequest{WorldId: 1, Profile: "main"}); err != nil {
+		t.Fatalf("WorldConnect: %v", err)
+	}
+	if _, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{
+		WorldId:     1,
+		Username37:  0xAAAA,
+		PrivateChat: 99, // invalid -> coerce to 0 (ON)
+		StaffLvl:    0,
+	}); err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+	if got := h.repo.GetChatMode(0xAAAA); got != 0 {
+		t.Errorf("GetChatMode after invalid coercion: got %d, want 0", got)
+	}
+}
+
+func TestHandler_PlayerLogin_PlayerCapAccepted_False(t *testing.T) {
+	h := newTestHandler(t)
+	h.cfg.WorldPlayerLimit = 2
+	if _, err := h.WorldConnect(t.Context(), &friendspb.WorldConnectRequest{WorldId: 1, Profile: "main"}); err != nil {
+		t.Fatalf("WorldConnect: %v", err)
+	}
+	for i := uint64(1); i <= 2; i++ {
+		resp, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{WorldId: 1, Username37: i})
+		if err != nil {
+			t.Fatalf("PlayerLogin %d: %v", i, err)
+		}
+		if !resp.Accepted {
+			t.Errorf("Accepted #%d: got false, want true", i)
+		}
+	}
+	resp, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{WorldId: 1, Username37: 3})
+	if err != nil {
+		t.Fatalf("PlayerLogin beyond cap: %v", err)
+	}
+	if resp.Accepted {
+		t.Errorf("Accepted past cap: got true, want false")
+	}
+}
+
+func TestHandler_PlayerLogout_Idempotent(t *testing.T) {
+	h := newTestHandler(t)
+	if _, err := h.PlayerLogout(t.Context(), &friendspb.PlayerLogoutRequest{
+		WorldId:    1,
+		Username37: 0xDEADBEEF,
+	}); err != nil {
+		t.Fatalf("PlayerLogout on unknown player: %v", err)
+	}
+}
+
+func TestHandler_PlayerLogout_RemovesPlayer(t *testing.T) {
+	h := newTestHandler(t)
+	if _, err := h.WorldConnect(t.Context(), &friendspb.WorldConnectRequest{WorldId: 1, Profile: "main"}); err != nil {
+		t.Fatalf("WorldConnect: %v", err)
+	}
+	if _, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{WorldId: 1, Username37: 0xAAAA}); err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+	if _, err := h.PlayerLogout(t.Context(), &friendspb.PlayerLogoutRequest{WorldId: 1, Username37: 0xAAAA}); err != nil {
+		t.Fatalf("PlayerLogout: %v", err)
+	}
+	if got := h.repo.GetWorld(0xAAAA); got != 0 {
+		t.Errorf("GetWorld after logout: got %d, want 0", got)
+	}
+}
+
+func TestHandler_ChatSetMode_UpdatesState(t *testing.T) {
+	h := newTestHandler(t)
+	if _, err := h.WorldConnect(t.Context(), &friendspb.WorldConnectRequest{WorldId: 1, Profile: "main"}); err != nil {
+		t.Fatalf("WorldConnect: %v", err)
+	}
+	if _, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{WorldId: 1, Username37: 0xAAAA, PrivateChat: 0}); err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+	if _, err := h.ChatSetMode(t.Context(), &friendspb.ChatSetModeRequest{
+		WorldId:     1,
+		Username37:  0xAAAA,
+		PrivateChat: 2,
+	}); err != nil {
+		t.Fatalf("ChatSetMode: %v", err)
+	}
+	if got := h.repo.GetChatMode(0xAAAA); got != 2 {
+		t.Errorf("GetChatMode after ChatSetMode(OFF): got %d, want 2", got)
+	}
+}
+
+func TestHandler_ChatSetMode_PrivateChatCoercion(t *testing.T) {
+	h := newTestHandler(t)
+	if _, err := h.WorldConnect(t.Context(), &friendspb.WorldConnectRequest{WorldId: 1, Profile: "main"}); err != nil {
+		t.Fatalf("WorldConnect: %v", err)
+	}
+	if _, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{WorldId: 1, Username37: 0xAAAA, PrivateChat: 0}); err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+	if _, err := h.ChatSetMode(t.Context(), &friendspb.ChatSetModeRequest{
+		WorldId:     1,
+		Username37:  0xAAAA,
+		PrivateChat: 99,
+	}); err != nil {
+		t.Fatalf("ChatSetMode: %v", err)
+	}
+	if got := h.repo.GetChatMode(0xAAAA); got != 0 {
+		t.Errorf("GetChatMode after coercion: got %d, want 0", got)
+	}
+}

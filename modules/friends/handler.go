@@ -41,3 +41,54 @@ func (h *handler) WorldConnect(_ context.Context, req *friendspb.WorldConnectReq
 	h.repo.InitializeWorld(req.WorldId, h.cfg.WorldPlayerLimit)
 	return &emptypb.Empty{}, nil
 }
+
+// coercePrivateChat clamps a TS ChatModePrivate value to the valid range.
+// Invalid values become 0 (ON). Mirrors TS FriendServer.ts:120-123.
+func coercePrivateChat(v int32) int32 {
+	if v < 0 || v > 2 {
+		return 0
+	}
+	return v
+}
+
+// PlayerLogin registers the player on the given world. Always returns OK;
+// PlayerLoginResponse.Accepted is false iff the world's player cap is
+// reached.
+//
+// NAI-S1-D-PLAYERCAP-LOG-ONLY — cap rejection logs warn but does not error.
+// Slice 4 surfaces Accepted to callers; slice 1 callers ignore the field.
+func (h *handler) PlayerLogin(_ context.Context, req *friendspb.PlayerLoginRequest) (*friendspb.PlayerLoginResponse, error) {
+	h.ensureWorld(req.WorldId)
+	pc := coercePrivateChat(req.PrivateChat)
+	// TS-faithful: PLAYER_LOGIN unregisters first to dedupe across worlds.
+	h.repo.Unregister(req.Username37)
+	accepted := h.repo.Register(req.WorldId, req.Username37, pc, req.StaffLvl)
+	if !accepted {
+		h.log.Warn("friends-server player cap reached",
+			slog.Int("world_id", int(req.WorldId)),
+			slog.Uint64("username37", req.Username37),
+		)
+	}
+	return &friendspb.PlayerLoginResponse{Accepted: accepted}, nil
+}
+
+// PlayerLogout removes the player from whichever world they're on.
+// Idempotent on unknown players.
+func (h *handler) PlayerLogout(_ context.Context, req *friendspb.PlayerLogoutRequest) (*emptypb.Empty, error) {
+	h.ensureWorld(req.WorldId)
+	h.repo.Unregister(req.Username37)
+	return &emptypb.Empty{}, nil
+}
+
+// ChatSetMode updates the player's privateChat setting. Invalid values
+// are coerced to 0 (ON), matching TS FriendServer.ts:176-179. No-op on
+// unknown player (state lives at the player record, which doesn't exist
+// pre-login).
+//
+// NAI-S1-D-NO-FOLLOWER-BROADCAST — slice 4 will broadcast the new mode
+// to followers; slice 1 just mutates state.
+func (h *handler) ChatSetMode(_ context.Context, req *friendspb.ChatSetModeRequest) (*emptypb.Empty, error) {
+	h.ensureWorld(req.WorldId)
+	h.repo.SetChatMode(req.Username37, coercePrivateChat(req.PrivateChat))
+	return &emptypb.Empty{}, nil
+}
