@@ -1,0 +1,131 @@
+syntax = "proto3";
+package friends.v1;
+
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/zsrv/goscape/pkg/friendspb";
+
+service FriendsService {
+  // Lifecycle. Called once per world on startup; validates profile and
+  // initializes the world's player-count slot. Mirrors TS FriendServer
+  // WORLD_CONNECT opcode (FriendServer.ts:89-106).
+  rpc WorldConnect(WorldConnectRequest) returns (google.protobuf.Empty);
+
+  // Player presence. Mirrors TS PLAYER_LOGIN/PLAYER_LOGOUT/PLAYER_CHAT_SETMODE.
+  rpc PlayerLogin(PlayerLoginRequest)     returns (PlayerLoginResponse);
+  rpc PlayerLogout(PlayerLogoutRequest)   returns (google.protobuf.Empty);
+  rpc ChatSetMode(ChatSetModeRequest)     returns (google.protobuf.Empty);
+
+  // Social-list mutations. Mirrors TS FRIENDLIST_ADD/DEL, IGNORELIST_ADD/DEL.
+  rpc FriendlistAdd(FriendlistAddRequest) returns (google.protobuf.Empty);
+  rpc FriendlistDel(FriendlistDelRequest) returns (google.protobuf.Empty);
+  rpc IgnorelistAdd(IgnorelistAddRequest) returns (google.protobuf.Empty);
+  rpc IgnorelistDel(IgnorelistDelRequest) returns (google.protobuf.Empty);
+
+  // Chat. Mirrors TS PRIVATE_MESSAGE. Slice 1 accepts and logs; delivery
+  // is deferred to slice 4, persistence to slice 6.
+  rpc PrivateMessage(PrivateMessageRequest) returns (google.protobuf.Empty);
+
+  // Server -> world push. Server streams update events for a single
+  // (world, player) subscription. Slice 1 handler returns Unimplemented;
+  // slice 4 implements (per-subscriber registry, broadcastWorldToFollowers
+  // fan-out).
+  rpc SubscribeUpdates(SubscribeUpdatesRequest) returns (stream FriendsUpdate);
+}
+
+message WorldConnectRequest {
+  int32  world_id = 1;
+  string profile  = 2;
+}
+
+message PlayerLoginRequest {
+  int32  world_id     = 1;
+  uint64 username37   = 2;
+  int32  private_chat = 3;
+  int32  staff_lvl    = 4;
+}
+
+message PlayerLoginResponse {
+  // Reserved for slice 4 (per-RPC player-cap surfacing). Slice 1 leaves
+  // unset; handler logs warn on cap rejection but accepts the call.
+  bool accepted = 1;
+}
+
+message PlayerLogoutRequest {
+  int32  world_id   = 1;
+  uint64 username37 = 2;
+}
+
+message ChatSetModeRequest {
+  int32  world_id     = 1;
+  uint64 username37   = 2;
+  int32  private_chat = 3;
+}
+
+message FriendlistAddRequest {
+  int32  world_id          = 1;
+  uint64 username37        = 2;
+  uint64 target_username37 = 3;
+}
+
+message FriendlistDelRequest {
+  int32  world_id          = 1;
+  uint64 username37        = 2;
+  uint64 target_username37 = 3;
+}
+
+message IgnorelistAddRequest {
+  int32  world_id          = 1;
+  uint64 username37        = 2;
+  uint64 target_username37 = 3;
+}
+
+message IgnorelistDelRequest {
+  int32  world_id          = 1;
+  uint64 username37        = 2;
+  uint64 target_username37 = 3;
+}
+
+message PrivateMessageRequest {
+  int32  world_id          = 1;
+  uint64 username37        = 2;
+  uint64 target_username37 = 3;
+  int32  staff_lvl         = 4;
+  uint32 pm_id             = 5;
+  string chat              = 6;
+  int32  coord             = 7;
+}
+
+message SubscribeUpdatesRequest {
+  int32  world_id   = 1;
+  uint64 username37 = 2;
+}
+
+message FriendsUpdate {
+  oneof update {
+    FriendlistUpdate       friendlist      = 1;
+    IgnorelistUpdate       ignorelist      = 2;
+    PrivateMessageDelivery private_message = 3;
+  }
+}
+
+message FriendlistUpdate {
+  // (world_id, username37) pairs. world_id=0 means offline/hidden.
+  repeated FriendEntry entries = 1;
+}
+
+message FriendEntry {
+  int32  world_id   = 1;
+  uint64 username37 = 2;
+}
+
+message IgnorelistUpdate {
+  repeated uint64 username37 = 1;
+}
+
+message PrivateMessageDelivery {
+  uint64 from_username37 = 1;
+  int32  staff_lvl       = 2;
+  uint32 pm_id           = 3;
+  string chat            = 4;
+}
