@@ -371,3 +371,61 @@ func TestContentWatcher_BackoffDoubles(t *testing.T) {
 		}
 	}
 }
+
+// TestContentWatcher_QuitDuringBackoff_ExitsCleanly pins that closing
+// s.quit while the supervisor is asleep in its inter-restart backoff
+// causes prompt exit, not wait-out-the-full-delay. With base=16ms
+// (max), one restart sleep is 16ms; we close quit ~2ms in and assert
+// exit within 10ms — well under the 16ms full delay.
+func TestContentWatcher_QuitDuringBackoff_ExitsCleanly(t *testing.T) {
+	s := newTestServer(t)
+
+	// Force a measurable but short backoff. Use larger base so we can
+	// reliably close quit mid-sleep without racing the wakeup.
+	oldBase, oldMax, oldReset := watcherBackoffBase, watcherBackoffMax, watcherBackoffResetWindow
+	watcherBackoffBase = 100 * time.Millisecond
+	watcherBackoffMax = 100 * time.Millisecond
+	watcherBackoffResetWindow = 10 * time.Second
+	t.Cleanup(func() {
+		watcherBackoffBase = oldBase
+		watcherBackoffMax = oldMax
+		watcherBackoffResetWindow = oldReset
+	})
+
+	stubEntered := make(chan struct{}, 4)
+	s.watchSessionFn = func() bool {
+		stubEntered <- struct{}{}
+		return true // always request restart; quit-during-sleep is the exit
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.runContentWatcher()
+	}()
+
+	// Wait for the first session call.
+	select {
+	case <-stubEntered:
+	case <-time.After(1 * time.Second):
+		t.Fatal("supervisor did not enter watchSessionFn within 1s")
+	}
+
+	// Stub returned true; supervisor is now sleeping in time.After(100ms).
+	// Close s.quit early in that window.
+	time.Sleep(10 * time.Millisecond)
+	closeStart := time.Now()
+	close(s.quit)
+
+	select {
+	case <-done:
+		// Total budget from quit close to goroutine exit: under the
+		// remaining ~90ms sleep. Allow scheduler jitter up to 50ms.
+		elapsed := time.Since(closeStart)
+		if elapsed > 50*time.Millisecond {
+			t.Errorf("supervisor took %v to exit after quit close; want < 50ms (sleep was 100ms)", elapsed)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("supervisor did not exit within 200ms after s.quit close")
+	}
+}

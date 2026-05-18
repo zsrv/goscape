@@ -78,9 +78,9 @@ func addWatchesRecursive(w *fsnotify.Watcher, root string) error {
 // (default: s.runWatchSession), restarting on `true` returns with
 // exponential backoff and exiting on `false` (s.quit fired). Spec §3.1.
 //
-// T4 of NAI-CONTENT-WATCHER-RESTART: adds time.After backoff via
-// nextWatcherBackoff. T5 adds quit-awareness to the sleep; T6 adds
-// reset-after-steady-run.
+// T5 of NAI-CONTENT-WATCHER-RESTART: backoff sleep is quit-aware via
+// select on s.quit, so shutdown does not wait out the full delay (up
+// to 30s at cap). T6 adds reset-after-steady-run.
 func (s *Server) runContentWatcher() {
 	attempt := 0
 	for {
@@ -91,7 +91,11 @@ func (s *Server) runContentWatcher() {
 		delay := nextWatcherBackoff(attempt)
 		s.log.Warn("contentWatcher: session ended, restarting",
 			"attempt", attempt, "delay", delay)
-		<-time.After(delay)
+		select {
+		case <-time.After(delay):
+		case <-s.quit:
+			return
+		}
 	}
 }
 
