@@ -419,10 +419,7 @@ func TestSave_V6_RoundTripsBytePerfect(t *testing.T) {
 }
 
 func firstDiff(a, b []byte) int {
-	n := len(a)
-	if len(b) < n {
-		n = len(b)
-	}
+	n := min(len(a), len(b))
 	for i := range n {
 		if a[i] != b[i] {
 			return i
