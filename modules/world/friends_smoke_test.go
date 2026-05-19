@@ -2,6 +2,8 @@ package world
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"net"
 	"path/filepath"
 	"strconv"
@@ -335,6 +337,104 @@ func TestFriendsClient_E2E_PrivateMessageDelivery(t *testing.T) {
 	}
 	if got.Chat != "e2e hi" {
 		t.Errorf("Chat = %q, want %q", got.Chat, "e2e hi")
+	}
+}
+
+// TestFriendsClient_E2E_PrivateMessagePersistsRow pins slice 6:
+// a client.PrivateMessage call against a real in-process
+// friends.Friends produces a row in private_chat under r.profile,
+// queryable via a second *sql.DB open against the same on-disk file.
+//
+// This is the persistence half of the slice-4b-and-slice-6 chain;
+// delivery is pinned by TestFriendsClient_E2E_PrivateMessageDelivery.
+func TestFriendsClient_E2E_PrivateMessagePersistsRow(t *testing.T) {
+	port := freePort(t)
+	dbPath := filepath.Join(t.TempDir(), "friends.db")
+	cfg := friends.Config{
+		GRPCListenAddress:       "127.0.0.1",
+		GRPCListenPort:          port,
+		NodeProfile:             "main",
+		WorldPlayerLimit:        100,
+		Enable:                  true,
+		GracefulShutdownTimeout: 5 * time.Second,
+		SQLiteDSN:               dbPath,
+	}
+	log := discardLogger()
+	svc, err := friends.New(cfg, log)
+	if err != nil {
+		t.Fatalf("friends.New: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	if err := svc.StartAsync(ctx); err != nil {
+		t.Fatalf("StartAsync: %v", err)
+	}
+	if err := svc.AwaitRunning(ctx); err != nil {
+		t.Fatalf("AwaitRunning: %v", err)
+	}
+	t.Cleanup(func() {
+		svc.StopAsync()
+		_ = svc.AwaitTerminated(context.Background())
+	})
+
+	addr := "127.0.0.1:" + strconv.Itoa(port)
+	client, err := NewFriendsClient(addr, log)
+	if err != nil {
+		t.Fatalf("NewFriendsClient: %v", err)
+	}
+	t.Cleanup(func() { _ = client.Close() })
+
+	client.WorldConnect(ctx, 10, "main")
+	client.PlayerLogin(ctx, &friendspb.PlayerLoginRequest{
+		WorldId: 10, Username37: 2222, PrivateChat: 0, StaffLvl: 0,
+	}, nil)
+	client.PlayerLogin(ctx, &friendspb.PlayerLoginRequest{
+		WorldId: 10, Username37: 1111, PrivateChat: 0, StaffLvl: 0,
+	}, nil)
+
+	client.PrivateMessage(ctx, &friendspb.PrivateMessageRequest{
+		WorldId:          10,
+		Username37:       1111,
+		TargetUsername37: 2222,
+		StaffLvl:         0,
+		PmId:             0x1234,
+		Chat:             "persisted",
+		Coord:            42,
+	})
+
+	// Open a second *sql.DB against the same file. Poll up to 2s for
+	// the row — synchronous RPC completion should mean the row is
+	// already committed, but WAL settling on a fresh file under -race
+	// can take a few ms.
+	rdb, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("sql.Open: %v", err)
+	}
+	t.Cleanup(func() { _ = rdb.Close() })
+
+	deadline := time.Now().Add(2 * time.Second)
+	var from, to int64
+	var coord int32
+	var msg string
+	for time.Now().Before(deadline) {
+		err := rdb.QueryRowContext(t.Context(),
+			`SELECT from_username37, to_username37, coord, message
+			 FROM private_chat
+			 WHERE profile = 'main'
+			 ORDER BY id DESC
+			 LIMIT 1`).Scan(&from, &to, &coord, &msg)
+		if err == nil {
+			break
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			t.Fatalf("query private_chat: %v", err)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	if from != 1111 || to != 2222 || coord != 42 || msg != "persisted" {
+		t.Errorf("private_chat row = (%d, %d, %d, %q), want (1111, 2222, 42, %q)",
+			from, to, coord, msg, "persisted")
 	}
 }
 
