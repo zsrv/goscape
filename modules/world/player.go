@@ -1,6 +1,7 @@
 package world
 
 import (
+	"context"
 	"fmt"
 	"math/rand/v2"
 	"sort"
@@ -293,6 +294,13 @@ type Player struct {
 	// from the original NAI-72 social-subsystem deferral — not wired by
 	// NAI-214, which only ported the ban/mute half of that umbrella.
 	session string
+
+	// friendsSub is the per-player SubscribeUpdates subscription. Set
+	// at PlayerLogin (after the world admits the player); torn down by
+	// canceling friendsSubCancel at logout/disconnect. Nil when
+	// friendsClient is nil (FriendsServerEnabled=false).
+	friendsSub       *friendsSubscriber
+	friendsSubCancel context.CancelFunc
 
 	// === session flags ===
 	playtime                                     int

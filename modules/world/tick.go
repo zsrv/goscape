@@ -176,6 +176,15 @@ func (s *Server) processLogins() {
 			})
 		}
 
+		// NAI-S4A: start the SubscribeUpdates stream subscriber.
+		// Lives until logout/disconnect cancels p.friendsSubCancel.
+		if s.friendsClient != nil && p.username != "" {
+			subCtx, subCancel := context.WithCancel(context.Background())
+			p.friendsSubCancel = subCancel
+			p.friendsSub = newFriendsSubscriber(s.friendsClient, int32(s.cfg.NodeID), p.username37, s.friendsDispatcher, s.log)
+			go p.friendsSub.run(subCtx)
+		}
+
 		// sub-spec 3a: initialise worn inventory, and appearance dirty flag.
 		// (Scenery-window state is initialised in newPlayer as flat fields
 		// since NAI-30 Bundle 4.)

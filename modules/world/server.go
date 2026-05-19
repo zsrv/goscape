@@ -161,9 +161,10 @@ type Server struct {
 	// NewServer; tests inject recordingBridges via installRecordingBridges.
 	// Real impls deferred per NAI-72-D-{FRIENDS-SERVER-BRIDGE,
 	// LOGIN-SERVER-BRIDGE-MOD, LOGGER-BRIDGE}.
-	friendsBridge  FriendsBridge
-	loginBridgeMod LoginBridgeMod
-	loggerBridge   LoggerBridge
+	friendsBridge     FriendsBridge
+	friendsDispatcher FriendsDispatcher
+	loginBridgeMod    LoginBridgeMod
+	loggerBridge      LoggerBridge
 
 	// sessionLogs is the per-tick session-log accumulator. NAI-74. Pushed by
 	// Player.AddSessionLog; flushed via processSessionLogs in the tick loop.
@@ -275,6 +276,7 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	s.reloadFn = s.Reload
 	s.watchSessionFn = s.runWatchSession
 	s.friendsBridge = defaultFriendsBridge(friendsClient, int32(cfg.NodeID), s.log)
+	s.friendsDispatcher = newSlogFriendsDispatcher(s.log)
 	s.loginBridgeMod = defaultLoginBridgeMod(loginClient, s.log)
 	s.loggerBridge = NewSlogLoggerBridge(s.log)
 	s.locOps = &serverLocOps{s: s}
