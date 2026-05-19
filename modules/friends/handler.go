@@ -144,20 +144,32 @@ func (h *handler) IgnorelistDel(ctx context.Context, req *friendspb.IgnorelistDe
 	return &emptypb.Empty{}, nil
 }
 
-// PrivateMessage accepts and logs the call. Delivery is deferred to
-// slice 4 (server -> world push via SubscribeUpdates). Persistence is
-// deferred to slice 6 (private_chat DB table).
+// PrivateMessage routes a PM from req.Username37 to req.TargetUsername37
+// by pushing PrivateMessageDelivery into the target's open stream (if
+// any). Mirrors TS FriendServer.sendPrivateMessage (FriendServer.ts:480-
+// 497): silently no-ops when the target has no open stream (TS:
+// `if (!socket) return Promise.resolve()`). The registry's send method
+// already implements the no-op-on-absent-subscriber semantic.
 //
-// NAI-S1-D-PM-NO-DELIVERY — slice 4 retires.
+// req.Coord is unused server-side (TS parity — recipient's world does
+// not need it to deliver the chat overlay). req.WorldId is unused for
+// routing because the registry is keyed solely by username37; cross-
+// world routing therefore falls out for free.
+//
+// Persistence of the PM to private_chat is slice 6.
 // NAI-S1-D-PM-NO-PERSISTENCE — slice 6 retires.
 func (h *handler) PrivateMessage(_ context.Context, req *friendspb.PrivateMessageRequest) (*emptypb.Empty, error) {
 	h.ensureWorld(req.WorldId)
-	h.log.Debug("friends-server received private message",
-		slog.Int("world_id", int(req.WorldId)),
-		slog.Uint64("from", req.Username37),
-		slog.Uint64("to", req.TargetUsername37),
-		slog.Uint64("pm_id", uint64(req.PmId)),
-	)
+	h.subs.send(req.TargetUsername37, &friendspb.FriendsUpdate{
+		Update: &friendspb.FriendsUpdate_PrivateMessage{
+			PrivateMessage: &friendspb.PrivateMessageDelivery{
+				FromUsername37: req.Username37,
+				StaffLvl:       req.StaffLvl,
+				PmId:           req.PmId,
+				Chat:           req.Chat,
+			},
+		},
+	})
 	return &emptypb.Empty{}, nil
 }
 
