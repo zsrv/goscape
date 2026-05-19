@@ -426,6 +426,20 @@ func (h *handler) RelayQueueScript(_ context.Context, req *friendspb.RelayQueueS
 	return &emptypb.Empty{}, nil
 }
 
+// PublicMessage persists one row to public_chat. Mirrors TS
+// FriendServer.ts:286-297 — append-only, no delivery, no validation,
+// no session_uuid existence check. Insert error → codes.Internal
+// (matches slice 6 PrivateMessage posture and FRIENDLIST/IGNORELIST
+// mutation handlers).
+//
+// Retires NAI-S6-D-PUBLIC-CHAT-DEFERRED.
+func (h *handler) PublicMessage(ctx context.Context, req *friendspb.PublicMessageRequest) (*emptypb.Empty, error) {
+	if err := h.repo.LogPublicMessage(ctx, req.SessionUuid, req.Coord, req.Chat); err != nil {
+		return nil, status.Errorf(codes.Internal, "LogPublicMessage: %v", err)
+	}
+	return &emptypb.Empty{}, nil
+}
+
 // SubscribeWorldEvents streams server -> world admin events for one
 // world. One subscriber per worldId; re-subscribe terminates the prior.
 // Slice 5a opens the stream; slice 5b layers world-state action handlers
