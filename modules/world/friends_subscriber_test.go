@@ -146,9 +146,9 @@ func TestFriendsSubscriber_EOFTriggersReconnect(t *testing.T) {
 	sub := newFriendsSubscriber(fc, 1, 42, disp, discardLogger())
 
 	ctx, cancel := context.WithCancel(t.Context())
-	t.Cleanup(cancel)
 	done := make(chan struct{})
 	go func() { defer close(done); sub.run(ctx) }()
+	t.Cleanup(func() { cancel(); <-done })
 
 	// First stream appears.
 	firstStream := waitForStream(t, fc, time.Now().Add(2*time.Second))

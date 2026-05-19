@@ -113,10 +113,11 @@ var (
 	_ FriendsBridge  = (*recordingBridges)(nil)
 	_ LoginBridgeMod = (*recordingBridges)(nil)
 	_ LoggerBridge   = (*recordingBridges)(nil)
-	_ FriendsBridge  = noopBridges{}
-	_ LoginBridgeMod = noopBridges{}
-	_ LoggerBridge   = noopBridges{}
-	_ FriendsBridge  = (*grpcFriendsBridge)(nil)
+	_ FriendsBridge      = noopBridges{}
+	_ LoginBridgeMod     = noopBridges{}
+	_ LoggerBridge       = noopBridges{}
+	_ FriendsDispatcher  = noopBridges{}
+	_ FriendsBridge      = (*grpcFriendsBridge)(nil)
 )
 
 // TestNoopBridgesAllMethods exercises every noopBridges method to keep
@@ -124,6 +125,9 @@ var (
 // future signature change).
 func TestNoopBridgesAllMethods(t *testing.T) {
 	var b noopBridges
+	b.OnFriendlistUpdate(1, nil)
+	b.OnIgnorelistUpdate(1, nil)
+	b.OnPrivateMessage(1, 2, 0, 0, "")
 	b.AddFriend("u", 1)
 	b.RemoveFriend("u", 1)
 	b.AddIgnore("u", 1)
