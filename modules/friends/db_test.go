@@ -23,7 +23,7 @@ func createTestDB(t *testing.T) *sql.DB {
 func TestOpenDB_AppliesMigrations(t *testing.T) {
 	db := createTestDB(t)
 
-	wantTables := []string{"friendlist", "ignorelist", "private_chat"}
+	wantTables := []string{"friendlist", "ignorelist", "private_chat", "public_chat"}
 	for _, name := range wantTables {
 		var got string
 		err := db.QueryRow(
