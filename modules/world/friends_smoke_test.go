@@ -10,8 +10,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/zsrv/goscape/modules/friends"
+	"github.com/zsrv/goscape/modules/login"
 	"github.com/zsrv/goscape/pkg/friendspb"
+	"github.com/zsrv/goscape/pkg/loginpb"
 
 	_ "modernc.org/sqlite"
 )
@@ -765,5 +769,99 @@ func TestFriendsClient_E2E_RelayShutdownAppliesAction(t *testing.T) {
 	}
 	if !delivered {
 		t.Fatal("rebuildReq did not receive after RelayReload + drain (NAI-S5B routing broken)")
+	}
+}
+
+// TestLoginClient_E2E_PlayerSessionIsUUID pins slice 7 end-to-end:
+// driving a PlayerLogin RPC against a real in-process modules/login
+// server returns a SessionUuid that (a) is a valid UUID v4 and (b)
+// matches the row stored in the login server's session table.
+//
+// This is the persistence-and-propagation gate for the slice: it
+// proves login UUID → response → world client end-to-end on real
+// DB + real proto + real gRPC.
+func TestLoginClient_E2E_PlayerSessionIsUUID(t *testing.T) {
+	port := freePort(t)
+	dbPath := filepath.Join(t.TempDir(), "login.db")
+	savePath := t.TempDir()
+
+	cfg := login.Config{
+		GRPCListenAddress:       "127.0.0.1",
+		GRPCListenPort:          port,
+		NodeProfile:             "main",
+		SQLiteDSN:               dbPath,
+		SavePath:                savePath,
+		AutoRegister:            true,
+		AutoSubscribeMembers:    true,
+		BCryptCost:              4,
+		Enable:                  true,
+		GracefulShutdownTimeout: 5 * time.Second,
+	}
+	log := discardLogger()
+	svc, err := login.New(cfg, log)
+	if err != nil {
+		t.Fatalf("login.New: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	if err := svc.StartAsync(ctx); err != nil {
+		t.Fatalf("StartAsync: %v", err)
+	}
+	if err := svc.AwaitRunning(ctx); err != nil {
+		t.Fatalf("AwaitRunning: %v", err)
+	}
+	t.Cleanup(func() {
+		svc.StopAsync()
+		_ = svc.AwaitTerminated(context.Background())
+	})
+
+	addr := "127.0.0.1:" + strconv.Itoa(port)
+	loginClient, err := NewLoginClient(addr, log)
+	if err != nil {
+		t.Fatalf("NewLoginClient: %v", err)
+	}
+	t.Cleanup(func() { _ = loginClient.Close() })
+
+	resp, err := loginClient.PlayerLogin(ctx, &loginpb.PlayerLoginRequest{
+		NodeId:        1,
+		Profile:       "main",
+		NodeMembers:   true,
+		Username:      "sliceseven",
+		Password:      "pw",
+		Uid:           42,
+		Socket:        "ignored",
+		RemoteAddress: "127.0.0.1:12345",
+	})
+	if err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+
+	if resp.SessionUuid == "" {
+		t.Fatal("SessionUuid: got empty, want a UUID v4")
+	}
+	u, err := uuid.Parse(resp.SessionUuid)
+	if err != nil {
+		t.Fatalf("uuid.Parse(%q): %v", resp.SessionUuid, err)
+	}
+	if u.Version() != 4 {
+		t.Errorf("uuid version: got %d, want 4", u.Version())
+	}
+
+	// Cross-check against the session-table row.
+	rdb, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("sql.Open: %v", err)
+	}
+	t.Cleanup(func() { _ = rdb.Close() })
+
+	var stored string
+	if err := rdb.QueryRowContext(t.Context(),
+		`SELECT session_uuid FROM session WHERE account_id = ?`,
+		resp.AccountId,
+	).Scan(&stored); err != nil {
+		t.Fatalf("SELECT session_uuid: %v", err)
+	}
+	if stored != resp.SessionUuid {
+		t.Errorf("session table session_uuid = %q, response SessionUuid = %q; want equal", stored, resp.SessionUuid)
 	}
 }
