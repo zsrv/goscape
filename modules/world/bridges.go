@@ -64,6 +64,52 @@ type LoggerBridge interface {
 	SubmitSessionLogs(logs []SessionLog)
 }
 
+// FriendsDispatcher is the world-side sink for server -> world friends
+// updates received over the SubscribeUpdates stream. Production impl
+// (slogFriendsDispatcher, below) logs each event at Debug; the
+// in-game ServerGameProt packet emit (UPDATE_FRIENDLIST /
+// UPDATE_IGNORELIST / MESSAGE_PRIVATE writes to the player's client
+// connection) is gated on NAI-182-D5 (the "social cluster"
+// ServerGameProt deferral noted at tick.go:226).
+//
+// NAI-S4A-D-NO-INGAME-PACKET-EMIT — retires when NAI-182-D5 retires
+// and the dispatcher is wired through to player.write(...).
+type FriendsDispatcher interface {
+	OnFriendlistUpdate(viewer uint64, entries []*friendspb.FriendEntry)
+	OnIgnorelistUpdate(viewer uint64, ignored []uint64)
+	OnPrivateMessage(target uint64, from uint64, staffLvl int32, pmId uint32, chat string)
+}
+
+// slogFriendsDispatcher is the default FriendsDispatcher. Logs each
+// event at Debug; does NOT emit ServerGameProt packets to the player.
+// See NAI-S4A-D-NO-INGAME-PACKET-EMIT above.
+type slogFriendsDispatcher struct {
+	log *slog.Logger
+}
+
+func newSlogFriendsDispatcher(log *slog.Logger) FriendsDispatcher {
+	return &slogFriendsDispatcher{log: log}
+}
+
+func (d *slogFriendsDispatcher) OnFriendlistUpdate(viewer uint64, entries []*friendspb.FriendEntry) {
+	d.log.Debug("friends dispatch: friendlist update",
+		slog.Uint64("viewer", viewer),
+		slog.Int("entries", len(entries)))
+}
+
+func (d *slogFriendsDispatcher) OnIgnorelistUpdate(viewer uint64, ignored []uint64) {
+	d.log.Debug("friends dispatch: ignorelist update",
+		slog.Uint64("viewer", viewer),
+		slog.Int("ignored", len(ignored)))
+}
+
+func (d *slogFriendsDispatcher) OnPrivateMessage(target uint64, from uint64, staffLvl int32, pmId uint32, chat string) {
+	d.log.Debug("friends dispatch: private message",
+		slog.Uint64("target", target),
+		slog.Uint64("from", from),
+		slog.Uint64("pm_id", uint64(pmId)))
+}
+
 // noopBridges is the default impl wired into NewServer. Records nothing,
 // performs no I/O.
 type noopBridges struct{}
@@ -79,6 +125,9 @@ func (noopBridges) NotifyPlayerMute(string, string, time.Time) {}
 func (noopBridges) NotifyPlayerReport(*Player, string, string) {}
 func (noopBridges) SubmitInputTracking(*Player, []byte)        {}
 func (noopBridges) SubmitSessionLogs([]SessionLog)             {}
+func (noopBridges) OnFriendlistUpdate(uint64, []*friendspb.FriendEntry)          {}
+func (noopBridges) OnIgnorelistUpdate(uint64, []uint64)                          {}
+func (noopBridges) OnPrivateMessage(uint64, uint64, int32, uint32, string)       {}
 
 // loginGRPCBridgeMod is the production LoginBridgeMod impl. Translates
 // moderation actions into gRPC RPCs against the login server. Calls are
