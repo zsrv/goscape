@@ -18,11 +18,12 @@ type Friends struct {
 	cfg Config
 	log *slog.Logger
 
-	db   *sql.DB
-	repo *Repository
-	subs *subscriptions
-	srv  *grpcServer
-	lis  net.Listener
+	db        *sql.DB
+	repo      *Repository
+	subs      *subscriptions
+	worldSubs *worldSubscriptions
+	srv       *grpcServer
+	lis       net.Listener
 }
 
 // New validates the config and constructs the Friends module.
@@ -47,7 +48,8 @@ func (f *Friends) starting(_ context.Context) error {
 	}
 	repo := NewRepository(db, f.cfg.NodeProfile)
 	subs := newSubscriptions(f.log)
-	srv := newGRPCServer(f.cfg, repo, subs, f.log)
+	worldSubs := newWorldSubscriptions(f.log)
+	srv := newGRPCServer(f.cfg, repo, subs, worldSubs, f.log)
 	lis, err := srv.listen(f.cfg)
 	if err != nil {
 		db.Close()
@@ -56,6 +58,7 @@ func (f *Friends) starting(_ context.Context) error {
 	f.db = db
 	f.repo = repo
 	f.subs = subs
+	f.worldSubs = worldSubs
 	f.srv = srv
 	f.lis = lis
 	return nil

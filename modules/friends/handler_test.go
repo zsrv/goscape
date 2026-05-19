@@ -10,7 +10,13 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/zsrv/goscape/pkg/friendspb"
+	util "github.com/zsrv/goscape/pkg/util/jstring"
 )
+
+// nameToBase37 is a slice-5a-test-only convenience for inline username
+// literals. The handler's RELAY_* methods are username-agnostic at the
+// routing layer; the value is opaque uint64.
+func nameToBase37(s string) uint64 { return util.ToBase37(s) }
 
 // newTestHandler returns a handler wired to a fresh in-memory repo,
 // configured with NodeProfile="main" and WorldPlayerLimit=10.
@@ -668,5 +674,285 @@ func TestPrivateMessage_CrossWorld(t *testing.T) {
 	if pm.PrivateMessage.Chat != "cross-world hi" {
 		t.Errorf("Chat = %q, want %q", pm.PrivateMessage.Chat, "cross-world hi")
 	}
+}
+
+// --- slice 5a: RELAY_* handler routing tests ---
+
+func TestHandler_RelayKick_RoutesToSubscriber(t *testing.T) {
+	h, _, worldSubs := newTestHandlerWithWorldSubs(t)
+	sub := newWorldSubscriber(2)
+	worldSubs.register(sub)
+	defer worldSubs.deregister(sub)
+
+	_, err := h.RelayKick(context.Background(), &friendspb.RelayKickRequest{
+		TargetWorldId: 2,
+		Username37:    nameToBase37("alice"),
+	})
+	if err != nil {
+		t.Fatalf("RelayKick: %v", err)
+	}
+	select {
+	case ev := <-sub.ch:
+		kick := ev.GetKick()
+		if kick == nil {
+			t.Fatalf("got event variant %T, want Kick", ev.Event)
+		}
+		if kick.Username37 != nameToBase37("alice") {
+			t.Fatalf("kick.Username37 = %d, want %d", kick.Username37, nameToBase37("alice"))
+		}
+	default:
+		t.Fatal("expected KickEvent on subscriber channel")
+	}
+}
+
+func TestHandler_RelayKick_NoSubscriberSilent(t *testing.T) {
+	h, _, _ := newTestHandlerWithWorldSubs(t)
+	// No subscriber registered for world 99.
+	_, err := h.RelayKick(context.Background(), &friendspb.RelayKickRequest{
+		TargetWorldId: 99,
+		Username37:    nameToBase37("alice"),
+	})
+	if err != nil {
+		t.Fatalf("RelayKick silent-drop expected OK; got %v", err)
+	}
+}
+
+func TestHandler_RelayMute_RoutesPayload(t *testing.T) {
+	h, _, worldSubs := newTestHandlerWithWorldSubs(t)
+	sub := newWorldSubscriber(2)
+	worldSubs.register(sub)
+	defer worldSubs.deregister(sub)
+	_, err := h.RelayMute(context.Background(), &friendspb.RelayMuteRequest{
+		TargetWorldId: 2, Username37: nameToBase37("bob"), MutedUntilMs: 12345,
+	})
+	if err != nil {
+		t.Fatalf("RelayMute: %v", err)
+	}
+	ev := mustRecvWorldEvent(t, sub)
+	mute := ev.GetMute()
+	if mute == nil || mute.Username37 != nameToBase37("bob") || mute.MutedUntilMs != 12345 {
+		t.Fatalf("mute payload mismatch: %+v", mute)
+	}
+}
+
+func TestHandler_RelayShutdown_RoutesPayload(t *testing.T) {
+	h, _, worldSubs := newTestHandlerWithWorldSubs(t)
+	sub := newWorldSubscriber(2)
+	worldSubs.register(sub)
+	defer worldSubs.deregister(sub)
+	_, err := h.RelayShutdown(context.Background(), &friendspb.RelayShutdownRequest{
+		TargetWorldId: 2, DurationTicks: 50,
+	})
+	if err != nil {
+		t.Fatalf("RelayShutdown: %v", err)
+	}
+	ev := mustRecvWorldEvent(t, sub)
+	if sd := ev.GetShutdown(); sd == nil || sd.DurationTicks != 50 {
+		t.Fatalf("shutdown payload mismatch: %+v", sd)
+	}
+}
+
+func TestHandler_RelayBroadcast_RoutesPayload(t *testing.T) {
+	h, _, worldSubs := newTestHandlerWithWorldSubs(t)
+	sub := newWorldSubscriber(2)
+	worldSubs.register(sub)
+	defer worldSubs.deregister(sub)
+	_, err := h.RelayBroadcast(context.Background(), &friendspb.RelayBroadcastRequest{
+		TargetWorldId: 2, Message: "hello world",
+	})
+	if err != nil {
+		t.Fatalf("RelayBroadcast: %v", err)
+	}
+	ev := mustRecvWorldEvent(t, sub)
+	if bc := ev.GetBroadcast(); bc == nil || bc.Message != "hello world" {
+		t.Fatalf("broadcast payload mismatch: %+v", bc)
+	}
+}
+
+func TestHandler_RelayTrack_RoutesPayload(t *testing.T) {
+	h, _, worldSubs := newTestHandlerWithWorldSubs(t)
+	sub := newWorldSubscriber(2)
+	worldSubs.register(sub)
+	defer worldSubs.deregister(sub)
+	_, err := h.RelayTrack(context.Background(), &friendspb.RelayTrackRequest{
+		TargetWorldId: 2, Username37: nameToBase37("carol"), State: 1,
+	})
+	if err != nil {
+		t.Fatalf("RelayTrack: %v", err)
+	}
+	ev := mustRecvWorldEvent(t, sub)
+	tk := ev.GetTrack()
+	if tk == nil || tk.Username37 != nameToBase37("carol") || tk.State != 1 {
+		t.Fatalf("track payload mismatch: %+v", tk)
+	}
+}
+
+func TestHandler_RelayReload_RoutesEmpty(t *testing.T) {
+	h, _, worldSubs := newTestHandlerWithWorldSubs(t)
+	sub := newWorldSubscriber(2)
+	worldSubs.register(sub)
+	defer worldSubs.deregister(sub)
+	_, err := h.RelayReload(context.Background(), &friendspb.RelayReloadRequest{TargetWorldId: 2})
+	if err != nil {
+		t.Fatalf("RelayReload: %v", err)
+	}
+	ev := mustRecvWorldEvent(t, sub)
+	if ev.GetReload() == nil {
+		t.Fatalf("expected Reload variant; got %T", ev.Event)
+	}
+}
+
+func TestHandler_RelayClearLogins_RoutesEmpty(t *testing.T) {
+	h, _, worldSubs := newTestHandlerWithWorldSubs(t)
+	sub := newWorldSubscriber(2)
+	worldSubs.register(sub)
+	defer worldSubs.deregister(sub)
+	_, err := h.RelayClearLogins(context.Background(), &friendspb.RelayClearLoginsRequest{TargetWorldId: 2})
+	if err != nil {
+		t.Fatalf("RelayClearLogins: %v", err)
+	}
+	if ev := mustRecvWorldEvent(t, sub); ev.GetClearLogins() == nil {
+		t.Fatalf("expected ClearLogins variant; got %T", ev.Event)
+	}
+}
+
+func TestHandler_RelayClearLogouts_RoutesEmpty(t *testing.T) {
+	h, _, worldSubs := newTestHandlerWithWorldSubs(t)
+	sub := newWorldSubscriber(2)
+	worldSubs.register(sub)
+	defer worldSubs.deregister(sub)
+	_, err := h.RelayClearLogouts(context.Background(), &friendspb.RelayClearLogoutsRequest{TargetWorldId: 2})
+	if err != nil {
+		t.Fatalf("RelayClearLogouts: %v", err)
+	}
+	if ev := mustRecvWorldEvent(t, sub); ev.GetClearLogouts() == nil {
+		t.Fatalf("expected ClearLogouts variant; got %T", ev.Event)
+	}
+}
+
+func TestHandler_RelayQueueScript_RoutesPayload(t *testing.T) {
+	h, _, worldSubs := newTestHandlerWithWorldSubs(t)
+	sub := newWorldSubscriber(2)
+	worldSubs.register(sub)
+	defer worldSubs.deregister(sub)
+	_, err := h.RelayQueueScript(context.Background(), &friendspb.RelayQueueScriptRequest{
+		TargetWorldId: 2, ScriptName: "debug:dump", Username37: nameToBase37("dan"),
+	})
+	if err != nil {
+		t.Fatalf("RelayQueueScript: %v", err)
+	}
+	ev := mustRecvWorldEvent(t, sub)
+	qs := ev.GetQueueScript()
+	if qs == nil || qs.ScriptName != "debug:dump" || qs.Username37 != nameToBase37("dan") {
+		t.Fatalf("queue_script payload mismatch: %+v", qs)
+	}
+}
+
+func TestHandler_SubscribeWorldEvents_DupKicksPrior(t *testing.T) {
+	h, _, _ := newTestHandlerWithWorldSubs(t)
+
+	// Open the first subscription in a goroutine; capture its EOF via
+	// the stream's err return.
+	srv1 := newFakeWorldEventsServerStream(t)
+	done1 := make(chan error, 1)
+	go func() { done1 <- h.SubscribeWorldEvents(&friendspb.SubscribeWorldEventsRequest{WorldId: 7}, srv1) }()
+
+	// Spin until srv1 has installed its subscriber (registry has entry).
+	waitFor(t, func() bool {
+		h.worldSubs.mu.Lock()
+		defer h.worldSubs.mu.Unlock()
+		return h.worldSubs.by[7] != nil
+	})
+
+	// Open a second subscription for the same worldId.
+	srv2 := newFakeWorldEventsServerStream(t)
+	done2 := make(chan error, 1)
+	go func() { done2 <- h.SubscribeWorldEvents(&friendspb.SubscribeWorldEventsRequest{WorldId: 7}, srv2) }()
+
+	// srv1's stream goroutine sees done closed and returns nil.
+	select {
+	case err := <-done1:
+		if err != nil {
+			t.Fatalf("prior stream returned %v; want nil", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for prior stream to exit")
+	}
+
+	// Close srv2's ctx to terminate the second stream.
+	srv2.cancel()
+	<-done2
+}
+
+// newTestHandlerWithWorldSubs constructs a handler with both per-player
+// and per-world subscription registries wired up. Returns (handler, subs,
+// worldSubs). Re-uses the test-DB helper pattern used by the existing
+// handler tests (createTestDB + noopLogger).
+func newTestHandlerWithWorldSubs(t *testing.T) (*handler, *subscriptions, *worldSubscriptions) {
+	t.Helper()
+	log := noopLogger()
+	repo := NewRepository(createTestDB(t), "main")
+	subs := newSubscriptions(log)
+	worldSubs := newWorldSubscriptions(log)
+	h := &handler{
+		repo:      repo,
+		subs:      subs,
+		worldSubs: worldSubs,
+		cfg:       Config{NodeProfile: "main", WorldPlayerLimit: 2000},
+		log:       log,
+	}
+	return h, subs, worldSubs
+}
+
+// mustRecvWorldEvent reads one event from sub.ch with a short timeout
+// (helpers in this file use 1s for similar drains). Fails the test if
+// no event arrives.
+func mustRecvWorldEvent(t *testing.T, sub *worldSubscriber) *friendspb.WorldEvent {
+	t.Helper()
+	select {
+	case ev := <-sub.ch:
+		return ev
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for world event")
+		return nil
+	}
+}
+
+// fakeWorldEventsServerStream is a test impl of
+// friendspb.FriendsService_SubscribeWorldEventsServer.
+type fakeWorldEventsServerStream struct {
+	grpc.ServerStream
+	ctx    context.Context
+	cancel context.CancelFunc
+	sent   chan *friendspb.WorldEvent
+}
+
+func newFakeWorldEventsServerStream(t *testing.T) *fakeWorldEventsServerStream {
+	t.Helper()
+	ctx, cancel := context.WithCancel(context.Background())
+	return &fakeWorldEventsServerStream{
+		ctx:    ctx,
+		cancel: cancel,
+		sent:   make(chan *friendspb.WorldEvent, 16),
+	}
+}
+
+func (s *fakeWorldEventsServerStream) Send(ev *friendspb.WorldEvent) error {
+	s.sent <- ev
+	return nil
+}
+func (s *fakeWorldEventsServerStream) Context() context.Context { return s.ctx }
+
+// waitFor polls cond at 10ms intervals up to 2s.
+func waitFor(t *testing.T, cond func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if cond() {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("waitFor: condition not met within 2s")
 }
 

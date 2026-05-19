@@ -15,10 +15,11 @@ import (
 type handler struct {
 	friendspb.UnimplementedFriendsServiceServer
 
-	repo *Repository
-	subs *subscriptions
-	cfg  Config
-	log  *slog.Logger
+	repo      *Repository
+	subs      *subscriptions
+	worldSubs *worldSubscriptions
+	cfg       Config
+	log       *slog.Logger
 }
 
 // ensureWorld lazy-inits the world's player slot if not already known.
@@ -342,4 +343,112 @@ func (h *handler) sendPlayerWorldUpdate(ctx context.Context, viewer, other uint6
 			},
 		},
 	})
+}
+
+// --- slice 5a: RELAY_* admin relay handlers ---
+//
+// All Relay* methods forward a WorldEvent to the target world's
+// SubscribeWorldEvents subscriber. No-op if no world is subscribed for
+// req.TargetWorldId (matches TS FriendServer.ts:298-302 silent-drop on
+// missing socketByWorld). No auth check at this layer.
+//
+// NAI-S5A-D-NO-ADMIN-AUTH-AT-SERVER — friends-server is dumb routing;
+//   admin checks live on both sender and receiver world. Permanent.
+// NAI-S5A-D-DISPATCHER-NO-ACTION — slice 5a default WorldEventsDispatcher
+//   on the receiving side logs only; slice 5b retires this piecewise as
+//   each opcode's world-state action is wired.
+
+func (h *handler) RelayMute(_ context.Context, req *friendspb.RelayMuteRequest) (*emptypb.Empty, error) {
+	h.worldSubs.send(req.TargetWorldId, &friendspb.WorldEvent{
+		Event: &friendspb.WorldEvent_Mute{Mute: &friendspb.MuteEvent{
+			Username37:   req.Username37,
+			MutedUntilMs: req.MutedUntilMs,
+		}},
+	})
+	return &emptypb.Empty{}, nil
+}
+
+func (h *handler) RelayKick(_ context.Context, req *friendspb.RelayKickRequest) (*emptypb.Empty, error) {
+	h.worldSubs.send(req.TargetWorldId, &friendspb.WorldEvent{
+		Event: &friendspb.WorldEvent_Kick{Kick: &friendspb.KickEvent{Username37: req.Username37}},
+	})
+	return &emptypb.Empty{}, nil
+}
+
+func (h *handler) RelayShutdown(_ context.Context, req *friendspb.RelayShutdownRequest) (*emptypb.Empty, error) {
+	h.worldSubs.send(req.TargetWorldId, &friendspb.WorldEvent{
+		Event: &friendspb.WorldEvent_Shutdown{Shutdown: &friendspb.ShutdownEvent{DurationTicks: req.DurationTicks}},
+	})
+	return &emptypb.Empty{}, nil
+}
+
+func (h *handler) RelayBroadcast(_ context.Context, req *friendspb.RelayBroadcastRequest) (*emptypb.Empty, error) {
+	h.worldSubs.send(req.TargetWorldId, &friendspb.WorldEvent{
+		Event: &friendspb.WorldEvent_Broadcast{Broadcast: &friendspb.BroadcastEvent{Message: req.Message}},
+	})
+	return &emptypb.Empty{}, nil
+}
+
+func (h *handler) RelayTrack(_ context.Context, req *friendspb.RelayTrackRequest) (*emptypb.Empty, error) {
+	h.worldSubs.send(req.TargetWorldId, &friendspb.WorldEvent{
+		Event: &friendspb.WorldEvent_Track{Track: &friendspb.TrackEvent{Username37: req.Username37, State: req.State}},
+	})
+	return &emptypb.Empty{}, nil
+}
+
+func (h *handler) RelayReload(_ context.Context, req *friendspb.RelayReloadRequest) (*emptypb.Empty, error) {
+	h.worldSubs.send(req.TargetWorldId, &friendspb.WorldEvent{
+		Event: &friendspb.WorldEvent_Reload{Reload: &friendspb.ReloadEvent{}},
+	})
+	return &emptypb.Empty{}, nil
+}
+
+func (h *handler) RelayClearLogins(_ context.Context, req *friendspb.RelayClearLoginsRequest) (*emptypb.Empty, error) {
+	h.worldSubs.send(req.TargetWorldId, &friendspb.WorldEvent{
+		Event: &friendspb.WorldEvent_ClearLogins{ClearLogins: &friendspb.ClearLoginsEvent{}},
+	})
+	return &emptypb.Empty{}, nil
+}
+
+func (h *handler) RelayClearLogouts(_ context.Context, req *friendspb.RelayClearLogoutsRequest) (*emptypb.Empty, error) {
+	h.worldSubs.send(req.TargetWorldId, &friendspb.WorldEvent{
+		Event: &friendspb.WorldEvent_ClearLogouts{ClearLogouts: &friendspb.ClearLogoutsEvent{}},
+	})
+	return &emptypb.Empty{}, nil
+}
+
+func (h *handler) RelayQueueScript(_ context.Context, req *friendspb.RelayQueueScriptRequest) (*emptypb.Empty, error) {
+	h.worldSubs.send(req.TargetWorldId, &friendspb.WorldEvent{
+		Event: &friendspb.WorldEvent_QueueScript{QueueScript: &friendspb.QueueScriptEvent{
+			ScriptName: req.ScriptName,
+			Username37: req.Username37,
+		}},
+	})
+	return &emptypb.Empty{}, nil
+}
+
+// SubscribeWorldEvents streams server -> world admin events for one
+// world. One subscriber per worldId; re-subscribe terminates the prior.
+// Slice 5a opens the stream; slice 5b layers world-state action handlers
+// on the world side via WorldEventsDispatcher.
+//
+// Replaces the slice-1 codes.Unimplemented stub.
+func (h *handler) SubscribeWorldEvents(req *friendspb.SubscribeWorldEventsRequest, stream friendspb.FriendsService_SubscribeWorldEventsServer) error {
+	sub := newWorldSubscriber(req.WorldId)
+	h.worldSubs.register(sub)
+	defer h.worldSubs.deregister(sub)
+
+	ctx := stream.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-sub.done:
+			return nil
+		case ev := <-sub.ch:
+			if err := stream.Send(ev); err != nil {
+				return err
+			}
+		}
+	}
 }
