@@ -791,7 +791,6 @@ func (c *client) handleLogin() error {
 				Username:      safeName,
 				Password:      req.Password,
 				Uid:           int32(req.UID),
-				Socket:        c.conn.RemoteAddr().String(),
 				RemoteAddress: c.conn.RemoteAddr().String(),
 				Reconnecting:  reconnecting,
 				HasSave:       false,
@@ -1170,19 +1169,3 @@ func (s *Server) ZonePlayers(level, zoneX, zoneZ int) []script.ActivePlayer {
 	return out
 }
 
-// TODO: move this somewhere else
-type LoginResponse struct {
-	Type          string
-	Username      string
-	Socket        string
-	Save          []uint8
-	StaffModLevel int
-	MutedUntil    int
-	Reply         int
-	AccountID     int
-	MessageCount  int
-	Remaining     int
-	Reconnecting  bool
-	LowMemory     bool
-	Members       bool
-}

@@ -153,7 +153,6 @@ type PlayerLoginRequest struct {
 	Username      string                 `protobuf:"bytes,4,opt,name=username,proto3" json:"username,omitempty"`
 	Password      string                 `protobuf:"bytes,5,opt,name=password,proto3" json:"password,omitempty"`
 	Uid           int32                  `protobuf:"varint,6,opt,name=uid,proto3" json:"uid,omitempty"`
-	Socket        string                 `protobuf:"bytes,7,opt,name=socket,proto3" json:"socket,omitempty"`
 	RemoteAddress string                 `protobuf:"bytes,8,opt,name=remote_address,json=remoteAddress,proto3" json:"remote_address,omitempty"`
 	Reconnecting  bool                   `protobuf:"varint,9,opt,name=reconnecting,proto3" json:"reconnecting,omitempty"`
 	HasSave       bool                   `protobuf:"varint,10,opt,name=has_save,json=hasSave,proto3" json:"has_save,omitempty"`
@@ -231,13 +230,6 @@ func (x *PlayerLoginRequest) GetUid() int32 {
 		return x.Uid
 	}
 	return 0
-}
-
-func (x *PlayerLoginRequest) GetSocket() string {
-	if x != nil {
-		return x.Socket
-	}
-	return ""
 }
 
 func (x *PlayerLoginRequest) GetRemoteAddress() string {
@@ -792,19 +784,18 @@ const file_login_login_proto_rawDesc = "" +
 	"\x11login/login.proto\x12\blogin.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"H\n" +
 	"\x13WorldStartupRequest\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\x05R\x06nodeId\x12\x18\n" +
-	"\aprofile\x18\x02 \x01(\tR\aprofile\"\xb2\x02\n" +
+	"\aprofile\x18\x02 \x01(\tR\aprofile\"\xa8\x02\n" +
 	"\x12PlayerLoginRequest\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\x05R\x06nodeId\x12\x18\n" +
 	"\aprofile\x18\x02 \x01(\tR\aprofile\x12!\n" +
 	"\fnode_members\x18\x03 \x01(\bR\vnodeMembers\x12\x1a\n" +
 	"\busername\x18\x04 \x01(\tR\busername\x12\x1a\n" +
 	"\bpassword\x18\x05 \x01(\tR\bpassword\x12\x10\n" +
-	"\x03uid\x18\x06 \x01(\x05R\x03uid\x12\x16\n" +
-	"\x06socket\x18\a \x01(\tR\x06socket\x12%\n" +
+	"\x03uid\x18\x06 \x01(\x05R\x03uid\x12%\n" +
 	"\x0eremote_address\x18\b \x01(\tR\rremoteAddress\x12\"\n" +
 	"\freconnecting\x18\t \x01(\bR\freconnecting\x12\x19\n" +
 	"\bhas_save\x18\n" +
-	" \x01(\bR\ahasSave\"\xe1\x02\n" +
+	" \x01(\bR\ahasSaveJ\x04\b\a\x10\bR\x06socket\"\xe1\x02\n" +
 	"\x13PlayerLoginResponse\x12-\n" +
 	"\x06result\x18\x01 \x01(\x0e2\x15.login.v1.LoginResultR\x06result\x12\x1d\n" +
 	"\n" +

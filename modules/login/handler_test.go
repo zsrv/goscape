@@ -45,7 +45,6 @@ func TestPlayerLogin_NewPlayer_AutoRegister(t *testing.T) {
 		Username:      "newplayer",
 		Password:      "hunter2",
 		Uid:           42,
-		Socket:        "session-uuid-1",
 		RemoteAddress: "192.168.1.1:12345",
 	})
 	if err != nil {
@@ -87,7 +86,6 @@ func TestPlayerLogin_ExistingPlayer(t *testing.T) {
 		Username:      "testuser",
 		Password:      "pw",
 		Uid:           42,
-		Socket:        "session-uuid-1",
 		RemoteAddress: "192.168.1.1:12345",
 	})
 	if err != nil {
@@ -112,7 +110,6 @@ func TestPlayerLogin_InvalidCredentials(t *testing.T) {
 		Username:      "creduser",
 		Password:      "wrongpw",
 		Uid:           42,
-		Socket:        "session-uuid-1",
 		RemoteAddress: "192.168.1.1:12345",
 	})
 	if err != nil {
@@ -140,7 +137,6 @@ func TestPlayerLogin_IPBanned(t *testing.T) {
 		Username:      "someuser",
 		Password:      "pw",
 		Uid:           42,
-		Socket:        "session-uuid-1",
 		RemoteAddress: "10.0.0.7:12345",
 	})
 	if err != nil {
@@ -171,7 +167,6 @@ func TestPlayerLogin_AccountDisabled(t *testing.T) {
 		Username:      "banneduser",
 		Password:      "pw",
 		Uid:           42,
-		Socket:        "session-uuid-1",
 		RemoteAddress: "192.168.1.1:12345",
 	})
 	if err != nil {
@@ -201,7 +196,6 @@ func TestPlayerLogin_AlreadyLoggedIn(t *testing.T) {
 		Username:      "loggeduser",
 		Password:      "pw",
 		Uid:           42,
-		Socket:        "session-uuid-1",
 		RemoteAddress: "192.168.1.1:12345",
 	})
 	if err != nil {
@@ -227,7 +221,6 @@ func TestPlayerLogin_DuplicateInFlight(t *testing.T) {
 		Username:      "dupuser",
 		Password:      "pw",
 		Uid:           42,
-		Socket:        "session-uuid-1",
 		RemoteAddress: "192.168.1.1:12345",
 	})
 	if err != nil {
@@ -257,7 +250,6 @@ func TestPlayerLogin_Reconnect(t *testing.T) {
 		Username:      "reconuser",
 		Password:      "pw",
 		Uid:           42,
-		Socket:        "session-uuid-1",
 		RemoteAddress: "192.168.1.1:12345",
 		Reconnecting:  true,
 		HasSave:       true,
@@ -282,7 +274,6 @@ func TestPlayerLogout_HappyPath(t *testing.T) {
 		Username:      "logoutuser",
 		Password:      "pw",
 		Uid:           42,
-		Socket:        "session-uuid-1",
 		RemoteAddress: "192.168.1.1:12345",
 	})
 	if err != nil {
@@ -507,7 +498,6 @@ func TestPlayerLogin_SessionUUID_FormatOnAccept(t *testing.T) {
 		Username:      "uuidplayer",
 		Password:      "pw",
 		Uid:           42,
-		Socket:        "ignored",
 		RemoteAddress: "192.168.1.1:12345",
 	})
 	if err != nil {
@@ -538,7 +528,6 @@ func TestPlayerLogin_SessionUUID_PersistedInDB(t *testing.T) {
 		Username:      "persistuser",
 		Password:      "pw",
 		Uid:           42,
-		Socket:        "ignored",
 		RemoteAddress: "192.168.1.1:12345",
 	})
 	if err != nil {
@@ -568,7 +557,7 @@ func TestPlayerLogin_SessionUUID_FreshPerLogin(t *testing.T) {
 	resp1, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
 		NodeId: 1, Profile: "main", NodeMembers: true,
 		Username: "u1", Password: "pw", Uid: 1,
-		Socket: "ignored", RemoteAddress: "192.168.1.1:12345",
+		RemoteAddress: "192.168.1.1:12345",
 	})
 	if err != nil {
 		t.Fatalf("PlayerLogin(u1): %v", err)
@@ -576,7 +565,7 @@ func TestPlayerLogin_SessionUUID_FreshPerLogin(t *testing.T) {
 	resp2, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
 		NodeId: 1, Profile: "main", NodeMembers: true,
 		Username: "u2", Password: "pw", Uid: 2,
-		Socket: "ignored", RemoteAddress: "192.168.1.1:12345",
+		RemoteAddress: "192.168.1.1:12345",
 	})
 	if err != nil {
 		t.Fatalf("PlayerLogin(u2): %v", err)

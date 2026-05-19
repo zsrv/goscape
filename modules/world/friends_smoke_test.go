@@ -829,7 +829,6 @@ func TestLoginClient_E2E_PlayerSessionIsUUID(t *testing.T) {
 		Username:      "sliceseven",
 		Password:      "pw",
 		Uid:           42,
-		Socket:        "ignored",
 		RemoteAddress: "127.0.0.1:12345",
 	})
 	if err != nil {

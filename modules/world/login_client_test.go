@@ -44,7 +44,6 @@ func sampleLoginReq(t *testing.T, c *client) *loginpb.PlayerLoginRequest {
 		Username:      "test",
 		Password:      "pw",
 		Uid:           1234,
-		Socket:        c.conn.RemoteAddr().String(),
 		RemoteAddress: c.conn.RemoteAddr().String(),
 		Reconnecting:  false,
 		HasSave:       false,

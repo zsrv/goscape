@@ -41,7 +41,8 @@ message PlayerLoginRequest {
   string username       = 4;
   string password       = 5;
   int32  uid            = 6;
-  string socket         = 7;
+  reserved 7;
+  reserved "socket";
   string remote_address = 8;
   bool   reconnecting   = 9;
   bool   has_save       = 10;
