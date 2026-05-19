@@ -179,7 +179,6 @@ func TestHandler_ChatSetMode_PrivateChatCoercion(t *testing.T) {
 }
 
 func TestHandler_FriendlistAdd_Persists(t *testing.T) {
-	t.Skip("re-enabled in slice 3 task 10")
 	h := newTestHandler(t)
 	ctx := t.Context()
 	if _, err := h.FriendlistAdd(ctx, &friendspb.FriendlistAddRequest{
@@ -199,7 +198,6 @@ func TestHandler_FriendlistAdd_Persists(t *testing.T) {
 }
 
 func TestHandler_FriendlistDel_RemovesEntry(t *testing.T) {
-	t.Skip("re-enabled in slice 3 task 10")
 	h := newTestHandler(t)
 	ctx := t.Context()
 	if err := h.repo.AddFriend(ctx, 0xAAAA, 0xBBBB); err != nil {
@@ -222,7 +220,6 @@ func TestHandler_FriendlistDel_RemovesEntry(t *testing.T) {
 }
 
 func TestHandler_IgnorelistAdd_Persists(t *testing.T) {
-	t.Skip("re-enabled in slice 3 task 10")
 	h := newTestHandler(t)
 	ctx := t.Context()
 	if _, err := h.IgnorelistAdd(ctx, &friendspb.IgnorelistAddRequest{
@@ -242,7 +239,6 @@ func TestHandler_IgnorelistAdd_Persists(t *testing.T) {
 }
 
 func TestHandler_IgnorelistDel_RemovesEntry(t *testing.T) {
-	t.Skip("re-enabled in slice 3 task 10")
 	h := newTestHandler(t)
 	ctx := t.Context()
 	if err := h.repo.AddIgnore(ctx, 0xAAAA, 0xBBBB); err != nil {
