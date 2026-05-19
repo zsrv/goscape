@@ -1,8 +1,11 @@
 package friends
 
 import (
+	"context"
 	"testing"
+	"time"
 
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -276,6 +279,281 @@ func TestHandler_PrivateMessage_NoOp_Slice1(t *testing.T) {
 		Coord:            12345,
 	}); err != nil {
 		t.Fatalf("PrivateMessage: %v", err)
+	}
+}
+
+// testStream is a minimal friendspb.FriendsService_SubscribeUpdatesServer
+// impl that captures Send calls into a channel. Cancel ctx to stop the
+// handler's drain loop.
+type testStream struct {
+	grpc.ServerStream
+	ctx    context.Context
+	cancel context.CancelFunc
+	out    chan *friendspb.FriendsUpdate
+}
+
+func newTestStream(t *testing.T) *testStream {
+	t.Helper()
+	ctx, cancel := context.WithCancel(t.Context())
+	return &testStream{ctx: ctx, cancel: cancel, out: make(chan *friendspb.FriendsUpdate, 32)}
+}
+
+func (s *testStream) Context() context.Context { return s.ctx }
+func (s *testStream) Send(u *friendspb.FriendsUpdate) error {
+	select {
+	case s.out <- u:
+	default:
+	}
+	return nil
+}
+
+// recvWithin waits up to d for the next update on s.out; t.Fatal on
+// timeout.
+func (s *testStream) recvWithin(t *testing.T, d time.Duration) *friendspb.FriendsUpdate {
+	t.Helper()
+	select {
+	case u := <-s.out:
+		return u
+	case <-time.After(d):
+		t.Fatalf("timed out waiting for update")
+		return nil
+	}
+}
+
+func TestSubscribeUpdates_InitialSnapshots(t *testing.T) {
+	r, _ := newTestRepo(t)
+	log := noopLogger()
+	cfg := Config{NodeProfile: "main", WorldPlayerLimit: 100}
+	h := &handler{repo: r, subs: newSubscriptions(log), cfg: cfg, log: log}
+	r.InitializeWorld(1, 100)
+	r.Register(1, 100, 0, 0)
+	if err := r.AddFriend(t.Context(), 100, 200); err != nil {
+		t.Fatalf("AddFriend: %v", err)
+	}
+	if err := r.AddIgnore(t.Context(), 100, 300); err != nil {
+		t.Fatalf("AddIgnore: %v", err)
+	}
+
+	stream := newTestStream(t)
+	errc := make(chan error, 1)
+	go func() {
+		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Username37: 100}, stream)
+	}()
+	t.Cleanup(func() {
+		stream.cancel()
+		<-errc
+	})
+
+	// First message: FriendlistUpdate with one entry for 200.
+	u1 := stream.recvWithin(t, 2*time.Second)
+	fl, ok := u1.Update.(*friendspb.FriendsUpdate_Friendlist)
+	if !ok {
+		t.Fatalf("first update = %T, want FriendsUpdate_Friendlist", u1.Update)
+	}
+	if len(fl.Friendlist.Entries) != 1 || fl.Friendlist.Entries[0].Username37 != 200 {
+		t.Fatalf("entries = %v, want one entry for 200", fl.Friendlist.Entries)
+	}
+
+	// Second message: IgnorelistUpdate with [300].
+	u2 := stream.recvWithin(t, 2*time.Second)
+	il, ok := u2.Update.(*friendspb.FriendsUpdate_Ignorelist)
+	if !ok {
+		t.Fatalf("second update = %T, want FriendsUpdate_Ignorelist", u2.Update)
+	}
+	if len(il.Ignorelist.Username37) != 1 || il.Ignorelist.Username37[0] != 300 {
+		t.Fatalf("ignored = %v, want [300]", il.Ignorelist.Username37)
+	}
+}
+
+func TestPlayerLogin_BroadcastsToFollowers(t *testing.T) {
+	r, _ := newTestRepo(t)
+	log := noopLogger()
+	cfg := Config{NodeProfile: "main", WorldPlayerLimit: 100}
+	h := &handler{repo: r, subs: newSubscriptions(log), cfg: cfg, log: log}
+	r.InitializeWorld(1, 100)
+	// Follower 100 friended target 200.
+	if err := r.AddFriend(t.Context(), 100, 200); err != nil {
+		t.Fatalf("AddFriend: %v", err)
+	}
+	// 100 is online so the subscription has a presence row to query.
+	r.Register(1, 100, 0, 0)
+
+	// 100 subscribes.
+	stream := newTestStream(t)
+	errc := make(chan error, 1)
+	go func() {
+		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Username37: 100}, stream)
+	}()
+	t.Cleanup(func() {
+		stream.cancel()
+		<-errc
+	})
+	// Drain initial snapshots.
+	stream.recvWithin(t, 2*time.Second)
+	stream.recvWithin(t, 2*time.Second)
+
+	// 200 logs in on world 1.
+	if _, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{
+		WorldId:     1,
+		Username37:  200,
+		PrivateChat: 0,
+		StaffLvl:    0,
+	}); err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+
+	// 100's stream should see a one-entry FriendlistUpdate naming 200, world=1.
+	u := stream.recvWithin(t, 2*time.Second)
+	fl, ok := u.Update.(*friendspb.FriendsUpdate_Friendlist)
+	if !ok {
+		t.Fatalf("update = %T, want FriendsUpdate_Friendlist", u.Update)
+	}
+	if len(fl.Friendlist.Entries) != 1 {
+		t.Fatalf("entries len = %d, want 1", len(fl.Friendlist.Entries))
+	}
+	e := fl.Friendlist.Entries[0]
+	if e.Username37 != 200 || e.WorldId != 1 {
+		t.Fatalf("entry = (%d, %d), want (1, 200)", e.WorldId, e.Username37)
+	}
+}
+
+func TestBroadcast_ChatModeOffHidesWorld(t *testing.T) {
+	r, _ := newTestRepo(t)
+	log := noopLogger()
+	cfg := Config{NodeProfile: "main", WorldPlayerLimit: 100}
+	h := &handler{repo: r, subs: newSubscriptions(log), cfg: cfg, log: log}
+	r.InitializeWorld(1, 100)
+	if err := r.AddFriend(t.Context(), 100, 200); err != nil {
+		t.Fatalf("AddFriend: %v", err)
+	}
+	r.Register(1, 100, 0, 0)
+
+	stream := newTestStream(t)
+	errc := make(chan error, 1)
+	go func() {
+		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Username37: 100}, stream)
+	}()
+	t.Cleanup(func() {
+		stream.cancel()
+		<-errc
+	})
+	stream.recvWithin(t, 2*time.Second)
+	stream.recvWithin(t, 2*time.Second)
+
+	// 200 logs in with privateChat OFF.
+	if _, err := h.PlayerLogin(t.Context(), &friendspb.PlayerLoginRequest{
+		WorldId:     1,
+		Username37:  200,
+		PrivateChat: 2, // OFF
+		StaffLvl:    0,
+	}); err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+
+	u := stream.recvWithin(t, 2*time.Second)
+	fl := u.Update.(*friendspb.FriendsUpdate_Friendlist)
+	if fl.Friendlist.Entries[0].WorldId != 0 {
+		t.Fatalf("WorldId = %d, want 0 (privateChat OFF should hide)", fl.Friendlist.Entries[0].WorldId)
+	}
+}
+
+func TestPlayerLogout_BroadcastsZeroWorld(t *testing.T) {
+	r, _ := newTestRepo(t)
+	log := noopLogger()
+	cfg := Config{NodeProfile: "main", WorldPlayerLimit: 100}
+	h := &handler{repo: r, subs: newSubscriptions(log), cfg: cfg, log: log}
+	r.InitializeWorld(1, 100)
+	if err := r.AddFriend(t.Context(), 100, 200); err != nil {
+		t.Fatalf("AddFriend: %v", err)
+	}
+	r.Register(1, 100, 0, 0)
+	r.Register(1, 200, 0, 0)
+
+	stream := newTestStream(t)
+	errc := make(chan error, 1)
+	go func() {
+		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Username37: 100}, stream)
+	}()
+	t.Cleanup(func() {
+		stream.cancel()
+		<-errc
+	})
+	stream.recvWithin(t, 2*time.Second)
+	stream.recvWithin(t, 2*time.Second)
+
+	if _, err := h.PlayerLogout(t.Context(), &friendspb.PlayerLogoutRequest{
+		WorldId:    1,
+		Username37: 200,
+	}); err != nil {
+		t.Fatalf("PlayerLogout: %v", err)
+	}
+
+	u := stream.recvWithin(t, 2*time.Second)
+	fl := u.Update.(*friendspb.FriendsUpdate_Friendlist)
+	if fl.Friendlist.Entries[0].WorldId != 0 || fl.Friendlist.Entries[0].Username37 != 200 {
+		t.Fatalf("entry = (%d, %d), want (0, 200)", fl.Friendlist.Entries[0].WorldId, fl.Friendlist.Entries[0].Username37)
+	}
+}
+
+func TestFriendlistAdd_AdderGetsTargetWorldAndFollowersBroadcast(t *testing.T) {
+	r, _ := newTestRepo(t)
+	log := noopLogger()
+	cfg := Config{NodeProfile: "main", WorldPlayerLimit: 100}
+	h := &handler{repo: r, subs: newSubscriptions(log), cfg: cfg, log: log}
+	r.InitializeWorld(1, 100)
+	// Pre-existing: adder 100 has a follower 50 who already friended 100.
+	if err := r.AddFriend(t.Context(), 50, 100); err != nil {
+		t.Fatalf("AddFriend (50->100): %v", err)
+	}
+	r.Register(1, 100, 0, 0)
+	r.Register(1, 50, 0, 0)
+	r.Register(1, 200, 0, 0)
+
+	// Both subscribers attach.
+	adderStream := newTestStream(t)
+	followerStream := newTestStream(t)
+	errAdder := make(chan error, 1)
+	errFollower := make(chan error, 1)
+	go func() {
+		errAdder <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Username37: 100}, adderStream)
+	}()
+	go func() {
+		errFollower <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Username37: 50}, followerStream)
+	}()
+	t.Cleanup(func() {
+		adderStream.cancel()
+		followerStream.cancel()
+		<-errAdder
+		<-errFollower
+	})
+	// Drain initial snapshots from both.
+	adderStream.recvWithin(t, 2*time.Second)
+	adderStream.recvWithin(t, 2*time.Second)
+	followerStream.recvWithin(t, 2*time.Second)
+	followerStream.recvWithin(t, 2*time.Second)
+
+	// 100 adds 200 as a friend.
+	if _, err := h.FriendlistAdd(t.Context(), &friendspb.FriendlistAddRequest{
+		WorldId:          1,
+		Username37:       100,
+		TargetUsername37: 200,
+	}); err != nil {
+		t.Fatalf("FriendlistAdd: %v", err)
+	}
+
+	// Adder (100): single-entry update for 200 (sendPlayerWorldUpdate) +
+	// broadcast (100 is in its own followers? no — 50 follows 100, 100
+	// doesn't follow itself). So adder sees only the sendPlayerWorldUpdate.
+	uAdder := adderStream.recvWithin(t, 2*time.Second)
+	adderFL := uAdder.Update.(*friendspb.FriendsUpdate_Friendlist)
+	if adderFL.Friendlist.Entries[0].Username37 != 200 {
+		t.Fatalf("adder entry = %d, want 200", adderFL.Friendlist.Entries[0].Username37)
+	}
+	// Follower (50): broadcast about 100's world.
+	uFollower := followerStream.recvWithin(t, 2*time.Second)
+	followerFL := uFollower.Update.(*friendspb.FriendsUpdate_Friendlist)
+	if followerFL.Friendlist.Entries[0].Username37 != 100 || followerFL.Friendlist.Entries[0].WorldId != 1 {
+		t.Fatalf("follower entry = (%d, %d), want (1, 100)", followerFL.Friendlist.Entries[0].WorldId, followerFL.Friendlist.Entries[0].Username37)
 	}
 }
 
