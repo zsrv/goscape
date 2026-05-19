@@ -1,19 +1,13 @@
 package friends
 
 import (
-	"io"
-	"log/slog"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/friendspb"
 )
 
-func discardLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(io.Discard, nil))
-}
-
 func TestSubscriptions_RegisterDeregister(t *testing.T) {
-	s := newSubscriptions(discardLogger())
+	s := newSubscriptions(noopLogger())
 	sub := newSubscriber(1, 100)
 	s.register(sub)
 	s.send(100, &friendspb.FriendsUpdate{})
@@ -35,7 +29,7 @@ func TestSubscriptions_RegisterDeregister(t *testing.T) {
 }
 
 func TestSubscriptions_DupRegisterKicksPrior(t *testing.T) {
-	s := newSubscriptions(discardLogger())
+	s := newSubscriptions(noopLogger())
 	a := newSubscriber(1, 100)
 	b := newSubscriber(1, 100)
 	s.register(a)
@@ -61,7 +55,7 @@ func TestSubscriptions_DupRegisterKicksPrior(t *testing.T) {
 }
 
 func TestSubscriptions_DropOnFull(t *testing.T) {
-	s := newSubscriptions(discardLogger())
+	s := newSubscriptions(noopLogger())
 	sub := newSubscriber(1, 100)
 	s.register(sub)
 	// Fill buffer.
@@ -87,7 +81,7 @@ func TestSubscriptions_DropOnFull(t *testing.T) {
 }
 
 func TestSubscriptions_DeregisterIgnoresStale(t *testing.T) {
-	s := newSubscriptions(discardLogger())
+	s := newSubscriptions(noopLogger())
 	a := newSubscriber(1, 100)
 	b := newSubscriber(1, 100)
 	s.register(a)
@@ -102,7 +96,7 @@ func TestSubscriptions_DeregisterIgnoresStale(t *testing.T) {
 }
 
 func TestSubscriptions_SendUnknownNoop(t *testing.T) {
-	s := newSubscriptions(discardLogger())
+	s := newSubscriptions(noopLogger())
 	// No panic, no block.
 	s.send(999, &friendspb.FriendsUpdate{})
 }
