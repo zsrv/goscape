@@ -249,3 +249,77 @@ func (h *handler) worldIfVisible(ctx context.Context, viewer, other uint64) int3
 	}
 	return h.repo.GetWorld(other)
 }
+
+// broadcastWorldToFollowers fans out a one-entry FriendlistUpdate to
+// each of `other`'s followers that has an open subscription. Mirrors
+// TS FriendServer.broadcastWorldToFollowers (FriendServer.ts:445-451).
+// Errors are logged at Warn but never block the RPC caller; the
+// friends-server is best-effort by design.
+//
+// NAI-S1-D-NO-FOLLOWER-BROADCAST — slice 4a retires this tag by wiring
+// this helper into the seven mutating RPC handlers.
+func (h *handler) broadcastWorldToFollowers(ctx context.Context, other uint64) {
+	followers, err := h.repo.GetFollowers(ctx, other)
+	if err != nil {
+		h.log.Warn("broadcastWorldToFollowers: GetFollowers failed",
+			slog.Uint64("other", other),
+			slog.Any("err", err))
+		return
+	}
+	if len(followers) == 0 {
+		return
+	}
+	visibility, err := h.repo.IsVisibleToMany(ctx, followers, other)
+	if err != nil {
+		h.log.Warn("broadcastWorldToFollowers: IsVisibleToMany failed",
+			slog.Uint64("other", other),
+			slog.Any("err", err))
+		return
+	}
+	otherWorld := h.repo.GetWorld(other)
+	for _, viewer := range followers {
+		worldForViewer := int32(0)
+		if visibility[viewer] {
+			worldForViewer = otherWorld
+		}
+		h.subs.send(viewer, &friendspb.FriendsUpdate{
+			Update: &friendspb.FriendsUpdate_Friendlist{
+				Friendlist: &friendspb.FriendlistUpdate{
+					Entries: []*friendspb.FriendEntry{{
+						WorldId:    worldForViewer,
+						Username37: other,
+					}},
+				},
+			},
+		})
+	}
+}
+
+// sendPlayerWorldUpdate pushes a single-friend update to viewer's
+// subscription. Mirrors TS FriendServer.sendPlayerWorldUpdate
+// (FriendServer.ts:462-478). Called by FriendlistAdd to notify the
+// adder of the new friend's current world.
+func (h *handler) sendPlayerWorldUpdate(ctx context.Context, viewer, other uint64) {
+	visible, err := h.repo.IsVisibleTo(ctx, viewer, other)
+	if err != nil {
+		h.log.Warn("sendPlayerWorldUpdate: IsVisibleTo failed",
+			slog.Uint64("viewer", viewer),
+			slog.Uint64("other", other),
+			slog.Any("err", err))
+		visible = false
+	}
+	worldForViewer := int32(0)
+	if visible {
+		worldForViewer = h.repo.GetWorld(other)
+	}
+	h.subs.send(viewer, &friendspb.FriendsUpdate{
+		Update: &friendspb.FriendsUpdate_Friendlist{
+			Friendlist: &friendspb.FriendlistUpdate{
+				Entries: []*friendspb.FriendEntry{{
+					WorldId:    worldForViewer,
+					Username37: other,
+				}},
+			},
+		},
+	})
+}
