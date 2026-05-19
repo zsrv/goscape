@@ -38,6 +38,23 @@ type FriendsClient interface {
 	// this one is not fire-and-forget — the supervisor needs the error
 	// to drive reconnect backoff.
 	SubscribeUpdates(ctx context.Context, req *friendspb.SubscribeUpdatesRequest) (friendspb.FriendsService_SubscribeUpdatesClient, error)
+
+	// --- slice 5a: RELAY_* admin outbound (all fire-and-forget; errors logged) ---
+	RelayMute(ctx context.Context, req *friendspb.RelayMuteRequest)
+	RelayKick(ctx context.Context, req *friendspb.RelayKickRequest)
+	RelayShutdown(ctx context.Context, req *friendspb.RelayShutdownRequest)
+	RelayBroadcast(ctx context.Context, req *friendspb.RelayBroadcastRequest)
+	RelayTrack(ctx context.Context, req *friendspb.RelayTrackRequest)
+	RelayReload(ctx context.Context, req *friendspb.RelayReloadRequest)
+	RelayClearLogins(ctx context.Context, req *friendspb.RelayClearLoginsRequest)
+	RelayClearLogouts(ctx context.Context, req *friendspb.RelayClearLogoutsRequest)
+	RelayQueueScript(ctx context.Context, req *friendspb.RelayQueueScriptRequest)
+
+	// SubscribeWorldEvents opens the per-world admin push stream. Like
+	// SubscribeUpdates, this RPC returns the error so the supervisor can
+	// drive reconnect backoff.
+	SubscribeWorldEvents(ctx context.Context, req *friendspb.SubscribeWorldEventsRequest) (friendspb.FriendsService_SubscribeWorldEventsClient, error)
+
 	Close() error
 }
 
@@ -181,4 +198,103 @@ func (c *grpcFriendsClient) PrivateMessage(ctx context.Context, req *friendspb.P
 // SubscribeUpdates opens the server-streaming SubscribeUpdates RPC.
 func (c *grpcFriendsClient) SubscribeUpdates(ctx context.Context, req *friendspb.SubscribeUpdatesRequest) (friendspb.FriendsService_SubscribeUpdatesClient, error) {
 	return c.client.SubscribeUpdates(ctx, req)
+}
+
+// --- slice 5a: RELAY_* admin outbound shims ---
+//
+// Each method is fire-and-forget per the FriendsClient convention; the
+// RPC error is logged at Warn and swallowed. The friends-server is
+// best-effort by design — see the file-level FriendsClient doc-comment.
+
+func (c *grpcFriendsClient) RelayMute(ctx context.Context, req *friendspb.RelayMuteRequest) {
+	if _, err := c.client.RelayMute(ctx, req); err != nil {
+		c.log.Warn("RelayMute RPC failed",
+			slog.Int("target_world_id", int(req.TargetWorldId)),
+			slog.Uint64("username37", req.Username37),
+			slog.Any("err", err),
+		)
+	}
+}
+
+func (c *grpcFriendsClient) RelayKick(ctx context.Context, req *friendspb.RelayKickRequest) {
+	if _, err := c.client.RelayKick(ctx, req); err != nil {
+		c.log.Warn("RelayKick RPC failed",
+			slog.Int("target_world_id", int(req.TargetWorldId)),
+			slog.Uint64("username37", req.Username37),
+			slog.Any("err", err),
+		)
+	}
+}
+
+func (c *grpcFriendsClient) RelayShutdown(ctx context.Context, req *friendspb.RelayShutdownRequest) {
+	if _, err := c.client.RelayShutdown(ctx, req); err != nil {
+		c.log.Warn("RelayShutdown RPC failed",
+			slog.Int("target_world_id", int(req.TargetWorldId)),
+			slog.Any("err", err),
+		)
+	}
+}
+
+func (c *grpcFriendsClient) RelayBroadcast(ctx context.Context, req *friendspb.RelayBroadcastRequest) {
+	if _, err := c.client.RelayBroadcast(ctx, req); err != nil {
+		c.log.Warn("RelayBroadcast RPC failed",
+			slog.Int("target_world_id", int(req.TargetWorldId)),
+			slog.Any("err", err),
+		)
+	}
+}
+
+func (c *grpcFriendsClient) RelayTrack(ctx context.Context, req *friendspb.RelayTrackRequest) {
+	if _, err := c.client.RelayTrack(ctx, req); err != nil {
+		c.log.Warn("RelayTrack RPC failed",
+			slog.Int("target_world_id", int(req.TargetWorldId)),
+			slog.Uint64("username37", req.Username37),
+			slog.Any("err", err),
+		)
+	}
+}
+
+func (c *grpcFriendsClient) RelayReload(ctx context.Context, req *friendspb.RelayReloadRequest) {
+	if _, err := c.client.RelayReload(ctx, req); err != nil {
+		c.log.Warn("RelayReload RPC failed",
+			slog.Int("target_world_id", int(req.TargetWorldId)),
+			slog.Any("err", err),
+		)
+	}
+}
+
+func (c *grpcFriendsClient) RelayClearLogins(ctx context.Context, req *friendspb.RelayClearLoginsRequest) {
+	if _, err := c.client.RelayClearLogins(ctx, req); err != nil {
+		c.log.Warn("RelayClearLogins RPC failed",
+			slog.Int("target_world_id", int(req.TargetWorldId)),
+			slog.Any("err", err),
+		)
+	}
+}
+
+func (c *grpcFriendsClient) RelayClearLogouts(ctx context.Context, req *friendspb.RelayClearLogoutsRequest) {
+	if _, err := c.client.RelayClearLogouts(ctx, req); err != nil {
+		c.log.Warn("RelayClearLogouts RPC failed",
+			slog.Int("target_world_id", int(req.TargetWorldId)),
+			slog.Any("err", err),
+		)
+	}
+}
+
+func (c *grpcFriendsClient) RelayQueueScript(ctx context.Context, req *friendspb.RelayQueueScriptRequest) {
+	if _, err := c.client.RelayQueueScript(ctx, req); err != nil {
+		c.log.Warn("RelayQueueScript RPC failed",
+			slog.Int("target_world_id", int(req.TargetWorldId)),
+			slog.String("script_name", req.ScriptName),
+			slog.Uint64("username37", req.Username37),
+			slog.Any("err", err),
+		)
+	}
+}
+
+// SubscribeWorldEvents opens the server-streaming SubscribeWorldEvents
+// RPC. Like SubscribeUpdates, it returns the error so the supervisor
+// can drive reconnect backoff (NOT fire-and-forget).
+func (c *grpcFriendsClient) SubscribeWorldEvents(ctx context.Context, req *friendspb.SubscribeWorldEventsRequest) (friendspb.FriendsService_SubscribeWorldEventsClient, error) {
+	return c.client.SubscribeWorldEvents(ctx, req)
 }

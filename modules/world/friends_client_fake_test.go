@@ -33,6 +33,22 @@ type fakeFriendsClient struct {
 	lastStream    *fakeSubscribeStream
 	subscribeErr  error // one-shot error returned on next call; tests set to simulate dial failures
 
+	// --- slice 5a Relay* capture channels (cap-16 buffered; non-blocking) ---
+	relayMuteReqs         chan *friendspb.RelayMuteRequest
+	relayKickReqs         chan *friendspb.RelayKickRequest
+	relayShutdownReqs     chan *friendspb.RelayShutdownRequest
+	relayBroadcastReqs    chan *friendspb.RelayBroadcastRequest
+	relayTrackReqs        chan *friendspb.RelayTrackRequest
+	relayReloadReqs       chan *friendspb.RelayReloadRequest
+	relayClearLoginsReqs  chan *friendspb.RelayClearLoginsRequest
+	relayClearLogoutsReqs chan *friendspb.RelayClearLogoutsRequest
+	relayQueueScriptReqs  chan *friendspb.RelayQueueScriptRequest
+
+	// SubscribeWorldEvents state.
+	worldSubscribeReqs []*friendspb.SubscribeWorldEventsRequest
+	lastWorldStream    *fakeWorldEventsStream
+	worldSubscribeErr  error // one-shot
+
 	// playerLoginAccepted is the value passed to PlayerLogin's onResponse
 	// callback. Defaults to true; set false to simulate cap-rejection.
 	// Read under mu.
@@ -59,6 +75,16 @@ func newFakeFriendsClient() *fakeFriendsClient {
 		ignorelistDelReqs:   make(chan *friendspb.IgnorelistDelRequest, 16),
 		privateMessageReqs:  make(chan *friendspb.PrivateMessageRequest, 16),
 		playerLoginAccepted: true,
+
+		relayMuteReqs:         make(chan *friendspb.RelayMuteRequest, 16),
+		relayKickReqs:         make(chan *friendspb.RelayKickRequest, 16),
+		relayShutdownReqs:     make(chan *friendspb.RelayShutdownRequest, 16),
+		relayBroadcastReqs:    make(chan *friendspb.RelayBroadcastRequest, 16),
+		relayTrackReqs:        make(chan *friendspb.RelayTrackRequest, 16),
+		relayReloadReqs:       make(chan *friendspb.RelayReloadRequest, 16),
+		relayClearLoginsReqs:  make(chan *friendspb.RelayClearLoginsRequest, 16),
+		relayClearLogoutsReqs: make(chan *friendspb.RelayClearLogoutsRequest, 16),
+		relayQueueScriptReqs:  make(chan *friendspb.RelayQueueScriptRequest, 16),
 	}
 }
 
@@ -190,5 +216,101 @@ func (f *fakeFriendsClient) SubscribeUpdates(ctx context.Context, req *friendspb
 	s := newFakeSubscribeStream(ctx)
 	f.lastStream = s
 	f.subscribeReqs = append(f.subscribeReqs, req)
+	return s, nil
+}
+
+// --- slice 5a fakeFriendsClient impls ---
+
+func (f *fakeFriendsClient) RelayMute(ctx context.Context, req *friendspb.RelayMuteRequest) {
+	select {
+	case f.relayMuteReqs <- req:
+	default:
+	}
+}
+func (f *fakeFriendsClient) RelayKick(ctx context.Context, req *friendspb.RelayKickRequest) {
+	select {
+	case f.relayKickReqs <- req:
+	default:
+	}
+}
+func (f *fakeFriendsClient) RelayShutdown(ctx context.Context, req *friendspb.RelayShutdownRequest) {
+	select {
+	case f.relayShutdownReqs <- req:
+	default:
+	}
+}
+func (f *fakeFriendsClient) RelayBroadcast(ctx context.Context, req *friendspb.RelayBroadcastRequest) {
+	select {
+	case f.relayBroadcastReqs <- req:
+	default:
+	}
+}
+func (f *fakeFriendsClient) RelayTrack(ctx context.Context, req *friendspb.RelayTrackRequest) {
+	select {
+	case f.relayTrackReqs <- req:
+	default:
+	}
+}
+func (f *fakeFriendsClient) RelayReload(ctx context.Context, req *friendspb.RelayReloadRequest) {
+	select {
+	case f.relayReloadReqs <- req:
+	default:
+	}
+}
+func (f *fakeFriendsClient) RelayClearLogins(ctx context.Context, req *friendspb.RelayClearLoginsRequest) {
+	select {
+	case f.relayClearLoginsReqs <- req:
+	default:
+	}
+}
+func (f *fakeFriendsClient) RelayClearLogouts(ctx context.Context, req *friendspb.RelayClearLogoutsRequest) {
+	select {
+	case f.relayClearLogoutsReqs <- req:
+	default:
+	}
+}
+func (f *fakeFriendsClient) RelayQueueScript(ctx context.Context, req *friendspb.RelayQueueScriptRequest) {
+	select {
+	case f.relayQueueScriptReqs <- req:
+	default:
+	}
+}
+
+// fakeWorldEventsStream is the per-world counterpart to
+// fakeSubscribeStream. Tests push events onto recv; Recv drains.
+type fakeWorldEventsStream struct {
+	grpc.ClientStream
+	ctx  context.Context
+	recv chan *friendspb.WorldEvent
+}
+
+func newFakeWorldEventsStream(ctx context.Context) *fakeWorldEventsStream {
+	return &fakeWorldEventsStream{ctx: ctx, recv: make(chan *friendspb.WorldEvent, 16)}
+}
+
+func (s *fakeWorldEventsStream) Recv() (*friendspb.WorldEvent, error) {
+	select {
+	case ev, ok := <-s.recv:
+		if !ok {
+			return nil, io.EOF
+		}
+		return ev, nil
+	case <-s.ctx.Done():
+		return nil, s.ctx.Err()
+	}
+}
+func (s *fakeWorldEventsStream) Context() context.Context { return s.ctx }
+
+func (f *fakeFriendsClient) SubscribeWorldEvents(ctx context.Context, req *friendspb.SubscribeWorldEventsRequest) (friendspb.FriendsService_SubscribeWorldEventsClient, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.worldSubscribeErr != nil {
+		err := f.worldSubscribeErr
+		f.worldSubscribeErr = nil // one-shot
+		return nil, err
+	}
+	s := newFakeWorldEventsStream(ctx)
+	f.lastWorldStream = s
+	f.worldSubscribeReqs = append(f.worldSubscribeReqs, req)
 	return s, nil
 }

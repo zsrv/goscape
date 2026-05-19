@@ -3,6 +3,8 @@ package world
 import (
 	"context"
 	"errors"
+	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -225,6 +227,18 @@ type mockFriendsPBClient struct {
 	ignorelistDelFn  func(ctx context.Context, in *friendspb.IgnorelistDelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	privateMessageFn   func(ctx context.Context, in *friendspb.PrivateMessageRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	subscribeUpdatesFn func(ctx context.Context, in *friendspb.SubscribeUpdatesRequest, opts ...grpc.CallOption) (friendspb.FriendsService_SubscribeUpdatesClient, error)
+
+	// slice 5a Relay* outbound + SubscribeWorldEvents stream
+	relayMuteFn            func(ctx context.Context, in *friendspb.RelayMuteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	relayKickFn            func(ctx context.Context, in *friendspb.RelayKickRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	relayShutdownFn        func(ctx context.Context, in *friendspb.RelayShutdownRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	relayBroadcastFn       func(ctx context.Context, in *friendspb.RelayBroadcastRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	relayTrackFn           func(ctx context.Context, in *friendspb.RelayTrackRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	relayReloadFn          func(ctx context.Context, in *friendspb.RelayReloadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	relayClearLoginsFn     func(ctx context.Context, in *friendspb.RelayClearLoginsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	relayClearLogoutsFn    func(ctx context.Context, in *friendspb.RelayClearLogoutsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	relayQueueScriptFn     func(ctx context.Context, in *friendspb.RelayQueueScriptRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	subscribeWorldEventsFn func(ctx context.Context, in *friendspb.SubscribeWorldEventsRequest, opts ...grpc.CallOption) (friendspb.FriendsService_SubscribeWorldEventsClient, error)
 }
 
 func (m *mockFriendsPBClient) WorldConnect(ctx context.Context, in *friendspb.WorldConnectRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
@@ -257,6 +271,40 @@ func (m *mockFriendsPBClient) PrivateMessage(ctx context.Context, in *friendspb.
 func (m *mockFriendsPBClient) SubscribeUpdates(ctx context.Context, in *friendspb.SubscribeUpdatesRequest, opts ...grpc.CallOption) (friendspb.FriendsService_SubscribeUpdatesClient, error) {
 	if m.subscribeUpdatesFn != nil {
 		return m.subscribeUpdatesFn(ctx, in, opts...)
+	}
+	return nil, nil
+}
+
+func (m *mockFriendsPBClient) RelayMute(ctx context.Context, in *friendspb.RelayMuteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return m.relayMuteFn(ctx, in, opts...)
+}
+func (m *mockFriendsPBClient) RelayKick(ctx context.Context, in *friendspb.RelayKickRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return m.relayKickFn(ctx, in, opts...)
+}
+func (m *mockFriendsPBClient) RelayShutdown(ctx context.Context, in *friendspb.RelayShutdownRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return m.relayShutdownFn(ctx, in, opts...)
+}
+func (m *mockFriendsPBClient) RelayBroadcast(ctx context.Context, in *friendspb.RelayBroadcastRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return m.relayBroadcastFn(ctx, in, opts...)
+}
+func (m *mockFriendsPBClient) RelayTrack(ctx context.Context, in *friendspb.RelayTrackRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return m.relayTrackFn(ctx, in, opts...)
+}
+func (m *mockFriendsPBClient) RelayReload(ctx context.Context, in *friendspb.RelayReloadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return m.relayReloadFn(ctx, in, opts...)
+}
+func (m *mockFriendsPBClient) RelayClearLogins(ctx context.Context, in *friendspb.RelayClearLoginsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return m.relayClearLoginsFn(ctx, in, opts...)
+}
+func (m *mockFriendsPBClient) RelayClearLogouts(ctx context.Context, in *friendspb.RelayClearLogoutsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return m.relayClearLogoutsFn(ctx, in, opts...)
+}
+func (m *mockFriendsPBClient) RelayQueueScript(ctx context.Context, in *friendspb.RelayQueueScriptRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return m.relayQueueScriptFn(ctx, in, opts...)
+}
+func (m *mockFriendsPBClient) SubscribeWorldEvents(ctx context.Context, in *friendspb.SubscribeWorldEventsRequest, opts ...grpc.CallOption) (friendspb.FriendsService_SubscribeWorldEventsClient, error) {
+	if m.subscribeWorldEventsFn != nil {
+		return m.subscribeWorldEventsFn(ctx, in, opts...)
 	}
 	return nil, nil
 }
@@ -399,6 +447,95 @@ func TestGRPCFriendsClient_PlayerLogin_InvokesCallback(t *testing.T) {
 				}
 			case <-time.After(time.Second):
 				t.Fatal("timeout waiting for callback")
+			}
+		})
+	}
+}
+
+// erroringFriendsPBClient returns codes.Unavailable for every slice-5a
+// Relay* RPC. Used to exercise the production grpcFriendsClient's
+// error-logging branches across all 9 fire-and-forget admin RPCs.
+type erroringFriendsPBClient struct {
+	friendspb.FriendsServiceClient
+}
+
+func (erroringFriendsPBClient) RelayMute(context.Context, *friendspb.RelayMuteRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unavailable, "test")
+}
+func (erroringFriendsPBClient) RelayKick(context.Context, *friendspb.RelayKickRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unavailable, "test")
+}
+func (erroringFriendsPBClient) RelayShutdown(context.Context, *friendspb.RelayShutdownRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unavailable, "test")
+}
+func (erroringFriendsPBClient) RelayBroadcast(context.Context, *friendspb.RelayBroadcastRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unavailable, "test")
+}
+func (erroringFriendsPBClient) RelayTrack(context.Context, *friendspb.RelayTrackRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unavailable, "test")
+}
+func (erroringFriendsPBClient) RelayReload(context.Context, *friendspb.RelayReloadRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unavailable, "test")
+}
+func (erroringFriendsPBClient) RelayClearLogins(context.Context, *friendspb.RelayClearLoginsRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unavailable, "test")
+}
+func (erroringFriendsPBClient) RelayClearLogouts(context.Context, *friendspb.RelayClearLogoutsRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unavailable, "test")
+}
+func (erroringFriendsPBClient) RelayQueueScript(context.Context, *friendspb.RelayQueueScriptRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unavailable, "test")
+}
+
+// TestGRPCFriendsClient_Relay_LogsErrorOnFailure exercises each Relay*
+// RPC path under a forced-error gRPC client and asserts the production
+// fire-and-forget impl logs warn + swallows the error. Table-driven to
+// keep the 9 cases concise.
+func TestGRPCFriendsClient_Relay_LogsErrorOnFailure(t *testing.T) {
+	cases := []struct {
+		name string
+		op   string // substring expected in the warn log
+		call func(c *grpcFriendsClient, ctx context.Context)
+	}{
+		{"RelayMute", "RelayMute", func(c *grpcFriendsClient, ctx context.Context) {
+			c.RelayMute(ctx, &friendspb.RelayMuteRequest{TargetWorldId: 2, Username37: 1, MutedUntilMs: 0})
+		}},
+		{"RelayKick", "RelayKick", func(c *grpcFriendsClient, ctx context.Context) {
+			c.RelayKick(ctx, &friendspb.RelayKickRequest{TargetWorldId: 2, Username37: 1})
+		}},
+		{"RelayShutdown", "RelayShutdown", func(c *grpcFriendsClient, ctx context.Context) {
+			c.RelayShutdown(ctx, &friendspb.RelayShutdownRequest{TargetWorldId: 2, DurationTicks: 0})
+		}},
+		{"RelayBroadcast", "RelayBroadcast", func(c *grpcFriendsClient, ctx context.Context) {
+			c.RelayBroadcast(ctx, &friendspb.RelayBroadcastRequest{TargetWorldId: 2, Message: "x"})
+		}},
+		{"RelayTrack", "RelayTrack", func(c *grpcFriendsClient, ctx context.Context) {
+			c.RelayTrack(ctx, &friendspb.RelayTrackRequest{TargetWorldId: 2, Username37: 1, State: 0})
+		}},
+		{"RelayReload", "RelayReload", func(c *grpcFriendsClient, ctx context.Context) {
+			c.RelayReload(ctx, &friendspb.RelayReloadRequest{TargetWorldId: 2})
+		}},
+		{"RelayClearLogins", "RelayClearLogins", func(c *grpcFriendsClient, ctx context.Context) {
+			c.RelayClearLogins(ctx, &friendspb.RelayClearLoginsRequest{TargetWorldId: 2})
+		}},
+		{"RelayClearLogouts", "RelayClearLogouts", func(c *grpcFriendsClient, ctx context.Context) {
+			c.RelayClearLogouts(ctx, &friendspb.RelayClearLogoutsRequest{TargetWorldId: 2})
+		}},
+		{"RelayQueueScript", "RelayQueueScript", func(c *grpcFriendsClient, ctx context.Context) {
+			c.RelayQueueScript(ctx, &friendspb.RelayQueueScriptRequest{TargetWorldId: 2, ScriptName: "s", Username37: 1})
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			buf := &syncBuffer{}
+			log := slog.New(slog.NewTextHandler(buf, nil))
+			c := &grpcFriendsClient{
+				client: &erroringFriendsPBClient{},
+				log:    log,
+			}
+			tc.call(c, context.Background())
+			if !strings.Contains(buf.String(), tc.op+" RPC failed") {
+				t.Fatalf("log missing %q; got: %s", tc.op+" RPC failed", buf.String())
 			}
 		})
 	}
