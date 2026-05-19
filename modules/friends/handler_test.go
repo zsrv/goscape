@@ -557,3 +557,62 @@ func TestFriendlistAdd_AdderGetsTargetWorldAndFollowersBroadcast(t *testing.T) {
 	}
 }
 
+// TestPrivateMessage_DeliveredToRecipient pins slice 4b's contract:
+// the server's PrivateMessage RPC routes the message into the target's
+// open SubscribeUpdates stream as a PrivateMessageDelivery update.
+// Mirrors TS FriendServer.sendPrivateMessage (FriendServer.ts:480-497).
+func TestPrivateMessage_DeliveredToRecipient(t *testing.T) {
+	r, _ := newTestRepo(t)
+	log := noopLogger()
+	cfg := Config{NodeProfile: "main", WorldPlayerLimit: 100}
+	h := &handler{repo: r, subs: newSubscriptions(log), cfg: cfg, log: log}
+	r.InitializeWorld(1, 100)
+	r.Register(1, 200, 0, 0) // recipient online so the subscription can attach
+
+	// Recipient subscribes; drain initial empty snapshots.
+	stream := newTestStream(t)
+	errc := make(chan error, 1)
+	go func() {
+		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Username37: 200}, stream)
+	}()
+	t.Cleanup(func() {
+		stream.cancel()
+		<-errc
+	})
+	stream.recvWithin(t, 2*time.Second) // empty friendlist snapshot
+	stream.recvWithin(t, 2*time.Second) // empty ignorelist snapshot
+
+	// Sender (100) PMs recipient (200).
+	if _, err := h.PrivateMessage(t.Context(), &friendspb.PrivateMessageRequest{
+		WorldId:          1,
+		Username37:       100,
+		TargetUsername37: 200,
+		StaffLvl:         2,
+		PmId:             0xCAFEBABE,
+		Chat:             "hello",
+		Coord:            12345,
+	}); err != nil {
+		t.Fatalf("PrivateMessage: %v", err)
+	}
+
+	// Recipient's stream should see a PrivateMessageDelivery.
+	u := stream.recvWithin(t, 2*time.Second)
+	pm, ok := u.Update.(*friendspb.FriendsUpdate_PrivateMessage)
+	if !ok {
+		t.Fatalf("update = %T, want FriendsUpdate_PrivateMessage", u.Update)
+	}
+	got := pm.PrivateMessage
+	if got.FromUsername37 != 100 {
+		t.Errorf("FromUsername37 = %d, want 100", got.FromUsername37)
+	}
+	if got.StaffLvl != 2 {
+		t.Errorf("StaffLvl = %d, want 2", got.StaffLvl)
+	}
+	if got.PmId != 0xCAFEBABE {
+		t.Errorf("PmId = %#x, want 0xCAFEBABE", got.PmId)
+	}
+	if got.Chat != "hello" {
+		t.Errorf("Chat = %q, want %q", got.Chat, "hello")
+	}
+}
+
