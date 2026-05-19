@@ -16,9 +16,10 @@ import (
 // fakeFriendsClient (friends_client_fake_test.go).
 //
 // All RPCs except Close and SubscribeUpdates are fire-and-forget: errors
-// are logged via the embedded *slog.Logger and swallowed. The friends-server
-// is best-effort by design (slice 1's NAI-S1-D-PM-NO-DELIVERY etc.);
-// the world does not depend on its responses through slice 3.
+// are logged via the embedded *slog.Logger and swallowed. The friends-
+// server is best-effort by design — slice-1 and slice-2 deviation tags
+// (e.g. NAI-S2-D-PLAYERLOGOUT-BOTH-PATHS) document the posture; the
+// world does not depend on its responses.
 type FriendsClient interface {
 	WorldConnect(ctx context.Context, worldID int32, profile string)
 	PlayerLogin(ctx context.Context, req *friendspb.PlayerLoginRequest)
