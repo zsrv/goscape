@@ -1,5 +1,8 @@
+ARG GO_VERSION=1.26
+
 # https://hub.docker.com/_/golang
-FROM docker.io/golang:1.26.3 AS build
+FROM docker.io/golang:${GO_VERSION} AS build
+ARG IMAGE_TAG
 
 WORKDIR /go/src
 
@@ -10,8 +13,7 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 go build -trimpath -ldflags '-s -w' -o /go/bin/goscape     ./cmd/goscape
-RUN CGO_ENABLED=0 go build -trimpath -ldflags '-s -w' -o /go/bin/goscape-cli ./cmd/goscape-cli
+RUN make clean && make IMAGE_TAG=${IMAGE_TAG} goscape goscape-cli
 
 ## https://hub.docker.com/r/rockylinux/rockylinux
 #FROM docker.io/rockylinux/rockylinux:10.1.20251123
@@ -33,13 +35,13 @@ FROM gcr.io/distroless/static-debian13:debug-nonroot
 # Use numeric IDs for compatibility with runAsNonRoot in Kubernetes
 #USER 65532:65532
 
-COPY --from=build /go/bin/goscape     /goscape
-COPY --from=build /go/bin/goscape-cli /goscape-cli
+COPY --from=build /go/src/cmd/goscape/goscape /usr/bin/goscape
+COPY --from=build /go/src/cmd/goscape-cli/goscape-cli /usr/bin/goscape-cli
 
 # problem with entrypoint is we can't get a shell?
-ENTRYPOINT ["/goscape"]
+ENTRYPOINT ["/usr/bin/goscape"]
 # Place default goscape args in CMD
-#CMD ["/goscape"]
+#CMD ["--config.file=/etc/goscape/local-config.yaml"]
 
 # https://friday-go.icu/golang/Go-Containerization-Best-Practices-Docker-Optimization
 

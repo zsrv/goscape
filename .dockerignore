@@ -1,0 +1,15 @@
+# .dockerignore
+.git
+.gitignore
+.env
+.env.local
+*.md
+docs/
+tests/
+.github/
+.vscode/
+*.log
+tmp/
+vendor/
+.DS_Store
+.cache
