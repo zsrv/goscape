@@ -980,6 +980,10 @@ func (s *Server) removePlayerOnTick(p *Player) {
 			Username37: username37,
 		})
 	}
+	if p.friendsSubCancel != nil {
+		p.friendsSubCancel()
+		p.friendsSubCancel = nil
+	}
 	s.removePlayerInternal(p)
 }
 
@@ -1007,6 +1011,10 @@ func (s *Server) removePlayerOnDisconnect(p *Player) {
 			WorldId:    int32(s.cfg.NodeID),
 			Username37: p.username37,
 		})
+	}
+	if p.friendsSubCancel != nil {
+		p.friendsSubCancel()
+		p.friendsSubCancel = nil
 	}
 	s.removePlayerInternal(p)
 }
