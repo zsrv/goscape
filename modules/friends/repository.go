@@ -415,3 +415,21 @@ func (r *Repository) LogPrivateMessage(ctx context.Context, from, to uint64, coo
 	}
 	return nil
 }
+
+// LogPublicMessage appends one row to public_chat under r.profile.
+// Mirrors TS FriendServer.ts:286-297 — append-only, no dedupe, no
+// validation, no session_uuid existence check. Insert is the
+// synchronous gate for the PublicMessage RPC: a failure here returns
+// an error to the handler which surfaces codes.Internal to the caller,
+// matching the TS thrown-await pattern and slice 6's posture.
+func (r *Repository) LogPublicMessage(ctx context.Context, sessionUUID string, coord int32, message string) error {
+	_, err := r.db.ExecContext(ctx,
+		`INSERT INTO public_chat (profile, session_uuid, coord, message)
+		 VALUES (?, ?, ?, ?)`,
+		r.profile, sessionUUID, coord, message,
+	)
+	if err != nil {
+		return fmt.Errorf("LogPublicMessage: %w", err)
+	}
+	return nil
+}
