@@ -323,6 +323,7 @@ func newTestServer(t *testing.T) *Server {
 		gracefulExit:   make(chan struct{}),
 		rebuildReq:    make(chan struct{}, 1),
 		rebuildResult: make(chan rebuildResult, 1),
+		relayActionQueue: make(chan func(), 64),
 	}
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}

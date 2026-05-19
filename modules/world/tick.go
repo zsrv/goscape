@@ -48,6 +48,11 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		default:
 		}
 
+		// Slice 5b: drain inbound RELAY_* actions enqueued by the world
+		// events dispatcher BEFORE processShutdown so a same-tick
+		// RELAY_SHUTDOWN observes its own shutdownTick assignment.
+		s.drainRelayActions()
+
 		// NAI-182 — shutdown consumer must run BEFORE any per-tick work
 		// so a doomed conn doesn't receive one more tick of activity.
 		// Mirrors TS World.cycle (World.ts:419-420 `if (this.shutdown)

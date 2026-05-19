@@ -232,6 +232,15 @@ type Server struct {
 	// Mirrors the packFn/reloadFn seam pattern. Returns true to request
 	// a supervisor restart, false to exit cleanly.
 	watchSessionFn func() bool
+
+	// relayActionQueue carries closures enqueued by WorldStateOps
+	// methods (the impl of which lives on *Server, world_state_ops.go).
+	// Drained at the top of the tick loop body so all field mutations
+	// run on the tick goroutine — preserves single-writer semantics
+	// on Player state. Buffer 64; drop-newest on full per
+	// NAI-S5A-D-WORLDEVENTS-DROP-ON-FULL posture (slice 5b adopts the
+	// same posture client-side).
+	relayActionQueue chan func()
 }
 
 // appendNewPlayer queues a player for registration on the next tick.
@@ -274,6 +283,7 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 		gracefulExit:  make(chan struct{}),
 		rebuildReq:    make(chan struct{}, 1),
 		rebuildResult: make(chan rebuildResult, 1),
+		relayActionQueue: make(chan func(), 64),
 	}
 	s.packFn = packall.PackAll
 	s.reloadFn = s.Reload
