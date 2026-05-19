@@ -150,3 +150,102 @@ func (h *handler) PrivateMessage(_ context.Context, req *friendspb.PrivateMessag
 	)
 	return &emptypb.Empty{}, nil
 }
+
+// SubscribeUpdates streams server -> world friends updates for one
+// (worldId, username37) pair. Mirrors TS FriendServer's WebSocket-per-
+// world push channel, but proto-typed per (world, player). Sends initial
+// UPDATE_FRIENDLIST + UPDATE_IGNORELIST snapshots on attach, then drains
+// the subscriber's channel until the stream context or done signal.
+//
+// Replaces the slice-1 codes.Unimplemented stub.
+//
+// NAI-S4A-D-PERPLAYER-NOT-PERWORLD-STREAM — proto-baked architectural
+// choice; TS keeps one socket per world, goscape one stream per
+// (world, player). Permanent.
+func (h *handler) SubscribeUpdates(req *friendspb.SubscribeUpdatesRequest, stream friendspb.FriendsService_SubscribeUpdatesServer) error {
+	h.ensureWorld(req.WorldId)
+
+	sub := newSubscriber(req.WorldId, req.Username37)
+	h.subs.register(sub)
+	defer h.subs.deregister(sub)
+
+	ctx := stream.Context()
+
+	// Initial snapshots (TS FriendServer sendFriendsListToPlayer +
+	// sendIgnoreListToPlayer, FriendServer.ts:138-139, but on subscribe
+	// instead of login).
+	if err := h.sendInitialFriendlist(ctx, stream, req.Username37); err != nil {
+		return err
+	}
+	if err := h.sendInitialIgnorelist(ctx, stream, req.Username37); err != nil {
+		return err
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-sub.done:
+			return nil
+		case u := <-sub.ch:
+			if err := stream.Send(u); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+// sendInitialFriendlist mirrors TS sendFriendsListToPlayer
+// (FriendServer.ts:421-431). Builds one FriendlistUpdate containing
+// every friend with the friend's current world (0 if offline). Visibility
+// rules are applied via worldIfVisible (scalar IsVisibleTo per entry —
+// the broadcast hot path uses IsVisibleToMany instead).
+func (h *handler) sendInitialFriendlist(ctx context.Context, stream friendspb.FriendsService_SubscribeUpdatesServer, viewer uint64) error {
+	friends, err := h.repo.GetFriends(ctx, viewer)
+	if err != nil {
+		return status.Errorf(codes.Internal, "GetFriends: %v", err)
+	}
+	entries := make([]*friendspb.FriendEntry, 0, len(friends))
+	for _, f := range friends {
+		entries = append(entries, &friendspb.FriendEntry{
+			WorldId:    h.worldIfVisible(ctx, viewer, f),
+			Username37: f,
+		})
+	}
+	return stream.Send(&friendspb.FriendsUpdate{
+		Update: &friendspb.FriendsUpdate_Friendlist{
+			Friendlist: &friendspb.FriendlistUpdate{Entries: entries},
+		},
+	})
+}
+
+// sendInitialIgnorelist mirrors TS sendIgnoreListToPlayer
+// (FriendServer.ts:433-443).
+func (h *handler) sendInitialIgnorelist(ctx context.Context, stream friendspb.FriendsService_SubscribeUpdatesServer, viewer uint64) error {
+	ignores, err := h.repo.GetIgnores(ctx, viewer)
+	if err != nil {
+		return status.Errorf(codes.Internal, "GetIgnores: %v", err)
+	}
+	return stream.Send(&friendspb.FriendsUpdate{
+		Update: &friendspb.FriendsUpdate_Ignorelist{
+			Ignorelist: &friendspb.IgnorelistUpdate{Username37: ignores},
+		},
+	})
+}
+
+// worldIfVisible is the per-entry visibility helper used by initial
+// snapshots. For the broadcast hot path use IsVisibleToMany.
+func (h *handler) worldIfVisible(ctx context.Context, viewer, other uint64) int32 {
+	visible, err := h.repo.IsVisibleTo(ctx, viewer, other)
+	if err != nil {
+		h.log.Warn("IsVisibleTo failed; treating as not visible",
+			slog.Uint64("viewer", viewer),
+			slog.Uint64("other", other),
+			slog.Any("err", err))
+		return 0
+	}
+	if !visible {
+		return 0
+	}
+	return h.repo.GetWorld(other)
+}

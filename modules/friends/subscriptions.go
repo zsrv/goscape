@@ -76,6 +76,13 @@ func (s *subscriptions) deregister(sub *subscriber) {
 	}
 }
 
+// get returns the currently registered subscriber for username37, or nil.
+func (s *subscriptions) get(username37 uint64) *subscriber {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.by[username37]
+}
+
 // send pushes u to the subscriber for username37 (no-op if none).
 // Non-blocking; on full channel, logs warn and drops the update.
 func (s *subscriptions) send(username37 uint64, u *friendspb.FriendsUpdate) {
