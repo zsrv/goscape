@@ -620,3 +620,53 @@ func TestPrivateMessage_DeliveredToRecipient(t *testing.T) {
 	}
 }
 
+// TestPrivateMessage_CrossWorld pins that registry routing is keyed
+// solely by username37, so a PM from a sender on world 1 reaches a
+// recipient subscribed on world 20.
+func TestPrivateMessage_CrossWorld(t *testing.T) {
+	r, _ := newTestRepo(t)
+	log := noopLogger()
+	cfg := Config{NodeProfile: "main", WorldPlayerLimit: 100}
+	h := &handler{repo: r, subs: newSubscriptions(log), cfg: cfg, log: log}
+	r.InitializeWorld(1, 100)
+	r.InitializeWorld(20, 100)
+	r.Register(1, 100, 0, 0)  // sender on world 1
+	r.Register(20, 200, 0, 0) // recipient on world 20
+
+	stream := newTestStream(t)
+	errc := make(chan error, 1)
+	go func() {
+		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 20, Username37: 200}, stream)
+	}()
+	t.Cleanup(func() {
+		stream.cancel()
+		<-errc
+	})
+	stream.recvWithin(t, 2*time.Second) // empty friendlist snapshot
+	stream.recvWithin(t, 2*time.Second) // empty ignorelist snapshot
+
+	if _, err := h.PrivateMessage(t.Context(), &friendspb.PrivateMessageRequest{
+		WorldId:          1, // sender's world
+		Username37:       100,
+		TargetUsername37: 200,
+		StaffLvl:         0,
+		PmId:             0xDEADBEEF,
+		Chat:             "cross-world hi",
+		Coord:            0,
+	}); err != nil {
+		t.Fatalf("PrivateMessage: %v", err)
+	}
+
+	u := stream.recvWithin(t, 2*time.Second)
+	pm, ok := u.Update.(*friendspb.FriendsUpdate_PrivateMessage)
+	if !ok {
+		t.Fatalf("update = %T, want FriendsUpdate_PrivateMessage", u.Update)
+	}
+	if pm.PrivateMessage.PmId != 0xDEADBEEF {
+		t.Errorf("PmId = %#x, want 0xDEADBEEF", pm.PrivateMessage.PmId)
+	}
+	if pm.PrivateMessage.Chat != "cross-world hi" {
+		t.Errorf("Chat = %q, want %q", pm.PrivateMessage.Chat, "cross-world hi")
+	}
+}
+
