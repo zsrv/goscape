@@ -564,3 +564,104 @@ func TestFriendsClient_E2E_RelayWorldEventsRoundTrip(t *testing.T) {
 		t.Fatal("timeout waiting for broadcast on world A")
 	}
 }
+
+// TestFriendsClient_E2E_RelayShutdownAppliesAction pins the slice-5b
+// integration: a real friends-server fanouts RelayShutdown to a world
+// whose actionWorldEventsDispatcher routes through WorldStateOps to
+// *Server.rebootTimer — assert s.shutdownTick advances. Mirror for
+// RelayReload (asserts rebuildReq receives a value).
+func TestFriendsClient_E2E_RelayShutdownAppliesAction(t *testing.T) {
+	port := freePort(t)
+	cfg := friends.Config{
+		GRPCListenAddress:       "127.0.0.1",
+		GRPCListenPort:          port,
+		NodeProfile:             "main",
+		WorldPlayerLimit:        100,
+		Enable:                  true,
+		GracefulShutdownTimeout: 5 * time.Second,
+		SQLiteDSN:               filepath.Join(t.TempDir(), "friends.db"),
+	}
+	log := discardLogger()
+	svc, err := friends.New(cfg, log)
+	if err != nil {
+		t.Fatalf("friends.New: %v", err)
+	}
+	bootCtx, bootCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer bootCancel()
+	if err := svc.StartAsync(bootCtx); err != nil {
+		t.Fatalf("StartAsync: %v", err)
+	}
+	if err := svc.AwaitRunning(bootCtx); err != nil {
+		t.Fatalf("AwaitRunning: %v", err)
+	}
+	t.Cleanup(func() {
+		svc.StopAsync()
+		_ = svc.AwaitTerminated(context.Background())
+	})
+
+	addr := "127.0.0.1:" + strconv.Itoa(port)
+	client, err := NewFriendsClient(addr, log)
+	if err != nil {
+		t.Fatalf("NewFriendsClient: %v", err)
+	}
+	t.Cleanup(func() { _ = client.Close() })
+
+	// Build a test *Server (sans TCP) with the production action
+	// dispatcher wired against itself as WorldStateOps.
+	s := newTestServer(t)
+	s.currentTick = 100
+	inner := newSlogWorldEventsDispatcher(log)
+	dispatcher := newActionWorldEventsDispatcher(inner, s, log)
+	const targetWorldID = 7
+	sub := newWorldEventsSubscriber(client, targetWorldID, dispatcher, log)
+	subCtx, subCancel := context.WithCancel(context.Background())
+	subDone := make(chan struct{})
+	go func() { sub.run(subCtx); close(subDone) }()
+	defer func() {
+		subCancel()
+		<-subDone
+	}()
+
+	// Give the SubscribeWorldEvents stream a moment to register on the
+	// server's per-world subscriptions table. Slice-5a established that
+	// stream handshake completes within a few hundred ms; use a fixed
+	// settle wait rather than a probe loop (the action-routing chain
+	// makes a probe-based readiness check awkward — drainRelayActions
+	// has no visible side-effect on lookup-miss closures).
+	time.Sleep(300 * time.Millisecond)
+
+	// Issue RelayShutdown(duration=50) and assert shutdownTick advances.
+	wantTick := s.currentTick + 50
+	client.RelayShutdown(context.Background(), &friendspb.RelayShutdownRequest{
+		TargetWorldId: targetWorldID, DurationTicks: 50,
+	})
+
+	// Poll up to 2s for the closure to land + drain.
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		s.drainRelayActions()
+		if s.shutdownTick == wantTick {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if s.shutdownTick != wantTick {
+		t.Fatalf("shutdownTick after RelayShutdown: got %d, want %d", s.shutdownTick, wantTick)
+	}
+
+	// Issue RelayReload; assert rebuildReq receives.
+	client.RelayReload(context.Background(), &friendspb.RelayReloadRequest{TargetWorldId: targetWorldID})
+	deadline = time.Now().Add(2 * time.Second)
+	delivered := false
+	for time.Now().Before(deadline) && !delivered {
+		s.drainRelayActions()
+		select {
+		case <-s.rebuildReq:
+			delivered = true
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
+	if !delivered {
+		t.Fatal("rebuildReq did not receive after RelayReload + drain (NAI-S5B routing broken)")
+	}
+}
