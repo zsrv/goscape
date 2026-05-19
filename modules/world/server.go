@@ -161,10 +161,13 @@ type Server struct {
 	// NewServer; tests inject recordingBridges via installRecordingBridges.
 	// Real impls deferred per NAI-72-D-{FRIENDS-SERVER-BRIDGE,
 	// LOGIN-SERVER-BRIDGE-MOD, LOGGER-BRIDGE}.
-	friendsBridge     FriendsBridge
-	friendsDispatcher FriendsDispatcher
-	loginBridgeMod    LoginBridgeMod
-	loggerBridge      LoggerBridge
+	friendsBridge         FriendsBridge
+	friendsDispatcher     FriendsDispatcher
+	friendsAdminBridge    FriendsAdminBridge
+	worldEventsDispatcher WorldEventsDispatcher
+	worldEventsCancel     context.CancelFunc
+	loginBridgeMod        LoginBridgeMod
+	loggerBridge          LoggerBridge
 
 	// sessionLogs is the per-tick session-log accumulator. NAI-74. Pushed by
 	// Player.AddSessionLog; flushed via processSessionLogs in the tick loop.
@@ -277,6 +280,14 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	s.watchSessionFn = s.runWatchSession
 	s.friendsBridge = defaultFriendsBridge(friendsClient, int32(cfg.NodeID), s.log)
 	s.friendsDispatcher = newSlogFriendsDispatcher(s.log)
+	s.friendsAdminBridge = defaultFriendsAdminBridge(friendsClient, s.log)
+	s.worldEventsDispatcher = newSlogWorldEventsDispatcher(s.log)
+	if friendsClient != nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		s.worldEventsCancel = cancel
+		sub := newWorldEventsSubscriber(friendsClient, int32(cfg.NodeID), s.worldEventsDispatcher, s.log)
+		go sub.run(ctx)
+	}
 	s.loginBridgeMod = defaultLoginBridgeMod(loginClient, s.log)
 	s.loggerBridge = NewSlogLoggerBridge(s.log)
 	s.locOps = &serverLocOps{s: s}
@@ -535,6 +546,9 @@ func (s *Server) Stop() {
 // Shutdown will block until the TCP listener has stopped accepting new clients and
 // all handlers have returned.
 func (s *Server) Shutdown() {
+	if s.worldEventsCancel != nil {
+		s.worldEventsCancel()
+	}
 	close(s.quit)
 	s.log.Debug("closing tcp listener")
 	s.tcpListener.Close()
