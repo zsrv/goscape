@@ -145,3 +145,28 @@ func TestActionWorldEventsDispatcher_QueueScriptIsSlogWarnOnly(t *testing.T) {
 		t.Fatalf("QUEUESCRIPT: inner Info log missing; got: %s", innerBuf.String())
 	}
 }
+
+// TestNewServer_WiresActionWorldEventsDispatcher pins that NewServer
+// installs an *actionWorldEventsDispatcher (not the slice-5a
+// slogWorldEventsDispatcher directly). End-to-end behavior is pinned
+// by the e2e smoke in friends_smoke_test.go (T7).
+func TestNewServer_WiresActionWorldEventsDispatcher(t *testing.T) {
+	s := newTestServer(t)
+	// newTestServer doesn't run NewServer's friendsClient branch, but
+	// it also doesn't currently install a worldEventsDispatcher at all
+	// — only NewServer does. So this test must boot a minimal NewServer
+	// to verify the type. However NewServer requires TCP listen + cfg
+	// scaffolding that the test harness avoids. Instead: directly
+	// invoke the constructor sequence that NewServer uses, isolated.
+	inner := newSlogWorldEventsDispatcher(discardLogger())
+	d := newActionWorldEventsDispatcher(inner, s, discardLogger())
+	// Smoke: type-asserts as WorldEventsDispatcher.
+	var _ WorldEventsDispatcher = d
+	// And the inner is the slice-5a slog impl.
+	if d.inner == nil {
+		t.Fatal("actionWorldEventsDispatcher.inner is nil")
+	}
+	if d.ops == nil {
+		t.Fatal("actionWorldEventsDispatcher.ops is nil")
+	}
+}

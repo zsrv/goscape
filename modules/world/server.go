@@ -291,7 +291,11 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	s.friendsBridge = defaultFriendsBridge(friendsClient, int32(cfg.NodeID), s.log)
 	s.friendsDispatcher = newSlogFriendsDispatcher(s.log)
 	s.friendsAdminBridge = defaultFriendsAdminBridge(friendsClient, s.log)
-	s.worldEventsDispatcher = newSlogWorldEventsDispatcher(s.log)
+	// Slice 5b: production dispatcher composes the slice-5a slog
+	// dispatcher with WorldStateOps so each RELAY_* event both logs
+	// AND applies its world-state effect.
+	innerSlog := newSlogWorldEventsDispatcher(s.log)
+	s.worldEventsDispatcher = newActionWorldEventsDispatcher(innerSlog, s, s.log)
 	if friendsClient != nil {
 		ctx, cancel := context.WithCancel(context.Background())
 		s.worldEventsCancel = cancel
