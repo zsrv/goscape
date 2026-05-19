@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -370,5 +371,28 @@ func TestSetAccountMuted(t *testing.T) {
 	expected := until.Format(dbTimeFormat)
 	if mutedUntil.String != expected {
 		t.Errorf("muted_until: got %q, want %q", mutedUntil.String, expected)
+	}
+}
+
+// TestSessionUUIDCheckRejectsNonUUID pins the schema-level CHECK
+// constraint on session.session_uuid added by migration 000002.
+// Pre-migration, a raw INSERT with a non-UUID-shaped value succeeds
+// (no CHECK exists); post-migration, the same insert errors with a
+// CHECK constraint failure. Closes B3 from the post-friends-arc
+// cleanup batch.
+func TestSessionUUIDCheckRejectsNonUUID(t *testing.T) {
+	db := createTestDB(t)
+	accountID := insertTestAccount(t, db, "checkrejecttest", "pass")
+
+	_, err := db.ExecContext(t.Context(),
+		`INSERT INTO session (session_uuid, account_id, profile, world, uid, login_time, remote_address)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"not-a-uuid", accountID, "main", 0, 0, "2026-05-19T00:00:00Z", "127.0.0.1:1234",
+	)
+	if err == nil {
+		t.Fatalf("INSERT with non-UUID session_uuid succeeded; expected CHECK constraint failure")
+	}
+	if !strings.Contains(err.Error(), "CHECK") && !strings.Contains(err.Error(), "constraint") {
+		t.Errorf("error message did not mention CHECK or constraint: %v", err)
 	}
 }
