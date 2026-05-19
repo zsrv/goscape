@@ -109,7 +109,6 @@ func TestRepository_SetChatMode_UnknownPlayer_NoOp(t *testing.T) {
 }
 
 func TestRepository_AddFriend_Idempotent(t *testing.T) {
-	t.Skip("re-enabled in slice 3 task 6")
 	r, _ := newTestRepo(t)
 	ctx := t.Context()
 	if err := r.AddFriend(ctx, 0xAAAA, 0xBBBB); err != nil {
@@ -128,7 +127,6 @@ func TestRepository_AddFriend_Idempotent(t *testing.T) {
 }
 
 func TestRepository_DeleteFriend_AbsentNoOp(t *testing.T) {
-	t.Skip("re-enabled in slice 3 task 6")
 	r, _ := newTestRepo(t)
 	ctx := t.Context()
 	if err := r.DeleteFriend(ctx, 0xAAAA, 0xBBBB); err != nil {

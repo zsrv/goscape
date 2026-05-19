@@ -8,6 +8,7 @@ package friends
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"sync"
 )
 
@@ -141,19 +142,58 @@ func (r *Repository) GetChatMode(username37 uint64) int32 {
 	return 0
 }
 
-// AddFriend is wired in Task 6.
+// AddFriend adds target to owner's friend list. Idempotent: a duplicate
+// insert (same profile+owner+target PK) is silently ignored.
 func (r *Repository) AddFriend(ctx context.Context, owner, target uint64) error {
+	_, err := r.db.ExecContext(ctx,
+		`INSERT OR IGNORE INTO friendlist (profile, owner_username37, target_username37)
+		 VALUES (?, ?, ?)`,
+		r.profile, int64(owner), int64(target),
+	)
+	if err != nil {
+		return fmt.Errorf("AddFriend: %w", err)
+	}
 	return nil
 }
 
-// DeleteFriend is wired in Task 6.
+// DeleteFriend removes target from owner's friend list. No-op if the row
+// does not exist.
 func (r *Repository) DeleteFriend(ctx context.Context, owner, target uint64) error {
+	_, err := r.db.ExecContext(ctx,
+		`DELETE FROM friendlist
+		 WHERE profile = ? AND owner_username37 = ? AND target_username37 = ?`,
+		r.profile, int64(owner), int64(target),
+	)
+	if err != nil {
+		return fmt.Errorf("DeleteFriend: %w", err)
+	}
 	return nil
 }
 
-// GetFriends is wired in Task 6.
+// GetFriends returns all target_username37 values in owner's friend list.
 func (r *Repository) GetFriends(ctx context.Context, owner uint64) ([]uint64, error) {
-	return nil, nil
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT target_username37 FROM friendlist
+		 WHERE profile = ? AND owner_username37 = ?`,
+		r.profile, int64(owner),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("GetFriends: %w", err)
+	}
+	defer rows.Close()
+
+	var out []uint64
+	for rows.Next() {
+		var t int64
+		if err := rows.Scan(&t); err != nil {
+			return nil, fmt.Errorf("GetFriends scan: %w", err)
+		}
+		out = append(out, uint64(t))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("GetFriends rows: %w", err)
+	}
+	return out, nil
 }
 
 // AddIgnore is wired in Task 7.
