@@ -411,3 +411,156 @@ func TestFriendsClient_E2E_PlayerLoginCapRejected(t *testing.T) {
 		t.Fatal("timeout waiting for second PlayerLogin callback")
 	}
 }
+
+// TestFriendsClient_E2E_RelayWorldEventsRoundTrip boots a real
+// friends-server, opens two SubscribeWorldEvents streams (one per
+// world), issues Relay* RPCs cross-world from world A targeting world
+// B, and asserts the dispatcher on world B receives the events while
+// world A's dispatcher does NOT.
+//
+// Slice 5a e2e contract.
+func TestFriendsClient_E2E_RelayWorldEventsRoundTrip(t *testing.T) {
+	// Boot a real friends-server (inline; no shared harness in this file —
+	// follow the pattern from TestFriendsClient_E2E_SmokeAgainstFriendsServer).
+	port := freePort(t)
+	cfg := friends.Config{
+		GRPCListenAddress:       "127.0.0.1",
+		GRPCListenPort:          port,
+		NodeProfile:             "main",
+		WorldPlayerLimit:        100,
+		Enable:                  true,
+		GracefulShutdownTimeout: 5 * time.Second,
+		SQLiteDSN:               filepath.Join(t.TempDir(), "friends.db"),
+	}
+	log := discardLogger()
+	svc, err := friends.New(cfg, log)
+	if err != nil {
+		t.Fatalf("friends.New: %v", err)
+	}
+	bootCtx, bootCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer bootCancel()
+	if err := svc.StartAsync(bootCtx); err != nil {
+		t.Fatalf("StartAsync: %v", err)
+	}
+	if err := svc.AwaitRunning(bootCtx); err != nil {
+		t.Fatalf("AwaitRunning: %v", err)
+	}
+	t.Cleanup(func() {
+		svc.StopAsync()
+		_ = svc.AwaitTerminated(context.Background())
+	})
+
+	addr := "127.0.0.1:" + strconv.Itoa(port)
+	client, err := NewFriendsClient(addr, log)
+	if err != nil {
+		t.Fatalf("NewFriendsClient: %v", err)
+	}
+	t.Cleanup(func() { _ = client.Close() })
+
+	dispA := newRecordingWorldEventsDispatcher()
+	dispB := newRecordingWorldEventsDispatcher()
+
+	subA := newWorldEventsSubscriber(client, 1, dispA, log)
+	subB := newWorldEventsSubscriber(client, 2, dispB, log)
+
+	ctxA, cancelA := context.WithCancel(context.Background())
+	ctxB, cancelB := context.WithCancel(context.Background())
+	doneA := make(chan struct{})
+	doneB := make(chan struct{})
+	go func() { subA.run(ctxA); close(doneA) }()
+	go func() { subB.run(ctxB); close(doneB) }()
+	defer func() {
+		cancelA()
+		cancelB()
+		<-doneA
+		<-doneB
+	}()
+
+	// Give the streams a moment to register on the server side. The
+	// subscriber installs its registry entry as soon as
+	// SubscribeWorldEvents returns the stream; the RPC itself is
+	// asynchronous, so wait until both worlds appear in the registry.
+	// We can't observe the server's registry directly from the test, so
+	// poll via a probe Relay*: issue a no-target probe first and check
+	// for arrival.
+	//
+	// Simpler: issue RelayKick(target=2) and wait for dispB.kick. Retry
+	// up to 2s.
+	probeDelivered := false
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) && !probeDelivered {
+		client.RelayKick(context.Background(), &friendspb.RelayKickRequest{TargetWorldId: 2, Username37: 9999})
+		select {
+		case <-dispB.kick:
+			probeDelivered = true
+		case <-time.After(50 * time.Millisecond):
+			// retry
+		}
+	}
+	if !probeDelivered {
+		t.Fatal("timeout waiting for initial RelayKick probe to reach world B")
+	}
+
+	// Now issue cross-world events targeting world B and assert they arrive.
+	client.RelayMute(context.Background(), &friendspb.RelayMuteRequest{
+		TargetWorldId: 2, Username37: 123, MutedUntilMs: 4567,
+	})
+	select {
+	case got := <-dispB.mute:
+		if got.U != 123 || got.M != 4567 {
+			t.Fatalf("mute payload mismatch: %+v", got)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for mute on world B")
+	}
+
+	client.RelayShutdown(context.Background(), &friendspb.RelayShutdownRequest{
+		TargetWorldId: 2, DurationTicks: 50,
+	})
+	select {
+	case d := <-dispB.shutdown:
+		if d != 50 {
+			t.Fatalf("shutdown = %d", d)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for shutdown on world B")
+	}
+
+	client.RelayReload(context.Background(), &friendspb.RelayReloadRequest{TargetWorldId: 2})
+	select {
+	case <-dispB.reload:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for reload on world B")
+	}
+
+	// World A's dispatcher must NOT have received any of the events
+	// directed at world B.
+	select {
+	case got := <-dispA.mute:
+		t.Fatalf("world A unexpectedly received mute: %+v", got)
+	default:
+	}
+	select {
+	case d := <-dispA.shutdown:
+		t.Fatalf("world A unexpectedly received shutdown: %d", d)
+	default:
+	}
+	select {
+	case <-dispA.reload:
+		t.Fatal("world A unexpectedly received reload")
+	default:
+	}
+
+	// Cross-direction sanity: target world A → arrives on world A.
+	client.RelayBroadcast(context.Background(), &friendspb.RelayBroadcastRequest{
+		TargetWorldId: 1, Message: "hello-A",
+	})
+	select {
+	case msg := <-dispA.broadcast:
+		if msg != "hello-A" {
+			t.Fatalf("broadcast on A = %q, want %q", msg, "hello-A")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for broadcast on world A")
+	}
+}
