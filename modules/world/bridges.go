@@ -72,8 +72,12 @@ type LoggerBridge interface {
 // connection) is gated on NAI-182-D5 (the "social cluster"
 // ServerGameProt deferral noted at tick.go:226).
 //
-// NAI-S4A-D-NO-INGAME-PACKET-EMIT — retires when NAI-182-D5 retires
-// and the dispatcher is wired through to player.write(...).
+// NAI-S4A-D-NO-INGAME-PACKET-EMIT — friendlist/ignorelist methods;
+//   retires when NAI-182-D5 retires and OnFriendlistUpdate /
+//   OnIgnorelistUpdate are wired through to player.write(...).
+// NAI-S4B-D-NO-INGAME-PM-EMIT — OnPrivateMessage; retires when
+//   NAI-182-D5 retires and the dispatcher is wired through to
+//   player.write(MessagePrivate{...}) per TS World.ts:2000.
 type FriendsDispatcher interface {
 	OnFriendlistUpdate(viewer uint64, entries []*friendspb.FriendEntry)
 	OnIgnorelistUpdate(viewer uint64, ignored []uint64)
@@ -103,6 +107,15 @@ func (d *slogFriendsDispatcher) OnIgnorelistUpdate(viewer uint64, ignored []uint
 		slog.Int("ignored", len(ignored)))
 }
 
+// OnPrivateMessage logs the inbound PM at Debug. The MESSAGE_PRIVATE
+// ServerGameProt packet write to player.client (mirroring TS
+// World.ts:2000 `player.write(new MessagePrivate(...))`) is gated on
+// NAI-182-D5 (social-cluster ServerGameProt port) — see
+// NAI-S4A-D-NO-INGAME-PACKET-EMIT on the interface for the parallel
+// friendlist/ignorelist gating.
+//
+// NAI-S4B-D-NO-INGAME-PM-EMIT — retires when NAI-182-D5 retires and
+// the dispatcher is wired through to player.write(MessagePrivate{...}).
 func (d *slogFriendsDispatcher) OnPrivateMessage(target uint64, from uint64, staffLvl int32, pmId uint32, chat string) {
 	d.log.Debug("friends dispatch: private message",
 		slog.Uint64("target", target),
