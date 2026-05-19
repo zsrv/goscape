@@ -12,6 +12,8 @@ import (
 
 	"github.com/zsrv/goscape/modules/friends"
 	"github.com/zsrv/goscape/pkg/friendspb"
+
+	_ "modernc.org/sqlite"
 )
 
 // freePort opens an ephemeral listener, captures its port, and closes
