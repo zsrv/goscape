@@ -13,13 +13,15 @@ import (
 // configured with NodeProfile="main" and WorldPlayerLimit=10.
 func newTestHandler(t *testing.T) *handler {
 	t.Helper()
+	log := noopLogger()
 	return &handler{
 		repo: NewRepository(createTestDB(t), "test"),
+		subs: newSubscriptions(log),
 		cfg: Config{
 			NodeProfile:      "main",
 			WorldPlayerLimit: 10,
 		},
-		log: noopLogger(),
+		log: log,
 	}
 }
 

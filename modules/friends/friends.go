@@ -20,6 +20,7 @@ type Friends struct {
 
 	db   *sql.DB
 	repo *Repository
+	subs *subscriptions
 	srv  *grpcServer
 	lis  net.Listener
 }
@@ -45,7 +46,8 @@ func (f *Friends) starting(_ context.Context) error {
 		return fmt.Errorf("open friends db: %w", err)
 	}
 	repo := NewRepository(db, f.cfg.NodeProfile)
-	srv := newGRPCServer(f.cfg, repo, f.log)
+	subs := newSubscriptions(f.log)
+	srv := newGRPCServer(f.cfg, repo, subs, f.log)
 	lis, err := srv.listen(f.cfg)
 	if err != nil {
 		db.Close()
@@ -53,6 +55,7 @@ func (f *Friends) starting(_ context.Context) error {
 	}
 	f.db = db
 	f.repo = repo
+	f.subs = subs
 	f.srv = srv
 	f.lis = lis
 	return nil

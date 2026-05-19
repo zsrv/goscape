@@ -16,6 +16,7 @@ type handler struct {
 	friendspb.UnimplementedFriendsServiceServer
 
 	repo *Repository
+	subs *subscriptions
 	cfg  Config
 	log  *slog.Logger
 }
