@@ -432,6 +432,11 @@ func (h *handler) RelayQueueScript(_ context.Context, req *friendspb.RelayQueueS
 // (matches slice 6 PrivateMessage posture and FRIENDLIST/IGNORELIST
 // mutation handlers).
 //
+// Note: req.WorldId is intentionally unread and h.ensureWorld is
+// intentionally NOT called here — the row is keyed solely by
+// session_uuid and no world-state is consulted. WorldId stays on the
+// wire as a routing/envelope field only, matching TS.
+//
 // Retires NAI-S6-D-PUBLIC-CHAT-DEFERRED.
 func (h *handler) PublicMessage(ctx context.Context, req *friendspb.PublicMessageRequest) (*emptypb.Empty, error) {
 	if err := h.repo.LogPublicMessage(ctx, req.SessionUuid, req.Coord, req.Chat); err != nil {
