@@ -178,7 +178,6 @@ func TestRepository_DeleteIgnore_Removes(t *testing.T) {
 }
 
 func TestRepository_GetFollowers_TraversesCorrectly(t *testing.T) {
-	t.Skip("re-enabled in slice 3 task 8")
 	r, _ := newTestRepo(t)
 	ctx := t.Context()
 	if err := r.AddFriend(ctx, 0xAAAA, 0xBBBB); err != nil {
@@ -202,7 +201,6 @@ func TestRepository_GetFollowers_TraversesCorrectly(t *testing.T) {
 }
 
 func TestRepository_GetFollowers_NoFollowers_Nil(t *testing.T) {
-	t.Skip("re-enabled in slice 3 task 8")
 	r, _ := newTestRepo(t)
 	got, err := r.GetFollowers(t.Context(), 0xBBBB)
 	if err != nil {
@@ -214,7 +212,6 @@ func TestRepository_GetFollowers_NoFollowers_Nil(t *testing.T) {
 }
 
 func TestRepository_IsVisibleTo_ChatModeOn_Always(t *testing.T) {
-	t.Skip("re-enabled in slice 3 task 8")
 	r, _ := newTestRepo(t)
 	r.InitializeWorld(1, 10)
 	r.Register(1, 0xAAAA, 0, 0) // privateChat=ON
@@ -228,7 +225,6 @@ func TestRepository_IsVisibleTo_ChatModeOn_Always(t *testing.T) {
 }
 
 func TestRepository_IsVisibleTo_ChatModeOff_Never(t *testing.T) {
-	t.Skip("re-enabled in slice 3 task 8")
 	r, _ := newTestRepo(t)
 	ctx := t.Context()
 	r.InitializeWorld(1, 10)
@@ -246,7 +242,6 @@ func TestRepository_IsVisibleTo_ChatModeOff_Never(t *testing.T) {
 }
 
 func TestRepository_IsVisibleTo_ChatModeFriends_OnlyFriends(t *testing.T) {
-	t.Skip("re-enabled in slice 3 task 8")
 	r, _ := newTestRepo(t)
 	ctx := t.Context()
 	r.InitializeWorld(1, 10)
@@ -271,7 +266,6 @@ func TestRepository_IsVisibleTo_ChatModeFriends_OnlyFriends(t *testing.T) {
 }
 
 func TestRepository_IsVisibleTo_UnknownPlayer_NotVisible(t *testing.T) {
-	t.Skip("re-enabled in slice 3 task 8")
 	r, _ := newTestRepo(t)
 	visible, err := r.IsVisibleTo(t.Context(), 0xBBBB, 0xDEADBEEF)
 	if err != nil {
@@ -283,7 +277,6 @@ func TestRepository_IsVisibleTo_UnknownPlayer_NotVisible(t *testing.T) {
 }
 
 func TestRepository_Concurrent_RaceClean(t *testing.T) {
-	t.Skip("re-enabled in slice 3 task 8")
 	r, _ := newTestRepo(t)
 	r.InitializeWorld(1, 10000)
 	ctx := t.Context()

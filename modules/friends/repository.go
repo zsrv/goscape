@@ -245,15 +245,71 @@ func (r *Repository) GetIgnores(ctx context.Context, owner uint64) ([]uint64, er
 	return out, nil
 }
 
-// GetFollowers is wired in Task 8.
+// GetFollowers returns the username37s of all players who have target in their
+// friend list. Uses the idx_friendlist_target index for O(log n) lookup.
 //
 // NAI-S1-D-NO-FOLLOWER-BROADCAST — handlers don't call this in slice 1.
 // Retired by slice 4.
 func (r *Repository) GetFollowers(ctx context.Context, target uint64) ([]uint64, error) {
-	return nil, nil
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT owner_username37 FROM friendlist
+		 WHERE profile = ? AND target_username37 = ?`,
+		r.profile, int64(target),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("GetFollowers: %w", err)
+	}
+	defer rows.Close()
+
+	var out []uint64
+	for rows.Next() {
+		var o int64
+		if err := rows.Scan(&o); err != nil {
+			return nil, fmt.Errorf("GetFollowers scan: %w", err)
+		}
+		out = append(out, uint64(o))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("GetFollowers rows: %w", err)
+	}
+	return out, nil
 }
 
-// IsVisibleTo is wired in Task 8.
+// IsVisibleTo applies TS visibility rules:
+//
+//	other.privateChat 0 (ON)      -> always visible
+//	other.privateChat 1 (FRIENDS) -> visible only if viewer is in other's friend set
+//	other.privateChat 2 (OFF)     -> never visible
+//
+// If other is not registered (no presence row), returns (false, nil).
+//
+// Locking discipline: r.mu is released before any SQL call to avoid holding
+// the in-memory mutex across I/O.
 func (r *Repository) IsVisibleTo(ctx context.Context, viewer, other uint64) (bool, error) {
-	return false, nil
+	r.mu.RLock()
+	ps, ok := r.players[other]
+	if !ok {
+		r.mu.RUnlock()
+		return false, nil
+	}
+	mode := ps.privateChat
+	r.mu.RUnlock()
+
+	switch mode {
+	case 0: // ON
+		return true, nil
+	case 1: // FRIENDS
+		var count int
+		err := r.db.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM friendlist
+			 WHERE profile = ? AND owner_username37 = ? AND target_username37 = ?`,
+			r.profile, int64(other), int64(viewer),
+		).Scan(&count)
+		if err != nil {
+			return false, fmt.Errorf("IsVisibleTo: %w", err)
+		}
+		return count > 0, nil
+	default: // OFF or unknown
+		return false, nil
+	}
 }
