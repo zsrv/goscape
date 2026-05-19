@@ -165,6 +165,41 @@ type WorldEventsDispatcher interface {
 	OnQueueScript(scriptName string, username37 uint64)
 }
 
+// WorldStateOps is the world-side action surface invoked by
+// actionWorldEventsDispatcher on inbound RELAY_* events. *Server
+// implements it (world_state_ops.go). Tests bind recordingWorldStateOps.
+//
+// Methods correspond 1:1 to wired RELAY_* opcodes. QUEUESCRIPT is NOT
+// on this interface — it stays slog-warn behind
+// NAI-S5B-D-NO-RUNESCRIPT-RUNTIME until the runscript runtime can
+// resolve [queue,<name>] triggers.
+//
+// All methods are safe to call from any goroutine. Production *Server
+// impls enqueue a closure on relayActionQueue and return immediately;
+// the tick goroutine drains the queue at the top of each iteration
+// (see Server.drainRelayActions in world_state_ops.go).
+//
+// Plan deviation: the spec/plan named the shutdown/reload methods
+// `Shutdown` and `Reload`. Both names already exist on *Server
+// (Shutdown() = full TCP teardown; Reload(clearInvs bool) error =
+// content reload). To avoid Go method-name collision, both methods
+// here carry the `Relay` prefix matching the originating RPC opcode.
+// The other six methods kept their plan-named identifiers (no
+// existing-*Server conflict).
+type WorldStateOps interface {
+	SetPlayerMute(username37 uint64, mutedUntilMs int64)
+	KickPlayer(username37 uint64)
+	RelayShutdown(durationTicks int32)
+	BroadcastMessage(message string)
+	SetPlayerInputTracking(username37 uint64, state int32)
+	RelayReload()
+	ClearLogins()
+	// ClearLogouts is a tagged no-op: goscape has no logout-request
+	// queue analogous to TS's World.logoutRequests. See
+	// NAI-S5B-D-CLEARLOGOUTS-NO-GOSCAPE-QUEUE (slice 5b spec §6.4).
+	ClearLogouts()
+}
+
 // slogWorldEventsDispatcher is the default WorldEventsDispatcher. Logs
 // each event at Info; does NOT apply world-state effects. See
 // NAI-S5A-D-DISPATCHER-NO-ACTION above.
