@@ -38,7 +38,7 @@ func NewFriendsService(cfg Config, logger *slog.Logger) (services.Service, error
 }
 
 func (f *Friends) starting(_ context.Context) error {
-	repo := NewRepository()
+	repo := NewRepository(nil, "") // TODO(slice3 task 11): real DB
 	srv := newGRPCServer(f.cfg, repo, f.log)
 	lis, err := srv.listen(f.cfg)
 	if err != nil {

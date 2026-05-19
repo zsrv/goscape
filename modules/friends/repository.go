@@ -5,17 +5,22 @@
 // NAI-S1-D-INMEMORY-REPO — state is lost on restart. Retired by slice 3.
 package friends
 
-import "sync"
+import (
+	"context"
+	"database/sql"
+	"sync"
+)
 
-// Repository is the in-memory friend/ignore/presence store. All methods
-// are safe for concurrent use; a single sync.RWMutex guards every map.
-// No I/O happens inside critical sections.
+// Repository is the friends/ignores/presence store. Presence (worlds,
+// players, privateChat, staffLvl) lives in-memory and is guarded by mu.
+// Friends and ignores persist to SQLite via db. profile scopes every
+// SQL operation, mirroring the TS FriendServerRepository(profile) ctor.
 type Repository struct {
 	mu      sync.RWMutex
+	db      *sql.DB
+	profile string
 	worlds  map[int32]*worldState
 	players map[uint64]*playerState
-	friends map[uint64]map[uint64]struct{}
-	ignores map[uint64]map[uint64]struct{}
 }
 
 type worldState struct {
@@ -32,12 +37,12 @@ type playerState struct {
 	staffLvl    int32
 }
 
-func NewRepository() *Repository {
+func NewRepository(db *sql.DB, profile string) *Repository {
 	return &Repository{
+		db:      db,
+		profile: profile,
 		worlds:  make(map[int32]*worldState),
 		players: make(map[uint64]*playerState),
-		friends: make(map[uint64]map[uint64]struct{}),
-		ignores: make(map[uint64]map[uint64]struct{}),
 	}
 }
 
@@ -136,124 +141,45 @@ func (r *Repository) GetChatMode(username37 uint64) int32 {
 	return 0
 }
 
-// AddFriend adds target to username37's friend set. Idempotent.
-func (r *Repository) AddFriend(username37, target uint64) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	set, ok := r.friends[username37]
-	if !ok {
-		set = make(map[uint64]struct{})
-		r.friends[username37] = set
-	}
-	set[target] = struct{}{}
+// AddFriend is wired in Task 6.
+func (r *Repository) AddFriend(ctx context.Context, owner, target uint64) error {
+	return nil
 }
 
-// DeleteFriend removes target from username37's friend set. No-op if absent.
-func (r *Repository) DeleteFriend(username37, target uint64) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if set, ok := r.friends[username37]; ok {
-		delete(set, target)
-	}
+// DeleteFriend is wired in Task 6.
+func (r *Repository) DeleteFriend(ctx context.Context, owner, target uint64) error {
+	return nil
 }
 
-// AddIgnore adds target to username37's ignore set. Idempotent.
-func (r *Repository) AddIgnore(username37, target uint64) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	set, ok := r.ignores[username37]
-	if !ok {
-		set = make(map[uint64]struct{})
-		r.ignores[username37] = set
-	}
-	set[target] = struct{}{}
+// GetFriends is wired in Task 6.
+func (r *Repository) GetFriends(ctx context.Context, owner uint64) ([]uint64, error) {
+	return nil, nil
 }
 
-// DeleteIgnore removes target from username37's ignore set. No-op if absent.
-func (r *Repository) DeleteIgnore(username37, target uint64) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if set, ok := r.ignores[username37]; ok {
-		delete(set, target)
-	}
+// AddIgnore is wired in Task 7.
+func (r *Repository) AddIgnore(ctx context.Context, owner, target uint64) error {
+	return nil
 }
 
-// GetFriends returns a copy of the player's friend set in unspecified order.
-// Returns nil if the player has no friends.
-func (r *Repository) GetFriends(username37 uint64) []uint64 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	set, ok := r.friends[username37]
-	if !ok || len(set) == 0 {
-		return nil
-	}
-	out := make([]uint64, 0, len(set))
-	for u := range set {
-		out = append(out, u)
-	}
-	return out
+// DeleteIgnore is wired in Task 7.
+func (r *Repository) DeleteIgnore(ctx context.Context, owner, target uint64) error {
+	return nil
 }
 
-// GetIgnores returns a copy of the player's ignore set in unspecified order.
-// Returns nil if the player has no ignores.
-func (r *Repository) GetIgnores(username37 uint64) []uint64 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	set, ok := r.ignores[username37]
-	if !ok || len(set) == 0 {
-		return nil
-	}
-	out := make([]uint64, 0, len(set))
-	for u := range set {
-		out = append(out, u)
-	}
-	return out
+// GetIgnores is wired in Task 7.
+func (r *Repository) GetIgnores(ctx context.Context, owner uint64) ([]uint64, error) {
+	return nil, nil
 }
 
-// GetFollowers returns every username that has target in their friend set.
-// O(n) scan over the friends map; acceptable for slice 1 since slice 4 is
-// the only consumer (broadcastWorldToFollowers fan-out) and it doesn't
-// ship yet.
+// GetFollowers is wired in Task 8.
 //
 // NAI-S1-D-NO-FOLLOWER-BROADCAST — handlers don't call this in slice 1.
 // Retired by slice 4.
-func (r *Repository) GetFollowers(target uint64) []uint64 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	var out []uint64
-	for follower, set := range r.friends {
-		if _, ok := set[target]; ok {
-			out = append(out, follower)
-		}
-	}
-	return out
+func (r *Repository) GetFollowers(ctx context.Context, target uint64) ([]uint64, error) {
+	return nil, nil
 }
 
-// IsVisibleTo applies TS visibility rules
-// (FriendServerRepository.ts isVisibleTo):
-//
-//	other.privateChat 0 (ON)      -> always visible
-//	other.privateChat 1 (FRIENDS) -> visible only if viewer is in other's friend set
-//	other.privateChat 2 (OFF)     -> never visible
-//
-// If other is not registered, returns false.
-func (r *Repository) IsVisibleTo(viewer, other uint64) bool {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	ps, ok := r.players[other]
-	if !ok {
-		return false
-	}
-	switch ps.privateChat {
-	case 0: // ON
-		return true
-	case 1: // FRIENDS
-		if set, ok := r.friends[other]; ok {
-			_, isFriend := set[viewer]
-			return isFriend
-		}
-		return false
-	default: // OFF or unknown
-		return false
-	}
+// IsVisibleTo is wired in Task 8.
+func (r *Repository) IsVisibleTo(ctx context.Context, viewer, other uint64) (bool, error) {
+	return false, nil
 }
