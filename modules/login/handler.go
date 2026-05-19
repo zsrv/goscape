@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -65,6 +66,13 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 		}, nil
 	}
 	defer h.loginRequests.Delete(req.Username)
+
+	// Per-login UUID. Used for the session-table insert and stamped on
+	// every positive response so the world can assign Player.session =
+	// <uuid>. Mirrors TS crypto.randomUUID(). Slice 7 of friends-server
+	// bridge arc; retires the UUID half of NAI-72-D-LOGIN-SERVER-BRIDGE-MOD
+	// (ban/mute half retired by NAI-214).
+	sessionUUID := uuid.NewString()
 
 	// 2. IP ban check.
 	ip := extractIP(req.RemoteAddress)
@@ -120,7 +128,7 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 	if account.BannedUntil.Valid {
 		if t, err := time.Parse(dbTimeFormat, account.BannedUntil.String); err == nil {
 			if time.Now().Before(t) {
-				return buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_ACCOUNT_DISABLED, account, nil), nil
+				return buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_ACCOUNT_DISABLED, account, nil, sessionUUID), nil
 			}
 		}
 	}
@@ -133,7 +141,7 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 			}
 			account.Members = 1
 		} else {
-			return buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_NOT_A_MEMBER, account, nil), nil
+			return buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_NOT_A_MEMBER, account, nil, sessionUUID), nil
 		}
 	}
 
@@ -141,7 +149,7 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 	reconnect := false
 	if account.HasLoginRow && account.LoggedIn == 1 {
 		if account.NodeID != int(req.NodeId) {
-			return buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_ALREADY_LOGGED_IN, account, nil), nil
+			return buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_ALREADY_LOGGED_IN, account, nil, sessionUUID), nil
 		}
 		// Same node: this is a reconnect if the client indicates it.
 		if req.Reconnecting && req.HasSave {
@@ -151,11 +159,11 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 
 	// 9. Reconnect short-circuits — no session insert, no save read, no login-row upsert.
 	if reconnect {
-		return buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_RECONNECT_OK, account, nil), nil
+		return buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_RECONNECT_OK, account, nil, sessionUUID), nil
 	}
 
 	// 8. Record session (store the extracted IP for consistency with ipBanned lookups).
-	if err := insertSession(ctx, h.db, req.Socket, account.ID, req.Profile, int(req.NodeId), int(req.Uid), ip); err != nil {
+	if err := insertSession(ctx, h.db, sessionUUID, account.ID, req.Profile, int(req.NodeId), int(req.Uid), ip); err != nil {
 		return nil, status.Errorf(codes.Internal, "insertSession: %v", err)
 	}
 
@@ -177,7 +185,7 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 		return nil, status.Errorf(codes.Internal, "upsertAccountLogin: %v", err)
 	}
 
-	return buildLoginResponse(result, account, saveBytes), nil
+	return buildLoginResponse(result, account, saveBytes, sessionUUID), nil
 }
 
 // PlayerLogout writes the final save blob to disk and marks the account as logged out.
@@ -274,12 +282,13 @@ func writeSave(basePath, profile, username string, save []byte) error {
 }
 
 // buildLoginResponse constructs a PlayerLoginResponse with account-derived fields populated.
-func buildLoginResponse(result loginpb.LoginResult, account *accountRow, save []byte) *loginpb.PlayerLoginResponse {
+func buildLoginResponse(result loginpb.LoginResult, account *accountRow, save []byte, sessionUUID string) *loginpb.PlayerLoginResponse {
 	resp := &loginpb.PlayerLoginResponse{
 		Result:        result,
 		AccountId:     int32(account.ID),
 		StaffModLevel: int32(account.StaffModLevel),
 		Members:       account.Members == 1,
+		SessionUuid:   sessionUUID,
 	}
 	if len(save) > 0 {
 		resp.Save = save

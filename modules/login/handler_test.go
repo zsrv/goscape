@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -492,4 +493,196 @@ func TestPlayerAutosave(t *testing.T) {
 	if string(got) != string(saveBytes) {
 		t.Errorf("save: got %q, want %q", got, saveBytes)
 	}
+}
+
+// TestPlayerLogin_SessionUUID_FormatOnAccept pins that every positive
+// PlayerLogin response carries a valid UUID v4 in SessionUuid. Slice 7.
+func TestPlayerLogin_SessionUUID_FormatOnAccept(t *testing.T) {
+	h, _ := newTestHandler(t)
+
+	resp, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId:        1,
+		Profile:       "main",
+		NodeMembers:   true,
+		Username:      "uuidplayer",
+		Password:      "pw",
+		Uid:           42,
+		Socket:        "ignored",
+		RemoteAddress: "192.168.1.1:12345",
+	})
+	if err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+	if resp.SessionUuid == "" {
+		t.Fatal("SessionUuid: got empty, want a UUID v4")
+	}
+	u, err := uuid.Parse(resp.SessionUuid)
+	if err != nil {
+		t.Fatalf("uuid.Parse(%q): %v", resp.SessionUuid, err)
+	}
+	if u.Version() != 4 {
+		t.Errorf("uuid version: got %d, want 4", u.Version())
+	}
+}
+
+// TestPlayerLogin_SessionUUID_PersistedInDB pins that the SessionUuid
+// returned in the PlayerLoginResponse is the same value that lands in
+// the `session` table's session_uuid column. Slice 7.
+func TestPlayerLogin_SessionUUID_PersistedInDB(t *testing.T) {
+	h, _ := newTestHandler(t)
+
+	resp, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId:        1,
+		Profile:       "main",
+		NodeMembers:   true,
+		Username:      "persistuser",
+		Password:      "pw",
+		Uid:           42,
+		Socket:        "ignored",
+		RemoteAddress: "192.168.1.1:12345",
+	})
+	if err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+	if resp.SessionUuid == "" {
+		t.Fatal("SessionUuid empty: handler did not generate one")
+	}
+
+	var stored string
+	if err := h.db.QueryRowContext(t.Context(),
+		`SELECT session_uuid FROM session WHERE account_id = ?`,
+		resp.AccountId,
+	).Scan(&stored); err != nil {
+		t.Fatalf("SELECT session_uuid: %v", err)
+	}
+	if stored != resp.SessionUuid {
+		t.Errorf("session table session_uuid = %q, response SessionUuid = %q; want equal", stored, resp.SessionUuid)
+	}
+}
+
+// TestPlayerLogin_SessionUUID_FreshPerLogin pins that two distinct
+// PlayerLogin calls produce distinct UUIDs. Slice 7.
+func TestPlayerLogin_SessionUUID_FreshPerLogin(t *testing.T) {
+	h, _ := newTestHandler(t)
+
+	resp1, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId: 1, Profile: "main", NodeMembers: true,
+		Username: "u1", Password: "pw", Uid: 1,
+		Socket: "ignored", RemoteAddress: "192.168.1.1:12345",
+	})
+	if err != nil {
+		t.Fatalf("PlayerLogin(u1): %v", err)
+	}
+	resp2, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId: 1, Profile: "main", NodeMembers: true,
+		Username: "u2", Password: "pw", Uid: 2,
+		Socket: "ignored", RemoteAddress: "192.168.1.1:12345",
+	})
+	if err != nil {
+		t.Fatalf("PlayerLogin(u2): %v", err)
+	}
+	if resp1.SessionUuid == "" || resp2.SessionUuid == "" {
+		t.Fatalf("empty UUIDs: u1=%q u2=%q", resp1.SessionUuid, resp2.SessionUuid)
+	}
+	if resp1.SessionUuid == resp2.SessionUuid {
+		t.Errorf("UUIDs collided: u1=%s u2=%s", resp1.SessionUuid, resp2.SessionUuid)
+	}
+}
+
+// TestPlayerLogin_SessionUUID_EmptyOnEarlyReject pins that the four
+// early-return paths that bypass buildLoginResponse return an empty
+// SessionUuid:
+//   - LOGIN_IN_PROGRESS (duplicate in-flight)
+//   - IP_BANNED
+//   - INVALID_CREDENTIALS (auto-register disabled, account absent)
+//   - INVALID_CREDENTIALS (account present, wrong password)
+//
+// Paths that route through buildLoginResponse (ALREADY_LOGGED_IN,
+// ACCOUNT_DISABLED, NOT_A_MEMBER, OK, NEW_PLAYER, RECONNECT_OK) do
+// populate the field — covered by the format/persisted tests above.
+func TestPlayerLogin_SessionUUID_EmptyOnEarlyReject(t *testing.T) {
+	t.Run("LOGIN_IN_PROGRESS", func(t *testing.T) {
+		h, _ := newTestHandler(t)
+		insertTestAccount(t, h.db, "dupuser", "pw")
+		h.loginRequests.Store("dupuser", struct{}{})
+		defer h.loginRequests.Delete("dupuser")
+
+		resp, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+			NodeId: 1, Profile: "main", NodeMembers: true,
+			Username: "dupuser", Password: "pw", Uid: 42,
+			RemoteAddress: "192.168.1.1:12345",
+		})
+		if err != nil {
+			t.Fatalf("PlayerLogin: %v", err)
+		}
+		if resp.Result != loginpb.LoginResult_LOGIN_RESULT_LOGIN_IN_PROGRESS {
+			t.Fatalf("Result: got %v, want LOGIN_IN_PROGRESS", resp.Result)
+		}
+		if resp.SessionUuid != "" {
+			t.Errorf("SessionUuid: got %q, want empty (early-return path)", resp.SessionUuid)
+		}
+	})
+
+	t.Run("IP_BANNED", func(t *testing.T) {
+		h, _ := newTestHandler(t)
+		_, err := h.db.ExecContext(t.Context(),
+			`INSERT INTO ipban (ip, added_by, added_on) VALUES (?, ?, ?)`,
+			"10.0.0.7", "admin", "2026-01-01 00:00:00",
+		)
+		if err != nil {
+			t.Fatalf("insert ipban: %v", err)
+		}
+		resp, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+			NodeId: 1, Profile: "main", NodeMembers: true,
+			Username: "some", Password: "pw", Uid: 42,
+			RemoteAddress: "10.0.0.7:12345",
+		})
+		if err != nil {
+			t.Fatalf("PlayerLogin: %v", err)
+		}
+		if resp.Result != loginpb.LoginResult_LOGIN_RESULT_IP_BANNED {
+			t.Fatalf("Result: got %v, want IP_BANNED", resp.Result)
+		}
+		if resp.SessionUuid != "" {
+			t.Errorf("SessionUuid: got %q, want empty", resp.SessionUuid)
+		}
+	})
+
+	t.Run("INVALID_CREDENTIALS_AutoRegisterOff", func(t *testing.T) {
+		h, _ := newTestHandler(t)
+		h.cfg.AutoRegister = false
+		resp, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+			NodeId: 1, Profile: "main", NodeMembers: true,
+			Username: "ghost", Password: "pw", Uid: 42,
+			RemoteAddress: "192.168.1.1:12345",
+		})
+		if err != nil {
+			t.Fatalf("PlayerLogin: %v", err)
+		}
+		if resp.Result != loginpb.LoginResult_LOGIN_RESULT_INVALID_CREDENTIALS {
+			t.Fatalf("Result: got %v, want INVALID_CREDENTIALS", resp.Result)
+		}
+		if resp.SessionUuid != "" {
+			t.Errorf("SessionUuid: got %q, want empty", resp.SessionUuid)
+		}
+	})
+
+	t.Run("INVALID_CREDENTIALS_WrongPassword", func(t *testing.T) {
+		h, _ := newTestHandler(t)
+		insertTestAccount(t, h.db, "creduser", "rightpw")
+		resp, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+			NodeId: 1, Profile: "main", NodeMembers: true,
+			Username: "creduser", Password: "wrongpw", Uid: 42,
+			RemoteAddress: "192.168.1.1:12345",
+		})
+		if err != nil {
+			t.Fatalf("PlayerLogin: %v", err)
+		}
+		if resp.Result != loginpb.LoginResult_LOGIN_RESULT_INVALID_CREDENTIALS {
+			t.Fatalf("Result: got %v, want INVALID_CREDENTIALS", resp.Result)
+		}
+		if resp.SessionUuid != "" {
+			t.Errorf("SessionUuid: got %q, want empty", resp.SessionUuid)
+		}
+	})
 }
