@@ -54,10 +54,8 @@ func coercePrivateChat(v int32) int32 {
 
 // PlayerLogin registers the player on the given world. Always returns OK;
 // PlayerLoginResponse.Accepted is false iff the world's player cap is
-// reached.
-//
-// NAI-S1-D-PLAYERCAP-LOG-ONLY — cap rejection logs warn but does not error.
-// Slice 4c surfaces Accepted to callers.
+// reached. The world acts on the rejection in modules/world/tick.go's
+// processLogins callback (slice 4c).
 func (h *handler) PlayerLogin(ctx context.Context, req *friendspb.PlayerLoginRequest) (*friendspb.PlayerLoginResponse, error) {
 	h.ensureWorld(req.WorldId)
 	pc := coercePrivateChat(req.PrivateChat)
