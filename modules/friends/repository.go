@@ -247,8 +247,7 @@ func (r *Repository) GetIgnores(ctx context.Context, owner uint64) ([]uint64, er
 // GetFollowers returns the username37s of all players who have target in their
 // friend list. Uses the idx_friendlist_target index for O(log n) lookup.
 //
-// NAI-S1-D-NO-FOLLOWER-BROADCAST — handlers don't call this in slice 1.
-// Retired by slice 4.
+// Broadcast wiring lives in handler.broadcastWorldToFollowers (slice 4a).
 func (r *Repository) GetFollowers(ctx context.Context, target uint64) ([]uint64, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT owner_username37 FROM friendlist
