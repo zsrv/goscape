@@ -676,6 +676,125 @@ func TestPrivateMessage_CrossWorld(t *testing.T) {
 	}
 }
 
+// TestHandler_PrivateMessage_PersistsBeforeSending pins slice 6's
+// insert-then-send ordering: the handler writes to private_chat
+// before pushing PrivateMessageDelivery to the recipient's stream.
+// Mirrors TS FriendServer.ts:273-285.
+func TestHandler_PrivateMessage_PersistsBeforeSending(t *testing.T) {
+	r, db := newTestRepo(t)
+	log := noopLogger()
+	cfg := Config{NodeProfile: "main", WorldPlayerLimit: 100}
+	h := &handler{repo: r, subs: newSubscriptions(log), cfg: cfg, log: log}
+	r.InitializeWorld(1, 100)
+	r.Register(1, 200, 0, 0) // recipient online
+
+	stream := newTestStream(t)
+	errc := make(chan error, 1)
+	go func() {
+		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Username37: 200}, stream)
+	}()
+	t.Cleanup(func() {
+		stream.cancel()
+		<-errc
+	})
+	stream.recvWithin(t, 2*time.Second) // empty friendlist snapshot
+	stream.recvWithin(t, 2*time.Second) // empty ignorelist snapshot
+
+	if _, err := h.PrivateMessage(t.Context(), &friendspb.PrivateMessageRequest{
+		WorldId:          1,
+		Username37:       100,
+		TargetUsername37: 200,
+		StaffLvl:         0,
+		PmId:             0xCAFEBABE,
+		Chat:             "hi",
+		Coord:            12345,
+	}); err != nil {
+		t.Fatalf("PrivateMessage: %v", err)
+	}
+
+	// Persistence
+	var from, to int64
+	var coord int32
+	var msg string
+	if err := db.QueryRowContext(t.Context(),
+		`SELECT from_username37, to_username37, coord, message FROM private_chat`).
+		Scan(&from, &to, &coord, &msg); err != nil {
+		t.Fatalf("SELECT private_chat: %v", err)
+	}
+	if from != 100 || to != 200 || coord != 12345 || msg != "hi" {
+		t.Errorf("row = (%d, %d, %d, %q), want (100, 200, 12345, %q)",
+			from, to, coord, msg, "hi")
+	}
+
+	// Delivery
+	u := stream.recvWithin(t, 2*time.Second)
+	pm, ok := u.Update.(*friendspb.FriendsUpdate_PrivateMessage)
+	if !ok {
+		t.Fatalf("update = %T, want FriendsUpdate_PrivateMessage", u.Update)
+	}
+	if pm.PrivateMessage.PmId != 0xCAFEBABE {
+		t.Errorf("PmId = %#x, want 0xCAFEBABE", pm.PrivateMessage.PmId)
+	}
+}
+
+// TestHandler_PrivateMessage_InsertErrorBlocksSend pins that a SQL
+// failure on private_chat insert returns codes.Internal AND does not
+// deliver the PM. Forces the failure by closing the *sql.DB after
+// the initial-snapshot reads complete. Mirrors the TS thrown-await
+// pattern.
+func TestHandler_PrivateMessage_InsertErrorBlocksSend(t *testing.T) {
+	r, db := newTestRepo(t)
+	log := noopLogger()
+	cfg := Config{NodeProfile: "main", WorldPlayerLimit: 100}
+	h := &handler{repo: r, subs: newSubscriptions(log), cfg: cfg, log: log}
+	r.InitializeWorld(1, 100)
+	r.Register(1, 200, 0, 0)
+
+	stream := newTestStream(t)
+	errc := make(chan error, 1)
+	go func() {
+		errc <- h.SubscribeUpdates(&friendspb.SubscribeUpdatesRequest{WorldId: 1, Username37: 200}, stream)
+	}()
+	t.Cleanup(func() {
+		stream.cancel()
+		<-errc
+	})
+	// Drain initial snapshots BEFORE closing db — those reads need the
+	// DB to be open.
+	stream.recvWithin(t, 2*time.Second)
+	stream.recvWithin(t, 2*time.Second)
+
+	// Force INSERT failure: close the underlying *sql.DB. The subscriber
+	// goroutine is now in select{} waiting for new updates; it doesn't
+	// query the DB until something arrives on its channel.
+	if err := db.Close(); err != nil {
+		t.Fatalf("db.Close: %v", err)
+	}
+
+	_, err := h.PrivateMessage(t.Context(), &friendspb.PrivateMessageRequest{
+		WorldId:          1,
+		Username37:       100,
+		TargetUsername37: 200,
+		PmId:             0xDEADBEEF,
+		Chat:             "should not arrive",
+	})
+	if err == nil {
+		t.Fatalf("PrivateMessage on closed DB: got nil error, want Internal")
+	}
+	if status.Code(err) != codes.Internal {
+		t.Fatalf("PrivateMessage err code = %v, want %v", status.Code(err), codes.Internal)
+	}
+
+	// No delivery should land on the recipient stream. Short non-fatal
+	// poll — recvWithin would t.Fatal on timeout.
+	select {
+	case u := <-stream.out:
+		t.Fatalf("unexpected delivery after insert error: %T", u.Update)
+	case <-time.After(200 * time.Millisecond):
+		// expected: nothing arrives
+	}
+}
+
 // --- slice 5a: RELAY_* handler routing tests ---
 
 func TestHandler_RelayKick_RoutesToSubscriber(t *testing.T) {

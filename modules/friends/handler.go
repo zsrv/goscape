@@ -143,22 +143,21 @@ func (h *handler) IgnorelistDel(ctx context.Context, req *friendspb.IgnorelistDe
 	return &emptypb.Empty{}, nil
 }
 
-// PrivateMessage routes a PM from req.Username37 to req.TargetUsername37
-// by pushing PrivateMessageDelivery into the target's open stream (if
-// any). Mirrors TS FriendServer.sendPrivateMessage (FriendServer.ts:480-
-// 497): silently no-ops when the target has no open stream (TS:
-// `if (!socket) return Promise.resolve()`). The registry's send method
-// already implements the no-op-on-absent-subscriber semantic.
+// PrivateMessage persists the PM to private_chat under r.profile,
+// then routes a PrivateMessageDelivery to the target's open stream
+// (if any). Mirrors TS FriendServer.ts:266-285 — insert-then-send,
+// fail the RPC on insert error (matches the established
+// codes.Internal posture of FriendlistAdd/Del/IgnorelistAdd/Del).
 //
-// req.Coord is unused server-side (TS parity — recipient's world does
-// not need it to deliver the chat overlay). req.WorldId is unused for
-// routing because the registry is keyed solely by username37; cross-
-// world routing therefore falls out for free.
-//
-// Persistence of the PM to private_chat is slice 6.
-// NAI-S1-D-PM-NO-PERSISTENCE — slice 6 retires.
-func (h *handler) PrivateMessage(_ context.Context, req *friendspb.PrivateMessageRequest) (*emptypb.Empty, error) {
+// req.Coord is server-side-persisted (and otherwise unused for
+// routing). req.WorldId is unused for routing because the registry
+// is keyed solely by username37; cross-world routing therefore falls
+// out for free.
+func (h *handler) PrivateMessage(ctx context.Context, req *friendspb.PrivateMessageRequest) (*emptypb.Empty, error) {
 	h.ensureWorld(req.WorldId)
+	if err := h.repo.LogPrivateMessage(ctx, req.Username37, req.TargetUsername37, req.Coord, req.Chat); err != nil {
+		return nil, status.Errorf(codes.Internal, "LogPrivateMessage: %v", err)
+	}
 	h.subs.send(req.TargetUsername37, &friendspb.FriendsUpdate{
 		Update: &friendspb.FriendsUpdate_PrivateMessage{
 			PrivateMessage: &friendspb.PrivateMessageDelivery{
