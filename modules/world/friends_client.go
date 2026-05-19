@@ -33,6 +33,11 @@ type FriendsClient interface {
 	IgnorelistAdd(ctx context.Context, req *friendspb.IgnorelistAddRequest)
 	IgnorelistDel(ctx context.Context, req *friendspb.IgnorelistDelRequest)
 	PrivateMessage(ctx context.Context, req *friendspb.PrivateMessageRequest)
+	// PublicMessage audit-logs a public-chat utterance to the friends-
+	// server. Fire-and-forget per the FriendsClient convention; the
+	// grpc impl logs warn + swallows errors. Mirrors TS
+	// FriendsClient.publicMessage (FriendServer.ts:669-694 inline).
+	PublicMessage(ctx context.Context, req *friendspb.PublicMessageRequest)
 	// SubscribeUpdates opens a server-streaming RPC. Returns the stream on
 	// success; the caller drains stream.Recv(). Unlike the other RPCs,
 	// this one is not fire-and-forget — the supervisor needs the error
@@ -190,6 +195,17 @@ func (c *grpcFriendsClient) PrivateMessage(ctx context.Context, req *friendspb.P
 		c.log.Warn("PrivateMessage RPC failed",
 			slog.Uint64("username37", req.Username37),
 			slog.Uint64("target_username37", req.TargetUsername37),
+			slog.Any("err", err),
+		)
+	}
+}
+
+// PublicMessage audit-logs a public-chat utterance to the friends server.
+// Fire-and-forget — errors are logged at Warn and swallowed.
+func (c *grpcFriendsClient) PublicMessage(ctx context.Context, req *friendspb.PublicMessageRequest) {
+	if _, err := c.client.PublicMessage(ctx, req); err != nil {
+		c.log.Warn("PublicMessage RPC failed",
+			slog.String("session_uuid", req.SessionUuid),
 			slog.Any("err", err),
 		)
 	}
