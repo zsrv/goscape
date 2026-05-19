@@ -19,6 +19,7 @@ import (
 	"github.com/zsrv/goscape/pkg/pathfinder/loc"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
+	"github.com/zsrv/goscape/pkg/wordenc/wordpack"
 )
 
 // gameHandlers is indexed by decrypted game opcode. Nil means no handler
@@ -341,6 +342,20 @@ func handleMessagePublic(p *Player, payload []byte) error {
 	// Copy the message bytes — the underlying packet buffer may be reused.
 	msg := bytes.Clone(payload[2:])
 	p.Chat(color, effect, int(p.staffModLevel), msg)
+
+	// Audit-log to friends-server. WordPack-decode the message so the
+	// row contains human-readable text (matches TS player.logMessage at
+	// MessagePublicHandler.ts:18). Skip when p.session is empty or the
+	// unbridged "headless" sentinel — audit logging is meaningless
+	// without a real per-login UUID. The bridge goroutine-wraps the
+	// underlying RPC so the tick never blocks.
+	if p.client != nil && p.client.server != nil && p.session != "" && p.session != "headless" {
+		s := p.client.server
+		pk := packet.NewPacket(msg)
+		decoded := wordpack.Unpack(pk, len(msg))
+		coord := coordgrid.PackCoord(p.level, p.x, p.z)
+		s.friendsBridge.PublicMessage(p.session, coord, decoded)
+	}
 	return nil
 }
 
