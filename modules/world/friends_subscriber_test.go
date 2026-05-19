@@ -56,6 +56,12 @@ func (d *recordingFriendsDispatcher) friendCalls() []friendlistCall {
 	return append([]friendlistCall(nil), d.friend...)
 }
 
+func (d *recordingFriendsDispatcher) privateCalls() []privateCall {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return append([]privateCall(nil), d.private...)
+}
+
 // waitForStream polls fc.lastStream under fc.mu until it is non-nil or
 // the deadline is exceeded, returning the stream (or nil on timeout).
 func waitForStream(t *testing.T, fc *fakeFriendsClient, deadline time.Time) *fakeSubscribeStream {
