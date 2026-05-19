@@ -276,6 +276,112 @@ func TestRepository_IsVisibleTo_UnknownPlayer_NotVisible(t *testing.T) {
 	}
 }
 
+func TestRepository_AddFriend_Idempotent_SQL(t *testing.T) {
+	r, db := newTestRepo(t)
+	const owner = uint64(0xAAAA)
+	const target = uint64(0xBBBB)
+
+	for i := 0; i < 3; i++ {
+		if err := r.AddFriend(t.Context(), owner, target); err != nil {
+			t.Fatalf("AddFriend iter %d: %v", i, err)
+		}
+	}
+
+	var count int
+	if err := db.QueryRow(
+		`SELECT COUNT(*) FROM friendlist WHERE profile=? AND owner_username37=?`,
+		"test", int64(owner),
+	).Scan(&count); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("rows after 3 AddFriend calls: got %d, want 1", count)
+	}
+}
+
+func TestRepository_AddFriend_RespectsProfileBoundary(t *testing.T) {
+	db := createTestDB(t)
+	rMain := NewRepository(db, "main")
+	rAlt := NewRepository(db, "alt")
+
+	const owner = uint64(0xAAAA)
+	const target = uint64(0xBBBB)
+
+	if err := rMain.AddFriend(t.Context(), owner, target); err != nil {
+		t.Fatalf("rMain AddFriend: %v", err)
+	}
+
+	gotAlt, err := rAlt.GetFriends(t.Context(), owner)
+	if err != nil {
+		t.Fatalf("rAlt GetFriends: %v", err)
+	}
+	if len(gotAlt) != 0 {
+		t.Errorf("rAlt GetFriends: got %v, want empty (profile boundary)", gotAlt)
+	}
+
+	gotMain, err := rMain.GetFriends(t.Context(), owner)
+	if err != nil {
+		t.Fatalf("rMain GetFriends: %v", err)
+	}
+	if len(gotMain) != 1 || gotMain[0] != target {
+		t.Errorf("rMain GetFriends: got %v, want [%#x]", gotMain, target)
+	}
+}
+
+func TestRepository_GetFollowers_FindsAllOwners(t *testing.T) {
+	r, _ := newTestRepo(t)
+	const target = uint64(0xBBBB)
+	owners := []uint64{0xA1, 0xA2, 0xA3, 0xA4}
+
+	for _, o := range owners {
+		if err := r.AddFriend(t.Context(), o, target); err != nil {
+			t.Fatalf("AddFriend %#x: %v", o, err)
+		}
+	}
+
+	got, err := r.GetFollowers(t.Context(), target)
+	if err != nil {
+		t.Fatalf("GetFollowers: %v", err)
+	}
+	if len(got) != len(owners) {
+		t.Errorf("GetFollowers len: got %d (%v), want %d", len(got), got, len(owners))
+	}
+	gotSet := make(map[uint64]bool, len(got))
+	for _, o := range got {
+		gotSet[o] = true
+	}
+	for _, o := range owners {
+		if !gotSet[o] {
+			t.Errorf("GetFollowers missing owner %#x", o)
+		}
+	}
+}
+
+func TestRepository_GetFriends_OrderIsStable(t *testing.T) {
+	r, _ := newTestRepo(t)
+	const owner = uint64(0xAAAA)
+	targets := []uint64{0xB1, 0xB2, 0xB3}
+	for _, t37 := range targets {
+		if err := r.AddFriend(t.Context(), owner, t37); err != nil {
+			t.Fatalf("AddFriend %#x: %v", t37, err)
+		}
+	}
+
+	first, err := r.GetFriends(t.Context(), owner)
+	if err != nil {
+		t.Fatalf("GetFriends 1: %v", err)
+	}
+	for i := 0; i < 5; i++ {
+		again, err := r.GetFriends(t.Context(), owner)
+		if err != nil {
+			t.Fatalf("GetFriends %d: %v", i, err)
+		}
+		if !slices.Equal(first, again) {
+			t.Errorf("GetFriends iter %d: got %v, want %v (PK ordering)", i, again, first)
+		}
+	}
+}
+
 func TestRepository_Concurrent_RaceClean(t *testing.T) {
 	r, _ := newTestRepo(t)
 	r.InitializeWorld(1, 10000)
