@@ -312,3 +312,89 @@ func (r *Repository) IsVisibleTo(ctx context.Context, viewer, other uint64) (boo
 		return false, nil
 	}
 }
+
+// IsVisibleToMany is the batched analogue of IsVisibleTo. Returns a
+// map[viewer]bool with one entry per input viewer. The empty result is
+// a valid response — callers must check the map, not nil.
+//
+// Locking discipline: same as IsVisibleTo — r.mu is released before any
+// SQL call.
+//
+// Algorithm:
+//
+//	other.privateChat 0 (ON)      -> all viewers true
+//	other.privateChat 1 (FRIENDS) -> one SQL IN query against friendlist
+//	                                 where owner = other and target IN
+//	                                 viewers; viewers in result are true
+//	other.privateChat 2 (OFF)     -> all viewers false
+//	other has no presence row     -> all viewers false
+//
+// Slice 4a uses this from handler.broadcastWorldToFollowers to avoid
+// the N+1 round trips that a scalar-IsVisibleTo loop would incur.
+func (r *Repository) IsVisibleToMany(ctx context.Context, viewers []uint64, other uint64) (map[uint64]bool, error) {
+	out := make(map[uint64]bool, len(viewers))
+	if len(viewers) == 0 {
+		return out, nil
+	}
+
+	r.mu.RLock()
+	ps, ok := r.players[other]
+	if !ok {
+		r.mu.RUnlock()
+		for _, v := range viewers {
+			out[v] = false
+		}
+		return out, nil
+	}
+	mode := ps.privateChat
+	r.mu.RUnlock()
+
+	switch mode {
+	case 0: // ON
+		for _, v := range viewers {
+			out[v] = true
+		}
+		return out, nil
+	case 1: // FRIENDS
+		// Build a parameterized IN clause.
+		placeholders := make([]byte, 0, 2*len(viewers))
+		args := make([]any, 0, 2+len(viewers))
+		args = append(args, r.profile, int64(other))
+		for i, v := range viewers {
+			if i > 0 {
+				placeholders = append(placeholders, ',')
+			}
+			placeholders = append(placeholders, '?')
+			args = append(args, int64(v))
+		}
+		query := `SELECT target_username37 FROM friendlist
+		          WHERE profile = ? AND owner_username37 = ?
+		            AND target_username37 IN (` + string(placeholders) + `)`
+		rows, err := r.db.QueryContext(ctx, query, args...)
+		if err != nil {
+			return nil, fmt.Errorf("IsVisibleToMany: %w", err)
+		}
+		defer rows.Close()
+
+		// Default everyone to false; flip the ones returned.
+		for _, v := range viewers {
+			out[v] = false
+		}
+		for rows.Next() {
+			var t int64
+			if err := rows.Scan(&t); err != nil {
+				return nil, fmt.Errorf("IsVisibleToMany scan: %w", err)
+			}
+			out[uint64(t)] = true
+		}
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("IsVisibleToMany rows: %w", err)
+		}
+		return out, nil
+	default: // OFF or unknown
+		for _, v := range viewers {
+			out[v] = false
+		}
+		return out, nil
+	}
+}
