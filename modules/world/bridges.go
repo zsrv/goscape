@@ -123,6 +123,101 @@ func (d *slogFriendsDispatcher) OnPrivateMessage(target uint64, from uint64, sta
 		slog.Uint64("pm_id", uint64(pmId)))
 }
 
+// FriendsAdminBridge mirrors TS World.friendThread.postMessage(...) for
+// cross-world RELAY_* admin commands (slice 5a). Production impl is
+// grpcFriendsAdminBridge (modules/world/admin_bridge.go); wired by
+// NewServer via defaultFriendsAdminBridge. When FriendsClient is nil
+// (friends-server disabled), the bridge resolves to noopAdminBridge{}.
+//
+// The bridge is the surface that admin-action code paths use to issue
+// cross-world commands. Slice 5a exposes the surface; slice 5b layers
+// dispatcher actions on the receiving side. Admin chat-command wiring
+// (::kick, ::mute, etc.) is future integration work — slice 5 does not
+// touch existing cheat handlers.
+type FriendsAdminBridge interface {
+	Mute(targetWorldID int32, username37 uint64, mutedUntilMs int64)
+	Kick(targetWorldID int32, username37 uint64)
+	Shutdown(targetWorldID int32, durationTicks int32)
+	Broadcast(targetWorldID int32, message string)
+	Track(targetWorldID int32, username37 uint64, state int32)
+	Reload(targetWorldID int32)
+	ClearLogins(targetWorldID int32)
+	ClearLogouts(targetWorldID int32)
+	QueueScript(targetWorldID int32, scriptName string, username37 uint64)
+}
+
+// WorldEventsDispatcher is the world-side sink for inbound RELAY_*
+// admin events received over the SubscribeWorldEvents stream (slice 5a).
+// Default impl (slogWorldEventsDispatcher) logs each event at Info; no
+// world-state effects.
+//
+// NAI-S5A-D-DISPATCHER-NO-ACTION — slice 5b retires this piecewise as
+// each opcode's action is wired (e.g. OnShutdown → services.Manager.StopAsync).
+type WorldEventsDispatcher interface {
+	OnMute(username37 uint64, mutedUntilMs int64)
+	OnKick(username37 uint64)
+	OnShutdown(durationTicks int32)
+	OnBroadcast(message string)
+	OnTrack(username37 uint64, state int32)
+	OnReload()
+	OnClearLogins()
+	OnClearLogouts()
+	OnQueueScript(scriptName string, username37 uint64)
+}
+
+// slogWorldEventsDispatcher is the default WorldEventsDispatcher. Logs
+// each event at Info; does NOT apply world-state effects. See
+// NAI-S5A-D-DISPATCHER-NO-ACTION above.
+type slogWorldEventsDispatcher struct {
+	log *slog.Logger
+}
+
+func newSlogWorldEventsDispatcher(log *slog.Logger) WorldEventsDispatcher {
+	return &slogWorldEventsDispatcher{log: log}
+}
+
+func (d *slogWorldEventsDispatcher) OnMute(username37 uint64, mutedUntilMs int64) {
+	d.log.Info("world event: mute",
+		slog.Uint64("username37", username37),
+		slog.Int64("muted_until_ms", mutedUntilMs))
+}
+
+func (d *slogWorldEventsDispatcher) OnKick(username37 uint64) {
+	d.log.Info("world event: kick", slog.Uint64("username37", username37))
+}
+
+func (d *slogWorldEventsDispatcher) OnShutdown(durationTicks int32) {
+	d.log.Info("world event: shutdown", slog.Int("duration_ticks", int(durationTicks)))
+}
+
+func (d *slogWorldEventsDispatcher) OnBroadcast(message string) {
+	d.log.Info("world event: broadcast", slog.String("message", message))
+}
+
+func (d *slogWorldEventsDispatcher) OnTrack(username37 uint64, state int32) {
+	d.log.Info("world event: track",
+		slog.Uint64("username37", username37),
+		slog.Int("state", int(state)))
+}
+
+func (d *slogWorldEventsDispatcher) OnReload() {
+	d.log.Info("world event: reload")
+}
+
+func (d *slogWorldEventsDispatcher) OnClearLogins() {
+	d.log.Info("world event: clear_logins")
+}
+
+func (d *slogWorldEventsDispatcher) OnClearLogouts() {
+	d.log.Info("world event: clear_logouts")
+}
+
+func (d *slogWorldEventsDispatcher) OnQueueScript(scriptName string, username37 uint64) {
+	d.log.Info("world event: queue_script",
+		slog.String("script_name", scriptName),
+		slog.Uint64("username37", username37))
+}
+
 // noopBridges is the default impl wired into NewServer. Records nothing,
 // performs no I/O.
 type noopBridges struct{}
