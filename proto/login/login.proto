@@ -55,6 +55,7 @@ message PlayerLoginResponse {
   optional google.protobuf.Timestamp muted_until = 5;
   bool                       members       = 6;
   int32                      message_count = 7;
+  string                     session_uuid  = 8;
 }
 
 message PlayerLogoutRequest {

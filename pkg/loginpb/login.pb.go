@@ -270,6 +270,7 @@ type PlayerLoginResponse struct {
 	MutedUntil    *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=muted_until,json=mutedUntil,proto3,oneof" json:"muted_until,omitempty"`
 	Members       bool                   `protobuf:"varint,6,opt,name=members,proto3" json:"members,omitempty"`
 	MessageCount  int32                  `protobuf:"varint,7,opt,name=message_count,json=messageCount,proto3" json:"message_count,omitempty"`
+	SessionUuid   string                 `protobuf:"bytes,8,opt,name=session_uuid,json=sessionUuid,proto3" json:"session_uuid,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -351,6 +352,13 @@ func (x *PlayerLoginResponse) GetMessageCount() int32 {
 		return x.MessageCount
 	}
 	return 0
+}
+
+func (x *PlayerLoginResponse) GetSessionUuid() string {
+	if x != nil {
+		return x.SessionUuid
+	}
+	return ""
 }
 
 type PlayerLogoutRequest struct {
@@ -796,7 +804,7 @@ const file_login_login_proto_rawDesc = "" +
 	"\x0eremote_address\x18\b \x01(\tR\rremoteAddress\x12\"\n" +
 	"\freconnecting\x18\t \x01(\bR\freconnecting\x12\x19\n" +
 	"\bhas_save\x18\n" +
-	" \x01(\bR\ahasSave\"\xbe\x02\n" +
+	" \x01(\bR\ahasSave\"\xe1\x02\n" +
 	"\x13PlayerLoginResponse\x12-\n" +
 	"\x06result\x18\x01 \x01(\x0e2\x15.login.v1.LoginResultR\x06result\x12\x1d\n" +
 	"\n" +
@@ -806,7 +814,8 @@ const file_login_login_proto_rawDesc = "" +
 	"\vmuted_until\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampH\x01R\n" +
 	"mutedUntil\x88\x01\x01\x12\x18\n" +
 	"\amembers\x18\x06 \x01(\bR\amembers\x12#\n" +
-	"\rmessage_count\x18\a \x01(\x05R\fmessageCountB\a\n" +
+	"\rmessage_count\x18\a \x01(\x05R\fmessageCount\x12!\n" +
+	"\fsession_uuid\x18\b \x01(\tR\vsessionUuidB\a\n" +
 	"\x05_saveB\x0e\n" +
 	"\f_muted_until\"x\n" +
 	"\x13PlayerLogoutRequest\x12\x17\n" +
