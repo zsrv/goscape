@@ -1,8 +1,7 @@
-// Package friends hosts the friends-server gRPC module. The in-memory
-// repository here is slice 1's persistence stand-in; slice 3 swaps it
-// for a SQLite-backed equivalent without changing this method surface.
-//
-// NAI-S1-D-INMEMORY-REPO — state is lost on restart. Retired by slice 3.
+// Package friends hosts the friends-server gRPC module. The Repository
+// keeps presence state (worlds, players, privateChat, staffLvl) in
+// memory and persists friend / ignore lists to SQLite via *sql.DB. The
+// schema lives at modules/friends/migrations/000001_init.up.sql.
 package friends
 
 import (
