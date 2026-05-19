@@ -362,3 +362,44 @@ func TestGRPCFriendsClient_SubscribeUpdates_Delegates(t *testing.T) {
 		t.Fatalf("mock not called")
 	}
 }
+
+// TestGRPCFriendsClient_PlayerLogin_InvokesCallback pins slice 4c's
+// callback contract: onResponse fires with accepted=true on
+// PlayerLoginResponse{Accepted: true}, accepted=false on Accepted: false,
+// and accepted=false on RPC error. Replaces the slice-2 posture that
+// discarded the response (NAI-S2-D-PLAYERLOGIN-IGNORES-ACCEPTED, retired
+// by slice 4c).
+func TestGRPCFriendsClient_PlayerLogin_InvokesCallback(t *testing.T) {
+	cases := []struct {
+		name    string
+		resp    *friendspb.PlayerLoginResponse
+		err     error
+		wantAcc bool
+	}{
+		{"AcceptedTrue", &friendspb.PlayerLoginResponse{Accepted: true}, nil, true},
+		{"AcceptedFalse", &friendspb.PlayerLoginResponse{Accepted: false}, nil, false},
+		{"RPCError", nil, errors.New("simulated"), false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mock := &mockFriendsPBClient{
+				playerLoginFn: func(ctx context.Context, in *friendspb.PlayerLoginRequest, opts ...grpc.CallOption) (*friendspb.PlayerLoginResponse, error) {
+					return tc.resp, tc.err
+				},
+			}
+			c := &grpcFriendsClient{client: mock, log: discardLogger()}
+			ch := make(chan bool, 1)
+			c.PlayerLogin(context.Background(), &friendspb.PlayerLoginRequest{Username37: 1}, func(accepted bool) {
+				ch <- accepted
+			})
+			select {
+			case got := <-ch:
+				if got != tc.wantAcc {
+					t.Errorf("callback accepted: got %v, want %v", got, tc.wantAcc)
+				}
+			case <-time.After(time.Second):
+				t.Fatal("timeout waiting for callback")
+			}
+		})
+	}
+}
