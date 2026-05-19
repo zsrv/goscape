@@ -20,16 +20,26 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	FriendsService_WorldConnect_FullMethodName     = "/friends.v1.FriendsService/WorldConnect"
-	FriendsService_PlayerLogin_FullMethodName      = "/friends.v1.FriendsService/PlayerLogin"
-	FriendsService_PlayerLogout_FullMethodName     = "/friends.v1.FriendsService/PlayerLogout"
-	FriendsService_ChatSetMode_FullMethodName      = "/friends.v1.FriendsService/ChatSetMode"
-	FriendsService_FriendlistAdd_FullMethodName    = "/friends.v1.FriendsService/FriendlistAdd"
-	FriendsService_FriendlistDel_FullMethodName    = "/friends.v1.FriendsService/FriendlistDel"
-	FriendsService_IgnorelistAdd_FullMethodName    = "/friends.v1.FriendsService/IgnorelistAdd"
-	FriendsService_IgnorelistDel_FullMethodName    = "/friends.v1.FriendsService/IgnorelistDel"
-	FriendsService_PrivateMessage_FullMethodName   = "/friends.v1.FriendsService/PrivateMessage"
-	FriendsService_SubscribeUpdates_FullMethodName = "/friends.v1.FriendsService/SubscribeUpdates"
+	FriendsService_WorldConnect_FullMethodName         = "/friends.v1.FriendsService/WorldConnect"
+	FriendsService_PlayerLogin_FullMethodName          = "/friends.v1.FriendsService/PlayerLogin"
+	FriendsService_PlayerLogout_FullMethodName         = "/friends.v1.FriendsService/PlayerLogout"
+	FriendsService_ChatSetMode_FullMethodName          = "/friends.v1.FriendsService/ChatSetMode"
+	FriendsService_FriendlistAdd_FullMethodName        = "/friends.v1.FriendsService/FriendlistAdd"
+	FriendsService_FriendlistDel_FullMethodName        = "/friends.v1.FriendsService/FriendlistDel"
+	FriendsService_IgnorelistAdd_FullMethodName        = "/friends.v1.FriendsService/IgnorelistAdd"
+	FriendsService_IgnorelistDel_FullMethodName        = "/friends.v1.FriendsService/IgnorelistDel"
+	FriendsService_PrivateMessage_FullMethodName       = "/friends.v1.FriendsService/PrivateMessage"
+	FriendsService_SubscribeUpdates_FullMethodName     = "/friends.v1.FriendsService/SubscribeUpdates"
+	FriendsService_RelayMute_FullMethodName            = "/friends.v1.FriendsService/RelayMute"
+	FriendsService_RelayKick_FullMethodName            = "/friends.v1.FriendsService/RelayKick"
+	FriendsService_RelayShutdown_FullMethodName        = "/friends.v1.FriendsService/RelayShutdown"
+	FriendsService_RelayBroadcast_FullMethodName       = "/friends.v1.FriendsService/RelayBroadcast"
+	FriendsService_RelayTrack_FullMethodName           = "/friends.v1.FriendsService/RelayTrack"
+	FriendsService_RelayReload_FullMethodName          = "/friends.v1.FriendsService/RelayReload"
+	FriendsService_RelayClearLogins_FullMethodName     = "/friends.v1.FriendsService/RelayClearLogins"
+	FriendsService_RelayClearLogouts_FullMethodName    = "/friends.v1.FriendsService/RelayClearLogouts"
+	FriendsService_RelayQueueScript_FullMethodName     = "/friends.v1.FriendsService/RelayQueueScript"
+	FriendsService_SubscribeWorldEvents_FullMethodName = "/friends.v1.FriendsService/SubscribeWorldEvents"
 )
 
 // FriendsServiceClient is the client API for FriendsService service.
@@ -57,6 +67,29 @@ type FriendsServiceClient interface {
 	// slice 4 implements (per-subscriber registry, broadcastWorldToFollowers
 	// fan-out).
 	SubscribeUpdates(ctx context.Context, in *SubscribeUpdatesRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FriendsUpdate], error)
+	// Cross-world admin relay (slice 5a). Each RPC accepts a target_world_id;
+	// the server forwards a WorldEvent to that world's SubscribeWorldEvents
+	// stream. No-op if no world is subscribed for target_world_id (matches
+	// TS FriendServer.ts:298-302 `if (typeof this.socketByWorld[nodeId] !== 'undefined')`).
+	// Slice 5a accepts and routes; slice 5b applies world-state effects.
+	// NAI-S5A-D-NO-ADMIN-AUTH-AT-SERVER — friends-server is dumb routing;
+	// admin checks live on both sender and receiver world.
+	RelayMute(ctx context.Context, in *RelayMuteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	RelayKick(ctx context.Context, in *RelayKickRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	RelayShutdown(ctx context.Context, in *RelayShutdownRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	RelayBroadcast(ctx context.Context, in *RelayBroadcastRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	RelayTrack(ctx context.Context, in *RelayTrackRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	RelayReload(ctx context.Context, in *RelayReloadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	RelayClearLogins(ctx context.Context, in *RelayClearLoginsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	RelayClearLogouts(ctx context.Context, in *RelayClearLogoutsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	RelayQueueScript(ctx context.Context, in *RelayQueueScriptRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Server -> world push for cross-world admin events. One subscriber per
+	// world (owned by world.Server). Slice 5a opens the stream; slice 5b
+	// wires dispatcher actions onto inbound events.
+	// NAI-S5A-D-PERWORLD-EVENTS-STREAM-SEPARATE — second stream RPC
+	// alongside SubscribeUpdates; goscape has two parallel streams where
+	// TS has one socket. Permanent; reviewer traceability only.
+	SubscribeWorldEvents(ctx context.Context, in *SubscribeWorldEventsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[WorldEvent], error)
 }
 
 type friendsServiceClient struct {
@@ -176,6 +209,115 @@ func (c *friendsServiceClient) SubscribeUpdates(ctx context.Context, in *Subscri
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type FriendsService_SubscribeUpdatesClient = grpc.ServerStreamingClient[FriendsUpdate]
 
+func (c *friendsServiceClient) RelayMute(ctx context.Context, in *RelayMuteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, FriendsService_RelayMute_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *friendsServiceClient) RelayKick(ctx context.Context, in *RelayKickRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, FriendsService_RelayKick_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *friendsServiceClient) RelayShutdown(ctx context.Context, in *RelayShutdownRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, FriendsService_RelayShutdown_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *friendsServiceClient) RelayBroadcast(ctx context.Context, in *RelayBroadcastRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, FriendsService_RelayBroadcast_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *friendsServiceClient) RelayTrack(ctx context.Context, in *RelayTrackRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, FriendsService_RelayTrack_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *friendsServiceClient) RelayReload(ctx context.Context, in *RelayReloadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, FriendsService_RelayReload_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *friendsServiceClient) RelayClearLogins(ctx context.Context, in *RelayClearLoginsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, FriendsService_RelayClearLogins_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *friendsServiceClient) RelayClearLogouts(ctx context.Context, in *RelayClearLogoutsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, FriendsService_RelayClearLogouts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *friendsServiceClient) RelayQueueScript(ctx context.Context, in *RelayQueueScriptRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, FriendsService_RelayQueueScript_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *friendsServiceClient) SubscribeWorldEvents(ctx context.Context, in *SubscribeWorldEventsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[WorldEvent], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &FriendsService_ServiceDesc.Streams[1], FriendsService_SubscribeWorldEvents_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[SubscribeWorldEventsRequest, WorldEvent]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type FriendsService_SubscribeWorldEventsClient = grpc.ServerStreamingClient[WorldEvent]
+
 // FriendsServiceServer is the server API for FriendsService service.
 // All implementations must embed UnimplementedFriendsServiceServer
 // for forward compatibility.
@@ -201,6 +343,29 @@ type FriendsServiceServer interface {
 	// slice 4 implements (per-subscriber registry, broadcastWorldToFollowers
 	// fan-out).
 	SubscribeUpdates(*SubscribeUpdatesRequest, grpc.ServerStreamingServer[FriendsUpdate]) error
+	// Cross-world admin relay (slice 5a). Each RPC accepts a target_world_id;
+	// the server forwards a WorldEvent to that world's SubscribeWorldEvents
+	// stream. No-op if no world is subscribed for target_world_id (matches
+	// TS FriendServer.ts:298-302 `if (typeof this.socketByWorld[nodeId] !== 'undefined')`).
+	// Slice 5a accepts and routes; slice 5b applies world-state effects.
+	// NAI-S5A-D-NO-ADMIN-AUTH-AT-SERVER — friends-server is dumb routing;
+	// admin checks live on both sender and receiver world.
+	RelayMute(context.Context, *RelayMuteRequest) (*emptypb.Empty, error)
+	RelayKick(context.Context, *RelayKickRequest) (*emptypb.Empty, error)
+	RelayShutdown(context.Context, *RelayShutdownRequest) (*emptypb.Empty, error)
+	RelayBroadcast(context.Context, *RelayBroadcastRequest) (*emptypb.Empty, error)
+	RelayTrack(context.Context, *RelayTrackRequest) (*emptypb.Empty, error)
+	RelayReload(context.Context, *RelayReloadRequest) (*emptypb.Empty, error)
+	RelayClearLogins(context.Context, *RelayClearLoginsRequest) (*emptypb.Empty, error)
+	RelayClearLogouts(context.Context, *RelayClearLogoutsRequest) (*emptypb.Empty, error)
+	RelayQueueScript(context.Context, *RelayQueueScriptRequest) (*emptypb.Empty, error)
+	// Server -> world push for cross-world admin events. One subscriber per
+	// world (owned by world.Server). Slice 5a opens the stream; slice 5b
+	// wires dispatcher actions onto inbound events.
+	// NAI-S5A-D-PERWORLD-EVENTS-STREAM-SEPARATE — second stream RPC
+	// alongside SubscribeUpdates; goscape has two parallel streams where
+	// TS has one socket. Permanent; reviewer traceability only.
+	SubscribeWorldEvents(*SubscribeWorldEventsRequest, grpc.ServerStreamingServer[WorldEvent]) error
 	mustEmbedUnimplementedFriendsServiceServer()
 }
 
@@ -240,6 +405,36 @@ func (UnimplementedFriendsServiceServer) PrivateMessage(context.Context, *Privat
 }
 func (UnimplementedFriendsServiceServer) SubscribeUpdates(*SubscribeUpdatesRequest, grpc.ServerStreamingServer[FriendsUpdate]) error {
 	return status.Error(codes.Unimplemented, "method SubscribeUpdates not implemented")
+}
+func (UnimplementedFriendsServiceServer) RelayMute(context.Context, *RelayMuteRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method RelayMute not implemented")
+}
+func (UnimplementedFriendsServiceServer) RelayKick(context.Context, *RelayKickRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method RelayKick not implemented")
+}
+func (UnimplementedFriendsServiceServer) RelayShutdown(context.Context, *RelayShutdownRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method RelayShutdown not implemented")
+}
+func (UnimplementedFriendsServiceServer) RelayBroadcast(context.Context, *RelayBroadcastRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method RelayBroadcast not implemented")
+}
+func (UnimplementedFriendsServiceServer) RelayTrack(context.Context, *RelayTrackRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method RelayTrack not implemented")
+}
+func (UnimplementedFriendsServiceServer) RelayReload(context.Context, *RelayReloadRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method RelayReload not implemented")
+}
+func (UnimplementedFriendsServiceServer) RelayClearLogins(context.Context, *RelayClearLoginsRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method RelayClearLogins not implemented")
+}
+func (UnimplementedFriendsServiceServer) RelayClearLogouts(context.Context, *RelayClearLogoutsRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method RelayClearLogouts not implemented")
+}
+func (UnimplementedFriendsServiceServer) RelayQueueScript(context.Context, *RelayQueueScriptRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method RelayQueueScript not implemented")
+}
+func (UnimplementedFriendsServiceServer) SubscribeWorldEvents(*SubscribeWorldEventsRequest, grpc.ServerStreamingServer[WorldEvent]) error {
+	return status.Error(codes.Unimplemented, "method SubscribeWorldEvents not implemented")
 }
 func (UnimplementedFriendsServiceServer) mustEmbedUnimplementedFriendsServiceServer() {}
 func (UnimplementedFriendsServiceServer) testEmbeddedByValue()                        {}
@@ -435,6 +630,179 @@ func _FriendsService_SubscribeUpdates_Handler(srv interface{}, stream grpc.Serve
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type FriendsService_SubscribeUpdatesServer = grpc.ServerStreamingServer[FriendsUpdate]
 
+func _FriendsService_RelayMute_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RelayMuteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FriendsServiceServer).RelayMute(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FriendsService_RelayMute_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FriendsServiceServer).RelayMute(ctx, req.(*RelayMuteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FriendsService_RelayKick_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RelayKickRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FriendsServiceServer).RelayKick(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FriendsService_RelayKick_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FriendsServiceServer).RelayKick(ctx, req.(*RelayKickRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FriendsService_RelayShutdown_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RelayShutdownRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FriendsServiceServer).RelayShutdown(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FriendsService_RelayShutdown_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FriendsServiceServer).RelayShutdown(ctx, req.(*RelayShutdownRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FriendsService_RelayBroadcast_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RelayBroadcastRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FriendsServiceServer).RelayBroadcast(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FriendsService_RelayBroadcast_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FriendsServiceServer).RelayBroadcast(ctx, req.(*RelayBroadcastRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FriendsService_RelayTrack_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RelayTrackRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FriendsServiceServer).RelayTrack(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FriendsService_RelayTrack_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FriendsServiceServer).RelayTrack(ctx, req.(*RelayTrackRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FriendsService_RelayReload_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RelayReloadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FriendsServiceServer).RelayReload(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FriendsService_RelayReload_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FriendsServiceServer).RelayReload(ctx, req.(*RelayReloadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FriendsService_RelayClearLogins_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RelayClearLoginsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FriendsServiceServer).RelayClearLogins(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FriendsService_RelayClearLogins_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FriendsServiceServer).RelayClearLogins(ctx, req.(*RelayClearLoginsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FriendsService_RelayClearLogouts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RelayClearLogoutsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FriendsServiceServer).RelayClearLogouts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FriendsService_RelayClearLogouts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FriendsServiceServer).RelayClearLogouts(ctx, req.(*RelayClearLogoutsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FriendsService_RelayQueueScript_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RelayQueueScriptRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FriendsServiceServer).RelayQueueScript(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FriendsService_RelayQueueScript_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FriendsServiceServer).RelayQueueScript(ctx, req.(*RelayQueueScriptRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FriendsService_SubscribeWorldEvents_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(SubscribeWorldEventsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(FriendsServiceServer).SubscribeWorldEvents(m, &grpc.GenericServerStream[SubscribeWorldEventsRequest, WorldEvent]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type FriendsService_SubscribeWorldEventsServer = grpc.ServerStreamingServer[WorldEvent]
+
 // FriendsService_ServiceDesc is the grpc.ServiceDesc for FriendsService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -478,11 +846,52 @@ var FriendsService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "PrivateMessage",
 			Handler:    _FriendsService_PrivateMessage_Handler,
 		},
+		{
+			MethodName: "RelayMute",
+			Handler:    _FriendsService_RelayMute_Handler,
+		},
+		{
+			MethodName: "RelayKick",
+			Handler:    _FriendsService_RelayKick_Handler,
+		},
+		{
+			MethodName: "RelayShutdown",
+			Handler:    _FriendsService_RelayShutdown_Handler,
+		},
+		{
+			MethodName: "RelayBroadcast",
+			Handler:    _FriendsService_RelayBroadcast_Handler,
+		},
+		{
+			MethodName: "RelayTrack",
+			Handler:    _FriendsService_RelayTrack_Handler,
+		},
+		{
+			MethodName: "RelayReload",
+			Handler:    _FriendsService_RelayReload_Handler,
+		},
+		{
+			MethodName: "RelayClearLogins",
+			Handler:    _FriendsService_RelayClearLogins_Handler,
+		},
+		{
+			MethodName: "RelayClearLogouts",
+			Handler:    _FriendsService_RelayClearLogouts_Handler,
+		},
+		{
+			MethodName: "RelayQueueScript",
+			Handler:    _FriendsService_RelayQueueScript_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "SubscribeUpdates",
 			Handler:       _FriendsService_SubscribeUpdates_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "SubscribeWorldEvents",
+			Handler:       _FriendsService_SubscribeWorldEvents_Handler,
 			ServerStreams: true,
 		},
 	},

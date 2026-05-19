@@ -31,6 +31,31 @@ service FriendsService {
   // slice 4 implements (per-subscriber registry, broadcastWorldToFollowers
   // fan-out).
   rpc SubscribeUpdates(SubscribeUpdatesRequest) returns (stream FriendsUpdate);
+
+  // Cross-world admin relay (slice 5a). Each RPC accepts a target_world_id;
+  // the server forwards a WorldEvent to that world's SubscribeWorldEvents
+  // stream. No-op if no world is subscribed for target_world_id (matches
+  // TS FriendServer.ts:298-302 `if (typeof this.socketByWorld[nodeId] !== 'undefined')`).
+  // Slice 5a accepts and routes; slice 5b applies world-state effects.
+  // NAI-S5A-D-NO-ADMIN-AUTH-AT-SERVER — friends-server is dumb routing;
+  // admin checks live on both sender and receiver world.
+  rpc RelayMute(RelayMuteRequest)                 returns (google.protobuf.Empty);
+  rpc RelayKick(RelayKickRequest)                 returns (google.protobuf.Empty);
+  rpc RelayShutdown(RelayShutdownRequest)         returns (google.protobuf.Empty);
+  rpc RelayBroadcast(RelayBroadcastRequest)       returns (google.protobuf.Empty);
+  rpc RelayTrack(RelayTrackRequest)               returns (google.protobuf.Empty);
+  rpc RelayReload(RelayReloadRequest)             returns (google.protobuf.Empty);
+  rpc RelayClearLogins(RelayClearLoginsRequest)   returns (google.protobuf.Empty);
+  rpc RelayClearLogouts(RelayClearLogoutsRequest) returns (google.protobuf.Empty);
+  rpc RelayQueueScript(RelayQueueScriptRequest)   returns (google.protobuf.Empty);
+
+  // Server -> world push for cross-world admin events. One subscriber per
+  // world (owned by world.Server). Slice 5a opens the stream; slice 5b
+  // wires dispatcher actions onto inbound events.
+  // NAI-S5A-D-PERWORLD-EVENTS-STREAM-SEPARATE — second stream RPC
+  // alongside SubscribeUpdates; goscape has two parallel streams where
+  // TS has one socket. Permanent; reviewer traceability only.
+  rpc SubscribeWorldEvents(SubscribeWorldEventsRequest) returns (stream WorldEvent);
 }
 
 message WorldConnectRequest {
@@ -128,4 +153,114 @@ message PrivateMessageDelivery {
   int32  staff_lvl       = 2;
   uint32 pm_id           = 3;
   string chat            = 4;
+}
+
+// Slice 5a RELAY_* request messages. Each carries target_world_id (the
+// world that should RECEIVE the event) plus opcode-specific payload.
+
+message RelayMuteRequest {
+  int32  target_world_id = 1;
+  uint64 username37      = 2;
+  // Mute expiry as epoch milliseconds (matches TS `muted_until: number`).
+  // 0 = unmute. Negative = permanent (matches existing modules/login
+  // PlayerMute semantics).
+  int64  muted_until_ms  = 3;
+}
+
+message RelayKickRequest {
+  int32  target_world_id = 1;
+  uint64 username37      = 2;
+}
+
+message RelayShutdownRequest {
+  int32  target_world_id = 1;
+  // Shutdown countdown in ticks (TS `duration`).
+  int32  duration_ticks  = 2;
+}
+
+message RelayBroadcastRequest {
+  int32  target_world_id = 1;
+  // Game-wide chat broadcast text (TS `broadcast` → `message`).
+  string message         = 2;
+}
+
+message RelayTrackRequest {
+  int32  target_world_id = 1;
+  uint64 username37      = 2;
+  // TS-faithful `state` (FriendServer.ts:348). Untyped in TS; pinned as
+  // int32 so slice 5b can interpret per the anti-cheat tracking subsystem.
+  int32  state           = 3;
+}
+
+message RelayReloadRequest {
+  int32 target_world_id = 1;
+}
+
+message RelayClearLoginsRequest {
+  int32 target_world_id = 1;
+}
+
+message RelayClearLogoutsRequest {
+  int32 target_world_id = 1;
+}
+
+message RelayQueueScriptRequest {
+  int32  target_world_id = 1;
+  string script_name     = 2;
+  uint64 username37      = 3;
+}
+
+message SubscribeWorldEventsRequest {
+  int32 world_id = 1;
+}
+
+// WorldEvent is the inbound push variant pushed to a world's
+// SubscribeWorldEvents stream. Each variant strips target_world_id from
+// the corresponding Relay*Request: the receiving world already knows
+// its own ID, and the routing field is irrelevant to the action layer.
+message WorldEvent {
+  oneof event {
+    MuteEvent           mute          = 1;
+    KickEvent           kick          = 2;
+    ShutdownEvent       shutdown      = 3;
+    BroadcastEvent      broadcast     = 4;
+    TrackEvent          track         = 5;
+    ReloadEvent         reload        = 6;
+    ClearLoginsEvent    clear_logins  = 7;
+    ClearLogoutsEvent   clear_logouts = 8;
+    QueueScriptEvent    queue_script  = 9;
+  }
+}
+
+message MuteEvent {
+  uint64 username37     = 1;
+  int64  muted_until_ms = 2;
+}
+
+message KickEvent {
+  uint64 username37 = 1;
+}
+
+message ShutdownEvent {
+  int32 duration_ticks = 1;
+}
+
+message BroadcastEvent {
+  string message = 1;
+}
+
+message TrackEvent {
+  uint64 username37 = 1;
+  int32  state      = 2;
+}
+
+message ReloadEvent {}
+
+message ClearLoginsEvent {}
+
+message ClearLogoutsEvent {}
+
+message QueueScriptEvent {
+  string script_name = 1;
+  uint64 username37  = 2;
 }

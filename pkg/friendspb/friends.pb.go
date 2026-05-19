@@ -991,6 +991,1119 @@ func (x *PrivateMessageDelivery) GetChat() string {
 	return ""
 }
 
+type RelayMuteRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TargetWorldId int32                  `protobuf:"varint,1,opt,name=target_world_id,json=targetWorldId,proto3" json:"target_world_id,omitempty"`
+	Username37    uint64                 `protobuf:"varint,2,opt,name=username37,proto3" json:"username37,omitempty"`
+	// Mute expiry as epoch milliseconds (matches TS `muted_until: number`).
+	// 0 = unmute. Negative = permanent (matches existing modules/login
+	// PlayerMute semantics).
+	MutedUntilMs  int64 `protobuf:"varint,3,opt,name=muted_until_ms,json=mutedUntilMs,proto3" json:"muted_until_ms,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RelayMuteRequest) Reset() {
+	*x = RelayMuteRequest{}
+	mi := &file_friends_friends_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RelayMuteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RelayMuteRequest) ProtoMessage() {}
+
+func (x *RelayMuteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_friends_friends_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RelayMuteRequest.ProtoReflect.Descriptor instead.
+func (*RelayMuteRequest) Descriptor() ([]byte, []int) {
+	return file_friends_friends_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *RelayMuteRequest) GetTargetWorldId() int32 {
+	if x != nil {
+		return x.TargetWorldId
+	}
+	return 0
+}
+
+func (x *RelayMuteRequest) GetUsername37() uint64 {
+	if x != nil {
+		return x.Username37
+	}
+	return 0
+}
+
+func (x *RelayMuteRequest) GetMutedUntilMs() int64 {
+	if x != nil {
+		return x.MutedUntilMs
+	}
+	return 0
+}
+
+type RelayKickRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TargetWorldId int32                  `protobuf:"varint,1,opt,name=target_world_id,json=targetWorldId,proto3" json:"target_world_id,omitempty"`
+	Username37    uint64                 `protobuf:"varint,2,opt,name=username37,proto3" json:"username37,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RelayKickRequest) Reset() {
+	*x = RelayKickRequest{}
+	mi := &file_friends_friends_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RelayKickRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RelayKickRequest) ProtoMessage() {}
+
+func (x *RelayKickRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_friends_friends_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RelayKickRequest.ProtoReflect.Descriptor instead.
+func (*RelayKickRequest) Descriptor() ([]byte, []int) {
+	return file_friends_friends_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *RelayKickRequest) GetTargetWorldId() int32 {
+	if x != nil {
+		return x.TargetWorldId
+	}
+	return 0
+}
+
+func (x *RelayKickRequest) GetUsername37() uint64 {
+	if x != nil {
+		return x.Username37
+	}
+	return 0
+}
+
+type RelayShutdownRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TargetWorldId int32                  `protobuf:"varint,1,opt,name=target_world_id,json=targetWorldId,proto3" json:"target_world_id,omitempty"`
+	// Shutdown countdown in ticks (TS `duration`).
+	DurationTicks int32 `protobuf:"varint,2,opt,name=duration_ticks,json=durationTicks,proto3" json:"duration_ticks,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RelayShutdownRequest) Reset() {
+	*x = RelayShutdownRequest{}
+	mi := &file_friends_friends_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RelayShutdownRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RelayShutdownRequest) ProtoMessage() {}
+
+func (x *RelayShutdownRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_friends_friends_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RelayShutdownRequest.ProtoReflect.Descriptor instead.
+func (*RelayShutdownRequest) Descriptor() ([]byte, []int) {
+	return file_friends_friends_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *RelayShutdownRequest) GetTargetWorldId() int32 {
+	if x != nil {
+		return x.TargetWorldId
+	}
+	return 0
+}
+
+func (x *RelayShutdownRequest) GetDurationTicks() int32 {
+	if x != nil {
+		return x.DurationTicks
+	}
+	return 0
+}
+
+type RelayBroadcastRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TargetWorldId int32                  `protobuf:"varint,1,opt,name=target_world_id,json=targetWorldId,proto3" json:"target_world_id,omitempty"`
+	// Game-wide chat broadcast text (TS `broadcast` → `message`).
+	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RelayBroadcastRequest) Reset() {
+	*x = RelayBroadcastRequest{}
+	mi := &file_friends_friends_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RelayBroadcastRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RelayBroadcastRequest) ProtoMessage() {}
+
+func (x *RelayBroadcastRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_friends_friends_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RelayBroadcastRequest.ProtoReflect.Descriptor instead.
+func (*RelayBroadcastRequest) Descriptor() ([]byte, []int) {
+	return file_friends_friends_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *RelayBroadcastRequest) GetTargetWorldId() int32 {
+	if x != nil {
+		return x.TargetWorldId
+	}
+	return 0
+}
+
+func (x *RelayBroadcastRequest) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type RelayTrackRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TargetWorldId int32                  `protobuf:"varint,1,opt,name=target_world_id,json=targetWorldId,proto3" json:"target_world_id,omitempty"`
+	Username37    uint64                 `protobuf:"varint,2,opt,name=username37,proto3" json:"username37,omitempty"`
+	// TS-faithful `state` (FriendServer.ts:348). Untyped in TS; pinned as
+	// int32 so slice 5b can interpret per the anti-cheat tracking subsystem.
+	State         int32 `protobuf:"varint,3,opt,name=state,proto3" json:"state,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RelayTrackRequest) Reset() {
+	*x = RelayTrackRequest{}
+	mi := &file_friends_friends_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RelayTrackRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RelayTrackRequest) ProtoMessage() {}
+
+func (x *RelayTrackRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_friends_friends_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RelayTrackRequest.ProtoReflect.Descriptor instead.
+func (*RelayTrackRequest) Descriptor() ([]byte, []int) {
+	return file_friends_friends_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *RelayTrackRequest) GetTargetWorldId() int32 {
+	if x != nil {
+		return x.TargetWorldId
+	}
+	return 0
+}
+
+func (x *RelayTrackRequest) GetUsername37() uint64 {
+	if x != nil {
+		return x.Username37
+	}
+	return 0
+}
+
+func (x *RelayTrackRequest) GetState() int32 {
+	if x != nil {
+		return x.State
+	}
+	return 0
+}
+
+type RelayReloadRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TargetWorldId int32                  `protobuf:"varint,1,opt,name=target_world_id,json=targetWorldId,proto3" json:"target_world_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RelayReloadRequest) Reset() {
+	*x = RelayReloadRequest{}
+	mi := &file_friends_friends_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RelayReloadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RelayReloadRequest) ProtoMessage() {}
+
+func (x *RelayReloadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_friends_friends_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RelayReloadRequest.ProtoReflect.Descriptor instead.
+func (*RelayReloadRequest) Descriptor() ([]byte, []int) {
+	return file_friends_friends_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *RelayReloadRequest) GetTargetWorldId() int32 {
+	if x != nil {
+		return x.TargetWorldId
+	}
+	return 0
+}
+
+type RelayClearLoginsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TargetWorldId int32                  `protobuf:"varint,1,opt,name=target_world_id,json=targetWorldId,proto3" json:"target_world_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RelayClearLoginsRequest) Reset() {
+	*x = RelayClearLoginsRequest{}
+	mi := &file_friends_friends_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RelayClearLoginsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RelayClearLoginsRequest) ProtoMessage() {}
+
+func (x *RelayClearLoginsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_friends_friends_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RelayClearLoginsRequest.ProtoReflect.Descriptor instead.
+func (*RelayClearLoginsRequest) Descriptor() ([]byte, []int) {
+	return file_friends_friends_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *RelayClearLoginsRequest) GetTargetWorldId() int32 {
+	if x != nil {
+		return x.TargetWorldId
+	}
+	return 0
+}
+
+type RelayClearLogoutsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TargetWorldId int32                  `protobuf:"varint,1,opt,name=target_world_id,json=targetWorldId,proto3" json:"target_world_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RelayClearLogoutsRequest) Reset() {
+	*x = RelayClearLogoutsRequest{}
+	mi := &file_friends_friends_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RelayClearLogoutsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RelayClearLogoutsRequest) ProtoMessage() {}
+
+func (x *RelayClearLogoutsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_friends_friends_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RelayClearLogoutsRequest.ProtoReflect.Descriptor instead.
+func (*RelayClearLogoutsRequest) Descriptor() ([]byte, []int) {
+	return file_friends_friends_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *RelayClearLogoutsRequest) GetTargetWorldId() int32 {
+	if x != nil {
+		return x.TargetWorldId
+	}
+	return 0
+}
+
+type RelayQueueScriptRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TargetWorldId int32                  `protobuf:"varint,1,opt,name=target_world_id,json=targetWorldId,proto3" json:"target_world_id,omitempty"`
+	ScriptName    string                 `protobuf:"bytes,2,opt,name=script_name,json=scriptName,proto3" json:"script_name,omitempty"`
+	Username37    uint64                 `protobuf:"varint,3,opt,name=username37,proto3" json:"username37,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RelayQueueScriptRequest) Reset() {
+	*x = RelayQueueScriptRequest{}
+	mi := &file_friends_friends_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RelayQueueScriptRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RelayQueueScriptRequest) ProtoMessage() {}
+
+func (x *RelayQueueScriptRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_friends_friends_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RelayQueueScriptRequest.ProtoReflect.Descriptor instead.
+func (*RelayQueueScriptRequest) Descriptor() ([]byte, []int) {
+	return file_friends_friends_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *RelayQueueScriptRequest) GetTargetWorldId() int32 {
+	if x != nil {
+		return x.TargetWorldId
+	}
+	return 0
+}
+
+func (x *RelayQueueScriptRequest) GetScriptName() string {
+	if x != nil {
+		return x.ScriptName
+	}
+	return ""
+}
+
+func (x *RelayQueueScriptRequest) GetUsername37() uint64 {
+	if x != nil {
+		return x.Username37
+	}
+	return 0
+}
+
+type SubscribeWorldEventsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	WorldId       int32                  `protobuf:"varint,1,opt,name=world_id,json=worldId,proto3" json:"world_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SubscribeWorldEventsRequest) Reset() {
+	*x = SubscribeWorldEventsRequest{}
+	mi := &file_friends_friends_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SubscribeWorldEventsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SubscribeWorldEventsRequest) ProtoMessage() {}
+
+func (x *SubscribeWorldEventsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_friends_friends_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SubscribeWorldEventsRequest.ProtoReflect.Descriptor instead.
+func (*SubscribeWorldEventsRequest) Descriptor() ([]byte, []int) {
+	return file_friends_friends_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *SubscribeWorldEventsRequest) GetWorldId() int32 {
+	if x != nil {
+		return x.WorldId
+	}
+	return 0
+}
+
+// WorldEvent is the inbound push variant pushed to a world's
+// SubscribeWorldEvents stream. Each variant strips target_world_id from
+// the corresponding Relay*Request: the receiving world already knows
+// its own ID, and the routing field is irrelevant to the action layer.
+type WorldEvent struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Event:
+	//
+	//	*WorldEvent_Mute
+	//	*WorldEvent_Kick
+	//	*WorldEvent_Shutdown
+	//	*WorldEvent_Broadcast
+	//	*WorldEvent_Track
+	//	*WorldEvent_Reload
+	//	*WorldEvent_ClearLogins
+	//	*WorldEvent_ClearLogouts
+	//	*WorldEvent_QueueScript
+	Event         isWorldEvent_Event `protobuf_oneof:"event"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WorldEvent) Reset() {
+	*x = WorldEvent{}
+	mi := &file_friends_friends_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorldEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorldEvent) ProtoMessage() {}
+
+func (x *WorldEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_friends_friends_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorldEvent.ProtoReflect.Descriptor instead.
+func (*WorldEvent) Descriptor() ([]byte, []int) {
+	return file_friends_friends_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *WorldEvent) GetEvent() isWorldEvent_Event {
+	if x != nil {
+		return x.Event
+	}
+	return nil
+}
+
+func (x *WorldEvent) GetMute() *MuteEvent {
+	if x != nil {
+		if x, ok := x.Event.(*WorldEvent_Mute); ok {
+			return x.Mute
+		}
+	}
+	return nil
+}
+
+func (x *WorldEvent) GetKick() *KickEvent {
+	if x != nil {
+		if x, ok := x.Event.(*WorldEvent_Kick); ok {
+			return x.Kick
+		}
+	}
+	return nil
+}
+
+func (x *WorldEvent) GetShutdown() *ShutdownEvent {
+	if x != nil {
+		if x, ok := x.Event.(*WorldEvent_Shutdown); ok {
+			return x.Shutdown
+		}
+	}
+	return nil
+}
+
+func (x *WorldEvent) GetBroadcast() *BroadcastEvent {
+	if x != nil {
+		if x, ok := x.Event.(*WorldEvent_Broadcast); ok {
+			return x.Broadcast
+		}
+	}
+	return nil
+}
+
+func (x *WorldEvent) GetTrack() *TrackEvent {
+	if x != nil {
+		if x, ok := x.Event.(*WorldEvent_Track); ok {
+			return x.Track
+		}
+	}
+	return nil
+}
+
+func (x *WorldEvent) GetReload() *ReloadEvent {
+	if x != nil {
+		if x, ok := x.Event.(*WorldEvent_Reload); ok {
+			return x.Reload
+		}
+	}
+	return nil
+}
+
+func (x *WorldEvent) GetClearLogins() *ClearLoginsEvent {
+	if x != nil {
+		if x, ok := x.Event.(*WorldEvent_ClearLogins); ok {
+			return x.ClearLogins
+		}
+	}
+	return nil
+}
+
+func (x *WorldEvent) GetClearLogouts() *ClearLogoutsEvent {
+	if x != nil {
+		if x, ok := x.Event.(*WorldEvent_ClearLogouts); ok {
+			return x.ClearLogouts
+		}
+	}
+	return nil
+}
+
+func (x *WorldEvent) GetQueueScript() *QueueScriptEvent {
+	if x != nil {
+		if x, ok := x.Event.(*WorldEvent_QueueScript); ok {
+			return x.QueueScript
+		}
+	}
+	return nil
+}
+
+type isWorldEvent_Event interface {
+	isWorldEvent_Event()
+}
+
+type WorldEvent_Mute struct {
+	Mute *MuteEvent `protobuf:"bytes,1,opt,name=mute,proto3,oneof"`
+}
+
+type WorldEvent_Kick struct {
+	Kick *KickEvent `protobuf:"bytes,2,opt,name=kick,proto3,oneof"`
+}
+
+type WorldEvent_Shutdown struct {
+	Shutdown *ShutdownEvent `protobuf:"bytes,3,opt,name=shutdown,proto3,oneof"`
+}
+
+type WorldEvent_Broadcast struct {
+	Broadcast *BroadcastEvent `protobuf:"bytes,4,opt,name=broadcast,proto3,oneof"`
+}
+
+type WorldEvent_Track struct {
+	Track *TrackEvent `protobuf:"bytes,5,opt,name=track,proto3,oneof"`
+}
+
+type WorldEvent_Reload struct {
+	Reload *ReloadEvent `protobuf:"bytes,6,opt,name=reload,proto3,oneof"`
+}
+
+type WorldEvent_ClearLogins struct {
+	ClearLogins *ClearLoginsEvent `protobuf:"bytes,7,opt,name=clear_logins,json=clearLogins,proto3,oneof"`
+}
+
+type WorldEvent_ClearLogouts struct {
+	ClearLogouts *ClearLogoutsEvent `protobuf:"bytes,8,opt,name=clear_logouts,json=clearLogouts,proto3,oneof"`
+}
+
+type WorldEvent_QueueScript struct {
+	QueueScript *QueueScriptEvent `protobuf:"bytes,9,opt,name=queue_script,json=queueScript,proto3,oneof"`
+}
+
+func (*WorldEvent_Mute) isWorldEvent_Event() {}
+
+func (*WorldEvent_Kick) isWorldEvent_Event() {}
+
+func (*WorldEvent_Shutdown) isWorldEvent_Event() {}
+
+func (*WorldEvent_Broadcast) isWorldEvent_Event() {}
+
+func (*WorldEvent_Track) isWorldEvent_Event() {}
+
+func (*WorldEvent_Reload) isWorldEvent_Event() {}
+
+func (*WorldEvent_ClearLogins) isWorldEvent_Event() {}
+
+func (*WorldEvent_ClearLogouts) isWorldEvent_Event() {}
+
+func (*WorldEvent_QueueScript) isWorldEvent_Event() {}
+
+type MuteEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Username37    uint64                 `protobuf:"varint,1,opt,name=username37,proto3" json:"username37,omitempty"`
+	MutedUntilMs  int64                  `protobuf:"varint,2,opt,name=muted_until_ms,json=mutedUntilMs,proto3" json:"muted_until_ms,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MuteEvent) Reset() {
+	*x = MuteEvent{}
+	mi := &file_friends_friends_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MuteEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MuteEvent) ProtoMessage() {}
+
+func (x *MuteEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_friends_friends_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MuteEvent.ProtoReflect.Descriptor instead.
+func (*MuteEvent) Descriptor() ([]byte, []int) {
+	return file_friends_friends_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *MuteEvent) GetUsername37() uint64 {
+	if x != nil {
+		return x.Username37
+	}
+	return 0
+}
+
+func (x *MuteEvent) GetMutedUntilMs() int64 {
+	if x != nil {
+		return x.MutedUntilMs
+	}
+	return 0
+}
+
+type KickEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Username37    uint64                 `protobuf:"varint,1,opt,name=username37,proto3" json:"username37,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *KickEvent) Reset() {
+	*x = KickEvent{}
+	mi := &file_friends_friends_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KickEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KickEvent) ProtoMessage() {}
+
+func (x *KickEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_friends_friends_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KickEvent.ProtoReflect.Descriptor instead.
+func (*KickEvent) Descriptor() ([]byte, []int) {
+	return file_friends_friends_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *KickEvent) GetUsername37() uint64 {
+	if x != nil {
+		return x.Username37
+	}
+	return 0
+}
+
+type ShutdownEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DurationTicks int32                  `protobuf:"varint,1,opt,name=duration_ticks,json=durationTicks,proto3" json:"duration_ticks,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ShutdownEvent) Reset() {
+	*x = ShutdownEvent{}
+	mi := &file_friends_friends_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ShutdownEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ShutdownEvent) ProtoMessage() {}
+
+func (x *ShutdownEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_friends_friends_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ShutdownEvent.ProtoReflect.Descriptor instead.
+func (*ShutdownEvent) Descriptor() ([]byte, []int) {
+	return file_friends_friends_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *ShutdownEvent) GetDurationTicks() int32 {
+	if x != nil {
+		return x.DurationTicks
+	}
+	return 0
+}
+
+type BroadcastEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BroadcastEvent) Reset() {
+	*x = BroadcastEvent{}
+	mi := &file_friends_friends_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BroadcastEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BroadcastEvent) ProtoMessage() {}
+
+func (x *BroadcastEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_friends_friends_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BroadcastEvent.ProtoReflect.Descriptor instead.
+func (*BroadcastEvent) Descriptor() ([]byte, []int) {
+	return file_friends_friends_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *BroadcastEvent) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type TrackEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Username37    uint64                 `protobuf:"varint,1,opt,name=username37,proto3" json:"username37,omitempty"`
+	State         int32                  `protobuf:"varint,2,opt,name=state,proto3" json:"state,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TrackEvent) Reset() {
+	*x = TrackEvent{}
+	mi := &file_friends_friends_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TrackEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TrackEvent) ProtoMessage() {}
+
+func (x *TrackEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_friends_friends_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TrackEvent.ProtoReflect.Descriptor instead.
+func (*TrackEvent) Descriptor() ([]byte, []int) {
+	return file_friends_friends_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *TrackEvent) GetUsername37() uint64 {
+	if x != nil {
+		return x.Username37
+	}
+	return 0
+}
+
+func (x *TrackEvent) GetState() int32 {
+	if x != nil {
+		return x.State
+	}
+	return 0
+}
+
+type ReloadEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReloadEvent) Reset() {
+	*x = ReloadEvent{}
+	mi := &file_friends_friends_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReloadEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReloadEvent) ProtoMessage() {}
+
+func (x *ReloadEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_friends_friends_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReloadEvent.ProtoReflect.Descriptor instead.
+func (*ReloadEvent) Descriptor() ([]byte, []int) {
+	return file_friends_friends_proto_rawDescGZIP(), []int{32}
+}
+
+type ClearLoginsEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClearLoginsEvent) Reset() {
+	*x = ClearLoginsEvent{}
+	mi := &file_friends_friends_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClearLoginsEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClearLoginsEvent) ProtoMessage() {}
+
+func (x *ClearLoginsEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_friends_friends_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClearLoginsEvent.ProtoReflect.Descriptor instead.
+func (*ClearLoginsEvent) Descriptor() ([]byte, []int) {
+	return file_friends_friends_proto_rawDescGZIP(), []int{33}
+}
+
+type ClearLogoutsEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClearLogoutsEvent) Reset() {
+	*x = ClearLogoutsEvent{}
+	mi := &file_friends_friends_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClearLogoutsEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClearLogoutsEvent) ProtoMessage() {}
+
+func (x *ClearLogoutsEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_friends_friends_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClearLogoutsEvent.ProtoReflect.Descriptor instead.
+func (*ClearLogoutsEvent) Descriptor() ([]byte, []int) {
+	return file_friends_friends_proto_rawDescGZIP(), []int{34}
+}
+
+type QueueScriptEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ScriptName    string                 `protobuf:"bytes,1,opt,name=script_name,json=scriptName,proto3" json:"script_name,omitempty"`
+	Username37    uint64                 `protobuf:"varint,2,opt,name=username37,proto3" json:"username37,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueueScriptEvent) Reset() {
+	*x = QueueScriptEvent{}
+	mi := &file_friends_friends_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueueScriptEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueueScriptEvent) ProtoMessage() {}
+
+func (x *QueueScriptEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_friends_friends_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueueScriptEvent.ProtoReflect.Descriptor instead.
+func (*QueueScriptEvent) Descriptor() ([]byte, []int) {
+	return file_friends_friends_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *QueueScriptEvent) GetScriptName() string {
+	if x != nil {
+		return x.ScriptName
+	}
+	return ""
+}
+
+func (x *QueueScriptEvent) GetUsername37() uint64 {
+	if x != nil {
+		return x.Username37
+	}
+	return 0
+}
+
 var File_friends_friends_proto protoreflect.FileDescriptor
 
 const file_friends_friends_proto_rawDesc = "" +
@@ -1083,7 +2196,85 @@ const file_friends_friends_proto_rawDesc = "" +
 	"\x0ffrom_username37\x18\x01 \x01(\x04R\x0efromUsername37\x12\x1b\n" +
 	"\tstaff_lvl\x18\x02 \x01(\x05R\bstaffLvl\x12\x13\n" +
 	"\x05pm_id\x18\x03 \x01(\rR\x04pmId\x12\x12\n" +
-	"\x04chat\x18\x04 \x01(\tR\x04chat2\x88\x06\n" +
+	"\x04chat\x18\x04 \x01(\tR\x04chat\"\x80\x01\n" +
+	"\x10RelayMuteRequest\x12&\n" +
+	"\x0ftarget_world_id\x18\x01 \x01(\x05R\rtargetWorldId\x12\x1e\n" +
+	"\n" +
+	"username37\x18\x02 \x01(\x04R\n" +
+	"username37\x12$\n" +
+	"\x0emuted_until_ms\x18\x03 \x01(\x03R\fmutedUntilMs\"Z\n" +
+	"\x10RelayKickRequest\x12&\n" +
+	"\x0ftarget_world_id\x18\x01 \x01(\x05R\rtargetWorldId\x12\x1e\n" +
+	"\n" +
+	"username37\x18\x02 \x01(\x04R\n" +
+	"username37\"e\n" +
+	"\x14RelayShutdownRequest\x12&\n" +
+	"\x0ftarget_world_id\x18\x01 \x01(\x05R\rtargetWorldId\x12%\n" +
+	"\x0eduration_ticks\x18\x02 \x01(\x05R\rdurationTicks\"Y\n" +
+	"\x15RelayBroadcastRequest\x12&\n" +
+	"\x0ftarget_world_id\x18\x01 \x01(\x05R\rtargetWorldId\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"q\n" +
+	"\x11RelayTrackRequest\x12&\n" +
+	"\x0ftarget_world_id\x18\x01 \x01(\x05R\rtargetWorldId\x12\x1e\n" +
+	"\n" +
+	"username37\x18\x02 \x01(\x04R\n" +
+	"username37\x12\x14\n" +
+	"\x05state\x18\x03 \x01(\x05R\x05state\"<\n" +
+	"\x12RelayReloadRequest\x12&\n" +
+	"\x0ftarget_world_id\x18\x01 \x01(\x05R\rtargetWorldId\"A\n" +
+	"\x17RelayClearLoginsRequest\x12&\n" +
+	"\x0ftarget_world_id\x18\x01 \x01(\x05R\rtargetWorldId\"B\n" +
+	"\x18RelayClearLogoutsRequest\x12&\n" +
+	"\x0ftarget_world_id\x18\x01 \x01(\x05R\rtargetWorldId\"\x82\x01\n" +
+	"\x17RelayQueueScriptRequest\x12&\n" +
+	"\x0ftarget_world_id\x18\x01 \x01(\x05R\rtargetWorldId\x12\x1f\n" +
+	"\vscript_name\x18\x02 \x01(\tR\n" +
+	"scriptName\x12\x1e\n" +
+	"\n" +
+	"username37\x18\x03 \x01(\x04R\n" +
+	"username37\"8\n" +
+	"\x1bSubscribeWorldEventsRequest\x12\x19\n" +
+	"\bworld_id\x18\x01 \x01(\x05R\aworldId\"\x93\x04\n" +
+	"\n" +
+	"WorldEvent\x12+\n" +
+	"\x04mute\x18\x01 \x01(\v2\x15.friends.v1.MuteEventH\x00R\x04mute\x12+\n" +
+	"\x04kick\x18\x02 \x01(\v2\x15.friends.v1.KickEventH\x00R\x04kick\x127\n" +
+	"\bshutdown\x18\x03 \x01(\v2\x19.friends.v1.ShutdownEventH\x00R\bshutdown\x12:\n" +
+	"\tbroadcast\x18\x04 \x01(\v2\x1a.friends.v1.BroadcastEventH\x00R\tbroadcast\x12.\n" +
+	"\x05track\x18\x05 \x01(\v2\x16.friends.v1.TrackEventH\x00R\x05track\x121\n" +
+	"\x06reload\x18\x06 \x01(\v2\x17.friends.v1.ReloadEventH\x00R\x06reload\x12A\n" +
+	"\fclear_logins\x18\a \x01(\v2\x1c.friends.v1.ClearLoginsEventH\x00R\vclearLogins\x12D\n" +
+	"\rclear_logouts\x18\b \x01(\v2\x1d.friends.v1.ClearLogoutsEventH\x00R\fclearLogouts\x12A\n" +
+	"\fqueue_script\x18\t \x01(\v2\x1c.friends.v1.QueueScriptEventH\x00R\vqueueScriptB\a\n" +
+	"\x05event\"Q\n" +
+	"\tMuteEvent\x12\x1e\n" +
+	"\n" +
+	"username37\x18\x01 \x01(\x04R\n" +
+	"username37\x12$\n" +
+	"\x0emuted_until_ms\x18\x02 \x01(\x03R\fmutedUntilMs\"+\n" +
+	"\tKickEvent\x12\x1e\n" +
+	"\n" +
+	"username37\x18\x01 \x01(\x04R\n" +
+	"username37\"6\n" +
+	"\rShutdownEvent\x12%\n" +
+	"\x0eduration_ticks\x18\x01 \x01(\x05R\rdurationTicks\"*\n" +
+	"\x0eBroadcastEvent\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"B\n" +
+	"\n" +
+	"TrackEvent\x12\x1e\n" +
+	"\n" +
+	"username37\x18\x01 \x01(\x04R\n" +
+	"username37\x12\x14\n" +
+	"\x05state\x18\x02 \x01(\x05R\x05state\"\r\n" +
+	"\vReloadEvent\"\x12\n" +
+	"\x10ClearLoginsEvent\"\x13\n" +
+	"\x11ClearLogoutsEvent\"S\n" +
+	"\x10QueueScriptEvent\x12\x1f\n" +
+	"\vscript_name\x18\x01 \x01(\tR\n" +
+	"scriptName\x12\x1e\n" +
+	"\n" +
+	"username37\x18\x02 \x01(\x04R\n" +
+	"username372\x82\f\n" +
 	"\x0eFriendsService\x12G\n" +
 	"\fWorldConnect\x12\x1f.friends.v1.WorldConnectRequest\x1a\x16.google.protobuf.Empty\x12N\n" +
 	"\vPlayerLogin\x12\x1e.friends.v1.PlayerLoginRequest\x1a\x1f.friends.v1.PlayerLoginResponse\x12G\n" +
@@ -1094,7 +2285,18 @@ const file_friends_friends_proto_rawDesc = "" +
 	"\rIgnorelistAdd\x12 .friends.v1.IgnorelistAddRequest\x1a\x16.google.protobuf.Empty\x12I\n" +
 	"\rIgnorelistDel\x12 .friends.v1.IgnorelistDelRequest\x1a\x16.google.protobuf.Empty\x12K\n" +
 	"\x0ePrivateMessage\x12!.friends.v1.PrivateMessageRequest\x1a\x16.google.protobuf.Empty\x12T\n" +
-	"\x10SubscribeUpdates\x12#.friends.v1.SubscribeUpdatesRequest\x1a\x19.friends.v1.FriendsUpdate0\x01B'Z%github.com/zsrv/goscape/pkg/friendspbb\x06proto3"
+	"\x10SubscribeUpdates\x12#.friends.v1.SubscribeUpdatesRequest\x1a\x19.friends.v1.FriendsUpdate0\x01\x12A\n" +
+	"\tRelayMute\x12\x1c.friends.v1.RelayMuteRequest\x1a\x16.google.protobuf.Empty\x12A\n" +
+	"\tRelayKick\x12\x1c.friends.v1.RelayKickRequest\x1a\x16.google.protobuf.Empty\x12I\n" +
+	"\rRelayShutdown\x12 .friends.v1.RelayShutdownRequest\x1a\x16.google.protobuf.Empty\x12K\n" +
+	"\x0eRelayBroadcast\x12!.friends.v1.RelayBroadcastRequest\x1a\x16.google.protobuf.Empty\x12C\n" +
+	"\n" +
+	"RelayTrack\x12\x1d.friends.v1.RelayTrackRequest\x1a\x16.google.protobuf.Empty\x12E\n" +
+	"\vRelayReload\x12\x1e.friends.v1.RelayReloadRequest\x1a\x16.google.protobuf.Empty\x12O\n" +
+	"\x10RelayClearLogins\x12#.friends.v1.RelayClearLoginsRequest\x1a\x16.google.protobuf.Empty\x12Q\n" +
+	"\x11RelayClearLogouts\x12$.friends.v1.RelayClearLogoutsRequest\x1a\x16.google.protobuf.Empty\x12O\n" +
+	"\x10RelayQueueScript\x12#.friends.v1.RelayQueueScriptRequest\x1a\x16.google.protobuf.Empty\x12Y\n" +
+	"\x14SubscribeWorldEvents\x12'.friends.v1.SubscribeWorldEventsRequest\x1a\x16.friends.v1.WorldEvent0\x01B'Z%github.com/zsrv/goscape/pkg/friendspbb\x06proto3"
 
 var (
 	file_friends_friends_proto_rawDescOnce sync.Once
@@ -1108,56 +2310,105 @@ func file_friends_friends_proto_rawDescGZIP() []byte {
 	return file_friends_friends_proto_rawDescData
 }
 
-var file_friends_friends_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_friends_friends_proto_msgTypes = make([]protoimpl.MessageInfo, 36)
 var file_friends_friends_proto_goTypes = []any{
-	(*WorldConnectRequest)(nil),     // 0: friends.v1.WorldConnectRequest
-	(*PlayerLoginRequest)(nil),      // 1: friends.v1.PlayerLoginRequest
-	(*PlayerLoginResponse)(nil),     // 2: friends.v1.PlayerLoginResponse
-	(*PlayerLogoutRequest)(nil),     // 3: friends.v1.PlayerLogoutRequest
-	(*ChatSetModeRequest)(nil),      // 4: friends.v1.ChatSetModeRequest
-	(*FriendlistAddRequest)(nil),    // 5: friends.v1.FriendlistAddRequest
-	(*FriendlistDelRequest)(nil),    // 6: friends.v1.FriendlistDelRequest
-	(*IgnorelistAddRequest)(nil),    // 7: friends.v1.IgnorelistAddRequest
-	(*IgnorelistDelRequest)(nil),    // 8: friends.v1.IgnorelistDelRequest
-	(*PrivateMessageRequest)(nil),   // 9: friends.v1.PrivateMessageRequest
-	(*SubscribeUpdatesRequest)(nil), // 10: friends.v1.SubscribeUpdatesRequest
-	(*FriendsUpdate)(nil),           // 11: friends.v1.FriendsUpdate
-	(*FriendlistUpdate)(nil),        // 12: friends.v1.FriendlistUpdate
-	(*FriendEntry)(nil),             // 13: friends.v1.FriendEntry
-	(*IgnorelistUpdate)(nil),        // 14: friends.v1.IgnorelistUpdate
-	(*PrivateMessageDelivery)(nil),  // 15: friends.v1.PrivateMessageDelivery
-	(*emptypb.Empty)(nil),           // 16: google.protobuf.Empty
+	(*WorldConnectRequest)(nil),         // 0: friends.v1.WorldConnectRequest
+	(*PlayerLoginRequest)(nil),          // 1: friends.v1.PlayerLoginRequest
+	(*PlayerLoginResponse)(nil),         // 2: friends.v1.PlayerLoginResponse
+	(*PlayerLogoutRequest)(nil),         // 3: friends.v1.PlayerLogoutRequest
+	(*ChatSetModeRequest)(nil),          // 4: friends.v1.ChatSetModeRequest
+	(*FriendlistAddRequest)(nil),        // 5: friends.v1.FriendlistAddRequest
+	(*FriendlistDelRequest)(nil),        // 6: friends.v1.FriendlistDelRequest
+	(*IgnorelistAddRequest)(nil),        // 7: friends.v1.IgnorelistAddRequest
+	(*IgnorelistDelRequest)(nil),        // 8: friends.v1.IgnorelistDelRequest
+	(*PrivateMessageRequest)(nil),       // 9: friends.v1.PrivateMessageRequest
+	(*SubscribeUpdatesRequest)(nil),     // 10: friends.v1.SubscribeUpdatesRequest
+	(*FriendsUpdate)(nil),               // 11: friends.v1.FriendsUpdate
+	(*FriendlistUpdate)(nil),            // 12: friends.v1.FriendlistUpdate
+	(*FriendEntry)(nil),                 // 13: friends.v1.FriendEntry
+	(*IgnorelistUpdate)(nil),            // 14: friends.v1.IgnorelistUpdate
+	(*PrivateMessageDelivery)(nil),      // 15: friends.v1.PrivateMessageDelivery
+	(*RelayMuteRequest)(nil),            // 16: friends.v1.RelayMuteRequest
+	(*RelayKickRequest)(nil),            // 17: friends.v1.RelayKickRequest
+	(*RelayShutdownRequest)(nil),        // 18: friends.v1.RelayShutdownRequest
+	(*RelayBroadcastRequest)(nil),       // 19: friends.v1.RelayBroadcastRequest
+	(*RelayTrackRequest)(nil),           // 20: friends.v1.RelayTrackRequest
+	(*RelayReloadRequest)(nil),          // 21: friends.v1.RelayReloadRequest
+	(*RelayClearLoginsRequest)(nil),     // 22: friends.v1.RelayClearLoginsRequest
+	(*RelayClearLogoutsRequest)(nil),    // 23: friends.v1.RelayClearLogoutsRequest
+	(*RelayQueueScriptRequest)(nil),     // 24: friends.v1.RelayQueueScriptRequest
+	(*SubscribeWorldEventsRequest)(nil), // 25: friends.v1.SubscribeWorldEventsRequest
+	(*WorldEvent)(nil),                  // 26: friends.v1.WorldEvent
+	(*MuteEvent)(nil),                   // 27: friends.v1.MuteEvent
+	(*KickEvent)(nil),                   // 28: friends.v1.KickEvent
+	(*ShutdownEvent)(nil),               // 29: friends.v1.ShutdownEvent
+	(*BroadcastEvent)(nil),              // 30: friends.v1.BroadcastEvent
+	(*TrackEvent)(nil),                  // 31: friends.v1.TrackEvent
+	(*ReloadEvent)(nil),                 // 32: friends.v1.ReloadEvent
+	(*ClearLoginsEvent)(nil),            // 33: friends.v1.ClearLoginsEvent
+	(*ClearLogoutsEvent)(nil),           // 34: friends.v1.ClearLogoutsEvent
+	(*QueueScriptEvent)(nil),            // 35: friends.v1.QueueScriptEvent
+	(*emptypb.Empty)(nil),               // 36: google.protobuf.Empty
 }
 var file_friends_friends_proto_depIdxs = []int32{
 	12, // 0: friends.v1.FriendsUpdate.friendlist:type_name -> friends.v1.FriendlistUpdate
 	14, // 1: friends.v1.FriendsUpdate.ignorelist:type_name -> friends.v1.IgnorelistUpdate
 	15, // 2: friends.v1.FriendsUpdate.private_message:type_name -> friends.v1.PrivateMessageDelivery
 	13, // 3: friends.v1.FriendlistUpdate.entries:type_name -> friends.v1.FriendEntry
-	0,  // 4: friends.v1.FriendsService.WorldConnect:input_type -> friends.v1.WorldConnectRequest
-	1,  // 5: friends.v1.FriendsService.PlayerLogin:input_type -> friends.v1.PlayerLoginRequest
-	3,  // 6: friends.v1.FriendsService.PlayerLogout:input_type -> friends.v1.PlayerLogoutRequest
-	4,  // 7: friends.v1.FriendsService.ChatSetMode:input_type -> friends.v1.ChatSetModeRequest
-	5,  // 8: friends.v1.FriendsService.FriendlistAdd:input_type -> friends.v1.FriendlistAddRequest
-	6,  // 9: friends.v1.FriendsService.FriendlistDel:input_type -> friends.v1.FriendlistDelRequest
-	7,  // 10: friends.v1.FriendsService.IgnorelistAdd:input_type -> friends.v1.IgnorelistAddRequest
-	8,  // 11: friends.v1.FriendsService.IgnorelistDel:input_type -> friends.v1.IgnorelistDelRequest
-	9,  // 12: friends.v1.FriendsService.PrivateMessage:input_type -> friends.v1.PrivateMessageRequest
-	10, // 13: friends.v1.FriendsService.SubscribeUpdates:input_type -> friends.v1.SubscribeUpdatesRequest
-	16, // 14: friends.v1.FriendsService.WorldConnect:output_type -> google.protobuf.Empty
-	2,  // 15: friends.v1.FriendsService.PlayerLogin:output_type -> friends.v1.PlayerLoginResponse
-	16, // 16: friends.v1.FriendsService.PlayerLogout:output_type -> google.protobuf.Empty
-	16, // 17: friends.v1.FriendsService.ChatSetMode:output_type -> google.protobuf.Empty
-	16, // 18: friends.v1.FriendsService.FriendlistAdd:output_type -> google.protobuf.Empty
-	16, // 19: friends.v1.FriendsService.FriendlistDel:output_type -> google.protobuf.Empty
-	16, // 20: friends.v1.FriendsService.IgnorelistAdd:output_type -> google.protobuf.Empty
-	16, // 21: friends.v1.FriendsService.IgnorelistDel:output_type -> google.protobuf.Empty
-	16, // 22: friends.v1.FriendsService.PrivateMessage:output_type -> google.protobuf.Empty
-	11, // 23: friends.v1.FriendsService.SubscribeUpdates:output_type -> friends.v1.FriendsUpdate
-	14, // [14:24] is the sub-list for method output_type
-	4,  // [4:14] is the sub-list for method input_type
-	4,  // [4:4] is the sub-list for extension type_name
-	4,  // [4:4] is the sub-list for extension extendee
-	0,  // [0:4] is the sub-list for field type_name
+	27, // 4: friends.v1.WorldEvent.mute:type_name -> friends.v1.MuteEvent
+	28, // 5: friends.v1.WorldEvent.kick:type_name -> friends.v1.KickEvent
+	29, // 6: friends.v1.WorldEvent.shutdown:type_name -> friends.v1.ShutdownEvent
+	30, // 7: friends.v1.WorldEvent.broadcast:type_name -> friends.v1.BroadcastEvent
+	31, // 8: friends.v1.WorldEvent.track:type_name -> friends.v1.TrackEvent
+	32, // 9: friends.v1.WorldEvent.reload:type_name -> friends.v1.ReloadEvent
+	33, // 10: friends.v1.WorldEvent.clear_logins:type_name -> friends.v1.ClearLoginsEvent
+	34, // 11: friends.v1.WorldEvent.clear_logouts:type_name -> friends.v1.ClearLogoutsEvent
+	35, // 12: friends.v1.WorldEvent.queue_script:type_name -> friends.v1.QueueScriptEvent
+	0,  // 13: friends.v1.FriendsService.WorldConnect:input_type -> friends.v1.WorldConnectRequest
+	1,  // 14: friends.v1.FriendsService.PlayerLogin:input_type -> friends.v1.PlayerLoginRequest
+	3,  // 15: friends.v1.FriendsService.PlayerLogout:input_type -> friends.v1.PlayerLogoutRequest
+	4,  // 16: friends.v1.FriendsService.ChatSetMode:input_type -> friends.v1.ChatSetModeRequest
+	5,  // 17: friends.v1.FriendsService.FriendlistAdd:input_type -> friends.v1.FriendlistAddRequest
+	6,  // 18: friends.v1.FriendsService.FriendlistDel:input_type -> friends.v1.FriendlistDelRequest
+	7,  // 19: friends.v1.FriendsService.IgnorelistAdd:input_type -> friends.v1.IgnorelistAddRequest
+	8,  // 20: friends.v1.FriendsService.IgnorelistDel:input_type -> friends.v1.IgnorelistDelRequest
+	9,  // 21: friends.v1.FriendsService.PrivateMessage:input_type -> friends.v1.PrivateMessageRequest
+	10, // 22: friends.v1.FriendsService.SubscribeUpdates:input_type -> friends.v1.SubscribeUpdatesRequest
+	16, // 23: friends.v1.FriendsService.RelayMute:input_type -> friends.v1.RelayMuteRequest
+	17, // 24: friends.v1.FriendsService.RelayKick:input_type -> friends.v1.RelayKickRequest
+	18, // 25: friends.v1.FriendsService.RelayShutdown:input_type -> friends.v1.RelayShutdownRequest
+	19, // 26: friends.v1.FriendsService.RelayBroadcast:input_type -> friends.v1.RelayBroadcastRequest
+	20, // 27: friends.v1.FriendsService.RelayTrack:input_type -> friends.v1.RelayTrackRequest
+	21, // 28: friends.v1.FriendsService.RelayReload:input_type -> friends.v1.RelayReloadRequest
+	22, // 29: friends.v1.FriendsService.RelayClearLogins:input_type -> friends.v1.RelayClearLoginsRequest
+	23, // 30: friends.v1.FriendsService.RelayClearLogouts:input_type -> friends.v1.RelayClearLogoutsRequest
+	24, // 31: friends.v1.FriendsService.RelayQueueScript:input_type -> friends.v1.RelayQueueScriptRequest
+	25, // 32: friends.v1.FriendsService.SubscribeWorldEvents:input_type -> friends.v1.SubscribeWorldEventsRequest
+	36, // 33: friends.v1.FriendsService.WorldConnect:output_type -> google.protobuf.Empty
+	2,  // 34: friends.v1.FriendsService.PlayerLogin:output_type -> friends.v1.PlayerLoginResponse
+	36, // 35: friends.v1.FriendsService.PlayerLogout:output_type -> google.protobuf.Empty
+	36, // 36: friends.v1.FriendsService.ChatSetMode:output_type -> google.protobuf.Empty
+	36, // 37: friends.v1.FriendsService.FriendlistAdd:output_type -> google.protobuf.Empty
+	36, // 38: friends.v1.FriendsService.FriendlistDel:output_type -> google.protobuf.Empty
+	36, // 39: friends.v1.FriendsService.IgnorelistAdd:output_type -> google.protobuf.Empty
+	36, // 40: friends.v1.FriendsService.IgnorelistDel:output_type -> google.protobuf.Empty
+	36, // 41: friends.v1.FriendsService.PrivateMessage:output_type -> google.protobuf.Empty
+	11, // 42: friends.v1.FriendsService.SubscribeUpdates:output_type -> friends.v1.FriendsUpdate
+	36, // 43: friends.v1.FriendsService.RelayMute:output_type -> google.protobuf.Empty
+	36, // 44: friends.v1.FriendsService.RelayKick:output_type -> google.protobuf.Empty
+	36, // 45: friends.v1.FriendsService.RelayShutdown:output_type -> google.protobuf.Empty
+	36, // 46: friends.v1.FriendsService.RelayBroadcast:output_type -> google.protobuf.Empty
+	36, // 47: friends.v1.FriendsService.RelayTrack:output_type -> google.protobuf.Empty
+	36, // 48: friends.v1.FriendsService.RelayReload:output_type -> google.protobuf.Empty
+	36, // 49: friends.v1.FriendsService.RelayClearLogins:output_type -> google.protobuf.Empty
+	36, // 50: friends.v1.FriendsService.RelayClearLogouts:output_type -> google.protobuf.Empty
+	36, // 51: friends.v1.FriendsService.RelayQueueScript:output_type -> google.protobuf.Empty
+	26, // 52: friends.v1.FriendsService.SubscribeWorldEvents:output_type -> friends.v1.WorldEvent
+	33, // [33:53] is the sub-list for method output_type
+	13, // [13:33] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_friends_friends_proto_init() }
@@ -1170,13 +2421,24 @@ func file_friends_friends_proto_init() {
 		(*FriendsUpdate_Ignorelist)(nil),
 		(*FriendsUpdate_PrivateMessage)(nil),
 	}
+	file_friends_friends_proto_msgTypes[26].OneofWrappers = []any{
+		(*WorldEvent_Mute)(nil),
+		(*WorldEvent_Kick)(nil),
+		(*WorldEvent_Shutdown)(nil),
+		(*WorldEvent_Broadcast)(nil),
+		(*WorldEvent_Track)(nil),
+		(*WorldEvent_Reload)(nil),
+		(*WorldEvent_ClearLogins)(nil),
+		(*WorldEvent_ClearLogouts)(nil),
+		(*WorldEvent_QueueScript)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_friends_friends_proto_rawDesc), len(file_friends_friends_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   16,
+			NumMessages:   36,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
