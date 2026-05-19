@@ -1,36 +1,14 @@
 package world
 
 import (
-	"bytes"
 	"io"
 	"log/slog"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 )
-
-// syncBuffer wraps bytes.Buffer with a mutex so a test's polling
-// goroutine and a callback's logging goroutine don't race on the
-// underlying buffer state.
-type syncBuffer struct {
-	mu  sync.Mutex
-	buf bytes.Buffer
-}
-
-func (s *syncBuffer) Write(p []byte) (int, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.buf.Write(p)
-}
-
-func (s *syncBuffer) String() string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.buf.String()
-}
 
 func TestProcessLogins_FiresFriendsPlayerLogin(t *testing.T) {
 	s := newTestServer(t)
