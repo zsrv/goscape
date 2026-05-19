@@ -11,6 +11,10 @@ import (
 // method fans out to the FriendsClient's corresponding Relay* RPC with
 // context.Background() — admin commands are fire-and-forget, errors are
 // logged inside the FriendsClient layer.
+//
+// log is currently unused at this layer (matches grpcFriendsBridge in
+// bridges.go) but reserved for slice-5b bridge-level observability —
+// e.g. attribution logs when an action handler issues a relay.
 type grpcFriendsAdminBridge struct {
 	client FriendsClient
 	log    *slog.Logger

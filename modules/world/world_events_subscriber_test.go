@@ -3,7 +3,6 @@ package world
 import (
 	"context"
 	"errors"
-	"io"
 	"log/slog"
 	"strings"
 	"testing"
@@ -82,8 +81,29 @@ func TestWorldEventsSubscriber_DispatchRouting(t *testing.T) {
 		t.Fatalf("shutdown = %d", d)
 	}
 
+	stream.recv <- &friendspb.WorldEvent{Event: &friendspb.WorldEvent_Broadcast{Broadcast: &friendspb.BroadcastEvent{Message: "hi"}}}
+	if m := <-disp.broadcast; m != "hi" {
+		t.Fatalf("broadcast = %q", m)
+	}
+
+	stream.recv <- &friendspb.WorldEvent{Event: &friendspb.WorldEvent_Track{Track: &friendspb.TrackEvent{Username37: 3, State: 1}}}
+	if g := <-disp.track; g.U != 3 || g.S != 1 {
+		t.Fatalf("track = %+v", g)
+	}
+
 	stream.recv <- &friendspb.WorldEvent{Event: &friendspb.WorldEvent_Reload{Reload: &friendspb.ReloadEvent{}}}
 	<-disp.reload
+
+	stream.recv <- &friendspb.WorldEvent{Event: &friendspb.WorldEvent_ClearLogins{ClearLogins: &friendspb.ClearLoginsEvent{}}}
+	<-disp.clearLogins
+
+	stream.recv <- &friendspb.WorldEvent{Event: &friendspb.WorldEvent_ClearLogouts{ClearLogouts: &friendspb.ClearLogoutsEvent{}}}
+	<-disp.clearLogouts
+
+	stream.recv <- &friendspb.WorldEvent{Event: &friendspb.WorldEvent_QueueScript{QueueScript: &friendspb.QueueScriptEvent{ScriptName: "dbg", Username37: 4}}}
+	if g := <-disp.queueScript; g.Name != "dbg" || g.U != 4 {
+		t.Fatalf("queueScript = %+v", g)
+	}
 
 	cancel()
 	<-done
@@ -147,7 +167,6 @@ func waitForWorldStream(t *testing.T, fake *fakeFriendsClient) {
 		s := fake.lastWorldStream
 		fake.mu.Unlock()
 		if s != nil {
-			_ = io.EOF // silence unused import if ends up unused
 			return
 		}
 		time.Sleep(10 * time.Millisecond)
