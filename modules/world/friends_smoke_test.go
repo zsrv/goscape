@@ -236,3 +236,104 @@ func waitForFriendlistEntryWithWorld(t *testing.T, disp *recordingFriendsDispatc
 	}
 	return false
 }
+
+// waitForPrivate polls disp for any PrivateMessage call whose PmId
+// matches pmId. Returns the captured call within d, or false on
+// timeout.
+func waitForPrivate(t *testing.T, disp *recordingFriendsDispatcher, d time.Duration, pmId uint32) (privateCall, bool) {
+	t.Helper()
+	deadline := time.Now().Add(d)
+	for time.Now().Before(deadline) {
+		for _, c := range disp.privateCalls() {
+			if c.PmId == pmId {
+				return c, true
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	return privateCall{}, false
+}
+
+// TestFriendsClient_E2E_PrivateMessageDelivery pins slice 4b end-to-end:
+// world's PrivateMessage RPC -> friends-server PrivateMessage handler
+// -> subs.send -> recipient stream -> world-side subscriber dispatch
+// -> FriendsDispatcher.OnPrivateMessage.
+func TestFriendsClient_E2E_PrivateMessageDelivery(t *testing.T) {
+	port := freePort(t)
+	cfg := friends.Config{
+		GRPCListenAddress:       "127.0.0.1",
+		GRPCListenPort:          port,
+		NodeProfile:             "main",
+		WorldPlayerLimit:        100,
+		Enable:                  true,
+		GracefulShutdownTimeout: 5 * time.Second,
+		SQLiteDSN:               filepath.Join(t.TempDir(), "friends.db"),
+	}
+	log := discardLogger()
+	svc, err := friends.New(cfg, log)
+	if err != nil {
+		t.Fatalf("friends.New: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	if err := svc.StartAsync(ctx); err != nil {
+		t.Fatalf("StartAsync: %v", err)
+	}
+	if err := svc.AwaitRunning(ctx); err != nil {
+		t.Fatalf("AwaitRunning: %v", err)
+	}
+	t.Cleanup(func() {
+		svc.StopAsync()
+		_ = svc.AwaitTerminated(context.Background())
+	})
+
+	addr := "127.0.0.1:" + strconv.Itoa(port)
+	client, err := NewFriendsClient(addr, log)
+	if err != nil {
+		t.Fatalf("NewFriendsClient: %v", err)
+	}
+	t.Cleanup(func() { _ = client.Close() })
+
+	client.WorldConnect(ctx, 10, "main")
+
+	// Recipient (2222) logs in and subscribes.
+	client.PlayerLogin(ctx, &friendspb.PlayerLoginRequest{
+		WorldId: 10, Username37: 2222, PrivateChat: 0, StaffLvl: 0,
+	})
+
+	disp := &recordingFriendsDispatcher{}
+	sub := newFriendsSubscriber(client, 10, 2222, disp, log)
+	subCtx, subCancel := context.WithCancel(ctx)
+	t.Cleanup(subCancel)
+	go sub.run(subCtx)
+
+	// Sender (1111) logs in.
+	client.PlayerLogin(ctx, &friendspb.PlayerLoginRequest{
+		WorldId: 10, Username37: 1111, PrivateChat: 0, StaffLvl: 0,
+	})
+
+	// Sender PMs recipient.
+	client.PrivateMessage(ctx, &friendspb.PrivateMessageRequest{
+		WorldId:          10,
+		Username37:       1111,
+		TargetUsername37: 2222,
+		StaffLvl:         0,
+		PmId:             0xCAFEBABE,
+		Chat:             "e2e hi",
+		Coord:            0,
+	})
+
+	got, ok := waitForPrivate(t, disp, 2*time.Second, 0xCAFEBABE)
+	if !ok {
+		t.Fatalf("recipient did not see PM with PmId 0xCAFEBABE within 2s; got %d calls", len(disp.privateCalls()))
+	}
+	if got.From != 1111 {
+		t.Errorf("From = %d, want 1111", got.From)
+	}
+	if got.Target != 2222 {
+		t.Errorf("Target = %d, want 2222", got.Target)
+	}
+	if got.Chat != "e2e hi" {
+		t.Errorf("Chat = %q, want %q", got.Chat, "e2e hi")
+	}
+}
