@@ -865,3 +865,90 @@ func TestLoginClient_E2E_PlayerSessionIsUUID(t *testing.T) {
 		t.Errorf("session table session_uuid = %q, response SessionUuid = %q; want equal", stored, resp.SessionUuid)
 	}
 }
+
+// TestFriendsClient_E2E_PublicMessagePersistsRow pins the public_chat
+// follow-up end-to-end: a client.PublicMessage call against a real
+// in-process friends.Friends produces a row in public_chat under
+// r.profile, queryable via a second *sql.DB open against the same
+// on-disk file. Mirrors slice 6's TestFriendsClient_E2E_
+// PrivateMessagePersistsRow.
+func TestFriendsClient_E2E_PublicMessagePersistsRow(t *testing.T) {
+	port := freePort(t)
+	dbPath := filepath.Join(t.TempDir(), "friends.db")
+	cfg := friends.Config{
+		GRPCListenAddress:       "127.0.0.1",
+		GRPCListenPort:          port,
+		NodeProfile:             "main",
+		WorldPlayerLimit:        100,
+		Enable:                  true,
+		GracefulShutdownTimeout: 5 * time.Second,
+		SQLiteDSN:               dbPath,
+	}
+	log := discardLogger()
+	svc, err := friends.New(cfg, log)
+	if err != nil {
+		t.Fatalf("friends.New: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	if err := svc.StartAsync(ctx); err != nil {
+		t.Fatalf("StartAsync: %v", err)
+	}
+	if err := svc.AwaitRunning(ctx); err != nil {
+		t.Fatalf("AwaitRunning: %v", err)
+	}
+	t.Cleanup(func() {
+		svc.StopAsync()
+		_ = svc.AwaitTerminated(context.Background())
+	})
+
+	addr := "127.0.0.1:" + strconv.Itoa(port)
+	client, err := NewFriendsClient(addr, log)
+	if err != nil {
+		t.Fatalf("NewFriendsClient: %v", err)
+	}
+	t.Cleanup(func() { _ = client.Close() })
+
+	client.WorldConnect(ctx, 10, "main")
+
+	client.PublicMessage(ctx, &friendspb.PublicMessageRequest{
+		WorldId:     10,
+		SessionUuid: "uuid-e2e-1",
+		Coord:       42,
+		Chat:        "persisted publicly",
+	})
+
+	// Open a second *sql.DB against the same file. Poll up to 2s for
+	// the row — synchronous RPC completion should mean the row is
+	// already committed, but WAL settling on a fresh file under -race
+	// can take a few ms.
+	rdb, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("sql.Open: %v", err)
+	}
+	t.Cleanup(func() { _ = rdb.Close() })
+
+	deadline := time.Now().Add(2 * time.Second)
+	var sess, msg string
+	var coord int32
+	for time.Now().Before(deadline) {
+		err := rdb.QueryRowContext(t.Context(),
+			`SELECT session_uuid, coord, message
+			 FROM public_chat
+			 WHERE profile = 'main'
+			 ORDER BY id DESC
+			 LIMIT 1`).Scan(&sess, &coord, &msg)
+		if err == nil {
+			break
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			t.Fatalf("query public_chat: %v", err)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	if sess != "uuid-e2e-1" || coord != 42 || msg != "persisted publicly" {
+		t.Errorf("public_chat row = (%q, %d, %q), want (uuid-e2e-1, 42, %q)",
+			sess, coord, msg, "persisted publicly")
+	}
+}
