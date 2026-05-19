@@ -165,14 +165,25 @@ func (s *Server) processLogins() {
 
 		// NAI-S2-D-PLAYERLOGIN-AT-PROCESSLOGINS: register the player on
 		// the friends server when they enter the world. Mirrors TS's
-		// PLAYER_LOGIN-on-world-entry semantics. Response is ignored
-		// (NAI-S2-D-PLAYERLOGIN-IGNORES-ACCEPTED).
+		// PLAYER_LOGIN-on-world-entry semantics. On cap-rejection the
+		// world logs warn and continues — TS-faithful: the friends-
+		// server is silent toward the world on rejection (TS
+		// FriendServer.ts:128-132 early-returns without notifying).
 		if s.friendsClient != nil && p.username != "" {
+			username37 := p.username37
+			worldID := int32(s.cfg.NodeID)
 			go s.friendsClient.PlayerLogin(context.Background(), &friendspb.PlayerLoginRequest{
-				WorldId:     int32(s.cfg.NodeID),
-				Username37:  p.username37,
+				WorldId:     worldID,
+				Username37:  username37,
 				PrivateChat: int32(p.privateChat),
 				StaffLvl:    p.staffModLevel,
+			}, func(accepted bool) {
+				if !accepted {
+					s.log.Warn("friends-server rejected player login (cap reached or RPC error)",
+						slog.Int("world_id", int(worldID)),
+						slog.Uint64("username37", username37),
+					)
+				}
 			})
 		}
 

@@ -277,7 +277,7 @@ func TestGRPCFriendsClient_LogsErrorOnFailure(t *testing.T) {
 			c.WorldConnect(context.Background(), 10, "main")
 		}},
 		{"PlayerLogin", func(c *grpcFriendsClient) {
-			c.PlayerLogin(context.Background(), &friendspb.PlayerLoginRequest{Username37: 1})
+			c.PlayerLogin(context.Background(), &friendspb.PlayerLoginRequest{Username37: 1}, nil)
 		}},
 		{"PlayerLogout", func(c *grpcFriendsClient) {
 			c.PlayerLogout(context.Background(), &friendspb.PlayerLogoutRequest{Username37: 1})

@@ -79,7 +79,7 @@ func TestFriendsClient_E2E_SmokeAgainstFriendsServer(t *testing.T) {
 		Username37:  1234,
 		PrivateChat: 0,
 		StaffLvl:    0,
-	})
+	}, nil)
 
 	// 3. FriendlistAdd — adds target 5678 to player 1234's friend set.
 	client.FriendlistAdd(ctx, &friendspb.FriendlistAddRequest{
@@ -166,7 +166,7 @@ func TestFriendsClient_E2E_SubscribeUpdatesStream(t *testing.T) {
 	// A logs in.
 	client.PlayerLogin(ctx, &friendspb.PlayerLoginRequest{
 		WorldId: 10, Username37: 1111, PrivateChat: 0, StaffLvl: 0,
-	})
+	}, nil)
 	// A friends B.
 	client.FriendlistAdd(ctx, &friendspb.FriendlistAddRequest{
 		WorldId: 10, Username37: 1111, TargetUsername37: 2222,
@@ -187,7 +187,7 @@ func TestFriendsClient_E2E_SubscribeUpdatesStream(t *testing.T) {
 	// B logs in. A should see B's world.
 	client.PlayerLogin(ctx, &friendspb.PlayerLoginRequest{
 		WorldId: 10, Username37: 2222, PrivateChat: 0, StaffLvl: 0,
-	})
+	}, nil)
 	if !waitForFriendlistEntryWithWorld(t, disp, 2*time.Second, 2222, 10) {
 		t.Fatalf("expected FriendlistUpdate naming 2222 on world 10")
 	}
@@ -299,7 +299,7 @@ func TestFriendsClient_E2E_PrivateMessageDelivery(t *testing.T) {
 	// Recipient (2222) logs in and subscribes.
 	client.PlayerLogin(ctx, &friendspb.PlayerLoginRequest{
 		WorldId: 10, Username37: 2222, PrivateChat: 0, StaffLvl: 0,
-	})
+	}, nil)
 
 	disp := &recordingFriendsDispatcher{}
 	sub := newFriendsSubscriber(client, 10, 2222, disp, log)
@@ -310,7 +310,7 @@ func TestFriendsClient_E2E_PrivateMessageDelivery(t *testing.T) {
 	// Sender (1111) logs in.
 	client.PlayerLogin(ctx, &friendspb.PlayerLoginRequest{
 		WorldId: 10, Username37: 1111, PrivateChat: 0, StaffLvl: 0,
-	})
+	}, nil)
 
 	// Sender PMs recipient.
 	client.PrivateMessage(ctx, &friendspb.PrivateMessageRequest{

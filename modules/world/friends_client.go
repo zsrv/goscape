@@ -22,7 +22,10 @@ import (
 // world does not depend on its responses.
 type FriendsClient interface {
 	WorldConnect(ctx context.Context, worldID int32, profile string)
-	PlayerLogin(ctx context.Context, req *friendspb.PlayerLoginRequest)
+	// PlayerLogin registers the player on the friends server. onResponse is
+	// invoked once after the RPC completes: accepted=true on success,
+	// accepted=false on cap-reached or RPC error. May be nil.
+	PlayerLogin(ctx context.Context, req *friendspb.PlayerLoginRequest, onResponse func(accepted bool))
 	PlayerLogout(ctx context.Context, req *friendspb.PlayerLogoutRequest)
 	ChatSetMode(ctx context.Context, req *friendspb.ChatSetModeRequest)
 	FriendlistAdd(ctx context.Context, req *friendspb.FriendlistAddRequest)
@@ -81,14 +84,25 @@ func (c *grpcFriendsClient) WorldConnect(ctx context.Context, worldID int32, pro
 	}
 }
 
-// PlayerLogin registers the player on the friends server.
-// PlayerLoginResponse.Accepted is ignored slice-2 (NAI-S2-D-PLAYERLOGIN-IGNORES-ACCEPTED).
-func (c *grpcFriendsClient) PlayerLogin(ctx context.Context, req *friendspb.PlayerLoginRequest) {
-	if _, err := c.client.PlayerLogin(ctx, req); err != nil {
+// PlayerLogin registers the player on the friends server. onResponse is
+// invoked once after the RPC completes: accepted=true on success,
+// accepted=false on cap-rejection or RPC error. May be nil. Errors are
+// logged warn + swallowed before the callback fires (matches the
+// fire-and-forget posture of every other void RPC on this client).
+func (c *grpcFriendsClient) PlayerLogin(ctx context.Context, req *friendspb.PlayerLoginRequest, onResponse func(accepted bool)) {
+	resp, err := c.client.PlayerLogin(ctx, req)
+	if err != nil {
 		c.log.Warn("PlayerLogin RPC failed",
 			slog.Uint64("username37", req.Username37),
 			slog.Any("err", err),
 		)
+		if onResponse != nil {
+			onResponse(false)
+		}
+		return
+	}
+	if onResponse != nil {
+		onResponse(resp.GetAccepted())
 	}
 }
 

@@ -33,6 +33,11 @@ type fakeFriendsClient struct {
 	lastStream    *fakeSubscribeStream
 	subscribeErr  error // one-shot error returned on next call; tests set to simulate dial failures
 
+	// playerLoginAccepted is the value passed to PlayerLogin's onResponse
+	// callback. Defaults to true; set false to simulate cap-rejection.
+	// Read under mu.
+	playerLoginAccepted bool
+
 	closed bool
 }
 
@@ -45,14 +50,15 @@ type worldConnectCall struct {
 // each — large enough that tests don't have to drain in lockstep).
 func newFakeFriendsClient() *fakeFriendsClient {
 	return &fakeFriendsClient{
-		playerLoginReqs:    make(chan *friendspb.PlayerLoginRequest, 16),
-		playerLogoutReqs:   make(chan *friendspb.PlayerLogoutRequest, 16),
-		chatSetModeReqs:    make(chan *friendspb.ChatSetModeRequest, 16),
-		friendlistAddReqs:  make(chan *friendspb.FriendlistAddRequest, 16),
-		friendlistDelReqs:  make(chan *friendspb.FriendlistDelRequest, 16),
-		ignorelistAddReqs:  make(chan *friendspb.IgnorelistAddRequest, 16),
-		ignorelistDelReqs:  make(chan *friendspb.IgnorelistDelRequest, 16),
-		privateMessageReqs: make(chan *friendspb.PrivateMessageRequest, 16),
+		playerLoginReqs:     make(chan *friendspb.PlayerLoginRequest, 16),
+		playerLogoutReqs:    make(chan *friendspb.PlayerLogoutRequest, 16),
+		chatSetModeReqs:     make(chan *friendspb.ChatSetModeRequest, 16),
+		friendlistAddReqs:   make(chan *friendspb.FriendlistAddRequest, 16),
+		friendlistDelReqs:   make(chan *friendspb.FriendlistDelRequest, 16),
+		ignorelistAddReqs:   make(chan *friendspb.IgnorelistAddRequest, 16),
+		ignorelistDelReqs:   make(chan *friendspb.IgnorelistDelRequest, 16),
+		privateMessageReqs:  make(chan *friendspb.PrivateMessageRequest, 16),
+		playerLoginAccepted: true,
 	}
 }
 
@@ -65,10 +71,16 @@ func (f *fakeFriendsClient) WorldConnect(ctx context.Context, worldID int32, pro
 	f.worldConnectCalls = append(f.worldConnectCalls, worldConnectCall{WorldID: worldID, Profile: profile})
 }
 
-func (f *fakeFriendsClient) PlayerLogin(ctx context.Context, req *friendspb.PlayerLoginRequest) {
+func (f *fakeFriendsClient) PlayerLogin(ctx context.Context, req *friendspb.PlayerLoginRequest, onResponse func(accepted bool)) {
 	select {
 	case f.playerLoginReqs <- req:
 	default:
+	}
+	f.mu.Lock()
+	accepted := f.playerLoginAccepted
+	f.mu.Unlock()
+	if onResponse != nil {
+		onResponse(accepted)
 	}
 }
 
