@@ -106,6 +106,7 @@ func TestCallPlayerLoginRPC_ReplyByteMapping(t *testing.T) {
 				StaffModLevel: 2,
 				Members:       true,
 				Save:          []byte("SAVE-BYTES"),
+				SessionUuid:   "test-uuid-123",
 			}
 			c, _ := newClientWithFakeLoginServer(t, fake)
 			req := sampleLoginReq(t, c)
@@ -119,14 +120,14 @@ func TestCallPlayerLoginRPC_ReplyByteMapping(t *testing.T) {
 			}
 
 			if tc.caches {
-				if c.staffModLevel != 2 || !c.members || c.username != "test" || string(c.savePayload) != "SAVE-BYTES" {
-					t.Errorf("expected session cached: got staffModLevel=%d members=%v username=%q savePayload=%q",
-						c.staffModLevel, c.members, c.username, c.savePayload)
+				if c.staffModLevel != 2 || !c.members || c.username != "test" || string(c.savePayload) != "SAVE-BYTES" || c.sessionUUID != "test-uuid-123" {
+					t.Errorf("expected session cached: got staffModLevel=%d members=%v username=%q savePayload=%q sessionUUID=%q",
+						c.staffModLevel, c.members, c.username, c.savePayload, c.sessionUUID)
 				}
 			} else {
-				if c.staffModLevel != 0 || c.members || c.username != "" || c.savePayload != nil {
-					t.Errorf("expected session NOT cached: got staffModLevel=%d members=%v username=%q savePayload=%v",
-						c.staffModLevel, c.members, c.username, c.savePayload)
+				if c.staffModLevel != 0 || c.members || c.username != "" || c.savePayload != nil || c.sessionUUID != "" {
+					t.Errorf("expected session NOT cached: got staffModLevel=%d members=%v username=%q savePayload=%v sessionUUID=%q",
+						c.staffModLevel, c.members, c.username, c.savePayload, c.sessionUUID)
 				}
 			}
 		})
@@ -147,8 +148,8 @@ func TestCallPlayerLoginRPC_RPCErrorReturnsServerOffline(t *testing.T) {
 	if reply != loginresp.OpLoginServerOffline.Opcode {
 		t.Errorf("reply: got %d, want OpLoginServerOffline (%d)", reply, loginresp.OpLoginServerOffline.Opcode)
 	}
-	if c.savePayload != nil || c.username != "" {
-		t.Errorf("session must NOT be cached on RPC error: savePayload=%v username=%q", c.savePayload, c.username)
+	if c.savePayload != nil || c.username != "" || c.sessionUUID != "" {
+		t.Errorf("session must NOT be cached on RPC error: savePayload=%v username=%q sessionUUID=%q", c.savePayload, c.username, c.sessionUUID)
 	}
 }
 

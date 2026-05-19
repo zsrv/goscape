@@ -849,6 +849,7 @@ func (c *client) callPlayerLoginRPC(req *loginpb.PlayerLoginRequest, safeName st
 		c.members = resp.GetMembers()
 		c.username = safeName
 		c.savePayload = resp.GetSave()
+		c.sessionUUID = resp.GetSessionUuid()
 	}
 	return reply, nil
 }

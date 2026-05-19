@@ -286,9 +286,11 @@ func (s *Server) processLogins() {
 		p.lastStepX = p.x - 1
 		p.lastStepZ = p.z
 
-		// NAI-73: allocate the InputTracking state machine. Defaults
-		// session to "headless" until LOGIN-SERVER-BRIDGE-MOD ships a
-		// real UUID assignment.
+		// NAI-73: allocate the InputTracking state machine.
+		// session is normally assigned in newPlayer() from the
+		// PlayerLoginResponse.session_uuid; the "headless" fallback
+		// below covers standalone-world and unit-test paths that bypass
+		// the login bridge.
 		p.input = NewInputTracking(p, s.currentTick)
 		if p.session == "" {
 			p.session = "headless"

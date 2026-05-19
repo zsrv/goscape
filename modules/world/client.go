@@ -74,6 +74,13 @@ type client struct {
 	// LoadSave. Nil for fresh accounts; arbitrary length for returning
 	// players.
 	savePayload []byte
+	// sessionUUID is the per-login session correlation key returned by
+	// the login server's PlayerLogin RPC (resp.GetSessionUuid()). Copied
+	// onto Player.session at newPlayer(). Empty for paths that bypass
+	// the login bridge (standalone world, unit tests); tick.go's
+	// "headless" fallback then applies. Slice 7 of friends-server bridge
+	// arc.
+	sessionUUID string
 }
 
 func newClient(conn net.Conn, writeTimeout time.Duration /*server *World,*/, logger *slog.Logger) *client {

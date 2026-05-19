@@ -289,10 +289,12 @@ type Player struct {
 	// cfg.NodeSubmitInput. Mirrors TS Player.submitInput (Player.ts:306).
 	submitInput bool
 	// session is the per-player session correlation key for the logger
-	// bridge. Defaults to "headless" (TS Player.session = 'headless',
-	// Player.ts:304). Real per-login UUID assignment is a carry-forward
-	// from the original NAI-72 social-subsystem deferral — not wired by
-	// NAI-214, which only ported the ban/mute half of that umbrella.
+	// bridge. Assigned from PlayerLoginResponse.session_uuid via
+	// newPlayer(c.sessionUUID); falls back to "headless" in
+	// processLogins for paths that bypass the login bridge (standalone
+	// world, unit tests). Mirrors TS Player.session (Player.ts:304),
+	// which is also a per-login UUID. Slice 7 of friends-server bridge
+	// arc; ban/mute half of the umbrella was retired by NAI-214.
 	session string
 
 	// friendsSub is the per-player SubscribeUpdates subscription. Set
@@ -510,6 +512,7 @@ func newPlayer(c *client) *Player {
 		displayName:    util.ToDisplayName(c.username),
 		username37:     util.ToBase37(c.username),
 		staffModLevel:  c.staffModLevel,
+		session:        c.sessionUUID,
 		slot:           -1,
 		uid:            -1,
 		x:              3094,
