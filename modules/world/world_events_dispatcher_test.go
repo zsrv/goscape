@@ -68,8 +68,9 @@ func TestActionWorldEventsDispatcher_RoutesToOpsAndInner(t *testing.T) {
 	buf := &syncBuffer{}
 	innerLog := slog.New(slog.NewTextHandler(buf, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	inner := newSlogWorldEventsDispatcher(innerLog)
+	actionLog := slog.New(slog.NewTextHandler(&syncBuffer{}, &slog.HandlerOptions{Level: slog.LevelWarn}))
 	ops := &recordingWorldStateOps{}
-	d := newActionWorldEventsDispatcher(inner, ops, innerLog)
+	d := newActionWorldEventsDispatcher(inner, ops, actionLog)
 
 	d.OnMute(11, 22)
 	if ops.muteU37 != 11 || ops.muteMs != 22 {
