@@ -3,8 +3,6 @@ package world
 import (
 	"log/slog"
 	"time"
-
-	jstring "github.com/zsrv/goscape/pkg/util/jstring"
 )
 
 // enqueueRelayAction posts a closure onto the relay action queue.
@@ -43,12 +41,14 @@ func (s *Server) drainRelayActions() {
 	}
 }
 
-// lookupPlayerByUsername37 returns the active player whose username
-// (base37-encoded) matches u37, or nil if none. Tick-only: iterates
-// s.playerLoop without acquiring playersMu, mirroring the existing
-// LookupPlayerByUsername(string) helper at server.go:1106. WorldStateOps
-// closures call this on the tick goroutine where playerLoop is
-// unguarded.
+// lookupPlayerByUsername37 returns the active player whose username37
+// matches u37, or nil if none. Compares the pre-computed Player.username37
+// field directly (set at login) rather than recomputing the base37 hash
+// per-iteration — matches the precedent at LookupPlayerByUsername
+// (server.go:1116). Tick-only: iterates s.playerLoop without acquiring
+// playersMu, mirroring the existing LookupPlayerByUsername(string)
+// helper. WorldStateOps closures call this on the tick goroutine where
+// playerLoop is unguarded.
 //
 // Lookup-miss is a normal occurrence (the friends-server fans a relay
 // to every world; the target may live on a different one). Callers log
@@ -58,7 +58,7 @@ func (s *Server) lookupPlayerByUsername37(u37 uint64) *Player {
 		if p == nil || !p.active {
 			continue
 		}
-		if jstring.ToBase37(p.username) == u37 {
+		if p.username37 == u37 {
 			return p
 		}
 	}

@@ -197,17 +197,12 @@ func TestWorldStateOps_BroadcastMessage_FansOutToPlayers(t *testing.T) {
 	s.drainRelayActions()
 
 	// MessageGame appends a MESSAGE_GAME opcode + payload to the
-	// player's bufio.Writer. Flushing pushes bytes onto the net.Pipe;
-	// the conn-drain goroutine in registerActivePlayer consumes them.
-	// Buffered count is non-zero immediately after MessageGame returns
-	// (writeOut goes through c.bufw without an explicit flush).
+	// player's 64k bufio.Writer. writeOut does NOT flush, and an
+	// 11-byte payload cannot overflow a 64k buffer, so Buffered() is
+	// guaranteed to be non-zero. A zero reading would mean BroadcastMes
+	// did not reach our player — a contract violation, not a skip.
 	if p.client.bufw.Buffered() == 0 {
-		// Flush in case the implementation flushed early — Buffered()
-		// would then be 0, but the conn drain consumed real bytes.
-		// To assert non-emptiness portably, just ensure the call did
-		// not panic and the test conn drained successfully.
-		t.Skip("bufw flushed inline; visible-bytes check is conn-side, " +
-			"covered by server_broadcast_test.go")
+		t.Fatal("bufw unexpectedly empty after BroadcastMessage+drain")
 	}
 }
 
