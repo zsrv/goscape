@@ -57,8 +57,8 @@ func coercePrivateChat(v int32) int32 {
 // reached.
 //
 // NAI-S1-D-PLAYERCAP-LOG-ONLY — cap rejection logs warn but does not error.
-// Slice 4 surfaces Accepted to callers; slice 1 callers ignore the field.
-func (h *handler) PlayerLogin(_ context.Context, req *friendspb.PlayerLoginRequest) (*friendspb.PlayerLoginResponse, error) {
+// Slice 4c surfaces Accepted to callers.
+func (h *handler) PlayerLogin(ctx context.Context, req *friendspb.PlayerLoginRequest) (*friendspb.PlayerLoginResponse, error) {
 	h.ensureWorld(req.WorldId)
 	pc := coercePrivateChat(req.PrivateChat)
 	// TS-faithful: PLAYER_LOGIN unregisters first to dedupe across worlds.
@@ -69,15 +69,20 @@ func (h *handler) PlayerLogin(_ context.Context, req *friendspb.PlayerLoginReque
 			slog.Int("world_id", int(req.WorldId)),
 			slog.Uint64("username37", req.Username37),
 		)
+		// No broadcast on rejection — player isn't on any world.
+		return &friendspb.PlayerLoginResponse{Accepted: false}, nil
 	}
-	return &friendspb.PlayerLoginResponse{Accepted: accepted}, nil
+	h.broadcastWorldToFollowers(ctx, req.Username37)
+	return &friendspb.PlayerLoginResponse{Accepted: true}, nil
 }
 
 // PlayerLogout removes the player from whichever world they're on.
-// Idempotent on unknown players.
-func (h *handler) PlayerLogout(_ context.Context, req *friendspb.PlayerLogoutRequest) (*emptypb.Empty, error) {
+// Idempotent on unknown players. Broadcasts the (now-offline) world to
+// followers after Unregister.
+func (h *handler) PlayerLogout(ctx context.Context, req *friendspb.PlayerLogoutRequest) (*emptypb.Empty, error) {
 	h.ensureWorld(req.WorldId)
 	h.repo.Unregister(req.Username37)
+	h.broadcastWorldToFollowers(ctx, req.Username37)
 	return &emptypb.Empty{}, nil
 }
 
@@ -85,52 +90,57 @@ func (h *handler) PlayerLogout(_ context.Context, req *friendspb.PlayerLogoutReq
 // are coerced to 0 (ON), matching TS FriendServer.ts:176-179. No-op on
 // unknown player (state lives at the player record, which doesn't exist
 // pre-login).
-//
-// NAI-S1-D-NO-FOLLOWER-BROADCAST — slice 4 will broadcast the new mode
-// to followers; slice 1 just mutates state.
-func (h *handler) ChatSetMode(_ context.Context, req *friendspb.ChatSetModeRequest) (*emptypb.Empty, error) {
+func (h *handler) ChatSetMode(ctx context.Context, req *friendspb.ChatSetModeRequest) (*emptypb.Empty, error) {
 	h.ensureWorld(req.WorldId)
 	h.repo.SetChatMode(req.Username37, coercePrivateChat(req.PrivateChat))
+	h.broadcastWorldToFollowers(ctx, req.Username37)
 	return &emptypb.Empty{}, nil
 }
 
 // FriendlistAdd appends target to the player's friend set (idempotent).
-// NAI-S1-D-NO-FOLLOWER-BROADCAST — slice 4 will broadcast.
+// Sends a single-friend update to the adder for `target` (TS
+// sendPlayerWorldUpdate at FriendServer.ts:200) and then broadcasts the
+// adder's world to all followers (TS FriendServer.ts:204).
 func (h *handler) FriendlistAdd(ctx context.Context, req *friendspb.FriendlistAddRequest) (*emptypb.Empty, error) {
 	h.ensureWorld(req.WorldId)
 	if err := h.repo.AddFriend(ctx, req.Username37, req.TargetUsername37); err != nil {
 		return nil, status.Errorf(codes.Internal, "AddFriend: %v", err)
 	}
+	h.sendPlayerWorldUpdate(ctx, req.Username37, req.TargetUsername37)
+	h.broadcastWorldToFollowers(ctx, req.Username37)
 	return &emptypb.Empty{}, nil
 }
 
 // FriendlistDel removes target from the player's friend set (idempotent).
-// NAI-S1-D-NO-FOLLOWER-BROADCAST — slice 4 will broadcast.
+// Broadcasts the remover's world to followers (TS FriendServer.ts:221).
 func (h *handler) FriendlistDel(ctx context.Context, req *friendspb.FriendlistDelRequest) (*emptypb.Empty, error) {
 	h.ensureWorld(req.WorldId)
 	if err := h.repo.DeleteFriend(ctx, req.Username37, req.TargetUsername37); err != nil {
 		return nil, status.Errorf(codes.Internal, "DeleteFriend: %v", err)
 	}
+	h.broadcastWorldToFollowers(ctx, req.Username37)
 	return &emptypb.Empty{}, nil
 }
 
 // IgnorelistAdd appends target to the player's ignore set (idempotent).
-// NAI-S1-D-NO-FOLLOWER-BROADCAST — slice 4 will broadcast.
+// Broadcasts the adder's world to followers (TS FriendServer.ts:238).
 func (h *handler) IgnorelistAdd(ctx context.Context, req *friendspb.IgnorelistAddRequest) (*emptypb.Empty, error) {
 	h.ensureWorld(req.WorldId)
 	if err := h.repo.AddIgnore(ctx, req.Username37, req.TargetUsername37); err != nil {
 		return nil, status.Errorf(codes.Internal, "AddIgnore: %v", err)
 	}
+	h.broadcastWorldToFollowers(ctx, req.Username37)
 	return &emptypb.Empty{}, nil
 }
 
 // IgnorelistDel removes target from the player's ignore set (idempotent).
-// NAI-S1-D-NO-FOLLOWER-BROADCAST — slice 4 will broadcast.
+// Broadcasts the remover's world to followers (TS FriendServer.ts:255).
 func (h *handler) IgnorelistDel(ctx context.Context, req *friendspb.IgnorelistDelRequest) (*emptypb.Empty, error) {
 	h.ensureWorld(req.WorldId)
 	if err := h.repo.DeleteIgnore(ctx, req.Username37, req.TargetUsername37); err != nil {
 		return nil, status.Errorf(codes.Internal, "DeleteIgnore: %v", err)
 	}
+	h.broadcastWorldToFollowers(ctx, req.Username37)
 	return &emptypb.Empty{}, nil
 }
 
