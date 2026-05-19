@@ -397,3 +397,21 @@ func (r *Repository) IsVisibleToMany(ctx context.Context, viewers []uint64, othe
 		return out, nil
 	}
 }
+
+// LogPrivateMessage appends one row to private_chat under r.profile.
+// Mirrors TS FriendServer.ts:273-283 — append-only, no dedupe, no
+// validation. Insert is the synchronous gate for PrivateMessage
+// delivery: a failure here returns an error to the handler which
+// surfaces codes.Internal to the caller, matching the TS thrown-
+// await pattern.
+func (r *Repository) LogPrivateMessage(ctx context.Context, from, to uint64, coord int32, message string) error {
+	_, err := r.db.ExecContext(ctx,
+		`INSERT INTO private_chat (profile, from_username37, to_username37, coord, message)
+		 VALUES (?, ?, ?, ?, ?)`,
+		r.profile, int64(from), int64(to), coord, message,
+	)
+	if err != nil {
+		return fmt.Errorf("LogPrivateMessage: %w", err)
+	}
+	return nil
+}

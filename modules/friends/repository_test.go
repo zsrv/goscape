@@ -516,3 +516,112 @@ func TestIsVisibleToMany_MatchesScalarIsVisibleTo(t *testing.T) {
 		}
 	}
 }
+
+func TestRepository_LogPrivateMessage_PersistsRow(t *testing.T) {
+	r, db := newTestRepo(t)
+	ctx := t.Context()
+	if err := r.LogPrivateMessage(ctx, 1111, 2222, 12345, "hi"); err != nil {
+		t.Fatalf("LogPrivateMessage: %v", err)
+	}
+	var n int
+	if err := db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM private_chat WHERE profile = 'test'`).Scan(&n); err != nil {
+		t.Fatalf("COUNT query: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("row count = %d, want 1", n)
+	}
+	var from, to int64
+	var coord int32
+	var msg string
+	if err := db.QueryRowContext(ctx,
+		`SELECT from_username37, to_username37, coord, message FROM private_chat`).
+		Scan(&from, &to, &coord, &msg); err != nil {
+		t.Fatalf("SELECT row: %v", err)
+	}
+	if from != 1111 {
+		t.Errorf("from_username37 = %d, want 1111", from)
+	}
+	if to != 2222 {
+		t.Errorf("to_username37 = %d, want 2222", to)
+	}
+	if coord != 12345 {
+		t.Errorf("coord = %d, want 12345", coord)
+	}
+	if msg != "hi" {
+		t.Errorf("message = %q, want %q", msg, "hi")
+	}
+}
+
+func TestRepository_LogPrivateMessage_AppendOnly(t *testing.T) {
+	r, db := newTestRepo(t)
+	ctx := t.Context()
+	if err := r.LogPrivateMessage(ctx, 1111, 2222, 0, "first"); err != nil {
+		t.Fatalf("first: %v", err)
+	}
+	if err := r.LogPrivateMessage(ctx, 1111, 2222, 0, "second"); err != nil {
+		t.Fatalf("second: %v", err)
+	}
+	var n int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM private_chat`).Scan(&n); err != nil {
+		t.Fatalf("COUNT: %v", err)
+	}
+	if n != 2 {
+		t.Errorf("row count = %d, want 2 (append-only, no dedupe)", n)
+	}
+}
+
+func TestRepository_LogPrivateMessage_RespectsProfile(t *testing.T) {
+	r, db := newTestRepo(t) // profile = "test"
+	r2 := NewRepository(db, "other")
+	ctx := t.Context()
+	if err := r.LogPrivateMessage(ctx, 1, 2, 0, "from default"); err != nil {
+		t.Fatalf("r: %v", err)
+	}
+	if err := r2.LogPrivateMessage(ctx, 1, 2, 0, "from other"); err != nil {
+		t.Fatalf("r2: %v", err)
+	}
+	rows, err := db.QueryContext(ctx,
+		`SELECT profile, message FROM private_chat ORDER BY id`)
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	defer rows.Close()
+	type pair struct {
+		profile string
+		message string
+	}
+	var got []pair
+	for rows.Next() {
+		var p pair
+		if err := rows.Scan(&p.profile, &p.message); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+		got = append(got, p)
+	}
+	if len(got) != 2 {
+		t.Fatalf("len(got) = %d, want 2", len(got))
+	}
+	if got[0] != (pair{"test", "from default"}) {
+		t.Errorf("got[0] = %+v, want {test, from default}", got[0])
+	}
+	if got[1] != (pair{"other", "from other"}) {
+		t.Errorf("got[1] = %+v, want {other, from other}", got[1])
+	}
+}
+
+func TestRepository_LogPrivateMessage_EmptyMessageAllowed(t *testing.T) {
+	r, db := newTestRepo(t)
+	ctx := t.Context()
+	if err := r.LogPrivateMessage(ctx, 1, 2, 0, ""); err != nil {
+		t.Fatalf("LogPrivateMessage(empty): %v", err)
+	}
+	var n int
+	if err := db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM private_chat WHERE message = ''`).Scan(&n); err != nil {
+		t.Fatalf("COUNT: %v", err)
+	}
+	if n != 1 {
+		t.Errorf("row count = %d, want 1 (empty message allowed, no server-side validation)", n)
+	}
+}
