@@ -196,19 +196,53 @@ func (r *Repository) GetFriends(ctx context.Context, owner uint64) ([]uint64, er
 	return out, nil
 }
 
-// AddIgnore is wired in Task 7.
 func (r *Repository) AddIgnore(ctx context.Context, owner, target uint64) error {
+	_, err := r.db.ExecContext(ctx,
+		`INSERT OR IGNORE INTO ignorelist (profile, owner_username37, target_username37)
+		 VALUES (?, ?, ?)`,
+		r.profile, int64(owner), int64(target),
+	)
+	if err != nil {
+		return fmt.Errorf("AddIgnore: %w", err)
+	}
 	return nil
 }
 
-// DeleteIgnore is wired in Task 7.
 func (r *Repository) DeleteIgnore(ctx context.Context, owner, target uint64) error {
+	_, err := r.db.ExecContext(ctx,
+		`DELETE FROM ignorelist
+		 WHERE profile = ? AND owner_username37 = ? AND target_username37 = ?`,
+		r.profile, int64(owner), int64(target),
+	)
+	if err != nil {
+		return fmt.Errorf("DeleteIgnore: %w", err)
+	}
 	return nil
 }
 
-// GetIgnores is wired in Task 7.
 func (r *Repository) GetIgnores(ctx context.Context, owner uint64) ([]uint64, error) {
-	return nil, nil
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT target_username37 FROM ignorelist
+		 WHERE profile = ? AND owner_username37 = ?`,
+		r.profile, int64(owner),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("GetIgnores: %w", err)
+	}
+	defer rows.Close()
+
+	var out []uint64
+	for rows.Next() {
+		var t int64
+		if err := rows.Scan(&t); err != nil {
+			return nil, fmt.Errorf("GetIgnores scan: %w", err)
+		}
+		out = append(out, uint64(t))
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("GetIgnores rows: %w", err)
+	}
+	return out, nil
 }
 
 // GetFollowers is wired in Task 8.

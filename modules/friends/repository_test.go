@@ -142,7 +142,6 @@ func TestRepository_DeleteFriend_AbsentNoOp(t *testing.T) {
 }
 
 func TestRepository_AddIgnore_Idempotent(t *testing.T) {
-	t.Skip("re-enabled in slice 3 task 7")
 	r, _ := newTestRepo(t)
 	ctx := t.Context()
 	if err := r.AddIgnore(ctx, 0xAAAA, 0xBBBB); err != nil {
@@ -161,7 +160,6 @@ func TestRepository_AddIgnore_Idempotent(t *testing.T) {
 }
 
 func TestRepository_DeleteIgnore_Removes(t *testing.T) {
-	t.Skip("re-enabled in slice 3 task 7")
 	r, _ := newTestRepo(t)
 	ctx := t.Context()
 	if err := r.AddIgnore(ctx, 0xAAAA, 0xBBBB); err != nil {
