@@ -2,6 +2,7 @@ package friends
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
 	"net"
@@ -17,6 +18,7 @@ type Friends struct {
 	cfg Config
 	log *slog.Logger
 
+	db   *sql.DB
 	repo *Repository
 	srv  *grpcServer
 	lis  net.Listener
@@ -38,12 +40,18 @@ func NewFriendsService(cfg Config, logger *slog.Logger) (services.Service, error
 }
 
 func (f *Friends) starting(_ context.Context) error {
-	repo := NewRepository(nil, "") // TODO(slice3 task 11): real DB
+	db, err := openDB(f.cfg.SQLiteDSN)
+	if err != nil {
+		return fmt.Errorf("open friends db: %w", err)
+	}
+	repo := NewRepository(db, f.cfg.NodeProfile)
 	srv := newGRPCServer(f.cfg, repo, f.log)
 	lis, err := srv.listen(f.cfg)
 	if err != nil {
+		db.Close()
 		return err
 	}
+	f.db = db
 	f.repo = repo
 	f.srv = srv
 	f.lis = lis
@@ -75,6 +83,9 @@ func (f *Friends) stopping(_ error) error {
 	// of the listener.
 	if f.lis != nil {
 		f.lis.Close()
+	}
+	if f.db != nil {
+		f.db.Close()
 	}
 	return nil
 }

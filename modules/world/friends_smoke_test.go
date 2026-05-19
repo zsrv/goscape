@@ -3,6 +3,7 @@ package world
 import (
 	"context"
 	"net"
+	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
@@ -41,6 +42,7 @@ func TestFriendsClient_E2E_SmokeAgainstFriendsServer(t *testing.T) {
 		WorldPlayerLimit:        100,
 		Enable:                  true,
 		GracefulShutdownTimeout: 5 * time.Second,
+		SQLiteDSN:               filepath.Join(t.TempDir(), "friends.db"),
 	}
 	log := discardLogger()
 	svc, err := friends.New(cfg, log)
