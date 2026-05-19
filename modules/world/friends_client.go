@@ -15,12 +15,10 @@ import (
 // Production impl: grpcFriendsClient (this file). Test impl:
 // fakeFriendsClient (friends_client_fake_test.go).
 //
-// All RPCs except Close are fire-and-forget: errors are logged via
-// the embedded *slog.Logger and swallowed. The friends-server is
-// best-effort by design (slice 1's NAI-S1-D-PM-NO-DELIVERY etc.);
+// All RPCs except Close and SubscribeUpdates are fire-and-forget: errors
+// are logged via the embedded *slog.Logger and swallowed. The friends-server
+// is best-effort by design (slice 1's NAI-S1-D-PM-NO-DELIVERY etc.);
 // the world does not depend on its responses through slice 3.
-//
-// SubscribeUpdates is intentionally absent — slice 4 adds it.
 type FriendsClient interface {
 	WorldConnect(ctx context.Context, worldID int32, profile string)
 	PlayerLogin(ctx context.Context, req *friendspb.PlayerLoginRequest)
@@ -31,6 +29,11 @@ type FriendsClient interface {
 	IgnorelistAdd(ctx context.Context, req *friendspb.IgnorelistAddRequest)
 	IgnorelistDel(ctx context.Context, req *friendspb.IgnorelistDelRequest)
 	PrivateMessage(ctx context.Context, req *friendspb.PrivateMessageRequest)
+	// SubscribeUpdates opens a server-streaming RPC. Returns the stream on
+	// success; the caller drains stream.Recv(). Unlike the other RPCs,
+	// this one is not fire-and-forget — the supervisor needs the error
+	// to drive reconnect backoff.
+	SubscribeUpdates(ctx context.Context, req *friendspb.SubscribeUpdatesRequest) (friendspb.FriendsService_SubscribeUpdatesClient, error)
 	Close() error
 }
 
@@ -158,4 +161,9 @@ func (c *grpcFriendsClient) PrivateMessage(ctx context.Context, req *friendspb.P
 			slog.Any("err", err),
 		)
 	}
+}
+
+// SubscribeUpdates opens the server-streaming SubscribeUpdates RPC.
+func (c *grpcFriendsClient) SubscribeUpdates(ctx context.Context, req *friendspb.SubscribeUpdatesRequest) (friendspb.FriendsService_SubscribeUpdatesClient, error) {
+	return c.client.SubscribeUpdates(ctx, req)
 }

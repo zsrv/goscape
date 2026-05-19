@@ -2,7 +2,10 @@ package world
 
 import (
 	"context"
+	"io"
 	"sync"
+
+	"google.golang.org/grpc"
 
 	"github.com/zsrv/goscape/pkg/friendspb"
 )
@@ -24,6 +27,11 @@ type fakeFriendsClient struct {
 	ignorelistAddReqs  chan *friendspb.IgnorelistAddRequest
 	ignorelistDelReqs  chan *friendspb.IgnorelistDelRequest
 	privateMessageReqs chan *friendspb.PrivateMessageRequest
+
+	// SubscribeUpdates state.
+	subscribeReqs []*friendspb.SubscribeUpdatesRequest
+	lastStream    *fakeSubscribeStream
+	subscribeErr  error // one-shot error returned on next call; tests set to simulate dial failures
 
 	closed bool
 }
@@ -128,4 +136,47 @@ func (f *fakeFriendsClient) snapshotWorldConnectCalls() []worldConnectCall {
 	out := make([]worldConnectCall, len(f.worldConnectCalls))
 	copy(out, f.worldConnectCalls)
 	return out
+}
+
+// fakeSubscribeStream is a controllable test impl of
+// friendspb.FriendsService_SubscribeUpdatesClient. Tests push updates
+// onto recv; Recv drains and returns them. Close ctx (passed to
+// SubscribeUpdates) to terminate the stream.
+type fakeSubscribeStream struct {
+	grpc.ClientStream
+	ctx  context.Context
+	recv chan *friendspb.FriendsUpdate
+}
+
+func newFakeSubscribeStream(ctx context.Context) *fakeSubscribeStream {
+	return &fakeSubscribeStream{ctx: ctx, recv: make(chan *friendspb.FriendsUpdate, 16)}
+}
+
+func (s *fakeSubscribeStream) Recv() (*friendspb.FriendsUpdate, error) {
+	select {
+	case u, ok := <-s.recv:
+		if !ok {
+			return nil, io.EOF
+		}
+		return u, nil
+	case <-s.ctx.Done():
+		return nil, s.ctx.Err()
+	}
+}
+func (s *fakeSubscribeStream) Context() context.Context { return s.ctx }
+
+// SubscribeUpdates returns a fakeSubscribeStream the test can push to
+// via the field exposed below.
+func (f *fakeFriendsClient) SubscribeUpdates(ctx context.Context, req *friendspb.SubscribeUpdatesRequest) (friendspb.FriendsService_SubscribeUpdatesClient, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.subscribeErr != nil {
+		err := f.subscribeErr
+		f.subscribeErr = nil // one-shot
+		return nil, err
+	}
+	s := newFakeSubscribeStream(ctx)
+	f.lastStream = s
+	f.subscribeReqs = append(f.subscribeReqs, req)
+	return s, nil
 }
