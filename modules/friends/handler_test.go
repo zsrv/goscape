@@ -265,10 +265,14 @@ func TestHandler_IgnorelistDel_RemovesEntry(t *testing.T) {
 	}
 }
 
-func TestHandler_PrivateMessage_NoOp_Slice1(t *testing.T) {
+// TestPrivateMessage_NoSubscription pins TS-faithful silent-drop on
+// absent recipient subscription. Mirrors FriendServer.ts:482-484
+// (`if (!socket) return Promise.resolve()`). The registry's send method
+// implements the no-op (subscriptions.go:85-87).
+func TestPrivateMessage_NoSubscription(t *testing.T) {
 	h := newTestHandler(t)
-	// Acceptance is the assertion: returns OK without erroring. Delivery
-	// is slice 4, persistence is slice 6.
+	// No SubscribeUpdates call for the target — registry is empty for
+	// username37=0xBBBB.
 	if _, err := h.PrivateMessage(t.Context(), &friendspb.PrivateMessageRequest{
 		WorldId:          1,
 		Username37:       0xAAAA,
