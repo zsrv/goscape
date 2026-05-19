@@ -337,3 +337,77 @@ func TestFriendsClient_E2E_PrivateMessageDelivery(t *testing.T) {
 		t.Errorf("Chat = %q, want %q", got.Chat, "e2e hi")
 	}
 }
+
+// TestFriendsClient_E2E_PlayerLoginCapRejected boots a real friends
+// service with WorldPlayerLimit=1, logs in two players on the same
+// world, and asserts the second player's callback fires with
+// accepted=false. Pins slice 4c end-to-end: proto compat + handler
+// cap-enforcement + grpcFriendsClient callback wiring.
+func TestFriendsClient_E2E_PlayerLoginCapRejected(t *testing.T) {
+	port := freePort(t)
+	cfg := friends.Config{
+		GRPCListenAddress:       "127.0.0.1",
+		GRPCListenPort:          port,
+		NodeProfile:             "main",
+		WorldPlayerLimit:        1,
+		Enable:                  true,
+		GracefulShutdownTimeout: 5 * time.Second,
+		SQLiteDSN:               filepath.Join(t.TempDir(), "friends.db"),
+	}
+	log := discardLogger()
+	svc, err := friends.New(cfg, log)
+	if err != nil {
+		t.Fatalf("friends.New: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := svc.StartAsync(ctx); err != nil {
+		t.Fatalf("StartAsync: %v", err)
+	}
+	if err := svc.AwaitRunning(ctx); err != nil {
+		t.Fatalf("AwaitRunning: %v", err)
+	}
+	t.Cleanup(func() {
+		svc.StopAsync()
+		_ = svc.AwaitTerminated(context.Background())
+	})
+
+	addr := "127.0.0.1:" + strconv.Itoa(port)
+	client, err := NewFriendsClient(addr, log)
+	if err != nil {
+		t.Fatalf("NewFriendsClient: %v", err)
+	}
+	t.Cleanup(func() { _ = client.Close() })
+
+	client.WorldConnect(ctx, 10, "main")
+
+	// First login fills the world (cap=1).
+	ch1 := make(chan bool, 1)
+	client.PlayerLogin(ctx, &friendspb.PlayerLoginRequest{
+		WorldId:    10,
+		Username37: 1001,
+	}, func(accepted bool) { ch1 <- accepted })
+	select {
+	case acc := <-ch1:
+		if !acc {
+			t.Fatalf("first PlayerLogin: expected accepted=true, got false")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for first PlayerLogin callback")
+	}
+
+	// Second login exceeds the cap → server returns Accepted=false.
+	ch2 := make(chan bool, 1)
+	client.PlayerLogin(ctx, &friendspb.PlayerLoginRequest{
+		WorldId:    10,
+		Username37: 1002,
+	}, func(accepted bool) { ch2 <- accepted })
+	select {
+	case acc := <-ch2:
+		if acc {
+			t.Fatalf("second PlayerLogin: expected accepted=false, got true")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for second PlayerLogin callback")
+	}
+}
