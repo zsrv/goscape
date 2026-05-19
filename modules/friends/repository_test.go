@@ -410,3 +410,109 @@ func TestRepository_Concurrent_RaceClean(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestIsVisibleToMany_EmptyViewers(t *testing.T) {
+	r, _ := newTestRepo(t)
+	r.InitializeWorld(1, 100)
+	r.Register(1, 100, 0, 0)
+	got, err := r.IsVisibleToMany(t.Context(), nil, 100)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("got %v, want empty map", got)
+	}
+}
+
+func TestIsVisibleToMany_OtherNotRegistered(t *testing.T) {
+	r, _ := newTestRepo(t)
+	got, err := r.IsVisibleToMany(t.Context(), []uint64{1, 2, 3}, 100)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	for _, v := range []uint64{1, 2, 3} {
+		if got[v] {
+			t.Errorf("viewer %d: got true, want false (other not registered)", v)
+		}
+	}
+}
+
+func TestIsVisibleToMany_ChatModeOnAllVisible(t *testing.T) {
+	r, _ := newTestRepo(t)
+	r.InitializeWorld(1, 100)
+	r.Register(1, 100, 0, 0) // privateChat ON
+	got, err := r.IsVisibleToMany(t.Context(), []uint64{1, 2, 3}, 100)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	for _, v := range []uint64{1, 2, 3} {
+		if !got[v] {
+			t.Errorf("viewer %d: got false, want true (mode ON)", v)
+		}
+	}
+}
+
+func TestIsVisibleToMany_ChatModeOffNoneVisible(t *testing.T) {
+	r, _ := newTestRepo(t)
+	r.InitializeWorld(1, 100)
+	r.Register(1, 100, 2, 0) // privateChat OFF
+	got, err := r.IsVisibleToMany(t.Context(), []uint64{1, 2, 3}, 100)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	for _, v := range []uint64{1, 2, 3} {
+		if got[v] {
+			t.Errorf("viewer %d: got true, want false (mode OFF)", v)
+		}
+	}
+}
+
+func TestIsVisibleToMany_ChatModeFriendsOnlyFriendsVisible(t *testing.T) {
+	r, _ := newTestRepo(t)
+	r.InitializeWorld(1, 100)
+	r.Register(1, 100, 1, 0) // privateChat FRIENDS
+	// 100 added 2 and 3 as friends; 1 is not a friend.
+	if err := r.AddFriend(t.Context(), 100, 2); err != nil {
+		t.Fatalf("AddFriend: %v", err)
+	}
+	if err := r.AddFriend(t.Context(), 100, 3); err != nil {
+		t.Fatalf("AddFriend: %v", err)
+	}
+	got, err := r.IsVisibleToMany(t.Context(), []uint64{1, 2, 3}, 100)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if got[1] {
+		t.Errorf("viewer 1: got true, want false (not a friend)")
+	}
+	if !got[2] {
+		t.Errorf("viewer 2: got false, want true (friend)")
+	}
+	if !got[3] {
+		t.Errorf("viewer 3: got false, want true (friend)")
+	}
+}
+
+func TestIsVisibleToMany_MatchesScalarIsVisibleTo(t *testing.T) {
+	r, _ := newTestRepo(t)
+	r.InitializeWorld(1, 100)
+	r.Register(1, 100, 1, 0)
+	if err := r.AddFriend(t.Context(), 100, 2); err != nil {
+		t.Fatalf("AddFriend: %v", err)
+	}
+
+	viewers := []uint64{1, 2, 3, 4, 5}
+	batch, err := r.IsVisibleToMany(t.Context(), viewers, 100)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	for _, v := range viewers {
+		want, err := r.IsVisibleTo(t.Context(), v, 100)
+		if err != nil {
+			t.Fatalf("IsVisibleTo: %v", err)
+		}
+		if batch[v] != want {
+			t.Errorf("viewer %d: batch=%v scalar=%v", v, batch[v], want)
+		}
+	}
+}
