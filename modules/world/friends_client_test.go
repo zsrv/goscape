@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/zsrv/goscape/pkg/friendspb"
@@ -221,7 +223,8 @@ type mockFriendsPBClient struct {
 	friendlistDelFn  func(ctx context.Context, in *friendspb.FriendlistDelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ignorelistAddFn  func(ctx context.Context, in *friendspb.IgnorelistAddRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ignorelistDelFn  func(ctx context.Context, in *friendspb.IgnorelistDelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	privateMessageFn func(ctx context.Context, in *friendspb.PrivateMessageRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	privateMessageFn   func(ctx context.Context, in *friendspb.PrivateMessageRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	subscribeUpdatesFn func(ctx context.Context, in *friendspb.SubscribeUpdatesRequest, opts ...grpc.CallOption) (friendspb.FriendsService_SubscribeUpdatesClient, error)
 }
 
 func (m *mockFriendsPBClient) WorldConnect(ctx context.Context, in *friendspb.WorldConnectRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
@@ -250,6 +253,12 @@ func (m *mockFriendsPBClient) IgnorelistDel(ctx context.Context, in *friendspb.I
 }
 func (m *mockFriendsPBClient) PrivateMessage(ctx context.Context, in *friendspb.PrivateMessageRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return m.privateMessageFn(ctx, in, opts...)
+}
+func (m *mockFriendsPBClient) SubscribeUpdates(ctx context.Context, in *friendspb.SubscribeUpdatesRequest, opts ...grpc.CallOption) (friendspb.FriendsService_SubscribeUpdatesClient, error) {
+	if m.subscribeUpdatesFn != nil {
+		return m.subscribeUpdatesFn(ctx, in, opts...)
+	}
+	return nil, nil
 }
 
 // TestGRPCFriendsClient_LogsErrorOnFailure verifies that every fire-and-forget
@@ -328,5 +337,28 @@ func TestGRPCFriendsClient_LogsErrorOnFailure(t *testing.T) {
 			// Must not panic; must return normally.
 			tc.call(c)
 		})
+	}
+}
+
+func TestGRPCFriendsClient_SubscribeUpdates_Delegates(t *testing.T) {
+	called := make(chan *friendspb.SubscribeUpdatesRequest, 1)
+	mock := &mockFriendsPBClient{
+		subscribeUpdatesFn: func(ctx context.Context, in *friendspb.SubscribeUpdatesRequest, opts ...grpc.CallOption) (friendspb.FriendsService_SubscribeUpdatesClient, error) {
+			called <- in
+			return nil, status.Error(codes.Unavailable, "test")
+		},
+	}
+	c := &grpcFriendsClient{client: mock, log: discardLogger()}
+	_, err := c.SubscribeUpdates(context.Background(), &friendspb.SubscribeUpdatesRequest{WorldId: 5, Username37: 42})
+	if err == nil {
+		t.Fatalf("expected error from mock")
+	}
+	select {
+	case got := <-called:
+		if got.WorldId != 5 || got.Username37 != 42 {
+			t.Fatalf("got = %v, want WorldId=5 Username37=42", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatalf("mock not called")
 	}
 }
