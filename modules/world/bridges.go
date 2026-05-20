@@ -222,11 +222,6 @@ type WorldEventsDispatcher interface {
 // actionWorldEventsDispatcher on inbound RELAY_* events. *Server
 // implements it (world_state_ops.go). Tests bind recordingWorldStateOps.
 //
-// Methods correspond 1:1 to wired RELAY_* opcodes. QUEUESCRIPT is NOT
-// on this interface — it stays slog-warn behind
-// NAI-S5B-D-NO-RUNESCRIPT-RUNTIME until the runscript runtime can
-// resolve [queue,<name>] triggers.
-//
 // All methods are safe to call from any goroutine. Production *Server
 // impls enqueue a closure on relayActionQueue and return immediately;
 // the tick goroutine drains the queue at the top of each iteration
@@ -251,6 +246,7 @@ type WorldStateOps interface {
 	// queue analogous to TS's World.logoutRequests. See
 	// NAI-S5B-D-CLEARLOGOUTS-NO-GOSCAPE-QUEUE (slice 5b spec §6.4).
 	ClearLogouts()
+	QueueScript(scriptName string, username37 uint64)
 }
 
 // slogWorldEventsDispatcher is the default WorldEventsDispatcher. Logs

@@ -46,6 +46,8 @@ type recordingWorldStateOps struct {
 	reloadCalled               bool
 	clearLoginsCalled          bool
 	clearLogoutsCalled         bool
+	queueScriptName            string // T5
+	queueScriptU37             uint64 // T5
 }
 
 func (r *recordingWorldStateOps) SetPlayerMute(u37 uint64, ms int64) {
@@ -60,6 +62,10 @@ func (r *recordingWorldStateOps) SetPlayerInputTracking(u37 uint64, s int32) {
 func (r *recordingWorldStateOps) RelayReload()  { r.reloadCalled = true }
 func (r *recordingWorldStateOps) ClearLogins()  { r.clearLoginsCalled = true }
 func (r *recordingWorldStateOps) ClearLogouts() { r.clearLogoutsCalled = true }
+func (r *recordingWorldStateOps) QueueScript(scriptName string, u37 uint64) {
+	r.queueScriptName = scriptName
+	r.queueScriptU37 = u37
+}
 
 // TestActionWorldEventsDispatcher_RoutesToOpsAndInner pins that each
 // wired On* method calls (a) the WorldStateOps method with the right

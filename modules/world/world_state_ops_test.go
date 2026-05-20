@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
+	"github.com/zsrv/goscape/pkg/script"
 	jstring "github.com/zsrv/goscape/pkg/util/jstring"
 )
 
@@ -280,5 +281,108 @@ func TestWorldStateOps_SetPlayerInputTracking_FlipsSubmitInput(t *testing.T) {
 	s.drainRelayActions()
 	if p.submitInput {
 		t.Fatal("submitInput: must be false after SetPlayerInputTracking(0)")
+	}
+}
+
+// TestWorldStateOps_QueueScript_EnqueuesNormalQueueOnLookedUpPlayer
+// pins TS World.ts:2041-2051: RELAY_QUEUESCRIPT looks up the player by
+// username37, finds the [queue,<name>] script via Provider.GetByName,
+// and enqueues it on p.queue with Type=QueueNormal, Delay=0, no args.
+func TestWorldStateOps_QueueScript_EnqueuesNormalQueueOnLookedUpPlayer(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	sf := &script.ScriptFile{Name: "[queue,test_dispatch]", LookupKey: 0xDEFA}
+	s.scriptProvider.Register(sf)
+
+	p := registerActivePlayer(t, s, "alice", 1)
+	u37 := jstring.ToBase37("alice")
+
+	var ops WorldStateOps = s
+	ops.QueueScript("test_dispatch", u37)
+	s.drainRelayActions()
+
+	if len(p.queue) != 1 {
+		t.Fatalf("p.queue len: got %d, want 1", len(p.queue))
+	}
+	got := p.queue[0]
+	if got.Script != sf {
+		t.Errorf("queue[0].Script: got %v, want sf", got.Script)
+	}
+	if got.Type != script.QueueNormal {
+		t.Errorf("queue[0].Type: got %v, want QueueNormal", got.Type)
+	}
+	if got.Delay != 0 {
+		t.Errorf("queue[0].Delay: got %d, want 0", got.Delay)
+	}
+	if len(got.IntArgs) != 0 {
+		t.Errorf("queue[0].IntArgs: got %v, want empty", got.IntArgs)
+	}
+	if len(got.StringArgs) != 0 {
+		t.Errorf("queue[0].StringArgs: got %v, want empty", got.StringArgs)
+	}
+	_ = p // anchor lookup
+}
+
+// TestWorldStateOps_QueueScript_LookupMissIsHarmless mirrors
+// TestWorldStateOps_SetPlayerMute_LookupMissIsHarmless. Username37
+// not in playerLoop → no enqueue, no panic.
+func TestWorldStateOps_QueueScript_LookupMissIsHarmless(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+
+	var ops WorldStateOps = s
+	ops.QueueScript("anything", jstring.ToBase37("ghost"))
+	s.drainRelayActions()
+	// No panic = pass. (No player to inspect.)
+}
+
+// TestWorldStateOps_QueueScript_ScriptNameNotFoundIsNoOp pins that a
+// missing [queue,<name>] in the provider is a silent skip.
+func TestWorldStateOps_QueueScript_ScriptNameNotFoundIsNoOp(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	// Intentionally do NOT Register any script.
+
+	p := registerActivePlayer(t, s, "alice", 1)
+	u37 := jstring.ToBase37("alice")
+
+	var ops WorldStateOps = s
+	ops.QueueScript("nonexistent", u37)
+	s.drainRelayActions()
+
+	if len(p.queue) != 0 {
+		t.Fatalf("p.queue len: got %d, want 0 (missing script must be no-op)", len(p.queue))
+	}
+}
+
+// TestWorldStateOps_QueueScript_BridgesRelayActionQueue pins the
+// goroutine-safe seam: calling QueueScript from a non-tick goroutine
+// posts a closure on relayActionQueue; the work happens only when
+// drainRelayActions runs on the tick goroutine.
+func TestWorldStateOps_QueueScript_BridgesRelayActionQueue(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	sf := &script.ScriptFile{Name: "[queue,bridge_test]", LookupKey: 0xB81D}
+	s.scriptProvider.Register(sf)
+	p := registerActivePlayer(t, s, "alice", 1)
+	u37 := jstring.ToBase37("alice")
+
+	var ops WorldStateOps = s
+	done := make(chan struct{})
+	go func() {
+		ops.QueueScript("bridge_test", u37)
+		close(done)
+	}()
+	<-done
+
+	// Before drain: nothing in p.queue. The closure is sitting in relayActionQueue.
+	if len(p.queue) != 0 {
+		t.Fatalf("pre-drain: p.queue len: got %d, want 0 (action must wait for drain)", len(p.queue))
+	}
+
+	s.drainRelayActions()
+
+	if len(p.queue) != 1 {
+		t.Fatalf("post-drain: p.queue len: got %d, want 1", len(p.queue))
 	}
 }

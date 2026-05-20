@@ -3,6 +3,8 @@ package world
 import (
 	"log/slog"
 	"time"
+
+	"github.com/zsrv/goscape/pkg/script"
 )
 
 // enqueueRelayAction posts a closure onto the relay action queue.
@@ -183,5 +185,49 @@ func (s *Server) ClearLogouts() {
 func (s *Server) BroadcastMessage(message string) {
 	s.enqueueRelayAction(func() {
 		s.BroadcastMes(message)
+	})
+}
+
+// QueueScript dispatches a [queue,<name>] script to the looked-up
+// player's primary queue. Mirrors TS World.ts:2041-2051:
+//
+//	} else if (opcode === FriendsServerOpcodes.RELAY_QUEUESCRIPT) {
+//	    const { scriptName, username } = data;
+//	    const player = this.getPlayerByUsername(username);
+//	    if (player) {
+//	        const script = ScriptProvider.getByName(`[queue,${scriptName}]`);
+//	        if (script) { player.enqueueScript(script); }
+//	    }
+//	}
+//
+// Lookup-miss (player offline OR script-name not registered) is
+// silently dropped at Debug. EnqueueScriptArgs error is logged at Warn
+// (no further recovery — TS doesn't try to recover either).
+//
+// Retires NAI-S5B-D-NO-RUNESCRIPT-RUNTIME (slog-warn-only stub at
+// actionWorldEventsDispatcher.OnQueueScript prior to T6).
+func (s *Server) QueueScript(scriptName string, username37 uint64) {
+	s.enqueueRelayAction(func() {
+		p := s.lookupPlayerByUsername37(username37)
+		if p == nil {
+			s.log.Debug("RELAY_QUEUESCRIPT: player not online; skipping",
+				slog.String("script_name", scriptName),
+				slog.Uint64("username37", username37))
+			return
+		}
+		if s.scriptProvider == nil {
+			return // test-fixture path
+		}
+		sf := s.scriptProvider.GetByName("[queue," + scriptName + "]")
+		if sf == nil {
+			s.log.Debug("RELAY_QUEUESCRIPT: script not found; skipping",
+				slog.String("script_name", scriptName))
+			return
+		}
+		// TS Player.enqueueScript defaults: type=NORMAL, delay=0, args=[].
+		// EnqueueScriptFile takes *ScriptFile directly (player_script.go:71)
+		// — no ID lookup needed. It nil-guards and silently no-ops on
+		// nil sf, but we already checked above. Returns nothing.
+		p.EnqueueScriptFile(sf, 0, nil, nil, script.QueueNormal)
 	})
 }
