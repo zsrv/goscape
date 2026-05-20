@@ -676,10 +676,9 @@ func (p *Player) SetCurLevel(id int, level int) {
 // stats (XP) for the given stat slot. Mirrors TS Player.setLevel
 // (Player.ts:1823-1834). Used by ::setstat and ::minme cheats (NAI-184).
 //
-// DEVIATION-NAI-184-D1-SETSTAT-NO-COMBAT-REBUILD: TS additionally
-// recomputes combatLevel and calls buildAppearance(appearanceInv) on
-// change (TS L1830-1833). Combat-level recompute + appearance rebuild
-// are deferred to a future combat sub-spec.
+// On any change, calls recomputeCombatLevel(true) — TS guards the
+// rebuild on (combatLevel != getCombatLevel()) so non-combat-stat
+// changes and no-op cases don't flip MaskAppearance.
 func (p *Player) SetStat(stat, level int) {
 	if !statBounds(stat) {
 		return
@@ -693,6 +692,7 @@ func (p *Player) SetStat(stat, level int) {
 	p.baseLevels[stat] = uint8(level)
 	p.levels[stat] = uint8(level)
 	p.stats[stat] = int32(objtype.GetExpByLevel(level))
+	p.recomputeCombatLevel(true)
 }
 
 // calcCombatLevel ports TS Player.getCombatLevel (Player.ts:1302-1308).

@@ -2091,3 +2091,43 @@ func TestRecomputeCombatLevel_Change_RebuildFalse_NoMaskFlip(t *testing.T) {
 		t.Errorf("masks: MaskAppearance unexpectedly set when triggerRebuild=false")
 	}
 }
+
+// TestSetStat_RecomputesCombatLevel* pin the SetStat hook into the
+// guarded combat-level rebuild. Retires DEVIATION-NAI-184-D1-SETSTAT-
+// NO-COMBAT-REBUILD. NAI-184 T3.
+
+func TestSetStat_RecomputesCombatLevelAndFlipsAppearance(t *testing.T) {
+	p := &Player{}
+	for i := range objtype.PlayerStatCount {
+		p.baseLevels[i] = 1
+	}
+	p.baseLevels[objtype.PlayerStatHitpoints] = 10
+	p.combatLevel = 3 // fresh
+	p.masks = 0
+	p.SetStat(objtype.PlayerStatStrength, 99)
+	if p.combatLevel <= 3 {
+		t.Errorf("combatLevel: got %d, want > 3 after STR→99", p.combatLevel)
+	}
+	if p.masks&rsbuf.MaskAppearance == 0 {
+		t.Errorf("masks: MaskAppearance not set after combat-stat SetStat")
+	}
+}
+
+func TestSetStat_NonCombatStat_NoMaskFlip(t *testing.T) {
+	// Cooking is not a combat stat; SetStat(cooking, 50) must NOT change
+	// combatLevel and must NOT flip MaskAppearance.
+	p := &Player{}
+	for i := range objtype.PlayerStatCount {
+		p.baseLevels[i] = 1
+	}
+	p.baseLevels[objtype.PlayerStatHitpoints] = 10
+	p.combatLevel = 3
+	p.masks = 0
+	p.SetStat(objtype.PlayerStatCooking, 50)
+	if p.combatLevel != 3 {
+		t.Errorf("combatLevel: got %d, want 3 (non-combat stat must not move CL)", p.combatLevel)
+	}
+	if p.masks&rsbuf.MaskAppearance != 0 {
+		t.Errorf("masks: MaskAppearance unexpectedly set after non-combat-stat SetStat")
+	}
+}
