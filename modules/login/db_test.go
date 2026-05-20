@@ -10,6 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-migrate/migrate/v4"
+	sqlitedriver "github.com/golang-migrate/migrate/v4/database/sqlite"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -412,5 +415,131 @@ func TestSessionUUIDCheckAcceptsEmpty(t *testing.T) {
 	)
 	if err != nil {
 		t.Fatalf("INSERT with empty session_uuid failed: %v", err)
+	}
+}
+
+// TestMigration002CoercesLegacyRows exercises the legacy-data path
+// in migration 000002. Open a fresh DB at schema version 1 only
+// (so the session table has no CHECK), insert a pre-slice-7-style
+// row with session_uuid = RemoteAddr().String(), then advance to
+// version 2 and assert:
+//   - the legacy session_uuid is coerced to ""
+//   - other columns are preserved
+//   - the id is preserved (AUTOINCREMENT pass-through)
+//   - a fresh insertSession on the upgraded table yields a larger id
+//     (sqlite_sequence continuity)
+func TestMigration002CoercesLegacyRows(t *testing.T) {
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", url.PathEscape(t.Name()))
+	db, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		t.Fatalf("sql.Open: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	src, err := iofs.New(migrations, "migrations")
+	if err != nil {
+		t.Fatalf("iofs.New: %v", err)
+	}
+	drv, err := sqlitedriver.WithInstance(db, &sqlitedriver.Config{})
+	if err != nil {
+		t.Fatalf("driver: %v", err)
+	}
+	m, err := migrate.NewWithInstance("iofs", src, "sqlite", drv)
+	if err != nil {
+		t.Fatalf("migrate instance: %v", err)
+	}
+	// Advance exactly one step from the empty starting state — applies
+	// 000001_init only. The session table now exists with NO CHECK.
+	if err := m.Steps(1); err != nil {
+		t.Fatalf("migrate.Steps(1): %v", err)
+	}
+
+	// Set up the account row that the legacy session row's FK
+	// references.
+	hashed, err := bcrypt.GenerateFromPassword([]byte("pw"), 4)
+	if err != nil {
+		t.Fatalf("bcrypt: %v", err)
+	}
+	accountID, err := insertAccount(t.Context(), db, "legacyuser", string(hashed), "127.0.0.1")
+	if err != nil {
+		t.Fatalf("insertAccount: %v", err)
+	}
+
+	// Insert a pre-slice-7-style row directly: session_uuid holds an
+	// IP:port string (what RemoteAddr().String() produces).
+	legacyUUIDValue := "127.0.0.1:42193"
+	legacyRemoteAddr := "127.0.0.1:42193"
+	legacyLoginTime := "2024-12-01T00:00:00Z"
+	res, err := db.ExecContext(t.Context(),
+		`INSERT INTO session (session_uuid, account_id, profile, world, uid, login_time, remote_address)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		legacyUUIDValue, accountID, "main", 3, 99, legacyLoginTime, legacyRemoteAddr,
+	)
+	if err != nil {
+		t.Fatalf("legacy INSERT: %v", err)
+	}
+	legacyID, err := res.LastInsertId()
+	if err != nil {
+		t.Fatalf("LastInsertId: %v", err)
+	}
+
+	// Now advance to version 2 — applies 000002 which rebuilds the
+	// table with CHECK and coerces the legacy row.
+	if err := m.Up(); err != nil {
+		t.Fatalf("migrate.Up: %v", err)
+	}
+
+	// Read the legacy row back.
+	var (
+		gotUUID, gotProfile, gotRemoteAddr, gotLoginTime string
+		gotWorld, gotUID                                 int
+		gotAccountID                                     int64
+	)
+	err = db.QueryRowContext(t.Context(),
+		`SELECT session_uuid, account_id, profile, world, uid, login_time, remote_address
+		   FROM session WHERE id = ?`,
+		legacyID,
+	).Scan(&gotUUID, &gotAccountID, &gotProfile, &gotWorld, &gotUID, &gotLoginTime, &gotRemoteAddr)
+	if err != nil {
+		t.Fatalf("SELECT post-migration: %v", err)
+	}
+	if gotUUID != "" {
+		t.Errorf("legacy session_uuid: got %q, want \"\"", gotUUID)
+	}
+	if gotAccountID != accountID {
+		t.Errorf("account_id: got %d, want %d", gotAccountID, accountID)
+	}
+	if gotProfile != "main" {
+		t.Errorf("profile: got %q, want %q", gotProfile, "main")
+	}
+	if gotWorld != 3 {
+		t.Errorf("world: got %d, want 3", gotWorld)
+	}
+	if gotUID != 99 {
+		t.Errorf("uid: got %d, want 99", gotUID)
+	}
+	if gotLoginTime != legacyLoginTime {
+		t.Errorf("login_time: got %q, want %q", gotLoginTime, legacyLoginTime)
+	}
+	if gotRemoteAddr != legacyRemoteAddr {
+		t.Errorf("remote_address: got %q, want %q", gotRemoteAddr, legacyRemoteAddr)
+	}
+
+	// AUTOINCREMENT continuity: a fresh insertSession on the upgraded
+	// table must yield an id strictly greater than legacyID.
+	err = insertSession(t.Context(), db, "22222222-3333-4444-5555-666666666666", int(accountID), "main", 1, 1, "127.0.0.1:1")
+	if err != nil {
+		t.Fatalf("insertSession post-migration: %v", err)
+	}
+	var newID int64
+	err = db.QueryRowContext(t.Context(),
+		`SELECT id FROM session WHERE session_uuid = ?`,
+		"22222222-3333-4444-5555-666666666666",
+	).Scan(&newID)
+	if err != nil {
+		t.Fatalf("SELECT new row id: %v", err)
+	}
+	if newID <= legacyID {
+		t.Errorf("AUTOINCREMENT continuity broken: new id %d <= legacy id %d", newID, legacyID)
 	}
 }
