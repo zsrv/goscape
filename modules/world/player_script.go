@@ -806,9 +806,9 @@ func (p *Player) advanceStat(stat int) {
 //
 // On level-up (baseLevels increases), fires the [changestat,<skill>] trigger
 // via changeStat (TS Player.ts:1772) then the [advancestat,<skill>] trigger
-// via advanceStat (TS Player.ts:1804-1807). Does NOT recompute combat
-// level (future combat sub-spec) or emit session-log / milestone events
-// (TS Player.ts:1773-1803; session-log infrastructure not yet ported).
+// via advanceStat (TS Player.ts:1804-1807), then calls recomputeCombatLevel
+// to mirror TS Player.ts:1810-1813. Does NOT emit session-log / milestone
+// events (TS Player.ts:1773-1803; session-log infrastructure not yet ported).
 func (p *Player) AddXP(id int, xp int) {
 	if !statBounds(id) {
 		return
@@ -839,6 +839,7 @@ func (p *Player) AddXP(id int, xp int) {
 		// triggers if registered. Matches TS Player.ts:1772, 1804-1807.
 		p.changeStat(id)
 		p.advanceStat(id)
+		p.recomputeCombatLevel(true) // TS Player.ts:1810-1813
 	}
 }
 

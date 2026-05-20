@@ -2131,3 +2131,68 @@ func TestSetStat_NonCombatStat_NoMaskFlip(t *testing.T) {
 		t.Errorf("masks: MaskAppearance unexpectedly set after non-combat-stat SetStat")
 	}
 }
+
+// TestAddXP_*CombatLevel pin the AddXP hook into the guarded combat-
+// level rebuild. Retires the informal "Does NOT recompute combat
+// level (future combat sub-spec)" deferral in AddXP's doc-block.
+// NAI-184 T4.
+
+func TestAddXP_LevelUp_RecomputesCombatLevel(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	// Pre-load fresh baseLevels (newTestPlayer leaves them at zero).
+	for i := range objtype.PlayerStatCount {
+		p.baseLevels[i] = 1
+		p.levels[i] = 1
+	}
+	p.baseLevels[objtype.PlayerStatHitpoints] = 10
+	p.levels[objtype.PlayerStatHitpoints] = 10
+	// Start STR at level 1 with 0 XP; add enough XP to reach level 99.
+	p.stats[objtype.PlayerStatStrength] = 0
+	p.baseLevels[objtype.PlayerStatStrength] = 1
+	p.levels[objtype.PlayerStatStrength] = 1
+	p.combatLevel = 3
+	p.masks = 0
+	p.AddXP(objtype.PlayerStatStrength, objtype.GetExpByLevel(99))
+	if p.baseLevels[objtype.PlayerStatStrength] != 99 {
+		t.Fatalf("baseLevels[STR]: got %d, want 99 (precondition for CL recompute)",
+			p.baseLevels[objtype.PlayerStatStrength])
+	}
+	if p.combatLevel <= 3 {
+		t.Errorf("combatLevel: got %d, want > 3 after STR level-up to 99", p.combatLevel)
+	}
+	if p.masks&rsbuf.MaskAppearance == 0 {
+		t.Errorf("masks: MaskAppearance not set after level-up combat-stat AddXP")
+	}
+}
+
+func TestAddXP_NoLevelUp_NoRecompute(t *testing.T) {
+	// Adding XP without crossing a level threshold must NOT trigger
+	// recomputeCombatLevel — the guard short-circuits on no-change.
+	// More importantly, the AddXP code only calls recompute inside the
+	// afterBase > beforeBase branch.
+	p, _ := newTestPlayer(t)
+	for i := range objtype.PlayerStatCount {
+		p.baseLevels[i] = 1
+		p.levels[i] = 1
+	}
+	p.baseLevels[objtype.PlayerStatHitpoints] = 10
+	p.levels[objtype.PlayerStatHitpoints] = 10
+	// Start STR exactly at level 2; add a small amount that stays in [830, 1740).
+	// GetExpByLevel(2)=830, GetExpByLevel(3)=1740. +100 → 930, still level 2.
+	p.stats[objtype.PlayerStatStrength] = int32(objtype.GetExpByLevel(2))
+	p.baseLevels[objtype.PlayerStatStrength] = 2
+	p.levels[objtype.PlayerStatStrength] = 2
+	p.combatLevel = 3
+	p.masks = 0
+	p.AddXP(objtype.PlayerStatStrength, 100) // → 930 XP, still level 2
+	if p.baseLevels[objtype.PlayerStatStrength] != 2 {
+		t.Fatalf("baseLevels[STR]: got %d, want 2 (precondition: no level-up)",
+			p.baseLevels[objtype.PlayerStatStrength])
+	}
+	if p.combatLevel != 3 {
+		t.Errorf("combatLevel: got %d, want 3 (no level-up → no recompute)", p.combatLevel)
+	}
+	if p.masks&rsbuf.MaskAppearance != 0 {
+		t.Errorf("masks: MaskAppearance unexpectedly set without level-up")
+	}
+}
