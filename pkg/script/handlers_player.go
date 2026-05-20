@@ -1656,7 +1656,7 @@ func handleHealEnergy(s *ScriptState) error {
 }
 
 // handleSetSkinColour (SETSKINCOLOUR) writes the player's skin-colour
-// slot (colors[4]) after a [0,7] range check. Mirrors TS
+// slot (colors[4]) after a [0, 7] range check. Mirrors TS
 // LostCityRS/Engine-TS/.../PlayerOps.ts:1121-1124:
 //
 //	const skin = check(state.popInt(), SkinColourValid)
