@@ -89,4 +89,11 @@ func onReconnect(s *Server, p *Player) {
 	// (k) masks |= entitymask — resync face_entity on the next mask
 	// block. Mirrors TS Player.onReconnect (Player.ts:574).
 	p.masks |= p.entitymask
+
+	// (l) force moveSpeed back to INSTANT. Mirrors TS
+	// Player.onReconnect (Player.ts:556 — `this.moveSpeed =
+	// MoveSpeed.INSTANT`). p.tele and p.jump are set upstream in
+	// processLogins (tick.go) before this branch, so the full
+	// TS L556-558 triple is covered.
+	p.moveSpeed = MoveSpeedInstant
 }

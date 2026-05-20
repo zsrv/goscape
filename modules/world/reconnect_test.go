@@ -122,6 +122,28 @@ func TestOnReconnect_FlipsAllInvListenerFirstSeenToTrue(t *testing.T) {
 	}
 }
 
+// TestOnReconnect_ResetsMoveSpeedToInstant pins that onReconnect forces
+// p.moveSpeed back to MoveSpeedInstant regardless of the pre-reconnect
+// value. Mirrors TS Player.onReconnect (Player.ts:556 —
+// `this.moveSpeed = MoveSpeed.INSTANT`).
+func TestOnReconnect_ResetsMoveSpeedToInstant(t *testing.T) {
+	for _, pre := range []MoveSpeed{MoveSpeedStationary, MoveSpeedWalk, MoveSpeedRun} {
+		p, cc := newTestPlayer(t)
+		s := newTestServer(t)
+		p.client.server = s
+		p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+		go io.Copy(io.Discard, cc)
+
+		p.moveSpeed = pre
+
+		onReconnect(s, p)
+
+		if p.moveSpeed != MoveSpeedInstant {
+			t.Errorf("pre=%v: p.moveSpeed: got %v, want MoveSpeedInstant", pre, p.moveSpeed)
+		}
+	}
+}
+
 // TestOnReconnect_OrsEntityMaskIntoMasks verifies that onReconnect ORs
 // p.entitymask into p.masks so face_entity resync is triggered on the next
 // mask block. Mirrors TS Player.onReconnect (Player.ts:574). NAI-182 B4.
