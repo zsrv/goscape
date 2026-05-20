@@ -1,9 +1,5 @@
 package world
 
-import (
-	"log/slog"
-)
-
 // actionWorldEventsDispatcher composes an inner WorldEventsDispatcher
 // (typically slogWorldEventsDispatcher from bridges.go) with a
 // WorldStateOps action surface. Slice 5b production wiring.
@@ -14,19 +10,18 @@ import (
 // real ops as of the runtime-fixups-cluster slice (NAI-S5B-D-NO-
 // RUNESCRIPT-RUNTIME retired).
 //
-// The log field carries action-layer Warn lines (lookup misses are
-// logged by *Server impls inside the queue closures, not here).
+// Lookup misses and other action-layer diagnostics are logged by
+// *Server impls inside the queue closures, not here.
 type actionWorldEventsDispatcher struct {
 	inner WorldEventsDispatcher
 	ops   WorldStateOps
-	log   *slog.Logger
 }
 
 // Compile-time assertion.
 var _ WorldEventsDispatcher = (*actionWorldEventsDispatcher)(nil)
 
-func newActionWorldEventsDispatcher(inner WorldEventsDispatcher, ops WorldStateOps, log *slog.Logger) *actionWorldEventsDispatcher {
-	return &actionWorldEventsDispatcher{inner: inner, ops: ops, log: log}
+func newActionWorldEventsDispatcher(inner WorldEventsDispatcher, ops WorldStateOps) *actionWorldEventsDispatcher {
+	return &actionWorldEventsDispatcher{inner: inner, ops: ops}
 }
 
 func (d *actionWorldEventsDispatcher) OnMute(username37 uint64, mutedUntilMs int64) {

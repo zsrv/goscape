@@ -74,9 +74,8 @@ func TestActionWorldEventsDispatcher_RoutesToOpsAndInner(t *testing.T) {
 	buf := &syncBuffer{}
 	innerLog := slog.New(slog.NewTextHandler(buf, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	inner := newSlogWorldEventsDispatcher(innerLog)
-	actionLog := slog.New(slog.NewTextHandler(&syncBuffer{}, &slog.HandlerOptions{Level: slog.LevelWarn}))
 	ops := &recordingWorldStateOps{}
-	d := newActionWorldEventsDispatcher(inner, ops, actionLog)
+	d := newActionWorldEventsDispatcher(inner, ops)
 
 	d.OnMute(11, 22)
 	if ops.muteU37 != 11 || ops.muteMs != 22 {
@@ -144,7 +143,7 @@ func TestNewServer_WiresActionWorldEventsDispatcher(t *testing.T) {
 	// scaffolding that the test harness avoids. Instead: directly
 	// invoke the constructor sequence that NewServer uses, isolated.
 	inner := newSlogWorldEventsDispatcher(discardLogger())
-	d := newActionWorldEventsDispatcher(inner, s, discardLogger())
+	d := newActionWorldEventsDispatcher(inner, s)
 	// Smoke: type-asserts as WorldEventsDispatcher.
 	var _ WorldEventsDispatcher = d
 	// And the inner is the slice-5a slog impl.

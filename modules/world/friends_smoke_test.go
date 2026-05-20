@@ -721,7 +721,7 @@ func TestFriendsClient_E2E_RelayShutdownAppliesAction(t *testing.T) {
 	s := newTestServer(t)
 	s.currentTick = 100
 	inner := newSlogWorldEventsDispatcher(log)
-	dispatcher := newActionWorldEventsDispatcher(inner, s, log)
+	dispatcher := newActionWorldEventsDispatcher(inner, s)
 	const targetWorldID = 7
 	sub := newWorldEventsSubscriber(client, targetWorldID, dispatcher, log)
 	subCtx, subCancel := context.WithCancel(context.Background())
@@ -1165,7 +1165,7 @@ func TestFriendsClient_E2E_RelayQueueScriptAppliesAction(t *testing.T) {
 	u37 := jstring.ToBase37("alice")
 
 	inner := newSlogWorldEventsDispatcher(log)
-	dispatcher := newActionWorldEventsDispatcher(inner, s, log)
+	dispatcher := newActionWorldEventsDispatcher(inner, s)
 	const targetWorldID = 7
 	sub := newWorldEventsSubscriber(client, targetWorldID, dispatcher, log)
 	subCtx, subCancel := context.WithCancel(context.Background())

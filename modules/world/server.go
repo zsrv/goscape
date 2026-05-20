@@ -314,7 +314,7 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	// dispatcher with WorldStateOps so each RELAY_* event both logs
 	// AND applies its world-state effect.
 	innerSlog := newSlogWorldEventsDispatcher(s.log)
-	s.worldEventsDispatcher = newActionWorldEventsDispatcher(innerSlog, s, s.log)
+	s.worldEventsDispatcher = newActionWorldEventsDispatcher(innerSlog, s)
 	if friendsClient != nil {
 		ctx, cancel := context.WithCancel(context.Background())
 		s.worldEventsCancel = cancel
