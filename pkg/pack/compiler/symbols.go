@@ -591,14 +591,20 @@ func buildSymbolsCore(srcDir string, loaders *configLoaders) (map[string]*TypeIn
 // `name` is com.ComName if non-empty, else componentInfo.Map[id]
 // (TS `com.comName || componentInfo.map[id]`).
 //
-// NAI-212-D-INTERFACE-FALLBACK-FROM-COMPONENTINFO: with packClientInterface
-// deferred (see pack_all.go NAI-212-D-CLIENT-PACKERS-DEFERRED), the cache
-// is empty when compile runs and Component.get-equivalent has no data.
-// TS would also skip in that state, but TS never reaches it because its
-// packAll runs packClientInterface first. Goscape falls back to populating
-// interfaceInfo from componentInfo.Map alone (base names, no ComName
-// override, no overlay flag) so `interface`-typed identifier lookups
-// resolve to the right BasicSymbol. Retires when packClientInterface lands.
+// NAI-212-D-INTERFACE-FALLBACK-FROM-COMPONENTINFO: defensive fallback
+// when loaders.comp is empty or missing entries. When compile runs
+// inside packall.PackAll, packall calls clientinterface.Pack first
+// (packall/packall.go:51) so loaders.comp is populated and the
+// fallback is dormant. Standalone callers — primarily
+// `goscape-cli compile` via compiler.LoadCompilerSymbols
+// (cmd_compile.go:91) — do NOT run clientinterface.Pack first, and
+// LoadComponentTypes returns empty configs when the client/interface
+// jagfile is missing (componenttype.go:133-134). In that state the
+// fallback populates interfaceInfo from componentInfo.Map alone (base
+// names, no ComName override, no overlay flag) so `interface`-typed
+// identifier lookups still resolve to a BasicSymbol. Permanent —
+// removing the fallback would break `goscape-cli compile` on a fresh
+// dataPackDir.
 func populateInterfaceOverlay(
 	componentInfo, interfaceInfo, overlayInfo *TypeInfo,
 	components *objtype.ComponentTypeConfigs,

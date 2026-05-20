@@ -446,13 +446,11 @@ func TestPopulateInterfaceOverlay_OverlayOnlyOnTrue(t *testing.T) {
 	}
 }
 
-// TestPopulateInterfaceOverlay_NilConfig_FallsBack pins
-// NAI-212-D-INTERFACE-FALLBACK-FROM-COMPONENTINFO: when the component
-// cache is empty (packClientInterface deferred), populateInterfaceOverlay
-// still populates interfaceInfo from componentInfo.Map alone using the
-// base name. Diverges from TS Compiler.ts:221-223 (`if (!com) continue`)
-// because TS never reaches the empty-cache state — its packAll runs
-// packClientInterface first. Retires when packClientInterface lands.
+// TestPopulateInterfaceOverlay_NilConfig_FallsBack pins the defensive
+// fallback path: when loaders.comp is empty (standalone `goscape-cli
+// compile` against a fresh dataPackDir), populateInterfaceOverlay
+// populates interfaceInfo from componentInfo.Map alone using the base
+// name. Permanent pin for NAI-212-D-INTERFACE-FALLBACK-FROM-COMPONENTINFO.
 func TestPopulateInterfaceOverlay_NilConfig_FallsBack(t *testing.T) {
 	componentInfo := newTypeInfo()
 	componentInfo.Add(4, "x", true)
