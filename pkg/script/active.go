@@ -759,8 +759,7 @@ type ActivePlayer interface {
 	// NAI-162 B1: trivial-handler sweep #4 widenings.
 
 	// LastLoginInfo emits the LAST_LOGIN_INFO server packet with the
-	// previous-login timestamp and IP. Emits LAST_LOGIN_INFO server packet
-	// (NAI-181 retires NAI-162-D-LASTLOGIN-NO-PACKET).
+	// previous-login timestamp and IP.
 	LastLoginInfo()
 
 	// InvTotalParamStack sums slot.count × objType.Params[paramID]

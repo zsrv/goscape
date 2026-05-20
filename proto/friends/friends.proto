@@ -22,8 +22,8 @@ service FriendsService {
   rpc IgnorelistAdd(IgnorelistAddRequest) returns (google.protobuf.Empty);
   rpc IgnorelistDel(IgnorelistDelRequest) returns (google.protobuf.Empty);
 
-  // Chat. Mirrors TS PRIVATE_MESSAGE. Slice 1 accepts and logs; delivery
-  // is deferred to slice 4, persistence to slice 6.
+  // Chat. Mirrors TS PRIVATE_MESSAGE. Server persists then delivers via
+  // SubscribeUpdates fan-out; insert error → codes.Internal.
   rpc PrivateMessage(PrivateMessageRequest) returns (google.protobuf.Empty);
 
   // Public-chat audit log. Mirrors TS FriendServer.ts:286-297 — append-
@@ -33,16 +33,14 @@ service FriendsService {
   rpc PublicMessage(PublicMessageRequest) returns (google.protobuf.Empty);
 
   // Server -> world push. Server streams update events for a single
-  // (world, player) subscription. Slice 1 handler returns Unimplemented;
-  // slice 4 implements (per-subscriber registry, broadcastWorldToFollowers
-  // fan-out).
+  // (world, player) subscription. Backed by a per-subscriber registry
+  // with broadcastWorldToFollowers fan-out on mutating RPCs.
   rpc SubscribeUpdates(SubscribeUpdatesRequest) returns (stream FriendsUpdate);
 
-  // Cross-world admin relay (slice 5a). Each RPC accepts a target_world_id;
-  // the server forwards a WorldEvent to that world's SubscribeWorldEvents
+  // Cross-world admin relay. Each RPC accepts a target_world_id; the
+  // server forwards a WorldEvent to that world's SubscribeWorldEvents
   // stream. No-op if no world is subscribed for target_world_id (matches
   // TS FriendServer.ts:298-302 `if (typeof this.socketByWorld[nodeId] !== 'undefined')`).
-  // Slice 5a accepts and routes; slice 5b applies world-state effects.
   // NAI-S5A-D-NO-ADMIN-AUTH-AT-SERVER — friends-server is dumb routing;
   // admin checks live on both sender and receiver world.
   rpc RelayMute(RelayMuteRequest)                 returns (google.protobuf.Empty);
@@ -56,8 +54,8 @@ service FriendsService {
   rpc RelayQueueScript(RelayQueueScriptRequest)   returns (google.protobuf.Empty);
 
   // Server -> world push for cross-world admin events. One subscriber per
-  // world (owned by world.Server). Slice 5a opens the stream; slice 5b
-  // wires dispatcher actions onto inbound events.
+  // world (owned by world.Server); the world-side dispatcher applies
+  // world-state effects on inbound events.
   // NAI-S5A-D-PERWORLD-EVENTS-STREAM-SEPARATE — second stream RPC
   // alongside SubscribeUpdates; goscape has two parallel streams where
   // TS has one socket. Permanent; reviewer traceability only.
@@ -77,8 +75,8 @@ message PlayerLoginRequest {
 }
 
 message PlayerLoginResponse {
-  // Reserved for slice 4 (per-RPC player-cap surfacing). Slice 1 leaves
-  // unset; handler logs warn on cap rejection but accepts the call.
+  // Per-RPC player-cap surfacing. Set false on cap rejection so the
+  // world-side caller can warn-log.
   bool accepted = 1;
 }
 

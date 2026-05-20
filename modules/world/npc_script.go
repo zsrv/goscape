@@ -415,12 +415,9 @@ func (s *Server) resumeOrFinishNpc(state *script.ScriptState, npc script.ActiveN
 		// Clear n.activeScript BEFORE enqueue. TS Npc.executeScript
 		// (Npc.ts:219-220) does NOT assign script.activeNpc.activeScript
 		// in the WORLD_SUSPENDED arm — only NPC_SUSPENDED (L227-228) does.
-		// Retires NAI-44 retention rationale on the NPC path for
-		// TS-fidelity uniformity with the player path. The resume gate
-		// (tick.go processActiveScripts) is doubly guarded (non-nil AND
-		// Execution==Suspended), so a nil activeScript produces no
-		// false-resume. Retires NAI-155-D-NPC-RESUMEORFINISHNPC-
-		// WORLDSUSPENDED-HOLD.
+		// The resume gate (tick.go processActiveScripts) is doubly
+		// guarded (non-nil AND Execution==Suspended), so a nil
+		// activeScript produces no false-resume.
 		npc.ClearActiveScript()
 		delay := state.PopInt()
 		s.EnqueueWorldScript(state, delay)

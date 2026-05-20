@@ -92,8 +92,7 @@ func (p *Player) ResetMasks() {
 	p.masks = 0
 	p.tele = false
 	p.jump = false
-	// NAI-135 (retires NAI-108-D-MOVESPEED-NOT-RESET): mirrors TS
-	// PathingEntity.resetPathingEntity at PathingEntity.ts:578.
+	// Mirrors TS PathingEntity.resetPathingEntity at PathingEntity.ts:578.
 	// Cleared at tick-end so the next tick's bridge sees a non-Instant
 	// moveSpeed (rsbuf already consumed any same-tick teleport block
 	// earlier in the cycle via Tele()/Jump() readers).

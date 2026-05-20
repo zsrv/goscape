@@ -69,9 +69,7 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 
 	// Per-login UUID. Used for the session-table insert and stamped on
 	// every positive response so the world can assign Player.session =
-	// <uuid>. Mirrors TS crypto.randomUUID(). Slice 7 of friends-server
-	// bridge arc; retires the UUID half of NAI-72-D-LOGIN-SERVER-BRIDGE-MOD
-	// (ban/mute half retired by NAI-214).
+	// <uuid>. Mirrors TS crypto.randomUUID().
 	sessionUUID := uuid.NewString()
 
 	// 2. IP ban check.

@@ -306,9 +306,9 @@ func TestPlayerResetMasksClearsChatMetadata(t *testing.T) {
 	}
 }
 
-// TestResetMasksResetsMoveSpeedToDefault — NAI-135 stretch (retires NAI-108-D-MOVESPEED-NOT-RESET).
-// Pins that ResetMasks resets moveSpeed to defaultMoveSpeed() each tick, mirroring
-// TS PathingEntity.resetPathingEntity at PathingEntity.ts:578.
+// TestResetMasksResetsMoveSpeedToDefault pins that ResetMasks resets moveSpeed to
+// defaultMoveSpeed() each tick, mirroring TS PathingEntity.resetPathingEntity at
+// PathingEntity.ts:578.
 func TestResetMasksResetsMoveSpeedToDefault(t *testing.T) {
 	t.Run("Instant→Walk when run=0", func(t *testing.T) {
 		p, _ := newTestPlayer(t)

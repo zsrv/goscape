@@ -60,8 +60,8 @@ type FriendsServiceClient interface {
 	FriendlistDel(ctx context.Context, in *FriendlistDelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	IgnorelistAdd(ctx context.Context, in *IgnorelistAddRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	IgnorelistDel(ctx context.Context, in *IgnorelistDelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// Chat. Mirrors TS PRIVATE_MESSAGE. Slice 1 accepts and logs; delivery
-	// is deferred to slice 4, persistence to slice 6.
+	// Chat. Mirrors TS PRIVATE_MESSAGE. Server persists then delivers via
+	// SubscribeUpdates fan-out; insert error → codes.Internal.
 	PrivateMessage(ctx context.Context, in *PrivateMessageRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Public-chat audit log. Mirrors TS FriendServer.ts:286-297 — append-
 	// only persistence keyed by per-login session UUID (Player.session,
@@ -69,15 +69,13 @@ type FriendsServiceClient interface {
 	// chat propagation itself. Insert error → codes.Internal.
 	PublicMessage(ctx context.Context, in *PublicMessageRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Server -> world push. Server streams update events for a single
-	// (world, player) subscription. Slice 1 handler returns Unimplemented;
-	// slice 4 implements (per-subscriber registry, broadcastWorldToFollowers
-	// fan-out).
+	// (world, player) subscription. Backed by a per-subscriber registry
+	// with broadcastWorldToFollowers fan-out on mutating RPCs.
 	SubscribeUpdates(ctx context.Context, in *SubscribeUpdatesRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FriendsUpdate], error)
-	// Cross-world admin relay (slice 5a). Each RPC accepts a target_world_id;
-	// the server forwards a WorldEvent to that world's SubscribeWorldEvents
+	// Cross-world admin relay. Each RPC accepts a target_world_id; the
+	// server forwards a WorldEvent to that world's SubscribeWorldEvents
 	// stream. No-op if no world is subscribed for target_world_id (matches
 	// TS FriendServer.ts:298-302 `if (typeof this.socketByWorld[nodeId] !== 'undefined')`).
-	// Slice 5a accepts and routes; slice 5b applies world-state effects.
 	// NAI-S5A-D-NO-ADMIN-AUTH-AT-SERVER — friends-server is dumb routing;
 	// admin checks live on both sender and receiver world.
 	RelayMute(ctx context.Context, in *RelayMuteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -90,8 +88,8 @@ type FriendsServiceClient interface {
 	RelayClearLogouts(ctx context.Context, in *RelayClearLogoutsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	RelayQueueScript(ctx context.Context, in *RelayQueueScriptRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Server -> world push for cross-world admin events. One subscriber per
-	// world (owned by world.Server). Slice 5a opens the stream; slice 5b
-	// wires dispatcher actions onto inbound events.
+	// world (owned by world.Server); the world-side dispatcher applies
+	// world-state effects on inbound events.
 	// NAI-S5A-D-PERWORLD-EVENTS-STREAM-SEPARATE — second stream RPC
 	// alongside SubscribeUpdates; goscape has two parallel streams where
 	// TS has one socket. Permanent; reviewer traceability only.
@@ -351,8 +349,8 @@ type FriendsServiceServer interface {
 	FriendlistDel(context.Context, *FriendlistDelRequest) (*emptypb.Empty, error)
 	IgnorelistAdd(context.Context, *IgnorelistAddRequest) (*emptypb.Empty, error)
 	IgnorelistDel(context.Context, *IgnorelistDelRequest) (*emptypb.Empty, error)
-	// Chat. Mirrors TS PRIVATE_MESSAGE. Slice 1 accepts and logs; delivery
-	// is deferred to slice 4, persistence to slice 6.
+	// Chat. Mirrors TS PRIVATE_MESSAGE. Server persists then delivers via
+	// SubscribeUpdates fan-out; insert error → codes.Internal.
 	PrivateMessage(context.Context, *PrivateMessageRequest) (*emptypb.Empty, error)
 	// Public-chat audit log. Mirrors TS FriendServer.ts:286-297 — append-
 	// only persistence keyed by per-login session UUID (Player.session,
@@ -360,15 +358,13 @@ type FriendsServiceServer interface {
 	// chat propagation itself. Insert error → codes.Internal.
 	PublicMessage(context.Context, *PublicMessageRequest) (*emptypb.Empty, error)
 	// Server -> world push. Server streams update events for a single
-	// (world, player) subscription. Slice 1 handler returns Unimplemented;
-	// slice 4 implements (per-subscriber registry, broadcastWorldToFollowers
-	// fan-out).
+	// (world, player) subscription. Backed by a per-subscriber registry
+	// with broadcastWorldToFollowers fan-out on mutating RPCs.
 	SubscribeUpdates(*SubscribeUpdatesRequest, grpc.ServerStreamingServer[FriendsUpdate]) error
-	// Cross-world admin relay (slice 5a). Each RPC accepts a target_world_id;
-	// the server forwards a WorldEvent to that world's SubscribeWorldEvents
+	// Cross-world admin relay. Each RPC accepts a target_world_id; the
+	// server forwards a WorldEvent to that world's SubscribeWorldEvents
 	// stream. No-op if no world is subscribed for target_world_id (matches
 	// TS FriendServer.ts:298-302 `if (typeof this.socketByWorld[nodeId] !== 'undefined')`).
-	// Slice 5a accepts and routes; slice 5b applies world-state effects.
 	// NAI-S5A-D-NO-ADMIN-AUTH-AT-SERVER — friends-server is dumb routing;
 	// admin checks live on both sender and receiver world.
 	RelayMute(context.Context, *RelayMuteRequest) (*emptypb.Empty, error)
@@ -381,8 +377,8 @@ type FriendsServiceServer interface {
 	RelayClearLogouts(context.Context, *RelayClearLogoutsRequest) (*emptypb.Empty, error)
 	RelayQueueScript(context.Context, *RelayQueueScriptRequest) (*emptypb.Empty, error)
 	// Server -> world push for cross-world admin events. One subscriber per
-	// world (owned by world.Server). Slice 5a opens the stream; slice 5b
-	// wires dispatcher actions onto inbound events.
+	// world (owned by world.Server); the world-side dispatcher applies
+	// world-state effects on inbound events.
 	// NAI-S5A-D-PERWORLD-EVENTS-STREAM-SEPARATE — second stream RPC
 	// alongside SubscribeUpdates; goscape has two parallel streams where
 	// TS has one socket. Permanent; reviewer traceability only.

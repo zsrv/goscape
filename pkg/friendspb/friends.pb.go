@@ -144,8 +144,8 @@ func (x *PlayerLoginRequest) GetStaffLvl() int32 {
 
 type PlayerLoginResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Reserved for slice 4 (per-RPC player-cap surfacing). Slice 1 leaves
-	// unset; handler logs warn on cap rejection but accepts the call.
+	// Per-RPC player-cap surfacing. Set false on cap rejection so the
+	// world-side caller can warn-log.
 	Accepted      bool `protobuf:"varint,1,opt,name=accepted,proto3" json:"accepted,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
