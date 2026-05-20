@@ -18,6 +18,8 @@ import (
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/loginpb"
+	"github.com/zsrv/goscape/pkg/script"
+	jstring "github.com/zsrv/goscape/pkg/util/jstring"
 
 	_ "modernc.org/sqlite"
 )
@@ -1108,5 +1110,99 @@ func TestFriendsClient_E2E_OnPrivateMessageEmitsWirePacket(t *testing.T) {
 	if got[pmOpcodeOffset] != wantOpcode {
 		t.Errorf("PM wire opcode byte (offset %d): got 0x%02x, want 0x%02x (encrypted OpMessagePrivate)",
 			pmOpcodeOffset, got[pmOpcodeOffset], wantOpcode)
+	}
+}
+
+// TestFriendsClient_E2E_RelayQueueScriptAppliesAction pins the full
+// round-trip closed by the runtime-fixups-cluster slice: friends server
+// emits RELAY_QUEUESCRIPT → world's per-world subscriber → action
+// dispatcher → ops.QueueScript → looked-up player's p.queue receives
+// a QueueNormal entry referencing the registered [queue,<name>] script.
+//
+// Mirrors TestFriendsClient_E2E_RelayShutdownAppliesAction's shape.
+func TestFriendsClient_E2E_RelayQueueScriptAppliesAction(t *testing.T) {
+	port := freePort(t)
+	cfg := friends.Config{
+		GRPCListenAddress:       "127.0.0.1",
+		GRPCListenPort:          port,
+		NodeProfile:             "main",
+		WorldPlayerLimit:        100,
+		Enable:                  true,
+		GracefulShutdownTimeout: 5 * time.Second,
+		SQLiteDSN:               filepath.Join(t.TempDir(), "friends.db"),
+	}
+	log := discardLogger()
+	svc, err := friends.New(cfg, log)
+	if err != nil {
+		t.Fatalf("friends.New: %v", err)
+	}
+	bootCtx, bootCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer bootCancel()
+	if err := svc.StartAsync(bootCtx); err != nil {
+		t.Fatalf("StartAsync: %v", err)
+	}
+	if err := svc.AwaitRunning(bootCtx); err != nil {
+		t.Fatalf("AwaitRunning: %v", err)
+	}
+	t.Cleanup(func() {
+		svc.StopAsync()
+		_ = svc.AwaitTerminated(context.Background())
+	})
+
+	addr := "127.0.0.1:" + strconv.Itoa(port)
+	client, err := NewFriendsClient(addr, log)
+	if err != nil {
+		t.Fatalf("NewFriendsClient: %v", err)
+	}
+	t.Cleanup(func() { _ = client.Close() })
+
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	sf := &script.ScriptFile{Name: "[queue,e2e_dispatch]", LookupKey: 0xE2E5C}
+	s.scriptProvider.Register(sf)
+
+	p := registerActivePlayer(t, s, "alice", 1)
+	u37 := jstring.ToBase37("alice")
+
+	inner := newSlogWorldEventsDispatcher(log)
+	dispatcher := newActionWorldEventsDispatcher(inner, s, log)
+	const targetWorldID = 7
+	sub := newWorldEventsSubscriber(client, targetWorldID, dispatcher, log)
+	subCtx, subCancel := context.WithCancel(context.Background())
+	subDone := make(chan struct{})
+	go func() { sub.run(subCtx); close(subDone) }()
+	defer func() {
+		subCancel()
+		<-subDone
+	}()
+
+	// Allow the SubscribeWorldEvents stream to register on the friends
+	// server (same wait as TestFriendsClient_E2E_RelayShutdownAppliesAction).
+	time.Sleep(300 * time.Millisecond)
+
+	// Issue RelayQueueScript and poll for the closure to land.
+	client.RelayQueueScript(context.Background(), &friendspb.RelayQueueScriptRequest{
+		TargetWorldId: targetWorldID,
+		ScriptName:    "e2e_dispatch",
+		Username37:    u37,
+	})
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		s.drainRelayActions()
+		if len(p.queue) > 0 {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	if len(p.queue) != 1 {
+		t.Fatalf("p.queue len after RelayQueueScript: got %d, want 1", len(p.queue))
+	}
+	if got := p.queue[0].Script; got != sf {
+		t.Errorf("p.queue[0].Script: got %v, want sf", got)
+	}
+	if got := p.queue[0].Type; got != script.QueueNormal {
+		t.Errorf("p.queue[0].Type: got %v, want QueueNormal", got)
 	}
 }
