@@ -333,8 +333,8 @@ func newTestServer(t *testing.T) *Server {
 	s.reloadFn = s.Reload
 	s.watchSessionFn = s.runWatchSession
 	// packFn intentionally left nil; tests that exercise the worker set it explicitly.
-	// Inject a passthrough filter so test paths that call s.wordenc.Filter do
-	// not require a real wordenc jagfile in the test cache.
+	// Inject a passthrough filter so test paths that may invoke s.wordenc.Filter
+	// via T9/T10 wiring do not require a real wordenc jagfile in the test cache.
 	s.wordenc = encfilter.Empty()
 	return s
 }

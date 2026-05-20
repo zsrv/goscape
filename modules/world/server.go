@@ -19,7 +19,7 @@ import (
 	"github.com/zsrv/goscape/pkg/cache"
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/fonttype"
-	"github.com/zsrv/goscape/pkg/wordenc/encfilter"
+	"github.com/zsrv/goscape/pkg/friendspb"
 	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/inventory"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
@@ -27,13 +27,13 @@ import (
 	"github.com/zsrv/goscape/pkg/io/protocol"
 	loginreq "github.com/zsrv/goscape/pkg/io/protocol/login/req"
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
-	"github.com/zsrv/goscape/pkg/friendspb"
 	"github.com/zsrv/goscape/pkg/loginpb"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/packall"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 	util "github.com/zsrv/goscape/pkg/util/jstring"
+	"github.com/zsrv/goscape/pkg/wordenc/encfilter"
 	"github.com/zsrv/goscape/pkg/zone"
 )
 

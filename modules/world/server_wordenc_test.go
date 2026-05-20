@@ -15,13 +15,23 @@ func TestNewServer_LoadsWordencFilter(t *testing.T) {
 	if _, err := os.Stat(tsCache); err != nil {
 		t.Skipf("Engine-TS cache unavailable: %v", err)
 	}
-	cfg := Config{CachePath: tsCache}
+	cfg := Config{
+		CachePath:        tsCache,
+		TCPListenNetwork: "tcp",
+		TCPListenAddress: "127.0.0.1",
+		TCPListenPort:    0, // OS picks a free port
+	}
 	s, err := NewServer(cfg, nil, nil, discardLogger())
 	if err != nil {
-		t.Skipf("NewServer failed (expected when data/ not staged): %v", err)
+		t.Fatalf("NewServer failed: %v", err)
 	}
+	t.Cleanup(func() { s.tcpListener.Close() })
 	if s.wordenc == nil {
 		t.Fatal("NewServer must populate s.wordenc; got nil")
+	}
+	// Sanity-check: an unfiltered string passes through unchanged.
+	if got := s.wordenc.Filter("plain text"); got != "plain text" {
+		t.Errorf("wordenc.Filter(\"plain text\") = %q; want \"plain text\"", got)
 	}
 }
 
