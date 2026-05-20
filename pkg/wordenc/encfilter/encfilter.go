@@ -182,7 +182,6 @@ func indexOfRuneSlice(haystack, needle []rune, fromIndex int) int {
 	return -1
 }
 
-
 // decodeBadEnc reads badenc.txt entries. TS WordEnc.ts:198-207.
 //
 //	g4s count
