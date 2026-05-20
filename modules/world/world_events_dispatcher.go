@@ -10,9 +10,9 @@ import (
 //
 // Each wired On* method calls inner first (preserves slice-5a slog
 // observability) and then routes to the WorldStateOps method that
-// applies the world-state effect. QUEUESCRIPT remains slog-warn only
-// (no ops route) until the runescript runtime can dispatch
-// [queue,<name>] triggers — see NAI-S5B-D-NO-RUNESCRIPT-RUNTIME.
+// applies the world-state effect. All 9 RELAY_* opcodes route to
+// real ops as of the runtime-fixups-cluster slice (NAI-S5B-D-NO-
+// RUNESCRIPT-RUNTIME retired).
 //
 // The log field carries action-layer Warn lines (lookup misses are
 // logged by *Server impls inside the queue closures, not here).
@@ -69,15 +69,7 @@ func (d *actionWorldEventsDispatcher) OnClearLogouts() {
 	d.ops.ClearLogouts()
 }
 
-// OnQueueScript stays slog-warn only — the WorldStateOps interface
-// intentionally has no QueueScript method until the runescript runtime
-// can resolve [queue,<name>] triggers by name and enqueue on a player.
-//
-// NAI-S5B-D-NO-RUNESCRIPT-RUNTIME — retires when the runescript runtime
-// supports named-script dispatch to a player.
 func (d *actionWorldEventsDispatcher) OnQueueScript(scriptName string, username37 uint64) {
 	d.inner.OnQueueScript(scriptName, username37)
-	d.log.Warn("RELAY_QUEUESCRIPT received but no runtime to dispatch (NAI-S5B-D-NO-RUNESCRIPT-RUNTIME)",
-		slog.String("script_name", scriptName),
-		slog.Uint64("username37", username37))
+	d.ops.QueueScript(scriptName, username37)
 }

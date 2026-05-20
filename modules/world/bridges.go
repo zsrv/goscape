@@ -192,20 +192,15 @@ type FriendsAdminBridge interface {
 // also applies its world-state effect on the tick goroutine.
 //
 // NAI-S5A-D-DISPATCHER-NO-ACTION — RETIRED 2026-05-20 (slice 5b):
-// eight wired opcodes (MUTE, KICK, SHUTDOWN, BROADCAST, TRACK, RELOAD,
-// CLEARLOGINS, CLEARLOGOUTS-tagged-noop) apply real effects.
-// QUEUESCRIPT remains slog-warn only; tracked separately by
-// NAI-S5B-D-NO-RUNESCRIPT-RUNTIME on actionWorldEventsDispatcher.OnQueueScript.
+// all 9 wired opcodes (MUTE, KICK, SHUTDOWN, BROADCAST, TRACK, RELOAD,
+// CLEARLOGINS, CLEARLOGOUTS-tagged-noop, QUEUESCRIPT) apply real
+// effects. QUEUESCRIPT was wired in the runtime-fixups-cluster slice.
 //
 // Slice 5b opens these new tags:
 //
 // NAI-S5B-D-CLEARLOGOUTS-NO-GOSCAPE-QUEUE — permanent (architectural
 //   divergence from TS; goscape has no logout-request queue). See
 //   (*Server).ClearLogouts in world_state_ops.go.
-//
-// NAI-S5B-D-NO-RUNESCRIPT-RUNTIME — retires when the runescript runtime
-//   can resolve [queue,<name>] triggers by name and enqueue on a
-//   player. See actionWorldEventsDispatcher.OnQueueScript.
 type WorldEventsDispatcher interface {
 	OnMute(username37 uint64, mutedUntilMs int64)
 	OnKick(username37 uint64)
