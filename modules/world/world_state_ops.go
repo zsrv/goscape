@@ -203,9 +203,6 @@ func (s *Server) BroadcastMessage(message string) {
 // Lookup-miss (player offline OR script-name not registered) is
 // silently dropped at Debug. EnqueueScriptFile is void — no error
 // recovery needed (TS enqueueScript is also void).
-//
-// Retires NAI-S5B-D-NO-RUNESCRIPT-RUNTIME (slog-warn-only stub at
-// actionWorldEventsDispatcher.OnQueueScript prior to T6).
 func (s *Server) QueueScript(scriptName string, username37 uint64) {
 	s.enqueueRelayAction(func() {
 		p := s.lookupPlayerByUsername37(username37)
