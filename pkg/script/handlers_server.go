@@ -139,11 +139,10 @@ func handleMapIndoors(s *ScriptState) error {
 // the resumer to consume it. Adding a pop here would break the
 // bytecode contract.
 //
-// At HEAD T7, the consumer side (processWorldQueue + resumeOrFinishWorld)
-// is not yet wired — a script that sets WorldSuspended will be
-// log+dropped by the default branch in resumeOrFinish (script.go:58)
-// and resumeOrFinishNpc (npc_script.go:308). T8-T12 ship the consumer
-// side, completing the round-trip.
+// The consumer side (worldScriptQueue + processWorldQueue +
+// resumeOrFinishWorld) is in modules/world/{world_script_queue,script}.go,
+// wired into the tick at tick.go (start-of-cycle). Shipped under
+// NAI-37 T8-T12 + NAI-42 panic recovery + NAI-44 / NAI-54 / NAI-55.
 func handleWorldDelay(s *ScriptState) error {
 	s.Execution = WorldSuspended
 	return nil
