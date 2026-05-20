@@ -88,6 +88,16 @@ func checkNotNull(v int, op string) error {
 	return nil
 }
 
+// checkSkinColour validates a player skin-colour wire value. Mirrors TS
+// SkinColourValid (ScriptValidators.ts:137) —
+// ScriptInputRangeValidator(0, 7, 'SkinColour'), inclusive range [0, 7].
+func checkSkinColour(v int, op string) error {
+	if v < 0 || v > 7 {
+		return fmt.Errorf("%s: skin colour out of range (%d)", op, v)
+	}
+	return nil
+}
+
 // checkLocAngle mirrors TS LocAngleValid (ScriptValidators.ts:106) — a
 // ScriptInputRangeValidator over [LocAngle.WEST=0, LocAngle.SOUTH=3].
 // Rejects values outside that range.

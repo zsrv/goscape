@@ -1950,6 +1950,27 @@ func TestCheckNotNull(t *testing.T) {
 	}
 }
 
+// TestCheckSkinColour_Range pins the [0, 7] inclusive range check.
+// Mirrors TS SkinColourValid (ScriptValidators.ts:137) —
+// ScriptInputRangeValidator(0, 7, 'SkinColour').
+func TestCheckSkinColour_Range(t *testing.T) {
+	for _, v := range []int{0, 1, 4, 7} {
+		if err := checkSkinColour(v, "TEST_OP"); err != nil {
+			t.Errorf("checkSkinColour(%d): unexpected error %v", v, err)
+		}
+	}
+	for _, v := range []int{-1, 8, 100, math.MinInt} {
+		err := checkSkinColour(v, "TEST_OP")
+		if err == nil {
+			t.Errorf("checkSkinColour(%d): want error, got nil", v)
+			continue
+		}
+		if !strings.Contains(err.Error(), "TEST_OP") {
+			t.Errorf("checkSkinColour(%d): error %q missing op name TEST_OP", v, err)
+		}
+	}
+}
+
 // TestPAnimProtectHappyPathZero — protect=true, push 0 → no error,
 // animProtectValue set to 0.
 func TestPAnimProtectHappyPathZero(t *testing.T) {
