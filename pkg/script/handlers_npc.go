@@ -490,11 +490,11 @@ func handleNpcArriveDelay(s *ScriptState) error {
 
 // handleNpcQueue (NPC_QUEUE, opcode 2530) enqueues an ai_queueN
 // dispatch on the active NPC. Pop order: delay (top), arg, queueId
-// (bottom). queueId ∈ [1, 20] maps to TriggerAiQueue1..20 via
-// arithmetic: trigger = TriggerAiQueue1 + queueId - 1. Mirrors TS
+// (bottom). queueId ∈ [0, 19] (TS QueueValid) maps to TriggerAiQueue1..20
+// via arithmetic: trigger = TriggerAiQueue1 + queueId - 1. Mirrors TS
 // NpcOps.ts:144-150, including the NumberNotNull check on delay
-// (closed in NAI-20). The Go-side queueId 1..20 range check
-// corresponds to TS QueueValid; the arg pop is unwrapped per TS.
+// (closed in NAI-20). Validated via checkQueue (TS-literal [0, 19]
+// inclusive); the arg pop is unwrapped per TS.
 func handleNpcQueue(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_QUEUE"); err != nil {
 		return err
@@ -505,8 +505,8 @@ func handleNpcQueue(s *ScriptState) error {
 	}
 	lastIntArg := s.PopInt()
 	queueID := s.PopInt()
-	if queueID < 1 || queueID > 20 {
-		return fmt.Errorf("NPC_QUEUE: invalid queueId %d (want 1..20)", queueID)
+	if err := checkQueue(queueID, "NPC_QUEUE"); err != nil {
+		return err
 	}
 	trigger := TriggerAiQueue1 + ServerTriggerType(queueID-1)
 	s.ActiveNpc.EnqueueScriptForTrigger(trigger, delay, lastIntArg)
@@ -566,18 +566,19 @@ func handleNpcWalk(s *ScriptState) error {
 // handleNpcWalkTrigger (NPC_WALKTRIGGER, opcode 2545) sets a deferred
 // AI-queue trigger and arg on the active NPC; the trigger fires when
 // the NPC completes a walk step. Pop order: arg (top), queueID
-// (bottom). queueID ∈ [1, 20] mirrors TS QueueValid range, transformed
-// to [0, 19] via queueID-1 to match TS NpcOps.ts:488 storage. Mirrors
-// TS NpcOps.ts:483-490. The walktrigger consumer fires from
-// (*Npc).updateMovement (modules/world/npc_interaction.go, NAI-51 T2.1).
+// (bottom). queueId ∈ [0, 19] (TS QueueValid); then queueId-1 mirrors
+// TS NpcOps.ts:488 storage (walktrigger = queueId - 1). Validated via
+// checkQueue. Mirrors TS NpcOps.ts:483-490. The walktrigger consumer
+// fires from (*Npc).updateMovement (modules/world/npc_interaction.go,
+// NAI-51 T2.1).
 func handleNpcWalkTrigger(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_WALKTRIGGER"); err != nil {
 		return err
 	}
 	arg := s.PopInt()
 	queueID := s.PopInt()
-	if queueID < 1 || queueID > 20 {
-		return fmt.Errorf("NPC_WALKTRIGGER: invalid queueId %d (want 1..20)", queueID)
+	if err := checkQueue(queueID, "NPC_WALKTRIGGER"); err != nil {
+		return err
 	}
 	s.ActiveNpc.SetWalkTrigger(queueID - 1)
 	s.ActiveNpc.SetWalkTriggerArg(arg)
