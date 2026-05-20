@@ -1781,8 +1781,9 @@ func TestHandleNpcAnimNullDelayRejected(t *testing.T) {
 
 // TestHandleNpcDamageNullAmountRejected pins NAI-23 Bundle 4a: NPC_DAMAGE
 // rejects amount=-1 via checkNotNull (TS NpcOps.ts NPC_DAMAGE:
-// check(amount, NumberNotNull)). dmgType is wrapped with HitTypeValid (not
-// NumberNotNull) and stays raw here. The Damage side-effect must NOT occur.
+// check(amount, NumberNotNull)). dmgType is separately validated via
+// checkHitType (see TestHandleNpcDamage_InvalidHitType). The Damage
+// side-effect must NOT occur.
 func TestHandleNpcDamageNullAmountRejected(t *testing.T) {
 	npc := &mockNpc{}
 	// Pop order: amount (top), dmgType. Push dmgType=1 first, then amount=-1.
