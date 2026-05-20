@@ -2,6 +2,8 @@
 package cfg
 
 import (
+	"sort"
+
 	"github.com/zsrv/goscape/pkg/pack/compiler/codegen"
 	"github.com/zsrv/goscape/pkg/pack/compiler/diagnostics"
 	"github.com/zsrv/goscape/pkg/pack/compiler/pointer"
@@ -177,12 +179,7 @@ func (p *PointerChecker) validatePointer(script *codegen.RuneScript, pt *pointer
 			pt.Representation,
 		))
 	}
-	// NAI-208-D-LOGPROCREQ-DEFERRED: TS logProcRequirement walks down the
-	// path emitting per-Gosub/Jump HINT diagnostics (POINTER_REQUIRED_LOC).
-	// T5 stops at the head/tail error+hint pair, which satisfies all NAI-208
-	// tests and the pipeline smoke. The recursive HINT chain is deferred to
-	// a future polish; the diagnostic templates already exist
-	// (MessagePointerRequiredLoc) so the follow-up is purely call-site work.
+	p.logProcRequirement(errorNode, pt, analysis)
 }
 
 // cloneNodeSet returns a shallow copy of src so corrupted-set mutation does
@@ -193,6 +190,98 @@ func cloneNodeSet(src map[*InstructionNode]struct{}) map[*InstructionNode]struct
 		out[k] = struct{}{}
 	}
 	return out
+}
+
+// logProcRequirement walks the call graph downward from node, emitting
+// MessagePointerRequiredLoc HINT diagnostics at every Gosub/Jump boundary
+// where pt is required. When the called script directly requires pt
+// (requiresPointerPathScript returns a path), emits a HINT at the path's
+// first node and recurses into it. When the called script does NOT
+// directly require pt, falls back to inspecting the call's
+// staticLabelArgsByCall entry and emits a HINT at each label-typed
+// parameter whose label requires pt and whose jump-param node confirms
+// the requirement. Mirrors TS PointerChecker.logProcRequirement
+// (RuneScriptTS src/compiler/codegen/script/config/PointerChecker.ts:243-301).
+//
+// TS throws on script-lookup miss / nil instruction source; goscape
+// silently returns at those points — defensive fallthrough matching the
+// no-panic posture documented at NAI-209-D-PUSHLONG-PANIC etc. The
+// earlier error diagnostic already surfaces user-visible failure.
+//
+// Retires NAI-208-D-LOGPROCREQ-DEFERRED.
+func (p *PointerChecker) logProcRequirement(
+	node *InstructionNode,
+	pt *pointer.PointerType,
+	analysis *scriptPointerAnalysis,
+) {
+	inst := node.Instruction
+	if inst == nil {
+		return
+	}
+	if inst.Opcode != codegen.Gosub && inst.Opcode != codegen.Jump {
+		return
+	}
+
+	sym, ok := inst.Operand.(symbol.Symbol)
+	if !ok {
+		return
+	}
+	calledScript, ok := p.scriptsBySymbol[sym]
+	if !ok {
+		return
+	}
+
+	scriptPath := p.requiresPointerPathScript(calledScript, pt)
+	if scriptPath == nil {
+		staticArgs, present := analysis.staticLabelArgsByCall[inst]
+		if !present {
+			return
+		}
+		jumpParamNodes := p.getJumpParamNodes(calledScript)
+		// Sort param indexes for deterministic HINT emission order
+		// (Go map iteration is unordered; mirrors NAI-210-D-LOADER-SORTED-ITERATION posture).
+		indexes := make([]int, 0, len(staticArgs))
+		for i := range staticArgs {
+			indexes = append(indexes, i)
+		}
+		sort.Ints(indexes)
+		for _, paramIndex := range indexes {
+			labelSym := staticArgs[paramIndex]
+			if !p.GetPointers(labelSym).Required.Has(pt) {
+				continue
+			}
+			nodes := jumpParamNodes[paramIndex]
+			if len(nodes) == 0 {
+				continue
+			}
+			if !p.requiresPointerAtNodes(calledScript, pt, nodes) {
+				continue
+			}
+			required := nodes[0]
+			if required.Instruction == nil {
+				continue
+			}
+			p.diagnostics.Report(diagnostics.NewDiagnostic(
+				required.Instruction.Source,
+				diagnostics.DiagnosticHint,
+				diagnostics.MessagePointerRequiredLoc,
+				pt.Representation,
+			))
+		}
+		return
+	}
+
+	required := scriptPath[0]
+	if required.Instruction == nil {
+		return
+	}
+	p.diagnostics.Report(diagnostics.NewDiagnostic(
+		required.Instruction.Source,
+		diagnostics.DiagnosticHint,
+		diagnostics.MessagePointerRequiredLoc,
+		pt.Representation,
+	))
+	p.logProcRequirement(required, pt, analysis)
 }
 
 // GetGraph returns the cached CFG for script, building it on first call.
