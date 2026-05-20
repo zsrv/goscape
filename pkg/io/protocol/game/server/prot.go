@@ -172,4 +172,35 @@ var (
 	// TS ServerGameProt.UPDATE_REBOOT_TIMER (43, 2) and
 	// UpdateRebootTimerEncoder.ts (NAI-182).
 	OpUpdateRebootTimer = Op{Opcode: 43, PayloadSize: 2}
+
+	// OpUpdateFriendList carries one friend-entry update. Fixed 9-byte
+	// payload: p8(username37) + p1(worldId). worldId == 0 means the friend
+	// is offline / hidden. Emitted once per entry by the friends-server
+	// dispatcher (one packet per FriendEntry in the FriendlistUpdate batch).
+	// Mirrors TS ServerGameProt.UPDATE_FRIENDLIST (152, 9) and
+	// UpdateFriendListEncoder.ts.
+	OpUpdateFriendList = Op{Opcode: 152, PayloadSize: 9}
+
+	// OpUpdateIgnoreList carries the complete ignorelist snapshot. Variable
+	// 2-byte-length-prefixed payload: p8(username37) × N. Emitted on every
+	// ignorelist mutation; the entire list is re-sent rather than a delta.
+	// Mirrors TS ServerGameProt.UPDATE_IGNORELIST (21, -2) and
+	// UpdateIgnoreListEncoder.ts.
+	OpUpdateIgnoreList = Op{Opcode: 21, PayloadSize: -2}
+
+	// OpChatFilterSettings carries the player's chat-filter mode triple.
+	// Fixed 3-byte payload: p1(publicChat) + p1(privateChat) + p1(tradeDuel).
+	// Emitted once at onLogin (before UpdatePid). Mirrors TS
+	// ServerGameProt.CHAT_FILTER_SETTINGS (32, 3) and
+	// ChatFilterSettingsEncoder.ts.
+	OpChatFilterSettings = Op{Opcode: 32, PayloadSize: 3}
+
+	// OpMessagePrivate carries one inbound private-chat delivery to the
+	// recipient. Variable 1-byte-length-prefixed payload:
+	// p8(fromUsername37) + p4(pmId) + p1(staffLvlAdjusted) +
+	// WordPack.pack(chat). staffLvlAdjusted = staffLvl > 0 ? staffLvl + 1 :
+	// staffLvl. Emitted by the friends-server dispatcher on
+	// PrivateMessageDelivery. Mirrors TS ServerGameProt.MESSAGE_PRIVATE
+	// (41, -1) and MessagePrivateEncoder.ts.
+	OpMessagePrivate = Op{Opcode: 41, PayloadSize: -1}
 )
