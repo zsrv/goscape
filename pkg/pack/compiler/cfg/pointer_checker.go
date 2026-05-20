@@ -207,8 +207,6 @@ func cloneNodeSet(src map[*InstructionNode]struct{}) map[*InstructionNode]struct
 // silently returns at those points — defensive fallthrough matching the
 // no-panic posture documented at NAI-209-D-PUSHLONG-PANIC etc. The
 // earlier error diagnostic already surfaces user-visible failure.
-//
-// Retires NAI-208-D-LOGPROCREQ-DEFERRED.
 func (p *PointerChecker) logProcRequirement(
 	node *InstructionNode,
 	pt *pointer.PointerType,
