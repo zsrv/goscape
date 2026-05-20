@@ -87,3 +87,36 @@ func TestEmitFriendsDispatcher_OnFriendlistUpdate_LogoutBetweenEnqueueAndDrain(t
 	// Drain — closure runs, lookup returns nil, no-op.
 	s.drainRelayActions()
 }
+
+// TestEmitFriendsDispatcher_OnIgnorelistUpdate_EmitsSnapshot pins that
+// the dispatcher emits one UPDATE_IGNORELIST packet carrying the full
+// snapshot to the viewer's wire.
+func TestEmitFriendsDispatcher_OnIgnorelistUpdate_EmitsSnapshot(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	const viewer uint64 = 0x1111
+	p.username37 = viewer
+	p.active = true
+	s.playerLoop = append(s.playerLoop, p)
+
+	d := newEmitFriendsDispatcher(s, s.log)
+	received := drainConn(t, cc)
+
+	d.OnIgnorelistUpdate(viewer, []uint64{0x0102030405060708, 0xAABBCCDDEEFF0011})
+	s.drainRelayActions()
+	p.client.flushWrite()
+
+	got := <-received
+	want := []byte{
+		byte((int(gameserver.OpUpdateIgnoreList.Opcode) + int(enc.GetNext())) & 0xff),
+		0x00, 0x10,
+		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+		0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00, 0x11,
+	}
+	if string(got) != string(want) {
+		t.Fatalf("wire bytes: got % x, want % x", got, want)
+	}
+}

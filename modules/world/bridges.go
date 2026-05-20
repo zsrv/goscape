@@ -171,13 +171,17 @@ func (d *emitFriendsDispatcher) OnFriendlistUpdate(viewer uint64, entries []*fri
 	})
 }
 
-// OnIgnorelistUpdate is a T3 stub — replaced by the real impl in T4.
-// For T3 we log-only to keep the FriendsDispatcher interface satisfied
-// without dispatching enqueue side-effects.
 func (d *emitFriendsDispatcher) OnIgnorelistUpdate(viewer uint64, ignored []uint64) {
-	d.log.Debug("friends dispatch: ignorelist update (T3 stub)",
+	d.log.Debug("friends dispatch: ignorelist update",
 		slog.Uint64("viewer", viewer),
 		slog.Int("ignored", len(ignored)))
+	d.s.enqueueRelayAction(func() {
+		p := d.s.lookupPlayerByUsername37(viewer)
+		if p == nil {
+			return
+		}
+		sendUpdateIgnoreList(p, ignored)
+	})
 }
 
 // OnPrivateMessage is a T3 stub — replaced by the real impl in T5.
