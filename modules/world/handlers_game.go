@@ -354,8 +354,9 @@ func handleMessagePublic(p *Player, payload []byte) error {
 		wordpack.Pack(out, filtered)
 		msg = out.Bytes()
 	} else {
-		// Server-less test path: pass raw bytes through (matches previous
-		// passthrough behavior so non-wordenc tests still pin byte-for-byte).
+		// Server-less / wordenc-less test path (bare `&Server{}` literals don't
+		// populate wordenc). Pass raw packed bytes through so existing tests that
+		// pin chatBytes byte-for-byte without configuring wordenc still pass.
 		msg = rawPacked
 	}
 	p.Chat(color, effect, int(p.staffModLevel), msg)

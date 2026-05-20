@@ -107,14 +107,7 @@ func TestHandleMessagePublic_SkipsWhenSessionEmpty(t *testing.T) {
 // is asserted to receive the UNFILTERED text (mirrors TS player.logMessage
 // at MessagePublicHandler.ts:32, set BEFORE filtering).
 func TestHandleMessagePublic_AppliesWordEncFilterToChatBytes(t *testing.T) {
-	p, _ := newTestPlayer(t)
-	s := newTestServer(t)
-	p.client.server = s
-
-	// Wire a recordingBridges so we can read the PublicMessage call.
-	rec := &recordingBridges{}
-	s.friendsBridge = rec
-	p.session = "test-uuid"
+	p, rec := commonMessagePublicSetup(t)
 
 	// Build a *Filter that masks "anal" → "****".
 	jf := makeWordencJagWithBad(t, "anal")
@@ -122,7 +115,7 @@ func TestHandleMessagePublic_AppliesWordEncFilterToChatBytes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadFromJag: %v", err)
 	}
-	s.wordenc = f
+	p.client.server.wordenc = f
 
 	// Word-pack "anal" so the payload looks like a real client packet.
 	bufIn := packet.NewPacket(nil)
