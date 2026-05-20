@@ -56,3 +56,42 @@ func TestProcessPlayerQueue_LongStripsArgs0(t *testing.T) {
 		})
 	}
 }
+
+// TestProcessPlayerQueue_LoggingOutAcceleratesLongZeroAction pins TS
+// Player.ts:877-881: when p.loggingOut==true, a QueueLong entry whose
+// IntArgs[0]==0 (the ACCELERATE indicator) is force-fired this tick
+// regardless of its remaining delay. Non-ACCELERATE LONG entries and
+// non-LONG entries decrement normally.
+func TestProcessPlayerQueue_LoggingOutAcceleratesLongZeroAction(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	sf := &script.ScriptFile{Name: "[long,acc]", LookupKey: 0xAC1}
+	s.scriptProvider.Register(sf)
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.loggingOut = true
+	s.playerLoop = []*Player{p}
+
+	// Entry 0: ACCELERATE (args[0]==0), Delay=5 — should fire this tick.
+	// Entry 1: non-accelerate LONG (args[0]==1), Delay=5 — should decrement.
+	p.queue = []playerQueueRequest{
+		{Script: sf, Delay: 5, Type: script.QueueLong, IntArgs: []int{0, 42}},
+		{Script: sf, Delay: 5, Type: script.QueueLong, IntArgs: []int{1, 99}},
+	}
+
+	s.processPlayerQueue(p)
+
+	// After one tick:
+	//   - entry 0: accel→delay=0, post-decrement→-1, fires & removes.
+	//   - entry 1: no accel, post-decrement→4, stays.
+	if len(p.queue) != 1 {
+		t.Fatalf("p.queue len after tick: got %d, want 1", len(p.queue))
+	}
+	if got := p.queue[0].Delay; got != 4 {
+		t.Errorf("surviving entry delay: got %d, want 4", got)
+	}
+	if got := p.queue[0].IntArgs[0]; got != 1 {
+		t.Errorf("surviving entry IntArgs[0]: got %d, want 1 (non-accel entry should remain)", got)
+	}
+}

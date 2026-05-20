@@ -451,6 +451,13 @@ func (s *Server) processPlayerQueue(p *Player) {
 	i := 0
 	for i < len(p.queue) {
 		req := &p.queue[i]
+		// TS Player.ts:877-881 — logout-acceleration for LONG entries
+		// marked ACCELERATE (args[0] == 0). Force-fires this tick by
+		// zeroing the remaining delay before the post-decrement runs.
+		if p.loggingOut && req.Type == script.QueueLong &&
+			len(req.IntArgs) > 0 && req.IntArgs[0] == 0 {
+			req.Delay = 0
+		}
 		req.Delay--
 		if req.Delay > 0 {
 			i++
