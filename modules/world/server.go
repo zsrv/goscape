@@ -19,6 +19,7 @@ import (
 	"github.com/zsrv/goscape/pkg/cache"
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/fonttype"
+	"github.com/zsrv/goscape/pkg/wordenc/encfilter"
 	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/inventory"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
@@ -125,6 +126,13 @@ type Server struct {
 	seqTypes       *objtype.SeqTypeConfigs
 	spotanimTypes  *objtype.SpotanimTypeConfigs
 	componentTypes *objtype.ComponentTypeConfigs
+
+	// wordenc filters player-visible chat text through the RS2 word-encoding
+	// substitution rules loaded from the wordenc jagfile. Populated at
+	// NewServer via encfilter.Load; test paths inject encfilter.Empty().
+	// TS ref: Engine-TS/src/cache/wordenc/WordEnc.ts:37-44.
+	wordenc *encfilter.Filter
+
 	npcs          [8192]*Npc
 	npcLoop       []*Npc
 	npcEventQueue []NpcEventRequest
@@ -445,6 +453,12 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 		return nil, fmt.Errorf("load component types: %w", err)
 	}
 	s.componentTypes = componentTypes
+
+	// Load word-encoding filter. TS ref: Engine-TS/src/cache/wordenc/WordEnc.ts:37-44.
+	s.wordenc, err = encfilter.Load(cfg.CachePath)
+	if err != nil {
+		return nil, fmt.Errorf("load wordenc: %w", err)
+	}
 
 	s.scriptProvider = script.NewProvider()
 	if count, err := s.scriptProvider.Load(filepath.Join(cfg.CachePath, "server")); err != nil {

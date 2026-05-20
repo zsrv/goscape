@@ -15,6 +15,7 @@ import (
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
+	"github.com/zsrv/goscape/pkg/wordenc/encfilter"
 	"github.com/zsrv/goscape/pkg/zone"
 )
 
@@ -332,6 +333,9 @@ func newTestServer(t *testing.T) *Server {
 	s.reloadFn = s.Reload
 	s.watchSessionFn = s.runWatchSession
 	// packFn intentionally left nil; tests that exercise the worker set it explicitly.
+	// Inject a passthrough filter so test paths that call s.wordenc.Filter do
+	// not require a real wordenc jagfile in the test cache.
+	s.wordenc = encfilter.Empty()
 	return s
 }
 
