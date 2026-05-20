@@ -722,6 +722,29 @@ func (p *Player) calcCombatLevel() int {
 	return int(math.Floor(base + math.Max(melee, math.Max(rangd, magic))))
 }
 
+// recomputeCombatLevel updates p.combatLevel if calcCombatLevel now
+// yields a different value. When triggerRebuild is true, also flips
+// MaskAppearance (via SetAppearanceInv) so the next encodeOut emits a
+// fresh appearance — required after stat-changing operations that
+// happen post-login. When triggerRebuild is false, only updates the
+// field — used at LoadSave time, before the client has any appearance.
+//
+// SetStat and AddXP pass true; LoadSave passes false. Mirrors the
+// guarded-rebuild blocks at TS Player.ts:1810-1813 and 1830-1833;
+// the false-variant matches PlayerLoading.ts:156.
+//
+// NAI-184.
+func (p *Player) recomputeCombatLevel(triggerRebuild bool) {
+	newCL := p.calcCombatLevel()
+	if newCL == p.combatLevel {
+		return
+	}
+	p.combatLevel = newCL
+	if triggerRebuild {
+		p.SetAppearanceInv(p.appearanceInv)
+	}
+}
+
 // changeStat fires the [changestat,<skill>] trigger for the given stat
 // slot when a cache script is registered for that exact stat (or its
 // category, or globally). Mirrors TS Player.changeStat (Player.ts:1816-1821).

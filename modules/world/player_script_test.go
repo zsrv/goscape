@@ -2027,3 +2027,67 @@ func TestCalcCombatLevel_UsesBaseLevelsNotLevels(t *testing.T) {
 		t.Errorf("calcCombatLevel(potion-boosted): got %d, want 3 (must ignore levels[])", got)
 	}
 }
+
+// TestRecomputeCombatLevel_* pin the guarded-rebuild semantics.
+// Mirrors the inline `if (combatLevel != getCombatLevel()) { ...
+// buildAppearance(appearanceInv); }` blocks at TS Player.ts:1810-1813
+// and 1830-1833. NAI-184 T2.
+
+func TestRecomputeCombatLevel_NoChange_NoMaskFlip(t *testing.T) {
+	p := &Player{}
+	for i := range objtype.PlayerStatCount {
+		p.baseLevels[i] = 1
+	}
+	p.baseLevels[objtype.PlayerStatHitpoints] = 10
+	p.combatLevel = 3 // matches calcCombatLevel() for these stats
+	p.masks = 0
+	p.recomputeCombatLevel(true)
+	if p.combatLevel != 3 {
+		t.Errorf("combatLevel: got %d, want 3 (no-op when value unchanged)", p.combatLevel)
+	}
+	if p.masks&rsbuf.MaskAppearance != 0 {
+		t.Errorf("masks: MaskAppearance unexpectedly set when CL didn't change")
+	}
+}
+
+func TestRecomputeCombatLevel_Change_RebuildTrue_FlipsMask(t *testing.T) {
+	p := &Player{}
+	for i := range objtype.PlayerStatCount {
+		p.baseLevels[i] = 1
+	}
+	p.baseLevels[objtype.PlayerStatHitpoints] = 10
+	p.baseLevels[objtype.PlayerStatAttack] = 99   // att=str=99 → CL 67
+	p.baseLevels[objtype.PlayerStatStrength] = 99 // (plan note: str alone gives 35, not 67)
+	p.combatLevel = 3                              // stale
+	p.appearanceInv = 42                           // arbitrary, must remain unchanged
+	p.masks = 0
+	p.recomputeCombatLevel(true)
+	if p.combatLevel != 67 {
+		t.Errorf("combatLevel: got %d, want 67", p.combatLevel)
+	}
+	if p.masks&rsbuf.MaskAppearance == 0 {
+		t.Errorf("masks: MaskAppearance not set after CL change with triggerRebuild=true")
+	}
+	if p.appearanceInv != 42 {
+		t.Errorf("appearanceInv: got %d, want 42 (must not be reset)", p.appearanceInv)
+	}
+}
+
+func TestRecomputeCombatLevel_Change_RebuildFalse_NoMaskFlip(t *testing.T) {
+	p := &Player{}
+	for i := range objtype.PlayerStatCount {
+		p.baseLevels[i] = 1
+	}
+	p.baseLevels[objtype.PlayerStatHitpoints] = 10
+	p.baseLevels[objtype.PlayerStatAttack] = 99   // att=str=99 → CL 67
+	p.baseLevels[objtype.PlayerStatStrength] = 99 // (plan note: str alone gives 35, not 67)
+	p.combatLevel = 3
+	p.masks = 0
+	p.recomputeCombatLevel(false)
+	if p.combatLevel != 67 {
+		t.Errorf("combatLevel: got %d, want 67 (field still updates)", p.combatLevel)
+	}
+	if p.masks&rsbuf.MaskAppearance != 0 {
+		t.Errorf("masks: MaskAppearance unexpectedly set when triggerRebuild=false")
+	}
+}
