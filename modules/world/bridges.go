@@ -184,12 +184,18 @@ func (d *emitFriendsDispatcher) OnIgnorelistUpdate(viewer uint64, ignored []uint
 	})
 }
 
-// OnPrivateMessage is a T3 stub — replaced by the real impl in T5.
 func (d *emitFriendsDispatcher) OnPrivateMessage(target uint64, from uint64, staffLvl int32, pmId uint32, chat string) {
-	d.log.Debug("friends dispatch: private message (T3 stub)",
+	d.log.Debug("friends dispatch: private message",
 		slog.Uint64("target", target),
 		slog.Uint64("from", from),
 		slog.Uint64("pm_id", uint64(pmId)))
+	d.s.enqueueRelayAction(func() {
+		p := d.s.lookupPlayerByUsername37(target)
+		if p == nil {
+			return
+		}
+		sendMessagePrivate(p, from, pmId, staffLvl, chat)
+	})
 }
 
 var _ FriendsDispatcher = (*emitFriendsDispatcher)(nil)

@@ -5,7 +5,9 @@ import (
 
 	"github.com/zsrv/goscape/pkg/friendspb"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
+	"github.com/zsrv/goscape/pkg/io/packet"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+	"github.com/zsrv/goscape/pkg/wordenc/wordpack"
 )
 
 // TestEmitFriendsDispatcher_OnFriendlistUpdate_EnqueuesOnePacketPerEntry
@@ -118,5 +120,62 @@ func TestEmitFriendsDispatcher_OnIgnorelistUpdate_EmitsSnapshot(t *testing.T) {
 	}
 	if string(got) != string(want) {
 		t.Fatalf("wire bytes: got % x, want % x", got, want)
+	}
+}
+
+// TestEmitFriendsDispatcher_OnPrivateMessage_EmitsPacket pins that the
+// dispatcher emits one MESSAGE_PRIVATE packet to the recipient's wire
+// matching the T2 encoder byte-pin.
+func TestEmitFriendsDispatcher_OnPrivateMessage_EmitsPacket(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	const target uint64 = 0x4444
+	p.username37 = target
+	p.active = true
+	s.playerLoop = append(s.playerLoop, p)
+
+	// Compute the wordpacked bytes for "hi".
+	wpBuf := packet.NewPacket(nil)
+	wordpack.Pack(wpBuf, "hi")
+	wpBytes := wpBuf.Bytes()
+
+	d := newEmitFriendsDispatcher(s, s.log)
+	received := drainConn(t, cc)
+
+	d.OnPrivateMessage(target, 0x0102030405060708, 0, 0xDEADBEEF, "hi")
+	s.drainRelayActions()
+	p.client.flushWrite()
+
+	got := <-received
+	header := []byte{
+		byte((int(gameserver.OpMessagePrivate.Opcode) + int(enc.GetNext())) & 0xff),
+		byte(8 + 4 + 1 + len(wpBytes)),
+		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+		0xDE, 0xAD, 0xBE, 0xEF,
+		0x00,
+	}
+	want := append(header, wpBytes...)
+	if string(got) != string(want) {
+		t.Fatalf("wire bytes: got % x, want % x", got, want)
+	}
+}
+
+// TestEmitFriendsDispatcher_OnPrivateMessage_MissingTargetNoEmit pins
+// that the dispatcher silently drops PMs for a target not in s.playerLoop
+// (e.g., player logged out between sender's send and recipient's tick).
+func TestEmitFriendsDispatcher_OnPrivateMessage_MissingTargetNoEmit(t *testing.T) {
+	s := newTestServer(t)
+	d := newEmitFriendsDispatcher(s, s.log)
+
+	d.OnPrivateMessage(0xDEAD, 0xBEEF, 0, 0, "hi")
+	s.drainRelayActions()
+
+	select {
+	case <-s.relayActionQueue:
+		t.Fatal("relayActionQueue should be drained")
+	default:
 	}
 }
