@@ -396,3 +396,21 @@ func TestSessionUUIDCheckRejectsNonUUID(t *testing.T) {
 		t.Errorf("error message did not mention CHECK or constraint: %v", err)
 	}
 }
+
+// TestSessionUUIDCheckAcceptsEmpty pins that the schema CHECK
+// constraint permits the empty string. This is the coercion target
+// used by migration 000002 for pre-slice-7 rows whose session_uuid
+// held RemoteAddr().String() instead of a UUID.
+func TestSessionUUIDCheckAcceptsEmpty(t *testing.T) {
+	db := createTestDB(t)
+	accountID := insertTestAccount(t, db, "checkemptytest", "pass")
+
+	_, err := db.ExecContext(t.Context(),
+		`INSERT INTO session (session_uuid, account_id, profile, world, uid, login_time, remote_address)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"", accountID, "main", 0, 0, "2026-05-19T00:00:00Z", "127.0.0.1:1234",
+	)
+	if err != nil {
+		t.Fatalf("INSERT with empty session_uuid failed: %v", err)
+	}
+}
