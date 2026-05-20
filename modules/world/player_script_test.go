@@ -1933,3 +1933,97 @@ func TestSetStat_OOBStatDropsSilently(t *testing.T) {
 		}
 	}
 }
+
+// TestCalcCombatLevel_* pin the goscape port of TS Player.getCombatLevel
+// (Engine-TS/.../Player.ts:1302-1308). The formula uses baseLevels[]
+// (not levels[]) — buffs/drains don't move combat level. NAI-184 T1.
+//
+// "Fresh stats" convention: baseLevels = all 1 except HP = 10, mirroring
+// the empty-save bootstrap at player_load.go:79-85.
+
+func TestCalcCombatLevel_FreshStats(t *testing.T) {
+	p := &Player{}
+	for i := range objtype.PlayerStatCount {
+		p.baseLevels[i] = 1
+	}
+	p.baseLevels[objtype.PlayerStatHitpoints] = 10
+	if got := p.calcCombatLevel(); got != 3 {
+		t.Errorf("calcCombatLevel(fresh): got %d, want 3", got)
+	}
+}
+
+func TestCalcCombatLevel_Maxed(t *testing.T) {
+	p := &Player{}
+	for i := range objtype.PlayerStatCount {
+		p.baseLevels[i] = 99
+	}
+	if got := p.calcCombatLevel(); got != 126 {
+		t.Errorf("calcCombatLevel(maxed): got %d, want 126", got)
+	}
+}
+
+func TestCalcCombatLevel_PureMelee99(t *testing.T) {
+	p := &Player{}
+	for i := range objtype.PlayerStatCount {
+		p.baseLevels[i] = 1
+	}
+	p.baseLevels[objtype.PlayerStatHitpoints] = 10
+	p.baseLevels[objtype.PlayerStatAttack] = 99
+	p.baseLevels[objtype.PlayerStatStrength] = 99
+	if got := p.calcCombatLevel(); got != 67 {
+		t.Errorf("calcCombatLevel(att=str=99, rest fresh): got %d, want 67", got)
+	}
+}
+
+func TestCalcCombatLevel_PureRanged99(t *testing.T) {
+	p := &Player{}
+	for i := range objtype.PlayerStatCount {
+		p.baseLevels[i] = 1
+	}
+	p.baseLevels[objtype.PlayerStatHitpoints] = 10
+	p.baseLevels[objtype.PlayerStatRanged] = 99
+	if got := p.calcCombatLevel(); got != 50 {
+		t.Errorf("calcCombatLevel(range=99, rest fresh): got %d, want 50", got)
+	}
+}
+
+func TestCalcCombatLevel_PureMagic99(t *testing.T) {
+	p := &Player{}
+	for i := range objtype.PlayerStatCount {
+		p.baseLevels[i] = 1
+	}
+	p.baseLevels[objtype.PlayerStatHitpoints] = 10
+	p.baseLevels[objtype.PlayerStatMagic] = 99
+	if got := p.calcCombatLevel(); got != 50 {
+		t.Errorf("calcCombatLevel(mage=99, rest fresh): got %d, want 50", got)
+	}
+}
+
+func TestCalcCombatLevel_PrayerLeveraged(t *testing.T) {
+	p := &Player{}
+	for i := range objtype.PlayerStatCount {
+		p.baseLevels[i] = 1
+	}
+	p.baseLevels[objtype.PlayerStatDefence] = 99
+	p.baseLevels[objtype.PlayerStatHitpoints] = 99
+	p.baseLevels[objtype.PlayerStatPrayer] = 99
+	if got := p.calcCombatLevel(); got != 62 {
+		t.Errorf("calcCombatLevel(def=hp=prayer=99, rest=1): got %d, want 62", got)
+	}
+}
+
+func TestCalcCombatLevel_UsesBaseLevelsNotLevels(t *testing.T) {
+	// Critical regression guard: drinking a strength potion does NOT
+	// change combat level. baseLevels is fresh; levels[STR] is boosted.
+	p := &Player{}
+	for i := range objtype.PlayerStatCount {
+		p.baseLevels[i] = 1
+		p.levels[i] = 1
+	}
+	p.baseLevels[objtype.PlayerStatHitpoints] = 10
+	p.levels[objtype.PlayerStatHitpoints] = 10
+	p.levels[objtype.PlayerStatStrength] = 99 // boosted ONLY in levels, not baseLevels
+	if got := p.calcCombatLevel(); got != 3 {
+		t.Errorf("calcCombatLevel(potion-boosted): got %d, want 3 (must ignore levels[])", got)
+	}
+}

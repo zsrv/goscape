@@ -2,6 +2,7 @@ package world
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -692,6 +693,33 @@ func (p *Player) SetStat(stat, level int) {
 	p.baseLevels[stat] = uint8(level)
 	p.levels[stat] = uint8(level)
 	p.stats[stat] = int32(objtype.GetExpByLevel(level))
+}
+
+// calcCombatLevel ports TS Player.getCombatLevel (Player.ts:1302-1308).
+// Pure formula, no side effects. Uses baseLevels[] (NOT levels[]) so
+// buffs/drains don't move combat level. Result is bounded: at fresh
+// stats (all=1, hp=10) CL=3; at all-99 maxed stats CL=126.
+//
+// Integer division (Go) on non-negative operands floors exactly like
+// TS Math.floor — prayer/2, rng/2, mag/2 don't need an explicit floor.
+// math.Floor on the final float64 mirrors the outer TS Math.floor.
+//
+// NAI-184.
+func (p *Player) calcCombatLevel() int {
+	def := int(p.baseLevels[objtype.PlayerStatDefence])
+	hp := int(p.baseLevels[objtype.PlayerStatHitpoints])
+	prayer := int(p.baseLevels[objtype.PlayerStatPrayer])
+	att := int(p.baseLevels[objtype.PlayerStatAttack])
+	str := int(p.baseLevels[objtype.PlayerStatStrength])
+	rng := int(p.baseLevels[objtype.PlayerStatRanged])
+	mag := int(p.baseLevels[objtype.PlayerStatMagic])
+
+	base := 0.25 * float64(def+hp+prayer/2)
+	melee := 0.325 * float64(att+str)
+	rangd := 0.325 * float64(rng/2+rng)
+	magic := 0.325 * float64(mag/2+mag)
+
+	return int(math.Floor(base + math.Max(melee, math.Max(rangd, magic))))
 }
 
 // changeStat fires the [changestat,<skill>] trigger for the given stat
