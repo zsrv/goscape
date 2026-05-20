@@ -70,9 +70,10 @@ func TestSendResetAnims_EmitsOpcodeOnly(t *testing.T) {
 	}
 }
 
-// TestProcessLogins_FreshLogin_EmitsOpcodeOrder pins UPDATE_PID →
-// RESET_CLIENT_VARCACHE → RESET_ANIMS emit order on fresh login.
-// Verifies the sequence wired into processLogins at NAI-182 B3.
+// TestProcessLogins_FreshLogin_EmitsOpcodeOrder pins CHAT_FILTER_SETTINGS →
+// UPDATE_PID → RESET_CLIENT_VARCACHE → RESET_ANIMS emit order on fresh login.
+// Verifies the sequence wired into processLogins at NAI-182 B3 (UPDATE_PID
+// onward) and NAI-182-D5 (CHAT_FILTER_SETTINGS prepend).
 func TestProcessLogins_FreshLogin_EmitsOpcodeOrder(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	s := newTestServer(t)
@@ -94,8 +95,13 @@ func TestProcessLogins_FreshLogin_EmitsOpcodeOrder(t *testing.T) {
 	// by its fixed-length payload. Verify opcodes in order.
 	// addPlayer assigns slot 1 (first available slot), so UPDATE_PID carries 0x0001.
 	want := []byte{
-		byte((int(gameserver.OpUpdatePid.Opcode) + int(enc.GetNext())) & 0xff),
+		byte((int(gameserver.OpChatFilterSettings.Opcode) + int(enc.GetNext())) & 0xff),
 	}
+	// CHAT_FILTER_SETTINGS payload: 3 bytes (publicChat, privateChat, tradeDuel all default 0).
+	want = append(want, 0x00, 0x00, 0x00)
+	want = append(want,
+		byte((int(gameserver.OpUpdatePid.Opcode)+int(enc.GetNext()))&0xff),
+	)
 	// UPDATE_PID payload: 2 bytes (slot assigned by addPlayer — first free slot = 1).
 	want = append(want, 0x00, byte(p.slot))
 	want = append(want,
@@ -138,12 +144,14 @@ func TestProcessLogins_FreshLogin_WithShutdownPending_EmitsRebootTimer(t *testin
 
 	got := <-received
 
-	// Consume the first 3 packets: UPDATE_PID (3 bytes), RESET_CLIENT_VARCACHE
-	// (1 byte), RESET_ANIMS (1 byte) = 5 bytes total.
+	// Consume the first 4 packets: CHAT_FILTER_SETTINGS (1+3 bytes),
+	// UPDATE_PID (1+2 bytes), RESET_CLIENT_VARCACHE (1 byte), RESET_ANIMS
+	// (1 byte) = 9 bytes total.
+	enc.GetNext() // CHAT_FILTER_SETTINGS opcode key
 	enc.GetNext() // UPDATE_PID opcode key
 	enc.GetNext() // RESET_CLIENT_VARCACHE opcode key
 	enc.GetNext() // RESET_ANIMS opcode key
-	offset := 3 + 1 + 1
+	offset := 4 + 3 + 1 + 1
 
 	// 4th packet: UPDATE_REBOOT_TIMER opcode + 2-byte payload (25 == 0x0019).
 	wantOpcode := byte((int(gameserver.OpUpdateRebootTimer.Opcode) + int(enc.GetNext())) & 0xff)
@@ -183,15 +191,16 @@ func TestProcessLogins_FreshLogin_NoShutdown_NoRebootTimer(t *testing.T) {
 	got := <-received
 
 	// Compute the expected UPDATE_REBOOT_TIMER encrypted opcode if it were
-	// sent. We consume 3 ISAAC values for the 3 standard packets first.
+	// sent. We consume 4 ISAAC values for the 4 standard packets first.
+	enc.GetNext() // CHAT_FILTER_SETTINGS
 	enc.GetNext() // UPDATE_PID
 	enc.GetNext() // RESET_CLIENT_VARCACHE
 	enc.GetNext() // RESET_ANIMS
 	forbiddenOpcode := byte((int(gameserver.OpUpdateRebootTimer.Opcode) + int(enc.GetNext())) & 0xff)
 
-	// The stream should be exactly 5 bytes (UPDATE_PID=3, RCV=1, RA=1).
+	// The stream should be exactly 9 bytes (CFS=4, UPDATE_PID=3, RCV=1, RA=1).
 	// Anything beyond that, including a byte matching the reboot opcode, is a bug.
-	const wantLen = 5
+	const wantLen = 9
 	if len(got) != wantLen {
 		t.Errorf("stream length: got %d, want %d (no reboot timer packet)", len(got), wantLen)
 	}
@@ -200,6 +209,77 @@ func TestProcessLogins_FreshLogin_NoShutdown_NoRebootTimer(t *testing.T) {
 		if b == forbiddenOpcode {
 			t.Errorf("byte[%d] matches UPDATE_REBOOT_TIMER encrypted opcode 0x%02x — should not be present",
 				i, forbiddenOpcode)
+		}
+	}
+}
+
+// TestProcessLogins_FreshLogin_EmitsChatFilterSettingsFirst pins that
+// CHAT_FILTER_SETTINGS is the first packet on a fresh-login wire,
+// carrying the player's publicChat/privateChat/tradeDuel triple.
+// NAI-182-D5 T6.
+func TestProcessLogins_FreshLogin_EmitsChatFilterSettingsFirst(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	// Direct field writes pre-processLogins are clobbered by fresh-init
+	// for skills/invs/varps. publicChat/privateChat/tradeDuel are NOT
+	// reset by initPlayerVarps; setting here is safe.
+	p.publicChat = 1
+	p.privateChat = 2
+	p.tradeDuel = 0
+
+	s.playersMu.Lock()
+	s.newPlayers = append(s.newPlayers, p)
+	s.playersMu.Unlock()
+
+	received := drainConn(t, cc)
+	s.processLogins()
+	p.client.flushWrite()
+
+	got := <-received
+	want := []byte{
+		byte((int(gameserver.OpChatFilterSettings.Opcode) + int(enc.GetNext())) & 0xff),
+		0x01, 0x02, 0x00,
+	}
+	if len(got) < len(want) {
+		t.Fatalf("wire too short: got %d bytes, want at least %d", len(got), len(want))
+	}
+	for i, b := range want {
+		if got[i] != b {
+			t.Errorf("byte[%d]: got 0x%02x, want 0x%02x", i, got[i], b)
+		}
+	}
+}
+
+// TestProcessLogins_FreshLogin_ChatFilterDefaults pins that
+// publicChat/privateChat/tradeDuel default to 0 emit `00 00 00` on the wire.
+// NAI-182-D5 T6.
+func TestProcessLogins_FreshLogin_ChatFilterDefaults(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	s.playersMu.Lock()
+	s.newPlayers = append(s.newPlayers, p)
+	s.playersMu.Unlock()
+
+	received := drainConn(t, cc)
+	s.processLogins()
+	p.client.flushWrite()
+
+	got := <-received
+	want := []byte{
+		byte((int(gameserver.OpChatFilterSettings.Opcode) + int(enc.GetNext())) & 0xff),
+		0x00, 0x00, 0x00,
+	}
+	for i, b := range want {
+		if got[i] != b {
+			t.Errorf("byte[%d]: got 0x%02x, want 0x%02x", i, got[i], b)
 		}
 	}
 }

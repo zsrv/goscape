@@ -246,9 +246,11 @@ func (s *Server) processLogins() {
 			// rebuildNormal will clear p.reconnecting later in processInfo.
 		} else {
 			// Fresh-login emit sequence per TS Player.onLogin
-			// (Player.ts:494-504). DEVIATION-NAI-182-D4 omits IF_CLOSE,
-			// DEVIATION-NAI-182-D5 omits ChatFilterSettings /
-			// UpdateIgnoreList (deferred social cluster).
+			// (Player.ts:486-504). DEVIATION-NAI-182-D4 omits IF_CLOSE.
+			// UpdateIgnoreList([]) defensive emit is permanently skipped
+			// (DEVIATION-NAI-182-D5-NO-DEFENSIVE-IGNORELIST-LOGIN-EMIT —
+			// goscape always runs with a friends server).
+			sendChatFilterSettings(p, p.publicChat, p.privateChat, p.tradeDuel)
 			sendUpdatePid(p, p.slot)
 			sendResetClientVarCache(p)
 			if s.varpTypes != nil {
