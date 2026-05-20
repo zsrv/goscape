@@ -283,3 +283,50 @@ func TestProcessLogins_FreshLogin_ChatFilterDefaults(t *testing.T) {
 		}
 	}
 }
+
+// TestProcessLogins_FreshLogin_ChatFilterEmitReflectsSAV pins that the
+// fresh-login CHAT_FILTER_SETTINGS emit reflects publicChat/privateChat/
+// tradeDuel restored from the SAV payload via LoadSave (player_save.go:104
+// pack + player_load.go:225-229 unpack, v4+), not the post-construct zero
+// values. processLogins must call LoadSave BEFORE sendChatFilterSettings.
+//
+// Retires DEVIATION-NAI-182-D5-CHAT-FILTER-NO-RESTORE (the marker was
+// authored against the wire-emit ordering before the author noticed that
+// NAI-PLAYERLOADING had already wired SAV round-trip for these fields).
+func TestProcessLogins_FreshLogin_ChatFilterEmitReflectsSAV(t *testing.T) {
+	seed, invTypes := newTestPlayerForLoadSave(t)
+	seed.publicChat = 2
+	seed.privateChat = 1
+	seed.tradeDuel = 3
+	sav := seed.Save(invTypes)
+
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	s.invTypes = invTypes
+	p.client.server = s
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	p.client.savePayload = sav
+
+	s.playersMu.Lock()
+	s.newPlayers = append(s.newPlayers, p)
+	s.playersMu.Unlock()
+
+	received := drainConn(t, cc)
+	s.processLogins()
+	p.client.flushWrite()
+
+	got := <-received
+	want := []byte{
+		byte((int(gameserver.OpChatFilterSettings.Opcode) + int(enc.GetNext())) & 0xff),
+		0x02, 0x01, 0x03,
+	}
+	if len(got) < len(want) {
+		t.Fatalf("wire too short: got %d bytes, want at least %d", len(got), len(want))
+	}
+	for i, b := range want {
+		if got[i] != b {
+			t.Errorf("byte[%d]: got 0x%02x, want 0x%02x", i, got[i], b)
+		}
+	}
+}
