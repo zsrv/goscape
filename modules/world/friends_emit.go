@@ -10,6 +10,10 @@ import (
 // friend-entry update. Callers loop over entries; one packet per entry.
 // worldId == 0 conveys offline/hidden per slice-3 friends-server contract.
 // Mirrors TS UpdateFriendListEncoder (p8(name); p1(nodeId)).
+//
+// uint8(worldId) silently truncates worldId > 255. The wire byte is a
+// single u1 (TS nodeId is also one byte), so worldId values above 255
+// are unrepresentable by design (spec §5-5).
 func sendUpdateFriendList(p *Player, username37 uint64, worldId int) {
 	buf := packet.NewPacket(nil)
 	buf.P8(username37)

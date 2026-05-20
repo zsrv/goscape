@@ -76,11 +76,10 @@ type LoggerBridge interface {
 }
 
 // FriendsDispatcher is the world-side sink for server -> world friends
-// updates received over the SubscribeUpdates stream. Production impl
-// is emitFriendsDispatcher (NAI-182-D5, 2026-05-19) which enqueues the
+// updates received over the SubscribeUpdates stream. Sole impl is
+// emitFriendsDispatcher (NAI-182-D5, 2026-05-19) which enqueues the
 // real ServerGameProt packet emit on the tick-goroutine via
-// s.relayActionQueue. slogFriendsDispatcher remains as a debug-only
-// fallback for null-friends-server / test paths.
+// s.relayActionQueue.
 //
 // Retired tags:
 //   NAI-S4A-D-NO-INGAME-PACKET-EMIT — RETIRED 2026-05-19 (NAI-182-D5).
@@ -94,51 +93,12 @@ type FriendsDispatcher interface {
 	OnPrivateMessage(target uint64, from uint64, staffLvl int32, pmId uint32, chat string)
 }
 
-// slogFriendsDispatcher is the debug-only fallback FriendsDispatcher.
-// Logs each event at Debug; does NOT emit ServerGameProt packets to
-// the player. Production binds emitFriendsDispatcher instead — see
-// FriendsDispatcher interface doc-comment above.
-type slogFriendsDispatcher struct {
-	log *slog.Logger
-}
-
-func newSlogFriendsDispatcher(log *slog.Logger) FriendsDispatcher {
-	return &slogFriendsDispatcher{log: log}
-}
-
-func (d *slogFriendsDispatcher) OnFriendlistUpdate(viewer uint64, entries []*friendspb.FriendEntry) {
-	d.log.Debug("friends dispatch: friendlist update",
-		slog.Uint64("viewer", viewer),
-		slog.Int("entries", len(entries)))
-}
-
-func (d *slogFriendsDispatcher) OnIgnorelistUpdate(viewer uint64, ignored []uint64) {
-	d.log.Debug("friends dispatch: ignorelist update",
-		slog.Uint64("viewer", viewer),
-		slog.Int("ignored", len(ignored)))
-}
-
-// OnPrivateMessage logs the inbound PM at Debug. This is the fallback
-// impl; production binds emitFriendsDispatcher (see FriendsDispatcher
-// interface doc-comment) which writes the real MESSAGE_PRIVATE packet
-// to the recipient via the tick-goroutine relayActionQueue.
-func (d *slogFriendsDispatcher) OnPrivateMessage(target uint64, from uint64, staffLvl int32, pmId uint32, chat string) {
-	d.log.Debug("friends dispatch: private message",
-		slog.Uint64("target", target),
-		slog.Uint64("from", from),
-		slog.Uint64("pm_id", uint64(pmId)))
-}
-
 // emitFriendsDispatcher is the production FriendsDispatcher. Each
 // method enqueues a closure on s.relayActionQueue so the writeOut on
 // the resolved Player runs on the tick goroutine (the only goroutine
 // allowed to touch Player.client.bufw + ISAAC stream). The recipient
 // is resolved inside the closure (not at enqueue time) so a player who
 // logs out between event arrival and tick-drain is correctly skipped.
-//
-// slogFriendsDispatcher remains the default fallback for tests and
-// when friends-server is disabled — that path never reaches a real
-// Player.
 //
 // Retires NAI-S4A-D-NO-INGAME-PACKET-EMIT / NAI-S4B-D-NO-INGAME-PM-EMIT
 // (NAI-182-D5, 2026-05-19).
@@ -155,6 +115,9 @@ func (d *emitFriendsDispatcher) OnFriendlistUpdate(viewer uint64, entries []*fri
 	d.log.Debug("friends dispatch: friendlist update",
 		slog.Uint64("viewer", viewer),
 		slog.Int("entries", len(entries)))
+	// Intentional single-closure batch: N entries produce N wire packets
+	// from one drainRelayActions iteration, preserving server-side order
+	// and avoiding per-entry queue churn (spec §5-9).
 	d.s.enqueueRelayAction(func() {
 		p := d.s.lookupPlayerByUsername37(viewer)
 		if p == nil {
