@@ -153,6 +153,72 @@ func TestLoadSave_PopulatesCombatLevel(t *testing.T) {
 	}
 }
 
+// TestLoadSave_CombatLevelFlowsToHuntTooStrongGate is the consumer-side
+// pin for NAI-184 T5: it verifies that the combatLevel populated by
+// LoadSave is what npc_hunt.go's CheckNotTooStrong gate (TS Npc.ts:939-941
+// → npc_hunt.go:172-179) actually reads. Pre-NAI-184, a freshly-loaded
+// player's combatLevel would have been the constructor default (3) and a
+// strong loaded player would have leaked into hunted; post-T5, LoadSave's
+// recompute makes the gate fire on maxed-stat save data.
+func TestLoadSave_CombatLevelFlowsToHuntTooStrongGate(t *testing.T) {
+	// SAV with maxed combat stats (CL=126) at non-wilderness coords.
+	// z=3500 sits south of the wilderness rect (which starts at z=3520),
+	// so IsInWilderness()=false and the OutsideWilderness filter applies.
+	src, invTypes := newTestPlayerForLoadSave(t)
+	src.x = 3203
+	src.z = 3500
+	src.level = 0
+	for _, stat := range []int{
+		objtype.PlayerStatAttack,
+		objtype.PlayerStatDefence,
+		objtype.PlayerStatStrength,
+		objtype.PlayerStatHitpoints,
+		objtype.PlayerStatRanged,
+		objtype.PlayerStatPrayer,
+		objtype.PlayerStatMagic,
+	} {
+		src.stats[stat] = int32(objtype.GetExpByLevel(99))
+	}
+	sav := src.Save(invTypes)
+
+	dst, _ := newTestPlayerForLoadSave(t)
+	dst.combatLevel = 3 // constructor default; LoadSave must overwrite it
+	if err := LoadSave(dst, sav, invTypes); err != nil {
+		t.Fatalf("LoadSave: %v", err)
+	}
+	if dst.combatLevel != 126 {
+		t.Fatalf("precondition: combatLevel after LoadSave: got %d, want 126", dst.combatLevel)
+	}
+
+	// Register the loaded player into a Server's zone map so huntPlayers
+	// can find it via Zone subscription (post-NAI-28).
+	s := newTestServer(t)
+	dst.slot = 1
+	dst.active = true
+	s.players[dst.slot] = dst
+	zn := s.zoneMap.Get(dst.level, dst.x, dst.z)
+	dst.zoneListElement = zn.EnterPlayer(dst, nil)
+
+	npcType := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 1}, Size: 1, Category: -1, VisLevel: 30}
+	s.npcTypes = &objtype.NPCTypeConfigs{Configs: []*objtype.NpcType{nil, npcType}}
+	n := NewNpc(1, 1, dst.x, dst.z, dst.level, npcType)
+	n.server = s
+	n.huntRange = 5
+
+	hunt := &objtype.HuntType{
+		CheckNotTooStrong:  objtype.HuntCheckNotTooStrongOutsideWilderness,
+		CheckVis:           objtype.HuntVisOff,
+		CheckInv:           -1,
+		CheckNotCombat:     -1,
+		CheckNotCombatSelf: -1,
+	}
+	hunted := n.huntPlayers(s, hunt)
+
+	if len(hunted) != 0 {
+		t.Errorf("hunted: got %d, want 0 (CL=126 from LoadSave > 2*VisLevel=60 must filter)", len(hunted))
+	}
+}
+
 // TestValidSAVBytesRoundTrips ensures validSAVBytes itself round-trips
 // cleanly so the valid-savePayload test above isn't testing a no-op.
 func TestValidSAVBytesRoundTrips(t *testing.T) {
