@@ -792,10 +792,13 @@ func handleName(s *ScriptState) error {
 	return nil
 }
 
-// handleConsole pops and discards a debug string. In S1, console output is
-// silently dropped; a logger will be wired in S2/S3.
+// handleConsole pops a debug string and emits it via s.Log if set.
+// Mirrors TS DebugOps.ts CONSOLE → console.log(state.popString()).
 func handleConsole(s *ScriptState) error {
-	_ = s.PopString()
+	msg := s.PopString()
+	if s.Log != nil {
+		s.Log.Info("console", "script", s.Script.Name, "msg", msg)
+	}
 	return nil
 }
 

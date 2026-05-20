@@ -1,7 +1,9 @@
 package script
 
 import (
+	"bytes"
 	"fmt"
+	"log/slog"
 	"slices"
 	"strings"
 	"testing"
@@ -318,13 +320,43 @@ func TestHandleName(t *testing.T) {
 }
 
 func TestHandleConsole(t *testing.T) {
-	// CONSOLE pops a string and discards it.
+	// CONSOLE pops a string and discards it; without s.Log set, no output.
 	ops := []Opcode{OpPushConstantString, OpConsole, OpReturn}
 	intOps := []int32{0, 0, 0}
 	strOps := []string{"debug msg", "", ""}
 	s := runScript(t, ops, intOps, strOps, nil)
 	if s.SSP != 0 {
 		t.Errorf("SSP after CONSOLE: got %d want 0", s.SSP)
+	}
+}
+
+func TestHandleConsole_EmitsToLogger(t *testing.T) {
+	// CONSOLE forwards the popped string to s.Log if set, tagged with the
+	// script name.
+	f := &ScriptFile{
+		Name:             "dbgScript",
+		Opcodes:          []Opcode{OpPushConstantString, OpConsole, OpReturn},
+		IntOperands:      []int32{0, 0, 0},
+		StringOperands:   []string{"hello console", "", ""},
+		InstructionCount: 3,
+		IntLocalCount:    8,
+		StringLocalCount: 8,
+	}
+	var buf bytes.Buffer
+	s := Init(f, nil, true, nil, nil)
+	s.Log = slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	if err := Execute(s); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if s.SSP != 0 {
+		t.Errorf("SSP after CONSOLE: got %d want 0", s.SSP)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "msg=") || !strings.Contains(out, "hello console") {
+		t.Errorf("log missing msg: %q", out)
+	}
+	if !strings.Contains(out, "script=dbgScript") {
+		t.Errorf("log missing script name: %q", out)
 	}
 }
 
