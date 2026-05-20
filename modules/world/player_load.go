@@ -234,11 +234,10 @@ func LoadSave(p *Player, sav []byte, invTypes *objtype.InvTypeConfigs) error {
 		p.lastLoginTime = int64(pkt.G8())
 	}
 
-	// NAI-PLAYERLOADING-D-COMBAT-LEVEL-NOT-RECOMPUTED-ON-LOAD: TS
-	// PlayerLoading.ts:156 recomputes player.combatLevel via
-	// getCombatLevel(). Goscape has no equivalent method on Player;
-	// combatLevel is set at appearance-rebuild time elsewhere in the
-	// tick. Loaded baseLevels propagate to combat level on the next
-	// appearance refresh.
+	// Recompute combat level from loaded baseLevels — mirrors TS
+	// PlayerLoading.ts:156 (player.combatLevel = player.getCombatLevel()).
+	// triggerRebuild=false because the client has no appearance state
+	// yet; first appearance generation post-login picks up the value.
+	p.recomputeCombatLevel(false)
 	return nil
 }

@@ -110,6 +110,49 @@ func TestProcessLogins_CorruptSavePayload_FallsBackToBootstrap(t *testing.T) {
 	}
 }
 
+// TestLoadSave_PopulatesCombatLevel pins that after LoadSave, the
+// player's combatLevel is computed from the loaded baseLevels — NOT
+// the constructor default of 3. Retires NAI-PLAYERLOADING-D-COMBAT-
+// LEVEL-NOT-RECOMPUTED-ON-LOAD. NAI-184 T5.
+//
+// Uses a SAV produced by Player.Save with all combat stats at level 99
+// (CL=126 per the formula). The load-time recompute is the no-rebuild
+// variant: MaskAppearance must NOT be flipped (no client yet).
+func TestLoadSave_PopulatesCombatLevel(t *testing.T) {
+	src, invTypes := newTestPlayerForLoadSave(t)
+	// Override all seven combat-stat XPs to level-99 thresholds; LoadSave
+	// derives baseLevels from stats[i] via GetLevelByExp.
+	for _, stat := range []int{
+		objtype.PlayerStatAttack,
+		objtype.PlayerStatDefence,
+		objtype.PlayerStatStrength,
+		objtype.PlayerStatHitpoints,
+		objtype.PlayerStatRanged,
+		objtype.PlayerStatPrayer,
+		objtype.PlayerStatMagic,
+	} {
+		src.stats[stat] = int32(objtype.GetExpByLevel(99))
+	}
+	sav := src.Save(invTypes)
+
+	dst := &Player{}
+	dst.combatLevel = 3 // constructor default; LoadSave must overwrite it
+	dst.masks = 0
+	if err := LoadSave(dst, sav, invTypes); err != nil {
+		t.Fatalf("LoadSave: %v", err)
+	}
+	if dst.baseLevels[objtype.PlayerStatStrength] != 99 {
+		t.Fatalf("precondition: baseLevels[STR]: got %d, want 99",
+			dst.baseLevels[objtype.PlayerStatStrength])
+	}
+	if dst.combatLevel != 126 {
+		t.Errorf("combatLevel: got %d, want 126 (maxed combat stats)", dst.combatLevel)
+	}
+	if dst.masks&MaskAppearance != 0 {
+		t.Errorf("masks: MaskAppearance unexpectedly set by LoadSave (load uses triggerRebuild=false)")
+	}
+}
+
 // TestValidSAVBytesRoundTrips ensures validSAVBytes itself round-trips
 // cleanly so the valid-savePayload test above isn't testing a no-op.
 func TestValidSAVBytesRoundTrips(t *testing.T) {
