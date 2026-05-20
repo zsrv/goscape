@@ -654,12 +654,21 @@ func handlePExactMove(s *ScriptState) error {
 	return nil
 }
 
-// handlePWalk is a stub. Real implementation requires pathfinder +
-// waypoint queue integration; pops the coord, logs, and returns nil.
+// handlePWalk implements P_WALK (opcode 2076). Pops a packed coord,
+// validates via CoordValid, and queues a path from the player's current
+// position to (destX, destZ). The coord's level component is validated
+// but not used — TS uses player.level for the pathfinder call
+// (PlayerOps.ts:455-460). Gate: ProtectedActivePlayer.
 func handlePWalk(s *ScriptState) error {
-	_ = s.PopInt()
-	slog.Debug("P_WALK stub invoked; pathfinder integration pending",
-		"script", s.Script.Name, "pc", s.PC)
+	if err := requireProtectedActivePlayer(s, "P_WALK"); err != nil {
+		return err
+	}
+	packed := s.PopInt()
+	_, destX, destZ, err := checkCoord(packed, "P_WALK")
+	if err != nil {
+		return err
+	}
+	s.Self.Walk(destX, destZ)
 	return nil
 }
 

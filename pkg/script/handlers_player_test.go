@@ -628,31 +628,6 @@ func TestFaceSquareIgnoresLevelComponent(t *testing.T) {
 	}
 }
 
-func TestPWalkStubPopsAndLogs(t *testing.T) {
-	// Stub: pop one int, log.Debug, return nil. No captured state.
-	mp := &mockPlayer{}
-	sf := &ScriptFile{
-		Name: "p_walk",
-		Opcodes: []Opcode{
-			OpPushConstantInt, OpPWalk, OpReturn,
-		},
-		IntOperands:      []int32{0x12345, 0, 0},
-		StringOperands:   []string{"", "", ""},
-		InstructionCount: 3,
-	}
-	state := Init(sf, mp, false, nil, nil)
-	if err := Execute(state); err != nil {
-		t.Fatalf("Execute: %v", err)
-	}
-	if state.Execution != Finished {
-		t.Errorf("P_WALK stub: Execution = %v, want Finished", state.Execution)
-	}
-	// Stack should be empty (arg was popped, nothing pushed).
-	if state.ISP != 0 {
-		t.Errorf("P_WALK stub: ISP = %d, want 0", state.ISP)
-	}
-}
-
 // -- Animation tests -----------------------------------------------------
 
 func TestAnimCapturesSeqAndDelay(t *testing.T) {
@@ -5670,5 +5645,100 @@ func TestHandleLastLoginInfo(t *testing.T) {
 	}
 	if mp.lastLoginInfoCalls != 1 {
 		t.Errorf("LastLoginInfo: got %d calls, want 1", mp.lastLoginInfoCalls)
+	}
+}
+
+// TestHandlePWalk_RequiresProtectedActivePlayer pins the
+// ProtectedActivePlayer gate on P_WALK. Mirrors TS PlayerOps.ts:455
+// checkedHandler(ProtectedActivePlayer, …).
+func TestHandlePWalk_RequiresProtectedActivePlayer(t *testing.T) {
+	mp := &mockPlayer{}
+	packed := coordgrid.PackCoord(0, 3210, 3220)
+	sf := &ScriptFile{
+		Name: "[p_walk_unprotected,test]",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPWalk, OpReturn,
+		},
+		IntOperands:      []int32{int32(packed), 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	state.Pointers |= PtrActivePlayer // protect flag intentionally unset
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: got nil err, want P_WALK: script not protected")
+	}
+	if got := err.Error(); !strings.Contains(got, "P_WALK") || !strings.Contains(got, "script not protected") {
+		t.Errorf("err: got %q, want substrings 'P_WALK' and 'script not protected'", got)
+	}
+	if got := len(mp.walkCalls); got != 0 {
+		t.Errorf("walkCalls: got %d, want 0 (gate should reject before dispatch)", got)
+	}
+}
+
+// TestHandlePWalk_RejectsInvalidCoord pins that checkCoord rejects
+// out-of-range packed coords before dispatch. Mirrors TS
+// check(state.popInt(), CoordValid).
+func TestHandlePWalk_RejectsInvalidCoord(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "[p_walk_badcoord,test]",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPWalk, OpReturn,
+		},
+		// -1 is outside the valid packed-coord range (level/x/z all OOB).
+		IntOperands:      []int32{-1, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	state.Pointers |= PtrActivePlayer | PtrProtectedActivePlayer
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: got nil err, want CoordValid rejection")
+	}
+	if got := err.Error(); !strings.Contains(got, "P_WALK") {
+		t.Errorf("err: got %q, want substring 'P_WALK'", got)
+	}
+	if got := len(mp.walkCalls); got != 0 {
+		t.Errorf("walkCalls: got %d, want 0 (coord rejection should precede dispatch)", got)
+	}
+}
+
+// TestHandlePWalk_DispatchesWalkWithUnpackedXZ pins the happy path:
+// gate satisfied + valid packed coord → Self.Walk(destX, destZ) called
+// once with the unpacked X/Z. Critically pins that the packed coord's
+// level component is NOT forwarded — TS uses player.level for the
+// pathfinder call (PlayerOps.ts:459).
+func TestHandlePWalk_DispatchesWalkWithUnpackedXZ(t *testing.T) {
+	mp := &mockPlayer{}
+	packed := coordgrid.PackCoord(0, 3210, 3220)
+	sf := &ScriptFile{
+		Name: "[p_walk,test]",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPWalk, OpReturn,
+		},
+		IntOperands:      []int32{int32(packed), 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	state.Pointers |= PtrActivePlayer | PtrProtectedActivePlayer
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.Execution; got != Finished {
+		t.Errorf("Execution: got %v, want Finished", got)
+	}
+	if got := state.ISP; got != 0 {
+		t.Errorf("ISP: got %d, want 0", got)
+	}
+	if got := len(mp.walkCalls); got != 1 {
+		t.Fatalf("walkCalls: got %d, want 1", got)
+	}
+	c := mp.walkCalls[0]
+	if c.destX != 3210 || c.destZ != 3220 {
+		t.Errorf("Walk dispatch: got (destX=%d, destZ=%d), want (3210, 3220)", c.destX, c.destZ)
 	}
 }
