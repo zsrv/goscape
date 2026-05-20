@@ -272,7 +272,7 @@ func (s *Server) processLogins() {
 		// Fire the LOGIN trigger if the cache has one. Sub-spec RuneScript S3.
 		if s.scriptProvider != nil {
 			sf := s.scriptProvider.GetByTrigger(script.TriggerLogin, -1, -1)
-			s.runScript(sf, p, nil, true, nil, nil)
+			s.runScriptFn(sf, p, nil, true, nil, nil)
 		}
 
 		// TS Player.ts:511-512 — establish the "imaginary previous step
@@ -464,11 +464,22 @@ func (s *Server) processPlayerQueue(p *Player) {
 		sf := req.Script
 		intArgs := req.IntArgs
 		stringArgs := req.StringArgs
+		queueType := req.Type
 		p.queue = append(p.queue[:i], p.queue[i+1:]...)
 		if sf != nil {
+			if queueType == script.QueueLong && len(intArgs) > 0 {
+				// TS Player.ts:887-889 — LONG's first int arg is the
+				// logoutAction indicator (0 = ACCELERATE, others reserved).
+				// Strip before the script sees it. The prepend happens at
+				// LONGQUEUE enqueue (handlers.go:988) and LONGQUEUEVARARG
+				// enqueue (handlers_player_vararg.go:80-81); both fixed-arg
+				// and vararg LONG handlers prepend, so the strip is
+				// symmetric.
+				intArgs = intArgs[1:]
+			}
 			// TS Player.ts:891,903 — processQueues + processWeakQueue
 			// both fire scripts as protected (executeScript(script, true)).
-			s.runScript(sf, p, nil, true, intArgs, stringArgs)
+			s.runScriptFn(sf, p, nil, true, intArgs, stringArgs)
 		}
 		// Don't advance i: we just removed the current element, so i
 		// now points to what was the next element (or past end).
@@ -517,7 +528,7 @@ func (s *Server) processPlayerEngineQueues() {
 				p.engineQueue = append(p.engineQueue[:i], p.engineQueue[i+1:]...)
 				if sf != nil {
 					// TS Player.ts:646 — executeScript(script, true): protected.
-					s.runScript(sf, p, nil, true, intArgs, stringArgs)
+					s.runScriptFn(sf, p, nil, true, intArgs, stringArgs)
 				}
 				// Don't advance i — the slice shrunk by one; index now points
 				// at what was the next entry (or past end).
@@ -568,7 +579,7 @@ func (s *Server) processPlayerTimers() {
 				}
 				// TS Player.ts:938: NORMAL timers run protected, SOFT
 				// timers do not.
-				s.runScript(sf, p, nil, t.Type == script.TimerNormal, t.IntArgs, t.StringArgs)
+				s.runScriptFn(sf, p, nil, t.Type == script.TimerNormal, t.IntArgs, t.StringArgs)
 			}
 		}(p)
 	}

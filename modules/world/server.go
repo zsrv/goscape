@@ -241,6 +241,13 @@ type Server struct {
 	// a supervisor restart, false to exit cleanly.
 	watchSessionFn func() bool
 
+	// runScriptFn is the seam tick.go uses to fire a script (the four
+	// call sites at tick.go:275, :471, :520, :571). Defaults to
+	// (*Server).runScript in NewServer + newTestServer. Tests override
+	// to capture invocation args (e.g., the LONG-strip pin in
+	// TestProcessPlayerQueue_LongStripsArgs0).
+	runScriptFn func(sf *script.ScriptFile, self script.ActivePlayer, target any, protect bool, intArgs []int, stringArgs []string)
+
 	// relayActionQueue carries closures enqueued by WorldStateOps
 	// methods (the impl of which lives on *Server, world_state_ops.go).
 	// Drained at the top of the tick loop body so all field mutations
@@ -296,6 +303,7 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	s.packFn = packall.PackAll
 	s.reloadFn = s.Reload
 	s.watchSessionFn = s.runWatchSession
+	s.runScriptFn = s.runScript
 	s.friendsBridge = defaultFriendsBridge(friendsClient, int32(cfg.NodeID), s.log)
 	s.friendsDispatcher = newEmitFriendsDispatcher(s, s.log)
 	s.friendsAdminBridge = defaultFriendsAdminBridge(friendsClient, s.log)
