@@ -278,7 +278,11 @@ func TestPointerChecker_Run_LogProcRequirement_RecursesAcrossTwoHops(t *testing.
 	// ACTIVE_PLAYER via callee propagation). The deterministic invariant
 	// is: `caller` produces at least one HINT chain of length 2 (mid's
 	// gosub-to-leaf + leaf's p_kickout). Count total HINTs across all
-	// scripts; demand at least 2.
+	// scripts; demand at least 2 and require at least one ERROR (the
+	// gosub-site failure that logProcRequirement is attached to).
+	if len(errorDiagnostics(d)) < 1 {
+		t.Fatalf("got 0 error diagnostics, want at least 1 (gosub site): %v", d.List())
+	}
 	hints := hintDiagnostics(d)
 	if len(hints) < 2 {
 		t.Fatalf("got %d hint diagnostics, want at least 2 (recursion two hops): %v", len(hints), d.List())
@@ -350,11 +354,10 @@ func TestPointerChecker_Run_LogProcRequirement_StaticLabelArgFallback(t *testing
 	pc := NewPointerChecker(d, []*codegen.RuneScript{labelScript, consumer, caller}, cp, semantics.StrictFeatureLevel{})
 	pc.Run()
 
-	// Expect at least one ERROR (caller's gosub site, via label-propagation)
-	// and at least one HINT (jump-param node inside consumer with
-	// MessagePointerRequiredLoc).
-	if len(errorDiagnostics(d)) == 0 {
-		t.Fatalf("expected at least one error diagnostic; got %v", d.List())
+	// Deterministic fixture: only `caller` lacks the pointer; `consumer` and
+	// `labelScript` validate clean — exactly 1 ERROR at caller's gosub site.
+	if errs := errorDiagnostics(d); len(errs) != 1 {
+		t.Fatalf("got %d error diagnostics, want 1 (caller's gosub site): %v", len(errs), d.List())
 	}
 	hints := hintDiagnostics(d)
 	if len(hints) == 0 {
