@@ -73,7 +73,7 @@ func (d *domains) findMatchingDomain(startIndex int, domain, chars []rune) (matc
 			if previousLength > 0 {
 				currentIndex += previousLength
 				if domainIndex == 1 {
-					startIndex++
+					startIndex++ // TS:79 dead store preserved for behavior parity (never read after)
 				}
 			} else {
 				if domainIndex >= domainLength || !isSymbol(currentChar) {
