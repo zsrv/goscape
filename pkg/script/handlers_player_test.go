@@ -5080,7 +5080,7 @@ func TestHandleHealEnergy_RequiresActivePlayer(t *testing.T) {
 }
 
 // TestHandleSetSkinColour_WritesColors4 pins TS PlayerOps.ts:1121-1124
-// — colors[4] = skin (range 0..7).
+// — colors[4] = skin (inclusive [0, 7]).
 func TestHandleSetSkinColour_WritesColors4(t *testing.T) {
 	cases := []struct {
 		name string
@@ -5120,7 +5120,7 @@ func TestHandleSetSkinColour_WritesColors4(t *testing.T) {
 }
 
 // TestHandleSetSkinColour_RejectsOutOfRange pins TS check(skin, SkinColourValid)
-// — range 0..7 inclusive. Tests both off-by-one boundaries.
+// — inclusive [0, 7]. Tests both off-by-one boundaries.
 func TestHandleSetSkinColour_RejectsOutOfRange(t *testing.T) {
 	cases := []struct {
 		name string
