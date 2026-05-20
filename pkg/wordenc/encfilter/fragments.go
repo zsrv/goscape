@@ -112,6 +112,7 @@ func getFragmentInteger(chars []rune) int {
 	return value
 }
 
+// indexOfNumber mirrors WordEncFragments.ts:99-106.
 func (f *fragments) indexOfNumber(chars []rune, offset int) int {
 	for i := offset; i < len(chars) && i >= 0; i++ {
 		if isNumerical(chars[i]) {
@@ -121,6 +122,7 @@ func (f *fragments) indexOfNumber(chars []rune, offset int) int {
 	return -1
 }
 
+// indexOfNonNumber mirrors WordEncFragments.ts:108-115.
 func (f *fragments) indexOfNonNumber(offset int, chars []rune) int {
 	for i := offset; i < len(chars) && i >= 0; i++ {
 		if !isNumerical(chars[i]) {

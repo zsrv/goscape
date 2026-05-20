@@ -1,6 +1,9 @@
 package encfilter
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 // TestFragments_getInteger pins the base-38 encoding for fragment lookup:
 // 'a'..'z' → 1..26, "'" → 27, '0'..'9' → 28..37. (Engine-TS/src/cache/
@@ -23,6 +26,14 @@ func TestFragments_getInteger_KnownEncoding(t *testing.T) {
 	// chars[1]=NUL first (no contribution), then chars[0]='a' → value = 0*38+1 = 1.
 	if got := getFragmentInteger([]rune{'a', '\x00'}); got != 1 {
 		t.Errorf("getFragmentInteger(a + NUL): got %d, want 1", got)
+	}
+	// Apostrophe → 27 (TS WordEncFragments.ts:88).
+	if got := getFragmentInteger([]rune("'")); got != 27 {
+		t.Errorf("getFragmentInteger(\"'\"): got %d, want 27", got)
+	}
+	// Digit '0' → 28 (TS WordEncFragments.ts:90-91).
+	if got := getFragmentInteger([]rune("0")); got != 28 {
+		t.Errorf("getFragmentInteger(\"0\"): got %d, want 28", got)
 	}
 }
 
@@ -58,7 +69,7 @@ func TestFragments_filter_NoMaskWhenCommonAlphaPrecedes(t *testing.T) {
 	frags.filter(chars)
 	// The TS algorithm does not mask in this case (startIndex never reaches 4
 	// in a single outer-loop iteration given local startIndex resets each pass).
-	if containsRune(chars, '*') {
+	if slices.Contains(chars, '*') {
 		t.Errorf("filter: unexpected masking in %q", string(chars))
 	}
 }
@@ -72,11 +83,3 @@ func TestFragments_filter_AdvancesPastDigitRuns(t *testing.T) {
 	frags.filter(chars) // must return (not loop forever)
 }
 
-func containsRune(rs []rune, target rune) bool {
-	for _, r := range rs {
-		if r == target {
-			return true
-		}
-	}
-	return false
-}
