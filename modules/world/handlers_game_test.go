@@ -30,7 +30,8 @@ import (
 // packet and other tracked clients never saw the chat. NAI-32 Bundle 3
 // Stage 6 added the handler.
 func TestHandleMessagePublic_SetsMaskChat(t *testing.T) {
-	p := &Player{}
+	p, _ := newTestPlayer(t)
+	p.client.server = newTestServer(t)
 	// Wire format: [color=2, effect=1, text=0x12 0x34 0x56]
 	payload := []byte{2, 1, 0x12, 0x34, 0x56}
 
@@ -50,9 +51,12 @@ func TestHandleMessagePublic_SetsMaskChat(t *testing.T) {
 	if p.chatRights != 0 {
 		t.Errorf("chatRights: got %d, want 0 (no staff)", p.chatRights)
 	}
-	want := []byte{0x12, 0x34, 0x56}
-	if !bytes.Equal(p.chatBytes, want) {
-		t.Errorf("chatBytes: got %v, want %v", p.chatBytes, want)
+	// chatBytes content is pinned end-to-end by
+	// TestHandleMessagePublic_AppliesWordEncFilterToChatBytes (filter +
+	// repack contract); this test only needs to confirm that the handler
+	// populated some chat bytes from the payload.
+	if len(p.chatBytes) == 0 {
+		t.Errorf("chatBytes: empty, expected non-empty repacked output")
 	}
 }
 
@@ -60,7 +64,9 @@ func TestHandleMessagePublic_SetsMaskChat(t *testing.T) {
 // staffModLevel propagates as the rights field, so staff get the priority
 // chat (var15 > 1 routes to client.java:10520's addMessage type 1).
 func TestHandleMessagePublic_RightsFromStaffModLevel(t *testing.T) {
-	p := &Player{staffModLevel: 2}
+	p, _ := newTestPlayer(t)
+	p.client.server = newTestServer(t)
+	p.staffModLevel = 2
 	payload := []byte{0, 0, 0xaa}
 	if err := handleMessagePublic(p, payload); err != nil {
 		t.Fatalf("handleMessagePublic error: %v", err)

@@ -7,7 +7,7 @@ package encfilter
 // filterBadCombinations and getEmulatedDomainCharLen.
 type tlds struct {
 	bads    *badWords
-	domains *domains
+	domains *domains // TS-faithful dead back-ref: WordEncTlds.ts:7,15 stores wordEncDomains but never reads it; preserved for parity.
 	tlds    [][]rune
 	types   []int
 }

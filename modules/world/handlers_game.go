@@ -347,26 +347,19 @@ func handleMessagePublic(p *Player, payload []byte) error {
 	decoded := wordpack.Unpack(pk, len(rawPacked))
 
 	// Apply WordEnc.filter and repack for the wire — mirrors TS lines 34-39.
-	var msg []byte
-	if p.client != nil && p.client.server != nil && p.client.server.wordenc != nil {
-		filtered := p.client.server.wordenc.Filter(decoded)
-		out := packet.NewPacket(nil)
-		wordpack.Pack(out, filtered)
-		msg = out.Bytes()
-	} else {
-		// Server-less / wordenc-less test path (bare `&Server{}` literals don't
-		// populate wordenc). Pass raw packed bytes through so existing tests that
-		// pin chatBytes byte-for-byte without configuring wordenc still pass.
-		msg = rawPacked
-	}
-	p.Chat(color, effect, int(p.staffModLevel), msg)
+	// NewServer always populates s.wordenc; newTestServer injects encfilter.Empty().
+	// Tests that construct a Player directly must wire p.client.server = newTestServer(t).
+	filtered := p.client.server.wordenc.Filter(decoded)
+	out := packet.NewPacket(nil)
+	wordpack.Pack(out, filtered)
+	p.Chat(color, effect, int(p.staffModLevel), out.Bytes())
 
 	// Audit-log to friends-server with the UNFILTERED decoded text — mirrors
 	// TS player.logMessage = unpack at MessagePublicHandler.ts:32 (BEFORE filter).
 	// Skip when p.session is empty or the unbridged "headless" sentinel —
 	// audit logging is meaningless without a real per-login UUID. The bridge
 	// goroutine-wraps the underlying RPC so the tick never blocks.
-	if p.client != nil && p.client.server != nil && p.session != "" && p.session != "headless" {
+	if p.session != "" && p.session != "headless" {
 		s := p.client.server
 		coord := coordgrid.PackCoord(p.level, p.x, p.z)
 		s.friendsBridge.PublicMessage(p.session, coord, decoded)
