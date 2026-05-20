@@ -459,10 +459,23 @@ func (p *Player) SetRun(v int) {
 	p.run = v
 }
 
-// Walk implements script.ActivePlayer.Walk. Empty body — replaced in
-// Task 6 with the real pathfinder+queueWaypoints body. Present here so
-// *Player still satisfies the interface after Task 1's interface delta.
-func (p *Player) Walk(destX, destZ int) {}
+// Walk implements script.ActivePlayer.Walk. Runs the server pathfinder
+// at the player's current level via the s.pathfinder() test seam and
+// replaces the waypoint queue with the result. Mirrors TS
+// Player.queueWaypoints(findPath(player.level, player.x, player.z,
+// destX, destZ)). No-op when no client/server/pathfinder is wired
+// (test fixtures without a real or injected pathfinder).
+func (p *Player) Walk(destX, destZ int) {
+	if p.client == nil || p.client.server == nil {
+		return
+	}
+	pf := p.client.server.pathfinder()
+	if pf == nil {
+		return
+	}
+	route := pf.FindPathPlain(p.level, p.x, p.z, destX, destZ)
+	p.queueWaypoints(routeToPacked(route))
+}
 
 // RunVarpID implements script.ActivePlayer.RunVarpID. Returns the varp
 // id discovered at config-load time as the engine run-mode varp (the

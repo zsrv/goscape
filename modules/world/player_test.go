@@ -9,10 +9,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/gamemap"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
+	"github.com/zsrv/goscape/pkg/pathfinder/routefinder"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -1203,5 +1205,84 @@ func TestPlayerSetVisibilityHard(t *testing.T) {
 	}
 	if !bytes.Contains(out, []byte("vis: 2")) {
 		t.Errorf("MessageGame: missing 'vis: 2'; got %q", out)
+	}
+}
+
+// TestPlayerWalk_PopulatesWaypointsViaPathfinder pins that *Player.Walk
+// routes through the server's pathfinder seam (FindPathPlain at the
+// player's current level), converts the route via routeToPacked, and
+// replaces the waypoint queue via queueWaypoints. Mirrors TS
+// Player.queueWaypoints(findPath(this.level, this.x, this.z, destX,
+// destZ)).
+func TestPlayerWalk_PopulatesWaypointsViaPathfinder(t *testing.T) {
+	srv, rec := newPathToTargetTestServer(t)
+	p := newPathToTargetTestPlayer(t, srv, 3200, 3200, 0)
+
+	// Seed the recorder with a two-step route. routeToPacked iterates
+	// route.Waypoints in order, packing each via coordgrid.PackCoord.
+	rec.returnRoute = routefinder.Route{
+		Success: true,
+		Waypoints: []routefinder.RouteCoordinates{
+			routefinder.NewRouteCoordinates(3201, 3200, 0),
+			routefinder.NewRouteCoordinates(3202, 3200, 0),
+		},
+	}
+
+	p.Walk(3205, 3200)
+
+	// Verify the pathfinder was called with the player's (level, x, z)
+	// and the destination's (x, z) — destination level is NOT forwarded
+	// (player.level is used).
+	call, ok := rec.lastFindPathPlain()
+	if !ok {
+		t.Fatalf("FindPathPlain: not called")
+	}
+	if call.level != 0 || call.srcX != 3200 || call.srcZ != 3200 {
+		t.Errorf("FindPathPlain src: got (level=%d, srcX=%d, srcZ=%d), want (0, 3200, 3200)",
+			call.level, call.srcX, call.srcZ)
+	}
+	if call.destX != 3205 || call.destZ != 3200 {
+		t.Errorf("FindPathPlain dest: got (destX=%d, destZ=%d), want (3205, 3200)",
+			call.destX, call.destZ)
+	}
+
+	// Verify queueWaypoints was called with the packed route. The
+	// waypoint queue stores [dest, …, first_step] (reverse order per
+	// queueWaypoints contract — see modules/world/movement.go:15-36).
+	// Two waypoints → waypointIndex = 1.
+	if got := p.waypointIndex; got != 1 {
+		t.Fatalf("waypointIndex: got %d, want 1 (2-waypoint route)", got)
+	}
+	// waypoints[0] holds the LAST input (route.Waypoints[1] → (3202,3200))
+	// because queueWaypoints reverses on copy.
+	wantFirstStored := coordgrid.PackCoord(0, 3202, 3200)
+	if got := p.waypoints[0]; got != wantFirstStored {
+		t.Errorf("waypoints[0]: got %d, want %d (packed (0,3202,3200))",
+			got, wantFirstStored)
+	}
+	wantSecondStored := coordgrid.PackCoord(0, 3201, 3200)
+	if got := p.waypoints[1]; got != wantSecondStored {
+		t.Errorf("waypoints[1]: got %d, want %d (packed (0,3201,3200))",
+			got, wantSecondStored)
+	}
+}
+
+// TestPlayerWalk_NoPathfinder_NoOp pins the nil-guard: if the player
+// has no client/server/pathfinder wiring, Walk no-ops silently. Test
+// fixtures that exercise scripts without a real pathfinder rely on
+// this — mirrors pathToMoveClick's nil-chain at movement.go:241.
+func TestPlayerWalk_NoPathfinder_NoOp(t *testing.T) {
+	p := &Player{} // bare Player: client == nil, no server, no pathfinder.
+	// Sanity: initial waypointIndex is the zero value (0) since the
+	// queue is a fixed-size array; the queueWaypoints contract sets
+	// it to -1 for empty input. Either way, no panic is the contract.
+	initialIndex := p.waypointIndex
+
+	// Must not panic.
+	p.Walk(3205, 3200)
+
+	if got := p.waypointIndex; got != initialIndex {
+		t.Errorf("waypointIndex: got %d, want %d (unchanged — Walk should be a no-op)",
+			got, initialIndex)
 	}
 }
