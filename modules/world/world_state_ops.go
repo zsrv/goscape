@@ -213,7 +213,10 @@ func (s *Server) QueueScript(scriptName string, username37 uint64) {
 			return
 		}
 		if s.scriptProvider == nil {
-			return // test-fixture path
+			// Reached when production script directory load failed
+			// (server.go warn-logs and proceeds with nil provider) or
+			// when a test fixture omits the provider. Do not remove.
+			return
 		}
 		sf := s.scriptProvider.GetByName("[queue," + scriptName + "]")
 		if sf == nil {
