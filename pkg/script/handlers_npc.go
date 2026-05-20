@@ -92,6 +92,16 @@ func checkNpcType(s *ScriptState, id int, op string) error {
 	return nil
 }
 
+// checkHitType validates a hit-type wire value against
+// objtype.HitTypeCount. Mirrors TS HitTypeValid (ScriptValidators.ts:117)
+// — ScriptInputRangeValidator(0, 3). Accepts BLOCK / DAMAGE / POISON.
+func checkHitType(v int, op string) error {
+	if v < 0 || v >= objtype.HitTypeCount {
+		return fmt.Errorf("%s: hit type out of range (%d)", op, v)
+	}
+	return nil
+}
+
 // checkHuntVis mirrors TS HuntVisValid (ScriptValidators.ts:125) — range
 // [HuntVisOff=0, HuntVisLineOfWalk=2]. Constants live in
 // pkg/objtype/hunttype.go:22-26 and match TS values.

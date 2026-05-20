@@ -99,6 +99,21 @@ func TestCheckCategoryType(t *testing.T) {
 	}
 }
 
+// TestCheckHitType pins the [0, HitTypeCount) range check. Mirrors
+// TS HitTypeValid (ScriptValidators.ts:117) — ScriptInputRangeValidator(0, 3).
+func TestCheckHitType(t *testing.T) {
+	for _, v := range []int{0, 1, 2} {
+		if err := checkHitType(v, "TEST"); err != nil {
+			t.Errorf("checkHitType(%d): unexpected error %v", v, err)
+		}
+	}
+	for _, v := range []int{-1, 3, 100} {
+		if err := checkHitType(v, "TEST"); err == nil {
+			t.Errorf("checkHitType(%d): want error", v)
+		}
+	}
+}
+
 // newTestConfigsWithNpcTypes builds a Configs that reports any id in present
 // as a valid NpcType. Uses the shared mockConfigs type from handlers_config_test.go.
 func newTestConfigsWithNpcTypes(present map[int]bool) Configs {
