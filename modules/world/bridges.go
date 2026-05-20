@@ -77,27 +77,27 @@ type LoggerBridge interface {
 
 // FriendsDispatcher is the world-side sink for server -> world friends
 // updates received over the SubscribeUpdates stream. Production impl
-// (slogFriendsDispatcher, below) logs each event at Debug; the
-// in-game ServerGameProt packet emit (UPDATE_FRIENDLIST /
-// UPDATE_IGNORELIST / MESSAGE_PRIVATE writes to the player's client
-// connection) is gated on NAI-182-D5 (the "social cluster"
-// ServerGameProt deferral noted at tick.go:226).
+// is emitFriendsDispatcher (NAI-182-D5, 2026-05-19) which enqueues the
+// real ServerGameProt packet emit on the tick-goroutine via
+// s.relayActionQueue. slogFriendsDispatcher remains as a debug-only
+// fallback for null-friends-server / test paths.
 //
-// NAI-S4A-D-NO-INGAME-PACKET-EMIT — friendlist/ignorelist methods;
-//   retires when NAI-182-D5 retires and OnFriendlistUpdate /
-//   OnIgnorelistUpdate are wired through to player.write(...).
-// NAI-S4B-D-NO-INGAME-PM-EMIT — OnPrivateMessage; retires when
-//   NAI-182-D5 retires and the dispatcher is wired through to
-//   player.write(MessagePrivate{...}) per TS World.ts:2000.
+// Retired tags:
+//   NAI-S4A-D-NO-INGAME-PACKET-EMIT — RETIRED 2026-05-19 (NAI-182-D5).
+//     OnFriendlistUpdate / OnIgnorelistUpdate now emit UPDATE_FRIENDLIST /
+//     UPDATE_IGNORELIST to the recipient's wire.
+//   NAI-S4B-D-NO-INGAME-PM-EMIT — RETIRED 2026-05-19 (NAI-182-D5).
+//     OnPrivateMessage now emits MESSAGE_PRIVATE to the recipient's wire.
 type FriendsDispatcher interface {
 	OnFriendlistUpdate(viewer uint64, entries []*friendspb.FriendEntry)
 	OnIgnorelistUpdate(viewer uint64, ignored []uint64)
 	OnPrivateMessage(target uint64, from uint64, staffLvl int32, pmId uint32, chat string)
 }
 
-// slogFriendsDispatcher is the default FriendsDispatcher. Logs each
-// event at Debug; does NOT emit ServerGameProt packets to the player.
-// See NAI-S4A-D-NO-INGAME-PACKET-EMIT above.
+// slogFriendsDispatcher is the debug-only fallback FriendsDispatcher.
+// Logs each event at Debug; does NOT emit ServerGameProt packets to
+// the player. Production binds emitFriendsDispatcher instead — see
+// FriendsDispatcher interface doc-comment above.
 type slogFriendsDispatcher struct {
 	log *slog.Logger
 }
@@ -118,15 +118,10 @@ func (d *slogFriendsDispatcher) OnIgnorelistUpdate(viewer uint64, ignored []uint
 		slog.Int("ignored", len(ignored)))
 }
 
-// OnPrivateMessage logs the inbound PM at Debug. The MESSAGE_PRIVATE
-// ServerGameProt packet write to player.client (mirroring TS
-// World.ts:2000 `player.write(new MessagePrivate(...))`) is gated on
-// NAI-182-D5 (social-cluster ServerGameProt port) — see
-// NAI-S4A-D-NO-INGAME-PACKET-EMIT on the interface for the parallel
-// friendlist/ignorelist gating.
-//
-// NAI-S4B-D-NO-INGAME-PM-EMIT — retires when NAI-182-D5 retires and
-// the dispatcher is wired through to player.write(MessagePrivate{...}).
+// OnPrivateMessage logs the inbound PM at Debug. This is the fallback
+// impl; production binds emitFriendsDispatcher (see FriendsDispatcher
+// interface doc-comment) which writes the real MESSAGE_PRIVATE packet
+// to the recipient via the tick-goroutine relayActionQueue.
 func (d *slogFriendsDispatcher) OnPrivateMessage(target uint64, from uint64, staffLvl int32, pmId uint32, chat string) {
 	d.log.Debug("friends dispatch: private message",
 		slog.Uint64("target", target),
