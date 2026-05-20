@@ -95,3 +95,61 @@ func TestProcessPlayerQueue_LoggingOutAcceleratesLongZeroAction(t *testing.T) {
 		t.Errorf("surviving entry IntArgs[0]: got %d, want 1 (non-accel entry should remain)", got)
 	}
 }
+
+// TestProcessPlayerQueue_NoAccelerationWhenNotLoggingOut pins that the
+// logout-acceleration guard (TS Player.ts:877-881) only fires when
+// p.loggingOut==true. A LONG entry with IntArgs[0]==0 but loggingOut==
+// false must decrement normally — not be accelerated.
+func TestProcessPlayerQueue_NoAccelerationWhenNotLoggingOut(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	sf := &script.ScriptFile{Name: "[long,no-accel]", LookupKey: 0xAC2}
+	s.scriptProvider.Register(sf)
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.loggingOut = false // explicit — not logging out
+	s.playerLoop = []*Player{p}
+
+	p.queue = []playerQueueRequest{
+		{Script: sf, Delay: 5, Type: script.QueueLong, IntArgs: []int{0, 42}},
+	}
+
+	s.processPlayerQueue(p)
+
+	if len(p.queue) != 1 {
+		t.Fatalf("p.queue len: got %d, want 1 (entry must not fire)", len(p.queue))
+	}
+	if got := p.queue[0].Delay; got != 4 {
+		t.Errorf("entry delay: got %d, want 4 (normal decrement)", got)
+	}
+}
+
+// TestProcessPlayerQueue_LoggingOutEmptyIntArgsDoesNotPanic pins the
+// bounds-guard `len(req.IntArgs) > 0` in the acceleration check. A
+// LONG entry with empty IntArgs during logout must NOT be accelerated
+// and must NOT panic on the index access.
+func TestProcessPlayerQueue_LoggingOutEmptyIntArgsDoesNotPanic(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	sf := &script.ScriptFile{Name: "[long,empty-args]", LookupKey: 0xAC3}
+	s.scriptProvider.Register(sf)
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.loggingOut = true
+	s.playerLoop = []*Player{p}
+
+	p.queue = []playerQueueRequest{
+		{Script: sf, Delay: 5, Type: script.QueueLong, IntArgs: nil},
+	}
+
+	s.processPlayerQueue(p)
+
+	if len(p.queue) != 1 {
+		t.Fatalf("p.queue len: got %d, want 1 (entry must not fire)", len(p.queue))
+	}
+	if got := p.queue[0].Delay; got != 4 {
+		t.Errorf("entry delay: got %d, want 4 (normal decrement)", got)
+	}
+}
