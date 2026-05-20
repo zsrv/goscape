@@ -1662,6 +1662,7 @@ func handleHealEnergy(s *ScriptState) error {
 //	const skin = check(state.popInt(), SkinColourValid)
 //	state.activePlayer.colors[4] = skin
 //
+// Validated via checkSkinColour (TS SkinColourValid, inclusive [0, 7]).
 // The active-player guard is goscape defensive (TS skips this check;
 // see defensive_gate_doc_comment_label).
 func handleSetSkinColour(s *ScriptState) error {
@@ -1669,8 +1670,8 @@ func handleSetSkinColour(s *ScriptState) error {
 		return err
 	}
 	skin := s.PopInt()
-	if skin < 0 || skin > 7 {
-		return fmt.Errorf("SETSKINCOLOUR: invalid skin colour %d (range 0..7)", skin)
+	if err := checkSkinColour(skin, "SETSKINCOLOUR"); err != nil {
+		return err
 	}
 	s.Self.SetColorPart(4, skin)
 	return nil
