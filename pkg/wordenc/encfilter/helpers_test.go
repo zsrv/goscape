@@ -106,15 +106,21 @@ func TestMaskChars(t *testing.T) {
 
 func TestFormat_StripsControlAndCollapsesSpaces(t *testing.T) {
 	// TS isCharacterAllowed accepts ' '..'\x7f', '£', '€', and '\n'/'\t'.
-	// Other chars become spaces; consecutive spaces collapse.
-	chars := []rune("hello  world")
+	// Other chars become spaces; consecutive spaces collapse. Trailing pad
+	// with spaces (format does NOT trim — that's filter's job).
+	//
+	// Input: "hello\x01\x02world" (12 runes)
+	// \x01 → ' ', \x02 → ' ' (consecutive → collapsed to one space at pos 5)
+	// tail pos=11 → padded with ' '
+	// Expected: "hello world " (12 runes)
+	chars := []rune("hello\x01\x02world")
 	format(chars)
-	// pos walks; trailing chars become space; consecutive collapse.
-	if got := string(chars); got != "hello world " && got != "hello world  " {
-		// The format function doesn't trim trailing — that's filter's job.
-		// But it does collapse consecutive spaces.
+	const want = "hello world "
+	if got := string(chars); got != want {
+		t.Errorf("format: got %q, want %q", got, want)
 	}
-	if slices.Contains(chars[:11], '\x00') {
+	// Secondary: no control chars should survive format.
+	if slices.Contains(chars, '\x01') || slices.Contains(chars, '\x02') {
 		t.Errorf("format kept control char: %q", string(chars))
 	}
 }
