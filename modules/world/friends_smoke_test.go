@@ -15,6 +15,8 @@ import (
 	"github.com/zsrv/goscape/modules/friends"
 	"github.com/zsrv/goscape/modules/login"
 	"github.com/zsrv/goscape/pkg/friendspb"
+	io2 "github.com/zsrv/goscape/pkg/io/isaac"
+	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/loginpb"
 
 	_ "modernc.org/sqlite"
@@ -949,5 +951,161 @@ func TestFriendsClient_E2E_PublicMessagePersistsRow(t *testing.T) {
 	if sess != "uuid-e2e-1" || coord != 42 || msg != "persisted publicly" {
 		t.Errorf("public_chat row = (%q, %d, %q), want (uuid-e2e-1, 42, %q)",
 			sess, coord, msg, "persisted publicly")
+	}
+}
+
+// TestFriendsClient_E2E_OnPrivateMessageEmitsWirePacket pins NAI-182-D5
+// end-to-end: real friends-server PM RPC → real gRPC SubscribeUpdates
+// stream → emitFriendsDispatcher.OnPrivateMessage → enqueueRelayAction →
+// drainRelayActions (tick goroutine) → sendMessagePrivate → ISAAC-encrypted
+// OpMessagePrivate byte on the recipient's net.Conn.
+//
+// Companion to TestFriendsClient_E2E_PrivateMessageDelivery (which used
+// recordingFriendsDispatcher to assert routing). This one uses the
+// production emitFriendsDispatcher to close the loop on wire emit.
+//
+// Design note: the SubscribeUpdates stream sends an initial snapshot
+// (one empty UPDATE_IGNORELIST = 3 bytes) before delivering the PM.
+// We accumulate ALL bytes from the wire and check the PM opcode at its
+// correct position (byte 3, after the ignorelist packet) to avoid
+// conflating the two packets.
+func TestFriendsClient_E2E_OnPrivateMessageEmitsWirePacket(t *testing.T) {
+	port := freePort(t)
+	cfg := friends.Config{
+		GRPCListenAddress:       "127.0.0.1",
+		GRPCListenPort:          port,
+		NodeProfile:             "main",
+		WorldPlayerLimit:        100,
+		Enable:                  true,
+		GracefulShutdownTimeout: 5 * time.Second,
+		SQLiteDSN:               filepath.Join(t.TempDir(), "friends.db"),
+	}
+	log := discardLogger()
+	svc, err := friends.New(cfg, log)
+	if err != nil {
+		t.Fatalf("friends.New: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	if err := svc.StartAsync(ctx); err != nil {
+		t.Fatalf("StartAsync: %v", err)
+	}
+	if err := svc.AwaitRunning(ctx); err != nil {
+		t.Fatalf("AwaitRunning: %v", err)
+	}
+	t.Cleanup(func() {
+		svc.StopAsync()
+		_ = svc.AwaitTerminated(context.Background())
+	})
+
+	addr := "127.0.0.1:" + strconv.Itoa(port)
+	client, err := NewFriendsClient(addr, log)
+	if err != nil {
+		t.Fatalf("NewFriendsClient: %v", err)
+	}
+	t.Cleanup(func() { _ = client.Close() })
+
+	client.WorldConnect(ctx, 10, "main")
+
+	// Seed a recipient *Player + *Server with the production
+	// emitFriendsDispatcher wired in.
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	const recipient uint64 = 2222
+	p.username37 = recipient
+	p.active = true
+	s.playerLoop = append(s.playerLoop, p)
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	disp := newEmitFriendsDispatcher(s, log)
+
+	// Recipient logs in and subscribes via the real gRPC stream.
+	client.PlayerLogin(ctx, &friendspb.PlayerLoginRequest{
+		WorldId: 10, Username37: recipient, PrivateChat: 0, StaffLvl: 0,
+	}, nil)
+	sub := newFriendsSubscriber(client, 10, recipient, disp, log)
+	subCtx, subCancel := context.WithCancel(ctx)
+	t.Cleanup(subCancel)
+	go sub.run(subCtx)
+
+	// Sender logs in.
+	client.PlayerLogin(ctx, &friendspb.PlayerLoginRequest{
+		WorldId: 10, Username37: 1111, PrivateChat: 0, StaffLvl: 0,
+	}, nil)
+
+	// accumulated collects all wire bytes across multiple reads. The
+	// initial subscription snapshot sends one empty UPDATE_IGNORELIST
+	// (opcode + 2-byte length = 3 bytes) before the PM arrives. We keep
+	// reading until we have enough bytes for the PM opcode at offset 3.
+	accumulated := make(chan []byte, 32)
+	go func() {
+		buf := make([]byte, 4096)
+		for {
+			cc.SetReadDeadline(time.Now().Add(200 * time.Millisecond))
+			n, err := cc.Read(buf)
+			if n > 0 {
+				chunk := make([]byte, n)
+				copy(chunk, buf[:n])
+				accumulated <- chunk
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
+
+	// Sender PMs recipient.
+	client.PrivateMessage(ctx, &friendspb.PrivateMessageRequest{
+		WorldId:          10,
+		Username37:       1111,
+		TargetUsername37: recipient,
+		StaffLvl:         0,
+		PmId:             0xCAFEBABE,
+		Chat:             "e2e",
+		Coord:            0,
+	})
+
+	// Poll: dispatcher enqueues on s.relayActionQueue; we must drain
+	// from the tick-goroutine seat (the test goroutine here) before
+	// writeOut runs. Accumulate all wire bytes until we have both the
+	// initial ignorelist packet (3 bytes) and the PM opcode byte (byte 3).
+	//
+	// Wire layout (OpUpdateIgnoreList.PayloadSize == -2):
+	//   got[0] = encrypted OpUpdateIgnoreList opcode (ISAAC advance #1)
+	//   got[1:3] = 2-byte length = 0 (empty ignorelist)
+	//   got[3] = encrypted OpMessagePrivate opcode (ISAAC advance #2)
+	const pmOpcodeOffset = 3 // byte index of PM opcode in accumulated bytes
+	deadline := time.Now().Add(2 * time.Second)
+	var got []byte
+	for time.Now().Before(deadline) {
+		s.drainRelayActions()
+		p.client.flushWrite()
+		// Drain all pending chunks from the reader goroutine.
+	drainLoop:
+		for {
+			select {
+			case chunk := <-accumulated:
+				got = append(got, chunk...)
+			default:
+				break drainLoop
+			}
+		}
+		if len(got) > pmOpcodeOffset {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if len(got) <= pmOpcodeOffset {
+		t.Fatalf("recipient wire received only %d bytes within 2s (need > %d for PM opcode)", len(got), pmOpcodeOffset)
+	}
+
+	// Advance enc past ISAAC advance #1 (the UPDATE_IGNORELIST opcode).
+	enc.GetNext()
+	// ISAAC advance #2 is the PM opcode.
+	wantOpcode := byte((int(gameserver.OpMessagePrivate.Opcode) + int(enc.GetNext())) & 0xff)
+	if got[pmOpcodeOffset] != wantOpcode {
+		t.Errorf("PM wire opcode byte (offset %d): got 0x%02x, want 0x%02x (encrypted OpMessagePrivate)",
+			pmOpcodeOffset, got[pmOpcodeOffset], wantOpcode)
 	}
 }
