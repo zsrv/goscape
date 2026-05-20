@@ -242,7 +242,10 @@ type Server struct {
 	watchSessionFn func() bool
 
 	// runScriptFn is the seam tick.go uses to fire a script (the four
-	// call sites at tick.go:275, :471, :520, :571). Defaults to
+	// call sites at tick.go:275, :482, :531, :582 — processLogins,
+	// processPlayerQueue, processPlayerInteractions, and the timer
+	// dispatcher respectively; line numbers may drift, grep for
+	// `s\.runScriptFn\(` in tick.go to re-verify). Defaults to
 	// (*Server).runScript in NewServer + newTestServer. Tests override
 	// to capture invocation args (e.g., the LONG-strip pin in
 	// TestProcessPlayerQueue_LongStripsArgs0).

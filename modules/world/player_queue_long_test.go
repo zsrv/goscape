@@ -1,6 +1,7 @@
 package world
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/script"
@@ -49,21 +50,9 @@ func TestProcessPlayerQueue_LongStripsArgs0(t *testing.T) {
 
 			s.processPlayerQueue(p)
 
-			if !intSliceEqual(captured, tc.wantPassed) {
+			if !slices.Equal(captured, tc.wantPassed) {
 				t.Fatalf("script intArgs: got %v, want %v", captured, tc.wantPassed)
 			}
 		})
 	}
-}
-
-func intSliceEqual(a, b []int) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }
