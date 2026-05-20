@@ -177,22 +177,32 @@ func handleNpcCoord(s *ScriptState) error {
 }
 
 // handleNpcStat pops a stat id and pushes the NPC's current (boosted)
-// level for that stat.
+// level for that stat. Mirrors TS NpcOps.ts NPC_STAT —
+// check(state.popInt(), NpcStatValid). Goscape mirrors via
+// checkNpcStatID.
 func handleNpcStat(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_STAT"); err != nil {
 		return err
 	}
 	stat := s.PopInt()
+	if err := checkNpcStatID(stat, "NPC_STAT"); err != nil {
+		return err
+	}
 	s.PushInt(s.ActiveNpc.NpcStat(stat))
 	return nil
 }
 
 // handleNpcBaseStat pops a stat id and pushes the NPC's base level.
+// Mirrors TS NpcOps.ts NPC_BASESTAT — check(state.popInt(),
+// NpcStatValid). Goscape mirrors via checkNpcStatID.
 func handleNpcBaseStat(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_BASESTAT"); err != nil {
 		return err
 	}
 	stat := s.PopInt()
+	if err := checkNpcStatID(stat, "NPC_BASESTAT"); err != nil {
+		return err
+	}
 	s.PushInt(s.ActiveNpc.NpcBaseStat(stat))
 	return nil
 }

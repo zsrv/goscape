@@ -509,6 +509,50 @@ func TestNpcBaseStat(t *testing.T) {
 	}
 }
 
+// TestHandleNpcStat_InvalidStat pins that NPC_STAT rejects a stat id
+// outside [0, NpcStatCount). Mirrors TS NpcOps.ts NPC_STAT —
+// check(state.popInt(), NpcStatValid).
+func TestHandleNpcStat_InvalidStat(t *testing.T) {
+	npc := &mockNpc{}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		Pointers:    PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(objtype.NpcStatCount) // 6 — exclusive upper bound, must reject
+	err := handleNpcStat(s)
+	if err == nil {
+		t.Fatalf("handleNpcStat: want error for stat=%d, got nil", objtype.NpcStatCount)
+	}
+	want := "NPC_STAT: npc stat id out of range"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+}
+
+// TestHandleNpcBaseStat_InvalidStat pins that NPC_BASESTAT rejects a
+// stat id outside [0, NpcStatCount). Mirrors TS NpcOps.ts NPC_BASESTAT
+// — check(state.popInt(), NpcStatValid).
+func TestHandleNpcBaseStat_InvalidStat(t *testing.T) {
+	npc := &mockNpc{}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		Pointers:    PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(-1) // null sentinel, must reject
+	err := handleNpcBaseStat(s)
+	if err == nil {
+		t.Fatalf("handleNpcBaseStat: want error for stat=-1, got nil")
+	}
+	want := "NPC_BASESTAT: npc stat id out of range"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+}
+
 func TestNpcUID(t *testing.T) {
 	// (7 << 16) | 3 = 458755
 	npc := &mockNpc{uid: (7 << 16) | 3}
