@@ -103,6 +103,22 @@ func checkHitType(v int, op string) error {
 	return nil
 }
 
+// checkQueue validates an AI-queue identifier. Mirrors TS QueueValid
+// (ScriptValidators.ts:114) — ScriptInputRangeValidator(0, 19, 'AIQueue'),
+// inclusive range [0, 19]. Note: the call-site arithmetic at NPC_QUEUE /
+// NPC_WALKTRIGGER then subtracts 1 to index TriggerAiQueue1..20, which
+// means queueId=0 produces TriggerAiQueue1-1 (a garbage trigger one
+// before AI_QUEUE1). That fencepost is inherited from upstream TS and is
+// not exercised by any LostCityRS/Content script (audit: real callers
+// push 1..12); the inherited bug is pinned by
+// NAI-QUEUE-D-TS-FENCEPOST-INHERITED.
+func checkQueue(v int, op string) error {
+	if v < 0 || v > 19 {
+		return fmt.Errorf("%s: queue id out of range (%d)", op, v)
+	}
+	return nil
+}
+
 // checkHuntVis mirrors TS HuntVisValid (ScriptValidators.ts:125) — range
 // [HuntVisOff=0, HuntVisLineOfWalk=2]. Constants live in
 // pkg/objtype/hunttype.go:22-26 and match TS values.

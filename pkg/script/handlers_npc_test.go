@@ -2,6 +2,7 @@ package script
 
 import (
 	"errors"
+	"math"
 	"reflect"
 	"slices"
 	"strings"
@@ -110,6 +111,27 @@ func TestCheckHitType(t *testing.T) {
 	for _, v := range []int{-1, 3, 100} {
 		if err := checkHitType(v, "TEST"); err == nil {
 			t.Errorf("checkHitType(%d): want error", v)
+		}
+	}
+}
+
+// TestCheckQueue_Range pins the [0, 19] inclusive range check. Mirrors
+// TS QueueValid (ScriptValidators.ts:114) —
+// ScriptInputRangeValidator(0, 19, 'AIQueue').
+func TestCheckQueue_Range(t *testing.T) {
+	for _, v := range []int{0, 1, 10, 19} {
+		if err := checkQueue(v, "TEST_OP"); err != nil {
+			t.Errorf("checkQueue(%d): unexpected error %v", v, err)
+		}
+	}
+	for _, v := range []int{-1, 20, 21, math.MinInt, math.MaxInt} {
+		err := checkQueue(v, "TEST_OP")
+		if err == nil {
+			t.Errorf("checkQueue(%d): want error, got nil", v)
+			continue
+		}
+		if !strings.Contains(err.Error(), "TEST_OP") {
+			t.Errorf("checkQueue(%d): error %q missing op name TEST_OP", v, err)
 		}
 	}
 }
