@@ -14,7 +14,7 @@ type badWords struct {
 // filter runs filterBadCombinations for each bad word TWICE (the comboIndex
 // loop 0..1 in WordEncBadWords.ts:14-19). Walks bad words from len-1 down to 0.
 func (b *badWords) filter(chars []rune) {
-	for comboIndex := 0; comboIndex < 2; comboIndex++ {
+	for range 2 {
 		for i := len(b.bads) - 1; i >= 0; i-- {
 			b.filterBadCombinations(b.combos[i], chars, b.bads[i])
 		}
@@ -118,6 +118,8 @@ func (b *badWords) processBadCharacters(chars, bad []rune, startIndex int) (curr
 	badIndex = 0
 	count := 0
 	for index < len(chars) && !(hasNumber && hasDigit) {
+		// TS-faithful: redundant given outer-loop predicate. Preserved for byte-equivalent
+		// trace-debug parity with WordEncBadWords.ts:131-134. Do not "clean up".
 		if index >= len(chars) || (hasNumber && hasDigit) {
 			break
 		}
@@ -159,6 +161,7 @@ func (b *badWords) processBadCharacters(chars, bad []rune, startIndex int) (curr
 				}
 				index++
 				count++
+				// index > startIndex here (index was incremented above before this check).
 				if (count*100)/(index-startIndex) > 90 {
 					break
 				}

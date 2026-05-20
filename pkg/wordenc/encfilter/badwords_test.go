@@ -132,7 +132,7 @@ func TestBadWords_filter_Leetspeak(t *testing.T) {
 	chars := []rune("4n4l")
 	b.filter(chars)
 	if string(chars) != "****" {
-		t.Errorf("filter leetspeak: got %q, want %d", string(chars), 4)
+		t.Errorf("filter leetspeak: got %q, want %q", string(chars), "****")
 	}
 }
 
