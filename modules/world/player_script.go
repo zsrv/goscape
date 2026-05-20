@@ -459,6 +459,11 @@ func (p *Player) SetRun(v int) {
 	p.run = v
 }
 
+// Walk implements script.ActivePlayer.Walk. Empty body — replaced in
+// Task 6 with the real pathfinder+queueWaypoints body. Present here so
+// *Player still satisfies the interface after Task 1's interface delta.
+func (p *Player) Walk(destX, destZ int) {}
+
 // RunVarpID implements script.ActivePlayer.RunVarpID. Returns the varp
 // id discovered at config-load time as the engine run-mode varp (the
 // config with ClientCode==7). Mirrors TS VarPlayerType.RUN at

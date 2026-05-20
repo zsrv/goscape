@@ -397,6 +397,9 @@ type mockPlayer struct {
 	exactMoveCalls    []struct{ sX, sZ, eX, eZ, begin, finish, dir int }
 	unsetMapFlagCalls int
 
+	// P_WALK port T1: Walk recorder.
+	walkCalls []walkCall
+
 	// NAI-161 T1/T2: queue-introspection recorders.
 	unlinkScriptCalls  []int       // every UnlinkQueuedScript call's scriptID
 	queueCountByScript map[int]int // scriptID → return value; unset entries return 0
@@ -420,6 +423,10 @@ type mockSessionLogCall struct {
 	eventType int
 	message   string
 	args      []string
+}
+
+type walkCall struct {
+	destX, destZ int
 }
 
 func (m *mockPlayer) MessageGame(msg string) { m.messages = append(m.messages, msg) }
@@ -494,6 +501,10 @@ func (m *mockPlayer) ExactMove(sX, sZ, eX, eZ, begin, finish, dir int) {
 
 // UnsetMapFlag counts invocations. NAI-160 T4.
 func (m *mockPlayer) UnsetMapFlag() { m.unsetMapFlagCalls++ }
+
+func (m *mockPlayer) Walk(destX, destZ int) {
+	m.walkCalls = append(m.walkCalls, walkCall{destX, destZ})
+}
 
 // NAI-161 T3: queue-introspection adapters.
 func (m *mockPlayer) UnlinkQueuedScript(scriptID int) {

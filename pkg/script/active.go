@@ -155,6 +155,14 @@ type ActivePlayer interface {
 	// modules/world/player_masks.go:28. NAI-160 T4.
 	ExactMove(sX, sZ, eX, eZ, begin, finish, dir int)
 
+	// Walk queues a path from the player's current (level, x, z) to the
+	// destination (destX, destZ) at the player's level. Production impl
+	// runs the server pathfinder (FindPathPlain) and replaces the player's
+	// waypoint queue. Empty/failed routes leave the player stationary.
+	// Mirrors TS PlayerOps.P_WALK → player.queueWaypoints(findPath(
+	// player.level, player.x, player.z, coord.x, coord.z)).
+	Walk(destX, destZ int)
+
 	// UnsetMapFlag clears the player's map-click destination by sending
 	// the matching client packet. Mirrors TS Player.unsetMapFlag — called
 	// by P_EXACTMOVE (PlayerOps.ts:888) and adjacent server-script paths
