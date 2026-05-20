@@ -289,7 +289,7 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	s.reloadFn = s.Reload
 	s.watchSessionFn = s.runWatchSession
 	s.friendsBridge = defaultFriendsBridge(friendsClient, int32(cfg.NodeID), s.log)
-	s.friendsDispatcher = newSlogFriendsDispatcher(s.log)
+	s.friendsDispatcher = newEmitFriendsDispatcher(s, s.log)
 	s.friendsAdminBridge = defaultFriendsAdminBridge(friendsClient, s.log)
 	// Slice 5b: production dispatcher composes the slice-5a slog
 	// dispatcher with WorldStateOps so each RELAY_* event both logs

@@ -134,6 +134,62 @@ func (d *slogFriendsDispatcher) OnPrivateMessage(target uint64, from uint64, sta
 		slog.Uint64("pm_id", uint64(pmId)))
 }
 
+// emitFriendsDispatcher is the production FriendsDispatcher. Each
+// method enqueues a closure on s.relayActionQueue so the writeOut on
+// the resolved Player runs on the tick goroutine (the only goroutine
+// allowed to touch Player.client.bufw + ISAAC stream). The recipient
+// is resolved inside the closure (not at enqueue time) so a player who
+// logs out between event arrival and tick-drain is correctly skipped.
+//
+// slogFriendsDispatcher remains the default fallback for tests and
+// when friends-server is disabled — that path never reaches a real
+// Player.
+//
+// Retires NAI-S4A-D-NO-INGAME-PACKET-EMIT / NAI-S4B-D-NO-INGAME-PM-EMIT
+// (NAI-182-D5, 2026-05-19).
+type emitFriendsDispatcher struct {
+	s   *Server
+	log *slog.Logger
+}
+
+func newEmitFriendsDispatcher(s *Server, log *slog.Logger) FriendsDispatcher {
+	return &emitFriendsDispatcher{s: s, log: log}
+}
+
+func (d *emitFriendsDispatcher) OnFriendlistUpdate(viewer uint64, entries []*friendspb.FriendEntry) {
+	d.log.Debug("friends dispatch: friendlist update",
+		slog.Uint64("viewer", viewer),
+		slog.Int("entries", len(entries)))
+	d.s.enqueueRelayAction(func() {
+		p := d.s.lookupPlayerByUsername37(viewer)
+		if p == nil {
+			return
+		}
+		for _, e := range entries {
+			sendUpdateFriendList(p, e.Username37, int(e.WorldId))
+		}
+	})
+}
+
+// OnIgnorelistUpdate is a T3 stub — replaced by the real impl in T4.
+// For T3 we log-only to keep the FriendsDispatcher interface satisfied
+// without dispatching enqueue side-effects.
+func (d *emitFriendsDispatcher) OnIgnorelistUpdate(viewer uint64, ignored []uint64) {
+	d.log.Debug("friends dispatch: ignorelist update (T3 stub)",
+		slog.Uint64("viewer", viewer),
+		slog.Int("ignored", len(ignored)))
+}
+
+// OnPrivateMessage is a T3 stub — replaced by the real impl in T5.
+func (d *emitFriendsDispatcher) OnPrivateMessage(target uint64, from uint64, staffLvl int32, pmId uint32, chat string) {
+	d.log.Debug("friends dispatch: private message (T3 stub)",
+		slog.Uint64("target", target),
+		slog.Uint64("from", from),
+		slog.Uint64("pm_id", uint64(pmId)))
+}
+
+var _ FriendsDispatcher = (*emitFriendsDispatcher)(nil)
+
 // FriendsAdminBridge mirrors TS World.friendThread.postMessage(...) for
 // cross-world RELAY_* admin commands (slice 5a). Production impl is
 // grpcFriendsAdminBridge (modules/world/admin_bridge.go); wired by
