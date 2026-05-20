@@ -357,7 +357,7 @@ Per memory `controller_preflight.md`, the controller does a 30-second grep+Read 
 
 ## 6. Deviations
 
-- **DEVIATION-NAI-182-D5-NO-WORDENC-FILTER** — `sendMessagePrivate` calls `wordpack.Pack(chat)` without an equivalent of TS `WordEnc.filter(message.msg)`. goscape has no WordEnc port (only WordPack). Practical impact: profanity censoring is bypassed on inbound PMs. Retires when WordEnc lands.
+- **DEVIATION-NAI-182-D5-NO-WORDENC-FILTER** — RETIRED 2026-05-20 (NAI-WORDENC-FILTER slice). `pkg/wordenc/encfilter` ported in 11 commits; `sendMessagePrivate` and `handleMessagePublic` now apply `s.wordenc.Filter(...)`. Pinned by `TestSendMessagePrivate_AppliesWordEncFilter` and `TestHandleMessagePublic_AppliesWordEncFilterToChatBytes`.
 - **DEVIATION-NAI-182-D5-NO-DEFENSIVE-IGNORELIST-LOGIN-EMIT** — TS `Player.onLogin` emits `UpdateIgnoreList([])` at `Player.ts:489-492` ONLY when `!Environment.NODE_HAS_FRIEND_SERVER`. goscape permanently runs WITH a friends server (the bridge arc is the only persistence path), so this branch is never taken. Permanent.
 - **DEVIATION-NAI-182-D5-CHAT-FILTER-NO-RESTORE** — RETIRED 2026-05-19 (post-D5 cleanup). The marker was authored assuming PlayerLoading did not yet restore these fields, but NAI-PLAYERLOADING (closed at 575e40cc, predates D5) already wired SAV v4+ round-trip for publicChat/privateChat/tradeDuel — see `player_save.go:104` (pack) and `player_load.go:225-229` (unpack). `processLogins` invokes `LoadSave` at `tick.go:222` before `sendChatFilterSettings` at line 253, so the fresh-login emit already reflects saved state for any returning player. Pinned by `TestProcessLogins_FreshLogin_ChatFilterEmitReflectsSAV` in `login_resync_test.go`.
 
