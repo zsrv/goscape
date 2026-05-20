@@ -109,6 +109,36 @@ func TestStringIndexOfString(t *testing.T) {
 	}
 }
 
+func TestHandleTextSwitch(t *testing.T) {
+	cases := []struct {
+		name       string
+		value      int
+		s1, s2     string
+		wantPushed string
+	}{
+		{"value=1 picks s1", 1, "apple", "banana", "apple"},
+		{"value=0 picks s2", 0, "apple", "banana", "banana"},
+		{"value=-1 picks s2", -1, "apple", "banana", "banana"},
+		{"value=2 picks s2 (strict ===1)", 2, "apple", "banana", "banana"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			st := newTestState(minimalScript(OpReturn))
+			// Push order: s1 first, s2 second (so s2 is top), then value (top).
+			st.PushString(tc.s1)
+			st.PushString(tc.s2)
+			st.PushInt(tc.value)
+			if err := handleTextSwitch(st); err != nil {
+				t.Fatalf("handleTextSwitch: unexpected error: %v", err)
+			}
+			got := st.PopString()
+			if got != tc.wantPushed {
+				t.Fatalf("pushed: got %q, want %q", got, tc.wantPushed)
+			}
+		})
+	}
+}
+
 // runSplitInit pushes (text, maxWidth, linesPerPage, fontId) and runs
 // SPLIT_INIT against a fresh state, then returns the state for assertion.
 func runSplitInit(t *testing.T, text string, maxWidth, linesPerPage, fontId int) *ScriptState {

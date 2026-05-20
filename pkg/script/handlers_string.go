@@ -84,13 +84,31 @@ func handleStringIndexOfString(s *ScriptState) error {
 	return nil
 }
 
-// handleTextSwitch is a stub until string-switch tables land in the
-// file decoder. TS branches based on a string key; for S5a we pop the
-// key and fall through.
+// handleTextSwitch (TEXT_SWITCH, opcode see opcode.go:1172) is the
+// string conditional operator: pops int value and 2 strings; pushes
+// s1 when value==1 (strict equality), else s2. Mirrors TS
+// StringOps.ts:42-46 verbatim:
+//
+//	[ScriptOpcode.TEXT_SWITCH]: state => {
+//	    const value = state.popInt();
+//	    const [s1, s2] = state.popStrings(2);
+//	    state.pushString(value === 1 ? s1 : s2);
+//	}
+//
+// TS popStrings(2) (ScriptState.ts:341-346) fills strings[i] for
+// i=amount-1..0 by calling popString() each iteration — strings[0] is
+// second-from-top, strings[1] is top. Destructured as [s1, s2]:
+// s1=second-from-top, s2=top. Goscape PopString returns top-of-stack
+// (verified against handleAppend at handlers_string.go:9-14).
 func handleTextSwitch(s *ScriptState) error {
-	_ = s.PopString()
-	slog.Debug("TEXT_SWITCH not implemented; falling through",
-		"script", s.Script.Name, "pc", s.PC)
+	value := s.PopInt()
+	s2 := s.PopString() // top (TS strings[1])
+	s1 := s.PopString() // second-from-top (TS strings[0])
+	if value == 1 {
+		s.PushString(s1)
+	} else {
+		s.PushString(s2)
+	}
 	return nil
 }
 
