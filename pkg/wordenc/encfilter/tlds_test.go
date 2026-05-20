@@ -1,16 +1,9 @@
 package encfilter
 
-import "testing"
-
-// containsRune reports whether r is present in chars.
-func containsRune(chars []rune, r rune) bool {
-	for _, c := range chars {
-		if c == r {
-			return true
-		}
-	}
-	return false
-}
+import (
+	"slices"
+	"testing"
+)
 
 // TestTlds_filter_MasksBareUrl — input "go to foo.com please" should mask
 // "foo.com" (or a superset of it) given a TLD list with "com" type 2.
@@ -25,7 +18,7 @@ func TestTlds_filter_MasksBareUrl(t *testing.T) {
 	tl.filter(chars)
 	// "com" at 10..13 should be masked. Plus possibly "foo." preceding given the
 	// period traversal at TS lines 71-81.
-	if !containsRune(chars, '*') {
+	if !slices.Contains(chars, '*') {
 		t.Errorf("tlds.filter: nothing masked in %q", string(chars))
 	}
 }
