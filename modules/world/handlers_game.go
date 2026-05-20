@@ -339,20 +339,34 @@ func handleMessagePublic(p *Player, payload []byte) error {
 	}
 	color := int(payload[0])
 	effect := int(payload[1])
-	// Copy the message bytes — the underlying packet buffer may be reused.
-	msg := bytes.Clone(payload[2:])
+
+	// Unpack raw word-packed text first — needed for both wordenc filtering
+	// (TS MessagePublicHandler.ts:26) and audit-log (TS line 32).
+	rawPacked := bytes.Clone(payload[2:])
+	pk := packet.NewPacket(rawPacked)
+	decoded := wordpack.Unpack(pk, len(rawPacked))
+
+	// Apply WordEnc.filter and repack for the wire — mirrors TS lines 34-39.
+	var msg []byte
+	if p.client != nil && p.client.server != nil && p.client.server.wordenc != nil {
+		filtered := p.client.server.wordenc.Filter(decoded)
+		out := packet.NewPacket(nil)
+		wordpack.Pack(out, filtered)
+		msg = out.Bytes()
+	} else {
+		// Server-less test path: pass raw bytes through (matches previous
+		// passthrough behavior so non-wordenc tests still pin byte-for-byte).
+		msg = rawPacked
+	}
 	p.Chat(color, effect, int(p.staffModLevel), msg)
 
-	// Audit-log to friends-server. WordPack-decode the message so the
-	// row contains human-readable text (matches TS player.logMessage at
-	// MessagePublicHandler.ts:18). Skip when p.session is empty or the
-	// unbridged "headless" sentinel — audit logging is meaningless
-	// without a real per-login UUID. The bridge goroutine-wraps the
-	// underlying RPC so the tick never blocks.
+	// Audit-log to friends-server with the UNFILTERED decoded text — mirrors
+	// TS player.logMessage = unpack at MessagePublicHandler.ts:32 (BEFORE filter).
+	// Skip when p.session is empty or the unbridged "headless" sentinel —
+	// audit logging is meaningless without a real per-login UUID. The bridge
+	// goroutine-wraps the underlying RPC so the tick never blocks.
 	if p.client != nil && p.client.server != nil && p.session != "" && p.session != "headless" {
 		s := p.client.server
-		pk := packet.NewPacket(msg)
-		decoded := wordpack.Unpack(pk, len(msg))
 		coord := coordgrid.PackCoord(p.level, p.x, p.z)
 		s.friendsBridge.PublicMessage(p.session, coord, decoded)
 	}

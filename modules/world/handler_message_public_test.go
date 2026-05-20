@@ -1,10 +1,12 @@
 package world
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/io/packet"
+	"github.com/zsrv/goscape/pkg/wordenc/encfilter"
 	"github.com/zsrv/goscape/pkg/wordenc/wordpack"
 )
 
@@ -95,5 +97,59 @@ func TestHandleMessagePublic_SkipsWhenSessionEmpty(t *testing.T) {
 	}
 	if len(rec.publicMsgs) != 0 {
 		t.Errorf("publicMsgs: got %d, want 0 (skipped due to empty session)", len(rec.publicMsgs))
+	}
+}
+
+// TestHandleMessagePublic_AppliesWordEncFilterToChatBytes pins that
+// handleMessagePublic unpacks the inbound text, filters it via s.wordenc,
+// repacks the filtered text, and that the repacked bytes (not the raw input)
+// end up on p.chatBytes. The audit-log call to friendsBridge.PublicMessage
+// is asserted to receive the UNFILTERED text (mirrors TS player.logMessage
+// at MessagePublicHandler.ts:32, set BEFORE filtering).
+func TestHandleMessagePublic_AppliesWordEncFilterToChatBytes(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+
+	// Wire a recordingBridges so we can read the PublicMessage call.
+	rec := &recordingBridges{}
+	s.friendsBridge = rec
+	p.session = "test-uuid"
+
+	// Build a *Filter that masks "anal" → "****".
+	jf := makeWordencJagWithBad(t, "anal")
+	f, err := encfilter.LoadFromJag(jf)
+	if err != nil {
+		t.Fatalf("LoadFromJag: %v", err)
+	}
+	s.wordenc = f
+
+	// Word-pack "anal" so the payload looks like a real client packet.
+	bufIn := packet.NewPacket(nil)
+	wordpack.Pack(bufIn, "anal")
+	packed := bufIn.Bytes()
+
+	// Wire layout: byte 0 = color (0), byte 1 = effect (0), then packed bytes.
+	payload := append([]byte{0, 0}, packed...)
+	if err := handleMessagePublic(p, payload); err != nil {
+		t.Fatalf("handleMessagePublic: %v", err)
+	}
+
+	// chatBytes must be the wordpack-packed form of "****", not "anal".
+	wantPacked := func() []byte {
+		out := packet.NewPacket(nil)
+		wordpack.Pack(out, "****")
+		return out.Bytes()
+	}()
+	if !bytes.Equal(p.chatBytes, wantPacked) {
+		t.Errorf("p.chatBytes:\n  got  %x\n  want %x", p.chatBytes, wantPacked)
+	}
+
+	// PublicMessage audit-log MUST receive the unfiltered text.
+	if len(rec.publicMsgs) != 1 {
+		t.Fatalf("expected 1 PublicMessage call, got %d", len(rec.publicMsgs))
+	}
+	if rec.publicMsgs[0].message != "Anal" {
+		t.Errorf("audit-log message: got %q, want %q (unfiltered, sentence-cased)", rec.publicMsgs[0].message, "Anal")
 	}
 }
