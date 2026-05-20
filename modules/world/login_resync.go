@@ -29,15 +29,9 @@ func sendResetAnims(p *Player) {
 
 // onReconnect runs the resync sequence for a reconnecting player.
 // Called from processLogins when p.reconnecting == true. Mirrors TS
-// Player.onReconnect (Player.ts:516-574).
-//
-// DEVIATION-NAI-182-D1-RECONNECT-NO-RESTORE — goscape has no save/restore
-// subsystem yet. The processLogins fresh-init block runs BEFORE this
-// function is called (when p.reconnecting==true, the branch placement
-// short-circuits AFTER processLogins's existing init), so resync packets
-// carry post-fresh-init defaults rather than restored save state. Wire
-// ordering is TS-faithful; data is default-valued. Retires when
-// PlayerLoading lands.
+// Player.onReconnect (Player.ts:516-574). LoadSave runs upstream in
+// processLogins (tick.go) before this branch, so resync packets carry
+// restored save state.
 func onReconnect(s *Server, p *Player) {
 	// (a) RESET_CLIENT_VARCACHE
 	sendResetClientVarCache(p)
