@@ -1516,6 +1516,9 @@ func handleBothHeroPoints(s *ScriptState) error {
 func handleDamage(s *ScriptState) error {
 	amount := s.PopInt()
 	hitType := s.PopInt()
+	if err := checkHitType(hitType, "DAMAGE"); err != nil {
+		return err
+	}
 	uid := s.PopInt()
 	if s.World == nil {
 		return nil

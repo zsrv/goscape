@@ -4674,6 +4674,28 @@ func TestDamage_NoPointerGate(t *testing.T) {
 	}
 }
 
+// TestDamage_InvalidHitType pins that DAMAGE (P_DAMAGE) rejects
+// hitType outside [0, HitTypeCount). Mirrors TS PlayerOps.ts:778 —
+// check(state.popInt(), HitTypeValid). The validator short-circuits
+// before the uid pop, so no UID lookup or ApplyDamage occurs.
+func TestDamage_InvalidHitType(t *testing.T) {
+	target := &mockPlayer{uidValue: 42}
+	mw := &mockWorld{playersByUID: map[int]ActivePlayer{42: target}}
+	// uid=42, hitType=3 (out of range), amount=5
+	s := newDamageState(mw, 42, 3, 5)
+	err := handleDamage(s)
+	if err == nil {
+		t.Fatalf("handleDamage: want error for hitType=3, got nil")
+	}
+	want := "DAMAGE: hit type out of range (3)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if got := len(target.applyDamageCalls); got != 0 {
+		t.Errorf("applyDamageCalls: got %d, want 0 (must not damage on rejection)", got)
+	}
+}
+
 // --- NAI-127 Bundle 2: GENDER (opcode 2020) ---
 
 // newGenderState builds a state with Self set; deliberately does NOT

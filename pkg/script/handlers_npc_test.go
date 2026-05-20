@@ -1769,6 +1769,39 @@ func TestHandleNpcDamageNullAmountRejected(t *testing.T) {
 	}
 }
 
+// TestHandleNpcDamage_InvalidHitType pins that NPC_DAMAGE rejects
+// dmgType outside [0, HitTypeCount). Mirrors TS NpcOps.ts:265 —
+// check(state.popInt(), HitTypeValid).
+func TestHandleNpcDamage_InvalidHitType(t *testing.T) {
+	npc := &mockNpc{}
+	// Pop order: amount (top), dmgType. Push dmgType=3 (out of range), amount=5.
+	sf := &ScriptFile{
+		Name: "npc_damage_invalid_hittype",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // push dmgType (3 — out of range)
+			OpPushConstantInt, // push amount (5)
+			OpNpcDamage,
+			OpReturn,
+		},
+		IntOperands: []int32{3, 5, 0, 0},
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	state.Pointers |= PtrActiveNpc
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for dmgType=3, got nil")
+	}
+	want := "NPC_DAMAGE: hit type out of range (3)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if len(npc.damageCalls) != 0 {
+		t.Errorf("damageCalls: got %d, want 0 (must not damage on rejection)", len(npc.damageCalls))
+	}
+}
+
 // --- NAI-33 Task 9: NPC_FINDALLANY handler tests -----------------------
 
 // newNpcFindAllAnyState pushes (coord, distance, checkVis) — TS popInts(3) order.

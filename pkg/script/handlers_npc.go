@@ -348,8 +348,9 @@ func handleNpcChangeTypeKeepAll(s *ScriptState) error {
 
 // handleNpcDamage pops (type, amount) in TS order (amount on top) and
 // applies damage. The concrete Npc impl manages HP; this handler stays thin.
-// Mirrors TS NpcOps.ts NPC_DAMAGE: check(amount, NumberNotNull); dmgType is
-// wrapped with HitTypeValid (not NumberNotNull) and stays raw (NAI-23 Bundle 4a).
+// Mirrors TS NpcOps.ts NPC_DAMAGE: check(amount, NumberNotNull) +
+// check(dmgType, HitTypeValid). Goscape mirrors via checkNotNull +
+// checkHitType.
 func handleNpcDamage(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_DAMAGE"); err != nil {
 		return err
@@ -359,6 +360,9 @@ func handleNpcDamage(s *ScriptState) error {
 		return err
 	}
 	dmgType := s.PopInt()
+	if err := checkHitType(dmgType, "NPC_DAMAGE"); err != nil {
+		return err
+	}
 	s.ActiveNpc.Damage(amount, dmgType)
 	return nil
 }
