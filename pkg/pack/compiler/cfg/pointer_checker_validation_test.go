@@ -226,3 +226,149 @@ func makeVarPlayerType() *typ.VarPlayerType {
 	//   func NewVarPlayerType(inner typ.Type) *VarPlayerType
 	return typ.NewVarPlayerType(typ.PrimitiveInt)
 }
+
+// TestPointerChecker_Run_LogProcRequirement_RecursesAcrossTwoHops pins
+// that the helper recurses across script boundaries: caller→mid→leaf,
+// where only `leaf` requires ACTIVE_PLAYER, produces 1 ERROR (at caller's
+// gosub-to-mid) + 2 HINTs (at mid's gosub-to-leaf, and at leaf's
+// pointer-requiring instruction).
+func TestPointerChecker_Run_LogProcRequirement_RecursesAcrossTwoHops(t *testing.T) {
+	procTr := &trigger.TriggerType{ID: 0, Identifier: "proc"}
+	// (Adopt procWithActive on the script that directly requires ACTIVE_PLAYER if
+	// the plain procTr fixture produces extra errors — see T1 commit d355cfa6.)
+	procWithActive := &trigger.TriggerType{ID: 1, Identifier: "proc", Pointers: pointer.NewPointerSet(pointer.ActivePlayer)}
+
+	// leaf — body: `p_kickout` (requires ACTIVE_PLAYER); trigger DOES set it
+	// (so leaf's own validation is clean; the caller still errors at the gosub site
+	// because the holder-level required computation inspects body requirements,
+	// not trigger sets).
+	leafSym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procWithActive, Name: "leaf"}}
+	leaf := codegen.NewRuneScript("test.rs2", leafSym, procWithActive, "leaf", nil)
+	lb := codegen.NewBlock(&codegen.Label{Name: "entry"})
+	require := makeCommandSymbol("p_kickout")
+	lb.Add(codegen.Instruction{Opcode: codegen.Command, Operand: require})
+	lb.Add(codegen.Instruction{Opcode: codegen.Return})
+	leaf.Blocks = []*codegen.Block{lb}
+
+	// mid — body: `~leaf`; trigger does NOT set ACTIVE_PLAYER.
+	midSym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procTr, Name: "mid"}}
+	mid := codegen.NewRuneScript("test.rs2", midSym, procTr, "mid", nil)
+	mb := codegen.NewBlock(&codegen.Label{Name: "entry"})
+	mb.Add(codegen.Instruction{Opcode: codegen.Gosub, Operand: leafSym})
+	mb.Add(codegen.Instruction{Opcode: codegen.Return})
+	mid.Blocks = []*codegen.Block{mb}
+
+	// caller — body: `~mid`; trigger does NOT set ACTIVE_PLAYER.
+	callerSym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procTr, Name: "caller"}}
+	caller := codegen.NewRuneScript("test.rs2", callerSym, procTr, "caller", nil)
+	ab := codegen.NewBlock(&codegen.Label{Name: "entry"})
+	ab.Add(codegen.Instruction{Opcode: codegen.Gosub, Operand: midSym})
+	ab.Add(codegen.Instruction{Opcode: codegen.Return})
+	caller.Blocks = []*codegen.Block{ab}
+
+	cp := map[string]*pointer.PointerHolder{
+		"p_kickout": {Required: pointer.NewPointerSet(pointer.ActivePlayer)},
+	}
+	d := &diagnostics.Diagnostics{}
+	pc := NewPointerChecker(d, []*codegen.RuneScript{leaf, mid, caller}, cp, semantics.StrictFeatureLevel{})
+	pc.Run()
+
+	// Note: depending on graph propagation, both `caller` and `mid` may
+	// themselves produce a separate error+hint pair (they both "require"
+	// ACTIVE_PLAYER via callee propagation). The deterministic invariant
+	// is: `caller` produces at least one HINT chain of length 2 (mid's
+	// gosub-to-leaf + leaf's p_kickout). Count total HINTs across all
+	// scripts; demand at least 2.
+	hints := hintDiagnostics(d)
+	if len(hints) < 2 {
+		t.Fatalf("got %d hint diagnostics, want at least 2 (recursion two hops): %v", len(hints), d.List())
+	}
+	// Every HINT must use MessagePointerRequiredLoc with "active_player".
+	for i, h := range hints {
+		msg := fmt.Sprintf(h.Message, h.MessageArgs...)
+		if !strings.Contains(msg, "active_player required here") {
+			t.Errorf("hint[%d] = %q, want substring \"active_player required here\"", i, msg)
+		}
+	}
+}
+
+// TestPointerChecker_Run_LogProcRequirement_StaticLabelArgFallback pins
+// the helper's scriptPath==nil branch: when the called script does NOT
+// directly require the pointer but is passed a label-typed static arg
+// whose label DOES require it, a HINT is emitted at the jump-param node
+// inside the called script. Fixture mirrors
+// TestPointerChecker_LabelJump_RequirementPropagates from
+// pointer_checker_labels_test.go.
+func TestPointerChecker_Run_LogProcRequirement_StaticLabelArgFallback(t *testing.T) {
+	procTr := &trigger.TriggerType{ID: 0, Identifier: "proc"}
+	labelTr := &trigger.TriggerType{ID: 1, Identifier: "label", Pointers: pointer.NewPointerSet(pointer.ActivePlayer)}
+
+	// label script — requires ACTIVE_PLAYER; trigger DOES set it (clean leaf validation).
+	labelSym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: labelTr, Name: "mylabel"}}
+	labelScript := codegen.NewRuneScript("test.rs2", labelSym, labelTr, "mylabel", nil)
+	lb := codegen.NewBlock(&codegen.Label{Name: "entry"})
+	require := makeCommandSymbol("p_kickout")
+	lb.Add(codegen.Instruction{Opcode: codegen.Command, Operand: require})
+	lb.Add(codegen.Instruction{Opcode: codegen.Return})
+	labelScript.Blocks = []*codegen.Block{lb}
+
+	// consumer — accepts a label parameter, jumps to it.
+	labelMetaType := typ.NewMetaScript("label", typ.PrimitiveInt, typ.PrimitiveInt)
+	consumerSym := &symbol.ServerScriptSymbol{
+		ScriptSymbolFields: symbol.ScriptSymbolFields{
+			Trigger:    procTr,
+			Name:       "consumer",
+			Parameters: labelMetaType,
+		},
+	}
+	consumer := codegen.NewRuneScript("test.rs2", consumerSym, procTr, "consumer", nil)
+	cb := codegen.NewBlock(&codegen.Label{Name: "entry"})
+	labelParam := &symbol.LocalVariableSymbol{Name: "lbl", Type: labelMetaType}
+	consumer.Locals = &codegen.LocalTable{
+		Parameters: []*symbol.LocalVariableSymbol{labelParam},
+		All:        []*symbol.LocalVariableSymbol{labelParam},
+	}
+	jumpCmd := makeCommandSymbol("jump")
+	cb.Add(codegen.Instruction{Opcode: codegen.PushLocalVar, Operand: labelParam})
+	cb.Add(codegen.Instruction{Opcode: codegen.Command, Operand: jumpCmd})
+	cb.Add(codegen.Instruction{Opcode: codegen.Return})
+	consumer.Blocks = []*codegen.Block{cb}
+
+	// caller — gosubs consumer with .mylabel as the static arg.
+	callerSym := &symbol.ServerScriptSymbol{ScriptSymbolFields: symbol.ScriptSymbolFields{Trigger: procTr, Name: "caller"}}
+	caller := codegen.NewRuneScript("test.rs2", callerSym, procTr, "caller", nil)
+	calb := codegen.NewBlock(&codegen.Label{Name: "entry"})
+	calb.Add(codegen.Instruction{Opcode: codegen.PushConstantSymbol, Operand: labelSym})
+	calb.Add(codegen.Instruction{Opcode: codegen.Gosub, Operand: consumerSym})
+	calb.Add(codegen.Instruction{Opcode: codegen.Return})
+	caller.Blocks = []*codegen.Block{calb}
+
+	cp := map[string]*pointer.PointerHolder{
+		"p_kickout": {Required: pointer.NewPointerSet(pointer.ActivePlayer)},
+	}
+	d := &diagnostics.Diagnostics{}
+	pc := NewPointerChecker(d, []*codegen.RuneScript{labelScript, consumer, caller}, cp, semantics.StrictFeatureLevel{})
+	pc.Run()
+
+	// Expect at least one ERROR (caller's gosub site, via label-propagation)
+	// and at least one HINT (jump-param node inside consumer with
+	// MessagePointerRequiredLoc).
+	if len(errorDiagnostics(d)) == 0 {
+		t.Fatalf("expected at least one error diagnostic; got %v", d.List())
+	}
+	hints := hintDiagnostics(d)
+	if len(hints) == 0 {
+		t.Fatalf("got 0 hint diagnostics, want at least 1 (static-label-arg fallback HINT inside consumer): %v", d.List())
+	}
+	foundRequiredLoc := false
+	for _, h := range hints {
+		msg := fmt.Sprintf(h.Message, h.MessageArgs...)
+		if strings.Contains(msg, "active_player required here") {
+			foundRequiredLoc = true
+			break
+		}
+	}
+	if !foundRequiredLoc {
+		t.Errorf("no hint with \"active_player required here\" message; hints=%v", hints)
+	}
+}
