@@ -1014,6 +1014,7 @@ func TestFriendsClient_E2E_OnPrivateMessageEmitsWirePacket(t *testing.T) {
 	const recipient uint64 = 2222
 	p.username37 = recipient
 	p.active = true
+	p.client.server = s // required: sendMessagePrivate calls server.wordenc.Filter
 	s.playerLoop = append(s.playerLoop, p)
 	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})

@@ -135,6 +135,7 @@ func TestEmitFriendsDispatcher_OnPrivateMessage_EmitsPacket(t *testing.T) {
 	const target uint64 = 0x4444
 	p.username37 = target
 	p.active = true
+	p.client.server = s // required: sendMessagePrivate calls server.wordenc.Filter
 	s.playerLoop = append(s.playerLoop, p)
 
 	// Compute the wordpacked bytes for "hi".

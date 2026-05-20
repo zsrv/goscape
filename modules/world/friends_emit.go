@@ -48,13 +48,9 @@ func sendChatFilterSettings(p *Player, publicChat, privateChat, tradeDuel int) {
 // from is the sender's username37. pmId is the friends-server-assigned
 // PM correlation id. staffLvl is the sender's staff level; the wire
 // applies the TS-faithful `+1 if > 0` adjustment so the client renders
-// the correct staff icon. chat is the unpacked text; goscape
-// WordPack.Pack's it here for the wire.
-//
-// DEVIATION-NAI-182-D5-NO-WORDENC-FILTER — TS calls
-// `WordPack.pack(buf, WordEnc.filter(message.msg))`; goscape has no
-// WordEnc.filter port yet (only WordPack). The chat is packed verbatim.
-// Retires when wordenc filter is ported.
+// the correct staff icon. chat is the unpacked text; goscape applies
+// WordEnc.filter (via s.wordenc) and then WordPack.Pack's the result
+// for the wire — mirrors TS MessagePrivateEncoder.ts:20.
 func sendMessagePrivate(p *Player, from uint64, pmId uint32, staffLvl int32, chat string) {
 	adjusted := staffLvl
 	if adjusted > 0 {
@@ -64,6 +60,7 @@ func sendMessagePrivate(p *Player, from uint64, pmId uint32, staffLvl int32, cha
 	buf.P8(from)
 	buf.P4(uint32(pmId))
 	buf.P1(uint8(adjusted))
-	wordpack.Pack(buf, chat)
+	filtered := p.client.server.wordenc.Filter(chat)
+	wordpack.Pack(buf, filtered)
 	p.writeOut(gameserver.OpMessagePrivate, buf.Bytes())
 }

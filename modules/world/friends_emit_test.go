@@ -1,11 +1,15 @@
 package world
 
 import (
+	"bytes"
+	"os"
 	"testing"
 
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
+	"github.com/zsrv/goscape/pkg/io/jagfile"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+	"github.com/zsrv/goscape/pkg/wordenc/encfilter"
 	"github.com/zsrv/goscape/pkg/wordenc/wordpack"
 )
 
@@ -104,6 +108,7 @@ func TestSendChatFilterSettings_EmitsExactByteSequence(t *testing.T) {
 // staffLvl=0 ⇒ wire byte 00.
 func TestSendMessagePrivate_EmitsExactByteSequence(t *testing.T) {
 	p, cc := newTestPlayer(t)
+	p.client.server = newTestServer(t) // required: sendMessagePrivate calls server.wordenc.Filter
 	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 
@@ -136,6 +141,7 @@ func TestSendMessagePrivate_EmitsExactByteSequence(t *testing.T) {
 // `staffLvl > 0 ⇒ +1` adjustment. staffLvl=2 ⇒ wire byte 03.
 func TestSendMessagePrivate_StaffLvlAdjustmentPositive(t *testing.T) {
 	p, cc := newTestPlayer(t)
+	p.client.server = newTestServer(t) // required: sendMessagePrivate calls server.wordenc.Filter
 	_, _ = isaacPair([4]uint32{1, 2, 3, 4})
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 
@@ -155,6 +161,7 @@ func TestSendMessagePrivate_StaffLvlAdjustmentPositive(t *testing.T) {
 // adjustment ONLY applies when staffLvl > 0. staffLvl=-1 ⇒ wire 0xFF.
 func TestSendMessagePrivate_StaffLvlAdjustmentNegative(t *testing.T) {
 	p, cc := newTestPlayer(t)
+	p.client.server = newTestServer(t) // required: sendMessagePrivate calls server.wordenc.Filter
 	_, _ = isaacPair([4]uint32{1, 2, 3, 4})
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 
@@ -166,4 +173,116 @@ func TestSendMessagePrivate_StaffLvlAdjustmentNegative(t *testing.T) {
 	if got[14] != 0xFF {
 		t.Fatalf("staffLvl byte: got 0x%02x, want 0xFF (-1, no adjustment)", got[14])
 	}
+}
+
+// TestSendMessagePrivate_AppliesWordEncFilter pins that sendMessagePrivate
+// runs the chat text through s.wordenc.Filter before WordPack.Pack. A
+// *Filter with "anal" as a bad word is injected; the wire bytes must match
+// wordpack("****") not wordpack("anal"), confirming filtering occurs.
+// Mirrors TS MessagePrivateEncoder.ts:20: WordPack.pack(buf, WordEnc.filter(message.msg)).
+func TestSendMessagePrivate_AppliesWordEncFilter(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	// Inject a filter with one bad word "anal" so "anal" → "****".
+	jf := makeWordencJagWithBad(t, "anal")
+	f, err := encfilter.LoadFromJag(jf)
+	if err != nil {
+		t.Fatalf("LoadFromJag: %v", err)
+	}
+	s.wordenc = f
+
+	received := drainConn(t, cc)
+	sendMessagePrivate(p, 0x12345, 7, 0, "anal")
+	p.client.flushWrite()
+
+	got := <-received
+
+	// Compute wordpack bytes for the masked text "****" (what we expect on wire).
+	wantBuf := packet.NewPacket(nil)
+	wordpack.Pack(wantBuf, "****")
+	wantPacked := wantBuf.Bytes()
+
+	// Also compute wordpack bytes for the unfiltered "anal" to show the test
+	// would catch a regression where Filter is not called.
+	unfilteredBuf := packet.NewPacket(nil)
+	wordpack.Pack(unfilteredBuf, "anal")
+	unfilteredPacked := unfilteredBuf.Bytes()
+
+	// Wire format: [encrypted-opcode] [1-byte-len] [8-byte-from] [4-byte-pmId] [staffLvl] [wordpacked-chat]
+	// staffLvl=0 ⇒ no adjustment; opcode = (OpMessagePrivate.Opcode + ISAAC) & 0xff.
+	// Verify opcode byte is present and payload ends with wordpack("****").
+	_ = enc // ISAAC advance consumed by drainConn framing; opcode byte included in got[0].
+	if !bytes.HasSuffix(got, wantPacked) {
+		if bytes.HasSuffix(got, unfilteredPacked) {
+			t.Errorf("wire ends with wordpack(\"anal\") — Filter was NOT applied; got % x", got)
+		} else {
+			t.Errorf("wire does not end with wordpack(\"****\"): got % x, want suffix % x", got, wantPacked)
+		}
+	}
+}
+
+// makeWordencJagWithBad builds a minimal wordenc jagfile with one bad word
+// (the given word with one combo [3,19] as in the canonical encfilter test)
+// and empty-but-valid other sections (1-entry fragmentsenc, domainenc, tldlist).
+// The jagfile is round-tripped through Save+NewJagfile so FileHash/FileSize
+// tables are populated correctly, matching the LoadFromJag decoder path.
+func makeWordencJagWithBad(t *testing.T, word string) *jagfile.Jagfile {
+	t.Helper()
+	jf := jagfile.NewEmptyJagfile(false)
+
+	// badenc.txt: 1 entry with combo [3, 19].
+	bad := packet.Alloc(2)
+	bad.P4(1)
+	bad.P1(uint8(len(word)))
+	for _, c := range []byte(word) {
+		bad.P1(c)
+	}
+	bad.P1(1) // combo count
+	bad.P1(3)
+	bad.P1(19)
+	jf.Write("badenc.txt", bad)
+
+	// fragmentsenc.txt: 1 entry value 42 (non-zero count required by decoder).
+	frag := packet.Alloc(2)
+	frag.P4(1)
+	frag.P2(42)
+	jf.Write("fragmentsenc.txt", frag)
+
+	// domainenc.txt: 1 entry "test".
+	dom := packet.Alloc(2)
+	dom.P4(1)
+	dom.P1(4)
+	for _, c := range []byte("test") {
+		dom.P1(c)
+	}
+	jf.Write("domainenc.txt", dom)
+
+	// tldlist.txt: 1 entry type=2 tld="com".
+	tld := packet.Alloc(2)
+	tld.P4(1)
+	tld.P1(2)
+	tld.P1(3)
+	for _, c := range []byte("com") {
+		tld.P1(c)
+	}
+	jf.Write("tldlist.txt", tld)
+
+	// Round-trip through Save+NewJagfile so .FileQueue lands in .FileHash + .FileSize.
+	tmpPath := t.TempDir() + "/wordenc.jag"
+	if err := jf.Save(tmpPath); err != nil {
+		t.Fatalf("makeWordencJagWithBad: Save: %v", err)
+	}
+	raw, err := os.ReadFile(tmpPath)
+	if err != nil {
+		t.Fatalf("makeWordencJagWithBad: ReadFile: %v", err)
+	}
+	out, err := jagfile.NewJagfile(packet.NewPacket(raw))
+	if err != nil {
+		t.Fatalf("makeWordencJagWithBad: NewJagfile: %v", err)
+	}
+	return out
 }
