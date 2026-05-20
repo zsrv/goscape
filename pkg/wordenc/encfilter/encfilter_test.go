@@ -104,3 +104,81 @@ func TestEmpty_FilterIsIdentity(t *testing.T) {
 		t.Errorf("Empty().Filter: got %q, want %q", got, "hello world")
 	}
 }
+
+// testFilter builds a *Filter wired with the given component data. Used by
+// algorithmic E2E tests to avoid loading a real jagfile. Mirrors the internal
+// Filter struct directly (T7 algorithmic tests; encfilter.go).
+func testFilter(t *testing.T, bads [][]rune, badCombos [][][2]int, frags []uint16, doms [][]rune, tl [][]rune, tlTypes []int) *Filter {
+	t.Helper()
+	return &Filter{
+		bads:      bads,
+		badCombos: badCombos,
+		fragments: frags,
+		domains:   doms,
+		tlds:      tl,
+		tldTypes:  tlTypes,
+	}
+}
+
+func TestFilter_PassesThroughCleanText(t *testing.T) {
+	f := Empty()
+	// These inputs are already fully lowercase so formatUppercases is a no-op.
+	cases := []string{"hello world", "good morning!"}
+	for _, in := range cases {
+		got := f.Filter(in)
+		if got != in {
+			t.Errorf("Filter(%q): got %q, want %q (Empty passthrough)", in, got, in)
+		}
+	}
+	// "I love RuneScape" → formatUppercases lowercases the 'S' mid-alpha-run:
+	// 'R' starts a new run (uppercase, flagged stays true), 'u' makes flagged=false,
+	// 'S' is then mid-run uppercase → lowercased to 's'.
+	got := f.Filter("I love RuneScape")
+	want := "I love Runescape"
+	if got != want {
+		t.Errorf("Filter(\"I love RuneScape\"): got %q, want %q", got, want)
+	}
+}
+
+func TestFilter_MasksDirectBadWord(t *testing.T) {
+	// "anal" with one combo [3,19] — matches the synthetic jag fixture above.
+	f := testFilter(t,
+		[][]rune{[]rune("anal")},
+		[][][2]int{{{3, 19}}},
+		nil, nil, nil, nil,
+	)
+	got := f.Filter("anal")
+	if got != "****" {
+		t.Errorf("Filter(anal): got %q, want ****", got)
+	}
+}
+
+func TestFilter_WhitelistPreserves(t *testing.T) {
+	// Empty Filter has no bad-word rules, so whitelist words pass through as-is.
+	f := Empty()
+	for _, w := range []string{"cook", "cooks", "cook's", "seeks", "sheet"} {
+		got := f.Filter(w)
+		if got != w {
+			t.Errorf("Filter(%q): got %q, want %q", w, got, w)
+		}
+	}
+}
+
+func TestFilter_PreservesUppercaseOnPassthrough(t *testing.T) {
+	f := Empty()
+	got := f.Filter("Hello World")
+	// "Hello World" → format is identity → trim identity → toLower "hello world"
+	// → filters no-op → replaceUppercases restores 'H' and 'W' → formatUppercases
+	// sees 'H' uppercase first in run (flagged=true, no lowercase before) → leaves
+	// 'H'; 'e' lowercase → flagged=false; rest unchanged. Same for 'W'.
+	if got != "Hello World" {
+		t.Errorf("Filter(Hello World): got %q, want %q", got, "Hello World")
+	}
+}
+
+func TestFilter_EmptyInput(t *testing.T) {
+	f := Empty()
+	if got := f.Filter(""); got != "" {
+		t.Errorf("Filter(\"\"): got %q, want \"\"", got)
+	}
+}

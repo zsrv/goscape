@@ -1,0 +1,78 @@
+[
+  {
+    "input": "",
+    "filtered": ""
+  },
+  {
+    "input": "a",
+    "filtered": "a"
+  },
+  {
+    "input": "hello",
+    "filtered": "hello"
+  },
+  {
+    "input": "Hello World",
+    "filtered": "Hello World"
+  },
+  {
+    "input": "good morning",
+    "filtered": "good morning"
+  },
+  {
+    "input": "HELLO",
+    "filtered": "HELLO"
+  },
+  {
+    "input": "anal",
+    "filtered": "****"
+  },
+  {
+    "input": "AnAl",
+    "filtered": "****"
+  },
+  {
+    "input": "4n4l",
+    "filtered": "****"
+  },
+  {
+    "input": "cooks",
+    "filtered": "cooks"
+  },
+  {
+    "input": "visit foo.com please",
+    "filtered": "visit ******* please"
+  },
+  {
+    "input": "email me at foo@test.com",
+    "filtered": "email me at foo@********"
+  },
+  {
+    "input": "   leading spaces",
+    "filtered": "leading spaces"
+  },
+  {
+    "input": "trailing spaces   ",
+    "filtered": "trailing spaces"
+  },
+  {
+    "input": "multiple    spaces",
+    "filtered": "multiple spaces"
+  },
+  {
+    "input": "symbols!!!!",
+    "filtered": "symbols!!!!"
+  },
+  {
+    "input": "hello world",
+    "filtered": "hello world"
+  },
+  {
+    "input": "no profanity here at all",
+    "filtered": "no profanity here at all"
+  },
+  {
+    "input": "A B C D E F",
+    "filtered": "A B C D E F"
+  }
+]

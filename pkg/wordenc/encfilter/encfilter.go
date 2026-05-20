@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/zsrv/goscape/pkg/io/jagfile"
 	"github.com/zsrv/goscape/pkg/io/packet"
@@ -87,10 +88,100 @@ func LoadFromJag(jf *jagfile.Jagfile) (*Filter, error) {
 // tests that don't care about censoring.
 func Empty() *Filter { return &Filter{} }
 
-// Filter is the T7 entry point. STUB — implemented in T7.
+// Filter censors s according to the wordenc rules. It mirrors TS
+// WordEnc.filter (Engine-TS/src/cache/wordenc/WordEnc.ts:73-95).
+//
+// Steps:
+//  1. format() — normalize allowed chars, collapse spaces.
+//  2. trim + lowercase.
+//  3. Run filtered (lowercased copy) through tlds → badWords → domains → fragments.
+//  4. Whitelist restoration: for each whitelisted word, find its occurrences in
+//     the lowercase string and write the whitelisted letters back into filtered.
+//  5. replaceUppercases — restore uppercase letters from the pre-lowercase copy.
+//  6. formatUppercases — canonicalize mid-run uppercase to lowercase.
+//  7. trim the result.
+//
+// Filter is safe for concurrent calls; all state on *Filter is read-only after
+// construction.
 func (f *Filter) Filter(s string) string {
-	return s
+	// Step 1: normalize in-place.
+	characters := []rune(s)
+	format(characters)
+
+	// Step 2: trim + lowercase.
+	trimmed := []rune(strings.TrimSpace(string(characters)))
+	lowercaseRunes := []rune(toLower(string(trimmed)))
+	filtered := append([]rune(nil), lowercaseRunes...)
+
+	// Step 3: tlds → badWords → domains → fragments (TS ordering: WordEnc.ts:78-84).
+	frags := &fragments{items: f.fragments}
+	bw := &badWords{bads: f.bads, combos: f.badCombos, fragments_: frags}
+	dom := &domains{bads: bw, domains: f.domains}
+	tl := &tlds{bads: bw, domains: dom, tlds: f.tlds, types: f.tldTypes}
+
+	tl.filter(filtered)
+	bw.filter(filtered)
+	dom.filter(filtered)
+	frags.filter(filtered)
+
+	// Step 4: whitelist restoration (WordEnc.ts:85-93).
+	// TS searches in `lowercase` (pre-filter copy) so masked positions don't
+	// prevent restoration; then writes whitelisted chars into `filtered`.
+	for _, w := range whitelist {
+		wr := []rune(w)
+		for off := 0; ; {
+			idx := indexOfRuneSlice(lowercaseRunes, wr, off)
+			if idx == -1 {
+				break
+			}
+			copy(filtered[idx:], wr)
+			off = idx + 1
+		}
+	}
+
+	// Steps 5-7: restore uppercase, canonicalize, trim (WordEnc.ts:94-95).
+	replaceUppercases(filtered, trimmed)
+	formatUppercases(filtered)
+	return strings.TrimSpace(string(filtered))
 }
+
+// toLower lowercases only ASCII A-Z characters (TS toLowerCase over format()
+// output is ASCII-clean for algorithm-relevant characters).
+func toLower(s string) string {
+	out := []rune(s)
+	for i, c := range out {
+		if isUppercaseAlpha(c) {
+			out[i] = c + ('a' - 'A')
+		}
+	}
+	return string(out)
+}
+
+// indexOfRuneSlice mirrors JS String.prototype.indexOf(substr, fromIndex) over
+// a []rune haystack. Returns the rune index of the first occurrence of needle
+// in haystack at or after fromIndex, or -1 if not found.
+func indexOfRuneSlice(haystack, needle []rune, fromIndex int) int {
+	if fromIndex < 0 {
+		fromIndex = 0
+	}
+	if len(needle) == 0 {
+		return fromIndex
+	}
+	for i := fromIndex; i <= len(haystack)-len(needle); i++ {
+		match := true
+		for j := range needle {
+			if haystack[i+j] != needle[j] {
+				match = false
+				break
+			}
+		}
+		if match {
+			return i
+		}
+	}
+	return -1
+}
+
 
 // decodeBadEnc reads badenc.txt entries. TS WordEnc.ts:198-207.
 //
