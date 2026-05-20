@@ -231,7 +231,7 @@ func TestInsertSession(t *testing.T) {
 	db := createTestDB(t)
 	id := insertTestAccount(t, db, "sessionuser", "pass")
 
-	err := insertSession(t.Context(), db, "uuid-abc-123", int(id), "main", 2, 42, "192.168.0.1")
+	err := insertSession(t.Context(), db, "11111111-2222-3333-4444-555555555555", int(id), "main", 2, 42, "192.168.0.1")
 	if err != nil {
 		t.Fatalf("insertSession: %v", err)
 	}
@@ -245,8 +245,8 @@ func TestInsertSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("query session: %v", err)
 	}
-	if sessionUUID != "uuid-abc-123" {
-		t.Errorf("session_uuid: got %q, want %q", sessionUUID, "uuid-abc-123")
+	if sessionUUID != "11111111-2222-3333-4444-555555555555" {
+		t.Errorf("session_uuid: got %q, want %q", sessionUUID, "11111111-2222-3333-4444-555555555555")
 	}
 	if profile != "main" {
 		t.Errorf("profile: got %q, want %q", profile, "main")
