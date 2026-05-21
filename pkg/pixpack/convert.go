@@ -166,7 +166,7 @@ func parseSpriteLine(line string) (SpriteMeta, error) {
 func cropBitmap(img *Bitmap, x, y, w, h int) *Bitmap {
 	dst := &Bitmap{Width: w, Height: h, Data: make([]uint8, w*h*4)}
 	for j := range h {
-		srcOff := ((y + j) * img.Width + x) * 4
+		srcOff := ((y+j)*img.Width + x) * 4
 		dstOff := j * w * 4
 		copy(dst.Data[dstOff:dstOff+w*4], img.Data[srcOff:srcOff+w*4])
 	}

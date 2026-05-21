@@ -58,7 +58,9 @@ func TestLookupKey_TypeMode_NonCategory(t *testing.T) {
 // TestLookupKey_TypeMode_Category pins the per-subject category check.
 // Subject's Type is PrimitiveCategory → typeMarker=1, independent of the
 // trigger's TypeMode flag. Mirrors TS BinaryScriptWriter.ts L80:
-//   typeMarker = subjectType === ScriptVarType.CATEGORY ? 1 : 2
+//
+//	typeMarker = subjectType === ScriptVarType.CATEGORY ? 1 : 2
+//
 // Trigger.ID = 5; subject id 17; key = 5 + (1<<8) + (17<<10) = 17669.
 func TestLookupKey_TypeMode_Category(t *testing.T) {
 	tm := trigger.NewModeType(typ.PrimitiveInt, false, false)

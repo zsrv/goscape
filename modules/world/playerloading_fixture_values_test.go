@@ -25,8 +25,8 @@ var fixturePlayerValues = struct {
 	LastLoginTime   int64
 }{
 	X: 3094, Z: 3106, Level: 0,
-	Body:   [7]int{0, 10, 18, 26, 33, 36, 42},
-	Colors: [5]int{3, 7, 11, 13, 17},
+	Body:           [7]int{0, 10, 18, 26, 33, 36, 42},
+	Colors:         [5]int{3, 7, 11, 13, 17},
 	Gender:         0,
 	Runenergy:      10000,
 	PlaytimeV1:     12345,

@@ -1528,7 +1528,6 @@ func handleBothHeroPoints(s *ScriptState) error {
 	return nil
 }
 
-
 // handleDamage (DAMAGE, opcode 2015) applies damage to the player
 // resolved from a UID popped from the stack. Pop order (TS): amount,
 // hitType, uid (LIFO via popInt). Silent no-op if the UID does not

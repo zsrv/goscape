@@ -22,11 +22,11 @@ func (m *mockInvLookup) Get(_ ActivePlayer, typeID int) *inventory.Inventory {
 }
 
 const (
-	testInvMain    = 1   // stack-normal, capacity 28
-	testInvBank    = 2   // stack-always, capacity 100
-	testObjCoin    = 995
-	testObjArr     = 2
-	testObjSword   = 3 // non-stackable scratch obj for per-slot semantics tests
+	testInvMain     = 1 // stack-normal, capacity 28
+	testInvBank     = 2 // stack-always, capacity 100
+	testObjCoin     = 995
+	testObjArr      = 2
+	testObjSword    = 3 // non-stackable scratch obj for per-slot semantics tests
 	testObjCertNote = 4 // certificate item (UNCERT direction): CertTemplate=self(>=0), CertLink=testObjCoin
 	testObjLogs     = 5 // certifiable item (CERT direction): CertTemplate=-1, CertLink=testObjCertNote
 )
@@ -2094,9 +2094,9 @@ func TestBothMoveInv_FromProtectGate_FiresWhenSlotUnprotected(t *testing.T) {
 // because it reads fromInv.Scope. Slot-0 protected, slot-1 unprotected.
 func TestBothMoveInv_ToProtectGate_UsesFromInvScope_Fires(t *testing.T) {
 	mc := newTestInvConfigs()
-	mc.invs[testInvMain].Scope = objtype.InvTypeScopeTemp     // from-scope NOT shared
-	mc.invs[testInvBank].Protect = true                       // toInv.Protect=true
-	mc.invs[testInvBank].Scope = objtype.InvTypeScopeShared   // toInv.Scope IS shared (TS quirk: gate ignores this)
+	mc.invs[testInvMain].Scope = objtype.InvTypeScopeTemp   // from-scope NOT shared
+	mc.invs[testInvBank].Protect = true                     // toInv.Protect=true
+	mc.invs[testInvBank].Scope = objtype.InvTypeScopeShared // toInv.Scope IS shared (TS quirk: gate ignores this)
 	lookup, self, self2 := newTwoPlayerInvFixture()
 	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
 
@@ -2115,7 +2115,7 @@ func TestBothMoveInv_ToProtectGate_UsesFromInvScope_DoesNotFire(t *testing.T) {
 	mc := newTestInvConfigs()
 	mc.invs[testInvMain].Scope = objtype.InvTypeScopeShared // from-scope shared → gate skipped
 	mc.invs[testInvBank].Protect = true
-	mc.invs[testInvBank].Scope = objtype.InvTypeScopeTemp   // toInv.Scope NOT shared (TS quirk: ignored)
+	mc.invs[testInvBank].Scope = objtype.InvTypeScopeTemp // toInv.Scope NOT shared (TS quirk: ignored)
 	lookup, self, self2 := newTwoPlayerInvFixture()
 	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
 

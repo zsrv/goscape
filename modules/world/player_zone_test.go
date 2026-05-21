@@ -4,8 +4,8 @@ import (
 	"net"
 	"testing"
 
-	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/coordgrid"
+	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/gamemap"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/objtype"
@@ -230,7 +230,6 @@ func TestPartialFollowsDeliversPrivateDropToOwnerByUID(t *testing.T) {
 		t.Errorf("want 9 bytes (1 Follows wrapper + 1 ObjAdd for p.uid); got %d", len(got))
 	}
 }
-
 
 func TestPartialFollowsHidesPrivateDropFromNonOwnerByUID(t *testing.T) {
 	s := newZoneTestServer(t)
@@ -473,9 +472,9 @@ func TestWriteFullFollows_PostRevertRespawnLoc_NoReplay(t *testing.T) {
 
 	z := s.zoneMap.Get(0, 3094, 3106)
 	loc := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleRespawn, 42, 0, 0)
-	z.AddStaticLoc(loc)   // IsActive=true, IsChanged()=false.
-	loc.Change(99, 1, 2)  // Mutate: IsChanged()=true.
-	loc.Revert()          // Restore: IsChanged()=false, IsActive unchanged (true).
+	z.AddStaticLoc(loc)  // IsActive=true, IsChanged()=false.
+	loc.Change(99, 1, 2) // Mutate: IsChanged()=true.
+	loc.Revert()         // Restore: IsChanged()=false, IsActive unchanged (true).
 
 	received := drainConn(t, cc)
 	p.writeFullFollows(z, 1)
@@ -499,8 +498,8 @@ func TestWriteFullFollows_LocLastLifecycleTick_SkipsReplay(t *testing.T) {
 	// equal to currentTick — the guard at the top of the loop must skip it.
 	loc := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleRespawn, 42, 0, 0)
 	z.AddStaticLoc(loc)
-	loc.Change(99, 1, 2)        // IsChanged()=true → would match branch 3.
-	loc.LastLifecycleTick = 5   // equals currentTick below → skip guard fires.
+	loc.Change(99, 1, 2)      // IsChanged()=true → would match branch 3.
+	loc.LastLifecycleTick = 5 // equals currentTick below → skip guard fires.
 
 	received := drainConn(t, cc)
 	p.writeFullFollows(z, 5) // currentTick=5, LastLifecycleTick=5 → skipped.

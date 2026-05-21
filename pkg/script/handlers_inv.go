@@ -1332,7 +1332,7 @@ func handleBothMoveInv(s *ScriptState) error {
 		count int
 		cost  int
 	}
-	var fromLogs []logEntry  // ordered; we merge by objID below
+	var fromLogs []logEntry         // ordered; we merge by objID below
 	fromLogIdx := make(map[int]int) // objID → index in fromLogs
 	fromTotal := 0
 

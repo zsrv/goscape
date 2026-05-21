@@ -1287,7 +1287,6 @@ func (p *Player) Gender() int { return p.gender }
 // Members reports the per-player members flag (login RPC field).
 func (p *Player) Members() bool { return p.members }
 
-
 // AddHeroPoints implements script.ActivePlayer. Credits amount to
 // playerUID on the player's hero-point ledger. Used by BOTH_HEROPOINTS.
 // Mirrors TS Player.heroPoints.addHero at PlayerOps.ts:1167.
@@ -1388,7 +1387,6 @@ func (p *Player) PlaySynth(synth, loops, delay int) {
 	p.writeOut(gameserver.OpSynthSound, buf.Bytes())
 }
 
-
 // SetPreventLogout implements script.ActivePlayer. Mirrors TS
 // PlayerOps.ts:628-629 (state.activePlayer.preventLogoutMessage =
 // msg; state.activePlayer.preventLogoutUntil = currentTick + ticks).
@@ -1438,9 +1436,9 @@ func (p *Player) LastLoginInfo() {
 
 	payload := []byte{
 		byte(lastIp >> 24), byte(lastIp >> 16), byte(lastIp >> 8), byte(lastIp), // p4: lastIp
-		byte(daysSinceLogin >> 8), byte(daysSinceLogin),                         // p2: daysSinceLogin
-		byte(daysSinceRecoveriesChanged),                                        // p1
-		byte(p.messageCount >> 8), byte(p.messageCount),                         // p2: messageCount
+		byte(daysSinceLogin >> 8), byte(daysSinceLogin), // p2: daysSinceLogin
+		byte(daysSinceRecoveriesChanged),                // p1
+		byte(p.messageCount >> 8), byte(p.messageCount), // p2: messageCount
 	}
 	p.writeOut(gameserver.OpLastLoginInfo, payload)
 	p.lastLoginTime = now

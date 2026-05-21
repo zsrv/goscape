@@ -111,11 +111,11 @@ func TestResizeVarShared_CountGrew_ClobbersAllNonStringSlots(t *testing.T) {
 	oldVars := []int32{10, 20, 30}
 	oldStrs := []string{"a", "b", "c"}
 	cfgs := []*objtype.VarSharedType{
-		{Type: objtype.ScriptVarTypeInt},  // i=0: was 10 → clobbered to 0
-		{Type: objtype.ScriptVarTypeInt},  // i=1: was 20 → clobbered to 0
-		{Type: objtype.ScriptVarTypeInt},  // i=2: was 30 → clobbered to 0
-		{Type: objtype.ScriptVarTypeObj},  // i=3: net-new, OBJ default = -1
-		{Type: objtype.ScriptVarTypeLoc},  // i=4: net-new, non-INT non-STRING default = -1
+		{Type: objtype.ScriptVarTypeInt}, // i=0: was 10 → clobbered to 0
+		{Type: objtype.ScriptVarTypeInt}, // i=1: was 20 → clobbered to 0
+		{Type: objtype.ScriptVarTypeInt}, // i=2: was 30 → clobbered to 0
+		{Type: objtype.ScriptVarTypeObj}, // i=3: net-new, OBJ default = -1
+		{Type: objtype.ScriptVarTypeLoc}, // i=4: net-new, non-INT non-STRING default = -1
 	}
 	newVars, _ := resizeVarShared(oldVars, oldStrs, cfgs)
 	want := []int32{0, 0, 0, -1, -1}

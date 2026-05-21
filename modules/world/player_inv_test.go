@@ -3,8 +3,8 @@ package world
 import (
 	"testing"
 
-	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/inventory"
+	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
@@ -368,11 +368,12 @@ func buildRunWeightInvServer(t *testing.T, p *Player, invTypeID, objTypeID, objW
 }
 
 // Wire sizes for a capacity=1 inv (empty or 1 item, count<255):
-//   UpdateInvFull wire = 1 opcode + 2 len + (2 com + 1 size + 2 id + 1 count) = 9 bytes.
-//   UpdateRunWeight wire = 1 opcode + 2 payload = 3 bytes.
+//
+//	UpdateInvFull wire = 1 opcode + 2 len + (2 com + 1 size + 2 id + 1 count) = 9 bytes.
+//	UpdateRunWeight wire = 1 opcode + 2 payload = 3 bytes.
 const (
-	updateInvFull1SlotBytes   = 9  // capacity=1 inv, any fill state
-	updateRunWeightBytes      = 3
+	updateInvFull1SlotBytes = 9 // capacity=1 inv, any fill state
+	updateRunWeightBytes    = 3
 )
 
 // TestUpdateInvs_RunWeightChangedEmitsPacket — per-player listener on a

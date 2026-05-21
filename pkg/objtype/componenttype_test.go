@@ -35,8 +35,8 @@ func TestComponentDecode_HeaderFields(t *testing.T) {
 	client := minimalComponentRecord(t, 10, ComTypeLayer, ButtonNone,
 		[]byte{
 			0, 0, // scroll = 0
-			0,    // hide = false
-			0,    // childCount = 0
+			0, // hide = false
+			0, // childCount = 0
 		},
 		nil,
 	)
@@ -109,8 +109,8 @@ func TestComponentDecode_OverLayerZero(t *testing.T) {
 func TestComponentDecode_OverLayerNonZero(t *testing.T) {
 	// overLayer byte = 2, next byte = 5 → OverLayer = ((2-1)<<8)+5 = 261
 	p := packet.NewPacket(nil)
-	p.P2(0)  // count header
-	p.P2(3)  // id
+	p.P2(0) // count header
+	p.P2(3) // id
 	p.P1(ComTypeLayer)
 	p.P1(ButtonNone)
 	p.P2(0)
@@ -233,10 +233,10 @@ func TestComponentDecode_TypeLayer(t *testing.T) {
 	p.P1(ButtonNone)
 	p.P2(0)
 	p.P2(0)
-	p.P2(0) // clientCode/width/height
-	p.P1(0) // overLayer
-	p.P1(0) // comparatorCount
-	p.P1(0) // scriptCount
+	p.P2(0)   // clientCode/width/height
+	p.P1(0)   // overLayer
+	p.P1(0)   // comparatorCount
+	p.P1(0)   // scriptCount
 	p.P2(500) // scroll
 	p.P1(1)   // hide = true
 	p.P1(2)   // childCount = 2
@@ -410,7 +410,7 @@ func TestComponentDecode_TypeInventory(t *testing.T) {
 
 func TestComponentDecode_TypeRect(t *testing.T) {
 	typeBody := []byte{
-		1,                // fill = true
+		1,                      // fill = true
 		0x00, 0x11, 0x22, 0x33, // colour = 0x00112233
 		0x00, 0xAA, 0xBB, 0xCC, // activeColour
 		0xFF, 0x00, 0x00, 0x01, // overColour
@@ -518,8 +518,8 @@ func TestComponentDecode_TypeModel(t *testing.T) {
 		0,    // anim: hi=0 → -1
 		2, 1, // activeAnim: hi=2, lo=1 → 257
 		0, 100, // zoom = 100
-		0, 50,  // xan = 50
-		0, 25,  // yan = 25
+		0, 50, // xan = 50
+		0, 25, // yan = 25
 	}
 	client := minimalComponentRecord(t, 5, ComTypeModel, ButtonNone, body, nil)
 	cfg, err := parseComponentTypes(client, nil)
@@ -558,19 +558,19 @@ func TestComponentDecode_TypeInventoryText(t *testing.T) {
 	p.P1(ButtonNone)
 	p.P2(0)
 	p.P2(0)
-	p.P2(0) // clientCode/width/height
-	p.P1(0) // overLayer
-	p.P1(0) // comparatorCount
-	p.P1(0) // scriptCount
-	p.P1(1) // center = true
-	p.P1(3) // font = 3
-	p.P1(0) // shadowed = false
+	p.P2(0)          // clientCode/width/height
+	p.P1(0)          // overLayer
+	p.P1(0)          // comparatorCount
+	p.P1(0)          // scriptCount
+	p.P1(1)          // center = true
+	p.P1(3)          // font = 3
+	p.P1(0)          // shadowed = false
 	p.P4(0x00CCFFAA) // colour
 	marginX5 := int16(5)
 	marginYNeg3 := int16(-3)
-	p.P2(uint16(marginX5))   // marginX = 5
+	p.P2(uint16(marginX5))    // marginX = 5
 	p.P2(uint16(marginYNeg3)) // marginY = -3
-	p.P1(1) // operable = true
+	p.P1(1)                   // operable = true
 	p.PJStrLF("op1")
 	p.PJStrLF("op2")
 	p.PJStrLF("op3")
@@ -757,12 +757,12 @@ func buildMinimalJagfile(t *testing.T, nameHash uint32, fileData []byte) []byte 
 	}
 
 	p := packet.NewPacket(nil)
-	p.P3(1)                          // unpackedSize (equal → CompressWhole=false path)
-	p.P3(1)                          // packedSize
-	p.P2(1)                          // fileCount = 1
-	p.P4(nameHash)                   // file hash
-	p.P3(uint32(len(fileData)))      // file unpackedSize
-	p.P3(uint32(len(compressed)))    // file packedSize (compressed size)
+	p.P3(1)                       // unpackedSize (equal → CompressWhole=false path)
+	p.P3(1)                       // packedSize
+	p.P2(1)                       // fileCount = 1
+	p.P4(nameHash)                // file hash
+	p.P3(uint32(len(fileData)))   // file unpackedSize
+	p.P3(uint32(len(compressed))) // file packedSize (compressed size)
 	p.Data = append(p.Data, compressed...)
 	return p.Data
 }

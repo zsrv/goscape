@@ -134,7 +134,7 @@ func TestUpdateBuildAreaCameraDrain_moveto(t *testing.T) {
 	wantPayload := []byte{
 		wantLocalX, wantLocalZ,
 		0x02, 0x26, // height=550 big-endian
-		80, 120,    // rotationSpeed, rotationMultiplier (distinct)
+		80, 120, // rotationSpeed, rotationMultiplier (distinct)
 	}
 	if len(pkt.payload) != len(wantPayload) {
 		t.Fatalf("payload length: got %d, want %d", len(pkt.payload), len(wantPayload))

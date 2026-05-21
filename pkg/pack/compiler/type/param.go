@@ -54,7 +54,7 @@ func IsParamType(t Type) (inner Type, ok bool) {
 
 func (p *paramType) Representation() string        { return p.rep }
 func (p *paramType) Code() (string, bool)          { return "", false }
-func (p *paramType) BaseType() (BaseVarType, bool)  { return BaseVarInteger, true }
+func (p *paramType) BaseType() (BaseVarType, bool) { return BaseVarInteger, true }
 func (p *paramType) DefaultValue() any             { return -1 }
 func (p *paramType) Options() TypeOptions          { return p.options }
 func (p *paramType) Inner() Type                   { return p.inner }

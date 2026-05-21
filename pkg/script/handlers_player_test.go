@@ -49,8 +49,8 @@ func (m *mockActiveNpc) LastMovement() int                       { return 0 }
 func (m *mockActiveNpc) Respawnrate() int                        { return 0 }
 func (m *mockActiveNpc) NpcVarN(id int) int32                    { return 0 }
 func (m *mockActiveNpc) SetNpcVarN(id int, val int32)            {}
-func (m *mockActiveNpc) NpcVarNString(id int) string         { return "" }
-func (m *mockActiveNpc) SetNpcVarNString(id int, val string) {}
+func (m *mockActiveNpc) NpcVarNString(id int) string             { return "" }
+func (m *mockActiveNpc) SetNpcVarNString(id int, val string)     {}
 func (m *mockActiveNpc) Say(text []byte)                         {}
 func (m *mockActiveNpc) Animate(id, delay int)                   {}
 func (m *mockActiveNpc) FaceCoord(x, z int)                      {}
@@ -79,7 +79,7 @@ func (m *mockActiveNpc) SetInteractionScript(_ any, _ int)                     {
 func (m *mockActiveNpc) SetNpcStat(_, _ int)                                   {}
 func (m *mockActiveNpc) PlaySpotAnim(_, _, _ int)                              {}
 func (m *mockActiveNpc) AddHeroPoints(_, _ int)                                {}
-func (m *mockActiveNpc) TopContributor() int                                  { return 0 }
+func (m *mockActiveNpc) TopContributor() int                                   { return 0 }
 func (m *mockActiveNpc) TargetWithinMaxRange() bool                            { return false }
 func (m *mockActiveNpc) HeroPointsClear()                                      {}
 
@@ -1832,8 +1832,8 @@ func TestPFindUID_Slot0_NoFastPathWhenSlot1Protected(t *testing.T) {
 	lookup := &mockPlayerLookup{byUID: map[int]ActivePlayer{42: target}}
 
 	sf := finduidSlotOp("pfinduid_slot0_no_cross", OpPFindUID, 0)
-	state := Init(sf, self, false, nil, nil) // protect=false: slot-0 flag UNSET
-	state.Pointers |= PtrProtectedActivePlayer2  // slot-1 protected (irrelevant)
+	state := Init(sf, self, false, nil, nil)    // protect=false: slot-0 flag UNSET
+	state.Pointers |= PtrProtectedActivePlayer2 // slot-1 protected (irrelevant)
 	state.PlayerLookup = lookup
 	state.PushInt(42)
 
@@ -5705,8 +5705,8 @@ func TestHandlePLocMerge_Happy(t *testing.T) {
 	}
 	// LIFO push order: startCycle, endCycle, southEast, northWest
 	// pop order: northWest, southEast, endCycle, startCycle
-	s.PushInt(10)                          // startCycle (deepest)
-	s.PushInt(50)                          // endCycle
+	s.PushInt(10)                           // startCycle (deepest)
+	s.PushInt(50)                           // endCycle
 	s.PushInt(packTestCoord(0, 3200, 3200)) // southEast: x=3200(east), z=3200(south)
 	s.PushInt(packTestCoord(0, 3210, 3210)) // northWest: x=3210(west), z=3210(north)
 

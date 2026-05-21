@@ -150,7 +150,6 @@ func TestProcessZonesSnapshotsBeforeIterating(t *testing.T) {
 	s.processZones()
 }
 
-
 // TestTurnLocRevertChangedStaticMapLoc is the smoke-equivalent unit
 // test for the NAI-88 door-revert bug. Setup mirrors the production
 // path: a static map loc (loaded via Zone.AddStaticLoc, never via

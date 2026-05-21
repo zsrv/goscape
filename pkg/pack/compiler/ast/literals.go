@@ -72,8 +72,8 @@ func (l *CharacterLiteral) isExpression()                    {}
 // parse to JoinedStringExpression. Mirrors TS StringLiteral.
 type StringLiteral struct {
 	SrcLoc        lexer.NodeSourceLocation
-	Value         string    // unescaped
-	Reference     SymbolRef // NAI-206-owned (TS Literal.reference)
+	Value         string     // unescaped
+	Reference     SymbolRef  // NAI-206-owned (TS Literal.reference)
 	SubExpression Expression // NAI-206-owned (clientscript re-parse target)
 	ExpressionBase
 }

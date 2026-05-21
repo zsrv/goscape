@@ -252,28 +252,28 @@ type mockNpc struct {
 	// NAI-120 Bundle 2D: NPC_HEROPOINTS capture.
 	addHeroPointsCalls []struct{ playerUID, amount int }
 	// NAI-127 Bundle 1: NPC_FINDHERO ledger-top getter.
-	topContributor int
-	varns          map[int]int32
-	varnsString       map[int]string
-	sayCalls                           []string
-	animCalls                          []struct{ id, delay int }
-	faceCoordCalls                     []struct{ x, z int }
-	changeTypeCalls                    []struct{ newType, duration int }
-	changeTypeKeepAllCalls             []struct{ newType, duration int }
-	damageCalls                        []struct{ amount, dmgType int }
-	enqueueCalls                       []mockEnqueueCall
+	topContributor         int
+	varns                  map[int]int32
+	varnsString            map[int]string
+	sayCalls               []string
+	animCalls              []struct{ id, delay int }
+	faceCoordCalls         []struct{ x, z int }
+	changeTypeCalls        []struct{ newType, duration int }
+	changeTypeKeepAllCalls []struct{ newType, duration int }
+	damageCalls            []struct{ amount, dmgType int }
+	enqueueCalls           []mockEnqueueCall
 	// NAI-125: mirrors PathingEntity.lastMovement reader for
 	// NPC_ARRIVEDELAY. Default 0 = "never moved".
-	lastMovement                       int
-	setDelayedCalls                    []int
-	setTimerCalls                      []int
-	setHuntRangeCalls                  []int
-	setHuntModeCalls                   []int
-	walkTriggerCalls                   []int
-	walkTriggerArgCalls                []int
-	teleportCalls                      []struct{ x, z, level int }
-	queueWaypointCalls                 []struct{ x, z int }
-	targetOpField                      int
+	lastMovement        int
+	setDelayedCalls     []int
+	setTimerCalls       []int
+	setHuntRangeCalls   []int
+	setHuntModeCalls    []int
+	walkTriggerCalls    []int
+	walkTriggerArgCalls []int
+	teleportCalls       []struct{ x, z, level int }
+	queueWaypointCalls  []struct{ x, z int }
+	targetOpField       int
 
 	// NAI-36 Task 6: NPC_SETMODE recorder fields.
 	clearInteractionCalls     int
@@ -291,16 +291,16 @@ type mockNpc struct {
 	heroPointsClearCalls int
 }
 
-func (m *mockNpc) NpcType() int     { return m.typeID }
-func (m *mockNpc) NpcX() int        { return m.x }
-func (m *mockNpc) NpcZ() int        { return m.z }
-func (m *mockNpc) NpcLevel() int    { return m.level }
-func (m *mockNpc) NpcUID() int      { return m.uid }
-func (m *mockNpc) Nid() int         { return m.nid }
-func (m *mockNpc) LastMovement() int { return m.lastMovement }
-func (m *mockNpc) Respawnrate() int  { return m.respawnrate }
+func (m *mockNpc) NpcType() int        { return m.typeID }
+func (m *mockNpc) NpcX() int           { return m.x }
+func (m *mockNpc) NpcZ() int           { return m.z }
+func (m *mockNpc) NpcLevel() int       { return m.level }
+func (m *mockNpc) NpcUID() int         { return m.uid }
+func (m *mockNpc) Nid() int            { return m.nid }
+func (m *mockNpc) LastMovement() int   { return m.lastMovement }
+func (m *mockNpc) Respawnrate() int    { return m.respawnrate }
 func (m *mockNpc) TopContributor() int { return m.topContributor }
-func (m *mockNpc) NpcCategory() int { return m.category }
+func (m *mockNpc) NpcCategory() int    { return m.category }
 
 // TargetWithinMaxRange returns the seeded value. NAI-160 T7.
 func (m *mockNpc) TargetWithinMaxRange() bool { return m.targetWithinMaxRangeValue }
@@ -3359,13 +3359,13 @@ func TestNpcFindUID_Hit_PrimarySlot(t *testing.T) {
 		StringStack: make([]string, StackCapacity),
 	}
 	s.PushInt(npc.uid)
-	if err := handleNpcFindUID(s); err !=nil {
+	if err := handleNpcFindUID(s); err != nil {
 		t.Fatalf("NPC_FINDUID hit: unexpected error %v", err)
 	}
-	if got := s.PopInt(); got !=1 {
+	if got := s.PopInt(); got != 1 {
 		t.Errorf("NPC_FINDUID hit: pushed %d, want 1", got)
 	}
-	if s.ActiveNpc !=npc {
+	if s.ActiveNpc != npc {
 		t.Errorf("NPC_FINDUID hit: ActiveNpc not bound (got %v, want %v)", s.ActiveNpc, npc)
 	}
 	if s.Pointers&PtrActiveNpc == 0 {
@@ -3384,13 +3384,13 @@ func TestNpcFindUID_Hit_SecondarySlot(t *testing.T) {
 		StringStack: make([]string, StackCapacity),
 	}
 	s.PushInt(npc.uid)
-	if err := handleNpcFindUID(s); err !=nil {
+	if err := handleNpcFindUID(s); err != nil {
 		t.Fatalf("NPC_FINDUID secondary hit: unexpected error %v", err)
 	}
-	if got := s.PopInt(); got !=1 {
+	if got := s.PopInt(); got != 1 {
 		t.Errorf("NPC_FINDUID secondary hit: pushed %d, want 1", got)
 	}
-	if s.OtherActiveNpc !=npc {
+	if s.OtherActiveNpc != npc {
 		t.Errorf("NPC_FINDUID secondary hit: OtherActiveNpc not bound (got %v, want %v)", s.OtherActiveNpc, npc)
 	}
 	if s.Pointers&PtrActiveNpc2 == 0 {
@@ -3408,16 +3408,16 @@ func TestNpcFindUID_Miss(t *testing.T) {
 		StringStack: make([]string, StackCapacity),
 	}
 	s.PushInt((42 << 16) | 999)
-	if err := handleNpcFindUID(s); err !=nil {
+	if err := handleNpcFindUID(s); err != nil {
 		t.Fatalf("NPC_FINDUID miss: unexpected error %v", err)
 	}
-	if got := s.PopInt(); got !=0 {
+	if got := s.PopInt(); got != 0 {
 		t.Errorf("NPC_FINDUID miss: pushed %d, want 0", got)
 	}
-	if s.ActiveNpc !=nil {
+	if s.ActiveNpc != nil {
 		t.Errorf("NPC_FINDUID miss: ActiveNpc should remain nil (got %v)", s.ActiveNpc)
 	}
-	if s.Pointers&PtrActiveNpc !=0 {
+	if s.Pointers&PtrActiveNpc != 0 {
 		t.Error("NPC_FINDUID miss: PtrActiveNpc should NOT be set")
 	}
 }
@@ -3431,10 +3431,10 @@ func TestNpcFindUID_NilNpcs(t *testing.T) {
 		StringStack: make([]string, StackCapacity),
 	}
 	s.PushInt((42 << 16) | 7)
-	if err := handleNpcFindUID(s); err !=nil {
+	if err := handleNpcFindUID(s); err != nil {
 		t.Fatalf("NPC_FINDUID nil Npcs: unexpected error %v", err)
 	}
-	if got := s.PopInt(); got !=0 {
+	if got := s.PopInt(); got != 0 {
 		t.Errorf("NPC_FINDUID nil Npcs: pushed %d, want 0", got)
 	}
 }
@@ -4573,8 +4573,8 @@ func TestHandleNpcAdd_Success_SetsActiveNpc(t *testing.T) {
 	}
 	// Pop order (top first): duration, id, coord. Push bottom first.
 	s.PushInt((0 << 28) | (3200 << 14) | 3300) // coord
-	s.PushInt(42)                               // id
-	s.PushInt(100)                              // duration
+	s.PushInt(42)                              // id
+	s.PushInt(100)                             // duration
 	if err := handleNpcAdd(s); err != nil {
 		t.Fatalf("handleNpcAdd: %v", err)
 	}

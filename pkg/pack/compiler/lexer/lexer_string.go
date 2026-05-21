@@ -6,8 +6,8 @@ package lexer
 // Algorithm:
 //   - `"` → QUOTE_CLOSE (depth--, popMode)
 //   - `<` → try STRING_P_TAG, STRING_CLOSE_TAG, STRING_TAG,
-//           STRING_PARTIAL_TAG; fall through to STRING_EXPR_START
-//           (T10 pushes modeDefault).
+//     STRING_PARTIAL_TAG; fall through to STRING_EXPR_START
+//     (T10 pushes modeDefault).
 //   - else → STRING_TEXT run (escapes + non-special chars)
 //
 // T10 wires interpolation (STRING_EXPR_START pushes modeDefault) and

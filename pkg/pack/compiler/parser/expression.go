@@ -56,11 +56,11 @@ func (p *Parser) parseExpression() ast.Expression {
 			return nil
 		}
 		if p.ts.LA(1) == lexer.LPAREN {
-			return p.parseCommandCallTail(name, /*star=*/ false)
+			return p.parseCommandCallTail(name /*star=*/, false)
 		}
 		if p.ts.LA(1) == lexer.MUL && p.ts.LA(2) == lexer.LPAREN {
 			p.ts.Consume() // MUL
-			return p.parseCommandCallTail(name, /*star=*/ true)
+			return p.parseCommandCallTail(name /*star=*/, true)
 		}
 		return name
 	}

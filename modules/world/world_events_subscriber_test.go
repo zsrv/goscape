@@ -13,40 +13,73 @@ import (
 
 // recordingWorldEventsDispatcher captures all received events.
 type recordingWorldEventsDispatcher struct {
-	mute         chan struct{ U uint64; M int64 }
-	kick         chan uint64
-	shutdown     chan int32
-	broadcast    chan string
-	track        chan struct{ U uint64; S int32 }
+	mute chan struct {
+		U uint64
+		M int64
+	}
+	kick      chan uint64
+	shutdown  chan int32
+	broadcast chan string
+	track     chan struct {
+		U uint64
+		S int32
+	}
 	reload       chan struct{}
 	clearLogins  chan struct{}
 	clearLogouts chan struct{}
-	queueScript  chan struct{ Name string; U uint64 }
+	queueScript  chan struct {
+		Name string
+		U    uint64
+	}
 }
 
 func newRecordingWorldEventsDispatcher() *recordingWorldEventsDispatcher {
 	return &recordingWorldEventsDispatcher{
-		mute:         make(chan struct{ U uint64; M int64 }, 8),
-		kick:         make(chan uint64, 8),
-		shutdown:     make(chan int32, 8),
-		broadcast:    make(chan string, 8),
-		track:        make(chan struct{ U uint64; S int32 }, 8),
+		mute: make(chan struct {
+			U uint64
+			M int64
+		}, 8),
+		kick:      make(chan uint64, 8),
+		shutdown:  make(chan int32, 8),
+		broadcast: make(chan string, 8),
+		track: make(chan struct {
+			U uint64
+			S int32
+		}, 8),
 		reload:       make(chan struct{}, 8),
 		clearLogins:  make(chan struct{}, 8),
 		clearLogouts: make(chan struct{}, 8),
-		queueScript:  make(chan struct{ Name string; U uint64 }, 8),
+		queueScript: make(chan struct {
+			Name string
+			U    uint64
+		}, 8),
 	}
 }
 
-func (r *recordingWorldEventsDispatcher) OnMute(u uint64, m int64)        { r.mute <- struct{ U uint64; M int64 }{u, m} }
-func (r *recordingWorldEventsDispatcher) OnKick(u uint64)                  { r.kick <- u }
-func (r *recordingWorldEventsDispatcher) OnShutdown(d int32)               { r.shutdown <- d }
-func (r *recordingWorldEventsDispatcher) OnBroadcast(m string)             { r.broadcast <- m }
-func (r *recordingWorldEventsDispatcher) OnTrack(u uint64, s int32)        { r.track <- struct{ U uint64; S int32 }{u, s} }
-func (r *recordingWorldEventsDispatcher) OnReload()                        { r.reload <- struct{}{} }
-func (r *recordingWorldEventsDispatcher) OnClearLogins()                   { r.clearLogins <- struct{}{} }
-func (r *recordingWorldEventsDispatcher) OnClearLogouts()                  { r.clearLogouts <- struct{}{} }
-func (r *recordingWorldEventsDispatcher) OnQueueScript(n string, u uint64) { r.queueScript <- struct{ Name string; U uint64 }{n, u} }
+func (r *recordingWorldEventsDispatcher) OnMute(u uint64, m int64) {
+	r.mute <- struct {
+		U uint64
+		M int64
+	}{u, m}
+}
+func (r *recordingWorldEventsDispatcher) OnKick(u uint64)      { r.kick <- u }
+func (r *recordingWorldEventsDispatcher) OnShutdown(d int32)   { r.shutdown <- d }
+func (r *recordingWorldEventsDispatcher) OnBroadcast(m string) { r.broadcast <- m }
+func (r *recordingWorldEventsDispatcher) OnTrack(u uint64, s int32) {
+	r.track <- struct {
+		U uint64
+		S int32
+	}{u, s}
+}
+func (r *recordingWorldEventsDispatcher) OnReload()       { r.reload <- struct{}{} }
+func (r *recordingWorldEventsDispatcher) OnClearLogins()  { r.clearLogins <- struct{}{} }
+func (r *recordingWorldEventsDispatcher) OnClearLogouts() { r.clearLogouts <- struct{}{} }
+func (r *recordingWorldEventsDispatcher) OnQueueScript(n string, u uint64) {
+	r.queueScript <- struct {
+		Name string
+		U    uint64
+	}{n, u}
+}
 
 func TestWorldEventsSubscriber_DispatchRouting(t *testing.T) {
 	fake := newFakeFriendsClient()

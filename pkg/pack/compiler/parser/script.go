@@ -303,4 +303,3 @@ func isAdvancedIdentifierStart(tt lexer.TokenType) bool {
 	}
 	return false
 }
-

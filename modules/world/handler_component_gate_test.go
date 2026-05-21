@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
-	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/inventory"
+	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
 	"github.com/zsrv/goscape/pkg/zone"
@@ -17,14 +17,14 @@ import (
 // is visible, listener resolves, etc). The helper rewrites or relies on the
 // payload's component-id field to drive the gate-failure scenarios.
 type compGateCase struct {
-	name        string
-	handler     func(*Player, []byte) error
-	setupOk     func(t *testing.T, s *Server, p *Player) // seeds prerequisite state for happy-path
-	payloadOK   []byte
-	rootLayer   int  // RootLayer for the test component; placed at p.tabs[0] to satisfy IsComponentVisible
-	flagBits    int  // T-variant: ActionTarget bitmask. U-variant: 0.
-	isUVariant  bool // U: gate Usable. T: gate ActionTarget bits.
-	comId       int  // component id referenced by payloadOK
+	name       string
+	handler    func(*Player, []byte) error
+	setupOk    func(t *testing.T, s *Server, p *Player) // seeds prerequisite state for happy-path
+	payloadOK  []byte
+	rootLayer  int  // RootLayer for the test component; placed at p.tabs[0] to satisfy IsComponentVisible
+	flagBits   int  // T-variant: ActionTarget bitmask. U-variant: 0.
+	isUVariant bool // U: gate Usable. T: gate ActionTarget bits.
+	comId      int  // component id referenced by payloadOK
 }
 
 // runCompGate exercises 4 scenarios per handler:
@@ -387,7 +387,7 @@ func seedObjAt(t *testing.T, s *Server, p *Player, x, z, objId int) {
 	zn.Objs = append(zn.Objs, obj)
 
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	p.x, p.z, p.level = x - 1, z, 0
+	p.x, p.z, p.level = x-1, z, 0
 	p.originX, p.originZ = x, z
 }
 
@@ -419,7 +419,7 @@ func seedLocAt(t *testing.T, s *Server, p *Player, x, z, locId int) {
 	zn.Locs = append(zn.Locs, loc)
 
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	p.x, p.z, p.level = x - 1, z, 0
+	p.x, p.z, p.level = x-1, z, 0
 	p.originX, p.originZ = x, z
 }
 

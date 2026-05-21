@@ -82,11 +82,12 @@ type LoggerBridge interface {
 // s.relayActionQueue.
 //
 // Retired tags:
-//   NAI-S4A-D-NO-INGAME-PACKET-EMIT — RETIRED 2026-05-19 (NAI-182-D5).
-//     OnFriendlistUpdate / OnIgnorelistUpdate now emit UPDATE_FRIENDLIST /
-//     UPDATE_IGNORELIST to the recipient's wire.
-//   NAI-S4B-D-NO-INGAME-PM-EMIT — RETIRED 2026-05-19 (NAI-182-D5).
-//     OnPrivateMessage now emits MESSAGE_PRIVATE to the recipient's wire.
+//
+//	NAI-S4A-D-NO-INGAME-PACKET-EMIT — RETIRED 2026-05-19 (NAI-182-D5).
+//	  OnFriendlistUpdate / OnIgnorelistUpdate now emit UPDATE_FRIENDLIST /
+//	  UPDATE_IGNORELIST to the recipient's wire.
+//	NAI-S4B-D-NO-INGAME-PM-EMIT — RETIRED 2026-05-19 (NAI-182-D5).
+//	  OnPrivateMessage now emits MESSAGE_PRIVATE to the recipient's wire.
 type FriendsDispatcher interface {
 	OnFriendlistUpdate(viewer uint64, entries []*friendspb.FriendEntry)
 	OnIgnorelistUpdate(viewer uint64, ignored []uint64)
@@ -199,8 +200,9 @@ type FriendsAdminBridge interface {
 // Slice 5b opens these new tags:
 //
 // NAI-S5B-D-CLEARLOGOUTS-NO-GOSCAPE-QUEUE — permanent (architectural
-//   divergence from TS; goscape has no logout-request queue). See
-//   (*Server).ClearLogouts in world_state_ops.go.
+//
+//	divergence from TS; goscape has no logout-request queue). See
+//	(*Server).ClearLogouts in world_state_ops.go.
 type WorldEventsDispatcher interface {
 	OnMute(username37 uint64, mutedUntilMs int64)
 	OnKick(username37 uint64)
@@ -301,21 +303,21 @@ func (d *slogWorldEventsDispatcher) OnQueueScript(scriptName string, username37 
 // performs no I/O.
 type noopBridges struct{}
 
-func (noopBridges) AddFriend(string, uint64)                   {}
-func (noopBridges) RemoveFriend(string, uint64)                {}
-func (noopBridges) AddIgnore(string, uint64)                   {}
-func (noopBridges) RemoveIgnore(string, uint64)                {}
-func (noopBridges) SetChatMode(string, int)                    {}
+func (noopBridges) AddFriend(string, uint64)                                  {}
+func (noopBridges) RemoveFriend(string, uint64)                               {}
+func (noopBridges) AddIgnore(string, uint64)                                  {}
+func (noopBridges) RemoveIgnore(string, uint64)                               {}
+func (noopBridges) SetChatMode(string, int)                                   {}
 func (noopBridges) PrivateMessage(string, int32, uint32, uint64, string, int) {}
 func (noopBridges) PublicMessage(string, int, string)                         {}
 func (noopBridges) NotifyPlayerBan(string, string, time.Time)                 {}
-func (noopBridges) NotifyPlayerMute(string, string, time.Time) {}
-func (noopBridges) NotifyPlayerReport(*Player, string, string) {}
-func (noopBridges) SubmitInputTracking(*Player, []byte)        {}
-func (noopBridges) SubmitSessionLogs([]SessionLog)             {}
-func (noopBridges) OnFriendlistUpdate(uint64, []*friendspb.FriendEntry)          {}
-func (noopBridges) OnIgnorelistUpdate(uint64, []uint64)                          {}
-func (noopBridges) OnPrivateMessage(uint64, uint64, int32, uint32, string)       {}
+func (noopBridges) NotifyPlayerMute(string, string, time.Time)                {}
+func (noopBridges) NotifyPlayerReport(*Player, string, string)                {}
+func (noopBridges) SubmitInputTracking(*Player, []byte)                       {}
+func (noopBridges) SubmitSessionLogs([]SessionLog)                            {}
+func (noopBridges) OnFriendlistUpdate(uint64, []*friendspb.FriendEntry)       {}
+func (noopBridges) OnIgnorelistUpdate(uint64, []uint64)                       {}
+func (noopBridges) OnPrivateMessage(uint64, uint64, int32, uint32, string)    {}
 
 // loginGRPCBridgeMod is the production LoginBridgeMod impl. Translates
 // moderation actions into gRPC RPCs against the login server. Calls are

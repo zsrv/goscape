@@ -35,7 +35,7 @@ func NewQueueCommandHandler(queueType typ.Type) *QueueCommandHandler {
 
 // TypeCheck ports QueueCommandHandler.ts typeCheck verbatim.
 func (h *QueueCommandHandler) TypeCheck(ctx *semantics.TypeCheckingContext) {
-	ctx.CheckArgument(0, h.queueType, false) // Script to queue.
+	ctx.CheckArgument(0, h.queueType, false)      // Script to queue.
 	ctx.CheckArgument(1, typ.PrimitiveInt, false) // Delay before running.
 	ctx.CheckArgument(2, typ.PrimitiveInt, false) // Int arg to pass.
 

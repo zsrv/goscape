@@ -118,8 +118,8 @@ type Server struct {
 	varsStrings []string
 	worldVars   worldVarsView
 
-	npcTypes      *objtype.NPCTypeConfigs
-	huntTypes     *objtype.HuntTypeConfigs
+	npcTypes       *objtype.NPCTypeConfigs
+	huntTypes      *objtype.HuntTypeConfigs
 	idkTypes       *objtype.IdkTypeConfigs
 	mesanimTypes   *objtype.MesanimTypeConfigs
 	fontTypes      []*fonttype.FontType
@@ -148,7 +148,7 @@ type Server struct {
 	//
 	// Single-tick goroutine ownership; no mutex required.
 	worldScriptQueue []worldScriptQueueEntry
-	objDelayedQueue []objDelayedRequest // NAI-134
+	objDelayedQueue  []objDelayedRequest // NAI-134
 
 	renderer *rsbuf.Renderer
 	// rsbuf is the per-tick stateful encoder core (NAI-29). Tick-goroutine-
@@ -179,7 +179,7 @@ type Server struct {
 
 	// sessionLogs is the per-tick session-log accumulator. NAI-74. Pushed by
 	// Player.AddSessionLog; flushed via processSessionLogs in the tick loop.
-	sessionLogs    []SessionLog
+	sessionLogs []SessionLog
 
 	testPathfinder pathfinderForTarget // injected by tests; nil in production
 
@@ -289,18 +289,18 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 		friendsClient: friendsClient,
 		quit:          make(chan interface{}),
 
-		log:           logger,
-		invs:          make(map[int]*inventory.Inventory),
-		zoneMap:       zone.NewZoneMap(),
-		zonesTracking: map[*zone.Zone]struct{}{},
-		locObjTracker: newLocObjTracker(),
-		rsbuf:         rsbuf.New(),
-		pmCount:       1,
-		shutdownTick:  -1,
-		tickRate:      defaultTickRate,
-		gracefulExit:  make(chan struct{}),
-		rebuildReq:    make(chan struct{}, 1),
-		rebuildResult: make(chan rebuildResult, 1),
+		log:              logger,
+		invs:             make(map[int]*inventory.Inventory),
+		zoneMap:          zone.NewZoneMap(),
+		zonesTracking:    map[*zone.Zone]struct{}{},
+		locObjTracker:    newLocObjTracker(),
+		rsbuf:            rsbuf.New(),
+		pmCount:          1,
+		shutdownTick:     -1,
+		tickRate:         defaultTickRate,
+		gracefulExit:     make(chan struct{}),
+		rebuildReq:       make(chan struct{}, 1),
+		rebuildResult:    make(chan rebuildResult, 1),
 		relayActionQueue: make(chan func(), 64),
 	}
 	s.packFn = packall.PackAll
@@ -1193,4 +1193,3 @@ func (s *Server) ZonePlayers(level, zoneX, zoneZ int) []script.ActivePlayer {
 	}
 	return out
 }
-

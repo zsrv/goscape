@@ -140,4 +140,3 @@ func TestParseScriptFile_HeaderMissingRBrackReportsError(t *testing.T) {
 		t.Fatal("expected at least one error")
 	}
 }
-

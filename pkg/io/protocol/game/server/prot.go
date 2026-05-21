@@ -64,12 +64,12 @@ var (
 	OpPlayerInfo       = Op{Opcode: 184, PayloadSize: -2}
 	OpNpcInfo          = Op{Opcode: 1, PayloadSize: -2}
 
-	OpUpdateStat            = Op{Opcode: 44, PayloadSize: 6}
-	OpUpdateRunEnergy       = Op{Opcode: 68, PayloadSize: 1}
+	OpUpdateStat      = Op{Opcode: 44, PayloadSize: 6}
+	OpUpdateRunEnergy = Op{Opcode: 68, PayloadSize: 1}
 	// Per-player run-weight (kg). Emitted from NetworkPlayer.updateInvs when an
 	// inv with RunWeight=true is dirtied or first-seen. Mirrors TS
 	// ServerGameProt.UPDATE_RUNWEIGHT (opcode 22, 2-byte payload).
-	OpUpdateRunWeight       = Op{Opcode: 22, PayloadSize: 2}
+	OpUpdateRunWeight = Op{Opcode: 22, PayloadSize: 2}
 	// OpSetMultiway tells the client to show or hide the multi-combat
 	// overlay icon (top-right of the chatbox). Sent on transitions across
 	// multi-combat zone boundaries from updateBuildArea. 1-byte payload

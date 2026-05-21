@@ -4,8 +4,8 @@ import (
 	"net"
 	"testing"
 
-	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/coordgrid"
+	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/script"
@@ -171,8 +171,8 @@ func TestProcessPostDecode_DelayedFiresUnsetMapFlagAndReturns(t *testing.T) {
 	sibling := io2.New([4]uint32{1, 2, 3, 4})
 
 	p.delayed = true
-	p.waypointIndex = 5    // would clear under unsetMapFlag bundle
-	p.faceEntity = 42      // would reset if delayed branch DIDN'T return
+	p.waypointIndex = 5       // would clear under unsetMapFlag bundle
+	p.faceEntity = 42         // would reset if delayed branch DIDN'T return
 	p.moveClickRequest = true // sentinel — must NOT be touched after return
 
 	received := drainConn(t, cc)
@@ -300,7 +300,7 @@ func TestProcessPostDecode_MoveClickRequest_NotBusyOpcalled(t *testing.T) {
 	p.delayed = false
 	p.modalState = modalStateNone
 	p.moveClickRequest = true // sentinel — must flip to false
-	p.targetOp = -1 // not 3 → !followingPlayer (prerequisite for the gate, not its suppressor)
+	p.targetOp = -1           // not 3 → !followingPlayer (prerequisite for the gate, not its suppressor)
 	// Real pathToTarget suppressor: !followingPlayer && opcalled &&
 	// (len(userPath)==0 || !routefinder). With routefinder=true AND
 	// len(userPath)>0 (both default in fixture), the disjunction is
@@ -381,9 +381,9 @@ func TestProcessPostDecode_PathToTargetFiresAndReturns(t *testing.T) {
 func TestProcessPostDecode_PathToTargetSkippedForFollowingPlayer(t *testing.T) {
 	p, s := newPostDecodeTestPlayer(t)
 	s.cfg.NodeWalktriggerSetting = WalkTriggerSettingPlayermovement // re-paths but no walktrigger
-	s.cfg.NodeClientRoutefinder = false                              // gate's userPath/routefinder clause WOULD pass
-	p.opcalled = true                                                // satisfies opcalled clause
-	p.targetOp = 3                                                   // followingPlayer → BLOCKS gate at first clause
+	s.cfg.NodeClientRoutefinder = false                             // gate's userPath/routefinder clause WOULD pass
+	p.opcalled = true                                               // satisfies opcalled clause
+	p.targetOp = 3                                                  // followingPlayer → BLOCKS gate at first clause
 	p.delayed = false
 	p.modalState = modalStateNone
 	p.userPath = []int{coordgrid.PackCoord(p.level, p.x+1, p.z)}
@@ -413,12 +413,12 @@ func TestProcessPostDecode_PathToTargetSkippedWhenRoutefinderAndUserPath(t *test
 	p, s := newPostDecodeTestPlayer(t)
 	s.cfg.NodeWalktriggerSetting = WalkTriggerSettingPlayermovement // re-path only; no walktrigger
 	s.cfg.NodeClientRoutefinder = true
-	p.opcalled = true                    // satisfies pathToTarget opcalled clause
-	p.targetOp = 1                       // !followingPlayer
+	p.opcalled = true // satisfies pathToTarget opcalled clause
+	p.targetOp = 1    // !followingPlayer
 	p.delayed = false
 	p.modalState = modalStateNone
 	p.userPath = []int{coordgrid.PackCoord(p.level, p.x+1, p.z)}
-	p.waypointIndex = -1                 // sentinel; fallback's pathToMoveClick should set >=0
+	p.waypointIndex = -1 // sentinel; fallback's pathToMoveClick should set >=0
 
 	p.processPostDecode()
 
@@ -460,10 +460,10 @@ func TestProcessPostDecode_WalktriggerFallback_Playersetup_FiresWhenNotOpcalled(
 
 	s.scriptProvider = script.NewProvider()
 	s.scriptProvider.Register(&script.ScriptFile{
-		Name:             "[walk_test_setup_fires]",
-		LookupKey:        42,
-		Opcodes:          []script.Opcode{script.OpReturn},
-		IntOperands:      []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+		Name:        "[walk_test_setup_fires]",
+		LookupKey:   42,
+		Opcodes:     []script.Opcode{script.OpReturn},
+		IntOperands: []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
 	})
 
 	p.processPostDecode()

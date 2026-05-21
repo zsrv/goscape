@@ -658,7 +658,7 @@ func TestLex_SourceLocation_OneLine(t *testing.T) {
 	if t1.Source.Line != 1 || t1.Source.Column != 1 || t1.Source.EndLine != 1 || t1.Source.EndColumn != 3 {
 		t.Errorf("t1 src = (%d:%d-%d:%d), want (1:1-1:3)", t1.Source.Line, t1.Source.Column, t1.Source.EndLine, t1.Source.EndColumn)
 	}
-	_ = l.NextToken() // WHITESPACE
+	_ = l.NextToken()   // WHITESPACE
 	t3 := l.NextToken() // IDENTIFIER "def"
 	if t3.Source.Line != 1 || t3.Source.Column != 5 || t3.Source.EndColumn != 7 {
 		t.Errorf("t3 src = (%d:%d-?:%d), want (1:5-?:7)", t3.Source.Line, t3.Source.Column, t3.Source.EndColumn)
@@ -672,7 +672,7 @@ func TestLex_SourceLocation_NewlineCrLf(t *testing.T) {
 	if t1.Source.Line != 1 || t1.Source.Column != 1 {
 		t.Errorf("t1 = (%d:%d), want (1:1)", t1.Source.Line, t1.Source.Column)
 	}
-	_ = l.NextToken() // WS \r\n
+	_ = l.NextToken()   // WS \r\n
 	t3 := l.NextToken() // IDENT b
 	if t3.Source.Line != 2 || t3.Source.Column != 1 {
 		t.Errorf("t3 = (%d:%d), want (2:1)", t3.Source.Line, t3.Source.Column)
@@ -682,8 +682,8 @@ func TestLex_SourceLocation_NewlineCrLf(t *testing.T) {
 // TestLex_SourceLocation_NewlineCr pins bare \r line-counting.
 func TestLex_SourceLocation_NewlineCr(t *testing.T) {
 	l := NewLexer("a\rb", "cr.rs2")
-	_ = l.NextToken() // IDENT a
-	_ = l.NextToken() // WS \r
+	_ = l.NextToken()   // IDENT a
+	_ = l.NextToken()   // WS \r
 	t3 := l.NextToken() // IDENT b
 	if t3.Source.Line != 2 || t3.Source.Column != 1 {
 		t.Errorf("t3 = (%d:%d), want (2:1)", t3.Source.Line, t3.Source.Column)

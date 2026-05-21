@@ -22,17 +22,17 @@ type WealthItem struct {
 // WealthEventType* enum mirrors TS WealthEventType (const enum,
 // WealthEventType.ts — 0-based ordinals).
 const (
-	WealthEventTypeTrade      = 0
-	WealthEventTypePVP        = 1
-	WealthEventTypeStake      = 2
-	WealthEventTypeDeath      = 3
-	WealthEventTypeDrop       = 4
-	WealthEventTypePickup     = 5
-	WealthEventTypeShopBuy    = 6
-	WealthEventTypeShopSell   = 7
-	WealthEventTypeLowAlch    = 8
-	WealthEventTypeHighAlch   = 9
-	WealthEventTypePartyRoom  = 10
+	WealthEventTypeTrade     = 0
+	WealthEventTypePVP       = 1
+	WealthEventTypeStake     = 2
+	WealthEventTypeDeath     = 3
+	WealthEventTypeDrop      = 4
+	WealthEventTypePickup    = 5
+	WealthEventTypeShopBuy   = 6
+	WealthEventTypeShopSell  = 7
+	WealthEventTypeLowAlch   = 8
+	WealthEventTypeHighAlch  = 9
+	WealthEventTypePartyRoom = 10
 )
 
 // ActivePlayer is the minimal surface RuneScript needs from a Player.

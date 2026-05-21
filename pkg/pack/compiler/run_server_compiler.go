@@ -80,10 +80,10 @@ func runServerCompilerCore(srcDir, outDir string, loaders *configLoaders) error 
 // to the dot-prefixed Representation strings used by pointer.ForName.
 // NAI-212-D-POINTER-NAME-TRANSLATION.
 var pointerNameAliases = map[string]string{
-	"active_player2":  ".active_player",
-	"active_npc2":     ".active_npc",
-	"active_loc2":     ".active_loc",
-	"active_obj2":     ".active_obj",
+	"active_player2":   ".active_player",
+	"active_npc2":      ".active_npc",
+	"active_loc2":      ".active_loc",
+	"active_obj2":      ".active_obj",
 	"p_active_player2": ".p_active_player",
 }
 

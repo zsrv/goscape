@@ -138,7 +138,7 @@ func (t *InputTracking) enable(currentTick int) {
 		return
 	}
 	t.enabled = true
-	t.startTrackingAt = currentTick                         // enabled immediately
+	t.startTrackingAt = currentTick // enabled immediately
 	t.endTrackingAt = t.startTrackingAt + inputTrackingTime
 	t.player.WriteEnableTracking()
 }
@@ -152,7 +152,7 @@ func (t *InputTracking) disable(currentTick int) {
 	}
 	t.enabled = false
 	t.startTrackingAt = t.nextScheduledTrackingStart(currentTick) // at the next interval
-	t.endTrackingAt = currentTick                                  // disabled immediately
+	t.endTrackingAt = currentTick                                 // disabled immediately
 	t.waitingForRemainingData = true
 	t.player.WriteFinishTracking()
 }

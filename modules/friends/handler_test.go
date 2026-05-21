@@ -1143,4 +1143,3 @@ func TestHandler_PublicMessage_InsertErrorReturnsInternal(t *testing.T) {
 		t.Fatalf("PublicMessage err code = %v, want %v", status.Code(err), codes.Internal)
 	}
 }
-

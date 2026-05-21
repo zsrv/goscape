@@ -7,9 +7,9 @@ import (
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
+	"github.com/zsrv/goscape/pkg/gamemap"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
-	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/pathfinder/routefinder"
@@ -1226,8 +1226,10 @@ func TestTryInteractLocAllowsOpWhenSceneryTrue(t *testing.T) {
 // via processInteraction: pre-step always passes false, post-step passes
 // stepsTaken==0 (true only when no movement this tick).
 // Updated for NAI-78: with no scripts and adjacent Loc, the two-step sequence is:
-//   pre-step tryInteract(false): branch 3 (approach=true) → apRange=-1, return false.
-//   post-step tryInteract(true): approach=false (apRange=-1), operable=true → branch 4 NIH.
+//
+//	pre-step tryInteract(false): branch 3 (approach=true) → apRange=-1, return false.
+//	post-step tryInteract(true): approach=false (apRange=-1), operable=true → branch 4 NIH.
+//
 // Branch 4 fires defaultOp → target auto-cleared.
 func TestTryInteractProcessInteractionCallSites(t *testing.T) {
 	s := newTestServer(t)
@@ -1541,12 +1543,13 @@ func TestSetInteractionObjEngineWritesFaceSquareAndMask(t *testing.T) {
 // as the sole clearing agent.
 //
 // Path exercised:
-//   tryInteract (NPC adjacent, targetOp=1) → fireOpTriggerNpc executes the
-//   registered [opnpc1, typeID=0] noop script to Finished; the script does NOT
-//   call p_op_npc, so p.target stays nil during execution and p.nextTarget is
-//   set to nil at the capture step (p.nextTarget = p.target = nil); then
-//   fireOpTriggerNpc restores p.target = savedTarget (= npc); interacted=true,
-//   nextTarget=nil, apRangeCalled=false → tail else-if calls ClearInteraction.
+//
+//	tryInteract (NPC adjacent, targetOp=1) → fireOpTriggerNpc executes the
+//	registered [opnpc1, typeID=0] noop script to Finished; the script does NOT
+//	call p_op_npc, so p.target stays nil during execution and p.nextTarget is
+//	set to nil at the capture step (p.nextTarget = p.target = nil); then
+//	fireOpTriggerNpc restores p.target = savedTarget (= npc); interacted=true,
+//	nextTarget=nil, apRangeCalled=false → tail else-if calls ClearInteraction.
 //
 // NAI-68 B1 dual-pin.
 func TestProcessInteractionTailAutoClearsWithoutNextTarget(t *testing.T) {
@@ -1930,14 +1933,14 @@ func TestPlayer_InOperableDistance_WallStraightMatrix(t *testing.T) {
 		{
 			angle: 0 /*loc_west*/, name: "west",
 			tiles: []tile{
-				{0, 0, true, 0},   // on-tile
-				{-1, 0, true, 0},  // west-adjacent (in front of wall)
-				{0, 1, true, 0},   // north-adjacent, open flags
-				{0, -1, true, 0},  // south-adjacent, open flags
+				{0, 0, true, 0},                          // on-tile
+				{-1, 0, true, 0},                         // west-adjacent (in front of wall)
+				{0, 1, true, 0},                          // north-adjacent, open flags
+				{0, -1, true, 0},                         // south-adjacent, open flags
 				{0, 1, false, collision.FlagBlockNorth},  // north-adjacent, blocked
 				{0, -1, false, collision.FlagBlockSouth}, // south-adjacent, blocked
-				{1, 0, false, 0}, // east-adjacent (behind wall, no gate)
-				{1, 1, false, 0}, // diagonals false
+				{1, 0, false, 0},                         // east-adjacent (behind wall, no gate)
+				{1, 1, false, 0},                         // diagonals false
 				{-1, -1, false, 0},
 			},
 		},
@@ -1945,11 +1948,11 @@ func TestPlayer_InOperableDistance_WallStraightMatrix(t *testing.T) {
 			angle: 1 /*loc_north*/, name: "north",
 			tiles: []tile{
 				{0, 0, true, 0},
-				{0, 1, true, 0},  // north-adjacent
-				{-1, 0, true, 0}, // west-adjacent, open flags
-				{1, 0, true, 0},  // east-adjacent, open flags
-				{-1, 0, false, collision.FlagBlockWest},  // west-adjacent, blocked
-				{1, 0, false, collision.FlagBlockEast},   // east-adjacent, blocked
+				{0, 1, true, 0},                         // north-adjacent
+				{-1, 0, true, 0},                        // west-adjacent, open flags
+				{1, 0, true, 0},                         // east-adjacent, open flags
+				{-1, 0, false, collision.FlagBlockWest}, // west-adjacent, blocked
+				{1, 0, false, collision.FlagBlockEast},  // east-adjacent, blocked
 				{0, -1, false, 0},
 			},
 		},
@@ -1957,9 +1960,9 @@ func TestPlayer_InOperableDistance_WallStraightMatrix(t *testing.T) {
 			angle: 2 /*loc_east*/, name: "east",
 			tiles: []tile{
 				{0, 0, true, 0},
-				{1, 0, true, 0},  // east-adjacent
-				{0, 1, true, 0},  // north-adjacent, open flags
-				{0, -1, true, 0}, // south-adjacent, open flags
+				{1, 0, true, 0},                          // east-adjacent
+				{0, 1, true, 0},                          // north-adjacent, open flags
+				{0, -1, true, 0},                         // south-adjacent, open flags
 				{0, 1, false, collision.FlagBlockNorth},  // north-adjacent, blocked
 				{0, -1, false, collision.FlagBlockSouth}, // south-adjacent, blocked
 				{-1, 0, false, 0},
@@ -1969,9 +1972,9 @@ func TestPlayer_InOperableDistance_WallStraightMatrix(t *testing.T) {
 			angle: 3 /*loc_south*/, name: "south",
 			tiles: []tile{
 				{0, 0, true, 0},
-				{0, -1, true, 0}, // south-adjacent
-				{-1, 0, true, 0}, // west-adjacent, open flags
-				{1, 0, true, 0},  // east-adjacent, open flags
+				{0, -1, true, 0},                        // south-adjacent
+				{-1, 0, true, 0},                        // west-adjacent, open flags
+				{1, 0, true, 0},                         // east-adjacent, open flags
 				{-1, 0, false, collision.FlagBlockWest}, // west-adjacent, blocked
 				{1, 0, false, collision.FlagBlockEast},  // east-adjacent, blocked
 				{0, 1, false, 0},
@@ -2143,9 +2146,9 @@ type pathfinderRecorder struct {
 }
 
 type findPathToLocCall struct {
-	level, srcX, srcZ, destX, destZ        int
-	srcSize, destWidth, destLength         int
-	angle, shape, blockAccessFlags         int
+	level, srcX, srcZ, destX, destZ int
+	srcSize, destWidth, destLength  int
+	angle, shape, blockAccessFlags  int
 }
 
 type findPathToEntityCall struct {
@@ -2272,7 +2275,7 @@ func TestPlayer_PathToTarget_LocTarget_ThreadsShapeAngle(t *testing.T) {
 	p := newPathToTargetTestPlayer(t, srv, 3097, 3107, 0)
 
 	// Loc at (3098, 3107, 0), wall_straight (shape=0), angle west (0), 1×1.
-	loc := entitypkg.NewLoc(0, 3098, 3107, 1, 1, entitypkg.LifecycleForever, /*typ=*/ 1234, /*shape=*/ 0, /*angle=*/ 0)
+	loc := entitypkg.NewLoc(0, 3098, 3107, 1, 1, entitypkg.LifecycleForever /*typ=*/, 1234 /*shape=*/, 0 /*angle=*/, 0)
 	p.target = loc
 
 	// Register loc type with ForceApproach=0 so locTypeOrNil returns
@@ -2387,7 +2390,7 @@ func TestPlayer_PathToTarget_NpcTarget_NoIntersect_UsesFindPathToEntity(t *testi
 	srv, rec := newPathToTargetTestServer(t)
 	srv.cfg.NodeClientRoutefinder = false // server-routefinder mode (production default)
 	p := newPathToTargetTestPlayer(t, srv, 3101, 3105, 0)
-	npc := newPathToTargetTestNpc(t, srv, 3104, 3093, 0, /*size=*/ 1)
+	npc := newPathToTargetTestNpc(t, srv, 3104, 3093, 0 /*size=*/, 1)
 	p.target = npc
 
 	p.pathToTarget()
@@ -2420,7 +2423,7 @@ func TestPlayer_PathToTarget_NpcTarget_NodeClientRoutefinder_Intersect_UsesNaive
 	srv, rec := newPathToTargetTestServer(t)
 	srv.cfg.NodeClientRoutefinder = true
 	p := newPathToTargetTestPlayer(t, srv, 100, 100, 0)
-	npc := newPathToTargetTestNpc(t, srv, 100, 100, 0, /*size=*/ 1) // same tile = intersect
+	npc := newPathToTargetTestNpc(t, srv, 100, 100, 0 /*size=*/, 1) // same tile = intersect
 	p.target = npc
 
 	p.pathToTarget()
@@ -2439,7 +2442,7 @@ func TestPlayer_PathToTarget_NpcTarget_NodeClientRoutefinder_NoIntersect_UsesFin
 	srv, rec := newPathToTargetTestServer(t)
 	srv.cfg.NodeClientRoutefinder = true
 	p := newPathToTargetTestPlayer(t, srv, 100, 100, 0)
-	npc := newPathToTargetTestNpc(t, srv, 200, 200, 0, /*size=*/ 1) // disjoint bbox
+	npc := newPathToTargetTestNpc(t, srv, 200, 200, 0 /*size=*/, 1) // disjoint bbox
 	p.target = npc
 
 	p.pathToTarget()
@@ -2478,7 +2481,7 @@ func TestPlayer_PathToTarget_PlayerTarget_DispatchesSameAsNpc(t *testing.T) {
 func TestPlayer_PathToTarget_ObjTarget_SameTile_QueuesSingleWaypoint(t *testing.T) {
 	srv, rec := newPathToTargetTestServer(t)
 	p := newPathToTargetTestPlayer(t, srv, 100, 100, 0)
-	obj := entitypkg.NewObj(0, 100, 100, entitypkg.LifecycleForever, /*typ=*/ 1234, /*count=*/ 1)
+	obj := entitypkg.NewObj(0, 100, 100, entitypkg.LifecycleForever /*typ=*/, 1234 /*count=*/, 1)
 	p.target = obj
 
 	p.pathToTarget()
@@ -2506,7 +2509,7 @@ func TestPlayer_PathToTarget_ObjTarget_SameTile_QueuesSingleWaypoint(t *testing.
 func TestPlayer_PathToTarget_ObjTarget_DifferentTile_UsesFindPathPlain(t *testing.T) {
 	srv, rec := newPathToTargetTestServer(t)
 	p := newPathToTargetTestPlayer(t, srv, 100, 100, 0)
-	obj := entitypkg.NewObj(0, 105, 105, entitypkg.LifecycleForever, /*typ=*/ 1234, /*count=*/ 1)
+	obj := entitypkg.NewObj(0, 105, 105, entitypkg.LifecycleForever /*typ=*/, 1234 /*count=*/, 1)
 	p.target = obj
 
 	p.pathToTarget()
@@ -2535,7 +2538,7 @@ func TestPlayer_PathToTarget_NaiveStrategy_PathingEntityTarget_UsesFindNaivePath
 	srv, rec := newPathToTargetTestServer(t)
 	p := newPathToTargetTestPlayer(t, srv, 100, 100, 0)
 	p.moveStrategy = MoveStrategyNaive
-	npc := newPathToTargetTestNpc(t, srv, 105, 105, 0, /*size=*/ 1)
+	npc := newPathToTargetTestNpc(t, srv, 105, 105, 0 /*size=*/, 1)
 	p.target = npc
 
 	p.pathToTarget()

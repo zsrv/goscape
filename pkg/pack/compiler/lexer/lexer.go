@@ -155,4 +155,3 @@ func (lx *Lexer) makeToken(tt TokenType, start, stop int, text string, startLn, 
 	lx.tokenIndex++
 	return tok
 }
-

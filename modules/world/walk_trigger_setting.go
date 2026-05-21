@@ -15,7 +15,7 @@ package world
 type WalkTriggerSetting int
 
 const (
-	WalkTriggerSettingPlayerpacket  WalkTriggerSetting = 0
-	WalkTriggerSettingPlayersetup   WalkTriggerSetting = 1
+	WalkTriggerSettingPlayerpacket   WalkTriggerSetting = 0
+	WalkTriggerSettingPlayersetup    WalkTriggerSetting = 1
 	WalkTriggerSettingPlayermovement WalkTriggerSetting = 2
 )

@@ -312,18 +312,18 @@ func defaultTestProvider() *script.Provider {
 func newTestServer(t *testing.T) *Server {
 	t.Helper()
 	s := &Server{
-		quit:           make(chan interface{}),
-		log:            discardLogger(),
-		scriptProvider: defaultTestProvider(),
-		zoneMap:        zone.NewZoneMap(),
-		locObjTracker:  newLocObjTracker(),
-		rsbuf:          rsbuf.New(),
-		pmCount:        1,
-		shutdownTick:   -1,
-		tickRate:       defaultTickRate,
-		gracefulExit:   make(chan struct{}),
-		rebuildReq:    make(chan struct{}, 1),
-		rebuildResult: make(chan rebuildResult, 1),
+		quit:             make(chan interface{}),
+		log:              discardLogger(),
+		scriptProvider:   defaultTestProvider(),
+		zoneMap:          zone.NewZoneMap(),
+		locObjTracker:    newLocObjTracker(),
+		rsbuf:            rsbuf.New(),
+		pmCount:          1,
+		shutdownTick:     -1,
+		tickRate:         defaultTickRate,
+		gracefulExit:     make(chan struct{}),
+		rebuildReq:       make(chan struct{}, 1),
+		rebuildResult:    make(chan rebuildResult, 1),
 		relayActionQueue: make(chan func(), 64),
 	}
 	s.friendsBridge = noopBridges{}
@@ -598,7 +598,6 @@ func TestTickLoopIncrementsCurrentTick(t *testing.T) {
 		t.Errorf("currentTick: got %d, want >= 5 after 50ms with 3ms tick rate", s.currentTick)
 	}
 }
-
 
 func BenchmarkClientSetup(b *testing.B) {
 	b.ReportAllocs()

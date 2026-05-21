@@ -95,4 +95,3 @@ func WriteImage(img *Bitmap, data, index *packet.Packet, colors []int32, meta *S
 		}
 	}
 }
-

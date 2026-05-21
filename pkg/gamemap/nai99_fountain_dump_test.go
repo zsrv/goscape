@@ -60,13 +60,13 @@ func TestNAI99_FountainFootprintDump_Lumbridge(t *testing.T) {
 	)
 
 	type seen struct {
-		x, z                int
-		shape, angle, layer int
-		ltID                int
-		ltName              string
-		ltWidth, ltLength   int
+		x, z                  int
+		shape, angle, layer   int
+		ltID                  int
+		ltName                string
+		ltWidth, ltLength     int
 		blockWalk, blockRange bool
-		active              int
+		active                int
 	}
 	var inBbox []seen
 

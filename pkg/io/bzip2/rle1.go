@@ -17,9 +17,11 @@ var rleDone = errorf(dserrors.Unknown, "RLE1 stage is completed")
 // run lengths of 256..259. The decoder can handle the latter case.
 //
 // For example, if the input was:
+//
 //	input:  "AAAAAAABBBBCCCD"
 //
 // Then the output will be:
+//
 //	output: "AAAA\x03BBBB\x00CCCD"
 //
 // goscape: rewritten 2026-05-17 to mirror libbzip2's ADD_CHAR_TO_BLOCK +

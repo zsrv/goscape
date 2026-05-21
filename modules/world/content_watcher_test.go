@@ -798,10 +798,11 @@ func TestRunWatchSession_StampCorrupt_Dispatches(t *testing.T) {
 // 10ms headroom each side against Linux timer granularity
 // (CONFIG_HZ=250 → ~4ms tick) plus -race scheduling overhead.
 // Sequence:
-//   call 1: returns true immediately → delay = 20ms
-//   call 2: blocks 200ms (> resetWindow), returns true → attempt
-//           resets to 0 then increments to 1 → delay = 20ms
-//   call 3: captures elapsed-since-call-2-return; asserts ≈ 20ms (NOT 40ms)
+//
+//	call 1: returns true immediately → delay = 20ms
+//	call 2: blocks 200ms (> resetWindow), returns true → attempt
+//	        resets to 0 then increments to 1 → delay = 20ms
+//	call 3: captures elapsed-since-call-2-return; asserts ≈ 20ms (NOT 40ms)
 func TestContentWatcher_BackoffResetsAfterSteadyRun(t *testing.T) {
 	s := newTestServer(t)
 

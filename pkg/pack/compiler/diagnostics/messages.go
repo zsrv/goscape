@@ -82,12 +82,12 @@ const (
 	MessageHookTransmitListUnexpected      = "Unexpected hook transmit list."
 
 	// Local
-	MessageLocalDeclarationInvalidType  = "'%s' is not allowed to be declared as a type."
-	MessageLocalParameterInvalidType    = "'%s' is not allowed to be used as a parameter."
-	MessageLocalReferenceUnresolved     = "'$%s' cannot be resolved to a local variable."
-	MessageLocalReferenceNotArray       = "Access of indexed value of non-array type variable '$%s'."
-	MessageLocalArrayInvalidType        = "'%s' is not allowed to be used as an array."
-	MessageLocalArrayReferenceNoIndex   = "'$%s' is a reference to an array variable without specifying the index."
+	MessageLocalDeclarationInvalidType = "'%s' is not allowed to be declared as a type."
+	MessageLocalParameterInvalidType   = "'%s' is not allowed to be used as a parameter."
+	MessageLocalReferenceUnresolved    = "'$%s' cannot be resolved to a local variable."
+	MessageLocalReferenceNotArray      = "Access of indexed value of non-array type variable '$%s'."
+	MessageLocalArrayInvalidType       = "'%s' is not allowed to be used as an array."
+	MessageLocalArrayReferenceNoIndex  = "'$%s' is a reference to an array variable without specifying the index."
 
 	// Game var
 	MessageGameReferenceUnresolved = "'%%%s' cannot be resolved to a game variable."

@@ -536,7 +536,7 @@ func TestPackHuntConfigs_OpcodeCheckInvWithType(t *testing.T) {
 	want := []byte{
 		0x00, 0x01,
 		0x01, 0x01, // opcode 1, type=player=1
-		0x10, // opcode 16
+		0x10,       // opcode 16
 		0x00, 0x00, // p2(inv=0)
 		0x00, 0x02, // p2(obj=2)
 		'>', 0x0a, // pjstr(">") with LF terminator
@@ -680,7 +680,7 @@ func TestPackHuntConfigs_EmptyDebugname_No250Trailer(t *testing.T) {
 	// Just: header + terminator.
 	want := []byte{
 		0x00, 0x01, // size header
-		0x00,       // terminator only
+		0x00, // terminator only
 	}
 	if !bytes.Equal(pd.Dat.Data, want) {
 		t.Fatalf("got % x\nwant % x", pd.Dat.Data, want)

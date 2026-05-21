@@ -14,9 +14,9 @@ import (
 // Byte layout (per TS PackShared.ts:341-352):
 //   - p2(categoryPack.Size())                        — registered name count
 //   - for i in 0..Size()-1:                          — dense-id iteration
-//       p1(1)                                        — record marker
-//       pjstr(categoryPack.GetByID(i))               — LF-terminated name
-//       p1(0)                                        — record terminator
+//     p1(1)                                        — record marker
+//     pjstr(categoryPack.GetByID(i))               — LF-terminated name
+//     p1(0)                                        — record terminator
 //
 // Empty registry → file contains just p2(0) (2 bytes).
 //

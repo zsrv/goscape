@@ -113,11 +113,11 @@ func TestHsl24to16_BranchTable(t *testing.T) {
 //     ((-21&0xff)>>2)<<10=(235>>2)<<10=58<<10=59392 + 896 + 64 = 60352
 func TestRgbToHsl_Goldens(t *testing.T) {
 	tests := []struct {
-		name        string
-		red         float64
-		green       float64
-		blue        float64
-		want        int
+		name  string
+		red   float64
+		green float64
+		blue  float64
+		want  int
 	}{
 		{"pure red", 1.0, 0.0, 0.0, 960},
 		{"pure green", 0.0, 1.0, 0.0, 22464},

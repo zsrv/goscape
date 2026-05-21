@@ -231,11 +231,11 @@ func handleOpHeldT(p *Player, payload []byte) error {
 //  8. comId not in invListeners → drop
 //  9. listener's inventory unresolved → drop
 //  10. inv.HasAt(slot, obj) false → moveClickRequest=false +
-//      ClearPendingAction + drop (TS OpHeldUHandler.ts:54-58)
+//     ClearPendingAction + drop (TS OpHeldUHandler.ts:54-58)
 //  11. useComId not in invListeners → drop
 //  12. useInv unresolved → drop
 //  13. useInv.HasAt(useSlot, useObj) false → moveClickRequest=false +
-//      ClearPendingAction + drop (TS OpHeldUHandler.ts:71-75)
+//     ClearPendingAction + drop (TS OpHeldUHandler.ts:71-75)
 //
 // On pass: lastItem/lastSlot/lastUseItem/lastUseSlot snapshot →
 // ClearPendingAction (unconditional, contrast OPHELD1-5 conditional) →

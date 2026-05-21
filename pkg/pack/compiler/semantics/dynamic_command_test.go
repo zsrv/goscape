@@ -171,8 +171,8 @@ func TestTypeCheckingContext_Arguments2(t *testing.T) {
 // Updated by NAI-207 to include GenerateCode.
 type _stubHandler struct{}
 
-func (_stubHandler) TypeCheck(ctx *TypeCheckingContext)    {}
-func (_stubHandler) GenerateCode(ctx CodeGenContext) bool  { return false }
+func (_stubHandler) TypeCheck(ctx *TypeCheckingContext)   {}
+func (_stubHandler) GenerateCode(ctx CodeGenContext) bool { return false }
 
 func TestDynamicCommandHandler_Interface(t *testing.T) {
 	var _ DynamicCommandHandler = _stubHandler{}

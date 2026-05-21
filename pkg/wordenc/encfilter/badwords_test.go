@@ -75,12 +75,12 @@ func TestBadWords_getEmulatedBadCharLen_Leetspeak(t *testing.T) {
 // TestBadWords_getEmulatedBadCharLen_NoMatch covers chars that do not leet-match.
 func TestBadWords_getEmulatedBadCharLen_NoMatch(t *testing.T) {
 	cases := [][3]rune{
-		{0, 'a', 'b'},  // 'b' does not substitute for 'a'
-		{0, 'j', 'x'},  // 'j' has no substitutions (any non-j char)
-		{0, 'n', 'x'},  // 'n' has no substitutions
-		{0, 'm', 'x'},  // 'm' has no substitutions
-		{0, 'k', 'x'},  // 'k' has no substitutions
-		{0, 's', 'x'},  // 'x' does not substitute for 's'
+		{0, 'a', 'b'}, // 'b' does not substitute for 'a'
+		{0, 'j', 'x'}, // 'j' has no substitutions (any non-j char)
+		{0, 'n', 'x'}, // 'n' has no substitutions
+		{0, 'm', 'x'}, // 'm' has no substitutions
+		{0, 'k', 'x'}, // 'k' has no substitutions
+		{0, 's', 'x'}, // 'x' does not substitute for 's'
 	}
 	for _, c := range cases {
 		if got := getEmulatedBadCharLen(c[0], c[1], c[2]); got != 0 {

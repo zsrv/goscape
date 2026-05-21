@@ -9,9 +9,9 @@ import (
 
 	"github.com/zsrv/goscape/pkg/cache"
 	"github.com/zsrv/goscape/pkg/gamemap"
+	"github.com/zsrv/goscape/pkg/inventory"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
-	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
@@ -1697,9 +1697,9 @@ func TestLastLoginInfo_FirstCall_EmitsExactByteSequence(t *testing.T) {
 	want := []byte{
 		byte((int(gameserver.OpLastLoginInfo.Opcode) + int(enc.GetNext())) & 0xff),
 		0x7F, 0x00, 0x00, 0x01, // p4: lastIp = 2130706433 (127.0.0.1)
-		0x00, 0x00,             // p2: daysSinceLogin = 0 (first-call branch)
-		0xC9,                   // p1: daysSinceRecoveriesChanged = 201
-		0x00, 0x07,             // p2: messageCount = 7
+		0x00, 0x00, // p2: daysSinceLogin = 0 (first-call branch)
+		0xC9,       // p1: daysSinceRecoveriesChanged = 201
+		0x00, 0x07, // p2: messageCount = 7
 	}
 	received := drainConn(t, cc)
 	p.LastLoginInfo()
@@ -1894,10 +1894,10 @@ func TestPlayer_AddWealthEvent(t *testing.T) {
 
 func TestSetStat_WritesBaseCurAndXPClamped(t *testing.T) {
 	cases := []struct {
-		name     string
-		level    int
-		wantLvl  uint8
-		wantXP   int32
+		name    string
+		level   int
+		wantLvl uint8
+		wantXP  int32
 	}{
 		{"normal mid", 50, 50, int32(objtype.GetExpByLevel(50))},
 		{"clamps to 1 from 0", 0, 1, int32(objtype.GetExpByLevel(1))},
@@ -2058,8 +2058,8 @@ func TestRecomputeCombatLevel_Change_RebuildTrue_FlipsMask(t *testing.T) {
 	p.baseLevels[objtype.PlayerStatHitpoints] = 10
 	p.baseLevels[objtype.PlayerStatAttack] = 99   // att=str=99 → CL 67
 	p.baseLevels[objtype.PlayerStatStrength] = 99 // (plan note: str alone gives 35, not 67)
-	p.combatLevel = 3                              // stale
-	p.appearanceInv = 42                           // arbitrary, must remain unchanged
+	p.combatLevel = 3                             // stale
+	p.appearanceInv = 42                          // arbitrary, must remain unchanged
 	p.masks = 0
 	p.recomputeCombatLevel(true)
 	if p.combatLevel != 67 {

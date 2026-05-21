@@ -118,22 +118,22 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpMapLocAddUnsafe: handleMapLocAddUnsafe,
 
 	// NAI-115 Bundle 1+2: firemaking-cascade Obj/Inv/Server/Player ports.
-	OpObjCoord:    handleObjCoord,
-	OpObjDel:      handleObjDel,
-	OpObjAdd:      handleObjAdd,
-	OpObjAddAll:   handleObjAddAll,
-	OpObjType:     handleObjType,     // NAI-152 B2 T1
-	OpObjCount:    handleObjCount,    // NAI-153 T3
-	OpObjTakeItem: handleObjTakeItem, // NAI-153 T4
+	OpObjCoord:       handleObjCoord,
+	OpObjDel:         handleObjDel,
+	OpObjAdd:         handleObjAdd,
+	OpObjAddAll:      handleObjAddAll,
+	OpObjType:        handleObjType,        // NAI-152 B2 T1
+	OpObjCount:       handleObjCount,       // NAI-153 T3
+	OpObjTakeItem:    handleObjTakeItem,    // NAI-153 T4
 	OpObjFind:        handleObjFind,        // NAI-154 T3
 	OpObjFindAllZone: handleObjFindAllZone, // NAI-154 T4
 	OpObjFindNext:    handleObjFindNext,    // NAI-154 T4
 	OpObjName:        handleObjName,        // NAI-154 T5
 	OpObjParam:       handleObjParam,       // NAI-154 T5
-	OpLineOfSight: handleLineOfSight,
-	OpLineOfWalk:  handleLineOfWalk,
-	OpInvDropAll:  handleInvDropAll,
-	OpInvDropSlot: handleInvDropSlot,
+	OpLineOfSight:    handleLineOfSight,
+	OpLineOfWalk:     handleLineOfWalk,
+	OpInvDropAll:     handleInvDropAll,
+	OpInvDropSlot:    handleInvDropSlot,
 	// NAI-115 stretch: LOWMEM surfaced by Tutorial Island smoke.
 	OpLowMem: handleLowMem,
 	// NAI-149 T2: PLAYERMEMBER.
@@ -152,10 +152,10 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpLastTargetSlot: handleLastTargetSlot,
 
 	// Camera control — minimal stub set for login-script compatibility.
-	OpCamReset:   handleCamReset,
-	OpCamShake:   handleCamShake,
-	OpCamMoveTo:  handleCamMoveTo,
-	OpCamLookAt:  handleCamLookAt,
+	OpCamReset:  handleCamReset,
+	OpCamShake:  handleCamShake,
+	OpCamMoveTo: handleCamMoveTo,
+	OpCamLookAt: handleCamLookAt,
 
 	// Staff / moderator state.
 	OpStaffModLevel: handleStaffModLevel,
@@ -260,16 +260,16 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// NAI-160 T4: P_EXACTMOVE.
 	OpPExactMove: handlePExactMove,
 	// Animation.
-	OpAnim:            handleAnim,
-	OpBothHeroPoints:  handleBothHeroPoints,
-	OpSpotAnimPl:      handleSpotAnimPl,
-	OpReadyAnim:  handleReadyAnim,
-	OpTurnAnim:   handleTurnAnim,
-	OpWalkAnim:   handleWalkAnim,
-	OpWalkAnimB:  handleWalkAnimB,
-	OpWalkAnimL:  handleWalkAnimL,
-	OpWalkAnimR:  handleWalkAnimR,
-	OpRunAnim:    handleRunAnim,
+	OpAnim:           handleAnim,
+	OpBothHeroPoints: handleBothHeroPoints,
+	OpSpotAnimPl:     handleSpotAnimPl,
+	OpReadyAnim:      handleReadyAnim,
+	OpTurnAnim:       handleTurnAnim,
+	OpWalkAnim:       handleWalkAnim,
+	OpWalkAnimB:      handleWalkAnimB,
+	OpWalkAnimL:      handleWalkAnimL,
+	OpWalkAnimR:      handleWalkAnimR,
+	OpRunAnim:        handleRunAnim,
 	// NAI-51: walktrigger consumer ops (Player side).
 	OpWalkTrigger:    handleWalkTrigger,
 	OpGetWalkTrigger: handleGetWalkTrigger,
@@ -340,23 +340,23 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpInvStockBase:  handleInvStockBase,
 	OpInvDebugName:  handleInvDebugName,
 	// NAI-160 T5: INV_ALLSTOCK.
-	OpInvAllStock: handleInvAllStock,
+	OpInvAllStock:   handleInvAllStock,
 	OpSetSkinColour: handleSetSkinColour,
 	// SETGENDER body port + GenderValid validator slice (T4).
 	OpSetGender: handleSetGender, // opcode 2099
 	// Mutations (8).
-	OpInvAdd:          handleInvAdd,
-	OpInvDel:          handleInvDel,
-	OpInvDelSlot:      handleInvDelSlot,
-	OpInvSetSlot:      handleInvSetSlot,
-	OpInvClear:        handleInvClear,
-	OpInvMoveItem:     handleInvMoveItem,
-	OpInvMoveFromSlot: handleInvMoveFromSlot,
-	OpInvMoveToSlot:   handleInvMoveToSlot,
-	OpInvChangeSlot:     handleInvChangeSlot,
-	OpInvMoveItemCert:   handleInvMoveItemCert,
-	OpInvMoveItemUncert: handleInvMoveItemUncert,
-	OpInvDropItem:       handleInvDropItem,
+	OpInvAdd:             handleInvAdd,
+	OpInvDel:             handleInvDel,
+	OpInvDelSlot:         handleInvDelSlot,
+	OpInvSetSlot:         handleInvSetSlot,
+	OpInvClear:           handleInvClear,
+	OpInvMoveItem:        handleInvMoveItem,
+	OpInvMoveFromSlot:    handleInvMoveFromSlot,
+	OpInvMoveToSlot:      handleInvMoveToSlot,
+	OpInvChangeSlot:      handleInvChangeSlot,
+	OpInvMoveItemCert:    handleInvMoveItemCert,
+	OpInvMoveItemUncert:  handleInvMoveItemUncert,
+	OpInvDropItem:        handleInvDropItem,
 	OpInvDropItemDelayed: handleInvDropItemDelayed,
 	// S6u+S6y: listener registration (3).
 	OpInvTransmit:      handleInvTransmit,
@@ -478,10 +478,10 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpNpcRange:   handleNpcRange,
 
 	// NAI-120 Bundle 2C: NPC stat write ops + NPC spotanim.
-	OpNpcStatAdd:   handleNpcStatAdd,
-	OpNpcStatSub:   handleNpcStatSub,
-	OpNpcStatHeal:  handleNpcStatHeal,
-	OpSpotAnimNpc:  handleSpotAnimNpc,
+	OpNpcStatAdd:  handleNpcStatAdd,
+	OpNpcStatSub:  handleNpcStatSub,
+	OpNpcStatHeal: handleNpcStatHeal,
+	OpSpotAnimNpc: handleSpotAnimNpc,
 
 	// NAI-120 Bundle 2D: NPC hero-point ledger write.
 	OpNpcHeroPoints: handleNpcHeroPoints,
@@ -573,13 +573,13 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpOcOp:       handleOcOp,       // opcode 4208
 
 	// NAI-162 B1: trivial-handler sweep #4.
-	OpLastLoginInfo:         handleLastLoginInfo,         // opcode 2054
-	OpInvTotalParamStack:    handleInvTotalParamStack,    // opcode 4329
+	OpLastLoginInfo:      handleLastLoginInfo,      // opcode 2054
+	OpInvTotalParamStack: handleInvTotalParamStack, // opcode 4329
 
 	// NAI-162 B2: WealthEvent + player-interaction + NAI-115-D1 retirement.
-	OpWealthEvent:  handleWealthEvent,  // opcode 2131
-	OpPLocMerge:    handlePLocMerge,    // opcode 2074
-	OpPOpPlayerT:   handlePOpPlayerT,   // opcode 2082
+	OpWealthEvent: handleWealthEvent, // opcode 2131
+	OpPLocMerge:   handlePLocMerge,   // opcode 2074
+	OpPOpPlayerT:  handlePOpPlayerT,  // opcode 2082
 }
 
 // handlePushConstantInt pushes the instruction's int operand onto the int stack.

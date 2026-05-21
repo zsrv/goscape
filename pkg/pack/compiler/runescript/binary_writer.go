@@ -357,7 +357,9 @@ func mathOpcode(opcode codegen.Opcode) *writer.ServerScriptOpcode {
 // produce NaN-corrupted output).
 //
 // Per-subject category check (TS L80):
-//   typeMarker = (subjectType === ScriptVarType.CATEGORY) ? 1 : 2.
+//
+//	typeMarker = (subjectType === ScriptVarType.CATEGORY) ? 1 : 2.
+//
 // goscape reads the subject symbol's runtime Type field rather than the
 // trigger's TypeMode flag.
 func (b *BinaryScriptWriter) generateLookupKey(script *codegen.RuneScript) int32 {

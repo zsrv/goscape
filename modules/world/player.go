@@ -199,14 +199,14 @@ type Player struct {
 	entitymask int
 
 	// === appearance ===
-	body           [7]int
-	colors         [5]int
-	gender         int
+	body   [7]int
+	colors [5]int
+	gender int
 	// NAI-127 Bundle 1: per-player HeroPoints ledger (parallel to
 	// Npc.heroPoints from NAI-120). Read by FINDHERO; written by
 	// BOTH_HEROPOINTS. TS Player.heroPoints = new HeroPoints(16) at
 	// Engine-TS/.../Player.ts:76.
-	heroPoints HeroPoints
+	heroPoints     HeroPoints
 	combatLevel    int
 	headicons      int
 	appearanceInv  int
@@ -313,12 +313,12 @@ type Player struct {
 	// (see TS World.processShutdown, World.ts:1207-1213). When true,
 	// processLogouts force-removes the player regardless of normal
 	// timeout / inflight-action gates. NAI-182.
-	forceRemove          bool
-	preventLogoutMessage string
-	preventLogoutUntil   int
-	reconnecting, lowMemory, webClient           bool
+	forceRemove                                      bool
+	preventLogoutMessage                             string
+	preventLogoutUntil                               int
+	reconnecting, lowMemory, webClient               bool
 	afkEventReady, moveClickRequest, decodedThisTick bool
-	opcalled                                     bool
+	opcalled                                         bool
 
 	// === AFK zones (sub-spec 4a) ===
 	afkZones    [2]int32

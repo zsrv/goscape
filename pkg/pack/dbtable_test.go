@@ -190,4 +190,3 @@ func TestParseDbTableConfig_UnknownKey(t *testing.T) {
 		t.Fatalf("got v=%v claimed=%v err=%v, want all-zero", v, claimed, err)
 	}
 }
-

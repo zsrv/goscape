@@ -10,35 +10,35 @@ import (
 
 // mockConfigs implements the Configs interface with in-memory fixture maps.
 type mockConfigs struct {
-	objs          map[int]*objtype.ObjType
-	objsByName    map[string]*objtype.ObjType // NAI-162 B2: ObjByName index
-	npcs          map[int]*objtype.NpcType
-	locs          map[int]*objtype.LocType
-	enums         map[int]*objtype.EnumType
-	structs       map[int]*objtype.StructType
-	params        map[int]*objtype.ParamType
-	invs          map[int]*objtype.InvType
-	idks          map[int]*objtype.IdkType
-	spotAnimTypes map[int]*objtype.SpotanimType
-	varps         map[int]*objtype.VarPlayerType
-	varns         map[int]*objtype.VarNpcType
-	seqs          map[int]*objtype.SeqType
-	mesanims      map[int]*objtype.MesanimType
+	objs           map[int]*objtype.ObjType
+	objsByName     map[string]*objtype.ObjType // NAI-162 B2: ObjByName index
+	npcs           map[int]*objtype.NpcType
+	locs           map[int]*objtype.LocType
+	enums          map[int]*objtype.EnumType
+	structs        map[int]*objtype.StructType
+	params         map[int]*objtype.ParamType
+	invs           map[int]*objtype.InvType
+	idks           map[int]*objtype.IdkType
+	spotAnimTypes  map[int]*objtype.SpotanimType
+	varps          map[int]*objtype.VarPlayerType
+	varns          map[int]*objtype.VarNpcType
+	seqs           map[int]*objtype.SeqType
+	mesanims       map[int]*objtype.MesanimType
 	mesanimsByName map[string]int
-	fonts         map[int]*fonttype.FontType
+	fonts          map[int]*fonttype.FontType
 }
 
-func (m *mockConfigs) ObjType(id int) *objtype.ObjType              { return m.objs[id] }
-func (m *mockConfigs) NpcType(id int) *objtype.NpcType              { return m.npcs[id] }
-func (m *mockConfigs) LocType(id int) *objtype.LocType              { return m.locs[id] }
-func (m *mockConfigs) EnumType(id int) *objtype.EnumType            { return m.enums[id] }
-func (m *mockConfigs) StructType(id int) *objtype.StructType        { return m.structs[id] }
-func (m *mockConfigs) ParamType(id int) *objtype.ParamType          { return m.params[id] }
-func (m *mockConfigs) InvType(id int) *objtype.InvType              { return m.invs[id] }
-func (m *mockConfigs) IdkType(id int) *objtype.IdkType              { return m.idks[id] }
-func (m *mockConfigs) SpotAnimType(id int) *objtype.SpotanimType    { return m.spotAnimTypes[id] }
-func (m *mockConfigs) SeqType(id int) *objtype.SeqType              { return m.seqs[id] }
-func (m *mockConfigs) MesanimType(id int) *objtype.MesanimType      { return m.mesanims[id] }
+func (m *mockConfigs) ObjType(id int) *objtype.ObjType           { return m.objs[id] }
+func (m *mockConfigs) NpcType(id int) *objtype.NpcType           { return m.npcs[id] }
+func (m *mockConfigs) LocType(id int) *objtype.LocType           { return m.locs[id] }
+func (m *mockConfigs) EnumType(id int) *objtype.EnumType         { return m.enums[id] }
+func (m *mockConfigs) StructType(id int) *objtype.StructType     { return m.structs[id] }
+func (m *mockConfigs) ParamType(id int) *objtype.ParamType       { return m.params[id] }
+func (m *mockConfigs) InvType(id int) *objtype.InvType           { return m.invs[id] }
+func (m *mockConfigs) IdkType(id int) *objtype.IdkType           { return m.idks[id] }
+func (m *mockConfigs) SpotAnimType(id int) *objtype.SpotanimType { return m.spotAnimTypes[id] }
+func (m *mockConfigs) SeqType(id int) *objtype.SeqType           { return m.seqs[id] }
+func (m *mockConfigs) MesanimType(id int) *objtype.MesanimType   { return m.mesanims[id] }
 func (m *mockConfigs) MesanimByName(name string) int {
 	if m.mesanimsByName == nil {
 		return -1
@@ -49,7 +49,7 @@ func (m *mockConfigs) MesanimByName(name string) int {
 	}
 	return id
 }
-func (m *mockConfigs) FontType(id int) *fonttype.FontType            { return m.fonts[id] }
+func (m *mockConfigs) FontType(id int) *fonttype.FontType           { return m.fonts[id] }
 func (m *mockConfigs) DbTableType(id int) *objtype.DbTableType      { return nil }
 func (m *mockConfigs) DbRowType(id int) *objtype.DbRowType          { return nil }
 func (m *mockConfigs) DbRowsInTable(tableID int) []int              { return nil }

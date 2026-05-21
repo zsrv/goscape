@@ -217,14 +217,14 @@ func TestDefaultFriendsBridge_NilClient_ReturnsNoop(t *testing.T) {
 // test below routes each test case through exactly one overridden method.
 type mockFriendsPBClient struct {
 	friendspb.FriendsServiceClient
-	worldConnectFn   func(ctx context.Context, in *friendspb.WorldConnectRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	playerLoginFn    func(ctx context.Context, in *friendspb.PlayerLoginRequest, opts ...grpc.CallOption) (*friendspb.PlayerLoginResponse, error)
-	playerLogoutFn   func(ctx context.Context, in *friendspb.PlayerLogoutRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	chatSetModeFn    func(ctx context.Context, in *friendspb.ChatSetModeRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	friendlistAddFn  func(ctx context.Context, in *friendspb.FriendlistAddRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	friendlistDelFn  func(ctx context.Context, in *friendspb.FriendlistDelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	ignorelistAddFn  func(ctx context.Context, in *friendspb.IgnorelistAddRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	ignorelistDelFn  func(ctx context.Context, in *friendspb.IgnorelistDelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	worldConnectFn     func(ctx context.Context, in *friendspb.WorldConnectRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	playerLoginFn      func(ctx context.Context, in *friendspb.PlayerLoginRequest, opts ...grpc.CallOption) (*friendspb.PlayerLoginResponse, error)
+	playerLogoutFn     func(ctx context.Context, in *friendspb.PlayerLogoutRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	chatSetModeFn      func(ctx context.Context, in *friendspb.ChatSetModeRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	friendlistAddFn    func(ctx context.Context, in *friendspb.FriendlistAddRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	friendlistDelFn    func(ctx context.Context, in *friendspb.FriendlistDelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ignorelistAddFn    func(ctx context.Context, in *friendspb.IgnorelistAddRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ignorelistDelFn    func(ctx context.Context, in *friendspb.IgnorelistDelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	privateMessageFn   func(ctx context.Context, in *friendspb.PrivateMessageRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	subscribeUpdatesFn func(ctx context.Context, in *friendspb.SubscribeUpdatesRequest, opts ...grpc.CallOption) (friendspb.FriendsService_SubscribeUpdatesClient, error)
 

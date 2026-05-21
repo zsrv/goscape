@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/inventory"
+	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -88,8 +88,8 @@ func TestHandleOpHeld_ShortPayload(t *testing.T) {
 // TestHandleOpHeld_NilComponent pins that a comId not in the registry rejects.
 func TestHandleOpHeld_NilComponent(t *testing.T) {
 	s, p := setupOpHeldServer(t)
-	delete(p.invListeners, 149)        // drop the listener so the registry-empty path is exercised cleanly
-	p.invListenOnCom(93, 999, -1)      // listener for com=999 (not seeded)
+	delete(p.invListeners, 149)   // drop the listener so the registry-empty path is exercised cleanly
+	p.invListenOnCom(93, 999, -1) // listener for com=999 (not seeded)
 	p.tabs[0] = 999
 	_ = s
 
@@ -203,10 +203,10 @@ func TestHandleOpHeld_IOpEmpty(t *testing.T) {
 func TestHandleOpHeld_HappyPath(t *testing.T) {
 	s, p := setupOpHeldServer(t)
 	sf := &script.ScriptFile{
-		Name:             "[opheld1,555]",
-		LookupKey:        script.LookupKeyForType(script.TriggerOpHeld1, 555),
-		Opcodes:          []script.Opcode{script.OpReturn},
-		IntOperands:      []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+		Name:        "[opheld1,555]",
+		LookupKey:   script.LookupKeyForType(script.TriggerOpHeld1, 555),
+		Opcodes:     []script.Opcode{script.OpReturn},
+		IntOperands: []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
 	}
 	s.scriptProvider.Register(sf)
 
@@ -243,10 +243,10 @@ func TestHandleOpHeld_Op2VariantFires(t *testing.T) {
 	s, p := setupOpHeldServer(t)
 	s.objTypes.Configs[555].IOp = []string{"op1", "op2", "", "", ""}
 	sf := &script.ScriptFile{
-		Name:             "[opheld2,555]",
-		LookupKey:        script.LookupKeyForType(script.TriggerOpHeld2, 555),
-		Opcodes:          []script.Opcode{script.OpReturn},
-		IntOperands:      []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+		Name:        "[opheld2,555]",
+		LookupKey:   script.LookupKeyForType(script.TriggerOpHeld2, 555),
+		Opcodes:     []script.Opcode{script.OpReturn},
+		IntOperands: []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
 	}
 	s.scriptProvider.Register(sf)
 
@@ -265,10 +265,10 @@ func TestHandleOpHeld_RootLayerMatchesModal_NoClearPending(t *testing.T) {
 	s, p := setupOpHeldServer(t)
 	// setupOpHeldServer already sets p.modalMain = 149 (matches com.RootLayer = 149)
 	sf := &script.ScriptFile{
-		Name:             "[opheld1,555]",
-		LookupKey:        script.LookupKeyForType(script.TriggerOpHeld1, 555),
-		Opcodes:          []script.Opcode{script.OpReturn},
-		IntOperands:      []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+		Name:        "[opheld1,555]",
+		LookupKey:   script.LookupKeyForType(script.TriggerOpHeld1, 555),
+		Opcodes:     []script.Opcode{script.OpReturn},
+		IntOperands: []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
 	}
 	s.scriptProvider.Register(sf)
 
@@ -291,10 +291,10 @@ func TestHandleOpHeld_RootLayerMismatch_ClearsPending(t *testing.T) {
 	s, p := setupOpHeldServer(t)
 	p.modalMain = 999 // != com.RootLayer (149)
 	sf := &script.ScriptFile{
-		Name:             "[opheld1,555]",
-		LookupKey:        script.LookupKeyForType(script.TriggerOpHeld1, 555),
-		Opcodes:          []script.Opcode{script.OpReturn},
-		IntOperands:      []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+		Name:        "[opheld1,555]",
+		LookupKey:   script.LookupKeyForType(script.TriggerOpHeld1, 555),
+		Opcodes:     []script.Opcode{script.OpReturn},
+		IntOperands: []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
 	}
 	s.scriptProvider.Register(sf)
 
@@ -385,10 +385,10 @@ func TestHandleOpHeldT_ComNotUsable(t *testing.T) {
 func TestHandleOpHeldT_HappyPath(t *testing.T) {
 	s, p := setupOpHeldTServer(t)
 	sf := &script.ScriptFile{
-		Name:             "[opheldt,200]",
-		LookupKey:        script.LookupKeyForType(script.TriggerOpHeldT, 200),
-		Opcodes:          []script.Opcode{script.OpReturn},
-		IntOperands:      []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+		Name:        "[opheldt,200]",
+		LookupKey:   script.LookupKeyForType(script.TriggerOpHeldT, 200),
+		Opcodes:     []script.Opcode{script.OpReturn},
+		IntOperands: []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
 	}
 	s.scriptProvider.Register(sf)
 
@@ -565,10 +565,10 @@ func TestHandleOpHeldU_UseSlotMismatch_ClearsAndUnsetsMoveClick(t *testing.T) {
 func TestHandleOpHeldU_ArmA_NoSwap(t *testing.T) {
 	s, p := setupOpHeldUServer(t)
 	sf := &script.ScriptFile{
-		Name:             "[opheldu,555]",
-		LookupKey:        script.LookupKeyForType(script.TriggerOpHeldU, 555),
-		Opcodes:          []script.Opcode{script.OpReturn},
-		IntOperands:      []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+		Name:        "[opheldu,555]",
+		LookupKey:   script.LookupKeyForType(script.TriggerOpHeldU, 555),
+		Opcodes:     []script.Opcode{script.OpReturn},
+		IntOperands: []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
 	}
 	s.scriptProvider.Register(sf)
 
@@ -593,10 +593,10 @@ func TestHandleOpHeldU_ArmA_NoSwap(t *testing.T) {
 func TestHandleOpHeldU_ArmB_SwapsItemAndSlot(t *testing.T) {
 	s, p := setupOpHeldUServer(t)
 	sf := &script.ScriptFile{
-		Name:             "[opheldu,777]",
-		LookupKey:        script.LookupKeyForType(script.TriggerOpHeldU, 777),
-		Opcodes:          []script.Opcode{script.OpReturn},
-		IntOperands:      []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+		Name:        "[opheldu,777]",
+		LookupKey:   script.LookupKeyForType(script.TriggerOpHeldU, 777),
+		Opcodes:     []script.Opcode{script.OpReturn},
+		IntOperands: []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
 	}
 	s.scriptProvider.Register(sf)
 
@@ -629,10 +629,10 @@ func TestHandleOpHeldU_ArmC_CategoryB_Inherits_BSwap(t *testing.T) {
 	s, p := setupOpHeldUServer(t)
 	s.objTypes.Configs[555].Category = 100 // category set so arm (c) is active
 	sf := &script.ScriptFile{
-		Name:             "[opheldu,_,100]",
-		LookupKey:        script.LookupKeyForCategory(script.TriggerOpHeldU, 100),
-		Opcodes:          []script.Opcode{script.OpReturn},
-		IntOperands:      []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+		Name:        "[opheldu,_,100]",
+		LookupKey:   script.LookupKeyForCategory(script.TriggerOpHeldU, 100),
+		Opcodes:     []script.Opcode{script.OpReturn},
+		IntOperands: []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
 	}
 	s.scriptProvider.Register(sf)
 
@@ -667,10 +667,10 @@ func TestHandleOpHeldU_ArmD_CategoryA_DoubleSwap_NetIdentity(t *testing.T) {
 	s, p := setupOpHeldUServer(t)
 	s.objTypes.Configs[777].Category = 200
 	sf := &script.ScriptFile{
-		Name:             "[opheldu,_,200]",
-		LookupKey:        script.LookupKeyForCategory(script.TriggerOpHeldU, 200),
-		Opcodes:          []script.Opcode{script.OpReturn},
-		IntOperands:      []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+		Name:        "[opheldu,_,200]",
+		LookupKey:   script.LookupKeyForCategory(script.TriggerOpHeldU, 200),
+		Opcodes:     []script.Opcode{script.OpReturn},
+		IntOperands: []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
 	}
 	s.scriptProvider.Register(sf)
 
@@ -829,10 +829,10 @@ func TestHandleOpHeldTSessionLogPush(t *testing.T) {
 	// Register a no-op script to prevent the "Nothing interesting happens."
 	// fallback from reaching MessageGame (which requires an encryptor).
 	s.scriptProvider.Register(&script.ScriptFile{
-		Name:             "[opheldt,200]",
-		LookupKey:        script.LookupKeyForType(script.TriggerOpHeldT, 200),
-		Opcodes:          []script.Opcode{script.OpReturn},
-		IntOperands:      []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+		Name:        "[opheldt,200]",
+		LookupKey:   script.LookupKeyForType(script.TriggerOpHeldT, 200),
+		Opcodes:     []script.Opcode{script.OpReturn},
+		IntOperands: []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
 	})
 	p.session = "wizard-sess"
 
@@ -868,10 +868,10 @@ func TestHandleOpHeldTSessionLogMissingObjType(t *testing.T) {
 	// Register a no-op script to prevent the "Nothing interesting happens."
 	// fallback from reaching MessageGame (which requires an encryptor).
 	s.scriptProvider.Register(&script.ScriptFile{
-		Name:             "[opheldt,200]",
-		LookupKey:        script.LookupKeyForType(script.TriggerOpHeldT, 200),
-		Opcodes:          []script.Opcode{script.OpReturn},
-		IntOperands:      []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+		Name:        "[opheldt,200]",
+		LookupKey:   script.LookupKeyForType(script.TriggerOpHeldT, 200),
+		Opcodes:     []script.Opcode{script.OpReturn},
+		IntOperands: []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
 	})
 	// Place an item with id=999 in inv slot 3 so HasAt passes, but use an obj id
 	// that's out-of-bounds for the Configs slice (Configs len is 600 from

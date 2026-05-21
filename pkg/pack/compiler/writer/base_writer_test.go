@@ -26,25 +26,25 @@ func (r *recorderWriter) note(name string) {
 	r.curIndex = append(r.curIndex, r.ctx.CurIndex)
 }
 
-func (r *recorderWriter) EnterBlock(b *codegen.Block)                                 { r.note("EnterBlock") }
-func (r *recorderWriter) WritePushConstantInt(int32)                                  { r.note("WritePushConstantInt") }
-func (r *recorderWriter) WritePushConstantString(string)                              { r.note("WritePushConstantString") }
-func (r *recorderWriter) WritePushConstantLong(int64)                                 { r.note("WritePushConstantLong") }
-func (r *recorderWriter) WritePushConstantSymbol(symbol.Symbol)                       { r.note("WritePushConstantSymbol") }
-func (r *recorderWriter) WritePushLocalVar(*symbol.LocalVariableSymbol)               { r.note("WritePushLocalVar") }
-func (r *recorderWriter) WritePopLocalVar(*symbol.LocalVariableSymbol)                { r.note("WritePopLocalVar") }
-func (r *recorderWriter) WritePushVar(*symbol.BasicSymbol, bool)                      { r.note("WritePushVar") }
-func (r *recorderWriter) WritePopVar(*symbol.BasicSymbol, bool)                       { r.note("WritePopVar") }
-func (r *recorderWriter) WriteDefineArray(*symbol.LocalVariableSymbol)                { r.note("WriteDefineArray") }
-func (r *recorderWriter) WriteSwitch(*codegen.SwitchTable)                            { r.note("WriteSwitch") }
-func (r *recorderWriter) WriteBranch(codegen.Opcode, *codegen.Label)                  { r.note("WriteBranch") }
-func (r *recorderWriter) WriteJoinString(int)                                         { r.note("WriteJoinString") }
-func (r *recorderWriter) WriteDiscard(typ.BaseVarType)                                { r.note("WriteDiscard") }
-func (r *recorderWriter) WriteJump(symbol.Symbol)                                     { r.note("WriteJump") }
-func (r *recorderWriter) WriteGosub(symbol.Symbol)                                    { r.note("WriteGosub") }
-func (r *recorderWriter) WriteCommand(symbol.Symbol)                                  { r.note("WriteCommand") }
-func (r *recorderWriter) WriteReturn()                                                { r.note("WriteReturn") }
-func (r *recorderWriter) WriteMath(codegen.Opcode)                                    { r.note("WriteMath") }
+func (r *recorderWriter) EnterBlock(b *codegen.Block)                   { r.note("EnterBlock") }
+func (r *recorderWriter) WritePushConstantInt(int32)                    { r.note("WritePushConstantInt") }
+func (r *recorderWriter) WritePushConstantString(string)                { r.note("WritePushConstantString") }
+func (r *recorderWriter) WritePushConstantLong(int64)                   { r.note("WritePushConstantLong") }
+func (r *recorderWriter) WritePushConstantSymbol(symbol.Symbol)         { r.note("WritePushConstantSymbol") }
+func (r *recorderWriter) WritePushLocalVar(*symbol.LocalVariableSymbol) { r.note("WritePushLocalVar") }
+func (r *recorderWriter) WritePopLocalVar(*symbol.LocalVariableSymbol)  { r.note("WritePopLocalVar") }
+func (r *recorderWriter) WritePushVar(*symbol.BasicSymbol, bool)        { r.note("WritePushVar") }
+func (r *recorderWriter) WritePopVar(*symbol.BasicSymbol, bool)         { r.note("WritePopVar") }
+func (r *recorderWriter) WriteDefineArray(*symbol.LocalVariableSymbol)  { r.note("WriteDefineArray") }
+func (r *recorderWriter) WriteSwitch(*codegen.SwitchTable)              { r.note("WriteSwitch") }
+func (r *recorderWriter) WriteBranch(codegen.Opcode, *codegen.Label)    { r.note("WriteBranch") }
+func (r *recorderWriter) WriteJoinString(int)                           { r.note("WriteJoinString") }
+func (r *recorderWriter) WriteDiscard(typ.BaseVarType)                  { r.note("WriteDiscard") }
+func (r *recorderWriter) WriteJump(symbol.Symbol)                       { r.note("WriteJump") }
+func (r *recorderWriter) WriteGosub(symbol.Symbol)                      { r.note("WriteGosub") }
+func (r *recorderWriter) WriteCommand(symbol.Symbol)                    { r.note("WriteCommand") }
+func (r *recorderWriter) WriteReturn()                                  { r.note("WriteReturn") }
+func (r *recorderWriter) WriteMath(codegen.Opcode)                      { r.note("WriteMath") }
 
 // TestWriteScript_DispatchOrder pins the per-instruction dispatch + the
 // CurIndex post-increment.

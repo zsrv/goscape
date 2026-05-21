@@ -82,9 +82,9 @@ func TestPackStructConfigs_IntParam(t *testing.T) {
 	pd := packStructConfigs(cfgs, pf)
 	want := []byte{
 		0x00, 0x01,
-		0xf9,                   // op249
-		0x01,                   // p1(param count=1)
-		0x00, 0x00, 0x05,       // p3(id=5)
+		0xf9,             // op249
+		0x01,             // p1(param count=1)
+		0x00, 0x00, 0x05, // p3(id=5)
 		0x00,                   // pbool(false) — not STRING
 		0x00, 0x00, 0x00, 0x2a, // p4(42)
 		0xfa, 's', 0x0a,
@@ -108,8 +108,8 @@ func TestPackStructConfigs_StringParam(t *testing.T) {
 		0xf9,
 		0x01,
 		0x00, 0x00, 0x06, // p3(6)
-		0x01,             // pbool(true)
-		'h', 'i', 0x0a,   // pjstr("hi")
+		0x01,           // pbool(true)
+		'h', 'i', 0x0a, // pjstr("hi")
 		0xfa, 's', 0x0a,
 		0x00,
 	}

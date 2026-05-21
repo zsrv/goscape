@@ -52,7 +52,7 @@ func TestPackDbRowConfigs_RowWithSingleColumn(t *testing.T) {
 	pf := newTestPF("dbrow", map[int]string{0: "r_one"})
 	configs := map[string][]ConfigLine{
 		"r_one": {
-			{Key: "table", Value: 0},  // already resolved by parser
+			{Key: "table", Value: 0}, // already resolved by parser
 			{Key: "data", Value: "col_name,42"},
 		},
 	}

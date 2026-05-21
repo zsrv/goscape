@@ -52,11 +52,11 @@ type recordedPublicMessageCall struct {
 }
 
 type recordingBridges struct {
-	friends             []recordedFriendsCall
-	loginMod            []recordedLoginModCall
-	logger              []recordedLoggerCall
-	inputTracks          []recordedInputTrackingCall // NAI-73
-	submittedSessionLogs [][]SessionLog              // NAI-74 — one element per tick flush
+	friends              []recordedFriendsCall
+	loginMod             []recordedLoginModCall
+	logger               []recordedLoggerCall
+	inputTracks          []recordedInputTrackingCall  // NAI-73
+	submittedSessionLogs [][]SessionLog               // NAI-74 — one element per tick flush
 	privateMsgs          []recordedPrivateMessageCall // NAI-158
 	publicMsgs           []recordedPublicMessageCall  // public_chat follow-up
 }
@@ -122,14 +122,14 @@ func installRecordingBridges(s *Server) *recordingBridges {
 // Compile-time: recordingBridges and noopBridges both satisfy all 3
 // interfaces. Breaks the build if any signature drifts.
 var (
-	_ FriendsBridge  = (*recordingBridges)(nil)
-	_ LoginBridgeMod = (*recordingBridges)(nil)
-	_ LoggerBridge   = (*recordingBridges)(nil)
-	_ FriendsBridge      = noopBridges{}
-	_ LoginBridgeMod     = noopBridges{}
-	_ LoggerBridge       = noopBridges{}
-	_ FriendsDispatcher  = noopBridges{}
-	_ FriendsBridge      = (*grpcFriendsBridge)(nil)
+	_ FriendsBridge     = (*recordingBridges)(nil)
+	_ LoginBridgeMod    = (*recordingBridges)(nil)
+	_ LoggerBridge      = (*recordingBridges)(nil)
+	_ FriendsBridge     = noopBridges{}
+	_ LoginBridgeMod    = noopBridges{}
+	_ LoggerBridge      = noopBridges{}
+	_ FriendsDispatcher = noopBridges{}
+	_ FriendsBridge     = (*grpcFriendsBridge)(nil)
 )
 
 // TestNoopBridgesAllMethods exercises every noopBridges method to keep

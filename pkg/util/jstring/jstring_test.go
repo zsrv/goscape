@@ -42,11 +42,11 @@ func TestToDisplayName(t *testing.T) {
 		{"", "Invalid Name"},
 		{"alice", "Alice"},
 		{"user_two", "User Two"},
-		{"USER_TWO", "User Two"}, // case-insensitive via base37 round-trip
-		{"player1", "Player1"},   // digits inside a token
-		{"alice_", "Alice"},                 // single trailing '_'
-		{"alice_smith_", "Alice Smith"},     // multi-word + trailing '_'
-		{"alice_smith_jr", "Alice Smith"},   // 14-char input, truncated at 12
+		{"USER_TWO", "User Two"},          // case-insensitive via base37 round-trip
+		{"player1", "Player1"},            // digits inside a token
+		{"alice_", "Alice"},               // single trailing '_'
+		{"alice_smith_", "Alice Smith"},   // multi-word + trailing '_'
+		{"alice_smith_jr", "Alice Smith"}, // 14-char input, truncated at 12
 	}
 	for _, c := range cases {
 		if got := ToDisplayName(c.in); got != c.want {

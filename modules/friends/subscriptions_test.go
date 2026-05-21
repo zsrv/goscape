@@ -85,7 +85,7 @@ func TestSubscriptions_DeregisterIgnoresStale(t *testing.T) {
 	a := newSubscriber(1, 100)
 	b := newSubscriber(1, 100)
 	s.register(a)
-	s.register(b) // kicks a
+	s.register(b)   // kicks a
 	s.deregister(a) // a is stale; b should remain
 	s.send(100, &friendspb.FriendsUpdate{})
 	select {

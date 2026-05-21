@@ -137,8 +137,8 @@ func requireAttr(t *testing.T, r slog.Record, key, want string) {
 
 func TestRecordTryInteractBranch(t *testing.T) {
 	tests := []struct {
-		name              string
-		slot, branch      int
+		name                  string
+		slot, branch          int
 		expectPre, expectPost int
 	}{
 		{"slot 0 writes pre", 0, 1, 1, 0},

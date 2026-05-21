@@ -208,4 +208,3 @@ func opShorthand(n ast.Node) string {
 	}
 	return fmt.Sprintf("%T", n)
 }
-

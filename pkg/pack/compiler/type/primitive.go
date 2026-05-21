@@ -41,8 +41,8 @@ var (
 		o.AllowArray = false
 		o.AllowSwitch = false
 	})
-	PrimitiveChar    = newPrimitiveType("CHAR", "z", BaseVarInteger, -1)
-	PrimitiveLong    = newPrimitiveType("LONG", "Ï", BaseVarLong, -1, func(o *TypeOptions) {
+	PrimitiveChar = newPrimitiveType("CHAR", "z", BaseVarInteger, -1)
+	PrimitiveLong = newPrimitiveType("LONG", "Ï", BaseVarLong, -1, func(o *TypeOptions) {
 		o.AllowArray = false
 		o.AllowSwitch = false
 	})

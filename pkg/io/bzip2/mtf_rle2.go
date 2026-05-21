@@ -14,6 +14,7 @@ import "github.com/zsrv/goscape/pkg/io/bzip2/internal/dserrors"
 // normal two's complement arithmetic. The methodology for doing so is below.
 //
 // Assuming the following:
+//
 //	num: The value being encoded by RLE encoding.
 //	run: A sequence of RUNA and RUNB symbols represented as a binary integer,
 //	where RUNA is the 0 bit, RUNB is the 1 bit, and least-significant RUN
@@ -21,6 +22,7 @@ import "github.com/zsrv/goscape/pkg/io/bzip2/internal/dserrors"
 //	cnt: The number of RUNA and RUNB symbols.
 //
 // Then the RLE encoding used by bzip2 has this mathematical property:
+//
 //	num+1 == (1<<cnt) | run
 type moveToFront struct {
 	dictBuf [256]uint8

@@ -69,6 +69,7 @@ func (p *Player) unsetMapFlag() {
 //   - OpPlayerU: useObj (the obj/item ID used on the target player; NAI-62
 //     producer fix per TS OpPlayerUHandler.ts:77).
 //   - OpLoc1..5 / OpNpc1..5 / OpObj1..5 / OpLocU / OpNpcU / OpObjU: -1.
+//
 // Storage canonicalises com=0 → -1 (NAI-62, matching TS truthy
 // PathingEntity.ts:520) so the lookup-side != -1 override check in
 // resolveTriggerTypeId behaves identically to TS !== -1.
@@ -372,16 +373,16 @@ func (p *Player) processWalktrigger() {
 // getOpTrigger/getApTrigger (interaction_trigger.go) at entry, then
 // dispatches:
 //
-//	1. opTrigger != nil && (PathingEntity || allowOpScenery) && operable
-//	   → fire OP, return true.
-//	2. apTrigger != nil && approach
-//	   → fire AP, return true (or false on NAI-69 same-tick retry).
-//	3. approach (apTrigger nil)
-//	   → apRange=-1, return false. Allows processInteraction's post-step
-//	   to run pathToTarget + tryInteract(allowOpScenery=true).
-//	4. (PathingEntity || allowOpScenery) && operable (opTrigger nil)
-//	   → defaultOp NIH ("Nothing interesting happens." + clear waypoints),
-//	   return true.
+//  1. opTrigger != nil && (PathingEntity || allowOpScenery) && operable
+//     → fire OP, return true.
+//  2. apTrigger != nil && approach
+//     → fire AP, return true (or false on NAI-69 same-tick retry).
+//  3. approach (apTrigger nil)
+//     → apRange=-1, return false. Allows processInteraction's post-step
+//     to run pathToTarget + tryInteract(allowOpScenery=true).
+//  4. (PathingEntity || allowOpScenery) && operable (opTrigger nil)
+//     → defaultOp NIH ("Nothing interesting happens." + clear waypoints),
+//     return true.
 //
 // Fixes NAI-78 root cause: pre-NAI-78, the 2-branch shape returned true
 // from the AP block even when no AP script existed, which gated the
@@ -859,7 +860,7 @@ func (p *Player) isLastOrNoWaypoint() bool {
 // Type-switches on p.target to select the appropriate FindPath* wrapper:
 //   - *entitypkg.Loc:        FindPathToLoc with shape/angle/forceapproach.
 //   - *Player / *Npc:        FindPathToEntity (shape=-2 entity sentinel),
-//                            FindNaivePath shortcut on NODE_CLIENT_ROUTEFINDER+intersect.
+//     FindNaivePath shortcut on NODE_CLIENT_ROUTEFINDER+intersect.
 //   - *entitypkg.Obj same:   queueWaypoint (TS workaround for findPath returning (0,0)).
 //   - *entitypkg.Obj diff:   FindPathPlain (TS plain findPath).
 //

@@ -77,9 +77,9 @@ const (
 	BLOCK_COMMENT
 
 	// Special — DEFAULT mode (RuneScriptLexer.g4:73-75)
-	QUOTE_OPEN  // " (pushes String mode, depth++)
-	IDENTIFIER  // [a-zA-Z0-9_+.:]+
-	WHITESPACE  // [ \t\n\r]+ — hidden channel
+	QUOTE_OPEN // " (pushes String mode, depth++)
+	IDENTIFIER // [a-zA-Z0-9_+.:]+
+	WHITESPACE // [ \t\n\r]+ — hidden channel
 
 	// String mode (RuneScriptLexer.g4:80-87)
 	QUOTE_CLOSE        // " (pops String mode, depth--)

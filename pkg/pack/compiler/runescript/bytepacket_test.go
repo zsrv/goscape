@@ -15,7 +15,7 @@ func TestCrc32_GoldenVectors(t *testing.T) {
 		want int32
 	}{
 		{"empty", []byte{}, 0},
-		{"single zero byte", []byte{0x00}, int32(-771559539)},      // 0xD202EF8D as signed
+		{"single zero byte", []byte{0x00}, int32(-771559539)}, // 0xD202EF8D as signed
 		{"abc", []byte("abc"), int32(0x352441C2)},
 		{"binary", []byte{0xDE, 0xAD, 0xBE, 0xEF}, int32(0x7C9CA35A)},
 	}

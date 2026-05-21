@@ -226,7 +226,7 @@ func TestNAI96_AngleSwap_North_2x3(t *testing.T) {
 
 	// Loc: width=2, length=3, angle=North, LayerGround shape (Centrepiece).
 	const absX, absZ, level = 3220, 3220, 0
-	dynamicLoc := entitypkg.NewLoc(level, absX, absZ, 2 /*width*/, 3 /*length*/,
+	dynamicLoc := entitypkg.NewLoc(level, absX, absZ, 2 /*width*/, 3, /*length*/
 		entitypkg.LifecycleRespawn,
 		1,
 		int(loc.ShapeCentrepieceStraight),
@@ -271,7 +271,7 @@ func TestNAI96_AngleSwap_East_2x3(t *testing.T) {
 	s.locTypes = &objtype.LocTypeConfigs{Configs: []*objtype.LocType{nil, lt}}
 
 	const absX, absZ, level = 3220, 3220, 0
-	dynamicLoc := entitypkg.NewLoc(level, absX, absZ, 2 /*width*/, 3 /*length*/,
+	dynamicLoc := entitypkg.NewLoc(level, absX, absZ, 2 /*width*/, 3, /*length*/
 		entitypkg.LifecycleRespawn,
 		1,
 		int(loc.ShapeCentrepieceStraight),

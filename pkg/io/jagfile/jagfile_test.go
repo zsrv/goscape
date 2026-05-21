@@ -290,14 +290,14 @@ func TestJagfile_LoadSaveRoundTripNoWrites(t *testing.T) {
 func TestJagfile_MultiEntryWholeCompressedRoundTrip(t *testing.T) {
 	// Inner blob: count(2) + 2*header(10 bytes) + raw per-entry payloads.
 	inner := packet.NewPacket(make([]byte, 0, 32))
-	inner.P2(2)                          // FileCount
-	inner.P4(genHash("hitmarks.dat"))    // hash[0]
-	inner.P3(2)                          // FileUnpackedSize[0]
-	inner.P3(2)                          // FilePackedSize[0] (raw == unpacked)
-	inner.P4(genHash("compass.dat"))     // hash[1]
-	inner.P3(3)                          // FileUnpackedSize[1]
-	inner.P3(3)                          // FilePackedSize[1] (raw == unpacked)
-	inner.PData([]byte{0xAA, 0xBB})      // hitmarks.dat payload
+	inner.P2(2)                           // FileCount
+	inner.P4(genHash("hitmarks.dat"))     // hash[0]
+	inner.P3(2)                           // FileUnpackedSize[0]
+	inner.P3(2)                           // FilePackedSize[0] (raw == unpacked)
+	inner.P4(genHash("compass.dat"))      // hash[1]
+	inner.P3(3)                           // FileUnpackedSize[1]
+	inner.P3(3)                           // FilePackedSize[1] (raw == unpacked)
+	inner.PData([]byte{0xAA, 0xBB})       // hitmarks.dat payload
 	inner.PData([]byte{0xCC, 0xDD, 0xEE}) // compass.dat payload
 
 	compressed, err := BZip2Compress(inner.Data, false, true, 1, 0)

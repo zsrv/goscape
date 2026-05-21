@@ -82,4 +82,3 @@ func TestFragments_filter_AdvancesPastDigitRuns(t *testing.T) {
 	chars := []rune("abc 123 xyz 456 end")
 	frags.filter(chars) // must return (not loop forever)
 }
-

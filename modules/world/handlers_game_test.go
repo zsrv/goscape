@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/gamemap"
+	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/objtype"
@@ -1016,7 +1016,7 @@ func TestHandleClientCheat_Give_AddsToInv(t *testing.T) {
 	// Build the inv slot, the obj (stackable=true, debug name="test_coin"),
 	// and wire ByName via ConfigNames.
 	invID := mustSetupTestInv(t, s, 0, 28)
-	mustSetupNamedObj(t, s, objID, objName, /*stackable=*/ true)
+	mustSetupNamedObj(t, s, objID, objName /*stackable=*/, true)
 	s.invTypes.Inv = invID
 
 	dispatchTeleCheat(t, p, "give "+objName+" 5")
@@ -1582,7 +1582,7 @@ func giveotherFixtureCommon(t *testing.T) (*Player, net.Conn, *Server, int, int)
 	p, cc, s := teleTestPlayer(t)
 	p.staffModLevel = 3
 	invID := mustSetupTestInv(t, s, 0, 28)
-	objID := mustSetupNamedObj(t, s, 1277, "test_obj", /*stackable=*/ false)
+	objID := mustSetupNamedObj(t, s, 1277, "test_obj" /*stackable=*/, false)
 	s.invTypes.Inv = invID
 	return p, cc, s, invID, objID
 }
@@ -1675,12 +1675,13 @@ func TestHandleClientCheat_GiveOther_CountClampsToMin1(t *testing.T) {
 
 // givecrapFixture seeds objTypes with a controlled pool that exercises
 // every filter branch. Pool composition:
-//   id=0  nil (filter must skip)
-//   id=1  pass (members=false, dummy=0, cert=-1)
-//   id=2  pass (members=false, dummy=0, cert=-1)
-//   id=3  fail-members (members=true)
-//   id=4  fail-dummy   (dummyitem=1)
-//   id=5  fail-cert    (certtemplate=10)
+//
+//	id=0  nil (filter must skip)
+//	id=1  pass (members=false, dummy=0, cert=-1)
+//	id=2  pass (members=false, dummy=0, cert=-1)
+//	id=3  fail-members (members=true)
+//	id=4  fail-dummy   (dummyitem=1)
+//	id=5  fail-cert    (certtemplate=10)
 //
 // Non-stackable so each invocation occupies a fresh slot.
 func givecrapFixture(t *testing.T, nodeMembers bool) (*Player, *Server, int) {

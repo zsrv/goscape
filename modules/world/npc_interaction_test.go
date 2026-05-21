@@ -2052,7 +2052,7 @@ func TestNpc_PathToTarget_SmartStrategy_LocTarget_ThreadsShapeAngle(t *testing.T
 	srv, rec := newPathToTargetTestServer(t)
 	n := newPathToTargetTestNpc(t, srv, 100, 100, 0, 1)
 	n.moveStrategy = MoveStrategySmart
-	loc := entitypkg.NewLoc(0, 105, 105, 1, 1, entitypkg.LifecycleForever, 1234, /*shape=*/ 0, /*angle=*/ 2)
+	loc := entitypkg.NewLoc(0, 105, 105, 1, 1, entitypkg.LifecycleForever, 1234 /*shape=*/, 0 /*angle=*/, 2)
 	n.target = loc
 
 	for len(srv.locTypes.Configs) <= 1234 {
@@ -2146,7 +2146,6 @@ func TestNpc_InOperableDistance_Obj_OutOfReach(t *testing.T) {
 	}
 }
 
-
 // TestNpcStepOnce_BlockedNpcStepsOntoWaterTile pins NAI-175 root cause.
 // A MoveRestrictBlocked NPC (duck) on a FlagBlockWalk tile must be able
 // to step onto an adjacent FlagBlockWalk tile under TypeBlocked collision.
@@ -2180,7 +2179,6 @@ func TestNpcStepOnce_BlockedNpcStepsOntoWaterTile(t *testing.T) {
 		t.Fatalf("waypointIndex after reaching dest: got %d, want -1", n.waypointIndex)
 	}
 }
-
 
 // TestNpcStepOnce_AxisFallback_X pins NAI-175 D1. When the diagonal
 // is blocked but the X-only step is open, TS takeStep returns the

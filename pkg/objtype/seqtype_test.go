@@ -56,13 +56,13 @@ func decodeSeq(frames *SeqFrameConfigs, build func(*packet.Packet)) (*SeqType, e
 func TestSeqTypeDecode_Frames(t *testing.T) {
 	st, err := decodeSeq(nil, func(p *packet.Packet) {
 		p.P1(1)
-		p.P1(2)       // count = 2
-		p.P2(0x0010)  // frames[0] = 16
-		p.P2(0x0020)  // iframes[0] = 32
-		p.P2(0x0003)  // delay[0] = 3
-		p.P2(0x0011)  // frames[1] = 17
-		p.P2(0x0021)  // iframes[1] = 33
-		p.P2(0x0004)  // delay[1] = 4
+		p.P1(2)      // count = 2
+		p.P2(0x0010) // frames[0] = 16
+		p.P2(0x0020) // iframes[0] = 32
+		p.P2(0x0003) // delay[0] = 3
+		p.P2(0x0011) // frames[1] = 17
+		p.P2(0x0021) // iframes[1] = 33
+		p.P2(0x0004) // delay[1] = 4
 	})
 	if err != nil {
 		t.Fatalf("DecodeType: %v", err)
@@ -84,10 +84,10 @@ func TestSeqTypeDecode_Frames(t *testing.T) {
 func TestSeqTypeDecode_IFrames65535ToMinusOne(t *testing.T) {
 	st, err := decodeSeq(nil, func(p *packet.Packet) {
 		p.P1(1)
-		p.P1(1)       // count = 1
-		p.P2(0x0001)  // frames[0] = 1
-		p.P2(0xFFFF)  // iframes[0] = 65535 → normalised to -1
-		p.P2(0x0005)  // delay[0] = 5
+		p.P1(1)      // count = 1
+		p.P2(0x0001) // frames[0] = 1
+		p.P2(0xFFFF) // iframes[0] = 65535 → normalised to -1
+		p.P2(0x0005) // delay[0] = 5
 	})
 	if err != nil {
 		t.Fatalf("DecodeType: %v", err)
@@ -106,10 +106,10 @@ func TestSeqTypeDecode_DelayZeroFallbackToFrameDelay(t *testing.T) {
 	}
 	st, err := decodeSeq(frames, func(p *packet.Packet) {
 		p.P1(1)
-		p.P1(1)       // count = 1
-		p.P2(0x0001)  // frames[0] = 1
-		p.P2(0x0000)  // iframes[0] = 0
-		p.P2(0x0000)  // delay[0] = 0 → fallback to frames.Instances[1].Delay = 7
+		p.P1(1)      // count = 1
+		p.P2(0x0001) // frames[0] = 1
+		p.P2(0x0000) // iframes[0] = 0
+		p.P2(0x0000) // delay[0] = 0 → fallback to frames.Instances[1].Delay = 7
 	})
 	if err != nil {
 		t.Fatalf("DecodeType: %v", err)

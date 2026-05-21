@@ -184,8 +184,8 @@ func TestPackInvConfigs_StockListWithHoles(t *testing.T) {
 	want := []byte{
 		0x00, 0x01,
 		0x02, 0x00, 0x03, // size=3
-		0x04,                                                   // op4 stock trailer
-		0x03,                                                   // p1(stock.length=3)
+		0x04,                                           // op4 stock trailer
+		0x03,                                           // p1(stock.length=3)
 		0x00, 0x2a, 0x00, 0x0a, 0x00, 0x00, 0x00, 0xc8, // slot 0: 42, 10, 200
 		0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // slot 1: hole (-1, 0, 0)
 		0x00, 0x63, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, // slot 2: 99, 5, 0

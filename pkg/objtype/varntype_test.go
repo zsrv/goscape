@@ -81,7 +81,7 @@ func TestParseVarnTypes_DebugNameCode250_SetsName(t *testing.T) {
 func TestParseVarnTypes_UnknownCode_ReturnsError(t *testing.T) {
 	// Build packet with an unrecognized config code (99).
 	p := packet.NewPacket(nil)
-	p.P2(1) // count
+	p.P2(1)  // count
 	p.P1(99) // unrecognized
 	p.P1(0)  // would be content, but Decode will error first
 	_, err := parseVarnTypes(p)

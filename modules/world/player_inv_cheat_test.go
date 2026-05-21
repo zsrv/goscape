@@ -12,8 +12,8 @@ import (
 // slot, transaction.completed equals the units actually inserted.
 func TestPlayerInvAdd_NonStackable_FillsSlots(t *testing.T) {
 	p, _, s := teleTestPlayer(t)
-	invID := mustSetupTestInv(t, s, /*invTypeID=*/ 0, /*capacity=*/ 28)
-	objID := mustSetupTestObj(t, s, /*objTypeID=*/ 1277, /*stackable=*/ false)
+	invID := mustSetupTestInv(t, s /*invTypeID=*/, 0 /*capacity=*/, 28)
+	objID := mustSetupTestObj(t, s /*objTypeID=*/, 1277 /*stackable=*/, false)
 
 	completed := p.InvAdd(invID, objID, 5, false)
 

@@ -26,7 +26,7 @@ const (
 // A nil Bytes is a tombstone — produced by clearQueuedEvents when an entity
 // is removed after queuing events. ComputeShared skips tombstoned entries.
 type ZoneEvent struct {
-	Type       ZoneEventType
+	Type ZoneEventType
 	// ReceiverID is UID-space — mirrors TS Engine-TS Zone.ts ZoneEvent.receiver64.
 	// PublicReceiver (-1) for Enclosed events and public Follows; otherwise the
 	// owning player's UID per modules/world.composeUID(username37, slot).

@@ -329,7 +329,7 @@ func NewObjType(id int) *ObjType {
 		WearPos2:    -1,
 		WearPos3:    -1,
 		Category:    -1,
-		RespawnRate: 100, // defaults to 1 minute
+		RespawnRate: 100,  // defaults to 1 minute
 		Tradeable:   true, // TS ObjType.ts:177 class-field default
 		Op:          []string{"", "", "Take", "", ""},
 		IOp:         []string{"", "", "", "", "Drop"},

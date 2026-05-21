@@ -83,13 +83,13 @@ func TestPackEnumConfigs_IntOutputType_DefaultAndOneVal(t *testing.T) {
 	// dat: [size=1] [op1 INT] [op2 INT] [op4 p4(42)] [op6 p2(1) p4(7) p4(99)] [op250 pjstr] [Next 0x00]
 	want := []byte{
 		0x00, 0x01, // size=1
-		0x01, 105,  // op1 inputtype=INT(105)
-		0x02, 105,  // op2 outputtype=INT(105)
+		0x01, 105, // op1 inputtype=INT(105)
+		0x02, 105, // op2 outputtype=INT(105)
 		0x04, 0x00, 0x00, 0x00, 0x2a, // op4 default=p4(42)
-		0x06,                         // op6 (non-STRING trailer)
-		0x00, 0x01,                   // p2(val count=1)
-		0x00, 0x00, 0x00, 0x07,       // p4 key=7
-		0x00, 0x00, 0x00, 0x63,       // p4 value=99
+		0x06,       // op6 (non-STRING trailer)
+		0x00, 0x01, // p2(val count=1)
+		0x00, 0x00, 0x00, 0x07, // p4 key=7
+		0x00, 0x00, 0x00, 0x63, // p4 value=99
 		0xfa, 't', 'e', 's', 't', '_', 'e', 'n', 'u', 'm', 0x0a, // op250 + pjstr LF
 		0x00, // Next terminator
 	}
@@ -116,12 +116,12 @@ func TestPackEnumConfigs_StringOutputType_StringDefaultAndVal(t *testing.T) {
 	want := []byte{
 		0x00, 0x01,
 		0x01, 105,
-		0x02, 115,              // outputtype=STRING(115)
-		0x03, 'h', 'i', 0x0a,  // op3 default=pjstr("hi")
-		0x05,                   // op5 (STRING trailer)
-		0x00, 0x01,             // count=1
+		0x02, 115, // outputtype=STRING(115)
+		0x03, 'h', 'i', 0x0a, // op3 default=pjstr("hi")
+		0x05,       // op5 (STRING trailer)
+		0x00, 0x01, // count=1
 		0x00, 0x00, 0x00, 0x01, // p4 key=1
-		'a', 'b', 'c', 0x0a,   // pjstr("abc")
+		'a', 'b', 'c', 0x0a, // pjstr("abc")
 		0xfa, 'e', 0x0a,
 		0x00,
 	}

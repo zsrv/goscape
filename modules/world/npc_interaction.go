@@ -425,7 +425,6 @@ func (n *Npc) stepOnce(s *Server) (int, stepStatus) {
 	return -1, stepBlocked
 }
 
-
 // applyStep advances the NPC one tile by (dx, dz), refreshes its zone,
 // and decrements waypointIndex if the destination is reached. Factored
 // from stepOnce so axis-fallback arms share the same post-step bookkeeping.

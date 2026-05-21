@@ -192,7 +192,6 @@ func TestMoveGameClickAdvancesPlayer(t *testing.T) {
 	}
 }
 
-
 func TestPlayerStepCrossZoneRefreshSubscription(t *testing.T) {
 	s := newTestServer(t)
 	c, _ := newTestClient(t)

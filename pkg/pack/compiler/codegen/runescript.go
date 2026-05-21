@@ -19,7 +19,7 @@ type LocalTable struct {
 type RuneScript struct {
 	SourceName       string
 	Symbol           symbol.Symbol
-	SubjectReference ast.SymbolRef        // nil-able
+	SubjectReference ast.SymbolRef // nil-able
 	Trigger          *trigger.TriggerType
 	Name             string
 	FullName         string // [triggerIdent,name]

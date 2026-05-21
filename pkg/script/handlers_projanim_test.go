@@ -10,8 +10,8 @@ import (
 // projAnimCall captures all 13 args of a MapProjAnim invocation for
 // assertion. Field names mirror the WorldVars.MapProjAnim signature.
 type projAnimCall struct {
-	level, srcX, srcZ, dstX, dstZ, target, spotanim                  int
-	srcHeight, dstHeight, startDelay, endDelay, peak, arc            int
+	level, srcX, srcZ, dstX, dstZ, target, spotanim       int
+	srcHeight, dstHeight, startDelay, endDelay, peak, arc int
 }
 
 // projAnimWorld is the recording mock for PROJANIM_* handler tests. It
@@ -108,10 +108,10 @@ func TestProjAnimMap_InvalidSrcCoord(t *testing.T) {
 	// (TS ServerOps.ts:205-207). To reach the srcCoord branch, push a
 	// VALID spotanim and an invalid srcCoord.
 	for _, v := range []int{
-		-1,                          // srcCoord (invalid: negative)
-		packCoord(0, 3210, 3310),    // dstCoord (valid; never validated due to early-fail)
-		200,                         // spotanim (valid: registered)
-		5, 7, 10, 20, 30, 40,        // srcHeight, dstHeight, delay, duration, peak, arc
+		-1,                       // srcCoord (invalid: negative)
+		packCoord(0, 3210, 3310), // dstCoord (valid; never validated due to early-fail)
+		200,                      // spotanim (valid: registered)
+		5, 7, 10, 20, 30, 40,     // srcHeight, dstHeight, delay, duration, peak, arc
 	} {
 		state.PushInt(v)
 	}
@@ -134,9 +134,9 @@ func TestProjAnimMap_InvalidDstCoord(t *testing.T) {
 		StringStack: make([]string, StackCapacity),
 	}
 	for _, v := range []int{
-		packCoord(0, 3200, 3300),    // srcCoord (valid)
-		-1,                          // dstCoord (invalid)
-		200,                         // spotanim
+		packCoord(0, 3200, 3300), // srcCoord (valid)
+		-1,                       // dstCoord (invalid)
+		200,                      // spotanim
 		5, 7, 10, 20, 30, 40,
 	} {
 		state.PushInt(v)
@@ -245,7 +245,7 @@ func TestProjAnimNpc_HappyPath(t *testing.T) {
 	want := projAnimCall{
 		level: srcLevel, srcX: srcX, srcZ: srcZ,
 		dstX: 300, dstZ: 400, // from lookup-resolved npc, NOT popped src
-		target: slot + 1, // nid+1 encoding
+		target:     slot + 1, // nid+1 encoding
 		spotanim:   spotanim,
 		srcHeight:  srcHeight * 4,
 		dstHeight:  dstHeight * 4,
@@ -301,9 +301,9 @@ func TestProjAnimNpc_ValidationOrder(t *testing.T) {
 		StringStack: make([]string, StackCapacity),
 	}
 	for _, v := range []int{
-		-1,           // srcCoord (invalid)
-		(99 << 16),   // npcUid (slot=0; would also fail lookup but never reached)
-		7,            // spotanim (unregistered)
+		-1,         // srcCoord (invalid)
+		(99 << 16), // npcUid (slot=0; would also fail lookup but never reached)
+		7,          // spotanim (unregistered)
 		5, 7, 10, 20, 30, 40,
 	} {
 		state.PushInt(v)
@@ -351,7 +351,7 @@ func TestProjAnimPl_HappyPath(t *testing.T) {
 	want := projAnimCall{
 		level: srcLevel, srcX: srcX, srcZ: srcZ,
 		dstX: 500, dstZ: 600, // from lookup-resolved player
-		target: -slot - 1, // -4-1 = -5
+		target:     -slot - 1, // -4-1 = -5
 		spotanim:   spotanim,
 		srcHeight:  srcHeight * 4,
 		dstHeight:  dstHeight * 4,

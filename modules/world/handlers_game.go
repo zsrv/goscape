@@ -76,10 +76,10 @@ func init() {
 	gameHandlers[133] = handleOpHeld3 // OPHELD3
 	gameHandlers[157] = handleOpHeld4 // OPHELD4
 	gameHandlers[211] = handleOpHeld5 // OPHELD5
-	gameHandlers[48] = handleOpHeldT   // OPHELDT
+	gameHandlers[48] = handleOpHeldT  // OPHELDT
 	gameHandlers[130] = handleOpHeldU // OPHELDU
 
-	gameHandlers[244] = handleChatSetMode // CHAT_SETMODE
+	gameHandlers[244] = handleChatSetMode   // CHAT_SETMODE
 	gameHandlers[118] = handleFriendListAdd // FRIENDLIST_ADD
 	gameHandlers[11] = handleFriendListDel  // FRIENDLIST_DEL
 	gameHandlers[79] = handleIgnoreListAdd  // IGNORELIST_ADD
@@ -400,9 +400,9 @@ func parseDebugprocCoord(rawCheat string) int {
 // objtype.ScriptVarType, and appends to intArgs or stringArgs per the
 // 12 TS arms in ClientCheatHandler.ts:69-140. Missing tokens degrade
 // per-TS-arm:
-//   - STRING → "" (TS `?? ''`)
+//   - STRING → "" (TS `?? ”`)
 //   - INT → 0 (TS `parseInt(v ?? '0', 10) | 0`)
-//   - ByName-lookup arms → -1 (TS `getId('')` returns -1)
+//   - ByName-lookup arms → -1 (TS `getId(”)` returns -1)
 //   - STAT → -1 (TS `PlayerStatMap.get(undefined)` returns undefined)
 //
 // The COORD arm re-parses rawCheat (TS L113-124); mirrored verbatim

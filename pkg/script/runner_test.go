@@ -100,7 +100,7 @@ type mockPlayer struct {
 	messages    []string
 	username    string
 	displayName string
-	playtime int
+	playtime    int
 
 	// NAI-35-T2: absolute world coords for ActivePlayer.X/Z, consumed
 	// by MAP_PLAYERCOUNT's rect filter. Default zero is safe.
@@ -169,17 +169,17 @@ type mockPlayer struct {
 	runenergyValue int
 
 	// NAI-149: trivial-handler-sweep cohort backing fields.
-	membersValue         bool
-	runweightValue       int
-	afkEventReadyValue   bool
+	membersValue          bool
+	runweightValue        int
+	afkEventReadyValue    bool
 	setAfkEventReadyCalls []bool // captures every SetAfkEventReady arg in order
 
 	// S5f: captured calls from the interface / modal-control methods.
-	lastCloseModalCalls int
-	lastOpenMain        int
-	lastOpenChat        int
-	lastOpenSide        int
-	lastOpenMainSide    struct{ main, side int }
+	lastCloseModalCalls    int
+	lastOpenMain           int
+	lastOpenChat           int
+	lastOpenSide           int
+	lastOpenMainSide       struct{ main, side int }
 	lastOpenTutorial       int
 	lastCloseTutorialCalls int
 	lastFlashTutorial      int
@@ -242,7 +242,7 @@ type mockPlayer struct {
 	// for handler-layer tests. CamMoveTo / CamLookAt append to this slice;
 	// CamShake does NOT touch it (direct-write).
 	cameraPackets []struct {
-		kind                                              uint8
+		kind                                                  uint8
 		camX, camZ, height, rotationSpeed, rotationMultiplier int
 	}
 	lastCamShake *struct{ axis, random, amplitude, rate int }
@@ -406,10 +406,10 @@ type mockPlayer struct {
 	queueCountByScript map[int]int // scriptID → return value; unset entries return 0
 
 	// NAI-162 B1: trivial-handler sweep recorders.
-	lastLoginInfoCalls          int
-	invTotalParamStackReturn    int // configurable for tests
-	invTotalParamStackArgs      []invTotalParamStackArg
-	addWealthEventCalls         []WealthEvent
+	lastLoginInfoCalls       int
+	invTotalParamStackReturn int // configurable for tests
+	invTotalParamStackArgs   []invTotalParamStackArg
+	addWealthEventCalls      []WealthEvent
 }
 
 type mockEnqueue struct {
@@ -704,14 +704,14 @@ func (m *mockPlayer) CamShake(axis, random, amplitude, rate int) {
 
 func (m *mockPlayer) CamMoveTo(camX, camZ, height, rate, rate2 int) {
 	m.cameraPackets = append(m.cameraPackets, struct {
-		kind                                              uint8
+		kind                                                  uint8
 		camX, camZ, height, rotationSpeed, rotationMultiplier int
 	}{kind: 0, camX: camX, camZ: camZ, height: height, rotationSpeed: rate, rotationMultiplier: rate2})
 }
 
 func (m *mockPlayer) CamLookAt(camX, camZ, height, rate, rate2 int) {
 	m.cameraPackets = append(m.cameraPackets, struct {
-		kind                                              uint8
+		kind                                                  uint8
 		camX, camZ, height, rotationSpeed, rotationMultiplier int
 	}{kind: 1, camX: camX, camZ: camZ, height: height, rotationSpeed: rate, rotationMultiplier: rate2})
 }
@@ -784,7 +784,6 @@ func (m *mockPlayer) TopContributor() int { return m.topContributor }
 func (m *mockPlayer) AddHeroPoints(playerUID, amount int) {
 	m.addHeroPointsCalls = append(m.addHeroPointsCalls, struct{ playerUID, amount int }{playerUID, amount})
 }
-
 
 func (m *mockPlayer) SetPreventLogout(message string, untilTick int) {
 	m.preventLogoutMessage = message
