@@ -17,8 +17,6 @@ var bitmask = []uint32{
 // Byte access functions must not be used again until [Packet.AccessBytes]
 // is called.
 func (p *Packet) AccessBits() {
-	// TODO: when AccessBits is used, set Packet.bitMode = true
-	// have all bit and non-bit funcs check the bool value and panic if not set correctly
 	p.BitPos = p.Pos << 3
 }
 

@@ -106,7 +106,6 @@ func (p *Packet) Release() {
 }
 
 func (p *Packet) Save(filePath string, length int, start int) error {
-	// TODO: test
 	// default length = p.Pos
 	// default start = 0
 	dir := filepath.Dir(filePath)
@@ -141,7 +140,6 @@ func (p *Packet) Save(filePath string, length int, start int) error {
 // Readers
 
 // G1 gets 1 unsigned byte.
-// TODO: error isn't returned if there are no bytes to read sometimes. handle this for all getters somehow
 func (p *Packet) G1() uint8 {
 	if p.Pos >= len(p.Data) {
 		panic(io.EOF)
@@ -227,12 +225,10 @@ func (p *Packet) GBool() bool {
 // GJStr gets a JagString, reading from the Packet
 // until terminator is reached.
 func (p *Packet) GJStr(terminator byte) string {
-	// TODO: optimize this
 	if p.Len() == 0 {
 		log.Println("NO BYTES AVAILABLE IN GJSTR")
 		return ""
 	}
-	// TODO: review the Packet.java version for charset
 	start := p.Pos
 	for p.Pos < len(p.Data) && p.Data[p.Pos] != terminator {
 		p.Pos++
@@ -328,7 +324,6 @@ func (p *Packet) P3(value uint32) {
 }
 
 // P4 puts 4 unsigned bytes.
-// TODO: 2004scape has this as int32
 func (p *Packet) P4(value uint32) {
 	p.lastRead = opInvalid
 	i, ok := p.tryGrowByReslice(4)
@@ -342,7 +337,6 @@ func (p *Packet) P4(value uint32) {
 }
 
 // IP4 puts 4 unsigned bytes represented in little-endian byte order.
-// TODO: 2004scape has this as int32
 func (p *Packet) IP4(value uint32) {
 	p.lastRead = opInvalid
 	i, ok := p.tryGrowByReslice(4)
@@ -356,7 +350,6 @@ func (p *Packet) IP4(value uint32) {
 }
 
 // P8 puts 8 unsigned bytes.
-// TODO: 2004scape has this as int64
 func (p *Packet) P8(value uint64) {
 	p.lastRead = opInvalid
 	i, ok := p.tryGrowByReslice(8)
@@ -404,8 +397,6 @@ func (p *Packet) PJStrNUL(str string) {
 }
 
 // PData puts data.
-// TODO: might have to add offset arg
-// TODO: keep offset and length out, and just pass in the correct slice each time?
 func (p *Packet) PData(src []byte) {
 	_, err := p.Write(src)
 	if err != nil {
@@ -434,7 +425,6 @@ func (p *Packet) PSize4(length int) {
 }
 
 // PSmart puts a Smart value.
-// TODO: does it make sense to convert to unsigned?
 func (p *Packet) PSmart(value int32) {
 	if value >= 0 && value < 128 {
 		p.P1(uint8(value))
@@ -446,7 +436,6 @@ func (p *Packet) PSmart(value int32) {
 }
 
 // PSmartS puts a Smart value (signed?).
-// TODO: does it make sense to convert to unsigned?
 func (p *Packet) PSmartS(value int32) {
 	if value < 64 && value >= -64 {
 		p.P1(uint8(value + 64))
@@ -481,12 +470,6 @@ func (p *Packet) RSAEnc(modulus *big.Int, exponent *big.Int) {
 // RSADec RSA-decrypts the next block in the buffer using the provided modulus and
 // private exponent, mirroring the RSAEnc signature.
 func (p *Packet) RSADec(modulus *big.Int, exponent *big.Int) (*Packet, error) {
-	// TODO: add a test for this
-	// TODO: make two funcs: one that can use raw key components (for the original key)
-	// and one that can use a PEM/DER key from disk or something (normal keys for later)
-
-	// TODO: when reading a cert, if stdlib fails because of exponent, extract values manually
-
 	// we aren't using BigInteger, so we have to do this manually
 	numBytes := p.G1()
 	rsax := make([]byte, numBytes)
