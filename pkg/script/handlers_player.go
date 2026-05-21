@@ -418,6 +418,10 @@ func handleStatSub(s *ScriptState) error {
 //
 // The max(..., current) clamp means a boost never lowers the stat —
 // useful when the stat is already boosted above base + boost.
+//
+// Tail (TS PlayerOps.ts:552-554): when stat == HITPOINTS and the
+// post-update HP meets or exceeds base, the heroPoints contributor
+// ledger is cleared. NAI-120 Bundle 2D follow-up.
 func handleStatBoost(s *ScriptState) error {
 	if err := requireActivePlayer(s, "STAT_BOOST"); err != nil {
 		return err
@@ -448,6 +452,11 @@ func handleStatBoost(s *ScriptState) error {
 		boosted = 255
 	}
 	s.Self.SetCurLevel(id, boosted)
+	// TS PlayerOps.ts:552-554 — same HP-full clear tail as STAT_ADD.
+	// NAI-120 Bundle 2D follow-up.
+	if id == objtype.PlayerStatHitpoints && s.Self.Stat(objtype.PlayerStatHitpoints) >= s.Self.StatBase(objtype.PlayerStatHitpoints) {
+		s.Self.HeroPointsClear()
+	}
 	return nil
 }
 
