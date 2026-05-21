@@ -245,6 +245,47 @@ func TestInterpolateDivZeroReturnsY0(t *testing.T) {
 	}
 }
 
+// TestInterpolateNonIntegerSlopeMatchesTS pins TS operator precedence
+// floor((y1-y0)/(x1-x0)) * (x-x0) + y0. For y0=0, y1=10, x0=0, x1=3, x=5
+// TS yields floor(10/3) * 5 + 0 = 3 * 5 = 15. A "natural" precedence
+// floor((y1-y0)*(x-x0) / (x1-x0)) + y0 would yield floor(50/3) = 16.
+func TestInterpolateNonIntegerSlopeMatchesTS(t *testing.T) {
+	got := runSingleOp(t, OpInterpolate, []int{0, 10, 0, 3, 5})
+	if got != 15 {
+		t.Errorf("INTERPOLATE(0,10,0,3,5): got %d, want 15 (TS precedence)", got)
+	}
+}
+
+// TestInterpolateNegativeSlope confirms floor-toward-minus-infinity
+// matches TS Math.floor for negative inner quotients.
+// y0=10, y1=0, x0=0, x1=3, x=5 → floor(-10/3) * 5 + 10 = -4*5 + 10 = -10.
+func TestInterpolateNegativeSlope(t *testing.T) {
+	got := runSingleOp(t, OpInterpolate, []int{10, 0, 0, 3, 5})
+	if got != -10 {
+		t.Errorf("INTERPOLATE(10,0,0,3,5): got %d, want -10", got)
+	}
+}
+
+// TestInterpolateExtrapolateBelow checks x < x0 extrapolation.
+// y0=0, y1=10, x0=0, x1=3, x=-2 → floor(10/3) * -2 + 0 = 3*-2 = -6.
+func TestInterpolateExtrapolateBelow(t *testing.T) {
+	got := runSingleOp(t, OpInterpolate, []int{0, 10, 0, 3, -2})
+	if got != -6 {
+		t.Errorf("INTERPOLATE(0,10,0,3,-2): got %d, want -6", got)
+	}
+}
+
+// TestInterpolateExactEndpointX1 checks endpoint match where the TS
+// precedence loses information (floor((y1-y0)/(x1-x0))*(x1-x0) does NOT
+// generally equal y1-y0) — bug or not, parity with TS is the contract.
+// y0=0, y1=10, x0=0, x1=3, x=3 → floor(10/3)*3 + 0 = 3*3 = 9 (NOT 10).
+func TestInterpolateExactEndpointX1FollowsTS(t *testing.T) {
+	got := runSingleOp(t, OpInterpolate, []int{0, 10, 0, 3, 3})
+	if got != 9 {
+		t.Errorf("INTERPOLATE(0,10,0,3,3): got %d, want 9 (TS lossy precedence)", got)
+	}
+}
+
 // -- S5k: coord unpack + distance --
 
 func TestCoordX(t *testing.T) {

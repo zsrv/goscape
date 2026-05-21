@@ -339,10 +339,13 @@ func handleAtan2Deg(s *ScriptState) error {
 	return nil
 }
 
-// handleInterpolate pops [y0, y1, x0, x1, x] (x on top) and pushes the
-// linear interpolation y = y0 + (y1-y0) * (x-x0) / (x1-x0). Floor division
-// is used to match TS Math.floor semantics. Returns y0 if x1==x0 to avoid
-// div-by-zero (TS doesn't guard but cache scripts shouldn't hit this).
+// handleInterpolate pops [y0, y1, x0, x1, x] (x on top) and pushes
+// floor((y1-y0)/(x1-x0)) * (x-x0) + y0, matching the TS canonical
+// precedence in NumberOps.ts INTERPOLATE (floor applies to the slope
+// BEFORE multiplying by the run). Floor division uses floorDiv to
+// match TS Math.floor semantics for negative inner quotients.
+// Returns y0 if x1==x0 to avoid div-by-zero (TS doesn't guard but
+// cache scripts shouldn't hit this).
 func handleInterpolate(s *ScriptState) error {
 	x := s.PopInt()
 	x1 := s.PopInt()
@@ -353,7 +356,7 @@ func handleInterpolate(s *ScriptState) error {
 		s.PushInt(y0)
 		return nil
 	}
-	s.PushInt(floorDiv((y1-y0)*(x-x0), x1-x0) + y0)
+	s.PushInt(floorDiv(y1-y0, x1-x0)*(x-x0) + y0)
 	return nil
 }
 
