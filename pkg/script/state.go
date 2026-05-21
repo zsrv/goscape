@@ -264,9 +264,10 @@ type ScriptState struct {
 	// explicit error).
 	LocOps LocOps
 
-	// LineValidator is the LoS/LoW bridge for HuntAll-mode iterator
-	// passesFilter (NAI-35-T3). Nil = no validator wired (HuntAll mode
-	// pessimistically allows). Production sets this from
+	// LineValidator is the LoS/LoW bridge for Distance + HuntAll iterator
+	// passesFilter (NAI-35-T3, extended to Distance at NAI-33-D1 retire
+	// per TS ScriptIterators.ts:348-352). Nil = no validator wired (both
+	// modes pessimistically allow). Production sets this from
 	// gamemap.Pathfinder.LineValidator via modules/world/script.go.
 	LineValidator LineValidator
 
