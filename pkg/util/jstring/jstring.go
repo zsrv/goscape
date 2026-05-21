@@ -56,7 +56,7 @@ func FromBase37(v uint64) string {
 		l += 1
 	}
 
-	return string(chars[12-l:]) // TODO: is this right? the last 12 chars?
+	return string(chars[12-l:])
 }
 
 func ToTitleCase(s string) string {

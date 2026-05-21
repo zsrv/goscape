@@ -37,7 +37,6 @@ func CanMove(tileFlag int, blockFlag int, collisionType Type) bool {
 		finalBlockFlag := movementFlags | routeFlags
 		return (tileFlag & finalBlockFlag) == FlagOpen
 	default:
-		// TODO: Error
 		panic("unknown collision type")
 	}
 }

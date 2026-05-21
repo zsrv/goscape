@@ -58,7 +58,7 @@ const (
 	// FlagFloorBlocked is a shorthand combination of both floor flags.
 	FlagFloorBlocked = FlagBlockWalk | FlagGroundDecor
 
-	FlagWalkBlocked = FlagLoc | FlagFloorBlocked // TODO: missing in kt
+	FlagWalkBlocked = FlagLoc | FlagFloorBlocked
 
 	// Mixed masks of the above flags
 

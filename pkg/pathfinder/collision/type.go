@@ -9,5 +9,3 @@ const (
 	TypeOutdoors
 	TypeLineOfSight
 )
-
-// TODO: not in kt

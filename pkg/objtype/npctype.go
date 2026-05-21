@@ -206,7 +206,7 @@ func (t *NpcType) Decode(code uint8, dat *packet2.Packet) error {
 		t.Category = int(dat.G2())
 	case 30, 31, 32, 33, 34, 35, 36, 37, 38, 39:
 		if t.Op == nil {
-			t.Op = make([]string, 5) // TODO: make []*string so it fills with nil?
+			t.Op = make([]string, 5)
 		}
 
 		t.Op[code-30] = dat.GJStrLF()

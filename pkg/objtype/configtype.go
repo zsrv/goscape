@@ -14,18 +14,6 @@ type ConfigType struct {
 	DebugName string
 }
 
-// TODO: turn this into a non-receiver func that takes a ConfigTypeDecoder param - easier this way
-//func (ct *ConfigType) DecodeType(buf *packet.Packet) error {
-//	for buf.Len() > 0 {
-//		code := buf.G1()
-//		if code == 0 {
-//			break
-//		}
-//		return ct.Decode(code, buf)
-//	}
-//	return nil
-//}
-
 func DecodeType(buf *packet.Packet, f ConfigTypeDecoder) error {
 	for buf.Len() > 0 {
 		code := buf.G1()
