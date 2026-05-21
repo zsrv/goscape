@@ -27,7 +27,7 @@ func (f *fakeLineValidator) HasLineOfWalk(level, srcX, srcZ, destX, destZ, srcSi
 // recordingFakeLineValidator captures args for arg-shape pin tests.
 type recordingFakeLineValidator struct {
 	losLevel, losSrcX, losSrcZ, losDestX, losDestZ int
-	losReturn                                       bool
+	losReturn                                      bool
 }
 
 func (r *recordingFakeLineValidator) HasLineOfSight(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, extraFlag int) bool {
