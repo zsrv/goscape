@@ -9,7 +9,7 @@ import (
 
 // checkMesanimType mirrors TS MesanimValid (ScriptValidators.ts:132).
 // Defined for completeness — current call site (handleSplitGetAnim,
-// handlers_string.go:209) is a labeled goscape-defensive gate per
+// handlers_string.go:232) is a labeled goscape-defensive gate per
 // defensive_gate_doc_comment_label.md and does not wire this validator.
 func checkMesanimType(s *ScriptState, id int, op string) error {
 	if s.Configs == nil || s.Configs.MesanimType(id) == nil {
@@ -20,7 +20,7 @@ func checkMesanimType(s *ScriptState, id int, op string) error {
 
 // checkFontType mirrors TS FontTypeValid (ScriptValidators.ts:131).
 // Defined for completeness — current call site (handleSplitInit,
-// handlers_string.go:145) is a labeled goscape-defensive gate per
+// handlers_string.go:168) is a labeled goscape-defensive gate per
 // defensive_gate_doc_comment_label.md and does not wire this validator.
 func checkFontType(s *ScriptState, id int, op string) error {
 	if s.Configs == nil || s.Configs.FontType(id) == nil {
