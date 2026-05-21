@@ -253,6 +253,28 @@ func TestResetEntityForRespawnRevertRaisesChangeTypeMask(t *testing.T) {
 	}
 }
 
+// TestResetEntityForRespawnClearsHeroPoints pins the TS Npc.ts:292
+// heroPoints.clear() call on the respawn=true branch. The NPC struct
+// is reused across respawn cycles, so contributors accumulated before
+// death must NOT linger into the next life. NAI-120 Bundle 2D follow-up.
+func TestResetEntityForRespawnClearsHeroPoints(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{Size: 1, BlockWalk: objtype.BlockWalkNPC}
+	n := newRegisteredNpc(t, s, typ, true)
+
+	n.heroPoints.AddHero(42, 7)
+	n.heroPoints.AddHero(99, 3)
+	if got := n.heroPoints.TopContributor(); got != 42 {
+		t.Fatalf("setup: TopContributor() = %d, want 42", got)
+	}
+
+	s.resetEntityForRespawn(n)
+
+	if got := n.heroPoints.TopContributor(); got != 0 {
+		t.Errorf("after resetEntityForRespawn: TopContributor() = %d, want 0 (empty ledger)", got)
+	}
+}
+
 func TestRemoveNpcLeavesZone(t *testing.T) {
 	s := newTestServer(t)
 	typ := &objtype.NpcType{Size: 1, BlockWalk: objtype.BlockWalkNone}

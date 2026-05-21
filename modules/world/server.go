@@ -974,6 +974,14 @@ func (s *Server) scaleByPlayerCount(rate int) int {
 //
 // Callers should use removePlayerOnTick or removePlayerOnDisconnect,
 // which add the appropriate gRPC-side cleanup before invoking this.
+//
+// TS Player.cleanup at Engine-TS/src/engine/entity/Player.ts:446 calls
+// player.heroPoints.clear() as part of cleanup. goscape omits the
+// call: newPlayer (player.go:506) allocates a fresh *Player per login
+// with a fresh NewHeroPoints(16) (player.go:544), so clearing the
+// about-to-be-GC'd ledger has no observable effect. Informal English
+// deferral (no NAI-XXX-D pin); precedent set by combat sub-spec
+// framing cleanup (2026-05-20). NAI-120 Bundle 2D follow-up.
 func (s *Server) removePlayerInternal(p *Player) {
 	p.active = false
 	s.playersMu.Lock()

@@ -114,10 +114,10 @@ func (s *Server) addNpc(n *Npc, duration int, firstSpawn bool) error {
 // the future revertType refactor (Task 5e) share one definition.
 //
 // Resets typeId/uid to baseType (with fresh n.typ lookup), reseeds
-// all 6 stats from n.typ.Stats, clears queue/waypoints, sets tele +
-// CHANGE_TYPE mask, resets hunt fields. Does NOT touch n.x/n.z (the
-// caller handles position) or collision flags (the caller handles
-// those via gamemap).
+// all 6 stats from n.typ.Stats, clears heroPoints (TS Npc.ts:292) +
+// queue/waypoints, sets tele + CHANGE_TYPE mask, resets hunt fields.
+// Does NOT touch n.x/n.z (the caller handles position) or collision
+// flags (the caller handles those via gamemap).
 func (s *Server) resetEntityForRespawn(n *Npc) {
 	// TS Npc.resetEntity(true) at Npc.ts:284 — restore default-south
 	// face-angle. Reads n.x, n.z, n.size; none are mutated by the
@@ -139,6 +139,11 @@ func (s *Server) resetEntityForRespawn(n *Npc) {
 			n.baseLevels[i] = v
 		}
 	}
+	// TS Npc.ts:292 — clear heroPoints contributor ledger on respawn.
+	// The Npc struct is reused across respawn cycles; old contributors
+	// would otherwise linger into the next life. NAI-120 Bundle 2D
+	// follow-up.
+	n.heroPoints.Clear()
 	n.queue = nil
 	n.waypointIndex = -1
 	n.tele = true
