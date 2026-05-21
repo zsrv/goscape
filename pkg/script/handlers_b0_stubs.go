@@ -18,12 +18,6 @@ func handlePopVarbit(s *ScriptState) error {
 	return fmt.Errorf("POP_VARBIT: unimplemented")
 }
 
-// handleSetGender (SET_GENDER, opcode 2099) — TS-unimplemented stub.
-// NAI-162-D-STUB-SETGENDER.
-func handleSetGender(s *ScriptState) error {
-	return fmt.Errorf("SET_GENDER: unimplemented")
-}
-
 // handleLcOp (LC_OP, opcode 4105) — TS-PARITY STUB (final). Opcode is
 // declared in TS `ScriptOpcode.ts` but registers no handler entry;
 // calling it in TS hits `handlers[X] === undefined`. Goscape's typed-error

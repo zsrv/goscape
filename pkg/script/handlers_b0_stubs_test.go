@@ -5,10 +5,10 @@ import (
 	"testing"
 )
 
-// TestNAI162B0StubsReturnUnimplemented pins the 6 TS-unimplemented
-// stubs (PUSH_VARBIT, POP_VARBIT, SET_GENDER, LC_OP, OC_IOP, OC_OP).
-// Each returns an error containing "unimplemented" without mutating
-// any pointer state. Mirrors NAI-161 P_OPHELD stub-with-pin shape.
+// TestNAI162B0StubsReturnUnimplemented pins the 5 TS-unimplemented
+// stubs (PUSH_VARBIT, POP_VARBIT, LC_OP, OC_IOP, OC_OP). Each returns
+// an error containing "unimplemented" without mutating any pointer
+// state. Mirrors NAI-161 P_OPHELD stub-with-pin shape.
 func TestNAI162B0StubsReturnUnimplemented(t *testing.T) {
 	cases := []struct {
 		name string
@@ -17,7 +17,6 @@ func TestNAI162B0StubsReturnUnimplemented(t *testing.T) {
 	}{
 		{"PUSH_VARBIT", OpPushVarbit, "PUSH_VARBIT: unimplemented"},
 		{"POP_VARBIT", OpPopVarbit, "POP_VARBIT: unimplemented"},
-		{"SET_GENDER", OpSetGender, "SET_GENDER: unimplemented"},
 		{"LC_OP", OpLcOp, "LC_OP: unimplemented"},
 		{"OC_IOP", OpOcIop, "OC_IOP: unimplemented"},
 		{"OC_OP", OpOcOp, "OC_OP: unimplemented"},

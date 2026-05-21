@@ -1688,6 +1688,39 @@ func handleSetSkinColour(s *ScriptState) error {
 	return nil
 }
 
+// handleSetGender (SETGENDER, opcode 2099) rewrites the player's body[]
+// idkit array via gender lookup maps and writes the gender field.
+// Mirrors TS PlayerOps.ts:1104-1118:
+//
+//	const gender = check(state.popInt(), GenderValid)
+//	for (let i = 0; i < 7; i++) { ... }
+//	state.activePlayer.gender = gender
+//
+// Validated via checkGender (TS GenderValid, inclusive [0, 1]). The
+// body-rewrite loop + lookup maps + slot-1 special case live on
+// (*Player).SetGender in modules/world/player_gender.go alongside the
+// TS-mirror class-level constants (TS Player.MALE_FEMALE_MAP /
+// FEMALE_MALE_MAP).
+//
+// Does NOT flip MaskAppearance — callers must invoke BUILDAPPEARANCE
+// for the change to reach the client (TS-faithful deferred-rebuild;
+// see modules/world/player_gender.go::SetGender doc comment for the
+// content-evidence cite at makeover_mage.rs2:58-64).
+//
+// The active-player guard is goscape defensive (TS skips this check;
+// see defensive_gate_doc_comment_label).
+func handleSetGender(s *ScriptState) error {
+	if err := requireActivePlayer(s, "SETGENDER"); err != nil {
+		return err
+	}
+	gender := s.PopInt()
+	if err := checkGender(gender, "SETGENDER"); err != nil {
+		return err
+	}
+	s.Self.SetGender(gender)
+	return nil
+}
+
 // handleSay implements OpSay (TS SAY at PlayerOps.ts:462-464).
 // Mirrors `state.activePlayer.say(state.popString())` —
 // checkedHandler(ActivePlayer, ...). NAI-160 T1.

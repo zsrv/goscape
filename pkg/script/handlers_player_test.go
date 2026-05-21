@@ -5194,6 +5194,102 @@ func TestHandleSetSkinColour_RequiresActivePlayer(t *testing.T) {
 	}
 }
 
+// TestHandleSetGender_RequiresActivePlayer pins the goscape-only
+// defensive active-player guard. TS skips this check; the guard
+// follows the defensive_gate_doc_comment_label convention.
+func TestHandleSetGender_RequiresActivePlayer(t *testing.T) {
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(1)
+	err := handleSetGender(s)
+	if err == nil {
+		t.Fatalf("handleSetGender: expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "SETGENDER") {
+		t.Errorf("error: got %q, want to contain \"SETGENDER\"", err.Error())
+	}
+}
+
+// TestHandleSetGender_RejectsOutOfRange pins TS check(gender, GenderValid)
+// — inclusive [0, 1]. Tests both off-by-one boundaries.
+func TestHandleSetGender_RejectsOutOfRange(t *testing.T) {
+	cases := []struct {
+		name   string
+		gender int
+	}{
+		{"-1 below min", -1},
+		{"2 above max", 2},
+		{"large negative", -100},
+		{"large positive", 100},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mp := &mockPlayer{}
+			s := &ScriptState{
+				IntStack:    make([]int, StackCapacity),
+				StringStack: make([]string, StackCapacity),
+				Self:        mp,
+				Pointers:    PtrActivePlayer,
+			}
+			s.PushInt(tc.gender)
+			err := handleSetGender(s)
+			if err == nil {
+				t.Fatalf("handleSetGender(%d): expected error, got nil", tc.gender)
+			}
+			if !strings.Contains(err.Error(), "SETGENDER") {
+				t.Errorf("error: got %q, want to contain \"SETGENDER\"", err.Error())
+			}
+			if len(mp.setGenderCalls) != 0 {
+				t.Errorf("setGenderCalls: got %v, want empty (no dispatch on validator error)", mp.setGenderCalls)
+			}
+		})
+	}
+}
+
+// TestHandleSetGender_DispatchesToSetter pins the happy-path dispatch.
+// PopInt + checkGender(1) + s.Self.SetGender(1).
+func TestHandleSetGender_DispatchesToSetter(t *testing.T) {
+	mp := &mockPlayer{}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        mp,
+		Pointers:    PtrActivePlayer,
+	}
+	s.PushInt(1)
+	if err := handleSetGender(s); err != nil {
+		t.Fatalf("handleSetGender: %v", err)
+	}
+	if got, want := mp.setGenderCalls, []int{1}; len(got) != 1 || got[0] != want[0] {
+		t.Errorf("setGenderCalls: got %v, want %v", got, want)
+	}
+	if s.ISP != 0 {
+		t.Errorf("ISP: got %d, want 0 (stack should be fully drained)", s.ISP)
+	}
+}
+
+// TestHandleSetGender_AcceptsZeroEdge pins the lower boundary of the
+// inclusive [0, 1] range. Mirrors the predecessor slice's boundary-pin
+// pattern (TestHandleNpcQueueAcceptsZeroEdge).
+func TestHandleSetGender_AcceptsZeroEdge(t *testing.T) {
+	mp := &mockPlayer{}
+	s := &ScriptState{
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Self:        mp,
+		Pointers:    PtrActivePlayer,
+	}
+	s.PushInt(0)
+	if err := handleSetGender(s); err != nil {
+		t.Fatalf("handleSetGender(0): %v", err)
+	}
+	if got, want := mp.setGenderCalls, []int{0}; len(got) != 1 || got[0] != want[0] {
+		t.Errorf("setGenderCalls: got %v, want %v", got, want)
+	}
+}
+
 // TestPExactMove pins OpPExactMove's body: pop 5 ints (top-down: dir,
 // endCycle, startCycle, end, start), unpack two coords via CoordValid,
 // call UnsetMapFlag(), then ExactMove(sX, sZ, eX, eZ, begin, finish, dir).
