@@ -384,8 +384,8 @@ func TestHandleLocCategoryUnknownID(t *testing.T) {
 	if err == nil {
 		t.Fatal("handleLocCategory: expected error, got nil")
 	}
-	if got := err.Error(); got != "LOC_CATEGORY: unknown loc id 999" {
-		t.Errorf("error: got %q, want \"LOC_CATEGORY: unknown loc id 999\"", got)
+	if got := err.Error(); got != "LOC_CATEGORY: no LocType with value (999) found" {
+		t.Errorf("error: got %q, want \"LOC_CATEGORY: no LocType with value (999) found\"", got)
 	}
 }
 
@@ -442,8 +442,8 @@ func TestHandleLocTypeUnknownID(t *testing.T) {
 	if err == nil {
 		t.Fatal("handleLocType: expected error, got nil")
 	}
-	if got := err.Error(); got != "LOC_TYPE: unknown loc id 999" {
-		t.Errorf("error: got %q, want \"LOC_TYPE: unknown loc id 999\"", got)
+	if got := err.Error(); got != "LOC_TYPE: no LocType with value (999) found" {
+		t.Errorf("error: got %q, want \"LOC_TYPE: no LocType with value (999) found\"", got)
 	}
 }
 
@@ -1296,7 +1296,7 @@ func TestHandleLocFindUnknownLocIdErrors(t *testing.T) {
 	if err == nil {
 		t.Fatal("handleLocFind unknown locId: want error, got nil")
 	}
-	if got, want := err.Error(), "LOC_FIND: unknown loc id 999"; got != want {
+	if got, want := err.Error(), "LOC_FIND: no LocType with value (999) found"; got != want {
 		t.Errorf("error: got %q, want %q", got, want)
 	}
 }

@@ -176,10 +176,10 @@ func handleLcName(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	lt := s.Configs.LocType(id)
-	if lt == nil {
-		return fmt.Errorf("LC_NAME: unknown loc id %d", id)
+	if err := checkLocType(s, id, "LC_NAME"); err != nil {
+		return err
 	}
+	lt := s.Configs.LocType(id)
 	if lt.Name != "" {
 		s.PushString(lt.Name)
 	} else if lt.DebugName != "" {
@@ -197,10 +197,10 @@ func handleLcParam(s *ScriptState) error {
 	}
 	paramID := s.PopInt()
 	locID := s.PopInt()
-	lt := s.Configs.LocType(locID)
-	if lt == nil {
-		return fmt.Errorf("LC_PARAM: unknown loc id %d", locID)
+	if err := checkLocType(s, locID, "LC_PARAM"); err != nil {
+		return err
 	}
+	lt := s.Configs.LocType(locID)
 	return paramLookup(s, lt.Params, paramID)
 }
 
@@ -210,10 +210,10 @@ func handleLcCategory(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	lt := s.Configs.LocType(id)
-	if lt == nil {
-		return fmt.Errorf("LC_CATEGORY: unknown loc id %d", id)
+	if err := checkLocType(s, id, "LC_CATEGORY"); err != nil {
+		return err
 	}
+	lt := s.Configs.LocType(id)
 	s.PushInt(lt.Category)
 	return nil
 }
@@ -225,10 +225,10 @@ func handleLcDesc(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	lt := s.Configs.LocType(id)
-	if lt == nil {
-		return fmt.Errorf("LC_DESC: unknown loc id %d", id)
+	if err := checkLocType(s, id, "LC_DESC"); err != nil {
+		return err
 	}
+	lt := s.Configs.LocType(id)
 	if lt.Desc == "" {
 		s.PushString("null")
 	} else {
@@ -243,10 +243,10 @@ func handleLcDebugName(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	lt := s.Configs.LocType(id)
-	if lt == nil {
-		return fmt.Errorf("LC_DEBUGNAME: unknown loc id %d", id)
+	if err := checkLocType(s, id, "LC_DEBUGNAME"); err != nil {
+		return err
 	}
+	lt := s.Configs.LocType(id)
 	if lt.DebugName == "" {
 		s.PushString("null")
 	} else {
@@ -261,10 +261,10 @@ func handleLcWidth(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	lt := s.Configs.LocType(id)
-	if lt == nil {
-		return fmt.Errorf("LC_WIDTH: unknown loc id %d", id)
+	if err := checkLocType(s, id, "LC_WIDTH"); err != nil {
+		return err
 	}
+	lt := s.Configs.LocType(id)
 	s.PushInt(lt.Width)
 	return nil
 }
@@ -275,10 +275,10 @@ func handleLcLength(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	lt := s.Configs.LocType(id)
-	if lt == nil {
-		return fmt.Errorf("LC_LENGTH: unknown loc id %d", id)
+	if err := checkLocType(s, id, "LC_LENGTH"); err != nil {
+		return err
 	}
+	lt := s.Configs.LocType(id)
 	s.PushInt(lt.Length)
 	return nil
 }

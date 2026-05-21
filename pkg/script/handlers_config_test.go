@@ -661,7 +661,7 @@ func TestLcLength(t *testing.T) {
 
 func TestLcUnknownIdErrors(t *testing.T) {
 	mc := newTestConfigs()
-	runConfigOpExpectErr(t, mc, OpLcName, []int{999}, "unknown loc id")
+	runConfigOpExpectErr(t, mc, OpLcName, []int{999}, "no LocType with value (999) found")
 }
 
 // -- NpcConfigOps tests --

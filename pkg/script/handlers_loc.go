@@ -123,8 +123,8 @@ func handleLocFind(s *ScriptState) error {
 	}
 	locId := s.PopInt()
 	coord := s.PopInt()
-	if s.Configs.LocType(locId) == nil {
-		return fmt.Errorf("LOC_FIND: unknown loc id %d", locId)
+	if err := checkLocType(s, locId, "LOC_FIND"); err != nil {
+		return err
 	}
 	level, x, z, err := checkCoord(coord, "LOC_FIND")
 	if err != nil {
@@ -225,10 +225,10 @@ func handleLocCategory(s *ScriptState) error {
 		return err
 	}
 	id := s.ActiveLoc.LocType()
-	lt := s.Configs.LocType(id)
-	if lt == nil {
-		return fmt.Errorf("LOC_CATEGORY: unknown loc id %d", id)
+	if err := checkLocType(s, id, "LOC_CATEGORY"); err != nil {
+		return err
 	}
+	lt := s.Configs.LocType(id)
 	s.PushInt(lt.Category)
 	return nil
 }
@@ -247,9 +247,8 @@ func handleLocType(s *ScriptState) error {
 		return err
 	}
 	id := s.ActiveLoc.LocType()
-	lt := s.Configs.LocType(id)
-	if lt == nil {
-		return fmt.Errorf("LOC_TYPE: unknown loc id %d", id)
+	if err := checkLocType(s, id, "LOC_TYPE"); err != nil {
+		return err
 	}
 	s.PushInt(id)
 	return nil
@@ -270,10 +269,10 @@ func handleLocName(s *ScriptState) error {
 		return err
 	}
 	id := s.ActiveLoc.LocType()
-	lt := s.Configs.LocType(id)
-	if lt == nil {
-		return fmt.Errorf("LOC_NAME: unknown loc id %d", id)
+	if err := checkLocType(s, id, "LOC_NAME"); err != nil {
+		return err
 	}
+	lt := s.Configs.LocType(id)
 	if lt.Name != "" {
 		s.PushString(lt.Name)
 	} else {
@@ -345,8 +344,8 @@ func handleLocChange(s *ScriptState) error {
 	if err := checkDuration(duration); err != nil {
 		return fmt.Errorf("LOC_CHANGE: %w", err)
 	}
-	if s.Configs.LocType(id) == nil {
-		return fmt.Errorf("LOC_CHANGE: unknown loc id %d", id)
+	if err := checkLocType(s, id, "LOC_CHANGE"); err != nil {
+		return err
 	}
 	if s.LocOps == nil {
 		return fmt.Errorf("LOC_CHANGE: LocOps unavailable")
@@ -366,10 +365,10 @@ func handleLocParam(s *ScriptState) error {
 	}
 	paramID := s.PopInt()
 	id := s.ActiveLoc.LocType()
-	lt := s.Configs.LocType(id)
-	if lt == nil {
-		return fmt.Errorf("LOC_PARAM: unknown loc id %d", id)
+	if err := checkLocType(s, id, "LOC_PARAM"); err != nil {
+		return err
 	}
+	lt := s.Configs.LocType(id)
 	return paramLookup(s, lt.Params, paramID)
 }
 
@@ -430,8 +429,8 @@ func handleLocAdd(s *ScriptState) error {
 	typ := s.PopInt()
 	coord := s.PopInt()
 
-	if s.Configs.LocType(typ) == nil {
-		return fmt.Errorf("LOC_ADD: unknown loc id %d", typ)
+	if err := checkLocType(s, typ, "LOC_ADD"); err != nil {
+		return err
 	}
 	if err := checkLocAngle(angle); err != nil {
 		return fmt.Errorf("LOC_ADD: %w", err)
