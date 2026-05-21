@@ -369,7 +369,7 @@ func handleLocParam(s *ScriptState) error {
 		return err
 	}
 	lt := s.Configs.LocType(id)
-	return paramLookup(s, lt.Params, paramID)
+	return paramLookup(s, lt.Params, paramID, "LOC_PARAM")
 }
 
 // handleLocDel pops [duration] and removes the ActiveLoc. Mirrors TS

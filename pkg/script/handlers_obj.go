@@ -413,7 +413,7 @@ func handleObjParam(s *ScriptState) error {
 	if ot == nil {
 		return fmt.Errorf("OBJ_PARAM: unknown obj id %d", s.ActiveObj.ObjType())
 	}
-	return paramLookup(s, ot.Params, paramID)
+	return paramLookup(s, ot.Params, paramID, "OBJ_PARAM")
 }
 
 // handleObjType (OBJ_TYPE, opcode 3511) pushes the active obj's type id.

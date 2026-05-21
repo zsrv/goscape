@@ -14,14 +14,11 @@ import (
 // ParamMap values are populated by DecodeParams in pkg/objtype/paramtype.go:
 // int entries are stored as uint32, string entries as string. We cast
 // accordingly.
-func paramLookup(s *ScriptState, params objtype.ParamMap, paramID int) error {
-	if s.Configs == nil {
-		return fmt.Errorf("param lookup: Configs not set on ScriptState")
+func paramLookup(s *ScriptState, params objtype.ParamMap, paramID int, op string) error {
+	if err := checkParamType(s, paramID, op); err != nil {
+		return err
 	}
 	pt := s.Configs.ParamType(paramID)
-	if pt == nil {
-		return fmt.Errorf("param lookup: unknown param id %d", paramID)
-	}
 	isString := pt.Type == objtype.ScriptVarTypeString
 	if v, ok := params[uint32(paramID)]; ok {
 		if isString {
@@ -164,7 +161,7 @@ func handleStructParam(s *ScriptState) error {
 	if st == nil {
 		return fmt.Errorf("STRUCT_PARAM: unknown struct id %d", structID)
 	}
-	return paramLookup(s, st.Params, paramID)
+	return paramLookup(s, st.Params, paramID, "STRUCT_PARAM")
 }
 
 // -- LocConfigOps --
@@ -201,7 +198,7 @@ func handleLcParam(s *ScriptState) error {
 		return err
 	}
 	lt := s.Configs.LocType(locID)
-	return paramLookup(s, lt.Params, paramID)
+	return paramLookup(s, lt.Params, paramID, "LC_PARAM")
 }
 
 // handleLcCategory (LC_CATEGORY) pops a loc id and pushes its category.
@@ -317,7 +314,7 @@ func handleNcParam(s *ScriptState) error {
 	if nt == nil {
 		return fmt.Errorf("NC_PARAM: unknown npc id %d", npcID)
 	}
-	return paramLookup(s, nt.Params, paramID)
+	return paramLookup(s, nt.Params, paramID, "NC_PARAM")
 }
 
 // handleNpcParam (NPC_PARAM, opcode 2529) reads a param from the
@@ -337,7 +334,7 @@ func handleNpcParam(s *ScriptState) error {
 	if nt == nil {
 		return fmt.Errorf("NPC_PARAM: unknown npc id %d", npcID)
 	}
-	return paramLookup(s, nt.Params, paramID)
+	return paramLookup(s, nt.Params, paramID, "NPC_PARAM")
 }
 
 // handleNcCategory (NC_CATEGORY) pops a npc id and pushes its category.
@@ -480,7 +477,7 @@ func handleOcParam(s *ScriptState) error {
 	if ot == nil {
 		return fmt.Errorf("OC_PARAM: unknown obj id %d", objID)
 	}
-	return paramLookup(s, ot.Params, paramID)
+	return paramLookup(s, ot.Params, paramID, "OC_PARAM")
 }
 
 // handleOcCategory (OC_CATEGORY) pops an obj id and pushes its category.

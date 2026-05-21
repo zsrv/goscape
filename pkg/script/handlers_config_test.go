@@ -920,7 +920,7 @@ func TestOcParamMissingKeyStringFallback(t *testing.T) {
 
 func TestOcParamUnknownParamErrors(t *testing.T) {
 	mc := newTestConfigs()
-	runConfigOpExpectErr(t, mc, OpOcParam, []int{995, 999}, "unknown param id")
+	runConfigOpExpectErr(t, mc, OpOcParam, []int{995, 999}, "OC_PARAM: no ParamType with value (999) found")
 }
 
 // TestOcParamInt_NegativeSignPreserved pins NAI-122 in-scope-stretch fix:

@@ -228,13 +228,10 @@ func handleInvTotalParam(s *ScriptState) error {
 	if inv == nil {
 		return fmt.Errorf("INV_TOTALPARAM: no inv for type %d", typeID)
 	}
-	if s.Configs == nil {
-		return fmt.Errorf("INV_TOTALPARAM: Configs not set on ScriptState")
+	if err := checkParamType(s, param, "INV_TOTALPARAM"); err != nil {
+		return err
 	}
 	pt := s.Configs.ParamType(param)
-	if pt == nil {
-		return fmt.Errorf("INV_TOTALPARAM: unknown param id %d", param)
-	}
 	total := 0
 	for _, it := range inv.Items {
 		if it == nil || it.Id < 0 {
