@@ -807,10 +807,9 @@ func handleNpcFindExact(s *ScriptState) error {
 // state.npcIterator with no type filter. Mirrors TS NpcOps.ts:403-411.
 // Pointer-set is `set ['find_npc']` (ScriptOpcodePointers.ts:586-588);
 // goscape encodes the find_npc pointer as state.npcIterator != nil.
-// No push (TS doesn't push either). NAI-33-D1: huntvis validated but
-// not consumed by passesFilter (Distance mode preserves the
-// deferred-not-consumed posture; HuntAll mode at NAI-35-T3 is the only
-// mode that activates LoS/LoW filtering).
+// No push (TS doesn't push either). huntvis filtering is active per TS
+// ScriptIterators.ts:348-352 (Distance-mode LoS/LoW consumed by
+// passesFilter); s.LineValidator is plumbed into the iterator.
 func handleNpcFindAllAny(s *ScriptState) error {
 	checkVis := s.PopInt()
 	distance := s.PopInt()
@@ -843,10 +842,9 @@ func handleNpcFindAllAny(s *ScriptState) error {
 // huntvis), validates, and stores a DISTANCE-mode NpcIterator with
 // typeID set to filter by NPC type. Mirrors TS NpcOps.ts:413-422.
 // Pop order matches TS popInts(4): top → bottom = checkVis, distance,
-// npcTypeID, coord. NAI-33-D1: huntvis validated but not consumed by
-// passesFilter (Distance mode preserves the deferred-not-consumed
-// posture; HuntAll mode at NAI-35-T3 is the only mode that activates
-// LoS/LoW filtering).
+// npcTypeID, coord. huntvis filtering is active per TS
+// ScriptIterators.ts:348-352; s.LineValidator is plumbed into the
+// iterator.
 func handleNpcFindAll(s *ScriptState) error {
 	checkVis := s.PopInt()
 	distance := s.PopInt()

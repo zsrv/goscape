@@ -4659,3 +4659,70 @@ func TestHandleNpcAdd_InvalidDuration_ReturnsError(t *testing.T) {
 		t.Fatalf("expected checkDuration error on duration < 1")
 	}
 }
+
+// TestHandleNpcFindAll_PlumbsLineValidatorToIterator — proves that
+// handleNpcFindAll passes ScriptState.LineValidator into the iterator,
+// so vis_lineofsight + always-false validator yields zero matches.
+// Plumbing-only; iterator behavior covered by npc_iterator_test.go.
+func TestHandleNpcFindAll_PlumbsLineValidatorToIterator(t *testing.T) {
+	npc1 := &mockNpc{typeID: 42, x: 3200, z: 3300, level: 0}
+	zoneKey := mockZoneKey(0, 3200, 3296)
+	lookup := &mockNpcLookup{byZone: map[uint64][]ActiveNpc{zoneKey: {npc1}}}
+	coord := packCoord(0, 3200, 3300)
+	s := newNpcFindAllState(t, coord, 42, 5, objtype.HuntVisLineOfSight, map[int]bool{42: true}, lookup)
+	s.LineValidator = &stubLineValidator{losReturn: false} // always block
+
+	if err := handleNpcFindAll(s); err != nil {
+		t.Fatalf("handleNpcFindAll: %v", err)
+	}
+	if s.npcIterator == nil {
+		t.Fatal("expected npcIterator to be set")
+	}
+	// Drive FINDNEXT loop via direct Next(); collect yielded npcs.
+	yielded := 0
+	for {
+		got, ok := s.npcIterator.Next()
+		if !ok {
+			break
+		}
+		if got != nil {
+			yielded++
+		}
+	}
+	if yielded != 0 {
+		t.Errorf("LineValidator returns false (always-block) + LoS huntvis: expected 0 yields, got %d", yielded)
+	}
+}
+
+// TestHandleNpcFindAllAny_PlumbsLineValidatorToIterator — proves
+// handleNpcFindAllAny plumbs ScriptState.LineValidator. Uses LoW path
+// for handler-test coverage parity with LoS in FindAll's smoke test.
+func TestHandleNpcFindAllAny_PlumbsLineValidatorToIterator(t *testing.T) {
+	npc1 := &mockNpc{typeID: 42, x: 3200, z: 3300, level: 0}
+	zoneKey := mockZoneKey(0, 3200, 3296)
+	lookup := &mockNpcLookup{byZone: map[uint64][]ActiveNpc{zoneKey: {npc1}}}
+	coord := packCoord(0, 3200, 3300)
+	s := newNpcFindAllAnyState(t, coord, 5, objtype.HuntVisLineOfWalk, lookup)
+	s.LineValidator = &stubLineValidator{lowReturn: false} // always block
+
+	if err := handleNpcFindAllAny(s); err != nil {
+		t.Fatalf("handleNpcFindAllAny: %v", err)
+	}
+	if s.npcIterator == nil {
+		t.Fatal("expected npcIterator to be set")
+	}
+	// Drive FINDNEXT loop via direct Next(); collect yielded npcs.
+	yielded := 0
+	for {
+		got, ok := s.npcIterator.Next()
+		if !ok {
+			break
+		}
+		if got != nil {
+			yielded++
+		}
+	}
+	if yielded != 0 {
+		t.Errorf("LineValidator returns false + LoW huntvis: expected 0 yields, got %d", yielded)
+	}
+}
