@@ -500,6 +500,10 @@ func handleStatDrain(s *ScriptState) error {
 //
 // The max(..., current) clamp means healing never drops the stat below
 // its current (boosted) value; min(..., base) caps at base.
+//
+// Tail (TS PlayerOps.ts:609-611): when stat == HITPOINTS and the
+// post-update HP meets or exceeds base, the heroPoints contributor
+// ledger is cleared. NAI-120 Bundle 2D follow-up.
 func handleStatHeal(s *ScriptState) error {
 	if err := requireActivePlayer(s, "STAT_HEAL"); err != nil {
 		return err
@@ -526,6 +530,11 @@ func handleStatHeal(s *ScriptState) error {
 		healed = cur
 	}
 	s.Self.SetCurLevel(id, healed)
+	// TS PlayerOps.ts:609-611 — same HP-full clear tail as STAT_ADD / STAT_BOOST.
+	// NAI-120 Bundle 2D follow-up.
+	if id == objtype.PlayerStatHitpoints && s.Self.Stat(objtype.PlayerStatHitpoints) >= s.Self.StatBase(objtype.PlayerStatHitpoints) {
+		s.Self.HeroPointsClear()
+	}
 	return nil
 }
 

@@ -399,6 +399,92 @@ func TestStatBoostOnNonHitpointsStatSkipsClear(t *testing.T) {
 	}
 }
 
+// TestStatHealOnHitpointsAtFullClearsHeroPoints pins STAT_HEAL's
+// HP-full heroPoints.clear() tail (TS PlayerOps.ts:609-611).
+//
+// NAI-120 Bundle 2D follow-up.
+func TestStatHealOnHitpointsAtFullClearsHeroPoints(t *testing.T) {
+	mp := &mockPlayer{}
+	mp.levels[3] = 15
+	mp.baseLevels[3] = 15
+
+	sf := &ScriptFile{
+		Name: "stat_heal_hp_full",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpStatHeal, OpReturn,
+		},
+		IntOperands:      []int32{3, 5, 0, 0, 0}, // stat=HITPOINTS, const=5, pct=0
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.heroPointsClearCalls; got != 1 {
+		t.Errorf("STAT_HEAL HP-full: heroPointsClearCalls = %d, want 1", got)
+	}
+}
+
+// TestStatHealOnHitpointsNotFullSkipsClear pins the HP-not-full
+// negative branch for STAT_HEAL.
+//
+// NAI-120 Bundle 2D follow-up.
+func TestStatHealOnHitpointsNotFullSkipsClear(t *testing.T) {
+	mp := &mockPlayer{}
+	mp.levels[3] = 10
+	mp.baseLevels[3] = 15
+
+	sf := &ScriptFile{
+		Name: "stat_heal_hp_not_full",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpStatHeal, OpReturn,
+		},
+		IntOperands:      []int32{3, 1, 0, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.heroPointsClearCalls; got != 0 {
+		t.Errorf("STAT_HEAL HP-not-full: heroPointsClearCalls = %d, want 0", got)
+	}
+}
+
+// TestStatHealOnNonHitpointsStatSkipsClear pins the stat-gate for
+// STAT_HEAL. Mirrors TS PlayerOps.ts:609 gate.
+//
+// NAI-120 Bundle 2D follow-up.
+func TestStatHealOnNonHitpointsStatSkipsClear(t *testing.T) {
+	mp := &mockPlayer{}
+	mp.levels[3] = 15
+	mp.baseLevels[3] = 15
+	mp.levels[0] = 50
+	mp.baseLevels[0] = 80
+
+	sf := &ScriptFile{
+		Name: "stat_heal_non_hp",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpStatHeal, OpReturn,
+		},
+		IntOperands:      []int32{0, 5, 0, 0, 0}, // stat=ATTACK
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.heroPointsClearCalls; got != 0 {
+		t.Errorf("STAT_HEAL non-HP stat: heroPointsClearCalls = %d, want 0", got)
+	}
+}
+
 func TestStatSubFormula(t *testing.T) {
 	// subbed = current - (constant + (base*percent)/100), clamped >=0.
 	// id=4, current=60, base=50, constant=5, percent=20 → 60 - (5 + 10) = 45.
