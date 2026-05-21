@@ -70,7 +70,7 @@ func TestNpcIterator_DistanceMode_BoundsMath(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			it := NewDistanceNpcIterator(nil, 0, 0, tc.x, tc.z, tc.distance, 0, -1)
+			it := NewDistanceNpcIterator(nil, nil, 0, 0, tc.x, tc.z, tc.distance, 0, -1)
 			if it.minZoneX != tc.wantMinZX || it.maxZoneX != tc.wantMaxZX {
 				t.Errorf("X bounds: got [%d, %d], want [%d, %d]", it.minZoneX, it.maxZoneX, tc.wantMinZX, tc.wantMaxZX)
 			}
@@ -163,7 +163,7 @@ func TestNpcIterator_DistanceMode_CursorOrder(t *testing.T) {
 	// (399,413), (399,412), (399,411).  ← x=399
 	// Per TS line 337-340: outer X descending, inner Z descending.
 	lookup := &mockNpcLookup{} // byZone nil → returns nil per zone (empty)
-	it := NewDistanceNpcIterator(lookup, 0, 0, 3200, 3300, 0, 0, -1)
+	it := NewDistanceNpcIterator(lookup, nil, 0, 0, 3200, 3300, 0, 0, -1)
 
 	// Drain — Next loops until exhaustion. Empty zones produce no yields,
 	// so we just drive Next() until it returns false.
@@ -204,7 +204,7 @@ func TestNpcIterator_DistanceMode_DistanceFilter(t *testing.T) {
 	npcOut6 := &mockNpc{typeID: 1, x: 3206, z: 3300, level: 0} // dist 6 → filter out
 	zoneKey := mockZoneKey(0, 3200, 3296)
 	lookup := &mockNpcLookup{byZone: map[uint64][]ActiveNpc{zoneKey: {npcIn0, npcIn5, npcOut6}}}
-	it := NewDistanceNpcIterator(lookup, 0, 0, 3200, 3300, 5, 0, -1)
+	it := NewDistanceNpcIterator(lookup, nil, 0, 0, 3200, 3300, 5, 0, -1)
 
 	yielded := []ActiveNpc{}
 	for {
@@ -225,7 +225,7 @@ func TestNpcIterator_DistanceMode_TypeFilter(t *testing.T) {
 	npcMiss := &mockNpc{typeID: 99, x: 3201, z: 3300, level: 0}
 	zoneKey := mockZoneKey(0, 3200, 3296)
 	lookup := &mockNpcLookup{byZone: map[uint64][]ActiveNpc{zoneKey: {npcMiss, npcMatch}}}
-	it := NewDistanceNpcIterator(lookup, 0, 0, 3200, 3300, 5, 0, 42)
+	it := NewDistanceNpcIterator(lookup, nil, 0, 0, 3200, 3300, 5, 0, 42)
 
 	yielded := []ActiveNpc{}
 	for {
@@ -241,7 +241,7 @@ func TestNpcIterator_DistanceMode_TypeFilter(t *testing.T) {
 
 	// Negative-branch: typeID=-1 yields BOTH. Per test_passes_for_wrong_reason.md.
 	lookup2 := &mockNpcLookup{byZone: map[uint64][]ActiveNpc{zoneKey: {npcMiss, npcMatch}}}
-	it2 := NewDistanceNpcIterator(lookup2, 0, 0, 3200, 3300, 5, 0, -1)
+	it2 := NewDistanceNpcIterator(lookup2, nil, 0, 0, 3200, 3300, 5, 0, -1)
 	yielded2 := []ActiveNpc{}
 	for {
 		n, ok := it2.Next()
@@ -432,5 +432,138 @@ func TestPassesFilter_HuntAll_NilConfigs_Allows(t *testing.T) {
 	it := NewHuntAllNpcIterator(nil, nil, nil, 0, 0, 3200, 3300, 5, objtype.HuntVisOff)
 	if !it.passesFilter(npc) {
 		t.Errorf("passesFilter(nil-Configs): got false, want true (defensive pessimistic-allow)")
+	}
+}
+
+// TestNpcIteratorDistance_HuntVisOff_NoFilter — baseline regression:
+// HuntVisOff disables LoS/LoW filtering regardless of validator return.
+// Closes NAI-33-D1 for FINDALL family (TS ScriptIterators.ts:348-352 —
+// Distance mode now consumes huntvis like HuntAll).
+func TestNpcIteratorDistance_HuntVisOff_NoFilter(t *testing.T) {
+	npc1 := &mockNpc{typeID: 1, x: 3200, z: 3300, level: 0}
+	zoneKey := mockZoneKey(0, 3200, 3296)
+	lookup := &mockNpcLookup{byZone: map[uint64][]ActiveNpc{zoneKey: {npc1}}}
+	lv := &stubLineValidator{losReturn: false, lowReturn: false} // would block if consulted
+	it := NewDistanceNpcIterator(lookup, lv, 0, 0, 3200, 3300, 5, objtype.HuntVisOff, -1)
+
+	got, ok := it.Next()
+	if !ok || got != npc1 {
+		t.Errorf("HuntVisOff should emit npc1; got (%v, %v)", got, ok)
+	}
+}
+
+// TestNpcIteratorDistance_HuntVisLineOfSight — Distance mode now applies
+// LoS filter per TS ScriptIterators.ts:348. Table-driven 2-way.
+func TestNpcIteratorDistance_HuntVisLineOfSight(t *testing.T) {
+	cases := []struct {
+		name      string
+		losReturn bool
+		wantEmit  bool
+	}{
+		{"LoS passes → emit", true, true},
+		{"LoS blocks → skip", false, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			npc1 := &mockNpc{typeID: 1, x: 3200, z: 3300, level: 0}
+			zoneKey := mockZoneKey(0, 3200, 3296)
+			lookup := &mockNpcLookup{byZone: map[uint64][]ActiveNpc{zoneKey: {npc1}}}
+			lv := &stubLineValidator{losReturn: tc.losReturn}
+			it := NewDistanceNpcIterator(lookup, lv, 0, 0, 3200, 3300, 5, objtype.HuntVisLineOfSight, -1)
+
+			got, ok := it.Next()
+			if tc.wantEmit && (!ok || got != npc1) {
+				t.Errorf("expected emit npc1; got (%v, %v)", got, ok)
+			}
+			if !tc.wantEmit && (ok || got != nil) {
+				t.Errorf("expected skip (LoS blocked); got (%v, %v)", got, ok)
+			}
+		})
+	}
+}
+
+// TestNpcIteratorDistance_HuntVisLineOfWalk — Distance mode now applies
+// LoW filter per TS ScriptIterators.ts:351. Table-driven 2-way.
+func TestNpcIteratorDistance_HuntVisLineOfWalk(t *testing.T) {
+	cases := []struct {
+		name      string
+		lowReturn bool
+		wantEmit  bool
+	}{
+		{"LoW passes → emit", true, true},
+		{"LoW blocks → skip", false, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			npc1 := &mockNpc{typeID: 1, x: 3200, z: 3300, level: 0}
+			zoneKey := mockZoneKey(0, 3200, 3296)
+			lookup := &mockNpcLookup{byZone: map[uint64][]ActiveNpc{zoneKey: {npc1}}}
+			lv := &stubLineValidator{lowReturn: tc.lowReturn}
+			it := NewDistanceNpcIterator(lookup, lv, 0, 0, 3200, 3300, 5, objtype.HuntVisLineOfWalk, -1)
+
+			got, ok := it.Next()
+			if tc.wantEmit && (!ok || got != npc1) {
+				t.Errorf("expected emit npc1; got (%v, %v)", got, ok)
+			}
+			if !tc.wantEmit && (ok || got != nil) {
+				t.Errorf("expected skip (LoW blocked); got (%v, %v)", got, ok)
+			}
+		})
+	}
+}
+
+// TestNpcIteratorDistance_NilLineValidator_PessimisticAllow — when no
+// validator is wired (lv=nil), huntvis=LoS/LoW pessimistically allows.
+// Matches the HuntAll convention at npc_iterator.go:138-141.
+func TestNpcIteratorDistance_NilLineValidator_PessimisticAllow(t *testing.T) {
+	npc1 := &mockNpc{typeID: 1, x: 3200, z: 3300, level: 0}
+	zoneKey := mockZoneKey(0, 3200, 3296)
+	lookup := &mockNpcLookup{byZone: map[uint64][]ActiveNpc{zoneKey: {npc1}}}
+	it := NewDistanceNpcIterator(lookup, nil, 0, 0, 3200, 3300, 5, objtype.HuntVisLineOfSight, -1)
+
+	got, ok := it.Next()
+	if !ok || got != npc1 {
+		t.Errorf("nil-validator + LoS should pessimistically allow; got (%v, %v)", got, ok)
+	}
+}
+
+// TestNpcIteratorDistance_LineOfSightArgShape pins the LoS arg tuple per
+// TS ScriptIterators.ts:348: isLineOfSight(level, this.x, this.z, npc.x, npc.z).
+// Iterator-as-src ordering — NOT the player-iterator-reversed shape at TS
+// line 216 (see PlayerIterator.passesFilter for that variant).
+// Guards NAI-166-D-LOW-ARG-SHAPE-SWEEP precedent.
+func TestNpcIteratorDistance_LineOfSightArgShape(t *testing.T) {
+	npc1 := &mockNpc{typeID: 1, x: 3201, z: 3302, level: 7}
+	zoneKey := mockZoneKey(7, 3200, 3296)
+	lookup := &mockNpcLookup{byZone: map[uint64][]ActiveNpc{zoneKey: {npc1}}}
+	rec := &recordingLineValidator{losReturn: true}
+	it := NewDistanceNpcIterator(lookup, rec, 0, 7, 3200, 3300, 5, objtype.HuntVisLineOfSight, -1)
+
+	_, _ = it.Next()
+	if rec.losLevel != 7 || rec.losSrcX != 3200 || rec.losSrcZ != 3300 || rec.losDestX != 3201 || rec.losDestZ != 3302 {
+		t.Errorf("LoS arg shape: got (level=%d, src=%d,%d, dst=%d,%d), want (7, 3200, 3300, 3201, 3302) — iterator-as-src",
+			rec.losLevel, rec.losSrcX, rec.losSrcZ, rec.losDestX, rec.losDestZ)
+	}
+}
+
+// TestNpcIteratorZone_HuntVisStillUnfiltered — Zone mode must remain
+// unfiltered after Distance-mode huntvis activation, matching TS
+// ScriptIterators.ts:329-335 (zero filtering in the ZONE branch).
+// Note: Zone-mode iterator can't actually receive huntvis via the
+// constructor (NewZoneNpcIterator takes no huntvis arg), so this pin
+// directly mutates the struct field to prove passesFilter ignores it.
+func TestNpcIteratorZone_HuntVisStillUnfiltered(t *testing.T) {
+	npc1 := &mockNpc{typeID: 1, x: 3200, z: 3300, level: 0}
+	zoneKey := mockZoneKey(0, 3200, 3296)
+	lookup := &mockNpcLookup{byZone: map[uint64][]ActiveNpc{zoneKey: {npc1}}}
+	it := NewZoneNpcIterator(lookup, 0, 0, 3200, 3300)
+	// Force huntvis + a blocking validator into the Zone-mode iterator
+	// to prove passesFilter early-returns true regardless.
+	it.huntvis = objtype.HuntVisLineOfSight
+	it.lineValidator = &stubLineValidator{losReturn: false}
+
+	got, ok := it.Next()
+	if !ok || got != npc1 {
+		t.Errorf("Zone mode must ignore huntvis; got (%v, %v), want (npc1, true)", got, ok)
 	}
 }

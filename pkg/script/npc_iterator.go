@@ -39,16 +39,18 @@ type NpcIterator struct {
 	x, z     int
 	distance int // DISTANCE mode only; 0 for ZONE
 	// huntvis is the LoS/LoW gate level (HuntVisOff/LineOfSight/
-	// LineOfWalk). Consumed by passesFilter ONLY in HuntAll mode
-	// (NAI-35-T3); Distance and Zone modes validate but do not filter,
-	// preserving NAI-33-D1's deferred-not-consumed posture for the
-	// FINDALL/FINDALLANY/FINDALLZONE family. Audit if those families
-	// gain LoS/LoW content-script consumers.
+	// LineOfWalk). Consumed by passesFilter in Distance + HuntAll modes
+	// (TS ScriptIterators.ts:348-352 for DISTANCE, :284-287 for HuntAll
+	// — identical arg shape). Zone mode unfiltered per TS line 329-335
+	// (NpcIterator ZONE branch yields without huntvis checks; the
+	// npc_findallzone command takes no huntvis arg either, per
+	// engine.rs2:605).
 	huntvis int
-	// lineValidator is the LoS/LoW validator used by HuntAll-mode
-	// passesFilter when huntvis ∈ {LineOfSight, LineOfWalk}. Nil = no
-	// validator wired (test stub or pre-wiring); production sets via
-	// the constructor. NAI-35-T3.
+	// lineValidator is the LoS/LoW validator used by passesFilter in
+	// Distance + HuntAll modes when huntvis ∈ {LineOfSight, LineOfWalk}.
+	// Nil = no validator wired (test stub or pre-wiring) → pessimistic
+	// allow; production sets via the constructor. NAI-35-T3 (HuntAll),
+	// extended to Distance per TS ScriptIterators.ts:348-352.
 	lineValidator LineValidator
 	typeID        int // -1 = no filter (FINDALLANY, FINDALLZONE); else exact match
 
@@ -81,17 +83,16 @@ func (it *NpcIterator) Stale(currentTick int) bool {
 }
 
 // passesFilter applies the per-NPC filter chain in TS line 345-356 order.
-// HuntAll mode (NAI-35-T3) activates the huntvis branch — ZONE mode
-// remains unfiltered (matches TS line 329-335). Distance mode keeps
-// the pre-NAI-35 deferred behavior (huntvis validated but not consumed;
-// tracked as NAI-33-D1 / S7f-D1). TS DOES filter Distance mode by
-// huntvis (ScriptIterators.ts:348-352); goscape's deferred posture is
-// intentional pending FINDALL-family consumer audit.
-// Accessor names match pkg/script/active.go:400-408 ActiveNpc interface
-// (NpcX/NpcZ/NpcType, NOT X/Z/Type).
+// Both Distance and HuntAll modes consume huntvis (TS
+// ScriptIterators.ts:348-352 / :284-287); ZONE mode early-returns
+// unfiltered (TS line 329-335). HuntAll-mode op[1] reject (NAI-180)
+// runs before the distance check; otherwise the chain is shared:
+// distance → huntvis → typeID. Accessor names match
+// pkg/script/active.go:400-408 ActiveNpc interface (NpcX/NpcZ/NpcType,
+// NOT X/Z/Type).
 func (it *NpcIterator) passesFilter(npc ActiveNpc) bool {
 	if it.mode == NpcIteratorZone {
-		return true // ZONE mode: no per-NPC filtering per TS line 329-335
+		return true // ZONE mode: no per-NPC filtering per TS ScriptIterators.ts:329-335
 	}
 	// HuntAll-mode op[1] reject runs BEFORE distance check per TS order
 	// at ScriptIterators.ts:274-282. NAI-180 closes NAI-35-T3-D1.
@@ -108,18 +109,20 @@ func (it *NpcIterator) passesFilter(npc ActiveNpc) bool {
 	if coordgrid.DistanceToSW(it.x, it.z, npc.NpcX(), npc.NpcZ()) > it.distance {
 		return false
 	}
-	if it.mode == NpcIteratorHuntAll {
-		switch it.huntvis {
-		case objtype.HuntVisOff:
-			// no LoS/LoW gate
-		case objtype.HuntVisLineOfSight:
-			if !it.npcVisibleViaLineOfSight(npc) {
-				return false
-			}
-		case objtype.HuntVisLineOfWalk:
-			if !it.npcVisibleViaLineOfWalk(npc) {
-				return false
-			}
+	// Huntvis filter applies in Distance + HuntAll modes (TS
+	// ScriptIterators.ts:348-352 for DISTANCE, :284-287 for HuntAll —
+	// identical arg shape). Zone mode early-returns above per TS line
+	// 329-335 (unfiltered yield).
+	switch it.huntvis {
+	case objtype.HuntVisOff:
+		// no LoS/LoW gate
+	case objtype.HuntVisLineOfSight:
+		if !it.npcVisibleViaLineOfSight(npc) {
+			return false
+		}
+	case objtype.HuntVisLineOfWalk:
+		if !it.npcVisibleViaLineOfWalk(npc) {
+			return false
 		}
 	}
 	if it.typeID >= 0 && npc.NpcType() != it.typeID {
@@ -158,11 +161,11 @@ func (it *NpcIterator) npcVisibleViaLineOfWalk(npc ActiveNpc) bool {
 // Mirrors TS NpcIterator constructor at ScriptIterators.ts:310-326 with
 // type=DISTANCE.
 //
-// huntvis is stored at construction (validated upstream by handlers via
-// checkHuntVis) but NOT consumed by passesFilter — preserves the
-// NAI-33-D1 deferred posture for FINDALL family (no LoS/LoW
-// content-script consumers identified). HuntAll mode (NAI-35-T3) is the
-// only iterator-mode that activates the huntvis filter.
+// huntvis is consumed by passesFilter per TS ScriptIterators.ts:348-352
+// (Distance mode filters by LoS/LoW like HuntAll). lv may be nil
+// (pessimistic-allow per the lineValidator==nil convention at
+// npcVisibleViaLineOfSight); production passes s.LineValidator from the
+// handler call site.
 //
 // Bounds math (per TS line 312-321):
 //
@@ -171,16 +174,17 @@ func (it *NpcIterator) npcVisibleViaLineOfWalk(npc ActiveNpc) bool {
 //	zone bounds = [center - radius, center + radius]
 //
 // Cursor starts at (maxZoneX, maxZoneZ) per TS line 337-340; advances
-// outer X descending, inner Z descending in advanceZone (Task 6).
-func NewDistanceNpcIterator(lookup NpcLookup, tick, level, x, z, distance, huntvis, typeID int) *NpcIterator {
+// outer X descending, inner Z descending in advanceZone.
+func NewDistanceNpcIterator(lookup NpcLookup, lv LineValidator, tick, level, x, z, distance, huntvis, typeID int) *NpcIterator {
 	centerX := x >> 3
 	centerZ := z >> 3
 	radius := 1 + distance/8
 	return &NpcIterator{
-		mode:         NpcIteratorDistance,
-		creationTick: tick,
-		lookup:       lookup,
-		level:        level,
+		mode:          NpcIteratorDistance,
+		creationTick:  tick,
+		lookup:        lookup,
+		lineValidator: lv,
+		level:         level,
 		x:            x,
 		z:            z,
 		distance:     distance,
@@ -213,10 +217,9 @@ func NewZoneNpcIterator(lookup NpcLookup, tick, level, x, z int) *NpcIterator {
 }
 
 // NewHuntAllNpcIterator constructs an iterator that walks NPCs in zones
-// within `distance` of (level, x, z), filtered by huntvis (ACTIVE per
-// NAI-35-T3 — partially closes NAI-33-D1 for HuntAll mode; Distance
-// mode + FindClosest* still residual) and the NpcType.Op[1] operability
-// gate (NAI-180 closes NAI-35-T3-D1; TS ScriptIterators.ts:274-280).
+// within `distance` of (level, x, z), filtered by huntvis (TS
+// ScriptIterators.ts:284-287) and the NpcType.Op[1] operability gate
+// (NAI-180 closes NAI-35-T3-D1; TS ScriptIterators.ts:274-280).
 // No typeID filter (-1). Mirrors TS NpcHuntAllCommandIterator at
 // ScriptIterators.ts:234-295. Bounds math identical to
 // NewDistanceNpcIterator.

@@ -833,7 +833,7 @@ func handleNpcFindAllAny(s *ScriptState) error {
 		return nil
 	}
 	s.npcIterator = NewDistanceNpcIterator(
-		s.Npcs, s.World.CurrentTick(),
+		s.Npcs, s.LineValidator, s.World.CurrentTick(),
 		level, x, z, distance, checkVis, -1,
 	)
 	return nil
@@ -871,7 +871,7 @@ func handleNpcFindAll(s *ScriptState) error {
 		return nil
 	}
 	s.npcIterator = NewDistanceNpcIterator(
-		s.Npcs, s.World.CurrentTick(),
+		s.Npcs, s.LineValidator, s.World.CurrentTick(),
 		level, x, z, distance, checkVis, npcTypeID,
 	)
 	return nil
