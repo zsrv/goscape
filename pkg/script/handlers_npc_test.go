@@ -4670,7 +4670,9 @@ func TestHandleNpcFindAll_PlumbsLineValidatorToIterator(t *testing.T) {
 	lookup := &mockNpcLookup{byZone: map[uint64][]ActiveNpc{zoneKey: {npc1}}}
 	coord := packCoord(0, 3200, 3300)
 	s := newNpcFindAllState(t, coord, 42, 5, objtype.HuntVisLineOfSight, map[int]bool{42: true}, lookup)
-	s.LineValidator = &stubLineValidator{losReturn: false} // always block
+	// LoS blocks (the path huntvis=LineOfSight consults); LoW allows so
+	// any cross-path wiring bug would yield the npc (spurious-pass guard).
+	s.LineValidator = &stubLineValidator{losReturn: false, lowReturn: true}
 
 	if err := handleNpcFindAll(s); err != nil {
 		t.Fatalf("handleNpcFindAll: %v", err)
@@ -4703,7 +4705,9 @@ func TestHandleNpcFindAllAny_PlumbsLineValidatorToIterator(t *testing.T) {
 	lookup := &mockNpcLookup{byZone: map[uint64][]ActiveNpc{zoneKey: {npc1}}}
 	coord := packCoord(0, 3200, 3300)
 	s := newNpcFindAllAnyState(t, coord, 5, objtype.HuntVisLineOfWalk, lookup)
-	s.LineValidator = &stubLineValidator{lowReturn: false} // always block
+	// LoW blocks (the path huntvis=LineOfWalk consults); LoS allows so
+	// any cross-path wiring bug would yield the npc (spurious-pass guard).
+	s.LineValidator = &stubLineValidator{losReturn: true, lowReturn: false}
 
 	if err := handleNpcFindAllAny(s); err != nil {
 		t.Fatalf("handleNpcFindAllAny: %v", err)
