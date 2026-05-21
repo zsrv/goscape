@@ -1891,6 +1891,58 @@ func TestPacket_RSAEnc(t *testing.T) {
 	}
 }
 
+func TestPacket_RSADec_Roundtrip(t *testing.T) {
+	// Deterministic small RSA keypair: n = p*q, e = 65537, d = e^-1 mod φ(n).
+	// Primes chosen large enough that 2-byte plaintexts (and the 5-byte
+	// ciphertext path with a non-zero MSB) exercise both length-byte values.
+	p := big.NewInt(100003)
+	q := big.NewInt(100019)
+	n := new(big.Int).Mul(p, q)
+	phi := new(big.Int).Mul(
+		new(big.Int).Sub(p, big.NewInt(1)),
+		new(big.Int).Sub(q, big.NewInt(1)),
+	)
+	e := big.NewInt(65537)
+	d := new(big.Int).ModInverse(e, phi)
+	if d == nil {
+		t.Fatal("ModInverse failed: e not coprime with phi(n)")
+	}
+
+	tests := []struct {
+		name      string
+		plaintext []byte
+	}{
+		{name: "single byte", plaintext: []byte{0x42}},
+		{name: "two bytes", plaintext: []byte{0x12, 0x34}},
+		{name: "three bytes", plaintext: []byte{0x01, 0x02, 0x03}},
+		{name: "leading-zero plaintext", plaintext: []byte{0x00, 0x99}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pkt := NewPacket(slices.Clone(tt.plaintext))
+			pkt.RSAEnc(n, e)
+
+			pkt.Pos = 0
+			decrypted, err := pkt.RSADec(n, d)
+			if err != nil {
+				t.Fatalf("RSADec error: %v", err)
+			}
+			got := decrypted.Data[decrypted.Pos:]
+			// RSADec strips leading zeros from the decrypted big-int byte
+			// representation; mirror that in the expected value so the
+			// "leading-zero plaintext" case is checked against its
+			// post-strip form (0x99), not the original 0x00 0x99.
+			want := tt.plaintext
+			for len(want) > 0 && want[0] == 0 {
+				want = want[1:]
+			}
+			if !slices.Equal(got, want) {
+				t.Errorf("roundtrip mismatch: got %v, want %v", got, want)
+			}
+		})
+	}
+}
+
 // --- Zero-alloc tests (readers) ---
 
 func TestG1NoAlloc(t *testing.T) {
