@@ -28,11 +28,6 @@ func NewFlagMap() FlagMap {
 //
 // If the zone respective to the input coordinates has not been allocated, -1 is returned.
 func (m *FlagMap) Get(absoluteX int, absoluteZ int, level int) int {
-	if m.flags == nil {
-		// TODO: panic?
-		return FlagNull
-	}
-
 	zoneIndex := ZoneIndex(absoluteX, absoluteZ, level)
 	tileIndex := TileIndex(absoluteX, absoluteZ)
 
@@ -53,7 +48,6 @@ func (m *FlagMap) Get(absoluteX int, absoluteZ int, level int) int {
 // allocated before setting the mask bitflag onto the tile.
 func (m *FlagMap) Set(absoluteX int, absoluteZ int, level int, mask int) {
 	if m.flags == nil {
-		// TODO: panic?
 		return
 	}
 
@@ -74,11 +68,6 @@ func (m *FlagMap) Add(absoluteX int, absoluteZ int, level int, mask int) {
 	// allocate/initialize it. We do not want the flag.FlagNull value
 	// to be used. This is why we don't use the Get method and instead reuse similar
 	// code below.
-
-	if m.flags == nil {
-		// TODO: panic?
-		return
-	}
 
 	zoneIndex := ZoneIndex(absoluteX, absoluteZ, level)
 	tileIndex := TileIndex(absoluteX, absoluteZ)
@@ -108,11 +97,6 @@ func (m *FlagMap) Remove(absoluteX int, absoluteZ int, level int, mask int) {
 // For example, calling this method with the arguments (3202, 3204, level) will have the same result
 // as calling it with (3200, 3200, level).
 func (m *FlagMap) AllocateIfAbsent(absoluteX int, absoluteZ int, level int) []int {
-	if m.flags == nil {
-		// TODO: panic?
-		return nil
-	}
-
 	zoneIndex := ZoneIndex(absoluteX, absoluteZ, level)
 
 	if len(m.flags) <= zoneIndex {
