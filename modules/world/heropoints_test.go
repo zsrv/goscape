@@ -99,3 +99,20 @@ func TestHeroPoints_TopContributor(t *testing.T) {
 		t.Errorf("TopContributor = %d, want 20", tc)
 	}
 }
+
+// TestPlayerHeroPointsClear pins the real (*Player).HeroPointsClear()
+// method: clears the player's heroPoints ledger so TopContributor()
+// returns 0 after the call. Implements script.ActivePlayer.HeroPointsClear.
+// NAI-120 Bundle 2D follow-up.
+func TestPlayerHeroPointsClear(t *testing.T) {
+	p := &Player{heroPoints: NewHeroPoints(16)}
+	p.heroPoints.AddHero(1, 5)
+	p.heroPoints.AddHero(2, 3)
+	if got := p.heroPoints.TopContributor(); got != 1 {
+		t.Fatalf("setup: TopContributor() = %d, want 1", got)
+	}
+	p.HeroPointsClear()
+	if got := p.heroPoints.TopContributor(); got != 0 {
+		t.Errorf("after HeroPointsClear: TopContributor() = %d, want 0", got)
+	}
+}

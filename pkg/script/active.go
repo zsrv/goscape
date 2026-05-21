@@ -719,6 +719,13 @@ type ActivePlayer interface {
 	// by FINDHERO (PlayerOps.ts:1138-1154). NAI-127 Bundle 1.
 	TopContributor() int
 
+	// HeroPointsClear resets the player's hero-point contributor ledger.
+	// Called by STAT_ADD / STAT_BOOST / STAT_HEAL on the HP-full branch
+	// (PlayerOps.ts:513-515, :552-554, :609-611). Parallel to
+	// ActiveNpc.HeroPointsClear (used by NPC_STATHEAL HP-full branch).
+	// NAI-120 Bundle 2D follow-up.
+	HeroPointsClear()
+
 	// SetPreventLogout records an anti-log message and absolute-tick
 	// deadline. Used by P_PREVENTLOGOUT (PlayerOps.ts:626-630). The
 	// caller computes `untilTick = currentTick + popped-ticks` —

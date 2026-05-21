@@ -1336,6 +1336,14 @@ func (p *Player) AddHeroPoints(playerUID, amount int) {
 func (p *Player) TopContributor() int {
 	return p.heroPoints.TopContributor()
 }
+
+// HeroPointsClear implements script.ActivePlayer. Resets the player's
+// hero-point contributor ledger. Mirrors TS Player.heroPoints.clear() at
+// PlayerOps.ts:513-515, :552-554, :609-611 (HP-full branches of STAT_ADD
+// / STAT_BOOST / STAT_HEAL). NAI-120 Bundle 2D follow-up.
+func (p *Player) HeroPointsClear() {
+	p.heroPoints.Clear()
+}
 func (p *Player) SetBodyPart(slot, idkit int)  { p.body[slot] = idkit }
 func (p *Player) SetColorPart(slot, color int) { p.colors[slot] = color }
 

@@ -357,6 +357,10 @@ type mockPlayer struct {
 	// mockNpc.addHeroPointsCalls.
 	addHeroPointsCalls []struct{ playerUID, amount int }
 
+	// NAI-120 Bundle 2D follow-up: HeroPointsClear() call counter.
+	// Mirrors mockNpc.heroPointsClearCalls.
+	heroPointsClearCalls int
+
 	// NAI-127 Bundle 2: DAMAGE recorder.
 	applyDamageCalls []struct{ amount, dmgType int }
 
@@ -784,6 +788,9 @@ func (m *mockPlayer) TopContributor() int { return m.topContributor }
 func (m *mockPlayer) AddHeroPoints(playerUID, amount int) {
 	m.addHeroPointsCalls = append(m.addHeroPointsCalls, struct{ playerUID, amount int }{playerUID, amount})
 }
+
+// HeroPointsClear increments the call counter. NAI-120 Bundle 2D follow-up.
+func (m *mockPlayer) HeroPointsClear() { m.heroPointsClearCalls++ }
 
 func (m *mockPlayer) SetPreventLogout(message string, untilTick int) {
 	m.preventLogoutMessage = message
