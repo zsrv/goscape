@@ -684,7 +684,16 @@ func TestPacket_GSmart(t *testing.T) {
 		want   int32
 	}{
 		{
-			name: "64",
+			name: "0 (low branch, negative)",
+			fields: fields{
+				buf:      []byte{0},
+				off:      0,
+				lastRead: 0,
+			},
+			want: -64,
+		},
+		{
+			name: "64 (low branch, zero)",
 			fields: fields{
 				buf:      []byte{64},
 				off:      0,
@@ -693,22 +702,22 @@ func TestPacket_GSmart(t *testing.T) {
 			want: 0,
 		},
 		{
-			name: "128, 202",
+			name: "128, 202 (high branch, negative)",
 			fields: fields{
 				buf:      []byte{0x80, 0xCA},
 				off:      0,
 				lastRead: 0,
 			},
-			want: 0xC0CA,
+			want: -16182,
 		},
 		{
-			name: "150, 202",
+			name: "150, 202 (high branch, negative)",
 			fields: fields{
 				buf:      []byte{0x96, 0xCA},
 				off:      0,
 				lastRead: 0,
 			},
-			want: 0xD6CA,
+			want: -10550,
 		},
 	}
 	for _, tt := range tests {

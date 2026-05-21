@@ -265,11 +265,13 @@ func (p *Packet) GData(dest []byte, length int) {
 
 // GSmart gets a signed Smart value (range -16384 to 16383). Matches TS gsmart().
 func (p *Packet) GSmart() int32 {
-	// TODO: 2004scape server has this as uint.. maybe? maybe not
+	// int32 cast precedes subtraction so the offset is applied in signed
+	// space; the prior `int32(p.G2() - 49152)` shape wrapped in uint16
+	// space (e.g. 0x80CA encoded -16182 but decoded as 49354).
 	if p.Data[p.Pos] >= 128 {
-		return int32(p.G2() - 49152)
+		return int32(p.G2()) - 49152
 	} else {
-		return int32(p.G1() - 64)
+		return int32(p.G1()) - 64
 	}
 }
 
