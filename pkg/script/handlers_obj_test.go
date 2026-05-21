@@ -850,10 +850,10 @@ func TestObjFindUnknownObjId(t *testing.T) {
 
 	err := handleObjFind(s)
 	if err == nil {
-		t.Fatal("handleObjFind: want error (unknown obj id), got nil")
+		t.Fatal("handleObjFind: want error (no ObjType with value), got nil")
 	}
-	if !strings.Contains(err.Error(), "unknown obj id") {
-		t.Errorf("err: got %q, want substring %q", err.Error(), "unknown obj id")
+	if !strings.Contains(err.Error(), "no ObjType with value") {
+		t.Errorf("err: got %q, want substring %q", err.Error(), "no ObjType with value")
 	}
 }
 

@@ -310,8 +310,8 @@ func handleObjFind(s *ScriptState) error {
 	if err != nil {
 		return err
 	}
-	if s.Configs.ObjType(objId) == nil {
-		return fmt.Errorf("OBJ_FIND: unknown obj id %d", objId)
+	if err := checkObjType(s, objId, "OBJ_FIND"); err != nil {
+		return err
 	}
 	if s.World == nil {
 		s.PushInt(0)
