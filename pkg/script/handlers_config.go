@@ -452,10 +452,10 @@ func handleOcName(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	ot := s.Configs.ObjType(id)
-	if ot == nil {
-		return fmt.Errorf("OC_NAME: unknown obj id %d", id)
+	if err := checkObjType(s, id, "OC_NAME"); err != nil {
+		return err
 	}
+	ot := s.Configs.ObjType(id)
 	if ot.Name != "" {
 		s.PushString(ot.Name)
 	} else if ot.DebugName != "" {
@@ -473,10 +473,10 @@ func handleOcParam(s *ScriptState) error {
 	}
 	paramID := s.PopInt()
 	objID := s.PopInt()
-	ot := s.Configs.ObjType(objID)
-	if ot == nil {
-		return fmt.Errorf("OC_PARAM: unknown obj id %d", objID)
+	if err := checkObjType(s, objID, "OC_PARAM"); err != nil {
+		return err
 	}
+	ot := s.Configs.ObjType(objID)
 	return paramLookup(s, ot.Params, paramID, "OC_PARAM")
 }
 
@@ -486,10 +486,10 @@ func handleOcCategory(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	ot := s.Configs.ObjType(id)
-	if ot == nil {
-		return fmt.Errorf("OC_CATEGORY: unknown obj id %d", id)
+	if err := checkObjType(s, id, "OC_CATEGORY"); err != nil {
+		return err
 	}
+	ot := s.Configs.ObjType(id)
 	s.PushInt(ot.Category)
 	return nil
 }
@@ -500,10 +500,10 @@ func handleOcDesc(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	ot := s.Configs.ObjType(id)
-	if ot == nil {
-		return fmt.Errorf("OC_DESC: unknown obj id %d", id)
+	if err := checkObjType(s, id, "OC_DESC"); err != nil {
+		return err
 	}
+	ot := s.Configs.ObjType(id)
 	if ot.Desc == "" {
 		s.PushString("null")
 	} else {
@@ -518,10 +518,10 @@ func handleOcMembers(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	ot := s.Configs.ObjType(id)
-	if ot == nil {
-		return fmt.Errorf("OC_MEMBERS: unknown obj id %d", id)
+	if err := checkObjType(s, id, "OC_MEMBERS"); err != nil {
+		return err
 	}
+	ot := s.Configs.ObjType(id)
 	if ot.Members {
 		s.PushInt(1)
 	} else {
@@ -536,10 +536,10 @@ func handleOcWeight(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	ot := s.Configs.ObjType(id)
-	if ot == nil {
-		return fmt.Errorf("OC_WEIGHT: unknown obj id %d", id)
+	if err := checkObjType(s, id, "OC_WEIGHT"); err != nil {
+		return err
 	}
+	ot := s.Configs.ObjType(id)
 	s.PushInt(ot.Weight)
 	return nil
 }
@@ -550,10 +550,10 @@ func handleOcWearPos(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	ot := s.Configs.ObjType(id)
-	if ot == nil {
-		return fmt.Errorf("OC_WEARPOS: unknown obj id %d", id)
+	if err := checkObjType(s, id, "OC_WEARPOS"); err != nil {
+		return err
 	}
+	ot := s.Configs.ObjType(id)
 	s.PushInt(ot.WearPos)
 	return nil
 }
@@ -564,10 +564,10 @@ func handleOcWearPos2(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	ot := s.Configs.ObjType(id)
-	if ot == nil {
-		return fmt.Errorf("OC_WEARPOS2: unknown obj id %d", id)
+	if err := checkObjType(s, id, "OC_WEARPOS2"); err != nil {
+		return err
 	}
+	ot := s.Configs.ObjType(id)
 	s.PushInt(ot.WearPos2)
 	return nil
 }
@@ -578,10 +578,10 @@ func handleOcWearPos3(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	ot := s.Configs.ObjType(id)
-	if ot == nil {
-		return fmt.Errorf("OC_WEARPOS3: unknown obj id %d", id)
+	if err := checkObjType(s, id, "OC_WEARPOS3"); err != nil {
+		return err
 	}
+	ot := s.Configs.ObjType(id)
 	s.PushInt(ot.WearPos3)
 	return nil
 }
@@ -592,10 +592,10 @@ func handleOcCost(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	ot := s.Configs.ObjType(id)
-	if ot == nil {
-		return fmt.Errorf("OC_COST: unknown obj id %d", id)
+	if err := checkObjType(s, id, "OC_COST"); err != nil {
+		return err
 	}
+	ot := s.Configs.ObjType(id)
 	s.PushInt(ot.Cost)
 	return nil
 }

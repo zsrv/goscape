@@ -881,7 +881,7 @@ func TestOcName(t *testing.T) {
 
 func TestOcNameUnknownIdErrors(t *testing.T) {
 	mc := newTestConfigs()
-	runConfigOpExpectErr(t, mc, OpOcName, []int{999}, "unknown obj id")
+	runConfigOpExpectErr(t, mc, OpOcName, []int{999}, "no ObjType with value (999) found")
 }
 
 func TestOcParamInt(t *testing.T) {

@@ -30,6 +30,43 @@ func TestHandleObjCoordNilActive(t *testing.T) {
 	}
 }
 
+// TestCheckObjType validates the state-aware ObjType validator at
+// handlers_obj.go:44. Mirrors TestCheckNpcType.
+func TestCheckObjType(t *testing.T) {
+	// Build a minimal ScriptState with a Configs that reports ObjType 42 as present.
+	s := &ScriptState{Configs: newTestConfigsWithObjTypes(map[int]bool{42: true})}
+
+	if err := checkObjType(s, 42, "TEST"); err != nil {
+		t.Errorf("checkObjType(42) with loaded type: unexpected error %v", err)
+	}
+	if err := checkObjType(s, 999, "TEST"); err == nil {
+		t.Errorf("checkObjType(999) with unloaded type: want error")
+	} else if !strings.Contains(err.Error(), "TEST:") || !strings.Contains(err.Error(), "999") {
+		t.Errorf("error should carry op prefix and offending id: %v", err)
+	}
+	if err := checkObjType(s, -1, "TEST"); err == nil {
+		t.Errorf("checkObjType(-1): want error")
+	}
+
+	// Nil Configs: always errors.
+	s2 := &ScriptState{}
+	if err := checkObjType(s2, 42, "TEST"); err == nil {
+		t.Errorf("checkObjType with nil Configs: want error")
+	}
+}
+
+// newTestConfigsWithObjTypes builds a Configs that reports any id in present
+// as a valid ObjType. Uses the shared mockConfigs type from handlers_config_test.go.
+func newTestConfigsWithObjTypes(present map[int]bool) Configs {
+	mc := &mockConfigs{
+		objs: make(map[int]*objtype.ObjType),
+	}
+	for id := range present {
+		mc.objs[id] = objtype.NewObjType(id)
+	}
+	return mc
+}
+
 // removeObjCall captures one RemoveObj invocation: the ActiveObj
 // argument and the duration plumbed through to the world adapter.
 // Used by fakeWorldRemoveObj and fakeWorldTakeItem so handler tests
