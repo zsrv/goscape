@@ -369,11 +369,6 @@ type mapCtx struct {
 // Packet.Unused() returns cap(Data)-Pos which is unsafe for files
 // loaded via os.ReadFile (cap can exceed len by 1, producing a
 // one-byte off-by-one).
-//
-// Goscape note: loc-file locIdOffset/coordOffset use GSmart() (the
-// goscape API name is reversed from TS — goscape GSmart matches TS
-// gsmarts: byte path is plain g1(), two-byte path is g2()-0x8000).
-// The plan draft said GSmartS() in error.
 func processMap(ctx mapCtx, out *mapPackets, mx, mz int, land, loc, obj, npc *packet2.Packet) error {
 	level := 0
 	if mx == 33 && mz >= 71 && mz <= 73 {
@@ -471,17 +466,17 @@ func processMap(ctx mapCtx, out *mapPackets, mx, mz int, land, loc, obj, npc *pa
 	}
 
 	locId := -1
-	locIdOffset := int(loc.GSmart())
+	locIdOffset := int(loc.GSmartS())
 	for locIdOffset != 0 {
 		locId += locIdOffset
 
 		coord := 0
-		coordOffset := int(loc.GSmart())
+		coordOffset := int(loc.GSmartS())
 		for coordOffset != 0 {
 			coord += coordOffset - 1
 			locLevel, x, z := unpackCoord(coord)
 			info := int(loc.G1())
-			coordOffset = int(loc.GSmart())
+			coordOffset = int(loc.GSmartS())
 
 			var bridgedFlag int
 			if locLevel == 1 {
@@ -546,7 +541,7 @@ func processMap(ctx mapCtx, out *mapPackets, mx, mz int, land, loc, obj, npc *pa
 				mapfunctions[actualLevel][x][z] = locType.MapFunction
 			}
 		}
-		locIdOffset = int(loc.GSmart())
+		locIdOffset = int(loc.GSmartS())
 	}
 
 	out.loc.P1(uint8(mx))

@@ -116,11 +116,11 @@ parseLoop:
 //
 //	locID = -1
 //	loop:
-//	  delta = gsmart(); if delta == 0: end.
+//	  delta = gsmarts(); if delta == 0: end.
 //	  locID += delta
 //	  coord = 0
 //	  loop:
-//	    coordDelta = gsmart(); if coordDelta == 0: next locID.
+//	    coordDelta = gsmarts(); if coordDelta == 0: next locID.
 //	    coord += coordDelta - 1
 //	    level  = (coord >> 12) & 0x3
 //	    localX = (coord >>  6) & 0x3F
@@ -146,7 +146,7 @@ func (gm *GameMap) loadLocs(data []byte, mapSquareX, mapSquareZ int) {
 		if p.Len() == 0 {
 			return
 		}
-		delta := int(p.GSmart())
+		delta := int(p.GSmartS())
 		if delta == 0 {
 			return
 		}
@@ -156,7 +156,7 @@ func (gm *GameMap) loadLocs(data []byte, mapSquareX, mapSquareZ int) {
 			if p.Len() == 0 {
 				return
 			}
-			coordDelta := int(p.GSmart())
+			coordDelta := int(p.GSmartS())
 			if coordDelta == 0 {
 				break
 			}

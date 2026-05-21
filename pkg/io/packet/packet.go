@@ -263,22 +263,22 @@ func (p *Packet) GData(dest []byte, length int) {
 	p.Pos += length
 }
 
-// GSmart gets a Smart value (range 0 to 32767).
-func (p *Packet) GSmart() uint16 {
-	if p.Data[p.Pos] >= 128 {
-		return p.G2() - 32768
-	} else {
-		return uint16(p.G1())
-	}
-}
-
-// GSmartS gets a signed Smart value (range -16384 to 16383).
-func (p *Packet) GSmartS() int32 {
+// GSmart gets a signed Smart value (range -16384 to 16383). Matches TS gsmart().
+func (p *Packet) GSmart() int32 {
 	// TODO: 2004scape server has this as uint.. maybe? maybe not
 	if p.Data[p.Pos] >= 128 {
 		return int32(p.G2() - 49152)
 	} else {
 		return int32(p.G1() - 64)
+	}
+}
+
+// GSmartS gets an unsigned Smart value (range 0 to 32767). Matches TS gsmarts().
+func (p *Packet) GSmartS() uint16 {
+	if p.Data[p.Pos] >= 128 {
+		return p.G2() - 32768
+	} else {
+		return uint16(p.G1())
 	}
 }
 

@@ -242,11 +242,11 @@ func TestLoadGround_LinkBelowOnly_DoesNotBlock(t *testing.T) {
 //
 // Stream shape (per loadLocs):
 //
-//	gsmart(locDelta=locId+1)
-//	gsmart(coordDelta = packedCoord+1)
+//	gsmarts(locDelta=locId+1)
+//	gsmarts(coordDelta = packedCoord+1)
 //	g1(info)
-//	gsmart(0)        // end of coords for this loc
-//	gsmart(0)        // end of locs
+//	gsmarts(0)        // end of coords for this loc
+//	gsmarts(0)        // end of locs
 func lFileWithOneLoc(locId, level, localX, localZ, shape, angle int) []byte {
 	pw := packet.NewPacket(nil)
 	pw.PSmart(int32(locId + 1))

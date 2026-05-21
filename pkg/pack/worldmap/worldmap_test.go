@@ -213,9 +213,9 @@ func TestProcessMap_EmptyLandFile_ProducesHeaderOnlyBytes(t *testing.T) {
 	}
 }
 
-// writeGSmart writes v in the goscape GSmart encoding (= TS gsmarts):
+// writeGSmartS writes v in the goscape GSmartS (= TS gsmarts) unsigned encoding:
 // byte form if v < 0x80, otherwise 2-byte form (v | 0x8000).
-func writeGSmart(p *packet2.Packet, v int) {
+func writeGSmartS(p *packet2.Packet, v int) {
 	if v < 0x80 {
 		p.P1(uint8(v))
 	} else {
@@ -252,14 +252,14 @@ func TestProcessMap_WallShapeDecoding(t *testing.T) {
 	defer locBuf.Release()
 	prevId := -1
 	for i, l := range locs {
-		writeGSmart(locBuf, i-prevId) // locId delta
+		writeGSmartS(locBuf, i-prevId) // locId delta
 		prevId = i
 		coord := (0 << 12) | (l.x << 6) | l.z
-		writeGSmart(locBuf, coord+1)               // coordOffset; previous coord = 0
+		writeGSmartS(locBuf, coord+1)              // coordOffset; previous coord = 0
 		locBuf.P1(uint8((l.shape << 2) | l.angle)) // info byte
-		writeGSmart(locBuf, 0)                     // coord inner-loop terminator
+		writeGSmartS(locBuf, 0)                    // coord inner-loop terminator
 	}
-	writeGSmart(locBuf, 0) // locId outer-loop terminator
+	writeGSmartS(locBuf, 0) // locId outer-loop terminator
 
 	obj := packet2.Alloc(1)
 	defer obj.Release()
@@ -453,12 +453,12 @@ func TestProcessMap_MapScene22SkipsLoc(t *testing.T) {
 	// before emitting any wall/mapscene/mapfunction byte.
 	locBuf := packet2.Alloc(1)
 	defer locBuf.Release()
-	writeGSmart(locBuf, 1) // locId delta (locId: -1 → 0)
+	writeGSmartS(locBuf, 1) // locId delta (locId: -1 → 0)
 	coord := (0 << 12) | (5 << 6) | 5
-	writeGSmart(locBuf, coord+1) // coordOffset; previous coord = 0
-	locBuf.P1(0)                 // info byte (shape=0, angle=0)
-	writeGSmart(locBuf, 0)       // coord inner-loop terminator
-	writeGSmart(locBuf, 0)       // locId outer-loop terminator
+	writeGSmartS(locBuf, coord+1) // coordOffset; previous coord = 0
+	locBuf.P1(0)                  // info byte (shape=0, angle=0)
+	writeGSmartS(locBuf, 0)       // coord inner-loop terminator
+	writeGSmartS(locBuf, 0)       // locId outer-loop terminator
 
 	obj := packet2.Alloc(1)
 	defer obj.Release()

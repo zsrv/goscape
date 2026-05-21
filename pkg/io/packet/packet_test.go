@@ -619,7 +619,7 @@ func TestPacket_GData(t *testing.T) {
 	}
 }
 
-func TestPacket_GSmart(t *testing.T) {
+func TestPacket_GSmartS(t *testing.T) {
 	type fields struct {
 		buf      []byte
 		off      int
@@ -665,14 +665,14 @@ func TestPacket_GSmart(t *testing.T) {
 				Pos:      tt.fields.off,
 				lastRead: tt.fields.lastRead,
 			}
-			if got := p.GSmart(); got != tt.want {
-				t.Errorf("GSmart() = %v, want %v", got, tt.want)
+			if got := p.GSmartS(); got != tt.want {
+				t.Errorf("GSmartS() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestPacket_GSmartS(t *testing.T) {
+func TestPacket_GSmart(t *testing.T) {
 	type fields struct {
 		buf      []byte
 		off      int
@@ -718,8 +718,8 @@ func TestPacket_GSmartS(t *testing.T) {
 				Pos:      tt.fields.off,
 				lastRead: tt.fields.lastRead,
 			}
-			if got := p.GSmartS(); got != tt.want {
-				t.Errorf("GSmartS() = %v, want %v", got, tt.want)
+			if got := p.GSmart(); got != tt.want {
+				t.Errorf("GSmart() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -184,7 +184,7 @@ func TestAddStaticLocPublicAPI(t *testing.T) {
 }
 
 func TestLoadLocsParsesKnownFixture(t *testing.T) {
-	// gsmart(101)=0x65; gsmart(200)=0x80 0xC8; info=(5<<2)|2=0x16.
+	// gsmarts(101)=0x65; gsmarts(200)=0x80 0xC8; info=(5<<2)|2=0x16.
 	// coord packed = 199 = (level=0<<12) | (localX=3<<6) | (localZ=7).
 	fixture := []byte{
 		0x65,       // locID delta 101 -> locID = 100
