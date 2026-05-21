@@ -1,6 +1,9 @@
 package objtype
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestGetExpByLevelKnownValues(t *testing.T) {
 	cases := []struct {
@@ -148,5 +151,42 @@ func TestPlayerStatEnabled_MatchesTSPattern(t *testing.T) {
 	}
 	if PlayerStatEnabled != want {
 		t.Errorf("PlayerStatEnabled = %v, want %v", PlayerStatEnabled, want)
+	}
+}
+
+func TestPlayerStatFree_MatchesTS(t *testing.T) {
+	// TS PlayerStat.ts:55. False at Fletching (9), Herblore (15),
+	// Agility (16), Thieving (17), STAT18 (18), STAT19 (19); true elsewhere.
+	want := [PlayerStatCount]bool{
+		true, true, true, true, true, true, true, true, true, false,
+		true, true, true, true, true, false, false, false, false, false, true,
+	}
+	if PlayerStatFree != want {
+		t.Errorf("PlayerStatFree = %v, want %v", PlayerStatFree, want)
+	}
+	// Sanity: f2p sum at all-99 = 15 × 99 = 1485. This is the sentinel
+	// AddXP checks for the "you beat f2p!" Adventure log entry
+	// (TS Player.ts:1800-1802).
+	sum := 0
+	for i := range PlayerStatCount {
+		if PlayerStatFree[i] {
+			sum += 99
+		}
+	}
+	if sum != 1485 {
+		t.Errorf("PlayerStatFree all-99 sum = %d, want 1485", sum)
+	}
+}
+
+func TestPlayerStatNames_AllLowercaseAndMatchMap(t *testing.T) {
+	// PlayerStatNames is pre-lowercased; every PlayerStatMap key (uppercase)
+	// must lowercase to the array entry at the same index. Pins single
+	// source of truth between the two tables.
+	for upper, idx := range PlayerStatMap {
+		lower := strings.ToLower(upper)
+		if PlayerStatNames[idx] != lower {
+			t.Errorf("PlayerStatNames[%d] = %q, want %q (lowercase of PlayerStatMap key %q)",
+				idx, PlayerStatNames[idx], lower, upper)
+		}
 	}
 }

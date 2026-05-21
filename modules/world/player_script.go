@@ -3,6 +3,7 @@ package world
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -807,8 +808,9 @@ func (p *Player) advanceStat(stat int) {
 // On level-up (baseLevels increases), fires the [changestat,<skill>] trigger
 // via changeStat (TS Player.ts:1772) then the [advancestat,<skill>] trigger
 // via advanceStat (TS Player.ts:1804-1807), then calls recomputeCombatLevel
-// to mirror TS Player.ts:1810-1813. Does NOT emit session-log / milestone
-// events (TS Player.ts:1773-1803; session-log infrastructure not yet ported).
+// to mirror TS Player.ts:1810-1813. On level-up also emits ADVENTURE
+// session-log entries (Levelled up + milestone-250 + p2p-1881 + f2p-1485)
+// per TS Player.ts:1773-1803.
 func (p *Player) AddXP(id int, xp int) {
 	if !statBounds(id) {
 		return
@@ -838,6 +840,39 @@ func (p *Player) AddXP(id int, xp int) {
 		// Level-up: fire [changestat,<skill>] then [advancestat,<skill>]
 		// triggers if registered. Matches TS Player.ts:1772, 1804-1807.
 		p.changeStat(id)
+
+		// TS Player.ts:1773-1803 — ADVENTURE session-log entries on level-up.
+		p.AddSessionLog(LoggerEventTypeAdventure,
+			"Levelled up "+objtype.PlayerStatNames[id]+
+				" from "+strconv.Itoa(beforeBase)+
+				" to "+strconv.Itoa(afterBase))
+
+		total, freeTotal := 0, 0
+		for i := range objtype.PlayerStatCount {
+			if !objtype.PlayerStatEnabled[i] {
+				continue
+			}
+			total += int(p.baseLevels[i])
+			if objtype.PlayerStatFree[i] {
+				freeTotal += int(p.baseLevels[i])
+			}
+		}
+		const milestone = 250
+		prevMilestone := (total - (afterBase - beforeBase)) / milestone
+		currMilestone := total / milestone
+		if currMilestone > prevMilestone {
+			p.AddSessionLog(LoggerEventTypeAdventure,
+				"Reached total level "+strconv.Itoa(currMilestone*milestone))
+		}
+		if total == 1881 {
+			p.AddSessionLog(LoggerEventTypeAdventure,
+				"Reached total level 1881 - you beat p2p!")
+		}
+		if freeTotal == 1485 {
+			p.AddSessionLog(LoggerEventTypeAdventure,
+				"Reached total level 1485 - you beat f2p!")
+		}
+
 		p.advanceStat(id)
 		p.recomputeCombatLevel(true) // TS Player.ts:1810-1813
 	}

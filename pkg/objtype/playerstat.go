@@ -68,6 +68,29 @@ var PlayerStatEnabled = [PlayerStatCount]bool{
 	true, true, true, true, true, true, true, true, false, false, true,
 }
 
+// PlayerStatFree mirrors TS PlayerStat.ts:55 — true for free-to-play
+// skills, false for members-only. Used by AddXP's "you beat f2p!"
+// sentinel: sum of baseLevels[i] across true entries at all-99 = 15×99
+// = 1485 (TS Player.ts:1800-1802).
+var PlayerStatFree = [PlayerStatCount]bool{
+	true, true, true, true, true, true, true, true, true, false,
+	true, true, true, true, true, false, false, false, false, false, true,
+}
+
+// PlayerStatNames maps stat index → pre-lowercased skill name. Used by
+// AddXP's "Levelled up <skill> from N to M" ADVENTURE session-log entry
+// (TS Player.ts:1775). TS stores uppercase names in PlayerStatNameMap
+// and calls .toLowerCase() at use-site; goscape pre-lowercases the
+// storage since the only consumer (AddXP) needs the lowercase form.
+// PlayerStatMap remains the authoritative uppercase mapping for
+// name→index lookups.
+var PlayerStatNames = [PlayerStatCount]string{
+	"attack", "defence", "strength", "hitpoints", "ranged",
+	"prayer", "magic", "cooking", "woodcutting", "fletching",
+	"fishing", "firemaking", "crafting", "smithing", "mining",
+	"herblore", "agility", "thieving", "stat18", "stat19", "runecraft",
+}
+
 // levelExperience holds the XP threshold to reach level (i+2) at index i.
 // Built once at package init from the canonical RS XP formula. Matches TS
 // levelExperience (Player.ts:77-85). XP is stored as fixed-point tenths

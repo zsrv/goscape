@@ -170,6 +170,231 @@ func TestAddXPOOBIsNoop(t *testing.T) {
 	}
 }
 
+// containsSessionLogEvent returns true if any entry in logs has the given Event
+// at the LoggerEventTypeAdventure level. Used by AddXP session-log tests.
+func containsSessionLogEvent(logs []SessionLog, want string) bool {
+	for _, lg := range logs {
+		if lg.EventType == LoggerEventTypeAdventure && lg.Event == want {
+			return true
+		}
+	}
+	return false
+}
+
+// TestAddXPLevelUpEmitsAdventureLog pins the Levelled-up entry: TS Player.ts:1775.
+// Single level-up (Attack 2 → 3) emits exactly one ADVENTURE entry with the
+// expected message; no milestone/p2p/f2p messages fire at this small total.
+func TestAddXPLevelUpEmitsAdventureLog(t *testing.T) {
+	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+
+	p.stats[objtype.PlayerStatAttack] = 800
+	p.baseLevels[objtype.PlayerStatAttack] = 2
+	p.levels[objtype.PlayerStatAttack] = 2
+	p.AddXP(objtype.PlayerStatAttack, 1000) // → level 3
+
+	if got := len(s.sessionLogs); got != 1 {
+		t.Fatalf("sessionLogs: got %d, want 1", got)
+	}
+	lg := s.sessionLogs[0]
+	if lg.EventType != LoggerEventTypeAdventure {
+		t.Errorf("EventType: got %d, want %d", lg.EventType, LoggerEventTypeAdventure)
+	}
+	if lg.Event != "Levelled up attack from 2 to 3" {
+		t.Errorf("Event: got %q, want %q", lg.Event, "Levelled up attack from 2 to 3")
+	}
+}
+
+// TestAddXPMultiLevelUpEmitsSingleLevelledUpMessage pins that a multi-level
+// jump (1 → 10 in one AddXP call) emits exactly ONE Levelled-up message
+// spanning the whole jump, not 9 separate messages. TS Player.ts:1775
+// computes one before/after pair per AddXP regardless of level delta.
+func TestAddXPMultiLevelUpEmitsSingleLevelledUpMessage(t *testing.T) {
+	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+
+	p.stats[objtype.PlayerStatAttack] = 0
+	p.baseLevels[objtype.PlayerStatAttack] = 1
+	p.levels[objtype.PlayerStatAttack] = 1
+	p.AddXP(objtype.PlayerStatAttack, 11540) // GetExpByLevel(10) → level 10
+
+	if got := len(s.sessionLogs); got != 1 {
+		t.Fatalf("sessionLogs: got %d, want 1 (single Levelled-up for multi-level jump)", got)
+	}
+	if lg := s.sessionLogs[0]; lg.Event != "Levelled up attack from 1 to 10" {
+		t.Errorf("Event: got %q, want %q", lg.Event, "Levelled up attack from 1 to 10")
+	}
+}
+
+// TestAddXPLevelUpCrossingMilestoneEmitsMilestone pins the milestone-250
+// branch: total goes 249 → 250 crosses milestone-1, emits "Reached total
+// level 250" alongside the Levelled-up entry (TS Player.ts:1791-1796).
+// Fixture: 3 other stats summing to 247 + Attack at 2 (enabled total = 249);
+// AddXP → Attack 3 → total = 250.
+func TestAddXPLevelUpCrossingMilestoneEmitsMilestone(t *testing.T) {
+	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+
+	p.baseLevels[objtype.PlayerStatDefence] = 99
+	p.baseLevels[objtype.PlayerStatStrength] = 99
+	p.baseLevels[objtype.PlayerStatHitpoints] = 49
+	p.stats[objtype.PlayerStatAttack] = 800
+	p.baseLevels[objtype.PlayerStatAttack] = 2
+	p.levels[objtype.PlayerStatAttack] = 2
+	p.AddXP(objtype.PlayerStatAttack, 1000) // → 1800, level 3
+
+	if got := len(s.sessionLogs); got != 2 {
+		t.Fatalf("sessionLogs: got %d, want 2 (Levelled-up + milestone)", got)
+	}
+	if !containsSessionLogEvent(s.sessionLogs, "Levelled up attack from 2 to 3") {
+		t.Errorf("missing Levelled-up entry; logs = %+v", s.sessionLogs)
+	}
+	if !containsSessionLogEvent(s.sessionLogs, "Reached total level 250") {
+		t.Errorf("missing milestone entry; logs = %+v", s.sessionLogs)
+	}
+}
+
+// TestAddXPLevelUpNoMilestoneWithinBucket pins the milestone gate's lower
+// edge: total goes 251 → 252 (within bucket [250, 500)), no milestone
+// entry fires — only the Levelled-up entry. Guards against an off-by-one
+// in the `currMilestone > prevMilestone` comparison.
+func TestAddXPLevelUpNoMilestoneWithinBucket(t *testing.T) {
+	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+
+	p.baseLevels[objtype.PlayerStatDefence] = 99
+	p.baseLevels[objtype.PlayerStatStrength] = 99
+	p.baseLevels[objtype.PlayerStatHitpoints] = 51
+	p.stats[objtype.PlayerStatAttack] = 800
+	p.baseLevels[objtype.PlayerStatAttack] = 2
+	p.levels[objtype.PlayerStatAttack] = 2
+	p.AddXP(objtype.PlayerStatAttack, 1000) // total 251 → 252
+
+	if got := len(s.sessionLogs); got != 1 {
+		t.Fatalf("sessionLogs: got %d, want 1 (Levelled-up only, no milestone within bucket)", got)
+	}
+	if lg := s.sessionLogs[0]; lg.Event != "Levelled up attack from 2 to 3" {
+		t.Errorf("Event: got %q, want Levelled-up only", lg.Event)
+	}
+}
+
+// TestAddXPLevelUpHitting1881EmitsP2PAndF2P pins both exact-equality
+// sentinels: total = 1881 implies freeTotal = 1485 by construction, so
+// BOTH "you beat p2p!" and "you beat f2p!" fire (TS Player.ts:1797-1802).
+// Milestone-250 does NOT fire here: prevMilestone = 1880/250 = 7,
+// currMilestone = 1881/250 = 7, no crossing.
+func TestAddXPLevelUpHitting1881EmitsP2PAndF2P(t *testing.T) {
+	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+
+	// Set all 19 enabled stats to 99 except Attack at 98.
+	for i := range objtype.PlayerStatCount {
+		if !objtype.PlayerStatEnabled[i] {
+			continue
+		}
+		if i == objtype.PlayerStatAttack {
+			p.stats[i] = int32(objtype.GetExpByLevel(98))
+			p.baseLevels[i] = 98
+			p.levels[i] = 98
+		} else {
+			p.baseLevels[i] = 99
+		}
+	}
+	delta := objtype.GetExpByLevel(99) - objtype.GetExpByLevel(98)
+	p.AddXP(objtype.PlayerStatAttack, delta) // → Attack 99, total = 1881
+
+	if !containsSessionLogEvent(s.sessionLogs, "Levelled up attack from 98 to 99") {
+		t.Errorf("missing Levelled-up entry; logs = %+v", s.sessionLogs)
+	}
+	if !containsSessionLogEvent(s.sessionLogs, "Reached total level 1881 - you beat p2p!") {
+		t.Errorf("missing p2p entry; logs = %+v", s.sessionLogs)
+	}
+	if !containsSessionLogEvent(s.sessionLogs, "Reached total level 1485 - you beat f2p!") {
+		t.Errorf("missing f2p entry; logs = %+v", s.sessionLogs)
+	}
+	// No milestone-250 crossing: 1880 → 1881, both in bucket-7.
+	for _, lg := range s.sessionLogs {
+		if lg.Event == "Reached total level 1750" || lg.Event == "Reached total level 2000" {
+			t.Errorf("unexpected milestone-250 entry: %q", lg.Event)
+		}
+	}
+}
+
+// TestAddXPLevelUpHitting1485F2POnlyEmitsF2POnly pins the f2p sentinel
+// independent of p2p: freeTotal = 1485 but total ≠ 1881. Fixture: 15 f2p
+// stats sum to 1485 (14 others at 99 + Attack 98→99), 4 members-only
+// enabled stats at 1 → total = 1489.
+func TestAddXPLevelUpHitting1485F2POnlyEmitsF2POnly(t *testing.T) {
+	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+
+	// 14 non-Attack f2p stats at 99.
+	for _, idx := range []int{
+		objtype.PlayerStatDefence, objtype.PlayerStatStrength,
+		objtype.PlayerStatHitpoints, objtype.PlayerStatRanged,
+		objtype.PlayerStatPrayer, objtype.PlayerStatMagic,
+		objtype.PlayerStatCooking, objtype.PlayerStatWoodcutting,
+		objtype.PlayerStatFishing, objtype.PlayerStatFiremaking,
+		objtype.PlayerStatCrafting, objtype.PlayerStatSmithing,
+		objtype.PlayerStatMining, objtype.PlayerStatRunecraft,
+	} {
+		p.baseLevels[idx] = 99
+	}
+	// 4 members-only enabled stats at 1 — keep total clear of 1881.
+	for _, idx := range []int{
+		objtype.PlayerStatFletching, objtype.PlayerStatHerblore,
+		objtype.PlayerStatAgility, objtype.PlayerStatThieving,
+	} {
+		p.baseLevels[idx] = 1
+	}
+	p.stats[objtype.PlayerStatAttack] = int32(objtype.GetExpByLevel(98))
+	p.baseLevels[objtype.PlayerStatAttack] = 98
+	p.levels[objtype.PlayerStatAttack] = 98
+	delta := objtype.GetExpByLevel(99) - objtype.GetExpByLevel(98)
+	p.AddXP(objtype.PlayerStatAttack, delta) // → Attack 99, freeTotal = 1485, total = 1489
+
+	if !containsSessionLogEvent(s.sessionLogs, "Reached total level 1485 - you beat f2p!") {
+		t.Errorf("missing f2p entry; logs = %+v", s.sessionLogs)
+	}
+	if containsSessionLogEvent(s.sessionLogs, "Reached total level 1881 - you beat p2p!") {
+		t.Errorf("unexpected p2p entry; logs = %+v", s.sessionLogs)
+	}
+}
+
+// TestAddXPDisabledStatNotInTotal pins the PlayerStatEnabled gate inside
+// the total/freeTotal accumulation loop. Fixture: 3 enabled non-Attack
+// stats summing to 247 + Attack at 2 (enabled-only total = 249); disabled
+// stats[18] and stats[19] set to 99 each. AddXP → Attack 3 → enabled total
+// = 250, milestone-1 crosses, "Reached total level 250" fires.
+// An incorrect impl summing disabled stats would compute 447 → 448 (both
+// in bucket-1) and emit no milestone — this test would catch that.
+func TestAddXPDisabledStatNotInTotal(t *testing.T) {
+	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+
+	p.baseLevels[objtype.PlayerStatDefence] = 99
+	p.baseLevels[objtype.PlayerStatStrength] = 99
+	p.baseLevels[objtype.PlayerStatHitpoints] = 49
+	p.baseLevels[objtype.PlayerStat18] = 99 // disabled
+	p.baseLevels[objtype.PlayerStat19] = 99 // disabled
+	p.stats[objtype.PlayerStatAttack] = 800
+	p.baseLevels[objtype.PlayerStatAttack] = 2
+	p.levels[objtype.PlayerStatAttack] = 2
+	p.AddXP(objtype.PlayerStatAttack, 1000) // → Attack 3, enabled total = 250
+
+	if !containsSessionLogEvent(s.sessionLogs, "Reached total level 250") {
+		t.Errorf("missing milestone-250 entry (disabled stats erroneously counted?); logs = %+v",
+			s.sessionLogs)
+	}
+}
+
 func TestEnqueueScriptFileDirectPath(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	sf := &script.ScriptFile{Name: "[test_direct]"}
