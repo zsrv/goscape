@@ -185,7 +185,8 @@ func handleIfSetModel(s *ScriptState) error {
 
 // handleIfSetNpcHead implements IF_SETNPCHEAD.
 // TS PlayerOps.ts:742-749 — popInts(2) → [com, npc], npc on top.
-// com wrapped with check(com, NumberNotNull) (NAI-23 Bundle 4c).
+// com wrapped with check(com, NumberNotNull); npc wrapped with
+// check(npc, NpcTypeValid) (NAI-23 Bundle 4c).
 func handleIfSetNpcHead(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return errors.New("IF_SETNPCHEAD: no active player")
@@ -195,7 +196,12 @@ func handleIfSetNpcHead(s *ScriptState) error {
 	if err := checkNotNull(com, "IF_SETNPCHEAD"); err != nil {
 		return err
 	}
-	// npc uses NpcTypeValid in TS (not NumberNotNull); no checkNotNull here (NAI-23 Bundle 4c).
+	if err := requireConfigs(s, "IF_SETNPCHEAD"); err != nil {
+		return err
+	}
+	if err := checkNpcType(s, npc, "IF_SETNPCHEAD"); err != nil {
+		return err
+	}
 	s.Self.IfSetNpcHead(com, npc)
 	return nil
 }
@@ -275,7 +281,8 @@ func handleIfSetTab(s *ScriptState) error {
 
 // handleIfSetObject implements IF_SETOBJECT.
 // TS PlayerOps.ts:663-671 — popInts(3) → [com, obj, scale], scale on top.
-// com and scale wrapped with check(_, NumberNotNull); obj uses ObjTypeValid (NAI-23 Bundle 4c).
+// com and scale wrapped with check(_, NumberNotNull); obj wrapped with
+// check(obj, ObjTypeValid) (NAI-23 Bundle 4c).
 func handleIfSetObject(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return errors.New("IF_SETOBJECT: no active player")
@@ -286,7 +293,12 @@ func handleIfSetObject(s *ScriptState) error {
 	if err := checkNotNull(com, "IF_SETOBJECT"); err != nil {
 		return err
 	}
-	// obj uses ObjTypeValid in TS (not NumberNotNull); no checkNotNull here (NAI-23 Bundle 4c).
+	if err := requireConfigs(s, "IF_SETOBJECT"); err != nil {
+		return err
+	}
+	if err := checkObjType(s, obj, "IF_SETOBJECT"); err != nil {
+		return err
+	}
 	if err := checkNotNull(scale, "IF_SETOBJECT"); err != nil {
 		return err
 	}

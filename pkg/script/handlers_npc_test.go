@@ -484,7 +484,8 @@ func runNpcOp(t *testing.T, npc ActiveNpc, mc *mockConfigs, op Opcode, intInputs
 
 func TestNpcType(t *testing.T) {
 	npc := &mockNpc{typeID: 42}
-	state := runNpcOp(t, npc, nil, OpNpcType, nil)
+	mc := &mockConfigs{npcs: map[int]*objtype.NpcType{42: {ConfigType: objtype.ConfigType{ID: 42}}}}
+	state := runNpcOp(t, npc, mc, OpNpcType, nil)
 	if got := state.PopInt(); got != 42 {
 		t.Errorf("NPC_TYPE: got %d, want 42", got)
 	}
@@ -832,6 +833,7 @@ func TestHandleNpcChangeTypePassesDuration(t *testing.T) {
 	state := Init(sf, nil, false, nil, nil)
 	state.ActiveNpc = npc
 	state.Pointers |= PtrActiveNpc
+	state.Configs = &mockConfigs{npcs: map[int]*objtype.NpcType{42: {ConfigType: objtype.ConfigType{ID: 42}}}}
 	if err := Execute(state); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
@@ -848,7 +850,8 @@ func TestHandleNpcChangeTypePassesDuration(t *testing.T) {
 // pops (newType, duration) in TS order and calls ChangeTypeKeepAll.
 func TestHandleNpcChangeTypeKeepAllDispatch(t *testing.T) {
 	npc := &mockNpc{typeID: 7}
-	state := runNpcOp(t, npc, nil, OpNpcChangeTypeKeepAll, []int{42, 100}) // id=42, duration=100
+	mc := &mockConfigs{npcs: map[int]*objtype.NpcType{42: {ConfigType: objtype.ConfigType{ID: 42}}}}
+	state := runNpcOp(t, npc, mc, OpNpcChangeTypeKeepAll, []int{42, 100}) // id=42, duration=100
 	_ = state
 
 	if len(npc.changeTypeKeepAllCalls) != 1 {

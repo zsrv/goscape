@@ -3,6 +3,8 @@ package script
 import (
 	"strings"
 	"testing"
+
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 // Mock-based tests for S5f interface opcodes. Each test assembles a
@@ -181,6 +183,7 @@ func TestIfSetNpcHead(t *testing.T) {
 	}
 	mp := &mockPlayer{}
 	state := Init(sf, mp, false, nil, nil)
+	state.Configs = &mockConfigs{npcs: map[int]*objtype.NpcType{22: {ConfigType: objtype.ConfigType{ID: 22}}}}
 	if err := Execute(state); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
@@ -350,6 +353,7 @@ func TestIfSetObject(t *testing.T) {
 	}
 	mp := &mockPlayer{}
 	state := Init(sf, mp, false, nil, nil)
+	state.Configs = &mockConfigs{objs: map[int]*objtype.ObjType{2: {ConfigType: objtype.ConfigType{ID: 2}}}}
 	if err := Execute(state); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
@@ -969,6 +973,7 @@ func TestHandleIfSetObjectNullRejected(t *testing.T) {
 				IntOperands: []int32{int32(tc.com), int32(tc.obj), int32(tc.scale), 0, 0},
 			}
 			state := Init(sf, mp, false, nil, nil)
+			state.Configs = &mockConfigs{objs: map[int]*objtype.ObjType{2: {ConfigType: objtype.ConfigType{ID: 2}}}}
 
 			err := Execute(state)
 			if err == nil {

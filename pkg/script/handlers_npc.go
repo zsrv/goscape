@@ -177,12 +177,20 @@ func requireActiveNpc(s *ScriptState, op string) error {
 	return nil
 }
 
-// handleNpcType pushes the ActiveNpc's NpcType id.
+// handleNpcType pushes the ActiveNpc's NpcType id. Mirrors TS
+// NpcOps.ts:259-261: pushInt(check(activeNpc.type, NpcTypeValid).id).
 func handleNpcType(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_TYPE"); err != nil {
 		return err
 	}
-	s.PushInt(s.ActiveNpc.NpcType())
+	if err := requireConfigs(s, "NPC_TYPE"); err != nil {
+		return err
+	}
+	id := s.ActiveNpc.NpcType()
+	if err := checkNpcType(s, id, "NPC_TYPE"); err != nil {
+		return err
+	}
+	s.PushInt(id)
 	return nil
 }
 
@@ -352,7 +360,8 @@ func handleNpcFaceSquare(s *ScriptState) error {
 }
 
 // handleNpcChangeType pops (newType, duration) in TS order (duration
-// on top) and morphs the NPC. Matches TS NpcOps.ts:457-462.
+// on top) and morphs the NPC. Matches TS NpcOps.ts:457-462 including
+// the check(id, NpcTypeValid) registry-presence gate at :459.
 // The full body (guard + typeId/uid/mask + stats-reset +
 // lifecycleTick fast-path) lives in *Npc.changeTypeImpl.
 func handleNpcChangeType(s *ScriptState) error {
@@ -361,19 +370,32 @@ func handleNpcChangeType(s *ScriptState) error {
 	}
 	duration := s.PopInt()
 	newType := s.PopInt()
+	if err := requireConfigs(s, "NPC_CHANGETYPE"); err != nil {
+		return err
+	}
+	if err := checkNpcType(s, newType, "NPC_CHANGETYPE"); err != nil {
+		return err
+	}
 	s.ActiveNpc.ChangeType(newType, duration)
 	return nil
 }
 
 // handleNpcChangeTypeKeepAll pops (newType, duration) in TS order
 // (duration on top) and morphs the NPC preserving all current stats.
-// Matches TS NpcOps.ts:465-471.
+// Matches TS NpcOps.ts:465-471 including the check(id, NpcTypeValid)
+// registry-presence gate at :467.
 func handleNpcChangeTypeKeepAll(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_CHANGETYPE_KEEPALL"); err != nil {
 		return err
 	}
 	duration := s.PopInt()
 	newType := s.PopInt()
+	if err := requireConfigs(s, "NPC_CHANGETYPE_KEEPALL"); err != nil {
+		return err
+	}
+	if err := checkNpcType(s, newType, "NPC_CHANGETYPE_KEEPALL"); err != nil {
+		return err
+	}
 	s.ActiveNpc.ChangeTypeKeepAll(newType, duration)
 	return nil
 }

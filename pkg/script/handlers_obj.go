@@ -383,10 +383,11 @@ func handleObjName(s *ScriptState) error {
 	if err := requireConfigs(s, "OBJ_NAME"); err != nil {
 		return err
 	}
-	ot := s.Configs.ObjType(s.ActiveObj.ObjType())
-	if ot == nil {
-		return fmt.Errorf("OBJ_NAME: unknown obj id %d", s.ActiveObj.ObjType())
+	id := s.ActiveObj.ObjType()
+	if err := checkObjType(s, id, "OBJ_NAME"); err != nil {
+		return err
 	}
+	ot := s.Configs.ObjType(id)
 	if ot.Name != "" {
 		s.PushString(ot.Name)
 	} else if ot.DebugName != "" {
@@ -409,10 +410,11 @@ func handleObjParam(s *ScriptState) error {
 		return err
 	}
 	paramID := s.PopInt()
-	ot := s.Configs.ObjType(s.ActiveObj.ObjType())
-	if ot == nil {
-		return fmt.Errorf("OBJ_PARAM: unknown obj id %d", s.ActiveObj.ObjType())
+	id := s.ActiveObj.ObjType()
+	if err := checkObjType(s, id, "OBJ_PARAM"); err != nil {
+		return err
 	}
+	ot := s.Configs.ObjType(id)
 	return paramLookup(s, ot.Params, paramID, "OBJ_PARAM")
 }
 

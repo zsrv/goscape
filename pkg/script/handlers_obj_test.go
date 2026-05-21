@@ -1195,8 +1195,8 @@ func TestObjNameUnknownType(t *testing.T) {
 	if err == nil {
 		t.Fatal("handleObjName(unknown objId): want error, got nil")
 	}
-	if !strings.Contains(err.Error(), "unknown obj id") {
-		t.Errorf("err: got %q, want substring %q", err.Error(), "unknown obj id")
+	if !strings.Contains(err.Error(), "no ObjType with value") {
+		t.Errorf("err: got %q, want substring %q", err.Error(), "no ObjType with value")
 	}
 }
 
@@ -1337,8 +1337,8 @@ func TestObjParamUnknownType(t *testing.T) {
 	if err == nil {
 		t.Fatal("handleObjParam(unknown objId): want error, got nil")
 	}
-	if !strings.Contains(err.Error(), "unknown obj id") {
-		t.Errorf("err: got %q, want substring %q", err.Error(), "unknown obj id")
+	if !strings.Contains(err.Error(), "no ObjType with value") {
+		t.Errorf("err: got %q, want substring %q", err.Error(), "no ObjType with value")
 	}
 }
 
