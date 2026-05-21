@@ -219,6 +219,100 @@ func TestStatAddCapsAt255(t *testing.T) {
 	}
 }
 
+// TestStatAddOnHitpointsAtFullClearsHeroPoints pins STAT_ADD's HP-full
+// heroPoints.clear() tail (TS PlayerOps.ts:513-515): when stat ==
+// HITPOINTS and post-update levels[HITPOINTS] >= baseLevels[HITPOINTS],
+// the player's hero-point ledger is cleared. The mock's
+// SetCurLevel does not mutate m.levels, so we pre-seed m.levels[3] to
+// the value the predicate should observe.
+//
+// NAI-120 Bundle 2D follow-up.
+func TestStatAddOnHitpointsAtFullClearsHeroPoints(t *testing.T) {
+	mp := &mockPlayer{}
+	mp.levels[3] = 15     // PlayerStatHitpoints; predicate sees this as post-update
+	mp.baseLevels[3] = 15 // HP-full: 15 >= 15
+
+	sf := &ScriptFile{
+		Name: "stat_add_hp_full",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // stat id
+			OpPushConstantInt, // constant
+			OpPushConstantInt, // percent (top)
+			OpStatAdd,
+			OpReturn,
+		},
+		IntOperands:      []int32{3, 1, 0, 0, 0}, // stat=HITPOINTS, const=1, pct=0
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.heroPointsClearCalls; got != 1 {
+		t.Errorf("STAT_ADD HP-full: heroPointsClearCalls = %d, want 1", got)
+	}
+}
+
+// TestStatAddOnHitpointsNotFullSkipsClear pins the HP-not-full negative
+// branch: predicate sees levels[3] < baseLevels[3] → no clear.
+//
+// NAI-120 Bundle 2D follow-up.
+func TestStatAddOnHitpointsNotFullSkipsClear(t *testing.T) {
+	mp := &mockPlayer{}
+	mp.levels[3] = 10     // post-update HP per predicate read
+	mp.baseLevels[3] = 15 // not full: 10 < 15
+
+	sf := &ScriptFile{
+		Name: "stat_add_hp_not_full",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpStatAdd, OpReturn,
+		},
+		IntOperands:      []int32{3, 1, 0, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.heroPointsClearCalls; got != 0 {
+		t.Errorf("STAT_ADD HP-not-full: heroPointsClearCalls = %d, want 0", got)
+	}
+}
+
+// TestStatAddOnNonHitpointsStatSkipsClear pins the stat-gate: when
+// stat != HITPOINTS, the clear NEVER fires even if HP happens to be
+// full. Mirrors TS PlayerOps.ts:513 gate `stat === PlayerStat.HITPOINTS &&`.
+//
+// NAI-120 Bundle 2D follow-up.
+func TestStatAddOnNonHitpointsStatSkipsClear(t *testing.T) {
+	mp := &mockPlayer{}
+	mp.levels[3] = 15 // HP IS full
+	mp.baseLevels[3] = 15
+	mp.levels[0] = 50 // Attack; the stat being mutated
+	mp.baseLevels[0] = 80
+
+	sf := &ScriptFile{
+		Name: "stat_add_non_hp",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpStatAdd, OpReturn,
+		},
+		IntOperands:      []int32{0, 10, 25, 0, 0}, // stat=ATTACK, const=10, pct=25
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.heroPointsClearCalls; got != 0 {
+		t.Errorf("STAT_ADD non-HP stat: heroPointsClearCalls = %d, want 0", got)
+	}
+}
+
 func TestStatSubFormula(t *testing.T) {
 	// subbed = current - (constant + (base*percent)/100), clamped >=0.
 	// id=4, current=60, base=50, constant=5, percent=20 → 60 - (5 + 10) = 45.

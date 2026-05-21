@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
+
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 // NumStats is the authentic skill count in rev 225. Stat ops validate
@@ -339,6 +341,10 @@ func handleStatTotal(s *ScriptState) error {
 //
 //	added = current + ((constant + (base*percent)/100) | 0)
 //	levels[stat] = min(added, 255)
+//
+// Tail (TS PlayerOps.ts:513-515): when stat == HITPOINTS and the
+// post-update HP meets or exceeds base, the heroPoints contributor
+// ledger is cleared. NAI-120 Bundle 2D follow-up.
 func handleStatAdd(s *ScriptState) error {
 	if err := requireActivePlayer(s, "STAT_ADD"); err != nil {
 		return err
@@ -362,6 +368,13 @@ func handleStatAdd(s *ScriptState) error {
 		added = 255
 	}
 	s.Self.SetCurLevel(id, added)
+	// TS PlayerOps.ts:513-515 — when STAT_ADD targets HITPOINTS and the
+	// post-update HP meets or exceeds base, clear the heroPoints ledger.
+	// Predicate matches TS exactly (>= comparison, stat-gate). NAI-120
+	// Bundle 2D follow-up.
+	if id == objtype.PlayerStatHitpoints && s.Self.Stat(objtype.PlayerStatHitpoints) >= s.Self.StatBase(objtype.PlayerStatHitpoints) {
+		s.Self.HeroPointsClear()
+	}
 	return nil
 }
 
