@@ -74,7 +74,7 @@ func (p *Player) generateAppearance(objs *objtype.ObjTypeConfigs, invs *objtype.
 			equipped = worn.Items[slot]
 		}
 		if equipped != nil {
-			buf.P2(uint16(0x200 | (equipped.Id & 0x1FF)))
+			buf.P2(uint16(0x200 + equipped.Id))
 			continue
 		}
 		bodyIdx, ok := slotToBodyTable[slot]
@@ -82,7 +82,7 @@ func (p *Player) generateAppearance(objs *objtype.ObjTypeConfigs, invs *objtype.
 			buf.P1(0)
 			continue
 		}
-		buf.P2(uint16(0x100 | (p.body[bodyIdx] & 0xFF)))
+		buf.P2(uint16(0x100 + p.body[bodyIdx]))
 	}
 
 	for i := 0; i < 5; i++ {

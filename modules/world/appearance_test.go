@@ -206,6 +206,82 @@ func TestSetAppearanceInvBindsId(t *testing.T) {
 	}
 }
 
+// TestGenerateAppearanceHighItemIdAdditive pins the bitwise-OR-vs-additive bug
+// at appearance.go:77. TS Player.ts:1359 uses `p2(0x200 + equip.id)`; the
+// pre-fix Go used `0x200 | (equip.Id & 0x1FF)` which silently masks ids >= 512.
+// An item id of 600 must encode to 0x0200 + 600 = 0x0458, NOT 0x0200 | (600 & 0x1FF) = 0x0258.
+func TestGenerateAppearanceHighItemIdAdditive(t *testing.T) {
+	objs, invs := synthesizeTypes(t)
+	// Extend Configs to hold id=600.
+	bigger := make([]*objtype.ObjType, 700)
+	copy(bigger, objs.Configs)
+	objs.Configs = bigger
+	// id=600: wearPos=4, no hides (wearPos2/3 = -1).
+	objs.Configs[600] = &objtype.ObjType{
+		ConfigType: objtype.ConfigType{ID: 600, DebugName: "high_id_torso"},
+		WearPos:    4, WearPos2: -1, WearPos3: -1,
+	}
+
+	p, _ := newTestPlayer(t)
+	p.invs = map[int]*inventory.Inventory{
+		invs.Worn: inventory.FromType(invs.Configs[invs.Worn]),
+	}
+	p.invs[invs.Worn].Items[4] = &inventory.Item{Id: 600, Count: 1}
+
+	p.generateAppearance(objs, invs, 0)
+
+	// Expected additive encoding: 0x200 + 600 = 0x458 → high=0x04, low=0x58.
+	wantHi := byte((0x200 + 600) >> 8)
+	wantLo := byte((0x200 + 600) & 0xFF)
+	if !bytes.Contains(p.appearanceBuf, []byte{wantHi, wantLo}) {
+		t.Errorf("appearanceBuf missing additive-encoded high item id 600 "+
+			"(want 0x%02x 0x%02x); encoder is masking with 0x1FF instead of adding",
+			wantHi, wantLo)
+	}
+	// Negative assertion: the buggy masked form must NOT appear in slot 4
+	// (slot 4 is at offset 2 + 4*size; but mask collision with naked-slot zero
+	// bytes can produce false positives — assert by direct slot-4 byte readback).
+	// Layout: byte 0 gender, 1 headicons, then slots 0..11 each variable-width.
+	// All slots 0..3 are -1 body parts → 1 byte (0) each. Slot 4 starts at offset 6.
+	gotHi := p.appearanceBuf[6]
+	gotLo := p.appearanceBuf[7]
+	if gotHi != wantHi || gotLo != wantLo {
+		t.Errorf("slot 4 bytes: got 0x%02x 0x%02x, want 0x%02x 0x%02x",
+			gotHi, gotLo, wantHi, wantLo)
+	}
+}
+
+// TestGenerateAppearanceHighBodyPartIdAdditive pins the bitwise-OR-vs-additive
+// bug at appearance.go:85. TS Player.ts:1298 uses `0x100 + part`; the pre-fix
+// Go used `0x100 | (part & 0xFF)` which silently masks body-part ids >= 256.
+// A body-part id of 300 must encode to 0x0100 + 300 = 0x022C, NOT 0x0100 | (300 & 0xFF) = 0x012C.
+func TestGenerateAppearanceHighBodyPartIdAdditive(t *testing.T) {
+	objs, invs := synthesizeTypes(t)
+	p, _ := newTestPlayer(t)
+	p.invs = map[int]*inventory.Inventory{
+		invs.Worn: inventory.FromType(invs.Configs[invs.Worn]),
+	}
+	// Set body[2] (slot 4 / torso) to a high idkit id 300.
+	p.body[2] = 300
+
+	p.generateAppearance(objs, invs, 0)
+
+	wantHi := byte((0x100 + 300) >> 8)
+	wantLo := byte((0x100 + 300) & 0xFF)
+	if !bytes.Contains(p.appearanceBuf, []byte{wantHi, wantLo}) {
+		t.Errorf("appearanceBuf missing additive-encoded high body-part id 300 "+
+			"(want 0x%02x 0x%02x); encoder is masking with 0xFF instead of adding",
+			wantHi, wantLo)
+	}
+	// Slot 4 starts at offset 6 (see test above).
+	gotHi := p.appearanceBuf[6]
+	gotLo := p.appearanceBuf[7]
+	if gotHi != wantHi || gotLo != wantLo {
+		t.Errorf("slot 4 bytes: got 0x%02x 0x%02x, want 0x%02x 0x%02x",
+			gotHi, gotLo, wantHi, wantLo)
+	}
+}
+
 func TestGenerateAppearance_SetsLastAppearanceToCurrentTick(t *testing.T) {
 	objs, invs := synthesizeTypes(t)
 	p, _ := newTestPlayer(t)
