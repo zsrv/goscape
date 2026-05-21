@@ -53,24 +53,28 @@ func TestNAI94_HansCheb2_StraightLineMustReach(t *testing.T) {
 	}
 }
 
-// TestNAI94_RouteBlockerFlag_Consulted is the H2 reproducer. Builds a synthetic
-// scenario with a single FlagWallWestRouteBlocker at (3002, 3000). With
-// useRouteBlockerFlags=true (NPC pathing in TS), the route should refuse to
-// step W→E across that tile boundary. With useRouteBlockerFlags=false
-// (player pathing in TS), the route should pass through.
+// TestNAI94_RouteBlockerFlag_Consulted is the H2 reproducer for NAI-94 / NAI-95.
+// Uses FlagLocRouteBlocker on the destination tile as a clean discriminator:
+// that bit appears in every FlagBlock*RouteBlocker mask but in none of the
+// regular FlagBlock* masks (see collision/flag.go), so a route-blocker-aware
+// pathfinder refuses entry from all 8 directions while a regular pathfinder
+// is unaffected.
 //
-// In goscape, RouteFinder is constructed via NewRouteFinderDefault with
-// useRouteBlockerFlags=false (per api.go). If the field is unconsulted
-// (the // TODO at routefinder.go), both subtests behave identically and
-// H2 is confirmed.
+// With useRouteBlockerFlags=true (NPC pathing in TS), the destination is
+// unreachable and moveNear=false forces a clean Route{} (Success=false).
+// With useRouteBlockerFlags=false (player pathing in TS), the route steps
+// directly onto the destination.
+//
+// If useRouteBlockerFlags is unconsulted by RouteFinder (the prior // TODO
+// at routefinder.go:44), both subtests behave identically.
 func TestNAI94_RouteBlockerFlag_Consulted(t *testing.T) {
 	const (
 		level = 0
-		// Use synthetic local coords centered well away from real mapsquares
-		// to avoid accidentally seeding any pre-existing flag state.
+		// Synthetic local coords away from real mapsquares. dst is one tile
+		// east of src so the regular-pathfinder case has a trivial 1-step route.
 		srcX = 3000
 		srcZ = 3000
-		dstX = 3004
+		dstX = 3001
 		dstZ = 3000
 	)
 
@@ -84,27 +88,38 @@ func TestNAI94_RouteBlockerFlag_Consulted(t *testing.T) {
 		{name: "BlockerIgnored_PassesThrough", useRouteBlockerFlags: false, wantSuccess: true, wantReachesDest: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Skip("NAI-94: H2 reproducer — useRouteBlockerFlags appears unconsulted; observed: " +
-				"both subtests pass through blocker (BlockerHonored_RefusesToCross got Success=true, " +
-				"BlockerIgnored_PassesThrough got Success=true). Lift this skip in NAI-95 once the fix lands.")
-
-			flags := collision.NewFlagMap()
-			// Plant a route-blocker on tile (3002, 3000) blocking westward step
-			// from (3003, 3000) → (3002, 3000). FlagWallWestRouteBlocker on the
-			// destination tile blocks entry from the east side.
-			flags.Add(3002, 3000, level, collision.FlagWallWestRouteBlocker)
+			// Allocate zones around src/dst so empty-FlagMap degeneracy
+			// (FlagNull=-1 → CanMove returns false everywhere) doesn't
+			// confound the H2 signal. See TestNAI94_AllocatedZones_PathfinderWorks
+			// for the same setup convention.
+			flags := internal.BuildCollisionMap(2995, 2995, 3010, 3010)
+			// Plant a route-blocker on the destination tile. FlagLocRouteBlocker
+			// appears in all FlagBlock*RouteBlocker masks but not in regular
+			// FlagBlock* masks, so it blocks entry from every direction iff
+			// useRouteBlockerFlags is honored.
+			flags.Add(dstX, dstZ, level, collision.FlagLocRouteBlocker)
 
 			rf := NewRouteFinder(flags, routefinderDefaultSearchMapSize, routefinderDefaultRingBufferSize, tc.useRouteBlockerFlags)
 
-			route := rf.FindRoute(level, srcX, srcZ, dstX, dstZ, 1, 1, 1, 0, -1, true, 0, 25, collision.TypeNormal)
+			// moveNear=false forces Route{} (Success=false) when the destination
+			// can't be reached, rather than falling through to the closest-approach
+			// branch which always yields Success=true.
+			route := rf.FindRoute(level, srcX, srcZ, dstX, dstZ, 1, 1, 1, 0, -1, false, 0, 25, collision.TypeNormal)
 
 			if route.Success != tc.wantSuccess {
 				t.Errorf("Route.Success = %v; want %v. Route=%+v", route.Success, tc.wantSuccess, route)
 			}
-			if tc.wantReachesDest && len(route.Waypoints) > 0 {
+			if tc.wantReachesDest {
+				if len(route.Waypoints) == 0 {
+					t.Fatalf("Route.Waypoints empty; want path reaching (%d, %d). Route=%+v", dstX, dstZ, route)
+				}
 				last := route.Waypoints[len(route.Waypoints)-1]
 				if last.X() != dstX || last.Z() != dstZ {
 					t.Errorf("last waypoint = (%d, %d); want (%d, %d) [BlockerIgnored expects passage]", last.X(), last.Z(), dstX, dstZ)
+				}
+			} else {
+				if len(route.Waypoints) != 0 {
+					t.Errorf("Route.Waypoints non-empty (%d) but blocker should refuse passage. Route=%+v", len(route.Waypoints), route)
 				}
 			}
 		})

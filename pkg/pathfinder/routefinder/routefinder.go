@@ -41,7 +41,7 @@ func NewRouteFinder(flags collision.FlagMap, searchMapSize int, ringBufferSize i
 		flags:                flags,
 		searchMapSize:        searchMapSize,
 		ringBufferSize:       ringBufferSize,
-		useRouteBlockerFlags: useRouteBlockerFlags, // TODO: unused - funcs written as if false
+		useRouteBlockerFlags: useRouteBlockerFlags,
 
 		directions:  make([]int, searchMapSize*searchMapSize),
 		distances:   make([]int, searchMapSize*searchMapSize),
@@ -107,12 +107,22 @@ func (pf *RouteFinder) FindRoute(level, srcX, srcZ, destX, destZ, srcSize, destW
 	pf.appendDirection(localSrcX, localSrcZ, routefinderDefaultSrcDirectionValue, 0)
 
 	var pathFound bool
-	if srcSize == 1 {
-		pathFound = pf.routeFindSize1(baseX, baseZ, level, localDestX, localDestZ, destWidth, destLength, srcSize, locAngle, locShape, blockAccessFlags, collisionType)
-	} else if srcSize == 2 {
-		pathFound = pf.routeFindSize2(baseX, baseZ, level, localDestX, localDestZ, destWidth, destLength, srcSize, locAngle, locShape, blockAccessFlags, collisionType)
+	if pf.useRouteBlockerFlags {
+		if srcSize == 1 {
+			pathFound = pf.routeBlockerFindSize1(baseX, baseZ, level, localDestX, localDestZ, destWidth, destLength, srcSize, locAngle, locShape, blockAccessFlags, collisionType)
+		} else if srcSize == 2 {
+			pathFound = pf.routeBlockerFindSize2(baseX, baseZ, level, localDestX, localDestZ, destWidth, destLength, srcSize, locAngle, locShape, blockAccessFlags, collisionType)
+		} else {
+			pathFound = pf.routeBlockerFindBig(baseX, baseZ, level, localDestX, localDestZ, destWidth, destLength, srcSize, locAngle, locShape, blockAccessFlags, collisionType)
+		}
 	} else {
-		pathFound = pf.routeFindBig(baseX, baseZ, level, localDestX, localDestZ, destWidth, destLength, srcSize, locAngle, locShape, blockAccessFlags, collisionType)
+		if srcSize == 1 {
+			pathFound = pf.routeFindSize1(baseX, baseZ, level, localDestX, localDestZ, destWidth, destLength, srcSize, locAngle, locShape, blockAccessFlags, collisionType)
+		} else if srcSize == 2 {
+			pathFound = pf.routeFindSize2(baseX, baseZ, level, localDestX, localDestZ, destWidth, destLength, srcSize, locAngle, locShape, blockAccessFlags, collisionType)
+		} else {
+			pathFound = pf.routeFindBig(baseX, baseZ, level, localDestX, localDestZ, destWidth, destLength, srcSize, locAngle, locShape, blockAccessFlags, collisionType)
+		}
 	}
 	if !pathFound {
 		if !moveNear {
@@ -574,6 +584,434 @@ func (pf *RouteFinder) routeFindBig(baseX, baseZ, level, localDestX, localDestZ,
 			collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+srcSize, pf.currLocalZ+srcSize, level), collision.FlagBlockNorthEast, collisionType) {
 			clipFlag1 := collision.FlagBlockSouthEastAndWest
 			clipFlag2 := collision.FlagBlockNorthAndSouthWest
+			blocked := false
+			for index := 1; index < srcSize; index++ {
+				if !collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+index, pf.currLocalZ+srcSize, level), clipFlag1, collisionType) ||
+					!collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+srcSize, pf.currLocalZ+index, level), clipFlag2, collisionType) {
+					blocked = true
+					break
+				}
+			}
+			if !blocked {
+				pf.appendDirection(x, z, dirFlag, nextDistance)
+			}
+		}
+	}
+	return false
+}
+
+func (pf *RouteFinder) routeBlockerFindSize1(baseX, baseZ, level, localDestX, localDestZ, destWidth, destLength, srcSize, locAngle, locShape, blockAccessFlags int, collisionType collision.Type) bool {
+	var x int
+	var z int
+	var clipFlag int
+	var dirFlag int
+	relativeSearchSize := pf.searchMapSize - 1
+
+	for pf.bufWriterIndex != pf.bufReaderIndex {
+		pf.currLocalX = pf.validLocalX[pf.bufReaderIndex]
+		pf.currLocalZ = pf.validLocalZ[pf.bufReaderIndex]
+		pf.bufReaderIndex = (pf.bufReaderIndex + 1) & (pf.ringBufferSize - 1)
+
+		reached := reach.Reached(pf.flags, level, pf.currLocalX+baseX, pf.currLocalZ+baseZ, localDestX+baseX, localDestZ+baseZ, destWidth, destLength, srcSize, locAngle, locShape, blockAccessFlags)
+		if reached {
+			return true
+		}
+
+		nextDistance := pf.distances[pf.localIndex(pf.currLocalX, pf.currLocalZ)] + 1
+
+		// east to west
+		x = pf.currLocalX - 1
+		z = pf.currLocalZ
+		clipFlag = collision.FlagBlockWestRouteBlocker
+		dirFlag = flag.DirectionEast
+		if pf.currLocalX > 0 && pf.directions[pf.localIndex(x, z)] == 0 &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, z, level), clipFlag, collisionType) {
+			pf.appendDirection(x, z, dirFlag, nextDistance)
+		}
+
+		// west to east
+		x = pf.currLocalX + 1
+		z = pf.currLocalZ
+		clipFlag = collision.FlagBlockEastRouteBlocker
+		dirFlag = flag.DirectionWest
+		if pf.currLocalX < relativeSearchSize && pf.directions[pf.localIndex(x, z)] == 0 &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, z, level), clipFlag, collisionType) {
+			pf.appendDirection(x, z, dirFlag, nextDistance)
+		}
+
+		// north to south
+		x = pf.currLocalX
+		z = pf.currLocalZ - 1
+		clipFlag = collision.FlagBlockSouthRouteBlocker
+		dirFlag = flag.DirectionNorth
+		if pf.currLocalZ > 0 && pf.directions[pf.localIndex(x, z)] == 0 &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, z, level), clipFlag, collisionType) {
+			pf.appendDirection(x, z, dirFlag, nextDistance)
+		}
+
+		// south to north
+		x = pf.currLocalX
+		z = pf.currLocalZ + 1
+		clipFlag = collision.FlagBlockNorthRouteBlocker
+		dirFlag = flag.DirectionSouth
+		if pf.currLocalZ < relativeSearchSize && pf.directions[pf.localIndex(x, z)] == 0 &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, z, level), clipFlag, collisionType) {
+			pf.appendDirection(x, z, dirFlag, nextDistance)
+		}
+
+		// northeast to southwest
+		x = pf.currLocalX - 1
+		z = pf.currLocalZ - 1
+		dirFlag = flag.DirectionNortheast
+		if pf.currLocalX > 0 &&
+			pf.currLocalZ > 0 &&
+			pf.directions[pf.localIndex(x, z)] == 0 &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, z, level), collision.FlagBlockSouthWestRouteBlocker, collisionType) &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, pf.currLocalZ, level), collision.FlagBlockWestRouteBlocker, collisionType) &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX, z, level), collision.FlagBlockSouthRouteBlocker, collisionType) {
+			pf.appendDirection(x, z, dirFlag, nextDistance)
+		}
+
+		// northwest to southeast
+		x = pf.currLocalX + 1
+		z = pf.currLocalZ - 1
+		dirFlag = flag.DirectionNorthwest
+		if pf.currLocalX < relativeSearchSize &&
+			pf.currLocalZ > 0 &&
+			pf.directions[pf.localIndex(x, z)] == 0 &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, z, level), collision.FlagBlockSouthEastRouteBlocker, collisionType) &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, pf.currLocalZ, level), collision.FlagBlockEastRouteBlocker, collisionType) &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX, z, level), collision.FlagBlockSouthRouteBlocker, collisionType) {
+			pf.appendDirection(x, z, dirFlag, nextDistance)
+		}
+
+		// southeast to northwest
+		x = pf.currLocalX - 1
+		z = pf.currLocalZ + 1
+		dirFlag = flag.DirectionSoutheast
+		if pf.currLocalX > 0 &&
+			pf.currLocalZ < relativeSearchSize &&
+			pf.directions[pf.localIndex(x, z)] == 0 &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, z, level), collision.FlagBlockNorthWestRouteBlocker, collisionType) &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, pf.currLocalZ, level), collision.FlagBlockWestRouteBlocker, collisionType) &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX, z, level), collision.FlagBlockNorthRouteBlocker, collisionType) {
+			pf.appendDirection(x, z, dirFlag, nextDistance)
+		}
+
+		// southwest to northeast
+		x = pf.currLocalX + 1
+		z = pf.currLocalZ + 1
+		dirFlag = flag.DirectionSouthwest
+		if pf.currLocalX < relativeSearchSize &&
+			pf.currLocalZ < relativeSearchSize &&
+			pf.directions[pf.localIndex(x, z)] == 0 &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, z, level), collision.FlagBlockNorthEastRouteBlocker, collisionType) &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, pf.currLocalZ, level), collision.FlagBlockEastRouteBlocker, collisionType) &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX, z, level), collision.FlagBlockNorthRouteBlocker, collisionType) {
+			pf.appendDirection(x, z, dirFlag, nextDistance)
+		}
+	}
+	return false
+}
+
+func (pf *RouteFinder) routeBlockerFindSize2(baseX, baseZ, level, localDestX, localDestZ, destWidth, destLength, srcSize, locAngle, locShape, blockAccessFlags int, collisionType collision.Type) bool {
+	var x int
+	var z int
+	var dirFlag int
+	relativeSearchSize := pf.searchMapSize - 2
+
+	for pf.bufWriterIndex != pf.bufReaderIndex {
+		pf.currLocalX = pf.validLocalX[pf.bufReaderIndex]
+		pf.currLocalZ = pf.validLocalZ[pf.bufReaderIndex]
+		pf.bufReaderIndex = (pf.bufReaderIndex + 1) & (pf.ringBufferSize - 1)
+
+		reached := reach.Reached(pf.flags, level, pf.currLocalX+baseX, pf.currLocalZ+baseZ, localDestX+baseX, localDestZ+baseZ, destWidth, destLength, srcSize, locAngle, locShape, blockAccessFlags)
+		if reached {
+			return true
+		}
+
+		nextDistance := pf.distances[pf.localIndex(pf.currLocalX, pf.currLocalZ)] + 1
+
+		// east to west
+		x = pf.currLocalX - 1
+		z = pf.currLocalZ
+		dirFlag = flag.DirectionEast
+		if pf.currLocalX > 0 &&
+			pf.directions[pf.localIndex(x, z)] == 0 &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, z, level), collision.FlagBlockSouthWestRouteBlocker, collisionType) &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, pf.currLocalZ+1, level), collision.FlagBlockNorthWestRouteBlocker, collisionType) {
+			pf.appendDirection(x, z, dirFlag, nextDistance)
+		}
+
+		// west to east
+		x = pf.currLocalX + 1
+		z = pf.currLocalZ
+		dirFlag = flag.DirectionWest
+		if pf.currLocalX < relativeSearchSize &&
+			pf.directions[pf.localIndex(x, z)] == 0 &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+2, z, level), collision.FlagBlockSouthEastRouteBlocker, collisionType) &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+2, pf.currLocalZ+1, level), collision.FlagBlockNorthEastRouteBlocker, collisionType) {
+			pf.appendDirection(x, z, dirFlag, nextDistance)
+		}
+
+		// north to south
+		x = pf.currLocalX
+		z = pf.currLocalZ - 1
+		dirFlag = flag.DirectionNorth
+		if pf.currLocalZ > 0 &&
+			pf.directions[pf.localIndex(x, z)] == 0 &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, z, level), collision.FlagBlockSouthWestRouteBlocker, collisionType) &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+1, z, level), collision.FlagBlockSouthEastRouteBlocker, collisionType) {
+			pf.appendDirection(x, z, dirFlag, nextDistance)
+		}
+
+		// south to north
+		x = pf.currLocalX
+		z = pf.currLocalZ + 1
+		dirFlag = flag.DirectionSouth
+		if pf.currLocalZ < relativeSearchSize &&
+			pf.directions[pf.localIndex(x, z)] == 0 &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, pf.currLocalZ+2, level), collision.FlagBlockNorthWestRouteBlocker, collisionType) &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+1, pf.currLocalZ+2, level), collision.FlagBlockNorthEastRouteBlocker, collisionType) {
+			pf.appendDirection(x, z, dirFlag, nextDistance)
+		}
+
+		// northeast to southwest
+		x = pf.currLocalX - 1
+		z = pf.currLocalZ - 1
+		dirFlag = flag.DirectionNortheast
+		if pf.currLocalX > 0 &&
+			pf.currLocalZ > 0 &&
+			pf.directions[pf.localIndex(x, z)] == 0 &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, pf.currLocalZ, level), collision.FlagBlockNorthAndSouthEastRouteBlocker, collisionType) &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, z, level), collision.FlagBlockSouthWestRouteBlocker, collisionType) &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX, z, level), collision.FlagBlockNorthEastAndWestRouteBlocker, collisionType) {
+			pf.appendDirection(x, z, dirFlag, nextDistance)
+		}
+
+		// northwest to southeast
+		x = pf.currLocalX + 1
+		z = pf.currLocalZ - 1
+		dirFlag = flag.DirectionNorthwest
+		if pf.currLocalX < relativeSearchSize &&
+			pf.currLocalZ > 0 &&
+			pf.directions[pf.localIndex(x, z)] == 0 &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, z, level), collision.FlagBlockNorthEastAndWestRouteBlocker, collisionType) &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+2, z, level), collision.FlagBlockSouthEastRouteBlocker, collisionType) &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+2, pf.currLocalZ, level), collision.FlagBlockNorthAndSouthWestRouteBlocker, collisionType) {
+			pf.appendDirection(x, z, dirFlag, nextDistance)
+		}
+
+		// southeast to northwest
+		x = pf.currLocalX - 1
+		z = pf.currLocalZ + 1
+		dirFlag = flag.DirectionSoutheast
+		if pf.currLocalX > 0 &&
+			pf.currLocalZ < relativeSearchSize &&
+			pf.directions[pf.localIndex(x, z)] == 0 &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, z, level), collision.FlagBlockNorthAndSouthEastRouteBlocker, collisionType) &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, pf.currLocalZ+2, level), collision.FlagBlockNorthWestRouteBlocker, collisionType) &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX, pf.currLocalZ+2, level), collision.FlagBlockSouthEastAndWestRouteBlocker, collisionType) {
+			pf.appendDirection(x, z, dirFlag, nextDistance)
+		}
+
+		// southwest to northeast
+		x = pf.currLocalX + 1
+		z = pf.currLocalZ + 1
+		dirFlag = flag.DirectionSouthwest
+		if pf.currLocalX < relativeSearchSize &&
+			pf.currLocalZ < relativeSearchSize &&
+			pf.directions[pf.localIndex(x, z)] == 0 &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, pf.currLocalZ+2, level), collision.FlagBlockSouthEastAndWestRouteBlocker, collisionType) &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+2, pf.currLocalZ+2, level), collision.FlagBlockNorthEastRouteBlocker, collisionType) &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+2, z, level), collision.FlagBlockNorthAndSouthWestRouteBlocker, collisionType) {
+			pf.appendDirection(x, z, dirFlag, nextDistance)
+		}
+	}
+	return false
+}
+
+func (pf *RouteFinder) routeBlockerFindBig(baseX, baseZ, level, localDestX, localDestZ, destWidth, destLength, srcSize, locAngle, locShape, blockAccessFlags int, collisionType collision.Type) bool {
+	var x int
+	var z int
+	var dirFlag int
+	relativeSearchSize := pf.searchMapSize - srcSize
+
+	for pf.bufWriterIndex != pf.bufReaderIndex {
+		pf.currLocalX = pf.validLocalX[pf.bufReaderIndex]
+		pf.currLocalZ = pf.validLocalZ[pf.bufReaderIndex]
+		pf.bufReaderIndex = (pf.bufReaderIndex + 1) & (pf.ringBufferSize - 1)
+
+		reached := reach.Reached(pf.flags, level, pf.currLocalX+baseX, pf.currLocalZ+baseZ, localDestX+baseX, localDestZ+baseZ, destWidth, destLength, srcSize, locAngle, locShape, blockAccessFlags)
+		if reached {
+			return true
+		}
+
+		nextDistance := pf.distances[pf.localIndex(pf.currLocalX, pf.currLocalZ)] + 1
+
+		// east to west
+		x = pf.currLocalX - 1
+		z = pf.currLocalZ
+		dirFlag = flag.DirectionEast
+		if pf.currLocalX > 0 &&
+			pf.directions[pf.localIndex(x, z)] == 0 &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, z, level), collision.FlagBlockSouthWestRouteBlocker, collisionType) &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, pf.currLocalZ+srcSize-1, level), collision.FlagBlockNorthWestRouteBlocker, collisionType) {
+			clipFlag := collision.FlagBlockNorthAndSouthEastRouteBlocker
+			blocked := false
+			for index := 1; index < srcSize-1; index++ {
+				if !collision.CanMove(pf.collisionFlag(baseX, baseZ, x, pf.currLocalZ+index, level), clipFlag, collisionType) {
+					blocked = true
+					break
+				}
+			}
+			if !blocked {
+				pf.appendDirection(x, z, dirFlag, nextDistance)
+			}
+		}
+
+		// west to east
+		x = pf.currLocalX + 1
+		z = pf.currLocalZ
+		dirFlag = flag.DirectionWest
+		if pf.currLocalX < relativeSearchSize &&
+			pf.directions[pf.localIndex(x, z)] == 0 &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+srcSize, z, level), collision.FlagBlockSouthEastRouteBlocker, collisionType) &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+srcSize, pf.currLocalZ+srcSize-1, level), collision.FlagBlockNorthEastRouteBlocker, collisionType) {
+			clipFlag := collision.FlagBlockNorthAndSouthWestRouteBlocker
+			blocked := false
+			for index := 1; index < srcSize-1; index++ {
+				if !collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+srcSize, pf.currLocalZ+index, level), clipFlag, collisionType) {
+					blocked = true
+					break
+				}
+			}
+			if !blocked {
+				pf.appendDirection(x, z, dirFlag, nextDistance)
+			}
+		}
+
+		// north to south
+		x = pf.currLocalX
+		z = pf.currLocalZ - 1
+		dirFlag = flag.DirectionNorth
+		if pf.currLocalZ > 0 &&
+			pf.directions[pf.localIndex(x, z)] == 0 &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, z, level), collision.FlagBlockSouthWestRouteBlocker, collisionType) &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+srcSize-1, z, level), collision.FlagBlockSouthEastRouteBlocker, collisionType) {
+			clipFlag := collision.FlagBlockNorthEastAndWestRouteBlocker
+			blocked := false
+			for index := 1; index < srcSize-1; index++ {
+				if !collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+index, z, level), clipFlag, collisionType) {
+					blocked = true
+					break
+				}
+			}
+			if !blocked {
+				pf.appendDirection(x, z, dirFlag, nextDistance)
+			}
+		}
+
+		// south to north
+		x = pf.currLocalX
+		z = pf.currLocalZ + 1
+		dirFlag = flag.DirectionSouth
+		if pf.currLocalZ < relativeSearchSize &&
+			pf.directions[pf.localIndex(x, z)] == 0 &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, pf.currLocalZ+srcSize, level), collision.FlagBlockNorthWestRouteBlocker, collisionType) &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+srcSize-1, pf.currLocalZ+srcSize, level), collision.FlagBlockNorthEastRouteBlocker, collisionType) {
+			clipFlag := collision.FlagBlockSouthEastAndWestRouteBlocker
+			blocked := false
+			for index := 1; index < srcSize+1; index++ {
+				if !collision.CanMove(pf.collisionFlag(baseX, baseZ, x+index, pf.currLocalZ+srcSize, level), clipFlag, collisionType) {
+					blocked = true
+					break
+				}
+			}
+			if !blocked {
+				pf.appendDirection(x, z, dirFlag, nextDistance)
+			}
+		}
+
+		// northeast to southwest
+		x = pf.currLocalX - 1
+		z = pf.currLocalZ - 1
+		dirFlag = flag.DirectionNortheast
+		if pf.currLocalX > 0 &&
+			pf.currLocalZ > 0 &&
+			pf.directions[pf.localIndex(x, z)] == 0 &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, z, level), collision.FlagBlockSouthWestRouteBlocker, collisionType) {
+			clipFlag1 := collision.FlagBlockNorthAndSouthEastRouteBlocker
+			clipFlag2 := collision.FlagBlockNorthEastAndWestRouteBlocker
+			blocked := false
+			for index := 1; index < srcSize; index++ {
+				if !collision.CanMove(pf.collisionFlag(baseX, baseZ, x, pf.currLocalZ+index-1, level), clipFlag1, collisionType) ||
+					!collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+index-1, z, level), clipFlag2, collisionType) {
+					blocked = true
+					break
+				}
+			}
+			if !blocked {
+				pf.appendDirection(x, z, dirFlag, nextDistance)
+			}
+		}
+
+		// northwest to southeast
+		x = pf.currLocalX + 1
+		z = pf.currLocalZ - 1
+		dirFlag = flag.DirectionNorthwest
+		if pf.currLocalX < relativeSearchSize &&
+			pf.currLocalZ > 0 &&
+			pf.directions[pf.localIndex(x, z)] == 0 &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+srcSize, z, level), collision.FlagBlockSouthEastRouteBlocker, collisionType) {
+			clipFlag1 := collision.FlagBlockNorthAndSouthWestRouteBlocker
+			clipFlag2 := collision.FlagBlockNorthEastAndWestRouteBlocker
+			blocked := false
+			for index := 1; index < srcSize; index++ {
+				if !collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+srcSize, pf.currLocalZ+index-1, level), clipFlag1, collisionType) ||
+					!collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+index, z, level), clipFlag2, collisionType) {
+					blocked = true
+					break
+				}
+			}
+			if !blocked {
+				pf.appendDirection(x, z, dirFlag, nextDistance)
+			}
+		}
+
+		// southeast to northwest
+		x = pf.currLocalX - 1
+		z = pf.currLocalZ + 1
+		dirFlag = flag.DirectionSoutheast
+		if pf.currLocalX > 0 &&
+			pf.currLocalZ < relativeSearchSize &&
+			pf.directions[pf.localIndex(x, z)] == 0 &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, x, pf.currLocalZ+srcSize, level), collision.FlagBlockNorthWestRouteBlocker, collisionType) {
+			clipFlag1 := collision.FlagBlockNorthAndSouthEastRouteBlocker
+			clipFlag2 := collision.FlagBlockSouthEastAndWestRouteBlocker
+			blocked := false
+			for index := 1; index < srcSize; index++ {
+				if !collision.CanMove(pf.collisionFlag(baseX, baseZ, x, pf.currLocalZ+index, level), clipFlag1, collisionType) ||
+					!collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+index-1, pf.currLocalZ+srcSize, level), clipFlag2, collisionType) {
+					blocked = true
+					break
+				}
+			}
+			if !blocked {
+				pf.appendDirection(x, z, dirFlag, nextDistance)
+			}
+		}
+
+		// southwest to northeast
+		x = pf.currLocalX + 1
+		z = pf.currLocalZ + 1
+		dirFlag = flag.DirectionSouthwest
+		if pf.currLocalX < relativeSearchSize &&
+			pf.currLocalZ < relativeSearchSize &&
+			pf.directions[pf.localIndex(x, z)] == 0 &&
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+srcSize, pf.currLocalZ+srcSize, level), collision.FlagBlockNorthEastRouteBlocker, collisionType) {
+			clipFlag1 := collision.FlagBlockSouthEastAndWestRouteBlocker
+			clipFlag2 := collision.FlagBlockNorthAndSouthWestRouteBlocker
 			blocked := false
 			for index := 1; index < srcSize; index++ {
 				if !collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+index, pf.currLocalZ+srcSize, level), clipFlag1, collisionType) ||
