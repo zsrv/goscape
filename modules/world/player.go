@@ -35,6 +35,13 @@ const (
 	restrictedEventLimit = 2
 	afkEventRate         = 500
 
+	// afkChance1 / afkChance2 mirror TS World.ts:128-129:
+	//   AFK_CHANCE1 = 1/(120/5) = 1/24 (~4.17% per AFK_EVENTRATE)
+	//   AFK_CHANCE2 = 1/(60/5)  = 1/12 (~8.33% per AFK_EVENTRATE, used
+	//                                   while the player is "zonesAfk").
+	afkChance1 = 1.0 / 24.0
+	afkChance2 = 1.0 / 12.0
+
 	modalStateNone = 0x0
 	modalStateMain = 0x1
 	modalStateChat = 0x2
@@ -1110,7 +1117,14 @@ func (p *Player) processIn(currentTick int) {
 	p.playtime++
 
 	if currentTick%afkEventRate == 0 {
-		p.afkEventReady = rand.Float64() < 0.0167 // AFK_CHANCE1 from TS
+		// TS World.ts:608 — players whose afk-zone tracker has saturated
+		// (zonesAfk()) roll against the higher AFK_CHANCE2 (1/12); everyone
+		// else rolls against AFK_CHANCE1 (1/24).
+		chance := afkChance1
+		if p.IsZonesAfk() {
+			chance = afkChance2
+		}
+		p.afkEventReady = rand.Float64() < chance
 	}
 
 	c := p.client

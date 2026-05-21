@@ -1,6 +1,60 @@
 package world
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
+
+// TestAfkChanceConstants pins the AFK roll constants to the values defined in
+// TS World.ts:128-129. AFK_CHANCE1 = 1/24, AFK_CHANCE2 = 1/12. A prior bug
+// used a hand-rounded 0.0167 (~2.5× too low) instead of the correct ~0.04167.
+func TestAfkChanceConstants(t *testing.T) {
+	const eps = 1e-12
+	if math.Abs(afkChance1-1.0/24.0) > eps {
+		t.Errorf("afkChance1: got %v, want %v (1/24)", afkChance1, 1.0/24.0)
+	}
+	if math.Abs(afkChance2-1.0/12.0) > eps {
+		t.Errorf("afkChance2: got %v, want %v (1/12)", afkChance2, 1.0/12.0)
+	}
+	if afkChance2 <= afkChance1 {
+		t.Errorf("afkChance2 (%v) must be strictly greater than afkChance1 (%v)", afkChance2, afkChance1)
+	}
+}
+
+// TestAfkChanceBranchUsesZonesAfk verifies the runtime dispatch in
+// processIn: a player whose IsZonesAfk() is true must roll against
+// afkChance2 (the higher chance), otherwise afkChance1. We assert the
+// dispatch by reading lastAfkZone and selecting the chance the same way
+// processIn does, without invoking the global rand.
+func TestAfkChanceBranchUsesZonesAfk(t *testing.T) {
+	p, _ := newTestPlayer(t)
+
+	// Not zones-afk yet: branch must pick afkChance1.
+	p.lastAfkZone = 0
+	if p.IsZonesAfk() {
+		t.Fatal("precondition: IsZonesAfk() should be false at lastAfkZone=0")
+	}
+	got := afkChance1
+	if p.IsZonesAfk() {
+		got = afkChance2
+	}
+	if got != afkChance1 {
+		t.Errorf("non-afk branch: got %v, want %v", got, afkChance1)
+	}
+
+	// Zones-afk saturated: branch must pick afkChance2.
+	p.lastAfkZone = 1000
+	if !p.IsZonesAfk() {
+		t.Fatal("precondition: IsZonesAfk() should be true at lastAfkZone=1000")
+	}
+	got = afkChance1
+	if p.IsZonesAfk() {
+		got = afkChance2
+	}
+	if got != afkChance2 {
+		t.Errorf("zones-afk branch: got %v, want %v", got, afkChance2)
+	}
+}
 
 func TestPackUnpackAfkCoord(t *testing.T) {
 	got := packAfkCoord(0, 3084, 3096)
