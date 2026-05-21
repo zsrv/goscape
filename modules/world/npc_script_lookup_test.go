@@ -28,6 +28,8 @@ func (f *fakeLineValidator) HasLineOfWalk(level, srcX, srcZ, destX, destZ, srcSi
 type recordingFakeLineValidator struct {
 	losLevel, losSrcX, losSrcZ, losDestX, losDestZ int
 	losReturn                                      bool
+	lowLevel, lowSrcX, lowSrcZ, lowDestX, lowDestZ int
+	lowReturn                                      bool
 }
 
 func (r *recordingFakeLineValidator) HasLineOfSight(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, extraFlag int) bool {
@@ -36,7 +38,8 @@ func (r *recordingFakeLineValidator) HasLineOfSight(level, srcX, srcZ, destX, de
 }
 
 func (r *recordingFakeLineValidator) HasLineOfWalk(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, extraFlag int) bool {
-	return false
+	r.lowLevel, r.lowSrcX, r.lowSrcZ, r.lowDestX, r.lowDestZ = level, srcX, srcZ, destX, destZ
+	return r.lowReturn
 }
 
 // setupLookupServer returns a Server with npcLookup bound and NpcTypes 7
@@ -323,6 +326,25 @@ func TestFindClosestNpcByType_LineOfSightArgShape(t *testing.T) {
 	}
 }
 
+// TestFindClosestNpcByType_LineOfWalkArgShape pins the LoW arg tuple
+// per TS NpcIterator DISTANCE-mode at ScriptIterators.ts:351:
+// isLineOfWalk(level, lookupX, lookupZ, npc.x, npc.z) — iterator-as-src
+// ordering. Guards NAI-166-D-LOW-ARG-SHAPE-SWEEP precedent at the
+// FindClosest call site. Mirror of TestFindClosestNpcByType_LineOfSightArgShape.
+func TestFindClosestNpcByType_LineOfWalkArgShape(t *testing.T) {
+	s := setupLookupServer(t)
+	rec := &recordingFakeLineValidator{lowReturn: true}
+	s.lineValidatorOverride = rec
+	npc := setupNpc(t, s, 51, 52, 3)
+	npc.typeId = 7
+
+	_ = s.npcLookup.FindClosestNpcByType(3, 50, 50, 30, 7, int(objtype.HuntVisLineOfWalk))
+	if rec.lowLevel != 3 || rec.lowSrcX != 50 || rec.lowSrcZ != 50 || rec.lowDestX != 51 || rec.lowDestZ != 52 {
+		t.Errorf("LoW arg shape: got (level=%d, src=%d,%d, dst=%d,%d), want (3, 50, 50, 51, 52) — lookup-as-src",
+			rec.lowLevel, rec.lowSrcX, rec.lowSrcZ, rec.lowDestX, rec.lowDestZ)
+	}
+}
+
 // TestFindClosestNpcByCategory_HuntVisOff_Baseline — regression guard
 // for NPC_FINDCAT, mirror of TestFindClosestNpcByType_HuntVisOff_Baseline.
 func TestFindClosestNpcByCategory_HuntVisOff_Baseline(t *testing.T) {
@@ -381,5 +403,45 @@ func TestFindClosestNpcByCategory_NilLineValidator_PessimisticAllow(t *testing.T
 	got := s.npcLookup.FindClosestNpcByCategory(0, 50, 50, 30, 5, int(objtype.HuntVisLineOfSight))
 	if got == nil {
 		t.Error("nil-validator + LoS huntvis should pessimistically allow")
+	}
+}
+
+// TestFindClosestNpcByCategory_LineOfSightArgShape pins the LoS arg
+// tuple per TS NpcIterator DISTANCE-mode at ScriptIterators.ts:348:
+// isLineOfSight(level, lookupX, lookupZ, npc.x, npc.z) — iterator-as-src
+// ordering. Guards NAI-166-D-LOW-ARG-SHAPE-SWEEP precedent at the
+// FindClosest call site. Mirror of TestFindClosestNpcByType_LineOfSightArgShape
+// for the Category variant.
+func TestFindClosestNpcByCategory_LineOfSightArgShape(t *testing.T) {
+	s := setupLookupServer(t)
+	rec := &recordingFakeLineValidator{losReturn: true}
+	s.lineValidatorOverride = rec
+	npc := setupNpc(t, s, 51, 52, 3)
+	npc.typeId = 7 // category 5 per setupLookupServer
+
+	_ = s.npcLookup.FindClosestNpcByCategory(3, 50, 50, 30, 5, int(objtype.HuntVisLineOfSight))
+	if rec.losLevel != 3 || rec.losSrcX != 50 || rec.losSrcZ != 50 || rec.losDestX != 51 || rec.losDestZ != 52 {
+		t.Errorf("LoS arg shape: got (level=%d, src=%d,%d, dst=%d,%d), want (3, 50, 50, 51, 52) — lookup-as-src",
+			rec.losLevel, rec.losSrcX, rec.losSrcZ, rec.losDestX, rec.losDestZ)
+	}
+}
+
+// TestFindClosestNpcByCategory_LineOfWalkArgShape pins the LoW arg
+// tuple per TS NpcIterator DISTANCE-mode at ScriptIterators.ts:351:
+// isLineOfWalk(level, lookupX, lookupZ, npc.x, npc.z) — iterator-as-src
+// ordering. Guards NAI-166-D-LOW-ARG-SHAPE-SWEEP precedent at the
+// FindClosest call site. Mirror of TestFindClosestNpcByType_LineOfWalkArgShape
+// for the Category variant.
+func TestFindClosestNpcByCategory_LineOfWalkArgShape(t *testing.T) {
+	s := setupLookupServer(t)
+	rec := &recordingFakeLineValidator{lowReturn: true}
+	s.lineValidatorOverride = rec
+	npc := setupNpc(t, s, 51, 52, 3)
+	npc.typeId = 7 // category 5 per setupLookupServer
+
+	_ = s.npcLookup.FindClosestNpcByCategory(3, 50, 50, 30, 5, int(objtype.HuntVisLineOfWalk))
+	if rec.lowLevel != 3 || rec.lowSrcX != 50 || rec.lowSrcZ != 50 || rec.lowDestX != 51 || rec.lowDestZ != 52 {
+		t.Errorf("LoW arg shape: got (level=%d, src=%d,%d, dst=%d,%d), want (3, 50, 50, 51, 52) — lookup-as-src",
+			rec.lowLevel, rec.lowSrcX, rec.lowSrcZ, rec.lowDestX, rec.lowDestZ)
 	}
 }
