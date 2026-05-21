@@ -24,7 +24,7 @@ type PathFinderAPI struct {
 // new one for each world
 func NewPathFinderAPI() PathFinderAPI {
 	var pf PathFinderAPI
-	pf.Flags = collision.NewFlagMap() // TODO: this might have to be a pointer, OR pass address of it to the other funcs below
+	pf.Flags = collision.NewFlagMap()
 	pf.RouteFinder = NewRouteFinderDefault(pf.Flags)
 	pf.StepValidator = NewStepValidator(pf.Flags)
 	pf.LineValidator = NewLineValidator(pf.Flags)
