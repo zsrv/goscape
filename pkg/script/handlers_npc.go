@@ -901,8 +901,8 @@ func handleNpcFindAllZone(s *ScriptState) error {
 // Nil-Npcs degrades silently (matches NPC_FINDALL convention).
 //
 // NAI-35-T3: HuntAll-mode iterator activated LoS/LoW filtering at the
-// passesFilter HuntAll branch. Distance mode and FindClosestNpc*
-// followed at NAI-33-D1 retire (TS ScriptIterators.ts:348-352).
+// passesFilter HuntAll branch. Distance mode and FindClosestNpc* were
+// closed at NAI-33-D1 retire (TS ScriptIterators.ts:348-352).
 func handleNpcHuntAll(s *ScriptState) error {
 	checkVis := s.PopInt()
 	distance := s.PopInt()

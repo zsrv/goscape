@@ -193,8 +193,9 @@ type InvLookup interface {
 // production impl.
 //
 // huntvis accepts HuntVisOff/LineOfSight/LineOfWalk (pkg/objtype.HuntVis*).
-// Implementations apply LoS/LoW filtering per TS Distance-mode semantics
-// (ScriptIterators.ts:348-352); callers validate via checkHuntVis upstream.
+// The production impl (serverNpcLookup) applies LoS/LoW filtering per TS
+// Distance-mode semantics (ScriptIterators.ts:348-352); callers validate
+// via checkHuntVis upstream.
 type NpcLookup interface {
 	// FindClosestNpcByType: NPC_FIND semantics. Square-bounded by dist
 	// from (level, x, z); filter by typeID; closest by euclidean-squared
