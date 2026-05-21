@@ -10,7 +10,7 @@
 Wire `checkInvType` at every read-side and inline-registry handler in `pkg/script/handlers_inv.go` that currently checks InvType identity via either:
 
 - **Shape A:** `resolveInv(s, typeID) == nil` only (no registry check, just player-container check) — 9 sites.
-- **Shape B:** inline `s.Configs.InvType(id) == nil` with bespoke error wording — 2 sites.
+- **Shape B:** inline `s.Configs.InvType(id) == nil` with bespoke error wording — 3 sites.
 
 After this slice, every script-input InvType id in `handlers_inv.go` flows through the canonical `checkInvType` validator first (mirroring TS `check(inv, InvTypeValid)` from `InvOps.ts`), with consistent `"%s: no InvType with value (%d) found"` error wording on registry miss.
 
@@ -122,12 +122,13 @@ Note: only ONE handler (`handleInvTotal`) has a pre-validator short-circuit. The
 
 **Defensive doc-comment retention:** the `// Defensive: unreachable post-checkInvType ...` comment is copied verbatim per site, matching the `handleInvAdd:369-370` precedent exactly. This is the only comment addition per site.
 
-### 4.2 Shape B — inline registry-check canonicalization (2 sites)
+### 4.2 Shape B — inline registry-check canonicalization (3 sites)
 
-| # | Handler              | Line   | Current bespoke wording                 |
-|---|----------------------|--------|------------------------------------------|
-| 10 | `handleInvDropSlot` | `:795` | `"INV_DROPSLOT: invalid inv id (%d)"`   |
-| 11 | `handleInvDropAll`  | `:1801`| `"INV_DROPALL: invalid inv id (%d)"`    |
+| #  | Handler              | Line    | Current bespoke wording                      |
+|----|----------------------|---------|-----------------------------------------------|
+| 10 | `handleInvDropSlot`  | `:795`  | `"INV_DROPSLOT: invalid inv id (%d)"`        |
+| 11 | `handleBothDropSlot` | `:1658` | `"BOTH_DROPSLOT: invalid inv id (%d)"`       |
+| 12 | `handleInvDropAll`   | `:1801` | `"INV_DROPALL: invalid inv id (%d)"`         |
 
 **Wiring pattern (per site):**
 
@@ -145,7 +146,7 @@ if err := checkInvType(s, invID, "INV_DROPSLOT"); err != nil {
 invType := s.Configs.InvType(invID)  // preserved for downstream field access
 ```
 
-Both handlers access `invType.Protect` / `invType.Scope` downstream (DROPSLOT at `:812-820`, DROPALL at `:1818-1828`), so the local var must be preserved per the "preserve local var" rule from [[registry-presence-validators-wiring-close]] §5.4. Neither qualifies for OBJ_FIND's "no local var" exception (which applied only because OBJ_FIND used the id solely for downstream lookup).
+All three handlers access `invType.Protect` / `invType.Scope` downstream (DROPSLOT at `:812-820`, BOTH_DROPSLOT at the protect/scope gate further down the function, DROPALL at `:1818-1828`), so the local var must be preserved per the "preserve local var" rule from [[registry-presence-validators-wiring-close]] §5.4. None qualifies for OBJ_FIND's "no local var" exception (which applied only because OBJ_FIND used the id solely for downstream lookup).
 
 ## 5. Out of scope
 
@@ -206,9 +207,14 @@ Cite findings in the implementation plan's audit table.
 - `go test -race ./...` 0 FAIL.
 - `go test -run TestPackAll_TwelveStageSmoke` PASS.
 - Audit-greps (deltas vs HEAD, not absolute counts — many pre-existing wired sites already have the defensive `"no inv for type"` fallthrough):
-  - `grep -c '"invalid inv id"' pkg/script/handlers_inv.go` → expect **0** post-slice (only 2 bespoke hits today at `:797`/`:1803`, both canonicalized in scope).
-  - `grep -c "no inv for type" pkg/script/handlers_inv.go` → expect **+9** vs HEAD (one new defensive fallthrough per Shape A wire; Shape B sites do NOT add a defensive — DROPSLOT has its own `:828-830 "INV_DROPSLOT: inv unresolved (id=%d)"` post-resolve check; DROPALL silently returns nil at `:1834-1836`).
-  - `grep -c "checkInvType(s, " pkg/script/handlers_inv.go` → expect **+11** vs HEAD (9 Shape A + 2 Shape B).
+- Audit-grep baseline counts at HEAD `10276e74`:
+  - `grep -c "checkInvType(s, " pkg/script/handlers_inv.go` → **23**
+  - `grep -c "no inv for type" pkg/script/handlers_inv.go` → **15**
+  - `grep -c "invalid inv id" pkg/script/handlers_inv.go` → **3** (the 3 Shape B sites)
+- Audit-grep expected post-slice (deltas vs baseline):
+  - `grep -c "checkInvType(s, " pkg/script/handlers_inv.go` → expect **35** (+12; 9 new Shape A calls + 3 new Shape B calls replacing inline checks).
+  - `grep -c "no inv for type" pkg/script/handlers_inv.go` → expect **15** (no change; Shape A wires preserve the existing `"no inv for type"` line as the defensive fallthrough, they don't add a new one; Shape B wires don't touch "no inv for type" lines).
+  - `grep -c "invalid inv id" pkg/script/handlers_inv.go` → expect **0** (−3; all Shape B bespoke wording canonicalized via `checkInvType`).
 
 ## 9. Cadence
 
