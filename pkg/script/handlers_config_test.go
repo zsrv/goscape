@@ -864,9 +864,35 @@ func TestNcVisLevel(t *testing.T) {
 	}
 }
 
+// TestNcUnknownIdErrors pins canonical "<TAG>: no NpcType with value (999)
+// found" rejection at every Configs-side NC_* handler wired with checkNpcType
+// that pops an explicit npcID. NPC_PARAM (active-npc form) reads typeID from
+// state.ActiveNpc and is covered separately by TestNpcParamUnknownNpcIdErrors.
+//
+// 2-arg rows (NC_PARAM, NC_OP) push [npcID=999, secondArg=1]; handlers pop
+// the second arg first then the npcID, so checkNpcType sees 999.
 func TestNcUnknownIdErrors(t *testing.T) {
 	mc := newTestConfigs()
-	runConfigOpExpectErr(t, mc, OpNcName, []int{999}, "no NpcType with value (999) found")
+	cases := []struct {
+		op     Opcode
+		inputs []int
+		tag    string
+	}{
+		{OpNcName, []int{999}, "NC_NAME"},
+		{OpNcParam, []int{999, 1}, "NC_PARAM"},
+		{OpNcCategory, []int{999}, "NC_CATEGORY"},
+		{OpNcDesc, []int{999}, "NC_DESC"},
+		{OpNcDebugName, []int{999}, "NC_DEBUGNAME"},
+		{OpNcOp, []int{999, 1}, "NC_OP"},
+		{OpNcSize, []int{999}, "NC_SIZE"},
+		{OpNcVisLevel, []int{999}, "NC_VISLEVEL"},
+	}
+	for _, c := range cases {
+		t.Run(c.tag, func(t *testing.T) {
+			runConfigOpExpectErr(t, mc, c.op, c.inputs,
+				c.tag+": no NpcType with value (999) found")
+		})
+	}
 }
 
 // -- ObjConfigOps tests --
@@ -879,9 +905,42 @@ func TestOcName(t *testing.T) {
 	}
 }
 
-func TestOcNameUnknownIdErrors(t *testing.T) {
+// TestOcUnknownIdErrors pins canonical "<TAG>: no ObjType with value (999)
+// found" rejection at every Configs-side OC_* handler wired with checkObjType.
+// OC_PARAM's unknown-PARAM path (vs unknown-OBJ path pinned here) is covered
+// separately by TestOcParamUnknownParamErrors.
+//
+// OC_PARAM pushes [objID=999, paramID=1]; handler pops paramID first then
+// objID, so checkObjType sees 999 before the (unreached) paramLookup.
+func TestOcUnknownIdErrors(t *testing.T) {
 	mc := newTestConfigs()
-	runConfigOpExpectErr(t, mc, OpOcName, []int{999}, "no ObjType with value (999) found")
+	cases := []struct {
+		op     Opcode
+		inputs []int
+		tag    string
+	}{
+		{OpOcName, []int{999}, "OC_NAME"},
+		{OpOcParam, []int{999, 1}, "OC_PARAM"},
+		{OpOcCategory, []int{999}, "OC_CATEGORY"},
+		{OpOcDesc, []int{999}, "OC_DESC"},
+		{OpOcMembers, []int{999}, "OC_MEMBERS"},
+		{OpOcWeight, []int{999}, "OC_WEIGHT"},
+		{OpOcWearPos, []int{999}, "OC_WEARPOS"},
+		{OpOcWearPos2, []int{999}, "OC_WEARPOS2"},
+		{OpOcWearPos3, []int{999}, "OC_WEARPOS3"},
+		{OpOcCost, []int{999}, "OC_COST"},
+		{OpOcTradeable, []int{999}, "OC_TRADEABLE"},
+		{OpOcDebugName, []int{999}, "OC_DEBUGNAME"},
+		{OpOcCert, []int{999}, "OC_CERT"},
+		{OpOcUncert, []int{999}, "OC_UNCERT"},
+		{OpOcStackable, []int{999}, "OC_STACKABLE"},
+	}
+	for _, c := range cases {
+		t.Run(c.tag, func(t *testing.T) {
+			runConfigOpExpectErr(t, mc, c.op, c.inputs,
+				c.tag+": no ObjType with value (999) found")
+		})
+	}
 }
 
 func TestOcParamInt(t *testing.T) {
