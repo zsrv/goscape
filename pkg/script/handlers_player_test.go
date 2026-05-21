@@ -3541,7 +3541,7 @@ func TestHandleSetIdKitInvalidIdkit(t *testing.T) {
 	s.PushInt(5) // idkit=5 — not in registry (pushed first = below)
 	s.PushInt(0) // color (pushed last = top)
 	if err := handleSetIdKit(s); err == nil {
-		t.Error("want error for invalid idkit, got nil")
+		t.Error("want error for unknown idkit, got nil")
 	}
 }
 

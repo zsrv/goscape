@@ -97,10 +97,10 @@ func handleEnum(s *ScriptState) error {
 	outputType := s.PopInt()
 	inputType := s.PopInt()
 
-	et := s.Configs.EnumType(enumID)
-	if et == nil {
-		return fmt.Errorf("ENUM: unknown enum id %d", enumID)
+	if err := checkEnumType(s, enumID, "ENUM"); err != nil {
+		return err
 	}
+	et := s.Configs.EnumType(enumID)
 	if int(et.InputType) != inputType || int(et.OutputType) != outputType {
 		return fmt.Errorf("ENUM: type validation error for %q key %d: expected input %d got %d, expected output %d got %d",
 			et.DebugName, key, inputType, int(et.InputType), outputType, int(et.OutputType))
@@ -139,10 +139,10 @@ func handleEnumGetOutputCount(s *ScriptState) error {
 		return err
 	}
 	enumID := s.PopInt()
-	et := s.Configs.EnumType(enumID)
-	if et == nil {
-		return fmt.Errorf("ENUM_GETOUTPUTCOUNT: unknown enum id %d", enumID)
+	if err := checkEnumType(s, enumID, "ENUM_GETOUTPUTCOUNT"); err != nil {
+		return err
 	}
+	et := s.Configs.EnumType(enumID)
 	s.PushInt(len(et.Values))
 	return nil
 }
@@ -157,10 +157,10 @@ func handleStructParam(s *ScriptState) error {
 	}
 	paramID := s.PopInt()
 	structID := s.PopInt()
-	st := s.Configs.StructType(structID)
-	if st == nil {
-		return fmt.Errorf("STRUCT_PARAM: unknown struct id %d", structID)
+	if err := checkStructType(s, structID, "STRUCT_PARAM"); err != nil {
+		return err
 	}
+	st := s.Configs.StructType(structID)
 	return paramLookup(s, st.Params, paramID, "STRUCT_PARAM")
 }
 

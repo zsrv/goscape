@@ -250,13 +250,10 @@ func handleSetIdKit(s *ScriptState) error {
 	}
 	color := s.PopInt()
 	idkit := s.PopInt()
-	if s.Configs == nil {
-		return fmt.Errorf("SETIDKIT: invalid idkit %d", idkit)
+	if err := checkIdkType(s, idkit, "SETIDKIT"); err != nil {
+		return err
 	}
 	idk := s.Configs.IdkType(idkit)
-	if idk == nil {
-		return fmt.Errorf("SETIDKIT: invalid idkit %d", idkit)
-	}
 	gender := s.Self.Gender()
 	slot := idk.Type
 	if gender == 1 {

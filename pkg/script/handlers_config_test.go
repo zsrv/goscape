@@ -536,7 +536,7 @@ func TestEnumUnknownIdErrors(t *testing.T) {
 		int(objtype.ScriptVarTypeString),
 		999,
 		1,
-	}, "unknown enum id")
+	}, "no EnumType with value")
 }
 
 func TestEnumGetOutputCount(t *testing.T) {
@@ -549,7 +549,7 @@ func TestEnumGetOutputCount(t *testing.T) {
 
 func TestEnumGetOutputCountUnknownErrors(t *testing.T) {
 	mc := newTestConfigs()
-	runConfigOpExpectErr(t, mc, OpEnumGetOutputCount, []int{999}, "unknown enum id")
+	runConfigOpExpectErr(t, mc, OpEnumGetOutputCount, []int{999}, "no EnumType with value")
 }
 
 // -- StructOps tests --
@@ -574,7 +574,7 @@ func TestStructParamMissingKeyFallsBackToParamDefault(t *testing.T) {
 
 func TestStructParamUnknownStructErrors(t *testing.T) {
 	mc := newTestConfigs()
-	runConfigOpExpectErr(t, mc, OpStructParam, []int{999, 1}, "unknown struct id")
+	runConfigOpExpectErr(t, mc, OpStructParam, []int{999, 1}, "no StructType with value")
 }
 
 // -- LocConfigOps tests --
