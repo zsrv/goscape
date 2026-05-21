@@ -159,9 +159,13 @@ func (n *Npc) SetFaceEntity(entityIndex int) {
 // (S6d; extended to the full array in NAI-17); scripts calling NPC_STAT(0)
 // on later ticks see real decremented HP.
 //
-// This method is a pure output op — no death / auto-retaliate / aggro logic.
-// Scripts that need death handling should check NPC_STAT(0) and fire their
-// own despawn flow. The AI sub-spec will later ship a real combat loop.
+// This method is a pure output op — no death / auto-retaliate / aggro logic,
+// matching TS Npc.applyDamage (which is itself called only from the
+// NPC_DAMAGE script handler at NpcOps.ts:267). Death is content-script
+// driven in TS too — there is no engine-side death trigger. Content
+// scripts check NPC_STAT(0)<=0 and call npc_del; the engine path from
+// there (handleNpcDel → Server.removeNpc → NpcLifecycleRespawn at
+// npc_ai.go:26-65 → revertType + AI_SPAWN) is already wired.
 func (n *Npc) Damage(amount, dmgType int) {
 	if amount < 0 {
 		amount = 0

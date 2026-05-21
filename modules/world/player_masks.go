@@ -133,8 +133,13 @@ func (p *Player) ResetMasks() {
 // certainly an unintended consequence of unsigned-input assumptions; we
 // match the *Npc.Damage convention from S6c instead.
 //
-// This is a pure output op — no death / auto-retaliate / aggro logic.
-// Death/respawn/regen belong in a future combat sub-spec.
+// This is a pure output op — no death / auto-retaliate / aggro logic,
+// matching TS Player.applyDamage (which is itself called only from the
+// DAMAGE script handler at PlayerOps.ts:778). Player death is fully
+// content-script driven in TS — there is no engine-side death trigger
+// (ServerTriggerType.ts enumerates 167 triggers, zero death-specific).
+// Content scripts detect HP=0 via STAT(0) and drive death via AI_QUEUE
+// triggers; goscape mirrors this faithfully.
 func (p *Player) Damage(amount, dmgType int) {
 	if amount < 0 {
 		amount = 0
@@ -151,12 +156,14 @@ func (p *Player) Damage(amount, dmgType int) {
 }
 
 // ResetHP restores levels[Hitpoints] to baseLevels[Hitpoints] — the
-// player's "full HP" state. Called by respawn paths and certain script
-// triggers in future sub-specs. Boost/drain effects on Hitpoints are
-// wiped (RS2 convention: respawn fills to base, not boosted-max).
+// player's "full HP" state. Boost/drain effects on Hitpoints are wiped
+// (RS2 convention: respawn fills to base, not boosted-max).
 //
-// No direct TS counterpart — TS performs HP refill inline within death
-// handling. This Go-side helper makes the intent reusable.
+// No direct TS counterpart — TS performs HP refill inline within
+// content-driven death/respawn scripts. This Go-side helper exists so
+// the eventual content-driven respawn opcode wiring has a single reusable
+// seam; currently has no production callers (test-only invocation pins
+// the body shape).
 func (p *Player) ResetHP() {
 	p.levels[objtype.PlayerStatHitpoints] = p.baseLevels[objtype.PlayerStatHitpoints]
 }

@@ -870,8 +870,10 @@ type ActiveNpc interface {
 
 	// Damage applies `amount` damage of `dmgType` to the NPC this tick,
 	// flagging NpcMaskDamage. Decrements curHP (clamped at 0). Does NOT
-	// trigger death handling or auto-retaliate — those belong in a future
-	// NPC AI sub-spec.
+	// trigger death handling or auto-retaliate, mirroring TS Npc.applyDamage
+	// (Npc.ts:472-485) — death is content-script driven in TS too. Content
+	// scripts check NPC_STAT(0)<=0 and dispatch npc_del to wake the engine
+	// lifecycle path (modules/world/npc_ai.go).
 	Damage(amount, dmgType int)
 
 	// StoreActiveScript saves a NpcSuspended ScriptState so Npc.turn()
