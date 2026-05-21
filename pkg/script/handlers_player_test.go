@@ -5335,7 +5335,8 @@ func TestHandleSetGender_DispatchesToSetter(t *testing.T) {
 
 // TestHandleSetGender_AcceptsZeroEdge pins the lower boundary of the
 // inclusive [0, 1] range. Mirrors the predecessor slice's boundary-pin
-// pattern (TestHandleNpcQueueAcceptsZeroEdge).
+// pattern (the *AcceptsZeroEdge / *RejectsTwenty test convention used
+// across boundary-validator handler tests).
 func TestHandleSetGender_AcceptsZeroEdge(t *testing.T) {
 	mp := &mockPlayer{}
 	s := &ScriptState{

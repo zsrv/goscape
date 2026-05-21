@@ -103,17 +103,22 @@ func checkHitType(v int, op string) error {
 	return nil
 }
 
-// checkQueue validates an AI-queue identifier. Mirrors TS QueueValid
-// (ScriptValidators.ts:114) — ScriptInputRangeValidator(0, 19, 'AIQueue'),
-// inclusive range [0, 19]. Note: the call-site arithmetic at NPC_QUEUE /
-// NPC_WALKTRIGGER then subtracts 1 to index TriggerAiQueue1..20, which
-// means queueId=0 produces TriggerAiQueue1-1 (a garbage trigger one
-// before AI_QUEUE1). That fencepost is inherited from upstream TS and is
-// not exercised by any LostCityRS/Content script (audit: real callers
-// push 1..12); the inherited bug is pinned by
-// NAI-QUEUE-D-TS-FENCEPOST-INHERITED.
+// checkQueue validates an AI-queue identifier against the corrected
+// closed range [1, 20] inclusive. Deliberate deviation from TS
+// ScriptValidators.ts:114 (which uses [0, 19]) — TS's range combined
+// with the call-site `+queueId-1` arithmetic at NPC_QUEUE /
+// NPC_WALKTRIGGER admitted queueId=0 producing `TriggerAiQueue1 - 1`
+// (a garbage trigger one below AI_QUEUE1). The corrected range
+// matches actual LostCityRS/Content script usage (real first-args
+// ∈ {1..7, 10, 11, 12} for npc_queue, {8} for npc_walktrigger; no
+// script uses 0 or 20) and admits the previously-unreachable
+// queueId=20 → TriggerAiQueue20.
+//
+// Per goscape convention (cf. Player.Damage negative-amount clamp at
+// modules/world/player_masks.go), deliberate-deviation-for-correctness
+// is documented inline; no formal NAI-XXX-D-* pin is opened.
 func checkQueue(v int, op string) error {
-	if v < 0 || v > 19 {
+	if v < 1 || v > 20 {
 		return fmt.Errorf("%s: queue id out of range (%d)", op, v)
 	}
 	return nil
@@ -490,11 +495,11 @@ func handleNpcArriveDelay(s *ScriptState) error {
 
 // handleNpcQueue (NPC_QUEUE, opcode 2530) enqueues an ai_queueN
 // dispatch on the active NPC. Pop order: delay (top), arg, queueId
-// (bottom). queueId ∈ [0, 19] (TS QueueValid) maps to TriggerAiQueue1..20
-// via arithmetic: trigger = TriggerAiQueue1 + queueId - 1. Mirrors TS
-// NpcOps.ts:144-150, including the NumberNotNull check on delay
-// (closed in NAI-20). Validated via checkQueue (TS-literal [0, 19]
-// inclusive); the arg pop is unwrapped per TS.
+// (bottom). queueId ∈ [1, 20] (goscape deviation from TS-literal —
+// see checkQueue doc) maps to TriggerAiQueue1..20 via arithmetic:
+// trigger = TriggerAiQueue1 + queueId - 1. Mirrors TS NpcOps.ts:144-150,
+// including the NumberNotNull check on delay (closed in NAI-20). The
+// arg pop is unwrapped per TS.
 func handleNpcQueue(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_QUEUE"); err != nil {
 		return err
@@ -566,9 +571,10 @@ func handleNpcWalk(s *ScriptState) error {
 // handleNpcWalkTrigger (NPC_WALKTRIGGER, opcode 2545) sets a deferred
 // AI-queue trigger and arg on the active NPC; the trigger fires when
 // the NPC completes a walk step. Pop order: arg (top), queueID
-// (bottom). queueId ∈ [0, 19] (TS QueueValid); then queueId-1 mirrors
-// TS NpcOps.ts:488 storage (walktrigger = queueId - 1). Validated via
-// checkQueue. Mirrors TS NpcOps.ts:483-490. The walktrigger consumer
+// (bottom). queueId ∈ [1, 20] (goscape deviation from TS-literal —
+// see checkQueue doc); then queueId-1 mirrors TS NpcOps.ts:488 storage
+// (walktrigger = queueId - 1, so the stored field is 0-indexed
+// 0..19). Mirrors TS NpcOps.ts:483-490. The walktrigger consumer
 // fires from (*Npc).updateMovement (modules/world/npc_interaction.go,
 // NAI-51 T2.1).
 func handleNpcWalkTrigger(s *ScriptState) error {

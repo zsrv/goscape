@@ -115,16 +115,18 @@ func TestCheckHitType(t *testing.T) {
 	}
 }
 
-// TestCheckQueue_Range pins the [0, 19] inclusive range check. Mirrors
-// TS QueueValid (ScriptValidators.ts:114) —
-// ScriptInputRangeValidator(0, 19, 'AIQueue').
+// TestCheckQueue_Range pins the corrected [1, 20] inclusive range
+// (goscape deviation from TS-literal [0, 19] — see checkQueue doc).
+// queueId=0 now rejected (was admitted by TS-literal, producing the
+// inherited fencepost); queueId=20 now accepted (was rejected,
+// previously unreachable from script).
 func TestCheckQueue_Range(t *testing.T) {
-	for _, v := range []int{0, 1, 10, 19} {
+	for _, v := range []int{1, 10, 19, 20} {
 		if err := checkQueue(v, "TEST_OP"); err != nil {
 			t.Errorf("checkQueue(%d): unexpected error %v", v, err)
 		}
 	}
-	for _, v := range []int{-1, 20, 21, math.MinInt, math.MaxInt} {
+	for _, v := range []int{-1, 0, 21, math.MinInt, math.MaxInt} {
 		err := checkQueue(v, "TEST_OP")
 		if err == nil {
 			t.Errorf("checkQueue(%d): want error, got nil", v)
@@ -998,8 +1000,9 @@ func TestHandleNpcQueueWithoutActiveNpcErrors(t *testing.T) {
 	}
 }
 
-// TestHandleNpcQueueOutOfRangeErrors — queueID out of [0, 19]. Pins the
-// TS-literal range shift (was [1, 20] pre-NAI-QUEUE-D port).
+// TestHandleNpcQueueOutOfRangeErrors — queueID out of [1, 20]. Pins
+// the corrected closed range (goscape deviation from TS-literal
+// [0, 19] — see checkQueue doc).
 func TestHandleNpcQueueOutOfRangeErrors(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -1007,7 +1010,8 @@ func TestHandleNpcQueueOutOfRangeErrors(t *testing.T) {
 		wantErr string
 	}{
 		{"negative", -1, "NPC_QUEUE: queue id out of range (-1)"},
-		{"twenty", 20, "NPC_QUEUE: queue id out of range (20)"},
+		{"zero", 0, "NPC_QUEUE: queue id out of range (0)"},
+		{"twentyone", 21, "NPC_QUEUE: queue id out of range (21)"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1042,17 +1046,14 @@ func TestHandleNpcQueueOutOfRangeErrors(t *testing.T) {
 	}
 }
 
-// TestHandleNpcQueueAcceptsZeroEdge pins the TS-faithful fencepost:
-// queueID=0 now passes checkQueue and produces TriggerAiQueue1 - 1 (a
-// garbage trigger one before AI_QUEUE1). Inherited from upstream TS;
-// see NAI-QUEUE-D-TS-FENCEPOST-INHERITED. No LostCityRS/Content script
-// exercises this path. This test exists so a future contributor doesn't
-// "fix" the validator back to [1, 20] without recognizing the deliberate
-// divergence call.
-func TestHandleNpcQueueAcceptsZeroEdge(t *testing.T) {
+// TestHandleNpcQueueRejectsZero pins the lower-bound tightening:
+// queueID=0 (which TS-literal [0, 19] admitted, producing the
+// inherited TriggerAiQueue1-1 garbage) is now rejected at the
+// validator gate. Closes the lower half of the fencepost.
+func TestHandleNpcQueueRejectsZero(t *testing.T) {
 	npc := &mockNpc{}
 	sf := &ScriptFile{
-		Name: "npc_queue_zero_edge",
+		Name: "npc_queue_zero_reject",
 		Opcodes: []Opcode{
 			OpPushConstantInt, // queueID = 0
 			OpPushConstantInt, // arg = 0
@@ -1066,24 +1067,25 @@ func TestHandleNpcQueueAcceptsZeroEdge(t *testing.T) {
 	state.ActiveNpc = npc
 	state.Pointers |= PtrActiveNpc
 
-	if err := Execute(state); err != nil {
-		t.Fatalf("Execute: unexpected error %v (queueID=0 should pass TS-literal [0, 19])", err)
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for queueID=0 (now out of [1, 20]), got nil")
 	}
-	if len(npc.enqueueCalls) != 1 {
-		t.Fatalf("enqueueCalls: got %d, want 1", len(npc.enqueueCalls))
+	if !strings.Contains(err.Error(), "NPC_QUEUE: queue id out of range (0)") {
+		t.Errorf("error: got %q, want substring %q", err.Error(),
+			"NPC_QUEUE: queue id out of range (0)")
 	}
-	// queueID=0 → trigger = TriggerAiQueue1 + (0-1) = TriggerAiQueue1 - 1
-	wantTrigger := TriggerAiQueue1 - 1
-	if got := npc.enqueueCalls[0].trigger; got != wantTrigger {
-		t.Errorf("trigger: got %d, want %d (TriggerAiQueue1 - 1, the inherited TS fencepost)",
-			got, wantTrigger)
+	if len(npc.enqueueCalls) != 0 {
+		t.Errorf("enqueueCalls: got %d, want 0 (must not enqueue on rejection)",
+			len(npc.enqueueCalls))
 	}
 }
 
-// TestHandleNpcQueueRejectsTwenty pins the upper-bound shift: queueID=20
-// was accepted under goscape's pre-port [1, 20] range, now rejected
-// under TS-literal [0, 19].
-func TestHandleNpcQueueRejectsTwenty(t *testing.T) {
+// TestHandleNpcQueueAcceptsTwenty pins the upper-bound widening:
+// queueID=20 (which TS-literal [0, 19] rejected) now passes the
+// validator and dispatches TriggerAiQueue20 (previously unreachable
+// from script). Closes the upper half of the fencepost.
+func TestHandleNpcQueueAcceptsTwenty(t *testing.T) {
 	npc := &mockNpc{}
 	sf := &ScriptFile{
 		Name: "npc_queue_twenty",
@@ -1100,17 +1102,16 @@ func TestHandleNpcQueueRejectsTwenty(t *testing.T) {
 	state.ActiveNpc = npc
 	state.Pointers |= PtrActiveNpc
 
-	err := Execute(state)
-	if err == nil {
-		t.Fatalf("Execute: want error for queueID=20 (now out of [0, 19]), got nil")
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: unexpected error %v (queueID=20 should pass corrected [1, 20])", err)
 	}
-	if !strings.Contains(err.Error(), "NPC_QUEUE: queue id out of range (20)") {
-		t.Errorf("error: got %q, want substring %q", err.Error(),
-			"NPC_QUEUE: queue id out of range (20)")
+	if len(npc.enqueueCalls) != 1 {
+		t.Fatalf("enqueueCalls: got %d, want 1", len(npc.enqueueCalls))
 	}
-	if len(npc.enqueueCalls) != 0 {
-		t.Errorf("enqueueCalls: got %d, want 0 (must not enqueue on rejection)",
-			len(npc.enqueueCalls))
+	// queueID=20 → trigger = TriggerAiQueue1 + (20-1) = TriggerAiQueue20
+	if got, want := npc.enqueueCalls[0].trigger, TriggerAiQueue20; got != want {
+		t.Errorf("trigger: got %d, want %d (TriggerAiQueue20)",
+			got, want)
 	}
 }
 
@@ -3202,7 +3203,7 @@ func TestNpcWalkTrigger_NoActiveNpc_Errors(t *testing.T) {
 	}
 }
 
-func TestNpcWalkTrigger_QueueIDBelowZero_Errors(t *testing.T) {
+func TestNpcWalkTrigger_QueueIDBelowOne_Errors(t *testing.T) {
 	npc := &mockNpc{}
 	s := &ScriptState{
 		ActiveNpc:   npc,
@@ -3210,7 +3211,7 @@ func TestNpcWalkTrigger_QueueIDBelowZero_Errors(t *testing.T) {
 		StringStack: make([]string, StackCapacity),
 	}
 	// Push order: queueID (first → bottom), arg (second → top).
-	s.PushInt(-1) // queueID = -1 → invalid under [0, 19]
+	s.PushInt(-1) // queueID = -1 → invalid under [1, 20]
 	s.PushInt(5)  // arg
 	if err := handleNpcWalkTrigger(s); err == nil {
 		t.Fatalf("expected error for queueID=-1")
@@ -3221,7 +3222,7 @@ func TestNpcWalkTrigger_QueueIDBelowZero_Errors(t *testing.T) {
 	}
 }
 
-func TestNpcWalkTrigger_QueueIDAboveNineteen_Errors(t *testing.T) {
+func TestNpcWalkTrigger_QueueIDAboveTwenty_Errors(t *testing.T) {
 	npc := &mockNpc{}
 	s := &ScriptState{
 		ActiveNpc:   npc,
@@ -3229,56 +3230,61 @@ func TestNpcWalkTrigger_QueueIDAboveNineteen_Errors(t *testing.T) {
 		StringStack: make([]string, StackCapacity),
 	}
 	// Push order: queueID (first → bottom), arg (second → top).
-	s.PushInt(20) // queueID = 20 → invalid under [0, 19]
+	s.PushInt(21) // queueID = 21 → invalid under [1, 20]
 	s.PushInt(5)  // arg
 	if err := handleNpcWalkTrigger(s); err == nil {
-		t.Fatalf("expected error for queueID=20")
+		t.Fatalf("expected error for queueID=21")
 	}
 }
 
-// TestHandleNpcWalkTriggerAcceptsZeroEdge pins the TS-faithful fencepost:
-// queueID=0 now passes checkQueue and stores walktrigger = -1
-// (queueID - 1). See NAI-QUEUE-D-TS-FENCEPOST-INHERITED.
-func TestHandleNpcWalkTriggerAcceptsZeroEdge(t *testing.T) {
+// TestHandleNpcWalkTriggerRejectsZero pins the lower-bound tightening:
+// queueID=0 (which TS-literal [0, 19] admitted, storing walktrigger=-1
+// → garbage consumer trigger) is now rejected at the validator gate.
+// Closes the lower half of the fencepost.
+func TestHandleNpcWalkTriggerRejectsZero(t *testing.T) {
 	npc := &mockNpc{}
 	s := &ScriptState{
 		ActiveNpc:   npc,
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
 	}
-	s.PushInt(0) // queueID = 0 (was rejected, now accepted under TS-literal)
+	s.PushInt(0) // queueID = 0 (was admitted under TS-literal, now rejected)
 	s.PushInt(5) // arg
-	if err := handleNpcWalkTrigger(s); err != nil {
-		t.Fatalf("unexpected error: %v (queueID=0 should pass TS-literal [0, 19])", err)
-	}
-	if want := []int{-1}; !equalIntSlice(npc.walkTriggerCalls, want) {
-		t.Errorf("walkTriggerCalls: got %v, want %v (queueID-1 = -1, inherited TS fencepost)",
-			npc.walkTriggerCalls, want)
-	}
-}
-
-// TestHandleNpcWalkTriggerRejectsTwenty pins the upper-bound shift:
-// queueID=20 was accepted under [1, 20], now rejected under [0, 19].
-func TestHandleNpcWalkTriggerRejectsTwenty(t *testing.T) {
-	npc := &mockNpc{}
-	s := &ScriptState{
-		ActiveNpc:   npc,
-		IntStack:    make([]int, StackCapacity),
-		StringStack: make([]string, StackCapacity),
-	}
-	s.PushInt(20) // queueID = 20 (was accepted, now rejected)
-	s.PushInt(5)  // arg
 	err := handleNpcWalkTrigger(s)
 	if err == nil {
-		t.Fatalf("expected error for queueID=20")
+		t.Fatalf("expected error for queueID=0")
 	}
-	if !strings.Contains(err.Error(), "NPC_WALKTRIGGER: queue id out of range (20)") {
+	if !strings.Contains(err.Error(), "NPC_WALKTRIGGER: queue id out of range (0)") {
 		t.Errorf("error: got %q, want substring %q", err.Error(),
-			"NPC_WALKTRIGGER: queue id out of range (20)")
+			"NPC_WALKTRIGGER: queue id out of range (0)")
 	}
 	if len(npc.walkTriggerCalls) != 0 {
 		t.Errorf("walkTriggerCalls: got %d writes, want 0 on validation failure",
 			len(npc.walkTriggerCalls))
+	}
+}
+
+// TestHandleNpcWalkTriggerAcceptsTwenty pins the upper-bound widening:
+// queueID=20 (which TS-literal [0, 19] rejected) now passes the
+// validator and stores walktrigger=19 (queueID-1). The consumer at
+// modules/world/npc_interaction.go:299 then computes
+// TriggerAiQueue1+19 = TriggerAiQueue20 — previously unreachable from
+// script. Closes the upper half of the fencepost.
+func TestHandleNpcWalkTriggerAcceptsTwenty(t *testing.T) {
+	npc := &mockNpc{}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.PushInt(20) // queueID = 20 (was rejected, now accepted under [1, 20])
+	s.PushInt(5)  // arg
+	if err := handleNpcWalkTrigger(s); err != nil {
+		t.Fatalf("unexpected error: %v (queueID=20 should pass corrected [1, 20])", err)
+	}
+	if want := []int{19}; !equalIntSlice(npc.walkTriggerCalls, want) {
+		t.Errorf("walkTriggerCalls: got %v, want %v (queueID-1 = 19)",
+			npc.walkTriggerCalls, want)
 	}
 }
 
@@ -3305,36 +3311,36 @@ func TestNpcWalkTrigger_PopOrderAndTransform(t *testing.T) {
 }
 
 func TestNpcWalkTrigger_BoundaryQueueIDs(t *testing.T) {
-	t.Run("queueID=0", func(t *testing.T) {
+	t.Run("queueID=1", func(t *testing.T) {
 		npc := &mockNpc{}
 		s := &ScriptState{
 			ActiveNpc:   npc,
 			IntStack:    make([]int, StackCapacity),
 			StringStack: make([]string, StackCapacity),
 		}
-		s.PushInt(0) // queueID (lower boundary under TS-literal [0, 19])
+		s.PushInt(1) // queueID (lower boundary under corrected [1, 20])
 		s.PushInt(0) // arg
 		if err := handleNpcWalkTrigger(s); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if want := []int{-1}; !equalIntSlice(npc.walkTriggerCalls, want) {
-			t.Errorf("queueID=0 → walktrigger=-1 (queueID-1); got %v", npc.walkTriggerCalls)
+		if want := []int{0}; !equalIntSlice(npc.walkTriggerCalls, want) {
+			t.Errorf("queueID=1 → walktrigger=0 (queueID-1); got %v", npc.walkTriggerCalls)
 		}
 	})
-	t.Run("queueID=19", func(t *testing.T) {
+	t.Run("queueID=20", func(t *testing.T) {
 		npc := &mockNpc{}
 		s := &ScriptState{
 			ActiveNpc:   npc,
 			IntStack:    make([]int, StackCapacity),
 			StringStack: make([]string, StackCapacity),
 		}
-		s.PushInt(19) // queueID (upper boundary under TS-literal [0, 19])
+		s.PushInt(20) // queueID (upper boundary under corrected [1, 20])
 		s.PushInt(0)  // arg
 		if err := handleNpcWalkTrigger(s); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if want := []int{18}; !equalIntSlice(npc.walkTriggerCalls, want) {
-			t.Errorf("queueID=19 → walktrigger=18 (queueID-1); got %v", npc.walkTriggerCalls)
+		if want := []int{19}; !equalIntSlice(npc.walkTriggerCalls, want) {
+			t.Errorf("queueID=20 → walktrigger=19 (queueID-1); got %v", npc.walkTriggerCalls)
 		}
 	})
 }
