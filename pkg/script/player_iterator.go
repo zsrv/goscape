@@ -52,7 +52,7 @@ func (it *PlayerIterator) Stale(currentTick int) bool {
 // passesFilter applies the per-player filter chain. HuntAll mode only:
 // distance + huntvis (LoS/LoW). Distance and Zone modes are not yet
 // implemented (NAI-35-D2). NAI-35-T3 NpcIterator analogue: per-mode
-// branching is unnecessary here because HuntAll is the only mode.
+// branching is absent because PlayerIterator supports HuntAll exclusively.
 func (it *PlayerIterator) passesFilter(p ActivePlayer) bool {
 	if coordgrid.DistanceToSW(it.x, it.z, p.X(), p.Z()) > it.distance {
 		return false
