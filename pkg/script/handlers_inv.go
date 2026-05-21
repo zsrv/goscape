@@ -26,13 +26,13 @@ func resolveInv(s *ScriptState, typeID int) *inventory.Inventory {
 func handleInvTotal(s *ScriptState) error {
 	obj := s.PopInt()
 	typeID := s.PopInt()
+	if err := checkInvType(s, typeID, "INV_TOTAL"); err != nil {
+		return err
+	}
 	// TS INV_TOTAL short-circuits with obj == -1 → push 0.
 	if obj == -1 {
 		s.PushInt(0)
 		return nil
-	}
-	if err := checkInvType(s, typeID, "INV_TOTAL"); err != nil {
-		return err
 	}
 	inv := resolveInv(s, typeID)
 	if inv == nil {

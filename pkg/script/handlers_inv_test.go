@@ -253,6 +253,15 @@ func TestInvAddThenTotal(t *testing.T) {
 	}
 }
 
+// TS InvOps.ts:622-625 runs check(inv, InvTypeValid) BEFORE the
+// obj === -1 short-circuit, so an unregistered InvType id must produce
+// the canonical registry-miss error rather than silently pushing 0.
+func TestInvTotal_UnknownInv_ObjNeg1_RejectsRegistry(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	runInvOpExpectErrAsPlayer(t, OpInvTotal, []int{9999, -1}, lookup, mc, "no InvType with value (9999) found")
+}
+
 func TestInvDel(t *testing.T) {
 	lookup := newTestInvLookup()
 	mc := newTestInvConfigs()
