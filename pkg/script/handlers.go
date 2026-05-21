@@ -342,6 +342,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// NAI-160 T5: INV_ALLSTOCK.
 	OpInvAllStock: handleInvAllStock,
 	OpSetSkinColour: handleSetSkinColour,
+	// SETGENDER body port + GenderValid validator slice (T4).
+	OpSetGender: handleSetGender, // opcode 2099
 	// Mutations (8).
 	OpInvAdd:          handleInvAdd,
 	OpInvDel:          handleInvDel,
@@ -561,12 +563,11 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// NAI-161 T6: P_OPHELD (TS-faithful unimplemented stub).
 	OpPOpHeld: handlePOpHeld,
 
-	// NAI-162 B0: 6 TS-unimplemented opcode stubs (stub-with-pin pattern).
-	// TS declares all 6 in ScriptOpcode.ts but has no handlers/* case-label
+	// NAI-162 B0: 5 TS-unimplemented opcode stubs (stub-with-pin pattern).
+	// TS declares all 5 in ScriptOpcode.ts but has no handlers/* case-label
 	// entries. Deviations NAI-162-D-STUB-* per §3. Audit: 18 → 12.
 	OpPushVarbit: handlePushVarbit, // opcode 25
 	OpPopVarbit:  handlePopVarbit,  // opcode 27
-	OpSetGender:  handleSetGender,  // opcode 2099
 	OpLcOp:       handleLcOp,       // opcode 4105
 	OpOcIop:      handleOcIop,      // opcode 4205
 	OpOcOp:       handleOcOp,       // opcode 4208
