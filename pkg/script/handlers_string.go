@@ -53,9 +53,15 @@ func handleAppendChar(s *ScriptState) error {
 func handleAppendSignNum(s *ScriptState) error {
 	n := s.PopInt()
 	base := s.PopString()
-	// TS appendsignnum: negative keeps the leading '-' that strconv
-	// produces; positive values have no '+' prefix; zero prints as "0".
-	s.PushString(base + strconv.Itoa(n))
+	// Mirrors TS APPEND_SIGNNUM (StringOps.ts:18-27): non-negative
+	// values (including zero, per `num >= 0`) get an explicit '+'
+	// prefix; negative values render with the leading '-' that
+	// strconv.Itoa produces.
+	if n >= 0 {
+		s.PushString(base + "+" + strconv.Itoa(n))
+	} else {
+		s.PushString(base + strconv.Itoa(n))
+	}
 	return nil
 }
 

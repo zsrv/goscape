@@ -176,6 +176,33 @@ func TestStringAppendChar(t *testing.T) {
 	}
 }
 
+// TestStringAppendSignNum verifies APPEND_SIGNNUM mirrors TS
+// StringOps.ts:18-27 — non-negative values get an explicit '+' prefix
+// (including zero, since `num >= 0`), negative values render with the
+// '-' that strconv.Itoa produces.
+func TestStringAppendSignNum(t *testing.T) {
+	cases := []struct {
+		name string
+		n    int
+		base string
+		want string
+	}{
+		{"positive", 42, "X", "X+42"},
+		{"negative", -7, "X", "X-7"},
+		{"zero", 0, "X", "X+0"},
+		{"large_positive", 1000000, "X", "X+1000000"},
+		{"large_negative", -1000000, "X", "X-1000000"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, got := runStringOp(t, OpAppendSignNum, []int{tc.n}, []string{tc.base})
+			if got != tc.want {
+				t.Errorf("AppendSignNum(%q, %d): got %q, want %q", tc.base, tc.n, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestStringLowercase(t *testing.T) {
 	_, got := runStringOp(t, OpLowercase, nil, []string{"HeLLo"})
 	if got != "hello" {
