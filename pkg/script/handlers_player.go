@@ -98,6 +98,17 @@ func checkSkinColour(v int, op string) error {
 	return nil
 }
 
+// checkGender validates a player gender wire value. Mirrors TS
+// GenderValid (ScriptValidators.ts:136) —
+// ScriptInputRangeValidator(0, 1, 'Gender'), inclusive range [0, 1].
+// 0 = male, 1 = female.
+func checkGender(v int, op string) error {
+	if v < 0 || v > 1 {
+		return fmt.Errorf("%s: gender out of range (%d)", op, v)
+	}
+	return nil
+}
+
 // checkLocAngle mirrors TS LocAngleValid (ScriptValidators.ts:106) — a
 // ScriptInputRangeValidator over [LocAngle.WEST=0, LocAngle.SOUTH=3].
 // Rejects values outside that range.

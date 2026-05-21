@@ -1971,6 +1971,27 @@ func TestCheckSkinColour_Range(t *testing.T) {
 	}
 }
 
+// TestCheckGender_Range pins the [0, 1] inclusive range check.
+// Mirrors TS GenderValid (ScriptValidators.ts:136) —
+// ScriptInputRangeValidator(0, 1, 'Gender').
+func TestCheckGender_Range(t *testing.T) {
+	for _, v := range []int{0, 1} {
+		if err := checkGender(v, "TEST_OP"); err != nil {
+			t.Errorf("checkGender(%d): unexpected error %v", v, err)
+		}
+	}
+	for _, v := range []int{-1, 2, 100, math.MinInt, math.MaxInt} {
+		err := checkGender(v, "TEST_OP")
+		if err == nil {
+			t.Errorf("checkGender(%d): want error, got nil", v)
+			continue
+		}
+		if !strings.Contains(err.Error(), "TEST_OP") {
+			t.Errorf("checkGender(%d): error %q missing op name TEST_OP", v, err)
+		}
+	}
+}
+
 // TestPAnimProtectHappyPathZero — protect=true, push 0 → no error,
 // animProtectValue set to 0.
 func TestPAnimProtectHappyPathZero(t *testing.T) {
