@@ -176,6 +176,16 @@ func checkSeqType(s *ScriptState, id int, op string) error {
 	return nil
 }
 
+// checkIdkType mirrors TS IDKTypeValid (ScriptValidators.ts:124).
+// Goscape lowercase "Idk" follows the objtype.IdkType naming convention
+// and the sibling checkSeqType (not "checkSEQType") precedent.
+func checkIdkType(s *ScriptState, id int, op string) error {
+	if s.Configs == nil || s.Configs.IdkType(id) == nil {
+		return fmt.Errorf("%s: no IdkType with value (%d) found", op, id)
+	}
+	return nil
+}
+
 // handlePAnimProtect (P_ANIMPROTECT, opcode 2066) sets the active player's
 // animProtect flag. While nonzero, the (*Player).PlayAnim reader gate at
 // TS Player.ts:1842 suppresses in-engine animation requests (NAI-56).

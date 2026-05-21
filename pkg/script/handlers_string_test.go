@@ -3,11 +3,132 @@ package script
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/fonttype"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
+
+// -- Config-registry validator unit tests --
+
+func TestCheckMesanimType(t *testing.T) {
+	tests := []struct {
+		name      string
+		id        int
+		setup     func() *mockConfigs
+		wantErr   bool
+		wantSubst string
+	}{
+		{
+			name:    "valid id",
+			id:      0,
+			setup:   func() *mockConfigs { return &mockConfigs{mesanims: map[int]*objtype.MesanimType{0: {}}} },
+			wantErr: false,
+		},
+		{
+			name:      "unknown id",
+			id:        100,
+			setup:     func() *mockConfigs { return &mockConfigs{mesanims: map[int]*objtype.MesanimType{}} },
+			wantErr:   true,
+			wantSubst: "OP: no MesanimType with value (100) found",
+		},
+		{
+			name:      "negative id",
+			id:        -1,
+			setup:     func() *mockConfigs { return &mockConfigs{mesanims: map[int]*objtype.MesanimType{}} },
+			wantErr:   true,
+			wantSubst: "OP: no MesanimType with value (-1) found",
+		},
+		{
+			name:      "nil Configs",
+			id:        0,
+			setup:     func() *mockConfigs { return nil },
+			wantErr:   true,
+			wantSubst: "OP: no MesanimType with value (0) found",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &ScriptState{}
+			if cfg := tc.setup(); cfg != nil {
+				s.Configs = cfg
+			}
+			err := checkMesanimType(s, tc.id, "OP")
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("checkMesanimType(%d): want error, got nil", tc.id)
+				}
+				if !strings.Contains(err.Error(), tc.wantSubst) {
+					t.Errorf("error message: got %q, want contains %q", err.Error(), tc.wantSubst)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("checkMesanimType(%d): want nil, got %v", tc.id, err)
+				}
+			}
+		})
+	}
+}
+
+func TestCheckFontType(t *testing.T) {
+	tests := []struct {
+		name      string
+		id        int
+		setup     func() *mockConfigs
+		wantErr   bool
+		wantSubst string
+	}{
+		{
+			name:    "valid id",
+			id:      0,
+			setup:   func() *mockConfigs { return &mockConfigs{fonts: map[int]*fonttype.FontType{0: {}}} },
+			wantErr: false,
+		},
+		{
+			name:      "unknown id",
+			id:        100,
+			setup:     func() *mockConfigs { return &mockConfigs{fonts: map[int]*fonttype.FontType{}} },
+			wantErr:   true,
+			wantSubst: "OP: no FontType with value (100) found",
+		},
+		{
+			name:      "negative id",
+			id:        -1,
+			setup:     func() *mockConfigs { return &mockConfigs{fonts: map[int]*fonttype.FontType{}} },
+			wantErr:   true,
+			wantSubst: "OP: no FontType with value (-1) found",
+		},
+		{
+			name:      "nil Configs",
+			id:        0,
+			setup:     func() *mockConfigs { return nil },
+			wantErr:   true,
+			wantSubst: "OP: no FontType with value (0) found",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &ScriptState{}
+			if cfg := tc.setup(); cfg != nil {
+				s.Configs = cfg
+			}
+			err := checkFontType(s, tc.id, "OP")
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("checkFontType(%d): want error, got nil", tc.id)
+				}
+				if !strings.Contains(err.Error(), tc.wantSubst) {
+					t.Errorf("error message: got %q, want contains %q", err.Error(), tc.wantSubst)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("checkFontType(%d): want nil, got %v", tc.id, err)
+				}
+			}
+		})
+	}
+}
 
 // runStringOp builds a one-instruction script that runs `op`, pushing
 // string inputs first (bottom of string stack) then int inputs (bottom

@@ -75,6 +75,65 @@ func TestCheckNpcType(t *testing.T) {
 	}
 }
 
+func TestCheckLocType(t *testing.T) {
+	tests := []struct {
+		name      string
+		id        int
+		setup     func() *mockConfigs
+		wantErr   bool
+		wantSubst string
+	}{
+		{
+			name:    "valid id",
+			id:      0,
+			setup:   func() *mockConfigs { return &mockConfigs{locs: map[int]*objtype.LocType{0: {}}} },
+			wantErr: false,
+		},
+		{
+			name:      "unknown id",
+			id:        100,
+			setup:     func() *mockConfigs { return &mockConfigs{locs: map[int]*objtype.LocType{}} },
+			wantErr:   true,
+			wantSubst: "OP: no LocType with value (100) found",
+		},
+		{
+			name:      "negative id",
+			id:        -1,
+			setup:     func() *mockConfigs { return &mockConfigs{locs: map[int]*objtype.LocType{}} },
+			wantErr:   true,
+			wantSubst: "OP: no LocType with value (-1) found",
+		},
+		{
+			name:      "nil Configs",
+			id:        0,
+			setup:     func() *mockConfigs { return nil },
+			wantErr:   true,
+			wantSubst: "OP: no LocType with value (0) found",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &ScriptState{}
+			if cfg := tc.setup(); cfg != nil {
+				s.Configs = cfg
+			}
+			err := checkLocType(s, tc.id, "OP")
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("checkLocType(%d): want error, got nil", tc.id)
+				}
+				if !strings.Contains(err.Error(), tc.wantSubst) {
+					t.Errorf("error message: got %q, want contains %q", err.Error(), tc.wantSubst)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("checkLocType(%d): want nil, got %v", tc.id, err)
+				}
+			}
+		})
+	}
+}
+
 func TestCheckHuntVis(t *testing.T) {
 	for _, v := range []int{0, 1, 2} {
 		if err := checkHuntVis(v, "TEST"); err != nil {

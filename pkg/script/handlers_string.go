@@ -1,10 +1,33 @@
 package script
 
 import (
+	"fmt"
 	"log/slog"
 	"strconv"
 	"strings"
 )
+
+// checkMesanimType mirrors TS MesanimValid (ScriptValidators.ts:132).
+// Defined for completeness — current call site (handleSplitGetAnim,
+// handlers_string.go:209) is a labeled goscape-defensive gate per
+// defensive_gate_doc_comment_label.md and does not wire this validator.
+func checkMesanimType(s *ScriptState, id int, op string) error {
+	if s.Configs == nil || s.Configs.MesanimType(id) == nil {
+		return fmt.Errorf("%s: no MesanimType with value (%d) found", op, id)
+	}
+	return nil
+}
+
+// checkFontType mirrors TS FontTypeValid (ScriptValidators.ts:131).
+// Defined for completeness — current call site (handleSplitInit,
+// handlers_string.go:145) is a labeled goscape-defensive gate per
+// defensive_gate_doc_comment_label.md and does not wire this validator.
+func checkFontType(s *ScriptState, id int, op string) error {
+	if s.Configs == nil || s.Configs.FontType(id) == nil {
+		return fmt.Errorf("%s: no FontType with value (%d) found", op, id)
+	}
+	return nil
+}
 
 func handleAppend(s *ScriptState) error {
 	suffix := s.PopString()

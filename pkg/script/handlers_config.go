@@ -62,6 +62,30 @@ func requireConfigs(s *ScriptState, op string) error {
 	return nil
 }
 
+// checkParamType mirrors TS ParamTypeValid (ScriptValidators.ts:110).
+func checkParamType(s *ScriptState, id int, op string) error {
+	if s.Configs == nil || s.Configs.ParamType(id) == nil {
+		return fmt.Errorf("%s: no ParamType with value (%d) found", op, id)
+	}
+	return nil
+}
+
+// checkEnumType mirrors TS EnumTypeValid (ScriptValidators.ts:119).
+func checkEnumType(s *ScriptState, id int, op string) error {
+	if s.Configs == nil || s.Configs.EnumType(id) == nil {
+		return fmt.Errorf("%s: no EnumType with value (%d) found", op, id)
+	}
+	return nil
+}
+
+// checkStructType mirrors TS StructTypeValid (ScriptValidators.ts:133).
+func checkStructType(s *ScriptState, id int, op string) error {
+	if s.Configs == nil || s.Configs.StructType(id) == nil {
+		return fmt.Errorf("%s: no StructType with value (%d) found", op, id)
+	}
+	return nil
+}
+
 // -- EnumOps --
 
 // handleEnum (ENUM, opcode 4400) pops [inputType, outputType, enumID, key]

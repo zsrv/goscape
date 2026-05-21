@@ -302,6 +302,19 @@ func handleLocShape(s *ScriptState) error {
 	return nil
 }
 
+// checkLocType mirrors TS LocTypeValid (ScriptValidators.ts:105) — a
+// ScriptInputConfigTypeValidator over LocType. Both the range check
+// (0 <= id < LocType.count) and the registry-present check collapse
+// into "s.Configs.LocType(id) != nil" per the Configs interface
+// contract at configs.go:7. State-aware signature matches sibling
+// checkInvType / checkSeqType / checkNpcType.
+func checkLocType(s *ScriptState, id int, op string) error {
+	if s.Configs == nil || s.Configs.LocType(id) == nil {
+		return fmt.Errorf("%s: no LocType with value (%d) found", op, id)
+	}
+	return nil
+}
+
 // checkDuration mirrors TS DurationValid (ScriptValidators.ts:108) — a
 // range validator rejecting [<1, >2147483647]. Reused by LOC_CHANGE,
 // LOC_ADD, LOC_DEL.

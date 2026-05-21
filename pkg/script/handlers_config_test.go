@@ -284,6 +284,185 @@ func runConfigOpExpectErr(t *testing.T, mc *mockConfigs, op Opcode, intInputs []
 	}
 }
 
+// -- Config-registry validator unit tests --
+
+func TestCheckParamType(t *testing.T) {
+	tests := []struct {
+		name      string
+		id        int
+		setup     func() *mockConfigs
+		wantErr   bool
+		wantSubst string
+	}{
+		{
+			name:    "valid id",
+			id:      1,
+			setup:   func() *mockConfigs { return &mockConfigs{params: map[int]*objtype.ParamType{1: {}}} },
+			wantErr: false,
+		},
+		{
+			name:      "unknown id",
+			id:        100,
+			setup:     func() *mockConfigs { return &mockConfigs{params: map[int]*objtype.ParamType{}} },
+			wantErr:   true,
+			wantSubst: "OP: no ParamType with value (100) found",
+		},
+		{
+			name:      "negative id",
+			id:        -1,
+			setup:     func() *mockConfigs { return &mockConfigs{params: map[int]*objtype.ParamType{}} },
+			wantErr:   true,
+			wantSubst: "OP: no ParamType with value (-1) found",
+		},
+		{
+			name:      "nil Configs",
+			id:        0,
+			setup:     func() *mockConfigs { return nil },
+			wantErr:   true,
+			wantSubst: "OP: no ParamType with value (0) found",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &ScriptState{}
+			if cfg := tc.setup(); cfg != nil {
+				s.Configs = cfg
+			}
+			err := checkParamType(s, tc.id, "OP")
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("checkParamType(%d): want error, got nil", tc.id)
+				}
+				if !strings.Contains(err.Error(), tc.wantSubst) {
+					t.Errorf("error message: got %q, want contains %q", err.Error(), tc.wantSubst)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("checkParamType(%d): want nil, got %v", tc.id, err)
+				}
+			}
+		})
+	}
+}
+
+func TestCheckEnumType(t *testing.T) {
+	tests := []struct {
+		name      string
+		id        int
+		setup     func() *mockConfigs
+		wantErr   bool
+		wantSubst string
+	}{
+		{
+			name:    "valid id",
+			id:      0,
+			setup:   func() *mockConfigs { return &mockConfigs{enums: map[int]*objtype.EnumType{0: {}}} },
+			wantErr: false,
+		},
+		{
+			name:      "unknown id",
+			id:        100,
+			setup:     func() *mockConfigs { return &mockConfigs{enums: map[int]*objtype.EnumType{}} },
+			wantErr:   true,
+			wantSubst: "OP: no EnumType with value (100) found",
+		},
+		{
+			name:      "negative id",
+			id:        -1,
+			setup:     func() *mockConfigs { return &mockConfigs{enums: map[int]*objtype.EnumType{}} },
+			wantErr:   true,
+			wantSubst: "OP: no EnumType with value (-1) found",
+		},
+		{
+			name:      "nil Configs",
+			id:        0,
+			setup:     func() *mockConfigs { return nil },
+			wantErr:   true,
+			wantSubst: "OP: no EnumType with value (0) found",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &ScriptState{}
+			if cfg := tc.setup(); cfg != nil {
+				s.Configs = cfg
+			}
+			err := checkEnumType(s, tc.id, "OP")
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("checkEnumType(%d): want error, got nil", tc.id)
+				}
+				if !strings.Contains(err.Error(), tc.wantSubst) {
+					t.Errorf("error message: got %q, want contains %q", err.Error(), tc.wantSubst)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("checkEnumType(%d): want nil, got %v", tc.id, err)
+				}
+			}
+		})
+	}
+}
+
+func TestCheckStructType(t *testing.T) {
+	tests := []struct {
+		name      string
+		id        int
+		setup     func() *mockConfigs
+		wantErr   bool
+		wantSubst string
+	}{
+		{
+			name:    "valid id",
+			id:      0,
+			setup:   func() *mockConfigs { return &mockConfigs{structs: map[int]*objtype.StructType{0: {}}} },
+			wantErr: false,
+		},
+		{
+			name:      "unknown id",
+			id:        100,
+			setup:     func() *mockConfigs { return &mockConfigs{structs: map[int]*objtype.StructType{}} },
+			wantErr:   true,
+			wantSubst: "OP: no StructType with value (100) found",
+		},
+		{
+			name:      "negative id",
+			id:        -1,
+			setup:     func() *mockConfigs { return &mockConfigs{structs: map[int]*objtype.StructType{}} },
+			wantErr:   true,
+			wantSubst: "OP: no StructType with value (-1) found",
+		},
+		{
+			name:      "nil Configs",
+			id:        0,
+			setup:     func() *mockConfigs { return nil },
+			wantErr:   true,
+			wantSubst: "OP: no StructType with value (0) found",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &ScriptState{}
+			if cfg := tc.setup(); cfg != nil {
+				s.Configs = cfg
+			}
+			err := checkStructType(s, tc.id, "OP")
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("checkStructType(%d): want error, got nil", tc.id)
+				}
+				if !strings.Contains(err.Error(), tc.wantSubst) {
+					t.Errorf("error message: got %q, want contains %q", err.Error(), tc.wantSubst)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("checkStructType(%d): want nil, got %v", tc.id, err)
+				}
+			}
+		})
+	}
+}
+
 // -- EnumOps tests --
 
 func TestEnumIntToString(t *testing.T) {

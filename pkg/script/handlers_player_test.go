@@ -2154,6 +2154,69 @@ func TestCheckInvType(t *testing.T) {
 	}
 }
 
+// TestCheckIdkType validates the state-aware IdkType validator.
+// Mirrors TS IDKTypeValid (ScriptValidators.ts:124). Both the range check
+// and the registry-present check collapse into a single Configs.IdkType
+// lookup per the Configs interface contract.
+func TestCheckIdkType(t *testing.T) {
+	tests := []struct {
+		name      string
+		id        int
+		setup     func() *mockConfigs
+		wantErr   bool
+		wantSubst string
+	}{
+		{
+			name:    "valid id",
+			id:      0,
+			setup:   func() *mockConfigs { return &mockConfigs{idks: map[int]*objtype.IdkType{0: {}}} },
+			wantErr: false,
+		},
+		{
+			name:      "unknown id",
+			id:        100,
+			setup:     func() *mockConfigs { return &mockConfigs{idks: map[int]*objtype.IdkType{}} },
+			wantErr:   true,
+			wantSubst: "OP: no IdkType with value (100) found",
+		},
+		{
+			name:      "negative id",
+			id:        -1,
+			setup:     func() *mockConfigs { return &mockConfigs{idks: map[int]*objtype.IdkType{}} },
+			wantErr:   true,
+			wantSubst: "OP: no IdkType with value (-1) found",
+		},
+		{
+			name:      "nil Configs",
+			id:        0,
+			setup:     func() *mockConfigs { return nil },
+			wantErr:   true,
+			wantSubst: "OP: no IdkType with value (0) found",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &ScriptState{}
+			if cfg := tc.setup(); cfg != nil {
+				s.Configs = cfg
+			}
+			err := checkIdkType(s, tc.id, "OP")
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("checkIdkType(%d): want error, got nil", tc.id)
+				}
+				if !strings.Contains(err.Error(), tc.wantSubst) {
+					t.Errorf("error message: got %q, want contains %q", err.Error(), tc.wantSubst)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("checkIdkType(%d): want nil, got %v", tc.id, err)
+				}
+			}
+		})
+	}
+}
+
 // TestBuildAppearanceHappyPath — Self != nil, Configs.invs has id=5,
 // push 5 → no error; lastAppearanceInv == 5, appearanceInvCalls == 1,
 // appearanceMaskSet == true.
