@@ -333,7 +333,7 @@ type Player struct {
 	refreshModal, refreshModalClose, requestModalClose bool
 
 	// === resume buttons (sub-spec 5f) ===
-	// Stored by IF_SETRESUMEBUTTONS; consumed by P_PAUSEBUTTON (future sub-spec).
+	// Stored by IF_SETRESUMEBUTTONS; consumed by P_PAUSEBUTTON (handlers_dialog.go:10).
 	resumeButtons [5]int
 
 	// === per-tick rate limits (from sub-spec 1) ===

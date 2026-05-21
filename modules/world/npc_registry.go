@@ -111,7 +111,7 @@ func (s *Server) addNpc(n *Npc, duration int, firstSpawn bool) error {
 
 // resetEntityForRespawn applies the TS Npc.resetEntity(true) reseed
 // (TS Npc.ts:280-317, respawn=true branch) factored out so addNpc and
-// the future revertType refactor (Task 5e) share one definition.
+// revertType (NAI-19 Task 5e) share one definition.
 //
 // Resets typeId/uid to baseType (with fresh n.typ lookup), reseeds
 // all 6 stats from n.typ.Stats, clears heroPoints (TS Npc.ts:292) +

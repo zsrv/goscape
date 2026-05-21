@@ -154,7 +154,11 @@ func (s *Server) resumeOrFinish(state *script.ScriptState, self script.ActivePla
 		delay := state.PopInt()
 		s.EnqueueWorldScript(state, delay)
 	default:
-		// NpcSuspended — future sub-spec (T11).
+		// Defensive: player-side scripts cannot reach NpcSuspended
+		// (NPC_DELAY / NPC_ARRIVEDELAY require ActiveNpc, set at
+		// handlers_npc.go:446/:492) and there are no other unhandled
+		// Execution states. NpcSuspended is dispatched for world-queue
+		// scripts at resumeOrFinishWorld (script.go:202).
 		s.log.Warn("script in unsupported execution state",
 			"script", state.Script.Name, "execution", state.Execution)
 		self.ClearActiveScript()

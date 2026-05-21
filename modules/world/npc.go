@@ -414,9 +414,13 @@ func (n *Npc) SetWalkTriggerArg(arg int) { n.walktriggerArg = arg }
 //     (startX, startZ), and re-arms collision flags.
 //
 // What revertType does NOT do on either branch (intentional):
-//   - varn resets (future; VarNpc subsystem not yet wired)
 //   - activeScript clear (TS behaviour: a revert does not cancel an
 //     in-flight script)
+//
+// What revertType does NOT do on the KEEPALL light path only:
+//   - varn resets (heavy path reseeds all varns via
+//     resetEntityForRespawn at npc_registry.go:157; KEEPALL
+//     deliberately preserves varn state to match TS Npc.ts:1086-1090).
 //
 // Tail re-arm: sets resetOnRevert = true on BOTH branches so a
 // subsequent CHANGETYPE on the same NPC starts from the default. TS
