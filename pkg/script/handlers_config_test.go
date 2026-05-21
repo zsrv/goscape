@@ -796,6 +796,19 @@ func TestNpcParamUnknownNpcIdErrors(t *testing.T) {
 	}
 }
 
+// NPC_PARAM with valid active-npc typeID but unknown paramID → error from
+// paramLookup's checkParamType gate. Complements TestNpcParamUnknownNpcIdErrors
+// (one gate earlier, checkNpcType) and closes the deliberate-structural
+// carry-forward from [[lc-param-enum-struct-unknown-id-symmetry-close]]:
+// runConfigOpExpectErr doesn't set ActiveNpc, so the active-npc form needs
+// runNpcOpExpectErr instead.
+func TestNpcParamUnknownParamErrors(t *testing.T) {
+	npc := &mockNpc{typeID: 0}
+	mc := newTestConfigs()
+	runNpcOpExpectErr(t, npc, mc, OpNpcParam, []int{999},
+		"NPC_PARAM: no ParamType with value (999) found")
+}
+
 func TestNcCategory(t *testing.T) {
 	mc := newTestConfigs()
 	state := runConfigOp(t, mc, OpNcCategory, []int{0})
