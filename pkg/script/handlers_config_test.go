@@ -536,7 +536,7 @@ func TestEnumUnknownIdErrors(t *testing.T) {
 		int(objtype.ScriptVarTypeString),
 		999,
 		1,
-	}, "no EnumType with value")
+	}, "ENUM: no EnumType with value (999) found")
 }
 
 func TestEnumGetOutputCount(t *testing.T) {
@@ -549,7 +549,7 @@ func TestEnumGetOutputCount(t *testing.T) {
 
 func TestEnumGetOutputCountUnknownErrors(t *testing.T) {
 	mc := newTestConfigs()
-	runConfigOpExpectErr(t, mc, OpEnumGetOutputCount, []int{999}, "no EnumType with value")
+	runConfigOpExpectErr(t, mc, OpEnumGetOutputCount, []int{999}, "ENUM_GETOUTPUTCOUNT: no EnumType with value (999) found")
 }
 
 // -- StructOps tests --
@@ -574,7 +574,7 @@ func TestStructParamMissingKeyFallsBackToParamDefault(t *testing.T) {
 
 func TestStructParamUnknownStructErrors(t *testing.T) {
 	mc := newTestConfigs()
-	runConfigOpExpectErr(t, mc, OpStructParam, []int{999, 1}, "no StructType with value")
+	runConfigOpExpectErr(t, mc, OpStructParam, []int{999, 1}, "STRUCT_PARAM: no StructType with value (999) found")
 }
 
 // -- LocConfigOps tests --
@@ -659,9 +659,33 @@ func TestLcLength(t *testing.T) {
 	}
 }
 
+// TestLcUnknownIdErrors pins canonical "<TAG>: no LocType with value (999)
+// found" rejection at every Configs-side LC_* handler wired with checkLocType.
+//
+// LC_PARAM is the only 2-arg row: pushes [locID=999, paramID=0]; handler pops
+// paramID first then locID, so checkLocType sees 999 before the (unreached)
+// paramLookup.
 func TestLcUnknownIdErrors(t *testing.T) {
 	mc := newTestConfigs()
-	runConfigOpExpectErr(t, mc, OpLcName, []int{999}, "no LocType with value (999) found")
+	cases := []struct {
+		op     Opcode
+		inputs []int
+		tag    string
+	}{
+		{OpLcName, []int{999}, "LC_NAME"},
+		{OpLcParam, []int{999, 0}, "LC_PARAM"},
+		{OpLcCategory, []int{999}, "LC_CATEGORY"},
+		{OpLcDesc, []int{999}, "LC_DESC"},
+		{OpLcDebugName, []int{999}, "LC_DEBUGNAME"},
+		{OpLcWidth, []int{999}, "LC_WIDTH"},
+		{OpLcLength, []int{999}, "LC_LENGTH"},
+	}
+	for _, c := range cases {
+		t.Run(c.tag, func(t *testing.T) {
+			runConfigOpExpectErr(t, mc, c.op, c.inputs,
+				c.tag+": no LocType with value (999) found")
+		})
+	}
 }
 
 // -- NpcConfigOps tests --
@@ -980,6 +1004,33 @@ func TestOcParamMissingKeyStringFallback(t *testing.T) {
 func TestOcParamUnknownParamErrors(t *testing.T) {
 	mc := newTestConfigs()
 	runConfigOpExpectErr(t, mc, OpOcParam, []int{995, 999}, "OC_PARAM: no ParamType with value (999) found")
+}
+
+// TestParamLookupUnknownParamErrors pins canonical "<TAG>: no ParamType with
+// value (999) found" rejection from the shared paramLookup gate at every
+// handler that delegates to it with a popped paramID. Inputs push
+// [validTypeID=0, unknownParamID=999]; the handler pops paramID first, then
+// validates the type id, then calls paramLookup which hits checkParamType.
+//
+// NPC_PARAM (active-npc form) reads typeID from state.ActiveNpc and needs a
+// separate fixture; OC_PARAM is pinned by TestOcParamUnknownParamErrors above.
+func TestParamLookupUnknownParamErrors(t *testing.T) {
+	mc := newTestConfigs()
+	cases := []struct {
+		op     Opcode
+		inputs []int
+		tag    string
+	}{
+		{OpNcParam, []int{0, 999}, "NC_PARAM"},
+		{OpLcParam, []int{0, 999}, "LC_PARAM"},
+		{OpStructParam, []int{0, 999}, "STRUCT_PARAM"},
+	}
+	for _, c := range cases {
+		t.Run(c.tag, func(t *testing.T) {
+			runConfigOpExpectErr(t, mc, c.op, c.inputs,
+				c.tag+": no ParamType with value (999) found")
+		})
+	}
 }
 
 // TestOcParamInt_NegativeSignPreserved pins NAI-122 in-scope-stretch fix:
