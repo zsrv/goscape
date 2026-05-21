@@ -807,11 +807,24 @@ func (c *client) handleLogin() error {
 			return c.sendLoginError(loginresp.OpInvalidUsernameOrPassword.Opcode)
 		}
 
-		// TODO: check num of total players on world
-
-		// TODO: check if user logging out
-
 		safeName := util.ToSafeName(req.Username)
+
+		// TS World.ts:2188-2192 — reject when world is past its
+		// configured connected-player cap. Uses NodeMaxConnected
+		// (default 1000) which mirrors Environment.NODE_MAX_CONNECTED.
+		if c.server != nil && c.server.getTotalPlayers() > c.server.cfg.NodeMaxConnected {
+			return c.sendLoginError(loginresp.OpServerFull.Opcode)
+		}
+
+		// TS World.ts:2194-2199 — reject while the prior session for
+		// this username is still completing its logout. goscape models
+		// the TS logoutRequests set with the per-player loggingOut
+		// flag (player.go:310, player.go:710); a username is "still
+		// logging out" iff a live player slot is occupied by an entry
+		// with loggingOut=true.
+		if c.server != nil && c.server.isUsernameLoggingOut(safeName) {
+			return c.sendLoginError(loginresp.OpDuplicate.Opcode)
+		}
 
 		reconnecting := opcode[0] == loginreq.OpReqGameReconnect.Opcode
 		c.reconnecting = reconnecting
@@ -953,6 +966,25 @@ func (s *Server) getTotalPlayers() int {
 		}
 	}
 	return n
+}
+
+// isUsernameLoggingOut reports whether a player slot is occupied by an
+// entry with this username (already safe-name normalized) whose
+// loggingOut flag is set. Mirrors the lookup TS World.logoutRequests.has
+// (World.ts:2194) performs against its in-flight-logout set; goscape
+// stores the equivalent signal on Player.loggingOut (player.go:310,
+// flipped in world_state_ops.go:101 / tick.go:342,350 / reboot.go:56).
+// Lock-free read — same convention as getTotalPlayers above.
+func (s *Server) isUsernameLoggingOut(safeName string) bool {
+	for _, p := range s.players {
+		if p == nil {
+			continue
+		}
+		if p.username == safeName && p.loggingOut {
+			return true
+		}
+	}
+	return false
 }
 
 // scaleByPlayerCount scales a tick rate (typically a respawn duration)

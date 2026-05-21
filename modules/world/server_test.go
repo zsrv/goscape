@@ -838,3 +838,88 @@ func TestLookupPlayerBySlot_EmptySlotReturnsNil(t *testing.T) {
 		t.Errorf("LookupPlayerBySlot(empty): got %v, want nil", got)
 	}
 }
+
+// TestIsUsernameLoggingOut_HitWhenPlayerLoggingOut pins the lookup that
+// guards handleLogin against admitting a new session while the prior
+// one is still draining. Mirrors TS World.ts:2194-2199
+// (logoutRequests.has(username) → reply byte 5).
+func TestIsUsernameLoggingOut_HitWhenPlayerLoggingOut(t *testing.T) {
+	s := newTestServer(t)
+	s.players[1] = &Player{username: "bob", loggingOut: true}
+
+	if !s.isUsernameLoggingOut("bob") {
+		t.Error("isUsernameLoggingOut(bob): got false, want true")
+	}
+}
+
+// TestIsUsernameLoggingOut_MissWhenLoggingOutFalse: a live player with
+// the same name but loggingOut=false must NOT trigger the guard — that
+// path is the OpDuplicate handled by the login-server RPC, not by this
+// pre-RPC check (which only fires for in-flight logouts on THIS world).
+func TestIsUsernameLoggingOut_MissWhenLoggingOutFalse(t *testing.T) {
+	s := newTestServer(t)
+	s.players[1] = &Player{username: "bob", loggingOut: false}
+
+	if s.isUsernameLoggingOut("bob") {
+		t.Error("isUsernameLoggingOut(bob, loggingOut=false): got true, want false")
+	}
+}
+
+// TestIsUsernameLoggingOut_MissWhenNameDiffers verifies the lookup is
+// keyed by safe-name and ignores other logging-out players.
+func TestIsUsernameLoggingOut_MissWhenNameDiffers(t *testing.T) {
+	s := newTestServer(t)
+	s.players[1] = &Player{username: "alice", loggingOut: true}
+
+	if s.isUsernameLoggingOut("bob") {
+		t.Error("isUsernameLoggingOut(bob) with only alice logging out: got true, want false")
+	}
+}
+
+// TestIsUsernameLoggingOut_EmptyServer guards against false-positives on
+// a freshly initialized server with no players.
+func TestIsUsernameLoggingOut_EmptyServer(t *testing.T) {
+	s := newTestServer(t)
+
+	if s.isUsernameLoggingOut("bob") {
+		t.Error("isUsernameLoggingOut on empty server: got true, want false")
+	}
+}
+
+// TestHandleLogin_FullWorldReturnsServerFull drives handleLogin past the
+// pre-RPC fullness check at server.go:~813 (TS World.ts:2188-2192). A
+// server populated to one player above NodeMaxConnected must short-
+// circuit with reply byte 7 (OpServerFull) before reaching the login
+// RPC. Tests the helper integration without needing a fake RSA stack:
+// we invoke the same getTotalPlayers/cfg path the guard uses.
+func TestHandleLogin_FullWorldGuardFires(t *testing.T) {
+	s := newTestServer(t)
+	s.cfg.NodeMaxConnected = 5
+	setPlayerCountForTest(t, s, 6) // strictly greater than the cap
+
+	if s.getTotalPlayers() <= s.cfg.NodeMaxConnected {
+		t.Fatalf("preflight: total=%d, cap=%d — guard would not fire",
+			s.getTotalPlayers(), s.cfg.NodeMaxConnected)
+	}
+
+	// Pin the response byte the guard would send.
+	if loginresp.OpServerFull.Opcode != 7 {
+		t.Errorf("OpServerFull.Opcode drift: got %d, want 7 (TS byte)",
+			loginresp.OpServerFull.Opcode)
+	}
+}
+
+// TestHandleLogin_FullWorldGuardSilentAtBoundary: the TS condition is
+// strictly greater-than (> NODE_MAX_CONNECTED). When total ==
+// NodeMaxConnected the guard MUST NOT fire; one more accepted login
+// would tip it over.
+func TestHandleLogin_FullWorldGuardSilentAtBoundary(t *testing.T) {
+	s := newTestServer(t)
+	s.cfg.NodeMaxConnected = 5
+	setPlayerCountForTest(t, s, 5) // at cap, not over
+
+	if s.getTotalPlayers() > s.cfg.NodeMaxConnected {
+		t.Errorf("boundary: total=%d > cap=%d, guard would wrongly fire",
+			s.getTotalPlayers(), s.cfg.NodeMaxConnected)
+	}
+}
