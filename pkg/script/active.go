@@ -742,6 +742,15 @@ type ActivePlayer interface {
 	// at PlayerOps.ts:1102.
 	SetColorPart(slot, color int)
 
+	// SetGender rewrites the player's 7-slot body[] idkit array via the
+	// MALE_FEMALE / FEMALE_MALE lookup maps and writes the gender field.
+	// Called by SETGENDER after checkGender pre-validates v ∈ [0, 1].
+	// Does NOT flip MaskAppearance — TS pattern requires a subsequent
+	// BUILDAPPEARANCE for the change to reach the client (mirrors
+	// SETIDKIT/SETSKINCOLOUR deferred-rebuild precedent).
+	// Mirrors TS PlayerOps.ts:1104-1118.
+	SetGender(gender int)
+
 	// AddSessionLog pushes a session-log entry onto the server-level
 	// per-tick buffer. Mirrors TS Player.addSessionLog (Player.ts:629-631).
 	// eventType is the LoggerEventType numeric value (0=ENGINE, 1=WEALTH,

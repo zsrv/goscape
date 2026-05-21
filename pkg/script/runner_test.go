@@ -345,9 +345,10 @@ type mockPlayer struct {
 	lowMemoryValue bool
 
 	// NAI-47: SETIDKIT gender + appearance captures.
-	genderValue int
-	bodyParts   [7]int
-	colorParts  [5]int
+	genderValue    int
+	bodyParts      [7]int
+	colorParts     [5]int
+	setGenderCalls []int
 
 	// NAI-127 Bundle 1: FINDHERO ledger-top getter.
 	topContributor int
@@ -771,6 +772,12 @@ func (m *mockPlayer) LowMemory() bool { return m.lowMemoryValue }
 func (m *mockPlayer) Gender() int                  { return m.genderValue }
 func (m *mockPlayer) SetBodyPart(slot, idkit int)  { m.bodyParts[slot] = idkit }
 func (m *mockPlayer) SetColorPart(slot, color int) { m.colorParts[slot] = color }
+
+// SetGender captures SETGENDER dispatches for handler tests. The setter's
+// real body-rewriting logic lives on modules/world.Player.SetGender; the
+// mock only records the gender argument so handler-level tests can pin
+// the popInt + checkGender + dispatch flow.
+func (m *mockPlayer) SetGender(gender int) { m.setGenderCalls = append(m.setGenderCalls, gender) }
 
 func (m *mockPlayer) TopContributor() int { return m.topContributor }
 
