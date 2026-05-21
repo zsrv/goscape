@@ -43,6 +43,8 @@ func (m *mockActiveNpc) NpcLevel() int                           { return m.leve
 func (m *mockActiveNpc) NpcStat(stat int) int                    { return m.stats[stat] }
 func (m *mockActiveNpc) NpcBaseStat(stat int) int                { return 0 }
 func (m *mockActiveNpc) NpcCategory() int                        { return 0 }
+func (m *mockActiveNpc) NpcWidth() int                           { return 1 }
+func (m *mockActiveNpc) NpcLength() int                          { return 1 }
 func (m *mockActiveNpc) NpcUID() int                             { return 0 }
 func (m *mockActiveNpc) Nid() int                                { return 0 }
 func (m *mockActiveNpc) LastMovement() int                       { return 0 }

@@ -238,6 +238,7 @@ type mockEnqueueCall struct {
 // assign to state.ActiveNpc before Execute.
 type mockNpc struct {
 	typeID, x, z, level, uid, category int
+	width, length                      int
 	nid                                int
 	respawnrate                        int
 	curHP, baseHP                      int
@@ -301,6 +302,25 @@ func (m *mockNpc) LastMovement() int   { return m.lastMovement }
 func (m *mockNpc) Respawnrate() int    { return m.respawnrate }
 func (m *mockNpc) TopContributor() int { return m.topContributor }
 func (m *mockNpc) NpcCategory() int    { return m.category }
+
+// NpcWidth returns m.width, defaulting to 1 when unset. Preserves
+// backward-compat with existing test fixtures that don't set width.
+// The default-to-1 contract matches production semantics: NpcType.Size
+// is initialized to 1 (npctype.go:310) and is never zero in production.
+func (m *mockNpc) NpcWidth() int {
+	if m.width == 0 {
+		return 1
+	}
+	return m.width
+}
+
+// NpcLength returns m.length, defaulting to 1. See NpcWidth.
+func (m *mockNpc) NpcLength() int {
+	if m.length == 0 {
+		return 1
+	}
+	return m.length
+}
 
 // TargetWithinMaxRange returns the seeded value. NAI-160 T7.
 func (m *mockNpc) TargetWithinMaxRange() bool { return m.targetWithinMaxRangeValue }
@@ -3549,6 +3569,72 @@ func TestNpcRange_InvalidCoord(t *testing.T) {
 	s.PushInt(-1)
 	if err := handleNpcRange(s); err == nil {
 		t.Error("NPC_RANGE invalid coord: want error")
+	}
+}
+
+// TestNpcRange_Size3_TargetInsideFootprint: size-3 NPC at origin (10, 10)
+// occupies (10..12, 10..12). Target at (11, 11) is INSIDE the footprint —
+// closest cell is (11, 11), distance 0. TS-faithful per
+// CoordGrid.distanceTo + closest (CoordGrid.ts:60-72).
+func TestNpcRange_Size3_TargetInsideFootprint(t *testing.T) {
+	npc := &mockNpc{x: 10, z: 10, level: 0, width: 3, length: 3}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		Pointers:    PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	// Packed coord at (11, 11, level 0).
+	s.PushInt((0 << 28) | (11 << 14) | 11)
+	if err := handleNpcRange(s); err != nil {
+		t.Fatalf("NPC_RANGE size-3 inside: unexpected error %v", err)
+	}
+	if got := s.PopInt(); got != 0 {
+		t.Errorf("NPC_RANGE size-3 inside: got %d, want 0", got)
+	}
+}
+
+// TestNpcRange_Size3_TargetEastOfFootprint: size-3 NPC at origin (10, 10)
+// occupies (10..12, 10..12). Target at (15, 11). Closest cell = (12, 11),
+// distance = max(|12-15|, |11-11|) = 3. Origin-based would erroneously
+// return max(|10-15|, |10-11|) = 5; this test pins the divergence fix.
+func TestNpcRange_Size3_TargetEastOfFootprint(t *testing.T) {
+	npc := &mockNpc{x: 10, z: 10, level: 0, width: 3, length: 3}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		Pointers:    PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	// Packed coord at (15, 11, level 0).
+	s.PushInt((0 << 28) | (15 << 14) | 11)
+	if err := handleNpcRange(s); err != nil {
+		t.Fatalf("NPC_RANGE size-3 east: unexpected error %v", err)
+	}
+	if got := s.PopInt(); got != 3 {
+		t.Errorf("NPC_RANGE size-3 east: got %d, want 3", got)
+	}
+}
+
+// TestNpcRange_Size3_TargetSouthwestOfFootprint: size-3 NPC at origin
+// (10, 10), target at (8, 8). Closest cell = (10, 10), distance =
+// max(|10-8|, |10-8|) = 2. This case is byte-identical between origin
+// and closest-edge formulas (SW of origin); pin for regression safety.
+func TestNpcRange_Size3_TargetSouthwestOfFootprint(t *testing.T) {
+	npc := &mockNpc{x: 10, z: 10, level: 0, width: 3, length: 3}
+	s := &ScriptState{
+		ActiveNpc:   npc,
+		Pointers:    PtrActiveNpc,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	// Packed coord at (8, 8, level 0).
+	s.PushInt((0 << 28) | (8 << 14) | 8)
+	if err := handleNpcRange(s); err != nil {
+		t.Fatalf("NPC_RANGE size-3 SW: unexpected error %v", err)
+	}
+	if got := s.PopInt(); got != 2 {
+		t.Errorf("NPC_RANGE size-3 SW: got %d, want 2", got)
 	}
 }
 

@@ -811,6 +811,17 @@ type ActiveNpc interface {
 	// `npc.levels[stat] = ...` in NpcOps.ts:492-518. NAI-120 Bundle 2C.
 	SetNpcStat(stat, level int)
 	NpcCategory() int
+
+	// NpcWidth returns the NPC's tile-footprint width. NPCs are square
+	// in practice (NpcType.Size populates both width and length per
+	// modules/world/npc.go:233-239), but the interface keeps them
+	// distinct to mirror TS Npc.width/length semantics for
+	// CoordGrid.distanceTo (read by NPC_RANGE per handlers_npc.go).
+	NpcWidth() int
+
+	// NpcLength returns the NPC's tile-footprint length. See NpcWidth.
+	NpcLength() int
+
 	NpcUID() int // (typeId << 16) | nid
 	// Nid returns the NPC slot id (the low 16 bits of NpcUID). Used by
 	// NPC-targeted player-bound packets like HintArrow that reference

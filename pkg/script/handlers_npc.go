@@ -1105,12 +1105,16 @@ func handleNpcFindUID(s *ScriptState) error {
 // max(|npcX - x|, |npcZ - z|) -- width=1/length=1 contributes 0 to the
 // per-axis subtractions in the TS formula. NAI-120 Bundle 2A.
 //
-// Multi-tile NPCs (size > 1): the inner-ring call sites in
-// player_combat.rs2 do not require size-aware distance -- sites pass
-// `coord` (the player's own coord) and the active NPC is the combat
-// target. This handler treats the NPC as a 1x1 source (matches TS
-// behaviour for size=1 NPCs; size>1 audit deferred to a future sub-spec
-// per NAI-120 Bundle 1 audit section 6 dependency note).
+// Multi-tile NPCs (size > 1): goscape ports the full TS
+// CoordGrid.distanceTo + CoordGrid.closest semantics (CoordGrid.ts:60-72)
+// — clamp the target cell into the NPC's occupied footprint
+// [(npc.x, npc.z) .. (npc.x + npc.width - 1, npc.z + npc.length - 1)]
+// and take the max-absolute-axis delta from the clamped point. For
+// size=1 NPCs (width = length = 1), occupiedX/Z collapse to npc.x/z
+// and the formula reduces to origin-based Chebyshev (byte-identical
+// to the size=1 prior behavior). Closes the NAI-120 Bundle 1 audit
+// section 6 deferral per docs/superpowers/specs/2026-05-21-npc-range-
+// size-aware-distance-design.md.
 func handleNpcRange(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_RANGE"); err != nil {
 		return err
@@ -1125,11 +1129,35 @@ func handleNpcRange(s *ScriptState) error {
 		s.PushInt(-1)
 		return nil
 	}
-	dx := n.NpcX() - x
+	// Closest-edge Chebyshev per TS CoordGrid.distanceTo + closest
+	// (CoordGrid.ts:60-72): clamp the target cell into the NPC's
+	// occupied footprint, then take the max-absolute-axis delta. For
+	// size=1 NPCs (width=length=1), occupiedX = n.NpcX() and the
+	// formula collapses to the prior origin-Chebyshev form
+	// (byte-identical).
+	nx := n.NpcX()
+	nz := n.NpcZ()
+	occupiedX := nx + n.NpcWidth() - 1
+	occupiedZ := nz + n.NpcLength() - 1
+
+	clampedX := x
+	if x < nx {
+		clampedX = nx
+	} else if x > occupiedX {
+		clampedX = occupiedX
+	}
+	clampedZ := z
+	if z < nz {
+		clampedZ = nz
+	} else if z > occupiedZ {
+		clampedZ = occupiedZ
+	}
+
+	dx := clampedX - x
 	if dx < 0 {
 		dx = -dx
 	}
-	dz := n.NpcZ() - z
+	dz := clampedZ - z
 	if dz < 0 {
 		dz = -dz
 	}

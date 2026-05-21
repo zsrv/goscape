@@ -33,6 +33,16 @@ func (n *Npc) NpcCategory() int {
 	return n.typ.Category
 }
 
+// NpcWidth returns the NPC's tile-footprint width. Delegates to the
+// existing Width() method (npc.go:236) which returns n.size. NAI-120
+// size-aware NPC_RANGE port.
+func (n *Npc) NpcWidth() int { return n.Width() }
+
+// NpcLength returns the NPC's tile-footprint length. Delegates to the
+// existing Length() method (npc.go:239) which returns n.size. NAI-120
+// size-aware NPC_RANGE port.
+func (n *Npc) NpcLength() int { return n.Length() }
+
 // LastMovement returns n.lastMovement, satisfying script.ActiveNpc.
 // Used by NPC_ARRIVEDELAY (handlers_npc.go). The field is written by
 // (*Npc).updateMovement at npc_interaction.go:334 to currentTick + 1
