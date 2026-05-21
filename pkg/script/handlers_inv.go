@@ -31,8 +31,13 @@ func handleInvTotal(s *ScriptState) error {
 		s.PushInt(0)
 		return nil
 	}
+	if err := checkInvType(s, typeID, "INV_TOTAL"); err != nil {
+		return err
+	}
 	inv := resolveInv(s, typeID)
 	if inv == nil {
+		// Defensive: unreachable post-checkInvType for valid configs;
+		// retained for the InvLookup-unset case (s.Inv == nil → resolveInv returns nil).
 		return fmt.Errorf("INV_TOTAL: no inv for type %d", typeID)
 	}
 	s.PushInt(inv.GetItemCount(obj))
@@ -44,8 +49,13 @@ func handleInvTotal(s *ScriptState) error {
 func handleInvGetObj(s *ScriptState) error {
 	slot := s.PopInt()
 	typeID := s.PopInt()
+	if err := checkInvType(s, typeID, "INV_GETOBJ"); err != nil {
+		return err
+	}
 	inv := resolveInv(s, typeID)
 	if inv == nil {
+		// Defensive: unreachable post-checkInvType for valid configs;
+		// retained for the InvLookup-unset case (s.Inv == nil → resolveInv returns nil).
 		return fmt.Errorf("INV_GETOBJ: no inv for type %d", typeID)
 	}
 	it := inv.Get(slot)
@@ -62,8 +72,13 @@ func handleInvGetObj(s *ScriptState) error {
 func handleInvGetNum(s *ScriptState) error {
 	slot := s.PopInt()
 	typeID := s.PopInt()
+	if err := checkInvType(s, typeID, "INV_GETNUM"); err != nil {
+		return err
+	}
 	inv := resolveInv(s, typeID)
 	if inv == nil {
+		// Defensive: unreachable post-checkInvType for valid configs;
+		// retained for the InvLookup-unset case (s.Inv == nil → resolveInv returns nil).
 		return fmt.Errorf("INV_GETNUM: no inv for type %d", typeID)
 	}
 	it := inv.Get(slot)
@@ -78,8 +93,13 @@ func handleInvGetNum(s *ScriptState) error {
 // handleInvSize (INV_SIZE) pops an inv id and pushes its Capacity.
 func handleInvSize(s *ScriptState) error {
 	typeID := s.PopInt()
+	if err := checkInvType(s, typeID, "INV_SIZE"); err != nil {
+		return err
+	}
 	inv := resolveInv(s, typeID)
 	if inv == nil {
+		// Defensive: unreachable post-checkInvType for valid configs;
+		// retained for the InvLookup-unset case (s.Inv == nil → resolveInv returns nil).
 		return fmt.Errorf("INV_SIZE: no inv for type %d", typeID)
 	}
 	s.PushInt(inv.Capacity)
@@ -90,8 +110,13 @@ func handleInvSize(s *ScriptState) error {
 // number of empty slots.
 func handleInvFreeSpace(s *ScriptState) error {
 	typeID := s.PopInt()
+	if err := checkInvType(s, typeID, "INV_FREESPACE"); err != nil {
+		return err
+	}
 	inv := resolveInv(s, typeID)
 	if inv == nil {
+		// Defensive: unreachable post-checkInvType for valid configs;
+		// retained for the InvLookup-unset case (s.Inv == nil → resolveInv returns nil).
 		return fmt.Errorf("INV_FREESPACE: no inv for type %d", typeID)
 	}
 	s.PushInt(inv.FreeSlotCount())
@@ -181,8 +206,13 @@ func handleInvItemSpace(s *ScriptState) error {
 		s.PushInt(0)
 		return nil
 	}
+	if err := checkInvType(s, typeID, "INV_ITEMSPACE"); err != nil {
+		return err
+	}
 	inv := resolveInv(s, typeID)
 	if inv == nil {
+		// Defensive: unreachable post-checkInvType for valid configs;
+		// retained for the InvLookup-unset case (s.Inv == nil → resolveInv returns nil).
 		return fmt.Errorf("INV_ITEMSPACE: no inv for type %d", typeID)
 	}
 	if size < 0 || size > inv.Capacity {
@@ -208,8 +238,13 @@ func handleInvItemSpace2(s *ScriptState) error {
 		s.PushInt(0)
 		return nil
 	}
+	if err := checkInvType(s, typeID, "INV_ITEMSPACE2"); err != nil {
+		return err
+	}
 	inv := resolveInv(s, typeID)
 	if inv == nil {
+		// Defensive: unreachable post-checkInvType for valid configs;
+		// retained for the InvLookup-unset case (s.Inv == nil → resolveInv returns nil).
 		return fmt.Errorf("INV_ITEMSPACE2: no inv for type %d", typeID)
 	}
 	s.PushInt(invItemSpaceRemaining(s, inv, obj, count, size))
@@ -224,8 +259,13 @@ func handleInvItemSpace2(s *ScriptState) error {
 func handleInvTotalParam(s *ScriptState) error {
 	param := s.PopInt()
 	typeID := s.PopInt()
+	if err := checkInvType(s, typeID, "INV_TOTALPARAM"); err != nil {
+		return err
+	}
 	inv := resolveInv(s, typeID)
 	if inv == nil {
+		// Defensive: unreachable post-checkInvType for valid configs;
+		// retained for the InvLookup-unset case (s.Inv == nil → resolveInv returns nil).
 		return fmt.Errorf("INV_TOTALPARAM: no inv for type %d", typeID)
 	}
 	if err := checkParamType(s, param, "INV_TOTALPARAM"); err != nil {
@@ -261,8 +301,13 @@ func handleInvTotalParam(s *ScriptState) error {
 func handleInvTotalCat(s *ScriptState) error {
 	category := s.PopInt()
 	typeID := s.PopInt()
+	if err := checkInvType(s, typeID, "INV_TOTALCAT"); err != nil {
+		return err
+	}
 	inv := resolveInv(s, typeID)
 	if inv == nil {
+		// Defensive: unreachable post-checkInvType for valid configs;
+		// retained for the InvLookup-unset case (s.Inv == nil → resolveInv returns nil).
 		return fmt.Errorf("INV_TOTALCAT: no inv for type %d", typeID)
 	}
 	if s.Configs == nil {
@@ -791,11 +836,11 @@ func handleInvDropSlot(s *ScriptState) error {
 		return fmt.Errorf("INV_DROPSLOT: no configs")
 	}
 
-	// InvTypeValid: resolve InvType config.
-	invType := s.Configs.InvType(invID)
-	if invType == nil {
-		return fmt.Errorf("INV_DROPSLOT: invalid inv id (%d)", invID)
+	// InvTypeValid: registry-presence check via canonical validator.
+	if err := checkInvType(s, invID, "INV_DROPSLOT"); err != nil {
+		return err
 	}
+	invType := s.Configs.InvType(invID)
 
 	// DurationValid.
 	if err := checkDuration(duration); err != nil {
@@ -1654,11 +1699,11 @@ func handleBothDropSlot(s *ScriptState) error {
 	coord := s.PopInt()
 	invID := s.PopInt()
 
-	// InvTypeValid.
-	invType := s.Configs.InvType(invID)
-	if invType == nil {
-		return fmt.Errorf("BOTH_DROPSLOT: invalid inv id (%d)", invID)
+	// InvTypeValid: registry-presence check via canonical validator.
+	if err := checkInvType(s, invID, "BOTH_DROPSLOT"); err != nil {
+		return err
 	}
+	invType := s.Configs.InvType(invID)
 
 	// DurationValid.
 	if err := checkDuration(duration); err != nil {
@@ -1797,11 +1842,11 @@ func handleInvDropAll(s *ScriptState) error {
 	coord := s.PopInt()
 	invID := s.PopInt()
 
-	// InvTypeValid.
-	invType := s.Configs.InvType(invID)
-	if invType == nil {
-		return fmt.Errorf("INV_DROPALL: invalid inv id (%d)", invID)
+	// InvTypeValid: registry-presence check via canonical validator.
+	if err := checkInvType(s, invID, "INV_DROPALL"); err != nil {
+		return err
 	}
+	invType := s.Configs.InvType(invID)
 
 	// DurationValid.
 	if err := checkDuration(duration); err != nil {
