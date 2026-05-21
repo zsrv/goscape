@@ -606,10 +606,10 @@ func handleOcTradeable(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	ot := s.Configs.ObjType(id)
-	if ot == nil {
-		return fmt.Errorf("OC_TRADEABLE: unknown obj id %d", id)
+	if err := checkObjType(s, id, "OC_TRADEABLE"); err != nil {
+		return err
 	}
+	ot := s.Configs.ObjType(id)
 	if ot.Tradeable {
 		s.PushInt(1)
 	} else {
@@ -624,10 +624,10 @@ func handleOcDebugName(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	ot := s.Configs.ObjType(id)
-	if ot == nil {
-		return fmt.Errorf("OC_DEBUGNAME: unknown obj id %d", id)
+	if err := checkObjType(s, id, "OC_DEBUGNAME"); err != nil {
+		return err
 	}
+	ot := s.Configs.ObjType(id)
 	if ot.DebugName == "" {
 		s.PushString("null")
 	} else {
@@ -646,10 +646,10 @@ func handleOcCert(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	ot := s.Configs.ObjType(id)
-	if ot == nil {
-		return fmt.Errorf("OC_CERT: unknown obj id %d", id)
+	if err := checkObjType(s, id, "OC_CERT"); err != nil {
+		return err
 	}
+	ot := s.Configs.ObjType(id)
 	if ot.CertTemplate == -1 && ot.CertLink >= 0 {
 		s.PushInt(ot.CertLink)
 	} else {
@@ -668,10 +668,10 @@ func handleOcUncert(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	ot := s.Configs.ObjType(id)
-	if ot == nil {
-		return fmt.Errorf("OC_UNCERT: unknown obj id %d", id)
+	if err := checkObjType(s, id, "OC_UNCERT"); err != nil {
+		return err
 	}
+	ot := s.Configs.ObjType(id)
 	if ot.CertTemplate >= 0 && ot.CertLink >= 0 {
 		s.PushInt(ot.CertLink)
 	} else {
@@ -686,10 +686,10 @@ func handleOcStackable(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	ot := s.Configs.ObjType(id)
-	if ot == nil {
-		return fmt.Errorf("OC_STACKABLE: unknown obj id %d", id)
+	if err := checkObjType(s, id, "OC_STACKABLE"); err != nil {
+		return err
 	}
+	ot := s.Configs.ObjType(id)
 	if ot.Stackable {
 		s.PushInt(1)
 	} else {
