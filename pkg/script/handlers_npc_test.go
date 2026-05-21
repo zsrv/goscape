@@ -482,6 +482,35 @@ func runNpcOp(t *testing.T, npc ActiveNpc, mc *mockConfigs, op Opcode, intInputs
 	return state
 }
 
+// runNpcOpExpectErr executes a single-opcode script against npc + optional
+// mc, with pre-pushed int inputs, and asserts the resulting error contains
+// substr. Mirrors runConfigOpExpectErr at handlers_config_test.go:264.
+func runNpcOpExpectErr(t *testing.T, npc ActiveNpc, mc *mockConfigs, op Opcode, intInputs []int, substr string) {
+	t.Helper()
+	sf := &ScriptFile{
+		Name:             "test_" + op.String(),
+		Opcodes:          []Opcode{op, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	if mc != nil {
+		state.Configs = mc
+	}
+	for _, v := range intInputs {
+		state.PushInt(v)
+	}
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("%s: expected error containing %q, got nil", op.String(), substr)
+	}
+	if !strings.Contains(err.Error(), substr) {
+		t.Fatalf("%s: expected error containing %q, got %q", op.String(), substr, err.Error())
+	}
+}
+
 func TestNpcType(t *testing.T) {
 	npc := &mockNpc{typeID: 42}
 	mc := &mockConfigs{npcs: map[int]*objtype.NpcType{42: {ConfigType: objtype.ConfigType{ID: 42}}}}
@@ -603,13 +632,11 @@ func TestNpcCategory(t *testing.T) {
 	}
 }
 
-func TestNpcCategoryUnknownTypeReturnsMinusOne(t *testing.T) {
+func TestNpcCategory_UnknownType_ReturnsError(t *testing.T) {
 	mc := newTestConfigs()
 	npc := &mockNpc{typeID: 9999}
-	state := runNpcOp(t, npc, mc, OpNpcCategory, nil)
-	if got := state.PopInt(); got != -1 {
-		t.Errorf("NPC_CATEGORY(unknown): got %d, want -1", got)
-	}
+	runNpcOpExpectErr(t, npc, mc, OpNpcCategory, nil,
+		"NPC_CATEGORY: no NpcType with value (9999) found")
 }
 
 func TestNpcName(t *testing.T) {
@@ -637,13 +664,11 @@ func TestNpcNameFallsBackToDebugName(t *testing.T) {
 	}
 }
 
-func TestNpcNameUnknownTypeReturnsNull(t *testing.T) {
+func TestNpcName_UnknownType_ReturnsError(t *testing.T) {
 	mc := newTestConfigs()
 	npc := &mockNpc{typeID: 9999}
-	state := runNpcOp(t, npc, mc, OpNpcName, nil)
-	if got := state.PopString(); got != "null" {
-		t.Errorf("NPC_NAME(unknown): got %q, want %q", got, "null")
-	}
+	runNpcOpExpectErr(t, npc, mc, OpNpcName, nil,
+		"NPC_NAME: no NpcType with value (9999) found")
 }
 
 func TestNpcHasOpExisting(t *testing.T) {

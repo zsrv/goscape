@@ -237,20 +237,21 @@ func handleNpcBaseStat(s *ScriptState) error {
 }
 
 // handleNpcName looks up the ActiveNpc's NpcType via Configs and pushes
-// its Name, falling back to DebugName, then "null" (matching TS
+// its Name, falling back to DebugName then "null" (matching TS
 // nullish-coalesce on NpcType.name).
+// Mirrors TS NpcOps.ts:270-272 — check(activeNpc.type, NpcTypeValid).
 func handleNpcName(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_NAME"); err != nil {
 		return err
 	}
-	if s.Configs == nil {
-		return errors.New("NPC_NAME: no configs")
+	if err := requireConfigs(s, "NPC_NAME"); err != nil {
+		return err
 	}
-	cfg := s.Configs.NpcType(s.ActiveNpc.NpcType())
-	if cfg == nil {
-		s.PushString("null")
-		return nil
+	typeID := s.ActiveNpc.NpcType()
+	if err := checkNpcType(s, typeID, "NPC_NAME"); err != nil {
+		return err
 	}
+	cfg := s.Configs.NpcType(typeID)
 	name := cfg.Name
 	if name == "" {
 		name = cfg.DebugName
@@ -301,21 +302,20 @@ func handleNpcUID(s *ScriptState) error {
 }
 
 // handleNpcCategory looks up the ActiveNpc's NpcType via Configs and
-// pushes its Category, or -1 if the type can't be resolved.
+// pushes its Category. Mirrors TS NpcOps.ts:68-70 —
+// check(activeNpc.type, NpcTypeValid).category (no fallback).
 func handleNpcCategory(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_CATEGORY"); err != nil {
 		return err
 	}
-	if s.Configs == nil {
-		s.PushInt(-1)
-		return nil
+	if err := requireConfigs(s, "NPC_CATEGORY"); err != nil {
+		return err
 	}
-	cfg := s.Configs.NpcType(s.ActiveNpc.NpcType())
-	if cfg == nil {
-		s.PushInt(-1)
-		return nil
+	typeID := s.ActiveNpc.NpcType()
+	if err := checkNpcType(s, typeID, "NPC_CATEGORY"); err != nil {
+		return err
 	}
-	s.PushInt(cfg.Category)
+	s.PushInt(s.Configs.NpcType(typeID).Category)
 	return nil
 }
 
