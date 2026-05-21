@@ -93,6 +93,15 @@ type Server struct {
 
 	gamemap *gamemap.GameMap
 
+	// lineValidatorOverride is a test-only seam: when non-nil,
+	// scriptLineValidator() returns it instead of
+	// gamemap.Pathfinder.LineValidator. Production New() never sets
+	// this; only test fixtures that need to wire a stub LineValidator
+	// without a real gamemap (e.g., FindClosestNpcBy* tests in
+	// modules/world/npc_script_lookup_test.go) write to it directly.
+	// Nil = production path (read from gamemap).
+	lineValidatorOverride script.LineValidator
+
 	// invs is world-shared inventories (banks, shops) keyed by InvType id.
 	// Empty until populated by non-4a code. Listeners with Source==-1 read from here.
 	invs map[int]*inventory.Inventory

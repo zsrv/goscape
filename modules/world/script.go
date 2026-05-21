@@ -5,12 +5,17 @@ import (
 )
 
 // scriptLineValidator returns the LineValidator wired into all script
-// state-init sites. Returns nil if the gamemap has not been initialized
-// (only happens in unit-test fixtures that build a stripped-down
-// Server). Production callers always have gamemap set via New().
-// HuntAll-mode passesFilter pessimistically allows on a nil validator,
-// so the test path degrades gracefully. NAI-35-T3.
+// state-init sites and into serverNpcLookup's huntvisGate (Prong B of
+// the NAI-33-D1 retire). Lookup order: lineValidatorOverride (test
+// seam) → gamemap.Pathfinder.LineValidator → nil. Production callers
+// always have gamemap set via New(); the test seam is for fixtures
+// that need a stub validator without a real gamemap. Distance + HuntAll
+// passesFilter and huntvisGate all pessimistically allow on a nil
+// return, so the test path degrades gracefully. NAI-35-T3.
 func (s *Server) scriptLineValidator() script.LineValidator {
+	if s.lineValidatorOverride != nil {
+		return s.lineValidatorOverride
+	}
 	if s.gamemap == nil {
 		return nil
 	}

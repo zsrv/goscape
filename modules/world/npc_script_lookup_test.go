@@ -7,6 +7,38 @@ import (
 	"github.com/zsrv/goscape/pkg/script"
 )
 
+// fakeLineValidator is a script.LineValidator test double for
+// FindClosestNpc* huntvis tests. Mirrors pkg/script's stubLineValidator
+// in shape; defined locally because the script package's stub isn't
+// exported.
+type fakeLineValidator struct {
+	losReturn bool
+	lowReturn bool
+}
+
+func (f *fakeLineValidator) HasLineOfSight(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, extraFlag int) bool {
+	return f.losReturn
+}
+
+func (f *fakeLineValidator) HasLineOfWalk(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, extraFlag int) bool {
+	return f.lowReturn
+}
+
+// recordingFakeLineValidator captures args for arg-shape pin tests.
+type recordingFakeLineValidator struct {
+	losLevel, losSrcX, losSrcZ, losDestX, losDestZ int
+	losReturn                                       bool
+}
+
+func (r *recordingFakeLineValidator) HasLineOfSight(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, extraFlag int) bool {
+	r.losLevel, r.losSrcX, r.losSrcZ, r.losDestX, r.losDestZ = level, srcX, srcZ, destX, destZ
+	return r.losReturn
+}
+
+func (r *recordingFakeLineValidator) HasLineOfWalk(level, srcX, srcZ, destX, destZ, srcSize, destWidth, destLength, extraFlag int) bool {
+	return false
+}
+
 // setupLookupServer returns a Server with npcLookup bound and NpcTypes 7
 // ("Hans", category 5) and 8 ("Other", category 9) registered. Mirrors
 // the fixture patterns at player_npc_test.go:33 and script_test.go:939+.
@@ -166,5 +198,188 @@ func TestServerNpcLookup_ZoneNpcs_OffGridReturnsEmpty(t *testing.T) {
 	got := s.npcLookup.ZoneNpcs(0, -1000, -1000) // outside any allocated zone
 	if len(got) != 0 {
 		t.Errorf("off-grid: got len=%d, want 0", len(got))
+	}
+}
+
+// --- NAI-33 Task 3: huntvisGate + FindClosestNpc* huntvis filtering tests ---
+
+// TestFindClosestNpcByType_HuntVisOff_Baseline — regression guard:
+// HuntVisOff continues to return the closest type-matched NPC even
+// when an always-block validator is wired. Pre-slice behavior preserved.
+func TestFindClosestNpcByType_HuntVisOff_Baseline(t *testing.T) {
+	s := setupLookupServer(t)
+	s.lineValidatorOverride = &fakeLineValidator{losReturn: false, lowReturn: false}
+	npc := setupNpc(t, s, 50, 50, 0)
+	npc.typeId = 7
+
+	got := s.npcLookup.FindClosestNpcByType(0, 50, 50, 30, 7, int(objtype.HuntVisOff))
+	if got == nil {
+		t.Fatal("HuntVisOff with blocking validator should still emit")
+	}
+}
+
+// TestFindClosestNpcByType_HuntVisLineOfSight_FiltersBlocked — proves
+// LoS-blocked NPCs are skipped; only the LoS-passing NPC at same dist
+// is returned. Closes NAI-33-D1 for NPC_FIND via huntvisGate wiring.
+func TestFindClosestNpcByType_HuntVisLineOfSight_FiltersBlocked(t *testing.T) {
+	s := setupLookupServer(t)
+	// Always-block: nothing should pass except via pessimistic-allow,
+	// which only triggers on nil validator. With validator present,
+	// always-false → all candidates filtered → nil result.
+	s.lineValidatorOverride = &fakeLineValidator{losReturn: false}
+	npc1 := setupNpc(t, s, 50, 50, 0)
+	npc1.typeId = 7
+	npc2 := setupNpc(t, s, 51, 50, 0)
+	npc2.typeId = 7
+
+	got := s.npcLookup.FindClosestNpcByType(0, 49, 50, 30, 7, int(objtype.HuntVisLineOfSight))
+	if got != nil {
+		t.Errorf("all candidates LoS-blocked: expected nil, got %v", got)
+	}
+
+	// Now flip to always-pass and verify the closer one wins.
+	s.lineValidatorOverride = &fakeLineValidator{losReturn: true}
+	got = s.npcLookup.FindClosestNpcByType(0, 49, 50, 30, 7, int(objtype.HuntVisLineOfSight))
+	if got == nil {
+		t.Fatal("LoS-passing: expected emit, got nil")
+	}
+	if got.(*Npc) != npc1 {
+		t.Errorf("LoS-passing: expected closer npc1 (at 50,50 vs lookup at 49,50), got npc2 (at 51,50)")
+	}
+}
+
+// TestFindClosestNpcByType_HuntVisLineOfWalk_FiltersBlocked — LoW variant.
+func TestFindClosestNpcByType_HuntVisLineOfWalk_FiltersBlocked(t *testing.T) {
+	s := setupLookupServer(t)
+	s.lineValidatorOverride = &fakeLineValidator{lowReturn: false}
+	npc := setupNpc(t, s, 50, 50, 0)
+	npc.typeId = 7
+
+	got := s.npcLookup.FindClosestNpcByType(0, 50, 50, 30, 7, int(objtype.HuntVisLineOfWalk))
+	if got != nil {
+		t.Errorf("LoW-blocked: expected nil, got %v", got)
+	}
+
+	s.lineValidatorOverride = &fakeLineValidator{lowReturn: true}
+	got = s.npcLookup.FindClosestNpcByType(0, 50, 50, 30, 7, int(objtype.HuntVisLineOfWalk))
+	if got == nil {
+		t.Fatal("LoW-passing: expected emit, got nil")
+	}
+}
+
+// TestFindClosestNpcByType_NilLineValidator_PessimisticAllow — when
+// scriptLineValidator returns nil (no gamemap + no override), huntvis
+// filter pessimistically allows. Matches HuntAll-mode iterator
+// convention at pkg/script/npc_iterator.go:138-141.
+func TestFindClosestNpcByType_NilLineValidator_PessimisticAllow(t *testing.T) {
+	s := setupLookupServer(t)
+	// s.gamemap == nil (newTestServer doesn't wire one), s.lineValidatorOverride == nil
+	npc := setupNpc(t, s, 50, 50, 0)
+	npc.typeId = 7
+
+	got := s.npcLookup.FindClosestNpcByType(0, 50, 50, 30, 7, int(objtype.HuntVisLineOfSight))
+	if got == nil {
+		t.Error("nil-validator + LoS huntvis should pessimistically allow")
+	}
+}
+
+// TestFindClosestNpcByType_HuntVisAfterDistance_ClosestStillWins — 2
+// LoS-passing NPCs at different distances; closer wins. Validates
+// huntvis filter doesn't disturb the closest-by-euclidean-squared
+// selection or the later-match-wins (<=) tie-break.
+func TestFindClosestNpcByType_HuntVisAfterDistance_ClosestStillWins(t *testing.T) {
+	s := setupLookupServer(t)
+	s.lineValidatorOverride = &fakeLineValidator{losReturn: true}
+	near := setupNpc(t, s, 50, 50, 0)
+	near.typeId = 7
+	far := setupNpc(t, s, 60, 50, 0)
+	far.typeId = 7
+
+	got := s.npcLookup.FindClosestNpcByType(0, 50, 50, 30, 7, int(objtype.HuntVisLineOfSight))
+	if got == nil {
+		t.Fatal("expected emit")
+	}
+	if got.(*Npc) != near {
+		t.Errorf("expected closer NPC; got far one")
+	}
+}
+
+// TestFindClosestNpcByType_LineOfSightArgShape pins the LoS arg tuple
+// per TS NpcIterator DISTANCE-mode at ScriptIterators.ts:348:
+// isLineOfSight(level, lookupX, lookupZ, npc.x, npc.z) — iterator-as-src
+// ordering. Guards NAI-166-D-LOW-ARG-SHAPE-SWEEP precedent at the
+// FindClosest call site.
+func TestFindClosestNpcByType_LineOfSightArgShape(t *testing.T) {
+	s := setupLookupServer(t)
+	rec := &recordingFakeLineValidator{losReturn: true}
+	s.lineValidatorOverride = rec
+	npc := setupNpc(t, s, 51, 52, 3)
+	npc.typeId = 7
+
+	_ = s.npcLookup.FindClosestNpcByType(3, 50, 50, 30, 7, int(objtype.HuntVisLineOfSight))
+	if rec.losLevel != 3 || rec.losSrcX != 50 || rec.losSrcZ != 50 || rec.losDestX != 51 || rec.losDestZ != 52 {
+		t.Errorf("LoS arg shape: got (level=%d, src=%d,%d, dst=%d,%d), want (3, 50, 50, 51, 52) — lookup-as-src",
+			rec.losLevel, rec.losSrcX, rec.losSrcZ, rec.losDestX, rec.losDestZ)
+	}
+}
+
+// TestFindClosestNpcByCategory_HuntVisOff_Baseline — regression guard
+// for NPC_FINDCAT, mirror of TestFindClosestNpcByType_HuntVisOff_Baseline.
+func TestFindClosestNpcByCategory_HuntVisOff_Baseline(t *testing.T) {
+	s := setupLookupServer(t)
+	s.lineValidatorOverride = &fakeLineValidator{losReturn: false, lowReturn: false}
+	npc := setupNpc(t, s, 50, 50, 0)
+	npc.typeId = 7 // category 5 per setupLookupServer
+
+	got := s.npcLookup.FindClosestNpcByCategory(0, 50, 50, 30, 5, int(objtype.HuntVisOff))
+	if got == nil {
+		t.Fatal("HuntVisOff with blocking validator should still emit")
+	}
+}
+
+// TestFindClosestNpcByCategory_HuntVisLineOfSight_FiltersBlocked — LoS
+// filter wiring on NPC_FINDCAT closes NAI-33-D1 for the category variant.
+func TestFindClosestNpcByCategory_HuntVisLineOfSight_FiltersBlocked(t *testing.T) {
+	s := setupLookupServer(t)
+	s.lineValidatorOverride = &fakeLineValidator{losReturn: false}
+	npc := setupNpc(t, s, 50, 50, 0)
+	npc.typeId = 7 // category 5
+
+	got := s.npcLookup.FindClosestNpcByCategory(0, 50, 50, 30, 5, int(objtype.HuntVisLineOfSight))
+	if got != nil {
+		t.Errorf("LoS-blocked: expected nil, got %v", got)
+	}
+
+	s.lineValidatorOverride = &fakeLineValidator{losReturn: true}
+	got = s.npcLookup.FindClosestNpcByCategory(0, 50, 50, 30, 5, int(objtype.HuntVisLineOfSight))
+	if got == nil {
+		t.Error("LoS-passing: expected emit, got nil")
+	}
+}
+
+// TestFindClosestNpcByCategory_HuntVisLineOfWalk_FiltersBlocked — LoW
+// variant for NPC_FINDCAT.
+func TestFindClosestNpcByCategory_HuntVisLineOfWalk_FiltersBlocked(t *testing.T) {
+	s := setupLookupServer(t)
+	s.lineValidatorOverride = &fakeLineValidator{lowReturn: false}
+	npc := setupNpc(t, s, 50, 50, 0)
+	npc.typeId = 7
+
+	got := s.npcLookup.FindClosestNpcByCategory(0, 50, 50, 30, 5, int(objtype.HuntVisLineOfWalk))
+	if got != nil {
+		t.Errorf("LoW-blocked: expected nil, got %v", got)
+	}
+}
+
+// TestFindClosestNpcByCategory_NilLineValidator_PessimisticAllow — nil
+// validator + LoS huntvis → emit (pessimistic-allow convention).
+func TestFindClosestNpcByCategory_NilLineValidator_PessimisticAllow(t *testing.T) {
+	s := setupLookupServer(t)
+	npc := setupNpc(t, s, 50, 50, 0)
+	npc.typeId = 7
+
+	got := s.npcLookup.FindClosestNpcByCategory(0, 50, 50, 30, 5, int(objtype.HuntVisLineOfSight))
+	if got == nil {
+		t.Error("nil-validator + LoS huntvis should pessimistically allow")
 	}
 }
