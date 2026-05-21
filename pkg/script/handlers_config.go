@@ -289,10 +289,10 @@ func handleNcName(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	nt := s.Configs.NpcType(id)
-	if nt == nil {
-		return fmt.Errorf("NC_NAME: unknown npc id %d", id)
+	if err := checkNpcType(s, id, "NC_NAME"); err != nil {
+		return err
 	}
+	nt := s.Configs.NpcType(id)
 	if nt.Name != "" {
 		s.PushString(nt.Name)
 	} else if nt.DebugName != "" {
@@ -310,10 +310,10 @@ func handleNcParam(s *ScriptState) error {
 	}
 	paramID := s.PopInt()
 	npcID := s.PopInt()
-	nt := s.Configs.NpcType(npcID)
-	if nt == nil {
-		return fmt.Errorf("NC_PARAM: unknown npc id %d", npcID)
+	if err := checkNpcType(s, npcID, "NC_PARAM"); err != nil {
+		return err
 	}
+	nt := s.Configs.NpcType(npcID)
 	return paramLookup(s, nt.Params, paramID, "NC_PARAM")
 }
 
@@ -330,10 +330,10 @@ func handleNpcParam(s *ScriptState) error {
 	}
 	paramID := s.PopInt()
 	npcID := s.ActiveNpc.NpcType()
-	nt := s.Configs.NpcType(npcID)
-	if nt == nil {
-		return fmt.Errorf("NPC_PARAM: unknown npc id %d", npcID)
+	if err := checkNpcType(s, npcID, "NPC_PARAM"); err != nil {
+		return err
 	}
+	nt := s.Configs.NpcType(npcID)
 	return paramLookup(s, nt.Params, paramID, "NPC_PARAM")
 }
 
@@ -343,10 +343,10 @@ func handleNcCategory(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	nt := s.Configs.NpcType(id)
-	if nt == nil {
-		return fmt.Errorf("NC_CATEGORY: unknown npc id %d", id)
+	if err := checkNpcType(s, id, "NC_CATEGORY"); err != nil {
+		return err
 	}
+	nt := s.Configs.NpcType(id)
 	s.PushInt(nt.Category)
 	return nil
 }
@@ -357,10 +357,10 @@ func handleNcDesc(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	nt := s.Configs.NpcType(id)
-	if nt == nil {
-		return fmt.Errorf("NC_DESC: unknown npc id %d", id)
+	if err := checkNpcType(s, id, "NC_DESC"); err != nil {
+		return err
 	}
+	nt := s.Configs.NpcType(id)
 	if nt.Desc == "" {
 		s.PushString("null")
 	} else {
@@ -375,10 +375,10 @@ func handleNcDebugName(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	nt := s.Configs.NpcType(id)
-	if nt == nil {
-		return fmt.Errorf("NC_DEBUGNAME: unknown npc id %d", id)
+	if err := checkNpcType(s, id, "NC_DEBUGNAME"); err != nil {
+		return err
 	}
+	nt := s.Configs.NpcType(id)
 	if nt.DebugName == "" {
 		s.PushString("null")
 	} else {
@@ -401,10 +401,10 @@ func handleNcOp(s *ScriptState) error {
 		return err
 	}
 	npcID := s.PopInt()
-	nt := s.Configs.NpcType(npcID)
-	if nt == nil {
-		return fmt.Errorf("NC_OP: unknown npc id %d", npcID)
+	if err := checkNpcType(s, npcID, "NC_OP"); err != nil {
+		return err
 	}
+	nt := s.Configs.NpcType(npcID)
 	idx := op - 1
 	if nt.Op == nil || idx < 0 || idx >= len(nt.Op) {
 		s.PushString("")
@@ -420,10 +420,10 @@ func handleNcSize(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	nt := s.Configs.NpcType(id)
-	if nt == nil {
-		return fmt.Errorf("NC_SIZE: unknown npc id %d", id)
+	if err := checkNpcType(s, id, "NC_SIZE"); err != nil {
+		return err
 	}
+	nt := s.Configs.NpcType(id)
 	s.PushInt(int(nt.Size))
 	return nil
 }
@@ -435,10 +435,10 @@ func handleNcVisLevel(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	nt := s.Configs.NpcType(id)
-	if nt == nil {
-		return fmt.Errorf("NC_VISLEVEL: unknown npc id %d", id)
+	if err := checkNpcType(s, id, "NC_VISLEVEL"); err != nil {
+		return err
 	}
+	nt := s.Configs.NpcType(id)
 	s.PushInt(nt.VisLevel)
 	return nil
 }

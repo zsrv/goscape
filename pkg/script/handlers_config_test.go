@@ -866,7 +866,7 @@ func TestNcVisLevel(t *testing.T) {
 
 func TestNcUnknownIdErrors(t *testing.T) {
 	mc := newTestConfigs()
-	runConfigOpExpectErr(t, mc, OpNcName, []int{999}, "unknown npc id")
+	runConfigOpExpectErr(t, mc, OpNcName, []int{999}, "no NpcType with value (999) found")
 }
 
 // -- ObjConfigOps tests --
