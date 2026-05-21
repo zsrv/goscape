@@ -237,8 +237,8 @@ func handleNpcBaseStat(s *ScriptState) error {
 }
 
 // handleNpcName looks up the ActiveNpc's NpcType via Configs and pushes
-// its Name, falling back to DebugName then "null" (matching TS
-// nullish-coalesce on NpcType.name).
+// its Name, or "null" if empty (matching TS nullish-coalesce on
+// NpcType.name).
 // Mirrors TS NpcOps.ts:270-272 — check(activeNpc.type, NpcTypeValid).
 func handleNpcName(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_NAME"); err != nil {
@@ -251,11 +251,7 @@ func handleNpcName(s *ScriptState) error {
 	if err := checkNpcType(s, typeID, "NPC_NAME"); err != nil {
 		return err
 	}
-	cfg := s.Configs.NpcType(typeID)
-	name := cfg.Name
-	if name == "" {
-		name = cfg.DebugName
-	}
+	name := s.Configs.NpcType(typeID).Name
 	if name == "" {
 		name = "null"
 	}

@@ -654,13 +654,15 @@ func TestNpcName(t *testing.T) {
 	}
 }
 
-func TestNpcNameFallsBackToDebugName(t *testing.T) {
+func TestNpcName_EmptyName_PushesNull(t *testing.T) {
 	mc := newTestConfigs()
-	// mc.npcs[1] has only DebugName = "unnamed_npc"
+	// mc.npcs[1] has only DebugName = "unnamed_npc" (Name is empty).
+	// TS NpcOps.ts:271 does only `name ?? 'null'` — single-level coalesce,
+	// no DebugName fallback.
 	npc := &mockNpc{typeID: 1}
 	state := runNpcOp(t, npc, mc, OpNpcName, nil)
-	if got := state.PopString(); got != "unnamed_npc" {
-		t.Errorf("NPC_NAME(debugname fallback): got %q, want %q", got, "unnamed_npc")
+	if got := state.PopString(); got != "null" {
+		t.Errorf("NPC_NAME(empty name): got %q, want %q", got, "null")
 	}
 }
 
