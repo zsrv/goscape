@@ -41,11 +41,18 @@ type SessionLog struct {
 func (s *Server) processSessionLogs() {
 	if s.currentTick > 0 && s.currentTick%PlayerCoordLogRate == 0 {
 		for _, p := range s.playerLoop {
+			// AddSessionLog reacquires sessionLogsMu; do NOT hold it across
+			// this loop. Arc 18 R1.
 			p.AddSessionLog(LoggerEventTypeModerator, "Server check in")
 		}
 	}
-	if len(s.sessionLogs) > 0 {
-		s.loggerBridge.SubmitSessionLogs(s.sessionLogs)
-		s.sessionLogs = nil
+	// Snapshot+clear under the mutex so concurrent appends from packet/
+	// script goroutines do not race with the per-tick dispatch. Arc 18 R1.
+	s.sessionLogsMu.Lock()
+	logs := s.sessionLogs
+	s.sessionLogs = nil
+	s.sessionLogsMu.Unlock()
+	if len(logs) > 0 {
+		s.loggerBridge.SubmitSessionLogs(logs)
 	}
 }

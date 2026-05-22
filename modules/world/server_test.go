@@ -1,6 +1,7 @@
 package world
 
 import (
+	"context"
 	"errors"
 	"io"
 	"log/slog"
@@ -311,6 +312,12 @@ func defaultTestProvider() *script.Provider {
 
 func newTestServer(t *testing.T) *Server {
 	t.Helper()
+	// Arc 18 R3 — bridgesCtx must be non-nil so tests that inject a
+	// non-nil loginClient/friendsClient and exercise removePlayerOnTick /
+	// autosavePlayers / processLogins (which now do
+	// context.WithTimeout(s.bridgesCtx, ...)) don't nil-deref.
+	bridgesCtx, bridgesCancel := context.WithCancel(context.Background())
+	t.Cleanup(bridgesCancel)
 	s := &Server{
 		quit:             make(chan interface{}),
 		log:              discardLogger(),
@@ -325,6 +332,8 @@ func newTestServer(t *testing.T) *Server {
 		rebuildReq:       make(chan struct{}, 1),
 		rebuildResult:    make(chan rebuildResult, 1),
 		relayActionQueue: make(chan func(), 64),
+		bridgesCtx:       bridgesCtx,
+		bridgesCancel:    bridgesCancel,
 	}
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}

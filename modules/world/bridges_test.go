@@ -256,7 +256,7 @@ func TestRecordingBridgesCapturesSubmitSessionLogs(t *testing.T) {
 
 func TestLoginGRPCBridgeMod_NotifyPlayerBan_FiresRPC(t *testing.T) {
 	fake := newFakeLoginClient()
-	bridge := &loginGRPCBridgeMod{client: fake, log: discardLogger()}
+	bridge := &loginGRPCBridgeMod{client: fake, parentCtx: context.Background(), log: discardLogger()}
 
 	until := time.Unix(1747569600, 0)
 	bridge.NotifyPlayerBan("alice", "evilbob", until)
@@ -279,7 +279,7 @@ func TestLoginGRPCBridgeMod_NotifyPlayerBan_FiresRPC(t *testing.T) {
 
 func TestLoginGRPCBridgeMod_NotifyPlayerMute_FiresRPC(t *testing.T) {
 	fake := newFakeLoginClient()
-	bridge := &loginGRPCBridgeMod{client: fake, log: discardLogger()}
+	bridge := &loginGRPCBridgeMod{client: fake, parentCtx: context.Background(), log: discardLogger()}
 
 	until := time.Unix(1747569600, 0)
 	bridge.NotifyPlayerMute("alice", "evilbob", until)
@@ -323,7 +323,7 @@ func TestLoginGRPCBridgeMod_FireAndForget_DoesNotBlock(t *testing.T) {
 		gate:            gate,
 		hit:             make(chan struct{}),
 	}
-	bridge := &loginGRPCBridgeMod{client: gated, log: discardLogger()}
+	bridge := &loginGRPCBridgeMod{client: gated, parentCtx: context.Background(), log: discardLogger()}
 
 	done := make(chan struct{})
 	go func() {
@@ -349,14 +349,14 @@ func TestLoginGRPCBridgeMod_FireAndForget_DoesNotBlock(t *testing.T) {
 }
 
 func TestDefaultLoginBridgeMod_NonNilClient_ReturnsGRPCBridge(t *testing.T) {
-	got := defaultLoginBridgeMod(newFakeLoginClient(), discardLogger())
+	got := defaultLoginBridgeMod(newFakeLoginClient(), context.Background(), discardLogger())
 	if _, ok := got.(*loginGRPCBridgeMod); !ok {
 		t.Fatalf("defaultLoginBridgeMod: got %T, want *loginGRPCBridgeMod", got)
 	}
 }
 
 func TestDefaultLoginBridgeMod_NilClient_ReturnsNoop(t *testing.T) {
-	got := defaultLoginBridgeMod(nil, discardLogger())
+	got := defaultLoginBridgeMod(nil, context.Background(), discardLogger())
 	if _, ok := got.(noopBridges); !ok {
 		t.Fatalf("defaultLoginBridgeMod: got %T, want noopBridges", got)
 	}

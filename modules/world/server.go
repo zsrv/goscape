@@ -61,6 +61,12 @@ type Server struct {
 	friendsClient FriendsClient
 	cfg           Config
 	tcpWg         sync.WaitGroup
+	// tickWg tracks the runTickLoop goroutine spawned in Run(). Shutdown
+	// closes s.quit and then waits on tickWg so the tick goroutine has
+	// fully exited before cleanup proceeds. Arc 18 R2 — without this,
+	// Shutdown could return while runTickLoop was still executing tick
+	// phases (processSessionLogs / processCleanup / etc.).
+	tickWg sync.WaitGroup
 
 	// addressLoginCache tracks per-remote-IP login attempts in a 60s
 	// window. Populated only when cfg.NodeProduction=true and
@@ -206,9 +212,26 @@ type Server struct {
 	loginBridgeMod        LoginBridgeMod
 	loggerBridge          LoggerBridge
 
+	// bridgesCtx is the parent context for fire-and-forget gRPC calls
+	// from grpcFriendsBridge / loginGRPCBridgeMod and from the inline
+	// PlayerLogout / PlayerForceLogout / PlayerAutosave / PlayerLogin
+	// goroutines spawned in server.go and tick.go. Each call wraps it
+	// with a per-call WithTimeout (bridgeCallTimeout). bridgesCancel is
+	// invoked from Shutdown so in-flight bridge calls observe cancellation
+	// promptly instead of running until their per-call deadline.
+	// Arc 18 R3 — concurrency / shutdown-safety.
+	bridgesCtx    context.Context
+	bridgesCancel context.CancelFunc
+
 	// sessionLogs is the per-tick session-log accumulator. NAI-74. Pushed by
 	// Player.AddSessionLog; flushed via processSessionLogs in the tick loop.
-	sessionLogs []SessionLog
+	//
+	// sessionLogsMu guards append (AddSessionLog, called from any goroutine
+	// via packet-handler/script paths and from the tick goroutine via
+	// processSessionLogs' coord-log push) and the per-tick swap+clear
+	// performed by processSessionLogs. Arc 18 audit (R1 — concurrency).
+	sessionLogsMu sync.Mutex
+	sessionLogs   []SessionLog
 
 	testPathfinder pathfinderForTarget // injected by tests; nil in production
 
@@ -343,7 +366,10 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	s.reloadFn = s.Reload
 	s.watchSessionFn = s.runWatchSession
 	s.runScriptFn = s.runScript
-	s.friendsBridge = defaultFriendsBridge(friendsClient, int32(cfg.NodeID), s.log)
+	// Arc 18 R3 — bridges parent context; canceled by Shutdown so
+	// in-flight fire-and-forget gRPC calls observe shutdown promptly.
+	s.bridgesCtx, s.bridgesCancel = context.WithCancel(context.Background())
+	s.friendsBridge = defaultFriendsBridge(friendsClient, int32(cfg.NodeID), s.bridgesCtx, s.log)
 	s.friendsDispatcher = newEmitFriendsDispatcher(s, s.log)
 	s.friendsAdminBridge = defaultFriendsAdminBridge(friendsClient, s.log)
 	// Slice 5b: production dispatcher composes the slice-5a slog
@@ -357,7 +383,7 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 		sub := newWorldEventsSubscriber(friendsClient, int32(cfg.NodeID), s.worldEventsDispatcher, s.log)
 		go sub.run(ctx)
 	}
-	s.loginBridgeMod = defaultLoginBridgeMod(loginClient, s.log)
+	s.loginBridgeMod = defaultLoginBridgeMod(loginClient, s.bridgesCtx, s.log)
 	s.loggerBridge = NewSlogLoggerBridge(s.log)
 	s.locOps = &serverLocOps{s: s}
 	s.tcpWg.Add(1)
@@ -604,7 +630,11 @@ func (s *Server) Run() error {
 		}
 	}()
 
-	go s.runTickLoop()
+	s.tickWg.Add(1)
+	go func() {
+		defer s.tickWg.Done()
+		s.runTickLoop()
+	}()
 
 	select {
 	case err := <-errChan:
@@ -628,12 +658,23 @@ func (s *Server) Shutdown() {
 	if s.worldEventsCancel != nil {
 		s.worldEventsCancel()
 	}
+	if s.bridgesCancel != nil {
+		s.bridgesCancel()
+	}
 	close(s.quit)
 	s.log.Debug("closing tcp listener")
 	s.tcpListener.Close()
 	s.log.Debug("waiting for tcp connections to close")
 	s.tcpWg.Wait()
 	s.log.Debug("all tcp connections closed")
+	// Arc 18 R2 — wait for the tick goroutine to observe s.quit and exit
+	// before returning from Shutdown. Without this, tick-phase code could
+	// still be running (touching s.sessionLogs / s.playerLoop / etc.)
+	// after Shutdown returned. The tickWg is no-op for graceful-exit
+	// paths (processShutdown returns from runTickLoop without taking the
+	// quit branch, but Done still fires via the defer).
+	s.tickWg.Wait()
+	s.log.Debug("tick goroutine exited")
 
 	//_, cancel := context.WithTimeout(context.Background(), s.cfg.ServerGracefulShutdownTimeout)
 	//defer cancel() // releases resources if httpServer.Shutdown completes before timeout elapses. TODO: revisit this statement
@@ -1158,7 +1199,9 @@ func (s *Server) removePlayerOnTick(p *Player) {
 		save := p.Save(s.invTypes)
 		username := p.username
 		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			// Arc 18 R3 — parent moved from context.Background to
+			// Server.bridgesCtx so Shutdown cancels in-flight RPC promptly.
+			ctx, cancel := context.WithTimeout(s.bridgesCtx, bridgeCallTimeout)
 			defer cancel()
 			_, err := s.loginClient.PlayerLogout(ctx, &loginpb.PlayerLogoutRequest{
 				NodeId:   int32(s.cfg.NodeID),
@@ -1175,10 +1218,16 @@ func (s *Server) removePlayerOnTick(p *Player) {
 	if s.friendsClient != nil && p.username != "" {
 		username37 := p.username37
 		worldID := int32(s.cfg.NodeID)
-		go s.friendsClient.PlayerLogout(context.Background(), &friendspb.PlayerLogoutRequest{
-			WorldId:    worldID,
-			Username37: username37,
-		})
+		// Arc 18 R3 — per-call timeout + shutdown-derived parent so a hung
+		// friends-server cannot pile up goroutines.
+		go func() {
+			ctx, cancel := context.WithTimeout(s.bridgesCtx, bridgeCallTimeout)
+			defer cancel()
+			s.friendsClient.PlayerLogout(ctx, &friendspb.PlayerLogoutRequest{
+				WorldId:    worldID,
+				Username37: username37,
+			})
+		}()
 	}
 	if p.friendsSubCancel != nil {
 		p.friendsSubCancel()
@@ -1199,18 +1248,29 @@ func (s *Server) removePlayerOnTick(p *Player) {
 // TestRemovePlayerOnDisconnect_* (server_logout_test.go).
 func (s *Server) removePlayerOnDisconnect(p *Player) {
 	if s.loginClient != nil && p.username != "" {
-		go s.loginClient.PlayerForceLogout(context.Background(),
-			&loginpb.PlayerForceLogoutRequest{
+		// Arc 18 R3 — per-call timeout + shutdown-derived parent.
+		username := p.username
+		go func() {
+			ctx, cancel := context.WithTimeout(s.bridgesCtx, bridgeCallTimeout)
+			defer cancel()
+			s.loginClient.PlayerForceLogout(ctx, &loginpb.PlayerForceLogoutRequest{
 				NodeId:   int32(s.cfg.NodeID),
 				Profile:  s.cfg.NodeProfile,
-				Username: p.username,
+				Username: username,
 			})
+		}()
 	}
 	if s.friendsClient != nil && p.username != "" {
-		go s.friendsClient.PlayerLogout(context.Background(), &friendspb.PlayerLogoutRequest{
-			WorldId:    int32(s.cfg.NodeID),
-			Username37: p.username37,
-		})
+		// Arc 18 R3 — per-call timeout + shutdown-derived parent.
+		username37 := p.username37
+		go func() {
+			ctx, cancel := context.WithTimeout(s.bridgesCtx, bridgeCallTimeout)
+			defer cancel()
+			s.friendsClient.PlayerLogout(ctx, &friendspb.PlayerLogoutRequest{
+				WorldId:    int32(s.cfg.NodeID),
+				Username37: username37,
+			})
+		}()
 	}
 	if p.friendsSubCancel != nil {
 		p.friendsSubCancel()
@@ -1245,7 +1305,12 @@ func (s *Server) autosavePlayers() {
 			Username: p.username,
 			Save:     save,
 		}
-		go s.loginClient.PlayerAutosave(context.Background(), req)
+		// Arc 18 R3 — per-call timeout + shutdown-derived parent.
+		go func() {
+			ctx, cancel := context.WithTimeout(s.bridgesCtx, bridgeCallTimeout)
+			defer cancel()
+			s.loginClient.PlayerAutosave(ctx, req)
+		}()
 	}
 }
 

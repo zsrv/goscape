@@ -319,6 +319,15 @@ func (noopBridges) OnFriendlistUpdate(uint64, []*friendspb.FriendEntry)       {}
 func (noopBridges) OnIgnorelistUpdate(uint64, []uint64)                       {}
 func (noopBridges) OnPrivateMessage(uint64, uint64, int32, uint32, string)    {}
 
+// bridgeCallTimeout caps every fire-and-forget gRPC call originated by
+// the bridges in this file (and by the inline goroutines in server.go /
+// tick.go) so a hung downstream service cannot pile up goroutines or
+// extend graceful shutdown indefinitely. Arc 18 R3 — concurrency /
+// shutdown-safety. Derived from the per-Server bridgesCtx; canceled
+// early by Server.Shutdown so in-flight calls bail out at shutdown
+// instead of waiting out the full deadline.
+const bridgeCallTimeout = 5 * time.Second
+
 // loginGRPCBridgeMod is the production LoginBridgeMod impl. Translates
 // moderation actions into gRPC RPCs against the login server. Calls are
 // fired in a goroutine so packet handlers and the tick loop never block
@@ -326,25 +335,38 @@ func (noopBridges) OnPrivateMessage(uint64, uint64, int32, uint32, string)    {}
 // (server.go:1018) and force-logout (server.go:982). Callers must
 // compute the absolute deadline (time.Now().Add(d)) before invocation;
 // the bridge does not coerce zero times.
+//
+// Each call is wrapped in context.WithTimeout(parentCtx, bridgeCallTimeout)
+// so a hung login service cannot pile up goroutines indefinitely. parentCtx
+// is derived from Server.bridgesCtx (canceled by Shutdown). Arc 18 R3.
 type loginGRPCBridgeMod struct {
-	client LoginClient
-	log    *slog.Logger
+	client    LoginClient
+	parentCtx context.Context
+	log       *slog.Logger
 }
 
 func (b *loginGRPCBridgeMod) NotifyPlayerBan(staff, username string, until time.Time) {
-	go b.client.PlayerBan(context.Background(), &loginpb.PlayerBanRequest{
-		Staff:    staff,
-		Username: username,
-		Until:    timestamppb.New(until),
-	})
+	go func() {
+		ctx, cancel := context.WithTimeout(b.parentCtx, bridgeCallTimeout)
+		defer cancel()
+		b.client.PlayerBan(ctx, &loginpb.PlayerBanRequest{
+			Staff:    staff,
+			Username: username,
+			Until:    timestamppb.New(until),
+		})
+	}()
 }
 
 func (b *loginGRPCBridgeMod) NotifyPlayerMute(staff, username string, until time.Time) {
-	go b.client.PlayerMute(context.Background(), &loginpb.PlayerMuteRequest{
-		Staff:    staff,
-		Username: username,
-		Until:    timestamppb.New(until),
-	})
+	go func() {
+		ctx, cancel := context.WithTimeout(b.parentCtx, bridgeCallTimeout)
+		defer cancel()
+		b.client.PlayerMute(ctx, &loginpb.PlayerMuteRequest{
+			Staff:    staff,
+			Username: username,
+			Until:    timestamppb.New(until),
+		})
+	}()
 }
 
 var _ LoginBridgeMod = (*loginGRPCBridgeMod)(nil)
@@ -352,10 +374,12 @@ var _ LoginBridgeMod = (*loginGRPCBridgeMod)(nil)
 // defaultLoginBridgeMod returns the production LoginBridgeMod for the
 // given LoginClient: a goroutine-fanout gRPC adapter when client != nil,
 // otherwise noopBridges{}. Called from NewServer; broken out for
-// testability without spinning up the full Server.
-func defaultLoginBridgeMod(client LoginClient, log *slog.Logger) LoginBridgeMod {
+// testability without spinning up the full Server. parentCtx is the
+// Server.bridgesCtx (Arc 18 R3); canceled by Shutdown to abort in-flight
+// calls early.
+func defaultLoginBridgeMod(client LoginClient, parentCtx context.Context, log *slog.Logger) LoginBridgeMod {
 	if client != nil {
-		return &loginGRPCBridgeMod{client: client, log: log}
+		return &loginGRPCBridgeMod{client: client, parentCtx: parentCtx, log: log}
 	}
 	return noopBridges{}
 }
@@ -366,71 +390,105 @@ func defaultLoginBridgeMod(client LoginClient, log *slog.Logger) LoginBridgeMod 
 // fired in a goroutine so packet handlers and the tick loop never
 // block on network I/O — mirrors loginGRPCBridgeMod's fan-out pattern.
 // worldID is captured at construction time from cfg.NodeID.
+//
+// Each call is wrapped in context.WithTimeout(parentCtx, bridgeCallTimeout)
+// so a hung friends service cannot pile up goroutines indefinitely.
+// parentCtx is derived from Server.bridgesCtx (canceled by Shutdown).
+// Arc 18 R3.
 type grpcFriendsBridge struct {
-	client  FriendsClient
-	worldID int32
-	log     *slog.Logger
+	client    FriendsClient
+	worldID   int32
+	parentCtx context.Context
+	log       *slog.Logger
 }
 
 func (b *grpcFriendsBridge) AddFriend(playerUsername string, target uint64) {
-	go b.client.FriendlistAdd(context.Background(), &friendspb.FriendlistAddRequest{
-		WorldId:          b.worldID,
-		Username37:       jstring.ToBase37(playerUsername),
-		TargetUsername37: target,
-	})
+	go func() {
+		ctx, cancel := context.WithTimeout(b.parentCtx, bridgeCallTimeout)
+		defer cancel()
+		b.client.FriendlistAdd(ctx, &friendspb.FriendlistAddRequest{
+			WorldId:          b.worldID,
+			Username37:       jstring.ToBase37(playerUsername),
+			TargetUsername37: target,
+		})
+	}()
 }
 
 func (b *grpcFriendsBridge) RemoveFriend(playerUsername string, target uint64) {
-	go b.client.FriendlistDel(context.Background(), &friendspb.FriendlistDelRequest{
-		WorldId:          b.worldID,
-		Username37:       jstring.ToBase37(playerUsername),
-		TargetUsername37: target,
-	})
+	go func() {
+		ctx, cancel := context.WithTimeout(b.parentCtx, bridgeCallTimeout)
+		defer cancel()
+		b.client.FriendlistDel(ctx, &friendspb.FriendlistDelRequest{
+			WorldId:          b.worldID,
+			Username37:       jstring.ToBase37(playerUsername),
+			TargetUsername37: target,
+		})
+	}()
 }
 
 func (b *grpcFriendsBridge) AddIgnore(playerUsername string, target uint64) {
-	go b.client.IgnorelistAdd(context.Background(), &friendspb.IgnorelistAddRequest{
-		WorldId:          b.worldID,
-		Username37:       jstring.ToBase37(playerUsername),
-		TargetUsername37: target,
-	})
+	go func() {
+		ctx, cancel := context.WithTimeout(b.parentCtx, bridgeCallTimeout)
+		defer cancel()
+		b.client.IgnorelistAdd(ctx, &friendspb.IgnorelistAddRequest{
+			WorldId:          b.worldID,
+			Username37:       jstring.ToBase37(playerUsername),
+			TargetUsername37: target,
+		})
+	}()
 }
 
 func (b *grpcFriendsBridge) RemoveIgnore(playerUsername string, target uint64) {
-	go b.client.IgnorelistDel(context.Background(), &friendspb.IgnorelistDelRequest{
-		WorldId:          b.worldID,
-		Username37:       jstring.ToBase37(playerUsername),
-		TargetUsername37: target,
-	})
+	go func() {
+		ctx, cancel := context.WithTimeout(b.parentCtx, bridgeCallTimeout)
+		defer cancel()
+		b.client.IgnorelistDel(ctx, &friendspb.IgnorelistDelRequest{
+			WorldId:          b.worldID,
+			Username37:       jstring.ToBase37(playerUsername),
+			TargetUsername37: target,
+		})
+	}()
 }
 
 func (b *grpcFriendsBridge) SetChatMode(playerUsername string, privateChat int) {
-	go b.client.ChatSetMode(context.Background(), &friendspb.ChatSetModeRequest{
-		WorldId:     b.worldID,
-		Username37:  jstring.ToBase37(playerUsername),
-		PrivateChat: int32(privateChat),
-	})
+	go func() {
+		ctx, cancel := context.WithTimeout(b.parentCtx, bridgeCallTimeout)
+		defer cancel()
+		b.client.ChatSetMode(ctx, &friendspb.ChatSetModeRequest{
+			WorldId:     b.worldID,
+			Username37:  jstring.ToBase37(playerUsername),
+			PrivateChat: int32(privateChat),
+		})
+	}()
 }
 
 func (b *grpcFriendsBridge) PrivateMessage(playerUsername string, staffLvl int32, pmId uint32, target uint64, message string, coord int) {
-	go b.client.PrivateMessage(context.Background(), &friendspb.PrivateMessageRequest{
-		WorldId:          b.worldID,
-		Username37:       jstring.ToBase37(playerUsername),
-		TargetUsername37: target,
-		StaffLvl:         staffLvl,
-		PmId:             pmId,
-		Chat:             message,
-		Coord:            int32(coord),
-	})
+	go func() {
+		ctx, cancel := context.WithTimeout(b.parentCtx, bridgeCallTimeout)
+		defer cancel()
+		b.client.PrivateMessage(ctx, &friendspb.PrivateMessageRequest{
+			WorldId:          b.worldID,
+			Username37:       jstring.ToBase37(playerUsername),
+			TargetUsername37: target,
+			StaffLvl:         staffLvl,
+			PmId:             pmId,
+			Chat:             message,
+			Coord:            int32(coord),
+		})
+	}()
 }
 
 func (b *grpcFriendsBridge) PublicMessage(sessionUUID string, coord int, message string) {
-	go b.client.PublicMessage(context.Background(), &friendspb.PublicMessageRequest{
-		WorldId:     b.worldID,
-		SessionUuid: sessionUUID,
-		Coord:       int32(coord),
-		Chat:        message,
-	})
+	go func() {
+		ctx, cancel := context.WithTimeout(b.parentCtx, bridgeCallTimeout)
+		defer cancel()
+		b.client.PublicMessage(ctx, &friendspb.PublicMessageRequest{
+			WorldId:     b.worldID,
+			SessionUuid: sessionUUID,
+			Coord:       int32(coord),
+			Chat:        message,
+		})
+	}()
 }
 
 var _ FriendsBridge = (*grpcFriendsBridge)(nil)
@@ -438,10 +496,12 @@ var _ FriendsBridge = (*grpcFriendsBridge)(nil)
 // defaultFriendsBridge returns the production FriendsBridge for the
 // given FriendsClient + worldID: a goroutine-fanout gRPC adapter when
 // client != nil, otherwise noopBridges{}. Called from NewServer; broken
-// out for testability without spinning up the full Server.
-func defaultFriendsBridge(client FriendsClient, worldID int32, log *slog.Logger) FriendsBridge {
+// out for testability without spinning up the full Server. parentCtx is
+// the Server.bridgesCtx (Arc 18 R3); canceled by Shutdown to abort
+// in-flight calls early.
+func defaultFriendsBridge(client FriendsClient, worldID int32, parentCtx context.Context, log *slog.Logger) FriendsBridge {
 	if client != nil {
-		return &grpcFriendsBridge{client: client, worldID: worldID, log: log}
+		return &grpcFriendsBridge{client: client, worldID: worldID, parentCtx: parentCtx, log: log}
 	}
 	return noopBridges{}
 }

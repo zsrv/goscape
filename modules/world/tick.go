@@ -177,19 +177,27 @@ func (s *Server) processLogins() {
 		if s.friendsClient != nil && p.username != "" {
 			username37 := p.username37
 			worldID := int32(s.cfg.NodeID)
-			go s.friendsClient.PlayerLogin(context.Background(), &friendspb.PlayerLoginRequest{
-				WorldId:     worldID,
-				Username37:  username37,
-				PrivateChat: int32(p.privateChat),
-				StaffLvl:    p.staffModLevel,
-			}, func(accepted bool) {
-				if !accepted {
-					s.log.Warn("friends-server rejected player login (cap reached or RPC error)",
-						slog.Int("world_id", int(worldID)),
-						slog.Uint64("username37", username37),
-					)
-				}
-			})
+			privateChat := int32(p.privateChat)
+			staffLvl := p.staffModLevel
+			// Arc 18 R3 — per-call timeout + shutdown-derived parent so a
+			// hung friends-server cannot pile up goroutines.
+			go func() {
+				ctx, cancel := context.WithTimeout(s.bridgesCtx, bridgeCallTimeout)
+				defer cancel()
+				s.friendsClient.PlayerLogin(ctx, &friendspb.PlayerLoginRequest{
+					WorldId:     worldID,
+					Username37:  username37,
+					PrivateChat: privateChat,
+					StaffLvl:    staffLvl,
+				}, func(accepted bool) {
+					if !accepted {
+						s.log.Warn("friends-server rejected player login (cap reached or RPC error)",
+							slog.Int("world_id", int(worldID)),
+							slog.Uint64("username37", username37),
+						)
+					}
+				})
+			}()
 		}
 
 		// NAI-S4A: start the SubscribeUpdates stream subscriber.

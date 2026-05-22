@@ -1407,6 +1407,7 @@ func (p *Player) AddSessionLog(eventType LoggerEventType, message string, args .
 	if len(args) > 0 {
 		event = message + " " + strings.Join(args, " ")
 	}
+	s.sessionLogsMu.Lock()
 	s.sessionLogs = append(s.sessionLogs, SessionLog{
 		SessionUUID: p.session,
 		Timestamp:   time.Now().UnixMilli(),
@@ -1414,4 +1415,5 @@ func (p *Player) AddSessionLog(eventType LoggerEventType, message string, args .
 		Event:       event,
 		EventType:   eventType,
 	})
+	s.sessionLogsMu.Unlock()
 }
