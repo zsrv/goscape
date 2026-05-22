@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/zsrv/goscape/internal/dskit/middleware"
 	"github.com/zsrv/goscape/internal/dskit/server"
 	"github.com/zsrv/goscape/internal/dskit/services"
 )
@@ -23,6 +24,12 @@ type Asset struct {
 	subservicesWatcher *services.FailureWatcher
 
 	Server *server.Server // TODO: mine
+
+	// sourceIPs extracts the client IP from request headers. Mirrors the
+	// dskit server's own extractor (see internal/dskit/server.BuildHTTPMiddleware)
+	// so handler-level log lines like the unmatched-path debug log surface
+	// the same source IP that the request-logging middleware records.
+	sourceIPs *middleware.SourceIPExtractor
 }
 
 // TODO: unused - reuse the code for other modules though
@@ -33,11 +40,18 @@ func New(cfg Config, logger *slog.Logger, serv *server.Server) (*Asset, error) {
 
 	//subservices := []services.Service(nil)
 
+	sourceIPs, err := middleware.NewSourceIPs(cfg.Server.LogSourceIPsHeader, cfg.Server.LogSourceIPsRegex, cfg.Server.LogSourceIPsFull)
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure source IP extractor: %w", err)
+	}
+
 	a := &Asset{
 		cfg: cfg,
 		log: logger,
 
 		Server: serv,
+
+		sourceIPs: sourceIPs,
 	}
 
 	// NOTE: Asset server doesn't have any subservices

@@ -88,6 +88,17 @@ func (a *Asset) RootHandler(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: redirect / to rs2.cgi?
 
-	a.log.Debug("unmatched path", "path", r.URL.Path)
+	a.log.Debug("unmatched path", "path", r.URL.Path, "sourceIPs", a.clientIP(r))
 	http.NotFound(w, r)
+}
+
+// clientIP returns the request's source IP per the configured
+// SourceIPExtractor (defaults to cf-connecting-ip / x-forwarded-for to match
+// the TS upstream's web.ts getIp()), falling back to r.RemoteAddr. Returns
+// the empty string when no extractor is configured.
+func (a *Asset) clientIP(r *http.Request) string {
+	if a.sourceIPs == nil {
+		return ""
+	}
+	return a.sourceIPs.Get(r)
 }

@@ -33,6 +33,19 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.DurationVar(&c.Server.HTTPServerReadTimeout, "asset.http-read-timeout", 30*time.Second, "Read timeout for HTTP server")
 	f.DurationVar(&c.Server.HTTPServerWriteTimeout, "asset.http-write-timeout", 30*time.Second, "Write timeout for HTTP server")
 	f.DurationVar(&c.Server.HTTPServerIdleTimeout, "asset.http-idle-timeout", 120*time.Second, "Idle timeout for HTTP server")
+
+	// Source-IP extraction for client IP logging. The default header
+	// matches the TS upstream's getIp() primary in Engine-TS/src/web.ts
+	// (cf-connecting-ip), and the default regex extracts only the first
+	// comma-separated address to match TS' .split(',')[0].trim() behaviour.
+	// Note: dskit's SourceIPExtractor is single-source — setting a custom
+	// header replaces (does not augment) its built-in Forwarded / X-Real-IP
+	// / X-Forwarded-For chain. Blank both header and regex to fall back to
+	// that chain (covers x-forwarded-for) at the cost of cf-connecting-ip.
+	f.BoolVar(&c.Server.LogSourceIPs, "asset.log-source-ips-enabled", true, "Optionally log the source IPs.")
+	f.StringVar(&c.Server.LogSourceIPsHeader, "asset.log-source-ips-header", "cf-connecting-ip", "Header field storing the source IPs. Used in conjunction with asset.log-source-ips-regex. Leave both empty to use the built-in Forwarded/X-Real-IP/X-Forwarded-For chain.")
+	f.StringVar(&c.Server.LogSourceIPsRegex, "asset.log-source-ips-regex", `^\s*([^,]+?)\s*(?:,|$)`, "Regex for matching the source IPs. The first capture group is used. Used in conjunction with asset.log-source-ips-header.")
+	f.BoolVar(&c.Server.LogSourceIPsFull, "asset.log-source-ips-full", false, "Log all source IPs instead of returning the first match.")
 }
 
 func (c *Config) Validate() error {
