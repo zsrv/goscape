@@ -1,0 +1,54 @@
+// proto/events/v1/wealth.proto
+syntax = "proto3";
+
+package events.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/zsrv/goscape/pkg/eventspb";
+
+message WealthEnvelope {
+  uint32 schema_version = 1;
+  string event_id = 2;
+  google.protobuf.Timestamp ts = 3;
+  int64 account_id = 4; // partition key
+  int32 world_id = 5;
+
+  oneof payload {
+    TradeCompletedEvent trade_completed = 100;
+    ItemDroppedEvent item_dropped = 101;
+    ItemPickedUpEvent item_picked_up = 102;
+  }
+}
+
+message ItemStack {
+  int32 item_id = 1;
+  int32 qty = 2;
+}
+
+message TradeCompletedEvent {
+  int64 partner_account_id = 1;
+  repeated ItemStack items_given = 2;
+  repeated ItemStack items_received = 3;
+  int64 value_given = 4;
+  int64 value_received = 5;
+}
+
+message ItemDroppedEvent {
+  int32 item_id = 1;
+  int32 qty = 2;
+  int32 x = 3;
+  int32 y = 4;
+  int32 plane = 5;
+  int64 alch_value = 6;
+  int64 market_value = 7;
+}
+
+message ItemPickedUpEvent {
+  int32 item_id = 1;
+  int32 qty = 2;
+  int32 x = 3;
+  int32 y = 4;
+  int32 plane = 5;
+  int64 dropped_by_account_id = 6; // 0 if unknown
+}
