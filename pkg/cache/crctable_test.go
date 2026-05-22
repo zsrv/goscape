@@ -39,7 +39,7 @@ func TestMakeCRCsPopulatesSnapshot(t *testing.T) {
 	ResetCRCForTest()
 	t.Cleanup(ResetCRCForTest)
 
-	MakeCRCs()
+	MakeCRCs("data/pack")
 
 	snap := CRC()
 	if snap == nil {
@@ -62,12 +62,12 @@ func TestMakeCRCsSwapIsAtomic(t *testing.T) {
 	ResetCRCForTest()
 	t.Cleanup(ResetCRCForTest)
 
-	MakeCRCs()
+	MakeCRCs("data/pack")
 	old := CRC()
 	oldBytesCopy := append([]byte(nil), old.Bytes...)
 	oldTableCopy := append([]uint32(nil), old.Table...)
 
-	MakeCRCs()
+	MakeCRCs("data/pack")
 	newSnap := CRC()
 	if newSnap == old {
 		t.Fatal("MakeCRCs reused the prior pointer; expected fresh snapshot")

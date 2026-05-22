@@ -258,7 +258,7 @@ func (s *Server) Reload(clearInvs bool) error {
 	}
 
 	// ─── Step 10: CRC regen + client preload (TS L288, L291) ───
-	cache.MakeCRCs()
+	cache.MakeCRCs(cachePath)
 	clientDir := filepath.Join(cachePath, "client")
 	if err := cache.PreloadClient(clientDir); err != nil {
 		// TS preloadClient throws on error; goscape returns. Per

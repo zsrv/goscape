@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 
 	"github.com/zsrv/goscape/internal/dskit/services"
 	"github.com/zsrv/goscape/internal/dskit/signals"
@@ -95,10 +96,11 @@ func NewWorldService(serv *Server, lc LoginClient, fc FriendsClient, servicesToW
 	serverDone := make(chan error, 1)
 
 	startingFn := func(ctx context.Context) error {
-		if err := cache.PreloadClient("data/pack/client"); err != nil {
+		cachePath := serv.cfg.CachePath
+		if err := cache.PreloadClient(filepath.Join(cachePath, "client")); err != nil {
 			return fmt.Errorf("world: preload client assets: %w", err)
 		}
-		cache.MakeCRCs()
+		cache.MakeCRCs(cachePath)
 		if lc != nil {
 			lc.WorldStartup(ctx, int32(serv.cfg.NodeID), serv.cfg.NodeProfile)
 		}

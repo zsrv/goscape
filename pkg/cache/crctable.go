@@ -3,6 +3,7 @@ package cache
 import (
 	"log/slog"
 	"os"
+	"path/filepath"
 	"sync/atomic"
 
 	"github.com/zsrv/goscape/pkg/io/packet"
@@ -47,7 +48,14 @@ func CRC() *CRCSnapshot {
 // MakeCRCs builds a fresh snapshot off to the side and atomically swaps
 // it in. Safe to call concurrently with CRC() readers — readers see
 // either the old-complete or new-complete snapshot, never a torn write.
-func MakeCRCs() {
+//
+// cachePath is the cache root (mirrors world.Config.CachePath, e.g.
+// "data/pack"); per-archive paths are joined as <cachePath>/client/<name>.
+// Completes the data-path-resolution work from Arc 13 V (ae6d6aa1) which
+// shipped realCacheDir(t) for PreloadClient but missed this function;
+// the prior hardcoded "data/pack/client/" relative path emitted
+// `WARN cache: loadCrc Stat failed` noise under git-worktree test runs.
+func MakeCRCs(cachePath string) {
 	buf := packet.NewPacket(make([]byte, 0, 4*9))
 	table := make([]uint32, 0, 9)
 
@@ -55,8 +63,9 @@ func MakeCRCs() {
 	buf.P4(0)
 	table = append(table, 0)
 
+	clientDir := filepath.Join(cachePath, "client")
 	for _, name := range []string{"title", "config", "interface", "media", "models", "textures", "wordenc", "sounds"} {
-		crc := loadCrc("data/pack/client/" + name)
+		crc := loadCrc(filepath.Join(clientDir, name))
 		buf.P4(crc)
 		table = append(table, crc)
 	}
