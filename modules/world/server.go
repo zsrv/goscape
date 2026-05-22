@@ -33,6 +33,7 @@ import (
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 	util "github.com/zsrv/goscape/pkg/util/jstring"
+	"github.com/zsrv/goscape/pkg/util/ttlcache"
 	"github.com/zsrv/goscape/pkg/wordenc/encfilter"
 	"github.com/zsrv/goscape/pkg/zone"
 )
@@ -59,6 +60,17 @@ type Server struct {
 	friendsClient FriendsClient
 	cfg           Config
 	tcpWg         sync.WaitGroup
+
+	// addressLoginCache tracks per-remote-IP login attempts in a 60s
+	// window. Populated only when cfg.NodeProduction=true and
+	// cfg.NodeRateLimitAddressLogin>0. Mirrors TS World.loginAddressAttempts
+	// (Engine-TS/src/engine/World.ts:176). Bare-IP keys (port stripped).
+	addressLoginCache *ttlcache.Cache[string, int]
+	// deviceLoginCache tracks per-(uid@address) login attempts in a 15s
+	// window. Populated only when cfg.NodeProduction=true and
+	// cfg.NodeRateLimitDeviceLogin>0. Mirrors TS World.loginDeviceAttempts
+	// (Engine-TS/src/engine/World.ts:177).
+	deviceLoginCache *ttlcache.Cache[string, int]
 
 	players     [2048]*Player
 	playerLoop  []*Player
@@ -311,6 +323,13 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 		rebuildReq:       make(chan struct{}, 1),
 		rebuildResult:    make(chan rebuildResult, 1),
 		relayActionQueue: make(chan func(), 64),
+
+		// Login rate-limit caches. TTLs mirror TS World.ts:176-177.
+		// Address: 60s window, Device: 15s window. Allocated even when
+		// the gate is disabled so the wiring stays uniform — cost is
+		// one empty map per server instance.
+		addressLoginCache: ttlcache.New[string, int](60 * time.Second),
+		deviceLoginCache:  ttlcache.New[string, int](15 * time.Second),
 	}
 	s.packFn = packall.PackAll
 	s.reloadFn = s.Reload
@@ -772,6 +791,15 @@ func (c *client) handleLogin() error {
 			return protocol.ErrPayloadTooSmall
 		}
 
+		// Address-based login rate limit. TS World.ts:2106-2117 fires
+		// before RSA decrypt so brute-force attempts can't even burn RSA
+		// CPU. We mirror by gating here, just before req.UnmarshalBinary
+		// (which performs the RSA decrypt). Only enforced when
+		// NodeProduction=true and NodeRateLimitAddressLogin>0.
+		if c.server != nil && c.server.addressLoginRateLimitExceeded(c.conn.RemoteAddr().String()) {
+			return c.sendLoginError(loginresp.OpTooManyAttempts.Opcode)
+		}
+
 		b := c.in.Next(pLen)
 		if err := req.UnmarshalBinary(b); err != nil {
 			// RSA failure or malformed packet — tell client it's out of date.
@@ -797,7 +825,13 @@ func (c *client) handleLogin() error {
 		}
 		c.encryptor = io2.New(req.ISAACSeed)
 
-		// TODO: rate limit
+		// Device-based login rate limit. TS World.ts:2163-2174 fires
+		// after RSA decrypt + uid/username unpack so we can key on
+		// `${uid}@${ip}`. Only enforced when NodeProduction=true and
+		// NodeRateLimitDeviceLogin>0.
+		if c.server != nil && c.server.deviceLoginRateLimitExceeded(req.UID, c.conn.RemoteAddr().String()) {
+			return c.sendLoginError(loginresp.OpTooManyAttempts.Opcode)
+		}
 
 		if len(req.Username) < 1 || len(req.Username) > 12 {
 			return c.sendLoginError(loginresp.OpInvalidUsernameOrPassword.Opcode)
@@ -952,6 +986,58 @@ func (s *Server) addPlayer(p *Player) error {
 		}
 	}
 	return errWorldFull
+}
+
+// bareHost strips the trailing ":port" from a `host:port` form returned
+// by net.Conn.RemoteAddr().String(), so the login rate-limit caches key
+// on the bare IP (mirrors TS Node `socket.remoteAddress` semantics at
+// Engine-TS/src/engine/World.ts:2107). If the input has no port (e.g.
+// unix socket addr from tests), returns it unchanged.
+func bareHost(addr string) string {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return addr
+	}
+	return host
+}
+
+// addressLoginRateLimitExceeded records a login attempt from the given
+// remote address (host:port) and reports whether the per-IP window quota
+// has been crossed. Returns false when the gate is disabled (production
+// off or limit <= 0). Mirrors TS World.ts:2106-2117.
+func (s *Server) addressLoginRateLimitExceeded(remoteAddr string) bool {
+	if !s.cfg.NodeProduction || s.cfg.NodeRateLimitAddressLogin <= 0 {
+		return false
+	}
+	ip := bareHost(remoteAddr)
+	last, _ := s.addressLoginCache.Get(ip)
+	attempts := last + 1
+	s.addressLoginCache.Set(ip, attempts)
+	if attempts >= s.cfg.NodeRateLimitAddressLogin {
+		s.log.Info("login attempts exceeded (address)", "ip", ip, "attempts", attempts)
+		return true
+	}
+	return false
+}
+
+// deviceLoginRateLimitExceeded records a login attempt for the given
+// (uid, remote address) pair and reports whether the per-device window
+// quota has been crossed. Returns false when the gate is disabled.
+// Mirrors TS World.ts:2163-2174.
+func (s *Server) deviceLoginRateLimitExceeded(uid uint32, remoteAddr string) bool {
+	if !s.cfg.NodeProduction || s.cfg.NodeRateLimitDeviceLogin <= 0 {
+		return false
+	}
+	ip := bareHost(remoteAddr)
+	key := strconv.FormatUint(uint64(uid), 10) + "@" + ip
+	last, _ := s.deviceLoginCache.Get(key)
+	attempts := last + 1
+	s.deviceLoginCache.Set(key, attempts)
+	if attempts >= s.cfg.NodeRateLimitDeviceLogin {
+		s.log.Info("login attempts exceeded (device)", "key", key, "attempts", attempts)
+		return true
+	}
+	return false
 }
 
 // getTotalPlayers returns the count of live (non-nil) players in the
