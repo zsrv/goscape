@@ -1,8 +1,8 @@
 package script
 
 import (
-	"errors"
 	"fmt"
+	"time"
 )
 
 // handleError aborts the script with a scripted error message. The
@@ -13,20 +13,25 @@ func handleError(s *ScriptState) error {
 	return fmt.Errorf("ERROR: %s", msg)
 }
 
-// handleGetTimeSpent / handleTimeSpent push the active player's
-// playtime. TS exposes both names; they have identical behavior.
-func handleGetTimeSpent(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("GETTIMESPENT: no active player")
-	}
-	s.PushInt(s.Self.Playtime())
+// handleTimeSpent starts the script-side stopwatch by recording the
+// current monotonic time in state.Timespent. Mirrors TS DebugOps.ts:13
+// `state.timespent = performance.now()`. No active-player gate — TS
+// doesn't require one, and the stopwatch is per-ScriptState not per-player.
+func handleTimeSpent(s *ScriptState) error {
+	s.Timespent = time.Now()
 	return nil
 }
 
-func handleTimeSpent(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("TIMESPENT: no active player")
+// handleGetTimeSpent pops a unit flag and pushes elapsed time since the
+// last TIMESPENT call: milliseconds when flag != 1, microseconds when
+// flag == 1. Mirrors TS DebugOps.ts:16-26.
+func handleGetTimeSpent(s *ScriptState) error {
+	unit := s.PopInt()
+	elapsed := time.Since(s.Timespent)
+	if unit == 1 {
+		s.PushInt(int(elapsed.Microseconds()))
+	} else {
+		s.PushInt(int(elapsed.Milliseconds()))
 	}
-	s.PushInt(s.Self.Playtime())
 	return nil
 }

@@ -3,6 +3,7 @@ package script
 import (
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
@@ -303,6 +304,15 @@ type ScriptState struct {
 	// LastInt is the int value injected by a resume event (e.g. the count
 	// from RESUME_P_COUNTDIALOG). Scripts read it via LAST_INT opcode.
 	LastInt int
+
+	// Timespent is the start of a script-side stopwatch set by the
+	// TIMESPENT opcode and read by GETTIMESPENT to compute elapsed time.
+	// Mirrors TS ScriptState.timespent (DebugOps.ts:13-27) which stores
+	// `performance.now()` and subtracts on read. Zero value (unset) makes
+	// GETTIMESPENT report the elapsed since Unix epoch, matching TS's
+	// behavior when timespent is never assigned (undefined - now ~= NaN
+	// in JS, but goscape returns a deterministic large number).
+	Timespent time.Time
 
 	Execution Execution
 
