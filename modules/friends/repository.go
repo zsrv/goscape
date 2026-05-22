@@ -143,16 +143,12 @@ func (r *Repository) GetChatMode(username37 uint64) int32 {
 
 // AddFriend adds target to owner's friend list. Idempotent: a duplicate
 // insert (same profile+owner+target PK) is silently ignored.
+//
+// PORTING.md Arc 18 DB-2: the recheck-then-insert is wrapped in a
+// per-call BeginTx so the read-modify-write window cannot interleave
+// with a concurrent DeleteFriend.
 func (r *Repository) AddFriend(ctx context.Context, owner, target uint64) error {
-	_, err := r.db.ExecContext(ctx,
-		`INSERT OR IGNORE INTO friendlist (profile, owner_username37, target_username37)
-		 VALUES (?, ?, ?)`,
-		r.profile, int64(owner), int64(target),
-	)
-	if err != nil {
-		return fmt.Errorf("AddFriend: %w", err)
-	}
-	return nil
+	return r.atomicUpsertList(ctx, "friendlist", owner, target, "AddFriend")
 }
 
 // DeleteFriend removes target from owner's friend list. No-op if the row
@@ -195,15 +191,52 @@ func (r *Repository) GetFriends(ctx context.Context, owner uint64) ([]uint64, er
 	return out, nil
 }
 
+// AddIgnore mirrors AddFriend but against ignorelist. Idempotent; same
+// DB-2 atomic-insert posture (see AddFriend).
 func (r *Repository) AddIgnore(ctx context.Context, owner, target uint64) error {
-	_, err := r.db.ExecContext(ctx,
-		`INSERT OR IGNORE INTO ignorelist (profile, owner_username37, target_username37)
-		 VALUES (?, ?, ?)`,
-		r.profile, int64(owner), int64(target),
-	)
+	return r.atomicUpsertList(ctx, "ignorelist", owner, target, "AddIgnore")
+}
+
+// atomicUpsertList performs an idempotent insert into one of the
+// (friendlist | ignorelist) tables under a serializable tx so a
+// concurrent delete cannot interleave between the existence check
+// and the insert. table is a hardcoded literal at call sites (not
+// user input), so direct interpolation is safe.
+func (r *Repository) atomicUpsertList(ctx context.Context, table string, owner, target uint64, op string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("AddIgnore: %w", err)
+		return fmt.Errorf("%s: begin tx: %w", op, err)
 	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var count int
+	err = tx.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM `+table+`
+		 WHERE profile = ? AND owner_username37 = ? AND target_username37 = ?`,
+		r.profile, int64(owner), int64(target),
+	).Scan(&count)
+	if err != nil {
+		return fmt.Errorf("%s: existence check: %w", op, err)
+	}
+	if count == 0 {
+		_, err = tx.ExecContext(ctx,
+			`INSERT INTO `+table+` (profile, owner_username37, target_username37)
+			 VALUES (?, ?, ?)`,
+			r.profile, int64(owner), int64(target),
+		)
+		if err != nil {
+			return fmt.Errorf("%s: %w", op, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("%s: commit: %w", op, err)
+	}
+	committed = true
 	return nil
 }
 
