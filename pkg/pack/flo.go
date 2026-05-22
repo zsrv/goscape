@@ -29,13 +29,13 @@ func parseFloConfigFor(texturePack *PackFile) ParseFn {
 		if _, ok := floNumberKeys[key]; ok {
 			n, err := strconv.ParseInt(value, 0, 64)
 			if err != nil {
-				return nil, true, fmt.Errorf("invalid number for %s: %s", key, value)
+				return nil, true, fmt.Errorf("invalid number for %s: %s: %w", key, value, ErrInvalidNumber)
 			}
 			return int(n), true, nil
 		}
 		if _, ok := floBooleanKeys[key]; ok {
 			if !IsConfigBoolean(value) {
-				return nil, true, fmt.Errorf("invalid boolean for %s: %s", key, value)
+				return nil, true, fmt.Errorf("invalid boolean for %s: %s: %w", key, value, ErrInvalidBoolean)
 			}
 			return GetConfigBoolean(value), true, nil
 		}

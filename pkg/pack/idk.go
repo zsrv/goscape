@@ -42,7 +42,7 @@ func parseIdkConfigFor(modelPack *PackFile) ParseFn {
 	return func(key, value string) (ConfigValue, bool, error) {
 		if _, ok := idkBooleanKeys[key]; ok {
 			if !IsConfigBoolean(value) {
-				return nil, true, fmt.Errorf("invalid boolean for %s: %s", key, value)
+				return nil, true, fmt.Errorf("invalid boolean for %s: %s: %w", key, value, ErrInvalidBoolean)
 			}
 			return GetConfigBoolean(value), true, nil
 		}
@@ -56,14 +56,14 @@ func parseIdkConfigFor(modelPack *PackFile) ParseFn {
 		if strings.HasPrefix(key, "model") {
 			idx := modelPack.GetByName(value)
 			if idx == -1 {
-				return nil, true, fmt.Errorf("unknown model: %s", value)
+				return nil, true, fmt.Errorf("unknown model: %s: %w", value, ErrUnknownModel)
 			}
 			return idx, true, nil
 		}
 		if strings.HasPrefix(key, "head") {
 			idx := modelPack.GetByName(value)
 			if idx == -1 {
-				return nil, true, fmt.Errorf("unknown model: %s", value)
+				return nil, true, fmt.Errorf("unknown model: %s: %w", value, ErrUnknownModel)
 			}
 			return idx, true, nil
 		}
@@ -74,7 +74,7 @@ func parseIdkConfigFor(modelPack *PackFile) ParseFn {
 			}
 			n, err := strconv.ParseInt(value, 0, 64)
 			if err != nil {
-				return nil, true, fmt.Errorf("invalid recol value: %s", value)
+				return nil, true, fmt.Errorf("invalid recol value: %s: %w", value, ErrInvalidRecol)
 			}
 			return colorconv.Rgb15toHsl16(int(n)), true, nil
 		}

@@ -133,14 +133,14 @@ func parseObjConfigFor(modelPack, categoryPack, seqPack, objPack *PackFile, lk *
 		if _, ok := objNumberKeys[key]; ok {
 			n, err := strconv.ParseInt(value, 0, 64)
 			if err != nil {
-				return nil, true, fmt.Errorf("invalid number for %s: %s", key, value)
+				return nil, true, fmt.Errorf("invalid number for %s: %s: %w", key, value, ErrInvalidNumber)
 			}
 			return int(n), true, nil
 		}
 
 		if _, ok := objBooleanKeys[key]; ok {
 			if !IsConfigBoolean(value) {
-				return nil, true, fmt.Errorf("invalid boolean for %s: %s", key, value)
+				return nil, true, fmt.Errorf("invalid boolean for %s: %s: %w", key, value, ErrInvalidBoolean)
 			}
 			return GetConfigBoolean(value), true, nil
 		}
@@ -148,7 +148,7 @@ func parseObjConfigFor(modelPack, categoryPack, seqPack, objPack *PackFile, lk *
 		if _, ok := objModelKeys[key]; ok {
 			idx := modelPack.GetByName(value)
 			if idx == -1 {
-				return nil, true, fmt.Errorf("unknown model: %s", value)
+				return nil, true, fmt.Errorf("unknown model: %s: %w", value, ErrUnknownModel)
 			}
 			return idx, true, nil
 		}
@@ -172,7 +172,7 @@ func parseObjConfigFor(modelPack, categoryPack, seqPack, objPack *PackFile, lk *
 			// the raw char-as-digit, so any single digit 0..9 passes.
 			n, err := strconv.ParseInt(value, 0, 64)
 			if err != nil {
-				return nil, true, fmt.Errorf("invalid recol value: %s", value)
+				return nil, true, fmt.Errorf("invalid recol value: %s: %w", value, ErrInvalidRecol)
 			}
 			return int(n), true, nil
 		}
@@ -185,7 +185,7 @@ func parseObjConfigFor(modelPack, categoryPack, seqPack, objPack *PackFile, lk *
 			}
 			obj := objPack.GetByName(parts[0])
 			if obj == -1 {
-				return nil, true, fmt.Errorf("unknown obj: %s", parts[0])
+				return nil, true, fmt.Errorf("unknown obj: %s: %w", parts[0], ErrUnknownObj)
 			}
 			c, err := strconv.ParseInt(parts[1], 10, 64)
 			if err != nil || c < 1 || c > 65535 {
@@ -198,7 +198,7 @@ func parseObjConfigFor(modelPack, categoryPack, seqPack, objPack *PackFile, lk *
 		case "code10":
 			idx := seqPack.GetByName(value)
 			if idx == -1 {
-				return nil, true, fmt.Errorf("unknown seq: %s", value)
+				return nil, true, fmt.Errorf("unknown seq: %s: %w", value, ErrUnknownSeq)
 			}
 			return idx, true, nil
 
@@ -209,7 +209,7 @@ func parseObjConfigFor(modelPack, categoryPack, seqPack, objPack *PackFile, lk *
 			}
 			model := modelPack.GetByName(parts[0])
 			if model == -1 {
-				return nil, true, fmt.Errorf("unknown model: %s", parts[0])
+				return nil, true, fmt.Errorf("unknown model: %s: %w", parts[0], ErrUnknownModel)
 			}
 			offset, err := strconv.ParseInt(parts[1], 10, 64)
 			if err != nil {
@@ -281,11 +281,11 @@ func parseObjConfigFor(modelPack, categoryPack, seqPack, objPack *PackFile, lk *
 			}
 			pid, found := paramTypes.ConfigNames[name]
 			if !found {
-				return nil, true, fmt.Errorf("unknown param: %s", name)
+				return nil, true, fmt.Errorf("unknown param: %s: %w", name, ErrUnknownParam)
 			}
 			pt := paramTypes.Configs[pid]
 			if pt == nil {
-				return nil, true, fmt.Errorf("unknown param: %s", name)
+				return nil, true, fmt.Errorf("unknown param: %s: %w", name, ErrUnknownParam)
 			}
 			v, err := lookupParamValue(pt.Type, vstr, lk)
 			if err != nil {
@@ -296,7 +296,7 @@ func parseObjConfigFor(modelPack, categoryPack, seqPack, objPack *PackFile, lk *
 		case "certlink", "certtemplate":
 			idx := objPack.GetByName(value)
 			if idx == -1 {
-				return nil, true, fmt.Errorf("unknown obj: %s", value)
+				return nil, true, fmt.Errorf("unknown obj: %s: %w", value, ErrUnknownObj)
 			}
 			return idx, true, nil
 		}

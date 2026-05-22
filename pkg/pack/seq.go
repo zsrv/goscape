@@ -31,23 +31,23 @@ func parseSeqConfigFor(animPack, objPack *PackFile) ParseFn {
 		if _, ok := seqNumberKeys[key]; ok {
 			n, err := strconv.ParseInt(value, 0, 64)
 			if err != nil {
-				return nil, true, fmt.Errorf("invalid number for %s: %s", key, value)
+				return nil, true, fmt.Errorf("invalid number for %s: %s: %w", key, value, ErrInvalidNumber)
 			}
 			switch key {
 			case "loops", "maxloops":
 				if n < 0 || n > 1000 {
-					return nil, true, fmt.Errorf("%s out of range [0,1000]: %d", key, n)
+					return nil, true, fmt.Errorf("%s out of range [0,1000]: %d: %w", key, n, ErrOutOfRange)
 				}
 			case "priority":
 				if n < 0 || n > 10 {
-					return nil, true, fmt.Errorf("%s out of range [0,10]: %d", key, n)
+					return nil, true, fmt.Errorf("%s out of range [0,10]: %d: %w", key, n, ErrOutOfRange)
 				}
 			}
 			return int(n), true, nil
 		}
 		if _, ok := seqBooleanKeys[key]; ok {
 			if !IsConfigBoolean(value) {
-				return nil, true, fmt.Errorf("invalid boolean for %s: %s", key, value)
+				return nil, true, fmt.Errorf("invalid boolean for %s: %s: %w", key, value, ErrInvalidBoolean)
 			}
 			return GetConfigBoolean(value), true, nil
 		}
@@ -57,14 +57,14 @@ func parseSeqConfigFor(animPack, objPack *PackFile) ParseFn {
 		if strings.HasPrefix(key, "frame") {
 			idx := animPack.GetByName(value)
 			if idx == -1 {
-				return nil, true, fmt.Errorf("unknown anim: %s", value)
+				return nil, true, fmt.Errorf("unknown anim: %s: %w", value, ErrUnknownAnim)
 			}
 			return idx, true, nil
 		}
 		if strings.HasPrefix(key, "iframe") {
 			idx := animPack.GetByName(value)
 			if idx == -1 {
-				return nil, true, fmt.Errorf("unknown anim: %s", value)
+				return nil, true, fmt.Errorf("unknown anim: %s: %w", value, ErrUnknownAnim)
 			}
 			return idx, true, nil
 		}
@@ -99,7 +99,7 @@ func parseSeqConfigFor(animPack, objPack *PackFile) ParseFn {
 			}
 			idx := objPack.GetByName(value)
 			if idx == -1 {
-				return nil, true, fmt.Errorf("unknown obj: %s", value)
+				return nil, true, fmt.Errorf("unknown obj: %s: %w", value, ErrUnknownObj)
 			}
 			return idx + 512, true, nil
 		}

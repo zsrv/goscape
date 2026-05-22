@@ -28,7 +28,7 @@ func parseInvConfigFor(objPack *PackFile) ParseFn {
 				return nil, true, fmt.Errorf("invalid size: %s", value)
 			}
 			if n < 0 || n > 65535 {
-				return nil, true, fmt.Errorf("size out of range [0, 65535]: %d", n)
+				return nil, true, fmt.Errorf("size out of range [0, 65535]: %d: %w", n, ErrOutOfRange)
 			}
 			return int(n), true, nil
 		case "scope":
@@ -54,7 +54,7 @@ func parseInvConfigFor(objPack *PackFile) ParseFn {
 			}
 			objIdx := objPack.GetByName(parts[0])
 			if objIdx == -1 {
-				return nil, true, fmt.Errorf("unknown obj: %s", parts[0])
+				return nil, true, fmt.Errorf("unknown obj: %s: %w", parts[0], ErrUnknownObj)
 			}
 			count, err := strconv.Atoi(parts[1])
 			if err != nil {

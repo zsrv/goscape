@@ -23,7 +23,7 @@ func parseEnumConfig(key, value string) (ConfigValue, bool, error) {
 	case "inputtype", "outputtype":
 		t, ok := objtype.ScriptVarTypeFromName(value)
 		if !ok {
-			return nil, true, fmt.Errorf("unknown script var type: %s", value)
+			return nil, true, fmt.Errorf("unknown script var type: %s: %w", value, ErrUnknownVarType)
 		}
 		return t, true, nil
 	case "default", "val":

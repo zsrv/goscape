@@ -33,41 +33,41 @@ func parseSpotAnimConfigFor(modelPack, seqPack *PackFile) ParseFn {
 		if _, ok := spotanimNumberKeys[key]; ok {
 			n, err := strconv.ParseInt(value, 0, 64)
 			if err != nil {
-				return nil, true, fmt.Errorf("invalid number for %s: %s", key, value)
+				return nil, true, fmt.Errorf("invalid number for %s: %s: %w", key, value, ErrInvalidNumber)
 			}
 			switch key {
 			case "resizeh", "resizev":
 				if n < 0 || n > 512 {
-					return nil, true, fmt.Errorf("%s out of range [0,512]: %d", key, n)
+					return nil, true, fmt.Errorf("%s out of range [0,512]: %d: %w", key, n, ErrOutOfRange)
 				}
 			case "angle":
 				if n < 0 || n > 360 {
-					return nil, true, fmt.Errorf("%s out of range [0,360]: %d", key, n)
+					return nil, true, fmt.Errorf("%s out of range [0,360]: %d: %w", key, n, ErrOutOfRange)
 				}
 			case "ambient", "contrast":
 				if n < -128 || n > 127 {
-					return nil, true, fmt.Errorf("%s out of range [-128,127]: %d", key, n)
+					return nil, true, fmt.Errorf("%s out of range [-128,127]: %d: %w", key, n, ErrOutOfRange)
 				}
 			}
 			return int(n), true, nil
 		}
 		if _, ok := spotanimBooleanKeys[key]; ok {
 			if !IsConfigBoolean(value) {
-				return nil, true, fmt.Errorf("invalid boolean for %s: %s", key, value)
+				return nil, true, fmt.Errorf("invalid boolean for %s: %s: %w", key, value, ErrInvalidBoolean)
 			}
 			return GetConfigBoolean(value), true, nil
 		}
 		if key == "model" {
 			idx := modelPack.GetByName(value)
 			if idx == -1 {
-				return nil, true, fmt.Errorf("unknown model: %s", value)
+				return nil, true, fmt.Errorf("unknown model: %s: %w", value, ErrUnknownModel)
 			}
 			return idx, true, nil
 		}
 		if key == "anim" {
 			idx := seqPack.GetByName(value)
 			if idx == -1 {
-				return nil, true, fmt.Errorf("unknown anim: %s", value)
+				return nil, true, fmt.Errorf("unknown anim: %s: %w", value, ErrUnknownAnim)
 			}
 			return idx, true, nil
 		}
@@ -81,7 +81,7 @@ func parseSpotAnimConfigFor(modelPack, seqPack *PackFile) ParseFn {
 			}
 			n, err := strconv.ParseInt(value, 0, 64)
 			if err != nil {
-				return nil, true, fmt.Errorf("invalid recol value: %s", value)
+				return nil, true, fmt.Errorf("invalid recol value: %s: %w", value, ErrInvalidRecol)
 			}
 			return colorconv.Rgb15toHsl16(int(n)), true, nil
 		}

@@ -88,34 +88,34 @@ func parseNpcConfigFor(modelPack, categoryPack, seqPack, huntPack *PackFile, lk 
 		if _, ok := npcNumberKeys[key]; ok {
 			n, err := strconv.ParseInt(value, 0, 64)
 			if err != nil {
-				return nil, true, fmt.Errorf("invalid number for %s: %s", key, value)
+				return nil, true, fmt.Errorf("invalid number for %s: %s: %w", key, value, ErrInvalidNumber)
 			}
 			ni := int(n)
 			// Range guards (TS NpcConfig.ts:61-87).
 			switch key {
 			case "size":
 				if ni < 0 || ni > 5 {
-					return nil, true, fmt.Errorf("%s out of range: %d", key, ni)
+					return nil, true, fmt.Errorf("%s out of range: %d: %w", key, ni, ErrOutOfRange)
 				}
 			case "resizex", "resizey", "resizez", "resizeh", "resizev":
 				if ni < 0 || ni > 512 {
-					return nil, true, fmt.Errorf("%s out of range: %d", key, ni)
+					return nil, true, fmt.Errorf("%s out of range: %d: %w", key, ni, ErrOutOfRange)
 				}
 			case "wanderrange", "maxrange", "huntrange", "attackrange":
 				if ni < 0 || ni > 32767 {
-					return nil, true, fmt.Errorf("%s out of range: %d", key, ni)
+					return nil, true, fmt.Errorf("%s out of range: %d: %w", key, ni, ErrOutOfRange)
 				}
 			case "hitpoints", "attack", "strength", "defence", "magic", "ranged":
 				if ni < 0 || ni > 5000 {
-					return nil, true, fmt.Errorf("%s out of range: %d", key, ni)
+					return nil, true, fmt.Errorf("%s out of range: %d: %w", key, ni, ErrOutOfRange)
 				}
 			case "timer":
 				if ni < 0 || ni > 12000 {
-					return nil, true, fmt.Errorf("%s out of range: %d", key, ni)
+					return nil, true, fmt.Errorf("%s out of range: %d: %w", key, ni, ErrOutOfRange)
 				}
 			case "respawnrate", "regenrate":
 				if ni < 0 || ni > 12000 {
-					return nil, true, fmt.Errorf("%s out of range: %d", key, ni)
+					return nil, true, fmt.Errorf("%s out of range: %d: %w", key, ni, ErrOutOfRange)
 				}
 			}
 			return ni, true, nil
@@ -123,7 +123,7 @@ func parseNpcConfigFor(modelPack, categoryPack, seqPack, huntPack *PackFile, lk 
 
 		if _, ok := npcBooleanKeys[key]; ok {
 			if !IsConfigBoolean(value) {
-				return nil, true, fmt.Errorf("invalid boolean for %s: %s", key, value)
+				return nil, true, fmt.Errorf("invalid boolean for %s: %s: %w", key, value, ErrInvalidBoolean)
 			}
 			return GetConfigBoolean(value), true, nil
 		}
@@ -133,14 +133,14 @@ func parseNpcConfigFor(modelPack, categoryPack, seqPack, huntPack *PackFile, lk 
 		if strings.HasPrefix(key, "model") {
 			idx := modelPack.GetByName(value)
 			if idx == -1 {
-				return nil, true, fmt.Errorf("unknown model: %s", value)
+				return nil, true, fmt.Errorf("unknown model: %s: %w", value, ErrUnknownModel)
 			}
 			return idx, true, nil
 		}
 		if strings.HasPrefix(key, "head") {
 			idx := modelPack.GetByName(value)
 			if idx == -1 {
-				return nil, true, fmt.Errorf("unknown model: %s", value)
+				return nil, true, fmt.Errorf("unknown model: %s: %w", value, ErrUnknownModel)
 			}
 			return idx, true, nil
 		}
@@ -154,7 +154,7 @@ func parseNpcConfigFor(modelPack, categoryPack, seqPack, huntPack *PackFile, lk 
 			}
 			n, err := strconv.ParseInt(value, 10, 64)
 			if err != nil {
-				return nil, true, fmt.Errorf("invalid recol value: %s", value)
+				return nil, true, fmt.Errorf("invalid recol value: %s: %w", value, ErrInvalidRecol)
 			}
 			return int(n), true, nil
 		}
@@ -163,7 +163,7 @@ func parseNpcConfigFor(modelPack, categoryPack, seqPack, huntPack *PackFile, lk 
 		case "readyanim":
 			idx := seqPack.GetByName(value)
 			if idx == -1 {
-				return nil, true, fmt.Errorf("unknown seq: %s", value)
+				return nil, true, fmt.Errorf("unknown seq: %s: %w", value, ErrUnknownSeq)
 			}
 			return idx, true, nil
 
@@ -175,7 +175,7 @@ func parseNpcConfigFor(modelPack, categoryPack, seqPack, huntPack *PackFile, lk 
 				for _, anim := range parts {
 					idx := seqPack.GetByName(anim)
 					if idx == -1 {
-						return nil, true, fmt.Errorf("unknown seq: %s", anim)
+						return nil, true, fmt.Errorf("unknown seq: %s: %w", anim, ErrUnknownSeq)
 					}
 					indices = append(indices, idx)
 				}
@@ -186,7 +186,7 @@ func parseNpcConfigFor(modelPack, categoryPack, seqPack, huntPack *PackFile, lk 
 			}
 			idx := seqPack.GetByName(value)
 			if idx == -1 {
-				return nil, true, fmt.Errorf("unknown seq: %s", value)
+				return nil, true, fmt.Errorf("unknown seq: %s: %w", value, ErrUnknownSeq)
 			}
 			return idx, true, nil
 
@@ -215,11 +215,11 @@ func parseNpcConfigFor(modelPack, categoryPack, seqPack, huntPack *PackFile, lk 
 			}
 			pid, found := paramTypes.ConfigNames[name]
 			if !found {
-				return nil, true, fmt.Errorf("unknown param: %s", name)
+				return nil, true, fmt.Errorf("unknown param: %s: %w", name, ErrUnknownParam)
 			}
 			pt := paramTypes.Configs[pid]
 			if pt == nil {
-				return nil, true, fmt.Errorf("unknown param: %s", name)
+				return nil, true, fmt.Errorf("unknown param: %s: %w", name, ErrUnknownParam)
 			}
 			v, err := lookupParamValue(pt.Type, vstr, lk)
 			if err != nil {

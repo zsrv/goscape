@@ -21,7 +21,7 @@ func parseMesAnimConfigFor(seqPack *PackFile) ParseFn {
 		if strings.HasPrefix(key, "len") {
 			idx := seqPack.GetByName(value)
 			if idx == -1 {
-				return nil, true, fmt.Errorf("unknown seq: %s", value)
+				return nil, true, fmt.Errorf("unknown seq: %s: %w", value, ErrUnknownSeq)
 			}
 			return idx, true, nil
 		}

@@ -31,7 +31,7 @@ func parseStructConfigFor(paramTypes *objtype.ParamTypeConfigs, lk *paramLookups
 		raw := value[comma+1:]
 		id, ok := paramTypes.ConfigNames[name]
 		if !ok {
-			return nil, true, fmt.Errorf("unknown param: %s", name)
+			return nil, true, fmt.Errorf("unknown param: %s: %w", name, ErrUnknownParam)
 		}
 		pt := paramTypes.Configs[id]
 		resolved, err := lookupParamValue(pt.Type, raw, lk)

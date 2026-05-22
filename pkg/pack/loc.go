@@ -121,14 +121,14 @@ func parseLocConfigFor(categoryPack, seqPack, texturePack *PackFile, lk *paramLo
 		if _, ok := locNumberKeys[key]; ok {
 			n, err := strconv.ParseInt(value, 0, 64)
 			if err != nil {
-				return nil, true, fmt.Errorf("invalid number for %s: %s", key, value)
+				return nil, true, fmt.Errorf("invalid number for %s: %s: %w", key, value, ErrInvalidNumber)
 			}
 			return int(n), true, nil
 		}
 
 		if _, ok := locBooleanKeys[key]; ok {
 			if !IsConfigBoolean(value) {
-				return nil, true, fmt.Errorf("invalid boolean for %s: %s", key, value)
+				return nil, true, fmt.Errorf("invalid boolean for %s: %s: %w", key, value, ErrInvalidBoolean)
 			}
 			return GetConfigBoolean(value), true, nil
 		}
@@ -142,7 +142,7 @@ func parseLocConfigFor(categoryPack, seqPack, texturePack *PackFile, lk *paramLo
 			}
 			n, err := strconv.ParseInt(value, 0, 64)
 			if err != nil {
-				return nil, true, fmt.Errorf("invalid recol value: %s", value)
+				return nil, true, fmt.Errorf("invalid recol value: %s: %w", value, ErrInvalidRecol)
 			}
 			return colorconv.Rgb15toHsl16(int(n)), true, nil
 		}
@@ -169,7 +169,7 @@ func parseLocConfigFor(categoryPack, seqPack, texturePack *PackFile, lk *paramLo
 		case "anim":
 			idx := seqPack.GetByName(value)
 			if idx == -1 {
-				return nil, true, fmt.Errorf("unknown anim: %s", value)
+				return nil, true, fmt.Errorf("unknown anim: %s: %w", value, ErrUnknownAnim)
 			}
 			return idx, true, nil
 		case "param":
@@ -179,11 +179,11 @@ func parseLocConfigFor(categoryPack, seqPack, texturePack *PackFile, lk *paramLo
 			}
 			pid, found := paramTypes.ConfigNames[name]
 			if !found {
-				return nil, true, fmt.Errorf("unknown param: %s", name)
+				return nil, true, fmt.Errorf("unknown param: %s: %w", name, ErrUnknownParam)
 			}
 			pt := paramTypes.Configs[pid]
 			if pt == nil {
-				return nil, true, fmt.Errorf("unknown param: %s", name)
+				return nil, true, fmt.Errorf("unknown param: %s: %w", name, ErrUnknownParam)
 			}
 			v, err := lookupParamValue(pt.Type, vstr, lk)
 			if err != nil {
