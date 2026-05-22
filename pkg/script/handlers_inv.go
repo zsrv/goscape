@@ -736,9 +736,9 @@ func handleInvMoveFromSlot(s *ScriptState) error {
 //
 // TS: InvOps.ts INV_TRANSMIT — `const [inv, com] = state.popInts(2)`
 // (popInts returns [bottom, top] — i.e. inv pushed FIRST, com pushed
-// SECOND). Then activePlayer.invListenOnCom(inv, com, activePlayer.uid).
-// com is wrapped with check(com, NumberNotNull) in TS; invType uses
-// InvTypeValid (not NumberNotNull) — stays raw (NAI-23 Bundle 4b).
+// SECOND). Then check(inv, InvTypeValid); check(com, NumberNotNull);
+// activePlayer.invListenOnCom(inv, com, activePlayer.uid). TS validates
+// inv BEFORE com (InvOps.ts:647-648); mirror that order.
 // Source porting fix landed in NAI-24 Bundle 2 — origin commit fa57ee4
 // (S6u) erroneously hard-coded -1.
 //
@@ -755,6 +755,9 @@ func handleInvTransmit(s *ScriptState) error {
 	}
 	com := s.PopInt()
 	invType := s.PopInt()
+	if err := checkInvType(s, invType, "INV_TRANSMIT"); err != nil {
+		return err
+	}
 	if err := checkNotNull(com, "INV_TRANSMIT"); err != nil {
 		return err
 	}
@@ -789,19 +792,22 @@ func handleInvStopTransmit(s *ScriptState) error {
 // TS: InvOps.ts INVOTHER_TRANSMIT — popInts(3) → [uid, inv, com];
 // check(uid, NumberNotNull), check(inv, InvTypeValid),
 // check(com, NumberNotNull); activePlayer.invListenOnCom(invType.id, com, uid).
-// uid and com are wrapped with NumberNotNull; invType uses InvTypeValid
-// (not NumberNotNull) — stays raw (NAI-23 Bundle 4b). Closes S6u-SB1.
+// Validation order mirrors TS (InvOps.ts:657-659): uid → inv → com.
+// Closes S6u-SB1.
 func handleInvOtherTransmit(s *ScriptState) error {
 	if err := requireActivePlayer(s, "INVOTHER_TRANSMIT"); err != nil {
 		return err
 	}
 	com := s.PopInt()
-	if err := checkNotNull(com, "INVOTHER_TRANSMIT"); err != nil {
-		return err
-	}
 	invType := s.PopInt()
 	uid := s.PopInt()
 	if err := checkNotNull(uid, "INVOTHER_TRANSMIT"); err != nil {
+		return err
+	}
+	if err := checkInvType(s, invType, "INVOTHER_TRANSMIT"); err != nil {
+		return err
+	}
+	if err := checkNotNull(com, "INVOTHER_TRANSMIT"); err != nil {
 		return err
 	}
 	s.Self.InvListenOnCom(invType, com, uid)

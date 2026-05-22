@@ -569,11 +569,12 @@ func TestInvTransmitRegistersListener(t *testing.T) {
 			OpInvTransmit,
 			OpReturn,
 		},
-		IntOperands:      []int32{93, 149, 0, 0},
+		IntOperands:      []int32{testInvMain, 149, 0, 0},
 		StringOperands:   []string{"", "", "", ""},
 		InstructionCount: 4,
 	}
 	state := Init(sf, mp, false, nil, nil)
+	state.Configs = newTestInvConfigs()
 	if err := Execute(state); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
@@ -581,8 +582,8 @@ func TestInvTransmitRegistersListener(t *testing.T) {
 		t.Fatalf("expected 1 call to InvListenOnCom, got %d", len(mp.lastInvListenOnCom))
 	}
 	got := mp.lastInvListenOnCom[0]
-	if got.InvType != 93 || got.Com != 149 || got.Source != 42 {
-		t.Errorf("InvListenOnCom args: got %+v, want {InvType:93, Com:149, Source:42}", got)
+	if got.InvType != testInvMain || got.Com != 149 || got.Source != 42 {
+		t.Errorf("InvListenOnCom args: got %+v, want {InvType:%d, Com:149, Source:42}", got, testInvMain)
 	}
 }
 
@@ -622,11 +623,12 @@ func TestInvTransmitSourceTracksActivePlayerUID(t *testing.T) {
 			OpInvTransmit,
 			OpReturn,
 		},
-		IntOperands:      []int32{93, 149, 0, 0},
+		IntOperands:      []int32{testInvMain, 149, 0, 0},
 		StringOperands:   []string{"", "", "", ""},
 		InstructionCount: 4,
 	}
 	state := Init(sf, mp, false, nil, nil)
+	state.Configs = newTestInvConfigs()
 	if err := Execute(state); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
@@ -637,8 +639,8 @@ func TestInvTransmitSourceTracksActivePlayerUID(t *testing.T) {
 	if got.Source != wantUID {
 		t.Errorf("Source: got %#x, want %#x (must propagate active player UID)", got.Source, wantUID)
 	}
-	if got.InvType != 93 || got.Com != 149 {
-		t.Errorf("InvType/Com mismatch: got {%d, %d}, want {93, 149}", got.InvType, got.Com)
+	if got.InvType != testInvMain || got.Com != 149 {
+		t.Errorf("InvType/Com mismatch: got {%d, %d}, want {%d, 149}", got.InvType, got.Com, testInvMain)
 	}
 }
 
@@ -693,11 +695,12 @@ func TestInvOtherTransmitRegistersListenerWithUid(t *testing.T) {
 			OpInvOtherTransmit,
 			OpReturn,
 		},
-		IntOperands:      []int32{42, 93, 149, 0, 0},
+		IntOperands:      []int32{42, testInvMain, 149, 0, 0},
 		StringOperands:   []string{"", "", "", "", ""},
 		InstructionCount: 5,
 	}
 	state := Init(sf, mp, false, nil, nil)
+	state.Configs = newTestInvConfigs()
 	if err := Execute(state); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
@@ -705,8 +708,8 @@ func TestInvOtherTransmitRegistersListenerWithUid(t *testing.T) {
 		t.Fatalf("expected 1 call, got %d", len(mp.lastInvListenOnCom))
 	}
 	got := mp.lastInvListenOnCom[0]
-	if got.InvType != 93 || got.Com != 149 || got.Source != 42 {
-		t.Errorf("args: got %+v, want {InvType:93, Com:149, Source:42}", got)
+	if got.InvType != testInvMain || got.Com != 149 || got.Source != 42 {
+		t.Errorf("args: got %+v, want {InvType:%d, Com:149, Source:42}", got, testInvMain)
 	}
 }
 
@@ -728,25 +731,29 @@ func TestInvOtherTransmitNoActivePlayerErrors(t *testing.T) {
 
 // TestHandleInvTransmitNullComRejected pins NAI-23 Bundle 4b: INV_TRANSMIT
 // rejects com=-1 via checkNotNull (TS InvOps.ts INV_TRANSMIT:
-// check(com, NumberNotNull)). invType is wrapped with InvTypeValid (not
-// NumberNotNull) and stays raw. The InvListenOnCom side-effect must NOT occur.
+// check(com, NumberNotNull)). The InvListenOnCom side-effect must NOT occur.
 //
 // Push order per TS popInts(2)→[inv,com]: invType first (bottom), com on top.
 // Migrated by NAI-113 T9; previous order was hand-tuned to a buggy
 // handler pop order.
+//
+// Uses a registered invType (testInvMain) so com=-1 is the rejection
+// trigger (not the new InvTypeValid gate, which is exercised separately
+// in TestHandleInvTransmitInvalidInvRejected).
 func TestHandleInvTransmitNullComRejected(t *testing.T) {
 	mp := &mockPlayer{}
 	sf := &ScriptFile{
 		Name: "inv_transmit_null_com",
 		Opcodes: []Opcode{
-			OpPushConstantInt, // push invType (93, bottom — pushed first)
+			OpPushConstantInt, // push invType (bottom — pushed first)
 			OpPushConstantInt, // push com (-1, top — pushed second)
 			OpInvTransmit,
 			OpReturn,
 		},
-		IntOperands: []int32{93, -1, 0, 0},
+		IntOperands: []int32{testInvMain, -1, 0, 0},
 	}
 	state := Init(sf, mp, false, nil, nil)
+	state.Configs = newTestInvConfigs()
 
 	err := Execute(state)
 	if err == nil {
@@ -808,14 +815,14 @@ func TestHandleInvOtherTransmitNullRejected(t *testing.T) {
 		{
 			name:       "null_com",
 			uid:        42,
-			invType:    93,
+			invType:    testInvMain,
 			com:        -1,
 			wantSubstr: "INVOTHER_TRANSMIT: input number was null(-1)",
 		},
 		{
 			name:       "null_uid",
 			uid:        -1,
-			invType:    93,
+			invType:    testInvMain,
 			com:        149,
 			wantSubstr: "INVOTHER_TRANSMIT: input number was null(-1)",
 		},
@@ -836,6 +843,7 @@ func TestHandleInvOtherTransmitNullRejected(t *testing.T) {
 				IntOperands: []int32{int32(tc.uid), int32(tc.invType), int32(tc.com), 0, 0},
 			}
 			state := Init(sf, mp, false, nil, nil)
+			state.Configs = newTestInvConfigs()
 
 			err := Execute(state)
 			if err == nil {
@@ -848,6 +856,71 @@ func TestHandleInvOtherTransmitNullRejected(t *testing.T) {
 				t.Errorf("lastInvListenOnCom: got %d calls, want 0", len(mp.lastInvListenOnCom))
 			}
 		})
+	}
+}
+
+// TestHandleInvTransmitInvalidInvRejected pins INV_TRANSMIT inv validation
+// gap closure: TS InvOps.ts:647 calls check(inv, InvTypeValid). An unregistered
+// invType id must reject before InvListenOnCom is called.
+func TestHandleInvTransmitInvalidInvRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "inv_transmit_invalid_inv",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // invType (bogus, bottom)
+			OpPushConstantInt, // com (top)
+			OpInvTransmit,
+			OpReturn,
+		},
+		IntOperands: []int32{9999, 149, 0, 0},
+	}
+	state := Init(sf, mp, false, nil, nil)
+	state.Configs = newTestInvConfigs()
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for unregistered invType=9999, got nil")
+	}
+	want := "INV_TRANSMIT: no InvType with value (9999) found"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if len(mp.lastInvListenOnCom) != 0 {
+		t.Errorf("lastInvListenOnCom: got %d calls, want 0 (must not register on rejection)", len(mp.lastInvListenOnCom))
+	}
+}
+
+// TestHandleInvOtherTransmitInvalidInvRejected pins INVOTHER_TRANSMIT inv
+// validation gap closure: TS InvOps.ts:658 calls check(inv, InvTypeValid).
+// Validation order is uid → inv → com (TS:657-659), so a valid uid plus
+// unregistered invType must reject with the InvTypeValid error before the
+// com check fires.
+func TestHandleInvOtherTransmitInvalidInvRejected(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := &ScriptFile{
+		Name: "invother_transmit_invalid_inv",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // uid (bottom)
+			OpPushConstantInt, // invType (bogus)
+			OpPushConstantInt, // com (top)
+			OpInvOtherTransmit,
+			OpReturn,
+		},
+		IntOperands: []int32{42, 9999, 149, 0, 0},
+	}
+	state := Init(sf, mp, false, nil, nil)
+	state.Configs = newTestInvConfigs()
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error for unregistered invType=9999, got nil")
+	}
+	want := "INVOTHER_TRANSMIT: no InvType with value (9999) found"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if len(mp.lastInvListenOnCom) != 0 {
+		t.Errorf("lastInvListenOnCom: got %d calls, want 0 (must not register on rejection)", len(mp.lastInvListenOnCom))
 	}
 }
 
