@@ -2,6 +2,7 @@
 package symbol
 
 import (
+	"slices"
 	"strings"
 	"unicode"
 )
@@ -124,8 +125,21 @@ func (st *SymbolTable) FindAll(name string) []Symbol {
 }
 
 // findAllInto walks the parent chain accumulating into out.
+//
+// Outer-key iteration is sorted to keep the returned order deterministic
+// across runs — Go map iteration is randomised, and downstream callers
+// (visitGameVariableExpression, resolveSymbol in type_checking_expr.go)
+// `break` on the first match, so unsorted iteration would let them pick
+// different symbols on repeat runs when multiple kinds share a name.
+// That non-determinism flowed into bytecode operand bytes in script.dat.
 func (st *SymbolTable) findAllInto(name string, out *[]Symbol) {
-	for outerKey, inner := range st.symbols {
+	keys := make([]string, 0, len(st.symbols))
+	for k := range st.symbols {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	for _, outerKey := range keys {
+		inner := st.symbols[outerKey]
 		// Reverse-derive the kind from the outer key prefix to pick the right
 		// normalisation rule. Avoids constructing a SymbolType per-pair.
 		kind := keyToKind(outerKey)
