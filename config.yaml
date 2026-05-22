@@ -19,7 +19,12 @@ login:
   auto_subscribe_members: true
   graceful_shutdown_timeout: 30s
 
+friends:
+  enable: true
+
+
 world:
   enable: true
   tcp_keepalive_period: 30s
   node_debug: false
+  friends_server_enabled: true
