@@ -168,6 +168,10 @@ func handlePow(s *ScriptState) error {
 	return nil
 }
 
+// PORTING-EXCEPTION (INVPOW-logarithm-loop): TS NumberOps.ts:79-100 special-
+// cases sqrt/cbrt; Go uses a logarithm loop. Functionally equivalent for
+// integer results; perf diverges but acceptable at current scale. See
+// PORTING.md.
 func handleInvPow(s *ScriptState) error {
 	// invpow(value, base) = floor(log_base(value)).
 	base := s.PopInt()

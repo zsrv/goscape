@@ -307,6 +307,10 @@ func (p *Player) processInteraction() {
 	// itself. NAI-68 closed NAI-44-D-IMMEDIATE-POP-VS-NEXTTARGET via
 	// this reshape; NAI-69 closes NAI-68-D-AP-APRANGE-REVERT-NOT-PORTED
 	// by routing the same-tick retry signal through tryInteract.
+	//
+	// PORTING-EXCEPTION (NAI-69, attackrange-fixed-vs-apRange-mutable):
+	// pre-existing divergence; player apRange is mutable while NPC
+	// attackrange is fixed. See PORTING.md.
 	if p.nextTarget != nil {
 		p.target = p.nextTarget
 	} else if interacted && !p.apRangeCalled {

@@ -51,6 +51,11 @@ func recoverPlayer(p *Player, op string, log *slog.Logger) {
 // only logs.
 //
 // Mirrors TS World.ts:534-559 catch action.
+//
+// PORTING-EXCEPTION (ARCH-1): the world-script panic is swallowed here (the
+// offending entry was already removed before fire). TS retries via top-level
+// catch. Risk: masks logic bugs that TS would propagate. Documented; deferred
+// indefinitely. See PORTING.md.
 func recoverWorldScript(state *script.ScriptState, log *slog.Logger) {
 	r := recover()
 	if r == nil {

@@ -372,6 +372,9 @@ type Player struct {
 
 	// === scenery-window state (sub-spec 3a; flattened from pkg/buildarea
 	// at NAI-30 Bundle 4) ===
+	// PORTING-EXCEPTION (BuildArea-flattened): TS Player.ts:320 has a
+	// BuildArea struct; goscape flattens the fields directly into Player.
+	// Functionally complete; structural-only divergence. See PORTING.md.
 	// Tracks which mapsquares the client has loaded for LOC/scenery rebuild
 	// purposes. Per-player; mutated by rebuildScenery() at zone-window exit.
 	//

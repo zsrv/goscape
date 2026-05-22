@@ -88,6 +88,9 @@ func (p *Player) UnsetMapFlag() {
 // tick's info-pass — same convention as Npc.ResetMasks at
 // npc_masks.go:184-207). Closes NAI-91's "player keeps facing NPC
 // after walking away" smoke residual.
+//
+// PORTING-EXCEPTION (NAI-91, mask-reset-1-tick-lag): documented by design.
+// See PORTING.md.
 func (p *Player) ResetMasks() {
 	p.masks = 0
 	p.tele = false
