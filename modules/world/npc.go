@@ -381,9 +381,12 @@ func (n *Npc) SetHuntRange(r int) {
 
 // SetHuntMode sets the NPC's HuntType id. -1 clears the hunt mode
 // (unlike SetTimer's -1 no-op — SetHuntMode accepts -1 as a valid
-// "clear" command). Callers do no bounds validation; the consumer
-// (processNpcHunt) validates when looking up the HuntType. Mirrors
-// TS NpcOps.ts:178-185. Implements script.ActiveNpc.SetHuntMode.
+// "clear" command). Validation of non-(-1) ids against the HuntType
+// registry happens at the NPC_SETHUNTMODE opcode site (handlers_npc.go
+// checkHuntType), mirroring TS check(huntTypeId, HuntTypeValid) at
+// NpcOps.ts:185; processNpcHunt still defensively rejects out-of-range
+// ids that slipped through other call paths. Mirrors TS NpcOps.ts:178-186.
+// Implements script.ActiveNpc.SetHuntMode.
 func (n *Npc) SetHuntMode(mode int) {
 	n.huntMode = mode
 }

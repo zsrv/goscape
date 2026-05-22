@@ -111,6 +111,19 @@ func (c serverConfigsView) SeqType(id int) *objtype.SeqType {
 	return c.s.seqTypes.Configs[id]
 }
 
+// HuntType returns the hunt-config entry for id, or nil when not loaded
+// or out of range. Used by NPC_SETHUNTMODE validation. Mirrors TS
+// HuntType.get at Engine-TS/src/cache/config/HuntType.ts.
+func (c serverConfigsView) HuntType(id int) *objtype.HuntType {
+	if c.s == nil || c.s.huntTypes == nil {
+		return nil
+	}
+	if id < 0 || id >= len(c.s.huntTypes.Configs) {
+		return nil
+	}
+	return c.s.huntTypes.Configs[id]
+}
+
 func (c serverConfigsView) DbTableType(id int) *objtype.DbTableType {
 	if c.s == nil || c.s.dbTableTypes == nil {
 		return nil

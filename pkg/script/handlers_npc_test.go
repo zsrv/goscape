@@ -1321,7 +1321,7 @@ func TestHandleNpcSetHuntWithoutActiveNpcErrors(t *testing.T) {
 }
 
 // TestHandleNpcSetHuntMode — NPC_SETHUNTMODE with both positive and
-// -1 (clear) values. Mirrors TS NpcOps.ts:178-185.
+// -1 (clear) values. Mirrors TS NpcOps.ts:178-186.
 func TestHandleNpcSetHuntMode(t *testing.T) {
 	npc := &mockNpc{}
 	sf := &ScriptFile{
@@ -1338,6 +1338,9 @@ func TestHandleNpcSetHuntMode(t *testing.T) {
 	state := Init(sf, nil, false, nil, nil)
 	state.ActiveNpc = npc
 	state.Pointers |= PtrActiveNpc
+	state.Configs = &mockConfigs{
+		hunts: map[int]*objtype.HuntType{3: objtype.NewHuntType(3)},
+	}
 
 	if err := Execute(state); err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -1351,6 +1354,94 @@ func TestHandleNpcSetHuntMode(t *testing.T) {
 	}
 	if npc.setHuntModeCalls[1] != -1 {
 		t.Errorf("setHuntModeCalls[1]: got %d, want -1 (clear)", npc.setHuntModeCalls[1])
+	}
+}
+
+// TestHandleNpcSetHuntMode_ClearBypassesRegistry — verifies the -1
+// sentinel bypasses the HuntType registry check (so a script may clear
+// the hunt mode even when no hunt.dat is loaded). Mirrors the TS
+// huntTypeId === -1 short-circuit at NpcOps.ts:182-183.
+func TestHandleNpcSetHuntMode_ClearBypassesRegistry(t *testing.T) {
+	npc := &mockNpc{}
+	sf := &ScriptFile{
+		Name: "test_npc_sethuntmode_clear",
+		Opcodes: []Opcode{
+			OpPushConstantInt,
+			OpNpcSetHuntMode,
+			OpReturn,
+		},
+		IntOperands: []int32{-1, 0, 0},
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	state.Pointers |= PtrActiveNpc
+	// Nil Configs — only the -1 sentinel branch should succeed here.
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(npc.setHuntModeCalls) != 1 || npc.setHuntModeCalls[0] != -1 {
+		t.Errorf("setHuntModeCalls: got %v, want [-1]", npc.setHuntModeCalls)
+	}
+}
+
+// TestHandleNpcSetHuntMode_UnknownIDAborts — an unregistered HuntType
+// id (here 999) must abort the script before SetHuntMode is called,
+// matching the TS check(huntTypeId, HuntTypeValid) throw at
+// NpcOps.ts:185.
+func TestHandleNpcSetHuntMode_UnknownIDAborts(t *testing.T) {
+	npc := &mockNpc{}
+	sf := &ScriptFile{
+		Name: "test_npc_sethuntmode_unknown",
+		Opcodes: []Opcode{
+			OpPushConstantInt,
+			OpNpcSetHuntMode,
+			OpReturn,
+		},
+		IntOperands: []int32{999, 0, 0},
+	}
+	state := Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = npc
+	state.Pointers |= PtrActiveNpc
+	state.Configs = &mockConfigs{
+		hunts: map[int]*objtype.HuntType{3: objtype.NewHuntType(3)},
+	}
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatalf("Execute: want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "NPC_SETHUNTMODE") || !strings.Contains(err.Error(), "999") {
+		t.Errorf("error should mention opcode and offending id: %v", err)
+	}
+	if len(npc.setHuntModeCalls) != 0 {
+		t.Errorf("SetHuntMode should not have been called on abort, got calls=%v", npc.setHuntModeCalls)
+	}
+}
+
+// TestCheckHuntType — direct validator unit test mirroring
+// TestCheckNpcType. Covers loaded id, unloaded id, negative id, and
+// nil Configs.
+func TestCheckHuntType(t *testing.T) {
+	s := &ScriptState{Configs: &mockConfigs{
+		hunts: map[int]*objtype.HuntType{7: objtype.NewHuntType(7)},
+	}}
+
+	if err := checkHuntType(s, 7, "TEST"); err != nil {
+		t.Errorf("checkHuntType(7) with loaded type: unexpected error %v", err)
+	}
+	if err := checkHuntType(s, 8, "TEST"); err == nil {
+		t.Errorf("checkHuntType(8) with unloaded type: want error")
+	} else if !strings.Contains(err.Error(), "TEST:") || !strings.Contains(err.Error(), "8") {
+		t.Errorf("error should carry op prefix and offending id: %v", err)
+	}
+	if err := checkHuntType(s, -1, "TEST"); err == nil {
+		t.Errorf("checkHuntType(-1): want error (callers must short-circuit -1 before calling)")
+	}
+
+	s2 := &ScriptState{}
+	if err := checkHuntType(s2, 7, "TEST"); err == nil {
+		t.Errorf("checkHuntType with nil Configs: want error")
 	}
 }
 

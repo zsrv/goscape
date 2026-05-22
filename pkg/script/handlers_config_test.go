@@ -23,6 +23,7 @@ type mockConfigs struct {
 	varps          map[int]*objtype.VarPlayerType
 	varns          map[int]*objtype.VarNpcType
 	seqs           map[int]*objtype.SeqType
+	hunts          map[int]*objtype.HuntType
 	mesanims       map[int]*objtype.MesanimType
 	mesanimsByName map[string]int
 	fonts          map[int]*fonttype.FontType
@@ -38,6 +39,7 @@ func (m *mockConfigs) InvType(id int) *objtype.InvType           { return m.invs
 func (m *mockConfigs) IdkType(id int) *objtype.IdkType           { return m.idks[id] }
 func (m *mockConfigs) SpotAnimType(id int) *objtype.SpotanimType { return m.spotAnimTypes[id] }
 func (m *mockConfigs) SeqType(id int) *objtype.SeqType           { return m.seqs[id] }
+func (m *mockConfigs) HuntType(id int) *objtype.HuntType         { return m.hunts[id] }
 func (m *mockConfigs) MesanimType(id int) *objtype.MesanimType   { return m.mesanims[id] }
 func (m *mockConfigs) MesanimByName(name string) int {
 	if m.mesanimsByName == nil {

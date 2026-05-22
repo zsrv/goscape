@@ -92,6 +92,18 @@ func checkNpcType(s *ScriptState, id int, op string) error {
 	return nil
 }
 
+// checkHuntType mirrors TS HuntTypeValid (ScriptValidators.ts:115) —
+// range + registry presence check, collapsed into a single
+// Configs.HuntType(id) nil check per the checkNpcType pattern. Used by
+// NPC_SETHUNTMODE; callers are responsible for handling the -1 ("clear")
+// sentinel before invoking this validator (TS does the same).
+func checkHuntType(s *ScriptState, id int, op string) error {
+	if s.Configs == nil || s.Configs.HuntType(id) == nil {
+		return fmt.Errorf("%s: no HuntType with value (%d) found", op, id)
+	}
+	return nil
+}
+
 // checkHitType validates a hit-type wire value against
 // objtype.HitTypeCount. Mirrors TS HitTypeValid (ScriptValidators.ts:117)
 // — ScriptInputRangeValidator(HitType.BLOCK, HitType.POISON), inclusive
@@ -706,13 +718,21 @@ func handleNpcSetHunt(s *ScriptState) error {
 }
 
 // handleNpcSetHuntMode (NPC_SETHUNTMODE, opcode 2534) sets the NPC's
-// HuntType id. -1 clears the hunt mode (valid input). Mirrors TS
-// NpcOps.ts:178-185.
+// HuntType id. -1 clears the hunt mode (valid input, bypasses the
+// registry check). Any other id is validated against Configs.HuntType
+// before being assigned — an unknown id aborts the script. Mirrors TS
+// NpcOps.ts:178-186 (check(huntTypeId, HuntTypeValid)).
 func handleNpcSetHuntMode(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_SETHUNTMODE"); err != nil {
 		return err
 	}
-	s.ActiveNpc.SetHuntMode(s.PopInt())
+	hid := s.PopInt()
+	if hid != -1 {
+		if err := checkHuntType(s, hid, "NPC_SETHUNTMODE"); err != nil {
+			return err
+		}
+	}
+	s.ActiveNpc.SetHuntMode(hid)
 	return nil
 }
 

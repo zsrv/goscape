@@ -21,6 +21,7 @@ type Configs interface {
 	IdkType(id int) *objtype.IdkType
 	SpotAnimType(id int) *objtype.SpotanimType
 	SeqType(id int) *objtype.SeqType
+	HuntType(id int) *objtype.HuntType
 	DbTableType(id int) *objtype.DbTableType
 	DbRowType(id int) *objtype.DbRowType
 	DbRowsInTable(tableID int) []int
