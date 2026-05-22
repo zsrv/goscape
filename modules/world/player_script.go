@@ -1402,8 +1402,9 @@ func (p *Player) PlaySong(name string) {
 		return
 	}
 	key := name + ".mid"
-	song, okSong := cache.Preloaded[key]
-	crc, okCRC := cache.PreloadedCRC[key]
+	preload := cache.Preload()
+	song, okSong := preload.Data[key]
+	crc, okCRC := preload.CRC[key]
 	if !okSong || !okCRC {
 		return
 	}
@@ -1437,7 +1438,7 @@ func (p *Player) PlayJingle(delay int, name string) {
 	if name == "" {
 		return
 	}
-	jingle, ok := cache.Preloaded[name+".mid"]
+	jingle, ok := cache.Preload().Data[name+".mid"]
 	if !ok {
 		return
 	}

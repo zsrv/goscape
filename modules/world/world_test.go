@@ -6,22 +6,17 @@ import (
 	"github.com/zsrv/goscape/pkg/cache"
 )
 
-// TestStartingFnPopulatesCrcBuffer asserts that the production sequence
+// TestStartingFnPopulatesCRCSnapshot asserts that the production sequence
 // (cache.PreloadClient → cache.MakeCRCs, as invoked by world.startingFn)
-// populates cache.CrcBuffer and cache.CrcTable. The test mirrors
-// startingFn's prefix rather than invoking NewWorldService directly,
-// because the latter requires a full Server + LoginClient fixture.
+// publishes a non-empty CRC snapshot. The test mirrors startingFn's
+// prefix rather than invoking NewWorldService directly, because the
+// latter requires a full Server + LoginClient fixture.
 // Pairs with cmd/goscape/app/modules_test.go's TestAssetDependsOnWorld
 // which pins the asset→world dep-edge that makes the sequence visible
 // to /crc requests at request time.
-func TestStartingFnPopulatesCrcBuffer(t *testing.T) {
-	// Reset to a fresh empty packet (mirrors pkg/cache init expression).
-	// MakeCRCs mutates CrcBuffer.Pos in place rather than reassigning, so
-	// CrcBuffer must be non-nil before the call.
-	cache.ResetCRCState()
-	t.Cleanup(func() {
-		cache.ResetCRCState()
-	})
+func TestStartingFnPopulatesCRCSnapshot(t *testing.T) {
+	cache.ResetCRCForTest()
+	t.Cleanup(cache.ResetCRCForTest)
 
 	// The world startingFn closure is built inside NewWorldService.
 	// We re-implement the relevant prefix here as a unit test would
@@ -32,10 +27,11 @@ func TestStartingFnPopulatesCrcBuffer(t *testing.T) {
 	}
 	cache.MakeCRCs()
 
-	if cache.CrcBuffer == nil {
-		t.Error("cache.CrcBuffer: got nil, want non-nil after MakeCRCs")
+	snap := cache.CRC()
+	if len(snap.Bytes) == 0 {
+		t.Error("cache.CRC().Bytes: got empty, want non-empty after MakeCRCs")
 	}
-	if len(cache.CrcTable) == 0 {
-		t.Error("cache.CrcTable: got empty, want populated after MakeCRCs")
+	if len(snap.Table) == 0 {
+		t.Error("cache.CRC().Table: got empty, want populated after MakeCRCs")
 	}
 }

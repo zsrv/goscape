@@ -27,16 +27,31 @@ func newMapDataPlayer(t *testing.T) (*Player, net.Conn, *Server) {
 	return p, cc, s
 }
 
-// seedClientMap seeds cache.Preloaded under the client-pack m{x}_{z}
-// or l{x}_{z} key and registers a t.Cleanup to remove the entry after
-// the test. Mirrors seedCachedMidi (player_script_test.go:436) for the
-// map-streaming path.
+// seedClientMap seeds cache.Preload().Data under the client-pack
+// m{x}_{z} or l{x}_{z} key and registers a t.Cleanup to clear the
+// snapshot after the test. Mirrors seedCachedMidi
+// (player_script_test.go) for the map-streaming path.
+//
+// Uses build-then-swap (read-copy-update) to add the entry to the
+// atomic.Pointer snapshot. Test-only; not safe for concurrent use.
 func seedClientMap(t *testing.T, prefix byte, mapX, mapZ int, data []byte) {
 	t.Helper()
 	name := fmt.Sprintf("%c%d_%d", prefix, mapX, mapZ)
-	cache.Preloaded[name] = data
+	prior := cache.Preload()
+	next := &cache.PreloadSnapshot{
+		Data: map[string][]byte{},
+		CRC:  map[string]uint32{},
+	}
+	for k, v := range prior.Data {
+		next.Data[k] = v
+	}
+	for k, v := range prior.CRC {
+		next.CRC[k] = v
+	}
+	next.Data[name] = data
+	cache.SetPreloadForTest(next)
 	t.Cleanup(func() {
-		delete(cache.Preloaded, name)
+		cache.ResetPreloadForTest()
 	})
 }
 

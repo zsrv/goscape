@@ -373,15 +373,23 @@ func TestReload_VarSharedStringSlot_PreservedAcrossReload(t *testing.T) {
 
 func TestReload_CRCRegen_OverwritesGlobalCrcBuffer(t *testing.T) {
 	s := newTestServerWithCachePath(t, realCacheDir())
-	cache.CrcBuffer32 = 0xDEAD
+	// Pre-seed a sentinel snapshot. Reload's cache.MakeCRCs() must
+	// publish a fresh snapshot — the sentinel's pointer must no longer
+	// be observable via cache.CRC().
+	sentinel := &cache.CRCSnapshot{
+		Bytes: []byte{0xDE, 0xAD, 0xBE, 0xEF},
+		Table: []uint32{0xDEAD},
+	}
+	cache.SetCRCForTest(sentinel)
 	if err := s.Reload(true); err != nil {
 		t.Fatalf("Reload: %v", err)
 	}
-	if cache.CrcBuffer32 == 0xDEAD {
-		t.Errorf("CrcBuffer32 not regenerated post-reload")
+	post := cache.CRC()
+	if post == sentinel {
+		t.Errorf("CRC snapshot not regenerated post-reload (still pointing at sentinel)")
 	}
-	if len(cache.CrcTable) == 0 {
-		t.Errorf("CrcTable empty post-reload")
+	if len(post.Table) == 0 {
+		t.Errorf("CRC().Table empty post-reload")
 	}
 }
 

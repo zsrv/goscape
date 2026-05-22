@@ -885,18 +885,33 @@ func TestNormalizeSongNameEmptyReturnsEmpty(t *testing.T) {
 	}
 }
 
-// seedCachedMidi seeds both cache.Preloaded and cache.PreloadedCRC under
-// `name` and registers a t.Cleanup to remove both entries after the test.
-// Mirrors the production PreloadClient write shape without touching the
-// filesystem. Usable for both song and jingle test paths (PlayJingle
-// ignores the CRC entry; the wasted write is harmless).
+// seedCachedMidi seeds both Data and CRC entries on the preload
+// snapshot under `name` and registers a t.Cleanup to clear the
+// snapshot after the test. Mirrors the production PreloadClient write
+// shape without touching the filesystem. Usable for both song and
+// jingle test paths (PlayJingle ignores the CRC entry; the wasted
+// write is harmless).
+//
+// Uses build-then-swap (read-copy-update) to add the entry to the
+// atomic.Pointer snapshot. Test-only; not safe for concurrent use.
 func seedCachedMidi(t *testing.T, name string, data []byte, crc uint32) {
 	t.Helper()
-	cache.Preloaded[name] = data
-	cache.PreloadedCRC[name] = crc
+	prior := cache.Preload()
+	next := &cache.PreloadSnapshot{
+		Data: map[string][]byte{},
+		CRC:  map[string]uint32{},
+	}
+	for k, v := range prior.Data {
+		next.Data[k] = v
+	}
+	for k, v := range prior.CRC {
+		next.CRC[k] = v
+	}
+	next.Data[name] = data
+	next.CRC[name] = crc
+	cache.SetPreloadForTest(next)
 	t.Cleanup(func() {
-		delete(cache.Preloaded, name)
-		delete(cache.PreloadedCRC, name)
+		cache.ResetPreloadForTest()
 	})
 }
 
@@ -933,11 +948,13 @@ func TestPlaySongMissingFromPreloadedReturnsSilently(t *testing.T) {
 // PreloadedCRC must be populated for the write to fire. Defensive
 // guard against future test seeding that populates only one map.
 func TestPlaySongSongSeededButCRCMissingReturnsSilently(t *testing.T) {
-	// Seed Preloaded but not PreloadedCRC.
-	cache.Preloaded["orphan.mid"] = []byte{0xAA}
-	t.Cleanup(func() {
-		delete(cache.Preloaded, "orphan.mid")
+	// Seed Data["orphan.mid"] but NOT CRC["orphan.mid"] — defensive
+	// guard against future test seeding that populates only one map.
+	cache.SetPreloadForTest(&cache.PreloadSnapshot{
+		Data: map[string][]byte{"orphan.mid": {0xAA}},
+		CRC:  map[string]uint32{},
 	})
+	t.Cleanup(cache.ResetPreloadForTest)
 	p, _ := newTestPlayer(t)
 	p.PlaySong("orphan")
 	if n := p.client.bufw.Buffered(); n != 0 {

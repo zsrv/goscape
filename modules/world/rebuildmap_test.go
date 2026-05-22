@@ -10,19 +10,31 @@ import (
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 )
 
-// seedCachedMapCRC writes m{mx}_{mz} and l{mx}_{mz} CRCs into
-// cache.PreloadedCRC for the duration of the test. Mirrors NAI-16's
+// seedCachedMapCRC writes m{mx}_{mz} and l{mx}_{mz} CRCs into the
+// preload snapshot for the duration of the test. Mirrors NAI-16's
 // seedCachedMidi pattern.
+//
+// Uses build-then-swap (read-copy-update) to extend the atomic.Pointer
+// snapshot. Test-only; not safe for concurrent use.
 func seedCachedMapCRC(t *testing.T, mx, mz int, mCRC, lCRC uint32) {
 	t.Helper()
 	mKey := fmt.Sprintf("m%d_%d", mx, mz)
 	lKey := fmt.Sprintf("l%d_%d", mx, mz)
-	cache.PreloadedCRC[mKey] = mCRC
-	cache.PreloadedCRC[lKey] = lCRC
-	t.Cleanup(func() {
-		delete(cache.PreloadedCRC, mKey)
-		delete(cache.PreloadedCRC, lKey)
-	})
+	prior := cache.Preload()
+	next := &cache.PreloadSnapshot{
+		Data: map[string][]byte{},
+		CRC:  map[string]uint32{},
+	}
+	for k, v := range prior.Data {
+		next.Data[k] = v
+	}
+	for k, v := range prior.CRC {
+		next.CRC[k] = v
+	}
+	next.CRC[mKey] = mCRC
+	next.CRC[lKey] = lCRC
+	cache.SetPreloadForTest(next)
+	t.Cleanup(cache.ResetPreloadForTest)
 }
 
 func TestSendRebuildNormalWireFormat(t *testing.T) {

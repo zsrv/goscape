@@ -3,62 +3,95 @@ package cache
 import (
 	"log/slog"
 	"os"
+	"sync/atomic"
 
 	"github.com/zsrv/goscape/pkg/io/packet"
 )
 
-var (
-	CrcBuffer   = packet.NewPacket(make([]byte, 0, 4*9))
-	CrcBytes    []byte
-	CrcTable    []uint32
-	CrcBuffer32 uint32
-)
+// DEVIATION-NAI-215-CACHE-ATOMIC-SWAP: package-level mutable cache state
+// (CrcBytes, CrcTable, Preloaded, PreloadedCRC) is read by concurrent
+// asset HTTP + world TCP goroutines and is rebuilt live during the
+// ::reload admin command. Original TypeScript single-threaded model
+// reassigned package globals in place. Go port uses build-then-swap
+// via atomic.Pointer[CRCSnapshot] / atomic.Pointer[PreloadSnapshot] —
+// reader sees either old-complete or new-complete, never torn.
+// See pkg/cache/crctable.go + pkg/cache/preloaded.go.
 
-// ResetCRCState restores CrcBuffer, CrcTable, and CrcBuffer32 to their
-// package-init shape. Test-only convenience to avoid drift between
-// init expressions and inline test resets. Mirrors the var declarations
-// at the top of this file.
-func ResetCRCState() {
-	CrcBuffer = packet.NewPacket(make([]byte, 0, 4*9))
-	CrcBytes = nil
-	CrcTable = nil
-	CrcBuffer32 = 0
+// CRCSnapshot is the immutable per-rebuild view of the 9-slot JAG
+// archive-CRC table. Build a fresh value, atomically swap, drop the old.
+//
+// Bytes is the serialized 9-slot table — what asset /crc HTTP serves.
+// Table is the 9 raw CRCs — what world login compares against.
+// (The package-level CrcBuffer32 of the old API was unused in prod —
+// the only reader at server.go:817 was commented out — so it is dropped.
+// If a future caller needs it, recompute from Bytes via packet.GetCRC.)
+type CRCSnapshot struct {
+	Bytes []byte
+	Table []uint32
 }
 
-func makeCrc(path string) {
-	if _, err := os.Stat(path); err != nil {
-		slog.Warn("cache: makeCrc Stat failed",
-			"path", path, "err", err)
-		return
+var crcPtr atomic.Pointer[CRCSnapshot]
+
+// CRC returns the current snapshot. Never nil. Pre-MakeCRCs callers
+// get a zero-value snapshot (zero-length Bytes/Table) — preserves the
+// prior pre-init contract where the package-level CrcBytes/CrcTable
+// were nil.
+func CRC() *CRCSnapshot {
+	s := crcPtr.Load()
+	if s == nil {
+		return &CRCSnapshot{}
+	}
+	return s
+}
+
+// MakeCRCs builds a fresh snapshot off to the side and atomically swaps
+// it in. Safe to call concurrently with CRC() readers — readers see
+// either the old-complete or new-complete snapshot, never a torn write.
+func MakeCRCs() {
+	buf := packet.NewPacket(make([]byte, 0, 4*9))
+	table := make([]uint32, 0, 9)
+
+	// slot 0: header (always 0)
+	buf.P4(0)
+	table = append(table, 0)
+
+	for _, name := range []string{"title", "config", "interface", "media", "models", "textures", "wordenc", "sounds"} {
+		crc := loadCrc("data/pack/client/" + name)
+		buf.P4(crc)
+		table = append(table, crc)
 	}
 
+	crcPtr.Store(&CRCSnapshot{
+		Bytes: append([]byte(nil), buf.Bytes()...),
+		Table: table,
+	})
+}
+
+// loadCrc returns the CRC for a packed-client archive file, or 0 if the
+// file is missing or unreadable (same posture as the old in-place
+// makeCrc helper — log a warning and continue, so missing archives
+// surface as zero-CRC mismatches at login rather than startup panics).
+func loadCrc(path string) uint32 {
+	if _, err := os.Stat(path); err != nil {
+		slog.Warn("cache: loadCrc Stat failed",
+			"path", path, "err", err)
+		return 0
+	}
 	p, err := packet.Load(path, false)
 	if err != nil {
-		slog.Warn("cache: makeCrc Load failed",
+		slog.Warn("cache: loadCrc Load failed",
 			"path", path, "err", err)
-		return
+		return 0
 	}
-
-	crc := packet.GetCRC(p.Bytes(), 0, len(p.Bytes()))
-	CrcTable = append(CrcTable, crc)
-	CrcBuffer.P4(crc)
+	return packet.GetCRC(p.Bytes(), 0, len(p.Bytes()))
 }
 
-func MakeCRCs() {
-	CrcTable = make([]uint32, 0)
+// ResetCRCForTest clears the snapshot. Test-only.
+func ResetCRCForTest() {
+	crcPtr.Store(nil)
+}
 
-	CrcBuffer.Pos = 0
-	CrcBuffer.P4(0)
-	CrcTable = append(CrcTable, 0)
-	makeCrc("data/pack/client/title")
-	makeCrc("data/pack/client/config")
-	makeCrc("data/pack/client/interface")
-	makeCrc("data/pack/client/media")
-	makeCrc("data/pack/client/models")
-	makeCrc("data/pack/client/textures")
-	makeCrc("data/pack/client/wordenc")
-	makeCrc("data/pack/client/sounds")
-
-	CrcBuffer32 = packet.GetCRC(CrcBuffer.Bytes(), 0, len(CrcBuffer.Bytes()))
-	CrcBytes = append([]byte(nil), CrcBuffer.Bytes()...)
+// SetCRCForTest installs a custom snapshot. Test-only.
+func SetCRCForTest(s *CRCSnapshot) {
+	crcPtr.Store(s)
 }

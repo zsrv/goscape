@@ -813,9 +813,9 @@ func (c *client) handleLogin() error {
 			return c.sendLoginError(loginresp.OpClientOutOfDate.Opcode)
 		}
 
-		if !slices.Equal(cache.CrcTable, req.ArchiveChecksums[:]) {
-			//if cache.CrcBuffer32 != packet.GetCRC(req.ArchiveChecksums[:], 0, len(req.ArchiveChecksums)) {
-			c.log.Info("invalid checksum", "crc_table", cache.CrcTable, "req_checksums", req.ArchiveChecksums)
+		crcSnap := cache.CRC()
+		if !slices.Equal(crcSnap.Table, req.ArchiveChecksums[:]) {
+			c.log.Info("invalid checksum", "crc_table", crcSnap.Table, "req_checksums", req.ArchiveChecksums)
 			return c.sendLoginError(loginresp.OpClientOutOfDate.Opcode)
 		}
 

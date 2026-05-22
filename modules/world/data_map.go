@@ -60,9 +60,9 @@ func sendDataLocDone(p *Player, mapX, mapZ int) {
 
 // streamLand chunks the client-pack land file for (mapX, mapZ) into
 // DATA_LAND packets followed by exactly one DATA_LAND_DONE. Silent
-// no-op if the mapsquare isn't in cache.Preloaded.
+// no-op if the mapsquare isn't in cache.Preload().Data.
 //
-// Reads from cache.Preloaded (data/pack/client/maps/) — NOT
+// Reads from cache.Preload().Data (data/pack/client/maps/) — NOT
 // gamemap.LandBytes (data/pack/server/maps/). Per TS
 // RebuildGetMapsHandler.ts:44 (PRELOADED.get('m${x}_${z}')). The two
 // directories hold byte-different files for the same filename: server
@@ -70,7 +70,7 @@ func sendDataLocDone(p *Player, mapX, mapZ int) {
 // pre-compressed/encrypted for over-the-wire delivery and match the
 // CRCs advertised in RebuildNormal.
 func streamLand(p *Player, mapX, mapZ int) {
-	data := cache.Preloaded[fmt.Sprintf("m%d_%d", mapX, mapZ)]
+	data := cache.Preload().Data[fmt.Sprintf("m%d_%d", mapX, mapZ)]
 	if data == nil {
 		return
 	}
@@ -89,7 +89,7 @@ func streamLand(p *Player, mapX, mapZ int) {
 // source, same per-chunk + done-packet structure. Per TS
 // RebuildGetMapsHandler.ts:54.
 func streamLoc(p *Player, mapX, mapZ int) {
-	data := cache.Preloaded[fmt.Sprintf("l%d_%d", mapX, mapZ)]
+	data := cache.Preload().Data[fmt.Sprintf("l%d_%d", mapX, mapZ)]
 	if data == nil {
 		return
 	}
@@ -112,7 +112,7 @@ func streamLoc(p *Player, mapX, mapZ int) {
 //   - Reject (silently) if buildArea.LastBuild + 10 < currentTick (stale).
 //   - Reject (silently) if entries > MAPS_LIMIT (18).
 //   - Skip per-entry if mapsquare not in buildArea.Mapsquares.
-//   - Skip per-entry if cache.Preloaded has no bytes for that file.
+//   - Skip per-entry if cache.Preload().Data has no bytes for that file.
 //
 // No error-response opcodes are sent - clients retry on their own.
 func handleRebuildGetMaps(p *Player, payload []byte) error {

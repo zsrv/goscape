@@ -17,11 +17,12 @@ import (
 
 // TestRootHandlerCrcEndpointServesOnEveryRequest pins the fix for the
 // CrcBuffer-as-stateful-reader bug: both the first and second /crc request
-// must return the full CrcBytes payload, not an empty body.
+// must return the full CRC bytes payload, not an empty body.
 func TestRootHandlerCrcEndpointServesOnEveryRequest(t *testing.T) {
-	prev := cache.CrcBytes
-	t.Cleanup(func() { cache.CrcBytes = prev })
-	cache.CrcBytes = []byte{0x00, 0x00, 0x00, 0x00, 0xDE, 0xAD, 0xBE, 0xEF}
+	prev := cache.CRC()
+	t.Cleanup(func() { cache.SetCRCForTest(prev) })
+	want := []byte{0x00, 0x00, 0x00, 0x00, 0xDE, 0xAD, 0xBE, 0xEF}
+	cache.SetCRCForTest(&cache.CRCSnapshot{Bytes: want})
 
 	a := &Asset{log: discardLogger()}
 
@@ -34,8 +35,8 @@ func TestRootHandlerCrcEndpointServesOnEveryRequest(t *testing.T) {
 			t.Fatalf("request %d: status = %d, want 200", i+1, rr.Code)
 		}
 		got, _ := io.ReadAll(rr.Body)
-		if !bytes.Equal(got, cache.CrcBytes) {
-			t.Fatalf("request %d: body = %v, want %v", i+1, got, cache.CrcBytes)
+		if !bytes.Equal(got, want) {
+			t.Fatalf("request %d: body = %v, want %v", i+1, got, want)
 		}
 	}
 }

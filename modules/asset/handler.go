@@ -31,9 +31,7 @@ func (a *Asset) RootHandler(w http.ResponseWriter, r *http.Request) {
 		// the number appended to the url is random
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.WriteHeader(http.StatusOK)
-		// would have to use bytes.Reader (implements ReadSeeker)
-		//http.ServeContent(w, r, "", nil, cache.CrcBuffer)
-		w.Write(cache.CrcBytes)
+		w.Write(cache.CRC().Bytes)
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/title") { // title screen
