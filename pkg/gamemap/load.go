@@ -81,6 +81,24 @@ parseLoop:
 			absX := mapSquareX*mapSquareSize + x
 			for z := range mapSquareSize {
 				absZ := mapSquareZ*mapSquareSize + z
+
+				// Allocate the destination collision zone before any
+				// conditional flag write. Without this, a zone whose
+				// 64 tiles all carry no BLOCK_MAP_SQUARE / REMOVE_ROOFS
+				// flag (and no static loc landing in it) stays nil in
+				// FlagMap.flags, and FlagMap.Get returns FlagNull=-1
+				// for every tile in it — which CanMove reads as
+				// "fully blocked". Symptom: open ground appearing as
+				// an impassable wall on zone boundaries.
+				//
+				// Mirrors TS GameMap.ts:193-196 (`x % 7 === 0 &&
+				// z % 7 === 0` hits each 8x8 zone at least once: with
+				// x ∈ 0..63 the matches are {0,7,14,21,28,35,42,49,56,63},
+				// covering every zone-X bucket 0..56-step-8).
+				if x%7 == 0 && z%7 == 0 {
+					gm.Pathfinder.Flags.AllocateIfAbsent(absX, absZ, level)
+				}
+
 				land := int(lands[packCoord(x, z, level)])
 
 				if land&gameMapRemoveRoofs != 0 {

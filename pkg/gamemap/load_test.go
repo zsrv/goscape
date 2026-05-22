@@ -726,6 +726,83 @@ func TestLoadObjs_TypeIDOutOfRange_Drops(t *testing.T) {
 	}
 }
 
+// mFileAllEmpty returns the bytes of an m-file where every tile is
+// empty (opcode 0 terminator only — no land, no roof, no block).
+func mFileAllEmpty() []byte {
+	var buf bytes.Buffer
+	for range mapLevels {
+		for range mapSquareSize {
+			for range mapSquareSize {
+				buf.WriteByte(0)
+			}
+		}
+	}
+	return buf.Bytes()
+}
+
+// TestLoadGround_EmptyZones_AreAllocatedForOpenMovement reproduces the
+// "vertical line in mapsquare 38_52" bug: a mapsquare with no
+// BLOCK_MAP_SQUARE / REMOVE_ROOFS flags (i.e., entirely open ground)
+// must leave every tile walkable, not "all blocked".
+//
+// Without a per-zone AllocateIfAbsent matching TS GameMap.ts:193-196,
+// zones whose 64 tiles all carry no flag stay unallocated, and
+// FlagMap.Get returns FlagNull=-1 (every bit set) — which the
+// StepValidator treats as fully blocked. Symptom in-game: at the
+// boundary between an allocated zone (containing the player) and an
+// adjacent unallocated zone, the player cannot move across the
+// boundary; teleported into the unallocated zone, all 8 directions
+// are blocked.
+//
+// Mirrors TS GameMap.ts:193-196 (`x % 7 === 0 && z % 7 === 0` hits
+// every 8x8 zone at least once).
+func TestLoadGround_EmptyZones_AreAllocatedForOpenMovement(t *testing.T) {
+	const mapX, mapZ = 38, 52
+
+	gm := newTestGameMap()
+	gm.loadGround(mFileAllEmpty(), mapX, mapZ)
+
+	// Every zone in every level should be allocated even though no tile
+	// flag triggered an explicit ChangeFloor / ChangeRoof.
+	for level := range mapLevels {
+		for zx := 0; zx < 8; zx++ {
+			for zz := 0; zz < 8; zz++ {
+				absX := mapX*mapSquareSize + zx*8
+				absZ := mapZ*mapSquareSize + zz*8
+				if !gm.Pathfinder.Flags.IsZoneAllocated(absX, absZ, level) {
+					t.Errorf("zone (zx=%d,zz=%d,level=%d) not allocated", zx, zz, level)
+				}
+			}
+		}
+	}
+
+	// Source: localX=55,localZ=19 → zone (6,2). Dest: localX=56,localZ=19 →
+	// zone (7,2). The 55→56 step crosses an internal zone boundary —
+	// exactly the user-reported "vertical line" case.
+	srcX := mapX*mapSquareSize + 55
+	srcZ := mapZ*mapSquareSize + 19
+	if !gm.CanTravel(0, srcX, srcZ, 1, 0, 1, 0, collision.TypeNormal) {
+		t.Errorf("cannot move east from (%d,%d) → (%d,%d) in all-empty mapsquare",
+			srcX, srcZ, srcX+1, srcZ)
+	}
+
+	// Teleport-east case: from inside the formerly-unallocated zone,
+	// every direction should be open.
+	teleX := mapX*mapSquareSize + 60
+	teleZ := mapZ*mapSquareSize + 19
+	for _, d := range []struct {
+		name       string
+		offX, offZ int
+	}{
+		{"east", 1, 0}, {"west", -1, 0}, {"north", 0, 1}, {"south", 0, -1},
+	} {
+		if !gm.CanTravel(0, teleX, teleZ, d.offX, d.offZ, 1, 0, collision.TypeNormal) {
+			t.Errorf("cannot move %s from (%d,%d) after teleport into empty zone",
+				d.name, teleX, teleZ)
+		}
+	}
+}
+
 func TestLoadObjs_TypeIDNilEntry_Drops(t *testing.T) {
 	const mapX, mapZ = 50, 50
 	const localX, localZ = 5, 5
