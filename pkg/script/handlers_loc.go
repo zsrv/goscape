@@ -452,7 +452,7 @@ func handleLocAdd(s *ScriptState) error {
 			if err := s.LocOps.ChangeLoc(existing, typ, shape, angle, duration); err != nil {
 				return err
 			}
-			s.ActiveLoc = existing
+			setActiveLocSlot(s, existing)
 			return nil
 		}
 	}
@@ -460,6 +460,6 @@ func handleLocAdd(s *ScriptState) error {
 	if err != nil {
 		return err
 	}
-	s.ActiveLoc = created
+	setActiveLocSlot(s, created)
 	return nil
 }

@@ -713,6 +713,7 @@ func TestLocAddSameLayerCallsChangeOnExisting(t *testing.T) {
 	existing := fakeActiveLoc{id: 50, shape: 0, angle: 0, layer: 0}
 	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
 	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{0}},
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
 		Configs:     &fakeConfigs{locs: map[int]*objtype.LocType{100: lt}},
@@ -750,6 +751,7 @@ func TestLocAddNoSameLayerCallsAddOnNew(t *testing.T) {
 	created := fakeActiveLoc{id: 100, shape: 0, angle: 0, layer: 0}
 	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
 	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{0}},
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
 		Configs:     &fakeConfigs{locs: map[int]*objtype.LocType{100: lt}},
@@ -772,6 +774,152 @@ func TestLocAddNoSameLayerCallsAddOnNew(t *testing.T) {
 	}
 	if len(ops.changeCalls) != 0 {
 		t.Errorf("no same-layer hit should not call ChangeLoc, got %d", len(ops.changeCalls))
+	}
+}
+
+// TestLocAddChangeBranchSlot0 pins LOC_ADD change-branch IntOperand=0:
+// existing same-layer hit routes to ActiveLoc + PtrActiveLoc, leaves
+// OtherActiveLoc/PtrActiveLoc2 untouched. Mirrors TS
+// state.pointerAdd(ActiveLoc[state.intOperand]) at LocOps.ts:34.
+func TestLocAddChangeBranchSlot0(t *testing.T) {
+	existing := fakeActiveLoc{id: 50, shape: 0, angle: 0, layer: 0}
+	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{0}},
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Configs:     &fakeConfigs{locs: map[int]*objtype.LocType{100: lt}},
+		LocOps:      &fakeLocOps{atCoord: []ActiveLoc{existing}},
+	}
+	s.PushInt(coordgrid.PackCoord(0, 3094, 3106))
+	s.PushInt(100)
+	s.PushInt(0)
+	s.PushInt(0)
+	s.PushInt(3)
+
+	if err := handleLocAdd(s); err != nil {
+		t.Fatalf("handleLocAdd: %v", err)
+	}
+	if s.ActiveLoc != existing {
+		t.Errorf("ActiveLoc: got %v, want existing %v", s.ActiveLoc, existing)
+	}
+	if s.OtherActiveLoc != nil {
+		t.Errorf("OtherActiveLoc: got %v, want nil (slot-0 must NOT touch slot-1)", s.OtherActiveLoc)
+	}
+	if s.Pointers&PtrActiveLoc == 0 {
+		t.Error("Pointers: PtrActiveLoc not set")
+	}
+	if s.Pointers&PtrActiveLoc2 != 0 {
+		t.Error("Pointers: PtrActiveLoc2 must NOT be set for IntOperand=0")
+	}
+}
+
+// TestLocAddChangeBranchSlot1 pins LOC_ADD change-branch IntOperand=1:
+// existing same-layer hit routes to OtherActiveLoc + PtrActiveLoc2,
+// leaves ActiveLoc/PtrActiveLoc untouched.
+func TestLocAddChangeBranchSlot1(t *testing.T) {
+	existing := fakeActiveLoc{id: 50, shape: 0, angle: 0, layer: 0}
+	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{1}},
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Configs:     &fakeConfigs{locs: map[int]*objtype.LocType{100: lt}},
+		LocOps:      &fakeLocOps{atCoord: []ActiveLoc{existing}},
+	}
+	s.PushInt(coordgrid.PackCoord(0, 3094, 3106))
+	s.PushInt(100)
+	s.PushInt(0)
+	s.PushInt(0)
+	s.PushInt(3)
+
+	if err := handleLocAdd(s); err != nil {
+		t.Fatalf("handleLocAdd: %v", err)
+	}
+	if s.OtherActiveLoc != existing {
+		t.Errorf("OtherActiveLoc: got %v, want existing %v", s.OtherActiveLoc, existing)
+	}
+	if s.ActiveLoc != nil {
+		t.Errorf("ActiveLoc: got %v, want nil (slot-1 must NOT touch slot-0)", s.ActiveLoc)
+	}
+	if s.Pointers&PtrActiveLoc2 == 0 {
+		t.Error("Pointers: PtrActiveLoc2 not set")
+	}
+	if s.Pointers&PtrActiveLoc != 0 {
+		t.Error("Pointers: PtrActiveLoc must NOT be set for IntOperand=1")
+	}
+}
+
+// TestLocAddCreateBranchSlot0 pins LOC_ADD create-branch IntOperand=0:
+// no same-layer hit → AddLoc → ActiveLoc + PtrActiveLoc. Mirrors TS
+// state.pointerAdd(ActiveLoc[state.intOperand]) at LocOps.ts:42.
+func TestLocAddCreateBranchSlot0(t *testing.T) {
+	existing := fakeActiveLoc{id: 50, layer: 3}
+	created := fakeActiveLoc{id: 100, shape: 0, angle: 0, layer: 0}
+	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{0}},
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Configs:     &fakeConfigs{locs: map[int]*objtype.LocType{100: lt}},
+		LocOps:      &fakeLocOps{atCoord: []ActiveLoc{existing}, addReturn: created},
+	}
+	s.PushInt(coordgrid.PackCoord(0, 3094, 3106))
+	s.PushInt(100)
+	s.PushInt(0)
+	s.PushInt(0)
+	s.PushInt(3)
+
+	if err := handleLocAdd(s); err != nil {
+		t.Fatalf("handleLocAdd: %v", err)
+	}
+	if s.ActiveLoc != created {
+		t.Errorf("ActiveLoc: got %v, want created %v", s.ActiveLoc, created)
+	}
+	if s.OtherActiveLoc != nil {
+		t.Errorf("OtherActiveLoc: got %v, want nil (slot-0 must NOT touch slot-1)", s.OtherActiveLoc)
+	}
+	if s.Pointers&PtrActiveLoc == 0 {
+		t.Error("Pointers: PtrActiveLoc not set")
+	}
+	if s.Pointers&PtrActiveLoc2 != 0 {
+		t.Error("Pointers: PtrActiveLoc2 must NOT be set for IntOperand=0")
+	}
+}
+
+// TestLocAddCreateBranchSlot1 pins LOC_ADD create-branch IntOperand=1:
+// no same-layer hit → AddLoc → OtherActiveLoc + PtrActiveLoc2.
+func TestLocAddCreateBranchSlot1(t *testing.T) {
+	existing := fakeActiveLoc{id: 50, layer: 3}
+	created := fakeActiveLoc{id: 100, shape: 0, angle: 0, layer: 0}
+	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{1}},
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Configs:     &fakeConfigs{locs: map[int]*objtype.LocType{100: lt}},
+		LocOps:      &fakeLocOps{atCoord: []ActiveLoc{existing}, addReturn: created},
+	}
+	s.PushInt(coordgrid.PackCoord(0, 3094, 3106))
+	s.PushInt(100)
+	s.PushInt(0)
+	s.PushInt(0)
+	s.PushInt(3)
+
+	if err := handleLocAdd(s); err != nil {
+		t.Fatalf("handleLocAdd: %v", err)
+	}
+	if s.OtherActiveLoc != created {
+		t.Errorf("OtherActiveLoc: got %v, want created %v", s.OtherActiveLoc, created)
+	}
+	if s.ActiveLoc != nil {
+		t.Errorf("ActiveLoc: got %v, want nil (slot-1 must NOT touch slot-0)", s.ActiveLoc)
+	}
+	if s.Pointers&PtrActiveLoc2 == 0 {
+		t.Error("Pointers: PtrActiveLoc2 not set")
+	}
+	if s.Pointers&PtrActiveLoc != 0 {
+		t.Error("Pointers: PtrActiveLoc must NOT be set for IntOperand=1")
 	}
 }
 
