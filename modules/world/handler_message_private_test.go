@@ -69,8 +69,8 @@ func TestHandleMessagePrivateHappyPath(t *testing.T) {
 	if !p.socialProtect {
 		t.Error("socialProtect: must be true after successful PrivateMessage")
 	}
-	if p.client.server.pmCount != 2 {
-		t.Errorf("pmCount: got %d, want 2 (started at 1, advanced to 2)", p.client.server.pmCount)
+	if got := p.client.server.pmCount.Load(); got != 2 {
+		t.Errorf("pmCount: got %d, want 2 (started at 1, advanced to 2)", got)
 	}
 }
 
@@ -91,8 +91,8 @@ func TestHandleMessagePrivateGatedBySocialProtect(t *testing.T) {
 		t.Errorf("loginMod: got %d, want 0 (no ban expected)", len(rec.loginMod))
 	}
 	// pmCount unchanged: newTestServer inits to 1, gate fires before nextPmId.
-	if p.client.server.pmCount != 1 {
-		t.Errorf("pmCount: got %d, want 1 (gate fires before nextPmId)", p.client.server.pmCount)
+	if got := p.client.server.pmCount.Load(); got != 1 {
+		t.Errorf("pmCount: got %d, want 1 (gate fires before nextPmId)", got)
 	}
 }
 
@@ -116,8 +116,8 @@ func TestHandleMessagePrivateGatedByLengthCap(t *testing.T) {
 	if p.socialProtect {
 		t.Error("socialProtect: must remain false on length-gated branch")
 	}
-	if p.client.server.pmCount != 1 {
-		t.Errorf("pmCount: got %d, want 1 (init=1, gate before nextPmId)", p.client.server.pmCount)
+	if got := p.client.server.pmCount.Load(); got != 1 {
+		t.Errorf("pmCount: got %d, want 1 (init=1, gate before nextPmId)", got)
 	}
 }
 
@@ -179,7 +179,7 @@ func TestHandleMessagePrivateInvalidNameTriggersBan(t *testing.T) {
 	if p.socialProtect {
 		t.Error("socialProtect: must remain false on ban branch")
 	}
-	if p.client.server.pmCount != 1 {
-		t.Errorf("pmCount: got %d, want 1 (init=1, gate before nextPmId)", p.client.server.pmCount)
+	if got := p.client.server.pmCount.Load(); got != 1 {
+		t.Errorf("pmCount: got %d, want 1 (init=1, gate before nextPmId)", got)
 	}
 }

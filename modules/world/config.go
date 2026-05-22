@@ -117,5 +117,20 @@ func (c *Config) Validate() error {
 	if c.NodeRateLimitDeviceLogin < 0 {
 		return fmt.Errorf("world.node-rate-limit-device-login must be >= 0, got %d", c.NodeRateLimitDeviceLogin)
 	}
+	// CFG-2 (Arc 18): only enforce range/required checks when the world
+	// module is enabled — Validate runs as part of the cross-module
+	// config-merge whether target=world or not, and asset-only deployments
+	// have no world settings to gate.
+	if c.Enable {
+		if c.TCPListenPort < 1 || c.TCPListenPort > 65535 {
+			return fmt.Errorf("world.tcp-listen-port must be in [1, 65535], got %d", c.TCPListenPort)
+		}
+		if c.CachePath == "" {
+			return fmt.Errorf("world.cache-path must be non-empty when world.enable=true")
+		}
+		if c.ContentWatch && c.ContentPath == "" {
+			return fmt.Errorf("world.content-path must be non-empty when world.content-watch=true")
+		}
+	}
 	return nil
 }

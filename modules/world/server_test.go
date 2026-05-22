@@ -325,7 +325,6 @@ func newTestServer(t *testing.T) *Server {
 		zoneMap:          zone.NewZoneMap(),
 		locObjTracker:    newLocObjTracker(),
 		rsbuf:            rsbuf.New(),
-		pmCount:          1,
 		shutdownTick:     -1,
 		tickRate:         defaultTickRate,
 		gracefulExit:     make(chan struct{}),
@@ -335,6 +334,8 @@ func newTestServer(t *testing.T) *Server {
 		bridgesCtx:       bridgesCtx,
 		bridgesCancel:    bridgesCancel,
 	}
+	// R4 (Arc 18): pmCount is atomic.Uint32; init to 1 per TS World.ts:167.
+	s.pmCount.Store(1)
 	s.friendsBridge = noopBridges{}
 	s.loginBridgeMod = noopBridges{}
 	s.loggerBridge = noopBridges{}

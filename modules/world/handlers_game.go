@@ -385,7 +385,14 @@ func handleMessagePublic(p *Player, payload []byte) error {
 		},
 	})
 
-	p.Chat(color, effect, int(p.staffModLevel), out.Bytes())
+	// TS-DRIFT-1: clamp rights to min(staffModLevel, 2) per
+	// MessagePublicHandler.ts:31 — Rev 244 mod-crown visibility caps the
+	// rendered crown level at 2 (any staff level >2 still displays as 2).
+	rights := int(p.staffModLevel)
+	if rights > 2 {
+		rights = 2
+	}
+	p.Chat(color, effect, rights, out.Bytes())
 
 	// Audit-log to friends-server with the UNFILTERED decoded text — mirrors
 	// TS player.logMessage = unpack at MessagePublicHandler.ts:32 (BEFORE filter).

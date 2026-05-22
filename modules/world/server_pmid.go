@@ -24,7 +24,11 @@ import "math/rand/v2"
 // tests mask bits 16-23 to assert deterministic parts.
 func (s *Server) nextPmId() uint32 {
 	randByte := uint32(rand.IntN(0xff))
-	pm := uint32(s.cfg.NodeID&0xff)<<24 | randByte<<16 | s.pmCount
-	s.pmCount++
+	// R4 (Arc 18): atomic.Uint32 — Add returns the post-increment value,
+	// so subtract 1 to bake the pre-increment counter into pmId (matching
+	// the prior `s.pmCount; s.pmCount++` order).
+	post := s.pmCount.Add(1)
+	pre := post - 1
+	pm := uint32(s.cfg.NodeID&0xff)<<24 | randByte<<16 | pre
 	return pm
 }

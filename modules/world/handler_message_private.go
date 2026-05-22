@@ -36,12 +36,15 @@ func handleMessagePrivate(p *Player, payload []byte) error {
 	if p.socialProtect || inputLen > 100 {
 		return nil
 	}
-	if !p.mutedUntil.IsZero() && time.Now().Before(p.mutedUntil) {
+	// CLK-1: snapshot time.Now() once so gate check + ban-issue timestamp
+	// stay consistent under a backward NTP jump (defense-in-depth).
+	now := time.Now()
+	if !p.mutedUntil.IsZero() && now.Before(p.mutedUntil) {
 		return nil
 	}
 	s := p.client.server
 	if util.FromBase37(target) == "invalid_name" {
-		s.loginBridgeMod.NotifyPlayerBan("automated", p.username, time.Now().Add(48*time.Hour))
+		s.loginBridgeMod.NotifyPlayerBan("automated", p.username, now.Add(48*time.Hour))
 		return nil
 	}
 	msg := wordpack.Unpack(pk, inputLen)

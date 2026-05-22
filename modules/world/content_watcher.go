@@ -37,6 +37,12 @@ var (
 	// before ending resets the attempt counter, so the next restart
 	// starts from watcherBackoffBase instead of continuing to grow.
 	watcherBackoffResetWindow = 60 * time.Second
+	// ASYNC-1 (Arc 18): cap consecutive restart attempts so a persistent
+	// fs/permission failure can't spin the supervisor goroutine forever.
+	// Once exceeded, the supervisor logs and exits; the server keeps
+	// running with content-hot-reload disabled. Dev-only path; production
+	// has ContentWatch=false by default.
+	watcherMaxAttempts = 100
 )
 
 // nextWatcherBackoff returns watcherBackoffBase * 2^(attempt-1), clamped
@@ -96,6 +102,13 @@ func (s *Server) runContentWatcher() {
 			attempt = 0
 		}
 		attempt++
+		// ASYNC-1: bail out if persistent failures exhaust the attempt
+		// ceiling. Server keeps running; only content-hot-reload disabled.
+		if attempt > watcherMaxAttempts {
+			s.log.Error("contentWatcher: max restart attempts exceeded, giving up",
+				"attempts", attempt-1, "ran", ran)
+			return
+		}
 		delay := nextWatcherBackoff(attempt)
 		s.log.Warn("contentWatcher: session ended, restarting",
 			"attempt", attempt, "delay", delay, "ran", ran)

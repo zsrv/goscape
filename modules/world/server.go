@@ -244,7 +244,10 @@ type Server struct {
 	// pmCount is the monotonic counter feeding the low 16 bits of the
 	// pmId stamped on each FriendThread private_message payload.
 	// Mirrors TS World.pmCount. Used only by nextPmId (NAI-158).
-	pmCount uint32
+	// R4 (Arc 18): atomic.Uint32 to future-proof against cross-goroutine
+	// callers; today only the tick goroutine calls nextPmId so the field
+	// is safe but the audit flagged it as fragile.
+	pmCount atomic.Uint32
 
 	// --- rebuild async worker plane (spec 2026-05-18-rebuild-async-fsnotify) ---
 
@@ -347,7 +350,6 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 		zonesTracking:    map[*zone.Zone]struct{}{},
 		locObjTracker:    newLocObjTracker(),
 		rsbuf:            rsbuf.New(),
-		pmCount:          1,
 		shutdownTick:     -1,
 		tickRate:         defaultTickRate,
 		gracefulExit:     make(chan struct{}),
@@ -362,6 +364,10 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 		addressLoginCache: ttlcache.New[string, int](60 * time.Second),
 		deviceLoginCache:  ttlcache.New[string, int](15 * time.Second),
 	}
+	// pmCount inits to 1 per TS World.ts:167 ("can't be 0 as clients will
+	// ignore the pm, their array is filled with 0 as default"). R4: atomic
+	// field can't be initialized in a struct literal, so Store post-alloc.
+	s.pmCount.Store(1)
 	s.packFn = packall.PackAll
 	s.reloadFn = s.Reload
 	s.watchSessionFn = s.runWatchSession
@@ -784,7 +790,10 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 		}
 
 		msg := buf[:n]
-		c.log.Info("received data", "num_bytes", len(msg), "data", fmt.Sprintf("%v", msg))
+		// LOG-1: per-byte payload dump is noise at Info. Keep num_bytes at
+		// Info for traffic-volume diagnostics; demote raw bytes to Debug.
+		c.log.Info("received data", "num_bytes", len(msg))
+		c.log.Debug("received data payload", "data", fmt.Sprintf("%v", msg))
 
 		switch c.state {
 		case ClientStateLogin:
@@ -860,7 +869,10 @@ func (c *client) handleLogin() error {
 		}
 		c.lowMemory = req.LowMemory
 
-		c.log.Info("unmarshalled OpReqInitGameConnection", "req", req)
+		// LOG-1: full req struct (incl. CRC table + password hash + ISAAC
+		// seed) at Info is noisy per-login. Demote to Debug; keep contextual
+		// Info-level success log at the end of handleLogin (line 955-ish).
+		c.log.Debug("unmarshalled OpReqInitGameConnection", "req", req)
 
 		if req.Revision != expectedRevision {
 			return c.sendLoginError(loginresp.OpClientOutOfDate.Opcode)
@@ -868,7 +880,9 @@ func (c *client) handleLogin() error {
 
 		crcSnap := cache.CRC()
 		if !slices.Equal(crcSnap.Table, req.ArchiveChecksums[:]) {
-			c.log.Info("invalid checksum", "crc_table", crcSnap.Table, "req_checksums", req.ArchiveChecksums)
+			// LOG-1: full CRC tables are bulky and only useful at debug time.
+			c.log.Info("invalid checksum", "remote_addr", c.conn.RemoteAddr())
+			c.log.Debug("invalid checksum detail", "crc_table", crcSnap.Table, "req_checksums", req.ArchiveChecksums)
 			return c.sendLoginError(loginresp.OpClientOutOfDate.Opcode)
 		}
 
@@ -964,7 +978,13 @@ func (c *client) handleLogin() error {
 // on RPC error so the caller can fail-fast via sendLoginError. Extracted from
 // handleLogin to enable unit testing with a stubbed LoginClient.
 func (c *client) callPlayerLoginRPC(req *loginpb.PlayerLoginRequest, safeName string) (byte, error) {
-	resp, err := c.server.loginClient.PlayerLogin(context.TODO(), req)
+	// CTX-1: bound the login RPC by Server.bridgesCtx + bridgeCallTimeout so
+	// Shutdown cancels in-flight calls promptly and a hung login server
+	// doesn't deadlock the per-connection goroutine. Mirrors the pattern
+	// shipped in Arc 19 R3 for friends/login bridges.
+	ctx, cancel := context.WithTimeout(c.server.bridgesCtx, bridgeCallTimeout)
+	defer cancel()
+	resp, err := c.server.loginClient.PlayerLogin(ctx, req)
 	if err != nil {
 		c.log.Warn("PlayerLogin RPC failed", "error", err)
 		return loginresp.OpLoginServerOffline.Opcode, err

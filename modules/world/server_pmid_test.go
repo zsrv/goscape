@@ -14,7 +14,7 @@ import "testing"
 func TestNextPmIdCounterMonotone(t *testing.T) {
 	s := newTestServer(t)
 	s.cfg.NodeID = 0
-	s.pmCount = 0
+	s.pmCount.Store(0)
 	got := []uint32{s.nextPmId(), s.nextPmId(), s.nextPmId()}
 	// Mask out the random byte (bits 16-23); compare NodeID byte + counter.
 	const randMask = uint32(0xff00ffff)
@@ -25,8 +25,8 @@ func TestNextPmIdCounterMonotone(t *testing.T) {
 				i, g, g&randMask, want[i])
 		}
 	}
-	if s.pmCount != 3 {
-		t.Errorf("pmCount: got %d, want 3", s.pmCount)
+	if got := s.pmCount.Load(); got != 3 {
+		t.Errorf("pmCount: got %d, want 3", got)
 	}
 }
 
@@ -52,7 +52,7 @@ func TestNextPmIdRandByteInRange(t *testing.T) {
 		// Reset pmCount each iteration so it doesn't pollute bits 0-15
 		// when the counter wraps into bit 16+ (would take 65536 calls
 		// in practice; defensive reset keeps the test independent).
-		s.pmCount = 0
+		s.pmCount.Store(0)
 		pm := s.nextPmId()
 		randByte := (pm >> 16) & 0xff
 		if randByte > 0xfe {

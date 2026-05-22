@@ -71,7 +71,23 @@ func VerifySave(sav []byte) bool {
 // did not embed per-inv size and must look up InvType.Size by typeId.
 // v5+ saves carry inv size inline; passing nil is acceptable for the
 // empty-bootstrap branch and for v5+ saves.
-func LoadSave(p *Player, sav []byte, invTypes *objtype.InvTypeConfigs) error {
+//
+// SAV-1 (Arc 18): pkt.G1/G2/G4 panic with io.EOF on truncated reads. A
+// CRC mismatch normally catches truncation, but as defense-in-depth we
+// wrap the body in a recover() that maps any io.EOF (or other read
+// panic) to ErrSavCorrupt rather than propagating a slice-OOB up the
+// connection-goroutine stack.
+func LoadSave(p *Player, sav []byte, invTypes *objtype.InvTypeConfigs) (retErr error) {
+	defer func() {
+		if r := recover(); r != nil {
+			// io.EOF is the panic value used by pkg/io/packet on
+			// short reads; anything else (slice OOB, type assertion)
+			// also gets coerced to ErrSavCorrupt — the SAV is
+			// untrusted input and corrupt data must never crash
+			// the goroutine.
+			retErr = fmt.Errorf("%w: panic during decode: %v", ErrSavCorrupt, r)
+		}
+	}()
 	if len(sav) < 2 {
 		// Empty-save bootstrap. Mirrors PlayerLoading.ts:41-53.
 		for i := range objtype.PlayerStatCount {
