@@ -1042,6 +1042,20 @@ func handleP_OpNpc(s *ScriptState) error {
 	if op < 1 || op > 5 {
 		return fmt.Errorf("P_OPNPC: invalid op %d (must be 1..5)", op)
 	}
+	// TS PlayerOps.ts:408-411: `if (!npcType.op || !npcType.op[type]) { return; }`.
+	// Silent skip when the NpcType is unregistered or the chosen Op slot is
+	// empty (or out of bounds), mirroring handleP_OpObj. A nil Configs
+	// registry falls through and fires — the registry is the source of truth
+	// only when present (matches TS where NpcType.get always returns a
+	// populated default, but in goscape pre-Configs paths must remain wired
+	// for back-compat with tests that exercise the interaction surface
+	// without a configs fixture).
+	if s.Configs != nil {
+		nt := s.Configs.NpcType(s.ActiveNpc.NpcType())
+		if nt == nil || int(op-1) >= len(nt.Op) || nt.Op[op-1] == "" {
+			return nil
+		}
+	}
 	s.Self.StopAction()
 	s.Self.SetInteractionScriptNpc(s.ActiveNpc, op)
 	return nil

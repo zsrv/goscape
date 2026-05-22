@@ -1555,6 +1555,85 @@ func TestPOpNpcInvalidOpErrors(t *testing.T) {
 	}
 }
 
+// TestHandleP_OpNpcMissingOpEntryShortCircuits pins TS PlayerOps.ts:408-411
+// `if (!npcType.op || !npcType.op[type]) { return; }`. NpcType id 0 in
+// newTestConfigs has Op = {"Talk-to", "", "Pickpocket"}; op=2 selects the
+// empty middle slot → silent skip (no StopAction, no SetInteractionScriptNpc).
+func TestHandleP_OpNpcMissingOpEntryShortCircuits(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	pl := &mockPlayer{}
+	s.Self = pl
+	s.Pointers |= PtrActivePlayer
+	s.Pointers |= PtrProtectedActivePlayer
+	s.ActiveNpc = &mockActiveNpc{typeId: 0} // "man" — Op[1] is ""
+	s.Pointers |= PtrActiveNpc
+	s.Configs = newTestConfigs()
+
+	s.PushInt(2) // op = 2 → Op[1] empty
+	if err := handleP_OpNpc(s); err != nil {
+		t.Fatalf("P_OPNPC missing op entry: expected nil-error short-circuit, got %v", err)
+	}
+	if pl.stopActionCalls != 0 {
+		t.Errorf("P_OPNPC missing op entry: expected 0 StopAction calls, got %d", pl.stopActionCalls)
+	}
+	if len(pl.lastSetInteractionScriptNpc) != 0 {
+		t.Errorf("P_OPNPC missing op entry: expected 0 SetInteractionScriptNpc calls, got %d", len(pl.lastSetInteractionScriptNpc))
+	}
+}
+
+// TestHandleP_OpNpcOpPresentFires verifies the converse — when the Op slot is
+// populated, the interaction fires as before.
+func TestHandleP_OpNpcOpPresentFires(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	pl := &mockPlayer{}
+	s.Self = pl
+	s.Pointers |= PtrActivePlayer
+	s.Pointers |= PtrProtectedActivePlayer
+	npc := &mockActiveNpc{typeId: 0} // "man" — Op[0] = "Talk-to"
+	s.ActiveNpc = npc
+	s.Pointers |= PtrActiveNpc
+	s.Configs = newTestConfigs()
+
+	s.PushInt(1) // op = 1 → Op[0] = "Talk-to"
+	if err := handleP_OpNpc(s); err != nil {
+		t.Fatalf("P_OPNPC happy: unexpected error %v", err)
+	}
+	if pl.stopActionCalls != 1 {
+		t.Errorf("P_OPNPC happy: stopActionCalls = %d, want 1", pl.stopActionCalls)
+	}
+	if len(pl.lastSetInteractionScriptNpc) != 1 {
+		t.Fatalf("P_OPNPC happy: expected 1 SetInteractionScriptNpc call, got %d", len(pl.lastSetInteractionScriptNpc))
+	}
+	if got := pl.lastSetInteractionScriptNpc[0]; got.Npc != npc || got.Op != 1 {
+		t.Errorf("P_OPNPC happy: got %+v, want {Npc:%p, Op:1}", got, npc)
+	}
+}
+
+// TestHandleP_OpNpcNilNpcTypeShortCircuits pins TS `!npcType.op` half of the
+// guard — when Configs has no entry for the active npc's type, the handler
+// must short-circuit rather than panic on a nil deref.
+func TestHandleP_OpNpcNilNpcTypeShortCircuits(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	pl := &mockPlayer{}
+	s.Self = pl
+	s.Pointers |= PtrActivePlayer
+	s.Pointers |= PtrProtectedActivePlayer
+	s.ActiveNpc = &mockActiveNpc{typeId: 9999} // unregistered type
+	s.Pointers |= PtrActiveNpc
+	s.Configs = newTestConfigs()
+
+	s.PushInt(1)
+	if err := handleP_OpNpc(s); err != nil {
+		t.Fatalf("P_OPNPC nil NpcType: expected nil-error short-circuit, got %v", err)
+	}
+	if pl.stopActionCalls != 0 {
+		t.Errorf("P_OPNPC nil NpcType: expected 0 StopAction calls, got %d", pl.stopActionCalls)
+	}
+	if len(pl.lastSetInteractionScriptNpc) != 0 {
+		t.Errorf("P_OPNPC nil NpcType: expected 0 SetInteractionScriptNpc calls, got %d", len(pl.lastSetInteractionScriptNpc))
+	}
+}
+
 // TestPOpLocUnprotectedRejected verifies that a script started without
 // protection (protect=false) gets an error from P_OPLOC. Matches TS
 // checkedHandler(ProtectedActivePlayer, ...) semantics. Closes S6v-D1.
