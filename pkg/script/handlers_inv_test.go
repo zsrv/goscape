@@ -401,6 +401,38 @@ func TestInvItemSpace2_Overflow(t *testing.T) {
 	}
 }
 
+// -- INV_ITEMSPACE / INV_ITEMSPACE2 validator tests (TS InvOps.ts:286-303) --
+//
+// Mirror TS check(obj, ObjTypeValid) and check(count, ObjStackValid)
+// inserted after the InvTypeValid gate. The count==0 fast-path runs
+// BEFORE the validators (matches TS:289-292), so 0-count ObjStackValid
+// is unreachable; we cover negative + above-StackLimit instead.
+
+func TestInvItemSpace_ObjTypeValid_UnregisteredID(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	// obj id 9999 is not registered in newTestInvConfigs.
+	runInvOpExpectErr(t, OpInvItemSpace, []int{testInvMain, 9999, 1, 28}, lookup, mc, "INV_ITEMSPACE: no ObjType with value (9999) found")
+}
+
+func TestInvItemSpace_ObjStackValid_CountNegative(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	runInvOpExpectErr(t, OpInvItemSpace, []int{testInvMain, testObjCoin, -1, 28}, lookup, mc, "INV_ITEMSPACE: invalid count (-1)")
+}
+
+func TestInvItemSpace2_ObjTypeValid_UnregisteredID(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	runInvOpExpectErr(t, OpInvItemSpace2, []int{testInvMain, 9999, 1, 28}, lookup, mc, "INV_ITEMSPACE2: no ObjType with value (9999) found")
+}
+
+func TestInvItemSpace2_ObjStackValid_CountNegative(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	runInvOpExpectErr(t, OpInvItemSpace2, []int{testInvMain, testObjCoin, -1, 28}, lookup, mc, "INV_ITEMSPACE2: invalid count (-1)")
+}
+
 // -- Mutations --
 
 func TestInvMoveItem(t *testing.T) {

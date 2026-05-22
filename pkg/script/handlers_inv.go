@@ -209,6 +209,12 @@ func handleInvItemSpace(s *ScriptState) error {
 	if err := checkInvType(s, typeID, "INV_ITEMSPACE"); err != nil {
 		return err
 	}
+	if err := checkObjType(s, obj, "INV_ITEMSPACE"); err != nil {
+		return err
+	}
+	if err := checkObjStack(count, "INV_ITEMSPACE"); err != nil {
+		return err
+	}
 	inv := resolveInv(s, typeID)
 	if inv == nil {
 		// Defensive: unreachable post-checkInvType for valid configs;
@@ -239,6 +245,12 @@ func handleInvItemSpace2(s *ScriptState) error {
 		return nil
 	}
 	if err := checkInvType(s, typeID, "INV_ITEMSPACE2"); err != nil {
+		return err
+	}
+	if err := checkObjType(s, obj, "INV_ITEMSPACE2"); err != nil {
+		return err
+	}
+	if err := checkObjStack(count, "INV_ITEMSPACE2"); err != nil {
 		return err
 	}
 	inv := resolveInv(s, typeID)
