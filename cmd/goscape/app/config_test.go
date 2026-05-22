@@ -1,0 +1,84 @@
+package app
+
+import (
+	"strings"
+	"testing"
+
+	pkgtelemetry "github.com/zsrv/goscape/pkg/telemetry"
+)
+
+// TestNewDefaultConfig pins that flag registration and defaults can be
+// applied without panicking — this is the path used by the production binary
+// to construct a baseline before YAML/env/CLI overrides are layered on.
+// COV-1 (Arc 18).
+func TestNewDefaultConfig(t *testing.T) {
+	cfg := NewDefaultConfig()
+	if cfg == nil {
+		t.Fatal("NewDefaultConfig returned nil")
+	}
+	if cfg.Target != SingleBinary {
+		t.Errorf("Target = %q, want %q", cfg.Target, SingleBinary)
+	}
+	if cfg.LogFormat != "text" {
+		t.Errorf("LogFormat = %q, want %q", cfg.LogFormat, "text")
+	}
+}
+
+// TestConfigValidate_ZeroValue confirms the zero-value Config is accepted —
+// it represents the fully-disabled state (all modules opt-in via .Enable),
+// which is the baseline for our App.Run-with-disabled-modules tests.
+// COV-1 (Arc 18).
+func TestConfigValidate_ZeroValue(t *testing.T) {
+	c := &Config{}
+	if err := c.Validate(); err != nil {
+		t.Errorf("Validate() = %v, want nil", err)
+	}
+}
+
+// TestConfigValidate_TelemetryFanOut confirms Validate propagates telemetry
+// validation errors. Telemetry is the first child Validate calls (config.go).
+// COV-1 (Arc 18).
+func TestConfigValidate_TelemetryFanOut(t *testing.T) {
+	c := &Config{
+		Telemetry: pkgtelemetry.Config{
+			Enabled: true,
+			// missing Kafka.Brokers triggers telemetry.Validate failure
+		},
+	}
+	err := c.Validate()
+	if err == nil {
+		t.Fatal("Validate() = nil, want telemetry error")
+	}
+	if !strings.Contains(err.Error(), "telemetry") {
+		t.Errorf("Validate() = %v, want error mentioning telemetry", err)
+	}
+}
+
+// TestConfigValidate_WorldFanOut confirms Validate propagates world
+// validation errors. World is the second child Validate calls. Uses an
+// invalid port to trigger world.Config.Validate (which only checks port
+// range when Enable=true, per CFG-2 in Arc 18).
+// COV-1 (Arc 18).
+func TestConfigValidate_WorldFanOut(t *testing.T) {
+	c := NewDefaultConfig()
+	c.World.Enable = true
+	c.World.TCPListenPort = 70000 // out of [1,65535]
+	err := c.Validate()
+	if err == nil {
+		t.Fatal("Validate() = nil, want world port-range error")
+	}
+	if !strings.Contains(err.Error(), "tcp-listen-port") {
+		t.Errorf("Validate() = %v, want error mentioning tcp-listen-port", err)
+	}
+}
+
+// TestConfigCheckConfig confirms the warnings hook returns an empty slice
+// (the production implementation is currently a stub but is on the
+// public surface).
+// COV-1 (Arc 18).
+func TestConfigCheckConfig(t *testing.T) {
+	c := &Config{}
+	if got := c.CheckConfig(); len(got) != 0 {
+		t.Errorf("CheckConfig() = %v, want empty", got)
+	}
+}
