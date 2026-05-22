@@ -1,0 +1,59 @@
+// proto/events/v1/player_input.proto
+syntax = "proto3";
+
+package events.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/zsrv/goscape/pkg/eventspb";
+
+message PlayerInputEnvelope {
+  uint32 schema_version = 1;
+  string event_id = 2;
+  google.protobuf.Timestamp ts = 3;
+  int64 account_id = 4; // partition key
+  int32 world_id = 5;
+
+  oneof payload {
+    MouseMoveEvent mouse_move = 100;
+    MouseClickEvent mouse_click = 101;
+    CameraEvent camera = 102;
+    KeystrokeEvent keystroke = 103;
+    PrivateChatEvent private_chat = 104;
+  }
+}
+
+message MouseMoveEvent {
+  int32 x = 1;
+  int32 y = 2;
+}
+
+message MouseClickEvent {
+  enum Button {
+    BUTTON_UNSPECIFIED = 0;
+    BUTTON_LEFT = 1;
+    BUTTON_RIGHT = 2;
+    BUTTON_MIDDLE = 3;
+  }
+  int32 x = 1;
+  int32 y = 2;
+  Button button = 3;
+  string target_kind = 4;
+  int64 target_id = 5;
+}
+
+message CameraEvent {
+  float yaw = 1;
+  float pitch = 2;
+  float zoom = 3;
+}
+
+message KeystrokeEvent {
+  uint32 key_code = 1;
+  uint32 modifiers = 2;
+}
+
+message PrivateChatEvent {
+  int64 recipient_account_id = 1;
+  string text = 2;
+}
