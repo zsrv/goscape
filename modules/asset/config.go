@@ -19,6 +19,16 @@ type Config struct {
 	// PublicDir is the filesystem directory served as a static-file fallback
 	// after named routes do not match. Mirrors web.ts:114-119 in Engine-TS.
 	PublicDir string `yaml:"public_dir"`
+
+	// NodeID, Members, Port, Debug are mirrored from the world module's
+	// Environment.NODE_* values so the /rs2.cgi bootstrap handler (web.ts:88-113)
+	// can serve correct client/applet params without cross-module import.
+	// Operators are responsible for keeping these in sync with the world
+	// module's analogous flags when running both modules together.
+	NodeID  int  `yaml:"node_id"`
+	Members bool `yaml:"node_members"`
+	Port    int  `yaml:"node_port"`
+	Debug   bool `yaml:"node_debug"`
 }
 
 // RegisterFlagsAndApplyDefaults registers flags and applies defaults.
@@ -52,6 +62,14 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.BoolVar(&c.Server.LogSourceIPsFull, "asset.log-source-ips-full", false, "Log all source IPs instead of returning the first match.")
 
 	f.StringVar(&c.PublicDir, "asset.public-dir", "./public", "Filesystem directory served as a static-file fallback after named routes do not match.")
+
+	// /rs2.cgi bootstrap params (mirror web.ts:88-113 + Environment.NODE_*).
+	// Duplicated here rather than cross-imported from world.Config to keep
+	// dskit modules independent; defaults match the world module's analogues.
+	f.IntVar(&c.NodeID, "asset.node-id", 10, "World ID emitted by the /rs2.cgi bootstrap.")
+	f.BoolVar(&c.Members, "asset.node-members", true, "Whether members content is available; emitted by /rs2.cgi.")
+	f.IntVar(&c.Port, "asset.node-port", 43594, "World TCP port; /rs2.cgi emits portoff = node-port - 43594 to the Java applet.")
+	f.BoolVar(&c.Debug, "asset.node-debug", true, "Whether /rs2.cgi may serve the Java applet template when plugin=1.")
 }
 
 func (c *Config) Validate() error {

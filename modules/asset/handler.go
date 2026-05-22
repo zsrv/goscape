@@ -99,6 +99,13 @@ func (a *Asset) RootHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// /rs2.cgi Java applet bootstrap — mirrors web.ts:88-113. Matched before
+	// the public/ fallback to preserve TS dispatch order.
+	if r.URL.Path == "/rs2.cgi" {
+		a.Rs2CgiHandler(w, r)
+		return
+	}
+
 	// TODO: redirect / to rs2.cgi?
 
 	// public/ static-file fallback — mirrors web.ts:114-119.
