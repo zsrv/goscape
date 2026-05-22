@@ -3495,8 +3495,8 @@ func TestHandleBothDropSlot_ProtectedGate_PrimaryMissing(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected protect error, got nil")
 	}
-	if !strings.Contains(err.Error(), "script not protected") {
-		t.Errorf("expected 'script not protected', got: %v", err)
+	if !strings.Contains(err.Error(), "inv requires protected access") {
+		t.Errorf("expected 'inv requires protected access', got: %v", err)
 	}
 }
 
@@ -3537,8 +3537,8 @@ func TestHandleBothDropSlot_ProtectedGate_SecondaryMissing(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected slot-1 protect error, got nil")
 	}
-	if !strings.Contains(err.Error(), "script not protected") {
-		t.Errorf("expected 'script not protected', got: %v", err)
+	if !strings.Contains(err.Error(), "inv requires protected access") {
+		t.Errorf("expected 'inv requires protected access', got: %v", err)
 	}
 }
 

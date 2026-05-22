@@ -967,9 +967,7 @@ func handleInvDropSlot(s *ScriptState) error {
 	// throughout, never `_activePlayer2`); only the protect-flag check
 	// swaps between PtrProtectedActivePlayer (operand=0) and
 	// PtrProtectedActivePlayer2 (operand=1). Inline shape matches the
-	// other 12 INV-write opcodes (NAI-133 unification) and avoids the
-	// requireProtectedActivePlayer2 chain that would erroneously assert
-	// PtrActivePlayer2 / Self2.
+	// other 12 INV-write opcodes (NAI-133 unification).
 	if err := requireActivePlayer(s, "INV_DROPSLOT"); err != nil {
 		return err
 	}
@@ -1899,16 +1897,18 @@ func handleBothDropSlot(s *ScriptState) error {
 		return fmt.Errorf("BOTH_DROPSLOT: player is null")
 	}
 
-	// Protect gate: conditional on invType.Protect + scope.
+	// Protect gate: conditional on invType.Protect + scope, slot-routed by
+	// intOperand (TS InvOps.ts:692 — `ProtectedActivePlayer[secondary ? 1 : 0]`).
+	// fromPlayer/toPlayer non-nil already checked above; only the protect-flag
+	// pointer varies between slot-0 and slot-1 (active-player binding is not
+	// asserted by this gate).
 	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared {
-		if secondary {
-			if err := requireProtectedActivePlayer2(s, "BOTH_DROPSLOT"); err != nil {
-				return err
-			}
-		} else {
-			if err := requireProtectedActivePlayer(s, "BOTH_DROPSLOT"); err != nil {
-				return err
-			}
+		protectFlag, err := selectProtectedActivePlayerSlot(s, "BOTH_DROPSLOT")
+		if err != nil {
+			return err
+		}
+		if s.Pointers&protectFlag == 0 {
+			return fmt.Errorf("BOTH_DROPSLOT: inv requires protected access: %s", invType.DebugName)
 		}
 	}
 
@@ -2027,16 +2027,16 @@ func handleInvDropAll(s *ScriptState) error {
 		return err
 	}
 
-	// Protect gate: ProtectedActivePlayer[intOperand].
+	// Protect gate: ProtectedActivePlayer[intOperand] — only the protect-flag
+	// pointer is operand-routed. The handler operates entirely on s.Self
+	// (slot-0) regardless of operand; TS does not assert _activePlayer2.
 	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared {
-		if s.Script.IntOperands[s.PC] == 1 {
-			if err := requireProtectedActivePlayer2(s, "INV_DROPALL"); err != nil {
-				return err
-			}
-		} else {
-			if err := requireProtectedActivePlayer(s, "INV_DROPALL"); err != nil {
-				return err
-			}
+		protectFlag, err := selectProtectedActivePlayerSlot(s, "INV_DROPALL")
+		if err != nil {
+			return err
+		}
+		if s.Pointers&protectFlag == 0 {
+			return fmt.Errorf("INV_DROPALL: $inv requires protected access: %s", invType.DebugName)
 		}
 	}
 

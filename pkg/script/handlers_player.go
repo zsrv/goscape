@@ -66,20 +66,6 @@ func requireProtectedActivePlayer(s *ScriptState, op string) error {
 	return nil
 }
 
-// requireProtectedActivePlayer2 is the slot-1 analogue of
-// requireProtectedActivePlayer. Chains through requireActivePlayer2 first
-// so error messages match the unprotected variant. Currently consumed
-// only by BOTH_MOVEINV's secondary branch. NAI-133.
-func requireProtectedActivePlayer2(s *ScriptState, op string) error {
-	if err := requireActivePlayer2(s, op); err != nil {
-		return err
-	}
-	if s.Pointers&PtrProtectedActivePlayer2 == 0 {
-		return errors.New(op + ": script not protected")
-	}
-	return nil
-}
-
 // checkNotNull mirrors TS NumberNotNull (ScriptValidators.ts:36-41) — rejects
 // the script "null number" sentinel -1, accepts every other int. Used by
 // handlers wrapping a popInt result with TS check(..., NumberNotNull).
