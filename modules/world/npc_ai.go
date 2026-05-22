@@ -43,6 +43,9 @@ func (n *Npc) turn(s *Server) {
 				// Lifecycle event fired this tick — skip movement so tele is
 				// visible to the renderer and not overwritten by the walk path.
 				return
+			// PORTING-EXCEPTION (ARCH-1 / NAI-5): synchronous despawn here vs
+			// TS try/catch retry at Npc.ts:144-150. tick_recovery covers the
+			// panic case. See PORTING.md.
 			case NpcLifecycleDespawn:
 				if !n.dead {
 					s.removeNpc(n, -1)
