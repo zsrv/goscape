@@ -1,12 +1,12 @@
 package script
 
-import "errors"
+import "fmt"
 
 // handleMapClock pushes the server's current tick counter. TS:
 // state.pushInt(World.currentTick).
 func handleMapClock(s *ScriptState) error {
 	if s.World == nil {
-		return errors.New("MAP_CLOCK: no world")
+		return fmt.Errorf("MAP_CLOCK: %w", ErrNoWorld)
 	}
 	s.PushInt(s.World.CurrentTick())
 	return nil
@@ -16,7 +16,7 @@ func handleMapClock(s *ScriptState) error {
 // TS: state.pushInt(World.getTotalPlayers()).
 func handlePlayerCount(s *ScriptState) error {
 	if s.World == nil {
-		return errors.New("PLAYERCOUNT: no world")
+		return fmt.Errorf("PLAYERCOUNT: %w", ErrNoWorld)
 	}
 	s.PushInt(s.World.PlayerCount())
 	return nil
@@ -26,7 +26,7 @@ func handlePlayerCount(s *ScriptState) error {
 // TS: state.pushInt(Environment.NODE_MEMBERS ? 1 : 0).
 func handleMapMembers(s *ScriptState) error {
 	if s.World == nil {
-		return errors.New("MAP_MEMBERS: no world")
+		return fmt.Errorf("MAP_MEMBERS: %w", ErrNoWorld)
 	}
 	s.PushInt(s.World.MapMembers())
 	return nil
@@ -36,7 +36,7 @@ func handleMapMembers(s *ScriptState) error {
 // TS: state.pushInt(Environment.NODE_PRODUCTION ? 1 : 0).
 func handleMapLive(s *ScriptState) error {
 	if s.World == nil {
-		return errors.New("MAP_LIVE: no world")
+		return fmt.Errorf("MAP_LIVE: %w", ErrNoWorld)
 	}
 	s.PushInt(s.World.MapLive())
 	return nil
@@ -107,7 +107,7 @@ func handleSeqLength(s *ScriptState) error {
 //	}
 func handleMapIndoors(s *ScriptState) error {
 	if s.World == nil {
-		return errors.New("MAP_INDOORS: no world")
+		return fmt.Errorf("MAP_INDOORS: %w", ErrNoWorld)
 	}
 	coord := s.PopInt()
 	level, x, z, err := checkCoord(coord, "MAP_INDOORS")

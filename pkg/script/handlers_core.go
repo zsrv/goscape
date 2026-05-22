@@ -1,16 +1,13 @@
 package script
 
-import (
-	"errors"
-	"fmt"
-)
+import "fmt"
 
 // handleGosub pops the target script id from the int stack and gosub-
 // calls it with no args. The frame is saved so RETURN can resume the
 // caller. Counterpart to handleJump (tail-call).
 func handleGosub(s *ScriptState) error {
 	if s.Provider == nil {
-		return errors.New("GOSUB: no provider")
+		return fmt.Errorf("GOSUB: %w", ErrNoProvider)
 	}
 	scriptID := uint32(s.PopInt())
 	target := s.Provider.GetByID(scriptID)
@@ -25,7 +22,7 @@ func handleGosub(s *ScriptState) error {
 // calls it with no args. TS CoreOps.ts JUMP.
 func handleJump(s *ScriptState) error {
 	if s.Provider == nil {
-		return errors.New("JUMP: no provider")
+		return fmt.Errorf("JUMP: %w", ErrNoProvider)
 	}
 	scriptID := uint32(s.PopInt())
 	target := s.Provider.GetByID(scriptID)
@@ -41,7 +38,7 @@ func handleJump(s *ScriptState) error {
 // Mirrors handleGosubWithParams.
 func handleJumpWithParams(s *ScriptState) error {
 	if s.Provider == nil {
-		return errors.New("JUMP_WITH_PARAMS: no provider")
+		return fmt.Errorf("JUMP_WITH_PARAMS: %w", ErrNoProvider)
 	}
 	scriptID := uint32(s.Script.IntOperands[s.PC])
 	target := s.Provider.GetByID(scriptID)

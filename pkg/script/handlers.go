@@ -1,7 +1,6 @@
 package script
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -759,7 +758,7 @@ func popArgsForTarget(s *ScriptState, target *ScriptFile) (intArgs []int, string
 // the first instruction of the callee on the next loop iteration.
 func handleGosubWithParams(s *ScriptState) error {
 	if s.Provider == nil {
-		return errors.New("GOSUB_WITH_PARAMS: Provider not set on ScriptState")
+		return fmt.Errorf("GOSUB_WITH_PARAMS: %w", ErrNoProvider)
 	}
 	targetID := uint32(s.Script.IntOperands[s.PC])
 	target := s.Provider.GetByID(targetID)
@@ -777,7 +776,7 @@ func handleGosubWithParams(s *ScriptState) error {
 // Requires PtrActivePlayer to be set and Self to be non-nil.
 func handleMes(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("MES: no active player")
+		return fmt.Errorf("MES: %w", ErrNoActivePlayer)
 	}
 	s.Self.MessageGame(s.PopString())
 	return nil
@@ -787,7 +786,7 @@ func handleMes(s *ScriptState) error {
 // Requires PtrActivePlayer to be set and Self to be non-nil.
 func handleName(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("NAME: no active player")
+		return fmt.Errorf("NAME: %w", ErrNoActivePlayer)
 	}
 	s.PushString(s.Self.Username())
 	return nil
@@ -841,7 +840,7 @@ func handlePArriveDelay(s *ScriptState) error {
 		return err
 	}
 	if s.World == nil {
-		return errors.New("P_ARRIVEDELAY: no world")
+		return fmt.Errorf("P_ARRIVEDELAY: %w", ErrNoWorld)
 	}
 	if s.Self.LastMovement() < s.World.CurrentTick() {
 		return nil

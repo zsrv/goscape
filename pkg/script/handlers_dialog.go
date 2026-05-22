@@ -1,7 +1,7 @@
 package script
 
 import (
-	"errors"
+	"fmt"
 	"slices"
 )
 
@@ -63,7 +63,7 @@ func handlePCountDialog(s *ScriptState) error {
 // component id most recently clicked.
 func handleLastCom(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("LAST_COM: no active player")
+		return fmt.Errorf("LAST_COM: %w", ErrNoActivePlayer)
 	}
 	s.PushInt(s.Self.LastCom())
 	return nil
@@ -88,10 +88,10 @@ func handleLastInt(s *ScriptState) error {
 // handleLastItem mirrors TS PlayerOps.ts:259-279.
 func handleLastItem(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("LAST_ITEM: no active player")
+		return fmt.Errorf("LAST_ITEM: %w", ErrNoActivePlayer)
 	}
 	if !slices.Contains(allowedLastItem, s.Trigger) {
-		return errors.New("LAST_ITEM: is not safe to use in this trigger")
+		return fmt.Errorf("LAST_ITEM: %w", ErrTriggerUnsafe)
 	}
 	s.PushInt(s.Self.LastItem())
 	return nil
@@ -100,10 +100,10 @@ func handleLastItem(s *ScriptState) error {
 // handleLastSlot mirrors TS PlayerOps.ts:281-302.
 func handleLastSlot(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("LAST_SLOT: no active player")
+		return fmt.Errorf("LAST_SLOT: %w", ErrNoActivePlayer)
 	}
 	if !slices.Contains(allowedLastSlot, s.Trigger) {
-		return errors.New("LAST_SLOT: is not safe to use in this trigger")
+		return fmt.Errorf("LAST_SLOT: %w", ErrTriggerUnsafe)
 	}
 	s.PushInt(s.Self.LastSlot())
 	return nil
@@ -112,10 +112,10 @@ func handleLastSlot(s *ScriptState) error {
 // handleLastUseItem mirrors TS PlayerOps.ts:304-321.
 func handleLastUseItem(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("LAST_USEITEM: no active player")
+		return fmt.Errorf("LAST_USEITEM: %w", ErrNoActivePlayer)
 	}
 	if !slices.Contains(allowedLastUseItem, s.Trigger) {
-		return errors.New("LAST_USEITEM: is not safe to use in this trigger")
+		return fmt.Errorf("LAST_USEITEM: %w", ErrTriggerUnsafe)
 	}
 	s.PushInt(s.Self.LastUseItem())
 	return nil
@@ -124,10 +124,10 @@ func handleLastUseItem(s *ScriptState) error {
 // handleLastUseSlot mirrors TS PlayerOps.ts:323-340.
 func handleLastUseSlot(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("LAST_USESLOT: no active player")
+		return fmt.Errorf("LAST_USESLOT: %w", ErrNoActivePlayer)
 	}
 	if !slices.Contains(allowedLastUseSlot, s.Trigger) {
-		return errors.New("LAST_USESLOT: is not safe to use in this trigger")
+		return fmt.Errorf("LAST_USESLOT: %w", ErrTriggerUnsafe)
 	}
 	s.PushInt(s.Self.LastUseSlot())
 	return nil
@@ -136,10 +136,10 @@ func handleLastUseSlot(s *ScriptState) error {
 // handleLastTargetSlot mirrors TS PlayerOps.ts:1026-1033.
 func handleLastTargetSlot(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("LAST_TARGETSLOT: no active player")
+		return fmt.Errorf("LAST_TARGETSLOT: %w", ErrNoActivePlayer)
 	}
 	if !slices.Contains(allowedLastTargetSlot, s.Trigger) {
-		return errors.New("LAST_TARGETSLOT: is not safe to use in this trigger")
+		return fmt.Errorf("LAST_TARGETSLOT: %w", ErrTriggerUnsafe)
 	}
 	s.PushInt(s.Self.LastTargetSlot())
 	return nil
@@ -150,7 +150,7 @@ func handleLastTargetSlot(s *ScriptState) error {
 // to restore the default camera after cutscene-style manipulations.
 func handleCamReset(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("CAM_RESET: no active player")
+		return fmt.Errorf("CAM_RESET: %w", ErrNoActivePlayer)
 	}
 	s.Self.CamReset()
 	return nil
@@ -163,7 +163,7 @@ func handleCamReset(s *ScriptState) error {
 // Mirrors TS PlayerOps.ts:220-224.
 func handleCamShake(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("CAM_SHAKE: no active player")
+		return fmt.Errorf("CAM_SHAKE: %w", ErrNoActivePlayer)
 	}
 	rate := s.PopInt()
 	amplitude := s.PopInt()
@@ -181,7 +181,7 @@ func handleCamShake(s *ScriptState) error {
 // PlayerOps.ts:213-218.
 func handleCamMoveTo(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("CAM_MOVETO: no active player")
+		return fmt.Errorf("CAM_MOVETO: %w", ErrNoActivePlayer)
 	}
 	rate2 := s.PopInt()
 	rate := s.PopInt()
@@ -199,7 +199,7 @@ func handleCamMoveTo(s *ScriptState) error {
 // to CamLookAt (kind=1). Mirrors TS PlayerOps.ts:206-211.
 func handleCamLookAt(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("CAM_LOOKAT: no active player")
+		return fmt.Errorf("CAM_LOOKAT: %w", ErrNoActivePlayer)
 	}
 	rate2 := s.PopInt()
 	rate := s.PopInt()
@@ -218,7 +218,7 @@ func handleCamLookAt(s *ScriptState) error {
 // and other login procs that branch on mod status.
 func handleStaffModLevel(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("STAFFMODLEVEL: no active player")
+		return fmt.Errorf("STAFFMODLEVEL: %w", ErrNoActivePlayer)
 	}
 	s.PushInt(int(s.Self.StaffModLevel()))
 	return nil
@@ -229,7 +229,7 @@ func handleStaffModLevel(s *ScriptState) error {
 // per-account state. Matches TS: state.pushInt(state.activePlayer.uid).
 func handleUID(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("UID: no active player")
+		return fmt.Errorf("UID: %w", ErrNoActivePlayer)
 	}
 	s.PushInt(s.Self.UID())
 	return nil

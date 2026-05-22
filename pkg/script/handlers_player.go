@@ -33,10 +33,11 @@ func checkStatID(id int, op string) error {
 }
 
 // requireActivePlayer is a one-line guard to keep handler bodies tidy.
-// Every handler that dereferences s.Self calls this first.
+// Every handler that dereferences s.Self calls this first. Wraps
+// ErrNoActivePlayer so callers can errors.Is against the sentinel.
 func requireActivePlayer(s *ScriptState, op string) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New(op + ": no active player")
+		return fmt.Errorf("%s: %w", op, ErrNoActivePlayer)
 	}
 	return nil
 }
@@ -46,7 +47,7 @@ func requireActivePlayer(s *ScriptState, op string) error {
 // calls this first. NAI-39.
 func requireActivePlayer2(s *ScriptState, op string) error {
 	if s.Pointers&PtrActivePlayer2 == 0 || s.Self2 == nil {
-		return errors.New(op + ": no active player2")
+		return fmt.Errorf("%s: %w", op, ErrNoActivePlayer2)
 	}
 	return nil
 }
@@ -61,7 +62,7 @@ func requireProtectedActivePlayer(s *ScriptState, op string) error {
 		return err
 	}
 	if s.Pointers&PtrProtectedActivePlayer == 0 {
-		return errors.New(op + ": script not protected")
+		return fmt.Errorf("%s: %w", op, ErrScriptNotProtected)
 	}
 	return nil
 }
@@ -1097,7 +1098,7 @@ func handleP_OpNpc(s *ScriptState) error {
 		return err
 	}
 	if s.ActiveNpc == nil {
-		return errors.New("P_OPNPC: no active npc")
+		return fmt.Errorf("P_OPNPC: %w", ErrNoActiveNpc)
 	}
 	op := s.PopInt()
 	if err := checkNotNull(op, "P_OPNPC"); err != nil {
@@ -1564,7 +1565,7 @@ func handlePOpNpcT(s *ScriptState) error {
 		return err
 	}
 	if s.ActiveNpc == nil {
-		return errors.New("P_OPNPCT: no active npc")
+		return fmt.Errorf("P_OPNPCT: %w", ErrNoActiveNpc)
 	}
 	spellCom := s.PopInt()
 	if err := checkNotNull(spellCom, "P_OPNPCT"); err != nil {

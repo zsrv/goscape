@@ -1,7 +1,6 @@
 package script
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/zsrv/goscape/pkg/objtype"
@@ -41,7 +40,7 @@ func (s *ScriptState) varpType(id int) (objtype.ScriptVarType, bool) {
 // is bound.
 func handlePushVarp(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("PUSH_VARP: no active player")
+		return fmt.Errorf("PUSH_VARP: %w", ErrNoActivePlayer)
 	}
 	id := varOperandID(s)
 	typ, _ := s.varpType(id)
@@ -62,7 +61,7 @@ func handlePushVarp(s *ScriptState) error {
 // if no ActivePlayer is bound.
 func handlePopVarp(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return errors.New("POP_VARP: no active player")
+		return fmt.Errorf("POP_VARP: %w", ErrNoActivePlayer)
 	}
 	id := varOperandID(s)
 	typ, protect := s.varpType(id)
@@ -79,7 +78,7 @@ func handlePopVarp(s *ScriptState) error {
 
 func handlePushVars(s *ScriptState) error {
 	if s.World == nil {
-		return errors.New("PUSH_VARS: no world")
+		return fmt.Errorf("PUSH_VARS: %w", ErrNoWorld)
 	}
 	// MVP always pushes int. Real string VARS are rare; dispatch by
 	// VarSharedType.Type if we see them in telemetry.
@@ -89,7 +88,7 @@ func handlePushVars(s *ScriptState) error {
 
 func handlePopVars(s *ScriptState) error {
 	if s.World == nil {
-		return errors.New("POP_VARS: no world")
+		return fmt.Errorf("POP_VARS: %w", ErrNoWorld)
 	}
 	val := int32(s.PopInt())
 	s.World.SetVarsInt(varOperandID(s), val)
@@ -103,7 +102,7 @@ func handlePopVars(s *ScriptState) error {
 // convention as VARP.
 func handlePushVarn(s *ScriptState) error {
 	if s.ActiveNpc == nil {
-		return errors.New("PUSH_VARN: no active npc")
+		return fmt.Errorf("PUSH_VARN: %w", ErrNoActiveNpc)
 	}
 	id := varOperandID(s)
 	if s.varnType(id) == objtype.ScriptVarTypeString {
@@ -120,7 +119,7 @@ func handlePushVarn(s *ScriptState) error {
 // Returns an error if no ActiveNpc is bound.
 func handlePopVarn(s *ScriptState) error {
 	if s.ActiveNpc == nil {
-		return errors.New("POP_VARN: no active npc")
+		return fmt.Errorf("POP_VARN: %w", ErrNoActiveNpc)
 	}
 	id := varOperandID(s)
 	if s.varnType(id) == objtype.ScriptVarTypeString {

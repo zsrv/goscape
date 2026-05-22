@@ -1,7 +1,6 @@
 package script
 
 import (
-	"errors"
 	"fmt"
 	"math"
 
@@ -184,7 +183,7 @@ func setActiveNpcSlot(s *ScriptState, npc ActiveNpc) {
 // check to mirror TS `checkedHandler(ActiveNpc, ...)`.
 func requireActiveNpc(s *ScriptState, op string) error {
 	if s.ActiveNpc == nil {
-		return fmt.Errorf("%s: no active npc", op)
+		return fmt.Errorf("%s: %w", op, ErrNoActiveNpc)
 	}
 	return nil
 }
@@ -507,7 +506,7 @@ func handleNpcArriveDelay(s *ScriptState) error {
 		return err
 	}
 	if s.World == nil {
-		return errors.New("NPC_ARRIVEDELAY: no world")
+		return fmt.Errorf("NPC_ARRIVEDELAY: %w", ErrNoWorld)
 	}
 	last := s.ActiveNpc.LastMovement()
 	tick := s.World.CurrentTick()
