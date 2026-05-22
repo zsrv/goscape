@@ -29,6 +29,28 @@ type Config struct {
 	Members bool `yaml:"node_members"`
 	Port    int  `yaml:"node_port"`
 	Debug   bool `yaml:"node_debug"`
+
+	// WebSocket toggles a / WebSocket bridge that accepts WS-framed
+	// connections and hands them off to the world module's TCP connection
+	// handler. Mirrors web.ts:125-127 in Engine-TS.
+	WebSocket WebSocketConfig `yaml:"websocket"`
+}
+
+// WebSocketConfig configures the asset module's WebSocket → world bridge.
+type WebSocketConfig struct {
+	Enable bool `yaml:"enable"`
+
+	// AllowedOrigins is the explicit Origin allowlist. Empty slice ⇒
+	// allow all (matches TS WEB_CORS_ALLOWED_ORIGINS empty default at
+	// Environment.ts:13). Non-empty ⇒ Origin header must exactly match
+	// one entry or the upgrade is rejected with 403 before handshake.
+	// Operators populate via YAML; no CLI flag (matches the slice-shape
+	// registration pattern used elsewhere in this repo).
+	AllowedOrigins []string `yaml:"allowed_origins"`
+
+	// MaxPayloadBytes caps inbound WS message size. Mirrors TS
+	// maxPayloadLength: 2_000 at web.ts:125.
+	MaxPayloadBytes int64 `yaml:"max_payload_bytes"`
 }
 
 // RegisterFlagsAndApplyDefaults registers flags and applies defaults.
@@ -70,6 +92,12 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.BoolVar(&c.Members, "asset.node-members", true, "Whether members content is available; emitted by /rs2.cgi.")
 	f.IntVar(&c.Port, "asset.node-port", 43594, "World TCP port; /rs2.cgi emits portoff = node-port - 43594 to the Java applet.")
 	f.BoolVar(&c.Debug, "asset.node-debug", true, "Whether /rs2.cgi may serve the Java applet template when plugin=1.")
+
+	// WebSocket bridge (mirrors web.ts:125-127). AllowedOrigins is YAML-only
+	// to match the slice-shape registration pattern used elsewhere; empty
+	// default matches TS WEB_CORS_ALLOWED_ORIGINS empty default (allow all).
+	f.BoolVar(&c.WebSocket.Enable, "asset.websocket-enable", true, "Serve a WebSocket bridge at / that forwards binary frames to the world module's TCP connection handler.")
+	f.Int64Var(&c.WebSocket.MaxPayloadBytes, "asset.websocket-max-payload-bytes", 2000, "Maximum size of a single inbound WebSocket message (bytes). Matches TS web.ts:125 maxPayloadLength: 2_000.")
 }
 
 func (c *Config) Validate() error {

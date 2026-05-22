@@ -8,6 +8,7 @@ import (
 	"github.com/zsrv/goscape/internal/dskit/middleware"
 	"github.com/zsrv/goscape/internal/dskit/server"
 	"github.com/zsrv/goscape/internal/dskit/services"
+	"github.com/zsrv/goscape/pkg/world/connhandler"
 )
 
 // TODO: tracer
@@ -30,10 +31,15 @@ type Asset struct {
 	// so handler-level log lines like the unmatched-path debug log surface
 	// the same source IP that the request-logging middleware records.
 	sourceIPs *middleware.SourceIPExtractor
+
+	// worldConn is the destination for accepted WebSocket-framed connections
+	// (see WebSocketHandler). May be nil when running asset-only (no world
+	// module wired) — in which case the WebSocket route is not registered.
+	worldConn connhandler.ConnHandler
 }
 
 // TODO: unused - reuse the code for other modules though
-func New(cfg Config, logger *slog.Logger, serv *server.Server) (*Asset, error) {
+func New(cfg Config, logger *slog.Logger, serv *server.Server, worldConn connhandler.ConnHandler) (*Asset, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -52,6 +58,7 @@ func New(cfg Config, logger *slog.Logger, serv *server.Server) (*Asset, error) {
 		Server: serv,
 
 		sourceIPs: sourceIPs,
+		worldConn: worldConn,
 	}
 
 	// NOTE: Asset server doesn't have any subservices
