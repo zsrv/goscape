@@ -6,6 +6,20 @@ import (
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 )
 
+// lineRouteCoordsCap is the initial capacity for the per-call Coordinates
+// slice. Ray-casts append one or two coords per tile traversed along the
+// major axis -- short LOS/LOW checks are a few tiles, mid-range hunt /
+// projectile checks are ~30 tiles, the absolute long-axis upper bound is
+// ~200 coords. 64 covers the common case in a single allocation while
+// keeping the worst-case overshoot small (vs cap=200 which adds ~1.7KB
+// per call for the typical short check). The append-doubling-growth path
+// still handles the rare long ray-cast correctly.
+//
+// See PORTING.md NEW-F. Lineage: Arc 17 1b3a9688 / Arc 12 a1e9da32 used
+// the same "pre-allocate to skip doubling growth" pattern for the cache
+// CRC + type-config snapshot bundles.
+const lineRouteCoordsCap = 64
+
 type LineRouteFinder struct {
 	flags collision.FlagMap
 }
@@ -77,7 +91,7 @@ func (pf LineRouteFinder) RayCast(level, srcX, srcZ, destX, destZ, srcWidth, src
 		zFlags = flagNorth
 	}
 
-	var coordinates []RouteCoordinates
+	coordinates := make([]RouteCoordinates, 0, lineRouteCoordsCap)
 	if absoluteDeltaX > absoluteDeltaZ {
 		var offsetX int
 		if travelEast {
