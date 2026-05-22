@@ -339,11 +339,22 @@ func handleMessagePublic(p *Player, payload []byte) error {
 	}
 	color := int(payload[0])
 	effect := int(payload[1])
+	rawPacked := payload[2:]
+
+	// TS MessagePublicHandler.ts:14 — gate on socialProtect, color (0..11),
+	// effect (0..2), and packed-input length (≤100). Reject silently on any.
+	if p.socialProtect || color < 0 || color > 11 || effect < 0 || effect > 2 || len(rawPacked) > 100 {
+		return nil
+	}
+
+	// TS MessagePublicHandler.ts:18-21 — drop chat while muted.
+	if !p.mutedUntil.IsZero() && p.mutedUntil.After(time.Now()) {
+		return nil
+	}
 
 	// Unpack raw word-packed text first — needed for both wordenc filtering
 	// (TS MessagePublicHandler.ts:26) and audit-log (TS line 32).
-	rawPacked := bytes.Clone(payload[2:])
-	pk := packet.NewPacket(rawPacked)
+	pk := packet.NewPacket(bytes.Clone(rawPacked))
 	decoded := wordpack.Unpack(pk, len(rawPacked))
 
 	// Apply WordEnc.filter and repack for the wire — mirrors TS lines 34-39.
@@ -364,6 +375,10 @@ func handleMessagePublic(p *Player, payload []byte) error {
 		coord := coordgrid.PackCoord(p.level, p.x, p.z)
 		s.friendsBridge.PublicMessage(p.session, coord, decoded)
 	}
+
+	// TS MessagePublicHandler.ts:42 — set socialProtect after a successful
+	// emit so further chat in the same tick is gated. Reset in processCleanup.
+	p.socialProtect = true
 	return nil
 }
 
