@@ -595,9 +595,6 @@ func TestTryFireOpTriggerObjNoScript(t *testing.T) {
 	if p.target != nil {
 		t.Errorf("target: got %v, want nil after default-op clear", p.target)
 	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after default-op clear")
-	}
 	if !bytes.Contains(got, []byte("Nothing interesting happens.")) {
 		t.Errorf("expected \"Nothing interesting happens.\" in drained bytes, got %x", got)
 	}
@@ -618,9 +615,6 @@ func TestTryFireOpTriggerObjScriptFires(t *testing.T) {
 	if p.target != obj {
 		t.Errorf("target: got %v, want obj (restored after Finished — NAI-68)", p.target)
 	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after script fire")
-	}
 }
 
 // TestTryFireOpTriggerObjDeferredOnDelay verifies delayed player defers fire.
@@ -634,9 +628,6 @@ func TestTryFireOpTriggerObjDeferredOnDelay(t *testing.T) {
 
 	if p.target != obj {
 		t.Errorf("target: got %v, want obj (deferred)", p.target)
-	}
-	if p.interactionFired {
-		t.Error("interactionFired: want false (deferred)")
 	}
 }
 
@@ -653,9 +644,6 @@ func TestTryFireOpTriggerObjRemoved(t *testing.T) {
 
 	if p.target != nil {
 		t.Errorf("target: got %v, want nil (obj removed)", p.target)
-	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after removal clear")
 	}
 }
 
@@ -676,9 +664,6 @@ func TestTryFireOpTriggerObjFiresObjTTrigger(t *testing.T) {
 
 	if p.target != nil {
 		t.Errorf("target: got %v, want nil after Finished", p.target)
-	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after OPOBJT fire")
 	}
 }
 
@@ -702,9 +687,6 @@ func TestTryFireOpTriggerObjFiresObjUTrigger(t *testing.T) {
 	if p.target != obj {
 		t.Errorf("target: got %v, want obj (restored after OPOBJU fire — NAI-68)", p.target)
 	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after OPOBJU fire")
-	}
 }
 
 // makeApObjTriggerFixture creates a fixture for tryFireApTrigger Obj-branch tests:
@@ -725,9 +707,6 @@ func TestTryFireApTriggerObjNoScript(t *testing.T) {
 
 	if p.target != obj {
 		t.Errorf("target: got %v, want obj (no-AP-script should not clear)", p.target)
-	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after no-AP-script mark")
 	}
 	if p.apRange != -1 {
 		t.Errorf("apRange: got %d, want -1 (sentinel for no-AP-script)", p.apRange)
@@ -752,9 +731,6 @@ func TestTryFireApTriggerObjScriptFiresNoApRangeCalled(t *testing.T) {
 	}
 	if p.nextTarget != nil {
 		t.Errorf("nextTarget: got %v, want nil (no p_op_* in script)", p.nextTarget)
-	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after clear")
 	}
 }
 

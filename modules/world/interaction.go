@@ -104,7 +104,6 @@ func (p *Player) SetInteraction(kind InteractionKind, target entity, op, com int
 	p.apRangeCalled = false
 	p.interacted = false
 	p.repathed = false
-	p.interactionFired = false
 
 	// TS PathingEntity.ts:528 — focus on the target's fine coord.
 	// instant=true ⇔ NonPathingEntity (Loc/Obj) clicked via the engine
@@ -152,7 +151,6 @@ func (p *Player) ClearInteraction() {
 	p.apRangeCalled = false
 	p.interacted = false
 	p.repathed = false
-	p.interactionFired = false
 }
 
 // isFollowOp reports whether the current interaction is in chase-the-target
@@ -201,24 +199,6 @@ func (p *Player) processInteraction() {
 	p.followX = p.lastStepX
 	p.followZ = p.lastStepZ
 	p.nextTarget = nil
-
-	// Per-tick reset of the Go-only `interactionFired` flag. TS Engine-TS
-	// Player.ts:1200-1269 has no equivalent — TS branch 1's OP fire is
-	// unconditional every tick. goscape's flag (added in NAI-44 T4
-	// refactor) is intended as an intra-tick guard against double-firing
-	// from pre-step + post-step tryInteract calls, but the fire-helpers'
-	// trailing `p.interactionFired = true` would otherwise persist across
-	// ticks and block re-entry to branch 1's `if !p.interactionFired {
-	// tryFireOpTrigger(p) }` gate. Without this reset, content scripts
-	// that re-anchor via p_opnpc/p_aploc/etc. (modelled by
-	// player_melee.rs2:59) get one fire on the initial interaction tick
-	// then silently lose the OP fire on every subsequent tick — visible
-	// in-game as "attacks NPC only once, then no further swings", with
-	// the processInteraction tail's `interacted && !apRangeCalled`
-	// auto-clear nuking the anchor entirely on the second tick (since
-	// SetInteraction inside p_opnpc reset apRangeCalled=false). The
-	// per-tick reset restores TS's implicit "fresh per tick" semantic.
-	p.interactionFired = false
 
 	if p.target == nil {
 		return
@@ -447,26 +427,28 @@ func (p *Player) tryInteract(allowOpScenery bool) bool {
 		isPathing = true
 	}
 
-	// Branch 1 — OP fire (TS Player.ts:1123).
+	// Branch 1 — OP fire (TS Player.ts:1123). Fire is unconditional per
+	// TS — the Go-only interactionFired gate that previously wrapped this
+	// call was removed in NAI-218 (TS-parity restore); intra-tick re-fire
+	// is already prevented by processInteraction's `if !interacted`
+	// post-step gate.
 	if opTrigger != nil && (isPathing || allowOpScenery) && operable {
 		p.interacted = true
-		if !p.interactionFired {
-			tryFireOpTrigger(p)
-		}
+		tryFireOpTrigger(p)
 		recordTryInteractBranch(p, 1) // NAI-79 Stage 1
 		return true
 	}
 
-	// Branch 2 — AP fire (TS Player.ts:1139).
+	// Branch 2 — AP fire (TS Player.ts:1139). Fire is unconditional per
+	// TS (interactionFired removed in NAI-218).
 	if apTrigger != nil && approach {
 		p.interacted = true
-		if !p.interactionFired {
-			tryFireApTrigger(p)
-		}
-		// NAI-69 same-tick retry (TS Player.ts:1158-1167). Closes
-		// NAI-68-D-AP-APRANGE-REVERT-NOT-PORTED.
+		tryFireApTrigger(p)
+		// NAI-69 same-tick retry (TS Player.ts:1158-1167). When the AP
+		// script set apRangeCalled and did not call p_op_* (no nextTarget),
+		// return false so processInteraction's post-step path-then-retry
+		// arm re-enters and can fire AP again at the new range.
 		if p.nextTarget == nil && p.apRangeCalled {
-			p.interactionFired = false
 			recordTryInteractBranch(p, 2) // NAI-79 Stage 1 (retry-no-op)
 			return false
 		}

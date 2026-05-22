@@ -34,9 +34,6 @@ func TestTryInteract_FollowOp_ShortCircuits(t *testing.T) {
 	if got {
 		t.Errorf("tryInteract: got true, want false (follow-op short-circuit)")
 	}
-	if p.interactionFired {
-		t.Errorf("interactionFired: got true, want false (no dispatch on short-circuit)")
-	}
 	if p.apRange != priorApRange {
 		t.Errorf("apRange: got %d, want %d unchanged (no branch-3 mutation under guard)", p.apRange, priorApRange)
 	}

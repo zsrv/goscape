@@ -160,15 +160,14 @@ type Player struct {
 	//     resolveTriggerTypeId (NAI-62, mirrors TS Player.getOpTrigger:993-995
 	//     / getApTrigger:1027-1029) and by scripts via
 	//     ActivePlayer.TargetSubjectCom().
-	targetSubject    struct{ typ, x, z, level, com int }
-	interactionKind  InteractionKind
-	apRange          int
-	apRangeCalled    bool
-	interacted       bool
-	repathed         bool
-	interactionFired bool
-	delayed          bool
-	delayedUntil     int
+	targetSubject   struct{ typ, x, z, level, com int }
+	interactionKind InteractionKind
+	apRange         int
+	apRangeCalled   bool
+	interacted      bool
+	repathed        bool
+	delayed         bool
+	delayedUntil    int
 	// NAI-79 Stage 1 instrumentation (interaction.go branch tracking).
 	// lastInteractBranch{Pre,Post} hold the branch id (0=fallthrough,
 	// 1..4) of the most recent tryInteract call from processInteraction's

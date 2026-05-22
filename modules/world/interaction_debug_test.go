@@ -220,23 +220,14 @@ func TestTryInteractBranchTrackingPerCallsite(t *testing.T) {
 			allowOpScenery: true,
 			wantBranch:     4,
 		},
-		{
-			// Pins the SECOND branch-2 site at interaction.go:379
-			// (`nextTarget==nil && apRangeCalled` retry-no-op return false).
-			// Skip tryFireApTrigger by setting interactionFired=true so
-			// the gate is reached with the state set by postSetup.
-			name: "branch 2 retry (apRangeCalled, nextTarget=nil)",
-			setup: func(s *Server, p *Player, loc *entitypkg.Loc, sf *script.ScriptFile) {
-				p.x, p.z = 98, 100
-				p.apRange = 10
-				registerApLocScript(t, s, loc.Type(), 1, sf)
-			},
-			postSetup: func(p *Player) {
-				p.interactionFired = true // skip tryFireApTrigger
-				p.apRangeCalled = true    // force retry-arm guard
-			},
-			wantBranch: 2,
-		},
+		// NAI-218: dropped "branch 2 retry" test case. Pre-NAI-218 it used
+		// `p.interactionFired = true` to skip the fire-helper so only the
+		// retry-no-op gate ran. With interactionFired removed (TS-parity),
+		// the fire-helper always runs and that test shape is no longer
+		// expressible. The retry-arm gate itself is exercised by
+		// TestTryInteract_ApRangeCalled_ReturnsFalseAndResetsFired in
+		// interaction_trigger_nai69_test.go (which registers a real AP
+		// script that calls p_aprange).
 		{
 			name: "fallthrough (operable but allowOpScenery=false, no triggers)",
 			setup: func(s *Server, p *Player, loc *entitypkg.Loc, sf *script.ScriptFile) {

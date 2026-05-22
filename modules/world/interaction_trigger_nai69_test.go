@@ -29,9 +29,6 @@ func TestTryInteract_ApRangeCalled_ReturnsFalseAndResetsFired(t *testing.T) {
 	if result {
 		t.Error("tryInteract: got true, want false (TS L1167 — apRangeCalled triggers same-tick retry)")
 	}
-	if p.interactionFired {
-		t.Error("interactionFired: got true, want false (reset by tryInteract for post-step re-fire)")
-	}
 	if !p.apRangeCalled {
 		t.Error("apRangeCalled: got false, want true (script called p_aprange)")
 	}
@@ -59,9 +56,6 @@ func TestTryInteract_NoApRange_StillReturnsTrue(t *testing.T) {
 	if !result {
 		t.Error("tryInteract: got false, want true (no apRangeCalled — original contract)")
 	}
-	if !p.interactionFired {
-		t.Error("interactionFired: got false, want true (no retry signal)")
-	}
 	if p.apRangeCalled {
 		t.Error("apRangeCalled: got true, want false (script did not call p_aprange)")
 	}
@@ -84,9 +78,6 @@ func TestFireApTriggerLoc_ApRangeCalled_SetsInteractionFiredTrue(t *testing.T) {
 
 	tryFireApTrigger(p)
 
-	if !p.interactionFired {
-		t.Error("interactionFired: got false, want true (NAI-69: fire helper uniform exit)")
-	}
 	if !p.apRangeCalled {
 		t.Error("apRangeCalled: got false, want true (script called p_aprange)")
 	}
@@ -110,9 +101,6 @@ func TestFireApTriggerObj_ApRangeCalled_SetsInteractionFiredTrue(t *testing.T) {
 
 	fireApTriggerObj(p, s, obj)
 
-	if !p.interactionFired {
-		t.Error("interactionFired: got false, want true (NAI-69: fire helper uniform exit)")
-	}
 	if !p.apRangeCalled {
 		t.Error("apRangeCalled: got false, want true (script called p_aprange)")
 	}
@@ -144,9 +132,6 @@ func TestFireApTriggerNpc_ApRangeCalled_SetsInteractionFiredTrueStructural(t *te
 	fireApTriggerNpc(p, s, npc)
 
 	// Mechanism activates structurally:
-	if !p.interactionFired {
-		t.Error("interactionFired: got false, want true (NAI-69: uniform exit)")
-	}
 	if !p.apRangeCalled {
 		t.Error("apRangeCalled: got false, want true (script called p_aprange)")
 	}

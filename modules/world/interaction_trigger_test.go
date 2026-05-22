@@ -56,9 +56,6 @@ func TestTryFireOpTrigger_HappyPath(t *testing.T) {
 	if p.target != npc {
 		t.Errorf("target: got %v, want npc (restored after OP fire — NAI-68)", p.target)
 	}
-	if !p.interactionFired {
-		t.Error("interactionFired: expected true after dispatch")
-	}
 }
 
 func TestTryFireOpTrigger_NoScript(t *testing.T) {
@@ -73,9 +70,6 @@ func TestTryFireOpTrigger_NoScript(t *testing.T) {
 	tryFireOpTrigger(p)
 	if p.target != nil {
 		t.Error("target: expected cleared when no script found")
-	}
-	if !p.interactionFired {
-		t.Error("interactionFired: expected true")
 	}
 }
 
@@ -108,9 +102,6 @@ func TestTryFireOpTrigger_WrongTargetType(t *testing.T) {
 	tryFireOpTrigger(p)
 	if p.target == nil {
 		t.Error("target: expected preserved for non-npc (future OPLOC branch)")
-	}
-	if !p.interactionFired {
-		t.Error("interactionFired: expected true")
 	}
 }
 
@@ -146,9 +137,6 @@ func TestTryFireOpTrigger_ScriptSuspends(t *testing.T) {
 	if p.target == nil {
 		t.Error("target: expected preserved across suspension")
 	}
-	if !p.interactionFired {
-		t.Error("interactionFired: expected true")
-	}
 	if p.activeScript == nil {
 		t.Error("activeScript: expected stored for resume")
 	}
@@ -162,23 +150,14 @@ func TestTryFireOpTrigger_PlayerDelayed(t *testing.T) {
 	if p.target == nil {
 		t.Error("target: expected preserved while delayed")
 	}
-	if p.interactionFired {
-		t.Error("interactionFired: expected false so next tick retries")
-	}
 }
 
 func TestTryFireOpTrigger_ReClickResetsFired(t *testing.T) {
 	_, p, _ := newTriggerFixture(t)
 	tryFireOpTrigger(p)
-	if !p.interactionFired {
-		t.Fatalf("pre: expected interactionFired true")
-	}
 	npc2Type := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 8}, Op: []string{"Talk-to"}}
 	npc2 := NewNpc(1, 8, p.x, p.z, p.level, npc2Type)
 	p.SetInteraction(InteractionEngine, npc2, 1, -1)
-	if p.interactionFired {
-		t.Error("interactionFired: expected false after SetInteraction")
-	}
 }
 
 func TestTryFireOpTrigger_CategoryFallback(t *testing.T) {
@@ -312,9 +291,6 @@ func TestTryFireOpTriggerLocNoScript(t *testing.T) {
 	if p.target != nil {
 		t.Errorf("target: got %v, want nil after default-op clear", p.target)
 	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after default-op clear")
-	}
 	// Assert the message text appears in the drained bytes. The
 	// wire format is [opcode][length][text+10]; we check the text
 	// substring to stay robust to framing details.
@@ -342,9 +318,6 @@ func TestTryFireOpTriggerLocScriptFires(t *testing.T) {
 	if p.nextTarget != nil {
 		t.Errorf("nextTarget: got %v, want nil (noop script set no nextTarget)", p.nextTarget)
 	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after script fire")
-	}
 }
 
 // TestTryFireOpTriggerLocDeferredOnDelay verifies a delayed player defers
@@ -359,9 +332,6 @@ func TestTryFireOpTriggerLocDeferredOnDelay(t *testing.T) {
 
 	if p.target != loc {
 		t.Errorf("target: got %v, want loc (deferred)", p.target)
-	}
-	if p.interactionFired {
-		t.Error("interactionFired: want false (deferred)")
 	}
 }
 
@@ -379,9 +349,6 @@ func TestTryFireOpTriggerLocTypeChanged(t *testing.T) {
 	if p.target != nil {
 		t.Errorf("target: got %v, want nil (type changed)", p.target)
 	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after type-change clear")
-	}
 }
 
 // TestTryFireOpTriggerLocRemoved verifies removing the loc from its zone
@@ -398,9 +365,6 @@ func TestTryFireOpTriggerLocRemoved(t *testing.T) {
 	if p.target != nil {
 		t.Errorf("target: got %v, want nil (loc removed)", p.target)
 	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after removal clear")
-	}
 }
 
 // TestTryFireOpTriggerLocOpOutOfRange verifies targetOp=0 silently clears.
@@ -412,9 +376,6 @@ func TestTryFireOpTriggerLocOpOutOfRange(t *testing.T) {
 
 	if p.target != nil {
 		t.Errorf("target: got %v, want nil (invalid op)", p.target)
-	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after invalid-op clear")
 	}
 }
 
@@ -448,9 +409,6 @@ func TestTryFireApTriggerLocNoScript(t *testing.T) {
 	if p.target != loc {
 		t.Errorf("target: got %v, want loc (no-AP-script should not clear)", p.target)
 	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after no-AP-script mark")
-	}
 }
 
 // TestTryFireApTriggerLocScriptFiresNoApRangeCalled verifies an APLOC
@@ -473,9 +431,6 @@ func TestTryFireApTriggerLocScriptFiresNoApRangeCalled(t *testing.T) {
 	}
 	if p.nextTarget != nil {
 		t.Errorf("nextTarget: got %v, want nil (no p_op_* in script)", p.nextTarget)
-	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after clear")
 	}
 }
 
@@ -520,9 +475,6 @@ func TestTryFireApTriggerLocScriptCallsPApRange(t *testing.T) {
 	if !p.apRangeCalled {
 		t.Error("apRangeCalled: want true after p_aprange fire")
 	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true (NAI-69: fire helper uniform exit)")
-	}
 }
 
 // TestTryFireApTriggerLocDeferredOnDelay verifies a delayed player defers
@@ -537,9 +489,6 @@ func TestTryFireApTriggerLocDeferredOnDelay(t *testing.T) {
 
 	if p.target != loc {
 		t.Errorf("target: got %v, want loc (deferred)", p.target)
-	}
-	if p.interactionFired {
-		t.Error("interactionFired: want false (deferred)")
 	}
 }
 
@@ -556,9 +505,6 @@ func TestTryFireApTriggerLocTypeChanged(t *testing.T) {
 	if p.target != nil {
 		t.Errorf("target: got %v, want nil (lifecycle gate)", p.target)
 	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after lifecycle clear")
-	}
 }
 
 // TestTryFireApTriggerLocRemoved verifies removing the loc from its zone
@@ -574,9 +520,6 @@ func TestTryFireApTriggerLocRemoved(t *testing.T) {
 	if p.target != nil {
 		t.Errorf("target: got %v, want nil (removed from zone)", p.target)
 	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after removal clear")
-	}
 }
 
 // TestTryFireApTriggerLocOpOutOfRange verifies targetOp=0 silently clears.
@@ -588,9 +531,6 @@ func TestTryFireApTriggerLocOpOutOfRange(t *testing.T) {
 
 	if p.target != nil {
 		t.Errorf("target: got %v, want nil (invalid op)", p.target)
-	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after invalid-op clear")
 	}
 }
 
@@ -664,9 +604,6 @@ func TestFireOpTriggerLocFiresOpLocTTrigger(t *testing.T) {
 	if p.target != loc {
 		t.Errorf("target: got %v, want loc (restored after OPLOCT fire — NAI-68)", p.target)
 	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after OPLOCT fire")
-	}
 }
 
 // TestFireOpTriggerLocFiresOpLocUTrigger verifies targetOpLocU (7) →
@@ -687,9 +624,6 @@ func TestFireOpTriggerLocFiresOpLocUTrigger(t *testing.T) {
 	// NAI-68: target restored to loc (not nil); tail clears on next tick.
 	if p.target != loc {
 		t.Errorf("target: got %v, want loc (restored after OPLOCU fire — NAI-68)", p.target)
-	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after OPLOCU fire")
 	}
 }
 
@@ -713,9 +647,6 @@ func TestFireApTriggerLocFiresApLocTTrigger(t *testing.T) {
 	if p.nextTarget != nil {
 		t.Errorf("nextTarget: got %v, want nil (no p_op_* in script)", p.nextTarget)
 	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after APLOCT fire")
-	}
 }
 
 // TestFireApTriggerLocFiresApLocUTrigger verifies targetOpLocU (7) →
@@ -736,9 +667,6 @@ func TestFireApTriggerLocFiresApLocUTrigger(t *testing.T) {
 	}
 	if p.nextTarget != nil {
 		t.Errorf("nextTarget: got %v, want nil (no p_op_* in script)", p.nextTarget)
-	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after APLOCU fire")
 	}
 }
 
@@ -830,9 +758,6 @@ func TestFireApTriggerNpcNoScript(t *testing.T) {
 	if p.target != nil {
 		t.Error("target: expected cleared after no-script path")
 	}
-	if !p.interactionFired {
-		t.Error("interactionFired: expected true")
-	}
 }
 
 // TestFireApTriggerNpcScriptFires verifies that with an APNPC1 script
@@ -855,9 +780,6 @@ func TestFireApTriggerNpcScriptFires(t *testing.T) {
 	if p.nextTarget != nil {
 		t.Errorf("nextTarget: got %v, want nil (noop script set no target)", p.nextTarget)
 	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after script fire")
-	}
 }
 
 // TestFireApTriggerNpcDeadNpc verifies the lifecycle gate: a dead NPC
@@ -871,9 +793,6 @@ func TestFireApTriggerNpcDeadNpc(t *testing.T) {
 
 	if p.target != nil {
 		t.Error("target: expected cleared for dead npc")
-	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after dead-clear")
 	}
 }
 
@@ -890,9 +809,6 @@ func TestFireApTriggerNpcDeferredOnDelay(t *testing.T) {
 	if p.target == nil {
 		t.Error("target: expected preserved while delayed")
 	}
-	if p.interactionFired {
-		t.Error("interactionFired: expected false so next tick retries")
-	}
 }
 
 // TestFireApTriggerNpcOpOutOfRange verifies that an invalid targetOp
@@ -906,9 +822,6 @@ func TestFireApTriggerNpcOpOutOfRange(t *testing.T) {
 
 	if p.target != nil {
 		t.Error("target: expected cleared for out-of-range op")
-	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after silent clear")
 	}
 }
 
@@ -932,9 +845,6 @@ func TestFireOpTriggerNpcFiresOpNpcTTrigger(t *testing.T) {
 	if p.target != npc {
 		t.Errorf("target: got %v, want npc (restored after OPNPCT fire — NAI-68)", p.target)
 	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after OPNPCT fire")
-	}
 	if string(npc.sayText) != "opnpct-fired" {
 		t.Errorf("npc.sayText: got %q, want %q", npc.sayText, "opnpct-fired")
 	}
@@ -955,9 +865,6 @@ func TestFireOpTriggerNpcFiresOpNpcUTrigger(t *testing.T) {
 	// NAI-68: target restored to npc (not nil); tail clears on next tick.
 	if p.target != npc {
 		t.Errorf("target: got %v, want npc (restored after OPNPCU fire — NAI-68)", p.target)
-	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after OPNPCU fire")
 	}
 	if string(npc.sayText) != "opnpcu-fired" {
 		t.Errorf("npc.sayText: got %q, want %q", npc.sayText, "opnpcu-fired")
@@ -986,9 +893,6 @@ func TestFireApTriggerNpcFiresApNpcTTrigger(t *testing.T) {
 	if p.nextTarget != nil {
 		t.Errorf("nextTarget: got %v, want nil (NPC_SAY script set no target)", p.nextTarget)
 	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after APNPCT fire")
-	}
 	if string(npc.sayText) != "apnpct-fired" {
 		t.Errorf("npc.sayText: got %q, want %q", npc.sayText, "apnpct-fired")
 	}
@@ -1013,9 +917,6 @@ func TestFireApTriggerNpcFiresApNpcUTrigger(t *testing.T) {
 	}
 	if p.nextTarget != nil {
 		t.Errorf("nextTarget: got %v, want nil (NPC_SAY script set no target)", p.nextTarget)
-	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after APNPCU fire")
 	}
 	if string(npc.sayText) != "apnpcu-fired" {
 		t.Errorf("npc.sayText: got %q, want %q", npc.sayText, "apnpcu-fired")
@@ -1138,9 +1039,6 @@ func TestFireOpTriggerLocOverridesTypeIdFromTargetSubjectCom(t *testing.T) {
 	if p.target != loc {
 		t.Errorf("target: got %v, want loc (restored after override Finished — NAI-68)", p.target)
 	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after override fire")
-	}
 }
 
 // TestFireApTriggerNpcOverridesTypeIdFromTargetSubjectCom — NAI-62.
@@ -1211,9 +1109,6 @@ func TestFireOpTriggerObjOverridesTypeIdFromTargetSubjectCom(t *testing.T) {
 	// NAI-68: target restored to obj (not nil); tail clears on next tick.
 	if p.target != obj {
 		t.Errorf("target: got %v, want obj (restored after override Finished — NAI-68)", p.target)
-	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after override fire")
 	}
 }
 

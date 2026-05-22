@@ -15,11 +15,11 @@ import (
 //   - p.interacted == true
 //   - p.interactionKind == InteractionEngine
 //   - p.target != nil
-//   - p.interactionFired == false
 //
 // Branches by target concrete type. Common behaviour across branches:
-//   - Player became delayed between reach and dispatch: defer; leave
-//     interactionFired false so we retry next tick.
+//   - Player became delayed between reach and dispatch: defer; the next
+//     tick's tryInteract will re-enter branch 1 and call this helper
+//     again (TS-faithful: branch 1 is unconditional, no Go-only gate).
 //   - Lifecycle gate fail (NPC dead / Loc despawn-or-mutated): silent
 //     clear interaction.
 //   - targetOp out of [1,5]: silent clear.
@@ -44,7 +44,6 @@ func tryFireOpTrigger(p *Player) {
 	case *entitypkg.Obj:
 		fireOpTriggerObj(p, srv, tgt)
 	default:
-		p.interactionFired = true
 	}
 }
 
@@ -57,14 +56,12 @@ func fireOpTriggerNpc(p *Player, srv *Server, npc *Npc) {
 
 	if npc.dead {
 		p.ClearInteraction()
-		p.interactionFired = true
 		return
 	}
 
 	apTrigger, ok := apNpcTriggerForOp(p.targetOp)
 	if !ok {
 		p.ClearInteraction()
-		p.interactionFired = true
 		return
 	}
 	trigger := apTrigger + 7 // APNPC→OPNPC offset per TS Player.ts:~997
@@ -82,7 +79,6 @@ func fireOpTriggerNpc(p *Player, srv *Server, npc *Npc) {
 	// non-tryInteract callers and as a goscape belt-and-braces.
 	if sf == nil {
 		p.ClearInteraction()
-		p.interactionFired = true
 		return
 	}
 
@@ -109,7 +105,6 @@ func fireOpTriggerNpc(p *Player, srv *Server, npc *Npc) {
 	p.nextTarget = p.target
 	p.target = savedTarget
 
-	p.interactionFired = true
 }
 
 // fireOpTriggerLoc fires the [oploc<op>,<locType>] trigger.
@@ -135,14 +130,12 @@ func fireOpTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 
 	if !locStillValid(srv, loc, p.targetSubject.typ, p.targetSubject.x, p.targetSubject.z, p.targetSubject.level) {
 		p.ClearInteraction()
-		p.interactionFired = true
 		return
 	}
 
 	apTrigger, ok := apLocTriggerForOp(p.targetOp)
 	if !ok {
 		p.ClearInteraction()
-		p.interactionFired = true
 		return
 	}
 	trigger := apTrigger + 7 // APLOC→OPLOC offset per TS Player.ts:~997
@@ -170,7 +163,6 @@ func fireOpTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 		// no op-trigger is registered for this loc.
 		p.MessageGame("Nothing interesting happens.")
 		p.ClearInteraction()
-		p.interactionFired = true
 		return
 	}
 
@@ -200,7 +192,6 @@ func fireOpTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 
 	// Finished/Aborted ClearInteraction dropped — subsumed by
 	// processInteraction tail's else-if at interaction.go (TS L1261-1263).
-	p.interactionFired = true
 }
 
 // apLocTriggerForOp returns the APLOC trigger for the player's
@@ -280,7 +271,6 @@ func objStillValid(srv *Server, obj *entitypkg.Obj, wantX, wantZ, wantLevel int)
 //   - p.interacted == true
 //   - p.interactionKind == InteractionEngine
 //   - p.target != nil
-//   - p.interactionFired == false
 //   - player is in approach range but NOT operable distance
 func tryFireApTrigger(p *Player) {
 	srv := p.client.server
@@ -297,7 +287,6 @@ func tryFireApTrigger(p *Player) {
 	case *entitypkg.Obj:
 		fireApTriggerObj(p, srv, tgt)
 	default:
-		p.interactionFired = true
 	}
 }
 
@@ -333,14 +322,12 @@ func fireApTriggerNpc(p *Player, srv *Server, npc *Npc) {
 
 	if npc.dead {
 		p.ClearInteraction()
-		p.interactionFired = true
 		return
 	}
 
 	trigger, ok := apNpcTriggerForOp(p.targetOp)
 	if !ok {
 		p.ClearInteraction()
-		p.interactionFired = true
 		return
 	}
 
@@ -358,7 +345,6 @@ func fireApTriggerNpc(p *Player, srv *Server, npc *Npc) {
 	// non-tryInteract callers and as a goscape belt-and-braces.
 	if sf == nil {
 		p.ClearInteraction()
-		p.interactionFired = true
 		return
 	}
 
@@ -402,7 +388,6 @@ func fireApTriggerNpc(p *Player, srv *Server, npc *Npc) {
 
 	// Finished/Aborted ClearInteraction dropped — subsumed by
 	// processInteraction tail's else-if (TS L1261-1263).
-	p.interactionFired = true
 }
 
 // fireApTriggerLoc fires the [aploc<op>,<locType>] trigger. Matches
@@ -424,14 +409,12 @@ func fireApTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 
 	if !locStillValid(srv, loc, p.targetSubject.typ, p.targetSubject.x, p.targetSubject.z, p.targetSubject.level) {
 		p.ClearInteraction()
-		p.interactionFired = true
 		return
 	}
 
 	trigger, ok := apLocTriggerForOp(p.targetOp)
 	if !ok {
 		p.ClearInteraction()
-		p.interactionFired = true
 		return
 	}
 	category := 0
@@ -456,7 +439,6 @@ func fireApTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 		// "AP path permanently disabled for this interaction;
 		// anchor stays — contact (OP) takes over on a later tick."
 		p.apRange = -1
-		p.interactionFired = true
 		return
 	}
 
@@ -507,7 +489,6 @@ func fireApTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 	// P_PAUSEBUTTON / P_COUNTDIALOG) leave apRangeCalled false and
 	// keep the anchor across ticks via the suspended ScriptState. NAI-69
 	// closes NAI-68-D-AP-APRANGE-REVERT-NOT-PORTED.
-	p.interactionFired = true
 }
 
 // apObjTriggerForOp returns the APOBJ trigger for p.targetOp. Returns
@@ -682,14 +663,12 @@ func fireOpTriggerObj(p *Player, srv *Server, obj *entitypkg.Obj) {
 
 	if !objStillValid(srv, obj, p.targetSubject.x, p.targetSubject.z, p.targetSubject.level) {
 		p.ClearInteraction()
-		p.interactionFired = true
 		return
 	}
 
 	apTrigger, ok := apObjTriggerForOp(p.targetOp)
 	if !ok {
 		p.ClearInteraction()
-		p.interactionFired = true
 		return
 	}
 	trigger := apTrigger + 7 // APOBJ→OPOBJ offset per TS Player.ts:997
@@ -711,7 +690,6 @@ func fireOpTriggerObj(p *Player, srv *Server, obj *entitypkg.Obj) {
 	if sf == nil {
 		p.MessageGame("Nothing interesting happens.")
 		p.ClearInteraction()
-		p.interactionFired = true
 		return
 	}
 
@@ -738,7 +716,6 @@ func fireOpTriggerObj(p *Player, srv *Server, obj *entitypkg.Obj) {
 	p.nextTarget = p.target
 	p.target = savedTarget
 
-	p.interactionFired = true
 }
 
 // fireApTriggerObj fires the [apobj<op>,<objType>] approach-trigger for the
@@ -754,14 +731,12 @@ func fireApTriggerObj(p *Player, srv *Server, obj *entitypkg.Obj) {
 
 	if !objStillValid(srv, obj, p.targetSubject.x, p.targetSubject.z, p.targetSubject.level) {
 		p.ClearInteraction()
-		p.interactionFired = true
 		return
 	}
 
 	trigger, ok := apObjTriggerForOp(p.targetOp)
 	if !ok {
 		p.ClearInteraction()
-		p.interactionFired = true
 		return
 	}
 
@@ -781,7 +756,6 @@ func fireApTriggerObj(p *Player, srv *Server, obj *entitypkg.Obj) {
 	// non-tryInteract callers and as a goscape belt-and-braces.
 	if sf == nil {
 		p.apRange = -1
-		p.interactionFired = true
 		return
 	}
 
@@ -829,5 +803,4 @@ func fireApTriggerObj(p *Player, srv *Server, obj *entitypkg.Obj) {
 	// apRangeCalled false and keep the anchor across ticks via the
 	// suspended ScriptState. NAI-69 closes
 	// NAI-68-D-AP-APRANGE-REVERT-NOT-PORTED.
-	p.interactionFired = true
 }

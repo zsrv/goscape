@@ -62,7 +62,6 @@ func emitInteractionTickFrame(
 		"branch_pre", p.lastInteractBranchPre,
 		"branch_post", p.lastInteractBranchPost,
 		"interacted", interactedFinal,
-		"interaction_fired", p.interactionFired,
 		"steps_taken", p.stepsTaken,
 		"repathed", p.repathed,
 		"target_still_set", p.target != nil,

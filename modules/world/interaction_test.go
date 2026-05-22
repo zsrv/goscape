@@ -248,21 +248,13 @@ func TestProcessInteractionDelayedPlayerSkipped(t *testing.T) {
 
 func TestSetInteractionResetsInteractionFired(t *testing.T) {
 	p := &Player{}
-	p.interactionFired = true
 	npc := &Npc{nid: 0, typeId: 7}
 	p.SetInteraction(InteractionEngine, npc, 1, -1)
-	if p.interactionFired {
-		t.Error("SetInteraction: interactionFired should be reset to false")
-	}
 }
 
 func TestClearInteractionResetsInteractionFired(t *testing.T) {
 	p := &Player{}
-	p.interactionFired = true
 	p.ClearInteraction()
-	if p.interactionFired {
-		t.Error("ClearInteraction: interactionFired should be reset to false")
-	}
 }
 
 // TestInOperableDistanceCheb_DefensiveFallback pins the goscape-defensive
@@ -407,7 +399,6 @@ func TestProcessInteractionRoutesToApBranch(t *testing.T) {
 	p.targetSubject.x = loc.X
 	p.targetSubject.z = loc.Z
 	p.targetSubject.level = loc.Level
-	p.interactionFired = false
 	p.apRange = 10
 	// Pre-queue path toward Loc, mirroring what MoveClick does in production.
 	// NAI-98: pathToPathingTarget is a no-op for Loc targets; path must come
@@ -1217,9 +1208,6 @@ func TestTryInteractLocAllowsOpWhenSceneryTrue(t *testing.T) {
 	if !result {
 		t.Error("tryInteract(true) on adjacent Loc with OP script: got false, want true (branch 1 OP allowed)")
 	}
-	if !p.interactionFired {
-		t.Error("interactionFired: want true after branch 1 OP fire")
-	}
 }
 
 // TestTryInteractProcessInteractionCallSites pins the two call-site semantics
@@ -1683,15 +1671,11 @@ func TestTryInteract_OpFires_AdjacentNpc_Branch1(t *testing.T) {
 	s.scriptProvider.Register(buildNpcSayScript(script.TriggerOpNpc1, npc.typeId, "branch1-fired"))
 
 	p.x, p.z = npc.x-1, npc.z
-	p.interactionFired = false // fixture sets interacted=true; reset fired flag
 
 	got := p.tryInteract(false)
 
 	if !got {
 		t.Errorf("tryInteract: got false, want true (branch 1 OP fire)")
-	}
-	if !p.interactionFired {
-		t.Errorf("p.interactionFired: got false, want true")
 	}
 }
 
@@ -1721,18 +1705,12 @@ func TestTryInteract_DoorSymptom_AdjacentLoc_OpOnly_Branch3to4(t *testing.T) {
 	if p.apRange != -1 {
 		t.Errorf("p.apRange: got %d, want -1 (TS Player.ts:1174)", p.apRange)
 	}
-	if p.interactionFired {
-		t.Errorf("p.interactionFired: got true, want false (branch 3 returned without firing)")
-	}
 
 	// Post-step: branch 1 fires (allowOpScenery=true).
 	// interactionFired=true is the operative signal that OP fired.
 	postGot := p.tryInteract(true)
 	if !postGot {
 		t.Errorf("post-step tryInteract(true): got false, want true (TS branch 1 OP fire)")
-	}
-	if !p.interactionFired {
-		t.Errorf("p.interactionFired (post-step): got false, want true (door symptom regression — OP must fire)")
 	}
 }
 
@@ -1761,9 +1739,6 @@ func TestTryInteract_AdjacentLoc_BothScripts_Branch2(t *testing.T) {
 
 	if !got {
 		t.Errorf("tryInteract: got false, want true (branch 2 AP fire)")
-	}
-	if !p.interactionFired {
-		t.Errorf("p.interactionFired: got false, want true")
 	}
 	// AP script found → apRange stays at 10 (not reset to -1 sentinel).
 	// If OP had fired instead, apRange would still be 10 too, but branch 1
@@ -1801,7 +1776,6 @@ func TestTryInteract_AdjacentNpc_NoScripts_Branch4(t *testing.T) {
 	}
 	npc := NewNpc(0, 7, 101, 100, 0, npcType) // adjacent: distance=1, operable
 	p.SetInteraction(InteractionEngine, npc, 1, -1)
-	p.interactionFired = false
 
 	got := p.tryInteract(false)
 	if !got {
@@ -1837,9 +1811,6 @@ func TestTryInteract_NAI69_AprangeRetry_PreservedInBranch2(t *testing.T) {
 	}
 	if !p.apRangeCalled {
 		t.Errorf("p.apRangeCalled: got false, want true")
-	}
-	if p.interactionFired {
-		t.Errorf("p.interactionFired: got true, want false (NAI-69 — reset for retry)")
 	}
 }
 
@@ -2798,33 +2769,6 @@ func TestPlayer_InOperableDistance_Obj_CrossLevel(t *testing.T) {
 	obj := entitypkg.NewObj(1 /*level=1*/, 3200, 3200, entitypkg.LifecycleDespawn, 558, 1)
 	if inOperableDistance(p, obj) {
 		t.Fatalf("expected inOperableDistance false on cross-level Obj")
-	}
-}
-
-// TestProcessInteraction_InteractionFiredResetAtTickStart pins the
-// per-tick freshness of p.interactionFired. The flag is a Go-only
-// addition (NAI-44 T4 refactor); TS Engine-TS Player.ts has no
-// equivalent — TS branch 1's OP fire is unconditional every tick.
-// Reset must happen at the top of processInteraction so it cannot
-// leak across ticks; without this, fireOpTriggerNpc's trailing
-// `p.interactionFired = true` would persist into the next tick's
-// tryInteract branch 1 gate (`if !p.interactionFired { fire }`),
-// blocking re-fire even when content scripts re-anchor via p_opnpc.
-func TestProcessInteraction_InteractionFiredResetAtTickStart(t *testing.T) {
-	s := newTestServer(t)
-	p, wait := makeInteractionPlayer(t, s, 100, 100, 0)
-	defer wait()
-	_ = s
-
-	// Simulate end-of-previous-tick state. p.target stays nil so
-	// processInteraction's early-return path isolates the reset
-	// behaviour (no fire side effects).
-	p.interactionFired = true
-
-	p.processInteraction()
-
-	if p.interactionFired {
-		t.Error("interactionFired persisted across processInteraction; expected reset to false at tick start (TS has no equivalent flag — semantics are 'fresh per tick')")
 	}
 }
 

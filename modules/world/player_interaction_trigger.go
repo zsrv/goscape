@@ -50,7 +50,6 @@ func fireOpTriggerPlayer(p *Player, srv *Server, target *Player) {
 	apTrigger, ok := apPlayerTriggerForOp(p.targetOp)
 	if !ok {
 		p.ClearInteraction()
-		p.interactionFired = true
 		return
 	}
 	trigger := apTrigger + 7 // APPLAYER → OPPLAYER offset
@@ -67,7 +66,6 @@ func fireOpTriggerPlayer(p *Player, srv *Server, target *Player) {
 	// non-tryInteract callers and as a goscape belt-and-braces.
 	if sf == nil {
 		p.ClearInteraction()
-		p.interactionFired = true
 		return
 	}
 
@@ -85,7 +83,6 @@ func fireOpTriggerPlayer(p *Player, srv *Server, target *Player) {
 	p.nextTarget = p.target
 	p.target = savedTarget
 
-	p.interactionFired = true
 }
 
 // fireApTriggerPlayer fires the [applayer<op>,_] trigger at approach
@@ -109,7 +106,6 @@ func fireApTriggerPlayer(p *Player, srv *Server, target *Player) {
 	trigger, ok := apPlayerTriggerForOp(p.targetOp)
 	if !ok {
 		p.ClearInteraction()
-		p.interactionFired = true
 		return
 	}
 
@@ -148,5 +144,4 @@ func fireApTriggerPlayer(p *Player, srv *Server, target *Player) {
 		p.waypointIndex = savedIdx
 	}
 
-	p.interactionFired = true
 }

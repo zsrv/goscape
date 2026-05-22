@@ -124,9 +124,6 @@ func TestFireOpTriggerPlayer_BindsSelf2ToTarget(t *testing.T) {
 	if !bytes.Equal(got, want) {
 		t.Errorf("HINT_ARROW wire bytes: got %#x, want %#x", got, want)
 	}
-	if !clicker.interactionFired {
-		t.Error("interactionFired: got false, want true after fire")
-	}
 }
 
 // TestFireOpTriggerPlayer_NoScriptRegistered — empty provider + Player
@@ -138,9 +135,6 @@ func TestFireOpTriggerPlayer_NoScriptRegistered(t *testing.T) {
 
 	if clicker.target != nil {
 		t.Errorf("target: expected cleared on no-script-found; got %v", clicker.target)
-	}
-	if !clicker.interactionFired {
-		t.Error("interactionFired: got false, want true")
 	}
 }
 
@@ -293,9 +287,6 @@ func TestFireApTriggerPlayerRestoresTargetAndWaypoints(t *testing.T) {
 	if clicker.waypoints[3] != 0x0EADBEEF {
 		t.Errorf("clicker.waypoints[3]: got 0x%X, want 0x0EADBEEF", clicker.waypoints[3])
 	}
-	if !clicker.interactionFired {
-		t.Error("interactionFired: want true after AP-Player fire")
-	}
 }
 
 // --- NAI-70: AP-Player Self=clicker binding pin ---
@@ -335,9 +326,6 @@ func TestFireApTriggerPlayer_ApRangeCalled_BindsToClicker(t *testing.T) {
 	fireApTriggerPlayer(clicker, s, target)
 
 	// Uniform-exit contract from NAI-69 T1+T2 (works for AP-Player too):
-	if !clicker.interactionFired {
-		t.Error("clicker.interactionFired: got false, want true (NAI-69: fire helper uniform exit)")
-	}
 	if clicker.target != target {
 		t.Errorf("clicker.target: got %v, want target (restored after fire)", clicker.target)
 	}
@@ -400,9 +388,6 @@ func TestTryInteract_ApPlayer_SameTickRetryActivates(t *testing.T) {
 	// NAI-69 T1 guard fires under the realigned binding:
 	if result {
 		t.Error("tryInteract: got true, want false (NAI-70 + NAI-69 T1: guard fires; clicker.apRangeCalled=true)")
-	}
-	if clicker.interactionFired {
-		t.Error("clicker.interactionFired: got true, want false (guard reset for retry)")
 	}
 	if !clicker.apRangeCalled {
 		t.Error("clicker.apRangeCalled: got false, want true (Self=clicker; p_aprange mutated clicker)")
@@ -473,9 +458,6 @@ func TestApTriggerPlayer_SameTickRetry_FullCycle(t *testing.T) {
 	if !clicker.apRangeCalled {
 		t.Fatal("after first fire: clicker.apRangeCalled false, want true (Self=clicker; p_aprange ran)")
 	}
-	if clicker.interactionFired {
-		t.Fatal("after first fire: clicker.interactionFired true, want false (guard reset)")
-	}
 	if clicker.apRange != 2 {
 		t.Fatalf("after first fire: clicker.apRange=%d, want 2 (script-set)", clicker.apRange)
 	}
@@ -503,9 +485,6 @@ func TestApTriggerPlayer_SameTickRetry_FullCycle(t *testing.T) {
 	// stays false (reset by call-1 guard, not touched by call 2).
 	if !clicker.apRangeCalled {
 		t.Error("after walk + call 2: clicker.apRangeCalled false, want true (carried from call 1; no fire on call 2)")
-	}
-	if clicker.interactionFired {
-		t.Error("after walk + call 2: clicker.interactionFired true, want false (call-1 guard reset persists; no fire on call 2)")
 	}
 	// NAI-68 restore from call 1 still holds; call 2 took neither arm so
 	// no further save/restore happened.

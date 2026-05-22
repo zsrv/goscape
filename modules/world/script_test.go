@@ -1506,9 +1506,6 @@ func TestOpPlayer1_E2E_HintPlOnClicker(t *testing.T) {
 	if !bytes.Equal(got, want) {
 		t.Errorf("HINT_ARROW wire bytes: got %#x, want %#x", got, want)
 	}
-	if !clicker.interactionFired {
-		t.Error("interactionFired: got false, want true after fire")
-	}
 }
 
 // TestResumeOrFinishWorldSuspendedClearsActiveScript pins NAI-155 Fix B:
