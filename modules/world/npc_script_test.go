@@ -537,6 +537,37 @@ func TestBuildNpcScriptStateDispatchesOtherActiveNpc(t *testing.T) {
 	}
 }
 
+// TestBuildNpcScriptStateSetsPlayerLookup pins the PlayerLookup wiring
+// that NPC-anchored scripts depend on when they call `finduid` or
+// `p_finduid` to rebind an active player. Without this, the entire
+// content retaliation chain breaks:
+//   - Player attacks NPC → ~npc_retaliate(0) writes %npc_aggressive_player
+//     and queues TriggerAiQueue1 on the NPC.
+//   - Next tick's processNpcQueue fires [ai_queue1,_] →
+//     gosub(npc_default_retaliate).
+//   - npc_default_retaliate calls finduid(%npc_aggressive_player) to
+//     bind the attacking player as state.Self, so npc_setmode(opplayer2)
+//     can route the NPC's interaction at that player.
+//   - handleFindUID returns 0 early when state.PlayerLookup == nil, so
+//     the retaliate proc falls into its `if (finduid(...) = false ...)`
+//     branch and returns without setting npc mode. NPC never attacks
+//     back.
+//
+// The PARALLEL wiring on the player path is at modules/world/script.go:62
+// (`state.PlayerLookup = s` inside buildPlayerScriptState). The NPC path
+// needs the same line so finduid resolves from any NPC-anchored script.
+func TestBuildNpcScriptStateSetsPlayerLookup(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForScriptTest(t)
+	sf := &script.ScriptFile{Name: "noop"}
+
+	state := s.buildNpcScriptState(sf, n, nil, script.TriggerAiQueue1, nil, nil)
+
+	if state.PlayerLookup == nil {
+		t.Error("state.PlayerLookup: nil, want non-nil (NPC scripts calling finduid/p_finduid depend on this — see npc_default_retaliate)")
+	}
+}
+
 // TestBuildNpcScriptStateNilTargetSetsNoSecondaryPointer — nil target
 // must leave all secondary pointer flags clear (only PtrActiveNpc is
 // set by the primary NPC wiring). Covers AI_TIMER/DESPAWN/QUEUE* paths.

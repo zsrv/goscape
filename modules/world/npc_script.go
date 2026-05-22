@@ -346,6 +346,13 @@ func (s *Server) buildNpcScriptState(
 	state.Inv = s.invLookup
 	state.LocOps = s.locOps
 	state.Npcs = s.npcLookup
+	// NPC-anchored scripts need PlayerLookup to resolve UIDs via finduid /
+	// p_finduid. Without it, content-driven NPC retaliation breaks:
+	// [ai_queue1,_] gosub(npc_default_retaliate) calls finduid on the
+	// stored %npc_aggressive_player UID; nil PlayerLookup makes finduid
+	// short-circuit to 0 and the proc returns before npc_setmode(opplayer2)
+	// runs. Mirrors buildPlayerScriptState at modules/world/script.go:62.
+	state.PlayerLookup = s
 	state.LineValidator = s.scriptLineValidator()
 
 	switch t := target.(type) {
