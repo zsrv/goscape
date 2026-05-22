@@ -728,8 +728,8 @@ func TestNpcTeleport_NilServerNoOp(t *testing.T) {
 
 // TestNpcTeleport_FocusFromDirection pins NAI-65 D3-NPC. Teleport from
 // (3200, 3200, 0) to (3300, 3300, 0) for a size=1 NPC: dir=NE, moveX=3301,
-// moveZ=3301. faceAngleX = Fine(3301, 1) = 3301*64 + 31 = 211295.
-// Mirrors TS PathingEntity.ts:286-289.
+// moveZ=3301. faceAngleX = Fine(3301, 1) = 3301*2 + 1 = 6603.
+// Mirrors TS PathingEntity.ts:286-289 + TS CoordGrid.ts:125-127.
 func TestNpcTeleport_FocusFromDirection(t *testing.T) {
 	s := newTestServer(t)
 	n := &Npc{nid: 0, typeId: 0, x: 3200, z: 3200, level: 0, size: 1, startX: 3200, startZ: 3200, startLevel: 0, faceAngleX: -1, faceAngleZ: -1}
@@ -739,8 +739,8 @@ func TestNpcTeleport_FocusFromDirection(t *testing.T) {
 
 	n.Teleport(3300, 3300, 0)
 
-	wantX := 3301*64 + 31
-	wantZ := 3301*64 + 31
+	wantX := 3301*2 + 1
+	wantZ := 3301*2 + 1
 	if n.faceAngleX != wantX {
 		t.Errorf("faceAngleX after Teleport(NE): got %d, want %d (Fine(3301, 1))", n.faceAngleX, wantX)
 	}
@@ -750,8 +750,8 @@ func TestNpcTeleport_FocusFromDirection(t *testing.T) {
 }
 
 // TestNpcTeleport_FocusSize2 pins the size>1 path so a refactor that drops
-// `n.size` to a literal `1` regresses. Fine(3301, 2) = 3301*64 + (2*64-1)/2
-// = 211264 + 63 = 211327.
+// `n.size` to a literal `1` regresses. Fine(3301, 2) = 3301*2 + 2 = 6604
+// (TS CoordGrid.fine = pos*2 + size).
 func TestNpcTeleport_FocusSize2(t *testing.T) {
 	s := newTestServer(t)
 	n := &Npc{nid: 0, typeId: 0, x: 3200, z: 3200, level: 0, size: 2, startX: 3200, startZ: 3200, startLevel: 0, faceAngleX: -1, faceAngleZ: -1}
@@ -761,8 +761,8 @@ func TestNpcTeleport_FocusSize2(t *testing.T) {
 
 	n.Teleport(3300, 3300, 0)
 
-	wantX := 3301*64 + 63
-	wantZ := 3301*64 + 63
+	wantX := 3301*2 + 2
+	wantZ := 3301*2 + 2
 	if n.faceAngleX != wantX {
 		t.Errorf("size=2 faceAngleX: got %d, want %d (Fine(3301, 2))", n.faceAngleX, wantX)
 	}
@@ -784,7 +784,7 @@ func TestNpcTeleport_InPlaceFocusUsesSelfCenter(t *testing.T) {
 
 	n.Teleport(3200, 3200, 0)
 
-	wantSelf := 3200*64 + 31
+	wantSelf := 3200*2 + 1
 	if n.faceAngleX != wantSelf {
 		t.Errorf("in-place faceAngleX: got %d, want %d (Fine(3200, 1) self-center)", n.faceAngleX, wantSelf)
 	}

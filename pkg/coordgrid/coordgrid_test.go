@@ -90,16 +90,20 @@ func TestZoneIndexDistinguishesLevels(t *testing.T) {
 }
 
 func TestFine(t *testing.T) {
-	// TS CoordGrid.fine(coord, size): coord*64 + (size*64 - 1) / 2.
-	// For a 1x1 entity at tile 100: fine = 100*64 + 31 = 6431.
+	// TS CoordGrid.fine(pos, size) = pos * 2 + size (Engine-TS
+	// src/engine/CoordGrid.ts:125-127). For a 1x1 entity at tile 100,
+	// fine = 100*2 + 1 = 201. Wire format is 16-bit; any pos up to the
+	// RS2 14-bit map dimension cap (~16383) yields a value that fits.
 	tests := []struct {
 		name       string
 		coord, siz int
 		want       int
 	}{
-		{"1x1 at 0", 0, 1, 31},
-		{"1x1 at 100", 100, 1, 6431},
-		{"2x2 at 0", 0, 2, 63},
+		{"1x1 at 0", 0, 1, 1},
+		{"1x1 at 100", 100, 1, 201},
+		{"1x1 at 3200", 3200, 1, 6401}, // typical Lumbridge tile; fits uint16
+		{"2x2 at 0", 0, 2, 2},
+		{"2x2 at 100", 100, 2, 202},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

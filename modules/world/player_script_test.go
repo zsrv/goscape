@@ -1662,8 +1662,8 @@ func TestPlayerFocusWritesFaceAngleAlwaysAndFaceSquareOnInstant(t *testing.T) {
 
 // TestPlayerTeleport_FocusFromDirection pins NAI-65 D3-Player. Teleport
 // from (3200, 3200, 0) to (3300, 3300, 0): direction is NE, so MoveX/MoveZ
-// each return prevDest+1. faceAngleX = Fine(3301, 1) = 3301*64 + (1*64-1)/2
-// = 211264 + 31 = 211295. Mirrors TS PathingEntity.ts:286-289.
+// each return prevDest+1. faceAngleX = Fine(3301, 1) = 3301*2 + 1 = 6603.
+// Mirrors TS PathingEntity.ts:286-289 + TS CoordGrid.ts:125-127.
 func TestPlayerTeleport_FocusFromDirection(t *testing.T) {
 	s := newTestServer(t)
 	c, _ := newTestClient(t)
@@ -1678,8 +1678,8 @@ func TestPlayerTeleport_FocusFromDirection(t *testing.T) {
 
 	p.Teleport(3300, 3300, 0)
 
-	wantX := 3301*64 + 31
-	wantZ := 3301*64 + 31
+	wantX := 3301*2 + 1
+	wantZ := 3301*2 + 1
 	if p.faceAngleX != wantX {
 		t.Errorf("faceAngleX after Teleport(NE): got %d, want %d (Fine(3301, 1))", p.faceAngleX, wantX)
 	}
@@ -1730,7 +1730,7 @@ func TestPlayerTeleport_InPlaceFocusUsesSelfCenter(t *testing.T) {
 
 	p.Teleport(3200, 3200, 0)
 
-	wantSelf := 3200*64 + 31
+	wantSelf := 3200*2 + 1
 	if p.faceAngleX != wantSelf {
 		t.Errorf("in-place faceAngleX: got %d, want %d (Fine(3200, 1) self-center)", p.faceAngleX, wantSelf)
 	}

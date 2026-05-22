@@ -58,13 +58,13 @@ func TestPlayerReorientPathingTargetNpc(t *testing.T) {
 
 // TestPlayerReorientPathingTargetNpcSize2 pins the size>1 path. Without
 // the Fix 1 production change Fine(t.x, 1) would be returned instead of
-// Fine(t.x, 2), exposing a 32-fine-unit centre-offset error.
+// Fine(t.x, 2), exposing a 1-fine-unit centre-offset error.
 func TestPlayerReorientPathingTargetNpcSize2(t *testing.T) {
 	s := newTestServer(t)
 	p, wait := makeInteractionPlayer(t, s, 100, 100, 0)
 	defer wait()
 	npc := makeInteractionNpc(t, s, 1, 105, 108, 0)
-	npc.size = 2 // size-2 NPC: Fine(x, 2) = x*64+63, not x*64+31
+	npc.size = 2 // size-2 NPC: Fine(x, 2) = x*2+2, not x*2+1
 
 	p.target = npc
 

@@ -58,7 +58,7 @@ func TestNpcReorientPathingTargetNpcSize2(t *testing.T) {
 	s := newTestServer(t)
 	npc := makeInteractionNpc(t, s, 1, 100, 100, 0)
 	other := makeInteractionNpc(t, s, 2, 105, 108, 0)
-	other.size = 2 // size-2 target: Fine(x, 2) = x*64+63
+	other.size = 2 // size-2 target: Fine(x, 2) = x*2+2
 
 	npc.target = other
 

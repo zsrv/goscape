@@ -2800,3 +2800,57 @@ func TestPlayer_InOperableDistance_Obj_CrossLevel(t *testing.T) {
 		t.Fatalf("expected inOperableDistance false on cross-level Obj")
 	}
 }
+
+// TestSetInteractionLoc_FaceSquareUsesTSFineScale reproduces the user-
+// reported bug "the player faces the wrong way when interacting with an
+// object (like a tree)". The fine-grained centre coord that drives the
+// face-coord mask is sent to the client as a 16-bit value
+// (pkg/rsbuf/mask_payload.go: writeFaceCoord uses uint16). TS
+// CoordGrid.fine produces `pos*2 + size`; for a 1x1 tree at world
+// X=3201 that is 6403 which fits cleanly in uint16. The Go port
+// originally shipped Fine() as `coord*64 + (size*64-1)/2` (NAI-11,
+// commit 98fb2e11) — a 32x-too-large value that silently truncated
+// through uint16 and rendered as a random direction on the client.
+//
+// Pins:
+//   - faceSquareX equals coordgrid.Fine(tree.x, 1) (a single source of truth).
+//   - The resulting value fits inside uint16 with no truncation,
+//     i.e. uint16(faceSquareX) == faceSquareX as ints.
+//   - For typical-RS2 tile coords (~3200), the value is in the 6000-7000
+//     band, matching the TS scale; sanity-check upper bound rules out
+//     the broken *64-scale regression.
+func TestSetInteractionLoc_FaceSquareUsesTSFineScale(t *testing.T) {
+	s := newTestServer(t)
+	p, wait := makeInteractionPlayer(t, s, 3200, 3200, 0)
+	defer wait()
+
+	// Tree (1x1 loc) one tile east of the player.
+	tree := entitypkg.NewLoc(0, 3201, 3200, 1, 1, entitypkg.LifecycleForever, 42, 10, 0)
+
+	p.SetInteraction(InteractionEngine, tree, 1, -1)
+
+	wantX := coordgrid.Fine(3201, 1) // TS: 3201*2 + 1 = 6403
+	wantZ := coordgrid.Fine(3200, 1) // TS: 3200*2 + 1 = 6401
+
+	if p.faceSquareX != wantX {
+		t.Errorf("faceSquareX: got %d, want %d (Fine(3201, 1))", p.faceSquareX, wantX)
+	}
+	if p.faceSquareZ != wantZ {
+		t.Errorf("faceSquareZ: got %d, want %d (Fine(3200, 1))", p.faceSquareZ, wantZ)
+	}
+	// 16-bit wire-fit invariant: round-tripping through uint16 must be
+	// lossless. Catches a regression to `coord*64+(size*64-1)/2` (which
+	// would produce ~204895 here and wrap silently).
+	if int(uint16(p.faceSquareX)) != p.faceSquareX {
+		t.Errorf("faceSquareX %d does not survive uint16 round-trip (wire-truncation regression)", p.faceSquareX)
+	}
+	if int(uint16(p.faceSquareZ)) != p.faceSquareZ {
+		t.Errorf("faceSquareZ %d does not survive uint16 round-trip (wire-truncation regression)", p.faceSquareZ)
+	}
+	// MaskFaceCoord must be set so the client actually receives the
+	// rotation (instant=true branch in focus, gated on
+	// NonPathingEntity + InteractionEngine).
+	if p.masks&rsbuf.MaskFaceCoord == 0 {
+		t.Errorf("masks: MaskFaceCoord bit not set after SetInteraction with engine loc click")
+	}
+}

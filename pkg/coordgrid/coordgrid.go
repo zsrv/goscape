@@ -121,11 +121,20 @@ func DistanceTo(posX, posZ, posWidth, posLength, otherX, otherZ, otherWidth, oth
 	return int(max(math.Abs(float64(p1X-p2X)), math.Abs(float64(p1Z-p2Z))))
 }
 
-// Fine converts a coarse-grained tile coord + size to the fine-grained
-// centre coord used by the face-angle mask. Mirrors TS CoordGrid.fine:
-// coord*64 + (size*64 - 1) / 2.
+// Fine converts a tile coord + size to the fine-grained centre coord
+// used by the face-coord / face-angle masks. Mirrors TS CoordGrid.fine
+// at Engine-TS/src/engine/CoordGrid.ts:125-127:
+//
+//	fine(pos, size) = pos * 2 + size
+//
+// The result is what the client receives on the wire as 16-bit
+// faceSquareX/Z; for a 1x1 entity at tile X=3200 the centre is 6401.
+// Originally (NAI-11) this was implemented as `coord*64 + (size*64-1)/2`
+// — a confusion with the renderer-side sub-tile scale that produced
+// values 32× too large, silently truncated through uint16 on the wire
+// and rendered as nonsensical face directions.
 func Fine(coord, size int) int {
-	return coord*64 + (size*64-1)/2
+	return coord*2 + size
 }
 
 func DistanceToSW(posX, posZ, otherX, otherZ int) int {
