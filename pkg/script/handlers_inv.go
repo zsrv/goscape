@@ -18,6 +18,38 @@ func resolveInv(s *ScriptState, typeID int) *inventory.Inventory {
 	return s.Inv.Get(s.Self, typeID)
 }
 
+// selectProtectedActivePlayerSlot returns the slot-routed protect-flag
+// for the current opcode's intOperand, mirroring TS's
+// `ProtectedActivePlayer[state.intOperand]` (ScriptPointer.ts:39) — a
+// 2-element array indexed by operand. operand=0 selects slot-0
+// (PtrProtectedActivePlayer), operand=1 selects slot-1
+// (PtrProtectedActivePlayer2). Out-of-range operands error per parity
+// with handleInvDropItemDelayed (TS array-index `undefined` →
+// pointerGet returns falsy → gate fires; goscape surfaces this as a
+// hard error since the operand is opcode-author input and out-of-range
+// is unreachable from valid bytecode).
+//
+// NAI-133 sibling: BOTH_MOVEINV and BOTH_DROPSLOT already route via
+// intOperand. This helper unifies the per-handler inline gate in the
+// 13 single-player INV-write opcodes (INV_ADD, INV_CHANGESLOT,
+// INV_CLEAR, INV_DEL, INV_DELSLOT, INV_DROPITEM, INV_DROPSLOT,
+// INV_MOVEFROMSLOT, INV_MOVEITEM, INV_MOVEITEM_CERT, INV_MOVEITEM_UNCERT,
+// INV_MOVETOSLOT, INV_SETSLOT). Pre-fix all 13 hardcoded slot-0,
+// silently dropping the operand=1 routing TS specifies at InvOps.ts:64,
+// 91, 119, 136, 149, 172, 220, 329, 333, 359, 363, 507, 511, 543, 547,
+// 578, 582, 607.
+func selectProtectedActivePlayerSlot(s *ScriptState, op string) (Pointer, error) {
+	operand := s.Script.IntOperands[s.PC]
+	switch operand {
+	case 0:
+		return PtrProtectedActivePlayer, nil
+	case 1:
+		return PtrProtectedActivePlayer2, nil
+	default:
+		return 0, fmt.Errorf("%s: invalid intOperand %d", op, operand)
+	}
+}
+
 // -- Reads --
 
 // handleInvTotal (INV_TOTAL) pops [inv, obj] and pushes the total count
@@ -411,9 +443,18 @@ func performInvAdd(s *ScriptState, typeID, obj, count int, op string) error {
 	invType := s.Configs.InvType(typeID)
 	objType := s.Configs.ObjType(obj)
 
-	// TS InvOps.ts:64-66 — protect/scope gate.
-	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared && s.Pointers&PtrProtectedActivePlayer == 0 {
-		return fmt.Errorf("%s: $inv requires protected access: %s", op, invType.DebugName)
+	// TS InvOps.ts:64-66 — protect/scope gate, slot-routed by intOperand
+	// (NAI-133 sibling). OBJ_TAKEITEM also routes here; its invType has
+	// Protect=false in realistic call shapes so the gate is a no-op
+	// regardless of operand.
+	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared {
+		protectFlag, err := selectProtectedActivePlayerSlot(s, op)
+		if err != nil {
+			return err
+		}
+		if s.Pointers&protectFlag == 0 {
+			return fmt.Errorf("%s: $inv requires protected access: %s", op, invType.DebugName)
+		}
 	}
 
 	// TS InvOps.ts:68-70 — dummyitem-in-non-dummyinv gate.
@@ -502,8 +543,14 @@ func handleInvDel(s *ScriptState) error {
 	}
 
 	invType := s.Configs.InvType(typeID)
-	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared && s.Pointers&PtrProtectedActivePlayer == 0 {
-		return fmt.Errorf("INV_DEL: $inv requires protected access: %s", invType.DebugName)
+	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared {
+		protectFlag, err := selectProtectedActivePlayerSlot(s, "INV_DEL")
+		if err != nil {
+			return err
+		}
+		if s.Pointers&protectFlag == 0 {
+			return fmt.Errorf("INV_DEL: $inv requires protected access: %s", invType.DebugName)
+		}
 	}
 
 	inv := resolveInv(s, typeID)
@@ -531,8 +578,14 @@ func handleInvDelSlot(s *ScriptState) error {
 	}
 
 	invType := s.Configs.InvType(typeID)
-	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared && s.Pointers&PtrProtectedActivePlayer == 0 {
-		return fmt.Errorf("INV_DELSLOT: $inv requires protected access: %s", invType.DebugName)
+	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared {
+		protectFlag, err := selectProtectedActivePlayerSlot(s, "INV_DELSLOT")
+		if err != nil {
+			return err
+		}
+		if s.Pointers&protectFlag == 0 {
+			return fmt.Errorf("INV_DELSLOT: $inv requires protected access: %s", invType.DebugName)
+		}
 	}
 
 	inv := resolveInv(s, typeID)
@@ -573,8 +626,14 @@ func handleInvSetSlot(s *ScriptState) error {
 	invType := s.Configs.InvType(typeID)
 	objType := s.Configs.ObjType(obj)
 
-	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared && s.Pointers&PtrProtectedActivePlayer == 0 {
-		return fmt.Errorf("INV_SETSLOT: $inv requires protected access: %s", invType.DebugName)
+	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared {
+		protectFlag, err := selectProtectedActivePlayerSlot(s, "INV_SETSLOT")
+		if err != nil {
+			return err
+		}
+		if s.Pointers&protectFlag == 0 {
+			return fmt.Errorf("INV_SETSLOT: $inv requires protected access: %s", invType.DebugName)
+		}
 	}
 
 	if !invType.DummyInv && objType.DummyItem != 0 {
@@ -604,8 +663,14 @@ func handleInvClear(s *ScriptState) error {
 	}
 
 	invType := s.Configs.InvType(typeID)
-	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared && s.Pointers&PtrProtectedActivePlayer == 0 {
-		return fmt.Errorf("INV_CLEAR: $inv requires protected access: %s", invType.DebugName)
+	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared {
+		protectFlag, err := selectProtectedActivePlayerSlot(s, "INV_CLEAR")
+		if err != nil {
+			return err
+		}
+		if s.Pointers&protectFlag == 0 {
+			return fmt.Errorf("INV_CLEAR: $inv requires protected access: %s", invType.DebugName)
+		}
 	}
 
 	inv := resolveInv(s, typeID)
@@ -653,13 +718,26 @@ func handleInvMoveItem(s *ScriptState) error {
 	fromInvType := s.Configs.InvType(fromTypeID)
 	toInvType := s.Configs.InvType(toTypeID)
 
-	// TS InvOps.ts:507-509 — from-protect gate uses fromInv.scope.
-	if fromInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared && s.Pointers&PtrProtectedActivePlayer == 0 {
-		return fmt.Errorf("INV_MOVEITEM: $inv requires protected access: %s", fromInvType.DebugName)
+	// TS InvOps.ts:507-509 — from-protect gate uses fromInv.scope, slot
+	// routed by intOperand (NAI-133 sibling).
+	if fromInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared {
+		protectFlag, err := selectProtectedActivePlayerSlot(s, "INV_MOVEITEM")
+		if err != nil {
+			return err
+		}
+		if s.Pointers&protectFlag == 0 {
+			return fmt.Errorf("INV_MOVEITEM: $inv requires protected access: %s", fromInvType.DebugName)
+		}
 	}
 	// TS InvOps.ts:511-513 — to-protect gate ALSO uses fromInv.scope (DEVIATION-NAI-131-D1).
-	if toInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared && s.Pointers&PtrProtectedActivePlayer == 0 {
-		return fmt.Errorf("INV_MOVEITEM: $inv requires protected access: %s", toInvType.DebugName)
+	if toInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared {
+		protectFlag, err := selectProtectedActivePlayerSlot(s, "INV_MOVEITEM")
+		if err != nil {
+			return err
+		}
+		if s.Pointers&protectFlag == 0 {
+			return fmt.Errorf("INV_MOVEITEM: $inv requires protected access: %s", toInvType.DebugName)
+		}
 	}
 
 	fromInv := resolveInv(s, fromTypeID)
@@ -710,11 +788,23 @@ func handleInvMoveFromSlot(s *ScriptState) error {
 	fromInvType := s.Configs.InvType(fromTypeID)
 	toInvType := s.Configs.InvType(toTypeID)
 
-	if fromInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared && s.Pointers&PtrProtectedActivePlayer == 0 {
-		return fmt.Errorf("INV_MOVEFROMSLOT: $inv requires protected access: %s", fromInvType.DebugName)
+	if fromInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared {
+		protectFlag, err := selectProtectedActivePlayerSlot(s, "INV_MOVEFROMSLOT")
+		if err != nil {
+			return err
+		}
+		if s.Pointers&protectFlag == 0 {
+			return fmt.Errorf("INV_MOVEFROMSLOT: $inv requires protected access: %s", fromInvType.DebugName)
+		}
 	}
-	if toInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared && s.Pointers&PtrProtectedActivePlayer == 0 {
-		return fmt.Errorf("INV_MOVEFROMSLOT: $inv requires protected access: %s", toInvType.DebugName)
+	if toInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared {
+		protectFlag, err := selectProtectedActivePlayerSlot(s, "INV_MOVEFROMSLOT")
+		if err != nil {
+			return err
+		}
+		if s.Pointers&protectFlag == 0 {
+			return fmt.Errorf("INV_MOVEFROMSLOT: $inv requires protected access: %s", toInvType.DebugName)
+		}
 	}
 
 	fromInv := resolveInv(s, fromTypeID)
@@ -871,14 +961,25 @@ func handleInvDropSlot(s *ScriptState) error {
 		return err
 	}
 
-	// Protect gate: conditional on InvType protect + scope.
+	// Protect gate: conditional on InvType protect + scope, slot-routed by
+	// intOperand (NAI-133 sibling). The active-player gate always uses
+	// slot-0 (TS InvOps.ts:213-260 references `state.activePlayer`
+	// throughout, never `_activePlayer2`); only the protect-flag check
+	// swaps between PtrProtectedActivePlayer (operand=0) and
+	// PtrProtectedActivePlayer2 (operand=1). Inline shape matches the
+	// other 12 INV-write opcodes (NAI-133 unification) and avoids the
+	// requireProtectedActivePlayer2 chain that would erroneously assert
+	// PtrActivePlayer2 / Self2.
+	if err := requireActivePlayer(s, "INV_DROPSLOT"); err != nil {
+		return err
+	}
 	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared {
-		if err := requireProtectedActivePlayer(s, "INV_DROPSLOT"); err != nil {
+		protectFlag, err := selectProtectedActivePlayerSlot(s, "INV_DROPSLOT")
+		if err != nil {
 			return err
 		}
-	} else {
-		if err := requireActivePlayer(s, "INV_DROPSLOT"); err != nil {
-			return err
+		if s.Pointers&protectFlag == 0 {
+			return fmt.Errorf("INV_DROPSLOT: $inv requires protected access: %s", invType.DebugName)
 		}
 	}
 
@@ -984,13 +1085,26 @@ func handleInvMoveToSlot(s *ScriptState) error {
 	fromInvType := s.Configs.InvType(fromTypeID)
 	toInvType := s.Configs.InvType(toTypeID)
 
-	// TS InvOps.ts:359-361 — from-protect gate uses fromInvType.Scope.
-	if fromInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared && s.Pointers&PtrProtectedActivePlayer == 0 {
-		return fmt.Errorf("INV_MOVETOSLOT: $inv requires protected access: %s", fromInvType.DebugName)
+	// TS InvOps.ts:359-361 — from-protect gate uses fromInvType.Scope,
+	// slot-routed by intOperand (NAI-133 sibling).
+	if fromInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared {
+		protectFlag, err := selectProtectedActivePlayerSlot(s, "INV_MOVETOSLOT")
+		if err != nil {
+			return err
+		}
+		if s.Pointers&protectFlag == 0 {
+			return fmt.Errorf("INV_MOVETOSLOT: $inv requires protected access: %s", fromInvType.DebugName)
+		}
 	}
 	// TS InvOps.ts:363-365 — to-protect gate ALSO uses fromInvType.Scope (DEVIATION-NAI-131-D1).
-	if toInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared && s.Pointers&PtrProtectedActivePlayer == 0 {
-		return fmt.Errorf("INV_MOVETOSLOT: $inv requires protected access: %s", toInvType.DebugName)
+	if toInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared {
+		protectFlag, err := selectProtectedActivePlayerSlot(s, "INV_MOVETOSLOT")
+		if err != nil {
+			return err
+		}
+		if s.Pointers&protectFlag == 0 {
+			return fmt.Errorf("INV_MOVETOSLOT: $inv requires protected access: %s", toInvType.DebugName)
+		}
 	}
 
 	fromInv := resolveInv(s, fromTypeID)
@@ -1047,8 +1161,14 @@ func handleInvChangeSlot(s *ScriptState) error {
 	}
 
 	invType := s.Configs.InvType(typeID)
-	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared && s.Pointers&PtrProtectedActivePlayer == 0 {
-		return fmt.Errorf("INV_CHANGESLOT: $inv requires protected access: %s", invType.DebugName)
+	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared {
+		protectFlag, err := selectProtectedActivePlayerSlot(s, "INV_CHANGESLOT")
+		if err != nil {
+			return err
+		}
+		if s.Pointers&protectFlag == 0 {
+			return fmt.Errorf("INV_CHANGESLOT: $inv requires protected access: %s", invType.DebugName)
+		}
 	}
 
 	if err := checkObjType(s, find, "INV_CHANGESLOT"); err != nil {
@@ -1115,12 +1235,24 @@ func handleInvMoveItemCert(s *ScriptState) error {
 	fromInvType := s.Configs.InvType(fromTypeID)
 	toInvType := s.Configs.InvType(toTypeID)
 
-	if fromInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared && s.Pointers&PtrProtectedActivePlayer == 0 {
-		return fmt.Errorf("INV_MOVEITEM_CERT: $inv requires protected access: %s", fromInvType.DebugName)
+	if fromInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared {
+		protectFlag, err := selectProtectedActivePlayerSlot(s, "INV_MOVEITEM_CERT")
+		if err != nil {
+			return err
+		}
+		if s.Pointers&protectFlag == 0 {
+			return fmt.Errorf("INV_MOVEITEM_CERT: $inv requires protected access: %s", fromInvType.DebugName)
+		}
 	}
 	// DEVIATION-NAI-131-D1: to-gate uses fromInvType.Scope (mirrors TS; goscape defensive label).
-	if toInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared && s.Pointers&PtrProtectedActivePlayer == 0 {
-		return fmt.Errorf("INV_MOVEITEM_CERT: $inv requires protected access: %s", toInvType.DebugName)
+	if toInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared {
+		protectFlag, err := selectProtectedActivePlayerSlot(s, "INV_MOVEITEM_CERT")
+		if err != nil {
+			return err
+		}
+		if s.Pointers&protectFlag == 0 {
+			return fmt.Errorf("INV_MOVEITEM_CERT: $inv requires protected access: %s", toInvType.DebugName)
+		}
 	}
 
 	fromInv := resolveInv(s, fromTypeID)
@@ -1195,12 +1327,24 @@ func handleInvMoveItemUncert(s *ScriptState) error {
 	fromInvType := s.Configs.InvType(fromTypeID)
 	toInvType := s.Configs.InvType(toTypeID)
 
-	if fromInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared && s.Pointers&PtrProtectedActivePlayer == 0 {
-		return fmt.Errorf("INV_MOVEITEM_UNCERT: $inv requires protected access: %s", fromInvType.DebugName)
+	if fromInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared {
+		protectFlag, err := selectProtectedActivePlayerSlot(s, "INV_MOVEITEM_UNCERT")
+		if err != nil {
+			return err
+		}
+		if s.Pointers&protectFlag == 0 {
+			return fmt.Errorf("INV_MOVEITEM_UNCERT: $inv requires protected access: %s", fromInvType.DebugName)
+		}
 	}
 	// DEVIATION-NAI-131-D1: to-gate uses fromInvType.Scope.
-	if toInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared && s.Pointers&PtrProtectedActivePlayer == 0 {
-		return fmt.Errorf("INV_MOVEITEM_UNCERT: $inv requires protected access: %s", toInvType.DebugName)
+	if toInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared {
+		protectFlag, err := selectProtectedActivePlayerSlot(s, "INV_MOVEITEM_UNCERT")
+		if err != nil {
+			return err
+		}
+		if s.Pointers&protectFlag == 0 {
+			return fmt.Errorf("INV_MOVEITEM_UNCERT: $inv requires protected access: %s", toInvType.DebugName)
+		}
 	}
 
 	fromInv := resolveInv(s, fromTypeID)
@@ -1269,8 +1413,14 @@ func handleInvDropItem(s *ScriptState) error {
 	}
 
 	invType := s.Configs.InvType(invID)
-	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared && s.Pointers&PtrProtectedActivePlayer == 0 {
-		return fmt.Errorf("INV_DROPITEM: $inv requires protected access: %s", invType.DebugName)
+	if invType.Protect && invType.Scope != objtype.InvTypeScopeShared {
+		protectFlag, err := selectProtectedActivePlayerSlot(s, "INV_DROPITEM")
+		if err != nil {
+			return err
+		}
+		if s.Pointers&protectFlag == 0 {
+			return fmt.Errorf("INV_DROPITEM: $inv requires protected access: %s", invType.DebugName)
+		}
 	}
 
 	inv := resolveInv(s, invID)

@@ -3891,3 +3891,182 @@ func TestNAI162Probe_InvDropSlot_SuppressedWhenNodeDebugFalse(t *testing.T) {
 		t.Errorf("probe records under NodeDebug=false: got %d, want 0", len(rec.records))
 	}
 }
+
+// -- NAI-133 slot routing for single-player INV-write opcodes ----------------
+//
+// These tests pin the operand=1 → PtrProtectedActivePlayer2 routing for
+// every single-player INV-write opcode that consults the protect/scope
+// gate. Pre-fix all 13 opcodes hardcoded slot-0 (PtrProtectedActivePlayer),
+// silently dropping the TS `ProtectedActivePlayer[state.intOperand]`
+// indexing (InvOps.ts:64, 91, 119, 136, 149, 172, 220, 329, 333, 359,
+// 363, 507, 511, 543, 547, 578, 582, 607).
+//
+// Strategy: for each opcode, push the TS popInts() order with the protect
+// inv as the source/target, run via a fresh Init() (so PC=0 lines up with
+// IntOperands[0]), and assert error/success on the slot-1 protect flag.
+// Sub-tests:
+//   - operand=1 + only PtrProtectedActivePlayer (slot-0) set → error
+//   - operand=1 + PtrProtectedActivePlayer2 (slot-1) set → no error
+//
+// runInvOpProtectSlot1 builds the state, sets s.Script.IntOperands[0]=1,
+// applies the requested protect-flag mask, pushes inputs, and runs Execute.
+// Returns (err, state) so the caller can inspect post-execution state.
+func runInvOpProtectSlot1(t *testing.T, op Opcode, intInputs []int, protectFlags Pointer) (error, *ScriptState) {
+	t.Helper()
+	sf := &ScriptFile{
+		Name:             "test_" + op.String(),
+		Opcodes:          []Opcode{op, OpReturn},
+		IntOperands:      []int32{1, 0}, // operand=1 at PC=0 → slot-1 routing
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	mp := &mockPlayer{
+		uidValue:    12345,
+		coordPacked: coordgrid.PackCoord(0, 3200, 3200),
+		x:           3200,
+		z:           3200,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	state.Pointers |= PtrActivePlayer | protectFlags
+	state.Inv = newTestInvLookup()
+	mc := newTestInvConfigs()
+	mc.invs[testInvMain].Protect = true // gate must fire on slot routing
+	state.Configs = mc
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+	state.World = world
+	for _, v := range intInputs {
+		state.PushInt(v)
+	}
+	return Execute(state), state
+}
+
+// invWriteOpcodeProtectSlot1Cases enumerates each single-player INV-write
+// opcode plus the TS pop-order inputs that route through the protect gate.
+// Pre-loaded items in the inventory ensure the protect gate is reached
+// (otherwise Remove/Get would short-circuit before the gate fires) — but
+// since the gate fires AFTER validators and BEFORE inv mutations, this is
+// only required for op-shapes whose validators depend on slot contents
+// (none in this set: every gate is reached purely by validator chains over
+// pushed inputs).
+//
+// INV_DROPSLOT is included even though its gate uses
+// requireProtectedActivePlayer{,2} (not the inline pattern) — the routing
+// branch is the same shape.
+func invWriteOpcodeProtectSlot1Cases() []struct {
+	name   string
+	op     Opcode
+	inputs []int
+} {
+	coord := coordgrid.PackCoord(0, 3200, 3200)
+	return []struct {
+		name   string
+		op     Opcode
+		inputs []int
+	}{
+		// TS popInts(3) [inv, obj, count]
+		{"INV_ADD", OpInvAdd, []int{testInvMain, testObjCoin, 1}},
+		// TS popInts(4) [inv, find, replace, replaceCount]
+		{"INV_CHANGESLOT", OpInvChangeSlot, []int{testInvMain, testObjCoin, testObjCoin, 1}},
+		// TS popInt() — inv only
+		{"INV_CLEAR", OpInvClear, []int{testInvMain}},
+		// TS popInts(3) [inv, obj, count]
+		{"INV_DEL", OpInvDel, []int{testInvMain, testObjCoin, 1}},
+		// TS popInts(2) [inv, slot]
+		{"INV_DELSLOT", OpInvDelSlot, []int{testInvMain, 0}},
+		// TS popInts(5) [inv, coord, obj, count, duration]
+		{"INV_DROPITEM", OpInvDropItem, []int{testInvMain, coord, testObjCoin, 1, 100}},
+		// TS popInts(4) [inv, coord, slot, duration]; slot 0 must exist
+		// for the post-gate inv.Get to succeed in success-path tests.
+		{"INV_DROPSLOT", OpInvDropSlot, []int{testInvMain, coord, 0, 100}},
+		// TS popInts(3) [fromInv, toInv, fromSlot] — fromSlot must exist
+		// for post-gate path; but gate fires first, so any slot suffices
+		// for slot-1-error case. For success case, we pre-seed below.
+		{"INV_MOVEFROMSLOT", OpInvMoveFromSlot, []int{testInvMain, testInvBank, 0}},
+		// TS popInts(4) [fromInv, toInv, obj, count]
+		{"INV_MOVEITEM", OpInvMoveItem, []int{testInvMain, testInvBank, testObjCoin, 1}},
+		// TS popInts(4) [fromInv, toInv, obj, count]
+		{"INV_MOVEITEM_CERT", OpInvMoveItemCert, []int{testInvMain, testInvBank, testObjCoin, 1}},
+		// TS popInts(4) [fromInv, toInv, obj, count]
+		{"INV_MOVEITEM_UNCERT", OpInvMoveItemUncert, []int{testInvMain, testInvBank, testObjCoin, 1}},
+		// TS popInts(4) [fromInv, toInv, fromSlot, toSlot]
+		{"INV_MOVETOSLOT", OpInvMoveToSlot, []int{testInvMain, testInvBank, 0, 0}},
+		// TS popInts(4) [inv, slot, obj, count]
+		{"INV_SETSLOT", OpInvSetSlot, []int{testInvMain, 0, testObjCoin, 1}},
+	}
+}
+
+// TestInvWriteOpcodes_ProtectGate_Operand1_RequiresSlot1Pointer pins the
+// negative branch: operand=1 + Protect=true + only slot-0 pointer set →
+// error mentioning "protected access". Pre-fix every opcode would have
+// silently passed (slot-0 set is enough under the hardcoded check).
+func TestInvWriteOpcodes_ProtectGate_Operand1_RequiresSlot1Pointer(t *testing.T) {
+	for _, tc := range invWriteOpcodeProtectSlot1Cases() {
+		t.Run(tc.name, func(t *testing.T) {
+			err, _ := runInvOpProtectSlot1(t, tc.op, tc.inputs, PtrProtectedActivePlayer)
+			if err == nil {
+				t.Fatalf("operand=1 with only slot-0 protect flag: expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), "protected access") {
+				t.Fatalf("err: got %q, want substring \"protected access\"", err)
+			}
+		})
+	}
+}
+
+// TestInvWriteOpcodes_ProtectGate_Operand1_PassesWithSlot1Pointer pins the
+// positive branch: operand=1 + Protect=true + slot-1 pointer set passes
+// the gate. (Some opcodes may return a downstream non-protect error — e.g.
+// INV_MOVEFROMSLOT errors when the source slot is empty. We accept any
+// outcome that is NOT a "protected access" error: success or downstream
+// failure both prove the gate was passed.)
+func TestInvWriteOpcodes_ProtectGate_Operand1_PassesWithSlot1Pointer(t *testing.T) {
+	for _, tc := range invWriteOpcodeProtectSlot1Cases() {
+		t.Run(tc.name, func(t *testing.T) {
+			err, _ := runInvOpProtectSlot1(t, tc.op, tc.inputs, PtrProtectedActivePlayer2)
+			if err != nil && strings.Contains(err.Error(), "protected access") {
+				t.Fatalf("operand=1 with slot-1 protect flag: gate should pass, got %q", err)
+			}
+		})
+	}
+}
+
+// TestInvWriteOpcodes_ProtectGate_BadOperand_Errors pins the
+// out-of-range operand path: operand=2 → "invalid intOperand %d" error
+// per parity with handleInvDropItemDelayed / handleBothMoveInv.
+func TestInvWriteOpcodes_ProtectGate_BadOperand_Errors(t *testing.T) {
+	for _, tc := range invWriteOpcodeProtectSlot1Cases() {
+		t.Run(tc.name, func(t *testing.T) {
+			sf := &ScriptFile{
+				Name:             "test_" + tc.op.String(),
+				Opcodes:          []Opcode{tc.op, OpReturn},
+				IntOperands:      []int32{2, 0}, // out of range
+				StringOperands:   []string{"", ""},
+				InstructionCount: 2,
+			}
+			mp := &mockPlayer{
+				uidValue:    12345,
+				coordPacked: coordgrid.PackCoord(0, 3200, 3200),
+				x:           3200,
+				z:           3200,
+			}
+			state := Init(sf, mp, false, nil, nil)
+			state.Pointers |= PtrActivePlayer | PtrProtectedActivePlayer | PtrProtectedActivePlayer2
+			state.Inv = newTestInvLookup()
+			mc := newTestInvConfigs()
+			mc.invs[testInvMain].Protect = true
+			state.Configs = mc
+			world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+			state.World = world
+			for _, v := range tc.inputs {
+				state.PushInt(v)
+			}
+			err := Execute(state)
+			if err == nil {
+				t.Fatalf("operand=2: expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), "invalid intOperand") {
+				t.Fatalf("err: got %q, want substring \"invalid intOperand\"", err)
+			}
+		})
+	}
+}
