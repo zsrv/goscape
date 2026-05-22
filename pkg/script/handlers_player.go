@@ -855,66 +855,106 @@ func handleSpotAnimPl(s *ScriptState) error {
 }
 
 // handleReadyAnim implements READYANIM — pops a seq id, stores as the
-// player's idle/stand animation.
+// player's idle/stand animation. Mirrors TS PlayerOps.ts:935-937
+// (check(state.popInt(), SeqTypeValid).id).
 func handleReadyAnim(s *ScriptState) error {
 	if err := requireActivePlayer(s, "READYANIM"); err != nil {
 		return err
 	}
-	s.Self.SetReadyAnim(s.PopInt())
+	seq := s.PopInt()
+	if err := checkSeqType(s, seq, "READYANIM"); err != nil {
+		return err
+	}
+	s.Self.SetReadyAnim(seq)
 	return nil
 }
 
-// handleTurnAnim implements TURNANIM.
+// handleTurnAnim implements TURNANIM. Mirrors TS PlayerOps.ts:939-941
+// (check(state.popInt(), SeqTypeValid).id).
 func handleTurnAnim(s *ScriptState) error {
 	if err := requireActivePlayer(s, "TURNANIM"); err != nil {
 		return err
 	}
-	s.Self.SetTurnAnim(s.PopInt())
+	seq := s.PopInt()
+	if err := checkSeqType(s, seq, "TURNANIM"); err != nil {
+		return err
+	}
+	s.Self.SetTurnAnim(seq)
 	return nil
 }
 
-// handleWalkAnim implements WALKANIM.
+// handleWalkAnim implements WALKANIM. Mirrors TS PlayerOps.ts:943-945
+// (check(state.popInt(), SeqTypeValid).id).
 func handleWalkAnim(s *ScriptState) error {
 	if err := requireActivePlayer(s, "WALKANIM"); err != nil {
 		return err
 	}
-	s.Self.SetWalkAnim(s.PopInt())
+	seq := s.PopInt()
+	if err := checkSeqType(s, seq, "WALKANIM"); err != nil {
+		return err
+	}
+	s.Self.SetWalkAnim(seq)
 	return nil
 }
 
-// handleWalkAnimB implements WALKANIM_B (backward).
+// handleWalkAnimB implements WALKANIM_B (backward). Mirrors TS
+// PlayerOps.ts:947-949 (check(state.popInt(), SeqTypeValid).id).
 func handleWalkAnimB(s *ScriptState) error {
 	if err := requireActivePlayer(s, "WALKANIM_B"); err != nil {
 		return err
 	}
-	s.Self.SetWalkAnimB(s.PopInt())
+	seq := s.PopInt()
+	if err := checkSeqType(s, seq, "WALKANIM_B"); err != nil {
+		return err
+	}
+	s.Self.SetWalkAnimB(seq)
 	return nil
 }
 
-// handleWalkAnimL implements WALKANIM_L (strafe left).
+// handleWalkAnimL implements WALKANIM_L (strafe left). Mirrors TS
+// PlayerOps.ts:951-953 (check(state.popInt(), SeqTypeValid).id).
 func handleWalkAnimL(s *ScriptState) error {
 	if err := requireActivePlayer(s, "WALKANIM_L"); err != nil {
 		return err
 	}
-	s.Self.SetWalkAnimL(s.PopInt())
+	seq := s.PopInt()
+	if err := checkSeqType(s, seq, "WALKANIM_L"); err != nil {
+		return err
+	}
+	s.Self.SetWalkAnimL(seq)
 	return nil
 }
 
-// handleWalkAnimR implements WALKANIM_R (strafe right).
+// handleWalkAnimR implements WALKANIM_R (strafe right). Mirrors TS
+// PlayerOps.ts:955-957 (check(state.popInt(), SeqTypeValid).id).
 func handleWalkAnimR(s *ScriptState) error {
 	if err := requireActivePlayer(s, "WALKANIM_R"); err != nil {
 		return err
 	}
-	s.Self.SetWalkAnimR(s.PopInt())
+	seq := s.PopInt()
+	if err := checkSeqType(s, seq, "WALKANIM_R"); err != nil {
+		return err
+	}
+	s.Self.SetWalkAnimR(seq)
 	return nil
 }
 
-// handleRunAnim implements RUNANIM.
+// handleRunAnim implements RUNANIM. Mirrors TS PlayerOps.ts:959-966 —
+// -1 is a clear-sentinel that bypasses SeqTypeValid; any other id is
+// validated against SeqTypeValid before being stored.
 func handleRunAnim(s *ScriptState) error {
 	if err := requireActivePlayer(s, "RUNANIM"); err != nil {
 		return err
 	}
-	s.Self.SetRunAnim(s.PopInt())
+	seq := s.PopInt()
+	if seq == -1 {
+		s.Self.SetRunAnim(-1)
+		return nil
+	}
+	if err := checkSeqType(s, seq, "RUNANIM"); err != nil {
+		return err
+	}
+	s.Self.SetRunAnim(seq)
 	return nil
 }
 

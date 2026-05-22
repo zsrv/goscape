@@ -1241,7 +1241,8 @@ func TestSpotAnimPlCapturesTriple(t *testing.T) {
 }
 
 // Table-driven test covering every BAS setter. All seven take (seqID)
-// and call the corresponding SetXxxAnim on mockPlayer.
+// and call the corresponding SetXxxAnim on mockPlayer. The id is
+// validated against SeqTypeValid per TS PlayerOps.ts:935-966.
 func TestBASSetters(t *testing.T) {
 	cases := []struct {
 		name string
@@ -1256,6 +1257,11 @@ func TestBASSetters(t *testing.T) {
 		{"WALKANIM_R", OpWalkAnimR, func(m *mockPlayer) int { return m.lastWalkAnimR }},
 		{"RUNANIM", OpRunAnim, func(m *mockPlayer) int { return m.lastRunAnim }},
 	}
+	mc := &mockConfigs{
+		seqs: map[int]*objtype.SeqType{
+			1234: {ConfigType: objtype.ConfigType{ID: 1234}},
+		},
+	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			mp := &mockPlayer{}
@@ -1269,6 +1275,7 @@ func TestBASSetters(t *testing.T) {
 				InstructionCount: 3,
 			}
 			state := Init(sf, mp, false, nil, nil)
+			state.Configs = mc
 			if err := Execute(state); err != nil {
 				t.Fatalf("Execute: %v", err)
 			}
@@ -1279,9 +1286,62 @@ func TestBASSetters(t *testing.T) {
 	}
 }
 
+// TestBASSettersRejectInvalidSeq pins TS check(state.popInt(),
+// SeqTypeValid) — every BAS opcode aborts the script when the popped
+// seq id is not registered. RUNANIM is excluded here because -1 is
+// special-cased; its rejection path is exercised by
+// TestRunAnimRejectsInvalidSeq.
+func TestBASSettersRejectInvalidSeq(t *testing.T) {
+	cases := []struct {
+		name string
+		op   Opcode
+	}{
+		{"READYANIM", OpReadyAnim},
+		{"TURNANIM", OpTurnAnim},
+		{"WALKANIM", OpWalkAnim},
+		{"WALKANIM_B", OpWalkAnimB},
+		{"WALKANIM_L", OpWalkAnimL},
+		{"WALKANIM_R", OpWalkAnimR},
+		{"RUNANIM", OpRunAnim},
+	}
+	mc := &mockConfigs{seqs: map[int]*objtype.SeqType{}} // empty registry
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mp := &mockPlayer{}
+			sf := &ScriptFile{
+				Name: tc.name,
+				Opcodes: []Opcode{
+					OpPushConstantInt, tc.op, OpReturn,
+				},
+				// id=42 is not registered. RUNANIM uses 42
+				// here (not -1) so the SeqTypeValid branch
+				// fires; the -1 sentinel is tested
+				// separately.
+				IntOperands:      []int32{42, 0, 0},
+				StringOperands:   []string{"", "", ""},
+				InstructionCount: 3,
+			}
+			state := Init(sf, mp, false, nil, nil)
+			state.Configs = mc
+			err := Execute(state)
+			if err == nil {
+				t.Fatalf("%s with unknown seq: Execute returned nil, want error", tc.name)
+			}
+			if !strings.Contains(err.Error(), tc.name) {
+				t.Errorf("%s: error %q does not mention opcode", tc.name, err.Error())
+			}
+			if !strings.Contains(err.Error(), "SeqType") {
+				t.Errorf("%s: error %q does not mention SeqType", tc.name, err.Error())
+			}
+		})
+	}
+}
+
+// TestRunAnimAcceptsMinusOne pins TS PlayerOps.ts:961-964 — -1 is a
+// clear-sentinel that bypasses SeqTypeValid and is forwarded directly
+// to SetRunAnim. Tested with an empty seq registry to confirm the -1
+// branch does NOT consult Configs.
 func TestRunAnimAcceptsMinusOne(t *testing.T) {
-	// TS-behaviour check: -1 clears the run animation. The handler
-	// forwards it unconditionally to SetRunAnim.
 	mp := &mockPlayer{}
 	sf := &ScriptFile{
 		Name: "runanim_clear",
@@ -1293,11 +1353,40 @@ func TestRunAnimAcceptsMinusOne(t *testing.T) {
 		InstructionCount: 3,
 	}
 	state := Init(sf, mp, false, nil, nil)
+	state.Configs = &mockConfigs{seqs: map[int]*objtype.SeqType{}}
 	if err := Execute(state); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
 	if mp.lastRunAnim != -1 {
 		t.Errorf("RUNANIM -1: got %d, want -1", mp.lastRunAnim)
+	}
+}
+
+// TestRunAnimRejectsInvalidSeq pins TS PlayerOps.ts:965 — any non-(-1)
+// seq id is validated against SeqTypeValid and aborts the script on
+// miss.
+func TestRunAnimRejectsInvalidSeq(t *testing.T) {
+	mp := &mockPlayer{lastRunAnim: -2} // sentinel to detect spurious write
+	sf := &ScriptFile{
+		Name: "runanim_invalid",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpRunAnim, OpReturn,
+		},
+		IntOperands:      []int32{99, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	state.Configs = &mockConfigs{seqs: map[int]*objtype.SeqType{}}
+	err := Execute(state)
+	if err == nil {
+		t.Fatal("RUNANIM with unknown seq: Execute returned nil, want error")
+	}
+	if !strings.Contains(err.Error(), "RUNANIM") {
+		t.Errorf("error %q does not mention RUNANIM", err.Error())
+	}
+	if mp.lastRunAnim != -2 {
+		t.Errorf("SetRunAnim should not be called on validation failure (lastRunAnim=%d)", mp.lastRunAnim)
 	}
 }
 
