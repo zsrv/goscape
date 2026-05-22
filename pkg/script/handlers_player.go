@@ -979,6 +979,21 @@ func handlePApRange(s *ScriptState) error {
 //
 // S6v-D1 closed in S6w: gates on PtrProtectedActivePlayer via
 // requireProtectedActivePlayer, matching TS checkedHandler(ProtectedActivePlayer).
+//
+// Mirrors TS LocType.op[type-1] null-skip (PlayerOps.ts:391-394):
+// looks up the active loc's LocType and silently returns when the
+// op slot is missing or empty.
+//
+// DEVIATION: TS guards the queueWaypoint call with
+// state.activePlayer.inOperableDistance(state.activeLoc)
+// (PlayerOps.ts:396-398). goscape's script-side ActivePlayer interface
+// does not yet expose InOperableDistance (the geometry lives in
+// modules/world/interaction.go and depends on concrete *Player +
+// entity types), so the queueWaypoint dispatch is deferred until
+// that accessor is wired through. SetInteractionScriptLoc still
+// fires; movement convergence then occurs via the interaction
+// trigger loop. Sibling P_OPOBJ (PlayerOps.ts:1001-1005) queues
+// unconditionally so does not surface this gap.
 func handleP_OpLoc(s *ScriptState) error {
 	if err := requireProtectedActivePlayer(s, "P_OPLOC"); err != nil {
 		return err
@@ -992,6 +1007,16 @@ func handleP_OpLoc(s *ScriptState) error {
 	}
 	if op < 1 || op > 5 {
 		return fmt.Errorf("P_OPLOC: invalid op %d (must be 1..5)", op)
+	}
+	if s.Configs == nil {
+		return errors.New("P_OPLOC: no configs")
+	}
+	locType := s.Configs.LocType(s.ActiveLoc.LocType())
+	if locType == nil {
+		return fmt.Errorf("P_OPLOC: invalid active loc type (%d)", s.ActiveLoc.LocType())
+	}
+	if op-1 >= len(locType.Op) || locType.Op[op-1] == "" {
+		return nil // TS: !locType.op || !locType.op[type] → silent skip
 	}
 	s.Self.StopAction()
 	s.Self.SetInteractionScriptLoc(s.ActiveLoc, op)

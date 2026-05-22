@@ -1424,6 +1424,12 @@ func TestPOpLocAnchorsOnActiveLoc(t *testing.T) {
 	state := Init(sf, mp, true, nil, nil)
 	state.ActiveLoc = loc
 	state.Pointers |= PtrActiveLoc
+	mc := newTestConfigs()
+	lt := objtype.NewLocType(42)
+	lt.Op = make([]string, 5)
+	lt.Op[2] = "Operate" // op=3 → index 2
+	mc.locs[42] = lt
+	state.Configs = mc
 	if err := Execute(state); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
@@ -1433,6 +1439,9 @@ func TestPOpLocAnchorsOnActiveLoc(t *testing.T) {
 	got := mp.lastSetInteractionScriptLoc[0]
 	if got.Loc != loc || got.Op != 3 {
 		t.Errorf("args: got %+v, want {Loc:%p, Op:3}", got, loc)
+	}
+	if mp.stopActionCalls != 1 {
+		t.Errorf("StopAction calls: got %d, want 1", mp.stopActionCalls)
 	}
 }
 
@@ -1561,6 +1570,118 @@ func TestPOpLocUnprotectedRejected(t *testing.T) {
 	err := Execute(state)
 	if err == nil || err.Error() != "P_OPLOC: script not protected" {
 		t.Errorf("expected 'P_OPLOC: script not protected', got %v", err)
+	}
+}
+
+// TestHandlePOpLocMissingOpEntryShortCircuits pins TS PlayerOps.ts:391-394:
+// when LocType.op[type-1] is empty (or the op slice is nil/too short), the
+// handler silently returns without firing StopAction or
+// SetInteractionScriptLoc. Mirrors the P_OPOBJ shape at
+// PlayerOps.ts:997-999 / TestHandleP_OpObjMissingOpEntryShortCircuits.
+func TestHandlePOpLocMissingOpEntryShortCircuits(t *testing.T) {
+	mp := &mockPlayer{}
+	loc := &mockActiveLoc{locType: 42}
+
+	sf := &ScriptFile{
+		Name:             "p_op_loc_empty_op",
+		Opcodes:          []Opcode{OpPushConstantInt, OpPOpLoc, OpReturn},
+		IntOperands:      []int32{3, 0, 0}, // op=3 → index 2
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, true, nil, nil)
+	state.ActiveLoc = loc
+	state.Pointers |= PtrActiveLoc
+
+	mc := newTestConfigs()
+	lt := objtype.NewLocType(42)
+	lt.Op = make([]string, 5) // all slots empty → silent skip
+	mc.locs[42] = lt
+	state.Configs = mc
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(mp.lastSetInteractionScriptLoc) != 0 {
+		t.Errorf("SetInteractionScriptLoc: should not have been called, got %d", len(mp.lastSetInteractionScriptLoc))
+	}
+	if mp.stopActionCalls != 0 {
+		t.Errorf("StopAction: should not have been called, got %d", mp.stopActionCalls)
+	}
+}
+
+// TestHandlePOpLocNilOpSliceShortCircuits pins the !locType.op branch
+// (PlayerOps.ts:392): when LocType.Op is nil (never lazy-initialized),
+// the handler silently returns. Mirrors the falsy-op-array half of the
+// TS guard.
+func TestHandlePOpLocNilOpSliceShortCircuits(t *testing.T) {
+	mp := &mockPlayer{}
+	loc := &mockActiveLoc{locType: 42}
+
+	sf := &ScriptFile{
+		Name:             "p_op_loc_nil_op",
+		Opcodes:          []Opcode{OpPushConstantInt, OpPOpLoc, OpReturn},
+		IntOperands:      []int32{1, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, true, nil, nil)
+	state.ActiveLoc = loc
+	state.Pointers |= PtrActiveLoc
+
+	mc := newTestConfigs()
+	lt := objtype.NewLocType(42)
+	// lt.Op left nil (never lazy-initialized)
+	mc.locs[42] = lt
+	state.Configs = mc
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(mp.lastSetInteractionScriptLoc) != 0 {
+		t.Errorf("SetInteractionScriptLoc: should not have been called, got %d", len(mp.lastSetInteractionScriptLoc))
+	}
+	if mp.stopActionCalls != 0 {
+		t.Errorf("StopAction: should not have been called, got %d", mp.stopActionCalls)
+	}
+}
+
+// TestHandlePOpLocFiresWhenOpPresent pins the positive branch: when
+// LocType.Op[op-1] is a non-empty string, StopAction + SetInteractionScriptLoc
+// fire as before.
+func TestHandlePOpLocFiresWhenOpPresent(t *testing.T) {
+	mp := &mockPlayer{}
+	loc := &mockActiveLoc{locType: 42}
+
+	sf := &ScriptFile{
+		Name:             "p_op_loc_present",
+		Opcodes:          []Opcode{OpPushConstantInt, OpPOpLoc, OpReturn},
+		IntOperands:      []int32{2, 0, 0}, // op=2 → index 1
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, true, nil, nil)
+	state.ActiveLoc = loc
+	state.Pointers |= PtrActiveLoc
+
+	mc := newTestConfigs()
+	lt := objtype.NewLocType(42)
+	lt.Op = make([]string, 5)
+	lt.Op[1] = "Use"
+	mc.locs[42] = lt
+	state.Configs = mc
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(mp.lastSetInteractionScriptLoc) != 1 {
+		t.Fatalf("SetInteractionScriptLoc: got %d calls, want 1", len(mp.lastSetInteractionScriptLoc))
+	}
+	if got := mp.lastSetInteractionScriptLoc[0]; got.Loc != loc || got.Op != 2 {
+		t.Errorf("args: got %+v, want {Loc:%p, Op:2}", got, loc)
+	}
+	if mp.stopActionCalls != 1 {
+		t.Errorf("StopAction: got %d, want 1", mp.stopActionCalls)
 	}
 }
 
