@@ -1473,14 +1473,12 @@ func handleBothMoveInv(s *ScriptState) error {
 	}
 	secondary := operand == 1
 
-	if secondary {
-		if err := requireActivePlayer2(s, "BOTH_MOVEINV"); err != nil {
-			return err
-		}
-	} else {
-		if err := requireActivePlayer(s, "BOTH_MOVEINV"); err != nil {
-			return err
-		}
+	// TS InvOps.ts:373 wraps in checkedHandler(ActivePlayer) unconditionally
+	// regardless of operand; the secondary player is validated by a runtime
+	// null-check (line 389) after slot selection, not by a wrapper that
+	// asserts the secondary binding.
+	if err := requireActivePlayer(s, "BOTH_MOVEINV"); err != nil {
+		return err
 	}
 
 	to := s.PopInt()
@@ -1503,17 +1501,16 @@ func handleBothMoveInv(s *ScriptState) error {
 		toPlayer = s.Self
 		fromProtectedFlag = PtrProtectedActivePlayer2
 		toProtectedFlag = PtrProtectedActivePlayer
-		if toPlayer == nil || s.Pointers&PtrActivePlayer == 0 {
-			return fmt.Errorf("BOTH_MOVEINV: no active player")
-		}
 	} else {
 		fromPlayer = s.Self
 		toPlayer = s.Self2
 		fromProtectedFlag = PtrProtectedActivePlayer
 		toProtectedFlag = PtrProtectedActivePlayer2
-		if toPlayer == nil || s.Pointers&PtrActivePlayer2 == 0 {
-			return fmt.Errorf("BOTH_MOVEINV: no active player2")
-		}
+	}
+	// TS InvOps.ts:389 — null-check after slot selection. Catches the case
+	// where secondary mode references Self2 but PtrActivePlayer2 is unset.
+	if fromPlayer == nil || toPlayer == nil {
+		return fmt.Errorf("BOTH_MOVEINV: player is null")
 	}
 
 	if fromInvType.Protect && fromInvType.Scope != objtype.InvTypeScopeShared &&

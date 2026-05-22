@@ -2240,7 +2240,7 @@ func TestBothMoveInv_ToProtectGate_UsesFromInvScope_DoesNotFire(t *testing.T) {
 }
 
 // TestBothMoveInv_NoSelf2_Primary_Errors — operand=0 with PtrActivePlayer2
-// unset → error "no active player2".
+// unset → Self2 nil → runtime null-check fires (TS InvOps.ts:389 parity).
 func TestBothMoveInv_NoSelf2_Primary_Errors(t *testing.T) {
 	mc := newTestInvConfigs()
 	lookup, self, _ := newTwoPlayerInvFixture()
@@ -2262,13 +2262,13 @@ func TestBothMoveInv_NoSelf2_Primary_Errors(t *testing.T) {
 	state.PushInt(testInvMain)
 
 	err := Execute(state)
-	if err == nil || !strings.Contains(err.Error(), "no active player2") {
-		t.Errorf("expected 'no active player2' error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "player is null") {
+		t.Errorf("expected 'player is null' error, got %v", err)
 	}
 }
 
-// TestBothMoveInv_NoSelf_Secondary_Errors — operand=1; requireActivePlayer2
-// passes (Self2 set). Self is nil → secondary path's nil-Self check fires.
+// TestBothMoveInv_NoSelf_Secondary_Errors — operand=1, Self nil. Wrapper
+// requireActivePlayer fires per TS InvOps.ts:373 checkedHandler(ActivePlayer).
 func TestBothMoveInv_NoSelf_Secondary_Errors(t *testing.T) {
 	mc := newTestInvConfigs()
 	lookup, _, self2 := newTwoPlayerInvFixture()
