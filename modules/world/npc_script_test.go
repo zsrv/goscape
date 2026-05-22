@@ -537,6 +537,112 @@ func TestBuildNpcScriptStateDispatchesOtherActiveNpc(t *testing.T) {
 	}
 }
 
+// TestNpcRetaliation_EndToEnd_EngineChain exercises the engine path
+// from "TriggerAiQueue1 enqueued on NPC" through "NPC's targetOp/target
+// set to attack the player" using a synthetic ai_queue1 script that
+// mirrors the content npc_default_retaliate logic (finduid +
+// npc_setmode(opplayer2)). If this passes, the engine wiring for NPC
+// retaliation is complete and any in-game retaliation gap is content-
+// side (proc/script not loaded, wrong varn value, etc.).
+//
+// Bytecode model:
+//
+//	PUSH_INT_CONST <player.uid>   // operand[0] = uid
+//	FIND_UID                      // pops uid, binds s.Self, pushes 1
+//	POP_INT_DISCARD               // discard the 1
+//	PUSH_INT_CONST 8              // operand[3] = OPPLAYER2
+//	NPC_SETMODE                   // pops 8, n.target=player, n.targetOp=8
+//	RETURN
+func TestNpcRetaliation_EndToEnd_EngineChain(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	s.configsView = serverConfigsView{s: s}
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.x, p.z, p.level = 100, 100, 0
+	p.username37 = 42 // deterministic, drives composeUID inside addPlayer
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	// p.uid is now set by addPlayer via composeUID(username37=42, slot=1).
+	// Read it AFTER addPlayer (composeUID overrides any pre-set value).
+
+	npcType := &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 7, DebugName: "rat"},
+		Category:   0,
+	}
+	npc := NewNpc(0, 7, 101, 100, 0, npcType)
+	npc.server = s
+	s.npcs[0] = npc
+	s.npcLoop = append(s.npcLoop, npc)
+
+	// Synthetic ai_queue1 script — mirrors npc_default_retaliate.
+	s.scriptProvider.Register(&script.ScriptFile{
+		Name:      "[ai_queue1,test-retaliate]",
+		LookupKey: script.LookupKeyForGlobal(script.TriggerAiQueue1),
+		Opcodes: []script.Opcode{
+			script.OpPushConstantInt, // push p.uid
+			script.OpFindUID,         // pops uid, sets s.Self, pushes 1
+			script.OpPopIntDiscard,   // discard FindUID result
+			script.OpPushConstantInt, // push OPPLAYER2 = 8
+			script.OpNpcSetMode,      // pop 8, set n.target=s.Self, n.targetOp=8
+			script.OpReturn,
+		},
+		IntOperands: []int32{
+			int32(p.uid),
+			0, // FindUID operand: 0=Self
+			0,
+			int32(objtype.NPCModeOpPlayer2),
+			0, // NpcSetMode operand (unused for Player branch)
+			0,
+		},
+		StringOperands:   []string{"", "", "", "", "", ""},
+		InstructionCount: 6,
+	})
+
+	// Synthetic ai_opplayer2 script (noop) so fireAiOpTriggerPlayer's
+	// GetByTrigger(TriggerAiOpPlayer2, 0, 0) lookup succeeds and doesn't
+	// fall into clearInteraction. Without this, aiMode → tryInteract →
+	// fireAiOpTriggerPlayer would find nil sf and clear the NPC's target.
+	s.scriptProvider.Register(&script.ScriptFile{
+		Name:             "[ai_opplayer2,test-attack]",
+		LookupKey:        script.LookupKeyForGlobal(script.TriggerAiOpPlayer2),
+		Opcodes:          []script.Opcode{script.OpReturn},
+		IntOperands:      []int32{0},
+		StringOperands:   []string{""},
+		InstructionCount: 1,
+	})
+
+	// Pre-enqueue the trigger on the NPC. Delay=0 so processNpcQueue
+	// fires it this tick.
+	npc.queue = []script.NpcQueueRequest{{
+		Trigger: script.TriggerAiQueue1,
+		Delay:   0,
+		LastInt: 0,
+	}}
+
+	// Drive the NPC's tick (calls processNpcQueue → fires the
+	// retaliation script → npc_setmode binds player as target → aiMode
+	// runs → tryInteract operable → fireAiOpTriggerPlayer fires
+	// [ai_opplayer2,_] → npc_default_attack would deal damage in
+	// production).
+	npc.turn(s)
+
+	// Post-tick assertions: retaliation chain must end with the NPC
+	// bound to the player via OPPLAYER2 mode.
+	if npc.targetOp != objtype.NPCModeOpPlayer2 {
+		t.Errorf("npc.targetOp: got %d, want %d (OPPLAYER2) — npc_setmode did not run or s.Self was nil after FindUID",
+			npc.targetOp, objtype.NPCModeOpPlayer2)
+	}
+	if npc.target == nil {
+		t.Fatal("npc.target: nil after retaliation — SetInteractionScript failed to bind player")
+	}
+	if npc.target != p {
+		t.Errorf("npc.target: got %v, want player (uid=%d)", npc.target, p.uid)
+	}
+}
+
 // TestBuildNpcScriptStateSetsPlayerLookup pins the PlayerLookup wiring
 // that NPC-anchored scripts depend on when they call `finduid` or
 // `p_finduid` to rebind an active player. Without this, the entire
