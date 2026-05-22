@@ -12,13 +12,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
+	"github.com/zsrv/goscape/pkg/eventspb"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/pathfinder/loc"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
+	"github.com/zsrv/goscape/pkg/telemetry"
 	"github.com/zsrv/goscape/pkg/wordenc/wordpack"
 )
 
@@ -363,6 +368,23 @@ func handleMessagePublic(p *Player, payload []byte) error {
 	filtered := p.client.server.wordenc.Filter(decoded)
 	out := packet.NewPacket(nil)
 	wordpack.Pack(out, filtered)
+
+	// NAI-Phase2: emit ChatMessageEvent (public-channel only — this handler
+	// only services MESSAGE_PUBLIC opcode 158; clan-chat has its own handler).
+	telemetry.Get().EmitWorld(&eventspb.WorldEnvelope{
+		SchemaVersion: 1,
+		EventId:       uuid.NewString(),
+		Ts:            timestamppb.Now(),
+		WorldId:       int32(p.client.server.cfg.NodeID),
+		AccountId:     0, // TODO(NAI-Phase2): plumb account_id from login through Player
+		Payload: &eventspb.WorldEnvelope_Chat{
+			Chat: &eventspb.ChatMessageEvent{
+				Channel: eventspb.ChatMessageEvent_CHANNEL_PUBLIC,
+				Text:    decoded,
+			},
+		},
+	})
+
 	p.Chat(color, effect, int(p.staffModLevel), out.Bytes())
 
 	// Audit-log to friends-server with the UNFILTERED decoded text — mirrors

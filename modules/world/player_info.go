@@ -1,7 +1,12 @@
 package world
 
 import (
+	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/zsrv/goscape/pkg/eventspb"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+	"github.com/zsrv/goscape/pkg/telemetry"
 )
 
 // updatePlayers runs during processClientsOut. Calls
@@ -14,4 +19,19 @@ func (p *Player) updatePlayers() {
 	}
 	payload := s.rsbuf.PlayerInfo.Encode(s.rsbuf, int32(p.slot), s.renderer)
 	p.writeOut(gameserver.OpPlayerInfo, payload)
+
+	telemetry.Get().EmitWorld(&eventspb.WorldEnvelope{
+		SchemaVersion: 1,
+		EventId:       uuid.NewString(),
+		Ts:            timestamppb.Now(),
+		WorldId:       int32(s.cfg.NodeID),
+		AccountId:     0, // TODO(NAI-Phase2): plumb account_id from login through Player
+		Payload: &eventspb.WorldEnvelope_TilePosition{
+			TilePosition: &eventspb.TilePositionEvent{
+				X:     int32(p.x),
+				Y:     int32(p.z),
+				Plane: int32(p.level),
+			},
+		},
+	})
 }

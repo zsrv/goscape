@@ -8,7 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	"github.com/zsrv/goscape/pkg/coordgrid"
+	"github.com/zsrv/goscape/pkg/eventspb"
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
@@ -17,6 +21,7 @@ import (
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
+	"github.com/zsrv/goscape/pkg/telemetry"
 	util "github.com/zsrv/goscape/pkg/util/jstring"
 	"github.com/zsrv/goscape/pkg/zone"
 )
@@ -1246,6 +1251,25 @@ func (p *Player) readPacket() (int, bool, error) {
 	c.opcode = -1
 
 	c.log.Debug("game packet", "opcode", opcode, "name", gameclient.Ops[opcode].Name, "len", len(payload))
+
+	// NAI-Phase2: emit PacketReceivedEvent for every inbound game packet,
+	// regardless of whether a handler is registered (TS-parity audit need).
+	// Guarded against nil-server (tests use newTestPlayer without a Server).
+	if c.server != nil {
+		telemetry.Get().EmitWorld(&eventspb.WorldEnvelope{
+			SchemaVersion: 1,
+			EventId:       uuid.NewString(),
+			Ts:            timestamppb.Now(),
+			WorldId:       int32(c.server.cfg.NodeID),
+			AccountId:     0, // TODO(NAI-Phase2): plumb account_id from login through Player
+			Payload: &eventspb.WorldEnvelope_PacketReceived{
+				PacketReceived: &eventspb.PacketReceivedEvent{
+					Opcode: uint32(opcode),
+					Size:   uint32(len(payload)),
+				},
+			},
+		})
+	}
 
 	if handler := gameHandlers[opcode]; handler != nil {
 		if err := handler(p, payload); err != nil {

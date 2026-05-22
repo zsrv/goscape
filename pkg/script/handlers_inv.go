@@ -3,8 +3,13 @@ package script
 import (
 	"fmt"
 
+	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/zsrv/goscape/pkg/eventspb"
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/telemetry"
 )
 
 // resolveInv looks up the inventory for typeID via the script's
@@ -1438,6 +1443,32 @@ func handleInvDropItem(s *ScriptState) error {
 	if o != nil {
 		s.ActiveObj = o
 		s.Pointers |= PtrActiveObj
+	}
+
+	// NAI-Phase2: emit ItemDroppedEvent — only fires when both inventory
+	// removal completed (tx.Completed > 0 above) AND the world AddObj
+	// returned a non-nil obj. AlchValue/MarketValue require ObjType
+	// config lookup and are deferred (Phase 2 ships the route, not real
+	// values).
+	if o != nil {
+		telemetry.Get().EmitWealth(&eventspb.WealthEnvelope{
+			SchemaVersion: 1,
+			EventId:       uuid.NewString(),
+			Ts:            timestamppb.Now(),
+			AccountId:     int64(s.Self.UID()),
+			WorldId:       0, // TODO(NAI-Phase2): plumb world_id (NodeID) into ScriptState / ActivePlayer surface
+			Payload: &eventspb.WealthEnvelope_ItemDropped{
+				ItemDropped: &eventspb.ItemDroppedEvent{
+					ItemId:      int32(obj),
+					Qty:         int32(completed),
+					X:           int32(x),
+					Y:           int32(z),
+					Plane:       int32(level),
+					AlchValue:   0, // TODO(NAI-Phase2): lookup ObjType.Cost for alch value
+					MarketValue: 0, // TODO(NAI-Phase2): lookup ObjType market value
+				},
+			},
+		})
 	}
 	return nil
 }
