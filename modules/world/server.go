@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/zsrv/goscape/internal/dskit/signals"
@@ -147,6 +148,13 @@ type Server struct {
 	seqTypes       *objtype.SeqTypeConfigs
 	spotanimTypes  *objtype.SpotanimTypeConfigs
 	componentTypes *objtype.ComponentTypeConfigs
+
+	// configsPtr holds the concurrent-reader snapshot of all type-config
+	// registries. Updated atomically by storeConfigsSnapshot after each
+	// Reload and at NewServer startup. Per-connection goroutines read
+	// through loginConfigs() instead of accessing raw fields directly.
+	// DEVIATION-NAI-C-CONFIGS-ATOMIC-SWAP; see configs_snapshot.go.
+	configsPtr atomic.Pointer[serverConfigsSnapshot]
 
 	// wordenc filters player-visible chat text through the RS2 word-encoding
 	// substitution rules loaded from the wordenc jagfile. Populated at
@@ -524,6 +532,10 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 
 	s.populateStaticLocsIntoZones()
 	s.populateStaticObjsIntoZones()
+
+	// Build the initial concurrent-reader snapshot now that all type-config
+	// fields have been populated. DEVIATION-NAI-C-CONFIGS-ATOMIC-SWAP.
+	s.storeConfigsSnapshot()
 
 	return s, nil
 }

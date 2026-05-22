@@ -606,7 +606,10 @@ func newPlayer(c *client) *Player {
 		lastMapZone:    -1, // NAI-145: sentinel; first updateBuildArea fires triggerMapzone (no exit)
 	}
 	if c.server != nil {
-		p.seqTypes = c.server.seqTypes
+		// newPlayer is called from sendLoginOK on a per-connection
+		// goroutine; read seqTypes from the atomic snapshot to avoid a
+		// torn read during Reload. DEVIATION-NAI-C-CONFIGS-ATOMIC-SWAP.
+		p.seqTypes = c.server.loginConfigs().seqTypes
 	}
 	// Sentinel values so the first tick of updateStats emits all 21 UpdateStat
 	// packets. stats[i] is int32 (always >= 0 in gameplay); levels[i] is uint8

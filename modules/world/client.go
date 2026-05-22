@@ -133,8 +133,11 @@ func (c *client) flushWrite() error {
 func (c *client) sendLoginOK() error {
 	if c.server != nil {
 		p := newPlayer(c)
-		if c.server.invTypes != nil {
-			p.SetAppearanceInv(c.server.invTypes.Worn)
+		// sendLoginOK runs on a per-connection goroutine concurrently with
+		// the tick goroutine that may be running Reload; read invTypes from
+		// the atomic snapshot. DEVIATION-NAI-C-CONFIGS-ATOMIC-SWAP.
+		if cfgs := c.server.loginConfigs(); cfgs.invTypes != nil {
+			p.SetAppearanceInv(cfgs.invTypes.Worn)
 		}
 		c.server.appendNewPlayer(p)
 		c.player = p

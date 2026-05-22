@@ -274,5 +274,10 @@ func (s *Server) Reload(clearInvs bool) error {
 		s.gamemap.SetMembers(s.cfg.NodeMembers)
 	}
 
+	// Build-then-swap the concurrent-reader snapshot. All raw fields are now
+	// in their final Reload state; per-connection login goroutines will pick
+	// this up on their next atomic load. DEVIATION-NAI-C-CONFIGS-ATOMIC-SWAP.
+	s.storeConfigsSnapshot()
+
 	return nil
 }
