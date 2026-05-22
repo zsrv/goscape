@@ -15,6 +15,10 @@ import (
 type Config struct {
 	Server server.Config `yaml:",inline"`
 	Enable bool          `yaml:"enable"`
+
+	// PublicDir is the filesystem directory served as a static-file fallback
+	// after named routes do not match. Mirrors web.ts:114-119 in Engine-TS.
+	PublicDir string `yaml:"public_dir"`
 }
 
 // RegisterFlagsAndApplyDefaults registers flags and applies defaults.
@@ -46,6 +50,8 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.StringVar(&c.Server.LogSourceIPsHeader, "asset.log-source-ips-header", "cf-connecting-ip", "Header field storing the source IPs. Used in conjunction with asset.log-source-ips-regex. Leave both empty to use the built-in Forwarded/X-Real-IP/X-Forwarded-For chain.")
 	f.StringVar(&c.Server.LogSourceIPsRegex, "asset.log-source-ips-regex", `^\s*([^,]+?)\s*(?:,|$)`, "Regex for matching the source IPs. The first capture group is used. Used in conjunction with asset.log-source-ips-header.")
 	f.BoolVar(&c.Server.LogSourceIPsFull, "asset.log-source-ips-full", false, "Log all source IPs instead of returning the first match.")
+
+	f.StringVar(&c.PublicDir, "asset.public-dir", "./public", "Filesystem directory served as a static-file fallback after named routes do not match.")
 }
 
 func (c *Config) Validate() error {

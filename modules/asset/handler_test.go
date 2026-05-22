@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/zsrv/goscape/internal/dskit/middleware"
@@ -141,5 +143,137 @@ func TestAssetClientIPNilExtractorReturnsEmpty(t *testing.T) {
 
 	if got := a.clientIP(req); got != "" {
 		t.Fatalf("clientIP() with nil extractor = %q, want empty", got)
+	}
+}
+
+// TestRootHandlerPublicFallbackServesKnownMime mirrors web.ts:114-119: after
+// every named route misses, a file inside public/ is served with the
+// project-specific Content-Type (here: application/javascript for .js).
+func TestRootHandlerPublicFallbackServesKnownMime(t *testing.T) {
+	dir := t.TempDir()
+	body := []byte("console.log('hi');\n")
+	if err := os.WriteFile(filepath.Join(dir, "foo.js"), body, 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	a := &Asset{log: discardLogger(), cfg: Config{PublicDir: dir}}
+
+	req := httptest.NewRequest(http.MethodGet, "/foo.js", nil)
+	rr := httptest.NewRecorder()
+	a.RootHandler(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rr.Code)
+	}
+	if got := rr.Header().Get("Content-Type"); got != "application/javascript" {
+		t.Fatalf("Content-Type = %q, want application/javascript", got)
+	}
+	if got, _ := io.ReadAll(rr.Body); !bytes.Equal(got, body) {
+		t.Fatalf("body = %q, want %q", got, body)
+	}
+}
+
+// TestRootHandlerPublicFallbackUnknownExtUsesTextPlain pins the TS fallback
+// Content-Type "text/plain" for extensions not in MIME_TYPES (web.ts:117).
+func TestRootHandlerPublicFallbackUnknownExtUsesTextPlain(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "data.bin"), []byte("anything"), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	a := &Asset{log: discardLogger(), cfg: Config{PublicDir: dir}}
+
+	req := httptest.NewRequest(http.MethodGet, "/data.bin", nil)
+	rr := httptest.NewRecorder()
+	a.RootHandler(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rr.Code)
+	}
+	if got := rr.Header().Get("Content-Type"); got != "text/plain" {
+		t.Fatalf("Content-Type = %q, want text/plain", got)
+	}
+}
+
+// TestRootHandlerPublicFallbackMissingFile404s asserts the TS else-branch
+// behavior (web.ts:121): missing files surface as 404, not a stale named-route
+// response or an empty 200.
+func TestRootHandlerPublicFallbackMissingFile404s(t *testing.T) {
+	dir := t.TempDir()
+	a := &Asset{log: discardLogger(), cfg: Config{PublicDir: dir}}
+
+	req := httptest.NewRequest(http.MethodGet, "/missing.js", nil)
+	rr := httptest.NewRecorder()
+	a.RootHandler(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", rr.Code)
+	}
+}
+
+// TestRootHandlerPublicFallbackBlocksPathTraversal verifies that http.Dir
+// rejects ".." escape attempts so a sibling file outside PublicDir cannot
+// be served via the public fallback.
+func TestRootHandlerPublicFallbackBlocksPathTraversal(t *testing.T) {
+	parent := t.TempDir()
+	if err := os.WriteFile(filepath.Join(parent, "secret.txt"), []byte("nope"), 0o644); err != nil {
+		t.Fatalf("write secret: %v", err)
+	}
+	publicDir := filepath.Join(parent, "public")
+	if err := os.Mkdir(publicDir, 0o755); err != nil {
+		t.Fatalf("mkdir public: %v", err)
+	}
+
+	a := &Asset{log: discardLogger(), cfg: Config{PublicDir: publicDir}}
+
+	// http.ServeFile / http.Dir reject ".." path elements. We also test that
+	// even if the URL parser collapses the path, the file outside the root is
+	// not reachable.
+	for _, p := range []string{"/../secret.txt", "/..%2Fsecret.txt"} {
+		req := httptest.NewRequest(http.MethodGet, p, nil)
+		rr := httptest.NewRecorder()
+		a.RootHandler(rr, req)
+
+		if rr.Code == http.StatusOK {
+			body, _ := io.ReadAll(rr.Body)
+			if bytes.Contains(body, []byte("nope")) {
+				t.Fatalf("path %q: served secret outside PublicDir; body=%q", p, body)
+			}
+		}
+	}
+}
+
+// TestRootHandlerPublicFallbackDisabledWhenUnset asserts that an empty
+// PublicDir disables the fallback entirely — requests fall through to the
+// stdlib 404 instead of probing the working directory.
+func TestRootHandlerPublicFallbackDisabledWhenUnset(t *testing.T) {
+	a := &Asset{log: discardLogger(), cfg: Config{PublicDir: ""}}
+
+	req := httptest.NewRequest(http.MethodGet, "/foo.js", nil)
+	rr := httptest.NewRecorder()
+	a.RootHandler(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", rr.Code)
+	}
+}
+
+// TestRootHandlerPublicFallbackDirectory404s asserts that requesting a
+// directory under public/ returns 404 rather than rendering an index listing —
+// the TS Bun.file path serves files only.
+func TestRootHandlerPublicFallbackDirectory404s(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(dir, "sub"), 0o755); err != nil {
+		t.Fatalf("mkdir sub: %v", err)
+	}
+
+	a := &Asset{log: discardLogger(), cfg: Config{PublicDir: dir}}
+
+	req := httptest.NewRequest(http.MethodGet, "/sub", nil)
+	rr := httptest.NewRecorder()
+	a.RootHandler(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", rr.Code)
 	}
 }

@@ -9,6 +9,19 @@ import (
 	"github.com/zsrv/goscape/pkg/cache"
 )
 
+// publicMimeTypes mirrors web.ts:26-32 MIME_TYPES. The TS fallback Content-Type
+// for unknown extensions is "text/plain" (web.ts:117), not the stdlib
+// application/octet-stream sniff — so we mirror the map explicitly rather than
+// rely on mime.TypeByExtension / http.ServeFile's sniffing.
+var publicMimeTypes = map[string]string{
+	".js":   "application/javascript",
+	".mjs":  "application/javascript",
+	".css":  "text/css",
+	".html": "text/html",
+	".wasm": "application/wasm",
+	".sf2":  "application/octet-stream",
+}
+
 func (a *Asset) RootHandler(w http.ResponseWriter, r *http.Request) {
 	// client concats the prefix with the expected crc from the initial /crc call (or the one it has cached? idk)
 	// should make a way for the server to store all the crcs and check against them when they're requested
@@ -88,6 +101,13 @@ func (a *Asset) RootHandler(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: redirect / to rs2.cgi?
 
+	// public/ static-file fallback — mirrors web.ts:114-119.
+	// http.Dir handles path-traversal safety (rejects ".." escape and absolute
+	// paths via cleaning + filepath.Join scoped to the root).
+	if a.servePublic(w, r) {
+		return
+	}
+
 	a.log.Debug("unmatched path", "path", r.URL.Path, "sourceIPs", a.clientIP(r))
 	http.NotFound(w, r)
 }
@@ -101,4 +121,35 @@ func (a *Asset) clientIP(r *http.Request) string {
 		return ""
 	}
 	return a.sourceIPs.Get(r)
+}
+
+// servePublic serves r from the configured public dir. Returns true if the
+// request was handled (success or 4xx surfaced by the stdlib), false if no
+// public root is configured or the path did not resolve to a regular file —
+// in which case the caller should fall through to 404.
+func (a *Asset) servePublic(w http.ResponseWriter, r *http.Request) bool {
+	if a.cfg.PublicDir == "" {
+		return false
+	}
+
+	root := http.Dir(a.cfg.PublicDir)
+	f, err := root.Open(r.URL.Path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	stat, err := f.Stat()
+	if err != nil || stat.IsDir() {
+		return false
+	}
+
+	ct, ok := publicMimeTypes[strings.ToLower(path.Ext(r.URL.Path))]
+	if !ok {
+		ct = "text/plain"
+	}
+	w.Header().Set("Content-Type", ct)
+
+	http.ServeContent(w, r, stat.Name(), stat.ModTime(), f)
+	return true
 }
