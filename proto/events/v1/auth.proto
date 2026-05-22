@@ -1,0 +1,50 @@
+// proto/events/v1/auth.proto
+syntax = "proto3";
+
+package events.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/zsrv/goscape/pkg/eventspb";
+
+// AuthEnvelope wraps every event published to the events.auth Kafka topic.
+// Envelope fields use tags 1-99; oneof payload variants use tags 100+.
+// Never reuse a tag. New fields must be optional (proto3 default).
+message AuthEnvelope {
+  uint32 schema_version = 1;
+  string event_id = 2; // UUIDv7
+  google.protobuf.Timestamp ts = 3;
+  int64 account_id = 4;
+  int32 world_id = 5;
+
+  oneof payload {
+    LoginEvent login = 100;
+    LogoutEvent logout = 101;
+  }
+}
+
+message LoginEvent {
+  string ip = 1;
+  // Tags 2-9 and 14-26 are reserved (previously-used fields, since removed).
+  reserved 2 to 9, 14 to 26;
+  // Client-supplied metadata (game-server-known; currently unpopulated).
+  string client_build = 10;
+  string os_family = 11;
+  string locale = 12;
+  string software_id = 13;
+  // uid is the raw client login-protocol UID (random.dat identifier).
+  int32 uid = 27;
+}
+
+message LogoutEvent {
+  enum Reason {
+    REASON_UNSPECIFIED = 0;
+    REASON_USER_INITIATED = 1;
+    REASON_IDLE_TIMEOUT = 2;
+    REASON_KICKED = 3;
+    REASON_CONNECTION_LOST = 4;
+    REASON_SERVER_SHUTDOWN = 5;
+  }
+  Reason reason = 1;
+  uint32 session_seconds = 2;
+}
