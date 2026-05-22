@@ -363,7 +363,8 @@ func handleStatAdd(s *ScriptState) error {
 	}
 	base := s.Self.StatBase(id)
 	cur := s.Self.Stat(id)
-	added := cur + (constant + (base*percent)/100)
+	unclamped := cur + (constant + (base*percent)/100)
+	added := unclamped
 	if added > 255 {
 		added = 255
 	}
@@ -374,6 +375,13 @@ func handleStatAdd(s *ScriptState) error {
 	// Bundle 2D follow-up.
 	if id == objtype.PlayerStatHitpoints && s.Self.Stat(objtype.PlayerStatHitpoints) >= s.Self.StatBase(objtype.PlayerStatHitpoints) {
 		s.Self.HeroPointsClear()
+	}
+	// TS PlayerOps.ts:516-518 — fire [changestat,<skill>] when the
+	// PRE-CLAMP `added` differs from the prior current level. The
+	// pre-clamp predicate means a 255-capped boost still fires if the
+	// unclamped value differs.
+	if unclamped != cur {
+		s.Self.ChangeStat(id)
 	}
 	return nil
 }
@@ -401,11 +409,16 @@ func handleStatSub(s *ScriptState) error {
 	}
 	base := s.Self.StatBase(id)
 	cur := s.Self.Stat(id)
-	subbed := cur - (constant + (base*percent)/100)
+	unclamped := cur - (constant + (base*percent)/100)
+	subbed := unclamped
 	if subbed < 0 {
 		subbed = 0
 	}
 	s.Self.SetCurLevel(id, subbed)
+	// TS PlayerOps.ts:534-536 — pre-clamp predicate.
+	if unclamped != cur {
+		s.Self.ChangeStat(id)
+	}
 	return nil
 }
 
@@ -448,6 +461,11 @@ func handleStatBoost(s *ScriptState) error {
 	if boosted < cur {
 		boosted = cur
 	}
+	// `boosted` here matches TS PlayerOps.ts:550 boosted (pre-`min(..., 255)`).
+	// The subsequent 255-clamp matches TS line 551
+	// `player.levels[stat] = Math.min(boosted, 255)`; the predicate at TS
+	// line 555 reads the unclamped `boosted`.
+	unclamped := boosted
 	if boosted > 255 {
 		boosted = 255
 	}
@@ -456,6 +474,10 @@ func handleStatBoost(s *ScriptState) error {
 	// NAI-120 Bundle 2D follow-up.
 	if id == objtype.PlayerStatHitpoints && s.Self.Stat(objtype.PlayerStatHitpoints) >= s.Self.StatBase(objtype.PlayerStatHitpoints) {
 		s.Self.HeroPointsClear()
+	}
+	// TS PlayerOps.ts:555-557 — pre-clamp predicate (`if (boosted !== current)`).
+	if unclamped != cur {
+		s.Self.ChangeStat(id)
 	}
 	return nil
 }
@@ -484,11 +506,16 @@ func handleStatDrain(s *ScriptState) error {
 		return err
 	}
 	cur := s.Self.Stat(id)
-	subbed := cur - (constant + (cur*percent)/100)
+	unclamped := cur - (constant + (cur*percent)/100)
+	subbed := unclamped
 	if subbed < 0 {
 		subbed = 0
 	}
 	s.Self.SetCurLevel(id, subbed)
+	// TS PlayerOps.ts:572-574 — pre-clamp predicate.
+	if unclamped != cur {
+		s.Self.ChangeStat(id)
+	}
 	return nil
 }
 
@@ -522,7 +549,8 @@ func handleStatHeal(s *ScriptState) error {
 	}
 	base := s.Self.StatBase(id)
 	cur := s.Self.Stat(id)
-	healed := cur + (constant + (base*percent)/100)
+	unclamped := cur + (constant + (base*percent)/100)
+	healed := unclamped
 	if healed > base {
 		healed = base
 	}
@@ -534,6 +562,12 @@ func handleStatHeal(s *ScriptState) error {
 	// NAI-120 Bundle 2D follow-up.
 	if id == objtype.PlayerStatHitpoints && s.Self.Stat(objtype.PlayerStatHitpoints) >= s.Self.StatBase(objtype.PlayerStatHitpoints) {
 		s.Self.HeroPointsClear()
+	}
+	// TS PlayerOps.ts:613-615 — pre-clamp predicate (`if (healed !== current)`).
+	// `healed` in TS at the predicate read is the raw `cur + (constant +
+	// (base*percent)/100)` BEFORE both the min(base) cap and max(cur) floor.
+	if unclamped != cur {
+		s.Self.ChangeStat(id)
 	}
 	return nil
 }

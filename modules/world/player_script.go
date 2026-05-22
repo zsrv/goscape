@@ -766,6 +766,15 @@ func (p *Player) changeStat(stat int) {
 	p.EnqueueScriptFile(sf, 0, nil, nil, script.QueueEngine)
 }
 
+// ChangeStat implements script.ActivePlayer. Exported wrapper around the
+// internal changeStat so script handlers (STAT_ADD / STAT_SUB / STAT_BOOST
+// / STAT_DRAIN / STAT_HEAL) can fire the [changestat,<skill>] trigger via
+// the ActivePlayer interface after SetCurLevel. Mirrors TS
+// PlayerOps.ts:516-518, :534-536, :555-557, :572-574, :613-615.
+func (p *Player) ChangeStat(stat int) {
+	p.changeStat(stat)
+}
+
 // advanceStat fires the [advancestat,<skill>] trigger for the given stat
 // slot when a cache script is registered for that exact stat. Unlike
 // changeStat (which uses the 3-level fallback via GetByTrigger), this

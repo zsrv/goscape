@@ -726,6 +726,22 @@ type ActivePlayer interface {
 	// NAI-120 Bundle 2D follow-up.
 	HeroPointsClear()
 
+	// ChangeStat fires the [changestat,<skill>] trigger for the given
+	// stat slot when a cache script is registered for that exact stat
+	// (or its category, or globally via the 3-level fallback in
+	// GetByTrigger). Silent no-op if no script is registered.
+	//
+	// Called by STAT_ADD / STAT_SUB / STAT_BOOST / STAT_DRAIN / STAT_HEAL
+	// after SetCurLevel when the PRE-CLAMP computed value differs from
+	// the prior current level — matches TS PlayerOps.ts:516-518, :534-536,
+	// :555-557, :572-574, :613-615 `if (added !== current) player.changeStat(stat)`.
+	// The pre-clamp predicate means a 255→255 capped boost still fires
+	// if the unclamped value differs.
+	//
+	// Also called from AddXP's level-up branch (mirrors TS Player.ts:1772);
+	// that call site stays inside the *Player impl, not via this interface.
+	ChangeStat(id int)
+
 	// SetPreventLogout records an anti-log message and absolute-tick
 	// deadline. Used by P_PREVENTLOGOUT (PlayerOps.ts:626-630). The
 	// caller computes `untilTick = currentTick + popped-ticks` —

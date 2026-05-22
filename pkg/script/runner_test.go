@@ -361,6 +361,11 @@ type mockPlayer struct {
 	// Mirrors mockNpc.heroPointsClearCalls.
 	heroPointsClearCalls int
 
+	// changestat trigger fix: ChangeStat(id) call recorder. One entry per
+	// invocation; STAT_ADD / STAT_SUB / STAT_BOOST / STAT_DRAIN / STAT_HEAL
+	// fire ChangeStat after SetCurLevel when pre-clamp value != current.
+	changeStatCalls []int
+
 	// NAI-127 Bundle 2: DAMAGE recorder.
 	applyDamageCalls []struct{ amount, dmgType int }
 
@@ -791,6 +796,9 @@ func (m *mockPlayer) AddHeroPoints(playerUID, amount int) {
 
 // HeroPointsClear increments the call counter. NAI-120 Bundle 2D follow-up.
 func (m *mockPlayer) HeroPointsClear() { m.heroPointsClearCalls++ }
+
+// ChangeStat records each [changestat,<skill>] trigger fire-attempt by stat id.
+func (m *mockPlayer) ChangeStat(id int) { m.changeStatCalls = append(m.changeStatCalls, id) }
 
 func (m *mockPlayer) SetPreventLogout(message string, untilTick int) {
 	m.preventLogoutMessage = message

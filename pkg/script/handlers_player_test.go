@@ -487,6 +487,292 @@ func TestStatHealOnNonHitpointsStatSkipsClear(t *testing.T) {
 	}
 }
 
+// -- ChangeStat trigger fire tests --------------------------------------
+//
+// All 5 stat-mutation opcodes (STAT_ADD/SUB/BOOST/DRAIN/HEAL) fire the
+// [changestat,<skill>] trigger after SetCurLevel when the PRE-CLAMP
+// computed value differs from the prior current level. Mirrors TS
+// PlayerOps.ts:516-518, :534-536, :555-557, :572-574, :613-615
+// `if (added/subbed/boosted/healed !== current) player.changeStat(stat)`.
+// Pre-clamp predicate means a 255→255 capped boost STILL fires if the
+// unclamped value differs.
+
+func TestStatAddFiresChangeStat(t *testing.T) {
+	// cur=50, base=80, const=10, pct=25 → added=50+(10+20)=80; 80!=50 → fire.
+	mp := &mockPlayer{}
+	mp.levels[0] = 50
+	mp.baseLevels[0] = 80
+
+	sf := &ScriptFile{
+		Name: "stat_add_fires_changestat",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpStatAdd, OpReturn,
+		},
+		IntOperands:      []int32{0, 10, 25, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.changeStatCalls; len(got) != 1 || got[0] != 0 {
+		t.Errorf("STAT_ADD changeStatCalls: got %v, want [0]", got)
+	}
+}
+
+func TestStatAddCapped255StillFires(t *testing.T) {
+	// Pre-clamp predicate: cur=255, const=1 → added=256, clamped to 255.
+	// added (256) != cur (255) → fire. Mirrors TS pre-clamp `if (added !== current)`.
+	mp := &mockPlayer{}
+	mp.levels[0] = 255
+	mp.baseLevels[0] = 255
+
+	sf := &ScriptFile{
+		Name: "stat_add_capped_still_fires",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpStatAdd, OpReturn,
+		},
+		IntOperands:      []int32{0, 1, 0, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.changeStatCalls; len(got) != 1 || got[0] != 0 {
+		t.Errorf("STAT_ADD capped-at-255 changeStatCalls: got %v, want [0] (pre-clamp predicate)", got)
+	}
+}
+
+func TestStatAddNoopDoesNotFire(t *testing.T) {
+	// True no-op: const=0, pct=0 → added=cur, no fire.
+	mp := &mockPlayer{}
+	mp.levels[0] = 50
+	mp.baseLevels[0] = 80
+
+	sf := &ScriptFile{
+		Name: "stat_add_noop",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpStatAdd, OpReturn,
+		},
+		IntOperands:      []int32{0, 0, 0, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.changeStatCalls; len(got) != 0 {
+		t.Errorf("STAT_ADD no-op changeStatCalls: got %v, want []", got)
+	}
+}
+
+func TestStatSubFiresChangeStat(t *testing.T) {
+	// cur=60, base=50, const=5, pct=20 → subbed=60-(5+10)=45; 45!=60 → fire.
+	mp := &mockPlayer{}
+	mp.levels[4] = 60
+	mp.baseLevels[4] = 50
+
+	sf := &ScriptFile{
+		Name: "stat_sub_fires_changestat",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpStatSub, OpReturn,
+		},
+		IntOperands:      []int32{4, 5, 20, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.changeStatCalls; len(got) != 1 || got[0] != 4 {
+		t.Errorf("STAT_SUB changeStatCalls: got %v, want [4]", got)
+	}
+}
+
+func TestStatSubNoopDoesNotFire(t *testing.T) {
+	// const=0, pct=0 → subbed=cur, no fire.
+	mp := &mockPlayer{}
+	mp.levels[4] = 60
+	mp.baseLevels[4] = 50
+
+	sf := &ScriptFile{
+		Name: "stat_sub_noop",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpStatSub, OpReturn,
+		},
+		IntOperands:      []int32{4, 0, 0, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.changeStatCalls; len(got) != 0 {
+		t.Errorf("STAT_SUB no-op changeStatCalls: got %v, want []", got)
+	}
+}
+
+func TestStatBoostFiresChangeStat(t *testing.T) {
+	// cur=50, base=80, const=10, pct=0 → boost=10, boosted=max(min(60,90),50)=60; 60!=50 → fire.
+	mp := &mockPlayer{}
+	mp.levels[0] = 50
+	mp.baseLevels[0] = 80
+
+	sf := &ScriptFile{
+		Name: "stat_boost_fires_changestat",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpStatBoost, OpReturn,
+		},
+		IntOperands:      []int32{0, 10, 0, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.changeStatCalls; len(got) != 1 || got[0] != 0 {
+		t.Errorf("STAT_BOOST changeStatCalls: got %v, want [0]", got)
+	}
+}
+
+func TestStatBoostNoopDoesNotFire(t *testing.T) {
+	// cur>base with const=0/pct=0 → boost=0, boosted=max(min(cur,base),cur)=cur → no fire.
+	mp := &mockPlayer{}
+	mp.levels[0] = 120
+	mp.baseLevels[0] = 80
+
+	sf := &ScriptFile{
+		Name: "stat_boost_noop",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpStatBoost, OpReturn,
+		},
+		IntOperands:      []int32{0, 0, 0, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.changeStatCalls; len(got) != 0 {
+		t.Errorf("STAT_BOOST no-op changeStatCalls: got %v, want []", got)
+	}
+}
+
+func TestStatDrainFiresChangeStat(t *testing.T) {
+	// cur=80, base=20, const=0, pct=25 → subbed=80-(0+80*25/100)=60; 60!=80 → fire.
+	mp := &mockPlayer{}
+	mp.levels[2] = 80
+	mp.baseLevels[2] = 20
+
+	sf := &ScriptFile{
+		Name: "stat_drain_fires_changestat",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpStatDrain, OpReturn,
+		},
+		IntOperands:      []int32{2, 0, 25, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.changeStatCalls; len(got) != 1 || got[0] != 2 {
+		t.Errorf("STAT_DRAIN changeStatCalls: got %v, want [2]", got)
+	}
+}
+
+func TestStatDrainNoopDoesNotFire(t *testing.T) {
+	// const=0, pct=0 → subbed=cur, no fire.
+	mp := &mockPlayer{}
+	mp.levels[2] = 80
+	mp.baseLevels[2] = 20
+
+	sf := &ScriptFile{
+		Name: "stat_drain_noop",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpStatDrain, OpReturn,
+		},
+		IntOperands:      []int32{2, 0, 0, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.changeStatCalls; len(got) != 0 {
+		t.Errorf("STAT_DRAIN no-op changeStatCalls: got %v, want []", got)
+	}
+}
+
+func TestStatHealFiresChangeStat(t *testing.T) {
+	// cur=10, base=50, const=20, pct=0 → healed=10+20=30; 30!=10 → fire.
+	mp := &mockPlayer{}
+	mp.levels[3] = 10
+	mp.baseLevels[3] = 50
+
+	sf := &ScriptFile{
+		Name: "stat_heal_fires_changestat",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpStatHeal, OpReturn,
+		},
+		IntOperands:      []int32{3, 20, 0, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.changeStatCalls; len(got) != 1 || got[0] != 3 {
+		t.Errorf("STAT_HEAL changeStatCalls: got %v, want [3]", got)
+	}
+}
+
+func TestStatHealNoopDoesNotFire(t *testing.T) {
+	// const=0, pct=0 → healed=cur, no fire.
+	mp := &mockPlayer{}
+	mp.levels[3] = 10
+	mp.baseLevels[3] = 50
+
+	sf := &ScriptFile{
+		Name: "stat_heal_noop",
+		Opcodes: []Opcode{
+			OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+			OpStatHeal, OpReturn,
+		},
+		IntOperands:      []int32{3, 0, 0, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	state := Init(sf, mp, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := mp.changeStatCalls; len(got) != 0 {
+		t.Errorf("STAT_HEAL no-op changeStatCalls: got %v, want []", got)
+	}
+}
+
 func TestStatSubFormula(t *testing.T) {
 	// subbed = current - (constant + (base*percent)/100), clamped >=0.
 	// id=4, current=60, base=50, constant=5, percent=20 → 60 - (5 + 10) = 45.
