@@ -2,7 +2,10 @@ package login
 
 import (
 	"flag"
+	"fmt"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Config struct {
@@ -31,6 +34,24 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.DurationVar(&c.GracefulShutdownTimeout, "login.graceful-shutdown-timeout", 30*time.Second, "Timeout for graceful gRPC server shutdown.")
 }
 
+// Validate enforces runtime invariants (PORTING.md Arc 18 CFG-1).
+// When the module is disabled it short-circuits — the values are not
+// consulted by any live code path.
 func (c *Config) Validate() error {
+	if !c.Enable {
+		return nil
+	}
+	if c.BCryptCost < bcrypt.MinCost || c.BCryptCost > bcrypt.MaxCost {
+		return fmt.Errorf("login: BCryptCost must be in [%d, %d], got %d", bcrypt.MinCost, bcrypt.MaxCost, c.BCryptCost)
+	}
+	if c.GRPCListenPort < 1 || c.GRPCListenPort > 65535 {
+		return fmt.Errorf("login: GRPCListenPort must be in [1, 65535], got %d", c.GRPCListenPort)
+	}
+	if c.SQLiteDSN == "" {
+		return fmt.Errorf("login: SQLiteDSN must be non-empty when login.enable=true")
+	}
+	if c.SavePath == "" {
+		return fmt.Errorf("login: SavePath must be non-empty when login.enable=true")
+	}
 	return nil
 }

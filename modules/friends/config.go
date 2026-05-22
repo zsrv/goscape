@@ -2,6 +2,7 @@ package friends
 
 import (
 	"flag"
+	"fmt"
 	"time"
 )
 
@@ -26,6 +27,20 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.DurationVar(&c.GracefulShutdownTimeout, "friends.graceful-shutdown-timeout", 30*time.Second, "Timeout for graceful gRPC server shutdown.")
 }
 
+// Validate enforces runtime invariants (PORTING.md Arc 18 CFG-1 mirror).
+// When the module is disabled it short-circuits.
 func (c *Config) Validate() error {
+	if !c.Enable {
+		return nil
+	}
+	if c.GRPCListenPort < 1 || c.GRPCListenPort > 65535 {
+		return fmt.Errorf("friends: GRPCListenPort must be in [1, 65535], got %d", c.GRPCListenPort)
+	}
+	if c.SQLiteDSN == "" {
+		return fmt.Errorf("friends: SQLiteDSN must be non-empty when friends.enable=true")
+	}
+	if c.WorldPlayerLimit < 1 {
+		return fmt.Errorf("friends: WorldPlayerLimit must be >= 1, got %d", c.WorldPlayerLimit)
+	}
 	return nil
 }
