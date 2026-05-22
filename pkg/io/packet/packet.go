@@ -2,6 +2,7 @@ package packet
 
 import (
 	"bufio"
+	"fmt"
 	"hash/crc32"
 	"io"
 	"log"
@@ -264,6 +265,9 @@ func (p *Packet) GSmart() int32 {
 	// int32 cast precedes subtraction so the offset is applied in signed
 	// space; the prior `int32(p.G2() - 49152)` shape wrapped in uint16
 	// space (e.g. 0x80CA encoded -16182 but decoded as 49354).
+	if p.Pos >= len(p.Data) {
+		panic(io.EOF)
+	}
 	if p.Data[p.Pos] >= 128 {
 		return int32(p.G2()) - 49152
 	} else {
@@ -273,6 +277,9 @@ func (p *Packet) GSmart() int32 {
 
 // GSmartS gets an unsigned Smart value (range 0 to 32767). Matches TS gsmarts().
 func (p *Packet) GSmartS() uint16 {
+	if p.Pos >= len(p.Data) {
+		panic(io.EOF)
+	}
 	if p.Data[p.Pos] >= 128 {
 		return p.G2() - 32768
 	} else {
@@ -406,11 +413,17 @@ func (p *Packet) PData(src []byte) {
 
 // PSize1 puts a 1 byte size?
 func (p *Packet) PSize1(length int) {
+	if length < 0 || length+1 > len(p.Data) {
+		panic(fmt.Errorf("PSize1: length %d out of range (buffer %d)", length, len(p.Data)))
+	}
 	p.Data[len(p.Data)-length-1] = uint8(length)
 }
 
 // PSize2 puts a size of 2 bytes?
 func (p *Packet) PSize2(length int) {
+	if length < 0 || length+2 > len(p.Data) {
+		panic(fmt.Errorf("PSize2: length %d out of range (buffer %d)", length, len(p.Data)))
+	}
 	p.Data[len(p.Data)-length-2] = uint8(length >> 8)
 	p.Data[len(p.Data)-length-1] = uint8(length)
 }
@@ -418,6 +431,9 @@ func (p *Packet) PSize2(length int) {
 // PSize4 puts the size of a byte sequence in the buffer
 // as 4 bytes preceding the sequence.
 func (p *Packet) PSize4(length int) {
+	if length < 0 || length+4 > len(p.Data) {
+		panic(fmt.Errorf("PSize4: length %d out of range (buffer %d)", length, len(p.Data)))
+	}
 	p.Data[len(p.Data)-length-4] = uint8(length >> 24)
 	p.Data[len(p.Data)-length-3] = uint8(length >> 16)
 	p.Data[len(p.Data)-length-2] = uint8(length >> 8)
