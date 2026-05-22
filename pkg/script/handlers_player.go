@@ -1294,13 +1294,19 @@ func handleHuntAll(s *ScriptState) error {
 // pushes 0 on miss / nil-iterator. Mirrors TS PlayerOps.ts:1226-1233
 // and the analogous NPC handler at handlers_npc.go:641 (handleNpcFindNext).
 //
-// Active-player slot pattern (s.Self + Pointers |= PtrActivePlayer)
-// mirrors FINDUID at handlers_player.go:683-684. Stale check uses
-// strict-greater-than per iterator_state_pattern.md element 3.
+// Active-player slot is selected by intOperand: 0 → Self + PtrActivePlayer,
+// 1 → Self2 + PtrActivePlayer2. Mirrors TS PlayerOps.ts:1236-1237
+// (`state.activePlayer = result.value; state.pointerAdd(ActivePlayer[state.intOperand])`)
+// and the FINDUID slot pattern at handlers_player.go:1047-1053. Stale check
+// uses strict-greater-than per iterator_state_pattern.md element 3.
 //
 // Exhaustion does NOT clear s.playerIterator (matches NPC_FINDNEXT
 // behavior; iterator_state_pattern.md element 7). NAI-35-T5.
 func handleHuntNext(s *ScriptState) error {
+	operand := s.Script.IntOperands[s.PC]
+	if operand != 0 && operand != 1 {
+		return fmt.Errorf("HUNTNEXT: invalid intOperand %d", operand)
+	}
 	it := s.playerIterator
 	if it == nil {
 		s.PushInt(0)
@@ -1314,8 +1320,13 @@ func handleHuntNext(s *ScriptState) error {
 		s.PushInt(0)
 		return nil
 	}
-	s.Self = p
-	s.Pointers |= PtrActivePlayer
+	if operand == 0 {
+		s.Self = p
+		s.Pointers |= PtrActivePlayer
+	} else {
+		s.Self2 = p
+		s.Pointers |= PtrActivePlayer2
+	}
 	s.PushInt(1)
 	return nil
 }

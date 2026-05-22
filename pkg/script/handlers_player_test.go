@@ -4016,6 +4016,127 @@ func TestHandleHuntNext_ExhaustionDoesNotClearIterator(t *testing.T) {
 	}
 }
 
+// --- HUNTNEXT intOperand slot-selection tests -------------------------------
+//
+// HUNTNEXT mirrors TS PlayerOps.ts:1236-1237 by routing the hit result to
+// the slot selected by intOperand: 0 → Self + PtrActivePlayer, 1 → Self2 +
+// PtrActivePlayer2. Pre-fix, the handler unconditionally bound Self regardless
+// of intOperand (same-shape bug as the pre-NAI-133 FINDUID/P_FINDUID clobber).
+
+// newHuntNextStateWithOperand mirrors newHuntNextState but lets the test pin
+// IntOperands[0] for slot-routing coverage.
+func newHuntNextStateWithOperand(t *testing.T, tick int, iter *PlayerIterator, operand int32) *ScriptState {
+	t.Helper()
+	mw := newMockWorld()
+	mw.tick = tick
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{operand}},
+		PC:          0,
+		World:       mw,
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+	}
+	s.playerIterator = iter
+	return s
+}
+
+// TestHandleHuntNext_Operand0_BindsPrimarySlot pins that intOperand=0 routes
+// the hit to s.Self + PtrActivePlayer (and leaves Self2/PtrActivePlayer2
+// untouched). Mirrors TS `ActivePlayer[0]` = ScriptPointer.ActivePlayer.
+func TestHandleHuntNext_Operand0_BindsPrimarySlot(t *testing.T) {
+	// Same fixture as TestHandleHuntNext_HitSetsSelfAndPushesOne.
+	target := &mockPlayer{username: "Hit", x: 3204, z: 3204}
+	lookup := &mockPlayerLookup{
+		byZone: map[zoneKey][]ActivePlayer{
+			{0, 3216, 3216}: {target},
+		},
+	}
+	iter := NewHuntAllPlayerIterator(
+		lookup, nil, 100, 0, 3200, 3200, 8, objtype.HuntVisOff,
+	)
+	s := newHuntNextStateWithOperand(t, 100, iter, 0)
+
+	if err := handleHuntNext(s); err != nil {
+		t.Fatalf("handleHuntNext: %v", err)
+	}
+	if s.ISP != 1 || s.IntStack[0] != 1 {
+		t.Errorf("stack: got [%v], want [1]", s.IntStack[:s.ISP])
+	}
+	if s.Self != target {
+		t.Errorf("Self: got %v, want target %v", s.Self, target)
+	}
+	if s.Pointers&PtrActivePlayer == 0 {
+		t.Error("PtrActivePlayer should be set on hit (operand=0)")
+	}
+	if s.Self2 != nil {
+		t.Errorf("Self2 should remain nil on operand=0 hit, got %v", s.Self2)
+	}
+	if s.Pointers&PtrActivePlayer2 != 0 {
+		t.Error("PtrActivePlayer2 should NOT be set on operand=0 hit")
+	}
+}
+
+// TestHandleHuntNext_Operand1_BindsSecondarySlot pins that intOperand=1 routes
+// the hit to s.Self2 + PtrActivePlayer2 (and leaves Self/PtrActivePlayer
+// untouched). Mirrors TS `ActivePlayer[1]` = ScriptPointer.ActivePlayer2.
+// Pre-fix, this case clobbered Self instead.
+func TestHandleHuntNext_Operand1_BindsSecondarySlot(t *testing.T) {
+	target := &mockPlayer{username: "Hit2", x: 3204, z: 3204}
+	lookup := &mockPlayerLookup{
+		byZone: map[zoneKey][]ActivePlayer{
+			{0, 3216, 3216}: {target},
+		},
+	}
+	iter := NewHuntAllPlayerIterator(
+		lookup, nil, 100, 0, 3200, 3200, 8, objtype.HuntVisOff,
+	)
+	s := newHuntNextStateWithOperand(t, 100, iter, 1)
+
+	if err := handleHuntNext(s); err != nil {
+		t.Fatalf("handleHuntNext: %v", err)
+	}
+	if s.ISP != 1 || s.IntStack[0] != 1 {
+		t.Errorf("stack: got [%v], want [1]", s.IntStack[:s.ISP])
+	}
+	if s.Self2 != target {
+		t.Errorf("Self2: got %v, want target %v", s.Self2, target)
+	}
+	if s.Pointers&PtrActivePlayer2 == 0 {
+		t.Error("PtrActivePlayer2 should be set on hit (operand=1)")
+	}
+	if s.Self != nil {
+		t.Errorf("Self should remain nil on operand=1 hit, got %v", s.Self)
+	}
+	if s.Pointers&PtrActivePlayer != 0 {
+		t.Error("PtrActivePlayer should NOT be set on operand=1 hit")
+	}
+}
+
+// TestHandleHuntNext_InvalidOperand_Errors pins that intOperand>1 (or <0)
+// is rejected with a tagged error. Mirrors handleFindUID's invalid-operand
+// branch at handlers_player.go:1033-1035.
+func TestHandleHuntNext_InvalidOperand_Errors(t *testing.T) {
+	lookup := &mockPlayerLookup{}
+	iter := NewHuntAllPlayerIterator(
+		lookup, nil, 100, 0, 3200, 3200, 8, objtype.HuntVisOff,
+	)
+
+	for _, operand := range []int32{2, -1, 99} {
+		s := newHuntNextStateWithOperand(t, 100, iter, operand)
+		err := handleHuntNext(s)
+		if err == nil {
+			t.Errorf("operand=%d: expected error, got nil", operand)
+			continue
+		}
+		if !strings.Contains(err.Error(), "HUNTNEXT") {
+			t.Errorf("operand=%d: error should be tagged HUNTNEXT: %v", operand, err)
+		}
+		if !strings.Contains(err.Error(), "invalid intOperand") {
+			t.Errorf("operand=%d: error should mention invalid intOperand: %v", operand, err)
+		}
+	}
+}
+
 // --- NAI-37 Task 6: HINT_NPC handler unit tests ---------------------------
 
 func TestHintNpc_NoActivePlayer_Errors(t *testing.T) {
