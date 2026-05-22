@@ -103,7 +103,7 @@ func handleOpHeld(p *Player, payload []byte, op int) error {
 
 	trigger := script.TriggerOpHeld1 + script.ServerTriggerType(op-1)
 	sf := s.scriptProvider.GetByTrigger(trigger, obj, objType.Category)
-	s.runScript(sf, p, nil, true, nil, nil)
+	s.runScript(sf, p, nil, trigger, true, nil, nil)
 	return nil
 }
 
@@ -212,7 +212,7 @@ func handleOpHeldT(p *Player, payload []byte) error {
 		p.MessageGame("Nothing interesting happens.")
 		return nil
 	}
-	s.runScript(sf, p, nil, true, nil, nil)
+	s.runScript(sf, p, nil, script.TriggerOpHeldT, true, nil, nil)
 	return nil
 }
 
@@ -395,6 +395,6 @@ func handleOpHeldU(p *Player, payload []byte) error {
 		return nil
 	}
 
-	s.runScript(sf, p, nil, true, nil, nil)
+	s.runScript(sf, p, nil, script.TriggerOpHeldU, true, nil, nil)
 	return nil
 }

@@ -43,7 +43,14 @@ func (s *Server) processNpcEventQueue() {
 			continue
 		}
 		s.npcEventQueue = append(s.npcEventQueue[:i], s.npcEventQueue[i+1:]...)
-		s.runNpcScript(req.Script, req.Npc, nil, nil, nil)
+		// Map event type to its TS trigger: spawn → TriggerAiSpawn,
+		// despawn → TriggerAiDespawn. Mirrors TS NpcEventRequest dispatch
+		// in World.processEvents (TS event-type-tagged script firing).
+		trigger := script.TriggerAiSpawn
+		if req.Type == NpcEventDespawn {
+			trigger = script.TriggerAiDespawn
+		}
+		s.runNpcScript(req.Script, req.Npc, nil, trigger, nil, nil)
 		// don't advance i — removed current entry
 	}
 }

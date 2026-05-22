@@ -43,7 +43,7 @@ func TestResumeCountDialogSetsLastIntAndResumes(t *testing.T) {
 	}
 
 	received := drainConn(t, cc)
-	s.runScript(sf, p, nil, true, nil, nil)
+	s.runScript(sf, p, nil, script.TriggerProc, true, nil, nil)
 	p.client.flushWrite()
 	<-received
 
@@ -100,7 +100,7 @@ func TestResumeCountDialogSignExtendsNegative(t *testing.T) {
 	}
 
 	received := drainConn(t, cc)
-	s.runScript(sf, p, nil, true, nil, nil)
+	s.runScript(sf, p, nil, script.TriggerProc, true, nil, nil)
 	p.client.flushWrite()
 	<-received
 

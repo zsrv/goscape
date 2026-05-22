@@ -44,11 +44,13 @@ func (s *Server) buildPlayerScriptState(
 	sf *script.ScriptFile,
 	self script.ActivePlayer,
 	target any,
+	trigger script.ServerTriggerType,
 	protect bool,
 	intArgs []int,
 	stringArgs []string,
 ) *script.ScriptState {
 	state := script.Init(sf, self, protect, intArgs, stringArgs)
+	state.Trigger = trigger
 	state.NodeDebug = s.cfg.NodeDebug
 	state.Log = s.log
 	state.Provider = s.scriptProvider
@@ -98,6 +100,7 @@ func (s *Server) runScript(
 	sf *script.ScriptFile,
 	self script.ActivePlayer,
 	target any,
+	trigger script.ServerTriggerType,
 	protect bool,
 	intArgs []int,
 	stringArgs []string,
@@ -105,7 +108,7 @@ func (s *Server) runScript(
 	if sf == nil {
 		return
 	}
-	state := s.buildPlayerScriptState(sf, self, target, protect, intArgs, stringArgs)
+	state := s.buildPlayerScriptState(sf, self, target, trigger, protect, intArgs, stringArgs)
 	s.resumeOrFinish(state, self)
 }
 

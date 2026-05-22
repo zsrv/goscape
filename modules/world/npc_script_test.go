@@ -72,7 +72,7 @@ func TestRunNpcScriptFiresAndFinishes(t *testing.T) {
 		Opcodes: []script.Opcode{script.OpReturn},
 	}
 
-	s.runNpcScript(sf, n, nil, nil, nil)
+	s.runNpcScript(sf, n, nil, script.TriggerProc, nil, nil)
 
 	if n.activeScript != nil {
 		t.Errorf("activeScript: got %v, want nil (script finished)", n.activeScript)
@@ -94,7 +94,7 @@ func TestRunNpcScriptSuspendsOnNpcDelay(t *testing.T) {
 		IntOperands: []int32{3},
 	}
 
-	s.runNpcScript(sf, n, nil, nil, nil)
+	s.runNpcScript(sf, n, nil, script.TriggerProc, nil, nil)
 
 	if n.activeScript == nil {
 		t.Fatalf("activeScript: got nil, want stored state")
@@ -124,7 +124,7 @@ func TestNpcTurnResumesSuspendedScriptAfterDelay(t *testing.T) {
 	}
 
 	// Suspend: after this, delayedUntil = 104.
-	s.runNpcScript(sf, n, nil, nil, nil)
+	s.runNpcScript(sf, n, nil, script.TriggerProc, nil, nil)
 	if n.activeScript == nil || !n.delayed {
 		t.Fatalf("setup: expected suspended state")
 	}
@@ -154,7 +154,7 @@ func TestNpcTurnDoesNotResumeWhileDelayed(t *testing.T) {
 	}
 
 	// Suspend: delayedUntil = 104.
-	s.runNpcScript(sf, n, nil, nil, nil)
+	s.runNpcScript(sf, n, nil, script.TriggerProc, nil, nil)
 
 	// Advance to one tick BEFORE delayedUntil.
 	s.currentTick = 103
@@ -204,7 +204,7 @@ func TestNpcTurnDeadNpcDoesNotResumeScript(t *testing.T) {
 	}
 
 	// Suspend the script: delayedUntil = 104.
-	s.runNpcScript(sf, n, nil, nil, nil)
+	s.runNpcScript(sf, n, nil, script.TriggerProc, nil, nil)
 	if n.activeScript == nil || !n.delayed {
 		t.Fatalf("setup: expected suspended state")
 	}
@@ -452,7 +452,7 @@ func TestBuildNpcScriptStateDispatchesActivePlayer(t *testing.T) {
 	p := &Player{} // *Player satisfies script.ActivePlayer
 	sf := &script.ScriptFile{Name: "noop"}
 
-	state := s.buildNpcScriptState(sf, n, p, nil, nil)
+	state := s.buildNpcScriptState(sf, n, p, script.TriggerProc, nil, nil)
 
 	if state.Self == nil {
 		t.Error("Self: nil, want set (ActivePlayer target)")
@@ -481,7 +481,7 @@ func TestBuildNpcScriptStateDispatchesActiveLoc(t *testing.T) {
 	loc := entitypkg.NewLoc(0, 100, 100, 1, 1, entitypkg.LifecycleRespawn, 42, 10, 0)
 	sf := &script.ScriptFile{Name: "noop"}
 
-	state := s.buildNpcScriptState(sf, n, loc, nil, nil)
+	state := s.buildNpcScriptState(sf, n, loc, script.TriggerProc, nil, nil)
 
 	if state.ActiveLoc == nil {
 		t.Error("ActiveLoc: nil, want set")
@@ -499,7 +499,7 @@ func TestBuildNpcScriptStateDispatchesActiveObj(t *testing.T) {
 	obj := entitypkg.NewObj(0, 100, 100, entitypkg.LifecycleRespawn, 42, 1)
 	sf := &script.ScriptFile{Name: "noop"}
 
-	state := s.buildNpcScriptState(sf, n, obj, nil, nil)
+	state := s.buildNpcScriptState(sf, n, obj, script.TriggerProc, nil, nil)
 
 	if state.ActiveObj == nil {
 		t.Error("ActiveObj: nil, want set")
@@ -518,7 +518,7 @@ func TestBuildNpcScriptStateDispatchesOtherActiveNpc(t *testing.T) {
 	other := newNpcForScriptTest(t)
 	sf := &script.ScriptFile{Name: "noop"}
 
-	state := s.buildNpcScriptState(sf, n, other, nil, nil)
+	state := s.buildNpcScriptState(sf, n, other, script.TriggerProc, nil, nil)
 
 	if state.OtherActiveNpc == nil {
 		t.Error("OtherActiveNpc: nil, want set")
@@ -545,7 +545,7 @@ func TestBuildNpcScriptStateNilTargetSetsNoSecondaryPointer(t *testing.T) {
 	n := newNpcForScriptTest(t)
 	sf := &script.ScriptFile{Name: "noop"}
 
-	state := s.buildNpcScriptState(sf, n, nil, nil, nil)
+	state := s.buildNpcScriptState(sf, n, nil, script.TriggerProc, nil, nil)
 
 	// ActiveNpc (primary) is set by buildNpcScriptState itself, not target-dispatch.
 	if state.Pointers&script.PtrActiveNpc == 0 {
@@ -1035,7 +1035,7 @@ func TestResumeOrFinishNpc_PreservesUnrelatedSuspendedScript(t *testing.T) {
 		StringOperands:   []string{""},
 		InstructionCount: 1,
 	}
-	state := s.buildNpcScriptState(sf, n, nil, nil, nil)
+	state := s.buildNpcScriptState(sf, n, nil, script.TriggerProc, nil, nil)
 
 	s.resumeOrFinishNpc(state, n)
 

@@ -62,7 +62,7 @@ func (s *Server) handleInvButton(p *Player, payload []byte, op int) error {
 	sf := s.scriptProvider.GetByTrigger(trigger, comId, -1)
 	root := s.lookupComponent(com.RootLayer)
 	protect := root == nil || !root.Overlay
-	s.runScript(sf, p, nil, protect, nil, nil)
+	s.runScript(sf, p, nil, trigger, protect, nil, nil)
 	return nil
 }
 
@@ -125,6 +125,6 @@ func (s *Server) handleInvButtonD(p *Player, payload []byte) error {
 	sf := s.scriptProvider.GetByTrigger(script.TriggerInvButtonD, comId, -1)
 	root := s.lookupComponent(com.RootLayer)
 	protect := root == nil || !root.Overlay
-	s.runScript(sf, p, nil, protect, nil, nil)
+	s.runScript(sf, p, nil, script.TriggerInvButtonD, protect, nil, nil)
 	return nil
 }

@@ -272,7 +272,7 @@ func (s *Server) processLogins() {
 		// Fire the LOGIN trigger if the cache has one. Sub-spec RuneScript S3.
 		if s.scriptProvider != nil {
 			sf := s.scriptProvider.GetByTrigger(script.TriggerLogin, -1, -1)
-			s.runScriptFn(sf, p, nil, true, nil, nil)
+			s.runScriptFn(sf, p, nil, script.TriggerLogin, true, nil, nil)
 		}
 
 		// TS Player.ts:511-512 — establish the "imaginary previous step
@@ -486,7 +486,9 @@ func (s *Server) processPlayerQueue(p *Player) {
 			}
 			// TS Player.ts:891,903 — processQueues + processWeakQueue
 			// both fire scripts as protected (executeScript(script, true)).
-			s.runScriptFn(sf, p, nil, true, intArgs, stringArgs)
+			// Player queue family fires as TriggerQueue (TS Player.processQueues
+			// → ScriptRunner.init uses ServerTriggerType.QUEUE).
+			s.runScriptFn(sf, p, nil, script.TriggerQueue, true, intArgs, stringArgs)
 		}
 		// Don't advance i: we just removed the current element, so i
 		// now points to what was the next element (or past end).
@@ -535,7 +537,10 @@ func (s *Server) processPlayerEngineQueues() {
 				p.engineQueue = append(p.engineQueue[:i], p.engineQueue[i+1:]...)
 				if sf != nil {
 					// TS Player.ts:646 — executeScript(script, true): protected.
-					s.runScriptFn(sf, p, nil, true, intArgs, stringArgs)
+					// engineQueue fires as TriggerQueue (same family as
+					// PlayerQueueRequest — TS Player.processEngineQueue uses
+					// ScriptRunner.init's default ServerTriggerType.QUEUE).
+					s.runScriptFn(sf, p, nil, script.TriggerQueue, true, intArgs, stringArgs)
 				}
 				// Don't advance i — the slice shrunk by one; index now points
 				// at what was the next entry (or past end).
@@ -586,7 +591,11 @@ func (s *Server) processPlayerTimers() {
 				}
 				// TS Player.ts:938: NORMAL timers run protected, SOFT
 				// timers do not.
-				s.runScriptFn(sf, p, nil, t.Type == script.TimerNormal, t.IntArgs, t.StringArgs)
+				timerTrigger := script.TriggerTimer
+				if t.Type == script.TimerSoft {
+					timerTrigger = script.TriggerSoftTimer
+				}
+				s.runScriptFn(sf, p, nil, timerTrigger, t.Type == script.TimerNormal, t.IntArgs, t.StringArgs)
 			}
 		}(p)
 	}

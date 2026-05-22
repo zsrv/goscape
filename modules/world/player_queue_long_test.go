@@ -33,7 +33,7 @@ func TestProcessPlayerQueue_LongStripsArgs0(t *testing.T) {
 				LookupKey: 0xC0DE,
 			}
 			s.scriptProvider.Register(sentinel)
-			s.runScriptFn = func(_ *script.ScriptFile, _ script.ActivePlayer, _ any, _ bool, intArgs []int, _ []string) {
+			s.runScriptFn = func(_ *script.ScriptFile, _ script.ActivePlayer, _ any, _ script.ServerTriggerType, _ bool, intArgs []int, _ []string) {
 				captured = append([]int{}, intArgs...)
 			}
 

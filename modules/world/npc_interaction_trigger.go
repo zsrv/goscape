@@ -57,7 +57,7 @@ func (n *Npc) fireAiOpTriggerObj(s *Server, target *entitypkg.Obj) {
 		n.clearInteraction()
 		return
 	}
-	s.runNpcScript(sf, n, target, nil, nil)
+	s.runNpcScript(sf, n, target, trigger, nil, nil)
 }
 
 // fireAiApTriggerObj fires AI_APOBJ1..5 for an Obj target — approach-
@@ -79,7 +79,7 @@ func (n *Npc) fireAiApTriggerObj(s *Server, target *entitypkg.Obj) {
 		n.clearInteraction()
 		return
 	}
-	s.runNpcScript(sf, n, target, nil, nil)
+	s.runNpcScript(sf, n, target, trigger, nil, nil)
 }
 
 // objCategory resolves an obj's category through the server's ObjType
@@ -118,7 +118,7 @@ func (n *Npc) fireAiOpTriggerLoc(s *Server, target *entitypkg.Loc) {
 		n.clearInteraction()
 		return
 	}
-	s.runNpcScript(sf, n, target, nil, nil)
+	s.runNpcScript(sf, n, target, trigger, nil, nil)
 }
 
 // fireAiApTriggerLoc fires AI_APLOC1..5 for a Loc target — approach-
@@ -141,7 +141,7 @@ func (n *Npc) fireAiApTriggerLoc(s *Server, target *entitypkg.Loc) {
 		n.clearInteraction()
 		return
 	}
-	s.runNpcScript(sf, n, target, nil, nil)
+	s.runNpcScript(sf, n, target, trigger, nil, nil)
 }
 
 // locCategory resolves a loc's category through the server's LocType
@@ -180,7 +180,7 @@ func (n *Npc) fireAiOpTriggerNpc(s *Server, target *Npc) {
 		n.clearInteraction()
 		return
 	}
-	s.runNpcScript(sf, n, target, nil, nil)
+	s.runNpcScript(sf, n, target, trigger, nil, nil)
 }
 
 // fireAiApTriggerNpc fires AI_APNPC1..5 for an NPC target — approach-
@@ -204,7 +204,7 @@ func (n *Npc) fireAiApTriggerNpc(s *Server, target *Npc) {
 		n.clearInteraction()
 		return
 	}
-	s.runNpcScript(sf, n, target, nil, nil)
+	s.runNpcScript(sf, n, target, trigger, nil, nil)
 }
 
 // fireAiOpTriggerPlayer fires AI_OPPLAYER1..5 for a Player target.
@@ -227,7 +227,7 @@ func (n *Npc) fireAiOpTriggerPlayer(s *Server, target *Player) {
 		n.clearInteraction()
 		return
 	}
-	s.runNpcScript(sf, n, target, nil, nil)
+	s.runNpcScript(sf, n, target, trigger, nil, nil)
 }
 
 // fireAiApTriggerPlayer fires AI_APPLAYER1..5 for a Player target —
@@ -247,7 +247,7 @@ func (n *Npc) fireAiApTriggerPlayer(s *Server, target *Player) {
 		n.clearInteraction()
 		return
 	}
-	s.runNpcScript(sf, n, target, nil, nil)
+	s.runNpcScript(sf, n, target, trigger, nil, nil)
 }
 
 // aiApPlayerTriggerForOp maps an APPLAYER targetOp (12..16) to the

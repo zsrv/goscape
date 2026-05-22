@@ -1049,7 +1049,7 @@ func (p *Player) runIfCloseTrigger(s *Server, slotCom int) {
 		return
 	}
 	sf := s.scriptProvider.GetByTriggerSpecific(script.TriggerIfClose, slotCom, -1)
-	s.runScript(sf, p, nil, false, nil, nil)
+	s.runScript(sf, p, nil, script.TriggerIfClose, false, nil, nil)
 }
 
 // OpenMain opens com as the main modal. Per TS, opening main closes any

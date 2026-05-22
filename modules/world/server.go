@@ -270,7 +270,7 @@ type Server struct {
 	// (*Server).runScript in NewServer + newTestServer. Tests override
 	// to capture invocation args (e.g., the LONG-strip pin in
 	// TestProcessPlayerQueue_LongStripsArgs0).
-	runScriptFn func(sf *script.ScriptFile, self script.ActivePlayer, target any, protect bool, intArgs []int, stringArgs []string)
+	runScriptFn func(sf *script.ScriptFile, self script.ActivePlayer, target any, trigger script.ServerTriggerType, protect bool, intArgs []int, stringArgs []string)
 
 	// relayActionQueue carries closures enqueued by WorldStateOps
 	// methods (the impl of which lives on *Server, world_state_ops.go).

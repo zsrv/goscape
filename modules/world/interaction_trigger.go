@@ -87,6 +87,7 @@ func fireOpTriggerNpc(p *Player, srv *Server, npc *Npc) {
 	}
 
 	state := script.Init(sf, p, true, nil, nil)
+	state.Trigger = trigger
 	state.NodeDebug = srv.cfg.NodeDebug
 	state.ActiveNpc = npc
 	state.Pointers |= script.PtrActiveNpc
@@ -174,6 +175,7 @@ func fireOpTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 	}
 
 	state := script.Init(sf, p, true, nil, nil)
+	state.Trigger = trigger
 	state.NodeDebug = srv.cfg.NodeDebug
 	state.ActiveLoc = loc
 	state.Pointers |= script.PtrActiveLoc
@@ -366,6 +368,7 @@ func fireApTriggerNpc(p *Player, srv *Server, npc *Npc) {
 	p.apRangeCalled = false
 
 	state := script.Init(sf, p, true, nil, nil)
+	state.Trigger = trigger
 	state.NodeDebug = srv.cfg.NodeDebug
 	state.ActiveNpc = npc
 	state.Pointers |= script.PtrActiveNpc
@@ -463,6 +466,7 @@ func fireApTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 	p.apRangeCalled = false
 
 	state := script.Init(sf, p, true, nil, nil)
+	state.Trigger = trigger
 	state.NodeDebug = srv.cfg.NodeDebug
 	state.ActiveLoc = loc
 	state.Pointers |= script.PtrActiveLoc
@@ -712,6 +716,7 @@ func fireOpTriggerObj(p *Player, srv *Server, obj *entitypkg.Obj) {
 	}
 
 	state := script.Init(sf, p, true, nil, nil)
+	state.Trigger = trigger
 	state.NodeDebug = srv.cfg.NodeDebug
 	state.ActiveObj = obj
 	state.Pointers |= script.PtrActiveObj
@@ -783,6 +788,7 @@ func fireApTriggerObj(p *Player, srv *Server, obj *entitypkg.Obj) {
 	p.apRangeCalled = false
 
 	state := script.Init(sf, p, true, nil, nil)
+	state.Trigger = trigger
 	state.NodeDebug = srv.cfg.NodeDebug
 	state.ActiveObj = obj
 	state.Pointers |= script.PtrActiveObj

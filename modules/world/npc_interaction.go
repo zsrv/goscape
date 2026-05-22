@@ -301,7 +301,7 @@ func (n *Npc) updateMovement(s *Server) bool {
 		wtArg := n.walktriggerArg
 		n.walktrigger = -1
 		if sf != nil {
-			s.runNpcScript(sf, n, nil, []int{wtArg}, nil)
+			s.runNpcScript(sf, n, nil, trigger, []int{wtArg}, nil)
 		}
 	}
 

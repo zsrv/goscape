@@ -46,7 +46,7 @@ func TestRunScriptNilNoop(t *testing.T) {
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 
 	received := drainConn(t, cc)
-	s.runScript(nil, p, nil, true, nil, nil)
+	s.runScript(nil, p, nil, script.TriggerProc, true, nil, nil)
 	p.client.flushWrite()
 	got := <-received
 	if len(got) != 0 {
@@ -66,7 +66,7 @@ func TestRunScriptExecutesMesScript(t *testing.T) {
 	}
 
 	received := drainConn(t, cc)
-	s.runScript(sf, p, nil, true, nil, nil)
+	s.runScript(sf, p, nil, script.TriggerProc, true, nil, nil)
 	p.client.flushWrite()
 	got := <-received
 
@@ -97,7 +97,7 @@ func TestRunScriptHandlesError(t *testing.T) {
 	}
 
 	received := drainConn(t, cc)
-	s.runScript(bad, p, nil, true, nil, nil)
+	s.runScript(bad, p, nil, script.TriggerProc, true, nil, nil)
 	p.client.flushWrite()
 	got := <-received
 	if len(got) != 0 {
@@ -151,7 +151,7 @@ func TestPDelayStoresActiveScript(t *testing.T) {
 	startTick := s.currentTick
 
 	sf := buildDelayScript()
-	s.runScript(sf, p, nil, true, nil, nil)
+	s.runScript(sf, p, nil, script.TriggerProc, true, nil, nil)
 
 	if p.activeScript == nil {
 		t.Fatal("activeScript: got nil, want non-nil")
@@ -175,7 +175,7 @@ func TestResumeAfterDelayExpires(t *testing.T) {
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	s.playerLoop = append(s.playerLoop, p)
 
-	s.runScript(buildDelayScript(), p, nil, true, nil, nil)
+	s.runScript(buildDelayScript(), p, nil, script.TriggerProc, true, nil, nil)
 	if p.activeScript == nil {
 		t.Fatal("precondition: activeScript should be non-nil after suspension")
 	}
@@ -200,7 +200,7 @@ func TestResumedScriptEmitsMessageGame(t *testing.T) {
 	s.playerLoop = append(s.playerLoop, p)
 
 	received := drainConn(t, cc)
-	s.runScript(buildDelayScript(), p, nil, true, nil, nil)
+	s.runScript(buildDelayScript(), p, nil, script.TriggerProc, true, nil, nil)
 	p.client.flushWrite()
 	first := <-received
 
@@ -312,7 +312,7 @@ func TestPlaytimeViaScriptMessageGame(t *testing.T) {
 	}
 
 	received := drainConn(t, cc)
-	s.runScript(sf, p, nil, false, nil, nil)
+	s.runScript(sf, p, nil, script.TriggerProc, false, nil, nil)
 	p.client.flushWrite()
 	got := <-received
 
@@ -399,7 +399,7 @@ func TestVarpWireSyncSmall(t *testing.T) {
 	p.varps = make([]int32, 1)
 
 	received := drainConn(t, cc)
-	s.runScript(popVarpScript(42), p, nil, false, nil, nil)
+	s.runScript(popVarpScript(42), p, nil, script.TriggerProc, false, nil, nil)
 	p.client.flushWrite()
 	got := <-received
 
@@ -427,7 +427,7 @@ func TestVarpWireSyncLarge(t *testing.T) {
 	p.varps = make([]int32, 1)
 
 	received := drainConn(t, cc)
-	s.runScript(popVarpScript(10000), p, nil, false, nil, nil)
+	s.runScript(popVarpScript(10000), p, nil, script.TriggerProc, false, nil, nil)
 	p.client.flushWrite()
 	got := <-received
 
@@ -455,7 +455,7 @@ func TestVarpTransmitFalseNoWire(t *testing.T) {
 	p.varps = make([]int32, 1)
 
 	received := drainConn(t, cc)
-	s.runScript(popVarpScript(42), p, nil, false, nil, nil)
+	s.runScript(popVarpScript(42), p, nil, script.TriggerProc, false, nil, nil)
 	p.client.flushWrite()
 	got := <-received
 
@@ -493,7 +493,7 @@ func TestTelejumpViaScript(t *testing.T) {
 		InstructionCount: 3,
 	}
 
-	s.runScript(sf, p, nil, true, nil, nil)
+	s.runScript(sf, p, nil, script.TriggerProc, true, nil, nil)
 
 	if p.x != 3222 {
 		t.Errorf("p.x: got %d, want 3222", p.x)
@@ -538,7 +538,7 @@ func TestStatAdvanceViaScript(t *testing.T) {
 		InstructionCount: 4,
 	}
 
-	s.runScript(sf, p, nil, true, nil, nil)
+	s.runScript(sf, p, nil, script.TriggerProc, true, nil, nil)
 
 	if int(p.stats[3]) != 150 {
 		t.Errorf("p.stats[3]: got %d, want 150", int(p.stats[3]))
@@ -662,7 +662,7 @@ func TestInvAddGrantsItemsViaScript(t *testing.T) {
 		InstructionCount: 5,
 	}
 
-	s.runScript(sf, p, nil, true, nil, nil)
+	s.runScript(sf, p, nil, script.TriggerProc, true, nil, nil)
 
 	inv := p.invs[mainID]
 	if inv == nil {
@@ -694,7 +694,7 @@ func TestIfOpenMainSetsModalState(t *testing.T) {
 		StringOperands:   []string{"", "", ""},
 		InstructionCount: 3,
 	}
-	s.runScript(sf, p, nil, true, nil, nil)
+	s.runScript(sf, p, nil, script.TriggerProc, true, nil, nil)
 
 	if p.modalMain != 1234 {
 		t.Errorf("modalMain: got %d, want 1234", p.modalMain)
@@ -734,7 +734,7 @@ func TestIfSetTextEmitsWire(t *testing.T) {
 	}
 
 	received := drainConn(t, cc)
-	s.runScript(sf, p, nil, true, nil, nil)
+	s.runScript(sf, p, nil, script.TriggerProc, true, nil, nil)
 	p.client.flushWrite()
 	got := <-received
 
@@ -783,7 +783,7 @@ func TestPauseButtonResumesAfterClick(t *testing.T) {
 	}
 
 	received := drainConn(t, cc)
-	s.runScript(sf, p, nil, true, nil, nil)
+	s.runScript(sf, p, nil, script.TriggerProc, true, nil, nil)
 	p.client.flushWrite()
 	first := <-received
 
@@ -849,7 +849,7 @@ func TestResumePauseButtonResumesEvenWithEmptyResumeButtons(t *testing.T) {
 	}
 
 	received := drainConn(t, cc)
-	s.runScript(sf, p, nil, true, nil, nil)
+	s.runScript(sf, p, nil, script.TriggerProc, true, nil, nil)
 	p.client.flushWrite()
 	<-received
 
@@ -1399,7 +1399,7 @@ func TestBuildPlayerScriptState_NilTarget(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	sf := &script.ScriptFile{Name: "noop"}
 
-	state := s.buildPlayerScriptState(sf, p, nil, false, nil, nil)
+	state := s.buildPlayerScriptState(sf, p, nil, script.TriggerProc, false, nil, nil)
 
 	if state.Self2 != nil {
 		t.Error("Self2: non-nil, want nil")
@@ -1421,7 +1421,7 @@ func TestBuildPlayerScriptState_PlayerTarget(t *testing.T) {
 	p2, _ := newTestPlayer(t)
 	sf := &script.ScriptFile{Name: "noop"}
 
-	state := s.buildPlayerScriptState(sf, p, p2, false, nil, nil)
+	state := s.buildPlayerScriptState(sf, p, p2, script.TriggerProc, false, nil, nil)
 
 	if state.Self == nil {
 		t.Error("Self: nil, want primary set")
@@ -1445,7 +1445,7 @@ func TestBuildPlayerScriptState_NpcTarget(t *testing.T) {
 	npc := newNpcForScriptTest(t)
 	sf := &script.ScriptFile{Name: "noop"}
 
-	state := s.buildPlayerScriptState(sf, p, npc, false, nil, nil)
+	state := s.buildPlayerScriptState(sf, p, npc, script.TriggerProc, false, nil, nil)
 
 	if state.ActiveNpc == nil {
 		t.Error("ActiveNpc: nil, want set")
@@ -1463,7 +1463,7 @@ func TestBuildPlayerScriptState_LocTarget(t *testing.T) {
 	loc := entitypkg.NewLoc(0, 100, 100, 1, 1, entitypkg.LifecycleRespawn, 42, 10, 0)
 	sf := &script.ScriptFile{Name: "noop"}
 
-	state := s.buildPlayerScriptState(sf, p, loc, false, nil, nil)
+	state := s.buildPlayerScriptState(sf, p, loc, script.TriggerProc, false, nil, nil)
 
 	if state.ActiveLoc == nil {
 		t.Error("ActiveLoc: nil, want set")
@@ -1481,7 +1481,7 @@ func TestBuildPlayerScriptState_ObjTarget(t *testing.T) {
 	obj := entitypkg.NewObj(0, 100, 100, entitypkg.LifecycleRespawn, 42, 1)
 	sf := &script.ScriptFile{Name: "noop"}
 
-	state := s.buildPlayerScriptState(sf, p, obj, false, nil, nil)
+	state := s.buildPlayerScriptState(sf, p, obj, script.TriggerProc, false, nil, nil)
 
 	if state.ActiveObj == nil {
 		t.Error("ActiveObj: nil, want set")

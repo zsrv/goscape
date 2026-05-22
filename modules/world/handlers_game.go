@@ -532,7 +532,7 @@ func (s *Server) dispatchDebugproc(p *Player, cmd string, args string, rawCheat 
 		return
 	}
 	intArgs, stringArgs := s.marshalDebugprocArgs(sf, args, rawCheat)
-	s.runScript(sf, p, nil, false, intArgs, stringArgs)
+	s.runScript(sf, p, nil, script.TriggerDebugProc, false, intArgs, stringArgs)
 }
 
 func handleClientCheat(p *Player, payload []byte) error {

@@ -330,10 +330,12 @@ func (s *Server) buildNpcScriptState(
 	sf *script.ScriptFile,
 	npc script.ActiveNpc,
 	target any,
+	trigger script.ServerTriggerType,
 	intArgs []int,
 	stringArgs []string,
 ) *script.ScriptState {
 	state := script.Init(sf, nil, false, intArgs, stringArgs)
+	state.Trigger = trigger
 	state.NodeDebug = s.cfg.NodeDebug
 	state.Log = s.log
 	state.ActiveNpc = npc
@@ -388,13 +390,14 @@ func (s *Server) runNpcScript(
 	sf *script.ScriptFile,
 	npc script.ActiveNpc,
 	target any,
+	trigger script.ServerTriggerType,
 	intArgs []int,
 	stringArgs []string,
 ) {
 	if sf == nil {
 		return
 	}
-	state := s.buildNpcScriptState(sf, npc, target, intArgs, stringArgs)
+	state := s.buildNpcScriptState(sf, npc, target, trigger, intArgs, stringArgs)
 	s.resumeOrFinishNpc(state, npc)
 }
 
@@ -469,7 +472,7 @@ func (s *Server) processNpcTimer(n *Npc) {
 	if sf == nil {
 		return
 	}
-	s.runNpcScript(sf, n, nil, nil, nil)
+	s.runNpcScript(sf, n, nil, script.TriggerAiTimer, nil, nil)
 	n.timerClock = 0
 }
 
@@ -557,7 +560,7 @@ func (s *Server) processNpcQueue(n *Npc) {
 				"lastInt", lastIntArg,
 			)
 		}
-		state := s.buildNpcScriptState(sf, n, nil, nil, nil)
+		state := s.buildNpcScriptState(sf, n, nil, trigger, nil, nil)
 		state.LastInt = lastIntArg
 		s.resumeOrFinishNpc(state, n)
 		// Don't advance i — removed current element.

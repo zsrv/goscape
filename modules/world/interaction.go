@@ -362,7 +362,7 @@ func (p *Player) processWalktrigger() {
 	if sf == nil {
 		return
 	}
-	s.runScript(sf, p, nil, true, nil, nil)
+	s.runScript(sf, p, nil, script.TriggerWalkTrigger, true, nil, nil)
 }
 
 // tryInteract is the contact/approach-distance dispatch unifying the

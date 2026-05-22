@@ -287,6 +287,19 @@ type ScriptState struct {
 	PC      int
 	OpCount int
 
+	// Trigger is the ServerTriggerType that fired this script. Set by
+	// the script-construction sites in modules/world (buildPlayerScriptState,
+	// buildNpcScriptState, and the in-line fire* helpers in
+	// interaction_trigger.go / player_interaction_trigger.go); consumed by
+	// the LAST_* opcode allowlists at handlers_dialog.go to enforce the
+	// per-opcode "is not safe to use in this trigger" gate. Zero-value
+	// (TriggerProc=0) is NOT in any LAST_* allowlist, so test fixtures
+	// that omit Trigger fall through to "throw" cleanly. Mirrors TS
+	// ScriptState.trigger (ScriptState.ts) — populated by
+	// ScriptRunner.init's `state.trigger = trigger` and read at
+	// PlayerOps.ts:259-340,1026-1033.
+	Trigger ServerTriggerType
+
 	// LastInt is the int value injected by a resume event (e.g. the count
 	// from RESUME_P_COUNTDIALOG). Scripts read it via LAST_INT opcode.
 	LastInt int

@@ -80,7 +80,7 @@ func fireOpTriggerPlayer(p *Player, srv *Server, target *Player) {
 	// ActivePlayer-typed second arg → buildPlayerScriptState's
 	// case-ActivePlayer arm sets state.Self2 = target, Pointers |=
 	// PtrActivePlayer2 (TS-true binding per NAI-70).
-	srv.runScript(sf, p, target, true, nil, nil)
+	srv.runScript(sf, p, target, trigger, true, nil, nil)
 
 	p.nextTarget = p.target
 	p.target = savedTarget
@@ -137,7 +137,7 @@ func fireApTriggerPlayer(p *Player, srv *Server, target *Player) {
 	p.target = nil
 	p.waypointIndex = -1
 
-	srv.runScript(sf, p, target, true, nil, nil)
+	srv.runScript(sf, p, target, trigger, true, nil, nil)
 
 	p.nextTarget = p.target
 	p.target = savedTarget

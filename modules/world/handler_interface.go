@@ -63,7 +63,7 @@ func (s *Server) handleIfButton(p *Player, payload []byte) error {
 	sf := s.scriptProvider.GetByTriggerSpecific(script.TriggerIfButton, comId, -1)
 	root := s.lookupComponent(com.RootLayer)
 	protect := root == nil || !root.Overlay
-	s.runScript(sf, p, nil, protect, nil, nil)
+	s.runScript(sf, p, nil, script.TriggerIfButton, protect, nil, nil)
 	return nil
 }
 
@@ -144,6 +144,6 @@ func (s *Server) handleTutClickSide(p *Player, payload []byte) error {
 		return nil
 	}
 	sf := s.scriptProvider.GetByTriggerSpecific(script.TriggerTutorial, -1, -1)
-	s.runScript(sf, p, nil, true, nil, nil)
+	s.runScript(sf, p, nil, script.TriggerTutorial, true, nil, nil)
 	return nil
 }

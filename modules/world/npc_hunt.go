@@ -340,7 +340,7 @@ func (s *Server) consumeHuntTarget(n *Npc) {
 			trigger := script.TriggerAiQueue1 +
 				script.ServerTriggerType(hunt.FindNewMode-objtype.NPCModeQueue1)
 			sf := s.scriptProvider.GetByTrigger(trigger, n.typeId, n.typ.Category)
-			s.runNpcScript(sf, n, nil, nil, nil)
+			s.runNpcScript(sf, n, nil, trigger, nil, nil)
 		}
 	} else {
 		// Interaction branch: full SetInteraction port closes the NAI-10
