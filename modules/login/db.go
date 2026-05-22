@@ -143,8 +143,18 @@ func setAccountMembers(ctx context.Context, db *sql.DB, accountID int) error {
 	return nil
 }
 
+// execer is the common subset of *sql.DB and *sql.Tx used by the *Tx
+// wrappers so PlayerLogin can group inserts in one transaction (DB-1).
+type execer interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+}
+
 func upsertAccountLogin(ctx context.Context, db *sql.DB, accountID int, profile string, nodeID int) error {
-	_, err := db.ExecContext(ctx, `
+	return upsertAccountLoginTx(ctx, db, accountID, profile, nodeID)
+}
+
+func upsertAccountLoginTx(ctx context.Context, ex execer, accountID int, profile string, nodeID int) error {
+	_, err := ex.ExecContext(ctx, `
 		INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, 1)
 		ON CONFLICT(account_id, profile) DO UPDATE SET logged_in = 1, node_id = excluded.node_id`,
 		accountID, profile, nodeID,
@@ -156,8 +166,12 @@ func upsertAccountLogin(ctx context.Context, db *sql.DB, accountID int, profile 
 }
 
 func insertSession(ctx context.Context, db *sql.DB, sessionUUID string, accountID int, profile string, world, uid int, remoteAddr string) error {
+	return insertSessionTx(ctx, db, sessionUUID, accountID, profile, world, uid, remoteAddr)
+}
+
+func insertSessionTx(ctx context.Context, ex execer, sessionUUID string, accountID int, profile string, world, uid int, remoteAddr string) error {
 	loginTime := time.Now().UTC().Format(dbTimeFormat)
-	_, err := db.ExecContext(ctx,
+	_, err := ex.ExecContext(ctx,
 		`INSERT INTO session (session_uuid, account_id, profile, world, uid, login_time, remote_address) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		sessionUUID, accountID, profile, world, uid, loginTime, remoteAddr,
 	)

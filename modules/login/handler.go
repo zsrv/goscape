@@ -162,12 +162,27 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 		return buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_RECONNECT_OK, account, nil, sessionUUID), nil
 	}
 
-	// 8. Record session (store the extracted IP for consistency with ipBanned lookups).
-	if err := insertSession(ctx, h.db, sessionUUID, account.ID, req.Profile, int(req.NodeId), int(req.Uid), ip); err != nil {
+	// 8. Record session + login row atomically (PORTING.md Arc 18 DB-1).
+	// The intermediate save-file read sits inside the transaction window
+	// but does not itself perform DB I/O; if it fails (non-ErrNotExist),
+	// the deferred rollback drops the just-inserted session row so we
+	// never leave orphan session rows without a matching login upsert.
+	tx, err := h.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "begin tx: %v", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if err := insertSessionTx(ctx, tx, sessionUUID, account.ID, req.Profile, int(req.NodeId), int(req.Uid), ip); err != nil {
 		return nil, status.Errorf(codes.Internal, "insertSession: %v", err)
 	}
 
-	// 10. Read save file.
+	// 10. Read save file (idempotent file I/O; safe inside the tx window).
 	savePath := filepath.Join(h.cfg.SavePath, req.Profile, req.Username+".sav")
 	saveBytes, err := os.ReadFile(savePath)
 	result := loginpb.LoginResult_LOGIN_RESULT_OK
@@ -181,9 +196,14 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 	}
 
 	// 11. Upsert login row.
-	if err := upsertAccountLogin(ctx, h.db, account.ID, req.Profile, int(req.NodeId)); err != nil {
+	if err := upsertAccountLoginTx(ctx, tx, account.ID, req.Profile, int(req.NodeId)); err != nil {
 		return nil, status.Errorf(codes.Internal, "upsertAccountLogin: %v", err)
 	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, status.Errorf(codes.Internal, "commit tx: %v", err)
+	}
+	committed = true
 
 	telemetry.Get().EmitAuth(&eventspb.AuthEnvelope{
 		SchemaVersion: 1,
