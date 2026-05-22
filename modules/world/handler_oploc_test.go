@@ -22,6 +22,7 @@ func makeOpLocFixture(t *testing.T) (*Server, *Player, *entitypkg.Loc, net.Conn)
 	t.Helper()
 	s := newTestServer(t)
 	s.zoneMap = zone.NewZoneMap()
+	s.configsView = serverConfigsView{s: s}
 
 	// Register LocType 42.
 	s.locTypes = &objtype.LocTypeConfigs{

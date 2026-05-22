@@ -797,6 +797,7 @@ func newApTriggerNpcFixture(t *testing.T) (*Server, *Player, *Npc) {
 	t.Helper()
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
+	s.configsView = serverConfigsView{s: s}
 
 	p, _ := newTestPlayer(t)
 	p.client.server = s
@@ -806,7 +807,12 @@ func newApTriggerNpcFixture(t *testing.T) (*Server, *Player, *Npc) {
 		ConfigType:  objtype.ConfigType{ID: 7, DebugName: "rat"},
 		AttackRange: 5,
 		Category:    0,
+		Op:          []string{"op1", "op2", "op3", "op4", "op5"},
 	}
+	s.npcTypes = &objtype.NPCTypeConfigs{
+		Configs: make([]*objtype.NpcType, 8),
+	}
+	s.npcTypes.Configs[7] = npcType
 	npc := NewNpc(0, 7, 105, 100, 0, npcType)
 	p.SetInteraction(InteractionEngine, npc, 1, -1)
 	p.interacted = true // simulate reach (as processInteraction would)

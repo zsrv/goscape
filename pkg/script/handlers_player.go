@@ -1082,15 +1082,19 @@ func handleP_OpLoc(s *ScriptState) error {
 	if op < 1 || op > 5 {
 		return fmt.Errorf("P_OPLOC: invalid op %d (must be 1..5)", op)
 	}
-	if s.Configs == nil {
-		return errors.New("P_OPLOC: no configs")
-	}
-	locType := s.Configs.LocType(s.ActiveLoc.LocType())
-	if locType == nil {
-		return fmt.Errorf("P_OPLOC: invalid active loc type (%d)", s.ActiveLoc.LocType())
-	}
-	if op-1 >= len(locType.Op) || locType.Op[op-1] == "" {
-		return nil // TS: !locType.op || !locType.op[type] → silent skip
+	// TS PlayerOps.ts:391-394: `if (!locType.op || !locType.op[type]) { return; }`.
+	// Silent skip when the LocType is unregistered or the chosen Op slot is
+	// empty (or out of bounds), mirroring handleP_OpNpc/handleP_OpObj. A nil
+	// Configs registry falls through and fires — the registry is the source of
+	// truth only when present (matches TS where LocType.get always returns a
+	// populated default, but in goscape pre-Configs paths must remain wired for
+	// back-compat with tests that exercise the interaction surface without a
+	// configs fixture).
+	if s.Configs != nil {
+		locType := s.Configs.LocType(s.ActiveLoc.LocType())
+		if locType == nil || op-1 >= len(locType.Op) || locType.Op[op-1] == "" {
+			return nil
+		}
 	}
 	s.Self.StopAction()
 	s.Self.SetInteractionScriptLoc(s.ActiveLoc, op)
