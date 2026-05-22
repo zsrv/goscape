@@ -134,4 +134,3 @@ func TestGetTimeSpentNoActivePlayerOK(t *testing.T) {
 		t.Fatalf("Execute: %v (must not require active player per TS DebugOps)", err)
 	}
 }
-
