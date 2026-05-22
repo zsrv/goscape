@@ -16,6 +16,15 @@ import (
 // Greps both pkg/script/ (Pointers / ScriptOpcodeMap-side deviations)
 // and pkg/objtype/ (NpcMode-side deviation). Implementer adjusts the
 // grep root if a new deviation lands in a different package.
+//
+// Status: NAI-201-D-NPCMODE-QUEUE-TODO is FORMALLY CLOSED as a
+// TS-parity exception (Arc 23 #176 pattern). See the long-form
+// closure note at pkg/objtype/npcmode.go above the NpcModeMap var.
+// The QUEUE constants, dispatch (TriggerAiQueue1..20 via
+// Server.consumeHuntTarget), and pack-parser support all ship in Go;
+// only the string→mode entry is omitted from NpcModeMap to mirror
+// TS NpcMode.ts:147-167's commented-out TODO block. Do not re-open
+// this deviation unless TS uncomments those entries upstream.
 func TestNAI201Deviations_Pinned(t *testing.T) {
 	wantTags := []string{
 		"NAI-201-D-NPCMODE-QUEUE-TODO",
