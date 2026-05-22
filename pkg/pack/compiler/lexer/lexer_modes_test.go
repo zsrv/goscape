@@ -27,18 +27,51 @@ func TestLex_PlainString(t *testing.T) {
 	}
 }
 
+// TestLex_StringEscapes pins the NAI-221 token-split semantics: each
+// StringEscapeSequence is its own STRING_TEXT token, matching TS
+// RuneScript 0.9.4 (the version pinned by Server225_2 at
+// node_modules/@lostcityrs/runescript). Source `"a\\b\"c\<d"` lexes as
+// 7 STRING_TEXT tokens: ["a", "\\", "b", "\"", "c", "\<", "d"].
+//
+// Cross-reference: upstream commit ef6636e ("fix: update string escape
+// sequence parsing rules") relaxed this in TS 0.9.6 by changing the
+// STRING_TEXT grammar from alternation to repetition. Goscape stays on
+// the pre-fix shape so that Go-packed and TS-packed script.dat are
+// byte-identical for the currently pinned TS version. If Server225_2
+// upgrades to RuneScript >= 0.9.6, this test (and the lexer split)
+// can be retired.
 func TestLex_StringEscapes(t *testing.T) {
 	src := `"a\\b\"c\<d"`
 	l := NewLexer(src, "se.rs2")
 	tokens := drainTokens(t, l)
-	want := []TokenType{QUOTE_OPEN, STRING_TEXT, QUOTE_CLOSE, EOF}
+	want := []TokenType{
+		QUOTE_OPEN,
+		STRING_TEXT, // "a"
+		STRING_TEXT, // "\\"
+		STRING_TEXT, // "b"
+		STRING_TEXT, // "\""
+		STRING_TEXT, // "c"
+		STRING_TEXT, // "\<"
+		STRING_TEXT, // "d"
+		QUOTE_CLOSE,
+		EOF,
+	}
+	if len(tokens) != len(want) {
+		t.Fatalf("token count: got %d, want %d; all=%v", len(tokens), len(want), tokens)
+	}
 	for i, w := range want {
 		if tokens[i].Type != w {
 			t.Fatalf("token %d = %s, want %s; all=%v", i, tokens[i].Type, w, tokens)
 		}
 	}
-	if tokens[1].Text != `a\\b\"c\<d` {
-		t.Errorf("STRING_TEXT.Text = %q", tokens[1].Text)
+	wantText := []string{"", "a", `\\`, "b", `\"`, "c", `\<`, "d", "", ""}
+	for i, wt := range wantText {
+		if wt == "" {
+			continue
+		}
+		if tokens[i].Text != wt {
+			t.Errorf("token %d text = %q, want %q", i, tokens[i].Text, wt)
+		}
 	}
 }
 
