@@ -1,0 +1,81 @@
+// proto/events/v1/world.proto
+syntax = "proto3";
+
+package events.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/zsrv/goscape/pkg/eventspb";
+
+message WorldEnvelope {
+  uint32 schema_version = 1;
+  string event_id = 2;
+  google.protobuf.Timestamp ts = 3;
+  int32 world_id = 4; // partition key
+  int64 account_id = 5; // 0 for world-scoped events
+
+  oneof payload {
+    TilePositionEvent tile_position = 100;
+    CombatEvent combat = 101;
+    InteractionEvent interaction = 102;
+    ChatMessageEvent chat = 103;
+    NpcSpawnEvent npc_spawn = 104;
+    NpcDespawnEvent npc_despawn = 105;
+    DoorStateEvent door_state = 106;
+    PacketReceivedEvent packet_received = 107;
+  }
+}
+
+message TilePositionEvent {
+  int32 x = 1;
+  int32 y = 2;
+  int32 plane = 3;
+}
+
+message CombatEvent {
+  int64 target_account_id = 1; // or 0 if NPC
+  int32 target_npc_id = 2;
+  int32 damage = 3;
+  string combat_style = 4; // melee/ranged/magic
+}
+
+message InteractionEvent {
+  int64 target_account_id = 1;
+  int32 target_npc_id = 2;
+  string action = 3;
+}
+
+message ChatMessageEvent {
+  enum Channel {
+    CHANNEL_UNSPECIFIED = 0;
+    CHANNEL_PUBLIC = 1;
+    CHANNEL_CLAN = 2;
+  }
+  Channel channel = 1;
+  string text = 2;
+}
+
+message NpcSpawnEvent {
+  int32 npc_id = 1;
+  int32 npc_type = 2;
+  int32 x = 3;
+  int32 y = 4;
+  int32 plane = 5;
+}
+
+message NpcDespawnEvent {
+  int32 npc_id = 1;
+}
+
+message DoorStateEvent {
+  int32 loc_id = 1;
+  int32 x = 2;
+  int32 y = 3;
+  int32 plane = 4;
+  bool open = 5;
+}
+
+message PacketReceivedEvent {
+  uint32 opcode = 1;
+  uint32 size = 2;
+}
