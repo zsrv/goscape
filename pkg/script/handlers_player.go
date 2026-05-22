@@ -1058,16 +1058,12 @@ func handlePApRange(s *ScriptState) error {
 // looks up the active loc's LocType and silently returns when the
 // op slot is missing or empty.
 //
-// DEVIATION: TS guards the queueWaypoint call with
-// state.activePlayer.inOperableDistance(state.activeLoc)
-// (PlayerOps.ts:396-398). goscape's script-side ActivePlayer interface
-// does not yet expose InOperableDistance (the geometry lives in
-// modules/world/interaction.go and depends on concrete *Player +
-// entity types), so the queueWaypoint dispatch is deferred until
-// that accessor is wired through. SetInteractionScriptLoc still
-// fires; movement convergence then occurs via the interaction
-// trigger loop. Sibling P_OPOBJ (PlayerOps.ts:1001-1005) queues
-// unconditionally so does not surface this gap.
+// Dispatch order (TS PlayerOps.ts:395-399): StopAction →
+// inOperableDistance-guarded QueueWaypoint → SetInteractionScriptLoc.
+// Sibling P_OPOBJ (PlayerOps.ts:1001-1005) queues unconditionally;
+// P_OPLOC gates on geometry because a loc's shape/angle/force-approach
+// can already satisfy operable distance even when the player has not
+// stepped adjacent.
 func handleP_OpLoc(s *ScriptState) error {
 	if err := requireProtectedActivePlayer(s, "P_OPLOC"); err != nil {
 		return err
@@ -1097,6 +1093,10 @@ func handleP_OpLoc(s *ScriptState) error {
 		}
 	}
 	s.Self.StopAction()
+	if !s.Self.InOperableDistance(s.ActiveLoc) {
+		x, z, _ := s.ActiveLoc.Coords()
+		s.Self.QueueWaypoint(x, z)
+	}
 	s.Self.SetInteractionScriptLoc(s.ActiveLoc, op)
 	return nil
 }

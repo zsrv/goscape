@@ -1820,6 +1820,87 @@ func TestPOpLocAnchorsOnActiveLoc(t *testing.T) {
 	}
 }
 
+// TestPOpLocQueueWaypointOutOfRange pins TS PlayerOps.ts:396-398:
+// when inOperableDistance returns false, P_OPLOC queues a waypoint to
+// the active loc's coords before anchoring the script interaction.
+func TestPOpLocQueueWaypointOutOfRange(t *testing.T) {
+	mp := &mockPlayer{inOperableDistanceValue: false}
+	loc := &mockActiveLoc{locType: 42, x: 3200, z: 3201, level: 0}
+
+	sf := &ScriptFile{
+		Name:             "p_op_loc_far",
+		Opcodes:          []Opcode{OpPushConstantInt, OpPOpLoc, OpReturn},
+		IntOperands:      []int32{3, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, true, nil, nil)
+	state.ActiveLoc = loc
+	state.Pointers |= PtrActiveLoc
+	mc := newTestConfigs()
+	lt := objtype.NewLocType(42)
+	lt.Op = make([]string, 5)
+	lt.Op[2] = "Operate"
+	mc.locs[42] = lt
+	state.Configs = mc
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(mp.inOperableDistanceCalls) != 1 || mp.inOperableDistanceCalls[0] != loc {
+		t.Fatalf("InOperableDistance: got %+v, want 1 call with active loc", mp.inOperableDistanceCalls)
+	}
+	want := struct{ x, z int }{x: 3200, z: 3201}
+	if len(mp.queueWaypointCalls) != 1 || mp.queueWaypointCalls[0] != want {
+		t.Errorf("QueueWaypoint args: got %+v, want [{3200, 3201}]", mp.queueWaypointCalls)
+	}
+	if mp.stopActionCalls != 1 {
+		t.Errorf("StopAction calls: got %d, want 1", mp.stopActionCalls)
+	}
+	if len(mp.lastSetInteractionScriptLoc) != 1 || mp.lastSetInteractionScriptLoc[0].Op != 3 {
+		t.Errorf("SetInteractionScriptLoc: got %+v, want 1 call op=3", mp.lastSetInteractionScriptLoc)
+	}
+}
+
+// TestPOpLocSkipsQueueWaypointInRange pins TS PlayerOps.ts:396-398:
+// when inOperableDistance returns true, P_OPLOC anchors the
+// interaction without queueing a redundant waypoint.
+func TestPOpLocSkipsQueueWaypointInRange(t *testing.T) {
+	mp := &mockPlayer{inOperableDistanceValue: true}
+	loc := &mockActiveLoc{locType: 42, x: 3200, z: 3201, level: 0}
+
+	sf := &ScriptFile{
+		Name:             "p_op_loc_close",
+		Opcodes:          []Opcode{OpPushConstantInt, OpPOpLoc, OpReturn},
+		IntOperands:      []int32{3, 0, 0},
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	state := Init(sf, mp, true, nil, nil)
+	state.ActiveLoc = loc
+	state.Pointers |= PtrActiveLoc
+	mc := newTestConfigs()
+	lt := objtype.NewLocType(42)
+	lt.Op = make([]string, 5)
+	lt.Op[2] = "Operate"
+	mc.locs[42] = lt
+	state.Configs = mc
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(mp.inOperableDistanceCalls) != 1 {
+		t.Fatalf("InOperableDistance: got %d calls, want 1", len(mp.inOperableDistanceCalls))
+	}
+	if len(mp.queueWaypointCalls) != 0 {
+		t.Errorf("QueueWaypoint: got %+v, want no calls", mp.queueWaypointCalls)
+	}
+	if mp.stopActionCalls != 1 {
+		t.Errorf("StopAction calls: got %d, want 1", mp.stopActionCalls)
+	}
+	if len(mp.lastSetInteractionScriptLoc) != 1 {
+		t.Errorf("SetInteractionScriptLoc: want 1 call, got %d", len(mp.lastSetInteractionScriptLoc))
+	}
+}
+
 // TestPOpLocNoActivePlayerErrors — requireActivePlayer gate fires.
 func TestPOpLocNoActivePlayerErrors(t *testing.T) {
 	sf := newSingleOp("p_op_loc_no_player", OpPOpLoc)

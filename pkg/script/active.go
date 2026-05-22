@@ -429,6 +429,17 @@ type ActivePlayer interface {
 	// SCRIPT-anchoring the interaction.
 	QueueWaypoint(x, z int)
 
+	// InOperableDistance reports whether the active player is currently
+	// within operable reach of the given active loc. Mirrors TS
+	// Player.inOperableDistance (Engine-TS Player.ts) consumed by
+	// P_OPLOC (PlayerOps.ts:396-398) to gate the queueWaypoint dispatch
+	// when the player has not yet reached the loc. Production impl in
+	// modules/world delegates to reach.Reached with the loc's
+	// Width/Length/Angle/Shape/ForceApproach; non-*entity.Loc inputs
+	// (test doubles) return true so the queueWaypoint dispatch is
+	// suppressed.
+	InOperableDistance(loc ActiveLoc) bool
+
 	// ClearPendingAction clears the current interaction + pending action
 	// + closes any open modal. Walk queue is preserved.
 	ClearPendingAction()

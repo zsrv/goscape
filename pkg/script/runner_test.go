@@ -309,6 +309,14 @@ type mockPlayer struct {
 		op  int
 	}
 
+	// P_OPLOC InOperableDistance gate (TS PlayerOps.ts:396-398).
+	// Defaults to false (out of range) so P_OPLOC tests that don't
+	// pre-seed exercise the queueWaypoint branch by default. Tests
+	// that want the "already in range, no waypoint" path set this to
+	// true explicitly.
+	inOperableDistanceValue bool
+	inOperableDistanceCalls []ActiveLoc
+
 	// S7a: canAccess return value. Defaults to false; tests that exercise
 	// P_FINDUID positive paths set this to true explicitly.
 	canAccessValue bool
@@ -909,6 +917,11 @@ func (m *mockPlayer) LoggingOut() bool     { return m.loggingOutValue }
 
 func (m *mockPlayer) QueueWaypoint(x, z int) {
 	m.queueWaypointCalls = append(m.queueWaypointCalls, struct{ x, z int }{x, z})
+}
+
+func (m *mockPlayer) InOperableDistance(loc ActiveLoc) bool {
+	m.inOperableDistanceCalls = append(m.inOperableDistanceCalls, loc)
+	return m.inOperableDistanceValue
 }
 
 func (m *mockPlayer) SetInteractionScriptObj(obj ActiveObj, op int) {

@@ -1264,6 +1264,26 @@ func (p *Player) SetInteractionScriptNpc(npc script.ActiveNpc, op int) {
 // NAI-115 T7.
 func (p *Player) QueueWaypoint(x, z int) { p.queueWaypoint(x, z) }
 
+// InOperableDistance implements script.ActivePlayer.InOperableDistance
+// by type-asserting the narrow script.ActiveLoc back to *entity.Loc and
+// delegating to the package-private inOperableDistance shape-aware
+// reach probe at modules/world/interaction.go:634. Mirrors TS
+// Player.inOperableDistance consumed by P_OPLOC
+// (PlayerOps.ts:396-398) to gate queueWaypoint dispatch when the
+// player has not yet reached the active loc.
+//
+// Returns true on type-assert failure so the script-side gate
+// suppresses queueWaypoint for non-production active-loc inputs (test
+// doubles). Production OPLOC routing always installs a concrete
+// *entity.Loc.
+func (p *Player) InOperableDistance(loc script.ActiveLoc) bool {
+	realLoc, ok := loc.(*entitypkg.Loc)
+	if !ok {
+		return true
+	}
+	return inOperableDistance(p, realLoc)
+}
+
 // SetInteractionScriptObj implements script.ActivePlayer. Type-asserts
 // the script-side ActiveObj to *entity.Obj and anchors the player
 // with InteractionScript + APOBJ<op>. Silently no-ops if the obj
