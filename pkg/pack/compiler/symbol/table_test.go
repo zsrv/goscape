@@ -160,3 +160,117 @@ func TestSymbolTable_FindAll_Miss(t *testing.T) {
 		t.Fatalf("FindAll miss len = %d, want 0", len(got))
 	}
 }
+
+// TestSymbolTable_FindAll_DeterministicOrder pins FindAll's iteration order to
+// be stable across repeated calls. Without this guarantee, callers like
+// type_checking_expr.go (visitGameVariableExpression / resolveSymbol) that
+// iterate FindAll and break on the first matching symbol will pick a different
+// symbol between runs whenever cross-kind name collisions exist — corrupting
+// bytecode determinism.
+//
+// The root cause is findAllInto iterating `st.symbols` (a Go map) without
+// sorting. This test populates a table with several symbols of different kinds
+// sharing the same name, calls FindAll many times, and asserts every call
+// returns the same sequence of pointers.
+func TestSymbolTable_FindAll_DeterministicOrder(t *testing.T) {
+	const N = 200
+
+	tg := makeTriggerStub("proc")
+	st := NewSymbolTable(nil)
+
+	// Insert symbols of multiple kinds all named "foo" so they all land in
+	// different outer-map keys but match the same FindAll name. Goal: maximise
+	// outer-map iteration sensitivity to Go's map randomisation.
+	st.Insert(SymbolTypeServerScript(tg), &ServerScriptSymbol{
+		ScriptSymbolFields: ScriptSymbolFields{Trigger: tg, Name: "foo"},
+	})
+	st.Insert(SymbolTypeLocalVariable(), &LocalVariableSymbol{Name: "foo"})
+	st.Insert(SymbolTypeConstant(), &ConstantSymbol{Name: "foo", Value: "1"})
+	st.Insert(SymbolTypeBasic(typ.PrimitiveInt), &BasicSymbol{
+		Name: "foo", Type: typ.PrimitiveInt,
+	})
+	st.Insert(SymbolTypeBasic(typ.PrimitiveBoolean), &BasicSymbol{
+		Name: "foo", Type: typ.PrimitiveBoolean,
+	})
+	st.Insert(SymbolTypeBasic(typ.PrimitiveString), &BasicSymbol{
+		Name: "foo", Type: typ.PrimitiveString,
+	})
+	st.Insert(SymbolTypeBasic(typ.PrimitiveCoord), &BasicSymbol{
+		Name: "foo", Type: typ.PrimitiveCoord,
+	})
+
+	first := st.FindAll("foo")
+	if len(first) < 2 {
+		t.Fatalf("FindAll(\"foo\") returned %d symbols; need >=2 to test ordering", len(first))
+	}
+
+	for i := 0; i < N; i++ {
+		got := st.FindAll("foo")
+		if len(got) != len(first) {
+			t.Fatalf("iteration %d: len mismatch: first=%d got=%d", i, len(first), len(got))
+		}
+		for j := range got {
+			if got[j] != first[j] {
+				t.Fatalf("iteration %d: order differs at index %d:\n  first[%d]=%T(%s)\n  got[%d]=%T(%s)\nfull first: %v\nfull got:   %v",
+					i, j, j, first[j], first[j].SymbolName(), j, got[j], got[j].SymbolName(),
+					symNames(first), symNames(got))
+			}
+		}
+	}
+}
+
+// TestSymbolTable_FindAll_DeterministicOrder_AcrossParents pins iteration
+// determinism across the parent-chain walk too. Same property as the
+// single-table variant but additionally exercises findAllInto's recursive
+// st.parent.findAllInto call.
+func TestSymbolTable_FindAll_DeterministicOrder_AcrossParents(t *testing.T) {
+	const N = 200
+
+	tg := makeTriggerStub("proc")
+	root := NewSymbolTable(nil)
+	root.Insert(SymbolTypeServerScript(tg), &ServerScriptSymbol{
+		ScriptSymbolFields: ScriptSymbolFields{Trigger: tg, Name: "x"},
+	})
+	root.Insert(SymbolTypeBasic(typ.PrimitiveInt), &BasicSymbol{
+		Name: "x", Type: typ.PrimitiveInt,
+	})
+	root.Insert(SymbolTypeBasic(typ.PrimitiveBoolean), &BasicSymbol{
+		Name: "x", Type: typ.PrimitiveBoolean,
+	})
+	root.Insert(SymbolTypeConstant(), &ConstantSymbol{Name: "x", Value: "1"})
+
+	child := root.CreateSubTable()
+	child.Insert(SymbolTypeLocalVariable(), &LocalVariableSymbol{Name: "x"})
+	child.Insert(SymbolTypeBasic(typ.PrimitiveString), &BasicSymbol{
+		Name: "x", Type: typ.PrimitiveString,
+	})
+	child.Insert(SymbolTypeBasic(typ.PrimitiveCoord), &BasicSymbol{
+		Name: "x", Type: typ.PrimitiveCoord,
+	})
+
+	first := child.FindAll("x")
+	if len(first) < 2 {
+		t.Fatalf("FindAll(\"x\") returned %d symbols; need >=2 to test ordering", len(first))
+	}
+
+	for i := 0; i < N; i++ {
+		got := child.FindAll("x")
+		if len(got) != len(first) {
+			t.Fatalf("iteration %d: len mismatch: first=%d got=%d", i, len(first), len(got))
+		}
+		for j := range got {
+			if got[j] != first[j] {
+				t.Fatalf("iteration %d: order differs at index %d:\n  first=%v\n  got=  %v",
+					i, j, symNames(first), symNames(got))
+			}
+		}
+	}
+}
+
+func symNames(syms []Symbol) []string {
+	out := make([]string, len(syms))
+	for i, s := range syms {
+		out[i] = s.SymbolName()
+	}
+	return out
+}
