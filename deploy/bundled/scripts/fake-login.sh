@@ -4,7 +4,7 @@
 # Requires: grpcurl (https://github.com/fullstorydev/grpcurl).
 set -euo pipefail
 
-LOGIN_ADDR="${LOGIN_ADDR:-localhost:50051}"
+LOGIN_ADDR="${LOGIN_ADDR:-localhost:2004}"
 
 # Field names match proto/login/login.proto PlayerLoginRequest.
 grpcurl -plaintext -d '{
