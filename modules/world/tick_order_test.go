@@ -44,6 +44,41 @@ func TestTickPhaseOrder_NpcEventQueueBeforeInteractions(t *testing.T) {
 	}
 }
 
+// TestTickPhaseOrder_NpcsBeforePlayerBlock pins the TS-faithful ordering
+// where processNpcs() runs BEFORE the player-side block (starting at
+// processActiveScripts). Mirrors TS World.cycle ordering at
+// Engine-TS/src/engine/World.ts:365 (processNpcs) → :376 (processPlayers).
+//
+// Without this invariant, the player's processInteraction reads an NPC
+// position from end-of-previous-tick (since processNpcs hasn't run yet
+// this tick). For a wandering NPC moving toward the player during
+// processNpcs, the player's inOperableDistance check measures distance
+// to the NPC's stale position — one tile further than where the NPC
+// will actually end up this tick — so branch 1 (OP fire) skips even
+// though the player ends the tick visually adjacent. Symptom in-game:
+// "player follows wandering NPC but never swings".
+func TestTickPhaseOrder_NpcsBeforePlayerBlock(t *testing.T) {
+	src, err := os.ReadFile("tick.go")
+	if err != nil {
+		t.Fatalf("read tick.go: %v", err)
+	}
+	body := string(src)
+
+	npcsIdx := strings.Index(body, "s.processNpcs()")
+	if npcsIdx < 0 {
+		t.Fatal("tick.go does not contain s.processNpcs() call")
+	}
+	scriptsIdx := strings.Index(body, "s.processActiveScripts()")
+	if scriptsIdx < 0 {
+		t.Fatal("tick.go does not contain s.processActiveScripts() call")
+	}
+
+	if npcsIdx >= scriptsIdx {
+		t.Errorf("s.processNpcs() at offset %d must appear BEFORE s.processActiveScripts() at offset %d in tick.go (TS World.cycle L365→L376 ordering). Player's processInteraction must see this-tick NPC position, not last-tick-end.",
+			npcsIdx, scriptsIdx)
+	}
+}
+
 // TestProcessInfo_TeleAcrossWindow_LocalCoordsInRange pins the NAI-93 bug:
 // pre-fix, processInfo runs rsbuf.ComputePlayer BEFORE rebuildNormal, so the
 // rsbuf-cached Origin is stale on a cross-window tele tick. The PlayerInfo

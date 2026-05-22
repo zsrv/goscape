@@ -92,11 +92,29 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		// — TS uses a unified queue identical to goscape's, just drained
 		// earlier in the tick.
 		s.processNpcEventQueue()
+		// NAI-217: processNpcs moved up to mirror TS World.cycle order
+		// (Engine-TS/src/engine/World.ts:365 processNpcs → :376
+		// processPlayers). Player-side processInteraction at the post-
+		// pathing call below must see this-tick NPC positions (after
+		// the NPC moved THIS cycle), not the stale end-of-previous-tick
+		// positions that resulted when processNpcs ran later. Pre-NAI-217
+		// symptom: when the player chases a wandering NPC,
+		// inOperableDistance measures against the NPC's last-tick-end
+		// position, so branch-1 OP fire skips even though the NPC will
+		// end this tick visually adjacent. processNpcs internally drives
+		// NPC ai_spawn resume, stat regen, timer, queue, movement, and
+		// modes — all of which must settle before the per-player block
+		// reads NPC state.
+		s.processNpcs()
 		s.processActiveScripts()
 		// NAI-134: drain the obj-delayed-spawn queue. Mirrors TS
 		// World.cycle ordering at World.ts:563 — runs after script-firing
 		// (so same-tick INV_DROPITEM_DELAYED with delay=0 spawns the obj
-		// before processNpcs / processInfo reads zone state).
+		// before processInfo reads zone state). Post-NAI-217 processNpcs
+		// runs earlier in the cycle, so an obj spawned here is visible
+		// to the NEXT tick's processNpcs (matching TS, where the
+		// objDelayedQueue inside processWorld drains at L562-574 before
+		// the same cycle's processNpcs at L365).
 		s.processObjDelayedQueue()
 		s.processPlayerTimers()
 		// NAI-144: TS World.ts:725 — engineQueue drains between timers and
@@ -106,7 +124,6 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		s.processPathing()
 		s.processInteractions()
 		s.processEnergy() // NAI-135: TS World.ts:731 per-player updateEnergy
-		s.processNpcs()
 		s.processLogouts()
 		s.processLogins()
 		s.processInfo()
