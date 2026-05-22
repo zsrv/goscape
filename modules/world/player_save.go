@@ -20,14 +20,22 @@ import (
 // time. Pass nil to encode every entry in p.invs unconditionally
 // (test setups; production should always pass the real config).
 //
-// NAI-PLAYERLOADING-D-SAVE-VARPS-VERBATIM: TS Player.save() writes 0
-// for non-SCOPE_PERM varp slots. Goscape writes p.varps[i] verbatim,
-// trusting that the runtime hasn't written to temp-scope slots. Saves
-// that load via LoadSave from a prior Save (or from a TS save)
-// round-trip byte-perfect. The TS-vs-goscape difference manifests
-// only if temp-scope varps hold nonzero values at save time (a
-// runtime bug in either engine).
-func (p *Player) Save(invTypes *objtype.InvTypeConfigs) []byte {
+// NAI-220 closes the previous NAI-PLAYERLOADING-D-SAVE-VARPS-VERBATIM
+// deviation. TS Player.save() writes 0 for any varp slot whose
+// VarpType.Scope != PERM; goscape now matches via the varpTypes
+// scope check below. Pre-NAI-220 goscape wrote every value verbatim,
+// which let combat-related temp varns like %lastcombat and
+// %aggressive_npc persist across save/load and accumulate stale state
+// that broke player_in_combat_check on existing accounts — new
+// accounts (no save yet) worked because they started with zeroed
+// varps, while existing accounts hit "I'm already under attack!" on
+// every attempted retarget because the saved %lastcombat was within
+// +8 ticks of the in-RAM map_clock after reload.
+//
+// Nil-tolerant: if varpTypes is nil (test fixtures that don't model
+// scope), Save falls back to verbatim — preserves the pre-NAI-220
+// shape for those tests.
+func (p *Player) Save(invTypes *objtype.InvTypeConfigs, varpTypes *objtype.VarpTypeConfigs) []byte {
 	pkt := packet.NewPacket(make([]byte, 0, 1500))
 	pkt.P2(SavMagic)
 	pkt.P2(SavVersion)
@@ -49,10 +57,18 @@ func (p *Player) Save(invTypes *objtype.InvTypeConfigs) []byte {
 		pkt.P1(p.levels[i])
 	}
 
-	// Varps written verbatim — see deviation tag in doc-comment.
+	// Varps scope-filtered (NAI-220, TS-faithful). Non-PERM scope varps
+	// are written as 0; PERM (and the nil-varpTypes fallback) write
+	// verbatim. See the Save doc-comment for the rationale.
 	pkt.P2(uint16(len(p.varps)))
-	for _, v := range p.varps {
-		pkt.P4(uint32(v))
+	for i, v := range p.varps {
+		out := v
+		if varpTypes != nil && i < len(varpTypes.Configs) {
+			if vt := varpTypes.Configs[i]; vt != nil && vt.Scope != objtype.VarpScopePerm {
+				out = 0
+			}
+		}
+		pkt.P4(uint32(out))
 	}
 
 	// Inventories. Placeholder count, then per-inv body, then backfill

@@ -244,10 +244,10 @@ func (s *Server) processLogins() {
 		// On decode error, log + fall back to empty bootstrap so a
 		// corrupt SAV doesn't deny login. Deviation
 		// NAI-PLAYERLOADING-D-DECODE-ERR-FALLS-BACK-TO-BOOTSTRAP.
-		if err := LoadSave(p, p.client.savePayload, s.invTypes); err != nil {
+		if err := LoadSave(p, p.client.savePayload, s.invTypes, s.varpTypes); err != nil {
 			s.log.Warn("LoadSave failed; falling back to empty bootstrap",
 				slog.String("username", p.username), slog.Any("err", err))
-			_ = LoadSave(p, nil, s.invTypes)
+			_ = LoadSave(p, nil, s.invTypes, s.varpTypes)
 		}
 		// LoadSave branches covered end-to-end by TestProcessLogins_*
 		// (player_load_integration_test.go) and the RPC site by

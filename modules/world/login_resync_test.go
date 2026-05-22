@@ -298,7 +298,7 @@ func TestProcessLogins_FreshLogin_ChatFilterEmitReflectsSAV(t *testing.T) {
 	seed.publicChat = 2
 	seed.privateChat = 1
 	seed.tradeDuel = 3
-	sav := seed.Save(invTypes)
+	sav := seed.Save(invTypes, nil)
 
 	p, cc := newTestPlayer(t)
 	s := newTestServer(t)

@@ -13,6 +13,74 @@ import (
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
+// TestSave_FiltersTempScopeVarpsToZero pins the TS-faithful save-side
+// varp-scope filter (NAI-220). TS Player.save() writes 0 for any varp
+// slot whose VarpType.Scope != PERM; goscape's pre-NAI-220 deviation
+// (NAI-PLAYERLOADING-D-SAVE-VARPS-VERBATIM) wrote every value verbatim,
+// which let combat varns like %lastcombat and %aggressive_npc persist
+// across save/load and accumulate into stale state that broke
+// player_in_combat_check on existing accounts. New accounts (no save
+// yet) worked because they started with zeroed varps; existing
+// accounts hit "I'm already under attack!" on every attempted retarget
+// because the saved %lastcombat was always within +8 ticks of the
+// in-RAM map_clock after reload.
+//
+// Test setup: two varps, indices 0 and 1.
+//   - Index 0: scope=PERM, value=42 → must save verbatim.
+//   - Index 1: scope=TEMP, value=99 → must save as 0.
+func TestSave_FiltersTempScopeVarpsToZero(t *testing.T) {
+	p, invTypes := newTestPlayerForLoadSave(t)
+	p.varps = []int32{42, 99}
+
+	v0 := &objtype.VarPlayerType{Scope: objtype.VarpScopePerm}
+	v0.ID = 0
+	v1 := &objtype.VarPlayerType{Scope: objtype.VarpScopeTemp}
+	v1.ID = 1
+	varpTypes := &objtype.VarpTypeConfigs{Configs: []*objtype.VarPlayerType{v0, v1}}
+
+	sav := p.Save(invTypes, varpTypes)
+
+	// Find the varp block in the SAV. Header layout (post-PlayerStat
+	// loop) is: u2 varpCount, varpCount × u4. Decode header to seek.
+	pkt := packet.NewPacket(sav)
+	if got := pkt.G2(); got != SavMagic {
+		t.Fatalf("magic: got 0x%04x, want 0x%04x", got, SavMagic)
+	}
+	if got := pkt.G2(); got != SavVersion {
+		t.Fatalf("version: got %d, want %d", got, SavVersion)
+	}
+	pkt.G2() // x
+	pkt.G2() // z
+	pkt.G1() // level
+	for range 7 {
+		pkt.G1() // body
+	}
+	for range 5 {
+		pkt.G1() // colors
+	}
+	pkt.G1() // gender
+	pkt.G2() // runenergy
+	pkt.G4() // playtime
+	for range objtype.PlayerStatCount {
+		pkt.G4() // stat xp
+		pkt.G1() // level
+	}
+
+	varpCount := int(pkt.G2())
+	if varpCount != 2 {
+		t.Fatalf("varpCount: got %d, want 2", varpCount)
+	}
+	v0Saved := int32(pkt.G4())
+	v1Saved := int32(pkt.G4())
+
+	if v0Saved != 42 {
+		t.Errorf("varp[0] (PERM): got %d, want 42 (verbatim)", v0Saved)
+	}
+	if v1Saved != 0 {
+		t.Errorf("varp[1] (TEMP): got %d, want 0 (scope-filtered) — stale temp varps cause combat to fail across save/load", v1Saved)
+	}
+}
+
 func TestVerifySave_RejectsTooSmall(t *testing.T) {
 	if VerifySave(nil) {
 		t.Error("VerifySave(nil) should be false")
@@ -58,7 +126,7 @@ func TestVerifySave_RejectsCorruptCRC(t *testing.T) {
 
 func TestLoadSave_EmptyByteSliceBootstraps(t *testing.T) {
 	p := &Player{}
-	if err := LoadSave(p, []byte{}, nil); err != nil {
+	if err := LoadSave(p, []byte{}, nil, nil); err != nil {
 		t.Fatalf("LoadSave(empty) returned err: %v", err)
 	}
 	for i := range objtype.PlayerStatCount {
@@ -82,7 +150,7 @@ func TestLoadSave_EmptyByteSliceBootstraps(t *testing.T) {
 
 func TestLoadSave_NilSliceBootstraps(t *testing.T) {
 	p := &Player{}
-	if err := LoadSave(p, nil, nil); err != nil {
+	if err := LoadSave(p, nil, nil, nil); err != nil {
 		t.Fatalf("LoadSave(nil) returned err: %v", err)
 	}
 	if p.stats[objtype.PlayerStatHitpoints] != int32(objtype.GetExpByLevel(10)) {
@@ -124,7 +192,7 @@ func newTestPlayerForLoadSave(t *testing.T) (*Player, *objtype.InvTypeConfigs) {
 func TestLoadSave_V1_DecodesHeaderAndBody(t *testing.T) {
 	raw := mustReadFixture(t, "v1.sav")
 	p, cfgs := newTestPlayerForLoadSave(t)
-	if err := LoadSave(p, raw, cfgs); err != nil {
+	if err := LoadSave(p, raw, cfgs, nil); err != nil {
 		t.Fatalf("LoadSave(v1): %v", err)
 	}
 	fv := fixturePlayerValues
@@ -234,7 +302,7 @@ func TestLoadSave_V1_DecodesInvsSyntheticBuffer(t *testing.T) {
 	sav := pkt.Data
 
 	p, cfgs := newTestPlayerForLoadSave(t)
-	if err := LoadSave(p, sav, cfgs); err != nil {
+	if err := LoadSave(p, sav, cfgs, nil); err != nil {
 		t.Fatalf("LoadSave(synthetic v1): %v", err)
 	}
 	// Slot 0: id=995, count=1000000 (count >= 255 → extended-i32).
@@ -263,7 +331,7 @@ func TestLoadSave_V1_DecodesInvsSyntheticBuffer(t *testing.T) {
 func TestLoadSave_V2_DecodesPlaytimeAs4Byte(t *testing.T) {
 	raw := mustReadFixture(t, "v2.sav")
 	p, cfgs := newTestPlayerForLoadSave(t)
-	if err := LoadSave(p, raw, cfgs); err != nil {
+	if err := LoadSave(p, raw, cfgs, nil); err != nil {
 		t.Fatalf("LoadSave(v2): %v", err)
 	}
 	if p.playtime != fixturePlayerValues.PlaytimeV2Plus {
@@ -275,7 +343,7 @@ func TestLoadSave_V2_DecodesPlaytimeAs4Byte(t *testing.T) {
 func TestLoadSave_V3_DecodesAfkZones(t *testing.T) {
 	raw := mustReadFixture(t, "v3.sav")
 	p, cfgs := newTestPlayerForLoadSave(t)
-	if err := LoadSave(p, raw, cfgs); err != nil {
+	if err := LoadSave(p, raw, cfgs, nil); err != nil {
 		t.Fatalf("LoadSave(v3): %v", err)
 	}
 	if p.afkZones != fixturePlayerValues.AfkZones {
@@ -289,7 +357,7 @@ func TestLoadSave_V3_DecodesAfkZones(t *testing.T) {
 func TestLoadSave_V4_DecodesChatModes(t *testing.T) {
 	raw := mustReadFixture(t, "v4.sav")
 	p, cfgs := newTestPlayerForLoadSave(t)
-	if err := LoadSave(p, raw, cfgs); err != nil {
+	if err := LoadSave(p, raw, cfgs, nil); err != nil {
 		t.Fatalf("LoadSave(v4): %v", err)
 	}
 	fv := fixturePlayerValues
@@ -349,7 +417,7 @@ func TestLoadSave_V5_DecodesPerInvSizeSyntheticBuffer(t *testing.T) {
 	sav := pkt.Data
 
 	p, cfgs := newTestPlayerForLoadSave(t)
-	if err := LoadSave(p, sav, cfgs); err != nil {
+	if err := LoadSave(p, sav, cfgs, nil); err != nil {
 		t.Fatalf("LoadSave(synthetic v5): %v", err)
 	}
 	if item := p.invs[0].Items[0]; item == nil || item.Id != 995 || item.Count != 10 {
@@ -366,7 +434,7 @@ func TestLoadSave_V5_DecodesPerInvSizeSyntheticBuffer(t *testing.T) {
 func TestLoadSave_V6_DecodesLastLoginTime(t *testing.T) {
 	raw := mustReadFixture(t, "v6.sav")
 	p, cfgs := newTestPlayerForLoadSave(t)
-	if err := LoadSave(p, raw, cfgs); err != nil {
+	if err := LoadSave(p, raw, cfgs, nil); err != nil {
 		t.Fatalf("LoadSave(v6): %v", err)
 	}
 	if p.lastLoginTime != fixturePlayerValues.LastLoginTime {
@@ -394,7 +462,7 @@ func buildValidSav(t *testing.T, version uint16, payload []byte) []byte {
 func TestSave_V6_RoundTripsBytePerfect(t *testing.T) {
 	raw := mustReadFixture(t, "v6.sav")
 	p, cfgs := newTestPlayerForLoadSave(t)
-	if err := LoadSave(p, raw, cfgs); err != nil {
+	if err := LoadSave(p, raw, cfgs, nil); err != nil {
 		t.Fatalf("LoadSave(v6): %v", err)
 	}
 	// The committed v6.sav fixture has invCount=0 — the tsx
@@ -406,7 +474,7 @@ func TestSave_V6_RoundTripsBytePerfect(t *testing.T) {
 	// entry in `this.invs` regardless of contents and the source
 	// player on the TS side had an empty map.
 	p.invs = nil
-	got := p.Save(cfgs)
+	got := p.Save(cfgs, nil)
 	if !bytes.Equal(got, raw) {
 		diff := firstDiff(got, raw)
 		t.Fatalf("Save() drift vs v6.sav (got %d bytes, want %d):\n"+
@@ -451,7 +519,7 @@ func TestSave_InvsWrittenInTypeIDAscOrder(t *testing.T) {
 	for _, id := range []int{5, 2, 7, 1} {
 		p.invs[id] = inventory.New(id, 4, inventory.StackNormal)
 	}
-	out := p.Save(cfgs)
+	out := p.Save(cfgs, nil)
 
 	// Walk past the fixed-size header to the inv section. Header layout
 	// up through invCount byte:
@@ -491,7 +559,7 @@ func TestLoadSave_BadMagicReturnsErr(t *testing.T) {
 	raw := mustReadFixture(t, "v6.sav")
 	raw[0] = 0xFF
 	p, cfgs := newTestPlayerForLoadSave(t)
-	err := LoadSave(p, raw, cfgs)
+	err := LoadSave(p, raw, cfgs, nil)
 	if !errors.Is(err, ErrSavInvalidMagic) {
 		t.Errorf("got err=%v, want ErrSavInvalidMagic", err)
 	}
@@ -505,7 +573,7 @@ func TestLoadSave_VersionTooHigh_Err(t *testing.T) {
 	// version-check arm fires, not the CRC arm.
 	binary.BigEndian.PutUint32(raw[len(raw)-4:], packet.GetCRC(raw, 0, len(raw)-4))
 	p, cfgs := newTestPlayerForLoadSave(t)
-	err := LoadSave(p, raw, cfgs)
+	err := LoadSave(p, raw, cfgs, nil)
 	if !errors.Is(err, ErrSavUnsupportedVer) {
 		t.Errorf("got err=%v, want ErrSavUnsupportedVer", err)
 	}
@@ -517,7 +585,7 @@ func TestLoadSave_VersionZero_Err(t *testing.T) {
 	raw[3] = 0x00 // version 0
 	binary.BigEndian.PutUint32(raw[len(raw)-4:], packet.GetCRC(raw, 0, len(raw)-4))
 	p, cfgs := newTestPlayerForLoadSave(t)
-	err := LoadSave(p, raw, cfgs)
+	err := LoadSave(p, raw, cfgs, nil)
 	if !errors.Is(err, ErrSavUnsupportedVer) {
 		t.Errorf("got err=%v, want ErrSavUnsupportedVer", err)
 	}
@@ -527,7 +595,7 @@ func TestLoadSave_CRCMismatch_Err(t *testing.T) {
 	raw := mustReadFixture(t, "v6.sav")
 	raw[len(raw)-1] ^= 0x01 // flip last CRC byte
 	p, cfgs := newTestPlayerForLoadSave(t)
-	err := LoadSave(p, raw, cfgs)
+	err := LoadSave(p, raw, cfgs, nil)
 	if !errors.Is(err, ErrSavCorrupt) {
 		t.Errorf("got err=%v, want ErrSavCorrupt", err)
 	}
@@ -547,7 +615,7 @@ func TestSave_CRCHighBitSet_RoundTrips(t *testing.T) {
 			varps: []int32{},
 		}
 		p.x = x
-		out := p.Save(cfgs)
+		out := p.Save(cfgs, nil)
 		crc := binary.BigEndian.Uint32(out[len(out)-4:])
 		if crc&0x80000000 != 0 {
 			savedBytes = out
@@ -561,7 +629,7 @@ func TestSave_CRCHighBitSet_RoundTrips(t *testing.T) {
 		invs:  map[int]*inventory.Inventory{0: inventory.New(0, 4, inventory.StackNormal)},
 		varps: []int32{},
 	}
-	if err := LoadSave(p, savedBytes, cfgs); err != nil {
+	if err := LoadSave(p, savedBytes, cfgs, nil); err != nil {
 		t.Fatalf("LoadSave(CRC with high bit set): %v — pins TS signedness parity", err)
 	}
 }

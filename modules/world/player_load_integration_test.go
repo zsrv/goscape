@@ -17,7 +17,7 @@ import (
 func validSAVBytes(t *testing.T) []byte {
 	t.Helper()
 	p, invTypes := newTestPlayerForLoadSave(t)
-	return p.Save(invTypes)
+	return p.Save(invTypes, nil)
 }
 
 // runProcessLogins wires p through a Server with the given savePayload
@@ -133,12 +133,12 @@ func TestLoadSave_PopulatesCombatLevel(t *testing.T) {
 	} {
 		src.stats[stat] = int32(objtype.GetExpByLevel(99))
 	}
-	sav := src.Save(invTypes)
+	sav := src.Save(invTypes, nil)
 
 	dst := &Player{}
 	dst.combatLevel = 3 // constructor default; LoadSave must overwrite it
 	dst.masks = 0
-	if err := LoadSave(dst, sav, invTypes); err != nil {
+	if err := LoadSave(dst, sav, invTypes, nil); err != nil {
 		t.Fatalf("LoadSave: %v", err)
 	}
 	if dst.baseLevels[objtype.PlayerStatStrength] != 99 {
@@ -179,11 +179,11 @@ func TestLoadSave_CombatLevelFlowsToHuntTooStrongGate(t *testing.T) {
 	} {
 		src.stats[stat] = int32(objtype.GetExpByLevel(99))
 	}
-	sav := src.Save(invTypes)
+	sav := src.Save(invTypes, nil)
 
 	dst, _ := newTestPlayerForLoadSave(t)
 	dst.combatLevel = 3 // constructor default; LoadSave must overwrite it
-	if err := LoadSave(dst, sav, invTypes); err != nil {
+	if err := LoadSave(dst, sav, invTypes, nil); err != nil {
 		t.Fatalf("LoadSave: %v", err)
 	}
 	if dst.combatLevel != 126 {
@@ -232,7 +232,7 @@ func TestValidSAVBytesRoundTrips(t *testing.T) {
 	}
 	// LoadSave into a fresh player must succeed.
 	p, _ := newTestPlayerForLoadSave(t)
-	if err := LoadSave(p, sav, invTypes); err != nil {
+	if err := LoadSave(p, sav, invTypes, nil); err != nil {
 		if errors.Is(err, errCloseConn) {
 			t.Fatal("LoadSave returned errCloseConn unexpectedly")
 		}

@@ -1217,7 +1217,7 @@ func (s *Server) removePlayerInternal(p *Player) {
 // (server_logout_test.go).
 func (s *Server) removePlayerOnTick(p *Player) {
 	if s.loginClient != nil && p.username != "" {
-		save := p.Save(s.invTypes)
+		save := p.Save(s.invTypes, s.varpTypes)
 		username := p.username
 		go func() {
 			// Arc 18 R3 — parent moved from context.Background to
@@ -1320,7 +1320,7 @@ func (s *Server) autosavePlayers() {
 		if p == nil || p.username == "" {
 			continue
 		}
-		save := p.Save(s.invTypes)
+		save := p.Save(s.invTypes, s.varpTypes)
 		req := &loginpb.PlayerAutosaveRequest{
 			Profile:  s.cfg.NodeProfile,
 			Username: p.username,

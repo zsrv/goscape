@@ -77,7 +77,7 @@ func VerifySave(sav []byte) bool {
 // wrap the body in a recover() that maps any io.EOF (or other read
 // panic) to ErrSavCorrupt rather than propagating a slice-OOB up the
 // connection-goroutine stack.
-func LoadSave(p *Player, sav []byte, invTypes *objtype.InvTypeConfigs) (retErr error) {
+func LoadSave(p *Player, sav []byte, invTypes *objtype.InvTypeConfigs, varpTypes *objtype.VarpTypeConfigs) (retErr error) {
 	defer func() {
 		if r := recover(); r != nil {
 			// io.EOF is the panic value used by pkg/io/packet on
@@ -155,7 +155,16 @@ func LoadSave(p *Player, sav []byte, invTypes *objtype.InvTypeConfigs) (retErr e
 		p.levels[i] = pkt.G1()
 	}
 
-	// Varps: u16 count, then count × i32.
+	// Varps: u16 count, then count × i32. NAI-220 defensive cleanup:
+	// zero non-PERM scope varps at load time too. TS-faithful saves
+	// (post-NAI-220) already write 0 for these slots, so this is a
+	// no-op for new saves. The defensive read-side filter exists to
+	// retroactively scrub stale data from saves written by pre-NAI-220
+	// goscape builds (NAI-PLAYERLOADING-D-SAVE-VARPS-VERBATIM era),
+	// where temp-scope combat varns like %lastcombat / %aggressive_npc
+	// persisted across save→load and broke player_in_combat_check on
+	// subsequent attacks. Nil-tolerant: if varpTypes is nil, loads
+	// verbatim.
 	varpCount := int(pkt.G2())
 	if cap(p.varps) < varpCount {
 		p.varps = make([]int32, varpCount)
@@ -163,7 +172,13 @@ func LoadSave(p *Player, sav []byte, invTypes *objtype.InvTypeConfigs) (retErr e
 		p.varps = p.varps[:varpCount]
 	}
 	for i := range varpCount {
-		p.varps[i] = int32(pkt.G4())
+		v := int32(pkt.G4())
+		if varpTypes != nil && i < len(varpTypes.Configs) {
+			if vt := varpTypes.Configs[i]; vt != nil && vt.Scope != objtype.VarpScopePerm {
+				v = 0
+			}
+		}
+		p.varps[i] = v
 	}
 
 	// Inventories: u1 count, then per-inv:
