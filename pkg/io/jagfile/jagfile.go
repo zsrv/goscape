@@ -2,11 +2,28 @@ package jagfile
 
 import (
 	"errors"
+	"fmt"
 	"maps"
 	"slices"
 	"strings"
 
 	"github.com/zsrv/goscape/pkg/io/packet"
+)
+
+// Package-level sentinel errors. Promoted from inline errors.New
+// per Arc 18 ERR-1 so callers can errors.Is against these.
+var (
+	// ErrIndexOutOfRange is returned by Jagfile.Get when the requested
+	// index is outside [0, FileCount).
+	ErrIndexOutOfRange = errors.New("index out of range")
+
+	// ErrDataNil is returned by Jagfile.Get / Save when the underlying
+	// Data slice (Get) or queued payload (Save) is nil.
+	ErrDataNil = errors.New("data is nil")
+
+	// ErrFileNotFound is returned by Jagfile.Read when no file in the
+	// archive hashes to the requested name.
+	ErrFileNotFound = errors.New("file not found")
 )
 
 func init() {
@@ -56,11 +73,11 @@ type Jagfile struct {
 
 func (jf *Jagfile) Get(index int) (*packet.Packet, error) {
 	if index < 0 || index >= jf.FileCount {
-		return nil, errors.New("index out of range")
+		return nil, ErrIndexOutOfRange
 	}
 
 	if jf.Data == nil {
-		return nil, errors.New("data is nil")
+		return nil, ErrDataNil
 	}
 
 	src := jf.Data[jf.FilePos[index] : jf.FilePos[index]+int(jf.FilePackedSize[index])]
@@ -69,7 +86,7 @@ func (jf *Jagfile) Get(index int) (*packet.Packet, error) {
 	} else {
 		decompressed, err := BZip2Decompress(src, int(jf.FileUnpackedSize[index]), true, false)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("jagfile Get: %w", err)
 		}
 		return packet.NewPacket(decompressed), nil
 	}
@@ -84,7 +101,7 @@ func (jf *Jagfile) Read(name string) (*packet.Packet, error) {
 		}
 	}
 
-	return nil, errors.New("file not found")
+	return nil, ErrFileNotFound
 }
 
 func (jf *Jagfile) Write(name string, data *packet.Packet) {
@@ -157,7 +174,7 @@ func (jf *Jagfile) Save(path string) error {
 			}
 
 			if queued.Data == nil {
-				return errors.New("data is nil")
+				return ErrDataNil
 			}
 
 			jf.FileUnpackedSize[index] = uint32(len(queued.Data))
