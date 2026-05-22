@@ -56,8 +56,12 @@ func main() {
 	}
 }
 
-// configIsValid warns the user for suspect configurations.
+// configIsValid runs hard validation and warns the user for suspect configurations.
 func configIsValid(logger *slog.Logger, config *app.Config) bool {
+	if err := config.Validate(); err != nil {
+		logger.Error("configuration invalid", "err", err)
+		return false
+	}
 	if warnings := config.CheckConfig(); len(warnings) > 0 {
 		for _, w := range warnings {
 			output := []any{"msg", w.Message}
