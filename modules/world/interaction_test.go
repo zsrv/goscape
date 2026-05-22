@@ -2801,6 +2801,33 @@ func TestPlayer_InOperableDistance_Obj_CrossLevel(t *testing.T) {
 	}
 }
 
+// TestProcessInteraction_InteractionFiredResetAtTickStart pins the
+// per-tick freshness of p.interactionFired. The flag is a Go-only
+// addition (NAI-44 T4 refactor); TS Engine-TS Player.ts has no
+// equivalent — TS branch 1's OP fire is unconditional every tick.
+// Reset must happen at the top of processInteraction so it cannot
+// leak across ticks; without this, fireOpTriggerNpc's trailing
+// `p.interactionFired = true` would persist into the next tick's
+// tryInteract branch 1 gate (`if !p.interactionFired { fire }`),
+// blocking re-fire even when content scripts re-anchor via p_opnpc.
+func TestProcessInteraction_InteractionFiredResetAtTickStart(t *testing.T) {
+	s := newTestServer(t)
+	p, wait := makeInteractionPlayer(t, s, 100, 100, 0)
+	defer wait()
+	_ = s
+
+	// Simulate end-of-previous-tick state. p.target stays nil so
+	// processInteraction's early-return path isolates the reset
+	// behaviour (no fire side effects).
+	p.interactionFired = true
+
+	p.processInteraction()
+
+	if p.interactionFired {
+		t.Error("interactionFired persisted across processInteraction; expected reset to false at tick start (TS has no equivalent flag — semantics are 'fresh per tick')")
+	}
+}
+
 // TestSetInteractionLoc_FaceSquareUsesTSFineScale reproduces the user-
 // reported bug "the player faces the wrong way when interacting with an
 // object (like a tree)". The fine-grained centre coord that drives the

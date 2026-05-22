@@ -202,6 +202,24 @@ func (p *Player) processInteraction() {
 	p.followZ = p.lastStepZ
 	p.nextTarget = nil
 
+	// Per-tick reset of the Go-only `interactionFired` flag. TS Engine-TS
+	// Player.ts:1200-1269 has no equivalent — TS branch 1's OP fire is
+	// unconditional every tick. goscape's flag (added in NAI-44 T4
+	// refactor) is intended as an intra-tick guard against double-firing
+	// from pre-step + post-step tryInteract calls, but the fire-helpers'
+	// trailing `p.interactionFired = true` would otherwise persist across
+	// ticks and block re-entry to branch 1's `if !p.interactionFired {
+	// tryFireOpTrigger(p) }` gate. Without this reset, content scripts
+	// that re-anchor via p_opnpc/p_aploc/etc. (modelled by
+	// player_melee.rs2:59) get one fire on the initial interaction tick
+	// then silently lose the OP fire on every subsequent tick — visible
+	// in-game as "attacks NPC only once, then no further swings", with
+	// the processInteraction tail's `interacted && !apRangeCalled`
+	// auto-clear nuking the anchor entirely on the second tick (since
+	// SetInteraction inside p_opnpc reset apRangeCalled=false). The
+	// per-tick reset restores TS's implicit "fresh per tick" semantic.
+	p.interactionFired = false
+
 	if p.target == nil {
 		return
 	}
