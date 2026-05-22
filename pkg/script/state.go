@@ -176,6 +176,13 @@ type WorldVars interface {
 	// (opcode 2074). Mirrors TS World.mergeLoc at World.ts:1388-1391.
 	// NAI-162 B2.
 	MergeLoc(loc ActiveLoc, player ActivePlayer, startCycle, endCycle, south, east, north, west int)
+
+	// NodeID returns the world's configured node ID (cfg.NodeID in the
+	// production impl). Used as the `world_id` partition key on telemetry
+	// envelopes emitted from script handlers (e.g. WealthEnvelope from
+	// INV_DROPITEM). Mirrors the same value threaded through emission sites
+	// in modules/world/ that read cfg.NodeID directly.
+	NodeID() int
 }
 
 // InvLookup is the inventory resolution surface for INV_* handlers.

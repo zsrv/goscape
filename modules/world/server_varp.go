@@ -83,6 +83,15 @@ func (w worldVarsView) MapLive() int {
 	return 1
 }
 
+// NodeID returns the server's configured node ID. Used as the world_id
+// partition key on telemetry envelopes emitted from script handlers.
+func (w worldVarsView) NodeID() int {
+	if w.s == nil {
+		return 0
+	}
+	return w.s.cfg.NodeID
+}
+
 // IsMapBlocked delegates to gamemap.Pathfinder.Flags. FlagBlockWalk is the
 // canonical "this tile blocks walking" flag at pkg/pathfinder/collision/flag.go:41.
 // Mirrors TS GameMap.isMapBlocked (CollisionFlag.WALK_BLOCKED). NAI-35-T6.

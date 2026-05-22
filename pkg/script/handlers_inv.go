@@ -1447,16 +1447,39 @@ func handleInvDropItem(s *ScriptState) error {
 
 	// NAI-Phase2: emit ItemDroppedEvent — only fires when both inventory
 	// removal completed (tx.Completed > 0 above) AND the world AddObj
-	// returned a non-nil obj. AlchValue/MarketValue require ObjType
-	// config lookup and are deferred (Phase 2 ships the route, not real
-	// values).
+	// returned a non-nil obj.
+	//
+	// world_id comes from WorldVars.NodeID() (mirrors emission sites in
+	// modules/world/ that read cfg.NodeID directly).
+	//
+	// alch_value / market_value are goscape-extension fields (no TS
+	// upstream — see proto/events/v1/wealth.proto and the alerting
+	// semantics in the wealth-event schema notes
+	// "Excessive Wealth Transfers" / "High Value Item Drops"):
+	//   - alch_value  = high-alch = cost * 6 / 10 (standard RS formula).
+	//   - market_value = cost when the item is tradeable, else 0 ("if it
+	//     exists for the item", per the design doc — this engine has no
+	//     live market, so we use the configured shop price as the
+	//     tradeable-item proxy).
+	// ObjType is guaranteed non-nil here by the earlier checkObjType
+	// validator.
+	var worldID int32
+	if s.World != nil {
+		worldID = int32(s.World.NodeID())
+	}
+	objType := s.Configs.ObjType(obj)
+	alchValue := int64(objType.Cost) * 6 / 10
+	var marketValue int64
+	if objType.Tradeable {
+		marketValue = int64(objType.Cost)
+	}
 	if o != nil {
 		telemetry.Get().EmitWealth(&eventspb.WealthEnvelope{
 			SchemaVersion: 1,
 			EventId:       uuid.NewString(),
 			Ts:            timestamppb.Now(),
 			AccountId:     s.Self.AccountID(),
-			WorldId:       0, // TODO(NAI-Phase2): plumb world_id (NodeID) into ScriptState / ActivePlayer surface
+			WorldId:       worldID,
 			Payload: &eventspb.WealthEnvelope_ItemDropped{
 				ItemDropped: &eventspb.ItemDroppedEvent{
 					ItemId:      int32(obj),
@@ -1464,8 +1487,8 @@ func handleInvDropItem(s *ScriptState) error {
 					X:           int32(x),
 					Y:           int32(z),
 					Plane:       int32(level),
-					AlchValue:   0, // TODO(NAI-Phase2): lookup ObjType.Cost for alch value
-					MarketValue: 0, // TODO(NAI-Phase2): lookup ObjType market value
+					AlchValue:   alchValue,
+					MarketValue: marketValue,
 				},
 			},
 		})
