@@ -19,7 +19,9 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/zsrv/goscape/pkg/eventspb"
 	"github.com/zsrv/goscape/pkg/loginpb"
+	"github.com/zsrv/goscape/pkg/telemetry"
 )
 
 // handler implements loginpb.LoginServiceServer.
@@ -182,6 +184,19 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 	if err := upsertAccountLogin(ctx, h.db, account.ID, req.Profile, int(req.NodeId)); err != nil {
 		return nil, status.Errorf(codes.Internal, "upsertAccountLogin: %v", err)
 	}
+
+	telemetry.Get().EmitAuth(&eventspb.AuthEnvelope{
+		SchemaVersion: 1,
+		EventId:       uuid.NewString(),
+		Ts:            timestamppb.Now(),
+		AccountId:     int64(account.ID),
+		WorldId:       req.NodeId,
+		Payload: &eventspb.AuthEnvelope_Login{
+			Login: &eventspb.LoginEvent{
+				Ip: ip,
+			},
+		},
+	})
 
 	return buildLoginResponse(result, account, saveBytes, sessionUUID), nil
 }
