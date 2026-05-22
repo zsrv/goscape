@@ -1,6 +1,7 @@
 package world
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/cache"
@@ -22,7 +23,7 @@ func TestStartingFnPopulatesCRCSnapshot(t *testing.T) {
 	// We re-implement the relevant prefix here as a unit test would
 	// need a full Server + LoginClient otherwise. Mirror the production
 	// sequence: PreloadClient, MakeCRCs.
-	if err := cache.PreloadClient("../../data/pack/client"); err != nil {
+	if err := cache.PreloadClient(filepath.Join(realCacheDir(t), "client")); err != nil {
 		t.Skipf("PreloadClient failed (expected when data/ not staged): %v", err)
 	}
 	cache.MakeCRCs()
