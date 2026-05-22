@@ -747,6 +747,7 @@ func (m *mockPlayer) Slot() int        { return m.slot }
 // StaffModLevel returns the seeded staff level for tests.
 func (m *mockPlayer) StaffModLevel() int32 { return int32(m.staffModLevelValue) }
 func (m *mockPlayer) UID() int             { return m.uidValue }
+func (m *mockPlayer) AccountID() int64     { return 0 }
 
 // NAI-35-T2: ActivePlayer.X/Z used by MAP_PLAYERCOUNT rect filter and
 // future PlayerIterator passes-filter check.

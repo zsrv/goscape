@@ -101,6 +101,12 @@ type Player struct {
 	uid           int
 	members       bool
 	staffModLevel int32
+	// accountID is the persistent DB account.id from PlayerLogin RPC,
+	// copied off client.accountID in newPlayer. Distinct from uid (which
+	// is composeUID(username37, slot), a per-session identity used by
+	// scripts). Used as the partition key on every telemetry envelope.
+	// Zero for connections that bypass the login bridge. NAI-Phase2.
+	accountID int64
 
 	// === coordinates & level (Entity) ===
 	x, z, level                     int
@@ -525,6 +531,7 @@ func newPlayer(c *client) *Player {
 		username37:     util.ToBase37(c.username),
 		staffModLevel:  c.staffModLevel,
 		session:        c.sessionUUID,
+		accountID:      c.accountID,
 		slot:           -1,
 		uid:            -1,
 		x:              3094,
@@ -1261,7 +1268,7 @@ func (p *Player) readPacket() (int, bool, error) {
 			EventId:       uuid.NewString(),
 			Ts:            timestamppb.Now(),
 			WorldId:       int32(c.server.cfg.NodeID),
-			AccountId:     0, // TODO(NAI-Phase2): plumb account_id from login through Player
+			AccountId:     p.accountID,
 			Payload: &eventspb.WorldEnvelope_PacketReceived{
 				PacketReceived: &eventspb.PacketReceivedEvent{
 					Opcode: uint32(opcode),

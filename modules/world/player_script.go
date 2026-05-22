@@ -374,6 +374,13 @@ func (p *Player) HintStop() {
 // account uid captured during login.
 func (p *Player) UID() int { return p.uid }
 
+// AccountID implements script.ActivePlayer.AccountID. Returns the
+// persistent DB account.id (int64) from the PlayerLogin RPC, used as
+// the partition key on every telemetry envelope. Zero for connections
+// that bypass the login bridge (standalone world, unit tests).
+// NAI-Phase2 backfill of telemetry account_id.
+func (p *Player) AccountID() int64 { return p.accountID }
+
 // CanAccess implements script.ActivePlayer.CanAccess — the P_FINDUID
 // protected-binding gate. False when delayed, when a modal main/chat
 // is open, or when a protected script is stored on activeScript.

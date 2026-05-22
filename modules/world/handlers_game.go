@@ -376,7 +376,7 @@ func handleMessagePublic(p *Player, payload []byte) error {
 		EventId:       uuid.NewString(),
 		Ts:            timestamppb.Now(),
 		WorldId:       int32(p.client.server.cfg.NodeID),
-		AccountId:     0, // TODO(NAI-Phase2): plumb account_id from login through Player
+		AccountId:     p.accountID,
 		Payload: &eventspb.WorldEnvelope_Chat{
 			Chat: &eventspb.ChatMessageEvent{
 				Channel: eventspb.ChatMessageEvent_CHANNEL_PUBLIC,

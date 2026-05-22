@@ -49,19 +49,22 @@ func handleEventTracking(p *Player, payload []byte) error {
 	copy(cp, payload)
 	p.input.Record(cp)
 
-	// NAI-Phase2: emit MouseMoveEvent. The EVENT_TRACKING blob is an
-	// opaque packed format consumed by p.input.Record; extracting real
-	// mouse coords requires decoding the blob (out of scope for Phase 2).
+	// NAI-Phase2: emit MouseMoveEvent. The EVENT_TRACKING payload is an
+	// opaque packed format consumed by p.input.Record; the TS engine
+	// (EventTrackingHandler.ts) likewise treats the bytes as opaque and
+	// never decodes mouse coords server-side. The X/Y fields stay zero
+	// here for TS-parity — the canonical mouse trail lives in the raw
+	// blob persisted by p.input.Record. Surfacing per-event coords would
+	// require a Go-side decoder for the client's packed format (no TS
+	// precedent; not in Phase 2 scope).
 	telemetry.Get().EmitPlayerInput(&eventspb.PlayerInputEnvelope{
 		SchemaVersion: 1,
 		EventId:       uuid.NewString(),
 		Ts:            timestamppb.Now(),
 		WorldId:       int32(p.client.server.cfg.NodeID),
-		AccountId:     0, // TODO(NAI-Phase2): plumb account_id from login through Player
+		AccountId:     p.accountID,
 		Payload: &eventspb.PlayerInputEnvelope_MouseMove{
-			MouseMove: &eventspb.MouseMoveEvent{
-				X: 0, Y: 0, // TODO(NAI-Phase2): extract real mouse coords from EVENT_TRACKING blob
-			},
+			MouseMove: &eventspb.MouseMoveEvent{X: 0, Y: 0},
 		},
 	})
 	return nil

@@ -25,7 +25,7 @@ func (p *Player) updatePlayers() {
 		EventId:       uuid.NewString(),
 		Ts:            timestamppb.Now(),
 		WorldId:       int32(s.cfg.NodeID),
-		AccountId:     0, // TODO(NAI-Phase2): plumb account_id from login through Player
+		AccountId:     p.accountID,
 		Payload: &eventspb.WorldEnvelope_TilePosition{
 			TilePosition: &eventspb.TilePositionEvent{
 				X:     int32(p.x),

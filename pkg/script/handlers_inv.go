@@ -1455,7 +1455,7 @@ func handleInvDropItem(s *ScriptState) error {
 			SchemaVersion: 1,
 			EventId:       uuid.NewString(),
 			Ts:            timestamppb.Now(),
-			AccountId:     int64(s.Self.UID()),
+			AccountId:     s.Self.AccountID(),
 			WorldId:       0, // TODO(NAI-Phase2): plumb world_id (NodeID) into ScriptState / ActivePlayer surface
 			Payload: &eventspb.WealthEnvelope_ItemDropped{
 				ItemDropped: &eventspb.ItemDroppedEvent{

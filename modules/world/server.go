@@ -1003,6 +1003,7 @@ func (c *client) callPlayerLoginRPC(req *loginpb.PlayerLoginRequest, safeName st
 		c.username = safeName
 		c.savePayload = resp.GetSave()
 		c.sessionUUID = resp.GetSessionUuid()
+		c.accountID = int64(resp.GetAccountId())
 	}
 	return reply, nil
 }

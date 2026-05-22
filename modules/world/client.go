@@ -81,6 +81,13 @@ type client struct {
 	// "headless" fallback then applies. Slice 7 of friends-server bridge
 	// arc.
 	sessionUUID string
+	// accountID is the persistent DB account.id returned by the login
+	// server's PlayerLogin RPC (resp.GetAccountId(), int32 on the wire).
+	// Widened to int64 to match the eventspb AccountId field across all
+	// telemetry envelopes. Copied onto Player.accountID at newPlayer();
+	// the world emits 0 for connections that bypass the login bridge
+	// (unit tests, standalone world). NAI-Phase2 backfill.
+	accountID int64
 }
 
 func newClient(conn net.Conn, writeTimeout time.Duration /*server *World,*/, logger *slog.Logger) *client {

@@ -541,6 +541,13 @@ type ActivePlayer interface {
 	// RPC). Used by the UID script opcode for mod/account-state checks.
 	UID() int
 
+	// AccountID returns the persistent DB account.id (int64) captured
+	// from the login RPC. Distinct from UID() (which is the per-session
+	// composeUID(username37, slot) hash). Used as the partition key on
+	// telemetry envelopes (e.g. WealthEnvelope.AccountId). Returns 0 for
+	// players whose session bypassed the login bridge. NAI-Phase2.
+	AccountID() int64
+
 	// X returns the player's current absolute world X coord. Used by
 	// MAP_PLAYERCOUNT (NAI-35-T2) for rect-filter checks; will also be
 	// used by PlayerIterator.passesFilter (NAI-35-T4).
