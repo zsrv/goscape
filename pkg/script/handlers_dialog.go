@@ -44,8 +44,80 @@ func handleLastInt(s *ScriptState) error {
 
 // handleLastItem / Slot / UseItem / UseSlot / TargetSlot push fields
 // captured from recent OPHELD / OPUSE / INV_BUTTOND client packets.
-// TS gates these behind a trigger-type whitelist; S5m skips the gate
-// and always returns the stored value.
+//
+// DEFERRED: TS gates each of these behind a per-opcode trigger-type
+// whitelist (PlayerOps.ts:259-340 for LAST_ITEM/SLOT/USEITEM/USESLOT,
+// PlayerOps.ts:1026-1033 for LAST_TARGETSLOT). When the active script's
+// state.trigger is NOT in the opcode's allowedTriggers slice, TS throws
+// "is not safe to use in this trigger". Goscape currently always returns
+// the stored value because ScriptState has no `Trigger ServerTriggerType`
+// field — only Queue.Trigger exists (queue.go:56) for deferred-script
+// dispatch, not for in-flight execution context.
+//
+// Allowlists per TS (verbatim):
+//   LAST_ITEM:        OPHELD1..5, OPHELDU, OPHELDT,
+//                     INV_BUTTON1..5
+//   LAST_SLOT:        OPHELD1..5, OPHELDU, OPHELDT,
+//                     INV_BUTTON1..5, INV_BUTTOND
+//   LAST_USEITEM:     OPHELDU,
+//                     APOBJU, APLOCU, APNPCU, APPLAYERU,
+//                     OPOBJU, OPLOCU, OPNPCU, OPPLAYERU
+//   LAST_USESLOT:     OPHELDU,
+//                     APOBJU, APLOCU, APNPCU, APPLAYERU,
+//                     OPOBJU, OPLOCU, OPNPCU, OPPLAYERU
+//   LAST_TARGETSLOT:  INV_BUTTOND
+//
+// To honor these gates, the following plumbing is required:
+//   1. Add `Trigger ServerTriggerType` field to ScriptState (zero value
+//      TriggerProc=0 is correctly NOT in any LAST_* allowlist, so the
+//      default-safe semantics fall through to "throw").
+//   2. Thread the trigger through the three goscape script-construction
+//      surfaces in modules/world (each currently lacks a trigger param):
+//        a. (*Server).runScript and runScriptFn (script.go:97, server.go:273)
+//        b. (*Server).buildPlayerScriptState (script.go:43)
+//        c. (*Server).buildNpcScriptState (npc_script.go:329)
+//      Update ~25 call sites:
+//        - handler_opheld.go:106  → TriggerOpHeld1 + op-1
+//        - handler_opheld.go:215  → TriggerOpHeldT
+//        - handler_opheld.go:398  → TriggerOpHeldU
+//        - handler_inv_button.go:65   → TriggerInvButton1 + op-1
+//        - handler_inv_button.go:128  → TriggerInvButtonD
+//        - handler_interface.go:66,147     → IF_BUTTON (TriggerProc-safe)
+//        - handlers_game.go:535       → TriggerDebugProc
+//        - interaction.go:365         → walktrigger (TriggerProc-safe)
+//        - interaction_trigger.go:89  → fireOpTriggerNpc (`trigger`)
+//        - interaction_trigger.go:176 → fireApTriggerNpc (`apTrigger`)
+//        - interaction_trigger.go:368 → fireApTriggerNpc (`trigger`)
+//        - interaction_trigger.go:465 → fireApTriggerLoc (`trigger`)
+//                                       (and fireOpTriggerLoc precedes it)
+//        - interaction_trigger.go:714 → fireOpTriggerObj (`trigger`)
+//        - interaction_trigger.go:785 → fireApTriggerObj (`trigger`)
+//        - player_interaction_trigger.go:83  → fireOpTriggerPlayer (`trigger`)
+//        - player_interaction_trigger.go:140 → fireApTriggerPlayer (`trigger`)
+//        - npc_script.go:336  → AI script (`trigger` from req.Trigger or AiTimer)
+//        - npc_script.go:560  → TriggerAiTimer
+//        - player_script.go:1052 → TriggerProc (login proc)
+//        - tick.go:275 → TriggerProc (engine queue dispatch)
+//        - tick.go:489,538 → queued script trigger (TriggerQueue1..20 from
+//                            Queue.Trigger; queue.go:56)
+//        - tick.go:589 → t.Type-derived (TriggerSoftTimer/TriggerNormalTimer)
+//   3. Mirror Init signature change in test fixtures: every &ScriptState{}
+//      literal that currently exercises LAST_* must add `Trigger: ...`
+//      explicitly — though TriggerProc=0 is the zero value, so tests of
+//      OTHER opcodes need no edit (Go semantics #91).
+//   4. Add 5 guards in this file:
+//        if !slices.Contains(allowedLastItem, s.Trigger) {
+//          return errors.New("LAST_ITEM: not safe to use in this trigger")
+//        }
+//      Define the 5 allowlists as package-level `var` slices alongside
+//      the handlers (or inline) — prefer package-level for test reuse.
+//
+// Scope estimate: M-L slice (~25 production sites + ~5 test-fixture
+// updates for the 5 new LAST_* allowlist tests). Defer per Arc 9 #94
+// ship-can-spec-deferral — the call-site count exceeds the in-session
+// ≤5 ship threshold despite each site being unambiguous.
+//
+// Mirrors TS PlayerOps.ts:259-340,1026-1033.
 
 func handleLastItem(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
