@@ -1,7 +1,6 @@
 package asset
 
 import (
-	"log"
 	"net/http"
 	"path"
 	"strings"
@@ -83,7 +82,7 @@ func (a *Asset) RootHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if strings.HasSuffix(r.URL.Path, ".mid") {
-		log.Println("rootHandler mid " + r.URL.Path)
+		a.log.Debug("rootHandler mid", "path", r.URL.Path)
 
 		// TODO: packing process should spit out files with crc included in
 		//  the name, but the server needs to be aware of the crc so it can

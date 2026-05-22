@@ -256,9 +256,27 @@ func (b *Buf) ComputePlayer(
 	// Step 3 deferred to NAI-30/31 (renderer compute_info).
 
 	// Step 4: unconditional playerGrid push (mirrors lib.rs:151).
+	//
+	// Arc 18 NEW-E: preallocate bucket on first-insert with capacity
+	// playerGridBucketCap (expected players per tile). The hot path
+	// is ~2000 appends/tick across all tiles; cleanup() clears entries
+	// each tick so buckets are recreated rather than reused. A nonzero
+	// initial capacity eliminates the first 3 grow-reallocs (1→2→4→8)
+	// for any tile with >1 occupant — the common case at banks / spawn
+	// points / mass events. Tiles with a single occupant pay one
+	// 32-byte overallocation; the trade is favorable vs the alloc churn.
 	key := uint32(newCoord)
-	b.playerGrid[key] = append(b.playerGrid[key], pid)
+	bucket, ok := b.playerGrid[key]
+	if !ok {
+		bucket = make([]int32, 0, playerGridBucketCap)
+	}
+	b.playerGrid[key] = append(bucket, pid)
 }
+
+// playerGridBucketCap is the initial capacity for each playerGrid
+// tile bucket. Sized for the "crowded tile" case (banks, spawn).
+// Arc 18 NEW-E.
+const playerGridBucketCap = 8
 
 // ComputeNpc writes ALL per-tick state for nid in one call. Mirrors
 // upstream compute_npc at lib.rs:217-281. Argument order matches

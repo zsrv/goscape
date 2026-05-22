@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
-	"log"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -224,10 +223,11 @@ func (p *Packet) GBool() bool {
 }
 
 // GJStr gets a JagString, reading from the Packet
-// until terminator is reached.
+// until terminator is reached. Returns "" on an empty buffer
+// (Arc 18 LOG-2: bare log.Println removed; the empty-buffer case
+// is handled gracefully by the early-return).
 func (p *Packet) GJStr(terminator byte) string {
 	if p.Len() == 0 {
-		log.Println("NO BYTES AVAILABLE IN GJSTR")
 		return ""
 	}
 	start := p.Pos
