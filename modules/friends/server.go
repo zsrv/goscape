@@ -6,6 +6,7 @@ import (
 	"net"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 
 	"github.com/zsrv/goscape/pkg/friendspb"
 )
@@ -26,6 +27,7 @@ func newGRPCServer(cfg Config, repo *Repository, subs *subscriptions, worldSubs 
 		cfg:       cfg,
 		log:       log,
 	})
+	reflection.Register(s)
 	return &grpcServer{server: s, log: log}
 }
 

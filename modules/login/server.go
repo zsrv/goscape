@@ -7,6 +7,7 @@ import (
 	"net"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 
 	"github.com/zsrv/goscape/pkg/loginpb"
 )
@@ -23,6 +24,7 @@ func newGRPCServer(cfg Config, db *sql.DB, log *slog.Logger) *grpcServer {
 		cfg: cfg,
 		log: log,
 	})
+	reflection.Register(s)
 	return &grpcServer{server: s, log: log}
 }
 
