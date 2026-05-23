@@ -147,8 +147,10 @@ func TestPushVarp(t *testing.T) {
 	}
 }
 
-func TestPushVarpIgnoresSecondaryBit(t *testing.T) {
-	// Operand high bit = secondary flag; S5b masks it off.
+func TestPushVarpSecondaryBitReadsSelf2(t *testing.T) {
+	// Operand bit 16 = secondary flag (TS CoreOps.ts:26): `.%var` reads the
+	// SECONDARY active player (Self2), not the primary. The combat scripts
+	// rely on this (`.%pk_predator1` / `.%lastcombat` read the opponent).
 	sf := &ScriptFile{
 		Name:             "push_varp_secondary",
 		Opcodes:          []Opcode{OpPushVarp, OpReturn},
@@ -156,13 +158,43 @@ func TestPushVarpIgnoresSecondaryBit(t *testing.T) {
 		StringOperands:   []string{"", ""},
 		InstructionCount: 2,
 	}
-	mp := &mockPlayer{varps: map[int]int32{0x42: 99}}
-	state := Init(sf, mp, false, nil, nil)
+	primary := &mockPlayer{varps: map[int]int32{0x42: 11}}
+	secondary := &mockPlayer{varps: map[int]int32{0x42: 99}}
+	state := Init(sf, primary, false, nil, nil)
+	state.Self2 = secondary
+	state.Pointers |= PtrActivePlayer2
 	if err := Execute(state); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
 	if got := state.PopInt(); got != 99 {
-		t.Errorf("PushVarp(secondary masked): got %d, want 99", got)
+		t.Errorf("PushVarp(.%%, secondary): got %d, want 99 (Self2's varp, not primary's 11)", got)
+	}
+}
+
+// TestPopVarpSecondaryBitWritesSelf2 pins that `.%var = x` writes the SECONDARY
+// player — the combat-state write the PvP "already under attack" check depends
+// on. Mirrors TS POP_VARP secondary (CoreOps.ts:42-43).
+func TestPopVarpSecondaryBitWritesSelf2(t *testing.T) {
+	sf := &ScriptFile{
+		Name:             "pop_varp_secondary",
+		Opcodes:          []Opcode{OpPushConstantInt, OpPopVarp, OpReturn},
+		IntOperands:      []int32{55, 0x10005, 0}, // push 55; write secondary varp id=5
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	primary := &mockPlayer{varps: map[int]int32{}}
+	secondary := &mockPlayer{varps: map[int]int32{}}
+	state := Init(sf, primary, false, nil, nil)
+	state.Self2 = secondary
+	state.Pointers |= PtrActivePlayer2
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := secondary.varps[5]; got != 55 {
+		t.Errorf("PopVarp(.%%, secondary): Self2.varp[5]=%d, want 55", got)
+	}
+	if got, ok := primary.varps[5]; ok {
+		t.Errorf("PopVarp(.%%, secondary): primary.varp[5] should be untouched, got %d", got)
 	}
 }
 
@@ -265,8 +297,9 @@ func TestPushVarnReadsActiveNpc(t *testing.T) {
 	}
 }
 
-func TestPushVarnIgnoresSecondaryBit(t *testing.T) {
-	// Operand high bit = secondary flag; S5b masks it off, same for VARN.
+func TestPushVarnSecondaryBitReadsOtherNpc(t *testing.T) {
+	// Operand bit 16 = secondary flag (TS CoreOps.ts:62): `.%npcvar` reads the
+	// SECONDARY active NPC (OtherActiveNpc), not the primary.
 	sf := &ScriptFile{
 		Name:             "push_varn_secondary",
 		Opcodes:          []Opcode{OpPushVarn, OpReturn},
@@ -274,14 +307,16 @@ func TestPushVarnIgnoresSecondaryBit(t *testing.T) {
 		StringOperands:   []string{"", ""},
 		InstructionCount: 2,
 	}
-	npc := &mockNpc{varns: map[int]int32{5: 42}}
+	primary := &mockNpc{varns: map[int]int32{5: 11}}
+	secondary := &mockNpc{varns: map[int]int32{5: 42}}
 	state := Init(sf, nil, false, nil, nil)
-	state.ActiveNpc = npc
+	state.ActiveNpc = primary
+	state.OtherActiveNpc = secondary
 	if err := Execute(state); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
 	if got := state.PopInt(); got != 42 {
-		t.Errorf("PushVarn(secondary masked): got %d, want 42", got)
+		t.Errorf("PushVarn(.%%, secondary): got %d, want 42 (OtherActiveNpc, not primary's 11)", got)
 	}
 }
 

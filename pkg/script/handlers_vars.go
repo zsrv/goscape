@@ -7,9 +7,9 @@ import (
 )
 
 // varOperandID returns the low 16 bits of the int operand at the
-// current PC — that's the VAR id. The high bit (0x10000) flags the
-// "secondary active player" (a.k.a. _activePlayer2) for future
-// expansion; S5b ignores it.
+// current PC — that's the VAR id. Bit 16 (0x10000) flags the "secondary
+// active player/npc" (_activePlayer2 / _activeNpc2) and is consumed by
+// varSecondary; this masks it off to leave the id.
 func varOperandID(s *ScriptState) int {
 	return int(uint32(s.Script.IntOperands[s.PC]) & 0xffff)
 }
@@ -34,25 +34,36 @@ func (s *ScriptState) varpType(id int) (objtype.ScriptVarType, bool) {
 	return s.Configs.VarpType(id)
 }
 
+// varSecondary reports whether a VARP/VARN opcode targets the SECONDARY
+// active player/npc. The flag lives in bit 16 of the int operand (TS
+// CoreOps.ts:26/62 `(intOperand >> 16) & 0x1`) — distinct from the simple 0/1
+// operand the `.`-prefix uses for ordinary player commands — so `.%var` (e.g.
+// the combat scripts' `.%pk_predator1` / `.%lastcombat`) reads/writes the
+// second entity. The var id is the low 16 bits (varOperandID).
+func varSecondary(s *ScriptState) bool {
+	return (s.intOperand()>>16)&0x1 == 1
+}
+
 // handlePushVarp reads per-player variable `id` from the active player
-// and pushes it. Dispatches on Configs.VarpType(id): STRING calls
-// PushString, else calls PushInt. Returns an error if no ActivePlayer
-// is bound.
+// (Self, or Self2 when the secondary bit is set) and pushes it. Dispatches on
+// Configs.VarpType(id): STRING calls PushString, else PushInt.
 func handlePushVarp(s *ScriptState) error {
-	// VARP is primary-only in goscape: the int operand encodes the varp id
-	// (secondary flag in bit 16, which goscape ignores — see
-	// TestPushVarpIgnoresSecondaryBit), NOT the simple 0/1 active-player
-	// selector, so this must use s.Self directly rather than the
-	// operand-aware s.activePlayer()/requireActivePlayer.
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+	player := s.Self
+	if varSecondary(s) {
+		player = s.Self2
+	}
+	if player == nil {
+		if varSecondary(s) {
+			return fmt.Errorf("PUSH_VARP: %w", ErrNoActivePlayer2)
+		}
 		return fmt.Errorf("PUSH_VARP: %w", ErrNoActivePlayer)
 	}
 	id := varOperandID(s)
 	typ, _ := s.varpType(id)
 	if typ == objtype.ScriptVarTypeString {
-		s.PushString(s.Self.VarpString(id))
+		s.PushString(player.VarpString(id))
 	} else {
-		s.PushInt(int(s.Self.Varp(id)))
+		s.PushInt(int(player.Varp(id)))
 	}
 	return nil
 }
@@ -65,20 +76,31 @@ func handlePushVarp(s *ScriptState) error {
 // access (PtrProtectedActivePlayer set) or the handler errors. Returns an error
 // if no ActivePlayer is bound.
 func handlePopVarp(s *ScriptState) error {
-	// Primary-only — see handlePushVarp for why VARP cannot use the
-	// operand-aware accessor (operand is the varp id, not a 0/1 selector).
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
+	// Secondary-aware via bit 16 (see varSecondary): `.%var = x` writes the
+	// second active player. The protect gate is likewise operand-aware
+	// (TS ProtectedActivePlayer[secondary], CoreOps.ts:51).
+	secondary := varSecondary(s)
+	player := s.Self
+	protectFlag := PtrProtectedActivePlayer
+	if secondary {
+		player = s.Self2
+		protectFlag = PtrProtectedActivePlayer2
+	}
+	if player == nil {
+		if secondary {
+			return fmt.Errorf("POP_VARP: %w", ErrNoActivePlayer2)
+		}
 		return fmt.Errorf("POP_VARP: %w", ErrNoActivePlayer)
 	}
 	id := varOperandID(s)
 	typ, protect := s.varpType(id)
-	if protect && s.Pointers&PtrProtectedActivePlayer == 0 {
+	if protect && s.Pointers&protectFlag == 0 {
 		return fmt.Errorf("POP_VARP: %%%d requires protected access", id)
 	}
 	if typ == objtype.ScriptVarTypeString {
-		s.Self.SetVarpString(id, s.PopString())
+		player.SetVarpString(id, s.PopString())
 	} else {
-		s.Self.SetVarp(id, int32(s.PopInt()))
+		player.SetVarp(id, int32(s.PopInt()))
 	}
 	return nil
 }
@@ -102,37 +124,42 @@ func handlePopVars(s *ScriptState) error {
 	return nil
 }
 
-// handlePushVarn reads per-NPC variable `id` from the active NPC and
-// pushes it. Dispatches on Configs.VarnType(id): STRING calls
-// PushString, else calls PushInt. Returns an error if no ActiveNpc is
-// bound. High operand bit (secondary-NPC flag) is ignored — same
-// convention as VARP.
+// handlePushVarn reads per-NPC variable `id` from the active NPC (ActiveNpc,
+// or OtherActiveNpc when the secondary bit is set — TS CoreOps.ts:62-63
+// `.%npcvar` reads _activeNpc2) and pushes it.
 func handlePushVarn(s *ScriptState) error {
-	if s.ActiveNpc == nil {
+	npc := s.ActiveNpc
+	if varSecondary(s) {
+		npc = s.OtherActiveNpc
+	}
+	if npc == nil {
 		return fmt.Errorf("PUSH_VARN: %w", ErrNoActiveNpc)
 	}
 	id := varOperandID(s)
 	if s.varnType(id) == objtype.ScriptVarTypeString {
-		s.PushString(s.ActiveNpc.NpcVarNString(id))
+		s.PushString(npc.NpcVarNString(id))
 	} else {
-		s.PushInt(int(s.ActiveNpc.NpcVarN(id)))
+		s.PushInt(int(npc.NpcVarN(id)))
 	}
 	return nil
 }
 
-// handlePopVarn pops the top of the appropriate stack and writes it
-// to per-NPC variable `id` on the active NPC. Dispatches on
-// Configs.VarnType(id): STRING calls PopString, else calls PopInt.
-// Returns an error if no ActiveNpc is bound.
+// handlePopVarn pops the top of the appropriate stack and writes it to per-NPC
+// variable `id` on the active NPC (ActiveNpc, or OtherActiveNpc when the
+// secondary bit is set). Dispatches on Configs.VarnType(id).
 func handlePopVarn(s *ScriptState) error {
-	if s.ActiveNpc == nil {
+	npc := s.ActiveNpc
+	if varSecondary(s) {
+		npc = s.OtherActiveNpc
+	}
+	if npc == nil {
 		return fmt.Errorf("POP_VARN: %w", ErrNoActiveNpc)
 	}
 	id := varOperandID(s)
 	if s.varnType(id) == objtype.ScriptVarTypeString {
-		s.ActiveNpc.SetNpcVarNString(id, s.PopString())
+		npc.SetNpcVarNString(id, s.PopString())
 	} else {
-		s.ActiveNpc.SetNpcVarN(id, int32(s.PopInt()))
+		npc.SetNpcVarN(id, int32(s.PopInt()))
 	}
 	return nil
 }
