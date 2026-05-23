@@ -163,6 +163,11 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 
 		select {
 		case <-s.quit:
+			// Shutdown is tearing down: save+remove every still-online player
+			// on-tick (race-free) before the loop exits. Shutdown waits on
+			// saveWg afterwards so these saves flush. Mirrors TS, which logs
+			// every player out (with save) on shutdown.
+			s.saveAllOnShutdown()
 			return
 		case <-time.After(delay):
 		}

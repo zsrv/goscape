@@ -68,6 +68,14 @@ type Server struct {
 	// phases (processSessionLogs / processCleanup / etc.).
 	tickWg sync.WaitGroup
 
+	// saveWg tracks in-flight player-save RPC goroutines (PlayerLogout /
+	// PlayerAutosave, which carry the Save() blob). Shutdown waits on it
+	// before cancelling bridgesCtx so a save fired moments before stop —
+	// e.g. a player who logged out just before the operator killed the
+	// server — actually reaches the login server instead of being aborted
+	// by bridgesCancel mid-flight.
+	saveWg sync.WaitGroup
+
 	// addressLoginCache tracks per-remote-IP login attempts in a 60s
 	// window. Populated only when cfg.NodeProduction=true and
 	// cfg.NodeRateLimitAddressLogin>0. Mirrors TS World.loginAddressAttempts
@@ -664,9 +672,10 @@ func (s *Server) Shutdown() {
 	if s.worldEventsCancel != nil {
 		s.worldEventsCancel()
 	}
-	if s.bridgesCancel != nil {
-		s.bridgesCancel()
-	}
+	// NB: bridgesCancel is deliberately NOT called here. The save RPCs fired
+	// by the tick's final save-all (and by a just-completed logout) are
+	// parented to bridgesCtx; cancelling it now would abort them mid-flight
+	// and lose the saves. It is cancelled at the end, after waitForSaveFlush.
 	close(s.quit)
 	s.log.Debug("closing tcp listener")
 	s.tcpListener.Close()
@@ -681,6 +690,17 @@ func (s *Server) Shutdown() {
 	// quit branch, but Done still fires via the defer).
 	s.tickWg.Wait()
 	s.log.Debug("tick goroutine exited")
+
+	// The tick's final save-all (saveAllOnShutdown) and any just-fired logout
+	// save are in-flight save RPCs parented to bridgesCtx. Wait (bounded) for
+	// them to flush, THEN cancel bridgesCtx — cancelling earlier would abort
+	// the saves and lose recent progress.
+	s.log.Debug("waiting for player saves to flush")
+	s.waitForSaveFlush()
+	if s.bridgesCancel != nil {
+		s.bridgesCancel()
+	}
+	s.log.Debug("player saves flushed")
 
 	//_, cancel := context.WithTimeout(context.Background(), s.cfg.ServerGracefulShutdownTimeout)
 	//defer cancel() // releases resources if httpServer.Shutdown completes before timeout elapses. TODO: revisit this statement
@@ -1219,7 +1239,12 @@ func (s *Server) removePlayerOnTick(p *Player) {
 	if s.loginClient != nil && p.username != "" {
 		save := p.Save(s.invTypes, s.varpTypes)
 		username := p.username
+		// saveWg: Shutdown waits for this to flush before bridgesCancel so a
+		// logout-then-stop doesn't lose the save (the RPC is parented to
+		// bridgesCtx, which Shutdown otherwise cancels immediately).
+		s.saveWg.Add(1)
 		go func() {
+			defer s.saveWg.Done()
 			// Arc 18 R3 — parent moved from context.Background to
 			// Server.bridgesCtx so Shutdown cancels in-flight RPC promptly.
 			ctx, cancel := context.WithTimeout(s.bridgesCtx, bridgeCallTimeout)
@@ -1257,47 +1282,62 @@ func (s *Server) removePlayerOnTick(p *Player) {
 	s.removePlayerInternal(p)
 }
 
-// removePlayerOnDisconnect handles ungraceful disconnect from the
-// per-conn goroutine. Cannot safely call p.Save() (would race tick
-// goroutine), so calls PlayerForceLogout instead.
+// removePlayerOnDisconnect handles an ungraceful socket close from the
+// per-conn goroutine. It cannot call p.Save() here (that reads player state
+// the tick goroutine concurrently mutates — a data race), so it defers the
+// whole removal to the tick by enqueuing removePlayerOnTick on the
+// relayActionQueue (drained at the top of the tick loop). removePlayerOnTick
+// runs on-tick, so p.Save() is safe and the player IS saved — matching TS,
+// which keeps a dropped player in-world and saves them via the idle-logout
+// (the earlier "PlayerForceLogout, no save" path lost all progress since the
+// last 15-minute autosave, and its "TS has the same window" note was wrong).
 //
-// Deviation NAI-PLAYERLOADING-D-DISCONNECT-NO-SAVE: state since the
-// last autosave is lost on ungraceful disconnect. Autosave cadence
-// (15 min) caps the loss window. TS has the same window.
-//
-// PlayerForceLogout RPC + "no PlayerLogout" assertion pinned by
-// TestRemovePlayerOnDisconnect_* (server_logout_test.go).
+// removePlayerInternal is idempotent (slot-identity guard), so this is safe
+// even if the tick's own no-connection idle-logout fires for the same player.
 func (s *Server) removePlayerOnDisconnect(p *Player) {
-	if s.loginClient != nil && p.username != "" {
-		// Arc 18 R3 — per-call timeout + shutdown-derived parent.
-		username := p.username
-		go func() {
-			ctx, cancel := context.WithTimeout(s.bridgesCtx, bridgeCallTimeout)
-			defer cancel()
-			s.loginClient.PlayerForceLogout(ctx, &loginpb.PlayerForceLogoutRequest{
-				NodeId:   int32(s.cfg.NodeID),
-				Profile:  s.cfg.NodeProfile,
-				Username: username,
-			})
-		}()
+	s.enqueueRelayAction(func() {
+		s.removePlayerOnTick(p)
+	})
+}
+
+// playerSaveFlushTimeout bounds how long Shutdown waits for in-flight save
+// RPCs to flush before cancelling bridgesCtx — long enough for one bridge
+// call (bridgeCallTimeout) plus margin, but bounded so a hung login server
+// cannot wedge shutdown indefinitely.
+const playerSaveFlushTimeout = bridgeCallTimeout + 2*time.Second
+
+// saveAllOnShutdown saves and removes every online player. Called from the
+// tick goroutine when the tick loop is exiting (Shutdown closed s.quit), so
+// p.Save() inside removePlayerOnTick is race-free. Each removePlayerOnTick
+// fires a saveWg-tracked PlayerLogout RPC; Shutdown then waits on saveWg
+// (bounded by playerSaveFlushTimeout) before cancelling bridgesCtx so these
+// saves reach the login server. Without this, players still online when the
+// operator stops the server lost all progress since the last autosave.
+func (s *Server) saveAllOnShutdown() {
+	s.playersMu.RLock()
+	players := make([]*Player, len(s.playerLoop))
+	copy(players, s.playerLoop)
+	s.playersMu.RUnlock()
+	for _, p := range players {
+		if p != nil && p.username != "" {
+			s.removePlayerOnTick(p)
+		}
 	}
-	if s.friendsClient != nil && p.username != "" {
-		// Arc 18 R3 — per-call timeout + shutdown-derived parent.
-		username37 := p.username37
-		go func() {
-			ctx, cancel := context.WithTimeout(s.bridgesCtx, bridgeCallTimeout)
-			defer cancel()
-			s.friendsClient.PlayerLogout(ctx, &friendspb.PlayerLogoutRequest{
-				WorldId:    int32(s.cfg.NodeID),
-				Username37: username37,
-			})
-		}()
+}
+
+// waitForSaveFlush blocks until all in-flight save RPCs complete or
+// playerSaveFlushTimeout elapses, whichever comes first.
+func (s *Server) waitForSaveFlush() {
+	done := make(chan struct{})
+	go func() {
+		s.saveWg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(playerSaveFlushTimeout):
+		s.log.Warn("timed out waiting for player saves to flush on shutdown")
 	}
-	if p.friendsSubCancel != nil {
-		p.friendsSubCancel()
-		p.friendsSubCancel = nil
-	}
-	s.removePlayerInternal(p)
 }
 
 // PlayerSaveRate is the autosave cadence in ticks. 1500 ticks at ~600ms
@@ -1327,7 +1367,9 @@ func (s *Server) autosavePlayers() {
 			Save:     save,
 		}
 		// Arc 18 R3 — per-call timeout + shutdown-derived parent.
+		s.saveWg.Add(1)
 		go func() {
+			defer s.saveWg.Done()
 			ctx, cancel := context.WithTimeout(s.bridgesCtx, bridgeCallTimeout)
 			defer cancel()
 			s.loginClient.PlayerAutosave(ctx, req)

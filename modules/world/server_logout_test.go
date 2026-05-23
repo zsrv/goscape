@@ -3,8 +3,6 @@ package world
 import (
 	"testing"
 	"time"
-
-	"github.com/zsrv/goscape/pkg/loginpb"
 )
 
 // TestRemovePlayerOnTick_FiresPlayerLogoutWithSave pins server.go:897-917 —
@@ -108,12 +106,18 @@ func TestRemovePlayerOnTick_EmptyUsername_NoRPC(t *testing.T) {
 	}
 }
 
-func TestRemovePlayerOnDisconnect_FiresPlayerForceLogout(t *testing.T) {
+// TestRemovePlayerOnDisconnect_SavesViaTickLogout pins the disconnect-save
+// fix: an ungraceful socket close defers removal to the tick (relay queue) so
+// the player is SAVED on-tick via PlayerLogout, instead of the old
+// PlayerForceLogout that discarded all progress since the last autosave.
+func TestRemovePlayerOnDisconnect_SavesViaTickLogout(t *testing.T) {
 	fake := newFakeLoginClient()
 	s := newTestServer(t)
 	s.cfg.NodeID = 7
 	s.cfg.NodeProfile = "dev"
 	s.loginClient = fake
+	_, invTypes := newTestPlayerForLoadSave(t)
+	s.invTypes = invTypes
 
 	c, _ := newTestClient(t)
 	c.server = s
@@ -123,24 +127,70 @@ func TestRemovePlayerOnDisconnect_FiresPlayerForceLogout(t *testing.T) {
 		t.Fatalf("addPlayer: %v", err)
 	}
 
-	s.removePlayerOnDisconnect(p)
+	s.removePlayerOnDisconnect(p) // enqueues removePlayerOnTick on the relay queue
+	s.drainRelayActions()         // run it on-tick (race-free p.Save())
 
-	var got *loginpb.PlayerForceLogoutRequest
 	select {
-	case got = <-fake.forceLogoutReqs:
+	case <-fake.playerLogoutFired:
 	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for PlayerForceLogout RPC")
+		t.Fatal("timed out waiting for PlayerLogout RPC")
 	}
-
+	got := fake.snapshotPlayerLogoutReq()
+	if got == nil {
+		t.Fatal("no PlayerLogoutRequest captured — disconnect must save")
+	}
 	if got.NodeId != 7 || got.Profile != "dev" || got.Username != "bob" {
-		t.Errorf("force-logout fields: got NodeId=%d Profile=%q Username=%q; want 7 dev bob",
+		t.Errorf("logout fields: got NodeId=%d Profile=%q Username=%q; want 7 dev bob",
 			got.NodeId, got.Profile, got.Username)
 	}
-
-	// PlayerLogout must NOT have been called (no save on ungraceful disconnect).
-	if got := fake.snapshotPlayerLogoutReq(); got != nil {
-		t.Errorf("PlayerLogout fired on disconnect path: %+v", got)
+	if len(got.Save) == 0 {
+		t.Error("disconnect PlayerLogout must carry a save blob — state must persist on disconnect")
 	}
+	// PlayerForceLogout (no save) must NOT fire on the disconnect path anymore.
+	select {
+	case <-fake.forceLogoutReqs:
+		t.Error("PlayerForceLogout fired on disconnect; should use saving PlayerLogout")
+	default:
+	}
+}
+
+// TestSaveAllOnShutdown_SavesEveryOnlinePlayer pins symptom-3: when the server
+// is stopped while players are still online, the tick's final save-all logs
+// each of them out WITH a save (PlayerLogout), instead of dropping their
+// progress. Each save is tracked by saveWg, which Shutdown waits on before
+// cancelling bridgesCtx.
+func TestSaveAllOnShutdown_SavesEveryOnlinePlayer(t *testing.T) {
+	fake := newFakeLoginClient()
+	s := newTestServer(t)
+	s.loginClient = fake
+	_, invTypes := newTestPlayerForLoadSave(t)
+	s.invTypes = invTypes
+
+	for _, name := range []string{"alice", "bob"} {
+		c, _ := newTestClient(t)
+		c.server = s
+		p := newPlayer(c)
+		p.username = name
+		if err := s.addPlayer(p); err != nil {
+			t.Fatalf("addPlayer(%s): %v", name, err)
+		}
+	}
+
+	s.saveAllOnShutdown()
+
+	if got := s.getTotalPlayers(); got != 0 {
+		t.Errorf("players remaining after saveAllOnShutdown: %d, want 0", got)
+	}
+	// Two PlayerLogout (with-save) RPCs must fire — one per online player.
+	for got := 0; got < 2; got++ {
+		select {
+		case <-fake.playerLogoutFired:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("only %d PlayerLogout RPCs fired, want 2", got)
+		}
+	}
+	// saveWg must be fully drained (no leaked Add) once the RPCs complete.
+	s.waitForSaveFlush() // returns promptly if drained; bounded otherwise
 }
 
 func TestRemovePlayerOnDisconnect_NoLoginClient_NoRPC(t *testing.T) {
@@ -153,8 +203,9 @@ func TestRemovePlayerOnDisconnect_NoLoginClient_NoRPC(t *testing.T) {
 		t.Fatalf("addPlayer: %v", err)
 	}
 
-	s.removePlayerOnDisconnect(p) // must not panic
+	s.removePlayerOnDisconnect(p) // enqueues; must not panic
+	s.drainRelayActions()         // runs the relayed removePlayerOnTick on-tick
 	if s.players[p.slot] != nil {
-		t.Error("removePlayerInternal must still run when loginClient is nil")
+		t.Error("removePlayerInternal must run (via the relayed tick logout) when loginClient is nil")
 	}
 }
