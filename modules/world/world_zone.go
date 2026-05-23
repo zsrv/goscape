@@ -2,6 +2,7 @@ package world
 
 import (
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
+	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
 )
 
@@ -131,6 +132,32 @@ func (s *Server) MergeLoc(
 // the obj untracked (preserves pre-NAI-177 behavior). Mirrors TS
 // World.addObj lifecycle wiring (Engine-TS/.../World.ts:1467-1484).
 func (s *Server) AddObj(obj *entitypkg.Obj, receiverID, duration int, dropperAccountID int64) {
+	// Stack-merge: a fresh stackable DESPAWN drop landing on an existing
+	// stackable DESPAWN pile of the same type+receiver merges into that pile
+	// (changeobj + refreshed despawn timer) rather than spawning a second
+	// entry — so repeated drops on one tile (e.g. ranged ammo falling onto
+	// the NPC's tile) accumulate into one growing stack. Mirrors TS
+	// World.addObj (Engine-TS/src/engine/World.ts:1453-1465). The merge uses
+	// getObjOfReceiver (exact-receiver match), not GetObj, so public and
+	// private piles never cross-merge.
+	if obj.Lifecycle == entitypkg.LifecycleDespawn {
+		if ot := (serverConfigsView{s}).ObjType(obj.Type); ot != nil && ot.Stackable {
+			if existing := s.getObjOfReceiver(obj.Level, obj.X, obj.Z, obj.Type, receiverID); existing != nil &&
+				existing.Lifecycle == entitypkg.LifecycleDespawn {
+				if nextCount := obj.Count + existing.Count; nextCount <= inventory.StackLimit {
+					s.ChangeObj(existing, existing.Count, nextCount)
+					// Refresh the surviving pile's despawn countdown to the new
+					// drop's duration. TS sets existing.lifecycleTick = duration
+					// directly (Obj uses a per-tick decrement); goscape's
+					// absolute-tick model expresses the same via SetLifeCycle,
+					// which also re-registers the obj in s.locObjTracker.
+					existing.SetLifeCycle(duration, s.currentTick, s.locObjTracker)
+					return
+				}
+			}
+		}
+	}
+
 	obj.SetLifeCycle(duration, s.currentTick, s.locObjTracker)
 	z := s.zoneMap.Get(obj.Level, obj.X, obj.Z)
 	z.AddObj(obj, receiverID, dropperAccountID)

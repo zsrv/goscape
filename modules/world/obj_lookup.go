@@ -25,3 +25,22 @@ func (s *Server) GetObj(level, x, z, objId, receiverID int) *entitypkg.Obj {
 	}
 	return nil
 }
+
+// getObjOfReceiver returns the obj at (level, x, z) of type objId whose
+// ReceiverID *exactly* equals receiverID, or nil. Unlike GetObj — which also
+// matches public objs visible to the receiver — this is an exact-receiver
+// match: it is the variant TS World.addObj uses to decide whether a fresh
+// drop should merge into an existing pile (you only merge with a pile owned
+// by the same receiver, never a public pile into a private drop or vice
+// versa). For public drops both receiverID and the existing ReceiverID are
+// zone.PublicReceiver, so exact equality handles that case too. Mirrors TS
+// Zone.getObjOfReceiver (Engine-TS/src/engine/zone/Zone.ts:362-369).
+func (s *Server) getObjOfReceiver(level, x, z, objId, receiverID int) *entitypkg.Obj {
+	zn := s.zoneMap.Get(level, x, z)
+	for _, o := range zn.Objs {
+		if o.X == x && o.Z == z && o.Type == objId && o.ReceiverID == receiverID {
+			return o
+		}
+	}
+	return nil
+}
