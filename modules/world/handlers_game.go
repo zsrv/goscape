@@ -396,6 +396,11 @@ func handleMessagePublic(p *Player, payload []byte) error {
 
 	// Audit-log to friends-server with the UNFILTERED decoded text — mirrors
 	// TS player.logMessage = unpack at MessagePublicHandler.ts:32 (BEFORE filter).
+	// TS defers this: the handler only stores logMessage, then World.ts:648
+	// drains it once per tick via logPublicChat (resetPathingEntity nils it).
+	// Go has no logMessage field; it logs inline here instead — same sink
+	// (friendsBridge.PublicMessage), same session+coord+text. Structural-only
+	// divergence (see docs/PORTING-CLOSED.md "logMessage closed").
 	// Skip when p.session is empty or the unbridged "headless" sentinel —
 	// audit logging is meaningless without a real per-login UUID. The bridge
 	// goroutine-wraps the underlying RPC so the tick never blocks.
