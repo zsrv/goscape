@@ -289,29 +289,30 @@ func handleObjTakeItem(s *ScriptState) error {
 	// AddWealthEvent above (NAI-162's per-player wealth tracker); the
 	// two emit independently because they serve different downstream
 	// systems. DroppedByAccountId from the new Obj.DropperAccountID
-	// field (Task 12 / commit f387e9e3) is the persistent account_id
-	// of the human dropper, or 0 for NPC/world-spawned items.
-	if s.World != nil {
-		worldID := int32(s.World.NodeID())
-		x, z, level := s.ActiveObj.Coords()
-		telemetry.Get().EmitWealth(&eventspb.WealthEnvelope{
-			SchemaVersion: 1,
-			EventId:       uuid.NewString(),
-			Ts:            timestamppb.Now(),
-			AccountId:     s.Self.AccountID(),
-			WorldId:       worldID,
-			Payload: &eventspb.WealthEnvelope_ItemPickedUp{
-				ItemPickedUp: &eventspb.ItemPickedUpEvent{
-					ItemId:             int32(objTypeID),
-					Qty:                int32(objCount),
-					X:                  int32(x),
-					Y:                  int32(z),
-					Plane:              int32(level),
-					DroppedByAccountId: s.ActiveObj.DropperAccountID(),
-				},
+	// field is the persistent account_id of the human dropper, or 0
+	// for NPC/world-spawned items.
+	//
+	// s.World != nil is guaranteed by the early return at the top of
+	// this handler; no extra guard needed here.
+	worldID := int32(s.World.NodeID())
+	x, z, level := s.ActiveObj.Coords()
+	telemetry.Get().EmitWealth(&eventspb.WealthEnvelope{
+		SchemaVersion: 1,
+		EventId:       uuid.NewString(),
+		Ts:            timestamppb.Now(),
+		AccountId:     s.Self.AccountID(),
+		WorldId:       worldID,
+		Payload: &eventspb.WealthEnvelope_ItemPickedUp{
+			ItemPickedUp: &eventspb.ItemPickedUpEvent{
+				ItemId:             int32(objTypeID),
+				Qty:                int32(objCount),
+				X:                  int32(x),
+				Y:                  int32(z),
+				Plane:              int32(level),
+				DroppedByAccountId: s.ActiveObj.DropperAccountID(),
 			},
-		})
-	}
+		},
+	})
 
 	duration := 0
 	if s.ActiveObj.IsRespawnLifecycle() {

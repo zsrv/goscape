@@ -261,6 +261,11 @@ func (z *Zone) AddStaticObj(obj *entity.Obj) {
 // TODO(beyond-4b): enforce per-zone obj cap (TS: OBJS = 129) with
 // oldest-obj eviction.
 func (z *Zone) AddObj(obj *entity.Obj, receiverID int, dropperAccountID int64) {
+	// Unconditional assignment is correct today: all respawn-lifecycle
+	// callers pass dropperAccountID=0 because respawn objs are engine-
+	// spawned (no human dropper). If a future change ever re-adds a
+	// player-dropped obj via the respawn path, this would silently lose
+	// the dropper id — guard at that point.
 	obj.SetDropperAccountID(dropperAccountID)
 	coord := coordgrid.PackZoneCoord(obj.X, obj.Z)
 	if obj.Lifecycle == entity.LifecycleDespawn {
