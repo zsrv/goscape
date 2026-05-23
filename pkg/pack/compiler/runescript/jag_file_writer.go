@@ -12,8 +12,21 @@ import (
 	"github.com/zsrv/goscape/pkg/pack/compiler/writer"
 )
 
-// jagFileVersion is the .dat header version constant. Mirrors TS L18.
-const jagFileVersion = 27
+// jagFileVersion is the .dat header version constant.
+//
+// Pinned to 26 to match Server225_2's `@lostcityrs/runescript@^0.9.4`
+// dependency. TS upstream RuneScriptTS bumped this to 27 in commit 750291c
+// ("chore: Bumped compiler version", 2026-03-02) — a pure marker bump with no
+// layout change — but that bump postdates the pinned 0.9.4 release. The Go
+// engine reads this header via pkg/script/provider.go:13 (CompilerVersion =
+// 26) and rejects mismatched versions, and the user-facing TS-packed cache
+// at Server225_2/engine/data/pack/server/script.dat also reports 26, so the
+// packer must emit 26 for byte-parity and engine-loadable output.
+//
+// Companion to NAI-221 (lexer reverted to 0.9.4 grammar). If Server225_2
+// ever upgrades the pinned runescript dependency past the 750291c bump,
+// flip back to 27 and also bump pkg/script/provider.go CompilerVersion.
+const jagFileVersion = 26
 
 // JagFileScriptWriter buffers scripts in-memory and writes script.dat +
 // script.idx at Close. Mirrors TS src/runescript/writer/JagFileScriptWriter.ts.

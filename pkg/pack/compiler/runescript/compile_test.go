@@ -87,12 +87,12 @@ func TestCompile_JagWriter_PinsScriptHeader(t *testing.T) {
 		t.Fatalf("read script.idx: %v", err)
 	}
 
-	// script.dat: BE32(lastID+1) + BE32(jagFileVersion=27) + helper blob.
+	// script.dat: BE32(lastID+1) + BE32(jagFileVersion=26) + helper blob.
 	if got := binary.BigEndian.Uint32(dat[0:4]); got != 1 {
 		t.Errorf("script.dat[0:4] lastID+1 = %d, want 1", got)
 	}
-	if got := binary.BigEndian.Uint32(dat[4:8]); got != 27 {
-		t.Errorf("script.dat[4:8] jagFileVersion = %d, want 27", got)
+	if got := binary.BigEndian.Uint32(dat[4:8]); got != 26 {
+		t.Errorf("script.dat[4:8] jagFileVersion = %d, want 26", got)
 	}
 	// Helper blob starts at offset 8.
 	if got := string(dat[8:21]); got != "[proc,helper]" {

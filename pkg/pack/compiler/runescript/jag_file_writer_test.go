@@ -63,7 +63,7 @@ func TestJagFileScriptWriter_HappyPath(t *testing.T) {
 	}
 	wantDat := []byte{
 		0x00, 0x00, 0x00, 0x03, // count
-		0x00, 0x00, 0x00, 0x1B, // version = 27
+		0x00, 0x00, 0x00, 0x1A, // version = 26
 		0xAA, 0xBB, // data[0]
 		0xCC, 0xDD, 0xEE, // data[2]
 	}
@@ -97,7 +97,7 @@ func TestJagFileScriptWriter_EmptyClose(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantDat := []byte{0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x1B} // count(1) + version(27)
+	wantDat := []byte{0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x1A} // count(1) + version(26)
 	if !bytes.Equal(dat, wantDat) {
 		t.Errorf("empty dat: got %x, want %x", dat, wantDat)
 	}
