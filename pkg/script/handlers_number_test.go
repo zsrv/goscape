@@ -50,8 +50,21 @@ func TestNumberHandlers(t *testing.T) {
 		{"pow 2^10", OpPow, []int{2, 10}, 1024},
 		{"pow 0 exp", OpPow, []int{5, 0}, 1},
 		{"pow neg exp", OpPow, []int{5, -1}, 0},
-		{"invpow 1024 base 2", OpInvPow, []int{1024, 2}, 10},
+		// INVPOW(n1, n2) = floor(n1 ^ (1/n2)) — the n2-th root of n1,
+		// matching TS NumberOps.ts:79-100 (sqrt at n2==2, cbrt at n2==3,
+		// 4th-root at n2==4, general pow(n1, 1/n2) otherwise). NOT a
+		// logarithm.
+		{"invpow sqrt 1024", OpInvPow, []int{1024, 2}, 32},
+		{"invpow sqrt 100", OpInvPow, []int{100, 2}, 10},
+		{"invpow sqrt 1000 truncates", OpInvPow, []int{1000, 2}, 31},
+		{"invpow cbrt 27", OpInvPow, []int{27, 3}, 3},
+		{"invpow cbrt neg 8", OpInvPow, []int{-8, 3}, -2},
+		{"invpow 4th root 16", OpInvPow, []int{16, 4}, 2},
+		{"invpow base 1 identity", OpInvPow, []int{50, 1}, 50},
+		{"invpow general 5th root", OpInvPow, []int{100, 5}, 2},
 		{"invpow zero value", OpInvPow, []int{0, 2}, 0},
+		{"invpow zero exponent", OpInvPow, []int{8, 0}, 0},
+		{"invpow sqrt neg is zero", OpInvPow, []int{-9, 2}, 0},
 
 		// Bitwise
 		{"and", OpAnd, []int{0b1100, 0b1010}, 0b1000},

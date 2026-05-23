@@ -168,25 +168,40 @@ func handlePow(s *ScriptState) error {
 	return nil
 }
 
-// PORTING-EXCEPTION (INVPOW-logarithm-loop): TS NumberOps.ts:79-100 special-
-// cases sqrt/cbrt; Go uses a logarithm loop. Functionally equivalent for
-// integer results; perf diverges but acceptable at current scale. See
-// PORTING.md.
+// handleInvPow computes invpow(n1, n2) = the n2-th root of n1, truncated
+// toward zero. Mirrors TS NumberOps.ts:79-100 exactly: sqrt for n2==2,
+// cbrt for n2==3, sqrt(sqrt) for n2==4, and pow(n1, 1/n2) otherwise.
+// invpow is the inverse of pow (base^exp), NOT a logarithm.
 func handleInvPow(s *ScriptState) error {
-	// invpow(value, base) = floor(log_base(value)).
-	base := s.PopInt()
-	value := s.PopInt()
-	if value <= 0 || base <= 1 {
+	n2 := s.PopInt()
+	n1 := s.PopInt()
+	if n1 == 0 || n2 == 0 {
 		s.PushInt(0)
 		return nil
 	}
-	n := 0
-	for value >= base {
-		value /= base
-		n++
+	switch n2 {
+	case 1:
+		s.PushInt(n1)
+	case 2:
+		s.PushInt(floatToInt32(math.Sqrt(float64(n1))))
+	case 3:
+		s.PushInt(floatToInt32(math.Cbrt(float64(n1))))
+	case 4:
+		s.PushInt(floatToInt32(math.Sqrt(math.Sqrt(float64(n1)))))
+	default:
+		s.PushInt(floatToInt32(math.Pow(float64(n1), 1.0/float64(n2))))
 	}
-	s.PushInt(n)
 	return nil
+}
+
+// floatToInt32 truncates f toward zero and wraps to int32, mirroring JS's
+// ToInt32 (`x | 0`). NaN and ±Inf map to 0, matching `NaN | 0 === 0` —
+// e.g. Math.sqrt of a negative in TS yields NaN, then 0.
+func floatToInt32(f float64) int {
+	if math.IsNaN(f) || math.IsInf(f, 0) {
+		return 0
+	}
+	return int(int32(int64(math.Trunc(f))))
 }
 
 // -- Bitwise --
