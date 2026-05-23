@@ -31,6 +31,13 @@ func TestKillSetsDeadAndLifecycleTick(t *testing.T) {
 func TestTeleportHomeAfterStuck(t *testing.T) {
 	n := newWanderNpc(t)
 	n.x, n.z = 3094+10, 3106+10
+	// MoveRestrictNoMove makes this a deterministically *stuck* NPC: wanderMode
+	// skips the 1/8 random-walk roll and updateMovement can't step, so the
+	// NPC's position never changes and wanderCounter is never reset on-move
+	// (npc_interaction.go:333-336). Without it the random roll occasionally
+	// moves the NPC, resetting the counter and making this teleport-home
+	// assertion flaky — which is exactly the correct stuck-recovery semantics.
+	n.moveRestrict = MoveRestrictNoMove
 	n.wanderCounter = 501
 	s := &Server{}
 	n.turn(s)

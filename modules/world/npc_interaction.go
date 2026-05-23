@@ -323,15 +323,22 @@ func (n *Npc) updateMovement(s *Server) bool {
 	} else {
 		n.runDir = -1
 	}
-	// NAI-82: TS Npc.updateMovement at Engine-TS/.../Npc.ts:362-366 writes
-	// lastMovement = World.currentTick + 1 when the NPC's position changed
-	// this tick. Read by AI_ARRIVEDELAY / AI_TARGETMOVED (deferred — see
-	// NAI-82 spec §6.1). Position-vs-snapshot check (rather than
-	// stepsTaken > 0) mirrors TS exactly. No nil-server guard: the function
-	// already dereferences s above (walktrigger lookup, stepOnce), so reaching
-	// this line implies s != nil.
+	// NAI-82: TS Npc.updateMovement at Engine-TS/.../Npc.ts:361-366 writes
+	// lastMovement = World.currentTick + 1 AND resets wanderCounter = 0 when
+	// the NPC's position changed this tick. Read by AI_ARRIVEDELAY /
+	// AI_TARGETMOVED (deferred — see NAI-82 spec §6.1). Position-vs-snapshot
+	// check (rather than stepsTaken > 0) mirrors TS exactly. No nil-server
+	// guard: the function already dereferences s above (walktrigger lookup,
+	// stepOnce), so reaching this line implies s != nil.
+	//
+	// The wanderCounter reset is what makes the wanderMode 500-tick
+	// teleport-to-spawn a *stuck-recovery*: a wandering NPC that keeps moving
+	// never accumulates 500, so it only snaps home after 500 consecutive
+	// stationary ticks. Omitting it (pre-fix) made every healthy wandering
+	// NPC teleport home every ~500 ticks (Hans / Lumbridge goblins resetting).
 	if n.x != n.lastTickX || n.z != n.lastTickZ {
 		n.lastMovement = s.currentTick + 1
+		n.wanderCounter = 0
 	}
 	return true
 }

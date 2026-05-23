@@ -326,6 +326,57 @@ func TestNpcUpdateMovementWalk(t *testing.T) {
 	}
 }
 
+// TestNpcUpdateMovement_ResetsWanderCounterOnMove pins that an NPC which
+// actually moves has its wanderCounter reset to 0, mirroring TS
+// Npc.processMovement (Npc.ts:361-365). Without this reset the wander
+// teleport-to-spawn stops being a stuck-recovery and instead fires on every
+// healthy wandering NPC every ~500 ticks — observed as Hans / the Lumbridge
+// goblins periodically snapping back to their spawn tile.
+func TestNpcUpdateMovement_ResetsWanderCounterOnMove(t *testing.T) {
+	s := newServerForScriptTest(t)
+	typ := &objtype.NpcType{}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+	n.server = s
+	n.moveSpeed = MoveSpeedWalk
+	n.lastTickX, n.lastTickZ = n.x, n.z // tick-start snapshot
+	n.waypoints[0] = coordgrid.PackCoord(0, 103, 100)
+	n.waypointIndex = 0
+	n.wanderCounter = 499 // one wanderMode tick away from teleporting home
+
+	moved := n.updateMovement(s)
+
+	if !moved {
+		t.Fatal("precondition: NPC should have stepped")
+	}
+	if n.wanderCounter != 0 {
+		t.Errorf("wanderCounter after move: got %d, want 0 (TS Npc.ts:363-365 resets on move)", n.wanderCounter)
+	}
+}
+
+// TestNpcUpdateMovement_StuckDoesNotResetWanderCounter guards the other half
+// of the contract: a genuinely stuck NPC (no waypoint → no step) must NOT
+// reset its wanderCounter, so the 500-tick stuck-recovery teleport still
+// fires. Prevents over-correcting the reset-on-move fix into an
+// always-reset that would disable the stuck recovery entirely.
+func TestNpcUpdateMovement_StuckDoesNotResetWanderCounter(t *testing.T) {
+	s := newServerForScriptTest(t)
+	typ := &objtype.NpcType{}
+	n := NewNpc(1, 42, 100, 100, 0, typ)
+	n.server = s
+	n.lastTickX, n.lastTickZ = n.x, n.z
+	n.waypointIndex = -1 // no path → no move
+	n.wanderCounter = 250
+
+	moved := n.updateMovement(s)
+
+	if moved {
+		t.Fatal("precondition: NPC with no waypoint should not move")
+	}
+	if n.wanderCounter != 250 {
+		t.Errorf("wanderCounter: got %d, want 250 (unchanged when stuck)", n.wanderCounter)
+	}
+}
+
 func TestNpcUpdateMovementRunConsumesTwoSteps(t *testing.T) {
 	s := newServerForScriptTest(t)
 	typ := &objtype.NpcType{}
