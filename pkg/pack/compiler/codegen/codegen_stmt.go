@@ -156,14 +156,22 @@ func (g *CodeGenerator) visitDeclaration(ds *ast.DeclarationStatement) {
 	if ds.Initializer != nil {
 		g.VisitNodeOrNull(ds.Initializer)
 	} else if sym != nil {
+		// Default-value pushes are synthetic; TS omits the `source` argument on
+		// CodeGenerator.ts L420-L427, leaving the instruction's source.line
+		// undefined. GenerateLineNumberTable's `line !== prevLine` guard skips
+		// undefined-line instructions, so synthesized pushes do not create a
+		// LineNumberTable entry. Goscape must do the same — passing
+		// ds.Source() here would attach the declaration's line to the
+		// synthetic push and shift every subsequent PC up by 1 vs the TS-
+		// packed cache.
 		def := defaultValueFor(sym.Type)
 		switch dv := def.(type) {
 		case int:
-			g.Instruction(PushConstantInt, dv, ds.Source())
+			g.Instruction(PushConstantInt, dv, lexer.NodeSourceLocation{})
 		case string:
-			g.Instruction(PushConstantString, dv, ds.Source())
+			g.Instruction(PushConstantString, dv, lexer.NodeSourceLocation{})
 		case int64:
-			g.Instruction(PushConstantLong, dv, ds.Source())
+			g.Instruction(PushConstantLong, dv, lexer.NodeSourceLocation{})
 		default:
 			panic(fmt.Sprintf("visitDeclaration: unsupported default-value type %T for symbol %v", def, sym))
 		}
