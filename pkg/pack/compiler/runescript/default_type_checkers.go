@@ -43,14 +43,29 @@ func registerDefaultTypeCheckers(tm *typ.TypeManager) {
 		return left == right
 	})
 
-	// 5) MetaScript: recursive on params + returns. (TS additionally compares
-	// trigger identity; goscape's NewMetaScript bakes the trigger identifier
-	// into the representation string, so trigger-identity differences fall to
-	// the representation fallback below as a mismatch.)
+	// 5) MetaScript: matching trigger identifier + recursive on params +
+	// returns. Mirrors TS ScriptCompiler.ts:144
+	//
+	//   left.trigger === right.trigger && check(left.parameterType, right.parameterType) && check(left.returnType, right.returnType)
+	//
+	// The trigger identifier is load-bearing: when a script name appears
+	// across kinds (e.g. `[debugproc,foo]` AND `[queue,foo]`), the wrong
+	// resolution shifts script-id operands in callers like `queue(foo,..)`.
+	// Without this guard checker #5 returned true whenever params + returns
+	// matched, and resolveSymbol's break-on-first-match (type_checking_expr
+	// L989) picked whichever symbol FindAll happened to return first. The
+	// earlier comment claimed the representation-string fallback (checker
+	// #9) would catch trigger mismatches, but that fallback is never
+	// reached when #5 short-circuits true.
 	tm.AddTypeChecker(func(left, right typ.Type) bool {
 		lp, lr, lOK := typ.IsMetaScript(left)
 		rp, rr, rOK := typ.IsMetaScript(right)
 		if !lOK || !rOK {
+			return false
+		}
+		lIdent, _ := typ.MetaScriptTriggerIdent(left)
+		rIdent, _ := typ.MetaScriptTriggerIdent(right)
+		if lIdent != rIdent {
 			return false
 		}
 		return tm.Check(lp, rp) && tm.Check(lr, rr)
