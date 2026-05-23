@@ -2342,7 +2342,21 @@ type mockPlayerLookup struct {
 
 func (m *mockPlayerLookup) LookupPlayerByUID(uid int) ActivePlayer {
 	m.calls++
-	return m.byUID[uid]
+	if p, ok := m.byUID[uid]; ok {
+		return p
+	}
+	// Mirror Server.LookupPlayerByUID: bottom-32-bits comparison so
+	// callers using either the positive uint32 representation or the
+	// int32-cast representation resolve to the same player. Tests that
+	// seed byUID with the positive composeUID form (production-realistic)
+	// keep working after the PushInt int32-cast fix landed.
+	target := int32(uid)
+	for storedUID, p := range m.byUID {
+		if int32(storedUID) == target {
+			return p
+		}
+	}
+	return nil
 }
 
 // ZonePlayers satisfies the NAI-35-T2 PlayerLookup.ZonePlayers extension.
@@ -2350,6 +2364,87 @@ func (m *mockPlayerLookup) LookupPlayerByUID(uid int) ActivePlayer {
 // unseeded. Mirrors the production semantics of "empty/nil slice on miss".
 func (m *mockPlayerLookup) ZonePlayers(level, zoneX, zoneZ int) []ActivePlayer {
 	return m.byZone[zoneKey{level, zoneX, zoneZ}]
+}
+
+// TestPFindUID_HighBitUid_FastPathReacquire reproduces the player-
+// controls regression: after the PushInt int32-cast fix landed (the
+// "Someone else is fighting that." combat-bug fix), high-bit-set UIDs
+// would round-trip on the script stack as their signed-int32 form
+// (e.g. composeUID 0x80000001 = 2147483649 → toInt32 → -2147483647),
+// but Player.UID() still returned the unsigned form. The if_button
+// protected-script pattern `if (p_finduid(uid) = true) { ... }` then
+// hit the fast-path comparison `s.Self.UID() == uid` with mismatched
+// representations (2147483649 vs -2147483647) and fell through to the
+// resync-only fallback — silently snapping toggle buttons back to
+// their server-side state.
+//
+// TS sidesteps this in two ways: (a) toInt32 normalises both sides of
+// the comparison automatically via JS bitwise-coercion semantics, and
+// (b) getPlayerByUid decomposes uid into slot+hash for a
+// representation-independent lookup (World.ts:1659-1673). Go needs
+// explicit int32-cast normalisation at the comparison boundary.
+func TestPFindUID_HighBitUid_FastPathReacquire(t *testing.T) {
+	var positiveUID int = 0x80000001 // high bit set, matches composeUID output for ~50% of usernames
+	self := &mockPlayer{username: "Self", uidValue: positiveUID, canAccessValue: true}
+
+	sf := &ScriptFile{
+		Name:             "pfinduid_highbit_fast_path",
+		Opcodes:          []Opcode{OpUID, OpPFindUID, OpReturn},
+		IntOperands:      []int32{0, 0, 0}, // PFINDUID intOperand=0 → slot 0
+		StringOperands:   []string{"", "", ""},
+		InstructionCount: 3,
+	}
+	// protect=true → PtrProtectedActivePlayer set → fast-path eligible.
+	state := Init(sf, self, true, nil, nil)
+	// state.PlayerLookup deliberately nil — fast-path must succeed without
+	// consulting the lookup. If the fast-path fails, P_FINDUID falls
+	// through to the nil-lookup branch and pushes 0.
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.ISP != 1 || state.IntStack[0] != 1 {
+		t.Errorf("stack: got %v, want [1]\n"+
+			"  p_finduid(uid) self-reacquire fast-path must succeed for high-bit UIDs",
+			state.IntStack[:state.ISP])
+	}
+}
+
+// TestPFindUID_HighBitUid_LookupPath covers the non-fast-path branch:
+// state.Self is a different player than the lookup target, so the
+// self-reacquire fast-path is skipped and the bug surfaces at the
+// LookupPlayerByUID call. mockPlayerLookup mirrors production storage
+// (positive Go int keys for high-bit UIDs); the script's PopInt-of-
+// OpUID gives the int32-cast form. Production Server.LookupPlayerByUID
+// has identical shape (server.go:1357 `p.uid == uid`); fixing the mock
+// in lock-step is intentional — it documents that mocks must follow
+// the production invariant.
+func TestPFindUID_HighBitUid_LookupPath(t *testing.T) {
+	var positiveUID int = 0x80000001
+	target := &mockPlayer{username: "Target", uidValue: positiveUID, canAccessValue: true}
+	other := &mockPlayer{username: "Other", uidValue: 1}
+	lookup := &mockPlayerLookup{byUID: map[int]ActivePlayer{positiveUID: target}}
+
+	// Push uid manually (the value scripts would see after OpUID +
+	// PushInt int32-cast): bottom 32 bits of positiveUID, sign-extended.
+	pushedUID := int(int32(positiveUID))
+
+	sf := newSingleOp("pfinduid_highbit_lookup", OpPFindUID)
+	state := Init(sf, other, false, nil, nil) // Self != target; not protected → no fast-path
+	state.PlayerLookup = lookup
+	state.PushInt(pushedUID)
+
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if state.ISP != 1 || state.IntStack[0] != 1 {
+		t.Errorf("stack: got %v, want [1]\n"+
+			"  LookupPlayerByUID must find target whose stored uid round-trips through int32 to the pushed value",
+			state.IntStack[:state.ISP])
+	}
+	if state.Self != target {
+		t.Errorf("Self: got %v, want target after successful PFindUID", state.Self)
+	}
 }
 
 // TestFindUIDFound: lookup returns a target → push 1, Self rebinds,

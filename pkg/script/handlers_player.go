@@ -1178,13 +1178,18 @@ func handlePFindUID(s *ScriptState) error {
 	uid := s.PopInt()
 
 	// Self-reacquire fast-path: already protected on this slot's player.
+	// Compare via int32-cast so the script-side stack representation
+	// (int32-normalised by PushInt per TS toInt32 parity, Numbers.ts:7)
+	// matches against ActivePlayer.UID() which returns the
+	// composeUID-derived uint32-bit-pattern as a positive Go int. Both
+	// sides agree on the bottom 32 bits; sign-extension reconciles them.
 	if operand == 0 {
-		if s.Pointers&PtrProtectedActivePlayer != 0 && s.Self != nil && s.Self.UID() == uid {
+		if s.Pointers&PtrProtectedActivePlayer != 0 && s.Self != nil && int32(s.Self.UID()) == int32(uid) {
 			s.PushInt(1)
 			return nil
 		}
 	} else {
-		if s.Pointers&PtrProtectedActivePlayer2 != 0 && s.Self2 != nil && s.Self2.UID() == uid {
+		if s.Pointers&PtrProtectedActivePlayer2 != 0 && s.Self2 != nil && int32(s.Self2.UID()) == int32(uid) {
 			s.PushInt(1)
 			return nil
 		}

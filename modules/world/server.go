@@ -1355,11 +1355,19 @@ func (s *Server) TrackZone(z *zone.Zone) { s.zonesTracking[z] = struct{}{} }
 // variant consult the returned player's CanAccess() separately. Mirrors
 // TS World.getPlayerByUid which is a pure lookup.
 func (s *Server) LookupPlayerByUID(uid int) script.ActivePlayer {
+	// Compare via int32-cast: scripts push uids through ScriptState.PushInt
+	// which int32-normalises per TS toInt32 parity (Numbers.ts:7), while
+	// composeUID stores the uint32 bit-pattern as a positive Go int. Both
+	// representations share the bottom 32 bits; sign-extension reconciles
+	// them. Without this, ~50% of usernames (those with bit 31 set in
+	// composeUID output) failed every p_finduid call after the int32-cast
+	// PushInt fix landed.
+	target := int32(uid)
 	for _, p := range s.playerLoop {
 		if p == nil || !p.active {
 			continue
 		}
-		if p.uid == uid {
+		if int32(p.uid) == target {
 			return p
 		}
 	}
