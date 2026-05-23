@@ -241,8 +241,9 @@ func TestDecodeRealCacheBlob(t *testing.T) {
 	_ = binary.BigEndian.Uint32(dat[0:4]) // entryCount
 	_ = binary.BigEndian.Uint32(dat[4:8]) // version
 
-	// idx also has an 8-byte header, skip it.
-	idxOffset := 8
+	// idx has a 4-byte header (u32 entryCount), skip it. dat has an 8-byte
+	// header (u32 entryCount + u32 version).
+	idxOffset := 4
 	datOffset := 8
 
 	// Find the first non-zero size entry and decode it.
