@@ -880,15 +880,16 @@ func (n *Npc) inApproachDistance(rng int, target entity) bool {
 	if tlevel != n.level {
 		return false
 	}
-	dx := n.x - tx
-	if dx < 0 {
-		dx = -dx
+	tw, tl := approachTargetSize(target)
+	// TS PathingEntity.ts:396-398 — a source on/under the target footprint is
+	// not in approach distance. Also covers the old same-tile exclusion.
+	if coordgrid.Intersects(n.x, n.z, n.size, n.size, tx, tz, tw, tl) {
+		return false
 	}
-	dz := n.z - tz
-	if dz < 0 {
-		dz = -dz
-	}
-	if dx > rng || dz > rng {
+	// TS PathingEntity.ts:404 — CoordGrid.distanceTo (edge-aware Chebyshev
+	// across both footprints), NOT origin-corner distance. Matches the
+	// player-side inApproachDistance and the size-aware targetWithinMaxRange.
+	if coordgrid.DistanceTo(n.x, n.z, n.size, n.size, tx, tz, tw, tl) > rng {
 		return false
 	}
 	// LoS gate — TS PathingEntity.ts:402-405. Target-as-source + self-as-dest
@@ -902,7 +903,7 @@ func (n *Npc) inApproachDistance(rng int, target entity) bool {
 			collision.FlagBlockPlayers) {
 		return false
 	}
-	return !(dx == 0 && dz == 0)
+	return true
 }
 
 // SetInteraction anchors the NPC's interaction on target. Mirrors TS

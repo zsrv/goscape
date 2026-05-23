@@ -743,16 +743,25 @@ func inApproachDistance(px, pz, tx, tz, tw, tl, apRange int) bool {
 
 // approachTargetSize returns the target's tile footprint for approach-distance
 // math. Distinct from targetWidthLength (face-coord helper, returns 1×1 for
-// NPCs) and approachEntitySize (LOS helper, doesn't handle Locs).
+// NPCs) and approachEntitySize (LOS helper, doesn't handle Locs). A footprint
+// is always at least 1×1 — a 0 dimension (e.g. an un-sized test-fixture NPC)
+// is clamped so the edge-distance / intersect math stays well-formed.
 func approachTargetSize(target entity) (width, length int) {
 	switch t := target.(type) {
 	case *Npc:
-		return int(t.size), int(t.size)
+		width, length = int(t.size), int(t.size)
 	case *entitypkg.Loc:
-		return t.Width, t.Length
+		width, length = t.Width, t.Length
 	default: // *Player, *Obj — 1x1
 		return 1, 1
 	}
+	if width < 1 {
+		width = 1
+	}
+	if length < 1 {
+		length = 1
+	}
+	return width, length
 }
 
 // effectiveApRange returns the approach-range in tiles the player's

@@ -1379,6 +1379,40 @@ func TestNpcInApproachDistanceMultiTileSelfShiftsLoSEndTile(t *testing.T) {
 	})
 }
 
+// TestNpcInApproachDistance_EdgeAware_MultiTileSelf pins that the NPC-attacker
+// approach gate measures distance to the NEAREST EDGE (TS CoordGrid.distanceTo),
+// not the NPC's origin corner. A size-3 NPC at origin (3094,3106) occupies
+// z 3106..3108. A player at (3094,3113) is edge-distance 5 (3113-3108) but
+// origin-distance 7 (3113-3106). With attackrange 5 the NPC IS in approach.
+//
+// gamemap is left nil so the LoS gate short-circuits to pass, isolating the
+// distance computation. Mirrors the player-side edge-aware fix and the
+// existing size-aware (*Npc).targetWithinMaxRange (TS Npc.ts:658-669).
+func TestNpcInApproachDistance_EdgeAware_MultiTileSelf(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.gamemap = nil // LoS gate skipped → isolate distance check
+
+	self := NewNpc(1, 0, 3094, 3106, 0, &objtype.NpcType{Size: 3})
+	self.server = s
+	target := addPlayerToServer(t, s, 1, 3094, 3113, 0) // edge dist 5, origin dist 7
+
+	if !self.inApproachDistance(5, target) {
+		t.Error("size-3 self, player at edge dist 5, rng 5: got false, want true (edge-aware)")
+	}
+
+	// One tile farther (edge dist 6) → out of approach.
+	target.z = 3114
+	if self.inApproachDistance(5, target) {
+		t.Error("size-3 self, player at edge dist 6, rng 5: got true, want false")
+	}
+
+	// Player on the NPC footprint → not approach (under-target exclusion).
+	target.x, target.z = 3095, 3107
+	if self.inApproachDistance(5, target) {
+		t.Error("player under size-3 footprint: got true, want false")
+	}
+}
+
 // TestTargetWithinMaxRangePlayerEscapeUsesSizeAwareDistance pins NAI-20
 // Task 5: the PLAYERESCAPE branch in (*Npc).targetWithinMaxRange uses
 // coordgrid.DistanceTo (size-aware) per TS Npc.ts:658-669, NOT
