@@ -107,6 +107,41 @@ func TestHandleOpObj1SetsInteraction(t *testing.T) {
 	}
 }
 
+// TestHandleOpObj_DropperCanTakeOwnPrivateObj pins the reported bug: after
+// dropping an item, the dropper must be able to pick it up immediately during
+// the private (unrevealed) window — not only once the reveal timer expires.
+//
+// Private drops store ReceiverID = the dropper's UID (the drop path uses
+// s.Self.UID(), the zone-visibility filter uses p.uid, reveal uses
+// LookupPlayerByUID). The take handler must therefore query GetObj with p.uid,
+// NOT p.slot. With p.slot, the dropper's own private obj never matches (uid !=
+// slot) until reveal flips ReceiverID to PublicReceiver — exactly the bug.
+// Mirrors TS: drop uses player.hash64, take uses player.hash64 (both sides
+// identical by construction).
+func TestHandleOpObj_DropperCanTakeOwnPrivateObj(t *testing.T) {
+	_, p, obj, _ := makeOpObjFixture(t)
+
+	// Production-shaped distinction: slot is a small index, uid is a
+	// composeUID hash. If the handler used p.slot the lookup would miss.
+	p.slot = 1
+	p.uid = 0x4F3A0001 // composeUID-shaped, deliberately != slot
+
+	// Make the obj a PRIVATE drop owned by this player, still unrevealed.
+	obj.ReceiverID = p.uid
+	obj.Reveal = entitypkg.ObjReveal
+
+	if err := handleOpObj1(p, p2x3ObjPayload(100, 100, 42)); err != nil {
+		t.Fatalf("handleOpObj1: %v", err)
+	}
+
+	if p.target != obj {
+		t.Errorf("target: got %v, want the dropped obj (dropper must reach own private drop)", p.target)
+	}
+	if !p.opcalled {
+		t.Error("opcalled: want true (dropper's take of own private obj must proceed before reveal)")
+	}
+}
+
 func TestHandleOpObjAllFiveOpsRouteIndependently(t *testing.T) {
 	type opCase struct {
 		op int

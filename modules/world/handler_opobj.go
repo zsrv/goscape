@@ -53,7 +53,7 @@ func handleOpObj(p *Player, payload []byte, op int) error {
 		return nil
 	}
 
-	obj := s.GetObj(p.level, x, z, objId, p.slot)
+	obj := s.GetObj(p.level, x, z, objId, p.uid)
 	if obj == nil {
 		sendUnsetMapFlag(p)
 		return nil
@@ -146,7 +146,7 @@ func handleOpObjT(p *Player, payload []byte) error {
 		return nil
 	}
 
-	obj := s.GetObj(p.level, x, z, objId, p.slot)
+	obj := s.GetObj(p.level, x, z, objId, p.uid)
 	if obj == nil {
 		sendUnsetMapFlag(p)
 		return nil
@@ -223,7 +223,7 @@ func handleOpObjU(p *Player, payload []byte) error {
 		return nil
 	}
 
-	obj := s.GetObj(p.level, x, z, objId, p.slot)
+	obj := s.GetObj(p.level, x, z, objId, p.uid)
 	if obj == nil {
 		sendUnsetMapFlag(p)
 		return nil
