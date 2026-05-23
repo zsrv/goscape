@@ -924,8 +924,6 @@ func (p *Player) updateInvs() {
 		return
 	}
 	srv := p.client.server
-	// Collect all observed invs so we can clear Update after all listeners fire.
-	observed := make([]*inventory.Inventory, 0, len(p.invListeners))
 	runWeightChanged := false // NEW: TS NetworkPlayer.ts:338
 	firstSeen := false        // NEW: TS NetworkPlayer.ts:339
 	for com, l := range p.invListeners {
@@ -966,12 +964,15 @@ func (p *Player) updateInvs() {
 				p.invListeners[com] = l
 			}
 		}
-		observed = append(observed, inv)
 	}
-	// Clear inv.Update AFTER all listeners (multiple listeners can share an inv).
-	for _, inv := range observed {
-		inv.Update = false
-	}
+	// inv.Update is deliberately NOT cleared here. A single inventory can be
+	// observed by multiple PLAYERS — e.g. a trade offer shown to its owner
+	// (inv_transmit) AND to the partner (invother_transmit on the partner's
+	// window). Clearing per-player would let whichever player is processed
+	// first consume the flag and starve the other (symptom: the trade partner
+	// processed later sees no items). Mirrors TS, which clears inv.update in
+	// the world cleanup pass after every player's info is sent
+	// (World.ts:1136-1157); goscape does the same in Server.processCleanup.
 	// NEW: TS NetworkPlayer.ts:385-393 — recompute, skip-on-no-change, emit.
 	if runWeightChanged {
 		before := p.runweight

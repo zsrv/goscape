@@ -872,6 +872,22 @@ func (s *Server) processCleanup() {
 		// (Player respawn/death sub-spec).
 		p.socialProtect = false
 		p.reportAbuseProtect = false
+		// Clear per-player inventory update flags at end-of-tick — AFTER every
+		// player's updateInvs (in processInfo) has read them. Clearing inside
+		// updateInvs would let the first-processed player consume the flag and
+		// starve a cross-player listener (a trade offer shown to the partner
+		// via invother_transmit). Mirrors TS World.ts:1140-1147.
+		for _, inv := range p.invs {
+			if inv != nil {
+				inv.Update = false
+			}
+		}
+	}
+	// Clear world/shared inventory update flags too (TS World.ts:1155-1157).
+	for _, inv := range s.invs {
+		if inv != nil {
+			inv.Update = false
+		}
 	}
 	for _, n := range s.npcLoop {
 		n.resetPathingEntity()

@@ -97,8 +97,56 @@ func TestUpdateInvsRespectsDirty(t *testing.T) {
 	if len(loud) == 0 {
 		t.Error("dirty inv should fire a packet; got none")
 	}
-	if inv.Update {
-		t.Error("inv.Update should be cleared after the tick")
+	// updateInvs no longer clears inv.Update — clearing moved to the
+	// end-of-tick cleanup pass (Server.processCleanup) so a second player
+	// listening to the same inv (trade partner via invother_transmit) isn't
+	// starved. The flag stays set until cleanup.
+	if !inv.Update {
+		t.Error("inv.Update must NOT be cleared by updateInvs (processCleanup clears it)")
+	}
+}
+
+// TestUpdateInvsCrossPlayerSharedInvNotStarved is the trade-offer regression:
+// when ONE inventory is observed by two players (the owner's offer shown to
+// the owner via inv_transmit AND to the partner via invother_transmit), both
+// players' updateInvs must emit on the same dirty tick. The pre-fix per-player
+// clear let whichever player ran first consume inv.Update, so the partner
+// (processed later) saw nothing — the "other player's window stays empty" bug.
+func TestUpdateInvsCrossPlayerSharedInvNotStarved(t *testing.T) {
+	s := newTestServer(t)
+	s.invs = make(map[int]*inventory.Inventory)
+
+	owner, occ := newInvListenerTestPlayer(t, s, 2)
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	owner.invs[93] = inv
+	// Owner watches their own offer (inv_transmit); FirstSeen consumed so the
+	// only thing that can fire is inv.Update.
+	owner.invListeners = map[int]InventoryListener{
+		148: {Type: 93, Com: 148, Source: owner.uid, FirstSeen: false},
+	}
+
+	partner, pcc := newInvListenerTestPlayer(t, s, 3)
+	// Partner watches the SAME inv via invother_transmit (Source = owner.uid).
+	partner.invListeners = map[int]InventoryListener{
+		149: {Type: 93, Com: 149, Source: owner.uid, FirstSeen: false},
+	}
+
+	inv.Update = true
+
+	// Owner is processed FIRST (the pre-fix starving order).
+	ownerRecv := drainConn(t, occ)
+	owner.updateInvs()
+	owner.client.flushWrite()
+	if got := <-ownerRecv; len(got) == 0 {
+		t.Error("owner should emit on dirty inv; got none")
+	}
+
+	// Partner processed second must STILL emit — inv.Update survives.
+	partnerRecv := drainConn(t, pcc)
+	partner.updateInvs()
+	partner.client.flushWrite()
+	if got := <-partnerRecv; len(got) == 0 {
+		t.Error("partner (processed second) must also emit; pre-fix this was starved → empty trade window")
 	}
 }
 
