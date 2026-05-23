@@ -6,6 +6,9 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -34,6 +37,9 @@ type accountRow struct {
 }
 
 func openDB(dsn string) (*sql.DB, error) {
+	if err := ensureDBParentDir(dsn); err != nil {
+		return nil, fmt.Errorf("ensure db parent dir: %w", err)
+	}
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
@@ -51,6 +57,26 @@ func openDB(dsn string) (*sql.DB, error) {
 		return nil, fmt.Errorf("migrate: %w", err)
 	}
 	return db, nil
+}
+
+// ensureDBParentDir creates the parent directory of the sqlite DSN's
+// file path (no-op if it already exists or the DSN is in-memory).
+// SQLite itself doesn't create missing parent directories — it returns
+// SQLITE_CANTOPEN (error 14) on first query. Matches the mkdir-on-write
+// behaviour already used by handler.go:writeSave for player .sav files.
+func ensureDBParentDir(dsn string) error {
+	if dsn == ":memory:" || strings.HasPrefix(dsn, "file::memory:") {
+		return nil
+	}
+	p := strings.TrimPrefix(dsn, "file:")
+	if i := strings.IndexByte(p, '?'); i >= 0 {
+		p = p[:i]
+	}
+	dir := filepath.Dir(p)
+	if dir == "" || dir == "." {
+		return nil
+	}
+	return os.MkdirAll(dir, 0o755)
 }
 
 // migrateDB applies all pending up-migrations. m.Close() is intentionally
