@@ -286,8 +286,11 @@ func (h *handler) PlayerMute(ctx context.Context, req *loginpb.PlayerMuteRequest
 	return &loginpb.PlayerMuteResponse{}, nil
 }
 
-// writeSave atomically writes save bytes to {basePath}/{profile}/{username}.sav.
-// It writes to a temp file first, then renames so a crash never leaves a partial save.
+// writeSave atomically and durably writes save bytes to
+// {basePath}/{profile}/{username}.sav. It writes to a temp file, fsyncs it,
+// renames it into place (atomic), then fsyncs the directory so both the file
+// contents and the rename survive a power loss / kernel panic — not just a
+// graceful process exit.
 func writeSave(basePath, profile, username string, save []byte) error {
 	dir := filepath.Join(basePath, profile)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -303,6 +306,14 @@ func writeSave(basePath, profile, username string, save []byte) error {
 		os.Remove(tmpName)
 		return fmt.Errorf("write temp save: %w", err)
 	}
+	// fsync the temp file so its contents are on stable storage before the
+	// rename publishes it as the live save (otherwise a crash could leave the
+	// renamed file pointing at unflushed/zeroed data).
+	if err = tmp.Sync(); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return fmt.Errorf("fsync temp save: %w", err)
+	}
 	if err = tmp.Close(); err != nil {
 		os.Remove(tmpName)
 		return fmt.Errorf("close temp save: %w", err)
@@ -310,6 +321,13 @@ func writeSave(basePath, profile, username string, save []byte) error {
 	if err = os.Rename(tmpName, filepath.Join(dir, username+".sav")); err != nil {
 		os.Remove(tmpName)
 		return fmt.Errorf("rename save: %w", err)
+	}
+	// fsync the directory so the rename (the new directory entry) is durable.
+	// Best-effort: the save is already written and renamed, so a fsync failure
+	// here only weakens power-loss durability — it must not fail the save.
+	if d, derr := os.Open(dir); derr == nil {
+		_ = d.Sync()
+		_ = d.Close()
 	}
 	return nil
 }
