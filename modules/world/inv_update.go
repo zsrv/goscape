@@ -17,6 +17,19 @@ func sendUpdateInvFullCom(p *Player, com int, inv *inventory.Inventory) {
 
 	buf.P2(uint16(com))
 	size := inv.Capacity
+	// Clamp to the target component's slot grid — TS UpdateInvFullEncoder
+	// sends min(inv.capacity, comType.width*comType.height). Sending more
+	// slots than the component can hold overruns the client's invSlotObjId[]
+	// array and crashes it. trademain:inv is a 28-slot grid (so the trade
+	// OFFER screen worked), but tradeconfirm:inv1/inv2 are smaller grids, so
+	// the unclamped full-capacity send crashed both clients on Accept.
+	if p.client != nil && p.client.server != nil {
+		if ct := p.client.server.lookupComponent(com); ct != nil {
+			if grid := ct.Width * ct.Height; grid > 0 && grid < size {
+				size = grid
+			}
+		}
+	}
 	if size > 0xff {
 		size = 0xff
 	}

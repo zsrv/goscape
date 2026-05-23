@@ -41,6 +41,36 @@ func newInvListenerTestPlayer(t *testing.T, s *Server, slot int) (*Player, net.C
 	return p, cc
 }
 
+// TestUpdateInvFull_ClampsSizeToComponentGrid pins the trade-accept crash fix:
+// the transmitted slot count is min(inv.capacity, component.width*height), not
+// the raw inv capacity. Sending more slots than the target component holds
+// overruns the client's invSlotObjId[] array (crash on the smaller
+// tradeconfirm grids). Mirrors TS UpdateInvFullEncoder.
+func TestUpdateInvFull_ClampsSizeToComponentGrid(t *testing.T) {
+	s := newTestServer(t)
+	s.componentTypes = &objtype.ComponentTypeConfigs{
+		Configs: make([]*objtype.ComponentType, 5001),
+	}
+	// Component 5000 is a 2x2 grid (4 slots) — smaller than the 28-slot inv.
+	s.componentTypes.Configs[5000] = &objtype.ComponentType{Width: 2, Height: 2}
+
+	p, cc := newInvListenerTestPlayer(t, s, 2)
+	inv := inventory.New(93, 28, inventory.StackNormal)
+
+	received := drainConn(t, cc)
+	sendUpdateInvFullCom(p, 5000, inv)
+	p.client.flushWrite()
+	got := <-received
+
+	// Wire: [enc opcode][len hi][len lo][com hi][com lo][size]...
+	if len(got) < 6 {
+		t.Fatalf("packet too short: %d bytes", len(got))
+	}
+	if size := got[5]; size != 4 {
+		t.Errorf("UpdateInvFull size byte: got %d, want 4 (clamped to 2x2 component grid, not inv capacity 28)", size)
+	}
+}
+
 func TestUpdateInvsFirstSeenFires(t *testing.T) {
 	s := newTestServer(t)
 	s.invs = make(map[int]*inventory.Inventory)
