@@ -491,10 +491,10 @@ func performInvAdd(s *ScriptState, typeID, obj, count int, op string) error {
 		receiverID := s.Self.UID()
 		if !stackable || overflow == 1 {
 			for range overflow {
-				s.World.AddObj(level, x, z, obj, 1, 200, receiverID)
+				s.World.AddObj(level, x, z, obj, 1, 200, receiverID, s.Self.AccountID())
 			}
 		} else {
-			s.World.AddObj(level, x, z, obj, overflow, 200, receiverID)
+			s.World.AddObj(level, x, z, obj, overflow, 200, receiverID, s.Self.AccountID())
 		}
 	}
 
@@ -1043,14 +1043,14 @@ func handleInvDropSlot(s *ScriptState) error {
 	// state.activeObj set after each spawn; last wins for non-stackable count=N.
 	if !objType.Stackable || completed == 1 {
 		for range completed {
-			obj := s.World.AddObj(level, x, z, objID, 1, duration, receiverID)
+			obj := s.World.AddObj(level, x, z, objID, 1, duration, receiverID, s.Self.AccountID())
 			if obj != nil {
 				s.ActiveObj = obj
 				s.Pointers |= PtrActiveObj
 			}
 		}
 	} else {
-		obj := s.World.AddObj(level, x, z, objID, completed, duration, receiverID)
+		obj := s.World.AddObj(level, x, z, objID, completed, duration, receiverID, s.Self.AccountID())
 		if obj != nil {
 			s.ActiveObj = obj
 			s.Pointers |= PtrActiveObj
@@ -1291,7 +1291,7 @@ func handleInvMoveItemCert(s *ScriptState) error {
 		level := (s.Self.CoordPacked() >> 28) & 0x3
 		receiverID := s.Self.UID()
 		// TS comment: "should be a stackable cert already" → single stacked drop.
-		s.World.AddObj(level, s.Self.X(), s.Self.Z(), finalObj, overflow, 200, receiverID)
+		s.World.AddObj(level, s.Self.X(), s.Self.Z(), finalObj, overflow, 200, receiverID, s.Self.AccountID())
 	}
 	return nil
 }
@@ -1439,7 +1439,7 @@ func handleInvDropItem(s *ScriptState) error {
 		return fmt.Errorf("INV_DROPITEM: no world surface")
 	}
 	receiverID := s.Self.UID()
-	o := s.World.AddObj(level, x, z, obj, completed, duration, receiverID)
+	o := s.World.AddObj(level, x, z, obj, completed, duration, receiverID, s.Self.AccountID())
 	if o != nil {
 		s.ActiveObj = o
 		s.Pointers |= PtrActiveObj
@@ -1628,10 +1628,10 @@ func handleBothMoveInv(s *ScriptState) error {
 			receiverID := toPlayer.UID()
 			if !objType.Stackable || overflow == 1 {
 				for range overflow {
-					s.World.AddObj(level, x, z, objID, 1, 200, receiverID)
+					s.World.AddObj(level, x, z, objID, 1, 200, receiverID, s.Self.AccountID())
 				}
 			} else {
-				s.World.AddObj(level, x, z, objID, overflow, 200, receiverID)
+				s.World.AddObj(level, x, z, objID, overflow, 200, receiverID, s.Self.AccountID())
 			}
 		}
 
@@ -1804,7 +1804,7 @@ func handleInvDropItemDelayed(s *ScriptState) error {
 	if s.World == nil {
 		return fmt.Errorf("INV_DROPITEM_DELAYED: no world surface")
 	}
-	s.World.EnqueueObjDelayed(level, x, z, obj, completed, duration, delay, s.Self.UID())
+	s.World.EnqueueObjDelayed(level, x, z, obj, completed, duration, delay, s.Self.UID(), s.Self.AccountID())
 	return nil
 }
 
@@ -2026,7 +2026,7 @@ func handleBothDropSlot(s *ScriptState) error {
 		receiverID = toPlayer.UID()
 	}
 
-	s.World.AddObj(level, x, z, objID, completed, duration, receiverID)
+	s.World.AddObj(level, x, z, objID, completed, duration, receiverID, s.Self.AccountID())
 	return nil
 }
 
@@ -2154,7 +2154,7 @@ func handleInvDropAll(s *ScriptState) error {
 			receiverID = -1 // Obj.NO_RECEIVER / PublicReceiver
 		}
 
-		s.World.AddObj(level, x, z, objID, count, duration, receiverID)
+		s.World.AddObj(level, x, z, objID, count, duration, receiverID, s.Self.AccountID())
 	}
 
 	// Post-loop: emit single Death event if anything was accumulated.

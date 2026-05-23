@@ -176,8 +176,8 @@ func TestPartialFollowsFiltersByReceiverID(t *testing.T) {
 	// Two Follows events: one for otherUID, one for p.uid.
 	objOther := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 995, 1)
 	objMine := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 995, 1)
-	s.AddObj(objOther, otherUID, 0)
-	s.AddObj(objMine, p.uid, 0)
+	s.AddObj(objOther, otherUID, 0, 0)
+	s.AddObj(objMine, p.uid, 0, 0)
 	for zi := range s.zonesTracking {
 		zi.ComputeShared()
 	}
@@ -213,7 +213,7 @@ func TestPartialFollowsDeliversPrivateDropToOwnerByUID(t *testing.T) {
 
 	z := s.zoneMap.Get(0, 3094, 3106)
 	obj := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 526, 1)
-	s.AddObj(obj, p.uid, 0)
+	s.AddObj(obj, p.uid, 0, 0)
 	for zi := range s.zonesTracking {
 		zi.ComputeShared()
 	}
@@ -242,7 +242,7 @@ func TestPartialFollowsHidesPrivateDropFromNonOwnerByUID(t *testing.T) {
 
 	z := s.zoneMap.Get(0, 3094, 3106)
 	obj := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 526, 1)
-	s.AddObj(obj, owner.uid, 0)
+	s.AddObj(obj, owner.uid, 0, 0)
 	for zi := range s.zonesTracking {
 		zi.ComputeShared()
 	}

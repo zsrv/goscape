@@ -106,14 +106,14 @@ func objAddCommon(s *ScriptState, op string, receiverID int) error {
 	// matching TS Engine-TS/.../ObjOps.ts:50-54 loop.
 	if !objType.Stackable || count == 1 {
 		for range count {
-			obj := s.World.AddObj(level, x, z, objId, 1, duration, receiverID)
+			obj := s.World.AddObj(level, x, z, objId, 1, duration, receiverID, 0)
 			if obj != nil {
 				s.ActiveObj = obj
 				s.Pointers |= PtrActiveObj
 			}
 		}
 	} else {
-		obj := s.World.AddObj(level, x, z, objId, count, duration, receiverID)
+		obj := s.World.AddObj(level, x, z, objId, count, duration, receiverID, 0)
 		if obj != nil {
 			s.ActiveObj = obj
 			s.Pointers |= PtrActiveObj

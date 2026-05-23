@@ -96,14 +96,14 @@ func (m *mockWorld) LookupPlayerByUID(uid int) ActivePlayer {
 
 // NAI-115 T3: default no-op stub for OBJ_ADD/OBJ_ADDALL/INV_DROPSLOT
 // test fixture. Tests exercising AddObj override via fakeWorldAddObj.
-func (m *mockWorld) AddObj(level, x, z, typeID, count, duration, receiverID int) ActiveObj {
+func (m *mockWorld) AddObj(level, x, z, typeID, count, duration, receiverID int, dropperAccountID int64) ActiveObj {
 	return nil
 }
 
 // NAI-134: default no-op stub for INV_DROPITEM_DELAYED test fixture.
 // Tests exercising EnqueueObjDelayed override via fakeWorldAddObj
 // (handlers_obj_test.go).
-func (m *mockWorld) EnqueueObjDelayed(level, x, z, typeID, count, duration, delay, receiverID int) {
+func (m *mockWorld) EnqueueObjDelayed(level, x, z, typeID, count, duration, delay, receiverID int, dropperAccountID int64) {
 }
 
 // NAI-154: default no-op stubs for OBJ_FIND / OBJ_FINDALLZONE test

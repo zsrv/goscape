@@ -13,7 +13,7 @@ import (
 func TestObjDelayedQueue_DelayZeroFiresImmediately(t *testing.T) {
 	s := newZoneTestServer(t)
 	obj := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 995, 10)
-	s.enqueueObjDelayed(obj, zone.PublicReceiver, 200, 0)
+	s.enqueueObjDelayed(obj, zone.PublicReceiver, 200, 0, 0)
 
 	if got := len(s.objDelayedQueue); got != 1 {
 		t.Fatalf("post-enqueue queue len: got %d, want 1", got)
@@ -35,7 +35,7 @@ func TestObjDelayedQueue_DelayZeroFiresImmediately(t *testing.T) {
 func TestObjDelayedQueue_FiresAfterDelayTicks(t *testing.T) {
 	s := newZoneTestServer(t)
 	obj := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 995, 10)
-	s.enqueueObjDelayed(obj, zone.PublicReceiver, 200, 2)
+	s.enqueueObjDelayed(obj, zone.PublicReceiver, 200, 2, 0)
 
 	s.processObjDelayedQueue()
 	if got := len(s.objDelayedQueue); got != 1 {
@@ -58,7 +58,7 @@ func TestObjDelayedQueue_DrainCallsServerAddObj(t *testing.T) {
 	const receiverUID = 0x1234
 	obj := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 995, 10)
 	obj.ReceiverID = receiverUID
-	s.enqueueObjDelayed(obj, receiverUID, 200, 0)
+	s.enqueueObjDelayed(obj, receiverUID, 200, 0, 0)
 
 	s.processObjDelayedQueue()
 
@@ -79,9 +79,9 @@ func TestObjDelayedQueue_MultipleEntriesIndependentDelays(t *testing.T) {
 	objA := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 995, 1)
 	objB := entitypkg.NewObj(0, 3200, 3200, entitypkg.LifecycleDespawn, 995, 2)
 	objC := entitypkg.NewObj(0, 3300, 3300, entitypkg.LifecycleDespawn, 995, 3)
-	s.enqueueObjDelayed(objA, zone.PublicReceiver, 200, 0)
-	s.enqueueObjDelayed(objB, zone.PublicReceiver, 200, 1)
-	s.enqueueObjDelayed(objC, zone.PublicReceiver, 200, 2)
+	s.enqueueObjDelayed(objA, zone.PublicReceiver, 200, 0, 0)
+	s.enqueueObjDelayed(objB, zone.PublicReceiver, 200, 1, 0)
+	s.enqueueObjDelayed(objC, zone.PublicReceiver, 200, 2, 0)
 
 	s.processObjDelayedQueue()
 	if got := len(s.objDelayedQueue); got != 2 {
@@ -106,7 +106,7 @@ func TestObjDelayedQueue_DurationDrainsToServerAddObj(t *testing.T) {
 	s.currentTick = 5
 	obj := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 995, 10)
 	const wantDuration = 17
-	s.enqueueObjDelayed(obj, zone.PublicReceiver, wantDuration, 0)
+	s.enqueueObjDelayed(obj, zone.PublicReceiver, wantDuration, 0, 0)
 
 	if got := s.objDelayedQueue[0].duration; got != wantDuration {
 		t.Errorf("enqueue: duration field got %d, want %d", got, wantDuration)
@@ -134,8 +134,8 @@ func TestObjDelayedQueue_DurationDrainsToServerAddObj(t *testing.T) {
 func TestObjDelayedQueue_RemoveBeforeFire_PanicRecovery(t *testing.T) {
 	s := newZoneTestServer(t)
 	good := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 995, 10)
-	s.enqueueObjDelayed(nil, zone.PublicReceiver, 200, 0) // nil-Obj triggers panic on AddObj
-	s.enqueueObjDelayed(good, zone.PublicReceiver, 200, 0)
+	s.enqueueObjDelayed(nil, zone.PublicReceiver, 200, 0, 0) // nil-Obj triggers panic on AddObj
+	s.enqueueObjDelayed(good, zone.PublicReceiver, 200, 0, 0)
 
 	// Should not panic the test goroutine — recoverObjDelayed swallows.
 	s.processObjDelayedQueue()

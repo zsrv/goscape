@@ -193,7 +193,7 @@ func (w worldVarsView) AddNpcAt(level, x, z, typeID, duration int) (script.Activ
 // ReceiverID to the caller's UID (or PublicReceiver=-1 for broadcast),
 // initialises the receiver-targeted reveal countdown, and routes via
 // Server.AddObj. Mirrors TS World.addObj (Engine-TS/.../World.ts:1467-1484).
-func (w worldVarsView) AddObj(level, x, z, typeID, count, duration, receiverID int) script.ActiveObj {
+func (w worldVarsView) AddObj(level, x, z, typeID, count, duration, receiverID int, dropperAccountID int64) script.ActiveObj {
 	if w.s == nil {
 		return nil
 	}
@@ -202,7 +202,7 @@ func (w worldVarsView) AddObj(level, x, z, typeID, count, duration, receiverID i
 	if receiverID != zone.PublicReceiver {
 		obj.Reveal = entitypkg.ObjReveal
 	}
-	w.s.AddObj(obj, receiverID, duration)
+	w.s.AddObj(obj, receiverID, duration, dropperAccountID)
 	if w.s.cfg.NodeDebug && w.s.log != nil {
 		w.s.log.Info("nai128.obj.add",
 			"level", level,
@@ -225,7 +225,7 @@ func (w worldVarsView) AddObj(level, x, z, typeID, count, duration, receiverID i
 // The Obj is constructed at enqueue time (not drain time), mirroring TS
 // InvOps.ts:207-208 where `new Obj(...)` is the call-site argument to
 // `objDelayedQueue.addTail`.
-func (w worldVarsView) EnqueueObjDelayed(level, x, z, typeID, count, duration, delay, receiverID int) {
+func (w worldVarsView) EnqueueObjDelayed(level, x, z, typeID, count, duration, delay, receiverID int, dropperAccountID int64) {
 	if w.s == nil {
 		return
 	}
@@ -234,7 +234,7 @@ func (w worldVarsView) EnqueueObjDelayed(level, x, z, typeID, count, duration, d
 	if receiverID != zone.PublicReceiver {
 		obj.Reveal = entitypkg.ObjReveal
 	}
-	w.s.enqueueObjDelayed(obj, receiverID, duration, delay)
+	w.s.enqueueObjDelayed(obj, receiverID, duration, delay, dropperAccountID)
 	if w.s.cfg.NodeDebug && w.s.log != nil {
 		w.s.log.Info("nai134.obj.delayed.enqueue",
 			"level", level, "x", x, "z", z,

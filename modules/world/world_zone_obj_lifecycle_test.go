@@ -147,7 +147,7 @@ func TestServerAddObj_DurationSetsLifecycleTick(t *testing.T) {
 	s.currentTick = 10
 
 	obj := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 995, 1)
-	s.AddObj(obj, zone.PublicReceiver, 50)
+	s.AddObj(obj, zone.PublicReceiver, 50, 0)
 
 	if got, want := obj.LifecycleTick, s.currentTick+50; got != want {
 		t.Errorf("obj.LifecycleTick: got %d, want %d", got, want)
@@ -176,7 +176,7 @@ func TestServerAddObj_ZeroDurationLeavesLifecycleTickNegOne(t *testing.T) {
 	s.currentTick = 10
 
 	obj := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 995, 1)
-	s.AddObj(obj, zone.PublicReceiver, 0)
+	s.AddObj(obj, zone.PublicReceiver, 0, 0)
 
 	if got := obj.LifecycleTick; got != -1 {
 		t.Errorf("obj.LifecycleTick: got %d, want -1 (untracked)", got)
@@ -199,7 +199,7 @@ func TestWorldVarsViewAddObj_ReceiverTargetedSetsReveal100(t *testing.T) {
 	w := worldVarsView{s: s}
 
 	const receiverID = 12345
-	got := w.AddObj(0, 3094, 3106, 995, 1, 50, receiverID)
+	got := w.AddObj(0, 3094, 3106, 995, 1, 50, receiverID, 0)
 	if got == nil {
 		t.Fatal("AddObj returned nil")
 	}
@@ -220,7 +220,7 @@ func TestWorldVarsViewAddObj_PublicReceiverLeavesRevealNegOne(t *testing.T) {
 	s := newZoneTestServer(t)
 	w := worldVarsView{s: s}
 
-	got := w.AddObj(0, 3094, 3106, 995, 1, 50, zone.PublicReceiver)
+	got := w.AddObj(0, 3094, 3106, 995, 1, 50, zone.PublicReceiver, 0)
 	if got == nil {
 		t.Fatal("AddObj returned nil")
 	}
@@ -244,7 +244,7 @@ func TestWorldVarsViewEnqueueObjDelayed_ReceiverTargetedSetsReveal100(t *testing
 	w := worldVarsView{s: s}
 
 	const receiverID = 12345
-	w.EnqueueObjDelayed(0, 3094, 3106, 995, 1, 50, 0, receiverID)
+	w.EnqueueObjDelayed(0, 3094, 3106, 995, 1, 50, 0, receiverID, 0)
 	if len(s.objDelayedQueue) != 1 {
 		t.Fatalf("objDelayedQueue len: got %d, want 1", len(s.objDelayedQueue))
 	}
@@ -261,7 +261,7 @@ func TestWorldVarsViewEnqueueObjDelayed_PublicReceiverLeavesRevealNegOne(t *test
 	s := newZoneTestServer(t)
 	w := worldVarsView{s: s}
 
-	w.EnqueueObjDelayed(0, 3094, 3106, 995, 1, 50, 0, zone.PublicReceiver)
+	w.EnqueueObjDelayed(0, 3094, 3106, 995, 1, 50, 0, zone.PublicReceiver, 0)
 	if len(s.objDelayedQueue) != 1 {
 		t.Fatalf("objDelayedQueue len: got %d, want 1", len(s.objDelayedQueue))
 	}

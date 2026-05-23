@@ -128,7 +128,7 @@ func TestTurnObj_DespawnAtScheduledTick_FiresRemove(t *testing.T) {
 	s.currentTick = 100
 
 	o := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 995, 1)
-	s.AddObj(o, zone.PublicReceiver, 5) // schedules despawn at tick 105, sets IsActive=true
+	s.AddObj(o, zone.PublicReceiver, 5, 0) // schedules despawn at tick 105, sets IsActive=true
 
 	if !o.IsActive {
 		t.Fatal("setup: AddObj must have set IsActive=true")
@@ -265,7 +265,7 @@ func TestProcessZones_DispatchesObjToTurnObj(t *testing.T) {
 	s.currentTick = 100
 
 	o := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 995, 1)
-	s.AddObj(o, zone.PublicReceiver, 5) // despawn at tick 105; IsActive=true; registers in tracker
+	s.AddObj(o, zone.PublicReceiver, 5, 0) // despawn at tick 105; IsActive=true; registers in tracker
 
 	if !o.IsActive {
 		t.Fatal("setup: AddObj must have set IsActive=true")

@@ -153,12 +153,12 @@ type enqueueObjDelayedCall struct {
 	level, x, z, typeID, count, duration, delay, receiverID int
 }
 
-func (f *fakeWorldAddObj) AddObj(level, x, z, typeID, count, duration, receiverID int) ActiveObj {
+func (f *fakeWorldAddObj) AddObj(level, x, z, typeID, count, duration, receiverID int, dropperAccountID int64) ActiveObj {
 	f.addedCalls = append(f.addedCalls, addObjCall{level, x, z, typeID, count, duration, receiverID})
 	return &mockActiveObj{objType: typeID, x: x, z: z, level: level}
 }
 
-func (f *fakeWorldAddObj) EnqueueObjDelayed(level, x, z, typeID, count, duration, delay, receiverID int) {
+func (f *fakeWorldAddObj) EnqueueObjDelayed(level, x, z, typeID, count, duration, delay, receiverID int, dropperAccountID int64) {
 	f.enqueueObjDelayedCalls = append(f.enqueueObjDelayedCalls, enqueueObjDelayedCall{
 		level: level, x: x, z: z,
 		typeID: typeID, count: count,
@@ -517,7 +517,7 @@ func (f *fakeWorldTakeItem) RemoveObj(obj ActiveObj, duration int) {
 	f.removed = append(f.removed, removeObjCall{obj: obj, duration: duration})
 }
 
-func (f *fakeWorldTakeItem) AddObj(level, x, z, typeID, count, duration, receiverID int) ActiveObj {
+func (f *fakeWorldTakeItem) AddObj(level, x, z, typeID, count, duration, receiverID int, dropperAccountID int64) ActiveObj {
 	f.addedCalls = append(f.addedCalls, addObjCall{level, x, z, typeID, count, duration, receiverID})
 	return &mockActiveObj{objType: typeID, x: x, z: z, level: level}
 }

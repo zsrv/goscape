@@ -130,10 +130,10 @@ func (s *Server) MergeLoc(
 // the obj in s.locObjTracker for per-tick processing. duration == 0 leaves
 // the obj untracked (preserves pre-NAI-177 behavior). Mirrors TS
 // World.addObj lifecycle wiring (Engine-TS/.../World.ts:1467-1484).
-func (s *Server) AddObj(obj *entitypkg.Obj, receiverID, duration int) {
+func (s *Server) AddObj(obj *entitypkg.Obj, receiverID, duration int, dropperAccountID int64) {
 	obj.SetLifeCycle(duration, s.currentTick, s.locObjTracker)
 	z := s.zoneMap.Get(obj.Level, obj.X, obj.Z)
-	z.AddObj(obj, receiverID)
+	z.AddObj(obj, receiverID, dropperAccountID)
 	s.TrackZone(z)
 }
 

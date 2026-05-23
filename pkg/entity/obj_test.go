@@ -140,3 +140,18 @@ func TestObj_IsValid_NoArg_StillTrue(t *testing.T) {
 		t.Errorf("IsValid() (no-arg): got false, want true (intrinsic base)")
 	}
 }
+
+func TestObjDropperAccountIDZeroByDefault(t *testing.T) {
+	o := &Obj{}
+	if o.DropperAccountID() != 0 {
+		t.Fatalf("zero-value DropperAccountID: got %d", o.DropperAccountID())
+	}
+}
+
+func TestObjDropperAccountIDPersists(t *testing.T) {
+	o := &Obj{}
+	o.SetDropperAccountID(42)
+	if o.DropperAccountID() != 42 {
+		t.Fatalf("DropperAccountID: got %d, want 42", o.DropperAccountID())
+	}
+}

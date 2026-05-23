@@ -3020,7 +3020,8 @@ func (m *mockActiveObj) IsValidFor(playerUID int) bool {
 	}
 	return true
 }
-func (m *mockActiveObj) IsRespawnLifecycle() bool { return m.respawnLifecycle }
+func (m *mockActiveObj) IsRespawnLifecycle() bool   { return m.respawnLifecycle }
+func (m *mockActiveObj) DropperAccountID() int64   { return 0 }
 
 func TestNpcSetMode_ModeNoneClearsInteractionAndSetsOp(t *testing.T) {
 	npc := &mockNpc{}

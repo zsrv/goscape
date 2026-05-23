@@ -260,7 +260,8 @@ func (z *Zone) AddStaticObj(obj *entity.Obj) {
 // Enclosed if receiverID == PublicReceiver; Follows otherwise.
 // TODO(beyond-4b): enforce per-zone obj cap (TS: OBJS = 129) with
 // oldest-obj eviction.
-func (z *Zone) AddObj(obj *entity.Obj, receiverID int) {
+func (z *Zone) AddObj(obj *entity.Obj, receiverID int, dropperAccountID int64) {
+	obj.SetDropperAccountID(dropperAccountID)
 	coord := coordgrid.PackZoneCoord(obj.X, obj.Z)
 	if obj.Lifecycle == entity.LifecycleDespawn {
 		z.Objs = append(z.Objs, obj)

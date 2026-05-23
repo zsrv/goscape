@@ -26,6 +26,14 @@ type Obj struct {
 	// Mirrors TS Zone.ts isActive writes (Zone.ts:208,214,295) and
 	// pkg/entity/loc.go:16. NAI-151.
 	IsActive bool
+
+	// dropperAccountID is the persistent account_id of the human player
+	// who dropped this obj, or 0 if NPC-spawned / world-spawned / respawn.
+	// Distinct from ReceiverID (a session-scoped UID for the 60s
+	// visibility window). Required for cross-account drop+pickup attribution.
+	// Unexported to avoid Go same-name field+method conflict; accessed via
+	// DropperAccountID() which satisfies script.ActiveObj.
+	dropperAccountID int64
 }
 
 // NewObj constructs a 1×1 ground item with public visibility by default
@@ -96,4 +104,17 @@ func (o *Obj) IsValidFor(playerUID int) bool {
 // lifecycle. Satisfies script.ActiveObj. NAI-178.
 func (o *Obj) IsRespawnLifecycle() bool {
 	return o.Lifecycle == LifecycleRespawn
+}
+
+// DropperAccountID returns the persistent account_id of the human player
+// who dropped this obj, or 0 if NPC-spawned, world-spawned, or respawned.
+// Satisfies script.ActiveObj. Distinct from ReceiverID (session-scoped UID).
+func (o *Obj) DropperAccountID() int64 {
+	return o.dropperAccountID
+}
+
+// SetDropperAccountID records the persistent account_id of the dropper.
+// Called by Zone.AddObj when the caller supplies a non-zero dropperAccountID.
+func (o *Obj) SetDropperAccountID(id int64) {
+	o.dropperAccountID = id
 }

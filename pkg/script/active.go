@@ -1108,4 +1108,10 @@ type ActiveObj interface {
 	// to gate the respawn-duration arg passed to WorldVars.RemoveObj
 	// per TS ObjOps.ts:156-160. NAI-178.
 	IsRespawnLifecycle() bool
+
+	// DropperAccountID returns the persistent account_id of the human
+	// dropper, or 0 if the obj was NPC-spawned, world-spawned, or
+	// respawned. Distinct from the visibility-window receiver UID
+	// (ReceiverID). Required for cross-account drop+pickup attribution.
+	DropperAccountID() int64
 }

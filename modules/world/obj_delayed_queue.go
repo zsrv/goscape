@@ -10,10 +10,11 @@ import (
 // DEVIATION-NAI-134-D1: TS uses LinkList<ObjDelayedRequest> (Linkable mixin).
 // Goscape uses a slice on Server, mirroring worldScriptQueue. Behavior identical.
 type objDelayedRequest struct {
-	obj        *entitypkg.Obj
-	receiverID int
-	duration   int
-	delay      int // ticks remaining; post-decrement per TS World.ts:564
+	obj              *entitypkg.Obj
+	receiverID       int
+	duration         int
+	delay            int   // ticks remaining; post-decrement per TS World.ts:564
+	dropperAccountID int64 // persistent account_id of the dropper; 0 for system/NPC spawns
 }
 
 // enqueueObjDelayed appends a request to s.objDelayedQueue. Called by
@@ -23,12 +24,13 @@ type objDelayedRequest struct {
 // Mirrors TS World.objDelayedQueue.addTail at InvOps.ts:208. No `+1`
 // offset — TS stores delay verbatim (unlike worldScriptQueue which
 // stores delay+1 per TS World.ts:1239).
-func (s *Server) enqueueObjDelayed(obj *entitypkg.Obj, receiverID, duration, delay int) {
+func (s *Server) enqueueObjDelayed(obj *entitypkg.Obj, receiverID, duration, delay int, dropperAccountID int64) {
 	s.objDelayedQueue = append(s.objDelayedQueue, objDelayedRequest{
-		obj:        obj,
-		receiverID: receiverID,
-		duration:   duration,
-		delay:      delay,
+		obj:              obj,
+		receiverID:       receiverID,
+		duration:         duration,
+		delay:            delay,
+		dropperAccountID: dropperAccountID,
 	})
 }
 
@@ -59,7 +61,7 @@ func (s *Server) processObjDelayedQueue() {
 		s.objDelayedQueue = append(s.objDelayedQueue[:i], s.objDelayedQueue[i+1:]...)
 		func(req objDelayedRequest) {
 			defer recoverObjDelayed(req, s.log)
-			s.AddObj(req.obj, req.receiverID, req.duration)
+			s.AddObj(req.obj, req.receiverID, req.duration, req.dropperAccountID)
 		}(req)
 		// Don't advance i — slice contracted under us (mirrors processWorldQueue).
 	}

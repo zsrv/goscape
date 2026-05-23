@@ -193,7 +193,7 @@ func TestMergeLocEmitsLocMerge(t *testing.T) {
 func TestAddObjPublicIsEnclosed(t *testing.T) {
 	z := New(0, 0, 0, 0)
 	obj := entity.NewObj(0, 0, 0, entity.LifecycleDespawn, 995, 10)
-	z.AddObj(obj, PublicReceiver)
+	z.AddObj(obj, PublicReceiver, 0)
 	e := z.Events()[0]
 	if e.Type != ZoneEventEnclosed {
 		t.Errorf("public drop should be Enclosed; got %v", e.Type)
@@ -209,7 +209,7 @@ func TestAddObjPublicIsEnclosed(t *testing.T) {
 func TestAddObjPrivateIsFollows(t *testing.T) {
 	z := New(0, 0, 0, 0)
 	obj := entity.NewObj(0, 0, 0, entity.LifecycleDespawn, 995, 10)
-	z.AddObj(obj, 5)
+	z.AddObj(obj, 5, 0)
 	e := z.Events()[0]
 	if e.Type != ZoneEventFollows {
 		t.Errorf("private drop should be Follows; got %v", e.Type)
@@ -242,7 +242,7 @@ func TestChangeObjEmitsFollowsObjCount(t *testing.T) {
 func TestRemoveObjPurgesPendingAdd(t *testing.T) {
 	z := New(0, 0, 0, 0)
 	obj := entity.NewObj(0, 0, 0, entity.LifecycleDespawn, 995, 10)
-	z.AddObj(obj, PublicReceiver)
+	z.AddObj(obj, PublicReceiver, 0)
 	z.RemoveObj(obj, 100)
 
 	if len(z.Objs) != 0 {

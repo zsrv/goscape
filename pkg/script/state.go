@@ -125,13 +125,13 @@ type WorldVars interface {
 	// write back to state.ActiveObj and pointerAdd(ActiveObj). Mirrors
 	// TS World.addObj which returns the constructed Obj.
 	// Used by OBJ_ADD, OBJ_ADDALL, INV_DROPSLOT.
-	AddObj(level, x, z, typeID, count, duration, receiverID int) ActiveObj
+	AddObj(level, x, z, typeID, count, duration, receiverID int, dropperAccountID int64) ActiveObj
 
 	// EnqueueObjDelayed appends an INV_DROPITEM_DELAYED request to the
 	// world's per-tick spawn-delay queue. The Obj is constructed at the
 	// implementation side (worldVarsView in modules/world). Mirrors TS
 	// World.objDelayedQueue.addTail at InvOps.ts:208. Used by INV_DROPITEM_DELAYED.
-	EnqueueObjDelayed(level, x, z, typeID, count, duration, delay, receiverID int)
+	EnqueueObjDelayed(level, x, z, typeID, count, duration, delay, receiverID int, dropperAccountID int64)
 
 	// GetObj returns the first ground obj at (level, x, z) whose type
 	// matches objId and is visible to the caller. receiverUID is the
