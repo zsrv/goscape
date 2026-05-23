@@ -381,6 +381,42 @@ func TestInApproachDistance_EdgeAware_MultiTileTarget(t *testing.T) {
 	}
 }
 
+// TestProcessInteractionPreMove_InRangeAttackClearsPathBeforeMovement pins the
+// TS-faithful pre-step-before-movement ordering (Player.ts:1241 — updateMovement
+// sits between the pre-step and post-step interact arms). A player who clicks an
+// NPC while already within attack range has a path queued toward it (op-click),
+// but the pre-step interact must fire FIRST and clear that path, so the
+// subsequent movement pass cannot step the player to contact.
+//
+// Pre-fix, goscape ran movement (processPathing) before the interaction, so the
+// op-click path was walked and the player ended adjacent, firing the contact
+// opnpc2 instead of shooting from where they stood — the user-reported "ranged
+// fires arrows from right up against the NPC". Confirmed live via RANGED-DEBUG
+// (playerMovedThisTick=2, branch_pre=1 OP, apRange never reduced).
+func TestProcessInteractionPreMove_InRangeAttackClearsPathBeforeMovement(t *testing.T) {
+	s, p, npc := newApTriggerNpcFixture(t) // player (100,100), npc (105,100): dist 5, apRange 10
+	p.interacted = false
+
+	// [apnpc1] attack script (no p_op_*, no p_aprange → the "attack at range" path).
+	s.scriptProvider.Register(newNoopScriptFile(t, script.TriggerApNpc1, 7, -1))
+
+	// Simulate the op-click: a path queued toward the NPC.
+	p.queueWaypoint(npc.x, npc.z)
+	if p.waypointIndex < 0 {
+		t.Fatal("setup: expected a queued path toward the NPC")
+	}
+
+	// Pre-move pass (runs BEFORE processPathing in the real tick).
+	p.processInteractionPreMove()
+
+	if !p.interactTick.interacted {
+		t.Error("pre-move interact did not fire: an in-range AP attack should fire before movement")
+	}
+	if p.waypointIndex != -1 {
+		t.Errorf("waypointIndex=%d, want -1: the in-range attack must clear the op-click path BEFORE the movement pass, so the player holds at range instead of stepping to contact", p.waypointIndex)
+	}
+}
+
 // TestClearInteractionResetsApRange verifies ClearInteraction resets
 // apRange to 10 (the default), preventing stale values from leaking
 // between interactions. Matches TS PathingEntity.ts:554-555.

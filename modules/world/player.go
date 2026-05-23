@@ -177,6 +177,16 @@ type Player struct {
 	lastInteractBranchPost int
 	interactCallSlot       int
 
+	// interactTick carries per-tick state from the pre-move interaction
+	// pass (processInteractionPreMove, runs BEFORE processPathing) to the
+	// post-move pass (processInteractionPostMove, runs AFTER). goscape
+	// splits movement between the two to mirror TS Player.processInteraction,
+	// where updateMovement sits between the pre-step and post-step interact
+	// arms (Player.ts:1241). Without the split, the player moved before the
+	// pre-step interact could fire — so clicking an in-range NPC walked the
+	// player to contact instead of attacking from where they stood.
+	interactTick interactTickState
+
 	activeScript *script.ScriptState
 	queue        []playerQueueRequest
 

@@ -53,6 +53,11 @@ func TestProcessInteractionsRunsPerPlayer(t *testing.T) {
 	drain1 := drainConn(t, cc1)
 	drain2 := drainConn(t, cc2)
 
+	// Interaction is split around movement (TS-faithful): the pre-step
+	// interact runs in the pre-move pass, post-step + auto-clear in the
+	// post-move pass. Both players are already adjacent, so the pre-step OP
+	// fires; no movement pass is needed between for this contact-range case.
+	s.processInteractionsPreMove()
 	s.processInteractions()
 
 	p1.client.flushWrite()

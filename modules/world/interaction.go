@@ -167,38 +167,55 @@ func isFollowOp(p *Player) bool {
 	return ok
 }
 
-// processInteraction runs once per tick per player after pathing.
-// Mirrors TS Player.processInteraction (Player.ts:1200-1264).
-//
-// Branch summary:
-//   - Top writes (followX/Z = lastStepX/Z; nextTarget = nil) fire
-//     UNCONDITIONALLY per TS L1200-1203 — required so a targetless
-//     leader keeps refreshing followX/Z for any follower's
-//     pathToPathingTarget arm (NAI-174).
-//   - After top writes: no target / no client / delayed → return.
-//   - Target on different level: clear + UnsetMapFlag (subset of TS
-//     validateTarget; goscape has no isValid()-style alive/visible
-//     registry).
-//   - Pre-step arm: walktrigger (skipped when followOp) + tryInteract.
-//   - If pre-step did not interact: repath, post-step walktrigger (if
-//     waypoints), waypoint-exhaustion clear (if followOp), post-step
-//     tryInteract (skipped when followOp).
-//   - Auto-clear: interacted && !apRangeCalled → ClearInteraction
-//     (TS L1261-1263).
-//
-// Goscape's updateMovement runs in processPathing (tick.go:38), BEFORE
-// processInteractions (tick.go:39). TS embeds it inline at L1241; the
-// order-of-operations difference is by goscape design.
+// interactTickState carries per-tick interaction state from the pre-move
+// pass to the post-move pass (see the Player.interactTick field comment).
+type interactTickState struct {
+	// active is true when processInteractionPreMove ran past its guards
+	// (had a target, client, not delayed) and did NOT already finalize via
+	// the level-mismatch clear. Only then does the post-move pass run.
+	active           bool
+	interacted       bool
+	followOp         bool
+	initialTarget    entity
+	initialTargetX   int
+	initialTargetZ   int
+	opTriggerPresent bool
+	apTriggerPresent bool
+}
+
+// processInteraction runs the full interaction cycle in a single call with
+// NO movement between the pre-step and post-step arms. The production tick
+// loop does NOT call this directly — it calls processInteractionPreMove
+// before processPathing and processInteractionPostMove after, so this·
+// (combined) form is the back-to-back equivalent used by tests and any
+// caller that drives interaction in isolation. Mirrors TS
+// Player.processInteraction (Player.ts:1200-1264) minus the inline
+// updateMovement (which the split passes interleave with processPathing).
 func (p *Player) processInteraction() {
+	p.processInteractionPreMove()
+	p.processInteractionPostMove()
+}
+
+// processInteractionPreMove is the part of TS Player.processInteraction that
+// runs BEFORE updateMovement (Player.ts:1200-1240): the unconditional top
+// writes, entry guards, level-mismatch clear, the pre-step interact arm, and
+// the path recompute / walktrigger / stun-clear of the post-step arm's head.
+//
+// In the production tick this runs as its own pass BEFORE processPathing, so
+// the pre-step interact fires at the player's PRE-movement position — which
+// is what lets a player who clicks an NPC already within range attack from
+// where they stand instead of stepping to contact first. State needed by the
+// post-move pass is stashed on p.interactTick.
+func (p *Player) processInteractionPreMove() {
 	// TS L1201-1203 — unconditional top writes. These fire every tick
 	// for every player regardless of target/canAccess state. The
 	// followX/Z refresh is required for player-follow: a follower's
-	// pathToPathingTarget arm at interaction.go:802-809 reads the
-	// leader's followX/Z, so the leader must update them even when
-	// they have no target of their own (NAI-174).
+	// pathToPathingTarget arm reads the leader's followX/Z, so the leader
+	// must update them even when they have no target of their own (NAI-174).
 	p.followX = p.lastStepX
 	p.followZ = p.lastStepZ
 	p.nextTarget = nil
+	p.interactTick = interactTickState{}
 
 	if p.target == nil {
 		return
@@ -208,45 +225,41 @@ func (p *Player) processInteraction() {
 	}
 	s := p.client.server
 	// Tick-math entry-guard short-circuit (goscape-only optimization; not a
-	// TS-fidelity gap — TS canAccess at Player.ts:805-812 is !protect && !busy,
-	// no stun/freeze). The three canonical CanAccess gates at L247/L261/L277
-	// (TS L1210/L1232/L1244 mirrors) are the actual TS-faithful layer; this
-	// pre-empts the whole function (and Frame B emit) when the player is in a
-	// delay window. Pinned by TestProcessInteraction_CanAccessGate_Delayed_
-	// EarlyReturnsBeforePathing (NAI-155, commit 249051f).
+	// TS-fidelity gap). The three canonical CanAccess gates are the actual
+	// TS-faithful layer; this pre-empts the whole cycle when delayed.
+	// Pinned by TestProcessInteraction_CanAccessGate_Delayed_*.
 	if p.delayed && s.currentTick < p.delayedUntil {
 		return
 	}
 
-	// NAI-79 Stage 1 — pre-step state capture for Frame B emit at tail.
-	// All target-coord fields refer to the INITIAL target; target_still_set
-	// separately signals whether p.target was nulled during the tick.
-	// Trigger-lookup capture is gated on NodeDebug to avoid the per-tick
-	// hot-path cost of two extra GetByTrigger calls when instrumentation
-	// is disabled. Frame B emission gates again on NodeDebug at the tail.
-	hadTarget := true
-	initialTarget := p.target
-	initialTargetX, initialTargetZ, _ := p.target.Coords()
-	var opTriggerPresent, apTriggerPresent bool
+	// NAI-79 Stage 1 — pre-step state capture for Frame B emit (post-move
+	// pass). Trigger-lookup capture is gated on NodeDebug to avoid the
+	// per-tick hot-path cost when instrumentation is disabled.
+	p.interactTick.active = true
+	p.interactTick.initialTarget = p.target
+	p.interactTick.initialTargetX, p.interactTick.initialTargetZ, _ = p.target.Coords()
 	if s.cfg.NodeDebug {
-		opTriggerPresent = getOpTrigger(p, s) != nil
-		apTriggerPresent = getApTrigger(p, s) != nil
+		p.interactTick.opTriggerPresent = getOpTrigger(p, s) != nil
+		p.interactTick.apTriggerPresent = getApTrigger(p, s) != nil
 	}
 	p.lastInteractBranchPre = 0
 	p.lastInteractBranchPost = 0
 	p.interactCallSlot = 0
 
 	followOp := isFollowOp(p)
+	p.interactTick.followOp = followOp
 
 	_, _, tlevel := p.target.Coords()
 	if tlevel != p.level {
 		p.ClearInteraction()
 		sendUnsetMapFlag(p)
-		// NAI-79 Stage 1 — emit Frame B even on level-mismatch clear so
-		// the captured log shows the cross-level ClearInteraction case.
-		emitInteractionTickFrame(s, p, hadTarget, initialTarget,
-			initialTargetX, initialTargetZ, opTriggerPresent,
-			apTriggerPresent, false /*interactedFinal*/)
+		// Emit Frame B even on level-mismatch clear, then mark the tick
+		// finalized so the post-move pass does not double-emit.
+		emitInteractionTickFrame(s, p, true, p.interactTick.initialTarget,
+			p.interactTick.initialTargetX, p.interactTick.initialTargetZ,
+			p.interactTick.opTriggerPresent, p.interactTick.apTriggerPresent,
+			false /*interactedFinal*/)
+		p.interactTick.active = false
 		return
 	}
 
@@ -263,7 +276,8 @@ func (p *Player) processInteraction() {
 		interacted = p.tryInteract(false)
 	}
 
-	// Post-step arm (TS L1227-1252). Skipped when pre-step interacted.
+	// Post-step arm HEAD (TS L1227-1239), which runs BEFORE updateMovement.
+	// Skipped when pre-step interacted.
 	if !interacted {
 		// Recalc path (TS L1228-1229).
 		p.pathToPathingTarget()
@@ -277,14 +291,32 @@ func (p *Player) processInteraction() {
 		if !p.hasWaypoints() && followOp {
 			p.ClearInteraction()
 		}
+	}
 
-		// Post-step interact (TS L1244-1252). Gated on CanAccess: when a
-		// modal/protected/delayed state transiently blocks interaction,
-		// PRESERVE the anchor — do NOT fire "I can't reach!" + Clear.
-		// TS preserves the interaction across the canAccess-false tick;
-		// next tick's CanAccess()=true re-enters. Pre-NAI-155 goscape
-		// destroyed the anchor here; second-contact OPNPC1 on Tutorial
-		// Island Survival Expert (NPC #943) regressed because of this gap.
+	p.interactTick.interacted = interacted
+}
+
+// processInteractionPostMove is the part of TS Player.processInteraction that
+// runs AFTER updateMovement (Player.ts:1242-1268): the post-step interact arm
+// (which now sees the player's POST-movement position), the nextTarget pop /
+// auto-clear, the tail mapflag clear, and the Frame B emit. Runs as its own
+// pass AFTER processPathing in the production tick.
+func (p *Player) processInteractionPostMove() {
+	st := &p.interactTick
+	if !st.active {
+		return
+	}
+	if p.client == nil || p.client.server == nil {
+		return
+	}
+	s := p.client.server
+	interacted := st.interacted
+	followOp := st.followOp
+
+	// Post-step interact (TS L1244-1252). Gated on CanAccess: when a
+	// modal/protected/delayed state transiently blocks interaction,
+	// PRESERVE the anchor — do NOT fire "I can't reach!" + Clear.
+	if !interacted {
 		if p.target != nil && p.CanAccess() && !followOp {
 			p.interactCallSlot = 1
 			interacted = p.tryInteract(p.stepsTaken == 0)
@@ -295,63 +327,27 @@ func (p *Player) processInteraction() {
 		}
 	}
 
-	// nextTarget pop + auto-clear (TS L1255-1263). When an OP/AP
-	// trigger script called p_op_* mid-trigger, the fire helpers
-	// captured the script-set target into p.nextTarget; pop it here.
-	// Otherwise, auto-clear the interaction. followOp paths can still
-	// reach the else-if when tryInteract returned true at the pre-step
-	// arm (contact range with target=*Player op=3); TS does the same —
-	// followOp gates SKIP post-step-interact, not the auto-clear
-	// itself. NAI-68 closed NAI-44-D-IMMEDIATE-POP-VS-NEXTTARGET via
-	// this reshape; NAI-69 closes NAI-68-D-AP-APRANGE-REVERT-NOT-PORTED
-	// by routing the same-tick retry signal through tryInteract.
+	// nextTarget pop + auto-clear (TS L1255-1263). When an OP/AP trigger
+	// script called p_op_* mid-trigger, the fire helpers captured the
+	// script-set target into p.nextTarget; pop it here. Otherwise,
+	// auto-clear the interaction. NAI-68/NAI-69.
 	if p.nextTarget != nil {
 		p.target = p.nextTarget
 	} else if interacted && !p.apRangeCalled {
 		p.ClearInteraction()
 	}
 
-	// Tail mapflag clear (TS L1266-1268). When the player has consumed
-	// at least one step this tick and no waypoints remain, clear the
-	// client's pending map-click indicator. Without this, a player who
-	// walks a full path without reaching the target (path blocked, target
-	// moved out of reach) leaves the yellow X on screen until the next
-	// click. Idempotent against the auto-clear above (which also nulls
-	// waypoints via ClearInteraction).
+	// Tail mapflag clear (TS L1266-1268). When the player has consumed at
+	// least one step this tick and no waypoints remain, clear the client's
+	// pending map-click indicator.
 	if !p.hasWaypoints() && p.stepsTaken > 0 {
 		sendUnsetMapFlag(p)
 	}
 
-	// NAI-79 Stage 1 — Frame B emit at tail. Gated on hadTarget (a
-	// tick with no target at entry should never emit) and NodeDebug.
-	emitInteractionTickFrame(s, p, hadTarget, initialTarget,
-		initialTargetX, initialTargetZ, opTriggerPresent,
-		apTriggerPresent, interacted)
-
-	// TEMPORARY DIAGNOSTIC (NodeDebug-gated) — ranged/magic "too close"
-	// investigation. Logs, per combat tick: the player's tile, the NPC's
-	// tile, the edge distance between them, the current apRange, and
-	// playerMovedThisTick (stepsTaken). If playerMovedThisTick > 0 while
-	// already within apRange, the PLAYER is creeping in (server bug); if
-	// it's 0 and the gap closes, the NPC is walking to the player (normal).
-	// Grep the world log for "RANGED-DEBUG". Remove after diagnosis.
-	if s.cfg.NodeDebug && s.log != nil {
-		if npc, ok := initialTarget.(*Npc); ok {
-			nx, nz, _ := npc.Coords()
-			s.log.Info("RANGED-DEBUG",
-				"tick", s.currentTick,
-				"player", fmt.Sprintf("(%d,%d)", p.x, p.z),
-				"npc", fmt.Sprintf("(%d,%d)", nx, nz),
-				"npcSize", npc.Width(),
-				"edgeDist", coordgrid.DistanceTo(p.x, p.z, 1, 1, nx, nz, npc.Width(), npc.Width()),
-				"apRange", p.apRange,
-				"apRangeCalled", p.apRangeCalled,
-				"playerMovedThisTick", p.stepsTaken,
-				"waypointIdx", p.waypointIndex,
-				"interacted", interacted,
-			)
-		}
-	}
+	// NAI-79 Stage 1 — Frame B emit at tail (NodeDebug-gated internally).
+	emitInteractionTickFrame(s, p, true, st.initialTarget,
+		st.initialTargetX, st.initialTargetZ, st.opTriggerPresent,
+		st.apTriggerPresent, interacted)
 }
 
 // hasWaypoints reports whether the player has an active waypoint queue.

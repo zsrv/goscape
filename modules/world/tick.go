@@ -121,6 +121,14 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		// movement. processPlayerEngineQueues mirrors TS
 		// Player.processEngineQueue per-player drain semantics.
 		s.processPlayerEngineQueues()
+		// TS Player.processInteraction interleaves updateMovement between its
+		// pre-step and post-step interact arms (Player.ts:1241). goscape splits
+		// that around the movement pass: the pre-step interact (+ path recompute)
+		// runs at the player's PRE-movement position here, then processPathing
+		// moves, then processInteractions runs the post-step arm + tail. This is
+		// what lets a player who clicks an in-range NPC attack from where they
+		// stand instead of stepping to contact first.
+		s.processInteractionsPreMove()
 		s.processPathing()
 		s.processInteractions()
 		s.processEnergy() // NAI-135: TS World.ts:731 per-player updateEnergy
@@ -802,6 +810,24 @@ func (s *Server) processZones() {
 	}
 }
 
+// processInteractionsPreMove runs the pre-movement half of each player's
+// interaction cycle (pre-step interact + path recompute), at the player's
+// position before this tick's processPathing. See processInteractionPreMove.
+func (s *Server) processInteractionsPreMove() {
+	s.playersMu.RLock()
+	players := make([]*Player, len(s.playerLoop))
+	copy(players, s.playerLoop)
+	s.playersMu.RUnlock()
+	for _, p := range players {
+		func(p *Player) {
+			defer recoverPlayer(p, "processInteractionPreMove", s.log)
+			p.processInteractionPreMove()
+		}(p)
+	}
+}
+
+// processInteractions runs the post-movement half of each player's
+// interaction cycle (post-step interact + tail), after processPathing.
 func (s *Server) processInteractions() {
 	s.playersMu.RLock()
 	players := make([]*Player, len(s.playerLoop))
@@ -809,8 +835,8 @@ func (s *Server) processInteractions() {
 	s.playersMu.RUnlock()
 	for _, p := range players {
 		func(p *Player) {
-			defer recoverPlayer(p, "processInteraction", s.log)
-			p.processInteraction()
+			defer recoverPlayer(p, "processInteractionPostMove", s.log)
+			p.processInteractionPostMove()
 		}(p)
 	}
 }
