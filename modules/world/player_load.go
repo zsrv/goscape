@@ -219,19 +219,33 @@ func LoadSave(p *Player, sav []byte, invTypes *objtype.InvTypeConfigs, varpTypes
 			}
 			objs = append(objs, slotEntry{slot, objID, count})
 		}
-		// Only write to perm-scoped invs. If invTypes provided, honour
-		// it; if invTypes is nil (v5+ path with no config), assume perm
-		// (all fixture invs are perm).
+		// Only write to perm-scoped invs. Lazy-create the destination
+		// container if not already present, mirroring TS
+		// Player.getInventory (Engine-TS Player.ts:1415-1439) which
+		// calls Inventory.fromType for any known PERM-scope inv not
+		// yet in this.invs. Production login pre-creates only the Worn
+		// inventory (tick.go:232-241); main inv + bank are lazy-created
+		// by scripts during gameplay (server_invs.go), so a relogin
+		// arrives here with most save-time invs absent from p.invs.
+		// If invTypes is nil (v5+ test path with no configs) we lack
+		// the type metadata to construct, so fall back to skip-if-missing.
+		var cfg *objtype.InvType
 		if invTypes != nil {
-			cfg := invTypes.Configs[typeID]
+			cfg = invTypes.Configs[typeID]
 			if cfg == nil || cfg.Scope != objtype.InvTypeScopePerm {
 				continue
 			}
 		}
 		inv, ok := p.invs[typeID]
 		if !ok {
-			// Mirror TS getInventory() returning null: skip silently.
-			continue
+			if cfg == nil {
+				continue
+			}
+			inv = inventory.FromType(cfg)
+			if p.invs == nil {
+				p.invs = map[int]*inventory.Inventory{}
+			}
+			p.invs[typeID] = inv
 		}
 		for _, o := range objs {
 			inv.Set(o.slot, &inventory.Item{Id: o.id, Count: o.count})

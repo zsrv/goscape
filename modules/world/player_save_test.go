@@ -633,3 +633,82 @@ func TestSave_CRCHighBitSet_RoundTrips(t *testing.T) {
 		t.Fatalf("LoadSave(CRC with high bit set): %v — pins TS signedness parity", err)
 	}
 }
+
+// TestLoadSave_LazyCreatesPermInvsMissingFromDestMap reproduces the
+// production logout/login regression: a player's inventory and bank
+// contents are dropped after relog because LoadSave silently skips any
+// saved typeID not already present in p.invs. The production login flow
+// at modules/world/tick.go:232-241 pre-creates only the Worn inventory;
+// main inv (typeId 93) and bank (typeId 95) are lazy-created during
+// gameplay via server_invs.go GetInventory. So saves contain those
+// inventories (Save iterates p.invs verbatim), but loads drop them.
+//
+// TS Player.getInventory (Engine-TS Player.ts:1415-1439) returns null
+// only for inv==-1 or unknown invType; for any valid PERM-scope typeID
+// it lazy-creates via Inventory.fromType. Go's LoadSave at
+// player_load.go:231-234 deviates with `if !ok { continue }` and a
+// comment claiming TS parity — the comment is wrong.
+func TestLoadSave_LazyCreatesPermInvsMissingFromDestMap(t *testing.T) {
+	// Three perm-scoped inv types: worn-equivalent (0), main inv (93),
+	// bank (95). Sizes match real cache.
+	worn := &objtype.InvType{Scope: objtype.InvTypeScopePerm, Size: 14}
+	worn.ID = 0
+	mainInv := &objtype.InvType{Scope: objtype.InvTypeScopePerm, Size: 28}
+	mainInv.ID = 93
+	bank := &objtype.InvType{Scope: objtype.InvTypeScopePerm, Size: 800}
+	bank.ID = 95
+	cfgs := &objtype.InvTypeConfigs{Configs: make([]*objtype.InvType, 100)}
+	cfgs.Configs[0] = worn
+	cfgs.Configs[93] = mainInv
+	cfgs.Configs[95] = bank
+
+	// Source player: all three invs present (mirrors a logging-out
+	// player whose scripts have lazy-created main inv + bank during
+	// gameplay).
+	src := &Player{
+		invs: map[int]*inventory.Inventory{
+			0:  inventory.New(0, 14, inventory.StackNormal),
+			93: inventory.New(93, 28, inventory.StackNormal),
+			95: inventory.New(95, 800, inventory.StackNormal),
+		},
+		varps: []int32{},
+	}
+	src.invs[93].Items[0] = &inventory.Item{Id: 1511, Count: 5}  // logs in slot 0
+	src.invs[93].Items[14] = &inventory.Item{Id: 995, Count: 27} // coins
+	src.invs[95].Items[0] = &inventory.Item{Id: 1163, Count: 1}  // rune plate
+	src.invs[95].Items[42] = &inventory.Item{Id: 4151, Count: 1} // whip
+
+	sav := src.Save(cfgs, nil)
+
+	// Destination player mirrors production login state: empty invs
+	// map with only Worn pre-created (matches tick.go:232-241).
+	dst := &Player{
+		invs:  map[int]*inventory.Inventory{0: inventory.FromType(worn)},
+		varps: []int32{},
+	}
+	if err := LoadSave(dst, sav, cfgs, nil); err != nil {
+		t.Fatalf("LoadSave: %v", err)
+	}
+
+	mainGot, ok := dst.invs[93]
+	if !ok {
+		t.Fatalf("main inv (typeId 93) missing from dst.invs after LoadSave — saved data dropped")
+	}
+	if it := mainGot.Get(0); it == nil || it.Id != 1511 || it.Count != 5 {
+		t.Errorf("main inv slot 0: got %+v, want {Id:1511, Count:5}", it)
+	}
+	if it := mainGot.Get(14); it == nil || it.Id != 995 || it.Count != 27 {
+		t.Errorf("main inv slot 14: got %+v, want {Id:995, Count:27}", it)
+	}
+
+	bankGot, ok := dst.invs[95]
+	if !ok {
+		t.Fatalf("bank (typeId 95) missing from dst.invs after LoadSave — saved data dropped")
+	}
+	if it := bankGot.Get(0); it == nil || it.Id != 1163 || it.Count != 1 {
+		t.Errorf("bank slot 0: got %+v, want {Id:1163, Count:1}", it)
+	}
+	if it := bankGot.Get(42); it == nil || it.Id != 4151 || it.Count != 1 {
+		t.Errorf("bank slot 42: got %+v, want {Id:4151, Count:1}", it)
+	}
+}
