@@ -105,6 +105,15 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		// NPC ai_spawn resume, stat regen, timer, queue, movement, and
 		// modes — all of which must settle before the per-player block
 		// reads NPC state.
+		//
+		// World-level player-hunt pass (TS World.processWorld at
+		// World.ts:577-589) runs immediately before processNpcs so the
+		// huntTarget it sets on aggressive (HuntModePlayer) NPCs is consumed
+		// into an interaction by the same tick's consumeHuntTarget inside
+		// turn() — matching TS processWorld → processNpcs ordering. This is
+		// what makes aggressive NPCs initiate combat instead of only reacting
+		// when attacked.
+		s.processNpcHuntPlayers()
 		s.processNpcs()
 		s.processActiveScripts()
 		// NAI-134: drain the obj-delayed-spawn queue. Mirrors TS

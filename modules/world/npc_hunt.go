@@ -46,14 +46,53 @@ func (s *Server) processNpcHunt(n *Npc) {
 		hunt.Type != objtype.HuntModePlayer {
 		return
 	}
-	// Player-type hunts skip the huntAll dispatcher at the turn()
-	// level — matches TS Npc.ts:164 "hunt && hunt.type !== HuntModeType.PLAYER".
-	// The HuntModePlayer branch in huntAll is reachable only via
-	// explicit scripted calls, not the turn() path.
+	// Player-type hunts skip the huntAll dispatcher at the turn() level —
+	// matches TS Npc.ts:164 "hunt && hunt.type !== HuntModeType.PLAYER".
+	// HuntModePlayer is driven instead by the world-level pass
+	// processNpcHuntPlayers (mirroring TS World.processWorld at
+	// World.ts:577-589), which runs before processNpcs each tick. huntClock
+	// is still advanced here for player hunts (TS Npc.ts:169 is outside the
+	// non-player guard), so the world pass's huntAll sees a current clock.
 	if hunt.Type != objtype.HuntModePlayer {
 		n.huntAll(s, hunt)
 	}
 	n.huntClock++
+}
+
+// processNpcHuntPlayers is the world-level player-hunt pass: every alive,
+// observed NPC whose hunt config is HuntModePlayer acquires a player
+// huntTarget this tick. Mirrors TS World.processWorld (World.ts:577-589).
+//
+// This must run BEFORE processNpcs so the huntTarget set here is converted
+// into a real interaction by the same tick's consumeHuntTarget (TS order:
+// processWorld → processNpcs). Without this pass aggressive NPCs (ogres,
+// wilderness monsters) never initiate combat — they only react after being
+// attacked, because the per-NPC turn() hunt (processNpcHunt) deliberately
+// skips HuntModePlayer.
+//
+// Gate (TS World.ts:579-584): isActive (n.IsValid, i.e. !dead) AND
+// huntMode != -1 AND observers > 0 AND hunt.Type == HuntModePlayer. TS does
+// NOT skip delayed NPCs here ("Hunts will process even if the npc is delayed
+// during this portion", World.ts:580).
+func (s *Server) processNpcHuntPlayers() {
+	if s.rsbuf == nil || s.huntTypes == nil {
+		return
+	}
+	for _, n := range s.npcLoop {
+		if n == nil || !n.IsValid() || n.huntMode == -1 {
+			continue
+		}
+		if s.rsbuf.GetNpcObservers(int32(n.nid)) <= 0 {
+			continue
+		}
+		if n.huntMode < 0 || n.huntMode >= len(s.huntTypes.Configs) {
+			continue
+		}
+		hunt := s.huntTypes.Configs[n.huntMode]
+		if hunt != nil && hunt.Type == objtype.HuntModePlayer {
+			n.huntAll(s, hunt)
+		}
+	}
 }
 
 // huntAll dispatches to a hunted-type variant and sets huntTarget.

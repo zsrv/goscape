@@ -342,6 +342,86 @@ func TestConsumeHuntTargetInteractionBranchCallsSetInteraction(t *testing.T) {
 	}
 }
 
+// playerHuntFixture builds a server + a HuntModePlayer NPC registered in
+// s.npcLoop with an in-range, line-of-sight-clear player, ready for
+// processNpcHuntPlayers. Caller seeds the observer count.
+func playerHuntFixture(t *testing.T) (*Server, *Npc) {
+	t.Helper()
+	s := newServerForScriptTest(t)
+	s.gamemap = gamemap.New(discardLogger())
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+	n.huntMode = 0
+	n.huntClock = 0
+	s.npcLoop = append(s.npcLoop, n)
+	s.rsbuf.AddNpc(int32(n.nid), 0)
+
+	_ = addPlayerToServer(t, s, 1, n.x, n.z+2, n.level)
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(n.x, n.z, n.level)
+
+	s.huntTypes = &objtype.HuntTypeConfigs{
+		Configs: []*objtype.HuntType{
+			{
+				Type:               objtype.HuntModePlayer,
+				Rate:               1,
+				CheckVis:           objtype.HuntVisLineOfSight,
+				CheckNotCombat:     -1,
+				CheckNotCombatSelf: -1,
+				CheckInv:           -1,
+			},
+		},
+	}
+	return s, n
+}
+
+// TestProcessNpcHuntPlayers_AcquiresObservedPlayer pins the core aggression
+// fix: the world-level player-hunt pass (TS World.processWorld,
+// World.ts:577-589) gives an observed HuntModePlayer NPC a player huntTarget,
+// which consumeHuntTarget then turns into an attack. Pre-fix this pass did
+// not exist, so aggressive NPCs (ogres, wilderness monsters) never initiated.
+func TestProcessNpcHuntPlayers_AcquiresObservedPlayer(t *testing.T) {
+	s, n := playerHuntFixture(t)
+	s.rsbuf.SetObserverForTest(int32(n.nid), 1)
+	defer s.rsbuf.SetObserverForTest(int32(n.nid), 0)
+
+	s.processNpcHuntPlayers()
+
+	if n.huntTarget == nil {
+		t.Fatal("huntTarget: got nil, want the observed in-range player (aggression must acquire)")
+	}
+}
+
+// TestProcessNpcHuntPlayers_SkipsUnobservedNpc guards the observer gate
+// (TS World.ts:581 getNpcObservers > 0): an NPC with no nearby observers
+// does not scan for players, even with one in range.
+func TestProcessNpcHuntPlayers_SkipsUnobservedNpc(t *testing.T) {
+	s, n := playerHuntFixture(t)
+	s.rsbuf.SetObserverForTest(int32(n.nid), 0)
+
+	s.processNpcHuntPlayers()
+
+	if n.huntTarget != nil {
+		t.Error("huntTarget: got non-nil, want nil (unobserved NPC must not hunt players)")
+	}
+}
+
+// TestProcessNpcHuntPlayers_SkipsDeadNpc guards the isActive gate
+// (TS World.ts:579 npc.isActive → goscape n.IsValid()).
+func TestProcessNpcHuntPlayers_SkipsDeadNpc(t *testing.T) {
+	s, n := playerHuntFixture(t)
+	s.rsbuf.SetObserverForTest(int32(n.nid), 1)
+	defer s.rsbuf.SetObserverForTest(int32(n.nid), 0)
+	n.dead = true
+
+	s.processNpcHuntPlayers()
+
+	if n.huntTarget != nil {
+		t.Error("huntTarget: got non-nil, want nil (dead NPC must not hunt)")
+	}
+}
+
 func TestHuntPlayersCheckVisLineOfSightPasses(t *testing.T) {
 	s := newServerForScriptTest(t)
 	s.gamemap = gamemap.New(discardLogger())
