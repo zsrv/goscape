@@ -266,26 +266,34 @@ func (g *CodeGenerator) visitEmptyStatement(es *ast.EmptyStatement) {
 }
 
 // defaultValueFor returns the language-level zero value for a type. Mirrors
-// TS Type.defaultValue, but for the subset codegen actually emits:
-//   - PrimitiveInt → int(0) (special-cased to 0, not -1)
-//   - BaseVarInteger (non-int) → int(-1)
-//   - BaseVarString → string("")
-//   - BaseVarLong → int64(-1)
-//   - other/unknown → int(0)
+// TS visitDeclarationStatement (CodeGenerator.ts L420-L427) which reads
+// `symbol.type.defaultValue` directly — each Type carries its own default
+// (PrimitiveInt = 0, PrimitiveBoolean = 0, PrimitiveCoord/Char/Mapzone/etc.
+// = -1, PrimitiveString = "", PrimitiveLong = -1L, ScriptVarType / ParamType
+// / DbColumn = -1).
+//
+// For BaseVarInteger types the type's DefaultValue() returns either 0 (Int,
+// Boolean) or -1 (Coord, Char, Mapzone, Category) — both are int. For
+// BaseVarLong the wire format requires int64, so we promote here regardless
+// of the underlying Type's int default. BaseVarString returns the string
+// default ("").
 //
 // PRECONDITION: t is non-nil. Caller (visitDeclaration) guards sym != nil.
 func defaultValueFor(t typ.Type) any {
-	if t == typ.PrimitiveInt {
-		return 0
-	}
 	base, ok := t.BaseType()
 	if !ok {
 		return 0
 	}
 	switch base {
 	case typ.BaseVarInteger:
+		if dv, ok := t.DefaultValue().(int); ok {
+			return dv
+		}
 		return -1
 	case typ.BaseVarString:
+		if dv, ok := t.DefaultValue().(string); ok {
+			return dv
+		}
 		return ""
 	case typ.BaseVarLong:
 		return int64(-1)
