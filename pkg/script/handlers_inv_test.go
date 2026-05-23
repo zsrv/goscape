@@ -1596,11 +1596,17 @@ func TestInvMoveFromSlot_NoActivePlayerErrors(t *testing.T) {
 
 // (T5) checkObjStack upper-bound: count > Inventory.StackLimit
 // (0x7fffffff) is rejected. TS-fidelity per ScriptValidators.ts:121.
+// PushInt applies signed-int32 normalisation (toInt32 parity), so
+// 0x80000000 wraps to -2147483648 on the stack and fails the lower
+// bound check (c < 1) rather than the upper bound — same rejection
+// outcome, same error site, post-cast number in the message. TS hits
+// this path identically (Numbers.ts:7 `num | 0`).
 func TestInvAdd_ObjStackValid_CountAboveStackLimit(t *testing.T) {
 	lookup := newTestInvLookup()
 	mc := newTestInvConfigs()
-	overLimit := int(inventory.StackLimit) + 1
-	runInvOpExpectErrAsPlayer(t, OpInvAdd, []int{testInvMain, testObjCoin, overLimit}, lookup, mc, fmt.Sprintf("invalid count (%d)", overLimit))
+	overLimit := int(inventory.StackLimit) + 1 // 0x80000000 = 2147483648
+	postCast := int(int32(overLimit))          // -2147483648 (toInt32 parity)
+	runInvOpExpectErrAsPlayer(t, OpInvAdd, []int{testInvMain, testObjCoin, overLimit}, lookup, mc, fmt.Sprintf("invalid count (%d)", postCast))
 }
 
 func TestInvChangeSlot_NoActivePlayer(t *testing.T) {

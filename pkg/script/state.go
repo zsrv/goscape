@@ -438,13 +438,25 @@ type ScriptState struct {
 	SplitMesanim int32
 }
 
-// PushInt pushes v onto the int stack.
+// PushInt pushes v onto the int stack, normalised through signed-int32
+// (mirroring TS Numbers.ts:7 `toInt32(num) = num | 0`). RuneScript ints
+// are 32-bit; both varp/varn storage (`[]int32`) and the wire protocol
+// use signed-int32 representation, so any value pushed must share that
+// representation to round-trip through storage cleanly.
+//
+// Without this cast, high-bit-set values (e.g. `composeUID` results
+// >=0x80000000, which apply to ~50% of usernames) would compare unequal
+// after a write+read cycle: the fresh push stays as Go int 2147483649
+// while the varn read returns int(int32(stored)) = -2147483647. That
+// mismatch broke `%npc_aggressive_player == uid` in the combat-check
+// proc and surfaced as "Someone else is fighting that." after one hit.
+//
 // Panics if the stack is full (programming error / compiler bug).
 func (s *ScriptState) PushInt(v int) {
 	if s.ISP >= StackCapacity {
 		panic(fmt.Sprintf("script: int stack overflow at pc=%d in %q", s.PC, s.Script.Name))
 	}
-	s.IntStack[s.ISP] = v
+	s.IntStack[s.ISP] = int(int32(v))
 	s.ISP++
 }
 

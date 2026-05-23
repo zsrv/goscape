@@ -285,6 +285,58 @@ func TestPushVarnIgnoresSecondaryBit(t *testing.T) {
 	}
 }
 
+// TestVarnRoundTripHighBitUidMatchesTS reproduces the "Someone else is
+// fighting that" bug. Players whose composeUID has bit 31 set (~50% of
+// usernames) cannot land more than one hit on an NPC: the bow/melee
+// attack script does %npc_aggressive_player = uid, but on the next
+// hit the player_in_combat_check script reads %npc_aggressive_player
+// back and compares to uid — and the comparison fails because Go
+// truncates uid → int32 only when writing to the varn (signed wrap)
+// while leaving the original push uncast.
+//
+// TS toInt32-casts every PushInt (Numbers.ts:7 `num | 0`), so storage
+// (Int32Array) and stack values share the same signed representation:
+// 0x80000001 → -2147483647 on both sides → equal.
+//
+// Goscape ScriptState.PushInt skips the cast, so a fresh uid push
+// stays at Go int 2147483649 while the round-trip-through-varn read
+// returns int(int32(-2147483647)) = -2147483647. Mismatch → message.
+//
+// Reproduces via the bytecode shape: push uid → write varn → read
+// varn → push uid again; assert top-two stack values are equal.
+func TestVarnRoundTripHighBitUidMatchesTS(t *testing.T) {
+	var uid int = 0x80000001 // bit 31 set; example of composeUID for ~half of all usernames
+	sf := &ScriptFile{
+		Name: "varn_uid_roundtrip",
+		Opcodes: []Opcode{
+			OpUID,      // push uid  (mocks `uid` opcode from script)
+			OpPopVarn,  // %npc_aggressive_player = uid (id=2 ≈ npc_aggressive_player)
+			OpPushVarn, // push %npc_aggressive_player (after one tick's worth of write+read)
+			OpUID,      // push uid again (next tick `uid` opcode)
+			OpReturn,
+		},
+		IntOperands:      []int32{0, 2, 2, 0, 0},
+		StringOperands:   []string{"", "", "", "", ""},
+		InstructionCount: 5,
+	}
+	player := &mockPlayer{uidValue: uid}
+	npc := &mockNpc{}
+	state := Init(sf, nil, false, nil, nil)
+	state.Self = player
+	state.Pointers |= PtrActivePlayer
+	state.ActiveNpc = npc
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	freshUid := state.PopInt()
+	storedUid := state.PopInt()
+	if freshUid != storedUid {
+		t.Errorf("uid round-trip mismatch: fresh `uid` push = %d, %%npc_aggressive_player read-back = %d\n"+
+			"  TS toInt32-casts on PushInt (Numbers.ts:7 `num | 0`); Goscape skips the cast, so high-bit-set uids fail %%npc_aggressive_player == uid checks after one hit (\"Someone else is fighting that.\")",
+			freshUid, storedUid)
+	}
+}
+
 func TestPopVarnWritesActiveNpc(t *testing.T) {
 	sf := &ScriptFile{
 		Name: "pop_varn",
