@@ -213,7 +213,7 @@ func handleNoTimeout(_ *Player, _ []byte) error {
 // Routes to the shared inner handler with opClick=false, which causes the
 // !opClick body to fire (clearPendingAction + tempRun + walktrigger).
 func handleMoveGameClick(p *Player, payload []byte) error {
-	return moveClickInner(p, payload, false)
+	return moveClickInner(p, payload, false, 0)
 }
 
 // handleMoveOpClick is the dispatch entry for MOVE_OPCLICK (opcode 93).
@@ -221,19 +221,24 @@ func handleMoveGameClick(p *Player, payload []byte) error {
 // !opClick body (the move was triggered by an op click, not a plain
 // ground click — the op click already handled modal/interaction state).
 func handleMoveOpClick(p *Player, payload []byte) error {
-	return moveClickInner(p, payload, true)
+	return moveClickInner(p, payload, true, 0)
 }
 
-// moveClickInner is the shared move-click implementation.
+// moveClickInner is the shared move-click implementation for all three
+// move opcodes — MOVE_GAMECLICK (181), MOVE_OPCLICK (93), and
+// MOVE_MINIMAPCLICK (165) — mirroring TS, which binds all three to a
+// single MoveClickHandler (ClientGameProtRepository.ts:121-123).
 // Mirrors TS MoveClickHandler.ts:10-58.
 //
-// Wire payload (per TS MoveClickDecoder.ts; identical between opcodes
-// 181 and 93):
+// Wire payload (per TS MoveClickDecoder.ts):
 //
 //	byte 0:    ctrlHeld (G1, expected 0 or 1)
 //	bytes 1-2: startX (G2)
 //	bytes 3-4: startZ (G2)
 //	bytes 5+:  up to 24 waypoints, each 2 bytes (dx:G1B, dz:G1B)
+//	[trailer]: trailingBytes content-irrelevant bytes (14 for minimap
+//	           click only — the camera/compass trailer; 0 otherwise).
+//	           Mirrors TS MoveClickDecoder.ts:16 offset.
 //
 // Gates per TS MoveClickHandler.ts:11-22:
 //  1. p.delayed → write UnsetMapFlag (no waypoint clear), no-op
@@ -251,7 +256,7 @@ func handleMoveOpClick(p *Player, payload []byte) error {
 //     a. ClearPendingAction (fires CloseModal(true) — symptom-2 fix)
 //     b. tempRun = ctrlHeld; override to 0 if runenergy<100 && ctrlHeld==1
 //     c. cfg.WalkTriggerSetting==PLAYERPACKET && hasWaypoints → processWalktrigger
-func moveClickInner(p *Player, payload []byte, opClick bool) error {
+func moveClickInner(p *Player, payload []byte, opClick bool, trailingBytes int) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
 	}
@@ -262,7 +267,7 @@ func moveClickInner(p *Player, payload []byte, opClick bool) error {
 		return nil
 	}
 
-	if len(payload) < 5 {
+	if len(payload) < 5+trailingBytes {
 		return nil
 	}
 
@@ -278,10 +283,10 @@ func moveClickInner(p *Player, payload []byte, opClick bool) error {
 		return nil
 	}
 
-	pathLen := min((len(payload)-5)/2, 24) + 1
-	packed := make([]int, 0, pathLen)
+	waypointCount := min((len(payload)-5-trailingBytes)/2, 24)
+	packed := make([]int, 0, waypointCount+1)
 	packed = append(packed, coordgrid.PackCoord(p.level, startX, startZ))
-	for range min((len(payload)-5)/2, 24) {
+	for range waypointCount {
 		ddx := int(r.G1B())
 		ddz := int(r.G1B())
 		packed = append(packed, coordgrid.PackCoord(p.level, startX+ddx, startZ+ddz))
@@ -1330,30 +1335,13 @@ func parseIntOr(s string, def int) int {
 	return v
 }
 
+// handleMoveMinimapClick is the dispatch entry for MOVE_MINIMAPCLICK
+// (opcode 165). It routes to the shared inner handler with opClick=false
+// — so the !opClick body fires (ClearPendingAction closes any open modal,
+// e.g. the bank, when the player walks away via the minimap) — and a
+// 14-byte trailer offset for the camera/compass bytes the client appends
+// to this opcode only (TS MoveClickDecoder.ts:16). TS binds all three
+// move opcodes to one MoveClickHandler; this mirrors that.
 func handleMoveMinimapClick(p *Player, payload []byte) error {
-	const trailingBytes = 14
-	if len(payload) < 5+trailingBytes {
-		return nil
-	}
-	r := packet.NewPacket(payload)
-	ctrlHeld := r.G1()
-	startX := int(r.G2())
-	startZ := int(r.G2())
-
-	pathLen := min((len(payload)-5-trailingBytes)/2, 24) + 1
-	packed := make([]int, 0, pathLen)
-	packed = append(packed, coordgrid.PackCoord(p.level, startX, startZ))
-	for range min((len(payload)-5-trailingBytes)/2, 24) {
-		dx := int(r.G1B())
-		dz := int(r.G1B())
-		packed = append(packed, coordgrid.PackCoord(p.level, startX+dx, startZ+dz))
-	}
-
-	p.client.log.Debug("minimap click", "ctrl_held", ctrlHeld, "dest_packed", packed[0])
-	needsFinding := false
-	if p.client.server != nil {
-		needsFinding = !p.client.server.cfg.NodeClientRoutefinder
-	}
-	p.pathToMoveClick(packed, needsFinding)
-	return nil
+	return moveClickInner(p, payload, false, 14)
 }

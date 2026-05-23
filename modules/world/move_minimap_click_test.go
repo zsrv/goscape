@@ -19,6 +19,38 @@ import (
 //
 // goscape handler: handlers_game.go:1284 handleMoveMinimapClick.
 
+// TestHandleMoveMinimapClick_ClosesModal pins the reported bug: walking
+// away via the minimap must close an open modal (e.g. the bank), exactly
+// like MOVE_GAMECLICK does. The bank is a MAIN modal (modalMain /
+// modalStateMain), so this opens one and asserts it closes.
+// MOVE_MINIMAPCLICK decodes to opClick=false, so TS MoveClickHandler.ts:
+// !opClick → clearPendingAction() → closeModal() fires. Go routes minimap
+// through the same moveClickInner as game-click.
+func TestHandleMoveMinimapClick_ClosesModal(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.x, p.z, p.level = 3094, 3106, 0
+	p.client.server = newTestServer(t)
+
+	// Open a main modal (the bank interface lives in modalMain).
+	p.modalMain = 5292 // bank component id (arbitrary non-negative)
+	p.modalState |= modalStateMain
+
+	// Minimap payload: header (ctrlHeld=0, startX=3100, startZ=3110) + 14
+	// content-irrelevant trailer bytes.
+	payload := append(buildMovePayload(0, 3100, 3110), make([]byte, 14)...)
+
+	if err := handleMoveMinimapClick(p, payload); err != nil {
+		t.Fatalf("handleMoveMinimapClick: %v", err)
+	}
+
+	if p.modalMain != -1 {
+		t.Errorf("modalMain: got %d, want -1 (minimap walk must close the bank modal via ClearPendingAction)", p.modalMain)
+	}
+	if p.modalState&modalStateMain != modalStateNone {
+		t.Errorf("modalState main bit still set: got 0x%x (minimap walk must clear it)", p.modalState)
+	}
+}
+
 // TestHandleMoveMinimapClick_MinimumPayloadQueuesDest pins the happy path
 // for a payload with zero waypoints (5 header bytes + 14 trailer bytes =
 // 19 bytes). The handler should queue a single waypoint at (startX,
@@ -26,11 +58,10 @@ import (
 func TestHandleMoveMinimapClick_MinimumPayloadQueuesDest(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.x, p.z, p.level = 3094, 3106, 0
-	// p.client.server intentionally left nil: handler reads
-	// p.client.server.cfg.NodeClientRoutefinder only when server != nil,
-	// otherwise needsFinding stays false → pathToMoveClick's Smart
-	// branch falls through to queueWaypoints(packed) without needing a
-	// real gamemap.
+	// moveClickInner needs a server (gamemap stays nil, so pathToMoveClick's
+	// Smart branch falls through to queueWaypoints(packed) — same observable
+	// queue as before the minimap/game-click unification).
+	p.client.server = newTestServer(t)
 
 	// Header: ctrlHeld=0, startX=3100, startZ=3110.
 	// 14-byte trailer is content-irrelevant (zeroed here).
@@ -68,6 +99,7 @@ func TestHandleMoveMinimapClick_MinimumPayloadQueuesDest(t *testing.T) {
 func TestHandleMoveMinimapClick_WaypointsPreservedAcrossTrailer(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.x, p.z, p.level = 3094, 3106, 0
+	p.client.server = newTestServer(t)
 
 	// Header: ctrlHeld=1, startX=3100, startZ=3110.
 	// 2 dx/dz pairs: (+1,+0) → (3101,3110), (+2,+1) → (3102,3111).
@@ -126,6 +158,7 @@ func TestHandleMoveMinimapClick_ShortPayloadIsNoop(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			p, _ := newTestPlayer(t)
 			p.x, p.z, p.level = 3094, 3106, 0
+			p.client.server = newTestServer(t)
 			// Sentinel: newPlayer leaves waypointIndex at -1.
 			if p.waypointIndex != -1 {
 				t.Fatalf("setup: waypointIndex pre-call: got %d, want -1", p.waypointIndex)
@@ -153,6 +186,7 @@ func TestHandleMoveMinimapClick_ShortPayloadIsNoop(t *testing.T) {
 func TestHandleMoveMinimapClick_PathLengthCappedAt24(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.x, p.z, p.level = 3094, 3106, 0
+	p.client.server = newTestServer(t)
 
 	// 50 dx/dz pairs (= 100 bytes of waypoint data). Handler should
 	// consume only the first 24 from the wire (i.e. read 48 bytes) and
