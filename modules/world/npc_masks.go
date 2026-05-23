@@ -193,9 +193,12 @@ func (n *Npc) Damage(amount, dmgType int) {
 }
 
 // ResetMasks clears mask bits + ephemeral per-tick state. Persistent fields
-// (animID, faceSquareX/Z, changeTypeID, and the levels[]/baseLevels[]
-// arrays) are retained across ticks — S6d promoted HP to persistent, NAI-17
-// extended that to all 6 stats via the array migration.
+// (faceSquareX/Z, changeTypeID, and the levels[]/baseLevels[] arrays) are
+// retained across ticks — S6d promoted HP to persistent, NAI-17 extended
+// that to all 6 stats via the array migration. animID/animDelay are NOT
+// persistent: TS resets them every tick (PathingEntity.ts:598-601) so a
+// repeated NPC animation (combat attack/defend, scripted emote) can replay;
+// see the reset below.
 // damageAmt / damageType remain per-tick hitsplat payload. faceEntity is
 // retained unless the trailing-clear condition below fires.
 //
@@ -213,6 +216,11 @@ func (n *Npc) ResetMasks() {
 	n.sayText = nil
 	n.damageAmt = -1
 	n.damageType = -1
+	// Reset the primary animation slot at tick end (TS PathingEntity.ts:598-601);
+	// NpcInfo already emitted any NpcMaskAnim this tick. Without this, Animate's
+	// priority guard rejects an equal-priority repeat and the NPC anim plays once.
+	n.animID = -1
+	n.animDelay = -1
 	n.spotanimID = -1
 	n.spotanimHeight = -1
 	n.spotanimDelay = -1

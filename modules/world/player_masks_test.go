@@ -88,11 +88,16 @@ func TestResetMasksClearsEphemerals(t *testing.T) {
 	if p.damageAmt != -1 {
 		t.Errorf("damageAmt: got %d, want -1", p.damageAmt)
 	}
-	// Persistent (animID, levels[3], baseLevels[3]) and conditionally-persistent
-	// faceEntity (target=nil/faceEntity=-1 here, so trailing-clear no-ops) should stay.
-	if p.animID != 123 {
-		t.Errorf("animID should persist: got %d", p.animID)
+	// animID/animDelay are per-tick: ResetMasks clears them to -1 (TS
+	// PathingEntity.ts:598-601) so an animation can replay on a later tick.
+	if p.animID != -1 {
+		t.Errorf("animID should reset to -1: got %d", p.animID)
 	}
+	if p.animDelay != -1 {
+		t.Errorf("animDelay should reset to -1: got %d", p.animDelay)
+	}
+	// Persistent (levels[3], baseLevels[3]) and conditionally-persistent
+	// faceEntity (target=nil/faceEntity=-1 here, so trailing-clear no-ops) should stay.
 	if p.levels[3] != 40 {
 		t.Errorf("levels[3] should persist after ResetMasks (S6e): got %d, want 40", p.levels[3])
 	}

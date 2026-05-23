@@ -43,6 +43,39 @@ func TestNpcAnimateSetsMask(t *testing.T) {
 	}
 }
 
+// TestNpcResetMasks_ResetsAnimForCrossTickReplay is the NPC twin of
+// TestResetMasks_ResetsAnimForCrossTickReplay: an NPC animation (combat
+// attack/defend, scripted emote) must replay across ticks. ResetMasks must
+// clear animID/animDelay to -1 so Animate's priority guard doesn't reject
+// the equal-priority repeat. Mirrors TS PathingEntity.resetPathingEntity
+// (PathingEntity.ts:598-601).
+func TestNpcResetMasks_ResetsAnimForCrossTickReplay(t *testing.T) {
+	s := newTestServer(t)
+	s.seqTypes = buildSeqTypes(200)
+	n := &Npc{server: s, animID: -1, animDelay: -1, faceEntity: -1}
+
+	n.Animate(123, 5)
+	if n.animID != 123 || n.masks&rsbuf.NpcMaskAnim == 0 {
+		t.Fatalf("first Animate: animID=%d mask-set=%v, want 123/true", n.animID, n.masks&rsbuf.NpcMaskAnim != 0)
+	}
+
+	n.ResetMasks()
+	if n.animID != -1 {
+		t.Errorf("animID after ResetMasks: got %d, want -1", n.animID)
+	}
+	if n.animDelay != -1 {
+		t.Errorf("animDelay after ResetMasks: got %d, want -1", n.animDelay)
+	}
+
+	n.Animate(123, 5)
+	if n.animID != 123 {
+		t.Errorf("replay animID: got %d, want 123", n.animID)
+	}
+	if n.masks&rsbuf.NpcMaskAnim == 0 {
+		t.Error("replay must re-flag NpcMaskAnim (otherwise NPC anim only plays once)")
+	}
+}
+
 func TestNpcSaySetsMask(t *testing.T) {
 	n := newTestNpc(1)
 	n.Say([]byte("hi"))
@@ -212,8 +245,13 @@ func TestNpcResetMasksClearsEphemerals(t *testing.T) {
 	if n.damageAmt != -1 {
 		t.Errorf("damageAmt: got %d, want -1", n.damageAmt)
 	}
-	if n.animID != 123 {
-		t.Errorf("animID should persist: got %d, want 123", n.animID)
+	// animID/animDelay are per-tick: ResetMasks clears them to -1 (TS
+	// PathingEntity.ts:598-601) so an NPC animation can replay on a later tick.
+	if n.animID != -1 {
+		t.Errorf("animID should reset to -1: got %d", n.animID)
+	}
+	if n.animDelay != -1 {
+		t.Errorf("animDelay should reset to -1: got %d", n.animDelay)
 	}
 }
 

@@ -207,3 +207,38 @@ func TestPlayAnim_FreshAnimIDMinusOneAlwaysOverwrites(t *testing.T) {
 		t.Errorf("animID: got %d, want 10 (fresh animID=-1 short-circuit)", p.animID)
 	}
 }
+
+// TestResetMasks_ResetsAnimForCrossTickReplay pins that ResetMasks clears
+// animID/animDelay back to -1 at tick end, so the same emote/animation can
+// play again on a later tick. Without the reset, PlayAnim's priority guard
+// compares the re-play against the stale prior animID and rejects an
+// equal-priority repeat — so an emote (or bow/bury anim) only fires once per
+// session. Mirrors TS PathingEntity.resetPathingEntity (PathingEntity.ts:598-601).
+func TestResetMasks_ResetsAnimForCrossTickReplay(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.seqTypes = buildSeqTypes(20)
+
+	// Tick N: play emote 10 (default priority 5). processInfo sends it.
+	p.PlayAnim(10, 3)
+	if p.animID != 10 || p.masks&rsbuf.MaskAnim == 0 {
+		t.Fatalf("first PlayAnim: animID=%d mask-set=%v, want 10/true", p.animID, p.masks&rsbuf.MaskAnim != 0)
+	}
+
+	// Tick N end (processCleanup → ResetMasks).
+	p.ResetMasks()
+	if p.animID != -1 {
+		t.Errorf("animID after ResetMasks: got %d, want -1", p.animID)
+	}
+	if p.animDelay != -1 {
+		t.Errorf("animDelay after ResetMasks: got %d, want -1", p.animDelay)
+	}
+
+	// Tick N+1: the same emote must replay (re-flag MaskAnim).
+	p.PlayAnim(10, 3)
+	if p.animID != 10 {
+		t.Errorf("replay animID: got %d, want 10", p.animID)
+	}
+	if p.masks&rsbuf.MaskAnim == 0 {
+		t.Error("replay must re-flag MaskAnim (otherwise the emote only plays once per session)")
+	}
+}

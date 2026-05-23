@@ -61,8 +61,6 @@ func (p *Player) UnsetMapFlag() {
 // non-respawn branch).
 //
 // Persistent-by-design (TS resets, goscape preserves):
-//   - animID/animDelay (TS PathingEntity.ts:598-600) — animations carry
-//     across ticks until a new PlayAnim/script-driven change.
 //   - faceSquareX/Z (TS PathingEntity.ts:608-609) — non-symptomatic
 //     persistence; the encoder gates on MaskFaceCoord which IS cleared
 //     via `p.masks = 0` below.
@@ -107,6 +105,13 @@ func (p *Player) ResetMasks() {
 	p.chatRights = -1
 	p.damageAmt = -1
 	p.damageType = -1
+	// Reset the primary animation slot at tick end (TS PathingEntity.ts:598-601).
+	// processInfo already emitted any MaskAnim earlier this tick, so clearing
+	// here lets the next tick's PlayAnim set a fresh animation; without it the
+	// priority guard rejects an equal-priority repeat and the anim (emote, bow
+	// draw, bury-bones) plays only once per session.
+	p.animID = -1
+	p.animDelay = -1
 	p.spotanimID = -1
 	p.spotanimHeight = -1
 	p.spotanimDelay = -1
