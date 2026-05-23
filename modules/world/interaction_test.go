@@ -486,27 +486,31 @@ func (f fakeEntity) Slot() int                 { return -1 }
 func (f fakeEntity) Coords() (x, z, level int) { return f.x, f.z, f.level }
 func (f fakeEntity) IsValid() bool             { return true }
 
-// TestEffectiveApRangeNpcUsesTypeAttackrange verifies that when the
-// player's target is an *Npc, effectiveApRange returns the NPC's
-// per-type AttackRange — NOT the Player's mutable apRange field.
-func TestEffectiveApRangeNpcUsesTypeAttackrange(t *testing.T) {
+// TestEffectiveApRange_UsesPlayerApRange_NpcTarget pins TS-parity with
+// Player.tryInteract (Player.ts:1139) which reads this.apRange
+// regardless of target type. NPC's per-type AttackRange is the NPC's
+// own combat reach (used by Npc.checkApTrigger when the NPC is the
+// attacker), not the player's. The bow's apheld trigger calls
+// p_aprange(N) to set the player's mutable apRange; that value gates
+// AP-firing for both Loc and Npc targets.
+func TestEffectiveApRange_UsesPlayerApRange_NpcTarget(t *testing.T) {
 	p, _ := newTestPlayer(t)
-	p.apRange = 10 // Player-side mutable default — should be IGNORED for NPC
+	p.apRange = 7 // simulates bow apheld → p_aprange(7)
 
 	npcType := &objtype.NpcType{
 		ConfigType:  objtype.ConfigType{ID: 7, DebugName: "rat"},
-		AttackRange: 5,
+		AttackRange: 1, // melee NPC — IRRELEVANT for player-side AP gating
 	}
 	npc := NewNpc(0, 7, 100, 100, 0, npcType)
 	p.target = npc
 
-	if got := effectiveApRange(p); got != 5 {
-		t.Errorf("effectiveApRange: got %d, want 5 (npc.typ.AttackRange)", got)
+	if got := effectiveApRange(p); got != 7 {
+		t.Errorf("effectiveApRange: got %d, want 7 (p.apRange — TS Player.ts:1139)", got)
 	}
 }
 
 // TestEffectiveApRangeLocUsesPlayerApRange verifies that for non-NPC
-// targets (e.g. *Loc), effectiveApRange falls back to p.apRange.
+// targets (e.g. *Loc), effectiveApRange uses p.apRange.
 func TestEffectiveApRangeLocUsesPlayerApRange(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.apRange = 7 // custom, simulating a p_aprange call
@@ -519,46 +523,40 @@ func TestEffectiveApRangeLocUsesPlayerApRange(t *testing.T) {
 	}
 }
 
-// TestEffectiveApRangeNilNpcTypeReturnsZero verifies the defensive
-// guard: an NPC with a nil typ pointer returns 0.
-func TestEffectiveApRangeNilNpcTypeReturnsZero(t *testing.T) {
-	p, _ := newTestPlayer(t)
-	p.apRange = 10
-
-	// Construct directly: NewNpc dereferences typ, so pass nil via struct literal.
-	npc := &Npc{nid: 0, typeId: 7, typ: nil}
-	p.target = npc
-
-	if got := effectiveApRange(p); got != 0 {
-		t.Errorf("effectiveApRange: got %d, want 0 (nil typ defensive)", got)
-	}
-}
-
-// TestProcessInteractionNpcUsesAttackrange is an integration test:
-// NPC with AttackRange=5 at dx=6 from the player, with p.apRange=10.
-// Without the swap, processInteraction sees dx=6 <= p.apRange=10 and
-// takes AP branch. With the swap, dx=6 > AttackRange=5 so pathing fires.
-func TestProcessInteractionNpcUsesAttackrange(t *testing.T) {
+// TestProcessInteraction_NpcInRange_FiresApBranch pins the user-visible
+// fence-shooting fix: a player with apRange=10 (bow) attacking a melee
+// NPC at dx=6 reaches AP-firing distance regardless of the NPC's own
+// AttackRange. Pre-fix Go used npc.typ.AttackRange=5 and rejected at
+// dx=6, leaving processInteraction stuck on pathing; through-fence
+// scenarios then deadlocked because the fence walk-blocked adjacency
+// while leaving projectiles unimpeded.
+//
+// With no AP script registered, branch 3 (default-AP NIH) fires when
+// the player is in approach distance — sets p.apRange=-1 as the signal
+// that AP "ran". Pre-fix p.apRange would stay at 10 because branch 3
+// never reached.
+func TestProcessInteraction_NpcInRange_FiresApBranch(t *testing.T) {
 	s := newTestServer(t)
 	p, _ := newTestPlayer(t)
 	p.client.server = s
 	p.x, p.z, p.level = 100, 100, 0
-	p.apRange = 10
 
 	npcType := &objtype.NpcType{
 		ConfigType:  objtype.ConfigType{ID: 7, DebugName: "rat"},
-		AttackRange: 5,
+		AttackRange: 5, // melee NPC — does not gate player AP
 	}
-	npc := NewNpc(0, 7, 106, 100, 0, npcType) // dx=6
+	npc := NewNpc(0, 7, 106, 100, 0, npcType) // dx=6, within p.apRange=10
 	p.SetInteraction(InteractionEngine, npc, 1, -1)
+	// SetInteraction resets apRange=10 (TS PathingEntity.ts:554 parity).
+	// Default fixture state already matches the bow-equipped scenario.
 
 	p.processInteraction()
 
-	if p.interacted {
-		t.Error("p.interacted: got true, want false — AP branch should NOT fire (dx=6 > AttackRange=5)")
-	}
-	if p.waypointIndex < 0 {
-		t.Error("p.waypointIndex < 0 — pathing branch should fire when out of AP range")
+	// dx=6 <= p.apRange=10 → in approach distance → branch 3
+	// (no AP script registered) → apRange=-1. Pre-fix path stayed in
+	// pathing-only because effectiveApRange returned AttackRange=5 < dx=6.
+	if p.apRange != -1 {
+		t.Errorf("p.apRange: got %d, want -1 (branch 3 default-AP NIH did not run — pre-fix bug)", p.apRange)
 	}
 }
 
@@ -1749,12 +1747,10 @@ func TestTryInteract_AdjacentLoc_BothScripts_Branch2(t *testing.T) {
 }
 
 // TestTryInteract_AdjacentNpc_NoScripts_Branch4 pins TS Player.ts:1179.
-// Adjacent NPC with no AP scripts and AttackRange=0 (approach always false):
-// tryInteract(false) → branch 4 NIH (defaultOp, waypointIndex=-1).
-//
-// effectiveApRange for NPC targets reads npc.typ.AttackRange (not p.apRange),
-// so inApproachDistance returns false when AttackRange=0 regardless of
-// p.apRange. This directly reaches branch 4 without a branch-3 pre-step.
+// Adjacent NPC with no AP scripts and p.apRange=0 (approach always
+// false): tryInteract(false) → branch 4 NIH (defaultOp,
+// waypointIndex=-1). p.apRange=0 forces inApproachDistance to skip
+// branch 3, so an adjacent NPC reaches branch 4 directly.
 // Wire-bytes assertion omitted: NPC fixture has no exposed clientConn.
 // waypointIndex=-1 is the operative signal that defaultOp ran.
 func TestTryInteract_AdjacentNpc_NoScripts_Branch4(t *testing.T) {
@@ -1767,8 +1763,6 @@ func TestTryInteract_AdjacentNpc_NoScripts_Branch4(t *testing.T) {
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4}) // required for MessageGame
 	p.x, p.z, p.level = 100, 100, 0
 
-	// AttackRange=0 → effectiveApRange=0 → inApproachDistance always false.
-	// This ensures branch 3 is skipped and branch 4 is reachable when adjacent.
 	npcType := &objtype.NpcType{
 		ConfigType:  objtype.ConfigType{ID: 7, DebugName: "rat"},
 		AttackRange: 0,
@@ -1776,6 +1770,11 @@ func TestTryInteract_AdjacentNpc_NoScripts_Branch4(t *testing.T) {
 	}
 	npc := NewNpc(0, 7, 101, 100, 0, npcType) // adjacent: distance=1, operable
 	p.SetInteraction(InteractionEngine, npc, 1, -1)
+	// SetInteraction resets apRange=10 (TS PathingEntity.ts:554 parity);
+	// force apRange=0 AFTER so the approach branch's apRange>0 guard
+	// rejects and branch 3 is skipped, leaving branch 4 reachable on
+	// the adjacent (operable) NPC.
+	p.apRange = 0
 
 	got := p.tryInteract(false)
 	if !got {

@@ -112,17 +112,20 @@ func TestFireApTriggerObj_ApRangeCalled_SetsInteractionFiredTrue(t *testing.T) {
 	}
 }
 
-// --- NAI-69 T4: AP-Npc structural parity (no-op) pin ---
+// --- NAI-69 T4: AP-Npc full parity (p_aprange round-trips) ---
 
-// TestFireApTriggerNpc_ApRangeCalled_SetsInteractionFiredTrueStructural
-// pins the post-NAI-69 contract for AP-Npc: the fire helper sets
-// interactionFired=true at exit and apRangeCalled is set by p_aprange
-// (mechanism activates structurally) — but the next tryInteract call
-// would re-evaluate using effectiveApRange = npc.typ.AttackRange
-// (fixed per-type, not p.apRange), so the retry path is a behavioral
-// no-op for NPC targets. This preserves the preexisting goscape
-// divergence at interaction.go:404 (effectiveApRange).
-func TestFireApTriggerNpc_ApRangeCalled_SetsInteractionFiredTrueStructural(t *testing.T) {
+// TestFireApTriggerNpc_ApRangeCalled_SetsInteractionFiredTrue pins the
+// post-NAI-69 contract for AP-Npc, restored to full TS parity: the
+// fire helper sets interactionFired=true at exit, apRangeCalled is set
+// by p_aprange, and the next tryInteract call uses the player's
+// updated apRange — matching TS Player.tryInteract (Player.ts:1139)
+// which reads this.apRange regardless of target type.
+//
+// Pre-fix Go's effectiveApRange short-circuited to npc.typ.AttackRange
+// for NPC targets, which silently dropped p_aprange's effect on the
+// AP retry path. That bug broke ranged attacks against melee NPCs
+// (most visible when shooting through fences). NAI-69 closure.
+func TestFireApTriggerNpc_ApRangeCalled_SetsInteractionFiredTrue(t *testing.T) {
 	s, p, npc := newApTriggerNpcFixture(t)
 
 	// Register an APNPC1 script for npc.typeId that calls p_aprange(2).
@@ -131,19 +134,33 @@ func TestFireApTriggerNpc_ApRangeCalled_SetsInteractionFiredTrueStructural(t *te
 
 	fireApTriggerNpc(p, s, npc)
 
-	// Mechanism activates structurally:
 	if !p.apRangeCalled {
 		t.Error("apRangeCalled: got false, want true (script called p_aprange)")
 	}
 	if p.apRange != 2 {
-		t.Errorf("apRange: got %d, want 2 (script set new range — but effectiveApRange reads npc.typ.AttackRange for NPC targets)", p.apRange)
+		t.Errorf("apRange: got %d, want 2 (script set new range)", p.apRange)
 	}
 
-	// effectiveApRange divergence pin: for NPC targets, the retry
-	// decision uses npc.typ.AttackRange, NOT p.apRange. Verify the
-	// in-range check still uses the NPC's AttackRange.
-	if effectiveApRange(p) != int(npc.typ.AttackRange) {
-		t.Errorf("effectiveApRange: got %d, want %d (NPC AttackRange, not p.apRange — preexisting divergence)",
-			effectiveApRange(p), npc.typ.AttackRange)
+	// AP retry path uses p.apRange unconditionally — TS Player.ts:1139.
+	if got, want := effectiveApRange(p), 2; got != want {
+		t.Errorf("effectiveApRange: got %d, want %d (p.apRange — NAI-69 closure)", got, want)
+	}
+}
+
+// TestEffectiveApRange_NpcTarget_UsesPlayerApRangeNotNpcAttackRange
+// reproduces the "can't shoot ranged through a fence" bug. When a
+// player wields a bow, its apheld trigger calls p_aprange(N) where N is
+// the bow's range (e.g. 7). TS Player.tryInteract (Player.ts:1139)
+// reads this.apRange when deciding whether to fire the AP trigger. Go
+// previously read npc.typ.AttackRange instead (melee NPC = 1), so a
+// ranged player against a melee NPC across a fence could never reach
+// AP-firing distance because the fence walk-blocks adjacency.
+func TestEffectiveApRange_NpcTarget_UsesPlayerApRangeNotNpcAttackRange(t *testing.T) {
+	_, p, npc := newApTriggerNpcFixture(t)
+	npc.typ.AttackRange = 1 // melee NPC
+	p.apRange = 7           // bow apheld set this
+
+	if got, want := effectiveApRange(p), 7; got != want {
+		t.Errorf("effectiveApRange: got %d, want %d (player.apRange — TS Player.ts:1139 reads this.apRange regardless of target type)", got, want)
 	}
 }

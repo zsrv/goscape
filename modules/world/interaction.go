@@ -305,10 +305,6 @@ func (p *Player) processInteraction() {
 	// itself. NAI-68 closed NAI-44-D-IMMEDIATE-POP-VS-NEXTTARGET via
 	// this reshape; NAI-69 closes NAI-68-D-AP-APRANGE-REVERT-NOT-PORTED
 	// by routing the same-tick retry signal through tryInteract.
-	//
-	// PORTING-EXCEPTION (NAI-69, attackrange-fixed-vs-apRange-mutable):
-	// pre-existing divergence; player apRange is mutable while NPC
-	// attackrange is fixed. See PORTING.md.
 	if p.nextTarget != nil {
 		p.target = p.nextTarget
 	} else if interacted && !p.apRangeCalled {
@@ -743,28 +739,18 @@ func inApproachDistance(px, pz, tx, tz, apRange int) bool {
 
 // effectiveApRange returns the approach-range in tiles the player's
 // current target should be checked against by inApproachDistance.
-// For *Npc targets: the NPC's NpcType.AttackRange (fixed per-type,
-// never mutated). For *Loc and all other targets: p.apRange (the
-// mutable Player field, defaulted to 10 in SetInteraction and
-// settable via p_aprange per S6l).
+// Always returns p.apRange (the mutable Player field, defaulted to 10
+// in SetInteraction and settable via p_aprange per S6l), matching TS
+// Player.tryInteract (Player.ts:1139) which reads this.apRange
+// regardless of target type.
 //
-// Matches TS Npc.checkApTrigger (Npc.ts:~876) which reads
-// type.attackrange, diverging from Player.tryInteract (Player.ts:~1139)
-// which reads player.apRange.
-//
-// Returns 0 (which inApproachDistance rejects) if the target is an
-// NPC with a nil NpcType — defensive guard; production cache always
-// registers NpcType for any spawned NPC. Edge case: NpcType with
-// AttackRange == 0 (uninitialized) will also yield 0 here, meaning
-// APNPC never fires for that NPC. Intentional — production cache
-// always sets attackrange for NPCs that have AP scripts.
+// Previously branched on *Npc targets to return npc.typ.AttackRange
+// (the NPC's fixed combat reach); this broke ranged attacks against
+// melee NPCs because the bow's apheld trigger's p_aprange(N) was
+// silently overridden by the NPC's attackrange=1. Most visible
+// through a fence (BlockRange=false scenery): walk-blocked adjacency
+// + AttackRange=1 AP gate = projectile never fires. NAI-69 closure.
 func effectiveApRange(p *Player) int {
-	if npc, ok := p.target.(*Npc); ok {
-		if npc.typ == nil {
-			return 0
-		}
-		return int(npc.typ.AttackRange)
-	}
 	return p.apRange
 }
 
