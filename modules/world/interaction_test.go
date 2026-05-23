@@ -313,7 +313,7 @@ func TestSendUnsetMapFlagWireFormat(t *testing.T) {
 // false (can't "approach" your own tile). Mirrors inOperableDistance
 // (which also excludes same-tile).
 func TestInApproachDistanceSameTile(t *testing.T) {
-	if inApproachDistance(100, 100, 100, 100, 10) {
+	if inApproachDistance(100, 100, 100, 100, 1, 1, 10) {
 		t.Error("same tile: got true, want false")
 	}
 }
@@ -321,10 +321,10 @@ func TestInApproachDistanceSameTile(t *testing.T) {
 // TestInApproachDistanceAtRange verifies Chebyshev distance exactly
 // apRange is accepted.
 func TestInApproachDistanceAtRange(t *testing.T) {
-	if !inApproachDistance(100, 100, 110, 100, 10) {
+	if !inApproachDistance(100, 100, 110, 100, 1, 1, 10) {
 		t.Error("dx=10 apRange=10: got false, want true")
 	}
-	if !inApproachDistance(100, 100, 107, 107, 10) {
+	if !inApproachDistance(100, 100, 107, 107, 1, 1, 10) {
 		t.Error("dx=dz=7 apRange=10: got false, want true")
 	}
 }
@@ -332,10 +332,10 @@ func TestInApproachDistanceAtRange(t *testing.T) {
 // TestInApproachDistanceBeyondRange verifies one tile past apRange
 // is rejected.
 func TestInApproachDistanceBeyondRange(t *testing.T) {
-	if inApproachDistance(100, 100, 111, 100, 10) {
+	if inApproachDistance(100, 100, 111, 100, 1, 1, 10) {
 		t.Error("dx=11 apRange=10: got true, want false")
 	}
-	if inApproachDistance(100, 100, 105, 111, 10) {
+	if inApproachDistance(100, 100, 105, 111, 1, 1, 10) {
 		t.Error("dz=11 apRange=10: got true, want false")
 	}
 }
@@ -343,11 +343,41 @@ func TestInApproachDistanceBeyondRange(t *testing.T) {
 // TestInApproachDistanceZeroRange verifies apRange <= 0 is always
 // rejected (even for adjacent tiles).
 func TestInApproachDistanceZeroRange(t *testing.T) {
-	if inApproachDistance(100, 100, 101, 100, 0) {
+	if inApproachDistance(100, 100, 101, 100, 1, 1, 0) {
 		t.Error("apRange=0: got true, want false")
 	}
-	if inApproachDistance(100, 100, 101, 100, -5) {
+	if inApproachDistance(100, 100, 101, 100, 1, 1, -5) {
 		t.Error("apRange=-5: got true, want false")
+	}
+}
+
+// TestInApproachDistance_EdgeAware_MultiTileTarget pins that approach distance
+// is measured to the target's nearest EDGE, not its origin corner (TS uses
+// CoordGrid.distanceTo). A 3x3 target at origin (100,100) occupies tiles
+// (100..102, 100..102). A 1x1 source at (107,100) is edge-distance 5 from it
+// (107-102) but origin-distance 7 (107-100). With apRange=5 (a weapon's range)
+// the source IS in approach (can fire from max range), so the player does not
+// have to walk (size-1) tiles too close.
+//
+// The origin-corner form returned false here (7 > 5), forcing ranged/magic
+// attackers to approach to edge-distance 3 against a 3x3 NPC — the "I still
+// get too close" symptom that scales with NPC size.
+func TestInApproachDistance_EdgeAware_MultiTileTarget(t *testing.T) {
+	// edge distance 5, apRange 5 → in approach (fire from max range)
+	if !inApproachDistance(107, 100, 100, 100, 3, 3, 5) {
+		t.Error("3x3 target, edge dist 5, apRange 5: got false, want true (edge-aware)")
+	}
+	// edge distance 6 (source at 108), apRange 5 → out of approach
+	if inApproachDistance(108, 100, 100, 100, 3, 3, 5) {
+		t.Error("3x3 target, edge dist 6, apRange 5: got true, want false")
+	}
+	// 2x2 target (occupies 100..101): source at (106,100) is edge dist 5
+	if !inApproachDistance(106, 100, 100, 100, 2, 2, 5) {
+		t.Error("2x2 target, edge dist 5, apRange 5: got false, want true (edge-aware)")
+	}
+	// source on the footprint (under a 3x3) → not approach
+	if inApproachDistance(101, 101, 100, 100, 3, 3, 5) {
+		t.Error("source under 3x3 footprint: got true, want false")
 	}
 }
 

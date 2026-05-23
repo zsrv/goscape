@@ -414,8 +414,9 @@ func (p *Player) tryInteract(allowOpScenery bool) bool {
 	apTrigger := getApTrigger(p, srv)
 
 	tx, tz, _ := p.target.Coords()
+	tw, tl := approachTargetSize(p.target)
 	operable := inOperableDistance(p, p.target)
-	approach := inApproachDistance(p.x, p.z, tx, tz, effectiveApRange(p))
+	approach := inApproachDistance(p.x, p.z, tx, tz, tw, tl, effectiveApRange(p))
 
 	isPathing := false
 	switch p.target.(type) {
@@ -714,27 +715,44 @@ func inOperableDistanceCheb(px, pz, tx, tz int) bool {
 	return !(dx == 0 && dz == 0)
 }
 
-// inApproachDistance returns true when (px,pz) is within apRange
-// Chebyshev tiles of (tx,tz), excluding the same tile. Range-portion
-// of TS PathingEntity.inApproachDistance, sans LOS (DEVIATION S6l-D4).
+// inApproachDistance returns true when a 1x1 source at (px,pz) is within
+// apRange tiles of the target footprint at (tx,tz) sized tw×tl, excluding
+// being on/under the footprint. Range-portion of TS
+// PathingEntity.inApproachDistance, sans LOS (DEVIATION S6l-D4).
 // apRange <= 0 always returns false — the caller is responsible for
 // distinguishing "not yet in range" from "no AP script exists."
-func inApproachDistance(px, pz, tx, tz, apRange int) bool {
+//
+// Distance is EDGE-aware (TS uses CoordGrid.distanceTo, not origin-corner
+// Chebyshev). For a multi-tile target, origin distance > edge distance, so
+// the old origin form made ranged/magic attackers approach (size-1) tiles
+// too close before the AP could fire.
+func inApproachDistance(px, pz, tx, tz, tw, tl, apRange int) bool {
 	if apRange <= 0 {
 		return false
 	}
-	dx := px - tx
-	if dx < 0 {
-		dx = -dx
-	}
-	dz := pz - tz
-	if dz < 0 {
-		dz = -dz
-	}
-	if dx > apRange || dz > apRange {
+	// TS PathingEntity.ts:396-398 — a source on/under the target footprint is
+	// not in approach distance ("you are not within ap distance ... if you are
+	// underneath it").
+	if coordgrid.Intersects(px, pz, 1, 1, tx, tz, tw, tl) {
 		return false
 	}
-	return !(dx == 0 && dz == 0)
+	// TS PathingEntity.ts:404 — CoordGrid.distanceTo (edge-aware Chebyshev),
+	// NOT origin-corner distance.
+	return coordgrid.DistanceTo(px, pz, 1, 1, tx, tz, tw, tl) <= apRange
+}
+
+// approachTargetSize returns the target's tile footprint for approach-distance
+// math. Distinct from targetWidthLength (face-coord helper, returns 1×1 for
+// NPCs) and approachEntitySize (LOS helper, doesn't handle Locs).
+func approachTargetSize(target entity) (width, length int) {
+	switch t := target.(type) {
+	case *Npc:
+		return int(t.size), int(t.size)
+	case *entitypkg.Loc:
+		return t.Width, t.Length
+	default: // *Player, *Obj — 1x1
+		return 1, 1
+	}
 }
 
 // effectiveApRange returns the approach-range in tiles the player's
