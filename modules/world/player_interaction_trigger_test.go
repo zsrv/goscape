@@ -244,17 +244,15 @@ func TestFireApTriggerPlayerOverridesTypeIdFromTargetSubjectCom(t *testing.T) {
 
 // --- B3 AP-Player variant ---
 
-// TestFireApTriggerPlayerRestoresTargetAndWaypoints pins TS Player.ts:1145-1162
-// for the AP-Player path. With NAI-70 binding (Self=clicker), the noop
-// script doesn't mutate any pinned state — the test asserts the
-// restore-only contract: p.target restored, p.nextTarget nil, waypoints
-// restored.
-//
-// NAI-68 B3 AP-Player variant.
-func TestFireApTriggerPlayerRestoresTargetAndWaypoints(t *testing.T) {
+// TestFireApTriggerPlayerClearsWaypointsOnAttackPath pins TS Player.ts:1158-1168
+// for the AP-Player path (PvP ranged/magic via pvp_combat.rs2). A noop AP
+// script sets no nextTarget and calls no p_aprange (the attack path): the
+// pre-exec waypoint clear is NOT reverted, so the attacker holds position.
+// p.target is still restored.
+func TestFireApTriggerPlayerClearsWaypointsOnAttackPath(t *testing.T) {
 	s, clicker, target, _, _ := newPlayerTriggerFixture(t)
 
-	// Pre-state: active waypoint queue (must be restored when no nextTarget).
+	// Pre-state: active waypoint queue (the path toward the target).
 	clicker.waypointIndex = 3
 	clicker.waypoints[3] = 0x0EADBEEF
 
@@ -280,12 +278,13 @@ func TestFireApTriggerPlayerRestoresTargetAndWaypoints(t *testing.T) {
 	if clicker.nextTarget != nil {
 		t.Errorf("clicker.nextTarget: got %v, want nil (noop script set no target)", clicker.nextTarget)
 	}
-	// Waypoints restored (nextTarget == nil branch).
-	if clicker.waypointIndex != 3 {
-		t.Errorf("clicker.waypointIndex: got %d, want 3 (restored when no nextTarget)", clicker.waypointIndex)
+	if clicker.apRangeCalled {
+		t.Errorf("clicker.apRangeCalled: got true, want false (noop script)")
 	}
-	if clicker.waypoints[3] != 0x0EADBEEF {
-		t.Errorf("clicker.waypoints[3]: got 0x%X, want 0x0EADBEEF", clicker.waypoints[3])
+	// Attack path: waypoints stay CLEARED (TS L1158-1168 only restores in the
+	// apRangeCalled branch).
+	if clicker.waypointIndex != -1 {
+		t.Errorf("clicker.waypointIndex: got %d, want -1 (attack path leaves waypoints cleared)", clicker.waypointIndex)
 	}
 }
 

@@ -296,35 +296,68 @@ func TestFireApTriggerLocCapturesNextTargetFromScript(t *testing.T) {
 	}
 }
 
-// TestFireApTriggerLocRestoresWaypointsWhenNoNextTarget pins TS L1146 inverse.
-// When the AP script does NOT set a nextTarget AND does not call p_aprange,
-// waypoints must be RESTORED to pre-fire state (the L1146 clear is reverted).
+// TestFireApTriggerLocClearsWaypointsOnAttackPath pins TS Player.ts:1158-1168.
+// When the AP script sets NO nextTarget AND does NOT call p_aprange (the
+// "attack path" — the script acted at range and is done), waypoints stay
+// CLEARED from the pre-exec clearWaypoints (TS L1149). TS restores waypoints
+// ONLY in the `else if (this.apRangeCalled)` branch (L1163-1167); the attack
+// path falls through to `return true` with waypoints cleared.
 //
-// NAI-68 B6 nextTarget-nil sub-pin.
-func TestFireApTriggerLocRestoresWaypointsWhenNoNextTarget(t *testing.T) {
+// Pre-fix Go restored waypoints whenever nextTarget was nil, conflating the
+// apRangeCalled (step-closer) branch with the attack branch. That left a
+// ranged/magic attacker carrying its pre-attack path-to-melee, so the player
+// walked up to the target after each shot instead of holding range.
+func TestFireApTriggerLocClearsWaypointsOnAttackPath(t *testing.T) {
 	s, p, loc, _ := makeApTriggerFixture(t)
 
-	// Pre-state: active waypoint queue.
+	// Pre-state: active waypoint queue (the path toward the target).
 	p.waypointIndex = 3
 	p.waypoints[3] = 0x0EADBEEF
 	p.waypoints[2] = 0x0AFEBABE
 
-	// No-op AP script: no p_op_*, no p_aprange.
+	// No-op AP script: no p_op_*, no p_aprange (attack path).
 	s.scriptProvider.Register(newNoopScriptFile(t, script.TriggerApLoc1, loc.Type(), -1))
 
 	fireApTriggerLoc(p, s, loc)
 
+	if p.waypointIndex != -1 {
+		t.Errorf("p.waypointIndex: got %d, want -1 (TS L1158-1168 — attack path leaves waypoints cleared)", p.waypointIndex)
+	}
+	if p.apRangeCalled {
+		t.Errorf("p.apRangeCalled: got true, want false (no-op script)")
+	}
+	if p.nextTarget != nil {
+		t.Errorf("p.nextTarget: got %v, want nil", p.nextTarget)
+	}
+}
+
+// TestFireApTriggerLocRestoresWaypointsWhenApRangeCalled pins the surviving
+// restore branch (TS L1163-1167): when the AP script calls p_aprange (the
+// step-closer path), the pre-exec waypoint clear is reverted so the player
+// keeps walking toward the new range.
+func TestFireApTriggerLocRestoresWaypointsWhenApRangeCalled(t *testing.T) {
+	s, p, loc, _ := makeApTriggerFixture(t)
+
+	p.waypointIndex = 3
+	p.waypoints[3] = 0x0EADBEEF
+	p.waypoints[2] = 0x0AFEBABE
+
+	// AP script calls p_aprange(2) — step-closer, no attack this tick.
+	s.scriptProvider.Register(scriptFileWithApRangeCall(t, script.TriggerApLoc1, loc.Type(), 2))
+
+	fireApTriggerLoc(p, s, loc)
+
+	if !p.apRangeCalled {
+		t.Fatal("p.apRangeCalled: got false, want true (script called p_aprange)")
+	}
 	if p.waypointIndex != 3 {
-		t.Errorf("p.waypointIndex: got %d, want 3 (no-script-target preserves waypoints)", p.waypointIndex)
+		t.Errorf("p.waypointIndex: got %d, want 3 (TS L1163-1167 — apRangeCalled restores path)", p.waypointIndex)
 	}
 	if p.waypoints[3] != 0x0EADBEEF {
 		t.Errorf("p.waypoints[3]: got 0x%X, want 0x0EADBEEF", p.waypoints[3])
 	}
 	if p.waypoints[2] != 0x0AFEBABE {
 		t.Errorf("p.waypoints[2]: got 0x%X, want 0x0AFEBABE", p.waypoints[2])
-	}
-	if p.nextTarget != nil {
-		t.Errorf("p.nextTarget: got %v, want nil", p.nextTarget)
 	}
 }
 
@@ -362,13 +395,22 @@ func TestFireApTriggerNpcCapturesNextTargetFromScript(t *testing.T) {
 	}
 }
 
-// TestFireApTriggerNpcRestoresWaypointsWhenNoNextTarget pins the restore
-// branch for AP-Npc: noop script → nextTarget stays nil → waypoints restored.
+// TestFireApTriggerNpcClearsWaypointsOnAttackPath pins TS Player.ts:1158-1168
+// for AP-Npc — the path the live ranged/magic combat bug took. A no-op AP
+// script (no p_op_*, no p_aprange) is the "attack happened at range" case:
+// waypoints stay cleared so the player holds position. This is the
+// player_combat_start_ap attack branch (npc_range(coord) <= attackrange),
+// where the combat script attacks and does NOT call p_aprange.
 //
-// NAI-68 B3 AP-Npc restore sub-pin.
-func TestFireApTriggerNpcRestoresWaypointsWhenNoNextTarget(t *testing.T) {
+// Pre-fix Go restored the pre-attack path here, so a ranged/magic attacker
+// kept its path-to-melee and walked all the way up to the NPC after firing —
+// the user-reported "I run up to the NPC with ranged/magic" symptom. Melee
+// was unaffected because melee attacks via the OP branch at contact, not via
+// this AP branch.
+func TestFireApTriggerNpcClearsWaypointsOnAttackPath(t *testing.T) {
 	s, p, npc := newApTriggerNpcFixture(t)
 
+	// Pre-state: a queued path toward the NPC (as pathToTarget would build).
 	p.waypointIndex = 4
 	p.waypoints[4] = 0x0EADBEEF
 
@@ -376,14 +418,43 @@ func TestFireApTriggerNpcRestoresWaypointsWhenNoNextTarget(t *testing.T) {
 
 	fireApTriggerNpc(p, s, npc)
 
+	if p.waypointIndex != -1 {
+		t.Errorf("p.waypointIndex: got %d, want -1 (TS L1158-1168 — attack path leaves waypoints cleared; pre-fix restored them and the player walked up)", p.waypointIndex)
+	}
+	if p.apRangeCalled {
+		t.Errorf("p.apRangeCalled: got true, want false (no-op script)")
+	}
+	if p.nextTarget != nil {
+		t.Errorf("p.nextTarget: got %v, want nil (noop script set no target)", p.nextTarget)
+	}
+}
+
+// TestFireApTriggerNpcRestoresWaypointsWhenApRangeCalled pins the surviving
+// restore branch (TS L1163-1167) for AP-Npc: a script that calls p_aprange
+// (e.g. melee's p_aprange(1) or ranged's step-closer p_aprange(N)) keeps its
+// path so the player walks to the new range. Guards the fix from
+// over-correcting (melee/step-closer must still path in).
+func TestFireApTriggerNpcRestoresWaypointsWhenApRangeCalled(t *testing.T) {
+	s, p, npc := newApTriggerNpcFixture(t)
+
+	p.waypointIndex = 4
+	p.waypoints[4] = 0x0EADBEEF
+
+	s.scriptProvider.Register(scriptFileWithApRangeCall(t, script.TriggerApNpc1, npc.typeId, 2))
+
+	fireApTriggerNpc(p, s, npc)
+
+	if !p.apRangeCalled {
+		t.Fatal("p.apRangeCalled: got false, want true (script called p_aprange)")
+	}
 	if p.waypointIndex != 4 {
-		t.Errorf("p.waypointIndex: got %d, want 4 (restored when no nextTarget)", p.waypointIndex)
+		t.Errorf("p.waypointIndex: got %d, want 4 (TS L1163-1167 — apRangeCalled restores path)", p.waypointIndex)
 	}
 	if p.waypoints[4] != 0x0EADBEEF {
 		t.Errorf("p.waypoints[4]: got 0x%X, want 0x0EADBEEF", p.waypoints[4])
 	}
 	if p.nextTarget != nil {
-		t.Errorf("p.nextTarget: got %v, want nil (noop script set no target)", p.nextTarget)
+		t.Errorf("p.nextTarget: got %v, want nil (no p_op_*)", p.nextTarget)
 	}
 }
 
@@ -409,11 +480,9 @@ func TestFireApTriggerObjCapturesNextTargetFromScript(t *testing.T) {
 	}
 }
 
-// TestFireApTriggerObjRestoresWaypointsWhenNoNextTarget pins the restore
-// branch for AP-Obj.
-//
-// NAI-68 B3 AP-Obj restore sub-pin.
-func TestFireApTriggerObjRestoresWaypointsWhenNoNextTarget(t *testing.T) {
+// TestFireApTriggerObjClearsWaypointsOnAttackPath pins TS Player.ts:1158-1168
+// for AP-Obj: no nextTarget + no p_aprange (attack path) → waypoints cleared.
+func TestFireApTriggerObjClearsWaypointsOnAttackPath(t *testing.T) {
 	s, p, obj, _ := makeApObjTriggerFixture(t)
 
 	p.waypointIndex = 2
@@ -423,8 +492,34 @@ func TestFireApTriggerObjRestoresWaypointsWhenNoNextTarget(t *testing.T) {
 
 	fireApTriggerObj(p, s, obj)
 
+	if p.waypointIndex != -1 {
+		t.Errorf("p.waypointIndex: got %d, want -1 (TS L1158-1168 — attack path leaves waypoints cleared)", p.waypointIndex)
+	}
+	if p.apRangeCalled {
+		t.Errorf("p.apRangeCalled: got true, want false (no-op script)")
+	}
+	if p.nextTarget != nil {
+		t.Errorf("p.nextTarget: got %v, want nil", p.nextTarget)
+	}
+}
+
+// TestFireApTriggerObjRestoresWaypointsWhenApRangeCalled pins the surviving
+// restore branch (TS L1163-1167) for AP-Obj: p_aprange → path restored.
+func TestFireApTriggerObjRestoresWaypointsWhenApRangeCalled(t *testing.T) {
+	s, p, obj, _ := makeApObjTriggerFixture(t)
+
+	p.waypointIndex = 2
+	p.waypoints[2] = 0x0EADBEEF
+
+	s.scriptProvider.Register(scriptFileWithApRangeCall(t, script.TriggerApObj1, obj.Type, 2))
+
+	fireApTriggerObj(p, s, obj)
+
+	if !p.apRangeCalled {
+		t.Fatal("p.apRangeCalled: got false, want true (script called p_aprange)")
+	}
 	if p.waypointIndex != 2 {
-		t.Errorf("p.waypointIndex: got %d, want 2 (restored when no nextTarget)", p.waypointIndex)
+		t.Errorf("p.waypointIndex: got %d, want 2 (TS L1163-1167 — apRangeCalled restores path)", p.waypointIndex)
 	}
 	if p.waypoints[2] != 0x0EADBEEF {
 		t.Errorf("p.waypoints[2]: got 0x%X, want 0x0EADBEEF", p.waypoints[2])

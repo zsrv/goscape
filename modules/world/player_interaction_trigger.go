@@ -138,10 +138,16 @@ func fireApTriggerPlayer(p *Player, srv *Server, target *Player) {
 	p.nextTarget = p.target
 	p.target = savedTarget
 	if p.nextTarget != nil {
+		// TS L1159-1160: script called p_op_* → clear destination.
 		p.waypointIndex = -1
-	} else {
+	} else if p.apRangeCalled {
+		// TS L1163-1167: script called p_aprange (step closer) → restore
+		// the pre-exec path so the player walks toward the new range.
 		p.waypoints = savedWP
 		p.waypointIndex = savedIdx
 	}
+	// else: attack path — TS L1168 leaves waypoints CLEARED. Matters for
+	// PvP ranged/magic (pvp_combat.rs2): a player attacking another player
+	// at range must hold position, not keep its path-to-melee.
 
 }

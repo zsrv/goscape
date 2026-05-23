@@ -366,9 +366,12 @@ func fireApTriggerNpc(p *Player, srv *Server, npc *Npc) {
 	state.Npcs = srv.npcLookup
 	state.LineValidator = srv.scriptLineValidator()
 
-	// TS Player.ts:1145-1162 AP save/clear/exec/capture/restore. NAI-68.
-	// AP-Npc has no apRangeCalled persistence (NPC attackrange is fixed
-	// per-type per pre-existing doc-comment at fireApTriggerNpc:293-297).
+	// TS Player.ts:1144-1168 AP save/clear/exec/capture/restore. The
+	// player's apRange for NPC combat is set by the WEAPON's range via
+	// p_aprange in [apnpc2] (player_combat_start_ap), NOT by the NPC's
+	// fixed attackrange — so apRangeCalled fully applies here (mirrors
+	// the NAI-69 effectiveApRange fix; the old "AP-Npc has no
+	// apRangeCalled persistence" note was the same misconception).
 	savedTarget := p.target
 	savedWP := p.waypoints
 	savedIdx := p.waypointIndex
@@ -380,11 +383,18 @@ func fireApTriggerNpc(p *Player, srv *Server, npc *Npc) {
 	p.nextTarget = p.target
 	p.target = savedTarget
 	if p.nextTarget != nil {
+		// TS L1159-1160: script called p_op_* → clear destination.
 		p.waypointIndex = -1
-	} else {
+	} else if p.apRangeCalled {
+		// TS L1163-1167: script called p_aprange (step closer) → restore
+		// the pre-exec path so the player walks toward the new range.
 		p.waypoints = savedWP
 		p.waypointIndex = savedIdx
 	}
+	// else: attack path (no p_op_*, no p_aprange) — TS L1168 falls through
+	// to `return true` with waypoints left CLEARED. Restoring here was the
+	// ranged/magic "walk up to the NPC" bug: the player kept its
+	// path-to-melee after firing at range.
 
 	// Finished/Aborted ClearInteraction dropped — subsumed by
 	// processInteraction tail's else-if (TS L1261-1263).
@@ -473,13 +483,17 @@ func fireApTriggerLoc(p *Player, srv *Server, loc *entitypkg.Loc) {
 	p.nextTarget = p.target
 	p.target = savedTarget
 	if p.nextTarget != nil {
-		// TS L1162: clear destination so next-tick interaction starts fresh.
+		// TS L1159-1160: script called p_op_* → clear destination.
 		p.waypointIndex = -1
-	} else {
-		// No script-set target — restore waypoints (TS L1146 inverse).
+	} else if p.apRangeCalled {
+		// TS L1163-1167: script called p_aprange (step closer) → restore
+		// the pre-exec path so the player walks toward the new range.
 		p.waypoints = savedWP
 		p.waypointIndex = savedIdx
 	}
+	// else: attack path (no p_op_*, no p_aprange) — TS L1168 falls through
+	// to `return true` with waypoints left CLEARED. (Restoring here was the
+	// ranged/magic "walk up after firing at range" bug.)
 
 	// TS L1163-1167 same-tick AP retry: when state.Execution is
 	// Finished/Aborted AND apRangeCalled is true, tryInteract sees the
@@ -787,13 +801,17 @@ func fireApTriggerObj(p *Player, srv *Server, obj *entitypkg.Obj) {
 	p.nextTarget = p.target
 	p.target = savedTarget
 	if p.nextTarget != nil {
-		// TS L1162: clear destination so next-tick interaction starts fresh.
+		// TS L1159-1160: script called p_op_* → clear destination.
 		p.waypointIndex = -1
-	} else {
-		// No script-set target — restore waypoints (TS L1146 inverse).
+	} else if p.apRangeCalled {
+		// TS L1163-1167: script called p_aprange (step closer) → restore
+		// the pre-exec path so the player walks toward the new range.
 		p.waypoints = savedWP
 		p.waypointIndex = savedIdx
 	}
+	// else: attack path (no p_op_*, no p_aprange) — TS L1168 falls through
+	// to `return true` with waypoints left CLEARED. (Restoring here was the
+	// ranged/magic "walk up after firing at range" bug.)
 
 	// TS L1163-1167 same-tick AP retry: when state.Execution is
 	// Finished/Aborted AND apRangeCalled is true, tryInteract sees the
