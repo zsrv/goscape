@@ -327,6 +327,31 @@ func (p *Player) processInteraction() {
 	emitInteractionTickFrame(s, p, hadTarget, initialTarget,
 		initialTargetX, initialTargetZ, opTriggerPresent,
 		apTriggerPresent, interacted)
+
+	// TEMPORARY DIAGNOSTIC (NodeDebug-gated) — ranged/magic "too close"
+	// investigation. Logs, per combat tick: the player's tile, the NPC's
+	// tile, the edge distance between them, the current apRange, and
+	// playerMovedThisTick (stepsTaken). If playerMovedThisTick > 0 while
+	// already within apRange, the PLAYER is creeping in (server bug); if
+	// it's 0 and the gap closes, the NPC is walking to the player (normal).
+	// Grep the world log for "RANGED-DEBUG". Remove after diagnosis.
+	if s.cfg.NodeDebug && s.log != nil {
+		if npc, ok := initialTarget.(*Npc); ok {
+			nx, nz, _ := npc.Coords()
+			s.log.Info("RANGED-DEBUG",
+				"tick", s.currentTick,
+				"player", fmt.Sprintf("(%d,%d)", p.x, p.z),
+				"npc", fmt.Sprintf("(%d,%d)", nx, nz),
+				"npcSize", npc.Width(),
+				"edgeDist", coordgrid.DistanceTo(p.x, p.z, 1, 1, nx, nz, npc.Width(), npc.Width()),
+				"apRange", p.apRange,
+				"apRangeCalled", p.apRangeCalled,
+				"playerMovedThisTick", p.stepsTaken,
+				"waypointIdx", p.waypointIndex,
+				"interacted", interacted,
+			)
+		}
+	}
 }
 
 // hasWaypoints reports whether the player has an active waypoint queue.
