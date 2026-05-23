@@ -537,8 +537,10 @@ type ActivePlayer interface {
 	// duplicate method.
 	StaffModLevel() int32
 
-	// UID returns the player's persistent account uid (from the login
-	// RPC). Used by the UID script opcode for mod/account-state checks.
+	// UID returns the player's per-session composeUID(username37, slot)
+	// hash, computed locally at login — NOT the DB account id (that is
+	// AccountID(), below). Used by the UID script opcode and p_finduid to
+	// re-acquire / identify a specific player instance (TS getPlayerByUid).
 	UID() int
 
 	// AccountID returns the persistent DB account.id (int64) captured

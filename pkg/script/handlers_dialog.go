@@ -224,9 +224,11 @@ func handleStaffModLevel(s *ScriptState) error {
 	return nil
 }
 
-// handleUID pushes the active player's persistent account uid (from
-// login RPC). Used by update_all and other procs that branch on
-// per-account state. Matches TS: state.pushInt(state.activePlayer.uid).
+// handleUID pushes the active player's per-session composeUID(username37,
+// slot) hash — NOT the DB account id (that's AccountID(), distinct and
+// int64). Scripts use it with p_finduid to re-acquire a specific player
+// instance (e.g. after a dialogue suspend). Matches TS:
+// state.pushInt(state.activePlayer.uid).
 func handleUID(s *ScriptState) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return fmt.Errorf("UID: %w", ErrNoActivePlayer)
