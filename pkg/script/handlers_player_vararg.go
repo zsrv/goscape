@@ -30,7 +30,7 @@ func handleStrongQueueVarArg(s *ScriptState) error {
 	intArgs, stringArgs := popScriptArgs(s)
 	delay := s.PopInt()
 	scriptID := uint32(s.PopInt())
-	return s.Self.EnqueueScriptArgs(scriptID, delay, intArgs, stringArgs, QueueStrong)
+	return s.activePlayer().EnqueueScriptArgs(scriptID, delay, intArgs, stringArgs, QueueStrong)
 }
 
 // handleWeakQueueVarArg implements WEAKQUEUEVARARG (opcode 2130):
@@ -43,7 +43,7 @@ func handleWeakQueueVarArg(s *ScriptState) error {
 	intArgs, stringArgs := popScriptArgs(s)
 	delay := s.PopInt()
 	scriptID := uint32(s.PopInt())
-	return s.Self.EnqueueScriptArgs(scriptID, delay, intArgs, stringArgs, QueueWeak)
+	return s.activePlayer().EnqueueScriptArgs(scriptID, delay, intArgs, stringArgs, QueueWeak)
 }
 
 // handleQueueVarArg implements QUEUEVARARG (opcode 2093): identical
@@ -57,7 +57,7 @@ func handleQueueVarArg(s *ScriptState) error {
 	intArgs, stringArgs := popScriptArgs(s)
 	delay := s.PopInt()
 	scriptID := uint32(s.PopInt())
-	return s.Self.EnqueueScriptArgs(scriptID, delay, intArgs, stringArgs, QueueNormal)
+	return s.activePlayer().EnqueueScriptArgs(scriptID, delay, intArgs, stringArgs, QueueNormal)
 }
 
 // handleLongQueueVarArg implements LONGQUEUEVARARG (opcode 2060):
@@ -78,5 +78,5 @@ func handleLongQueueVarArg(s *ScriptState) error {
 	delay := s.PopInt()
 	scriptID := uint32(s.PopInt())
 	prepended := append([]int{logoutAction}, intArgs...)
-	return s.Self.EnqueueScriptArgs(scriptID, delay, prepended, stringArgs, QueueLong)
+	return s.activePlayer().EnqueueScriptArgs(scriptID, delay, prepended, stringArgs, QueueLong)
 }

@@ -136,7 +136,7 @@ func handleObjAdd(s *ScriptState) error {
 	if s.World == nil {
 		return fmt.Errorf("OBJ_ADD: no world surface")
 	}
-	return objAddCommon(s, "OBJ_ADD", s.Self.UID())
+	return objAddCommon(s, "OBJ_ADD", s.activePlayer().UID())
 }
 
 // handleObjDel (OBJ_DEL, opcode 3504) removes the active obj. Mirrors
@@ -211,7 +211,7 @@ func handleObjCount(s *ScriptState) error {
 	if err := requireActivePlayer(s, "OBJ_COUNT"); err != nil {
 		return err
 	}
-	if s.ActiveObj.IsValidFor(s.Self.UID()) {
+	if s.ActiveObj.IsValidFor(s.activePlayer().UID()) {
 		s.PushInt(s.ActiveObj.ObjCount())
 		return nil
 	}
@@ -256,7 +256,7 @@ func handleObjTakeItem(s *ScriptState) error {
 		return err
 	}
 
-	if !s.ActiveObj.IsValidFor(s.Self.UID()) {
+	if !s.ActiveObj.IsValidFor(s.activePlayer().UID()) {
 		return nil // TS returns false; goscape no-op (matches OBJ_DEL idiom)
 	}
 
@@ -269,7 +269,7 @@ func handleObjTakeItem(s *ScriptState) error {
 	objTypeID := s.ActiveObj.ObjType()
 	objCount := s.ActiveObj.ObjCount()
 	if objCfg := s.Configs.ObjType(objTypeID); objCfg != nil {
-		s.Self.AddWealthEvent(WealthEvent{
+		s.activePlayer().AddWealthEvent(WealthEvent{
 			EventType:    WealthEventTypePickup,
 			AccountItems: []WealthItem{{ID: objTypeID, Name: objCfg.DebugName, Count: objCount}},
 			AccountValue: objCount * objCfg.Cost,
@@ -300,7 +300,7 @@ func handleObjTakeItem(s *ScriptState) error {
 		SchemaVersion: 1,
 		EventId:       uuid.NewString(),
 		Ts:            timestamppb.Now(),
-		AccountId:     s.Self.AccountID(),
+		AccountId:     s.activePlayer().AccountID(),
 		WorldId:       worldID,
 		Payload: &eventspb.WealthEnvelope_ItemPickedUp{
 			ItemPickedUp: &eventspb.ItemPickedUpEvent{
@@ -332,7 +332,7 @@ func handleObjTakeItem(s *ScriptState) error {
 // Pop order: objId is at the top of the stack (last pushed); coord
 // below it. Matches TS `[coord, objId] = state.popInts(2)`.
 //
-// Receiver UID is s.Self.UID() per NAI-153-D2 (goscape UID vs TS hash64).
+// Receiver UID is s.activePlayer().UID() per NAI-153-D2 (goscape UID vs TS hash64).
 func handleObjFind(s *ScriptState) error {
 	if err := requireActivePlayer(s, "OBJ_FIND"); err != nil {
 		return err
@@ -353,7 +353,7 @@ func handleObjFind(s *ScriptState) error {
 		s.PushInt(0)
 		return nil
 	}
-	obj := s.World.GetObj(level, x, z, objId, s.Self.UID())
+	obj := s.World.GetObj(level, x, z, objId, s.activePlayer().UID())
 	if obj == nil {
 		s.PushInt(0)
 		return nil

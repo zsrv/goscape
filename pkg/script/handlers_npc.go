@@ -1308,7 +1308,7 @@ func handleNpcHeroPoints(s *ScriptState) error {
 	if err := checkNotNull(amount, "NPC_HEROPOINTS"); err != nil {
 		return err
 	}
-	s.ActiveNpc.AddHeroPoints(s.Self.UID(), amount)
+	s.ActiveNpc.AddHeroPoints(s.activePlayer().UID(), amount)
 	return nil
 }
 

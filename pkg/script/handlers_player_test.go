@@ -5800,6 +5800,10 @@ func newBothHeroPointsState(self, other *mockPlayer, intOperand, damage int, nil
 	s.Script = &ScriptFile{IntOperands: []int32{int32(intOperand)}}
 	if !nilSelf2 {
 		s.Self2 = other
+		// Bind the secondary pointer too: BOTH_HEROPOINTS is checkedHandler(
+		// ActivePlayer) in TS, so at operand=1 requireActivePlayer validates
+		// the PtrActivePlayer2 slot (production binds it whenever Self2 is set).
+		s.Pointers |= PtrActivePlayer2
 	}
 	s.PushInt(damage)
 	return s

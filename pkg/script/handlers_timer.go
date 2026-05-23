@@ -17,7 +17,7 @@ func enqueueTimer(s *ScriptState, ttype PlayerTimerType, op string) error {
 	intArgs, stringArgs := popScriptArgs(s)
 	interval := s.PopInt()
 	scriptID := uint32(s.PopInt())
-	return s.Self.SetTimer(scriptID, interval, intArgs, stringArgs, ttype)
+	return s.activePlayer().SetTimer(scriptID, interval, intArgs, stringArgs, ttype)
 }
 
 func handleSetTimer(s *ScriptState) error  { return enqueueTimer(s, TimerNormal, "SETTIMER") }
@@ -28,7 +28,7 @@ func handleClearTimer(s *ScriptState) error {
 		return err
 	}
 	scriptID := uint32(s.PopInt())
-	s.Self.ClearTimer(scriptID)
+	s.activePlayer().ClearTimer(scriptID)
 	return nil
 }
 
@@ -37,7 +37,7 @@ func handleClearSoftTimer(s *ScriptState) error {
 		return err
 	}
 	scriptID := uint32(s.PopInt())
-	s.Self.ClearTimer(scriptID)
+	s.activePlayer().ClearTimer(scriptID)
 	return nil
 }
 
@@ -61,6 +61,6 @@ func handleGetTimer(s *ScriptState) error {
 	if s.Provider.GetByID(scriptID) == nil {
 		return fmt.Errorf("GETTIMER: unable to find timer script: %d", scriptID)
 	}
-	s.PushInt(s.Self.GetTimer(scriptID))
+	s.PushInt(s.activePlayer().GetTimer(scriptID))
 	return nil
 }

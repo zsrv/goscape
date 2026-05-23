@@ -39,6 +39,11 @@ func (s *ScriptState) varpType(id int) (objtype.ScriptVarType, bool) {
 // PushString, else calls PushInt. Returns an error if no ActivePlayer
 // is bound.
 func handlePushVarp(s *ScriptState) error {
+	// VARP is primary-only in goscape: the int operand encodes the varp id
+	// (secondary flag in bit 16, which goscape ignores — see
+	// TestPushVarpIgnoresSecondaryBit), NOT the simple 0/1 active-player
+	// selector, so this must use s.Self directly rather than the
+	// operand-aware s.activePlayer()/requireActivePlayer.
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return fmt.Errorf("PUSH_VARP: %w", ErrNoActivePlayer)
 	}
@@ -60,6 +65,8 @@ func handlePushVarp(s *ScriptState) error {
 // access (PtrProtectedActivePlayer set) or the handler errors. Returns an error
 // if no ActivePlayer is bound.
 func handlePopVarp(s *ScriptState) error {
+	// Primary-only — see handlePushVarp for why VARP cannot use the
+	// operand-aware accessor (operand is the varp id, not a 0/1 selector).
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return fmt.Errorf("POP_VARP: %w", ErrNoActivePlayer)
 	}

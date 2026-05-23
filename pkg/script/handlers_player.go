@@ -32,9 +32,15 @@ func checkStatID(id int, op string) error {
 	return nil
 }
 
-// requireActivePlayer is a one-line guard to keep handler bodies tidy.
-// Every handler that dereferences s.Self calls this first. Wraps
-// ErrNoActivePlayer so callers can errors.Is against the sentinel.
+// requireActivePlayer is a one-line guard to keep handler bodies tidy. It
+// validates the PRIMARY slot (Self / PtrActivePlayer) and is intentionally
+// operand-INDEPENDENT: many opcodes overload the int operand for non-player
+// data (varp id, inv protect-slot, obj/loc slot), so an operand-aware guard
+// here would mis-fire. Operand-aware player commands read the actual player
+// through s.activePlayer() (operand 0 → Self, operand 1 → Self2); this guard
+// only confirms a script is running on behalf of some player — Self is always
+// bound for the clicker, including in `.`-prefixed player→player triggers
+// where Self2 holds the secondary. Wraps ErrNoActivePlayer for errors.Is.
 func requireActivePlayer(s *ScriptState, op string) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return fmt.Errorf("%s: %w", op, ErrNoActivePlayer)
@@ -187,7 +193,7 @@ func handlePAnimProtect(s *ScriptState) error {
 	if err := checkNotNull(v, "P_ANIMPROTECT"); err != nil {
 		return err
 	}
-	s.Self.SetAnimProtect(v)
+	s.activePlayer().SetAnimProtect(v)
 	return nil
 }
 
@@ -204,7 +210,7 @@ func handleAllowDesign(s *ScriptState) error {
 	if err := checkNotNull(v, "ALLOWDESIGN"); err != nil {
 		return err
 	}
-	s.Self.SetAllowDesign(v == 1)
+	s.activePlayer().SetAllowDesign(v == 1)
 	return nil
 }
 
@@ -223,7 +229,7 @@ func handleBuildAppearance(s *ScriptState) error {
 	if err := checkInvType(s, id, "BUILDAPPEARANCE"); err != nil {
 		return err
 	}
-	s.Self.SetAppearanceInv(id)
+	s.activePlayer().SetAppearanceInv(id)
 	return nil
 }
 
@@ -243,14 +249,14 @@ func handleSetIdKit(s *ScriptState) error {
 		return err
 	}
 	idk := s.Configs.IdkType(idkit)
-	gender := s.Self.Gender()
+	gender := s.activePlayer().Gender()
 	slot := idk.Type
 	if gender == 1 {
 		slot -= 7
 	}
-	s.Self.SetBodyPart(slot, idkit)
+	s.activePlayer().SetBodyPart(slot, idkit)
 	if cs := idkColorSlot(slot); cs >= 0 {
-		s.Self.SetColorPart(cs, color)
+		s.activePlayer().SetColorPart(cs, color)
 	}
 	return nil
 }
@@ -286,7 +292,7 @@ func handleStat(s *ScriptState) error {
 	if err := checkStatID(id, "STAT"); err != nil {
 		return err
 	}
-	s.PushInt(s.Self.Stat(id))
+	s.PushInt(s.activePlayer().Stat(id))
 	return nil
 }
 
@@ -299,7 +305,7 @@ func handleStatBase(s *ScriptState) error {
 	if err := checkStatID(id, "STAT_BASE"); err != nil {
 		return err
 	}
-	s.PushInt(s.Self.StatBase(id))
+	s.PushInt(s.activePlayer().StatBase(id))
 	return nil
 }
 
@@ -311,7 +317,7 @@ func handleStatTotal(s *ScriptState) error {
 	}
 	total := 0
 	for i := 0; i < NumStats; i++ {
-		total += s.Self.StatBase(i)
+		total += s.activePlayer().StatBase(i)
 	}
 	s.PushInt(total)
 	return nil
@@ -348,27 +354,27 @@ func handleStatAdd(s *ScriptState) error {
 	if err := checkStatID(id, "STAT_ADD"); err != nil {
 		return err
 	}
-	base := s.Self.StatBase(id)
-	cur := s.Self.Stat(id)
+	base := s.activePlayer().StatBase(id)
+	cur := s.activePlayer().Stat(id)
 	unclamped := cur + (constant + (base*percent)/100)
 	added := unclamped
 	if added > 255 {
 		added = 255
 	}
-	s.Self.SetCurLevel(id, added)
+	s.activePlayer().SetCurLevel(id, added)
 	// TS PlayerOps.ts:513-515 — when STAT_ADD targets HITPOINTS and the
 	// post-update HP meets or exceeds base, clear the heroPoints ledger.
 	// Predicate matches TS exactly (>= comparison, stat-gate). NAI-120
 	// Bundle 2D follow-up.
-	if id == objtype.PlayerStatHitpoints && s.Self.Stat(objtype.PlayerStatHitpoints) >= s.Self.StatBase(objtype.PlayerStatHitpoints) {
-		s.Self.HeroPointsClear()
+	if id == objtype.PlayerStatHitpoints && s.activePlayer().Stat(objtype.PlayerStatHitpoints) >= s.activePlayer().StatBase(objtype.PlayerStatHitpoints) {
+		s.activePlayer().HeroPointsClear()
 	}
 	// TS PlayerOps.ts:516-518 — fire [changestat,<skill>] when the
 	// PRE-CLAMP `added` differs from the prior current level. The
 	// pre-clamp predicate means a 255-capped boost still fires if the
 	// unclamped value differs.
 	if unclamped != cur {
-		s.Self.ChangeStat(id)
+		s.activePlayer().ChangeStat(id)
 	}
 	return nil
 }
@@ -394,17 +400,17 @@ func handleStatSub(s *ScriptState) error {
 	if err := checkStatID(id, "STAT_SUB"); err != nil {
 		return err
 	}
-	base := s.Self.StatBase(id)
-	cur := s.Self.Stat(id)
+	base := s.activePlayer().StatBase(id)
+	cur := s.activePlayer().Stat(id)
 	unclamped := cur - (constant + (base*percent)/100)
 	subbed := unclamped
 	if subbed < 0 {
 		subbed = 0
 	}
-	s.Self.SetCurLevel(id, subbed)
+	s.activePlayer().SetCurLevel(id, subbed)
 	// TS PlayerOps.ts:534-536 — pre-clamp predicate.
 	if unclamped != cur {
-		s.Self.ChangeStat(id)
+		s.activePlayer().ChangeStat(id)
 	}
 	return nil
 }
@@ -438,8 +444,8 @@ func handleStatBoost(s *ScriptState) error {
 	if err := checkStatID(id, "STAT_BOOST"); err != nil {
 		return err
 	}
-	base := s.Self.StatBase(id)
-	cur := s.Self.Stat(id)
+	base := s.activePlayer().StatBase(id)
+	cur := s.activePlayer().Stat(id)
 	boost := constant + (base*percent)/100
 	boosted := cur + boost
 	if ceiling := base + boost; boosted > ceiling {
@@ -456,15 +462,15 @@ func handleStatBoost(s *ScriptState) error {
 	if boosted > 255 {
 		boosted = 255
 	}
-	s.Self.SetCurLevel(id, boosted)
+	s.activePlayer().SetCurLevel(id, boosted)
 	// TS PlayerOps.ts:552-554 — same HP-full clear tail as STAT_ADD.
 	// NAI-120 Bundle 2D follow-up.
-	if id == objtype.PlayerStatHitpoints && s.Self.Stat(objtype.PlayerStatHitpoints) >= s.Self.StatBase(objtype.PlayerStatHitpoints) {
-		s.Self.HeroPointsClear()
+	if id == objtype.PlayerStatHitpoints && s.activePlayer().Stat(objtype.PlayerStatHitpoints) >= s.activePlayer().StatBase(objtype.PlayerStatHitpoints) {
+		s.activePlayer().HeroPointsClear()
 	}
 	// TS PlayerOps.ts:555-557 — pre-clamp predicate (`if (boosted !== current)`).
 	if unclamped != cur {
-		s.Self.ChangeStat(id)
+		s.activePlayer().ChangeStat(id)
 	}
 	return nil
 }
@@ -492,16 +498,16 @@ func handleStatDrain(s *ScriptState) error {
 	if err := checkStatID(id, "STAT_DRAIN"); err != nil {
 		return err
 	}
-	cur := s.Self.Stat(id)
+	cur := s.activePlayer().Stat(id)
 	unclamped := cur - (constant + (cur*percent)/100)
 	subbed := unclamped
 	if subbed < 0 {
 		subbed = 0
 	}
-	s.Self.SetCurLevel(id, subbed)
+	s.activePlayer().SetCurLevel(id, subbed)
 	// TS PlayerOps.ts:572-574 — pre-clamp predicate.
 	if unclamped != cur {
-		s.Self.ChangeStat(id)
+		s.activePlayer().ChangeStat(id)
 	}
 	return nil
 }
@@ -534,8 +540,8 @@ func handleStatHeal(s *ScriptState) error {
 	if err := checkStatID(id, "STAT_HEAL"); err != nil {
 		return err
 	}
-	base := s.Self.StatBase(id)
-	cur := s.Self.Stat(id)
+	base := s.activePlayer().StatBase(id)
+	cur := s.activePlayer().Stat(id)
 	unclamped := cur + (constant + (base*percent)/100)
 	healed := unclamped
 	if healed > base {
@@ -544,17 +550,17 @@ func handleStatHeal(s *ScriptState) error {
 	if healed < cur {
 		healed = cur
 	}
-	s.Self.SetCurLevel(id, healed)
+	s.activePlayer().SetCurLevel(id, healed)
 	// TS PlayerOps.ts:609-611 — same HP-full clear tail as STAT_ADD / STAT_BOOST.
 	// NAI-120 Bundle 2D follow-up.
-	if id == objtype.PlayerStatHitpoints && s.Self.Stat(objtype.PlayerStatHitpoints) >= s.Self.StatBase(objtype.PlayerStatHitpoints) {
-		s.Self.HeroPointsClear()
+	if id == objtype.PlayerStatHitpoints && s.activePlayer().Stat(objtype.PlayerStatHitpoints) >= s.activePlayer().StatBase(objtype.PlayerStatHitpoints) {
+		s.activePlayer().HeroPointsClear()
 	}
 	// TS PlayerOps.ts:613-615 — pre-clamp predicate (`if (healed !== current)`).
 	// `healed` in TS at the predicate read is the raw `cur + (constant +
 	// (base*percent)/100)` BEFORE both the min(base) cap and max(cur) floor.
 	if unclamped != cur {
-		s.Self.ChangeStat(id)
+		s.activePlayer().ChangeStat(id)
 	}
 	return nil
 }
@@ -582,7 +588,7 @@ func handleStatAdvance(s *ScriptState) error {
 	if err := checkStatID(id, "STAT_ADVANCE"); err != nil {
 		return err
 	}
-	s.Self.AddXP(id, xp)
+	s.activePlayer().AddXP(id, xp)
 	return nil
 }
 
@@ -607,7 +613,7 @@ func handleStatRandom(s *ScriptState) error {
 	if err := checkStatID(id, "STAT_RANDOM"); err != nil {
 		return err
 	}
-	level := s.Self.Stat(id)
+	level := s.activePlayer().Stat(id)
 	value := (low*(99-level))/98 + (high*(level-1))/98 + 1
 	chance := rand.IntN(256)
 	if value > chance {
@@ -625,7 +631,7 @@ func handleCoord(s *ScriptState) error {
 	if err := requireActivePlayer(s, "COORD"); err != nil {
 		return err
 	}
-	s.PushInt(s.Self.CoordPacked())
+	s.PushInt(s.activePlayer().CoordPacked())
 	return nil
 }
 
@@ -638,7 +644,7 @@ func handleDisplayName(s *ScriptState) error {
 	if err := requireActivePlayer(s, "DISPLAYNAME"); err != nil {
 		return err
 	}
-	s.PushString(s.Self.DisplayName())
+	s.PushString(s.activePlayer().DisplayName())
 	return nil
 }
 
@@ -650,7 +656,7 @@ func handleFaceSquare(s *ScriptState) error {
 		return err
 	}
 	_, x, z := unpackCoord(s.PopInt())
-	s.Self.FaceSquare(x, z)
+	s.activePlayer().FaceSquare(x, z)
 	return nil
 }
 
@@ -672,8 +678,8 @@ func handlePTeleport(s *ScriptState) error {
 			scriptName = s.Script.Name
 		}
 		if s.Self != nil {
-			selfCoord = s.Self.CoordPacked()
-			selfName = s.Self.Username()
+			selfCoord = s.activePlayer().CoordPacked()
+			selfName = s.activePlayer().Username()
 		}
 		slog.Info("p_teleport",
 			"script_name", scriptName,
@@ -687,7 +693,7 @@ func handlePTeleport(s *ScriptState) error {
 		)
 	}
 
-	s.Self.Teleport(x, z, level)
+	s.activePlayer().Teleport(x, z, level)
 	return nil
 }
 
@@ -697,7 +703,7 @@ func handlePTeleJump(s *ScriptState) error {
 		return err
 	}
 	level, x, z := unpackCoord(s.PopInt())
-	s.Self.TeleJump(x, z, level)
+	s.activePlayer().TeleJump(x, z, level)
 	return nil
 }
 
@@ -729,8 +735,8 @@ func handlePExactMove(s *ScriptState) error {
 	if err != nil {
 		return err
 	}
-	s.Self.UnsetMapFlag()
-	s.Self.ExactMove(sX, sZ, eX, eZ, startCycle, endCycle, direction)
+	s.activePlayer().UnsetMapFlag()
+	s.activePlayer().ExactMove(sX, sZ, eX, eZ, startCycle, endCycle, direction)
 	return nil
 }
 
@@ -748,7 +754,7 @@ func handlePWalk(s *ScriptState) error {
 	if err != nil {
 		return err
 	}
-	s.Self.Walk(destX, destZ)
+	s.activePlayer().Walk(destX, destZ)
 	return nil
 }
 
@@ -768,8 +774,8 @@ func handlePRun(s *ScriptState) error {
 		return err
 	}
 	v := s.PopInt()
-	s.Self.SetRun(v)
-	varpID := s.Self.RunVarpID()
+	s.activePlayer().SetRun(v)
+	varpID := s.activePlayer().RunVarpID()
 	if s.NodeDebug && s.Log != nil {
 		var (
 			scriptName string
@@ -782,7 +788,7 @@ func handlePRun(s *ScriptState) error {
 		if s.World != nil {
 			tick = s.World.CurrentTick()
 		}
-		varpPre = s.Self.Varp(varpID)
+		varpPre = s.activePlayer().Varp(varpID)
 		s.Log.Info("nai138.p_run",
 			"script_name", scriptName,
 			"script_pc", s.PC,
@@ -793,7 +799,7 @@ func handlePRun(s *ScriptState) error {
 		)
 	}
 	// todo: better way to sync engine varp (mirrored from TS PlayerOps.ts:1207)
-	s.Self.SetVarp(varpID, int32(v))
+	s.activePlayer().SetVarp(varpID, int32(v))
 	return nil
 }
 
@@ -806,7 +812,7 @@ func handleRunEnergy(s *ScriptState) error {
 	if err := requireActivePlayer(s, "RUNENERGY"); err != nil {
 		return err
 	}
-	s.PushInt(s.Self.RunEnergy())
+	s.PushInt(s.activePlayer().RunEnergy())
 	return nil
 }
 
@@ -819,7 +825,7 @@ func handleAnim(s *ScriptState) error {
 	}
 	delay := s.PopInt()
 	seq := s.PopInt()
-	s.Self.PlayAnim(seq, delay)
+	s.activePlayer().PlayAnim(seq, delay)
 	return nil
 }
 
@@ -837,7 +843,7 @@ func handleSpotAnimPl(s *ScriptState) error {
 	}
 	height := s.PopInt()
 	spotanim := s.PopInt()
-	s.Self.PlaySpotAnim(spotanim, height, delay)
+	s.activePlayer().PlaySpotAnim(spotanim, height, delay)
 	return nil
 }
 
@@ -852,7 +858,7 @@ func handleReadyAnim(s *ScriptState) error {
 	if err := checkSeqType(s, seq, "READYANIM"); err != nil {
 		return err
 	}
-	s.Self.SetReadyAnim(seq)
+	s.activePlayer().SetReadyAnim(seq)
 	return nil
 }
 
@@ -866,7 +872,7 @@ func handleTurnAnim(s *ScriptState) error {
 	if err := checkSeqType(s, seq, "TURNANIM"); err != nil {
 		return err
 	}
-	s.Self.SetTurnAnim(seq)
+	s.activePlayer().SetTurnAnim(seq)
 	return nil
 }
 
@@ -880,7 +886,7 @@ func handleWalkAnim(s *ScriptState) error {
 	if err := checkSeqType(s, seq, "WALKANIM"); err != nil {
 		return err
 	}
-	s.Self.SetWalkAnim(seq)
+	s.activePlayer().SetWalkAnim(seq)
 	return nil
 }
 
@@ -894,7 +900,7 @@ func handleWalkAnimB(s *ScriptState) error {
 	if err := checkSeqType(s, seq, "WALKANIM_B"); err != nil {
 		return err
 	}
-	s.Self.SetWalkAnimB(seq)
+	s.activePlayer().SetWalkAnimB(seq)
 	return nil
 }
 
@@ -908,7 +914,7 @@ func handleWalkAnimL(s *ScriptState) error {
 	if err := checkSeqType(s, seq, "WALKANIM_L"); err != nil {
 		return err
 	}
-	s.Self.SetWalkAnimL(seq)
+	s.activePlayer().SetWalkAnimL(seq)
 	return nil
 }
 
@@ -922,7 +928,7 @@ func handleWalkAnimR(s *ScriptState) error {
 	if err := checkSeqType(s, seq, "WALKANIM_R"); err != nil {
 		return err
 	}
-	s.Self.SetWalkAnimR(seq)
+	s.activePlayer().SetWalkAnimR(seq)
 	return nil
 }
 
@@ -935,13 +941,13 @@ func handleRunAnim(s *ScriptState) error {
 	}
 	seq := s.PopInt()
 	if seq == -1 {
-		s.Self.SetRunAnim(-1)
+		s.activePlayer().SetRunAnim(-1)
 		return nil
 	}
 	if err := checkSeqType(s, seq, "RUNANIM"); err != nil {
 		return err
 	}
-	s.Self.SetRunAnim(seq)
+	s.activePlayer().SetRunAnim(seq)
 	return nil
 }
 
@@ -952,7 +958,7 @@ func handleWalkTrigger(s *ScriptState) error {
 	if err := requireActivePlayer(s, "WALKTRIGGER"); err != nil {
 		return err
 	}
-	s.Self.SetWalkTrigger(s.PopInt())
+	s.activePlayer().SetWalkTrigger(s.PopInt())
 	return nil
 }
 
@@ -963,7 +969,7 @@ func handleGetWalkTrigger(s *ScriptState) error {
 	if err := requireActivePlayer(s, "GETWALKTRIGGER"); err != nil {
 		return err
 	}
-	s.PushInt(s.Self.WalkTrigger())
+	s.PushInt(s.activePlayer().WalkTrigger())
 	return nil
 }
 
@@ -973,7 +979,7 @@ func handlePStopAction(s *ScriptState) error {
 	if err := requireProtectedActivePlayer(s, "P_STOPACTION"); err != nil {
 		return err
 	}
-	s.Self.StopAction()
+	s.activePlayer().StopAction()
 	return nil
 }
 
@@ -981,7 +987,7 @@ func handlePClearPendingAction(s *ScriptState) error {
 	if err := requireProtectedActivePlayer(s, "P_CLEARPENDINGACTION"); err != nil {
 		return err
 	}
-	s.Self.ClearPendingAction()
+	s.activePlayer().ClearPendingAction()
 	return nil
 }
 
@@ -996,7 +1002,7 @@ func handleSessionLog(s *ScriptState) error {
 	}
 	eventType := s.PopInt() + 2
 	event := s.PopString()
-	s.Self.AddSessionLog(eventType, event)
+	s.activePlayer().AddSessionLog(eventType, event)
 	return nil
 }
 
@@ -1007,7 +1013,7 @@ func handlePLogout(s *ScriptState) error {
 	if err := requireProtectedActivePlayer(s, "P_LOGOUT"); err != nil {
 		return err
 	}
-	s.Self.RequestLogout()
+	s.activePlayer().RequestLogout()
 	return nil
 }
 
@@ -1028,7 +1034,7 @@ func handlePApRange(s *ScriptState) error {
 	if err := checkNotNull(n, "P_APRANGE"); err != nil {
 		return err
 	}
-	s.Self.SetApRange(n)
+	s.activePlayer().SetApRange(n)
 	return nil
 }
 
@@ -1079,12 +1085,12 @@ func handleP_OpLoc(s *ScriptState) error {
 			return nil
 		}
 	}
-	s.Self.StopAction()
-	if !s.Self.InOperableDistance(s.ActiveLoc) {
+	s.activePlayer().StopAction()
+	if !s.activePlayer().InOperableDistance(s.ActiveLoc) {
 		x, z, _ := s.ActiveLoc.Coords()
-		s.Self.QueueWaypoint(x, z)
+		s.activePlayer().QueueWaypoint(x, z)
 	}
-	s.Self.SetInteractionScriptLoc(s.ActiveLoc, op)
+	s.activePlayer().SetInteractionScriptLoc(s.ActiveLoc, op)
 	return nil
 }
 
@@ -1121,8 +1127,8 @@ func handleP_OpNpc(s *ScriptState) error {
 			return nil
 		}
 	}
-	s.Self.StopAction()
-	s.Self.SetInteractionScriptNpc(s.ActiveNpc, op)
+	s.activePlayer().StopAction()
+	s.activePlayer().SetInteractionScriptNpc(s.ActiveNpc, op)
 	return nil
 }
 
@@ -1184,7 +1190,7 @@ func handlePFindUID(s *ScriptState) error {
 	// composeUID-derived uint32-bit-pattern as a positive Go int. Both
 	// sides agree on the bottom 32 bits; sign-extension reconciles them.
 	if operand == 0 {
-		if s.Pointers&PtrProtectedActivePlayer != 0 && s.Self != nil && int32(s.Self.UID()) == int32(uid) {
+		if s.Pointers&PtrProtectedActivePlayer != 0 && s.Self != nil && int32(s.activePlayer().UID()) == int32(uid) {
 			s.PushInt(1)
 			return nil
 		}
@@ -1230,10 +1236,10 @@ func handleMidiSong(s *ScriptState) error {
 	if err := requireActivePlayer(s, "MIDI_SONG"); err != nil {
 		return err
 	}
-	if s.Self.LowMemory() {
+	if s.activePlayer().LowMemory() {
 		return nil
 	}
-	s.Self.PlaySong(name)
+	s.activePlayer().PlaySong(name)
 	return nil
 }
 
@@ -1259,10 +1265,10 @@ func handleMidiJingle(s *ScriptState) error {
 	if err := requireActivePlayer(s, "MIDI_JINGLE"); err != nil {
 		return err
 	}
-	if s.Self.LowMemory() {
+	if s.activePlayer().LowMemory() {
 		return nil
 	}
-	s.Self.PlayJingle(delay, name)
+	s.activePlayer().PlayJingle(delay, name)
 	return nil
 }
 
@@ -1285,10 +1291,10 @@ func handleSoundSynth(s *ScriptState) error {
 	if err := requireActivePlayer(s, "SOUND_SYNTH"); err != nil {
 		return err
 	}
-	if s.Self.LowMemory() {
+	if s.activePlayer().LowMemory() {
 		return nil
 	}
-	s.Self.PlaySynth(synth, loops, delay)
+	s.activePlayer().PlaySynth(synth, loops, delay)
 	return nil
 }
 
@@ -1383,7 +1389,7 @@ func handleHintNpc(s *ScriptState) error {
 	if err := requireActiveNpc(s, "HINT_NPC"); err != nil {
 		return err
 	}
-	s.Self.HintNpc(s.ActiveNpc.Nid())
+	s.activePlayer().HintNpc(s.ActiveNpc.Nid())
 	return nil
 }
 
@@ -1403,7 +1409,7 @@ func handleHintCoord(s *ScriptState) error {
 	if err != nil {
 		return err
 	}
-	s.Self.HintCoord(offset, x, z, height)
+	s.activePlayer().HintCoord(offset, x, z, height)
 	return nil
 }
 
@@ -1421,7 +1427,7 @@ func handleHintPl(s *ScriptState) error {
 	if err := requireActivePlayer2(s, "HINT_PL"); err != nil {
 		return err
 	}
-	s.Self.HintPlayer(s.Self2.Slot())
+	s.activePlayer().HintPlayer(s.Self2.Slot())
 	return nil
 }
 
@@ -1432,7 +1438,7 @@ func handleHintStop(s *ScriptState) error {
 	if err := requireActivePlayer(s, "HINT_STOP"); err != nil {
 		return err
 	}
-	s.Self.HintStop()
+	s.activePlayer().HintStop()
 	return nil
 }
 
@@ -1449,7 +1455,7 @@ func handleTextGender(s *ScriptState) error {
 	}
 	female := s.PopString()
 	male := s.PopString()
-	if s.Self.Gender() == 0 {
+	if s.activePlayer().Gender() == 0 {
 		s.PushString(male)
 	} else {
 		s.PushString(female)
@@ -1490,9 +1496,9 @@ func handleP_OpObj(s *ScriptState) error {
 		return nil // TS: type.op[op-1] === null → silent skip
 	}
 	x, z, _ := s.ActiveObj.Coords()
-	s.Self.StopAction()
-	s.Self.QueueWaypoint(x, z)
-	s.Self.SetInteractionScriptObj(s.ActiveObj, op)
+	s.activePlayer().StopAction()
+	s.activePlayer().QueueWaypoint(x, z)
+	s.activePlayer().SetInteractionScriptObj(s.ActiveObj, op)
 	return nil
 }
 
@@ -1503,7 +1509,7 @@ func handleLowMem(s *ScriptState) error {
 	if err := requireActivePlayer(s, "LOWMEM"); err != nil {
 		return err
 	}
-	if s.Self.LowMemory() {
+	if s.activePlayer().LowMemory() {
 		s.PushInt(1)
 	} else {
 		s.PushInt(0)
@@ -1524,7 +1530,7 @@ func handleBusy(s *ScriptState) error {
 	if err := requireActivePlayer(s, "BUSY"); err != nil {
 		return err
 	}
-	if s.Self.Busy() || s.Self.LoggingOut() {
+	if s.activePlayer().Busy() || s.activePlayer().LoggingOut() {
 		s.PushInt(1)
 	} else {
 		s.PushInt(0)
@@ -1544,7 +1550,7 @@ func handleBusy2(s *ScriptState) error {
 	if err := requireActivePlayer(s, "BUSY2"); err != nil {
 		return err
 	}
-	if s.Self.HasInteraction() || s.Self.HasWaypoints() {
+	if s.activePlayer().HasInteraction() || s.activePlayer().HasWaypoints() {
 		s.PushInt(1)
 	} else {
 		s.PushInt(0)
@@ -1576,8 +1582,8 @@ func handlePOpNpcT(s *ScriptState) error {
 	if err := checkNotNull(spellCom, "P_OPNPCT"); err != nil {
 		return err
 	}
-	s.Self.StopAction()
-	s.Self.SetInteractionScriptNpcT(s.ActiveNpc, spellCom)
+	s.activePlayer().StopAction()
+	s.activePlayer().SetInteractionScriptNpcT(s.ActiveNpc, spellCom)
 	return nil
 }
 
@@ -1614,8 +1620,8 @@ func handlePOpPlayer(s *ScriptState) error {
 	if s.Self2 == nil {
 		return nil // TS-faithful silent return
 	}
-	s.Self.StopAction()
-	s.Self.SetInteractionScriptPlayer(s.Self2, op)
+	s.activePlayer().StopAction()
+	s.activePlayer().SetInteractionScriptPlayer(s.Self2, op)
 	return nil
 }
 
@@ -1635,6 +1641,10 @@ func handleFindHero(s *ScriptState) error {
 		s.PushInt(0)
 		return nil
 	}
+	// FINDHERO reads the PRIMARY player's hero ledger and always binds the
+	// result to the secondary slot (see doc-comment); the int operand here is
+	// not the simple 0/1 player selector, so keep s.Self rather than the
+	// operand-aware accessor. Pinned by TestFindHero_PopulatedAlwaysSetsSelf2.
 	uid := s.Self.TopContributor()
 	if uid == 0 {
 		s.PushInt(0)
@@ -1689,7 +1699,7 @@ func handleBothHeroPoints(s *ScriptState) error {
 //
 // Note: no PtrActivePlayer gate — TS uses raw `state =>`, not
 // checkedHandler. This is intentional and not a deviation; the
-// handler is UID-driven and never reads s.Self. Pinned by
+// handler is UID-driven and never reads s.activePlayer(). Pinned by
 // TestDamage_NoPointerGate.
 func handleDamage(s *ScriptState) error {
 	amount := s.PopInt()
@@ -1718,7 +1728,7 @@ func handleDamage(s *ScriptState) error {
 // Pinned by TestGender_Male/Female (no PtrActivePlayer in fixture).
 // Retire only if upstream TS adds a checkedHandler wrapping.
 func handleGender(s *ScriptState) error {
-	s.PushInt(s.Self.Gender())
+	s.PushInt(s.activePlayer().Gender())
 	return nil
 }
 
@@ -1729,7 +1739,7 @@ func handlePlayerMember(s *ScriptState) error {
 	if err := requireActivePlayer(s, "PLAYERMEMBER"); err != nil {
 		return err
 	}
-	if s.Self.Members() {
+	if s.activePlayer().Members() {
 		s.PushInt(1)
 	} else {
 		s.PushInt(0)
@@ -1755,7 +1765,7 @@ func handlePPreventLogout(s *ScriptState) error {
 	}
 	ticks := s.PopInt()
 	msg := s.PopString()
-	s.Self.SetPreventLogout(msg, s.World.CurrentTick()+ticks)
+	s.activePlayer().SetPreventLogout(msg, s.World.CurrentTick()+ticks)
 	return nil
 }
 
@@ -1775,13 +1785,13 @@ func handleAfkEvent(s *ScriptState) error {
 	if err := requireActivePlayer(s, "AFK_EVENT"); err != nil {
 		return err
 	}
-	eligible := (s.NodeDebug || s.Self.StaffModLevel() < 2) && s.Self.AfkEventReady()
+	eligible := (s.NodeDebug || s.activePlayer().StaffModLevel() < 2) && s.activePlayer().AfkEventReady()
 	if eligible {
 		s.PushInt(1)
 	} else {
 		s.PushInt(0)
 	}
-	s.Self.SetAfkEventReady(false)
+	s.activePlayer().SetAfkEventReady(false)
 	return nil
 }
 
@@ -1792,7 +1802,7 @@ func handleWeight(s *ScriptState) error {
 	if err := requireProtectedActivePlayer(s, "WEIGHT"); err != nil {
 		return err
 	}
-	s.PushInt(s.Self.RunWeight())
+	s.PushInt(s.activePlayer().RunWeight())
 	return nil
 }
 
@@ -1813,13 +1823,13 @@ func handleHealEnergy(s *ScriptState) error {
 	if err := checkNotNull(amount, "HEAL_ENERGY"); err != nil {
 		return err
 	}
-	next := s.Self.RunEnergy() + amount
+	next := s.activePlayer().RunEnergy() + amount
 	if next < 0 {
 		next = 0
 	} else if next > 10000 {
 		next = 10000
 	}
-	s.Self.SetRunEnergy(next)
+	s.activePlayer().SetRunEnergy(next)
 	return nil
 }
 
@@ -1841,7 +1851,7 @@ func handleSetSkinColour(s *ScriptState) error {
 	if err := checkSkinColour(skin, "SETSKINCOLOUR"); err != nil {
 		return err
 	}
-	s.Self.SetColorPart(4, skin)
+	s.activePlayer().SetColorPart(4, skin)
 	return nil
 }
 
@@ -1874,7 +1884,7 @@ func handleSetGender(s *ScriptState) error {
 	if err := checkGender(gender, "SETGENDER"); err != nil {
 		return err
 	}
-	s.Self.SetGender(gender)
+	s.activePlayer().SetGender(gender)
 	return nil
 }
 
@@ -1886,7 +1896,7 @@ func handleSay(s *ScriptState) error {
 		return err
 	}
 	text := s.PopString()
-	s.Self.Say([]byte(text))
+	s.activePlayer().Say([]byte(text))
 	return nil
 }
 
@@ -1900,7 +1910,7 @@ func handleHeadIconsGet(s *ScriptState) error {
 	if err := requireActivePlayer(s, "HEADICONS_GET"); err != nil {
 		return err
 	}
-	s.PushInt(s.Self.HeadIcons())
+	s.PushInt(s.activePlayer().HeadIcons())
 	return nil
 }
 
@@ -1919,7 +1929,7 @@ func handleHeadIconsSet(s *ScriptState) error {
 	if err := checkNotNull(v, "HEADICONS_SET"); err != nil {
 		return err
 	}
-	s.Self.SetHeadIcons(v)
+	s.activePlayer().SetHeadIcons(v)
 	return nil
 }
 
@@ -1932,7 +1942,7 @@ func handleClearQueue(s *ScriptState) error {
 	if err := requireActivePlayer(s, "CLEARQUEUE"); err != nil {
 		return err
 	}
-	s.Self.UnlinkQueuedScript(s.PopInt())
+	s.activePlayer().UnlinkQueuedScript(s.PopInt())
 	return nil
 }
 
@@ -1945,7 +1955,7 @@ func handleGetQueue(s *ScriptState) error {
 	if err := requireActivePlayer(s, "GETQUEUE"); err != nil {
 		return err
 	}
-	s.PushInt(s.Self.QueueCount(s.PopInt()))
+	s.PushInt(s.activePlayer().QueueCount(s.PopInt()))
 	return nil
 }
 
@@ -1981,8 +1991,8 @@ func handlePOpPlayerT(s *ScriptState) error {
 	if s.Self2 == nil || s.Pointers&PtrActivePlayer2 == 0 {
 		return nil // silent — TS PlayerOps.ts:1130-1132
 	}
-	s.Self.StopAction()
-	s.Self.SetInteractionScriptPlayer(s.Self2, spellID)
+	s.activePlayer().StopAction()
+	s.activePlayer().SetInteractionScriptPlayer(s.Self2, spellID)
 	return nil
 }
 
@@ -2047,7 +2057,7 @@ func handleWealthEvent(s *ScriptState) error {
 			objID = t.ID
 		}
 	}
-	s.Self.AddWealthEvent(WealthEvent{
+	s.activePlayer().AddWealthEvent(WealthEvent{
 		EventType:    eventType,
 		AccountItems: []WealthItem{{ID: objID, Name: name, Count: count}},
 		AccountValue: value,
@@ -2061,6 +2071,6 @@ func handleLastLoginInfo(s *ScriptState) error {
 	if err := requireActivePlayer(s, "LAST_LOGIN_INFO"); err != nil {
 		return err
 	}
-	s.Self.LastLoginInfo()
+	s.activePlayer().LastLoginInfo()
 	return nil
 }

@@ -54,7 +54,7 @@ func handlePCountDialog(s *ScriptState) error {
 	if err := requireProtectedActivePlayer(s, "P_COUNTDIALOG"); err != nil {
 		return err
 	}
-	s.Self.SendCountDialog()
+	s.activePlayer().SendCountDialog()
 	s.Execution = CountDialog
 	return nil
 }
@@ -62,10 +62,10 @@ func handlePCountDialog(s *ScriptState) error {
 // handleLastCom pushes the active player's lastCom field — the
 // component id most recently clicked.
 func handleLastCom(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("LAST_COM: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "LAST_COM"); err != nil {
+		return err
 	}
-	s.PushInt(s.Self.LastCom())
+	s.PushInt(s.activePlayer().LastCom())
 	return nil
 }
 
@@ -87,61 +87,61 @@ func handleLastInt(s *ScriptState) error {
 
 // handleLastItem mirrors TS PlayerOps.ts:259-279.
 func handleLastItem(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("LAST_ITEM: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "LAST_ITEM"); err != nil {
+		return err
 	}
 	if !slices.Contains(allowedLastItem, s.Trigger) {
 		return fmt.Errorf("LAST_ITEM: %w", ErrTriggerUnsafe)
 	}
-	s.PushInt(s.Self.LastItem())
+	s.PushInt(s.activePlayer().LastItem())
 	return nil
 }
 
 // handleLastSlot mirrors TS PlayerOps.ts:281-302.
 func handleLastSlot(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("LAST_SLOT: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "LAST_SLOT"); err != nil {
+		return err
 	}
 	if !slices.Contains(allowedLastSlot, s.Trigger) {
 		return fmt.Errorf("LAST_SLOT: %w", ErrTriggerUnsafe)
 	}
-	s.PushInt(s.Self.LastSlot())
+	s.PushInt(s.activePlayer().LastSlot())
 	return nil
 }
 
 // handleLastUseItem mirrors TS PlayerOps.ts:304-321.
 func handleLastUseItem(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("LAST_USEITEM: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "LAST_USEITEM"); err != nil {
+		return err
 	}
 	if !slices.Contains(allowedLastUseItem, s.Trigger) {
 		return fmt.Errorf("LAST_USEITEM: %w", ErrTriggerUnsafe)
 	}
-	s.PushInt(s.Self.LastUseItem())
+	s.PushInt(s.activePlayer().LastUseItem())
 	return nil
 }
 
 // handleLastUseSlot mirrors TS PlayerOps.ts:323-340.
 func handleLastUseSlot(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("LAST_USESLOT: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "LAST_USESLOT"); err != nil {
+		return err
 	}
 	if !slices.Contains(allowedLastUseSlot, s.Trigger) {
 		return fmt.Errorf("LAST_USESLOT: %w", ErrTriggerUnsafe)
 	}
-	s.PushInt(s.Self.LastUseSlot())
+	s.PushInt(s.activePlayer().LastUseSlot())
 	return nil
 }
 
 // handleLastTargetSlot mirrors TS PlayerOps.ts:1026-1033.
 func handleLastTargetSlot(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("LAST_TARGETSLOT: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "LAST_TARGETSLOT"); err != nil {
+		return err
 	}
 	if !slices.Contains(allowedLastTargetSlot, s.Trigger) {
 		return fmt.Errorf("LAST_TARGETSLOT: %w", ErrTriggerUnsafe)
 	}
-	s.PushInt(s.Self.LastTargetSlot())
+	s.PushInt(s.activePlayer().LastTargetSlot())
 	return nil
 }
 
@@ -149,10 +149,10 @@ func handleLastTargetSlot(s *ScriptState) error {
 // Takes no args. Used by the LOGIN script and teleport-spell scripts
 // to restore the default camera after cutscene-style manipulations.
 func handleCamReset(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("CAM_RESET: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "CAM_RESET"); err != nil {
+		return err
 	}
-	s.Self.CamReset()
+	s.activePlayer().CamReset()
 	return nil
 }
 
@@ -162,14 +162,14 @@ func handleCamReset(s *ScriptState) error {
 // int $amplitude, int $rate)`); goscape's PopInt returns them in reverse.
 // Mirrors TS PlayerOps.ts:220-224.
 func handleCamShake(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("CAM_SHAKE: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "CAM_SHAKE"); err != nil {
+		return err
 	}
 	rate := s.PopInt()
 	amplitude := s.PopInt()
 	random := s.PopInt()
 	axis := s.PopInt()
-	s.Self.CamShake(axis, random, amplitude, rate)
+	s.activePlayer().CamShake(axis, random, amplitude, rate)
 	return nil
 }
 
@@ -180,8 +180,8 @@ func handleCamShake(s *ScriptState) error {
 // reverses, so we pop rate2, rate, height, coord. Mirrors TS
 // PlayerOps.ts:213-218.
 func handleCamMoveTo(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("CAM_MOVETO: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "CAM_MOVETO"); err != nil {
+		return err
 	}
 	rate2 := s.PopInt()
 	rate := s.PopInt()
@@ -191,15 +191,15 @@ func handleCamMoveTo(s *ScriptState) error {
 	if err != nil {
 		return err
 	}
-	s.Self.CamMoveTo(x, z, height, rate, rate2)
+	s.activePlayer().CamMoveTo(x, z, height, rate, rate2)
 	return nil
 }
 
 // handleCamLookAt is identical to handleCamMoveTo except it dispatches
 // to CamLookAt (kind=1). Mirrors TS PlayerOps.ts:206-211.
 func handleCamLookAt(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("CAM_LOOKAT: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "CAM_LOOKAT"); err != nil {
+		return err
 	}
 	rate2 := s.PopInt()
 	rate := s.PopInt()
@@ -209,7 +209,7 @@ func handleCamLookAt(s *ScriptState) error {
 	if err != nil {
 		return err
 	}
-	s.Self.CamLookAt(x, z, height, rate, rate2)
+	s.activePlayer().CamLookAt(x, z, height, rate, rate2)
 	return nil
 }
 
@@ -217,10 +217,10 @@ func handleCamLookAt(s *ScriptState) error {
 // level (0 for regular players, >0 for mods/admins). Used by update_all
 // and other login procs that branch on mod status.
 func handleStaffModLevel(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("STAFFMODLEVEL: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "STAFFMODLEVEL"); err != nil {
+		return err
 	}
-	s.PushInt(int(s.Self.StaffModLevel()))
+	s.PushInt(int(s.activePlayer().StaffModLevel()))
 	return nil
 }
 
@@ -230,9 +230,9 @@ func handleStaffModLevel(s *ScriptState) error {
 // instance (e.g. after a dialogue suspend). Matches TS:
 // state.pushInt(state.activePlayer.uid).
 func handleUID(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("UID: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "UID"); err != nil {
+		return err
 	}
-	s.PushInt(s.Self.UID())
+	s.PushInt(s.activePlayer().UID())
 	return nil
 }

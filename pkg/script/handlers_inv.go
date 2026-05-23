@@ -485,16 +485,16 @@ func performInvAdd(s *ScriptState, typeID, obj, count int, op string) error {
 
 	overflow := count - tx.Completed
 	if overflow > 0 && s.World != nil {
-		level := (s.Self.CoordPacked() >> 28) & 0x3
-		x := s.Self.X()
-		z := s.Self.Z()
-		receiverID := s.Self.UID()
+		level := (s.activePlayer().CoordPacked() >> 28) & 0x3
+		x := s.activePlayer().X()
+		z := s.activePlayer().Z()
+		receiverID := s.activePlayer().UID()
 		if !stackable || overflow == 1 {
 			for range overflow {
-				s.World.AddObj(level, x, z, obj, 1, 200, receiverID, s.Self.AccountID())
+				s.World.AddObj(level, x, z, obj, 1, 200, receiverID, s.activePlayer().AccountID())
 			}
 		} else {
-			s.World.AddObj(level, x, z, obj, overflow, 200, receiverID, s.Self.AccountID())
+			s.World.AddObj(level, x, z, obj, overflow, 200, receiverID, s.activePlayer().AccountID())
 		}
 	}
 
@@ -868,7 +868,7 @@ func handleInvTransmit(s *ScriptState) error {
 	if err := checkNotNull(com, "INV_TRANSMIT"); err != nil {
 		return err
 	}
-	s.Self.InvListenOnCom(invType, com, s.Self.UID())
+	s.activePlayer().InvListenOnCom(invType, com, s.activePlayer().UID())
 	return nil
 }
 
@@ -886,7 +886,7 @@ func handleInvStopTransmit(s *ScriptState) error {
 	if err := checkNotNull(com, "INV_STOPTRANSMIT"); err != nil {
 		return err
 	}
-	s.Self.InvStopListenOnCom(com)
+	s.activePlayer().InvStopListenOnCom(com)
 	return nil
 }
 
@@ -917,7 +917,7 @@ func handleInvOtherTransmit(s *ScriptState) error {
 	if err := checkNotNull(com, "INVOTHER_TRANSMIT"); err != nil {
 		return err
 	}
-	s.Self.InvListenOnCom(invType, com, uid)
+	s.activePlayer().InvListenOnCom(invType, com, uid)
 	return nil
 }
 
@@ -1013,7 +1013,7 @@ func handleInvDropSlot(s *ScriptState) error {
 	// drop (ammo drops are temp — avoid spamming ranged combat).
 	// NAI-115-D1 retired at NAI-162 B2.
 	if invType.Scope == objtype.InvTypeScopePerm {
-		s.Self.AddWealthEvent(WealthEvent{
+		s.activePlayer().AddWealthEvent(WealthEvent{
 			EventType:    WealthEventTypeDrop,
 			AccountItems: []WealthItem{{ID: objID, Name: objType.DebugName, Count: count}},
 			AccountValue: count * objType.Cost,
@@ -1037,20 +1037,20 @@ func handleInvDropSlot(s *ScriptState) error {
 	}
 
 	// Caller-only (private) drop: receiverID = active player's UID.
-	receiverID := s.Self.UID()
+	receiverID := s.activePlayer().UID()
 
 	// Stackable branch: mirrors TS InvOps.ts:248-258.
 	// state.activeObj set after each spawn; last wins for non-stackable count=N.
 	if !objType.Stackable || completed == 1 {
 		for range completed {
-			obj := s.World.AddObj(level, x, z, objID, 1, duration, receiverID, s.Self.AccountID())
+			obj := s.World.AddObj(level, x, z, objID, 1, duration, receiverID, s.activePlayer().AccountID())
 			if obj != nil {
 				s.ActiveObj = obj
 				s.Pointers |= PtrActiveObj
 			}
 		}
 	} else {
-		obj := s.World.AddObj(level, x, z, objID, completed, duration, receiverID, s.Self.AccountID())
+		obj := s.World.AddObj(level, x, z, objID, completed, duration, receiverID, s.activePlayer().AccountID())
 		if obj != nil {
 			s.ActiveObj = obj
 			s.Pointers |= PtrActiveObj
@@ -1288,10 +1288,10 @@ func handleInvMoveItemCert(s *ScriptState) error {
 	overflow := count - tx2.Completed
 	// DEVIATION-NAI-130-D2: defensive nil-World guard (goscape defensive; TS skips this check).
 	if overflow > 0 && s.World != nil {
-		level := (s.Self.CoordPacked() >> 28) & 0x3
-		receiverID := s.Self.UID()
+		level := (s.activePlayer().CoordPacked() >> 28) & 0x3
+		receiverID := s.activePlayer().UID()
 		// TS comment: "should be a stackable cert already" → single stacked drop.
-		s.World.AddObj(level, s.Self.X(), s.Self.Z(), finalObj, overflow, 200, receiverID, s.Self.AccountID())
+		s.World.AddObj(level, s.activePlayer().X(), s.activePlayer().Z(), finalObj, overflow, 200, receiverID, s.activePlayer().AccountID())
 	}
 	return nil
 }
@@ -1438,8 +1438,8 @@ func handleInvDropItem(s *ScriptState) error {
 	if s.World == nil {
 		return fmt.Errorf("INV_DROPITEM: no world surface")
 	}
-	receiverID := s.Self.UID()
-	o := s.World.AddObj(level, x, z, obj, completed, duration, receiverID, s.Self.AccountID())
+	receiverID := s.activePlayer().UID()
+	o := s.World.AddObj(level, x, z, obj, completed, duration, receiverID, s.activePlayer().AccountID())
 	if o != nil {
 		s.ActiveObj = o
 		s.Pointers |= PtrActiveObj
@@ -1478,7 +1478,7 @@ func handleInvDropItem(s *ScriptState) error {
 			SchemaVersion: 1,
 			EventId:       uuid.NewString(),
 			Ts:            timestamppb.Now(),
-			AccountId:     s.Self.AccountID(),
+			AccountId:     s.activePlayer().AccountID(),
 			WorldId:       worldID,
 			Payload: &eventspb.WealthEnvelope_ItemDropped{
 				ItemDropped: &eventspb.ItemDroppedEvent{
@@ -1628,10 +1628,10 @@ func handleBothMoveInv(s *ScriptState) error {
 			receiverID := toPlayer.UID()
 			if !objType.Stackable || overflow == 1 {
 				for range overflow {
-					s.World.AddObj(level, x, z, objID, 1, 200, receiverID, s.Self.AccountID())
+					s.World.AddObj(level, x, z, objID, 1, 200, receiverID, s.activePlayer().AccountID())
 				}
 			} else {
-				s.World.AddObj(level, x, z, objID, overflow, 200, receiverID, s.Self.AccountID())
+				s.World.AddObj(level, x, z, objID, overflow, 200, receiverID, s.activePlayer().AccountID())
 			}
 		}
 
@@ -1804,7 +1804,7 @@ func handleInvDropItemDelayed(s *ScriptState) error {
 	if s.World == nil {
 		return fmt.Errorf("INV_DROPITEM_DELAYED: no world surface")
 	}
-	s.World.EnqueueObjDelayed(level, x, z, obj, completed, duration, delay, s.Self.UID(), s.Self.AccountID())
+	s.World.EnqueueObjDelayed(level, x, z, obj, completed, duration, delay, s.activePlayer().UID(), s.activePlayer().AccountID())
 	return nil
 }
 
@@ -1992,7 +1992,7 @@ func handleBothDropSlot(s *ScriptState) error {
 	// toPlayer.Session() is not exposed through the ActivePlayer interface.
 	// (goscape adaptation; TS has toPlayer.session field access here.)
 	if invType.Scope == objtype.InvTypeScopePerm {
-		s.Self.AddWealthEvent(WealthEvent{
+		s.activePlayer().AddWealthEvent(WealthEvent{
 			EventType:        WealthEventTypePVP,
 			AccountItems:     []WealthItem{{ID: objID, Name: objType.DebugName, Count: count}},
 			AccountValue:     count * objType.Cost,
@@ -2026,7 +2026,7 @@ func handleBothDropSlot(s *ScriptState) error {
 		receiverID = toPlayer.UID()
 	}
 
-	s.World.AddObj(level, x, z, objID, completed, duration, receiverID, s.Self.AccountID())
+	s.World.AddObj(level, x, z, objID, completed, duration, receiverID, s.activePlayer().AccountID())
 	return nil
 }
 
@@ -2149,12 +2149,12 @@ func handleInvDropAll(s *ScriptState) error {
 		// PublicReceiver (-1). Mirrors TS InvOps.ts:773-778.
 		var receiverID int
 		if !tradeable {
-			receiverID = s.Self.UID()
+			receiverID = s.activePlayer().UID()
 		} else {
 			receiverID = -1 // Obj.NO_RECEIVER / PublicReceiver
 		}
 
-		s.World.AddObj(level, x, z, objID, count, duration, receiverID, s.Self.AccountID())
+		s.World.AddObj(level, x, z, objID, count, duration, receiverID, s.activePlayer().AccountID())
 	}
 
 	// Post-loop: emit single Death event if anything was accumulated.
@@ -2163,7 +2163,7 @@ func handleInvDropAll(s *ScriptState) error {
 		for _, e := range wealthLog {
 			items = append(items, WealthItem{ID: e.id, Name: e.name, Count: e.count})
 		}
-		s.Self.AddWealthEvent(WealthEvent{
+		s.activePlayer().AddWealthEvent(WealthEvent{
 			EventType:    WealthEventTypeDeath,
 			AccountItems: items,
 			AccountValue: totalValue,
@@ -2189,6 +2189,6 @@ func handleInvTotalParamStack(s *ScriptState) error {
 	}
 	param := s.PopInt()
 	inv := s.PopInt()
-	s.PushInt(s.Self.InvTotalParamStack(inv, param))
+	s.PushInt(s.activePlayer().InvTotalParamStack(inv, param))
 	return nil
 }

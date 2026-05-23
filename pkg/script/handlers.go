@@ -775,20 +775,20 @@ func handleGosubWithParams(s *ScriptState) error {
 // handleMes sends a pop'd string to the active player via MessageGame.
 // Requires PtrActivePlayer to be set and Self to be non-nil.
 func handleMes(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("MES: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "MES"); err != nil {
+		return err
 	}
-	s.Self.MessageGame(s.PopString())
+	s.activePlayer().MessageGame(s.PopString())
 	return nil
 }
 
 // handleName pushes the active player's username onto the string stack.
 // Requires PtrActivePlayer to be set and Self to be non-nil.
 func handleName(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("NAME: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "NAME"); err != nil {
+		return err
 	}
-	s.PushString(s.Self.Username())
+	s.PushString(s.activePlayer().Username())
 	return nil
 }
 
@@ -820,7 +820,7 @@ func handlePDelay(s *ScriptState) error {
 	if err := checkNotNull(n, "P_DELAY"); err != nil {
 		return err
 	}
-	s.Self.SetDelayed(n)
+	s.activePlayer().SetDelayed(n)
 	s.Execution = Suspended
 	return nil
 }
@@ -842,10 +842,10 @@ func handlePArriveDelay(s *ScriptState) error {
 	if s.World == nil {
 		return fmt.Errorf("P_ARRIVEDELAY: %w", ErrNoWorld)
 	}
-	if s.Self.LastMovement() < s.World.CurrentTick() {
+	if s.activePlayer().LastMovement() < s.World.CurrentTick() {
 		return nil
 	}
-	s.Self.SetDelayed(0)
+	s.activePlayer().SetDelayed(0)
 	s.Execution = Suspended
 	return nil
 }
@@ -925,7 +925,7 @@ func handleQueue(s *ScriptState) error {
 	arg := s.PopInt()
 	delay := s.PopInt()
 	scriptID := uint32(s.PopInt())
-	return s.Self.EnqueueScriptArgs(scriptID, delay, []int{arg}, nil, QueueNormal)
+	return s.activePlayer().EnqueueScriptArgs(scriptID, delay, []int{arg}, nil, QueueNormal)
 }
 
 // handleWeakQueue implements WEAKQUEUE (opcode 2129): pop scriptID,
@@ -943,7 +943,7 @@ func handleWeakQueue(s *ScriptState) error {
 	arg := s.PopInt()
 	delay := s.PopInt()
 	scriptID := uint32(s.PopInt())
-	return s.Self.EnqueueScriptArgs(scriptID, delay, []int{arg}, nil, QueueWeak)
+	return s.activePlayer().EnqueueScriptArgs(scriptID, delay, []int{arg}, nil, QueueWeak)
 }
 
 // handleStrongQueue implements STRONGQUEUE (opcode 2117): pop variadic
@@ -967,7 +967,7 @@ func handleStrongQueue(s *ScriptState) error {
 		return err
 	}
 	scriptID := uint32(s.PopInt())
-	return s.Self.EnqueueScriptArgs(scriptID, delay, intArgs, stringArgs, QueueStrong)
+	return s.activePlayer().EnqueueScriptArgs(scriptID, delay, intArgs, stringArgs, QueueStrong)
 }
 
 // handleLongQueue implements LONGQUEUE (opcode 2059): pop scriptID,
@@ -988,5 +988,5 @@ func handleLongQueue(s *ScriptState) error {
 	arg := s.PopInt()
 	delay := s.PopInt()
 	scriptID := uint32(s.PopInt())
-	return s.Self.EnqueueScriptArgs(scriptID, delay, []int{logoutAction, arg}, nil, QueueLong)
+	return s.activePlayer().EnqueueScriptArgs(scriptID, delay, []int{logoutAction, arg}, nil, QueueLong)
 }

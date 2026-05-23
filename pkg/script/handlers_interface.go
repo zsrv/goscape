@@ -1,7 +1,5 @@
 package script
 
-import "fmt"
-
 // S5f interface / modal opcodes. Pop orders are reverse-engineered from
 // LostCityRS/Engine-TS src/engine/script/handlers/PlayerOps.ts — the TS
 // helper popInts(n) fills the destructured slice top-down, so in
@@ -13,52 +11,52 @@ import "fmt"
 // handleIfClose implements IF_CLOSE.
 // TS PlayerOps.ts:245 — no pops; just delegates to closeModal().
 func handleIfClose(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("IF_CLOSE: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "IF_CLOSE"); err != nil {
+		return err
 	}
-	s.Self.CloseModal(true)
+	s.activePlayer().CloseModal(true)
 	return nil
 }
 
 // handleIfOpenMain implements IF_OPENMAIN.
 // TS PlayerOps.ts:719-721 — pops a single int (com); check(com, NumberNotNull) (NAI-23 Bundle 4c).
 func handleIfOpenMain(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("IF_OPENMAIN: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "IF_OPENMAIN"); err != nil {
+		return err
 	}
 	com := s.PopInt()
 	if err := checkNotNull(com, "IF_OPENMAIN"); err != nil {
 		return err
 	}
-	s.Self.OpenMain(com)
+	s.activePlayer().OpenMain(com)
 	return nil
 }
 
 // handleIfOpenChat implements IF_OPENCHAT.
 // TS PlayerOps.ts:641-643 — pops a single int (com); check(com, NumberNotNull) (NAI-23 Bundle 4c).
 func handleIfOpenChat(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("IF_OPENCHAT: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "IF_OPENCHAT"); err != nil {
+		return err
 	}
 	com := s.PopInt()
 	if err := checkNotNull(com, "IF_OPENCHAT"); err != nil {
 		return err
 	}
-	s.Self.OpenChat(com)
+	s.activePlayer().OpenChat(com)
 	return nil
 }
 
 // handleIfOpenSide implements IF_OPENSIDE.
 // TS PlayerOps.ts:727-729 — pops a single int (com); check(com, NumberNotNull) (NAI-23 Bundle 4c).
 func handleIfOpenSide(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("IF_OPENSIDE: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "IF_OPENSIDE"); err != nil {
+		return err
 	}
 	com := s.PopInt()
 	if err := checkNotNull(com, "IF_OPENSIDE"); err != nil {
 		return err
 	}
-	s.Self.OpenSide(com)
+	s.activePlayer().OpenSide(com)
 	return nil
 }
 
@@ -67,8 +65,8 @@ func handleIfOpenSide(s *ScriptState) error {
 // stack top. We pop side first, then main. Both wrapped with
 // check(_, NumberNotNull) (NAI-23 Bundle 4c).
 func handleIfOpenMainSide(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("IF_OPENMAIN_SIDE: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "IF_OPENMAIN_SIDE"); err != nil {
+		return err
 	}
 	side := s.PopInt()
 	main := s.PopInt()
@@ -78,7 +76,7 @@ func handleIfOpenMainSide(s *ScriptState) error {
 	if err := checkNotNull(main, "IF_OPENMAIN_SIDE"); err != nil {
 		return err
 	}
-	s.Self.OpenMainSide(main, side)
+	s.activePlayer().OpenMainSide(main, side)
 	return nil
 }
 
@@ -92,14 +90,14 @@ func handleIfOpenMainSide(s *ScriptState) error {
 // s.Self==nil guard is goscape defensive (TS skips this check; pointer
 // bit and entity reference are always coupled in TS ScriptState).
 func handleTutOpen(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("TUT_OPEN: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "TUT_OPEN"); err != nil {
+		return err
 	}
 	com := s.PopInt()
 	if err := checkNotNull(com, "TUT_OPEN"); err != nil {
 		return err
 	}
-	s.Self.OpenTutorial(com)
+	s.activePlayer().OpenTutorial(com)
 	return nil
 }
 
@@ -109,10 +107,10 @@ func handleTutOpen(s *ScriptState) error {
 // s.Self==nil guard is goscape defensive (TS skips this check; pointer
 // bit and entity reference are always coupled in TS ScriptState).
 func handleTutClose(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("TUT_CLOSE: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "TUT_CLOSE"); err != nil {
+		return err
 	}
-	s.Self.CloseTutorial()
+	s.activePlayer().CloseTutorial()
 	return nil
 }
 
@@ -132,14 +130,14 @@ func handleTutClose(s *ScriptState) error {
 // s.Self==nil guard is goscape defensive (TS skips this check; pointer
 // bit and entity reference are always coupled in TS ScriptState).
 func handleTutFlash(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("TUT_FLASH: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "TUT_FLASH"); err != nil {
+		return err
 	}
 	tab := s.PopInt()
 	if err := checkNotNull(tab, "TUT_FLASH"); err != nil {
 		return err
 	}
-	s.Self.FlashTutorial(tab)
+	s.activePlayer().FlashTutorial(tab)
 	return nil
 }
 
@@ -152,15 +150,15 @@ func handleTutFlash(s *ScriptState) error {
 // relative to each other only matters for script generation.
 // com is wrapped with check(com, NumberNotNull) (NAI-23 Bundle 4c).
 func handleIfSetText(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("IF_SETTEXT: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "IF_SETTEXT"); err != nil {
+		return err
 	}
 	text := s.PopString()
 	com := s.PopInt()
 	if err := checkNotNull(com, "IF_SETTEXT"); err != nil {
 		return err
 	}
-	s.Self.IfSetText(com, text)
+	s.activePlayer().IfSetText(com, text)
 	return nil
 }
 
@@ -168,8 +166,8 @@ func handleIfSetText(s *ScriptState) error {
 // TS PlayerOps.ts:677-684 — popInts(2) → [com, model], model on top.
 // Both com and model wrapped with check(_, NumberNotNull) (NAI-23 Bundle 4c).
 func handleIfSetModel(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("IF_SETMODEL: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "IF_SETMODEL"); err != nil {
+		return err
 	}
 	model := s.PopInt()
 	com := s.PopInt()
@@ -179,7 +177,7 @@ func handleIfSetModel(s *ScriptState) error {
 	if err := checkNotNull(model, "IF_SETMODEL"); err != nil {
 		return err
 	}
-	s.Self.IfSetModel(com, model)
+	s.activePlayer().IfSetModel(com, model)
 	return nil
 }
 
@@ -188,8 +186,8 @@ func handleIfSetModel(s *ScriptState) error {
 // com wrapped with check(com, NumberNotNull); npc wrapped with
 // check(npc, NpcTypeValid) (NAI-23 Bundle 4c).
 func handleIfSetNpcHead(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("IF_SETNPCHEAD: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "IF_SETNPCHEAD"); err != nil {
+		return err
 	}
 	npc := s.PopInt()
 	com := s.PopInt()
@@ -202,21 +200,21 @@ func handleIfSetNpcHead(s *ScriptState) error {
 	if err := checkNpcType(s, npc, "IF_SETNPCHEAD"); err != nil {
 		return err
 	}
-	s.Self.IfSetNpcHead(com, npc)
+	s.activePlayer().IfSetNpcHead(com, npc)
 	return nil
 }
 
 // handleIfSetPlayerHead implements IF_SETPLAYERHEAD.
 // TS PlayerOps.ts:731-733 — pops a single int (com); check(com, NumberNotNull) (NAI-23 Bundle 4c).
 func handleIfSetPlayerHead(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("IF_SETPLAYERHEAD: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "IF_SETPLAYERHEAD"); err != nil {
+		return err
 	}
 	com := s.PopInt()
 	if err := checkNotNull(com, "IF_SETPLAYERHEAD"); err != nil {
 		return err
 	}
-	s.Self.IfSetPlayerHead(com)
+	s.activePlayer().IfSetPlayerHead(com)
 	return nil
 }
 
@@ -226,8 +224,8 @@ func handleIfSetPlayerHead(s *ScriptState) error {
 // guard so the wire op is suppressed. com wrapped with
 // check(com, NumberNotNull); seq uses -1 sentinel (NAI-23 Bundle 4c).
 func handleIfSetAnim(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("IF_SETANIM: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "IF_SETANIM"); err != nil {
+		return err
 	}
 	seq := s.PopInt()
 	com := s.PopInt()
@@ -238,7 +236,7 @@ func handleIfSetAnim(s *ScriptState) error {
 	if seq == -1 {
 		return nil
 	}
-	s.Self.IfSetAnim(com, seq)
+	s.activePlayer().IfSetAnim(com, seq)
 	return nil
 }
 
@@ -247,8 +245,8 @@ func handleIfSetAnim(s *ScriptState) error {
 // hide int is treated as 0/1 boolean (TS uses `hide === 1`). Both com
 // and hide wrapped with check(_, NumberNotNull) (NAI-23 Bundle 4c).
 func handleIfSetHide(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("IF_SETHIDE: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "IF_SETHIDE"); err != nil {
+		return err
 	}
 	hide := s.PopInt()
 	com := s.PopInt()
@@ -258,7 +256,7 @@ func handleIfSetHide(s *ScriptState) error {
 	if err := checkNotNull(hide, "IF_SETHIDE"); err != nil {
 		return err
 	}
-	s.Self.IfSetHide(com, hide == 1)
+	s.activePlayer().IfSetHide(com, hide == 1)
 	return nil
 }
 
@@ -266,8 +264,8 @@ func handleIfSetHide(s *ScriptState) error {
 // TS PlayerOps.ts:711-717 — popInts(2) → [com, tab], tab on top.
 // tab wrapped with check(tab, NumberNotNull); com is NOT wrapped (NAI-23 Bundle 4c).
 func handleIfSetTab(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("IF_SETTAB: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "IF_SETTAB"); err != nil {
+		return err
 	}
 	tab := s.PopInt()
 	com := s.PopInt()
@@ -275,7 +273,7 @@ func handleIfSetTab(s *ScriptState) error {
 		return err
 	}
 	// com is NOT wrapped with NumberNotNull in TS (PlayerOps.ts:711-717) (NAI-23 Bundle 4c).
-	s.Self.IfSetTab(com, tab)
+	s.activePlayer().IfSetTab(com, tab)
 	return nil
 }
 
@@ -284,8 +282,8 @@ func handleIfSetTab(s *ScriptState) error {
 // com and scale wrapped with check(_, NumberNotNull); obj wrapped with
 // check(obj, ObjTypeValid) (NAI-23 Bundle 4c).
 func handleIfSetObject(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("IF_SETOBJECT: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "IF_SETOBJECT"); err != nil {
+		return err
 	}
 	scale := s.PopInt()
 	obj := s.PopInt()
@@ -302,7 +300,7 @@ func handleIfSetObject(s *ScriptState) error {
 	if err := checkNotNull(scale, "IF_SETOBJECT"); err != nil {
 		return err
 	}
-	s.Self.IfSetObject(com, obj, scale)
+	s.activePlayer().IfSetObject(com, obj, scale)
 	return nil
 }
 
@@ -312,8 +310,8 @@ func handleIfSetObject(s *ScriptState) error {
 // conversion is the Player impl's responsibility in this codebase.
 // Both com and colour wrapped with check(_, NumberNotNull) (NAI-23 Bundle 4c).
 func handleIfSetColour(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("IF_SETCOLOUR: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "IF_SETCOLOUR"); err != nil {
+		return err
 	}
 	colour := s.PopInt()
 	com := s.PopInt()
@@ -323,7 +321,7 @@ func handleIfSetColour(s *ScriptState) error {
 	if err := checkNotNull(colour, "IF_SETCOLOUR"); err != nil {
 		return err
 	}
-	s.Self.IfSetColour(com, colour)
+	s.activePlayer().IfSetColour(com, colour)
 	return nil
 }
 
@@ -331,8 +329,8 @@ func handleIfSetColour(s *ScriptState) error {
 // TS PlayerOps.ts:751-757 — popInts(3) → [com, x, y], y on top.
 // com wrapped with check(com, NumberNotNull); x and y NOT wrapped (NAI-23 Bundle 4c).
 func handleIfSetPosition(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("IF_SETPOSITION: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "IF_SETPOSITION"); err != nil {
+		return err
 	}
 	y := s.PopInt()
 	x := s.PopInt()
@@ -341,7 +339,7 @@ func handleIfSetPosition(s *ScriptState) error {
 		return err
 	}
 	// x and y are NOT wrapped with NumberNotNull in TS (PlayerOps.ts:751-757) (NAI-23 Bundle 4c).
-	s.Self.IfSetPosition(com, x, y)
+	s.activePlayer().IfSetPosition(com, x, y)
 	return nil
 }
 
@@ -349,8 +347,8 @@ func handleIfSetPosition(s *ScriptState) error {
 // TS PlayerOps.ts:686-692 — popInts(3) → [com, src, dest], dest on top.
 // com wrapped with check(com, NumberNotNull); src and dest NOT wrapped (NAI-23 Bundle 4c).
 func handleIfSetRecol(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("IF_SETRECOL: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "IF_SETRECOL"); err != nil {
+		return err
 	}
 	dest := s.PopInt()
 	src := s.PopInt()
@@ -359,7 +357,7 @@ func handleIfSetRecol(s *ScriptState) error {
 		return err
 	}
 	// src and dest are NOT wrapped with NumberNotNull in TS (PlayerOps.ts:686-692) (NAI-23 Bundle 4c).
-	s.Self.IfSetRecol(com, src, dest)
+	s.activePlayer().IfSetRecol(com, src, dest)
 	return nil
 }
 
@@ -368,14 +366,14 @@ func handleIfSetRecol(s *ScriptState) error {
 // handleIfSetTabActive implements IF_SETTABACTIVE.
 // TS PlayerOps.ts:673-675 — pops a single int (tab); check(tab, NumberNotNull) (NAI-23 Bundle 4c).
 func handleIfSetTabActive(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("IF_SETTABACTIVE: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "IF_SETTABACTIVE"); err != nil {
+		return err
 	}
 	tab := s.PopInt()
 	if err := checkNotNull(tab, "IF_SETTABACTIVE"); err != nil {
 		return err
 	}
-	s.Self.IfSetTabActive(tab)
+	s.activePlayer().IfSetTabActive(tab)
 	return nil
 }
 
@@ -384,14 +382,14 @@ func handleIfSetTabActive(s *ScriptState) error {
 // No wire op is emitted; the Player stores the 5 ids for later
 // consumption by P_PAUSEBUTTON.
 func handleIfSetResumeButtons(s *ScriptState) error {
-	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
-		return fmt.Errorf("IF_SETRESUMEBUTTONS: %w", ErrNoActivePlayer)
+	if err := requireActivePlayer(s, "IF_SETRESUMEBUTTONS"); err != nil {
+		return err
 	}
 	b5 := s.PopInt()
 	b4 := s.PopInt()
 	b3 := s.PopInt()
 	b2 := s.PopInt()
 	b1 := s.PopInt()
-	s.Self.SetResumeButtons(b1, b2, b3, b4, b5)
+	s.activePlayer().SetResumeButtons(b1, b2, b3, b4, b5)
 	return nil
 }

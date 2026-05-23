@@ -2732,6 +2732,11 @@ func TestInvDropItemDelayed_ProtectGate_Operand1_RequiresPtr2(t *testing.T) {
 		s, _, world := makeDropItemDelayedState(t, true, objtype.InvTypeScopeTemp, 5)
 		s.Script.IntOperands[s.PC] = 1
 		s.Pointers |= PtrProtectedActivePlayer2
+		// operand=1 drops as the SECONDARY player (TS INV_DROPITEM_DELAYED
+		// uses state.activePlayer); bind Self2 so the operand-aware
+		// s.activePlayer() resolves to a real player.
+		s.Self2 = &mockPlayer{}
+		s.Pointers |= PtrActivePlayer2
 
 		pushDropItemDelayedArgs(s, testInvMain, coordgrid.PackCoord(0, 3200, 3200), testObjCoin, 1, 100, 0)
 		err := handleInvDropItemDelayed(s)

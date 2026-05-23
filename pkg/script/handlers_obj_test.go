@@ -746,6 +746,13 @@ func newObjFindState(t *testing.T, w WorldVars, mc *mockConfigs, intOperand int3
 	}
 	s.Self = &mockPlayer{uidValue: uid}
 	s.Pointers |= PtrActivePlayer
+	// OBJ_FIND is operand-aware for the player too (TS getObj uses
+	// state.activePlayer.hash64): operand=1 resolves the secondary player, so
+	// bind Self2 with the same receiver uid for that case.
+	if intOperand == 1 {
+		s.Self2 = &mockPlayer{uidValue: uid}
+		s.Pointers |= PtrActivePlayer2
+	}
 	s.PushInt(coord)
 	s.PushInt(objId)
 	return s
@@ -1404,7 +1411,9 @@ type capturingWealthEmitter struct {
 func (c *capturingWealthEmitter) EmitAuth(*eventspb.AuthEnvelope)               {}
 func (c *capturingWealthEmitter) EmitWorld(*eventspb.WorldEnvelope)             {}
 func (c *capturingWealthEmitter) EmitPlayerInput(*eventspb.PlayerInputEnvelope) {}
-func (c *capturingWealthEmitter) EmitWealth(e *eventspb.WealthEnvelope)         { c.wealthCalls = append(c.wealthCalls, e) }
+func (c *capturingWealthEmitter) EmitWealth(e *eventspb.WealthEnvelope) {
+	c.wealthCalls = append(c.wealthCalls, e)
+}
 func (c *capturingWealthEmitter) EmitReview(*eventspb.ReviewEnvelope) {}
 
 // TestHandleObjTakeItem_EmitsPickupTelemetry pins that OBJ_TAKEITEM emits
