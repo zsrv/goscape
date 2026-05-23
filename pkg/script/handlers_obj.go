@@ -4,8 +4,13 @@ package script
 import (
 	"fmt"
 
+	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	"github.com/zsrv/goscape/pkg/coordgrid"
+	"github.com/zsrv/goscape/pkg/eventspb"
 	"github.com/zsrv/goscape/pkg/inventory"
+	"github.com/zsrv/goscape/pkg/telemetry"
 )
 
 // requireActiveObj returns an error if s.ActiveObj is nil.
@@ -276,6 +281,36 @@ func handleObjTakeItem(s *ScriptState) error {
 				"obj", objTypeID,
 			)
 		}
+	}
+
+	// Emit a wealth event for downstream consumers (drop-pickup
+	// model — see docs/superpowers/specs/event-pipeline-
+	// drop-pickup-design.md). Sibling to the in-process
+	// AddWealthEvent above (NAI-162's per-player wealth tracker); the
+	// two emit independently because they serve different downstream
+	// systems. DroppedByAccountId from the new Obj.DropperAccountID
+	// field (Task 12 / commit f387e9e3) is the persistent account_id
+	// of the human dropper, or 0 for NPC/world-spawned items.
+	if s.World != nil {
+		worldID := int32(s.World.NodeID())
+		x, z, level := s.ActiveObj.Coords()
+		telemetry.Get().EmitWealth(&eventspb.WealthEnvelope{
+			SchemaVersion: 1,
+			EventId:       uuid.NewString(),
+			Ts:            timestamppb.Now(),
+			AccountId:     s.Self.AccountID(),
+			WorldId:       worldID,
+			Payload: &eventspb.WealthEnvelope_ItemPickedUp{
+				ItemPickedUp: &eventspb.ItemPickedUpEvent{
+					ItemId:             int32(objTypeID),
+					Qty:                int32(objCount),
+					X:                  int32(x),
+					Y:                  int32(z),
+					Plane:              int32(level),
+					DroppedByAccountId: s.ActiveObj.DropperAccountID(),
+				},
+			},
+		})
 	}
 
 	duration := 0

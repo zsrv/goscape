@@ -5,8 +5,10 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
+	"github.com/zsrv/goscape/pkg/eventspb"
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/telemetry"
 )
 
 func TestHandleObjCoord(t *testing.T) {
@@ -1391,5 +1393,92 @@ func TestNAI115D1Retirement_ObjTakeItemEmitsPickupWealthEvent(t *testing.T) {
 	}
 	if len(evt.AccountItems) != 1 || evt.AccountItems[0].ID != 1623 || evt.AccountItems[0].Count != 3 {
 		t.Errorf("AccountItems: got %+v, want [{ID:1623 Count:3 ...}]", evt.AccountItems)
+	}
+}
+
+// capturingWealthEmitter records all EmitWealth calls for assertion.
+type capturingWealthEmitter struct {
+	wealthCalls []*eventspb.WealthEnvelope
+}
+
+func (c *capturingWealthEmitter) EmitAuth(*eventspb.AuthEnvelope)               {}
+func (c *capturingWealthEmitter) EmitWorld(*eventspb.WorldEnvelope)             {}
+func (c *capturingWealthEmitter) EmitPlayerInput(*eventspb.PlayerInputEnvelope) {}
+func (c *capturingWealthEmitter) EmitWealth(e *eventspb.WealthEnvelope)         { c.wealthCalls = append(c.wealthCalls, e) }
+func (c *capturingWealthEmitter) EmitReview(*eventspb.ReviewEnvelope) {}
+
+// TestHandleObjTakeItem_EmitsPickupTelemetry pins that OBJ_TAKEITEM emits
+// exactly one WealthEnvelope with an ItemPickedUp payload carrying the
+// correct ItemId, Qty, world-position (x/y/plane), and WorldId. It is a
+// sibling to TestObjTakeItem_EmitsWealthEvent (the in-process AddWealthEvent
+// assertion) — the two verify independent downstream paths.
+func TestHandleObjTakeItem_EmitsPickupTelemetry(t *testing.T) {
+	cap := &capturingWealthEmitter{}
+	telemetry.Set(cap)
+	t.Cleanup(telemetry.Reset)
+
+	s, _, _ := newTakeItemFixture(t)
+	// Set a non-zero nodeID so WorldId is assertable.
+	s.World.(*fakeWorldTakeItem).nodeID = 7
+
+	// mindrune (558) with cost 100, count 2, position (3210, 3215, level 1).
+	mc := newTestInvConfigs()
+	invType := objtype.NewInvType(93)
+	invType.Size = 28
+	invType.Protect = false
+	mc.invs[93] = invType
+	mindrune := objtype.NewObjType(558)
+	mindrune.Stackable = false
+	mindrune.Cost = 100
+	mc.objs[558] = mindrune
+	s.Configs = mc
+
+	active := &mockActiveObj{objType: 558, x: 3210, z: 3215, level: 1, count: 2, reveal: -1}
+	s.ActiveObj = active
+
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	s.Inv = &mockInvLookup{invs: map[int]*inventory.Inventory{93: inv}}
+
+	s.PushInt(93)
+
+	if err := handleObjTakeItem(s); err != nil {
+		t.Fatalf("OBJ_TAKEITEM: unexpected error: %v", err)
+	}
+
+	if len(cap.wealthCalls) != 1 {
+		t.Fatalf("EmitWealth calls: got %d, want 1", len(cap.wealthCalls))
+	}
+	env := cap.wealthCalls[0]
+	if env.SchemaVersion != 1 {
+		t.Errorf("SchemaVersion: got %d, want 1", env.SchemaVersion)
+	}
+	if env.WorldId != 7 {
+		t.Errorf("WorldId: got %d, want 7", env.WorldId)
+	}
+	pickup, ok := env.Payload.(*eventspb.WealthEnvelope_ItemPickedUp)
+	if !ok {
+		t.Fatalf("Payload type: got %T, want *WealthEnvelope_ItemPickedUp", env.Payload)
+	}
+	e := pickup.ItemPickedUp
+	if e.ItemId != 558 {
+		t.Errorf("ItemId: got %d, want 558", e.ItemId)
+	}
+	if e.Qty != 2 {
+		t.Errorf("Qty: got %d, want 2", e.Qty)
+	}
+	if e.X != 3210 {
+		t.Errorf("X: got %d, want 3210", e.X)
+	}
+	if e.Y != 3215 {
+		t.Errorf("Y (z-coord): got %d, want 3215", e.Y)
+	}
+	if e.Plane != 1 {
+		t.Errorf("Plane: got %d, want 1", e.Plane)
+	}
+	// DropperAccountID and AccountId are 0 because mockActiveObj and
+	// mockPlayer hardcode these to 0; a non-zero test requires modifying
+	// shared mocks. Integration test (Task 17) covers the non-zero path.
+	if e.DroppedByAccountId != 0 {
+		t.Errorf("DroppedByAccountId: got %d, want 0 (mock default)", e.DroppedByAccountId)
 	}
 }
