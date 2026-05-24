@@ -13,8 +13,8 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 | Severity | Done / Total |
 |---|---|
 | CRITICAL | 3 / 3 ✓ |
-| HIGH | 16 / 17 (+1 disputed, tracked separately) |
-| MEDIUM | 0 / 30 |
+| HIGH | 17 / 17 ✓ (+1 disputed, tracked separately) |
+| MEDIUM | 2 / 30 |
 | LOW | 0 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
 
@@ -30,7 +30,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 
 - [x] **H1** NPC operand gap: ~37 read/mutate ops read `s.ActiveNpc` not operand-resolved — `handlers_npc.go:184` + sites — mirror `c58cac51`: add `s.activeNpcResolved()` + operand-aware `requireActiveNpc` + ~35 swaps (opcode list in cluster J). [cluster J] **(8e27bd8f)** — added `s.activeNpc()`, operand-aware `requireActiveNpc`, swapped all listed sites + NPC_PARAM; updated 2 bug-pinning tests + added 2 pin tests. SETMODE target & write-side left raw per TS.
 - [x] **H2** Per-zone obj cap (129) eviction missing — `pkg/zone/zone.go:263` (TODO-marked) — evict first DESPAWN obj when `totalObjs>=129`. [cluster E] **(f65b8491)** — added zone.MaxObjs + TotalObjs/FirstDespawnObj; eviction in Server.AddObj via s.RemoveObj.
-- [ ] **H3** Shop restock/decay never ported — `modules/world/tick.go:866` processCleanup — port TS World.ts:1159-1190; **(dep: M10, M11 first)**. [cluster A/F]
+- [x] **H3** Shop restock/decay never ported — `modules/world/tick.go:866` processCleanup — port TS World.ts:1159-1190; **(dep: M10, M11 first)**. [cluster A/F] **(425e843c)** — restock/decay/allstock pass in processCleanup w/ modulo-by-zero guard; +pin tests.
 - [x] **H4** Queue/engine-queue delay off-by-one (fires 1 tick early) — `tick.go:508` — pre-decrement gating like TS Player.ts:883; ⚠TEST `player_engine_queue_test.go:86`. [cluster C] **(5f64edd1)** — post-decrement (read old, gate on old) in both drains; fixed 3 pinning tests (engine-queue + TestQueueFiresAtDelayExpiry).
 - [x] **H5** Logout pipeline incomplete: no `closeModal()` / `canAccess()`+queue-drain gate / LOGOUT trigger — `tick.go:403` (+`server.go:1242`); `TriggerLogout` dispatched nowhere. [cluster C] **(f9f5b52c)** — closeModal + queue-discardable + canAccess/engineQueue gate + LOGOUT trigger dispatch; DEVIATION: degrades to removal (not TS never-remove) when no [logout] script. +2 pin tests.
 - [x] **H6** NPC `defaultMode` re-derived, ignores `typ.DefaultMode` — `npc_interaction.go:1073` — read stored field like TS; ⚠TEST `npc_interaction_test.go:1186`; ⚠LIE comment `:1076`. [cluster D] **(e5e4aeec)** — reads n.typ.DefaultMode; rewrote pin test + fixed 4 wander fixtures (newWanderNpc + WanderRange:5 literals).
@@ -61,8 +61,8 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [ ] **M7** `addXp` NODE_XPRATE multiplier not applied → `node_xp_rate` config dead — `player_script.go:852` — ⚠LIE comment `handlers_player.go:570`. [C]
 - [ ] **M8** Modal-open clobbers full bitmap (wipes TUT bit) + skips suspended-script clear — `player_script.go:1086`. [C]
 - [ ] **M9** Obj-reveal tradeable/members gating missing (private drop becomes public) — `pkg/zone/zone.go:343` (TODO-marked). [E]
-- [ ] **M10** INV `assureFullRemoval` short-circuit absent — `pkg/inventory/inventory.go:291` — **(needed by H3)**. [F]
-- [ ] **M11** INV stockObj count-0 slot retention missing — `pkg/inventory/inventory.go:306` — **(needed by H3)**. [F]
+- [x] **M10** INV `assureFullRemoval` short-circuit absent — `pkg/inventory/inventory.go:291` — **(needed by H3)**. [F] **(425e843c)** — honor existing AssureFullRemoval opt (all-or-nothing).
+- [x] **M11** INV stockObj count-0 slot retention missing — `pkg/inventory/inventory.go:306` — **(needed by H3)**. [F] **(425e843c)** — RemoveOpts.StockObj retains slot at count 0.
 - [ ] **M12** FINDHERO reads `s.Self` not operand-aware (player) — `handlers_player.go:1644` — ⚠TEST `TestFindHero_PopulatedAlwaysSetsSelf2`; ⚠LIE comment. [I]
 - [ ] **M13** P_PREVENTLOGOUT missing StringNotNull/NumberNotNull validation — `handlers_player.go:1759`. [I]
 - [ ] **M14** `checkQueue` range [1,20] vs TS [0,19] — `handlers_npc.go:131` — verify Content for queueid 0/20 first. [J]
