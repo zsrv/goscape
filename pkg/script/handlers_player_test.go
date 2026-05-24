@@ -1058,7 +1058,23 @@ func TestStatOpsRejectOOBStatID(t *testing.T) {
 					InstructionCount: uint32(len(opcodes)),
 				}
 				state := Init(sf, &mockPlayer{}, false, nil, nil)
-				if err := Execute(state); err == nil {
+				err := Execute(state)
+				// L16: STAT_ADVANCE alone does NOT bound the stat id — it
+				// forwards to addXp, where an OOB (>= NumStats) write is
+				// silently ignored (TS TypedArray semantics; Go AddXP
+				// bounds-guards), so it completes without error. The null
+				// sentinel (-1) is still rejected by NumberNotNull. Every
+				// other stat op rejects both bad ids.
+				if tc.name == "STAT_ADVANCE" && badID == int32(NumStats) {
+					if err != nil {
+						t.Fatalf("%s id=%d: Execute returned %v, want nil (OOB no-op)", tc.name, badID, err)
+					}
+					if state.Execution != Finished {
+						t.Errorf("%s id=%d: Execution = %v, want Finished", tc.name, badID, state.Execution)
+					}
+					return
+				}
+				if err == nil {
 					t.Fatalf("%s id=%d: Execute returned nil, want error", tc.name, badID)
 				}
 				if state.Execution != Aborted {
@@ -5333,6 +5349,40 @@ func TestHandleP_OpObjMissingOpEntryShortCircuits(t *testing.T) {
 	}
 	if len(pl.objOpCalls) != 0 {
 		t.Errorf("P_OPOBJ missing op entry: expected 0 SetInteractionScriptObj calls, got %d", len(pl.objOpCalls))
+	}
+}
+
+// TestHandleP_OpObjUnregisteredTypeSilentSkips pins L17: TS ObjType.get
+// returns a default (all-null-op) type for an unregistered id, so P_OPOBJ
+// falls through to the `type.op[op] === null → return` silent skip rather than
+// erroring. Go now matches — a nil ObjType (unregistered id) or a nil Configs
+// is treated as an empty-op type, so the script continues without error.
+func TestHandleP_OpObjUnregisteredTypeSilentSkips(t *testing.T) {
+	newState := func(configs Configs) (*ScriptState, *mockPlayer) {
+		s := newTestState(minimalScript(OpReturn))
+		pl := &mockPlayer{uidValue: 12345}
+		s.Self = pl
+		s.Pointers |= PtrActivePlayer | PtrProtectedActivePlayer
+		s.ActiveObj = &mockActiveObj{objType: 999, x: 0, z: 0, level: 0} // 999 unregistered
+		s.Configs = configs
+		s.PushInt(1)
+		return s, pl
+	}
+	// Configs present but id 999 not registered → ObjType(999) == nil.
+	s1, pl1 := newState(newTestConfigs())
+	if err := handleP_OpObj(s1); err != nil {
+		t.Fatalf("unregistered type: want nil (silent skip), got %v", err)
+	}
+	if len(pl1.objOpCalls) != 0 {
+		t.Errorf("unregistered type: want 0 SetInteractionScriptObj calls, got %d", len(pl1.objOpCalls))
+	}
+	// Missing registry entirely (Configs nil).
+	s2, pl2 := newState(nil)
+	if err := handleP_OpObj(s2); err != nil {
+		t.Fatalf("nil Configs: want nil (silent skip), got %v", err)
+	}
+	if len(pl2.objOpCalls) != 0 {
+		t.Errorf("nil Configs: want 0 SetInteractionScriptObj calls, got %d", len(pl2.objOpCalls))
 	}
 }
 

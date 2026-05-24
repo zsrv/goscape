@@ -573,8 +573,12 @@ func handleStatHeal(s *ScriptState) error {
 //
 // TS asymmetry: STAT_ADVANCE wraps stat with NumberNotNull (not
 // PlayerStatValid like sibling stat ops); both stat and xp get NumberNotNull
-// (PlayerOps.ts:762-763). goscape mirrors that — the NumberNotNull wraps
-// fire before checkStatID, which then enforces the [0, NumStats) bound.
+// (PlayerOps.ts:762-763), then it forwards stat straight to addXp. L16: TS
+// does NOT bound stat to [0, NumStats) here — an out-of-range stat reaches
+// addXp, where the TypedArray write is silently ignored (no-op, script
+// continues). goscape mirrors this exactly: AddXP bounds-guards internally
+// (player_script.go statBounds → return), so we drop the prior checkStatID
+// guard that aborted the script where TS does not.
 func handleStatAdvance(s *ScriptState) error {
 	if err := requireActivePlayer(s, "STAT_ADVANCE"); err != nil {
 		return err
@@ -585,9 +589,6 @@ func handleStatAdvance(s *ScriptState) error {
 	}
 	id := s.PopInt()
 	if err := checkNotNull(id, "STAT_ADVANCE"); err != nil {
-		return err
-	}
-	if err := checkStatID(id, "STAT_ADVANCE"); err != nil {
 		return err
 	}
 	s.activePlayer().AddXP(id, xp, true)
@@ -1429,7 +1430,9 @@ func handleHintPl(s *ScriptState) error {
 	if err := requireActivePlayer2(s, "HINT_PL"); err != nil {
 		return err
 	}
-	s.activePlayer().HintPlayer(s.Self2.Slot())
+	// L14: the target slot is operand-aware (TS state.activePlayer2, which
+	// swaps to _activePlayer at operand 1), not a raw s.Self2.
+	s.activePlayer().HintPlayer(s.activePlayer2().Slot())
 	return nil
 }
 
@@ -1487,14 +1490,15 @@ func handleP_OpObj(s *ScriptState) error {
 	if op < 1 || op > 5 {
 		return fmt.Errorf("P_OPOBJ: invalid op %d (must be 1..5)", op)
 	}
-	if s.Configs == nil {
-		return errors.New("P_OPOBJ: no configs")
+	// L17: TS ObjType.get never returns null — it yields a default type (all
+	// ops null) for an unregistered id, so an unknown obj falls through to the
+	// `type.op[op] === null → return` silent skip, never an error. Match that:
+	// a missing registry or unregistered type is treated as an empty-op type.
+	var objType *objtype.ObjType
+	if s.Configs != nil {
+		objType = s.Configs.ObjType(s.ActiveObj.ObjType())
 	}
-	objType := s.Configs.ObjType(s.ActiveObj.ObjType())
-	if objType == nil {
-		return fmt.Errorf("P_OPOBJ: invalid active obj type (%d)", s.ActiveObj.ObjType())
-	}
-	if op-1 >= len(objType.Op) || objType.Op[op-1] == "" {
+	if objType == nil || op-1 >= len(objType.Op) || objType.Op[op-1] == "" {
 		return nil // TS: type.op[op-1] === null → silent skip
 	}
 	x, z, _ := s.ActiveObj.Coords()
@@ -2046,7 +2050,10 @@ func handlePLocMerge(s *ScriptState) error {
 
 	// TS: World.mergeLoc(activeLoc, activePlayer, startCycle, endCycle, se.z, se.x, nw.z, nw.x)
 	// se.z = south, se.x = east, nw.z = north, nw.x = west.
-	s.World.MergeLoc(s.ActiveLoc, s.Self, startCycle, endCycle, seZ, seX, nwZ, nwX)
+	// L15: the merge-owner is operand-aware (TS state.activePlayer) like every
+	// other protected op (P_TELEPORT/P_WALK use s.activePlayer()), not raw
+	// s.Self — operand 1 must own the merge as Self2.
+	s.World.MergeLoc(s.ActiveLoc, s.activePlayer(), startCycle, endCycle, seZ, seX, nwZ, nwX)
 	return nil
 }
 
