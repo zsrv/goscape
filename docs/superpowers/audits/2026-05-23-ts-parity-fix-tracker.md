@@ -16,7 +16,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 | HIGH | 17 / 17 ✓ |
 | DISPUTED | D1 RESOLVED ✓ (real bug, fixed with M2) |
 | MEDIUM | 30 / 30 ✓ |
-| LOW | 26 / 50 |
+| LOW | 30 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
 
 ---
@@ -112,10 +112,10 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [x] **L24** INTERPOLATE x1==x0 fallback y0 vs TS de-facto 0 — **(bbfcf16f)** reimplemented in float64 mirroring TS NumberOps.ts:42-47 (Math.floor((y1-y0)/(x1-x0))*(x-x0)+y0, toInt32 on push). x1==x0 → ±Inf/NaN → toInt32=0 (the de-facto TS result), not the prior y0 guard; also tracks float rounding for the >2^53 run. Removed now-dead floorDiv. ⚠TEST: TestInterpolateDivZeroReturnsY0→ReturnsZero (buggy y0→0) +NaN sub-case. [L]
 - [x] **L25** MULTIPLY/POW int32-wrap vs TS float64→toInt32 (>2^53 edge) — **(bbfcf16f)** both now `floatToInt32(float64 product)` / `floatToInt32(math.Pow)` mirroring TS pushInt(a*b)/pushInt(Math.pow): tracks float64 precision >2^53 instead of exact mod-2^32 wrap. POW `exp<0→0` shortcut was also wrong for base ±1 (Math.pow(1,-5)=1) — fixed. +pins (base-1 neg-exp, 2^31/2^32 wrap, large mul). [L]
 - [x] **L26** STRING_LENGTH/APPEND_CHAR UTF-8 byte vs TS UTF-16 unit — **(bbfcf16f)** goscape strings are raw cp1252 bytes (gjstr maps each wire byte→one TS UTF-16 unit via fromCharCode; stored verbatim). STRING_LENGTH len()==TS .length ALREADY (premise was inverted) — confirmed+documented, a rune recount would MIS-measure non-UTF-8 bytes. APPEND_CHAR string(rune(ch)) emitted 2-byte UTF-8 for chars 128-255 (broke byte-length + wire parity) → single low byte. BONUS same-family: STRING_INDEXOF_CHAR IndexRune→IndexByte (Latin-1 char reported -1). +3 pins. [L]
-- [ ] **L27** Plain GOSUB/JUMP don't pop callee declared args — `handlers_core.go:8`. [H]
-- [ ] **L28** SWITCH branches on key-presence vs TS truthy-offset — `handlers_array.go:59`. [H]
-- [ ] **L29** Pointer bit positions differ from TS (internal-only) — `pkg/script/pointer.go:7` — ⚠LIE comment citing matching values. [H]
-- [ ] **L30** Opcount cap off-by-one (`>=` vs TS `>`) — `pkg/script/state.go:54`. [H]
+- [x] **L27** Plain GOSUB/JUMP don't pop callee declared args — `handlers_core.go:8`. [H] **(45e30d0a)** — TS gosubFrame+gotoFrame both call setupNewScript which ALWAYS pops intArgCount/stringArgCount (ScriptState.ts:387). Plain GOSUB/JUMP is dynamic dispatch (id on stack above args); now call popArgsForTarget. +pin TestGosubPlainPopsDeclaredArgs.
+- [x] **L28** SWITCH branches on key-presence vs TS truthy-offset — `handlers_array.go:59`. [H] **(45e30d0a)** — TS `if (result)` (CoreOps.ts:251): missing key OR present-with-0 both fall through. Now reads map zero-value offset + tests `!= 0`. (Old key-presence was a no-op `+=0` in practice; mirrors TS now.) +pin TestSwitchZeroOffsetFallsThrough.
+- [x] **L29** Pointer bit positions differ from TS (internal-only) — `pkg/script/pointer.go:7` — ⚠LIE comment citing matching values. [H] **(45e30d0a)** — reordered Ptr bits to TS ScriptPointer ordinals (ProtectedActivePlayer/2 → bits 2/3; Npc/Loc/Obj → 4-9), so `1<<bit == 1<<ScriptPointer` (ScriptState.ts:165). PtrFindDb (Go-only) → bit 10 (past TS _LAST). Mask is internal-only, all refs named, no raw literals → inert reorder, citations now true.
+- [x] **L30** Opcount cap off-by-one (`>=` vs TS `>`) — `runner.go:54` (was state.go:54). [H] **(45e30d0a)** — TS aborts on `opcount > 500_000` checked before post-`opcount++` → 500_001 execute; Go `>=` aborted one early. Now strict `>`. +pin TestOpCountCapAllowsTSLimit (OpCount==limit+1 at abort).
 - [ ] **L31** NpcType accepts op 30-39 but Op is 5-slot → panic on 35-39 (latent, foreign caches) — `npctype.go:207`. [M]
 - [ ] **L32** ObjType extra opcode 200 + `"hidden"→""` coercion (undocumented for obj/npc) — `objtype.go:292,246`, `npctype.go:213`. [M]
 - [ ] **L33** varp/varn/vars fatal-error vs TS printError+continue on unknown opcode — `varptype.go:39` etc. [M]
