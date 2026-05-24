@@ -16,7 +16,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 | HIGH | 17 / 17 ✓ |
 | DISPUTED | D1 RESOLVED ✓ (real bug, fixed with M2) |
 | MEDIUM | 30 / 30 ✓ |
-| LOW | 43 / 50 |
+| LOW | 48 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
 
 ---
@@ -129,11 +129,11 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [x] **L41** jagfile `knownNames` ordering differs (zero effect) — `jagfile.go:401`. [O] (8114f100) — `backtop2.dat`/`mapflag.dat` were in alphabetical slots; reordered to follow `wornicons.dat` before `mapmarker.dat` per TS KNOWN_NAMES so the L40 scan resolves identically to TS under any future collision. +pin TestKnownNamesOrderMatchesTS.
 - [x] **L42** `lineScaleDown` arithmetic `>>16` vs logical `>>>16` (latent) — `pkg/pathfinder/routefinder/line.go:24`. [P] (e883317d) — RayCast's scaled value tracks a coord interpolated between two non-negative map tiles (scaledZ/X start at startZ/X<<16+halfTile, step toward endZ/X<<16, both >=0), so the operand is never negative → arithmetic `>>` == logical `>>>16` over the entire reachable domain. Documented; kept `>>` (idiomatic Go, matches the signed-int rsmod source). +pin TestLineScaleDown_NonNegativeMatchesLogicalShift + round-trip. No behavioral change.
 - [x] **L43** `FlagNull=-1` vs TS NULL=0x7FFFFFFF (Indoors strategy on off-map tiles) — `pkg/pathfinder/collision/flag.go:4`. [P] (e883317d) — REAL latent bug. Confirmed @2004scape/rsmod-pathfinder ROOF=2147483648(1<<31), NULL=2147483647(0x7FFFFFFF): every bit set EXCEPT ROOF. Go's -1 set bit 31, so off-map tiles (Get→FlagNull) were wrongly indoors: IsIndoors(off-map) true vs TS false → MAP_INDOORS off-map wrong. Changed const to 0x7FFFFFFF. Dual role (off-map sentinel + blockWalkFlag no-move) both faithful — TS uses CollisionFlag.NULL for each (Npc.ts:393,397; PathingEntity.ts:485,502,632). All uses are == / bitwise on bits 0..30 (identical to -1); only bit 31 observes change. +pins flag_test.go (incl. off-map-not-indoors regression guard); world+script+gamemap suites pass (exit 0). Fixed stale "FlagNull=-1" comments across 6 files + FlagMap.Get doc.
-- [ ] **L44** Friend list has no `ORDER BY created` (display order undefined) — `modules/friends/repository.go:169,255`. [R]
-- [ ] **L45** Friend re-WORLD_CONNECT doesn't terminate prior socket (per-player-stream arch) — `modules/friends/handler.go:38`. [R]
-- [ ] **L46** Login `updateHiscores` on logout is a bare TODO — `modules/login/handler.go:241`. [R]
-- [ ] **L47** Asset path dispatch order: archives before `.mid` (TS reverse) — `modules/asset/handler.go:29`. [R]
-- [ ] **L48** Asset WS open seed first word not masked to 24 bits — `modules/asset/server.go:779`. [R]
+- [x] **L44** Friend list has no `ORDER BY created` (display order undefined) — `modules/friends/repository.go`. [R] **(fbda909c)** — added `ORDER BY created ASC` to GetFriends + GetIgnores (schema already has `created` on both tables); matches TS loadFriends/loadIgnores orderBy('created','asc'). +pin TestRepository_GetFriends_OrderedByCreated (created-order ≠ insertion-order).
+- [x] **L45** Friend re-WORLD_CONNECT doesn't terminate prior socket (per-player-stream arch) — `modules/friends/handler.go`. [R] **(fbda909c)** — VERIFIED FAITHFUL: goscape splits TS's single per-world socket into WorldConnect (init RPC) + SubscribeWorldEvents (push stream); terminate-prior already lives in worldSubscriptions.register (closes prior done on re-subscribe, cites FriendServer.ts:412-419). Added cross-ref note on WorldConnect. No code change (NAI-S4A-D-PERPLAYER-NOT-PERWORLD-STREAM).
+- [x] **L46** Login `updateHiscores` on logout is a bare TODO — `modules/login/handler.go`. [R] **(fbda909c)** — STALE-DEFER: goscape ports NO hiscores subsystem (no hiscore tables/migrations, no PlayerStatEnabled, no HTTP endpoint), so TS updateHiscores (LoginServer.ts:450) has nothing to update. Replaced bare TODO with documented no-op citing login-server + PlayerLoading design specs. Doc-only.
+- [x] **L47** Asset path dispatch order: archives before `.mid` (TS reverse) — `modules/asset/handler.go`. [R] **(fbda909c)** — moved `.mid` block to top of RootHandler (before /crc + archive prefixes), matching TS web.ts where `.mid` precedes every `startsWith` branch; otherwise GET /config_<crc>.mid was captured by /config prefix and served the wrong archive. +pin TestRootHandler_MidBeatsArchivePrefix.
+- [x] **L48** Asset WS open seed first word not masked to 24 bits — `modules/world/server.go:780` (audit ref `asset/server.go:779` was stale; actual code is the world TCP/WS open seed). [R] **(fbda909c)** — masked first word `& 0x00ffffff` to match TS web.ts:135 (`Math.random()*0x00ffffff`); second word stays full 32-bit. Session entropy, functionally inert, now byte-faithful. World suite exit 0.
 - [ ] **L49** entity `CheckLifecycle` is a Go-only predicate substituting TS `isActive` — `pkg/entity/entity.go:33` — resolve with M30. [Q]
 - [ ] **L50** `gamemap` collision deferred to `populateStaticLocsIntoZones` (verify still matches TS blockwalk gate after H11-13) — `modules/world/server.go:592`. [Q]
 
