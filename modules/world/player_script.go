@@ -1102,44 +1102,76 @@ func (p *Player) runIfCloseTrigger(s *Server, slotCom int) {
 	s.runScript(sf, p, nil, script.TriggerIfClose, false, nil, nil)
 }
 
+// clearSuspendedDialogScript drops a script suspended on dialog input
+// (count-dialog or pausebutton) — opening a new modal invalidates a script
+// waiting on the previous one's input. Mirrors the "clear old suspended
+// scripts" tail of TS openMainModal/openChatModal/openSideModal/
+// openMainSideModal (Player.ts:1947-1949 etc): activeScript = null when its
+// execution is COUNTDIALOG or PAUSEBUTTON. M8.
+func (p *Player) clearSuspendedDialogScript() {
+	if p.activeScript != nil &&
+		(p.activeScript.Execution == script.CountDialog ||
+			p.activeScript.Execution == script.PauseButton) {
+		p.activeScript = nil
+	}
+}
+
 // OpenMain opens com as the main modal. Per TS, opening main closes any
-// currently-open chat and side modals.
+// currently-open chat and side modals. M8: the modal bits are cleared/OR'd
+// individually (not assigned) so unrelated bits — notably TUT (0x8) — survive,
+// matching TS Player.openMainModal (Player.ts:1928-1950).
 func (p *Player) OpenMain(com int) {
-	p.modalMain = com
+	p.modalState &^= modalStateChat
 	p.modalChat = -1
+	p.modalState &^= modalStateSide
 	p.modalSide = -1
-	p.modalState = modalStateMain
+	p.modalState |= modalStateMain
+	p.modalMain = com
 	p.refreshModal = true
+	p.clearSuspendedDialogScript()
 }
 
 // OpenChat opens com as the chat modal. Per TS, opening chat closes any
-// currently-open main and side modals.
+// currently-open main and side modals. M8: bit-wise clear/OR preserves TUT
+// (TS Player.openChatModal, Player.ts:1952-1972).
 func (p *Player) OpenChat(com int) {
+	p.modalState &^= modalStateMain
 	p.modalMain = -1
-	p.modalChat = com
+	p.modalState &^= modalStateSide
 	p.modalSide = -1
-	p.modalState = modalStateChat
+	p.modalState |= modalStateChat
+	p.modalChat = com
 	p.refreshModal = true
+	p.clearSuspendedDialogScript()
 }
 
 // OpenSide opens com as the side modal. Per TS, opening side closes any
-// currently-open main and chat modals.
+// currently-open main and chat modals. M8: bit-wise clear/OR preserves TUT
+// (TS Player.openSideModal, Player.ts:1975-1995).
 func (p *Player) OpenSide(com int) {
+	p.modalState &^= modalStateMain
 	p.modalMain = -1
+	p.modalState &^= modalStateChat
 	p.modalChat = -1
+	p.modalState |= modalStateSide
 	p.modalSide = com
-	p.modalState = modalStateSide
 	p.refreshModal = true
+	p.clearSuspendedDialogScript()
 }
 
 // OpenMainSide opens mainCom as the main modal and sideCom as the side
 // modal simultaneously. Per TS, this closes any currently-open chat modal.
+// M8: bit-wise clear/OR preserves TUT and existing side state (TS
+// Player.openMainSideModal, Player.ts:2004-2018).
 func (p *Player) OpenMainSide(mainCom, sideCom int) {
-	p.modalMain = mainCom
+	p.modalState &^= modalStateChat
 	p.modalChat = -1
+	p.modalState |= modalStateMain
+	p.modalMain = mainCom
+	p.modalState |= modalStateSide
 	p.modalSide = sideCom
-	p.modalState = modalStateMain | modalStateSide
 	p.refreshModal = true
+	p.clearSuspendedDialogScript()
 }
 
 // OpenTutorial sets the player's tutorial-overlay component and writes

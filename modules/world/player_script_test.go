@@ -89,6 +89,59 @@ func TestAddXPAppliesNodeXPRate(t *testing.T) {
 	}
 }
 
+// TestOpenModalPreservesTutAndClearsSuspendedDialog pins M8: opening a modal
+// clears only the relevant modal bits (not the entire bitmap) so the TUT bit
+// survives, and drops a script suspended on dialog input. Mirrors TS
+// openMainModal/openChatModal/openSideModal (Player.ts:1928-1995).
+func TestOpenModalPreservesTutAndClearsSuspendedDialog(t *testing.T) {
+	t.Run("OpenMain_preserves_TUT_clears_chat", func(t *testing.T) {
+		p, _ := newTestPlayer(t)
+		p.modalState = modalStateChat | modalStateTut
+		p.modalChat = 50
+		p.OpenMain(1234)
+		if p.modalState&modalStateTut == 0 {
+			t.Error("TUT bit wiped by OpenMain; want preserved")
+		}
+		if p.modalState&modalStateChat != 0 {
+			t.Error("CHAT bit not cleared by OpenMain")
+		}
+		if p.modalState&modalStateMain == 0 {
+			t.Error("MAIN bit not set by OpenMain")
+		}
+		if p.modalChat != -1 || p.modalMain != 1234 {
+			t.Errorf("slots: modalChat=%d modalMain=%d, want -1, 1234", p.modalChat, p.modalMain)
+		}
+	})
+
+	t.Run("clears_CountDialog_suspended_script", func(t *testing.T) {
+		p, _ := newTestPlayer(t)
+		p.activeScript = &script.ScriptState{Execution: script.CountDialog}
+		p.OpenChat(77)
+		if p.activeScript != nil {
+			t.Error("CountDialog-suspended activeScript not cleared by OpenChat")
+		}
+	})
+
+	t.Run("clears_PauseButton_suspended_script", func(t *testing.T) {
+		p, _ := newTestPlayer(t)
+		p.activeScript = &script.ScriptState{Execution: script.PauseButton}
+		p.OpenSide(88)
+		if p.activeScript != nil {
+			t.Error("PauseButton-suspended activeScript not cleared by OpenSide")
+		}
+	})
+
+	t.Run("preserves_non_dialog_script", func(t *testing.T) {
+		p, _ := newTestPlayer(t)
+		st := &script.ScriptState{Execution: script.Running}
+		p.activeScript = st
+		p.OpenMainSide(11, 22)
+		if p.activeScript != st {
+			t.Error("Running activeScript wrongly cleared by OpenMainSide")
+		}
+	})
+}
+
 func TestAddXPLevelUpUnbuffedAdvancesLevels(t *testing.T) {
 	// Un-buffed (levels == baseLevels) player levels up: TS advances BOTH
 	// levels and baseLevels in lockstep so the stat display updates.
