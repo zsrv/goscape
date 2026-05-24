@@ -1,7 +1,6 @@
 package objtype
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/io/packet"
@@ -78,18 +77,27 @@ func TestParseVarnTypes_DebugNameCode250_SetsName(t *testing.T) {
 	}
 }
 
-func TestParseVarnTypes_UnknownCode_ReturnsError(t *testing.T) {
-	// Build packet with an unrecognized config code (99).
+func TestParseVarnTypes_UnknownCode_LogsAndContinues(t *testing.T) {
+	// TS VarNpcType.ts:71 logs an unrecognized code via printError (non-fatal)
+	// and the decodeType loop continues — unlike NpcType/ObjType/LocType
+	// (printFatalError) and seq/enum/inv/etc. (throw), which abort the load.
+	// Pin that contract: an unknown code must be skipped, not fatal.
+	// (Updated from the old _ReturnsError pin, which pinned the Go-only abort
+	// behavior that diverged from TS — L33.)
 	p := packet.NewPacket(nil)
 	p.P2(1)  // count
-	p.P1(99) // unrecognized
-	p.P1(0)  // would be content, but Decode will error first
-	_, err := parseVarnTypes(p)
-	if err == nil {
-		t.Fatal("parseVarnTypes: want error for unknown code")
+	p.P1(99) // unrecognized code — TS logs and continues
+	p.P1(0)  // terminator: ends this config's decode loop
+	cfg, err := parseVarnTypes(p)
+	if err != nil {
+		t.Fatalf("parseVarnTypes: unknown code must not abort the load (TS printError continues): %v", err)
 	}
-	if !strings.Contains(err.Error(), "unrecognized varn config code") {
-		t.Errorf("error: got %q, want substring 'unrecognized varn config code'", err.Error())
+	if len(cfg.Configs) != 1 {
+		t.Fatalf("Configs length: got %d, want 1", len(cfg.Configs))
+	}
+	// No recognized codes were applied, so the config keeps its defaults.
+	if cfg.Configs[0].Type != ScriptVarTypeInt {
+		t.Errorf("Type: got %d, want ScriptVarTypeInt default", cfg.Configs[0].Type)
 	}
 }
 

@@ -935,3 +935,51 @@ func TestComponentTypeConfigs_ByName_LinearScanWhenConfigNamesEmpty(t *testing.T
 		t.Errorf("ByName(scan_me) with nil ConfigNames = %+v, want non-nil id=0", got)
 	}
 }
+
+// TestComponentDecode_ServerOverlayGBool pins L34: the server-side overlay
+// flag is read via gbool (g1() === 1) in TS Component.ts:243, so only a byte
+// value of exactly 1 means true. The earlier Go code used `G1() != 0`, which
+// wrongly treated any non-zero byte (e.g. 2) as true.
+func TestComponentDecode_ServerOverlayGBool(t *testing.T) {
+	// buildServer emits a server.interface payload setting id=5's debugname
+	// and overlay byte.
+	buildServer := func(overlayByte uint8) *packet.Packet {
+		s := packet.NewPacket(nil)
+		s.P2(1) // count header (advisory)
+		s.P2(5) // id
+		s.PJStrLF("ovl")
+		s.P1(overlayByte)
+		return s
+	}
+
+	tests := []struct {
+		name        string
+		overlayByte uint8
+		want        bool
+	}{
+		{"byte0_false", 0, false},
+		{"byte1_true", 1, true},
+		{"byte2_false_gbool", 2, false}, // the decisive divergence: != 0 would be true
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// A minimal client record so configs[5] exists for the server
+			// merge; parseComponentTypes consumes it, so build it per-case.
+			c := minimalComponentRecord(t, 5, ComTypeLayer, ButtonNone,
+				[]byte{0, 0, 0, 0}, nil)
+			cfg, err := parseComponentTypes(c, buildServer(tc.overlayByte))
+			if err != nil {
+				t.Fatalf("parseComponentTypes: %v", err)
+			}
+			if cfg.Configs[5] == nil {
+				t.Fatalf("Configs[5]: missing")
+			}
+			if cfg.Configs[5].Overlay != tc.want {
+				t.Errorf("Overlay for byte %d: got %v, want %v", tc.overlayByte, cfg.Configs[5].Overlay, tc.want)
+			}
+			if cfg.Configs[5].ComName != "ovl" {
+				t.Errorf("ComName: got %q, want %q", cfg.Configs[5].ComName, "ovl")
+			}
+		})
+	}
+}

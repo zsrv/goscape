@@ -328,7 +328,10 @@ func parseComponentTypes(client *packet.Packet, server *packet.Packet) (*Compone
 		for server.Len() > 0 {
 			id := int(server.G2())
 			debugName := server.GJStrLF()
-			overlay := server.G1() != 0
+			// TS Component.ts:243 reads overlay via gbool (g1() === 1), not a
+			// non-zero test; GBool() mirrors that (==1). Matches the client-side
+			// gbool reads above (e.g. line 300). L34.
+			overlay := server.GBool()
 			if id < len(configs) && configs[id] != nil {
 				configs[id].ComName = debugName
 				configs[id].Overlay = overlay

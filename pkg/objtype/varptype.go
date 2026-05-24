@@ -2,6 +2,7 @@ package objtype
 
 import (
 	"fmt"
+	"log/slog"
 	"path/filepath"
 
 	jagfile "github.com/zsrv/goscape/pkg/io/jagfile"
@@ -37,7 +38,14 @@ func (v *VarPlayerType) Decode(code uint8, dat *packet2.Packet) error {
 	case 250:
 		v.DebugName = dat.GJStrLF()
 	default:
-		return fmt.Errorf("unrecognized varp config code %d", code)
+		// TS VarPlayerType.ts:102 logs via printError (non-fatal) and the
+		// decodeType loop continues — unlike NpcType/ObjType/LocType which
+		// printFatalError, or seq/enum/inv/etc. which throw (all of which
+		// abort the load, matching a returned error here). Mirror printError:
+		// log and return nil so DecodeType keeps reading. The unknown code's
+		// payload is intentionally NOT consumed, matching TS (which garbles
+		// the remaining stream the same way rather than aborting the load).
+		slog.Warn("objtype: unrecognized varp config code", "code", code)
 	}
 	return nil
 }

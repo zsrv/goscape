@@ -1,7 +1,7 @@
 package objtype
 
 import (
-	"fmt"
+	"log/slog"
 	"path/filepath"
 
 	packet2 "github.com/zsrv/goscape/pkg/io/packet"
@@ -19,7 +19,11 @@ func (v *VarSharedType) Decode(code uint8, dat *packet2.Packet) error {
 	case 250:
 		v.DebugName = dat.GJStrLF()
 	default:
-		return fmt.Errorf("unrecognized vars config code %d", code)
+		// TS VarSharedType.ts:73 logs via printError (non-fatal) and the
+		// decodeType loop continues. Mirror it: log and return nil so
+		// DecodeType keeps reading; the unknown code's payload is not
+		// consumed, matching TS. See varptype.go for the full rationale.
+		slog.Warn("objtype: unrecognized vars config code", "code", code)
 	}
 	return nil
 }
