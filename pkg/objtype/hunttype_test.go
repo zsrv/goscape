@@ -29,8 +29,9 @@ func TestHuntTypeDefaults(t *testing.T) {
 	if ht.FindKeepHunting {
 		t.Errorf("FindKeepHunting: got true, want false")
 	}
-	if ht.FindNewMode != NPCModeNull {
-		t.Errorf("FindNewMode: got %d, want NPCModeNull (%d)", ht.FindNewMode, NPCModeNull)
+	// M22: TS HuntType.findNewMode defaults to NpcMode.NONE (0), not NULL(-1).
+	if ht.FindNewMode != NPCModeNone {
+		t.Errorf("FindNewMode: got %d, want NPCModeNone (%d)", ht.FindNewMode, NPCModeNone)
 	}
 	if ht.NobodyNear != HuntNobodyNearPauseHunt {
 		t.Errorf("NobodyNear: got %d, want HuntNobodyNearPauseHunt", ht.NobodyNear)

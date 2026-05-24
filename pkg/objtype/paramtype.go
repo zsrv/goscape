@@ -155,5 +155,9 @@ func NewParamType(id int) *ParamType {
 			ID: id,
 		},
 		AutoDisable: true,
+		// M21: TS ParamType.defaultInt defaults to -1 (ParamType.ts:62), returned
+		// by the `default` getter when no opcode-1 sets it. goscape inherited Go's
+		// zero (0), diverging for params that emit no opcode-1.
+		DefaultInt: -1,
 	}
 }

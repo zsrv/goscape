@@ -77,10 +77,13 @@ func NewHuntType(id int) *HuntType {
 		ConfigType: ConfigType{
 			ID: id,
 		},
-		Type:               HuntModeOff,
-		CheckVis:           HuntVisOff,
-		CheckNotTooStrong:  HuntCheckNotTooStrongOff,
-		FindNewMode:        NPCModeNull,
+		Type:              HuntModeOff,
+		CheckVis:          HuntVisOff,
+		CheckNotTooStrong: HuntCheckNotTooStrongOff,
+		// M22: TS HuntType.findNewMode defaults to NpcMode.NONE (0), not NULL(-1)
+		// (HuntType.ts:83). findNewMode is passed as the targetOp to
+		// setInteraction after a successful hunt, so the default op must be 0.
+		FindNewMode:        NPCModeNone,
 		NobodyNear:         HuntNobodyNearPauseHunt,
 		CheckNotCombat:     -1,
 		CheckNotCombatSelf: -1,
