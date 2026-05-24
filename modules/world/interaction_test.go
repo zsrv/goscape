@@ -381,6 +381,56 @@ func TestInApproachDistance_EdgeAware_MultiTileTarget(t *testing.T) {
 	}
 }
 
+// TestApproachHasLineOfSight pins M1: the player-side approach gate applies the
+// forward line-of-sight check (TS PathingEntity.ts:405 else-branch via
+// isApproached → hasLineOfSight with CollisionFlag.PLAYER). A projectile-blocking
+// wall between the player and an in-range target must gate AP off, mirroring the
+// NPC branch's backward LoS. Setup follows the NPC-side LoS tests: a
+// FlagWallNorthProjBlocker on the tile the forward ray enters.
+func TestApproachHasLineOfSight(t *testing.T) {
+	build := func(t *testing.T, withWall bool) *Player {
+		t.Helper()
+		s := newServerForScriptTest(t)
+		s.gamemap = gamemap.New(discardLogger())
+		s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3094, 3106, 0)
+		s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3094, 3107, 0)
+		s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3094, 3108, 0)
+		if withWall {
+			// Player (size 1) at z=3108 casting toward z=3106 enters the dest
+			// tile 3106 from the north; FlagWallNorthProjBlocker there blocks it.
+			s.gamemap.Pathfinder.Flags.Add(3094, 3106, 0, collision.FlagWallNorthProjBlocker)
+		}
+		p := addPlayerToServer(t, s, 1, 3094, 3108, 0)
+		p.client = &client{server: s} // the helper reaches the map via p.client.server
+		return p
+	}
+
+	t.Run("clear_los_passes", func(t *testing.T) {
+		p := build(t, false)
+		if !p.approachHasLineOfSight(3094, 3106, 1, 1) {
+			t.Error("approachHasLineOfSight: got false, want true with no blocker")
+		}
+	})
+
+	t.Run("blocked_los_gates", func(t *testing.T) {
+		p := build(t, true)
+		if p.approachHasLineOfSight(3094, 3106, 1, 1) {
+			t.Error("approachHasLineOfSight: got true, want false — " +
+				"FlagWallNorthProjBlocker must gate the forward AP ray")
+		}
+	})
+
+	t.Run("nil_gamemap_passes", func(t *testing.T) {
+		s := newServerForScriptTest(t)
+		s.gamemap = nil
+		p := addPlayerToServer(t, s, 1, 3094, 3108, 0)
+		p.client = &client{server: s}
+		if !p.approachHasLineOfSight(3094, 3106, 1, 1) {
+			t.Error("approachHasLineOfSight: got false, want true (nil gamemap short-circuits to pass)")
+		}
+	})
+}
+
 // TestProcessInteractionPreMove_InRangeAttackClearsPathBeforeMovement pins the
 // TS-faithful pre-step-before-movement ordering (Player.ts:1241 — updateMovement
 // sits between the pre-step and post-step interact arms). A player who clicks an

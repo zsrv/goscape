@@ -437,7 +437,15 @@ func (p *Player) tryInteract(allowOpScenery bool) bool {
 	tx, tz, _ := p.target.Coords()
 	tw, tl := approachTargetSize(p.target)
 	operable := inOperableDistance(p, p.target)
-	approach := inApproachDistance(p.x, p.z, tx, tz, tw, tl, effectiveApRange(p))
+	// TS PathingEntity.inApproachDistance (PathingEntity.ts:405, player/else
+	// branch) is `distanceTo(...) <= range && isApproached(...)`. The free
+	// inApproachDistance below is the range half; approachHasLineOfSight is the
+	// LoS half (M1 — the player side previously omitted it and could fire AP
+	// through walls; the NPC branch already gated). Short-circuits: when the
+	// range half is false (incl. apRange<=0) LoS is never evaluated, so no
+	// gamemap call happens when no AP script exists.
+	approach := inApproachDistance(p.x, p.z, tx, tz, tw, tl, effectiveApRange(p)) &&
+		p.approachHasLineOfSight(tx, tz, tw, tl)
 
 	isPathing := false
 	switch p.target.(type) {
@@ -738,8 +746,10 @@ func inOperableDistanceCheb(px, pz, tx, tz int) bool {
 
 // inApproachDistance returns true when a 1x1 source at (px,pz) is within
 // apRange tiles of the target footprint at (tx,tz) sized tw×tl, excluding
-// being on/under the footprint. Range-portion of TS
-// PathingEntity.inApproachDistance, sans LOS (DEVIATION S6l-D4).
+// being on/under the footprint. This is the RANGE half of TS
+// PathingEntity.inApproachDistance; the LoS half is applied separately by
+// (*Player).approachHasLineOfSight at the tryInteract call site (M1 closed
+// the former DEVIATION S6l-D4 LoS omission).
 // apRange <= 0 always returns false — the caller is responsible for
 // distinguishing "not yet in range" from "no AP script exists."
 //
@@ -760,6 +770,29 @@ func inApproachDistance(px, pz, tx, tz, tw, tl, apRange int) bool {
 	// TS PathingEntity.ts:404 — CoordGrid.distanceTo (edge-aware Chebyshev),
 	// NOT origin-corner distance.
 	return coordgrid.DistanceTo(px, pz, 1, 1, tx, tz, tw, tl) <= apRange
+}
+
+// approachHasLineOfSight is the player-side LoS half of TS
+// PathingEntity.inApproachDistance (PathingEntity.ts:405, the else/non-Npc
+// branch): isApproached(level, this.x, this.z, target.x, target.z, this.width,
+// this.length, target.width, target.length), which forwards to
+// rsmod.hasLineOfSight(..., CollisionFlag.PLAYER) (GameMap.ts:433-435).
+//
+// Unlike the NPC branch — where "LoS is always calculated backwards" so the
+// source is the target and the dest is self ((*Npc).inApproachDistance) — the
+// player branch casts FORWARD: source = self, dest = target. Go's
+// HasLineOfSight collapses the source footprint to a scalar srcSize, lossless
+// here because the player is always square 1×1 (p.Width()).
+//
+// A nil server/gamemap short-circuits to gate-pass, mirroring
+// (*Npc).inApproachDistance's NAI-12 error handling so headless tests without a
+// map are not gated.
+func (p *Player) approachHasLineOfSight(tx, tz, tw, tl int) bool {
+	if p.client == nil || p.client.server == nil || p.client.server.gamemap == nil {
+		return true
+	}
+	return p.client.server.gamemap.Pathfinder.LineValidator.HasLineOfSight(
+		p.level, p.x, p.z, tx, tz, p.Width(), tw, tl, collision.FlagBlockPlayers)
 }
 
 // approachTargetSize returns the target's tile footprint for approach-distance
