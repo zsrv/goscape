@@ -72,3 +72,16 @@ func (s *ScriptState) setActivePlayer(p ActivePlayer) {
 		s.Pointers |= PtrActivePlayer2
 	}
 }
+
+// activeNpc returns the operand-resolved active npc: ActiveNpc for operand 0,
+// OtherActiveNpc for operand 1. Mirrors TS ScriptState.activeNpc getter
+// (ScriptState.ts:246-252) — the `.npc` / `.npc2` selector that every NpcOps
+// read/mutate handler resolves via checkedHandler(ActiveNpc[intOperand]).
+// Returns nil when the resolved slot is unset; callers gate on
+// requireActiveNpc first.
+func (s *ScriptState) activeNpc() ActiveNpc {
+	if s.intOperand() == 0 {
+		return s.ActiveNpc
+	}
+	return s.OtherActiveNpc
+}

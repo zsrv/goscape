@@ -329,7 +329,7 @@ func handleNpcParam(s *ScriptState) error {
 		return err
 	}
 	paramID := s.PopInt()
-	npcID := s.ActiveNpc.NpcType()
+	npcID := s.activeNpc().NpcType()
 	if err := checkNpcType(s, npcID, "NPC_PARAM"); err != nil {
 		return err
 	}

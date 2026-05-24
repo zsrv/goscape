@@ -179,10 +179,13 @@ func setActiveNpcSlot(s *ScriptState, npc ActiveNpc) {
 }
 
 // requireActiveNpc returns an error tagged with the opcode name if the
-// script has no ActiveNpc bound. All NPC_* read handlers start with this
-// check to mirror TS `checkedHandler(ActiveNpc, ...)`.
+// operand-resolved active NPC slot is unbound. Mirrors TS
+// `checkedHandler(ActiveNpc, ...)` → `pointerCheck(ActiveNpc[intOperand])`
+// (ScriptPointer.ts:52): operand 0 checks the primary slot, operand 1 the
+// secondary. All NPC_* read/mutate handlers gate on this, then read the same
+// operand-resolved npc via s.activeNpc().
 func requireActiveNpc(s *ScriptState, op string) error {
-	if s.ActiveNpc == nil {
+	if s.activeNpc() == nil {
 		return fmt.Errorf("%s: %w", op, ErrNoActiveNpc)
 	}
 	return nil
@@ -197,7 +200,7 @@ func handleNpcType(s *ScriptState) error {
 	if err := requireConfigs(s, "NPC_TYPE"); err != nil {
 		return err
 	}
-	id := s.ActiveNpc.NpcType()
+	id := s.activeNpc().NpcType()
 	if err := checkNpcType(s, id, "NPC_TYPE"); err != nil {
 		return err
 	}
@@ -211,7 +214,7 @@ func handleNpcCoord(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_COORD"); err != nil {
 		return err
 	}
-	n := s.ActiveNpc
+	n := s.activeNpc()
 	s.PushInt((n.NpcLevel() << 28) | (n.NpcX() << 14) | n.NpcZ())
 	return nil
 }
@@ -228,7 +231,7 @@ func handleNpcStat(s *ScriptState) error {
 	if err := checkNpcStatID(stat, "NPC_STAT"); err != nil {
 		return err
 	}
-	s.PushInt(s.ActiveNpc.NpcStat(stat))
+	s.PushInt(s.activeNpc().NpcStat(stat))
 	return nil
 }
 
@@ -243,7 +246,7 @@ func handleNpcBaseStat(s *ScriptState) error {
 	if err := checkNpcStatID(stat, "NPC_BASESTAT"); err != nil {
 		return err
 	}
-	s.PushInt(s.ActiveNpc.NpcBaseStat(stat))
+	s.PushInt(s.activeNpc().NpcBaseStat(stat))
 	return nil
 }
 
@@ -258,7 +261,7 @@ func handleNpcName(s *ScriptState) error {
 	if err := requireConfigs(s, "NPC_NAME"); err != nil {
 		return err
 	}
-	typeID := s.ActiveNpc.NpcType()
+	typeID := s.activeNpc().NpcType()
 	if err := checkNpcType(s, typeID, "NPC_NAME"); err != nil {
 		return err
 	}
@@ -285,7 +288,7 @@ func handleNpcHasOp(s *ScriptState) error {
 		s.PushInt(0)
 		return nil
 	}
-	cfg := s.Configs.NpcType(s.ActiveNpc.NpcType())
+	cfg := s.Configs.NpcType(s.activeNpc().NpcType())
 	if cfg == nil {
 		s.PushInt(0)
 		return nil
@@ -304,7 +307,7 @@ func handleNpcUID(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_UID"); err != nil {
 		return err
 	}
-	s.PushInt(s.ActiveNpc.NpcUID())
+	s.PushInt(s.activeNpc().NpcUID())
 	return nil
 }
 
@@ -318,7 +321,7 @@ func handleNpcCategory(s *ScriptState) error {
 	if err := requireConfigs(s, "NPC_CATEGORY"); err != nil {
 		return err
 	}
-	typeID := s.ActiveNpc.NpcType()
+	typeID := s.activeNpc().NpcType()
 	if err := checkNpcType(s, typeID, "NPC_CATEGORY"); err != nil {
 		return err
 	}
@@ -333,7 +336,7 @@ func handleNpcSay(s *ScriptState) error {
 		return err
 	}
 	text := s.PopString()
-	s.ActiveNpc.Say([]byte(text))
+	s.activeNpc().Say([]byte(text))
 	return nil
 }
 
@@ -350,7 +353,7 @@ func handleNpcAnim(s *ScriptState) error {
 		return err
 	}
 	id := s.PopInt()
-	s.ActiveNpc.Animate(id, delay)
+	s.activeNpc().Animate(id, delay)
 	return nil
 }
 
@@ -362,7 +365,7 @@ func handleNpcFaceSquare(s *ScriptState) error {
 		return err
 	}
 	_, x, z := unpackCoord(s.PopInt())
-	s.ActiveNpc.FaceCoord(x, z)
+	s.activeNpc().FaceCoord(x, z)
 	return nil
 }
 
@@ -383,7 +386,7 @@ func handleNpcChangeType(s *ScriptState) error {
 	if err := checkNpcType(s, newType, "NPC_CHANGETYPE"); err != nil {
 		return err
 	}
-	s.ActiveNpc.ChangeType(newType, duration)
+	s.activeNpc().ChangeType(newType, duration)
 	return nil
 }
 
@@ -403,7 +406,7 @@ func handleNpcChangeTypeKeepAll(s *ScriptState) error {
 	if err := checkNpcType(s, newType, "NPC_CHANGETYPE_KEEPALL"); err != nil {
 		return err
 	}
-	s.ActiveNpc.ChangeTypeKeepAll(newType, duration)
+	s.activeNpc().ChangeTypeKeepAll(newType, duration)
 	return nil
 }
 
@@ -424,7 +427,7 @@ func handleNpcDamage(s *ScriptState) error {
 	if err := checkHitType(dmgType, "NPC_DAMAGE"); err != nil {
 		return err
 	}
-	s.ActiveNpc.Damage(amount, dmgType)
+	s.activeNpc().Damage(amount, dmgType)
 	return nil
 }
 
@@ -453,7 +456,7 @@ func handleNpcDel(s *ScriptState) error {
 	if s.World == nil {
 		return fmt.Errorf("NPC_DEL: no world surface")
 	}
-	s.World.RemoveNpc(s.ActiveNpc, s.ActiveNpc.Respawnrate())
+	s.World.RemoveNpc(s.activeNpc(), s.activeNpc().Respawnrate())
 	return nil
 }
 
@@ -471,7 +474,7 @@ func handleNpcDelay(s *ScriptState) error {
 	if err := checkNotNull(ticks, "NPC_DELAY"); err != nil {
 		return err
 	}
-	s.ActiveNpc.SetDelayed(ticks)
+	s.activeNpc().SetDelayed(ticks)
 	s.Execution = NpcSuspended
 	return nil
 }
@@ -508,15 +511,15 @@ func handleNpcArriveDelay(s *ScriptState) error {
 	if s.World == nil {
 		return fmt.Errorf("NPC_ARRIVEDELAY: %w", ErrNoWorld)
 	}
-	last := s.ActiveNpc.LastMovement()
+	last := s.activeNpc().LastMovement()
 	tick := s.World.CurrentTick()
 	if last < tick-1 {
 		return nil
 	}
 	if last == tick-1 {
-		s.ActiveNpc.SetDelayed(0) // delayedUntil = T+1
+		s.activeNpc().SetDelayed(0) // delayedUntil = T+1
 	} else {
-		s.ActiveNpc.SetDelayed(1) // delayedUntil = T+2
+		s.activeNpc().SetDelayed(1) // delayedUntil = T+2
 	}
 	s.Execution = NpcSuspended
 	return nil
@@ -543,7 +546,7 @@ func handleNpcQueue(s *ScriptState) error {
 		return err
 	}
 	trigger := TriggerAiQueue1 + ServerTriggerType(queueID-1)
-	s.ActiveNpc.EnqueueScriptForTrigger(trigger, delay, lastIntArg)
+	s.activeNpc().EnqueueScriptForTrigger(trigger, delay, lastIntArg)
 	return nil
 }
 
@@ -558,7 +561,7 @@ func handleNpcSetTimer(s *ScriptState) error {
 	if err := checkNotNull(interval, "NPC_SETTIMER"); err != nil {
 		return err
 	}
-	s.ActiveNpc.SetTimer(interval)
+	s.activeNpc().SetTimer(interval)
 	return nil
 }
 
@@ -575,7 +578,7 @@ func handleNpcTele(s *ScriptState) error {
 	if err != nil {
 		return err
 	}
-	s.ActiveNpc.Teleport(x, z, level)
+	s.activeNpc().Teleport(x, z, level)
 	return nil
 }
 
@@ -593,7 +596,7 @@ func handleNpcWalk(s *ScriptState) error {
 	if err != nil {
 		return err
 	}
-	s.ActiveNpc.QueueWaypoint(x, z)
+	s.activeNpc().QueueWaypoint(x, z)
 	return nil
 }
 
@@ -615,8 +618,8 @@ func handleNpcWalkTrigger(s *ScriptState) error {
 	if err := checkQueue(queueID, "NPC_WALKTRIGGER"); err != nil {
 		return err
 	}
-	s.ActiveNpc.SetWalkTrigger(queueID - 1)
-	s.ActiveNpc.SetWalkTriggerArg(arg)
+	s.activeNpc().SetWalkTrigger(queueID - 1)
+	s.activeNpc().SetWalkTriggerArg(arg)
 	return nil
 }
 
@@ -627,7 +630,7 @@ func handleNpcGetMode(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_GETMODE"); err != nil {
 		return err
 	}
-	s.PushInt(s.ActiveNpc.TargetOp())
+	s.PushInt(s.activeNpc().TargetOp())
 	return nil
 }
 
@@ -657,22 +660,22 @@ func handleNpcSetMode(s *ScriptState) error {
 
 	// Branch 1: clear-target modes.
 	if mode == objtype.NPCModeNone || mode == objtype.NPCModeWander || mode == objtype.NPCModePatrol {
-		s.ActiveNpc.ClearInteraction()
-		s.ActiveNpc.SetTargetOp(mode)
+		s.activeNpc().ClearInteraction()
+		s.activeNpc().SetTargetOp(mode)
 		if mode == objtype.NPCModePatrol {
-			s.ActiveNpc.ClearPatrol()
+			s.activeNpc().ClearPatrol()
 		}
 		return nil
 	}
 
 	// Branch 2: NULL → resetDefaults.
 	if mode == objtype.NPCModeNull {
-		s.ActiveNpc.ResetDefaults()
+		s.activeNpc().ResetDefaults()
 		return nil
 	}
 
 	// Branch 3: target-binding modes.
-	s.ActiveNpc.SetTargetOp(mode)
+	s.activeNpc().SetTargetOp(mode)
 
 	var target any
 	switch {
@@ -692,10 +695,10 @@ func handleNpcSetMode(s *ScriptState) error {
 	}
 
 	if target == nil {
-		s.ActiveNpc.ResetDefaults()
+		s.activeNpc().ResetDefaults()
 		return nil
 	}
-	s.ActiveNpc.SetInteractionScript(target, mode)
+	s.activeNpc().SetInteractionScript(target, mode)
 	return nil
 }
 
@@ -712,7 +715,7 @@ func handleNpcSetHunt(s *ScriptState) error {
 	if err := checkNotNull(huntRange, "NPC_SETHUNT"); err != nil {
 		return err
 	}
-	s.ActiveNpc.SetHuntRange(huntRange)
+	s.activeNpc().SetHuntRange(huntRange)
 	return nil
 }
 
@@ -731,7 +734,7 @@ func handleNpcSetHuntMode(s *ScriptState) error {
 			return err
 		}
 	}
-	s.ActiveNpc.SetHuntMode(hid)
+	s.activeNpc().SetHuntMode(hid)
 	return nil
 }
 
@@ -1143,7 +1146,7 @@ func handleNpcRange(s *ScriptState) error {
 	if err != nil {
 		return err
 	}
-	n := s.ActiveNpc
+	n := s.activeNpc()
 	if level != n.NpcLevel() {
 		s.PushInt(-1)
 		return nil
@@ -1210,11 +1213,11 @@ func handleNpcStatAdd(s *ScriptState) error {
 	if err := checkNotNull(percent, "NPC_STATADD"); err != nil {
 		return err
 	}
-	base := s.ActiveNpc.NpcBaseStat(stat)
-	cur := s.ActiveNpc.NpcStat(stat)
+	base := s.activeNpc().NpcBaseStat(stat)
+	cur := s.activeNpc().NpcStat(stat)
 	added := cur + (constant + (base*percent)/100)
 	added = min(added, 255)
-	s.ActiveNpc.SetNpcStat(stat, added)
+	s.activeNpc().SetNpcStat(stat, added)
 	return nil
 }
 
@@ -1242,11 +1245,11 @@ func handleNpcStatSub(s *ScriptState) error {
 	if err := checkNotNull(percent, "NPC_STATSUB"); err != nil {
 		return err
 	}
-	base := s.ActiveNpc.NpcBaseStat(stat)
-	cur := s.ActiveNpc.NpcStat(stat)
+	base := s.activeNpc().NpcBaseStat(stat)
+	cur := s.activeNpc().NpcStat(stat)
 	subbed := cur - (constant + (base*percent)/100)
 	subbed = max(subbed, 0)
-	s.ActiveNpc.SetNpcStat(stat, subbed)
+	s.activeNpc().SetNpcStat(stat, subbed)
 	return nil
 }
 
@@ -1276,7 +1279,7 @@ func handleSpotAnimNpc(s *ScriptState) error {
 	if err := checkSpotAnimType(s, id, "SPOTANIM_NPC"); err != nil {
 		return err
 	}
-	s.ActiveNpc.PlaySpotAnim(id, height, delay)
+	s.activeNpc().PlaySpotAnim(id, height, delay)
 	return nil
 }
 
@@ -1308,7 +1311,7 @@ func handleNpcHeroPoints(s *ScriptState) error {
 	if err := checkNotNull(amount, "NPC_HEROPOINTS"); err != nil {
 		return err
 	}
-	s.ActiveNpc.AddHeroPoints(s.activePlayer().UID(), amount)
+	s.activeNpc().AddHeroPoints(s.activePlayer().UID(), amount)
 	return nil
 }
 
@@ -1344,7 +1347,7 @@ func handleNpcFindHero(s *ScriptState) error {
 		s.PushInt(0)
 		return nil
 	}
-	topUID = s.ActiveNpc.TopContributor()
+	topUID = s.activeNpc().TopContributor()
 	if topUID == 0 {
 		s.PushInt(0)
 		return nil
@@ -1374,7 +1377,7 @@ func handleNpcInRange(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_INRANGE"); err != nil {
 		return err
 	}
-	if s.ActiveNpc.TargetWithinMaxRange() {
+	if s.activeNpc().TargetWithinMaxRange() {
 		s.PushInt(1)
 	} else {
 		s.PushInt(0)
@@ -1391,7 +1394,7 @@ func handleNpcAttackRange(s *ScriptState) error {
 	if err := requireActiveNpc(s, "NPC_ATTACKRANGE"); err != nil {
 		return err
 	}
-	typeID := s.ActiveNpc.NpcType()
+	typeID := s.activeNpc().NpcType()
 	if err := checkNpcType(s, typeID, "NPC_ATTACKRANGE"); err != nil {
 		return err
 	}
@@ -1422,15 +1425,15 @@ func handleNpcStatHeal(s *ScriptState) error {
 	if err := checkNotNull(percent, "NPC_STATHEAL"); err != nil {
 		return err
 	}
-	base := s.ActiveNpc.NpcBaseStat(stat)
-	cur := s.ActiveNpc.NpcStat(stat)
+	base := s.activeNpc().NpcBaseStat(stat)
+	cur := s.activeNpc().NpcStat(stat)
 	healed := cur + (constant + (base*percent)/100) // TS `| 0` ≡ Go int truncation
 	if healed > base {
 		healed = base
 	}
-	s.ActiveNpc.SetNpcStat(stat, healed)
+	s.activeNpc().SetNpcStat(stat, healed)
 	if stat == objtype.NpcStatHitpoints && healed >= base {
-		s.ActiveNpc.HeroPointsClear()
+		s.activeNpc().HeroPointsClear()
 	}
 	return nil
 }

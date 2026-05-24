@@ -3167,7 +3167,7 @@ func TestNpcSetMode_OpNpcWithIntOperandZeroBindsToOtherActiveNpc(t *testing.T) {
 	}
 }
 
-func TestNpcSetMode_OpNpcWithIntOperandNonZeroBindsToActiveNpc(t *testing.T) {
+func TestNpcSetMode_OpNpcWithIntOperandNonZeroBindsToOtherActiveNpc(t *testing.T) {
 	npc := &mockNpc{}
 	otherNpc := &mockNpc{}
 	mc := &mockConfigs{}
@@ -3192,12 +3192,19 @@ func TestNpcSetMode_OpNpcWithIntOperandNonZeroBindsToActiveNpc(t *testing.T) {
 		t.Fatalf("Execute: %v", err)
 	}
 
-	if len(npc.setInteractionScriptCalls) != 1 {
-		t.Fatalf("setInteractionScriptCalls: got %d, want 1", len(npc.setInteractionScriptCalls))
+	// operand 1 (`.npc2`): the npc being modified is the operand-resolved
+	// subject — OtherActiveNpc — and the OPNPC target is the opposite raw
+	// slot, ActiveNpc. Mirrors TS NpcOps.ts:191-219 (state.activeNpc subject,
+	// state._activeNpc target). The old code modified the primary (self-target).
+	if len(otherNpc.setInteractionScriptCalls) != 1 {
+		t.Fatalf("otherNpc.setInteractionScriptCalls: got %d, want 1", len(otherNpc.setInteractionScriptCalls))
 	}
-	if npc.setInteractionScriptCalls[0].target != ActiveNpc(npc) {
-		t.Errorf("target: got %v, want npc (self) — operand!=0 selects ActiveNpc",
-			npc.setInteractionScriptCalls[0].target)
+	if otherNpc.setInteractionScriptCalls[0].target != ActiveNpc(npc) {
+		t.Errorf("target: got %v, want npc (ActiveNpc) — operand 1 modifies OtherActiveNpc, targets ActiveNpc",
+			otherNpc.setInteractionScriptCalls[0].target)
+	}
+	if len(npc.setInteractionScriptCalls) != 0 {
+		t.Errorf("primary npc must not be modified under operand 1; got %d calls", len(npc.setInteractionScriptCalls))
 	}
 }
 
@@ -4446,18 +4453,72 @@ func TestHandleNpcDel_ZeroRespawnrate(t *testing.T) {
 
 // --- NAI-127 Bundle 1: NPC_FINDHERO (opcode 2519) ---
 
-// newNpcFindHeroState builds a ScriptState with PtrActiveNpc set,
-// ActiveNpc=npc, and World=mw, IntOperand-driven by intOperand.
+// newNpcFindHeroState builds a ScriptState with the npc bound in the
+// operand-resolved active-npc slot and World=mw. NPC_FINDHERO is
+// checkedHandler(ActiveNpc), so operand 1 (`.npc2`) reads the npc from the
+// SECONDARY slot and writes the hero to Self2 — both keyed off the same
+// operand. Binding the npc into the matching slot mirrors how a real
+// FINDNPC/NPC_ADD would have populated it.
 func newNpcFindHeroState(npc ActiveNpc, mw WorldVars, intOperand int) *ScriptState {
 	s := &ScriptState{
 		World:       mw,
-		ActiveNpc:   npc,
-		Pointers:    PtrActiveNpc,
 		IntStack:    make([]int, StackCapacity),
 		StringStack: make([]string, StackCapacity),
 	}
+	if intOperand == 0 {
+		s.ActiveNpc = npc
+		s.Pointers = PtrActiveNpc
+	} else {
+		s.OtherActiveNpc = npc
+		s.Pointers = PtrActiveNpc2
+	}
 	s.Script = &ScriptFile{IntOperands: []int32{int32(intOperand)}}
 	return s
+}
+
+// TestNpcReadOpResolvesOperand pins the core of the H1 fix: a generic NPC
+// read op (NPC_UID) resolves the int operand — operand 0 reads ActiveNpc,
+// operand 1 (`.npc2`) reads OtherActiveNpc. Mirrors TS state.activeNpc getter
+// (ScriptState.ts:246-252); the NPC twin of the player fix c58cac51.
+func TestNpcReadOpResolvesOperand(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		operand int32
+		wantUID int
+	}{
+		{"operand0_primary", 0, 11},
+		{"operand1_secondary", 1, 22},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &ScriptState{
+				Script:         &ScriptFile{IntOperands: []int32{tc.operand}},
+				ActiveNpc:      &mockNpc{uid: 11},
+				OtherActiveNpc: &mockNpc{uid: 22},
+				IntStack:       make([]int, StackCapacity),
+				StringStack:    make([]string, StackCapacity),
+			}
+			if err := handleNpcUID(s); err != nil {
+				t.Fatalf("handleNpcUID: %v", err)
+			}
+			if got := s.PopInt(); got != tc.wantUID {
+				t.Errorf("NPC_UID operand %d: got uid %d, want %d", tc.operand, got, tc.wantUID)
+			}
+		})
+	}
+}
+
+// TestNpcRequireResolvesOperand pins that requireActiveNpc gates on the
+// operand-resolved slot: operand 1 with an empty secondary slot fails even
+// when the primary is bound. Mirrors TS checkedHandler(ActiveNpc[intOperand]).
+func TestNpcRequireResolvesOperand(t *testing.T) {
+	s := &ScriptState{
+		Script:    &ScriptFile{IntOperands: []int32{1}},
+		ActiveNpc: &mockNpc{uid: 11}, // primary bound, secondary nil
+		IntStack:  make([]int, StackCapacity),
+	}
+	if err := requireActiveNpc(s, "NPC_UID"); err == nil {
+		t.Error("requireActiveNpc operand 1 with nil secondary: got nil, want ErrNoActiveNpc")
+	}
 }
 
 func TestNpcFindHero_EmptyLedger(t *testing.T) {
