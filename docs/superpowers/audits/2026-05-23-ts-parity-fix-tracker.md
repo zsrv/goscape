@@ -16,7 +16,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 | HIGH | 17 / 17 ✓ |
 | DISPUTED | D1 RESOLVED ✓ (real bug, fixed with M2) |
 | MEDIUM | 30 / 30 ✓ |
-| LOW | 41 / 50 |
+| LOW | 43 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
 
 ---
@@ -127,8 +127,8 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [x] **L39** jagfile `Deconstruct` dead code, independently buggy — `pkg/io/jagfile/jagfile.go:318` — consider deleting. [O] (8114f100) — DELETED. No production/test callers; also passed `offset` (final running total) to GetCRC instead of `offsets[i]`, and set `dat.Pos` then ignored it via `dat.Bytes()`.
 - [x] **L40** jagfile name-label lookup non-deterministic map order — `jagfile.go:372`. [O] (8114f100) — was ranging over `nameToHash` map (randomized Go order); TS Jagfile.ts:68-71 resolves via `KNOWN_HASHES.findIndex` in array order. Switched to ordered scan over `knownNames`. +pin TestKnownNamesNoHashCollision (212 names hash uniquely → lookup unambiguous, keeps L40/L41 latent).
 - [x] **L41** jagfile `knownNames` ordering differs (zero effect) — `jagfile.go:401`. [O] (8114f100) — `backtop2.dat`/`mapflag.dat` were in alphabetical slots; reordered to follow `wornicons.dat` before `mapmarker.dat` per TS KNOWN_NAMES so the L40 scan resolves identically to TS under any future collision. +pin TestKnownNamesOrderMatchesTS.
-- [ ] **L42** `lineScaleDown` arithmetic `>>16` vs logical `>>>16` (latent) — `pkg/pathfinder/routefinder/line.go:24`. [P]
-- [ ] **L43** `FlagNull=-1` vs TS NULL=0x7FFFFFFF (Indoors strategy on off-map tiles) — `pkg/pathfinder/collision/flag.go:4`. [P]
+- [x] **L42** `lineScaleDown` arithmetic `>>16` vs logical `>>>16` (latent) — `pkg/pathfinder/routefinder/line.go:24`. [P] (e883317d) — RayCast's scaled value tracks a coord interpolated between two non-negative map tiles (scaledZ/X start at startZ/X<<16+halfTile, step toward endZ/X<<16, both >=0), so the operand is never negative → arithmetic `>>` == logical `>>>16` over the entire reachable domain. Documented; kept `>>` (idiomatic Go, matches the signed-int rsmod source). +pin TestLineScaleDown_NonNegativeMatchesLogicalShift + round-trip. No behavioral change.
+- [x] **L43** `FlagNull=-1` vs TS NULL=0x7FFFFFFF (Indoors strategy on off-map tiles) — `pkg/pathfinder/collision/flag.go:4`. [P] (e883317d) — REAL latent bug. Confirmed @2004scape/rsmod-pathfinder ROOF=2147483648(1<<31), NULL=2147483647(0x7FFFFFFF): every bit set EXCEPT ROOF. Go's -1 set bit 31, so off-map tiles (Get→FlagNull) were wrongly indoors: IsIndoors(off-map) true vs TS false → MAP_INDOORS off-map wrong. Changed const to 0x7FFFFFFF. Dual role (off-map sentinel + blockWalkFlag no-move) both faithful — TS uses CollisionFlag.NULL for each (Npc.ts:393,397; PathingEntity.ts:485,502,632). All uses are == / bitwise on bits 0..30 (identical to -1); only bit 31 observes change. +pins flag_test.go (incl. off-map-not-indoors regression guard); world+script+gamemap suites pass (exit 0). Fixed stale "FlagNull=-1" comments across 6 files + FlagMap.Get doc.
 - [ ] **L44** Friend list has no `ORDER BY created` (display order undefined) — `modules/friends/repository.go:169,255`. [R]
 - [ ] **L45** Friend re-WORLD_CONNECT doesn't terminate prior socket (per-player-stream arch) — `modules/friends/handler.go:38`. [R]
 - [ ] **L46** Login `updateHiscores` on logout is a bare TODO — `modules/login/handler.go:241`. [R]
