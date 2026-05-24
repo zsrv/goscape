@@ -1070,21 +1070,16 @@ func (n *Npc) reorient() {
 	}
 }
 
-// defaultMode returns the NPC's baseline mode based on its NpcType
-// config. Patrol if PatrolCoord is set; else Wander if WanderRange>0;
-// else None. Single source of truth used by NewNpc (initial targetOp)
-// and resetDefaults (revert targetOp). Matches TS NpcType.defaultmode.
+// defaultMode returns the NPC's baseline mode — the stored
+// NpcType.DefaultMode (opcode 210, default WANDER). Single source of truth
+// used by NewNpc (initial targetOp) and resetDefaults (revert targetOp).
+// Mirrors TS, which reads type.defaultmode directly (Npc.ts:100, 414); it
+// does NOT re-derive the mode from patrol/wander config.
 func (n *Npc) defaultMode() int {
 	if n.typ == nil {
 		return objtype.NPCModeNone
 	}
-	if len(n.typ.PatrolCoord) > 0 {
-		return objtype.NPCModePatrol
-	}
-	if n.typ.WanderRange > 0 {
-		return objtype.NPCModeWander
-	}
-	return objtype.NPCModeNone
+	return n.typ.DefaultMode
 }
 
 // clearPatrol resets the patrol-tick countdown so the NPC immediately

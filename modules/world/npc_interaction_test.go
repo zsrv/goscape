@@ -46,7 +46,7 @@ func TestCheckOpTrigger(t *testing.T) {
 
 func TestProcessMovementInteractionDelayedBails(t *testing.T) {
 	s := newServerForScriptTest(t)
-	typ := &objtype.NpcType{WanderRange: 5}
+	typ := &objtype.NpcType{WanderRange: 5, DefaultMode: objtype.NPCModeWander}
 	n := NewNpc(1, 42, 100, 100, 0, typ)
 	n.server = s
 	n.delayed = true
@@ -60,7 +60,7 @@ func TestProcessMovementInteractionDelayedBails(t *testing.T) {
 
 func TestProcessMovementInteractionDeadBails(t *testing.T) {
 	s := newServerForScriptTest(t)
-	typ := &objtype.NpcType{WanderRange: 5}
+	typ := &objtype.NpcType{WanderRange: 5, DefaultMode: objtype.NPCModeWander}
 	n := NewNpc(1, 42, 100, 100, 0, typ)
 	n.server = s
 	n.dead = true
@@ -74,7 +74,7 @@ func TestProcessMovementInteractionDeadBails(t *testing.T) {
 
 func TestProcessMovementInteractionNullFailsafeFallsToDefault(t *testing.T) {
 	s := newServerForScriptTest(t)
-	typ := &objtype.NpcType{WanderRange: 5}
+	typ := &objtype.NpcType{WanderRange: 5, DefaultMode: objtype.NPCModeWander}
 	n := NewNpc(1, 42, 100, 100, 0, typ)
 	n.server = s
 	n.targetOp = objtype.NPCModeNull
@@ -88,7 +88,7 @@ func TestProcessMovementInteractionNullFailsafeFallsToDefault(t *testing.T) {
 
 func TestProcessMovementInteractionWanderInvokesWanderMode(t *testing.T) {
 	s := newServerForScriptTest(t)
-	typ := &objtype.NpcType{WanderRange: 5}
+	typ := &objtype.NpcType{WanderRange: 5, DefaultMode: objtype.NPCModeWander}
 	n := NewNpc(1, 42, 100, 100, 0, typ)
 	n.server = s
 	n.targetOp = objtype.NPCModeWander
@@ -102,7 +102,7 @@ func TestProcessMovementInteractionWanderInvokesWanderMode(t *testing.T) {
 
 func TestProcessMovementInteractionNilTargetResetsDefaults(t *testing.T) {
 	s := newServerForScriptTest(t)
-	typ := &objtype.NpcType{WanderRange: 5}
+	typ := &objtype.NpcType{WanderRange: 5, DefaultMode: objtype.NPCModeWander}
 	n := NewNpc(1, 42, 100, 100, 0, typ)
 	n.server = s
 	n.target = nil
@@ -1111,7 +1111,7 @@ func TestNpcFocusWritesFaceAngleAlwaysAndFaceSquareOnInstant(t *testing.T) {
 }
 
 func TestNpcResetDefaultsClearsTargetKeepsOtherState(t *testing.T) {
-	typ := &objtype.NpcType{WanderRange: 5}
+	typ := &objtype.NpcType{WanderRange: 5, DefaultMode: objtype.NPCModeWander}
 	n := NewNpc(1, 42, 100, 100, 0, typ)
 	n.target = &Npc{nid: 99}
 	n.targetOp = objtype.NPCModeOpNpc1
@@ -1146,7 +1146,7 @@ func TestNpcResetDefaultsClearsTargetKeepsOtherState(t *testing.T) {
 }
 
 func TestNpcClearInteractionResetsState(t *testing.T) {
-	typ := &objtype.NpcType{WanderRange: 5}
+	typ := &objtype.NpcType{WanderRange: 5, DefaultMode: objtype.NPCModeWander}
 	n := NewNpc(1, 42, 100, 100, 0, typ)
 	n.target = &Npc{nid: 99}
 	n.targetOp = objtype.NPCModeOpNpc1
@@ -1184,15 +1184,17 @@ func TestNpcClearInteractionResetsState(t *testing.T) {
 }
 
 func TestNpcDefaultMode(t *testing.T) {
+	// defaultMode reads the stored NpcType.DefaultMode (opcode 210), matching
+	// TS Npc.ts:100/414 — it does NOT re-derive from patrol/wander config.
 	tests := []struct {
 		name string
 		typ  *objtype.NpcType
 		want int
 	}{
-		{"patrol config", &objtype.NpcType{PatrolCoord: []uint32{100}}, objtype.NPCModePatrol},
-		{"wander config", &objtype.NpcType{WanderRange: 5}, objtype.NPCModeWander},
-		{"neither", &objtype.NpcType{}, objtype.NPCModeNone},
-		{"both — patrol wins", &objtype.NpcType{PatrolCoord: []uint32{100}, WanderRange: 5}, objtype.NPCModePatrol},
+		{"stored patrol", &objtype.NpcType{DefaultMode: objtype.NPCModePatrol}, objtype.NPCModePatrol},
+		{"stored wander", &objtype.NpcType{DefaultMode: objtype.NPCModeWander}, objtype.NPCModeWander},
+		{"stored none", &objtype.NpcType{DefaultMode: objtype.NPCModeNone}, objtype.NPCModeNone},
+		{"stored field wins over patrol/wander config", &objtype.NpcType{DefaultMode: objtype.NPCModeNone, PatrolCoord: []uint32{100}, WanderRange: 5}, objtype.NPCModeNone},
 		{"nil typ", nil, objtype.NPCModeNone},
 	}
 	for _, tc := range tests {

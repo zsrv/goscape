@@ -13,6 +13,10 @@ func newWanderNpc(t *testing.T) *Npc {
 		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "wanderer"},
 		WanderRange: 5,
 		RespawnRate: 50,
+		// defaultMode reads this stored field (TS Npc.ts:414); a wander NPC
+		// has defaultmode=wander. NewNpcType defaults it to Wander, but this
+		// bare literal must set it explicitly.
+		DefaultMode: objtype.NPCModeWander,
 	}
 	return NewNpc(1, 0, 3094, 3106, 0, typ)
 }

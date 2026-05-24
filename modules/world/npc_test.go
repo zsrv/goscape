@@ -198,7 +198,7 @@ func TestNpcFaceCoord(t *testing.T) {
 }
 
 func TestNewNpcInitialisesInteractionFields(t *testing.T) {
-	typ := &objtype.NpcType{WanderRange: 5}
+	typ := &objtype.NpcType{WanderRange: 5, DefaultMode: objtype.NPCModeWander}
 	n := NewNpc(1, 42, 100, 100, 0, typ)
 
 	if n.apRange != 10 {
