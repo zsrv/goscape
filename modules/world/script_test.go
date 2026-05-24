@@ -1812,3 +1812,73 @@ func TestResumeOrFinish_ExecuteError_ClearsMatchingActiveScript(t *testing.T) {
 		t.Errorf("modalChat: got %d, want -1 (CloseModal must reset slot)", p.modalChat)
 	}
 }
+
+// TestTimersSuppressedWhileLoggingOut pins L6: a logging-out player fires no
+// timers, not even SOFT ones (which otherwise fire while busy). TS
+// World.processPlayers wraps both processTimers calls in `if (!loggingOut)`
+// (World.ts:717-722).
+func TestTimersSuppressedWhileLoggingOut(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.RegisterAt(0xE5, buildGreetScript(0xE5, "x"))
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
+
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	s.playerLoop = append(s.playerLoop, p)
+
+	p.SetTimer(0xE5, 1, nil, nil, script.TimerSoft) // soft: fires even while busy
+	p.loggingOut = true
+
+	received := drainConn(t, cc)
+	s.currentTick = 1
+	s.processPlayerTimers()
+	p.client.flushWrite()
+
+	select {
+	case got := <-received:
+		t.Fatalf("timer fired while loggingOut: got %d bytes, want none", len(got))
+	default:
+	}
+}
+
+// TestPreventLogoutMessageEmitted pins L7: a player who requests logout inside
+// the preventLogoutUntil window has its P_PREVENTLOGOUT message surfaced and
+// consumed, and is NOT logged out. Mirrors TS World.processLogouts
+// (World.ts:765-767).
+func TestPreventLogoutMessageEmitted(t *testing.T) {
+	s := newTestServer(t)
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	s.playerLoop = append(s.playerLoop, p)
+
+	s.currentTick = 100
+	p.lastResponse = s.currentTick  // avoid timeout force-logout
+	p.lastConnected = s.currentTick
+	p.requestLogout = true
+	p.preventLogoutUntil = s.currentTick + 50 // still inside the prevent window
+	const msg = "You cannot log out right now."
+	p.preventLogoutMessage = msg
+
+	received := drainConn(t, cc)
+	s.processLogouts()
+	p.client.flushWrite()
+	got := <-received
+
+	if !bytes.Contains(got, []byte(msg)) {
+		t.Errorf("preventLogoutMessage not emitted on the wire: got % x", got)
+	}
+	if p.preventLogoutMessage != "" {
+		t.Errorf("preventLogoutMessage not consumed: got %q", p.preventLogoutMessage)
+	}
+	if p.loggingOut {
+		t.Error("player must NOT be logging out inside the preventLogoutUntil window")
+	}
+	if p.requestLogout {
+		t.Error("requestLogout must be cleared after processLogouts")
+	}
+}

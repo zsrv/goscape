@@ -416,6 +416,14 @@ func (s *Server) processLogouts() {
 		if p.requestLogout || p.requestIdleLogout {
 			if s.currentTick >= p.preventLogoutUntil {
 				p.loggingOut = true
+			} else if p.requestLogout && p.preventLogoutMessage != "" {
+				// L7: within the prevent-logout window, surface the
+				// P_PREVENTLOGOUT message to the player and consume it.
+				// Mirrors TS World.processLogouts (World.ts:765-767). Idle
+				// logout requests do not trigger the message (TS gates on
+				// requestLogout only).
+				p.MessageGame(p.preventLogoutMessage)
+				p.preventLogoutMessage = ""
 			}
 			p.requestLogout = false
 			p.requestIdleLogout = false
@@ -704,6 +712,12 @@ func (s *Server) processPlayerTimers() {
 	for _, p := range players {
 		func(p *Player) {
 			defer recoverPlayer(p, "processPlayerTimers", s.log)
+			// L6: a logging-out player fires no timers (normal OR soft). TS
+			// World.processPlayers wraps both processTimers calls in
+			// `if (!player.loggingOut)` (World.ts:717-722).
+			if p.loggingOut {
+				return
+			}
 			if len(p.timers) == 0 {
 				return
 			}
