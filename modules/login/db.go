@@ -218,14 +218,44 @@ func clearWorldSessions(ctx context.Context, db *sql.DB, nodeID int, profile str
 	return nil
 }
 
+// setLoggedOut clears the account_login flag and stamps account.logout_time.
+// Mirrors TS LoginServer.ts:429-440 (setLoggedOut), which sets logged_in=0 plus
+// logout_time. goscape stores logout_time on the `account` table (not
+// account_login as in TS) and has no `logged_out` node-id column (TS keeps it
+// for bookkeeping; nothing reads it). The logout_time stamp is what arms the
+// M25 "save missing but logout_time set" safety reject on the next login, so the
+// two writes are wrapped in a transaction to stay consistent.
 func setLoggedOut(ctx context.Context, db *sql.DB, accountID int, profile string, nodeID int) error {
-	_, err := db.ExecContext(ctx,
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("setLoggedOut: begin tx: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if _, err := tx.ExecContext(ctx,
 		`UPDATE account_login SET logged_in = 0 WHERE account_id = ? AND profile = ? AND node_id = ?`,
 		accountID, profile, nodeID,
-	)
-	if err != nil {
-		return fmt.Errorf("setLoggedOut: %w", err)
+	); err != nil {
+		return fmt.Errorf("setLoggedOut: clear logged_in: %w", err)
 	}
+
+	logoutTime := time.Now().UTC().Format(dbTimeFormat)
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE account SET logout_time = ? WHERE id = ?`,
+		logoutTime, accountID,
+	); err != nil {
+		return fmt.Errorf("setLoggedOut: stamp logout_time: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("setLoggedOut: commit: %w", err)
+	}
+	committed = true
 	return nil
 }
 

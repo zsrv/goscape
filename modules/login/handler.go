@@ -151,15 +151,41 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 		if account.NodeID != int(req.NodeId) {
 			return buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_ALREADY_LOGGED_IN, account, nil, sessionUUID), nil
 		}
-		// Same node: this is a reconnect if the client indicates it.
-		if req.Reconnecting && req.HasSave {
+		// Same node: this is a reconnect if the client requested it. Note we
+		// do NOT gate on req.HasSave here (M27) — TS LoginServer.ts:270 keys the
+		// reconnect branch purely on `reconnecting && logged_in === nodeId`, then
+		// re-serves the save inside it when the client lost it.
+		if req.Reconnecting {
 			reconnect = true
 		}
 	}
 
-	// 9. Reconnect short-circuits — no session insert, no save read, no login-row upsert.
+	// 9. Reconnect (TS LoginServer.ts:271-317): record a session row, and when
+	// the client lost its save (!hasSave) read it back from disk + verify and
+	// serve it; otherwise the client keeps its own copy. Always RECONNECT_OK,
+	// no login-row upsert (already logged in on this node). M27: previously this
+	// only fired when req.HasSave was set — which the world never sends — so
+	// reconnects fell through to the full-login path and returned OK, not
+	// RECONNECT_OK, and never re-served a lost save.
 	if reconnect {
-		return buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_RECONNECT_OK, account, nil, sessionUUID), nil
+		if err := insertSession(ctx, h.db, sessionUUID, account.ID, req.Profile, int(req.NodeId), int(req.Uid), ip); err != nil {
+			return nil, status.Errorf(codes.Internal, "insertSession (reconnect): %v", err)
+		}
+		var saveBytes []byte
+		if !req.HasSave {
+			b, err := os.ReadFile(filepath.Join(h.cfg.SavePath, req.Profile, req.Username+".sav"))
+			if err != nil {
+				// TS rejectLoginForSafety (LoginServer.ts:288-290): a reconnecting
+				// client lost its save and we cannot read it back — reject rather
+				// than resume the session with no character data.
+				return nil, status.Errorf(codes.DataLoss, "reconnect save read for %q: %v", req.Username, err)
+			}
+			if !verifySave(b) {
+				return nil, status.Errorf(codes.DataLoss, "reconnect save verify failed for %q", req.Username)
+			}
+			saveBytes = b
+		}
+		return buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_RECONNECT_OK, account, saveBytes, sessionUUID), nil
 	}
 
 	// 8. Record session + login row atomically (PORTING.md Arc 18 DB-1).
@@ -188,6 +214,15 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 	result := loginpb.LoginResult_LOGIN_RESULT_OK
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
+			// M25 (TS LoginServer.ts:342-348): a missing save is only benign for
+			// an account that never logged in. If logout_time is set the player
+			// logged out before, so a save SHOULD exist — its absence is data
+			// loss, not a new player. Reject for safety rather than silently
+			// resetting a real character to fresh. The deferred rollback drops
+			// the just-inserted session row. (TS rejectLoginForSafety → resp 7.)
+			if account.LogoutTime.Valid {
+				return nil, status.Errorf(codes.DataLoss, "save missing but logout_time set for %q", req.Username)
+			}
 			result = loginpb.LoginResult_LOGIN_RESULT_NEW_PLAYER
 			saveBytes = nil
 		} else {

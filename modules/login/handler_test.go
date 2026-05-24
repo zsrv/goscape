@@ -675,3 +675,164 @@ func TestPlayerLogin_SessionUUID_EmptyOnEarlyReject(t *testing.T) {
 		}
 	})
 }
+
+// requireCode fails the test unless err is a gRPC status with the given code.
+func requireCode(t *testing.T, err error, want codes.Code) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("expected error with code %v, got nil", want)
+	}
+	st, ok := status.FromError(err)
+	if !ok {
+		t.Fatalf("expected gRPC status error, got %T: %v", err, err)
+	}
+	if st.Code() != want {
+		t.Fatalf("error code: got %v, want %v (%v)", st.Code(), want, err)
+	}
+}
+
+// TestPlayerLogin_ReconnectReservesLostSave pins M27: a reconnecting client that
+// lost its save (HasSave=false, which the world always sends) must have its save
+// read back from disk and re-served with RECONNECT_OK. Mirrors TS
+// LoginServer.ts:284-300 (!hasSave -> readFile + send).
+func TestPlayerLogin_ReconnectReservesLostSave(t *testing.T) {
+	h, savePath := newTestHandler(t)
+	id := insertTestAccount(t, h.db, "reconlost", "pw")
+	if _, err := h.db.ExecContext(t.Context(),
+		`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`,
+		id, "main", 1, 1,
+	); err != nil {
+		t.Fatalf("insert account_login: %v", err)
+	}
+
+	want := makeValidSave(1234)
+	if err := os.MkdirAll(filepath.Join(savePath, "main"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(savePath, "main", "reconlost.sav"), want, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId: 1, Profile: "main", NodeMembers: true,
+		Username: "reconlost", Password: "pw", Uid: 42,
+		RemoteAddress: "192.168.1.1:1", Reconnecting: true, HasSave: false,
+	})
+	if err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+	if resp.Result != loginpb.LoginResult_LOGIN_RESULT_RECONNECT_OK {
+		t.Fatalf("Result: got %v, want RECONNECT_OK", resp.Result)
+	}
+	if string(resp.GetSave()) != string(want) {
+		t.Errorf("re-served save: got %d bytes, want %d (the on-disk save)", len(resp.GetSave()), len(want))
+	}
+}
+
+// TestPlayerLogin_ReconnectRejectsUnreadableSave pins the M27 safety branch: a
+// reconnecting client with no readable save on disk is rejected (DataLoss),
+// matching TS rejectLoginForSafety (LoginServer.ts:288-290), not resumed blank.
+func TestPlayerLogin_ReconnectRejectsUnreadableSave(t *testing.T) {
+	h, _ := newTestHandler(t)
+	id := insertTestAccount(t, h.db, "reconnosave", "pw")
+	if _, err := h.db.ExecContext(t.Context(),
+		`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`,
+		id, "main", 1, 1,
+	); err != nil {
+		t.Fatalf("insert account_login: %v", err)
+	}
+
+	_, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId: 1, Profile: "main", NodeMembers: true,
+		Username: "reconnosave", Password: "pw", Uid: 42,
+		RemoteAddress: "192.168.1.1:1", Reconnecting: true, HasSave: false,
+	})
+	requireCode(t, err, codes.DataLoss)
+}
+
+// TestSetLoggedOutStampsLogoutTime pins M26: PlayerLogout must stamp
+// account.logout_time (TS LoginServer.ts:429-440), which arms the M25 safety
+// reject. It starts NULL and must be non-NULL after logout.
+func TestSetLoggedOutStampsLogoutTime(t *testing.T) {
+	h, _ := newTestHandler(t)
+	insertTestAccount(t, h.db, "stamper", "pw")
+	if _, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId: 1, Profile: "main", NodeMembers: true,
+		Username: "stamper", Password: "pw", Uid: 1, RemoteAddress: "1.2.3.4:5",
+	}); err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+
+	acc, err := accountByUsername(t.Context(), h.db, "stamper", "main")
+	if err != nil {
+		t.Fatalf("accountByUsername: %v", err)
+	}
+	if acc.LogoutTime.Valid {
+		t.Fatalf("precondition: logout_time should be NULL before logout, got %q", acc.LogoutTime.String)
+	}
+
+	if _, err := h.PlayerLogout(t.Context(), &loginpb.PlayerLogoutRequest{
+		NodeId: 1, Profile: "main", Username: "stamper", Save: makeValidSave(10),
+	}); err != nil {
+		t.Fatalf("PlayerLogout: %v", err)
+	}
+
+	acc, err = accountByUsername(t.Context(), h.db, "stamper", "main")
+	if err != nil {
+		t.Fatalf("accountByUsername after logout: %v", err)
+	}
+	if !acc.LogoutTime.Valid {
+		t.Error("logout_time: still NULL after logout; setLoggedOut did not stamp it")
+	}
+}
+
+// TestPlayerLogin_SaveMissingWithLogoutTimeRejected pins the M25+M26 chain
+// end-to-end: a player logs in, logs out (writing a save + stamping logout_time),
+// then the save vanishes from disk. The next login must be rejected for safety
+// (DataLoss) rather than silently resetting the character to fresh. TS
+// LoginServer.ts:342-348.
+func TestPlayerLogin_SaveMissingWithLogoutTimeRejected(t *testing.T) {
+	h, savePath := newTestHandler(t)
+	insertTestAccount(t, h.db, "vanished", "pw")
+	if _, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId: 1, Profile: "main", NodeMembers: true,
+		Username: "vanished", Password: "pw", Uid: 1, RemoteAddress: "1.2.3.4:5",
+	}); err != nil {
+		t.Fatalf("first PlayerLogin: %v", err)
+	}
+	if _, err := h.PlayerLogout(t.Context(), &loginpb.PlayerLogoutRequest{
+		NodeId: 1, Profile: "main", Username: "vanished", Save: makeValidSave(99),
+	}); err != nil {
+		t.Fatalf("PlayerLogout: %v", err)
+	}
+
+	// Simulate data loss: the save file disappears.
+	if err := os.Remove(filepath.Join(savePath, "main", "vanished.sav")); err != nil {
+		t.Fatalf("remove save: %v", err)
+	}
+
+	_, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId: 1, Profile: "main", NodeMembers: true,
+		Username: "vanished", Password: "pw", Uid: 1, RemoteAddress: "1.2.3.4:5",
+	})
+	requireCode(t, err, codes.DataLoss)
+}
+
+// TestPlayerLogin_SaveMissingNoLogoutTimeIsNewPlayer pins the M25 complement:
+// an existing account that never logged out (logout_time NULL) with no save is
+// still a legitimate NEW_PLAYER, not a safety reject.
+func TestPlayerLogin_SaveMissingNoLogoutTimeIsNewPlayer(t *testing.T) {
+	h, _ := newTestHandler(t)
+	insertTestAccount(t, h.db, "fresh", "pw") // logout_time NULL, no save on disk
+
+	resp, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId: 1, Profile: "main", NodeMembers: true,
+		Username: "fresh", Password: "pw", Uid: 1, RemoteAddress: "1.2.3.4:5",
+	})
+	if err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+	if resp.Result != loginpb.LoginResult_LOGIN_RESULT_NEW_PLAYER {
+		t.Errorf("Result: got %v, want NEW_PLAYER (NULL logout_time must not reject)", resp.Result)
+	}
+}
