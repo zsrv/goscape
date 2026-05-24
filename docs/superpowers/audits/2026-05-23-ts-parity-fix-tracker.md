@@ -16,7 +16,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 | HIGH | 17 / 17 ✓ |
 | DISPUTED | D1 RESOLVED ✓ (real bug, fixed with M2) |
 | MEDIUM | 30 / 30 ✓ |
-| LOW | 37 / 50 |
+| LOW | 41 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
 
 ---
@@ -123,10 +123,10 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [x] **L35** login `lowMemory` decoded `==1` vs TS `& 0x1` (client only sends 0/1) — `pkg/io/protocol/login/req/req.go:88`. [N] **(3c588e98)** — REAL divergence for odd values > 1. TS World.ts:2126-2127 reads an info byte, `lowMemory = (info & 0x1) !== 0`; Go used `GBool()` (`== 1`) → info=3 gives TS true, Go false. GameLogin now masks the low bit. +pin TestUnmarshalHeader_LowMemoryMasksLowBit (info 0/1/2/3/255; info=3 decisive).
 - [x] **L36** `GBit(n)` returns uint8, truncates >8-bit reads (latent, no callers) — `pkg/io/packet/packetbit.go:32`. [N] **(3c588e98)** — TS Packet.gBit (Packet.ts:384) returns a number; bitmask table spans 32 bits but Go's uint8 accumulator+return truncated reads > 8 bits to the low byte. Widened accumulator+return to int. Latent (all callers read ≤ 7 bits) but a correctness trap. +pin TestGBitWideValue (16/12/32-bit round-trips).
 - [x] **L37** Login validation RSA-decrypts before rev/CRC checks (TS gates first) — `modules/world/server.go:886`. [N] **(3c588e98)** — TS World.ts gates rev (2119) + CRC (2131) on the cleartext header BEFORE rsadec (2139), so stale-rev/bad-CRC clients never burn RSA CPU (same rationale as the address rate-limit gate already present). Split GameLogin into UnmarshalHeader (opcode/size/rev/lowMemory/checksums) + UnmarshalRSA (encrypted tail); UnmarshalBinary calls both (interface+round-trip preserved). handleLogin decodes header → checks rev+CRC → decrypts RSA. All failure paths still emit OpClientOutOfDate (no wire-observable change; CPU+ordering only). +pins TestUnmarshalHeader_DecodesWithoutRSABlock, TestGameLogin_RoundTrip.
-- [ ] **L38** `GetCRC` slices `offset:offset+length` vs TS `i<length` end-index (latent, offset always 0) — `pkg/io/packet/packet.go:15`. [O]
-- [ ] **L39** jagfile `Deconstruct` dead code, independently buggy — `pkg/io/jagfile/jagfile.go:318` — consider deleting. [O]
-- [ ] **L40** jagfile name-label lookup non-deterministic map order — `jagfile.go:372`. [O]
-- [ ] **L41** jagfile `knownNames` ordering differs (zero effect) — `jagfile.go:401`. [O]
+- [x] **L38** `GetCRC` slices `offset:offset+length` vs TS `i<length` end-index (latent, offset always 0) — `pkg/io/packet/packet.go:15`. [O] (8114f100) — TS getcrc loops `i<length` not `i<offset+length`, an off-by bug; both engines only ever pass offset=0 where they agree byte-for-byte. Kept Go's correct span, documented the divergence; the only non-zero-offset caller was the dead Deconstruct removed in L39.
+- [x] **L39** jagfile `Deconstruct` dead code, independently buggy — `pkg/io/jagfile/jagfile.go:318` — consider deleting. [O] (8114f100) — DELETED. No production/test callers; also passed `offset` (final running total) to GetCRC instead of `offsets[i]`, and set `dat.Pos` then ignored it via `dat.Bytes()`.
+- [x] **L40** jagfile name-label lookup non-deterministic map order — `jagfile.go:372`. [O] (8114f100) — was ranging over `nameToHash` map (randomized Go order); TS Jagfile.ts:68-71 resolves via `KNOWN_HASHES.findIndex` in array order. Switched to ordered scan over `knownNames`. +pin TestKnownNamesNoHashCollision (212 names hash uniquely → lookup unambiguous, keeps L40/L41 latent).
+- [x] **L41** jagfile `knownNames` ordering differs (zero effect) — `jagfile.go:401`. [O] (8114f100) — `backtop2.dat`/`mapflag.dat` were in alphabetical slots; reordered to follow `wornicons.dat` before `mapmarker.dat` per TS KNOWN_NAMES so the L40 scan resolves identically to TS under any future collision. +pin TestKnownNamesOrderMatchesTS.
 - [ ] **L42** `lineScaleDown` arithmetic `>>16` vs logical `>>>16` (latent) — `pkg/pathfinder/routefinder/line.go:24`. [P]
 - [ ] **L43** `FlagNull=-1` vs TS NULL=0x7FFFFFFF (Indoors strategy on off-map tiles) — `pkg/pathfinder/collision/flag.go:4`. [P]
 - [ ] **L44** Friend list has no `ORDER BY created` (display order undefined) — `modules/friends/repository.go:169,255`. [R]
