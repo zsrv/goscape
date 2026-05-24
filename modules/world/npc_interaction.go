@@ -440,6 +440,11 @@ func (n *Npc) applyStep(s *Server, dest coordgrid.Position, dx, dz, dir int) (in
 	prevX, prevZ := n.x, n.z
 	n.x += dx
 	n.z += dz
+	// M2: per-step focus (TS PathingEntity.ts:216-220) — face one tile ahead in
+	// the travel direction so faceAngle tracks movement. client=false → faceAngle
+	// only. Paired with D1's per-tick faceSquare reset so a wandering NPC's
+	// rendered orientation follows its walk for newly-visible observers.
+	n.focus(coordgrid.Fine(coordgrid.MoveX(n.x, coordgrid.Direction(dir)), n.size), coordgrid.Fine(coordgrid.MoveZ(n.z, coordgrid.Direction(dir)), n.size), false)
 	n.stepsTaken++
 	refreshNpcZone(s, n, prevX, prevZ, n.level)
 	if n.x == dest.X && n.z == dest.Z {

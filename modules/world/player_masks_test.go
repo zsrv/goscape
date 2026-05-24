@@ -3,6 +3,7 @@ package world
 import (
 	"testing"
 
+	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
@@ -376,5 +377,66 @@ func TestPlayerResetMasksChatMetadataResetIsNoOpWithoutChatBytes(t *testing.T) {
 	}
 	if p.masks&rsbuf.MaskChat != 0 {
 		t.Errorf("masks & MaskChat: got nonzero, want 0 (chat reset must not synthesize MaskChat)")
+	}
+}
+
+// TestResetMasksResetsFaceSquare pins D1: faceSquareX/Z reset to -1 every tick
+// (TS PathingEntity.ts:608-609). FACE_COORD is a one-tick event — the prior
+// "persistent-by-design" behavior leaked a walked-away-from square to every
+// newly-visible observer via the rsbuf low-def forced FACE_COORD. After the
+// reset, effectiveFaceCoord falls back to the per-step-maintained faceAngle.
+func TestResetMasksResetsFaceSquare(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.x, p.z, p.level = 3200, 3200, 0
+	p.unfocus() // south baseline, as on spawn
+
+	p.FaceSquare(3210, 3210) // script FACE_COORD this tick
+	if p.faceSquareX == -1 {
+		t.Fatal("setup: FaceSquare should set faceSquareX")
+	}
+	// effectiveFaceCoord reflects the active square this tick (what processInfo reads).
+	if x, _ := p.effectiveFaceCoord(); x != p.faceSquareX {
+		t.Fatalf("this-tick effectiveFaceCoord should be the square: got %d", x)
+	}
+
+	p.ResetMasks() // tick end
+
+	if p.faceSquareX != -1 || p.faceSquareZ != -1 {
+		t.Errorf("faceSquare not reset: got (%d,%d), want (-1,-1)", p.faceSquareX, p.faceSquareZ)
+	}
+	// Now effectiveFaceCoord must fall back to faceAngle (south), not the stale square.
+	gotX, gotZ := p.effectiveFaceCoord()
+	if gotX != p.faceAngleX || gotZ != p.faceAngleZ {
+		t.Errorf("after reset effectiveFaceCoord should fall back to faceAngle (%d,%d); got (%d,%d)",
+			p.faceAngleX, p.faceAngleZ, gotX, gotZ)
+	}
+}
+
+// TestApplyStepFocusesAhead pins M2: a walk step refreshes faceAngle to point
+// one tile ahead in the travel direction (TS PathingEntity.ts:216-220,
+// focus client=false). Combined with D1 this is what makes a walking entity
+// render facing where it walks for newly-visible observers.
+func TestApplyStepFocusesAhead(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.x, p.z, p.level = 3200, 3200, 0
+	p.unfocus() // south: faceAngleZ points to z-1
+
+	// Walk one tile east.
+	dir := int(coordgrid.Face(p.x, p.z, p.x+1, p.z))
+	dest := coordgrid.Position{Level: 0, X: p.x + 1, Z: p.z}
+	p.waypointIndex = 0
+	p.waypoints[0] = coordgrid.PackCoord(p.level, dest.X, dest.Z)
+	p.applyStep(dest, 1, 0, dir)
+
+	// faceAngle must now point one tile beyond the new position, eastward.
+	wantX := coordgrid.Fine(coordgrid.MoveX(p.x, coordgrid.Direction(dir)), 1)
+	wantZ := coordgrid.Fine(coordgrid.MoveZ(p.z, coordgrid.Direction(dir)), 1)
+	if p.faceAngleX != wantX || p.faceAngleZ != wantZ {
+		t.Errorf("applyStep faceAngle: got (%d,%d), want (%d,%d) — must focus one tile ahead (M2)",
+			p.faceAngleX, p.faceAngleZ, wantX, wantZ)
+	}
+	// faceSquare untouched by a client=false focus.
+	if p.faceSquareX != -1 {
+		t.Errorf("applyStep must not set faceSquare (client=false focus): got %d", p.faceSquareX)
 	}
 }

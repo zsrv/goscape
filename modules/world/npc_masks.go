@@ -193,12 +193,17 @@ func (n *Npc) Damage(amount, dmgType int) {
 }
 
 // ResetMasks clears mask bits + ephemeral per-tick state. Persistent fields
-// (faceSquareX/Z, changeTypeID, and the levels[]/baseLevels[] arrays) are
-// retained across ticks — S6d promoted HP to persistent, NAI-17 extended
-// that to all 6 stats via the array migration. animID/animDelay are NOT
-// persistent: TS resets them every tick (PathingEntity.ts:598-601) so a
-// repeated NPC animation (combat attack/defend, scripted emote) can replay;
-// see the reset below.
+// (changeTypeID, and the levels[]/baseLevels[] arrays) are retained across
+// ticks — S6d promoted HP to persistent, NAI-17 extended that to all 6 stats
+// via the array migration. animID/animDelay are NOT persistent: TS resets them
+// every tick (PathingEntity.ts:598-601) so a repeated NPC animation (combat
+// attack/defend, scripted emote) can replay; see the reset below.
+//
+// faceSquareX/Z are reset each tick (D1, TS PathingEntity.ts:608-609): the
+// rsbuf low-def force-emits FACE_COORD reading effectiveFaceCoord(), so a
+// square the NPC walked away from would leak to newly-visible observers.
+// effectiveFaceCoord() falls back to faceAngle (unfocus-on-spawn south + M2's
+// per-step focus).
 // damageAmt / damageType remain per-tick hitsplat payload. faceEntity is
 // retained unless the trailing-clear condition below fires.
 //
@@ -224,6 +229,12 @@ func (n *Npc) ResetMasks() {
 	n.spotanimID = -1
 	n.spotanimHeight = -1
 	n.spotanimDelay = -1
+	// D1: reset faceSquare each tick (TS PathingEntity.ts:608-609). NpcInfo
+	// already read FaceSquareX()/Z() for this tick; clearing makes
+	// effectiveFaceCoord fall back to faceAngle next tick so a walked-away-from
+	// square doesn't render stale to newly-visible observers.
+	n.faceSquareX = -1
+	n.faceSquareZ = -1
 	// NAI-157/NAI-167: walkDir/runDir are now reset in resetPathingEntity
 	// (called from processCleanup before ResetMasks). See resetPathingEntity
 	// doc-comment for the full NAI-157 rationale and TS source reference.

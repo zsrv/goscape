@@ -61,11 +61,15 @@ func (p *Player) UnsetMapFlag() {
 // non-respawn branch).
 //
 // Persistent-by-design (TS resets, goscape preserves):
-//   - faceSquareX/Z (TS PathingEntity.ts:608-609) — non-symptomatic
-//     persistence; the encoder gates on MaskFaceCoord which IS cleared
-//     via `p.masks = 0` below.
 //   - levels[Hitpoints] / baseLevels[Hitpoints] (S6e promotion to
 //     persistent via the skill arrays).
+//
+// faceSquareX/Z ARE reset each tick below (D1), matching TS
+// PathingEntity.ts:608-609. The earlier "non-symptomatic persistence"
+// claim was wrong: the rsbuf low-def force-emits FACE_COORD reading
+// effectiveFaceCoord(), so a persisted square leaked to newly-visible
+// observers after the entity walked away. effectiveFaceCoord() falls back
+// to faceAngle (kept current by unfocus-on-spawn + M2's per-step focus).
 //
 // Handled-elsewhere (NOT in ResetMasks; equivalent goscape paths):
 //   - walkDir/runDir — reset/set in movement.go:53-65 per movement step.
@@ -115,6 +119,16 @@ func (p *Player) ResetMasks() {
 	p.spotanimID = -1
 	p.spotanimHeight = -1
 	p.spotanimDelay = -1
+	// D1: reset faceSquare each tick (TS PathingEntity.ts:608-609). FACE_COORD is
+	// a one-tick event: processInfo already read FaceSquareX()/Z() (→
+	// effectiveFaceCoord) for this tick's payload, so clearing here makes
+	// effectiveFaceCoord fall back to faceAngle next tick. Without this a square
+	// set by FaceSquare/setInteraction(engine) the player then walks away from
+	// would render stale to every newly-visible observer (the rsbuf low-def
+	// force-emits FACE_COORD). faceAngle stays valid: unfocus() on spawn sets it
+	// south, and M2's per-step focus keeps it pointing where the player walks.
+	p.faceSquareX = -1
+	p.faceSquareZ = -1
 	p.exactStartX = -1
 	p.exactStartZ = -1
 	p.exactEndX = -1

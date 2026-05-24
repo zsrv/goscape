@@ -201,6 +201,13 @@ func (p *Player) applyStep(dest coordgrid.Position, dx, dz, dir int) (int, stepS
 	p.lastStepZ = p.z
 	p.x += dx
 	p.z += dz
+	// M2: per-step focus (TS PathingEntity.ts:216-220). After advancing, face the
+	// tile one further in the travel direction so faceAngle tracks movement.
+	// client=false → faceAngle only (no FACE_COORD wire mask). Paired with D1's
+	// per-tick faceSquare reset, this is what keeps a walking entity's rendered
+	// orientation (effectiveFaceCoord → faceAngle once faceSquare clears) pointing
+	// where it walks for newly-visible observers, instead of a stale square.
+	p.focus(coordgrid.Fine(coordgrid.MoveX(p.x, coordgrid.Direction(dir)), 1), coordgrid.Fine(coordgrid.MoveZ(p.z, coordgrid.Direction(dir)), 1), false)
 	p.stepsTaken++
 	refreshPlayerZone(p, p.lastStepX, p.lastStepZ, p.level)
 	if p.x == dest.X && p.z == dest.Z {
