@@ -51,7 +51,10 @@ func Init(script *ScriptFile, self ActivePlayer, protect bool, intArgs []int, st
 // instruction and the loop's ++pc advances to it.
 func Execute(s *ScriptState) error {
 	for s.Execution == Running {
-		if s.OpCount >= OpCountLimit {
+		// TS (ScriptRunner.ts:144) checks `opcount > 500_000` before the
+		// post-check `opcount++`, so it executes 500_001 opcodes before
+		// aborting. `>=` here would abort one opcode early.
+		if s.OpCount > OpCountLimit {
 			s.Execution = Aborted
 			return fmt.Errorf("script %q: opcount limit exceeded at pc=%d", s.Script.Name, s.PC)
 		}

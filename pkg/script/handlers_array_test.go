@@ -120,3 +120,32 @@ func TestSwitchHitAndMiss(t *testing.T) {
 		t.Errorf("switch miss: got %d, want 111", got)
 	}
 }
+
+// TestSwitchZeroOffsetFallsThrough pins L28: a present key whose offset
+// is 0 falls through, matching TS `if (result)` (truthy) rather than
+// branching on key presence. PC stays put so the next instruction is the
+// fall-through PUSH 111.
+func TestSwitchZeroOffsetFallsThrough(t *testing.T) {
+	sf := &ScriptFile{
+		Name: "sw0",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // 0: push key 7
+			OpSwitch,          // 1: switch table[0] — key 7 present with offset 0
+			OpPushConstantInt, // 2: push 111 (fall-through path)
+			OpReturn,          // 3
+		},
+		IntOperands:      []int32{7, 0, 111, 0},
+		StringOperands:   []string{"", "", "", ""},
+		InstructionCount: 4,
+		SwitchTables: []SwitchTable{
+			{7: 0}, // key 7 present, offset 0 → must NOT branch
+		},
+	}
+	state := Init(sf, nil, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopInt(); got != 111 {
+		t.Errorf("switch zero-offset: got %d, want 111 (fall-through)", got)
+	}
+}

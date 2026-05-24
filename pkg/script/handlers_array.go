@@ -47,16 +47,23 @@ func handlePopArrayInt(s *ScriptState) error {
 }
 
 // handleSwitch looks up the popped key in the per-instruction switch
-// table and advances PC by the table's offset on hit. Falls through on
-// miss.
+// table and advances PC by the table's offset when that offset is
+// non-zero. Falls through on miss.
+//
+// TS (CoreOps.ts:244) reads `const result = table[key]` and branches on
+// `if (result)` — truthy, not key-presence. A missing key yields
+// undefined (falsy → fall through); a present key with offset 0 is also
+// falsy → fall through. Go's map zero-value is 0, so reading the offset
+// directly and testing `!= 0` reproduces both cases exactly (a present
+// 0-offset would have been a no-op `PC += 0` under the old key-presence
+// test, so behaviour is unchanged in practice — this just mirrors TS).
 func handleSwitch(s *ScriptState) error {
 	key := int32(s.PopInt())
 	tableIdx := int(s.Script.IntOperands[s.PC])
 	if tableIdx < 0 || tableIdx >= len(s.Script.SwitchTables) {
 		return nil
 	}
-	table := s.Script.SwitchTables[tableIdx]
-	if offset, ok := table[key]; ok {
+	if offset := s.Script.SwitchTables[tableIdx][key]; offset != 0 {
 		s.PC += int(offset)
 	}
 	return nil

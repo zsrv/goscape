@@ -14,8 +14,10 @@ const (
 	// Exceeding it is a compiler bug and panics.
 	StackCapacity = 1024
 
-	// OpCountLimit is the maximum number of opcodes that may execute in a
-	// single Execute call. Prevents infinite loops from hanging the server.
+	// OpCountLimit caps opcode execution in a single Execute call to
+	// prevent infinite loops from hanging the server. The runner aborts
+	// when OpCount exceeds this (strict `>`), so up to 500_001 opcodes
+	// execute — matching TS ScriptRunner.ts:144 (`opcount > 500_000`).
 	OpCountLimit = 500_000
 
 	// FrameCapacity is the maximum GOSUB nesting depth.

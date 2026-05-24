@@ -166,3 +166,67 @@ func TestJumpWithParams(t *testing.T) {
 		t.Errorf("PopInt after JUMP_WITH_PARAMS target returned: got %d, want 77", got)
 	}
 }
+
+// TestGosubPlainPopsDeclaredArgs pins L27: plain GOSUB (dynamic dispatch,
+// proc id on the stack) must pop the callee's declared args, mirroring TS
+// setupNewScript which always pops intArgCount/stringArgCount.
+func TestGosubPlainPopsDeclaredArgs(t *testing.T) {
+	// Target declares 1 int arg; body pushes local 0 back so the caller
+	// can observe the popped value.
+	target := &ScriptFile{
+		Name:             "[gosub_arg_target]",
+		LookupKey:        0x7711,
+		IntArgCount:      1,
+		IntLocalCount:    1,
+		Opcodes:          []Opcode{OpPushIntLocal, OpReturn},
+		IntOperands:      []int32{0, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	// Caller: push arg 88, push target id, plain GOSUB.
+	caller := &ScriptFile{
+		Name:             "[gosub_arg_caller]",
+		LookupKey:        0xFFFFFFFF,
+		Opcodes:          []Opcode{OpPushConstantInt, OpPushConstantInt, OpGosub, OpReturn},
+		IntOperands:      []int32{88, int32(0x7711), 0, 0},
+		StringOperands:   []string{"", "", "", ""},
+		InstructionCount: 4,
+	}
+	prov := NewProvider()
+	prov.RegisterAt(0x7711, target)
+
+	state := Init(caller, nil, false, nil, nil)
+	state.Provider = prov
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := state.PopInt(); got != 88 {
+		t.Errorf("plain GOSUB declared-arg: got %d, want 88", got)
+	}
+}
+
+// TestOpCountCapAllowsTSLimit pins L30: the runner aborts on
+// OpCount > OpCountLimit (strict `>`), so OpCountLimit+1 opcodes execute
+// before the abort — matching TS ScriptRunner.ts:144 (`opcount > 500_000`).
+func TestOpCountCapAllowsTSLimit(t *testing.T) {
+	// Self-jumping script: push own id, JUMP to self → infinite loop.
+	const selfID = 0x9999
+	loop := &ScriptFile{
+		Name:             "[opcount_loop]",
+		LookupKey:        selfID,
+		Opcodes:          []Opcode{OpPushConstantInt, OpJump},
+		IntOperands:      []int32{int32(selfID), 0},
+		InstructionCount: 2,
+	}
+	prov := NewProvider()
+	prov.RegisterAt(selfID, loop)
+
+	state := Init(loop, nil, false, nil, nil)
+	state.Provider = prov
+	if err := Execute(state); err == nil {
+		t.Fatal("expected opcount limit error, got nil")
+	}
+	if state.OpCount != OpCountLimit+1 {
+		t.Errorf("OpCount at abort: got %d, want %d (TS executes limit+1 opcodes)", state.OpCount, OpCountLimit+1)
+	}
+}
