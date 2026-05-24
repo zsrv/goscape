@@ -844,10 +844,16 @@ func TestResumePauseButtonResumesEvenWithEmptyResumeButtons(t *testing.T) {
 	}
 }
 
-// TestStrongQueueFiresWhileDelayed verifies STRONG-tagged queue entries
-// fire through processPlayerQueue even when p.delayed=true. This gates
-// the STRONG queue variant introduced in sub-spec S5h.
-func TestStrongQueueFiresWhileDelayed(t *testing.T) {
+// TestStrongQueueWaitsForCanAccessWhileDelayed pins the TS-correct contract
+// (M4+M5): a STRONG-tagged queue entry does NOT fire while the player is
+// delayed/busy — TS Player.processQueue (Player.ts:883-884) gates EVERY entry
+// on canAccess() with no per-type exception. STRONG's only privilege is the
+// modal-close pre-pass (processQueues L854-865); the entry still waits for the
+// busy state to clear, then fires.
+//
+// (This previously asserted STRONG fires while delayed — a goscape-only STRONG
+// exception with no TS basis; corrected per fix-tracker M5.)
+func TestStrongQueueWaitsForCanAccessWhileDelayed(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
 	s.scriptProvider.RegisterAt(0xBEEF, buildGreetScript(0xBEEF, "s"))
@@ -866,14 +872,27 @@ func TestStrongQueueFiresWhileDelayed(t *testing.T) {
 
 	received := drainConn(t, cc)
 
-	// Enqueue a STRONG script with delay=0 — should fire even though delayed.
+	// Enqueue a STRONG script with delay=0 — must NOT fire while delayed.
 	p.EnqueueScriptArgs(0xBEEF, 0, nil, nil, script.QueueStrong)
 	s.processActiveScripts()
 	p.client.flushWrite()
-	got := <-received
 
+	select {
+	case got := <-received:
+		t.Fatalf("STRONG fired while delayed: got %d bytes, want none (canAccess gate)", len(got))
+	default:
+	}
+	if len(p.queue) != 1 {
+		t.Fatalf("STRONG entry consumed while delayed: queue len %d, want 1 (still pending)", len(p.queue))
+	}
+
+	// Clear the delay; the still-pending STRONG entry now fires.
+	p.delayed = false
+	s.processActiveScripts()
+	p.client.flushWrite()
+	got := <-received
 	if len(got) != 4 {
-		t.Fatalf("STRONG fire: got %d bytes, want 4", len(got))
+		t.Fatalf("STRONG fire after delay cleared: got %d bytes, want 4", len(got))
 	}
 }
 
@@ -940,6 +959,49 @@ func TestSoftTimerFiresWhileDelayed(t *testing.T) {
 	got := <-received
 	if len(got) != 4 {
 		t.Errorf("Soft timer while delayed: got %d bytes, want 4 (fire)", len(got))
+	}
+}
+
+// TestNormalTimerBlockedByModalThenFires pins M6: a NORMAL timer that is due
+// does NOT fire while the player has a modal open (canAccess() false), then
+// fires once the modal closes. Mirrors TS Player.processTimers (Player.ts:933):
+// NORMAL timers require canAccess(), which is false when busy (modal open).
+// Previously goscape gated NORMAL timers on p.delayed only, so they fired
+// through an open modal.
+func TestNormalTimerBlockedByModalThenFires(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.RegisterAt(0xD4, buildGreetScript(0xD4, "n"))
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
+
+	p, cc := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	s.playerLoop = append(s.playerLoop, p)
+
+	p.SetTimer(0xD4, 1, nil, nil, script.TimerNormal)
+	p.modalState = modalStateMain // not delayed, but a modal is open → !canAccess
+
+	received := drainConn(t, cc)
+	s.currentTick = 1
+	s.processPlayerTimers()
+	p.client.flushWrite()
+
+	select {
+	case got := <-received:
+		t.Fatalf("NORMAL timer fired through open modal: got %d bytes, want none", len(got))
+	default:
+	}
+
+	// Close the modal; the still-due timer (clock not reset while gated) fires.
+	p.modalState = modalStateNone
+	s.processPlayerTimers()
+	p.client.flushWrite()
+	got := <-received
+	if len(got) != 4 {
+		t.Fatalf("NORMAL timer after modal close: got %d bytes, want 4 (fire)", len(got))
 	}
 }
 

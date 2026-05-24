@@ -584,8 +584,15 @@ func (s *Server) processPlayerQueue(p *Player) {
 			i++
 			continue
 		}
-		// STRONG queue fires even when delayed; others wait for idle.
-		if p.delayed && req.Type != script.QueueStrong {
+		// TS Player.processQueue (Player.ts:883-884) gates EVERY entry on
+		// `canAccess() && delay <= 0` — there is no per-type exception. STRONG's
+		// only special behavior is the modal-close pre-pass above (TS
+		// processQueues L854-865); the entry itself still waits for canAccess.
+		// M4 widens the gate from delayed-only to full CanAccess (delayed ||
+		// modal || protected); M5 drops the bogus STRONG-fires-while-delayed
+		// exception (TS has none — a STRONG queue closes the modal but still
+		// waits for the busy/delay/protect state to clear before firing).
+		if !p.CanAccess() {
 			i++
 			continue
 		}
@@ -703,7 +710,14 @@ func (s *Server) processPlayerTimers() {
 				if s.currentTick < t.Clock+t.Interval {
 					continue
 				}
-				if t.Type == script.TimerNormal && p.delayed {
+				// TS Player.processTimers (Player.ts:933): a SOFT timer fires
+				// whenever it is due; a NORMAL timer additionally requires
+				// canAccess(). M6 widens the NORMAL gate from delayed-only to
+				// full CanAccess (delayed || modal || protected). TS's
+				// World.shutdown→true canAccess branch (the "shutdown force-fire")
+				// is the same documented omission as the engine queue
+				// (DEVIATION-NAI-144-D4: goscape has no world-shutdown flag).
+				if t.Type == script.TimerNormal && !p.CanAccess() {
 					continue
 				}
 				t.Clock = s.currentTick
