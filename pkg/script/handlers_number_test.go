@@ -52,7 +52,17 @@ func TestNumberHandlers(t *testing.T) {
 		{"max", OpMax, []int{5, 3}, 5},
 		{"pow 2^10", OpPow, []int{2, 10}, 1024},
 		{"pow 0 exp", OpPow, []int{5, 0}, 1},
-		{"pow neg exp", OpPow, []int{5, -1}, 0},
+		{"pow neg exp", OpPow, []int{5, -1}, 0}, // Math.pow(5,-1)=0.2 → toInt32 0
+		// L25: POW/MULTIPLY computed in float64 then narrowed by toInt32 (JS `| 0`),
+		// matching TS Math.pow + pushInt. Base ±1 with a negative exponent yields
+		// 1/-1 — the old `exp<0 → 0` shortcut produced 0; results above int32 wrap
+		// via toInt32 exactly as JS does.
+		{"pow 1^-5 base-1 identity", OpPow, []int{1, -5}, 1},
+		{"pow -1^-2", OpPow, []int{-1, -2}, 1},
+		{"pow -1^-3", OpPow, []int{-1, -3}, -1},
+		{"pow 2^31 toInt32 wrap", OpPow, []int{2, 31}, -2147483648},
+		{"pow 2^32 toInt32 zero", OpPow, []int{2, 32}, 0},
+		{"multiply 1e5*1e5 toInt32", OpMultiply, []int{100000, 100000}, 1410065408},
 		// INVPOW(n1, n2) = floor(n1 ^ (1/n2)) — the n2-th root of n1,
 		// matching TS NumberOps.ts:79-100 (sqrt at n2==2, cbrt at n2==3,
 		// 4th-root at n2==4, general pow(n1, 1/n2) otherwise). NOT a
@@ -253,11 +263,23 @@ func TestInterpolateAtEnd(t *testing.T) {
 	}
 }
 
-func TestInterpolateDivZeroReturnsY0(t *testing.T) {
-	// x1==x0; spec falls back to y0.
+// TestInterpolateDivZeroReturnsZero pins the TS de-facto result for x1==x0
+// (L24). TS has no div-by-zero guard: the slope is +Inf (y1>y0) and
+// Inf*(x-x0)+y0 → ±Inf or NaN, which pushInt's toInt32 maps to 0. The prior
+// Go guard returned y0 (42), which TS never produces.
+func TestInterpolateDivZeroReturnsZero(t *testing.T) {
 	got := runSingleOp(t, OpInterpolate, []int{42, 99, 5, 5, 5})
-	if got != 42 {
-		t.Errorf("INTERPOLATE div-zero: got %d, want 42", got)
+	if got != 0 {
+		t.Errorf("INTERPOLATE div-zero: got %d, want 0 (TS Inf/NaN→toInt32)", got)
+	}
+}
+
+// TestInterpolateDivZeroEqualEndpoints covers the y1==y0 sub-case where the
+// slope is 0/0 = NaN (not Inf); toInt32(NaN) is also 0.
+func TestInterpolateDivZeroEqualEndpoints(t *testing.T) {
+	got := runSingleOp(t, OpInterpolate, []int{7, 7, 5, 5, 9})
+	if got != 0 {
+		t.Errorf("INTERPOLATE div-zero NaN: got %d, want 0", got)
 	}
 }
 

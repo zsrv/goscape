@@ -46,7 +46,14 @@ func handleAppendNum(s *ScriptState) error {
 func handleAppendChar(s *ScriptState) error {
 	ch := s.PopInt()
 	base := s.PopString()
-	s.PushString(base + string(rune(ch)))
+	// L26: TS APPEND_CHAR (StringOps.ts:48-51) is `text + String.fromCharCode(char)`
+	// — one UTF-16 code unit, which pjstr later serialises as a single byte
+	// (char & 0xff). goscape strings are raw cp1252-style bytes (one byte per
+	// character; see Packet.gjstr/pjstr + javaStringCompare), so string(rune(ch))
+	// was wrong for chars 128-255: it produced a 2-byte UTF-8 sequence, breaking
+	// byte-length parity (STRING_LENGTH) and emitting 2 wire bytes where TS writes
+	// 1. Append the single low byte to match TS's one-byte-per-char model.
+	s.PushString(base + string([]byte{byte(ch)}))
 	return nil
 }
 
@@ -97,6 +104,13 @@ func javaStringCompare(a, b string) int {
 }
 
 func handleStringLength(s *ScriptState) error {
+	// L26: TS STRING_LENGTH (StringOps.ts:54-55) pushes str.length (UTF-16 code
+	// units). This matches Go len() here — NOT by coincidence: gjstr decodes each
+	// wire byte via String.fromCharCode(b) into one UTF-16 unit, and goscape
+	// stores those same bytes raw (one byte per character). So unit-count ==
+	// byte-count for every RuneScript string, and APPEND_CHAR (above) preserves
+	// the one-byte-per-char invariant. A rune/UTF-16 re-count would be WRONG: the
+	// raw bytes are not UTF-8, so decoding them would mis-measure Latin-1 chars.
 	s.PushInt(len(s.PopString()))
 	return nil
 }
@@ -131,7 +145,15 @@ func handleSubstring(s *ScriptState) error {
 func handleStringIndexOfChar(s *ScriptState) error {
 	ch := s.PopInt()
 	src := s.PopString()
-	s.PushInt(strings.IndexRune(src, rune(ch)))
+	// L26: TS STRING_INDEXOF_CHAR (StringOps.ts:64-67) is
+	// `text.indexOf(String.fromCharCode(char))` — searches for one UTF-16 unit
+	// and returns its unit index. goscape strings are raw cp1252 bytes, so the
+	// faithful search is by byte: IndexByte returns the byte index (== unit index
+	// for one-byte-per-char strings). IndexRune was wrong for chars 128-255 — it
+	// hunts for that rune's multi-byte UTF-8 encoding, which never appears in the
+	// raw-byte string, so a present Latin-1 char reported -1. (Same byte-vs-unit
+	// family as APPEND_CHAR/STRING_LENGTH.)
+	s.PushInt(strings.IndexByte(src, byte(ch)))
 	return nil
 }
 

@@ -7,23 +7,6 @@ import (
 	"math/rand/v2"
 )
 
-// floorDiv returns floor(a / b), matching TS's Math.floor(a/b). Panics
-// on zero divisor; callers must pre-check and return an error.
-//
-// Only INTERPOLATE uses this (TS NumberOps.ts:48 wraps the division in
-// Math.floor). DIVIDE/MODULO/SCALE use Go's native truncating `/` and `%`
-// to match TS's toInt32-truncation / `%` remainder (M15-M17).
-func floorDiv(a, b int) int {
-	q := a / b
-	// Go truncates toward zero; floor division rounds toward -inf.
-	// Adjust when the quotient is negative and there is a non-zero
-	// remainder.
-	if (a%b != 0) && ((a < 0) != (b < 0)) {
-		q--
-	}
-	return q
-}
-
 // bitMask returns a mask covering bits [start..end] inclusive.
 func bitMask(start, end int) int {
 	width := end - start + 1
@@ -76,8 +59,12 @@ func handleBranchGreaterThanOrEquals(s *ScriptState) error {
 func handleMultiply(s *ScriptState) error {
 	rhs := s.PopInt()
 	lhs := s.PopInt()
-	// 32-bit wraparound to match TS Math.imul semantics.
-	s.PushInt(int(int32(lhs) * int32(rhs)))
+	// L25: TS MULTIPLY (NumberOps.ts:20-24) is `pushInt(a * b)` — the product is
+	// formed in float64 and only then narrowed by toInt32 (`| 0`). Computing
+	// int32(lhs)*int32(rhs) wraps mod 2^32 exactly, which diverges from TS once
+	// the true product exceeds 2^53 (float64 loses precision before the mask).
+	// Mirror TS: float64 product → floatToInt32 (JS ToInt32).
+	s.PushInt(floatToInt32(float64(lhs) * float64(rhs)))
 	return nil
 }
 
@@ -157,16 +144,13 @@ func handleMax(s *ScriptState) error {
 func handlePow(s *ScriptState) error {
 	exp := s.PopInt()
 	base := s.PopInt()
-	if exp < 0 {
-		s.PushInt(0)
-		return nil
-	}
-	result := int32(1)
-	b32 := int32(base)
-	for range exp {
-		result *= b32
-	}
-	s.PushInt(int(result))
+	// L25: TS POW (NumberOps.ts:74-77) is `pushInt(Math.pow(base, exponent))` —
+	// computed in float64 then narrowed by toInt32. The old int32 multiply loop
+	// diverged two ways: (1) results above 2^53 wrap mod 2^32 exactly instead of
+	// tracking float64's rounded value, and (2) the `exp < 0 → 0` shortcut is
+	// wrong for base ±1 (Math.pow(1,-5)=1, Math.pow(-1,-2)=1 → toInt32 keeps 1).
+	// Mirror TS directly: math.Pow → floatToInt32 (JS ToInt32).
+	s.PushInt(floatToInt32(math.Pow(float64(base), float64(exp))))
 	return nil
 }
 
@@ -369,23 +353,23 @@ func handleAtan2Deg(s *ScriptState) error {
 }
 
 // handleInterpolate pops [y0, y1, x0, x1, x] (x on top) and pushes
-// floor((y1-y0)/(x1-x0)) * (x-x0) + y0, matching the TS canonical
-// precedence in NumberOps.ts INTERPOLATE (floor applies to the slope
-// BEFORE multiplying by the run). Floor division uses floorDiv to
-// match TS Math.floor semantics for negative inner quotients.
-// Returns y0 if x1==x0 to avoid div-by-zero (TS doesn't guard but
-// cache scripts shouldn't hit this).
+// floor((y1-y0)/(x1-x0)) * (x-x0) + y0, matching TS NumberOps.ts:42-47
+// INTERPOLATE (floor applies to the slope BEFORE multiplying by the run).
+//
+// L24: computed in float64 to mirror TS exactly. TS has no div-by-zero guard:
+// when x1==x0 the slope is ±Infinity (or NaN when y1==y0), and the final
+// pushInt's toInt32 maps Inf/NaN to 0 — so the de-facto TS result is 0, not the
+// y0 the prior Go guard returned. The float64 path reproduces that naturally
+// (floatToInt32 of ±Inf/NaN == 0) and also tracks TS's float rounding for the
+// >2^53 product range, where an integer floor-div*run would wrap differently.
 func handleInterpolate(s *ScriptState) error {
 	x := s.PopInt()
 	x1 := s.PopInt()
 	x0 := s.PopInt()
 	y1 := s.PopInt()
 	y0 := s.PopInt()
-	if x1 == x0 {
-		s.PushInt(y0)
-		return nil
-	}
-	s.PushInt(floorDiv(y1-y0, x1-x0)*(x-x0) + y0)
+	lerp := math.Floor(float64(y1-y0)/float64(x1-x0))*float64(x-x0) + float64(y0)
+	s.PushInt(floatToInt32(lerp))
 	return nil
 }
 

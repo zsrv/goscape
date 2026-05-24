@@ -176,6 +176,16 @@ func TestStringAppendChar(t *testing.T) {
 	}
 }
 
+// TestStringAppendCharLatin1SingleByte pins L26: a char in 128-255 appends a
+// single raw byte (TS String.fromCharCode → one code unit → one wire byte), not
+// the 2-byte UTF-8 encoding string(rune(ch)) used to produce. é == 0xE9.
+func TestStringAppendCharLatin1SingleByte(t *testing.T) {
+	_, got := runStringOp(t, OpAppendChar, []int{0xE9}, []string{""})
+	if len(got) != 1 || got[0] != 0xE9 {
+		t.Errorf("AppendChar(0xE9): got % x (len %d), want [e9] (len 1)", got, len(got))
+	}
+}
+
 // TestStringAppendSignNum verifies APPEND_SIGNNUM mirrors TS
 // StringOps.ts:18-27 — non-negative values get an explicit '+' prefix
 // (including zero, since `num >= 0`), negative values render with the
@@ -275,6 +285,28 @@ func TestStringIndexOfChar(t *testing.T) {
 	got, _ := runStringOp(t, OpStringIndexOfChar, []int{'l'}, []string{"hello"})
 	if got != 2 {
 		t.Errorf("IndexOfChar: got %d, want 2", got)
+	}
+}
+
+// TestStringIndexOfCharLatin1 pins L26: searching for a 128-255 char finds the
+// raw byte by its unit index. The prior IndexRune hunted for the char's UTF-8
+// encoding, which never appears in goscape's raw-byte strings, so a present
+// Latin-1 char reported -1.
+func TestStringIndexOfCharLatin1(t *testing.T) {
+	src := string([]byte{'a', 0xE9, 'b'})
+	got, _ := runStringOp(t, OpStringIndexOfChar, []int{0xE9}, []string{src})
+	if got != 1 {
+		t.Errorf("IndexOfChar(0xE9) in % x: got %d, want 1", src, got)
+	}
+}
+
+// TestStringLengthRawBytes pins L26: STRING_LENGTH counts bytes, which equals
+// TS's UTF-16 unit count because gjstr maps each wire byte to one code unit and
+// goscape stores those bytes raw. Two Latin-1 bytes → length 2.
+func TestStringLengthRawBytes(t *testing.T) {
+	got, _ := runStringOp(t, OpStringLength, nil, []string{string([]byte{0xE9, 0xE9})})
+	if got != 2 {
+		t.Errorf("StringLength(2 Latin-1 bytes): got %d, want 2", got)
 	}
 }
 
