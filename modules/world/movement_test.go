@@ -494,3 +494,55 @@ func TestPlayerValidateAndAdvanceStep_NoMoveRestrict_ReturnsBlocked(t *testing.T
 		t.Fatalf("NoMove: position changed to (%d,%d), want (3200,3200)", p.x, p.z)
 	}
 }
+
+// TestValidateDistanceWalked pins M3: a player whose net displacement from its
+// start-of-tick position (lastTickX/Z) exceeds 2 tiles is flagged jump=true so
+// the client renders a teleport rather than an impossible slide. Mirrors TS
+// PathingEntity.validateDistanceWalked (PathingEntity.ts:303-315).
+func TestValidateDistanceWalked(t *testing.T) {
+	t.Run("over_two_tiles_jumps", func(t *testing.T) {
+		p, _ := newTestPlayer(t)
+		p.x, p.z, p.level = 3094, 3106, 0
+		p.lastTickX, p.lastTickZ, p.lastLevel = 3094, 3100, 0 // moved 6 tiles
+		p.jump = false
+		p.validateDistanceWalked()
+		if !p.jump {
+			t.Error("net 6-tile move: jump=false, want true")
+		}
+	})
+
+	t.Run("two_tiles_no_jump", func(t *testing.T) {
+		p, _ := newTestPlayer(t)
+		p.x, p.z, p.level = 3094, 3106, 0
+		p.lastTickX, p.lastTickZ, p.lastLevel = 3094, 3104, 0 // moved 2 tiles (run)
+		p.jump = false
+		p.validateDistanceWalked()
+		if p.jump {
+			t.Error("net 2-tile move: jump=true, want false (a run covers 2 tiles)")
+		}
+	})
+}
+
+// TestProcessValidateDistanceWalked_ExactMoveGate pins that the per-tick pass
+// skips the jump-snap when an EXACT_MOVE mask is already driving the
+// displacement (TS World.ts:733 `(player.masks & EXACT_MOVE) == 0` guard).
+func TestProcessValidateDistanceWalked_ExactMoveGate(t *testing.T) {
+	s := newServerForScriptTest(t)
+
+	moved := newTestPlayerAt(t, s, 1, 3094, 3106, 0)
+	moved.lastTickX, moved.lastTickZ, moved.lastLevel = 3094, 3100, 0 // 6 tiles
+
+	exact := newTestPlayerAt(t, s, 2, 3200, 3200, 0)
+	exact.lastTickX, exact.lastTickZ, exact.lastLevel = 3200, 3194, 0 // 6 tiles
+	exact.masks |= MaskExactMove
+
+	s.playerLoop = append(s.playerLoop, moved, exact)
+	s.processValidateDistanceWalked()
+
+	if !moved.jump {
+		t.Error("non-exact-move player moved 6 tiles: jump=false, want true")
+	}
+	if exact.jump {
+		t.Error("EXACT_MOVE player: jump=true, want false (gate must skip it)")
+	}
+}

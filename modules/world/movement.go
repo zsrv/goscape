@@ -117,6 +117,23 @@ func (p *Player) resolveMovement() {
 	}
 }
 
+// validateDistanceWalked forces a teleport-style jump when the player moved
+// more than 2 tiles from its start-of-tick position. Mirrors TS
+// PathingEntity.validateDistanceWalked (PathingEntity.ts:303-315): the client
+// can only animate a walk (1 tile) or run (2 tiles) per tick, so any larger
+// displacement must be sent as a jump or the avatar visibly slides. lastTickX/Z
+// are snapshotted before stepping in resolveMovement (movement.go:79), matching
+// the TS field's start-of-tick value.
+//
+// Distance uses the player's own footprint on both sides (1x1), per TS
+// CoordGrid.distanceTo(this, {x:lastTickX, z:lastTickZ, width, length}). M3.
+func (p *Player) validateDistanceWalked() {
+	if coordgrid.DistanceTo(p.x, p.z, p.Width(), p.Length(),
+		p.lastTickX, p.lastTickZ, p.Width(), p.Length()) > 2 {
+		p.jump = true
+	}
+}
+
 // stepOnce walks one tile toward the current waypoint and returns
 // (dir, status). Mirrors TS PathingEntity.takeStep (PathingEntity.ts:617-683)
 // for width=1 entities (Player.Width() ≡ 1). Position update + dest-check

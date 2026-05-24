@@ -81,6 +81,15 @@ func (n *Npc) turn(s *Server) {
 
 	// === Movement / interaction (NAI-11) ===
 	n.processMovementInteraction(s)
+
+	// PORTING-EXCEPTION (M3, npc-validateDistanceWalked): TS Npc.ts:184 calls
+	// validateDistanceWalked() here, which sets this.jump. But rsbuf.computeNpc
+	// (World.ts:1047-1073) passes npc.tele and never npc.jump — the NpcInfo
+	// protocol has no jump bit — so the NPC call is a no-op on the wire (note
+	// TS's own "Dev note: Is this necessary?"). goscape's Npc therefore has no
+	// jump field and intentionally omits the call. The player side (real wire
+	// effect via computePlayer) is ported in processValidateDistanceWalked. See
+	// PORTING.md / fix-tracker M3.
 }
 
 // QueueWaypoint clears any existing path and sets a single destination.

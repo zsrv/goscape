@@ -146,6 +146,10 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		s.processPathing()
 		s.processInteractions()
 		s.processEnergy() // NAI-135: TS World.ts:731 per-player updateEnergy
+		// M3: TS World.ts:733-735 — jump-snap any player who moved >2 tiles
+		// this tick (gated by EXACT_MOVE). Runs after movement+energy, before
+		// processInfo serializes the jump bit.
+		s.processValidateDistanceWalked()
 		s.processLogouts()
 		s.processLogins()
 		s.processInfo()
@@ -485,6 +489,26 @@ func (s *Server) processEnergy() {
 
 	for _, p := range players {
 		p.updateEnergy()
+	}
+}
+
+// processValidateDistanceWalked forces a jump on any player whose net movement
+// this tick exceeded 2 tiles, unless an EXACT_MOVE mask is already driving the
+// displacement. Mirrors TS World.ts:733-735 (`if ((player.masks & EXACT_MOVE)
+// == 0) player.validateDistanceWalked()`), which runs immediately after
+// updateEnergy in the same player loop. Placed right after processEnergy and
+// before processInfo so the jump bit is set before the renderer reads it and
+// reset in processCleanup. M3.
+func (s *Server) processValidateDistanceWalked() {
+	s.playersMu.RLock()
+	players := make([]*Player, len(s.playerLoop))
+	copy(players, s.playerLoop)
+	s.playersMu.RUnlock()
+
+	for _, p := range players {
+		if p.masks&MaskExactMove == 0 {
+			p.validateDistanceWalked()
+		}
 	}
 }
 
