@@ -14,7 +14,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 |---|---|
 | CRITICAL | 3 / 3 ✓ |
 | HIGH | 17 / 17 ✓ (+1 disputed, tracked separately) |
-| MEDIUM | 13 / 30 |
+| MEDIUM | 17 / 30 |
 | LOW | 0 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
 
@@ -66,10 +66,10 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [x] **M12** FINDHERO reads `s.Self` not operand-aware (player) — `handlers_player.go:1644` — ⚠TEST `TestFindHero_PopulatedAlwaysSetsSelf2`; ⚠LIE comment. [I] **(c45ed279)** — ledger read → `s.activePlayer()`; write stays raw `s.Self2` (TS); fixed lie comment; test rewritten to operand-selects-ledger.
 - [x] **M13** P_PREVENTLOGOUT missing StringNotNull/NumberNotNull validation — `handlers_player.go:1759`. [I] **(c45ed279)** — added checkStringNotNull(msg)+checkNotNull(ticks) in TS order. +pin test.
 - [x] **M14** `checkQueue` range [1,20] vs TS [0,19] — `handlers_npc.go:131` — verify Content for queueid 0/20 first. [J] **(492d7f2f)** — VERIFIED-DEVIATION (no code change): Content uses queueid {1-7,10-12}+walktrigger{8}, never 0/20; TS [0,19]+`+queueId-1` leaves AiQueue20 unreachable & admits garbage AiQueue0 → goscape [1,20] is correct. Added PORTING-EXCEPTION marker; bounds already pinned by RejectsZero/AcceptsTwenty tests.
-- [ ] **M15** DIVIDE floor-toward-−∞ vs TS truncate-toward-zero — `handlers_number.go:92` — batch M15–M18. [L]
-- [ ] **M16** MODULO Euclidean-positive vs TS truncated remainder — `handlers_number.go:102`. [L]
-- [ ] **M17** SCALE floor vs truncate — `handlers_number.go:128`. [L]
-- [ ] **M18** SIN_DEG/COS_DEG round vs TS table-truncate — `handlers_number.go:336`. [L]
+- [x] **M15** DIVIDE floor-toward-−∞ vs TS truncate-toward-zero — `handlers_number.go:92` — batch M15–M18. [L] **(bd4638cf)** — Go native `/` (trunc); ⚠TEST -7/2 -4→-3.
+- [x] **M16** MODULO Euclidean-positive vs TS truncated remainder — `handlers_number.go:102`. [L] **(bd4638cf)** — Go native `%`; removed posMod; ⚠TEST -7%3 2→-1.
+- [x] **M17** SCALE floor vs truncate — `handlers_number.go:128`. [L] **(bd4638cf)** — Go native `(a*c)/b` trunc. (floorDiv kept for INTERPOLATE's Math.floor.)
+- [x] **M18** SIN_DEG/COS_DEG round vs TS table-truncate — `handlers_number.go:336`. [L] **(bd4638cf)** — int() trunc + TS verbatim size literal 3.834951969714103e-4 (bit-identical to TS table). atan2 already correct.
 - [ ] **M19** COMPARE returns sign only vs TS char-code magnitude — `handlers_string.go:73` — ⚠TEST `handlers_string_test.go:213` (incomplete contract). [L]
 - [ ] **M20** SUBSTRING negative-end panic / no start>end swap — `handlers_string.go:85`. [L]
 - [ ] **M21** ParamType.DefaultInt default 0 vs TS -1 — `pkg/objtype/paramtype.go:152`. [M]
