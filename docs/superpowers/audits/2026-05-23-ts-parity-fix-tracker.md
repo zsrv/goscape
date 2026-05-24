@@ -14,7 +14,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 |---|---|
 | CRITICAL | 3 / 3 ✓ |
 | HIGH | 17 / 17 ✓ (+1 disputed, tracked separately) |
-| MEDIUM | 23 / 30 |
+| MEDIUM | 26 / 30 |
 | LOW | 0 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
 
@@ -76,9 +76,9 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [x] **M22** HuntType.FindNewMode default -1 vs TS NONE(0) — `pkg/objtype/hunttype.go:83`. [M] **(9fa8879a)** — NewHuntType FindNewMode → NPCModeNone(0); matches existing npc_hunt fixtures; updated hunttype_test assertion.
 - [x] **M23** IDLE_TIMER (opcode 70) routed to no-op vs TS `requestIdleLogout` — `handlers_game.go:37`. [G] **(abff5127)** — new handleIdleTimer sets requestIdleLogout unless NodeDebug (TS IdleTimerHandler.ts:8-12); flag already drained by processLogouts. +pin test (production-kicks / node_debug-keeps).
 - [x] **M24** MoveClick passes start tile not dest in non-default routefinder config — `handlers_game.go:300`. [G] **(abff5127)** — pathToMoveClick now gets p.userPath (==[dest] in non-routefinder) not raw packed (whose [0] is START); TS MoveClickHandler.ts:40. Fixed mislabeled dest_packed log. +pin test; adjusted minimap trailer test to routefinder mode (full-path preservation is routefinder-only in TS; it had relied on the old always-pass-packed bug).
-- [ ] **M25** Login "save missing + logout_time set" safety reject absent (silently resets char) — `modules/login/handler.go:186` — **(dep: M26)**. [R]
-- [ ] **M26** Login `setLoggedOut` doesn't record logout_time/logged_out — `modules/login/db.go:221`. [R]
-- [ ] **M27** Login reconnect can't re-serve save when client lost it — `modules/login/handler.go:148`. [R]
+- [x] **M25** Login "save missing + logout_time set" safety reject absent (silently resets char) — `modules/login/handler.go:186` — **(dep: M26)**. [R] **(6bc61282)** — ErrNotExist branch now rejects (codes.DataLoss) when account.LogoutTime.Valid; NULL logout_time still → NEW_PLAYER. TS LoginServer.ts:342-348. +2 pin tests (reject + new-player complement).
+- [x] **M26** Login `setLoggedOut` doesn't record logout_time/logged_out — `modules/login/db.go:221`. [R] **(6bc61282)** — stamps account.logout_time + clears logged_in in a tx (TS LoginServer.ts:429-440). DEVIATION: logout_time on `account` table (not account_login); no `logged_out` column (TS bookkeeping, read nowhere). +pin test.
+- [x] **M27** Login reconnect can't re-serve save when client lost it — `modules/login/handler.go:148`. [R] **(6bc61282)** — reconnect now keys on Reconnecting+same-node (not req.HasSave, which the world never sets); inserts session, reads+verifies+re-serves save on !HasSave, returns RECONNECT_OK (DataLoss reject if unreadable). TS LoginServer.ts:271-317. Was falling through to full-login → OK not RECONNECT_OK. +2 pin tests.
 - [ ] **M28** Asset `.mid` path with no `_` panics (slice `[1:-1]`) vs TS clean 404 — `modules/asset/handler.go:84`. [R]
 - [ ] **M29** Friend 100-entry friend/ignore cap not enforced — `modules/friends/repository.go:150,196`. [R]
 - [ ] **M30** Obj full-follows gates on `CheckLifecycle` not `obj.isActive` (loc branch is correct) — `modules/world/player_zone.go:50`. [E/Q]
