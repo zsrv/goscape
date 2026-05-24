@@ -1628,10 +1628,12 @@ func handlePOpPlayer(s *ScriptState) error {
 }
 
 // handleFindHero (FINDHERO, opcode 2018) returns the player with the
-// largest HeroPoints credit on the active player's ledger, binding
-// them to the SECONDARY active-player slot regardless of IntOperand.
-// Pushes 1 on success, 0 if the ledger is empty, the resolved player
-// has logged out, or s.World is nil. Mirrors TS PlayerOps.ts:1138-1154.
+// largest HeroPoints credit on the OPERAND-RESOLVED active player's ledger,
+// binding the result to the raw SECONDARY active-player slot. Pushes 1 on
+// success, 0 if the ledger is empty, the resolved player has logged out, or
+// s.World is nil. Mirrors TS PlayerOps.ts:1138-1154
+// (`state.activePlayer.heroPoints.findHero()` then `state._activePlayer2 =
+// player`).
 //
 // DEVIATION-NAI-127-D1: defensive nil-s.World guard (goscape defensive;
 // TS skips this check). Retire per the same condition as NPC_FINDHERO.
@@ -1643,11 +1645,11 @@ func handleFindHero(s *ScriptState) error {
 		s.PushInt(0)
 		return nil
 	}
-	// FINDHERO reads the PRIMARY player's hero ledger and always binds the
-	// result to the secondary slot (see doc-comment); the int operand here is
-	// not the simple 0/1 player selector, so keep s.Self rather than the
-	// operand-aware accessor. Pinned by TestFindHero_PopulatedAlwaysSetsSelf2.
-	uid := s.Self.TopContributor()
+	// M12: the hero ledger is read from the operand-resolved active player
+	// (TS state.activePlayer, ScriptState.ts:214 — intOperand 0→Self, 1→Self2),
+	// NOT unconditionally the primary. The write below targets the RAW
+	// secondary slot (s.Self2), matching TS's direct `state._activePlayer2 =`.
+	uid := s.activePlayer().TopContributor()
 	if uid == 0 {
 		s.PushInt(0)
 		return nil
@@ -1765,8 +1767,17 @@ func handlePPreventLogout(s *ScriptState) error {
 	if s.World == nil {
 		return nil
 	}
-	ticks := s.PopInt()
+	// TS PlayerOps.ts P_PREVENTLOGOUT validates both args — the message with
+	// StringNotNull and the tick count with NumberNotNull (M13: goscape skipped
+	// both). Order mirrors TS: popString/check first, then popInt/check.
 	msg := s.PopString()
+	if err := checkStringNotNull(msg, "P_PREVENTLOGOUT"); err != nil {
+		return err
+	}
+	ticks := s.PopInt()
+	if err := checkNotNull(ticks, "P_PREVENTLOGOUT"); err != nil {
+		return err
+	}
 	s.activePlayer().SetPreventLogout(msg, s.World.CurrentTick()+ticks)
 	return nil
 }

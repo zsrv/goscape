@@ -5740,25 +5740,51 @@ func TestFindHero_EmptyLedger(t *testing.T) {
 
 // FINDHERO ALWAYS sets Self2 (secondary) regardless of IntOperand —
 // pin TS asymmetry vs NPC_FINDHERO per ts_asymmetry_dual_pin.
-func TestFindHero_PopulatedAlwaysSetsSelf2(t *testing.T) {
+// TestFindHero_OperandSelectsLedger pins M12 (TS-correct contract): FINDHERO
+// reads the hero ledger from the OPERAND-RESOLVED active player (op 0 → Self,
+// op 1 → Self2), and always writes the found player to the RAW secondary slot
+// (s.Self2), mirroring TS `state.activePlayer.heroPoints.findHero()` then
+// `state._activePlayer2 = player` (PlayerOps.ts:1138-1154).
+//
+// (This previously asserted FINDHERO always read the PRIMARY ledger — a bug;
+// the int operand was wrongly treated as not selecting the subject.)
+func TestFindHero_OperandSelectsLedger(t *testing.T) {
 	other := &mockPlayer{uidValue: 7}
 	mw := &mockWorld{playersByUID: map[int]ActivePlayer{7: other}}
-	for _, op := range []int{0, 1} {
-		self := &mockPlayer{topContributor: 7}
-		s := newFindHeroState(self, mw, op)
+
+	t.Run("op0_reads_primary_ledger", func(t *testing.T) {
+		self := &mockPlayer{topContributor: 7} // primary holds the hero
+		s := newFindHeroState(self, mw, 0)
 		if err := handleFindHero(s); err != nil {
-			t.Fatalf("FINDHERO op=%d: err=%v", op, err)
+			t.Fatalf("err=%v", err)
 		}
 		if got := s.PopInt(); got != 1 {
-			t.Errorf("FINDHERO op=%d: pushed %d, want 1", op, got)
+			t.Errorf("pushed %d, want 1", got)
 		}
 		if s.Self2 != other {
-			t.Errorf("FINDHERO op=%d: Self2=%v, want %v", op, s.Self2, other)
+			t.Errorf("Self2=%v, want other (raw secondary write)", s.Self2)
 		}
 		if s.Pointers&PtrActivePlayer2 == 0 {
-			t.Errorf("FINDHERO op=%d: PtrActivePlayer2 must be set", op)
+			t.Error("PtrActivePlayer2 must be set")
 		}
-	}
+	})
+
+	t.Run("op1_reads_secondary_ledger", func(t *testing.T) {
+		self := &mockPlayer{topContributor: 0}  // primary ledger empty
+		self2 := &mockPlayer{topContributor: 7} // secondary holds the hero
+		s := newFindHeroState(self, mw, 1)
+		s.Self2 = self2
+		s.Pointers |= PtrActivePlayer2
+		if err := handleFindHero(s); err != nil {
+			t.Fatalf("err=%v", err)
+		}
+		if got := s.PopInt(); got != 1 {
+			t.Errorf("pushed %d, want 1 (operand=1 reads Self2 ledger)", got)
+		}
+		if s.Self2 != other {
+			t.Errorf("Self2=%v, want other (raw secondary write, not operand-swapped)", s.Self2)
+		}
+	})
 }
 
 func TestFindHero_LookupReturnsNil(t *testing.T) {
@@ -6038,6 +6064,32 @@ func TestPPreventLogout_NoActivePlayer(t *testing.T) {
 	if err := handlePPreventLogout(s); err == nil {
 		t.Fatalf("P_PREVENTLOGOUT no-active-player: want error, got nil")
 	}
+}
+
+// TestPPreventLogout_ValidatesArgs pins M13: TS validates the message with
+// StringNotNull and the tick count with NumberNotNull (PlayerOps.ts
+// P_PREVENTLOGOUT). goscape previously skipped both.
+func TestPPreventLogout_ValidatesArgs(t *testing.T) {
+	t.Run("null_message_rejected", func(t *testing.T) {
+		self := &mockPlayer{}
+		mw := &mockWorld{tick: 100}
+		s := newPreventLogoutState(self, mw, "", 16, true) // empty string = null
+		if err := handlePPreventLogout(s); err == nil {
+			t.Fatal("null message: want error (StringNotNull), got nil")
+		}
+		if self.preventLogoutMessage != "" || self.preventLogoutUntil != 0 {
+			t.Error("null message: handler must not mutate player state on validation failure")
+		}
+	})
+
+	t.Run("null_ticks_rejected", func(t *testing.T) {
+		self := &mockPlayer{}
+		mw := &mockWorld{tick: 100}
+		s := newPreventLogoutState(self, mw, "Combat", -1, true) // -1 = null number
+		if err := handlePPreventLogout(s); err == nil {
+			t.Fatal("null ticks: want error (NumberNotNull), got nil")
+		}
+	})
 }
 
 // TestHandlePlayerMember_PushesMembersFlag pins TS PlayerOps.ts:1211-1213
