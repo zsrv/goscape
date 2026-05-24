@@ -765,6 +765,10 @@ func (s *Server) processInfo() {
 				ss := string(n.SayText())
 				sayPtr = &ss
 			}
+			// Send the active faceSquare when set, else the resting orientation
+			// (faceAngle) so the always-forced FACE_COORD low-def orients a
+			// fresh NPC south instead of the client's north-east default.
+			faceX, faceZ := n.effectiveFaceCoord()
 			s.rsbuf.ComputeNpc(int32(n.nid), int32(n.typeId),
 				n.x, n.level, n.z,
 				n.tele,
@@ -772,7 +776,7 @@ func (s *Server) processInfo() {
 				!n.dead, // active = !dead
 				uint32(n.Masks()),
 				int32(n.FaceEntity()),
-				int32(n.FaceSquareX()), int32(n.FaceSquareZ()),
+				int32(faceX), int32(faceZ),
 				int32(n.OrientationX), int32(n.OrientationZ),
 				int32(n.DamageAmt()), int32(n.DamageType()),
 				int32(n.CurHP()), int32(n.BaseHP()),

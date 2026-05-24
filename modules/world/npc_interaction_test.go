@@ -326,6 +326,31 @@ func TestNpcUpdateMovementWalk(t *testing.T) {
 	}
 }
 
+// TestNpcEffectiveFaceCoord_FallsBackToOrientation pins the spawn-facing fix:
+// a resting NPC (no active faceSquare, -1) reports its orientation (faceAngle,
+// south after unfocus) as the face coord, so the always-forced FACE_COORD
+// low-def orients it south instead of the client's north-east default. An NPC
+// with an active faceSquare reports that instead.
+func TestNpcEffectiveFaceCoord_FallsBackToOrientation(t *testing.T) {
+	typ := &objtype.NpcType{Size: 1}
+	n := NewNpc(1, 0, 3200, 3300, 0, typ)
+	// Simulate the spawn path (resetEntityForRespawn → unfocus) setting the
+	// default-south orientation.
+	n.unfocus()
+	n.faceSquareX, n.faceSquareZ = -1, -1
+
+	wantX, wantZ := coordgrid.Fine(n.x, n.size), coordgrid.Fine(n.z-1, n.size)
+	if x, z := n.effectiveFaceCoord(); x != wantX || z != wantZ {
+		t.Errorf("resting NPC effectiveFaceCoord = (%d,%d), want faceAngle/south (%d,%d)", x, z, wantX, wantZ)
+	}
+
+	// Active faceSquare takes precedence.
+	n.faceSquareX, n.faceSquareZ = 500, 600
+	if x, z := n.effectiveFaceCoord(); x != 500 || z != 600 {
+		t.Errorf("active NPC effectiveFaceCoord = (%d,%d), want faceSquare (500,600)", x, z)
+	}
+}
+
 // TestNpcUpdateMovement_ResetsWanderCounterOnMove pins that an NPC which
 // actually moves has its wanderCounter reset to 0, mirroring TS
 // Npc.processMovement (Npc.ts:361-365). Without this reset the wander

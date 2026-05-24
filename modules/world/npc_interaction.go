@@ -1035,6 +1035,21 @@ func (n *Npc) unfocus() {
 	n.faceAngleZ = coordgrid.Fine(n.z-1, n.size)
 }
 
+// effectiveFaceCoord returns the fine coord the NPC should be shown facing on
+// the wire: its active faceSquare when set, otherwise its resting orientation
+// (faceAngle — default south via unfocus on spawn, or the last-movement
+// direction). The rsbuf FACE_COORD payload is always forced into the NPC
+// low-def (renderer.go), so a freshly-observed resting NPC whose faceSquare is
+// unset (-1) must fall back to faceAngle; otherwise the client receives
+// FACE_COORD(-1,-1) and orients the NPC to its own default (north-east) instead
+// of south. Mirrors TS, which passes faceAngleX/Z to rsbuf as the orientation.
+func (n *Npc) effectiveFaceCoord() (x, z int) {
+	if n.faceSquareX == -1 && n.faceSquareZ == -1 {
+		return n.faceAngleX, n.faceAngleZ
+	}
+	return n.faceSquareX, n.faceSquareZ
+}
+
 // reorient is the Npc-side per-tick refocus invoked from
 // Server.processInfo before rsbuf compute. Mirrors TS
 // PathingEntity.reorient at PathingEntity.ts:349-361. Same shape as
