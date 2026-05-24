@@ -6,8 +6,10 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/coordgrid"
+	"github.com/zsrv/goscape/pkg/eventspb"
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/telemetry"
 )
 
 // mockInvLookup implements script.InvLookup with in-memory inventories
@@ -4198,5 +4200,88 @@ func TestInvWriteOpcodes_ProtectGate_BadOperand_Errors(t *testing.T) {
 				t.Fatalf("err: got %q, want substring \"invalid intOperand\"", err)
 			}
 		})
+	}
+}
+
+// TestTradeEmitsWealthEvent pins that handleBothMoveInv (operand=0, primary)
+// emits exactly one WealthEnvelope with a TradeCompletedEvent payload when
+// both sides of the trade have items. The secondary call (operand=1) must
+// NOT emit a second event (guarded by the !secondary check at
+// handlers_inv.go:1709). Testing through the handler (not a helper) mirrors
+// the TestHandleObjTakeItem_EmitsPickupTelemetry pattern in handlers_obj_test.go.
+//
+// Trade scenario:
+//   - Self   (accountID=101) has 1 sword (id=3, cost=100) in tradeoffer inv (testInvMain).
+//   - Self2  (accountID=202) has 5 coins (id=995, cost=1) in tradeoffer inv (testInvMain).
+//   - Each player's bank (testInvBank) is the destination (receives the other side's items).
+//
+// Expected emission: PartnerAccountId=202, ItemsGiven=[{id=3,qty=1}],
+// ItemsReceived=[{id=995,qty=5}], ValueGiven=100, ValueReceived=5.
+func TestTradeEmitsWealthEvent(t *testing.T) {
+	cap := &capturingWealthEmitter{}
+	telemetry.Set(cap)
+	t.Cleanup(telemetry.Reset)
+
+	mc := newTestInvConfigs()
+	// Make both invs non-protect so no gate fires.
+	mc.invs[testInvMain].Protect = false
+	mc.invs[testInvBank].Protect = false
+
+	// Seed per-player costs.
+	sword := objtype.NewObjType(testObjSword)
+	sword.Cost = 100
+	mc.objs[testObjSword] = sword
+	coin := objtype.NewObjType(testObjCoin)
+	coin.Cost = 1
+	mc.objs[testObjCoin] = coin
+
+	lookup, self, self2 := newTwoPlayerInvFixture()
+	self.accountIDValue = 101
+	self2.accountIDValue = 202
+
+	// Self's tradeoffer: 1 sword.
+	lookup.selfInvs[testInvMain].Items[0] = &inventory.Item{Id: testObjSword, Count: 1}
+	// Self2's tradeoffer (read by the toItems scan at handlers_inv.go:1715).
+	lookup.self2Invs[testInvMain].Items[0] = &inventory.Item{Id: testObjCoin, Count: 5}
+
+	world := &fakeWorldAddObj{mockWorld: newMockWorld()}
+
+	// Primary call (operand=0): Self → Self2; should emit TradeCompletedEvent.
+	runBothMoveInv(t, 0, []int{testInvMain, testInvBank}, lookup, mc, world, self, self2, false)
+
+	// Secondary call (operand=1): Self2 → Self; must NOT emit a second event
+	// (the !secondary guard at handlers_inv.go:1709 filters it out).
+	runBothMoveInv(t, 1, []int{testInvMain, testInvBank}, lookup, mc, world, self, self2, false)
+
+	// Assert exactly one emission.
+	if len(cap.wealthCalls) != 1 {
+		t.Fatalf("EmitWealth calls: got %d, want 1", len(cap.wealthCalls))
+	}
+	env := cap.wealthCalls[0]
+	if env.SchemaVersion != 1 {
+		t.Errorf("SchemaVersion: got %d, want 1", env.SchemaVersion)
+	}
+	if env.AccountId != 101 {
+		t.Errorf("AccountId: got %d, want 101 (Self)", env.AccountId)
+	}
+	tc, ok := env.Payload.(*eventspb.WealthEnvelope_TradeCompleted)
+	if !ok {
+		t.Fatalf("Payload type: got %T, want *WealthEnvelope_TradeCompleted", env.Payload)
+	}
+	e := tc.TradeCompleted
+	if e.PartnerAccountId != 202 {
+		t.Errorf("PartnerAccountId: got %d, want 202 (Self2)", e.PartnerAccountId)
+	}
+	if len(e.ItemsGiven) != 1 || e.ItemsGiven[0].ItemId != int32(testObjSword) || e.ItemsGiven[0].Qty != 1 {
+		t.Errorf("ItemsGiven: got %+v, want [{ItemId=%d Qty=1}]", e.ItemsGiven, testObjSword)
+	}
+	if len(e.ItemsReceived) != 1 || e.ItemsReceived[0].ItemId != int32(testObjCoin) || e.ItemsReceived[0].Qty != 5 {
+		t.Errorf("ItemsReceived: got %+v, want [{ItemId=%d Qty=5}]", e.ItemsReceived, testObjCoin)
+	}
+	if e.ValueGiven != 100 {
+		t.Errorf("ValueGiven: got %d, want 100", e.ValueGiven)
+	}
+	if e.ValueReceived != 5 {
+		t.Errorf("ValueReceived: got %d, want 5", e.ValueReceived)
 	}
 }

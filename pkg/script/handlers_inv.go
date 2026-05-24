@@ -1740,6 +1740,26 @@ func handleBothMoveInv(s *ScriptState) error {
 				AccountValue: fromTotal,
 				// RecipientSession: toPlayer.Session() — deferred (NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY).
 			})
+			var tradeWorldID int32
+			if s.World != nil {
+				tradeWorldID = int32(s.World.NodeID())
+			}
+			telemetry.Get().EmitWealth(&eventspb.WealthEnvelope{
+				SchemaVersion: 1,
+				EventId:       uuid.NewString(),
+				Ts:            timestamppb.Now(),
+				AccountId:     s.activePlayer().AccountID(),
+				WorldId:       tradeWorldID,
+				Payload: &eventspb.WealthEnvelope_TradeCompleted{
+					TradeCompleted: &eventspb.TradeCompletedEvent{
+						PartnerAccountId: toPlayer.AccountID(),
+						ItemsGiven:       wealthItemsToStacks(fromItems),
+						ItemsReceived:    wealthItemsToStacks(toItems),
+						ValueGiven:       int64(fromTotal),
+						ValueReceived:    int64(toTotal),
+					},
+				},
+			})
 			if s.NodeDebug && s.Log != nil {
 				s.Log.Info("nai162.wealth.bothmoveinv_trade",
 					"event_type", WealthEventTypeTrade,
@@ -1749,10 +1769,20 @@ func handleBothMoveInv(s *ScriptState) error {
 				)
 			}
 		}
-		_ = toTotal // available for future RecipientValue field; see NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY
 	}
 
 	return nil
+}
+
+// wealthItemsToStacks converts a []WealthItem slice (script-internal
+// representation) to the []*eventspb.ItemStack wire type used in
+// TradeCompletedEvent fields. Used by handleBothMoveInv.
+func wealthItemsToStacks(items []WealthItem) []*eventspb.ItemStack {
+	out := make([]*eventspb.ItemStack, 0, len(items))
+	for _, it := range items {
+		out = append(out, &eventspb.ItemStack{ItemId: int32(it.ID), Qty: int32(it.Count)})
+	}
+	return out
 }
 
 // handleInvDropItemDelayed (INV_DROPITEM_DELAYED, opcode 4310) ports

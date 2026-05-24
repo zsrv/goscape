@@ -273,6 +273,7 @@ type mockPlayer struct {
 	// Staff-mod level (pre-seed for STAFFMODLEVEL query).
 	staffModLevelValue int
 	uidValue           int
+	accountIDValue     int64
 
 	// S6l: p_aprange capture fields.
 	lastApRange       int
@@ -747,7 +748,7 @@ func (m *mockPlayer) Slot() int        { return m.slot }
 // StaffModLevel returns the seeded staff level for tests.
 func (m *mockPlayer) StaffModLevel() int32 { return int32(m.staffModLevelValue) }
 func (m *mockPlayer) UID() int             { return m.uidValue }
-func (m *mockPlayer) AccountID() int64     { return 0 }
+func (m *mockPlayer) AccountID() int64     { return m.accountIDValue }
 
 // NAI-35-T2: ActivePlayer.X/Z used by MAP_PLAYERCOUNT rect filter and
 // future PlayerIterator passes-filter check.
