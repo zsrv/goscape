@@ -322,7 +322,7 @@ func (pf *RouteFinder) routeFindSize2(baseX, baseZ, level, localDestX, localDest
 		if pf.currLocalX < relativeSearchSize &&
 			pf.directions[pf.localIndex(x, z)] == 0 &&
 			collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+2, z, level), collision.FlagBlockSouthEast, collisionType) &&
-			collision.CanMove(pf.collisionFlag(baseZ, baseZ, pf.currLocalX+2, pf.currLocalZ+1, level), collision.FlagBlockNorthEast, collisionType) {
+			collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+2, pf.currLocalZ+1, level), collision.FlagBlockNorthEast, collisionType) {
 			pf.appendDirection(x, z, dirFlag, nextDistance)
 		}
 
