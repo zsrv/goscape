@@ -14,7 +14,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 |---|---|
 | CRITICAL | 3 / 3 ✓ |
 | HIGH | 17 / 17 ✓ (+1 disputed, tracked separately) |
-| MEDIUM | 17 / 30 |
+| MEDIUM | 19 / 30 |
 | LOW | 0 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
 
@@ -70,8 +70,8 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [x] **M16** MODULO Euclidean-positive vs TS truncated remainder — `handlers_number.go:102`. [L] **(bd4638cf)** — Go native `%`; removed posMod; ⚠TEST -7%3 2→-1.
 - [x] **M17** SCALE floor vs truncate — `handlers_number.go:128`. [L] **(bd4638cf)** — Go native `(a*c)/b` trunc. (floorDiv kept for INTERPOLATE's Math.floor.)
 - [x] **M18** SIN_DEG/COS_DEG round vs TS table-truncate — `handlers_number.go:336`. [L] **(bd4638cf)** — int() trunc + TS verbatim size literal 3.834951969714103e-4 (bit-identical to TS table). atan2 already correct.
-- [ ] **M19** COMPARE returns sign only vs TS char-code magnitude — `handlers_string.go:73` — ⚠TEST `handlers_string_test.go:213` (incomplete contract). [L]
-- [ ] **M20** SUBSTRING negative-end panic / no start>end swap — `handlers_string.go:85`. [L]
+- [x] **M19** COMPARE returns sign only vs TS char-code magnitude — `handlers_string.go:73` — ⚠TEST `handlers_string_test.go:213` (incomplete contract). [L] **(27de25c5)** — added javaStringCompare (magnitude/len-diff, byte-wise); strengthened test with magnitude cases.
+- [x] **M20** SUBSTRING negative-end panic / no start>end swap — `handlers_string.go:85`. [L] **(27de25c5)** — JS substring semantics: clamp each idx to [0,len], swap if start>end. +edge-case tests.
 - [ ] **M21** ParamType.DefaultInt default 0 vs TS -1 — `pkg/objtype/paramtype.go:152`. [M]
 - [ ] **M22** HuntType.FindNewMode default -1 vs TS NONE(0) — `pkg/objtype/hunttype.go:83`. [M]
 - [ ] **M23** IDLE_TIMER (opcode 70) routed to no-op vs TS `requestIdleLogout` — `handlers_game.go:37`. [G]
