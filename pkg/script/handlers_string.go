@@ -73,8 +73,27 @@ func handleLowercase(s *ScriptState) error {
 func handleCompare(s *ScriptState) error {
 	rhs := s.PopString()
 	lhs := s.PopString()
-	s.PushInt(strings.Compare(lhs, rhs))
+	// M19: TS COMPARE (StringOps.ts:37) uses javaStringCompare — Java
+	// String.compareTo semantics: the char-code MAGNITUDE difference at the
+	// first differing position, or the length difference. strings.Compare only
+	// returns the sign (-1/0/1).
+	s.PushInt(javaStringCompare(lhs, rhs))
 	return nil
+}
+
+// javaStringCompare mirrors TS StringOps.javaStringCompare (= Java
+// String.compareTo): return (c1-c2) at the first differing code unit, else
+// (len1-len2). Iterates bytes — identical to TS charCodeAt over the ASCII /
+// Latin-1 text RuneScript uses; the UTF-8-byte vs UTF-16-unit distinction for
+// non-BMP input is the separate L26 concern.
+func javaStringCompare(a, b string) int {
+	lim := min(len(a), len(b))
+	for k := 0; k < lim; k++ {
+		if a[k] != b[k] {
+			return int(a[k]) - int(b[k])
+		}
+	}
+	return len(a) - len(b)
 }
 
 func handleStringLength(s *ScriptState) error {
@@ -86,14 +105,24 @@ func handleSubstring(s *ScriptState) error {
 	end := s.PopInt()
 	start := s.PopInt()
 	src := s.PopString()
-	if start < 0 {
-		start = 0
+	// M20: TS SUBSTRING (StringOps.ts:58) is JS String.prototype.substring —
+	// each index is clamped to [0, len] (negatives → 0) and the two are SWAPPED
+	// when start > end. goscape only clamped end on the high side (a negative
+	// end produced a slice panic) and set start = end (empty) instead of
+	// swapping.
+	n := len(src)
+	clamp := func(v int) int {
+		if v < 0 {
+			return 0
+		}
+		if v > n {
+			return n
+		}
+		return v
 	}
-	if end > len(src) {
-		end = len(src)
-	}
+	start, end = clamp(start), clamp(end)
 	if start > end {
-		start = end
+		start, end = end, start
 	}
 	s.PushString(src[start:end])
 	return nil

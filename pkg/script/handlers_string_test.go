@@ -218,6 +218,14 @@ func TestStringCompare(t *testing.T) {
 		{"a", "b", -1},
 		{"b", "a", 1},
 		{"foo", "foo", 0},
+		// M19: magnitude (Java compareTo), not sign. 'a'(97)-'c'(99) = -2.
+		{"a", "c", -2},
+		{"c", "a", 2},
+		// First differing char dominates regardless of later chars.
+		{"az", "ca", 'a' - 'c'},
+		// Equal prefix → length difference.
+		{"ab", "a", 1},
+		{"a", "abc", -2},
 	}
 	for _, tc := range cases {
 		t.Run(tc.a+"_vs_"+tc.b, func(t *testing.T) {
@@ -237,9 +245,29 @@ func TestStringLength(t *testing.T) {
 }
 
 func TestStringSubstring(t *testing.T) {
-	_, got := runStringOp(t, OpSubstring, []int{1, 4}, []string{"hello"})
-	if got != "ell" {
-		t.Errorf("Substring: got %q, want %q", got, "ell")
+	// args are [start, end] (end pushed last → popped first by the handler).
+	cases := []struct {
+		name       string
+		start, end int
+		want       string
+	}{
+		{"basic", 1, 4, "ell"},
+		// M20: JS substring swaps when start > end.
+		{"start_gt_end_swaps", 4, 1, "ell"},
+		// M20: negative end clamps to 0 (no slice panic), then swaps.
+		{"negative_end_clamps_and_swaps", 3, -1, "hel"},
+		{"negative_start_clamps", -2, 3, "hel"},
+		{"end_past_len_clamps", 2, 99, "llo"},
+		{"both_negative_empty", -5, -1, ""},
+		{"full", 0, 5, "hello"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, got := runStringOp(t, OpSubstring, []int{tc.start, tc.end}, []string{"hello"})
+			if got != tc.want {
+				t.Errorf("Substring(%d,%d): got %q, want %q", tc.start, tc.end, got, tc.want)
+			}
+		})
 	}
 }
 
