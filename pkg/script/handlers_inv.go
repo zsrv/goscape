@@ -1053,10 +1053,13 @@ func handleInvDropSlot(s *ScriptState) error {
 		}
 	}
 
-	// Slot-scoped removal: mirrors TS player.invDel(invType.id, obj.id,
-	// obj.count, slot). completed = count removed (constrained to the slot).
-	completed := count
-	inv.Delete(slot)
+	// Slot-scoped removal mirroring TS player.invDel(invType.id, obj.id,
+	// obj.count, slot) → Inventory.remove(obj, count, beginSlot). Routing
+	// through Remove (not a direct Delete) preserves the stock-obj placeholder
+	// retention TS's remove() applies (Inventory.ts:280) — TS-true for stock
+	// invs; for the common non-stock inv it vacates the slot identically to a
+	// direct delete. completed = units actually removed.
+	completed := inv.Remove(objID, count, inventory.RemoveOpts{BeginSlot: slot}).Completed
 	if completed == 0 {
 		return nil
 	}
@@ -2034,9 +2037,12 @@ func handleBothDropSlot(s *ScriptState) error {
 		}
 	}
 
-	// Slot-scoped removal (mirrors TS invDel returning completed).
-	completed := count
-	inv.Delete(slot)
+	// Slot-scoped removal mirroring TS fromPlayer.invDel(invType.id, obj.id,
+	// obj.count, slot) → Inventory.remove(obj, count, beginSlot). Routing
+	// through Remove (not a direct Delete) keeps stock-obj retention TS-true;
+	// inert for the PvP/trade player invs this opcode runs on (they hold no
+	// stock objs) but faithful to TS regardless. completed = units removed.
+	completed := inv.Remove(objID, count, inventory.RemoveOpts{BeginSlot: slot}).Completed
 	if completed == 0 {
 		return nil
 	}

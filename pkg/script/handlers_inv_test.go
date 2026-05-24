@@ -3870,6 +3870,51 @@ func TestHandleInvDropAll_NoActivePlayer(t *testing.T) {
 // TestNAI162Probe_InvDropSlot_FiresUnderNodeDebug pins that the
 // nai162.wealth.invdropslot gateway emits exactly one record when
 // NodeDebug=true and the SCOPE_PERM path fires.
+// TestHandleInvDropSlot_StockObjRetainsPlaceholder pins that INV_DROPSLOT on a
+// stock inv leaves a count-0 placeholder, matching TS which routes through
+// invDel -> Inventory.remove() (InvOps.ts:240, Player.ts:1530), not a direct
+// delete. End-to-end via the opcode + a real FromType-built stock inv (the gap
+// the method-level checks missed for INV_DEL).
+func TestHandleInvDropSlot_StockObjRetainsPlaceholder(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	s.World = newFakeWorldMembers()
+	s.Self = &mockPlayer{uidValue: 99}
+	s.Pointers |= PtrActivePlayer
+	s.Pointers |= PtrProtectedActivePlayer
+
+	mc := newTestInvConfigs()
+	invType := objtype.NewInvType(7)
+	invType.Size = 28
+	invType.StockObj = []uint16{1277} // obj 1277 is permanently stocked
+	invType.StockCount = []uint16{1}
+	mc.invs[7] = invType
+	obj := objtype.NewObjType(1277)
+	obj.DebugName = "stock_obj"
+	mc.objs[1277] = obj
+	s.Configs = mc
+
+	// FromType seeds slot 0 = {1277, 1} and carries the stock list.
+	inv := inventory.FromType(invType)
+	s.Inv = &mockInvLookup{invs: map[int]*inventory.Inventory{7: inv}}
+
+	s.PushInt(7)                                  // inv
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200)) // coord
+	s.PushInt(0)                                  // slot
+	s.PushInt(50)                                 // duration
+
+	if err := handleInvDropSlot(s); err != nil {
+		t.Fatalf("handleInvDropSlot: %v", err)
+	}
+
+	got := inv.Get(0)
+	if got == nil {
+		t.Fatal("stock-obj slot must be retained as a count-0 placeholder after INV_DROPSLOT, got nil")
+	}
+	if got.Id != 1277 || got.Count != 0 {
+		t.Errorf("placeholder: got %+v, want {Id:1277 Count:0}", got)
+	}
+}
+
 func TestNAI162Probe_InvDropSlot_FiresUnderNodeDebug(t *testing.T) {
 	rec, lg := captureLogger()
 
