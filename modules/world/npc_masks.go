@@ -253,11 +253,19 @@ func (n *Npc) ResetMasks() {
 //   - tele = false (TS L582)
 //   - lastTickX = n.x, lastTickZ = n.z, lastLevel = n.level (TS L583-585)
 //   - stepsTaken = 0 (TS L586)
+//   - apRangeCalled = false (TS L588, L8) — see note below.
 //
 // Out-of-scope per spec §6 (fields not yet on *Npc):
 //   - moveSpeed = defaultMoveSpeed() (TS L578) — NPC moveSpeed plumbing deferred
 //   - jump = false (TS L581) — player-only field
-//   - interacted = false (TS L587), apRangeCalled = false (TS L588) — AP-range deferred
+//   - interacted (TS L587) — no equivalent field on *Npc (goscape's NPC
+//     interaction model has no `interacted` flag).
+//
+// L8: apRangeCalled is now reset per-tick here, matching TS PathingEntity.ts:588,
+// instead of only event-driven at SetInteraction/clearInteraction. The NPC-side
+// field currently has no reader (only p.apRangeCalled is consumed, in the player
+// interaction path), so the per-tick-vs-event distinction is unobservable today —
+// but this makes the field TS-faithful for when an NPC AP-range read-gate is ported.
 func (n *Npc) resetPathingEntity() {
 	n.walkDir = -1
 	n.runDir = -1
@@ -266,6 +274,7 @@ func (n *Npc) resetPathingEntity() {
 	n.lastTickZ = n.z
 	n.lastLevel = n.level
 	n.stepsTaken = 0
+	n.apRangeCalled = false
 }
 
 // ResetHP re-seeds the levels/baseLevels Hitpoints slot from the NPC's

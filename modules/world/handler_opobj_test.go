@@ -34,6 +34,7 @@ func makeOpObjFixture(t *testing.T) (*Server, *Player, *entitypkg.Obj, net.Conn)
 	}
 
 	obj := entitypkg.NewObj(0, 100, 100, entitypkg.LifecycleDespawn, 42, 1)
+	obj.IsActive = true
 	zn := s.zoneMap.Get(0, 100, 100)
 	zn.Objs = append(zn.Objs, obj)
 
@@ -235,6 +236,7 @@ func TestHandleOpObjMissingObjTypeRejected(t *testing.T) {
 	s, p, _, cc := makeOpObjFixture(t)
 	// Place an obj with typeID 77 but no registered ObjType.
 	extra := entitypkg.NewObj(0, 100, 100, entitypkg.LifecycleDespawn, 77, 1)
+	extra.IsActive = true
 	s.zoneMap.Get(0, 100, 100).Objs = append(s.zoneMap.Get(0, 100, 100).Objs, extra)
 
 	received := drainConn(t, cc)
@@ -788,6 +790,7 @@ func TestHandleOpObjReachesInteractionWithDefaultOpType(t *testing.T) {
 	s.objTypes.Configs[558] = ot
 
 	obj := entitypkg.NewObj(0, 100, 100, entitypkg.LifecycleRespawn, 558, 1)
+	obj.IsActive = true // L9: GetObj now filters !IsActive; production AddObj sets this.
 	zn := s.zoneMap.Get(0, 100, 100)
 	zn.Objs = append(zn.Objs, obj)
 

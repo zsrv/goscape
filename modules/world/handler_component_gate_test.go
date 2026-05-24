@@ -383,6 +383,7 @@ func seedObjAt(t *testing.T, s *Server, p *Player, x, z, objId int) {
 	}
 
 	obj := entitypkg.NewObj(0, x, z, entitypkg.LifecycleDespawn, objId, 1)
+	obj.IsActive = true // L9: GetObj filters !IsActive; production AddObj sets this.
 	zn := s.zoneMap.Get(0, x, z)
 	zn.Objs = append(zn.Objs, obj)
 

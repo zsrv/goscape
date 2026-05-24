@@ -18,6 +18,14 @@ import (
 func (s *Server) GetObj(level, x, z, objId, receiverID int) *entitypkg.Obj {
 	zn := s.zoneMap.Get(level, x, z)
 	for _, o := range zn.Objs {
+		// L9: skip invalid objs. TS Zone.getObj iterates getObjsSafe, which
+		// filters obj.isValid() = count >= 1 && isActive (Zone.ts:425, Obj.ts:52
+		// — the reveal/hash64 branch is skipped because getObjsSafe calls
+		// isValid() with no hash). Without this a depleted (count<1) or removed
+		// (!isActive) obj lingering in zn.Objs could be returned.
+		if o.Count < 1 || !o.IsActive {
+			continue
+		}
 		if o.X == x && o.Z == z && o.Type == objId &&
 			(o.ReceiverID == zone.PublicReceiver || o.ReceiverID == receiverID) {
 			return o
