@@ -16,7 +16,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 | HIGH | 17 / 17 ✓ |
 | DISPUTED | D1 RESOLVED ✓ (real bug, fixed with M2) |
 | MEDIUM | 30 / 30 ✓ |
-| LOW | 18 / 50 |
+| LOW | 23 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
 
 ---
@@ -104,11 +104,11 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [x] **L16** STAT_ADVANCE extra `checkStatID` (TS validates ticks only) — `handlers_player.go:588`. [I] **(fd5335d9)** — dropped checkStatID; TS forwards OOB stat to addXp (TypedArray no-op), Go AddXP already bounds-guards (statBounds→return) so OOB now no-ops + script continues vs aborts. -1 still rejected by NumberNotNull. ⚠TEST: updated TestStatOpsRejectOOBStatID (STAT_ADVANCE id=21 → Finished not Aborted).
 - [x] **L17** P_OPOBJ errors on nil-Configs vs TS silent-skip — `handlers_player.go:1488`. [I] **(fd5335d9)** — nil Configs / unregistered ObjType now treated as empty-op default type → silent skip (TS ObjType.get returns default, never null; PlayerOps.ts:996-998). +pin test.
 - [x] **L18** COORDX/Y/Z + INZONE/MOVECOORD/DISTANCE skip CoordValid check — `handlers_number.go:388`, `handlers_server.go:48`. [J] **(89d89a2d)** — all 6 now route through existing checkCoord (TS CoordValid [0,2^31-1]); abort on negative coord vs prior silent bit-mask. TS validation order preserved (DISTANCE c1→c2, INZONE from→to→pos, MOVECOORD base-coord only). +pin test.
-- [ ] **L19** LOC2/OBJ2 read ops not operand-aware (documented NAI-119-D/154-D; no consumers) — `handlers_loc.go`/`handlers_obj.go`. [K]
-- [ ] **L20** ActiveObj write-side not operand-aware in spawn handlers — `handlers_obj.go:116`, `handlers_inv.go:1048,1444`. [K]
-- [ ] **L21** INV_SIZE requires resolvable player inv vs TS pure config read — `handlers_inv.go:131`. [K]
-- [ ] **L22** OBJ_ADDALL lacks nil-World guard (twin OBJ_ADD has it) — `handlers_obj.go:178`. [K]
-- [ ] **L23** OBJ_FIND validates coord before objType (TS reversed) — `handlers_obj.go:343`. [K]
+- [x] **L19** LOC2/OBJ2 read ops not operand-aware — **(c95d6cd7, doc-confirm)** CONFIRMED accurate at HEAD as documented deferral NAI-154-D/119-D (state.go): no OBJ_*/LOC_* read handler reads the secondary slot; no `.obj2`/`.loc2` read consumers in content. NAI-154-D comment refreshed to cite the L20 spawn writers + still-deferred read accessor. No code change. [K]
+- [x] **L20** ActiveObj write-side not operand-aware in spawn handlers — **(c95d6cd7)** OBJ_ADD/OBJ_ADDALL (objAddCommon), INV_DROPSLOT, INV_DROPITEM now route through operand-aware setActiveObjSlot (matches OBJ_FIND/FINDNEXT + TS ObjOps.ts:50-53/82-85, InvOps.ts:184-185/250-258). Operand-0 unchanged. [K]
+- [x] **L21** INV_SIZE requires resolvable player inv vs TS pure config read — **(c95d6cd7)** now reads `s.Configs.InvType(id).Size` directly (TS InvOps.ts:27-31), works without a bound inv. +pin TestInvSize_NoResolvableInv_L21. [K]
+- [x] **L22** OBJ_ADDALL lacks nil-World guard — **(c95d6cd7)** added matching twin guard (no Self guard — broadcast path). +pin TestHandleObjAddAllNilWorldGuard. [K]
+- [x] **L23** OBJ_FIND validates coord before objType — **(c95d6cd7)** order swapped to objType-then-coord per TS ObjOps.ts:172-173. +pin TestObjFindValidatesObjTypeBeforeCoord. [K]
 - [ ] **L24** INTERPOLATE x1==x0 fallback y0 vs TS de-facto 0 — `handlers_number.go:368`. [L]
 - [ ] **L25** MULTIPLY/POW int32-wrap vs TS float64→toInt32 (>2^53 edge) — `handlers_number.go:84,155`. [L]
 - [ ] **L26** STRING_LENGTH/APPEND_CHAR UTF-8 byte vs TS UTF-16 unit — `handlers_string.go:80,46`. [L]
