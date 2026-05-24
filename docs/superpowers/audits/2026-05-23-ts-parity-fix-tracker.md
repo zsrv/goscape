@@ -16,7 +16,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 | HIGH | 17 / 17 ✓ |
 | DISPUTED | D1 RESOLVED ✓ (real bug, fixed with M2) |
 | MEDIUM | 30 / 30 ✓ |
-| LOW | 30 / 50 |
+| LOW | 32 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
 
 ---
@@ -116,8 +116,8 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [x] **L28** SWITCH branches on key-presence vs TS truthy-offset — `handlers_array.go:59`. [H] **(45e30d0a)** — TS `if (result)` (CoreOps.ts:251): missing key OR present-with-0 both fall through. Now reads map zero-value offset + tests `!= 0`. (Old key-presence was a no-op `+=0` in practice; mirrors TS now.) +pin TestSwitchZeroOffsetFallsThrough.
 - [x] **L29** Pointer bit positions differ from TS (internal-only) — `pkg/script/pointer.go:7` — ⚠LIE comment citing matching values. [H] **(45e30d0a)** — reordered Ptr bits to TS ScriptPointer ordinals (ProtectedActivePlayer/2 → bits 2/3; Npc/Loc/Obj → 4-9), so `1<<bit == 1<<ScriptPointer` (ScriptState.ts:165). PtrFindDb (Go-only) → bit 10 (past TS _LAST). Mask is internal-only, all refs named, no raw literals → inert reorder, citations now true.
 - [x] **L30** Opcount cap off-by-one (`>=` vs TS `>`) — `runner.go:54` (was state.go:54). [H] **(45e30d0a)** — TS aborts on `opcount > 500_000` checked before post-`opcount++` → 500_001 execute; Go `>=` aborted one early. Now strict `>`. +pin TestOpCountCapAllowsTSLimit (OpCount==limit+1 at abort).
-- [ ] **L31** NpcType accepts op 30-39 but Op is 5-slot → panic on 35-39 (latent, foreign caches) — `npctype.go:207`. [M]
-- [ ] **L32** ObjType extra opcode 200 + `"hidden"→""` coercion (undocumented for obj/npc) — `objtype.go:292,246`, `npctype.go:213`. [M]
+- [x] **L31** NpcType accepts op 30-39 but Op is 5-slot → panic on 35-39 (latent, foreign caches) — `npctype.go:207`. [M] **(620504b3)** — TS NpcType.ts:141-146 funnels 30-39 into one 5-len array JS grows on demand; packer emits only 30-34. Now grows slice instead of panicking. +pin TestNpcTypeDecodeOpCodes30To39NoPanic.
+- [x] **L32** ObjType extra opcode 200 + `"hidden"→""` coercion (undocumented for obj/npc) — `objtype.go:292,246`, `npctype.go:213`. [M] **(620504b3)** — (a) removed `case 200` (TS has no obj op200; tradeable defaults true + code 15 sets false; packer emits only 15) → now falls to unrecognized-code error; ⚠TEST Code200KeepsTradeableTrue (false "TS case 200" cite) → Code200Rejected. (b) "hidden"→"" coercion removed from npc/obj/loc decoders — TS stores verbatim & is INCONSISTENT: click handlers block null/"hidden", but NPC_HASOP(`?1:0`)/NC_OP/P_OPLOC,NPC(`!op`)/P_OPOBJ(`===null`)/iterator(`!op[1]`) read "hidden" as present (REAL divergence: HASOP returned 0 vs TS 1). Decoders store verbatim; opobj+oploc click handlers gain `=="hidden"` gate (opnpc already had it); script gates' `==""` now correctly treats "hidden" as present. Fixed loctype "coerces hidden" lie + NAI-80-D1 note. +5 pins; updated 2 coercion tests→verbatim.
 - [ ] **L33** varp/varn/vars fatal-error vs TS printError+continue on unknown opcode — `varptype.go:39` etc. [M]
 - [ ] **L34** Component overlay `G1()!=0` vs TS gbool(`==1`) — `componenttype.go:331`. [M]
 - [ ] **L35** login `lowMemory` decoded `==1` vs TS `& 0x1` (client only sends 0/1) — `pkg/io/protocol/login/req/req.go:88`. [N]
