@@ -16,6 +16,8 @@ func TestProcessCleanup_ShopRestock(t *testing.T) {
 	const objID = 100
 
 	it := objtype.NewInvType(shopType)
+	it.Size = 28
+	it.StackAll = true
 	it.Restock = true
 	it.StockObj = []uint16{objID}
 	it.StockCount = []uint16{10}
@@ -25,7 +27,10 @@ func TestProcessCleanup_ShopRestock(t *testing.T) {
 	cfgs[shopType] = it
 	s.invTypes = &objtype.InvTypeConfigs{Configs: cfgs}
 
-	inv := inventory.New(shopType, 28, inventory.StackAlways)
+	// Build the shop inv via FromType (as server_invs.go does) so it carries
+	// its own stock list; stock-obj retention is derived from that, not a
+	// per-call opt.
+	inv := inventory.FromType(it)
 	inv.Items[0] = &inventory.Item{Id: objID, Count: 5} // below stockcount 10
 	s.invs = map[int]*inventory.Inventory{shopType: inv}
 	s.currentTick = 2 // multiple of stockrate 1
@@ -59,17 +64,20 @@ func TestProcessCleanup_ShopRestock_StockObjRetainsSlot(t *testing.T) {
 	const objID = 100
 
 	it := objtype.NewInvType(shopType)
+	it.Size = 28
+	it.StackAll = true
 	it.Restock = true
 	it.AllStock = true
 	it.StockObj = []uint16{objID}
-	it.StockCount = []uint16{0}    // unlisted → general-store decay path
-	it.StockRate = []int32{1}      // non-empty so the top-level guard passes
+	it.StockCount = []uint16{0} // unlisted → general-store decay path
+	it.StockRate = []int32{1}   // non-empty so the top-level guard passes
 
 	cfgs := make([]*objtype.InvType, shopType+1)
 	cfgs[shopType] = it
 	s.invTypes = &objtype.InvTypeConfigs{Configs: cfgs}
 
-	inv := inventory.New(shopType, 28, inventory.StackAlways)
+	// Build the shop inv via FromType so it carries its own stock list.
+	inv := inventory.FromType(it)
 	inv.Items[0] = &inventory.Item{Id: objID, Count: 1}
 	s.invs = map[int]*inventory.Inventory{shopType: inv}
 	s.currentTick = invStockRate // hits the allstock decay

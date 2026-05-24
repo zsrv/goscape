@@ -403,7 +403,7 @@ func handleInvTotalCat(s *ScriptState) error {
 // import which is never null). Per defensive_gate_doc_comment_label.
 //
 // DEVIATION-NAI-130-D3: defensive nil-Configs fallback in
-// lookupStackableStockObj retained for sibling callers (handleInvMoveItem
+// lookupStackable retained for sibling callers (handleInvMoveItem
 // etc.); INV_ADD itself is now ObjType-validated before the helper
 // runs, making the fallback unreachable on this path. The defensive
 // fallback stays for the sibling Move handlers (NAI-131 T4).
@@ -475,13 +475,12 @@ func performInvAdd(s *ScriptState, typeID, obj, count int, op string) error {
 		return fmt.Errorf("%s: no inv for type %d", op, typeID)
 	}
 
-	stackable, stockObj := lookupStackableStockObj(s, inv.Type, obj)
+	stackable := lookupStackable(s, obj)
 
 	tx := inv.Add(obj, count, inventory.AddOpts{
 		BeginSlot:           -1,
 		AssureFullInsertion: false,
 		Stackable:           stackable,
-		StockObj:            stockObj,
 	})
 
 	overflow := count - tx.Completed
@@ -502,26 +501,21 @@ func performInvAdd(s *ScriptState, typeID, obj, count int, op string) error {
 	return nil
 }
 
-// lookupStackableStockObj returns the (Stackable, StockObj) pair for the
-// given (invType, objId), pre-computed from s.Configs for inventory.Add
-// to consume. Returns (false, false) on nil-Configs / missing types
-// (goscape defensive — see DEVIATION-NAI-130-D3).
-func lookupStackableStockObj(s *ScriptState, invTypeID, objID int) (stackable, stockObj bool) {
+// lookupStackable returns whether objID is stackable (ObjType.stackable),
+// pre-computed from s.Configs for inventory.Add to consume. Returns false
+// on nil-Configs / missing type (goscape defensive — see DEVIATION-NAI-130-D3).
+//
+// Stock-obj retention (TS `InvType.stockobj.includes(id)`) is NOT computed
+// here: inventory.Add/Remove derive it from the inventory's own InvType,
+// matching TS which computes it inside add()/remove() (Inventory.ts:160,245).
+func lookupStackable(s *ScriptState, objID int) (stackable bool) {
 	if s.Configs == nil {
-		return false, false
+		return false
 	}
 	if ot := s.Configs.ObjType(objID); ot != nil {
 		stackable = ot.Stackable
 	}
-	if it := s.Configs.InvType(invTypeID); it != nil {
-		for _, id := range it.StockObj {
-			if int(id) == objID {
-				stockObj = true
-				break
-			}
-		}
-	}
-	return stackable, stockObj
+	return stackable
 }
 
 // handleInvDel (INV_DEL) ports TS InvOps.ts:129-141. Pops [inv, obj,
@@ -758,11 +752,10 @@ func handleInvMoveItem(s *ScriptState) error {
 	if tx.Completed == 0 {
 		return nil
 	}
-	stackable, stockObj := lookupStackableStockObj(s, toInv.Type, obj)
+	stackable := lookupStackable(s, obj)
 	addTx := toInv.Add(obj, tx.Completed, inventory.AddOpts{
 		BeginSlot: -1,
 		Stackable: stackable,
-		StockObj:  stockObj,
 	})
 	// TS InvOps.ts:521-530 — items that don't fit in the destination drop to
 	// the floor (DESPAWN, owned by the active player, 200t) rather than
@@ -853,11 +846,10 @@ func handleInvMoveFromSlot(s *ScriptState) error {
 	}
 	id, cnt := it.Id, it.Count
 	fromInv.Delete(fromSlot)
-	stackable, stockObj := lookupStackableStockObj(s, toInv.Type, id)
+	stackable := lookupStackable(s, id)
 	addTx := toInv.Add(id, cnt, inventory.AddOpts{
 		BeginSlot: -1,
 		Stackable: stackable,
-		StockObj:  stockObj,
 	})
 	// TS Player.invMoveFromSlot (Player.ts:1651) + InvOps.ts:339-347 — the
 	// whole slot is removed; whatever the destination can't hold drops to the
@@ -1312,11 +1304,10 @@ func handleInvMoveItemCert(s *ScriptState) error {
 	if objType.CertTemplate == -1 && objType.CertLink >= 0 {
 		finalObj = objType.CertLink
 	}
-	stackable, stockObj := lookupStackableStockObj(s, toInv.Type, finalObj)
+	stackable := lookupStackable(s, finalObj)
 	tx2 := toInv.Add(finalObj, tx.Completed, inventory.AddOpts{
 		BeginSlot: -1,
 		Stackable: stackable,
-		StockObj:  stockObj,
 	})
 
 	overflow := count - tx2.Completed
@@ -1403,11 +1394,10 @@ func handleInvMoveItemUncert(s *ScriptState) error {
 	if objType.CertTemplate >= 0 && objType.CertLink >= 0 {
 		finalObj = objType.CertLink
 	}
-	stackable, stockObj := lookupStackableStockObj(s, toInv.Type, finalObj)
+	stackable := lookupStackable(s, finalObj)
 	toInv.Add(finalObj, tx.Completed, inventory.AddOpts{
 		BeginSlot: -1,
 		Stackable: stackable,
-		StockObj:  stockObj,
 	})
 	return nil
 }
@@ -1648,12 +1638,11 @@ func handleBothMoveInv(s *ScriptState) error {
 
 		fromInv.Delete(slot)
 
-		stackable, stockObj := lookupStackableStockObj(s, toInv.Type, objID)
+		stackable := lookupStackable(s, objID)
 		tx := toInv.Add(objID, count, inventory.AddOpts{
 			BeginSlot:           -1,
 			AssureFullInsertion: false,
 			Stackable:           stackable,
-			StockObj:            stockObj,
 		})
 		overflow := count - tx.Completed
 		if overflow > 0 && s.World != nil {

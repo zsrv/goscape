@@ -3,7 +3,6 @@ package world
 import (
 	"context"
 	"log/slog"
-	"slices"
 	"sort"
 	"time"
 
@@ -1040,24 +1039,26 @@ func (s *Server) processCleanup() {
 			if item == nil {
 				continue
 			}
-			stockObj := slices.Contains(invType.StockObj, uint16(item.Id))
 			hasStockCount := index < len(invType.StockCount)
 			// rate 0 would be a modulo-by-zero panic in Go (TS yields NaN and
 			// skips); guard it like TS's per-element falsy check.
 			hasStockRate := index < len(invType.StockRate) && invType.StockRate[index] != 0
 			rateHit := hasStockRate && s.currentTick%int(invType.StockRate[index]) == 0
+			// Stock-obj retention is derived inside Add/Remove from the
+			// inventory's own InvType (matching TS), so callers no longer
+			// pass it.
 			switch {
 			case hasStockCount && rateHit && item.Count < int(invType.StockCount[index]):
 				// Below min → restock one at this slot.
-				inv.Add(item.Id, 1, inventory.AddOpts{BeginSlot: index, AssureFullInsertion: true, StockObj: stockObj})
+				inv.Add(item.Id, 1, inventory.AddOpts{BeginSlot: index, AssureFullInsertion: true})
 				inv.Update = true
 			case hasStockCount && rateHit && item.Count > int(invType.StockCount[index]):
 				// Above min → decay one.
-				inv.Remove(item.Id, 1, inventory.RemoveOpts{BeginSlot: index, AssureFullRemoval: true, StockObj: stockObj})
+				inv.Remove(item.Id, 1, inventory.RemoveOpts{BeginSlot: index, AssureFullRemoval: true})
 				inv.Update = true
 			case invType.AllStock && (!hasStockCount || invType.StockCount[index] == 0) && s.currentTick%invStockRate == 0:
 				// Unlisted stock (e.g. general stores) decays one per minute.
-				inv.Remove(item.Id, 1, inventory.RemoveOpts{BeginSlot: index, AssureFullRemoval: true, StockObj: stockObj})
+				inv.Remove(item.Id, 1, inventory.RemoveOpts{BeginSlot: index, AssureFullRemoval: true})
 				inv.Update = true
 			}
 		}

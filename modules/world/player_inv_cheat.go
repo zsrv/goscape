@@ -39,18 +39,12 @@ func (p *Player) InvAdd(invTypeID, obj, count int, assureFullInsertion bool) int
 	if inv == nil {
 		return 0
 	}
-	stockObj := false
-	for _, id := range invType.StockObj {
-		if int(id) == obj {
-			stockObj = true
-			break
-		}
-	}
+	// Stock-obj retention is derived inside inventory.Add from the inv's
+	// own InvType (matching TS), so it is no longer passed as an opt.
 	tx := inv.Add(obj, count, inventory.AddOpts{
 		BeginSlot:           -1,
 		AssureFullInsertion: assureFullInsertion,
 		Stackable:           objType.Stackable,
-		StockObj:            stockObj,
 	})
 	return tx.Completed
 }

@@ -99,8 +99,9 @@ func TestRemoveAssureFullRemoval(t *testing.T) {
 // retained (count 0), not vacated. Mirrors TS Inventory.ts:280-286.
 func TestRemoveStockObjRetainsSlot(t *testing.T) {
 	inv := New(1, 28, StackAlways)
+	inv.stockObjIDs = []uint16{10} // obj 10 is in this inv's stock list
 	inv.Add(10, 2, AddOpts{})
-	tx := inv.Remove(10, 2, RemoveOpts{StockObj: true})
+	tx := inv.Remove(10, 2, RemoveOpts{})
 	if tx.Completed != 2 {
 		t.Errorf("Completed: got %d, want 2", tx.Completed)
 	}
@@ -116,6 +117,34 @@ func TestRemoveStockObjRetainsSlot(t *testing.T) {
 	inv2.Remove(10, 2, RemoveOpts{})
 	if inv2.Items[0] != nil {
 		t.Error("non-stock slot must vacate at count 0")
+	}
+}
+
+// TestFromTypeStockObjBareRemoveRetainsPlaceholder reproduces the shop-buy
+// bug: buying out a permanently-stocked item must leave a count-0
+// placeholder, not an empty slot. A shop inventory is built via FromType
+// (which seeds the stock list from the InvType), and INV_DEL — the opcode
+// the shop-buy script uses — removes through a bare RemoveOpts (no per-call
+// StockObj flag). The retention must therefore come from the inventory's own
+// InvType, exactly as TS computes it inside remove() (Inventory.ts:245,280).
+func TestFromTypeStockObjBareRemoveRetainsPlaceholder(t *testing.T) {
+	it := &objtype.InvType{Size: 40, StockObj: []uint16{100}, StockCount: []uint16{10}}
+	inv := FromType(it) // seeds slot 0 with {100, 10}
+	tx := inv.Remove(100, 10, RemoveOpts{BeginSlot: -1})
+	if tx.Completed != 10 {
+		t.Fatalf("Completed: got %d, want 10", tx.Completed)
+	}
+	if inv.Items[0] == nil {
+		t.Fatal("permanently-stocked slot must remain as a count-0 placeholder, got nil")
+	}
+	if inv.Items[0].Id != 100 || inv.Items[0].Count != 0 {
+		t.Errorf("placeholder: got %+v, want {Id:100 Count:0}", inv.Items[0])
+	}
+	// A non-stock obj in the same inventory still vacates when fully removed.
+	inv.Items[1] = &Item{Id: 200, Count: 3}
+	inv.Remove(200, 3, RemoveOpts{BeginSlot: -1})
+	if inv.Items[1] != nil {
+		t.Error("non-stock obj must vacate at count 0 even in a stock inventory")
 	}
 }
 
@@ -244,7 +273,6 @@ func TestAdd_FreeZero_NoExistingStack_NoStockObj_Fails(t *testing.T) {
 	tx := inv.Add(10, 5, AddOpts{
 		BeginSlot: -1,
 		Stackable: true,
-		StockObj:  false,
 	})
 	if tx.Completed != 0 {
 		t.Errorf("Completed (no slot, no stock): got %d, want 0", tx.Completed)
@@ -259,6 +287,7 @@ func TestAdd_FreeZero_NoExistingStack_NoStockObj_Fails(t *testing.T) {
 // finds the depleted slot; stack branch increments it.
 func TestAdd_FreeZero_StockObj_ExistingDepletedStock_Succeeds(t *testing.T) {
 	inv := New(1, 2, StackAlways)
+	inv.stockObjIDs = []uint16{10} // obj 10 is in this inv's stock list
 	// Slot 0 holds the depleted stock slot for obj 10 (Count=0 but
 	// non-nil so freeSlotCount() == 0). Slot 1 holds another obj.
 	inv.Items[0] = &Item{Id: 10, Count: 0}
@@ -266,7 +295,6 @@ func TestAdd_FreeZero_StockObj_ExistingDepletedStock_Succeeds(t *testing.T) {
 	tx := inv.Add(10, 5, AddOpts{
 		BeginSlot: -1,
 		Stackable: true,
-		StockObj:  true,
 	})
 	if tx.Completed != 5 {
 		t.Errorf("Completed (stockObj depleted): got %d, want 5", tx.Completed)

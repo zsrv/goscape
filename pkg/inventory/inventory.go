@@ -1,6 +1,10 @@
 package inventory
 
-import "github.com/zsrv/goscape/pkg/objtype"
+import (
+	"slices"
+
+	"github.com/zsrv/goscape/pkg/objtype"
+)
 
 // Stacking strategy constants.
 const (
@@ -23,6 +27,16 @@ type Inventory struct {
 	StackType int
 	Items     []*Item // length == Capacity; nil = empty
 	Update    bool    // consumed by world.updateInvs()
+
+	// stockObjIDs is the InvType's stock-obj list (InvType.stockobj),
+	// populated by FromType. Add/Remove consult it to decide whether a
+	// slot reaching count 0 is retained as a restockable placeholder —
+	// mirroring TS, which computes `InvType.get(this.type).stockobj?.includes(id)`
+	// inside add()/remove() (Inventory.ts:160,245). Keeping the membership
+	// on the inventory (rather than per-call opts) means every caller —
+	// INV_DEL/shop-buy, INV_MOVEITEM, INV_DROPITEM, restock — gets the
+	// correct behavior without re-deriving it.
+	stockObjIDs []uint16
 }
 
 // New returns an empty inventory of the given capacity.
@@ -39,6 +53,7 @@ func New(typeId, capacity, stackType int) *Inventory {
 // populates its StockObj items.
 func FromType(t *objtype.InvType) *Inventory {
 	inv := New(t.ID, t.Size, stackTypeFrom(t))
+	inv.stockObjIDs = t.StockObj
 	// L11: TS Inventory.fromType (Inventory.ts:66-73) seeds every stock index
 	// with the literal {stockobj[i], stockcount[i]} — no id==0 skip and no
 	// count fallback. This is load-bearing now that shop restock is live
@@ -71,6 +86,13 @@ func (inv *Inventory) Get(slot int) *Item {
 
 func (inv *Inventory) Contains(id int) bool {
 	return inv.GetItemIndex(id) >= 0
+}
+
+// isStockObj reports whether id is in this inventory's InvType stock list
+// (TS `InvType.get(this.type).stockobj?.includes(id)`). Populated by
+// FromType; a bare New inventory has no stock list and always returns false.
+func (inv *Inventory) isStockObj(id int) bool {
+	return slices.Contains(inv.stockObjIDs, uint16(id))
 }
 
 func (inv *Inventory) HasAt(slot, id int) bool {
@@ -136,13 +158,10 @@ type AddOpts struct {
 	// objtype.Configs.ObjType(id).Stackable. Drives the new TS-fidelity
 	// stack predicate per Inventory.ts:161. Default zero-value (false)
 	// means non-stackable.
+	//
+	// (Stock-obj membership is NOT a caller opt: Add derives it from the
+	// inventory's own InvType via isStockObj, matching TS Inventory.ts:160.)
 	Stackable bool
-
-	// StockObj signals whether the obj is in the inv's stock list
-	// (`InvType.stockobj.includes(id)` in TS). Caller pre-computes from
-	// InvType.StockObj. Drives the TS line 173 stockObj-aware free-slot
-	// guard. Default zero-value (false) means not a stock obj.
-	StockObj bool
 }
 
 type RemoveOpts struct {
@@ -154,11 +173,10 @@ type RemoveOpts struct {
 	BeginSlot         int
 	AssureFullRemoval bool
 
-	// StockObj signals whether the obj is in the inv's stock list
-	// (`InvType.stockobj.includes(id)` in TS). When set, a slot that reaches
-	// count 0 is retained (count 0) rather than vacated, so a shop can restock
-	// it. Mirrors TS Inventory.ts:280-286. Default false vacates the slot.
-	StockObj bool
+	// (Stock-obj membership is NOT a caller opt: Remove derives it from the
+	// inventory's own InvType via isStockObj, matching TS Inventory.ts:245.
+	// A slot reaching count 0 is retained as a restockable placeholder when
+	// the obj is in the inv's stock list — Inventory.ts:280-286.)
 }
 
 func (inv *Inventory) Set(slot int, item *Item) {
@@ -203,6 +221,10 @@ func (inv *Inventory) Add(id, count int, opts AddOpts) Transaction {
 		return tx
 	}
 
+	// TS line 160: stockObj is computed from the inventory's own InvType,
+	// not a caller-supplied flag.
+	stockObj := inv.isStockObj(id)
+
 	// TS line 161: stack predicate.
 	stack := !opts.ForceNoStack &&
 		inv.StackType != StackNever &&
@@ -221,7 +243,7 @@ func (inv *Inventory) Add(id, count int, opts AddOpts) Transaction {
 
 	free := inv.FreeSlotCount()
 	// TS lines 172-175: free=0 guard with stockObj exception.
-	if free == 0 && (!stack || (stack && previousCount == 0 && !opts.StockObj)) {
+	if free == 0 && (!stack || (stack && previousCount == 0 && !stockObj)) {
 		return tx
 	}
 
@@ -316,6 +338,8 @@ func (inv *Inventory) Remove(id, count int, opts RemoveOpts) Transaction {
 	if opts.AssureFullRemoval && inv.GetItemCount(id) < count {
 		return tx
 	}
+	// TS line 245: stockObj is computed from the inventory's own InvType.
+	stockObj := inv.isStockObj(id)
 	removed := 0
 	begin := max(opts.BeginSlot, 0)
 	removeFrom := func(lo, hi int) {
@@ -329,7 +353,7 @@ func (inv *Inventory) Remove(id, count int, opts RemoveOpts) Transaction {
 			removed += take
 			// M11: a stock-obj slot is retained at count 0 so a shop can restock
 			// it; everything else vacates the slot. Mirrors TS Inventory.ts:280-286.
-			if it.Count == 0 && !opts.StockObj {
+			if it.Count == 0 && !stockObj {
 				inv.Items[i] = nil
 			}
 		}
