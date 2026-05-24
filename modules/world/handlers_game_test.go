@@ -397,13 +397,13 @@ func teleTestPlayer(t *testing.T) (*Player, net.Conn, *Server) {
 }
 
 // dispatchTeleCheat sends a `::<cmd>` cheat through handleClientCheat.
-// Builds the payload as G1(ctrlHeld) + PJStrLF(cmd), matching the
-// rev-225 wire format consumed at handlers_game.go:334.
+// The payload is the cheat string only — TS ClientCheatDecoder reads a bare
+// gjstr() and the Java client's leading p1 is the var-size length prefix,
+// consumed by the framing layer before the handler sees the payload.
 func dispatchTeleCheat(t *testing.T, p *Player, cheat string) {
 	t.Helper()
 	pkt := packet.NewPacket(nil)
-	pkt.P1(0) // ctrlHeld byte (unused)
-	pkt.PJStrLF(cheat)
+	pkt.PJStrLF(cheat) // payload is the cheat string only; no leading byte
 	if err := handleClientCheat(p, pkt.Data); err != nil {
 		t.Fatalf("handleClientCheat: %v", err)
 	}

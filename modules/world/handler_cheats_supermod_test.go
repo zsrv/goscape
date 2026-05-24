@@ -42,8 +42,7 @@ func supermodSetup(t *testing.T) (*Player, net.Conn, *Server, *recordingBridges)
 func dispatchCheat(t *testing.T, p *Player, cheat string) {
 	t.Helper()
 	pkt := packet.NewPacket(nil)
-	pkt.P1(0) // ctrlHeld byte (unused)
-	pkt.PJStrLF(cheat)
+	pkt.PJStrLF(cheat) // payload is the cheat string only; no leading byte (TS gjstr-only)
 	if err := handleClientCheat(p, pkt.Data); err != nil {
 		t.Fatalf("handleClientCheat: %v", err)
 	}

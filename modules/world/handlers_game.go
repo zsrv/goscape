@@ -591,7 +591,11 @@ func (s *Server) dispatchDebugproc(p *Player, cmd string, args string, rawCheat 
 
 func handleClientCheat(p *Player, payload []byte) error {
 	r := packet.NewPacket(payload)
-	_ = r.G1() // unused ctrlHeld-style byte per TS ClientCheat handler
+	// TS ClientCheatDecoder.decode reads ONLY gjstr() — there is no leading
+	// control byte. The Java client sends p1isaac(4), p1(len) [the var-size
+	// length prefix consumed by the framing layer], then pjstr(substring(2)).
+	// So the payload here is purely the cheat string; reading a G1() first
+	// would eat the command's first character.
 	raw := r.GJStrLF()
 	// Mirrors TS ClientCheatHandler.ts:40-50:
 	//   - Reject if input.length > 80
