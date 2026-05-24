@@ -14,7 +14,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 |---|---|
 | CRITICAL | 3 / 3 ✓ |
 | HIGH | 17 / 17 ✓ (+1 disputed, tracked separately) |
-| MEDIUM | 10 / 30 |
+| MEDIUM | 12 / 30 |
 | LOW | 0 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
 
@@ -63,8 +63,8 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [x] **M9** Obj-reveal tradeable/members gating missing (private drop becomes public) — `pkg/zone/zone.go:343` (TODO-marked). [E] **(8e4756ca)** — gate added at (*Server).RevealObj (objTypeFor + cfg.NodeMembers); pkg/zone TODO retired. +pin test (non-tradeable/members-f2p stay private).
 - [x] **M10** INV `assureFullRemoval` short-circuit absent — `pkg/inventory/inventory.go:291` — **(needed by H3)**. [F] **(425e843c)** — honor existing AssureFullRemoval opt (all-or-nothing).
 - [x] **M11** INV stockObj count-0 slot retention missing — `pkg/inventory/inventory.go:306` — **(needed by H3)**. [F] **(425e843c)** — RemoveOpts.StockObj retains slot at count 0.
-- [ ] **M12** FINDHERO reads `s.Self` not operand-aware (player) — `handlers_player.go:1644` — ⚠TEST `TestFindHero_PopulatedAlwaysSetsSelf2`; ⚠LIE comment. [I]
-- [ ] **M13** P_PREVENTLOGOUT missing StringNotNull/NumberNotNull validation — `handlers_player.go:1759`. [I]
+- [x] **M12** FINDHERO reads `s.Self` not operand-aware (player) — `handlers_player.go:1644` — ⚠TEST `TestFindHero_PopulatedAlwaysSetsSelf2`; ⚠LIE comment. [I] **(c45ed279)** — ledger read → `s.activePlayer()`; write stays raw `s.Self2` (TS); fixed lie comment; test rewritten to operand-selects-ledger.
+- [x] **M13** P_PREVENTLOGOUT missing StringNotNull/NumberNotNull validation — `handlers_player.go:1759`. [I] **(c45ed279)** — added checkStringNotNull(msg)+checkNotNull(ticks) in TS order. +pin test.
 - [ ] **M14** `checkQueue` range [1,20] vs TS [0,19] — `handlers_npc.go:131` — verify Content for queueid 0/20 first. [J]
 - [ ] **M15** DIVIDE floor-toward-−∞ vs TS truncate-toward-zero — `handlers_number.go:92` — batch M15–M18. [L]
 - [ ] **M16** MODULO Euclidean-positive vs TS truncated remainder — `handlers_number.go:102`. [L]
