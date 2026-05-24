@@ -30,6 +30,15 @@ func (gm *GameMap) IsFreeToPlay(x, z int) bool {
 	return gm.freemap[zoneIndex(x, z, 0)]
 }
 
+// bordersFreeToPlay reports whether any of the four orthogonally-adjacent
+// tiles is F2P. Mirrors TS GameMap.bordersFreeToPlay (GameMap.ts:295-297);
+// loadGround/loadLocs use it so collision and static locs on the F2P border
+// (but in a members zone) are still built on an F2P world.
+func (gm *GameMap) bordersFreeToPlay(x, z int) bool {
+	return gm.IsFreeToPlay(x+1, z) || gm.IsFreeToPlay(x-1, z) ||
+		gm.IsFreeToPlay(x, z+1) || gm.IsFreeToPlay(x, z-1)
+}
+
 // SetMulti marks (or clears) the zone containing (x, z, level) as multi-combat.
 // Intended for tests — production data flows from multiway.csv via Init.
 // Exposing a setter avoids having to stand up a tempdir + CSV + Init for every

@@ -65,7 +65,12 @@ func mFileWithLands(entries map[[3]int]byte) []byte {
 }
 
 func newTestGameMap() *GameMap {
-	return New(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	gm := New(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	// Default to a members world so load/collision parse-tests aren't gated
+	// out by the F2P/members map gate (TS GameMap loadGround/loadLocs/loadNPCs).
+	// F2P-gating tests override with gm.SetMembers(false) + setFreemapAt.
+	gm.SetMembers(true)
+	return gm
 }
 
 // TestLoadGround_BlockMapSquare_WritesFloorBlock pins the BLOCK_MAP_SQUARE constant
@@ -453,6 +458,50 @@ func objFileEntry(typeID, count int) []byte {
 // encoding used by gm.IsFreeToPlay → zoneIndex(x, z, 0).
 func setFreemapAt(gm *GameMap, x, z int) {
 	gm.freemap[zoneIndex(x, z, 0)] = true
+}
+
+// TestLoadNPCs_F2PGate pins H13: on a non-members world, NPC spawns on
+// member-only tiles are gated out; F2P tiles load. Mirrors TS GameMap.ts:122-124.
+func TestLoadNPCs_F2PGate(t *testing.T) {
+	// One record at local (10,20) level 0, count=1, typeID=100.
+	// packed = (0<<12)|(10<<6)|20 = 0x0294.
+	nData := []byte{0x02, 0x94, 0x01, 0x00, 0x64}
+	const mx, mz = 50, 50
+	absX, absZ := mx*64+10, mz*64+20
+
+	gm := newTestGameMap()
+	gm.SetMembers(false) // non-members world, no F2P data → gated out
+	gm.loadNPCs(nData, mx, mz)
+	if got := len(gm.NpcSpawns()); got != 0 {
+		t.Errorf("non-members world without F2P: got %d spawns, want 0", got)
+	}
+
+	gm2 := newTestGameMap()
+	gm2.SetMembers(false)
+	setFreemapAt(gm2, absX, absZ) // tile is F2P → spawn loads
+	gm2.loadNPCs(nData, mx, mz)
+	if got := len(gm2.NpcSpawns()); got != 1 {
+		t.Errorf("F2P tile: got %d spawns, want 1", got)
+	}
+}
+
+// TestBordersFreeToPlay pins the orthogonal-adjacency helper used by the
+// loadGround/loadLocs gates (TS GameMap.ts:295-297). Uses a zone-boundary
+// tile so x+1 crosses into a genuinely different (F2P) zone while the tile
+// itself stays members-only.
+func TestBordersFreeToPlay(t *testing.T) {
+	gm := newTestGameMap()
+	const x, z = 3215, 3220 // 3215>>3=401 (last tile of its zone); 3216>>3=402
+	if gm.bordersFreeToPlay(x, z) {
+		t.Fatal("no F2P data: bordersFreeToPlay must be false")
+	}
+	setFreemapAt(gm, x+1, z) // flag the east-adjacent zone (402)
+	if gm.IsFreeToPlay(x, z) {
+		t.Fatal("the tile's own zone must NOT be F2P (only the neighbour is)")
+	}
+	if !gm.bordersFreeToPlay(x, z) {
+		t.Error("east-neighbour zone F2P: bordersFreeToPlay must be true")
+	}
 }
 
 // objTypeConfigs builds an ObjTypeConfigs slice with len entries; each

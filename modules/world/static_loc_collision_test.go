@@ -35,6 +35,7 @@ func TestNAI95_StaticLocCollision_HansArea(t *testing.T) {
 
 	s := newTestServer(t)
 	s.gamemap = gamemap.New(discardLogger())
+	s.gamemap.SetMembers(true) // members world: real-cache collision test, not F2P gating (test cache has no F2P CSV)
 	if err := s.gamemap.Init(cacheDir); err != nil {
 		t.Fatalf("gamemap.Init: %v", err)
 	}

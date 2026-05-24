@@ -82,6 +82,13 @@ parseLoop:
 			for z := range mapSquareSize {
 				absZ := mapSquareZ*mapSquareSize + z
 
+				// F2P/members gate (TS GameMap.ts:189-191): on a non-members
+				// world, skip collision for member-only tiles unless the tile
+				// is F2P or borders an F2P tile.
+				if !gm.members && !gm.IsFreeToPlay(absX, absZ) && !gm.bordersFreeToPlay(absX, absZ) {
+					continue
+				}
+
 				// Allocate the destination collision zone before any
 				// conditional flag write. Without this, a zone whose
 				// 64 tiles all carry no BLOCK_MAP_SQUARE / REMOVE_ROOFS
@@ -193,6 +200,12 @@ func (gm *GameMap) loadLocs(data []byte, mapSquareX, mapSquareZ int) {
 			absX := mapSquareX*mapSquareSize + localX
 			absZ := mapSquareZ*mapSquareSize + localZ
 
+			// F2P/members gate (TS GameMap.ts:238-240): on a non-members world,
+			// skip static locs for member-only tiles unless F2P or F2P-bordering.
+			if !gm.members && !gm.IsFreeToPlay(absX, absZ) && !gm.bordersFreeToPlay(absX, absZ) {
+				continue
+			}
+
 			actualLevel := level
 			if lands != nil { // goscape defensive; TS skips this check (lands is always populated by caller)
 				var bridgeLand int
@@ -251,6 +264,12 @@ func (gm *GameMap) loadNPCs(data []byte, mapSquareX, mapSquareZ int) {
 		absZ := mapSquareZ*mapSquareSize + localZ
 		for i := 0; i < count && p.Len() >= 2; i++ {
 			typeID := int(p.G2())
+			// F2P/members gate (TS GameMap.ts:122-124, no borders). Read the
+			// typeID first so the stream stays aligned, then skip the spawn on
+			// a non-members world for member-only tiles.
+			if !gm.members && !gm.IsFreeToPlay(absX, absZ) {
+				continue
+			}
 			gm.npcSpawns = append(gm.npcSpawns, NpcSpawn{
 				TypeID: typeID, X: absX, Z: absZ, Level: level,
 			})

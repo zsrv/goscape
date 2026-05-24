@@ -98,6 +98,7 @@ func TestLoadNpcsParsesSpawns(t *testing.T) {
 	}
 
 	gm := New(discardLogger())
+	gm.SetMembers(true) // members world: parse-only test, not exercising F2P gating
 	if err := gm.Init(tmp); err != nil {
 		t.Fatal(err)
 	}
@@ -140,6 +141,7 @@ func TestLoadNpcsLoadsFromServerMapsDirectory(t *testing.T) {
 	}
 
 	gm := New(discardLogger())
+	gm.SetMembers(true) // members world: parse-only test, not exercising F2P gating
 	if err := gm.Init(tmp); err != nil {
 		t.Fatal(err)
 	}
@@ -205,6 +207,7 @@ func TestLoadLocsParsesKnownFixture(t *testing.T) {
 		0x00, // end outer
 	}
 	gm := New(discardLogger())
+	gm.SetMembers(true) // members world: parse-only test, not exercising F2P gating
 	gm.loadLocs(fixture, 50, 51)
 
 	statics := gm.StaticLocs()
@@ -248,6 +251,7 @@ func TestLoadLocsMultipleLocIDs(t *testing.T) {
 		0x00, // end outer
 	}
 	gm := New(discardLogger())
+	gm.SetMembers(true) // members world: parse-only test, not exercising F2P gating
 	gm.loadLocs(fixture, 0, 0)
 	if got := len(gm.StaticLocs()); got != 2 {
 		t.Errorf("StaticLocs count: got %d, want 2", got)

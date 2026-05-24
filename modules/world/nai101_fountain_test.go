@@ -36,6 +36,7 @@ func TestNAI101_FountainPathAround_RealCache(t *testing.T) {
 
 	s := newTestServer(t)
 	s.gamemap = gamemap.New(discardLogger())
+	s.gamemap.SetMembers(true) // members world: real-cache pathfinding test, not F2P gating (test cache has no F2P CSV)
 
 	locTypes, err := objtype.LoadLocTypes(cacheDir)
 	if err != nil {
