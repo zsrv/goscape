@@ -13,8 +13,9 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 | Severity | Done / Total |
 |---|---|
 | CRITICAL | 3 / 3 ✓ |
-| HIGH | 17 / 17 ✓ (+1 disputed, tracked separately) |
-| MEDIUM | 29 / 30 (M2 blocked on D1) |
+| HIGH | 17 / 17 ✓ |
+| DISPUTED | D1 RESOLVED ✓ (real bug, fixed with M2) |
+| MEDIUM | 30 / 30 ✓ |
 | LOW | 0 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
 
@@ -46,14 +47,14 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [x] **H16** Login `PlayerLoading.verify` absent on read+write (corrupt save served/persisted) — `modules/login/handler.go:185,294`. [cluster R] **(d90b3422)** — verifySave (magic/version/CRC); read rejects (DataLoss), write skips.
 - [x] **H17** Login `wouldResetSaveFile` anti-rollback absent (stale save clobbers newer progress) — `modules/login/handler.go:226`. [cluster R] **(d90b3422)** — playtime-based rollback check; new modules/login/save.go + unit tests.
 
-## DISPUTED (resolve separately — do NOT fix until traced)
+## DISPUTED — RESOLVED
 
-- [ ] **D1** `faceSquareX/Z` never reset per tick — `player_masks.go:63` / `npc_masks.go:195` — ⚠TRACE: HIGH stale-leak vs intentional Arc-30 #202 force-emit; may share root with M2. Trace live render path first, then fix-or-document; update ledger + tracker with the verdict. [clusters C/D + adjudication note]
+- [x] **D1** `faceSquareX/Z` never reset per tick — `player_masks.go` / `npc_masks.go` — **(ca81da68)** **VERDICT: real bug (Player agent correct), unified with M2.** Traced vs TS PathingEntity.ts: faceSquare is a ONE-TICK event (reset L608-609); faceAngle is the persistent orientation fed to rsbuf, refreshed per-step by takeStep focus (L216-220). goscape conflated them (effectiveFaceCoord prefers faceSquare + no reset + no per-step focus) → stale square leaked to newly-visible observers via the forced low-def FACE_COORD. Fix = D1 reset + M2 focus together. Arc-30 #202 PRESERVED: unfocus()-on-spawn keeps faceAngle a valid south fallback. Fixed both lying comments. +2 pin tests.
 
 ## MEDIUM
 
 - [x] **M1** Player `inApproachDistance` missing line-of-sight gate (can fire through walls; NPC side has it) — `modules/world/interaction.go:750`. [B] **(5c4be889)** — kept free inApproachDistance as the range half; added `(*Player).approachHasLineOfSight` (forward LoS, FlagBlockPlayers) AND'd at the tryInteract call site; closes DEVIATION S6l-D4. +pin test.
-- [ ] **M2** Per-step `focus()` not called → stale walk-facing — `movement.go:182`, `npc_interaction.go:439` — **(consider with D1)**. [B]
+- [x] **M2** Per-step `focus()` not called → stale walk-facing — `movement.go:182`, `npc_interaction.go:439` — **(ca81da68)** — applyStep (player+npc) now calls focus(one tile ahead, client=false) per TS PathingEntity.ts:216-220; faceAngle tracks walk direction. Landed with D1 (same gap). +pin test.
 - [x] **M3** `validateDistanceWalked` not ported (no jump-snap on >2-tile move) — `tick.go:140`. [A/B] **(122f1148)** — ported player side: `(*Player).validateDistanceWalked` + `processValidateDistanceWalked` pass after processEnergy (EXACT_MOVE-gated, TS World.ts:733). NPC side intentionally omitted (PORTING-EXCEPTION at npc_ai.go) — TS Npc.ts:184 sets jump but computeNpc never passes it; NpcInfo has no jump bit, so it's a wire no-op + Npc has no jump field. +pin tests.
 - [x] **M4** Primary queue gates on `p.delayed` not full `canAccess()` — `tick.go:514`. [C] **(7291272f)** — gate now `!p.CanAccess()` (delayed||modal||protected). With M5.
 - [x] **M5** STRONG queue fires while `p.delayed` (TS has no such exception) — `tick.go:513`. [C] **(7291272f)** — dropped QueueStrong gate exception; STRONG closes modal (pre-pass) but still waits for CanAccess. ⚠TEST TestStrongQueueFiresWhileDelayed rewritten to TS-correct contract.
