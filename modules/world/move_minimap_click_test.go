@@ -100,6 +100,12 @@ func TestHandleMoveMinimapClick_WaypointsPreservedAcrossTrailer(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.x, p.z, p.level = 3094, 3106, 0
 	p.client.server = newTestServer(t)
+	// Full-path preservation is a routefinder-mode property: TS only copies
+	// the whole client path into userPath when NODE_CLIENT_ROUTEFINDER is set
+	// (MoveClickHandler.ts:22-32); the non-routefinder branch collapses it to
+	// [dest]. The zero-value test cfg leaves routefinder off, so opt in here so
+	// the start + 2 dx/dz steps survive into the waypoint queue (M24).
+	p.client.server.cfg.NodeClientRoutefinder = true
 
 	// Header: ctrlHeld=1, startX=3100, startZ=3110.
 	// 2 dx/dz pairs: (+1,+0) → (3101,3110), (+2,+1) → (3102,3111).

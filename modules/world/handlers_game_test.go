@@ -2640,3 +2640,79 @@ func TestHandleClientCheat_Debugproc_NonPrefix_FallsThroughToSwitch(t *testing.T
 		t.Errorf("fly cheat did not toggle moveStrategy; prefix branch may have eaten the dispatch. before=%v after=%v", before, p.moveStrategy)
 	}
 }
+
+// TestHandleIdleTimer_RequestsLogoutUnlessNodeDebug pins M23: IDLE_TIMER
+// (opcode 70) must set requestIdleLogout=true so processLogouts tears the
+// idle client down, except under NodeDebug (developers stay logged in).
+// Mirrors Engine-TS IdleTimerHandler.ts:8-12.
+func TestHandleIdleTimer_RequestsLogoutUnlessNodeDebug(t *testing.T) {
+	cases := []struct {
+		name      string
+		nodeDebug bool
+		wantKick  bool
+	}{
+		{"production kicks", false, true},
+		{"node_debug keeps logged in", true, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p, _ := newTestPlayer(t)
+			p.client.server = newTestServer(t)
+			p.client.server.cfg.NodeDebug = tc.nodeDebug
+			p.requestIdleLogout = false
+
+			if err := handleIdleTimer(p, nil); err != nil {
+				t.Fatalf("handleIdleTimer: %v", err)
+			}
+			if got := p.requestIdleLogout; got != tc.wantKick {
+				t.Errorf("requestIdleLogout: got %v, want %v", got, tc.wantKick)
+			}
+		})
+	}
+}
+
+// TestMoveClickNonRoutefinderPathsToDestNotStart pins M24: in non-routefinder
+// mode moveClickInner must hand p.userPath (== [dest]) to pathToMoveClick, not
+// the raw packed path (whose [0] is the START tile). With SMART strategy and no
+// server gamemap, pathToMoveClick falls back to queueWaypoints(input); the old
+// code queued [start,dest] (waypointIndex 1 — the player walked to dest then
+// BACK to start), the fix queues just [dest] (waypointIndex 0). Mirrors TS
+// MoveClickHandler.ts:34-40 (userPath=[dest] in non-routefinder mode).
+func TestMoveClickNonRoutefinderPathsToDestNotStart(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	s.cfg.NodeClientRoutefinder = false // non-routefinder: userPath collapses to [dest]
+	p.moveStrategy = MoveStrategySmart
+	p.x, p.z, p.level = 3094, 3106, 0
+
+	// Payload: ctrlHeld=0, start = player tile, one waypoint delta (+3,+3) → dest.
+	destX, destZ := p.x+3, p.z+3
+	payload := []byte{
+		0,
+		byte(p.x >> 8), byte(p.x),
+		byte(p.z >> 8), byte(p.z),
+		3, 3, // ddx, ddz (signed G1B) → dest
+	}
+	if err := handleMoveGameClick(p, payload); err != nil {
+		t.Fatalf("handleMoveGameClick: %v", err)
+	}
+
+	// userPath collapses to a single dest entry.
+	if len(p.userPath) != 1 {
+		t.Fatalf("userPath len: got %d (%v), want 1 [dest]", len(p.userPath), p.userPath)
+	}
+
+	// The fix queues exactly one waypoint (the dest); the bug queued two
+	// (dest then start), leaving waypointIndex at 1.
+	if p.waypointIndex != 0 {
+		t.Errorf("waypointIndex: got %d, want 0 (one waypoint — dest only; >0 means start tile leaked in)", p.waypointIndex)
+	}
+	gotX := (p.waypoints[0] >> 14) & 0x3FFF
+	gotZ := p.waypoints[0] & 0x3FFF
+	if gotX != destX || gotZ != destZ {
+		t.Errorf("waypoints[0]: got (%d,%d), want dest (%d,%d)", gotX, gotZ, destX, destZ)
+	}
+}

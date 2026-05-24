@@ -34,7 +34,7 @@ var gameHandlers [256]func(*Player, []byte) error
 
 func init() {
 	gameHandlers[108] = handleNoTimeout // NO_TIMEOUT
-	gameHandlers[70] = handleNoTimeout  // IDLE_TIMER
+	gameHandlers[70] = handleIdleTimer  // IDLE_TIMER
 
 	gameHandlers[181] = handleMoveGameClick    // MOVE_GAMECLICK (opClick=false)
 	gameHandlers[93] = handleMoveOpClick       // MOVE_OPCLICK (opClick=true)
@@ -209,6 +209,24 @@ func handleNoTimeout(_ *Player, _ []byte) error {
 	return nil
 }
 
+// handleIdleTimer is IDLE_TIMER (opcode 70). The Java client sends it after
+// 4500 idle input-cycles; TS IdleTimerHandler sets requestIdleLogout=true so
+// the next processLogouts pass tears the player down (unless NODE_DEBUG, which
+// keeps developers logged in). Mirrors Engine-TS IdleTimerHandler.ts:8-12.
+//
+// M23: previously routed to handleNoTimeout, so idle clients were never logged
+// out via their explicit idle signal. requestIdleLogout is consumed by
+// processLogouts (tick.go) exactly as the InputTracking kick branch sets it.
+func handleIdleTimer(p *Player, _ []byte) error {
+	if p.client == nil || p.client.server == nil {
+		return nil
+	}
+	if !p.client.server.cfg.NodeDebug {
+		p.requestIdleLogout = true
+	}
+	return nil
+}
+
 // handleMoveGameClick is the dispatch entry for MOVE_GAMECLICK (opcode 181).
 // Routes to the shared inner handler with opClick=false, which causes the
 // !opClick body to fire (clearPendingAction + tempRun + walktrigger).
@@ -305,11 +323,15 @@ func moveClickInner(p *Player, payload []byte, opClick bool, trailingBytes int) 
 		p.userPath = append(p.userPath, dest)
 	}
 
-	p.client.log.Debug("move click", "ctrl_held", ctrlHeld, "dest_packed", packed[0], "op_click", opClick)
+	p.client.log.Debug("move click", "ctrl_held", ctrlHeld, "dest_packed", packed[len(packed)-1], "op_click", opClick)
 
 	if s.cfg.NodeWalktriggerSetting == WalkTriggerSettingPlayerpacket {
 		needsFinding := !s.cfg.NodeClientRoutefinder
-		p.pathToMoveClick(packed, needsFinding)
+		// M24: pass p.userPath (not packed) to mirror TS MoveClickHandler.ts:40.
+		// Under routefinder p.userPath == packed (full waypoint copy); under
+		// non-routefinder p.userPath == [dest], so pathToMoveClick pathfinds to
+		// the clicked destination rather than packed[0] (the START tile).
+		p.pathToMoveClick(p.userPath, needsFinding)
 	}
 
 	if !opClick {
