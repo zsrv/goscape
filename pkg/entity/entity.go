@@ -20,28 +20,17 @@ func NewEntity(level, x, z, width, length int, lc Lifecycle) Entity {
 	}
 }
 
-// UpdateLifecycle reports whether the given tick exactly matches the
-// scheduled transition AND this entity is not a static.
-func (e *Entity) UpdateLifecycle(tick int) bool {
-	return e.LifecycleTick == tick && e.Lifecycle != LifecycleForever
-}
-
-// CheckLifecycle reports whether this entity is currently in the world at
-// `tick`. Statics are always alive; Respawn entities are alive once their
-// respawn tick has passed; Despawn entities are alive until their despawn
-// tick has passed. Equal-to-transition-tick counts as the "dead" half.
-func (e *Entity) CheckLifecycle(tick int) bool {
-	switch e.Lifecycle {
-	case LifecycleForever:
-		return true
-	case LifecycleRespawn:
-		return e.LifecycleTick < tick
-	case LifecycleDespawn:
-		return e.LifecycleTick > tick
-	default:
-		return false
-	}
-}
+// NOTE: goscape deliberately has no tick-derived liveness predicate.
+// TS Entity (Engine-TS/.../Entity.ts:32-34) determines liveness solely
+// from the stored `isActive` flag (`isValid()` returns it); there is no
+// `checkLifeCycle`/`updateLifeCycle` in TS. Earlier Go ports carried a
+// `CheckLifecycle(tick)` (Respawn alive once LifecycleTick<tick, etc.) and
+// an `UpdateLifecycle(tick)` helper; both were removed for L49 because they
+// had no TS analog and no production callers — production gates on the
+// stored IsActive flag (loc_turn.go / obj_turn.go) and inlines the
+// transition check (`LifecycleTick != now`). Using the tick-derived form
+// was the root cause of the M30 obj-follow bug, so the construct is
+// intentionally absent to prevent reintroducing that drift.
 
 // SetLifecycle schedules the next transition at `transitionTick`, recording
 // `currentTick` as the tick on which the transition was scheduled.

@@ -584,7 +584,9 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 // into its owning Zone via Zone.AddStaticLoc and writes the loc's collision
 // into the FlagMap when its LocType has BlockWalk=true. Called once at
 // server startup, adjacent to the NPC-spawn pass. Mirrors the runtime
-// AddLoc collision-write path at world_zone.go:17-22; the boot-time path
+// AddLoc collision-write path at world_zone.go:20-24, and faithful to TS
+// GameMap.loadLocs (GameMap.ts:259-263: `if (type.blockwalk)
+// changeLocCollision(...)` before `addStaticLoc(...)`). The boot-time path
 // previously omitted the collision write, leaving zones whose only blockers
 // are static locs (e.g., Lumbridge castle interior) unallocated and
 // producing FlagNull tile reads in pathfinder BFS expansion (Hans waypoint_idx=-1
