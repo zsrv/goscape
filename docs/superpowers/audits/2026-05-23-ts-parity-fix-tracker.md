@@ -16,7 +16,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 | HIGH | 17 / 17 ✓ |
 | DISPUTED | D1 RESOLVED ✓ (real bug, fixed with M2) |
 | MEDIUM | 30 / 30 ✓ |
-| LOW | 48 / 50 |
+| LOW | 50 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
 
 ---
@@ -134,8 +134,8 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [x] **L46** Login `updateHiscores` on logout is a bare TODO — `modules/login/handler.go`. [R] **(fbda909c)** — STALE-DEFER: goscape ports NO hiscores subsystem (no hiscore tables/migrations, no PlayerStatEnabled, no HTTP endpoint), so TS updateHiscores (LoginServer.ts:450) has nothing to update. Replaced bare TODO with documented no-op citing login-server + PlayerLoading design specs. Doc-only.
 - [x] **L47** Asset path dispatch order: archives before `.mid` (TS reverse) — `modules/asset/handler.go`. [R] **(fbda909c)** — moved `.mid` block to top of RootHandler (before /crc + archive prefixes), matching TS web.ts where `.mid` precedes every `startsWith` branch; otherwise GET /config_<crc>.mid was captured by /config prefix and served the wrong archive. +pin TestRootHandler_MidBeatsArchivePrefix.
 - [x] **L48** Asset WS open seed first word not masked to 24 bits — `modules/world/server.go:780` (audit ref `asset/server.go:779` was stale; actual code is the world TCP/WS open seed). [R] **(fbda909c)** — masked first word `& 0x00ffffff` to match TS web.ts:135 (`Math.random()*0x00ffffff`); second word stays full 32-bit. Session entropy, functionally inert, now byte-faithful. World suite exit 0.
-- [ ] **L49** entity `CheckLifecycle` is a Go-only predicate substituting TS `isActive` — `pkg/entity/entity.go:33` — resolve with M30. [Q]
-- [ ] **L50** `gamemap` collision deferred to `populateStaticLocsIntoZones` (verify still matches TS blockwalk gate after H11-13) — `modules/world/server.go:592`. [Q]
+- [x] **L49** entity `CheckLifecycle` is a Go-only predicate substituting TS `isActive` — `pkg/entity/entity.go:33` — resolve with M30. [Q] **(8c7f641e)** — DELETED. Verified vs TS Entity.ts:32-39: TS has NO `checkLifeCycle`/`updateLifeCycle`; liveness is the stored `isActive` flag (`isValid()` returns it). After M30 both `CheckLifecycle` (tick-derived liveness) and its sibling `UpdateLifecycle` had zero production callers (loc_turn.go/obj_turn.go gate on stored `IsActive` and inline `LifecycleTick != now`). The tick-derived form was the M30 obj-follow root cause, so removed both methods + their 4 unit tests; left a doc note in entity.go recording the deliberate absence. `SetLifecycle`/`NewEntity` kept (they mirror TS `setLifeCycle`).
+- [x] **L50** `gamemap` collision deferred to `populateStaticLocsIntoZones` (verify still matches TS blockwalk gate after H11-13) — `modules/world/server.go:592`. [Q] **(8c7f641e)** — VERIFIED-FAITHFUL, no behavioral change. TS GameMap.ts:259-263 gates the boot-time collision write on `type.blockwalk`, calls `changeLocCollision(shape,angle,type.blockrange,length,width,type.active,x,z,level,true)`, then `addStaticLoc`. Go matches exactly (same `lt.BlockWalk` gate, same args/order/sequence) and is consistent with the runtime `AddLoc` path (world_zone.go:20-24). H11-13 did not change the gate. Only fixed a stale line-ref in the doc comment (world_zone.go:17-22 → :20-24) + added the TS GameMap.ts:259-263 citation.
 
 ---
 
