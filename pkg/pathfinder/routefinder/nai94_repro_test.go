@@ -22,7 +22,7 @@ import (
 func TestNAI94_HansCheb2_StraightLineMustReach(t *testing.T) {
 	t.Skip("NAI-94: H1 reproducer — pathfinder returns empty Waypoints on cheb=2 straight-line with empty FlagMap. " +
 		"Observed Route at NAI-94 audit time: {Waypoints:[] Alternative:true Success:true}. " +
-		"NOTE (post-T4 audit): empty FlagMap is a DEGENERATE case — flags.Get() returns FlagNull=-1 " +
+		"NOTE (post-T4 audit): empty FlagMap is a DEGENERATE case — flags.Get() returns FlagNull=0x7FFFFFFF " +
 		"for unallocated zones, and CanMove(-1, mask, TypeNormal)=false for any non-zero mask, so BFS " +
 		"cannot expand any direction. With zones allocated (FlagOpen=0 default) the pathfinder works " +
 		"correctly (see TestNAI94_AllocatedZones_PathfinderWorks). Lift this skip in NAI-95 if the " +
@@ -89,7 +89,7 @@ func TestNAI94_RouteBlockerFlag_Consulted(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			// Allocate zones around src/dst so empty-FlagMap degeneracy
-			// (FlagNull=-1 → CanMove returns false everywhere) doesn't
+			// (FlagNull=0x7FFFFFFF → CanMove returns false everywhere) doesn't
 			// confound the H2 signal. See TestNAI94_AllocatedZones_PathfinderWorks
 			// for the same setup convention.
 			flags := internal.BuildCollisionMap(2995, 2995, 3010, 3010)
@@ -202,7 +202,7 @@ func TestNAI94_SurvivalExpert_BlockedPassage(t *testing.T) {
 // TestNAI94_AllocatedZones_PathfinderWorks is the corrective companion to the
 // H1/H3 empty-FlagMap reproducers. After T4 audit (controller-side, post-T3
 // commit), it became clear that the empty-FlagMap probe surfaces a DEGENERATE
-// case (FlagNull=-1 returned for unallocated zones blocks all CanMove checks
+// case (FlagNull=0x7FFFFFFF returned for unallocated zones blocks all CanMove checks
 // under TypeNormal), not the production bug. This test pins the same H1/H3
 // coords against a FlagMap whose relevant zones ARE allocated (defaulting to
 // FlagOpen=0, the real-world non-blocked tile state), confirming the

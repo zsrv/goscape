@@ -2033,7 +2033,7 @@ func TestNpc_InOperableDistance_WallStraightMatrix(t *testing.T) {
 					n := NewNpc(1, 42, lx+tt.dx, lz+tt.dz, 0, typ)
 					n.server = s
 					// Initialize n's tile so flags.Get returns the test's
-					// preFlags value (FlagOpen=0 by default; FlagNull=-1
+					// preFlags value (FlagOpen=0 by default; FlagNull=0x7FFFFFFF
 					// for unallocated zones would block all reach paths).
 					s.gamemap.Pathfinder.Flags.Set(n.x, n.z, n.level, tt.preFlags)
 					loc := makeNpcWallLoc(t, 0, lx, lz, 0, ac.angle)
@@ -2420,7 +2420,7 @@ func TestNpcValidateAndAdvanceStep_DoneCascade_TriesNextWaypoint(t *testing.T) {
 	s := newTestServer(t)
 	s.gamemap = gamemap.New(discardLogger())
 	// Allocate the destination zone so CanTravel returns true (unallocated
-	// zones return FlagNull=-1 → CanTravel=false even with no obstacles set).
+	// zones return FlagNull=0x7FFFFFFF → CanTravel=false even with no obstacles set).
 	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3222, 3220, 0)
 	typ := &objtype.NpcType{
 		ConfigType:   objtype.ConfigType{ID: 1, DebugName: "twohop"},

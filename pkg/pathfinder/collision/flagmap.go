@@ -26,7 +26,8 @@ func NewFlagMap() FlagMap {
 
 // Get returns the collision bitmask of the tile at coordinates (absoluteX, absoluteZ, level).
 //
-// If the zone respective to the input coordinates has not been allocated, -1 is returned.
+// If the zone respective to the input coordinates has not been allocated,
+// FlagNull (0x7FFFFFFF — every flag bit set except FlagRoof) is returned.
 func (m *FlagMap) Get(absoluteX int, absoluteZ int, level int) int {
 	zoneIndex := ZoneIndex(absoluteX, absoluteZ, level)
 	tileIndex := TileIndex(absoluteX, absoluteZ)

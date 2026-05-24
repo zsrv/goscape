@@ -2079,7 +2079,7 @@ func TestPlayer_InOperableDistance_WallStraightMatrix(t *testing.T) {
 					p.client.server = s
 					p.x, p.z, p.level = lx+tt.dx, lz+tt.dz, 0
 					// Always initialise the player's tile so flags.Get returns
-					// FlagOpen (0) rather than FlagNull (-1) for unallocated zones;
+					// FlagOpen (0) rather than FlagNull (0x7FFFFFFF) for unallocated zones;
 					// FlagNull makes all flag-gated reach conditions false. Then
 					// OR in any blocking flags for the gated test cases.
 					s.gamemap.Pathfinder.Flags.Set(p.x, p.z, p.level, tt.preFlags)
@@ -2129,8 +2129,8 @@ func TestPlayer_InOperableDistance_NilLocTypeFallback(t *testing.T) {
 // *Player and *Npc target arms of the pre-NAI-173 Chebyshev fallback.
 //
 // reachRectangle1 (rectangularbounds.go:15-48) reads walk-flags AT THE SOURCE
-// tile: every src tile must be AllocateIfAbsent'd to clear FlagNull (=-1, all
-// bits set). Diagonals reject — reachRectangle1 has no diagonal arm; this is
+// tile: every src tile must be AllocateIfAbsent'd to clear FlagNull
+// (=0x7FFFFFFF, every movement bit set). Diagonals reject — reachRectangle1 has no diagonal arm; this is
 // TS-faithful.
 
 // TestPlayer_InOperableDistance_PathingEntity_Reach pins the production

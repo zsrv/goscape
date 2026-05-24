@@ -796,7 +796,7 @@ func mFileAllEmpty() []byte {
 //
 // Without a per-zone AllocateIfAbsent matching TS GameMap.ts:193-196,
 // zones whose 64 tiles all carry no flag stay unallocated, and
-// FlagMap.Get returns FlagNull=-1 (every bit set) — which the
+// FlagMap.Get returns FlagNull=0x7FFFFFFF (every movement bit set) — which the
 // StepValidator treats as fully blocked. Symptom in-game: at the
 // boundary between an allocated zone (containing the player) and an
 // adjacent unallocated zone, the player cannot move across the

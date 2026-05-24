@@ -626,7 +626,7 @@ func TestHuntNpcsCheckVisLineOfSightPasses(t *testing.T) {
 
 	tIn := addNpcToServerAt(t, s, 10, 1, -1, n.x, n.z+2, n.level) // 2 tiles north, clear path
 	// Allocate the path's zone so empty tiles read FlagOpen instead of
-	// FlagNull (-1). FlagMap.IsFlagged treats unallocated zones as fully
+	// FlagNull (0x7FFFFFFF). FlagMap.IsFlagged treats unallocated zones as fully
 	// blocked; in production all map-loaded zones are allocated.
 	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(n.x, n.z, n.level)
 
@@ -690,7 +690,7 @@ func TestHuntObjsCheckVisLineOfSightPasses(t *testing.T) {
 	n.x, n.z, n.level = 3094, 3106, 0
 	n.huntRange = 10
 
-	// Allocate the source zone — unallocated zones return FlagNull=-1 which
+	// Allocate the source zone — unallocated zones return FlagNull=0x7FFFFFFF which
 	// IsFlagged treats as blocked. See Task 1 LoS-pass test for full context.
 	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(n.x, n.z, n.level)
 

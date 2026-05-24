@@ -117,7 +117,7 @@ func TestServerAddLocSkipsCollisionWhenNotBlockwalk(t *testing.T) {
 		ConfigType: objtype.ConfigType{ID: 100},
 		BlockWalk:  false,
 	}
-	// Pre-allocate the flagmap zone so IsFlagged returns false (not FlagNull = -1)
+	// Pre-allocate the flagmap zone so IsFlagged returns false (not FlagNull = 0x7FFFFFFF)
 	// for an unset flag rather than mis-reporting all flags set.
 	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(3094, 3106, 0)
 	loc := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleDespawn, 100, 0, 0)

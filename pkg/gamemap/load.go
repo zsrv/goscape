@@ -93,10 +93,11 @@ parseLoop:
 				// conditional flag write. Without this, a zone whose
 				// 64 tiles all carry no BLOCK_MAP_SQUARE / REMOVE_ROOFS
 				// flag (and no static loc landing in it) stays nil in
-				// FlagMap.flags, and FlagMap.Get returns FlagNull=-1
-				// for every tile in it — which CanMove reads as
-				// "fully blocked". Symptom: open ground appearing as
-				// an impassable wall on zone boundaries.
+				// FlagMap.flags, and FlagMap.Get returns FlagNull
+				// (0x7FFFFFFF — every movement bit set) for every tile
+				// in it — which CanMove reads as "fully blocked".
+				// Symptom: open ground appearing as an impassable wall
+				// on zone boundaries.
 				//
 				// Mirrors TS GameMap.ts:193-196 (`x % 7 === 0 &&
 				// z % 7 === 0` hits each 8x8 zone at least once: with

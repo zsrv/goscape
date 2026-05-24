@@ -1,7 +1,17 @@
 package collision
 
 const (
-	FlagNull int = -1
+	// FlagNull is the sentinel FlagMap.Get returns for an unallocated
+	// (off-map) zone, and the value blockWalkFlag returns for an entity that
+	// cannot move at all. It mirrors TS CollisionFlag.NULL = 0x7FFFFFFF
+	// (@2004scape/rsmod-pathfinder): every collision bit set EXCEPT FlagRoof
+	// (bit 31). An off-map tile thus blocks all movement (every walk/wall/loc
+	// bit is set) yet is NOT reported as indoors — IsIndoors(off-map) is
+	// false, matching TS isIndoors. Was -1 (all bits incl. bit 31), which
+	// wrongly classified off-map tiles as indoors. Equality checks against
+	// FlagNull (e.g. blockWalkFlag's no-move sentinel) are value-agnostic;
+	// only the FlagRoof bit observes the change. Pinned by flag_test.go. L43.
+	FlagNull int = 0x7FFFFFFF
 	FlagOpen int = 0
 )
 
