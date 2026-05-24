@@ -72,6 +72,49 @@ func TestRemovePartialWhenInsufficient(t *testing.T) {
 	}
 }
 
+// TestRemoveAssureFullRemoval pins M10: with AssureFullRemoval, an inv holding
+// fewer than the requested count removes nothing. Mirrors TS Inventory.ts:247-248.
+func TestRemoveAssureFullRemoval(t *testing.T) {
+	inv := New(1, 28, StackAlways)
+	inv.Add(10, 3, AddOpts{})
+	tx := inv.Remove(10, 5, RemoveOpts{AssureFullRemoval: true})
+	if tx.Completed != 0 {
+		t.Errorf("Completed: got %d, want 0 (all-or-nothing)", tx.Completed)
+	}
+	if inv.Items[0] == nil || inv.Items[0].Count != 3 {
+		t.Errorf("slot must be untouched, got %+v", inv.Items[0])
+	}
+	// Exact count succeeds.
+	tx = inv.Remove(10, 3, RemoveOpts{AssureFullRemoval: true})
+	if tx.Completed != 3 {
+		t.Errorf("Completed (exact): got %d, want 3", tx.Completed)
+	}
+}
+
+// TestRemoveStockObjRetainsSlot pins M11: a stock-obj slot reaching count 0 is
+// retained (count 0), not vacated. Mirrors TS Inventory.ts:280-286.
+func TestRemoveStockObjRetainsSlot(t *testing.T) {
+	inv := New(1, 28, StackAlways)
+	inv.Add(10, 2, AddOpts{})
+	tx := inv.Remove(10, 2, RemoveOpts{StockObj: true})
+	if tx.Completed != 2 {
+		t.Errorf("Completed: got %d, want 2", tx.Completed)
+	}
+	if inv.Items[0] == nil {
+		t.Fatal("stock-obj slot must be retained at count 0, got nil")
+	}
+	if inv.Items[0].Count != 0 {
+		t.Errorf("retained slot count: got %d, want 0", inv.Items[0].Count)
+	}
+	// Without StockObj the slot vacates (regression guard).
+	inv2 := New(1, 28, StackAlways)
+	inv2.Add(10, 2, AddOpts{})
+	inv2.Remove(10, 2, RemoveOpts{})
+	if inv2.Items[0] != nil {
+		t.Error("non-stock slot must vacate at count 0")
+	}
+}
+
 func TestSwapExchangesSlots(t *testing.T) {
 	inv := New(1, 28, StackNormal)
 	inv.Items[0] = &Item{Id: 10, Count: 1}

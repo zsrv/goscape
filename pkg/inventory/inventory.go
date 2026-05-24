@@ -139,6 +139,12 @@ type AddOpts struct {
 type RemoveOpts struct {
 	BeginSlot         int
 	AssureFullRemoval bool
+
+	// StockObj signals whether the obj is in the inv's stock list
+	// (`InvType.stockobj.includes(id)` in TS). When set, a slot that reaches
+	// count 0 is retained (count 0) rather than vacated, so a shop can restock
+	// it. Mirrors TS Inventory.ts:280-286. Default false vacates the slot.
+	StockObj bool
 }
 
 func (inv *Inventory) Set(slot int, item *Item) {
@@ -293,6 +299,11 @@ func (inv *Inventory) Remove(id, count int, opts RemoveOpts) Transaction {
 	if count <= 0 {
 		return tx
 	}
+	// M10: assureFullRemoval is all-or-nothing — if the inv doesn't hold the
+	// full requested count, remove nothing. Mirrors TS Inventory.ts:247-248.
+	if opts.AssureFullRemoval && inv.GetItemCount(id) < count {
+		return tx
+	}
 	removed := 0
 	begin := max(opts.BeginSlot, 0)
 	for i := begin; i < inv.Capacity && removed < count; i++ {
@@ -303,7 +314,9 @@ func (inv *Inventory) Remove(id, count int, opts RemoveOpts) Transaction {
 		take := min(count-removed, it.Count)
 		it.Count -= take
 		removed += take
-		if it.Count == 0 {
+		// M11: a stock-obj slot is retained at count 0 so a shop can restock
+		// it; everything else vacates the slot. Mirrors TS Inventory.ts:280-286.
+		if it.Count == 0 && !opts.StockObj {
 			inv.Items[i] = nil
 		}
 	}

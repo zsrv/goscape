@@ -3,6 +3,7 @@ package world
 import (
 	"context"
 	"log/slog"
+	"slices"
 	"sort"
 	"time"
 
@@ -25,6 +26,10 @@ const (
 	timeoutNoResponse   = 100 // ticks = 60s at 600ms
 	timeoutNoConnection = 50  // ticks = 30s at 600ms
 )
+
+// invStockRate is the decay interval for unlisted shop stock (general
+// stores). Mirrors TS World.INV_STOCKRATE (World.ts:122) = 100 ticks (~1m).
+const invStockRate = 100
 
 func (s *Server) runTickLoop() {
 	s.runTickLoopWithRate(s.tickRate)
@@ -947,10 +952,45 @@ func (s *Server) processCleanup() {
 			}
 		}
 	}
-	// Clear world/shared inventory update flags too (TS World.ts:1155-1157).
+	// World-shared inventories: clear the update flag, then restock/decay shop
+	// stock. Mirrors TS World.ts:1155-1190.
 	for _, inv := range s.invs {
-		if inv != nil {
-			inv.Update = false
+		if inv == nil {
+			continue
+		}
+		inv.Update = false
+		if s.invTypes == nil || inv.Type < 0 || inv.Type >= len(s.invTypes.Configs) {
+			continue
+		}
+		invType := s.invTypes.Configs[inv.Type]
+		if invType == nil || !invType.Restock || len(invType.StockCount) == 0 || len(invType.StockRate) == 0 {
+			continue
+		}
+		for index := range inv.Items {
+			item := inv.Items[index]
+			if item == nil {
+				continue
+			}
+			stockObj := slices.Contains(invType.StockObj, uint16(item.Id))
+			hasStockCount := index < len(invType.StockCount)
+			// rate 0 would be a modulo-by-zero panic in Go (TS yields NaN and
+			// skips); guard it like TS's per-element falsy check.
+			hasStockRate := index < len(invType.StockRate) && invType.StockRate[index] != 0
+			rateHit := hasStockRate && s.currentTick%int(invType.StockRate[index]) == 0
+			switch {
+			case hasStockCount && rateHit && item.Count < int(invType.StockCount[index]):
+				// Below min → restock one at this slot.
+				inv.Add(item.Id, 1, inventory.AddOpts{BeginSlot: index, AssureFullInsertion: true, StockObj: stockObj})
+				inv.Update = true
+			case hasStockCount && rateHit && item.Count > int(invType.StockCount[index]):
+				// Above min → decay one.
+				inv.Remove(item.Id, 1, inventory.RemoveOpts{BeginSlot: index, AssureFullRemoval: true, StockObj: stockObj})
+				inv.Update = true
+			case invType.AllStock && (!hasStockCount || invType.StockCount[index] == 0) && s.currentTick%invStockRate == 0:
+				// Unlisted stock (e.g. general stores) decays one per minute.
+				inv.Remove(item.Id, 1, inventory.RemoveOpts{BeginSlot: index, AssureFullRemoval: true, StockObj: stockObj})
+				inv.Update = true
+			}
 		}
 	}
 	for _, n := range s.npcLoop {
