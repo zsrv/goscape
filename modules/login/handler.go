@@ -193,6 +193,12 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 		} else {
 			return nil, status.Errorf(codes.Internal, "read save: %v", err)
 		}
+	} else if !verifySave(saveBytes) {
+		// Safety check (TS LoginServer.ts:364-367, PlayerLoading.verify): an
+		// existing save with bad magic/version/CRC must not be served to the
+		// world. Reject the login (rollback drops the just-inserted session
+		// row) rather than handing back corrupt data. TS "rejectLoginForSafety".
+		return nil, status.Errorf(codes.DataLoss, "save verify failed for %q", req.Username)
 	}
 
 	// 11. Upsert login row.
@@ -221,9 +227,33 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 	return buildLoginResponse(result, account, saveBytes, sessionUUID), nil
 }
 
+// persistSaveIfValid writes save to disk only if it passes verifySave AND would
+// not roll back the player's progress (wouldResetSaveFile). A failing gate is
+// logged and skipped — NOT an error — mirroring TS LoginServer player_logout /
+// player_autosave (LoginServer.ts:410-418, 455-463), which log "Invalid save
+// file" and simply don't write. Only an actual write/IO failure returns an error.
+func (h *handler) persistSaveIfValid(profile, username string, save []byte) error {
+	if !verifySave(save) {
+		h.log.Warn("rejecting save: verify failed",
+			slog.String("profile", profile), slog.String("username", username))
+		return nil
+	}
+	savePath := filepath.Join(h.cfg.SavePath, profile, username+".sav")
+	reset, err := wouldResetSaveFile(savePath, save)
+	if err != nil {
+		return fmt.Errorf("wouldResetSaveFile: %w", err)
+	}
+	if reset {
+		h.log.Warn("rejecting save: would roll back progress",
+			slog.String("profile", profile), slog.String("username", username))
+		return nil
+	}
+	return writeSave(h.cfg.SavePath, profile, username, save)
+}
+
 // PlayerLogout writes the final save blob to disk and marks the account as logged out.
 func (h *handler) PlayerLogout(ctx context.Context, req *loginpb.PlayerLogoutRequest) (*loginpb.PlayerLogoutResponse, error) {
-	if err := writeSave(h.cfg.SavePath, req.Profile, req.Username, req.Save); err != nil {
+	if err := h.persistSaveIfValid(req.Profile, req.Username, req.Save); err != nil {
 		return nil, status.Errorf(codes.Internal, "write save: %v", err)
 	}
 
@@ -245,7 +275,7 @@ func (h *handler) PlayerLogout(ctx context.Context, req *loginpb.PlayerLogoutReq
 
 // PlayerAutosave writes the save blob to disk (best-effort; failures log and return success).
 func (h *handler) PlayerAutosave(_ context.Context, req *loginpb.PlayerAutosaveRequest) (*emptypb.Empty, error) {
-	if err := writeSave(h.cfg.SavePath, req.Profile, req.Username, req.Save); err != nil {
+	if err := h.persistSaveIfValid(req.Profile, req.Username, req.Save); err != nil {
 		h.log.Warn("autosave write failed",
 			slog.String("profile", req.Profile),
 			slog.String("username", req.Username),

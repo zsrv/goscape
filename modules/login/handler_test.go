@@ -73,7 +73,7 @@ func TestPlayerLogin_ExistingPlayer(t *testing.T) {
 	if err := os.MkdirAll(saveDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	saveBytes := []byte("savegame-contents")
+	saveBytes := makeValidSave(500) // must pass verifySave to be served
 	saveFile := filepath.Join(saveDir, "testuser.sav")
 	if err := os.WriteFile(saveFile, saveBytes, 0o644); err != nil {
 		t.Fatalf("write save: %v", err)
@@ -280,7 +280,7 @@ func TestPlayerLogout_HappyPath(t *testing.T) {
 		t.Fatalf("PlayerLogin: %v", err)
 	}
 
-	saveBytes := []byte("logout-save-data")
+	saveBytes := makeValidSave(500) // must pass verifySave to be persisted
 	resp, err := h.PlayerLogout(t.Context(), &loginpb.PlayerLogoutRequest{
 		NodeId:   1,
 		Profile:  "main",
@@ -334,7 +334,7 @@ func TestPlayerLogout_SaveWriteFailure(t *testing.T) {
 		NodeId:   1,
 		Profile:  "main",
 		Username: "logoutfail",
-		Save:     []byte("data"),
+		Save:     makeValidSave(1), // valid so it passes the gate and reaches the failing write
 	})
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -466,7 +466,7 @@ func TestPlayerAutosave(t *testing.T) {
 	h, savePath := newTestHandler(t)
 	insertTestAccount(t, h.db, "autosaveuser", "pw")
 
-	saveBytes := []byte("autosaved-bytes")
+	saveBytes := makeValidSave(500) // must pass verifySave to be persisted
 	_, err := h.PlayerAutosave(t.Context(), &loginpb.PlayerAutosaveRequest{
 		Profile:  "main",
 		Username: "autosaveuser",
