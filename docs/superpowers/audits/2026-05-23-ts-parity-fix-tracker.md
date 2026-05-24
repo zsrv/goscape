@@ -16,7 +16,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 | HIGH | 17 / 17 ✓ |
 | DISPUTED | D1 RESOLVED ✓ (real bug, fixed with M2) |
 | MEDIUM | 30 / 30 ✓ |
-| LOW | 32 / 50 |
+| LOW | 34 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
 
 ---
@@ -118,8 +118,8 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [x] **L30** Opcount cap off-by-one (`>=` vs TS `>`) — `runner.go:54` (was state.go:54). [H] **(45e30d0a)** — TS aborts on `opcount > 500_000` checked before post-`opcount++` → 500_001 execute; Go `>=` aborted one early. Now strict `>`. +pin TestOpCountCapAllowsTSLimit (OpCount==limit+1 at abort).
 - [x] **L31** NpcType accepts op 30-39 but Op is 5-slot → panic on 35-39 (latent, foreign caches) — `npctype.go:207`. [M] **(620504b3)** — TS NpcType.ts:141-146 funnels 30-39 into one 5-len array JS grows on demand; packer emits only 30-34. Now grows slice instead of panicking. +pin TestNpcTypeDecodeOpCodes30To39NoPanic.
 - [x] **L32** ObjType extra opcode 200 + `"hidden"→""` coercion (undocumented for obj/npc) — `objtype.go:292,246`, `npctype.go:213`. [M] **(620504b3)** — (a) removed `case 200` (TS has no obj op200; tradeable defaults true + code 15 sets false; packer emits only 15) → now falls to unrecognized-code error; ⚠TEST Code200KeepsTradeableTrue (false "TS case 200" cite) → Code200Rejected. (b) "hidden"→"" coercion removed from npc/obj/loc decoders — TS stores verbatim & is INCONSISTENT: click handlers block null/"hidden", but NPC_HASOP(`?1:0`)/NC_OP/P_OPLOC,NPC(`!op`)/P_OPOBJ(`===null`)/iterator(`!op[1]`) read "hidden" as present (REAL divergence: HASOP returned 0 vs TS 1). Decoders store verbatim; opobj+oploc click handlers gain `=="hidden"` gate (opnpc already had it); script gates' `==""` now correctly treats "hidden" as present. Fixed loctype "coerces hidden" lie + NAI-80-D1 note. +5 pins; updated 2 coercion tests→verbatim.
-- [ ] **L33** varp/varn/vars fatal-error vs TS printError+continue on unknown opcode — `varptype.go:39` etc. [M]
-- [ ] **L34** Component overlay `G1()!=0` vs TS gbool(`==1`) — `componenttype.go:331`. [M]
+- [x] **L33** varp/varn/vars fatal-error vs TS printError+continue on unknown opcode — `varptype.go:39` etc. [M] `(e2613e23)` — REAL divergence. NpcType/ObjType/LocType call `printFatalError` and seq/enum/idk/inv/dbrow/dbtable/hunt `throw` (both abort = Go returned error ✓), but VarPlayerType.ts:102 / VarNpcType.ts:71 / VarSharedType.ts:73 call `printError` (log + the decodeType loop CONTINUES). Changed the three var* `Decode` default cases to `slog.Warn` + `return nil`; unknown code's payload intentionally not consumed (matches TS garble-and-continue). Updated `TestParseVarnTypes_UnknownCode_ReturnsError` (pinned the Go-only abort) → `...LogsAndContinues`.
+- [x] **L34** Component overlay `G1()!=0` vs TS gbool(`==1`) — `componenttype.go:331`. [M] `(e2613e23)` — REAL divergence for byte > 1. TS Component.ts:243 reads overlay via `gbool` (`g1() === 1`); Go used `G1() != 0` (any non-zero true). Switched to `server.GBool()` (==1), matching client-side gbool reads in the same fn. +pin `TestComponentDecode_ServerOverlayGBool` (bytes 0/1/2 → false/true/false).
 - [ ] **L35** login `lowMemory` decoded `==1` vs TS `& 0x1` (client only sends 0/1) — `pkg/io/protocol/login/req/req.go:88`. [N]
 - [ ] **L36** `GBit(n)` returns uint8, truncates >8-bit reads (latent, no callers) — `pkg/io/packet/packetbit.go:32`. [N]
 - [ ] **L37** Login validation RSA-decrypts before rev/CRC checks (TS gates first) — `modules/world/server.go:886`. [N]
