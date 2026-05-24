@@ -16,7 +16,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 | HIGH | 17 / 17 ✓ |
 | DISPUTED | D1 RESOLVED ✓ (real bug, fixed with M2) |
 | MEDIUM | 30 / 30 ✓ |
-| LOW | 5 / 50 |
+| LOW | 7 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
 
 ---
@@ -91,8 +91,8 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [x] **L3** processShutdown at top of tick vs TS end — `tick.go:60` — ⚠LIE comment. [A] **(4053cbb2)** — "Mirrors TS" corrected; top-placement is deliberate (doomed conn cut 1 tick earlier). Accepted LOW.
 - [x] **L4** autosavePlayers at top of tick vs TS end — `tick.go:71`. [A] **(4053cbb2)** — added deviation note; identical cadence, snapshot consistent either way. Accepted LOW.
 - [x] **L5** intra-cleanup reset order differs (benign) — `tick.go:872`. [A] **(4053cbb2)** — added doc note; no cross-step dependency makes order observable. Accepted LOW.
-- [ ] **L6** Timers fire while `loggingOut` (TS guards) — `tick.go:601`. [C]
-- [ ] **L7** `preventLogoutMessage` never emitted — `tick.go:395`. [C]
+- [x] **L6** Timers fire while `loggingOut` (TS guards) — `tick.go:601`. [C] **(6520ece9)** — processPlayerTimers now skips logging-out players (both NORMAL+SOFT), TS World.ts:717-722. +pin test (soft timer suppressed).
+- [x] **L7** `preventLogoutMessage` never emitted — `tick.go:395`. [C] **(6520ece9)** — processLogouts emits + consumes preventLogoutMessage inside the prevent window (requestLogout only), TS World.ts:765-767. +pin test.
 - [ ] **L8** NPC `apRangeCalled` not reset per-tick (event-driven instead) — `npc_masks.go:250`. [D]
 - [ ] **L9** `GetObj` lacks `isValid()` (count≥1) filter — `modules/world/obj_lookup.go:18`. [E]
 - [ ] **L10** INV `beginSlot` skipped-indices second pass missing (latent; needed once restock uses beginSlot) — `inventory.go:296`. [F]
