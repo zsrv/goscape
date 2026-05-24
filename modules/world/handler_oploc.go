@@ -82,11 +82,11 @@ func handleOpLoc(p *Player, payload []byte, op int) error {
 		return nil
 	}
 	// S6j-D1 closed in S6k: per-op validation gate. TS OpLocHandler.ts:38-42
-	// rejects clicks where locType.op is nil, too short, or the slot
-	// is empty. The decoder coerces "hidden" to "" at load time
-	// (pkg/objtype/loctype.go cases 30-34), so the runtime check is
-	// just `== ""`.
-	if len(locType.Op) < op || locType.Op[op-1] == "" {
+	// rejects clicks where locType.op is nil, too short, the slot is empty,
+	// or the slot is the "hidden" keyword. The decoder stores "hidden"
+	// verbatim (pkg/objtype/loctype.go cases 30-34), so both "" and
+	// "hidden" are checked here.
+	if len(locType.Op) < op || locType.Op[op-1] == "" || locType.Op[op-1] == "hidden" {
 		emitOpLocGate(s, p, "op_slot_empty", op, x, z, locId)
 		sendUnsetMapFlag(p)
 		return nil

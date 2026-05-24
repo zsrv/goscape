@@ -15,7 +15,7 @@ import (
 //  4. viewport gate: |x-originX| > 52 || |z-originZ| > 52 → UnsetMapFlag
 //  5. Server.GetObj returns nil → UnsetMapFlag
 //  6. ObjType not registered → UnsetMapFlag
-//  7. per-op gate: Op[op-1] == "" → UnsetMapFlag
+//  7. per-op gate: Op[op-1] is "" or "hidden" → UnsetMapFlag
 //
 // On success: ClearPendingAction → SetInteraction(Engine, obj, op, -1)
 // → opcalled=true → targetSubject snapshot.
@@ -68,7 +68,9 @@ func handleOpObj(p *Player, payload []byte, op int) error {
 		sendUnsetMapFlag(p)
 		return nil
 	}
-	if len(objType.Op) < op || objType.Op[op-1] == "" {
+	// TS OpObjHandler.ts:38 rejects op == null || op == "hidden". The
+	// decoder stores "hidden" verbatim, so both are checked here.
+	if len(objType.Op) < op || objType.Op[op-1] == "" || objType.Op[op-1] == "hidden" {
 		sendUnsetMapFlag(p)
 		return nil
 	}

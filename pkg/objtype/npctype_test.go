@@ -25,6 +25,37 @@ func TestNpcTypeDecodeRegenRate214(t *testing.T) {
 	}
 }
 
+// TestNpcTypeDecodeOpCodes30To39NoPanic pins L31: NpcType funnels all of
+// codes 30-39 into one `op` array (TS NpcType.ts:141-146, `code >= 30 && < 40`,
+// a 5-slot array JS grows on demand). The packer only emits op1-5 → codes
+// 30-34, but a foreign cache with codes 35-39 must grow the slice rather than
+// panic on the fixed 5-slot index. "hidden" is stored verbatim (no coercion).
+func TestNpcTypeDecodeOpCodes30To39NoPanic(t *testing.T) {
+	typ := NewNpcType(0)
+	// code 30 → op[0]; code 31 → op[1] "hidden"; code 39 → op[9].
+	if err := typ.Decode(30, packet2.NewPacket([]byte("Talk-to\n"))); err != nil {
+		t.Fatalf("Decode(30): %v", err)
+	}
+	if err := typ.Decode(31, packet2.NewPacket([]byte("hidden\n"))); err != nil {
+		t.Fatalf("Decode(31): %v", err)
+	}
+	if err := typ.Decode(39, packet2.NewPacket([]byte("Examine\n"))); err != nil {
+		t.Fatalf("Decode(39): %v (op slice should grow, not panic)", err)
+	}
+	if got := typ.Op[0]; got != "Talk-to" {
+		t.Errorf("Op[0]: got %q, want \"Talk-to\"", got)
+	}
+	if got := typ.Op[1]; got != "hidden" {
+		t.Errorf("Op[1] (verbatim, not coerced): got %q, want \"hidden\"", got)
+	}
+	if len(typ.Op) < 10 {
+		t.Fatalf("len(Op): got %d, want >= 10 (grown for code 39)", len(typ.Op))
+	}
+	if got := typ.Op[9]; got != "Examine" {
+		t.Errorf("Op[9]: got %q, want \"Examine\"", got)
+	}
+}
+
 func TestLoadNPCTypesFromPack(t *testing.T) {
 	cacheDir := filepath.Join("..", "..", "data", "pack")
 	configs, err := LoadNPCTypes(cacheDir)

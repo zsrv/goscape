@@ -708,6 +708,25 @@ func TestNpcHasOpExisting(t *testing.T) {
 	}
 }
 
+// TestNpcHasOpHidden pins L32: a "hidden" op slot reports as present (1),
+// matching TS NPC_HASOP (`state.pushInt(npcType.op[op-1] ? 1 : 0)`) where the
+// non-empty "hidden" string is truthy. The op-click handler still blocks
+// "hidden"; only the decode-time "" coercion (which would push 0 here) was
+// the bug. The decoder now stores "hidden" verbatim.
+func TestNpcHasOpHidden(t *testing.T) {
+	mc := newTestConfigs()
+	mc.npcs[7] = &objtype.NpcType{
+		ConfigType: objtype.ConfigType{ID: 7},
+		Name:       "Hans",
+		Op:         []string{"hidden", "", ""},
+	}
+	npc := &mockNpc{typeID: 7}
+	state := runNpcOp(t, npc, mc, OpNpcHasOp, []int{1})
+	if got := state.PopInt(); got != 1 {
+		t.Errorf("NPC_HASOP(1 hidden): got %d, want 1 (TS truthy on \"hidden\")", got)
+	}
+}
+
 func TestNpcHasOpMissing(t *testing.T) {
 	mc := newTestConfigs()
 	mc.npcs[7] = &objtype.NpcType{

@@ -269,6 +269,27 @@ func TestHandleOpObjRejectsEmptyOpSlot(t *testing.T) {
 	}
 }
 
+// TestHandleOpObjRejectsHiddenOpSlot pins L32: an op slot holding the
+// "hidden" keyword is blocked just like "", matching TS OpObjHandler.ts:38
+// (`op == null || op == 'hidden'`). The decoder now stores "hidden"
+// verbatim, so the gate must reject it explicitly.
+func TestHandleOpObjRejectsHiddenOpSlot(t *testing.T) {
+	s, p, _, cc := makeOpObjFixture(t)
+	s.objTypes.Configs[42].Op[0] = "hidden" // op=1 slot is "hidden"
+
+	received := drainConn(t, cc)
+	_ = handleOpObj1(p, p2x3ObjPayload(100, 100, 42))
+	p.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag for hidden Op slot")
+	}
+	if p.target != nil {
+		t.Error("target should remain nil when Op slot is hidden")
+	}
+}
+
 // --- handleOpObjT ---
 
 func TestHandleOpObjTSetsInteraction(t *testing.T) {

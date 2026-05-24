@@ -14,8 +14,10 @@ import (
 // the render+gameplay fields (codes 1-73). PostDecode infers Active from
 // Shapes/Op when the cache leaves it unset.
 //
-// "hidden" → "" coercion in code 30-34 (NAI-80-D1) is preserved from S6k
-// for handler-gate simplicity; see follow-up note in spec §6.
+// Op slots (codes 30-34) store the cache string verbatim, including the
+// "hidden" keyword — matching TS LocType, which gates "hidden" at the
+// op-click handler rather than coercing at decode (the former NAI-80-D1
+// coercion is removed; see Decode and modules/world/handler_oploc.go).
 type LocType struct {
 	ConfigType
 
@@ -37,7 +39,7 @@ type LocType struct {
 	WallWidth     int      // code 28; default 16
 	Ambient       int8     // code 29 (G1B)
 	Contrast      int8     // code 39 (G1B)
-	Op            []string // codes 30-34, lazy 5-slot init; "hidden"→"" (D1)
+	Op            []string // codes 30-34, lazy 5-slot init; "hidden" stored verbatim
 	RecolS        []uint16 // code 40, paired with RecolD
 	RecolD        []uint16 // code 40
 	MapFunction   int      // code 60; default -1
@@ -100,19 +102,19 @@ func (lt *LocType) Decode(code uint8, dat *packet2.Packet) error {
 	case 29:
 		lt.Ambient = dat.G1B()
 	case 30, 31, 32, 33, 34:
-		// Op-name slots. Lazy 5-slot init mirrors NpcType.Op
-		// (npctype.go:124-132). TS LocType.ts:152-157 uses
-		// `code >= 30 && < 35`. The "hidden" keyword in the cache
-		// marks a disabled op slot; we coerce to "" here so the
-		// handler gate in modules/world/handler_oploc.go can do a
-		// single empty-string check at runtime (NAI-80-D1).
+		// Op-name slots. Lazy 5-slot init mirrors NpcType.Op. TS
+		// LocType.ts:152-157 uses `code >= 30 && < 35` and stores the
+		// string verbatim. The "hidden" keyword marks a slot the
+		// op-click handler must block — but TS does that at the handler
+		// (OpLocHandler checks `op[i] === null || === 'hidden'`), NOT at
+		// decode. Coercing "hidden"→"" here (the old NAI-80-D1 shortcut)
+		// diverged: TS LocOps/iterator gates use a truthy check
+		// (`!op[i]`), so "hidden" reads as a present, operable slot.
+		// Store it verbatim and let handler_oploc.go gate on "hidden".
 		if lt.Op == nil {
 			lt.Op = make([]string, 5)
 		}
 		lt.Op[code-30] = dat.GJStrLF()
-		if lt.Op[code-30] == "hidden" {
-			lt.Op[code-30] = ""
-		}
 	case 39:
 		lt.Contrast = dat.G1B()
 	case 40:

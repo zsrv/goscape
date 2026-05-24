@@ -205,14 +205,23 @@ func (t *NpcType) Decode(code uint8, dat *packet2.Packet) error {
 	case 18:
 		t.Category = int(dat.G2())
 	case 30, 31, 32, 33, 34, 35, 36, 37, 38, 39:
+		// TS NpcType.ts:141-146 funnels all of codes 30-39 into a single
+		// `op` array initialised to length 5; JS silently grows it when an
+		// index >= 5 is written (codes 35-39 — foreign caches only: the
+		// packer emits op1-5 → codes 30-34). Grow on demand to match,
+		// instead of panicking on a fixed 5-slot index. The "hidden"
+		// keyword is stored verbatim like TS: the op-click handler treats
+		// null/"hidden" as blocked, but NPC_HASOP (`op[i] ? 1 : 0`) and
+		// NC_OP report it as a present string, so coercing to "" here
+		// would diverge from TS at those reads.
+		idx := int(code) - 30
 		if t.Op == nil {
 			t.Op = make([]string, 5)
 		}
-
-		t.Op[code-30] = dat.GJStrLF()
-		if t.Op[code-30] == "hidden" {
-			t.Op[code-30] = ""
+		for len(t.Op) <= idx {
+			t.Op = append(t.Op, "")
 		}
+		t.Op[idx] = dat.GJStrLF()
 	case 40:
 		count := dat.G1()
 

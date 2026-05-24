@@ -207,7 +207,8 @@ func TestHandleLocOpOutOfRangeHigh(t *testing.T) {
 }
 
 // TestHandleLocOpEmptySlot verifies an in-range op with an empty Op
-// slot pushes "" (this is the common post-"hidden"-coercion case).
+// slot pushes "" (an unset slot; "hidden" slots are now stored verbatim
+// and would push "hidden", matching TS truthy reads).
 func TestHandleLocOpEmptySlot(t *testing.T) {
 	lt := &objtype.LocType{
 		ConfigType: objtype.ConfigType{ID: 42},

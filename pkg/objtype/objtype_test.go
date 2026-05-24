@@ -7,7 +7,11 @@ import (
 	packet2 "github.com/zsrv/goscape/pkg/io/packet"
 )
 
-func TestObjTypeDecodeOpHiddenCoercedToEmpty(t *testing.T) {
+// TestObjTypeDecodeOpStoredVerbatim pins L32: the decoder stores the op
+// string verbatim, including the "hidden" keyword (no coercion to "").
+// TS ObjType.ts:226-227 does the same; "hidden" is gated at the op-click
+// handler, while OC_OP/P_OPOBJ read it as a present string.
+func TestObjTypeDecodeOpStoredVerbatim(t *testing.T) {
 	pkt := packet2.NewPacket(nil)
 	pkt.P1(30)
 	pkt.PJStrLF("visible")
@@ -23,8 +27,22 @@ func TestObjTypeDecodeOpHiddenCoercedToEmpty(t *testing.T) {
 	if got := ot.Op[0]; got != "visible" {
 		t.Errorf("Op[0]: got %q, want \"visible\"", got)
 	}
-	if got := ot.Op[1]; got != "" {
-		t.Errorf("Op[1] (hidden-coerced): got %q, want \"\"", got)
+	if got := ot.Op[1]; got != "hidden" {
+		t.Errorf("Op[1] (verbatim): got %q, want \"hidden\"", got)
+	}
+}
+
+// TestObjTypeDecodeCode200Rejected pins L32: opcode 200 is not a valid obj
+// config code (TS ObjType has no such case; tradeable defaults true and
+// code 15 sets false). It must fall through to the unrecognized-code error.
+func TestObjTypeDecodeCode200Rejected(t *testing.T) {
+	pkt := packet2.NewPacket(nil)
+	pkt.P1(200)
+	pkt.P1(0)
+
+	ot := NewObjType(0)
+	if err := DecodeType(pkt, ot); err == nil {
+		t.Fatal("DecodeType: want error for unrecognized obj code 200, got nil")
 	}
 }
 
@@ -255,17 +273,6 @@ func TestObjTypeDecode_Code15FlipsTradeableFalse(t *testing.T) {
 	}
 	if ot.Tradeable {
 		t.Fatalf("after Decode(15): Tradeable: got true, want false (TS ObjType.ts:211)")
-	}
-}
-
-func TestObjTypeDecode_Code200KeepsTradeableTrue(t *testing.T) {
-	ot := NewObjType(0)
-	ot.Tradeable = false // clear default to make code 200's write load-bearing
-	if err := ot.Decode(200, packet2.NewPacket(nil)); err != nil {
-		t.Fatalf("Decode(200): unexpected error: %v", err)
-	}
-	if !ot.Tradeable {
-		t.Fatalf("after Decode(200): Tradeable: got false, want true (TS ObjType.ts case 200)")
 	}
 }
 

@@ -242,10 +242,11 @@ func (ot *ObjType) Decode(code uint8, dat *packet2.Packet) error {
 	case 27:
 		ot.WearPos3 = int(dat.G1())
 	case 30, 31, 32, 33, 34:
+		// Stored verbatim, including "hidden", matching TS ObjType.ts:226-227
+		// (no decode-time coercion). The op-click handler blocks null/
+		// "hidden", but OC_OP (`op[i] ?? ''`) and P_OPOBJ report it as a
+		// present string, so coercing to "" here would diverge from TS.
 		ot.Op[code-30] = dat.GJStrLF()
-		if ot.Op[code-30] == "hidden" {
-			ot.Op[code-30] = ""
-		}
 	case 35, 36, 37, 38, 39:
 		ot.IOp[code-35] = dat.GJStrLF()
 	case 40:
@@ -289,8 +290,6 @@ func (ot *ObjType) Decode(code uint8, dat *packet2.Packet) error {
 
 		ot.CountObj[code-100] = dat.G2()
 		ot.CountCo[code-100] = dat.G2()
-	case 200:
-		ot.Tradeable = true
 	case 201:
 		ot.RespawnRate = int(dat.G2())
 	case 249:

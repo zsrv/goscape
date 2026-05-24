@@ -249,7 +249,12 @@ func TestLocTypeDecodeOpAllFive(t *testing.T) {
 	}
 }
 
-func TestLocTypeDecodeOpHiddenCoercedToEmpty(t *testing.T) {
+// TestLocTypeDecodeOpStoredVerbatim pins L32: the loc decoder stores the
+// op string verbatim, including "hidden" (the former NAI-80-D1 coercion is
+// removed). TS LocType stores it verbatim and gates "hidden" at the
+// op-click handler (handler_oploc.go), while LOC iterators/gates use a
+// truthy check that reads "hidden" as a present, operable slot.
+func TestLocTypeDecodeOpStoredVerbatim(t *testing.T) {
 	entries := []locEntry{
 		{debugName: "hidden_test", op: []string{"visible", "hidden", "", "", ""}},
 	}
@@ -264,8 +269,8 @@ func TestLocTypeDecodeOpHiddenCoercedToEmpty(t *testing.T) {
 	if got := entry.Op[0]; got != "visible" {
 		t.Errorf("Op[0]: got %q, want \"visible\"", got)
 	}
-	if got := entry.Op[1]; got != "" {
-		t.Errorf("Op[1] (hidden-coerced, NAI-80-D1): got %q, want \"\"", got)
+	if got := entry.Op[1]; got != "hidden" {
+		t.Errorf("Op[1] (verbatim): got %q, want \"hidden\"", got)
 	}
 }
 

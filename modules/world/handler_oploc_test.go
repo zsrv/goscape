@@ -260,6 +260,27 @@ func TestHandleOpLocRejectsEmptyOpSlot(t *testing.T) {
 	}
 }
 
+// TestHandleOpLocRejectsHiddenOpSlot pins L32: an op slot holding the
+// "hidden" keyword is blocked just like "", matching TS OpLocHandler.ts:38
+// (`op == null || op == 'hidden'`). The decoder now stores "hidden"
+// verbatim, so the gate must reject it explicitly.
+func TestHandleOpLocRejectsHiddenOpSlot(t *testing.T) {
+	s, p, _, cc := makeOpLocFixture(t)
+	s.locTypes.Configs[42].Op[0] = "hidden"
+
+	received := drainConn(t, cc)
+	_ = handleOpLoc1(p, p2x3Payload(100, 100, 42))
+	p.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag for hidden Op slot, got nothing")
+	}
+	if p.target != nil {
+		t.Error("target should remain nil when Op slot is hidden")
+	}
+}
+
 // TestHandleOpLocAcceptsPopulatedOpSlot verifies that clicking a
 // populated Op slot proceeds through the handler normally. Provides
 // positive coverage for the S6k gate.
