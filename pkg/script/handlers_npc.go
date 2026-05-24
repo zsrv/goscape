@@ -128,6 +128,12 @@ func checkHitType(v int, op string) error {
 // Per goscape convention (cf. Player.Damage negative-amount clamp at
 // modules/world/player_masks.go), deliberate-deviation-for-correctness
 // is documented inline; no formal NAI-XXX-D-* pin is opened.
+//
+// PORTING-EXCEPTION (M14, queue-range): KEEP [1,20]. The audit's ⚠verify is
+// resolved — Content npc_queue first-args are {1..7,10,11,12} and
+// npc_walktrigger {8} (re-confirmed 2026-05-24); neither 0 nor 20 is used. TS's
+// [0,19] leaves TriggerAiQueue20 unreachable and admits a garbage AI_QUEUE0, so
+// matching it would reintroduce a bug. Do NOT regress to [0,19]. See PORTING.md.
 func checkQueue(v int, op string) error {
 	if v < 1 || v > 20 {
 		return fmt.Errorf("%s: queue id out of range (%d)", op, v)
