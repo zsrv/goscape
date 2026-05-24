@@ -13,7 +13,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 | Severity | Done / Total |
 |---|---|
 | CRITICAL | 3 / 3 ✓ |
-| HIGH | 3 / 17 (+1 disputed, tracked separately) |
+| HIGH | 4 / 17 (+1 disputed, tracked separately) |
 | MEDIUM | 0 / 30 |
 | LOW | 0 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
@@ -31,7 +31,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [x] **H1** NPC operand gap: ~37 read/mutate ops read `s.ActiveNpc` not operand-resolved — `handlers_npc.go:184` + sites — mirror `c58cac51`: add `s.activeNpcResolved()` + operand-aware `requireActiveNpc` + ~35 swaps (opcode list in cluster J). [cluster J] **(8e27bd8f)** — added `s.activeNpc()`, operand-aware `requireActiveNpc`, swapped all listed sites + NPC_PARAM; updated 2 bug-pinning tests + added 2 pin tests. SETMODE target & write-side left raw per TS.
 - [x] **H2** Per-zone obj cap (129) eviction missing — `pkg/zone/zone.go:263` (TODO-marked) — evict first DESPAWN obj when `totalObjs>=129`. [cluster E] **(f65b8491)** — added zone.MaxObjs + TotalObjs/FirstDespawnObj; eviction in Server.AddObj via s.RemoveObj.
 - [ ] **H3** Shop restock/decay never ported — `modules/world/tick.go:866` processCleanup — port TS World.ts:1159-1190; **(dep: M10, M11 first)**. [cluster A/F]
-- [ ] **H4** Queue/engine-queue delay off-by-one (fires 1 tick early) — `tick.go:508` — pre-decrement gating like TS Player.ts:883; ⚠TEST `player_engine_queue_test.go:86`. [cluster C]
+- [x] **H4** Queue/engine-queue delay off-by-one (fires 1 tick early) — `tick.go:508` — pre-decrement gating like TS Player.ts:883; ⚠TEST `player_engine_queue_test.go:86`. [cluster C] **(5f64edd1)** — post-decrement (read old, gate on old) in both drains; fixed 3 pinning tests (engine-queue + TestQueueFiresAtDelayExpiry).
 - [ ] **H5** Logout pipeline incomplete: no `closeModal()` / `canAccess()`+queue-drain gate / LOGOUT trigger — `tick.go:403` (+`server.go:1242`); `TriggerLogout` dispatched nowhere. [cluster C]
 - [ ] **H6** NPC `defaultMode` re-derived, ignores `typ.DefaultMode` — `npc_interaction.go:1073` — read stored field like TS; ⚠TEST `npc_interaction_test.go:1186`; ⚠LIE comment `:1076`. [cluster D]
 - [ ] **H7** INV_MOVEITEM item-loss: discards `toInv.Add` overflow TS drops to floor — `handlers_inv.go:761`. [cluster K]
