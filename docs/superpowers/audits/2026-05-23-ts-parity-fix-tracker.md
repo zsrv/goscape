@@ -16,7 +16,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 | HIGH | 17 / 17 ✓ |
 | DISPUTED | D1 RESOLVED ✓ (real bug, fixed with M2) |
 | MEDIUM | 30 / 30 ✓ |
-| LOW | 0 / 50 |
+| LOW | 5 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
 
 ---
@@ -86,11 +86,11 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 
 ## LOW
 
-- [ ] **L1** processObjDelayedQueue after processNpcs (TS before) — `tick.go:127` — ⚠LIE comment. [A]
-- [ ] **L2** processInfo before processZones (documented NAI-93; 1-tick facing artifact) — `tick.go:146`. [A]
-- [ ] **L3** processShutdown at top of tick vs TS end — `tick.go:60` — ⚠LIE comment. [A]
-- [ ] **L4** autosavePlayers at top of tick vs TS end — `tick.go:71`. [A]
-- [ ] **L5** intra-cleanup reset order differs (benign) — `tick.go:872`. [A]
+- [x] **L1** processObjDelayedQueue after processNpcs (TS before) — `tick.go:127` — ⚠LIE comment. [A] **(4053cbb2)** — comment corrected: real deviation = delayed objs visible to NPC obj-hunt 1 tick later; placement gives delay=0 player drops same-tick visibility. Accepted LOW (no reorder — load-bearing NAI-134/217).
+- [x] **L2** processInfo before processZones (documented NAI-93; 1-tick facing artifact) — `tick.go:146`. [A] **(4053cbb2)** — accepted deviation, already documented NAI-93; added call-site breadcrumb.
+- [x] **L3** processShutdown at top of tick vs TS end — `tick.go:60` — ⚠LIE comment. [A] **(4053cbb2)** — "Mirrors TS" corrected; top-placement is deliberate (doomed conn cut 1 tick earlier). Accepted LOW.
+- [x] **L4** autosavePlayers at top of tick vs TS end — `tick.go:71`. [A] **(4053cbb2)** — added deviation note; identical cadence, snapshot consistent either way. Accepted LOW.
+- [x] **L5** intra-cleanup reset order differs (benign) — `tick.go:872`. [A] **(4053cbb2)** — added doc note; no cross-step dependency makes order observable. Accepted LOW.
 - [ ] **L6** Timers fire while `loggingOut` (TS guards) — `tick.go:601`. [C]
 - [ ] **L7** `preventLogoutMessage` never emitted — `tick.go:395`. [C]
 - [ ] **L8** NPC `apRangeCalled` not reset per-tick (event-driven instead) — `npc_masks.go:250`. [D]
