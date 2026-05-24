@@ -882,17 +882,17 @@ func (c *client) handleLogin() error {
 			return c.sendLoginError(loginresp.OpTooManyAttempts.Opcode)
 		}
 
-		b := c.in.Next(pLen)
-		if err := req.UnmarshalBinary(b); err != nil {
-			// RSA failure or malformed packet — tell client it's out of date.
+		// TS World.ts:2118-2160 gates the revision (2119) and CRC (2131)
+		// checks on the cleartext header BEFORE calling rsadec (2139), so a
+		// stale-revision or bad-CRC client never burns RSA CPU — the same
+		// rationale as the address rate-limit gate above. Decode the header
+		// first, validate rev+CRC, then decrypt the RSA tail. L37.
+		r := packet.NewPacket(c.in.Next(pLen))
+		if err := req.UnmarshalHeader(r); err != nil {
+			// Malformed cleartext header — tell client it's out of date.
 			return c.sendLoginError(loginresp.OpClientOutOfDate.Opcode)
 		}
 		c.lowMemory = req.LowMemory
-
-		// LOG-1: full req struct (incl. CRC table + password hash + ISAAC
-		// seed) at Info is noisy per-login. Demote to Debug; keep contextual
-		// Info-level success log at the end of handleLogin (line 955-ish).
-		c.log.Debug("unmarshalled OpReqInitGameConnection", "req", req)
 
 		if req.Revision != expectedRevision {
 			return c.sendLoginError(loginresp.OpClientOutOfDate.Opcode)
@@ -905,6 +905,16 @@ func (c *client) handleLogin() error {
 			c.log.Debug("invalid checksum detail", "crc_table", crcSnap.Table, "req_checksums", req.ArchiveChecksums)
 			return c.sendLoginError(loginresp.OpClientOutOfDate.Opcode)
 		}
+
+		if err := req.UnmarshalRSA(r); err != nil {
+			// RSA failure or malformed encrypted block — out of date.
+			return c.sendLoginError(loginresp.OpClientOutOfDate.Opcode)
+		}
+
+		// LOG-1: full req struct (incl. CRC table + password hash + ISAAC
+		// seed) at Info is noisy per-login. Demote to Debug; keep contextual
+		// Info-level success log at the end of handleLogin (line 955-ish).
+		c.log.Debug("unmarshalled OpReqInitGameConnection", "req", req)
 
 		c.decryptor = io2.New(req.ISAACSeed)
 		for i := range req.ISAACSeed {

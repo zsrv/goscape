@@ -64,9 +64,14 @@ func (q *GameLogin) MarshalBinary() ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func (q *GameLogin) UnmarshalBinary(data []byte) error {
-	r := packet.NewPacket(data)
-
+// UnmarshalHeader decodes the cleartext portion of the login packet
+// (opcode, payload size, revision, low-memory flag, archive checksums) and
+// leaves r positioned at the RSA-encrypted block. TS World.ts gates the
+// revision (2119) and CRC (2131) checks on this cleartext before calling
+// rsadec (2139), so callers should validate Revision/ArchiveChecksums and
+// only then call [GameLogin.UnmarshalRSA] — RSA CPU is never spent on a
+// stale-revision or bad-CRC client. L37.
+func (q *GameLogin) UnmarshalHeader(r *packet.Packet) error {
 	if r.Len() < 1+1 {
 		return protocol.ErrIncorrectDataLength
 	}
@@ -85,12 +90,23 @@ func (q *GameLogin) UnmarshalBinary(data []byte) error {
 	}
 
 	q.Revision = r.G1()
-	q.LowMemory = r.GBool()
+	// TS World.ts:2126-2127 reads an info byte and takes lowMemory from its
+	// low bit: `(info & 0x1) !== 0`. GBool() (`== 1`) diverges for any odd
+	// value > 1 (e.g. 3 → TS true, GBool false). Mask the low bit to match. L35.
+	q.LowMemory = r.G1()&0x1 != 0
 
 	for i := range q.ArchiveChecksums {
 		q.ArchiveChecksums[i] = r.G4()
 	}
 
+	return nil
+}
+
+// UnmarshalRSA decodes the RSA-encrypted tail of the login packet (magic
+// number, ISAAC seeds, UID, username, password) from r's current position,
+// which must be just past the cleartext header read by
+// [GameLogin.UnmarshalHeader].
+func (q *GameLogin) UnmarshalRSA(r *packet.Packet) error {
 	decrypted, err := r.RSADec(protocol.Modulus, protocol.PrivateExponent)
 	if err != nil {
 		return err
@@ -106,4 +122,12 @@ func (q *GameLogin) UnmarshalBinary(data []byte) error {
 	q.Password = decrypted.GJStrLF()
 
 	return nil
+}
+
+func (q *GameLogin) UnmarshalBinary(data []byte) error {
+	r := packet.NewPacket(data)
+	if err := q.UnmarshalHeader(r); err != nil {
+		return err
+	}
+	return q.UnmarshalRSA(r)
 }

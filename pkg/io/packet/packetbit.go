@@ -29,22 +29,26 @@ func (p *Packet) AccessBytes() {
 }
 
 // GBit returns the next n bits in the [Packet].
-func (p *Packet) GBit(n int) uint8 {
+//
+// Returns int to match TS Packet.gBit (Packet.ts:384, returns number): the
+// accumulator must be wider than a byte or reads of more than 8 bits silently
+// truncate. The bitmask table spans 32 bits, so n may be up to 32. L36.
+func (p *Packet) GBit(n int) int {
 	bytePos := p.BitPos >> 3
 	bitsRemaining := 8 - (p.BitPos & 0x7)
-	value := uint8(0)
+	value := 0
 	p.BitPos += n
 
 	for ; n > bitsRemaining; bitsRemaining = 8 {
-		value += (p.Data[bytePos] & uint8(bitmask[bitsRemaining])) << (n - bitsRemaining)
+		value += int(p.Data[bytePos]&uint8(bitmask[bitsRemaining])) << (n - bitsRemaining)
 		bytePos++
 		n -= bitsRemaining
 	}
 
 	if n == bitsRemaining {
-		value += p.Data[bytePos] & uint8(bitmask[bitsRemaining])
+		value += int(p.Data[bytePos] & uint8(bitmask[bitsRemaining]))
 	} else {
-		value += (p.Data[bytePos] >> (bitsRemaining - n)) & uint8(bitmask[n])
+		value += int((p.Data[bytePos] >> (bitsRemaining - n)) & uint8(bitmask[n]))
 	}
 
 	return value

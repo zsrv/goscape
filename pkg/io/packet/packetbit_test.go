@@ -26,6 +26,32 @@ func TestPacketBit(t *testing.T) {
 	}
 }
 
+// TestGBitWideValue pins that GBit returns reads wider than 8 bits without
+// truncation, matching TS Packet.gBit which returns a number (Packet.ts:384).
+// The old uint8 return silently truncated reads > 8 bits to their low byte. L36.
+func TestGBitWideValue(t *testing.T) {
+	tests := []struct {
+		n     int
+		value int
+	}{
+		{16, 0xABCD},     // low byte 0xCD; truncation would drop 0xAB00
+		{12, 0x0FA5},     // truncation would drop the high nibble
+		{32, 0x12345678}, // full-width read
+	}
+	for _, tt := range tests {
+		p := NewPacket(nil)
+		p.AccessBits()
+		p.PBit(tt.n, tt.value)
+		p.AccessBytes()
+
+		r := NewPacket(p.Data)
+		r.AccessBits()
+		if got := r.GBit(tt.n); got != tt.value {
+			t.Errorf("GBit(%d) = %#x, want %#x", tt.n, got, tt.value)
+		}
+	}
+}
+
 // TestPacketBitMSBFirst audits that PBit writes MSB-first, matching
 // rsbuf (github.com/2004scape/rsbuf branch 225) pbit behavior.
 //
