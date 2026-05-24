@@ -362,10 +362,12 @@ type ScriptState struct {
 	// Set by LOC_FINDNEXT (and any future LOC_FIND family handler) when
 	// the bytecode IntOperand is 1 (.loc2 syntax). NAI-119.
 	//
-	// NAI-119-D-NO-DOWNSTREAM-LOC2-CONSUMERS: no existing LOC_* read
-	// handler reads from this slot at HEAD — they all read s.ActiveLoc
-	// only. Tracked deviation; closure when a `.loc2` content-script
-	// consumer surfaces.
+	// NAI-119-D CLOSED: LOC_* read/mutate handlers (and PlayerOps P_OPLOC/
+	// P_LOCMERGE) now resolve `.loc`/`.loc2` operand-aware via s.activeLoc()
+	// (mirrors TS ScriptState.activeLoc getter, ScriptState.ts:269-279), so
+	// this slot is read by operand=1 invocations. Write-side stays in
+	// setActiveLocSlot. (NPC_SETMODE's OPLOC target still reads the primary
+	// directly — matching TS NpcOps.ts:216 `state._activeLoc`.)
 	OtherActiveLoc ActiveLoc
 
 	// ActiveObj is the Obj that OBJ_* and AI_*OBJ handlers target. Nil
@@ -378,11 +380,12 @@ type ScriptState struct {
 	// (.obj2 syntax): OBJ_FIND / OBJ_FINDNEXT, and (since L20) the spawn
 	// handlers OBJ_ADD / OBJ_ADDALL / INV_DROPSLOT / INV_DROPITEM. NAI-154.
 	//
-	// NAI-154-D-NO-DOWNSTREAM-OBJ2-CONSUMERS: no existing OBJ_* read handler
-	// reads from this slot at HEAD — they all read s.ActiveObj only (L19,
-	// the operand-aware read accessor remains deferred). Tracked deviation,
-	// mirrors NAI-119-D-NO-DOWNSTREAM-LOC2-CONSUMERS. Closure when a `.obj2`
-	// content-script read consumer surfaces.
+	// NAI-154-D CLOSED: OBJ_* read/mutate handlers (and PlayerOps P_OPOBJ)
+	// now resolve `.obj`/`.obj2` operand-aware via s.activeObj() (mirrors TS
+	// ScriptState.activeObj getter, ScriptState.ts:289-299), so this slot is
+	// read by operand=1 invocations. Write-side stays in setActiveObjSlot.
+	// (NPC_SETMODE's OPOBJ target still reads the primary directly — matching
+	// TS NpcOps.ts:214 `state._activeObj`.)
 	OtherActiveObj ActiveObj
 
 	// OtherActiveNpc is the secondary NPC slot used by AI_*NPC handlers

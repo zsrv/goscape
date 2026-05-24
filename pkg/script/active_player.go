@@ -85,3 +85,25 @@ func (s *ScriptState) activeNpc() ActiveNpc {
 	}
 	return s.OtherActiveNpc
 }
+
+// activeLoc returns the operand-resolved active loc: ActiveLoc for operand 0,
+// OtherActiveLoc for operand 1. Mirrors TS ScriptState.activeLoc getter
+// (ScriptState.ts:269-279) — the `.loc` / `.loc2` selector. Returns nil when
+// the resolved slot is unset; callers gate on requireActiveLoc first.
+func (s *ScriptState) activeLoc() ActiveLoc {
+	if s.intOperand() == 0 {
+		return s.ActiveLoc
+	}
+	return s.OtherActiveLoc
+}
+
+// activeObj returns the operand-resolved active obj: ActiveObj for operand 0,
+// OtherActiveObj for operand 1. Mirrors TS ScriptState.activeObj getter
+// (ScriptState.ts:289-299) — the `.obj` / `.obj2` selector. Returns nil when
+// the resolved slot is unset; callers gate on requireActiveObj first.
+func (s *ScriptState) activeObj() ActiveObj {
+	if s.intOperand() == 0 {
+		return s.ActiveObj
+	}
+	return s.OtherActiveObj
+}

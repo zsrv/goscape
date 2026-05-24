@@ -8,10 +8,11 @@ import (
 )
 
 // requireActiveLoc returns an error tagged with the opcode name if the
-// script has no ActiveLoc bound. All LOC_* read handlers start with
-// this check to mirror TS `checkedHandler(ActiveLoc, ...)`.
+// script has no ActiveLoc bound in the operand-resolved slot. All LOC_* read
+// handlers start with this check to mirror TS `checkedHandler(ActiveLoc, ...)`,
+// which resolves `.loc`/`.loc2` via the operand-aware getter.
 func requireActiveLoc(s *ScriptState, op string) error {
-	if s.ActiveLoc == nil {
+	if s.activeLoc() == nil {
 		return fmt.Errorf("%s: no active loc", op)
 	}
 	return nil
@@ -161,7 +162,7 @@ func handleLocOp(s *ScriptState) error {
 		s.PushString("")
 		return nil
 	}
-	cfg := s.Configs.LocType(s.ActiveLoc.LocType())
+	cfg := s.Configs.LocType(s.activeLoc().LocType())
 	if cfg == nil {
 		s.PushString("")
 		return nil
@@ -185,7 +186,7 @@ func handleLocCoord(s *ScriptState) error {
 	if err := requireActiveLoc(s, "LOC_COORD"); err != nil {
 		return err
 	}
-	x, z, level := s.ActiveLoc.Coords()
+	x, z, level := s.activeLoc().Coords()
 	s.PushInt(coordgrid.PackCoord(level, x, z))
 	return nil
 }
@@ -200,7 +201,7 @@ func handleLocAngle(s *ScriptState) error {
 	if err := requireActiveLoc(s, "LOC_ANGLE"); err != nil {
 		return err
 	}
-	angle := s.ActiveLoc.Angle()
+	angle := s.activeLoc().Angle()
 	if err := checkLocAngle(angle); err != nil {
 		return fmt.Errorf("LOC_ANGLE: %w", err)
 	}
@@ -224,7 +225,7 @@ func handleLocCategory(s *ScriptState) error {
 	if err := requireActiveLoc(s, "LOC_CATEGORY"); err != nil {
 		return err
 	}
-	id := s.ActiveLoc.LocType()
+	id := s.activeLoc().LocType()
 	if err := checkLocType(s, id, "LOC_CATEGORY"); err != nil {
 		return err
 	}
@@ -246,7 +247,7 @@ func handleLocType(s *ScriptState) error {
 	if err := requireActiveLoc(s, "LOC_TYPE"); err != nil {
 		return err
 	}
-	id := s.ActiveLoc.LocType()
+	id := s.activeLoc().LocType()
 	if err := checkLocType(s, id, "LOC_TYPE"); err != nil {
 		return err
 	}
@@ -268,7 +269,7 @@ func handleLocName(s *ScriptState) error {
 	if err := requireActiveLoc(s, "LOC_NAME"); err != nil {
 		return err
 	}
-	id := s.ActiveLoc.LocType()
+	id := s.activeLoc().LocType()
 	if err := checkLocType(s, id, "LOC_NAME"); err != nil {
 		return err
 	}
@@ -293,7 +294,7 @@ func handleLocShape(s *ScriptState) error {
 	if err := requireActiveLoc(s, "LOC_SHAPE"); err != nil {
 		return err
 	}
-	shape := s.ActiveLoc.Shape()
+	shape := s.activeLoc().Shape()
 	if err := checkLocShape(shape); err != nil {
 		return fmt.Errorf("LOC_SHAPE: %w", err)
 	}
@@ -350,7 +351,7 @@ func handleLocChange(s *ScriptState) error {
 	if s.LocOps == nil {
 		return fmt.Errorf("LOC_CHANGE: LocOps unavailable")
 	}
-	return s.LocOps.ChangeLoc(s.ActiveLoc, id, s.ActiveLoc.Shape(), s.ActiveLoc.Angle(), duration)
+	return s.LocOps.ChangeLoc(s.activeLoc(), id, s.activeLoc().Shape(), s.activeLoc().Angle(), duration)
 }
 
 // handleLocParam pops paramID, resolves the ActiveLoc's LocType, and
@@ -364,7 +365,7 @@ func handleLocParam(s *ScriptState) error {
 		return err
 	}
 	paramID := s.PopInt()
-	id := s.ActiveLoc.LocType()
+	id := s.activeLoc().LocType()
 	if err := checkLocType(s, id, "LOC_PARAM"); err != nil {
 		return err
 	}
@@ -385,7 +386,7 @@ func handleLocDel(s *ScriptState) error {
 	if s.LocOps == nil {
 		return fmt.Errorf("LOC_DEL: LocOps unavailable")
 	}
-	return s.LocOps.RemoveLoc(s.ActiveLoc, duration)
+	return s.LocOps.RemoveLoc(s.activeLoc(), duration)
 }
 
 // handleLocAnim pops [seq], validates against Configs.SeqType, and
@@ -405,7 +406,7 @@ func handleLocAnim(s *ScriptState) error {
 	if s.LocOps == nil {
 		return fmt.Errorf("LOC_ANIM: LocOps unavailable")
 	}
-	return s.LocOps.AnimLoc(s.ActiveLoc, seq)
+	return s.LocOps.AnimLoc(s.activeLoc(), seq)
 }
 
 // handleLocAdd pops [coord, type, angle, shape, duration] and either

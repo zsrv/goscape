@@ -1064,7 +1064,7 @@ func handleP_OpLoc(s *ScriptState) error {
 	if err := requireProtectedActivePlayer(s, "P_OPLOC"); err != nil {
 		return err
 	}
-	if s.ActiveLoc == nil {
+	if s.activeLoc() == nil {
 		return errors.New("P_OPLOC: no active loc")
 	}
 	op := s.PopInt()
@@ -1083,17 +1083,17 @@ func handleP_OpLoc(s *ScriptState) error {
 	// back-compat with tests that exercise the interaction surface without a
 	// configs fixture).
 	if s.Configs != nil {
-		locType := s.Configs.LocType(s.ActiveLoc.LocType())
+		locType := s.Configs.LocType(s.activeLoc().LocType())
 		if locType == nil || op-1 >= len(locType.Op) || locType.Op[op-1] == "" {
 			return nil
 		}
 	}
 	s.activePlayer().StopAction()
-	if !s.activePlayer().InOperableDistance(s.ActiveLoc) {
-		x, z, _ := s.ActiveLoc.Coords()
+	if !s.activePlayer().InOperableDistance(s.activeLoc()) {
+		x, z, _ := s.activeLoc().Coords()
 		s.activePlayer().QueueWaypoint(x, z)
 	}
-	s.activePlayer().SetInteractionScriptLoc(s.ActiveLoc, op)
+	s.activePlayer().SetInteractionScriptLoc(s.activeLoc(), op)
 	return nil
 }
 
@@ -1496,15 +1496,15 @@ func handleP_OpObj(s *ScriptState) error {
 	// a missing registry or unregistered type is treated as an empty-op type.
 	var objType *objtype.ObjType
 	if s.Configs != nil {
-		objType = s.Configs.ObjType(s.ActiveObj.ObjType())
+		objType = s.Configs.ObjType(s.activeObj().ObjType())
 	}
 	if objType == nil || op-1 >= len(objType.Op) || objType.Op[op-1] == "" {
 		return nil // TS: type.op[op-1] === null → silent skip
 	}
-	x, z, _ := s.ActiveObj.Coords()
+	x, z, _ := s.activeObj().Coords()
 	s.activePlayer().StopAction()
 	s.activePlayer().QueueWaypoint(x, z)
-	s.activePlayer().SetInteractionScriptObj(s.ActiveObj, op)
+	s.activePlayer().SetInteractionScriptObj(s.activeObj(), op)
 	return nil
 }
 
@@ -2053,7 +2053,7 @@ func handlePLocMerge(s *ScriptState) error {
 	// L15: the merge-owner is operand-aware (TS state.activePlayer) like every
 	// other protected op (P_TELEPORT/P_WALK use s.activePlayer()), not raw
 	// s.Self — operand 1 must own the merge as Self2.
-	s.World.MergeLoc(s.ActiveLoc, s.activePlayer(), startCycle, endCycle, seZ, seX, nwZ, nwX)
+	s.World.MergeLoc(s.activeLoc(), s.activePlayer(), startCycle, endCycle, seZ, seX, nwZ, nwX)
 	return nil
 }
 

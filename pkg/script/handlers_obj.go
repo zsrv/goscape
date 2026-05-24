@@ -13,9 +13,10 @@ import (
 	"github.com/zsrv/goscape/pkg/telemetry"
 )
 
-// requireActiveObj returns an error if s.ActiveObj is nil.
+// requireActiveObj returns an error if the operand-resolved active obj slot
+// (`.obj`/`.obj2`) is nil, mirroring TS checkedHandler(ActiveObj[intOperand]).
 func requireActiveObj(s *ScriptState, op string) error {
-	if s.ActiveObj == nil {
+	if s.activeObj() == nil {
 		return fmt.Errorf("%s: no active obj", op)
 	}
 	return nil
@@ -159,11 +160,11 @@ func handleObjDel(s *ScriptState) error {
 	}
 	duration := 0
 	if s.Configs != nil {
-		if objCfg := s.Configs.ObjType(s.ActiveObj.ObjType()); objCfg != nil {
+		if objCfg := s.Configs.ObjType(s.activeObj().ObjType()); objCfg != nil {
 			duration = objCfg.RespawnRate
 		}
 	}
-	s.World.RemoveObj(s.ActiveObj, duration)
+	s.World.RemoveObj(s.activeObj(), duration)
 	return nil
 }
 
@@ -194,7 +195,7 @@ func handleObjCoord(s *ScriptState) error {
 	if err := requireActiveObj(s, "OBJ_COORD"); err != nil {
 		return err
 	}
-	x, z, level := s.ActiveObj.Coords()
+	x, z, level := s.activeObj().Coords()
 	s.PushInt(coordgrid.PackCoord(level, x, z))
 	return nil
 }
@@ -219,8 +220,8 @@ func handleObjCount(s *ScriptState) error {
 	if err := requireActivePlayer(s, "OBJ_COUNT"); err != nil {
 		return err
 	}
-	if s.ActiveObj.IsValidFor(s.activePlayer().UID()) {
-		s.PushInt(s.ActiveObj.ObjCount())
+	if s.activeObj().IsValidFor(s.activePlayer().UID()) {
+		s.PushInt(s.activeObj().ObjCount())
 		return nil
 	}
 	s.PushInt(0)
@@ -264,18 +265,18 @@ func handleObjTakeItem(s *ScriptState) error {
 		return err
 	}
 
-	if !s.ActiveObj.IsValidFor(s.activePlayer().UID()) {
+	if !s.activeObj().IsValidFor(s.activePlayer().UID()) {
 		return nil // TS returns false; goscape no-op (matches OBJ_DEL idiom)
 	}
 
-	if err := performInvAdd(s, invID, s.ActiveObj.ObjType(), s.ActiveObj.ObjCount(), "OBJ_TAKEITEM"); err != nil {
+	if err := performInvAdd(s, invID, s.activeObj().ObjType(), s.activeObj().ObjCount(), "OBJ_TAKEITEM"); err != nil {
 		return err
 	}
 
 	// TS-faithful per ObjOps.ts:149-154: emit PICKUP wealth event between
 	// invAdd and removeObj. NAI-115-D1 retired at NAI-162 B2.
-	objTypeID := s.ActiveObj.ObjType()
-	objCount := s.ActiveObj.ObjCount()
+	objTypeID := s.activeObj().ObjType()
+	objCount := s.activeObj().ObjCount()
 	if objCfg := s.Configs.ObjType(objTypeID); objCfg != nil {
 		s.activePlayer().AddWealthEvent(WealthEvent{
 			EventType:    WealthEventTypePickup,
@@ -303,7 +304,7 @@ func handleObjTakeItem(s *ScriptState) error {
 	// s.World != nil is guaranteed by the early return at the top of
 	// this handler; no extra guard needed here.
 	worldID := int32(s.World.NodeID())
-	x, z, level := s.ActiveObj.Coords()
+	x, z, level := s.activeObj().Coords()
 	telemetry.Get().EmitWealth(&eventspb.WealthEnvelope{
 		SchemaVersion: 1,
 		EventId:       uuid.NewString(),
@@ -317,18 +318,18 @@ func handleObjTakeItem(s *ScriptState) error {
 				X:                  int32(x),
 				Y:                  int32(z),
 				Plane:              int32(level),
-				DroppedByAccountId: s.ActiveObj.DropperAccountID(),
+				DroppedByAccountId: s.activeObj().DropperAccountID(),
 			},
 		},
 	})
 
 	duration := 0
-	if s.ActiveObj.IsRespawnLifecycle() {
-		if objCfg := s.Configs.ObjType(s.ActiveObj.ObjType()); objCfg != nil {
+	if s.activeObj().IsRespawnLifecycle() {
+		if objCfg := s.Configs.ObjType(s.activeObj().ObjType()); objCfg != nil {
 			duration = objCfg.RespawnRate
 		}
 	}
-	s.World.RemoveObj(s.ActiveObj, duration)
+	s.World.RemoveObj(s.activeObj(), duration)
 	return nil
 }
 
@@ -430,7 +431,7 @@ func handleObjName(s *ScriptState) error {
 	if err := requireConfigs(s, "OBJ_NAME"); err != nil {
 		return err
 	}
-	id := s.ActiveObj.ObjType()
+	id := s.activeObj().ObjType()
 	if err := checkObjType(s, id, "OBJ_NAME"); err != nil {
 		return err
 	}
@@ -457,7 +458,7 @@ func handleObjParam(s *ScriptState) error {
 		return err
 	}
 	paramID := s.PopInt()
-	id := s.ActiveObj.ObjType()
+	id := s.activeObj().ObjType()
 	if err := checkObjType(s, id, "OBJ_PARAM"); err != nil {
 		return err
 	}
@@ -480,6 +481,6 @@ func handleObjType(s *ScriptState) error {
 	if err := requireActiveObj(s, "OBJ_TYPE"); err != nil {
 		return err
 	}
-	s.PushInt(s.ActiveObj.ObjType())
+	s.PushInt(s.activeObj().ObjType())
 	return nil
 }

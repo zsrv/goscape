@@ -778,6 +778,27 @@ func newObjFindState(t *testing.T, w WorldVars, mc *mockConfigs, intOperand int3
 
 // TestObjFindHitPrimarySlot pins OBJ_FIND IntOperand=0: hit sets
 // s.ActiveObj, sets PtrActiveObj, pushes 1.
+// TestObjReadOpsOperandAware_ReadsSecondary pins NAI-154-D closure: OBJ_* read
+// handlers resolve .obj/.obj2 operand-aware via s.activeObj() (TS
+// ScriptState.activeObj, ScriptState.ts:289-299). With IntOperand==1 (.obj2),
+// OBJ_COORD must read OtherActiveObj, not the primary ActiveObj.
+func TestObjReadOpsOperandAware_ReadsSecondary(t *testing.T) {
+	s := &ScriptState{
+		IntStack:       make([]int, StackCapacity),
+		StringStack:    make([]string, StackCapacity),
+		Script:         &ScriptFile{IntOperands: []int32{1}},                             // .obj2
+		ActiveObj:      &mockActiveObj{objType: 1, x: 1000, z: 1000, level: 0},           // primary — must NOT be read
+		OtherActiveObj: &mockActiveObj{objType: 2, x: 3200, z: 3300, level: 1, count: 1}, // secondary
+	}
+	if err := handleObjCoord(s); err != nil {
+		t.Fatalf("handleObjCoord (.obj2): %v", err)
+	}
+	want := coordgrid.PackCoord(1, 3200, 3300) // the SECONDARY coord
+	if got := s.IntStack[0]; got != want {
+		t.Errorf(".obj2 must read OtherActiveObj: got %d, want %d", got, want)
+	}
+}
+
 func TestObjFindHitPrimarySlot(t *testing.T) {
 	obj := &mockActiveObj{objType: 590, x: 3200, z: 3300, level: 0, count: 1}
 	w := newFakeWorldObjFind(obj)

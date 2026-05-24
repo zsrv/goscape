@@ -242,6 +242,42 @@ func TestHandleLocOpLocTypeNotLoaded(t *testing.T) {
 	}
 }
 
+// TestLocReadOpsOperandAware_ReadsSecondary pins NAI-119-D closure: LOC_* read
+// handlers resolve .loc/.loc2 operand-aware via s.activeLoc() (TS
+// ScriptState.activeLoc, ScriptState.ts:269-279). With IntOperand==1 (.loc2),
+// LOC_COORD must read OtherActiveLoc, not the primary ActiveLoc.
+func TestLocReadOpsOperandAware_ReadsSecondary(t *testing.T) {
+	s := &ScriptState{
+		IntStack:       make([]int, StackCapacity),
+		StringStack:    make([]string, StackCapacity),
+		Script:         &ScriptFile{IntOperands: []int32{1}},             // .loc2
+		ActiveLoc:      fakeActiveLoc{id: 1, x: 1000, z: 1000, level: 0}, // primary — must NOT be read
+		OtherActiveLoc: fakeActiveLoc{id: 2, x: 3200, z: 3300, level: 1}, // secondary
+	}
+	if err := handleLocCoord(s); err != nil {
+		t.Fatalf("handleLocCoord (.loc2): %v", err)
+	}
+	want := coordgrid.PackCoord(1, 3200, 3300) // the SECONDARY coord
+	if got := s.IntStack[0]; got != want {
+		t.Errorf(".loc2 must read OtherActiveLoc: got %d, want %d", got, want)
+	}
+}
+
+// TestLocReadOpsOperandAware_SecondaryOnly pins that requireActiveLoc resolves
+// the operand: with .loc2 and only OtherActiveLoc set (primary nil) the read
+// succeeds instead of erroring "no active loc".
+func TestLocReadOpsOperandAware_SecondaryOnly(t *testing.T) {
+	s := &ScriptState{
+		IntStack:       make([]int, StackCapacity),
+		StringStack:    make([]string, StackCapacity),
+		Script:         &ScriptFile{IntOperands: []int32{1}},
+		OtherActiveLoc: fakeActiveLoc{id: 2, x: 3200, z: 3300, level: 1},
+	}
+	if err := handleLocCoord(s); err != nil {
+		t.Fatalf("handleLocCoord (.loc2, secondary-only): %v", err)
+	}
+}
+
 func TestHandleLocCoordHappyPath(t *testing.T) {
 	s := &ScriptState{
 		IntStack:    make([]int, StackCapacity),
