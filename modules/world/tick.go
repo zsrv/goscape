@@ -401,6 +401,46 @@ func (s *Server) processLogouts() {
 		}
 
 		if p.loggingOut && (force || s.currentTick >= p.preventLogoutUntil) {
+			// Mirrors TS World.processLogouts (World.ts:773-800).
+			// Close any open modal first (also clears the weak queue).
+			p.CloseModal(true)
+
+			// The primary queue must be fully discardable before logout: every
+			// entry a LONG marked logoutAction==1 (discard). Any other entry
+			// blocks logout this tick. TS World.ts:776-787.
+			queueDiscardable := true
+			for i := range p.queue {
+				req := &p.queue[i]
+				if req.Type == script.QueueLong && len(req.IntArgs) > 0 && req.IntArgs[0] == 1 {
+					continue
+				}
+				queueDiscardable = false
+				break
+			}
+
+			// Only log out when the player can run a script, has no pending
+			// engine-queue work, and the queue is discardable. TS World.ts:788.
+			if !p.CanAccess() || len(p.engineQueue) > 0 || !queueDiscardable {
+				continue
+			}
+
+			// Fire the LOGOUT trigger as a protected script before teardown
+			// (TS World.ts:789-797). DEVIATION: TS skips removal entirely when
+			// no [logout] script is registered ('LOGOUT TRIGGER IS BROKEN!');
+			// goscape instead logs and proceeds with removal so a
+			// misconfigured/script-less world (and most test fixtures) can't
+			// leak players that never log out. Production ships logout.rs2.
+			var logoutScript *script.ScriptFile
+			if s.scriptProvider != nil {
+				logoutScript = s.scriptProvider.GetByTriggerSpecific(script.TriggerLogout, -1, -1)
+			}
+			if logoutScript != nil {
+				s.runScript(logoutScript, p, nil, script.TriggerLogout, true, nil, nil)
+			} else {
+				s.log.Warn("no [logout] trigger registered; removing player without it",
+					"player", p.username)
+			}
+
 			// Clear any suspended script so a late RESUME_* packet doesn't
 			// reference a player that's logged out.
 			p.activeScript = nil

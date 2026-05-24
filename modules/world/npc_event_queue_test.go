@@ -684,6 +684,71 @@ func TestProcessLogoutsDecrementsSubscribedNpcObservers(t *testing.T) {
 	}
 }
 
+// newLoggingOutPlayer builds a minimal in-game player attached to s with a
+// live (discarded) client connection and the loggingOut flag set, ready for
+// processLogouts. Test servers have nil login/friends RPC clients, so removal
+// performs no network I/O.
+func newLoggingOutPlayer(t *testing.T, s *Server) *Player {
+	t.Helper()
+	serverConn, clientConn := net.Pipe()
+	t.Cleanup(func() { serverConn.Close(); clientConn.Close() })
+	c := newClient(serverConn, time.Second, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	t.Cleanup(func() { c.in.Release() })
+	c.server = s
+	c.state = ClientStateGame
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	c.encryptor = enc
+	go io.Copy(io.Discard, clientConn)
+	p := newPlayer(c)
+	c.player = p
+	if err := s.addPlayer(p); err != nil {
+		t.Fatal(err)
+	}
+	p.loggingOut = true
+	p.preventLogoutUntil = 0
+	return p
+}
+
+func playerInLoop(s *Server, p *Player) bool {
+	for _, lp := range s.playerLoop {
+		if lp == p {
+			return true
+		}
+	}
+	return false
+}
+
+// TestProcessLogouts_NonDiscardableQueueBlocks pins H5: a logging-out player
+// whose primary queue holds a non-discardable entry (anything other than a
+// LONG marked logoutAction==1) is NOT removed this tick. TS World.ts:776-788.
+func TestProcessLogouts_NonDiscardableQueueBlocks(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.currentTick = 1
+	p := newLoggingOutPlayer(t, s)
+	p.queue = append(p.queue, playerQueueRequest{Type: script.QueueNormal})
+
+	s.processLogouts()
+
+	if !playerInLoop(s, p) {
+		t.Error("player removed despite a non-discardable queue entry (H5 gate)")
+	}
+}
+
+// TestProcessLogouts_DiscardableQueueRemoves pins that a fully discardable
+// queue (LONG with logoutAction==1) does not block logout.
+func TestProcessLogouts_DiscardableQueueRemoves(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.currentTick = 1
+	p := newLoggingOutPlayer(t, s)
+	p.queue = append(p.queue, playerQueueRequest{Type: script.QueueLong, IntArgs: []int{1}})
+
+	s.processLogouts()
+
+	if playerInLoop(s, p) {
+		t.Error("player not removed with a discardable LONG-discard queue (H5 gate)")
+	}
+}
+
 // TestAddNpcQueuesSpawnEventOnFirstSpawn pins NAI-22 Bundle 1: addNpc
 // queues an NpcEventSpawn entry when a SPAWN script is registered for
 // the NPC's typeId/category. Mirrors TS World.ts:1284-1289.
