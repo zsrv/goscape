@@ -821,7 +821,10 @@ func handleClientCheat(p *Player, payload []byte) error {
 			p.stats[stat] = 0
 			p.baseLevels[stat] = 1
 			p.levels[stat] = 1
-			p.AddXP(stat, objtype.GetExpByLevel(level))
+			// allowMulti=false — TS ClientCheatHandler.ts:431 grants the exact
+			// XP for the target level (getExpByLevel), so node_xp_rate must NOT
+			// scale it (M7).
+			p.AddXP(stat, objtype.GetExpByLevel(level), false)
 		case "give":
 			// TS L288-302 — give <obj> [count]. Count clamps to
 			// [1, 0x7fffffff] (default 1). Routes through Player.InvAdd

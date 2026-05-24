@@ -48,7 +48,7 @@ func TestAddXPNormalGainNoLevelUp(t *testing.T) {
 	p.stats[objtype.PlayerStatAttack] = int32(objtype.GetExpByLevel(2))
 	p.baseLevels[objtype.PlayerStatAttack] = 2
 	p.levels[objtype.PlayerStatAttack] = 2
-	p.AddXP(objtype.PlayerStatAttack, 100)
+	p.AddXP(objtype.PlayerStatAttack, 100, false)
 	want := int32(objtype.GetExpByLevel(2)) + 100
 	if p.stats[objtype.PlayerStatAttack] != want {
 		t.Errorf("stats: got %d, want %d", p.stats[objtype.PlayerStatAttack], want)
@@ -62,6 +62,33 @@ func TestAddXPNormalGainNoLevelUp(t *testing.T) {
 	}
 }
 
+// TestAddXPAppliesNodeXPRate pins M7: with allowMulti=true the configured
+// node_xp_rate (cfg.NodeXPRate) multiplies the granted XP (TS Player.ts:1751,
+// `xp * (allowMulti ? Environment.NODE_XPRATE : 1)`); allowMulti=false bypasses
+// it (exact-level grants like the setlevel cheat). Previously the multiplier
+// was never applied and node_xp_rate was dead config.
+func TestAddXPAppliesNodeXPRate(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.cfg.NodeXPRate = 3
+	p := newTestPlayerAt(t, s, 1, 3094, 3106, 0)
+
+	p.stats[objtype.PlayerStatAttack] = 0
+	p.baseLevels[objtype.PlayerStatAttack] = 1
+	p.levels[objtype.PlayerStatAttack] = 1
+
+	p.AddXP(objtype.PlayerStatAttack, 100, true) // 100 * 3
+	if p.stats[objtype.PlayerStatAttack] != 300 {
+		t.Errorf("allowMulti=true rate=3: stats got %d, want 300", p.stats[objtype.PlayerStatAttack])
+	}
+
+	// allowMulti=false ignores the rate (exact grant).
+	p.stats[objtype.PlayerStatAttack] = 0
+	p.AddXP(objtype.PlayerStatAttack, 100, false)
+	if p.stats[objtype.PlayerStatAttack] != 100 {
+		t.Errorf("allowMulti=false rate=3: stats got %d, want 100 (no multiplier)", p.stats[objtype.PlayerStatAttack])
+	}
+}
+
 func TestAddXPLevelUpUnbuffedAdvancesLevels(t *testing.T) {
 	// Un-buffed (levels == baseLevels) player levels up: TS advances BOTH
 	// levels and baseLevels in lockstep so the stat display updates.
@@ -70,7 +97,7 @@ func TestAddXPLevelUpUnbuffedAdvancesLevels(t *testing.T) {
 	p.stats[objtype.PlayerStatAttack] = 800
 	p.baseLevels[objtype.PlayerStatAttack] = 2
 	p.levels[objtype.PlayerStatAttack] = 2  // un-buffed
-	p.AddXP(objtype.PlayerStatAttack, 1000) // → 1800, crosses 1740 = level 3
+	p.AddXP(objtype.PlayerStatAttack, 1000, false) // → 1800, crosses 1740 = level 3
 	if p.baseLevels[objtype.PlayerStatAttack] != 3 {
 		t.Errorf("baseLevels: got %d, want 3", p.baseLevels[objtype.PlayerStatAttack])
 	}
@@ -85,7 +112,7 @@ func TestAddXPLevelUpWhileDrained(t *testing.T) {
 	p.stats[objtype.PlayerStatAttack] = 800
 	p.baseLevels[objtype.PlayerStatAttack] = 2
 	p.levels[objtype.PlayerStatAttack] = 1  // drained below base
-	p.AddXP(objtype.PlayerStatAttack, 1000) // → level 3
+	p.AddXP(objtype.PlayerStatAttack, 1000, false) // → level 3
 	if p.baseLevels[objtype.PlayerStatAttack] != 3 {
 		t.Errorf("baseLevels: got %d, want 3", p.baseLevels[objtype.PlayerStatAttack])
 	}
@@ -102,7 +129,7 @@ func TestAddXPMultiLevelUpUnbuffed(t *testing.T) {
 	p.stats[objtype.PlayerStatAttack] = 0
 	p.baseLevels[objtype.PlayerStatAttack] = 1
 	p.levels[objtype.PlayerStatAttack] = 1   // un-buffed
-	p.AddXP(objtype.PlayerStatAttack, 11540) // GetExpByLevel(10)
+	p.AddXP(objtype.PlayerStatAttack, 11540, false) // GetExpByLevel(10)
 	if p.baseLevels[objtype.PlayerStatAttack] != 10 {
 		t.Errorf("baseLevels: got %d, want 10", p.baseLevels[objtype.PlayerStatAttack])
 	}
@@ -119,7 +146,7 @@ func TestAddXPClampsAtMaxXP(t *testing.T) {
 	p.stats[objtype.PlayerStatAttack] = int32(objtype.MaxXP - 10)
 	p.baseLevels[objtype.PlayerStatAttack] = 99
 	p.levels[objtype.PlayerStatAttack] = 99
-	p.AddXP(objtype.PlayerStatAttack, 1000)
+	p.AddXP(objtype.PlayerStatAttack, 1000, false)
 	if int(p.stats[objtype.PlayerStatAttack]) != objtype.MaxXP {
 		t.Errorf("stats: got %d, want MaxXP %d",
 			p.stats[objtype.PlayerStatAttack], objtype.MaxXP)
@@ -136,7 +163,7 @@ func TestAddXPAccumulatesPastLevel99ThresholdUpToMaxXP(t *testing.T) {
 	p.stats[objtype.PlayerStatAttack] = int32(objtype.MaxSkillXP) // at level-99 threshold
 	p.baseLevels[objtype.PlayerStatAttack] = 99
 	p.levels[objtype.PlayerStatAttack] = 99
-	p.AddXP(objtype.PlayerStatAttack, 1000000) // 100k real XP past level 99
+	p.AddXP(objtype.PlayerStatAttack, 1000000, false) // 100k real XP past level 99
 	want := int32(objtype.MaxSkillXP + 1000000)
 	if p.stats[objtype.PlayerStatAttack] != want {
 		t.Errorf("stats: got %d, want %d (accumulation past level-99 threshold)",
@@ -155,7 +182,7 @@ func TestAddXPBuffedLevelUpPreservesBuff(t *testing.T) {
 	p.stats[objtype.PlayerStatAttack] = 800
 	p.baseLevels[objtype.PlayerStatAttack] = 2
 	p.levels[objtype.PlayerStatAttack] = 5  // buffed by +3
-	p.AddXP(objtype.PlayerStatAttack, 1000) // → level 3
+	p.AddXP(objtype.PlayerStatAttack, 1000, false) // → level 3
 	if p.baseLevels[objtype.PlayerStatAttack] != 3 {
 		t.Errorf("baseLevels: got %d, want 3", p.baseLevels[objtype.PlayerStatAttack])
 	}
@@ -170,7 +197,7 @@ func TestAddXPNegativeClampsAtZero(t *testing.T) {
 	p.stats[objtype.PlayerStatAttack] = 50
 	p.baseLevels[objtype.PlayerStatAttack] = 1
 	p.levels[objtype.PlayerStatAttack] = 1
-	p.AddXP(objtype.PlayerStatAttack, -100) // would go negative
+	p.AddXP(objtype.PlayerStatAttack, -100, false) // would go negative
 	if p.stats[objtype.PlayerStatAttack] != 0 {
 		t.Errorf("stats: got %d, want 0 (negative clamped)", p.stats[objtype.PlayerStatAttack])
 	}
@@ -183,9 +210,9 @@ func TestAddXPOOBIsNoop(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	var before [21]int32
 	copy(before[:], p.stats[:])
-	p.AddXP(-1, 100)
-	p.AddXP(21, 100)
-	p.AddXP(100, 100)
+	p.AddXP(-1, 100, false)
+	p.AddXP(21, 100, false)
+	p.AddXP(100, 100, false)
 	for i := range 21 {
 		if p.stats[i] != before[i] {
 			t.Errorf("OOB AddXP mutated stats[%d]: got %d, want %d", i, p.stats[i], before[i])
@@ -215,7 +242,7 @@ func TestAddXPLevelUpEmitsAdventureLog(t *testing.T) {
 	p.stats[objtype.PlayerStatAttack] = 800
 	p.baseLevels[objtype.PlayerStatAttack] = 2
 	p.levels[objtype.PlayerStatAttack] = 2
-	p.AddXP(objtype.PlayerStatAttack, 1000) // → level 3
+	p.AddXP(objtype.PlayerStatAttack, 1000, false) // → level 3
 
 	if got := len(s.sessionLogs); got != 1 {
 		t.Fatalf("sessionLogs: got %d, want 1", got)
@@ -241,7 +268,7 @@ func TestAddXPMultiLevelUpEmitsSingleLevelledUpMessage(t *testing.T) {
 	p.stats[objtype.PlayerStatAttack] = 0
 	p.baseLevels[objtype.PlayerStatAttack] = 1
 	p.levels[objtype.PlayerStatAttack] = 1
-	p.AddXP(objtype.PlayerStatAttack, 11540) // GetExpByLevel(10) → level 10
+	p.AddXP(objtype.PlayerStatAttack, 11540, false) // GetExpByLevel(10) → level 10
 
 	if got := len(s.sessionLogs); got != 1 {
 		t.Fatalf("sessionLogs: got %d, want 1 (single Levelled-up for multi-level jump)", got)
@@ -267,7 +294,7 @@ func TestAddXPLevelUpCrossingMilestoneEmitsMilestone(t *testing.T) {
 	p.stats[objtype.PlayerStatAttack] = 800
 	p.baseLevels[objtype.PlayerStatAttack] = 2
 	p.levels[objtype.PlayerStatAttack] = 2
-	p.AddXP(objtype.PlayerStatAttack, 1000) // → 1800, level 3
+	p.AddXP(objtype.PlayerStatAttack, 1000, false) // → 1800, level 3
 
 	if got := len(s.sessionLogs); got != 2 {
 		t.Fatalf("sessionLogs: got %d, want 2 (Levelled-up + milestone)", got)
@@ -295,7 +322,7 @@ func TestAddXPLevelUpNoMilestoneWithinBucket(t *testing.T) {
 	p.stats[objtype.PlayerStatAttack] = 800
 	p.baseLevels[objtype.PlayerStatAttack] = 2
 	p.levels[objtype.PlayerStatAttack] = 2
-	p.AddXP(objtype.PlayerStatAttack, 1000) // total 251 → 252
+	p.AddXP(objtype.PlayerStatAttack, 1000, false) // total 251 → 252
 
 	if got := len(s.sessionLogs); got != 1 {
 		t.Fatalf("sessionLogs: got %d, want 1 (Levelled-up only, no milestone within bucket)", got)
@@ -329,7 +356,7 @@ func TestAddXPLevelUpHitting1881EmitsP2PAndF2P(t *testing.T) {
 		}
 	}
 	delta := objtype.GetExpByLevel(99) - objtype.GetExpByLevel(98)
-	p.AddXP(objtype.PlayerStatAttack, delta) // → Attack 99, total = 1881
+	p.AddXP(objtype.PlayerStatAttack, delta, false) // → Attack 99, total = 1881
 
 	if !containsSessionLogEvent(s.sessionLogs, "Levelled up attack from 98 to 99") {
 		t.Errorf("missing Levelled-up entry; logs = %+v", s.sessionLogs)
@@ -380,7 +407,7 @@ func TestAddXPLevelUpHitting1485F2POnlyEmitsF2POnly(t *testing.T) {
 	p.baseLevels[objtype.PlayerStatAttack] = 98
 	p.levels[objtype.PlayerStatAttack] = 98
 	delta := objtype.GetExpByLevel(99) - objtype.GetExpByLevel(98)
-	p.AddXP(objtype.PlayerStatAttack, delta) // → Attack 99, freeTotal = 1485, total = 1489
+	p.AddXP(objtype.PlayerStatAttack, delta, false) // → Attack 99, freeTotal = 1485, total = 1489
 
 	if !containsSessionLogEvent(s.sessionLogs, "Reached total level 1485 - you beat f2p!") {
 		t.Errorf("missing f2p entry; logs = %+v", s.sessionLogs)
@@ -410,7 +437,7 @@ func TestAddXPDisabledStatNotInTotal(t *testing.T) {
 	p.stats[objtype.PlayerStatAttack] = 800
 	p.baseLevels[objtype.PlayerStatAttack] = 2
 	p.levels[objtype.PlayerStatAttack] = 2
-	p.AddXP(objtype.PlayerStatAttack, 1000) // → Attack 3, enabled total = 250
+	p.AddXP(objtype.PlayerStatAttack, 1000, false) // → Attack 3, enabled total = 250
 
 	if !containsSessionLogEvent(s.sessionLogs, "Reached total level 250") {
 		t.Errorf("missing milestone-250 entry (disabled stats erroneously counted?); logs = %+v",
@@ -658,7 +685,7 @@ func TestAddXPFiresChangeStatOnLevelUp(t *testing.T) {
 	// NAI-144: changeStat now uses QueueEngine, not QueueNormal.
 	beforeQueue := len(p.queue)
 	beforeEngineQueue := len(p.engineQueue)
-	p.AddXP(objtype.PlayerStatAttack, 1000) // → level 3
+	p.AddXP(objtype.PlayerStatAttack, 1000, false) // → level 3
 
 	if len(p.queue) != beforeQueue {
 		t.Errorf("p.queue len: got %d, want %d (changestat must NOT land in primary queue post-NAI-144)",
@@ -691,7 +718,7 @@ func TestAddXPDoesNotFireChangeStatWithoutLevelUp(t *testing.T) {
 
 	beforeQueue := len(p.queue)
 	beforeEngineQueue := len(p.engineQueue)
-	p.AddXP(objtype.PlayerStatAttack, 100) // → 200, still level 1 (< 830)
+	p.AddXP(objtype.PlayerStatAttack, 100, false) // → 200, still level 1 (< 830)
 
 	if len(p.queue) != beforeQueue {
 		t.Errorf("queue len: got %d, want %d (no level-up = no changestat fire)",
@@ -715,7 +742,7 @@ func TestAddXPChangeStatNoScriptIsNoop(t *testing.T) {
 
 	beforeQueue := len(p.queue)
 	beforeEngineQueue := len(p.engineQueue)
-	p.AddXP(objtype.PlayerStatAttack, 1000) // level up, but no script registered
+	p.AddXP(objtype.PlayerStatAttack, 1000, false) // level up, but no script registered
 
 	if len(p.queue) != beforeQueue {
 		t.Errorf("queue len: got %d, want %d (no registered script = silent no-op)",
@@ -752,7 +779,7 @@ func TestAddXPFiresAdvanceStatOnLevelUp(t *testing.T) {
 	// NAI-144: advanceStat now uses QueueEngine, not QueueNormal.
 	beforeQueue := len(p.queue)
 	beforeEngineQueue := len(p.engineQueue)
-	p.AddXP(objtype.PlayerStatAttack, 1000) // → level 3
+	p.AddXP(objtype.PlayerStatAttack, 1000, false) // → level 3
 
 	if len(p.queue) != beforeQueue {
 		t.Errorf("p.queue len: got %d, want %d (advancestat must NOT land in primary queue post-NAI-144)",
@@ -785,7 +812,7 @@ func TestAddXPDoesNotFireAdvanceStatWithoutLevelUp(t *testing.T) {
 
 	beforeQueue := len(p.queue)
 	beforeEngineQueue := len(p.engineQueue)
-	p.AddXP(objtype.PlayerStatAttack, 100) // → 200, still level 1
+	p.AddXP(objtype.PlayerStatAttack, 100, false) // → 200, still level 1
 
 	if len(p.queue) != beforeQueue {
 		t.Errorf("queue len: got %d, want %d (no level-up = no advancestat fire)",
@@ -814,7 +841,7 @@ func TestAddXPAdvanceStatNoFallbackToGlobal(t *testing.T) {
 
 	beforeQueue := len(p.queue)
 	beforeEngineQueue := len(p.engineQueue)
-	p.AddXP(objtype.PlayerStatAttack, 1000) // level up
+	p.AddXP(objtype.PlayerStatAttack, 1000, false) // level up
 
 	if len(p.queue) != beforeQueue {
 		t.Errorf("queue len: got %d, want %d (global script must NOT fire — advancestat is type-specific only)",
@@ -854,7 +881,7 @@ func TestAddXPFiresBothChangeAndAdvanceStatOnLevelUp(t *testing.T) {
 	// NAI-144: both changeStat and advanceStat now use QueueEngine.
 	beforeQueue := len(p.queue)
 	beforeEngineQueue := len(p.engineQueue)
-	p.AddXP(objtype.PlayerStatAttack, 1000) // level up
+	p.AddXP(objtype.PlayerStatAttack, 1000, false) // level up
 
 	if len(p.queue) != beforeQueue {
 		t.Errorf("p.queue len: got %d, want %d (neither changestat nor advancestat must land in primary queue post-NAI-144)",
@@ -2417,7 +2444,7 @@ func TestAddXP_LevelUp_RecomputesCombatLevel(t *testing.T) {
 	p.levels[objtype.PlayerStatStrength] = 1
 	p.combatLevel = 3
 	p.masks = 0
-	p.AddXP(objtype.PlayerStatStrength, objtype.GetExpByLevel(99))
+	p.AddXP(objtype.PlayerStatStrength, objtype.GetExpByLevel(99), false)
 	if p.baseLevels[objtype.PlayerStatStrength] != 99 {
 		t.Fatalf("baseLevels[STR]: got %d, want 99 (precondition for CL recompute)",
 			p.baseLevels[objtype.PlayerStatStrength])
@@ -2449,7 +2476,7 @@ func TestAddXP_NoLevelUp_NoRecompute(t *testing.T) {
 	p.levels[objtype.PlayerStatStrength] = 2
 	p.combatLevel = 3
 	p.masks = 0
-	p.AddXP(objtype.PlayerStatStrength, 100) // → 930 XP, still level 2
+	p.AddXP(objtype.PlayerStatStrength, 100, false) // → 930 XP, still level 2
 	if p.baseLevels[objtype.PlayerStatStrength] != 2 {
 		t.Fatalf("baseLevels[STR]: got %d, want 2 (precondition: no level-up)",
 			p.baseLevels[objtype.PlayerStatStrength])

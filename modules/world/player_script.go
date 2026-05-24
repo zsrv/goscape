@@ -849,9 +849,30 @@ func (p *Player) advanceStat(stat int) {
 // to mirror TS Player.ts:1810-1813. On level-up also emits ADVENTURE
 // session-log entries (Levelled up + milestone-250 + p2p-1881 + f2p-1485)
 // per TS Player.ts:1773-1803.
-func (p *Player) AddXP(id int, xp int) {
+// xpRate returns the configured XP multiplier (TS Environment.NODE_XPRATE),
+// defaulting to 1 when the server/config is unreachable (bare test fixtures) or
+// the value is non-positive, so XP is never zeroed or reversed by a bad config.
+func (p *Player) xpRate() int {
+	if p.client == nil || p.client.server == nil {
+		return 1
+	}
+	if r := p.client.server.cfg.NodeXPRate; r > 0 {
+		return r
+	}
+	return 1
+}
+
+func (p *Player) AddXP(id int, xp int, allowMulti bool) {
 	if !statBounds(id) {
 		return
+	}
+	// TS Player.addXp (Player.ts:1751): `const multi = allowMulti ?
+	// Environment.NODE_XPRATE : 1; this.stats[stat] += xp * multi`. M7 — the
+	// node_xp_rate config (cfg.NodeXPRate, default 1) was never applied, so the
+	// multiplier was dead. allowMulti=false (e.g. the ::setlevel cheat) bypasses
+	// it so an exact-level grant isn't scaled.
+	if allowMulti {
+		xp *= p.xpRate()
 	}
 	next := min(int64(p.stats[id])+int64(xp), int64(objtype.MaxXP))
 	if next < 0 {

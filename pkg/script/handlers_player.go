@@ -566,8 +566,10 @@ func handleStatHeal(s *ScriptState) error {
 }
 
 // handleStatAdvance implements STAT_ADVANCE. TS pops (stat, xp); stack
-// top is xp. The handler just forwards to Self.AddXP — scaling is the
-// Player implementation's responsibility.
+// top is xp. Forwards to Self.AddXP with allowMulti=true, mirroring TS
+// PlayerOps.ts:765 (`state.activePlayer.addXp(stat, xp)` — addXp's
+// allowMulti defaults to true), so the node_xp_rate multiplier is applied
+// (M7).
 //
 // TS asymmetry: STAT_ADVANCE wraps stat with NumberNotNull (not
 // PlayerStatValid like sibling stat ops); both stat and xp get NumberNotNull
@@ -588,7 +590,7 @@ func handleStatAdvance(s *ScriptState) error {
 	if err := checkStatID(id, "STAT_ADVANCE"); err != nil {
 		return err
 	}
-	s.activePlayer().AddXP(id, xp)
+	s.activePlayer().AddXP(id, xp, true)
 	return nil
 }
 

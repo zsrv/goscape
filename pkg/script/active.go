@@ -189,8 +189,10 @@ type ActivePlayer interface {
 
 	// AddXP adds xp (scaled * 10) to the player's stored XP for skill id,
 	// recomputing base level and clamping at the XP cap. OOB ids are
-	// dropped silently.
-	AddXP(id int, xp int)
+	// dropped silently. allowMulti applies the configured node_xp_rate
+	// multiplier (TS addXp's allowMulti arg; pass false for exact-level
+	// grants like the setlevel cheat).
+	AddXP(id int, xp int, allowMulti bool)
 
 	// Say buffers `text` as the player's speech bubble for the current
 	// tick, flagging MaskSay so the player-info encoder emits it. Empty

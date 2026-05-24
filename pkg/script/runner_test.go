@@ -577,7 +577,7 @@ func (m *mockPlayer) SetCurLevel(id int, level int) {
 	m.setCurLevelCalls = append(m.setCurLevelCalls, struct{ id, level int }{id, level})
 }
 
-func (m *mockPlayer) AddXP(id int, xp int) {
+func (m *mockPlayer) AddXP(id int, xp int, allowMulti bool) {
 	m.addXPCalls = append(m.addXPCalls, struct{ id, xp int }{id, xp})
 }
 
