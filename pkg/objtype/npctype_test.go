@@ -3,7 +3,27 @@ package objtype
 import (
 	"path/filepath"
 	"testing"
+
+	packet2 "github.com/zsrv/goscape/pkg/io/packet"
 )
+
+// TestNpcTypeDecodeRegenRate214 pins the opcode-214 (regenrate) decoder case,
+// mirroring TS NpcType.ts:223-224 (`this.regenrate = dat.g2()`). The packer
+// emits P1(214)+P2(value) for any `regenrate=` line (pkg/pack/npc.go:525), so a
+// missing case here aborts the whole NPC config load with "unrecognized npc
+// config code 214" — a latent CRITICAL until any Content .npc sets regenrate.
+func TestNpcTypeDecodeRegenRate214(t *testing.T) {
+	typ := NewNpcType(0)
+	if typ.RegenRate != 100 {
+		t.Fatalf("default RegenRate: got %d, want 100", typ.RegenRate)
+	}
+	if err := typ.Decode(214, packet2.NewPacket([]byte{0x12, 0x34})); err != nil {
+		t.Fatalf("Decode(214): %v", err)
+	}
+	if typ.RegenRate != 0x1234 {
+		t.Errorf("RegenRate after opcode 214: got %d, want %d", typ.RegenRate, 0x1234)
+	}
+}
 
 func TestLoadNPCTypesFromPack(t *testing.T) {
 	cacheDir := filepath.Join("..", "..", "data", "pack")

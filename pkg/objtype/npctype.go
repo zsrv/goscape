@@ -291,6 +291,8 @@ func (t *NpcType) Decode(code uint8, dat *packet2.Packet) error {
 		}
 	case 213:
 		t.GiveChase = false
+	case 214:
+		t.RegenRate = int(dat.G2())
 	case 249:
 		t.Params = DecodeParams(dat)
 	case 250:
