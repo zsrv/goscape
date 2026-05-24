@@ -14,7 +14,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 |---|---|
 | CRITICAL | 3 / 3 ✓ |
 | HIGH | 17 / 17 ✓ (+1 disputed, tracked separately) |
-| MEDIUM | 2 / 30 |
+| MEDIUM | 3 / 30 |
 | LOW | 0 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
 
@@ -52,7 +52,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 
 ## MEDIUM
 
-- [ ] **M1** Player `inApproachDistance` missing line-of-sight gate (can fire through walls; NPC side has it) — `modules/world/interaction.go:750`. [B]
+- [x] **M1** Player `inApproachDistance` missing line-of-sight gate (can fire through walls; NPC side has it) — `modules/world/interaction.go:750`. [B] **(5c4be889)** — kept free inApproachDistance as the range half; added `(*Player).approachHasLineOfSight` (forward LoS, FlagBlockPlayers) AND'd at the tryInteract call site; closes DEVIATION S6l-D4. +pin test.
 - [ ] **M2** Per-step `focus()` not called → stale walk-facing — `movement.go:182`, `npc_interaction.go:439` — **(consider with D1)**. [B]
 - [ ] **M3** `validateDistanceWalked` not ported (no jump-snap on >2-tile move) — `tick.go:140`. [A/B]
 - [ ] **M4** Primary queue gates on `p.delayed` not full `canAccess()` — `tick.go:514`. [C]
