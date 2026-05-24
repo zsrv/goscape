@@ -1049,8 +1049,16 @@ func (s *Server) processCleanup() {
 			// pass it.
 			switch {
 			case hasStockCount && rateHit && item.Count < int(invType.StockCount[index]):
-				// Below min → restock one at this slot.
-				inv.Add(item.Id, 1, inventory.AddOpts{BeginSlot: index, AssureFullInsertion: true})
+				// Below min → restock one at this slot. Stackable mirrors TS,
+				// which reads ObjType.stackable inside add() (World.ts:1173 →
+				// Inventory.ts:159). Inert for stackall shops (every shipped
+				// restock shop is stackall), but correct for a non-stackall
+				// restock shop stocking a stackable obj.
+				stackable := false
+				if ot := s.objTypeFor(item.Id); ot != nil {
+					stackable = ot.Stackable
+				}
+				inv.Add(item.Id, 1, inventory.AddOpts{BeginSlot: index, AssureFullInsertion: true, Stackable: stackable})
 				inv.Update = true
 			case hasStockCount && rateHit && item.Count > int(invType.StockCount[index]):
 				// Above min → decay one.
