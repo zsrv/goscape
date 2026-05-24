@@ -13,7 +13,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 | Severity | Done / Total |
 |---|---|
 | CRITICAL | 3 / 3 ✓ |
-| HIGH | 15 / 17 (+1 disputed, tracked separately) |
+| HIGH | 16 / 17 (+1 disputed, tracked separately) |
 | MEDIUM | 0 / 30 |
 | LOW | 0 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
@@ -32,7 +32,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [x] **H2** Per-zone obj cap (129) eviction missing — `pkg/zone/zone.go:263` (TODO-marked) — evict first DESPAWN obj when `totalObjs>=129`. [cluster E] **(f65b8491)** — added zone.MaxObjs + TotalObjs/FirstDespawnObj; eviction in Server.AddObj via s.RemoveObj.
 - [ ] **H3** Shop restock/decay never ported — `modules/world/tick.go:866` processCleanup — port TS World.ts:1159-1190; **(dep: M10, M11 first)**. [cluster A/F]
 - [x] **H4** Queue/engine-queue delay off-by-one (fires 1 tick early) — `tick.go:508` — pre-decrement gating like TS Player.ts:883; ⚠TEST `player_engine_queue_test.go:86`. [cluster C] **(5f64edd1)** — post-decrement (read old, gate on old) in both drains; fixed 3 pinning tests (engine-queue + TestQueueFiresAtDelayExpiry).
-- [ ] **H5** Logout pipeline incomplete: no `closeModal()` / `canAccess()`+queue-drain gate / LOGOUT trigger — `tick.go:403` (+`server.go:1242`); `TriggerLogout` dispatched nowhere. [cluster C]
+- [x] **H5** Logout pipeline incomplete: no `closeModal()` / `canAccess()`+queue-drain gate / LOGOUT trigger — `tick.go:403` (+`server.go:1242`); `TriggerLogout` dispatched nowhere. [cluster C] **(f9f5b52c)** — closeModal + queue-discardable + canAccess/engineQueue gate + LOGOUT trigger dispatch; DEVIATION: degrades to removal (not TS never-remove) when no [logout] script. +2 pin tests.
 - [x] **H6** NPC `defaultMode` re-derived, ignores `typ.DefaultMode` — `npc_interaction.go:1073` — read stored field like TS; ⚠TEST `npc_interaction_test.go:1186`; ⚠LIE comment `:1076`. [cluster D] **(e5e4aeec)** — reads n.typ.DefaultMode; rewrote pin test + fixed 4 wander fixtures (newWanderNpc + WanderRange:5 literals).
 - [x] **H7** INV_MOVEITEM item-loss: discards `toInv.Add` overflow TS drops to floor — `handlers_inv.go:761`. [cluster K] **(bfcb3a72)** — overflow→floor via new dropOverflowToFloor helper; +pin test.
 - [x] **H8** INV_MOVEFROMSLOT item-loss: same — `handlers_inv.go:828`. [cluster K] **(bfcb3a72)** — same helper; +pin test.
