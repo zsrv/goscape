@@ -16,7 +16,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 | HIGH | 17 / 17 ✓ |
 | DISPUTED | D1 RESOLVED ✓ (real bug, fixed with M2) |
 | MEDIUM | 30 / 30 ✓ |
-| LOW | 13 / 50 |
+| LOW | 17 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
 
 ---
@@ -99,10 +99,10 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [x] **L11** INV `FromType` stockobj seeding diverges (skip id==0, count fallback) — `inventory.go:42`. [F] **(7a810f52)** — now seeds literal {stockobj[i], stockcount[i]} for every index (TS Inventory.ts:66-73). Load-bearing post-H3: count-0 stock slot must seed at 0 (restocks up) not 1; obj id 0 is valid. +pin test; world suite green (shop restock is live consumer).
 - [x] **L12** INV `AddOpts.BeginSlot` zero-value footgun (0 vs -1) — `inventory.go:250`. [F] **(7a810f52)** — documented on AddOpts/RemoveOpts: TS default is -1 sentinel ("append from first free"), Go zero value 0 is a real slot index; all 7 callers pass -1, doc warns future callers must too. No behavior change.
 - [x] **L13** INV stack-overflow basis uses GetItemCount not per-slot stackCount — `inventory.go:269`. [F] **(7a810f52)** — stack write now clamps by PER-SLOT count + SETs slot to total (TS Inventory.ts:229-237); sum (previousCount) still gates entry. Diverges only w/ duplicate stacks of one id. +pin test.
-- [ ] **L14** HINT_PL uses `s.Self2` not operand-aware — `handlers_player.go:1430`. [I]
-- [ ] **L15** P_LOCMERGE uses `s.Self` not operand-aware — `handlers_player.go:2036`. [I]
-- [ ] **L16** STAT_ADVANCE extra `checkStatID` (TS validates ticks only) — `handlers_player.go:588`. [I]
-- [ ] **L17** P_OPOBJ errors on nil-Configs vs TS silent-skip — `handlers_player.go:1488`. [I]
+- [x] **L14** HINT_PL uses `s.Self2` not operand-aware — `handlers_player.go:1430`. [I] **(fd5335d9)** — now uses operand-aware `s.activePlayer2()` (swaps to Self at operand 1) per TS PlayerOps.ts:976-978; guards already bind both slots.
+- [x] **L15** P_LOCMERGE uses `s.Self` not operand-aware — `handlers_player.go:2036`. [I] **(fd5335d9)** — merge-owner now `s.activePlayer()` (TS:929); was lone protected-op outlier vs P_TELEPORT/P_WALK.
+- [x] **L16** STAT_ADVANCE extra `checkStatID` (TS validates ticks only) — `handlers_player.go:588`. [I] **(fd5335d9)** — dropped checkStatID; TS forwards OOB stat to addXp (TypedArray no-op), Go AddXP already bounds-guards (statBounds→return) so OOB now no-ops + script continues vs aborts. -1 still rejected by NumberNotNull. ⚠TEST: updated TestStatOpsRejectOOBStatID (STAT_ADVANCE id=21 → Finished not Aborted).
+- [x] **L17** P_OPOBJ errors on nil-Configs vs TS silent-skip — `handlers_player.go:1488`. [I] **(fd5335d9)** — nil Configs / unregistered ObjType now treated as empty-op default type → silent skip (TS ObjType.get returns default, never null; PlayerOps.ts:996-998). +pin test.
 - [ ] **L18** COORDX/Y/Z + INZONE/MOVECOORD/DISTANCE skip CoordValid check — `handlers_number.go:388`, `handlers_server.go:48`. [J]
 - [ ] **L19** LOC2/OBJ2 read ops not operand-aware (documented NAI-119-D/154-D; no consumers) — `handlers_loc.go`/`handlers_obj.go`. [K]
 - [ ] **L20** ActiveObj write-side not operand-aware in spawn handlers — `handlers_obj.go:116`, `handlers_inv.go:1048,1444`. [K]
