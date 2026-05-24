@@ -14,7 +14,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 |---|---|
 | CRITICAL | 3 / 3 ✓ |
 | HIGH | 17 / 17 ✓ (+1 disputed, tracked separately) |
-| MEDIUM | 26 / 30 |
+| MEDIUM | 29 / 30 (M2 blocked on D1) |
 | LOW | 0 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
 
@@ -79,9 +79,9 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [x] **M25** Login "save missing + logout_time set" safety reject absent (silently resets char) — `modules/login/handler.go:186` — **(dep: M26)**. [R] **(6bc61282)** — ErrNotExist branch now rejects (codes.DataLoss) when account.LogoutTime.Valid; NULL logout_time still → NEW_PLAYER. TS LoginServer.ts:342-348. +2 pin tests (reject + new-player complement).
 - [x] **M26** Login `setLoggedOut` doesn't record logout_time/logged_out — `modules/login/db.go:221`. [R] **(6bc61282)** — stamps account.logout_time + clears logged_in in a tx (TS LoginServer.ts:429-440). DEVIATION: logout_time on `account` table (not account_login); no `logged_out` column (TS bookkeeping, read nowhere). +pin test.
 - [x] **M27** Login reconnect can't re-serve save when client lost it — `modules/login/handler.go:148`. [R] **(6bc61282)** — reconnect now keys on Reconnecting+same-node (not req.HasSave, which the world never sets); inserts session, reads+verifies+re-serves save on !HasSave, returns RECONNECT_OK (DataLoss reject if unreadable). TS LoginServer.ts:271-317. Was falling through to full-login → OK not RECONNECT_OK. +2 pin tests.
-- [ ] **M28** Asset `.mid` path with no `_` panics (slice `[1:-1]`) vs TS clean 404 — `modules/asset/handler.go:84`. [R]
-- [ ] **M29** Friend 100-entry friend/ignore cap not enforced — `modules/friends/repository.go:150,196`. [R]
-- [ ] **M30** Obj full-follows gates on `CheckLifecycle` not `obj.isActive` (loc branch is correct) — `modules/world/player_zone.go:50`. [E/Q]
+- [x] **M28** Asset `.mid` path with no `_` panics (slice `[1:-1]`) vs TS clean 404 — `modules/asset/handler.go:84`. [R] **(ba3d795c)** — explicit 404 when LastIndex("_")<1 (TS web.ts:68 clamps to a non-existent file → 404). +pin test (3 malformed paths).
+- [x] **M29** Friend 100-entry friend/ignore cap not enforced — `modules/friends/repository.go:150,196`. [R] **(ba3d795c)** — atomicUpsertList counts owner's entries before a NEW insert; silent no-op at friendListLimit=100 (TS FriendServerRepository). +2 pin tests (friend + ignore).
+- [x] **M30** Obj full-follows gates on `CheckLifecycle` not `obj.isActive` (loc branch is correct) — `modules/world/player_zone.go:50`. [E/Q] **(cd271589)** — gate swapped to stored `obj.IsActive` (TS Zone.ts:142-146: both Despawn+isActive & Respawn+isActive emit ObjAdd). Updated 2 direct-inject tests to set IsActive=true (bypass AddObj). L49 (CheckLifecycle now only test-referenced) is the LOW-tier follow-up.
 
 ## LOW
 
