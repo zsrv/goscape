@@ -13,7 +13,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 | Severity | Done / Total |
 |---|---|
 | CRITICAL | 3 / 3 ✓ |
-| HIGH | 4 / 17 (+1 disputed, tracked separately) |
+| HIGH | 7 / 17 (+1 disputed, tracked separately) |
 | MEDIUM | 0 / 30 |
 | LOW | 0 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
@@ -34,9 +34,9 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [x] **H4** Queue/engine-queue delay off-by-one (fires 1 tick early) — `tick.go:508` — pre-decrement gating like TS Player.ts:883; ⚠TEST `player_engine_queue_test.go:86`. [cluster C] **(5f64edd1)** — post-decrement (read old, gate on old) in both drains; fixed 3 pinning tests (engine-queue + TestQueueFiresAtDelayExpiry).
 - [ ] **H5** Logout pipeline incomplete: no `closeModal()` / `canAccess()`+queue-drain gate / LOGOUT trigger — `tick.go:403` (+`server.go:1242`); `TriggerLogout` dispatched nowhere. [cluster C]
 - [ ] **H6** NPC `defaultMode` re-derived, ignores `typ.DefaultMode` — `npc_interaction.go:1073` — read stored field like TS; ⚠TEST `npc_interaction_test.go:1186`; ⚠LIE comment `:1076`. [cluster D]
-- [ ] **H7** INV_MOVEITEM item-loss: discards `toInv.Add` overflow TS drops to floor — `handlers_inv.go:761`. [cluster K]
-- [ ] **H8** INV_MOVEFROMSLOT item-loss: same — `handlers_inv.go:828`. [cluster K]
-- [ ] **H9** `routeFindSize2` typo `baseZ,baseZ`→`baseX,baseZ` (size-2 entity BFS, live path) — `pkg/pathfinder/routefinder/routefinder.go:325`. [cluster P]
+- [x] **H7** INV_MOVEITEM item-loss: discards `toInv.Add` overflow TS drops to floor — `handlers_inv.go:761`. [cluster K] **(bfcb3a72)** — overflow→floor via new dropOverflowToFloor helper; +pin test.
+- [x] **H8** INV_MOVEFROMSLOT item-loss: same — `handlers_inv.go:828`. [cluster K] **(bfcb3a72)** — same helper; +pin test.
+- [x] **H9** `routeFindSize2` typo `baseZ,baseZ`→`baseX,baseZ` (size-2 entity BFS, live path) — `pkg/pathfinder/routefinder/routefinder.go:325`. [cluster P] **(b260913d)** — confirmed vs rsmod PathFinder.ts:320.
 - [x] **H10** gamemap multimap keys per-tile not 8×8-zone (missing `>>3`) — `pkg/gamemap/multimap.go:12` — **(dep: C2 — fix together)**. [cluster Q] **(5ca96311)** — `packZoneCoord`→`zoneIndex` w/ TS ZoneMap.zoneIndex packing; updated TestSetMulti (pinned per-tile).
 - [ ] **H11** `loadGround` missing `!members && !isFreeToPlay && !bordersFreeToPlay` gate — `pkg/gamemap/load.go:79` — port `bordersFreeToPlay` from TS. [cluster Q]
 - [ ] **H12** `loadLocs` missing same F2P/members gate — `pkg/gamemap/load.go:159` — batch with H11/H13. [cluster Q]
