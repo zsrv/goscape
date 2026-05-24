@@ -64,9 +64,10 @@ func TestEnqueueQueueNormalDoesNotRouteToEngineQueue(t *testing.T) {
 }
 
 // TestProcessPlayerEngineQueuesFiresWhenDelayReachesZero pins TS
-// Player.ts:641-651 drain semantics: per-entry Delay-- ; fire when
-// CanAccess() && Delay <= 0. With Delay=2, drain twice → first drain
-// Delay→1 (no fire), second drain Delay→0 (fires + removes).
+// Player.ts:641-651 drain semantics: `const delay = request.delay--;` reads
+// the PRE-decrement value and fires when `canAccess() && delay <= 0`. So an
+// entry enqueued with Delay=N fires on the (N+1)th drain — Delay=2 fires on
+// the 3rd, after the stored delay has reached 0 and is read once more.
 func TestProcessPlayerEngineQueuesFiresWhenDelayReachesZero(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
@@ -87,19 +88,28 @@ func TestProcessPlayerEngineQueuesFiresWhenDelayReachesZero(t *testing.T) {
 		Type:   script.QueueEngine,
 	})
 
-	// Tick 1: Delay 2 → 1, no fire.
+	// Tick 1: read 2 (>0, no fire), Delay → 1.
 	s.processPlayerEngineQueues()
 	if len(p.engineQueue) != 1 {
-		t.Fatalf("after tick 1: p.engineQueue len: got %d, want 1 (delay 2→1, no fire)", len(p.engineQueue))
+		t.Fatalf("after tick 1: p.engineQueue len: got %d, want 1 (read 2, no fire)", len(p.engineQueue))
 	}
 	if got := p.engineQueue[0].Delay; got != 1 {
 		t.Errorf("after tick 1: Delay: got %d, want 1", got)
 	}
 
-	// Tick 2: Delay 1 → 0, fires + removes.
+	// Tick 2: read 1 (>0, no fire), Delay → 0.
+	s.processPlayerEngineQueues()
+	if len(p.engineQueue) != 1 {
+		t.Fatalf("after tick 2: p.engineQueue len: got %d, want 1 (read 1, no fire)", len(p.engineQueue))
+	}
+	if got := p.engineQueue[0].Delay; got != 0 {
+		t.Errorf("after tick 2: Delay: got %d, want 0", got)
+	}
+
+	// Tick 3: read 0 (<=0, fires + removes).
 	s.processPlayerEngineQueues()
 	if len(p.engineQueue) != 0 {
-		t.Errorf("after tick 2: p.engineQueue len: got %d, want 0 (delay 1→0, fired + removed)", len(p.engineQueue))
+		t.Errorf("after tick 3: p.engineQueue len: got %d, want 0 (read 0, fired + removed)", len(p.engineQueue))
 	}
 }
 

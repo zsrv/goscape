@@ -242,7 +242,17 @@ func TestQueueFiresAtDelayExpiry(t *testing.T) {
 	received := drainConn(t, cc)
 	p.EnqueueScriptArgs(0xAAAA, 1, nil, nil, script.QueueNormal)
 
-	// Pre-decrement semantics: delay 1 -> 0, 0 <= 0 fires immediately.
+	// TS post-decrement (Player.ts:883): delay=1 reads 1 (>0, no fire) and
+	// decrements to 0 on the first tick; the second tick reads 0 (<=0) and
+	// fires. So an entry with delay=N fires on the (N+1)th tick.
+	s.processActiveScripts()
+	if len(p.queue) != 1 {
+		t.Fatalf("after tick 1: queue len=%d, want 1 (read 1, no fire)", len(p.queue))
+	}
+	if got := p.queue[0].Delay; got != 0 {
+		t.Errorf("after tick 1: Delay=%d, want 0", got)
+	}
+
 	s.processActiveScripts()
 	p.client.flushWrite()
 	got := <-received

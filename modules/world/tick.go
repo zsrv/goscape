@@ -505,8 +505,13 @@ func (s *Server) processPlayerQueue(p *Player) {
 			len(req.IntArgs) > 0 && req.IntArgs[0] == 0 {
 			req.Delay = 0
 		}
+		// TS Player.ts:883 — `const delay = request.delay--;` reads the
+		// PRE-decrement value, then decrements; the gate is `delay <= 0`. So a
+		// queue entry enqueued with delay=N fires after N ticks, not N-1.
+		// Decrementing first and gating on the new value fired one tick early.
+		delay := req.Delay
 		req.Delay--
-		if req.Delay > 0 {
+		if delay > 0 {
 			i++
 			continue
 		}
@@ -573,8 +578,12 @@ func (s *Server) processPlayerEngineQueues() {
 			i := 0
 			for i < len(p.engineQueue) {
 				req := &p.engineQueue[i]
+				// TS Player.ts:643 — post-decrement: read old delay, decrement,
+				// gate on `canAccess() && delay <= 0`. Gating on the new value
+				// fired one tick early.
+				delay := req.Delay
 				req.Delay--
-				if req.Delay > 0 || !p.CanAccess() {
+				if delay > 0 || !p.CanAccess() {
 					i++
 					continue
 				}
