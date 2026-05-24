@@ -47,6 +47,17 @@ func Pack(srcDir, outDir string) error {
 		return err
 	}
 
+	// multiway.csv / free2play.csv are read verbatim by the runtime GameMap
+	// from <cache>/server/maps/ (gamemap.Init → loadCsvMap). TS reads them
+	// straight from the source maps dir at boot; goscape runs off the packed
+	// cache, so copy them alongside the m/l/n/o streams here. Missing source
+	// CSVs are not an error (a map pack without multi-combat/F2P data).
+	for _, name := range []string{"multiway.csv", "free2play.csv"} {
+		if err := copyIfExists(filepath.Join(mapsSrc, name), filepath.Join(mapsServer, name)); err != nil {
+			return err
+		}
+	}
+
 	files := pack.ListFilesExt(mapsSrc, ".jm2")
 	for _, file := range files {
 		base := strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
@@ -92,6 +103,18 @@ func Pack(srcDir, outDir string) error {
 		}
 	}
 	return nil
+}
+
+// copyIfExists copies src to dst verbatim. A missing src is not an error.
+func copyIfExists(src, dst string) error {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	return os.WriteFile(dst, data, 0o644)
 }
 
 const tileStride = 4 * 64 * 64

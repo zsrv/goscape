@@ -67,3 +67,39 @@ func TestPack_MissingMapsDirNoOp(t *testing.T) {
 		t.Errorf("Pack: %v, want nil", err)
 	}
 }
+
+// TestPack_CopiesMultiwayAndFree2play pins that the multiway.csv /
+// free2play.csv source files are copied verbatim into <out>/server/maps/,
+// where the runtime GameMap (gamemap.Init → loadCsvMap) reads them. Without
+// the copy the runtime maps stay empty and multi-combat + F2P gating are dead.
+func TestPack_CopiesMultiwayAndFree2play(t *testing.T) {
+	tmp := t.TempDir()
+	src := filepath.Join(tmp, "src")
+	mapsDir := filepath.Join(src, "maps")
+	if err := os.MkdirAll(mapsDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	multiBody := "// header\n0_46_61_40_8\n"
+	if err := os.WriteFile(filepath.Join(mapsDir, "multiway.csv"), []byte(multiBody), 0o644); err != nil {
+		t.Fatalf("WriteFile multiway: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(mapsDir, "free2play.csv"), []byte("0_47_47_32_32\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile free2play: %v", err)
+	}
+
+	out := filepath.Join(tmp, "out")
+	if err := Pack(src, out); err != nil {
+		t.Fatalf("Pack: %v", err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(out, "server", "maps", "multiway.csv"))
+	if err != nil {
+		t.Fatalf("read copied multiway.csv: %v", err)
+	}
+	if string(got) != multiBody {
+		t.Errorf("copied multiway.csv = %q, want %q", got, multiBody)
+	}
+	if _, err := os.Stat(filepath.Join(out, "server", "maps", "free2play.csv")); err != nil {
+		t.Errorf("free2play.csv not copied: %v", err)
+	}
+}

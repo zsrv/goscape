@@ -450,9 +450,9 @@ func objFileEntry(typeID, count int) []byte {
 }
 
 // setFreemapAt flags the zone containing (x, z) as F2P. Mirrors the
-// encoding used by gm.IsFreeToPlay → packZoneCoord(x, z, 0).
+// encoding used by gm.IsFreeToPlay → zoneIndex(x, z, 0).
 func setFreemapAt(gm *GameMap, x, z int) {
-	gm.freemap[packZoneCoord(x, z, 0)] = true
+	gm.freemap[zoneIndex(x, z, 0)] = true
 }
 
 // objTypeConfigs builds an ObjTypeConfigs slice with len entries; each

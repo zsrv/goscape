@@ -48,10 +48,13 @@ func TestInitLoadsCsvMaps(t *testing.T) {
 	if err := os.MkdirAll(mapsDir, 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(mapsDir, "multiway.csv"), []byte("0,1000,2000\n"), 0644); err != nil {
+	// Rows are "y_mx_mz_lx_lz" (TS GameMap.loadCsvMap, GameMap.ts:269-282),
+	// NOT comma "level,x,z". multiway: zone at x=(46<<6)+40=2984, z=(61<<6)+8=3912.
+	// free2play: zone at x=(47<<6)+32=3040, z=(47<<6)+32=3040.
+	if err := os.WriteFile(filepath.Join(mapsDir, "multiway.csv"), []byte("// header\n0_46_61_40_8\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(mapsDir, "free2play.csv"), []byte("0,1500,2500\n"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(mapsDir, "free2play.csv"), []byte("0_47_47_32_32\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -59,11 +62,19 @@ func TestInitLoadsCsvMaps(t *testing.T) {
 	if err := gm.Init(tmp); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
-	if !gm.IsMulti(1000, 2000, 0) {
-		t.Error("expected (1000,2000,0) to be multi")
+	// Any tile within the 8×8 zone resolves true (zone-granularity keys).
+	if !gm.IsMulti(2984, 3912, 0) {
+		t.Error("expected (2984,3912,0) to be multi")
 	}
-	if !gm.IsFreeToPlay(1500, 2500) {
-		t.Error("expected (1500,2500) to be F2P")
+	if !gm.IsMulti(2987, 3915, 0) {
+		t.Error("expected (2987,3915,0) — same zone — to be multi")
+	}
+	if !gm.IsFreeToPlay(3040, 3040) {
+		t.Error("expected (3040,3040) to be F2P")
+	}
+	// A tile outside the zone is unaffected.
+	if gm.IsMulti(2976, 3912, 0) {
+		t.Error("(2976,3912,0) is a different zone; must not be multi")
 	}
 }
 
@@ -271,9 +282,14 @@ func TestSetMulti(t *testing.T) {
 	if !gm.IsMulti(3094, 3107, 0) {
 		t.Errorf("post-set: IsMulti(3094,3107,0) = false, want true")
 	}
-	// Different coord must remain unaffected.
-	if gm.IsMulti(3094, 3108, 0) {
-		t.Errorf("adjacent coord: IsMulti(3094,3108,0) = true, want false")
+	// Keys are zone-granular (x>>3, z>>3): another tile in the SAME 8×8 zone
+	// (x∈[3088,3095], z∈[3104,3111]) is also multi.
+	if !gm.IsMulti(3095, 3111, 0) {
+		t.Errorf("same-zone coord: IsMulti(3095,3111,0) = false, want true")
+	}
+	// A tile in a different zone must remain unaffected.
+	if gm.IsMulti(3096, 3107, 0) {
+		t.Errorf("other-zone coord: IsMulti(3096,3107,0) = true, want false")
 	}
 	// Clearing works.
 	gm.SetMulti(3094, 3107, 0, false)

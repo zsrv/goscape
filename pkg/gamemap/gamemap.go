@@ -161,10 +161,10 @@ func (gm *GameMap) Init(cacheDir string) error {
 	mapsDir := filepath.Join(cacheDir, "server", "maps")
 
 	// Load multimap and freemap CSVs (non-fatal if missing).
-	if err := loadCsvMap(filepath.Join(mapsDir, "multiway.csv"), gm.multimap); err != nil {
+	if err := loadCsvMap(filepath.Join(mapsDir, "multiway.csv"), gm.multimap, gm.log); err != nil {
 		gm.log.Warn("failed to load multiway.csv", "err", err)
 	}
-	if err := loadCsvMap(filepath.Join(mapsDir, "free2play.csv"), gm.freemap); err != nil {
+	if err := loadCsvMap(filepath.Join(mapsDir, "free2play.csv"), gm.freemap, gm.log); err != nil {
 		gm.log.Warn("failed to load free2play.csv", "err", err)
 	}
 
@@ -262,7 +262,7 @@ func (gm *GameMap) LoadObjsForTest(data []byte, mapSquareX, mapSquareZ int) {
 }
 
 // SetFreeMapForTest flags the zone containing (x, z) as F2P. Mirrors
-// the encoding used by gm.IsFreeToPlay → packZoneCoord(x, z, 0). NAI-151.
+// the encoding used by gm.IsFreeToPlay → zoneIndex(x, z, 0). NAI-151.
 func (gm *GameMap) SetFreeMapForTest(x, z int) {
-	gm.freemap[packZoneCoord(x, z, 0)] = true
+	gm.freemap[zoneIndex(x, z, 0)] = true
 }
