@@ -1,6 +1,10 @@
 package inventory
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/zsrv/goscape/pkg/objtype"
+)
 
 func TestNewHasCapacity(t *testing.T) {
 	inv := New(1, 28, StackNormal)
@@ -322,5 +326,66 @@ func TestAdd_TransactionAddedPopulated(t *testing.T) {
 	}
 	if tx.Added[1] != (SlotEntry{Slot: 1, Item: Item{Id: 10, Count: 1}}) {
 		t.Errorf("Added[1]: got %+v, want {Slot:1 Item:{Id:10 Count:1}}", tx.Added[1])
+	}
+}
+
+// -- [F] inventory cluster TS-fidelity pins (L10, L11, L13) --
+
+// L11: FromType seeds every stock index with the literal {stockobj[i],
+// stockcount[i]} — no id==0 skip, no count fallback to 1. Matches TS
+// Inventory.fromType (Inventory.ts:66-73).
+func TestFromType_SeedsLiteralStockObjAndCount(t *testing.T) {
+	tp := &objtype.InvType{
+		ConfigType: objtype.ConfigType{ID: 1},
+		Size:       3,
+		StockObj:   []uint16{0, 7, 0},
+		StockCount: []uint16{5, 0, 0},
+	}
+	inv := FromType(tp)
+	// id==0 is a valid obj and must NOT be skipped.
+	if inv.Items[0] == nil || inv.Items[0].Id != 0 || inv.Items[0].Count != 5 {
+		t.Errorf("slot 0: got %+v, want {Id:0 Count:5}", inv.Items[0])
+	}
+	// count==0 must NOT fall back to 1 (the slot seeds empty and restocks up).
+	if inv.Items[1] == nil || inv.Items[1].Id != 7 || inv.Items[1].Count != 0 {
+		t.Errorf("slot 1: got %+v, want {Id:7 Count:0}", inv.Items[1])
+	}
+	if inv.Items[2] == nil || inv.Items[2].Id != 0 || inv.Items[2].Count != 0 {
+		t.Errorf("slot 2: got %+v, want {Id:0 Count:0}", inv.Items[2])
+	}
+}
+
+// L13: Add clamps a stack write by the PER-SLOT count at the target slot, not
+// GetItemCount (the sum across all slots). Visible only with duplicate stacks
+// of one id. Matches TS Inventory.add (Inventory.ts:229-237).
+func TestAdd_StackOverflow_PerSlotBasis(t *testing.T) {
+	inv := New(1, 28, StackAlways)
+	inv.Items[0] = &Item{Id: 10, Count: StackLimit - 5}
+	inv.Items[2] = &Item{Id: 10, Count: 10}
+	// Sum is StackLimit+5 (over limit), but the target slot 0 can still take 5
+	// more up to StackLimit. Sum-basis would add 0; per-slot adds 5.
+	tx := inv.Add(10, 10, AddOpts{BeginSlot: -1, Stackable: true})
+	if tx.Completed != 5 {
+		t.Errorf("Completed: got %d, want 5 (per-slot basis)", tx.Completed)
+	}
+	if inv.Items[0].Count != StackLimit {
+		t.Errorf("slot 0 count: got %d, want %d", inv.Items[0].Count, StackLimit)
+	}
+}
+
+// L10: Remove with BeginSlot >= 1 scans [BeginSlot, capacity) then wraps to the
+// skipped prefix [0, BeginSlot) when not yet satisfied. Matches TS
+// Inventory.delete second pass (Inventory.ts:293-316).
+func TestRemove_BeginSlot_WrapsToSkippedPrefix(t *testing.T) {
+	inv := New(1, 5, StackNever)
+	inv.Items[0] = &Item{Id: 10, Count: 1}
+	inv.Items[1] = &Item{Id: 10, Count: 1}
+	// Start at slot 1 (removes 1), then wrap to slot 0 for the remaining 1.
+	tx := inv.Remove(10, 2, RemoveOpts{BeginSlot: 1})
+	if tx.Completed != 2 {
+		t.Errorf("Completed: got %d, want 2 (first pass + prefix wrap)", tx.Completed)
+	}
+	if inv.Items[0] != nil || inv.Items[1] != nil {
+		t.Errorf("both slots should clear: [0]=%+v [1]=%+v", inv.Items[0], inv.Items[1])
 	}
 }

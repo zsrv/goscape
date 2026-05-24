@@ -39,15 +39,18 @@ func New(typeId, capacity, stackType int) *Inventory {
 // populates its StockObj items.
 func FromType(t *objtype.InvType) *Inventory {
 	inv := New(t.ID, t.Size, stackTypeFrom(t))
-	for i, id := range t.StockObj {
-		if id == 0 {
-			continue
+	// L11: TS Inventory.fromType (Inventory.ts:66-73) seeds every stock index
+	// with the literal {stockobj[i], stockcount[i]} — no id==0 skip and no
+	// count fallback. This is load-bearing now that shop restock is live
+	// (tick.go processCleanup): a count-0 stock slot must seed at 0 and then
+	// restock up toward stockcount rather than start at 1, and obj id 0 is a
+	// valid obj. StockObj/StockCount are allocated in lockstep
+	// (invtype.go:42-43), so the indices line up.
+	for i := range t.StockObj {
+		if i >= len(t.StockCount) {
+			break
 		}
-		count := 1
-		if i < len(t.StockCount) && t.StockCount[i] > 0 {
-			count = int(t.StockCount[i])
-		}
-		inv.Items[i] = &Item{Id: int(id), Count: count}
+		inv.Items[i] = &Item{Id: int(t.StockObj[i]), Count: int(t.StockCount[i])}
 	}
 	return inv
 }
@@ -117,6 +120,12 @@ func (inv *Inventory) IsFull() bool  { return inv.FreeSlotCount() == 0 }
 func (inv *Inventory) IsEmpty() bool { return inv.FreeSlotCount() == inv.Capacity }
 
 type AddOpts struct {
+	// BeginSlot is the slot to start inserting at. L12: TS's `beginSlot`
+	// defaults to -1, the sentinel for "append from the first free slot"
+	// (NextFreeSlot on the stack path). The Go zero value is 0, which is a
+	// REAL slot index, not the sentinel — every caller that wants default
+	// append behavior MUST set BeginSlot:-1 explicitly. A caller that leaves
+	// it zero silently scans from slot 0 instead of appending.
 	BeginSlot           int
 	AssureFullInsertion bool
 	ForceNoStack        bool
@@ -137,6 +146,11 @@ type AddOpts struct {
 }
 
 type RemoveOpts struct {
+	// BeginSlot is the slot to start removing at. L10/L12: TS defaults to -1
+	// ("from slot 0, no wrap"). A BeginSlot >= 1 scans [BeginSlot, capacity)
+	// then wraps to the skipped prefix [0, BeginSlot). The Go zero value (0)
+	// behaves identically to -1 here (start at 0, no wrap), but callers should
+	// still pass -1 for clarity and parity with AddOpts.
 	BeginSlot         int
 	AssureFullRemoval bool
 
@@ -271,25 +285,23 @@ func (inv *Inventory) Add(id, count int, opts AddOpts) Transaction {
 		}
 	}
 
-	// Clamp at StackLimit.
-	addCount := min(count, StackLimit-previousCount)
-	if addCount <= 0 {
-		return tx
+	// L13: TS lines 229-237 clamp using the PER-SLOT stack count at stackIndex
+	// (`this.get(stackIndex)?.count`), not GetItemCount which sums across all
+	// slots, and SET the slot to the new total rather than incrementing. These
+	// differ only when a stack-typed inv holds duplicate stacks of one id (an
+	// invariant violation); TS clamps per-slot, so we match it. previousCount
+	// (the sum) remains the basis for the earlier entry gates, matching TS.
+	stackCount := 0
+	if inv.Items[stackIndex] != nil {
+		stackCount = inv.Items[stackIndex].Count
 	}
-
-	var written Item
+	total := min(StackLimit, stackCount+count)
+	written := Item{Id: id, Count: total}
 	if !opts.DryRun {
-		if inv.Items[stackIndex] == nil {
-			inv.Items[stackIndex] = &Item{Id: id, Count: addCount}
-		} else {
-			inv.Items[stackIndex].Count += addCount
-		}
+		inv.Items[stackIndex] = &Item{Id: id, Count: total}
 		inv.Update = true
-		written = *inv.Items[stackIndex]
-	} else {
-		written = Item{Id: id, Count: previousCount + addCount}
 	}
-	tx.Completed = addCount
+	tx.Completed = total - stackCount
 	tx.Added = []SlotEntry{{Slot: stackIndex, Item: written}}
 	return tx
 }
@@ -306,19 +318,31 @@ func (inv *Inventory) Remove(id, count int, opts RemoveOpts) Transaction {
 	}
 	removed := 0
 	begin := max(opts.BeginSlot, 0)
-	for i := begin; i < inv.Capacity && removed < count; i++ {
-		it := inv.Items[i]
-		if it == nil || it.Id != id {
-			continue
+	removeFrom := func(lo, hi int) {
+		for i := lo; i < hi && removed < count; i++ {
+			it := inv.Items[i]
+			if it == nil || it.Id != id {
+				continue
+			}
+			take := min(count-removed, it.Count)
+			it.Count -= take
+			removed += take
+			// M11: a stock-obj slot is retained at count 0 so a shop can restock
+			// it; everything else vacates the slot. Mirrors TS Inventory.ts:280-286.
+			if it.Count == 0 && !opts.StockObj {
+				inv.Items[i] = nil
+			}
 		}
-		take := min(count-removed, it.Count)
-		it.Count -= take
-		removed += take
-		// M11: a stock-obj slot is retained at count 0 so a shop can restock
-		// it; everything else vacates the slot. Mirrors TS Inventory.ts:280-286.
-		if it.Count == 0 && !opts.StockObj {
-			inv.Items[i] = nil
-		}
+	}
+	removeFrom(begin, inv.Capacity)
+	// L10: with a beginSlot (>= 1), TS scans [beginSlot, capacity) first, then
+	// wraps to the skipped prefix [0, beginSlot) if not yet satisfied
+	// (Inventory.ts:256-316). BeginSlot == -1 (or 0) starts at slot 0 with no
+	// wrap. Live restock callers pass BeginSlot=index where the id is at that
+	// slot, so the wrap isn't exercised today, but a future caller could pass a
+	// beginSlot past the id — match TS so it doesn't silently under-remove.
+	if opts.BeginSlot > 0 && removed < count {
+		removeFrom(0, begin)
 	}
 	if removed > 0 {
 		inv.Update = true
