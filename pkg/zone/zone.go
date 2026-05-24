@@ -358,9 +358,10 @@ func (z *Zone) RemoveObj(obj *entity.Obj, currentTick int) {
 }
 
 // RevealObj transitions a private drop to public and queues an ENCLOSED
-// OBJ_REVEAL event. Simplified vs TS — does not consult ObjType
-// tradeable/members flags.
-// TODO(beyond-4b): wire tradeability gating.
+// OBJ_REVEAL event. The tradeable/members gate from TS Zone.revealObj
+// (Zone.ts:309-312) lives at the caller (*Server).RevealObj (M9), which has
+// ObjType-config and world-members access; this low-level method assumes the
+// reveal has already been authorized.
 func (z *Zone) RevealObj(obj *entity.Obj, receiverSlot int) {
 	obj.ReceiverID = PublicReceiver
 	obj.Reveal = -1

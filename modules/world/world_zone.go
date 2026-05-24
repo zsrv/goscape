@@ -210,11 +210,34 @@ func (s *Server) RemoveObj(obj *entitypkg.Obj, duration int) {
 	}
 }
 
-// RevealObj transitions a private drop to public.
+// RevealObj transitions a private drop to public — but only if the obj is
+// tradeable and not members-locked on an f2p world. Mirrors TS Zone.revealObj
+// (Zone.ts:304-312): `if (!tradeable || (members && !NODE_MEMBERS) || reveal
+// === -1) { reveal = -1; return }`. M9: goscape previously revealed
+// unconditionally, so a non-tradeable or members-in-f2p private drop became
+// public. obj.Reveal is forced to -1 either way so the countdown does not
+// retrigger (the reveal===-1 arm of the TS guard is structurally satisfied by
+// turnObj only calling this at Reveal==0).
 func (s *Server) RevealObj(obj *entitypkg.Obj, receiverSlot int) {
+	obj.LastChange = -1
+	ot := s.objTypeFor(obj.Type)
+	if ot == nil || !ot.Tradeable || (ot.Members && !s.cfg.NodeMembers) {
+		obj.Reveal = -1 // stays private with its original receiver
+		return
+	}
 	z := s.zoneMap.Get(obj.Level, obj.X, obj.Z)
 	z.RevealObj(obj, receiverSlot)
 	s.TrackZone(z)
+}
+
+// objTypeFor returns the ObjType config for id, or nil when unconfigured /
+// out of range. Matches the inline guard pattern used across the op handlers
+// (e.g. handler_opheld.go:73).
+func (s *Server) objTypeFor(id int) *objtype.ObjType {
+	if s.objTypes == nil || id < 0 || id >= len(s.objTypes.Configs) {
+		return nil
+	}
+	return s.objTypes.Configs[id]
 }
 
 // AnimMap routes a tile-based spotanim event.

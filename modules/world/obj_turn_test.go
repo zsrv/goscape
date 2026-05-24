@@ -4,14 +4,25 @@ import (
 	"testing"
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
+	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/zone"
 )
+
+// seedTradeableObjType configures s.objTypes so type id passes the M9 reveal
+// gate in (*Server).RevealObj (tradeable, non-members). Without this the gate
+// keeps the drop private (objType nil → treated as non-tradeable).
+func seedTradeableObjType(s *Server, id int) {
+	cfgs := make([]*objtype.ObjType, id+1)
+	cfgs[id] = &objtype.ObjType{Tradeable: true}
+	s.objTypes = &objtype.ObjTypeConfigs{Configs: cfgs}
+}
 
 // TestTurnObj_RevealCountdownDecrementsAcrossTicks verifies that Arm 1
 // decrements o.Reveal each tick and fires RevealObj exactly when it hits 0.
 func TestTurnObj_RevealCountdownDecrementsAcrossTicks(t *testing.T) {
 	s := newZoneTestServer(t)
+	seedTradeableObjType(s, 995)
 	o := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 995, 1)
 	o.Reveal = 2
 	o.LifecycleTick = 999 // far future — lifecycle arm must not fire
@@ -46,6 +57,8 @@ func TestTurnObj_RevealCountdownDecrementsAcrossTicks(t *testing.T) {
 func TestTurnObj_RevealAtZero_UsesReceiverPlayerSlot(t *testing.T) {
 	s := newZoneTestServer(t)
 
+	seedTradeableObjType(s, 995)
+
 	// Place a player at slot 3 with uid=42.
 	p, _ := newZoneTestPlayer(t, s, 3, 3094, 3106, 0)
 	p.uid = 42
@@ -79,6 +92,7 @@ func TestTurnObj_RevealAtZero_UsesReceiverPlayerSlot(t *testing.T) {
 // unknown/logged-out receiver UID results in slot 0 in the OBJ_REVEAL bytes.
 func TestTurnObj_RevealAtZero_LoggedOutReceiverPassesSlotZero(t *testing.T) {
 	s := newZoneTestServer(t)
+	seedTradeableObjType(s, 995)
 
 	o := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 995, 1)
 	o.ReceiverID = 99999 // no player with this UID
@@ -232,6 +246,7 @@ func TestTurnObj_NoMatchingLifecycle_UntracksAndLogs(t *testing.T) {
 // is not yet due, only RevealObj fires and lifecycle state is unaffected.
 func TestTurnObj_RevealAndLifecycleIndependent(t *testing.T) {
 	s := newZoneTestServer(t)
+	seedTradeableObjType(s, 995)
 	now := 100
 
 	o := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 995, 1)
@@ -287,4 +302,82 @@ func TestProcessZones_DispatchesObjToTurnObj(t *testing.T) {
 	if o.IsActive {
 		t.Error("after processZones at tick 105: obj must be deactivated (DESPAWN arm fired)")
 	}
+}
+
+// TestRevealObj_GatedStaysPrivate pins M9: (*Server).RevealObj keeps a drop
+// private (no public transition, Reveal forced to -1) when the obj is not
+// tradeable, or is members-only on an f2p world. Mirrors TS Zone.revealObj
+// (Zone.ts:309-312). A tradeable, non-members obj reveals as before.
+func TestRevealObj_GatedStaysPrivate(t *testing.T) {
+	const objID = 700
+
+	newObjWithReceiver := func(s *Server) *entitypkg.Obj {
+		o := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, objID, 1)
+		o.ReceiverID = 42 // private to UID 42
+		o.Reveal = 0      // at the reveal threshold
+		return o
+	}
+
+	t.Run("not_tradeable_stays_private", func(t *testing.T) {
+		s := newZoneTestServer(t)
+		s.objTypes = &objtype.ObjTypeConfigs{Configs: func() []*objtype.ObjType {
+			c := make([]*objtype.ObjType, objID+1)
+			c[objID] = &objtype.ObjType{Tradeable: false}
+			return c
+		}()}
+		o := newObjWithReceiver(s)
+		z := s.zoneMap.Get(o.Level, o.X, o.Z)
+
+		s.RevealObj(o, 0)
+
+		if o.ReceiverID != 42 {
+			t.Errorf("non-tradeable: ReceiverID got %d, want 42 (stays private)", o.ReceiverID)
+		}
+		if o.Reveal != -1 {
+			t.Errorf("non-tradeable: Reveal got %d, want -1 (countdown stopped)", o.Reveal)
+		}
+		if len(z.Events()) != 0 {
+			t.Errorf("non-tradeable: got %d zone events, want 0 (no public reveal)", len(z.Events()))
+		}
+	})
+
+	t.Run("members_in_f2p_stays_private", func(t *testing.T) {
+		s := newZoneTestServer(t)
+		s.cfg.NodeMembers = false
+		s.objTypes = &objtype.ObjTypeConfigs{Configs: func() []*objtype.ObjType {
+			c := make([]*objtype.ObjType, objID+1)
+			c[objID] = &objtype.ObjType{Tradeable: true, Members: true}
+			return c
+		}()}
+		o := newObjWithReceiver(s)
+		z := s.zoneMap.Get(o.Level, o.X, o.Z)
+
+		s.RevealObj(o, 0)
+
+		if o.ReceiverID != 42 || o.Reveal != -1 || len(z.Events()) != 0 {
+			t.Errorf("members-in-f2p: ReceiverID=%d Reveal=%d events=%d, want 42, -1, 0",
+				o.ReceiverID, o.Reveal, len(z.Events()))
+		}
+	})
+
+	t.Run("members_in_p2p_reveals", func(t *testing.T) {
+		s := newZoneTestServer(t)
+		s.cfg.NodeMembers = true
+		s.objTypes = &objtype.ObjTypeConfigs{Configs: func() []*objtype.ObjType {
+			c := make([]*objtype.ObjType, objID+1)
+			c[objID] = &objtype.ObjType{Tradeable: true, Members: true}
+			return c
+		}()}
+		o := newObjWithReceiver(s)
+		z := s.zoneMap.Get(o.Level, o.X, o.Z)
+
+		s.RevealObj(o, 0)
+
+		if o.ReceiverID != zone.PublicReceiver {
+			t.Errorf("members-in-p2p: ReceiverID got %d, want PublicReceiver (%d)", o.ReceiverID, zone.PublicReceiver)
+		}
+		if len(z.Events()) != 1 {
+			t.Errorf("members-in-p2p: got %d zone events, want 1 (public reveal)", len(z.Events()))
+		}
+	})
 }
