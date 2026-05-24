@@ -38,6 +38,33 @@ func TestServerAddObjRoutesByCoord(t *testing.T) {
 	}
 }
 
+// TestServerAddObjEvictsOldestWhenZoneFull pins the per-zone obj cap (H2):
+// adding a despawn obj to a zone already at MaxObjs (129) evicts the oldest
+// despawn obj first, so the zone never exceeds the cap. Mirrors TS
+// Zone.addObj eviction (Zone.ts:281-289). Distinct obj types avoid the
+// stack-merge path (unconfigured ObjType → not stackable).
+func TestServerAddObjEvictsOldestWhenZoneFull(t *testing.T) {
+	s := newZoneTestServer(t)
+	const tileX, tileZ = 3094, 3106
+	n := zone.MaxObjs + 1
+	objs := make([]*entitypkg.Obj, 0, n)
+	for i := range n {
+		o := entitypkg.NewObj(0, tileX, tileZ, entitypkg.LifecycleDespawn, 1000+i, 1)
+		s.AddObj(o, zone.PublicReceiver, 0, 0)
+		objs = append(objs, o)
+	}
+	z := s.zoneMap.Get(0, tileX, tileZ)
+	if z.TotalObjs() != zone.MaxObjs {
+		t.Errorf("TotalObjs after %d adds: got %d, want %d (cap)", n, z.TotalObjs(), zone.MaxObjs)
+	}
+	if objs[0].IsActive {
+		t.Error("oldest obj should have been evicted (IsActive=false)")
+	}
+	if !objs[n-1].IsActive {
+		t.Error("newest obj should be active")
+	}
+}
+
 func TestServerChangeObjPassesCurrentTick(t *testing.T) {
 	s := newZoneTestServer(t)
 	s.currentTick = 42

@@ -256,10 +256,31 @@ func (z *Zone) AddStaticObj(obj *entity.Obj) {
 	obj.IsActive = true
 }
 
+// MaxObjs is the per-zone obj cap. Mirrors TS Zone.OBJS = (SIZE<<1)+1 with
+// SIZE = 8*8 (Zone.ts:38-39) → 129. When a despawn obj is added to a full
+// zone the oldest despawn obj is evicted first; that eviction lives in
+// Server.AddObj (the world layer, which owns obj removal / respawn).
+const MaxObjs = ((8 * 8) << 1) + 1
+
+// TotalObjs returns the number of objs currently tracked in the zone (static
+// respawn + dynamic despawn). Mirrors TS Zone.totalObjs.
+func (z *Zone) TotalObjs() int { return len(z.Objs) }
+
+// FirstDespawnObj returns the oldest despawn-lifecycle obj in the zone, or nil
+// if none. z.Objs is append-ordered (oldest first), matching TS
+// Zone.getAllObjsUnsafe head→tail iteration for cap eviction.
+func (z *Zone) FirstDespawnObj() *entity.Obj {
+	for _, o := range z.Objs {
+		if o.Lifecycle == entity.LifecycleDespawn {
+			return o
+		}
+	}
+	return nil
+}
+
 // AddObj appends a dynamic obj to z.Objs and queues an OBJ_ADD event.
-// Enclosed if receiverID == PublicReceiver; Follows otherwise.
-// TODO(beyond-4b): enforce per-zone obj cap (TS: OBJS = 129) with
-// oldest-obj eviction.
+// Enclosed if receiverID == PublicReceiver; Follows otherwise. The per-zone
+// obj cap (MaxObjs) is enforced by the caller (Server.AddObj) before this.
 func (z *Zone) AddObj(obj *entity.Obj, receiverID int, dropperAccountID int64) {
 	// Unconditional assignment is correct today: all respawn-lifecycle
 	// callers pass dropperAccountID=0 because respawn objs are engine-

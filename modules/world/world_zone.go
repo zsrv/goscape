@@ -4,6 +4,7 @@ import (
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/inventory"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/zone"
 )
 
 // AddLoc routes a loc spawn through the world's zone map. Wires
@@ -158,8 +159,17 @@ func (s *Server) AddObj(obj *entitypkg.Obj, receiverID, duration int, dropperAcc
 		}
 	}
 
-	obj.SetLifeCycle(duration, s.currentTick, s.locObjTracker)
 	z := s.zoneMap.Get(obj.Level, obj.X, obj.Z)
+	// Per-zone obj cap: a despawn obj landing in a full zone (>= MaxObjs)
+	// evicts the oldest despawn obj first. Mirrors TS Zone.addObj
+	// (Engine-TS/src/engine/zone/Zone.ts:281-289), which calls World.removeObj
+	// — here s.RemoveObj, the world-layer removal that also untracks lifecycle.
+	if obj.Lifecycle == entitypkg.LifecycleDespawn && z.TotalObjs() >= zone.MaxObjs {
+		if victim := z.FirstDespawnObj(); victim != nil {
+			s.RemoveObj(victim, 0)
+		}
+	}
+	obj.SetLifeCycle(duration, s.currentTick, s.locObjTracker)
 	z.AddObj(obj, receiverID, dropperAccountID)
 	s.TrackZone(z)
 }
