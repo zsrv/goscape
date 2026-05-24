@@ -473,6 +473,68 @@ func TestInvMoveFromSlot(t *testing.T) {
 	}
 }
 
+// TestInvMoveItem_OverflowDropsToFloor pins H7: items removed from the source
+// but rejected by a full destination drop to the floor (owned by the active
+// player, 200t) instead of vanishing. Mirrors TS InvOps.ts:521-530.
+func TestInvMoveItem_OverflowDropsToFloor(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	w := newFakeWorldMembers()
+
+	// Destination (main, 28 slots, StackNormal) is full of non-stackable
+	// swords so it cannot accept any coins.
+	main := lookup.invs[testInvMain]
+	for i := range 28 {
+		main.Items[i] = &inventory.Item{Id: testObjSword, Count: 1}
+	}
+	// Source (bank) holds 30 coins.
+	bank := lookup.invs[testInvBank]
+	bank.Items[0] = &inventory.Item{Id: testObjCoin, Count: 30}
+
+	runInvOpWithWorld(t, OpInvMoveItem, []int{testInvBank, testInvMain, testObjCoin, 30}, lookup, mc, w)
+
+	if got := bank.GetItemCount(testObjCoin); got != 0 {
+		t.Errorf("bank coin after move: got %d, want 0 (all removed)", got)
+	}
+	if got := main.GetItemCount(testObjCoin); got != 0 {
+		t.Errorf("main coin after move: got %d, want 0 (full, none accepted)", got)
+	}
+	if len(w.addedCalls) != 1 {
+		t.Fatalf("expected 1 AddObj (stackable overflow), got %d", len(w.addedCalls))
+	}
+	if got := w.addedCalls[0]; got.typeID != testObjCoin || got.count != 30 || got.duration != 200 {
+		t.Errorf("AddObj: got %+v, want {typeID:%d count:30 duration:200}", got, testObjCoin)
+	}
+}
+
+// TestInvMoveFromSlot_OverflowDropsToFloor pins H8: the whole source slot is
+// removed; whatever the destination can't hold drops to the floor. Mirrors TS
+// Player.invMoveFromSlot + InvOps.ts:339-347.
+func TestInvMoveFromSlot_OverflowDropsToFloor(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	w := newFakeWorldMembers()
+
+	main := lookup.invs[testInvMain]
+	for i := range 28 {
+		main.Items[i] = &inventory.Item{Id: testObjSword, Count: 1}
+	}
+	bank := lookup.invs[testInvBank]
+	bank.Items[4] = &inventory.Item{Id: testObjCoin, Count: 15}
+
+	runInvOpWithWorld(t, OpInvMoveFromSlot, []int{testInvBank, testInvMain, 4}, lookup, mc, w)
+
+	if got := bank.Get(4); got != nil {
+		t.Errorf("bank slot 4 after move: got %+v, want nil (slot emptied)", got)
+	}
+	if len(w.addedCalls) != 1 {
+		t.Fatalf("expected 1 AddObj (stackable overflow), got %d", len(w.addedCalls))
+	}
+	if got := w.addedCalls[0]; got.typeID != testObjCoin || got.count != 15 || got.duration != 200 {
+		t.Errorf("AddObj: got %+v, want {typeID:%d count:15 duration:200}", got, testObjCoin)
+	}
+}
+
 func TestInvMoveToSlot(t *testing.T) {
 	lookup := newTestInvLookup()
 	mc := newTestInvConfigs()

@@ -758,12 +758,38 @@ func handleInvMoveItem(s *ScriptState) error {
 		return nil
 	}
 	stackable, stockObj := lookupStackableStockObj(s, toInv.Type, obj)
-	toInv.Add(obj, tx.Completed, inventory.AddOpts{
+	addTx := toInv.Add(obj, tx.Completed, inventory.AddOpts{
 		BeginSlot: -1,
 		Stackable: stackable,
 		StockObj:  stockObj,
 	})
+	// TS InvOps.ts:521-530 — items that don't fit in the destination drop to
+	// the floor (DESPAWN, owned by the active player, 200t) rather than
+	// vanishing. overflow is `count - added`, mirroring TS exactly.
+	if overflow := count - addTx.Completed; overflow > 0 && s.World != nil {
+		dropOverflowToFloor(s, obj, overflow, stackable)
+	}
 	return nil
+}
+
+// dropOverflowToFloor drops `overflow` units of obj at the active player's
+// tile as DESPAWN objs owned by that player (200-tick lifetime). Non-stackable
+// items (or a single unit) drop as N count-1 piles; stackables drop as one
+// pile of `overflow`. Mirrors the TS World.addObj overflow branch shared by
+// INV_MOVEITEM / INV_MOVEFROMSLOT / INV_ADD (InvOps.ts:521-530, 339-347).
+func dropOverflowToFloor(s *ScriptState, obj, overflow int, stackable bool) {
+	level := (s.activePlayer().CoordPacked() >> 28) & 0x3
+	x := s.activePlayer().X()
+	z := s.activePlayer().Z()
+	receiverID := s.activePlayer().UID()
+	accountID := s.activePlayer().AccountID()
+	if !stackable || overflow == 1 {
+		for range overflow {
+			s.World.AddObj(level, x, z, obj, 1, 200, receiverID, accountID)
+		}
+	} else {
+		s.World.AddObj(level, x, z, obj, overflow, 200, receiverID, accountID)
+	}
 }
 
 // handleInvMoveFromSlot (INV_MOVEFROMSLOT) ports TS InvOps.ts:323-349.
@@ -827,11 +853,17 @@ func handleInvMoveFromSlot(s *ScriptState) error {
 	id, cnt := it.Id, it.Count
 	fromInv.Delete(fromSlot)
 	stackable, stockObj := lookupStackableStockObj(s, toInv.Type, id)
-	toInv.Add(id, cnt, inventory.AddOpts{
+	addTx := toInv.Add(id, cnt, inventory.AddOpts{
 		BeginSlot: -1,
 		Stackable: stackable,
 		StockObj:  stockObj,
 	})
+	// TS Player.invMoveFromSlot (Player.ts:1651) + InvOps.ts:339-347 — the
+	// whole slot is removed; whatever the destination can't hold drops to the
+	// floor (owned by the active player) instead of vanishing.
+	if overflow := cnt - addTx.Completed; overflow > 0 && s.World != nil {
+		dropOverflowToFloor(s, id, overflow, stackable)
+	}
 	return nil
 }
 
