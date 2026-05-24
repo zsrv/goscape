@@ -16,7 +16,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 | HIGH | 17 / 17 ✓ |
 | DISPUTED | D1 RESOLVED ✓ (real bug, fixed with M2) |
 | MEDIUM | 30 / 30 ✓ |
-| LOW | 23 / 50 |
+| LOW | 26 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
 
 ---
@@ -109,9 +109,9 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [x] **L21** INV_SIZE requires resolvable player inv vs TS pure config read — **(c95d6cd7)** now reads `s.Configs.InvType(id).Size` directly (TS InvOps.ts:27-31), works without a bound inv. +pin TestInvSize_NoResolvableInv_L21. [K]
 - [x] **L22** OBJ_ADDALL lacks nil-World guard — **(c95d6cd7)** added matching twin guard (no Self guard — broadcast path). +pin TestHandleObjAddAllNilWorldGuard. [K]
 - [x] **L23** OBJ_FIND validates coord before objType — **(c95d6cd7)** order swapped to objType-then-coord per TS ObjOps.ts:172-173. +pin TestObjFindValidatesObjTypeBeforeCoord. [K]
-- [ ] **L24** INTERPOLATE x1==x0 fallback y0 vs TS de-facto 0 — `handlers_number.go:368`. [L]
-- [ ] **L25** MULTIPLY/POW int32-wrap vs TS float64→toInt32 (>2^53 edge) — `handlers_number.go:84,155`. [L]
-- [ ] **L26** STRING_LENGTH/APPEND_CHAR UTF-8 byte vs TS UTF-16 unit — `handlers_string.go:80,46`. [L]
+- [x] **L24** INTERPOLATE x1==x0 fallback y0 vs TS de-facto 0 — **(bbfcf16f)** reimplemented in float64 mirroring TS NumberOps.ts:42-47 (Math.floor((y1-y0)/(x1-x0))*(x-x0)+y0, toInt32 on push). x1==x0 → ±Inf/NaN → toInt32=0 (the de-facto TS result), not the prior y0 guard; also tracks float rounding for the >2^53 run. Removed now-dead floorDiv. ⚠TEST: TestInterpolateDivZeroReturnsY0→ReturnsZero (buggy y0→0) +NaN sub-case. [L]
+- [x] **L25** MULTIPLY/POW int32-wrap vs TS float64→toInt32 (>2^53 edge) — **(bbfcf16f)** both now `floatToInt32(float64 product)` / `floatToInt32(math.Pow)` mirroring TS pushInt(a*b)/pushInt(Math.pow): tracks float64 precision >2^53 instead of exact mod-2^32 wrap. POW `exp<0→0` shortcut was also wrong for base ±1 (Math.pow(1,-5)=1) — fixed. +pins (base-1 neg-exp, 2^31/2^32 wrap, large mul). [L]
+- [x] **L26** STRING_LENGTH/APPEND_CHAR UTF-8 byte vs TS UTF-16 unit — **(bbfcf16f)** goscape strings are raw cp1252 bytes (gjstr maps each wire byte→one TS UTF-16 unit via fromCharCode; stored verbatim). STRING_LENGTH len()==TS .length ALREADY (premise was inverted) — confirmed+documented, a rune recount would MIS-measure non-UTF-8 bytes. APPEND_CHAR string(rune(ch)) emitted 2-byte UTF-8 for chars 128-255 (broke byte-length + wire parity) → single low byte. BONUS same-family: STRING_INDEXOF_CHAR IndexRune→IndexByte (Latin-1 char reported -1). +3 pins. [L]
 - [ ] **L27** Plain GOSUB/JUMP don't pop callee declared args — `handlers_core.go:8`. [H]
 - [ ] **L28** SWITCH branches on key-presence vs TS truthy-offset — `handlers_array.go:59`. [H]
 - [ ] **L29** Pointer bit positions differ from TS (internal-only) — `pkg/script/pointer.go:7` — ⚠LIE comment citing matching values. [H]
