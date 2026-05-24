@@ -14,7 +14,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 |---|---|
 | CRITICAL | 3 / 3 ✓ |
 | HIGH | 17 / 17 ✓ (+1 disputed, tracked separately) |
-| MEDIUM | 9 / 30 |
+| MEDIUM | 10 / 30 |
 | LOW | 0 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
 
@@ -60,7 +60,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [x] **M6** NORMAL timer gate uses `p.delayed` not `canAccess()` (+ missing shutdown force-fire) — `tick.go:625`. [C] **(7291272f)** — NORMAL gate now `!p.CanAccess()`; shutdown force-fire is the same DEVIATION-NAI-144-D4 (no shutdown flag). +pin test.
 - [x] **M7** `addXp` NODE_XPRATE multiplier not applied → `node_xp_rate` config dead — `player_script.go:852` — ⚠LIE comment `handlers_player.go:570`. [C] **(116f9922)** — added allowMulti param + xpRate() helper; STAT_ADVANCE=true, setlevel cheat=false; fixed lie comment. +pin test (rate=3).
 - [x] **M8** Modal-open clobbers full bitmap (wipes TUT bit) + skips suspended-script clear — `player_script.go:1086`. [C] **(1e3767c3)** — OpenMain/Chat/Side/MainSide use bit clear/OR (TUT survives) + clearSuspendedDialogScript (CountDialog/PauseButton→nil). +pin test.
-- [ ] **M9** Obj-reveal tradeable/members gating missing (private drop becomes public) — `pkg/zone/zone.go:343` (TODO-marked). [E]
+- [x] **M9** Obj-reveal tradeable/members gating missing (private drop becomes public) — `pkg/zone/zone.go:343` (TODO-marked). [E] **(8e4756ca)** — gate added at (*Server).RevealObj (objTypeFor + cfg.NodeMembers); pkg/zone TODO retired. +pin test (non-tradeable/members-f2p stay private).
 - [x] **M10** INV `assureFullRemoval` short-circuit absent — `pkg/inventory/inventory.go:291` — **(needed by H3)**. [F] **(425e843c)** — honor existing AssureFullRemoval opt (all-or-nothing).
 - [x] **M11** INV stockObj count-0 slot retention missing — `pkg/inventory/inventory.go:306` — **(needed by H3)**. [F] **(425e843c)** — RemoveOpts.StockObj retains slot at count 0.
 - [ ] **M12** FINDHERO reads `s.Self` not operand-aware (player) — `handlers_player.go:1644` — ⚠TEST `TestFindHero_PopulatedAlwaysSetsSelf2`; ⚠LIE comment. [I]
