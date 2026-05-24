@@ -12,8 +12,8 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 
 | Severity | Done / Total |
 |---|---|
-| CRITICAL | 0 / 3 |
-| HIGH | 0 / 17 (+1 disputed, tracked separately) |
+| CRITICAL | 3 / 3 ✓ |
+| HIGH | 1 / 17 (+1 disputed, tracked separately) |
 | MEDIUM | 0 / 30 |
 | LOW | 0 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
@@ -22,9 +22,9 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 
 ## CRITICAL
 
-- [ ] **C1** NpcType decoder missing opcode 214 (regenrate) → config-load crash; `RegenRate` frozen at 100 — `pkg/objtype/npctype.go:294` — add `case 214: t.RegenRate = int(dat.G2())`; ⚠LIE comment at `:331`. [cluster M/S]
-- [ ] **C2** `gamemap.loadCsvMap` parses comma `level,x,z` not underscore `level_mx_mz_lx_lz` → multimap/freemap empty, multi-combat + F2P-gating dead — `pkg/gamemap/multimap.go:37` — wire existing `pkg/pack/worldmap/csv.go:processCsv`; ⚠TEST `TestInitLoadsCsvMaps`; **(dep: H10 — fix together)**. [cluster Q]
-- [ ] **C3** CLIENT_CHEAT reads phantom leading `G1()` → eats 1st char of every `::` command — `modules/world/handlers_game.go:594` — ⚠TRACE live repro first; then remove `G1()` + ⚠TEST `handler_cheats_supermod_test.go:45` fabricated `P1(0)`; ⚠LIE comment. [cluster G]
+- [x] **C1** NpcType decoder missing opcode 214 (regenrate) → config-load crash; `RegenRate` frozen at 100 — `pkg/objtype/npctype.go:294` — add `case 214: t.RegenRate = int(dat.G2())`; ⚠LIE comment at `:331`. [cluster M/S] **(82da4025)** — note: no "lie comment" exists at :331 (it's the Stats initializer); added pin test `TestNpcTypeDecodeRegenRate214`.
+- [x] **C2** `gamemap.loadCsvMap` parses comma `level,x,z` not underscore `level_mx_mz_lx_lz` → multimap/freemap empty, multi-combat + F2P-gating dead — `pkg/gamemap/multimap.go:37` — wire existing `pkg/pack/worldmap/csv.go:processCsv`; ⚠TEST `TestInitLoadsCsvMaps`; **(dep: H10 — fix together)**. [cluster Q] **(5ca96311)** — did NOT use processCsv (that's the worldmap range-expander keyed per-tile, incompatible w/ zone-index lookup); ported TS GameMap.loadCsvMap instead. Also added packer CSV-copy into server/maps so Init can find them at runtime.
+- [x] **C3** CLIENT_CHEAT reads phantom leading `G1()` → eats 1st char of every `::` command — `modules/world/handlers_game.go:594` — ⚠TRACE live repro first; then remove `G1()` + ⚠TEST `handler_cheats_supermod_test.go:45` fabricated `P1(0)`; ⚠LIE comment. [cluster G] **(0f895a04)** — confirmed via wire-trace (TS decoder gjstr-only + Java client p1=length-prefix + size=-1 framing strips it), stronger than live repro. Removed G1(), fixed both masking helpers (dispatchCheat + dispatchTeleCheat) + lying comment.
 
 ## HIGH
 
@@ -37,7 +37,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [ ] **H7** INV_MOVEITEM item-loss: discards `toInv.Add` overflow TS drops to floor — `handlers_inv.go:761`. [cluster K]
 - [ ] **H8** INV_MOVEFROMSLOT item-loss: same — `handlers_inv.go:828`. [cluster K]
 - [ ] **H9** `routeFindSize2` typo `baseZ,baseZ`→`baseX,baseZ` (size-2 entity BFS, live path) — `pkg/pathfinder/routefinder/routefinder.go:325`. [cluster P]
-- [ ] **H10** gamemap multimap keys per-tile not 8×8-zone (missing `>>3`) — `pkg/gamemap/multimap.go:12` — **(dep: C2 — fix together)**. [cluster Q]
+- [x] **H10** gamemap multimap keys per-tile not 8×8-zone (missing `>>3`) — `pkg/gamemap/multimap.go:12` — **(dep: C2 — fix together)**. [cluster Q] **(5ca96311)** — `packZoneCoord`→`zoneIndex` w/ TS ZoneMap.zoneIndex packing; updated TestSetMulti (pinned per-tile).
 - [ ] **H11** `loadGround` missing `!members && !isFreeToPlay && !bordersFreeToPlay` gate — `pkg/gamemap/load.go:79` — port `bordersFreeToPlay` from TS. [cluster Q]
 - [ ] **H12** `loadLocs` missing same F2P/members gate — `pkg/gamemap/load.go:159` — batch with H11/H13. [cluster Q]
 - [ ] **H13** `loadNPCs` missing F2P/members gate — `pkg/gamemap/load.go:242` — batch with H11/H12. [cluster Q]
