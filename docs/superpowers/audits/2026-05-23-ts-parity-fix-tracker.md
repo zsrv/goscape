@@ -13,7 +13,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 | Severity | Done / Total |
 |---|---|
 | CRITICAL | 3 / 3 ✓ |
-| HIGH | 11 / 17 (+1 disputed, tracked separately) |
+| HIGH | 13 / 17 (+1 disputed, tracked separately) |
 | MEDIUM | 0 / 30 |
 | LOW | 0 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
@@ -41,8 +41,8 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [x] **H11** `loadGround` missing `!members && !isFreeToPlay && !bordersFreeToPlay` gate — `pkg/gamemap/load.go:79` — port `bordersFreeToPlay` from TS. [cluster Q] **(052d783e)** — gate added + bordersFreeToPlay ported.
 - [x] **H12** `loadLocs` missing same F2P/members gate — `pkg/gamemap/load.go:159` — batch with H11/H13. [cluster Q] **(052d783e)**
 - [x] **H13** `loadNPCs` missing F2P/members gate — `pkg/gamemap/load.go:242` — batch with H11/H12. [cluster Q] **(052d783e)** — no borders (TS:122-124); typeID read before gate to keep stream aligned. +pin tests.
-- [ ] **H14** Friend staff online-status bypass absent (`staffLvl` stored, never consulted) — `modules/friends/repository.go:319` (IsVisibleTo/Many). [cluster R]
-- [ ] **H15** Friend ignore-list online-suppression absent — `modules/friends/repository.go:319` — batch with H14. [cluster R]
+- [x] **H14** Friend staff online-status bypass absent (`staffLvl` stored, never consulted) — `modules/friends/repository.go:319` (IsVisibleTo/Many). [cluster R] **(53ad6ba5)** — staffLvl>1 bypass (TS playerStaff) in scalar + batched paths.
+- [x] **H15** Friend ignore-list online-suppression absent — `modules/friends/repository.go:319` — batch with H14. [cluster R] **(53ad6ba5)** — isIgnoredBy/targetsAmong; staff-then-ignore-then-mode order; +4 pin tests.
 - [ ] **H16** Login `PlayerLoading.verify` absent on read+write (corrupt save served/persisted) — `modules/login/handler.go:185,294`. [cluster R]
 - [ ] **H17** Login `wouldResetSaveFile` anti-rollback absent (stale save clobbers newer progress) — `modules/login/handler.go:226`. [cluster R]
 
