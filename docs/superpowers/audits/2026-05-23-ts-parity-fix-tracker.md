@@ -14,7 +14,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 |---|---|
 | CRITICAL | 3 / 3 ✓ |
 | HIGH | 17 / 17 ✓ (+1 disputed, tracked separately) |
-| MEDIUM | 21 / 30 |
+| MEDIUM | 23 / 30 |
 | LOW | 0 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
 
@@ -74,8 +74,8 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [x] **M20** SUBSTRING negative-end panic / no start>end swap — `handlers_string.go:85`. [L] **(27de25c5)** — JS substring semantics: clamp each idx to [0,len], swap if start>end. +edge-case tests.
 - [x] **M21** ParamType.DefaultInt default 0 vs TS -1 — `pkg/objtype/paramtype.go:152`. [M] **(9fa8879a)** — NewParamType inits DefaultInt: -1 (TS ParamType.ts:62).
 - [x] **M22** HuntType.FindNewMode default -1 vs TS NONE(0) — `pkg/objtype/hunttype.go:83`. [M] **(9fa8879a)** — NewHuntType FindNewMode → NPCModeNone(0); matches existing npc_hunt fixtures; updated hunttype_test assertion.
-- [ ] **M23** IDLE_TIMER (opcode 70) routed to no-op vs TS `requestIdleLogout` — `handlers_game.go:37`. [G]
-- [ ] **M24** MoveClick passes start tile not dest in non-default routefinder config — `handlers_game.go:300`. [G]
+- [x] **M23** IDLE_TIMER (opcode 70) routed to no-op vs TS `requestIdleLogout` — `handlers_game.go:37`. [G] **(abff5127)** — new handleIdleTimer sets requestIdleLogout unless NodeDebug (TS IdleTimerHandler.ts:8-12); flag already drained by processLogouts. +pin test (production-kicks / node_debug-keeps).
+- [x] **M24** MoveClick passes start tile not dest in non-default routefinder config — `handlers_game.go:300`. [G] **(abff5127)** — pathToMoveClick now gets p.userPath (==[dest] in non-routefinder) not raw packed (whose [0] is START); TS MoveClickHandler.ts:40. Fixed mislabeled dest_packed log. +pin test; adjusted minimap trailer test to routefinder mode (full-path preservation is routefinder-only in TS; it had relied on the old always-pass-packed bug).
 - [ ] **M25** Login "save missing + logout_time set" safety reject absent (silently resets char) — `modules/login/handler.go:186` — **(dep: M26)**. [R]
 - [ ] **M26** Login `setLoggedOut` doesn't record logout_time/logged_out — `modules/login/db.go:221`. [R]
 - [ ] **M27** Login reconnect can't re-serve save when client lost it — `modules/login/handler.go:148`. [R]
