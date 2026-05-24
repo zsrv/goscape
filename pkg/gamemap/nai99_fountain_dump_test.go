@@ -42,6 +42,7 @@ func TestNAI99_FountainFootprintDump_Lumbridge(t *testing.T) {
 	}
 
 	gm := New(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	gm.SetMembers(true) // members world so real-cache content is not F2P-gated
 	if err := gm.Init(cacheDir); err != nil {
 		t.Fatalf("gamemap.Init: %v", err)
 	}
@@ -166,6 +167,7 @@ func TestNAI99_FountainCoverage_Lumbridge(t *testing.T) {
 	}
 
 	gm := New(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	gm.SetMembers(true) // members world so real-cache content is not F2P-gated
 	gm.SetLocTypes(cfgs)
 	if err := gm.Init(cacheDir); err != nil {
 		t.Fatalf("gamemap.Init: %v", err)

@@ -39,6 +39,7 @@ func runRealCacheReachProbe(t *testing.T, srcX, srcZ, dstX, dstZ int) {
 	// Setup: real cache load + LocTypes + production populateStaticLocsIntoZones
 	// replay (mirrors modules/world/server.go:315-330).
 	gm := New(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	gm.SetMembers(true) // members world so real-cache content is not F2P-gated
 	if err := gm.Init(cacheDir); err != nil {
 		t.Fatalf("gamemap.Init: %v", err)
 	}
