@@ -268,7 +268,8 @@ func TestFullFollowsReplaysPrivateDropToOwnerByUID(t *testing.T) {
 	z := s.zoneMap.Get(0, 3094, 3106)
 	obj := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleDespawn, 526, 1)
 	obj.ReceiverID = p.uid
-	obj.LifecycleTick = 100 // despawn at tick 100 → alive at tick 1 (CheckLifecycle: LifecycleTick > tick)
+	obj.LifecycleTick = 100 // despawn at tick 100 (kept for documentation; gate is IsActive now)
+	obj.IsActive = true     // M30 gate-swap: writeFullFollows reads stored IsActive (Server.AddObj sets it; this test bypasses AddObj).
 	z.Objs = append(z.Objs, obj)
 
 	received := drainConn(t, cc)
@@ -412,19 +413,21 @@ func TestWriteFullFollows_RespawnUntouchedStatic_NoReplay(t *testing.T) {
 	}
 }
 
-// NAI-141 T1.4: Obj-side equivalence pin (§2.5). The unified CheckLifecycle
-// gate covers both TS branch shapes (Despawn+isActive and Respawn+isActive).
+// NAI-141 T1.4: Obj-side equivalence pin (§2.5). M30 swapped the obj gate from
+// the tick-derived CheckLifecycle to the stored IsActive flag, matching TS
+// Zone.ts:142-146 (both Despawn+isActive and Respawn+isActive emit ObjAdd, so
+// the effective test is just isActive).
 // (a) Despawn obj: covered by existing TestFullFollowsReplaysPrivateDropToOwnerByUID.
-// (b) Respawn obj with LifecycleTick=0 at currentTick=1: CheckLifecycle → 0<1 → alive.
+// (b) Respawn obj that is active: emits ObjAdd.
 // Wire shape: FullFollows header (3) + PartialFollows wrapper (3) + ObjAdd (6) = 12 bytes.
 func TestWriteFullFollows_ObjAdd_RespawnEmits(t *testing.T) {
 	s := newZoneTestServer(t)
 	p, cc := newZoneTestPlayer(t, s, 1, 3094, 3106, 0)
 
 	z := s.zoneMap.Get(0, 3094, 3106)
-	// LifecycleRespawn obj: LifecycleTick=0, currentTick=1 → CheckLifecycle: 0<1 → true.
 	obj := entitypkg.NewObj(0, 3094, 3106, entitypkg.LifecycleRespawn, 526, 1)
 	obj.LifecycleTick = 0
+	obj.IsActive = true                  // M30 gate-swap: writeFullFollows reads stored IsActive.
 	obj.ReceiverID = zone.PublicReceiver // visible to all observers.
 	z.Objs = append(z.Objs, obj)
 

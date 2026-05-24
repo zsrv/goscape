@@ -47,7 +47,12 @@ func (p *Player) writeFullFollows(z *zone.Zone, currentTick int) {
 		if obj.ReceiverID != zone.PublicReceiver && obj.ReceiverID != p.uid {
 			continue
 		}
-		if !obj.CheckLifecycle(currentTick) {
+		// M30: gate on the stored obj.IsActive flag, mirroring TS Zone.ts:142-146
+		// (both the DESPAWN+isActive and RESPAWN+isActive arms emit ObjAdd, so the
+		// effective test is just isActive). The loc sibling below already reads the
+		// stored IsActive; the prior tick-derived CheckLifecycle(currentTick) read
+		// the same state indirectly but could diverge at transition-tick boundaries.
+		if !obj.IsActive {
 			continue
 		}
 		ensureHeader()
