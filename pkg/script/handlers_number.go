@@ -9,6 +9,10 @@ import (
 
 // floorDiv returns floor(a / b), matching TS's Math.floor(a/b). Panics
 // on zero divisor; callers must pre-check and return an error.
+//
+// Only INTERPOLATE uses this (TS NumberOps.ts:48 wraps the division in
+// Math.floor). DIVIDE/MODULO/SCALE use Go's native truncating `/` and `%`
+// to match TS's toInt32-truncation / `%` remainder (M15-M17).
 func floorDiv(a, b int) int {
 	q := a / b
 	// Go truncates toward zero; floor division rounds toward -inf.
@@ -18,18 +22,6 @@ func floorDiv(a, b int) int {
 		q--
 	}
 	return q
-}
-
-// posMod returns a mathematical modulus that is always non-negative
-// when b > 0, matching TS's ((a%b)+b)%b idiom.
-func posMod(a, b int) int {
-	r := a % b
-	if r < 0 && b > 0 {
-		r += b
-	} else if r > 0 && b < 0 {
-		r += b
-	}
-	return r
 }
 
 // bitMask returns a mask covering bits [start..end] inclusive.
@@ -95,7 +87,10 @@ func handleDivide(s *ScriptState) error {
 	if rhs == 0 {
 		return errors.New("DIVIDE: division by zero")
 	}
-	s.PushInt(floorDiv(lhs, rhs))
+	// M15: TS DIVIDE (NumberOps.ts:26) is `pushInt(a / b)` → toInt32 truncates
+	// toward zero. Go's integer `/` truncates toward zero too (e.g. -7/2 = -3),
+	// so use it directly — the old floorDiv rounded toward -inf (-7/2 = -4).
+	s.PushInt(lhs / rhs)
 	return nil
 }
 
@@ -105,7 +100,11 @@ func handleModulo(s *ScriptState) error {
 	if rhs == 0 {
 		return errors.New("MODULO: division by zero")
 	}
-	s.PushInt(posMod(lhs, rhs))
+	// M16: TS MODULO (NumberOps.ts:69) is `pushInt(n1 % n2)` — JS `%` is the
+	// truncated remainder (sign follows the dividend, e.g. -7 % 3 = -1). Go's
+	// `%` is identical; the old posMod returned a Euclidean-positive result
+	// (-7 mod 3 = 2).
+	s.PushInt(lhs % rhs)
 	return nil
 }
 
@@ -134,7 +133,10 @@ func handleScale(s *ScriptState) error {
 	if b == 0 {
 		return errors.New("SCALE: division by zero")
 	}
-	s.PushInt(floorDiv(a*c, b))
+	// M17: TS SCALE (NumberOps.ts:124) is `pushInt((a * c) / b)` → toInt32
+	// truncates toward zero. Use Go integer division (truncating) rather than
+	// the old floorDiv (toward -inf).
+	s.PushInt((a * c) / b)
 	return nil
 }
 
@@ -329,22 +331,30 @@ func handleRandomInc(s *ScriptState) error {
 
 const trigScale = 16384.0
 
+// trigStep is the per-step angle in radians, copied verbatim from TS Trig
+// (src/util/Trig.ts:6 — `const size = 3.834951969714103e-4`). TS uses this
+// exact float literal (NOT a recomputed 2π/16384) to build its sin/cos table,
+// so reproducing the literal keeps the argument bit-identical.
+const trigStep = 3.834951969714103e-4
+
 // atan2Scale = 16384 / (2π) — converts radians to RuneScript degrees.
 var atan2Scale = trigScale / (2 * math.Pi)
 
-// handleSinDeg pops a 16384-step angle and pushes int(round(sin(angle) * 16384)).
+// handleSinDeg pops a 16384-step angle and pushes trunc(sin(angle) * 16384).
+// M18: TS Trig._sin (Trig.ts:8) is `(Math.sin(index * size) * 16384.0) | 0` —
+// truncation toward zero, not rounding. goscape's table is computed on the fly
+// with the same per-index formula, so int() (truncating) replaces math.Round.
 func handleSinDeg(s *ScriptState) error {
 	angle := s.PopInt() & 0x3fff
-	rad := float64(angle) / trigScale * 2 * math.Pi
-	s.PushInt(int(math.Round(math.Sin(rad) * trigScale)))
+	s.PushInt(int(math.Sin(float64(angle)*trigStep) * trigScale))
 	return nil
 }
 
-// handleCosDeg pops a 16384-step angle and pushes int(round(cos(angle) * 16384)).
+// handleCosDeg pops a 16384-step angle and pushes trunc(cos(angle) * 16384).
+// M18: mirrors TS Trig._cos (Trig.ts:9) `(Math.cos(index * size) * 16384.0) | 0`.
 func handleCosDeg(s *ScriptState) error {
 	angle := s.PopInt() & 0x3fff
-	rad := float64(angle) / trigScale * 2 * math.Pi
-	s.PushInt(int(math.Round(math.Cos(rad) * trigScale)))
+	s.PushInt(int(math.Cos(float64(angle)*trigStep) * trigScale))
 	return nil
 }
 

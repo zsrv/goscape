@@ -37,9 +37,12 @@ func TestNumberHandlers(t *testing.T) {
 		{"multiply pos", OpMultiply, []int{6, 7}, 42},
 		{"multiply neg", OpMultiply, []int{-3, 5}, -15},
 		{"divide pos", OpDivide, []int{10, 3}, 3},
-		{"divide floor neg", OpDivide, []int{-7, 2}, -4},
+		// M15: DIVIDE truncates toward zero (TS pushInt(a/b) → toInt32), not floor.
+		{"divide trunc neg", OpDivide, []int{-7, 2}, -3},
 		{"modulo pos", OpModulo, []int{10, 3}, 1},
-		{"modulo neg", OpModulo, []int{-7, 3}, 2},
+		// M16: MODULO is the truncated remainder (sign of dividend), TS `n1 % n2`.
+		{"modulo neg dividend", OpModulo, []int{-7, 3}, -1},
+		{"modulo neg divisor", OpModulo, []int{7, -3}, 1},
 		{"abs neg", OpAbs, []int{-9}, 9},
 		{"abs pos", OpAbs, []int{7}, 7},
 		{"addpercent +50%", OpAddPercent, []int{100, 50}, 150},
