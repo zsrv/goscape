@@ -16,7 +16,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 | HIGH | 17 / 17 ✓ |
 | DISPUTED | D1 RESOLVED ✓ (real bug, fixed with M2) |
 | MEDIUM | 30 / 30 ✓ |
-| LOW | 17 / 50 |
+| LOW | 18 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
 
 ---
@@ -103,7 +103,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [x] **L15** P_LOCMERGE uses `s.Self` not operand-aware — `handlers_player.go:2036`. [I] **(fd5335d9)** — merge-owner now `s.activePlayer()` (TS:929); was lone protected-op outlier vs P_TELEPORT/P_WALK.
 - [x] **L16** STAT_ADVANCE extra `checkStatID` (TS validates ticks only) — `handlers_player.go:588`. [I] **(fd5335d9)** — dropped checkStatID; TS forwards OOB stat to addXp (TypedArray no-op), Go AddXP already bounds-guards (statBounds→return) so OOB now no-ops + script continues vs aborts. -1 still rejected by NumberNotNull. ⚠TEST: updated TestStatOpsRejectOOBStatID (STAT_ADVANCE id=21 → Finished not Aborted).
 - [x] **L17** P_OPOBJ errors on nil-Configs vs TS silent-skip — `handlers_player.go:1488`. [I] **(fd5335d9)** — nil Configs / unregistered ObjType now treated as empty-op default type → silent skip (TS ObjType.get returns default, never null; PlayerOps.ts:996-998). +pin test.
-- [ ] **L18** COORDX/Y/Z + INZONE/MOVECOORD/DISTANCE skip CoordValid check — `handlers_number.go:388`, `handlers_server.go:48`. [J]
+- [x] **L18** COORDX/Y/Z + INZONE/MOVECOORD/DISTANCE skip CoordValid check — `handlers_number.go:388`, `handlers_server.go:48`. [J] **(89d89a2d)** — all 6 now route through existing checkCoord (TS CoordValid [0,2^31-1]); abort on negative coord vs prior silent bit-mask. TS validation order preserved (DISTANCE c1→c2, INZONE from→to→pos, MOVECOORD base-coord only). +pin test.
 - [ ] **L19** LOC2/OBJ2 read ops not operand-aware (documented NAI-119-D/154-D; no consumers) — `handlers_loc.go`/`handlers_obj.go`. [K]
 - [ ] **L20** ActiveObj write-side not operand-aware in spawn handlers — `handlers_obj.go:116`, `handlers_inv.go:1048,1444`. [K]
 - [ ] **L21** INV_SIZE requires resolvable player inv vs TS pure config read — `handlers_inv.go:131`. [K]
