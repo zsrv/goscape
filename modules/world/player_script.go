@@ -627,6 +627,28 @@ func (p *Player) focus(fx, fz int, instant bool) {
 	}
 }
 
+// unfocus restores the default-south face-angle. Mirrors TS
+// PathingEntity.unfocus (Engine-TS/src/engine/entity/PathingEntity.ts:338-341);
+// players are 1x1. Called on login (addPlayer) so a freshly-observed player
+// faces south instead of the client's north-east default. Closes the
+// NAI-67-D-PLAYER-UNFOCUS-DEFERRED gap for the spawn-orientation case.
+func (p *Player) unfocus() {
+	p.faceAngleX = coordgrid.Fine(p.x, 1)
+	p.faceAngleZ = coordgrid.Fine(p.z-1, 1)
+}
+
+// effectiveFaceCoord returns the fine coord the player should be shown facing:
+// the active faceSquare when set, else the resting faceAngle (south on login).
+// The rsbuf FACE_COORD low-def is always forced, so a player whose faceSquare
+// is unset (-1) must fall back to faceAngle or the client orients them to its
+// own default (north-east). Twin of (*Npc).effectiveFaceCoord.
+func (p *Player) effectiveFaceCoord() (x, z int) {
+	if p.faceSquareX == -1 && p.faceSquareZ == -1 {
+		return p.faceAngleX, p.faceAngleZ
+	}
+	return p.faceSquareX, p.faceSquareZ
+}
+
 // FaceSquare rotates the player to face the square at absolute (x, z)
 // on the current level. Wire coords are doubled+1 (face-center).
 func (p *Player) FaceSquare(x, z int) {

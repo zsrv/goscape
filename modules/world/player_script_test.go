@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/zsrv/goscape/pkg/cache"
+	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/inventory"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
@@ -16,6 +17,28 @@ import (
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 )
+
+// TestPlayerEffectiveFaceCoord_FallsBackToOrientation pins the player
+// spawn-facing fix (twin of the NPC case): a player with no active faceSquare
+// (-1) reports its resting orientation (faceAngle, south after unfocus) as the
+// wire face coord, so the always-forced FACE_COORD low-def orients a fresh
+// player south rather than the client's north-east default.
+func TestPlayerEffectiveFaceCoord_FallsBackToOrientation(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.x, p.z = 3200, 3300
+	p.unfocus() // login seeds the default-south orientation
+	p.faceSquareX, p.faceSquareZ = -1, -1
+
+	wantX, wantZ := coordgrid.Fine(p.x, 1), coordgrid.Fine(p.z-1, 1)
+	if x, z := p.effectiveFaceCoord(); x != wantX || z != wantZ {
+		t.Errorf("resting player effectiveFaceCoord = (%d,%d), want faceAngle/south (%d,%d)", x, z, wantX, wantZ)
+	}
+
+	p.faceSquareX, p.faceSquareZ = 700, 800
+	if x, z := p.effectiveFaceCoord(); x != 700 || z != 800 {
+		t.Errorf("active player effectiveFaceCoord = (%d,%d), want faceSquare (700,800)", x, z)
+	}
+}
 
 func TestAddXPNormalGainNoLevelUp(t *testing.T) {
 	p, _ := newTestPlayer(t)

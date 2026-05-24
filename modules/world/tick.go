@@ -724,6 +724,10 @@ func (s *Server) processInfo() {
 				ss := string(p.sayText)
 				sayPtr = &ss
 			}
+			// Send the active faceSquare when set, else the resting orientation
+			// (faceAngle, south on login) so the always-forced FACE_COORD
+			// low-def orients a fresh player south, not north-east.
+			pFaceX, pFaceZ := p.effectiveFaceCoord()
 			s.rsbuf.ComputePlayer(int32(p.slot),
 				p.x, p.level, p.z,
 				p.originX, p.originZ,
@@ -736,7 +740,7 @@ func (s *Server) processInfo() {
 				p.appearanceBuf,
 				int32(p.lastAppearance),
 				int32(p.faceEntity),
-				int32(p.faceSquareX), int32(p.faceSquareZ),
+				int32(pFaceX), int32(pFaceZ),
 				int32(p.OrientationX), int32(p.OrientationZ),
 				int32(p.damageAmt), int32(p.damageType),
 				int32(p.CurHP()), int32(p.BaseHP()),
@@ -877,8 +881,10 @@ func (s *Server) processCleanup() {
 		//   - chatColour/Effect/Rights → moved to ResetMasks per TS fidelity.
 		//   - chat msg field → dead field deleted (player.go:196 retired).
 		//   - logMessage → TS-only, no goscape consumer (YAGNI).
-		// unfocus() remains deferred per NAI-67-D-PLAYER-UNFOCUS-DEFERRED
-		// (Player respawn/death sub-spec).
+		// Note: unfocus() is NOT called per-tick (TS resetEntity(false) doesn't
+		// either). The default-south orientation is seeded once at login
+		// (addPlayer → p.unfocus()); respawn-after-death re-seeding remains
+		// part of the Player death sub-spec.
 		p.socialProtect = false
 		p.reportAbuseProtect = false
 		// Clear per-player inventory update flags at end-of-tick — AFTER every

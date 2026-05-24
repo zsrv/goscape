@@ -1069,6 +1069,10 @@ func (s *Server) addPlayer(p *Player) error {
 			s.players[i] = p
 			s.playerLoop = append(s.playerLoop, p)
 			p.active = true
+			// Seed the default-south orientation now that p.x/p.z are set, so
+			// the always-forced FACE_COORD low-def orients a freshly-logged-in
+			// player south rather than the client's north-east default.
+			p.unfocus()
 			if s.zoneMap != nil {
 				z := s.zoneMap.Get(p.level, p.x, p.z)
 				p.zoneListElement = z.EnterPlayer(p, s.zoneMap.Grid(p.level))
