@@ -88,8 +88,17 @@ func (a *Asset) RootHandler(w http.ResponseWriter, r *http.Request) {
 		//  the name, but the server needs to be aware of the crc so it can
 		//  send the proper length, so that's been pushed off till later...
 
-		// strip _crc from filename, but keep extension
-		filename := r.URL.Path[1:strings.LastIndex(r.URL.Path, "_")] + ".mid"
+		// strip _crc from filename, but keep extension. M28: a ".mid" path with
+		// no "_" gives LastIndex == -1, and slicing [1:-1] panics. TS web.ts:68
+		// (substring(1, lastIndexOf('_'))) clamps to a filename that can't exist
+		// and falls through to a 404, so reject the malformed path the same way
+		// rather than panicking mid-response.
+		us := strings.LastIndex(r.URL.Path, "_")
+		if us < 1 {
+			http.NotFound(w, r)
+			return
+		}
+		filename := r.URL.Path[1:us] + ".mid"
 
 		w.Header().Set("Content-Type", "application/octet-stream")
 		http.ServeFile(w, r, path.Join("data/pack/client/songs", filename))

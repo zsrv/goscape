@@ -11,6 +11,10 @@ import (
 	"sync"
 )
 
+// friendListLimit caps both the friend list and the ignore list per owner,
+// matching the hardcoded 100 in TS FriendServerRepository (addFriend/addIgnore).
+const friendListLimit = 100
+
 // Repository is the friends/ignores/presence store. Presence (worlds,
 // players, privateChat, staffLvl) lives in-memory and is guarded by mu.
 // Friends and ignores persist to SQLite via db. profile scopes every
@@ -224,6 +228,27 @@ func (r *Repository) atomicUpsertList(ctx context.Context, table string, owner, 
 		return fmt.Errorf("%s: existence check: %w", op, err)
 	}
 	if count == 0 {
+		// M29: enforce the 100-entry cap before inserting a NEW entry, matching
+		// TS FriendServerRepository.addFriend/addIgnore (count >= 100 → return).
+		// Like TS this is a silent no-op at the cap (not an error); the dup case
+		// above already short-circuits, so the cap only gates genuinely new rows.
+		var total int
+		err = tx.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM `+table+`
+			 WHERE profile = ? AND owner_username37 = ?`,
+			r.profile, int64(owner),
+		).Scan(&total)
+		if err != nil {
+			return fmt.Errorf("%s: cap check: %w", op, err)
+		}
+		if total >= friendListLimit {
+			if err := tx.Commit(); err != nil {
+				return fmt.Errorf("%s: commit: %w", op, err)
+			}
+			committed = true
+			return nil
+		}
+
 		_, err = tx.ExecContext(ctx,
 			`INSERT INTO `+table+` (profile, owner_username37, target_username37)
 			 VALUES (?, ?, ?)`,

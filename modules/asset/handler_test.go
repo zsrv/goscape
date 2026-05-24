@@ -278,3 +278,23 @@ func TestRootHandlerPublicFallbackDirectory404s(t *testing.T) {
 		t.Fatalf("status = %d, want 404", rr.Code)
 	}
 }
+
+// TestRootHandler_MidWithoutUnderscore404s pins M28: a ".mid" request whose
+// path has no "_" must return a clean 404, not panic on the [1:-1] slice.
+// Mirrors TS web.ts:68 (substring(1, lastIndexOf('_')) → non-existent file →
+// 404). A crafted GET /x.mid previously aborted the response mid-flight.
+func TestRootHandler_MidWithoutUnderscore404s(t *testing.T) {
+	a := &Asset{log: discardLogger()}
+
+	for _, p := range []string{"/x.mid", "/.mid", "/nounderscore.mid"} {
+		req := httptest.NewRequest(http.MethodGet, p, nil)
+		rr := httptest.NewRecorder()
+
+		// Must not panic.
+		a.RootHandler(rr, req)
+
+		if rr.Code != http.StatusNotFound {
+			t.Errorf("GET %s: status = %d, want 404", p, rr.Code)
+		}
+	}
+}

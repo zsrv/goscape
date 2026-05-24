@@ -834,3 +834,67 @@ func TestRepository_LogPublicMessage_EmptyMessageAllowed(t *testing.T) {
 		t.Errorf("row count = %d, want 1 (empty message allowed, no server-side validation)", n)
 	}
 }
+
+// TestRepository_AddFriend_EnforcesCap pins M29: the friend list is capped at
+// friendListLimit (100), matching TS FriendServerRepository.addFriend. Adds at
+// the cap are a silent no-op (no error), and existing entries are unaffected.
+func TestRepository_AddFriend_EnforcesCap(t *testing.T) {
+	r, _ := newTestRepo(t)
+	ctx := t.Context()
+	const owner = uint64(0x1111)
+
+	for i := uint64(1); i <= friendListLimit; i++ {
+		if err := r.AddFriend(ctx, owner, i); err != nil {
+			t.Fatalf("AddFriend #%d: %v", i, err)
+		}
+	}
+	friends, err := r.GetFriends(ctx, owner)
+	if err != nil {
+		t.Fatalf("GetFriends: %v", err)
+	}
+	if len(friends) != friendListLimit {
+		t.Fatalf("after %d adds: got %d friends, want %d", friendListLimit, len(friends), friendListLimit)
+	}
+
+	// The 101st add is silently dropped (no error, list stays at the cap).
+	if err := r.AddFriend(ctx, owner, uint64(friendListLimit+1)); err != nil {
+		t.Fatalf("AddFriend at cap: got error %v, want silent no-op", err)
+	}
+	friends, _ = r.GetFriends(ctx, owner)
+	if len(friends) != friendListLimit {
+		t.Errorf("over-cap add: got %d friends, want %d (101st must be dropped)", len(friends), friendListLimit)
+	}
+
+	// A duplicate of an existing entry is still idempotent at the cap.
+	if err := r.AddFriend(ctx, owner, 1); err != nil {
+		t.Fatalf("AddFriend dup at cap: %v", err)
+	}
+	friends, _ = r.GetFriends(ctx, owner)
+	if len(friends) != friendListLimit {
+		t.Errorf("dup add at cap changed count: got %d, want %d", len(friends), friendListLimit)
+	}
+}
+
+// TestRepository_AddIgnore_EnforcesCap pins the same 100-entry cap on the
+// ignore list (TS addIgnore).
+func TestRepository_AddIgnore_EnforcesCap(t *testing.T) {
+	r, _ := newTestRepo(t)
+	ctx := t.Context()
+	const owner = uint64(0x2222)
+
+	for i := uint64(1); i <= friendListLimit; i++ {
+		if err := r.AddIgnore(ctx, owner, i); err != nil {
+			t.Fatalf("AddIgnore #%d: %v", i, err)
+		}
+	}
+	if err := r.AddIgnore(ctx, owner, uint64(friendListLimit+1)); err != nil {
+		t.Fatalf("AddIgnore at cap: %v", err)
+	}
+	ignores, err := r.GetIgnores(ctx, owner)
+	if err != nil {
+		t.Fatalf("GetIgnores: %v", err)
+	}
+	if len(ignores) != friendListLimit {
+		t.Errorf("over-cap ignore add: got %d, want %d", len(ignores), friendListLimit)
+	}
+}
