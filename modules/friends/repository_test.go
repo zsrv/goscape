@@ -265,6 +265,108 @@ func TestRepository_IsVisibleTo_ChatModeFriends_OnlyFriends(t *testing.T) {
 	}
 }
 
+// TestRepository_IsVisibleTo_StaffBypassesOff pins H14: a staff viewer
+// (staffLvl > 1) sees an OFF player. TS FriendServerRepository.ts:336-338.
+func TestRepository_IsVisibleTo_StaffBypassesOff(t *testing.T) {
+	r, _ := newTestRepo(t)
+	r.InitializeWorld(1, 10)
+	r.Register(1, 0xAAAA, 2, 0) // other: privateChat OFF
+	r.Register(1, 0xBBBB, 0, 2) // viewer: staffLvl 2 (>1)
+	visible, err := r.IsVisibleTo(t.Context(), 0xBBBB, 0xAAAA)
+	if err != nil {
+		t.Fatalf("IsVisibleTo: %v", err)
+	}
+	if !visible {
+		t.Error("staff viewer must see an OFF player (H14)")
+	}
+	// staffLvl 1 is NOT staff (threshold is > 1).
+	r.Register(1, 0xCCCC, 0, 1)
+	visible, err = r.IsVisibleTo(t.Context(), 0xCCCC, 0xAAAA)
+	if err != nil {
+		t.Fatalf("IsVisibleTo: %v", err)
+	}
+	if visible {
+		t.Error("staffLvl 1 viewer must not bypass OFF (threshold is staffLvl > 1)")
+	}
+}
+
+// TestRepository_IsVisibleTo_IgnoredViewerHidden pins H15: if other has
+// ignored viewer, other is hidden even with ON. TS FriendServerRepository.ts:340-342.
+func TestRepository_IsVisibleTo_IgnoredViewerHidden(t *testing.T) {
+	r, _ := newTestRepo(t)
+	ctx := t.Context()
+	r.InitializeWorld(1, 10)
+	r.Register(1, 0xAAAA, 0, 0) // other: privateChat ON
+	r.Register(1, 0xBBBB, 0, 0) // viewer: normal
+	if err := r.AddIgnore(ctx, 0xAAAA, 0xBBBB); err != nil {
+		t.Fatalf("AddIgnore: %v", err)
+	}
+	visible, err := r.IsVisibleTo(ctx, 0xBBBB, 0xAAAA)
+	if err != nil {
+		t.Fatalf("IsVisibleTo: %v", err)
+	}
+	if visible {
+		t.Error("ignored viewer must not see other even with ON (H15)")
+	}
+	// A non-ignored viewer still sees the ON player.
+	r.Register(1, 0xCCCC, 0, 0)
+	visible, err = r.IsVisibleTo(ctx, 0xCCCC, 0xAAAA)
+	if err != nil {
+		t.Fatalf("IsVisibleTo: %v", err)
+	}
+	if !visible {
+		t.Error("non-ignored viewer must see ON player")
+	}
+}
+
+// TestRepository_IsVisibleTo_StaffBypassesIgnore pins the TS ordering: the
+// staff check (step 1) precedes the ignore check (step 2), so a staff viewer
+// sees a player who has ignored them.
+func TestRepository_IsVisibleTo_StaffBypassesIgnore(t *testing.T) {
+	r, _ := newTestRepo(t)
+	ctx := t.Context()
+	r.InitializeWorld(1, 10)
+	r.Register(1, 0xAAAA, 0, 0) // other ON
+	r.Register(1, 0xBBBB, 0, 2) // viewer staff
+	if err := r.AddIgnore(ctx, 0xAAAA, 0xBBBB); err != nil {
+		t.Fatalf("AddIgnore: %v", err)
+	}
+	visible, err := r.IsVisibleTo(ctx, 0xBBBB, 0xAAAA)
+	if err != nil {
+		t.Fatalf("IsVisibleTo: %v", err)
+	}
+	if !visible {
+		t.Error("staff viewer must bypass ignore (TS checks staff before ignore)")
+	}
+}
+
+// TestIsVisibleToMany_StaffAndIgnore pins the batched analogue of H14/H15.
+func TestIsVisibleToMany_StaffAndIgnore(t *testing.T) {
+	r, _ := newTestRepo(t)
+	ctx := t.Context()
+	r.InitializeWorld(1, 10)
+	r.Register(1, 100, 0, 0) // other: ON
+	r.Register(1, 200, 0, 2) // staff viewer
+	r.Register(1, 300, 0, 0) // ignored viewer
+	r.Register(1, 400, 0, 0) // normal viewer
+	if err := r.AddIgnore(ctx, 100, 300); err != nil {
+		t.Fatalf("AddIgnore: %v", err)
+	}
+	got, err := r.IsVisibleToMany(ctx, []uint64{200, 300, 400}, 100)
+	if err != nil {
+		t.Fatalf("IsVisibleToMany: %v", err)
+	}
+	if !got[200] {
+		t.Error("staff viewer 200 must be visible-true")
+	}
+	if got[300] {
+		t.Error("ignored viewer 300 must be visible-false")
+	}
+	if !got[400] {
+		t.Error("normal viewer 400 must be visible-true (ON)")
+	}
+}
+
 func TestRepository_IsVisibleTo_UnknownPlayer_NotVisible(t *testing.T) {
 	r, _ := newTestRepo(t)
 	visible, err := r.IsVisibleTo(t.Context(), 0xBBBB, 0xDEADBEEF)

@@ -306,11 +306,14 @@ func (r *Repository) GetFollowers(ctx context.Context, target uint64) ([]uint64,
 	return out, nil
 }
 
-// IsVisibleTo applies TS visibility rules:
+// IsVisibleTo applies TS visibility rules (FriendServerRepository.isVisibleTo,
+// FriendServerRepository.ts:332-355), in order:
 //
-//	other.privateChat 0 (ON)      -> always visible
-//	other.privateChat 1 (FRIENDS) -> visible only if viewer is in other's friend set
-//	other.privateChat 2 (OFF)     -> never visible
+//	1. viewer is staff (staffLvl > 1)   -> always visible
+//	2. other has ignored viewer         -> never visible
+//	3. other.privateChat 0 (ON)         -> always visible
+//	   other.privateChat 1 (FRIENDS)    -> visible only if viewer is in other's friend set
+//	   other.privateChat 2 (OFF)        -> never visible
 //
 // If other is not registered (no presence row), returns (false, nil).
 //
@@ -324,7 +327,22 @@ func (r *Repository) IsVisibleTo(ctx context.Context, viewer, other uint64) (boo
 		return false, nil
 	}
 	mode := ps.privateChat
+	viewerStaff := r.isStaffLocked(viewer)
 	r.mu.RUnlock()
+
+	// 1. Staff see everyone (TS playerStaff = registered with staffLvl > 1).
+	if viewerStaff {
+		return true, nil
+	}
+
+	// 2. If other has ignored viewer, other's online status is hidden.
+	ignored, err := r.isIgnoredBy(ctx, other, viewer)
+	if err != nil {
+		return false, err
+	}
+	if ignored {
+		return false, nil
+	}
 
 	switch mode {
 	case 0: // ON
@@ -343,6 +361,29 @@ func (r *Repository) IsVisibleTo(ctx context.Context, viewer, other uint64) (boo
 	default: // OFF or unknown
 		return false, nil
 	}
+}
+
+// isStaffLocked reports whether username37 is registered with staffLvl > 1.
+// Mirrors TS playerStaff membership (FriendServerRepository.ts:82-84). Caller
+// must hold r.mu (read or write).
+func (r *Repository) isStaffLocked(username37 uint64) bool {
+	ps, ok := r.players[username37]
+	return ok && ps.staffLvl > 1
+}
+
+// isIgnoredBy reports whether owner has target on its ignorelist. Mirrors TS
+// playerIgnores[other].includes(viewer) (FriendServerRepository.ts:340).
+func (r *Repository) isIgnoredBy(ctx context.Context, owner, target uint64) (bool, error) {
+	var count int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM ignorelist
+		 WHERE profile = ? AND owner_username37 = ? AND target_username37 = ?`,
+		r.profile, int64(owner), int64(target),
+	).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("isIgnoredBy: %w", err)
+	}
+	return count > 0, nil
 }
 
 // IsVisibleToMany is the batched analogue of IsVisibleTo. Returns a
@@ -379,56 +420,84 @@ func (r *Repository) IsVisibleToMany(ctx context.Context, viewers []uint64, othe
 		return out, nil
 	}
 	mode := ps.privateChat
+	staff := make(map[uint64]bool, len(viewers))
+	for _, v := range viewers {
+		if r.isStaffLocked(v) {
+			staff[v] = true
+		}
+	}
 	r.mu.RUnlock()
 
-	switch mode {
-	case 0: // ON
-		for _, v := range viewers {
-			out[v] = true
-		}
-		return out, nil
-	case 1: // FRIENDS
-		// Build a parameterized IN clause.
-		placeholders := make([]byte, 0, 2*len(viewers))
-		args := make([]any, 0, 2+len(viewers))
-		args = append(args, r.profile, int64(other))
-		for i, v := range viewers {
-			if i > 0 {
-				placeholders = append(placeholders, ',')
-			}
-			placeholders = append(placeholders, '?')
-			args = append(args, int64(v))
-		}
-		query := `SELECT target_username37 FROM friendlist
-		          WHERE profile = ? AND owner_username37 = ?
-		            AND target_username37 IN (` + string(placeholders) + `)`
-		rows, err := r.db.QueryContext(ctx, query, args...)
+	// Viewers that `other` has ignored — hidden regardless of chat mode.
+	ignored, err := r.targetsAmong(ctx, "ignorelist", other, viewers)
+	if err != nil {
+		return nil, fmt.Errorf("IsVisibleToMany: %w", err)
+	}
+
+	// For FRIENDS mode, the set of viewers in other's friend list.
+	var friends map[uint64]bool
+	if mode == 1 {
+		friends, err = r.targetsAmong(ctx, "friendlist", other, viewers)
 		if err != nil {
 			return nil, fmt.Errorf("IsVisibleToMany: %w", err)
 		}
-		defer rows.Close()
-
-		// Default everyone to false; flip the ones returned.
-		for _, v := range viewers {
-			out[v] = false
-		}
-		for rows.Next() {
-			var t int64
-			if err := rows.Scan(&t); err != nil {
-				return nil, fmt.Errorf("IsVisibleToMany scan: %w", err)
-			}
-			out[uint64(t)] = true
-		}
-		if err := rows.Err(); err != nil {
-			return nil, fmt.Errorf("IsVisibleToMany rows: %w", err)
-		}
-		return out, nil
-	default: // OFF or unknown
-		for _, v := range viewers {
-			out[v] = false
-		}
-		return out, nil
 	}
+
+	for _, v := range viewers {
+		switch {
+		case staff[v]: // 1. staff see everyone
+			out[v] = true
+		case ignored[v]: // 2. other ignores viewer
+			out[v] = false
+		case mode == 0: // ON
+			out[v] = true
+		case mode == 1: // FRIENDS
+			out[v] = friends[v]
+		default: // OFF or unknown
+			out[v] = false
+		}
+	}
+	return out, nil
+}
+
+// targetsAmong returns the subset of candidates present as target_username37
+// in the given list table (friendlist | ignorelist) for the given owner under
+// r.profile, via a single parameterized IN query. Used by IsVisibleToMany to
+// avoid N+1 round trips. table is a trusted internal constant, never user input.
+func (r *Repository) targetsAmong(ctx context.Context, table string, owner uint64, candidates []uint64) (map[uint64]bool, error) {
+	found := make(map[uint64]bool, len(candidates))
+	if len(candidates) == 0 {
+		return found, nil
+	}
+	placeholders := make([]byte, 0, 2*len(candidates))
+	args := make([]any, 0, 2+len(candidates))
+	args = append(args, r.profile, int64(owner))
+	for i, c := range candidates {
+		if i > 0 {
+			placeholders = append(placeholders, ',')
+		}
+		placeholders = append(placeholders, '?')
+		args = append(args, int64(c))
+	}
+	query := `SELECT target_username37 FROM ` + table + `
+	          WHERE profile = ? AND owner_username37 = ?
+	            AND target_username37 IN (` + string(placeholders) + `)`
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("targetsAmong(%s): %w", table, err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var t int64
+		if err := rows.Scan(&t); err != nil {
+			return nil, fmt.Errorf("targetsAmong(%s) scan: %w", table, err)
+		}
+		found[uint64(t)] = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("targetsAmong(%s) rows: %w", table, err)
+	}
+	return found, nil
 }
 
 // LogPrivateMessage appends one row to private_chat under r.profile.
