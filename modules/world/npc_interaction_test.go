@@ -343,11 +343,19 @@ func TestNpcEffectiveFaceCoord_FallsBackToOrientation(t *testing.T) {
 	if x, z := n.effectiveFaceCoord(); x != wantX || z != wantZ {
 		t.Errorf("resting NPC effectiveFaceCoord = (%d,%d), want faceAngle/south (%d,%d)", x, z, wantX, wantZ)
 	}
+	// The FaceSquareX/Z accessors (the rsbuf FACE_COORD payload's read path)
+	// must report the effective coord, not the raw faceSquare(-1).
+	if x, z := n.FaceSquareX(), n.FaceSquareZ(); x != wantX || z != wantZ {
+		t.Errorf("resting NPC FaceSquareX/Z accessor = (%d,%d), want faceAngle/south (%d,%d)", x, z, wantX, wantZ)
+	}
 
 	// Active faceSquare takes precedence.
 	n.faceSquareX, n.faceSquareZ = 500, 600
 	if x, z := n.effectiveFaceCoord(); x != 500 || z != 600 {
 		t.Errorf("active NPC effectiveFaceCoord = (%d,%d), want faceSquare (500,600)", x, z)
+	}
+	if x, z := n.FaceSquareX(), n.FaceSquareZ(); x != 500 || z != 600 {
+		t.Errorf("active NPC FaceSquareX/Z accessor = (%d,%d), want faceSquare (500,600)", x, z)
 	}
 }
 

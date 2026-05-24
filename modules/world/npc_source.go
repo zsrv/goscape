@@ -26,8 +26,16 @@ func (n *Npc) ChangeTypeID() int   { return n.changeTypeID }
 func (n *Npc) SpotAnimID() int     { return n.spotanimID }
 func (n *Npc) SpotAnimHeight() int { return n.spotanimHeight }
 func (n *Npc) SpotAnimDelay() int  { return n.spotanimDelay }
-func (n *Npc) FaceSquareX() int    { return n.faceSquareX }
-func (n *Npc) FaceSquareZ() int    { return n.faceSquareZ }
+
+// FaceSquareX/Z feed the rsbuf FACE_COORD mask payload (their only callers).
+// They return the EFFECTIVE face coord — the active faceSquare when set, else
+// the resting orientation (faceAngle, south on spawn) — so the always-forced
+// FACE_COORD low-def orients a fresh NPC south instead of sending the raw
+// faceSquare(-1) = wire 65535 = a far-north-east target. The rsbuf renderer
+// reads these directly (ComputeNpcs); the buf.go ComputeNpc path is fed the
+// same value separately from tick.go.
+func (n *Npc) FaceSquareX() int { x, _ := n.effectiveFaceCoord(); return x }
+func (n *Npc) FaceSquareZ() int { _, z := n.effectiveFaceCoord(); return z }
 
 func (n *Npc) WalkDir() int   { return n.walkDir }
 func (n *Npc) RunDir() int    { return n.runDir }

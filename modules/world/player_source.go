@@ -16,16 +16,21 @@ func (p *Player) EntityMask() int         { return p.entitymask }
 func (p *Player) AppearanceBytes() []byte { return p.appearanceBuf }
 
 // Mask payload accessors.
-func (p *Player) AnimID() int         { return p.animID }
-func (p *Player) AnimDelay() int      { return p.animDelay }
-func (p *Player) FaceEntity() int     { return p.faceEntity }
-func (p *Player) SayText() []byte     { return p.sayText }
-func (p *Player) DamageAmt() int      { return p.damageAmt }
-func (p *Player) DamageType() int     { return p.damageType }
-func (p *Player) CurHP() int          { return int(p.levels[objtype.PlayerStatHitpoints]) }
-func (p *Player) BaseHP() int         { return int(p.baseLevels[objtype.PlayerStatHitpoints]) }
-func (p *Player) FaceSquareX() int    { return p.faceSquareX }
-func (p *Player) FaceSquareZ() int    { return p.faceSquareZ }
+func (p *Player) AnimID() int     { return p.animID }
+func (p *Player) AnimDelay() int  { return p.animDelay }
+func (p *Player) FaceEntity() int { return p.faceEntity }
+func (p *Player) SayText() []byte { return p.sayText }
+func (p *Player) DamageAmt() int  { return p.damageAmt }
+func (p *Player) DamageType() int { return p.damageType }
+func (p *Player) CurHP() int      { return int(p.levels[objtype.PlayerStatHitpoints]) }
+func (p *Player) BaseHP() int     { return int(p.baseLevels[objtype.PlayerStatHitpoints]) }
+
+// FaceSquareX/Z feed the rsbuf FACE_COORD mask payload (their only callers) —
+// the EFFECTIVE face coord (active faceSquare, else resting faceAngle/south)
+// so the always-forced FACE_COORD low-def orients a fresh player south, not
+// the raw faceSquare(-1) = wire 65535 = north-east. See (*Npc).FaceSquareX.
+func (p *Player) FaceSquareX() int    { x, _ := p.effectiveFaceCoord(); return x }
+func (p *Player) FaceSquareZ() int    { _, z := p.effectiveFaceCoord(); return z }
 func (p *Player) ChatColour() int     { return p.chatColour }
 func (p *Player) ChatEffect() int     { return p.chatEffect }
 func (p *Player) ChatRights() int     { return p.chatRights }
