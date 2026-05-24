@@ -3,7 +3,6 @@ package jagfile
 import (
 	"errors"
 	"fmt"
-	"maps"
 	"slices"
 	"strings"
 
@@ -290,38 +289,6 @@ func (jf *Jagfile) Save(path string) error {
 	return nil
 }
 
-func (jf *Jagfile) Deconstruct(name string) (uint16, []int, []int, []uint32, error) {
-	dat, err := jf.Read(name + ".dat")
-	if err != nil {
-		return 0, nil, nil, nil, err
-	}
-
-	idx, err := jf.Read(name + ".idx")
-	if err != nil {
-		return 0, nil, nil, nil, err
-	}
-
-	count := idx.G2()
-
-	sizes := make([]int, count)
-	offsets := make([]int, count)
-
-	offset := 2
-	for i := range count {
-		sizes[i] = int(idx.G2())
-		offsets[i] = offset
-		offset += sizes[i]
-	}
-
-	checksums := make([]uint32, count)
-	for i := range count {
-		dat.Pos = offsets[i]
-		checksums[i] = packet.GetCRC(dat.Bytes(), offset, sizes[i])
-	}
-
-	return count, sizes, offsets, checksums, nil
-}
-
 // NewEmptyJagfile constructs a fresh Jagfile not backed by any source
 // data. compressWhole sets the persistent CompressWhole flag, mirroring
 // TS `Jagfile.new(compressWhole)`. Pass false for per-file bzip2 (the
@@ -369,9 +336,15 @@ func NewJagfile(src *packet.Packet) (*Jagfile, error) {
 	for i := range jf.FileCount {
 		jf.FileHash[i] = src.G4()
 
-		for k, v := range maps.All(nameToHash) {
-			if v == jf.FileHash[i] {
-				jf.FileName[i] = k
+		// TS Jagfile.ts:68-71 reverse-maps the hash to a name via
+		// KNOWN_HASHES.findIndex — a scan in KNOWN_NAMES array order that
+		// takes the first match. Iterate knownNames in order (not the
+		// nameToHash map, whose Go iteration order is randomized) so the
+		// resolved name is deterministic and matches TS on any future hash
+		// collision. L40.
+		for _, name := range knownNames {
+			if nameToHash[name] == jf.FileHash[i] {
+				jf.FileName[i] = name
 				break
 			}
 		}
@@ -459,7 +432,6 @@ var knownNames = []string{
 	"backright1.dat",
 	"backright2.dat",
 	"backtop1.dat",
-	"backtop2.dat",
 	"backvmid1.dat",
 	"backvmid2.dat",
 	"backvmid3.dat",
@@ -482,7 +454,6 @@ var knownNames = []string{
 	"magicon2.dat",
 	"mapback.dat",
 	"mapdots.dat",
-	"mapflag.dat",
 	"mapfunction.dat",
 	"mapscene.dat",
 	"miscgraphics.dat",
@@ -504,6 +475,9 @@ var knownNames = []string{
 	"sworddecor.dat",
 	"tradebacking.dat",
 	"wornicons.dat",
+	// removed
+	"backtop2.dat",
+	"mapflag.dat",
 	// seen in 254
 	"mapmarker.dat",
 	"mod_icons.dat",

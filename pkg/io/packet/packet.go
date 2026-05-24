@@ -12,6 +12,13 @@ import (
 )
 
 // GetCRC returns the checksum of length bytes in src beginning at offset.
+//
+// TS Packet.getcrc (Packet.ts:54-60) loops `for (i = offset; i < length; i++)`
+// — its end index is length, not offset+length, so for a non-zero offset it
+// hashes the wrong span (an off-by bug in the TS source). Every caller in both
+// engines passes offset=0, where the two agree exactly, so this is latent. Go
+// keeps the correct offset+length span the doc comment describes rather than
+// mirroring the TS bug; if a non-zero offset is ever needed, revisit parity. L38.
 func GetCRC(src []uint8, offset int, length int) uint32 {
 	return crc32.ChecksumIEEE(src[offset : offset+length])
 }

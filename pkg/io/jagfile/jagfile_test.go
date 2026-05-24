@@ -100,6 +100,50 @@ func TestNewJagfile_BZip2Path(t *testing.T) {
 	}
 }
 
+// TestKnownNamesNoHashCollision pins the invariant that makes the hash→name
+// reverse lookup (NewJagfile, L40) unambiguous: no two knownNames share a
+// genHash. TS resolves via KNOWN_HASHES.findIndex, taking the first match in
+// array order; Go now scans knownNames in the same order. As long as hashes
+// are unique the iteration order cannot change the resolved name, so this test
+// guards the precondition — if a future name addition collides, ordering
+// becomes load-bearing and must be reconciled against TS KNOWN_NAMES. L40/L41.
+func TestKnownNamesNoHashCollision(t *testing.T) {
+	seen := make(map[uint32]string, len(knownNames))
+	for _, name := range knownNames {
+		h := genHash(name)
+		if prev, ok := seen[h]; ok {
+			t.Errorf("hash collision: %q and %q both hash to %d", prev, name, h)
+		}
+		seen[h] = name
+	}
+}
+
+// TestKnownNamesOrderMatchesTS pins the L41 reordering: backtop2.dat and
+// mapflag.dat follow wornicons.dat (not their alphabetical slots), matching TS
+// Jagfile.ts KNOWN_NAMES so a hash collision would resolve identically in both
+// engines.
+func TestKnownNamesOrderMatchesTS(t *testing.T) {
+	idx := func(want string) int {
+		return slices.Index(knownNames, want)
+	}
+	worn := idx("wornicons.dat")
+	bt2 := idx("backtop2.dat")
+	mflag := idx("mapflag.dat")
+	mark := idx("mapmarker.dat")
+	for name, i := range map[string]int{
+		"wornicons.dat": worn, "backtop2.dat": bt2,
+		"mapflag.dat": mflag, "mapmarker.dat": mark,
+	} {
+		if i < 0 {
+			t.Fatalf("%q missing from knownNames", name)
+		}
+	}
+	if !(worn < bt2 && bt2 < mflag && mflag < mark) {
+		t.Errorf("ordering: want wornicons(%d) < backtop2(%d) < mapflag(%d) < mapmarker(%d)",
+			worn, bt2, mflag, mark)
+	}
+}
+
 func TestJagfileCreation(t *testing.T) {
 	jf, err := MakeTestJagfile()
 	if err != nil {
