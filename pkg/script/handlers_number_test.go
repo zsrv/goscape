@@ -347,3 +347,42 @@ func TestDistanceSameCoord(t *testing.T) {
 		t.Errorf("DISTANCE same: got %d, want 0", got)
 	}
 }
+
+// TestCoordOpsAbortOnInvalidCoord pins L18: COORDX/Y/Z, DISTANCE, INZONE,
+// MOVECOORD validate the packed coord with checkCoord (TS CoordValid, range
+// [0, 2^31-1]) and abort on a negative/out-of-range input rather than silently
+// bit-masking. Inputs are pushed bottom-to-top in TS popInts order.
+func TestCoordOpsAbortOnInvalidCoord(t *testing.T) {
+	cases := []struct {
+		name   string
+		op     Opcode
+		inputs []int
+	}{
+		{"COORDX", OpCoordX, []int{-1}},
+		{"COORDY", OpCoordY, []int{-1}},
+		{"COORDZ", OpCoordZ, []int{-1}},
+		{"DISTANCE/c1", OpDistance, []int{-1, 0}},
+		{"DISTANCE/c2", OpDistance, []int{0, -1}},
+		{"MOVECOORD", OpMoveCoord, []int{-1, 0, 0, 0}},   // [coord, x, y, z]
+		{"INZONE/from", OpInZone, []int{-1, 0, 0}},       // [from, to, pos]
+		{"INZONE/pos", OpInZone, []int{0, 0, -1}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			sf := &ScriptFile{
+				Name:             "bad_" + tc.op.String(),
+				Opcodes:          []Opcode{tc.op, OpReturn},
+				IntOperands:      []int32{0, 0},
+				StringOperands:   []string{"", ""},
+				InstructionCount: 2,
+			}
+			state := Init(sf, nil, false, nil, nil)
+			for _, v := range tc.inputs {
+				state.PushInt(v)
+			}
+			if err := Execute(state); err == nil {
+				t.Fatalf("%s: Execute returned nil, want abort on invalid coord", tc.name)
+			}
+		})
+	}
+}

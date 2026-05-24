@@ -49,9 +49,20 @@ func handleInZone(s *ScriptState) error {
 	cPos := s.PopInt()
 	cTo := s.PopInt()
 	cFrom := s.PopInt()
-	fromLevel, fromX, fromZ := unpackCoord(cFrom)
-	toLevel, toX, toZ := unpackCoord(cTo)
-	posLevel, posX, posZ := unpackCoord(cPos)
+	// L18: validate each coord (TS CoordValid) in TS order from→to→pos; a
+	// negative/out-of-range packed coord aborts rather than silently masking.
+	fromLevel, fromX, fromZ, err := checkCoord(cFrom, "INZONE")
+	if err != nil {
+		return err
+	}
+	toLevel, toX, toZ, err := checkCoord(cTo, "INZONE")
+	if err != nil {
+		return err
+	}
+	posLevel, posX, posZ, err := checkCoord(cPos, "INZONE")
+	if err != nil {
+		return err
+	}
 
 	if posX < fromX || posX > toX ||
 		posLevel < fromLevel || posLevel > toLevel ||
@@ -72,9 +83,11 @@ func handleMoveCoord(s *ScriptState) error {
 	x := s.PopInt()
 	coord := s.PopInt()
 
-	level := (coord >> 28) & 0x3
-	cx := (coord >> 14) & 0x3fff
-	cz := coord & 0x3fff
+	// L18: only the base coord is CoordValid-checked (TS); x/y/z are deltas.
+	level, cx, cz, err := checkCoord(coord, "MOVECOORD")
+	if err != nil {
+		return err
+	}
 
 	level += y
 	cx += x

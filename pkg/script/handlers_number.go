@@ -395,36 +395,52 @@ func handleInterpolate(s *ScriptState) error {
 // level. TS calls the level "y" (so COORDY returns the level). All three
 // COORD* handlers pop a packed coord and push one component.
 
+// L18: COORD*/DISTANCE validate the packed coord with checkCoord (TS
+// CoordValid) before unpacking — a negative (out-of-range, incl. the -1 null
+// sentinel) aborts the script, where the prior raw bit-unpack silently masked.
 func handleCoordX(s *ScriptState) error {
-	c := s.PopInt()
-	s.PushInt((c >> 14) & 0x3fff)
+	_, x, _, err := checkCoord(s.PopInt(), "COORDX")
+	if err != nil {
+		return err
+	}
+	s.PushInt(x)
 	return nil
 }
 
 // handleCoordY pushes the level. TS naming convention: "y" = vertical
 // plane (level 0..3), not the world-space Y axis.
 func handleCoordY(s *ScriptState) error {
-	c := s.PopInt()
-	s.PushInt((c >> 28) & 0x3)
+	level, _, _, err := checkCoord(s.PopInt(), "COORDY")
+	if err != nil {
+		return err
+	}
+	s.PushInt(level)
 	return nil
 }
 
 func handleCoordZ(s *ScriptState) error {
-	c := s.PopInt()
-	s.PushInt(c & 0x3fff)
+	_, _, z, err := checkCoord(s.PopInt(), "COORDZ")
+	if err != nil {
+		return err
+	}
+	s.PushInt(z)
 	return nil
 }
 
 // handleDistance pops two packed coords and pushes the king-move
 // (Chebyshev) distance — max(|dx|, |dz|). Matches TS CoordGrid.distanceToSW.
-// Pop order: popInts(2) = [c1, c2] with c2 on top.
+// Pop order: popInts(2) = [c1, c2] with c2 on top; TS validates c1 then c2.
 func handleDistance(s *ScriptState) error {
 	c2 := s.PopInt()
 	c1 := s.PopInt()
-	x1 := (c1 >> 14) & 0x3fff
-	z1 := c1 & 0x3fff
-	x2 := (c2 >> 14) & 0x3fff
-	z2 := c2 & 0x3fff
+	_, x1, z1, err := checkCoord(c1, "DISTANCE")
+	if err != nil {
+		return err
+	}
+	_, x2, z2, err := checkCoord(c2, "DISTANCE")
+	if err != nil {
+		return err
+	}
 	dx := x1 - x2
 	if dx < 0 {
 		dx = -dx
