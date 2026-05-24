@@ -106,22 +106,24 @@ func objAddCommon(s *ScriptState, op string, receiverID int) error {
 		return nil
 	}
 
-	// Mirror TS: set state.activeObj on each spawn; pointerAdd(ActiveObj).
-	// For non-stackable count=N, this overwrites N times — last wins,
-	// matching TS Engine-TS/.../ObjOps.ts:50-54 loop.
+	// L20: operand-aware activeObj writeback via setActiveObjSlot, mirroring
+	// TS `state.activeObj = obj; state.pointerAdd(ActiveObj[state.intOperand])`
+	// (ObjOps.ts:50-53/82-85) — IntOperand 1 (.obj2) routes to OtherActiveObj.
+	// Previously wrote s.ActiveObj/PtrActiveObj unconditionally, diverging from
+	// the operand-aware OBJ_FIND/FINDNEXT path that already uses this helper.
+	// For non-stackable count=N this overwrites N times — last wins, matching
+	// the TS loop.
 	if !objType.Stackable || count == 1 {
 		for range count {
 			obj := s.World.AddObj(level, x, z, objId, 1, duration, receiverID, 0)
 			if obj != nil {
-				s.ActiveObj = obj
-				s.Pointers |= PtrActiveObj
+				setActiveObjSlot(s, obj)
 			}
 		}
 	} else {
 		obj := s.World.AddObj(level, x, z, objId, count, duration, receiverID, 0)
 		if obj != nil {
-			s.ActiveObj = obj
-			s.Pointers |= PtrActiveObj
+			setActiveObjSlot(s, obj)
 		}
 	}
 	return nil
@@ -176,6 +178,12 @@ const objAddAllReceiverID = -1
 // identical validation chain via objAddCommon; only the receiverID
 // differs. Mirrors TS ObjOps.ts:58-93.
 func handleObjAddAll(s *ScriptState) error {
+	// L22: nil-World guard matching the twin handleObjAdd (objAddCommon
+	// dereferences s.World for MapMembers + AddObj). OBJ_ADDALL needs no
+	// Self guard — it broadcasts via objAddAllReceiverID, not activePlayer.
+	if s.World == nil {
+		return fmt.Errorf("OBJ_ADDALL: no world surface")
+	}
 	return objAddCommon(s, "OBJ_ADDALL", objAddAllReceiverID)
 }
 
@@ -342,11 +350,14 @@ func handleObjFind(s *ScriptState) error {
 	}
 	objId := s.PopInt()
 	coord := s.PopInt()
-	level, x, z, err := checkCoord(coord, "OBJ_FIND")
-	if err != nil {
+	// L23: validate objType before coord, matching TS order
+	// (ObjOps.ts:172-173: ObjTypeValid then CoordValid). When both are
+	// invalid TS surfaces the ObjType error first.
+	if err := checkObjType(s, objId, "OBJ_FIND"); err != nil {
 		return err
 	}
-	if err := checkObjType(s, objId, "OBJ_FIND"); err != nil {
+	level, x, z, err := checkCoord(coord, "OBJ_FIND")
+	if err != nil {
 		return err
 	}
 	if s.World == nil {

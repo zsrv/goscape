@@ -127,19 +127,20 @@ func handleInvGetNum(s *ScriptState) error {
 	return nil
 }
 
-// handleInvSize (INV_SIZE) pops an inv id and pushes its Capacity.
+// handleInvSize (INV_SIZE) pops an inv id and pushes its configured size.
+//
+// L21: TS INV_SIZE is a pure config read — state.pushInt(invType.size)
+// (InvOps.ts:27-31) — it does NOT require a resolvable player inventory.
+// Read the InvType.Size directly (== Inventory.Capacity, see FromType which
+// builds New(t.ID, t.Size, ...)) rather than resolving a live inv instance,
+// so the op works even when no inv is bound (s.Inv == nil). checkInvType
+// guarantees the InvType is non-nil here.
 func handleInvSize(s *ScriptState) error {
 	typeID := s.PopInt()
 	if err := checkInvType(s, typeID, "INV_SIZE"); err != nil {
 		return err
 	}
-	inv := resolveInv(s, typeID)
-	if inv == nil {
-		// Defensive: unreachable post-checkInvType for valid configs;
-		// retained for the InvLookup-unset case (s.Inv == nil → resolveInv returns nil).
-		return fmt.Errorf("INV_SIZE: no inv for type %d", typeID)
-	}
-	s.PushInt(inv.Capacity)
+	s.PushInt(s.Configs.InvType(typeID).Size)
 	return nil
 }
 
@@ -1073,19 +1074,20 @@ func handleInvDropSlot(s *ScriptState) error {
 
 	// Stackable branch: mirrors TS InvOps.ts:248-258.
 	// state.activeObj set after each spawn; last wins for non-stackable count=N.
+	// L20: operand-aware activeObj writeback via setActiveObjSlot, mirroring
+	// TS `state.activeObj = floorObj; state.pointerAdd(ActiveObj[state.intOperand])`
+	// (InvOps.ts:250-251/257-258). IntOperand 1 (.obj2) routes to OtherActiveObj.
 	if !objType.Stackable || completed == 1 {
 		for range completed {
 			obj := s.World.AddObj(level, x, z, objID, 1, duration, receiverID, s.activePlayer().AccountID())
 			if obj != nil {
-				s.ActiveObj = obj
-				s.Pointers |= PtrActiveObj
+				setActiveObjSlot(s, obj)
 			}
 		}
 	} else {
 		obj := s.World.AddObj(level, x, z, objID, completed, duration, receiverID, s.activePlayer().AccountID())
 		if obj != nil {
-			s.ActiveObj = obj
-			s.Pointers |= PtrActiveObj
+			setActiveObjSlot(s, obj)
 		}
 	}
 	return nil
@@ -1473,8 +1475,9 @@ func handleInvDropItem(s *ScriptState) error {
 	receiverID := s.activePlayer().UID()
 	o := s.World.AddObj(level, x, z, obj, completed, duration, receiverID, s.activePlayer().AccountID())
 	if o != nil {
-		s.ActiveObj = o
-		s.Pointers |= PtrActiveObj
+		// L20: operand-aware writeback (TS InvOps.ts:184-185
+		// state.activeObj = floorObj; pointerAdd(ActiveObj[intOperand])).
+		setActiveObjSlot(s, o)
 	}
 
 	// NAI-Phase2: emit ItemDroppedEvent — only fires when both inventory

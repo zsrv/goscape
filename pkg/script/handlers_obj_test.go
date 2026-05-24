@@ -244,6 +244,24 @@ func TestHandleObjAddNonStackable(t *testing.T) {
 	}
 }
 
+// TestHandleObjAddAllNilWorldGuard pins L22: OBJ_ADDALL returns a clean
+// "no world surface" error when s.World is nil (the twin handleObjAdd already
+// guards), rather than panicking on the nil deref inside objAddCommon's
+// MapMembers/AddObj calls.
+func TestHandleObjAddAllNilWorldGuard(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	s.World = nil
+	s.Configs = withObjForObjAdd(newTestConfigs(), 590, true, false, 0)
+	s.PushInt(coordgrid.PackCoord(0, 3200, 3200))
+	s.PushInt(590)
+	s.PushInt(5)
+	s.PushInt(100)
+	err := handleObjAddAll(s)
+	if err == nil || !strings.Contains(err.Error(), "no world surface") {
+		t.Fatalf("OBJ_ADDALL nil world: got %v, want 'no world surface' error", err)
+	}
+}
+
 func TestHandleObjAddNegativeIdShortCircuits(t *testing.T) {
 	s := newTestState(minimalScript(OpReturn))
 	w := newFakeWorldMembers()
@@ -807,6 +825,22 @@ func TestObjFindHitSecondarySlot(t *testing.T) {
 	}
 	if s.ActiveObj != nil {
 		t.Errorf("ActiveObj: got %v, want nil (secondary slot)", s.ActiveObj)
+	}
+}
+
+// TestObjFindValidatesObjTypeBeforeCoord pins L23: when both objId and coord
+// are invalid, OBJ_FIND surfaces the ObjType error first, matching TS
+// ObjOps.ts:172-173 (ObjTypeValid checked before CoordValid). Pre-L23 the
+// coord was checked first, so a bad-objId+bad-coord pair surfaced the coord
+// error instead.
+func TestObjFindValidatesObjTypeBeforeCoord(t *testing.T) {
+	w := newFakeWorldObjFind(nil)
+	mc := newTestConfigs() // objId 999 unregistered
+	// coord -1 (negative → CoordValid fails) AND objId 999 (unregistered).
+	s := newObjFindState(t, w, mc, 0 /*intOperand*/, -1, 999, 12345)
+	err := handleObjFind(s)
+	if err == nil || !strings.Contains(err.Error(), "no ObjType") {
+		t.Fatalf("OBJ_FIND both-invalid: got %v, want ObjType error first", err)
 	}
 }
 

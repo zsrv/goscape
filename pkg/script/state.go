@@ -371,13 +371,16 @@ type ScriptState struct {
 	ActiveObj ActiveObj
 
 	// OtherActiveObj is the secondary Obj slot, parallel to OtherActiveLoc
-	// (NAI-119) and OtherActiveNpc (NAI-11). Set by OBJ_FIND / OBJ_FINDNEXT
-	// when the bytecode IntOperand is 1 (.obj2 syntax). NAI-154.
+	// (NAI-119) and OtherActiveNpc (NAI-11). Written via setActiveObjSlot by
+	// every operand-aware OBJ writeback when the bytecode IntOperand is 1
+	// (.obj2 syntax): OBJ_FIND / OBJ_FINDNEXT, and (since L20) the spawn
+	// handlers OBJ_ADD / OBJ_ADDALL / INV_DROPSLOT / INV_DROPITEM. NAI-154.
 	//
 	// NAI-154-D-NO-DOWNSTREAM-OBJ2-CONSUMERS: no existing OBJ_* read handler
-	// reads from this slot at HEAD — they all read s.ActiveObj only. Tracked
-	// deviation, mirrors NAI-119-D-NO-DOWNSTREAM-LOC2-CONSUMERS. Closure
-	// when a `.obj2` content-script consumer surfaces.
+	// reads from this slot at HEAD — they all read s.ActiveObj only (L19,
+	// the operand-aware read accessor remains deferred). Tracked deviation,
+	// mirrors NAI-119-D-NO-DOWNSTREAM-LOC2-CONSUMERS. Closure when a `.obj2`
+	// content-script read consumer surfaces.
 	OtherActiveObj ActiveObj
 
 	// OtherActiveNpc is the secondary NPC slot used by AI_*NPC handlers

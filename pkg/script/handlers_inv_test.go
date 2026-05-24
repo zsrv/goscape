@@ -316,6 +316,18 @@ func TestInvSize(t *testing.T) {
 	}
 }
 
+// TestInvSize_NoResolvableInv_L21 pins L21: INV_SIZE is a pure config read
+// (TS InvOps.ts:27-31 state.pushInt(invType.size)) and must succeed even when
+// no player inventory is resolvable (nil lookup → resolveInv returns nil).
+// Pre-L21 the handler resolved a live inv and errored here.
+func TestInvSize_NoResolvableInv_L21(t *testing.T) {
+	mc := newTestInvConfigs()
+	state := runInvOp(t, OpInvSize, []int{testInvMain}, nil, mc)
+	if got := state.PopInt(); got != 28 {
+		t.Errorf("INV_SIZE(main) with no resolvable inv: got %d, want 28", got)
+	}
+}
+
 func TestInvClear(t *testing.T) {
 	lookup := newTestInvLookup()
 	mc := newTestInvConfigs()
