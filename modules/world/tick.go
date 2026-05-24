@@ -58,10 +58,13 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		// RELAY_SHUTDOWN observes its own shutdownTick assignment.
 		s.drainRelayActions()
 
-		// NAI-182 — shutdown consumer must run BEFORE any per-tick work
-		// so a doomed conn doesn't receive one more tick of activity.
-		// Mirrors TS World.cycle (World.ts:419-420 `if (this.shutdown)
-		// this.processShutdown();`).
+		// NAI-182 — shutdown consumer runs at top-of-body so a doomed conn
+		// doesn't receive one more tick of activity. DEVIATION from TS (L3):
+		// TS runs processShutdown at cycle END (World.ts:419-420, after
+		// processCleanup), goscape hoists it to the top. Accepted LOW: the
+		// only observable effect is a shutting-down world cuts activity one
+		// tick earlier than TS. The TS citation is the call shape
+		// (`if (this.shutdown) this.processShutdown();`), not its position.
 		if s.shutdownTick != -1 && s.currentTick >= s.shutdownTick {
 			s.processShutdown()
 			if s.shutdownGraceful {
@@ -72,7 +75,10 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		// NAI-PLAYERLOADING — autosave every PlayerSaveRate (1500) ticks.
 		// Gate at top-of-body so currentTick has been incremented by the
 		// previous iteration's tail. currentTick==0 on the very first
-		// iteration is excluded by the >0 guard.
+		// iteration is excluded by the >0 guard. DEVIATION from TS (L4): TS
+		// runs savePlayers at cycle END (World.ts:424); goscape at top. Benign
+		// — identical 1500-tick cadence, and a tick-boundary save sees a
+		// consistent snapshot whether taken at the start or end of the tick.
 		if s.currentTick%PlayerSaveRate == 0 && s.currentTick > 0 {
 			s.autosavePlayers()
 			// PlayerAutosave RPC + cadence gate pinned by TestAutosavePlayers_*
@@ -121,14 +127,15 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		s.processNpcHuntPlayers()
 		s.processNpcs()
 		s.processActiveScripts()
-		// NAI-134: drain the obj-delayed-spawn queue. Mirrors TS
-		// World.cycle ordering at World.ts:563 — runs after script-firing
-		// (so same-tick INV_DROPITEM_DELAYED with delay=0 spawns the obj
-		// before processInfo reads zone state). Post-NAI-217 processNpcs
-		// runs earlier in the cycle, so an obj spawned here is visible
-		// to the NEXT tick's processNpcs (matching TS, where the
-		// objDelayedQueue inside processWorld drains at L562-574 before
-		// the same cycle's processNpcs at L365).
+		// NAI-134: drain the obj-delayed-spawn queue here, after script-firing,
+		// so a same-tick INV_DROPITEM_DELAYED with delay=0 spawns the obj before
+		// processInfo reads zone state. DEVIATION from TS (L1): TS drains the
+		// objDelayedQueue inside processWorld at cycle START (World.ts:562-574),
+		// BEFORE the same cycle's processNpcs (L365), so a delayed obj is visible
+		// to NPC hunt the SAME tick. goscape drains it AFTER processNpcs, so a
+		// delayed-spawned obj is visible to NPC obj-hunt one tick later. Accepted
+		// LOW: 1-tick latency on the rare HuntModeObj path; the placement is what
+		// gives delay=0 player drops same-tick visibility before processInfo.
 		s.processObjDelayedQueue()
 		s.processPlayerTimers()
 		// NAI-144: TS World.ts:725 — engineQueue drains between timers and
@@ -152,6 +159,11 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 		s.processValidateDistanceWalked()
 		s.processLogouts()
 		s.processLogins()
+		// L2 DEVIATION (accepted, documented NAI-93): TS runs processZones
+		// (W.ts:388) BEFORE processInfo (W.ts:395); goscape runs processInfo
+		// first so rebuildNormal (TS BuildArea slot, W.ts:996) settles before
+		// zone compute. Cost is a 1-tick facing artifact for a just-revealed
+		// zone — see the NAI-93 notes in player.go / processInfo below.
 		s.processInfo()
 		s.processZones() // compute ComputeShared before delivery
 		s.processClientsOut()
@@ -955,6 +967,11 @@ func (s *Server) processInteractions() {
 	}
 }
 
+// processCleanup mirrors TS World.processCleanup (reset zones/players/npcs/invs).
+// L5 DEVIATION (accepted, benign): the within-cleanup reset ORDER differs from
+// TS (goscape resets player masks + flags + invs here, then world invs; TS
+// orders zones→players→npcs→invs). No cross-step data dependency makes the
+// order observable — each reset clears independent end-of-tick state.
 func (s *Server) processCleanup() {
 	s.playersMu.RLock()
 	players := make([]*Player, len(s.playerLoop))
