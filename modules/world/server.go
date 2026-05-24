@@ -776,8 +776,13 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 		s.log.Info("connection closed", "remote_addr", conn.RemoteAddr())
 	}()
 
+	// L48: the first seed word is masked to 24 bits, matching TS web.ts:135
+	// (Math.floor(Math.random() * 0x00ffffff)); the second is a full 32-bit
+	// word (web.ts:136). These 8 bytes are session entropy fed into the login
+	// handshake, so the high byte is functionally inert — but masking keeps the
+	// wire bytes byte-faithful to the TS upstream.
 	seed := packet.NewPacket(make([]byte, 0, 8))
-	seed.P4(rand.Uint32())
+	seed.P4(rand.Uint32() & 0x00ffffff)
 	seed.P4(rand.Uint32())
 
 	c.write(seed.Bytes())

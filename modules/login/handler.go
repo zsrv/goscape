@@ -303,7 +303,16 @@ func (h *handler) PlayerLogout(ctx context.Context, req *loginpb.PlayerLogoutReq
 		return nil, status.Errorf(codes.Internal, "setLoggedOut: %v", err)
 	}
 
-	// TODO: updateHiscores
+	// L46: TS calls updateHiscores here (LoginServer.ts:450) to export the
+	// logged-out player's per-stat XP/levels into the hiscore / hiscore_large
+	// leaderboard tables. goscape does not port the hiscores subsystem at all
+	// — there are no hiscore tables/migrations, no PlayerStatEnabled table, and
+	// no hiscores HTTP endpoint to serve them — so there is nothing to update.
+	// This is a deliberately deferred feature (see
+	// docs/superpowers/specs/2026-04-17-login-server-design.md and the
+	// PlayerLoading design spec), NOT a missed one-liner: porting it requires
+	// the leaderboard schema, the stat-export query, and the serving endpoint.
+	// Left as a documented no-op rather than a bare TODO.
 
 	return &loginpb.PlayerLogoutResponse{Success: true}, nil
 }

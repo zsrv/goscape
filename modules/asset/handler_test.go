@@ -298,3 +298,42 @@ func TestRootHandler_MidWithoutUnderscore404s(t *testing.T) {
 		}
 	}
 }
+
+// TestRootHandler_MidBeatsArchivePrefix pins L47: a ".mid" request whose
+// filename begins with an archive prefix word (here "config") must be
+// dispatched to the song handler, not captured by the "/config" archive
+// prefix. Mirrors TS web.ts dispatch order, where the `.mid` branch
+// (web.ts:62) precedes every archive `startsWith` branch. A regression that
+// re-ordered the prefix checks ahead of `.mid` would serve the wrong asset.
+func TestRootHandler_MidBeatsArchivePrefix(t *testing.T) {
+	// The handlers use hardcoded relative paths under data/pack/client, so
+	// run from a temp CWD seeded with both candidate files.
+	t.Chdir(t.TempDir())
+
+	songDir := filepath.Join("data", "pack", "client", "songs")
+	if err := os.MkdirAll(songDir, 0o755); err != nil {
+		t.Fatalf("mkdir songs: %v", err)
+	}
+	// GET /config_123.mid → filename = "config" + ".mid" (strip _<crc>).
+	const wantSong = "THE-SONG"
+	if err := os.WriteFile(filepath.Join(songDir, "config.mid"), []byte(wantSong), 0o644); err != nil {
+		t.Fatalf("write song: %v", err)
+	}
+	// The decoy archive the "/config" prefix would have served.
+	if err := os.WriteFile(filepath.Join("data", "pack", "client", "config"), []byte("THE-ARCHIVE"), 0o644); err != nil {
+		t.Fatalf("write archive: %v", err)
+	}
+
+	a := &Asset{log: discardLogger()}
+	req := httptest.NewRequest(http.MethodGet, "/config_123.mid", nil)
+	rr := httptest.NewRecorder()
+	a.RootHandler(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rr.Code)
+	}
+	got, _ := io.ReadAll(rr.Body)
+	if string(got) != wantSong {
+		t.Fatalf("body = %q, want %q (served the archive instead of the song?)", got, wantSong)
+	}
+}

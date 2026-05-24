@@ -35,6 +35,16 @@ func (h *handler) ensureWorld(worldId int32) {
 // WorldConnect validates the profile and initializes the world's slot.
 // Mirrors TS FriendServer WORLD_CONNECT (FriendServer.ts:89-106).
 // Re-init by the same world resets that world's player counter to 0.
+//
+// L45: TS WORLD_CONNECT also calls initializeWorld(world, socket), which
+// terminates any prior socket for that world (FriendServer.ts:412-419,
+// `socketByWorld[world].terminate()`). goscape splits TS's single
+// per-world WebSocket into two pieces — this one-shot WorldConnect init
+// RPC and the persistent SubscribeWorldEvents push stream — so there is
+// no socket to terminate HERE. The terminate-prior semantics are
+// preserved in the equivalent layer: worldSubscriptions.register
+// (world_subscriptions.go:57-64) closes the prior subscriber's done
+// channel on re-subscribe. See NAI-S4A-D-PERPLAYER-NOT-PERWORLD-STREAM.
 func (h *handler) WorldConnect(_ context.Context, req *friendspb.WorldConnectRequest) (*emptypb.Empty, error) {
 	if req.Profile != h.cfg.NodeProfile {
 		return nil, status.Errorf(codes.InvalidArgument,

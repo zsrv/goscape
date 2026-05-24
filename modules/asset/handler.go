@@ -26,6 +26,37 @@ func (a *Asset) RootHandler(w http.ResponseWriter, r *http.Request) {
 	// should make a way for the server to store all the crcs and check against them when they're requested
 	// then reject a request if a crc we don't have is requested or something
 
+	// L47: .mid is matched FIRST, before /crc and the archive prefixes, to
+	// mirror TS web.ts dispatch order (web.ts:62-86 — the `.mid` branch
+	// precedes every `startsWith` archive branch). Otherwise a song whose
+	// filename begins with an archive word (e.g. GET /config_<crc>.mid) would
+	// be captured by the `/config` prefix and served the wrong archive. The `/`
+	// WebSocket-upgrade branch that leads TS's chain is handled at the server
+	// layer, so .mid is RootHandler's first check.
+	if strings.HasSuffix(r.URL.Path, ".mid") {
+		a.log.Debug("rootHandler mid", "path", r.URL.Path)
+
+		// TODO: packing process should spit out files with crc included in
+		//  the name, but the server needs to be aware of the crc so it can
+		//  send the proper length, so that's been pushed off till later...
+
+		// strip _crc from filename, but keep extension. M28: a ".mid" path with
+		// no "_" gives LastIndex == -1, and slicing [1:-1] panics. TS web.ts:68
+		// (substring(1, lastIndexOf('_'))) clamps to a filename that can't exist
+		// and falls through to a 404, so reject the malformed path the same way
+		// rather than panicking mid-response.
+		us := strings.LastIndex(r.URL.Path, "_")
+		if us < 1 {
+			http.NotFound(w, r)
+			return
+		}
+		filename := r.URL.Path[1:us] + ".mid"
+
+		w.Header().Set("Content-Type", "application/octet-stream")
+		http.ServeFile(w, r, path.Join("data/pack/client/songs", filename))
+		return
+	}
+
 	if strings.HasPrefix(r.URL.Path, "/crc") { // archive checksums
 		// the number appended to the url is random
 		w.Header().Set("Content-Type", "application/octet-stream")
@@ -81,30 +112,6 @@ func (a *Asset) RootHandler(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, path.Join("data/pack/client", "sounds"))
 		return
 	}
-	if strings.HasSuffix(r.URL.Path, ".mid") {
-		a.log.Debug("rootHandler mid", "path", r.URL.Path)
-
-		// TODO: packing process should spit out files with crc included in
-		//  the name, but the server needs to be aware of the crc so it can
-		//  send the proper length, so that's been pushed off till later...
-
-		// strip _crc from filename, but keep extension. M28: a ".mid" path with
-		// no "_" gives LastIndex == -1, and slicing [1:-1] panics. TS web.ts:68
-		// (substring(1, lastIndexOf('_'))) clamps to a filename that can't exist
-		// and falls through to a 404, so reject the malformed path the same way
-		// rather than panicking mid-response.
-		us := strings.LastIndex(r.URL.Path, "_")
-		if us < 1 {
-			http.NotFound(w, r)
-			return
-		}
-		filename := r.URL.Path[1:us] + ".mid"
-
-		w.Header().Set("Content-Type", "application/octet-stream")
-		http.ServeFile(w, r, path.Join("data/pack/client/songs", filename))
-		return
-	}
-
 	// /rs2.cgi Java applet bootstrap — mirrors web.ts:88-113. Matched before
 	// the public/ fallback to preserve TS dispatch order.
 	if r.URL.Path == "/rs2.cgi" {

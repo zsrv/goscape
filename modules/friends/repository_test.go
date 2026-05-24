@@ -126,6 +126,54 @@ func TestRepository_AddFriend_Idempotent(t *testing.T) {
 	}
 }
 
+// TestRepository_GetFriends_OrderedByCreated pins L44: GetFriends and
+// GetIgnores must return entries in created-ascending order, matching TS
+// FriendServerRepository.loadFriends/loadIgnores (orderBy('created', 'asc')).
+// Rows are inserted with explicit created timestamps whose order differs from
+// insertion order, so a missing ORDER BY (which would surface insertion/rowid
+// order) is caught.
+func TestRepository_GetFriends_OrderedByCreated(t *testing.T) {
+	r, db := newTestRepo(t)
+	ctx := t.Context()
+	const owner = 0xAAAA
+
+	// Insertion order: 1111, 2222, 3333. created order: 2222, 3333, 1111.
+	insert := func(table string, target int64, created string) {
+		t.Helper()
+		_, err := db.Exec(
+			`INSERT INTO `+table+` (profile, owner_username37, target_username37, created)
+			 VALUES (?, ?, ?, ?)`,
+			"test", int64(owner), target, created,
+		)
+		if err != nil {
+			t.Fatalf("insert %s: %v", table, err)
+		}
+	}
+	for _, table := range []string{"friendlist", "ignorelist"} {
+		insert(table, 0x1111, "2020-01-03 00:00:00")
+		insert(table, 0x2222, "2020-01-01 00:00:00")
+		insert(table, 0x3333, "2020-01-02 00:00:00")
+	}
+
+	want := []uint64{0x2222, 0x3333, 0x1111}
+
+	gotFriends, err := r.GetFriends(ctx, owner)
+	if err != nil {
+		t.Fatalf("GetFriends: %v", err)
+	}
+	if !slices.Equal(gotFriends, want) {
+		t.Errorf("GetFriends order: got %v, want %v", gotFriends, want)
+	}
+
+	gotIgnores, err := r.GetIgnores(ctx, owner)
+	if err != nil {
+		t.Fatalf("GetIgnores: %v", err)
+	}
+	if !slices.Equal(gotIgnores, want) {
+		t.Errorf("GetIgnores order: got %v, want %v", gotIgnores, want)
+	}
+}
+
 func TestRepository_DeleteFriend_AbsentNoOp(t *testing.T) {
 	r, _ := newTestRepo(t)
 	ctx := t.Context()

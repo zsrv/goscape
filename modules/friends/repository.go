@@ -169,11 +169,16 @@ func (r *Repository) DeleteFriend(ctx context.Context, owner, target uint64) err
 	return nil
 }
 
-// GetFriends returns all target_username37 values in owner's friend list.
+// GetFriends returns all target_username37 values in owner's friend list,
+// oldest entry first. The `ORDER BY created ASC` matches TS
+// FriendServerRepository.loadFriends (orderBy('f.created', 'asc')) so the
+// client renders the friend list in insertion order rather than an
+// undefined order. L44.
 func (r *Repository) GetFriends(ctx context.Context, owner uint64) ([]uint64, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT target_username37 FROM friendlist
-		 WHERE profile = ? AND owner_username37 = ?`,
+		 WHERE profile = ? AND owner_username37 = ?
+		 ORDER BY created ASC`,
 		r.profile, int64(owner),
 	)
 	if err != nil {
@@ -277,10 +282,14 @@ func (r *Repository) DeleteIgnore(ctx context.Context, owner, target uint64) err
 	return nil
 }
 
+// GetIgnores returns all target_username37 values in owner's ignore list,
+// oldest entry first — matching TS FriendServerRepository.loadIgnores
+// (orderBy('i.created', 'asc')). See GetFriends. L44.
 func (r *Repository) GetIgnores(ctx context.Context, owner uint64) ([]uint64, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT target_username37 FROM ignorelist
-		 WHERE profile = ? AND owner_username37 = ?`,
+		 WHERE profile = ? AND owner_username37 = ?
+		 ORDER BY created ASC`,
 		r.profile, int64(owner),
 	)
 	if err != nil {
