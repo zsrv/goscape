@@ -16,7 +16,7 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 | HIGH | 17 / 17 ✓ |
 | DISPUTED | D1 RESOLVED ✓ (real bug, fixed with M2) |
 | MEDIUM | 30 / 30 ✓ |
-| LOW | 7 / 50 |
+| LOW | 9 / 50 |
 | **Total** | **0 / 100** (+1 disputed, +~11 do-not-fix) |
 
 ---
@@ -93,8 +93,8 @@ Legend: `⚠TEST` = a green test pins the buggy contract, update it as part of t
 - [x] **L5** intra-cleanup reset order differs (benign) — `tick.go:872`. [A] **(4053cbb2)** — added doc note; no cross-step dependency makes order observable. Accepted LOW.
 - [x] **L6** Timers fire while `loggingOut` (TS guards) — `tick.go:601`. [C] **(6520ece9)** — processPlayerTimers now skips logging-out players (both NORMAL+SOFT), TS World.ts:717-722. +pin test (soft timer suppressed).
 - [x] **L7** `preventLogoutMessage` never emitted — `tick.go:395`. [C] **(6520ece9)** — processLogouts emits + consumes preventLogoutMessage inside the prevent window (requestLogout only), TS World.ts:765-767. +pin test.
-- [ ] **L8** NPC `apRangeCalled` not reset per-tick (event-driven instead) — `npc_masks.go:250`. [D]
-- [ ] **L9** `GetObj` lacks `isValid()` (count≥1) filter — `modules/world/obj_lookup.go:18`. [E]
+- [x] **L8** NPC `apRangeCalled` not reset per-tick (event-driven instead) — `npc_masks.go:250`. [D] **(842e03a8)** — added per-tick reset in npc resetPathingEntity (TS L588); field is write-only on NPC side today (no reader), so TS-faithful + future-proof, zero behavior change. npc has no `interacted` field (TS L587 N/A).
+- [x] **L9** `GetObj` lacks `isValid()` (count≥1) filter — `modules/world/obj_lookup.go:18`. [E] **(842e03a8)** — GetObj skips count<1 || !IsActive (TS getObjsSafe→isValid). Meaningful: static RESPAWN objs linger inactive after being taken → prevents re-take before respawn. +pin test; set IsActive=true in 4 test injection sites (bypass AddObj, hard-rule #2; TS Entity ctor is isActive=false too so NewObj is correct).
 - [ ] **L10** INV `beginSlot` skipped-indices second pass missing (latent; needed once restock uses beginSlot) — `inventory.go:296`. [F]
 - [ ] **L11** INV `FromType` stockobj seeding diverges (skip id==0, count fallback) — `inventory.go:42`. [F]
 - [ ] **L12** INV `AddOpts.BeginSlot` zero-value footgun (0 vs -1) — `inventory.go:250`. [F]
