@@ -8,6 +8,7 @@ import (
 	"net"
 
 	"github.com/zsrv/goscape/internal/dskit/services"
+	"github.com/zsrv/goscape/pkg/telemetry"
 )
 
 // Login is the login server module. It owns the SQLite DB and the gRPC server.
@@ -17,9 +18,9 @@ type Login struct {
 	cfg Config
 	log *slog.Logger
 
-	db  *sql.DB
-	srv *grpcServer
-	lis net.Listener
+	db       *sql.DB
+	srv      *grpcServer
+	lis      net.Listener
 }
 
 // New validates the config and constructs the Login module.
@@ -37,13 +38,13 @@ func NewLoginService(cfg Config, logger *slog.Logger) (services.Service, error) 
 	return New(cfg, logger)
 }
 
-func (l *Login) starting(_ context.Context) error {
+func (l *Login) starting(ctx context.Context) error {
 	db, err := openDB(l.cfg.SQLiteDSN)
 	if err != nil {
 		return fmt.Errorf("open login db: %w", err)
 	}
 
-	srv := newGRPCServer(l.cfg, db, l.log)
+
 	lis, err := srv.listen(l.cfg)
 	if err != nil {
 		db.Close()
@@ -80,6 +81,7 @@ func (l *Login) stopping(_ error) error {
 	// and running() being invoked — gRPC never took ownership of the listener.
 	if l.lis != nil {
 		l.lis.Close()
+	}
 	}
 	if l.db != nil {
 		l.db.Close()

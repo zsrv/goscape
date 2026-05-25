@@ -17,12 +17,11 @@ type grpcServer struct {
 	log    *slog.Logger
 }
 
-func newGRPCServer(cfg Config, db *sql.DB, log *slog.Logger) *grpcServer {
 	s := grpc.NewServer()
 	loginpb.RegisterLoginServiceServer(s, &handler{
-		db:  db,
-		cfg: cfg,
-		log: log,
+		db:       db,
+		cfg:      cfg,
+		log:      log,
 	})
 	reflection.Register(s)
 	return &grpcServer{server: s, log: log}

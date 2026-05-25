@@ -19,18 +19,16 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/zsrv/goscape/pkg/eventspb"
 	"github.com/zsrv/goscape/pkg/loginpb"
-	"github.com/zsrv/goscape/pkg/telemetry"
 )
 
 // handler implements loginpb.LoginServiceServer.
 type handler struct {
 	loginpb.UnimplementedLoginServiceServer
 
-	db  *sql.DB
-	cfg Config
-	log *slog.Logger
+	db       *sql.DB
+	cfg      Config
+	log      *slog.Logger
 
 	// loginRequests tracks usernames whose login flow is currently in progress,
 	// so duplicate attempts (racing login) can be rejected cleanly.
@@ -246,18 +244,6 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 	}
 	committed = true
 
-	telemetry.Get().EmitAuth(&eventspb.AuthEnvelope{
-		SchemaVersion: 1,
-		EventId:       uuid.NewString(),
-		Ts:            timestamppb.Now(),
-		AccountId:     int64(account.ID),
-		WorldId:       req.NodeId,
-		Payload: &eventspb.AuthEnvelope_Login{
-			Login: &eventspb.LoginEvent{
-				Ip: ip,
-			},
-		},
-	})
 
 	return buildLoginResponse(result, account, saveBytes, sessionUUID), nil
 }

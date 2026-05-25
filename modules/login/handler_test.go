@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/zsrv/goscape/pkg/loginpb"
+	"github.com/zsrv/goscape/pkg/telemetry"
 )
 
 // newTestHandler creates a handler with an in-memory DB and a temp save directory.
@@ -30,7 +31,7 @@ func newTestHandler(t *testing.T) (*handler, string) {
 			AutoSubscribeMembers: true,
 			BCryptCost:           4,
 		},
-		log: noopLogger(),
+		log:      noopLogger(),
 	}
 	return h, savePath
 }

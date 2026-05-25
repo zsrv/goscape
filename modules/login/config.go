@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
+
 )
 
 type Config struct {
@@ -52,6 +53,8 @@ func (c *Config) Validate() error {
 	}
 	if c.SavePath == "" {
 		return fmt.Errorf("login: SavePath must be non-empty when login.enable=true")
+	}
+		return err
 	}
 	return nil
 }
