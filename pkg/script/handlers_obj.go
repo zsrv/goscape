@@ -292,9 +292,9 @@ func handleObjTakeItem(s *ScriptState) error {
 		}
 	}
 
-	// Emit a wealth event for downstream consumers (drop-pickup
-	// model — see docs/superpowers/specs/event-pipeline-
-	// drop-pickup-design.md). Sibling to the in-process
+	// Emit a wealth event for downstream consumers (transfer-pattern
+	// model, drop/pickup arm — see docs/superpowers/specs/
+	// 2026-05-24-transfer-pattern-design.md). Sibling to the in-process
 	// AddWealthEvent above (NAI-162's per-player wealth tracker); the
 	// two emit independently because they serve different downstream
 	// systems. DroppedByAccountId from the new Obj.DropperAccountID
