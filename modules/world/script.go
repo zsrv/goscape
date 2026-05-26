@@ -108,6 +108,24 @@ func (s *Server) runScript(
 	if sf == nil {
 		return
 	}
+	// Protected-access guard — TS Player.runScript (Player.ts:2094):
+	//   if (!force && protect && (this.protect || this.delayed)) return -1;
+	// A fresh protected script cannot acquire protected access while the
+	// player already holds it (a protected script suspended on a chat/
+	// choice dialogue keeps protectedScriptActive() true) or is delayed.
+	// Resumes bypass runScript — they call resumeOrFinish directly, the
+	// force=true path — so no `force` parameter is needed here. Without
+	// this guard an opheld/opheldu/opheldt/if_button/inv_button fired
+	// mid-dialogue would execute, enabling item dupes against the
+	// consume-after-yield content pattern (drop the input during the
+	// dialogue; the post-resume inv_del removes nothing but the reward
+	// is still granted). The immediate-run handlers reach this method
+	// without an upstream CanAccess gate, so the guard lives here.
+	if protect {
+		if p, ok := self.(*Player); ok && (p.protectedScriptActive() || p.delayed) {
+			return
+		}
+	}
 	state := s.buildPlayerScriptState(sf, self, target, trigger, protect, intArgs, stringArgs)
 	s.resumeOrFinish(state, self)
 }
