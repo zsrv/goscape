@@ -122,6 +122,7 @@ func TestNpcAiModeFiresOpBeforeMoveWhenInRange(t *testing.T) {
 
 	n := newNpcAt100(t)
 	n.server = s
+	n.typeId = 99 // AI trigger keys on the acting npc's own type (TS Npc.ts:992)
 	n.typ = &objtype.NpcType{AttackRange: 5, GiveChase: true}
 	n.targetOp = objtype.NPCModeOpNpc1
 
@@ -277,6 +278,7 @@ func TestNpcTryInteractOpLocRequiresAllowOpScenery(t *testing.T) {
 
 	n := newNpcAt100(t)
 	n.server = s
+	n.typeId = 77 // AI trigger keys on the acting npc's own type (TS Npc.ts:992)
 	n.typ = &objtype.NpcType{AttackRange: 5}
 	n.targetOp = objtype.NPCModeOpLoc1
 

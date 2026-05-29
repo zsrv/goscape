@@ -150,7 +150,7 @@ func TestFireAiOpTriggerDispatchesPlayer(t *testing.T) {
 func TestFireAiApTriggerDispatchesNpc(t *testing.T) {
 	s := newServerForScriptTest(t)
 	s.scriptProvider = script.NewProvider()
-	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiApNpc1, 99, "disp-npc"))
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiApNpc1, 0, "disp-npc")) // keyed on the acting npc (type 0)
 
 	n := newNpcForScriptTest(t)
 	n.server = s
@@ -168,7 +168,7 @@ func TestFireAiApTriggerDispatchesNpc(t *testing.T) {
 func TestFireAiOpTriggerDispatchesLoc(t *testing.T) {
 	s := newServerForScriptTest(t)
 	s.scriptProvider = script.NewProvider()
-	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpLoc1, 77, "disp-loc"))
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpLoc1, 0, "disp-loc")) // keyed on the acting npc (type 0)
 
 	n := newNpcForScriptTest(t)
 	n.server = s
@@ -188,7 +188,7 @@ func TestFireAiOpTriggerDispatchesLoc(t *testing.T) {
 func TestFireAiApTriggerDispatchesObj(t *testing.T) {
 	s := newServerForScriptTest(t)
 	s.scriptProvider = script.NewProvider()
-	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiApObj1, 88, "disp-obj"))
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiApObj1, 0, "disp-obj")) // keyed on the acting npc (type 0)
 
 	n := newNpcForScriptTest(t)
 	n.server = s
@@ -219,7 +219,7 @@ func TestFireAiOpTriggerNilTargetNoOp(t *testing.T) {
 func TestFireAiOpTriggerObjHappyPath(t *testing.T) {
 	s := newServerForScriptTest(t)
 	s.scriptProvider = script.NewProvider()
-	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpObj1, 88, "aiop-obj"))
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpObj1, 0, "aiop-obj")) // keyed on the acting npc (type 0)
 
 	n := newNpcForScriptTest(t)
 	n.server = s
@@ -257,7 +257,7 @@ func TestFireAiOpTriggerObjNoScriptClears(t *testing.T) {
 func TestFireAiOpTriggerObjZoneStaleClears(t *testing.T) {
 	s := newServerForScriptTest(t)
 	s.scriptProvider = script.NewProvider()
-	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpObj1, 88, "aiop-obj"))
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpObj1, 0, "aiop-obj")) // keyed on the acting npc (type 0)
 
 	n := newNpcForScriptTest(t)
 	n.server = s
@@ -280,7 +280,7 @@ func TestFireAiOpTriggerObjZoneStaleClears(t *testing.T) {
 func TestFireAiApTriggerObjHappyPath(t *testing.T) {
 	s := newServerForScriptTest(t)
 	s.scriptProvider = script.NewProvider()
-	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiApObj1, 88, "aiap-obj"))
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiApObj1, 0, "aiap-obj")) // keyed on the acting npc (type 0)
 
 	n := newNpcForScriptTest(t)
 	n.server = s
@@ -302,7 +302,7 @@ func TestFireAiApTriggerObjHappyPath(t *testing.T) {
 func TestFireAiOpTriggerLocHappyPath(t *testing.T) {
 	s := newServerForScriptTest(t)
 	s.scriptProvider = script.NewProvider()
-	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpLoc1, 77, "aiop-loc"))
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpLoc1, 0, "aiop-loc")) // keyed on the acting npc (type 0)
 
 	n := newNpcForScriptTest(t)
 	n.server = s
@@ -341,7 +341,7 @@ func TestFireAiOpTriggerLocNoScriptClears(t *testing.T) {
 func TestFireAiOpTriggerLocZoneStaleClears(t *testing.T) {
 	s := newServerForScriptTest(t)
 	s.scriptProvider = script.NewProvider()
-	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpLoc1, 77, "aiop-loc"))
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpLoc1, 0, "aiop-loc")) // keyed on the acting npc (type 0)
 
 	n := newNpcForScriptTest(t)
 	n.server = s
@@ -368,7 +368,7 @@ func TestFireAiOpTriggerLocZoneStaleClears(t *testing.T) {
 func TestFireAiApTriggerLocHappyPath(t *testing.T) {
 	s := newServerForScriptTest(t)
 	s.scriptProvider = script.NewProvider()
-	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiApLoc1, 77, "aiap-loc"))
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiApLoc1, 0, "aiap-loc")) // keyed on the acting npc (type 0)
 
 	n := newNpcForScriptTest(t)
 	n.server = s
@@ -390,7 +390,7 @@ func TestFireAiApTriggerLocHappyPath(t *testing.T) {
 func TestFireAiOpTriggerNpcHappyPath(t *testing.T) {
 	s := newServerForScriptTest(t)
 	s.scriptProvider = script.NewProvider()
-	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpNpc1, 99, "aiop-npc"))
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpNpc1, 0, "aiop-npc")) // keyed on the acting npc (type 0)
 
 	n := newNpcForScriptTest(t)
 	n.server = s
@@ -427,7 +427,7 @@ func TestFireAiOpTriggerNpcNoScriptClears(t *testing.T) {
 func TestFireAiOpTriggerNpcDeadTargetClears(t *testing.T) {
 	s := newServerForScriptTest(t)
 	s.scriptProvider = script.NewProvider()
-	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpNpc1, 99, "aiop-npc"))
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiOpNpc1, 0, "aiop-npc")) // keyed on the acting npc (type 0)
 
 	n := newNpcForScriptTest(t)
 	n.server = s
@@ -450,7 +450,7 @@ func TestFireAiOpTriggerNpcDeadTargetClears(t *testing.T) {
 func TestFireAiApTriggerNpcHappyPath(t *testing.T) {
 	s := newServerForScriptTest(t)
 	s.scriptProvider = script.NewProvider()
-	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiApNpc1, 99, "aiap-npc"))
+	s.scriptProvider.Register(buildNpcSayScript(script.TriggerAiApNpc1, 0, "aiap-npc")) // keyed on the acting npc (type 0)
 
 	n := newNpcForScriptTest(t)
 	n.server = s

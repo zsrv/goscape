@@ -6,8 +6,9 @@ import (
 	"github.com/zsrv/goscape/pkg/script"
 )
 
-// fireAiOpTrigger dispatches to the per-target-category OP fire helper
-// based on n.target's concrete type. Called by tryInteract when
+// fireAiOpTrigger dispatches to the per-target-kind OP fire helper
+// based on n.target's concrete type (selecting the OPNPC/OPLOC/OPOBJ/
+// OPPLAYER trigger family). Called by tryInteract when
 // targetOp is in an OP band and target is in operable distance.
 // Unknown target types silently no-op.
 func (n *Npc) fireAiOpTrigger(s *Server) {
@@ -37,9 +38,21 @@ func (n *Npc) fireAiApTrigger(s *Server) {
 	}
 }
 
+// aiTriggerCategory returns the ACTING npc's own category for AI trigger
+// resolution. TS Npc.tryInteract resolves the trigger via getTrigger(type)
+// where type = NpcType.get(this.type), so getByTrigger is keyed on the
+// acting npc's type+category for every target kind, never the target's
+// (src/engine/entity/Npc.ts:865-866,989-995). Returns 0 when typ is unset.
+func (n *Npc) aiTriggerCategory() int {
+	if n.typ == nil {
+		return 0
+	}
+	return n.typ.Category
+}
+
 // fireAiOpTriggerObj fires AI_OPOBJ1..5 for an Obj target. Lifecycle
-// gate via objStillValid (zone-membership). Category resolved through
-// the ObjType registry when available; defaults to 0.
+// gate via objStillValid (zone-membership). The trigger is keyed on the
+// acting npc's type+category (TS Npc.ts:992), not the obj's.
 func (n *Npc) fireAiOpTriggerObj(s *Server, target *entitypkg.Obj) {
 	tx, tz, tlevel := target.Coords()
 	if !objStillValid(s, target, tx, tz, tlevel) {
@@ -51,8 +64,7 @@ func (n *Npc) fireAiOpTriggerObj(s *Server, target *entitypkg.Obj) {
 		n.clearInteraction()
 		return
 	}
-	category := objCategory(s, target.Type)
-	sf := s.scriptProvider.GetByTrigger(trigger, target.Type, category)
+	sf := s.scriptProvider.GetByTrigger(trigger, n.typeId, n.aiTriggerCategory())
 	if sf == nil {
 		n.clearInteraction()
 		return
@@ -73,8 +85,7 @@ func (n *Npc) fireAiApTriggerObj(s *Server, target *entitypkg.Obj) {
 		n.clearInteraction()
 		return
 	}
-	category := objCategory(s, target.Type)
-	sf := s.scriptProvider.GetByTrigger(trigger, target.Type, category)
+	sf := s.scriptProvider.GetByTrigger(trigger, n.typeId, n.aiTriggerCategory())
 	if sf == nil {
 		n.clearInteraction()
 		return
@@ -82,24 +93,9 @@ func (n *Npc) fireAiApTriggerObj(s *Server, target *entitypkg.Obj) {
 	s.runNpcScript(sf, n, target, trigger, nil, nil)
 }
 
-// objCategory resolves an obj's category through the server's ObjType
-// registry. Returns 0 if the registry is nil or the id is out of range
-// — matches the defensive access pattern at handler_oploc.go:275-276.
-func objCategory(s *Server, objType int) int {
-	if s.objTypes == nil || objType < 0 || objType >= len(s.objTypes.Configs) {
-		return 0
-	}
-	ot := s.objTypes.Configs[objType]
-	if ot == nil {
-		return 0
-	}
-	return ot.Category
-}
-
 // fireAiOpTriggerLoc fires AI_OPLOC1..5 for a Loc target. Lifecycle
-// gate via locStillValid (zone-membership + type match). Category
-// resolved through the LocType registry (Loc carries only a packed
-// Info bitfield, so category is a separate lookup).
+// gate via locStillValid (zone-membership + type match). The trigger is
+// keyed on the acting npc's type+category (TS Npc.ts:992), not the loc's.
 func (n *Npc) fireAiOpTriggerLoc(s *Server, target *entitypkg.Loc) {
 	tx, tz, tlevel := target.Coords()
 	if !locStillValid(s, target, n.targetSubject.typ, tx, tz, tlevel) {
@@ -111,9 +107,7 @@ func (n *Npc) fireAiOpTriggerLoc(s *Server, target *entitypkg.Loc) {
 		n.clearInteraction()
 		return
 	}
-	locId := target.Type()
-	category := locCategory(s, locId)
-	sf := s.scriptProvider.GetByTrigger(trigger, locId, category)
+	sf := s.scriptProvider.GetByTrigger(trigger, n.typeId, n.aiTriggerCategory())
 	if sf == nil {
 		n.clearInteraction()
 		return
@@ -134,9 +128,7 @@ func (n *Npc) fireAiApTriggerLoc(s *Server, target *entitypkg.Loc) {
 		n.clearInteraction()
 		return
 	}
-	locId := target.Type()
-	category := locCategory(s, locId)
-	sf := s.scriptProvider.GetByTrigger(trigger, locId, category)
+	sf := s.scriptProvider.GetByTrigger(trigger, n.typeId, n.aiTriggerCategory())
 	if sf == nil {
 		n.clearInteraction()
 		return
@@ -144,23 +136,10 @@ func (n *Npc) fireAiApTriggerLoc(s *Server, target *entitypkg.Loc) {
 	s.runNpcScript(sf, n, target, trigger, nil, nil)
 }
 
-// locCategory resolves a loc's category through the server's LocType
-// registry. Returns 0 if the registry is nil or the id is out of range
-// — matches the defensive access pattern at handler_oploc.go:68-72.
-func locCategory(s *Server, locId int) int {
-	if s.locTypes == nil || locId < 0 || locId >= len(s.locTypes.Configs) {
-		return 0
-	}
-	lt := s.locTypes.Configs[locId]
-	if lt == nil {
-		return 0
-	}
-	return lt.Category
-}
-
 // fireAiOpTriggerNpc fires AI_OPNPC1..5 for an NPC target. Lifecycle
 // gate is target.dead (the "isActive" half handled by validateTarget).
-// Category read from target.typ.Category (TS parity).
+// The trigger is keyed on the acting npc's type+category (TS Npc.ts:992),
+// not the target npc's.
 func (n *Npc) fireAiOpTriggerNpc(s *Server, target *Npc) {
 	if target.dead {
 		n.clearInteraction()
@@ -171,11 +150,7 @@ func (n *Npc) fireAiOpTriggerNpc(s *Server, target *Npc) {
 		n.clearInteraction()
 		return
 	}
-	category := 0
-	if target.typ != nil {
-		category = target.typ.Category
-	}
-	sf := s.scriptProvider.GetByTrigger(trigger, target.typeId, category)
+	sf := s.scriptProvider.GetByTrigger(trigger, n.typeId, n.aiTriggerCategory())
 	if sf == nil {
 		n.clearInteraction()
 		return
@@ -195,11 +170,7 @@ func (n *Npc) fireAiApTriggerNpc(s *Server, target *Npc) {
 		n.clearInteraction()
 		return
 	}
-	category := 0
-	if target.typ != nil {
-		category = target.typ.Category
-	}
-	sf := s.scriptProvider.GetByTrigger(trigger, target.typeId, category)
+	sf := s.scriptProvider.GetByTrigger(trigger, n.typeId, n.aiTriggerCategory())
 	if sf == nil {
 		n.clearInteraction()
 		return
@@ -222,7 +193,7 @@ func (n *Npc) fireAiOpTriggerPlayer(s *Server, target *Player) {
 		n.clearInteraction()
 		return
 	}
-	sf := s.scriptProvider.GetByTrigger(trigger, 0, 0)
+	sf := s.scriptProvider.GetByTrigger(trigger, n.typeId, n.aiTriggerCategory())
 	if sf == nil {
 		n.clearInteraction()
 		return
@@ -242,7 +213,7 @@ func (n *Npc) fireAiApTriggerPlayer(s *Server, target *Player) {
 		n.clearInteraction()
 		return
 	}
-	sf := s.scriptProvider.GetByTrigger(trigger, 0, 0)
+	sf := s.scriptProvider.GetByTrigger(trigger, n.typeId, n.aiTriggerCategory())
 	if sf == nil {
 		n.clearInteraction()
 		return
