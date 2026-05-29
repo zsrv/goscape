@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"slices"
 	"strconv"
 	"sync"
@@ -737,11 +738,36 @@ func (s *Server) serveTCP() error {
 		s.tcpWg.Add(1)
 
 		// Handle the connection in a new goroutine for concurrency
-		go func() {
-			s.handleTCPConn(conn)
-			s.tcpWg.Done()
-		}()
+		go s.serveConn(conn)
 	}
+}
+
+// serveConn runs handleTCPConn for one accepted connection and accounts for it
+// against tcpWg (which Shutdown waits on).
+//
+// gap-login-wire-1: the RS2 packet read methods (G1/G2/G4/GData/GJStrLF) panic
+// on under-read rather than returning errors, so an unauthenticated, malformed
+// login packet — e.g. a short/truncated RSA block — drives RSADec into a
+// slice-out-of-range / io.EOF panic during login decode (see
+// req.TestUnmarshalBinary_TruncatedRSABlockPanics). Without per-connection
+// isolation that panic crosses the goroutine boundary and crashes the entire
+// world process, dropping every connected player. The recover() below contains
+// any such panic to the single offending connection: handleTCPConn's own defer
+// has already run the connection teardown (player removal, flush, socket close)
+// during unwinding, so this is the Go equivalent of TS's per-connection
+// try/catch -> client.terminate() (TcpServer.ts:29-41). tcpWg.Done() is
+// deferred so Shutdown's tcpWg.Wait() can never hang on a panicked connection.
+func (s *Server) serveConn(conn net.Conn) {
+	defer s.tcpWg.Done()
+	defer func() {
+		if r := recover(); r != nil {
+			s.log.Error("recovered panic in connection handler",
+				"panic", r,
+				"remote_addr", conn.RemoteAddr(),
+				"stack", string(debug.Stack()))
+		}
+	}()
+	s.handleTCPConn(conn)
 }
 
 func (s *Server) handleTCPConn(conn net.Conn) {

@@ -71,6 +71,44 @@ func TestUnmarshalHeader_DecodesWithoutRSABlock(t *testing.T) {
 	}
 }
 
+func TestUnmarshalBinary_TruncatedRSABlockPanics(t *testing.T) {
+	// Root-cause reproduction for gap-login-wire-1: the RS2 packet read
+	// methods (G1/GData) panic on under-read rather than returning errors, so
+	// a login packet whose cleartext header is well-formed but whose RSA tail
+	// is truncated drives RSADec -> GData into a slice-out-of-range panic.
+	// UnmarshalRSA's `if err := r.RSADec(...); err != nil` guard never sees an
+	// error because RSADec panics first. This panic is unauthenticated and
+	// attacker-controllable, so the per-connection handler MUST contain it
+	// (see TestServeConn_* in modules/world) — TS isolates per-connection via
+	// try/catch -> client.terminate() (TcpServer.ts:29-41).
+	//
+	// Packet layout: opcode(16) + size(39) + rev(1) + info(1) +
+	// 9*4 checksums(36) + numBytes(64). The header consumes rev+info+36 = 38
+	// bytes, leaving the single numBytes=64 byte; RSADec reads it as the RSA
+	// block length and then GData(rsax, 64) slices past the end of the buffer.
+	p := packet.NewPacket(nil)
+	p.P1(OpReqInitGameConnection.Opcode)
+	p.P1(39) // payload size: rev + info + 9*4 checksums + 1 (numBytes)
+	p.P1(225)
+	p.P1(0)
+	for range 9 {
+		p.P4(0)
+	}
+	p.P1(64) // RSA block length byte claiming 64 bytes that aren't present
+	malformed := p.Bytes()
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("UnmarshalBinary on a truncated RSA block did not panic; " +
+				"gap-login-wire-1 root cause may have changed — revisit the " +
+				"per-connection recover() in modules/world/server.go")
+		}
+	}()
+
+	var q GameLogin
+	_ = q.UnmarshalBinary(malformed)
+}
+
 func TestGameLogin_RoundTrip(t *testing.T) {
 	// Confirms the header/RSA split (L37) still round-trips end-to-end:
 	// MarshalBinary (client, RSA-encrypts) → UnmarshalBinary (server), which
