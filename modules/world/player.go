@@ -695,8 +695,7 @@ func (p *Player) blockWalkFlag() int {
 
 // getCollisionStrategy returns the collision search type for this player,
 // or nil for MoveRestrictNoMove. Mirrors TS PathingEntity.getCollisionStrategy
-// (PathingEntity.ts:558-575). goscape MoveRestrict has no BLOCKED_NORMAL —
-// that TS branch is skipped.
+// (PathingEntity.ts:558-575).
 func (p *Player) getCollisionStrategy() *collision.Type {
 	switch p.moveRestrict {
 	case MoveRestrictNormal:
@@ -704,6 +703,9 @@ func (p *Player) getCollisionStrategy() *collision.Type {
 		return &t
 	case MoveRestrictBlocked:
 		t := collision.TypeBlocked
+		return &t
+	case MoveRestrictBlockedNormal:
+		t := collision.TypeLineOfSight
 		return &t
 	case MoveRestrictIndoors:
 		t := collision.TypeIndoors

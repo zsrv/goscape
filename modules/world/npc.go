@@ -240,14 +240,15 @@ func (n *Npc) Length() int { return n.size }
 
 // blockWalkFlag returns the CollisionFlag this NPC imposes on its
 // occupied tile during pathfinding. Mirrors TS Npc.blockWalkFlag
-// (Npc.ts:381-398). goscape MoveRestrict has no BLOCKED_NORMAL — that
-// TS branch is skipped.
+// (Npc.ts:381-398).
 func (n *Npc) blockWalkFlag() int {
 	switch n.moveRestrict {
 	case MoveRestrictNormal:
 		return collision.FlagBlockNPCs
 	case MoveRestrictBlocked:
 		return collision.FlagOpen
+	case MoveRestrictBlockedNormal:
+		return collision.FlagBlockNPCs
 	case MoveRestrictIndoors:
 		return collision.FlagBlockNPCs
 	case MoveRestrictOutdoors:
@@ -272,6 +273,9 @@ func (n *Npc) getCollisionStrategy() *collision.Type {
 		return &t
 	case MoveRestrictBlocked:
 		t := collision.TypeBlocked
+		return &t
+	case MoveRestrictBlockedNormal:
+		t := collision.TypeLineOfSight
 		return &t
 	case MoveRestrictIndoors:
 		t := collision.TypeIndoors
