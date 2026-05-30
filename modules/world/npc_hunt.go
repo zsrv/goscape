@@ -70,16 +70,19 @@ func (s *Server) processNpcHunt(n *Npc) {
 // attacked, because the per-NPC turn() hunt (processNpcHunt) deliberately
 // skips HuntModePlayer.
 //
-// Gate (TS World.ts:579-584): isActive (n.IsValid, i.e. !dead) AND
-// huntMode != -1 AND observers > 0 AND hunt.Type == HuntModePlayer. TS does
-// NOT skip delayed NPCs here ("Hunts will process even if the npc is delayed
-// during this portion", World.ts:580).
+// Gate (TS World.ts:579-584): isActive (the base Entity flag, i.e. !dead)
+// AND huntMode != -1 AND observers > 0 AND hunt.Type == HuntModePlayer.
+// TS does NOT skip delayed NPCs here ("Hunts will process even if the
+// npc is delayed during this portion", World.ts:580) — so this site
+// must gate on the base `!n.dead` directly rather than calling
+// Npc.IsValid (which mirrors the stricter TS Npc.isValid override that
+// excludes delayed; see npc.go:453).
 func (s *Server) processNpcHuntPlayers() {
 	if s.rsbuf == nil || s.huntTypes == nil {
 		return
 	}
 	for _, n := range s.npcLoop {
-		if n == nil || !n.IsValid() || n.huntMode == -1 {
+		if n == nil || n.dead || n.huntMode == -1 {
 			continue
 		}
 		if s.rsbuf.GetNpcObservers(int32(n.nid)) <= 0 {

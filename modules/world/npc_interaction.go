@@ -642,9 +642,11 @@ func (n *Npc) pathToTargetNoStrategy() {
 //  4. Concrete lifecycle: *Npc → isActive (!dead && !delayed);
 //     *Loc/*Obj → intrinsic + zone-membership; *Player → IsValid.
 //
-// The *Npc branch's `!dead && !delayed` check is the TS "isActive"
-// predicate — stricter than Go's Npc.IsValid() which is only `!dead`.
-// See the Npc.IsValid DEVIATION note for the layering rationale.
+// The *Npc branch's `!dead && !delayed` check mirrors TS Npc.isValid
+// (Npc.ts:370-375). goscape's Npc.IsValid() now provides the same
+// predicate (npc.go:453), so the spelled-out check here is redundant
+// defense in depth — kept inline for parity with the gate-3 site in
+// (*Player).validateTarget (interaction.go:208).
 func (n *Npc) validateTarget() bool {
 	if n.target == nil {
 		return false

@@ -218,6 +218,12 @@ func addObjToZone(t *testing.T, s *Server, level, x, z, typeId, category int) *e
 	o := entitypkg.NewObj(level, x, z, entitypkg.LifecycleDespawn, typeId, 1)
 	zn := s.zoneMap.Get(level, x, z)
 	zn.Objs = append(zn.Objs, o)
+	// Mirror pkg/zone.Zone.AddStaticObj which sets IsActive on append
+	// (zone.go:256). Raw-append in this helper would leave IsActive=false,
+	// which the huntObjs isValid gate (TS Obj.ts:52-62 → Entity.ts:32-34)
+	// would correctly filter out — making every existing huntObjs test
+	// spuriously assert zero results.
+	o.IsActive = true
 	return o
 }
 
@@ -338,6 +344,7 @@ func TestHuntObjsMissingTypeConfigSkipsOnCategoryFilter(t *testing.T) {
 	o := entitypkg.NewObj(n.level, n.x+3, n.z+3, entitypkg.LifecycleDespawn, 99, 1)
 	zn := s.zoneMap.Get(n.level, o.X, o.Z)
 	zn.Objs = append(zn.Objs, o)
+	o.IsActive = true // mirror AddStaticObj; keep this test honest under the huntObjs isValid gate
 
 	hunted := n.huntObjs(s, &objtype.HuntType{CheckObj: -1, CheckCategory: 42})
 	if len(hunted) != 0 {
@@ -679,6 +686,9 @@ func addObjToZoneAt(t *testing.T, s *Server, objType, x, z, level int) *entitypk
 	o := entitypkg.NewObj(level, x, z, entitypkg.LifecycleDespawn, objType, 1)
 	z2 := s.zoneMap.Get(level, x, z)
 	z2.Objs = append(z2.Objs, o)
+	// Mirror pkg/zone.Zone.AddStaticObj (zone.go:256) — raw-append leaves
+	// IsActive=false, which the huntObjs isValid gate would filter out.
+	o.IsActive = true
 	return o
 }
 
@@ -742,6 +752,9 @@ func addLocToZoneAt(t *testing.T, s *Server, locType, x, z, level int) *entitypk
 	l := entitypkg.NewLoc(level, x, z, 1, 1, entitypkg.LifecycleForever, locType, 0, 0)
 	z2 := s.zoneMap.Get(level, x, z)
 	z2.Locs = append(z2.Locs, l)
+	// Mirror pkg/zone.Zone.AddStaticLoc (zone.go:152) — raw-append leaves
+	// IsActive=false, which the huntLocs isValid gate would filter out.
+	l.IsActive = true
 	return l
 }
 
@@ -825,5 +838,113 @@ func TestHuntNpcsRespectsIsValidFilter(t *testing.T) {
 		if other, ok := e.(*Npc); ok && other.nid == target.nid {
 			t.Errorf("huntNpcs returned dead NPC nid=%d; IsValid filter should skip it", target.nid)
 		}
+	}
+}
+
+// TestHuntNpcsExcludesDelayedNpc pins npc-hunt-1: TS Npc.isValid
+// (Npc.ts:370-375) overrides the base predicate to return false for
+// delayed NPCs, propagating through Zone.getAllNpcsSafe (Zone.ts:399-405)
+// to exclude delayed NPCs from huntNpcs results. goscape's Npc.IsValid
+// must match — a Zone-subscribed NPC with delayed=true must NOT be
+// returned by huntNpcs.
+func TestHuntNpcsExcludesDelayedNpc(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{Size: 1, BlockWalk: objtype.BlockWalkNone, Category: -1}
+	hunter := newRegisteredNpc(t, s, typ, true)
+	hunter.huntRange = 5
+	target := newRegisteredNpc(t, s, typ, true)
+	target.delayed = true
+	target.delayedUntil = s.currentTick + 5
+	hunt := &objtype.HuntType{CheckNpc: -1, CheckCategory: -1, CheckVis: objtype.HuntVisOff}
+	got := hunter.huntNpcs(s, hunt)
+	for _, e := range got {
+		if other, ok := e.(*Npc); ok && other.nid == target.nid {
+			t.Errorf("huntNpcs returned delayed NPC nid=%d; IsValid filter should skip it (TS Npc.ts:370-375)", target.nid)
+		}
+	}
+}
+
+// TestHuntObjsExcludesInactiveOrDepletedObj pins npc-hunt-2: TS
+// Zone.getAllObjsSafe (Zone.ts:411-417) gates yielded objs on
+// obj.isValid(); Obj.isValid (Obj.ts:52-62) returns false when count<1
+// or when the base !isActive check (Entity.ts:32-34) fails. (The
+// reveal/hash64 arm is not exercised — huntObjs passes no hash64.)
+// goscape's huntObjs must mirror that gate — inactive or depleted
+// (count=0) objs must NOT be returned, while a healthy seed must.
+func TestHuntObjsExcludesInactiveOrDepletedObj(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	healthy := addObjToZone(t, s, n.level, n.x+1, n.z+1, 1, -1)
+	inactive := addObjToZone(t, s, n.level, n.x+2, n.z+2, 1, -1)
+	inactive.IsActive = false
+	depleted := addObjToZone(t, s, n.level, n.x+3, n.z+3, 1, -1)
+	depleted.Count = 0
+
+	hunted := n.huntObjs(s, &objtype.HuntType{CheckObj: -1, CheckCategory: -1})
+
+	var sawHealthy, sawInactive, sawDepleted bool
+	for _, e := range hunted {
+		switch o := e.(type) {
+		case *entitypkg.Obj:
+			switch o {
+			case healthy:
+				sawHealthy = true
+			case inactive:
+				sawInactive = true
+			case depleted:
+				sawDepleted = true
+			}
+		}
+	}
+	if sawInactive {
+		t.Errorf("huntObjs returned inactive obj; isValid filter should skip it (TS Obj.ts:52-62 → Entity.ts:32-34)")
+	}
+	if sawDepleted {
+		t.Errorf("huntObjs returned depleted (count=0) obj; isValid filter should skip it (TS Obj.ts:57-59)")
+	}
+	if !sawHealthy {
+		t.Errorf("huntObjs did not return healthy obj; expected the healthy seed in results")
+	}
+}
+
+// TestHuntLocsExcludesInactiveLoc pins npc-hunt-3: TS
+// Zone.getAllLocsSafe (Zone.ts:459-465) gates yielded locs on
+// loc.isValid(); Loc inherits the base Entity.isValid predicate
+// (Entity.ts:32-34) which returns isActive. goscape's huntLocs must
+// mirror that gate — an inactive loc must NOT be returned, while a
+// healthy seed must.
+func TestHuntLocsExcludesInactiveLoc(t *testing.T) {
+	s := newServerForScriptTest(t)
+	n := newNpcForLifecycleTest(t)
+	n.server = s
+	n.x, n.z, n.level = 3094, 3106, 0
+	n.huntRange = 10
+
+	healthy := addLocToZone(t, s, n.level, n.x+1, n.z+1, 1000, -1)
+	inactive := addLocToZone(t, s, n.level, n.x+2, n.z+2, 1000, -1)
+	inactive.IsActive = false
+
+	hunted := n.huntLocs(s, &objtype.HuntType{CheckLoc: -1, CheckCategory: -1})
+
+	var sawHealthy, sawInactive bool
+	for _, e := range hunted {
+		if l, ok := e.(*entitypkg.Loc); ok {
+			switch l {
+			case healthy:
+				sawHealthy = true
+			case inactive:
+				sawInactive = true
+			}
+		}
+	}
+	if sawInactive {
+		t.Errorf("huntLocs returned inactive loc; isValid filter should skip it (TS Entity.ts:32-34)")
+	}
+	if !sawHealthy {
+		t.Errorf("huntLocs did not return healthy loc; expected the healthy seed in results")
 	}
 }

@@ -90,7 +90,15 @@ func (n *Npc) huntNpcs(s *Server, hunt *objtype.HuntType) []entity {
 // "scripting only cares about dynamic objs??" at
 // ScriptIterators.ts:122.
 //
+// isValid gate (npc-hunt-2): mirrors TS Zone.getAllObjsSafe (Zone.ts:
+// 411-417) which yields only obj.isValid()==true objs. Obj.isValid
+// (Obj.ts:52-62) is false when count<1 or when the base !isActive
+// check (Entity.ts:32-34) fails. The reveal/hash64 arm is not
+// exercised here — huntObjs passes no hash64. goscape's Zone.Objs is
+// a raw slice (no ObjsSafe iterator helper), so the gate is inline.
+//
 // Filter coverage (NAI-9):
+//   - isValid: IsActive && Count>=1
 //   - Range: Chebyshev distance <= n.huntRange
 //   - CheckObj: obj.Type filter (-1 == allow all)
 //   - CheckCategory: ObjType.Category filter (-1 == allow all)
@@ -106,6 +114,11 @@ func (n *Npc) huntObjs(s *Server, hunt *objtype.HuntType) []entity {
 	for _, zn := range s.zoneMap.NearbyZones(n.level, n.x, n.z, zoneRadius) {
 		for _, o := range zn.Objs {
 			if o == nil {
+				continue
+			}
+			// isValid gate — TS Zone.getAllObjsSafe via Obj.isValid
+			// (Obj.ts:52-62 → Entity.ts:32-34).
+			if !o.IsActive || o.Count < 1 {
 				continue
 			}
 			if hunt.CheckObj != -1 && o.Type != hunt.CheckObj {
@@ -165,7 +178,14 @@ func (n *Npc) huntObjs(s *Server, hunt *objtype.HuntType) []entity {
 // corner by goscape entity.Entity convention, matching TS which
 // passes {x: loc.x, z: loc.z} to distanceToSW).
 //
+// isValid gate (npc-hunt-3): mirrors TS Zone.getAllLocsSafe (Zone.ts:
+// 459-465) which yields only loc.isValid()==true locs. Loc inherits
+// the base Entity.isValid predicate (Entity.ts:32-34) which returns
+// isActive. goscape's Zone.Locs is a raw slice (no LocsSafe iterator
+// helper), so the gate is inline.
+//
 // Filter coverage (NAI-9):
+//   - isValid: IsActive
 //   - Range: Chebyshev distance <= n.huntRange
 //   - CheckLoc: loc.Type() filter (-1 == allow all)
 //   - CheckCategory: LocType.Category filter (-1 == allow all)
@@ -181,6 +201,11 @@ func (n *Npc) huntLocs(s *Server, hunt *objtype.HuntType) []entity {
 	for _, zn := range s.zoneMap.NearbyZones(n.level, n.x, n.z, zoneRadius) {
 		for _, l := range zn.Locs {
 			if l == nil {
+				continue
+			}
+			// isValid gate — TS Zone.getAllLocsSafe via Loc.isValid
+			// (Entity.ts:32-34).
+			if !l.IsActive {
 				continue
 			}
 			if hunt.CheckLoc != -1 && l.Type() != hunt.CheckLoc {

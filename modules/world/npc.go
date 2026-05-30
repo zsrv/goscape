@@ -450,15 +450,14 @@ func (n *Npc) revertType() {
 	n.resetOnRevert = true            // re-arm default for next morph cycle
 }
 
-// IsValid returns whether the NPC's session slot is alive (!n.dead).
-// This maps to TS Entity.isActive — the base liveness flag. TS
-// Npc.isValid is the stricter predicate (additionally checks !delayed);
-// in Go that delayed-gate lives in validateTarget at the target's call
-// site.
-//
-// DEVIATION: TS isValid is a single method; in Go the "not delayed"
-// half is enforced externally rather than inline, to keep the layering
-// rule "pkg/entity knows nothing about scheduling state".
+// IsValid mirrors TS Npc.isValid (Npc.ts:370-375) — returns false for
+// dead OR delayed NPCs. The delayed gate must live here, not just in
+// per-caller external defenses, because TS Zone.getAllNpcsSafe (Zone.ts:
+// 399-405) gates yielded NPCs on isValid(), and goscape's NpcsSafe
+// (pkg/zone/zone.go:483) mirrors that pattern — every Safe-iterator
+// consumer (huntNpcs, NpcIterator) sees the !delayed gate transparently.
+// External per-caller defenses (e.g. interaction.go's spell-out check)
+// become redundant-but-safe defense in depth.
 func (n *Npc) IsValid() bool {
-	return !n.dead
+	return !n.dead && !n.delayed
 }

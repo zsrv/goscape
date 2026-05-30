@@ -208,9 +208,10 @@ func (p *Player) validateTarget() bool {
 	// Gate 3: target.isValid(hash64) (TS L1197).
 	switch t := p.target.(type) {
 	case *Npc:
-		// TS Npc.isValid (Npc.ts:370-375): !delayed && isActive. Go's
-		// Npc.IsValid() is only !dead, so spell the delayed gate out —
-		// mirrors (*Npc).validateTarget gate 4.
+		// TS Npc.isValid (Npc.ts:370-375): !delayed && isActive. goscape's
+		// Npc.IsValid() now mirrors this exactly (npc.go:453), so the
+		// spelled-out check below is redundant defense in depth — kept for
+		// readability at the gate 4 call site shared with (*Npc).validateTarget.
 		return !t.dead && !t.delayed
 	case *entitypkg.Obj:
 		// TS Obj.isValid(hash64) (Obj.ts:52-62): private-reveal + count.
