@@ -35,9 +35,15 @@ func (p *Player) updateEnergy() {
 		recovered := agility/9 + 8
 		p.runenergy = min(p.runenergy+recovered, 10000)
 	} else {
-		weightKg := p.runweight / 1000
+		// player-core-2: TS Player.ts:690-693 keeps weightKg as float
+		// (`this.runweight / 1000`) and only truncates the final loss
+		// via `| 0`, so a partial-kg encumbrance contributes a
+		// fractional drain that rounds away properly at the end. Int
+		// division on runweight here would drop the fraction BEFORE
+		// the 67*weightKg/64 math and systematically under-drain.
+		weightKg := float64(p.runweight) / 1000
 		clampWeight := max(min(weightKg, 64), 0)
-		loss := 67 + 67*clampWeight/64
+		loss := int(67 + 67*clampWeight/64)
 		p.runenergy = max(p.runenergy-loss, 0)
 	}
 	if p.runenergy == 0 {

@@ -239,6 +239,34 @@ func TestUpdateEnergy_DrainWeightNegativeClampedToZero(t *testing.T) {
 	}
 }
 
+// player-core-2: TS Player.updateEnergy (Player.ts:690-693) computes
+// weightKg as float (`this.runweight / 1000`) and clamps the float
+// BEFORE the 67*weightKg/64 math; only the final `loss` expression is
+// truncated via `| 0`. goscape's int division `weightKg :=
+// p.runweight/1000` drops the kg fraction BEFORE the drain math,
+// producing systematically lower drain for any partial-kg encumbrance
+// (the common in-game case).
+//
+// With runweight=32500 (32.5 kg):
+//
+//	TS:     (67 + 67*32.5/64) | 0 = (67 + 34.023) | 0 = 101 drain
+//	bug:    67 + 67*32/64 (int div) = 67 + 33 = 100 drain
+//
+// After the float port, both yield 101.
+func TestUpdateEnergy_DrainFractionalKgUsesFloatMath(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.varps = make([]int32, 1)
+	p.stepsTaken = 2
+	p.runweight = 32500 // 32.5 kg — falls between two integer-kg bins
+	p.runenergy = 10000
+
+	p.updateEnergy()
+
+	if p.runenergy != 9899 {
+		t.Errorf("runenergy: got %d, want 9899 (10000 - (67 + 67*32.5/64 | 0) = 10000 - 101 — int-divide bug would give 9900)", p.runenergy)
+	}
+}
+
 // updateEnergy: weight clamp >64kg → 64kg → -134
 func TestUpdateEnergy_DrainWeightOverflowClampedTo64kg(t *testing.T) {
 	p, _ := newTestPlayer(t)
