@@ -4,6 +4,7 @@ import (
 	"github.com/zsrv/goscape/pkg/io/packet"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
 // sendUpdatePid writes one UPDATE_PID packet. Mirrors TS
@@ -89,9 +90,15 @@ func onReconnect(s *Server, p *Player) {
 	// (j) RESET_ANIMS.
 	sendResetAnims(p)
 
-	// (k) masks |= entitymask — resync face_entity on the next mask
-	// block. Mirrors TS Player.onReconnect (Player.ts:574).
+	// (k) masks |= entitymask | appearance — resync face_entity AND
+	// appearance on the next mask block. Mirrors TS Player.onReconnect
+	// (Player.ts:554-555). The appearance OR is load-bearing for
+	// newly-visible observers post-resync — without it, an appearance
+	// change that occurred just before the disconnect (or between login
+	// and reconnect) would not propagate, since the mask-block emitter
+	// gates the appearance payload on this bit. player-net-3.
 	p.masks |= p.entitymask
+	p.masks |= rsbuf.MaskAppearance
 
 	// (l) force moveSpeed back to INSTANT. Mirrors TS
 	// Player.onReconnect (Player.ts:556 — `this.moveSpeed =

@@ -6,6 +6,7 @@ import (
 
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 )
 
@@ -163,6 +164,31 @@ func TestOnReconnect_OrsEntityMaskIntoMasks(t *testing.T) {
 
 	if p.masks&0x80 == 0 {
 		t.Errorf("p.masks: entitymask bit 0x80 not set; got 0x%x", p.masks)
+	}
+}
+
+// TestOnReconnect_OrsAppearanceMaskIntoMasks pins TS-faithful
+// Player.onReconnect (Player.ts:555 — `this.masks |=
+// PlayerInfoProt.APPEARANCE; // resync appearance`). After a resync the
+// next mask-block emit must carry the appearance payload so newly-visible
+// observers see the up-to-date appearance. player-net-3.
+func TestOnReconnect_OrsAppearanceMaskIntoMasks(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	go io.Copy(io.Discard, cc)
+
+	// Pin entitymask to MaskFaceEntity (0x4) so a passing assertion on
+	// MaskAppearance (0x1) cannot be satisfied by the existing entitymask
+	// OR at block (k).
+	p.entitymask = rsbuf.MaskFaceEntity
+	p.masks = 0
+
+	onReconnect(s, p)
+
+	if p.masks&rsbuf.MaskAppearance == 0 {
+		t.Errorf("p.masks: MaskAppearance bit (0x%x) not set after onReconnect; got 0x%x", rsbuf.MaskAppearance, p.masks)
 	}
 }
 
