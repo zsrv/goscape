@@ -1699,8 +1699,10 @@ func handleBothHeroPoints(s *ScriptState) error {
 
 // handleDamage (DAMAGE, opcode 2015) applies damage to the player
 // resolved from a UID popped from the stack. Pop order (TS): amount,
-// hitType, uid (LIFO via popInt). Silent no-op if the UID does not
-// resolve to a logged-in player. Mirrors TS PlayerOps.ts:768-779.
+// hitType, uid (LIFO via popInt). Each slot is validated as TS pops it
+// — amount via NumberNotNull, hitType via HitTypeValid, uid via
+// NumberNotNull — mirroring PlayerOps.ts:768-779. Silent no-op if the
+// UID does not resolve to a logged-in player.
 //
 // DEVIATION-NAI-127-D1: defensive nil-s.World guard. Without s.World
 // there is no way to resolve the UID.
@@ -1711,11 +1713,17 @@ func handleBothHeroPoints(s *ScriptState) error {
 // TestDamage_NoPointerGate.
 func handleDamage(s *ScriptState) error {
 	amount := s.PopInt()
+	if err := checkNotNull(amount, "DAMAGE"); err != nil {
+		return err
+	}
 	hitType := s.PopInt()
 	if err := checkHitType(hitType, "DAMAGE"); err != nil {
 		return err
 	}
 	uid := s.PopInt()
+	if err := checkNotNull(uid, "DAMAGE"); err != nil {
+		return err
+	}
 	if s.World == nil {
 		return nil
 	}

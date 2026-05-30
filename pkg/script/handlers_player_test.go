@@ -6021,6 +6021,50 @@ func TestDamage_InvalidHitType(t *testing.T) {
 	}
 }
 
+// TestDamage_NullAmountRejected pins TS PlayerOps.ts:769 —
+// check(state.popInt(), NumberNotNull) on the amount slot. amount=-1
+// (the script null sentinel) must abort before hitType is read, with
+// no UID lookup or ApplyDamage. Closes h-player-2 (audit row 247).
+func TestDamage_NullAmountRejected(t *testing.T) {
+	target := &mockPlayer{uidValue: 42}
+	mw := &mockWorld{playersByUID: map[int]ActivePlayer{42: target}}
+	// uid=42, hitType=1 (valid), amount=-1 (null sentinel)
+	s := newDamageState(mw, 42, 1, -1)
+	err := handleDamage(s)
+	if err == nil {
+		t.Fatalf("handleDamage: want error for amount=-1, got nil (TS PlayerOps.ts:769 NumberNotNull must reject null amount)")
+	}
+	want := "DAMAGE: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if got := len(target.applyDamageCalls); got != 0 {
+		t.Errorf("applyDamageCalls: got %d, want 0 (must not damage on null amount)", got)
+	}
+}
+
+// TestDamage_NullUIDRejected pins TS PlayerOps.ts:771 —
+// check(state.popInt(), NumberNotNull) on the uid slot. uid=-1 must
+// abort after hitType passes, with no UID lookup or ApplyDamage.
+// Closes h-player-2 (audit row 247).
+func TestDamage_NullUIDRejected(t *testing.T) {
+	target := &mockPlayer{uidValue: 42}
+	mw := &mockWorld{playersByUID: map[int]ActivePlayer{42: target}}
+	// uid=-1 (null sentinel), hitType=1 (valid), amount=5 (valid)
+	s := newDamageState(mw, -1, 1, 5)
+	err := handleDamage(s)
+	if err == nil {
+		t.Fatalf("handleDamage: want error for uid=-1, got nil (TS PlayerOps.ts:771 NumberNotNull must reject null uid)")
+	}
+	want := "DAMAGE: input number was null(-1)"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error: got %q, want substring %q", err.Error(), want)
+	}
+	if got := len(target.applyDamageCalls); got != 0 {
+		t.Errorf("applyDamageCalls: got %d, want 0 (must not damage on null uid)", got)
+	}
+}
+
 // --- NAI-127 Bundle 2: GENDER (opcode 2020) ---
 
 // newGenderState builds a state with Self set; deliberately does NOT
