@@ -816,3 +816,47 @@ func TestNpcInfo_Encode_NoOrphanByteOnPersistentFaceEntity(t *testing.T) {
 		t.Errorf("Encode: got % x, want % x (NAI-116: orphan 0x00 mask byte must not leak)", out, want)
 	}
 }
+
+// TestNpcInfo_TrackedNpcs_RespectByteBudget pins rsbuf-npc-1: the
+// per-tracked-NPC extend decision in writeNpcs must be gated on the byte
+// budget, exactly as Rust write_npcs gates each extend on
+// `len>0 && self.fits(...)` and falls to idle() once the budget is
+// exhausted (info.rs:483-491). Without the gate, writeNpcs sets extend=1
+// for every tracked NPC whose high-def block is non-empty and the
+// NpcInfo packet overflows the 4997-byte budget the Java client decodes.
+// NpcInfo sibling of TestPlayerInfo_TrackedOthers_RespectByteBudget.
+//
+// Crowd the view with many tracked NPCs each carrying a large high-def
+// block (total far exceeding the budget). The encoder must pack high-def
+// for as many as fit and idle the rest, keeping the packet within budget.
+func TestNpcInfo_TrackedNpcs_RespectByteBudget(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil)
+
+	r := NewRenderer()
+	// Each tracked NPC carries a 250-byte high-def block; with ~40 of them
+	// the naive (ungated) encoder would emit ~10000 bytes — 2x over budget.
+	const npcs = 40
+	const blockBytes = 250
+	block := make([]byte, blockBytes)
+	for i := range block {
+		block[i] = 0xab
+	}
+	for nid := int32(1); nid <= npcs; nid++ {
+		setupNpc(b, nid, 100, nil) // RunDir=-1, WalkDir=-1 → extend-only arm
+		b.players[1].Build.Npcs.Insert(nid)
+		r.npcHighDef[nid] = block
+	}
+
+	ni := NewNpcInfo()
+	out := ni.Encode(b, 1, r)
+
+	if len(out) > maxNpcInfoBytes {
+		t.Errorf("NpcInfo packet overflowed budget: got %d bytes, want <= %d", len(out), maxNpcInfoBytes)
+	}
+	// Sanity: the gate must pack as many high-def blocks as fit, not bail out
+	// early and emit almost nothing.
+	if len(out) <= blockBytes {
+		t.Errorf("encoder packed too little: got %d bytes, want it to fill near the budget", len(out))
+	}
+}

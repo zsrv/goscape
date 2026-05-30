@@ -31,13 +31,18 @@ func NewNpcInfo() *NpcInfo {
 	}
 }
 
-// Bit-budget constant for fits() arithmetic. Mirrors upstream
-// NpcInfo::BITS_ADD at info.rs:413. The Run/Walk/Extend siblings
-// upstream are unused by goscape's encoder shape (mirrors the
-// PlayerInfo retirement; see playerinfo.go's playerBitsAdd block)
-// and were retired at NAI-30 B4 T4.6.
+// Bit-budget constants for fits() arithmetic. Mirror upstream
+// NpcInfo's BITS_ADD/RUN/WALK/EXTEND (info.rs:413,418-420) — each names the
+// full leaf size so fits() accounts for the bits about to be written when it
+// gates the high-def 'extend' block. The Run/Walk/Extend siblings were
+// retired at NAI-30 B4 T4.6 (mirroring the PlayerInfo retirement) and
+// reintroduced at rsbuf-npc-1, where writeNpcs gained the per-tracked-NPC
+// byte-budget gate (sibling of rsbuf-player-1's playerBitsRun/Walk/Extend).
 const (
 	npcBitsAdd      = 13 + 11 + 5 + 5 + 1 // 35
+	npcBitsRun      = 1 + 2 + 3 + 3 + 1   // 10
+	npcBitsWalk     = 1 + 2 + 3 + 1       // 7
+	npcBitsExtend   = 1 + 2               // 3
 	npcTerminator   = 8191
 	maxNpcInfoBytes = 4997
 )
@@ -138,8 +143,13 @@ func (ni *NpcInfo) writeNpcs(b *Buf, self *Player, renderer *Renderer) {
 		hdLen := len(highDef)
 		switch {
 		case other.RunDir != -1:
+			// rsbuf-npc-1: emit the extend bit only when the high-def block
+			// is non-empty AND it still fits the byte budget, mirroring Rust
+			// write_npcs `len>0 && self.fits(...)` (info.rs:484). The movement
+			// leaf is always emitted; only the high-def block is conditional.
+			// Sibling of writePlayers' run arm (playerinfo.go).
 			extend := 0
-			if hdLen > 0 {
+			if hdLen > 0 && ni.fits(npcBitsRun, hdLen) {
 				extend = 1
 			}
 			ni.buf.PBit(1, 1)
@@ -154,7 +164,7 @@ func (ni *NpcInfo) writeNpcs(b *Buf, self *Player, renderer *Renderer) {
 			}
 		case other.WalkDir != -1:
 			extend := 0
-			if hdLen > 0 {
+			if hdLen > 0 && ni.fits(npcBitsWalk, hdLen) {
 				extend = 1
 			}
 			ni.buf.PBit(1, 1)
@@ -166,13 +176,17 @@ func (ni *NpcInfo) writeNpcs(b *Buf, self *Player, renderer *Renderer) {
 					ni.updates.P1(b2)
 				}
 			}
-		case hdLen > 0:
+		case hdLen > 0 && ni.fits(npcBitsExtend, hdLen):
+			// Idle-with-extend arm: emit high-def only when it fits the
+			// budget (info.rs:487 `else if len>0 && self.fits(...)`).
 			ni.buf.PBit(1, 1)
 			ni.buf.PBit(2, 0)
 			for _, b2 := range highDef {
 				ni.updates.P1(b2)
 			}
 		default:
+			// idle: no movement, and either no high-def or it no longer fits
+			// the budget (info.rs:489 `else { self.idle(); }`).
 			ni.buf.PBit(1, 0)
 		}
 	}
