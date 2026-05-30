@@ -54,10 +54,13 @@ func onReconnect(s *Server, p *Player) {
 		sendUpdateRebootTimer(p, s.shutdownTick-s.currentTick)
 	}
 
-	// (e) closeModal(false) — preserves main modal, drops chat/side.
-	// Does NOT emit a wire opcode; flips internal modal slots that
-	// processInfo will sync via existing IF_CLOSE wiring.
-	p.CloseModal(false)
+	// (e) closeModal() — mirrors TS Player.onReconnect (Player.ts:543).
+	// TS calls `this.closeModal()` with no args; the default
+	// `clearWeakQueue=true` (Player.ts:741) drops any pre-disconnect
+	// QueueWeak entries so the resync starts with a clean weak queue.
+	// Per-slot IF_CLOSE dispatch fires only when the player still had a
+	// modal open across the disconnect (modalState != None). player-net-2.
+	p.CloseModal(true)
 
 	// (f) per-tab IF_SETTAB resync. Tabs default to 0 ("no tab
 	// assigned"); skip zero entries.

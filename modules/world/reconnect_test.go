@@ -6,6 +6,7 @@ import (
 
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
+	"github.com/zsrv/goscape/pkg/script"
 )
 
 // TestOnReconnect_EmitsResyncSequence pins the opcode order emitted by
@@ -41,7 +42,8 @@ func TestOnReconnect_EmitsResyncSequence(t *testing.T) {
 
 	// (c) No shutdown timer (shutdownTick == -1 by default), so no UPDATE_REBOOT_TIMER.
 
-	// (d) closeModal(false) — no wire packet.
+	// (d) closeModal(true) — clears weakQueue then early-returns on
+	// modalState==None (default on newTestPlayer); no wire packet.
 
 	// (e) Tabs: newTestPlayer initializes tabs to all -1 (non-zero), so
 	// IfSetTab is called for each of the 14 tabs.
@@ -161,5 +163,33 @@ func TestOnReconnect_OrsEntityMaskIntoMasks(t *testing.T) {
 
 	if p.masks&0x80 == 0 {
 		t.Errorf("p.masks: entitymask bit 0x80 not set; got 0x%x", p.masks)
+	}
+}
+
+// TestOnReconnect_ClearsWeakQueue pins TS-faithful closeModal() at
+// Player.ts:543 — onReconnect calls closeModal() with the default
+// `clearWeakQueue=true` (Player.ts:741), so any QueueWeak entries
+// outstanding from before the disconnect are dropped on resync.
+// Strong queue entries are preserved. player-net-2.
+func TestOnReconnect_ClearsWeakQueue(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	go io.Copy(io.Discard, cc)
+
+	sf := &script.ScriptFile{Name: "stub"}
+	p.queue = []playerQueueRequest{
+		{Script: sf, Type: script.QueueStrong},
+		{Script: sf, Type: script.QueueWeak},
+	}
+
+	onReconnect(s, p)
+
+	if got, want := len(p.queue), 1; got != want {
+		t.Fatalf("p.queue len after onReconnect: got %d, want %d (weak should be dropped)", got, want)
+	}
+	if p.queue[0].Type != script.QueueStrong {
+		t.Errorf("p.queue[0].Type: got %v, want QueueStrong", p.queue[0].Type)
 	}
 }
