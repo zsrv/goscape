@@ -41,9 +41,20 @@ func paramLookup(s *ScriptState, params objtype.ParamMap, paramID int, op string
 		}
 		return nil
 	}
-	// Fall through to ParamType defaults.
+	// Fall through to ParamType defaults. TS ParamHelper.getStringParam
+	// (ParamHelper.ts:10-16) returns `defaultValue ?? 'null'` — when the
+	// ParamType's defaultString is unset (TS field default `null`), TS
+	// pushes the literal string "null". goscape stores DefaultString as a
+	// Go `string` (zero-value ""), so an unset defaultString surfaces as
+	// "" — map that case to "null" to match TS. (The int side has no
+	// equivalent; TS ParamType.defaultInt defaults to -1, which goscape
+	// already preserves as the zero-value of int32 sign-extended.)
 	if isString {
-		s.PushString(pt.DefaultString)
+		if pt.DefaultString == "" {
+			s.PushString("null")
+		} else {
+			s.PushString(pt.DefaultString)
+		}
 	} else {
 		s.PushInt(int(pt.DefaultInt))
 	}

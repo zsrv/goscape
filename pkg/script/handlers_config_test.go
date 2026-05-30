@@ -1016,6 +1016,22 @@ func TestOcParamMissingKeyStringFallback(t *testing.T) {
 	}
 }
 
+// TestOcParamMissingKeyStringFallback_NullLiteral pins h-obj-3 / h-config-4:
+// TS ParamHelper.getStringParam (ParamHelper.ts:10-16) returns
+// `defaultValue ?? 'null'` — when the ParamType's defaultString is unset
+// (TS field default is `null`), TS pushes the literal string "null".
+// goscape stores DefaultString as a Go `string` (zero-value ""), so an unset
+// defaultString surfaces as "" — the absent-string-default fallback now
+// pushes "null" to match TS instead of pushing "" (the bug).
+// Obj 995 (Coins) has no param 2; ParamType 2 has DefaultString="" (unset).
+func TestOcParamMissingKeyStringFallback_NullLiteral(t *testing.T) {
+	mc := newTestConfigs()
+	state := runConfigOp(t, mc, OpOcParam, []int{995, 2})
+	if got := state.PopString(); got != "null" {
+		t.Errorf("OC_PARAM(995,2 missing, empty DefaultString): got %q, want %q (TS ParamHelper.ts:13 defaultValue ?? 'null')", got, "null")
+	}
+}
+
 func TestOcParamUnknownParamErrors(t *testing.T) {
 	mc := newTestConfigs()
 	runConfigOpExpectErr(t, mc, OpOcParam, []int{995, 999}, "OC_PARAM: no ParamType with value (999) found")
