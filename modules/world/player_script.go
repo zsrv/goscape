@@ -1255,12 +1255,20 @@ func (p *Player) SendCountDialog() {
 
 // S5h: action-clear.
 
-// StopAction implements script.ActivePlayer.StopAction. Clears any
-// anchored interaction target plus any pending-action state (modals,
-// interaction kind). Walk queue is preserved.
+// StopAction implements script.ActivePlayer.StopAction. Mirrors TS
+// Player.stopAction (Player.ts:944-947) = clearPendingAction() +
+// unsetMapFlag() — clears any anchored interaction target plus any
+// pending-action state (modals, interaction kind) AND clears the walk
+// queue + emits OpUnsetMapFlag so the client drops its map-click
+// indicator. The leading ClearInteraction call carries the targetSubject
+// reset that goscape's ClearPendingAction does not (player-script-7
+// remains open; the explicit ClearInteraction here covers the StopAction
+// surface). unsetMapFlag is the lowercase TS-bundled helper
+// (interaction.go:61), NOT the wire-only sendUnsetMapFlag.
 func (p *Player) StopAction() {
 	p.ClearInteraction()
 	p.ClearPendingAction()
+	p.unsetMapFlag()
 }
 
 // RequestLogout implements script.ActivePlayer.RequestLogout. Flags the

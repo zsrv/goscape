@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
+	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -729,6 +730,12 @@ func newApTriggerNpcFixture(t *testing.T) (*Server, *Player, *Npc) {
 
 	p, _ := newTestPlayer(t)
 	p.client.server = s
+	// Wire an ISAAC encryptor so handlers that emit packets (e.g.
+	// p_op_npc → StopAction → unsetMapFlag → OpUnsetMapFlag write,
+	// player-script-1) can encrypt without nil-deref. Tests that
+	// assert specific encrypted bytes overwrite this with their own
+	// keyed encryptor; tests that don't read bytes are unaffected.
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	p.x, p.z, p.level = 100, 100, 0
 
 	npcType := &objtype.NpcType{
