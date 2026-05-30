@@ -363,6 +363,49 @@ func TestPlayerInfo_TrackedOther_Extend(t *testing.T) {
 	}
 }
 
+// TestPlayerInfo_TrackedOthers_RespectByteBudget pins rsbuf-player-1: the
+// per-tracked-other extend decision must be gated on the byte budget, exactly
+// as Rust write_players gates each extend on `len>0 && self.fits(...)` and
+// falls to idle() once the budget is exhausted (info.rs:118-127). Without the
+// gate, writePlayers unconditionally appends every tracked-other's high-def
+// block and the PlayerInfo packet overflows the 4997-byte budget the Java
+// client decodes.
+//
+// Crowd the view with many tracked others each carrying a large high-def
+// block (total far exceeding the budget). The encoder must pack high-def for
+// as many as fit and idle the rest, keeping the whole packet within budget.
+func TestPlayerInfo_TrackedOthers_RespectByteBudget(t *testing.T) {
+	b := New()
+	setupLocalPlayer(b, 1, nil)
+
+	r := NewRenderer()
+	// Each tracked other carries a 250-byte high-def block; with ~40 of them
+	// the naive (ungated) encoder would emit ~10000 bytes — 2x over budget.
+	const others = 40
+	const blockBytes = 250
+	block := make([]byte, blockBytes)
+	for i := range block {
+		block[i] = 0xab
+	}
+	for pid := int32(2); pid < int32(2+others); pid++ {
+		setupOtherPlayer(b, pid, nil) // WalkDir=-1, RunDir=-1 → extend-only arm
+		b.players[1].Build.Players.Insert(pid)
+		r.highDefWithChat[pid] = block
+	}
+
+	pi := NewPlayerInfo()
+	out := pi.Encode(b, 1, r)
+
+	if len(out) > maxPlayerInfoBytes {
+		t.Errorf("PlayerInfo packet overflowed budget: got %d bytes, want <= %d", len(out), maxPlayerInfoBytes)
+	}
+	// Sanity: the gate must pack as many high-def blocks as fit, not bail out
+	// early and emit almost nothing.
+	if len(out) <= blockBytes {
+		t.Errorf("encoder packed too little: got %d bytes, want it to fill near the budget", len(out))
+	}
+}
+
 func TestPlayerInfo_NewPlayers_DiscoversAndAdds(t *testing.T) {
 	b := New()
 	setupLocalPlayer(b, 1, nil)

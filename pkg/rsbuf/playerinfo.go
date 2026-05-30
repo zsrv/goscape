@@ -32,13 +32,17 @@ func NewPlayerInfo() *PlayerInfo {
 	}
 }
 
-// Bit-budget constant for fits() arithmetic. Mirrors upstream
-// PlayerInfo::BITS_ADD at info.rs:19. The Run/Walk/Extend siblings
-// upstream are unused by goscape's encoder shape (the per-other delta
-// loop measures via len(buf.Data) directly) and were retired at
-// NAI-30 B4 T4.6.
+// Bit-budget constants for fits() arithmetic. Mirror upstream
+// PlayerInfo::BITS_ADD/RUN/WALK/EXTEND at info.rs:19-22. Each names the
+// full leaf size so fits() accounts for the bits about to be written when
+// it decides whether the high-def block still fits the packet budget
+// (rsbuf-player-1: writePlayers gates each tracked-other's extend on the
+// budget exactly as Rust write_players does at info.rs:118-127).
 const (
-	playerBitsAdd = 11 + 5 + 5 + 1 + 1 // 23
+	playerBitsAdd    = 11 + 5 + 5 + 1 + 1 // 23
+	playerBitsRun    = 1 + 2 + 3 + 3 + 1  // 10
+	playerBitsWalk   = 1 + 2 + 3 + 1      // 7
+	playerBitsExtend = 1 + 2              // 3
 
 	// Per-packet byte budget. Mirrors upstream literal at info.rs:407.
 	maxPlayerInfoBytes = 4997
@@ -232,10 +236,16 @@ func (pi *PlayerInfo) writePlayers(b *Buf, self *Player, renderer *Renderer) {
 
 		highDef := renderer.HighDefWithChatOf(int(otherPid))
 		hdLen := len(highDef)
+		// Gate each extend on the packet byte budget, mirroring Rust
+		// write_players at info.rs:118-127 (`len>0 && self.fits(...)`): the
+		// movement leaf is always emitted, but the high-def block is only
+		// appended when it still fits. fits() is evaluated here, at the leaf
+		// start, so pi.buf.BitPos reflects the about-to-be-written leaf.
+		// (rsbuf-player-1.)
 		switch {
 		case other.RunDir != -1:
 			extend := 0
-			if hdLen > 0 {
+			if hdLen > 0 && pi.fits(playerBitsRun, hdLen) {
 				extend = 1
 			}
 			pi.buf.PBit(1, 1)
@@ -250,7 +260,7 @@ func (pi *PlayerInfo) writePlayers(b *Buf, self *Player, renderer *Renderer) {
 			}
 		case other.WalkDir != -1:
 			extend := 0
-			if hdLen > 0 {
+			if hdLen > 0 && pi.fits(playerBitsWalk, hdLen) {
 				extend = 1
 			}
 			pi.buf.PBit(1, 1)
@@ -262,13 +272,15 @@ func (pi *PlayerInfo) writePlayers(b *Buf, self *Player, renderer *Renderer) {
 					pi.updates.P1(b2)
 				}
 			}
-		case hdLen > 0:
+		case hdLen > 0 && pi.fits(playerBitsExtend, hdLen):
 			pi.buf.PBit(1, 1)
 			pi.buf.PBit(2, 0)
 			for _, b2 := range highDef {
 				pi.updates.P1(b2)
 			}
 		default:
+			// idle: no movement, and either no high-def or it no longer
+			// fits the budget (info.rs:125 `else { self.idle(); }`).
 			pi.buf.PBit(1, 0)
 		}
 	}
