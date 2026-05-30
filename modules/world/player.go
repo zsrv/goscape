@@ -1151,6 +1151,15 @@ func (p *Player) processIn(currentTick int) {
 		p.afkEventReady = rand.Float64() < chance
 	}
 
+	// player-net-1: TS NetworkPlayer.decodeIn (NetworkPlayer.ts:55-57)
+	// clears userPath and opcalled at the very top — BEFORE the
+	// isClientConnected early-return — so a stale path from a prior
+	// tick's MoveClick handler cannot leak into this tick's
+	// processPostDecode (which gates moveClickRequest on
+	// `len(userPath)>0 || opcalled` at TS Player.ts:613).
+	p.userPath = nil
+	p.opcalled = false
+
 	c := p.client
 	if c.state != ClientStateGame {
 		return
@@ -1161,7 +1170,6 @@ func (p *Player) processIn(currentTick int) {
 	p.userLimit = 0
 	p.clientLimit = 0
 	p.restrictedLimit = 0
-	p.opcalled = false
 	p.decodedThisTick = false // NAI-146 T1: reset before decode (TS decodeIn() return semantics)
 
 	c.inMu.Lock()

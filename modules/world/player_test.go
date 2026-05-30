@@ -279,6 +279,39 @@ func TestProcessInSkipsDisconnectedClient(t *testing.T) {
 	}
 }
 
+// player-net-1: TS NetworkPlayer.decodeIn (NetworkPlayer.ts:55-57) clears
+// userPath and opcalled at the very top — before the isClientConnected
+// early-return — so a stale path from a prior tick cannot leak into the
+// next tick's processPostDecode (which reads p.userPath and triggers
+// moveClickRequest=true even when no MoveClick handler ran this tick).
+func TestProcessIn_ClearsUserPathAtDecodeStart(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	// Preset as if a prior tick's MoveClick handler had populated it.
+	p.userPath = []int{0xDEAD, 0xBEEF}
+
+	p.processIn(0)
+
+	if len(p.userPath) != 0 {
+		t.Errorf("userPath: got %v (len=%d), want empty after decode start reset (TS NetworkPlayer.ts:55)", p.userPath, len(p.userPath))
+	}
+}
+
+// player-net-1: TS NetworkPlayer.decodeIn clears userPath and opcalled
+// BEFORE the isClientConnected early-return, so a disconnected-state
+// player also gets the leak-prevention. Pinning the placement (not only
+// the reset) prevents a fix that puts the reset after the c.state check.
+func TestProcessIn_ClearsUserPathBeforeDisconnectCheck(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.client.state = ClientStateClosed
+	p.userPath = []int{42}
+
+	p.processIn(0)
+
+	if len(p.userPath) != 0 {
+		t.Errorf("userPath: got %v, want empty (TS resets BEFORE isClientConnected check)", p.userPath)
+	}
+}
+
 func TestEncodeOutNoopWhenModalUnchanged(t *testing.T) {
 	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
 	p, clientConn := newTestPlayer(t)
