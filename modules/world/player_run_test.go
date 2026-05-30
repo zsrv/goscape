@@ -115,6 +115,12 @@ func TestResolveMovement_TempRunPreservedDuringSteps(t *testing.T) {
 	p.run = 1
 	p.runanim = 0
 	p.tempRun = 1
+	// pathing-2: newTestPlayer leaves moveSpeed = MoveSpeedInstant (player.go
+	// constructor default). The bridge in resolveMovement preserves Instant, and
+	// pathing-2's new early-return (TS PathingEntity.ts:134-137) suppresses
+	// stepping when moveSpeed is Instant. Set MoveSpeedWalk explicitly so the
+	// bridge fires and elevates to Run (runanim==0 && tempRun==1 → Run path).
+	p.moveSpeed = MoveSpeedWalk
 	p.waypoints[0] = packTestCoord(0, 3094, 3108)
 	p.waypointIndex = 0
 

@@ -80,6 +80,25 @@ func (p *Player) resolveMovement() {
 	p.lastTickZ = p.z
 	p.lastLevel = p.level
 
+	// pathing-2: TS PathingEntity.processMovement (PathingEntity.ts:134-137)
+	// early-returns when moveSpeed is INSTANT or STATIONARY. INSTANT is the
+	// load-bearing case for Player — P_TELEJUMP / RebuildNormal
+	// (player_script.go:600, login_resync.go:98) set it for the teleport
+	// tick, and the bridge above preserves it. Without this gate, a queued
+	// waypoint from a prior pathToMoveClick still gets stepped on the
+	// teleport tick, producing an animated walk inside the jump tick.
+	// Player.updateMovement's !super.processMovement() branch (TS
+	// Player.ts:670-673) resets tempRun in this case; we mirror that here.
+	// STATIONARY is structurally-parity only for Player (the bridge above
+	// overwrites it to WALK/RUN unless moveSpeed entered as INSTANT) but
+	// kept to match TS L135 verbatim.
+	if p.moveSpeed == MoveSpeedInstant || p.moveSpeed == MoveSpeedStationary {
+		p.walkDir = -1
+		p.runDir = -1
+		p.tempRun = 0
+		return
+	}
+
 	if p.waypointIndex < 0 {
 		p.walkDir = -1
 		p.runDir = -1
