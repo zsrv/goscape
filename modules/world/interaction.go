@@ -318,13 +318,17 @@ func (p *Player) processInteractionPreMove() {
 		return
 	}
 	s := p.client.server
-	// Tick-math entry-guard short-circuit (goscape-only optimization; not a
-	// TS-fidelity gap). The three canonical CanAccess gates are the actual
-	// TS-faithful layer; this pre-empts the whole cycle when delayed.
-	// Pinned by TestProcessInteraction_CanAccessGate_Delayed_*.
-	if p.delayed && s.currentTick < p.delayedUntil {
-		return
-	}
+	// interaction-7: the goscape-only `delayed && currentTick<delayedUntil`
+	// short-circuit that used to live here pre-empted the post-step HEAD
+	// (TS Player.ts:1227-1239) for a delayed player, skipping
+	// pathToPathingTarget's followOp chase recompute (TS L1039-1042) and
+	// the L1237 exhaustion clear. TS only gates the INTERACT arms on
+	// canAccess (L1210, L1244); the post-step HEAD runs unconditionally
+	// on !interacted. The pre-step arm's CanAccess() gate below (and the
+	// post-move pass's matching gate) handle the actually-delayed case
+	// TS-faithfully via the existing canAccess gates — no goscape-side
+	// short-circuit is needed. Pinned by
+	// TestProcessInteraction_CanAccessGate_Delayed_FollowOp_PathRecomputed.
 
 	// NAI-79 Stage 1 — pre-step state capture for Frame B emit (post-move
 	// pass). Trigger-lookup capture is gated on NodeDebug to avoid the

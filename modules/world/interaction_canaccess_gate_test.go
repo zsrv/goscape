@@ -3,6 +3,7 @@ package world
 import (
 	"testing"
 
+	"github.com/zsrv/goscape/pkg/coordgrid"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/script"
 )
@@ -103,15 +104,23 @@ func TestProcessInteraction_CanAccessGate_HappyPath_OpFires(t *testing.T) {
 	}
 }
 
-// TestProcessInteraction_CanAccessGate_Delayed_EarlyReturnsBeforePathing pins
-// the existing early-return at interaction.go:200-202: when delayed and within
-// the delay window, processInteraction returns BEFORE any canAccess-gated arms
-// run. The interaction is preserved. (Risk R4 in spec §9.)
+// TestProcessInteraction_CanAccessGate_Delayed_PreservesInteraction pins TS
+// Player.ts:1210/1244 fidelity: when delayed, both the pre-step interact arm
+// (L1210) and the post-step interact arm (L1244) skip via the canAccess gate,
+// so ClearInteraction() never fires and the target stays set across the tick.
 //
-// This locks in TS shape symmetry: the tick-math entry guard short-circuits the
-// whole function (including Frame B emit) while the new call-site canAccess
-// gates handle the "delayed=true, tick expired" case.
-func TestProcessInteraction_CanAccessGate_Delayed_EarlyReturnsBeforePathing(t *testing.T) {
+// Pre-interaction-7 a goscape-only `delayed && currentTick<delayedUntil`
+// short-circuit at the top of processInteractionPreMove returned ahead of the
+// post-step HEAD entirely (skipping pathToPathingTarget, the followOp
+// exhaustion clear, and the tail mapflag clear). The CanAccess() call-site
+// gates on the pre-step arm (interaction.go:351) and post-step arm
+// (interaction.go:417) already cover the "interaction must be preserved"
+// invariant; this test continues to lock that in.
+//
+// Sibling test TestProcessInteraction_CanAccessGate_Delayed_FollowOp_PathRecomputed
+// pins the load-bearing TS L1227-1239 head that the removed short-circuit
+// previously skipped.
+func TestProcessInteraction_CanAccessGate_Delayed_PreservesInteraction(t *testing.T) {
 	s := newTestServer(t)
 	s.currentTick = 100
 	p, wait := makeInteractionPlayer(t, s, 3105, 3096, 0)
@@ -120,14 +129,79 @@ func TestProcessInteraction_CanAccessGate_Delayed_EarlyReturnsBeforePathing(t *t
 
 	p.SetInteraction(InteractionEngine, npc, 1, -1)
 	p.delayed = true
-	p.delayedUntil = 105 // s.currentTick (100) < delayedUntil (105) → entry guard fires
+	p.delayedUntil = 105 // s.currentTick (100) < delayedUntil (105) → CanAccess()=false via p.delayed
 
 	p.processInteraction()
 
-	// Entry guard at L200-202 returns before reaching any interact arm.
-	// Target must be preserved (entry guard did not clear it).
+	// Target must be preserved: the CanAccess gates on both interact arms
+	// (pre-step at L351, post-step at L417) skip the validateTarget-clear
+	// and the "I can't reach!"-clear arms. Mirrors TS L1210/L1244 fidelity.
 	if p.target == nil {
-		t.Fatal("entry-guard early-return at L200-202 cleared interaction; should preserve p.target")
+		t.Fatal("delayed processInteraction cleared interaction; TS L1210/L1244 preserve target when canAccess()=false")
+	}
+}
+
+// TestProcessInteraction_CanAccessGate_Delayed_FollowOp_PathRecomputed pins
+// TS Player.ts:1227-1239 fidelity for the delayed-follower case: even when
+// canAccess()=false, the post-step HEAD still runs pathToPathingTarget, and
+// the followOp branch at TS Player.ts:1039-1042 queues a waypoint to the
+// leader's followX/Z. A delayed follower must keep chasing the leader.
+//
+// Closes interaction-7. Pre-fix, the goscape-only short-circuit at
+// processInteractionPreMove returned ahead of the post-step HEAD, so a delayed
+// follower stopped re-pathing and stalled at their previous tile.
+//
+// The followOp branch of pathToPathingTarget (interaction.go:979-986) runs
+// BEFORE the local CanAccess gate (interaction.go:988) and queues
+// unconditionally, mirroring TS L1039-1042 (the canAccess check at TS L1044
+// only blocks the non-followOp arms).
+func TestProcessInteraction_CanAccessGate_Delayed_FollowOp_PathRecomputed(t *testing.T) {
+	s := newTestServer(t)
+	s.currentTick = 100
+
+	leader, leaderWait := makeInteractionPlayer(t, s, 3220, 3220, 0)
+	defer leaderWait()
+	leader.active = true // valid follow target (validateTarget gate 3 / TS Player.isValid)
+	// Simulate post-processLogins state so the leader's per-tick top writes
+	// refresh followX/Z from lastStepX/Z = (3219, 3220) — mirrors the
+	// TestPlayerFollow_PathToPathingTarget_QueuesValidLeaderCoord fixture.
+	leader.lastStepX = leader.x - 1
+	leader.lastStepZ = leader.z
+	leader.processInteraction() // top writes refresh followX/Z
+	if leader.followX != 3219 || leader.followZ != 3220 {
+		t.Fatalf("pre-condition: leader followX/Z = (%d, %d), want (3219, 3220)", leader.followX, leader.followZ)
+	}
+
+	follower, followerWait := makeInteractionPlayer(t, s, 3225, 3225, 0)
+	defer followerWait()
+	follower.target = leader
+	follower.targetOp = 3 // raw op-slot 3; isFollowOp matches targetOp==3 && target.(*Player)
+	follower.delayed = true
+	follower.delayedUntil = 105 // s.currentTick (100) < 105 → canAccess()=false via p.delayed
+
+	if follower.CanAccess() {
+		t.Fatal("test setup invalid: follower.CanAccess() should be false with delayed=true")
+	}
+
+	follower.processInteraction()
+
+	// pathToPathingTarget's followOp arm (interaction.go:979-986, TS L1039-1042)
+	// fires BEFORE the local CanAccess gate and queues a waypoint to the
+	// leader's followX/Z. Pre-interaction-7 the short-circuit short-returned
+	// from processInteractionPreMove and waypointIndex stayed at -1.
+	if follower.waypointIndex < 0 {
+		t.Fatalf("delayed follower has no waypoints post-processInteraction; want a re-queued chase waypoint via TS L1039-1042 (waypointIndex=%d)",
+			follower.waypointIndex)
+	}
+	wp := coordgrid.UnpackCoord(follower.waypoints[follower.waypointIndex])
+	if wp.X != 3219 || wp.Z != 3220 {
+		t.Errorf("delayed follower queued waypoint: got (%d, %d), want (3219, 3220) = leader.followX/Z (TS Player.ts:1040)",
+			wp.X, wp.Z)
+	}
+	// Target must still be preserved across the tick — the post-step interact
+	// arm (L1244 / interaction.go:417) is canAccess-gated and never fires.
+	if follower.target == nil {
+		t.Fatal("delayed follower's interaction cleared; TS L1244 preserves target when canAccess()=false")
 	}
 }
 
