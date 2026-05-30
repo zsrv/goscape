@@ -218,9 +218,27 @@ func (p *Player) validateTarget() bool {
 }
 
 // ClearInteraction resets interaction state to idle.
+//
+// Mirrors TS PathingEntity.clearInteraction (PathingEntity.ts:550-555):
+// target, targetOp, the targetSubject identity snapshot, apRange, and
+// apRangeCalled are reset. goscape's targetSubject additionally carries the
+// loc/obj x/z/level snapshot (written by handler_oploc/handler_opobj for
+// locStillValid/objStillValid), so all five fields reset to -1 — interaction-4
+// (TS resets only {type:-1, com:-1}; the x/z/level extension is goscape's).
+//
+// interacted/repathed are reset here as a goscape divergence from TS, which
+// clears interacted per-tick in resetPathingEntity (PathingEntity.ts:88) rather
+// than in clearInteraction. They are retained until goscape ports that per-tick
+// reset (interaction-6): p.interacted is currently reset only on
+// Set/ClearInteraction, so dropping the reset here would let it stay stuck-true.
 func (p *Player) ClearInteraction() {
 	p.target = nil
 	p.targetOp = -1
+	p.targetSubject.typ = -1
+	p.targetSubject.x = -1
+	p.targetSubject.z = -1
+	p.targetSubject.level = -1
+	p.targetSubject.com = -1
 	p.apRange = 10 // S6l: reset to default (TS PathingEntity.ts:554)
 	p.apRangeCalled = false
 	p.interacted = false
