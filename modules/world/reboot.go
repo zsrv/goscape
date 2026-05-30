@@ -59,15 +59,38 @@ func (s *Server) processShutdown() {
 
 	duration := s.currentTick - s.shutdownTick
 
-	// (b) After 1024 ticks (~10 minutes at 600ms/tick), force-remove any
-	// player that hasn't completed logout. Mirrors TS World.processShutdown
-	// (W.ts:1207-1213). The p.forceRemove flag drives processLogouts'
-	// force-branch.
+	// (b) After 1024 ticks (~10 minutes at 600ms/tick), force-remove EVERY
+	// remaining player by calling removePlayer directly and unconditionally.
+	// Mirrors TS World.processShutdown (World.ts:1207-1213), which loops over
+	// playerLoop.all() and calls this.removePlayer(player) inline — no
+	// canAccess / queue / engineQueue gate.
+	//
+	// We deliberately bypass the normal processLogouts drain (block (a)'s
+	// loggingOut path) here: processLogouts' inner gate
+	//   if !p.CanAccess() || len(p.engineQueue) > 0 || !queueDiscardable { continue }
+	// (tick.go) would skip any player stuck in !CanAccess() (delayed / open
+	// modal / active protected script), with pending engineQueue work, or
+	// holding a non-discardable queue entry — so a single such player would
+	// hang shutdown forever. The 1024-tick deadline exists precisely to evict
+	// those stuck players, so removal must be direct.
+	//
+	// removePlayerOnTick → removePlayerInternal is idempotent (slot-identity
+	// guard at server.go) and is the same removal helper processLogouts
+	// itself invokes inside a range over s.playerLoop, so iterating here is
+	// safe. Snapshot the loop first: removePlayerInternal mutates
+	// s.playerLoop (splicing the removed player out), so ranging the live
+	// slice while removing would skip entries.
 	if duration >= 1024 {
-		for _, p := range s.playerLoop {
-			if p != nil {
-				p.forceRemove = true
+		s.playersMu.RLock()
+		stuck := make([]*Player, len(s.playerLoop))
+		copy(stuck, s.playerLoop)
+		s.playersMu.RUnlock()
+		for _, p := range stuck {
+			if p == nil {
+				continue
 			}
+			s.log.Error("player force removed", "player", p.username)
+			s.removePlayerOnTick(p)
 		}
 	}
 

@@ -332,15 +332,9 @@ type Player struct {
 	friendsSubCancel context.CancelFunc
 
 	// === session flags ===
-	playtime                                     int
-	lastResponse, lastConnected                  int
-	requestLogout, requestIdleLogout, loggingOut bool
-	// forceRemove is set by Server.processShutdown when a player has
-	// failed to logout cleanly within 1024 ticks of shutdown initiation
-	// (see TS World.processShutdown, World.ts:1207-1213). When true,
-	// processLogouts force-removes the player regardless of normal
-	// timeout / inflight-action gates. NAI-182.
-	forceRemove                                      bool
+	playtime                                         int
+	lastResponse, lastConnected                      int
+	requestLogout, requestIdleLogout, loggingOut     bool
 	preventLogoutMessage                             string
 	preventLogoutUntil                               int
 	reconnecting, lowMemory, webClient               bool

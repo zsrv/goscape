@@ -156,40 +156,49 @@ func TestProcessShutdown_MarksAllConnectedPlayersForLogout(t *testing.T) {
 }
 
 // TestProcessShutdown_ForceRemoveAfter1024Ticks verifies that processShutdown
-// sets forceRemove on players that are still present after 1024 ticks. NAI-182 B5.
+// directly removes players that are still present after 1024 ticks. Mirrors TS
+// World.processShutdown (World.ts:1207-1213), which calls removePlayer inline.
+// NAI-182 B5 (re-pointed to the direct-removal contract per world-tick-1).
 func TestProcessShutdown_ForceRemoveAfter1024Ticks(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	s := newTestServer(t)
 	p.client.server = s
-	s.playerLoop = append(s.playerLoop, p)
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
 	go io.Copy(io.Discard, cc)
 
+	slot := p.slot
 	p.loggingOut = true
 	s.shutdownTick = s.currentTick - 1024
 
 	s.processShutdown()
 
-	if !p.forceRemove {
-		t.Errorf("p.forceRemove after 1024-tick processShutdown: got false, want true")
+	if s.players[slot] != nil {
+		t.Errorf("after 1024-tick processShutdown: s.players[%d] still set, want nil (player not removed)", slot)
 	}
 }
 
-// TestProcessShutdown_ForceRemoveNotSetBeforeDuration verifies that forceRemove
-// is NOT set when fewer than 1024 ticks have elapsed. NAI-182 B5.
+// TestProcessShutdown_ForceRemoveNotSetBeforeDuration verifies that the direct
+// force-removal does NOT fire when fewer than 1024 ticks have elapsed: the
+// player remains registered. NAI-182 B5 (re-pointed per world-tick-1).
 func TestProcessShutdown_ForceRemoveNotSetBeforeDuration(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	s := newTestServer(t)
 	p.client.server = s
-	s.playerLoop = append(s.playerLoop, p)
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
 	go io.Copy(io.Discard, cc)
 
+	slot := p.slot
 	p.loggingOut = true
 	s.shutdownTick = s.currentTick - 1023
 
 	s.processShutdown()
 
-	if p.forceRemove {
-		t.Errorf("p.forceRemove after 1023-tick processShutdown: got true, want false")
+	if s.players[slot] != p {
+		t.Errorf("after 1023-tick processShutdown: s.players[%d] = %v, want player still present", slot, s.players[slot])
 	}
 }
 
@@ -209,5 +218,49 @@ func TestProcessShutdown_ZeroPlayersTriggersGracefulExit(t *testing.T) {
 		// pass
 	default:
 		t.Error("gracefulExit channel: not closed after zero-player processShutdown")
+	}
+}
+
+// TestProcessShutdown_ForceRemovesStuckPlayerAfter1024 verifies that once the
+// shutdown duration reaches 1024 ticks, processShutdown force-removes EVERY
+// remaining player directly — even one that fails the normal logout gate
+// (here !CanAccess() via p.delayed). Mirrors TS World.processShutdown
+// (World.ts:1207-1213), which calls this.removePlayer(player) unconditionally.
+// Pins finding world-tick-1.
+func TestProcessShutdown_ForceRemovesStuckPlayerAfter1024(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	s := newTestServer(t)
+	p.client.server = s
+	// Register the player in a real slot so removal is observable
+	// (newPlayer leaves slot=-1, which removePlayerInternal's slot guard
+	// would skip). addPlayer assigns a slot, appends to playerLoop, and
+	// occupies s.players[slot].
+	if err := s.addPlayer(p); err != nil {
+		t.Fatalf("addPlayer: %v", err)
+	}
+	go io.Copy(io.Discard, cc)
+
+	slot := p.slot
+
+	// Make the player fail processLogouts' inner gate: !CanAccess(). This is
+	// exactly the stuck-player case that the buggy forceRemove path never
+	// evicted, hanging shutdown forever.
+	p.delayed = true
+	if p.CanAccess() {
+		t.Fatal("precondition: player should not have access (delayed=true)")
+	}
+
+	p.loggingOut = true
+	s.shutdownTick = s.currentTick - 1024
+
+	s.processShutdown()
+
+	if s.players[slot] != nil {
+		t.Errorf("after 1024-tick processShutdown: s.players[%d] still set, want nil (player not force removed)", slot)
+	}
+	for _, lp := range s.playerLoop {
+		if lp == p {
+			t.Errorf("after 1024-tick processShutdown: player still in playerLoop, want removed")
+		}
 	}
 }

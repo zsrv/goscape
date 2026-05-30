@@ -402,9 +402,6 @@ func (s *Server) processLogouts() {
 
 	for _, p := range players {
 		force := false
-		if p.forceRemove {
-			force = true
-		}
 		if s.currentTick-p.lastResponse >= timeoutNoResponse {
 			p.loggingOut = true
 			force = true
