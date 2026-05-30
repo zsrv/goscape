@@ -1398,9 +1398,14 @@ func handleInvMoveItemUncert(s *ScriptState) error {
 		finalObj = objType.CertLink
 	}
 	stackable := lookupStackable(s, finalObj)
+	// TS InvOps.ts:592-596 calls player.invAdd(...) with no 4th arg, so
+	// assureFullInsertion defaults to true (Player.ts:1496) — all-or-nothing
+	// on the destination. Without this, a near-full toInv silently partial-
+	// fills and the overflow is lost.
 	toInv.Add(finalObj, tx.Completed, inventory.AddOpts{
-		BeginSlot: -1,
-		Stackable: stackable,
+		BeginSlot:           -1,
+		Stackable:           stackable,
+		AssureFullInsertion: true,
 	})
 	return nil
 }

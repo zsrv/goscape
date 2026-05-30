@@ -1834,6 +1834,36 @@ func TestInvMoveItemUncert_RemoveZeroCompletesNoOp(t *testing.T) {
 	}
 }
 
+// TestInvMoveItemUncert_NearFullDest_AssuresFullInsertion pins TS
+// InvOps.ts:592-596 + Player.ts:1496 — invAdd is called with NO 4th
+// arg, so assureFullInsertion defaults to true (all-or-nothing). When
+// the destination has insufficient room, the Add must roll back entirely
+// (Completed=0); a partial fill is a goscape-only divergence. Closes
+// h-inv-1 (audit row 267).
+//
+// Fixture: destination testInvMain (capacity 28, StackNormal) holds 26
+// non-stackable swords (slots 0..25) → free=2. Source testInvBank holds
+// 5 swords in slot 0. Moving 5 swords with count(5) > free(2) MUST
+// trigger AssureFullInsertion's `!stack && count > free` gate.
+func TestInvMoveItemUncert_NearFullDest_AssuresFullInsertion(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup := newTestInvLookup()
+	main := lookup.Get(nil, testInvMain)
+	for i := 0; i < 26; i++ {
+		main.Set(i, &inventory.Item{Id: testObjSword, Count: 1})
+	}
+	bank := lookup.Get(nil, testInvBank)
+	bank.Set(0, &inventory.Item{Id: testObjSword, Count: 5})
+
+	runInvOp(t, OpInvMoveItemUncert, []int{testInvBank, testInvMain, testObjSword, 5}, lookup, mc)
+
+	// Post-fix: AssureFullInsertion=true → destination Add rolls back →
+	// main retains 26 swords. Pre-fix would partial-fill to 28.
+	if got := main.GetItemCount(testObjSword); got != 26 {
+		t.Errorf("destination main inv: got %d swords, want 26 (TS Player.ts:1496 invAdd default assureFullInsertion=true must reject partial-fill on count>free)", got)
+	}
+}
+
 // -- INV_MOVEITEM_CERT tests --
 
 func TestInvMoveItemCert_NoActivePlayer(t *testing.T) {
