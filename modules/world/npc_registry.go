@@ -176,6 +176,22 @@ func (s *Server) resetEntityForRespawn(n *Npc) {
 			}
 		}
 	}
+
+	// TS Npc.resetEntity(true) at Npc.ts:307 calls resetDefaults() after the
+	// varsString fill. TS resetDefaults (Npc.ts:411-425) clears interaction
+	// state and re-seeds targetOp/timerInterval from the type. goscape's
+	// (n *Npc).resetDefaults() is the NAI-11-stripped subset
+	// (target/targetOp/faceEntity/masks|=entitymask only); the
+	// apRange/apRangeCalled/targetSubject/timerInterval resets the stripped
+	// subset omits are re-applied inline here so the respawn surface reaches
+	// full TS-fidelity. 2026-05-28 fresh-audit row npc-core-1.
+	n.resetDefaults()
+	n.apRange = 10
+	n.apRangeCalled = false
+	n.targetSubject = npcTargetSubject{com: -1, typ: -1}
+	if n.typ != nil {
+		n.timerInterval = int(n.typ.Timer)
+	}
 }
 
 // removeNpc marks n as logically absent from the world. Mirrors TS

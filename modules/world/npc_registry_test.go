@@ -349,6 +349,62 @@ func TestResetEntityForRespawnInvokesUnfocus(t *testing.T) {
 	}
 }
 
+// TestResetEntityForRespawn_AppliesResetDefaultsTSFidelity pins the 2026-05-28
+// audit row npc-core-1. TS Npc.resetEntity(true) at Npc.ts:307 calls
+// resetDefaults(); TS resetDefaults (Npc.ts:411-425) clears target/targetOp/
+// apRange/apRangeCalled/targetSubject/faceEntity/timerInterval and sets
+// masks |= entitymask. goscape's (n *Npc).resetDefaults() is the NAI-11-
+// stripped subset (target/targetOp/faceEntity/masks only); the
+// apRange/apRangeCalled/targetSubject/timerInterval resets the stripped
+// subset omits must be re-applied inline by resetEntityForRespawn so the
+// respawn surface reaches full TS-fidelity.
+func TestResetEntityForRespawn_AppliesResetDefaultsTSFidelity(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{
+		Size:        1,
+		DefaultMode: objtype.NPCModePatrol, // distinct from anything pre-set on n
+		Timer:       42,
+	}
+	n := newRegisteredNpc(t, s, typ, false)
+	other := newRegisteredNpc(t, s, &objtype.NpcType{Size: 1}, false)
+	// Dirty every field TS resetDefaults resets.
+	n.target = other
+	n.targetOp = objtype.NPCModePlayerFollow
+	n.faceEntity = 7
+	n.apRange = 3
+	n.apRangeCalled = true
+	n.targetSubject = npcTargetSubject{com: 99, typ: 5}
+	n.timerInterval = 999
+	n.masks = 0
+
+	s.resetEntityForRespawn(n)
+
+	if n.target != nil {
+		t.Errorf("target: got %p, want nil (TS Npc.ts:307 resetDefaults→clearInteraction)", n.target)
+	}
+	if n.targetOp != objtype.NPCModePatrol {
+		t.Errorf("targetOp: got %d, want %d (NPCModePatrol from typ.DefaultMode per TS Npc.ts:414)", n.targetOp, objtype.NPCModePatrol)
+	}
+	if n.faceEntity != -1 {
+		t.Errorf("faceEntity: got %d, want -1 (TS Npc.ts:415)", n.faceEntity)
+	}
+	if n.apRange != 10 {
+		t.Errorf("apRange: got %d, want 10 (TS PathingEntity.clearInteraction defaultApRange)", n.apRange)
+	}
+	if n.apRangeCalled {
+		t.Error("apRangeCalled: got true, want false (TS PathingEntity.clearInteraction)")
+	}
+	if n.targetSubject.com != -1 || n.targetSubject.typ != -1 {
+		t.Errorf("targetSubject: got {com:%d, typ:%d}, want {com:-1, typ:-1} (TS PathingEntity.clearInteraction)", n.targetSubject.com, n.targetSubject.typ)
+	}
+	if n.timerInterval != 42 {
+		t.Errorf("timerInterval: got %d, want 42 (typ.Timer per TS Npc.ts:424)", n.timerInterval)
+	}
+	if n.masks&rsbuf.NpcMaskFaceEntity == 0 {
+		t.Errorf("masks & NpcMaskFaceEntity: bit not set after reset (TS Npc.ts:416 `masks |= entitymask`); got masks=%d", n.masks)
+	}
+}
+
 // seedVarnTypes installs a minimal VarnTypeConfigs on s with the given
 // (type, name) tuples for resetEntityForRespawn seed-loop tests.
 func seedVarnTypes(s *Server, entries []struct {
