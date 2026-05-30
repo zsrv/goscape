@@ -539,21 +539,24 @@ func (p *Player) tryInteract(allowOpScenery bool) bool {
 	tx, tz, _ := p.target.Coords()
 	tw, tl := approachTargetSize(p.target)
 	operable := inOperableDistance(p, p.target)
-	// TS PathingEntity.inApproachDistance (PathingEntity.ts:405, player/else
-	// branch) is `distanceTo(...) <= range && isApproached(...)`. The free
-	// inApproachDistance below is the range half; approachHasLineOfSight is the
-	// LoS half (M1 — the player side previously omitted it and could fire AP
-	// through walls; the NPC branch already gated). Short-circuits: when the
-	// range half is false (incl. apRange<=0) LoS is never evaluated, so no
-	// gamemap call happens when no AP script exists.
-	approach := inApproachDistance(p.x, p.z, tx, tz, tw, tl, effectiveApRange(p)) &&
-		p.approachHasLineOfSight(tx, tz, tw, tl)
 
 	isPathing := false
 	switch p.target.(type) {
 	case *Npc, *Player:
 		isPathing = true
 	}
+
+	// TS PathingEntity.inApproachDistance (PathingEntity.ts:405, player/else
+	// branch) is `distanceTo(...) <= range && isApproached(...)`. The free
+	// inApproachDistance below is the range half; approachHasLineOfSight is the
+	// LoS half (M1 — the player side previously omitted it and could fire AP
+	// through walls; the NPC branch already gated). Short-circuits: when the
+	// range half is false (incl. apRange<=0) LoS is never evaluated, so no
+	// gamemap call happens when no AP script exists. isPathing gates the
+	// footprint-overlap bail per TS PathingEntity.ts:395 (npc-ai-5 /
+	// pathing-5 / interaction-5).
+	approach := inApproachDistance(p.x, p.z, tx, tz, tw, tl, effectiveApRange(p), isPathing) &&
+		p.approachHasLineOfSight(tx, tz, tw, tl)
 
 	// Branch 1 — OP fire (TS Player.ts:1123). Fire is unconditional per
 	// TS — the Go-only interactionFired gate that previously wrapped this
@@ -847,26 +850,31 @@ func inOperableDistanceCheb(px, pz, tx, tz int) bool {
 }
 
 // inApproachDistance returns true when a 1x1 source at (px,pz) is within
-// apRange tiles of the target footprint at (tx,tz) sized tw×tl, excluding
-// being on/under the footprint. This is the RANGE half of TS
-// PathingEntity.inApproachDistance; the LoS half is applied separately by
-// (*Player).approachHasLineOfSight at the tryInteract call site (M1 closed
-// the former DEVIATION S6l-D4 LoS omission).
+// apRange tiles of the target footprint at (tx,tz) sized tw×tl. This is the
+// RANGE half of TS PathingEntity.inApproachDistance; the LoS half is applied
+// separately by (*Player).approachHasLineOfSight at the tryInteract call site
+// (M1 closed the former DEVIATION S6l-D4 LoS omission).
 // apRange <= 0 always returns false — the caller is responsible for
 // distinguishing "not yet in range" from "no AP script exists."
+//
+// isPathingTarget gates the footprint-overlap bail per TS PathingEntity.ts:395:
+// the "you are not within ap distance ... if you are underneath it" exclusion
+// applies ONLY when the target is a PathingEntity (Player/Npc). For Loc/Obj
+// targets TS skips the bail; a source standing on a Loc footprint or Obj tile
+// is still in approach distance to fire its AP script (npc-ai-5 / pathing-5 /
+// interaction-5).
 //
 // Distance is EDGE-aware (TS uses CoordGrid.distanceTo, not origin-corner
 // Chebyshev). For a multi-tile target, origin distance > edge distance, so
 // the old origin form made ranged/magic attackers approach (size-1) tiles
 // too close before the AP could fire.
-func inApproachDistance(px, pz, tx, tz, tw, tl, apRange int) bool {
+func inApproachDistance(px, pz, tx, tz, tw, tl, apRange int, isPathingTarget bool) bool {
 	if apRange <= 0 {
 		return false
 	}
-	// TS PathingEntity.ts:396-398 — a source on/under the target footprint is
-	// not in approach distance ("you are not within ap distance ... if you are
-	// underneath it").
-	if coordgrid.Intersects(px, pz, 1, 1, tx, tz, tw, tl) {
+	// TS PathingEntity.ts:395-398 — footprint-overlap bail gated on
+	// PathingEntity target (see doc-comment above).
+	if isPathingTarget && coordgrid.Intersects(px, pz, 1, 1, tx, tz, tw, tl) {
 		return false
 	}
 	// TS PathingEntity.ts:404 — CoordGrid.distanceTo (edge-aware Chebyshev),

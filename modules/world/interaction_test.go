@@ -307,10 +307,10 @@ func TestSendUnsetMapFlagWireFormat(t *testing.T) {
 }
 
 // TestInApproachDistanceSameTile verifies same-tile coordinates return
-// false (can't "approach" your own tile). Mirrors inOperableDistance
-// (which also excludes same-tile).
+// false against a PathingEntity target (can't "approach" your own tile).
+// Mirrors inOperableDistance (which also excludes same-tile).
 func TestInApproachDistanceSameTile(t *testing.T) {
-	if inApproachDistance(100, 100, 100, 100, 1, 1, 10) {
+	if inApproachDistance(100, 100, 100, 100, 1, 1, 10, true) {
 		t.Error("same tile: got true, want false")
 	}
 }
@@ -318,10 +318,10 @@ func TestInApproachDistanceSameTile(t *testing.T) {
 // TestInApproachDistanceAtRange verifies Chebyshev distance exactly
 // apRange is accepted.
 func TestInApproachDistanceAtRange(t *testing.T) {
-	if !inApproachDistance(100, 100, 110, 100, 1, 1, 10) {
+	if !inApproachDistance(100, 100, 110, 100, 1, 1, 10, true) {
 		t.Error("dx=10 apRange=10: got false, want true")
 	}
-	if !inApproachDistance(100, 100, 107, 107, 1, 1, 10) {
+	if !inApproachDistance(100, 100, 107, 107, 1, 1, 10, true) {
 		t.Error("dx=dz=7 apRange=10: got false, want true")
 	}
 }
@@ -329,10 +329,10 @@ func TestInApproachDistanceAtRange(t *testing.T) {
 // TestInApproachDistanceBeyondRange verifies one tile past apRange
 // is rejected.
 func TestInApproachDistanceBeyondRange(t *testing.T) {
-	if inApproachDistance(100, 100, 111, 100, 1, 1, 10) {
+	if inApproachDistance(100, 100, 111, 100, 1, 1, 10, true) {
 		t.Error("dx=11 apRange=10: got true, want false")
 	}
-	if inApproachDistance(100, 100, 105, 111, 1, 1, 10) {
+	if inApproachDistance(100, 100, 105, 111, 1, 1, 10, true) {
 		t.Error("dz=11 apRange=10: got true, want false")
 	}
 }
@@ -340,10 +340,10 @@ func TestInApproachDistanceBeyondRange(t *testing.T) {
 // TestInApproachDistanceZeroRange verifies apRange <= 0 is always
 // rejected (even for adjacent tiles).
 func TestInApproachDistanceZeroRange(t *testing.T) {
-	if inApproachDistance(100, 100, 101, 100, 1, 1, 0) {
+	if inApproachDistance(100, 100, 101, 100, 1, 1, 0, true) {
 		t.Error("apRange=0: got true, want false")
 	}
-	if inApproachDistance(100, 100, 101, 100, 1, 1, -5) {
+	if inApproachDistance(100, 100, 101, 100, 1, 1, -5, true) {
 		t.Error("apRange=-5: got true, want false")
 	}
 }
@@ -359,22 +359,59 @@ func TestInApproachDistanceZeroRange(t *testing.T) {
 // The origin-corner form returned false here (7 > 5), forcing ranged/magic
 // attackers to approach to edge-distance 3 against a 3x3 NPC — the "I still
 // get too close" symptom that scales with NPC size.
+//
+// All cases below pass isPathingTarget=true to model a 3x3 / 2x2 NPC target.
+// The Loc/Obj (non-pathing) sibling cases live in
+// TestInApproachDistance_NonPathingTarget_SkipsFootprintBail (npc-ai-5).
 func TestInApproachDistance_EdgeAware_MultiTileTarget(t *testing.T) {
 	// edge distance 5, apRange 5 → in approach (fire from max range)
-	if !inApproachDistance(107, 100, 100, 100, 3, 3, 5) {
+	if !inApproachDistance(107, 100, 100, 100, 3, 3, 5, true) {
 		t.Error("3x3 target, edge dist 5, apRange 5: got false, want true (edge-aware)")
 	}
 	// edge distance 6 (source at 108), apRange 5 → out of approach
-	if inApproachDistance(108, 100, 100, 100, 3, 3, 5) {
+	if inApproachDistance(108, 100, 100, 100, 3, 3, 5, true) {
 		t.Error("3x3 target, edge dist 6, apRange 5: got true, want false")
 	}
 	// 2x2 target (occupies 100..101): source at (106,100) is edge dist 5
-	if !inApproachDistance(106, 100, 100, 100, 2, 2, 5) {
+	if !inApproachDistance(106, 100, 100, 100, 2, 2, 5, true) {
 		t.Error("2x2 target, edge dist 5, apRange 5: got false, want true (edge-aware)")
 	}
-	// source on the footprint (under a 3x3) → not approach
-	if inApproachDistance(101, 101, 100, 100, 3, 3, 5) {
-		t.Error("source under 3x3 footprint: got true, want false")
+	// source on a 3x3 NPC footprint → not approach (PathingEntity bail fires)
+	if inApproachDistance(101, 101, 100, 100, 3, 3, 5, true) {
+		t.Error("source under 3x3 NPC footprint: got true, want false")
+	}
+}
+
+// TestInApproachDistance_NonPathingTarget_SkipsFootprintBail pins the
+// npc-ai-5 / pathing-5 / interaction-5 fix: a Loc / Obj target (non-pathing)
+// does NOT trigger the footprint-overlap bail at TS PathingEntity.ts:395 —
+// a player standing on a multi-tile Loc footprint (e.g. a banker counter, a
+// 3x3 stall) or sharing a tile with an Obj is still in approach distance to
+// fire its AP script.
+//
+// RED before the fix (when the bail ran unconditionally):
+//   - "source under 3x3 Loc footprint: got false, want true"
+//   - "same tile as Obj: got false, want true"
+//
+// Out-of-range still rejects (the bail is independent of the distance check).
+func TestInApproachDistance_NonPathingTarget_SkipsFootprintBail(t *testing.T) {
+	// 1x1 source inside the 3x3 Loc footprint (101,101 within 100..102) →
+	// approach distance OK; isPathingTarget=false skips the bail.
+	if !inApproachDistance(101, 101, 100, 100, 3, 3, 5, false) {
+		t.Error("source under 3x3 Loc footprint: got false, want true " +
+			"(PathingEntity bail must not fire for non-pathing targets)")
+	}
+	// Same-tile Obj (1x1, isPathingTarget=false). TS skips the bail for Obj
+	// targets just like Loc — the operable-distance gate at the call site is
+	// what actually accepts same-tile Obj pickup.
+	if !inApproachDistance(100, 100, 100, 100, 1, 1, 5, false) {
+		t.Error("source same-tile as 1x1 Obj: got false, want true " +
+			"(PathingEntity bail must not fire for non-pathing targets)")
+	}
+	// Out-of-range still rejects regardless of isPathingTarget.
+	if inApproachDistance(110, 100, 100, 100, 3, 3, 5, false) {
+		t.Error("3x3 Loc target, edge dist 8, apRange 5: got true, want false " +
+			"(distance check is independent of the footprint bail)")
 	}
 }
 

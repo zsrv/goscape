@@ -964,12 +964,12 @@ func TestApRangeSentinelShortCircuitsApproachGate(t *testing.T) {
 	// Player at (100, 100), target at (101, 100) — distance 1 tile.
 	// With apRange=-1, should return false even though distance <
 	// any positive apRange.
-	if inApproachDistance(100, 100, 101, 100, 1, 1, -1) {
+	if inApproachDistance(100, 100, 101, 100, 1, 1, -1, true) {
 		t.Error("inApproachDistance should return false when apRange=-1 (sentinel)")
 	}
 
 	// Control: with apRange=5, same positions should return true.
-	if !inApproachDistance(100, 100, 101, 100, 1, 1, 5) {
+	if !inApproachDistance(100, 100, 101, 100, 1, 1, 5, true) {
 		t.Error("control: inApproachDistance should return true when apRange=5 and distance=1")
 	}
 }

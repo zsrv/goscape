@@ -1501,6 +1501,53 @@ func TestNpcInApproachDistance_EdgeAware_MultiTileSelf(t *testing.T) {
 	}
 }
 
+// TestNpcInApproachDistance_NonPathingTarget_SkipsFootprintBail pins the
+// npc-ai-5 / pathing-5 / interaction-5 fix: TS PathingEntity.ts:395 gates
+// the footprint-overlap bail on `target instanceof PathingEntity`, so a
+// Loc or Obj target overlapping the NPC's footprint is still in approach
+// distance. goscape previously applied the bail unconditionally,
+// suppressing valid AP fires when an NPC stood on a Loc/Obj it wanted to
+// interact with.
+//
+// RED before the fix: both Loc and Obj cases return false (the
+// unconditional Intersects bail fires); GREEN after, since target-type
+// gating short-circuits the bail for non-pathing targets. Player target
+// remains gated (preserved by the existing footprint test at L1497-1501).
+func TestNpcInApproachDistance_NonPathingTarget_SkipsFootprintBail(t *testing.T) {
+	s := newServerForScriptTest(t)
+	s.gamemap = nil // skip LoS gate — isolate footprint-overlap behavior
+
+	// Size-3 NPC at (100,100), occupying (100..102, 100..102).
+	typ := &objtype.NpcType{Size: 3}
+	n := NewNpc(1, 0, 100, 100, 0, typ)
+	n.server = s
+
+	// 3×3 Loc whose origin is on the NPC's center tile (101,101). The
+	// Loc footprint occupies (101..103, 101..103), fully overlapping the
+	// NPC's footprint.
+	loc := entitypkg.NewLoc(0, 101, 101, 3, 3, entitypkg.LifecycleRespawn, 42, 10, 0)
+	if !n.inApproachDistance(5, loc) {
+		t.Error("size-3 NPC on overlapping 3×3 Loc: got false, want true " +
+			"(TS PathingEntity.ts:395 footprint bail must not fire for Loc)")
+	}
+
+	// 1×1 Obj on the NPC's center tile (101,101) — fully overlapping.
+	obj := entitypkg.NewObj(0, 101, 101, entitypkg.LifecycleRespawn, 88, 1)
+	if !n.inApproachDistance(5, obj) {
+		t.Error("size-3 NPC on overlapping 1×1 Obj: got false, want true " +
+			"(TS PathingEntity.ts:395 footprint bail must not fire for Obj)")
+	}
+
+	// Control: an out-of-range Loc (edge dist 7 from a size-3 NPC at 100,
+	// origin 110 → edge 110 vs npc-east-edge 102 = 8) still rejects on
+	// distance — the new gate does not weaken the range check.
+	farLoc := entitypkg.NewLoc(0, 110, 100, 1, 1, entitypkg.LifecycleRespawn, 42, 10, 0)
+	if n.inApproachDistance(5, farLoc) {
+		t.Error("size-3 NPC vs far Loc (edge dist 8, rng 5): got true, want false " +
+			"(distance check independent of footprint bail)")
+	}
+}
+
 // TestTargetWithinMaxRangePlayerEscapeUsesSizeAwareDistance pins NAI-20
 // Task 5: the PLAYERESCAPE branch in (*Npc).targetWithinMaxRange uses
 // coordgrid.DistanceTo (size-aware) per TS Npc.ts:658-669, NOT

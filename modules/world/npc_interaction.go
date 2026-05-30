@@ -895,10 +895,19 @@ func (n *Npc) inApproachDistance(rng int, target entity) bool {
 		return false
 	}
 	tw, tl := approachTargetSize(target)
-	// TS PathingEntity.ts:396-398 — a source on/under the target footprint is
-	// not in approach distance. Also covers the old same-tile exclusion.
-	if coordgrid.Intersects(n.x, n.z, n.size, n.size, tx, tz, tw, tl) {
-		return false
+	// TS PathingEntity.ts:395-398 — a source on/under the target footprint is
+	// not in approach distance, but ONLY when the target is a PathingEntity
+	// (Player / Npc). For Loc / Obj targets, TS skips this bail entirely: a
+	// player or NPC standing on/inside a Loc footprint (e.g. a banker counter,
+	// shop stall) or on an Obj tile is still in approach distance to fire its
+	// AP script. npc-ai-5 / pathing-5 / interaction-5: the gate was applied
+	// unconditionally, suppressing valid Loc/Obj AP fires whenever the
+	// source overlapped the target footprint.
+	switch target.(type) {
+	case *Player, *Npc:
+		if coordgrid.Intersects(n.x, n.z, n.size, n.size, tx, tz, tw, tl) {
+			return false
+		}
 	}
 	// TS PathingEntity.ts:404 — CoordGrid.distanceTo (edge-aware Chebyshev
 	// across both footprints), NOT origin-corner distance. Matches the
