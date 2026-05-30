@@ -617,7 +617,10 @@ func (m *mapLocAddUnsafeOps) RemoveLoc(loc ActiveLoc, duration int) error { retu
 func (m *mapLocAddUnsafeOps) AnimLoc(loc ActiveLoc, seq int) error        { return nil }
 func (m *mapLocAddUnsafeOps) LocsAtCoord(level, x, z int) []ActiveLoc     { return nil }
 func (m *mapLocAddUnsafeOps) AllLocsInZone(level, x, z int) []ActiveLoc   { return m.zoneLocs }
-func (m *mapLocAddUnsafeOps) GetLoc(level, x, z, typ int) ActiveLoc       { return nil }
+func (m *mapLocAddUnsafeOps) AllLocsSafe(level, x, z int, reverse bool) []ActiveLoc {
+	return nil // MAP_LOCADDUNSAFE consumes AllLocsInZone, not AllLocsSafe.
+}
+func (m *mapLocAddUnsafeOps) GetLoc(level, x, z, typ int) ActiveLoc { return nil }
 
 // runMapLocAddUnsafe is the standard test harness: pushes the packed
 // coord and dispatches the opcode through Execute (so registration is

@@ -3,14 +3,21 @@ package script
 import "testing"
 
 // locIterTestOps is a fakeLocOps wrapper that returns a fixed slice
-// from AllLocsInZone. Independent of fakeLocOps.inZone (which is
-// shared across other tests).
+// from AllLocsSafe (LocIterator's iteration source post-h-loc-4).
+// Independent of fakeLocOps.inZone (the AllLocsInZone slice, shared
+// across other tests for MAP_LOCADDUNSAFE-style consumers).
 type locIterTestOps struct {
 	*fakeLocOps
 	zoneLocs []ActiveLoc
 }
 
-func (o *locIterTestOps) AllLocsInZone(level, x, z int) []ActiveLoc {
+// AllLocsSafe returns the test fixture verbatim. The fixture is
+// authored in the order the iterator should yield (i.e., the test
+// pre-applies any reverse / IsActive transform expected of the
+// production serverLocOps.AllLocsSafe implementation). Mirrors the
+// fake-snapshot pattern from the pre-h-loc-4 AllLocsInZone version.
+func (o *locIterTestOps) AllLocsSafe(level, x, z int, reverse bool) []ActiveLoc {
+	o.allLocsSafeCalls = append(o.allLocsSafeCalls, allLocsSafeCall{level, x, z, reverse})
 	return o.zoneLocs
 }
 
@@ -132,5 +139,43 @@ func TestLocIteratorNilOpsDegrades(t *testing.T) {
 	it := NewZoneLocIterator(nil, 0, 0, 3200, 3300)
 	if loc, ok := it.Next(); ok || loc != nil {
 		t.Errorf("nil ops first Next: got (%v, %v), want (nil, false)", loc, ok)
+	}
+}
+
+// TestLocIteratorRoutesThroughAllLocsSafeWithReverseTrue pins the
+// h-loc-4 fix: LocIterator must source its snapshot from
+// LocOps.AllLocsSafe(level, x, z, reverse=true), mirroring TS
+// ScriptIterators.ts:378 (getAllLocsSafe(true)). Filter + reverse are
+// delegated to the impl (verified separately in
+// modules/world/script_loc_ops_test.go), so this test only asserts the
+// iterator's contract: it calls AllLocsSafe exactly once on first
+// Next() with reverse=true and the right coord triple.
+//
+// Toggle-off proof: revert pkg/script/loc_iterator.go's lazy-init from
+// AllLocsSafe(...) back to AllLocsInZone(...) → this test fails with
+// "AllLocsSafe call count: got 0, want 1".
+func TestLocIteratorRoutesThroughAllLocsSafeWithReverseTrue(t *testing.T) {
+	// Populate BOTH AllLocsSafe (the post-h-loc-4 source) and AllLocsInZone
+	// (the pre-h-loc-4 source) with the same fixture, so that if the
+	// iterator regresses to calling AllLocsInZone the failure surfaces as
+	// the routing-contract assertion below rather than an upstream
+	// empty-iterator path.
+	ops := newLocIterTestOps([]ActiveLoc{fakeActiveLoc{id: 100}})
+	ops.fakeLocOps.inZone = []ActiveLoc{fakeActiveLoc{id: 100}}
+	it := NewZoneLocIterator(ops, 0, 5, 3200, 3300)
+
+	if _, ok := it.Next(); !ok {
+		t.Fatal("first Next: expected hit")
+	}
+
+	if got := len(ops.allLocsSafeCalls); got != 1 {
+		t.Fatalf("AllLocsSafe call count: got %d, want 1 (LocIterator must source from AllLocsSafe, not AllLocsInZone)", got)
+	}
+	call := ops.allLocsSafeCalls[0]
+	if call.level != 5 || call.x != 3200 || call.z != 3300 {
+		t.Errorf("AllLocsSafe coords: got (%d,%d,%d), want (5,3200,3300)", call.level, call.x, call.z)
+	}
+	if !call.reverse {
+		t.Errorf("AllLocsSafe reverse arg: got false, want true (TS ScriptIterators.ts:378 passes true)")
 	}
 }

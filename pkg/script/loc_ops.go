@@ -12,15 +12,23 @@ package script
 // and the slice is small (≤4 layers per tile in practice).
 //
 // AllLocsInZone returns every loc in the zone owning (level, x, z),
-// without any per-tile filtering. NAI-114 MAP_LOCADDUNSAFE consumes
-// this for footprint-overlap probing; the handler does the per-loc
-// (x, z, layer, footprint) checks itself per TS
-// ServerOps.ts:212-252.
+// without any per-tile or isActive filtering. NAI-114 MAP_LOCADDUNSAFE
+// consumes this for footprint-overlap probing; the handler does the
+// per-loc (x, z, layer, footprint, isActive, type.active) checks
+// itself per TS ServerOps.ts:212-252 (which iterates
+// Zone.getAllLocsUnsafe()).
+//
+// AllLocsSafe returns the locs in the zone owning (level, x, z) that
+// are currently "visible" (loc.IsActive==true), optionally reversed.
+// Mirrors TS Zone.getAllLocsSafe(reverse) at Zone.ts:459-465. Sole
+// caller is LocIterator (ScriptIterators.ts:377-385), which passes
+// reverse=true to match TS.
 //
 // GetLoc returns the loc at (level, x, z) whose type matches typ, or
 // nil if no such loc exists. Mirrors TS World.getLoc → Zone.getLoc
-// exact-tile + type-equality semantics (Zone.ts:259-266). Sole caller
-// is LOC_FIND (LocOps.ts:79-94).
+// exact-tile + type-equality + isValid (==isActive) semantics
+// (Zone.ts:259-266, 471-477; Entity.ts:32-34). Sole caller is LOC_FIND
+// (LocOps.ts:79-94).
 type LocOps interface {
 	ChangeLoc(loc ActiveLoc, typ, shape, angle, duration int) error
 	AddLoc(level, x, z, typ, shape, angle, duration int) (ActiveLoc, error)
@@ -28,5 +36,6 @@ type LocOps interface {
 	AnimLoc(loc ActiveLoc, seq int) error
 	LocsAtCoord(level, x, z int) []ActiveLoc
 	AllLocsInZone(level, x, z int) []ActiveLoc
+	AllLocsSafe(level, x, z int, reverse bool) []ActiveLoc
 	GetLoc(level, x, z, typ int) ActiveLoc
 }

@@ -42,6 +42,7 @@ func makeOpLocFixture(t *testing.T) (*Server, *Player, *entitypkg.Loc, net.Conn)
 	loc := entitypkg.NewLoc(0, 100, 100, 1, 1, entitypkg.LifecycleForever, 42, 10, 0)
 	zn := s.zoneMap.Get(0, 100, 100)
 	zn.Locs = append(zn.Locs, loc)
+	loc.IsActive = true // raw-append leaves IsActive=false; Server.GetLoc filter (TS Zone.ts:471-477) would strip it.
 
 	p, cc := newTestPlayer(t)
 	p.client.server = s
@@ -150,6 +151,7 @@ func TestHandleOpLocCoordValidationBoundary(t *testing.T) {
 	boundaryLoc := entitypkg.NewLoc(0, 152, 100, 1, 1, entitypkg.LifecycleForever, 42, 10, 0)
 	zn := s.zoneMap.Get(0, 152, 100)
 	zn.Locs = append(zn.Locs, boundaryLoc)
+	boundaryLoc.IsActive = true // see :44 for rationale (Server.GetLoc isActive filter).
 
 	if err := handleOpLoc1(p, p2x3Payload(152, 100, 42)); err != nil {
 		t.Fatalf("handleOpLoc1 at boundary: %v", err)
@@ -198,6 +200,10 @@ func TestHandleOpLocMissingLocTypeRejected(t *testing.T) {
 	missingTypeLoc := entitypkg.NewLoc(0, 100, 100, 1, 1, entitypkg.LifecycleForever, 77, 10, 0)
 	zn := s.zoneMap.Get(0, 100, 100)
 	zn.Locs = append(zn.Locs, missingTypeLoc)
+	// Must be IsActive for the test to reach the loctype-missing gate;
+	// the new GetLoc isActive filter (TS Zone.ts:471-477) would otherwise
+	// short-circuit at the getloc_nil gate first.
+	missingTypeLoc.IsActive = true
 
 	received := drainConn(t, cc)
 	_ = handleOpLoc1(p, p2x3Payload(100, 100, 77))
@@ -427,6 +433,7 @@ func TestHandleOpLocTMissingLocTypeRejected(t *testing.T) {
 	extraLoc := entitypkg.NewLoc(0, 100, 100, 1, 1, entitypkg.LifecycleForever, 77, 10, 0)
 	zn := s.zoneMap.Get(0, 100, 100)
 	zn.Locs = append(zn.Locs, extraLoc)
+	extraLoc.IsActive = true // see :200 for rationale (need to reach the loctype gate, not getloc_nil).
 
 	received := drainConn(t, cc)
 	_ = handleOpLocT(p, p2x4Payload(100, 100, 77, 7777))
@@ -590,6 +597,7 @@ func TestHandleOpLocUMissingLocTypeRejected(t *testing.T) {
 	extraLoc := entitypkg.NewLoc(0, 100, 100, 1, 1, entitypkg.LifecycleForever, 77, 10, 0)
 	zn := s.zoneMap.Get(0, 100, 100)
 	zn.Locs = append(zn.Locs, extraLoc)
+	extraLoc.IsActive = true // see :200 for rationale (need to reach the loctype gate, not getloc_nil).
 
 	received := drainConn(t, cc)
 	_ = handleOpLocU(p, p2x6Payload(100, 100, 77, 1511, 3, 149))

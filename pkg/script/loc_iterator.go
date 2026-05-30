@@ -12,10 +12,11 @@ package script
 // ClearActiveScript path runs).
 //
 // Snapshot strategy: lazy on first Next() call via
-// LocOps.AllLocsInZone(level, x, z). Subsequent calls drain the
-// snapshot. TS uses a generator over `getZone(...).getAllLocsSafe(true)`
-// — equivalent because both produce a single point-in-time slice that
-// the iterator drains independent of subsequent zone mutation.
+// LocOps.AllLocsSafe(level, x, z, reverse=true). Subsequent calls drain
+// the snapshot. Mirrors TS `getZone(...).getAllLocsSafe(true)` exactly:
+// iter visits IsActive locs only, in reverse zone order. The snapshot
+// is point-in-time and is drained independent of subsequent zone
+// mutation.
 //
 // Ownership: held by ScriptState.locIterator. Nil = no active iterator.
 type LocIterator struct {
@@ -58,7 +59,10 @@ func (it *LocIterator) Next() (ActiveLoc, bool) {
 	if !it.started {
 		it.started = true
 		if it.ops != nil {
-			it.locs = it.ops.AllLocsInZone(it.level, it.x, it.z)
+			// reverse=true mirrors TS ScriptIterators.ts:378
+			// (getAllLocsSafe(true)); filtering on IsActive happens
+			// inside AllLocsSafe (Zone.ts:459-465).
+			it.locs = it.ops.AllLocsSafe(it.level, it.x, it.z, true)
 		}
 	}
 	if it.idx >= len(it.locs) {

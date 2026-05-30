@@ -130,6 +130,62 @@ func TestServerLocOpsGetLoc(t *testing.T) {
 	})
 }
 
+// TestServerLocOps_AllLocsSafe_FiltersInactiveAndReverses pins TS
+// Zone.getAllLocsSafe(reverse) semantics (Zone.ts:459-465): yields only
+// IsActive locs, optionally in reverse zone order. Closes h-loc-4
+// (LocIterator's source). The fake serverLocOps.AllLocsSafe lives in
+// modules/world; this is the only place it can be exercised against a
+// real *pkg/zone.Zone.
+//
+// Toggle-off proof for the filter: comment out the
+// `if l == nil || !l.IsActive { continue }` line inside both branches
+// of serverLocOps.AllLocsSafe → this test fails with "len: got 3,
+// want 2" (inactive loc leaks through).
+// Toggle-off proof for the reverse: replace the reverse loop with a
+// forward loop in the reverse=true branch → this test fails with
+// "yield[0].LocType: got 100, want 102".
+func TestServerLocOps_AllLocsSafe_FiltersInactiveAndReverses(t *testing.T) {
+	s := newLocTurnTestServer(t)
+	ops := &serverLocOps{s: s}
+
+	// Three locs at the same coord, in zone-append order [a, b, c].
+	// a and c are active; b is intentionally inactive (raw-appended).
+	locA := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleForever, 100, 0, 0)
+	locB := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleForever, 101, 0, 0)
+	locC := entitypkg.NewLoc(0, 3094, 3106, 1, 1, entitypkg.LifecycleForever, 102, 0, 0)
+	zn := s.zoneMap.Get(0, 3094, 3106)
+	zn.Locs = append(zn.Locs, locA, locB, locC)
+	locA.IsActive = true
+	locC.IsActive = true
+	// locB intentionally IsActive=false.
+
+	t.Run("reverse=true yields active locs in reverse order", func(t *testing.T) {
+		got := ops.AllLocsSafe(0, 3094, 3106, true)
+		if len(got) != 2 {
+			t.Fatalf("len: got %d, want 2 (active locs A and C; inactive B must be filtered)", len(got))
+		}
+		if got[0].LocType() != 102 {
+			t.Errorf("yield[0].LocType: got %d, want 102 (reverse=true must yield C first)", got[0].LocType())
+		}
+		if got[1].LocType() != 100 {
+			t.Errorf("yield[1].LocType: got %d, want 100 (reverse=true must yield A second)", got[1].LocType())
+		}
+	})
+
+	t.Run("reverse=false yields active locs in forward order", func(t *testing.T) {
+		got := ops.AllLocsSafe(0, 3094, 3106, false)
+		if len(got) != 2 {
+			t.Fatalf("len: got %d, want 2", len(got))
+		}
+		if got[0].LocType() != 100 {
+			t.Errorf("yield[0].LocType: got %d, want 100 (reverse=false must yield A first)", got[0].LocType())
+		}
+		if got[1].LocType() != 102 {
+			t.Errorf("yield[1].LocType: got %d, want 102", got[1].LocType())
+		}
+	})
+}
+
 type fakeNonLoc struct{}
 
 func (f *fakeNonLoc) LocType() int            { return 0 }

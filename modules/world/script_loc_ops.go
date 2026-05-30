@@ -78,15 +78,44 @@ func (o *serverLocOps) LocsAtCoord(level, x, zc int) []script.ActiveLoc {
 }
 
 // AllLocsInZone returns the script-side ActiveLoc slice for every loc
-// in the zone owning (level, x, zc), without any per-tile filter.
-// MAP_LOCADDUNSAFE (NAI-114) consumes this for footprint-overlap
-// probing; the handler does the per-loc (x, z, layer, footprint)
-// checks itself.
+// in the zone owning (level, x, zc), without any per-tile or isActive
+// filter. MAP_LOCADDUNSAFE (NAI-114) consumes this for footprint-
+// overlap probing; the handler does the per-loc (x, z, layer,
+// footprint, isActive, type.active) checks itself. Mirrors TS
+// Zone.getAllLocsUnsafe (Zone.ts surface used at ServerOps.ts:215).
 func (o *serverLocOps) AllLocsInZone(level, x, zc int) []script.ActiveLoc {
 	z := o.s.zoneMap.Get(level, x, zc)
 	out := make([]script.ActiveLoc, 0, len(z.Locs))
 	for _, l := range z.Locs {
 		out = append(out, l)
+	}
+	return out
+}
+
+// AllLocsSafe returns the script-side ActiveLoc slice for every
+// IsActive loc in the zone owning (level, x, zc), optionally reversed.
+// Mirrors TS Zone.getAllLocsSafe(reverse) at Zone.ts:459-465: filters
+// loc.isValid() (== Entity.isActive per Entity.ts:32-34, Loc does not
+// override). Sole caller is LocIterator (ScriptIterators.ts:377-385),
+// which passes reverse=true.
+func (o *serverLocOps) AllLocsSafe(level, x, zc int, reverse bool) []script.ActiveLoc {
+	z := o.s.zoneMap.Get(level, x, zc)
+	out := make([]script.ActiveLoc, 0, len(z.Locs))
+	if reverse {
+		for i := len(z.Locs) - 1; i >= 0; i-- {
+			l := z.Locs[i]
+			if l == nil || !l.IsActive {
+				continue
+			}
+			out = append(out, l)
+		}
+	} else {
+		for _, l := range z.Locs {
+			if l == nil || !l.IsActive {
+				continue
+			}
+			out = append(out, l)
+		}
 	}
 	return out
 }

@@ -532,6 +532,9 @@ func TestOpLocGateInstrumentation(t *testing.T) {
 				missingTypeLoc := entitypkg.NewLoc(0, 100, 100, 1, 1, entitypkg.LifecycleForever, 77, 10, 0)
 				zn := s.zoneMap.Get(0, 100, 100)
 				zn.Locs = append(zn.Locs, missingTypeLoc)
+				// Reach the loctype gate (not getloc_nil) — GetLoc now filters
+				// on IsActive per TS Zone.ts:471-477.
+				missingTypeLoc.IsActive = true
 			},
 			payload:   p2x3Payload(100, 100, 77),
 			wantGate:  "loctype_nil",

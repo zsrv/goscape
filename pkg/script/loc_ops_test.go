@@ -4,15 +4,17 @@ import "testing"
 
 // fakeLocOps records all LocOps method calls for handler-side assertions.
 type fakeLocOps struct {
-	changeCalls  []changeLocCall
-	addCalls     []addLocCall
-	removeCalls  []removeLocCall
-	animCalls    []animLocCall
-	atCoord      []ActiveLoc
-	inZone       []ActiveLoc
-	addReturn    ActiveLoc // returned from AddLoc
-	getLocCalls  []getLocCall
-	getLocReturn ActiveLoc // returned from GetLoc; default nil = miss
+	changeCalls      []changeLocCall
+	addCalls         []addLocCall
+	removeCalls      []removeLocCall
+	animCalls        []animLocCall
+	atCoord          []ActiveLoc
+	inZone           []ActiveLoc // raw — returned from AllLocsInZone (MAP_LOCADDUNSAFE source)
+	inZoneSafe       []ActiveLoc // filtered+reversed by test setup — returned from AllLocsSafe (LocIterator source)
+	addReturn        ActiveLoc   // returned from AddLoc
+	getLocCalls      []getLocCall
+	getLocReturn     ActiveLoc // returned from GetLoc; default nil = miss
+	allLocsSafeCalls []allLocsSafeCall
 }
 
 type changeLocCall struct {
@@ -36,6 +38,11 @@ type animLocCall struct {
 
 type getLocCall struct {
 	level, x, z, typ int
+}
+
+type allLocsSafeCall struct {
+	level, x, z int
+	reverse     bool
 }
 
 func (f *fakeLocOps) ChangeLoc(loc ActiveLoc, typ, shape, angle, dur int) error {
@@ -64,6 +71,16 @@ func (f *fakeLocOps) LocsAtCoord(level, x, z int) []ActiveLoc {
 
 func (f *fakeLocOps) AllLocsInZone(level, x, z int) []ActiveLoc {
 	return f.inZone
+}
+
+// AllLocsSafe returns f.inZoneSafe (independent of f.inZone — see comment
+// on the struct field) for the requested reverse flag. The fake stores
+// two slices so tests can independently assert AllLocsInZone (unsafe
+// MAP_LOCADDUNSAFE consumer) and AllLocsSafe (filtered+reversed
+// LocIterator consumer) behavior.
+func (f *fakeLocOps) AllLocsSafe(level, x, z int, reverse bool) []ActiveLoc {
+	f.allLocsSafeCalls = append(f.allLocsSafeCalls, allLocsSafeCall{level, x, z, reverse})
+	return f.inZoneSafe
 }
 
 func (f *fakeLocOps) GetLoc(level, x, z, typ int) ActiveLoc {

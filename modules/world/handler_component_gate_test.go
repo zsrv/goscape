@@ -418,6 +418,11 @@ func seedLocAt(t *testing.T, s *Server, p *Player, x, z, locId int) {
 	loc := entitypkg.NewLoc(0, x, z, 1, 1, entitypkg.LifecycleForever, locId, 10, 0)
 	zn := s.zoneMap.Get(0, x, z)
 	zn.Locs = append(zn.Locs, loc)
+	// Mirror pkg/zone.Zone.AddStaticLoc — raw-append leaves IsActive=false,
+	// which the new Server.GetLoc isActive filter (TS Zone.ts:471-477) would
+	// strip. Tests using this helper exercise success-path OpLoc / component
+	// flows that need GetLoc to return a non-nil loc.
+	loc.IsActive = true
 
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	p.x, p.z, p.level = x-1, z, 0
