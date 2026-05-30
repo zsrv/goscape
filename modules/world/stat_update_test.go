@@ -159,43 +159,61 @@ func TestUpdateStatsFiresOnChange(t *testing.T) {
 	}
 }
 
-func TestUpdateStatsRunEnergyCoarseGrain(t *testing.T) {
+// TestUpdateStats_RunEnergy_EmitsOnAnyChange pins TS-faithful fine-grained
+// emit per the 2026-05-28 audit row player-net-5. TS NetworkPlayer.ts:330
+// gate is `Math.floor(re)/100 !== Math.floor(lre)/100`; for integer re/lre
+// that's `re !== lre`, so the packet emits on ANY internal run-energy
+// change — even when the wire byte (re/100, see UpdateRunEnergyEncoder.ts)
+// is unchanged. goscape pre-fix used `re/100 != lre/100` (int division),
+// which suppressed same-wire-byte changes.
+func TestUpdateStats_RunEnergy_EmitsOnAnyChange(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	// All stats already match (isolate runenergy).
+	// Isolate the per-stat loop so only the run-energy gate can emit.
 	for i := 0; i < 21; i++ {
 		p.lastStats[i] = p.stats[i]
 		p.lastLevels[i] = p.levels[i]
 	}
 	p.runenergy = 10000
-	p.lastRunEnergy = -1 // default from newPlayer
+	p.lastRunEnergy = -1 // default sentinel, distinct from runenergy
 
+	// (1) First tick: re=10000 vs lre=-1 differ → emit.
 	received := drainConn(t, cc)
 	p.updateStats()
 	p.client.flushWrite()
 	first := <-received
 	if len(first) == 0 {
-		t.Fatal("expected UpdateRunEnergy packet on first tick")
+		t.Fatal("first tick: expected UpdateRunEnergy packet, got nothing")
 	}
 
-	// Bump by 50: wire value (100) unchanged.
+	// (2) Same-wire-byte bump (re 10000 → 10050; wire byte both = 100):
+	// TS-faithful gate STILL emits because internal re changed.
 	p.runenergy = 10050
 	received2 := drainConn(t, cc)
 	p.updateStats()
 	p.client.flushWrite()
-	quiet := <-received2
-	if len(quiet) != 0 {
-		t.Errorf("wire value unchanged; expected no packet, got %d bytes", len(quiet))
+	sameByte := <-received2
+	if len(sameByte) == 0 {
+		t.Error("same-wire-byte bump (10000→10050): expected UpdateRunEnergy packet (TS NetworkPlayer.ts:330 emits on any int re change), got nothing")
 	}
 
-	// Bump across boundary: wire value changes from 100 → 101.
+	// (3) Cross-wire-byte bump (re 10050 → 10100; wire 100 → 101): emit.
 	p.runenergy = 10100
 	received3 := drainConn(t, cc)
 	p.updateStats()
 	p.client.flushWrite()
-	loud := <-received3
-	if len(loud) == 0 {
-		t.Error("wire value crossed boundary; expected packet, got nothing")
+	crossByte := <-received3
+	if len(crossByte) == 0 {
+		t.Error("cross-wire-byte bump (10050→10100): expected UpdateRunEnergy packet, got nothing")
+	}
+
+	// (4) No change (re 10100 → 10100): no emit.
+	received4 := drainConn(t, cc)
+	p.updateStats()
+	p.client.flushWrite()
+	quiet := <-received4
+	if len(quiet) != 0 {
+		t.Errorf("no change (10100→10100): expected NO packet, got %d bytes", len(quiet))
 	}
 }
 

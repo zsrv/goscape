@@ -987,7 +987,11 @@ func (p *Player) updateStats() {
 			p.lastLevels[i] = p.levels[i]
 		}
 	}
-	if p.runenergy/100 != p.lastRunEnergy/100 {
+	// TS NetworkPlayer.ts:330 gate is `Math.floor(re)/100 !== Math.floor(lre)/100`.
+	// For integer re/lre that's `re !== lre`; emit on ANY internal run-energy
+	// change, even when the wire byte (re/100, see UpdateRunEnergyEncoder.ts)
+	// is unchanged. 2026-05-28 audit row player-net-5.
+	if p.runenergy != p.lastRunEnergy {
 		sendUpdateRunEnergy(p, p.runenergy)
 		p.lastRunEnergy = p.runenergy
 	}
