@@ -128,21 +128,41 @@ func TestWorldStateOps_Shutdown_AdvancesShutdownTick(t *testing.T) {
 	}
 }
 
-// TestWorldStateOps_Reload_EnqueuesRebuildReq pins that
-// RelayReload() enqueues a closure that, when drained, posts on
-// rebuildReq via dispatchRebuildRequest (existing helper).
-func TestWorldStateOps_Reload_EnqueuesRebuildReq(t *testing.T) {
+// TestWorldStateOps_Reload_CallsReloadConfigOnly pins that
+// RelayReload() enqueues a closure that, when drained, performs a
+// config-only reload(false) — mirroring TS World.ts:2036 — WITHOUT
+// triggering a content repack (no post on rebuildReq) and WITHOUT
+// clobbering inventories (clearInvs=false).
+//
+// gap-world-reload-events-1: the prior wiring called
+// dispatchRebuildRequest(), which both repacked content and reloaded
+// with clearInvs=true.
+func TestWorldStateOps_Reload_CallsReloadConfigOnly(t *testing.T) {
 	s := newTestServer(t)
+
+	var gotClearInvs bool
+	var calls int
+	s.reloadFn = func(clearInvs bool) error {
+		calls++
+		gotClearInvs = clearInvs
+		return nil
+	}
 
 	var ops WorldStateOps = s
 	ops.RelayReload()
 	s.drainRelayActions()
 
+	if calls != 1 {
+		t.Fatalf("expected reloadFn called once; got %d", calls)
+	}
+	if gotClearInvs {
+		t.Error("expected config-only reload(false); got reload(true) (would clobber inventories)")
+	}
 	select {
 	case <-s.rebuildReq:
-		// expected
+		t.Fatal("RELAY_RELOAD must not trigger a content repack (posted on rebuildReq)")
 	default:
-		t.Fatal("rebuildReq did not receive after RelayReload + drain")
+		// expected — no repack
 	}
 }
 

@@ -136,19 +136,35 @@ func (s *Server) RelayShutdown(durationTicks int32) {
 	})
 }
 
-// RelayReload triggers a content rebuild via the existing
-// fsnotify/::rebuild pipeline (NAI-REBUILD-ASYNC). Non-blocking;
-// coalesces with any other pending rebuild request.
+// RelayReload performs a config-only reload, mirroring TS
+// World.ts:2036 (`this.reload(false)`). It re-loads the already-packed
+// config types from disk WITHOUT repacking content and WITHOUT clearing
+// inventories (clearInvs=false). The friends server fans RELAY_RELOAD to
+// every world after content is repacked elsewhere; each world must NOT
+// repack on its own (the ::rebuild / fsnotify pipeline owns packing) and
+// must preserve live inventories.
+//
+// Runs on the tick goroutine via drainRelayActions, where reloadFn
+// (default *Server.Reload) executes synchronously against tick-owned
+// state. A reload error is logged at Error and otherwise swallowed —
+// there is no invoker to notify (unlike the ::rebuild path) and the old
+// config remains partially/fully in place (reload.go D2-HALF-SWAP).
 //
 // Named `RelayReload` rather than the plan's `Reload` because *Server
-// already has a `Reload(clearInvs bool) error` method (content reload
-// post-rebuild) — the `Relay` prefix matches the originating RPC
-// opcode name.
+// already has a `Reload(clearInvs bool) error` method — the `Relay`
+// prefix matches the originating RPC opcode name.
+//
+// gap-world-reload-events-1: the prior wiring called
+// dispatchRebuildRequest(), which both repacked content (wrong: TS
+// reload does no packing) and reloaded with clearInvs=true (wrong:
+// clobbered inventories).
 //
 // NAI-S5A-D-DISPATCHER-NO-ACTION (RELOAD bullet) — retired here.
 func (s *Server) RelayReload() {
 	s.enqueueRelayAction(func() {
-		s.dispatchRebuildRequest()
+		if err := s.reloadFn(false); err != nil {
+			s.log.Error("RELAY_RELOAD: config reload failed", "err", err)
+		}
 	})
 }
 

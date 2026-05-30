@@ -759,20 +759,34 @@ func TestFriendsClient_E2E_RelayShutdownAppliesAction(t *testing.T) {
 		t.Fatalf("shutdownTick after RelayShutdown: got %d, want %d", s.shutdownTick, wantTick)
 	}
 
-	// Issue RelayReload; assert rebuildReq receives.
+	// Issue RelayReload; assert a config-only reload(false) is invoked
+	// (gap-world-reload-events-1 — TS World.ts:2036). Stub reloadFn to
+	// record the call without touching the (absent) test cache.
+	reloadCh := make(chan bool, 1)
+	s.reloadFn = func(clearInvs bool) error {
+		select {
+		case reloadCh <- clearInvs:
+		default:
+		}
+		return nil
+	}
 	client.RelayReload(context.Background(), &friendspb.RelayReloadRequest{TargetWorldId: targetWorldID})
 	deadline = time.Now().Add(2 * time.Second)
+	var gotClearInvs bool
 	delivered := false
 	for time.Now().Before(deadline) && !delivered {
 		s.drainRelayActions()
 		select {
-		case <-s.rebuildReq:
+		case gotClearInvs = <-reloadCh:
 			delivered = true
 		case <-time.After(20 * time.Millisecond):
 		}
 	}
 	if !delivered {
-		t.Fatal("rebuildReq did not receive after RelayReload + drain (NAI-S5B routing broken)")
+		t.Fatal("reloadFn not invoked after RelayReload + drain (NAI-S5B routing broken)")
+	}
+	if gotClearInvs {
+		t.Fatal("RELAY_RELOAD must reload(false) (config-only), not clobber inventories")
 	}
 }
 
