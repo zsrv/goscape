@@ -348,10 +348,16 @@ func handleInvTotalParam(s *ScriptState) error {
 
 // handleInvTotalCat (INV_TOTALCAT) pops [inv, category] and sums the
 // counts across non-empty slots whose ObjType.Category == category.
+// Mirrors TS InvOps.ts:634-640 — validates inv via InvTypeValid then
+// category via CategoryTypeValid (partial in goscape, see
+// checkCategoryType at handlers_npc.go:159).
 func handleInvTotalCat(s *ScriptState) error {
 	category := s.PopInt()
 	typeID := s.PopInt()
 	if err := checkInvType(s, typeID, "INV_TOTALCAT"); err != nil {
+		return err
+	}
+	if err := checkCategoryType(category, "INV_TOTALCAT"); err != nil {
 		return err
 	}
 	inv := resolveInv(s, typeID)
