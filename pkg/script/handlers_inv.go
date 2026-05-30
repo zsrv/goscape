@@ -420,7 +420,8 @@ func handleInvAdd(s *ScriptState) error {
 	count := s.PopInt()
 	obj := s.PopInt()
 	typeID := s.PopInt()
-	return performInvAdd(s, typeID, obj, count, "INV_ADD")
+	// TS InvOps.ts:73 passes assureFullInsertion=false explicitly.
+	return performInvAdd(s, typeID, obj, count, false, "INV_ADD")
 }
 
 // performInvAdd is the shared body of the INV_ADD opcode. Mirrors TS
@@ -429,18 +430,24 @@ func handleInvAdd(s *ScriptState) error {
 // Inventory.Add, and drops overflow at the player's tile.
 //
 // Note: TS Player.invAdd (Player.ts:1496-1504) is bare — getInventory +
-// container.add only. The gates live in TS's INV_ADD opcode body, which
-// performInvAdd ports. NAI-153 T4 (OBJ_TAKEITEM) routes through
-// performInvAdd anyway; goscape lacks a separate "bare invAdd" entity
-// method and the gates are no-ops for the realistic OBJ_TAKEITEM call
-// shape (non-protected inv, non-dummyitem obj). T4 will tag this as a
-// NAI-153 deviation.
+// container.add only — with `assureFullInsertion` defaulting to `true`
+// at the entity layer. The INV_ADD opcode gates (Protect/Scope,
+// dummyitem) live in TS's InvOps.ts:57-83 and call invAdd(..., false)
+// explicitly. OBJ_TAKEITEM (ObjOps.ts:147) calls invAdd without the
+// 4th arg, picking up the `true` default — a tight-destination Add
+// either fully inserts or rolls back to nothing. goscape lacks a
+// separate bare-invAdd entity path; both opcodes route through this
+// helper and the caller picks the assureFullInsertion bit via the
+// `assureFull` parameter. The InvType.Protect / DummyInv gates are
+// no-ops for OBJ_TAKEITEM's realistic call shape (mindrune-style:
+// non-protected inv 93, non-dummyitem obj), so routing through here
+// doesn't change OBJ_TAKEITEM's hot path.
 //
 // Pre-conditions: caller has invoked requireActivePlayer (s.Self must
 // be non-nil with PtrActivePlayer set; it is dereferenced for the
 // overflow drop). Inputs are raw script ints; performInvAdd does its
 // own check chain so each call site stays minimal.
-func performInvAdd(s *ScriptState, typeID, obj, count int, op string) error {
+func performInvAdd(s *ScriptState, typeID, obj, count int, assureFull bool, op string) error {
 	// TS InvOps.ts:60-62 — InvTypeValid, ObjTypeValid, ObjStackValid.
 	if err := checkInvType(s, typeID, op); err != nil {
 		return err
@@ -485,7 +492,7 @@ func performInvAdd(s *ScriptState, typeID, obj, count int, op string) error {
 
 	tx := inv.Add(obj, count, inventory.AddOpts{
 		BeginSlot:           -1,
-		AssureFullInsertion: false,
+		AssureFullInsertion: assureFull,
 		Stackable:           stackable,
 	})
 

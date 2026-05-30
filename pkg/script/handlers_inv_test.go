@@ -3121,7 +3121,7 @@ func TestPerformInvAdd_DirectCall(t *testing.T) {
 	inv := inventory.New(93, 28, inventory.StackNormal)
 	s.Inv = &mockInvLookup{invs: map[int]*inventory.Inventory{93: inv}}
 
-	if err := performInvAdd(s, 93, 558, 1, "TEST"); err != nil {
+	if err := performInvAdd(s, 93, 558, 1, false, "TEST"); err != nil {
 		t.Fatalf("performInvAdd returned error: %v", err)
 	}
 

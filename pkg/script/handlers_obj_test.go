@@ -636,6 +636,49 @@ func TestHandleObjTakeItem_DespawnLifecyclePassesZero(t *testing.T) {
 	}
 }
 
+// TestHandleObjTakeItem_NearFullInv_AssuresFullInsertion pins h-obj-2:
+// TS OBJ_TAKEITEM (ObjOps.ts:147) calls Player.invAdd(invType.id,
+// obj.type, obj.count) WITHOUT the 4th arg, so Player.invAdd's
+// assureFullInsertion default of true (Player.ts:1496) governs — the
+// destination Add is all-or-nothing. goscape routes through
+// performInvAdd, which historically hardcoded
+// AssureFullInsertion=false → tight-destination divergence: TS rolls
+// back the Add entirely (then removeObj still fires, item disappears);
+// goscape partially filled the available slots and let the rest fall
+// to the player's tile via the existing overflow-drop path.
+//
+// Scenario: inv 93 (cap 28, StackNormal) pre-filled with 26 swords
+// (slots 0..25, free=2); active obj is 5 non-stackable swords.
+// `count(5) > free(2)` triggers the AssureFullInsertion gate.
+// Post-fix: inv slot 26 stays nil (rollback). Pre-fix: inv slot 26
+// receives sword #27 (partial fill, the audit's load-bearing
+// divergence).
+func TestHandleObjTakeItem_NearFullInv_AssuresFullInsertion(t *testing.T) {
+	s, w, inv := newTakeItemFixture(t)
+	// Pre-fill slots 0..25 with 26 non-stackable swords; free=2.
+	for i := range 26 {
+		inv.Set(i, &inventory.Item{Id: 558, Count: 1})
+	}
+	active := &mockActiveObj{objType: 558, x: 3200, z: 3200, level: 0, count: 5, reveal: -1}
+	s.ActiveObj = active
+
+	s.PushInt(93)
+
+	if err := handleObjTakeItem(s); err != nil {
+		t.Fatalf("OBJ_TAKEITEM: returned error: %v", err)
+	}
+
+	if got := inv.Get(26); got != nil {
+		t.Errorf("OBJ_TAKEITEM (near-full inv): inv slot 26 got %+v, want nil (TS Player.ts:1496 assureFullInsertion=true must roll back the Add)", got)
+	}
+	if got := inv.Get(27); got != nil {
+		t.Errorf("OBJ_TAKEITEM (near-full inv): inv slot 27 got %+v, want nil (rollback contract)", got)
+	}
+	if len(w.removed) != 1 {
+		t.Errorf("OBJ_TAKEITEM (near-full inv): expected 1 RemoveObj call, got %d (%v)", len(w.removed), w.removed)
+	}
+}
+
 func TestHandleObjTakeItem_InvalidObj_Noop(t *testing.T) {
 	s, w, inv := newTakeItemFixture(t)
 	// Private obj with non-matching receiver: IsValidFor returns false.

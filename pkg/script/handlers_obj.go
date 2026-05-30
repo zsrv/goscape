@@ -239,11 +239,18 @@ func handleObjCount(s *ScriptState) error {
 // directly — the bare entity method (Player.ts:1496-1504), bypassing
 // the InvOps INV_ADD opcode gates (InvTypeValid + ObjTypeValid +
 // ObjStackValid + protect/scope + dummyitem). goscape routes through
-// performInvAdd, which DOES apply the gates. The gates are no-ops for
-// realistic OBJ_TAKEITEM call shapes (mindrune-style: non-protected
-// inv 93, non-dummyitem obj). No separate bare-invAdd entity method
-// exists in goscape; the spec-author's deliberate choice is to share
-// performInvAdd rather than introduce a parallel bare path.
+// performInvAdd, which DOES apply the gates; for realistic call
+// shapes (mindrune-style: non-protected inv 93, non-dummyitem obj)
+// the gates are no-ops.
+//
+// h-obj-2: TS Player.invAdd's `assureFullInsertion` arg defaults to
+// `true` (Player.ts:1496), so OBJ_TAKEITEM's bare call inherits an
+// all-or-nothing semantic — Inventory.add either fully inserts or
+// rolls back. INV_ADD (InvOps.ts:73) passes `false` explicitly.
+// goscape now threads the bit through performInvAdd: OBJ_TAKEITEM
+// passes `true` here, INV_ADD passes `false`. Prior to this fix
+// the helper hard-coded `false` for both call sites, producing a
+// partial-fill on tight destinations where TS would have rolled back.
 func handleObjTakeItem(s *ScriptState) error {
 	if err := requireActiveObj(s, "OBJ_TAKEITEM"); err != nil {
 		return err
@@ -269,7 +276,9 @@ func handleObjTakeItem(s *ScriptState) error {
 		return nil // TS returns false; goscape no-op (matches OBJ_DEL idiom)
 	}
 
-	if err := performInvAdd(s, invID, s.activeObj().ObjType(), s.activeObj().ObjCount(), "OBJ_TAKEITEM"); err != nil {
+	// TS Player.ts:1496 — assureFullInsertion defaults to true; OBJ_TAKEITEM's
+	// bare invAdd call (ObjOps.ts:147) inherits it.
+	if err := performInvAdd(s, invID, s.activeObj().ObjType(), s.activeObj().ObjCount(), true, "OBJ_TAKEITEM"); err != nil {
 		return err
 	}
 
