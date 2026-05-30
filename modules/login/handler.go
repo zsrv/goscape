@@ -143,18 +143,21 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 		}
 	}
 
-	// 7. Already-logged-in / reconnect detection.
+	// 7. Already-logged-in / reconnect detection. Mirrors TS
+	// LoginServer.ts:271,318 — an if/else-if over an account that is already
+	// logged in (logged_in !== null && !== 0): the reconnect branch fires ONLY
+	// for `reconnecting && logged_in === nodeId`; EVERY other already-logged-in
+	// case falls to `else if` → response 3 (ALREADY_LOGGED_IN). That includes a
+	// same-node FRESH (non-reconnect) login, which must be rejected rather than
+	// admitted into a second full-login session (login-server-1). We do NOT gate
+	// the reconnect branch on req.HasSave (M27) — the save is re-served inside it
+	// when the client lost it.
 	reconnect := false
 	if account.HasLoginRow && account.LoggedIn == 1 {
-		if account.NodeID != int(req.NodeId) {
-			return buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_ALREADY_LOGGED_IN, account, nil, sessionUUID), nil
-		}
-		// Same node: this is a reconnect if the client requested it. Note we
-		// do NOT gate on req.HasSave here (M27) — TS LoginServer.ts:270 keys the
-		// reconnect branch purely on `reconnecting && logged_in === nodeId`, then
-		// re-serves the save inside it when the client lost it.
-		if req.Reconnecting {
+		if account.NodeID == int(req.NodeId) && req.Reconnecting {
 			reconnect = true
+		} else {
+			return buildLoginResponse(loginpb.LoginResult_LOGIN_RESULT_ALREADY_LOGGED_IN, account, nil, sessionUUID), nil
 		}
 	}
 

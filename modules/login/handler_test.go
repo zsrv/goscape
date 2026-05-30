@@ -263,6 +263,44 @@ func TestPlayerLogin_Reconnect(t *testing.T) {
 	}
 }
 
+// TestPlayerLogin_SameNodeNotReconnecting_AlreadyLoggedIn pins the
+// login-server-1 fix: an account already logged in on the SAME node that
+// attempts a fresh (non-reconnect) login must be rejected with
+// ALREADY_LOGGED_IN, not admitted into a second full-login session. TS
+// (LoginServer.ts:271,318) only treats `reconnecting && logged_in===nodeId`
+// as a reconnect; every other already-logged-in case (including same node,
+// reconnecting=false) falls to the `else if (logged_in!==null && !==0)`
+// branch → response 3.
+func TestPlayerLogin_SameNodeNotReconnecting_AlreadyLoggedIn(t *testing.T) {
+	h, _ := newTestHandler(t)
+	id := insertTestAccount(t, h.db, "samenodeuser", "pw")
+	// Insert login row on the SAME node we'll log in from.
+	_, err := h.db.ExecContext(t.Context(),
+		`INSERT INTO account_login (account_id, profile, node_id, logged_in) VALUES (?, ?, ?, ?)`,
+		id, "main", 1, 1,
+	)
+	if err != nil {
+		t.Fatalf("insert account_login: %v", err)
+	}
+
+	resp, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId:        1, // SAME node as the stored login row
+		Profile:       "main",
+		NodeMembers:   true,
+		Username:      "samenodeuser",
+		Password:      "pw",
+		Uid:           42,
+		RemoteAddress: "192.168.1.1:12345",
+		Reconnecting:  false, // fresh login, not a reconnect
+	})
+	if err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+	if resp.Result != loginpb.LoginResult_LOGIN_RESULT_ALREADY_LOGGED_IN {
+		t.Errorf("Result: got %v, want LOGIN_RESULT_ALREADY_LOGGED_IN", resp.Result)
+	}
+}
+
 func TestPlayerLogout_HappyPath(t *testing.T) {
 	h, savePath := newTestHandler(t)
 	insertTestAccount(t, h.db, "logoutuser", "pw")
