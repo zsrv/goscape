@@ -78,11 +78,21 @@ func (n *Npc) noMode(s *Server) {
 //
 // The QueueWaypoint skip-if-equal-to-current guard mirrors the TS
 // "if we rolled our own tile, don't queue a null path" check.
+//
+// The 1/8 roll gate is `moverestrict !== NOMOVE && Math.random() < 0.125`
+// per TS Npc.ts:701; TS then calls `randomWalk(wanderrange)` UNCONDITIONALLY
+// (Npc.ts:702). For WanderRange=0, the inner block's
+// `rand.IntN(rng*2+1)` reduces to `rand.IntN(1) == 0` so dx=dz=0; the
+// QueueWaypoint skip-if-equal-to-current guard then re-queues
+// (startX, startZ) only when the NPC has drifted off-spawn — matching
+// TS randomWalk(0) at Npc.ts:682-691. 2026-05-28 audit row npc-ai-4
+// removed the goscape-only `&& WanderRange > 0` clause that suppressed
+// the wander roll entirely for 0-range NPCs.
 func (n *Npc) wanderMode(s *Server) {
 	if n.typ == nil {
 		return
 	}
-	if n.moveRestrict != MoveRestrictNoMove && n.typ.WanderRange > 0 && rand.IntN(8) == 0 {
+	if n.moveRestrict != MoveRestrictNoMove && rand.IntN(8) == 0 {
 		rng := int(n.typ.WanderRange)
 		dx := rand.IntN(rng*2+1) - rng
 		dz := rand.IntN(rng*2+1) - rng

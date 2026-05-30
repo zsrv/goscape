@@ -95,6 +95,57 @@ func TestWanderModeFrequency(t *testing.T) {
 	}
 }
 
+// TestWanderMode_ZeroRange_DisplacedNpc_QueuesSpawnReturn pins the 2026-05-28
+// audit row npc-ai-4. TS wanderMode (Npc.ts:697-715) gates ONLY on
+// `moverestrict !== NOMOVE && Math.random() < 0.125`, then calls
+// `randomWalk(type.wanderrange)` UNCONDITIONALLY. TS randomWalk
+// (Npc.ts:682-691) with range=0 computes dx=dz=0; if the NPC has drifted
+// off-spawn, it queues a waypoint BACK to (startX, startZ).
+//
+// goscape pre-fix added an extra `&& n.typ.WanderRange > 0` clause to
+// the gate, suppressing the wander roll entirely for 0-range NPCs.
+// A drifted 0-range NPC could therefore only return home via the
+// 500-tick teleport-to-spawn counter, not via the natural 1/8 wander
+// re-queue.
+func TestWanderMode_ZeroRange_DisplacedNpc_QueuesSpawnReturn(t *testing.T) {
+	typ := &objtype.NpcType{
+		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "zero_range"},
+		WanderRange: 0,
+		DefaultMode: objtype.NPCModeWander,
+	}
+	n := NewNpc(1, 0, 3094, 3106, 0, typ)
+	s := &Server{}
+
+	hits := 0
+	const iters = 800
+	for range iters {
+		// Re-seed displaced state each iter. waypointIndex reset and
+		// wanderCounter reset isolate the wander-roll signal from
+		// (a) prior-iter waypoint leftover, (b) the 500-tick home-tele.
+		n.x = n.startX + 1
+		n.z = n.startZ
+		n.waypointIndex = -1
+		n.wanderCounter = 0
+		n.wanderMode(s)
+		// Hit signal: NPC returned to spawn this tick. wanderMode's
+		// updateMovement (with nil gamemap, test-fixture path at
+		// npc_interaction.go:423) auto-applies the queued step, so the
+		// queued waypoint (startX, startZ) is consumed in-call and the
+		// NPC ends at spawn iff the 1/8 wander roll fired AND randomWalk
+		// queued the return.
+		if n.x == n.startX && n.z == n.startZ {
+			hits++
+		}
+	}
+
+	// Expect ~100 hits (12.5% of 800). Use the same generous tolerance as
+	// TestWanderModeFrequency (~±60%) to keep the test non-flaky under
+	// math/rand/v2's per-process seed.
+	if hits < 40 {
+		t.Errorf("WanderRange=0 displaced NPC: %d/%d ticks returned to spawn; expected ~100 (1/8 cadence per TS Npc.ts:701). Pre-fix gate `&& WanderRange > 0` suppressed every wander roll for 0-range NPCs.", hits, iters)
+	}
+}
+
 // TestNpcTurnRespawnAliveMorphReverts directly exercises the
 // `lifecycle=Respawn && !dead` branch at npc_ai.go:37-40: when an
 // alive morphed NPC's lifecycleTick hits 0, revertType() fires and
