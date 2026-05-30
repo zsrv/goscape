@@ -117,10 +117,15 @@ func (p *Player) SetInteraction(kind InteractionKind, target entity, op, com int
 		p.targetSubject.typ = -1
 	}
 	p.interactionKind = kind
+	// TS PathingEntity.ts:517-518: setInteraction resets ONLY apRange + apRangeCalled.
+	// goscape previously also reset interacted/repathed here as belt-and-braces;
+	// interaction-6 closed that gap by making ResetMasks reset interacted per-tick
+	// (TS PathingEntity.ts:587), so the non-TS resets here are now redundant.
+	// `repathed` has no production reader (NAI-98 retired its gate) and no
+	// production writer, so it stays at its zero-value (false) for the lifetime
+	// of every Player — the field is vestigial.
 	p.apRange = 10
 	p.apRangeCalled = false
-	p.interacted = false
-	p.repathed = false
 
 	// TS PathingEntity.ts:528 — focus on the target's fine coord.
 	// instant=true ⇔ NonPathingEntity (Loc/Obj) clicked via the engine
@@ -226,11 +231,10 @@ func (p *Player) validateTarget() bool {
 // locStillValid/objStillValid), so all five fields reset to -1 — interaction-4
 // (TS resets only {type:-1, com:-1}; the x/z/level extension is goscape's).
 //
-// interacted/repathed are reset here as a goscape divergence from TS, which
-// clears interacted per-tick in resetPathingEntity (PathingEntity.ts:88) rather
-// than in clearInteraction. They are retained until goscape ports that per-tick
-// reset (interaction-6): p.interacted is currently reset only on
-// Set/ClearInteraction, so dropping the reset here would let it stay stuck-true.
+// interacted/repathed are NOT reset here — the per-tick reset of `interacted`
+// now lives in ResetMasks (interaction-6), matching TS PathingEntity.ts:587.
+// `repathed` is vestigial (no production reader since NAI-98, no production
+// writer ever).
 func (p *Player) ClearInteraction() {
 	p.target = nil
 	p.targetOp = -1
@@ -241,8 +245,6 @@ func (p *Player) ClearInteraction() {
 	p.targetSubject.com = -1
 	p.apRange = 10 // S6l: reset to default (TS PathingEntity.ts:554)
 	p.apRangeCalled = false
-	p.interacted = false
-	p.repathed = false
 }
 
 // isFollowOp reports whether the current interaction is in chase-the-target

@@ -76,10 +76,22 @@ func (p *Player) UnsetMapFlag() {
 //   - stepsTaken — reset in movement.go:46 (pinned by
 //     TestResolveMovementResetsStepsTaken at movement_test.go:214).
 //   - lastTickX/Z + lastLevel — set in movement.go:48-50 per movement step.
-//   - interacted/apRangeCalled — reset on SetInteraction (interaction.go:85-86),
-//     ClearInteraction (interaction.go:133-134), and post-fire
-//     (player_interaction_trigger.go:121).
 //   - socialProtect/reportAbuseProtect — reset in tick.go:538-539 (NAI-72).
+//
+// interacted/apRangeCalled ARE reset each tick below (interaction-6),
+// mirroring TS PathingEntity.ts:587-588 and the NPC sibling at
+// npc_masks.go:277. The apRangeCalled half is load-bearing: it has
+// production readers at interaction.go:431 (`else if interacted &&
+// !p.apRangeCalled` → auto-clear) and interaction.go:572 (`if
+// p.nextTarget == nil && p.apRangeCalled` → NAI-69 same-tick retry).
+// Without this reset, a stale-true apRangeCalled carried from a prior
+// tick's p_aprange call suppressed the auto-clear on the next tick that
+// fired via the OP path (which, unlike the AP path, never resets
+// apRangeCalled), leaving the player stuck on a target an extra tick.
+// The interacted reset is TS-parity cosmetic — the field has no
+// goscape control-flow reader (processInteraction uses a fresh local
+// `interacted` at interaction.go:344); but resetting matches TS
+// structure and the NPC sibling pattern.
 //
 // Also clears one-shot movement intents (tele, jump) so a single-tick
 // teleport emission doesn't repeat next tick.
@@ -97,6 +109,10 @@ func (p *Player) ResetMasks() {
 	p.masks = 0
 	p.tele = false
 	p.jump = false
+	// interaction-6: mirror TS PathingEntity.ts:587-588 + NPC sibling
+	// at npc_masks.go:277. See doc-block above for rationale.
+	p.interacted = false
+	p.apRangeCalled = false
 	// Mirrors TS PathingEntity.resetPathingEntity at PathingEntity.ts:578.
 	// Cleared at tick-end so the next tick's bridge sees a non-Instant
 	// moveSpeed (rsbuf already consumed any same-tick teleport block

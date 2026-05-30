@@ -87,8 +87,6 @@ func TestClearInteractionResetsAll(t *testing.T) {
 	defer wait()
 
 	p.SetInteraction(InteractionEngine, npc, 1, -1)
-	p.interacted = true
-	p.repathed = true
 	p.apRangeCalled = true
 
 	p.ClearInteraction()
@@ -102,12 +100,11 @@ func TestClearInteractionResetsAll(t *testing.T) {
 	if p.apRangeCalled {
 		t.Error("apRangeCalled should be false")
 	}
-	if p.interacted {
-		t.Error("interacted should be false")
-	}
-	if p.repathed {
-		t.Error("repathed should be false")
-	}
+	// interacted/repathed are no longer reset by ClearInteraction (interaction-6:
+	// `interacted` is now reset per-tick in ResetMasks, matching TS
+	// PathingEntity.ts:587; `repathed` is vestigial). The TS clearInteraction
+	// (PathingEntity.ts:550-555) only resets target/targetOp/targetSubject/
+	// apRange/apRangeCalled.
 }
 
 // TestProcessInteractionNoTargetNoop verifies nil target is a no-op.
@@ -2758,7 +2755,6 @@ func TestPlayer_PathToTarget_NoStrategyBranch_NoMove_NoOp(t *testing.T) {
 // consumer reads it before the next handler-side re-set. Deferred for
 // future cleanup if a reader is added.
 func TestPlayerInteractedDoesNotLeakAcrossIdleTick(t *testing.T) {
-	t.Skip("NAI-108-D-INTERACTED-LEAK — pinned for future fix; current goscape relies on handler-elsewhere re-set; see audit table §3")
 	p, _ := newTestPlayer(t)
 	p.interacted = true // simulate prior-tick fire
 	// Idle tick: ResetMasks runs at tick end; no interaction touch.
@@ -2787,7 +2783,6 @@ func TestPlayerInteractedDoesNotLeakAcrossIdleTick(t *testing.T) {
 // ResetMasks); future fix should either reset in ResetMasks or audit
 // each read site.
 func TestPlayerApRangeCalledDoesNotLeakAcrossIdleTick(t *testing.T) {
-	t.Skip("NAI-108-D-APRANGECALLED-LEAK — pinned for future fix; current goscape relies on handler-elsewhere re-set; see audit table §3")
 	p, _ := newTestPlayer(t)
 	p.apRangeCalled = true
 	p.ResetMasks()
