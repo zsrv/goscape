@@ -99,6 +99,23 @@ func (p *Player) SetInteraction(kind InteractionKind, target entity, op, com int
 	} else {
 		p.targetSubject.com = com
 	}
+	// targetSubject.typ snapshot for changetype detection in validateTarget
+	// (TS PathingEntity.ts:521-526 — targetSubject.type = target.type for
+	// Npc/Loc/Obj, else -1). interaction-2: the player path previously left
+	// typ untouched, so Npc/Player targets retained a leftover typ from a
+	// prior interaction. Mirrors (*Npc).SetInteraction (npc_interaction.go).
+	// For Loc/Obj this also re-asserts what the OpLoc/OpObj handlers snapshot
+	// afterwards (identical value); the Npc and non-typed cases are new.
+	switch t := target.(type) {
+	case *Npc:
+		p.targetSubject.typ = t.typeId
+	case *entitypkg.Loc:
+		p.targetSubject.typ = t.Type()
+	case *entitypkg.Obj:
+		p.targetSubject.typ = t.Type
+	default:
+		p.targetSubject.typ = -1
+	}
 	p.interactionKind = kind
 	p.apRange = 10
 	p.apRangeCalled = false
@@ -140,6 +157,63 @@ func (p *Player) SetInteraction(kind InteractionKind, target entity, op, com int
 		// (*Player).reorient at modules/world/movement.go).
 		p.targetX = fx
 		p.targetZ = fz
+	}
+}
+
+// validateTarget enforces per-tick target validity for the player
+// interaction loop. Mirrors TS Player.validateTarget
+// (Engine-TS/.../Player.ts:1186-1198) — three gates, any failure of which
+// makes the caller clearInteraction()+unsetMapFlag():
+//  1. same level,
+//  2. changetype for Npc/Loc targets (targetSubject.typ snapshot vs the
+//     target's current type — catches a mid-interaction morph),
+//  3. the polymorphic target.isValid(hash64): Npc → !dead && !delayed
+//     (TS Npc.isValid), Obj → private-reveal + count keyed on this player's
+//     UID (TS Obj.isValid(hash64); hash64 → composeUID per NAI-153-D2),
+//     else the intrinsic Entity.isValid (Player loggingOut/visibility,
+//     Loc/other isActive).
+//
+// Gate 2 reads p.targetSubject.typ, snapshotted by SetInteraction. This is
+// the player counterpart of (*Npc).validateTarget (npc_interaction.go);
+// the player path additionally honours the obj reveal hash64 because, unlike
+// an NPC, a player is an observer with a UID. interaction-1.
+func (p *Player) validateTarget() bool {
+	if p.target == nil {
+		return false
+	}
+
+	// Gate 1: same level (TS L1188).
+	_, _, tlevel := p.target.Coords()
+	if tlevel != p.level {
+		return false
+	}
+
+	// Gate 2: changetype for Npc/Loc (TS L1193).
+	switch t := p.target.(type) {
+	case *Npc:
+		if p.targetSubject.typ != t.typeId {
+			return false
+		}
+	case *entitypkg.Loc:
+		if p.targetSubject.typ != t.Type() {
+			return false
+		}
+	}
+
+	// Gate 3: target.isValid(hash64) (TS L1197).
+	switch t := p.target.(type) {
+	case *Npc:
+		// TS Npc.isValid (Npc.ts:370-375): !delayed && isActive. Go's
+		// Npc.IsValid() is only !dead, so spell the delayed gate out —
+		// mirrors (*Npc).validateTarget gate 4.
+		return !t.dead && !t.delayed
+	case *entitypkg.Obj:
+		// TS Obj.isValid(hash64) (Obj.ts:52-62): private-reveal + count.
+		return t.IsValidFor(p.UID())
+	default:
+		// Player → !loggingOut && visibility==DEFAULT && isActive;
+		// Loc/other → intrinsic isActive (TS Entity.isValid base).
+		return p.target.IsValid()
 	}
 }
 
@@ -249,26 +323,29 @@ func (p *Player) processInteractionPreMove() {
 	followOp := isFollowOp(p)
 	p.interactTick.followOp = followOp
 
-	_, _, tlevel := p.target.Coords()
-	if tlevel != p.level {
-		p.ClearInteraction()
-		sendUnsetMapFlag(p)
-		// Emit Frame B even on level-mismatch clear, then mark the tick
-		// finalized so the post-move pass does not double-emit.
-		emitInteractionTickFrame(s, p, true, p.interactTick.initialTarget,
-			p.interactTick.initialTargetX, p.interactTick.initialTargetZ,
-			p.interactTick.opTriggerPresent, p.interactTick.apTriggerPresent,
-			false /*interactedFinal*/)
-		p.interactTick.active = false
-		return
-	}
-
 	interacted := false
 
 	// Pre-step interact arm (TS L1209-1224). Gated on target + CanAccess
 	// so a modal/protected/delayed state preserves the interaction across
 	// the tick (TS L1210 mirror; NAI-155).
 	if p.target != nil && p.CanAccess() {
+		// validateTarget (TS L1212-1218): level / changetype / isValid.
+		// On any failure TS clears the interaction, unsets the map flag, and
+		// returns from processInteraction. In goscape's pre/post split that
+		// means finalizing the tick here — emit Frame B and deactivate the
+		// interactTick so the post-move pass does not re-run or double-emit.
+		// interaction-1: previously only the level gate was ported, as an
+		// inline check ahead of (and outside) this CanAccess gate.
+		if !p.validateTarget() {
+			p.ClearInteraction()
+			p.unsetMapFlag()
+			emitInteractionTickFrame(s, p, true, p.interactTick.initialTarget,
+				p.interactTick.initialTargetX, p.interactTick.initialTargetZ,
+				p.interactTick.opTriggerPresent, p.interactTick.apTriggerPresent,
+				false /*interactedFinal*/)
+			p.interactTick.active = false
+			return
+		}
 		if !followOp {
 			p.processWalktrigger()
 		}

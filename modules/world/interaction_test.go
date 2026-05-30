@@ -1068,6 +1068,7 @@ func TestFollowOpAnchoredChase(t *testing.T) {
 	s := setupServerForInteractionTest(t)
 	clicker := newTestPlayerAt(t, s, 1, 3200, 3200, 0)
 	target := newTestPlayerAt(t, s, 2, 3215, 3200, 0) // 15 tiles east — beyond apRange=10
+	target.active = true                              // a valid in-world follow target (validateTarget gate 3 / TS Player.isValid)
 
 	clicker.SetInteraction(InteractionEngine, target, 3, -1)
 
@@ -1091,6 +1092,7 @@ func TestFollowOpRepathsOnExhaustion(t *testing.T) {
 	s := setupServerForInteractionTest(t)
 	clicker := newTestPlayerAt(t, s, 1, 3200, 3200, 0)
 	target := newTestPlayerAt(t, s, 2, 3210, 3200, 0)
+	target.active = true // a valid in-world follow target (validateTarget gate 3 / TS Player.isValid)
 
 	clicker.SetInteraction(InteractionEngine, target, 3, -1)
 	// Simulate path exhaustion (waypointIndex=-1) mid-follow interaction.
@@ -1128,6 +1130,7 @@ func TestPlayerFollow_PathToPathingTarget_QueuesValidLeaderCoord(t *testing.T) {
 
 	leader, leaderWait := makeInteractionPlayer(t, s, 3220, 3220, 0)
 	defer leaderWait()
+	leader.active = true // a valid in-world follow target (validateTarget gate 3 / TS Player.isValid)
 	// Simulate post-processLogins state: lastStepX = x - 1; lastStepZ = z
 	// (NAI-174 T2 mirror). leader.target stays nil — they aren't
 	// interacting with anyone; they're being followed.
@@ -1222,6 +1225,7 @@ func TestFollowOpContactFire(t *testing.T) {
 	s := setupServerForInteractionTest(t)
 	clicker := newTestPlayerAt(t, s, 1, 3200, 3200, 0)
 	target := newTestPlayerAt(t, s, 2, 3201, 3200, 0) // adjacent — operable distance
+	target.active = true                              // a valid in-world follow target (validateTarget gate 3 / TS Player.isValid)
 
 	clicker.SetInteraction(InteractionEngine, target, 3, -1)
 
