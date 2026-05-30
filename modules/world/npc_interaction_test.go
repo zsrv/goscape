@@ -1888,6 +1888,51 @@ func TestPatrolMode_PreservesDestLevel(t *testing.T) {
 	}
 }
 
+// npc-ai-3: TS Npc.ts:69 declares `nextPatrolTick: number = -1` as the
+// field default, so the patrol-tele gate at Npc.ts:728
+// (`nextPatrolTick > -1 && currentTick >= nextPatrolTick`) is dormant
+// on the first tick of a fresh patrol NPC. goscape's NewNpc previously
+// omitted the field from the struct literal, defaulting it to Go's
+// zero value (0) — which trivially satisfies both halves of the gate
+// at currentTick=0, force-teleporting any patrol NPC to its first
+// waypoint on the first tick after spawn instead of walking there
+// organically.
+func TestNewNpc_InitsNextPatrolTickToMinusOne(t *testing.T) {
+	typ := &objtype.NpcType{}
+	n := NewNpc(1, 7, 3200, 3200, 0, typ)
+	if n.nextPatrolTick != -1 {
+		t.Errorf("nextPatrolTick: got %d, want -1 (TS Npc.ts:69 default)", n.nextPatrolTick)
+	}
+}
+
+// npc-ai-3: behavioral pin for the bug above — a freshly-spawned
+// patrol NPC's first patrolMode tick must NOT force-teleport to the
+// first waypoint. With the constructor-default -1 (TS Npc.ts:69), the
+// teleport branch at npc_interaction.go:123 stays dormant until a
+// real future tick is scheduled by the at-waypoint delay arm or by
+// clearPatrol.
+func TestPatrolMode_FreshNpcDoesNotForceTeleportOnFirstTick(t *testing.T) {
+	s := newTestServer(t)
+	patrolPacked := uint32(coordgrid.PackCoord(0, 3210, 3310))
+	typ := &objtype.NpcType{
+		ConfigType:  objtype.ConfigType{ID: 0, DebugName: "patrol_test"},
+		Size:        1,
+		PatrolCoord: []uint32{patrolPacked},
+		PatrolDelay: []uint8{5},
+	}
+	n := NewNpc(0, 0, 3200, 3300, 0, typ)
+	if err := s.addNpc(n, -1, true); err != nil {
+		t.Fatalf("addNpc: %v", err)
+	}
+	// Do NOT touch n.nextPatrolTick — rely on constructor default.
+
+	n.patrolMode(s)
+
+	if n.x != 3200 || n.z != 3300 {
+		t.Errorf("first-tick patrolMode coords: got (%d, %d), want (3200, 3300) — patrol-tele fired with stale 0 default (TS Npc.ts:69 wants -1)", n.x, n.z)
+	}
+}
+
 // TestNpcUnfocusWritesDefaultSouthFaceAngle pins TS
 // PathingEntity.unfocus (PathingEntity.ts:338-341): faceAngle restored
 // to fine(x, size), fine(z-1, size). Sub-pinned at size=1 and size=2.

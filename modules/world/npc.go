@@ -189,6 +189,8 @@ func NewNpc(nid, typeId, x, z, level int, typ *objtype.NpcType) *Npc {
 		runDir:          -1,
 		waypointIndex:   -1,
 		nextPatrolPoint: 0,
+		nextPatrolTick:  -1, // npc-ai-3: TS Npc.ts:69 default; gate at Npc.ts:728 stays dormant until first patrol-cycle tick
+
 		walktrigger:     -1,
 		walktriggerArg:  0,
 		faceEntity:      -1,
