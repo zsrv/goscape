@@ -653,23 +653,32 @@ func handleDisplayName(s *ScriptState) error {
 
 // handleFaceSquare pops a packed coord and calls Self.FaceSquare(x, z).
 // The level component of the packed coord is ignored — facing is always
-// on the player's current level.
+// on the player's current level. CoordValid (TS PlayerOps.ts:240,
+// ScriptValidators.ts:109) rejects packed coords outside [0, 2^31-1].
 func handleFaceSquare(s *ScriptState) error {
 	if err := requireActivePlayer(s, "FACESQUARE"); err != nil {
 		return err
 	}
-	_, x, z := unpackCoord(s.PopInt())
+	_, x, z, err := checkCoord(s.PopInt(), "FACESQUARE")
+	if err != nil {
+		return err
+	}
 	s.activePlayer().FaceSquare(x, z)
 	return nil
 }
 
 // handlePTeleport pops a packed coord and calls Self.Teleport(x, z, level).
+// CoordValid (TS PlayerOps.ts:448, ScriptValidators.ts:109) rejects
+// packed coords outside [0, 2^31-1].
 func handlePTeleport(s *ScriptState) error {
 	if err := requireProtectedActivePlayer(s, "P_TELEPORT"); err != nil {
 		return err
 	}
 	argCoord := s.PopInt()
-	level, x, z := unpackCoord(argCoord)
+	level, x, z, err := checkCoord(argCoord, "P_TELEPORT")
+	if err != nil {
+		return err
+	}
 
 	if s.NodeDebug {
 		var (
@@ -701,11 +710,16 @@ func handlePTeleport(s *ScriptState) error {
 }
 
 // handlePTeleJump pops a packed coord and calls Self.TeleJump(x, z, level).
+// CoordValid (TS PlayerOps.ts:440, ScriptValidators.ts:109) rejects
+// packed coords outside [0, 2^31-1].
 func handlePTeleJump(s *ScriptState) error {
 	if err := requireProtectedActivePlayer(s, "P_TELEJUMP"); err != nil {
 		return err
 	}
-	level, x, z := unpackCoord(s.PopInt())
+	level, x, z, err := checkCoord(s.PopInt(), "P_TELEJUMP")
+	if err != nil {
+		return err
+	}
 	s.activePlayer().TeleJump(x, z, level)
 	return nil
 }

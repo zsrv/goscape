@@ -1198,6 +1198,72 @@ func TestFaceSquareIgnoresLevelComponent(t *testing.T) {
 	}
 }
 
+// TestPTeleportRejectsBadCoord pins TS PlayerOps.ts:447-451 —
+// check(state.popInt(), CoordValid) before any Teleport call.
+// CoordValid (ScriptValidators.ts:109) rejects packed coords outside
+// [0, 2147483647]; goscape's pre-fix unpackCoord(-1) silently
+// produced garbage (x, z, level). Closes h-player-3 (audit row 248).
+func TestPTeleportRejectsBadCoord(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := newSingleOp("p_teleport_badcoord", OpPTeleport)
+	state := Init(sf, mp, true, nil, nil) // protect=true
+	state.PushInt(-1)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatal("Execute: want error for coord=-1, got nil (TS PlayerOps.ts:448 CoordValid must reject)")
+	}
+	if !strings.Contains(err.Error(), "P_TELEPORT: coord out of range") {
+		t.Errorf("error: got %q, want substring 'P_TELEPORT: coord out of range'", err.Error())
+	}
+	if mp.teleportCalls != 0 {
+		t.Errorf("teleportCalls: got %d, want 0 (must not teleport on rejected coord)", mp.teleportCalls)
+	}
+}
+
+// TestPTeleJumpRejectsBadCoord pins TS PlayerOps.ts:439-443 —
+// check(state.popInt(), CoordValid) before any TeleJump call.
+// Closes h-player-3 (audit row 248).
+func TestPTeleJumpRejectsBadCoord(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := newSingleOp("p_telejump_badcoord", OpPTeleJump)
+	state := Init(sf, mp, true, nil, nil) // protect=true
+	state.PushInt(-1)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatal("Execute: want error for coord=-1, got nil (TS PlayerOps.ts:440 CoordValid must reject)")
+	}
+	if !strings.Contains(err.Error(), "P_TELEJUMP: coord out of range") {
+		t.Errorf("error: got %q, want substring 'P_TELEJUMP: coord out of range'", err.Error())
+	}
+	if mp.teleJumpCalls != 0 {
+		t.Errorf("teleJumpCalls: got %d, want 0 (must not teleJump on rejected coord)", mp.teleJumpCalls)
+	}
+}
+
+// TestFaceSquareRejectsBadCoord pins TS PlayerOps.ts:239-243 —
+// check(state.popInt(), CoordValid) before any FaceSquare call.
+// Closes h-player-3 (audit row 248). FACESQUARE has no protected
+// gate (ActivePlayer only), so protect=false.
+func TestFaceSquareRejectsBadCoord(t *testing.T) {
+	mp := &mockPlayer{}
+	sf := newSingleOp("facesquare_badcoord", OpFaceSquare)
+	state := Init(sf, mp, false, nil, nil)
+	state.PushInt(-1)
+
+	err := Execute(state)
+	if err == nil {
+		t.Fatal("Execute: want error for coord=-1, got nil (TS PlayerOps.ts:240 CoordValid must reject)")
+	}
+	if !strings.Contains(err.Error(), "FACESQUARE: coord out of range") {
+		t.Errorf("error: got %q, want substring 'FACESQUARE: coord out of range'", err.Error())
+	}
+	if mp.faceSquareCalls != 0 {
+		t.Errorf("faceSquareCalls: got %d, want 0 (must not face on rejected coord)", mp.faceSquareCalls)
+	}
+}
+
 // -- Animation tests -----------------------------------------------------
 
 func TestAnimCapturesSeqAndDelay(t *testing.T) {
