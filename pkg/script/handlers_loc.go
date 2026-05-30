@@ -430,6 +430,13 @@ func handleLocAdd(s *ScriptState) error {
 	typ := s.PopInt()
 	coord := s.PopInt()
 
+	// TS LOC_ADD (LocOps.ts:23) calls `check(coord, CoordValid)` FIRST,
+	// before the type/angle/shape/duration validators. 2026-05-28 audit
+	// row h-loc-3.
+	level, x, z, err := checkCoord(coord, "LOC_ADD")
+	if err != nil {
+		return err
+	}
 	if err := checkLocType(s, typ, "LOC_ADD"); err != nil {
 		return err
 	}
@@ -446,9 +453,8 @@ func handleLocAdd(s *ScriptState) error {
 		return fmt.Errorf("LOC_ADD: LocOps unavailable")
 	}
 
-	pos := coordgrid.UnpackCoord(coord)
 	wantLayer := int(loc.LayerOf(loc.Shape(shape)))
-	for _, existing := range s.LocOps.LocsAtCoord(pos.Level, pos.X, pos.Z) {
+	for _, existing := range s.LocOps.LocsAtCoord(level, x, z) {
 		if existing.Layer() == wantLayer {
 			if err := s.LocOps.ChangeLoc(existing, typ, shape, angle, duration); err != nil {
 				return err
@@ -457,7 +463,7 @@ func handleLocAdd(s *ScriptState) error {
 			return nil
 		}
 	}
-	created, err := s.LocOps.AddLoc(pos.Level, pos.X, pos.Z, typ, shape, angle, duration)
+	created, err := s.LocOps.AddLoc(level, x, z, typ, shape, angle, duration)
 	if err != nil {
 		return err
 	}

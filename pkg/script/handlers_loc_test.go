@@ -1032,6 +1032,43 @@ func TestLocAddRejectsBadAngle(t *testing.T) {
 	}
 }
 
+// TestLocAddRejectsBadCoord pins the 2026-05-28 audit row h-loc-3.
+// TS LOC_ADD (LocOps.ts:23) calls `check(coord, CoordValid)` BEFORE any
+// other validator; CoordValid (ScriptValidators.ts:109) rejects packed
+// coords outside [0, 2147483647] (negative coords incl. -1 / high-bit
+// set). goscape's pre-fix handleLocAdd skipped this check and proceeded
+// to UnpackCoord(coord) + LocsAtCoord with the garbage coords, then fell
+// through to AddLoc on a bogus position. This guard mirrors the
+// existing checkCoord usage at handlers_dialog.go:190 and elsewhere.
+func TestLocAddRejectsBadCoord(t *testing.T) {
+	lt := &objtype.LocType{ConfigType: objtype.ConfigType{ID: 100}}
+	s := &ScriptState{
+		Script:      &ScriptFile{IntOperands: []int32{0}},
+		IntStack:    make([]int, StackCapacity),
+		StringStack: make([]string, StackCapacity),
+		Configs:     &fakeConfigs{locs: map[int]*objtype.LocType{100: lt}},
+		LocOps:      &fakeLocOps{},
+	}
+	// Negative packed coord (high-bit set) — outside CoordValid [0, 2^31-1].
+	s.PushInt(-1)
+	s.PushInt(100)
+	s.PushInt(0)
+	s.PushInt(0)
+	s.PushInt(3)
+
+	err := handleLocAdd(s)
+	if err == nil {
+		t.Fatal("handleLocAdd with negative coord (-1): expected error, got nil (TS LocOps.ts:23 must reject coord<0 via CoordValid)")
+	}
+	if !strings.Contains(err.Error(), "coord out of range") {
+		t.Errorf("error message: got %q, want substring 'coord out of range' (matches checkCoord at handlers_npc.go:57)", err.Error())
+	}
+	ops := s.LocOps.(*fakeLocOps)
+	if len(ops.addCalls) != 0 || len(ops.changeCalls) != 0 {
+		t.Errorf("validator must short-circuit before LocOps calls; got %d addCalls, %d changeCalls (pre-fix proceeded with garbage coord)", len(ops.addCalls), len(ops.changeCalls))
+	}
+}
+
 // -- LOC_DEL tests --
 
 func TestLocDelCallsLocOps(t *testing.T) {
