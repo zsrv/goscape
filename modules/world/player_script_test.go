@@ -245,17 +245,29 @@ func TestAddXPBuffedLevelUpPreservesBuff(t *testing.T) {
 	}
 }
 
-func TestAddXPNegativeClampsAtZero(t *testing.T) {
+// TestAddXP_NegativeInputIsNoop pins player-core-3: TS Player.addXp
+// (Player.ts:1742-1744) throws on negative xp BEFORE any stat
+// mutation. goscape previously fell through to the min/clamp math,
+// which silently REDUCED stored XP (50 → 0 here). Post-fix the entity
+// method early-returns on negative input, leaving stats/baseLevels/
+// levels untouched (closest in-method analog to TS's pre-mutation
+// throw — the full script-error surface is a deferred deviation at
+// handleStatAdvance). The prior pin, TestAddXPNegativeClampsAtZero,
+// pinned the BUG (asserted stats=0); renamed and re-pointed here.
+func TestAddXP_NegativeInputIsNoop(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.stats[objtype.PlayerStatAttack] = 50
 	p.baseLevels[objtype.PlayerStatAttack] = 1
 	p.levels[objtype.PlayerStatAttack] = 1
-	p.AddXP(objtype.PlayerStatAttack, -100, false) // would go negative
-	if p.stats[objtype.PlayerStatAttack] != 0 {
-		t.Errorf("stats: got %d, want 0 (negative clamped)", p.stats[objtype.PlayerStatAttack])
+	p.AddXP(objtype.PlayerStatAttack, -100, false) // TS would throw; goscape now early-returns
+	if got := p.stats[objtype.PlayerStatAttack]; got != 50 {
+		t.Errorf("stats: got %d, want 50 (TS Player.ts:1742 throws before mutation; entity must early-return on negative)", got)
 	}
-	if p.baseLevels[objtype.PlayerStatAttack] != 1 {
-		t.Errorf("baseLevels: got %d, want 1 (from 0 XP)", p.baseLevels[objtype.PlayerStatAttack])
+	if got := p.baseLevels[objtype.PlayerStatAttack]; got != 1 {
+		t.Errorf("baseLevels: got %d, want 1 (no mutation on negative xp)", got)
+	}
+	if got := p.levels[objtype.PlayerStatAttack]; got != 1 {
+		t.Errorf("levels: got %d, want 1 (no mutation on negative xp)", got)
 	}
 }
 

@@ -866,6 +866,18 @@ func (p *Player) AddXP(id int, xp int, allowMulti bool) {
 	if !statBounds(id) {
 		return
 	}
+	// player-core-3: TS Player.addXp (Player.ts:1742-1744) begins with
+	// `if (xp < 0) throw new Error(...)`. The throw aborts the script
+	// before any stat mutation; goscape previously fell through to the
+	// min/clamp math, which silently REDUCED stored XP on negative input.
+	// Mirror TS's "no mutation on negative" intent by early-returning
+	// here. The full TS-faithful "abort the script" surface is at the
+	// STAT_ADVANCE handler (handleStatAdvance in pkg/script) — that
+	// script-error path is a deferred deviation; this guard plugs the
+	// load-bearing entity-layer silent-reduction bug.
+	if xp < 0 {
+		return
+	}
 	// TS Player.addXp (Player.ts:1751): `const multi = allowMulti ?
 	// Environment.NODE_XPRATE : 1; this.stats[stat] += xp * multi`. M7 — the
 	// node_xp_rate config (cfg.NodeXPRate, default 1) was never applied, so the
