@@ -1029,8 +1029,11 @@ func TestStatOpsRejectOOBStatID(t *testing.T) {
 		{"STAT_BOOST", OpStatBoost, []int32{0, 0}},
 		{"STAT_DRAIN", OpStatDrain, []int32{0, 0}},
 		{"STAT_HEAL", OpStatHeal, []int32{0, 0}},
-		{"STAT_ADVANCE", OpStatAdvance, []int32{0}},  // xp
-		{"STAT_RANDOM", OpStatRandom, []int32{0, 0}}, // low, high
+		{"STAT_ADVANCE", OpStatAdvance, []int32{0}}, // xp
+		// STAT_RANDOM intentionally absent: per h-player-4 it does NOT gate
+		// on checkStatID (TS PlayerOps.ts:578-586 indexes the stats array
+		// directly). OOB behaviour is pinned by
+		// TestStatRandom_AcceptsOOBStatID_NoAbort below.
 	}
 	badIDs := []int32{-1, int32(NumStats)} // 21 is OOB
 
@@ -1082,6 +1085,76 @@ func TestStatOpsRejectOOBStatID(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// TestStatRandomThreshold_MatchFloorSemantics pins h-player-4 (formula):
+// `value = floor(low*(99-level)/98) + floor(high*(level-1)/98) + 1` uses
+// Math.floor (round toward -∞) per JS, NOT Go's trunc-toward-zero. The
+// divergence only fires when a numerator goes negative — which happens
+// for boosted stats with level > 99 (the (99-level) factor in the low
+// term flips sign).
+//
+// Toggle-revert RED proof: restore the pre-fix inline integer-division
+// formula in handleStatRandom (`(low*(99-level))/98 + (high*(level-1))/98 + 1`)
+// and remove statRandomThreshold; the boost subtests then read 11 and
+// fail with the cited assertion message. Unboosted subtests stay GREEN.
+func TestStatRandomThreshold_MatchFloorSemantics(t *testing.T) {
+	tests := []struct {
+		name             string
+		low, high, level int
+		want             int
+		preFixGoTrunc    int
+	}{
+		{"level 50 (positive numerators)", 10, 10, 50, 11, 11},
+		{"level 99 (low term zero)", 10, 10, 99, 11, 11},
+		{"level 120 boost (negative numerator)", 10, 10, 120, 10, 11},
+		{"level 200 extreme boost", 10, 10, 200, 10, 11},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := statRandomThreshold(tt.low, tt.high, tt.level)
+			if got != tt.want {
+				t.Errorf("statRandomThreshold(low=%d,high=%d,level=%d): got %d, want %d (pre-fix Go trunc-toward-zero would give %d); TS PlayerOps.ts:578-586 uses Math.floor not integer division (h-player-4)",
+					tt.low, tt.high, tt.level, got, tt.want, tt.preFixGoTrunc)
+			}
+		})
+	}
+}
+
+// TestStatRandom_AcceptsOOBStatID_NoAbort pins h-player-4 (gate): the
+// handler does NOT abort the script for an out-of-range stat id. TS
+// PlayerOps.ts:578-586 indexes `player.stats[id]` directly; an OOB index
+// in JS returns undefined → NaN propagates through the formula →
+// value=NaN → `value > chance` is false → pushes 0. goscape's pre-fix
+// `checkStatID` raised "STAT_RANDOM: stat id out of range" instead;
+// here we lean on (*Player).Stat returning 0 for OOB ids so the formula
+// evaluates safely, the handler returns nil, and the pushed value
+// remains within the 0/1 contract.
+func TestStatRandom_AcceptsOOBStatID_NoAbort(t *testing.T) {
+	for _, badID := range []int32{-1, int32(NumStats)} {
+		t.Run("id="+itoa(int(badID)), func(t *testing.T) {
+			sf := &ScriptFile{
+				Name: "stat_random_oob",
+				Opcodes: []Opcode{
+					OpPushConstantInt, OpPushConstantInt, OpPushConstantInt,
+					OpStatRandom, OpReturn,
+				},
+				IntOperands:      []int32{badID, 10, 200, 0, 0},
+				StringOperands:   []string{"", "", "", "", ""},
+				InstructionCount: 5,
+			}
+			state := Init(sf, &mockPlayer{}, false, nil, nil)
+			if err := Execute(state); err != nil {
+				t.Fatalf("Execute: err=%v want nil — TS PlayerOps.ts:578-586 has no checkStatID gate (h-player-4)", err)
+			}
+			if state.Execution != Finished {
+				t.Errorf("Execution=%v want Finished — STAT_RANDOM must not abort on OOB id (h-player-4)", state.Execution)
+			}
+			if got := state.PopInt(); got != 0 && got != 1 {
+				t.Errorf("STAT_RANDOM OOB push: got %d want 0 or 1", got)
+			}
+		})
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"math/rand/v2"
 
 	"github.com/zsrv/goscape/pkg/objtype"
@@ -595,15 +596,48 @@ func handleStatAdvance(s *ScriptState) error {
 	return nil
 }
 
+// statRandomThreshold computes the STAT_RANDOM success threshold per TS
+// PlayerOps.ts:578-586:
+//
+//	value = floor(low*(99-level)/98) + floor(high*(level-1)/98) + 1
+//
+// In JS the arithmetic is float64 and Math.floor rounds toward -∞. Go
+// integer division truncates toward zero, so the two semantics diverge
+// whenever a numerator is negative — which happens for boosted stats
+// where the live `level` exceeds 99 (the (99-level) factor in the low
+// term goes negative). At level=120 low=10: TS floor(-210/98)=-3, Go
+// trunc -210/98=-2, off by one across the whole equation.
+//
+// Express both terms via math.Floor on float64 to stay TS-faithful for
+// the boosted regime; truncates back to int afterwards. The function
+// pure on (low, high, level) — no Player or random dependencies — so
+// the formula can be pinned directly without rand-seed gymnastics.
+func statRandomThreshold(low, high, level int) int {
+	return int(math.Floor(float64(low)*float64(99-level)/98)) +
+		int(math.Floor(float64(high)*float64(level-1)/98)) + 1
+}
+
 // handleStatRandom implements STAT_RANDOM. TS uses JavaRandom's next
 // double * 256; we use math/rand/v2.IntN(256) — close enough for
-// smoke-testing script flow but *not* bit-identical.
+// smoke-testing script flow but *not* bit-identical at the RNG level.
 //
 // TS formula (PlayerOps.ts:578-586):
 //
 //	value = floor(low*(99-level)/98) + floor(high*(level-1)/98) + 1
 //	chance = floor(random * 256)          // [0, 255]
 //	pushInt(value > chance ? 1 : 0)
+//
+// TS does NOT gate the op on a checkStatID-style abort: it indexes
+// `player.stats[id]` directly. An out-of-range id yields undefined →
+// NaN propagation → value=NaN → `value > chance` is false → pushes 0.
+// Goscape's pre-fix `checkStatID` aborted the whole script with
+// "STAT_RANDOM: stat id out of range" instead. Remove the abort; rely
+// on (*Player).Stat returning 0 for OOB ids (player_script.go:687) so
+// the formula evaluates safely. The residual delta (Go pushes 0 or 1
+// based on `chance` vs the NaN-derived value=−98 with level=0 low=10
+// high=10; TS pushes 0 deterministically via NaN) is left as
+// documented behaviour — the audit row is explicit that the gate is
+// the bug, not the NaN propagation tail.
 //
 // probability tuning TBD — revisit once we have authentic RNG seeds.
 func handleStatRandom(s *ScriptState) error {
@@ -613,11 +647,8 @@ func handleStatRandom(s *ScriptState) error {
 	high := s.PopInt()
 	low := s.PopInt()
 	id := s.PopInt()
-	if err := checkStatID(id, "STAT_RANDOM"); err != nil {
-		return err
-	}
 	level := s.activePlayer().Stat(id)
-	value := (low*(99-level))/98 + (high*(level-1))/98 + 1
+	value := statRandomThreshold(low, high, level)
 	chance := rand.IntN(256)
 	if value > chance {
 		s.PushInt(1)
