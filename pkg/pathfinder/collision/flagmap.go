@@ -128,6 +128,28 @@ func (m *FlagMap) IsZoneAllocated(absoluteX int, absoluteZ int, level int) bool 
 	return m.flags[ZoneIndex(absoluteX, absoluteZ, level)] != nil
 }
 
-func (m *FlagMap) IsFlagged(x int, z int, level int, flags int) bool { // in kt, it's in LineValidator...
-	return (m.Get(x, z, level) & flags) != FlagOpen
+// IsFlagged reports whether the tile at (x,z,level) has any of the supplied
+// `flags` bits set. Mirrors rsmod CollisionFlagMap::isFlagged
+// (Engine/rsmod/collision.rs:58-65):
+//
+//	let current = self.get(x, z, level);
+//	if current == CollisionFlag::Null as u32 { return false; }
+//	return (current & masks) != CollisionFlag::Open as u32;
+//
+// The FlagNull short-circuit is load-bearing: an off-map / unallocated tile
+// reports FALSE here. The blocked-vs-open distinction for movement is
+// enforced separately by CanMove, which treats FlagNull as impassable for
+// movement purposes (TestFlagNullStillBlocksMovement); the IsFlagged
+// contract is a LineValidator/LineRouteFinder probe whose canonical meaning
+// is "is this tile EXPLICITLY flagged" — and off-map tiles are not
+// explicitly flagged. Pre-fix this returned true for every off-map probe
+// (because FlagNull = 0x7FFFFFFF AND any non-zero flag mask is non-zero),
+// inverting the rsmod contract and breaking RayCast/LineValidator LoS/LoW
+// where the ray ventures off-map.
+func (m *FlagMap) IsFlagged(x int, z int, level int, flags int) bool {
+	current := m.Get(x, z, level)
+	if current == FlagNull {
+		return false
+	}
+	return (current & flags) != FlagOpen
 }

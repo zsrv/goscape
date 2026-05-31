@@ -243,6 +243,76 @@ func TestDeallocateSingleZoneIfPresent(t *testing.T) {
 	}
 }
 
+// TestIsFlagged_OffMapTileReportsUnflagged pins pathfinder-3. Mirrors rsmod
+// CollisionFlagMap::isFlagged (Engine/rsmod/collision.rs:58-65): on a tile
+// whose Get returns FlagNull (unallocated zone / off-map), IsFlagged must
+// return false regardless of the queried flag mask. Pre-fix RED because
+// (FlagNull & flags) != FlagOpen evaluates to true for every non-zero
+// mask, so every off-map probe reported "flagged" (= blocked) — the
+// inverse of the canonical contract.
+func TestIsFlagged_OffMapTileReportsUnflagged(t *testing.T) {
+	m := NewFlagMap()
+
+	// Sanity precondition: the tile is genuinely off-map.
+	if got := m.Get(3200, 3200, 0); got != FlagNull {
+		t.Fatalf("Get(off-map) = %#x, want FlagNull %#x", got, FlagNull)
+	}
+
+	cases := []struct {
+		name  string
+		flags int
+	}{
+		{"FlagWalkBlocked", FlagWalkBlocked},
+		{"FlagBlockWalk", FlagBlockWalk},
+		{"FlagWallWest", FlagWallWest},
+		{"FlagLoc", FlagLoc},
+		// Combined masks (LoS / LoW probes use these).
+		{"FlagWalkBlocked|FlagBlockWalk", FlagWalkBlocked | FlagBlockWalk},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if m.IsFlagged(3200, 3200, 0, tc.flags) {
+				t.Errorf("IsFlagged(off-map, %s=%#x) = true, want false "+
+					"(rsmod CollisionFlagMap::isFlagged short-circuits FlagNull → false)",
+					tc.name, tc.flags)
+			}
+		})
+	}
+}
+
+// TestIsFlagged_AllocatedOpenTileReportsUnflagged is the foil: an
+// ALLOCATED zone with FlagOpen tiles must also report unflagged.
+// Pre-fix this already worked; post-fix it must still work (the FlagNull
+// short-circuit doesn't affect allocated tiles).
+func TestIsFlagged_AllocatedOpenTileReportsUnflagged(t *testing.T) {
+	m := NewFlagMap()
+	m.AllocateIfAbsent(3200, 3200, 0)
+
+	if got := m.Get(3200, 3200, 0); got != FlagOpen {
+		t.Fatalf("Get(allocated-open) = %#x, want FlagOpen %#x", got, FlagOpen)
+	}
+	if m.IsFlagged(3200, 3200, 0, FlagWalkBlocked) {
+		t.Errorf("IsFlagged(allocated-open, FlagWalkBlocked) = true, want false")
+	}
+}
+
+// TestIsFlagged_AllocatedFlaggedTileReportsFlagged: the production
+// happy-path. An allocated tile with the queried flag bit set reports
+// flagged. Guards against an over-broad fix that accidentally returns
+// false for all allocated tiles.
+func TestIsFlagged_AllocatedFlaggedTileReportsFlagged(t *testing.T) {
+	m := NewFlagMap()
+	m.Add(3200, 3200, 0, FlagWallWest)
+
+	if !m.IsFlagged(3200, 3200, 0, FlagWallWest) {
+		t.Errorf("IsFlagged(WallWest-tile, FlagWallWest) = false, want true")
+	}
+	// A different flag must still report unflagged on the same tile.
+	if m.IsFlagged(3200, 3200, 0, FlagWalkBlocked) {
+		t.Errorf("IsFlagged(WallWest-tile, FlagWalkBlocked) = true, want false")
+	}
+}
+
 func TestIfZoneAllocatedIsTrueForAllCoordinatesInZoneGrid(t *testing.T) {
 	m := NewFlagMap()
 	m.AllocateIfAbsent(3200, 3200, 0)
