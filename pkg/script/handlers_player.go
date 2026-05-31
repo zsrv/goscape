@@ -42,6 +42,29 @@ func checkStatID(id int, op string) error {
 // only confirms a script is running on behalf of some player — Self is always
 // bound for the clicker, including in `.`-prefixed player→player triggers
 // where Self2 holds the secondary. Wraps ErrNoActivePlayer for errors.Is.
+//
+// H-PLAYER-1-D-OPERAND-INDEPENDENT-PLAYER-GATE — CONFIRMED EXCEPTION
+// (closes h-player-1 / script-core-7 from the 2026-05-28 fresh audit).
+// TS ScriptPointer.checkedHandler / ScriptState.activePlayer
+// (ScriptPointer.ts:47-56, ScriptState.ts:187-194) route the guard
+// through the same intOperand-aware getter the handler body uses, so
+// for an operand-1 (`.`-prefixed) invocation the gate validates Self2's
+// pointer bit while the handler body reads Self2. Goscape's per-handler
+// gate is operand-INDEPENDENT by design: the int operand is overloaded
+// across the opcode space — many handlers use it as a varp id
+// (handlePushVarp), inv protect-slot (NAI-133's
+// selectProtectedActivePlayerSlot), or obj/loc slot index — and an
+// operand-aware require* would mis-fire on every such use. Promoting
+// this to a single operand-aware family would require per-handler
+// triage of every existing call site, which is out of scope and risks
+// regressing the overwhelmingly common operand-0 path. The protect-slot
+// gate is already operand-aware where it matters (NAI-133, h-inv-3 in
+// med-bundle-15 #843b7f3a); script bodies that need Self2 explicitly
+// call requireActivePlayer2. Adding a new gate function (e.g.
+// requireOperandAwareActivePlayer) for the narrow handler subset that
+// IS operand-routed would be the correct future port if a real
+// divergence is ever observed — not a sweeping replacement of this
+// gate.
 func requireActivePlayer(s *ScriptState, op string) error {
 	if s.Pointers&PtrActivePlayer == 0 || s.Self == nil {
 		return fmt.Errorf("%s: %w", op, ErrNoActivePlayer)
