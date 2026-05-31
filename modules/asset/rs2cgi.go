@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 // rs2cgiClientData is the template payload for templates/client.html
@@ -82,14 +83,53 @@ func (a *Asset) Rs2CgiHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // tryParseIntDefault mirrors TS' tryParseInt(value, default) helper used at
-// web.ts:89-90: empty or non-numeric input falls back to def.
+// web.ts:89-90, which delegates to JavaScript's parseInt(value) (no radix).
+// Per TryParse.ts:20 + the ECMAScript parseInt grammar: skip leading
+// whitespace, accept optional sign, treat a leading "0x"/"0X" as hex,
+// otherwise parse the leading decimal digits and stop at the first
+// non-digit. Any value with no parseable leading digits returns NaN in TS,
+// which tryParseInt then maps to def.
+//
+// Diverges from Go's strconv.Atoi (which is strict and rejects trailing
+// garbage / floats / hex / leading whitespace).
 func tryParseIntDefault(s string, def int) int {
+	s = strings.TrimLeft(s, " \t\n\v\f\r")
 	if s == "" {
 		return def
 	}
-	n, err := strconv.Atoi(s)
+	sign := 1
+	i := 0
+	if s[0] == '+' {
+		i = 1
+	} else if s[0] == '-' {
+		sign = -1
+		i = 1
+	}
+	base := 10
+	if len(s)-i >= 2 && s[i] == '0' && (s[i+1] == 'x' || s[i+1] == 'X') {
+		base = 16
+		i += 2
+	}
+	start := i
+	if base == 10 {
+		for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+			i++
+		}
+	} else {
+		for i < len(s) && isHexDigit(s[i]) {
+			i++
+		}
+	}
+	if i == start {
+		return def
+	}
+	n, err := strconv.ParseInt(s[start:i], base, 64)
 	if err != nil {
 		return def
 	}
-	return n
+	return sign * int(n)
+}
+
+func isHexDigit(b byte) bool {
+	return (b >= '0' && b <= '9') || (b >= 'a' && b <= 'f') || (b >= 'A' && b <= 'F')
 }

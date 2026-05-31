@@ -168,6 +168,44 @@ func TestRs2CgiPortoffComputation(t *testing.T) {
 	}
 }
 
+// TestTryParseIntDefault_JSparseIntSemantics pins TS tryParseInt's delegation
+// to JS parseInt(value) (no radix). Per TryParse.ts:20: leading whitespace
+// is skipped, optional sign accepted, "0x"/"0X" prefix → hex, otherwise
+// leading decimal digits are consumed and the parse stops at the first
+// non-digit. Closes entry-1 (rs2.cgi parseInt-vs-Atoi divergence).
+func TestTryParseIntDefault_JSparseIntSemantics(t *testing.T) {
+	cases := []struct {
+		in   string
+		want int
+	}{
+		// Audit-cited divergences (RED pre-fix; GREEN post-fix):
+		{"1x", 1},        // trailing garbage → TS 1 (Atoi err → 0)
+		{"10abc", 10},    // trailing garbage → TS 10 (Atoi err → 0)
+		{"3.5", 3},       // float-looking → TS 3 (Atoi err → 0)
+		{"0x10", 16},     // hex prefix → TS 16 (Atoi err → 0)
+		{"  42", 42},     // leading whitespace → TS 42 (Atoi err → 0)
+		{"\t-7", -7},     // whitespace + sign → TS -7
+		{"+99", 99},      // explicit positive sign
+		// Regression guards (already worked pre-fix):
+		{"0", 0},
+		{"42", 42},
+		{"-1", -1},
+		// Genuine NaN cases → def:
+		{"", 0},
+		{"abc", 0},
+		{"   ", 0},
+		{"+", 0},
+		{"-x", 0},
+		{"0x", 0}, // 0x with no following hex digit → NaN
+	}
+	for _, tc := range cases {
+		got := tryParseIntDefault(tc.in, 0)
+		if got != tc.want {
+			t.Errorf("tryParseIntDefault(%q, 0) = %d, want %d (TS parseInt via TryParse.ts:20)", tc.in, got, tc.want)
+		}
+	}
+}
+
 // TestRs2CgiTryParseIntFallback pins tryParseInt's empty/invalid-string
 // fallback to 0 (TS web.ts:89-90 via tryParseInt).
 func TestRs2CgiTryParseIntFallback(t *testing.T) {
