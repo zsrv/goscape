@@ -71,6 +71,38 @@ func TestUpdateInvFull_ClampsSizeToComponentGrid(t *testing.T) {
 	}
 }
 
+// TestUpdateInvFull_ZeroGridComponent_SendsZeroSize pins inventory-2 /
+// gap-server-codec-models-1 (2026-05-28 fresh-audit MED): TS
+// UpdateInvFullEncoder.ts:14 computes `size = Math.min(inv.capacity,
+// comType.width * comType.height)` UNCONDITIONALLY, so a component
+// whose grid is 0 (e.g. width=0 or height=0) yields size=0. Pre-fix
+// goscape guarded the clamp on `grid > 0`, so a zero-grid component
+// fell through to the full inv-capacity send — the inverse of TS.
+func TestUpdateInvFull_ZeroGridComponent_SendsZeroSize(t *testing.T) {
+	s := newTestServer(t)
+	s.componentTypes = &objtype.ComponentTypeConfigs{
+		Configs: make([]*objtype.ComponentType, 5001),
+	}
+	// Component 5000 has Width=0 (Height=4 doesn't matter); grid = 0.
+	s.componentTypes.Configs[5000] = &objtype.ComponentType{Width: 0, Height: 4}
+
+	p, cc := newInvListenerTestPlayer(t, s, 2)
+	inv := inventory.New(93, 28, inventory.StackNormal)
+
+	received := drainConn(t, cc)
+	sendUpdateInvFullCom(p, 5000, inv)
+	p.client.flushWrite()
+	got := <-received
+
+	// Wire: [enc opcode][len hi][len lo][com hi][com lo][size]...
+	if len(got) < 6 {
+		t.Fatalf("packet too short: %d bytes", len(got))
+	}
+	if size := got[5]; size != 0 {
+		t.Errorf("UpdateInvFull size byte: got %d, want 0 (TS UpdateInvFullEncoder.ts:14 sends Math.min(capacity, w*h) unconditionally; w=0 yields size=0, NOT inv capacity 28)", size)
+	}
+}
+
 func TestUpdateInvsFirstSeenFires(t *testing.T) {
 	s := newTestServer(t)
 	s.invs = make(map[int]*inventory.Inventory)

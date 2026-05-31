@@ -17,15 +17,24 @@ func sendUpdateInvFullCom(p *Player, com int, inv *inventory.Inventory) {
 
 	buf.P2(uint16(com))
 	size := inv.Capacity
-	// Clamp to the target component's slot grid — TS UpdateInvFullEncoder
-	// sends min(inv.capacity, comType.width*comType.height). Sending more
-	// slots than the component can hold overruns the client's invSlotObjId[]
-	// array and crashes it. trademain:inv is a 28-slot grid (so the trade
-	// OFFER screen worked), but tradeconfirm:inv1/inv2 are smaller grids, so
-	// the unclamped full-capacity send crashed both clients on Accept.
+	// Clamp to the target component's slot grid. TS UpdateInvFullEncoder
+	// (UpdateInvFullEncoder.ts:14) sends `Math.min(inv.capacity,
+	// comType.width * comType.height)` UNCONDITIONALLY — a comType whose
+	// grid is 0 yields size=0 (empty send), not the full inv capacity.
+	// Sending more slots than the component can hold overruns the client's
+	// invSlotObjId[] array and crashes it. trademain:inv is a 28-slot
+	// grid, but tradeconfirm:inv1/inv2 are smaller grids — and a routing
+	// to a zero-grid component must produce size=0 to match TS, NOT the
+	// inv capacity (pre-fix the `grid > 0` guard let a zero-grid comType
+	// fall through to a full-capacity send). Closes inventory-2 /
+	// gap-server-codec-models-1 (2026-05-28 fresh-audit MED). The
+	// nil-component fallback (Go-side robustness for the bare-fixture
+	// test path) keeps size = inv.Capacity; TS would throw on Component.get
+	// returning undefined, which production callers never trigger because
+	// inventory routes are component-validated upstream.
 	if p.client != nil && p.client.server != nil {
 		if ct := p.client.server.lookupComponent(com); ct != nil {
-			if grid := ct.Width * ct.Height; grid > 0 && grid < size {
+			if grid := ct.Width * ct.Height; grid < size {
 				size = grid
 			}
 		}
