@@ -1084,6 +1084,60 @@ func TestHandleClientCheat_Give_AdminGate(t *testing.T) {
 	}
 }
 
+// TestHandleClientCheat_Give_TrailingGarbageInCount pins net-client-h-social-2:
+// TS ClientCheatHandler.ts:288-302 splits the message with msg.split(' ')
+// and indexes args[1] for the count, so `::give obj 5 extra garbage` yields
+// args[1]="5" via TS's positional split. Goscape uses
+// strings.SplitN(args, " ", 2), which lumps the trailing tokens into
+// sub[1] = "5 extra garbage" — but parseIntOr's JS-parseInt port
+// (med-bundle-13's net-client-h-social-1) consumes the leading "5" and
+// stops at the first non-digit, recovering count=5 in agreement with TS.
+//
+// The cheat-handler row was structurally closed by the parseIntOr fix; this
+// test pins the side-effect closure so a future regression of parseIntOr
+// back to strict strconv.Atoi (which would yield count=1 default on
+// "5 extra garbage") is caught at the integration layer in addition to the
+// parseIntOr unit tests. Same shape applies to the cheats listed in the
+// audit row (::setvar / ::setvarother / ::give / ::giveother / ::ban /
+// ::mute) — all six are integer-value slots whose trailing-garbage
+// divergences fold into parseIntOr's JS-parseInt semantics.
+func TestHandleClientCheat_Give_TrailingGarbageInCount(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+	p.staffModLevel = 3
+	go io.Copy(io.Discard, cc)
+	const objName = "test_coin"
+	const objID = 995
+
+	invID := mustSetupTestInv(t, s, 0, 28)
+	mustSetupNamedObj(t, s, objID, objName /*stackable=*/, true)
+	s.invTypes.Inv = invID
+
+	dispatchTeleCheat(t, p, "give "+objName+" 5 extra trailing garbage")
+
+	inv := s.invLookup.Get(p, invID)
+	if got := totalUnits(inv, objID); got != 5 {
+		t.Errorf("::give %s 5 extra trailing garbage (TS args[1]=\"5\" via msg.split(' '); net-client-h-social-2): total = %d, want 5 (strict-Atoi parseIntOr would yield default count=1)", objName, got)
+	}
+}
+
+// TestHandleClientCheat_SetVar_TrailingGarbageInValue pins the setvar-side
+// sibling of net-client-h-social-2: trailing tokens after the value are
+// dropped by parseIntOr's JS-parseInt port, matching TS args[1]="42" via
+// msg.split(' ') at ClientCheatHandler.ts:192-219.
+func TestHandleClientCheat_SetVar_TrailingGarbageInValue(t *testing.T) {
+	p, cc, _ := setvarTestFixture(t)
+
+	dispatchTeleCheat(t, p, "setvar transmit_only 42 trailing junk")
+	emitted := drainAfterTele(t, p, cc)
+
+	if p.varps[0] != 42 {
+		t.Errorf("::setvar transmit_only 42 trailing junk (TS args[1]=\"42\"; net-client-h-social-2): varps[0] = %d, want 42 (strict-Atoi parseIntOr would yield 0)", p.varps[0])
+	}
+	if !bytes.Contains(emitted, []byte("set transmit_only: to 42")) {
+		t.Errorf("expected 'set transmit_only: to 42' in emitted bytes; got %d bytes", len(emitted))
+	}
+}
+
 // TestHandleClientCheat_Snapshot_WritesHeapFile pins TS L477-480
 // (functional analog): ::snapshot at admin tier writes a heap-*.pprof
 // file under TMPDIR. TS uses v8 heap snapshot; goscape uses
