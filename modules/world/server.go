@@ -1041,6 +1041,21 @@ func (c *client) handleLogin() error {
 			return c.sendLoginError(loginresp.OpServerFull.Opcode)
 		}
 
+		// world-tick-3: TS processLogins gate (World.ts:884-890) rejects
+		// new logins during the final 50-tick (~30s) pre-shutdown window
+		// via forceLogout(player, 14) — a single-byte 14 reply followed
+		// by socket close. goscape's handleLogin sends OpUpdateInProgress
+		// (opcode 14 in pkg/io/protocol/login/resp/resp.go), the same
+		// "The server is being updated. Please wait 1 minute and try
+		// again." byte the Java client renders. Placement at the world-
+		// state-rejects layer (alongside ServerFull above) instead of
+		// inside processLogins keeps the reject inside the login
+		// handshake — goscape's processLogins runs AFTER sendLoginOK,
+		// so this earlier gate is the TS-faithful pre-login-OK position.
+		if c.server != nil && c.server.shutdownSoon() {
+			return c.sendLoginError(loginresp.OpUpdateInProgress.Opcode)
+		}
+
 		// TS World.ts:2194-2199 — reject while the prior session for
 		// this username is still completing its logout. goscape models
 		// the TS logoutRequests set with the per-player loggingOut

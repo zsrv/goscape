@@ -45,6 +45,18 @@ func (s *Server) shutdown() bool {
 	return s.shutdownTick != -1 && s.currentTick >= s.shutdownTick
 }
 
+// shutdownSoon reports whether a shutdown is scheduled and currently
+// within the final 50-tick (~30s at 600ms/tick) pre-shutdown window.
+// Mirrors TS World.shutdownSoon getter (World.ts:202-204):
+// `shutdownTick != -1 && currentTick >= shutdownTick - 50`. Used by
+// (*client).handleLogin (server.go) to reject new logins so we don't
+// admit a player the upcoming shutdown will immediately evict — TS
+// processLogins (World.ts:884-890) gates new-player admission on the
+// same predicate. world-tick-3.
+func (s *Server) shutdownSoon() bool {
+	return s.shutdownTick != -1 && s.currentTick >= s.shutdownTick-50
+}
+
 // shutdownTicksRemaining returns shutdownTick - currentTick. Returns a
 // negative number when no shutdown is scheduled (shutdownTick == -1).
 // Mirrors TS World.shutdownTicksRemaining (World.ts:1799-1801). NAI-182.
