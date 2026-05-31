@@ -112,3 +112,45 @@ func TestServerGetObjSkipsInvalidObjs(t *testing.T) {
 		t.Errorf("GetObj returned an inactive obj: %v", got)
 	}
 }
+
+// TestGetObjOfReceiver_SkipsInvalidObjs pins the zone-sub-4 fix: TS
+// Zone.getObjOfReceiver (Zone.ts:362-369) iterates getObjsSafe (Zone.ts:423-429)
+// which gates each yielded obj on obj.isValid() = count >= 1 && isActive
+// (Obj.ts:52-62, hash-less form). goscape's pre-fix loop matched on (x,z,type,
+// receiver) alone, so a depleted (count<1) or removed (!isActive) obj lingering
+// in zn.Objs with a matching ReceiverID would be returned to world.AddObj's
+// merge-decision path and a fresh drop would silently merge into a stale pile.
+func TestGetObjOfReceiver_SkipsInvalidObjs(t *testing.T) {
+	s := newTestServer(t)
+	s.zoneMap = zone.NewZoneMap()
+	z := s.zoneMap.Get(0, 3200, 3200)
+
+	// Depleted (count == 0) private obj must not be returned as a merge target.
+	depleted := entitypkg.NewObj(0, 3200, 3200, entitypkg.LifecycleDespawn, 42, 0)
+	depleted.IsActive = true
+	depleted.ReceiverID = 5
+	z.Objs = append(z.Objs, depleted)
+	if got := s.getObjOfReceiver(0, 3200, 3200, 42, 5); got != nil {
+		t.Errorf("getObjOfReceiver returned a depleted (count<1) obj: %v (TS getObjsSafe Obj.isValid count gate must strip)", got)
+	}
+
+	// Inactive private obj at a different type must not be returned as a merge
+	// target — the !isActive branch fires independently of count.
+	inactive := entitypkg.NewObj(0, 3200, 3200, entitypkg.LifecycleRespawn, 43, 1)
+	inactive.IsActive = false
+	inactive.ReceiverID = 5
+	z.Objs = append(z.Objs, inactive)
+	if got := s.getObjOfReceiver(0, 3200, 3200, 43, 5); got != nil {
+		t.Errorf("getObjOfReceiver returned an inactive obj: %v (TS getObjsSafe Obj.isValid isActive gate must strip)", got)
+	}
+
+	// Control: a healthy private obj at the same receiver remains a valid
+	// merge target — the new filter is not over-broad.
+	healthy := entitypkg.NewObj(0, 3200, 3200, entitypkg.LifecycleDespawn, 44, 7)
+	healthy.IsActive = true
+	healthy.ReceiverID = 5
+	z.Objs = append(z.Objs, healthy)
+	if got := s.getObjOfReceiver(0, 3200, 3200, 44, 5); got != healthy {
+		t.Errorf("getObjOfReceiver dropped a healthy merge target: got %v, want %v", got, healthy)
+	}
+}

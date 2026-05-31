@@ -42,10 +42,19 @@ func (s *Server) GetObj(level, x, z, objId, receiverID int) *entitypkg.Obj {
 // by the same receiver, never a public pile into a private drop or vice
 // versa). For public drops both receiverID and the existing ReceiverID are
 // zone.PublicReceiver, so exact equality handles that case too. Mirrors TS
-// Zone.getObjOfReceiver (Engine-TS/src/engine/zone/Zone.ts:362-369).
+// Zone.getObjOfReceiver (Engine-TS/src/engine/zone/Zone.ts:362-369), which
+// iterates getObjsSafe (Zone.ts:423-429) so only obj.isValid() entries are
+// yielded; Obj.isValid (Obj.ts:52-62) called with no hash reduces to
+// count >= 1 && super.isValid() (Entity.isActive). Without the filter a
+// depleted (count<1) or removed-but-still-linked (!isActive) obj would
+// merge a fresh drop into a stale pile — TS skips it and falls through to
+// addObj's "no merge target" branch.
 func (s *Server) getObjOfReceiver(level, x, z, objId, receiverID int) *entitypkg.Obj {
 	zn := s.zoneMap.Get(level, x, z)
 	for _, o := range zn.Objs {
+		if o.Count < 1 || !o.IsActive {
+			continue
+		}
 		if o.X == x && o.Z == z && o.Type == objId && o.ReceiverID == receiverID {
 			return o
 		}
