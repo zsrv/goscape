@@ -97,7 +97,23 @@ type Server struct {
 	// (Engine-TS/src/engine/World.ts:177).
 	deviceLoginCache *ttlcache.Cache[string, int]
 
-	players     [2048]*Player
+	players [2048]*Player
+	// PORTING-EXCEPTION (gap-db-datastruct-4): playerLoop is a flat
+	// []*Player slice; TS World.playerLoop (Engine-TS/src/engine/World.ts:146)
+	// is an IP-bucketed HashTable (TS HashTable.ts) keyed by IP-prefix
+	// hashes that drives per-IP login concurrency caps via the bucket
+	// count returned at TS World.ts:917-932. goscape's per-tick player
+	// iteration walks this flat slice in insertion order; the per-IP
+	// concurrency cap is implemented separately via deviceLoginCache
+	// (server.go:99, ttlcache keyed by device hash, see NAI-... around
+	// loginDeviceAttempts above) which closes the operationally-relevant
+	// bucket-count gap without requiring the HashTable data structure.
+	//
+	// Reverting to a HashTable would re-key every site that touches
+	// playerLoop (~25+ call sites across server.go, tick.go,
+	// player_info.go, friends_smoke_test.go) for no behavioural change
+	// at the wire boundary. Documented; deferred indefinitely. See
+	// PORTING.md.
 	playerLoop  []*Player
 	newPlayers  []*Player // guarded by playersMu; drained by processLogins
 	playersMu   sync.RWMutex
