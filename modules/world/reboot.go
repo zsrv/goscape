@@ -35,6 +35,16 @@ func (s *Server) isPendingShutdown() bool {
 	return s.shutdownTicksRemaining() > -1
 }
 
+// shutdown reports whether the world has reached or passed its
+// scheduled shutdown tick. Mirrors TS World.shutdown getter
+// (World.ts:197-199): `shutdownTick != -1 && currentTick >= shutdownTick`.
+// Used by (*Player).CanAccess to relax protection rules once the world
+// is winding down (TS Player.ts:806-808 — "once the world has gone past
+// shutting down, no protection rules apply").
+func (s *Server) shutdown() bool {
+	return s.shutdownTick != -1 && s.currentTick >= s.shutdownTick
+}
+
 // shutdownTicksRemaining returns shutdownTick - currentTick. Returns a
 // negative number when no shutdown is scheduled (shutdownTick == -1).
 // Mirrors TS World.shutdownTicksRemaining (World.ts:1799-1801). NAI-182.

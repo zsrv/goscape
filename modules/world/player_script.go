@@ -386,8 +386,13 @@ func (p *Player) AccountID() int64 { return p.accountID }
 // is open, or when a protected script is stored on activeScript.
 // Mirrors TS Player.canAccess at Engine-TS/src/engine/entity/Player.ts:805-812.
 //
-// The World-shutdown early-return from TS is omitted — goscape has
-// no global shutdown flag to consult and rejects lookups uniformly.
+// World-shutdown relaxation (TS L806-808): once the world has reached
+// its shutdown tick, no protection rules apply — every player becomes
+// reachable so the shutdown drain can complete (handler resolutions,
+// teleport-to-spawn, etc. must not be blocked by a stuck modal or a
+// protected script). Mirrors `if (World.shutdown) return true`. Nil
+// guards on p.client / p.client.server tolerate the bare-Player test
+// fixtures that don't wire a server.
 //
 // The third branch reads activeScript.Pointers&PtrProtectedActivePlayer
 // to answer TS's `!this.protect` gate. The mapping holds because
@@ -398,6 +403,9 @@ func (p *Player) AccountID() int64 { return p.accountID }
 // gates. See DEVIATION-NAI-111-D1 on CloseModal for the full
 // narrowed-convergence rationale.
 func (p *Player) CanAccess() bool {
+	if p.client != nil && p.client.server != nil && p.client.server.shutdown() {
+		return true
+	}
 	if p.delayed {
 		return false
 	}
