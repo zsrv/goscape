@@ -155,15 +155,26 @@ func (z *Zone) AddStaticLoc(loc *entity.Loc) {
 // AddLoc activates a loc and queues a LOC_ADD_CHANGE Enclosed event. For
 // dynamic (Despawn-lifecycle) locs the pointer is appended to z.Locs so
 // the full-follows replay in 4b-4 can iterate active dynamics.
+//
+// zone-sub-1: TS Zone.addLoc (Zone.ts:225) calls `loc.revert()` before
+// the queueEvent — TS Loc.revert (Loc.ts:50-52) restores
+// `currentInfo = baseInfo`, so the LocAddChange emits the BASE
+// type/shape/angle (Loc.ts getters read currentInfo). Mirror that
+// ordering: Despawn-append → Revert → IsActive=true → encode → queue.
+// goscape previously captured the encoded bytes from the (possibly
+// mutated) CurrentInfo before any state change and never called
+// Revert(), so a Loc that had been mutated by Change() retained the
+// changed render fields through AddLoc and emitted the changed values.
 func (z *Zone) AddLoc(loc *entity.Loc) {
 	coord := coordgrid.PackZoneCoord(loc.X, loc.Z)
-	bytes := encodeNested(rsbuf.ZoneOpLocAddChange, func(buf *packet.Packet) {
-		rsbuf.EncodeLocAddChange(buf, coord, loc.Shape(), loc.Angle(), loc.Type())
-	})
 	if loc.Lifecycle == entity.LifecycleDespawn {
 		z.Locs = append(z.Locs, loc)
 	}
+	loc.Revert()
 	loc.IsActive = true
+	bytes := encodeNested(rsbuf.ZoneOpLocAddChange, func(buf *packet.Packet) {
+		rsbuf.EncodeLocAddChange(buf, coord, loc.Shape(), loc.Angle(), loc.Type())
+	})
 	z.queueEvent(&loc.NonPathing, ZoneEvent{
 		Type:       ZoneEventEnclosed,
 		ReceiverID: PublicReceiver,

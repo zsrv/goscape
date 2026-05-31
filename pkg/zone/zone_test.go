@@ -111,6 +111,63 @@ func TestAddLocQueuesEnclosedLocAddChange(t *testing.T) {
 	}
 }
 
+// TestAddLocRevertsCurrentInfoBeforeEmittingEvent pins zone-sub-1: TS
+// Zone.addLoc (Zone.ts:225) calls `loc.revert()` immediately before
+// the queueEvent that builds the LocAddChange — and TS's revert()
+// (Loc.ts:50-52) restores `currentInfo = baseInfo`. The LocAddChange
+// then reads `loc.type/shape/angle` (Loc.ts getters), which surface
+// `currentInfo` — so post-revert the emitted bytes use the BASE
+// shape/angle/type, not whatever Change() may have last written. The
+// loc also ends the call with CurrentInfo == BaseInfo, the canonical
+// post-AddLoc state.
+//
+// goscape pre-fix omitted Revert() AND captured the encoded bytes
+// BEFORE any state mutation — so a Loc whose CurrentInfo had been
+// mutated by Change() retained the changed state through AddLoc and
+// emitted the changed shape/angle/type instead of the base values.
+//
+// Test setup: NewLoc with BaseInfo encoding (type=100, shape=5,
+// angle=2), then Change(101, 6, 1) to mutate CurrentInfo. AddLoc
+// then must leave CurrentInfo == BaseInfo (revert ran) and emit
+// bytes encoding the BASE shape/angle/type pair.
+func TestAddLocRevertsCurrentInfoBeforeEmittingEvent(t *testing.T) {
+	z := New(0, 0, 0, 0)
+	loc := entity.NewLoc(0, 0, 0, 1, 1, entity.LifecycleDespawn, 100, 5, 2)
+	baseInfo := loc.BaseInfo
+	loc.Change(101, 6, 1) // mutate CurrentInfo away from BaseInfo
+	if !loc.IsChanged() {
+		t.Fatalf("setup: Change() should mark loc as changed; IsChanged()=false")
+	}
+
+	z.AddLoc(loc)
+
+	if loc.CurrentInfo != baseInfo {
+		t.Errorf("CurrentInfo: got %#x, want %#x (TS Zone.ts:225 must Revert() before emitting; Loc.ts:50-52)", loc.CurrentInfo, baseInfo)
+	}
+	if loc.IsChanged() {
+		t.Errorf("IsChanged() post-AddLoc: got true, want false (TS Zone.ts:225 revert)")
+	}
+
+	if got := len(z.Events()); got != 1 {
+		t.Fatalf("events len: got %d, want 1", got)
+	}
+	bytes := z.Events()[0].Bytes
+	// bytes layout per encodeNested + EncodeLocAddChange:
+	//   [0]=opcode(59), [1]=coord, [2]=packLocShapeAngle(shape,angle), [3..4]=locID (P2, big-endian)
+	if len(bytes) != 5 {
+		t.Fatalf("event bytes len: got %d, want 5 [opcode,coord,shapeAngle,locID_hi,locID_lo]", len(bytes))
+	}
+	wantShapeAngle := byte((5 << 2) | (2 & 0x3)) // BASE shape=5, angle=2
+	if got := bytes[2]; got != wantShapeAngle {
+		t.Errorf("emitted shapeAngle byte: got %#x, want %#x (BASE shape=5, angle=2 — TS Zone.ts:227 emits reverted info)", got, wantShapeAngle)
+	}
+	wantLocID := uint16(100) // BASE type=100
+	gotLocID := uint16(bytes[3])<<8 | uint16(bytes[4])
+	if gotLocID != wantLocID {
+		t.Errorf("emitted locID: got %d, want %d (BASE type=100 — TS Zone.ts:227 emits reverted info)", gotLocID, wantLocID)
+	}
+}
+
 func TestAddLocDespawnAppendsToLocs(t *testing.T) {
 	z := New(0, 0, 0, 0)
 	loc := entity.NewLoc(0, 0, 0, 1, 1, entity.LifecycleDespawn, 100, 0, 0)
