@@ -2,6 +2,7 @@ package login
 
 import (
 	"errors"
+	"fmt"
 	"os"
 
 	"github.com/zsrv/goscape/pkg/io/packet"
@@ -56,8 +57,17 @@ func savePlaytime(save []byte) (int32, bool) {
 // wouldResetSaveFile reports whether persisting newSave would roll back the
 // player's progress versus the existing .sav at savePath — i.e. the existing
 // playtime (ticks logged in) exceeds the new one. Mirrors TS
-// LoginServer.wouldResetSaveFile (LoginServer.ts:126-141). A missing or
-// unparseable existing/new save is not treated as a rollback.
+// LoginServer.wouldResetSaveFile (LoginServer.ts:126-141): TS loads both saves
+// via PlayerLoading.load (PlayerLoading.ts:55-68), which THROWS on bad
+// magic/version/CRC of the existing save — propagating out of
+// wouldResetSaveFile and aborting the persistSave path so the new save is NOT
+// written over a corrupt existing one (fail-safe).
+//
+// login-server-6: a missing existing save is fine (no rollback possible); a
+// PRESENT-but-corrupt existing save returns an error so the caller aborts the
+// write — matching TS's thrown-error semantics. A blob too short to contain
+// playtime is treated as a clean no-rollback (TS PlayerLoading.load returns
+// a defaulted Player for `sav.data.length < 2`).
 func wouldResetSaveFile(savePath string, newSave []byte) (bool, error) {
 	existing, err := os.ReadFile(savePath)
 	if err != nil {
@@ -65,6 +75,9 @@ func wouldResetSaveFile(savePath string, newSave []byte) (bool, error) {
 			return false, nil
 		}
 		return false, err
+	}
+	if !verifySave(existing) {
+		return false, fmt.Errorf("existing save at %s failed verification: TS PlayerLoading.load throws on bad magic/version/CRC (login-server-6: LoginServer.ts:126-141 → PlayerLoading.ts:55-68)", savePath)
 	}
 	existingPlaytime, ok1 := savePlaytime(existing)
 	newPlaytime, ok2 := savePlaytime(newSave)

@@ -93,3 +93,36 @@ func TestWouldResetSaveFile(t *testing.T) {
 		t.Error("new(150) >= existing(100): must not be a rollback")
 	}
 }
+
+// TestWouldResetSaveFile_CorruptExistingSaveReturnsError pins login-server-6:
+// TS PlayerLoading.load (PlayerLoading.ts:55-68) throws on bad
+// magic/version/CRC of the existing save; the throw propagates out of
+// LoginServer.wouldResetSaveFile (LoginServer.ts:126-141) and aborts the
+// persistSave path so the new save is NOT written over a corrupt existing
+// one. Go must mirror that fail-safe by returning an error rather than
+// silently treating garbage playtime as authoritative.
+func TestWouldResetSaveFile_CorruptExistingSaveReturnsError(t *testing.T) {
+	cases := []struct {
+		name string
+		mut  func([]byte)
+	}{
+		{"bad magic", func(b []byte) { b[0] = 0x00 }},
+		{"unsupported version", func(b []byte) { b[3] = savMaxVersion + 1 }},
+		{"corrupt crc", func(b []byte) { b[len(b)-1] ^= 0xFF }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "p.sav")
+			corrupt := makeValidSave(100)
+			tc.mut(corrupt)
+			if err := os.WriteFile(path, corrupt, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			_, err := wouldResetSaveFile(path, makeValidSave(50))
+			if err == nil {
+				t.Fatal("TS PlayerLoading.load throws on bad magic/version/CRC (login-server-6) but wouldResetSaveFile returned nil error")
+			}
+		})
+	}
+}
