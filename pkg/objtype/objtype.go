@@ -109,8 +109,27 @@ func applyPostDecodeFixups(otc *ObjTypeConfigs, ptc *ParamTypeConfigs) {
 			config.IOp = []string{"", "", "", "", "Drop"}
 			config.Category = -1
 
-			for k, _ := range config.Params {
-				if ptc.Configs[k].AutoDisable {
+			// TS ObjType.ts:73 uses ParamType.get(key)?.autodisable — the
+			// optional-chain silently no-ops when the ParamType lookup
+			// misses, leaving the param in place. goscape's pre-fix code
+			// did a raw ptc.Configs[k] slice index, which panics when k is
+			// out-of-range AND nil-derefs when the slot is nil. Mirror the
+			// optional-chain by guarding both branches.
+			// TS ObjType.ts:73 uses ParamType.get(key)?.autodisable — the
+			// optional-chain silently no-ops when the ParamType lookup
+			// misses, leaving the param in place. goscape's pre-fix code
+			// did a raw ptc.Configs[k] slice index, which panics when k is
+			// out-of-range AND nil-derefs when the slot is nil. Mirror the
+			// optional-chain by guarding both branches.
+			for k := range config.Params {
+				if int(k) >= len(ptc.Configs) {
+					continue
+				}
+				pt := ptc.Configs[k]
+				if pt == nil {
+					continue
+				}
+				if pt.AutoDisable {
 					delete(config.Params, k)
 				}
 			}

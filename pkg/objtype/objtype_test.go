@@ -210,6 +210,90 @@ func TestApplyPostDecodeFixupsDummyItemZeroPreservesTradeable(t *testing.T) {
 	}
 }
 
+// TestApplyPostDecodeFixupsF2P_OutOfRangeParam_NoPanic pins cfg-onl-2 (a): TS
+// ObjType.ts:73 uses ParamType.get(key)?.autodisable — optional-chain silently
+// no-ops on lookup miss. goscape's pre-fix code did a raw ptc.Configs[k] slice
+// index that PANICS with "index out of range" when k >= len(ptc.Configs).
+// Post-fix the loop quietly skips the param, leaving it in place — matching
+// TS's miss-is-no-op semantics.
+func TestApplyPostDecodeFixupsF2P_OutOfRangeParam_NoPanic(t *testing.T) {
+	t.Setenv("NODE_MEMBERS", "false")
+
+	ot := NewObjType(0)
+	ot.Members = true
+	ot.Params = ParamMap{99: "stays"}
+
+	otc := &ObjTypeConfigs{Configs: []*ObjType{ot}}
+	// ptc.Configs has length 2 — key 99 is out-of-range.
+	ptc := &ParamTypeConfigs{Configs: []*ParamType{
+		{AutoDisable: false},
+		{AutoDisable: false},
+	}}
+
+	// Pre-fix this call panics (index out of range [99]); post-fix returns
+	// normally. The test's pass condition is "did not panic"; if it did
+	// panic the Go test runner reports it as a FAIL.
+	applyPostDecodeFixups(otc, ptc)
+
+	if _, ok := ot.Params[99]; !ok {
+		t.Errorf("Params[99]: got dropped, want preserved (TS ?.autodisable miss must no-op, not delete)")
+	}
+}
+
+// TestApplyPostDecodeFixupsF2P_NilParamTypeSlot_NoPanic pins cfg-onl-2 (b):
+// ptc.Configs[k] can be nil for a sparse cache. Pre-fix the .AutoDisable read
+// nil-derefs; post-fix the loop quietly skips matching TS's ?.autodisable
+// short-circuit on null.
+func TestApplyPostDecodeFixupsF2P_NilParamTypeSlot_NoPanic(t *testing.T) {
+	t.Setenv("NODE_MEMBERS", "false")
+
+	ot := NewObjType(0)
+	ot.Members = true
+	ot.Params = ParamMap{1: "stays"}
+
+	otc := &ObjTypeConfigs{Configs: []*ObjType{ot}}
+	// In-range but nil slot.
+	ptc := &ParamTypeConfigs{Configs: []*ParamType{
+		{AutoDisable: false},
+		nil,
+	}}
+
+	applyPostDecodeFixups(otc, ptc)
+
+	if _, ok := ot.Params[1]; !ok {
+		t.Errorf("Params[1]: got dropped, want preserved (TS ?.autodisable on nil ParamType must no-op)")
+	}
+}
+
+// TestApplyPostDecodeFixupsF2P_AutoDisableTrue_DeletesParam control test:
+// the existing TS-faithful delete path still fires when ParamType is present
+// AND AutoDisable=true. Ensures the new guards are not over-broad.
+func TestApplyPostDecodeFixupsF2P_AutoDisableTrue_DeletesParam(t *testing.T) {
+	t.Setenv("NODE_MEMBERS", "false")
+
+	ot := NewObjType(0)
+	ot.Members = true
+	ot.Params = ParamMap{
+		0: "drop_me",
+		1: "keep_me",
+	}
+
+	otc := &ObjTypeConfigs{Configs: []*ObjType{ot}}
+	ptc := &ParamTypeConfigs{Configs: []*ParamType{
+		{AutoDisable: true},  // key 0 — should be deleted
+		{AutoDisable: false}, // key 1 — should be preserved
+	}}
+
+	applyPostDecodeFixups(otc, ptc)
+
+	if _, ok := ot.Params[0]; ok {
+		t.Errorf("Params[0]: got preserved, want deleted (AutoDisable=true must fire)")
+	}
+	if _, ok := ot.Params[1]; !ok {
+		t.Errorf("Params[1]: got deleted, want preserved (AutoDisable=false must not fire)")
+	}
+}
+
 // newTestObjTypeConfigs builds a minimal ObjTypeConfigs from a debugname→id map.
 // Used by TestObjTypeConfigs_ByName.
 func newTestObjTypeConfigs(ids map[int]string) *ObjTypeConfigs {
