@@ -1154,7 +1154,20 @@ func (p *Player) clearSuspendedDialogScript() {
 // currently-open chat and side modals. M8: the modal bits are cleared/OR'd
 // individually (not assigned) so unrelated bits — notably TUT (0x8) — survive,
 // matching TS Player.openMainModal (Player.ts:1928-1950).
+//
+// h-interface-1: TS writes `new IfClose()` per displaced slot
+// (Player.ts:1929-1934 for CHAT, :1936-1940 for SIDE) BEFORE the
+// refreshModal-driven IF_OPEN. encodeOut's close-before-open order
+// (player.go:466-477 → IF_CLOSE then IF_OPEN) makes setting
+// refreshModalClose here equivalent to TS's inline writes. TS's two
+// IfClose writes (one per displaced slot) coalesce into goscape's
+// single IF_CLOSE — the wire packet is a close-all-modals signal on
+// the client, so 1 and 2 are functionally identical. Self-displacement
+// of main is NOT a close (TS uses |= MAIN with no prior bit check).
 func (p *Player) OpenMain(com int) {
+	if p.modalState&(modalStateChat|modalStateSide) != modalStateNone {
+		p.refreshModalClose = true
+	}
 	p.modalState &^= modalStateChat
 	p.modalChat = -1
 	p.modalState &^= modalStateSide
@@ -1168,7 +1181,14 @@ func (p *Player) OpenMain(com int) {
 // OpenChat opens com as the chat modal. Per TS, opening chat closes any
 // currently-open main and side modals. M8: bit-wise clear/OR preserves TUT
 // (TS Player.openChatModal, Player.ts:1952-1972).
+//
+// h-interface-1: TS writes `new IfClose()` per displaced slot
+// (Player.ts:1955-1960 for MAIN, :1962-1966 for SIDE). See OpenMain
+// for the close-coalescing rationale.
 func (p *Player) OpenChat(com int) {
+	if p.modalState&(modalStateMain|modalStateSide) != modalStateNone {
+		p.refreshModalClose = true
+	}
 	p.modalState &^= modalStateMain
 	p.modalMain = -1
 	p.modalState &^= modalStateSide
@@ -1182,7 +1202,14 @@ func (p *Player) OpenChat(com int) {
 // OpenSide opens com as the side modal. Per TS, opening side closes any
 // currently-open main and chat modals. M8: bit-wise clear/OR preserves TUT
 // (TS Player.openSideModal, Player.ts:1975-1995).
+//
+// h-interface-1: TS writes `new IfClose()` per displaced slot
+// (Player.ts:1981-1985 for MAIN, :1987-1991 for CHAT). See OpenMain
+// for the close-coalescing rationale.
 func (p *Player) OpenSide(com int) {
+	if p.modalState&(modalStateMain|modalStateChat) != modalStateNone {
+		p.refreshModalClose = true
+	}
 	p.modalState &^= modalStateMain
 	p.modalMain = -1
 	p.modalState &^= modalStateChat
@@ -1197,7 +1224,16 @@ func (p *Player) OpenSide(com int) {
 // modal simultaneously. Per TS, this closes any currently-open chat modal.
 // M8: bit-wise clear/OR preserves TUT and existing side state (TS
 // Player.openMainSideModal, Player.ts:2004-2018).
+//
+// h-interface-1: TS writes `new IfClose()` only when CHAT was open
+// (Player.ts:2005-2010) — MAIN and SIDE are about to be set to new
+// coms, so a per-slot close for them would be meaningless (TS uses
+// |= to OR them on without an IfClose). See OpenMain for the close-
+// coalescing rationale.
 func (p *Player) OpenMainSide(mainCom, sideCom int) {
+	if p.modalState&modalStateChat != modalStateNone {
+		p.refreshModalClose = true
+	}
 	p.modalState &^= modalStateChat
 	p.modalChat = -1
 	p.modalState |= modalStateMain
