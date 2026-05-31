@@ -7,7 +7,9 @@ import (
 
 // TestBroadcastMes_FanOutToAllPlayers pins that every non-nil entry in
 // s.players receives an identical MESSAGE_GAME packet with the supplied
-// body. Mirrors TS World.broadcastMes single-line forEach.
+// body. Mirrors TS World.broadcastMes fan-out (World.ts:1803-1811). For
+// single-line messages that fit within FontType(1).Split(_, 456), the wrap
+// is a no-op and one MESSAGE_GAME per player is emitted as before.
 func TestBroadcastMes_FanOutToAllPlayers(t *testing.T) {
 	p, cc, s := teleTestPlayer(t)
 	other := addOtherTestPlayer(t, s, "second_user", 3220, 3220, 0)
@@ -62,5 +64,37 @@ func TestBroadcastMes_EmptyMessageDelivered(t *testing.T) {
 	// SOME bytes (the framed MESSAGE_GAME packet).
 	if len(emitted) == 0 {
 		t.Errorf("empty broadcast produced zero bytes; expected framed MESSAGE_GAME packet")
+	}
+}
+
+// TestBroadcastMes_SplitsOnNewline pins world-ops-1 + world-ops-11: TS
+// World.broadcastMes (World.ts:1803-1811) splits the message on '\n' and
+// emits one wrappedMessageGame call per segment. The pre-fix Go path
+// shipped the whole string through a single MessageGame frame, leaving the
+// embedded newline in the payload. Each split segment is then run through
+// FontType(1).Split(_, 456); in the test fixture s.fontTypes is empty so
+// the wrap is a no-op and each segment becomes exactly one frame.
+//
+// Frame anatomy (OpMessageGame, PayloadSize=-1):
+//
+//	opcode(1) + size(1) + PJStrLF(payload) where PJStrLF appends a 0x0a
+//	terminator. For "line1" the frame is 1+1+5+1 = 8 bytes; for the
+//	combined "line1\nline2" payload it is 1+1+11+1 = 14 bytes.
+//
+// Post-fix the two segments yield two 8-byte frames = 16 bytes total.
+func TestBroadcastMes_SplitsOnNewline(t *testing.T) {
+	p, cc, s := teleTestPlayer(t)
+
+	s.BroadcastMes("line1\nline2")
+
+	emitted := drainAfterTele(t, p, cc)
+	if got, want := len(emitted), 16; got != want {
+		t.Errorf("BroadcastMes splits on '\\n' (TS World.ts:1803-1811 broadcastMes / world-ops-1): got %d bytes, want %d (two MESSAGE_GAME frames of 8 bytes each); pre-fix single-frame path emitted 14 bytes", got, want)
+	}
+	if !bytes.Contains(emitted, []byte("line1")) {
+		t.Error("emitted bytes missing 'line1' segment")
+	}
+	if !bytes.Contains(emitted, []byte("line2")) {
+		t.Error("emitted bytes missing 'line2' segment")
 	}
 }
