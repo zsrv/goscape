@@ -139,6 +139,32 @@ func TestSeqTypeDecode_DelayZeroNoFallbackUsesOne(t *testing.T) {
 	}
 }
 
+// cfg-media-1: TS SeqType.decode L97 derefs SeqFrame.instances[frames[i]].delay
+// unconditionally — an OOR frames[i] throws TypeError, aborting the config
+// parse. goscape pre-fix wrapped the deref in `idx >= 0 && idx < len(Instances)`
+// and silently fell through to the L101 default of 1 on OOR, masking bad data.
+// Post-fix matches TS by dropping the bounds guard so OOR panics (the Go
+// equivalent of TS's throw — both halt parsing on invalid input).
+// The nil-frames guard is preserved (CONFIRMED-EXCEPTION in the 2026-05-28
+// audit ledger — additive robustness for test fixtures that omit frames).
+func TestSeqTypeDecode_DelayZeroOutOfRangeFramesIndex_Panics(t *testing.T) {
+	frames := &SeqFrameConfigs{
+		Instances: []*SeqFrame{{Delay: 7}}, // length 1
+	}
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("expected panic on OOR frames[i]=999 against Instances len 1 (TS L97 unguarded must abort parse), got no panic")
+		}
+	}()
+	_, _ = decodeSeq(frames, func(p *packet.Packet) {
+		p.P1(1)
+		p.P1(1)
+		p.P2(0x03e7) // frames[0] = 999 (OOR vs Instances len 1)
+		p.P2(0x0000) // iframes[0] = 0
+		p.P2(0x0000) // delay[0] = 0 → triggers L97 fallback → OOR access
+	})
+}
+
 func TestSeqTypeDecode_Loops(t *testing.T) {
 	st, err := decodeSeq(nil, func(p *packet.Packet) { p.P1(2); p.P2(0x0007) })
 	if err != nil {

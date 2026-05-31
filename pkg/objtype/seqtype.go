@@ -64,8 +64,16 @@ func (t *SeqType) Decode(code uint8, dat *packet.Packet) error {
 
 			d := int32(dat.G2())
 			if d == 0 {
-				// TS L97: fallback to SeqFrame.instances[frames[i]].delay.
-				if t.frames != nil && int(t.Frames[i]) >= 0 && int(t.Frames[i]) < len(t.frames.Instances) {
+				// TS L97 unconditionally derefs SeqFrame.instances[frames[i]].delay;
+				// an OOR frames[i] throws TypeError, aborting the whole config
+				// parse. Match TS by dropping the bounds guard so OOR panics here
+				// (Go equivalent of TS's throw — both halt parsing on bad data;
+				// silent-default would mask data-corruption that TS would catch).
+				// cfg-media-1 (2026-05-28 audit). The nil-frames guard is
+				// preserved as additive robustness (CONFIRMED-EXCEPTION in the
+				// ledger) for test fixtures that omit a SeqFrame back-ref;
+				// production callers (LoadSeqTypes/parseSeqTypes) always set it.
+				if t.frames != nil {
 					d = int32(t.frames.Instances[t.Frames[i]].Delay)
 				}
 			}

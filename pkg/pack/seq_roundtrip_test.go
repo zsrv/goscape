@@ -22,8 +22,15 @@ func TestPackSeqRoundTrip(t *testing.T) {
 	writeFile(t, filepath.Join(srcDir, "pack", "texture.pack"), "")
 	writeFile(t, filepath.Join(srcDir, "pack", "param.pack"), "")
 
+	// delay1=1 is explicit so the encoded seq carries delay[0]=1 rather than 0;
+	// without it, SeqType.decode L97 dereferences SeqFrame.instances[frames[0]]
+	// (against the empty-Instances stub frames registry below) and panics —
+	// the pre-fix bounds guard at seqtype.go:68 silently fell through to the
+	// L101 default of 1, masking the under-specified fixture. cfg-media-1
+	// dropped that guard to match TS; the fixture's scope is Loops/Priority/
+	// Frames round-trip, so an explicit delay keeps the test single-purpose.
 	writeFile(t, filepath.Join(srcDir, "scripts", "test.seq"),
-		"[walk]\nloops=2\npriority=5\nframe1=walk_frame_1\n")
+		"[walk]\nloops=2\npriority=5\nframe1=walk_frame_1\ndelay1=1\n")
 
 	ClearFsCache()
 	if err := PackConfigs(srcDir, outDir); err != nil {
