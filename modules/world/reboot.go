@@ -116,4 +116,14 @@ func (s *Server) processShutdown() {
 		s.shutdownGraceful = true
 		close(s.gracefulExit)
 	}
+
+	// (d) world-tick-4: once shutdown has been processing for more than
+	// 2 ticks (~1.2s, enough to flush queued logout packets), kick the
+	// tick rate to 0 so the remaining drain runs as fast as possible.
+	// Mirrors TS World.processShutdown (World.ts:1222-1225). The 1024-
+	// tick force-removal deadline is reached in seconds rather than the
+	// ~10 minutes a normal 600ms cadence would take.
+	if duration > 2 {
+		s.tickRate = 0
+	}
 }

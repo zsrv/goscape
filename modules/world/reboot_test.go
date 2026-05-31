@@ -221,6 +221,51 @@ func TestProcessShutdown_ZeroPlayersTriggersGracefulExit(t *testing.T) {
 	}
 }
 
+// TestProcessShutdown_AcceleratesTickRateAfterDuration2 pins world-tick-4.
+// TS World.processShutdown (World.ts:1222-1225) sets `this.tickRate = 0`
+// once `duration > 2`, so the remaining shutdown ticks drain at the
+// fastest possible rate (reach the 1024-tick force-removal deadline in
+// seconds instead of ~10 minutes). goscape never mutated s.tickRate in
+// processShutdown — shutdown drain ran at the normal 600ms rate.
+func TestProcessShutdown_AcceleratesTickRateAfterDuration2(t *testing.T) {
+	s := newTestServer(t)
+	// duration = currentTick - shutdownTick. currentTick defaults to 0;
+	// set shutdownTick=-3 so duration=3 (> 2). Keeps the player force-
+	// removal branch (duration >= 1024) off the path.
+	s.shutdownTick = -3
+	// Seed one player so the graceful-exit branch (getTotalPlayers()==0)
+	// doesn't fire before the tickRate=0 line — TS sets tickRate AFTER
+	// the online==0 check, so a zero-player world graceful-exits without
+	// touching tickRate.
+	s.players[1] = &Player{slot: 1}
+
+	if s.tickRate != defaultTickRate {
+		t.Fatalf("precondition: tickRate=%v, want defaultTickRate (%v)", s.tickRate, defaultTickRate)
+	}
+
+	s.processShutdown()
+
+	if s.tickRate != 0 {
+		t.Errorf("TS World.processShutdown (World.ts:1222-1225) sets tickRate=0 once duration>2; got %v, want 0", s.tickRate)
+	}
+}
+
+// TestProcessShutdown_LeavesTickRateAloneWithinDuration2 verifies the
+// inverse of world-tick-4: when `duration <= 2`, tickRate must NOT be
+// mutated (TS gates the acceleration on `duration > 2`).
+func TestProcessShutdown_LeavesTickRateAloneWithinDuration2(t *testing.T) {
+	s := newTestServer(t)
+	// duration = 2 — boundary; TS uses `>` so this stays at normal rate.
+	s.shutdownTick = -2
+	s.players[1] = &Player{slot: 1}
+
+	s.processShutdown()
+
+	if s.tickRate != defaultTickRate {
+		t.Errorf("TS World.processShutdown gates tickRate=0 on duration>2; duration=2 must leave tickRate at %v, got %v", defaultTickRate, s.tickRate)
+	}
+}
+
 // TestProcessShutdown_ForceRemovesStuckPlayerAfter1024 verifies that once the
 // shutdown duration reaches 1024 ticks, processShutdown force-removes EVERY
 // remaining player directly — even one that fails the normal logout gate
