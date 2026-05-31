@@ -559,17 +559,25 @@ func (s *Server) processActiveScripts() {
 }
 
 // processPlayerQueue walks the player's queue, decrementing delays and
-// firing ready entries as fresh script runs. Iterates by index so an
-// entry appended mid-pass (via a fired script calling EnqueueScript
-// again) is visible in the same iteration — this preserves TS's
-// authentic "speedup quirk" where queue-chain reactions cascade.
+// firing ready entries as fresh script runs.
 //
-// Removal happens BEFORE firing so a re-entrant EnqueueScript doesn't
-// collide with the index pointer.
+// PLAYER-SCRIPT-2 closure: TS Player.processQueues (Player.ts:854-869)
+// delegates to processQueue() (walks `this.queue`, the non-weak LinkList)
+// and then processWeakQueue() (walks the separate `this.weakQueue`),
+// so all non-weak entries (NORMAL/STRONG/LONG) fire BEFORE any weak
+// entries on the same tick, regardless of insertion order. goscape
+// stores both kinds in a single p.queue slice (discriminated by
+// req.Type==QueueWeak); reproducing the TS ordering requires two
+// filtered passes — non-weak first, then weak. Each pass decrements
+// every matching entry's Delay exactly once per tick (matching the
+// original single-pass per-entry semantics).
 func (s *Server) processPlayerQueue(p *Player) {
 	// TS Player.processQueues (Player.ts:854-865): any STRONG-queue item
 	// closes the modal before queues run; then consume the deferred flag
 	// (also set by handleCloseModal for the CLOSE_MODAL client packet).
+	// TS scans `this.queue` (non-weak LinkList) only — weak entries can't
+	// be STRONG (distinct enum values), so scanning all of p.queue is
+	// behaviour-equivalent.
 	for _, req := range p.queue {
 		if req.Type == script.QueueStrong {
 			p.requestModalClose = true
@@ -580,34 +588,67 @@ func (s *Server) processPlayerQueue(p *Player) {
 		p.requestModalClose = false
 		p.CloseModal(true)
 	}
+	// Pass 1: non-weak (NORMAL/STRONG/LONG). Pass 2: weak.
+	// Mirrors TS Player.ts:867-868 (processQueue → processWeakQueue).
+	s.processPlayerQueueForType(p, false)
+	s.processPlayerQueueForType(p, true)
+}
+
+// processPlayerQueueForType is the per-kind helper. Walks p.queue
+// firing only entries whose weak/non-weak kind matches the filter,
+// in insertion order; entries of the other kind are skipped without
+// being consumed (the other pass picks them up).
+//
+// Iterates by index so an entry of the matching kind appended mid-pass
+// (via a fired script calling EnqueueScript again of the same kind) is
+// visible in the same pass — this preserves TS's authentic "speedup
+// quirk" within a single LinkList. A WEAK entry appended during the
+// non-weak pass is skipped by this pass's filter but picked up by the
+// subsequent weak pass on the same tick, matching TS processWeakQueue
+// running AFTER processQueue. A NON-weak entry appended during the
+// weak pass fires NEXT tick (the non-weak pass has already returned) —
+// also TS-faithful (processQueue does not re-run after processWeakQueue).
+//
+// Removal happens BEFORE firing so a re-entrant EnqueueScript doesn't
+// collide with the index pointer.
+func (s *Server) processPlayerQueueForType(p *Player, weak bool) {
 	i := 0
 	for i < len(p.queue) {
 		req := &p.queue[i]
+		if (req.Type == script.QueueWeak) != weak {
+			i++
+			continue
+		}
 		// TS Player.ts:877-881 — logout-acceleration for LONG entries
 		// marked ACCELERATE (args[0] == 0). Force-fires this tick by
 		// zeroing the remaining delay before the post-decrement runs.
+		// Weak entries are not LONG (distinct enum values), so this
+		// guard is a no-op in the weak pass.
 		if p.loggingOut && req.Type == script.QueueLong &&
 			len(req.IntArgs) > 0 && req.IntArgs[0] == 0 {
 			req.Delay = 0
 		}
-		// TS Player.ts:883 — `const delay = request.delay--;` reads the
-		// PRE-decrement value, then decrements; the gate is `delay <= 0`. So a
-		// queue entry enqueued with delay=N fires after N ticks, not N-1.
-		// Decrementing first and gating on the new value fired one tick early.
+		// TS Player.ts:883 / Player.ts:898 — `const delay = request.delay--;`
+		// reads the PRE-decrement value, then decrements; the gate is
+		// `delay <= 0`. So a queue entry enqueued with delay=N fires after
+		// N ticks, not N-1. Decrementing first and gating on the new value
+		// fired one tick early.
 		delay := req.Delay
 		req.Delay--
 		if delay > 0 {
 			i++
 			continue
 		}
-		// TS Player.processQueue (Player.ts:883-884) gates EVERY entry on
-		// `canAccess() && delay <= 0` — there is no per-type exception. STRONG's
-		// only special behavior is the modal-close pre-pass above (TS
-		// processQueues L854-865); the entry itself still waits for canAccess.
-		// M4 widens the gate from delayed-only to full CanAccess (delayed ||
-		// modal || protected); M5 drops the bogus STRONG-fires-while-delayed
-		// exception (TS has none — a STRONG queue closes the modal but still
-		// waits for the busy/delay/protect state to clear before firing).
+		// TS Player.processQueue (Player.ts:883-884) and processWeakQueue
+		// (Player.ts:898-899) both gate EVERY entry on
+		// `canAccess() && delay <= 0` — there is no per-type exception.
+		// STRONG's only special behavior is the modal-close pre-pass in
+		// processPlayerQueue above (TS processQueues L854-865); the entry
+		// itself still waits for canAccess. M4 widens the gate from
+		// delayed-only to full CanAccess (delayed || modal || protected);
+		// M5 drops the bogus STRONG-fires-while-delayed exception (TS has
+		// none — a STRONG queue closes the modal but still waits for the
+		// busy/delay/protect state to clear before firing).
 		if !p.CanAccess() {
 			i++
 			continue
