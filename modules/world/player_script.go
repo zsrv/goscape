@@ -1622,6 +1622,41 @@ func (p *Player) ApplyDamage(amount, dmgType int) {
 // Mirrors TS Player.addWealthEvent. Per NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY,
 // goscape does not emit an analytics RPC; the log is a queryable
 // in-memory record only.
+//
+// NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY — CONFIRMED EXCEPTION (closes
+// logger-transport-5 + world-tick-8 from the 2026-05-28 fresh audit).
+// TS World.addWealthEvent (World.ts:2233-2263) does two things this Go
+// path intentionally omits:
+//
+//  1. Filtering: TS drops wealth events whose type is in
+//     filteredEventTypes (DROP/PICKUP) when value <
+//     Environment.NODE_MINIMUM_WEALTH_VALUE_EVENT, suppressing low-value
+//     noise from the downstream analytics sink.
+//  2. Per-tick grouping: TS coalesces successive events whose type is in
+//     groupedEventTypes (DEATH / PVP / PARTY_ROOM) into one analytics
+//     record per (player, tick), summing values and concatenating
+//     extra-item lists.
+//
+// Both behaviours exist exclusively to shape the downstream Logger
+// analytics dispatch — TS's per-tick flushWealth pushes the
+// post-filter, post-group buffer into the moderator-facing
+// wealth-event pipeline. goscape opted out of that dispatch (NAI-162
+// B2): the wealthLog is a queryable in-memory record only — no
+// network sink, no analytics RPC, no third-party consumer that
+// depends on the filtered + grouped shape. Filtering would silently
+// drop entries that scripts and tests can legitimately observe via
+// the in-memory accessor; grouping would change the slice cardinality
+// that callers iterate over. Neither porting move makes sense without
+// a consuming analytics pipeline, which is itself out of scope for
+// the engine port (see the broader NAI-72/73/74/Phase2 logger-bridge
+// deferrals in docs/superpowers/audits/2026-05-28-ts-parity-audit-fresh
+// -coverage.md).
+//
+// If a future revision wires a real wealth-event analytics consumer,
+// the filtering/grouping belongs at the dispatch boundary (a Logger-
+// equivalent module's submit method, applied per outbound batch), not
+// here on the per-event append path that scripts observe. Keep this
+// helper one-line and side-effect-free until then.
 func (p *Player) AddWealthEvent(evt script.WealthEvent) {
 	p.wealthLog = append(p.wealthLog, evt)
 }
