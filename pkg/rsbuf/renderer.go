@@ -42,18 +42,24 @@ func (r *Renderer) ComputePlayers(players []PlayerSource) {
 		// Low-def carries baselines for newly-visible players (appearance
 		// + face). Kept alive by EntityMask so a player with no live masks
 		// but a persistent face-entity target is still fully describable
-		// to new observers.
+		// to new observers. CHAT is PRESERVED: Rust `lowdefinition`
+		// (info.rs:296-346) never strips CHAT — the strip lives only in
+		// `highdefinition` (info.rs:282-293) for the self-echo path. A
+		// player becoming visible the same tick they chat must include
+		// CHAT in the add block so new observers hear the line.
 		if masks == 0 && p.EntityMask() == 0 {
 			r.lowDefFull[slot] = nil
 		} else {
 			fullMasks := masks | MaskAppearance | MaskFaceCoord
-			r.lowDefFull[slot] = buildPayload(p, fullMasks, true)
+			r.lowDefFull[slot] = buildPayload(p, fullMasks, false)
 		}
 
 		// lowDefNoApp always includes FACE_COORD so newly-visible players
 		// whose appearance is cached client-side still get a face target.
+		// CHAT preserved per Rust `lowdefinition` (same rationale as
+		// lowDefFull above).
 		noAppMasks := (masks | MaskFaceCoord) &^ MaskAppearance
-		r.lowDefNoApp[slot] = buildPayload(p, noAppMasks, true)
+		r.lowDefNoApp[slot] = buildPayload(p, noAppMasks, false)
 	}
 }
 

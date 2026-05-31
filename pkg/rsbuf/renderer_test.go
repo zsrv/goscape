@@ -138,6 +138,78 @@ func TestComputePlayers_DualHighDef_NoChat_Identical(t *testing.T) {
 	}
 }
 
+// TestComputePlayers_LowDef_PreservesChat pins the rsbuf-player-2 fix:
+// Rust `lowdefinition` (info.rs:296-346) does NOT strip CHAT — only the
+// self-echo `highdefinition` arm (info.rs:282-293) does. A player who
+// chats the same tick they become visible to a new observer must
+// include CHAT in the low-def add block so the new observer hears the
+// line. Pre-fix both `lowDefFull` and `lowDefNoApp` built with
+// suppressChat=true → MaskChat dropped from header + payload bytes.
+func TestComputePlayers_LowDef_PreservesChat(t *testing.T) {
+	p := &fakeSource{
+		slot:        5,
+		masks:       MaskChat | MaskAnim,
+		entityMask:  MaskFaceCoord,
+		animID:      0x1234,
+		animDelay:   5,
+		chatColour:  1,
+		chatEffect:  2,
+		chatRights:  3,
+		chatBytes:   []byte("yo"),
+		appearance:  []byte{1, 2, 3},
+		faceSquareX: 100, faceSquareZ: 200,
+	}
+	r := NewRenderer()
+	r.ComputePlayers([]PlayerSource{p})
+
+	// lowDefFull header expectation: masks (Chat|Anim) | Appearance |
+	// FaceCoord. Compute via the same OR the renderer uses.
+	wantFullMasks := (MaskChat | MaskAnim) | MaskAppearance | MaskFaceCoord
+	lowFull := r.LowDefFullOf(5)
+	if len(lowFull) == 0 {
+		t.Fatalf("LowDefFullOf(5) is nil; expected chat-preserved low-def bytes")
+	}
+	gotFullMasks := decodeMaskHeader(lowFull)
+	if gotFullMasks&MaskChat == 0 {
+		t.Errorf("LowDefFullOf header: MaskChat (0x%02x) stripped; full header bytes=%v (Rust lowdefinition info.rs:296-346 must NOT strip CHAT — rsbuf-player-2)", MaskChat, lowFull[:2])
+	}
+	if gotFullMasks != wantFullMasks {
+		t.Errorf("LowDefFullOf header masks: got 0x%04x, want 0x%04x (Chat|Anim|Appearance|FaceCoord)", gotFullMasks, wantFullMasks)
+	}
+
+	// lowDefNoApp header expectation: (masks | FaceCoord) & ^Appearance
+	// = (Chat | Anim | FaceCoord) with Appearance stripped.
+	wantNoAppMasks := (MaskChat | MaskAnim | MaskFaceCoord) &^ MaskAppearance
+	lowNo := r.LowDefNoAppOf(5)
+	if len(lowNo) == 0 {
+		t.Fatalf("LowDefNoAppOf(5) is nil; expected chat-preserved low-def bytes")
+	}
+	gotNoAppMasks := decodeMaskHeader(lowNo)
+	if gotNoAppMasks&MaskChat == 0 {
+		t.Errorf("LowDefNoAppOf header: MaskChat (0x%02x) stripped; full header bytes=%v (Rust lowdefinition info.rs:296-346 must NOT strip CHAT — rsbuf-player-2)", MaskChat, lowNo[:2])
+	}
+	if gotNoAppMasks != wantNoAppMasks {
+		t.Errorf("LowDefNoAppOf header masks: got 0x%04x, want 0x%04x (Chat|Anim|FaceCoord, no Appearance)", gotNoAppMasks, wantNoAppMasks)
+	}
+}
+
+// decodeMaskHeader reads the 1- or 2-byte mask header per
+// writeMaskHeader (mask_payload.go:7): single byte if value <= 0xff,
+// otherwise low-byte | 0x80 marker followed by high byte.
+func decodeMaskHeader(buf []byte) int {
+	if len(buf) == 0 {
+		return 0
+	}
+	first := int(buf[0])
+	if first&0x80 == 0 {
+		return first
+	}
+	if len(buf) < 2 {
+		return first &^ 0x80
+	}
+	return (first &^ 0x80) | (int(buf[1]) << 8)
+}
+
 // TestComputePlayers_DualHighDef_MasksZero_BothNil pins the
 // no-mask case: both cache variants are nil so encoders take the
 // idle path with no orphan mask-header byte.
