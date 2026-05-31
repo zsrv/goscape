@@ -2716,3 +2716,44 @@ func TestMoveClickNonRoutefinderPathsToDestNotStart(t *testing.T) {
 		t.Errorf("waypoints[0]: got (%d,%d), want dest (%d,%d)", gotX, gotZ, destX, destZ)
 	}
 }
+
+// TestParseIntOr_JSparseIntSemantics pins net-client-h-social-1: parseIntOr
+// ports TS tryParseInt → JS parseInt semantics (longest leading
+// decimal-digit prefix, optional sign, 0x prefix → hex, leading whitespace
+// skipped). Pre-fix Atoi rejected every divergent shape and returned def.
+func TestParseIntOr_JSparseIntSemantics(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		def  int
+		want int
+	}{
+		// Audit-cited divergences (pre-fix Atoi rejects all → def).
+		{"trailing-letters", "100ms", 0, 100},
+		{"trailing-word", "10abc", 0, 10},
+		{"trailing-second-number", "30s", 99, 30},
+		{"decimal-point-truncates-at-dot", "3.5", 0, 3},
+		{"hex-prefix-lower", "0x10", 0, 16},
+		{"hex-prefix-upper", "0XFF", 0, 255},
+		{"leading-spaces", "  42", 0, 42},
+		// Regression guards: TS-faithful + Atoi-faithful overlap.
+		{"plain-decimal", "123", 0, 123},
+		{"negative-decimal", "-7", 0, -7},
+		{"plus-sign", "+9", 0, 9},
+		// NaN → def shapes (no leading digits).
+		{"empty", "", 42, 42},
+		{"only-letters", "abc", 99, 99},
+		{"only-spaces", "   ", 5, 5},
+		{"hex-prefix-no-digits", "0x", 7, 7},
+		{"sign-no-digits", "-", 11, 11},
+		{"leading-dot", ".5", 3, 3},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := parseIntOr(c.in, c.def)
+			if got != c.want {
+				t.Errorf("parseIntOr(%q, %d) = %d, want %d (TS parseInt via TryParse.ts:20)", c.in, c.def, got, c.want)
+			}
+		})
+	}
+}

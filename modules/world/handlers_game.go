@@ -1354,14 +1354,58 @@ func handleClientCheat(p *Player, payload []byte) error {
 	return nil
 }
 
-// parseIntOr parses s as a base-10 int, returning def on any error.
-// Mirrors TS tryParseInt used by the cheat handler at ClientCheatHandler.ts.
+// parseIntOr ports TS tryParseInt (src/util/TryParse.ts:11-26) used by the
+// cheat handler at ClientCheatHandler.ts. tryParseInt delegates to JS
+// parseInt(value) (no radix). Per the ECMAScript parseInt grammar:
+// leading whitespace is skipped, optional +/- sign accepted, a leading
+// "0x"/"0X" switches to base 16, otherwise the longest leading decimal-digit
+// prefix is consumed and the parse stops at the first non-digit. Any input
+// without parseable leading digits yields NaN, which tryParseInt maps to def.
+//
+// Diverges from Go's strconv.Atoi (strict — rejects trailing garbage, hex
+// prefix, decimal points, even leading whitespace). Pre-fix concrete
+// divergences on cheat-command args: "100ms" → TS 100 / Go def; "30s" →
+// TS 30 / Go def; "0x10" → TS 16 / Go def; "  42" → TS 42 / Go def.
 func parseIntOr(s string, def int) int {
-	v, err := strconv.Atoi(strings.TrimSpace(s))
+	s = strings.TrimLeft(s, " \t\n\v\f\r")
+	if s == "" {
+		return def
+	}
+	sign := 1
+	i := 0
+	if s[0] == '+' {
+		i = 1
+	} else if s[0] == '-' {
+		sign = -1
+		i = 1
+	}
+	base := 10
+	if len(s)-i >= 2 && s[i] == '0' && (s[i+1] == 'x' || s[i+1] == 'X') {
+		base = 16
+		i += 2
+	}
+	start := i
+	if base == 10 {
+		for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+			i++
+		}
+	} else {
+		for i < len(s) && isHexDigit(s[i]) {
+			i++
+		}
+	}
+	if i == start {
+		return def
+	}
+	n, err := strconv.ParseInt(s[start:i], base, 64)
 	if err != nil {
 		return def
 	}
-	return v
+	return sign * int(n)
+}
+
+func isHexDigit(b byte) bool {
+	return (b >= '0' && b <= '9') || (b >= 'a' && b <= 'f') || (b >= 'A' && b <= 'F')
 }
 
 // handleMoveMinimapClick is the dispatch entry for MOVE_MINIMAPCLICK
