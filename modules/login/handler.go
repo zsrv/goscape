@@ -298,16 +298,28 @@ func (h *handler) PlayerLogout(ctx context.Context, req *loginpb.PlayerLogoutReq
 		return nil, status.Errorf(codes.Internal, "setLoggedOut: %v", err)
 	}
 
-	// L46: TS calls updateHiscores here (LoginServer.ts:450) to export the
-	// logged-out player's per-stat XP/levels into the hiscore / hiscore_large
-	// leaderboard tables. goscape does not port the hiscores subsystem at all
-	// — there are no hiscore tables/migrations, no PlayerStatEnabled table, and
-	// no hiscores HTTP endpoint to serve them — so there is nothing to update.
-	// This is a deliberately deferred feature (see
-	// docs/superpowers/specs/2026-04-17-login-server-design.md and the
-	// PlayerLoading design spec), NOT a missed one-liner: porting it requires
-	// the leaderboard schema, the stat-export query, and the serving endpoint.
-	// Left as a documented no-op rather than a bare TODO.
+	// PORTING-EXCEPTION (login-server-9 / gap-db-datastruct-9):
+	// TS LoginServer (Engine-TS/src/server/login/LoginServer.ts:450)
+	// calls updateHiscores here to export the logged-out player's
+	// per-stat XP/levels into the `hiscore` and `hiscore_large`
+	// leaderboard tables; updateHiscores itself is defined at
+	// LoginServer.ts:19-109 with INSERT-or-UPDATE logic across both
+	// tables keyed by (account_id, profile, type). goscape does not
+	// port the hiscores subsystem at all: there are no hiscore
+	// migrations under modules/login/migrations, no PlayerStatEnabled
+	// metadata table, no leaderboard query plumbing, and no public
+	// hiscores HTTP endpoint to serve the data even if it were
+	// populated. Closing this requires porting the leaderboard schema
+	// (two new tables + indexes), the stat-export query, AND a serving
+	// endpoint that no current goscape consumer asks for — broader
+	// than a logout-handler fix and broader than any reasonable bundle
+	// slot. The deviation is fully contained: nothing in goscape's
+	// logout path or login resume path reads from hiscore tables, so
+	// the no-op is safe; the only observable difference is the absence
+	// of leaderboard data on a (currently nonexistent) hiscores
+	// surface. See docs/superpowers/specs/2026-04-17-login-server-
+	// design.md and the PlayerLoading design spec for the original
+	// deferral rationale. STALE-DEFER cluster. See PORTING.md.
 
 	return &loginpb.PlayerLogoutResponse{Success: true}, nil
 }
