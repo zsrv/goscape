@@ -1543,6 +1543,62 @@ func TestPacket_PJStr(t *testing.T) {
 	}
 }
 
+// TestPJStr_UTF16CodeUnitsNotUTF8 pins net-server-enc-3: PJStr emits one byte
+// per UTF-16 code unit (str.charCodeAt(i) & 0xff per TS Packet.ts:330-337),
+// NOT the UTF-8 encoding of each rune. The divergence is invisible for
+// pure-ASCII inputs (which are byte-identical between UTF-8 and the
+// lower-8-bits-of-the-UTF-16-code-unit representation), so the prior
+// TestPacket_PJStr fixtures couldn't catch the bug. This test exercises
+// three regimes the pre-fix WriteString-based body got wrong:
+//
+//   - Latin-1 supplement (é U+00E9) — pre-fix: 0xC3 0xA9; post-fix: 0xE9.
+//   - CJK BMP (U+304B か) — pre-fix: 0xE3 0x81 0x8B; post-fix: 0x4B
+//     (lower 8 bits of 0x304B, lossy per TS pjstr semantics).
+//   - Supplementary plane (😀 U+1F600 surrogate pair 0xD83D 0xDE00) —
+//     pre-fix: 0xF0 0x9F 0x98 0x80 (UTF-8); post-fix: 0x3D 0x00
+//     (lower 8 bits of each UTF-16 surrogate half).
+//
+// Toggle-revert RED proof: restore the pre-fix two-line body
+// (`p.WriteString(str); p.WriteByte(terminator)`). Each subtest then
+// reads the UTF-8-encoded byte sequence and fails with the cited message.
+func TestPJStr_UTF16CodeUnitsNotUTF8(t *testing.T) {
+	tests := []struct {
+		name string
+		str  string
+		want []byte // payload + 0x00 terminator
+	}{
+		{
+			name: "latin1 e-acute",
+			str:  "café",
+			want: []byte{0x63, 0x61, 0x66, 0xe9, 0x00},
+		},
+		{
+			name: "BMP CJK hiragana ka",
+			str:  "か",
+			want: []byte{0x4b, 0x00},
+		},
+		{
+			name: "supplementary emoji grinning face",
+			str:  "\U0001F600",
+			want: []byte{0x3d, 0x00, 0x00},
+		},
+		{
+			name: "ASCII regression guard",
+			str:  "hi",
+			want: []byte{0x68, 0x69, 0x00},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := NewPacket(make([]byte, 0, 16))
+			p.PJStr(tt.str, 0)
+			if got := p.Bytes(); !slices.Equal(got, tt.want) {
+				t.Errorf("PJStr(%q): got % x, want % x; TS Packet.ts:330-337 pjstr writes (charCodeAt(i)&0xff) per UTF-16 code unit, NOT UTF-8 bytes (net-server-enc-3)", tt.str, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestPacket_PJStrLF(t *testing.T) {
 	type fields struct {
 		buf      []byte

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"unicode/utf16"
 )
 
 // GetCRC returns the checksum of length bytes in src beginning at offset.
@@ -404,8 +405,32 @@ func (p *Packet) PBool(value bool) {
 }
 
 // PJStr puts a JagString, terminated by terminator.
+//
+// TS Packet.pjstr (Packet.ts:330-337) writes (str.charCodeAt(i) & 0xff) for
+// every JS string position — one byte per UTF-16 code unit. Go strings are
+// UTF-8 byte sequences, so a naive WriteString would emit the multi-byte
+// UTF-8 encoding of any non-ASCII rune, producing a different (longer and
+// byte-divergent) wire payload from TS. To stay byte-faithful, iterate the
+// rune sequence and emit (rune & 0xff) for each BMP code point; for
+// supplementary code points (> 0xFFFF) emit both lower bytes of the surrogate
+// pair, matching JS's two-code-unit representation. ASCII paths remain
+// alloc-free.
 func (p *Packet) PJStr(str string, terminator byte) {
-	p.WriteString(str)
+	for _, r := range str {
+		if r <= 0xFFFF {
+			if err := p.WriteByte(byte(r)); err != nil {
+				panic(err)
+			}
+			continue
+		}
+		hi, lo := utf16.EncodeRune(r)
+		if err := p.WriteByte(byte(hi)); err != nil {
+			panic(err)
+		}
+		if err := p.WriteByte(byte(lo)); err != nil {
+			panic(err)
+		}
+	}
 	if err := p.WriteByte(terminator); err != nil {
 		panic(err)
 	}
