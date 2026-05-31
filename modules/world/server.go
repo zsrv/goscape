@@ -17,6 +17,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"github.com/zsrv/goscape/internal/dskit/signals"
 	"github.com/zsrv/goscape/pkg/cache"
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
@@ -1092,6 +1095,21 @@ func (c *client) callPlayerLoginRPC(req *loginpb.PlayerLoginRequest, safeName st
 	resp, err := c.server.loginClient.PlayerLogin(ctx, req)
 	if err != nil {
 		c.log.Warn("PlayerLogin RPC failed", "error", err)
+		// login-server-5: TS LoginServer's rejectLoginForSafety
+		// (LoginServer.ts:115-124) — fired from the LoginServer.ts:287-290
+		// reconnect-save / 346-347 missing-save-with-logout / 364-367
+		// corrupt-save sites — sends response 7 which World.ts:1857-1861
+		// maps to wire opcode 11 ("Login server rejected session. Please
+		// try again."). goscape's login handler at modules/login/handler.go
+		// :181/184/224/236 surfaces those four paths as codes.DataLoss;
+		// translate that specific status back to OpLoginServerRejected
+		// here so the world sends opcode 11 instead of opcode 8 (offline).
+		// Any non-DataLoss error keeps the prior OpLoginServerOffline
+		// posture — a real transport / Internal failure IS the login server
+		// being unreachable, which is what opcode 8 reports.
+		if st, ok := status.FromError(err); ok && st.Code() == codes.DataLoss {
+			return loginresp.OpLoginServerRejected.Opcode, err
+		}
 		return loginresp.OpLoginServerOffline.Opcode, err
 	}
 	c.log.Info("PlayerLogin RPC response", "result", resp.GetResult())

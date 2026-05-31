@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
@@ -149,6 +151,62 @@ func TestCallPlayerLoginRPC_RPCErrorReturnsServerOffline(t *testing.T) {
 	}
 	if c.savePayload != nil || c.username != "" || c.sessionUUID != "" {
 		t.Errorf("session must NOT be cached on RPC error: savePayload=%v username=%q sessionUUID=%q", c.savePayload, c.username, c.sessionUUID)
+	}
+}
+
+// TestCallPlayerLoginRPC_DataLossErrorReturnsRejected pins login-server-5:
+// the login handler emits codes.DataLoss for every rejectLoginForSafety
+// path (TS LoginServer.ts:115-124 / 287-290 / 346-347 / 364-367). The
+// world must map that specific gRPC status to OpLoginServerRejected
+// (wire opcode 11 — "Login server rejected session. Please try again.")
+// — matching TS World.ts:1857-1861 where reply=7 → opcode 11. The
+// previous code lumped DataLoss in with every other gRPC error and
+// returned OpLoginServerOffline (opcode 8), surfacing a safety-reject
+// to the user as "Login server offline".
+func TestCallPlayerLoginRPC_DataLossErrorReturnsRejected(t *testing.T) {
+	dataLossErr := status.Error(codes.DataLoss, "save verify failed")
+	fake := newFakeLoginClient()
+	fake.playerLoginErr = dataLossErr
+	c, _ := newClientWithFakeLoginServer(t, fake)
+	req := sampleLoginReq(t, c)
+
+	reply, err := c.callPlayerLoginRPC(req, "test")
+	if !errors.Is(err, dataLossErr) {
+		t.Errorf("err: got %v, want %v (or wrapped)", err, dataLossErr)
+	}
+	if reply != loginresp.OpLoginServerRejected.Opcode {
+		t.Errorf("reply: got %d, want OpLoginServerRejected (%d) — TS LoginServer.ts:115-124 rejectLoginForSafety → World.ts:1859 opcode 11 (login-server-5)",
+			reply, loginresp.OpLoginServerRejected.Opcode)
+	}
+	if c.savePayload != nil || c.username != "" || c.sessionUUID != "" {
+		t.Errorf("session must NOT be cached on rejected login: savePayload=%v username=%q sessionUUID=%q",
+			c.savePayload, c.username, c.sessionUUID)
+	}
+}
+
+// TestCallPlayerLoginRPC_NonDataLossErrorStillReturnsOffline guards against
+// a regression where the login-server-5 dispatch widens to catch every gRPC
+// error: a real transport failure (codes.Unavailable) or codes.Internal must
+// continue to surface as OpLoginServerOffline (opcode 8 — "Login server
+// offline"). Only the DataLoss-coded safety-reject path translates to opcode 11.
+func TestCallPlayerLoginRPC_NonDataLossErrorStillReturnsOffline(t *testing.T) {
+	for _, code := range []codes.Code{codes.Unavailable, codes.Internal, codes.Unknown} {
+		t.Run(code.String(), func(t *testing.T) {
+			rpcErr := status.Error(code, "transport down")
+			fake := newFakeLoginClient()
+			fake.playerLoginErr = rpcErr
+			c, _ := newClientWithFakeLoginServer(t, fake)
+			req := sampleLoginReq(t, c)
+
+			reply, err := c.callPlayerLoginRPC(req, "test")
+			if !errors.Is(err, rpcErr) {
+				t.Errorf("err: got %v, want %v (or wrapped)", err, rpcErr)
+			}
+			if reply != loginresp.OpLoginServerOffline.Opcode {
+				t.Errorf("reply for %s: got %d, want OpLoginServerOffline (%d)",
+					code, reply, loginresp.OpLoginServerOffline.Opcode)
+			}
+		})
 	}
 }
 
