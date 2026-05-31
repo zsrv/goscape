@@ -12,7 +12,7 @@ import (
 // version 6, the int32 playtime at offset 24, and a trailing 4-byte CRC over
 // the preceding body.
 func makeValidSave(playtime int32) []byte {
-	body := make([]byte, 28) // header through playtime (offset 24..27)
+	body := make([]byte, 28)      // header through playtime (offset 24..27)
 	body[0], body[1] = 0x20, 0x04 // magic 0x2004
 	body[2], body[3] = 0x00, 0x06 // version 6
 	body[24] = byte(playtime >> 24)
