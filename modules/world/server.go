@@ -872,6 +872,15 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 			if err != io.EOF {
 				s.log.Error("connection read error", "error", err)
 			}
+			// logger-transport-4: TS TcpServer.ts:44-67 emits an ENGINE
+			// session log on every disconnect kind (close / error / timeout)
+			// while a player is attached. Gating on c.player != nil mirrors
+			// TS's `if (client.player)` check — pre-login disconnects have
+			// no session_uuid to attach the log to.
+			if c.player != nil {
+				msg, extra := disconnectSessionLogEvent(err)
+				c.player.AddSessionLog(LoggerEventTypeEngine, msg, extra...)
+			}
 			return
 		}
 
@@ -1132,6 +1141,30 @@ func loginResultToRS2(result loginpb.LoginResult) byte {
 	}
 }
 
+// disconnectSessionLogEvent classifies a per-conn read-side error into the
+// TS-faithful ENGINE session-log message (and optional extra args). Mirrors
+// the three TcpServer.ts:44-67 handlers:
+//
+//   - s.on('close') → "TCP socket closed"   (io.EOF / net.ErrClosed)
+//   - s.on('timeout') → "TCP socket timeout" (net.Error.Timeout())
+//   - s.on('error')   → "TCP socket error"   (any other error, with err.Error()
+//     joined per AddSessionLog's TS args-join quirk)
+//
+// goscape collapses TS's three socket event handlers into one read-error
+// branch because Go's net.Conn surfaces all three failure modes through a
+// single Read() return — the discrimination happens by error type rather
+// than by event source.
+func disconnectSessionLogEvent(err error) (string, []string) {
+	if err == nil || errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
+		return "TCP socket closed", nil
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return "TCP socket timeout", nil
+	}
+	return "TCP socket error", []string{err.Error()}
+}
+
 var errWorldFull = errors.New("world full")
 
 func (s *Server) addPlayer(p *Player) error {
@@ -1369,6 +1402,14 @@ func (s *Server) removePlayerOnTick(p *Player) {
 		p.friendsSubCancel()
 		p.friendsSubCancel = nil
 	}
+	// logger-transport-4: TS World.removePlayer (World.ts:1606) emits a
+	// MODERATOR session log immediately before flushPlayer/cleanup. Mirror
+	// the order here — fire BEFORE removePlayerInternal so p.session, p.x,
+	// p.z are still set when AddSessionLog snapshots them. The graceful and
+	// disconnect paths both funnel through this function (the disconnect
+	// path enqueues this on the relay queue), so the log emits once per
+	// logout regardless of how the player left.
+	p.AddSessionLog(LoggerEventTypeModerator, "Logged out")
 	s.removePlayerInternal(p)
 }
 
