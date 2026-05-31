@@ -1,6 +1,10 @@
 package script
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/zsrv/goscape/pkg/coordgrid"
+)
 
 // handleMapClock pushes the server's current tick counter. TS:
 // state.pushInt(World.currentTick).
@@ -93,7 +97,15 @@ func handleMoveCoord(s *ScriptState) error {
 	cx += x
 	cz += z
 
-	s.PushInt((level << 28) | (cx << 14) | cz)
+	// h-server-1 (2026-05-28 audit): TS ServerOps.ts:106 packs via
+	// CoordGrid.packCoord (CoordGrid.ts:136-138), which applies the
+	// 0x3fff/0x3 masks `(z & 0x3fff) | ((x & 0x3fff) << 14) | ((level & 0x3) << 28)`.
+	// goscape pre-fix packed raw, so a cx (or cz) delta that pushed
+	// the value above 0x3fff would bleed into the level field, and a
+	// level delta > 3 would bleed past bit 31 into the sign bit.
+	// pkg/coordgrid.PackCoord (coordgrid.go:167) is the byte-equivalent
+	// port of TS CoordGrid.packCoord — reuse it.
+	s.PushInt(coordgrid.PackCoord(level, cx, cz))
 	return nil
 }
 

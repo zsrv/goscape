@@ -74,6 +74,59 @@ func TestMoveCoord(t *testing.T) {
 	}
 }
 
+// TestMoveCoord_AppliesPackingMasks pins h-server-1 (2026-05-28 audit):
+// TS ServerOps.ts:106 packs via CoordGrid.packCoord (CoordGrid.ts:136-138)
+// with the 0x3fff/0x3 masks. Pre-fix goscape OR'd raw shifted values, so
+// a cx (or cz) delta that pushed the result above 0x3fff bled into the
+// level field. This test pushes cx from 0x3fff to 0x4000 with an x=+1
+// delta. TS masks 0x4000 → 0x0000 (and cx silently wraps); pre-fix
+// goscape leaves the 0x4000 bit set in (cx<<14), which lands at bit 28
+// — the lowest level bit — so the unpacked level reads as 1, not 0.
+func TestMoveCoord_AppliesPackingMasks(t *testing.T) {
+	// Start at (level=0, x=0x3fff, z=0). Packed: (0x3fff << 14) =
+	// 268419072 — well within checkCoord's [0, 2147483647] range.
+	start := (0 << 28) | (0x3fff << 14) | 0
+
+	sf := &ScriptFile{
+		Name: "movecoord_mask",
+		Opcodes: []Opcode{
+			OpPushConstantInt, // coord
+			OpPushConstantInt, // x  delta = +1 → cx = 0x4000 (out of 0x3fff range)
+			OpPushConstantInt, // y  delta = 0
+			OpPushConstantInt, // z  delta = 0
+			OpMoveCoord,
+			OpReturn,
+		},
+		IntOperands:      []int32{int32(start), 1, 0, 0, 0, 0},
+		StringOperands:   []string{"", "", "", "", "", ""},
+		InstructionCount: 6,
+	}
+	state := Init(sf, nil, false, nil, nil)
+	if err := Execute(state); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	got := state.PopInt()
+	gotLevel := (got >> 28) & 0x3
+	gotX := (got >> 14) & 0x3fff
+	gotZ := got & 0x3fff
+
+	// TS-faithful packCoord(level=0, cx=0x4000, cz=0):
+	//   (0 & 0x3) << 28      = 0
+	//   (0x4000 & 0x3fff) << 14 = 0   (the 0x4000 bit is dropped)
+	//   0 & 0x3fff           = 0
+	//   → 0
+	if gotLevel != 0 {
+		t.Errorf("level bits: got %d, want 0 (cx=0x4000 overflow must NOT bleed into level; TS CoordGrid.packCoord applies (cx & 0x3fff) << 14)", gotLevel)
+	}
+	if gotX != 0 {
+		t.Errorf("cx bits: got 0x%x, want 0x0000 (cx=0x4000 masked by 0x3fff)", gotX)
+	}
+	if gotZ != 0 {
+		t.Errorf("cz bits: got 0x%x, want 0x0000", gotZ)
+	}
+}
+
 // --- NAI-37 Task 7: WORLD_DELAY handler unit test --------------------------
 
 func TestWorldDelay_SetsExecutionWorldSuspendedAndDoesNotPop(t *testing.T) {
