@@ -230,6 +230,32 @@ func clearWorldSessions(ctx context.Context, db *sql.DB, nodeID int, profile str
 // excluded so a force-logout originating from a different node clears the
 // row a previous world wrote (TS LoginServer.ts:438-439,484-485 likewise
 // keys the clear by account/profile, not by which node currently holds it).
+//
+// PORTING-EXCEPTION (login-server-7): the logout_time stamp is per-ACCOUNT
+// here (goscape's `account.logout_time` column is keyed by account_id
+// alone) but per-PROFILE in TS (`account_login.logout_time`, keyed by
+// (account_id, profile) — see the UPDATE shape at LoginServer.ts:430-440).
+// For an account that logs in across more than one profile (different
+// worlds / save slots), TS stamps an independent logout_time per profile;
+// goscape stamps one logout_time shared by all profiles. The latent
+// failure mode: profile A graceful-logs-out (stamps account.logout_time),
+// profile B (same account, never logged in before so its save file does
+// not exist) then attempts a first login — the M25 safety reject at
+// handler.go reads the shared account.logout_time != NULL and force-
+// rejects profile B with a spurious "save missing but logout_time set"
+// even though profile B has a legitimate first-login posture. Closing
+// this requires (i) a new migration adding account_login.logout_time
+// (NULL allowed), (ii) backfilling from account.logout_time for every
+// existing (account_id, profile) row, (iii) updating setLoggedOut to
+// stamp account_login.logout_time instead of account.logout_time, (iv)
+// rewriting the M25 safety-reject site in handler.go to read the
+// per-profile column via the existing accountByUsername LEFT-JOIN, and
+// (v) deciding whether to drop account.logout_time (SQLite drop-column
+// is a CREATE-TABLE-COPY-DROP-RENAME dance pre-3.35) or leave it as
+// legacy. Broader than a setLoggedOut-site fix and broader than any
+// reasonable bundle slot. The deviation is real but only triggers on
+// multi-profile accounts; single-profile deployments are unaffected.
+// See PORTING.md.
 func setLoggedOut(ctx context.Context, db *sql.DB, accountID int, profile string) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
