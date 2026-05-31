@@ -264,6 +264,27 @@ func setLoggedOut(ctx context.Context, db *sql.DB, accountID int, profile string
 	return nil
 }
 
+// clearLoggedInFlag clears the account_login.logged_in flag WITHOUT
+// stamping account.logout_time. Mirrors the TS force-logout path at
+// LoginServer.ts:477-487, which writes only `logged_in:0, login_time:null`
+// — distinct from the graceful logout path (LoginServer.ts:425-440) which
+// also writes `logged_out:nodeId, logout_time:...`.
+//
+// Used by PlayerForceLogout. Stamping logout_time here would arm the M25
+// "save missing but logout_time set" safety reject (handler.go:233) on
+// the next login attempt — wrong for a force-logout, which is supposed
+// to release the logged-in lock so the player can reconnect cleanly.
+// [login-server-2]
+func clearLoggedInFlag(ctx context.Context, db *sql.DB, accountID int, profile string) error {
+	if _, err := db.ExecContext(ctx,
+		`UPDATE account_login SET logged_in = 0 WHERE account_id = ? AND profile = ?`,
+		accountID, profile,
+	); err != nil {
+		return fmt.Errorf("clearLoggedInFlag: %w", err)
+	}
+	return nil
+}
+
 func setAccountBanned(ctx context.Context, db *sql.DB, username string, until time.Time) error {
 	_, err := db.ExecContext(ctx,
 		`UPDATE account SET banned_until = ? WHERE username = ?`,

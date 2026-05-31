@@ -584,6 +584,42 @@ func TestPlayerForceLogout(t *testing.T) {
 	}
 }
 
+// TestPlayerForceLogout_DoesNotStampLogoutTime pins login-server-2: TS
+// force-logout (LoginServer.ts:477-487) writes ONLY `logged_in:0,
+// login_time:null` — never logout_time. Stamping logout_time would arm
+// the M25 "save missing but logout_time set" reject on the next login.
+// The graceful PlayerLogout path keeps stamping logout_time
+// (TestSetLoggedOutStampsLogoutTime continues to pin that contract).
+func TestPlayerForceLogout_DoesNotStampLogoutTime(t *testing.T) {
+	h, _ := newTestHandler(t)
+	id := insertTestAccount(t, h.db, "noStamper", "pw")
+	if err := upsertAccountLogin(t.Context(), h.db, int(id), "main", 1); err != nil {
+		t.Fatalf("upsertAccountLogin: %v", err)
+	}
+
+	pre, err := accountByUsername(t.Context(), h.db, "noStamper", "main")
+	if err != nil {
+		t.Fatalf("accountByUsername (pre): %v", err)
+	}
+	if pre.LogoutTime.Valid {
+		t.Fatalf("precondition: logout_time should be NULL before force-logout, got %q", pre.LogoutTime.String)
+	}
+
+	if _, err := h.PlayerForceLogout(t.Context(), &loginpb.PlayerForceLogoutRequest{
+		NodeId: 1, Profile: "main", Username: "noStamper",
+	}); err != nil {
+		t.Fatalf("PlayerForceLogout: %v", err)
+	}
+
+	post, err := accountByUsername(t.Context(), h.db, "noStamper", "main")
+	if err != nil {
+		t.Fatalf("accountByUsername (post): %v", err)
+	}
+	if post.LogoutTime.Valid {
+		t.Errorf("logout_time: got %q, want NULL — TS LoginServer.ts:477-487 force-logout does not stamp logout_time (login-server-2)", post.LogoutTime.String)
+	}
+}
+
 func TestPlayerAutosave(t *testing.T) {
 	h, savePath := newTestHandler(t)
 	insertTestAccount(t, h.db, "autosaveuser", "pw")

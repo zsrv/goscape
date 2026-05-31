@@ -324,7 +324,13 @@ func (h *handler) PlayerAutosave(_ context.Context, req *loginpb.PlayerAutosaveR
 	return &emptypb.Empty{}, nil
 }
 
-// PlayerForceLogout clears the logged-in flag for a given account/node/profile.
+// PlayerForceLogout clears the logged-in flag for a given account/profile.
+// Mirrors TS LoginServer.ts:477-487, which writes only `logged_in:0,
+// login_time:null` — NOT logout_time. Force-logout is meant to release the
+// logged-in lock (e.g. when a sibling world detects a dangling session) so
+// the player can reconnect cleanly; stamping logout_time would arm the M25
+// "save missing but logout_time set" safety reject on the next login.
+// [login-server-2]
 func (h *handler) PlayerForceLogout(ctx context.Context, req *loginpb.PlayerForceLogoutRequest) (*emptypb.Empty, error) {
 	account, err := accountByUsername(ctx, h.db, req.Username, req.Profile)
 	if err != nil {
@@ -333,8 +339,8 @@ func (h *handler) PlayerForceLogout(ctx context.Context, req *loginpb.PlayerForc
 	if account == nil {
 		return nil, status.Errorf(codes.NotFound, "account %q not found", req.Username)
 	}
-	if err := setLoggedOut(ctx, h.db, account.ID, req.Profile); err != nil {
-		return nil, status.Errorf(codes.Internal, "setLoggedOut: %v", err)
+	if err := clearLoggedInFlag(ctx, h.db, account.ID, req.Profile); err != nil {
+		return nil, status.Errorf(codes.Internal, "clearLoggedInFlag: %v", err)
 	}
 	return &emptypb.Empty{}, nil
 }
