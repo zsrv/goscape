@@ -154,8 +154,18 @@ func checkHuntVis(v int, op string) error {
 // checkCategoryType partially mirrors TS CategoryTypeValid
 // (ScriptValidators.ts:123). Goscape has no CategoryType config loader,
 // so the count-bound check is absent — only null-sentinel rejection
-// survives. Deviation S7f-D3. Follow-up: count-bound check when the
-// CategoryType loader lands.
+// survives. Deviation S7f-D3.
+//
+// PORTING-EXCEPTION (gap-world-reload-events-8 / cfg-var-9 / h-npc-3):
+// the CategoryType subsystem (TS CategoryType.ts:12-66) is absent —
+// no runtime loader (no `pkg/objtype/categorytype.go`), no Provider
+// on Server, no reload() arm (see modules/world/reload.go around the
+// PORTING-EXCEPTION marker there), no count-bound rejection at the
+// NPC_FINDCAT call site below. The 2026-05-28 fresh audit listed
+// this 3-row merged-alias cluster as STALE-DEFER: closing it
+// requires porting the loader + provider + reload wiring + a per-op
+// count check, broader than the validator surface. Documented;
+// deferred indefinitely. See PORTING.md.
 func checkCategoryType(v int, op string) error {
 	if v == -1 {
 		return fmt.Errorf("%s: category null(-1)", op)

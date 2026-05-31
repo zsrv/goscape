@@ -158,7 +158,18 @@ func (s *Server) Reload(clearInvs bool) error {
 	if err != nil {
 		return fmt.Errorf("reload: spotanim types: %w", err)
 	}
-	// D4-NO-CATEGORYTYPES: TS L216 has no goscape analog. Skip.
+	// PORTING-EXCEPTION (gap-world-reload-events-8 / cfg-var-9 /
+	// h-npc-3): goscape has no runtime CategoryType loader. TS
+	// World.reload (Engine-TS/src/engine/World.ts:216) reloads
+	// CategoryType.load alongside the other config types, and
+	// CategoryType.ts:12-66 is the loader itself. The CategoryType
+	// subsystem (no `categorytype.go` under pkg/objtype) was never
+	// ported, so reload() has nothing to call here and the consumer
+	// at pkg/script/handlers_npc.go's checkCategoryType drops the
+	// count-bound guard. Closing this requires porting the loader,
+	// wiring it into the cache pipeline, and adding a Provider on
+	// Server — broader than a reload-site fix. STALE-DEFER cluster.
+	// See PORTING.md.
 	enumTypes_, err := objtype.LoadEnumTypes(cachePath)
 	if err != nil {
 		return fmt.Errorf("reload: enum types: %w", err)
