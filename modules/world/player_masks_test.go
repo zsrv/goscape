@@ -404,11 +404,48 @@ func TestResetMasksResetsFaceSquare(t *testing.T) {
 	if p.faceSquareX != -1 || p.faceSquareZ != -1 {
 		t.Errorf("faceSquare not reset: got (%d,%d), want (-1,-1)", p.faceSquareX, p.faceSquareZ)
 	}
-	// Now effectiveFaceCoord must fall back to faceAngle (south), not the stale square.
+	// After reset, effectiveFaceCoord must fall back to faceAngle (which TS
+	// PathingEntity.focus(...,true) wrote to the focus coord too — see
+	// player-core-1/pathing-4 fix in FaceSquare). The reset surface clears
+	// faceSquare for the next tick but leaves faceAngle as the persistent
+	// resting orientation.
 	gotX, gotZ := p.effectiveFaceCoord()
 	if gotX != p.faceAngleX || gotZ != p.faceAngleZ {
 		t.Errorf("after reset effectiveFaceCoord should fall back to faceAngle (%d,%d); got (%d,%d)",
 			p.faceAngleX, p.faceAngleZ, gotX, gotZ)
+	}
+}
+
+// TestFaceSquare_WritesFaceAngle pins player-core-1 / pathing-4: TS
+// Player.faceSquare (Player.ts:1898-1900) calls focus(fineX,fineZ,client=true).
+// PathingEntity.focus (PathingEntity.ts:321-333) unconditionally writes
+// faceAngleX/Z BEFORE the client gate, then writes faceSquareX/Z inside it.
+// goscape's pre-fix FaceSquare only wrote faceSquareX/Z and the mask, so a
+// P_FACESQUARE script without a follow-up walk step left faceAngle stuck at
+// its prior value — typically south from unfocus(). After ResetMasks clears
+// faceSquare, effectiveFaceCoord falls back to that stale southern faceAngle,
+// silently re-orienting the entity for the next tick's forced FACE_COORD.
+func TestFaceSquare_WritesFaceAngle(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.x, p.z, p.level = 3200, 3200, 0
+	p.unfocus() // south baseline → faceAngleX/Z point to (Fine(3200,1), Fine(3199,1))
+
+	// Capture the southern faceAngle to assert it actually changes.
+	preX, preZ := p.faceAngleX, p.faceAngleZ
+
+	p.FaceSquare(3210, 3210)
+
+	wantX := 3210*2 + 1 // 6421 (TS CoordGrid.fine(3210, 1))
+	wantZ := 3210*2 + 1 // 6421
+
+	if p.faceAngleX != wantX || p.faceAngleZ != wantZ {
+		t.Errorf("FaceSquare must overwrite faceAngleX/Z to the focus coord (TS PathingEntity.focus L325-326): "+
+			"got (%d,%d), want (%d,%d) (pre-call was the southern (%d,%d))",
+			p.faceAngleX, p.faceAngleZ, wantX, wantZ, preX, preZ)
+	}
+	if p.faceSquareX != wantX || p.faceSquareZ != wantZ {
+		t.Errorf("FaceSquare must also write faceSquareX/Z (TS PathingEntity.focus L329-330): "+
+			"got (%d,%d), want (%d,%d)", p.faceSquareX, p.faceSquareZ, wantX, wantZ)
 	}
 }
 

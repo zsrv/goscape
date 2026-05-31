@@ -651,9 +651,23 @@ func (p *Player) effectiveFaceCoord() (x, z int) {
 
 // FaceSquare rotates the player to face the square at absolute (x, z)
 // on the current level. Wire coords are doubled+1 (face-center).
+//
+// Mirrors TS Player.faceSquare (Player.ts:1898-1900) → focus(fineX,fineZ,
+// client=true) at PathingEntity.ts:321-333: the client=true branch writes
+// the same fine coord to BOTH faceAngleX/Z and faceSquareX/Z and ORs the
+// coordmask. The faceAngleX/Z writes are load-bearing because faceAngle
+// is the resting orientation that survives the per-tick faceSquare reset
+// (see effectiveFaceCoord above); without it, a P_FACESQUARE issued
+// without a follow-up walk step leaves faceAngle stuck at its prior value
+// (often south from unfocus()), so the next tick's forced FACE_COORD
+// emit orients the entity back to that stale direction.
 func (p *Player) FaceSquare(x, z int) {
-	p.faceSquareX = x*2 + 1
-	p.faceSquareZ = z*2 + 1
+	fineX := x*2 + 1
+	fineZ := z*2 + 1
+	p.faceAngleX = fineX
+	p.faceAngleZ = fineZ
+	p.faceSquareX = fineX
+	p.faceSquareZ = fineZ
 	p.masks |= rsbuf.MaskFaceCoord
 }
 
