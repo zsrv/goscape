@@ -61,12 +61,34 @@ func Pack(reg *pack.Registry, srcDir, outDir string) error {
 	defer server.Release()
 
 	if err := pack.BuildVerify(client.Data, client.Length(), interfaceCRCMagic); err != nil {
-		// NAI-213-D-BUILDVERIFY-INTERFACE-MAY-DIVERGE: synthetic fixtures
-		// (and any goscape-built tree whose name-id maps don't match
-		// stock LostCity content) produce different bytes than TS's
-		// stored magic number. Downgrade to informational log; retain
-		// magic constant for future activation when upstream pack
-		// consumers are TS-byte-faithful end-to-end.
+		// NAI-213-D-BUILDVERIFY-INTERFACE-MAY-DIVERGE — CONFIRMED-EXCEPTION
+		// (pack-media-compiler-12, 2026-05-28 audit closure):
+		//
+		// TS PackClient.ts:16-18 hard-throws on CRC mismatch when
+		// Environment.BUILD_VERIFY is set. goscape downgrades to an
+		// informational stderr log and continues writing. The downgrade
+		// is INTENTIONAL and STRUCTURAL — not a transient defer:
+		//
+		//   1. The interfaceCRCMagic constant is a hash of TS's stored
+		//      name-id maps + script ordering. goscape's name-id maps
+		//      derive from the cache being packed (which may be stock
+		//      LostCity, a custom content tree, or a synthetic test
+		//      fixture). Any name-id divergence — by design or accident
+		//      — produces a different CRC than the TS-stored magic.
+		//   2. Aborting on mismatch would make goscape unable to pack
+		//      ANY content tree whose name-id map doesn't byte-match
+		//      LostCity's at the build that generated the magic. Custom
+		//      content trees and synthetic test fixtures are first-class
+		//      use cases in goscape's design; the log lets the operator
+		//      see the mismatch without breaking the pipeline.
+		//   3. The magic constant is retained so it CAN re-engage if
+		//      upstream pack consumers ever become TS-byte-faithful
+		//      end-to-end (an env-gate could promote the log to a throw
+		//      then), but that activation is not in scope for the
+		//      current 1:1 parity arc.
+		//
+		// Audit row pack-media-compiler-12 closed as ✅ EXCEPTION-
+		// DOCUMENTED — see docs/PORTING-CLOSED.md.
 		fmt.Fprintf(os.Stderr, "clientinterface: %v (NAI-213-D-BUILDVERIFY-INTERFACE-MAY-DIVERGE)\n", err)
 	}
 
