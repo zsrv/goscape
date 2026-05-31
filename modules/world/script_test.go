@@ -1954,7 +1954,7 @@ func TestPreventLogoutMessageEmitted(t *testing.T) {
 	s.playerLoop = append(s.playerLoop, p)
 
 	s.currentTick = 100
-	p.lastResponse = s.currentTick  // avoid timeout force-logout
+	p.lastResponse = s.currentTick // avoid timeout force-logout
 	p.lastConnected = s.currentTick
 	p.requestLogout = true
 	p.preventLogoutUntil = s.currentTick + 50 // still inside the prevent window
