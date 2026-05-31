@@ -30,17 +30,26 @@ func TestRepository_NewRepository_Empty(t *testing.T) {
 	}
 }
 
-func TestRepository_InitializeWorld_OverwritesExisting(t *testing.T) {
+func TestRepository_InitializeWorld_PreservesExistingCount(t *testing.T) {
+	// TS FriendServerRepository.initializeWorld at FriendServerRepository.ts:48-54
+	// early-returns `if (this.playersByWorld[world]) return;`. A duplicate
+	// WORLD_CONNECT must NOT zero the player count — the audit row
+	// friend-server-1 (2026-05-28 fresh-audit) closes the prior unconditional
+	// reset behaviour. Limit=5, one prior register → count=1; after re-init
+	// only 4 more (1..4) must fit, the 5th must be rejected.
 	r, _ := newTestRepo(t)
 	r.InitializeWorld(7, 5)
 	if !r.Register(7, 0xAAAA, 0, 0) {
 		t.Fatalf("first Register: got false, want true")
 	}
 	r.InitializeWorld(7, 5)
-	for i := uint64(1); i <= 5; i++ {
+	for i := uint64(1); i <= 4; i++ {
 		if !r.Register(7, i, 0, 0) {
-			t.Errorf("Register #%d after re-init: got false, want true", i)
+			t.Errorf("Register #%d after re-init: got false, want true (count must preserve to 1, leaving 4 slots free)", i)
 		}
+	}
+	if r.Register(7, 5, 0, 0) {
+		t.Error("Register #5 after re-init: got true, want false (TS initializeWorld is a no-op on existing world; count must NOT reset, FriendServerRepository.ts:48-54)")
 	}
 }
 

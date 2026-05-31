@@ -61,13 +61,21 @@ func (r *Repository) GetWorld(username37 uint64) int32 {
 	return 0
 }
 
-// InitializeWorld (re)creates the per-world player-count slot, resetting
-// playerCount to 0 and setting the limit. Mirrors TS FriendServer
-// initializeWorld (FriendServer.ts:412-418) where re-init implicitly
-// drops any prior socket binding; here it simply resets the counter.
+// InitializeWorld creates the per-world player-count slot on first
+// connect; a duplicate WORLD_CONNECT is a no-op that preserves the
+// existing playerCount. Mirrors TS FriendServerRepository.initializeWorld
+// (FriendServerRepository.ts:48-54), which early-returns
+// `if (this.playersByWorld[world]) return;` so a re-init never zeroes
+// the in-memory player table. (The surrounding wrapper
+// FriendServer.initializeWorld at FriendServer.ts:412-418 drops the
+// prior socket binding, which goscape models separately at
+// worldSubscriptions.register — see NAI-S4A-D-PERPLAYER-NOT-PERWORLD-STREAM.)
 func (r *Repository) InitializeWorld(worldId int32, limit int) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if _, ok := r.worlds[worldId]; ok {
+		return
+	}
 	r.worlds[worldId] = &worldState{playerCount: 0, limit: limit}
 }
 
