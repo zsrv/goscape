@@ -104,7 +104,38 @@ func (s *Server) handleRebuildResult(r rebuildResult) {
 
 // broadcastRebuildStaff sends msg privately to invoker (if non-nil)
 // AND to every online player with staffModLevel >= 4. Deduplicates.
-// Spec §4.5.
+// Spec §4.5 (docs/superpowers/specs/2026-05-18-rebuild-async-fsnotify-design.md).
+//
+// GAP-WORLD-RELOAD-EVENTS-3-D-STAFF-ONLY-REBUILD-BROADCAST — CONFIRMED EXCEPTION
+// (closes gap-world-reload-events-3 from the 2026-05-28 fresh audit).
+// TS World's rebuild-progress / outcome messages (the
+// `dev_progress`, `dev_failure`, and `dev_thread exit` paths at
+// World.ts:1750-1758, 1803-1811) all funnel into
+// World.broadcastMes (World.ts:1808-1816), which iterates the FULL
+// playerLoop — every connected player receives every "Rebuilding…",
+// "Rebuilt: Ns.", and "Rebuild failed: …" line.
+//
+// goscape deliberately narrows the broadcast to staff (modlvl >= 4)
+// plus the manual invoker. The §4.5 spec entry chose this scope to
+// avoid spamming every connected player with rebuild churn during
+// development sessions — content authors and operators see the
+// progress they care about; non-staff players see nothing. The same
+// trade-off has already shipped through the rebuild-async-fsnotify
+// design review (#2026-05-18) and the content-watcher-replay design
+// (#docs/superpowers/plans/2026-05-18-content-watcher-replay.md);
+// promoting the broadcast back to "all players" would re-litigate
+// that decision against the operator-noise rationale that motivated
+// the spec.
+//
+// Coalesced manual invokers, fsnotify-triggered rebuilds with no
+// invoker, and the `::rebuild` ContentPath-empty private-error path
+// are covered by the staff-broadcast tests at
+// modules/world/rebuild_broadcast_test.go
+// (TestBroadcastRebuildStaff_DeliversToInvokerAndStaffOnly,
+// TestBroadcastRebuildStaff_FsnotifyTriggered_NoInvoker) and
+// modules/world/handler_cheat_rebuild_test.go
+// (TestHandleClientCheat_Rebuild_DispatchesAndBroadcastsInProgress,
+// TestHandleClientCheat_Rebuild_Async_PackError_BroadcastsFailureAndSkipsReload).
 func (s *Server) broadcastRebuildStaff(invoker *Player, msg string) {
 	s.playersMu.RLock()
 	players := make([]*Player, len(s.playerLoop))
