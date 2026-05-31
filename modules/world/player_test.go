@@ -314,6 +314,76 @@ func TestProcessIn_UnhandledOpcodeDoesNotConsumeClientLimit(t *testing.T) {
 	}
 }
 
+// gap-configs-snapshot-netbase-3: TS NetworkPlayer.decodeIn
+// (NetworkPlayer.ts:78-83) tracks bytes consumed off the wire buffer
+// (`bytesStart - this.client.in.pos`) and refreshes `lastResponse` on
+// `bytesRead > 0`. A partial packet (opcode byte arrives, payload
+// hasn't) still consumes bytes, so it still keeps the idle-timeout
+// fresh — a slow but live connection should not be reaped on the
+// timeoutNoResponse threshold just because no complete packet
+// happened to land in this tick. Goscape's pre-fix processIn keyed
+// `lastResponse` off the inner `readAny` flag, which flips only when
+// readPacket returns ok=true (a complete packet was fully decoded).
+// An opcode-only partial read consumed the opcode byte but did not
+// flip readAny — so `lastResponse` was NOT refreshed even though c.in
+// advanced. Under sustained slow-drip input, the idle-timeout could
+// fire while bytes were actually flowing.
+//
+// Post-fix: track bytesRead via c.in.Pos delta around the decode
+// loop; refresh lastResponse on bytesRead > 0. decodedThisTick stays
+// keyed off readAny (TS decodeIn() return value, NAI-146 T1).
+//
+// Toggle-revert RED proof: restore the `if readAny` gate on the
+// lastResponse update. The test then reads lastResponse=-1 (unchanged
+// from the seed) and fails with the cited assertion message.
+func TestProcessIn_PartialPacketRefreshesLastResponseOnBytesConsumed(t *testing.T) {
+	enc, dec := isaacPair([4]uint32{77, 88, 99, 100})
+	p, _ := newTestPlayer(t)
+	p.client.decryptor = dec
+	p.lastResponse = -1
+
+	// Write only the opcode byte for op 189 (EVENT_CAMERA_POSITION,
+	// CategoryClientEvent, fixed payload size 6). The decode loop
+	// consumes the opcode byte (advances c.in.Pos by 1) but cannot
+	// complete the packet — c.in.Len() falls below c.waiting=6 so
+	// readPacket returns ok=false on the same iteration after stashing
+	// c.opcode for the next tick.
+	p.client.in.Write([]byte{encryptOpcode(enc, 189)})
+
+	const currentTick = 5
+	p.processIn(currentTick)
+
+	if p.lastResponse != currentTick {
+		t.Errorf("lastResponse: got %d, want %d (TS NetworkPlayer.ts:78-83 refreshes on bytes-consumed off wire buffer; partial opcode read consumed 1 byte off c.in — gap-configs-snapshot-netbase-3)", p.lastResponse, currentTick)
+	}
+	if p.decodedThisTick {
+		t.Errorf("decodedThisTick: got true, want false (no complete packet was consumed — NAI-146 T1 keeps this keyed off readAny)")
+	}
+	if p.client.in.Len() != 0 {
+		t.Errorf("c.in.Len: got %d, want 0 (opcode byte must be consumed)", p.client.in.Len())
+	}
+	if p.client.opcode != 189 {
+		t.Errorf("c.opcode: got %d, want 189 (stashed for next tick)", p.client.opcode)
+	}
+}
+
+// gap-configs-snapshot-netbase-3 inverse: a tick with ZERO bytes
+// consumed off c.in must NOT refresh lastResponse. Pins the
+// `bytesRead > 0` predicate; a regression that unconditionally sets
+// lastResponse on every tick would silently break the
+// timeoutNoResponse idle-disconnect path.
+func TestProcessIn_NoBytesConsumedDoesNotRefreshLastResponse(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.lastResponse = -1
+
+	// c.in is empty.
+	p.processIn(7)
+
+	if p.lastResponse != -1 {
+		t.Errorf("lastResponse: got %d, want -1 (no bytes consumed off c.in; TS bytesRead==0 path leaves lastResponse alone — gap-configs-snapshot-netbase-3)", p.lastResponse)
+	}
+}
+
 func TestProcessInSkipsDisconnectedClient(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.client.state = ClientStateClosed

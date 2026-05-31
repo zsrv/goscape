@@ -1185,6 +1185,20 @@ func (p *Player) processIn(currentTick int) {
 	c.inMu.Lock()
 	defer c.inMu.Unlock()
 
+	// gap-configs-snapshot-netbase-3: TS NetworkPlayer.decodeIn
+	// (NetworkPlayer.ts:69,78-83) measures bytes consumed off the wire
+	// buffer (`bytesStart - this.client.in.pos`) across the decode
+	// loop, and refreshes `lastResponse` on `bytesRead > 0`. A partial
+	// packet (opcode byte arrives, payload hasn't) still advances
+	// c.in.Pos by one — the connection is alive even though no
+	// complete packet was decoded this tick. Keying off `readAny` (a
+	// complete-packet flag) would silently let timeoutNoResponse fire
+	// on a slow-drip live connection. Pos is safe to snapshot here:
+	// c.inMu is held for the duration of the decode loop, no
+	// concurrent Write can fire grow()/Reset() against c.in, and
+	// readPacket only advances Pos via Next() — no path used by the
+	// loop body resets it.
+	posBefore := c.in.Pos
 	readAny := false
 	for p.userLimit < userEventLimit &&
 		p.clientLimit < clientEventLimit &&
@@ -1217,8 +1231,13 @@ func (p *Player) processIn(currentTick int) {
 			p.clientLimit++
 		}
 	}
-	if readAny {
-		p.lastResponse = currentTick // mirrors TS decodeIn() line 80
+	if c.in.Pos-posBefore > 0 {
+		// gap-configs-snapshot-netbase-3: refresh on any bytes
+		// consumed off c.in, including partial packets whose payload
+		// hasn't arrived yet (TS NetworkPlayer.ts:78-83 keys on the
+		// `bytesStart - this.client.in.pos` delta, not on
+		// complete-packet boundaries).
+		p.lastResponse = currentTick
 	}
 	p.decodedThisTick = readAny // NAI-146 T1: TS decodeIn() return value
 
