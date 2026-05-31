@@ -19,6 +19,7 @@ import (
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
+	tapper "github.com/zsrv/goscape/pkg/tapper"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 	"github.com/zsrv/goscape/pkg/telemetry"
@@ -1279,6 +1280,11 @@ func (p *Player) readPacket() (int, bool, error) {
 	c.opcode = -1
 
 	c.log.Debug("game packet", "opcode", opcode, "name", gameclient.Ops[opcode].Name, "len", len(payload))
+
+	if c.server != nil && c.tap != nil {
+		c.tap.Tap(p.accountID, c.sessionID, tapper.DirIn,
+			uint8(opcode), payload, time.Now())
+	}
 
 	// NAI-Phase2: emit PacketReceivedEvent for every inbound game packet,
 	// regardless of whether a handler is registered (TS-parity audit need).

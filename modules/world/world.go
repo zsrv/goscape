@@ -9,6 +9,7 @@ import (
 	"github.com/zsrv/goscape/internal/dskit/services"
 	"github.com/zsrv/goscape/internal/dskit/signals"
 	"github.com/zsrv/goscape/pkg/cache"
+	tapper "github.com/zsrv/goscape/pkg/tapper"
 )
 
 // TODO: tracer
@@ -25,7 +26,7 @@ type World struct {
 	cfg                Config
 }
 
-func New(cfg Config, logger *slog.Logger) (*World, error) {
+func New(cfg Config, logger *slog.Logger, capture *tapper.Capture) (*World, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -74,7 +75,7 @@ func New(cfg Config, logger *slog.Logger) (*World, error) {
 	}
 	w.friendsClient = friendsClient
 
-	server, err := NewServer(cfg, loginClient, friendsClient, logger)
+	server, err := NewServer(cfg, loginClient, friendsClient, logger, tap)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create server: %w", err)
 	}

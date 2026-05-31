@@ -20,6 +20,7 @@ import (
 	"github.com/zsrv/goscape/internal/dskit/signals"
 	"github.com/zsrv/goscape/pkg/cache"
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
+	tapper "github.com/zsrv/goscape/pkg/tapper"
 	"github.com/zsrv/goscape/pkg/fonttype"
 	"github.com/zsrv/goscape/pkg/friendspb"
 	"github.com/zsrv/goscape/pkg/gamemap"
@@ -57,6 +58,10 @@ type Server struct {
 	quit        chan interface{}
 	log         *slog.Logger
 	loginClient LoginClient
+	// tap is the seam handle owned by the tapper dskit
+	// module. Nil in test paths (newTestServer); production always non-nil via
+	// NewServer. Threaded onto per-connection client.tap in handleTCPConn.
+	tap *tapper.Capture
 	// friendsClient is the gRPC seam to the friends server. Nil when
 	// FriendsServerEnabled=false; in that case s.friendsBridge resolves
 	// to noopBridges{} via defaultFriendsBridge.
@@ -333,7 +338,7 @@ func (s *Server) appendNewPlayer(p *Player) {
 	s.playersMu.Unlock()
 }
 
-func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient, logger *slog.Logger) (*Server, error) {
+func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient, logger *slog.Logger, capture *tapper.Capture) (*Server, error) {
 	tcpListener, err := net.Listen(cfg.TCPListenNetwork, net.JoinHostPort(cfg.TCPListenAddress, strconv.Itoa(cfg.TCPListenPort)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create tcp listener: %w", err)
@@ -352,6 +357,7 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 		tcpListener:   tcpListener,
 		loginClient:   loginClient,
 		friendsClient: friendsClient,
+		tap: tap,
 		quit:          make(chan interface{}),
 
 		log:              logger,
@@ -775,6 +781,7 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 	//c := newClient(conn, s, s.log)
 	c := newClient(conn, s.cfg.TCPServerWriteTimeout, s.log)
 	c.server = s
+	c.tap = s.tap
 
 	// Fix 1: disable Nagle's algorithm so small game packets are sent immediately.
 	if tcpConn, ok := conn.(*net.TCPConn); ok {
@@ -791,6 +798,10 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 	}
 
 	defer func() {
+		if c.tap != nil && c.sessionID != "" {
+			c.tap.SessionEnded(c.accountID, c.sessionID, time.Now(), tapper.CloseReasonDisconnect)
+			c.sessionID = ""
+		}
 		if c.player != nil {
 			s.removePlayerOnDisconnect(c.player)
 			c.player = nil

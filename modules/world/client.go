@@ -10,9 +10,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
+	tapper "github.com/zsrv/goscape/pkg/tapper"
 )
 
 // errCloseConn signals that the connection should be closed cleanly after a
@@ -88,6 +90,16 @@ type client struct {
 	// the world emits 0 for connections that bypass the login bridge
 	// (unit tests, standalone world). NAI-Phase2 backfill.
 	accountID int64
+	// tap is the seam handle owned by the tapper dskit module;
+	// nil on tests that construct a client without a Server. Tap calls are
+	// always gated on (c.tap != nil && c.sessionID != "").
+	replay *tapper.Capture
+	// sessionID is the per-login session correlation key for the tap
+	// pipeline, freshly minted in sendLoginOK. Distinct from sessionUUID
+	// (which is the friends-bridge correlation). Empty before login;
+	// stays set across teardown so the defer in handleTCPConn can fire
+	// SessionEnded before the field is cleared.
+	sessionID string
 }
 
 func newClient(conn net.Conn, writeTimeout time.Duration /*server *World,*/, logger *slog.Logger) *client {
@@ -119,6 +131,10 @@ func (c *client) bufferData(data []byte) bool {
 }
 
 func (c *client) write(data []byte) {
+	if c.tap != nil && c.sessionID != "" && len(data) > 0 {
+		c.tap.Tap(c.accountID, c.sessionID, tapper.DirOut,
+			data[0], data[1:], time.Now())
+	}
 	// TODO: return error?
 	c.bufw.Write(data)
 	c.log.Debug("sent data", "opcode", c.opcode, "num_bytes", len(data), "data", fmt.Sprintf("%v", data))
@@ -148,6 +164,11 @@ func (c *client) sendLoginOK() error {
 		}
 		c.server.appendNewPlayer(p)
 		c.player = p
+	}
+
+	if c.tap != nil {
+		c.sessionID = uuid.NewString()
+		c.tap.SessionStarted(c.accountID, c.sessionID, time.Now())
 	}
 
 	if c.staffModLevel >= 1 {

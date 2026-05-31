@@ -21,7 +21,7 @@ func TestNewServer_LoadsWordencFilter(t *testing.T) {
 		TCPListenAddress: "127.0.0.1",
 		TCPListenPort:    0, // OS picks a free port
 	}
-	s, err := NewServer(cfg, nil, nil, discardLogger())
+	s, err := NewServer(cfg, nil, nil, discardLogger(), nil)
 	if err != nil {
 		t.Fatalf("NewServer failed: %v", err)
 	}
