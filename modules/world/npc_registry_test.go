@@ -135,6 +135,88 @@ func TestAddNpcRespawnSpawnSkipsSlotAlloc(t *testing.T) {
 	}
 }
 
+// TestRsbufLifecycle_FirstSpawnRegistersOnly covers world-ops-3
+// (2026-05-28 fresh-audit MED): TS World.addNpc at World.ts:1259-1262
+// calls rsbuf.addNpc ONLY inside `if (firstSpawn)`. goscape pre-fix
+// placed AddNpc OUTSIDE the firstSpawn block, so a revertType /
+// firstSpawn=false call re-registered an already-registered nid and
+// allocated a fresh rsbuf.Npc struct each respawn cycle, churning
+// state and breaking the TS invariant that a RESPAWN NPC keeps its
+// rsbuf entry across death/respawn. Detection: snapshot the
+// *rsbuf.Npc pointer after firstSpawn=true; a respawn must preserve
+// the same pointer (no fresh allocation).
+func TestRsbufLifecycle_FirstSpawnRegistersOnly(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Size: 1}
+	n := newRegisteredNpc(t, s, typ, true)
+
+	firstEntry := s.rsbuf.NpcForTest(int32(n.nid))
+	if firstEntry == nil {
+		t.Fatalf("rsbuf has no entry for nid=%d after firstSpawn=true (firstSpawn-gated AddNpc must fire on initial spawn)", n.nid)
+	}
+
+	// Respawn (firstSpawn=false). TS-faithful: rsbuf entry stays as-is.
+	if err := s.addNpc(n, -1, false); err != nil {
+		t.Fatalf("respawn addNpc: %v", err)
+	}
+	respawnEntry := s.rsbuf.NpcForTest(int32(n.nid))
+	if respawnEntry != firstEntry {
+		t.Errorf("rsbuf entry pointer changed across respawn: got %p, want %p (TS World.ts:1259-1262 gates rsbuf.addNpc on firstSpawn only — respawn must NOT re-allocate)",
+			respawnEntry, firstEntry)
+	}
+}
+
+// TestRsbufLifecycle_RespawnRemoveNpcPreservesEntry covers world-ops-3
+// (sibling to the firstSpawn-gating test above): TS World.removeNpc at
+// World.ts:1312-1315 calls rsbuf.removeNpc ONLY in the DESPAWN branch.
+// goscape pre-fix called RemoveNpc unconditionally before the lifecycle
+// switch, so a RESPAWN NPC lost its rsbuf entry on death (pairing with
+// the addNpc re-register bug to churn registration state every cycle).
+// Post-fix: a RESPAWN removeNpc preserves the rsbuf entry; only DESPAWN
+// clears it.
+func TestRsbufLifecycle_RespawnRemoveNpcPreservesEntry(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Size: 1}
+	n := newRegisteredNpc(t, s, typ, true)
+	n.lifecycle = NpcLifecycleRespawn
+
+	if s.rsbuf.NpcForTest(int32(n.nid)) == nil {
+		t.Fatalf("rsbuf has no entry for nid=%d after firstSpawn — preconditions wrong", n.nid)
+	}
+
+	s.removeNpc(n, 50)
+
+	if s.rsbuf.NpcForTest(int32(n.nid)) == nil {
+		t.Errorf("rsbuf entry cleared for RESPAWN nid=%d (TS World.ts:1312-1315 gates rsbuf.removeNpc on DESPAWN only — RESPAWN must preserve)", n.nid)
+	}
+	if !n.dead {
+		t.Error("n.dead: got false, want true (collision toggle / dead-flag path still runs on RESPAWN)")
+	}
+}
+
+// TestRsbufLifecycle_DespawnRemoveNpcUnregisters regression-guards the
+// DESPAWN side: removeNpc with lifecycle=DESPAWN MUST clear the rsbuf
+// entry (paired with s.npcs slot-nil + Cleanup). TS World.ts:1312-1315.
+// Pre-fix and post-fix both clear here; this test ensures the move-into-
+// branch refactor didn't accidentally skip the clear.
+func TestRsbufLifecycle_DespawnRemoveNpcUnregisters(t *testing.T) {
+	s := newTestServer(t)
+	typ := &objtype.NpcType{ConfigType: objtype.ConfigType{ID: 7}, Size: 1}
+	n := newRegisteredNpc(t, s, typ, true)
+	n.lifecycle = NpcLifecycleDespawn
+
+	if s.rsbuf.NpcForTest(int32(n.nid)) == nil {
+		t.Fatalf("rsbuf has no entry for nid=%d after firstSpawn — preconditions wrong", n.nid)
+	}
+	nidBefore := n.nid
+
+	s.removeNpc(n, 50)
+
+	if s.rsbuf.NpcForTest(int32(nidBefore)) != nil {
+		t.Errorf("rsbuf entry NOT cleared for DESPAWN nid=%d (TS World.ts:1312-1315: rsbuf.removeNpc + this.npcs.remove + npc.cleanup must fire)", nidBefore)
+	}
+}
+
 // TestAddNpcTeleportsToStart verifies that addNpc(n, duration, false)
 // teleports the NPC back to its (startX, startZ). Mirrors TS World.addNpc
 // at World.ts:1264-1265.

@@ -60,6 +60,18 @@ func (s *Server) addNpc(n *Npc, duration int, firstSpawn bool) error {
 		n.server = s
 		s.npcs[nid] = n
 		s.npcLoop = append(s.npcLoop, n)
+		// TS World.addNpc at World.ts:1259-1262 calls rsbuf.addNpc
+		// ONLY inside the firstSpawn branch (paired with this.npcs.set).
+		// A RESPAWN NPC keeps its rsbuf registration across death/respawn
+		// — the despawn-only rsbuf.removeNpc symmetry is preserved in
+		// removeNpc below. Pre-fix goscape called AddNpc on every addNpc
+		// call (including revertType respawns), re-registering an already-
+		// registered slot per tick. Closes world-ops-3 (2026-05-28
+		// fresh-audit MED) — paired with the removeNpc DESPAWN-gating
+		// edit below for the symmetric lifecycle contract.
+		if s.rsbuf != nil {
+			s.rsbuf.AddNpc(int32(n.nid), int32(n.typeId))
+		}
 	}
 	n.x = n.startX
 	n.z = n.startZ
@@ -68,9 +80,6 @@ func (s *Server) addNpc(n *Npc, duration int, firstSpawn bool) error {
 	if s.zoneMap != nil {
 		z := s.zoneMap.Get(n.level, n.x, n.z)
 		n.zoneListElement = z.EnterNpc(n)
-	}
-	if s.rsbuf != nil {
-		s.rsbuf.AddNpc(int32(n.nid), int32(n.typeId))
 	}
 	if s.gamemap != nil {
 		switch n.blockWalk {
@@ -212,9 +221,6 @@ func (s *Server) removeNpc(n *Npc, duration int) {
 		z.LeaveNpc(n, n.zoneListElement)
 		n.zoneListElement = nil
 	}
-	if s.rsbuf != nil {
-		s.rsbuf.RemoveNpc(int32(n.nid))
-	}
 	n.dead = true
 	if s.gamemap != nil {
 		switch n.blockWalk {
@@ -226,12 +232,22 @@ func (s *Server) removeNpc(n *Npc, duration int) {
 		}
 	}
 	if n.lifecycle == NpcLifecycleDespawn {
-		// NAI-19: TS World.ts:1312-1315 — rsbuf.removeNpc already fired
-		// above; release the registry slot and run Cleanup. The
-		// s.npcLoop splice is deferred to compactNpcLoop (end-of-tick)
-		// per NAI-19-D-DEFERRED-COMPACT-VS-IMMEDIATE-SPLICE to keep
+		// NAI-19: TS World.ts:1312-1315 — rsbuf.removeNpc fires ONLY in
+		// the DESPAWN branch (paired with this.npcs.remove +
+		// npc.cleanup()). A RESPAWN NPC keeps its rsbuf registration
+		// across death/respawn; pre-fix goscape called RemoveNpc
+		// unconditionally before this branch, so a respawning NPC was
+		// unregistered then re-registered every cycle. world-ops-3
+		// (2026-05-28 fresh-audit MED) — paired with the addNpc
+		// firstSpawn-gating edit above. Release the registry slot and
+		// run Cleanup. The s.npcLoop splice is deferred to
+		// compactNpcLoop (end-of-tick) per
+		// NAI-19-D-DEFERRED-COMPACT-VS-IMMEDIATE-SPLICE to keep
 		// mid-tick iteration safe. Order matters: nil the slot BEFORE
 		// Cleanup, because Cleanup sets n.nid = -1.
+		if s.rsbuf != nil {
+			s.rsbuf.RemoveNpc(int32(n.nid))
+		}
 		s.npcs[n.nid] = nil
 		n.Cleanup()
 	} else if n.lifecycle == NpcLifecycleRespawn && duration > -1 {
