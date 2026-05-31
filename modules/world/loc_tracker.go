@@ -48,8 +48,14 @@ func (t *locObjTracker) Unregister(np *entitypkg.NonPathing) {
 }
 
 // All returns an iterator over the tracked entries in insertion order.
-// Callers that mutate the tracker mid-iteration MUST snapshot first
-// (Server.processZones does this).
+// Safe under mid-iteration removal of the JUST-YIELDED entry via
+// Unregister (datastruct-db-1, 2026-05-28 audit): DoublyLinkList.All
+// captures the next pointer before yielding so the iterator survives
+// the Unlink. Removing OTHER entries during a yield body (specifically
+// the saved next pointer) remains unsafe — Server.processZones already
+// snapshots to side-step that case, and the snapshot pattern is the
+// recommended approach for callers that touch more than the current
+// node.
 func (t *locObjTracker) All() iter.Seq[*entitypkg.NonPathing] {
 	return t.list.All(false)
 }

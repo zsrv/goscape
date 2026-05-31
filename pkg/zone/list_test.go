@@ -148,3 +148,71 @@ func TestDoublyLinkList_UnlinkTailUpdatesTail(t *testing.T) {
 		t.Error("after Unlink tail, list.tail should be e1")
 	}
 }
+
+// TestDoublyLinkList_AllForward_SurvivesMidIterationUnlink pins
+// datastruct-db-1 (2026-05-28 audit): TS DoublyLinkList.all
+// (DoublyLinkList.ts:73-87) captures `this.cursor` BEFORE yielding so
+// the iterator survives an Unlink of the yielded node (Unlink clears
+// next/prev to nil, which would otherwise strand the loop).
+//
+// Setup: list of [1, 2, 3, 4, 5]; the yield body Unlinks element with
+// Value=2 the first time it sees it. TS-faithful iteration continues
+// through 3, 4, 5. Pre-fix goscape stops at 2 (Unlink cleared n.next).
+func TestDoublyLinkList_AllForward_SurvivesMidIterationUnlink(t *testing.T) {
+	var l DoublyLinkList[int]
+	elems := []*Element[int]{}
+	for _, v := range []int{1, 2, 3, 4, 5} {
+		elems = append(elems, l.AddTail(v))
+	}
+	target := elems[1] // Value=2
+	got := []int{}
+	for v := range l.All(false) {
+		got = append(got, v)
+		if v == 2 {
+			target.Unlink()
+		}
+	}
+	want := []int{1, 2, 3, 4, 5}
+	if len(got) != len(want) {
+		t.Fatalf("forward iteration with mid-Unlink: got %v (len=%d), want %v (len=%d) — pre-fix stops at 2 because Unlink clears n.next; TS DoublyLinkList.all captures next before yield",
+			got, len(got), want, len(want))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("forward iteration[%d]: got %d, want %d", i, got[i], want[i])
+		}
+	}
+	if l.Size() != 4 {
+		t.Errorf("post-iteration Size: got %d, want 4 (Unlink removed 1 element)", l.Size())
+	}
+}
+
+// TestDoublyLinkList_AllReverse_SurvivesMidIterationUnlink mirrors
+// the above for reverse=true: Unlink the just-yielded element (Value=4
+// in a [1,2,3,4,5] reverse walk → yields 5, 4, ...) and assert
+// iteration completes 5, 4, 3, 2, 1 instead of stopping at 4.
+func TestDoublyLinkList_AllReverse_SurvivesMidIterationUnlink(t *testing.T) {
+	var l DoublyLinkList[int]
+	elems := []*Element[int]{}
+	for _, v := range []int{1, 2, 3, 4, 5} {
+		elems = append(elems, l.AddTail(v))
+	}
+	target := elems[3] // Value=4 (second yield in reverse)
+	got := []int{}
+	for v := range l.All(true) {
+		got = append(got, v)
+		if v == 4 {
+			target.Unlink()
+		}
+	}
+	want := []int{5, 4, 3, 2, 1}
+	if len(got) != len(want) {
+		t.Fatalf("reverse iteration with mid-Unlink: got %v (len=%d), want %v (len=%d) — pre-fix stops at 4 because Unlink clears n.prev; TS captures prev before yield",
+			got, len(got), want, len(want))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("reverse iteration[%d]: got %d, want %d", i, got[i], want[i])
+		}
+	}
+}

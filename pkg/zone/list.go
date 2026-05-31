@@ -64,21 +64,33 @@ func (l *DoublyLinkList[T]) Size() int { return l.size }
 // All returns an iterator over the list's values. reverse=false yields
 // in insertion order; reverse=true yields in reverse insertion order.
 //
-// Mirrors TS DoublyLinkList.all(reverse?: boolean) generator.
+// Safe under mid-iteration removal of the just-yielded element: the
+// next/prev pointer is captured BEFORE yield, so a yield body that
+// calls Unlink() on the current node — which clears that node's
+// next/prev to nil — does not strand the iterator. Mirrors TS
+// DoublyLinkList.all (DoublyLinkList.ts:73-87), which saves
+// `this.cursor` before each yield and restores it after, exactly to
+// survive in-flight removal. Removing OTHER nodes during a yield
+// (specifically the saved next/prev) is still unsafe — TS shares the
+// same limitation. 2026-05-28 audit row datastruct-db-1.
 func (l *DoublyLinkList[T]) All(reverse bool) iter.Seq[T] {
 	return func(yield func(T) bool) {
 		if reverse {
-			for n := l.tail; n != nil; n = n.prev {
+			for n := l.tail; n != nil; {
+				save := n.prev
 				if !yield(n.Value) {
 					return
 				}
+				n = save
 			}
 			return
 		}
-		for n := l.head; n != nil; n = n.next {
+		for n := l.head; n != nil; {
+			save := n.next
 			if !yield(n.Value) {
 				return
 			}
+			n = save
 		}
 	}
 }
