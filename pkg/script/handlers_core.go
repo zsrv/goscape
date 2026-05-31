@@ -14,6 +14,16 @@ import "fmt"
 // onto the stack above its args), so it must consume the declared args
 // exactly like GOSUB_WITH_PARAMS.
 func handleGosub(s *ScriptState) error {
+	// TS gates the frame-stack cap at the TOP of the handler (CoreOps.ts:194-214:
+	// `if (state.fp >= 50) throw 'stack overflow'`), which the runner's
+	// try/catch converts to ScriptExecution.Aborted. Goscape mirrors this by
+	// returning the error before any stack mutation; the runner's
+	// `if err := h(s); err != nil { s.Execution=Aborted; return err }` path
+	// (script-core-2) then aborts gracefully where the pre-fix GosubCall's
+	// raw panic would have crashed the host goroutine.
+	if s.FrameSP >= FrameCapacity {
+		return fmt.Errorf("GOSUB: stack overflow (FrameSP=%d, FrameCapacity=%d) in %q", s.FrameSP, FrameCapacity, s.Script.Name)
+	}
 	if s.Provider == nil {
 		return fmt.Errorf("GOSUB: %w", ErrNoProvider)
 	}

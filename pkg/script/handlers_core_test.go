@@ -1,6 +1,9 @@
 package script
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // TestJumpClearsFrameStack verifies that JUMP discards the frame stack
 // — a GOSUB caller's frame should not be restorable after the callee
@@ -95,6 +98,112 @@ func TestGosubBasic(t *testing.T) {
 	}
 	if len(mp.messages) != 2 || mp.messages[0] != "sub" || mp.messages[1] != "main" {
 		t.Errorf("messages: got %v, want [sub main]", mp.messages)
+	}
+}
+
+// TestHandleGosub_FrameStackOverflow_ReturnsErrorNotPanic pins
+// script-core-2: TS `CoreOps.ts:194-214` gates `if (state.fp >= 50) throw
+// 'stack overflow'` at the TOP of the handler, which TS Execute's catch
+// converts to ScriptExecution.Aborted. goscape's pre-fix `GosubCall`
+// (state.go:509-511) panicked when `FrameSP >= FrameCapacity`, so a
+// pathological / miscompiled script that GOSUB'd past the cap crashed
+// the host goroutine rather than aborting gracefully. The fix gates at
+// the handler's top and returns an error; the runner's
+// `if err := h(s); err != nil { s.Execution=Aborted; return err }` path
+// then handles it like every other handler error.
+func TestHandleGosub_FrameStackOverflow_ReturnsErrorNotPanic(t *testing.T) {
+	target := &ScriptFile{
+		Name:             "[gosub_target]",
+		LookupKey:        0x4321,
+		Opcodes:          []Opcode{OpReturn},
+		IntOperands:      []int32{0},
+		StringOperands:   []string{""},
+		InstructionCount: 1,
+	}
+	caller := &ScriptFile{
+		Name:             "[gosub_caller]",
+		Opcodes:          []Opcode{OpGosub},
+		IntOperands:      []int32{0},
+		StringOperands:   []string{""},
+		InstructionCount: 1,
+	}
+	prov := NewProvider()
+	prov.RegisterAt(0x4321, target)
+
+	state := Init(caller, nil, false, nil, nil)
+	state.Provider = prov
+	state.FrameSP = FrameCapacity // saturate the frame stack
+	state.PushInt(0x4321)         // target id (consumed by handleGosub's PopInt)
+
+	var panicked bool
+	var panicVal any
+	err := func() (e error) {
+		defer func() {
+			if r := recover(); r != nil {
+				panicked = true
+				panicVal = r
+			}
+		}()
+		return handleGosub(state)
+	}()
+
+	if panicked {
+		t.Fatalf("handleGosub at FrameSP=%d panicked with %v — TS CoreOps.ts:194-214 throws (caught → Aborted) gracefully; goscape must return error not panic (script-core-2)", state.FrameSP, panicVal)
+	}
+	if err == nil {
+		t.Fatalf("handleGosub at FrameSP=FrameCapacity must return an error; got nil")
+	}
+	if !strings.Contains(err.Error(), "stack overflow") {
+		t.Errorf("error must mention 'stack overflow' (mirrors TS throw); got %q", err.Error())
+	}
+}
+
+// TestHandleGosubWithParams_FrameStackOverflow_ReturnsErrorNotPanic pins
+// the same cap-gate behaviour on the GOSUB_WITH_PARAMS handler (handlers.go).
+func TestHandleGosubWithParams_FrameStackOverflow_ReturnsErrorNotPanic(t *testing.T) {
+	target := &ScriptFile{
+		Name:             "[gwp_target]",
+		LookupKey:        0x9876,
+		Opcodes:          []Opcode{OpReturn},
+		IntOperands:      []int32{0},
+		StringOperands:   []string{""},
+		InstructionCount: 1,
+	}
+	// Caller uses GOSUB_WITH_PARAMS — target id is in the operand, not the stack.
+	caller := &ScriptFile{
+		Name:             "[gwp_caller]",
+		Opcodes:          []Opcode{OpGosubWithParams},
+		IntOperands:      []int32{int32(0x9876)},
+		StringOperands:   []string{""},
+		InstructionCount: 1,
+	}
+	prov := NewProvider()
+	prov.RegisterAt(0x9876, target)
+
+	state := Init(caller, nil, false, nil, nil)
+	state.Provider = prov
+	state.FrameSP = FrameCapacity
+
+	var panicked bool
+	var panicVal any
+	err := func() (e error) {
+		defer func() {
+			if r := recover(); r != nil {
+				panicked = true
+				panicVal = r
+			}
+		}()
+		return handleGosubWithParams(state)
+	}()
+
+	if panicked {
+		t.Fatalf("handleGosubWithParams at FrameSP=%d panicked with %v — must return error not panic (script-core-2)", state.FrameSP, panicVal)
+	}
+	if err == nil {
+		t.Fatalf("handleGosubWithParams at FrameSP=FrameCapacity must return an error; got nil")
+	}
+	if !strings.Contains(err.Error(), "stack overflow") {
+		t.Errorf("error must mention 'stack overflow'; got %q", err.Error())
 	}
 }
 

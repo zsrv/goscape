@@ -757,6 +757,14 @@ func popArgsForTarget(s *ScriptState, target *ScriptFile) (intArgs []int, string
 // GosubCall sets PC = -1 so the runner's post-handler PC++ lands at 0, executing
 // the first instruction of the callee on the next loop iteration.
 func handleGosubWithParams(s *ScriptState) error {
+	// TS frame-stack cap check at the TOP of the handler (mirrors
+	// CoreOps.ts:194-214 throw → Execute catch → Aborted). Returning the
+	// error here lets the runner abort gracefully where the pre-fix
+	// GosubCall panic would have crashed the host goroutine. See
+	// handleGosub for the symmetric site (script-core-2).
+	if s.FrameSP >= FrameCapacity {
+		return fmt.Errorf("GOSUB_WITH_PARAMS: stack overflow (FrameSP=%d, FrameCapacity=%d) in %q", s.FrameSP, FrameCapacity, s.Script.Name)
+	}
 	if s.Provider == nil {
 		return fmt.Errorf("GOSUB_WITH_PARAMS: %w", ErrNoProvider)
 	}
