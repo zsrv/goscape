@@ -92,7 +92,14 @@ func (n *Npc) wanderMode(s *Server) {
 	if n.typ == nil {
 		return
 	}
-	if n.moveRestrict != MoveRestrictNoMove && rand.IntN(8) == 0 {
+	// 2026-05-28 audit row npc-core-2: read moverestrict LIVE from n.typ,
+	// not from the frozen n.moveRestrict snapshot captured at NewNpc.
+	// TS Npc.wanderMode (Npc.ts:697-703) does `NpcType.get(this.type)`
+	// on every tick, so a ChangeType to a different-moverestrict type
+	// must take effect immediately on the next wander roll. n.typ is
+	// already refreshed on ChangeType (npc_masks.go:87) but n.moveRestrict
+	// is not.
+	if MoveRestrict(n.typ.MoveRestrict) != MoveRestrictNoMove && rand.IntN(8) == 0 {
 		rng := int(n.typ.WanderRange)
 		dx := rand.IntN(rng*2+1) - rng
 		dz := rand.IntN(rng*2+1) - rng
@@ -288,7 +295,21 @@ func (n *Npc) tryInteract(s *Server, allowOpScenery bool) bool {
 // runDir (step 2 when running). Replaces npc_ai.go advanceWaypoint
 // (migrated into stepOnce below).
 func (n *Npc) updateMovement(s *Server) bool {
-	if n.moveRestrict == MoveRestrictNoMove {
+	// 2026-05-28 audit row npc-core-2: TS Npc.updateMovement
+	// (Npc.ts:337-341) does `const type = NpcType.get(this.type); if
+	// (type.moverestrict === MoveRestrict.NOMOVE) return false` on every
+	// tick — a ChangeType to a NoMove (or out of NoMove) type takes
+	// effect immediately on the next movement tick. goscape pre-fix
+	// read n.moveRestrict (frozen snapshot captured at NewNpc), which
+	// never refreshes on ChangeType even though n.typ does
+	// (npc_masks.go:87). Live read from n.typ; fall back to the frozen
+	// snapshot only when n.typ is nil (test-fixture path; production
+	// NPCs always have typ wired by NewNpc).
+	moveRestrict := n.moveRestrict
+	if n.typ != nil {
+		moveRestrict = MoveRestrict(n.typ.MoveRestrict)
+	}
+	if moveRestrict == MoveRestrictNoMove {
 		n.walkDir = -1
 		n.runDir = -1
 		return false
