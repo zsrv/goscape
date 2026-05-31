@@ -2183,6 +2183,47 @@ func newTwoPlayerInvFixture() (*twoPlayerInvLookup, *mockPlayer, *mockPlayer) {
 	}, self, self2
 }
 
+// TestInvTotal_Operand1_ResolvesSelf2Inv pins the h-inv-3 fix: single-player
+// INV reads/writes must route through s.activePlayer() rather than hard-coding
+// s.Self, so an operand-1 invocation (the `.inv*` form, e.g. .inv_total) reads
+// Self2's inv — matching TS InvOps' `state.activePlayer.invs[typeID]` access
+// at InvOps.ts:57 (the ScriptState.activePlayer getter at ScriptState.ts:214-221
+// routes by state.intOperand). Pre-fix resolveInv pulled s.Self only, so an
+// operand-1 .inv_total silently returned Self's count — which happens to be
+// 0 when Self has none of the obj — masking the divergence in casual fixtures.
+// This test makes the divergence observable by seeding Self2's main with 42
+// coins and Self's main empty: pre-fix pushes 0, post-fix pushes 42.
+func TestInvTotal_Operand1_ResolvesSelf2Inv(t *testing.T) {
+	mc := newTestInvConfigs()
+	lookup, self, self2 := newTwoPlayerInvFixture()
+
+	// Seed Self2's main with 42 coins. Self's main stays empty.
+	lookup.self2Invs[testInvMain].Items[0] = &inventory.Item{Id: testObjCoin, Count: 42}
+
+	sf := &ScriptFile{
+		Name:             "test_INV_TOTAL_operand1",
+		Opcodes:          []Opcode{OpInvTotal, OpReturn},
+		IntOperands:      []int32{1, 0}, // operand 1 → activePlayer() returns Self2
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sf, self, false, nil, nil)
+	state.Self2 = self2
+	state.Pointers |= PtrActivePlayer | PtrActivePlayer2
+	state.Inv = lookup
+	state.Configs = mc
+	state.PushInt(testInvMain)
+	state.PushInt(testObjCoin)
+	if err := Execute(state); err != nil {
+		t.Fatalf("INV_TOTAL operand=1: unexpected error: %v", err)
+	}
+	if got := state.PopInt(); got != 42 {
+		t.Errorf("INV_TOTAL operand=1 with Self2.main containing 42 coins: "+
+			"got %d, want 42 — TS InvOps.ts:57 state.activePlayer.invs[typeID] (h-inv-3)",
+			got)
+	}
+}
+
 // TestBothMoveInv_Primary_DrainsFromSelfToSelf2 — operand=0; populate
 // Self's main with {coins x 5, sword x 1}; expect Self2's main to hold
 // the items post; Self's main empty.

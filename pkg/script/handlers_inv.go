@@ -16,11 +16,23 @@ import (
 // InvLookup. Returns nil if InvLookup is unset, the typeID is invalid,
 // or the active player has no such inv. All INV_* handlers start with a
 // resolveInv nil-check so they never dereference a missing container.
+//
+// Routes operand-aware: operand 0 → Self, operand 1 → Self2. Mirrors TS
+// InvOps' `state.activePlayer.invs[typeID]` access (InvOps.ts:57,72),
+// where state.activePlayer is the same operand-routed ScriptState getter
+// (ScriptState.ts:214-221) that goscape exposes as s.activePlayer().
+// Pre-h-inv-3 this hard-coded s.Self so an operand-1 single-player INV
+// read/write silently used Self's inv even when the protect-flag gate
+// was checking Self2 (selectProtectedActivePlayerSlot at the call sites)
+// — the gate and the access targeted different players. Now both route
+// through the same intOperand bit. INV_DROPALL's direct s.Inv.Get at
+// L2175 stays s.Self by intent (TS does not assert _activePlayer2 in
+// that handler — see the inline note there).
 func resolveInv(s *ScriptState, typeID int) *inventory.Inventory {
 	if s.Inv == nil {
 		return nil
 	}
-	return s.Inv.Get(s.Self, typeID)
+	return s.Inv.Get(s.activePlayer(), typeID)
 }
 
 // selectProtectedActivePlayerSlot returns the slot-routed protect-flag
