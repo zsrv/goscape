@@ -461,8 +461,14 @@ type ScriptState struct {
 //
 // Panics if the stack is full (programming error / compiler bug).
 func (s *ScriptState) PushInt(v int) {
-	if s.ISP >= StackCapacity {
-		panic(fmt.Sprintf("script: int stack overflow at pc=%d in %q", s.PC, s.Script.Name))
+	// TS ScriptState.pushInt (ScriptState.ts:333-351) writes into a JS array
+	// that grows unbounded. StackCapacity (1024) is goscape's pre-allocation
+	// hint, not a hard ceiling — grow the slice past it rather than panicking,
+	// so pathological scripts abort the runner gracefully via the normal
+	// pop/handler error path rather than crashing the host goroutine.
+	// [script-core-3]
+	if s.ISP >= len(s.IntStack) {
+		s.IntStack = append(s.IntStack, 0)
 	}
 	s.IntStack[s.ISP] = int(int32(v))
 	s.ISP++
@@ -478,11 +484,13 @@ func (s *ScriptState) PopInt() int {
 	return s.IntStack[s.ISP]
 }
 
-// PushString pushes v onto the string stack.
-// Panics if the stack is full.
+// PushString pushes v onto the string stack. Mirrors TS
+// ScriptState.pushString (ScriptState.ts) — see PushInt note above on
+// StackCapacity as a pre-allocation hint rather than a hard ceiling.
+// [script-core-3]
 func (s *ScriptState) PushString(v string) {
-	if s.SSP >= StackCapacity {
-		panic(fmt.Sprintf("script: string stack overflow at pc=%d in %q", s.PC, s.Script.Name))
+	if s.SSP >= len(s.StringStack) {
+		s.StringStack = append(s.StringStack, "")
 	}
 	s.StringStack[s.SSP] = v
 	s.SSP++

@@ -60,15 +60,45 @@ func TestPopEmptyStringStackReturnsEmpty(t *testing.T) {
 	}
 }
 
-func TestIntStackOverflowPanics(t *testing.T) {
+// TestPushInt_GrowsBeyondStackCapacity pins script-core-3: PushInt must
+// grow the int stack past StackCapacity rather than panic. Mirrors TS
+// ScriptState.pushInt (ScriptState.ts:333-351) writing into a JS array
+// that grows unbounded.
+func TestPushInt_GrowsBeyondStackCapacity(t *testing.T) {
 	s := newTestState(minimalScript(OpReturn))
 	defer func() {
-		if r := recover(); r == nil {
-			t.Error("expected panic on int stack overflow, got none")
+		if r := recover(); r != nil {
+			t.Errorf("PushInt past StackCapacity panicked: %v — TS ScriptState.pushInt (ScriptState.ts:333-351) grows JS array unbounded (script-core-3)", r)
 		}
 	}()
-	for range StackCapacity + 1 {
-		s.PushInt(0)
+	for i := 0; i < StackCapacity+5; i++ {
+		s.PushInt(i)
+	}
+	if s.ISP != StackCapacity+5 {
+		t.Errorf("ISP after %d pushes: got %d, want %d", StackCapacity+5, s.ISP, StackCapacity+5)
+	}
+	if got := s.IntStack[StackCapacity+4]; got != StackCapacity+4 {
+		t.Errorf("IntStack[%d]: got %d, want %d", StackCapacity+4, got, StackCapacity+4)
+	}
+}
+
+// TestPushString_GrowsBeyondStackCapacity pins script-core-3 for the string
+// stack: PushString must grow rather than panic.
+func TestPushString_GrowsBeyondStackCapacity(t *testing.T) {
+	s := newTestState(minimalScript(OpReturn))
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("PushString past StackCapacity panicked: %v — TS ScriptState.pushString grows JS array unbounded (script-core-3)", r)
+		}
+	}()
+	for i := 0; i < StackCapacity+5; i++ {
+		s.PushString("x")
+	}
+	if s.SSP != StackCapacity+5 {
+		t.Errorf("SSP after %d pushes: got %d, want %d", StackCapacity+5, s.SSP, StackCapacity+5)
+	}
+	if got := s.StringStack[StackCapacity+4]; got != "x" {
+		t.Errorf("StringStack[%d]: got %q, want %q", StackCapacity+4, got, "x")
 	}
 }
 
