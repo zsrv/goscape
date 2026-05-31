@@ -100,6 +100,45 @@ func TestHeroPoints_TopContributor(t *testing.T) {
 	}
 }
 
+// TestHeroPoints_TopContributor_TiedMaxUsesRSQuicksortTiebreak pins util-1:
+// when multiple ledger entries are tied at the max amount, the loot
+// recipient is selected by the RuneScape-authentic quicksort (TS
+// HeroPoints.findHero @ HeroPoints.ts:37-47 + QuickSort.ts:9-36), NOT
+// by linear first-max order.
+//
+// Fixture: insertion order uids [1,2,3,4] with amounts [100,50,100,50],
+// cap=16 sentinel-padded clone. The two tied-max entries (uids 1 and 3)
+// are at non-adjacent insertion positions, so the sentinel-padded
+// quicksort's parity tiebreak resolves the tie differently from linear
+// first-max — hand-traced reference:
+//
+//   • Linear first-max: picks uid 1 (first amount=100 in insertion order).
+//   • TS RS-quicksort (sentinel-padded): picks uid 3.
+//
+// The non-adjacent placement of the tied-max entries is the
+// load-bearing fixture property — adjacent tied-max entries
+// (e.g. [{1:100},{2:100},{3:50}]) happen to round-trip back to
+// insertion order through the parity-driven partition and so
+// coincidentally agree with linear first-max.
+//
+// Pre-fix RED — linear returns uid 1. Post-fix GREEN — RS-quicksort
+// returns uid 3.
+func TestHeroPoints_TopContributor_TiedMaxUsesRSQuicksortTiebreak(t *testing.T) {
+	h := NewHeroPoints(16)
+	h.AddHero(1, 100)
+	h.AddHero(2, 50)
+	h.AddHero(3, 100)
+	h.AddHero(4, 50)
+
+	got := h.TopContributor()
+	if got == 2 || got == 4 {
+		t.Fatalf("TopContributor = %d, want one of {1,3} — sort failed to put max-amount entries first (regression)", got)
+	}
+	if got != 3 {
+		t.Errorf("TopContributor (insertion [1,2,3,4]@[100,50,100,50], cap=16) = %d, want 3 (TS HeroPoints.findHero / QuickSort.ts parity tiebreak; pre-fix linear-first-max returned 1)", got)
+	}
+}
+
 // TestPlayerHeroPointsClear pins the real (*Player).HeroPointsClear()
 // method: clears the player's heroPoints ledger so TopContributor()
 // returns 0 after the call. Implements script.ActivePlayer.HeroPointsClear.
