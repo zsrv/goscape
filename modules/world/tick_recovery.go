@@ -71,6 +71,42 @@ func recoverWorldScript(state *script.ScriptState, log *slog.Logger) {
 		"stack", string(debug.Stack()))
 }
 
+// recoverNpc recovers from panics during a per-NPC tick step.
+//
+// Mirrors TS World.processNpcs (World.ts:681-690) catch action: structured
+// log + `removeNpc(npc, -1)`. The TS catch evicts the offending NPC with
+// the -1 duration sentinel so the despawn/respawn branch in removeNpc
+// keys off the npc's existing lifecycle field (no caller-imposed scaling).
+//
+// Must be called from inside a `defer recoverNpc(...)` registered as the
+// FIRST deferred call in a per-iteration closure — Go semantics require
+// recover() to run inside the deferred frame.
+//
+// op identifies the tick step ("processNpcTurn", etc.) for log
+// readability; pass a constant string per call site.
+func recoverNpc(n *Npc, s *Server, op string, log *slog.Logger) {
+	r := recover()
+	if r == nil {
+		return
+	}
+	nid := -1
+	typeId := -1
+	if n != nil {
+		nid = n.nid
+		typeId = n.typeId
+	}
+	log.Error("panic in tick step",
+		"op", op,
+		"nid", nid,
+		"typeId", typeId,
+		"err", r,
+		"stack", string(debug.Stack()))
+	if s == nil || n == nil {
+		return
+	}
+	s.removeNpc(n, -1)
+}
+
 // recoverObjDelayed recovers from panics during objDelayedQueue fire
 // (NAI-134). Mirrors recoverWorldScript: structured log + swallow. The
 // offending request was already removed before fire (per

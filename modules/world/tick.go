@@ -907,8 +907,14 @@ func (s *Server) processInfo() {
 }
 
 func (s *Server) processNpcs() {
+	// Per-NPC recover mirrors TS World.processNpcs (World.ts:681-690) try/catch
+	// around `npc.turn()` → `removeNpc(npc,-1)`. The recovery surface is the
+	// counterpart to the despawn-comment claim at npc_ai.go:46-48.
 	for _, n := range s.npcLoop {
-		n.turn(s)
+		func(n *Npc) {
+			defer recoverNpc(n, s, "processNpcTurn", s.log)
+			n.turn(s)
+		}(n)
 	}
 }
 

@@ -113,6 +113,86 @@ func TestRecoverPlayer_PanicWithErrorValue(t *testing.T) {
 	}
 }
 
+// TestRecoverNpc_NoPanic: when no panic, recoverNpc is a no-op —
+// n.dead stays false, removeNpc not called.
+func TestRecoverNpc_NoPanic(t *testing.T) {
+	s := &Server{log: discardLogger()}
+	n := &Npc{nid: 7, typeId: 42}
+	log := discardLogger()
+
+	func() {
+		defer recoverNpc(n, s, "test", log)
+		// no panic
+	}()
+
+	if n.dead {
+		t.Error("n.dead: want false on clean run, got true")
+	}
+}
+
+// TestRecoverNpc_PanicCallsRemoveNpc: a panic inside the deferred frame
+// must drive s.removeNpc(n,-1) (TS World.ts:686-688). The bare Server
+// + bare Npc fixture exercises removeNpc's nil-safe early-returns
+// (zoneMap, rsbuf, gamemap all nil); the load-bearing assertion is that
+// n.dead flips to true.
+func TestRecoverNpc_PanicCallsRemoveNpc(t *testing.T) {
+	s := &Server{log: discardLogger()}
+	n := &Npc{nid: 7, typeId: 42}
+	log := discardLogger()
+
+	func() {
+		defer recoverNpc(n, s, "test", log)
+		panic("boom")
+	}()
+
+	if !n.dead {
+		t.Error("n.dead: want true after panic (TS removeNpc must fire), got false")
+	}
+}
+
+// TestRecoverNpc_NilNpcSafe: recovery must not panic when n is nil.
+// removeNpc would nil-deref, so the helper skips it when either n or
+// s is nil. The panic is still recovered (caller's loop continues).
+func TestRecoverNpc_NilNpcSafe(t *testing.T) {
+	s := &Server{log: discardLogger()}
+	log := discardLogger()
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("recoverNpc should not propagate; got: %v", r)
+		}
+	}()
+
+	func() {
+		defer recoverNpc(nil, s, "test", log)
+		panic("boom")
+	}()
+}
+
+// TestRecoverNpc_NilServerSafe: nil server must not nil-panic the helper.
+// Production callers always pass non-nil; this guards the test-fixture path.
+func TestRecoverNpc_NilServerSafe(t *testing.T) {
+	n := &Npc{nid: 7, typeId: 42}
+	log := discardLogger()
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("recoverNpc should not propagate; got: %v", r)
+		}
+	}()
+
+	func() {
+		defer recoverNpc(n, nil, "test", log)
+		panic("boom")
+	}()
+
+	// With nil server we cannot call removeNpc, so n.dead stays false —
+	// the recovery logs and returns. The contract is just "no propagation".
+	if n.dead {
+		t.Error("n.dead: want false when server is nil (removeNpc cannot fire)")
+	}
+}
+
 // TestRecoverWorldScript_NoPanic: no-op when the deferred frame
 // returns normally.
 func TestRecoverWorldScript_NoPanic(t *testing.T) {
