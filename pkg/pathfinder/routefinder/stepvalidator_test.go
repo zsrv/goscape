@@ -251,3 +251,61 @@ func TestValidateLineOfSightStrategyPath(t *testing.T) {
 		}
 	}
 }
+
+// TestIsBlockedSouthEast_LeadingCornerBlocks pins the rsmod canonical
+// step_validator.rs is_blocked_south_east default-arm leading-corner check
+// for size>=3 actors. Pre-fix the SE destination corner at (x+size, z-1)
+// was missed by the inner loop's mid=1..size-1 range; canonical (and the
+// three sibling diagonals isBlockedSouthWest/NorthWest/NorthEast) gate
+// on it BEFORE the loop. (Closes pathfinder-2.)
+func TestIsBlockedSouthEast_LeadingCornerBlocks(t *testing.T) {
+	srcX, srcZ := 3200, 3200
+	const srcSize = 3
+	dir := flag.DirectionToOffset[flag.DirectionSoutheast]
+	destX, destZ := srcX+dir.OffX, srcZ+dir.OffZ
+
+	m := collision.NewFlagMap()
+	// Allocate every zone touched by the SE-corner footprint (x..x+size,
+	// z-1..z+size-1) and the destination footprint, across all levels.
+	for level := range 4 {
+		for z := srcZ - 2; z <= srcZ+srcSize; z++ {
+			for x := srcX - 1; x <= srcX+srcSize; x++ {
+				m.AllocateIfAbsent(x, z, level)
+			}
+		}
+	}
+
+	// Flag ONLY the strict SE destination corner (x+size, z-1) =
+	// (srcX+3, srcZ-1) with FlagWalkBlocked. The four inner-edge tiles
+	// the pre-fix loop probes — (x+size, z+mid-1) and (x+mid, z-1) for
+	// mid=1,2 — are explicitly NOT flagged, so a pre-fix routine that
+	// skips the leading corner check sees a clear path.
+	cornerX, cornerZ := srcX+srcSize, srcZ-1
+	for level := range 4 {
+		m.Add(cornerX, cornerZ, level, collision.FlagWalkBlocked)
+	}
+
+	sv := NewStepValidator(m)
+	for level := range 4 {
+		if sv.CanTravel(level, srcX, srcZ, dir.OffX, dir.OffZ, srcSize, 0, collision.TypeNormal) {
+			t.Fatalf("[level %d, srcSize=%d] SE-corner (%d,%d) FlagWalkBlocked must block the step (rsmod canonical step_validator.rs is_blocked_south_east default arm leading-corner check)",
+				level, srcSize, cornerX, cornerZ)
+		}
+	}
+
+	// Regression guard: clearing the corner flag must make the step legal.
+	cleared := collision.NewFlagMap()
+	for level := range 4 {
+		for z := srcZ - 2; z <= srcZ+srcSize; z++ {
+			for x := srcX - 1; x <= srcX+srcSize; x++ {
+				cleared.AllocateIfAbsent(x, z, level)
+			}
+		}
+	}
+	svClear := NewStepValidator(cleared)
+	for level := range 4 {
+		if !svClear.CanTravel(level, srcX, srcZ, dir.OffX, dir.OffZ, srcSize, 0, collision.TypeNormal) {
+			t.Fatalf("[level %d, srcSize=%d] cleared flagmap must allow SE step (dest=%d,%d)", level, srcSize, destX, destZ)
+		}
+	}
+}

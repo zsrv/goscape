@@ -196,6 +196,19 @@ func (v StepValidator) isBlockedSouthEast(level, x, z, size, extraFlag int, coll
 			!collision.CanMove(v.flags.Get(x+2, z-1, level), collision.FlagBlockSouthEast|extraFlag, collisionType) ||
 			!collision.CanMove(v.flags.Get(x+2, z, level), collision.FlagBlockNorthAndSouthWest|extraFlag, collisionType)
 	default:
+		// rsmod canonical (step_validator.rs is_blocked_south_east default
+		// arm) opens with a single-tile check on the south-east DESTINATION
+		// corner BEFORE the inner-edge loop, mirroring the three sibling
+		// diagonals (isBlockedSouthWest L147-149: (x-1, z-1, SOUTH_WEST);
+		// isBlockedNorthWest L173-175: (x-1, z+size, NORTH_WEST);
+		// isBlockedNorthEast L222-224: (x+size, z+size, NORTH_EAST)). The
+		// SE corner is at (x+size, z-1). Without this gate, a flag at the
+		// strict SE destination corner is missed by the inner loop's
+		// mid=1..size-1 range and a size>=3 actor can step diagonally onto
+		// a blocked corner that the three other diagonals reject.
+		if !collision.CanMove(v.flags.Get(x+size, z-1, level), collision.FlagBlockSouthEast|extraFlag, collisionType) {
+			return true
+		}
 		for mid := 1; mid < size; mid++ {
 			if !collision.CanMove(v.flags.Get(x+size, z+mid-1, level), collision.FlagBlockNorthAndSouthWest|extraFlag, collisionType) {
 				return true
