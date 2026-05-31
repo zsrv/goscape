@@ -548,6 +548,14 @@ func (r *Repository) targetsAmong(ctx context.Context, table string, owner uint6
 // delivery: a failure here returns an error to the handler which
 // surfaces codes.Internal to the caller, matching the TS thrown-
 // await pattern.
+//
+// No account-existence check on from/to — see handler.PrivateMessage's
+// NAI-S4A-D-FED-NO-ACCOUNT-EXISTENCE-CHECK block; in TS the throw on a
+// missing account would drop the PM without persisting, but the
+// federation choice (DB-2, db.go:21-35) makes the equivalent
+// cross-service RPC undesirable and the persistence + delivery is
+// well-behaved without it (orphan rows are read-side-tolerated;
+// undeliverable PMs no-op at h.subs.send).
 func (r *Repository) LogPrivateMessage(ctx context.Context, from, to uint64, coord int32, message string) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO private_chat (profile, from_username37, to_username37, coord, message)

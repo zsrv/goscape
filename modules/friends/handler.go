@@ -163,6 +163,26 @@ func (h *handler) IgnorelistDel(ctx context.Context, req *friendspb.IgnorelistDe
 // routing). req.WorldId is unused for routing because the registry
 // is keyed solely by username37; cross-world routing therefore falls
 // out for free.
+//
+// NAI-S4A-D-FED-NO-ACCOUNT-EXISTENCE-CHECK — CONFIRMED EXCEPTION
+// (closes friend-server-5 from the 2026-05-28 fresh audit). TS resolves
+// both endpoint accounts via executeTakeFirstOrThrow (FriendServer.ts
+// :270-285), which throws on a missing account and drops the PM. goscape
+// stores the raw username37 ints with no existence check, so a PM to a
+// non-existent account is logged and routed.
+//
+// This is structural, not a bug: per the DB-2 schema-decoupling rationale
+// at modules/friends/db.go:21-35, the friends server is intentionally
+// federated from the login/account store (separate SQLite DB, separate
+// gRPC service). There is no `account` table to JOIN against — the
+// equivalent existence check would require a cross-service RPC into
+// login, adding a latency-and-availability dependency to every PM RPC,
+// which contradicts the federation choice. Subscriber-routing already
+// degrades correctly: a PM to an account that no live world is hosting
+// silently no-ops at h.subs.send (no subscriber → drop). Orphan
+// private_chat rows from deleted accounts are accepted as the same
+// federation trade-off documented in db.go for friendlist / ignorelist /
+// public_chat rows.
 func (h *handler) PrivateMessage(ctx context.Context, req *friendspb.PrivateMessageRequest) (*emptypb.Empty, error) {
 	h.ensureWorld(req.WorldId)
 	if err := h.repo.LogPrivateMessage(ctx, req.Username37, req.TargetUsername37, req.Coord, req.Chat); err != nil {
