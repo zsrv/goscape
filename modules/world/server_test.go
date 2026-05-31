@@ -9,11 +9,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zsrv/goscape/pkg/gamemap"
 	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	gameclient "github.com/zsrv/goscape/pkg/io/protocol/game/client"
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
 	"github.com/zsrv/goscape/pkg/objtype"
+	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
 	"github.com/zsrv/goscape/pkg/wordenc/encfilter"
@@ -403,6 +405,34 @@ func TestRemovePlayerClearsSlot(t *testing.T) {
 	}
 	if len(s.playerLoop) != 0 {
 		t.Errorf("playerLoop len: got %d, want 0", len(s.playerLoop))
+	}
+}
+
+// TestRemovePlayerClearsNpcCollisionFootprint pins world-ops-2.
+// TS World.removePlayer (World.ts:1601) unconditionally calls
+// changeNpcCollision(width, x, z, level, false) on logout. goscape's
+// removePlayerInternal must do the same, otherwise the FlagBlockNPCs
+// set at the logout tile (e.g. by SetVisibility(Default)) remains
+// stuck on the map after the player is gone.
+func TestRemovePlayerClearsNpcCollisionFootprint(t *testing.T) {
+	s := newTestServer(t)
+	s.gamemap = gamemap.New(discardLogger())
+	c, _ := newTestClient(t)
+	p := newPlayer(c)
+
+	_ = s.addPlayer(p)
+	// Seed FlagBlockNPCs at the player's tile, matching what
+	// SetVisibility(Default) (player.go:674) would have left there.
+	s.gamemap.Pathfinder.Flags.AllocateIfAbsent(p.x, p.z, p.level)
+	s.gamemap.ChangeNPCCollision(1, p.x, p.z, p.level, true)
+	if !s.gamemap.Pathfinder.Flags.IsFlagged(p.x, p.z, p.level, collision.FlagBlockNPCs) {
+		t.Fatal("seed: FlagBlockNPCs must be set before removePlayerInternal")
+	}
+
+	s.removePlayerInternal(p)
+
+	if s.gamemap.Pathfinder.Flags.IsFlagged(p.x, p.z, p.level, collision.FlagBlockNPCs) {
+		t.Error("TS World.removePlayer (World.ts:1601) calls changeNpcCollision(false); FlagBlockNPCs must be cleared after removePlayerInternal")
 	}
 }
 

@@ -1264,6 +1264,16 @@ func (s *Server) removePlayerInternal(p *Player) {
 	}
 	s.players[p.slot] = nil
 
+	// world-ops-2: TS World.removePlayer (World.ts:1601) calls
+	// changeNpcCollision(player.width, player.x, player.z, player.level,
+	// false) unconditionally after deleting the slot, clearing the
+	// FlagBlockNPCs that SetVisibility(Default) (player.go:674) seeds
+	// at the player's tile. Width is always 1 per TS PathingEntity
+	// init (matching the goscape hardcode in SetVisibility).
+	if s.gamemap != nil {
+		s.gamemap.ChangeNPCCollision(1, p.x, p.z, p.level, false)
+	}
+
 	for i, lp := range s.playerLoop {
 		if lp == p {
 			s.playerLoop = append(s.playerLoop[:i], s.playerLoop[i+1:]...)
