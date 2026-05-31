@@ -933,6 +933,103 @@ func TestSetTimerFiresAfterInterval(t *testing.T) {
 	}
 }
 
+// TestProcessPlayerTimers_NormalFiresBeforeSoftWithinTick pins the
+// player-script-3 closure: NORMAL timers fire across the whole player
+// loop BEFORE any SOFT timer fires, matching TS World.ts:718-723's
+// processNormalTimers-then-processSoftTimers split. Pre-fix the
+// implementation iterated each player's timers in one id-sorted pass
+// with NORMAL and SOFT interleaved by id, so a SOFT timer at id=10
+// would fire before a NORMAL timer at id=20 on the same player.
+//
+// RED→GREEN proof: the SOFT timer is registered at the LOWER id (10)
+// and the NORMAL timer at the HIGHER id (20). Under the pre-fix
+// single-pass id-sorted ordering the fireLog would be [10, 20]; the
+// NORMAL-then-SOFT split inverts that to [20, 10].
+func TestProcessPlayerTimers_NormalFiresBeforeSoftWithinTick(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.RegisterAt(10, buildGreetScript(10, "s"))
+	s.scriptProvider.RegisterAt(20, buildGreetScript(20, "n"))
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	s.playerLoop = append(s.playerLoop, p)
+
+	p.SetTimer(10, 1, nil, nil, script.TimerSoft)
+	p.SetTimer(20, 1, nil, nil, script.TimerNormal)
+
+	var fireLog []uint32
+	s.runScriptFn = func(sf *script.ScriptFile, self script.ActivePlayer, target any, trigger script.ServerTriggerType, protect bool, intArgs []int, stringArgs []string) {
+		fireLog = append(fireLog, sf.LookupKey)
+	}
+
+	s.currentTick = 1
+	s.processPlayerTimers()
+
+	if len(fireLog) != 2 {
+		t.Fatalf("fire count: got %d, want 2 (fireLog=%v)", len(fireLog), fireLog)
+	}
+	if fireLog[0] != 20 || fireLog[1] != 10 {
+		t.Errorf("fire order: got [%d, %d], want [20, 10] — NORMAL must fire before SOFT regardless of id-sort",
+			fireLog[0], fireLog[1])
+	}
+}
+
+// TestProcessPlayerTimers_NormalAcrossAllPlayersBeforeSoftOnAny pins
+// the across-player aspect of the player-script-3 split: ALL players'
+// NORMAL timers fire in pass 1 before ANY player's SOFT timer fires
+// in pass 2. TS World.ts:718-723 iterates the whole playerLoop twice
+// (processNormalTimers per player, then processSoftTimers per
+// player); the pre-fix implementation iterated each player's timers
+// in a single mixed pass so a soft on player A could fire before a
+// normal on player B if A came first in playerLoop.
+func TestProcessPlayerTimers_NormalAcrossAllPlayersBeforeSoftOnAny(t *testing.T) {
+	s := newTestServer(t)
+	s.scriptProvider = script.NewProvider()
+	s.scriptProvider.RegisterAt(30, buildGreetScript(30, "as"))
+	s.scriptProvider.RegisterAt(40, buildGreetScript(40, "bn"))
+	s.configsView = serverConfigsView{s: s}
+	s.invLookup = invLookupView{s: s}
+	s.npcLookup = serverNpcLookup{s: s}
+
+	pa, _ := newTestPlayer(t)
+	pa.client.server = s
+	pa.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	pb, _ := newTestPlayer(t)
+	pb.client.server = s
+	pb.client.encryptor = io2.New([4]uint32{5, 6, 7, 8})
+	s.playerLoop = append(s.playerLoop, pa, pb)
+
+	pa.SetTimer(30, 1, nil, nil, script.TimerSoft)
+	pb.SetTimer(40, 1, nil, nil, script.TimerNormal)
+
+	type fireEntry struct {
+		id   uint32
+		self script.ActivePlayer
+	}
+	var fireLog []fireEntry
+	s.runScriptFn = func(sf *script.ScriptFile, self script.ActivePlayer, target any, trigger script.ServerTriggerType, protect bool, intArgs []int, stringArgs []string) {
+		fireLog = append(fireLog, fireEntry{id: sf.LookupKey, self: self})
+	}
+
+	s.currentTick = 1
+	s.processPlayerTimers()
+
+	if len(fireLog) != 2 {
+		t.Fatalf("fire count: got %d, want 2 (fireLog=%v)", len(fireLog), fireLog)
+	}
+	// pb's NORMAL (id=40) must fire before pa's SOFT (id=30), even
+	// though pa precedes pb in the playerLoop.
+	if fireLog[0].id != 40 || fireLog[1].id != 30 {
+		t.Errorf("cross-player fire order: got [%d, %d], want [40, 30] — NORMAL across all players must fire before SOFT on any player",
+			fireLog[0].id, fireLog[1].id)
+	}
+}
+
 // TestSoftTimerFiresWhileDelayed verifies SOFT-typed timers fire
 // regardless of p.delayed.
 func TestSoftTimerFiresWhileDelayed(t *testing.T) {

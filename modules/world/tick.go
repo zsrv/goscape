@@ -697,9 +697,37 @@ func (s *Server) processPlayerEngineQueues() {
 	}
 }
 
-// processPlayerTimers fires any ready timers. Soft timers fire even
-// while p.delayed; normal timers wait for idle.
+// processPlayerTimers fires any ready timers across all players.
+//
+// PLAYER-SCRIPT-3 closure: drives two passes over the player loop —
+// NORMAL timers first (gated by CanAccess), then SOFT timers (no
+// CanAccess gate). Mirrors TS World.processPlayers (World.ts:718-723)
+// which calls processNormalTimers then processSoftTimers in sequence
+// across the whole playerLoop, not interleaved per-player.
+//
+// The pre-closure implementation iterated each player's timers in
+// id-sorted order with NORMAL and SOFT mixed by id; an
+// id=5 SOFT timer would fire before an id=10 NORMAL timer on the
+// same player, even though TS fires NORMAL first regardless of id.
+// Splitting into two distinct passes restores the TS-faithful
+// ordering and preserves the across-player NORMAL-before-SOFT
+// invariant when scripts on adjacent players observe each other's
+// timer-emitted state changes.
+//
+// Soft timers fire even while p.delayed; normal timers wait for idle.
 func (s *Server) processPlayerTimers() {
+	s.processPlayerTimersForType(script.TimerNormal)
+	s.processPlayerTimersForType(script.TimerSoft)
+}
+
+// processPlayerTimersForType is the per-pass helper. Iterates a fresh
+// playerLoop snapshot and fires only timers whose Type matches
+// filterType, in id-sorted order. Independent snapshots per pass match
+// the conventional pattern (cf. processPlayerEngineQueues,
+// processClientsOut); within a single tick the playerLoop is only
+// mutated on the tick goroutine itself, so the two snapshots are
+// identical in practice.
+func (s *Server) processPlayerTimersForType(filterType script.PlayerTimerType) {
 	s.playersMu.RLock()
 	players := make([]*Player, len(s.playerLoop))
 	copy(players, s.playerLoop)
@@ -717,7 +745,7 @@ func (s *Server) processPlayerTimers() {
 			if len(p.timers) == 0 {
 				return
 			}
-			// Deterministic fire order (maps are unordered).
+			// Deterministic fire order within a pass (maps are unordered).
 			ids := make([]uint32, 0, len(p.timers))
 			for id := range p.timers {
 				ids = append(ids, id)
@@ -727,6 +755,9 @@ func (s *Server) processPlayerTimers() {
 			for _, id := range ids {
 				t, ok := p.timers[id]
 				if !ok {
+					continue
+				}
+				if t.Type != filterType {
 					continue
 				}
 				if s.currentTick < t.Clock+t.Interval {
