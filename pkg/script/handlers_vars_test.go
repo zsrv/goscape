@@ -278,6 +278,74 @@ func TestPopVarsWritesToWorld(t *testing.T) {
 	}
 }
 
+// TestPushPopVars_StringType_DispatchesToStringBackend pins the h-core-3 /
+// h-config-5 fix: PUSH_VARS / POP_VARS must consult Configs.VarsType(id) and
+// route to World.VarsString / SetVarsString when the type is STRING. Pre-fix
+// they hard-coded the int backend (VarsInt / SetVarsInt) regardless of the
+// VarSharedType.Type bit, so a stock script reading a string-typed shared
+// var pushed a junk int and a write silently went to the int slot — neither
+// path could read or persist the string value at all.
+//
+// TS CoreOps.ts:257-275 branches on `varsType.type` (STRING →
+// state.stringStack.push / state.popString → World.varsString /
+// World.varsStringSet, else int variants). Setup: configure id=11 as STRING,
+// seed World's string slot with "hello", run PUSH_VARS → expect PopString
+// returns "hello". Then run POP_VARS with "world" on the string stack →
+// expect World.VarsString(11) == "world".
+func TestPushPopVars_StringType_DispatchesToStringBackend(t *testing.T) {
+	const stringVarID = 11
+	w := newMockWorld()
+	w.SetVarsString(stringVarID, "hello")
+
+	cfg := &mockConfigs{
+		varss: map[int]*objtype.VarSharedType{
+			stringVarID: {Type: objtype.ScriptVarTypeString},
+		},
+	}
+
+	// PUSH_VARS — expect the seeded string to land on the string stack.
+	sfPush := &ScriptFile{
+		Name:             "push_vars_string",
+		Opcodes:          []Opcode{OpPushVars, OpReturn},
+		IntOperands:      []int32{stringVarID, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state := Init(sfPush, nil, false, nil, nil)
+	state.World = w
+	state.Configs = cfg
+	if err := Execute(state); err != nil {
+		t.Fatalf("PUSH_VARS string: %v", err)
+	}
+	if got := state.PopString(); got != "hello" {
+		t.Errorf("PUSH_VARS string id=%d: got %q, want %q — "+
+			"TS CoreOps.ts:257-265 dispatches STRING → World.varsString (h-core-3)",
+			stringVarID, got, "hello")
+	}
+
+	// POP_VARS — push "world" onto the string stack, run POP_VARS, expect
+	// the World's string slot to hold "world".
+	sfPop := &ScriptFile{
+		Name:             "pop_vars_string",
+		Opcodes:          []Opcode{OpPopVars, OpReturn},
+		IntOperands:      []int32{stringVarID, 0},
+		StringOperands:   []string{"", ""},
+		InstructionCount: 2,
+	}
+	state2 := Init(sfPop, nil, false, nil, nil)
+	state2.World = w
+	state2.Configs = cfg
+	state2.PushString("world")
+	if err := Execute(state2); err != nil {
+		t.Fatalf("POP_VARS string: %v", err)
+	}
+	if got := w.VarsString(stringVarID); got != "world" {
+		t.Errorf("POP_VARS string id=%d → w.VarsString: got %q, want %q — "+
+			"TS CoreOps.ts:267-275 dispatches STRING → World.varsStringSet (h-core-3)",
+			stringVarID, got, "world")
+	}
+}
+
 func TestPushVarnReadsActiveNpc(t *testing.T) {
 	sf := &ScriptFile{
 		Name:             "push_varn",

@@ -191,6 +191,20 @@ func (c serverConfigsView) VarnType(id int) objtype.ScriptVarType {
 	return c.s.varnTypes.Configs[id].Type
 }
 
+// VarsType implements script.Configs.VarsType. Out-of-range / unloaded
+// id returns ScriptVarTypeInt (DEVIATION-NAI-121-D3 — silent default
+// matching VarpType/VarnType). Read by handlePushVars / handlePopVars
+// to route between WorldVars.VarsInt and WorldVars.VarsString.
+func (c serverConfigsView) VarsType(id int) objtype.ScriptVarType {
+	if c.s == nil || c.s.varsTypes == nil {
+		return objtype.ScriptVarTypeInt
+	}
+	if id < 0 || id >= len(c.s.varsTypes.Configs) {
+		return objtype.ScriptVarTypeInt
+	}
+	return c.s.varsTypes.Configs[id].Type
+}
+
 // ObjByName implements script.Configs.ObjByName. Delegates to
 // ObjTypeConfigs.ByName. Returns nil when the server or configs are
 // uninitialized or the name has no match. NAI-162 B2.

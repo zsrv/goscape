@@ -46,6 +46,13 @@ type Configs interface {
 	// unloaded id returns ScriptVarTypeInt (DEVIATION-NAI-121-D3).
 	VarnType(id int) objtype.ScriptVarType
 
+	// VarsType returns the type for a world-shared var id. Out-of-range
+	// or unloaded id returns ScriptVarTypeInt — same degraded-mode
+	// convention as VarpType/VarnType (DEVIATION-NAI-121-D3). Consumed
+	// by handlePushVars / handlePopVars to route between WorldVars.VarsInt
+	// and WorldVars.VarsString (TS CoreOps.ts:257-275; h-core-3).
+	VarsType(id int) objtype.ScriptVarType
+
 	// ObjByName resolves an ObjType by debugname. Used by WEALTH_EVENT
 	// (opcode 2131) to mirror TS ObjType.getByName. Returns nil when the
 	// name is unknown. NAI-162 B2.

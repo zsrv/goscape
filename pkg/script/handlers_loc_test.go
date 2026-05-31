@@ -54,6 +54,7 @@ func (f *fakeConfigs) VarpType(id int) (objtype.ScriptVarType, bool) {
 	return objtype.ScriptVarTypeInt, false
 }
 func (f *fakeConfigs) VarnType(id int) objtype.ScriptVarType   { return objtype.ScriptVarTypeInt }
+func (f *fakeConfigs) VarsType(id int) objtype.ScriptVarType   { return objtype.ScriptVarTypeInt }
 func (f *fakeConfigs) ObjByName(name string) *objtype.ObjType  { return nil }
 func (f *fakeConfigs) MesanimType(id int) *objtype.MesanimType { return nil }
 func (f *fakeConfigs) MesanimByName(name string) int           { return -1 }

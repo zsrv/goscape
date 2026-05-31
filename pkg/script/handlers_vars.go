@@ -34,6 +34,16 @@ func (s *ScriptState) varpType(id int) (objtype.ScriptVarType, bool) {
 	return s.Configs.VarpType(id)
 }
 
+// varsType returns the type of world-shared var id from Configs, falling
+// back to ScriptVarTypeInt when Configs is nil (test paths). Mirrors
+// DEVIATION-NAI-121-D3 — silent default rather than TS's check() throw.
+func (s *ScriptState) varsType(id int) objtype.ScriptVarType {
+	if s.Configs == nil {
+		return objtype.ScriptVarTypeInt
+	}
+	return s.Configs.VarsType(id)
+}
+
 // varSecondary reports whether a VARP/VARN opcode targets the SECONDARY
 // active player/npc. The flag lives in bit 16 of the int operand (TS
 // CoreOps.ts:26/62 `(intOperand >> 16) & 0x1`) — distinct from the simple 0/1
@@ -105,22 +115,54 @@ func handlePopVarp(s *ScriptState) error {
 	return nil
 }
 
+// handlePushVars reads world-shared variable `id` from the running World
+// and pushes it. Dispatches on Configs.VarsType(id): STRING calls
+// PushString backed by World.VarsString, else PushInt backed by
+// World.VarsInt. Mirrors TS CoreOps.ts:257-265 — `state.intStack.push(...)`
+// vs `state.stringStack.push(...)` branches on `varsType.type`.
+//
+// Pre-h-core-3 always treated shared vars as int regardless of the
+// VarSharedType.Type bit, so a stock script reading a string-typed
+// shared var (e.g. a debug name surfaced from World) pushed a junk int
+// instead of the string and downstream PopString crashed the script.
+// h-config-5 is the canonical dup row for this divergence at the same
+// file/line.
+//
+// TS additionally gates with check(id, VarSharedValid) which throws on
+// an unloaded id; goscape uses the same silent-default convention as
+// VarpType/VarnType (out-of-range → ScriptVarTypeInt, underlying World
+// accessor returns 0/""), so a malformed bytecode pushes the zero value
+// rather than aborting. Tracking VarSharedValid as a separate strict-mode
+// gate is part of the broader VarpValid/VarnValid carryover; not in
+// h-core-3 scope.
 func handlePushVars(s *ScriptState) error {
 	if s.World == nil {
 		return fmt.Errorf("PUSH_VARS: %w", ErrNoWorld)
 	}
-	// MVP always pushes int. Real string VARS are rare; dispatch by
-	// VarSharedType.Type if we see them in telemetry.
-	s.PushInt(int(s.World.VarsInt(varOperandID(s))))
+	id := varOperandID(s)
+	if s.varsType(id) == objtype.ScriptVarTypeString {
+		s.PushString(s.World.VarsString(id))
+	} else {
+		s.PushInt(int(s.World.VarsInt(id)))
+	}
 	return nil
 }
 
+// handlePopVars pops the top of the appropriate stack and writes it to
+// world-shared variable `id` on the running World. Dispatches on
+// Configs.VarsType(id): STRING calls PopString backed by SetVarsString,
+// else PopInt backed by SetVarsInt. Mirrors TS CoreOps.ts:267-275.
+// See handlePushVars for the pre-h-core-3 always-int divergence note.
 func handlePopVars(s *ScriptState) error {
 	if s.World == nil {
 		return fmt.Errorf("POP_VARS: %w", ErrNoWorld)
 	}
-	val := int32(s.PopInt())
-	s.World.SetVarsInt(varOperandID(s), val)
+	id := varOperandID(s)
+	if s.varsType(id) == objtype.ScriptVarTypeString {
+		s.World.SetVarsString(id, s.PopString())
+	} else {
+		s.World.SetVarsInt(id, int32(s.PopInt()))
+	}
 	return nil
 }
 
