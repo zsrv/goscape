@@ -509,6 +509,30 @@ func TestPacket_GJStr(t *testing.T) {
 	}
 }
 
+// io-packet-4: TS Packet.gjstr (Engine-TS/src/io/Packet.ts:267-276) reads each
+// byte BEFORE the (b !== terminator && pos < length) check. When the buffer
+// has no terminator, the loop's final iteration reads the last byte (pos
+// advances past it) and the && pos < length short-circuit exits without
+// appending — so TS drops the final byte from the returned string while still
+// consuming it. goscape pre-fix's no-terminator branch sliced
+// Data[start : start+length] with length = Pos-start (including the final
+// byte), keeping a byte TS would have dropped — over the wire this surfaces
+// as a trailing-garbage character on any unterminated JagString read (the
+// LOG-2 graceful-empty-buffer path was the only no-terminator surface
+// previously exercised, which masked the trailing-byte divergence).
+func TestPacket_GJStr_NoTerminator_DropsFinalByte(t *testing.T) {
+	// "hello" with no terminator byte appended; GJStr(0) reaches end-of-buffer
+	// without finding a NUL.
+	p := &Packet{Data: []byte("hello")}
+	got := p.GJStr(0)
+	if got != "hell" {
+		t.Errorf("GJStr no-terminator: got %q, want %q (TS gjstr drops the final byte after the b!=terminator && pos<length exit)", got, "hell")
+	}
+	if p.Pos != 5 {
+		t.Errorf("Pos: got %d, want 5 (TS consumes all bytes including the dropped final one — pos advances inside the read)", p.Pos)
+	}
+}
+
 func TestPacket_GJStrLF(t *testing.T) {
 	type fields struct {
 		buf      []byte

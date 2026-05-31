@@ -233,6 +233,14 @@ func (p *Packet) GBool() bool {
 // until terminator is reached. Returns "" on an empty buffer
 // (Arc 18 LOG-2: bare log.Println removed; the empty-buffer case
 // is handled gracefully by the early-return).
+//
+// Mirrors TS Packet.gjstr at Engine-TS/src/io/Packet.ts:267-276. TS reads
+// each byte BEFORE the (b !== terminator && pos < length) check, so the
+// no-terminator path consumes the final byte's read but drops it from the
+// returned string (the && pos < length short-circuit exits without appending).
+// io-packet-4 (2026-05-28 audit): pre-fix kept the final byte in the
+// no-terminator branch, leaking a trailing-garbage byte TS would have
+// dropped.
 func (p *Packet) GJStr(terminator byte) string {
 	if p.Len() == 0 {
 		return ""
@@ -242,8 +250,11 @@ func (p *Packet) GJStr(terminator byte) string {
 		p.Pos++
 	}
 	if p.Pos >= len(p.Data) {
-		// terminator not found; consume remaining bytes and return what we have
-		length := p.Pos - start
+		// Terminator not found; pos has advanced past the last byte. TS drops
+		// that final byte from the result (read-but-not-appended). length is
+		// Pos-start-1 to match: same consumed-byte count, one fewer in the
+		// returned string.
+		length := p.Pos - start - 1
 		return string(p.Data[start : start+length])
 	}
 	p.Pos++
