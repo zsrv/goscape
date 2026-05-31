@@ -131,10 +131,6 @@ func (c *client) bufferData(data []byte) bool {
 }
 
 func (c *client) write(data []byte) {
-	if c.tap != nil && c.sessionID != "" && len(data) > 0 {
-		c.tap.Tap(c.accountID, c.sessionID, tapper.DirOut,
-			data[0], data[1:], time.Now())
-	}
 	// TODO: return error?
 	c.bufw.Write(data)
 	c.log.Debug("sent data", "opcode", c.opcode, "num_bytes", len(data), "data", fmt.Sprintf("%v", data))
@@ -166,7 +162,7 @@ func (c *client) sendLoginOK() error {
 		c.player = p
 	}
 
-	if c.tap != nil {
+	if c.tap != nil && c.tap.Enabled() {
 		c.sessionID = uuid.NewString()
 		c.tap.SessionStarted(c.accountID, c.sessionID, time.Now())
 	}

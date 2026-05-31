@@ -512,6 +512,11 @@ func (p *Player) writeOut(op gameserver.Op, payload []byte) {
 	}
 
 	c.bufw.Write(payload)
+
+	if c.tap != nil && c.sessionID != "" {
+		c.tap.Tap(p.accountID, c.sessionID, tapper.DirOut,
+			op.Opcode, payload, time.Now())
+	}
 }
 
 // WriteEnableTracking sends the EnableTracking server packet (op 226,
