@@ -152,8 +152,13 @@ func TestLoadCompilerConstants_EmptyScriptsDir(t *testing.T) {
 
 // TestScriptVarTypeName_KnownCodes pins the name returned for each
 // ScriptVarType constant, mirroring TS ScriptVarType.getType
-// (ScriptVarType.ts:85-170) and goscape's existing
+// (ScriptVarType.ts:28-83) and goscape's existing
 // objtype.ParamType.GetType() (paramtype.go:105).
+//
+// pack-media-compiler-1 (2026-05-28 audit): the last 7 entries
+// (autoint/varp/player_uid/npc_uid/npc_stat/idkit/dbrow) pin cases
+// goscape's switch was missing pre-fix, where every miss returned
+// "unknown" → emitted "unknown" in compiler symbol output.
 func TestScriptVarTypeName_KnownCodes(t *testing.T) {
 	cases := []struct {
 		t    objtype.ScriptVarType
@@ -177,10 +182,20 @@ func TestScriptVarTypeName_KnownCodes(t *testing.T) {
 		{objtype.ScriptVarTypeSeq, "seq"},
 		{objtype.ScriptVarTypeStat, "stat"},
 		{objtype.ScriptVarTypeInterface, "interface"},
+		// pack-media-compiler-1: TS ScriptVarType.getType (ScriptVarType.ts:64-79)
+		// covers these 7 cases; goscape's switch omitted them so the compiler
+		// emitted the literal "unknown" for varp/dbrow/uid/etc. symbols.
+		{objtype.ScriptVarTypeAutoInt, "autoint"},
+		{objtype.ScriptVarTypeVarp, "varp"},
+		{objtype.ScriptVarTypePlayerUid, "player_uid"},
+		{objtype.ScriptVarTypeNpcUid, "npc_uid"},
+		{objtype.ScriptVarTypeNpcStat, "npc_stat"},
+		{objtype.ScriptVarTypeIdkit, "idkit"},
+		{objtype.ScriptVarTypeDbrow, "dbrow"},
 	}
 	for _, c := range cases {
 		if got := scriptVarTypeName(c.t); got != c.want {
-			t.Errorf("scriptVarTypeName(%d) = %q, want %q", c.t, got, c.want)
+			t.Errorf("scriptVarTypeName(%d) = %q, want %q (TS ScriptVarType.getType)", c.t, got, c.want)
 		}
 	}
 }

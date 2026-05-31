@@ -210,6 +210,26 @@ func scriptVarTypeName(t objtype.ScriptVarType) string {
 		return "stat"
 	case objtype.ScriptVarTypeInterface:
 		return "interface"
+	// pack-media-compiler-1: TS ScriptVarType.getType (Engine-TS/src/cache/
+	// config/ScriptVarType.ts:64-79) covers these 7 cases too. goscape's
+	// switch pre-fix omitted them, so any compiler symbol whose declared
+	// type was autoint / varp / player_uid / npc_uid / npc_stat / idkit /
+	// dbrow emitted the literal "unknown" string — affecting symbol-table
+	// rendering and downstream tooling that round-trips the name.
+	case objtype.ScriptVarTypeAutoInt:
+		return "autoint"
+	case objtype.ScriptVarTypeVarp:
+		return "varp"
+	case objtype.ScriptVarTypePlayerUid:
+		return "player_uid"
+	case objtype.ScriptVarTypeNpcUid:
+		return "npc_uid"
+	case objtype.ScriptVarTypeNpcStat:
+		return "npc_stat"
+	case objtype.ScriptVarTypeIdkit:
+		return "idkit"
+	case objtype.ScriptVarTypeDbrow:
+		return "dbrow"
 	default:
 		return "unknown"
 	}
