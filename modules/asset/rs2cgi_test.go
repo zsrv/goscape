@@ -179,13 +179,13 @@ func TestTryParseIntDefault_JSparseIntSemantics(t *testing.T) {
 		want int
 	}{
 		// Audit-cited divergences (RED pre-fix; GREEN post-fix):
-		{"1x", 1},        // trailing garbage → TS 1 (Atoi err → 0)
-		{"10abc", 10},    // trailing garbage → TS 10 (Atoi err → 0)
-		{"3.5", 3},       // float-looking → TS 3 (Atoi err → 0)
-		{"0x10", 16},     // hex prefix → TS 16 (Atoi err → 0)
-		{"  42", 42},     // leading whitespace → TS 42 (Atoi err → 0)
-		{"\t-7", -7},     // whitespace + sign → TS -7
-		{"+99", 99},      // explicit positive sign
+		{"1x", 1},     // trailing garbage → TS 1 (Atoi err → 0)
+		{"10abc", 10}, // trailing garbage → TS 10 (Atoi err → 0)
+		{"3.5", 3},    // float-looking → TS 3 (Atoi err → 0)
+		{"0x10", 16},  // hex prefix → TS 16 (Atoi err → 0)
+		{"  42", 42},  // leading whitespace → TS 42 (Atoi err → 0)
+		{"\t-7", -7},  // whitespace + sign → TS -7
+		{"+99", 99},   // explicit positive sign
 		// Regression guards (already worked pre-fix):
 		{"0", 0},
 		{"42", 42},
