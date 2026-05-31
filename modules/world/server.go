@@ -29,6 +29,7 @@ import (
 	"github.com/zsrv/goscape/pkg/io/protocol"
 	loginreq "github.com/zsrv/goscape/pkg/io/protocol/login/req"
 	loginresp "github.com/zsrv/goscape/pkg/io/protocol/login/resp"
+	"github.com/zsrv/goscape/pkg/io/protocol/revision"
 	"github.com/zsrv/goscape/pkg/loginpb"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/packall"
@@ -1434,7 +1435,7 @@ func (s *Server) autosavePlayers() {
 	}
 }
 
-const expectedRevision = 225
+const expectedRevision = revision.Expected
 
 // TrackZone marks a zone as modified this tick. Idempotent (map semantics).
 // processZones will call ComputeShared on each tracked zone; processCleanup
