@@ -494,7 +494,11 @@ func (pf *RouteFinder) routeFindBig(baseX, baseZ, level, localDestX, localDestZ,
 			collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+srcSize-1, pf.currLocalZ+srcSize, level), collision.FlagBlockNorthEast, collisionType) {
 			clipFlag := collision.FlagBlockSouthEastAndWest
 			blocked := false
-			for index := 1; index < srcSize+1; index++ {
+			// rsmod pathfinder find_path_n south-to-north loops `1..src_size-1`
+			// verbatim across all four cardinals; pre-fix used `srcSize+1`
+			// (two extra tiles probed → spurious block on legal south steps
+			// for size≥3 actors). Closes pathfinder-1 (2026-05-28 fresh-audit).
+			for index := 1; index < srcSize-1; index++ {
 				if !collision.CanMove(pf.collisionFlag(baseX, baseZ, x+index, pf.currLocalZ+srcSize, level), clipFlag, collisionType) {
 					blocked = true
 					break
@@ -922,7 +926,10 @@ func (pf *RouteFinder) routeBlockerFindBig(baseX, baseZ, level, localDestX, loca
 			collision.CanMove(pf.collisionFlag(baseX, baseZ, pf.currLocalX+srcSize-1, pf.currLocalZ+srcSize, level), collision.FlagBlockNorthEastRouteBlocker, collisionType) {
 			clipFlag := collision.FlagBlockSouthEastAndWestRouteBlocker
 			blocked := false
-			for index := 1; index < srcSize+1; index++ {
+			// rsmod find_path_n south-to-north loop bound is `1..src_size-1`
+			// across all four cardinals; sibling fix to the routeFindBig site
+			// above (pathfinder-1, 2026-05-28 fresh-audit).
+			for index := 1; index < srcSize-1; index++ {
 				if !collision.CanMove(pf.collisionFlag(baseX, baseZ, x+index, pf.currLocalZ+srcSize, level), clipFlag, collisionType) {
 					blocked = true
 					break
