@@ -74,7 +74,13 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.IntVar(&c.TCPListenPort, "world.tcp-listen-port", 43594, "TCP world server listen port")
 	//f.IntVar(&c.Config.HTTPConnLimit, "asset.http-conn-limit", 0, "Maximum number of simultaneous http connections, <=0 to disable")
 	f.DurationVar(&c.ServerGracefulShutdownTimeout, "world.graceful-shutdown-timeout", 30*time.Second, "Timeout for graceful shutdowns")
-	f.DurationVar(&c.TCPServerReadTimeout, "world.tcp-read-timeout", 5*time.Second, "Read timeout for TCP server")
+	// logger-transport-3 (2026-05-28 audit): TS TcpServer.ts:19 sets the
+	// idle-socket timeout to 30000 ms via `s.setTimeout(30000)`. The pre-fix
+	// 5s default disconnected idle clients 6x more aggressively than TS,
+	// observable as keep-alive connections being killed between game ticks
+	// during low-activity periods (debug-socket mode at server.go:830 already
+	// bypasses the deadline; this default is for the production read path).
+	f.DurationVar(&c.TCPServerReadTimeout, "world.tcp-read-timeout", 30*time.Second, "Read timeout for TCP server")
 	f.DurationVar(&c.TCPServerWriteTimeout, "world.tcp-write-timeout", 30*time.Second, "Write timeout for TCP server")
 	f.DurationVar(&c.TCPServerIdleTimeout, "world.tcp-idle-timeout", 120*time.Second, "Idle timeout for TCP server")
 	f.DurationVar(&c.TCPKeepAlivePeriod, "world.tcp-keepalive-period", 30*time.Second,
