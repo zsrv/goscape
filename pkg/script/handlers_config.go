@@ -126,29 +126,39 @@ func handleEnum(s *ScriptState) error {
 			et.DebugName, key, inputType, int(et.InputType), outputType, int(et.OutputType))
 	}
 
-	isString := et.OutputType == objtype.ScriptVarTypeString
+	// TS EnumOps.ts:17-22 dispatches by the VALUE's runtime type:
+	//
+	//     const value = enumType.values.get(key);
+	//     if (typeof value === 'string') {
+	//         state.pushString(value ?? enumType.defaultString);
+	//     } else {
+	//         state.pushInt(value ?? enumType.defaultInt);
+	//     }
+	//
+	// Two behaviours fall out of this that goscape's pre-fix OutputType-based
+	// dispatch did not match (h-config-1 / h-core-1):
+	//
+	//  1. When the key resolves to a value, the dispatch keys off the value's
+	//     own type — match TS by doing the same type-switch on the Go any.
+	//  2. When the key is MISSING (Values.get returns undefined),
+	//     `typeof undefined !== 'string'` falls into the else branch, so TS
+	//     ALWAYS pushes defaultInt to the INT stack — even when the enum's
+	//     declared OutputType is string. goscape previously routed missing
+	//     keys on string-output enums to PushString(DefaultString), which
+	//     diverges from TS and could leave the int stack underpopulated
+	//     relative to TS-faithful callers.
 	if v, ok := et.Values[int32(key)]; ok {
-		if isString {
-			sv, ok := v.(string)
-			if !ok {
-				return fmt.Errorf("ENUM: enum %d value at key %d expected string, got %T", enumID, key, v)
-			}
-			s.PushString(sv)
-		} else {
-			iv, ok := v.(int32)
-			if !ok {
-				return fmt.Errorf("ENUM: enum %d value at key %d expected int32, got %T", enumID, key, v)
-			}
-			s.PushInt(int(iv))
+		switch vt := v.(type) {
+		case string:
+			s.PushString(vt)
+		case int32:
+			s.PushInt(int(vt))
+		default:
+			return fmt.Errorf("ENUM: enum %d value at key %d: unexpected runtime type %T", enumID, key, v)
 		}
 		return nil
 	}
-	// Missing key → defaults.
-	if isString {
-		s.PushString(et.DefaultString)
-	} else {
-		s.PushInt(int(et.DefaultInt))
-	}
+	s.PushInt(int(et.DefaultInt))
 	return nil
 }
 

@@ -481,16 +481,39 @@ func TestEnumIntToString(t *testing.T) {
 	}
 }
 
-func TestEnumIntToStringMissingKeyFallsBackToDefault(t *testing.T) {
+// TestEnumIntToString_MissingKeyPushesDefaultIntPerTS pins h-config-1 /
+// h-core-1: TS EnumOps.ts:17-22 dispatches by the runtime type of the
+// value looked up in the enum's Values map:
+//
+//	const value = enumType.values.get(key);
+//	if (typeof value === 'string') {
+//	    state.pushString(value ?? enumType.defaultString);
+//	} else {
+//	    state.pushInt(value ?? enumType.defaultInt);
+//	}
+//
+// For a missing key Values.get returns undefined and `typeof undefined`
+// is not 'string', so the else branch fires and pushes `defaultInt` to
+// the INT stack — even when the enum's declared OutputType is string.
+// The pre-fix Go code dispatched on et.OutputType, so a missing key on a
+// string-output enum routed to PushString(DefaultString); this test
+// pins the post-fix TS-faithful behaviour instead.
+//
+// (Replaces the prior TestEnumIntToStringMissingKeyFallsBackToDefault
+// which had locked in the Go-divergent contract.)
+func TestEnumIntToString_MissingKeyPushesDefaultIntPerTS(t *testing.T) {
 	mc := newTestConfigs()
+	// Distinguishable DefaultInt so we can be sure it was the int-side
+	// default that fired, not the string-side path's zero-value carryover.
+	mc.enums[0].DefaultInt = -7
 	state := runConfigOp(t, mc, OpEnum, []int{
 		int(objtype.ScriptVarTypeInt),
 		int(objtype.ScriptVarTypeString),
 		0,
 		999,
 	})
-	if got := state.PopString(); got != "?" {
-		t.Errorf("ENUM(0,999): got %q, want default %q", got, "?")
+	if got := state.PopInt(); got != -7 {
+		t.Errorf("ENUM(0,999) missing key on string-output enum (TS EnumOps.ts:17-22 typeof undefined !== 'string' → pushInt(defaultInt) (h-config-1)): got %d, want -7", got)
 	}
 }
 
