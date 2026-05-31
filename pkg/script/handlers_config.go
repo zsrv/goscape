@@ -22,26 +22,35 @@ func paramLookup(s *ScriptState, params objtype.ParamMap, paramID int, op string
 	isString := pt.Type == objtype.ScriptVarTypeString
 	if v, ok := params[uint32(paramID)]; ok {
 		if isString {
-			sv, ok := v.(string)
-			if !ok {
-				return fmt.Errorf("param lookup: param %d expected string, got %T", paramID, v)
+			// h-config-3: TS ParamHelper.getStringParam (ParamHelper.ts:10-16)
+			// gates on `typeof value !== 'string'` — a stored non-string
+			// (i.e. a number under a string-typed param) falls through to
+			// the default rather than throwing. goscape pre-fix returned
+			// a hard error here and aborted the script; the TS-faithful
+			// behaviour is to fall through to the ParamType.DefaultString
+			// branch below.
+			if sv, isStr := v.(string); isStr {
+				s.PushString(sv)
+				return nil
 			}
-			s.PushString(sv)
 		} else {
-			iv, ok := v.(uint32)
-			if !ok {
-				return fmt.Errorf("param lookup: param %d expected uint32, got %T", paramID, v)
+			// h-config-3: TS ParamHelper.getIntParam (ParamHelper.ts:18-24)
+			// gates on `typeof value !== 'number'` — falls through to the
+			// default on type mismatch rather than throwing.
+			if iv, isInt := v.(uint32); isInt {
+				// NAI-122 in-scope-stretch: param ints are stored as the
+				// raw uint32 wire bytes (DecodeParams reads via Packet.G4).
+				// Cast through int32 to sign-extend negative values
+				// (RuneScape weapon configs encode bonuses like -4 stab
+				// as 0xFFFFFFFC). Direct uint32→int loses the sign.
+				s.PushInt(int(int32(iv)))
+				return nil
 			}
-			// NAI-122 in-scope-stretch: param ints are stored as the
-			// raw uint32 wire bytes (DecodeParams reads via Packet.G4).
-			// Cast through int32 to sign-extend negative values
-			// (RuneScape weapon configs encode bonuses like -4 stab
-			// as 0xFFFFFFFC). Direct uint32→int loses the sign.
-			s.PushInt(int(int32(iv)))
 		}
-		return nil
 	}
-	// Fall through to ParamType defaults. TS ParamHelper.getStringParam
+	// Fall through to ParamType defaults — either the param key is
+	// missing OR the stored value is the wrong runtime type (h-config-3).
+	// TS ParamHelper.getStringParam
 	// (ParamHelper.ts:10-16) returns `defaultValue ?? 'null'` — when the
 	// ParamType's defaultString is unset (TS field default `null`), TS
 	// pushes the literal string "null". goscape stores DefaultString as a

@@ -1080,6 +1080,37 @@ func TestOcParamInt_NegativeSignPreserved(t *testing.T) {
 	}
 }
 
+// TestOcParam_TypeMismatchFallsThroughToDefault pins h-config-3.
+// TS ParamHelper.getStringParam / getIntParam (ParamHelper.ts:10-24)
+// return the default when the stored value is not the expected JS type
+// (`typeof value !== 'string'` / `!== 'number'`) — they do NOT throw.
+// goscape's paramLookup pre-fix returned a hard error on type mismatch,
+// aborting the script. The fix is to fall through to the default branch
+// (same path as a missing key).
+func TestOcParam_TypeMismatchFallsThroughToDefault(t *testing.T) {
+	t.Run("string-typed param with int value pushes default 'null'", func(t *testing.T) {
+		mc := newTestConfigs()
+		// ParamType 2 is STRING (DefaultString="" → pushes "null" per
+		// h-config-4). Stomp coins.Params[2] with a uint32 value to
+		// force the type-mismatch branch.
+		mc.objs[995].Params[2] = uint32(42)
+		state := runConfigOp(t, mc, OpOcParam, []int{995, 2})
+		if got := state.PopString(); got != "null" {
+			t.Errorf("OC_PARAM(995, 2) with string-typed param holding uint32: got %q, want %q (TS ParamHelper.getStringParam returns default on type mismatch, ParamHelper.ts:10-16)", got, "null")
+		}
+	})
+	t.Run("int-typed param with string value pushes default 77", func(t *testing.T) {
+		mc := newTestConfigs()
+		// ParamType 4 is INT (DefaultInt=77). Stomp coins.Params[4] with
+		// a string value to force the type-mismatch branch.
+		mc.objs[995].Params[4] = "not a number"
+		state := runConfigOp(t, mc, OpOcParam, []int{995, 4})
+		if got := state.PopInt(); got != 77 {
+			t.Errorf("OC_PARAM(995, 4) with int-typed param holding string: got %d, want 77 (TS ParamHelper.getIntParam returns default on type mismatch, ParamHelper.ts:18-24)", got)
+		}
+	})
+}
+
 func TestOcCategory(t *testing.T) {
 	mc := newTestConfigs()
 	state := runConfigOp(t, mc, OpOcCategory, []int{995})
