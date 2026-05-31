@@ -96,21 +96,30 @@ func (s *Server) handleIdkSaveDesign(p *Player, payload []byte) error {
 		idkit[i] = v
 	}
 
-	// IdkType validation — mirrors TS IdkSaveDesignHandler.ts:18-33.
-	// TS order: idk loop before color loop.
+	// IdkType validation — mirrors TS IdkSaveDesignHandler.ts:18-35.
+	// TS calls IdkType.get(idkit[i]) which returns falsy when the
+	// registry has no entry for that id — the `!idk` arm then drops
+	// the design. net-client-h-social-5: goscape pre-fix wrapped the
+	// loop in `if s.idkTypes != nil`, silently accepting any design
+	// when the registry hadn't been populated (the TS-unsafe inverse
+	// of "always validate"). Threading through a nil-safe configs
+	// slice keeps the nil-registry rejection equivalent to TS's
+	// IdkType.get → undefined → !idk.
+	var configs []*objtype.IdkType
 	if s.idkTypes != nil {
-		for i := range 7 {
-			typ := i + gender*7
-			if typ == 8 && idkit[i] == -1 { // female jaw exception (TS L21-23)
-				continue
-			}
-			if idkit[i] < 0 || idkit[i] >= len(s.idkTypes.Configs) {
-				return nil
-			}
-			idk := s.idkTypes.Configs[idkit[i]]
-			if idk.Disable || idk.Type != typ {
-				return nil
-			}
+		configs = s.idkTypes.Configs
+	}
+	for i := range 7 {
+		typ := i + gender*7
+		if typ == 8 && idkit[i] == -1 { // female jaw exception (TS L25-28)
+			continue
+		}
+		if idkit[i] < 0 || idkit[i] >= len(configs) {
+			return nil
+		}
+		idk := configs[idkit[i]]
+		if idk.Disable || idk.Type != typ {
+			return nil
 		}
 	}
 

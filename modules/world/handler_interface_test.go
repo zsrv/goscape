@@ -452,12 +452,40 @@ func TestHandleIdkSaveDesignColorOutOfBounds(t *testing.T) {
 	p.client.server = s
 	p.allowDesign = true
 
+	// Seed a minimal registry so the idk loop accepts every slot
+	// (Type=i matches the male typ = i for gender=0). With the
+	// net-client-h-social-5 fix, a nil idkTypes registry now rejects
+	// the design at the idk gate before the color check runs — so to
+	// keep the color guard as this test's actual discriminator the
+	// fixture must populate idkTypes with all-zero ids passing.
+	s.idkTypes = buildIdkTypes(7)
+
 	// color[0] max is 11 (count=12); send 12 → out of bounds.
-	// s.idkTypes is nil so the idk loop is skipped; color check still fires.
 	_ = s.handleIdkSaveDesign(p, idkPayload(0, [7]byte{}, [5]byte{12, 0, 0, 0, 0}))
 
 	if p.gender != 0 {
 		t.Errorf("state changed despite invalid color: gender=%d", p.gender)
+	}
+}
+
+// TestHandleIdkSaveDesignRejectsWhenIdkTypesNil pins net-client-h-social-5.
+// TS IdkSaveDesignHandler.ts:18-35 calls IdkType.get(idkit[i]) which
+// returns falsy when the registry has no entry; the `!idk` arm fails
+// validation and drops the design. goscape pre-fix wrapped the idk
+// loop in `if s.idkTypes != nil`, silently accepting any otherwise-
+// well-formed design when the registry hadn't been loaded.
+func TestHandleIdkSaveDesignRejectsWhenIdkTypesNil(t *testing.T) {
+	s := newTestServer(t)
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.allowDesign = true
+	p.appearanceInv = 0
+	// s.idkTypes deliberately left nil.
+
+	_ = s.handleIdkSaveDesign(p, idkPayload(0, [7]byte{0, 1, 2, 3, 4, 5, 6}, [5]byte{0, 0, 0, 0, 0}))
+
+	if p.gender != 0 || p.body != [7]int{0, 10, 18, 26, 33, 36, 42} {
+		t.Errorf("TS IdkSaveDesignHandler.ts:30-34 rejects design when IdkType.get returns falsy; nil registry must reject (no state change), but got gender=%d body=%v", p.gender, p.body)
 	}
 }
 
