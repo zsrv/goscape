@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -95,7 +96,10 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 				Result: loginpb.LoginResult_LOGIN_RESULT_INVALID_CREDENTIALS,
 			}, nil
 		}
-		hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), h.cfg.BCryptCost)
+		// Lowercase before hash — mirrors TS LoginServer.ts:213
+		// `bcrypt.hashSync(password.toLowerCase(), 10)`. Cross-server
+		// account parity requires byte-identical hash input.
+		hashed, err := bcrypt.GenerateFromPassword([]byte(strings.ToLower(req.Password)), h.cfg.BCryptCost)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "bcrypt hash: %v", err)
 		}
@@ -112,7 +116,9 @@ func (h *handler) PlayerLogin(ctx context.Context, req *loginpb.PlayerLoginReque
 	}
 
 	// 4. Password check.
-	if err := bcrypt.CompareHashAndPassword([]byte(account.Password), []byte(req.Password)); err != nil {
+	// Lowercase before compare — mirrors TS LoginServer.ts:233
+	// `bcrypt.compare(password.toLowerCase(), account.password)`.
+	if err := bcrypt.CompareHashAndPassword([]byte(account.Password), []byte(strings.ToLower(req.Password))); err != nil {
 		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
 			return &loginpb.PlayerLoginResponse{
 				Result:    loginpb.LoginResult_LOGIN_RESULT_INVALID_CREDENTIALS,

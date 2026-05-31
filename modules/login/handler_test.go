@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -118,6 +119,88 @@ func TestPlayerLogin_InvalidCredentials(t *testing.T) {
 	}
 	if resp.Result != loginpb.LoginResult_LOGIN_RESULT_INVALID_CREDENTIALS {
 		t.Errorf("Result: got %v, want LOGIN_RESULT_INVALID_CREDENTIALS", resp.Result)
+	}
+}
+
+// TestPlayerLogin_ExistingPlayer_CaseInsensitivePassword pins login-server-4:
+// TS LoginServer.ts:233 calls `bcrypt.compare(password.toLowerCase(), …)`,
+// so a user who registered with "lowerpw" (lowercase hash) can log in with
+// "LOWERPW" or "LowerPw". Pre-fix RED: bcrypt would compare verbatim
+// "LOWERPW" against hash("lowerpw") → mismatch → INVALID_CREDENTIALS.
+// Post-fix GREEN: handler lowercases the input before bcrypt.Compare →
+// match → OK.
+func TestPlayerLogin_ExistingPlayer_CaseInsensitivePassword(t *testing.T) {
+	h, savePath := newTestHandler(t)
+	// Account stored with the lowercased hash, matching TS auto-register
+	// shape (LoginServer.ts:213 `bcrypt.hashSync(password.toLowerCase(), 10)`).
+	insertTestAccount(t, h.db, "caseuser", "lowerpw")
+
+	// Need a valid save so the success path reaches LOGIN_RESULT_OK.
+	saveDir := filepath.Join(savePath, "main")
+	if err := os.MkdirAll(saveDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	saveBytes := makeValidSave(500)
+	saveFile := filepath.Join(saveDir, "caseuser.sav")
+	if err := os.WriteFile(saveFile, saveBytes, 0o644); err != nil {
+		t.Fatalf("write save: %v", err)
+	}
+
+	// Login with uppercased password — the load-bearing case.
+	resp, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId:        1,
+		Profile:       "main",
+		NodeMembers:   true,
+		Username:      "caseuser",
+		Password:      "LOWERPW",
+		Uid:           42,
+		RemoteAddress: "192.168.1.1:12345",
+	})
+	if err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+	if resp.Result != loginpb.LoginResult_LOGIN_RESULT_OK {
+		t.Errorf("Result: got %v, want LOGIN_RESULT_OK (TS LoginServer.ts:233 must lowercase password before bcrypt.Compare)", resp.Result)
+	}
+}
+
+// TestPlayerLogin_AutoRegister_StoresLowercaseHash pins the symmetric half
+// of login-server-4: TS LoginServer.ts:213 stores the hash of the LOWERCASED
+// password on auto-register. Verify directly by submitting "Hunter2" through
+// the auto-register path, then reading the stored hash from the DB and
+// asserting it matches "hunter2" (lowercased input). Pre-fix the stored
+// hash matches the verbatim "Hunter2"; post-fix it matches "hunter2".
+func TestPlayerLogin_AutoRegister_StoresLowercaseHash(t *testing.T) {
+	h, _ := newTestHandler(t)
+
+	resp, err := h.PlayerLogin(t.Context(), &loginpb.PlayerLoginRequest{
+		NodeId:        1,
+		Profile:       "main",
+		NodeMembers:   true,
+		Username:      "casenewbie",
+		Password:      "Hunter2",
+		Uid:           42,
+		RemoteAddress: "192.168.1.1:12345",
+	})
+	if err != nil {
+		t.Fatalf("PlayerLogin: %v", err)
+	}
+	if resp.Result != loginpb.LoginResult_LOGIN_RESULT_NEW_PLAYER {
+		t.Fatalf("Result: got %v, want LOGIN_RESULT_NEW_PLAYER", resp.Result)
+	}
+
+	acc, err := accountByUsername(t.Context(), h.db, "casenewbie", "main")
+	if err != nil {
+		t.Fatalf("accountByUsername: %v", err)
+	}
+	if acc == nil {
+		t.Fatal("expected account to be created")
+	}
+
+	// Stored hash must verify against "hunter2" (the lowercased input)
+	// per TS LoginServer.ts:213 `bcrypt.hashSync(password.toLowerCase(),10)`.
+	if err := bcrypt.CompareHashAndPassword([]byte(acc.Password), []byte("hunter2")); err != nil {
+		t.Errorf("stored hash should verify against lowercased password %q; got: %v (TS LoginServer.ts:213 must hash the lowercased password)", "hunter2", err)
 	}
 }
 
