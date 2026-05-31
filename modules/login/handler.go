@@ -294,7 +294,7 @@ func (h *handler) PlayerLogout(ctx context.Context, req *loginpb.PlayerLogoutReq
 	if account == nil {
 		return nil, status.Errorf(codes.NotFound, "account %q not found", req.Username)
 	}
-	if err := setLoggedOut(ctx, h.db, account.ID, req.Profile, int(req.NodeId)); err != nil {
+	if err := setLoggedOut(ctx, h.db, account.ID, req.Profile); err != nil {
 		return nil, status.Errorf(codes.Internal, "setLoggedOut: %v", err)
 	}
 
@@ -333,7 +333,7 @@ func (h *handler) PlayerForceLogout(ctx context.Context, req *loginpb.PlayerForc
 	if account == nil {
 		return nil, status.Errorf(codes.NotFound, "account %q not found", req.Username)
 	}
-	if err := setLoggedOut(ctx, h.db, account.ID, req.Profile, int(req.NodeId)); err != nil {
+	if err := setLoggedOut(ctx, h.db, account.ID, req.Profile); err != nil {
 		return nil, status.Errorf(codes.Internal, "setLoggedOut: %v", err)
 	}
 	return &emptypb.Empty{}, nil

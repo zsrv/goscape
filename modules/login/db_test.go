@@ -305,7 +305,7 @@ func TestSetLoggedOut(t *testing.T) {
 		t.Fatalf("upsertAccountLogin: %v", err)
 	}
 
-	err = setLoggedOut(t.Context(), db, int(id), "main", 3)
+	err = setLoggedOut(t.Context(), db, int(id), "main")
 	if err != nil {
 		t.Fatalf("setLoggedOut: %v", err)
 	}
@@ -320,6 +320,43 @@ func TestSetLoggedOut(t *testing.T) {
 	}
 	if loggedIn != 0 {
 		t.Errorf("logged_in: got %d, want 0", loggedIn)
+	}
+}
+
+// TestSetLoggedOut_ClearsRowRegardlessOfNodeId pins login-server-3: the UPDATE
+// keys by (account_id, profile) ONLY. TS LoginServer.ts:438-439,484-485 keeps
+// the WHERE clause node-agnostic so a logout originating from a different node
+// (e.g. force-logout from a sibling world) can still clear a stale login row.
+// Pre-fix goscape filtered `AND node_id = ?` and silently no-op'd when the
+// caller's nodeID differed from the row's, leaving logged_in=1 forever and
+// arming spurious "account is logged in elsewhere" rejects on the next login.
+//
+// Toggle-revert RED proof: reintroduce `AND node_id = 0` (literal mismatch
+// vs the row's node_id=99 seeded below) into the UPDATE; this test then
+// reads logged_in=1 and fails with the cited assertion message.
+func TestSetLoggedOut_ClearsRowRegardlessOfNodeId(t *testing.T) {
+	db := createTestDB(t)
+	id := insertTestAccount(t, db, "noderoamuser", "pass")
+
+	// Row seeded by node_id=99 — a different world from the one initiating
+	// the logout. Pre-fix WHERE clause demanded the bound nodeID match.
+	if err := upsertAccountLogin(t.Context(), db, int(id), "main", 99); err != nil {
+		t.Fatalf("upsertAccountLogin: %v", err)
+	}
+
+	if err := setLoggedOut(t.Context(), db, int(id), "main"); err != nil {
+		t.Fatalf("setLoggedOut: %v", err)
+	}
+
+	var loggedIn int
+	if err := db.QueryRowContext(t.Context(),
+		`SELECT logged_in FROM account_login WHERE account_id = ? AND profile = ?`,
+		id, "main",
+	).Scan(&loggedIn); err != nil {
+		t.Fatalf("query account_login: %v", err)
+	}
+	if loggedIn != 0 {
+		t.Errorf("logged_in: got %d, want 0; TS LoginServer.ts:438-439,484-485 clears WHERE (account_id, profile) only — setLoggedOut must NOT gate on node_id (login-server-3)", loggedIn)
 	}
 }
 

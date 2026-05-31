@@ -225,7 +225,12 @@ func clearWorldSessions(ctx context.Context, db *sql.DB, nodeID int, profile str
 // for bookkeeping; nothing reads it). The logout_time stamp is what arms the
 // M25 "save missing but logout_time set" safety reject on the next login, so the
 // two writes are wrapped in a transaction to stay consistent.
-func setLoggedOut(ctx context.Context, db *sql.DB, accountID int, profile string, nodeID int) error {
+//
+// The UPDATE matches by (account_id, profile) only — node_id is intentionally
+// excluded so a force-logout originating from a different node clears the
+// row a previous world wrote (TS LoginServer.ts:438-439,484-485 likewise
+// keys the clear by account/profile, not by which node currently holds it).
+func setLoggedOut(ctx context.Context, db *sql.DB, accountID int, profile string) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("setLoggedOut: begin tx: %w", err)
@@ -238,8 +243,8 @@ func setLoggedOut(ctx context.Context, db *sql.DB, accountID int, profile string
 	}()
 
 	if _, err := tx.ExecContext(ctx,
-		`UPDATE account_login SET logged_in = 0 WHERE account_id = ? AND profile = ? AND node_id = ?`,
-		accountID, profile, nodeID,
+		`UPDATE account_login SET logged_in = 0 WHERE account_id = ? AND profile = ?`,
+		accountID, profile,
 	); err != nil {
 		return fmt.Errorf("setLoggedOut: clear logged_in: %w", err)
 	}
