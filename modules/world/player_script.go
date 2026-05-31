@@ -1286,13 +1286,15 @@ func (p *Player) SendCountDialog() {
 // unsetMapFlag() — clears any anchored interaction target plus any
 // pending-action state (modals, interaction kind) AND clears the walk
 // queue + emits OpUnsetMapFlag so the client drops its map-click
-// indicator. The leading ClearInteraction call carries the targetSubject
-// reset that goscape's ClearPendingAction does not (player-script-7
-// remains open; the explicit ClearInteraction here covers the StopAction
-// surface). unsetMapFlag is the lowercase TS-bundled helper
+// indicator. unsetMapFlag is the lowercase TS-bundled helper
 // (interaction.go:61), NOT the wire-only sendUnsetMapFlag.
+//
+// player-script-1 (player_script.go LANDED 2026-05-30) added the leading
+// ClearInteraction call as a defensive cover for player-script-7's
+// partial ClearPendingAction — that gap is now closed (post-fix
+// ClearPendingAction delegates to ClearInteraction internally) so the
+// explicit leading call has been dropped to match TS shape exactly.
 func (p *Player) StopAction() {
-	p.ClearInteraction()
 	p.ClearPendingAction()
 	p.unsetMapFlag()
 }
@@ -1306,12 +1308,27 @@ func (p *Player) RequestLogout() {
 }
 
 // ClearPendingAction implements script.ActivePlayer.ClearPendingAction.
-// Resets interaction kind/target/op to idle and closes any open modal.
-// Walk queue is preserved.
+// Mirrors TS Player.clearPendingAction (Player.ts:950-953) =
+// clearInteraction() + closeModal(). Walk queue is preserved.
+//
+// Pre-fix this method did a partial inline reset (target + targetOp only),
+// leaving apRange / apRangeCalled / targetSubject stuck at their last
+// interaction's values. A content-script p_clearpendingaction (or any
+// callsite that funnels through here — opheld, op_player, minimap walk
+// modal-close) then left half the interaction state alive: the next
+// SetInteraction inherited a stale apRange / apRangeCalled / targetSubject
+// where TS gives it a clean slate (TS PathingEntity.clearInteraction
+// PathingEntity.ts:550-555).
+//
+// Post-interaction-6 (memorialized at interaction.go:226-249)
+// (*Player).ClearInteraction is itself TS-faithful (target/targetOp/
+// targetSubject + apRange=10/apRangeCalled=false), so delegating here
+// gives the full TS-shape with no duplicated knowledge. interactionKind
+// is goscape-specific and outside TS's clearInteraction — preserved as
+// a defensive reset to InteractionEngine (the zero-value default).
 func (p *Player) ClearPendingAction() {
 	p.interactionKind = InteractionEngine
-	p.target = nil
-	p.targetOp = -1
+	p.ClearInteraction()
 	p.CloseModal(true)
 }
 
