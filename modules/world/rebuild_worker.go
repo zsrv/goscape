@@ -106,26 +106,54 @@ func (s *Server) handleRebuildResult(r rebuildResult) {
 // AND to every online player with staffModLevel >= 4. Deduplicates.
 // Spec §4.5 (docs/superpowers/specs/2026-05-18-rebuild-async-fsnotify-design.md).
 //
-// GAP-WORLD-RELOAD-EVENTS-3-D-STAFF-ONLY-REBUILD-BROADCAST — CONFIRMED EXCEPTION
-// (closes gap-world-reload-events-3 from the 2026-05-28 fresh audit).
-// TS World's rebuild-progress / outcome messages (the
-// `dev_progress`, `dev_failure`, and `dev_thread exit` paths at
-// World.ts:1750-1758, 1803-1811) all funnel into
-// World.broadcastMes (World.ts:1808-1816), which iterates the FULL
-// playerLoop — every connected player receives every "Rebuilding…",
-// "Rebuilt: Ns.", and "Rebuild failed: …" line.
+// GAP-WORLD-RELOAD-EVENTS-2-AND-3-D-STAFF-ONLY-AND-COARSE-REBUILD-BROADCAST
+// — CONFIRMED EXCEPTION (closes gap-world-reload-events-2 and
+// gap-world-reload-events-3 from the 2026-05-28 fresh audit; -2 covers
+// the in-flight `Packing/Reloading` progress granularity, -3 covers
+// the audience narrowing).
 //
-// goscape deliberately narrows the broadcast to staff (modlvl >= 4)
-// plus the manual invoker. The §4.5 spec entry chose this scope to
-// avoid spamming every connected player with rebuild churn during
-// development sessions — content authors and operators see the
-// progress they care about; non-staff players see nothing. The same
-// trade-off has already shipped through the rebuild-async-fsnotify
-// design review (#2026-05-18) and the content-watcher-replay design
+// TS World's rebuild-progress / outcome messages — the per-tick
+// `dev_progress` "Packing…" / "Reloading…" updates emitted from
+// PackAll.ts:18-22 + World.ts:1759-1766, plus the `dev_failure` and
+// `dev_thread exit` paths at World.ts:1750-1758, 1803-1811 — all
+// funnel into World.broadcastMes (World.ts:1808-1816), which iterates
+// the FULL playerLoop. Every connected player receives every
+// "Packing…", "Reloading…", "Rebuilt: Ns.", and "Rebuild failed: …"
+// line, mid-rebuild and at completion.
+//
+// goscape deviates on two axes against the §4.5 spec
+// (docs/superpowers/specs/2026-05-18-rebuild-async-fsnotify-design.md):
+//
+//  1. AUDIENCE NARROWING (-3): the broadcast is restricted to staff
+//     (modlvl >= 4) plus the manual invoker. The §4.5 spec entry chose
+//     this scope to avoid spamming every connected player with rebuild
+//     churn during development sessions — content authors and operators
+//     see the progress they care about; non-staff players see nothing.
+//
+//  2. PROGRESS GRANULARITY (-2): goscape emits ONE pre-pack message
+//     ("Rebuilding scripts…" at handlers_game.go's `::rebuild` arm) and
+//     ONE completion message (this file's handleRebuildResult). No
+//     per-tick `Packing…` / `Reloading…` updates. This is a structural
+//     consequence of goscape's pack architecture: packFn (line 55) is a
+//     synchronous Go call inside the rebuildWorker goroutine; it
+//     returns only when the entire pack finishes. There is no per-tick
+//     progress signal to forward because the pack runs opaquely. TS's
+//     DevThread is a separate Worker that yields per-tick chunks back
+//     to the main loop, which is what makes the granular dev_progress
+//     stream possible. Porting the granular stream would require either
+//     re-architecting packFn into a chunked/cooperative state machine
+//     (large), or sampling progress from a side-channel
+//     (instrumentation overhead with no operator-visible benefit given
+//     -3's staff-only audience). The §4.5 spec accepted the coarse
+//     before/after pair as adequate signal — the operator sees the
+//     pack started, then sees it finished with a duration.
+//
+// Both axes have shipped through the rebuild-async-fsnotify design
+// review (#2026-05-18) and the content-watcher-replay design
 // (#docs/superpowers/plans/2026-05-18-content-watcher-replay.md);
-// promoting the broadcast back to "all players" would re-litigate
-// that decision against the operator-noise rationale that motivated
-// the spec.
+// promoting the broadcast back to "all players" OR forcing per-tick
+// granularity would re-litigate that decision against the
+// operator-noise + opaque-packFn rationales that motivated the spec.
 //
 // Coalesced manual invokers, fsnotify-triggered rebuilds with no
 // invoker, and the `::rebuild` ContentPath-empty private-error path

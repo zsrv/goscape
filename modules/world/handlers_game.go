@@ -769,11 +769,13 @@ func handleClientCheat(p *Player, payload []byte) error {
 			}
 			p.client.server.rebuildMu.Unlock()
 			// Staff-only broadcast is the deliberate Spec §4.5 scope
-			// (gap-world-reload-events-3 EXCEPTION-DOCUMENTED — see
-			// the CONFIRMED EXCEPTION block on broadcastRebuildStaff
-			// in rebuild_worker.go for rationale). TS's "Rebuilding
-			// scripts..." message would reach every connected player
-			// via broadcastMes (World.ts:1758).
+			// (gap-world-reload-events-2 AND gap-world-reload-events-3
+			// both EXCEPTION-DOCUMENTED — see the CONFIRMED EXCEPTION
+			// block on broadcastRebuildStaff in rebuild_worker.go for
+			// rationale). TS's "Rebuilding scripts..." (and the per-tick
+			// "Packing…" / "Reloading…" updates that goscape's
+			// synchronous packFn cannot reproduce) would reach every
+			// connected player via broadcastMes (World.ts:1758).
 			p.client.server.broadcastRebuildStaff(p, "Rebuilding scripts...")
 			p.client.server.dispatchRebuildRequest()
 			return nil
