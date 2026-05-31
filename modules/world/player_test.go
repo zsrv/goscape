@@ -39,7 +39,7 @@ func TestReadPacketEmptyBufferReturnsFalse(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.client.decryptor = dec
 
-	opcode, ok, err := p.readPacket()
+	opcode, ok, _, err := p.readPacket()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -59,7 +59,7 @@ func TestReadPacketUnknownOpcodeReturnsErrCloseConn(t *testing.T) {
 	// Opcode 0 is not registered in Ops.
 	p.client.in.Write([]byte{encryptOpcode(enc, 0)})
 
-	_, _, err := p.readPacket()
+	_, _, _, err := p.readPacket()
 	if !errors.Is(err, errCloseConn) {
 		t.Errorf("unknown opcode: got %v, want errCloseConn", err)
 	}
@@ -73,7 +73,7 @@ func TestReadPacketNoTimeoutConsumesAndResetsOpcode(t *testing.T) {
 	// NO_TIMEOUT: opcode 108, payload size 0
 	p.client.in.Write([]byte{encryptOpcode(enc, 108)})
 
-	opcode, ok, err := p.readPacket()
+	opcode, ok, _, err := p.readPacket()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestReadPacketMoveGameClickFullPacket(t *testing.T) {
 	buf = append(buf, payload...)
 	p.client.in.Write(buf)
 
-	opcode, ok, err := p.readPacket()
+	opcode, ok, _, err := p.readPacket()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -129,7 +129,7 @@ func TestReadPacketPartialPayloadReturnsFalse(t *testing.T) {
 	buf := []byte{encryptOpcode(enc, 181), 10, 0x01, 0x02, 0x03}
 	p.client.in.Write(buf)
 
-	_, ok, err := p.readPacket()
+	_, ok, _, err := p.readPacket()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -158,7 +158,7 @@ func TestReadPacketEventTrackingTwoByteLenPrefix(t *testing.T) {
 	buf = append(buf, payload...)
 	p.client.in.Write(buf)
 
-	opcode, ok, err := p.readPacket()
+	opcode, ok, _, err := p.readPacket()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -181,7 +181,7 @@ func TestReadPacketOversizedTwoByteLenClosesConn(t *testing.T) {
 	buf = append(buf, 0x07, 0x00) // 0x0700 = 1792 > 1600
 	p.client.in.Write(buf)
 
-	_, _, err := p.readPacket()
+	_, _, _, err := p.readPacket()
 	if !errors.Is(err, errCloseConn) {
 		t.Errorf("oversized packet: got %v, want errCloseConn", err)
 	}
@@ -262,6 +262,55 @@ func TestProcessInRestrictedEventRateLimit(t *testing.T) {
 	// 3rd packet (3 bytes) remains
 	if p.client.in.Len() != 3 {
 		t.Errorf("remaining bytes: got %d, want 3", p.client.in.Len())
+	}
+}
+
+// TestProcessIn_UnhandledOpcodeDoesNotConsumeClientLimit pins player-net-7
+// (also gap-client-models-1 / gap-configs-snapshot-netbase-1): TS
+// NetworkPlayer.decodeIn (NetworkPlayer.ts:143-152) increments the per-tick
+// userLimit / clientLimit / restrictedLimit counters only when the dispatched
+// handler.handle(...) returns true. goscape's pre-fix processIn loop counted
+// every consumed packet, including opcodes whose Go handler is not wired
+// (gameHandlers[opcode] == nil) — inflating the per-tick budget so the next
+// REAL user-event packet that arrived in the same tick was throttled or
+// dropped based on bookkeeping it should have been billing.
+//
+// EVENT_CAMERA_POSITION (opcode 189, CategoryClientEvent, fixed 6-byte
+// payload per prot.go:33) is registered in gameclient.Ops but has no entry
+// in gameHandlers, so it exercises the handler-nil branch of readPacket.
+// Five consecutive 189 packets should leave clientLimit at 0 post-fix; the
+// other two limit counters likewise stay at 0 as a cross-category guard.
+//
+// Toggle-revert RED proof: drop the `if !handled { continue }` guard in
+// processIn (restore the unconditional switch). The test then reads
+// clientLimit=5 and fails with the cited assertion message.
+func TestProcessIn_UnhandledOpcodeDoesNotConsumeClientLimit(t *testing.T) {
+	enc, dec := isaacPair([4]uint32{77, 88, 99, 100})
+	p, _ := newTestPlayer(t)
+	p.client.decryptor = dec
+
+	const op189Payload = 6 // EVENT_CAMERA_POSITION fixed payload size
+	payload := make([]byte, op189Payload)
+	var buf []byte
+	for range 5 {
+		buf = append(buf, encryptOpcode(enc, 189))
+		buf = append(buf, payload...)
+	}
+	p.client.in.Write(buf)
+
+	p.processIn(0)
+
+	if p.clientLimit != 0 {
+		t.Errorf("clientLimit: got %d, want 0; TS NetworkPlayer.ts:143-152 gates the per-tick limit on handler.handle()==true — opcode 189 has no Go handler so it must NOT burn a clientLimit slot (player-net-7)", p.clientLimit)
+	}
+	if p.userLimit != 0 {
+		t.Errorf("userLimit: got %d, want 0 (cross-category leak guard)", p.userLimit)
+	}
+	if p.restrictedLimit != 0 {
+		t.Errorf("restrictedLimit: got %d, want 0 (cross-category leak guard)", p.restrictedLimit)
+	}
+	if p.client.in.Len() != 0 {
+		t.Errorf("remaining bytes: got %d, want 0 (all 5 packets must still be CONSUMED, just not COUNTED)", p.client.in.Len())
 	}
 }
 

@@ -1190,7 +1190,7 @@ func (p *Player) processIn(currentTick int) {
 		p.clientLimit < clientEventLimit &&
 		p.restrictedLimit < restrictedEventLimit {
 
-		opcode, ok, err := p.readPacket()
+		opcode, ok, handled, err := p.readPacket()
 		if err != nil {
 			return
 		}
@@ -1198,6 +1198,16 @@ func (p *Player) processIn(currentTick int) {
 			break
 		}
 		readAny = true
+		// player-net-7: TS NetworkPlayer.decodeIn (NetworkPlayer.ts:143-152)
+		// increments userLimit / clientLimit / restrictedLimit only when
+		// handler.handle(...) returns true. Pre-fix goscape counted every
+		// consumed packet, so opcodes with no registered Go handler still
+		// burned a slot in the per-tick limit — the next REAL user-event
+		// packet that arrived in the same tick was throttled / dropped
+		// based on a quota inflated by un-handled bookkeeping packets.
+		if !handled {
+			continue
+		}
 		switch gameclient.Ops[opcode].Category {
 		case gameclient.CategoryUserEvent:
 			p.userLimit++
@@ -1238,20 +1248,43 @@ func (p *Player) processInputTracking(currentTick int) {
 // Returns (opcode, true, nil) on success, (-1, false, nil) if the buffer is empty
 // or the payload is incomplete, and (-1, false, errCloseConn) on a fatal error.
 // Must be called with c.inMu held.
-func (p *Player) readPacket() (int, bool, error) {
+// readPacket decodes and dispatches one inbound game packet.
+//
+// Return contract:
+//   - opcode  : the decrypted opcode (only meaningful when ok==true).
+//   - ok      : true iff a full packet was consumed off c.in. False means
+//     either the buffer is short (try again later) or the connection is
+//     being closed (see err).
+//   - handled : true iff a registered gameHandlers entry executed without
+//     error. TS NetworkPlayer.decodeIn (NetworkPlayer.ts:143-152) gates
+//     the per-tick userLimit / clientLimit / restrictedLimit counters on
+//     `handler.handle(...) === true` — i.e. a registered handler that
+//     ran successfully. Goscape's pre-fix bool/err shape conflated
+//     "consumed" with "handled" and the caller incremented the limit on
+//     every consumed packet, including opcodes whose Go handler is not
+//     yet wired (gameHandlers[opcode] == nil). The fourth bool lets the
+//     caller mirror TS by skipping the increment for unhandled packets.
+//   - err     : non-nil iff the connection must be torn down. (Returning
+//     err non-nil also forces ok=false and handled=false.)
+//
+// player-net-7 / gap-client-models-1 / gap-configs-snapshot-netbase-1
+// pin the limit-gating contract; readAny (which drives `lastResponse`
+// via gap-configs-snapshot-netbase-3, still open) keeps counting any
+// consumed packet by design.
+func (p *Player) readPacket() (opcode int, ok bool, handled bool, err error) {
 	c := p.client
 
 	if c.opcode == -1 {
-		raw, err := c.in.Peek(1)
-		if err != nil {
-			return -1, false, nil
+		raw, peekErr := c.in.Peek(1)
+		if peekErr != nil {
+			return -1, false, false, nil
 		}
 		decrypted := (int(raw[0]) - int(c.decryptor.GetNext())) & 0xff
 		op := gameclient.Ops[decrypted]
 		if op.Name == "" {
 			c.log.Warn("unknown game opcode", "opcode", decrypted)
 			c.conn.Close()
-			return -1, false, errCloseConn
+			return -1, false, false, errCloseConn
 		}
 		c.in.Next(1)
 		c.opcode = decrypted
@@ -1260,28 +1293,28 @@ func (p *Player) readPacket() (int, bool, error) {
 
 	if c.waiting == -1 {
 		if c.in.Len() < 1 {
-			return -1, false, nil
+			return -1, false, false, nil
 		}
 		c.waiting = int(c.in.Next(1)[0])
 	} else if c.waiting == -2 {
 		if c.in.Len() < 2 {
-			return -1, false, nil
+			return -1, false, false, nil
 		}
 		b := c.in.Next(2)
 		c.waiting = int(uint16(b[0])<<8 | uint16(b[1]))
 		if c.waiting > 1600 {
 			c.log.Warn("oversized game packet, closing", "opcode", c.opcode, "size", c.waiting)
 			c.conn.Close()
-			return -1, false, errCloseConn
+			return -1, false, false, errCloseConn
 		}
 	}
 
 	if c.in.Len() < c.waiting {
-		return -1, false, nil
+		return -1, false, false, nil
 	}
 
 	payload := c.in.Next(c.waiting)
-	opcode := c.opcode
+	opcode = c.opcode
 	c.opcode = -1
 
 	c.log.Debug("game packet", "opcode", opcode, "name", gameclient.Ops[opcode].Name, "len", len(payload))
@@ -1311,12 +1344,13 @@ func (p *Player) readPacket() (int, bool, error) {
 	}
 
 	if handler := gameHandlers[opcode]; handler != nil {
-		if err := handler(p, payload); err != nil {
-			return -1, false, err
+		if hErr := handler(p, payload); hErr != nil {
+			return -1, false, false, hErr
 		}
+		handled = true
 	}
 
-	return opcode, true, nil
+	return opcode, true, handled, nil
 }
 
 // invListenOnCom registers an inventory listener at the given interface
