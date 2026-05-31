@@ -204,3 +204,108 @@ var (
 	// (41, -1) and MessagePrivateEncoder.ts.
 	OpMessagePrivate = Op{Opcode: 41, PayloadSize: -1}
 )
+
+// OpEntry pairs a server opcode with the symbolic name used by the
+// external decoder. Names match the TS ServerProt enum.
+type OpEntry struct {
+	Name string
+	Op   Op
+}
+
+// AllOps returns every declared server-side packet operation. The order
+// is not stable; callers must not rely on it. Used by external decoders
+// to build the rev225 outbound table without each consumer manually
+// enumerating the constants.
+func AllOps() []OpEntry {
+	return []OpEntry{
+		// modal interface
+		{"IF_CLOSE", OpIfClose},
+		{"IF_OPENMAIN", OpIfOpenMain},
+		{"IF_OPENCHAT", OpIfOpenChat},
+		{"IF_OPENSIDE", OpIfOpenSide},
+		{"IF_OPENMAIN_SIDE", OpIfOpenMainSide},
+		{"TUT_OPEN", OpTutOpen},
+		{"TUT_FLASH", OpTutFlash},
+		{"LOGOUT", OpLogout},
+		// interface setters
+		{"IF_SETTEXT", OpIfSetText},
+		{"IF_SETMODEL", OpIfSetModel},
+		{"IF_SETNPCHEAD", OpIfSetNpcHead},
+		{"IF_SETPLAYERHEAD", OpIfSetPlayerHead},
+		{"IF_SETANIM", OpIfSetAnim},
+		{"IF_SETHIDE", OpIfSetHide},
+		{"IF_SETOBJECT", OpIfSetObject},
+		{"IF_SETCOLOUR", OpIfSetColour},
+		{"IF_SETPOSITION", OpIfSetPosition},
+		{"IF_SETRECOL", OpIfSetRecol},
+		{"IF_SETTAB", OpIfSetTab},
+		{"IF_SETTAB_ACTIVE", OpIfSetTabActive},
+		// dialog
+		{"P_COUNTDIALOG", OpPCountDialog},
+		// camera
+		{"CAM_RESET", OpCamReset},
+		{"CAM_SHAKE", OpCamShake},
+		{"CAM_MOVETO", OpCamMoveTo},
+		{"CAM_LOOKAT", OpCamLookAt},
+		// hint
+		{"HINT_ARROW", OpHintArrow},
+		// world rebuild + entity info
+		{"REBUILD_NORMAL", OpRebuildNormal},
+		{"UPDATE_INV_FULL", OpUpdateInvFull},
+		{"UPDATE_INV_PARTIAL", OpUpdateInvPartial},
+		{"PLAYER_INFO", OpPlayerInfo},
+		{"NPC_INFO", OpNpcInfo},
+		// stats + energy
+		{"UPDATE_STAT", OpUpdateStat},
+		{"UPDATE_RUNENERGY", OpUpdateRunEnergy},
+		{"UPDATE_RUNWEIGHT", OpUpdateRunWeight},
+		// misc
+		{"SET_MULTIWAY", OpSetMultiway},
+		{"UPDATE_INV_STOP_TRANSMIT", OpUpdateInvStopTransmit},
+		// varps
+		{"VARP_SMALL", OpVarpSmall},
+		{"VARP_LARGE", OpVarpLarge},
+		// zone updates
+		{"UPDATE_ZONE_PARTIAL_FOLLOWS", OpUpdateZonePartialFollows},
+		{"UPDATE_ZONE_FULL_FOLLOWS", OpUpdateZoneFullFollows},
+		{"UPDATE_ZONE_PARTIAL_ENCLOSED", OpUpdateZonePartialEnclosed},
+		// zone-nested opcodes
+		{"LOC_ADD_CHANGE", OpLocAddChange},
+		{"LOC_ANIM", OpLocAnim},
+		{"LOC_DEL", OpLocDel},
+		{"LOC_MERGE", OpLocMerge},
+		{"MAP_ANIM", OpMapAnim},
+		{"MAP_PROJANIM", OpMapProjAnim},
+		{"OBJ_ADD", OpObjAdd},
+		{"OBJ_COUNT", OpObjCount},
+		{"OBJ_DEL", OpObjDel},
+		{"OBJ_REVEAL", OpObjReveal},
+		// map data streaming
+		{"DATA_LAND", OpDataLand},
+		{"DATA_LOC", OpDataLoc},
+		{"DATA_LAND_DONE", OpDataLandDone},
+		{"DATA_LOC_DONE", OpDataLocDone},
+		// interaction
+		{"UNSET_MAP_FLAG", OpUnsetMapFlag},
+		// chat
+		{"MESSAGE_GAME", OpMessageGame},
+		// audio
+		{"MIDI_SONG", OpMidiSong},
+		{"MIDI_JINGLE", OpMidiJingle},
+		{"SYNTH_SOUND", OpSynthSound},
+		// input tracking
+		{"ENABLE_TRACKING", OpEnableTracking},
+		{"FINISH_TRACKING", OpFinishTracking},
+		// login / session
+		{"LAST_LOGIN_INFO", OpLastLoginInfo},
+		{"UPDATE_PID", OpUpdatePid},
+		{"RESET_ANIMS", OpResetAnims},
+		{"RESET_CLIENT_VARCACHE", OpResetClientVarCache},
+		{"UPDATE_REBOOT_TIMER", OpUpdateRebootTimer},
+		// social
+		{"UPDATE_FRIENDLIST", OpUpdateFriendList},
+		{"UPDATE_IGNORELIST", OpUpdateIgnoreList},
+		{"CHAT_FILTER_SETTINGS", OpChatFilterSettings},
+		{"MESSAGE_PRIVATE", OpMessagePrivate},
+	}
+}
