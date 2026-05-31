@@ -351,11 +351,11 @@ func (r *Repository) GetFollowers(ctx context.Context, target uint64) ([]uint64,
 // IsVisibleTo applies TS visibility rules (FriendServerRepository.isVisibleTo,
 // FriendServerRepository.ts:332-355), in order:
 //
-//	1. viewer is staff (staffLvl > 1)   -> always visible
-//	2. other has ignored viewer         -> never visible
-//	3. other.privateChat 0 (ON)         -> always visible
-//	   other.privateChat 1 (FRIENDS)    -> visible only if viewer is in other's friend set
-//	   other.privateChat 2 (OFF)        -> never visible
+//  1. viewer is staff (staffLvl > 1)   -> always visible
+//  2. other has ignored viewer         -> never visible
+//  3. other.privateChat 0 (ON)         -> always visible
+//     other.privateChat 1 (FRIENDS)    -> visible only if viewer is in other's friend set
+//     other.privateChat 2 (OFF)        -> never visible
 //
 // If other is not registered (no presence row), returns (false, nil).
 //
