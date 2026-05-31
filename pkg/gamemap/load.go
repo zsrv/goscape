@@ -265,9 +265,14 @@ func (gm *GameMap) loadNPCs(data []byte, mapSquareX, mapSquareZ int) {
 		absZ := mapSquareZ*mapSquareSize + localZ
 		for i := 0; i < count && p.Len() >= 2; i++ {
 			typeID := int(p.G2())
-			// F2P/members gate (TS GameMap.ts:122-124, no borders). Read the
+			// TILE F2P gate (TS GameMap.ts:122-124, no borders). Read the
 			// typeID first so the stream stays aligned, then skip the spawn on
-			// a non-members world for member-only tiles.
+			// a non-members world for member-only tiles. The companion
+			// NPC-TYPE members gate (TS GameMap.ts:131,
+			// `(npcType.members && this.members) || !npcType.members`)
+			// lives in modules/world/server.go's shouldSpawnNpc because
+			// NpcType.Members lookup requires npctype config not in scope
+			// here. [gamemap-1]
 			if !gm.members && !gm.IsFreeToPlay(absX, absZ) {
 				continue
 			}

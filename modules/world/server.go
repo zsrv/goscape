@@ -568,7 +568,7 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 			continue
 		}
 		typ := npcTypes.Configs[spawn.TypeID]
-		if typ == nil {
+		if !shouldSpawnNpc(typ, cfg.NodeMembers) {
 			continue
 		}
 		n := NewNpc(0, spawn.TypeID, spawn.X, spawn.Z, spawn.Level, typ)
@@ -586,6 +586,27 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 	s.storeConfigsSnapshot()
 
 	return s, nil
+}
+
+// shouldSpawnNpc gates a boot-time NPC spawn against the world's members
+// flag, mirroring TS GameMap.loadNpcs (GameMap.ts:131): a members-only
+// NpcType (npcType.members == true) spawns only on a members world
+// (this.members == true). The TS expression
+// `(npcType.members && this.members) || !npcType.members` reduces to:
+// skip iff npcType is members-only AND world is F2P. The tile F2P gate
+// (GameMap.ts:122-124) is already enforced upstream in
+// pkg/gamemap/load.go's loadNPCs and stays orthogonal to this gate.
+// A nil typ is also rejected (the spawn loop's pre-existing nil-guard
+// is folded in here for a single early-out).
+// [gamemap-1]
+func shouldSpawnNpc(typ *objtype.NpcType, worldMembers bool) bool {
+	if typ == nil {
+		return false
+	}
+	if typ.Members && !worldMembers {
+		return false
+	}
+	return true
 }
 
 // populateStaticLocsIntoZones pushes each parsed static loc from the gamemap

@@ -963,3 +963,31 @@ func TestHandleLogin_FullWorldGuardSilentAtBoundary(t *testing.T) {
 			s.getTotalPlayers(), s.cfg.NodeMaxConnected)
 	}
 }
+
+// TestShouldSpawnNpc_MembersGate pins gamemap-1: the boot-time NPC spawn
+// loop must skip members-only NpcTypes on an F2P world. Mirrors TS
+// GameMap.loadNpcs at GameMap.ts:131 — `(npcType.members && this.members)
+// || !npcType.members`.
+func TestShouldSpawnNpc_MembersGate(t *testing.T) {
+	cases := []struct {
+		name         string
+		typ          *objtype.NpcType
+		worldMembers bool
+		want         bool
+	}{
+		{"f2p-npc-on-f2p-world", &objtype.NpcType{Members: false}, false, true},
+		{"f2p-npc-on-members-world", &objtype.NpcType{Members: false}, true, true},
+		{"members-npc-on-members-world", &objtype.NpcType{Members: true}, true, true},
+		// Audit-cited divergence — pre-fix spawned (true), post-fix skips (false).
+		{"members-npc-on-f2p-world", &objtype.NpcType{Members: true}, false, false},
+		{"nil-typ", nil, true, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := shouldSpawnNpc(c.typ, c.worldMembers)
+			if got != c.want {
+				t.Errorf("shouldSpawnNpc: got %v, want %v — TS GameMap.ts:131 (npcType.members && this.members) || !npcType.members (gamemap-1)", got, c.want)
+			}
+		})
+	}
+}
