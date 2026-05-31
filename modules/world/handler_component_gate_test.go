@@ -502,6 +502,12 @@ func runProtectScript(
 	}
 	p, _ := newTestPlayer(t)
 	p.client.server = s
+	// script-core-1: the new player-anchored script-error reporter writes
+	// MessageGame frames to the wire on Execute error (P_DELAY's protect
+	// reject path now spams 4+ frames). Wire an encryptor so the error
+	// branch can encode opcodes without nil-deref. Unconsumed bytes are
+	// fine — the test asserts on activeScript state, not wire content.
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	seedComponentTypes(t, s, components)
 	p.tabs[0] = rootLayer
 

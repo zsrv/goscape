@@ -1279,3 +1279,55 @@ func TestResumeOrFinishNpc_ExecuteError_ClearsMatchingActiveScript(t *testing.T)
 		t.Errorf("activeScript: got non-nil, want nil (NPC match-arm must clear on error)")
 	}
 }
+
+// TestResumeOrFinishNpc_ErrorRemovesNpcInProduction pins the
+// production-gated despawn side-effect of the npc-anchored script-error
+// reaction. Mirrors TS ScriptRunner.ts:210-212:
+//
+//	if (Environment.NODE_PRODUCTION) {
+//	    World.removeNpc(state.self, 0);
+//	}
+//
+// Goscape's removeNpc(n, 0) flips n.dead=true. duration=0 means despawn
+// immediately (or zero respawn delay for RESPAWN-lifecycle NPCs).
+//
+// script-core-1 closure (NPC arm).
+func TestResumeOrFinishNpc_ErrorRemovesNpcInProduction(t *testing.T) {
+	s, n := buildNpcForIntegration(t)
+	s.cfg.NodeProduction = true
+
+	sf := &script.ScriptFile{
+		Name:    "[err,npc-prod]",
+		Opcodes: []script.Opcode{script.Opcode(0xFFFF)},
+	}
+	state := script.Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = n
+
+	s.resumeOrFinishNpc(state, n)
+
+	if !n.dead {
+		t.Errorf("n.dead: got false, want true (TS World.removeNpc(state.self,0) under NODE_PRODUCTION)")
+	}
+}
+
+// TestResumeOrFinishNpc_ErrorPreservesNpcOutsideProduction pins the
+// !NodeProduction arm of the npc-anchored script-error reaction: the
+// NPC's logical-presence flag is untouched. Mirrors TS ScriptRunner.ts:
+// 210 gate. script-core-1 closure.
+func TestResumeOrFinishNpc_ErrorPreservesNpcOutsideProduction(t *testing.T) {
+	s, n := buildNpcForIntegration(t)
+	s.cfg.NodeProduction = false
+
+	sf := &script.ScriptFile{
+		Name:    "[err,npc-dev]",
+		Opcodes: []script.Opcode{script.Opcode(0xFFFF)},
+	}
+	state := script.Init(sf, nil, false, nil, nil)
+	state.ActiveNpc = n
+
+	s.resumeOrFinishNpc(state, n)
+
+	if n.dead {
+		t.Errorf("n.dead: got true, want false (!NodeProduction must not despawn)")
+	}
+}

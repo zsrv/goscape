@@ -125,3 +125,35 @@ func Decode(data []byte) (*ScriptFile, error) {
 
 	return f, nil
 }
+
+// LineNumber returns the source line for the instruction at pc by walking
+// the PCs / Lines tables decoded from the script's line table. Mirrors
+// TS ScriptFile.lineNumber (Engine-TS/.../ScriptFile.ts:141-149) — scan
+// PCs for the first threshold strictly greater than pc and return the
+// preceding line. When pc is at or past the last recorded PC, the final
+// line is returned (TS's terminal fall-through).
+//
+// Defensive deviations from TS:
+//   - Empty line table returns 0 (TS would index undefined).
+//   - pc preceding the first recorded PC (PCs[0] > pc with i==0) returns
+//     0 rather than TS's lines[-1] = undefined; in practice the compiler
+//     always emits PCs[0] = 0, so this branch only fires on malformed
+//     blobs or pc < 0.
+//
+// Used by the script-error backtrace path (script-core-1) to map a frame
+// PC back to a source line. Closes script-core-5 (the audit-ledger flag
+// "PCs/Lines decoded but never read").
+func (f *ScriptFile) LineNumber(pc int) int {
+	if len(f.PCs) == 0 || len(f.Lines) == 0 {
+		return 0
+	}
+	for i, threshold := range f.PCs {
+		if int(threshold) > pc {
+			if i == 0 {
+				return 0
+			}
+			return int(f.Lines[i-1])
+		}
+	}
+	return int(f.Lines[len(f.Lines)-1])
+}

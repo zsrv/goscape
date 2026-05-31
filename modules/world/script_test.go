@@ -87,7 +87,16 @@ func TestRunScriptHandlesError(t *testing.T) {
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 
 	// Script with an unknown opcode. Execute returns error; runScript must
-	// not panic, and must not write anything.
+	// not panic.
+	//
+	// script-core-1 closure (2026-05-31): post-fix the runner-level error
+	// path emits 4+ MessageGame frames to the player ("script error: ...",
+	// "file: ...", "stack backtrace:", then per-frame trace lines).
+	// Pre-fix this test pinned "0 bytes" as a passive observation of the
+	// dropped player/NPC script-error path. The assertion now flips to
+	// "non-zero bytes were written" — pinning that the TS-faithful
+	// reporter actually emits to the wire. Mirrors TS ScriptRunner.ts:
+	// 188-201 Player branch of the catch block.
 	bad := &script.ScriptFile{
 		Name:             "bad",
 		Opcodes:          []script.Opcode{9999},
@@ -100,8 +109,72 @@ func TestRunScriptHandlesError(t *testing.T) {
 	s.runScript(bad, p, nil, script.TriggerProc, true, nil, nil)
 	p.client.flushWrite()
 	got := <-received
-	if len(got) != 0 {
-		t.Errorf("bad script should produce 0 bytes; got %d", len(got))
+	if len(got) == 0 {
+		t.Errorf("bad script should produce script-error MessageGame frames; got 0 bytes (script-core-1 regression)")
+	}
+}
+
+// TestRunScript_PlayerScriptErrorTriggersLogoutInProduction pins the
+// production-gated graceful-logout side-effect of the player-anchored
+// script-error reaction. Mirrors TS ScriptRunner.ts:203-206:
+//
+//	if (Environment.NODE_PRODUCTION) {
+//	    state.self.logout();
+//	    state.self.loggingOut = true;
+//	}
+//
+// Goscape pairs RequestLogout() (the graceful-logout flag) with the
+// direct p.loggingOut write so visibility/iteration filters drop the
+// player on the same tick.
+//
+// script-core-1 closure.
+func TestRunScript_PlayerScriptErrorTriggersLogoutInProduction(t *testing.T) {
+	s := newTestServer(t)
+	s.cfg.NodeProduction = true
+	p, _ := newTestPlayer(t)
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	bad := &script.ScriptFile{
+		Name:             "bad",
+		Opcodes:          []script.Opcode{9999},
+		IntOperands:      []int32{0},
+		StringOperands:   []string{""},
+		InstructionCount: 1,
+	}
+	s.runScript(bad, p, nil, script.TriggerProc, true, nil, nil)
+
+	if !p.requestLogout {
+		t.Errorf("requestLogout: got false, want true (TS Player.logout() under NODE_PRODUCTION)")
+	}
+	if !p.loggingOut {
+		t.Errorf("loggingOut: got false, want true (TS state.self.loggingOut=true under NODE_PRODUCTION)")
+	}
+}
+
+// TestRunScript_PlayerScriptErrorNoLogoutOutsideProduction pins the
+// !NodeProduction arm: the player still receives the error MessageGame
+// frames but is NOT logged out. Mirrors TS ScriptRunner.ts:203 gate.
+// script-core-1 closure.
+func TestRunScript_PlayerScriptErrorNoLogoutOutsideProduction(t *testing.T) {
+	s := newTestServer(t)
+	s.cfg.NodeProduction = false
+	p, _ := newTestPlayer(t)
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	bad := &script.ScriptFile{
+		Name:             "bad",
+		Opcodes:          []script.Opcode{9999},
+		IntOperands:      []int32{0},
+		StringOperands:   []string{""},
+		InstructionCount: 1,
+	}
+	s.runScript(bad, p, nil, script.TriggerProc, true, nil, nil)
+
+	if p.requestLogout {
+		t.Errorf("requestLogout: got true, want false (!NodeProduction must not trigger logout)")
+	}
+	if p.loggingOut {
+		t.Errorf("loggingOut: got true, want false (!NodeProduction must not flag loggingOut)")
 	}
 }
 

@@ -1,6 +1,8 @@
 package world
 
 import (
+	"fmt"
+
 	"github.com/zsrv/goscape/pkg/script"
 )
 
@@ -136,8 +138,8 @@ func (s *Server) runScript(
 // tick loop doesn't need to type-assert back to *Player.
 func (s *Server) resumeOrFinish(state *script.ScriptState, self script.ActivePlayer) {
 	if err := script.Execute(state); err != nil {
-		s.log.Warn("script execute error",
-			"script", state.Script.Name, "err", err)
+		s.logScriptExecuteError("script execute error", state, err)
+		s.handlePlayerScriptError(state, self, err)
 		// NAI-55: fall through. script.Execute sets state.Execution =
 		// Aborted on every error path (pkg/script/runner.go:54-83),
 		// so the switch routes via OnScriptFinishedOrAborted —
@@ -203,8 +205,22 @@ func (s *Server) resumeOrFinish(state *script.ScriptState, self script.ActivePla
 // NAI-44 closure of NAI-37-D-WORLDQUEUE-CROSS-CONTEXT-DROP.
 func (s *Server) resumeOrFinishWorld(state *script.ScriptState) {
 	if err := script.Execute(state); err != nil {
-		s.log.Warn("world script execute error",
-			"script", state.Script.Name, "err", err)
+		s.logScriptExecuteError("world script execute error", state, err)
+		// World-queue scripts can be either player- or npc-anchored
+		// (resumeOrFinishWorld is the shared post-Execute path for both
+		// suspension classes). Route the side-effects on the anchor
+		// type. Mirrors TS ScriptRunner.ts:188-213 — the catch block
+		// branches on `state.self instanceof Player` /
+		// `state.self instanceof Npc` independently of where the script
+		// resumed from.
+		switch {
+		case state.Self != nil:
+			s.handlePlayerScriptError(state, state.Self, err)
+		case state.ActiveNpc != nil:
+			if realNpc, ok := state.ActiveNpc.(*Npc); ok {
+				s.handleNpcScriptError(state, realNpc, err)
+			}
+		}
 		return
 	}
 	switch state.Execution {
@@ -241,5 +257,71 @@ func (s *Server) resumeOrFinishWorld(state *script.ScriptState) {
 		// Running, or any future-added Execution value.
 		s.log.Warn("world-queue script in unexpected execution state",
 			"script", state.Script.Name, "execution", state.Execution)
+	}
+}
+
+// logScriptExecuteError emits a structured warn log for a script.Execute
+// fault. The Message string is the legacy "[…] script execute error" key
+// that existing tests pin (e.g. modules/world/nai128_rat_loot_test.go);
+// extending with the file / pc / backtrace fields is purely additive.
+// Mirrors TS ScriptRunner.ts:215-226 console.error block (file + backtrace).
+func (s *Server) logScriptExecuteError(msg string, state *script.ScriptState, err error) {
+	s.log.Warn(msg,
+		"script", state.Script.Name,
+		"file", state.Script.FileName,
+		"pc", state.PC,
+		"err", err,
+		"backtrace", script.Backtrace(state))
+}
+
+// handlePlayerScriptError applies the TS-faithful script-error reaction for
+// a player-anchored script: MessageGames the formatted error + file + stack
+// backtrace to the player, then in NodeProduction triggers a graceful
+// logout and immediately flags loggingOut. Mirrors TS ScriptRunner.ts:
+// 188-206 (the `state.self instanceof Player` branch of the catch block).
+//
+// Goscape deviations from TS:
+//   - Goscape uses MessageGame instead of TS's wrappedMessageGame because
+//     goscape has no font-driven word-wrap surface (world-ops-1 deviation,
+//     already documented). The user-visible difference is that long lines
+//     are not split.
+//   - Goscape pairs RequestLogout() (the graceful-logout flag consumed by
+//     processLogouts) with the direct loggingOut field write (so visibility
+//     and iteration filters drop the player on the same tick). TS achieves
+//     the same with logout()+loggingOut=true on the JS Player class.
+//
+// script-core-1 (with script-core-5 LineNumber accessor) closure.
+func (s *Server) handlePlayerScriptError(state *script.ScriptState, self script.ActivePlayer, err error) {
+	if self == nil {
+		return
+	}
+	self.MessageGame(fmt.Sprintf("script error: %s", err))
+	self.MessageGame(fmt.Sprintf("file: %s", state.Script.FileName))
+	for _, line := range script.Backtrace(state) {
+		self.MessageGame(line)
+	}
+	if s.cfg.NodeProduction {
+		self.RequestLogout()
+		if p, ok := self.(*Player); ok {
+			p.loggingOut = true
+		}
+	}
+}
+
+// handleNpcScriptError applies the TS-faithful script-error reaction for an
+// npc-anchored script: in NodeProduction the npc is despawned immediately
+// (duration=0). Mirrors TS ScriptRunner.ts:207-213 (the
+// `state.self instanceof Npc` branch). Non-production runs are a structured
+// log-only no-op — the logging happens at the caller via
+// logScriptExecuteError so the despawn site stays focused on the
+// production-only side-effect.
+//
+// script-core-1 closure (NPC arm).
+func (s *Server) handleNpcScriptError(_ *script.ScriptState, n *Npc, _ error) {
+	if n == nil {
+		return
+	}
+	if s.cfg.NodeProduction {
+		s.removeNpc(n, 0)
 	}
 }

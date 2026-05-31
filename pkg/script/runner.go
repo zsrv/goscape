@@ -1,6 +1,9 @@
 package script
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Init creates a fresh ScriptState ready to execute script.
 //
@@ -75,10 +78,119 @@ func Execute(s *ScriptState) error {
 
 		if err := h(s); err != nil {
 			s.Execution = Aborted
-			return err
+			// script-core-1: TS ScriptRunner.ts:182-186 prepends the
+			// (lowercased) opcode mnemonic to err.message — and prepends
+			// '.' when the secondary bit of a VARP/VARN operand is set
+			// (the protected-variant marker). Goscape mirrors that here
+			// so callers see e.g. "goto invalid jump target ..." or
+			// ".pop_varp foo not writable ...". Other fault paths in this
+			// loop already encode the opcode in their fmt.Errorf format
+			// strings, so the prefix is only applied to handler-returned
+			// errors (the audit-cited runner.go:76-79 site).
+			//
+			// Goscape-convention deviation: pkg/script handlers historically
+			// embed the opcode name into their own error strings
+			// (e.g. "P_PAUSEBUTTON: script not protected"). When the
+			// handler-emitted message already starts with the opcode name
+			// (case-insensitive), the runner-level prefix is suppressed to
+			// avoid redundant "p_pausebutton P_PAUSEBUTTON: ..." chains.
+			// The TS-intent (the canonical opcode name accompanies the
+			// error) is preserved either way; the divergence is purely
+			// cosmetic. scriptOpcodePrefix handles this check internally.
+			return fmt.Errorf("%s%w", scriptOpcodePrefix(s, err.Error()), err)
 		}
 
 		s.PC++
 	}
 	return nil
+}
+
+// scriptOpcodePrefix returns the lowercased opcode mnemonic at the current
+// PC followed by a single space, optionally preceded by '.' when the
+// VARP/VARN operand's bit 16 is set (the protected-variant marker, e.g.
+// `.varp` / `.varn` in RuneScript source). Returns the empty string when
+// the PC is out-of-range so the caller's error message is unchanged.
+//
+// Mirrors TS ScriptRunner.ts:170-186 — the secondary-flag derivation maps
+// 1:1 to the TS switch:
+//   - PUSH_VARP / POP_VARP / PUSH_VARN / POP_VARN: secondary = (op>>16)&1
+//   - opcode <= POP_ARRAY_INT: secondary forced to 0
+//   - any higher opcode: secondary = state.intOperand (TS quirk where any
+//     non-zero operand on a large-operand opcode trips the '.' prefix).
+//
+// When existingMsg is provided and already begins with the opcode name
+// (case-insensitive), the empty string is returned. This honors goscape's
+// pre-existing convention of embedding `OPCODE_NAME:` directly in handler
+// errors — adding a runner-level prefix on top would yield redundant
+// "p_pausebutton P_PAUSEBUTTON: ..." chains. The TS-intent (the canonical
+// opcode name accompanies the error) holds either way.
+func scriptOpcodePrefix(s *ScriptState, existingMsg string) string {
+	if s.PC < 0 || s.PC >= len(s.Script.Opcodes) {
+		return ""
+	}
+	op := s.Script.Opcodes[s.PC]
+	name := strings.ToLower(op.String())
+
+	if existingMsg != "" && len(existingMsg) >= len(name) &&
+		strings.EqualFold(existingMsg[:len(name)], name) {
+		return ""
+	}
+
+	// IntOperands may be shorter than Opcodes in test fixtures that omit
+	// the operand for a single-byte opcode; default to 0 so the secondary
+	// derivation degrades gracefully.
+	var operand int32
+	if s.PC < len(s.Script.IntOperands) {
+		operand = s.Script.IntOperands[s.PC]
+	}
+	var secondary int
+	switch op {
+	case OpPushVarp, OpPopVarp, OpPushVarn, OpPopVarn:
+		secondary = int((operand >> 16) & 0x1)
+	default:
+		if op <= OpPopArrayInt {
+			secondary = 0
+		} else {
+			secondary = int(operand)
+		}
+	}
+
+	if secondary != 0 {
+		return "." + name + " "
+	}
+	return name + " "
+}
+
+// Backtrace returns the per-frame stack-trace lines a script-error reporter
+// should emit. The first entry is the literal header "stack backtrace:";
+// subsequent entries are "    N: <name> - <fileName>:<line>" — frame 1 is
+// the currently-executing script (state.Script @ state.PC), frames 2..N are
+// the GOSUB call stack from most-recent (Frames[FrameSP-1]) down to oldest
+// (Frames[0]). Mirrors TS ScriptRunner.ts:194-201 (Player path) and
+// ScriptRunner.ts:219-226 (console path); the console and player traces
+// are identical text and identical iteration order.
+//
+// Source-line resolution uses ScriptFile.LineNumber, the PCs/Lines table
+// accessor added alongside this helper (script-core-5 closure).
+//
+// Safe on a partially-initialised state — a nil/empty Script.PCs degrades
+// to ":0" entries rather than panicking.
+func Backtrace(s *ScriptState) []string {
+	if s == nil || s.Script == nil {
+		return nil
+	}
+	out := []string{"stack backtrace:"}
+	out = append(out, fmt.Sprintf("    1: %s - %s:%d",
+		s.Script.Name, s.Script.FileName, s.Script.LineNumber(s.PC)))
+	trace := 1
+	for i := s.FrameSP - 1; i >= 0; i-- {
+		f := s.Frames[i]
+		if f.Script == nil {
+			continue
+		}
+		trace++
+		out = append(out, fmt.Sprintf("    %d: %s - %s:%d",
+			trace, f.Script.Name, f.Script.FileName, f.Script.LineNumber(f.PC)))
+	}
+	return out
 }

@@ -268,3 +268,44 @@ func TestDecodeRealCacheBlob(t *testing.T) {
 	}
 	t.Fatal("no non-zero entries found in idx")
 }
+
+// TestScriptFileLineNumber pins the LineNumber(pc) accessor (script-core-5,
+// the consequence-of-script-core-1 line-mapping closure). Mirrors TS
+// ScriptFile.lineNumber semantics: scan PCs for the first threshold strictly
+// greater than pc and return the preceding line; pc past the last threshold
+// returns the final line. Edge cases (empty table, pc before first PC)
+// degrade defensively to 0 — TS would return undefined.
+func TestScriptFileLineNumber(t *testing.T) {
+	// Synthetic line table: PCs={0, 5, 12, 20}, Lines={10, 11, 12, 13}.
+	// PC 0..4 → line 10; PC 5..11 → line 11; PC 12..19 → line 12; PC 20+ → line 13.
+	f := &ScriptFile{
+		PCs:   []uint32{0, 5, 12, 20},
+		Lines: []uint32{10, 11, 12, 13},
+	}
+
+	tests := []struct {
+		pc   int
+		want int
+	}{
+		{0, 10},   // first instruction
+		{4, 10},   // last instruction at threshold 0
+		{5, 11},   // jump to threshold 5
+		{11, 11},  // last instruction at threshold 5
+		{12, 12},  // jump to threshold 12
+		{19, 12},  // last instruction at threshold 12
+		{20, 13},  // jump to threshold 20
+		{999, 13}, // past last threshold → final line
+		{-1, 0},   // before first threshold → defensive 0 (TS undefined)
+	}
+	for _, tc := range tests {
+		if got := f.LineNumber(tc.pc); got != tc.want {
+			t.Errorf("LineNumber(%d) = %d, want %d", tc.pc, got, tc.want)
+		}
+	}
+
+	// Empty table degrades defensively.
+	empty := &ScriptFile{}
+	if got := empty.LineNumber(0); got != 0 {
+		t.Errorf("LineNumber on empty table = %d, want 0", got)
+	}
+}

@@ -497,8 +497,20 @@ func (p *Player) encodeOut() {
 
 // writeOut ISAAC-encrypts op.Opcode, writes any length prefix, then writes
 // payload to c.bufw. Does NOT flush — processOut calls flushWrite() once per tick.
+//
+// A nil c.encryptor is treated as "no wire available" and the write is
+// silently dropped. Production always wires the encryptor at login OK
+// (server.go's handleLogin); the nil branch exists for test fixtures that
+// construct a Player without expecting wire output. Pre-script-core-1 the
+// error-path was wire-silent so this case never tripped; the new
+// player-anchored script-error reporter emits MessageGame frames whenever
+// a script aborts, which surfaces unwired test fixtures as nil-derefs
+// unless we guard here.
 func (p *Player) writeOut(op gameserver.Op, payload []byte) {
 	c := p.client
+	if c.encryptor == nil {
+		return
+	}
 	encrypted := byte((int(op.Opcode) + int(c.encryptor.GetNext())) & 0xff)
 	c.bufw.WriteByte(encrypted)
 

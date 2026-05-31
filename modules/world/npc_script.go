@@ -414,8 +414,10 @@ func (s *Server) runNpcScript(
 // but routes via the ActiveNpc interface instead of ActivePlayer.
 func (s *Server) resumeOrFinishNpc(state *script.ScriptState, npc script.ActiveNpc) {
 	if err := script.Execute(state); err != nil {
-		s.log.Warn("npc script execute error",
-			"script", state.Script.Name, "err", err)
+		s.logScriptExecuteError("npc script execute error", state, err)
+		if realNpc, ok := npc.(*Npc); ok {
+			s.handleNpcScriptError(state, realNpc, err)
+		}
 		// NAI-55: fall through. Symmetric to resumeOrFinish; routes
 		// Aborted via (*Npc).OnScriptFinishedOrAborted (NPCs have no
 		// modals, so the method is just the match-guard). Mirrors TS

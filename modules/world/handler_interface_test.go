@@ -3,6 +3,7 @@ package world
 import (
 	"testing"
 
+	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/rsbuf"
 	"github.com/zsrv/goscape/pkg/script"
@@ -368,6 +369,12 @@ func runIfButtonProtectScript(t *testing.T, rootOverlay bool, includeRoot bool) 
 	}
 	p, _ := newTestPlayer(t)
 	p.client.server = s
+	// script-core-1: the new player-anchored script-error reporter writes
+	// MessageGame frames to the wire on Execute error. Wire an encryptor so
+	// the overlay/abort branch (where P_DELAY rejects → error path fires)
+	// can format frames without nil-deref. Unconsumed bytes are fine — the
+	// test asserts on activeScript suspension, not wire content.
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	seedComponentTypes(t, s, components)
 	p.tabs[0] = 100 // make rootLayer visible
 

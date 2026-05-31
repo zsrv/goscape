@@ -1,6 +1,8 @@
 package script
 
 import (
+	"errors"
+	"strings"
 	"testing"
 )
 
@@ -35,6 +37,128 @@ func TestExecutePcOutOfRangeAborts(t *testing.T) {
 	}
 	if s.Execution != Aborted {
 		t.Errorf("Execution: got %v want Aborted", s.Execution)
+	}
+}
+
+// TestExecuteHandlerErrorPrependsOpcodeMnemonic pins the script-core-1
+// closure: the handler-error fault path in Execute prepends the lowercased
+// opcode mnemonic to err.Error(). Mirrors TS ScriptRunner.ts:182 prefix.
+//
+// Strategy: register a temporary handler for an opcode unused by other
+// tests (Opcode 8888, well above any real opcode value) that returns a
+// known error. Verify the returned error wraps that error with the
+// mnemonic prefix.
+func TestExecuteHandlerErrorPrependsOpcodeMnemonic(t *testing.T) {
+	const testOp Opcode = 8888
+	sentinel := errors.New("boom")
+	handlers[testOp] = func(*ScriptState) error { return sentinel }
+	t.Cleanup(func() { delete(handlers, testOp) })
+
+	f := &ScriptFile{
+		Name:           "test",
+		Opcodes:        []Opcode{testOp},
+		IntOperands:    []int32{0},
+		StringOperands: []string{""},
+	}
+	s := Init(f, nil, false, nil, nil)
+	err := Execute(s)
+	if err == nil {
+		t.Fatal("expected handler error to surface, got nil")
+	}
+	if !errors.Is(err, sentinel) {
+		t.Errorf("error chain lost sentinel: %v", err)
+	}
+	// testOp's String() returns "opcode_8888" via opcode.go:1283-1285
+	// (Opcode.String fallback for undefined opcodes). Lowercased prefix
+	// should land before the wrapped message.
+	wantPrefix := "opcode_8888 "
+	if !strings.HasPrefix(err.Error(), wantPrefix) {
+		t.Errorf("expected error to start with %q, got %q", wantPrefix, err.Error())
+	}
+	if s.Execution != Aborted {
+		t.Errorf("Execution: got %v want Aborted", s.Execution)
+	}
+}
+
+// TestScriptOpcodePrefixVarpSecondaryDotFlag pins the '.' prefix for the
+// VARP/VARN protected-variant marker. Mirrors TS ScriptRunner.ts:175-186:
+// when the operand's bit 16 is set, the prefix is ".<opname> " — the
+// RuneScript source-form notation for protected accesses.
+func TestScriptOpcodePrefixVarpSecondaryDotFlag(t *testing.T) {
+	// bit 16 set → secondary == 1 → "." prefix.
+	const protectedOperand int32 = 1 << 16
+	f := &ScriptFile{
+		Name:        "test",
+		Opcodes:     []Opcode{OpPopVarp},
+		IntOperands: []int32{protectedOperand},
+	}
+	s := &ScriptState{Script: f, PC: 0}
+	got := scriptOpcodePrefix(s, "")
+	if !strings.HasPrefix(got, ".") {
+		t.Errorf("expected '.' prefix for protected POP_VARP, got %q", got)
+	}
+
+	// bit 16 cleared → no '.' prefix.
+	f.IntOperands[0] = 0
+	got = scriptOpcodePrefix(s, "")
+	if strings.HasPrefix(got, ".") {
+		t.Errorf("unexpected '.' prefix for unprotected POP_VARP, got %q", got)
+	}
+
+	// PC out-of-range → empty.
+	s.PC = 99
+	if got := scriptOpcodePrefix(s, ""); got != "" {
+		t.Errorf("expected empty prefix on PC out-of-range, got %q", got)
+	}
+
+	// Existing message already starts with the opcode name → suppressed
+	// (goscape-convention dedup against handlers that self-embed the
+	// opcode name in their error string).
+	s.PC = 0
+	if got := scriptOpcodePrefix(s, "POP_VARP: something bad"); got != "" {
+		t.Errorf("expected empty prefix when existingMsg embeds opcode name, got %q", got)
+	}
+}
+
+// TestBacktrace pins the per-frame format and ordering of Backtrace.
+// Mirrors TS ScriptRunner.ts:194-201 — first frame is the current
+// state.Script @ state.PC; subsequent frames are the GOSUB stack from
+// most-recent (Frames[FrameSP-1]) down to oldest (Frames[0]).
+func TestBacktrace(t *testing.T) {
+	caller := &ScriptFile{
+		Name:     "caller_script",
+		FileName: "caller.rs2",
+		PCs:      []uint32{0, 10},
+		Lines:    []uint32{42, 50},
+	}
+	callee := &ScriptFile{
+		Name:     "callee_script",
+		FileName: "callee.rs2",
+		PCs:      []uint32{0, 5},
+		Lines:    []uint32{100, 110},
+	}
+	s := &ScriptState{
+		Script: callee,
+		PC:     5, // line 110 per the table above (threshold 5+ → final line)
+		Frames: []Frame{
+			{Script: caller, PC: 7}, // line 42 (threshold 10 > 7 → preceding line)
+		},
+		FrameSP: 1,
+	}
+
+	got := Backtrace(s)
+	want := []string{
+		"stack backtrace:",
+		"    1: callee_script - callee.rs2:110",
+		"    2: caller_script - caller.rs2:42",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("Backtrace lines: got %d want %d (got=%q)", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("Backtrace line %d: got %q want %q", i, got[i], want[i])
+		}
 	}
 }
 
