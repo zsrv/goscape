@@ -47,6 +47,13 @@ func TestRevertLocSnapsToBaseInfoAndCollision(t *testing.T) {
 	}
 }
 
+// PORTING-EXCEPTION (entity-base-5): this test pins despawn firing at the
+// scheduled tick (T+duration; here 105 = 100+5). TS's per-tick decrement
+// model (Loc.ts:55-57) fires at T+duration-1 (here 104). goscape's
+// absolute-tick re-model uses T+duration; the one-tick delay is the live
+// entity-base-1 deviation (downgraded LOW). The test locks in goscape's
+// observed contract to guard against silent drift either way; entity-base-1
+// remains the canonical row for the production behaviour.
 func TestTurnLocDespawnFiresRemove(t *testing.T) {
 	s := newLocTurnTestServer(t)
 	s.currentTick = 100
@@ -108,6 +115,10 @@ func TestTurnLocBeforeScheduledTickIsNoOp(t *testing.T) {
 	}
 }
 
+// PORTING-EXCEPTION (entity-base-5): like TestTurnLocDespawnFiresRemove above,
+// this test pins despawn firing at the scheduled tick (T+duration; here
+// 103 = 100+3) rather than the TS T+duration-1 (102). See entity-base-1 for
+// the underlying production-behaviour LOW deferral.
 func TestProcessZonesFiresTurnLocAtScheduledTick(t *testing.T) {
 	s := newLocTurnTestServer(t)
 	s.currentTick = 100

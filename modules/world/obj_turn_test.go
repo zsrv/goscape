@@ -137,6 +137,14 @@ func TestTurnObj_RevealNegOneIsNoOp(t *testing.T) {
 
 // TestTurnObj_DespawnAtScheduledTick_FiresRemove verifies that the DESPAWN
 // lifecycle arm fires RemoveObj at the scheduled tick, setting IsActive=false.
+//
+// PORTING-EXCEPTION (entity-base-5): this test pins despawn firing at the
+// scheduled tick (T+duration; here 105 = 100+5). TS's per-tick decrement
+// model (Obj.ts:33-35) fires at T+duration-1 (here 104). goscape's
+// absolute-tick re-model uses T+duration; the one-tick delay is the live
+// entity-base-1 deviation (downgraded LOW). The test locks in goscape's
+// observed contract to guard against silent drift either way; entity-base-1
+// remains the canonical row for the production behaviour.
 func TestTurnObj_DespawnAtScheduledTick_FiresRemove(t *testing.T) {
 	s := newZoneTestServer(t)
 	s.currentTick = 100
