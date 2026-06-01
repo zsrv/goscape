@@ -23,7 +23,7 @@ func newMapDataPlayer(t *testing.T) (*Player, net.Conn, *Server) {
 	p, cc := newTestPlayer(t)
 	p.client.server = s
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
-	p.lastBuild = 0 // 5 - 0 = 5 < 10 -> in-window
+	p.buildArea.lastBuild = 0 // 5 - 0 = 5 < 10 -> in-window
 	return p, cc, s
 }
 
@@ -150,7 +150,7 @@ func packEntry(typ, mapX, mapZ int) uint32 {
 func TestHandleRebuildGetMapsSingleChunk(t *testing.T) {
 	p, cc, _ := newMapDataPlayer(t)
 	seedClientMap(t, 'm', 50, 51, []byte{0x11, 0x22})
-	p.mapsquares[uint16((50<<8)|51)] = true
+	p.buildArea.mapsquares[uint16((50<<8)|51)] = true
 
 	received := drainConn(t, cc)
 	_ = handleRebuildGetMaps(p, buildGetMapsPayload(packEntry(0, 50, 51)))
@@ -173,7 +173,7 @@ func TestHandleRebuildGetMapsMultiChunk(t *testing.T) {
 		file[i] = byte(i)
 	}
 	seedClientMap(t, 'm', 10, 20, file)
-	p.mapsquares[uint16((10<<8)|20)] = true
+	p.buildArea.mapsquares[uint16((10<<8)|20)] = true
 
 	received := drainConn(t, cc)
 	_ = handleRebuildGetMaps(p, buildGetMapsPayload(packEntry(0, 10, 20)))
@@ -195,7 +195,7 @@ func TestHandleRebuildGetMapsExactlyChunkBoundary(t *testing.T) {
 	p, cc, _ := newMapDataPlayer(t)
 	file := make([]byte, 991)
 	seedClientMap(t, 'm', 1, 2, file)
-	p.mapsquares[uint16((1<<8)|2)] = true
+	p.buildArea.mapsquares[uint16((1<<8)|2)] = true
 
 	received := drainConn(t, cc)
 	_ = handleRebuildGetMaps(p, buildGetMapsPayload(packEntry(0, 1, 2)))
@@ -211,7 +211,7 @@ func TestHandleRebuildGetMapsExactlyChunkBoundary(t *testing.T) {
 func TestHandleRebuildGetMapsRoutesToLoc(t *testing.T) {
 	p, cc, _ := newMapDataPlayer(t)
 	seedClientMap(t, 'l', 3, 4, []byte{0xEE})
-	p.mapsquares[uint16((3<<8)|4)] = true
+	p.buildArea.mapsquares[uint16((3<<8)|4)] = true
 
 	received := drainConn(t, cc)
 	_ = handleRebuildGetMaps(p, buildGetMapsPayload(packEntry(1, 3, 4)))
@@ -241,7 +241,7 @@ func TestHandleRebuildGetMapsSkipsUnknownMapsquare(t *testing.T) {
 
 func TestHandleRebuildGetMapsSkipsMissingFile(t *testing.T) {
 	p, cc, _ := newMapDataPlayer(t)
-	p.mapsquares[uint16((99<<8)|99)] = true
+	p.buildArea.mapsquares[uint16((99<<8)|99)] = true
 
 	received := drainConn(t, cc)
 	_ = handleRebuildGetMaps(p, buildGetMapsPayload(packEntry(0, 99, 99)))
@@ -256,9 +256,9 @@ func TestHandleRebuildGetMapsSkipsMissingFile(t *testing.T) {
 func TestHandleRebuildGetMapsRateLimitedDropsEntireRequest(t *testing.T) {
 	p, cc, s := newMapDataPlayer(t)
 	s.currentTick = 100
-	p.lastBuild = 0 // 100 > 10 -> stale
+	p.buildArea.lastBuild = 0 // 100 > 10 -> stale
 	seedClientMap(t, 'm', 50, 51, []byte{0x11})
-	p.mapsquares[uint16((50<<8)|51)] = true
+	p.buildArea.mapsquares[uint16((50<<8)|51)] = true
 
 	received := drainConn(t, cc)
 	_ = handleRebuildGetMaps(p, buildGetMapsPayload(packEntry(0, 50, 51)))
@@ -291,8 +291,8 @@ func TestHandleRebuildGetMapsMultipleEntries(t *testing.T) {
 	p, cc, _ := newMapDataPlayer(t)
 	seedClientMap(t, 'm', 1, 1, []byte{0xAA})
 	seedClientMap(t, 'l', 2, 2, []byte{0xBB})
-	p.mapsquares[uint16((1<<8)|1)] = true
-	p.mapsquares[uint16((2<<8)|2)] = true
+	p.buildArea.mapsquares[uint16((1<<8)|1)] = true
+	p.buildArea.mapsquares[uint16((2<<8)|2)] = true
 
 	received := drainConn(t, cc)
 	_ = handleRebuildGetMaps(p, buildGetMapsPayload(
@@ -317,19 +317,19 @@ func TestHandleRebuildGetMapsCallsRebuildZones(t *testing.T) {
 	p.level = 0
 	// Stale entry that should be cleared by rebuildZones.
 	staleIdx := coordgrid.ZoneIndex(99<<3, 99<<3, 0)
-	p.activeZones[staleIdx] = true
+	p.buildArea.activeZones[staleIdx] = true
 
 	if err := handleRebuildGetMaps(p, nil); err != nil {
 		t.Fatalf("handleRebuildGetMaps: %v", err)
 	}
 
-	if p.activeZones[staleIdx] {
+	if p.buildArea.activeZones[staleIdx] {
 		t.Errorf("stale activeZones entry not cleared")
 	}
-	if want := 49; len(p.activeZones) != want {
-		t.Errorf("activeZones size: got %d, want %d", len(p.activeZones), want)
+	if want := 49; len(p.buildArea.activeZones) != want {
+		t.Errorf("activeZones size: got %d, want %d", len(p.buildArea.activeZones), want)
 	}
-	if !p.activeZones[coordgrid.ZoneIndex(50<<3, 50<<3, 0)] {
+	if !p.buildArea.activeZones[coordgrid.ZoneIndex(50<<3, 50<<3, 0)] {
 		t.Errorf("center zone (50,50) missing from activeZones")
 	}
 }
@@ -343,9 +343,9 @@ func TestRebuildZonesIntersectsBuildArea(t *testing.T) {
 	p.x = 50 << 3
 	p.z = 50 << 3
 	p.level = 0
-	p.rebuildZones()
-	if len(p.activeZones) != 49 {
-		t.Errorf("center==origin: got %d zones, want 49", len(p.activeZones))
+	p.buildArea.rebuildZones()
+	if len(p.buildArea.activeZones) != 49 {
+		t.Errorf("center==origin: got %d zones, want 49", len(p.buildArea.activeZones))
 	}
 
 	// Case 2: center pushed toward NE corner; build-area clips.
@@ -354,14 +354,14 @@ func TestRebuildZonesIntersectsBuildArea(t *testing.T) {
 	// [53..56] × [53..56] = 16 entries.
 	p.x = 56 << 3
 	p.z = 56 << 3
-	p.rebuildZones()
-	if len(p.activeZones) != 16 {
-		t.Errorf("clipped: got %d zones, want 16", len(p.activeZones))
+	p.buildArea.rebuildZones()
+	if len(p.buildArea.activeZones) != 16 {
+		t.Errorf("clipped: got %d zones, want 16", len(p.buildArea.activeZones))
 	}
-	if !p.activeZones[coordgrid.ZoneIndex(56<<3, 56<<3, 0)] {
+	if !p.buildArea.activeZones[coordgrid.ZoneIndex(56<<3, 56<<3, 0)] {
 		t.Errorf("kept cell (56,56) missing")
 	}
-	if p.activeZones[coordgrid.ZoneIndex(57<<3, 57<<3, 0)] {
+	if p.buildArea.activeZones[coordgrid.ZoneIndex(57<<3, 57<<3, 0)] {
 		t.Errorf("clipped cell (57,57) present")
 	}
 }
@@ -371,20 +371,20 @@ func TestRebuildZonesHonorsPlayerLevel(t *testing.T) {
 	p0.originX, p0.originZ = 50<<3, 50<<3
 	p0.x, p0.z = 50<<3, 50<<3
 	p0.level = 0
-	p0.rebuildZones()
+	p0.buildArea.rebuildZones()
 
 	p1, _ := newTestPlayer(t)
 	p1.originX, p1.originZ = 50<<3, 50<<3
 	p1.x, p1.z = 50<<3, 50<<3
 	p1.level = 1
-	p1.rebuildZones()
+	p1.buildArea.rebuildZones()
 
 	// Pin: level-0 keys differ from level-1 keys.
 	sameKey := coordgrid.ZoneIndex(50<<3, 50<<3, 0)
-	if !p0.activeZones[sameKey] {
+	if !p0.buildArea.activeZones[sameKey] {
 		t.Fatalf("p0 missing level-0 center key")
 	}
-	if p1.activeZones[sameKey] {
+	if p1.buildArea.activeZones[sameKey] {
 		t.Errorf("p1 (level=1) should not have level-0 center key — port honors p.level")
 	}
 }

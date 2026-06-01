@@ -24,8 +24,8 @@ func newZoneTestPlayer(t *testing.T, s *Server, slot, x, z, level int) (*Player,
 	// window), but no longer pre-populates activeZones (NAI-142 R-D2).
 	// rebuildZones follows to fill the canonical 7×7 activeZones, mirroring
 	// the production REBUILD path: rebuildScenery → ... → rebuildZones.
-	_ = p.rebuildScenery(0)
-	p.rebuildZones()
+	_ = p.buildArea.rebuildScenery(0)
+	p.buildArea.rebuildZones()
 	s.players[slot] = p
 	s.playerLoop = append(s.playerLoop, p)
 	return p, cc
@@ -48,14 +48,14 @@ func TestShouldRebuild_FiresOnFirstBuildEvenWithOriginSet(t *testing.T) {
 	p.x, p.z, p.level = 3094, 3106, 0
 	p.originX, p.originZ = p.x, p.z
 
-	if !p.shouldRebuild() {
+	if !p.buildArea.shouldRebuild() {
 		t.Fatal("shouldRebuild must return true on first build, even when p.originX is set to a real coord (REBUILD_GETMAPS regression)")
 	}
 
 	// After a rebuildScenery call, shouldRebuild should be quiescent for
 	// a player who hasn't moved out of the 13x13 zone window.
-	_ = p.rebuildScenery(0)
-	if p.shouldRebuild() {
+	_ = p.buildArea.rebuildScenery(0)
+	if p.buildArea.shouldRebuild() {
 		t.Error("shouldRebuild must return false after first rebuild when player is still inside the rebuild window")
 	}
 }
@@ -115,10 +115,10 @@ func TestUpdateZonesUnloadsDroppedZones(t *testing.T) {
 	p, _ := newZoneTestPlayer(t, s, 1, 3094, 3106, 0)
 	// Populate LoadedZones with an index NOT in ActiveZones.
 	bogusIdx := 999999
-	p.loadedZones[bogusIdx] = true
+	p.buildArea.loadedZones[bogusIdx] = true
 
 	p.updateZones()
-	if p.loadedZones[bogusIdx] {
+	if p.buildArea.loadedZones[bogusIdx] {
 		t.Error("bogus index not in activeZones should have been unloaded")
 	}
 }
@@ -532,7 +532,7 @@ func TestUpdateBuildArea_FirstTickFires(t *testing.T) {
 	if p.lastZone != wantZone {
 		t.Errorf("lastZone after first updateBuildArea: got %d, want %d", p.lastZone, wantZone)
 	}
-	if len(p.activeZones) == 0 {
+	if len(p.buildArea.activeZones) == 0 {
 		t.Error("activeZones must be populated by rebuildZones on first updateBuildArea")
 	}
 }
@@ -548,15 +548,15 @@ func TestUpdateBuildArea_SameZoneNoFire(t *testing.T) {
 	// updateBuildArea fires again, it will call rebuildZones which clears
 	// activeZones and refills with 49 entries — the sentinel disappears.
 	sentinelKey := -999999
-	p.activeZones = map[int]bool{sentinelKey: true}
+	p.buildArea.activeZones = map[int]bool{sentinelKey: true}
 
 	p.updateBuildArea()
 
-	if !p.activeZones[sentinelKey] {
+	if !p.buildArea.activeZones[sentinelKey] {
 		t.Error("same-zone updateBuildArea must NOT fire rebuildZones; sentinel was cleared")
 	}
-	if len(p.activeZones) != 1 {
-		t.Errorf("same-zone updateBuildArea: activeZones len got %d, want 1", len(p.activeZones))
+	if len(p.buildArea.activeZones) != 1 {
+		t.Errorf("same-zone updateBuildArea: activeZones len got %d, want 1", len(p.buildArea.activeZones))
 	}
 }
 
@@ -576,7 +576,7 @@ func TestUpdateBuildArea_CrossZoneFires(t *testing.T) {
 		t.Errorf("cross-zone lastZone: got %d, want %d", p.lastZone, wantZone)
 	}
 	// New center (51, 50) must be in activeZones.
-	if !p.activeZones[coordgrid.ZoneIndex(51<<3, 50<<3, 0)] {
+	if !p.buildArea.activeZones[coordgrid.ZoneIndex(51<<3, 50<<3, 0)] {
 		t.Error("cross-zone activeZones missing new center (51, 50)")
 	}
 }
@@ -597,30 +597,43 @@ func TestUpdateBuildArea_CrossLevelFires(t *testing.T) {
 		t.Errorf("cross-level lastZone: got %d, want %d", p.lastZone, wantZone)
 	}
 	// activeZones now keyed at level=1; level-0 center key must be ABSENT.
-	if p.activeZones[coordgrid.ZoneIndex(50<<3, 50<<3, 0)] {
+	if p.buildArea.activeZones[coordgrid.ZoneIndex(50<<3, 50<<3, 0)] {
 		t.Error("cross-level activeZones must not contain level-0 center key")
 	}
-	if !p.activeZones[coordgrid.ZoneIndex(50<<3, 50<<3, 1)] {
+	if !p.buildArea.activeZones[coordgrid.ZoneIndex(50<<3, 50<<3, 1)] {
 		t.Error("cross-level activeZones must contain level-1 center key")
 	}
 }
 
-// T5: rebuildScenery no longer pre-populates activeZones (R-D2 retirement).
-// Pins the dual-write removal: post-rebuildScenery, activeZones is empty
-// (the activeZones reset at the top of rebuildScenery still runs; the
-// per-zone-cell write inside the nested loop is gone).
-func TestRebuildScenery_DoesNotPrePopulateActiveZones(t *testing.T) {
+// T5: rebuildScenery does not touch activeZones (R-D2 retirement +
+// NAI-30 unflatten TS-fidelity). Pins both halves of the divergence
+// cleanup: (a) per-zone-cell writes inside the rebuildScenery loop
+// are gone (R-D2 retirement) AND (b) the historical activeZones-reset
+// at the top of rebuildScenery is gone (NAI-30 unflatten: TS
+// BuildArea.rebuildNormal at BuildArea.ts:57-93 only clears mapsquares
+// + loadedZones, never activeZones — activeZones is cleared at the top
+// of BuildArea.rebuildZones, the per-tick driver). Pre-set sentinel
+// MUST survive rebuildScenery: it gets cleared by rebuildZones next.
+func TestRebuildScenery_DoesNotTouchActiveZones(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.x, p.z, p.level = 50<<3, 50<<3, 0
 	p.originX, p.originZ = p.x, p.z
-	// Pre-set sentinel; rebuildScenery's top-of-function activeZones
-	// reset clears it.
-	p.activeZones = map[int]bool{-1: true}
+	// Pre-set sentinel; rebuildScenery does NOT clear activeZones
+	// (matches TS BuildArea.rebuildNormal which only clears mapsquares
+	// + loadedZones).
+	p.buildArea.activeZones = map[int]bool{-1: true}
 
-	_ = p.rebuildScenery(0)
+	_ = p.buildArea.rebuildScenery(0)
 
-	if len(p.activeZones) != 0 {
-		t.Errorf("rebuildScenery must not populate activeZones (R-D2); got len=%d", len(p.activeZones))
+	if len(p.buildArea.activeZones) != 1 || !p.buildArea.activeZones[-1] {
+		t.Errorf("rebuildScenery must not touch activeZones (TS BuildArea.rebuildNormal does not clear activeZones); got %v", p.buildArea.activeZones)
+	}
+
+	// Sibling guarantee: rebuildZones clears activeZones (TS BuildArea
+	// .rebuildZones top-of-function reset at BuildArea.ts:33).
+	p.buildArea.rebuildZones()
+	if p.buildArea.activeZones[-1] {
+		t.Error("rebuildZones must clear activeZones top-of-function (TS BuildArea.rebuildZones at BuildArea.ts:33); sentinel survived")
 	}
 }
 
@@ -634,10 +647,10 @@ func TestUpdateBuildArea_CachedClientCrossZoneFreshActiveZones(t *testing.T) {
 	p.x, p.z, p.level = 50<<3, 50<<3, 0
 	p.originX, p.originZ = p.x, p.z
 	p.updateBuildArea()
-	if len(p.activeZones) != 49 {
-		t.Fatalf("first-tick 7×7 activeZones: got %d, want 49", len(p.activeZones))
+	if len(p.buildArea.activeZones) != 49 {
+		t.Fatalf("first-tick 7×7 activeZones: got %d, want 49", len(p.buildArea.activeZones))
 	}
-	if !p.activeZones[coordgrid.ZoneIndex(50<<3, 50<<3, 0)] {
+	if !p.buildArea.activeZones[coordgrid.ZoneIndex(50<<3, 50<<3, 0)] {
 		t.Fatal("first-tick activeZones missing center (50,50)")
 	}
 
@@ -646,17 +659,17 @@ func TestUpdateBuildArea_CachedClientCrossZoneFreshActiveZones(t *testing.T) {
 	p.x = 52 << 3
 	p.updateBuildArea()
 
-	if len(p.activeZones) != 49 {
-		t.Fatalf("post-cross-zone 7×7 activeZones: got %d, want 49", len(p.activeZones))
+	if len(p.buildArea.activeZones) != 49 {
+		t.Fatalf("post-cross-zone 7×7 activeZones: got %d, want 49", len(p.buildArea.activeZones))
 	}
-	if !p.activeZones[coordgrid.ZoneIndex(52<<3, 50<<3, 0)] {
+	if !p.buildArea.activeZones[coordgrid.ZoneIndex(52<<3, 50<<3, 0)] {
 		t.Error("post-cross-zone activeZones missing new center (52,50)")
 	}
 	// Old non-overlapping cell must be GONE: center moved from 50→52, so
 	// the old 7×7 [47..53] dropped (46,46), (46,47), (47,46) etc. The new
 	// 7×7 [49..55] is centered at 52. Cell (47,50) was in the old set, not
 	// in the new.
-	if p.activeZones[coordgrid.ZoneIndex(47<<3, 50<<3, 0)] {
+	if p.buildArea.activeZones[coordgrid.ZoneIndex(47<<3, 50<<3, 0)] {
 		t.Error("post-cross-zone activeZones still contains stale cell (47,50)")
 	}
 }

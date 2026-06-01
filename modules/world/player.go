@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand/v2"
-	"sort"
 	"strings"
 	"time"
 
@@ -374,25 +373,27 @@ type Player struct {
 	// listener registers; safe to read, range, len-check while nil.
 	invListeners map[int]InventoryListener
 
-	// === scenery-window state (sub-spec 3a; flattened from pkg/buildarea
-	// at NAI-30 Bundle 4) ===
-	// PORTING-EXCEPTION (BuildArea-flattened): TS Player.ts:320 has a
-	// BuildArea struct; goscape flattens the fields directly into Player.
-	// Functionally complete; structural-only divergence. See PORTING.md.
-	// Tracks which mapsquares the client has loaded for LOC/scenery rebuild
-	// purposes. Per-player; mutated by rebuildScenery() at zone-window exit.
-	//
-	// rebuiltOnce gates shouldRebuild's first-build trigger. Legacy
-	// pkg/buildarea encoded this via OriginX = -1, but Player.originX is
-	// already set to a real coord in tick.go's processLogins loop (anchor
-	// for PlayerInfo zone-relative encoding, which runs in updatePlayers
-	// BEFORE rebuildNormal each tick, NAI-93: rebuildNormal is in processInfo). Reusing originX as the sentinel would
-	// be silently consumed at login. A separate bool keeps the two roles
-	// independent.
-	lastBuild   int
-	loadedZones map[int]bool
-	activeZones map[int]bool
-	mapsquares  map[uint16]bool
+	// === scenery-window state (sub-spec 3a) ===
+	// buildArea mirrors TS Player.buildArea (Player.ts:320) — a
+	// per-player BuildArea struct holding loadedZones / activeZones /
+	// mapsquares / lastBuild. Allocated in newPlayer via
+	// newBuildArea(p) so the backref points at the just-allocated
+	// Player. See build_area.go for the struct definition and method
+	// bodies (mirroring TS BuildArea.ts:7-94).
+	buildArea *buildArea
+
+	// rebuiltOnce gates buildArea.shouldRebuild's first-build trigger.
+	// TS uses originX=-1 as the implicit first-build sentinel (the
+	// bounds-check `if (player.x < reloadLeftX || ...)` naturally fails
+	// because reloadLeftX = (-1-4)<<3 = -40 when originX = -1), but
+	// Player.originX is already set to a real coord in tick.go's
+	// processLogins loop (anchor for PlayerInfo zone-relative encoding,
+	// which runs in updatePlayers BEFORE rebuildNormal each tick;
+	// NAI-93: rebuildNormal is in processInfo). Reusing originX as the
+	// sentinel would be silently consumed at login. A separate bool
+	// keeps the two roles independent. This is the lone goscape-only
+	// field in the BuildArea concept space; mirrored TS-faithfully in
+	// the buildArea struct above.
 	rebuiltOnce bool
 
 	// lastZone is the previously-witnessed packed zone coord
@@ -634,13 +635,13 @@ func newPlayer(c *client) *Player {
 		faceSquareZ:    -1,
 		OrientationX:   -1,
 		OrientationZ:   -1,
-		lastBuild:      0,
-		loadedZones:    map[int]bool{},
-		activeZones:    map[int]bool{},
-		mapsquares:     map[uint16]bool{},
 		lastZone:       -1, // NAI-142: sentinel; first updateBuildArea fires rebuildZones
 		lastMapZone:    -1, // NAI-145: sentinel; first updateBuildArea fires triggerMapzone (no exit)
 	}
+	// Allocate buildArea after the Player literal so the backref points
+	// at the just-allocated *Player. Mirrors TS Player.ts:320
+	// `buildArea: BuildArea = new BuildArea(this);`.
+	p.buildArea = newBuildArea(p)
 	if c.server != nil {
 		// newPlayer is called from sendLoginOK on a per-connection
 		// goroutine; read seqTypes from the atomic snapshot to avoid a
@@ -777,131 +778,10 @@ func (p *Player) IsInWilderness() bool {
 	return false
 }
 
-// shouldRebuild reports whether the player has crossed the 13x13 zone
-// window centered on (originX, originZ), or whether reconnect is true.
-// Mirrors pkg/buildarea.BuildArea.ShouldRebuild (NAI-30 Bundle 4 flatten).
-func (p *Player) shouldRebuild() bool {
-	if !p.rebuiltOnce {
-		return true
-	}
-	if p.reconnecting {
-		return true
-	}
-	originZoneX := p.originX >> 3
-	originZoneZ := p.originZ >> 3
-	reloadLeftX := (originZoneX - 4) << 3
-	reloadRightX := (originZoneX + 5) << 3
-	reloadTopZ := (originZoneZ + 5) << 3
-	reloadBottomZ := (originZoneZ - 4) << 3
-	if p.x < reloadLeftX || p.z < reloadBottomZ ||
-		p.x > reloadRightX-1 || p.z > reloadTopZ-1 {
-		return true
-	}
-	return false
-}
-
-// rebuildScenery resets the player's scenery-window state, recomputes
-// the 13x13 zone window mapsquares centered on (p.x, p.z), and commits
-// the new origin. Returns mapsquare list packed as (mapX<<8)|mapZ.
-// Mirrors pkg/buildarea.BuildArea.Rebuild (NAI-30 Bundle 4 flatten).
-func (p *Player) rebuildScenery(currentTick int) []uint16 {
-	p.loadedZones = map[int]bool{}
-	p.activeZones = map[int]bool{}
-	p.mapsquares = map[uint16]bool{}
-
-	zoneX := p.x >> 3
-	zoneZ := p.z >> 3
-	for dx := -6; dx <= 6; dx++ {
-		for dz := -6; dz <= 6; dz++ {
-			zx := zoneX + dx
-			zz := zoneZ + dz
-			if zx < 0 || zz < 0 {
-				continue
-			}
-			mapX := zx >> 3
-			mapZ := zz >> 3
-			if mapX > 0xff || mapZ > 0xff {
-				continue
-			}
-			p.mapsquares[uint16((mapX<<8)|mapZ)] = true
-		}
-	}
-
-	p.originX = p.x
-	p.originZ = p.z
-	p.lastBuild = currentTick
-	p.rebuiltOnce = true
-
-	out := make([]uint16, 0, len(p.mapsquares))
-	for m := range p.mapsquares {
-		out = append(out, m)
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
-	return out
-}
-
-// rebuildZones refreshes activeZones to a 7×7-zone window centered on
-// the player's current zone, intersected with the 13×13-zone
-// build-area window centered on origin. Mirrors TS
-// BuildArea.rebuildZones (BuildArea.ts:31-55).
-//
-// Called from two sites:
-//
-//  1. handleRebuildGetMaps (data_map.go:153) — after client confirms
-//     maps loaded post-REBUILD_NORMAL.
-//  2. updateBuildArea (player.go, top of processOut) — per-tick zone
-//     transition (NAI-142, mirroring TS NetworkPlayer.ts:269-271).
-//
-// Both sites fire on the same tick on a REBUILD path; rebuildZones
-// resets activeZones at its top, so the duplication is idempotent.
-// Matches TS ordering (TS World.ts:1097 → NetworkPlayer.updateMap also
-// calls rebuildZones unconditionally on lastZone change).
-func (p *Player) rebuildZones() {
-	p.activeZones = map[int]bool{}
-	centerX := p.x >> 3
-	centerZ := p.z >> 3
-	originZoneX := p.originX >> 3
-	originZoneZ := p.originZ >> 3
-	leftX := originZoneX - 6
-	rightX := originZoneX + 6
-	bottomZ := originZoneZ - 6
-	topZ := originZoneZ + 6
-	for x := centerX - 3; x <= centerX+3; x++ {
-		for z := centerZ - 3; z <= centerZ+3; z++ {
-			if x < leftX || x > rightX || z < bottomZ || z > topZ {
-				continue
-			}
-			if x < 0 || z < 0 { // (goscape defensive; TS skips this check)
-				continue
-			}
-			p.activeZones[coordgrid.ZoneIndex(x<<3, z<<3, p.level)] = true
-		}
-	}
-}
-
-func (p *Player) rebuildNormal() {
-	if p.client == nil || p.client.server == nil {
-		return
-	}
-	if !p.shouldRebuild() {
-		return
-	}
-	// rebuildScenery anchors p.originX/Z to the new rebuild position so
-	// the rsbuf-cached Origin captured by the IMMEDIATELY FOLLOWING
-	// ComputePlayer call (in the same Server.processInfo per-player loop)
-	// matches the just-emitted RebuildNormal packet's zoneX/zoneZ.
-	//
-	// NAI-93 moved this call from processOut to processInfo per TS
-	// World.ts:996 ordering. Pre-NAI-93, the ComputePlayer call had
-	// already cached the STALE origin by the time rebuildNormal ran, and the
-	// PlayerInfo tele leaf encoded localX = pos.X - (((staleOriginX>>3)
-	// - 6) << 3) — which on a cross-window tele produced values outside
-	// the Java client's 0..104 active-window array bound, crashing in
-	// getHeightmapY and getTopLevel.
-	ms := p.rebuildScenery(p.client.server.currentTick)
-	p.reconnecting = false
-	sendRebuildNormal(p, ms)
-}
+// BuildArea state + methods (shouldRebuild, rebuildScenery,
+// rebuildZones, rebuildNormal) were unflattened in the NAI-30 Bundle 4
+// follow-up commit (fix/nai-30) and now live on *buildArea in
+// build_area.go. Callers go through p.buildArea.X().
 func (p *Player) updateZones() {
 	if p.client == nil || p.client.server == nil {
 		return
@@ -909,17 +789,17 @@ func (p *Player) updateZones() {
 	s := p.client.server
 
 	// Unload zones no longer active.
-	for idx := range p.loadedZones {
-		if !p.activeZones[idx] {
-			delete(p.loadedZones, idx)
+	for idx := range p.buildArea.loadedZones {
+		if !p.buildArea.activeZones[idx] {
+			delete(p.buildArea.loadedZones, idx)
 		}
 	}
 
 	// Deliver each active zone.
-	for idx := range p.activeZones {
+	for idx := range p.buildArea.activeZones {
 		z := s.zoneMap.GetByIndex(idx)
 
-		if !p.loadedZones[idx] {
+		if !p.buildArea.loadedZones[idx] {
 			p.writeFullFollows(z, s.currentTick)
 		}
 
@@ -930,7 +810,7 @@ func (p *Player) updateZones() {
 		}
 
 		p.writePartialFollows(z)
-		p.loadedZones[idx] = true
+		p.buildArea.loadedZones[idx] = true
 	}
 }
 func (p *Player) updateInvs() {
@@ -1106,7 +986,7 @@ func (p *Player) updateBuildArea() {
 	// rebuildZones + NAI-145 SetMultiway/zone-trigger enrichment).
 	zone := coordgrid.PackCoord(p.level, (p.x>>3)<<3, (p.z>>3)<<3)
 	if p.lastZone != zone {
-		p.rebuildZones()
+		p.buildArea.rebuildZones()
 
 		// SetMultiway emit on multi-flag transition. lastZone=-1 first-tick
 		// unpacks to {Level:3, X:0x3FFF, Z:0x3FFF} → IsMulti map-miss →

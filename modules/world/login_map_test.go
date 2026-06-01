@@ -33,7 +33,7 @@ func TestLoginSendsRebuildNormal(t *testing.T) {
 		}
 	}()
 
-	p.rebuildNormal()
+	p.buildArea.rebuildNormal()
 	p.client.flushWrite()
 
 	wantOp := byte((int(gameserver.OpRebuildNormal.Opcode) + int(wantEnc.GetNext())) & 0xff)
@@ -71,7 +71,7 @@ func TestRebuildNormalAnchorsOriginToPlayer(t *testing.T) {
 	p.originX, p.originZ = 3094, 3106
 
 	// First rebuild is a no-op on origin (already matches).
-	p.rebuildNormal()
+	p.buildArea.rebuildNormal()
 	p.client.flushWrite()
 	if p.originX != 3094 || p.originZ != 3106 {
 		t.Errorf("initial rebuild: originX/Z = (%d, %d), want (3094, 3106)",
@@ -85,7 +85,7 @@ func TestRebuildNormalAnchorsOriginToPlayer(t *testing.T) {
 	p.x, p.z = 5000, 5000
 	p.reconnecting = false
 
-	p.rebuildNormal()
+	p.buildArea.rebuildNormal()
 	p.client.flushWrite()
 
 	if p.originX != 5000 || p.originZ != 5000 {

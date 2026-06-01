@@ -121,7 +121,7 @@ func handleRebuildGetMaps(p *Player, payload []byte) error {
 	}
 	s := p.client.server
 
-	if p.lastBuild+rebuildGetMapsLastBuildTicks < s.currentTick {
+	if p.buildArea.lastBuild+rebuildGetMapsLastBuildTicks < s.currentTick {
 		return nil
 	}
 
@@ -134,7 +134,7 @@ func handleRebuildGetMaps(p *Player, payload []byte) error {
 	for i := 0; i < nEntries; i++ {
 		packed := int(r.G3())
 		mapsquare := uint16(packed & 0xFFFF)
-		if !p.mapsquares[mapsquare] {
+		if !p.buildArea.mapsquares[mapsquare] {
 			continue
 		}
 		typ := (packed >> 16) & 0x1
@@ -150,6 +150,6 @@ func handleRebuildGetMaps(p *Player, payload []byte) error {
 
 	// Mirrors TS RebuildGetMapsHandler.ts:66 — refresh activeZones to
 	// the player's current 7×7 zone window now that maps are loaded.
-	p.rebuildZones()
+	p.buildArea.rebuildZones()
 	return nil
 }

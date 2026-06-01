@@ -864,7 +864,7 @@ func (s *Server) processInfo() {
 	// player is why this is above."
 	for _, p := range players {
 		p.reorient()
-		p.rebuildNormal()
+		p.buildArea.rebuildNormal()
 	}
 
 	// Regenerate appearance buffer for any player whose MaskAppearance is set
