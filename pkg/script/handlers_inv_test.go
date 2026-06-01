@@ -668,6 +668,20 @@ func TestInvTotalCat_RejectsNullCategory(t *testing.T) {
 	runInvOpExpectErrAsPlayer(t, OpInvTotalCat, []int{testInvMain, -1}, lookup, mc, "INV_TOTALCAT: no CategoryType with value (-1) found")
 }
 
+// TestInvTotalCat_OOBCategoryRejects pins TS InvOps.ts:638 with the
+// full-bound CategoryTypeValid. An OOB category int rejects at
+// checkCategoryType BEFORE the inv-walk pushes total=0 silently.
+// Closes h-npc-3 (audit row in 2026-05-28 fresh audit) at the
+// INV_TOTALCAT call site.
+func TestInvTotalCat_OOBCategoryRejects(t *testing.T) {
+	lookup := newTestInvLookup()
+	mc := newTestInvConfigs()
+	// 999999 is far above the seeded category range (0..31) in
+	// newTestInvConfigs.
+	runInvOpExpectErrAsPlayer(t, OpInvTotalCat, []int{testInvMain, 999999}, lookup, mc,
+		"INV_TOTALCAT: no CategoryType with value (999999) found")
+}
+
 // -- Negative paths --
 
 func TestInvLookupNilReturnsError(t *testing.T) {
