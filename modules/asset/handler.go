@@ -21,6 +21,32 @@ var publicMimeTypes = map[string]string{
 	".sf2":  "application/octet-stream",
 }
 
+// isValidMapName matches the m{x}_{z} / l{x}_{z} cache-key convention used
+// by goscape-client (see client.go:9479 / 9496). Anything else is rejected
+// so the path joined under data/pack/client/maps cannot escape that dir
+// via "..", absolute paths, or unexpected segments.
+func isValidMapName(s string) bool {
+	if len(s) < 4 || (s[0] != 'm' && s[0] != 'l') {
+		return false
+	}
+	underscore := -1
+	for i := 1; i < len(s); i++ {
+		c := s[i]
+		if c == '_' {
+			if underscore != -1 {
+				return false
+			}
+			underscore = i
+			continue
+		}
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	// require at least one digit on each side of the single underscore
+	return underscore > 1 && underscore < len(s)-1
+}
+
 func (a *Asset) RootHandler(w http.ResponseWriter, r *http.Request) {
 	// client concats the prefix with the expected crc from the initial /crc call (or the one it has cached? idk)
 	// should make a way for the server to store all the crcs and check against them when they're requested
@@ -110,6 +136,21 @@ func (a *Asset) RootHandler(w http.ResponseWriter, r *http.Request) {
 		// TODO: check [http.Dir.Open] for path sanitization ideas
 		w.Header().Set("Content-Type", "application/octet-stream")
 		http.ServeFile(w, r, path.Join("data/pack/client", "sounds"))
+		return
+	}
+	if strings.HasPrefix(r.URL.Path, "/maps/") { // per-zone map/loc files (m{x}_{z}, l{x}_{z})
+		// HTTP cache fallback for per-zone map/loc files: goscape-client's signlink
+		// CacheHTTPFallback fetches missing map/loc cache items here. Live
+		// clients never hit this — they request map data via game opcode 150
+		// over the TCP stream. The name is constrained to ^[ml]\d+_\d+$ to
+		// guarantee the joined path resolves under data/pack/client/maps.
+		name := strings.TrimPrefix(r.URL.Path, "/maps/")
+		if !isValidMapName(name) {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/octet-stream")
+		http.ServeFile(w, r, path.Join("data/pack/client/maps", name))
 		return
 	}
 	// /rs2.cgi Java applet bootstrap — mirrors web.ts:88-113. Matched before
