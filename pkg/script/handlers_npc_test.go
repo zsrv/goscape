@@ -88,15 +88,50 @@ func TestCheckHuntVis(t *testing.T) {
 	}
 }
 
-func TestCheckCategoryType(t *testing.T) {
-	// Partial validator: only -1 rejected (S7f-D3).
-	if err := checkCategoryType(-1, "TEST"); err == nil {
-		t.Errorf("checkCategoryType(-1): want error (null sentinel)")
-	}
-	for _, v := range []int{0, 1, 100, 999999} {
-		if err := checkCategoryType(v, "TEST"); err != nil {
-			t.Errorf("checkCategoryType(%d): partial validator should accept; got %v", v, err)
+// TestCheckCategoryType pins TS CategoryTypeValid (ScriptValidators.ts:123)
+// — ScriptInputConfigTypeValidator(CategoryType.get, 0 <= n < count) —
+// collapsed into a Configs.CategoryType(id) nil check per the
+// checkNpcType / checkHuntType pattern.
+func TestCheckCategoryType_InRange(t *testing.T) {
+	mc := newTestConfigs()
+	s := &ScriptState{Configs: mc}
+	// newTestConfigs seeds categories [0, 32).
+	for _, id := range []int{0, 1, 7, 10, 31} {
+		if err := checkCategoryType(s, id, "TEST"); err != nil {
+			t.Errorf("checkCategoryType(%d): unexpected error %v", id, err)
 		}
+	}
+}
+
+func TestCheckCategoryType_OOB(t *testing.T) {
+	mc := newTestConfigs()
+	s := &ScriptState{Configs: mc}
+	for _, id := range []int{-1, -2, 32, 100, 999999} {
+		err := checkCategoryType(s, id, "TEST")
+		if err == nil {
+			t.Errorf("checkCategoryType(%d): want error", id)
+			continue
+		}
+		// Sibling-pattern error message: "TEST: no CategoryType with value (N) found".
+		if !strings.Contains(err.Error(), "no CategoryType with value") {
+			t.Errorf("checkCategoryType(%d): unexpected message %q", id, err.Error())
+		}
+	}
+}
+
+func TestCheckCategoryType_NilConfigs(t *testing.T) {
+	s := &ScriptState{Configs: nil}
+	if err := checkCategoryType(s, 0, "TEST"); err == nil {
+		t.Errorf("checkCategoryType with nil Configs: want error")
+	}
+}
+
+func TestCheckCategoryType_NilRegistry(t *testing.T) {
+	// mockConfigs with no categories seeded — every id returns nil.
+	mc := &mockConfigs{}
+	s := &ScriptState{Configs: mc}
+	if err := checkCategoryType(s, 0, "TEST"); err == nil {
+		t.Errorf("checkCategoryType with empty registry: want error")
 	}
 }
 
@@ -1690,15 +1725,16 @@ func TestNpcFind_InvalidHuntVis(t *testing.T) {
 // --- S7f Task 2: NPC_FINDCAT handler tests -----------------------------
 
 // newNpcFindCatState is the NPC_FINDCAT analogue of newNpcFindState.
-// Pushes (coord, category, distance, huntvis). Loaded is the NpcType map
-// — NPC_FINDCAT does NOT validate NpcType (it validates CategoryType)
-// but the ScriptState still needs a Configs field.
-func newNpcFindCatState(t *testing.T, operand int32, coord, category, distance, huntvis int, loaded map[int]bool, lookup *mockNpcLookup) *ScriptState {
+// Pushes (coord, category, distance, huntvis). NPC_FINDCAT validates
+// CategoryType (not NpcType), so Configs is seeded with categories [0, 32)
+// via newTestConfigs(). The loaded parameter is unused but retained for
+// call-site symmetry with newNpcFindState.
+func newNpcFindCatState(t *testing.T, operand int32, coord, category, distance, huntvis int, _ map[int]bool, lookup *mockNpcLookup) *ScriptState {
 	t.Helper()
 	s := &ScriptState{
 		Script:      &ScriptFile{IntOperands: []int32{operand}},
 		PC:          0,
-		Configs:     newTestConfigsWithNpcTypes(loaded),
+		Configs:     newTestConfigs(),
 		Npcs:        lookup,
 		Pointers:    0,
 		IntStack:    make([]int, StackCapacity),
@@ -1756,27 +1792,11 @@ func TestNpcFindCat_NullCategory(t *testing.T) {
 
 	if err := handleNpcFindCat(s); err == nil {
 		t.Fatal("expected error for category=-1")
-	} else if !strings.Contains(err.Error(), "NPC_FINDCAT: category null(-1)") {
+	} else if !strings.Contains(err.Error(), "NPC_FINDCAT: no CategoryType with value (-1) found") {
 		t.Errorf("wrong error: %v", err)
 	}
 	if lookup.byCategoryCalls != 0 {
 		t.Errorf("lookup should NOT be called; calls=%d", lookup.byCategoryCalls)
-	}
-}
-
-// TestNpcFindCat_PartialValidatorAcceptsNonNegative pins S7f-D3:
-// checkCategoryType accepts any non-(-1) value even if no CategoryType
-// count is loaded. The handler MUST call the lookup with the raw cat.
-func TestNpcFindCat_PartialValidatorAcceptsNonNegative(t *testing.T) {
-	foundNpc := &mockNpc{typeID: 12}
-	lookup := &mockNpcLookup{byCategory: foundNpc}
-	s := newNpcFindCatState(t, 0, 0, 999999, 10, 0, nil, lookup)
-
-	if err := handleNpcFindCat(s); err != nil {
-		t.Fatalf("partial validator should accept 999999 (S7f-D3): %v", err)
-	}
-	if lookup.byCategoryCalls != 1 {
-		t.Errorf("byCategoryCalls: got %d, want 1", lookup.byCategoryCalls)
 	}
 }
 
@@ -3039,8 +3059,8 @@ func (m *mockActiveObj) IsValidFor(playerUID int) bool {
 	}
 	return true
 }
-func (m *mockActiveObj) IsRespawnLifecycle() bool   { return m.respawnLifecycle }
-func (m *mockActiveObj) DropperAccountID() int64   { return 0 }
+func (m *mockActiveObj) IsRespawnLifecycle() bool { return m.respawnLifecycle }
+func (m *mockActiveObj) DropperAccountID() int64  { return 0 }
 
 func TestNpcSetMode_ModeNoneClearsInteractionAndSetsOp(t *testing.T) {
 	npc := &mockNpc{}

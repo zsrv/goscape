@@ -151,24 +151,14 @@ func checkHuntVis(v int, op string) error {
 	return nil
 }
 
-// checkCategoryType partially mirrors TS CategoryTypeValid
-// (ScriptValidators.ts:123). Goscape has no CategoryType config loader,
-// so the count-bound check is absent — only null-sentinel rejection
-// survives. Deviation S7f-D3.
-//
-// PORTING-EXCEPTION (gap-world-reload-events-8 / cfg-var-9 / h-npc-3):
-// the CategoryType subsystem (TS CategoryType.ts:12-66) is absent —
-// no runtime loader (no `pkg/objtype/categorytype.go`), no Provider
-// on Server, no reload() arm (see modules/world/reload.go around the
-// PORTING-EXCEPTION marker there), no count-bound rejection at the
-// NPC_FINDCAT call site below. The 2026-05-28 fresh audit listed
-// this 3-row merged-alias cluster as STALE-DEFER: closing it
-// requires porting the loader + provider + reload wiring + a per-op
-// count check, broader than the validator surface. Documented;
-// deferred indefinitely. See PORTING.md.
-func checkCategoryType(v int, op string) error {
-	if v == -1 {
-		return fmt.Errorf("%s: category null(-1)", op)
+// checkCategoryType mirrors TS CategoryTypeValid (ScriptValidators.ts:123)
+// — ScriptInputConfigTypeValidator(CategoryType.get, 0 <= n < count),
+// collapsed into a single Configs.CategoryType(id) nil check per the
+// checkNpcType / checkHuntType pattern. Used by NPC_FINDCAT
+// (NpcOps.ts:373) and INV_TOTALCAT (InvOps.ts:638).
+func checkCategoryType(s *ScriptState, id int, op string) error {
+	if s.Configs == nil || s.Configs.CategoryType(id) == nil {
+		return fmt.Errorf("%s: no CategoryType with value (%d) found", op, id)
 	}
 	return nil
 }
@@ -796,7 +786,7 @@ func handleNpcFind(s *ScriptState) error {
 // handleNpcFindCat (NPC_FINDCAT, opcode 2517) pops (coord, category,
 // distance, huntvis). Same spine as handleNpcFind but filter is by
 // NpcType.Category == category (handled in the world-side impl).
-// checkCategoryType is partial (S7f-D3). Mirrors TS NpcOps.ts:369-400.
+// Mirrors TS NpcOps.ts:369-400.
 func handleNpcFindCat(s *ScriptState) error {
 	checkVis := s.PopInt()
 	distance := s.PopInt()
@@ -807,7 +797,7 @@ func handleNpcFindCat(s *ScriptState) error {
 	if err != nil {
 		return err
 	}
-	if err := checkCategoryType(category, "NPC_FINDCAT"); err != nil {
+	if err := checkCategoryType(s, category, "NPC_FINDCAT"); err != nil {
 		return err
 	}
 	if err := checkNotNull(distance, "NPC_FINDCAT"); err != nil {

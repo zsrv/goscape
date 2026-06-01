@@ -658,13 +658,14 @@ func TestInvTotalCat(t *testing.T) {
 
 // TestInvTotalCat_RejectsNullCategory pins TS InvOps.ts:638 —
 // check(category, CategoryTypeValid). Goscape's checkCategoryType
-// (handlers_npc.go:159) rejects -1 (the null sentinel). Pre-fix
-// handleInvTotalCat skipped the category check entirely and pushed
-// total=0 silently. Closes h-inv-2 (audit row 268).
+// (handlers_npc.go) now performs the full bound check — -1 falls outside
+// [0, count) and rejects with the sibling-pattern message. Closes h-inv-2
+// (audit row 268) — pin survives the validator tighten from -1-only to
+// full bound check.
 func TestInvTotalCat_RejectsNullCategory(t *testing.T) {
 	lookup := newTestInvLookup()
 	mc := newTestInvConfigs()
-	runInvOpExpectErrAsPlayer(t, OpInvTotalCat, []int{testInvMain, -1}, lookup, mc, "INV_TOTALCAT: category null(-1)")
+	runInvOpExpectErrAsPlayer(t, OpInvTotalCat, []int{testInvMain, -1}, lookup, mc, "INV_TOTALCAT: no CategoryType with value (-1) found")
 }
 
 // -- Negative paths --
