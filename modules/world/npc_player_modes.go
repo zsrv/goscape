@@ -57,8 +57,8 @@ func (n *Npc) playerFaceCloseMode(s *Server) {
 }
 
 // playerFollowMode — TS Npc.ts:801-812. Each tick, path toward the Player's
-// current tile and step one waypoint. Naive-only: the SMART A* branch in
-// pathToTarget is deferred from NAI-11 (PathingEntity.ts:457-508).
+// current tile and step one waypoint via pathToTarget (which dispatches to
+// pathToTargetSmart / Naive per moveStrategy — see npc_interaction.go:546).
 func (n *Npc) playerFollowMode(s *Server) {
 	if _, ok := n.target.(*Player); !ok {
 		s.log.Warn("playerFollowMode: non-Player target",

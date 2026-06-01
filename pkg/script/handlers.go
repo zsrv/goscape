@@ -150,7 +150,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpLastUseSlot:    handleLastUseSlot,
 	OpLastTargetSlot: handleLastTargetSlot,
 
-	// Camera control — minimal stub set for login-script compatibility.
+	// Camera control. Mirrors TS PlayerOps.ts:206-228.
 	OpCamReset:  handleCamReset,
 	OpCamShake:  handleCamShake,
 	OpCamMoveTo: handleCamMoveTo,
@@ -210,7 +210,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpStringIndexOfString: handleStringIndexOfString,
 	OpTextSwitch:          handleTextSwitch,
 
-	// S5a: SPLIT_* stubs (dialog pagination deferred).
+	// SPLIT_* dialog pagination. Mirrors TS StringOps.ts:75-127.
 	OpSplitInit:      handleSplitInit,
 	OpSplitGet:       handleSplitGet,
 	OpSplitGetAnim:   handleSplitGetAnim,
@@ -233,8 +233,8 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	OpPopVarp:  handlePopVarp,
 	OpPushVars: handlePushVars,
 	OpPopVars:  handlePopVars,
-	OpPushVarn: handlePushVarn, // stub until S6
-	OpPopVarn:  handlePopVarn,  // stub until S6
+	OpPushVarn: handlePushVarn,
+	OpPopVarn:  handlePopVarn,
 
 	// S5c: player stat/coord/facing/anim.
 	// Stat read + mutation ops.
@@ -272,7 +272,7 @@ var handlers = map[Opcode]func(*ScriptState) error{
 	// NAI-51: walktrigger consumer ops (Player side).
 	OpWalkTrigger:    handleWalkTrigger,
 	OpGetWalkTrigger: handleGetWalkTrigger,
-	// P_WALK stub — real impl needs pathfinder + waypoint integration.
+	// P_WALK — pathfinder + waypoint queue. Mirrors TS PlayerOps.ts:455-460.
 	OpPWalk: handlePWalk,
 	// NAI-117 T1: run-mode toggle (gated by ProtectedActivePlayer).
 	OpPRun: handlePRun,

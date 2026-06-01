@@ -263,11 +263,14 @@ func (n *Npc) ResetMasks() {
 //   - stepsTaken = 0 (TS L586)
 //   - apRangeCalled = false (TS L588, L8) — see note below.
 //
-// Out-of-scope per spec §6 (fields not yet on *Npc):
-//   - moveSpeed = defaultMoveSpeed() (TS L578) — NPC moveSpeed plumbing deferred
-//   - jump = false (TS L581) — player-only field
+// TS fields with no matching reset here (all CONFIRMED-EXCEPTION net-equivalent):
+//   - moveSpeed = defaultMoveSpeed() (TS L578) — moveSpeed IS plumbed on *Npc
+//     (set by ai/script paths, consumed at npc_interaction.go:347) but the per-
+//     tick reset is omitted. Verdict NONE (pathing-10): Go's updateMovement
+//     doesn't gate the WALK-reset path on moveSpeed, so no observable delta.
+//   - jump = false (TS L581) — player-only field.
 //   - interacted (TS L587) — no equivalent field on *Npc (goscape's NPC
-//     interaction model has no `interacted` flag).
+//     interaction model has no `interacted` flag; never read on NPC).
 //
 // L8: apRangeCalled is now reset per-tick here, matching TS PathingEntity.ts:588,
 // instead of only event-driven at SetInteraction/clearInteraction. The NPC-side

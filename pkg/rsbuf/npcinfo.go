@@ -55,11 +55,6 @@ const (
 // (see playerinfo.go:299-308) — the players/grid/zoneMap/renderer args
 // upstream collapse into `b *Buf` + `renderer *Renderer`.
 //
-// T3.2 SKELETON: writeNpcs emits a single 8-bit zero-count and
-// writeNewNpcs is a no-op. T3.3 expands writeNpcs with the tracked-
-// delta loop; T3.4 expands writeNewNpcs with discovery + observers
-// + 8191 terminator.
-//
 // Returns nil if pid is out of range or slot is unpopulated.
 func (ni *NpcInfo) Encode(b *Buf, pid int32, renderer *Renderer) []byte {
 	if pid < 0 || int(pid) >= len(b.players) {
