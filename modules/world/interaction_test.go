@@ -919,6 +919,7 @@ func TestProcessWalktrigger_ProtectedScriptActiveNoOp(t *testing.T) {
 
 	p.walktrigger = 7
 	p.activeScript = &script.ScriptState{Pointers: script.PtrProtectedActivePlayer}
+	p.protect = true // NAI-111-D1: Player.protect is the TS-faithful gate, set alongside activeScript fixture
 
 	p.processWalktrigger()
 

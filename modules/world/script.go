@@ -129,6 +129,16 @@ func (s *Server) runScript(
 		}
 	}
 	state := s.buildPlayerScriptState(sf, self, target, trigger, protect, intArgs, stringArgs)
+	// TS Player.ts:2103 — set this.protect = true at the start of a
+	// protected script execution. The post-Execute clear lives in
+	// resumeOrFinish so that the re-set/preserve logic for
+	// Suspended/PauseButton/CountDialog can read state.Pointers&PAP at
+	// dispatch. NAI-111-D1.
+	if protect {
+		if p, ok := self.(*Player); ok {
+			p.protect = true
+		}
+	}
 	s.resumeOrFinish(state, self)
 }
 
@@ -149,6 +159,13 @@ func (s *Server) resumeOrFinish(state *script.ScriptState, self script.ActivePla
 		// re-entering the (script === this.activeScript) guard
 		// (Player.ts:2143-2148). Closes NAI-54-F1.
 	}
+	// TS Player.ts:2110 — unconditional post-Execute clear of this.protect.
+	// The Suspended/PauseButton/CountDialog dispatch arm re-sets below
+	// when the script remains player-bound with PAP still set
+	// (TS Player.ts:2141). NAI-111-D1.
+	if p, ok := self.(*Player); ok {
+		p.protect = false
+	}
 	switch state.Execution {
 	case script.Finished, script.Aborted:
 		// NAI-54: TS Player.ts:2143-2148 — only nulls activeScript when
@@ -157,6 +174,18 @@ func (s *Server) resumeOrFinish(state *script.ScriptState, self script.ActivePla
 		self.OnScriptFinishedOrAborted(state)
 	case script.Suspended, script.PauseButton, script.CountDialog:
 		self.StoreActiveScript(state)
+		// TS Player.ts:2141 — `script.activePlayer.protect = protect` to
+		// preserve protected access across the suspend. Goscape derives
+		// from state.Pointers&PAP (which Init at runner.go:38 sets iff
+		// protect=true at script start, and StoreActiveScript preserves
+		// across suspends), exactly matching the TS preserve-when-delayed
+		// semantics. CloseModal still cleanly clears p.protect=false
+		// without re-deriving here (its clear persists until the next
+		// Execute cycle re-runs and re-evaluates this branch).
+		// NAI-111-D1.
+		if p, ok := self.(*Player); ok && state.Pointers&script.PtrProtectedActivePlayer != 0 {
+			p.protect = true
+		}
 	case script.WorldSuspended:
 		// NAI-37 T10 / NAI-155: player-bound script suspended to world
 		// queue. Pop the wakeup-tick (pushed before WORLD_DELAY — see

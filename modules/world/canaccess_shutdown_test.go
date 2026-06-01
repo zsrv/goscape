@@ -22,6 +22,7 @@ func TestCanAccess_ShutdownRelaxation(t *testing.T) {
 	p.delayed = true
 	p.modalState = modalStateMain
 	p.activeScript = &script.ScriptState{Pointers: script.PtrProtectedActivePlayer}
+	p.protect = true // NAI-111-D1: Player.protect is the TS-faithful gate, set alongside activeScript fixture
 
 	// Sanity (pre-condition): with no shutdown scheduled, blocks fire.
 	s.shutdownTick = -1

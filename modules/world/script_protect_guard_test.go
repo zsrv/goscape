@@ -46,9 +46,16 @@ func TestRunScript_Blocked_WhenProtectedScriptSuspended(t *testing.T) {
 	s.objTypes.Configs[555].IOp = []string{"op1", "", "", "", "drop"} // op5 valid
 
 	// A protected script suspended on a chat dialogue (mid-conversation).
+	// NAI-111-D1: in production the StoreActiveScript dispatch path
+	// re-preserves p.protect=true (resumeOrFinish Suspended/PauseButton/
+	// CountDialog arm in modules/world/script.go) when state.Pointers&PAP
+	// is set; this fixture plants the activeScript directly, so we set
+	// p.protect explicitly to simulate the post-suspend state TS would
+	// have via Player.ts:2141 preserve.
 	chatState := script.Init(suspendingScript("[opnpc1,chatter]", script.TriggerOpNpc1, 1), p, true /*protect*/, nil, nil)
 	chatState.Execution = script.PauseButton
 	p.StoreActiveScript(chatState)
+	p.protect = true
 	p.modalState = modalStateChat
 	if !p.protectedScriptActive() {
 		t.Fatal("setup invalid: protected script should be active")

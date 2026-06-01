@@ -52,6 +52,7 @@ func TestProcessInteraction_CanAccessGate_ProtectedScript_PreservesInteraction(t
 
 	p.SetInteraction(InteractionEngine, npc, 1, -1)
 	p.activeScript = &script.ScriptState{Pointers: script.PtrProtectedActivePlayer}
+	p.protect = true // NAI-111-D1: Player.protect is the TS-faithful gate, set alongside activeScript fixture
 
 	if p.CanAccess() {
 		t.Fatal("test setup invalid: CanAccess should be false with protectedScriptActive")

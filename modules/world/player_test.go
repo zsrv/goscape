@@ -16,7 +16,6 @@ import (
 	"github.com/zsrv/goscape/pkg/pathfinder/collision"
 	"github.com/zsrv/goscape/pkg/pathfinder/routefinder"
 	"github.com/zsrv/goscape/pkg/rsbuf"
-	"github.com/zsrv/goscape/pkg/script"
 )
 
 func newTestPlayer(t *testing.T) (*Player, net.Conn) {
@@ -873,23 +872,25 @@ func TestPlayerIsInWildernessBoundaries(t *testing.T) {
 	}
 }
 
-// TestPlayer_ProtectedScriptActive_TruthTable pins the goscape mapping
-// of TS Player.protect: protectedScriptActive iff activeScript != nil
-// AND activeScript.Pointers&PtrProtectedActivePlayer != 0. Mirrors the
-// convergence documented at CanAccess (player_script.go:232-238).
+// TestPlayer_ProtectedScriptActive_TruthTable pins NAI-111-D1 closure:
+// protectedScriptActive is a thin wrapper over p.protect (the TS-faithful
+// Player-level gate, mirroring TS Player.protect at Player.ts:359). The
+// activeScript.Pointers&PAP derivation that this test previously pinned
+// was the pre-closure goscape divergence. Set/clear lifecycle now matches
+// TS exactly; see the protect-field doc-comment in player.go for the
+// runScript/resumeOrFinish/CloseModal/ResetMasks site list.
 func TestPlayer_ProtectedScriptActive_TruthTable(t *testing.T) {
 	cases := []struct {
-		name   string
-		active *script.ScriptState
-		want   bool
+		name    string
+		protect bool
+		want    bool
 	}{
-		{"nil-active", nil, false},
-		{"active-unprotected", &script.ScriptState{}, false},
-		{"active-protected", &script.ScriptState{Pointers: script.PtrProtectedActivePlayer}, true},
+		{"protect-false", false, false},
+		{"protect-true", true, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			p := &Player{activeScript: tc.active}
+			p := &Player{protect: tc.protect}
 			if got := p.protectedScriptActive(); got != tc.want {
 				t.Errorf("protectedScriptActive: got %v, want %v", got, tc.want)
 			}

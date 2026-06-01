@@ -160,6 +160,12 @@ func (p *Player) ResetMasks() {
 		p.masks |= p.entitymask
 		p.faceEntity = -1
 	}
+	// TS Player.ts:460 — this.protect = false in resetEntity. Defensive
+	// tick-end clear of the Player-level protect gate. A suspended
+	// protected script's resume cycle next tick re-establishes the gate
+	// via runScript entry; during the wait window the player is ungated,
+	// matching TS observable behavior. NAI-111-D1.
+	p.protect = false
 }
 
 // Damage applies `amount` damage of `dmgType` to the player this tick,

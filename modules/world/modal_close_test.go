@@ -271,25 +271,45 @@ func TestCloseModalPreservesInFlightProtectOnResumedScript(t *testing.T) {
 	}
 }
 
-// TestCloseModal_NotDelayed_ProtectedScriptActiveStaysTrue pins NAI-111:
-// after CloseModal on a !delayed player whose activeScript is a Running
-// protected script, protectedScriptActive() must still return true.
-// Externally observable form of the same invariant covered by
-// TestCloseModalPreservesInFlightProtectOnResumedScript; this view
-// matches the gate consumed by CanAccess and processWalktrigger.
-func TestCloseModal_NotDelayed_ProtectedScriptActiveStaysTrue(t *testing.T) {
+// TestCloseModal_NotDelayed_ProtectClearedTSFaithful pins NAI-111-D1
+// closure: TS Player.closeModal at Player.ts:746 unconditionally sets
+// this.protect=false even when activeScript is mid-flight with PAP
+// still set on its Pointers. Goscape's CloseModal mirrors that clear
+// against the new Player.protect field. The script-state PAP pointer
+// (activeScript.Pointers&PtrProtectedActivePlayer) is NOT touched —
+// downstream handler pointerCheck (p_telejump etc.) still works,
+// preserving the NAI-53 T3 regression fix where clearing PAP-on-state
+// broke in-flight resumed scripts like tut_close inside
+// [label,tutorial_complete] aborting P_TELEJUMP.
+//
+// The companion test TestCloseModalPreservesInFlightProtectOnResumedScript
+// pins the activeScript.Pointers preservation; this test pins the
+// Player.protect clear at the gate layer.
+func TestCloseModal_NotDelayed_ProtectClearedTSFaithful(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.delayed = false
+	p.protect = true
 	p.activeScript = &script.ScriptState{
 		Script:    &script.ScriptFile{Name: "tutorial_complete"},
 		Execution: script.Running,
 		Pointers:  script.PtrActivePlayer | script.PtrProtectedActivePlayer,
 	}
+	p.modalState = modalStateMain // ensure CloseModal does work (early-returns when None)
 
 	p.CloseModal(true)
 
-	if !p.protectedScriptActive() {
-		t.Errorf("protectedScriptActive(): got false, want true (CloseModal must not strip in-flight protect)")
+	if p.protect {
+		t.Error("p.protect: got true, want false (CloseModal must clear gate, matching TS Player.ts:746)")
+	}
+	if p.protectedScriptActive() {
+		t.Error("protectedScriptActive(): got true, want false (gate cleared)")
+	}
+	// Companion preservation: activeScript + PAP-on-state untouched.
+	if p.activeScript == nil {
+		t.Fatal("activeScript: got nil, want preserved (mid-flight script protected via state.Pointers)")
+	}
+	if p.activeScript.Pointers&script.PtrProtectedActivePlayer == 0 {
+		t.Error("activeScript.PtrProtectedActivePlayer: got clear, want preserved (handler pointerCheck source)")
 	}
 }
 

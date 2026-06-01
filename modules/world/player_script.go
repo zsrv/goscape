@@ -419,16 +419,25 @@ func (p *Player) CanAccess() bool {
 }
 
 // protectedScriptActive reports whether the player currently has a
-// protected script stored on activeScript — goscape's mapping of
-// TS Player.protect for external (non-handler) consumers. Used by
-// CanAccess (above) and processWalktrigger to gate operations that
-// TS guards with !this.protect. See CanAccess + DEVIATION-NAI-111-D1
-// on CloseModal for the narrowed-convergence rationale: the
-// activeScript-pointer reading produces identical observable behavior
-// to TS Player.protect because StoreActiveScript preserves Pointers
-// across suspensions. NAI-52, narrowed in NAI-111.
+// protected script executing or suspended. Thin wrapper over p.protect,
+// matching TS Player.protect exactly (Player.ts:359). See the protect-
+// field doc-comment in player.go for the full set/clear lifecycle.
+//
+// Kept as a method (instead of inlining `p.protect` at call sites) so
+// the gate has a discoverable name in interaction_debug.go's audit log
+// + script.go's runScript entry guard. CanAccess + processWalktrigger
+// also read this for symmetry with TS Player.ts:810,1062's `!this.protect`
+// gate shape.
+//
+// NAI-111-D1 closure: pre-refactor this read
+// activeScript.Pointers&PtrProtectedActivePlayer, conflating the
+// Player gate with the script-state pointerCheck source — which
+// blocked TS-faithful CloseModal semantics (clearing the gate would
+// also strip the handler pointerCheck and re-trigger NAI-53 T3).
+// Split into a dedicated Player.protect field that CloseModal can
+// clear independently of state.Pointers.
 func (p *Player) protectedScriptActive() bool {
-	return p.activeScript != nil && p.activeScript.Pointers&script.PtrProtectedActivePlayer != 0
+	return p.protect
 }
 
 // Varp implements script.ActivePlayer.Varp.
@@ -1085,6 +1094,18 @@ func (p *Player) CloseModal(clearWeakQueue bool) {
 	}
 
 	p.modalState = modalStateNone
+
+	// TS Player.ts:746 — this.protect = false. Unconditionally clear the
+	// Player-level protect gate even when activeScript is mid-flight with
+	// PAP still set. The script-state PAP pointer is NOT touched
+	// (preserved on activeScript.Pointers for downstream handler
+	// pointerCheck — NAI-53 T3 regression-guard: clearing PAP-on-state
+	// broke in-flight resumed scripts like tut_close inside
+	// [label,tutorial_complete] aborting P_TELEJUMP). The TS-faithful
+	// split — Player.protect Player-level gate vs script-state PAP
+	// pointer — sidesteps that regression by only clearing the gate.
+	// NAI-111-D1.
+	p.protect = false
 
 	// Close any input-dialogue suspended scripts. NAI-52-F1.
 	if p.activeScript != nil &&

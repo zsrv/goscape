@@ -675,6 +675,7 @@ func TestPlayerCanAccess(t *testing.T) {
 			p.modalState = tc.modalState
 			if tc.protectedScript {
 				p.activeScript = &script.ScriptState{Pointers: script.PtrProtectedActivePlayer}
+				p.protect = true // NAI-111-D1: Player.protect is the TS-faithful gate, set alongside activeScript fixture
 			}
 			if got := p.CanAccess(); got != tc.want {
 				t.Errorf("CanAccess() = %v, want %v", got, tc.want)

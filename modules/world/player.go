@@ -188,7 +188,51 @@ type Player struct {
 	interactTick interactTickState
 
 	activeScript *script.ScriptState
-	queue        []playerQueueRequest
+
+	// protect mirrors TS Player.protect (Player.ts:359) — the Player-level
+	// "is a protected script currently executing OR suspended on this
+	// player" gate. Read by CanAccess (player_script.go) +
+	// processWalktrigger (interaction.go) + runScript's entry guard
+	// (script.go) + the audit log (interaction_debug.go).
+	//
+	// Set/clear lifecycle mirrors TS exactly:
+	//
+	//   - runScript entry sets protect=true when the protect param is true
+	//     and Self is a *Player (TS Player.ts:2103).
+	//   - resumeOrFinish ALWAYS clears protect=false after Execute returns
+	//     (TS Player.ts:2110 — unconditional post-execute clear, regardless
+	//     of state).
+	//   - For player-bound non-terminal non-world non-npc suspends
+	//     (Suspended / PauseButton / CountDialog), resumeOrFinish re-sets
+	//     protect=true if state.Pointers&PtrProtectedActivePlayer is still
+	//     set (TS Player.ts:2141 — preserve when delayed). Derivation from
+	//     state.Pointers&PAP matches the runScript-time protect arg
+	//     because Init at runner.go:38 sets PAP iff protect=true.
+	//   - CloseModal at player_script.go ALWAYS clears protect=false (TS
+	//     Player.ts:746), even when activeScript is mid-flight with PAP
+	//     still set — the PAP-on-state stays preserved so downstream
+	//     handler pointerCheck (p_telejump etc.) still works; only the
+	//     Player-level gate is cleared. NAI-53 T3 regression: clearing
+	//     PAP-on-state in CloseModal broke in-flight resumed scripts
+	//     (e.g. tut_close inside [label,tutorial_complete] aborted
+	//     P_TELEJUMP). The TS-faithful split — Player.protect gate vs
+	//     script-state PAP pointer — sidesteps that regression by only
+	//     clearing the gate.
+	//   - ResetMasks at player_masks.go clears protect=false as a defensive
+	//     tick-end clear (TS Player.ts:460 in resetEntity).
+	//
+	// NAI-111-D1 closure (fix/nai-111-d1): pre-refactor, goscape conflated
+	// the Player gate with the script-state PAP pointer — the historical
+	// protectedScriptActive() helper derived the gate from
+	// activeScript.Pointers&PtrProtectedActivePlayer. This conflation
+	// blocked TS-faithful CloseModal semantics because clearing the only
+	// signal would also strip the handler pointerCheck source (NAI-53 T3).
+	// The unflatten introduces a separate protect bool field exactly
+	// matching TS, and protectedScriptActive() is retained as a thin
+	// wrapper returning p.protect.
+	protect bool
+
+	queue []playerQueueRequest
 
 	// engineQueue is the per-player TS PlayerQueueType.ENGINE drain (NAI-144).
 	// Mirrors TS Player.engineQueue (Engine-TS/.../Player.ts:343
