@@ -101,6 +101,20 @@ func (c serverConfigsView) SpotAnimType(id int) *objtype.SpotanimType {
 	return c.s.spotanimTypes.Configs[id]
 }
 
+// CategoryType returns the CategoryType for id, or nil when out of range
+// or the registry is empty. Mirrors TS CategoryType.get
+// (CategoryType.ts:39-41). Consumed by checkCategoryType for
+// NPC_FINDCAT and INV_TOTALCAT bound validation.
+func (c serverConfigsView) CategoryType(id int) *objtype.CategoryType {
+	if c.s == nil || c.s.categoryTypes == nil {
+		return nil
+	}
+	if id < 0 || id >= len(c.s.categoryTypes.Configs) {
+		return nil
+	}
+	return c.s.categoryTypes.Configs[id]
+}
+
 func (c serverConfigsView) SeqType(id int) *objtype.SeqType {
 	if c.s == nil || c.s.seqTypes == nil {
 		return nil

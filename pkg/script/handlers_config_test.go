@@ -20,6 +20,7 @@ type mockConfigs struct {
 	invs           map[int]*objtype.InvType
 	idks           map[int]*objtype.IdkType
 	spotAnimTypes  map[int]*objtype.SpotanimType
+	categories     map[int]*objtype.CategoryType
 	varps          map[int]*objtype.VarPlayerType
 	varns          map[int]*objtype.VarNpcType
 	varss          map[int]*objtype.VarSharedType
@@ -39,6 +40,7 @@ func (m *mockConfigs) ParamType(id int) *objtype.ParamType       { return m.para
 func (m *mockConfigs) InvType(id int) *objtype.InvType           { return m.invs[id] }
 func (m *mockConfigs) IdkType(id int) *objtype.IdkType           { return m.idks[id] }
 func (m *mockConfigs) SpotAnimType(id int) *objtype.SpotanimType { return m.spotAnimTypes[id] }
+func (m *mockConfigs) CategoryType(id int) *objtype.CategoryType { return m.categories[id] }
 func (m *mockConfigs) SeqType(id int) *objtype.SeqType           { return m.seqs[id] }
 func (m *mockConfigs) HuntType(id int) *objtype.HuntType         { return m.hunts[id] }
 func (m *mockConfigs) MesanimType(id int) *objtype.MesanimType   { return m.mesanims[id] }
@@ -94,12 +96,21 @@ func (m *mockConfigs) VarsType(id int) objtype.ScriptVarType {
 // across handler tests.
 func newTestConfigs() *mockConfigs {
 	mc := &mockConfigs{
-		objs:    make(map[int]*objtype.ObjType),
-		npcs:    make(map[int]*objtype.NpcType),
-		locs:    make(map[int]*objtype.LocType),
-		enums:   make(map[int]*objtype.EnumType),
-		structs: make(map[int]*objtype.StructType),
-		params:  make(map[int]*objtype.ParamType),
+		objs:       make(map[int]*objtype.ObjType),
+		npcs:       make(map[int]*objtype.NpcType),
+		locs:       make(map[int]*objtype.LocType),
+		enums:      make(map[int]*objtype.EnumType),
+		structs:    make(map[int]*objtype.StructType),
+		params:     make(map[int]*objtype.ParamType),
+		categories: make(map[int]*objtype.CategoryType),
+	}
+
+	// Seed CategoryType for ids 0..31 — subsumes every category id
+	// referenced by existing fixtures (cat=7 coins, cat=1 hat/door,
+	// cat=3 man, etc.). Lets the post-port full-bound checkCategoryType
+	// pass for those ids; tests using id>=32 exercise the OOB-reject path.
+	for id := 0; id < 32; id++ {
+		mc.categories[id] = objtype.NewCategoryType(id)
 	}
 
 	// ObjType id 995: "Coins" — a minimal happy-path fixture.

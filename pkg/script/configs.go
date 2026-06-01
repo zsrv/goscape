@@ -20,6 +20,14 @@ type Configs interface {
 	InvType(id int) *objtype.InvType
 	IdkType(id int) *objtype.IdkType
 	SpotAnimType(id int) *objtype.SpotanimType
+
+	// CategoryType returns the category config for id, or nil when out of
+	// range or the registry is empty (TS-faithful fail-soft on missing
+	// data/pack/server/category.dat). Mirrors TS CategoryType.get
+	// (CategoryType.ts:39-41). Consumed by checkCategoryType for
+	// NPC_FINDCAT (NpcOps.ts:373) and INV_TOTALCAT (InvOps.ts:638) bound
+	// validation.
+	CategoryType(id int) *objtype.CategoryType
 	SeqType(id int) *objtype.SeqType
 	HuntType(id int) *objtype.HuntType
 	DbTableType(id int) *objtype.DbTableType

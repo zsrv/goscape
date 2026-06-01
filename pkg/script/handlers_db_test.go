@@ -26,6 +26,7 @@ func (f *fakeDbConfigs) ParamType(id int) *objtype.ParamType       { return nil 
 func (f *fakeDbConfigs) InvType(id int) *objtype.InvType           { return nil }
 func (f *fakeDbConfigs) IdkType(id int) *objtype.IdkType           { return nil }
 func (f *fakeDbConfigs) SpotAnimType(id int) *objtype.SpotanimType { return nil }
+func (f *fakeDbConfigs) CategoryType(id int) *objtype.CategoryType { return nil }
 func (f *fakeDbConfigs) SeqType(id int) *objtype.SeqType           { return nil }
 func (f *fakeDbConfigs) HuntType(id int) *objtype.HuntType         { return nil }
 func (f *fakeDbConfigs) DbTableType(id int) *objtype.DbTableType {

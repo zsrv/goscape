@@ -187,6 +187,7 @@ type Server struct {
 	fontTypes      []*fonttype.FontType
 	seqTypes       *objtype.SeqTypeConfigs
 	spotanimTypes  *objtype.SpotanimTypeConfigs
+	categoryTypes  *objtype.CategoryTypeConfigs
 	componentTypes *objtype.ComponentTypeConfigs
 
 	// configsPtr holds the concurrent-reader snapshot of all type-config
@@ -561,6 +562,12 @@ func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient,
 		return nil, fmt.Errorf("load spotanim types: %w", err)
 	}
 	s.spotanimTypes = spotanimTypes
+
+	categoryTypes, err := objtype.LoadCategoryTypes(cfg.CachePath)
+	if err != nil {
+		return nil, fmt.Errorf("load category types: %w", err)
+	}
+	s.categoryTypes = categoryTypes
 
 	componentTypes, err := objtype.LoadComponentTypes(cfg.CachePath)
 	if err != nil {

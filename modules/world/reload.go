@@ -113,9 +113,6 @@ func (s *Server) broadcast(msg string) {
 //   - D2-HALF-SWAP: post-step-3 mid-pipeline errors leave s.* partially
 //     mutated. TS-parity (TS does not roll back). No rollback path.
 //   - D3-CANDIDATE-VARSHARED-CLOBBER: see resizeVarShared.
-//   - D4-NO-CATEGORYTYPES: goscape has no CategoryType loader (see
-//     pkg/script/handlers_npc.go:105-110); TS L216 has no goscape
-//     analog. Reload omits this loader.
 //
 // NAI-190.
 func (s *Server) Reload(clearInvs bool) error {
@@ -158,18 +155,10 @@ func (s *Server) Reload(clearInvs bool) error {
 	if err != nil {
 		return fmt.Errorf("reload: spotanim types: %w", err)
 	}
-	// PORTING-EXCEPTION (gap-world-reload-events-8 / cfg-var-9 /
-	// h-npc-3): goscape has no runtime CategoryType loader. TS
-	// World.reload (Engine-TS/src/engine/World.ts:216) reloads
-	// CategoryType.load alongside the other config types, and
-	// CategoryType.ts:12-66 is the loader itself. The CategoryType
-	// subsystem (no `categorytype.go` under pkg/objtype) was never
-	// ported, so reload() has nothing to call here and the consumer
-	// at pkg/script/handlers_npc.go's checkCategoryType drops the
-	// count-bound guard. Closing this requires porting the loader,
-	// wiring it into the cache pipeline, and adding a Provider on
-	// Server — broader than a reload-site fix. STALE-DEFER cluster.
-	// See PORTING.md.
+	categoryTypes_, err := objtype.LoadCategoryTypes(cachePath)
+	if err != nil {
+		return fmt.Errorf("reload: category types: %w", err)
+	}
 	enumTypes_, err := objtype.LoadEnumTypes(cachePath)
 	if err != nil {
 		return fmt.Errorf("reload: enum types: %w", err)
@@ -194,6 +183,7 @@ func (s *Server) Reload(clearInvs bool) error {
 	s.idkTypes = idkTypes_
 	s.seqTypes = seqTypes_
 	s.spotanimTypes = spotanim_
+	s.categoryTypes = categoryTypes_
 	s.enumTypes = enumTypes_
 	s.structTypes = structTypes_
 	s.invTypes = invTypes_

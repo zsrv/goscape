@@ -57,13 +57,14 @@ func newTestInvLookup() *mockInvLookup {
 //   - inv 2 "bank": size 100, scope SHARED, protect=false
 func newTestInvConfigs() *mockConfigs {
 	mc := &mockConfigs{
-		objs:    make(map[int]*objtype.ObjType),
-		npcs:    make(map[int]*objtype.NpcType),
-		locs:    make(map[int]*objtype.LocType),
-		enums:   make(map[int]*objtype.EnumType),
-		structs: make(map[int]*objtype.StructType),
-		params:  make(map[int]*objtype.ParamType),
-		invs:    make(map[int]*objtype.InvType),
+		objs:       make(map[int]*objtype.ObjType),
+		npcs:       make(map[int]*objtype.NpcType),
+		locs:       make(map[int]*objtype.LocType),
+		enums:      make(map[int]*objtype.EnumType),
+		structs:    make(map[int]*objtype.StructType),
+		params:     make(map[int]*objtype.ParamType),
+		invs:       make(map[int]*objtype.InvType),
+		categories: make(map[int]*objtype.CategoryType),
 	}
 
 	coins := objtype.NewObjType(testObjCoin)
@@ -123,6 +124,14 @@ func newTestInvConfigs() *mockConfigs {
 	bankInv.Scope = objtype.InvTypeScopeShared
 	bankInv.Protect = false
 	mc.invs[testInvBank] = bankInv
+
+	// Seed CategoryType for the cat ids the inv fixture uses (10 swords/coins,
+	// 20 arrows). Range 0..31 subsumes any category id touched by tests in
+	// this file and lets the post-port checkCategoryType bound check pass for
+	// those ids; tests using id>=32 exercise the OOB-reject path.
+	for id := 0; id < 32; id++ {
+		mc.categories[id] = objtype.NewCategoryType(id)
+	}
 
 	return mc
 }
