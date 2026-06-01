@@ -1800,6 +1800,32 @@ func TestNpcFindCat_NullCategory(t *testing.T) {
 	}
 }
 
+// TestNpcFindCat_OOBCategoryRejects pins TS NpcOps.ts:373 —
+// check(npcCategory, CategoryTypeValid). The validator at
+// handlers_npc.go's checkCategoryType now performs the full bound
+// check (0 <= n < count); an OOB category int rejects with the
+// sibling-pattern message BEFORE reaching FindClosestNpcByCategory.
+// Closes h-npc-3 (audit row in 2026-05-28 fresh audit).
+func TestNpcFindCat_OOBCategoryRejects(t *testing.T) {
+	foundNpc := &mockNpc{typeID: 12}
+	lookup := &mockNpcLookup{byCategory: foundNpc}
+	// 999999 is far above the seeded category range (0..31) in
+	// newTestConfigs — checkCategoryType must reject before the
+	// handler dispatches to the lookup.
+	s := newNpcFindCatState(t, 0, 0, 999999, 10, 0, nil, lookup)
+
+	err := handleNpcFindCat(s)
+	if err == nil {
+		t.Fatalf("handleNpcFindCat with OOB category: want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "NPC_FINDCAT: no CategoryType with value (999999) found") {
+		t.Errorf("wrong error: %v", err)
+	}
+	if lookup.byCategoryCalls != 0 {
+		t.Errorf("lookup should NOT be called when validator rejects; calls=%d", lookup.byCategoryCalls)
+	}
+}
+
 // --- S7f Task 2: NPC_FINDEXACT handler tests ---------------------------
 
 // newNpcFindExactState pushes (coord, npcTypeID) — only 2 args.
