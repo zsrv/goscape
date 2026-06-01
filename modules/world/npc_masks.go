@@ -207,15 +207,23 @@ func (n *Npc) Damage(amount, dmgType int) {
 // damageAmt / damageType remain per-tick hitsplat payload. faceEntity is
 // retained unless the trailing-clear condition below fires.
 //
-// The trailing clear mirrors TS PathingEntity.ts:611-614: when the NPC
-// has no target but still has a lingering faceEntity, the entitymask
-// bit is re-emitted and faceEntity is snapped to -1 so the client
-// receives the "stopped facing" update. Go's ResetMasks runs at tick
-// end (tick.go processCleanup), so the mask bit survives into the next
-// tick's info-pass — a one-tick lag vs TS which fires at tick start.
-// Accepted deviation; all "official" target-clear paths
-// (resetDefaults, clearInteraction) emit the mask same-tick, so this
-// conditional is a defensive net for stray n.target = nil assignments.
+// The trailing clear mirrors TS PathingEntity.ts:611-614 byte-for-byte:
+// when the NPC has no target but still has a lingering faceEntity, the
+// entitymask bit is re-emitted and faceEntity is snapped to -1 so the
+// client receives the "stopped facing" update. Both engines run the
+// reset at TICK END (Go's ResetMasks via tick.go processCleanup; TS's
+// resetPathingEntity via World.ts:1138 World.processCleanup which runs
+// after processClientsOut at World.ts:1122) — the armed mask is
+// consumed by the next tick's info-pass in both engines, identical
+// timing. The "official" target-clear paths (resetDefaults,
+// clearInteraction at Npc.ts:404-409,411-417) still emit the mask
+// same-tick — this trailing-clear is a defensive net for stray
+// n.target = nil assignments, sibling-shape to the TS body at L611-614.
+//
+// (Investigated 2026-06-01: the prior comment claimed a "1-tick lag vs
+// TS which fires at tick start" but TS resetPathingEntity is called
+// from processCleanup at tick end — not tick start — so no lag exists.
+// See docs/PORTING-CLOSED.md NAI-91 closure row.)
 func (n *Npc) ResetMasks() {
 	n.masks = 0
 	n.sayText = nil

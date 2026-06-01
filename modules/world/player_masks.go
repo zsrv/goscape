@@ -96,15 +96,19 @@ func (p *Player) UnsetMapFlag() {
 // Also clears one-shot movement intents (tele, jump) so a single-tick
 // teleport emission doesn't repeat next tick.
 //
-// The trailing-clear mirrors TS PathingEntity.ts:611-614 with a
-// one-tick lag deviation (Go's ResetMasks runs at tick end via
-// tick.go processCleanup, so the mask bit is consumed by the NEXT
-// tick's info-pass — same convention as Npc.ResetMasks at
-// npc_masks.go:184-207). Closes NAI-91's "player keeps facing NPC
-// after walking away" smoke residual.
+// The trailing-clear mirrors TS PathingEntity.ts:611-614 byte-for-byte:
+// both engines arm the entitymask bit at TICK END (Go's ResetMasks via
+// tick.go processCleanup; TS's resetPathingEntity via World.ts:1138
+// World.processCleanup which itself runs after processClientsOut at
+// World.ts:1122). The armed mask is consumed by the NEXT tick's info-
+// pass in both engines — identical timing, identical observable
+// behavior. Closes NAI-91's "player keeps facing NPC after walking
+// away" smoke residual.
 //
-// PORTING-EXCEPTION (NAI-91, mask-reset-1-tick-lag): documented by design.
-// See PORTING.md.
+// (Investigated 2026-06-01: the prior comment claimed a "1-tick lag
+// deviation vs TS which fires at tick start" but TS resetPathingEntity
+// is called from processCleanup at tick end — not tick start — so no
+// lag exists. See docs/PORTING-CLOSED.md NAI-91 closure row.)
 func (p *Player) ResetMasks() {
 	p.masks = 0
 	p.tele = false
