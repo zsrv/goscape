@@ -5,7 +5,7 @@
 -- both the Int per-stat table and the BigInt total table. PK ordering
 -- (profile, type, account_id) matches the prisma @@id.
 CREATE TABLE hiscore (
-    account_id INTEGER NOT NULL REFERENCES account(id),
+    account_id INTEGER NOT NULL REFERENCES account(id) ON DELETE CASCADE,
     profile    TEXT    NOT NULL DEFAULT 'main',
     type       INTEGER NOT NULL,
     level      INTEGER NOT NULL,
@@ -15,7 +15,7 @@ CREATE TABLE hiscore (
 );
 
 CREATE TABLE hiscore_large (
-    account_id INTEGER NOT NULL REFERENCES account(id),
+    account_id INTEGER NOT NULL REFERENCES account(id) ON DELETE CASCADE,
     profile    TEXT    NOT NULL DEFAULT 'main',
     type       INTEGER NOT NULL,
     level      INTEGER NOT NULL,
