@@ -137,6 +137,24 @@ func TestSaveStats(t *testing.T) {
 	if _, ok := saveStats(makeValidSave(0)); ok {
 		t.Error("saveStats: ok=true for a blob with no stat block")
 	}
+
+	// Version 1: playtime is u16, so the stat block begins at offset 26 (not 28).
+	v1Body := make([]byte, 26+objtype.PlayerStatCount*5)
+	v1Body[0], v1Body[1] = 0x20, 0x04 // magic 0x2004
+	v1Body[2], v1Body[3] = 0x00, 0x01 // version 1
+	for i := range objtype.PlayerStatCount {
+		o := 26 + i*5
+		x := uint32(xps[i])
+		v1Body[o] = byte(x >> 24)
+		v1Body[o+1] = byte(x >> 16)
+		v1Body[o+2] = byte(x >> 8)
+		v1Body[o+3] = byte(x)
+	}
+	crc := packet.GetCRC(v1Body, 0, len(v1Body))
+	v1Blob := append(v1Body, byte(crc>>24), byte(crc>>16), byte(crc>>8), byte(crc))
+	if got, ok := saveStats(v1Blob); !ok || got != xps {
+		t.Errorf("saveStats v1: ok=%v got=%v want=%v", ok, got, xps)
+	}
 }
 
 // TestWouldResetSaveFile_CorruptExistingSaveReturnsError pins login-server-6:
