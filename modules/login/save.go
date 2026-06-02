@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/zsrv/goscape/pkg/io/packet"
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 const (
@@ -52,6 +53,34 @@ func savePlaytime(save []byte) (int32, bool) {
 	}
 	o := savePlaytimeOffset
 	return int32(uint32(save[o])<<24 | uint32(save[o+1])<<16 | uint32(save[o+2])<<8 | uint32(save[o+3])), true
+}
+
+// saveStats extracts the 21 per-stat XP values from a SAV blob. Mirrors the
+// stat block PlayerLoading reads (modules/world/player_load.go:151-156): right
+// after playtime, 21 entries of (i32 XP + u8 current level). Only the XP is
+// returned — base levels derive from it via objtype.GetLevelByExp, exactly as
+// TS PlayerLoading.ts:94 and player_load.go:154 do (the stored level byte is
+// ignored). Version-aware: playtime is i32 for v2+ and u16 for v1
+// (player_load.go:144-149). Returns (zero, false) when the blob is too short.
+func saveStats(save []byte) ([objtype.PlayerStatCount]int32, bool) {
+	var stats [objtype.PlayerStatCount]int32
+	if len(save) < 4 {
+		return stats, false
+	}
+	version := uint16(save[2])<<8 | uint16(save[3])
+	statsOff := savePlaytimeOffset + 4 // v2+ playtime is i32
+	if version < 2 {
+		statsOff = savePlaytimeOffset + 2 // v1 playtime is u16
+	}
+	const stride = 5 // i32 XP + u8 current level
+	if len(save) < statsOff+objtype.PlayerStatCount*stride {
+		return stats, false
+	}
+	for i := range objtype.PlayerStatCount {
+		o := statsOff + i*stride
+		stats[i] = int32(uint32(save[o])<<24 | uint32(save[o+1])<<16 | uint32(save[o+2])<<8 | uint32(save[o+3]))
+	}
+	return stats, true
 }
 
 // wouldResetSaveFile reports whether persisting newSave would roll back the

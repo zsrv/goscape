@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/zsrv/goscape/pkg/io/packet"
+	"github.com/zsrv/goscape/pkg/objtype"
 )
 
 // makeValidSave builds a minimal SAV blob that passes verifySave: magic 0x2004,
@@ -91,6 +92,50 @@ func TestWouldResetSaveFile(t *testing.T) {
 	}
 	if reset {
 		t.Error("new(150) >= existing(100): must not be a rollback")
+	}
+}
+
+// makeSaveWithStats builds a version-6 SAV blob carrying the 21 stat XP values
+// (each i32 XP + u8 level, level byte left 0). Extends makeValidSave's header
+// (offset 0..27) with the 105-byte stat block at offset 28, then a trailing CRC.
+func makeSaveWithStats(playtime int32, xps [objtype.PlayerStatCount]int32) []byte {
+	const stride = 5
+	body := make([]byte, 28+objtype.PlayerStatCount*stride)
+	body[0], body[1] = 0x20, 0x04 // magic 0x2004
+	body[2], body[3] = 0x00, 0x06 // version 6
+	body[24] = byte(playtime >> 24)
+	body[25] = byte(playtime >> 16)
+	body[26] = byte(playtime >> 8)
+	body[27] = byte(playtime)
+	for i := range objtype.PlayerStatCount {
+		o := 28 + i*stride
+		x := uint32(xps[i])
+		body[o] = byte(x >> 24)
+		body[o+1] = byte(x >> 16)
+		body[o+2] = byte(x >> 8)
+		body[o+3] = byte(x)
+		// body[o+4] (current-level byte) intentionally left 0 — saveStats ignores it.
+	}
+	crc := packet.GetCRC(body, 0, len(body))
+	return append(body, byte(crc>>24), byte(crc>>16), byte(crc>>8), byte(crc))
+}
+
+func TestSaveStats(t *testing.T) {
+	var xps [objtype.PlayerStatCount]int32
+	for i := range xps {
+		xps[i] = int32((i + 1) * 1000)
+	}
+	got, ok := saveStats(makeSaveWithStats(42, xps))
+	if !ok {
+		t.Fatal("saveStats: ok=false for a valid stat-carrying blob")
+	}
+	if got != xps {
+		t.Errorf("saveStats: got %v, want %v", got, xps)
+	}
+
+	// A header-only blob (no stat block) is too short → ok=false.
+	if _, ok := saveStats(makeValidSave(0)); ok {
+		t.Error("saveStats: ok=true for a blob with no stat block")
 	}
 }
 
