@@ -849,10 +849,14 @@ func TestPlayerLogout_WritesHiscores(t *testing.T) {
 	levels[objtype.PlayerStatAttack] = 25
 	save := makeSaveWithStats(0, statsForLevels(levels))
 
-	if _, err := h.PlayerLogout(t.Context(), &loginpb.PlayerLogoutRequest{
+	resp, err := h.PlayerLogout(t.Context(), &loginpb.PlayerLogoutRequest{
 		NodeId: 1, Profile: "main", Username: "logouths", Save: save,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("PlayerLogout: %v", err)
+	}
+	if !resp.Success {
+		t.Error("PlayerLogout returned Success=false")
 	}
 
 	if _, _, _, found := queryHiscoreRow(t, h.db, "hiscore_large", id, 0); !found {

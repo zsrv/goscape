@@ -35,7 +35,11 @@ func updateHiscores(ctx context.Context, db *sql.DB, account *accountRow, save [
 
 	stats, ok := saveStats(save)
 	if !ok {
-		return fmt.Errorf("updateHiscores: save blob too short to contain stats")
+		// Defensive no-op: a valid logout save always contains the stat block,
+		// so a too-short blob means there is nothing to export. Treat it like
+		// the staff/ban gates above — skip silently, do not fail the logout
+		// (spec 2026-06-01-hiscore-port-design.md gates).
+		return nil
 	}
 
 	var totalXp int64
