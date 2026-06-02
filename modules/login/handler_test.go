@@ -14,6 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/zsrv/goscape/pkg/loginpb"
+	"github.com/zsrv/goscape/pkg/objtype"
 	"github.com/zsrv/goscape/pkg/telemetry"
 )
 
@@ -832,6 +833,34 @@ func TestPlayerLogin_SessionUUID_EmptyOnEarlyReject(t *testing.T) {
 			t.Errorf("SessionUuid: got %q, want empty", resp.SessionUuid)
 		}
 	})
+}
+
+// TestPlayerLogout_WritesHiscores pins login-server-9: a graceful logout exports
+// the player's enabled-stat XP into hiscore_large (type 0) end-to-end through the
+// handler, mirroring TS LoginServer.ts:450.
+func TestPlayerLogout_WritesHiscores(t *testing.T) {
+	h, _ := newTestHandler(t)
+	id := int(insertTestAccount(t, h.db, "logouths", "pw"))
+
+	var levels [objtype.PlayerStatCount]int
+	for i := range levels {
+		levels[i] = 1
+	}
+	levels[objtype.PlayerStatAttack] = 25
+	save := makeSaveWithStats(0, statsForLevels(levels))
+
+	if _, err := h.PlayerLogout(t.Context(), &loginpb.PlayerLogoutRequest{
+		NodeId: 1, Profile: "main", Username: "logouths", Save: save,
+	}); err != nil {
+		t.Fatalf("PlayerLogout: %v", err)
+	}
+
+	if _, _, _, found := queryHiscoreRow(t, h.db, "hiscore_large", id, 0); !found {
+		t.Error("PlayerLogout did not export hiscores (hiscore_large type 0 missing)")
+	}
+	if _, _, _, found := queryHiscoreRow(t, h.db, "hiscore", id, objtype.PlayerStatAttack+1); !found {
+		t.Error("PlayerLogout did not export the attack hiscore row (level 25 >= 15)")
+	}
 }
 
 // requireCode fails the test unless err is a gRPC status with the given code.
