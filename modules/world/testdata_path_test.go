@@ -34,8 +34,11 @@ func realCacheDir(t *testing.T) string {
 
 	dir, ok := mainRepoDataPack()
 	if !ok {
-		// Let the caller's os.Stat skip-guard report the missing path.
-		return rel
+		// The packed cache is generated output (gitignored): a fresh clone
+		// doesn't have it. The tests that resolve a cache dir here exercise
+		// Reload against the real cache, so skip rather than fail when it
+		// hasn't been built yet.
+		t.Skipf("packed game cache not present at %s — build it with `goscape-cli pack` to run these tests", rel)
 	}
 	return dir
 }

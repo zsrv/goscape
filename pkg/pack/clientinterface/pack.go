@@ -64,8 +64,8 @@ func Pack(reg *pack.Registry, srcDir, outDir string) error {
 		// NAI-213-D-BUILDVERIFY-INTERFACE-MAY-DIVERGE — CONFIRMED-EXCEPTION
 		// (pack-media-compiler-12, 2026-05-28 audit closure):
 		//
-		// TS PackClient.ts:16-18 hard-throws on CRC mismatch when
-		// Environment.BUILD_VERIFY is set. goscape downgrades to an
+		// TS PackClient.ts:16-18 hard-throws on CRC mismatch when the
+		// TS environment's build-verify toggle is set. goscape downgrades to an
 		// informational stderr log and continues writing. The downgrade
 		// is INTENTIONAL and STRUCTURAL — not a transient defer:
 		//
