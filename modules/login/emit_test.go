@@ -54,4 +54,9 @@ func TestPlayerLogin_EmitsAuthEnvelope(t *testing.T) {
 	if got := env.GetLogin().GetIp(); got != "192.168.1.1" {
 		t.Errorf("Ip = %q, want %q", got, "192.168.1.1")
 	}
+	// Unkeyed default: no fingerprint_hmac_key configured → field stays empty
+	// (the byte-identical-default invariant; keyed behavior is covered by the
+	if got := env.GetLogin().GetFingerprintHash(); got != "" {
+		t.Fatalf("unkeyed default must not emit a fingerprint, got %q", got)
+	}
 }
