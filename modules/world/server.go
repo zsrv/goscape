@@ -20,7 +20,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/zsrv/goscape/internal/dskit/signals"
+	"github.com/zsrv/goscape/pkg/dskit/signals"
 	"github.com/zsrv/goscape/pkg/cache"
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/fonttype"

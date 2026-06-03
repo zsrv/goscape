@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"sort"
 
-	"github.com/zsrv/goscape/internal/dskit/services"
+	"github.com/zsrv/goscape/pkg/dskit/services"
 )
 
 // module is the basic building block of the application

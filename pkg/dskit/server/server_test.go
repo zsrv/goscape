@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zsrv/goscape/internal/dskit/middleware"
-	"github.com/zsrv/goscape/internal/dskit/services"
+	"github.com/zsrv/goscape/pkg/dskit/middleware"
+	"github.com/zsrv/goscape/pkg/dskit/services"
 )
 
 // discardLogger returns a logger that discards output.

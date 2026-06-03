@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/zsrv/goscape/internal/dskit/services"
+	"github.com/zsrv/goscape/pkg/dskit/services"
 )
 
 func mockInitFunc() (services.Service, error) { return services.NewIdleService(nil, nil), nil }

@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zsrv/goscape/internal/dskit/middleware"
-	"github.com/zsrv/goscape/internal/dskit/signals"
+	"github.com/zsrv/goscape/pkg/dskit/middleware"
+	"github.com/zsrv/goscape/pkg/dskit/signals"
 )
 
 const (

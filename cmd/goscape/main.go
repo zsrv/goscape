@@ -11,7 +11,7 @@ import (
 	"go.yaml.in/yaml/v2"
 
 	"github.com/zsrv/goscape/cmd/goscape/app"
-	"github.com/zsrv/goscape/internal/dskit/flagext"
+	"github.com/zsrv/goscape/pkg/dskit/flagext"
 	"github.com/zsrv/goscape/pkg/util/log"
 )
 

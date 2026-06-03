@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/zsrv/goscape/internal/dskit/services"
+	"github.com/zsrv/goscape/pkg/dskit/services"
 )
 
 // NewServerService constructs a services.Service from a server.Server component.

@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"path/filepath"
 
-	"github.com/zsrv/goscape/internal/dskit/services"
-	"github.com/zsrv/goscape/internal/dskit/signals"
+	"github.com/zsrv/goscape/pkg/dskit/services"
+	"github.com/zsrv/goscape/pkg/dskit/signals"
 	"github.com/zsrv/goscape/pkg/cache"
 	tapper "github.com/zsrv/goscape/pkg/tapper"
 )

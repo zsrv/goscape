@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/zsrv/goscape/internal/dskit/middleware"
-	"github.com/zsrv/goscape/internal/dskit/server"
-	"github.com/zsrv/goscape/internal/dskit/services"
+	"github.com/zsrv/goscape/pkg/dskit/middleware"
+	"github.com/zsrv/goscape/pkg/dskit/server"
+	"github.com/zsrv/goscape/pkg/dskit/services"
 	"github.com/zsrv/goscape/pkg/world/connhandler"
 )
 
@@ -27,7 +27,7 @@ type Asset struct {
 	Server *server.Server // TODO: mine
 
 	// sourceIPs extracts the client IP from request headers. Mirrors the
-	// dskit server's own extractor (see internal/dskit/server.BuildHTTPMiddleware)
+	// dskit server's own extractor (see pkg/dskit/server.BuildHTTPMiddleware)
 	// so handler-level log lines like the unmatched-path debug log surface
 	// the same source IP that the request-logging middleware records.
 	sourceIPs *middleware.SourceIPExtractor

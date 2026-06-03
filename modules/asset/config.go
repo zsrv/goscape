@@ -4,7 +4,7 @@ import (
 	"flag"
 	"time"
 
-	"github.com/zsrv/goscape/internal/dskit/server"
+	"github.com/zsrv/goscape/pkg/dskit/server"
 )
 
 // TODO: asset request path rewriting middleware, cache middleware

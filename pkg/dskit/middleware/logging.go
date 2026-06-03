@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zsrv/goscape/internal/dskit/tracing"
+	"github.com/zsrv/goscape/pkg/dskit/tracing"
 )
 
 // Log middleware logs http requests

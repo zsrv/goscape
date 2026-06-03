@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/zsrv/goscape/internal/dskit/middleware"
+	"github.com/zsrv/goscape/pkg/dskit/middleware"
 	"github.com/zsrv/goscape/pkg/cache"
 )
 

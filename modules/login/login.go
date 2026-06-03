@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"net"
 
-	"github.com/zsrv/goscape/internal/dskit/services"
+	"github.com/zsrv/goscape/pkg/dskit/services"
 	"github.com/zsrv/goscape/pkg/telemetry"
 )
 

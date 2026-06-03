@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/zsrv/goscape/internal/dskit/server"
+	"github.com/zsrv/goscape/pkg/dskit/server"
 )
 
 type Config struct {

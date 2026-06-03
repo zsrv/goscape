@@ -3,7 +3,7 @@ package modules
 import (
 	"log/slog"
 
-	"github.com/zsrv/goscape/internal/dskit/services"
+	"github.com/zsrv/goscape/pkg/dskit/services"
 )
 
 // This function wraps module service, and adds waiting for dependencies to start before starting,
