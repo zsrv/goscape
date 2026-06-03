@@ -1512,9 +1512,7 @@ func handleInvDropItem(s *ScriptState) error {
 	// modules/world/ that read cfg.NodeID directly).
 	//
 	// alch_value / market_value are goscape-extension fields (no TS
-	// upstream — see proto/events/v1/wealth.proto and the alerting
-	// semantics in the wealth-event schema notes
-	// "Excessive Wealth Transfers" / "High Value Item Drops"):
+	// upstream — see proto/events/v1/wealth.proto):
 	//   - alch_value  = high-alch = cost * 6 / 10 (standard RS formula).
 	//   - market_value = cost when the item is tradeable, else 0 ("if it
 	//     exists for the item", per the design doc — this engine has no

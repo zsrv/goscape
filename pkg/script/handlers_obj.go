@@ -301,12 +301,9 @@ func handleObjTakeItem(s *ScriptState) error {
 		}
 	}
 
-	// Emit a wealth event for downstream consumers (transfer-pattern
-	// model, drop/pickup arm — see docs/superpowers/specs/
-	// 2026-05-24-transfer-pattern-design.md). Sibling to the in-process
-	// AddWealthEvent above (NAI-162's per-player wealth tracker); the
-	// two emit independently because they serve different downstream
-	// systems. DroppedByAccountId from the new Obj.DropperAccountID
+	// Emit a wealth event for optional downstream consumers. Sibling to the
+	// in-process AddWealthEvent above (NAI-162's per-player wealth tracker);
+	// the two emit independently because they serve different consumers. DroppedByAccountId from the new Obj.DropperAccountID
 	// field is the persistent account_id of the human dropper, or 0
 	// for NPC/world-spawned items.
 	//

@@ -139,7 +139,7 @@ func (a *Asset) RootHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/maps/") { // per-zone map/loc files (m{x}_{z}, l{x}_{z})
-		// HTTP cache fallback for per-zone map/loc files: goscape-client's signlink
+		// HTTP cache fallback for per-zone map/loc files: a client's signlink
 		// CacheHTTPFallback fetches missing map/loc cache items here. Live
 		// clients never hit this — they request map data via game opcode 150
 		// over the TCP stream. The name is constrained to ^[ml]\d+_\d+$ to

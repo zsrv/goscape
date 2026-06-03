@@ -1,0 +1,45 @@
+# deploy/bundled/goscape.yaml
+# Example config for the standalone goscape game server.
+# Start goscape with: go run ./cmd/goscape --config.file deploy/bundled/goscape.yaml
+#
+# The game server is self-contained: login and friends persist to local SQLite,
+# so no external services are required to run it.
+target: all
+
+asset:
+  enable: true
+  http_listen_network: tcp
+  http_listen_address: 127.0.0.1
+  http_listen_port: 8888
+
+login:
+  enable: true
+  grpc_listen_address: 127.0.0.1
+  grpc_listen_port: 2004
+  sqlite_dsn: dataplayers/login.db
+  save_path: dataplayers/players
+  node_profile: main
+  auto_register: true
+  auto_subscribe_members: true
+  graceful_shutdown_timeout: 30s
+    # Disabled by default; enable once you have egress (and a pro key for
+    # commercial/HTTPS use).
+    enabled: false
+    api_key: ""
+    flush_interval: 10s           # flush a batch every 10s ...
+    max_batch_size: 100           # ... or immediately at 100 queued IPs (API cap)
+    timeout: 5s
+    max_retries: 3
+    retry_backoff: 1s
+    cache_ttl: 24h
+    cache_max_entries: 50000
+    queue_size: 4096
+
+friends:
+  enable: true
+
+world:
+  enable: true
+  tcp_keepalive_period: 30s
+  node_debug: false
+  friends_server_enabled: true
