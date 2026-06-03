@@ -7,5 +7,4 @@ type noopEmitter struct{}
 func (noopEmitter) EmitAuth(*eventspb.AuthEnvelope)               {}
 func (noopEmitter) EmitWorld(*eventspb.WorldEnvelope)             {}
 func (noopEmitter) EmitPlayerInput(*eventspb.PlayerInputEnvelope) {}
-func (noopEmitter) EmitWealth(*eventspb.WealthEnvelope)           {}
-func (noopEmitter) EmitReview(*eventspb.ReviewEnvelope) {}
+func (noopEmitter) EmitWealth(*eventspb.WealthEnvelope) {}
