@@ -37,8 +37,7 @@ Sev: 🔥 HIGH (real-world incident risk) / ⚠ MED (correctness or future-fragi
 
 | Sev | Location | Issue | Size | Note |
 |---|---|---|---|---|
-| ℹ LOW | `modules/world/tick.go:140,153,154` | `make([]*Player, len(...))` per player-iteration cycle. ~9 allocs/tick × 50 players ≈ 450 allocs/sec. Small (<1KB each). | — | Reusable buffer pool optional; not urgent. |
-| ℹ LOW | `modules/world/npc_hunt_entities.go:121-255` | Zone iteration inner loop O(N²) per NPC hunt/tick (worst-case 250 iter × 500 NPCs = 125k cmp/tick). | — | Zone-hash already used; acceptable for N<1000 NPCs. |
+| _(none — both LOW rows closed 2026-06-03: PERF-1 tick player-snapshot scratch + PERF-2 hunt zone-iteration scratch/iterator; benchmarks + closure rows in [`docs/PORTING-CLOSED.md`](docs/PORTING-CLOSED.md) §Performance hotspots)_ |
 
 ---
 
