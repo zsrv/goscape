@@ -1,4 +1,4 @@
-package asset
+package ondemand
 
 import (
 	"context"
@@ -62,13 +62,13 @@ func (f *fakeConnHandler) snapshot() ([]net.Conn, []byte) {
 	return cs, rs
 }
 
-// newTestAsset constructs an Asset wired with the supplied connhandler and
+// newTestOnDemand constructs an OnDemand wired with the supplied connhandler and
 // a httptest.Server fronting only the WebSocket route at /. Mirrors the
-// production wiring at cmd/goscape/app/modules.go:initAsset where
+// production wiring at cmd/goscape/app/modules.go:initOnDemand where
 // WebSocketHandler owns GET / when both Enable and worldConn are set.
-func newTestAsset(t *testing.T, cfg WebSocketConfig, handler *fakeConnHandler) (*Asset, *httptest.Server) {
+func newTestOnDemand(t *testing.T, cfg WebSocketConfig, handler *fakeConnHandler) (*OnDemand, *httptest.Server) {
 	t.Helper()
-	a := &Asset{
+	a := &OnDemand{
 		log: discardLogger(),
 		cfg: Config{
 			WebSocket: cfg,
@@ -89,7 +89,7 @@ func newTestAsset(t *testing.T, cfg WebSocketConfig, handler *fakeConnHandler) (
 // preserving the existing static dispatch chain for non-WS clients.
 func TestWebSocketHandler_NonUpgradeRequest_FallsThroughToRootHandler(t *testing.T) {
 	fake := newFakeConnHandler()
-	_, srv := newTestAsset(t, WebSocketConfig{Enable: true, MaxPayloadBytes: 2000}, fake)
+	_, srv := newTestOnDemand(t, WebSocketConfig{Enable: true, MaxPayloadBytes: 2000}, fake)
 
 	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/", nil)
 	resp, err := http.DefaultClient.Do(req)
@@ -116,7 +116,7 @@ func TestWebSocketHandler_NonUpgradeRequest_FallsThroughToRootHandler(t *testing
 // TS web.ts:127-129 which terminates AFTER upgrade.
 func TestWebSocketHandler_OriginRejected_403BeforeUpgrade(t *testing.T) {
 	fake := newFakeConnHandler()
-	_, srv := newTestAsset(t, WebSocketConfig{
+	_, srv := newTestOnDemand(t, WebSocketConfig{
 		Enable:          true,
 		MaxPayloadBytes: 2000,
 		AllowedOrigins:  []string{"https://example.com"},
@@ -149,7 +149,7 @@ func TestWebSocketHandler_OriginRejected_403BeforeUpgrade(t *testing.T) {
 // default at Environment.ts:13).
 func TestWebSocketHandler_OriginEmptyList_AllowsAllOrigins(t *testing.T) {
 	fake := newFakeConnHandler()
-	_, srv := newTestAsset(t, WebSocketConfig{Enable: true, MaxPayloadBytes: 2000}, fake)
+	_, srv := newTestOnDemand(t, WebSocketConfig{Enable: true, MaxPayloadBytes: 2000}, fake)
 
 	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/"
 
@@ -169,7 +169,7 @@ func TestWebSocketHandler_OriginEmptyList_AllowsAllOrigins(t *testing.T) {
 // behaviour when AllowedOrigins is populated.
 func TestWebSocketHandler_OriginExactMatch_AllowsUpgrade(t *testing.T) {
 	fake := newFakeConnHandler()
-	_, srv := newTestAsset(t, WebSocketConfig{
+	_, srv := newTestOnDemand(t, WebSocketConfig{
 		Enable:          true,
 		MaxPayloadBytes: 2000,
 		AllowedOrigins:  []string{"https://example.com"},
@@ -194,7 +194,7 @@ func TestWebSocketHandler_OriginExactMatch_AllowsUpgrade(t *testing.T) {
 // web.ts:125).
 func TestWebSocketHandler_ReadLimitEnforced(t *testing.T) {
 	fake := newFakeConnHandler()
-	_, srv := newTestAsset(t, WebSocketConfig{
+	_, srv := newTestOnDemand(t, WebSocketConfig{
 		Enable:          true,
 		MaxPayloadBytes: 16,
 	}, fake)
@@ -244,7 +244,7 @@ func TestWebSocketHandler_ReadLimitEnforced(t *testing.T) {
 // of the world handler.
 func TestWebSocketHandler_BridgesToConnHandler(t *testing.T) {
 	fake := newFakeConnHandler()
-	_, srv := newTestAsset(t, WebSocketConfig{Enable: true, MaxPayloadBytes: 2000}, fake)
+	_, srv := newTestOnDemand(t, WebSocketConfig{Enable: true, MaxPayloadBytes: 2000}, fake)
 
 	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/"
 
@@ -279,10 +279,10 @@ func TestWebSocketHandler_BridgesToConnHandler(t *testing.T) {
 
 // TestWebSocketHandler_NilConnHandler is a regression guard: even if the WS
 // route is somehow registered without a worldConn, an Upgrade request must
-// not panic. (Production wiring at modules.go:initAsset skips the route
+// not panic. (Production wiring at modules.go:initOnDemand skips the route
 // registration in this case, so this exercises the defensive path only.)
 func TestWebSocketHandler_NilConnHandler(t *testing.T) {
-	a := &Asset{
+	a := &OnDemand{
 		log: discardLogger(),
 		cfg: Config{WebSocket: WebSocketConfig{Enable: true, MaxPayloadBytes: 2000}},
 	}

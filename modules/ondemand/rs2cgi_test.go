@@ -1,4 +1,4 @@
-package asset
+package ondemand
 
 import (
 	"io"
@@ -13,7 +13,7 @@ import (
 // and the query-supplied lowmem substituted into the JS Client(...) call.
 // Mirrors web.ts:104-112.
 func TestRs2CgiClientTemplate(t *testing.T) {
-	a := &Asset{
+	a := &OnDemand{
 		log: discardLogger(),
 		cfg: Config{
 			NodeID:  10,
@@ -57,7 +57,7 @@ func TestRs2CgiClientTemplate(t *testing.T) {
 // templates/java.html and that nodeid/members/lowmem/portoff are substituted
 // into the <applet> param tags. Mirrors web.ts:92-102.
 func TestRs2CgiJavaTemplate(t *testing.T) {
-	a := &Asset{
+	a := &OnDemand{
 		log: discardLogger(),
 		cfg: Config{
 			NodeID:  10,
@@ -113,7 +113,7 @@ func TestRs2CgiJavaTemplate(t *testing.T) {
 // NODE_DEBUG is false, plugin=1 still serves the client template. The Java
 // applet is debug-only.
 func TestRs2CgiPluginIgnoredWhenDebugOff(t *testing.T) {
-	a := &Asset{
+	a := &OnDemand{
 		log: discardLogger(),
 		cfg: Config{
 			NodeID:  10,
@@ -153,7 +153,7 @@ func TestRs2CgiPortoffComputation(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			a := &Asset{
+			a := &OnDemand{
 				log: discardLogger(),
 				cfg: Config{NodeID: 10, Debug: true, Port: tc.port},
 			}
@@ -209,7 +209,7 @@ func TestTryParseIntDefault_JSparseIntSemantics(t *testing.T) {
 // TestRs2CgiTryParseIntFallback pins tryParseInt's empty/invalid-string
 // fallback to 0 (TS web.ts:89-90 via tryParseInt).
 func TestRs2CgiTryParseIntFallback(t *testing.T) {
-	a := &Asset{
+	a := &OnDemand{
 		log: discardLogger(),
 		cfg: Config{NodeID: 10, Members: true, Debug: true, Port: 43594},
 	}

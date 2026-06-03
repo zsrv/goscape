@@ -1,4 +1,4 @@
-package asset
+package ondemand
 
 import (
 	"context"
@@ -34,7 +34,7 @@ import (
 // connection state machine reads RS2 framing off the net.Conn as if it were
 // a TCP connection. HandleConn takes ownership of the wrapped net.Conn and
 // blocks for the lifetime of the connection.
-func (a *Asset) WebSocketHandler(w http.ResponseWriter, r *http.Request) {
+func (a *OnDemand) WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 	if !strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
 		a.RootHandler(w, r)
 		return
@@ -81,7 +81,7 @@ func (a *Asset) WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 // originAllowed implements the empty-default-allow-all origin policy. An
 // empty AllowedOrigins slice permits any Origin (including missing); a
 // non-empty slice requires exact match against the Origin header.
-func (a *Asset) originAllowed(origin string) bool {
+func (a *OnDemand) originAllowed(origin string) bool {
 	if len(a.cfg.WebSocket.AllowedOrigins) == 0 {
 		return true
 	}

@@ -4,9 +4,9 @@ import (
 	"flag"
 	"log/slog"
 
-	"github.com/zsrv/goscape/modules/asset"
 	"github.com/zsrv/goscape/modules/friends"
 	"github.com/zsrv/goscape/modules/login"
+	"github.com/zsrv/goscape/modules/ondemand"
 	"github.com/zsrv/goscape/modules/world"
 )
 
@@ -15,10 +15,10 @@ type Config struct {
 	LogFormat string     `yaml:"log_format,omitempty"`
 	LogLevel  slog.Level `yaml:"log_level,omitempty"` // global log level, default for modules too
 
-	Asset   asset.Config   `yaml:"asset,omitempty"`
-	Friends friends.Config `yaml:"friends,omitempty"`
-	Login   login.Config   `yaml:"login,omitempty"`
-	World   world.Config   `yaml:"world,omitempty"`
+	OnDemand ondemand.Config `yaml:"ondemand,omitempty"`
+	Friends  friends.Config  `yaml:"friends,omitempty"`
+	Login    login.Config    `yaml:"login,omitempty"`
+	World    world.Config    `yaml:"world,omitempty"`
 }
 
 func NewDefaultConfig() *Config {
@@ -39,7 +39,7 @@ func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 
 	// Everything else
 
-	c.Asset.RegisterFlagsAndApplyDefaults(f)
+	c.OnDemand.RegisterFlagsAndApplyDefaults(f)
 	c.Friends.RegisterFlagsAndApplyDefaults(f)
 	c.Login.RegisterFlagsAndApplyDefaults(f)
 	c.World.RegisterFlagsAndApplyDefaults(f)

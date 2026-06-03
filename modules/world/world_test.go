@@ -12,8 +12,8 @@ import (
 // publishes a non-empty CRC snapshot. The test mirrors startingFn's
 // prefix rather than invoking NewWorldService directly, because the
 // latter requires a full Server + LoginClient fixture.
-// Pairs with cmd/goscape/app/modules_test.go's TestAssetDependsOnWorld
-// which pins the asset→world dep-edge that makes the sequence visible
+// Pairs with cmd/goscape/app/modules_test.go's TestOnDemandDependsOnWorld
+// which pins the ondemand→world dep-edge that makes the sequence visible
 // to /crc requests at request time.
 func TestStartingFnPopulatesCRCSnapshot(t *testing.T) {
 	cache.ResetCRCForTest()

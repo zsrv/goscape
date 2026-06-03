@@ -65,14 +65,14 @@ type Config struct {
 func (c *Config) RegisterFlagsAndApplyDefaults(f *flag.FlagSet) {
 	f.StringVar(&c.TCPListenAddress, "world.tcp-listen-address", "127.0.0.1", "TCP world server listen address")
 	f.StringVar(&c.TCPListenNetwork, "world.tcp-listen-network", server.DefaultNetwork, "TCP world server listen network, default tcp")
-	//f.StringVar(&c.Config.HTTPTLSConfig.TLSCertPath, "asset.http-tls-cert-path", "", "HTTP asset server cert path.")
-	//f.StringVar(&c.Config.HTTPTLSConfig.TLSKeyPath, "asset.http-tls-key-path", "", "HTTP asset server key path.")
-	//f.StringVar(&c.Config.HTTPTLSConfig.ClientAuth, "asset.http-tls-client-auth", "", "HTTP TLS Client Auth type.")
-	//f.StringVar(&c.Config.HTTPTLSConfig.ClientCAs, "asset.http-tls-ca-path", "", "HTTP TLS Client CA path.")
-	//f.StringVar(&c.Config.CipherSuites, "asset.http-tls-cipher-suites", "", "HTTP TLS Cipher Suites.")
-	//f.StringVar(&c.Config.MinVersion, "asset.http-tls-min-version", "", "HTTP TLS Min Version.")
+	//f.StringVar(&c.Config.HTTPTLSConfig.TLSCertPath, "ondemand.http-tls-cert-path", "", "HTTP OnDemand server cert path.")
+	//f.StringVar(&c.Config.HTTPTLSConfig.TLSKeyPath, "ondemand.http-tls-key-path", "", "HTTP OnDemand server key path.")
+	//f.StringVar(&c.Config.HTTPTLSConfig.ClientAuth, "ondemand.http-tls-client-auth", "", "HTTP TLS Client Auth type.")
+	//f.StringVar(&c.Config.HTTPTLSConfig.ClientCAs, "ondemand.http-tls-ca-path", "", "HTTP TLS Client CA path.")
+	//f.StringVar(&c.Config.CipherSuites, "ondemand.http-tls-cipher-suites", "", "HTTP TLS Cipher Suites.")
+	//f.StringVar(&c.Config.MinVersion, "ondemand.http-tls-min-version", "", "HTTP TLS Min Version.")
 	f.IntVar(&c.TCPListenPort, "world.tcp-listen-port", 43594, "TCP world server listen port")
-	//f.IntVar(&c.Config.HTTPConnLimit, "asset.http-conn-limit", 0, "Maximum number of simultaneous http connections, <=0 to disable")
+	//f.IntVar(&c.Config.HTTPConnLimit, "ondemand.http-conn-limit", 0, "Maximum number of simultaneous http connections, <=0 to disable")
 	f.DurationVar(&c.ServerGracefulShutdownTimeout, "world.graceful-shutdown-timeout", 30*time.Second, "Timeout for graceful shutdowns")
 	// logger-transport-3 (2026-05-28 audit): TS TcpServer.ts:19 sets the
 	// idle-socket timeout to 30000 ms via `s.setTimeout(30000)`. The pre-fix
@@ -125,7 +125,7 @@ func (c *Config) Validate() error {
 	}
 	// CFG-2 (Arc 18): only enforce range/required checks when the world
 	// module is enabled — Validate runs as part of the cross-module
-	// config-merge whether target=world or not, and asset-only deployments
+	// config-merge whether target=world or not, and ondemand-only deployments
 	// have no world settings to gate.
 	if c.Enable {
 		if c.TCPListenPort < 1 || c.TCPListenPort > 65535 {

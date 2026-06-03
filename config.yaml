@@ -2,7 +2,7 @@ target: all
 log_level: debug
 log_format: text
 
-asset:
+ondemand:
   enable: true
   http_listen_network: tcp
   http_listen_address: 127.0.0.1

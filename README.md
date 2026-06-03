@@ -4,7 +4,7 @@ A Go rewrite of the [Lost City](https://github.com/LostCityRS) TypeScript RuneSc
 ([Engine-TS](https://github.com/LostCityRS/Engine-TS)), targeting wire-protocol
 **revision 225** and compatible with the Lost City Java client.
 
-The server is self-contained: login and friends persist to local SQLite, and the asset
+The server is self-contained: login and friends persist to local SQLite, and the ondemand
 (HTTP) and world (TCP) modules are plain network listeners — **no external services are
 required to run it**.
 
@@ -12,13 +12,13 @@ required to run it**.
 
 The binary is module-targeted (Grafana dskit-style service lifecycle; see `pkg/dskit/`):
 
-| Target    | What it runs                                  |
-|-----------|-----------------------------------------------|
-| `asset`   | HTTP asset server (client cache delivery)     |
-| `world`   | TCP game server (RS2 protocol, rev 225)       |
-| `login`   | gRPC login service (SQLite-backed)            |
-| `friends` | friends/private-message server (SQLite)       |
-| `all`     | all of the above (default)                    |
+| Target     | What it runs                                  |
+|------------|-----------------------------------------------|
+| `ondemand` | HTTP OnDemand server (client cache delivery)  |
+| `world`    | TCP game server (RS2 protocol, rev 225)       |
+| `login`    | gRPC login service (SQLite-backed)            |
+| `friends`  | friends/private-message server (SQLite)       |
+| `all`      | all of the above (default)                    |
 
 Select with `--target` or `target:` in the config file. Configuration follows a layered
 precedence: defaults → config file → env vars → CLI flags. Verify a config without

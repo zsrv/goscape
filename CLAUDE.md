@@ -33,7 +33,7 @@ make build-image
 Config follows a layered precedence: **defaults → config file → env vars → CLI flags**.
 
 The `--target` flag (or `target:` in config.yaml) selects which modules to run:
-- `asset` — HTTP asset server only
+- `ondemand` — HTTP OnDemand server only
 - `world` — TCP game server only
 - `login` — gRPC login service only
 - `friends` — friends server only
@@ -58,13 +58,13 @@ Everything in `pkg/dskit/` is a port of [Grafana's dskit](https://github.com/gra
 
 ```
 common (invisible)
-  ├── asset    →  HTTP asset server (dskit server + asset.Asset)
+  ├── ondemand →  HTTP OnDemand server (dskit server + ondemand.OnDemand)
   ├── friends  →  friends server (SQLite)
   ├── login    →  gRPC login service (SQLite)
   └── world    →  TCP game server (world.Server)
 
 all (composite target)
-  ├── asset
+  ├── ondemand
   ├── friends
   ├── login
   └── world
@@ -77,11 +77,11 @@ Adding a new module: register it in `modules.go`, add dependencies, and add its 
 Each feature module lives under `modules/<name>/` and contains:
 - `config.go` — `Config` struct with `RegisterFlagsAndApplyDefaults` and `Validate`
 - `<name>.go` — the top-level struct, `New(cfg, logger)`, and a `NewXxxService(...)` factory that wraps the server in a `services.BasicService`
-- `server.go` — the network listener (TCP for world, HTTP via dskit server for asset)
+- `server.go` — the network listener (TCP for world, HTTP via dskit server for ondemand)
 
 ### Networking
 
-**Asset module** (`modules/asset/`): uses `pkg/dskit/server` which wraps `net/http`. Handlers are registered on `server.HTTP` (a `*http.ServeMux`).
+**OnDemand module** (`modules/ondemand/`): uses `pkg/dskit/server` which wraps `net/http`. Handlers are registered on `server.HTTP` (a `*http.ServeMux`).
 
 **World module** (`modules/world/`): raw TCP server. `server.go` runs `net.Listen` → `Accept` loop → per-connection goroutine. Each connection goes through a `client` state machine starting at `ClientStateLogin`. ISAAC cipher streams are established after the login handshake.
 

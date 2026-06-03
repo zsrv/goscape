@@ -1,4 +1,4 @@
-package asset
+package ondemand
 
 import "testing"
 
@@ -28,9 +28,9 @@ func TestIsValidMapName(t *testing.T) {
 		{"m48/50", false},
 
 		// invalid: bad shapes
-		{"m_50", false},   // empty x
-		{"m48_", false},   // empty z
-		{"m48", false},    // no underscore
+		{"m_50", false},      // empty x
+		{"m48_", false},      // empty z
+		{"m48", false},       // no underscore
 		{"m48_50_60", false}, // two underscores
 		{"m48a_50", false},   // non-digit
 		{"m48_5a", false},    // non-digit

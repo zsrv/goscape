@@ -1,4 +1,4 @@
-package asset
+package ondemand
 
 import (
 	"bytes"
@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/zsrv/goscape/pkg/dskit/middleware"
 	"github.com/zsrv/goscape/pkg/cache"
+	"github.com/zsrv/goscape/pkg/dskit/middleware"
 )
 
 // TestRootHandlerCrcEndpointServesOnEveryRequest pins the fix for the
@@ -24,7 +24,7 @@ func TestRootHandlerCrcEndpointServesOnEveryRequest(t *testing.T) {
 	want := []byte{0x00, 0x00, 0x00, 0x00, 0xDE, 0xAD, 0xBE, 0xEF}
 	cache.SetCRCForTest(&cache.CRCSnapshot{Bytes: want})
 
-	a := &Asset{log: discardLogger()}
+	a := &OnDemand{log: discardLogger()}
 
 	for i := range 2 {
 		req := httptest.NewRequest(http.MethodGet, "/crc", nil)
@@ -45,8 +45,8 @@ func discardLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
-// TestAssetClientIPExtractsTSParityHeaders pins source-IP wiring: the
-// asset's SourceIPExtractor must consult cf-connecting-ip (the TS upstream's
+// TestOnDemandClientIPExtractsTSParityHeaders pins source-IP wiring: the
+// OnDemand server's SourceIPExtractor must consult cf-connecting-ip (the TS upstream's
 // getIp() primary header in Engine-TS/src/web.ts) and return only the first
 // comma-separated address to match TS' .split(',')[0].trim() behaviour.
 //
@@ -54,17 +54,17 @@ func discardLogger() *slog.Logger {
 // is non-empty, only that header is consulted; the built-in Forwarded /
 // X-Real-IP / X-Forwarded-For chain is bypassed. Operators wanting that
 // chain (covering x-forwarded-for) must blank the header/regex flags.
-func TestAssetClientIPExtractsTSParityHeaders(t *testing.T) {
-	// Build the asset with the default flag values so the test covers the
+func TestOnDemandClientIPExtractsTSParityHeaders(t *testing.T) {
+	// Build the OnDemand server with the default flag values so the test covers the
 	// production header/regex defaults wired in config.go.
 	cfg := Config{Enable: true}
-	cfg.RegisterFlagsAndApplyDefaults(flag.NewFlagSet("asset-test", flag.ContinueOnError))
+	cfg.RegisterFlagsAndApplyDefaults(flag.NewFlagSet("ondemand-test", flag.ContinueOnError))
 
 	sourceIPs, err := middleware.NewSourceIPs(cfg.Server.LogSourceIPsHeader, cfg.Server.LogSourceIPsRegex, cfg.Server.LogSourceIPsFull)
 	if err != nil {
 		t.Fatalf("NewSourceIPs: %v", err)
 	}
-	a := &Asset{log: discardLogger(), sourceIPs: sourceIPs}
+	a := &OnDemand{log: discardLogger(), sourceIPs: sourceIPs}
 
 	tests := []struct {
 		name    string
@@ -114,15 +114,15 @@ func TestAssetClientIPExtractsTSParityHeaders(t *testing.T) {
 	}
 }
 
-// TestAssetClientIPDefaultChainFallback pins the alternative configuration:
+// TestOnDemandClientIPDefaultChainFallback pins the alternative configuration:
 // when LogSourceIPsHeader/Regex are blank, the dskit SourceIPExtractor falls
 // back to its built-in Forwarded / X-Real-IP / X-Forwarded-For chain.
-func TestAssetClientIPDefaultChainFallback(t *testing.T) {
+func TestOnDemandClientIPDefaultChainFallback(t *testing.T) {
 	sourceIPs, err := middleware.NewSourceIPs("", "", false)
 	if err != nil {
 		t.Fatalf("NewSourceIPs: %v", err)
 	}
-	a := &Asset{log: discardLogger(), sourceIPs: sourceIPs}
+	a := &OnDemand{log: discardLogger(), sourceIPs: sourceIPs}
 
 	req := httptest.NewRequest(http.MethodGet, "/title", nil)
 	req.RemoteAddr = "10.0.0.1:5555"
@@ -133,11 +133,11 @@ func TestAssetClientIPDefaultChainFallback(t *testing.T) {
 	}
 }
 
-// TestAssetClientIPNilExtractorReturnsEmpty pins the nil-extractor branch:
-// if the asset was constructed without a SourceIPExtractor (e.g. tests that
+// TestOnDemandClientIPNilExtractorReturnsEmpty pins the nil-extractor branch:
+// if the OnDemand server was constructed without a SourceIPExtractor (e.g. tests that
 // bypass New), clientIP must not panic.
-func TestAssetClientIPNilExtractorReturnsEmpty(t *testing.T) {
-	a := &Asset{log: discardLogger()}
+func TestOnDemandClientIPNilExtractorReturnsEmpty(t *testing.T) {
+	a := &OnDemand{log: discardLogger()}
 	req := httptest.NewRequest(http.MethodGet, "/title", nil)
 	req.RemoteAddr = "10.0.0.1:5555"
 	req.Header.Set("CF-Connecting-IP", "203.0.113.7")
@@ -157,7 +157,7 @@ func TestRootHandlerPublicFallbackServesKnownMime(t *testing.T) {
 		t.Fatalf("write fixture: %v", err)
 	}
 
-	a := &Asset{log: discardLogger(), cfg: Config{PublicDir: dir}}
+	a := &OnDemand{log: discardLogger(), cfg: Config{PublicDir: dir}}
 
 	req := httptest.NewRequest(http.MethodGet, "/foo.js", nil)
 	rr := httptest.NewRecorder()
@@ -182,7 +182,7 @@ func TestRootHandlerPublicFallbackUnknownExtUsesTextPlain(t *testing.T) {
 		t.Fatalf("write fixture: %v", err)
 	}
 
-	a := &Asset{log: discardLogger(), cfg: Config{PublicDir: dir}}
+	a := &OnDemand{log: discardLogger(), cfg: Config{PublicDir: dir}}
 
 	req := httptest.NewRequest(http.MethodGet, "/data.bin", nil)
 	rr := httptest.NewRecorder()
@@ -201,7 +201,7 @@ func TestRootHandlerPublicFallbackUnknownExtUsesTextPlain(t *testing.T) {
 // response or an empty 200.
 func TestRootHandlerPublicFallbackMissingFile404s(t *testing.T) {
 	dir := t.TempDir()
-	a := &Asset{log: discardLogger(), cfg: Config{PublicDir: dir}}
+	a := &OnDemand{log: discardLogger(), cfg: Config{PublicDir: dir}}
 
 	req := httptest.NewRequest(http.MethodGet, "/missing.js", nil)
 	rr := httptest.NewRecorder()
@@ -225,7 +225,7 @@ func TestRootHandlerPublicFallbackBlocksPathTraversal(t *testing.T) {
 		t.Fatalf("mkdir public: %v", err)
 	}
 
-	a := &Asset{log: discardLogger(), cfg: Config{PublicDir: publicDir}}
+	a := &OnDemand{log: discardLogger(), cfg: Config{PublicDir: publicDir}}
 
 	// http.ServeFile / http.Dir reject ".." path elements. We also test that
 	// even if the URL parser collapses the path, the file outside the root is
@@ -248,7 +248,7 @@ func TestRootHandlerPublicFallbackBlocksPathTraversal(t *testing.T) {
 // PublicDir disables the fallback entirely — requests fall through to the
 // stdlib 404 instead of probing the working directory.
 func TestRootHandlerPublicFallbackDisabledWhenUnset(t *testing.T) {
-	a := &Asset{log: discardLogger(), cfg: Config{PublicDir: ""}}
+	a := &OnDemand{log: discardLogger(), cfg: Config{PublicDir: ""}}
 
 	req := httptest.NewRequest(http.MethodGet, "/foo.js", nil)
 	rr := httptest.NewRecorder()
@@ -268,7 +268,7 @@ func TestRootHandlerPublicFallbackDirectory404s(t *testing.T) {
 		t.Fatalf("mkdir sub: %v", err)
 	}
 
-	a := &Asset{log: discardLogger(), cfg: Config{PublicDir: dir}}
+	a := &OnDemand{log: discardLogger(), cfg: Config{PublicDir: dir}}
 
 	req := httptest.NewRequest(http.MethodGet, "/sub", nil)
 	rr := httptest.NewRecorder()
@@ -284,7 +284,7 @@ func TestRootHandlerPublicFallbackDirectory404s(t *testing.T) {
 // Mirrors TS web.ts:68 (substring(1, lastIndexOf('_')) → non-existent file →
 // 404). A crafted GET /x.mid previously aborted the response mid-flight.
 func TestRootHandler_MidWithoutUnderscore404s(t *testing.T) {
-	a := &Asset{log: discardLogger()}
+	a := &OnDemand{log: discardLogger()}
 
 	for _, p := range []string{"/x.mid", "/.mid", "/nounderscore.mid"} {
 		req := httptest.NewRequest(http.MethodGet, p, nil)
@@ -304,7 +304,7 @@ func TestRootHandler_MidWithoutUnderscore404s(t *testing.T) {
 // dispatched to the song handler, not captured by the "/config" archive
 // prefix. Mirrors TS web.ts dispatch order, where the `.mid` branch
 // (web.ts:62) precedes every archive `startsWith` branch. A regression that
-// re-ordered the prefix checks ahead of `.mid` would serve the wrong asset.
+// re-ordered the prefix checks ahead of `.mid` would serve the wrong ondemand.
 func TestRootHandler_MidBeatsArchivePrefix(t *testing.T) {
 	// The handlers use hardcoded relative paths under data/pack/client, so
 	// run from a temp CWD seeded with both candidate files.
@@ -324,7 +324,7 @@ func TestRootHandler_MidBeatsArchivePrefix(t *testing.T) {
 		t.Fatalf("write archive: %v", err)
 	}
 
-	a := &Asset{log: discardLogger()}
+	a := &OnDemand{log: discardLogger()}
 	req := httptest.NewRequest(http.MethodGet, "/config_123.mid", nil)
 	rr := httptest.NewRecorder()
 	a.RootHandler(rr, req)

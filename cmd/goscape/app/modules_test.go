@@ -51,7 +51,7 @@ func newAppForTest(t *testing.T, target string) (*App, *fakeSignalHandler) {
 	cfg := *NewDefaultConfig()
 	cfg.Target = target
 	// All Enable=false ⇒ each initX returns NewIdleService(nil, nil).
-	cfg.Asset.Enable = false
+	cfg.OnDemand.Enable = false
 	cfg.Friends.Enable = false
 	cfg.Login.Enable = false
 	cfg.World.Enable = false
@@ -65,13 +65,13 @@ func newAppForTest(t *testing.T, target string) (*App, *fakeSignalHandler) {
 	return a, fh
 }
 
-// TestAssetDependsOnWorld pins the architectural invariant that the asset
+// TestOnDemandDependsOnWorld pins the architectural invariant that the ondemand
 // module is dependency-ordered after world in the dskit module graph.
-// Asset's /crc handler reads cache.CRC(), which is populated by
+// OnDemand's /crc handler reads cache.CRC(), which is populated by
 // world.startingFn calling cache.MakeCRCs(). Removing this edge would
-// silently regress --target=asset (empty buffer served) and introduce a
+// silently regress --target=ondemand (empty buffer served) and introduce a
 // startup race in --target=all (SingleBinary). NAI-19 B1 added this edge.
-func TestAssetDependsOnWorld(t *testing.T) {
+func TestOnDemandDependsOnWorld(t *testing.T) {
 	g := &App{}
 	if err := g.setupModuleManager(discardLogger()); err != nil {
 		t.Fatalf("setupModuleManager: %v", err)
@@ -79,9 +79,9 @@ func TestAssetDependsOnWorld(t *testing.T) {
 	if g.deps == nil {
 		t.Fatal("g.deps not populated by setupModuleManager")
 	}
-	got := g.deps[Asset]
+	got := g.deps[OnDemand]
 	if !slices.Contains(got, World) {
-		t.Errorf("asset dependencies = %v, want to include %q", got, World)
+		t.Errorf("ondemand dependencies = %v, want to include %q", got, World)
 	}
 }
 
@@ -93,7 +93,7 @@ func TestSetupModuleManager_RegistersAllExpectedModules(t *testing.T) {
 	if err := g.setupModuleManager(discardLogger()); err != nil {
 		t.Fatalf("setupModuleManager: %v", err)
 	}
-	for _, mod := range []string{Asset, Friends, Login, World, SingleBinary, "common"} {
+	for _, mod := range []string{OnDemand, Friends, Login, World, SingleBinary, "common"} {
 		if !g.ModuleManager.IsModuleRegistered(mod) {
 			t.Errorf("module %q not registered", mod)
 		}
@@ -112,8 +112,8 @@ func TestSetupModuleManager_CommonIsInvisible(t *testing.T) {
 	if g.ModuleManager.IsUserVisibleModule("common") {
 		t.Errorf("common is UserVisible, want invisible")
 	}
-	// Asset / Friends / Login / World / SingleBinary should be visible.
-	for _, mod := range []string{Asset, Friends, Login, World, SingleBinary} {
+	// OnDemand / Friends / Login / World / SingleBinary should be visible.
+	for _, mod := range []string{OnDemand, Friends, Login, World, SingleBinary} {
 		if !g.ModuleManager.IsUserVisibleModule(mod) {
 			t.Errorf("module %q is not UserVisible, want visible", mod)
 		}
@@ -121,7 +121,7 @@ func TestSetupModuleManager_CommonIsInvisible(t *testing.T) {
 }
 
 // TestSetupModuleManager_DAGTopology pins the exact dependency edges
-// declared in modules.go — Arc 11 sanctioned Asset:{Common,World}.
+// declared in modules.go — Arc 11 sanctioned OnDemand:{Common,World}.
 // Changing
 // any edge here is load-bearing and should be a deliberate decision.
 // COV-1 (Arc 18).
@@ -131,12 +131,12 @@ func TestSetupModuleManager_DAGTopology(t *testing.T) {
 		t.Fatalf("setupModuleManager: %v", err)
 	}
 	want := map[string][]string{
-		"common":      {},
-		Asset:         {"common", World},
-		Friends:       {"common"},
-		Login:         {"common"},
-		World:         {"common", Login, Friends},
-		SingleBinary:  {Asset, Friends, Login, World},
+		"common":     {},
+		OnDemand:     {"common", World},
+		Friends:      {"common"},
+		Login:        {"common"},
+		World:        {"common", Login, Friends},
+		SingleBinary: {OnDemand, Friends, Login, World},
 	}
 	for mod, expected := range want {
 		got := g.deps[mod]
@@ -152,12 +152,12 @@ func sortedCopy(s []string) []string {
 	return out
 }
 
-// TestApp_New_Asset confirms App.New succeeds with --target=asset and that
+// TestApp_New_OnDemand confirms App.New succeeds with --target=ondemand and that
 // the resulting ModuleManager recognises that target as a visible module.
 // COV-1 (Arc 18).
-func TestApp_New_Asset(t *testing.T) {
+func TestApp_New_OnDemand(t *testing.T) {
 	cfg := *NewDefaultConfig()
-	cfg.Target = Asset
+	cfg.Target = OnDemand
 	a, err := New(discardLogger(), cfg)
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -165,8 +165,8 @@ func TestApp_New_Asset(t *testing.T) {
 	if a == nil {
 		t.Fatal("New returned nil app")
 	}
-	if !a.ModuleManager.IsUserVisibleModule(Asset) {
-		t.Errorf("Asset target not user-visible after New")
+	if !a.ModuleManager.IsUserVisibleModule(OnDemand) {
+		t.Errorf("OnDemand target not user-visible after New")
 	}
 }
 
@@ -225,12 +225,12 @@ func TestApp_Run_GracefulStop(t *testing.T) {
 	}
 }
 
-// TestApp_Run_AssetTarget exercises Run with --target=asset and all modules
-// disabled — only the asset (and its transitive world) services init, both
+// TestApp_Run_OnDemandTarget exercises Run with --target=ondemand and all modules
+// disabled — only the ondemand (and its transitive world) services init, both
 // as IdleServices. Confirms target selection narrows the service map.
 // COV-1 (Arc 18).
-func TestApp_Run_AssetTarget(t *testing.T) {
-	a, fh := newAppForTest(t, Asset)
+func TestApp_Run_OnDemandTarget(t *testing.T) {
+	a, fh := newAppForTest(t, OnDemand)
 
 	runDone := make(chan error, 1)
 	go func() { runDone <- a.Run() }()
@@ -246,10 +246,10 @@ func TestApp_Run_AssetTarget(t *testing.T) {
 		t.Fatal("Run did not return within 5s")
 	}
 
-	// --target=asset should instantiate Asset and its declared transitive
+	// --target=ondemand should instantiate OnDemand and its declared transitive
 	// deps (Common, World, Login, Friends because World depends on Login+Friends).
-	if _, ok := a.serviceMap[Asset]; !ok {
-		t.Errorf("serviceMap missing Asset")
+	if _, ok := a.serviceMap[OnDemand]; !ok {
+		t.Errorf("serviceMap missing OnDemand")
 	}
 }
 

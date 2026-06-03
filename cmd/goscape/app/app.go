@@ -9,13 +9,13 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/zsrv/goscape/modules/friends"
+	"github.com/zsrv/goscape/modules/login"
+	"github.com/zsrv/goscape/modules/ondemand"
+	"github.com/zsrv/goscape/modules/world"
 	"github.com/zsrv/goscape/pkg/dskit/modules"
 	"github.com/zsrv/goscape/pkg/dskit/services"
 	"github.com/zsrv/goscape/pkg/dskit/signals"
-	"github.com/zsrv/goscape/modules/asset"
-	"github.com/zsrv/goscape/modules/friends"
-	"github.com/zsrv/goscape/modules/login"
-	"github.com/zsrv/goscape/modules/world"
 )
 
 // signalHandler is the narrow surface App needs from a signal-handling
@@ -33,10 +33,10 @@ type App struct {
 
 	logger *slog.Logger // my addition; global logger, should only be used for app init, each module should make its own logger!
 
-	asset   *asset.Asset
-	friends *friends.Friends
-	login   *login.Login
-	world   *world.World
+	ondemand *ondemand.OnDemand
+	friends  *friends.Friends
+	login    *login.Login
+	world    *world.World
 
 	// signalsHandlerMu guards signalsHandler against the Run/Stop race
 	// surfaced by COV-1's race detector: Run() writes signalsHandler at

@@ -11,7 +11,7 @@ import (
 
 // DEVIATION-NAI-215-CACHE-ATOMIC-SWAP: package-level mutable cache state
 // (CrcBytes, CrcTable, Preloaded, PreloadedCRC) is read by concurrent
-// asset HTTP + world TCP goroutines and is rebuilt live during the
+// ondemand HTTP + world TCP goroutines and is rebuilt live during the
 // ::reload admin command. Original TypeScript single-threaded model
 // reassigned package globals in place. Go port uses build-then-swap
 // via atomic.Pointer[CRCSnapshot] / atomic.Pointer[PreloadSnapshot] —
@@ -21,7 +21,7 @@ import (
 // CRCSnapshot is the immutable per-rebuild view of the 9-slot JAG
 // archive-CRC table. Build a fresh value, atomically swap, drop the old.
 //
-// Bytes is the serialized 9-slot table — what asset /crc HTTP serves.
+// Bytes is the serialized 9-slot table — what ondemand /crc HTTP serves.
 // Table is the 9 raw CRCs — what world login compares against.
 // (The package-level CrcBuffer32 of the old API was unused in prod —
 // the only reader at server.go:817 was commented out — so it is dropped.

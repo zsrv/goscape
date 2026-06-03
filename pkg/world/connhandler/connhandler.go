@@ -1,6 +1,6 @@
 // Package connhandler exposes a minimal interface for handing accepted
 // network connections to the world module's TCP connection handler.
-// Defined outside both modules so the asset module can depend on the
+// Defined outside both modules so the ondemand module can depend on the
 // interface without importing all of modules/world.
 package connhandler
 

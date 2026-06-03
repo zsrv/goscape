@@ -1,4 +1,4 @@
-package asset
+package ondemand
 
 import (
 	"bytes"
@@ -43,7 +43,7 @@ const rs2cgiPortBase = 43594
 // with surrounding whitespace (e.g. ` 10 ` instead of `10`), which is byte-
 // different from EJS' raw substitution but parses identically as JavaScript.
 // Shape-parity tests assert against the escaped form.
-func (a *Asset) Rs2CgiHandler(w http.ResponseWriter, r *http.Request) {
+func (a *OnDemand) Rs2CgiHandler(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	plugin := tryParseIntDefault(q.Get("plugin"), 0)
 	lowmem := tryParseIntDefault(q.Get("lowmem"), 0)

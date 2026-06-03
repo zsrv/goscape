@@ -1,4 +1,4 @@
-package asset
+package ondemand
 
 import (
 	"embed"
@@ -20,7 +20,7 @@ var templatesFS embed.FS
 var rs2cgiTemplates = func() *template.Template {
 	t, err := template.ParseFS(templatesFS, "templates/*.html")
 	if err != nil {
-		panic(fmt.Errorf("asset: parse rs2.cgi templates: %w", err))
+		panic(fmt.Errorf("ondemand: parse rs2.cgi templates: %w", err))
 	}
 	return t
 }()

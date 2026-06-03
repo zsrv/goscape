@@ -6,7 +6,7 @@
 # so no external services are required to run it.
 target: all
 
-asset:
+ondemand:
   enable: true
   http_listen_network: tcp
   http_listen_address: 127.0.0.1

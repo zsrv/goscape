@@ -1,4 +1,4 @@
-package asset
+package ondemand
 
 import (
 	"context"
@@ -13,8 +13,8 @@ import (
 
 // TODO: tracer
 
-// Asset serves assets to game clients.
-type Asset struct {
+// OnDemand serves assets to game clients.
+type OnDemand struct {
 	//services.Service
 
 	cfg Config
@@ -33,13 +33,13 @@ type Asset struct {
 	sourceIPs *middleware.SourceIPExtractor
 
 	// worldConn is the destination for accepted WebSocket-framed connections
-	// (see WebSocketHandler). May be nil when running asset-only (no world
+	// (see WebSocketHandler). May be nil when running ondemand-only (no world
 	// module wired) — in which case the WebSocket route is not registered.
 	worldConn connhandler.ConnHandler
 }
 
 // TODO: unused - reuse the code for other modules though
-func New(cfg Config, logger *slog.Logger, serv *server.Server, worldConn connhandler.ConnHandler) (*Asset, error) {
+func New(cfg Config, logger *slog.Logger, serv *server.Server, worldConn connhandler.ConnHandler) (*OnDemand, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -51,7 +51,7 @@ func New(cfg Config, logger *slog.Logger, serv *server.Server, worldConn connhan
 		return nil, fmt.Errorf("failed to configure source IP extractor: %w", err)
 	}
 
-	a := &Asset{
+	a := &OnDemand{
 		cfg: cfg,
 		log: logger,
 
@@ -61,7 +61,7 @@ func New(cfg Config, logger *slog.Logger, serv *server.Server, worldConn connhan
 		worldConn: worldConn,
 	}
 
-	// NOTE: Asset server doesn't have any subservices
+	// NOTE: OnDemand server doesn't have any subservices
 	//var err error
 	//a.subservices, err = services.NewManager(subservices...)
 	//if err != nil {
@@ -75,8 +75,8 @@ func New(cfg Config, logger *slog.Logger, serv *server.Server, worldConn connhan
 	return a, nil
 }
 
-func (a *Asset) starting(ctx context.Context) error {
-	// NOTE: Asset server doesn't have any subservices
+func (a *OnDemand) starting(ctx context.Context) error {
+	// NOTE: OnDemand server doesn't have any subservices
 	// Only report success if all subservices start properly
 	//err := services.StartManagerAndAwaitHealthy(ctx, a.subservices)
 	//if err != nil {
@@ -86,16 +86,16 @@ func (a *Asset) starting(ctx context.Context) error {
 	return nil
 }
 
-func (a *Asset) running(ctx context.Context) error {
+func (a *OnDemand) running(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		return nil
 	case err := <-a.subservicesWatcher.Chan():
 		// TODO: NewServerService does this differently in tempo
-		return fmt.Errorf("asset subservices failed: %w", err)
+		return fmt.Errorf("ondemand subservices failed: %w", err)
 	}
 }
 
-func (a *Asset) stopping(_ error) error {
+func (a *OnDemand) stopping(_ error) error {
 	return services.StopManagerAndAwaitStopped(context.Background(), a.subservices)
 }

@@ -1,4 +1,4 @@
-package asset
+package ondemand
 
 import (
 	"net/http"
@@ -47,7 +47,7 @@ func isValidMapName(s string) bool {
 	return underscore > 1 && underscore < len(s)-1
 }
 
-func (a *Asset) RootHandler(w http.ResponseWriter, r *http.Request) {
+func (a *OnDemand) RootHandler(w http.ResponseWriter, r *http.Request) {
 	// client concats the prefix with the expected crc from the initial /crc call (or the one it has cached? idk)
 	// should make a way for the server to store all the crcs and check against them when they're requested
 	// then reject a request if a crc we don't have is requested or something
@@ -177,7 +177,7 @@ func (a *Asset) RootHandler(w http.ResponseWriter, r *http.Request) {
 // SourceIPExtractor (defaults to cf-connecting-ip / x-forwarded-for to match
 // the TS upstream's web.ts getIp()), falling back to r.RemoteAddr. Returns
 // the empty string when no extractor is configured.
-func (a *Asset) clientIP(r *http.Request) string {
+func (a *OnDemand) clientIP(r *http.Request) string {
 	if a.sourceIPs == nil {
 		return ""
 	}
@@ -188,7 +188,7 @@ func (a *Asset) clientIP(r *http.Request) string {
 // request was handled (success or 4xx surfaced by the stdlib), false if no
 // public root is configured or the path did not resolve to a regular file —
 // in which case the caller should fall through to 404.
-func (a *Asset) servePublic(w http.ResponseWriter, r *http.Request) bool {
+func (a *OnDemand) servePublic(w http.ResponseWriter, r *http.Request) bool {
 	if a.cfg.PublicDir == "" {
 		return false
 	}
