@@ -11,7 +11,3 @@ func TestNoopTapperImplementsTapper(t *testing.T) {
 	tp.Tap(1, "s", DirOut, 0, nil, time.Unix(0, 0))
 	tp.SessionEnded(1, "s", time.Unix(0, 0), CloseReasonDisconnect)
 }
-
-func TestImplSatisfiesTapper(t *testing.T) {
-	var _ Tapper = NoopTapper() // compile-time assertion
-}
