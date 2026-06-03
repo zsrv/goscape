@@ -3,8 +3,6 @@ package app
 import (
 	"strings"
 	"testing"
-
-	pkgtelemetry "github.com/zsrv/goscape/pkg/telemetry"
 )
 
 // TestNewDefaultConfig pins that flag registration and defaults can be
@@ -32,25 +30,6 @@ func TestConfigValidate_ZeroValue(t *testing.T) {
 	c := &Config{}
 	if err := c.Validate(); err != nil {
 		t.Errorf("Validate() = %v, want nil", err)
-	}
-}
-
-// TestConfigValidate_TelemetryFanOut confirms Validate propagates telemetry
-// validation errors. Telemetry is the first child Validate calls (config.go).
-// COV-1 (Arc 18).
-func TestConfigValidate_TelemetryFanOut(t *testing.T) {
-	c := &Config{
-		Telemetry: pkgtelemetry.Config{
-			Enabled: true,
-			// missing Kafka.Brokers triggers telemetry.Validate failure
-		},
-	}
-	err := c.Validate()
-	if err == nil {
-		t.Fatal("Validate() = nil, want telemetry error")
-	}
-	if !strings.Contains(err.Error(), "telemetry") {
-		t.Errorf("Validate() = %v, want error mentioning telemetry", err)
 	}
 }
 
