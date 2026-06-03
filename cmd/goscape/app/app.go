@@ -1,0 +1,159 @@
+package app
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"sync"
+
+	"go.uber.org/atomic"
+
+	"github.com/zsrv/goscape/pkg/dskit/modules"
+	"github.com/zsrv/goscape/pkg/dskit/services"
+	"github.com/zsrv/goscape/pkg/dskit/signals"
+	"github.com/zsrv/goscape/modules/asset"
+	"github.com/zsrv/goscape/modules/friends"
+	"github.com/zsrv/goscape/modules/login"
+	"github.com/zsrv/goscape/modules/world"
+)
+
+// signalHandler is the narrow surface App needs from a signal-handling
+// component. Defined locally so tests can inject a fake (e.g. a handler that
+// returns immediately from Loop) without pulling in the real OS-signal wiring.
+// COV-1 (Arc 18): minimal refactor for App.Run testability.
+type signalHandler interface {
+	Loop()
+	Stop()
+}
+
+// App is the root data structure.
+type App struct {
+	cfg Config
+
+	logger *slog.Logger // my addition; global logger, should only be used for app init, each module should make its own logger!
+
+	asset   *asset.Asset
+	friends *friends.Friends
+	login   *login.Login
+	world   *world.World
+
+	// signalsHandlerMu guards signalsHandler against the Run/Stop race
+	// surfaced by COV-1's race detector: Run() writes signalsHandler at
+	// line ~125 on the main goroutine, Stop() reads it at line ~150 from
+	// whichever caller drives shutdown. Both accesses go through the mutex.
+	// R5 (Arc 22).
+	signalsHandlerMu sync.Mutex
+	signalsHandler   signalHandler
+
+	// newSignalHandler constructs the signal handler used by Run. Defaults
+	// to signals.NewHandler; tests override to inject a no-op fake.
+	// COV-1 (Arc 18): minimal hook for App.Run testability.
+	newSignalHandler func(*slog.Logger) signalHandler
+
+	ModuleManager *modules.Manager
+	serviceMap    map[string]services.Service
+	deps          map[string][]string
+}
+
+// New makes a new app.
+func New(logger *slog.Logger, cfg Config) (*App, error) {
+	app := &App{
+		cfg:    cfg,
+		logger: logger,
+	}
+
+	if err := app.setupModuleManager(logger); err != nil {
+		return nil, fmt.Errorf("failed to set up module manager: %w", err)
+	}
+
+	return app, nil
+}
+
+// Run starts, and blocks until a signal is received or Stop is called.
+func (g *App) Run() error {
+	if !g.ModuleManager.IsUserVisibleModule(g.cfg.Target) {
+		g.logger.Warn("selected target is an internal module, is this intended?", "target", g.cfg.Target)
+	}
+
+	serviceMap, err := g.ModuleManager.InitModuleServices(g.cfg.Target)
+	if err != nil {
+		return fmt.Errorf("failed to init module services: %w", err)
+	}
+	g.serviceMap = serviceMap
+
+	svcs := []services.Service(nil)
+	for _, s := range serviceMap {
+		svcs = append(svcs, s)
+	}
+
+	sm, err := services.NewManager(svcs...)
+	if err != nil {
+		return fmt.Errorf("failed to start service manager: %w", err)
+	}
+
+	// Used to delay shutdown but return "not ready" during this delay
+	shutdownRequested := atomic.NewBool(false)
+
+	// listen for events from this manager and log them
+	healthy := func() { g.logger.Info("goscape started") }
+	stopped := func() { g.logger.Info("goscape stopped") }
+	serviceFailed := func(service services.Service) {
+		// if any service fails, stop everything
+		sm.StopAsync()
+
+		// find out which module failed
+		for m, s := range serviceMap {
+			if s == service {
+				err := service.FailureCase()
+				if errors.Is(err, modules.ErrStopProcess) {
+					g.logger.Info("received stop signal via return error", "module", m, "err", err)
+				} else if errors.Is(err, context.Canceled) {
+					return
+				} else if err != nil {
+					g.logger.Error("module failed", "module", m, "err", err)
+				}
+				return
+			}
+		}
+
+		g.logger.Error("module failed", "module", "unknown", "err", service.FailureCase())
+	}
+	sm.AddListener(services.NewManagerListener(healthy, stopped, serviceFailed))
+
+	// Set up signal handler. If signal arrives, we stop the manager, which stops all the services.
+	if g.newSignalHandler == nil {
+		g.newSignalHandler = func(l *slog.Logger) signalHandler { return signals.NewHandler(l) }
+	}
+	handler := g.newSignalHandler(g.logger)
+	g.signalsHandlerMu.Lock()
+	g.signalsHandler = handler
+	g.signalsHandlerMu.Unlock()
+	go func() {
+		handler.Loop()
+
+		shutdownRequested.Store(true)
+
+		sm.StopAsync()
+	}()
+
+	// Start all services. This can really only fail if some service is already
+	// in a state other than New, which should not be the case.
+	err = sm.StartAsync(context.Background())
+	if err != nil {
+		return fmt.Errorf("failed to start service manager: %w", err)
+	}
+
+	return sm.AwaitStopped(context.Background())
+}
+
+// Stop the app. It panics if the app is not running.
+func (g *App) Stop() {
+	g.signalsHandlerMu.Lock()
+	h := g.signalsHandler
+	g.signalsHandlerMu.Unlock()
+	if h == nil {
+		panic("app is not running")
+	}
+	h.Stop()
+}

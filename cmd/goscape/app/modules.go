@@ -1,0 +1,205 @@
+package app
+
+import (
+	"fmt"
+	"log/slog"
+	"os"
+
+	"github.com/zsrv/goscape/pkg/dskit/modules"
+	"github.com/zsrv/goscape/pkg/dskit/server"
+	"github.com/zsrv/goscape/pkg/dskit/services"
+	"github.com/zsrv/goscape/modules/asset"
+	"github.com/zsrv/goscape/modules/friends"
+	"github.com/zsrv/goscape/modules/login"
+	"github.com/zsrv/goscape/modules/world"
+	"github.com/zsrv/goscape/pkg/tapper"
+	"github.com/zsrv/goscape/pkg/util/log"
+	"github.com/zsrv/goscape/pkg/world/connhandler"
+)
+
+// The various modules that make up goscape.
+
+const (
+	// Individual targets
+
+	Asset   string = "asset"
+	Friends string = "friends"
+	Login   string = "login"
+	World   string = "world"
+
+	// Composite targets
+
+	SingleBinary string = "all"
+)
+
+func (g *App) initAsset() (services.Service, error) {
+	if !g.cfg.Asset.Enable {
+		// TODO: still makes module appear to be running, move the check elsewhere?
+		return services.NewIdleService(nil, nil), nil
+	}
+
+	logLevel := g.cfg.LogLevel
+	if g.cfg.Asset.Server.LogLevel != nil {
+		logLevel = *g.cfg.Asset.Server.LogLevel
+	}
+
+	logger, err := log.NewLogger(logLevel, g.cfg.LogFormat, os.Stdout)
+	if err != nil {
+		g.logger.Error("failed to create logger", "module", "asset", "err", err)
+		os.Exit(1)
+	}
+
+	g.cfg.Asset.Server.Log = logger
+
+	server.DisableSignalHandling(&g.cfg.Asset.Server)
+	serv, err := server.New(g.cfg.Asset.Server)
+	if err != nil {
+		return nil, err
+	}
+
+	// The dskit DAG declares Asset: {Common, World}, so g.world has been
+	// initialised by the time initAsset runs (when World is enabled). When
+	// the world module is disabled, worldConn stays nil and the / WS route
+	// falls back to RootHandler only.
+	var worldConn connhandler.ConnHandler
+	if g.world != nil && g.world.Server != nil {
+		worldConn = g.world.Server
+	}
+
+	a, err := asset.New(g.cfg.Asset, logger, serv, worldConn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create asset: %w", err)
+	}
+	g.asset = a
+
+	// When the WS bridge is enabled and a world connection handler is wired,
+	// WebSocketHandler owns GET / and falls back to RootHandler for
+	// non-Upgrade requests (preserving the existing static dispatch chain).
+	if g.cfg.Asset.WebSocket.Enable && worldConn != nil {
+		g.asset.Server.HTTP.HandleFunc("GET /", g.asset.WebSocketHandler)
+	} else {
+		g.asset.Server.HTTP.HandleFunc("GET /", g.asset.RootHandler)
+	}
+
+	servicesToWaitFor := func() []services.Service {
+		return []services.Service{}
+	}
+
+	//return g.asset, nil
+	return server.NewServerService(serv, servicesToWaitFor), nil
+	//return g.asset.Service, nil
+}
+
+func (g *App) initLogin() (services.Service, error) {
+	if !g.cfg.Login.Enable {
+		// TODO: still makes module appear to be running, move the check elsewhere?
+		return services.NewIdleService(nil, nil), nil
+	}
+
+	logLevel := g.cfg.LogLevel
+	logger, err := log.NewLogger(logLevel, g.cfg.LogFormat, os.Stdout)
+	if err != nil {
+		g.logger.Error("failed to create logger", "module", "login", "err", err)
+		os.Exit(1)
+	}
+
+	l, err := login.New(g.cfg.Login, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create login: %w", err)
+	}
+	g.login = l
+
+	return g.login, nil
+}
+
+func (g *App) initFriends() (services.Service, error) {
+	if !g.cfg.Friends.Enable {
+		// TODO: still makes module appear to be running, move the check elsewhere?
+		return services.NewIdleService(nil, nil), nil
+	}
+
+	logLevel := g.cfg.LogLevel
+	logger, err := log.NewLogger(logLevel, g.cfg.LogFormat, os.Stdout)
+	if err != nil {
+		g.logger.Error("failed to create logger", "module", "friends", "err", err)
+		os.Exit(1)
+	}
+
+	f, err := friends.New(g.cfg.Friends, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create friends: %w", err)
+	}
+	g.friends = f
+
+	return g.friends, nil
+}
+
+func (g *App) initWorld() (services.Service, error) {
+	if !g.cfg.World.Enable {
+		// TODO: still makes module appear to be running, move the check elsewhere?
+		return services.NewIdleService(nil, nil), nil
+	}
+
+	logLevel := g.cfg.LogLevel
+	if g.cfg.World.LogLevel != nil {
+		logLevel = *g.cfg.World.LogLevel
+	}
+
+	logger, err := log.NewLogger(logLevel, g.cfg.LogFormat, os.Stdout)
+	if err != nil {
+		g.logger.Error("failed to create logger", "module", "world", "err", err)
+		os.Exit(1)
+	}
+
+	world.DisableSignalHandling(&g.cfg.World)
+	w, err := world.New(g.cfg.World, logger, tapper.NoopTapper())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create world: %w", err)
+	}
+	g.world = w
+
+	servicesToWaitFor := func() []services.Service {
+		return []services.Service{}
+	}
+
+	return world.NewWorldService(g.world.Server, g.world.GetLoginClient(), g.world.GetFriendsClient(), servicesToWaitFor), nil
+}
+
+func (g *App) setupModuleManager(logger *slog.Logger) error {
+	mm := modules.NewManager(logger)
+
+	// Common is a module that exists only to map dependencies
+	const Common = "common"
+
+	mm.RegisterModule(Common, nil, modules.UserInvisibleModule)
+
+	mm.RegisterModule(Asset, g.initAsset)
+	mm.RegisterModule(Friends, g.initFriends)
+	mm.RegisterModule(Login, g.initLogin)
+	mm.RegisterModule(World, g.initWorld)
+
+	mm.RegisterModule(SingleBinary, nil)
+
+	deps := map[string][]string{
+		Common: {},
+
+		Asset:   {Common, World},
+		Friends: {Common},
+		Login:   {Common},
+		World:   {Common, Login, Friends},
+
+		SingleBinary: {Asset, Friends, Login, World},
+	}
+
+	for mod, targets := range deps {
+		if err := mm.AddDependency(mod, targets...); err != nil {
+			return err
+		}
+	}
+
+	g.ModuleManager = mm
+
+	g.deps = deps
+
+	return nil
+}

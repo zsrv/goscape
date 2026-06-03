@@ -1,0 +1,22 @@
+# IDEs
+.idea/
+.vscode/
+
+# Binaries
+*.exe
+cmd/goscape/goscape
+cmd/goscape/goscape-debug
+cmd/goscape-cli/goscape-cli
+dist/
+
+
+data/
+dataplayers/
+
+.cache/
+.serena/
+
+# Git worktrees
+.worktrees/
+.claude/worktrees/
+
