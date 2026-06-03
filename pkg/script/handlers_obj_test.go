@@ -1512,7 +1512,6 @@ func (c *capturingWealthEmitter) EmitPlayerInput(*eventspb.PlayerInputEnvelope) 
 func (c *capturingWealthEmitter) EmitWealth(e *eventspb.WealthEnvelope) {
 	c.wealthCalls = append(c.wealthCalls, e)
 }
-func (c *capturingWealthEmitter) EmitReview(*eventspb.ReviewEnvelope) {}
 
 // TestHandleObjTakeItem_EmitsPickupTelemetry pins that OBJ_TAKEITEM emits
 // exactly one WealthEnvelope with an ItemPickedUp payload carrying the

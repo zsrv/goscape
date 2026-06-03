@@ -19,7 +19,6 @@ func (c *captureEmitter) EmitAuth(env *eventspb.AuthEnvelope) {
 func (c *captureEmitter) EmitWorld(*eventspb.WorldEnvelope)             {}
 func (c *captureEmitter) EmitPlayerInput(*eventspb.PlayerInputEnvelope) {}
 func (c *captureEmitter) EmitWealth(*eventspb.WealthEnvelope)           {}
-func (c *captureEmitter) EmitReview(*eventspb.ReviewEnvelope) {}
 
 func TestPlayerLogin_EmitsAuthEnvelope(t *testing.T) {
 	cap := &captureEmitter{}
