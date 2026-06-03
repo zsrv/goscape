@@ -123,6 +123,10 @@ func (n *Npc) huntAll(s *Server, hunt *objtype.HuntType) {
 	if len(hunted) > 0 {
 		n.huntTarget = hunted[rand.IntN(len(hunted))]
 	}
+	// hunted aliases s.huntScratch (PERF-2): nil the entries now that the
+	// pick is made so the scratch's spare capacity doesn't pin despawned
+	// entities until the next hunt.
+	clear(hunted)
 }
 
 // huntPlayers iterates players in zone-subscription within huntRange and returns
@@ -159,8 +163,8 @@ func (n *Npc) huntPlayers(s *Server, hunt *objtype.HuntType) []entity {
 	// TS HuntIterator zone-radius formula at ScriptIterators.ts:57:
 	// radius = (1 + distance/8) | 0.
 	zoneRadius := 1 + n.huntRange/8
-	var hunted []entity
-	for _, zn := range s.zoneMap.NearbyZones(n.level, n.x, n.z, zoneRadius) {
+	hunted := s.huntScratch[:0] // PERF-2: scratch reuse, see Server.huntScratch
+	for zn := range s.zoneMap.NearbyZonesSeq(n.level, n.x, n.z, zoneRadius) {
 		for pl := range zn.PlayersSafe(false) {
 			// Type-assertion guard for the PlayerLike cyclic-import boundary
 			// (pkg/zone defines PlayerLike; modules/world/*Player satisfies it).
@@ -294,6 +298,7 @@ func (n *Npc) huntPlayers(s *Server, hunt *objtype.HuntType) []entity {
 			hunted = append(hunted, p)
 		}
 	}
+	s.huntScratch = hunted
 	return hunted
 }
 

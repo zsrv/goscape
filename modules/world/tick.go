@@ -194,11 +194,31 @@ func (s *Server) runTickLoopWithRate(rate time.Duration) {
 	}
 }
 
-func (s *Server) processClientsIn() {
+// snapshotPlayers returns a stable copy of s.playerLoop for one tick pass
+// to iterate: passes like processLogouts splice players out of the live
+// slice mid-iteration, so ranging playerLoop directly would skip entries.
+//
+// The copy lands in s.playerScratch, reused across passes — pre-PERF-1
+// each of the 13 passes allocated a fresh slice, ~13 allocs/tick scaling
+// with player count. Tick-goroutine-only. The returned slice is valid
+// until the next snapshotPlayers call; callers must not retain it across
+// passes.
+func (s *Server) snapshotPlayers() []*Player {
 	s.playersMu.RLock()
-	players := make([]*Player, len(s.playerLoop))
-	copy(players, s.playerLoop)
+	prev := len(s.playerScratch)
+	s.playerScratch = append(s.playerScratch[:0], s.playerLoop...)
 	s.playersMu.RUnlock()
+	// Nil any tail left over from a previous, larger snapshot so departed
+	// players aren't pinned by the scratch's spare capacity. Invariant:
+	// playerScratch[len:cap] is all-nil between calls.
+	if n := len(s.playerScratch); prev > n {
+		clear(s.playerScratch[n:prev])
+	}
+	return s.playerScratch
+}
+
+func (s *Server) processClientsIn() {
+	players := s.snapshotPlayers()
 
 	for _, p := range players {
 		func(p *Player) {
@@ -395,10 +415,7 @@ func (s *Server) initPlayerVarps(p *Player) {
 }
 
 func (s *Server) processLogouts() {
-	s.playersMu.RLock()
-	players := make([]*Player, len(s.playerLoop))
-	copy(players, s.playerLoop)
-	s.playersMu.RUnlock()
+	players := s.snapshotPlayers()
 
 	for _, p := range players {
 		force := false
@@ -484,10 +501,7 @@ func (s *Server) processLogouts() {
 }
 
 func (s *Server) processPathing() {
-	s.playersMu.RLock()
-	players := make([]*Player, len(s.playerLoop))
-	copy(players, s.playerLoop)
-	s.playersMu.RUnlock()
+	players := s.snapshotPlayers()
 
 	for _, p := range players {
 		p.resolveMovement()
@@ -498,10 +512,7 @@ func (s *Server) processPathing() {
 // drain/recovery + run-mode auto-disable. Mirrors TS World.ts:731
 // (player.updateEnergy() per-player iteration). NAI-135.
 func (s *Server) processEnergy() {
-	s.playersMu.RLock()
-	players := make([]*Player, len(s.playerLoop))
-	copy(players, s.playerLoop)
-	s.playersMu.RUnlock()
+	players := s.snapshotPlayers()
 
 	for _, p := range players {
 		p.updateEnergy()
@@ -516,10 +527,7 @@ func (s *Server) processEnergy() {
 // before processInfo so the jump bit is set before the renderer reads it and
 // reset in processCleanup. M3.
 func (s *Server) processValidateDistanceWalked() {
-	s.playersMu.RLock()
-	players := make([]*Player, len(s.playerLoop))
-	copy(players, s.playerLoop)
-	s.playersMu.RUnlock()
+	players := s.snapshotPlayers()
 
 	for _, p := range players {
 		if p.masks&MaskExactMove == 0 {
@@ -533,10 +541,7 @@ func (s *Server) processValidateDistanceWalked() {
 // and processPathing so that a resumed or queued script that sets up
 // movement has its movement applied this tick.
 func (s *Server) processActiveScripts() {
-	s.playersMu.RLock()
-	players := make([]*Player, len(s.playerLoop))
-	copy(players, s.playerLoop)
-	s.playersMu.RUnlock()
+	players := s.snapshotPlayers()
 
 	for _, p := range players {
 		func(p *Player) {
@@ -700,10 +705,7 @@ func (s *Server) processPlayerQueueForType(p *Player, weak bool) {
 // Tick-loop slot: between processPlayerTimers and processPathing,
 // matching TS World.ts:725.
 func (s *Server) processPlayerEngineQueues() {
-	s.playersMu.RLock()
-	players := make([]*Player, len(s.playerLoop))
-	copy(players, s.playerLoop)
-	s.playersMu.RUnlock()
+	players := s.snapshotPlayers()
 
 	for _, p := range players {
 		func(p *Player) {
@@ -769,10 +771,7 @@ func (s *Server) processPlayerTimers() {
 // mutated on the tick goroutine itself, so the two snapshots are
 // identical in practice.
 func (s *Server) processPlayerTimersForType(filterType script.PlayerTimerType) {
-	s.playersMu.RLock()
-	players := make([]*Player, len(s.playerLoop))
-	copy(players, s.playerLoop)
-	s.playersMu.RUnlock()
+	players := s.snapshotPlayers()
 
 	for _, p := range players {
 		func(p *Player) {
@@ -835,10 +834,7 @@ func (s *Server) processPlayerTimersForType(filterType script.PlayerTimerType) {
 }
 
 func (s *Server) processClientsOut() {
-	s.playersMu.RLock()
-	players := make([]*Player, len(s.playerLoop))
-	copy(players, s.playerLoop)
-	s.playersMu.RUnlock()
+	players := s.snapshotPlayers()
 
 	for _, p := range players {
 		p.processOut()
@@ -846,10 +842,7 @@ func (s *Server) processClientsOut() {
 }
 
 func (s *Server) processInfo() {
-	s.playersMu.RLock()
-	players := make([]*Player, len(s.playerLoop))
-	copy(players, s.playerLoop)
-	s.playersMu.RUnlock()
+	players := s.snapshotPlayers()
 
 	// NAI-66: TS World.ts:995 — per-tick refocus before rsbuf compute.
 	// Refocuses on a moved PathingEntity target or clears the cached
@@ -1028,10 +1021,7 @@ func (s *Server) processZones() {
 // interaction cycle (pre-step interact + path recompute), at the player's
 // position before this tick's processPathing. See processInteractionPreMove.
 func (s *Server) processInteractionsPreMove() {
-	s.playersMu.RLock()
-	players := make([]*Player, len(s.playerLoop))
-	copy(players, s.playerLoop)
-	s.playersMu.RUnlock()
+	players := s.snapshotPlayers()
 	for _, p := range players {
 		func(p *Player) {
 			defer recoverPlayer(p, "processInteractionPreMove", s.log)
@@ -1043,10 +1033,7 @@ func (s *Server) processInteractionsPreMove() {
 // processInteractions runs the post-movement half of each player's
 // interaction cycle (post-step interact + tail), after processPathing.
 func (s *Server) processInteractions() {
-	s.playersMu.RLock()
-	players := make([]*Player, len(s.playerLoop))
-	copy(players, s.playerLoop)
-	s.playersMu.RUnlock()
+	players := s.snapshotPlayers()
 	for _, p := range players {
 		func(p *Player) {
 			defer recoverPlayer(p, "processInteractionPostMove", s.log)
@@ -1061,10 +1048,7 @@ func (s *Server) processInteractions() {
 // orders zones→players→npcs→invs). No cross-step data dependency makes the
 // order observable — each reset clears independent end-of-tick state.
 func (s *Server) processCleanup() {
-	s.playersMu.RLock()
-	players := make([]*Player, len(s.playerLoop))
-	copy(players, s.playerLoop)
-	s.playersMu.RUnlock()
+	players := s.snapshotPlayers()
 	for _, p := range players {
 		p.ResetMasks()
 		// NAI-72/108 — TS Player.resetEntity(false) at Player.ts:454-467.

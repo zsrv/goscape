@@ -135,3 +135,97 @@ func TestNearbyZonesClampsNegativeCoords(t *testing.T) {
 		t.Errorf("NearbyZones near origin: got %d zones, want 1 (just origin)", len(zones))
 	}
 }
+
+// TestNearbyZonesSeqMatchesNearbyZones pins the PERF-2 contract: the
+// allocation-free iterator must yield exactly what NearbyZones returns —
+// same zones, same deterministic order (dx outer asc, dz inner asc) — for
+// every radius/level/clamp shape the slice variant is pinned on above.
+func TestNearbyZonesSeqMatchesNearbyZones(t *testing.T) {
+	m := NewZoneMap()
+	// Dense 5x5 around (3094, 3106) level 0 with a hole (skip dx=1,dz=0),
+	// plus a level-1 zone and an origin zone for the clamp case.
+	for dx := -2; dx <= 2; dx++ {
+		for dz := -2; dz <= 2; dz++ {
+			if dx == 1 && dz == 0 {
+				continue // unmaterialised hole
+			}
+			m.Get(0, 3094+dx*8, 3106+dz*8)
+		}
+	}
+	m.Get(1, 3094, 3106)
+	m.Get(0, 0, 0)
+
+	cases := []struct {
+		name                string
+		level, x, z, radius int
+	}{
+		{"radius0", 0, 3094, 3106, 0},
+		{"radius1-with-hole", 0, 3094, 3106, 1},
+		{"radius2", 0, 3094, 3106, 2},
+		{"radius3-partially-unmaterialised", 0, 3094, 3106, 3},
+		{"level1", 1, 3094, 3106, 1},
+		{"negative-clamp", 0, 0, 0, 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			want := m.NearbyZones(tc.level, tc.x, tc.z, tc.radius)
+			var got []*Zone
+			for zn := range m.NearbyZonesSeq(tc.level, tc.x, tc.z, tc.radius) {
+				got = append(got, zn)
+			}
+			if len(got) != len(want) {
+				t.Fatalf("yielded %d zones, want %d", len(got), len(want))
+			}
+			for i := range want {
+				if got[i] != want[i] {
+					t.Fatalf("zone[%d] differs from NearbyZones order", i)
+				}
+			}
+		})
+	}
+}
+
+// TestNearbyZonesSeqEarlyBreak pins the iterator contract: a consumer
+// breaking out of the range loop stops the sequence cleanly.
+func TestNearbyZonesSeqEarlyBreak(t *testing.T) {
+	m := NewZoneMap()
+	for dx := -1; dx <= 1; dx++ {
+		for dz := -1; dz <= 1; dz++ {
+			m.Get(0, 3094+dx*8, 3106+dz*8)
+		}
+	}
+	count := 0
+	for range m.NearbyZonesSeq(0, 3094, 3106, 1) {
+		count++
+		if count == 2 {
+			break
+		}
+	}
+	if count != 2 {
+		t.Errorf("consumed %d zones before break, want 2", count)
+	}
+}
+
+// TestNearbyZonesSeqZeroAlloc pins the reason the iterator exists: the
+// slice variant allocates per call, and the hunt pass calls it once per
+// hunting NPC per tick (PERF-2).
+func TestNearbyZonesSeqZeroAlloc(t *testing.T) {
+	m := NewZoneMap()
+	for dx := -1; dx <= 1; dx++ {
+		for dz := -1; dz <= 1; dz++ {
+			m.Get(0, 3094+dx*8, 3106+dz*8)
+		}
+	}
+	allocs := testing.AllocsPerRun(100, func() {
+		n := 0
+		for range m.NearbyZonesSeq(0, 3094, 3106, 1) {
+			n++
+		}
+		if n != 9 {
+			t.Fatalf("yielded %d zones, want 9", n)
+		}
+	})
+	if allocs != 0 {
+		t.Errorf("NearbyZonesSeq allocs/op = %v, want 0", allocs)
+	}
+}

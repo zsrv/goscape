@@ -114,9 +114,23 @@ type Server struct {
 	// player_info.go, friends_smoke_test.go) for no behavioural change
 	// at the wire boundary. Documented; deferred indefinitely. See
 	// PORTING.md.
-	playerLoop  []*Player
-	newPlayers  []*Player // guarded by playersMu; drained by processLogins
-	playersMu   sync.RWMutex
+	playerLoop []*Player
+	newPlayers []*Player // guarded by playersMu; drained by processLogins
+	playersMu  sync.RWMutex
+	// playerScratch is the reusable snapshot buffer behind snapshotPlayers
+	// (tick.go). Tick-goroutine-only: the per-tick passes that snapshot
+	// playerLoop run strictly sequentially on the tick goroutine, so one
+	// buffer serves them all. Off-tick snapshotters (broadcastRebuildStaff
+	// on the rebuild worker goroutine, saveAllOnShutdown) must keep
+	// allocating their own copies.
+	playerScratch []*Player
+	// huntScratch is the reusable candidate buffer shared by the four
+	// npc-hunt variants (huntPlayers/huntNpcs/huntObjs/huntLocs). PERF-2:
+	// hunts run once per hunting NPC per tick, and pre-fix each scan
+	// allocated its candidate slice. Tick-goroutine-only; one hunt scan
+	// runs at a time, and huntAll nils the entries after picking so the
+	// scratch never pins despawned entities.
+	huntScratch []entity
 	currentTick int
 
 	// shutdownTick is the tick on which the world will halt. -1 means

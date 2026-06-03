@@ -1,6 +1,10 @@
 package zone
 
-import "github.com/zsrv/goscape/pkg/coordgrid"
+import (
+	"iter"
+
+	"github.com/zsrv/goscape/pkg/coordgrid"
+)
 
 // ZoneMap is the world's collection of Zones, indexed by packed (x,z,level).
 // Zones are created on first access; empty zones carry zero state and cost.
@@ -60,23 +64,38 @@ func (m *ZoneMap) ZoneCount() int { return len(m.zones) }
 // Used by modules/world/npc_hunt_entities.go for huntObjs/huntLocs
 // zone-iteration.
 func (m *ZoneMap) NearbyZones(level, x, z, zoneRadius int) []*Zone {
+	out := make([]*Zone, 0, (2*zoneRadius+1)*(2*zoneRadius+1))
+	for zn := range m.NearbyZonesSeq(level, x, z, zoneRadius) {
+		out = append(out, zn)
+	}
+	return out
+}
+
+// NearbyZonesSeq is the allocation-free iterator form of NearbyZones:
+// identical zone set and identical deterministic order (dx outer
+// ascending, dz inner ascending), without materialising the slice.
+//
+// PERF-2: the hunt pass (modules/world npc hunt variants) walks nearby
+// zones once per hunting NPC per tick — the slice variant's per-call
+// allocation is pure garbage there.
+func (m *ZoneMap) NearbyZonesSeq(level, x, z, zoneRadius int) iter.Seq[*Zone] {
 	zoneX := x >> 3
 	zoneZ := z >> 3
-	out := make([]*Zone, 0, (2*zoneRadius+1)*(2*zoneRadius+1))
-	for dx := -zoneRadius; dx <= zoneRadius; dx++ {
-		for dz := -zoneRadius; dz <= zoneRadius; dz++ {
-			zx := zoneX + dx
-			zz := zoneZ + dz
-			if zx < 0 || zz < 0 {
-				continue
-			}
-			idx := coordgrid.ZoneIndex(zx<<3, zz<<3, level)
-			if zn, ok := m.zones[idx]; ok {
-				out = append(out, zn)
+	return func(yield func(*Zone) bool) {
+		for dx := -zoneRadius; dx <= zoneRadius; dx++ {
+			for dz := -zoneRadius; dz <= zoneRadius; dz++ {
+				zx := zoneX + dx
+				zz := zoneZ + dz
+				if zx < 0 || zz < 0 {
+					continue
+				}
+				idx := coordgrid.ZoneIndex(zx<<3, zz<<3, level)
+				if zn, ok := m.zones[idx]; ok && !yield(zn) {
+					return
+				}
 			}
 		}
 	}
-	return out
 }
 
 // LocCount sums len(Locs) across all materialised zones.

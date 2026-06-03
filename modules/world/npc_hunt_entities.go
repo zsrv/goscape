@@ -28,8 +28,8 @@ func (n *Npc) huntNpcs(s *Server, hunt *objtype.HuntType) []entity {
 		return nil
 	}
 	zoneRadius := 1 + n.huntRange/8
-	var hunted []entity
-	for _, zn := range s.zoneMap.NearbyZones(n.level, n.x, n.z, zoneRadius) {
+	hunted := s.huntScratch[:0] // PERF-2: scratch reuse, see Server.huntScratch
+	for zn := range s.zoneMap.NearbyZonesSeq(n.level, n.x, n.z, zoneRadius) {
 		for nl := range zn.NpcsSafe(false) {
 			// Type-assertion guard for the NpcLike cyclic-import boundary
 			// (pkg/zone defines NpcLike; modules/world/*Npc satisfies it).
@@ -77,6 +77,7 @@ func (n *Npc) huntNpcs(s *Server, hunt *objtype.HuntType) []entity {
 			hunted = append(hunted, other)
 		}
 	}
+	s.huntScratch = hunted
 	return hunted
 }
 
@@ -110,8 +111,8 @@ func (n *Npc) huntObjs(s *Server, hunt *objtype.HuntType) []entity {
 		return nil
 	}
 	zoneRadius := 1 + n.huntRange/8
-	var hunted []entity
-	for _, zn := range s.zoneMap.NearbyZones(n.level, n.x, n.z, zoneRadius) {
+	hunted := s.huntScratch[:0] // PERF-2: scratch reuse, see Server.huntScratch
+	for zn := range s.zoneMap.NearbyZonesSeq(n.level, n.x, n.z, zoneRadius) {
 		for _, o := range zn.Objs {
 			if o == nil {
 				continue
@@ -159,6 +160,7 @@ func (n *Npc) huntObjs(s *Server, hunt *objtype.HuntType) []entity {
 			hunted = append(hunted, o)
 		}
 	}
+	s.huntScratch = hunted
 	return hunted
 }
 
@@ -197,8 +199,8 @@ func (n *Npc) huntLocs(s *Server, hunt *objtype.HuntType) []entity {
 		return nil
 	}
 	zoneRadius := 1 + n.huntRange/8
-	var hunted []entity
-	for _, zn := range s.zoneMap.NearbyZones(n.level, n.x, n.z, zoneRadius) {
+	hunted := s.huntScratch[:0] // PERF-2: scratch reuse, see Server.huntScratch
+	for zn := range s.zoneMap.NearbyZonesSeq(n.level, n.x, n.z, zoneRadius) {
 		for _, l := range zn.Locs {
 			if l == nil {
 				continue
@@ -248,5 +250,6 @@ func (n *Npc) huntLocs(s *Server, hunt *objtype.HuntType) []entity {
 			hunted = append(hunted, l)
 		}
 	}
+	s.huntScratch = hunted
 	return hunted
 }
