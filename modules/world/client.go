@@ -93,7 +93,7 @@ type client struct {
 	// tap is the seam handle owned by the tapper dskit module;
 	// nil on tests that construct a client without a Server. Tap calls are
 	// always gated on (c.tap != nil && c.sessionID != "").
-	replay *tapper.Capture
+	tap tapper.Tapper
 	// sessionID is the per-login session correlation key for the tap
 	// pipeline, freshly minted in sendLoginOK. Distinct from sessionUUID
 	// (which is the friends-bridge correlation). Empty before login;

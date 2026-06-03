@@ -64,7 +64,7 @@ type Server struct {
 	// tap is the seam handle owned by the tapper dskit
 	// module. Nil in test paths (newTestServer); production always non-nil via
 	// NewServer. Threaded onto per-connection client.tap in handleTCPConn.
-	tap *tapper.Capture
+	tap tapper.Tapper
 	// friendsClient is the gRPC seam to the friends server. Nil when
 	// FriendsServerEnabled=false; in that case s.friendsBridge resolves
 	// to noopBridges{} via defaultFriendsBridge.
@@ -358,7 +358,7 @@ func (s *Server) appendNewPlayer(p *Player) {
 	s.playersMu.Unlock()
 }
 
-func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient, logger *slog.Logger, capture *tapper.Capture) (*Server, error) {
+func NewServer(cfg Config, loginClient LoginClient, friendsClient FriendsClient, logger *slog.Logger, tap tapper.Tapper) (*Server, error) {
 	tcpListener, err := net.Listen(cfg.TCPListenNetwork, net.JoinHostPort(cfg.TCPListenAddress, strconv.Itoa(cfg.TCPListenPort)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create tcp listener: %w", err)

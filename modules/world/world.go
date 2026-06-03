@@ -26,7 +26,7 @@ type World struct {
 	cfg                Config
 }
 
-func New(cfg Config, logger *slog.Logger, capture *tapper.Capture) (*World, error) {
+func New(cfg Config, logger *slog.Logger, tap tapper.Tapper) (*World, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
