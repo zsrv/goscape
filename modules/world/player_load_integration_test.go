@@ -49,7 +49,7 @@ func TestProcessLogins_NilSavePayload_BootstrapsFresh(t *testing.T) {
 	s, p := runProcessLogins(t, nil, invTypes)
 
 	if p.pid < 1 || p.pid > 2047 {
-		t.Errorf("player not added: slot=%d", p.pid)
+		t.Errorf("player not added: pid=%d", p.pid)
 	}
 	if s.players.get(p.pid) != p {
 		t.Error("players[slot] not set")
@@ -72,7 +72,7 @@ func TestProcessLogins_ValidSavePayload_LoadsSuccessfully(t *testing.T) {
 	s, p := runProcessLogins(t, sav, invTypes)
 
 	if p.pid < 1 || p.pid > 2047 {
-		t.Errorf("player not added: slot=%d", p.pid)
+		t.Errorf("player not added: pid=%d", p.pid)
 	}
 	if s.players.get(p.pid) != p {
 		t.Error("players[slot] not set")

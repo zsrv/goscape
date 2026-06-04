@@ -527,9 +527,10 @@ type ActivePlayer interface {
 	// (opcode 2030) handler. NAI-39.
 	HintStop()
 
-	// Slot returns the player's authoritative slot id (the index into the
-	// world's player array). Mirrors TS Player.slot. Consumed by HINT_PL,
-	// which reads activePlayer2.slot. NAI-39.
+	// Slot returns the player's pid (protocol identity). Name kept for the
+	// shared entity-interface shape (Npc's Slot() returns nid). Mirrors TS
+	// Player.pid at the 244 pin. Consumed by HINT_PL, which reads
+	// activePlayer2.pid. NAI-39.
 	Slot() int
 
 	// StaffModLevel returns the player's staff moderation level.

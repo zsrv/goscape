@@ -15,7 +15,7 @@ func TestServer_PlayerLifecycleRoundTripSmoke(t *testing.T) {
 		t.Fatalf("addPlayer: %v", err)
 	}
 	if p.pid < 1 {
-		t.Fatalf("addPlayer didn't assign slot (got %d)", p.pid)
+		t.Fatalf("addPlayer didn't assign pid (got %d)", p.pid)
 	}
 	pid := p.pid
 

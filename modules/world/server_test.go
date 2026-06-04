@@ -380,10 +380,10 @@ func TestAddPlayerAssignsSlot(t *testing.T) {
 		t.Fatalf("addPlayer: %v", err)
 	}
 	if p.pid < 1 || p.pid > 2047 {
-		t.Errorf("slot out of range: %d", p.pid)
+		t.Errorf("pid out of range: %d", p.pid)
 	}
 	if s.players.get(p.pid) != p {
-		t.Error("players[slot] should point to p")
+		t.Error("players.get(pid) should point to p")
 	}
 	if s.players.count != 1 {
 		t.Errorf("players.count: got %d, want 1", s.players.count)
