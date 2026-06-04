@@ -2369,8 +2369,11 @@ func TestCalcCombatLevel_UsesBaseLevelsNotLevels(t *testing.T) {
 
 // TestRecomputeCombatLevel_* pin the guarded-rebuild semantics.
 // Mirrors the inline `if (combatLevel != getCombatLevel()) { ...
-// buildAppearance(appearanceInv); }` blocks at TS Player.ts:1810-1813
-// and 1830-1833. NAI-184 T2.
+// buildAppearance(...); }` blocks at TS Player.ts:1820-1824 and
+// 1840-1844 (244 pin). The 244 delta — the rebuild arg changed from
+// appearanceInv to InvType.WORN — is pinned by
+// TestRecomputeCombatLevel_Change_RebuildTrue_UsesWornInv below.
+// NAI-184 T2.
 
 func TestRecomputeCombatLevel_NoChange_NoMaskFlip(t *testing.T) {
 	p := &Player{}

@@ -796,8 +796,10 @@ func (p *Player) calcCombatLevel() int {
 // 244 delta (TS Player.ts:1823 + 1843): both rebuild sites call
 // buildAppearance(InvType.WORN) rather than buildAppearance(this.appearanceInv).
 // Use p.client.server.invTypes.Worn when available; fall back to
-// p.appearanceInv when invTypes is nil (test paths that don't wire a
-// server — matches the pattern in handleIfPlayerDesign).
+// p.appearanceInv on test paths that call this without a fully-wired
+// server (production always has client+server+invTypes bound).
+// handleIfPlayerDesign uses the analogous invTypes nil-guard, though it
+// needs no client/server guards (it is a *Server method).
 //
 // NAI-184.
 func (p *Player) recomputeCombatLevel(triggerRebuild bool) {
