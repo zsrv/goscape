@@ -27,8 +27,8 @@ import (
 	"github.com/zsrv/goscape/pkg/friendspb"
 	"github.com/zsrv/goscape/pkg/gamemap"
 	"github.com/zsrv/goscape/pkg/inventory"
-	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/io/filestream"
+	io2 "github.com/zsrv/goscape/pkg/io/isaac"
 	"github.com/zsrv/goscape/pkg/io/packet"
 	"github.com/zsrv/goscape/pkg/io/protocol"
 	loginreq "github.com/zsrv/goscape/pkg/io/protocol/login/req"
@@ -975,19 +975,23 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 			// (<4 bytes) are retained across reads, matching the consumed-contract
 			// of onClientData (ondemand.go adaptation note (1)).
 			// TS: TcpServer.ts:35-37 → OnDemand.onClientData(client).
-			if s.onDemand != nil {
-				if !c.bufferData(msg) {
-					c.log.Warn("ondemand buffer overflow, closing connection", "remote_addr", conn.RemoteAddr())
-					return
-				}
-				adapter := &clientODAdapter{c: c}
-				pending := c.in.Bytes()
-				consumed := s.onDemand.onClientData(adapter, pending)
-				if consumed > 0 {
-					// Advance Pos by consumed bytes; Next() is the Packet equivalent
-					// of discard — it returns the slice and advances Pos.
-					c.in.Next(consumed)
-				}
+			if s.onDemand == nil {
+				// Defensive: only reachable on hand-built test servers that
+				// never ran NewServer. Don't silently drop frames — close.
+				c.log.Warn("ondemand handler nil; closing connection", "remote_addr", conn.RemoteAddr())
+				return
+			}
+			if !c.bufferData(msg) {
+				c.log.Warn("ondemand buffer overflow, closing connection", "remote_addr", conn.RemoteAddr())
+				return
+			}
+			adapter := &clientODAdapter{c: c}
+			pending := c.in.Bytes()
+			consumed := s.onDemand.onClientData(adapter, pending)
+			if consumed > 0 {
+				// Advance Pos by consumed bytes; Next() is the Packet equivalent
+				// of discard — it returns the slice and advances Pos.
+				c.in.Next(consumed)
 			}
 		}
 	}
@@ -1032,9 +1036,9 @@ func (c *client) handleLogin() error {
 		c.in.Next(2) // consume opcode + 1-byte payload
 
 		reply := packet.NewPacket(make([]byte, 0, 17))
-		reply.P4(0) // 4 zero bytes
-		reply.P4(0) // 4 more zero bytes → 8x0x00
-		reply.P1(0) // 0x00 separator byte
+		reply.P4(0)                          // 4 zero bytes
+		reply.P4(0)                          // 4 more zero bytes → 8x0x00
+		reply.P1(0)                          // 0x00 separator byte
 		reply.P4(rand.Uint32() & 0x00ffffff) // first seed word, 24-bit-masked
 		reply.P4(rand.Uint32())              // second seed word, full 32-bit
 		c.write(reply.Bytes())
@@ -1178,7 +1182,10 @@ func (c *client) handleLogin() error {
 		// Non-accepting replies: send the byte and close the connection.
 		switch reply {
 		case loginresp.OpOK.Opcode, loginresp.OpReconnectOK.Opcode, loginresp.OpLoginOKWithRights.Opcode:
-			// accepted — fall through to post-login handling below
+			// accepted — fall through to post-login handling below.
+			// (OpLoginOKWithRights here is unreachable: loginResultToRS2 never
+			// returns 18/19 — the staff byte is applied by sendLoginOK, not the
+			// RPC mapping. Kept for defensive symmetry.)
 		default:
 			return c.sendLoginError(reply)
 		}

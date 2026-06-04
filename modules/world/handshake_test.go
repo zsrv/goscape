@@ -256,45 +256,9 @@ func TestOp15OnDemandRoutingIntegration(t *testing.T) {
 // (d) staffModLevel — supermod byte 19
 // ---------------------------------------------------------------------------
 
-// TestSendLoginOKSupermodeByteIs19 pins World.ts:943-949 (244 pin 9aadcec4):
-//
-//	staffModLevel >= 2 → send byte 19 (supermod)
-//	staffModLevel >= 1 → send byte 18 (mod, already tested in TestSendLoginOKStaffSendsRightsByte)
-//	else              → send byte 2  (normal, already tested in TestSendLoginOKSendsOpOKAndTransitionsState)
-func TestSendLoginOKSupermodeByteIs19(t *testing.T) {
-	c, clientConn := newTestClient(t)
-	c.staffModLevel = 2
-
-	received := make(chan byte, 1)
-	go func() {
-		buf := make([]byte, 1)
-		_ = clientConn.(interface{ SetReadDeadline(time.Time) error }).SetReadDeadline(time.Now().Add(time.Second))
-		if _, err := io.ReadFull(clientConn, buf); err == nil {
-			received <- buf[0]
-		}
-	}()
-
-	if err := c.sendLoginOK(); err != nil {
-		t.Fatalf("sendLoginOK supermod: %v", err)
-	}
-
-	select {
-	case got := <-received:
-		if got != loginresp.OpLoginOKSupermod.Opcode {
-			t.Errorf("supermod login OK byte: got %d, want %d (OpLoginOKSupermod)",
-				got, loginresp.OpLoginOKSupermod.Opcode)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for supermod login OK byte")
-	}
-
-	if c.state != ClientStateGame {
-		t.Errorf("state after sendLoginOK: got %v, want ClientStateGame", c.state)
-	}
-}
-
 // TestSendLoginOKStaffTierMatrix pins all three tiers in one table.
-// TS World.ts:943-949: >=2→19, >=1→18, else→2.
+// TS World.ts:943-949 (244 pin 9aadcec4): >=2→19, >=1→18, else→2.
+// The state transition to ClientStateGame is asserted per row.
 func TestSendLoginOKStaffTierMatrix(t *testing.T) {
 	cases := []struct {
 		staffModLevel int32
@@ -331,6 +295,10 @@ func TestSendLoginOKStaffTierMatrix(t *testing.T) {
 				}
 			case <-time.After(time.Second):
 				t.Fatal("timeout")
+			}
+
+			if c.state != ClientStateGame {
+				t.Errorf("state after sendLoginOK: got %v, want ClientStateGame", c.state)
 			}
 		})
 	}
