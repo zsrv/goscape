@@ -10,10 +10,13 @@ import (
 )
 
 // testODClient is a fake odClient: records sent data and tracks close calls.
+// firstSend (when non-nil) is closed on the first send — a race-free signal
+// for tests that wait on the async run loop instead of polling.
 type testODClient struct {
-	mu     sync.Mutex
-	closed *bool
-	sent   [][]byte
+	mu        sync.Mutex
+	closed    *bool
+	sent      [][]byte
+	firstSend chan struct{}
 }
 
 func newTestODClient(closed *bool) *testODClient {
@@ -26,6 +29,9 @@ func (c *testODClient) send(data []byte) error {
 	cp := make([]byte, len(data))
 	copy(cp, data)
 	c.sent = append(c.sent, cp)
+	if c.firstSend != nil && len(c.sent) == 1 {
+		close(c.firstSend)
+	}
 	return nil
 }
 
@@ -397,6 +403,7 @@ func TestOnDemandRunLoopLifecycle(t *testing.T) {
 	od := newOnDemand(fs)
 	closed := false
 	c := newTestODClient(&closed)
+	c.firstSend = make(chan struct{})
 
 	stop := make(chan interface{})
 	var wg sync.WaitGroup
@@ -411,23 +418,12 @@ func TestOnDemandRunLoopLifecycle(t *testing.T) {
 	od.urgent = append(od.urgent, odRequest{client: c, archive: 0, file: 99})
 	od.mu.Unlock()
 
-	// Wait up to 500ms for the cycle to pick it up (50ms cadence).
-	deadline := time.Now().Add(500 * time.Millisecond)
-	for time.Now().Before(deadline) {
-		c.mu.Lock()
-		n := len(c.sent)
-		c.mu.Unlock()
-		if n > 0 {
-			break
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-
-	c.mu.Lock()
-	got := len(c.sent)
-	c.mu.Unlock()
-	if got == 0 {
-		t.Fatal("run loop never drained the request within 500ms")
+	// Wait for the run loop's cycle (50ms cadence) to drain the request —
+	// channel signal, not polling, so a loaded CI scheduler can't flake it.
+	select {
+	case <-c.firstSend:
+	case <-time.After(5 * time.Second):
+		t.Fatal("run loop never drained the request within 5s")
 	}
 
 	// Stop the loop and verify it exits.
