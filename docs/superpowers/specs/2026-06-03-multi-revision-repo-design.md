@@ -90,3 +90,22 @@ Everything. No deletions: `PORTING.md`, `docs/PORTING-CLOSED.md`,
 - `rev-244` branch creation and any 244 porting work
 - Remote/publishing setup
 - Changes to `rev-225` code or revision-specific docs beyond the tidy commits
+
+## Addendum (2026-06-03, post-ship): `main` re-rooted as orphan
+
+After the conversion shipped, the user requested that `main`'s *history*
+contain no code at all. The original design connected `main` to the initial
+commit `6579371c`, whose 5 code files therefore sat in `main`'s history
+(goscape-client never had this issue — its root commit is empty).
+
+Since `rev-225` history must not be rewritten, `main` was re-rooted: a new
+parentless commit `bd227722` carrying the byte-identical 4-file tree of the
+original hub commit `aef80ce6` (same message), and `main` was re-pointed to
+it. Every file ever touched in `main`'s history is now one of the 4 hub docs.
+
+Two design properties from this spec are superseded by the addendum:
+
+- `git merge-base main rev-225` no longer resolves (disconnected histories) —
+  accepted, nothing depends on it.
+- The "hub commit deletes the 5 initial-commit code files" framing: the
+  re-rooted hub commit creates only the 4 docs files; nothing is deleted.
