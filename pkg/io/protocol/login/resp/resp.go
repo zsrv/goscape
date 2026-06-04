@@ -122,4 +122,11 @@ var (
 		PayloadSize: 0,
 		Name:        "LoginOKWithRights",
 	}
+	// OpLoginOKSupermod is sent when staffModLevel >= 2.
+	// TS World.ts:943-949 (244 pin 9aadcec4): >=2 → byte 19 (supermod/admin).
+	OpLoginOKSupermod = protocol.Operation{
+		Opcode:      19,
+		PayloadSize: 0,
+		Name:        "LoginOKSupermod",
+	}
 )

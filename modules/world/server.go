@@ -900,21 +900,11 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 		s.log.Info("connection closed", "remote_addr", conn.RemoteAddr())
 	}()
 
-	// L48: the first seed word is masked to 24 bits, matching TS web.ts:135
-	// (Math.floor(Math.random() * 0x00ffffff)); the second is a full 32-bit
-	// word (web.ts:136). These 8 bytes are session entropy fed into the login
-	// handshake, so the high byte is functionally inert — but masking keeps the
-	// wire bytes byte-faithful to the TS upstream.
-	seed := packet.NewPacket(make([]byte, 0, 8))
-	seed.P4(rand.Uint32() & 0x00ffffff)
-	seed.P4(rand.Uint32())
-
-	c.write(seed.Bytes())
-	// Fix 2: apply write deadline when flushing.
-	if err := c.flushWrite(); err != nil {
-		s.log.Error("failed to send seed", "error", err)
-		return
-	}
+	// rev-244 B3: connect-time seed send REMOVED.
+	// At 225, TcpServer.ts:24-27 sent an 8-byte seed immediately on connect.
+	// At 244, TcpServer.ts has no such send (9aadcec4) — the seed is now
+	// generated and sent inside the op-14 reply (World.ts:2151-2155). A fresh
+	// connection receives NO unsolicited bytes.
 
 	buf := getReadBuf64k()
 	defer putReadBuf64k(buf)
@@ -978,6 +968,27 @@ func (s *Server) handleTCPConn(conn net.Conn) {
 				c.log.Warn("incoming buffer overflow, closing connection", "remote_addr", conn.RemoteAddr())
 				return
 			}
+		case ClientStateOndemand:
+			// rev-244 B3: op-15 transitioned this connection to OnDemand mode.
+			// Route received bytes to the onDemand handler via a *clientODAdapter.
+			// Per-connection buffering: accumulate msg into c.in so partial frames
+			// (<4 bytes) are retained across reads, matching the consumed-contract
+			// of onClientData (ondemand.go adaptation note (1)).
+			// TS: TcpServer.ts:35-37 → OnDemand.onClientData(client).
+			if s.onDemand != nil {
+				if !c.bufferData(msg) {
+					c.log.Warn("ondemand buffer overflow, closing connection", "remote_addr", conn.RemoteAddr())
+					return
+				}
+				adapter := &clientODAdapter{c: c}
+				pending := c.in.Bytes()
+				consumed := s.onDemand.onClientData(adapter, pending)
+				if consumed > 0 {
+					// Advance Pos by consumed bytes; Next() is the Packet equivalent
+					// of discard — it returns the slice and advances Pos.
+					c.in.Next(consumed)
+				}
+			}
 		}
 	}
 }
@@ -1002,6 +1013,50 @@ func (c *client) handleLogin() error {
 	switch opcode[0] {
 	default:
 		return fmt.Errorf("unexpected opcode in login state: %d", opcode[0])
+
+	case 14:
+		// Op 14 — checklogin handshake (World.ts:2143-2155 at 244 pin 9aadcec4).
+		// Total wire input: opcode(1) + payload(1) = 2 bytes.
+		// Payload is the _loginServer discriminator byte — read and discarded by TS.
+		// Reply (17 bytes total, sent in three TS calls merged into one Go write):
+		//   8x0x00            — TS: client.send([0,0,0,0,0,0,0,0])
+		//   0x00              — TS: client.send([0])
+		//   p4(rand & 0x00ffffff) || p4(rand) — 8-byte seed (World.ts:2152-2154).
+		// The seed is generated fresh per call and NOT stored — the client echoes
+		// its own ISAAC seeds inside the RSA block at op 16/18.
+		// First word masked to 24 bits (TS: Math.random() * 0x00ffffff) so high byte
+		// is always 0x00 — byte-faithful to the TS upstream.
+		if c.in.Len() < 2 {
+			return protocol.ErrPayloadTooSmall
+		}
+		c.in.Next(2) // consume opcode + 1-byte payload
+
+		reply := packet.NewPacket(make([]byte, 0, 17))
+		reply.P4(0) // 4 zero bytes
+		reply.P4(0) // 4 more zero bytes → 8x0x00
+		reply.P1(0) // 0x00 separator byte
+		reply.P4(rand.Uint32() & 0x00ffffff) // first seed word, 24-bit-masked
+		reply.P4(rand.Uint32())              // second seed word, full 32-bit
+		c.write(reply.Bytes())
+		if err := c.flushWrite(); err != nil {
+			return fmt.Errorf("op14: flush failed: %w", err)
+		}
+		return nil
+
+	case 15:
+		// Op 15 — OnDemand connection entry (World.ts:2240-2242 at 244 pin 9aadcec4).
+		// Total wire input: opcode(1), no payload.
+		// Transitions client.state to 2 (ClientStateOndemand) and sends 8 zero bytes.
+		// After this reply, the connection's read-loop routes all subsequent bytes
+		// to s.onDemand.onClientData via *clientODAdapter (TcpServer.ts:35-37).
+		c.in.Next(1) // consume opcode byte
+		c.state = ClientStateOndemand
+		c.write(make([]byte, 8)) // 8 zero bytes — TS: client.send(new Uint8Array(8))
+		if err := c.flushWrite(); err != nil {
+			return fmt.Errorf("op15: flush failed: %w", err)
+		}
+		return nil
+
 	case loginreq.OpReqInitGameConnection.Opcode, loginreq.OpReqGameReconnect.Opcode:
 		var req loginreq.GameLogin
 

@@ -29,9 +29,14 @@ const maxClientInBufSize = 65535
 type ClientState int
 
 const (
-	ClientStateClosed ClientState = -1
-	ClientStateLogin  ClientState = 0
-	ClientStateGame   ClientState = 1
+	ClientStateClosed   ClientState = -1
+	ClientStateLogin    ClientState = 0
+	ClientStateGame     ClientState = 1
+	// ClientStateOndemand marks a connection that has completed the op-15
+	// handshake and is now serving OnDemand cache requests.
+	// TS uses literal 2 for this state (TcpServer.ts:35-37, client.state===2
+	// check; World.ts:2241: client.state = 2). Value must match TS exactly.
+	ClientStateOndemand ClientState = 2
 )
 
 type client struct {
@@ -167,7 +172,13 @@ func (c *client) sendLoginOK() error {
 		c.tap.SessionStarted(c.accountID, c.sessionID, time.Now())
 	}
 
-	if c.staffModLevel >= 1 {
+	// TS World.ts:943-949 (244 pin 9aadcec4):
+	//   staffModLevel >= 2 → 19 (supermod/admin)
+	//   staffModLevel >= 1 → 18 (mod — right-click report abuse)
+	//   else              → 2  (normal)
+	if c.staffModLevel >= 2 {
+		c.bufw.WriteByte(loginresp.OpLoginOKSupermod.Opcode)
+	} else if c.staffModLevel >= 1 {
 		c.bufw.WriteByte(loginresp.OpLoginOKWithRights.Opcode)
 	} else {
 		c.bufw.WriteByte(loginresp.OpOK.Opcode)
@@ -186,6 +197,31 @@ func (c *client) sendLoginError(code byte) error {
 	c.log.Debug("send login error", "opcode", c.opcode, "num_bytes", c.in.Len(), "data", code)
 	c.flushWrite() // best-effort; connection is closing regardless
 	return errCloseConn
+}
+
+// clientODAdapter adapts *client to the odClient interface consumed by onDemand.
+// It is wired by the connection read-loop in state ClientStateOndemand.
+//
+// send writes data through the buffered writer and flushes immediately.
+// Race safety: after the op-15 handshake transitions state to ClientStateOndemand,
+// the connection's read goroutine only reads — it never writes again. All
+// sends come from the onDemand cycle goroutine via this adapter, making bufw
+// access single-writer and race-safe without additional locking.
+//
+// close calls conn.Close() which causes the read goroutine's bufr.Read to
+// return an error, triggering the deferred cleanup (release, player remove,
+// log). This mirrors TS client.close() → socket.destroy() (TcpServer.ts:57).
+type clientODAdapter struct {
+	c *client
+}
+
+func (a *clientODAdapter) send(data []byte) error {
+	a.c.write(data)
+	return a.c.flushWrite()
+}
+
+func (a *clientODAdapter) close() {
+	a.c.conn.Close()
 }
 
 /////////////

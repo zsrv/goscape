@@ -12,8 +12,9 @@ import (
 // can originate while a per-connection goroutine decodes client data — most
 // importantly the unauthenticated login-RSA under-read panic of
 // gap-login-wire-1 (see req.TestUnmarshalBinary_TruncatedRSABlockPanics).
-// Writes are discarded so the seed handshake in handleTCPConn succeeds and the
-// goroutine reaches its read loop.
+// Writes are discarded. At rev-244 there is no connect-time seed send
+// (removed per TcpServer.ts:9aadcec4), so handleTCPConn goes straight to
+// the read loop; the first Read panics and is caught by serveConn's recover.
 type panicOnReadConn struct{}
 
 func (panicOnReadConn) Read([]byte) (int, error)         { panic("simulated decode panic") }
