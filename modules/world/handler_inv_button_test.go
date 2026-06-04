@@ -151,7 +151,7 @@ func TestHandleInvButtonDModeByteParsed(t *testing.T) {
 }
 
 // TestHandleInvButtonNoListener pins that a comId absent from invListeners
-// causes a drop (mirrors TS InvButtonHandler.ts:30-36).
+// causes a drop (mirrors TS InvButtonHandler.ts:24-27).
 func TestHandleInvButtonNoListener(t *testing.T) {
 	s, p := setupInvButtonServer(t)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
@@ -168,7 +168,7 @@ func TestHandleInvButtonNoListener(t *testing.T) {
 }
 
 // TestHandleInvButtonNilInv pins that a listener whose inv cannot be resolved
-// causes a drop (mirrors TS InvButtonHandler.ts:37-41).
+// causes a drop (mirrors TS InvButtonHandler.ts:29-32).
 func TestHandleInvButtonNilInv(t *testing.T) {
 	s, p := setupInvButtonServer(t)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
@@ -185,7 +185,7 @@ func TestHandleInvButtonNilInv(t *testing.T) {
 }
 
 // TestHandleInvButtonItemMismatch pins that HasAt(slot, obj) false causes a
-// drop (mirrors TS InvButtonHandler.ts:43-47: validSlot + hasAt checks).
+// drop (mirrors TS InvButtonHandler.ts:29-32: validSlot + hasAt checks).
 func TestHandleInvButtonItemMismatch(t *testing.T) {
 	s, p := setupInvButtonServer(t)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
@@ -299,7 +299,7 @@ func TestHandleInvButtonDNilInv(t *testing.T) {
 }
 
 // TestHandleInvButtonDSlotOOB pins that a slot or targetSlot outside
-// inv.Capacity causes a drop (mirrors TS InvButtonDHandler.ts:31-35:
+// inv.Capacity causes a drop (mirrors TS InvButtonDHandler.ts:27:
 // validSlot(slot) || validSlot(targetSlot) false).
 func TestHandleInvButtonDSlotOOB(t *testing.T) {
 	s, p := setupInvButtonServer(t)
@@ -317,7 +317,7 @@ func TestHandleInvButtonDSlotOOB(t *testing.T) {
 }
 
 // TestHandleInvButtonDSourceEmpty pins that an empty source slot causes a drop
-// (mirrors TS InvButtonDHandler.ts:36-39: inv.get(slot) falsy).
+// (mirrors TS InvButtonDHandler.ts:27: inv.get(slot) falsy).
 func TestHandleInvButtonDSourceEmpty(t *testing.T) {
 	s, p := setupInvButtonServer(t)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
@@ -335,7 +335,7 @@ func TestHandleInvButtonDSourceEmpty(t *testing.T) {
 
 // TestHandleInvButtonDDelayedRevert pins that a delayed player triggers
 // an UpdateInvPartial revert packet and does NOT set lastSlot/lastTargetSlot
-// (mirrors TS InvButtonDHandler.ts:41-44: UpdateInvPartial + return false).
+// (mirrors TS InvButtonDHandler.ts:31-35: UpdateInvPartial + return false).
 func TestHandleInvButtonDDelayedRevert(t *testing.T) {
 	s := newTestServer(t)
 	s.scriptProvider = script.NewProvider()
@@ -375,7 +375,7 @@ func TestHandleInvButtonDDelayedRevert(t *testing.T) {
 
 // TestHandleInvButtonDSetsStateAndRunsScript pins the happy path: valid payload
 // sets lastSlot/lastTargetSlot and fires [inv_buttond,<com>]
-// (mirrors TS InvButtonDHandler.ts:46-55).
+// (mirrors TS InvButtonDHandler.ts:37-51).
 func TestHandleInvButtonDSetsStateAndRunsScript(t *testing.T) {
 	s, p := setupInvButtonServer(t)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
