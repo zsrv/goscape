@@ -37,8 +37,8 @@ func init() {
 	gameHandlers[gameclient.OpcNoTimeout] = handleNoTimeout // NO_TIMEOUT
 	gameHandlers[gameclient.OpcIdleTimer] = handleIdleTimer // IDLE_TIMER
 
-	gameHandlers[gameclient.OpcMoveGameClick]    = handleMoveGameClick    // MOVE_GAMECLICK (opClick=false)
-	gameHandlers[gameclient.OpcMoveOpClick]       = handleMoveOpClick       // MOVE_OPCLICK (opClick=true)
+	gameHandlers[gameclient.OpcMoveGameClick] = handleMoveGameClick       // MOVE_GAMECLICK (opClick=false)
+	gameHandlers[gameclient.OpcMoveOpClick] = handleMoveOpClick           // MOVE_OPCLICK (opClick=true)
 	gameHandlers[gameclient.OpcMoveMinimapClick] = handleMoveMinimapClick // MOVE_MINIMAPCLICK
 
 	gameHandlers[gameclient.OpcClientCheat] = handleClientCheat // CLIENT_CHEAT
@@ -83,31 +83,31 @@ func init() {
 	gameHandlers[gameclient.OpcOpHeldT] = handleOpHeldT // OPHELDT
 	gameHandlers[gameclient.OpcOpHeldU] = handleOpHeldU // OPHELDU
 
-	gameHandlers[gameclient.OpcChatSetmode]   = handleChatSetMode   // CHAT_SETMODE
+	gameHandlers[gameclient.OpcChatSetmode] = handleChatSetMode     // CHAT_SETMODE
 	gameHandlers[gameclient.OpcFriendlistAdd] = handleFriendListAdd // FRIENDLIST_ADD
 	gameHandlers[gameclient.OpcFriendlistDel] = handleFriendListDel // FRIENDLIST_DEL
 	gameHandlers[gameclient.OpcIgnorelistAdd] = handleIgnoreListAdd // IGNORELIST_ADD
 	gameHandlers[gameclient.OpcIgnorelistDel] = handleIgnoreListDel // IGNORELIST_DEL
-	gameHandlers[gameclient.OpcReportAbuse]   = handleReportAbuse   // REPORT_ABUSE
+	gameHandlers[gameclient.OpcReportAbuse] = handleReportAbuse     // REPORT_ABUSE
 
 	gameHandlers[gameclient.OpcEventTracking] = handleEventTracking // EVENT_TRACKING
 
 	gameHandlers[gameclient.OpcMessagePrivate] = handleMessagePrivate // MESSAGE_PRIVATE
-	gameHandlers[gameclient.OpcMessagePublic]  = handleMessagePublic  // MESSAGE_PUBLIC
+	gameHandlers[gameclient.OpcMessagePublic] = handleMessagePublic   // MESSAGE_PUBLIC
 
-	gameHandlers[gameclient.OpcResumePauseButton]  = handleResumePauseButton // RESUME_PAUSEBUTTON
+	gameHandlers[gameclient.OpcResumePauseButton] = handleResumePauseButton  // RESUME_PAUSEBUTTON
 	gameHandlers[gameclient.OpcResumePCountdialog] = handleResumeCountDialog // RESUME_P_COUNTDIALOG
 
-	gameHandlers[gameclient.OpcCloseModal]       = handleCloseModal   // CLOSE_MODAL
+	gameHandlers[gameclient.OpcCloseModal] = handleCloseModal          // CLOSE_MODAL
 	gameHandlers[gameclient.OpcTutorialClickSide] = handleTutClickSide // TUTORIAL_CLICKSIDE
 
-	gameHandlers[gameclient.OpcIfButton]       = handleIfButton         // IF_BUTTON
-	gameHandlers[gameclient.OpcInvButton1]     = handleInvButton1       // INV_BUTTON1
-	gameHandlers[gameclient.OpcInvButton2]     = handleInvButton2       // INV_BUTTON2
-	gameHandlers[gameclient.OpcInvButton3]     = handleInvButton3       // INV_BUTTON3
-	gameHandlers[gameclient.OpcInvButton4]     = handleInvButton4       // INV_BUTTON4
-	gameHandlers[gameclient.OpcInvButton5]     = handleInvButton5       // INV_BUTTON5
-	gameHandlers[gameclient.OpcInvButtonD]     = handleInvButtonD       // INV_BUTTOND
+	gameHandlers[gameclient.OpcIfButton] = handleIfButton                // IF_BUTTON
+	gameHandlers[gameclient.OpcInvButton1] = handleInvButton1            // INV_BUTTON1
+	gameHandlers[gameclient.OpcInvButton2] = handleInvButton2            // INV_BUTTON2
+	gameHandlers[gameclient.OpcInvButton3] = handleInvButton3            // INV_BUTTON3
+	gameHandlers[gameclient.OpcInvButton4] = handleInvButton4            // INV_BUTTON4
+	gameHandlers[gameclient.OpcInvButton5] = handleInvButton5            // INV_BUTTON5
+	gameHandlers[gameclient.OpcInvButtonD] = handleInvButtonD            // INV_BUTTOND
 	gameHandlers[gameclient.OpcIfPlayerDesign] = handleIdkSaveDesignGame // IF_PLAYERDESIGN
 }
 

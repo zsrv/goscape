@@ -15,8 +15,8 @@ const (
 
 // 244 wire opcodes. TS ClientGameProt.ts (244 pin) — the TS ctor's first arg (NXT packet index) has zero readers at the pin and is not modeled.
 const (
-	OpcNoTimeout  uint8 = 107
-	OpcIdleTimer  uint8 = 146
+	OpcNoTimeout     uint8 = 107
+	OpcIdleTimer     uint8 = 146
 	OpcEventTracking uint8 = 217
 
 	OpcAnticheatOplogic1 uint8 = 47
@@ -87,20 +87,20 @@ const (
 	OpcResumePCountdialog uint8 = 190
 	OpcTutorialClickSide  uint8 = 233
 
-	OpcMoveOpClick       uint8 = 167
-	OpcReportAbuse       uint8 = 251
-	OpcMoveMinimapClick  uint8 = 56
-	OpcInvButtonD        uint8 = 81
-	OpcIgnorelistDel     uint8 = 207
-	OpcIgnorelistAdd     uint8 = 203
-	OpcIfPlayerDesign    uint8 = 8
-	OpcChatSetmode       uint8 = 98
-	OpcMessagePrivate    uint8 = 170
-	OpcFriendlistDel     uint8 = 69
-	OpcFriendlistAdd     uint8 = 9
-	OpcClientCheat       uint8 = 76
-	OpcMessagePublic     uint8 = 171
-	OpcMoveGameClick     uint8 = 63
+	OpcMoveOpClick      uint8 = 167
+	OpcReportAbuse      uint8 = 251
+	OpcMoveMinimapClick uint8 = 56
+	OpcInvButtonD       uint8 = 81
+	OpcIgnorelistDel    uint8 = 207
+	OpcIgnorelistAdd    uint8 = 203
+	OpcIfPlayerDesign   uint8 = 8
+	OpcChatSetmode      uint8 = 98
+	OpcMessagePrivate   uint8 = 170
+	OpcFriendlistDel    uint8 = 69
+	OpcFriendlistAdd    uint8 = 9
+	OpcClientCheat      uint8 = 76
+	OpcMessagePublic    uint8 = 171
+	OpcMoveGameClick    uint8 = 63
 )
 
 // Ops is a 256-entry lookup table indexed by decrypted game opcode.

@@ -122,7 +122,7 @@ func TestClientProt244(t *testing.T) {
 		}
 	}
 
-	// Count non-empty entries; must equal exactly 78.
+	// Count non-empty entries; must equal exactly 76.
 	count := 0
 	for i := range Ops {
 		if Ops[i].Name != "" {
