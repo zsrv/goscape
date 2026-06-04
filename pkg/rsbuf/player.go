@@ -30,7 +30,7 @@ type Player struct {
 	FaceX, FaceZ                           int32
 	OrientationX, OrientationZ             int32
 	DamageTaken, DamageType                int32
-	DamageTaken2, DamageType2              int32 // rsbuf 244 player.rs:28-29
+	DamageTaken2, DamageType2              int32 // rsbuf 244 player.rs:28-29; written by ComputePlayer, but the wire reads PlayerSource.Damage2Amt/Type — lib.rs-parity bookkeeping only
 	CurrentHitpoints, BaseHitpoints        int32
 	AnimID, AnimDelay                      int32
 	Say                                    *string // nil = no say this tick

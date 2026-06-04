@@ -25,7 +25,7 @@ type Npc struct {
 	FaceX, FaceZ                           int32
 	OrientationX, OrientationZ             int32
 	DamageTaken, DamageType                int32
-	DamageTaken2, DamageType2              int32 // rsbuf 244 npc.rs:20-21
+	DamageTaken2, DamageType2              int32 // rsbuf 244 npc.rs:20-21; written by ComputeNpc, but the wire reads NpcSource.Damage2Amt/Type — lib.rs-parity bookkeeping only
 	CurrentHitpoints, BaseHitpoints        int32
 	AnimID, AnimDelay                      int32
 	Say                                    *string

@@ -170,9 +170,9 @@ func TestMaskHeaderLarge(t *testing.T) {
 }
 
 // TestWriteMaskPayloads_CanonicalOrder pins the canonical rsbuf write order
-// (info.rs:362-401, ascending bit-value): APPEARANCE -> ANIM -> FACE_ENTITY ->
-// SAY -> DAMAGE -> FACE_COORD -> CHAT -> SPOT_ANIM -> EXACT_MOVE. Java client
-// getPlayerExtended (client.java:10444-10559) reads in the same order.
+// (info.rs:362-404): APPEARANCE -> ANIM -> FACE_ENTITY -> SAY -> DAMAGE ->
+// FACE_COORD -> CHAT -> SPOT_ANIM -> EXACT_MOVE -> DAMAGE2 (244: appended
+// last). Java client getPlayerExtended reads in the same order.
 //
 // This is the regression pin for NAI-32 Bundle 3 Stage 4: pre-fix, goscape
 // wrote ANIM before APPEARANCE, FACE_COORD before APPEARANCE, etc., causing
