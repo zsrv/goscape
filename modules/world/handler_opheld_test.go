@@ -22,7 +22,7 @@ func opHeldPayload(obj, slot, com int) []byte {
 
 // setupOpHeldServer returns a Server + Player pre-wired with a world inv at
 // invType=93, com=149, source=-1. ObjType 555 has IOp = ["op1","","","",""]
-// so op=1 is allowed and op=2..5 reject. ComponentType 149 is Operable
+// so op=1 is allowed and op=2..5 reject. ComponentType 149 is Interactable
 // with RootLayer=149 (matches modalMain default).
 //
 // Item id=555 count=1 lives at inv slot 3.
@@ -51,7 +51,7 @@ func setupOpHeldServer(t *testing.T) (*Server, *Player) {
 	p.client.server = s
 	p.invListenOnCom(93, 149, -1)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Operable: true, Usable: true},
+		149: {RootLayer: 149, Interactable: true, Usable: true},
 	})
 	p.tabs[0] = 149
 	p.modalMain = 149 // matches RootLayer ⇒ ClearPendingAction NOT called
@@ -100,18 +100,18 @@ func TestHandleOpHeld_NilComponent(t *testing.T) {
 	}
 }
 
-// TestHandleOpHeld_NotOperable pins that com.Operable=false rejects.
+// TestHandleOpHeld_NotInteractable pins that com.Interactable=false rejects.
 // Mirrors TS OpHeldHandler.ts:21-23.
-func TestHandleOpHeld_NotOperable(t *testing.T) {
+func TestHandleOpHeld_NotInteractable(t *testing.T) {
 	s, p := setupOpHeldServer(t)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Operable: false},
+		149: {RootLayer: 149, Interactable: false},
 	})
 
 	_ = handleOpHeld1(p, opHeldPayload(555, 3, 149))
 
 	if p.lastItem != -1 {
-		t.Errorf("lastItem: got %d, want -1 (Operable=false must reject)", p.lastItem)
+		t.Errorf("lastItem: got %d, want -1 (Interactable=false must reject)", p.lastItem)
 	}
 }
 
@@ -325,7 +325,7 @@ func setupOpHeldTServer(t *testing.T) (*Server, *Player) {
 	t.Helper()
 	s, p := setupOpHeldServer(t)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Operable: true, Usable: true},
+		149: {RootLayer: 149, Interactable: true, Usable: true},
 		200: {RootLayer: 200, ActionTarget: objtype.ComActionTargetHeld},
 	})
 	p.tabs[1] = 200 // spell tab visible
@@ -355,7 +355,7 @@ func TestHandleOpHeldT_ShortPayload(t *testing.T) {
 func TestHandleOpHeldT_SpellComMissingHeldFlag(t *testing.T) {
 	s, p := setupOpHeldTServer(t)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Operable: true, Usable: true},
+		149: {RootLayer: 149, Interactable: true, Usable: true},
 		200: {RootLayer: 200, ActionTarget: 0}, // HELD flag clear
 	})
 	p.tabs[1] = 200
@@ -369,7 +369,7 @@ func TestHandleOpHeldT_SpellComMissingHeldFlag(t *testing.T) {
 func TestHandleOpHeldT_ComNotUsable(t *testing.T) {
 	s, p := setupOpHeldTServer(t)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Operable: true, Usable: false}, // Usable cleared
+		149: {RootLayer: 149, Interactable: true, Usable: false}, // Usable cleared
 		200: {RootLayer: 200, ActionTarget: objtype.ComActionTargetHeld},
 	})
 	p.tabs[1] = 200
@@ -442,7 +442,7 @@ func TestHandleOpHeldT_NoScript_NothingInteresting(t *testing.T) {
 	p.client.server = s
 	p.invListenOnCom(93, 149, -1)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Operable: true, Usable: true},
+		149: {RootLayer: 149, Interactable: true, Usable: true},
 		200: {RootLayer: 200, ActionTarget: objtype.ComActionTargetHeld},
 	})
 	p.tabs[0] = 149
@@ -725,7 +725,7 @@ func TestHandleOpHeldU_AllMiss_NothingInteresting(t *testing.T) {
 	p.client.server = s
 	p.invListenOnCom(93, 149, -1)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Operable: true, Usable: true},
+		149: {RootLayer: 149, Interactable: true, Usable: true},
 	})
 	p.tabs[0] = 149
 
@@ -823,7 +823,7 @@ func TestHandleOpHeldTSessionLogPush(t *testing.T) {
 	s, p := setupOpHeldTServer(t)
 	// Set ComName on spell component 200 — re-seed because seedComponentTypes is full-replace.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Operable: true, Usable: true},
+		149: {RootLayer: 149, Interactable: true, Usable: true},
 		200: {RootLayer: 200, ActionTarget: objtype.ComActionTargetHeld, ComName: "spell_blast"},
 	})
 	// Register a no-op script to prevent the "Nothing interesting happens."
@@ -862,7 +862,7 @@ func TestHandleOpHeldTSessionLogPush(t *testing.T) {
 func TestHandleOpHeldTSessionLogMissingObjType(t *testing.T) {
 	s, p := setupOpHeldTServer(t)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Operable: true, Usable: true},
+		149: {RootLayer: 149, Interactable: true, Usable: true},
 		200: {RootLayer: 200, ActionTarget: objtype.ComActionTargetHeld, ComName: "spell_blast"},
 	})
 	// Register a no-op script to prevent the "Nothing interesting happens."
@@ -922,7 +922,7 @@ func TestHandleOpHeldU_MembersOnFreeWorld_Rejects(t *testing.T) {
 	p.client.server = s
 	p.invListenOnCom(93, 149, -1)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Operable: true, Usable: true},
+		149: {RootLayer: 149, Interactable: true, Usable: true},
 	})
 	p.tabs[0] = 149
 

@@ -244,6 +244,8 @@ func packInterface(reg *pack.Registry, srcDir string) (client, server *packet.Pa
 		client.P2(uint16(atoiOr0(src["clientcode"])))
 		client.P2(uint16(atoiOr0(src["width"])))
 		client.P2(uint16(atoiOr0(src["height"])))
+		// TS PackShared.ts:270-274, new in 244: trans byte after height.
+		client.P1(uint8(atoiOr0(src["trans"])))
 
 		if overlayer, ok := src["overlayer"]; ok && overlayer != "" {
 			layerId := interfacePack.GetByName(com.root + ":" + overlayer)
@@ -332,7 +334,7 @@ func packInterface(reg *pack.Registry, srcDir string) (client, server *packet.Pa
 		case 0:
 			client.P2(uint16(atoiOr0(src["scroll"])))
 			client.PBool(src["hide"] == "yes")
-			client.P1(uint8(len(com.children)))
+			client.P2(uint16(len(com.children))) // TS PackShared.ts:431, widened p1→p2 in 244
 			for _, childId := range com.children {
 				client.P2(uint16(childId))
 				client.P2(uint16(atoiOr0(components[childId].src["x"])))

@@ -13,6 +13,8 @@ import (
 // with the supplied comType/buttonType and no comparator/scripts/extra
 // fields beyond what the type-switches read. Returns a packet ready for
 // parseComponentTypes' client arg.
+//
+// 244 format: trans byte inserted after height (TS Component.ts:66).
 func minimalComponentRecord(t *testing.T, id int, comType, buttonType uint8, typeBody, buttonBody []byte) *packet.Packet {
 	t.Helper()
 	p := packet.NewPacket(nil)
@@ -23,6 +25,7 @@ func minimalComponentRecord(t *testing.T, id int, comType, buttonType uint8, typ
 	p.P2(0) // clientCode
 	p.P2(0) // width
 	p.P2(0) // height
+	p.P1(0) // trans = 0 (TS Component.ts:66, new in 244)
 	p.P1(0) // overLayer = 0 → -1, no follow-up byte
 	p.P1(0) // comparatorCount = 0
 	p.P1(0) // scriptCount = 0
@@ -35,8 +38,8 @@ func TestComponentDecode_HeaderFields(t *testing.T) {
 	client := minimalComponentRecord(t, 10, ComTypeLayer, ButtonNone,
 		[]byte{
 			0, 0, // scroll = 0
-			0, // hide = false
-			0, // childCount = 0
+			0,    // hide = false
+			0, 0, // childCount = 0 (g2 per TS Component.ts:105, new in 244)
 		},
 		nil,
 	)
@@ -73,13 +76,14 @@ func TestComponentDecode_RootLayerSentinel(t *testing.T) {
 	p.P2(0)
 	p.P2(0)
 	p.P2(0) // clientCode/width/height
+	p.P1(0) // trans = 0 (TS Component.ts:66, new in 244)
 	p.P1(0) // overLayer
 	p.P1(0) // comparatorCount
 	p.P1(0) // scriptCount
 	// TYPE_LAYER body: scroll/hide/childCount=0
 	p.P2(0)
 	p.P1(0)
-	p.P1(0)
+	p.P2(0) // childCount as g2 (TS Component.ts:105, new in 244)
 
 	cfg, err := parseComponentTypes(p, nil)
 	if err != nil {
@@ -96,7 +100,7 @@ func TestComponentDecode_RootLayerSentinel(t *testing.T) {
 func TestComponentDecode_OverLayerZero(t *testing.T) {
 	// overLayer byte = 0 → OverLayer must be -1 (no follow-up byte consumed)
 	client := minimalComponentRecord(t, 3, ComTypeLayer, ButtonNone,
-		[]byte{0, 0, 0, 0}, nil)
+		[]byte{0, 0, 0, 0, 0}, nil) // scroll(g2)+hide(g1)+childCount(g2) per TS Component.ts:103-107
 	cfg, err := parseComponentTypes(client, nil)
 	if err != nil {
 		t.Fatalf("parseComponentTypes: %v", err)
@@ -116,6 +120,7 @@ func TestComponentDecode_OverLayerNonZero(t *testing.T) {
 	p.P2(0)
 	p.P2(0)
 	p.P2(0) // clientCode/width/height
+	p.P1(0) // trans = 0 (TS Component.ts:66, new in 244)
 	p.P1(2) // overLayer hi = 2
 	p.P1(5) // overLayer lo = 5
 	p.P1(0) // comparatorCount
@@ -123,7 +128,7 @@ func TestComponentDecode_OverLayerNonZero(t *testing.T) {
 	// TYPE_LAYER body
 	p.P2(0)
 	p.P1(0)
-	p.P1(0)
+	p.P2(0) // childCount as g2 (TS Component.ts:105, new in 244)
 
 	cfg, err := parseComponentTypes(p, nil)
 	if err != nil {
@@ -144,6 +149,7 @@ func TestComponentDecode_ScriptComparator(t *testing.T) {
 	p.P2(0)
 	p.P2(0)
 	p.P2(0) // clientCode/width/height
+	p.P1(0) // trans = 0 (TS Component.ts:66, new in 244)
 	p.P1(0) // overLayer
 	p.P1(3) // comparatorCount = 3
 	p.P1(1)
@@ -156,7 +162,7 @@ func TestComponentDecode_ScriptComparator(t *testing.T) {
 	// TYPE_LAYER body
 	p.P2(0)
 	p.P1(0)
-	p.P1(0)
+	p.P2(0) // childCount as g2 (TS Component.ts:105, new in 244)
 
 	cfg, err := parseComponentTypes(p, nil)
 	if err != nil {
@@ -187,6 +193,7 @@ func TestComponentDecode_ScriptsArray(t *testing.T) {
 	p.P2(0)
 	p.P2(0)
 	p.P2(0) // clientCode/width/height
+	p.P1(0) // trans = 0 (TS Component.ts:66, new in 244)
 	p.P1(0) // overLayer
 	p.P1(0) // comparatorCount
 	p.P1(2) // scriptCount = 2
@@ -203,7 +210,7 @@ func TestComponentDecode_ScriptsArray(t *testing.T) {
 	// TYPE_LAYER body
 	p.P2(0)
 	p.P1(0)
-	p.P1(0)
+	p.P2(0) // childCount as g2 (TS Component.ts:105, new in 244)
 
 	cfg, err := parseComponentTypes(p, nil)
 	if err != nil {
@@ -226,6 +233,7 @@ func TestComponentDecode_ScriptsArray(t *testing.T) {
 
 func TestComponentDecode_TypeLayer(t *testing.T) {
 	// scroll=500, hide=true, childCount=2 with full child fields
+	// 244 format: trans byte after height; childCount as g2 (TS Component.ts:66,105)
 	p := packet.NewPacket(nil)
 	p.P2(0) // count header
 	p.P2(4) // id
@@ -234,12 +242,13 @@ func TestComponentDecode_TypeLayer(t *testing.T) {
 	p.P2(0)
 	p.P2(0)
 	p.P2(0)   // clientCode/width/height
+	p.P1(0)   // trans = 0 (TS Component.ts:66, new in 244)
 	p.P1(0)   // overLayer
 	p.P1(0)   // comparatorCount
 	p.P1(0)   // scriptCount
 	p.P2(500) // scroll
 	p.P1(1)   // hide = true
-	p.P1(2)   // childCount = 2
+	p.P2(2)   // childCount = 2 (g2 per TS Component.ts:105, new in 244)
 	// child[0]: id=10, x=20, y=30
 	p.P2(10)
 	p.P2(uint16(int16(20)))
@@ -275,6 +284,7 @@ func TestComponentDecode_TypeLayer(t *testing.T) {
 
 func TestComponentDecode_TypeUnused(t *testing.T) {
 	// ComTypeUnused skips 10 bytes; next record (id=1) must decode correctly.
+	// 244 format: trans byte after height; childCount as g2 (TS Component.ts:66,105)
 	p := packet.NewPacket(nil)
 	p.P2(0) // count header
 	// record id=0, ComTypeUnused
@@ -284,6 +294,7 @@ func TestComponentDecode_TypeUnused(t *testing.T) {
 	p.P2(0)
 	p.P2(0)
 	p.P2(0) // clientCode/width/height
+	p.P1(0) // trans = 0 (TS Component.ts:66, new in 244)
 	p.P1(0) // overLayer
 	p.P1(0) // comparatorCount
 	p.P1(0) // scriptCount
@@ -296,12 +307,13 @@ func TestComponentDecode_TypeUnused(t *testing.T) {
 	p.P2(0)
 	p.P2(0)
 	p.P2(0) // clientCode/width/height
+	p.P1(0) // trans = 0 (TS Component.ts:66, new in 244)
 	p.P1(0) // overLayer
 	p.P1(0) // comparatorCount
 	p.P1(0) // scriptCount
 	p.P2(0)
 	p.P1(0)
-	p.P1(0) // scroll/hide/childCount=0
+	p.P2(0) // scroll/hide/childCount=0 (childCount g2 per TS Component.ts:105)
 
 	cfg, err := parseComponentTypes(p, nil)
 	if err != nil {
@@ -322,7 +334,9 @@ func TestComponentDecode_TypeUnused(t *testing.T) {
 }
 
 func TestComponentDecode_TypeInventory(t *testing.T) {
-	// 2 populated slots (indices 0 and 3), 18 empty; iop[5]; action fields
+	// 2 populated slots (indices 0 and 3), 18 empty; inventoryOptions[5]; action fields
+	// 244 format: trans byte after height; interactable/inventoryOptions rename
+	// (TS Component.ts:66, 124, 141-143)
 	p := packet.NewPacket(nil)
 	p.P2(0) // count header
 	p.P2(6) // id
@@ -331,11 +345,12 @@ func TestComponentDecode_TypeInventory(t *testing.T) {
 	p.P2(0)
 	p.P2(0)
 	p.P2(0) // clientCode/width/height
+	p.P1(0) // trans = 0 (TS Component.ts:66, new in 244)
 	p.P1(0) // overLayer
 	p.P1(0) // comparatorCount
 	p.P1(0) // scriptCount
 	p.P1(1) // draggable = true
-	p.P1(0) // operable = false
+	p.P1(0) // interactable = false (renamed from operable, TS Component.ts:124)
 	p.P1(1) // usable = true
 	p.P1(3) // marginX = 3
 	p.P1(4) // marginY = 4
@@ -376,8 +391,8 @@ func TestComponentDecode_TypeInventory(t *testing.T) {
 	if !c.Draggable {
 		t.Errorf("Draggable: want true")
 	}
-	if c.Operable {
-		t.Errorf("Operable: want false")
+	if c.Interactable {
+		t.Errorf("Interactable: want false") // renamed from Operable (TS Component.ts:288)
 	}
 	if !c.Usable {
 		t.Errorf("Usable: want true")
@@ -394,8 +409,8 @@ func TestComponentDecode_TypeInventory(t *testing.T) {
 	if c.InventorySlotOffsetX[3] != -1 || c.InventorySlotOffsetY[3] != -2 || c.InventorySlotGraphic[3] != "sprite3" {
 		t.Errorf("slot[3]: offsetX=%d offsetY=%d graphic=%q, want -1/-2/sprite3", c.InventorySlotOffsetX[3], c.InventorySlotOffsetY[3], c.InventorySlotGraphic[3])
 	}
-	if len(c.Iop) != 5 || c.Iop[0] != "use1" || c.Iop[4] != "use5" {
-		t.Errorf("Iop: got %v, want [use1..use5]", c.Iop)
+	if len(c.InventoryOptions) != 5 || c.InventoryOptions[0] != "use1" || c.InventoryOptions[4] != "use5" {
+		t.Errorf("InventoryOptions: got %v, want [use1..use5]", c.InventoryOptions) // renamed from Iop (TS Component.ts:295)
 	}
 	if c.ActionVerb != "Wield" {
 		t.Errorf("ActionVerb: got %q, want Wield", c.ActionVerb)
@@ -446,6 +461,7 @@ func TestComponentDecode_TypeText(t *testing.T) {
 	p.P2(0)
 	p.P2(0)
 	p.P2(0) // clientCode/width/height
+	p.P1(0) // trans = 0 (TS Component.ts:66, new in 244)
 	p.P1(0) // overLayer
 	p.P1(0) // comparatorCount
 	p.P1(0) // scriptCount
@@ -492,6 +508,7 @@ func TestComponentDecode_TypeSprite(t *testing.T) {
 	p.P2(0)
 	p.P2(0)
 	p.P2(0) // clientCode/width/height
+	p.P1(0) // trans = 0 (TS Component.ts:66, new in 244)
 	p.P1(0) // overLayer
 	p.P1(0) // comparatorCount
 	p.P1(0) // scriptCount
@@ -551,6 +568,8 @@ func TestComponentDecode_TypeModel(t *testing.T) {
 }
 
 func TestComponentDecode_TypeInventoryText(t *testing.T) {
+	// 244 format: trans byte after height; interactable/inventoryOptions rename
+	// (TS Component.ts:66, 208-211)
 	p := packet.NewPacket(nil)
 	p.P2(0)  // count header
 	p.P2(12) // id
@@ -559,6 +578,7 @@ func TestComponentDecode_TypeInventoryText(t *testing.T) {
 	p.P2(0)
 	p.P2(0)
 	p.P2(0)          // clientCode/width/height
+	p.P1(0)          // trans = 0 (TS Component.ts:66, new in 244)
 	p.P1(0)          // overLayer
 	p.P1(0)          // comparatorCount
 	p.P1(0)          // scriptCount
@@ -570,7 +590,7 @@ func TestComponentDecode_TypeInventoryText(t *testing.T) {
 	marginYNeg3 := int16(-3)
 	p.P2(uint16(marginX5))    // marginX = 5
 	p.P2(uint16(marginYNeg3)) // marginY = -3
-	p.P1(1)                   // operable = true
+	p.P1(1)                   // interactable = true (renamed from operable, TS Component.ts:208)
 	p.PJStrLF("op1")
 	p.PJStrLF("op2")
 	p.PJStrLF("op3")
@@ -600,16 +620,16 @@ func TestComponentDecode_TypeInventoryText(t *testing.T) {
 	if c.MarginY != -3 {
 		t.Errorf("MarginY: got %d, want -3", c.MarginY)
 	}
-	if !c.Operable {
-		t.Errorf("Operable: want true")
+	if !c.Interactable {
+		t.Errorf("Interactable: want true") // renamed from Operable (TS Component.ts:288)
 	}
-	if len(c.Iop) != 5 || c.Iop[0] != "op1" || c.Iop[4] != "op5" {
-		t.Errorf("Iop: got %v, want [op1..op5]", c.Iop)
+	if len(c.InventoryOptions) != 5 || c.InventoryOptions[0] != "op1" || c.InventoryOptions[4] != "op5" {
+		t.Errorf("InventoryOptions: got %v, want [op1..op5]", c.InventoryOptions) // renamed from Iop (TS Component.ts:295)
 	}
 }
 
 func TestComponentDecode_ButtonTarget(t *testing.T) {
-	typeBody := []byte{0, 0, 0, 0} // scroll=0, hide=false, childCount=0
+	typeBody := []byte{0, 0, 0, 0, 0} // scroll=0(g2), hide=false(g1), childCount=0(g2 per TS Component.ts:105)
 	buttonBody := []byte{
 		'a', 't', 't', 0x0a,
 		'A', 't', 't', 'a', 'c', 'k', 0x0a,
@@ -623,6 +643,7 @@ func TestComponentDecode_ButtonTarget(t *testing.T) {
 	client.P2(0)
 	client.P2(0)
 	client.P2(0)
+	client.P1(0) // trans = 0 (TS Component.ts:66, new in 244)
 	client.P1(0)
 	client.P1(0)
 	client.P1(0)
@@ -664,13 +685,14 @@ func TestComponentDecode_Button_ToggleSelectPause_Option(t *testing.T) {
 			p.P2(0)
 			p.P2(0)
 			p.P2(0)
+			p.P1(0) // trans = 0 (TS Component.ts:66, new in 244)
 			p.P1(0)
 			p.P1(0)
 			p.P1(0)
 			// TYPE_LAYER body
 			p.P2(0)
 			p.P1(0)
-			p.P1(0)
+			p.P2(0) // childCount as g2 (TS Component.ts:105, new in 244)
 			// button option
 			p.PJStrLF("MyOption")
 
@@ -688,7 +710,7 @@ func TestComponentDecode_Button_ToggleSelectPause_Option(t *testing.T) {
 
 func TestParseComponentTypes_DecodeExtraSetsOverlayAndComName(t *testing.T) {
 	client := minimalComponentRecord(t, 10, ComTypeLayer, ButtonNone,
-		[]byte{0, 0, 0, 0}, nil)
+		[]byte{0, 0, 0, 0, 0}, nil) // scroll(g2)+hide(g1)+childCount(g2) per TS Component.ts:103-107
 
 	server := packet.NewPacket(nil)
 	server.P2(0)
@@ -714,7 +736,7 @@ func TestParseComponentTypes_DecodeExtraSetsOverlayAndComName(t *testing.T) {
 func TestParseComponentTypes_DecodeExtraOnUnknownIdSilentlyDiscarded(t *testing.T) {
 	// client has id=10, server refers to id=99 which doesn't exist
 	client := minimalComponentRecord(t, 10, ComTypeLayer, ButtonNone,
-		[]byte{0, 0, 0, 0}, nil)
+		[]byte{0, 0, 0, 0, 0}, nil) // scroll(g2)+hide(g1)+childCount(g2) per TS Component.ts:103-107
 
 	server := packet.NewPacket(nil)
 	server.P2(0)
@@ -801,13 +823,14 @@ func TestLoadComponentTypes_MissingServerInterfaceDatStillDecodes(t *testing.T) 
 		p.P2(0)            // clientCode
 		p.P2(0)            // width
 		p.P2(0)            // height
+		p.P1(0)            // trans = 0 (TS Component.ts:66, new in 244)
 		p.P1(0)            // overLayer = 0 → -1
 		p.P1(0)            // comparatorCount = 0
 		p.P1(0)            // scriptCount = 0
 		// ComTypeLayer body: scroll/hide/childCount
 		p.P2(0)
 		p.P1(0)
-		p.P1(0)
+		p.P2(0) // childCount as g2 (TS Component.ts:105, new in 244)
 		return p.Data
 	}()
 
@@ -966,7 +989,7 @@ func TestComponentDecode_ServerOverlayGBool(t *testing.T) {
 			// A minimal client record so configs[5] exists for the server
 			// merge; parseComponentTypes consumes it, so build it per-case.
 			c := minimalComponentRecord(t, 5, ComTypeLayer, ButtonNone,
-				[]byte{0, 0, 0, 0}, nil)
+				[]byte{0, 0, 0, 0, 0}, nil) // scroll(g2)+hide(g1)+childCount(g2) per TS Component.ts:103-107
 			cfg, err := parseComponentTypes(c, buildServer(tc.overlayByte))
 			if err != nil {
 				t.Fatalf("parseComponentTypes: %v", err)
@@ -981,5 +1004,186 @@ func TestComponentDecode_ServerOverlayGBool(t *testing.T) {
 				t.Errorf("ComName: got %q, want %q", cfg.Configs[5].ComName, "ovl")
 			}
 		})
+	}
+}
+
+// TestComponentDecode_244_TransByte pins the rev-244 delta: trans byte is read
+// right after height (TS Component.ts:66). A fixture without the trans byte
+// would misparse overLayer and all subsequent fields.
+func TestComponentDecode_244_TransByte(t *testing.T) {
+	p := packet.NewPacket(nil)
+	p.P2(0) // count header
+	p.P2(20)
+	p.P1(ComTypeLayer)
+	p.P1(ButtonNone)
+	p.P2(0)
+	p.P2(100) // width = 100
+	p.P2(200) // height = 200
+	p.P1(7)   // trans = 7 (TS Component.ts:66, new in 244)
+	p.P1(0)   // overLayer = 0 → -1
+	p.P1(0)   // comparatorCount
+	p.P1(0)   // scriptCount
+	p.P2(0)   // scroll
+	p.P1(0)   // hide
+	p.P2(0)   // childCount (g2)
+
+	cfg, err := parseComponentTypes(p, nil)
+	if err != nil {
+		t.Fatalf("parseComponentTypes: %v", err)
+	}
+	c := cfg.Configs[20]
+	if c == nil {
+		t.Fatalf("Configs[20]: missing")
+	}
+	if c.Trans != 7 {
+		t.Errorf("Trans: got %d, want 7", c.Trans)
+	}
+	if c.Width != 100 {
+		t.Errorf("Width: got %d, want 100 (would be wrong if trans not consumed)", c.Width)
+	}
+	if c.Height != 200 {
+		t.Errorf("Height: got %d, want 200", c.Height)
+	}
+	if c.OverLayer != -1 {
+		t.Errorf("OverLayer: got %d, want -1 (wrong if trans consumed overLayer's byte)", c.OverLayer)
+	}
+}
+
+// TestComponentDecode_244_ChildCountG2 pins the rev-244 delta: layer childCount
+// is read as g2, allowing counts > 255 (TS Component.ts:105). A count of 300
+// (0x012C, > 0xFF) proves the g2 width — a g1 decode would read 0x01 = 1 and
+// misparse the subsequent child records.
+func TestComponentDecode_244_ChildCountG2(t *testing.T) {
+	p := packet.NewPacket(nil)
+	p.P2(0) // count header
+	p.P2(30)
+	p.P1(ComTypeLayer)
+	p.P1(ButtonNone)
+	p.P2(0)
+	p.P2(0)
+	p.P2(0)   // clientCode/width/height
+	p.P1(0)   // trans = 0
+	p.P1(0)   // overLayer
+	p.P1(0)   // comparatorCount
+	p.P1(0)   // scriptCount
+	p.P2(0)   // scroll
+	p.P1(0)   // hide
+	p.P2(300) // childCount = 300 (> 255, proves g2 not g1; TS Component.ts:105)
+	for i := range 300 {
+		p.P2(uint16(i)) // childId
+		p.P2(0)         // childX
+		p.P2(0)         // childY
+	}
+
+	cfg, err := parseComponentTypes(p, nil)
+	if err != nil {
+		t.Fatalf("parseComponentTypes: %v", err)
+	}
+	c := cfg.Configs[30]
+	if c == nil {
+		t.Fatalf("Configs[30]: missing")
+	}
+	if len(c.ChildId) != 300 {
+		t.Errorf("ChildId len: got %d, want 300 (g2 childCount)", len(c.ChildId))
+	}
+	if c.ChildId[299] != 299 {
+		t.Errorf("ChildId[299]: got %d, want 299", c.ChildId[299])
+	}
+}
+
+// TestComponentDecode_244_InventoryInteractableAndOptions pins the rev-244
+// renames: Interactable (was Operable) and InventoryOptions (was Iop) in the
+// TYPE_INVENTORY block (TS Component.ts:124, 141-143).
+func TestComponentDecode_244_InventoryInteractableAndOptions(t *testing.T) {
+	p := packet.NewPacket(nil)
+	p.P2(0) // count header
+	p.P2(40)
+	p.P1(ComTypeInventory)
+	p.P1(ButtonNone)
+	p.P2(0)
+	p.P2(0)
+	p.P2(0) // clientCode/width/height
+	p.P1(0) // trans
+	p.P1(0) // overLayer
+	p.P1(0) // comparatorCount
+	p.P1(0) // scriptCount
+	p.P1(0) // draggable = false
+	p.P1(1) // interactable = true (TS Component.ts:124)
+	p.P1(0) // usable = false
+	p.P1(0) // marginX
+	p.P1(0) // marginY
+	// 20 empty slots
+	for range 20 {
+		p.P1(0)
+	}
+	// inventoryOptions[5] (TS Component.ts:141-143)
+	p.PJStrLF("op1")
+	p.PJStrLF("op2")
+	p.PJStrLF("op3")
+	p.PJStrLF("op4")
+	p.PJStrLF("op5")
+	p.PJStrLF("") // actionVerb
+	p.PJStrLF("") // action
+	p.P2(0)       // actionTarget
+
+	cfg, err := parseComponentTypes(p, nil)
+	if err != nil {
+		t.Fatalf("parseComponentTypes: %v", err)
+	}
+	c := cfg.Configs[40]
+	if c == nil {
+		t.Fatalf("Configs[40]: missing")
+	}
+	if !c.Interactable {
+		t.Errorf("Interactable: want true (renamed from Operable, TS Component.ts:288)")
+	}
+	if len(c.InventoryOptions) != 5 || c.InventoryOptions[0] != "op1" || c.InventoryOptions[4] != "op5" {
+		t.Errorf("InventoryOptions: got %v, want [op1..op5] (renamed from Iop, TS Component.ts:295)", c.InventoryOptions)
+	}
+}
+
+// TestComponentDecode_244_InventoryTextInteractableAndOptions pins the rev-244
+// renames for TYPE_INVENTORY_TEXT: Interactable (was Operable) and
+// InventoryOptions (was Iop) (TS Component.ts:208-211).
+func TestComponentDecode_244_InventoryTextInteractableAndOptions(t *testing.T) {
+	p := packet.NewPacket(nil)
+	p.P2(0) // count header
+	p.P2(50)
+	p.P1(ComTypeInventoryText)
+	p.P1(ButtonNone)
+	p.P2(0)
+	p.P2(0)
+	p.P2(0) // clientCode/width/height
+	p.P1(0) // trans
+	p.P1(0) // overLayer
+	p.P1(0) // comparatorCount
+	p.P1(0) // scriptCount
+	p.P1(0) // center
+	p.P1(0) // font
+	p.P1(0) // shadowed
+	p.P4(0) // colour
+	p.P2(0) // marginX
+	p.P2(0) // marginY
+	p.P1(1) // interactable = true (renamed from operable, TS Component.ts:208)
+	// inventoryOptions[5] (TS Component.ts:209-211)
+	p.PJStrLF("io1")
+	p.PJStrLF("io2")
+	p.PJStrLF("io3")
+	p.PJStrLF("io4")
+	p.PJStrLF("io5")
+
+	cfg, err := parseComponentTypes(p, nil)
+	if err != nil {
+		t.Fatalf("parseComponentTypes: %v", err)
+	}
+	c := cfg.Configs[50]
+	if c == nil {
+		t.Fatalf("Configs[50]: missing")
+	}
+	if !c.Interactable {
+		t.Errorf("Interactable: want true (renamed from Operable, TS Component.ts:288)")
+	}
+	if len(c.InventoryOptions) != 5 || c.InventoryOptions[0] != "io1" || c.InventoryOptions[4] != "io5" {
+		t.Errorf("InventoryOptions: got %v, want [io1..io5] (renamed from Iop, TS Component.ts:295)", c.InventoryOptions)
 	}
 }

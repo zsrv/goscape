@@ -82,7 +82,7 @@ func TestHandleInvButtonShortPayload(t *testing.T) {
 func TestHandleInvButtonNoListener(t *testing.T) {
 	s, p := setupInvButtonServer(t)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		999: {RootLayer: 999, Iop: []string{"option1", "", "", "", ""}},
+		999: {RootLayer: 999, InventoryOptions: []string{"option1", "", "", "", ""}},
 	})
 	p.tabs[0] = 999
 
@@ -99,7 +99,7 @@ func TestHandleInvButtonNoListener(t *testing.T) {
 func TestHandleInvButtonNilInv(t *testing.T) {
 	s, p := setupInvButtonServer(t)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Iop: []string{"option1", "", "", "", ""}},
+		149: {RootLayer: 149, InventoryOptions: []string{"option1", "", "", "", ""}},
 	})
 	p.tabs[0] = 149
 	delete(s.invs, 93) // break the world-inv so resolveListenerInv returns nil
@@ -116,7 +116,7 @@ func TestHandleInvButtonNilInv(t *testing.T) {
 func TestHandleInvButtonItemMismatch(t *testing.T) {
 	s, p := setupInvButtonServer(t)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Iop: []string{"option1", "", "", "", ""}},
+		149: {RootLayer: 149, InventoryOptions: []string{"option1", "", "", "", ""}},
 	})
 	p.tabs[0] = 149
 
@@ -134,7 +134,7 @@ func TestHandleInvButtonItemMismatch(t *testing.T) {
 func TestHandleInvButtonSetsStateAndRunsScript(t *testing.T) {
 	s, p := setupInvButtonServer(t)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Iop: []string{"option1", "", "", "", ""}},
+		149: {RootLayer: 149, InventoryOptions: []string{"option1", "", "", "", ""}},
 	})
 	p.tabs[0] = 149
 	sf := &script.ScriptFile{
@@ -165,7 +165,7 @@ func TestHandleInvButtonSetsStateAndRunsScript(t *testing.T) {
 func TestHandleInvButtonOpVariant(t *testing.T) {
 	s, p := setupInvButtonServer(t)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Iop: []string{"o1", "o2", "", "", ""}},
+		149: {RootLayer: 149, InventoryOptions: []string{"o1", "o2", "", "", ""}},
 	})
 	p.tabs[0] = 149
 	sf := &script.ScriptFile{
@@ -345,21 +345,21 @@ func TestHandleInvButton_NilComponentRejects(t *testing.T) {
 	}
 }
 
-// TestHandleInvButton_NoIopAtOpRejects pins that com.Iop[op-1]=="" or out
+// TestHandleInvButton_NoIopAtOpRejects pins that com.InventoryOptions[op-1]=="" or out
 // of bounds rejects.
 func TestHandleInvButton_NoIopAtOpRejects(t *testing.T) {
 	s, p := setupInvButtonServer(t)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Iop: []string{"option1", "", "", "", ""}},
+		149: {RootLayer: 149, InventoryOptions: []string{"option1", "", "", "", ""}},
 	})
 	p.tabs[0] = 149
 
-	// op=2 → Iop[1]="" → reject
+	// op=2 → InventoryOptions[1]="" → reject
 	if err := s.handleInvButton(p, invButtonPayload(555, 3, 149), 2); err != nil {
 		t.Fatalf("handleInvButton: %v", err)
 	}
 	if p.lastItem != -1 {
-		t.Errorf("lastItem: got %d, want -1 (Iop[1]=\"\" should reject)", p.lastItem)
+		t.Errorf("lastItem: got %d, want -1 (InventoryOptions[1]=\"\" should reject)", p.lastItem)
 	}
 }
 
@@ -367,7 +367,7 @@ func TestHandleInvButton_NoIopAtOpRejects(t *testing.T) {
 func TestHandleInvButton_NotVisibleRejects(t *testing.T) {
 	s, p := setupInvButtonServer(t)
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 999, Iop: []string{"option1", "", "", "", ""}},
+		149: {RootLayer: 999, InventoryOptions: []string{"option1", "", "", "", ""}},
 	})
 	// p.tabs left at default — 999 not visible
 
@@ -399,7 +399,7 @@ func runInvButtonProtectScript(t *testing.T, op int, rootOverlay, includeRoot bo
 		func(s *Server, p *Player) error {
 			return s.handleInvButton(p, invButtonPayload(555, 3, comId), op)
 		},
-		&objtype.ComponentType{Iop: []string{"option1", "", "", "", ""}},
+		&objtype.ComponentType{InventoryOptions: []string{"option1", "", "", "", ""}},
 	)
 }
 

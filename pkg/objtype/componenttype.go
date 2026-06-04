@@ -43,7 +43,7 @@ const (
 )
 
 // ComponentType is a single interface component (widget) config record.
-// Mirrors Engine-TS/src/cache/config/Component.ts (fields at L270-318).
+// Mirrors Engine-TS/src/cache/config/Component.ts (fields at L277-318).
 type ComponentType struct {
 	ConfigType
 	RootLayer            int
@@ -54,6 +54,7 @@ type ComponentType struct {
 	ClientCode           int
 	Width                int
 	Height               int
+	Trans                int // TS Component.ts:280, new in 244
 	OverLayer            int
 	ScriptComparator     []uint8
 	ScriptOperand        []uint16
@@ -61,14 +62,14 @@ type ComponentType struct {
 	Scroll               int
 	Hide                 bool
 	Draggable            bool
-	Operable             bool
+	Interactable         bool // TS Component.ts:288; renamed from operable in 244
 	Usable               bool
 	MarginX              int
 	MarginY              int
 	InventorySlotOffsetX []int16
 	InventorySlotOffsetY []int16
 	InventorySlotGraphic []string
-	Iop                  []string
+	InventoryOptions     []string // TS Component.ts:295; renamed from iop in 244
 	Fill                 bool
 	Center               bool
 	Font                 int
@@ -176,6 +177,7 @@ func parseComponentTypes(client *packet.Packet, server *packet.Packet) (*Compone
 		com.ClientCode = int(client.G2())
 		com.Width = int(client.G2())
 		com.Height = int(client.G2())
+		com.Trans = int(client.G1()) // TS Component.ts:66, new in 244
 
 		overLayer := int(client.G1())
 		if overLayer == 0 {
@@ -210,7 +212,7 @@ func parseComponentTypes(client *packet.Packet, server *packet.Packet) (*Compone
 		case ComTypeLayer:
 			com.Scroll = int(client.G2())
 			com.Hide = client.GBool()
-			childCount := int(client.G1())
+			childCount := int(client.G2()) // TS Component.ts:105, widened g1→g2 in 244
 			com.ChildId = make([]uint16, childCount)
 			com.ChildX = make([]int16, childCount)
 			com.ChildY = make([]int16, childCount)
@@ -224,7 +226,7 @@ func parseComponentTypes(client *packet.Packet, server *packet.Packet) (*Compone
 			client.Pos += 10
 		case ComTypeInventory:
 			com.Draggable = client.GBool()
-			com.Operable = client.GBool()
+			com.Interactable = client.GBool() // TS Component.ts:124, renamed from operable in 244
 			com.Usable = client.GBool()
 			com.MarginX = int(client.G1())
 			com.MarginY = int(client.G1())
@@ -238,9 +240,9 @@ func parseComponentTypes(client *packet.Packet, server *packet.Packet) (*Compone
 					com.InventorySlotGraphic[i] = client.GJStrLF()
 				}
 			}
-			com.Iop = make([]string, 5)
+			com.InventoryOptions = make([]string, 5) // TS Component.ts:141, renamed from iop in 244
 			for i := range 5 {
-				com.Iop[i] = client.GJStrLF()
+				com.InventoryOptions[i] = client.GJStrLF() // TS Component.ts:143
 			}
 			com.ActionVerb = client.GJStrLF()
 			com.Action = client.GJStrLF()
@@ -297,10 +299,10 @@ func parseComponentTypes(client *packet.Packet, server *packet.Packet) (*Compone
 			com.Colour = int32(client.G4())
 			com.MarginX = int(client.G2S())
 			com.MarginY = int(client.G2S())
-			com.Operable = client.GBool()
-			com.Iop = make([]string, 5)
+			com.Interactable = client.GBool()        // TS Component.ts:208, renamed from operable in 244
+			com.InventoryOptions = make([]string, 5) // TS Component.ts:209, renamed from iop in 244
 			for i := range 5 {
-				com.Iop[i] = client.GJStrLF()
+				com.InventoryOptions[i] = client.GJStrLF() // TS Component.ts:211
 			}
 		}
 

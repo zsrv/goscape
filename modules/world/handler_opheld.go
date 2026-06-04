@@ -14,7 +14,7 @@ import (
 // Gates per TS OpHeldHandler.ts:
 //  1. p.delayed → drop
 //  2. payload < 6 → drop
-//  3. nil component or !Operable → drop
+//  3. nil component or !Interactable → drop
 //  4. !IsComponentVisible → drop
 //  5. comId not in invListeners → drop
 //  6. listener's inventory unresolved → drop
@@ -51,7 +51,7 @@ func handleOpHeld(p *Player, payload []byte, op int) error {
 	comId := int(r.G2())
 
 	com := s.lookupComponent(comId)
-	if com == nil || !com.Operable {
+	if com == nil || !com.Interactable {
 		return nil
 	}
 	if !p.IsComponentVisible(com) {

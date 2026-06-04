@@ -472,7 +472,7 @@ func runProtectScript(
 	includeRoot bool,
 	registerExtra func(*Server, *Player), // e.g., listener + inv setup
 	invokeHandler func(*Server, *Player) error,
-	componentExtras *objtype.ComponentType, // additional fields like Iop, Draggable
+	componentExtras *objtype.ComponentType, // additional fields like InventoryOptions, Draggable
 ) bool {
 	t.Helper()
 	s := newTestServer(t)
@@ -493,7 +493,7 @@ func runProtectScript(
 
 	com := &objtype.ComponentType{RootLayer: rootLayer}
 	if componentExtras != nil {
-		com.Iop = componentExtras.Iop
+		com.InventoryOptions = componentExtras.InventoryOptions
 		com.Draggable = componentExtras.Draggable
 	}
 	components := map[int]*objtype.ComponentType{comId: com}

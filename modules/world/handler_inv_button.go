@@ -12,7 +12,7 @@ import (
 //  1. delayed player → drop
 //  2. payload < 6 bytes → drop
 //  3. nil component or !IsComponentVisible → drop
-//  4. com.Iop nil or Iop[op-1]=="" → drop
+//  4. com.InventoryOptions nil or InventoryOptions[op-1]=="" → drop
 //  5. comId not in invListeners → drop
 //  6. listener's inventory unresolved → drop
 //  7. inv.HasAt(slot, obj) false → drop
@@ -39,7 +39,7 @@ func (s *Server) handleInvButton(p *Player, payload []byte, op int) error {
 	if !p.IsComponentVisible(com) {
 		return nil
 	}
-	if com.Iop == nil || op-1 < 0 || op-1 >= len(com.Iop) || com.Iop[op-1] == "" {
+	if com.InventoryOptions == nil || op-1 < 0 || op-1 >= len(com.InventoryOptions) || com.InventoryOptions[op-1] == "" {
 		return nil
 	}
 
