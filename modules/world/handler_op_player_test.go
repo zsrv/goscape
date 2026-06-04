@@ -124,11 +124,13 @@ func TestHandleOpPlayer_DelayedSendsUnsetMapFlag(t *testing.T) {
 }
 
 // TestHandleOpPlayer_TargetNotLoggedIn — LookupPlayerBySlot returns nil
-// (slot empty) → UnsetMapFlag, no interaction set.
+// (slot empty) → UnsetMapFlag + clearPendingAction, no interaction set.
+// 244: clearPendingAction added on target-not-found reject (TS OpPlayerHandler.ts:21-25).
 func TestHandleOpPlayer_TargetNotLoggedIn(t *testing.T) {
 	s, clicker, _, cc := makeOpPlayerFixture(t)
 	const missingSlot = 99
 	s.players[missingSlot] = nil
+	clicker.targetOp = 99 // sentinel: cleared by ClearPendingAction
 
 	received := drainConn(t, cc)
 	_ = handleOpPlayer(clicker, p2Payload(missingSlot), 1)
@@ -141,13 +143,20 @@ func TestHandleOpPlayer_TargetNotLoggedIn(t *testing.T) {
 	if clicker.target != nil {
 		t.Errorf("target should remain nil; got %v", clicker.target)
 	}
+	// 244 ordering pin: clearPendingAction fires on target-not-found.
+	if clicker.targetOp != -1 {
+		t.Errorf("targetOp: got %d, want -1 (clearPendingAction on target-not-found — TS OpPlayerHandler.ts:23)", clicker.targetOp)
+	}
 }
 
 // TestHandleOpPlayer_NotVisibleViaRsbuf — target exists but not visible
-// to local player per rsbuf.HasPlayer → UnsetMapFlag, no interaction set.
+// to local player per rsbuf.HasPlayer → UnsetMapFlag + clearPendingAction,
+// no interaction set.
+// 244: clearPendingAction added on rsbuf-not-visible reject (TS OpPlayerHandler.ts:27-31).
 func TestHandleOpPlayer_NotVisibleViaRsbuf(t *testing.T) {
 	_, clicker, other, cc := makeOpPlayerFixture(t)
 	// Deliberately do NOT call rsbufSeesPlayer.
+	clicker.targetOp = 99 // sentinel: cleared by ClearPendingAction
 
 	received := drainConn(t, cc)
 	_ = handleOpPlayer(clicker, p2Payload(other.slot), 1)
@@ -159,6 +168,10 @@ func TestHandleOpPlayer_NotVisibleViaRsbuf(t *testing.T) {
 	}
 	if clicker.target != nil {
 		t.Errorf("target should remain nil; got %v", clicker.target)
+	}
+	// 244 ordering pin: clearPendingAction fires on rsbuf-not-visible.
+	if clicker.targetOp != -1 {
+		t.Errorf("targetOp: got %d, want -1 (clearPendingAction on rsbuf-not-visible — TS OpPlayerHandler.ts:29)", clicker.targetOp)
 	}
 }
 
@@ -243,14 +256,26 @@ func TestHandleOpPlayerT_DelayedSendsUnsetMapFlag(t *testing.T) {
 }
 
 // TestHandleOpPlayerT_TargetNotLoggedIn — LookupPlayerBySlot returns nil →
-// UnsetMapFlag, no interaction set.
+// UnsetMapFlag + clearPendingAction, no interaction set.
+// 244: clearPendingAction added on target-not-found reject (TS OpPlayerTHandler.ts:29-33).
+// Prerequisites: component gate seeded so the target-not-logged-in gate is the
+// discriminating condition under test (not the component gate).
 func TestHandleOpPlayerT_TargetNotLoggedIn(t *testing.T) {
 	s, clicker, _, cc := makeOpPlayerFixture(t)
-	const missingSlot = 99
+	const (
+		missingSlot = 99
+		spellCom    = 7777
+	)
 	s.players[missingSlot] = nil
+	// Seed component so the component gate passes; target-not-found gate fires next.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		spellCom: {RootLayer: spellCom, ActionTarget: objtype.ComActionTargetPlayer},
+	})
+	clicker.tabs[0] = spellCom
+	clicker.targetOp = 99 // sentinel: cleared by ClearPendingAction
 
 	received := drainConn(t, cc)
-	_ = handleOpPlayerT(clicker, opPlayerTPayload(missingSlot, 7777))
+	_ = handleOpPlayerT(clicker, opPlayerTPayload(missingSlot, spellCom))
 	clicker.client.flushWrite()
 	got := <-received
 
@@ -260,16 +285,30 @@ func TestHandleOpPlayerT_TargetNotLoggedIn(t *testing.T) {
 	if clicker.target != nil {
 		t.Errorf("target should remain nil; got %v", clicker.target)
 	}
+	// 244 ordering pin: clearPendingAction fires on target-not-found.
+	if clicker.targetOp != -1 {
+		t.Errorf("targetOp: got %d, want -1 (clearPendingAction on target-not-found — TS OpPlayerTHandler.ts:31)", clicker.targetOp)
+	}
 }
 
 // TestHandleOpPlayerT_TargetNotVisible — target exists but rsbuf.HasPlayer
-// is false → UnsetMapFlag, no interaction set.
+// is false → UnsetMapFlag + clearPendingAction, no interaction set.
+// 244: clearPendingAction added on rsbuf-not-visible reject (TS OpPlayerTHandler.ts:35-39).
+// Prerequisites: component gate seeded so the rsbuf-visibility gate is the
+// discriminating condition under test (not the component gate).
 func TestHandleOpPlayerT_TargetNotVisible(t *testing.T) {
-	_, clicker, other, cc := makeOpPlayerFixture(t)
+	s, clicker, other, cc := makeOpPlayerFixture(t)
 	// Deliberately do NOT call rsbufSeesPlayer.
+	const spellCom = 7777
+	// Seed component so the component gate passes; rsbuf-visibility gate fires next.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		spellCom: {RootLayer: spellCom, ActionTarget: objtype.ComActionTargetPlayer},
+	})
+	clicker.tabs[0] = spellCom
+	clicker.targetOp = 99 // sentinel: cleared by ClearPendingAction
 
 	received := drainConn(t, cc)
-	_ = handleOpPlayerT(clicker, opPlayerTPayload(other.slot, 7777))
+	_ = handleOpPlayerT(clicker, opPlayerTPayload(other.slot, spellCom))
 	clicker.client.flushWrite()
 	got := <-received
 
@@ -278,6 +317,10 @@ func TestHandleOpPlayerT_TargetNotVisible(t *testing.T) {
 	}
 	if clicker.target != nil {
 		t.Errorf("target should remain nil; got %v", clicker.target)
+	}
+	// 244 ordering pin: clearPendingAction fires on rsbuf-not-visible.
+	if clicker.targetOp != -1 {
+		t.Errorf("targetOp: got %d, want -1 (clearPendingAction on rsbuf-not-visible — TS OpPlayerTHandler.ts:37)", clicker.targetOp)
 	}
 }
 
@@ -295,6 +338,31 @@ func TestHandleOpPlayerT_TruncatedPayload(t *testing.T) {
 	}
 	if clicker.target != nil {
 		t.Errorf("target should remain nil; got %v", clicker.target)
+	}
+}
+
+// TestHandleOpPlayerT_ComponentGate_ClearsPendingAction — nil/!visible/!actionTarget
+// combined component check fires clearPendingAction (244 delta).
+// 244: TS OpPlayerTHandler.ts:21-26 combined check now calls clearPendingAction.
+func TestHandleOpPlayerT_ComponentGate_ClearsPendingAction(t *testing.T) {
+	_, clicker, other, cc := makeOpPlayerFixture(t)
+	// spellCom=8888 is NOT registered → nil component → component gate fires.
+	clicker.targetOp = 99 // sentinel: cleared by ClearPendingAction
+
+	received := drainConn(t, cc)
+	_ = handleOpPlayerT(clicker, opPlayerTPayload(other.slot, 8888))
+	clicker.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag for component gate reject, got nothing")
+	}
+	if clicker.target != nil {
+		t.Errorf("target should remain nil; got %v", clicker.target)
+	}
+	// 244 ordering pin: clearPendingAction fires on component gate reject.
+	if clicker.targetOp != -1 {
+		t.Errorf("targetOp: got %d, want -1 (clearPendingAction on component gate — TS OpPlayerTHandler.ts:23)", clicker.targetOp)
 	}
 }
 
@@ -342,7 +410,7 @@ func TestHandleOpPlayerU_HappyPath(t *testing.T) {
 
 	// Seed component so the component gate passes.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		useCom: {RootLayer: useCom, Usable: true},
+		useCom: {RootLayer: useCom, Interactable: true},
 	})
 	clicker.tabs[0] = useCom
 
@@ -388,7 +456,7 @@ func TestHandleOpPlayerU_UseObjZeroCanonicalisation(t *testing.T) {
 	)
 
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		useCom: {RootLayer: useCom, Usable: true},
+		useCom: {RootLayer: useCom, Interactable: true},
 	})
 	clicker.tabs[0] = useCom
 
@@ -444,7 +512,7 @@ func TestHandleOpPlayerU_TargetNotLoggedIn(t *testing.T) {
 	s.players[missingSlot] = nil
 	// Seed component so the component gate passes; target-not-logged-in gate fires next.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: true},
 	})
 	clicker.tabs[0] = 149
 	seedOpPlayerUInv(t, s, clicker, 93, 149, 1511, 3)
@@ -469,7 +537,7 @@ func TestHandleOpPlayerU_TargetNotVisible(t *testing.T) {
 	// Deliberately do NOT call rsbufSeesPlayer.
 	// Seed component so the component gate passes; rsbuf-visibility gate fires next.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: true},
 	})
 	clicker.tabs[0] = 149
 	seedOpPlayerUInv(t, s, clicker, 93, 149, 1511, 3)
@@ -511,7 +579,7 @@ func TestHandleOpPlayerU_InvListenerMissing(t *testing.T) {
 	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
 	// Seed component so the component gate passes; listener-missing gate fires next.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: true},
 	})
 	clicker.tabs[0] = 149
 	if s.invs == nil {
@@ -545,7 +613,7 @@ func TestHandleOpPlayerU_ItemNotInSlot(t *testing.T) {
 	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
 	// Seed component so the component gate passes; item-mismatch gate fires next.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: true},
 	})
 	clicker.tabs[0] = 149
 	if s.invs == nil {
@@ -573,6 +641,161 @@ func TestHandleOpPlayerU_ItemNotInSlot(t *testing.T) {
 	}
 }
 
+// TestHandleOpPlayerU_ComponentGate_ClearsPendingAction — nil/!visible/!interactable
+// combined component check fires clearPendingAction (244 delta).
+// 244: TS OpPlayerUHandler.ts:23-27 combined check now calls clearPendingAction.
+func TestHandleOpPlayerU_ComponentGate_ClearsPendingAction(t *testing.T) {
+	s, clicker, other, cc := makeOpPlayerFixture(t)
+	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+	// useCom=9876 is NOT registered → nil component → component gate fires.
+	clicker.targetOp = 99 // sentinel: cleared by ClearPendingAction
+
+	received := drainConn(t, cc)
+	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.slot, 1511, 3, 9876))
+	clicker.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag for component gate reject, got nothing")
+	}
+	if clicker.target != nil {
+		t.Errorf("target should remain nil; got %v", clicker.target)
+	}
+	// 244 ordering pin: clearPendingAction fires on component gate reject.
+	if clicker.targetOp != -1 {
+		t.Errorf("targetOp: got %d, want -1 (clearPendingAction on component gate — TS OpPlayerUHandler.ts:25)", clicker.targetOp)
+	}
+}
+
+// TestHandleOpPlayerU_InvListenerMissing_ClearsPendingAction — listener-missing gate
+// fires clearPendingAction (244 delta).
+// 244: TS OpPlayerUHandler.ts:31-35 listener check now calls clearPendingAction.
+func TestHandleOpPlayerU_InvListenerMissing_ClearsPendingAction(t *testing.T) {
+	s, clicker, other, cc := makeOpPlayerFixture(t)
+	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Interactable: true},
+	})
+	clicker.tabs[0] = 149
+	// NO invListenOnCom — listener-missing gate is the discriminating condition.
+	clicker.targetOp = 99 // sentinel: cleared by ClearPendingAction
+
+	received := drainConn(t, cc)
+	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.slot, 1511, 3, 149))
+	clicker.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag for missing listener, got nothing")
+	}
+	if clicker.target != nil {
+		t.Errorf("target should remain nil; got %v", clicker.target)
+	}
+	// 244 ordering pin: clearPendingAction fires on listener-missing gate.
+	if clicker.targetOp != -1 {
+		t.Errorf("targetOp: got %d, want -1 (clearPendingAction on listener-missing — TS OpPlayerUHandler.ts:33)", clicker.targetOp)
+	}
+}
+
+// TestHandleOpPlayerU_ItemNotInSlot_ClearsPendingAction — inv/slot/item combined
+// check fires clearPendingAction (244 delta).
+// 244: TS OpPlayerUHandler.ts:37-42 combined inv check now calls clearPendingAction.
+func TestHandleOpPlayerU_ItemNotInSlot_ClearsPendingAction(t *testing.T) {
+	s, clicker, other, cc := makeOpPlayerFixture(t)
+	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Interactable: true},
+	})
+	clicker.tabs[0] = 149
+	// Register listener but put wrong item in slot — item-mismatch gate is the
+	// discriminating condition.
+	if s.invs == nil {
+		s.invs = make(map[int]*inventory.Inventory)
+	}
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Items[3] = &inventory.Item{Id: 9999, Count: 1} // NOT 1511
+	s.invs[93] = inv
+	clicker.invListenOnCom(93, 149, -1)
+	clicker.targetOp = 99 // sentinel: cleared by ClearPendingAction
+
+	received := drainConn(t, cc)
+	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.slot, 1511, 3, 149))
+	clicker.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag for item mismatch, got nothing")
+	}
+	if clicker.target != nil {
+		t.Errorf("target should remain nil; got %v", clicker.target)
+	}
+	// 244 ordering pin: clearPendingAction fires on inv/item mismatch gate.
+	if clicker.targetOp != -1 {
+		t.Errorf("targetOp: got %d, want -1 (clearPendingAction on item mismatch — TS OpPlayerUHandler.ts:40)", clicker.targetOp)
+	}
+}
+
+// TestHandleOpPlayerU_TargetNotLoggedIn_ClearsPendingAction — target-not-found gate
+// fires clearPendingAction (244 delta).
+// 244: TS OpPlayerUHandler.ts:44-48 target-not-found check now calls clearPendingAction.
+func TestHandleOpPlayerU_TargetNotLoggedIn_ClearsPendingAction(t *testing.T) {
+	s, clicker, _, cc := makeOpPlayerFixture(t)
+	const missingSlot = 99
+	s.players[missingSlot] = nil
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Interactable: true},
+	})
+	clicker.tabs[0] = 149
+	seedOpPlayerUInv(t, s, clicker, 93, 149, 1511, 3)
+	clicker.targetOp = 99 // sentinel: cleared by ClearPendingAction
+
+	received := drainConn(t, cc)
+	_ = handleOpPlayerU(clicker, opPlayerUPayload(missingSlot, 1511, 3, 149))
+	clicker.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag for missing target, got nothing")
+	}
+	if clicker.target != nil {
+		t.Errorf("target should remain nil; got %v", clicker.target)
+	}
+	// 244 ordering pin: clearPendingAction fires on target-not-found gate.
+	if clicker.targetOp != -1 {
+		t.Errorf("targetOp: got %d, want -1 (clearPendingAction on target-not-found — TS OpPlayerUHandler.ts:46)", clicker.targetOp)
+	}
+}
+
+// TestHandleOpPlayerU_TargetNotVisible_ClearsPendingAction — rsbuf-not-visible gate
+// fires clearPendingAction (244 delta).
+// 244: TS OpPlayerUHandler.ts:50-54 rsbuf check now calls clearPendingAction.
+func TestHandleOpPlayerU_TargetNotVisible_ClearsPendingAction(t *testing.T) {
+	s, clicker, other, cc := makeOpPlayerFixture(t)
+	// Deliberately do NOT call rsbufSeesPlayer.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Interactable: true},
+	})
+	clicker.tabs[0] = 149
+	seedOpPlayerUInv(t, s, clicker, 93, 149, 1511, 3)
+	clicker.targetOp = 99 // sentinel: cleared by ClearPendingAction
+
+	received := drainConn(t, cc)
+	_ = handleOpPlayerU(clicker, opPlayerUPayload(other.slot, 1511, 3, 149))
+	clicker.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag for non-visible target, got nothing")
+	}
+	if clicker.target != nil {
+		t.Errorf("target should remain nil; got %v", clicker.target)
+	}
+	// 244 ordering pin: clearPendingAction fires on rsbuf-not-visible gate.
+	if clicker.targetOp != -1 {
+		t.Errorf("targetOp: got %d, want -1 (clearPendingAction on rsbuf-not-visible — TS OpPlayerUHandler.ts:52)", clicker.targetOp)
+	}
+}
+
 // TestHandleOpPlayer1SetsOpcalled verifies success path sets p.opcalled=true.
 func TestHandleOpPlayer1SetsOpcalled(t *testing.T) {
 	s, clicker, other, _ := makeOpPlayerFixture(t)
@@ -595,7 +818,7 @@ func TestHandleOpPlayerU_MembersOnNonMembersServer(t *testing.T) {
 	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
 	// Seed component so the component gate passes; members-free-world gate fires next.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: true},
 	})
 	clicker.tabs[0] = 149
 	s.cfg.NodeMembers = false
@@ -630,7 +853,7 @@ func TestHandleOpPlayerU_MembersOnNonMembersServerClearsPendingAction(t *testing
 	rsbufSeesPlayer(t, s, clicker.slot, other.slot)
 	// Seed component so the component gate passes; members-free-world gate fires next.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: true},
 	})
 	clicker.tabs[0] = 149
 	s.cfg.NodeMembers = false

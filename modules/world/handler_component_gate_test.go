@@ -317,11 +317,12 @@ func TestComponentGate_OpPlayerU(t *testing.T) {
 	const useCom = 4249
 	const rootLayer = 4249
 	runCompGate(t, compGateCase{
-		name:       "OpPlayerU",
-		handler:    handleOpPlayerU,
-		comId:      useCom,
-		isUVariant: true,
-		rootLayer:  rootLayer,
+		name:             "OpPlayerU",
+		handler:          handleOpPlayerU,
+		comId:            useCom,
+		isUVariant:       true,
+		usesInteractable: true, // 244: gate changed from Usable to Interactable. TS OpPlayerUHandler.ts:24.
+		rootLayer:        rootLayer,
 		payloadOK: []byte{
 			0, otherSlot,
 			useObj >> 8, useObj & 0xFF,
