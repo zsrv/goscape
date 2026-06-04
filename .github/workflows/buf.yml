@@ -9,7 +9,7 @@ on:
       - "buf.gen.yaml"
       - ".github/workflows/buf.yml"
   push:
-    branches: [main]
+    branches: ['rev-*']
 
 jobs:
   buf:
@@ -20,4 +20,6 @@ jobs:
           fetch-depth: 0  # buf breaking needs history
       - uses: bufbuild/buf-action@v1
         with:
-          breaking_against: "https://github.com/${{ github.repository }}.git#branch=main,subdir=."
+          # main is the codeless docs hub; the proto schema lives on the
+          # revision branches. Bump this when cutting a new rev-N branch.
+          breaking_against: "https://github.com/${{ github.repository }}.git#branch=rev-225,subdir=."

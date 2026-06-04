@@ -373,7 +373,8 @@ format:
 		-type f -name '*.go' -exec goimports -w -local github.com/zsrv/goscape {} \;
 
 
-GIT_TARGET_BRANCH ?= main
+# main is the codeless docs hub; diff against the revision branch.
+GIT_TARGET_BRANCH ?= rev-225
 check-format: format
 	git diff --name-only HEAD origin/$(GIT_TARGET_BRANCH) -- "*.go" | xargs --no-run-if-empty git diff --exit-code -- \
 	|| (echo "Please format code by running 'make format' and committing the changes" && false)
