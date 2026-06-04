@@ -91,21 +91,36 @@ Everything. No deletions: `PORTING.md`, `docs/PORTING-CLOSED.md`,
 - Remote/publishing setup
 - Changes to `rev-225` code or revision-specific docs beyond the tidy commits
 
-## Addendum (2026-06-03, post-ship): `main` re-rooted as orphan
+## Addendum (2026-06-03, post-ship): empty shared root
 
 After the conversion shipped, the user requested that `main`'s *history*
-contain no code at all. The original design connected `main` to the initial
-commit `6579371c`, whose 5 code files therefore sat in `main`'s history
-(goscape-client never had this issue — its root commit is empty).
+contain no code at all — while staying **connected** to `rev-225`, exactly
+like goscape-client (whose root commit `cabab8f` is empty; that is the only
+reason its hub history is code-free *and* connected). goscape's original root
+`6579371c` carried 5 code files, so the client shape required a history
+rewrite, which the user explicitly authorized with the constraint that
+commit timestamps be preserved.
 
-Since `rev-225` history must not be rewritten, `main` was re-rooted: a new
-parentless commit `bd227722` carrying the byte-identical 4-file tree of the
-original hub commit `aef80ce6` (same message), and `main` was re-pointed to
-it. Every file ever touched in `main`'s history is now one of the 4 hub docs.
+What was done (superseding this spec's "no history rewrite" property and an
+intermediate orphan-`main` attempt):
 
-Two design properties from this spec are superseded by the addendum:
+1. A new **empty root commit** `2f24acf0` ("Initial commit", author/committer
+   dates copied from the original `6579371c`) was created.
+2. All of `rev-225` was re-parented onto it (`git replace --graft` +
+   `git filter-branch`): every commit's tree, author/committer identity,
+   author/committer timestamp, and message verified byte-identical
+   pre/post-rewrite; only parent links (and therefore SHAs) changed.
+   New `rev-225` tip: `78059d83` (was `0669177e`).
+3. `main` was rebuilt as `2f24acf0` → hub commit `75888720` (byte-identical
+   4-file tree and message of the original hub commit `aef80ce6`, original
+   timestamps).
 
-- `git merge-base main rev-225` no longer resolves (disconnected histories) —
-  accepted, nothing depends on it.
-- The "hub commit deletes the 5 initial-commit code files" framing: the
-  re-rooted hub commit creates only the 4 docs files; nothing is deleted.
+Resulting invariants:
+
+- `git merge-base main rev-225` == `2f24acf0` (connected, mirrors the client)
+- Every file ever touched in `main`'s history is one of the 4 hub docs
+- **All pre-rewrite SHAs are stale** (including those cited in PORTING docs
+  and audit ledgers); match commits by author-date + subject instead.
+  Pre-rewrite tips are kept at `refs/backup/pre-empty-root-rev-225`
+  (`0669177e`) and `refs/backup/pre-empty-root-main` (`bd227722`); delete
+  those refs + `git gc` to drop the old history entirely.
