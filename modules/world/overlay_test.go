@@ -57,9 +57,9 @@ func TestOpenOverlay_FlushWritesOnce(t *testing.T) {
 	}
 }
 
-// TestOpenOverlay_SameComIsNoop pins that calling OpenOverlay(X) twice does
-// not change overlay (early-return on same com), so the subsequent flush
-// writes exactly once.
+// TestOpenOverlay_SameComIsNoop pins that calling OpenOverlay(X) twice
+// leaves overlay at X via the early-return (state-level check only; the
+// single-flush wire contract is pinned by TestOpenOverlay_FlushWritesOnce).
 //
 // TS Player.ts:1956-1958 `if (this.overlay === com) { return; }`.
 func TestOpenOverlay_SameComIsNoop(t *testing.T) {

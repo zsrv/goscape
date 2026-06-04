@@ -510,8 +510,10 @@ type Player struct {
 }
 
 // encodeOut mirrors TS NetworkPlayer.encodeOut(). It sends modal open/close
-// packets for any state changes since the last tick. All modal fields default
-// to zero on a new Player, so this is a no-op until sub-spec 2 populates them.
+// packets for any state changes since the last tick. All modal-state fields
+// start equal to their lastXxx counterparts on a new Player (modal coms zero,
+// overlay/lastOverlay -1 per TS Player.ts:358-359), so this is a no-op until
+// state changes.
 func (p *Player) encodeOut() {
 	modalChanged := p.modalMain != p.lastModalMain ||
 		p.modalChat != p.lastModalChat ||
