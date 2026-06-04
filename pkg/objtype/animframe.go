@@ -176,6 +176,7 @@ func unpackAnimFrames(cfg *AnimFrameConfigs, src []byte) {
 	// TS AnimFrame.ts:47: total = head.g2() — number of frames in this blob.
 	total := int(head.G2())
 
+	// TS silently drops writes past the Int32Array(500) bound; Go would panic on crafted blobs — server-generated caches never exceed it.
 	tmpBases := make([]int32, 500)
 	tmpX := make([]int32, 500)
 	tmpY := make([]int32, 500)

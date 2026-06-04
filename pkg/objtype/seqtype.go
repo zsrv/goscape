@@ -95,6 +95,7 @@ func (t *SeqType) Decode(code uint8, dat *packet.Packet) error {
 				//      cases are data errors. Production callers always have a
 				//      populated registry; the empty-Instances guard covers test
 				//      fixtures that use 225-format caches with 244 code.
+				// PORTING-EXCEPTION (rev244-b1-format-window, empty-Instances delay fallback — removable after B6 repack supplies a 244 FileStream cache)
 				if t.animFrames != nil && len(t.animFrames.Instances) > 0 {
 					d = int32(t.animFrames.Instances[t.Frames[i]].Delay)
 				}
@@ -104,9 +105,9 @@ func (t *SeqType) Decode(code uint8, dat *packet.Packet) error {
 			}
 			t.Delay[i] = d
 			// Note: duration is NOT accumulated here in 244 — it is computed
-			// in postDecode. In 244 SeqType.ts:118 this.duration += this.delay[i]
+			// in postDecode. In 244 SeqType.ts:115 this.duration += this.delay[i]
 			// still appears inside decode code 1. Keep it here to match TS exactly.
-			// TS SeqType.ts:118 (Engine-TS 9aadcec4)
+			// TS SeqType.ts:115 (Engine-TS 9aadcec4)
 			t.Duration += int(d)
 		}
 	case 2:
@@ -129,13 +130,13 @@ func (t *SeqType) Decode(code uint8, dat *packet.Packet) error {
 	case 8:
 		t.MaxLoops = int(dat.G1())
 	case 9:
-		// TS SeqType.ts:137-139 (Engine-TS 9aadcec4) — preanim_move = dat.g1()
+		// TS SeqType.ts:139 (Engine-TS 9aadcec4) — preanim_move = dat.g1()
 		t.PreanimMove = int(dat.G1())
 	case 10:
-		// TS SeqType.ts:140-142 (Engine-TS 9aadcec4) — postanim_move = dat.g1()
+		// TS SeqType.ts:141 (Engine-TS 9aadcec4) — postanim_move = dat.g1()
 		t.PostanimMove = int(dat.G1())
 	case 11:
-		// TS SeqType.ts:143-145 (Engine-TS 9aadcec4) — duplicatebehavior = dat.g1()
+		// TS SeqType.ts:143 (Engine-TS 9aadcec4) — duplicatebehavior = dat.g1()
 		t.DuplicateBehavior = int(dat.G1())
 	case 250:
 		t.DebugName = dat.GJStrLF()
