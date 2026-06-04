@@ -132,28 +132,32 @@ const (
 
 type NpcType struct {
 	ConfigType
-	Name      string
-	Desc      string
-	Size      uint8
-	Models    []uint16
-	Heads     []uint16
-	HasAnim   bool
-	ReadyAnim int
-	WalkAnim  int
-	WalkAnimB int
-	WalkAnimR int
-	WalkAnimL int
-	HasAlpha  bool
-	RecolS    []uint16
-	RecolD    []uint16
-	Op        []string
-	ResizeX   int
-	ResizeY   int
-	ResizeZ   int
-	Minimap   bool
-	VisLevel  int
-	ResizeH   uint16
-	ResizeV   uint16
+	Name        string
+	Desc        string
+	Size        uint8
+	Models      []uint16
+	Heads       []uint16
+	HasAnim     bool
+	ReadyAnim   int
+	WalkAnim    int
+	WalkAnimB   int
+	WalkAnimR   int
+	WalkAnimL   int
+	HasAlpha    bool
+	RecolS      []uint16
+	RecolD      []uint16
+	Op          []string
+	ResizeX     int
+	ResizeY     int
+	ResizeZ     int
+	Minimap     bool
+	VisLevel    int
+	ResizeH     uint16
+	ResizeV     uint16
+	AlwaysOnTop bool
+	Ambient     int8
+	Contrast    int8
+	HeadIcon    int
 
 	// server-side
 	RegenRate    int
@@ -266,6 +270,18 @@ func (t *NpcType) Decode(code uint8, dat *packet2.Packet) error {
 		t.ResizeH = dat.G2()
 	case 98:
 		t.ResizeV = dat.G2()
+	case 99:
+		// TS NpcType.ts:193-194
+		t.AlwaysOnTop = true
+	case 100:
+		// TS NpcType.ts:195-196
+		t.Ambient = dat.G1B()
+	case 101:
+		// TS NpcType.ts:197-198
+		t.Contrast = dat.G1B()
+	case 102:
+		// TS NpcType.ts:199-200
+		t.HeadIcon = int(dat.G2())
 	case 200:
 		t.WanderRange = dat.G2()
 	case 201:
@@ -331,6 +347,7 @@ func NewNpcType(id int) *NpcType {
 		VisLevel:  -1,
 		ResizeH:   128,
 		ResizeV:   128,
+		HeadIcon:  -1,
 
 		// server-side
 		RegenRate:    100,

@@ -104,23 +104,16 @@ func applyPostDecodeFixups(otc *ObjTypeConfigs, ptc *ParamTypeConfigs) {
 		}
 
 		if os.Getenv("NODE_MEMBERS") == "false" && config.Members {
+			// TS ObjType.ts:61-67 (244): null out op/iop entirely (no "Take"/"Drop"
+			// fallback). The category=-1 reset present in rev-225 was removed in 244.
 			config.Tradeable = false
-			config.Op = []string{"", "", "Take", "", ""}
-			config.IOp = []string{"", "", "", "", "Drop"}
-			config.Category = -1
+			config.Op = nil
+			config.IOp = nil
 
-			// TS ObjType.ts:73 uses ParamType.get(key)?.autodisable — the
-			// optional-chain silently no-ops when the ParamType lookup
-			// misses, leaving the param in place. goscape's pre-fix code
-			// did a raw ptc.Configs[k] slice index, which panics when k is
-			// out-of-range AND nil-derefs when the slot is nil. Mirror the
-			// optional-chain by guarding both branches.
-			// TS ObjType.ts:73 uses ParamType.get(key)?.autodisable — the
-			// optional-chain silently no-ops when the ParamType lookup
-			// misses, leaving the param in place. goscape's pre-fix code
-			// did a raw ptc.Configs[k] slice index, which panics when k is
-			// out-of-range AND nil-derefs when the slot is nil. Mirror the
-			// optional-chain by guarding both branches.
+			// TS ObjType.ts:69-73 (244): delete params whose ParamType.autodisable is
+			// true. TS uses ParamType.get(key)?.autodisable — the optional-chain
+			// silently no-ops when the ParamType lookup misses, leaving the param in
+			// place. Mirror the optional-chain by guarding both branches.
 			for k := range config.Params {
 				if int(k) >= len(ptc.Configs) {
 					continue
@@ -173,6 +166,11 @@ type ObjType struct {
 	CountCo          []uint16
 	CertLink         int
 	CertTemplate     int
+	ResizeX          int
+	ResizeY          int
+	ResizeZ          int
+	Ambient          int8
+	Contrast         int8
 
 	// server-side
 	WearPos     int
@@ -261,12 +259,18 @@ func (ot *ObjType) Decode(code uint8, dat *packet2.Packet) error {
 	case 27:
 		ot.WearPos3 = int(dat.G1())
 	case 30, 31, 32, 33, 34:
-		// Stored verbatim, including "hidden", matching TS ObjType.ts:226-227
-		// (no decode-time coercion). The op-click handler blocks null/
-		// "hidden", but OC_OP (`op[i] ?? ''`) and P_OPOBJ report it as a
-		// present string, so coercing to "" here would diverge from TS.
+		// TS ObjType.ts:228-231 (244): lazy-init op on first code, then set
+		// slot verbatim (including "hidden" — no coercion). The op-click
+		// handler blocks null/"hidden"; OC_OP/P_OPOBJ report it as present.
+		if ot.Op == nil {
+			ot.Op = make([]string, 5)
+		}
 		ot.Op[code-30] = dat.GJStrLF()
 	case 35, 36, 37, 38, 39:
+		// TS ObjType.ts:233-236 (244): lazy-init iop on first code, then set slot.
+		if ot.IOp == nil {
+			ot.IOp = make([]string, 5)
+		}
 		ot.IOp[code-35] = dat.GJStrLF()
 	case 40:
 		count := dat.G1()
@@ -309,6 +313,21 @@ func (ot *ObjType) Decode(code uint8, dat *packet2.Packet) error {
 
 		ot.CountObj[code-100] = dat.G2()
 		ot.CountCo[code-100] = dat.G2()
+	case 110:
+		// TS ObjType.ts:274-275 (244)
+		ot.ResizeX = int(dat.G2())
+	case 111:
+		// TS ObjType.ts:276-277 (244)
+		ot.ResizeY = int(dat.G2())
+	case 112:
+		// TS ObjType.ts:278-279 (244)
+		ot.ResizeZ = int(dat.G2())
+	case 113:
+		// TS ObjType.ts:280-281 (244): signed byte
+		ot.Ambient = dat.G1B()
+	case 114:
+		// TS ObjType.ts:282-283 (244): signed byte
+		ot.Contrast = dat.G1B()
 	case 201:
 		ot.RespawnRate = int(dat.G2())
 	case 249:
@@ -343,15 +362,19 @@ func NewObjType(id int) *ObjType {
 		CertLink:     -1,
 		CertTemplate: -1,
 
+		// TS ObjType.ts:162-165 (244): resizex/y/z default 128, ambient/contrast default 0.
+		ResizeX: 128,
+		ResizeY: 128,
+		ResizeZ: 128,
+
 		WearPos:     -1,
 		WearPos2:    -1,
 		WearPos3:    -1,
 		Category:    -1,
 		RespawnRate: 100,  // defaults to 1 minute
 		Tradeable:   true, // TS ObjType.ts:177 class-field default
-		Op:          []string{"", "", "Take", "", ""},
-		IOp:         []string{"", "", "", "", "Drop"},
-		Params:      make(ParamMap),
+		// TS ObjType.ts:147-148 (244): op/iop default null; lazy-inited by decode codes 30-39.
+		Params: make(ParamMap),
 	}
 }
 

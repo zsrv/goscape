@@ -792,22 +792,28 @@ func TestTryFireApTriggerObjScriptFiresNoApRangeCalled(t *testing.T) {
 	}
 }
 
-// TestHandleOpObjReachesInteractionWithDefaultOpType pins that an obj of a
-// type constructed via NewObjType (no cache overrides) reaches the
-// interaction — i.e., the default Op[2]="Take" populated by NewObjType
-// passes the op_slot_empty gate. This is the post-NAI-152-B1 regression
+// TestHandleOpObjReachesInteractionWithExplicitTakeOp pins that an obj whose
+// type has Op[2]="Take" (set via cache decode code 32) reaches the interaction
+// — i.e., the op_slot_empty gate passes. This is the post-NAI-152-B1 regression
 // for the static-obj pickup symptom.
-func TestHandleOpObjReachesInteractionWithDefaultOpType(t *testing.T) {
+//
+// Note: TS ObjType.ts:147 (244) changed the class-default for op from
+// [null,null,'Take',null,null] to null. Items only have "Take" when the packer
+// explicitly emits code 32 for them. This test sets Op explicitly to mirror an
+// item that has code 32 in the cache.
+func TestHandleOpObjReachesInteractionWithExplicitTakeOp(t *testing.T) {
 	s := newTestServer(t)
 	s.zoneMap = zone.NewZoneMap()
 
 	s.objTypes = &objtype.ObjTypeConfigs{
 		Configs: make([]*objtype.ObjType, 559),
 	}
-	// Use NewObjType, NOT a struct literal — exercises the default Op/IOp
-	// initializers added in T1.
 	ot := objtype.NewObjType(558)
 	ot.DebugName = "mindrune"
+	// Explicit Op[2]="Take" — mirrors a cache that wrote code 32 for this item.
+	// TS ObjType.ts:147 (244): op default is null; "Take" only appears when the
+	// packer writes it via decode code 32.
+	ot.Op = []string{"", "", "Take", "", ""}
 	s.objTypes.Configs[558] = ot
 
 	obj := entitypkg.NewObj(0, 100, 100, entitypkg.LifecycleRespawn, 558, 1)
@@ -826,7 +832,7 @@ func TestHandleOpObjReachesInteractionWithDefaultOpType(t *testing.T) {
 	}
 
 	if p.target != obj {
-		t.Errorf("target: got %v, want obj (gate must not short-circuit on default Op[2]=\"Take\")", p.target)
+		t.Errorf("target: got %v, want obj (gate must pass when Op[2]=\"Take\")", p.target)
 	}
 	if p.targetOp != 3 {
 		t.Errorf("targetOp: got %d, want 3", p.targetOp)
@@ -836,5 +842,42 @@ func TestHandleOpObjReachesInteractionWithDefaultOpType(t *testing.T) {
 	}
 	if !p.opcalled {
 		t.Error("opcalled: want true")
+	}
+}
+
+// TestHandleOpObjRejectsWhenOpNil pins TS ObjType.ts:147 (244): when an item
+// has no op codes in the cache, Op is nil and the gate must reject op3 ("Take").
+func TestHandleOpObjRejectsWhenOpNil(t *testing.T) {
+	s := newTestServer(t)
+	s.zoneMap = zone.NewZoneMap()
+
+	s.objTypes = &objtype.ObjTypeConfigs{
+		Configs: make([]*objtype.ObjType, 559),
+	}
+	ot := objtype.NewObjType(558)
+	ot.DebugName = "no_take_item"
+	// Op remains nil — no cache codes → no "Take" option.
+	s.objTypes.Configs[558] = ot
+
+	obj := entitypkg.NewObj(0, 100, 100, entitypkg.LifecycleRespawn, 558, 1)
+	obj.IsActive = true
+	zn := s.zoneMap.Get(0, 100, 100)
+	zn.Objs = append(zn.Objs, obj)
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+	p.x, p.z, p.level = 99, 100, 0
+	p.originX, p.originZ = 100, 100
+
+	if err := handleOpObj3(p, p2x3ObjPayload(100, 100, 558)); err != nil {
+		t.Fatalf("handleOpObj3: %v", err)
+	}
+
+	if p.target == obj {
+		t.Errorf("target: got obj, want nil (gate must reject when Op is nil/no take)")
+	}
+	if p.opcalled {
+		t.Error("opcalled: want false (gate must reject when Op is nil)")
 	}
 }
