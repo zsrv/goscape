@@ -153,7 +153,7 @@ func TestSubSpec3AOpcodes(t *testing.T) {
 		opcode byte
 		size   int
 	}{
-		{OpRebuildNormal, 237, -2}, // deferred; 244 will be 165/4
+		{OpRebuildNormal, 237, -2}, // deferred; 244 will be 165/4 — Task 3 must update BOTH this row and the TestServerProt244Table row
 		{OpUpdateInvFull, 72, -2},
 		{OpUpdateInvPartial, 132, -2},
 	}
