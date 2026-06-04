@@ -375,6 +375,95 @@ world-side `NODE_RATELIMIT_*` login limiting was removed upstream (B3 removes
 B3's plan must carry the tracker row); the login handshake re-shape
 (seed moved into the opcode-14 reply) stays in B3.
 
+### B2 — wire protocol + rsbuf (2026-06-04)
+
+Scope diff = `git -C ../Engine-TS diff --numstat e1dea19f..9aadcec4 -- src/network`
+(115 files, +620/−946) plus the rsbuf crate delta
+`git -C ../../2004scape/rsbuf diff 225 origin/244 -- src` (6 files, +64/−8 —
+tip `1defefb`, verified identical to the published npm `244.1.0`).
+Spec: [`docs/superpowers/specs/2026-06-04-rev244-b2-wire-protocol-design.md`](docs/superpowers/specs/2026-06-04-rev244-b2-wire-protocol-design.md).
+Plan: [`docs/superpowers/plans/2026-06-04-rev244-b2-wire-protocol.md`](docs/superpowers/plans/2026-06-04-rev244-b2-wire-protocol.md).
+27 commits, `b1cb81d4..a1d8ec70`.
+
+**Decision rows**
+
+- 🚧 TS `ClientGameProt.index` ctor field (NXT packet index) — **NOT-MODELED.**
+  Zero readers at the pin (only written into `ClientGameProt.all`). goscape's
+  `Ops [256]` stays opcode-keyed. Revisit only if later TS reads `.all`.
+- ⚠ **Map-delivery window.** `REBUILD_GETMAPS` + `DATA_LAND/_DONE/DATA_LOC/_DONE`
+  removed (`a6fa1e8f` — handler, senders, table rows; TS deletes the files and
+  unbinds both repositories). 244 map delivery = engine OnDemand, which lands
+  in **B3**. No client map delivery in between; the post-B2+B3 client smoke is
+  the closing gate. No staff-rebuild `PORTING-EXCEPTION` marker existed in code
+  (bundle-17's row was spec-cited only) — nothing to close.
+- ⚠ **Midi-id window.** 244 MIDI_SONG/MIDI_JINGLE carry pack ids; the MidiPack
+  name→id registry lands in **B3**. `midiIDByName` returns −1 (mirrors TS's
+  `id !== -1` guard) → PlaySong/PlayJingle are silent no-ops.
+  `PORTING-EXCEPTION (rev244-b2-midi-window)` at `modules/world/midi_encoders.go`.
+- ⚠ **damage2 entity pull-forward (user-approved).** PathingEntity.ts:92-96,
+  606-610 / Player.ts:1870-1890 / Npc.ts:475-494 are PORTED HERE (`2afa543c`):
+  `damage2Amt`/`damage2Type`/`hitmarkSlot` + alternation in BOTH forks + per-tick
+  resets. **B3 must NOT double-apply these hunks.** B3 also owns any wholesale
+  `damageAmt`→`hitmarkDamage` rename and the World.ts:1041-1042/1086-1087
+  compute-feed hunks (already wired here at tick.go).
+- 🚧 rsbuf `renderer.rs` cache-index/count changes (8→9, 7→8, to_index shifts) —
+  **NO-OP for Go.** goscape's Renderer composes per-slot payload slices, not
+  per-prot cache arrays; the write order lives in `writeMaskPayloads` /
+  `writeNpcMaskPayloads`. T12 spot-check verdicts: all 9 touched pkg/rsbuf files
+  clean except the two write-order header comments (fixed in `1684f8f4`).
+  Buf-struct `DamageTaken2/DamageType2` are lib.rs-parity bookkeeping — the wire
+  reads the Source accessors (Arc-30 #202 insurance, documented in-code).
+- 🚧 `IfSetRecolEncoder.ts` + model deleted upstream; repository unbinding —
+  **DEFERRED → B4.** The IF_SETRECOL table row is value-identical across pins
+  (103/6, unchanged); goscape's emitter stays wired until B4 removes the script
+  op (`IF_SETRECOL` is gone from 244 ScriptOpcode.ts).
+- 🚧 `IF_OPENOVERLAY` — table row + `OpIfOpenOverlay` added (`0ef495fb`); the
+  encoder is inline-at-call-site per goscape convention and the call site lands
+  with **B4**'s IF_OPENOVERLAY script op.
+- 🚧 `InvButtonD.mode` byte — decoded and discarded, **matching TS's own
+  posture** (`// todo: pass message.mode to script` at the pin). NO-DIVERGENCE;
+  no PORTING-EXCEPTION marker (Arc-24 taxonomy: TS-matching ≠ exception).
+  Revisit when TS consumes it.
+- 🚧 TS `UpdatePid`→`UpdateUid192` model rename — **NOT-ADOPTED** (import alias
+  for the same model/encoder; goscape sends inline).
+- 🚧 'hidden' op-string gate drops (OpNpc/OpObj/OpLoc) — TS removed the
+  `=== 'hidden'` comparisons; "hidden" strings now pass the handler gates in
+  both TS and Go. NPC_HASOP-style script semantics are independent and
+  unchanged.
+- ℹ `LastLoginInfo.warnMembersInNonMembers` ported with its real derivation
+  (`!cfg.NodeMembers && p.members`, TS Player.ts:2197); follow-up `010ee146`
+  populated `Player.members` from the login response (TS World.ts:1937) — the
+  field became wire-load-bearing here (UPDATE_PID byte 3 + the warn flag).
+
+**Correspondence audit** — every file in the B2 scope diff → commit / decision:
+
+| TS surface (e1dea19f..9aadcec4) | goscape commit / decision |
+|---|---|
+| `ClientGameProt.ts` (81/78) | `b1cb81d4` client renumber + `Opc*` constants + registration (+`803c43ce`, `3b64bae2` doc fixes) |
+| `ServerGameProt.ts` (58/61) + `ServerGameZoneProt.ts` (10/10) | `0ef495fb` (+`77d3917c`); zone dup consts in `pkg/rsbuf/zone_encoders.go` renumbered same commit; five size-changed rows in `1e3bd50e` |
+| `RebuildNormalEncoder/UpdatePidEncoder/LastLoginInfoEncoder/MidiSongEncoder/MidiJingleEncoder` | `1e3bd50e` table-row+emitter pairs (+`010ee146` members wiring) |
+| `RebuildGetMaps*` (handler/decoder/model, −99) + `DataLand*/DataLoc*` (−89) + repository unbindings | `a6fa1e8f` removal |
+| `OpHeld*` handlers/decoders/models | `1a4e71fe` (+`6285bd20`) |
+| `InvButton*` handlers/decoders/models | `07ce53ca` (+`24f7d54a`) |
+| `OpNpc*` | `1989f7ac` (+`65493b7d`) |
+| `OpObj*` | `7fa35ba2` (+`10ceb1f6`) |
+| `OpLoc*` | `b4cf5b25` (+`e45e92f9`) |
+| `OpPlayer*` | `cca7155c` (+`f520bc00`) |
+| `IfButtonHandler/Decoder`, `MessagePublicHandler/Decoder`, `MessagePrivateDecoder`, `ChatSetModeHandler`, `IfPlayerDesign*` (renamed), `TutorialClickSide*` (renamed), `NoTimeoutDecoder/model` | `f117b094` (+`9a952e56`) |
+| `ClientCheatHandler` (STANDALONE_BUNDLE gating), `IdleTimerHandler` (import-only), `EventTracking`/`ResumePCountDialog` models (formatting) | **NO-OP** (verified in T11 review) |
+| Model `com`→`component` renames (×14) + decoder import-only deltas (×8) | **NO-OP for Go** — goscape decodes inline; 244 names adopted in handler locals/comments |
+| `ClientGameProtRepository.ts` / `ServerGameProtRepository.ts` | **NO-OP** — TS DI infra; the Go analog is the table + `handlers_game.go` registration (covered above) |
+| `HintArrowEncoder/model` (playerSlot→pid rename) | **NO-OP** — wire unchanged; goscape keeps slot terminology (network-layer identity convention) |
+| rsbuf `prot.rs`/`renderer.rs`/`info.rs`/`lib.rs`/`player.rs`/`npc.rs` (damage2 commit `1defefb`) | `1684f8f4` (+`c7207bff`, `b34675f7`); entity feed `2afa543c`; end-to-end wire pin `a1d8ec70` |
+
+Every hunk of the scope diff maps to a commit or decision above — no unmapped hunks.
+
+**Gates (2026-06-04):** full `go test ./... -count=1` exit 0;
+`CGO_ENABLED=0 go build -trimpath ./...` exit 0; `go vet ./...` exit 0 (only
+the pre-existing `pkg/util/build` self-assignment placeholders);
+`-race` on `pkg/rsbuf` + `pkg/io/protocol/...` + `modules/world` green.
+The B1 format-window skips remain (expire B6).
+
 ---
 
 ## Recent audit history (full log in `docs/PORTING-CLOSED.md`)
