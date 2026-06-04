@@ -478,7 +478,7 @@ func TestHandleIfPlayerDesignColorOutOfBounds(t *testing.T) {
 }
 
 // TestHandleIfPlayerDesignRejectsWhenIdkTypesNil pins net-client-h-social-5.
-// TS IdkSaveDesignHandler.ts:18-35 calls IdkType.get(idkit[i]) which
+// TS IfPlayerDesignHandler.ts:19-36 calls IdkType.get(idkit[i]) which
 // returns falsy when the registry has no entry; the `!idk` arm fails
 // validation and drops the design. goscape pre-fix wrapped the idk
 // loop in `if s.idkTypes != nil`, silently accepting any otherwise-
@@ -494,7 +494,7 @@ func TestHandleIfPlayerDesignRejectsWhenIdkTypesNil(t *testing.T) {
 	_ = s.handleIfPlayerDesign(p, idkPayload(0, [7]byte{0, 1, 2, 3, 4, 5, 6}, [5]byte{0, 0, 0, 0, 0}))
 
 	if p.gender != 0 || p.body != [7]int{0, 10, 18, 26, 33, 36, 42} {
-		t.Errorf("TS IdkSaveDesignHandler.ts:30-34 rejects design when IdkType.get returns falsy; nil registry must reject (no state change), but got gender=%d body=%v", p.gender, p.body)
+		t.Errorf("TS IfPlayerDesignHandler.ts:31-35 rejects design when IdkType.get returns falsy; nil registry must reject (no state change), but got gender=%d body=%v", p.gender, p.body)
 	}
 }
 
@@ -631,7 +631,7 @@ func TestHandleIfPlayerDesignValidFemaleWithJaw(t *testing.T) {
 }
 
 // TestHandleIfPlayerDesignDisabledIdk pins that a disabled IdkType rejects
-// the whole packet (TS IdkSaveDesignHandler.ts:30: idk.disable check).
+// the whole packet (TS IfPlayerDesignHandler.ts:32: idk.disable check).
 func TestHandleIfPlayerDesignDisabledIdk(t *testing.T) {
 	s := newTestServer(t)
 	p, _ := newTestPlayer(t)
@@ -650,7 +650,7 @@ func TestHandleIfPlayerDesignDisabledIdk(t *testing.T) {
 }
 
 // TestHandleIfPlayerDesignWrongType pins that a type mismatch rejects the packet
-// (TS IdkSaveDesignHandler.ts:30: idk.type != type check).
+// (TS IfPlayerDesignHandler.ts:32: idk.type != type check).
 func TestHandleIfPlayerDesignWrongType(t *testing.T) {
 	s := newTestServer(t)
 	p, _ := newTestPlayer(t)

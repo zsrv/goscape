@@ -681,10 +681,10 @@ type ActivePlayer interface {
 	// S7e: character-design save gate.
 
 	// SetAllowDesign updates the active player's allowDesign flag. When true,
-	// the client's IdkSaveDesign inbound packet (character-design recustomise)
+	// the client's IfPlayerDesign inbound packet (character-design recustomise)
 	// is permitted to apply. Mirrors TS Player.allowDesign
 	// (Engine-TS/src/engine/entity/Player.ts:323). The handler coerces the
-	// popped int via v==1 before calling. Reader path (IdkSaveDesignHandler)
+	// popped int via v==1 before calling. Reader path (IfPlayerDesignHandler)
 	// unported — deviation S7e-D1.
 	SetAllowDesign(v bool)
 

@@ -224,7 +224,7 @@ func handlePAnimProtect(s *ScriptState) error {
 // handleAllowDesign (ALLOWDESIGN, opcode 2001) sets the active player's
 // allowDesign flag. Pops one int, rejects -1 via NumberNotNull, and stores
 // (v == 1) as a bool. Gate is ActivePlayer (not Protected). Mirrors TS
-// PlayerOps.ts:1022-1024. The gate permits `IdkSaveDesign` inbound packets
+// PlayerOps.ts:1022-1024. The gate permits `IfPlayerDesign` inbound packets
 // (character-design recustomise) — reader path unported, see S7e-D1.
 func handleAllowDesign(s *ScriptState) error {
 	if err := requireActivePlayer(s, "ALLOWDESIGN"); err != nil {

@@ -96,7 +96,7 @@ func (s *Server) handleIfPlayerDesign(p *Player, payload []byte) error {
 		idkit[i] = v
 	}
 
-	// IdkType validation — mirrors TS IdkSaveDesignHandler.ts:18-35.
+	// IdkType validation — mirrors TS IfPlayerDesignHandler.ts:15-39.
 	// TS calls IdkType.get(idkit[i]) which returns falsy when the
 	// registry has no entry for that id — the `!idk` arm then drops
 	// the design. net-client-h-social-5: goscape pre-fix wrapped the

@@ -343,7 +343,7 @@ type Player struct {
 	walktrigger int
 
 	// === character-design gate (S7e) ===
-	// allowDesign permits IdkSaveDesign inbound packets (character-design
+	// allowDesign permits IfPlayerDesign inbound packets (character-design
 	// recustomise) when true. Set by the ALLOWDESIGN script opcode. Reader
 	// path unported (S7e-D1).
 	allowDesign bool
