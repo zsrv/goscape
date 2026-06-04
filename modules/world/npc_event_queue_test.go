@@ -294,7 +294,7 @@ func TestProcessNpcRegenDecrementsWhenAboveBase(t *testing.T) {
 	}
 }
 
-// --- 244 regen countdown pins (Npc.ts:514-531 @ 9aadcec4) ---
+// --- 244 regen countdown pins (Npc.ts:514-532 @ 9aadcec4) ---
 // These tests encode the 244 contract:
 //   - countdown clock (pre-decrement then <= 0 check)
 //   - clock init 0 → first-turn-alive proc
@@ -368,7 +368,7 @@ func TestProcessNpcRegen244SteadyStateCadence(t *testing.T) {
 
 // TestProcessNpcRegen244RegenRateZeroDisables: RegenRate=0 must disable regen
 // entirely — the clock must not underflow, the level must stay damaged, even
-// after many calls. (225: regenInterval=0 → fires every tick since 1<0=false.)
+// after many calls. (225 countup logic: ++regenClock >= regenInterval=0 was always true, so regen fired EVERY tick instead of being disabled; 244 short-circuits on regenrate==0 before any decrement.)
 func TestProcessNpcRegen244RegenRateZeroDisables(t *testing.T) {
 	s := newServerForScriptTest(t)
 	n := newNpcForLifecycleTest(t)

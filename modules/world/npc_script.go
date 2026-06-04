@@ -487,7 +487,7 @@ func (s *Server) processNpcTimer(n *Npc) {
 
 // processNpcRegen ticks the regen countdown clock and, when it reaches zero,
 // converges every levels[i] one step toward baseLevels[i]. Matches TS
-// Npc.processRegen at Engine-TS/src/engine/entity/Npc.ts:514-531 @ 9aadcec4.
+// Npc.processRegen at Engine-TS/src/engine/entity/Npc.ts:514-532 @ 9aadcec4.
 //
 // 244 contract (Npc.ts:520-521):
 //   - regenrate 0 disables regen entirely — the decrement is skipped
