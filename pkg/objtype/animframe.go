@@ -1,6 +1,9 @@
 package objtype
 
 import (
+	"os"
+	"path/filepath"
+
 	"github.com/zsrv/goscape/pkg/io/filestream"
 	"github.com/zsrv/goscape/pkg/io/packet"
 )
@@ -44,12 +47,25 @@ type AnimFrameConfigs struct {
 // (archive 2). It mirrors TS AnimFrame.load() at Engine-TS/.../AnimFrame.ts:17-24
 // (Engine-TS 9aadcec4) which calls OnDemand.cache.count(2) / .read(2, i, true).
 //
-// Returns an empty registry with nil error when the cache is absent or empty
-// (matches TS AnimFrame.load silent-on-missing behaviour).
+// Returns an empty registry with nil error when the cache files are absent
+// (matches TS AnimFrame.load silent-on-missing behaviour; TS assumes the
+// OnDemand FileStream is pre-initialised — Go uses a pre-existence guard
+// so that test fixtures without a full cache don't panic inside filestream.New).
 func LoadAnimFrames(dir string) (*AnimFrameConfigs, error) {
 	// TS AnimFrame.load() opens FileStream('data/pack'), which is the cache
 	// root — callers pass cfg.CachePath (e.g. "data/pack") exactly as TS does.
-	// TS AnimFrame.ts:17-24 (Engine-TS 9aadcec4)
+	// TS AnimFrame.ts:17-24 (Engine-TS 9aadcec4).
+	//
+	// Pre-existence guard: filestream.New panics if the dat doesn't exist and
+	// can't be created (read-only fs or absent dir). TS never hits this path
+	// because OnDemand initialises the FileStream upfront; Go guards with a
+	// stat check so test fixtures without a cache get an empty registry.
+	datPath := filepath.Join(dir, "main_file_cache.dat")
+	if _, err := os.Stat(datPath); err != nil {
+		// Cache is absent — return empty registry, matching TS silent skip.
+		return &AnimFrameConfigs{}, nil
+	}
+
 	fs := filestream.New(dir, false, true)
 	defer func() { _ = fs.Close() }()
 

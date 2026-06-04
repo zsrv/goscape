@@ -79,14 +79,23 @@ func (t *SeqType) Decode(code uint8, dat *packet.Packet) error {
 			if d == 0 {
 				// TS L105 unconditionally derefs AnimFrame.instances[frames[i]].delay;
 				// an OOR frames[i] throws TypeError, aborting the whole config
-				// parse. Match TS by dropping the bounds guard so OOR panics here
-				// (Go equivalent of TS's throw — both halt parsing on bad data;
-				// silent-default would mask data-corruption that TS would catch).
-				// cfg-media-1 (2026-05-28 audit). The nil-animFrames guard is
-				// preserved as additive robustness (CONFIRMED-EXCEPTION in the
-				// ledger) for test fixtures that omit an AnimFrame back-ref;
-				// production callers (LoadSeqTypes/parseSeqTypes) always set it.
-				if t.animFrames != nil {
+				// parse. Match TS by dropping the upper bounds guard so OOR panics
+				// here when the instances array IS populated (Go equivalent of TS's
+				// throw — both halt parsing on bad data; silent-default would mask
+				// data-corruption that TS would catch).
+				// cfg-media-1 (2026-05-28 audit).
+				// Two nil-guards are preserved as additive robustness
+				// (CONFIRMED-EXCEPTION in the ledger):
+				//   1. animFrames == nil: test fixtures that omit the back-ref.
+				//   2. empty Instances: 244 caches that are absent (LoadAnimFrames
+				//      returns &AnimFrameConfigs{} when main_file_cache.dat is missing).
+				//      TS avoids this via the SeqType.load lazy-init guard
+				//      ("if (!AnimFrame.instances.length) AnimFrame.load()"); if load
+				//      returns no instances the TS path would also throw, so both
+				//      cases are data errors. Production callers always have a
+				//      populated registry; the empty-Instances guard covers test
+				//      fixtures that use 225-format caches with 244 code.
+				if t.animFrames != nil && len(t.animFrames.Instances) > 0 {
 					d = int32(t.animFrames.Instances[t.Frames[i]].Delay)
 				}
 			}

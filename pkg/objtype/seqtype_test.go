@@ -160,10 +160,34 @@ func TestSeqTypeDecode_DelayZeroNoFallbackUsesOne(t *testing.T) {
 	}
 }
 
+// TestSeqTypeDecode_DelayZeroEmptyAnimFrames verifies that an empty (no-cache)
+// AnimFrameConfigs falls through to the TS L109 default of 1 rather than
+// panicking. This covers the rev-244 scenario where main_file_cache.dat is
+// absent (e.g. a 225-format test cache) and LoadAnimFrames returns an empty
+// registry. Production callers always have a populated registry.
+// (CONFIRMED-EXCEPTION: additive robustness for test fixtures using 225 caches.)
+func TestSeqTypeDecode_DelayZeroEmptyAnimFrames_UsesDefault(t *testing.T) {
+	emptyFrames := &AnimFrameConfigs{} // Instances == nil/empty
+	st, err := decodeSeq(emptyFrames, func(p *packet.Packet) {
+		p.P1(1)
+		p.P1(1)
+		p.P2(0x0005) // frames[0] = 5
+		p.P2(0x0000) // iframes[0] = 0
+		p.P2(0x0000) // delay[0] = 0 → empty Instances → falls through to d=1
+	})
+	if err != nil {
+		t.Fatalf("DecodeType: %v", err)
+	}
+	if st.Delay[0] != 1 {
+		t.Errorf("Delay[0]: got %d, want 1 (TS L109 default when Instances empty)", st.Delay[0])
+	}
+}
+
 // cfg-media-1: TS SeqType.decode L105 derefs AnimFrame.instances[frames[i]].delay
 // unconditionally — an OOR frames[i] throws TypeError, aborting the config
-// parse. goscape pre-fix wrapped the deref in bounds guard; post-fix drops it
-// to match TS. The nil-animFrames guard is preserved (CONFIRMED-EXCEPTION).
+// parse. goscape pre-fix wrapped the deref in bounds guard; post-fix drops the
+// upper-bound guard to match TS for POPULATED registries. The nil-animFrames
+// and empty-Instances guards are preserved (CONFIRMED-EXCEPTION).
 func TestSeqTypeDecode_DelayZeroOutOfRangeFramesIndex_Panics(t *testing.T) {
 	animFrames := &AnimFrameConfigs{
 		Instances: []*AnimFrame{{Delay: 7}}, // length 1
