@@ -67,10 +67,11 @@ var (
 	// TS ServerGameProt.ts (244): HINT_ARROW=49/6.
 	OpHintArrow = Op{Opcode: 49, PayloadSize: 6}
 
-	// REBUILD_NORMAL: deferred to B2 Task 3 — size changes from -2 to 4 and
-	// the emitter must change in the same commit. Keeps its 225 value (237, -2)
-	// until then. TS ServerGameProt.ts (244): REBUILD_NORMAL=165/4.
-	OpRebuildNormal    = Op{Opcode: 237, PayloadSize: -2}
+	// REBUILD_NORMAL: 244 wire = fixed 4 bytes: p2(zoneX) p2(zoneZ).
+	// The 225 per-mapsquare CRC loop is gone; 244 client fetches maps via
+	// OnDemand (Bundle 3). TS RebuildNormalEncoder.ts (244): test() returns 4.
+	// TS ServerGameProt.ts (244): REBUILD_NORMAL=165/4.
+	OpRebuildNormal    = Op{Opcode: 165, PayloadSize: 4}
 	OpUpdateInvFull    = Op{Opcode: 72, PayloadSize: -2}
 	OpUpdateInvPartial = Op{Opcode: 132, PayloadSize: -2}
 	OpPlayerInfo       = Op{Opcode: 86, PayloadSize: -2}
@@ -133,14 +134,12 @@ var (
 	// TS ServerGameProt.ts (244): MESSAGE_GAME=95/-1.
 	OpMessageGame = Op{Opcode: 95, PayloadSize: -1}
 
-	// MIDI client-audio packets — deferred to B2 Task 3 (size changes, emitters must update).
-	// Keep 225 values. TS ServerGameProt.ts (244): MIDI_SONG=240/2, MIDI_JINGLE=173/4.
-	// MIDI_SONG streams a song reference (name + crc + length so the client
-	// can fetch the .mid blob from the OnDemand server); MIDI_JINGLE streams
-	// an inline jingle payload. Wired from the MIDI_SONG (2064) / MIDI_JINGLE
-	// (2063) script opcodes via (*Player).PlaySong / PlayJingle.
-	OpMidiSong   = Op{Opcode: 54, PayloadSize: -1}
-	OpMidiJingle = Op{Opcode: 212, PayloadSize: -2}
+	// MIDI client-audio packets. 244 wire: MIDI_SONG = p2(id); MIDI_JINGLE = p2(id) p2(delay).
+	// The name+crc+length blob is gone; client now fetches by pack id via OnDemand.
+	// Name→id lookup via midiIDByName() returns -1 until B3 MidiPack lands.
+	// TS ServerGameProt.ts (244): MIDI_SONG=240/2, MIDI_JINGLE=173/4.
+	OpMidiSong   = Op{Opcode: 240, PayloadSize: 2}
+	OpMidiJingle = Op{Opcode: 173, PayloadSize: 4}
 
 	// Sound-effect packet. TS ServerGameProt.ts (244): SYNTH_SOUND=151/5.
 	// SYNTH_SOUND plays a short synthesized sound effect; payload is
@@ -155,16 +154,16 @@ var (
 	OpEnableTracking = Op{Opcode: 22, PayloadSize: 0}
 	OpFinishTracking = Op{Opcode: 60, PayloadSize: 0}
 
-	// OpLastLoginInfo: deferred to B2 Task 3 (payload size 9→10, emitter changes).
-	// Keeps 225 value (140, 9). TS ServerGameProt.ts (244): LAST_LOGIN_INFO=44/10.
+	// OpLastLoginInfo: 244 wire = p4+p2+p1+p2+pbool = 10 bytes.
 	// Carries previous-login telemetry the client renders on the welcome screen.
-	OpLastLoginInfo = Op{Opcode: 140, PayloadSize: 9}
+	// TS ServerGameProt.ts (244): LAST_LOGIN_INFO=44/10.
+	OpLastLoginInfo = Op{Opcode: 44, PayloadSize: 10}
 
-	// OpUpdatePid: deferred to B2 Task 3 (payload size 2→3, emitter changes).
-	// Keeps 225 value (139, 2). TS ServerGameProt.ts (244): UPDATE_PID=210/3.
-	// Carries the player's server-side slot to the client so the client's
-	// localPlayer reference is bound to the correct PlayerInfo slot.
-	OpUpdatePid = Op{Opcode: 139, PayloadSize: 2}
+	// OpUpdatePid: 244 wire = p2(uid) + pbool(members) = 3 bytes.
+	// Carries the player's server-side slot and world-members flag.
+	// TS UpdatePidEncoder.ts (244): p2(uid) pbool(members).
+	// TS ServerGameProt.ts (244): UPDATE_PID=210/3.
+	OpUpdatePid = Op{Opcode: 210, PayloadSize: 3}
 
 	// OpResetAnims tells the client to clear all animation layers on the
 	// local player. Zero-byte payload. Emitted at onLogin (after varp

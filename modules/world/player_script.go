@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zsrv/goscape/pkg/cache"
 	"github.com/zsrv/goscape/pkg/coordgrid"
 	entitypkg "github.com/zsrv/goscape/pkg/entity"
 	"github.com/zsrv/goscape/pkg/inventory"
@@ -1586,28 +1585,28 @@ func normalizeSongName(name string) string {
 }
 
 // PlaySong normalizes the song name per TS Player.playSong
-// (Engine-TS/src/engine/entity/Player.ts:1902-1914), looks up the
-// preloaded blob + CRC, and writes MidiSong to the client. Silent
-// no-op on empty name or missing PRELOADED entry (mirrors TS's
-// `if (song && crc)` guard at Player.ts:1910).
+// (Engine-TS/src/engine/entity/Player.ts:1919-1924 at 244), resolves
+// the pack id via midiIDByName, and writes MidiSong to the client.
+// Silent no-op on empty name or id == -1 (mirrors TS's `if (id !== -1)`
+// guard at Player.ts:1921).
 //
-// NAI-16 retires S7h-D1: the PRELOADED lookup and MidiSong write are
-// now wired. TestPlaySongWritesOut is the positive-pin; the miss-path
-// pins (TestPlaySong*ReturnsSilently) verify the silent-no-op guards.
+// normalizeSongName: lowercase + spaces→underscores. TS 244 also strips
+// /[^a-z0-9_-]/g — the Go normalization omits that strip; midiIDByName
+// returning -1 until B3 makes the difference moot for now.
+//
+// rev-244 B2: midiIDByName always returns -1 (B3 MidiPack pending),
+// so PlaySong is always a silent no-op. See midi_encoders.go.
 func (p *Player) PlaySong(name string) {
 	name = normalizeSongName(name)
 	if name == "" {
 		return
 	}
-	key := name + ".mid"
-	preload := cache.Preload()
-	song, okSong := preload.Data[key]
-	crc, okCRC := preload.CRC[key]
-	if !okSong || !okCRC {
+	id := midiIDByName(name)
+	if id == -1 {
 		return
 	}
-	buf := packet.NewPacket(make([]byte, 0, len(name)+10))
-	encodeMidiSong(buf, name, crc, uint32(len(song)))
+	buf := packet.NewPacket(make([]byte, 0, 4))
+	encodeMidiSong(buf, id)
 	p.writeOut(gameserver.OpMidiSong, buf.Bytes())
 }
 
@@ -1623,25 +1622,28 @@ func normalizeJingleName(name string) string {
 }
 
 // PlayJingle normalizes the jingle name per TS Player.playJingle
-// (Engine-TS/src/engine/entity/Player.ts:1916-1926), looks up the
-// preloaded blob, and writes MidiJingle to the client. Silent no-op
-// on empty name or missing PRELOADED entry (mirrors TS's `if (jingle)`
-// guard at Player.ts:1923).
+// (Engine-TS/src/engine/entity/Player.ts:1925-1932 at 244), resolves
+// the pack id via midiIDByName, and writes MidiJingle to the client.
+// Silent no-op on empty name or id == -1 (mirrors TS's `if (id !== -1)`
+// guard at Player.ts:1929).
 //
-// NAI-16 retires S7h-D1 (jingle side). TestPlayJingleWritesOut pins
-// the positive path; TestPlayJingleMissingFromPreloadedReturnsSilently
-// pins the silent-no-op guard.
+// normalizeJingleName: lowercase + underscores→spaces. TS 244 normalizes
+// via just toLowerCase() — the Go normalization also replaces underscores
+// with spaces; midiIDByName returning -1 until B3 makes the difference moot.
+//
+// rev-244 B2: midiIDByName always returns -1 (B3 MidiPack pending),
+// so PlayJingle is always a silent no-op. See midi_encoders.go.
 func (p *Player) PlayJingle(delay int, name string) {
 	name = normalizeJingleName(name)
 	if name == "" {
 		return
 	}
-	jingle, ok := cache.Preload().Data[name+".mid"]
-	if !ok {
+	id := midiIDByName(name)
+	if id == -1 {
 		return
 	}
-	buf := packet.NewPacket(make([]byte, 0, 2+len(jingle)))
-	encodeMidiJingle(buf, uint16(delay), jingle)
+	buf := packet.NewPacket(make([]byte, 0, 4))
+	encodeMidiJingle(buf, id, delay)
 	p.writeOut(gameserver.OpMidiJingle, buf.Bytes())
 }
 
@@ -1729,6 +1731,15 @@ func (p *Player) AddWealthEvent(evt script.WealthEvent) {
 //
 // lastIp is hardcoded to 127.0.0.1 (2130706433) and
 // daysSinceRecoveriesChanged to 201 ("hide :)") per TS Player.ts:2194,2196.
+//
+// warnMembersInNonMembers: TS Player.ts:2197
+// `!Environment.NODE_MEMBERS && this.members` — true when the world is
+// a non-members world and the player has a members subscription (warns them
+// members content is unavailable). Requires server config access; if
+// p.client or p.client.server is nil (test context), resolves to false.
+// rev-244-b2: placeholder — the B3 Player.ts:2198 producer surface is
+// not yet ported; warnMembersInNonMembers is derived from available
+// state and is correct for the non-B3 surface.
 func (p *Player) LastLoginInfo() {
 	now := time.Now().UnixMilli()
 	lastDate := p.lastLoginTime
@@ -1740,11 +1751,23 @@ func (p *Player) LastLoginInfo() {
 	daysSinceLogin := int((now - lastDate) / dayMillis)
 	daysSinceRecoveriesChanged := 201
 
+	// warnMembersInNonMembers: !NODE_MEMBERS && player.members.
+	// TS Player.ts:2197 `!Environment.NODE_MEMBERS && this.members`.
+	var warnMembersInNonMembers bool
+	if p.client != nil && p.client.server != nil {
+		warnMembersInNonMembers = !p.client.server.cfg.NodeMembers && p.members
+	}
+
+	var warnByte byte
+	if warnMembersInNonMembers {
+		warnByte = 1
+	}
 	payload := []byte{
 		byte(lastIp >> 24), byte(lastIp >> 16), byte(lastIp >> 8), byte(lastIp), // p4: lastIp
 		byte(daysSinceLogin >> 8), byte(daysSinceLogin), // p2: daysSinceLogin
 		byte(daysSinceRecoveriesChanged),                // p1
 		byte(p.messageCount >> 8), byte(p.messageCount), // p2: messageCount
+		warnByte, // pbool: warnMembersInNonMembers (TS Player.ts:2197)
 	}
 	p.writeOut(gameserver.OpLastLoginInfo, payload)
 	p.lastLoginTime = now

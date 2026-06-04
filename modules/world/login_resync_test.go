@@ -8,20 +8,48 @@ import (
 	gameserver "github.com/zsrv/goscape/pkg/io/protocol/game/server"
 )
 
-// TestSendUpdatePid_EmitsExactByteSequence pins the wire bytes of sendUpdatePid. NAI-182 B1.
+// TestSendUpdatePid_EmitsExactByteSequence pins the 244 wire bytes of
+// sendUpdatePid: p2(slot) + pbool(members). NAI-182 B1; size updated in
+// rev-244 B2 Task 3. TS UpdatePidEncoder.ts (244): p2(uid) pbool(members).
 func TestSendUpdatePid_EmitsExactByteSequence(t *testing.T) {
+	p, cc := newTestPlayer(t)
+	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
+	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+
+	// members=false → pbool encodes as 0x00; slot=0x1234.
+	want := []byte{
+		byte((int(gameserver.OpUpdatePid.Opcode) + int(enc.GetNext())) & 0xff),
+		0x12, 0x34, // p2(slot)
+		0x00, // pbool(members=false)
+	}
+
+	received := drainConn(t, cc)
+	p.slot = 0x1234
+	sendUpdatePid(p, p.slot, false)
+	p.client.flushWrite()
+
+	got := <-received
+	if !bytes.Equal(got, want) {
+		t.Errorf("wire: got %v, want %v", got, want)
+	}
+}
+
+// TestSendUpdatePid_MembersTrue pins pbool(members=true) encodes as 0x01.
+// TS UpdatePidEncoder.ts (244): pbool(message.members).
+func TestSendUpdatePid_MembersTrue(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 
 	want := []byte{
 		byte((int(gameserver.OpUpdatePid.Opcode) + int(enc.GetNext())) & 0xff),
-		0x12, 0x34,
+		0x00, 0x01, // p2(slot=1)
+		0x01, // pbool(members=true)
 	}
 
 	received := drainConn(t, cc)
-	p.slot = 0x1234
-	sendUpdatePid(p, p.slot)
+	p.slot = 1
+	sendUpdatePid(p, p.slot, true)
 	p.client.flushWrite()
 
 	got := <-received
@@ -102,8 +130,9 @@ func TestProcessLogins_FreshLogin_EmitsOpcodeOrder(t *testing.T) {
 	want = append(want,
 		byte((int(gameserver.OpUpdatePid.Opcode)+int(enc.GetNext()))&0xff),
 	)
-	// UPDATE_PID payload: 2 bytes (slot assigned by addPlayer — first free slot = 1).
-	want = append(want, 0x00, byte(p.slot))
+	// UPDATE_PID payload: 3 bytes (244): p2(slot) + pbool(members).
+	// newTestServer has cfg.NodeMembers=false (zero-value); p.members=false → members=false → 0x00.
+	want = append(want, 0x00, byte(p.slot), 0x00)
 	want = append(want,
 		byte((int(gameserver.OpResetClientVarCache.Opcode)+int(enc.GetNext()))&0xff),
 	)
@@ -145,13 +174,13 @@ func TestProcessLogins_FreshLogin_WithShutdownPending_EmitsRebootTimer(t *testin
 	got := <-received
 
 	// Consume the first 4 packets: CHAT_FILTER_SETTINGS (1+3 bytes),
-	// UPDATE_PID (1+2 bytes), RESET_CLIENT_VARCACHE (1 byte), RESET_ANIMS
-	// (1 byte) = 9 bytes total.
+	// UPDATE_PID (1+3 bytes, 244: p2+pbool), RESET_CLIENT_VARCACHE (1 byte),
+	// RESET_ANIMS (1 byte) = 10 bytes total.
 	enc.GetNext() // CHAT_FILTER_SETTINGS opcode key
 	enc.GetNext() // UPDATE_PID opcode key
 	enc.GetNext() // RESET_CLIENT_VARCACHE opcode key
 	enc.GetNext() // RESET_ANIMS opcode key
-	offset := 4 + 3 + 1 + 1
+	offset := 4 + 4 + 1 + 1
 
 	// 4th packet: UPDATE_REBOOT_TIMER opcode + 2-byte payload (25 == 0x0019).
 	wantOpcode := byte((int(gameserver.OpUpdateRebootTimer.Opcode) + int(enc.GetNext())) & 0xff)
@@ -198,9 +227,9 @@ func TestProcessLogins_FreshLogin_NoShutdown_NoRebootTimer(t *testing.T) {
 	enc.GetNext() // RESET_ANIMS
 	forbiddenOpcode := byte((int(gameserver.OpUpdateRebootTimer.Opcode) + int(enc.GetNext())) & 0xff)
 
-	// The stream should be exactly 9 bytes (CFS=4, UPDATE_PID=3, RCV=1, RA=1).
+	// The stream should be exactly 10 bytes (CFS=4, UPDATE_PID=4 (244: p2+pbool), RCV=1, RA=1).
 	// Anything beyond that, including a byte matching the reboot opcode, is a bug.
-	const wantLen = 9
+	const wantLen = 10
 	if len(got) != wantLen {
 		t.Errorf("stream length: got %d, want %d (no reboot timer packet)", len(got), wantLen)
 	}

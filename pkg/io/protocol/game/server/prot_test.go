@@ -96,17 +96,17 @@ func TestServerProt244Table(t *testing.T) {
 		{"MAP_ANIM", OpMapAnim, 198, 6},
 		{"OBJ_ADD", OpObjAdd, 234, 5},
 
-		// --- five deferred rows: keep 225 values until emitters change in Task 3 ---
-		// TS 244: UPDATE_PID=210/3
-		{"UPDATE_PID (deferred)", OpUpdatePid, 139, 2},
-		// TS 244: LAST_LOGIN_INFO=44/10
-		{"LAST_LOGIN_INFO (deferred)", OpLastLoginInfo, 140, 9},
-		// TS 244: REBUILD_NORMAL=165/4
-		{"REBUILD_NORMAL (deferred)", OpRebuildNormal, 237, -2},
-		// TS 244: MIDI_SONG=240/2
-		{"MIDI_SONG (deferred)", OpMidiSong, 54, -1},
-		// TS 244: MIDI_JINGLE=173/4
-		{"MIDI_JINGLE (deferred)", OpMidiJingle, 212, -2},
+		// --- five rows updated in Task 3 (emitters co-updated) ---
+		// TS ServerGameProt.ts (244): UPDATE_PID=210/3
+		{"UPDATE_PID", OpUpdatePid, 210, 3},
+		// TS ServerGameProt.ts (244): LAST_LOGIN_INFO=44/10
+		{"LAST_LOGIN_INFO", OpLastLoginInfo, 44, 10},
+		// TS ServerGameProt.ts (244): REBUILD_NORMAL=165/4
+		{"REBUILD_NORMAL", OpRebuildNormal, 165, 4},
+		// TS ServerGameProt.ts (244): MIDI_SONG=240/2
+		{"MIDI_SONG", OpMidiSong, 240, 2},
+		// TS ServerGameProt.ts (244): MIDI_JINGLE=173/4
+		{"MIDI_JINGLE", OpMidiJingle, 173, 4},
 
 		// --- DATA_* rows: removed at 244 but vars exist pending later cleanup task ---
 		{"DATA_LAND (removed@244)", OpDataLand, 132, -2},
@@ -153,7 +153,7 @@ func TestSubSpec3AOpcodes(t *testing.T) {
 		opcode byte
 		size   int
 	}{
-		{OpRebuildNormal, 237, -2}, // deferred; 244 will be 165/4 — Task 3 must update BOTH this row and the TestServerProt244Table row
+		{OpRebuildNormal, 165, 4}, // TS ServerGameProt.ts (244): REBUILD_NORMAL=165/4 — updated in Task 3
 		{OpUpdateInvFull, 72, -2},
 		{OpUpdateInvPartial, 132, -2},
 	}

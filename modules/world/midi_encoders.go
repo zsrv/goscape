@@ -2,36 +2,36 @@ package world
 
 import "github.com/zsrv/goscape/pkg/io/packet"
 
-// encodeMidiSong writes a MidiSong payload per TS MidiSongEncoder.ts:
+// encodeMidiSong writes a MidiSong payload per TS MidiSongEncoder.ts (244):
 //
-//	buf.pjstr(message.name);
-//	buf.p4(message.crc);
-//	buf.p4(message.length);
+//	buf.p2(message.id);
 //
-// Byte-aligned. Caller wraps in:
+// Fixed 2-byte payload. Caller wraps in:
 //
 //	p.writeOut(gameserver.OpMidiSong, buf.Bytes())
-//
-// The string terminator is 0x0A (LF) per TS Packet.pjstr at
-// io/Packet.ts:330-337 (universal goscape PJStrLF precedent).
-func encodeMidiSong(buf *packet.Packet, name string, crc uint32, length uint32) {
-	buf.PJStrLF(name)
-	buf.P4(crc)
-	buf.P4(length)
+func encodeMidiSong(buf *packet.Packet, id int) {
+	buf.P2(uint16(id))
 }
 
-// encodeMidiJingle writes a MidiJingle payload per TS MidiJingleEncoder.ts:
+// encodeMidiJingle writes a MidiJingle payload per TS MidiJingleEncoder.ts (244):
 //
+//	buf.p2(message.id);
 //	buf.p2(message.delay);
-//	buf.pdata(message.data, 0, message.data.length);
 //
-// Byte-aligned. Caller wraps in:
+// Fixed 4-byte payload. Caller wraps in:
 //
 //	p.writeOut(gameserver.OpMidiJingle, buf.Bytes())
+func encodeMidiJingle(buf *packet.Packet, id int, delay int) {
+	buf.P2(uint16(id))
+	buf.P2(uint16(delay))
+}
+
+// midiIDByName returns the pack id for the given MIDI name, or -1 if not found.
 //
-// goscape's PData(src) takes no offset/length and writes the whole
-// slice; TS's pdata(src, 0, src.length) reduces to the same output.
-func encodeMidiJingle(buf *packet.Packet, delay uint16, data []byte) {
-	buf.P2(delay)
-	buf.PData(data)
+// PORTING-EXCEPTION (rev244-b2-midi-window, silent until B3 MidiPack): the 244
+// MIDI_SONG/MIDI_JINGLE wire carries pack ids; the MidiPack name→id registry
+// lands with B3's cache rework. Returning -1 makes PlaySong/PlayJingle silent
+// no-ops, mirroring TS's id!==-1 guard (Player.ts:1921-1929). See PORTING.md.
+func midiIDByName(_ string) int {
+	return -1
 }

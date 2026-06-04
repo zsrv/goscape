@@ -338,7 +338,10 @@ func (s *Server) processLogins() {
 			// (DEVIATION-NAI-182-D5-NO-DEFENSIVE-IGNORELIST-LOGIN-EMIT —
 			// goscape always runs with a friends server).
 			sendChatFilterSettings(p, p.publicChat, p.privateChat, p.tradeDuel)
-			sendUpdatePid(p, p.slot)
+			// TS UpdatePidEncoder (244): p2(uid) pbool(members).
+			// TS Player.ts:501 `new UpdatePid(this.pid, this.members)` —
+			// members is the player's own membership flag.
+			sendUpdatePid(p, p.slot, p.members)
 			sendResetClientVarCache(p)
 			if s.varpTypes != nil {
 				for i, vt := range s.varpTypes.Configs {

@@ -149,7 +149,7 @@ func TestAddXPLevelUpUnbuffedAdvancesLevels(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.stats[objtype.PlayerStatAttack] = 800
 	p.baseLevels[objtype.PlayerStatAttack] = 2
-	p.levels[objtype.PlayerStatAttack] = 2  // un-buffed
+	p.levels[objtype.PlayerStatAttack] = 2         // un-buffed
 	p.AddXP(objtype.PlayerStatAttack, 1000, false) // → 1800, crosses 1740 = level 3
 	if p.baseLevels[objtype.PlayerStatAttack] != 3 {
 		t.Errorf("baseLevels: got %d, want 3", p.baseLevels[objtype.PlayerStatAttack])
@@ -164,7 +164,7 @@ func TestAddXPLevelUpWhileDrained(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.stats[objtype.PlayerStatAttack] = 800
 	p.baseLevels[objtype.PlayerStatAttack] = 2
-	p.levels[objtype.PlayerStatAttack] = 1  // drained below base
+	p.levels[objtype.PlayerStatAttack] = 1         // drained below base
 	p.AddXP(objtype.PlayerStatAttack, 1000, false) // → level 3
 	if p.baseLevels[objtype.PlayerStatAttack] != 3 {
 		t.Errorf("baseLevels: got %d, want 3", p.baseLevels[objtype.PlayerStatAttack])
@@ -181,7 +181,7 @@ func TestAddXPMultiLevelUpUnbuffed(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.stats[objtype.PlayerStatAttack] = 0
 	p.baseLevels[objtype.PlayerStatAttack] = 1
-	p.levels[objtype.PlayerStatAttack] = 1   // un-buffed
+	p.levels[objtype.PlayerStatAttack] = 1          // un-buffed
 	p.AddXP(objtype.PlayerStatAttack, 11540, false) // GetExpByLevel(10)
 	if p.baseLevels[objtype.PlayerStatAttack] != 10 {
 		t.Errorf("baseLevels: got %d, want 10", p.baseLevels[objtype.PlayerStatAttack])
@@ -234,7 +234,7 @@ func TestAddXPBuffedLevelUpPreservesBuff(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.stats[objtype.PlayerStatAttack] = 800
 	p.baseLevels[objtype.PlayerStatAttack] = 2
-	p.levels[objtype.PlayerStatAttack] = 5  // buffed by +3
+	p.levels[objtype.PlayerStatAttack] = 5         // buffed by +3
 	p.AddXP(objtype.PlayerStatAttack, 1000, false) // → level 3
 	if p.baseLevels[objtype.PlayerStatAttack] != 3 {
 		t.Errorf("baseLevels: got %d, want 3", p.baseLevels[objtype.PlayerStatAttack])
@@ -1030,58 +1030,24 @@ func seedCachedMidi(t *testing.T, name string, data []byte, crc uint32) {
 	})
 }
 
-// TestPlaySongWritesOut pins NAI-16's retirement of S7h-D1:
-// (*Player).PlaySong now issues a writeOut after the PRELOADED lookup.
-// Failure signal = "write-path broken or PRELOADED seeding broken."
-// Replaces the prior absence-pin (which was the S7h-D1 escalation
-// signal — now satisfied by NAI-16).
-func TestPlaySongWritesOut(t *testing.T) {
-	seedCachedMidi(t, "adventure.mid", []byte{0x01, 0x02, 0x03}, 0xDEADBEEF)
-	p, _ := newTestPlayer(t)
-	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
-	p.client.encryptor = enc
-	p.PlaySong("adventure")
-	if n := p.client.bufw.Buffered(); n == 0 {
-		t.Errorf("PlaySong wrote 0 bytes to c.bufw; want >0 (NAI-16 positive pin)")
-	}
-}
-
-// TestPlaySongMissingFromPreloadedReturnsSilently pins TS's
-// `if (song && crc)` guard at Player.ts:1910. PlaySong with a name that
-// is not in PRELOADED must be a silent no-op.
-func TestPlaySongMissingFromPreloadedReturnsSilently(t *testing.T) {
-	// Do NOT seed the cache for "missing.mid".
-	p, _ := newTestPlayer(t)
-	p.PlaySong("missing")
-	if n := p.client.bufw.Buffered(); n != 0 {
-		t.Errorf("PlaySong with missing PRELOADED key wrote %d bytes; want 0 (silent no-op)", n)
-	}
-}
-
-// TestPlaySongSongSeededButCRCMissingReturnsSilently pins the `||`
-// conjunction in the (*Player).PlaySong guard: both Preloaded AND
-// PreloadedCRC must be populated for the write to fire. Defensive
-// guard against future test seeding that populates only one map.
-func TestPlaySongSongSeededButCRCMissingReturnsSilently(t *testing.T) {
-	// Seed Data["orphan.mid"] but NOT CRC["orphan.mid"] — defensive
-	// guard against future test seeding that populates only one map.
-	cache.SetPreloadForTest(&cache.PreloadSnapshot{
-		Data: map[string][]byte{"orphan.mid": {0xAA}},
-		CRC:  map[string]uint32{},
-	})
-	t.Cleanup(cache.ResetPreloadForTest)
-	p, _ := newTestPlayer(t)
-	p.PlaySong("orphan")
-	if n := p.client.bufw.Buffered(); n != 0 {
-		t.Errorf("PlaySong with PRELOADED-only seed wrote %d bytes; want 0", n)
-	}
-}
-
-func TestPlaySongEmptyNameReturnsSilently(t *testing.T) {
+// TestPlaySong244SilentNoOp_EmptyName pins that PlaySong("") is a no-op
+// (empty name guard fires before midiIDByName). rev-244 B2.
+func TestPlaySong244SilentNoOp_EmptyName(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.PlaySong("")
 	if n := p.client.bufw.Buffered(); n != 0 {
 		t.Errorf("empty name: PlaySong wrote %d bytes; want 0", n)
+	}
+}
+
+// TestPlaySong244SilentNoOp_AnyName pins that PlaySong with a non-empty
+// name is still silent because midiIDByName returns -1 until B3 MidiPack.
+// Mirrors TS Player.ts:1921 `if (id !== -1)` guard.
+func TestPlaySong244SilentNoOp_AnyName(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.PlaySong("adventure")
+	if n := p.client.bufw.Buffered(); n != 0 {
+		t.Errorf("PlaySong wrote %d bytes; want 0 (silent no-op until B3 MidiPack)", n)
 	}
 }
 
@@ -1109,34 +1075,24 @@ func TestNormalizeJingleNameEmptyReturnsEmpty(t *testing.T) {
 	}
 }
 
-// TestPlayJingleWritesOut pins NAI-16's retirement of S7h-D1 (jingle side):
-// (*Player).PlayJingle now issues a writeOut after the PRELOADED lookup.
-func TestPlayJingleWritesOut(t *testing.T) {
-	seedCachedMidi(t, "fanfare.mid", []byte{0xAB, 0xCD}, 0)
-	p, _ := newTestPlayer(t)
-	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
-	p.client.encryptor = enc
-	p.PlayJingle(3, "fanfare")
-	if n := p.client.bufw.Buffered(); n == 0 {
-		t.Errorf("PlayJingle wrote 0 bytes to c.bufw; want >0 (NAI-16 positive pin)")
-	}
-}
-
-// TestPlayJingleMissingFromPreloadedReturnsSilently pins TS's
-// `if (jingle)` guard at Player.ts:1923.
-func TestPlayJingleMissingFromPreloadedReturnsSilently(t *testing.T) {
-	p, _ := newTestPlayer(t)
-	p.PlayJingle(3, "missing")
-	if n := p.client.bufw.Buffered(); n != 0 {
-		t.Errorf("PlayJingle with missing PRELOADED key wrote %d bytes; want 0 (silent no-op)", n)
-	}
-}
-
-func TestPlayJingleEmptyNameReturnsSilently(t *testing.T) {
+// TestPlayJingle244SilentNoOp_EmptyName pins that PlayJingle("", ...) is a
+// no-op. Empty-name guard fires before midiIDByName. rev-244 B2.
+func TestPlayJingle244SilentNoOp_EmptyName(t *testing.T) {
 	p, _ := newTestPlayer(t)
 	p.PlayJingle(3, "")
 	if n := p.client.bufw.Buffered(); n != 0 {
 		t.Errorf("empty name: PlayJingle wrote %d bytes; want 0", n)
+	}
+}
+
+// TestPlayJingle244SilentNoOp_AnyName pins that PlayJingle with a non-empty
+// name is silent because midiIDByName returns -1 until B3 MidiPack.
+// Mirrors TS Player.ts:1929 `if (id !== -1)` guard.
+func TestPlayJingle244SilentNoOp_AnyName(t *testing.T) {
+	p, _ := newTestPlayer(t)
+	p.PlayJingle(3, "fanfare")
+	if n := p.client.bufw.Buffered(); n != 0 {
+		t.Errorf("PlayJingle wrote %d bytes; want 0 (silent no-op until B3 MidiPack)", n)
 	}
 }
 
@@ -2041,15 +1997,18 @@ func TestAdvanceStatUsesQueueEngine(t *testing.T) {
 
 // --- NAI-181: LAST_LOGIN_INFO server packet byte-pin tests -----------------
 
-// TestLastLoginInfo_FirstCall_EmitsExactByteSequence pins all 4 encoder
+// TestLastLoginInfo_FirstCall_EmitsExactByteSequence pins all 5 encoder
 // fields' positions, ordering, and endianness for the first-call branch
-// (lastLoginTime==0 → daysSinceLogin==0).
+// (lastLoginTime==0 → daysSinceLogin==0). 244 wire: p4+p2+p1+p2+pbool = 10 bytes.
+// TS LastLoginInfoEncoder.ts (244): p4(lastLoginIp) p2(daysSinceLogin)
+// p1(daysSinceRecoveryChange) p2(unreadMessageCount) pbool(warnMembersInNonMembers).
 func TestLastLoginInfo_FirstCall_EmitsExactByteSequence(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	enc, _ := isaacPair([4]uint32{1, 2, 3, 4})
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
 	p.messageCount = 0x0007
 	p.lastLoginTime = 0 // first-call branch
+	// p.members=false (default); p.client.server=nil → warnMembersInNonMembers=false → 0x00.
 
 	want := []byte{
 		byte((int(gameserver.OpLastLoginInfo.Opcode) + int(enc.GetNext())) & 0xff),
@@ -2057,6 +2016,7 @@ func TestLastLoginInfo_FirstCall_EmitsExactByteSequence(t *testing.T) {
 		0x00, 0x00, // p2: daysSinceLogin = 0 (first-call branch)
 		0xC9,       // p1: daysSinceRecoveriesChanged = 201
 		0x00, 0x07, // p2: messageCount = 7
+		0x00, // pbool: warnMembersInNonMembers = false
 	}
 	received := drainConn(t, cc)
 	p.LastLoginInfo()
@@ -2071,6 +2031,7 @@ func TestLastLoginInfo_FirstCall_EmitsExactByteSequence(t *testing.T) {
 // integer-truncation formula and non-zero lastDate branch. Sets
 // lastLoginTime to 5 days + 100 ms ago; asserts bytes[5:7] decode as
 // daysSinceLogin >= 5 && <= 6 (tolerant for CI jitter).
+// 244 wire: opcode(1) + p4+p2+p1+p2+pbool = 11 bytes total.
 func TestLastLoginInfo_SubsequentCall_DaysSinceLoginAdvances(t *testing.T) {
 	const dayMillis = int64(1000 * 60 * 60 * 24)
 	p, cc := newTestPlayer(t)
@@ -2085,9 +2046,9 @@ func TestLastLoginInfo_SubsequentCall_DaysSinceLoginAdvances(t *testing.T) {
 
 	// Decrypt the opcode byte and skip it, then read bytes[1:] as the payload.
 	// Wire layout: got[0]=enc-opcode, got[1..4]=lastIp p4, got[5..6]=daysSinceLogin p2,
-	// got[7]=daysSinceRecoveries, got[8..9]=messageCount p2.
-	if len(got) < 10 {
-		t.Fatalf("wire too short: got %d bytes, want 10", len(got))
+	// got[7]=daysSinceRecoveries, got[8..9]=messageCount p2, got[10]=warnMembersInNonMembers pbool.
+	if len(got) < 11 {
+		t.Fatalf("wire too short: got %d bytes, want 11", len(got))
 	}
 	// Skip the opcode; decrypt it to verify it matches OpLastLoginInfo.
 	encOpcode := int(got[0])
@@ -2095,8 +2056,9 @@ func TestLastLoginInfo_SubsequentCall_DaysSinceLoginAdvances(t *testing.T) {
 	if decOpcode != int(gameserver.OpLastLoginInfo.Opcode) {
 		t.Errorf("opcode: got %d, want %d", decOpcode, gameserver.OpLastLoginInfo.Opcode)
 	}
-	// got[0]=encrypted opcode; payload at got[1..9]
-	// got[1..4]=lastIp p4, got[5..6]=daysSinceLogin p2, got[7]=daysSinceRecoveries, got[8..9]=messageCount p2
+	// got[0]=encrypted opcode; payload at got[1..10]
+	// got[1..4]=lastIp p4, got[5..6]=daysSinceLogin p2, got[7]=daysSinceRecoveries,
+	// got[8..9]=messageCount p2, got[10]=warnMembersInNonMembers pbool
 	daysSinceLogin := int(got[5])<<8 | int(got[6])
 	if daysSinceLogin < 5 || daysSinceLogin > 6 {
 		t.Errorf("daysSinceLogin: got %d, want 5 or 6", daysSinceLogin)
@@ -2124,6 +2086,7 @@ func TestLastLoginInfo_UpdatesLastLoginTime(t *testing.T) {
 // TestLastLoginInfo_MessageCountSerialization pins bytes [8:10] as
 // big-endian p2 for messageCount=0xABCD. Disambiguates messageCount
 // slot from daysSinceRecoveriesChanged endianness regression.
+// 244 wire: opcode(1) + 10 payload bytes = 11 total.
 func TestLastLoginInfo_MessageCountSerialization(t *testing.T) {
 	p, cc := newTestPlayer(t)
 	p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
@@ -2135,14 +2098,64 @@ func TestLastLoginInfo_MessageCountSerialization(t *testing.T) {
 	p.client.flushWrite()
 	got := <-received
 
-	if len(got) < 10 {
-		t.Fatalf("wire too short: got %d bytes, want 10", len(got))
+	if len(got) < 11 {
+		t.Fatalf("wire too short: got %d bytes, want 11", len(got))
 	}
-	// got[0] = encrypted opcode; payload bytes at got[1..9]
+	// got[0] = encrypted opcode; payload bytes at got[1..10]
 	// messageCount p2 is at payload[7..8] → got[8..9]
 	if got[8] != 0xAB || got[9] != 0xCD {
 		t.Errorf("messageCount bytes: got %#x %#x, want 0xAB 0xCD", got[8], got[9])
 	}
+}
+
+// TestLastLoginInfo_WarnMembersInNonMembers pins the 10th payload byte
+// (got[10]): pbool(warnMembersInNonMembers). Derivation mirrors TS
+// Player.ts:2197 `!Environment.NODE_MEMBERS && this.members`:
+// when NodeMembers=false and p.members=true → warn=true → 0x01.
+// When NodeMembers=true, warn=false regardless of p.members.
+func TestLastLoginInfo_WarnMembersInNonMembers(t *testing.T) {
+	t.Run("non-members-world+members-player=warn", func(t *testing.T) {
+		p, cc := newTestPlayer(t)
+		s := newTestServer(t)
+		s.cfg.NodeMembers = false // non-members world
+		p.client.server = s
+		p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+		p.members = true
+		p.lastLoginTime = 0
+
+		received := drainConn(t, cc)
+		p.LastLoginInfo()
+		p.client.flushWrite()
+		got := <-received
+
+		if len(got) < 11 {
+			t.Fatalf("wire too short: %d bytes", len(got))
+		}
+		if got[10] != 0x01 {
+			t.Errorf("warnMembersInNonMembers byte: got 0x%02x, want 0x01", got[10])
+		}
+	})
+	t.Run("members-world+members-player=no-warn", func(t *testing.T) {
+		p, cc := newTestPlayer(t)
+		s := newTestServer(t)
+		s.cfg.NodeMembers = true // members world
+		p.client.server = s
+		p.client.encryptor = io2.New([4]uint32{1, 2, 3, 4})
+		p.members = true
+		p.lastLoginTime = 0
+
+		received := drainConn(t, cc)
+		p.LastLoginInfo()
+		p.client.flushWrite()
+		got := <-received
+
+		if len(got) < 11 {
+			t.Fatalf("wire too short: %d bytes", len(got))
+		}
+		if got[10] != 0x00 {
+			t.Errorf("warnMembersInNonMembers byte: got 0x%02x, want 0x00", got[10])
+		}
+	})
 }
 
 // TestPlayer_InvTotalParamStack pins the sum formula. Build a player

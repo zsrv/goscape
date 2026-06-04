@@ -7,13 +7,19 @@ import (
 	"github.com/zsrv/goscape/pkg/rsbuf"
 )
 
-// sendUpdatePid writes one UPDATE_PID packet. Mirrors TS
-// UpdatePidEncoder (`buf.p2(message.uid)`); TS passes p.slot at
-// Player.ts:495 via `new UpdatePid(this.slot)` — slot is the int
-// field, not the composed uid. NAI-182.
-func sendUpdatePid(p *Player, slot int) {
+// sendUpdatePid writes one UPDATE_PID packet. TS UpdatePidEncoder (244):
+// p2(uid) pbool(members). TS passes p.slot and p.members at
+// Player.ts:501 via `new UpdatePid(this.pid, this.members)` — slot is
+// the int field, not the composed uid; members is the player's own
+// membership flag. NAI-182; extended in rev-244 B2 Task 3.
+func sendUpdatePid(p *Player, slot int, members bool) {
 	buf := packet.NewPacket(nil)
 	buf.P2(uint16(slot))
+	if members {
+		buf.P1(1)
+	} else {
+		buf.P1(0)
+	}
 	p.writeOut(gameserver.OpUpdatePid, buf.Bytes())
 }
 

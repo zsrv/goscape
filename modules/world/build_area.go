@@ -206,7 +206,7 @@ func (b *buildArea) rebuildNormal() {
 	if !b.shouldRebuild() {
 		return
 	}
-	ms := b.rebuildScenery(p.client.server.currentTick)
+	b.rebuildScenery(p.client.server.currentTick)
 	p.reconnecting = false
-	sendRebuildNormal(p, ms)
+	sendRebuildNormal(p)
 }
