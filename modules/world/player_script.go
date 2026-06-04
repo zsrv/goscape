@@ -1065,10 +1065,10 @@ func (p *Player) SetWalkTrigger(scriptID int) { p.walktrigger = scriptID }
 // S5f: interface / modal control.
 //
 // Modal mutex rules mirror LostCityRS/Engine-TS Player.ts:1928-2022:
-//   - openMainModal  closes CHAT + SIDE.
-//   - openChatModal  closes MAIN + SIDE.
-//   - openSideModal  closes MAIN + CHAT.
-//   - openMainSideModal closes CHAT (keeps main/side by definition).
+//   - OpenMain          closes CHAT + SIDE.
+//   - OpenChat          closes MAIN + SIDE.
+//   - OpenSide          closes MAIN + CHAT.
+//   - OpenMainModalSide closes CHAT (keeps MAIN + SIDE by definition).
 //
 // All methods set refreshModal so the next encodeOut() emits the matching
 // IF_OPEN* (and any IF_CLOSE) packets.
