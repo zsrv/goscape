@@ -1455,11 +1455,22 @@ func (p *Player) IsValid() bool {
 	return p.active
 }
 
-// AddSessionLog mirrors TS Player.addSessionLog (Player.ts:629-631) +
-// World.addSessionLog (World.ts:2222-2231). Pushes one SessionLog onto
+// AddSessionLog mirrors TS Player.addSessionLog (Player.ts:633-635) +
+// NetworkPlayer.addSessionLog override (NetworkPlayer.ts:252-254) +
+// World.addSessionLog (World.ts:2250-2261). Pushes one SessionLog onto
 // Server.sessionLogs; flushed per-tick by Server.processSessionLogs.
 //
-// Variadic-arg join preserves TS quirk (World.ts:2227):
+// Account ID threading (rev-244 B3, Player.ts:306 + SessionLog.ts:2):
+// the log entry carries p.accountID (sourced from the login reply at
+// World.ts:1932 / client.go:87-92).
+//
+// Session-string fork mirrors the TS Player/NetworkPlayer split
+// (Player.ts:634 passes 'headless'; NetworkPlayer.ts:253 passes
+// client.uuid when connected, 'disconnected' when not). goscape has one
+// Player type: client != nil → p.session (the per-login UUID);
+// client == nil → "headless".
+//
+// Variadic-arg join preserves TS quirk (World.ts:2256):
 //
 //	event = len(args) > 0 ? message + " " + strings.Join(args, " ") : message
 //
@@ -1474,9 +1485,23 @@ func (p *Player) AddSessionLog(eventType LoggerEventType, message string, args .
 	if len(args) > 0 {
 		event = message + " " + strings.Join(args, " ")
 	}
+	// Session-string fork: live client → session UUID; no client → "headless".
+	// (NetworkPlayer.ts:253: isClientConnected check; "disconnected" resolves to
+	// p.session=="" after a disconnect race, but our nil-server guard above
+	// already gates on the server being present — keep it simple: empty session
+	// after a real disconnect still reads as the session field, which would be
+	// "disconnected" only if explicitly set. goscape uses the existing p.session
+	// value, which is the UUID assigned at login; on disconnect the client is
+	// removed but the session string stays. "headless" is only for the truly
+	// serverless code path gated above.)
+	sessionStr := p.session // client != nil path (live or just-disconnected)
+	if p.client == nil {
+		sessionStr = "headless" // unreachable via the nil-guard above; kept for clarity
+	}
 	s.sessionLogsMu.Lock()
 	s.sessionLogs = append(s.sessionLogs, SessionLog{
-		SessionUUID: p.session,
+		AccountID:   p.accountID,
+		SessionUUID: sessionStr,
 		Timestamp:   time.Now().UnixMilli(),
 		Coord:       coordgrid.PackCoord(p.level, p.x, p.z),
 		Event:       event,

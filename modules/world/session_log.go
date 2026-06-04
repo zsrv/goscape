@@ -21,6 +21,7 @@ const PlayerCoordLogRate = 50
 // SessionLog mirrors TS SessionLog (SessionLog.ts:1-7). One entry per
 // addSessionLog call; flushed batched per tick by Server.processSessionLogs.
 type SessionLog struct {
+	AccountID   int64           // TS account_id (SessionLog.ts:2, World.ts:2252)
 	SessionUUID string          // TS session_uuid
 	Timestamp   int64           // TS timestamp (ms since epoch via time.Now().UnixMilli())
 	Coord       int             // TS coord (CoordGrid.packCoord(level,x,z))

@@ -52,10 +52,15 @@ func (b *slogLoggerBridge) SubmitInputTracking(p *Player, blob []byte) {
 // SubmitSessionLogs call per tick); per-entry record emission is
 // chosen for grep/filter friendliness — this is a dev/debug sink, not
 // the production LoggerClient WS transport which would JSON-batch.
+//
+// rev-244 B3: account_id emitted alongside session (SessionLog.ts:2,
+// World.ts:2252). Proto shape is unchanged (B5/private-sibling owns
+// message shapes); this is the dev/debug slog seam adaptation only.
 func (b *slogLoggerBridge) SubmitSessionLogs(logs []SessionLog) {
 	for _, lg := range logs {
 		b.log.Info("session_log",
 			"type", "session_log",
+			"account_id", lg.AccountID,
 			"session", lg.SessionUUID,
 			"timestamp_ms", lg.Timestamp,
 			"coord", lg.Coord,

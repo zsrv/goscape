@@ -1,15 +1,44 @@
 package script
 
 // WealthEvent captures a single wealth-affecting event for analytics.
-// Mirrors TS WealthEvent payload consumed by addWealthLog callers at
-// InvOps.ts and ObjOps.ts. Goscape AddWealthEvent appends to an
+// Mirrors TS WealthEvent (WealthEvent.ts:19-23) + WealthEventParams
+// (WealthEvent.ts:7-17). Goscape AddWealthEvent appends to an
 // in-memory log only per NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY;
 // analytics RPC integration deferred.
+//
+// rev-244 B3 — account_id threading (WealthEvent.ts:21-22,
+// Player.ts:640-642, NetworkPlayer.ts:259-261):
+// AccountID and AccountSession are stamped by Player.AddWealthEvent
+// (not by the caller). RecipientID mirrors WealthEventParams.recipient_id?
+// (WealthEvent.ts:13); RecipientSession mirrors recipient_session?
+// (WealthEvent.ts:14, previously the sole recipient field).
 type WealthEvent struct {
-	EventType        int
-	AccountItems     []WealthItem
-	AccountValue     int
-	RecipientSession string // optional; empty for non-PVP events
+	EventType    int
+	AccountItems []WealthItem
+	AccountValue int
+
+	// AccountID is the persistent DB account.id of the player who owns
+	// this event. Stamped by Player.AddWealthEvent from p.accountID
+	// (World.ts:1932 sources it from the login reply).
+	// TS WealthEvent.account_id (WealthEvent.ts:21).
+	AccountID int64
+
+	// AccountSession is the per-login session correlation key for the
+	// account. Stamped by Player.AddWealthEvent:
+	//   - client present → p.session (UUID, NetworkPlayer.ts:260)
+	//   - no client       → "headless" (Player.ts:641)
+	// TS WealthEvent.account_session (WealthEvent.ts:22).
+	AccountSession string
+
+	// RecipientID is the optional DB account.id of the counterparty
+	// (set by trade/PvP/duel callers that know the other player's ID).
+	// TS WealthEventParams.recipient_id? (WealthEvent.ts:13).
+	// Zero means absent (TS optional field).
+	RecipientID int64
+
+	RecipientSession string // optional; TS WealthEventParams.recipient_session? (WealthEvent.ts:14)
+	RecipientItems   []WealthItem
+	RecipientValue   int
 }
 
 // WealthItem is a single line-item inside a WealthEvent.

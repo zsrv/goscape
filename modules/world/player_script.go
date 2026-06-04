@@ -1759,7 +1759,25 @@ func (p *Player) ApplyDamage(amount, dmgType int) {
 // equivalent module's submit method, applied per outbound batch), not
 // here on the per-event append path that scripts observe. Keep this
 // helper one-line and side-effect-free until then.
+//
+// rev-244 B3 — account_id threading (WealthEvent.ts:21-22,
+// Player.ts:637-644, NetworkPlayer.ts:256-263):
+// AccountID is stamped from p.accountID (the persistent DB account.id,
+// sourced from the login reply at World.ts:1932).
+// AccountSession mirrors the Player / NetworkPlayer fork:
+//   - client present → p.session (per-login UUID, NetworkPlayer.ts:260)
+//   - no client       → "headless" (Player.ts:641)
+//
+// Coord is NOT embedded in the in-memory WealthEvent (goscape's internal
+// shape); it is computed at the analytics-dispatch boundary if/when a
+// real wealth-event consumer is wired (NAI-162-D-WEALTHEVENT-IN-MEMORY-ONLY).
 func (p *Player) AddWealthEvent(evt script.WealthEvent) {
+	evt.AccountID = p.accountID
+	if p.client != nil {
+		evt.AccountSession = p.session // NetworkPlayer.ts:260 — session UUID when connected
+	} else {
+		evt.AccountSession = "headless" // Player.ts:641 base impl
+	}
 	p.wealthLog = append(p.wealthLog, evt)
 }
 
