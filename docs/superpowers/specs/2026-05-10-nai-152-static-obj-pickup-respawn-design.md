@@ -4,7 +4,7 @@
 
 Investigation+fix sub-spec for static-obj pickup. Closes NAI-151 §9 R3 ("Pickup-respawn cycling").
 
-**Symptom (user-reported, 2026-05-10):** static ground items spawned by NAI-151 (`f7d5554..56a29c7`) render in the Java client, but right-clicking "Take" produces only an `OPOBJ3` server-log line — **no** "Nothing interesting happens." chat message in client, **no** inventory change, **obj stays in zone**. Wholly silent on the client.
+**Symptom (user-reported, 2026-05-10):** static ground items spawned by NAI-151 (`35bc97b..d078862`) render in the Java client, but right-clicking "Take" produces only an `OPOBJ3` server-log line — **no** "Nothing interesting happens." chat message in client, **no** inventory change, **obj stays in zone**. Wholly silent on the client.
 
 The "client wholly silent" data point is binding: it rules out the trigger-fire path in `interaction_trigger.go:707-712`, which would emit `MessageGame("Nothing interesting happens.")` when no script is found. The handler short-circuits **before** reaching the trigger fire.
 
@@ -173,7 +173,7 @@ Sequenced execution. **Smoke gate between each bundle.** Bundle scope may compre
 - Re-read `pkg/objtype/objtype.go` lines 1-345 to confirm field-shape and `Decode` exact line numbers (NewObjType currently at L282-310).
 - Re-grep `pkg/` and `modules/` for `ot.Op` / `objType.Op` / `\.IOp` reader sites — confirm none currently rely on `len(Op) == 0` as a "no ops" sentinel (the new default makes `len(Op) == 5` always).
 - Confirm `\.Tradeable` and `\.Category` reader sites do not regress with new resets (`rg "\.Tradeable" pkg/ modules/` and `rg "\.Category" pkg/ modules/`); flag any consumers that read these on dummyitem/F2P-members objs.
-- Confirm `handler_opobj_test.go` probe-test line numbers (currently 780-840 per `git show 1acb2e1`) and the `opLen`/`opVal` capture-var locals.
+- Confirm `handler_opobj_test.go` probe-test line numbers (currently 780-840 per `git show 16ca758`) and the `opLen`/`opVal` capture-var locals.
 - Probe retirement enumeration: `rg -n "nai152.opobj.gate" modules/ pkg/` returns 11 hits (8 prod + 3 test refs); enumerate in plan and verify post-edit.
 
 ### 6.3. B2 — pickup chain

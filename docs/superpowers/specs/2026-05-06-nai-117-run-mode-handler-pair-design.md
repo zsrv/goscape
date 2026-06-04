@@ -2,7 +2,7 @@
 
 **Status:** Spec authored 2026-05-06 (post-NAI-116 close).
 **Cadence:** Standard (separate spec → plan), single bundle, two tasks.
-**Routing:** Adjacent residuals from NAI-116 close-commit smoke (`6658a0d`); routed per `smoke_surfaces_adjacent_divergences` because each handler-port exceeds the 30-LOC in-scope-stretch threshold once tests are included.
+**Routing:** Adjacent residuals from NAI-116 close-commit smoke (`3da7fa0`); routed per `smoke_surfaces_adjacent_divergences` because each handler-port exceeds the 30-LOC in-scope-stretch threshold once tests are included.
 
 ## 1. Problem
 
@@ -56,7 +56,7 @@ Hard-coded id 0; goscape ports as a named constant `VarPlayerRun = 0` (see
 
 ## 3. Goscape state (HEAD verification)
 
-Per `controller_preflight` memory; verified against HEAD `6658a0d`.
+Per `controller_preflight` memory; verified against HEAD `3da7fa0`.
 
 | Surface | Status | Location |
 |---|---|---|
@@ -260,7 +260,7 @@ non-nil error.)
 Add `{"P_RUN", OpPRun}` and `{"RUNENERGY", OpRunEnergy}` to the
 `TestHandlersRequireActivePlayer` table at `handlers_player_test.go:769-806`
 — the file's single shared "every handler must error on `Self == nil`"
-enumeration. (Verified at HEAD `6658a0d`: no second parallel
+enumeration. (Verified at HEAD `3da7fa0`: no second parallel
 all-handlers-dispatch enumeration exists in the test file.)
 
 ### 5.5 mockPlayer extensions — `pkg/script/runner_test.go`
@@ -333,7 +333,7 @@ later NAI numbers per the NAI-116 close-commit carry-forward queue:
   NAI-116 close, each >30 LOC including tests, so they go to a fresh
   sub-spec rather than in-scope-stretch.
 - `controller_preflight` — file-paths and line-numbers in §3 verified
-  against HEAD `6658a0d` before plan dispatch.
+  against HEAD `3da7fa0` before plan dispatch.
 - `ts_helper_method_bundles` — rejected combined `SetRun` (which would
   internally call `SetVarp`) in favor of explicit two-step at handler
   call site.

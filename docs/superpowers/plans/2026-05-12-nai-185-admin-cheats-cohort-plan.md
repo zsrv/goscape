@@ -1628,10 +1628,10 @@ EOF
 - [ ] **Step 5: Verify the NAI-185 cohort closes cleanly**
 
 ```bash
-git log --oneline 17cfdd5..HEAD
+git log --oneline 4a0fc3e..HEAD
 ```
 
-Expected: T0–T10 commits in order, each tagged `NAI-185 T<N>`, ending at T10 close (or T9 if no memory entries were needed). Spec ref at 17cfdd5.
+Expected: T0–T10 commits in order, each tagged `NAI-185 T<N>`, ending at T10 close (or T9 if no memory entries were needed). Spec ref at 4a0fc3e.
 
 ---
 

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+ (use modern Go syntax via the `use-modern-go` skill). Reference TS: `LostCityRS/Engine-TS` only per `ts_source_canonical_path.md`.
 
-**Spec:** `docs/superpowers/specs/2026-04-27-nai-35-deferred-opcode-stubs-design.md` (commit `2e28f46`).
+**Spec:** `docs/superpowers/specs/2026-04-27-nai-35-deferred-opcode-stubs-design.md` (commit `95d2934`).
 
 ---
 
@@ -38,7 +38,7 @@
 
 ## Plan-author preflight resolutions
 
-The spec listed 10 preflight items. Resolved by plan-author against HEAD `ecc1991` before plan-write:
+The spec listed 10 preflight items. Resolved by plan-author against HEAD `ddfd9ac` before plan-write:
 
 | # | Spec preflight item | Resolution |
 |---|---|---|
@@ -485,7 +485,7 @@ var _ = fmt.Errorf
 
 **Required — extend `ActivePlayer` interface with `X()`/`Z()` accessors**:
 
-Plan-author verified (HEAD ecc1991): `ActivePlayer` does NOT expose `X()`/`Z()` today; world-side `Player.Coords() (x, z, level int)` exists at `modules/world/player.go:437` but the script VM has no per-axis accessor. This Task adds them.
+Plan-author verified (HEAD ddfd9ac): `ActivePlayer` does NOT expose `X()`/`Z()` today; world-side `Player.Coords() (x, z, level int)` exists at `modules/world/player.go:437` but the script VM has no per-axis accessor. This Task adds them.
 
 In `pkg/script/active.go` (alongside `ActivePlayer.UID() int` at line 281), add:
 
@@ -1709,7 +1709,7 @@ In `modules/world/script_vars.go` (or wherever `WorldVars` is implemented), add:
 
 ```go
 // IsMapBlocked delegates to pkg/pathfinder/collision/flagmap. NAI-35.
-// Plan-author verified (HEAD ecc1991): `pkg/pathfinder/collision/flag.go:41`
+// Plan-author verified (HEAD ddfd9ac): `pkg/pathfinder/collision/flag.go:41`
 // declares `FlagBlockWalk` (NOT `BLOCK_WALK`). Use the actual constant.
 // FlagFloorBlocked combines BlockWalk + GroundDecor; a tile is "blocked"
 // for MAP_FINDSQUARE purposes whenever the walk flag is set.

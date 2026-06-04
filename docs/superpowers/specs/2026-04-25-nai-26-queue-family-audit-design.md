@@ -3,7 +3,7 @@
 - **Sub-spec**: NAI-26
 - **Date**: 2026-04-25
 - **Scope label**: A (TS-faithfulness audit, NAI-25 Bundle 1-style cadence applied to a 5-opcode family — `pkg/script/handlers.go` queue-family + `pkg/script/active.go` interface + `modules/world/player_script.go` + `modules/world/player.go` + `modules/world/tick.go` + 4 test files; ~250-300 LOC production + ~150-200 LOC tests across 2 bundles; resolves From-NAI-25 STRONGQUEUE/P_DELAY tracker entry plus 8 audit-discovered structural divergences in the same family; introduces 0 new deviation tags by default; net deviation count 14 → 14)
-- **Predecessors**: NAI-25 (follow-up bundle) — last on `main` as `f0d1ed9`
+- **Predecessors**: NAI-25 (follow-up bundle) — last on `main` as `521a8db`
 - **TS source root**: `LostCityRS/Engine-TS`
 
 ## Motivation
@@ -61,7 +61,7 @@ The two new TS-faithfulness disciplines from NAI-25 close (`audit_full_method_ag
 #### Touch points
 
 1. **`modules/world/player_script.go`**:
-   - `playerQueueRequest` struct (`:25-30` per HEAD `f0d1ed9`): `IntArg int` (line `:28`) → `IntArgs []int` + `StringArgs []string`. Verify struct location at controller pre-flight via `grep -n "type playerQueueRequest" modules/world/`.
+   - `playerQueueRequest` struct (`:25-30` per HEAD `521a8db`): `IntArg int` (line `:28`) → `IntArgs []int` + `StringArgs []string`. Verify struct location at controller pre-flight via `grep -n "type playerQueueRequest" modules/world/`.
    - `EnqueueScriptFile` signature (`:51`): `(sf *script.ScriptFile, delay, intArg int, qtype script.PlayerQueueType)` → `(sf *script.ScriptFile, delay int, intArgs []int, stringArgs []string, qtype script.PlayerQueueType)`. Body assigns `IntArgs: intArgs, StringArgs: stringArgs` to the queue request.
    - `EnqueueScriptTyped` rename → `EnqueueScriptArgs`, signature `(scriptID uint32, delay int, intArgs []int, stringArgs []string, qtype script.PlayerQueueType) error`. **Bundle 1 body** (silent-no-op preserved): resolves script via `scriptProvider.GetByID`; if nil, returns `nil` (Bundle 1 placeholder; Bundle 2 activates the `fmt.Errorf("unable to find queue script: %d", scriptID)` return per the sequencing decision in touch point #4 below). Otherwise delegates to `EnqueueScriptFile` with the parallel slices.
    - Engine-dispatch sites at `:263` and `:285`: migrate from `p.EnqueueScriptFile(sf, 0, 0, script.QueueNormal)` → `p.EnqueueScriptFile(sf, 0, nil, nil, script.QueueNormal)` (TS-faithful: engine dispatch passes `args=[]` per Player.ts:821 default).
@@ -76,7 +76,7 @@ The two new TS-faithfulness disciplines from NAI-25 close (`audit_full_method_ag
 
 4. **`pkg/script/handlers.go`**:
    - `enqueueTyped` (line `:599-619`): retained as a temporary adapter; body changes from `s.Self.EnqueueScriptTyped(scriptID, delay, arg, qtype)` to `return s.Self.EnqueueScriptArgs(scriptID, delay, []int{arg}, nil, qtype)`. Returns the error from `EnqueueScriptArgs` directly. Behavior preserved (silent no-op on missing script preserved if EnqueueScriptArgs returns nil for that case in Bundle 1; **see Bundle 2 plan for the script-missing error rollout**).
-   - **Critical sequencing decision**: in Bundle 1, `EnqueueScriptArgs` returns nil instead of the script-missing error so the behavior change (silent-no-op → error-return on missing script) lands in its own bundle separate from the mechanical signature widening. **Verified at plan-write (commit `93dfd2a`)**: all 6 `script_test.go` call sites at lines 239/269/336/337/825/1020 enqueue scripts that are **registered** in the test fixture just before the call (`s.scriptProvider.RegisterAt(0xAAAA, ...)` at `:231`, `0xBBBB` at `:261`, `0xCCC1/0xCCC2` at `:327-328`, `0xBEEF` at `:808`, `0xBEE2` at `:1006`). No test exercises the missing-script path. The Bundle 1 nil-return is therefore a no-op for observable behavior — its purpose is review-surface isolation (mechanical widening vs. behavior change in separate bundles), not test-behavior preservation. Alternative considered (return error in Bundle 1): rejected — couples mechanical signature widening to behavior changes; increases Bundle 1 review surface.
+   - **Critical sequencing decision**: in Bundle 1, `EnqueueScriptArgs` returns nil instead of the script-missing error so the behavior change (silent-no-op → error-return on missing script) lands in its own bundle separate from the mechanical signature widening. **Verified at plan-write (commit `fbcf6a7`)**: all 6 `script_test.go` call sites at lines 239/269/336/337/825/1020 enqueue scripts that are **registered** in the test fixture just before the call (`s.scriptProvider.RegisterAt(0xAAAA, ...)` at `:231`, `0xBBBB` at `:261`, `0xCCC1/0xCCC2` at `:327-328`, `0xBEEF` at `:808`, `0xBEE2` at `:1006`). No test exercises the missing-script path. The Bundle 1 nil-return is therefore a no-op for observable behavior — its purpose is review-surface isolation (mechanical widening vs. behavior change in separate bundles), not test-behavior preservation. Alternative considered (return error in Bundle 1): rejected — couples mechanical signature widening to behavior changes; increases Bundle 1 review surface.
 
 5. **`pkg/script/runner_test.go`**:
    - Line `:259`: `mockPlayer.EnqueueScriptTyped(id, delay, arg, qtype)` → `mockPlayer.EnqueueScriptArgs(id, delay, intArgs, stringArgs, qtype) error`.
@@ -85,7 +85,7 @@ The two new TS-faithfulness disciplines from NAI-25 close (`audit_full_method_ag
 
 6. **`modules/world/script_test.go`** (6 call sites):
    - Lines `:239, :269, :336, :337, :825, :1020`: `p.EnqueueScriptTyped(id, delay, 0, script.QueueX)` → `p.EnqueueScriptArgs(id, delay, nil, nil, script.QueueX)`. The integration tests don't exercise args; nil/nil expresses "no args" and matches the TS-faithful engine-dispatch convention.
-   - **Plan-time verification correction**: each call site enqueues a script that is **registered** in the surrounding test fixture (verified at plan-write commit `93dfd2a`). The migration is purely a signature update — the test scripts hit the happy path, not the missing-script path. Bundle 2's per-site evaluation is a no-op confirmation pass; no functional migration is needed.
+   - **Plan-time verification correction**: each call site enqueues a script that is **registered** in the surrounding test fixture (verified at plan-write commit `fbcf6a7`). The migration is purely a signature update — the test scripts hit the happy path, not the missing-script path. Bundle 2's per-site evaluation is a no-op confirmation pass; no functional migration is needed.
 
 7. **`modules/world/player_script_test.go`**:
    - Line `:167`: `p.EnqueueScriptFile(sf, 3, 42, script.QueueNormal)` → `p.EnqueueScriptFile(sf, 3, []int{42}, nil, script.QueueNormal)`. Assertion at `:178` (`req.IntArg != 42`) → `len(req.IntArgs) != 1 || req.IntArgs[0] != 42`.
@@ -347,7 +347,7 @@ Bundle 1 retained `enqueueTyped` as a temporary adapter. Bundle 2 removes it onc
 In Bundle 2, `(*Player).EnqueueScriptArgs` returns `fmt.Errorf("unable to find queue script: %d", scriptID)` when `scriptProvider.GetByID` returns nil. The 4 un-shared queue handlers propagate this error up via their `return` path (signature `func(*ScriptState) error` is already error-returning). The dispatch loop at `pkg/script/runner.go` already handles handler errors.
 
 The 6 `script_test.go` call sites get a no-op confirmation pass:
-- **Plan-time verification (commit `93dfd2a`)**: all 6 sites enqueue scripts that are registered in the same test (`0xAAAA` at `:231` registered before `:239` enqueue; `0xBBBB` at `:261` before `:269`; `0xCCC1/0xCCC2` at `:327-328` before `:336/:337`; `0xBEEF` at `:808` before `:825`; `0xBEE2` at `:1006` before `:1020`). No test exercises the missing-script path. Activating the script-missing error in Bundle 2 has no observable effect on these tests beyond the signature update already made in Bundle 1.
+- **Plan-time verification (commit `fbcf6a7`)**: all 6 sites enqueue scripts that are registered in the same test (`0xAAAA` at `:231` registered before `:239` enqueue; `0xBBBB` at `:261` before `:269`; `0xCCC1/0xCCC2` at `:327-328` before `:336/:337`; `0xBEEF` at `:808` before `:825`; `0xBEE2` at `:1006` before `:1020`). No test exercises the missing-script path. Activating the script-missing error in Bundle 2 has no observable effect on these tests beyond the signature update already made in Bundle 1.
 - **Spec note**: the original spec (pre-correction) framed these as "tests that intentionally enqueue non-existent scripts" — that framing was incorrect. The Bundle 1/Bundle 2 split rationale (review-surface isolation) remains valid; the rationale is no longer about preserving observable test behavior because no test ever depended on the silent-no-op.
 
 #### Touch points
@@ -455,11 +455,11 @@ Standard cadence: one polish commit absorbs minor review feedback from both bund
 
 - **Bundle 2 script-missing error message format.** Risk: the TS error message format may differ in subtle ways from goscape's `fmt.Errorf` rendering (e.g., scriptID hex vs decimal). Mitigation: pin the exact format in `TestQueueScriptNotFound` via substring match (`"unable to find queue script:"`) so the test doesn't break on hex-vs-decimal cosmetic preferences. TS uses template-literal interpolation which renders decimal — goscape's `%d` matches.
 
-- **Bundle 2 6-site `script_test.go` migration semantic mismatch.** **Resolved at plan-write (commit `93dfd2a`)**: all 6 sites enqueue registered scripts; no test pins the silent-no-op behavior. The Bundle 2 error-return activation has no observable effect on these tests. No deviation needed.
+- **Bundle 2 6-site `script_test.go` migration semantic mismatch.** **Resolved at plan-write (commit `fbcf6a7`)**: all 6 sites enqueue registered scripts; no test pins the silent-no-op behavior. The Bundle 2 error-return activation has no observable effect on these tests. No deviation needed.
 
 - **`controller_preflight` discipline at task dispatch.** Per memory: 30-second grep+Read pass against HEAD before each implementer dispatch to verify file paths, line numbers, signatures, helper init state. Applied per-bundle.
 
-- **`spec_followup_tracker_freshness` discipline.** Per memory: tracker entries silently rot. Spec-write-time re-greps verified the From-NAI-25 entry assertions: `STRONGQUEUE` site at `handlers.go:629` (verified at HEAD `f0d1ed9`); `P_DELAY` site at `handlers.go:589` (verified); `enqueueTyped` shared helper at `handlers.go:599-619` (verified). All assertions held at HEAD.
+- **`spec_followup_tracker_freshness` discipline.** Per memory: tracker entries silently rot. Spec-write-time re-greps verified the From-NAI-25 entry assertions: `STRONGQUEUE` site at `handlers.go:629` (verified at HEAD `521a8db`); `P_DELAY` site at `handlers.go:589` (verified); `enqueueTyped` shared helper at `handlers.go:599-619` (verified). All assertions held at HEAD.
 
 - **`audit_full_method_against_ts` discipline.** Per memory (provenance NAI-25 Bundle 1): when picking up a tracker entry that points at one line of a method, audit the entire method against TS line-by-line. Applied at this brainstorm — surfaced 8 additional divergences beyond the tracker's named 2.
 

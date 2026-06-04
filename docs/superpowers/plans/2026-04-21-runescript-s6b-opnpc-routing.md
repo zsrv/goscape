@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go; `pkg/script` runtime; `modules/world` tick loop; existing `rsbuf` NPC-info mask encoder.
 
-**Spec:** [`docs/superpowers/specs/2026-04-21-runescript-s6b-opnpc-routing-design.md`](../specs/2026-04-21-runescript-s6b-opnpc-routing-design.md) (commit `a9894c9`)
+**Spec:** [`docs/superpowers/specs/2026-04-21-runescript-s6b-opnpc-routing-design.md`](../specs/2026-04-21-runescript-s6b-opnpc-routing-design.md) (commit `fedbe83`)
 
 ---
 

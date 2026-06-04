@@ -17,9 +17,9 @@ ts_source:
 
 ## §1 Symptom / motivation
 
-NAI-163 B1 T0 widened the `isLineOfSight` wrapper at `pkg/script/handlers_map.go:186-191` from `(1, 0, 0, 0)` to `(1, 1, 1, 0)` to match TS `GameMap.ts:429-431` (canonical `rsmod.hasLineOfSight(level, sX, sZ, dX, dZ, 1, 1, 1, 1, 0)`; goscape collapses TS srcWidth+srcHeight=1 into single `srcSize=1` via RayCast at `pkg/pathfinder/routefinder/linevalidator.go:21`). That fix was explicitly framed as scope-narrowed; the symmetric LineOfWalk counterpart was deferred forward (close commit `fb4bda7` "Out of scope" list: *"isLineOfWalk wrapper widening (mirrors LOS bug at handlers_map.go:175)"*).
+NAI-163 B1 T0 widened the `isLineOfSight` wrapper at `pkg/script/handlers_map.go:186-191` from `(1, 0, 0, 0)` to `(1, 1, 1, 0)` to match TS `GameMap.ts:429-431` (canonical `rsmod.hasLineOfSight(level, sX, sZ, dX, dZ, 1, 1, 1, 1, 0)`; goscape collapses TS srcWidth+srcHeight=1 into single `srcSize=1` via RayCast at `pkg/pathfinder/routefinder/linevalidator.go:21`). That fix was explicitly framed as scope-narrowed; the symmetric LineOfWalk counterpart was deferred forward (close commit `57e8828` "Out of scope" list: *"isLineOfWalk wrapper widening (mirrors LOS bug at handlers_map.go:175)"*).
 
-At HEAD `411ccce`, two LOW sites still carry the pre-NAI-163 `(1, 0, 0, 0)` arg shape:
+At HEAD `0490d45`, two LOW sites still carry the pre-NAI-163 `(1, 0, 0, 0)` arg shape:
 
 | Site | File:line | Caller surface |
 |---|---|---|

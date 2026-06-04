@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26 (stdlib only). Tests use existing fixtures (`makeOpLocFixture`, `buildLocDat`, OPNPC-style test-LocType-register pattern).
 
-**Spec reference:** `docs/superpowers/specs/2026-04-21-runescript-s6k-loctype-op-design.md` (commit `00bc85b`).
+**Spec reference:** `docs/superpowers/specs/2026-04-21-runescript-s6k-loctype-op-design.md` (commit `b301f2a`).
 
 **Build commands (per CLAUDE.md):**
 - Build: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go build ./...`

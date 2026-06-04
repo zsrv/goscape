@@ -23,7 +23,7 @@ Retire 4 stale NAI-44 sibling deviation tags. PRIMARY: tracker `nai_followups.md
 
 The string `stun` appears nowhere in `Player.ts`'s `canAccess` / `busy` / `processInteraction` paths.
 
-## 3. Goscape state at HEAD `4e63921`
+## 3. Goscape state at HEAD `4d91a5e`
 
 ### 3.1 NAI-44-D-CANACCESS-NO-STUN-CHECK (misframed)
 
@@ -40,7 +40,7 @@ if p.delayed && s.currentTick < p.delayedUntil {
 Four facts at HEAD:
 1. TS `canAccess()` (Player.ts:805-812) tests `!protect && !busy()` — no stun (verified via grep + Read of Player.ts).
 2. Goscape has a TS-faithful `(*Player).CanAccess()` port at `player_script.go:390-401` (delayed + modal + protected-script gates).
-3. The early-return at L200-202 is an intentional goscape-only tick-math entry-guard pinned by `TestProcessInteraction_CanAccessGate_Delayed_EarlyReturnsBeforePathing` (`interaction_canaccess_gate_test.go:114`) added by NAI-155 (`249051f`). The test comment explicitly frames it as "tick-math entry guard short-circuits the whole function".
+3. The early-return at L200-202 is an intentional goscape-only tick-math entry-guard pinned by `TestProcessInteraction_CanAccessGate_Delayed_EarlyReturnsBeforePathing` (`interaction_canaccess_gate_test.go:114`) added by NAI-155 (`ac0b56a`). The test comment explicitly frames it as "tick-math entry guard short-circuits the whole function".
 4. The TS-aligned CanAccess gates are the three inline checks at `interaction.go:247, 261, 277` (TS L1210/L1232/L1244 mirrors).
 
 The deviation tag's "TS canAccess also tests stun" premise is false. There is no underlying TS-fidelity gap to close.
@@ -93,7 +93,7 @@ if p.delayed && s.currentTick < p.delayedUntil {
 // (TS L1210/L1232/L1244 mirrors) are the actual TS-faithful layer; this
 // pre-empts the whole function (and Frame B emit) when the player is in a
 // delay window. Pinned by TestProcessInteraction_CanAccessGate_Delayed_
-// EarlyReturnsBeforePathing (NAI-155, commit 249051f).
+// EarlyReturnsBeforePathing (NAI-155, commit ac0b56a).
 if p.delayed && s.currentTick < p.delayedUntil {
     return
 }
@@ -158,7 +158,7 @@ No TDD pair — no production logic changes. The behavior is pinned by NAI-155's
 
 ## 10. Verification protocol (per `verification_before_completion`)
 
-**Pre-T1 baseline:** `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/world/... -run 'CanAccessGate'` green at HEAD `4e63921`.
+**Pre-T1 baseline:** `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/world/... -run 'CanAccessGate'` green at HEAD `4d91a5e`.
 
 **Post-T1:** same test green; no behavior change. `git show <T1-SHA>` confirms only the 6-line comment rewrite at `interaction.go:197-202` (no other touches).
 

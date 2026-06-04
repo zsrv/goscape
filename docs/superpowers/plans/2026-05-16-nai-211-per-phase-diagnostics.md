@@ -10,9 +10,9 @@
 
 **Authoritative task numbering:** T1, T2, T3, T4, T5, T6, T7, T8. Per `[[plan_code_block_t_number_drift]]`, all in-file doc comments and commit subjects must use this numbering.
 
-**Spec:** `docs/superpowers/specs/2026-05-16-nai-211-per-phase-diagnostics-design.md` (commit `13ae5fb`).
+**Spec:** `docs/superpowers/specs/2026-05-16-nai-211-per-phase-diagnostics-design.md` (commit `6a0cfc2`).
 
-**Predecessor:** NAI-210 close (`19dc451`) + overlay-interfaces follow-up (`767a99e`).
+**Predecessor:** NAI-210 close (`bc58648`) + overlay-interfaces follow-up (`2ed6075`).
 
 ---
 

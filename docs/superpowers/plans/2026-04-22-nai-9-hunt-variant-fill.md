@@ -2015,7 +2015,7 @@ EOF
 )"
 ```
 
-This closing commit is `--allow-empty` because all code landed in Tasks 1-9; this commit exists purely to mark NAI-9 as closed in git history following the series' "closes NAI-N" convention (see 51f3500, c8cc6ca, etc.).
+This closing commit is `--allow-empty` because all code landed in Tasks 1-9; this commit exists purely to mark NAI-9 as closed in git history following the series' "closes NAI-N" convention (see cb35fe0, 055077f, etc.).
 
 ---
 

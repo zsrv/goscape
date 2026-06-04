@@ -1,6 +1,6 @@
 # HitType validator port + NpcStat read-path validator coverage
 
-**Predecessors:** NAI-184 close (HEAD `7eabfb31` after `f9970fd6` test bolt-on); NAI-23 Bundle 4a (left NPC_DAMAGE `dmgType` "raw" pending the validator port — see comment at `pkg/script/handlers_npc.go:341-342`); NAI-120 Bundle 2C (introduced `checkNpcStatID` at `pkg/script/handlers_npc.go:64-72`, applied it at write-path handlers only).
+**Predecessors:** NAI-184 close (HEAD `134c1075` after `5cc26e29` test bolt-on); NAI-23 Bundle 4a (left NPC_DAMAGE `dmgType` "raw" pending the validator port — see comment at `pkg/script/handlers_npc.go:341-342`); NAI-120 Bundle 2C (introduced `checkNpcStatID` at `pkg/script/handlers_npc.go:64-72`, applied it at write-path handlers only).
 
 **Status:** drafted 2026-05-20.
 

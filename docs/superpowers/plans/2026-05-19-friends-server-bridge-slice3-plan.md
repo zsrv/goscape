@@ -1086,7 +1086,7 @@ Expected: 12 OK / 0 ERR / 0 SKIP. Pass means slice 3 introduced no regression in
 Re-read every commit added by this plan:
 
 ```bash
-git log --oneline 01e80c9b..HEAD
+git log --oneline 39658aea..HEAD
 ```
 
 Verify:

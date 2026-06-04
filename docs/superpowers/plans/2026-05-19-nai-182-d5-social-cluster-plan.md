@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-19
 **Spec:** `docs/superpowers/specs/2026-05-19-nai-182-d5-social-cluster-design.md`
-**HEAD at plan:** `5d8baab2` (spec commit; tree clean for parent `8acf20fa`).
+**HEAD at plan:** `314118e2` (spec commit; tree clean for parent `66a60a8f`).
 **Execution model:** `superpowers:subagent-driven-development`. The controller (parent session) dispatches each task to an implementer subagent, then to per-task spec-and-quality reviewers (per slice-7 / B3 pattern). Each task = a small TDD cycle with a verifiable gate.
 **Total tasks:** 8.
 **Tags retired on close:** `NAI-S4A-D-NO-INGAME-PACKET-EMIT`, `NAI-S4B-D-NO-INGAME-PM-EMIT`, `DEVIATION-NAI-182-D5-SOCIAL-CLUSTER-PRE-PID-NOT-EMITTED`.
@@ -27,7 +27,7 @@
 cd /home/owner/Code/github.com/zsrv/goscape
 unset GOROOT; export PATH="/home/owner/go/current/bin:$PATH"
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./modules/world/... ./modules/friends/... -count=1 -timeout 300s
-git log --oneline 5d8baab2..HEAD                      # expect zero (HEAD == 5d8baab2)
+git log --oneline 314118e2..HEAD                      # expect zero (HEAD == 314118e2)
 ```
 
 Tree should be clean (only standing untracked noise). Race-detector clean. Any failure here means the parent state has drifted — investigate before dispatching.
@@ -1010,7 +1010,7 @@ The race suite MUST show zero FAIL across all 56 testable packages. The smoke-pa
 **Close memo content (`nai_182_d5_social_cluster_close.md`).** Frontmatter + body. Required content:
 
 - Date: 2026-05-19.
-- Commits: `5d8baab2..<final-HEAD>` (count commits inclusive of T1..T8).
+- Commits: `314118e2..<final-HEAD>` (count commits inclusive of T1..T8).
 - Files touched: `pkg/io/protocol/game/server/prot.go`, `modules/world/friends_emit.go` (new), `modules/world/friends_emit_test.go` (new), `modules/world/bridges.go`, `modules/world/server.go`, `modules/world/tick.go`, `modules/world/login_resync_test.go`, `modules/world/friends_dispatcher_emit_test.go` (new), optionally `modules/world/friends_smoke_test.go`.
 - Retired tags: `NAI-S4A-D-NO-INGAME-PACKET-EMIT`, `NAI-S4B-D-NO-INGAME-PM-EMIT`, `DEVIATION-NAI-182-D5-SOCIAL-CLUSTER-PRE-PID-NOT-EMITTED`.
 - Opened tags: `DEVIATION-NAI-182-D5-NO-WORDENC-FILTER`, `DEVIATION-NAI-182-D5-NO-DEFENSIVE-IGNORELIST-LOGIN-EMIT`, `DEVIATION-NAI-182-D5-CHAT-FILTER-NO-RESTORE`.
@@ -1034,7 +1034,7 @@ Spec: `docs/superpowers/specs/2026-05-19-nai-182-d5-social-cluster-design.md`.
 Mirroring the B3 / slice-7 pattern. After each implementer subagent reports task complete, the controller dispatches:
 
 1. **Spec-and-quality reviewer** (Opus) — receives the spec section + the commit diff + the gate output. Confidence-rated SHIP/HOLD verdict. Hold = controller patches in a follow-up commit before next task; ship = next task dispatches.
-2. **(Whole-slice only, T8)** — one final review pass over the full delta `5d8baab2..HEAD` with explicit "is this ready to merge to main and call the social-cluster ServerGameProt port complete?" framing.
+2. **(Whole-slice only, T8)** — one final review pass over the full delta `314118e2..HEAD` with explicit "is this ready to merge to main and call the social-cluster ServerGameProt port complete?" framing.
 
 ## Risk register (controller carries through every dispatch)
 

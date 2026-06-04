@@ -8,11 +8,11 @@
 
 **Tech Stack:** Go 1.26+. No new dependencies. Files: `pkg/script/state.go`, `pkg/script/handlers.go`, `pkg/script/handlers_projanim.go` (new), `pkg/script/handlers_projanim_test.go` (new), `pkg/script/handlers_vars_test.go`, `modules/world/server_varp.go`, `modules/world/server_varp_test.go` (new).
 
-**Spec:** `docs/superpowers/specs/2026-05-10-nai-150-projanim-cluster-design.md` (commit `0756c04`).
+**Spec:** `docs/superpowers/specs/2026-05-10-nai-150-projanim-cluster-design.md` (commit `9c7d907`).
 
 **TS source canonical path:** `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/ServerOps.ts:171-210`.
 
-**Cascade-tail:** 39 → 36 unhandled at HEAD `000d974`.
+**Cascade-tail:** 39 → 36 unhandled at HEAD `acb9df5`.
 
 ---
 
@@ -1048,7 +1048,7 @@ Expected: all PASS.
 
 Run: `grep -cE '^\tOp[A-Z][a-zA-Z]+:\s+handle' pkg/script/handlers.go`
 
-Expected: count of dispatch entries equals (count at HEAD `000d974`) + 3. The exact pre-count depends on HEAD, but the delta must be +3 vs `git show 000d974:pkg/script/handlers.go | grep -cE '^\tOp[A-Z][a-zA-Z]+:\s+handle'`.
+Expected: count of dispatch entries equals (count at HEAD `acb9df5`) + 3. The exact pre-count depends on HEAD, but the delta must be +3 vs `git show acb9df5:pkg/script/handlers.go | grep -cE '^\tOp[A-Z][a-zA-Z]+:\s+handle'`.
 
 - [ ] **Step 6.4: confirm 3 PROJANIM symbols are dispatched**
 
@@ -1080,7 +1080,7 @@ Use the `Agent` tool with:
   - Spec path: `docs/superpowers/specs/2026-05-10-nai-150-projanim-cluster-design.md`
   - Plan path: `docs/superpowers/plans/2026-05-10-nai-150-projanim-cluster.md`
   - TS source: `/home/owner/Code/github.com/LostCityRS/Engine-TS/src/engine/script/handlers/ServerOps.ts:171-210`
-  - Range to review: T1 commit through T5 commit (the 5 NAI-150 commits since `000d974`).
+  - Range to review: T1 commit through T5 commit (the 5 NAI-150 commits since `acb9df5`).
   - Specific audit targets:
     - PROJANIM_MAP validation order (spotanim → src → dst, NOT src first)
     - PROJANIM_NPC slot-only lookup (typeID NOT verified — pin TS comment-out at ServerOps.ts:192)
@@ -1126,7 +1126,7 @@ Edit `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memo
 ```markdown
 ## From NAI-150 (2026-05-10) — PROJANIM cluster port
 
-NAI-150 spec at `docs/superpowers/specs/2026-05-10-nai-150-projanim-cluster-design.md` (commit `0756c04`); plan at `docs/superpowers/plans/2026-05-10-nai-150-projanim-cluster.md` (commit `<plan-commit-sha>`). No deferred items.
+NAI-150 spec at `docs/superpowers/specs/2026-05-10-nai-150-projanim-cluster-design.md` (commit `9c7d907`); plan at `docs/superpowers/plans/2026-05-10-nai-150-projanim-cluster.md` (commit `<plan-commit-sha>`). No deferred items.
 
 ---
 
@@ -1136,7 +1136,7 @@ NAI-150 spec at `docs/superpowers/specs/2026-05-10-nai-150-projanim-cluster-desi
 
 **Cadence:** Mid-band (~260 LOC) per runescript_cadence — separate spec + plan, subagent-driven TDD (T1 foundation → T2 RED tests → T3 GREEN handlers → T4 RED wiring → T5 GREEN wiring → T6 verify → T7 reviewer).
 
-**Spec:** `docs/superpowers/specs/2026-05-10-nai-150-projanim-cluster-design.md` (commit `0756c04`).
+**Spec:** `docs/superpowers/specs/2026-05-10-nai-150-projanim-cluster-design.md` (commit `9c7d907`).
 **Plan:** `docs/superpowers/plans/2026-05-10-nai-150-projanim-cluster.md` (commit `<plan-commit-sha>`).
 
 **Commits (chronological):** T1 `<sha>`, T2 `<sha>`, T3 `<sha>`, T4 `<sha>`, T5 `<sha>`. Close: this commit.

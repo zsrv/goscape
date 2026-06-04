@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+ (per `go_version.md`). No new deps. Modules touched: `pkg/script/`.
 
-**Spec:** `docs/superpowers/specs/2026-05-12-nai-180-npc-iterator-op-gate-design.md` (committed at `1d34cad`).
+**Spec:** `docs/superpowers/specs/2026-05-12-nai-180-npc-iterator-op-gate-design.md` (committed at `b7ee794`).
 
 **TS canonical:** `LostCityRS/Engine-TS/src/engine/script/ScriptIterators.ts:274-280` (per `ts_source_canonical_path.md`).
 

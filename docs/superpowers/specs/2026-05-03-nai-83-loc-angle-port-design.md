@@ -3,14 +3,14 @@
 **Date**: 2026-05-03
 **Cadence**: spec + plan + single combined review (per `compressed_cadence.md`,
 15–100 production-LOC band; ~22 production LOC)
-**Predecessor**: NAI-82 (HEAD `959c9da` — P_ARRIVEDELAY ported; door-click smoke
+**Predecessor**: NAI-82 (HEAD `5ed4abe` — P_ARRIVEDELAY ported; door-click smoke
 on Tutorial Island surfaced LOC_ANGLE as next stub-not-completed consumer)
 **Successor**: TBD (drained by next NAI-N+1 user-driven door-click smoke)
 
 ## 1. Problem
 
 `LOC_ANGLE` (opcode 3001) is declared at `pkg/script/opcode.go:290` and named
-at `:971-972` but has no dispatch wiring. NAI-82's close smoke (HEAD `959c9da`,
+at `:971-972` but has no dispatch wiring. NAI-82's close smoke (HEAD `5ed4abe`,
 Tutorial Island door click) surfaced one consumer:
 
 - `[oploc1, newbie_door1]` pc=10 — `no handler for LOC_ANGLE (opcode 3001)`
@@ -240,7 +240,7 @@ func TestHandleLocAngleRequiresActiveLoc(t *testing.T) {
 }
 ```
 
-### 5.3 Pre-flight verification (confirmed against HEAD `959c9da`)
+### 5.3 Pre-flight verification (confirmed against HEAD `5ed4abe`)
 
 - `pkg/script/active.go:698-701` — `ActiveLoc` interface has `LocType()` and
   `Coords()`; appending `Angle()` is purely additive.

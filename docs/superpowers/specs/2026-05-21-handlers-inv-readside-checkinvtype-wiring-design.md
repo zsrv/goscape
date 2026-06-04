@@ -207,7 +207,7 @@ Cite findings in the implementation plan's audit table.
 - `go test -race ./...` 0 FAIL.
 - `go test -run TestPackAll_TwelveStageSmoke` PASS.
 - Audit-greps (deltas vs HEAD, not absolute counts — many pre-existing wired sites already have the defensive `"no inv for type"` fallthrough):
-- Audit-grep baseline counts at HEAD `10276e74`:
+- Audit-grep baseline counts at HEAD `cd4abcb3`:
   - `grep -c "checkInvType(s, " pkg/script/handlers_inv.go` → **23**
   - `grep -c "no inv for type" pkg/script/handlers_inv.go` → **15**
   - `grep -c "invalid inv id" pkg/script/handlers_inv.go` → **3** (the 3 Shape B sites)

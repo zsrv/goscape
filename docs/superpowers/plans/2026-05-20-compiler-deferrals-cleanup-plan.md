@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26, `pkg/pack/compiler/cfg` (pointer checker + CFG primitives), `pkg/pack/compiler/diagnostics` (HINT diagnostic templates). Tests run under `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -race ./...` and the `smoke-pack` content gate.
 
-**Predecessor:** Spec at `docs/superpowers/specs/2026-05-20-compiler-deferrals-cleanup-design.md`. HEAD at plan-write: `9955fdc0` (cleanup commit dropping unused log field) on top of `2c5544be` (post runtime-fixups-cluster fixup).
+**Predecessor:** Spec at `docs/superpowers/specs/2026-05-20-compiler-deferrals-cleanup-design.md`. HEAD at plan-write: `02d4992c` (cleanup commit dropping unused log field) on top of `de6a56c3` (post runtime-fixups-cluster fixup).
 
 ---
 
@@ -751,7 +751,7 @@ Expected:
 - [ ] **Step 4: Capture the commit range for the close memo**
 
 ```bash
-git log --oneline 9955fdc0..HEAD
+git log --oneline 02d4992c..HEAD
 ```
 
 Expected: 4 commits (T1, T2, T3, T4) plus this close commit will land at Step 6. Note the SHAs.
@@ -768,7 +768,7 @@ metadata:
   type: project
 ---
 
-Compiler deferrals cleanup shipped 2026-05-20 across 4 impl commits + 1 close on top of `9955fdc0` (drop unused log field cleanup).
+Compiler deferrals cleanup shipped 2026-05-20 across 4 impl commits + 1 close on top of `02d4992c` (drop unused log field cleanup).
 
 **Item A — NAI-208 logProcRequirement port:**
 - New `(*PointerChecker).logProcRequirement(node, pt, analysis)` method in `pkg/pack/compiler/cfg/pointer_checker.go` (~55 LOC). Mirrors TS `RuneScriptTS/src/compiler/codegen/script/config/PointerChecker.ts:243-301`.
@@ -798,14 +798,14 @@ Compiler deferrals cleanup shipped 2026-05-20 across 4 impl commits + 1 close on
 - See [[post-runtime-fixups-cluster-close]] for the broader pivot menu.
 ```
 
-Replace `[[drop-unused-log-field-cleanup]]` with a placeholder if no memory file exists for that yet — the cleanup was a one-off commit `9955fdc0` and may not have a dedicated memo. If so, simply reference the commit SHA: "on top of `9955fdc0` (drop-unused-log-field cleanup commit)".
+Replace `[[drop-unused-log-field-cleanup]]` with a placeholder if no memory file exists for that yet — the cleanup was a one-off commit `02d4992c` and may not have a dedicated memo. If so, simply reference the commit SHA: "on top of `02d4992c` (drop-unused-log-field cleanup commit)".
 
 - [ ] **Step 6: Add the MEMORY.md top-entry pointer**
 
 Edit `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/MEMORY.md`. Insert a new entry at the top of the entries list (immediately after any existing top-of-file content). The new line:
 
 ```markdown
-- [Compiler deferrals cleanup close](compiler_deferrals_cleanup_close.md) — NAI-208 logProcRequirement port (~55 LOC + 3 tests) + NAI-212 fallback recharacterization (doc-only); 4 impl + 1 close commit on top of 9955fdc0; -race clean 56+ pkgs; smoke-pack 12 OK / 0 ERR / 0 SKIP; retires NAI-208-D-LOGPROCREQ-DEFERRED + removes 2 phantom string references; NAI-211-D-MACRO-LOOKUP-DEFERRED deferred to macro-port slice
+- [Compiler deferrals cleanup close](compiler_deferrals_cleanup_close.md) — NAI-208 logProcRequirement port (~55 LOC + 3 tests) + NAI-212 fallback recharacterization (doc-only); 4 impl + 1 close commit on top of 02d4992c; -race clean 56+ pkgs; smoke-pack 12 OK / 0 ERR / 0 SKIP; retires NAI-208-D-LOGPROCREQ-DEFERRED + removes 2 phantom string references; NAI-211-D-MACRO-LOOKUP-DEFERRED deferred to macro-port slice
 ```
 
 Verify line is ≤200 chars per MEMORY.md conventions (count it; trim if needed).
@@ -871,12 +871,12 @@ Before committing, replace `<T1-sha>` … `<T4-sha>` with the actual SHAs from `
 
 ```bash
 git status
-git log --oneline 9955fdc0..HEAD
+git log --oneline 02d4992c..HEAD
 ```
 
 Expected:
 - `git status` shows nothing staged or modified (apart from the standing untracked noise per `[[post-runtime-fixups-cluster-close]]` resume doc).
-- `git log` shows 5 commits since predecessor `9955fdc0` (T1, T2, T3, T4, T5-close).
+- `git log` shows 5 commits since predecessor `02d4992c` (T1, T2, T3, T4, T5-close).
 
 ---
 

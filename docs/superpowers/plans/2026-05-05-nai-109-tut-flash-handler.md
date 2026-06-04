@@ -8,11 +8,11 @@
 
 **Tech Stack:** Go 1.26+ (per `go_version` memory). Tests via `go test`. Always invoke as `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go ...` per project CLAUDE.md.
 
-**Spec:** `docs/superpowers/specs/2026-05-05-nai-109-tut-flash-handler-design.md` (commit `2bb0acd`).
+**Spec:** `docs/superpowers/specs/2026-05-05-nai-109-tut-flash-handler-design.md` (commit `a675066`).
 
 **Cadence:** 3 tasks (T1 red → T2 green → T3 close) on Sonnet via subagent-driven-development per `execution_mode_default.md`. End-of-bundle review on Sonnet per `superpowers_code_reviewer_model.md`.
 
-**Pre-flight verified at HEAD `2bb0acd` (controller_preflight):**
+**Pre-flight verified at HEAD `a675066` (controller_preflight):**
 - `OpTutFlash = 2121` declared at `pkg/script/opcode.go:221`. ✓
 - `OpTutFlash` String() case at `pkg/script/opcode.go:849-850`. ✓
 - Handler map at `pkg/script/handlers.go:297-298` registers TutOpen + TutClose only. ✓
@@ -410,7 +410,7 @@ Per `superpowers_code_reviewer_model` memory: review must run on Sonnet, never O
 Reviewer prompt should include:
 - Spec path: `docs/superpowers/specs/2026-05-05-nai-109-tut-flash-handler-design.md`
 - Plan path: `docs/superpowers/plans/2026-05-05-nai-109-tut-flash-handler.md`
-- Commit range: T1 SHA..T2 SHA (`git log --oneline 2bb0acd..HEAD`)
+- Commit range: T1 SHA..T2 SHA (`git log --oneline a675066..HEAD`)
 - Specific verification asks:
   - Does T2's `handleTutFlash` exactly mirror TS PlayerOps.ts:694-696 (pop int → check NumberNotNull → call FlashTutorial)?
   - Is the wire byte shape (opcode 126, single-byte tab payload) correct against TS TutFlashEncoder.ts?
@@ -430,7 +430,7 @@ If no issues surfaced, proceed to Step 3.3 directly.
 ```bash
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./...
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go vet ./...
-git log --oneline 2bb0acd..HEAD
+git log --oneline a675066..HEAD
 git status
 ```
 

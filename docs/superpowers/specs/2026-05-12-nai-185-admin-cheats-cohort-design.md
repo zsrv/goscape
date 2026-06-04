@@ -19,9 +19,9 @@ Ports:
 
 ### 2.1 Why these 7
 
-The NAI-184 close commit (3351153) left the carryforward block enumerating 17 unported cheats across three tiers (dev, admin, super-mod). Infra survey at NAI-185 brainstorm confirmed that the carryforward labels overstate the blocker for the VarPlayer quartet: the named blocker `VarPlayerType.GetByName` is **not** missing data — `VarpTypeConfigs.ConfigNames` already populates a `debugname → id` map at load time (`varptype.go:99-101`). Only an exported accessor is missing.
+The NAI-184 close commit (4ad6343) left the carryforward block enumerating 17 unported cheats across three tiers (dev, admin, super-mod). Infra survey at NAI-185 brainstorm confirmed that the carryforward labels overstate the blocker for the VarPlayer quartet: the named blocker `VarPlayerType.GetByName` is **not** missing data — `VarpTypeConfigs.ConfigNames` already populates a `debugname → id` map at load time (`varptype.go:99-101`). Only an exported accessor is missing.
 
-Concretely, every dependency these 7 cheats reach into already exists at HEAD `3351153`:
+Concretely, every dependency these 7 cheats reach into already exists at HEAD `4ad6343`:
 
 | Dependency | Site | Provided by |
 |---|---|---|

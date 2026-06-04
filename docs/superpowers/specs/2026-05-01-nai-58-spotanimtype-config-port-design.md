@@ -74,7 +74,7 @@ struct shape, not a deviation.
 
 ---
 
-## Pre-flight (verified at HEAD `9ce3b0b`)
+## Pre-flight (verified at HEAD `dfaee46`)
 
 | Claim | Result |
 |---|---|
@@ -350,7 +350,7 @@ Add `SpotAnimType` to each of the 3 Configs implementors in
 
 Re-grep `IdkType\(id ` against HEAD before dispatching T3 to enumerate
 `Configs` implementors. The 3-mock list above is current at HEAD
-`9ce3b0b`; an implementor added between spec-write and T3 will surface
+`dfaee46`; an implementor added between spec-write and T3 will surface
 as a compile error if missed, but pre-flight catches it earlier.
 
 ---

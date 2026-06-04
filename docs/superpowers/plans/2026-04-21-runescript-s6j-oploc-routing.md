@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.23+, standard library only. Tests use the existing `pkg/io/packet`, `modules/world` test fixtures (`makeOpNpcFixture` is the canonical pattern), and `pkg/objtype` config types.
 
-**Spec reference:** `docs/superpowers/specs/2026-04-21-runescript-s6j-oploc-routing-design.md` (commit `8f96ea5`).
+**Spec reference:** `docs/superpowers/specs/2026-04-21-runescript-s6j-oploc-routing-design.md` (commit `c8aca42`).
 
 **Build commands (per CLAUDE.md):**
 - Build: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go build ./...`

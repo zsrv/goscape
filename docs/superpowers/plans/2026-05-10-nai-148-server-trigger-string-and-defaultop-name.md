@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+ (`go_version.md`). No new dependencies. All work in `pkg/script/` and `modules/world/`.
 
-**Spec:** `docs/superpowers/specs/2026-05-10-nai-148-server-trigger-string-and-defaultop-name-design.md` (commit `8af51cc`).
+**Spec:** `docs/superpowers/specs/2026-05-10-nai-148-server-trigger-string-and-defaultop-name-design.md` (commit `35e0d26`).
 
 **Cadence:** 15-100 LOC band per `compressed_cadence.md` — separate spec + plan docs, single combined Sonnet reviewer at end-of-impl. Subagent-driven-development per `execution_mode_default.md`.
 
@@ -29,7 +29,7 @@ Total estimated delta: ~210 LOC production (~170 of which is mechanical map data
 
 ## Pre-flight verification (controller, not implementer)
 
-Before dispatching T1, the controller (parent) verifies these premises against HEAD `8af51cc`:
+Before dispatching T1, the controller (parent) verifies these premises against HEAD `35e0d26`:
 
 - `pkg/script/trigger.go` has no existing `String()` method or `fmt` import.
 - `pkg/script/trigger_test.go` does not exist.

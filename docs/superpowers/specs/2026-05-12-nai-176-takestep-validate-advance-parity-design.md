@@ -1,7 +1,7 @@
 # NAI-176 — NPC/Player takeStep + validateAndAdvanceStep parity
 
 **Status:** Draft — design approved 2026-05-12.
-**Predecessor:** NAI-175 (commit `5c5281d`) ported D0 strategy plumbing + D1 axis-fallback into `(*Npc).stepOnce`; D2/D3/D4 deferred behind NAI-175-D-* deviation tags.
+**Predecessor:** NAI-175 (commit `24338ea`) ported D0 strategy plumbing + D1 axis-fallback into `(*Npc).stepOnce`; D2/D3/D4 deferred behind NAI-175-D-* deviation tags.
 **Memory context:** `memory/nai175_step_collision_strategy.md`.
 
 ## §1 — Goal & scope

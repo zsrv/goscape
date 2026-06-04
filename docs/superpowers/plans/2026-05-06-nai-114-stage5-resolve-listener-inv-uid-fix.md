@@ -22,18 +22,18 @@ Stage 5 close work (Tasks 4-5, executed only after user smoke ✅):
 
 | File | Status | Responsibility |
 |------|--------|----------------|
-| `modules/world/handler_opheld.go` | Modify (via revert) | Revert of `1f657ab` removes 18 inline DEBUG lines + helper + slog/sort imports. |
+| `modules/world/handler_opheld.go` | Modify (via revert) | Revert of `7f9d7e3` removes 18 inline DEBUG lines + helper + slog/sort imports. |
 | `.claude/projects/.../memory/*.md` | Create + Modify | New entry on UID-vs-slot semantic-name collision; updates to `cascade_theory_smoke_binding`, `investigation_subspec_cadence`, `MEMORY.md` index. |
 
 ---
 
 ## Pre-flight (controller, not implementer)
 
-- [ ] **Verify HEAD is `1c50cf7`** (Stage 5 spec commit) and working tree clean.
+- [ ] **Verify HEAD is `862ce13`** (Stage 5 spec commit) and working tree clean.
 
 ```bash
 git rev-parse HEAD
-# Expected: 1c50cf7...
+# Expected: 862ce13...
 git status --short
 # Expected: only ?? .claude/, ?? test_typed_nil.go, and untracked dotfiles (no modified files in tracked tree)
 ```
@@ -185,7 +185,7 @@ Expected:
 - `TestResolveListenerInvPlayerSourceOffline` PASS
 - `TestResolveListenerInvPlayerSourceNullInv` PASS (for the wrong reason — see test docstring)
 
-**If all 4 pass:** the spec premise is wrong; STOP and re-read `modules/world/handler_opnpc.go`. The bug should be reproducible at HEAD `1c50cf7`.
+**If all 4 pass:** the spec premise is wrong; STOP and re-read `modules/world/handler_opnpc.go`. The bug should be reproducible at HEAD `862ce13`.
 
 **If Test 2 fails with a different shape (panic, compile error):** STOP and report the error — likely a fixture wiring issue, not the bug under test.
 
@@ -375,9 +375,9 @@ git log --oneline -4
 Expected (top to bottom):
 ```
 <sha> fix(world): NAI-114 Stage 5 — resolveListenerInv interpret Source as UID
-1c50cf7 docs(spec): NAI-114 Stage 5 — resolve-listener-inv UID fix design
-1f657ab chore(debug): NAI-114 Stage 4 — opheldu reject-gate instrumentation
-396bc22 Revert "chore(debug): NAI-114 Stage 3 — boot-time opheldu script-registry log"
+862ce13 docs(spec): NAI-114 Stage 5 — resolve-listener-inv UID fix design
+7f9d7e3 chore(debug): NAI-114 Stage 4 — opheldu reject-gate instrumentation
+38dee7d Revert "chore(debug): NAI-114 Stage 3 — boot-time opheldu script-registry log"
 ```
 
 - [ ] **Step 3.2: Emit paste-ready smoke handoff prompt**
@@ -412,10 +412,10 @@ Surface this verbatim to the user:
 - [ ] **Step 4.1: Revert the Stage 4 probe**
 
 ```bash
-git revert --no-gpg-sign --no-edit 1f657ab
+git revert --no-gpg-sign --no-edit 7f9d7e3
 ```
 
-Expected: clean revert (no conflicts — the only changes between `1f657ab` and HEAD touch different files: `1c50cf7` is a doc, the fix commit touches `handler_opnpc.go` / `player.go` / `resolve_listener_inv_test.go`).
+Expected: clean revert (no conflicts — the only changes between `7f9d7e3` and HEAD touch different files: `862ce13` is a doc, the fix commit touches `handler_opnpc.go` / `player.go` / `resolve_listener_inv_test.go`).
 
 - [ ] **Step 4.2: Verify the revert removed only Stage 4 instrumentation**
 
@@ -532,9 +532,9 @@ Expected (top to bottom):
 <sha> chore(memory): NAI-114 close — InventoryListener.Source UID-vs-slot collision
 <sha> Revert "chore(debug): NAI-114 Stage 4 — opheldu reject-gate instrumentation"
 <sha> fix(world): NAI-114 Stage 5 — resolveListenerInv interpret Source as UID
-1c50cf7 docs(spec): NAI-114 Stage 5 — resolve-listener-inv UID fix design
-1f657ab chore(debug): NAI-114 Stage 4 — opheldu reject-gate instrumentation
-396bc22 Revert "chore(debug): NAI-114 Stage 3 — boot-time opheldu script-registry log"
+862ce13 docs(spec): NAI-114 Stage 5 — resolve-listener-inv UID fix design
+7f9d7e3 chore(debug): NAI-114 Stage 4 — opheldu reject-gate instrumentation
+38dee7d Revert "chore(debug): NAI-114 Stage 3 — boot-time opheldu script-registry log"
 ```
 
 NAI-114 closed.
@@ -583,9 +583,9 @@ All §3 in-scope items have tasks; all §4 deliverables are step-anchored.
 - `target.invs` left nil in Test 4 — Go map reads on nil maps return zero value, so `target.invs[42]` is `(*inventory.Inventory)(nil)` without panic. Verified.
 
 **5. Commit-ordering:**
-- Pre-flight: HEAD = `1c50cf7` (spec).
+- Pre-flight: HEAD = `862ce13` (spec).
 - After Task 2: HEAD = fix commit on top of spec.
-- After Task 4: HEAD = revert of `1f657ab` on top of fix.
+- After Task 4: HEAD = revert of `7f9d7e3` on top of fix.
 - After Task 5: HEAD = memory commit on top of revert.
 
 Total: 4 commits land in this plan's execution (spec is already committed pre-flight).

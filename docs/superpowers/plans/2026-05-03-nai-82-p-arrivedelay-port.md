@@ -823,7 +823,7 @@ Expected: top of log shows
 - `<sha> feat(world): NAI-82 T2 — Player.lastMovement write site at resolveMovement tail`
 - `<sha> feat(script): NAI-82 T1 — plumb lastMovement field + ActivePlayer accessor`
 
-Below that should be `ab4d8ef docs(spec): NAI-82 — port P_ARRIVEDELAY opcode handler ...` and `0b3fd3e feat(script): NAI-81 — port LOC_COORD opcode handler`.
+Below that should be `a0c4c9c docs(spec): NAI-82 — port P_ARRIVEDELAY opcode handler ...` and `ab37799 feat(script): NAI-81 — port LOC_COORD opcode handler`.
 
 ---
 

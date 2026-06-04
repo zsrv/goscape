@@ -697,7 +697,7 @@ Note: if the offset is now in a different region than the pre-fix offset (28207,
 
 - [ ] **Step 2: Use the `/tmp/claude/` decode helpers to identify the script-id and operand**
 
-The resume doc lists helpers at `/tmp/claude/decode_script_n.go` (decodes script id N from a .dat) and `/tmp/claude/diff_set_a_vs_b.go` (diffs the set of differing scripts). If those scripts have been purged, recreate from the resume's commit `02615ab2` reference.
+The resume doc lists helpers at `/tmp/claude/decode_script_n.go` (decodes script id N from a .dat) and `/tmp/claude/diff_set_a_vs_b.go` (diffs the set of differing scripts). If those scripts have been purged, recreate from the resume's commit `75d7f3f8` reference.
 
 ```bash
 # Identify which script contains the offset.
@@ -794,7 +794,7 @@ Expected: no output.
 - [ ] **Step 3: git log review**
 
 ```bash
-git log --oneline ^02615ab2 HEAD
+git log --oneline ^75d7f3f8 HEAD
 ```
 
 Expected: 5-7 commits (the test + 3-5 fixes + optional defensive sorts).

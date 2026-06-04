@@ -9,7 +9,7 @@
 **Tech Stack:**
 - Go 1.26+ (per `go_version.md` memory; `use-modern-go` skill).
 - TS source: `Engine-TS` only (per `ts_source_canonical_path.md`).
-- Spec: `docs/superpowers/specs/2026-04-27-nai-36-runscript-stub-handlers-and-teleport-parity-design.md` (commit `0f37de4`).
+- Spec: `docs/superpowers/specs/2026-04-27-nai-36-runscript-stub-handlers-and-teleport-parity-design.md` (commit `3844587`).
 
 ---
 
@@ -17,7 +17,7 @@
 
 Before dispatching any task, the controller (whoever orchestrates this plan, whether subagent-driven or inline) verifies these premises against HEAD:
 
-- [ ] **PF1.** `HEAD` is `c9e777d` or a strictly-ahead descendant. Run: `git log --oneline -1`. Expected: `c9e777d` or a commit on top of NAI-35 close.
+- [ ] **PF1.** `HEAD` is `61af038` or a strictly-ahead descendant. Run: `git log --oneline -1`. Expected: `61af038` or a commit on top of NAI-35 close.
 - [ ] **PF2.** `pkg/script/opcode.go:81,94,259,272,281` declares `OpMapBlocked=1007`, `OpSpotAnimMap=1020`, `OpNpcGetMode=2522`, `OpNpcSetMode=2535`, `OpNpcWalk=2544`. Run: `grep -n 'OpMapBlocked\|OpSpotAnimMap\|OpNpcGetMode\|OpNpcSetMode\|OpNpcWalk' pkg/script/opcode.go | head`.
 - [ ] **PF3.** `pkg/script/handlers.go` has NO entries for those 5 opcodes. Run: `grep -n 'OpMapBlocked\|OpSpotAnimMap\|OpNpcGetMode\|OpNpcSetMode\|OpNpcWalk' pkg/script/handlers.go`. Expected: only the `case` arms in `opcode.go`'s String/lookup, no map entries.
 - [ ] **PF4.** `(n *Npc) queueWaypoint` exists at `modules/world/npc_ai.go:84` (lowercase, unexported). Run: `grep -n 'queueWaypoint' modules/world/npc_ai.go`.
@@ -782,7 +782,7 @@ func TestSpotAnimMap_InvalidCoordErrors(t *testing.T) {
 	}
 }
 
-// NAI-36-D2: SpotAnimType config-port absent at HEAD c9e777d. Falling back
+// NAI-36-D2: SpotAnimType config-port absent at HEAD 61af038. Falling back
 // to range-validation (id < 0 reject). Pin the divergence with a test that
 // expects -1 to error and a high id to PASS (no upper bound at goscape).
 func TestSpotAnimMap_NegativeSpotanimIDErrors(t *testing.T) {
@@ -837,7 +837,7 @@ Add:
 
 ```go
 // checkSpotAnimType validates a spotanim type id. Per NAI-36-D2: full
-// SpotAnimType config-port is absent at HEAD c9e777d; fall back to range
+// SpotAnimType config-port is absent at HEAD 61af038; fall back to range
 // validation (id < 0 rejected). When a SpotAnimType config accessor lands
 // on the Configs interface, this helper should be tightened to mirror TS
 // SpotAnimTypeValid (presence check against config table).
@@ -909,7 +909,7 @@ seam on World interface. checkSpotAnimType range-only per NAI-36-D2
 
 After T5 commits, dispatch combined-review subagent:
 
-> **Stage 1 review prompt:** Review commits since `0f37de4` (NAI-36 spec commit) on the current branch. Scope: NAI-36 Tasks 1-5 — foundation seams + 4 simpler stub-not-completed handler ports (NPC_WALK, NPC_GETMODE, MAP_BLOCKED, SPOTANIM_MAP). Verify against the spec at `docs/superpowers/specs/2026-04-27-nai-36-runscript-stub-handlers-and-teleport-parity-design.md`. Critical checks: (a) `queueWaypoint→QueueWaypoint` rename complete (zero hits to lowercase); (b) ActiveNpc.QueueWaypoint, ActiveNpc.TargetOp, WorldVars.AnimMap interface methods correctly added + adapter-side wiring intact; (c) all 4 handlers mirror their TS shapes accurately; (d) NPC_WALK TS-asymmetry dual-pin tests are present (presence + conspicuous absence); (e) MAP_BLOCKED 4-branch coverage exhaustive; (f) SPOTANIM_MAP pop-order matches TS popInts(4) destructure; (g) NAI-36-D2 (SpotAnimType range-only fallback) tracked in code comments. Report: critical (blocks T6 dispatch), high-priority, low-priority, or NOOP.
+> **Stage 1 review prompt:** Review commits since `3844587` (NAI-36 spec commit) on the current branch. Scope: NAI-36 Tasks 1-5 — foundation seams + 4 simpler stub-not-completed handler ports (NPC_WALK, NPC_GETMODE, MAP_BLOCKED, SPOTANIM_MAP). Verify against the spec at `docs/superpowers/specs/2026-04-27-nai-36-runscript-stub-handlers-and-teleport-parity-design.md`. Critical checks: (a) `queueWaypoint→QueueWaypoint` rename complete (zero hits to lowercase); (b) ActiveNpc.QueueWaypoint, ActiveNpc.TargetOp, WorldVars.AnimMap interface methods correctly added + adapter-side wiring intact; (c) all 4 handlers mirror their TS shapes accurately; (d) NPC_WALK TS-asymmetry dual-pin tests are present (presence + conspicuous absence); (e) MAP_BLOCKED 4-branch coverage exhaustive; (f) SPOTANIM_MAP pop-order matches TS popInts(4) destructure; (g) NAI-36-D2 (SpotAnimType range-only fallback) tracked in code comments. Report: critical (blocks T6 dispatch), high-priority, low-priority, or NOOP.
 
 If review surfaces Critical issues, fix before proceeding to T6.
 
@@ -2079,7 +2079,7 @@ Add a new section under "## From NAI-35 (2026-04-27)" matching the existing patt
 - **NAI-36-D2 (active):** SpotAnimType config-port absent at HEAD; T5
   uses range-validation (id < 0 reject) only. Closure when
   `Configs.SpotAnimType(id)` accessor is added. Tracking commit: T5
-  (`b85c124`). Production tag: `pkg/script/handlers_map.go:207`. Test
+  (`6f97412`). Production tag: `pkg/script/handlers_map.go:207`. Test
   pin: `pkg/script/handlers_map_test.go:471`.
 - **NAI-36-D3 (resolved at T6 entry):** SetInteractionScript adapter
   shape resolved via type-switch on script.Active* values; no deviation

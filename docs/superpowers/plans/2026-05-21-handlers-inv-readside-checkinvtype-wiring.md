@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26.x; `pkg/script/handlers_inv.go` (production); `pkg/script/handlers_inv_test.go` (no expected changes); `pkg/script/handlers_player.go:158-170` (existing validator); `pkg/script/handlers_player_test.go:2364` (existing validator-layer test).
 
-**Spec:** `docs/superpowers/specs/2026-05-21-handlers-inv-readside-checkinvtype-wiring-design.md` (HEAD `dc8c3d8b`).
+**Spec:** `docs/superpowers/specs/2026-05-21-handlers-inv-readside-checkinvtype-wiring-design.md` (HEAD `c37ed1b8`).
 
 ---
 
@@ -30,7 +30,7 @@ grep -c "no inv for type" pkg/script/handlers_inv.go
 grep -c "invalid inv id" pkg/script/handlers_inv.go
 ```
 
-Expected at HEAD `dc8c3d8b`:
+Expected at HEAD `c37ed1b8`:
 - `checkInvType(s, ` → **23**
 - `no inv for type` → **15**
 - `invalid inv id` → **3**
@@ -680,7 +680,7 @@ rejection. TestInvLookupNilReturnsError stays unchanged: it passes
 a registered InvType id with nil lookup, exercising the defensive
 container-miss path which is preserved.
 
-Audit-grep delta vs HEAD dc8c3d8b:
+Audit-grep delta vs HEAD c37ed1b8:
 - checkInvType(s,  → 23 → 35  (+12)
 - no inv for type → 15 → 15   (unchanged; defensive lines preserved)
 - invalid inv id  → 3  → 0    (−3; all Shape B canonicalized)

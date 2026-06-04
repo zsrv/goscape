@@ -3,14 +3,14 @@
 - **Sub-spec**: NAI-21
 - **Date**: 2026-04-25
 - **Scope label**: B (logical-grouping follow-up bundle — `modules/world` (production + tests), `nai_followups.md` doc retirements; ~10 LOC production + ~130 LOC tests + ~60 LOC doc; closes 2 follow-up entries (NAI-17-D1 tracker + NAI-3 weak-form deferral) + 1 tracked deviation (S7c-D1); introduces 1 tracked deviation (NAI-21-D1, internal-mechanism only); net deviation count unchanged at 16)
-- **Predecessors**: NAI-20 (follow-up bundle) — last on `main` as `af2c926`
+- **Predecessors**: NAI-20 (follow-up bundle) — last on `main` as `b734c7f`
 - **TS source root**: `LostCityRS/Engine-TS`
 
 ## Motivation
 
 Five tracked NAI-series follow-ups have accumulated since NAI-20 closed, spanning three categories: (i) a TS-fidelity snapshot rollout completion deferred from NAI-20, (ii) a TS-fidelity reader fix tracked as S7c-D1, (iii) a polish-modernization ding from NAI-17, (iv) a stale follow-up tracker (NAI-17-D1) whose underlying gap was closed by NAI-19 but the tracker entry was never retired, and (v) a NAI-3 weak-form test that the original deferral note flagged as needing test-fixture infrastructure.
 
-Pre-flight at HEAD `af2c926` against the original deferral notes surfaced two stale-premise findings:
+Pre-flight at HEAD `b734c7f` against the original deferral notes surfaced two stale-premise findings:
 
 1. **NAI-17-D1's underlying gap is already closed.** The follow-up entry asserts goscape's `revertType` heavy path does an inline reset; in fact `modules/world/npc.go:285-286` already does the structural `s.removeNpc(n, -1) + s.addNpc(n, -1, false)` cycle. NAI-19 closed the inline-reset gap and replaced it with two narrower deviations (NAI-19-D1 zone state, NAI-19-D2 AI_SPAWN re-trigger). The NAI-17-D1 follow-up entry is now doc-rot.
 2. **NAI-3 weak-form's "neither fixture exists today" claim is fully stale.** `Provider.Register(*ScriptFile)` at `pkg/script/provider.go:182` is exported with a docstring explicitly saying *"Intended for tests that want to exercise the provider without loading a real cache."* `*script.ScriptFile` and its `LookupKey` field are both exported (`pkg/script/file.go:18`). `buildNpcForIntegration(t)` already wires a `scriptProvider` via `defaultTestProvider()`. The strong-form test can land using existing exported APIs with no new fixture infrastructure.
@@ -52,7 +52,7 @@ The 5 items cluster naturally into three logical bundles by content type (produc
 
 Net production delta: **2 lines changed**.
 
-The snapshot fields `n.size` and `n.blockWalk` were introduced in NAI-20 Task 2 (commit `df71250`) and seeded at `NewNpc` from `typ.Size` / `typ.BlockWalk`. They are intentionally NOT updated by changetype, mirroring TS's ctor-snapshot semantics. NAI-20's scope deliberately limited snapshot consumption to collision-toggle call sites in `addNpc`/`removeNpc` (`npc_registry.go:65-72, 140-147`); NAI-21 picks up the LoS-path remainder.
+The snapshot fields `n.size` and `n.blockWalk` were introduced in NAI-20 Task 2 (commit `6cfcd61`) and seeded at `NewNpc` from `typ.Size` / `typ.BlockWalk`. They are intentionally NOT updated by changetype, mirroring TS's ctor-snapshot semantics. NAI-20's scope deliberately limited snapshot consumption to collision-toggle call sites in `addNpc`/`removeNpc` (`npc_registry.go:65-72, 140-147`); NAI-21 picks up the LoS-path remainder.
 
 **Test plan** (`modules/world/npc_interaction_test.go`, ~30 LOC, 2 tests, dual-pin pattern per `ts_asymmetry_dual_pin` memory):
 
@@ -186,7 +186,7 @@ grep -rn "NAI-17-D1" /home/owner/Code/github.com/zsrv/goscape/pkg \
                      /home/owner/Code/github.com/zsrv/goscape/docs
 ```
 
-Pre-flight result (HEAD `af2c926`): zero production-code references; only `nai_followups.md` mentions. If the implementer-time grep surfaces additional sites, they must be enumerated and updated as part of this task.
+Pre-flight result (HEAD `b734c7f`): zero production-code references; only `nai_followups.md` mentions. If the implementer-time grep surfaces additional sites, they must be enumerated and updated as part of this task.
 
 #### Bundle 2 commit shape
 
@@ -198,7 +198,7 @@ Pre-flight result (HEAD `af2c926`): zero production-code references; only `nai_f
 
 #### Pre-flight finding (changes the design materially)
 
-The original deferral note at `nai_followups.md:88-105` claims "neither fixture exists today" — referring to a `RegisterForTest`-style method on `*script.Provider` and a synthetic test-only opcode. Verified at HEAD `af2c926`:
+The original deferral note at `nai_followups.md:88-105` claims "neither fixture exists today" — referring to a `RegisterForTest`-style method on `*script.Provider` and a synthetic test-only opcode. Verified at HEAD `b734c7f`:
 
 - **`Provider.Register(*ScriptFile)`** (`pkg/script/provider.go:182`) is exported and its docstring explicitly says: *"Intended for tests that want to exercise the provider without loading a real cache."*
 - **`*script.ScriptFile`** is exported with a public `LookupKey uint32` field (`pkg/script/file.go:18`). Existing tests already construct `*ScriptFile` literals with explicit `LookupKey` values (`pkg/script/handlers_core_test.go:12, 22, 32`).

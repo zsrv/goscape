@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-23
 **Slice:** 5a of 7 (friends-server bridge arc; slice 5 decomposed into 5a/5b)
-**Predecessor:** slice 4c (close commit `15919e3f`, retired `NAI-S1-D-PLAYERCAP-LOG-ONLY` + `NAI-S2-D-PLAYERLOGIN-IGNORES-ACCEPTED`; see `[[friends-server-slice4c-close]]`)
+**Predecessor:** slice 4c (close commit `ef8cb009`, retired `NAI-S1-D-PLAYERCAP-LOG-ONLY` + `NAI-S2-D-PLAYERLOGIN-IGNORES-ACCEPTED`; see `[[friends-server-slice4c-close]]`)
 **Closes:** none (foundation only — slice 5b retires the slice-1/2 inventory; slice 5 was greenfield as of slice-4c close)
 **Opens:** `NAI-S5A-D-PERWORLD-EVENTS-STREAM-SEPARATE`, `NAI-S5A-D-DISPATCHER-NO-ACTION`, `NAI-S5A-D-NO-ADMIN-AUTH-AT-SERVER`, `NAI-S5A-D-WORLDEVENTS-DROP-ON-FULL`
 

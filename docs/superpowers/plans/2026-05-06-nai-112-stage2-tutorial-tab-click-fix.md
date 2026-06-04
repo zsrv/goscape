@@ -6,12 +6,12 @@
 
 **Architecture:** Two-phase. Phase 1 (Bundle 1) ships read-only instrumentation at the entry-points that discriminate H6.a/b/c — `[tutorial,_]` body branch trace, `Player.SetVarp`, `Player.OpenTutorial` / encodeOut diff suppression, `Player.IfSetText`, `handleInvAdd`. User runs the smoke; logs settle attribution. Phase 2 (Bundle 2) ships the bound fix per attribution shape (one of three task trees codified below). Bundle 3 reverts instrumentation; Bundle 4 is the user-launched final smoke + close.
 
-**Tech Stack:** Go 1.26+; existing `log/slog` instrumentation pattern from NAI-112 Bundle 1b (`e348e34`); subagent-driven-development cadence.
+**Tech Stack:** Go 1.26+; existing `log/slog` instrumentation pattern from NAI-112 Bundle 1b (`f76c2da`); subagent-driven-development cadence.
 
-**Spec:** `docs/superpowers/specs/2026-05-06-nai-112-tutorial-tab-click-investigation-design.md` (commit `cbbc977`).
-**Stage 1 audit:** `docs/superpowers/investigations/2026-05-06-nai-112-stage1-audit.md` (commits `ef2c641`, `50bbaa7`).
-**Bound parent hypothesis:** H6 — `[tutorial,_]` body runs but downstream effect is silently broken (smoke 2026-05-06 at HEAD `e348e34`; revert at `50bbaa7`).
-**Branch HEAD at plan-write:** `50bbaa7`.
+**Spec:** `docs/superpowers/specs/2026-05-06-nai-112-tutorial-tab-click-investigation-design.md` (commit `c2b8259`).
+**Stage 1 audit:** `docs/superpowers/investigations/2026-05-06-nai-112-stage1-audit.md` (commits `56ab5e2`, `41748a0`).
+**Bound parent hypothesis:** H6 — `[tutorial,_]` body runs but downstream effect is silently broken (smoke 2026-05-06 at HEAD `f76c2da`; revert at `41748a0`).
+**Branch HEAD at plan-write:** `41748a0`.
 
 ---
 
@@ -27,9 +27,9 @@
 
 ---
 
-## Verified premises (controller pre-flight at HEAD `50bbaa7`)
+## Verified premises (controller pre-flight at HEAD `41748a0`)
 
-- ✅ `modules/world/handler_interface.go:138-149` — `handleTutClickSide` shape post-revert (instrumentation removed by `50bbaa7`).
+- ✅ `modules/world/handler_interface.go:138-149` — `handleTutClickSide` shape post-revert (instrumentation removed by `41748a0`).
 - ✅ `modules/world/player_script.go:307-312` — `Player.Varp(id)` returns `0` for out-of-range ids; reads `p.varps[id]` otherwise.
 - ✅ `modules/world/player_script.go:317-323` — `Player.SetVarp(id, val)` writes `p.varps[id] = val` then calls `p.writeVarp(id, val)`.
 - ✅ `modules/world/player_varp.go:12-26` — `writeVarp` is gated by `cfg.Transmit`; non-transmit varps stay server-only (relevant for client-side visibility of `%tutorial` writes if any client logic reads them).
@@ -57,7 +57,7 @@
 - Modify: `modules/world/player_interface.go:15-22` (IfSetText)
 - Modify: `pkg/script/handlers_inv.go:290-...` (handleInvAdd)
 
-**Goal:** add `slog.Info("NAI-112 instr: ...")` log lines at each discriminator point so a single user-launched smoke produces a complete event trace covering all three sub-hypotheses. Mirror the style of commit `e348e34`.
+**Goal:** add `slog.Info("NAI-112 instr: ...")` log lines at each discriminator point so a single user-launched smoke produces a complete event trace covering all three sub-hypotheses. Mirror the style of commit `f76c2da`.
 
 - [ ] **Step 1.1: Add TUT_CLICKSIDE entry log line that captures `%tutorial` value**
 
@@ -72,7 +72,7 @@ import (
 )
 ```
 
-(re-add `log/slog` import — removed by `50bbaa7` revert.)
+(re-add `log/slog` import — removed by `41748a0` revert.)
 
 Replace the body of `handleTutClickSide`:
 

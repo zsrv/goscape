@@ -99,12 +99,12 @@ All 5 WIRED.
 
 **Body is empty** — lines 297-319 are developer requirement comments only; no RuneScript statements. The proc returns immediately when called via GOSUB.
 
-Engine-side weight computation fires independently via `(*Player).updateInvs` inv-listener loop at `modules/world/player.go:832-837`: `runWeightChanged` flag → `p.calculateRunWeight()` → `sendUpdateRunWeight`. This is the NAI-136 wiring (commit d0a3070).
+Engine-side weight computation fires independently via `(*Player).updateInvs` inv-listener loop at `modules/world/player.go:832-837`: `runWeightChanged` flag → `p.calculateRunWeight()` → `sendUpdateRunWeight`. This is the NAI-136 wiring (commit 82b7dbf).
 
 | token | goscape_dispatch | status | evidence |
 |-------|-----------------|--------|----------|
 | ~update_weight (empty proc body) | GOSUB → immediate return | WIRED | proc body is comments only (equip.rs2:297-319); real work in updateInvs at player.go:832-837 via calculateRunWeight() (player_runweight.go:16) |
-| OpUpdateRunWeight (game prot) | modules/world via sendUpdateRunWeight | WIRED | NAI-136 commit d0a3070: "Adds OpUpdateRunWeight (opcode 22, payload 2) to game server prot." |
+| OpUpdateRunWeight (game prot) | modules/world via sendUpdateRunWeight | WIRED | NAI-136 commit 82b7dbf: "Adds OpUpdateRunWeight (opcode 22, payload 2) to game server prot." |
 
 NAI-136 alignment confirmed: `calculateRunWeight` exists at `modules/world/player_runweight.go:16`; `runWeightChanged` triggers at `player.go:832-835`.
 

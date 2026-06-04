@@ -4,7 +4,7 @@
 
 **Tech stack:** Go 1.26+ (per `go_version` memory).
 
-**Lineage:** Retires `NAI-169-FU-CANACCESS-LOCAL-GATE-NARROWING` (seeded by NAI-169 fixup commit `60cb8a9` after a missed grep surfaced the divergence). Stage 1 audit: this doc §3. Stage 2 fix: §4-§5.
+**Lineage:** Retires `NAI-169-FU-CANACCESS-LOCAL-GATE-NARROWING` (seeded by NAI-169 fixup commit `b70dfbe` after a missed grep surfaced the divergence). Stage 1 audit: this doc §3. Stage 2 fix: §4-§5.
 
 ## 1. Goal
 
@@ -21,7 +21,7 @@ Port TS `Player.pathToPathingTarget`'s `!canAccess()` gate (Player.ts:1044-1046)
 | 805-812 | `canAccess() { if (World.shutdown) return true; else return !this.protect && !this.busy(); }` | TS canAccess — the gate `pathToPathingTarget` calls. |
 | 1044-1046 | `if (!this.canAccess()) { return; }` | The exact gate goscape must mirror. |
 
-## 3. Goscape state at HEAD `60cb8a9` (Stage 1 audit)
+## 3. Goscape state at HEAD `b70dfbe` (Stage 1 audit)
 
 ### 3.1 The divergent gate
 
@@ -49,7 +49,7 @@ func (p *Player) CanAccess() bool {
 
 ### 3.2 Origin
 
-Introduced by NAI-98 Phase 2 (commit `9dcaaa5`, "fix(world): NAI-98 Phase 2 — port TS Player.pathToPathingTarget gate"). The deviation tag (`NAI-44-D-CANACCESS-NO-STUN-CHECK`) attached at landing time was already misframed — TS canAccess has never tested stun. NAI-169 retired the tag but discovered the genuine TS-fidelity gap underneath (modal arm missing).
+Introduced by NAI-98 Phase 2 (commit `2b047bc`, "fix(world): NAI-98 Phase 2 — port TS Player.pathToPathingTarget gate"). The deviation tag (`NAI-44-D-CANACCESS-NO-STUN-CHECK`) attached at landing time was already misframed — TS canAccess has never tested stun. NAI-169 retired the tag but discovered the genuine TS-fidelity gap underneath (modal arm missing).
 
 ### 3.3 Sibling-site enumeration
 
@@ -222,7 +222,7 @@ Per `compressed_cadence` + `investigation_subspec_cadence`: combined Stage 1 aud
 
 ## 11. Verification protocol (per `verification_before_completion`)
 
-Pre-T1 baseline: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/world/...` clean at HEAD `60cb8a9`.
+Pre-T1 baseline: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/world/...` clean at HEAD `b70dfbe`.
 
 Expected RED-phase outcome after T1 commit (gate still narrow):
 
@@ -241,9 +241,9 @@ Per `verify_implementer_claims`: controller verifies fresh `git show <SHA>` post
 - `compressed_cadence` — combined spec+plan + Stage 1 audit + Stage 2 fix in one doc.
 - `runescript_cadence` — preserved spec → impl → close phasing.
 - `investigation_subspec_cadence` — Stage 1 audit produced §3 findings; Stage 2 fix (§4-§5) derived directly from audit conclusions; conditional Stage 3 (smoke) at §14.
-- `controller_preflight` — pre-impl grep+Read pass against HEAD `60cb8a9` enumerated 2 sibling `delayed || protectedScriptActive` sites (1 divergent at L789, 1 TS-faithful at L344) and 1 production caller of `pathToPathingTarget` (`interaction.go:262`); re-grep at impl confirms.
+- `controller_preflight` — pre-impl grep+Read pass against HEAD `b70dfbe` enumerated 2 sibling `delayed || protectedScriptActive` sites (1 divergent at L789, 1 TS-faithful at L344) and 1 production caller of `pathToPathingTarget` (`interaction.go:262`); re-grep at impl confirms.
 - `tracker_entry_framing_can_be_incomplete` — NAI-44-D-CANACCESS-NO-STUN-CHECK was fact-correct on "goscape has no stun" but framing-wrong on "TS canAccess tests stun"; NAI-169 retired the misframing, NAI-170 closes the genuine underlying gap.
-- `retire_deviation_grep_all_comments` — NAI-169 fixup commit `60cb8a9` swept missed doc-comment references after primary commit; NAI-170 builds on the cleaner state.
+- `retire_deviation_grep_all_comments` — NAI-169 fixup commit `b70dfbe` swept missed doc-comment references after primary commit; NAI-170 builds on the cleaner state.
 - `audit_full_method_against_ts` — TS Player.ts:1034-1055 read line-by-line for §3 audit; not just the L1044 line that brought us here.
 - `helper_as_oracle_test_anti_pattern` — test §5 uses direct `p.waypointIndex` assertion; no helper-as-oracle.
 - `close_commit_memory_trailer` — close commit carries `Closes memory:` trailer.

@@ -1,7 +1,7 @@
 # NAI-138 Stage 2 — Smoke handoff #1 (probe binding)
 
 **Date:** 2026-05-09
-**Predecessor:** Stage 2 Bundle β.1 closed at `e29f301` (G3 fixture polish). Probe commits: `5fbd62c` (G1), `c5001c4` (G2), `be71d8c` (G3), `e29f301` (G3 fixture cleanup).
+**Predecessor:** Stage 2 Bundle β.1 closed at `c2b6068` (G3 fixture polish). Probe commits: `ba9eb7d` (G1), `0291ff5` (G2), `714ff43` (G3), `c2b6068` (G3 fixture cleanup).
 **Plan:** `docs/superpowers/plans/2026-05-09-nai-138-stage-2-encoder-defect.md` Bundle β.1.SMOKE.
 **Predecessor handoff:** `docs/superpowers/handoffs/2026-05-09-nai-138-stage-1-binding.md`.
 

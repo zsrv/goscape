@@ -5,7 +5,7 @@
 **Tech stack:** Go 1.26+
 **TS source:** `LostCityRS/Engine-TS/tools/pack/config/VarpConfig.ts` (~95 LOC body), `tools/pack/config/PackShared.ts:261-669` (`packConfigs` orchestrator, varp branch at 615-635 + cross-domain uniqueness check at 292-310), `src/io/Jagfile.ts:80-230` (TS Jagfile.new + Save).
 **Predecessors:** NAI-191 (pack-pipeline source-side foundation), NAI-192 (varn + vars packers + PackShared infrastructure).
-**HEAD at spec-write:** `d4876a5`
+**HEAD at spec-write:** `fb2cf43`
 
 ## §1 Goal
 
@@ -30,7 +30,7 @@ Same slice retires `NAI-192-D-VARP-UNIQUENESS-DEFERRED` — varp is the third an
 
 ## §3 Pre-flight audit
 
-Per `controller_preflight` + `risk_register_premise_grep`, every premise below was re-verified against HEAD `d4876a5`.
+Per `controller_preflight` + `risk_register_premise_grep`, every premise below was re-verified against HEAD `fb2cf43`.
 
 ### §3.1 TS schema (`VarpConfig.ts`)
 

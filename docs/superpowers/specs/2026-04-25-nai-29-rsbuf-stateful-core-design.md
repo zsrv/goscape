@@ -3,7 +3,7 @@
 - **Sub-spec**: NAI-29
 - **Date**: 2026-04-25
 - **Scope label**: B (First sub-spec of a four-sub-spec series aligning goscape's `pkg/rsbuf` to the upstream `@2004scape/rsbuf` Rust crate's stateful API; introduces the entity-model + state-store + lifecycle/compute API skeleton; wires production caller hooks for parallel-write hygiene; does NOT change the existing `Encode`/`EncodeNpc` read path. Touches `pkg/rsbuf/` (new files: `idbitset.go`, `zonemap.go`, `player.go`, `npc.go`, `buildarea.go`, `buf.go`) + `modules/world/{server.go, npc_registry.go, tick.go}` for B4 caller hooks; ~1200 LOC production + ~1230 LOC tests across 4 bundles; introduces 0 new deviation tags; net deviation count 13 → 13)
-- **Predecessors**: NAI-28 (Zone PathingEntity subscription primitive + huntNpcs/huntPlayers consumer migration) — last on `main` as `5e6f869`
+- **Predecessors**: NAI-28 (Zone PathingEntity subscription primitive + huntNpcs/huntPlayers consumer migration) — last on `main` as `737337d`
 - **Source root**: `2004scape/rsbuf` branch `225` at `/home/owner/Code/github.com/2004scape/rsbuf/` (HEAD `1cbb2ce`)
 
 ## Motivation

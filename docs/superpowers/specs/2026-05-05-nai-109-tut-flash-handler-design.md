@@ -213,7 +213,7 @@ Per `plan_test_coverage_crosscheck` memory: every test case in §5 must appear i
 - TS handler at `PlayerOps.ts:694-696`. ✓
 - TS encoder at `TutFlashEncoder.ts:9-11` (single `p1(message.tab)`). ✓
 
-All 9 premises verified at HEAD `bff2a12` before plan-author dispatch.
+All 9 premises verified at HEAD `457f985` before plan-author dispatch.
 
 ---
 

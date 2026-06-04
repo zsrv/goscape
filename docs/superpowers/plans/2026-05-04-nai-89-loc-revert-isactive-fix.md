@@ -10,7 +10,7 @@
 
 **Spec:** [`docs/superpowers/specs/2026-05-04-nai-89-loc-revert-isactive-fix-design.md`](../specs/2026-05-04-nai-89-loc-revert-isactive-fix-design.md)
 
-**Predecessor:** NAI-88 Stage 1, closed at HEAD `c46f0e3`. Spec commit `2e42a25`.
+**Predecessor:** NAI-88 Stage 1, closed at HEAD `211bf34`. Spec commit `9433ed4`.
 
 ---
 
@@ -472,7 +472,7 @@ static-loc init path (which was never written through Server.AddLoc)."
 **Files:**
 - Test: `modules/world/loc_turn_test.go` (append)
 
-This test would have failed at HEAD `c46f0e3` and passes after Tasks 1-3.
+This test would have failed at HEAD `211bf34` and passes after Tasks 1-3.
 
 - [ ] **Step 1: Write the regression-pin test**
 
@@ -642,7 +642,7 @@ func (s *Server) RevertLoc(l *entitypkg.Loc) {
 
 - [ ] **Step 2: Strip probes in `modules/world/tick.go`**
 
-Locate the two `// NAI-88 probe; remove at Stage 2 close` blocks (currently around lines 483-491 and 493-502 at HEAD `c46f0e3`). Delete each `if s.cfg.NodeDebug && s.log != nil { s.log.Debug("nai88 process_zones iter", ...) }` block in full, including the preceding NAI-88 comment line. The second block lives inside a `for i, np := range snap` loop where `i` is only referenced by the probe; after deletion, change that loop header to `for _, np := range snap` so the unused variable doesn't cause a compile error.
+Locate the two `// NAI-88 probe; remove at Stage 2 close` blocks (currently around lines 483-491 and 493-502 at HEAD `211bf34`). Delete each `if s.cfg.NodeDebug && s.log != nil { s.log.Debug("nai88 process_zones iter", ...) }` block in full, including the preceding NAI-88 comment line. The second block lives inside a `for i, np := range snap` loop where `i` is only referenced by the probe; after deletion, change that loop header to `for _, np := range snap` so the unused variable doesn't cause a compile error.
 
 After both deletions, the relevant `processZones` body reads:
 

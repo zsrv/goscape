@@ -1,7 +1,7 @@
 # Compiler deferrals cleanup — NAI-208 logProcRequirement port + NAI-212 fallback recharacterization
 
 **Date:** 2026-05-20
-**Predecessor:** drop unused log field cleanup (HEAD `9955fdc0`)
+**Predecessor:** drop unused log field cleanup (HEAD `02d4992c`)
 **Retires:** `NAI-208-D-LOGPROCREQ-DEFERRED` (recursive HINT chain port). Removes phantom `NAI-212-D-CLIENT-PACKERS-DEFERRED` reference from `symbols.go` + `symbols_test.go`.
 **Opens:** none.
 

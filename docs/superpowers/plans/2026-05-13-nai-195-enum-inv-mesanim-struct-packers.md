@@ -8,8 +8,8 @@
 
 **Tech Stack:** Go 1.26+. Stdlib + `pkg/io/packet` + `pkg/io/jagfile` + NAI-191/192/193/194 `pkg/pack` foundation + `pkg/objtype` (ScriptVarType, InvType*Scope* constants, LoadParamTypes, LoadEnumTypes, LoadInvTypes, LoadMesanimTypes, LoadStructTypes).
 
-**Spec:** `docs/superpowers/specs/2026-05-13-nai-195-enum-inv-mesanim-struct-packers-design.md` (commit `6e7ea35`).
-**HEAD at plan-write:** `6e7ea35`.
+**Spec:** `docs/superpowers/specs/2026-05-13-nai-195-enum-inv-mesanim-struct-packers-design.md` (commit `db0abfa`).
+**HEAD at plan-write:** `db0abfa`.
 
 ---
 
@@ -34,7 +34,7 @@
 
 ## Pre-flight verification (controller, before dispatching tasks)
 
-Verified at plan-write against HEAD `6e7ea35`:
+Verified at plan-write against HEAD `db0abfa`:
 
 | Premise | Verification |
 |---|---|
@@ -1696,7 +1696,7 @@ This task does NOT have its own failing test before implementation — the per-c
 
 - [ ] **Step 6.1.2: Replace the existing `PackConfigs` function body**
 
-Old function structure (verbatim — current HEAD `6e7ea35`):
+Old function structure (verbatim — current HEAD `db0abfa`):
 
 ```
 func PackConfigs(srcDir, outDir string) error {
@@ -2589,7 +2589,7 @@ chore(close): NAI-195 — enum/inv/mesanim/struct packer slice
 
 4 server-only per-config packers landed (T1-T9). Spec at
 docs/superpowers/specs/2026-05-13-nai-195-enum-inv-mesanim-struct
--packers-design.md (6e7ea35).
+-packers-design.md (db0abfa).
 
 New deviation: NAI-195-D-CONFIG-ORDER-EXTENDS-PARAM-AFTER-VARS.
 Carryforward: PACKFILE-SINGLETONS-DEFERRED, VALIDATE-DEFERRED,

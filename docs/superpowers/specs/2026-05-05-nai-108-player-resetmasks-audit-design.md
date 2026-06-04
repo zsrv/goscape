@@ -2,7 +2,7 @@
 
 **Date**: 2026-05-05
 **Cadence**: Standard sub-spec (single bundle, ~5 tasks). End-of-bundle review on Sonnet per `superpowers_code_reviewer_model`. Subagent-driven-development per `execution_mode_default`. Compressed cadence threshold (~15 prod LOC) is exceeded by the audit-doc deliverable + (δ) verify-and-pin tests; standard cadence chosen per option (II) of the brainstorm.
-**Predecessor**: NAI-107 (HEAD `37fed27` — `handleLcName` Name → DebugName → "null" chain).
+**Predecessor**: NAI-107 (HEAD `fa9cb8a` — `handleLcName` Name → DebugName → "null" chain).
 **Trigger**: NAI-91 close-day smoke surfaced "after speaking with NPC, player keeps facing NPC after walking away" as an untracked candidate (`nai_followups.md` line 5176). Static audit confirms the load-bearing root cause is a missing trailing-clear in `Player.ResetMasks` mirroring TS `PathingEntity.resetPathingEntity` lines 611-614 (already ported to NPC side at `npc_masks.go:204-207` in the NAI-13/14 era). Pre-existing tracker `NAI-72-N-RESETENTITY-PARTIAL` at `modules/world/tick.go:529-531` enumerates the broader gap and names this spec as the natural retirer.
 **Tech stack**: Go 1.26+ (per `go_version.md`).
 **Successor**: TBD; spec opens one new follow-up (`NAI-108-D-MOVESPEED-NOT-RESET`) requiring its own audit before fix.
@@ -298,7 +298,7 @@ End-of-bundle review on Sonnet per `superpowers_code_reviewer_model`.
 
 - **R6 (low) — `p.target` field assignment in tests.** `p.target` has type `entity` (lowercase interface, defined at `movement_consts.go:45`). Both `*Player` and `*Npc` implement it. NPC-side test at `npc_masks_test.go:255-260` uses pattern `n.target = other` where `other = newTestNpc(2)`. Player-side mirrors: `p.target = newTestPlayer(t)` or `p.target = newTestNpc(1)`. The self-sentinel pattern `p.target = p` (used at `handler_opheld_test.go` for ClearPendingAction sentinel) also satisfies the trailing-clear's `target != nil` skip condition. Implementer picks whichever is cleanest.
 
-- **R7 (low) — Spec table line numbers drift between spec-write and impl-dispatch.** Standard `controller_preflight` protocol catches at plan-write. All cited line numbers verified at HEAD `37fed27`.
+- **R7 (low) — Spec table line numbers drift between spec-write and impl-dispatch.** Standard `controller_preflight` protocol catches at plan-write. All cited line numbers verified at HEAD `fa9cb8a`.
 
 ---
 

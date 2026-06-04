@@ -2,7 +2,7 @@
 
 **Status:** spec — draft 1
 **Date:** 2026-05-08
-**Predecessor:** NAI-123 close (`df95032`); residual #1 carry-forward (NAI-123 §7).
+**Predecessor:** NAI-123 close (`5687f4e`); residual #1 carry-forward (NAI-123 §7).
 **Cadence:** investigation_subspec_cadence — Stage 1 risk-weighted controller-direct audit → Stage 2 fix → user-launched smoke. Second documented instance of this cadence post-NAI-31.
 **Tech stack:** Go 1.26+.
 
@@ -12,7 +12,7 @@ Bronze-dagger-vs-3-HP-giant-rat smoke shows damage = 3 every hit, indicating `ra
 
 ## §1 — Symptom and binding evidence
 
-**Smoke (NAI-123 close, `df95032`, 2026-05-07):**
+**Smoke (NAI-123 close, `5687f4e`, 2026-05-07):**
 - Tutorial Island fresh char + bronze dagger vs giant rat (3 HP).
 - Every hitsplat shows **3** damage (red).
 - XP/hit remains in NAI-122 band (~50-100, confirming V-PARTIAL + ai_queue paths still bind from NAI-122/NAI-123 fixes).
@@ -72,7 +72,7 @@ Each surface has a verdict to land in the Stage-1 findings doc (DIVERGENT / ALIG
 - `pkg/objtype/paramtype.go:111` — `DefaultInt uint32`.
 - `pkg/objtype/paramtype.go:183` — `//DefaultInt: -1, // this is -1 in js, default 0 here` (admits the goscape default-default differs from TS's -1).
 - `pkg/script/handlers_config.go:51` — `s.PushInt(int(pt.DefaultInt))`. `int(uint32)` zero-extends on 64-bit Go; no `int32` cast.
-- NAI-122 close commit `9ebd2ed` body explicitly flags the DecodeParams uint32-storage boundary as a future audit ("Future audit should consider fixing at the boundary (DecodeParams stores int32 instead of uint32)").
+- NAI-122 close commit `aabdb65` body explicitly flags the DecodeParams uint32-storage boundary as a future audit ("Future audit should consider fixing at the boundary (DecodeParams stores int32 instead of uint32)").
 
 **Probe:**
 - Read TS `LostCityRS/Engine-TS/src/engine/script/ParamHelper.ts:getIntParam` default branch.
@@ -94,7 +94,7 @@ S1 alone cannot explain "always 3." It's a real bug to fix, but it's not the sol
 **Hypothesis:** NAI-122 fixed three sites (`paramLookup`, `INV_TOTALPARAM`, `sumPlayerInvParam`). A fourth or fifth consumer that reads `Params[k]` and converts via plain `int(iv)` (no `int32` cast) would still buggy. Particularly: param-aggregation sites the NAI-122 grep may have missed.
 
 **Probe:**
-- `rg "Params\[" pkg/ modules/` at HEAD; cross-reference each site against NAI-122 `4c49c51` diff.
+- `rg "Params\[" pkg/ modules/` at HEAD; cross-reference each site against NAI-122 `849e2fd` diff.
 - For each non-NAI-122-touched site that does an int conversion, classify: still-unsigned (DIVERGENT) or doesn't matter (ALIGNED).
 
 ### S3 — `%com_maxhit` varp store/read sign discipline
@@ -205,5 +205,5 @@ User-launched per `smoke_test_server_handoff`. Server binary on host; client = `
 
 - TS source: `LostCityRS/Engine-TS/src/engine/config/ParamType.ts` (defaultInt field default); `src/engine/script/ParamHelper.ts:getIntParam` (default branch).
 - Goscape divergence anchors: `pkg/objtype/paramtype.go:111`, `:183`; `pkg/script/handlers_config.go:51`.
-- NAI-122 close commit: `9ebd2ed`. NAI-122 sign-ext fix: `4c49c51`. NAI-123 close commit: `df95032` (smoke that surfaced this residual).
+- NAI-122 close commit: `aabdb65`. NAI-122 sign-ext fix: `849e2fd`. NAI-123 close commit: `5687f4e` (smoke that surfaced this residual).
 - Content: `Content/scripts/skill_combat/scripts/player/player_melee.rs2:19-47`; `Content/scripts/skill_combat/scripts/combat.rs2:7-12` (combat_maxhit, combat_stat); `Content/scripts/skill_combat/scripts/player/player_combat_stat.rs2` (~player_combat_stat proc); `Content/scripts/player/scripts/equip.rs2:195-236` (equip_get_bonuses).

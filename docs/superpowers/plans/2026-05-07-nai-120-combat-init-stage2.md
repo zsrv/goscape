@@ -9,9 +9,9 @@
 **Tech Stack:** Go 1.26+. Tests in `pkg/script/handlers_*_test.go`. Production in `pkg/script/handlers_*.go`. Concrete entity impls in `modules/world/`. `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache` prefix on every `go` invocation per global CLAUDE.md.
 
 **Inputs:**
-- Spec: `docs/superpowers/specs/2026-05-07-nai-120-combat-init-path-investigation-design.md` (commit `27203f7`).
-- Bundle 0 findings: `docs/superpowers/investigations/2026-05-07-nai-120-bundle0-findings.md` (commit `24bf569`).
-- Bundle 1 audit: `docs/superpowers/investigations/2026-05-07-nai-120-bundle1-audit.md` (commit `58e8327`).
+- Spec: `docs/superpowers/specs/2026-05-07-nai-120-combat-init-path-investigation-design.md` (commit `b020daa`).
+- Bundle 0 findings: `docs/superpowers/investigations/2026-05-07-nai-120-bundle0-findings.md` (commit `47fa923`).
+- Bundle 1 audit: `docs/superpowers/investigations/2026-05-07-nai-120-bundle1-audit.md` (commit `4e74be9`).
 - TS source: `LostCityRS/Engine-TS/src/engine/script/handlers/{ServerOps,PlayerOps,NpcOps,InvOps}.ts`.
 
 ---
@@ -46,11 +46,11 @@ Files this plan creates or modifies:
 
 ## Pre-flight reminders for the executing engineer
 
-**Before EVERY handler dispatch:** Re-grep at HEAD per `controller_preflight`. Do not trust this plan's line numbers blindly — they are correct at HEAD `58e8327` but may shift if intervening commits land. If a sibling pattern moved, follow the actual code at HEAD, not the plan's quoted line.
+**Before EVERY handler dispatch:** Re-grep at HEAD per `controller_preflight`. Do not trust this plan's line numbers blindly — they are correct at HEAD `4e74be9` but may shift if intervening commits land. If a sibling pattern moved, follow the actual code at HEAD, not the plan's quoted line.
 
 **On test fixtures:** Every `&ScriptState{}` in this plan that performs PushInt/PopInt MUST initialize stacks via `IntStack: make([]int, StackCapacity)` and `StringStack: make([]string, StackCapacity)`. The codebase uses `StackCapacity` const (1024). Per `scriptstate_test_fixture_idioms`.
 
-**On Bundle pre-flight grep:** Each bundle starts with a "Pre-flight" task that re-greps the audit's claimed-absent symbols at HEAD. If any are present (added since `58e8327`), merge with existing rather than duplicate.
+**On Bundle pre-flight grep:** Each bundle starts with a "Pre-flight" task that re-greps the audit's claimed-absent symbols at HEAD. If any are present (added since `4e74be9`), merge with existing rather than duplicate.
 
 **On commits:** Use `git commit --no-gpg-sign` per global CLAUDE.md.
 

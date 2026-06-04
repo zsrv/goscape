@@ -5,7 +5,7 @@
 **Tech stack:** Go 1.26+
 **TS source:** `LostCityRS/Engine-TS/src/network/game/client/handler/ClientCheatHandler.ts:154-167`
 **Predecessors:** NAI-183 (cheat infra), NAI-187 (admin spawn cohort + carryforward rewrite).
-**HEAD at spec-write:** `98277ae`
+**HEAD at spec-write:** `83baea9`
 
 ## §1 Goal
 
@@ -28,7 +28,7 @@ The carryforward comment in `handlers_game.go:370-381` MUST be rewritten on clos
 
 ## §3 Pre-flight audit
 
-Per memory `tracker_entry_framing_can_be_incomplete` and `risk_register_premise_grep`, every premise below was re-verified against HEAD `98277ae`.
+Per memory `tracker_entry_framing_can_be_incomplete` and `risk_register_premise_grep`, every premise below was re-verified against HEAD `83baea9`.
 
 ### §3.1 TS `tickRate` write sites
 
@@ -44,7 +44,7 @@ Five references (confirmed via grep on `Engine-TS/src/engine/World.ts`):
 
 The `::speed` write at `ClientCheatHandler.ts:167` is the sixth, and the only one in scope for NAI-188.
 
-### §3.2 goscape `tickRate` references at HEAD `98277ae`
+### §3.2 goscape `tickRate` references at HEAD `83baea9`
 
 Three sites (`rg "tickRate" modules/ pkg/`):
 

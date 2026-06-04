@@ -112,7 +112,7 @@ No other deviations. The `(x*256.0)|0` semantics are preserved by hand-computed 
 
 ### §3.5 Pre-flight verification (controller pre-dispatch, per `controller_preflight.md`)
 
-Before plan-author dispatch, controller verifies at HEAD `5a7d5ba` (NAI-139 close):
+Before plan-author dispatch, controller verifies at HEAD `7d5589e` (NAI-139 close):
 - `rg "func handleIfSetColour" pkg/script/handlers_interface.go` → confirm signature + line `:302`.
 - `rg "func \(p \*Player\) IfSetColour" modules/world/player_interface.go` → confirm signature + line `:93`; confirm `buf.P2(uint16(colour))` at `:96` is verbatim.
 - `ls pkg/colorconv 2>/dev/null` → confirm package does not pre-exist.

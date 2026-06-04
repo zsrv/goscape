@@ -55,7 +55,7 @@
 git log --oneline -5
 ```
 
-Expected: `76dc3f7 chore(close): NAI-96 …` is at the top (or close to it; the NAI-97 spec commit `0b48dd1` may sit above it).
+Expected: `79c8ec4 chore(close): NAI-96 …` is at the top (or close to it; the NAI-97 spec commit `7b4fc1d` may sit above it).
 
 - [ ] **Step 1.2: Verify spec citation for `ChangeLocCollision` signature**
 

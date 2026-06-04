@@ -24,7 +24,7 @@ package semantics
 // AstBuilder fresh per call to apply per-call-site line/column offsets;
 // goscape parses straight to AST, so the equivalent per-site work is the
 // parse itself. Caching the AST would either share the first call site's
-// offsets (incorrect — see fix for script.dat residual after 08efc5e8) or
+// offsets (incorrect — see fix for script.dat residual after 9d747f10) or
 // require a deep-clone-with-rebase per call (no perf win on tiny values).
 //
 // NAI-206-D-TRIGGER-LOOKUPS-NILABLE: plan codified Find() panic-on-miss for

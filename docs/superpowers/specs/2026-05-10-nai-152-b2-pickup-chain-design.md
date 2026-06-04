@@ -2,7 +2,7 @@
 
 ## 1. Scope
 
-Sub-spec for NAI-152 §6.3 Bundle 2, activated by the B1 smoke. B1 (`f6144f6`)
+Sub-spec for NAI-152 §6.3 Bundle 2, activated by the B1 smoke. B1 (`3e83236`)
 closed the handler short-circuit at `handleOpObj`; the resulting mindrune
 pickup smoke surfaced two downstream blockers on the pickup chain:
 

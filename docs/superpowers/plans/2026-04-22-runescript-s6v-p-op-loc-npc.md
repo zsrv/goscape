@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26, standard `testing`.
 
-**Spec:** `docs/superpowers/specs/2026-04-22-runescript-s6v-p-op-loc-npc-design.md` (commit `41c267a`).
+**Spec:** `docs/superpowers/specs/2026-04-22-runescript-s6v-p-op-loc-npc-design.md` (commit `b7f953c`).
 
 ---
 

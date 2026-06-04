@@ -8,9 +8,9 @@
 
 **Tech Stack:** Go 1.26+ (per `go_version.md`), TS source canonical path `LostCityRS/Engine-TS` (per `ts_source_canonical_path.md`).
 
-**Spec:** `docs/superpowers/specs/2026-04-27-nai-37-walktrigger-hintnpc-worlddelay-design.md` (commit `e0b6691`).
+**Spec:** `docs/superpowers/specs/2026-04-27-nai-37-walktrigger-hintnpc-worlddelay-design.md` (commit `129391f`).
 
-**HEAD baseline:** `71771a8` (NAI-36 close).
+**HEAD baseline:** `22064f9` (NAI-36 close).
 
 ---
 

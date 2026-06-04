@@ -15,7 +15,7 @@ import (
 // per call for the typical short check). The append-doubling-growth path
 // still handles the rare long ray-cast correctly.
 //
-// See PORTING.md NEW-F. Lineage: Arc 17 1b3a9688 / Arc 12 a1e9da32 used
+// See PORTING.md NEW-F. Lineage: Arc 17 0a34775b / Arc 12 33b89e82 used
 // the same "pre-allocate to skip doubling growth" pattern for the cache
 // CRC + type-config snapshot bundles.
 const lineRouteCoordsCap = 64

@@ -8,8 +8,8 @@
 
 **Tech Stack:** Go 1.26+. Stdlib + `pkg/io/packet` + `pkg/io/jagfile` + NAI-191–197 `pkg/pack` foundation + `pkg/objtype` (`LoadDbTableTypes`, `LoadDbRowTypes`, `LoadHuntTypes`, `ScriptVarTypeFromName`, `DbTableFlag*`).
 
-**Spec:** `docs/superpowers/specs/2026-05-14-nai-198-pack-hunt-dbtable-dbrow-design.md` (commit `880cf82`).
-**HEAD at plan-write:** `880cf82`.
+**Spec:** `docs/superpowers/specs/2026-05-14-nai-198-pack-hunt-dbtable-dbrow-design.md` (commit `9d785ec`).
+**HEAD at plan-write:** `9d785ec`.
 
 ---
 
@@ -37,7 +37,7 @@
 
 ## Pre-flight verification (controller, before dispatching tasks)
 
-Verified at plan-write against HEAD `880cf82`:
+Verified at plan-write against HEAD `9d785ec`:
 
 | Premise | Verification |
 |---|---|

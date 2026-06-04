@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go; `pkg/objtype` constants & helpers; `modules/world` tick loop.
 
-**Spec:** [`docs/superpowers/specs/2026-04-21-runescript-s6f-default-skill-init-design.md`](../specs/2026-04-21-runescript-s6f-default-skill-init-design.md) (commit `58805c6`)
+**Spec:** [`docs/superpowers/specs/2026-04-21-runescript-s6f-default-skill-init-design.md`](../specs/2026-04-21-runescript-s6f-default-skill-init-design.md) (commit `65e004d`)
 
 ---
 

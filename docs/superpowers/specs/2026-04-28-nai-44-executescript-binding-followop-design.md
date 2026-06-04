@@ -34,7 +34,7 @@ Post-NAI-44 behavior:
   - `src/engine/entity/Player.ts:2125-2151` (executeScript dispatch table — reference only; goscape's resumeOrFinish is the analogue, NOT a direct port).
   - `src/engine/entity/Npc.ts:216-239` (Npc.executeScript dispatch — reference for the Npc-path resume).
   - `src/engine/World.ts:530-560` (`processWorld` world-queue dispatch — the canonical shape for `resumeOrFinishWorld`).
-- Existing infrastructure (verified at HEAD `fddc7d2`):
+- Existing infrastructure (verified at HEAD `6af7497`):
   - `(p *Player).targetOp int` field set in `SetInteraction` (interaction.go:56), reset to -1 in `ClearInteraction` (interaction.go:90). The followOp predicate reads this directly: `p.targetOp == 3` for OPPLAYER3-class clicks.
   - `(p *Player).apRangeCalled bool` field set/reset by `SetInteraction`/`ClearInteraction` (interaction.go:60, 92) and mutated by AP-trigger handlers when the script extends `apRange`. Used by the auto-clear gate at TS L1261-1263.
   - `(p *Player).interacted bool` and `(p *Player).interactionFired bool` (player.go:117, set in interaction.go:61, 63 + 93-95). `interactionFired` is per-anchor-cycle (blocks re-fire); `interacted` is the per-tick flag goscape currently sets in operable/approach branches.
@@ -287,7 +287,7 @@ Expected affected sites: tests that assert `p.target != nil` after a single `pro
 
 **Closed by NAI-44 (3):**
 
-| Tag | Site at HEAD `fddc7d2` | Closure mechanism |
+| Tag | Site at HEAD `6af7497` | Closure mechanism |
 |---|---|---|
 | `NAI-37-D-WORLDQUEUE-CROSS-CONTEXT-DROP` | `modules/world/script.go:171-177` + comment at `:153-157` | A2: TS-faithful 3-arm switch in `resumeOrFinishWorld`. Re-framed in close commit body (TS World.processWorld also drops Pause/Count). |
 | `NAI-37-D-WORLDSUSPEND-CLEARS-ACTIVE-SCRIPT` | `modules/world/script.go:124-130`, `modules/world/npc_script.go:312` | A1: delete defensive `ClearActiveScript()` at both sites. |

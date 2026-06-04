@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-19
 **Slice:** 7 of 7 (friends-server bridge arc — final slice)
-**Predecessor:** slice 6 (close commit `a293b217`, retired `NAI-S1-D-PM-NO-PERSISTENCE`; see `[[friends-server-slice6-close]]`)
+**Predecessor:** slice 6 (close commit `fa9e5aef`, retired `NAI-S1-D-PM-NO-PERSISTENCE`; see `[[friends-server-slice6-close]]`)
 **Closes:** UUID-half carry-forward of the original `NAI-72-D-LOGIN-SERVER-BRIDGE-MOD` deferral (ban/mute half already retired by NAI-214).
 **Opens:** none.
 

@@ -8,7 +8,7 @@
 
 ## 1. Symptom (post-Stage-2)
 
-After NAI-114 Stage 2 (commits `91131ae`, `5094936`, `0df031f`) shipped the MAP_LOCADDUNSAFE port — TS-faithful, 12 unit tests, full suite green — the user-launched smoke shows **no observable change**:
+After NAI-114 Stage 2 (commits `340081c`, `d164963`, `03bff85`) shipped the MAP_LOCADDUNSAFE port — TS-faithful, 12 unit tests, full suite green — the user-launched smoke shows **no observable change**:
 
 - Player on Tutorial Island uses tinderbox on logs in inventory.
 - 5 OPHELDU packets (opcode 130, 12-byte payload) received by server (`14:56:21.728` onward).

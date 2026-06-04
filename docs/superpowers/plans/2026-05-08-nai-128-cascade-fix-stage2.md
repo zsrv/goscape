@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+, `log/slog`, no new deps. Reuses existing `capturingHandler` from `modules/world/interaction_debug_test.go:64-89`.
 
-**Spec:** `docs/superpowers/specs/2026-05-08-nai-128-cascade-fix-stage2-design.md` (`35abe01`).
+**Spec:** `docs/superpowers/specs/2026-05-08-nai-128-cascade-fix-stage2-design.md` (`cdeecf4`).
 
 ---
 

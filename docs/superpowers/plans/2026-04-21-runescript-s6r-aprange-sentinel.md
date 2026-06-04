@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26, standard `testing`.
 
-**Spec:** `docs/superpowers/specs/2026-04-21-runescript-s6r-aprange-sentinel-design.md` (commit `c488c64`).
+**Spec:** `docs/superpowers/specs/2026-04-21-runescript-s6r-aprange-sentinel-design.md` (commit `44b6a87`).
 
 ---
 

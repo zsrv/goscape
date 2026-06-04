@@ -3,7 +3,7 @@
 **Date:** 2026-05-19
 **Status:** Design (standard cadence — brainstorm → spec → plan → subagent-driven TDD).
 **Predecessor:** NAI-182 misc-serverprot cluster — spec `docs/superpowers/specs/2026-05-12-nai-182-misc-serverprot-cluster-design.md`, plan `docs/superpowers/plans/2026-05-12-nai-182-misc-serverprot-cluster.md`. The misc cluster (`UPDATE_PID` / `RESET_ANIMS` / `RESET_CLIENT_VARCACHE` / `UPDATE_REBOOT_TIMER`) shipped earlier; D5 finishes the carved-off social opcodes that the predecessor explicitly deferred at §6 deviations (`DEVIATION-NAI-182-D5-SOCIAL-CLUSTER-PRE-PID-NOT-EMITTED`).
-**HEAD at design:** `8acf20fa` (post-B3 close).
+**HEAD at design:** `66a60a8f` (post-B3 close).
 **Tags retired (when shipped):** `NAI-S4A-D-NO-INGAME-PACKET-EMIT`, `NAI-S4B-D-NO-INGAME-PM-EMIT`, `DEVIATION-NAI-182-D5-SOCIAL-CLUSTER-PRE-PID-NOT-EMITTED`.
 
 ## 1. Problem
@@ -14,7 +14,7 @@ Separately, fresh-login `processLogins` at `modules/world/tick.go:248-261` carri
 
 NAI-182-D5 lands all four social ServerGameProt opcodes (3 dispatcher hops + 1 fresh-login emit), retires the two `NAI-S4A/B` runtime tags plus the `DEVIATION-NAI-182-D5` comment, and closes the social-cluster ServerGameProt port. The TS `UpdateIgnoreList([])` defensive emit at `Player.ts:489-492` is gated on TS `!Environment.NODE_HAS_FRIEND_SERVER` — goscape always runs with a friends server (the bridge arc is the only persistence path), so the no-friend-server branch is permanently inapplicable (deviation tag below).
 
-## 2. Affected sites (pre-flight verified at HEAD `8acf20fa`)
+## 2. Affected sites (pre-flight verified at HEAD `66a60a8f`)
 
 | Path | State at HEAD |
 | --- | --- |
@@ -359,7 +359,7 @@ Per memory `controller_preflight.md`, the controller does a 30-second grep+Read 
 
 - **DEVIATION-NAI-182-D5-NO-WORDENC-FILTER** — RETIRED 2026-05-20 (NAI-WORDENC-FILTER slice). `pkg/wordenc/encfilter` ported in 11 commits; `sendMessagePrivate` and `handleMessagePublic` now apply `s.wordenc.Filter(...)`. Pinned by `TestSendMessagePrivate_AppliesWordEncFilter` and `TestHandleMessagePublic_AppliesWordEncFilterToChatBytes`.
 - **DEVIATION-NAI-182-D5-NO-DEFENSIVE-IGNORELIST-LOGIN-EMIT** — TS `Player.onLogin` emits `UpdateIgnoreList([])` at `Player.ts:489-492` ONLY when `!Environment.NODE_HAS_FRIEND_SERVER`. goscape permanently runs WITH a friends server (the bridge arc is the only persistence path), so this branch is never taken. Permanent.
-- **DEVIATION-NAI-182-D5-CHAT-FILTER-NO-RESTORE** — RETIRED 2026-05-19 (post-D5 cleanup). The marker was authored assuming PlayerLoading did not yet restore these fields, but NAI-PLAYERLOADING (closed at 575e40cc, predates D5) already wired SAV v4+ round-trip for publicChat/privateChat/tradeDuel — see `player_save.go:104` (pack) and `player_load.go:225-229` (unpack). `processLogins` invokes `LoadSave` at `tick.go:222` before `sendChatFilterSettings` at line 253, so the fresh-login emit already reflects saved state for any returning player. Pinned by `TestProcessLogins_FreshLogin_ChatFilterEmitReflectsSAV` in `login_resync_test.go`.
+- **DEVIATION-NAI-182-D5-CHAT-FILTER-NO-RESTORE** — RETIRED 2026-05-19 (post-D5 cleanup). The marker was authored assuming PlayerLoading did not yet restore these fields, but NAI-PLAYERLOADING (closed at 09e467b5, predates D5) already wired SAV v4+ round-trip for publicChat/privateChat/tradeDuel — see `player_save.go:104` (pack) and `player_load.go:225-229` (unpack). `processLogins` invokes `LoadSave` at `tick.go:222` before `sendChatFilterSettings` at line 253, so the fresh-login emit already reflects saved state for any returning player. Pinned by `TestProcessLogins_FreshLogin_ChatFilterEmitReflectsSAV` in `login_resync_test.go`.
 
 ## 7. Tags retired by this slice
 

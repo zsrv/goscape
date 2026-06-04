@@ -2932,7 +2932,7 @@ func TestPlayer_InOperableDistance_Obj_CrossLevel(t *testing.T) {
 // CoordGrid.fine produces `pos*2 + size`; for a 1x1 tree at world
 // X=3201 that is 6403 which fits cleanly in uint16. The Go port
 // originally shipped Fine() as `coord*64 + (size*64-1)/2` (NAI-11,
-// commit 98fb2e11) — a 32x-too-large value that silently truncated
+// commit 869d112a) — a 32x-too-large value that silently truncated
 // through uint16 and rendered as a random direction on the client.
 //
 // Pins:

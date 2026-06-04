@@ -2281,7 +2281,7 @@ Run:
 rg -n "NAI-115-D1" pkg/ modules/ cmd/
 ```
 
-Record every hit. Brainstorm baseline (HEAD `f38fc3e`):
+Record every hit. Brainstorm baseline (HEAD `a11e85f`):
 - `pkg/script/handlers_inv.go:776, 784-786, 852-853, 1245-1248, 1356`
 - `pkg/script/handlers_obj.go:217`
 

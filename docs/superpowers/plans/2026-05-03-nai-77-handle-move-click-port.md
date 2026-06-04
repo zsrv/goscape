@@ -8,9 +8,9 @@
 
 **Tech Stack:** Go 1.26+; standard `testing` package; existing goscape patterns (`pkg/io/packet`, `coordgrid.PackCoord`, `sendUnsetMapFlag`, `newTestPlayer` fixture).
 
-**Spec:** `docs/superpowers/specs/2026-05-03-nai-77-handle-move-click-port-design.md` (commit `7843f0c`).
+**Spec:** `docs/superpowers/specs/2026-05-03-nai-77-handle-move-click-port-design.md` (commit `92c1dd4`).
 
-**HEAD at plan-write:** `7843f0c`.
+**HEAD at plan-write:** `92c1dd4`.
 
 ---
 

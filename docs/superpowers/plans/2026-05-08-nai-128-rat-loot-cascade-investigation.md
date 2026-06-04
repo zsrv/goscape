@@ -661,7 +661,7 @@ Per `superpowers_clear_between_spec_and_impl` memory: this is the boundary. The 
 **Resume prompt for the next session (paste verbatim after /clear):**
 
 ```
-NAI-128 Stage 1 implementation. HEAD is 45be85c (NAI-128 spec on main).
+NAI-128 Stage 1 implementation. HEAD is 6c1c6be (NAI-128 spec on main).
 Plan: docs/superpowers/plans/2026-05-08-nai-128-rat-loot-cascade-investigation.md.
 Spec: docs/superpowers/specs/2026-05-08-nai-128-rat-loot-cascade-investigation-design.md.
 

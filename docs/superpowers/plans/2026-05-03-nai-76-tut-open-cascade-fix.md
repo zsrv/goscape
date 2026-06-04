@@ -12,9 +12,9 @@
 
 ## Spec reference
 
-`docs/superpowers/specs/2026-05-03-nai-76-tut-open-cascade-fix-design.md` (commit `9096c20`).
+`docs/superpowers/specs/2026-05-03-nai-76-tut-open-cascade-fix-design.md` (commit `37fffd4`).
 
-## Pre-flight verifications (controller-confirmed against HEAD `0b2a394`)
+## Pre-flight verifications (controller-confirmed against HEAD `4b75e14`)
 
 | # | Premise | Verified at |
 |---|---|---|
@@ -186,7 +186,7 @@ declaration on script.ActivePlayer interface + mockPlayer recorder
 satisfy interface (real impl lands at T2). Compile-only step;
 no behavior change at HEAD.
 
-Per controller pre-flight verifications P1-P15 against HEAD 0b2a394.
+Per controller pre-flight verifications P1-P15 against HEAD 4b75e14.
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF
@@ -770,11 +770,11 @@ Then update `~/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/
 
 - [ ] **Step 4.4: Close commit.**
 
-Mirror NAI-75's close-commit shape (commit `0b2a394`). Required body sections:
+Mirror NAI-75's close-commit shape (commit `4b75e14`). Required body sections:
 
 - **Scope** — what landed.
 - **Cadence** — investigation+fix variant; T1 compressed; T2-T3 full TDD; smoke handoff.
-- **Spec / Plan** — file paths + commit shas (spec `9096c20`; plan = the commit landing this plan doc, see step ?).
+- **Spec / Plan** — file paths + commit shas (spec `37fffd4`; plan = the commit landing this plan doc, see step ?).
 - **Commits (chronological)** — T1, T2, T3 SHAs.
 - **Follow-ups closed** — any if applicable (cascade-resolved residuals).
 - **Deviations opened** — none expected per spec §6.

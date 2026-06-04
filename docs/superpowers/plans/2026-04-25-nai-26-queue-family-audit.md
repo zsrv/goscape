@@ -10,7 +10,7 @@
 
 **Spec reference:** `docs/superpowers/specs/2026-04-25-nai-26-queue-family-audit-design.md`.
 
-**HEAD at plan-write:** `53379a0` (after spec polish commit `53379a0 docs(spec): NAI-26 spec — self-review polish`). Spec's predecessor pin remains `f0d1ed9` (NAI-25 close).
+**HEAD at plan-write:** `e35a1e4` (after spec polish commit `e35a1e4 docs(spec): NAI-26 spec — self-review polish`). Spec's predecessor pin remains `521a8db` (NAI-25 close).
 
 ---
 
@@ -30,7 +30,7 @@
 - Modify: `modules/world/script_test.go:239, :269, :336, :337, :825, :1020` (6 EnqueueScriptTyped → EnqueueScriptArgs migration call sites)
 
 **Pre-flight context:**
-- HEAD `53379a0` at task dispatch. Verify all line numbers via re-grep at task time per `controller_preflight` memory. The two spec commits (`673f690`, `53379a0`) are docs-only — production lines have not drifted from the spec's `f0d1ed9` claims.
+- HEAD `e35a1e4` at task dispatch. Verify all line numbers via re-grep at task time per `controller_preflight` memory. The two spec commits (`3bed27c`, `e35a1e4`) are docs-only — production lines have not drifted from the spec's `521a8db` claims.
 - Spec's `runScript` signature concern (Risks bullet "Bundle 1 `(*Server).runScript` signature") is resolved at plan-write: `runScript` already accepts `(sf *script.ScriptFile, self script.ActivePlayer, protect bool, intArgs []int, stringArgs []string)` per `modules/world/script.go:14`. No widening needed; tick.go just hands req.IntArgs / req.StringArgs directly.
 - Spec's `req.IntArg` cross-file concern is resolved: only **one** site reads `req.IntArg` in `modules/world/tick.go:243`; the `modules/world/npc_script.go:281` site is `NpcQueueRequest.IntArg` (out of scope per spec § Out-of-scope #3).
 - **Pre-flight surprise** (worth capturing in Step 1): all 6 `script_test.go` enqueue sites enqueue scripts that **are registered** via `RegisterAt`:
@@ -2188,7 +2188,7 @@ EOF
 - Task 1 Step 1's `grep -rn "EnqueueScriptTyped"` re-enumerates the cross-package consumer set. Spec-write-time grep results: pkg/script/active.go, pkg/script/handlers.go, modules/world/player_script.go (3 mentions), pkg/script/runner_test.go, modules/world/script_test.go (6 sites). Total cross-package pin count = 12 references across 5 files. If a new site appears at task time: ESCALATE per Step 1.
 - Task 5 Step 5's `grep -rn "enqueueTyped"` re-enumerates pre-removal to confirm zero consumers post-Task-5-Steps-2-4.
 
-**Spec-followup-tracker-freshness** (per `spec_followup_tracker_freshness` memory): tracker entry assertions (STRONGQUEUE site at handlers.go:629, P_DELAY site at handlers.go:589, enqueueTyped helper at handlers.go:599-619) verified at HEAD `53379a0`. All assertions held at HEAD. Re-verified at task dispatch via Step 1 grep commands.
+**Spec-followup-tracker-freshness** (per `spec_followup_tracker_freshness` memory): tracker entry assertions (STRONGQUEUE site at handlers.go:629, P_DELAY site at handlers.go:589, enqueueTyped helper at handlers.go:599-619) verified at HEAD `e35a1e4`. All assertions held at HEAD. Re-verified at task dispatch via Step 1 grep commands.
 
 **Controller-preflight discipline:** every task begins with a Step 1 pre-flight verification (file paths, line numbers, signature shapes, helper presence, prerequisite-task staging).
 

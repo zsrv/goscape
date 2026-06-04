@@ -29,10 +29,10 @@
 //   - Wired into the tick loop at modules/world/tick.go (ComputePlayer,
 //     ComputeNpc, ComputePlayers, ComputeNpcs) and emitted via
 //     modules/world/player_info.go and player_npc_info.go (Encode).
-//   - Shipped across NAI-30 Bundles 1-4 (last: db7738c7 polish),
-//     NAI-31 Bundles 1-3 (last: a8e9e21a 8191-terminator), NAI-32
-//     Tasks 1-3 + Bundle 3 Rust-canonical port (last: 3cd3e6bd mask
-//     payload reorder), and NAI-116 fix (e1403a87 EntityMask gate).
+//   - Shipped across NAI-30 Bundles 1-4 (last: cd585ea9 polish),
+//     NAI-31 Bundles 1-3 (last: 24fb1538 8191-terminator), NAI-32
+//     Tasks 1-3 + Bundle 3 Rust-canonical port (last: 93c8f4d0 mask
+//     payload reorder), and NAI-116 fix (1ddc5f83 EntityMask gate).
 //
 // Conclusion: NAI-30/31 is a Case-B TS-parity exception (Arc 24 #177),
 // not an open implementation gap. Do NOT re-investigate as an

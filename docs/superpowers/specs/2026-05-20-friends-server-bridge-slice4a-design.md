@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-20
 **Slice:** 4a of 7 (friends-server bridge arc; slice 4 decomposed into 4a/4b/4c)
-**Predecessor:** slice 3 (close commit `d830800c`, retired `NAI-S1-D-INMEMORY-REPO`)
+**Predecessor:** slice 3 (close commit `3c47fc97`, retired `NAI-S1-D-INMEMORY-REPO`)
 **Closes:** `NAI-S1-D-NO-FOLLOWER-BROADCAST`
 **Opens (forward to 4b/4c):** `NAI-S4A-D-NO-INGAME-PACKET-EMIT`, `NAI-S4A-D-DROP-ON-FULL`, `NAI-S4A-D-PERPLAYER-NOT-PERWORLD-STREAM`
 

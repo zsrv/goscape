@@ -5,7 +5,7 @@
 handler requires a new interface accessor + persisted entity field + per-tick
 write site on both Player and Npc — out of the ≤15 LOC compressed bucket per
 `compressed_cadence.md`)
-**Predecessor**: NAI-81 (`0b3fd3e` — LOC_COORD ported)
+**Predecessor**: NAI-81 (`ab37799` — LOC_COORD ported)
 **Successor**: TBD (next NAI-N+1 cascade run; no further opcodes from NAI-80
 smoke remain unported)
 
@@ -372,7 +372,7 @@ Same setup but `n.waypointIndex = -1`. Call `n.updateMovement(s)`. Assert:
 - Returns false.
 - `n.lastMovement == 0` (unchanged).
 
-### 5.4 Pre-flight verification (confirmed against HEAD `0b3fd3e` at brainstorm time)
+### 5.4 Pre-flight verification (confirmed against HEAD `ab37799` at brainstorm time)
 
 - `requireProtectedActivePlayer(s, op string) error` — verified
   precedent at `pkg/script/handlers.go:660` (`handlePDelay`).

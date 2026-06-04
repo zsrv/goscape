@@ -109,7 +109,7 @@ func runRealCacheReachProbe(t *testing.T, srcX, srcZ, dstX, dstZ int) {
 	// Post-fix durable regression: BFS path internally consistent and
 	// StepValidator-walkable on real-cache geometry. Pre-NAI-98 surfaced
 	// sub-H8 (tickloop level) by elimination here; closed by NAI-98 Phase 2
-	// (commit 9dcaaa5) port of TS Player.pathToPathingTarget. This probe
+	// (commit 2b047bc) port of TS Player.pathToPathingTarget. This probe
 	// remains as a regression test for the BFS + StepValidator layer.
 	t.Logf("BFS path internally consistent on (%d,%d)→(%d,%d): %d waypoints, last=(%d,%d), every sub-step CanTravel-passes.",
 		srcX, srcZ, dstX, dstZ, len(route.Waypoints), last.X(), last.Z())

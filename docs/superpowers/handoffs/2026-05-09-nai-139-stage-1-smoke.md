@@ -1,9 +1,9 @@
 # NAI-139 Stage 1 — tutorial-completion cascade smoke
 
 **Date:** 2026-05-09
-**Spec:** `docs/superpowers/specs/2026-05-09-nai-139-tutorial-completion-cascade-design.md` @ `8182166`
-**Audit:** `docs/superpowers/specs/2026-05-09-nai-139-stage-1-audit.md` @ `2d05bf0`
-**Verdict commit:** `b8e547e` (Stage 1 audit-clean — 0 blockers)
+**Spec:** `docs/superpowers/specs/2026-05-09-nai-139-tutorial-completion-cascade-design.md` @ `9e12d14`
+**Audit:** `docs/superpowers/specs/2026-05-09-nai-139-stage-1-audit.md` @ `c073f78`
+**Verdict commit:** `4c5299c` (Stage 1 audit-clean — 0 blockers)
 **Routing path:** [A — audit-clean] per audit-verdict commit
 
 ## §1 PRIMARY criteria results (per spec §1:78-86)

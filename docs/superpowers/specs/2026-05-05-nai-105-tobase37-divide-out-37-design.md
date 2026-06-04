@@ -4,7 +4,7 @@
 **Cadence**: combined spec + plan, single end-of-impl review (per
 `compressed_cadence.md`, ≤15 production-LOC threshold; 3 production
 LOC + ~25 test LOC).
-**Predecessor**: NAI-104 (HEAD `1c42102` — `ToDisplayName` operation
+**Predecessor**: NAI-104 (HEAD `f3ad84c` — `ToDisplayName` operation
 order fix).
 **Trigger**: NAI-104 surfaced/deferred follow-up entry
 `NAI-104-D-TOBASE37-DIVIDE-OUT-37` in `nai_followups.md`. NAI-104's
@@ -30,7 +30,7 @@ be divisible by 37 hits goscape's `FromBase37` mod-37 rejection at
 `ToDisplayName`, that surfaces as the literal display string
 `"Invalid Name"` instead of the correct title-cased name.
 
-**Empirically (verified at spec-write, HEAD `1c42102`):**
+**Empirically (verified at spec-write, HEAD `f3ad84c`):**
 
 The `ToBase37` encoding `l = sum(c_i · 37^(L-1-i)) mod 37` reduces to
 `c_{L-1}`, the lookup value of the **last** character. The base37

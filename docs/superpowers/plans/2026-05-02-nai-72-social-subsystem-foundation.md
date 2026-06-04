@@ -4,7 +4,7 @@
 
 **Goal:** Port 6 silent-discard game opcodes (CHAT_SETMODE, FRIENDLIST_ADD/DEL, IGNORELIST_ADD/DEL, REPORT_ABUSE) into `modules/world/`, mirroring TS handlers line-by-line. Adds 2 Player fields (socialProtect + reportAbuseProtect), a per-tick reset hook, a 3-bridge interface trio (no-op default + recording test capture), and a ReportAbuseReason enum. Folds in one true-to-TS bug fix in `pkg/util/jstring.FromBase37`. Net deviation tally 14 → 18 (post-erratum).
 
-**Erratum (2026-05-02, post-`c8e995c`):** Pre-flight grep before T1 dispatch surfaced that `Player.staffModLevel int32` already exists at `player.go:73` with a producer at `server.go:590` (login proto). The `NAI-72-D-STAFFMODLEVEL-DEAD-WRITER` deviation was retracted, T1 Step 8 dropped its staffModLevel field-add, T4 Step 3 dropped its "no producer at HEAD" doc-comment, Stage 1 review focus #6 dropped, commit-msg templates corrected. ReportAbuse handler reads `p.staffModLevel` (existing `int32` field) directly — comparison `p.staffModLevel > 0` works unchanged. ReportAbuse tests still set `p.staffModLevel = 1` to drive the moderator-mute branch deterministically. See spec erratum block.
+**Erratum (2026-05-02, post-`9854ac5`):** Pre-flight grep before T1 dispatch surfaced that `Player.staffModLevel int32` already exists at `player.go:73` with a producer at `server.go:590` (login proto). The `NAI-72-D-STAFFMODLEVEL-DEAD-WRITER` deviation was retracted, T1 Step 8 dropped its staffModLevel field-add, T4 Step 3 dropped its "no producer at HEAD" doc-comment, Stage 1 review focus #6 dropped, commit-msg templates corrected. ReportAbuse handler reads `p.staffModLevel` (existing `int32` field) directly — comparison `p.staffModLevel > 0` works unchanged. ReportAbuse tests still set `p.staffModLevel = 1` to drive the moderator-mute branch deterministically. See spec erratum block.
 
 **Architecture:** Six free-function handlers (`p.client.server` access pattern, matching NAI-71's `handler_opheld.go`) registered directly in `handlers_game.go init()`. Foundation task (T1) lays bridge interfaces, default no-op impl, recording capture for tests, Player flag fields, processCleanup hook, ReportAbuseReason enum, Server fields, and NewServer init. T2-T4 each port one handler family with its tests. Two-stage Sonnet review (after T1, after T4).
 
@@ -12,7 +12,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-05-02-nai-72-social-subsystem-foundation-design.md`.
 
-**Predecessor commit:** `99c8d9d` (NAI-72 spec). HEAD entering: `99c8d9d`.
+**Predecessor commit:** `e183cfc` (NAI-72 spec). HEAD entering: `e183cfc`.
 
 ---
 

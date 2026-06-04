@@ -6,7 +6,7 @@
 
 **Architecture:** New type `DbTableIndex` lives in `pkg/objtype/` (alongside `DbTableType`/`DbRowType`); built once at world bootstrap via `BuildDbTableIndex` right after S7d's `LoadDbRowTypes`. Exposed to `pkg/script/` through two new `Configs` methods (`FindDbRowsInt`, `FindDbRowsStr`) to keep the `*DbTableIndex` pointer inside `modules/world/`. Handlers call `dbFind` / `dbFindRefine` shared helpers (mirroring S7d's `dbListAll` pattern). Pointer-gate enforcement is inline-per-handler (matches S7f's `setActiveNpcSlot` style; no central dispatcher). A forward-looking preamble comment on `handlers_db.go` anchors the TS pointer-gate asymmetry quirk.
 
-**Tech Stack:** Go 1.26+. `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./...` for verification. `git commit --no-gpg-sign` for commits. Branch: `main` (project convention — no worktree needed per established S-series workflow). Spec source: `docs/superpowers/specs/2026-04-24-runescript-s7g-db-find-family-design.md` (commit `bb7a885`).
+**Tech Stack:** Go 1.26+. `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./...` for verification. `git commit --no-gpg-sign` for commits. Branch: `main` (project convention — no worktree needed per established S-series workflow). Spec source: `docs/superpowers/specs/2026-04-24-runescript-s7g-db-find-family-design.md` (commit `cec86b1`).
 
 ---
 

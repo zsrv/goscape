@@ -3,16 +3,16 @@
 **Date**: 2026-05-04
 **Cadence**: combined spec + plan, single end-of-impl review (per
 `compressed_cadence.md`, ≤100 production-LOC band; ~80 production LOC).
-**Predecessor**: NAI-84 (HEAD `469d07b` — REBUILD_GETMAPS byte-source fix +
+**Predecessor**: NAI-84 (HEAD `8659c5f` — REBUILD_GETMAPS byte-source fix +
 rebuildZones port; door-click cache freeze silenced).
-**Smoke binding (post-NAI-83)**: door-click smoke at HEAD `469d07b` confirmed
+**Smoke binding (post-NAI-83)**: door-click smoke at HEAD `8659c5f` confirmed
 LOC_ANGLE silenced; new cascade-blocker surfaced at the same site as a
 `no handler for LOC_PARAM (opcode 3011)` script error.
 **Successor**: TBD (drained by next NAI-N+1 user-driven door-click smoke).
 
 ## 1. Problem
 
-Tutorial Island door-click smoke at HEAD `469d07b` reveals the
+Tutorial Island door-click smoke at HEAD `8659c5f` reveals the
 `[oploc1, newbie_door1]` script aborts at pc=14:
 
 ```
@@ -338,7 +338,7 @@ code path. The validator exists for TS-fidelity and bit-mask-bypass
 producers (e.g. future LOC_FIND with external sources); the validator
 itself is well-defined unit logic.)
 
-### 5.1 Pre-flight verification (against HEAD `469d07b`)
+### 5.1 Pre-flight verification (against HEAD `8659c5f`)
 
 - `pkg/script/active.go:698-702` — `ActiveLoc` has `LocType`, `Coords`,
   `Angle`; appending `Shape()` is purely additive.

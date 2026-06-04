@@ -6,7 +6,7 @@
 
 ## 1. Motivation
 
-NAI-155 (commit `94a7615`) retired the **player-path** NAI-44 retention at
+NAI-155 (commit `1437688`) retired the **player-path** NAI-44 retention at
 `modules/world/script.go`'s `resumeOrFinish` WorldSuspended arm by inserting
 `self.ClearActiveScript()` before the `EnqueueWorldScript` call. That fix
 unblocked `CanAccess` during world-queue waits.
@@ -143,7 +143,7 @@ in the `default:` arm at `npc_script.go:418`, proving the call shape.
 |---|---|
 | `npc.ClearActiveScript()` compiles on the `ActiveNpc` interface receiver | ✅ pre-flight: `active.go:760` declares it on interface; `npc_script.go:418` already calls `npc.ClearActiveScript()` in default arm |
 | No production-side `n.activeScript` reader depends on retention past WorldSuspended | ✅ pre-flight grep: only test-file readers; production reads are in resume path (tick.go) gated on `Execution==Suspended` |
-| Player-side NAI-155 fix landed at HEAD | ✅ confirmed at commit `94a7615`; `script.go:148` has `self.ClearActiveScript()` |
+| Player-side NAI-155 fix landed at HEAD | ✅ confirmed at commit `1437688`; `script.go:148` has `self.ClearActiveScript()` |
 
 ## 6. Memory follow-up
 

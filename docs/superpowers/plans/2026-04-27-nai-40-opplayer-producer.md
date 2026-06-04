@@ -6,9 +6,9 @@
 
 **Architecture:** Bottom-up by layer — server lookup + sentinels (T1) → handlers `handleOpPlayer1..4` / `handleOpPlayerT` / `handleOpPlayerU` (T2, T3, T4) → trigger maps + fire functions + tryFire dispatch (T5) → E2E smoke + deviation-comment retirement (T6). Mirrors NPC-side `handler_opnpc.go` + `npc_interaction_trigger.go` shape exactly. The Self2 binding flows through NAI-39's existing `runScript`/`buildPlayerScriptState` API (NOT the older manual `script.Init` pattern used by `fireOpTriggerNpc` / `fireOpTriggerLoc`) — this is the ActivePlayer-arm's first production producer.
 
-**Plan correction note (2026-04-27):** Initial plan version (commit `11171db`) framed T1 as "client-message structs + decoders in `pkg/io/protocol/game/client/op_player.go`." Pre-T1 controller pre-flight surfaced that goscape's actual convention is `(p *Player, payload []byte) error` handlers with **inline** `packet.NewPacket(payload)` parsing in `modules/world/handler_op*.go` files, plus dispatch wiring in `modules/world/handlers_game.go`'s `init()` block — there are no decoder structs and no per-opcode files under `pkg/io/protocol/game/client/`. T1 in the original plan had no actual work; tasks renumbered.
+**Plan correction note (2026-04-27):** Initial plan version (commit `5dcb5b2`) framed T1 as "client-message structs + decoders in `pkg/io/protocol/game/client/op_player.go`." Pre-T1 controller pre-flight surfaced that goscape's actual convention is `(p *Player, payload []byte) error` handlers with **inline** `packet.NewPacket(payload)` parsing in `modules/world/handler_op*.go` files, plus dispatch wiring in `modules/world/handlers_game.go`'s `init()` block — there are no decoder structs and no per-opcode files under `pkg/io/protocol/game/client/`. T1 in the original plan had no actual work; tasks renumbered.
 
-**Tech Stack:** Go 1.26+ (per `go_version.md`; use `use-modern-go` skill). TS source: `Engine-TS` only per `ts_source_canonical_path.md`. HEAD baseline: `11171db` (NAI-40 plan-correction commit).
+**Tech Stack:** Go 1.26+ (per `go_version.md`; use `use-modern-go` skill). TS source: `Engine-TS` only per `ts_source_canonical_path.md`. HEAD baseline: `5dcb5b2` (NAI-40 plan-correction commit).
 
 ---
 

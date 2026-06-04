@@ -3,7 +3,7 @@
 - **Sub-spec**: NAI-28
 - **Date**: 2026-04-25
 - **Scope label**: B (Subscription primitive port closing NAI-19-D1 + first observer-pass consumer migration; touches `pkg/zone/` (new `list.go`, additions to `zone.go`) + `modules/world/{server.go,npc_registry.go,movement.go,npc_interaction.go,npc_ai.go,player.go,player_script.go,npc.go,npc_hunt.go,npc_hunt_entities.go}` + tests; ~280-400 LOC production + tests across 3 bundles; retires deviation tag NAI-19-D1; introduces 0 new deviation tags; net deviation count 14 → 13)
-- **Predecessors**: NAI-27 (player timer family + VARARG opcode port + NPC queue audit memo) — last on `main` as `ef9ed20`
+- **Predecessors**: NAI-27 (player timer family + VARARG opcode port + NPC queue audit memo) — last on `main` as `c10cc7b`
 - **TS source root**: `LostCityRS/Engine-TS`
 
 ## Motivation
@@ -426,7 +426,7 @@ Before each implementer dispatch, plan author / controller re-runs:
 
 - **`controller_preflight` discipline at task dispatch.** Per memory: 30-second grep+Read pass against HEAD before each implementer dispatch to verify file paths, line numbers, signatures, helper init state. Applied per-bundle.
 
-- **`spec_followup_tracker_freshness` discipline.** All assertions in this brainstorm (file paths, line numbers, method signatures, NAI-19-D1 inline comment sites, current `pkg/grid` consumer count) verified at HEAD `ef9ed20` at brainstorm-write. Plan author re-verifies at plan-write; controller re-verifies before each dispatch.
+- **`spec_followup_tracker_freshness` discipline.** All assertions in this brainstorm (file paths, line numbers, method signatures, NAI-19-D1 inline comment sites, current `pkg/grid` consumer count) verified at HEAD `c10cc7b` at brainstorm-write. Plan author re-verifies at plan-write; controller re-verifies before each dispatch.
 
 - **`audit_full_method_against_ts` discipline.** Bundle 1 plan author re-reads TS `Zone.ts:79-100` (enter/leave) and `Zone.ts:387-405` (getAllPlayersSafe/getAllNpcsSafe) line-by-line against the proposed Go shape. Bundle 2 plan author re-reads `PathingEntity.ts:170-190` (refreshZone) and `World.ts:941, 1268-1269, 1297-1299, 1587-1612` (login/spawn/despawn/logout) line-by-line.
 

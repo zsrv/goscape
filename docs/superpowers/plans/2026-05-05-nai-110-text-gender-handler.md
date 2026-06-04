@@ -8,11 +8,11 @@
 
 **Tech Stack:** Go 1.26+ (per `go_version` memory). Tests via `go test`. Always invoke as `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go ...` per project CLAUDE.md.
 
-**Spec:** `docs/superpowers/specs/2026-05-05-nai-110-text-gender-design.md` (commit `3491c95`).
+**Spec:** `docs/superpowers/specs/2026-05-05-nai-110-text-gender-design.md` (commit `60c4e50`).
 
 **Cadence:** Compressed per `compressed_cadence.md` (~10 prod LOC + ~50 test LOC). 3 tasks (T1 red → T2 green → T3 close) on Sonnet via subagent-driven-development per `execution_mode_default.md`. End-of-bundle review on Sonnet per `superpowers_code_reviewer_model.md`.
 
-**Pre-flight verified at HEAD `3491c95` (controller_preflight):**
+**Pre-flight verified at HEAD `60c4e50` (controller_preflight):**
 - `OpTextGender = 4504` declared at `pkg/script/opcode.go:416`. ✓
 - `OpTextGender` String() case at `pkg/script/opcode.go:1165-1166` (`return "TEXT_GENDER"`). ✓
 - NO dispatch entry in `pkg/script/handlers.go` map. ✓
@@ -141,7 +141,7 @@ func TestTextGenderEmptyStrings(t *testing.T) {
 
 - [ ] **Step 1.2: Verify the imports include `"strings"`**
 
-`pkg/script/handlers_player_test.go` already imports `"strings"` (used by other error-substring assertions in the file). If `go test` reports `undefined: strings`, append `"strings"` to the import block. (Expected: no action needed at HEAD `3491c95`.)
+`pkg/script/handlers_player_test.go` already imports `"strings"` (used by other error-substring assertions in the file). If `go test` reports `undefined: strings`, append `"strings"` to the import block. (Expected: no action needed at HEAD `60c4e50`.)
 
 Run:
 ```bash
@@ -347,9 +347,9 @@ from NAI-47), no mock changes, no wire packet.
 **Cadence:** Compressed (combined spec+plan, single bundle on
 Sonnet via subagent-driven-development) per `compressed_cadence.md`.
 Pre-flight verification of all 12 plan premises held at HEAD
-`3491c95`. ~10 production LOC + ~50 test LOC actual.
+`60c4e50`. ~10 production LOC + ~50 test LOC actual.
 
-**Spec:** `docs/superpowers/specs/2026-05-05-nai-110-text-gender-design.md` (commit `3491c95`).
+**Spec:** `docs/superpowers/specs/2026-05-05-nai-110-text-gender-design.md` (commit `60c4e50`).
 **Plan:** `docs/superpowers/plans/2026-05-05-nai-110-text-gender-handler.md` (this commit's parent).
 
 **Commits (chronological):**
@@ -381,7 +381,7 @@ Grep the file:
 rg -n "NAI-111|P_TELEJUMP" /home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/nai_followups.md | head -5
 ```
 
-Expected: NAI-109 close section (added in NAI-109 close commit `278663f`) names NAI-111 as the P_TELEJUMP investigation. If grep returns 0 matches, append a `## Queued` section noting the routing per the user's brainstorm message; otherwise no action.
+Expected: NAI-109 close section (added in NAI-109 close commit `47ee264`) names NAI-111 as the P_TELEJUMP investigation. If grep returns 0 matches, append a `## Queued` section noting the routing per the user's brainstorm message; otherwise no action.
 
 - [ ] **Step 3.4: Commit close**
 
@@ -398,7 +398,7 @@ tutorial_please_wait_woodcutting proc abort surfaced by NAI-109 close
 smoke; unblocks 4 tutorial chatbox sites + 60+ content-script sites.
 
 Compressed cadence (~10 prod LOC + ~50 test LOC). Pre-flight 12
-premises green at HEAD 3491c95. Smoke handoff to user.
+premises green at HEAD 60c4e50. Smoke handoff to user.
 
 Closes memory: nai_followups.md (NAI-110 close section)
 

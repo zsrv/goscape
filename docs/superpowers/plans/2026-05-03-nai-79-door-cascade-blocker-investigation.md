@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+, `log/slog`, existing `*Server.log *slog.Logger` plumbing (server.go:48).
 
-**Spec:** `docs/superpowers/specs/2026-05-03-nai-79-door-cascade-blocker-investigation-design.md` (HEAD `d41bbad`).
+**Spec:** `docs/superpowers/specs/2026-05-03-nai-79-door-cascade-blocker-investigation-design.md` (HEAD `1115370`).
 
 **Scope:** Stage 1 only. Stage 2 (one of bundles H1/H2/H3/H4 per spec §6) materializes as a plan-update after smoke handoff captures the log.
 
@@ -1179,7 +1179,7 @@ After T5 commits, controller emits a smoke-handoff resume prompt to the user (pe
 
 # NAI-79 — Stage 2 plan-update — Bundle H4 (gate-naming instrumentation at `handleOpLoc` early-returns)
 
-**Routing rationale.** Smoke at HEAD `10645e5` produced THREE OPLOC1 receipts (Tutorial Island RS Guide door / bookcase / drawer) with **zero** Frame A AND **zero** Frame B records. Per spec §5, the H1/H2/H3 routing rules all assume Frame A is emitted (each match condition reads `op_slot`, `loc_id`, or `loc_shape` from Frame A). With Frame A absent on three independent click receipts, the click is rejected at one of `handleOpLoc`'s six pre-success early-returns — and Stage 1's instrumentation has no signal beyond "did not reach line 97." That maps to spec §5 H4 ("none of H1/H2/H3 matches") with the additional refinement that the failure is upstream of the success path, not in `processInteraction`.
+**Routing rationale.** Smoke at HEAD `0a05b10` produced THREE OPLOC1 receipts (Tutorial Island RS Guide door / bookcase / drawer) with **zero** Frame A AND **zero** Frame B records. Per spec §5, the H1/H2/H3 routing rules all assume Frame A is emitted (each match condition reads `op_slot`, `loc_id`, or `loc_shape` from Frame A). With Frame A absent on three independent click receipts, the click is rejected at one of `handleOpLoc`'s six pre-success early-returns — and Stage 1's instrumentation has no signal beyond "did not reach line 97." That maps to spec §5 H4 ("none of H1/H2/H3 matches") with the additional refinement that the failure is upstream of the success path, not in `processInteraction`.
 
 The §6.4 H4 template prescribes audit-subagent dispatch to "trace forward from the FIRST visible state mutation that doesn't happen post-click." Here the FIRST missing mutation is `p.SetInteraction` (handler_oploc.go:89) — equivalently, the question collapses to "which of the 6 early-returns fired?" That's a one-bit-of-signal question per click; an audit subagent cannot answer it without runtime instrumentation. Therefore Bundle H4 is materialized as a single Tier-2 instrumentation sub-task that emits a gate-name slog record at each early-return, followed by re-smoke. Once captured-log signal pins the gate, Stage 2.5 (an additional plan-update) can route to a concrete fix.
 
@@ -1546,7 +1546,7 @@ delayed / payload_short / viewport / getloc_nil / loctype_nil /
 op_slot_empty — pin which validation gate rejected an OPLOC1 click.
 
 This is the Bundle H4 instrumentation channel per NAI-79 spec §5/§6.4.
-Stage 1 smoke at HEAD 10645e5 produced three OPLOC1 receipts (Tutorial
+Stage 1 smoke at HEAD 0a05b10 produced three OPLOC1 receipts (Tutorial
 Island RS Guide door / bookcase / drawer) with zero Frame A and zero
 Frame B records, ruling out H1/H2/H3 (whose match conditions all read
 Frame A fields) and routing to H4. Re-smoke at this HEAD identifies
@@ -1606,7 +1606,7 @@ Each routing destination is a fresh brainstorm sub-spec; this plan-update closes
 
 # NAI-79 — Bundle H4 close — re-smoke result + Stage 2.5 routing
 
-**Re-smoke at HEAD `260515c` (`b21642e` instrumentation + `260515c` docstring polish).** User booted the binary on host, logged in as fresh tutorial-stage character, performed door-cascade probe per spec §7.
+**Re-smoke at HEAD `291961e` (`e6d810d` instrumentation + `291961e` docstring polish).** User booted the binary on host, logged in as fresh tutorial-stage character, performed door-cascade probe per spec §7.
 
 **Captured `oploc gate` records (3/3 OPLOC1 receipts):**
 
@@ -1635,5 +1635,5 @@ Brainstorm should:
 
 **Adjacent observation (not a routing signal, but worth flagging for NAI-80):** All 3 records show `player_uid=-1`. Production fresh-tutorial-stage players appear to have no uid assigned at this lifecycle stage. Not a blocker for OPLOC1 dispatch (the gate fires on `op_slot_empty`, not on uid), but if NAI-80's fix exposes a `target_uid`/`player_uid` mismatch downstream, this is the data shape to expect.
 
-**Bundle H4 status: CLOSED.** Instrumentation in (`b21642e` + `260515c`); gate signal pinned; routing target confirmed; Stage 2.5 brainstorm seed published above.
+**Bundle H4 status: CLOSED.** Instrumentation in (`e6d810d` + `291961e`); gate signal pinned; routing target confirmed; Stage 2.5 brainstorm seed published above.
 

@@ -29,7 +29,7 @@ NAI-187 close MUST rewrite `DEVIATION-NAI-186-D2-CARRYFORWARD` to remove the adm
 
 ## §3 Pre-flight audit (vs. NAI-186 carryforward framing)
 
-The NAI-186 carryforward described the admin cluster as "blocked on dynamic Loc/Npc spawn + interface routing." Per memory `tracker_entry_framing_can_be_incomplete` and `risk_register_premise_grep`, I re-derived from primary sources at HEAD `4ab0e3d`. The framing was stale: every dynamic-spawn / interface-routing primitive already exists.
+The NAI-186 carryforward described the admin cluster as "blocked on dynamic Loc/Npc spawn + interface routing." Per memory `tracker_entry_framing_can_be_incomplete` and `risk_register_premise_grep`, I re-derived from primary sources at HEAD `5644450`. The framing was stale: every dynamic-spawn / interface-routing primitive already exists.
 
 | Cheat | Required primitives | Status at HEAD |
 |---|---|---|
@@ -76,7 +76,7 @@ func (c *LocTypeConfigs) ByName(name string) *LocType {
 
 Identical bodies for `NPCTypeConfigs.ByName(name) *NpcType` and `ComponentTypeConfigs.ByName(name) *ComponentType`.
 
-**Rationale for the linear-scan fallback:** matches the established pattern. Test fixtures sometimes construct a `*Configs` value without populating `ConfigNames` (e.g. NPC fixtures in `npc_*_test.go` build configs slices directly). The fallback keeps `ByName` usable from those fixtures without forcing every test to wire the name index. (`VarpTypeConfigs.ByName` was reviewed and accepted with this same fallback in NAI-185 — see commit `4a6fe47`.)
+**Rationale for the linear-scan fallback:** matches the established pattern. Test fixtures sometimes construct a `*Configs` value without populating `ConfigNames` (e.g. NPC fixtures in `npc_*_test.go` build configs slices directly). The fallback keeps `ByName` usable from those fixtures without forcing every test to wire the name index. (`VarpTypeConfigs.ByName` was reviewed and accepted with this same fallback in NAI-185 — see commit `32dd969`.)
 
 **Files added/touched:**
 - `pkg/objtype/loctype.go` — append `ByName` method.

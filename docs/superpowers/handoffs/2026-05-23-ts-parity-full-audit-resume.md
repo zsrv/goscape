@@ -42,7 +42,7 @@ with the same edge-case handling**.
 ## Reference paths & baselines
 
 - **Go (subject):** `/home/owner/Code/github.com/zsrv/goscape` — HEAD `6589f9d1` (TS-parity
-  target; orientation arc closed at `69b1f11b`).
+  target; orientation arc closed at `ba5a1e3e`).
 - **TS (reference of record):** `/home/owner/Code/github.com/LostCityRS/Engine-TS` —
   baseline commit `e1dea19f` (2026-02-23 "Synced with latest engine work"). Pin this SHA;
   if it has advanced, note the diff range so audit findings aren't confused with upstream drift.

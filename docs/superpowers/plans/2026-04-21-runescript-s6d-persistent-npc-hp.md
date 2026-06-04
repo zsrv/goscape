@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go; `pkg/objtype` config loader; `modules/world` NPC entity.
 
-**Spec:** [`docs/superpowers/specs/2026-04-21-runescript-s6d-persistent-npc-hp-design.md`](../specs/2026-04-21-runescript-s6d-persistent-npc-hp-design.md) (commit `b7e5edd`)
+**Spec:** [`docs/superpowers/specs/2026-04-21-runescript-s6d-persistent-npc-hp-design.md`](../specs/2026-04-21-runescript-s6d-persistent-npc-hp-design.md) (commit `025d6f1`)
 
 ---
 

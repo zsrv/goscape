@@ -3,7 +3,7 @@
 ## Status
 
 - **Date:** 2026-05-21
-- **Predecessor:** AddXP session-log half port (HEAD `56517545`).
+- **Predecessor:** AddXP session-log half port (HEAD `e7d3ba46`).
 - **Scope:** Activate validated-but-unconsumed huntvis (LoS/LoW) filtering at the two pin sites that hold the `NAI-33-D1 / S7f-D1` deferred posture. Refresh `NAI-35-T3` framing across the codebase.
 - **Pins retired:** `NAI-33-D1`, `S7f-D1` (full retire, both prongs closed).
 - **Pins refreshed (citation kept, framing scrubbed):** `NAI-35-T3` (no longer "only mode that activates").

@@ -3,7 +3,7 @@
 - **Sub-spec**: S7g
 - **Date**: 2026-04-24
 - **Scope label**: B+ (minimal DB lookup-side; closes S7d's deferred DB_FIND* cluster and retrofits the `find_db` pointer gate across the DB family)
-- **Predecessors**: S7f (NPC_FIND family) — last on `main` as `f5612b0`
+- **Predecessors**: S7f (NPC_FIND family) — last on `main` as `e7fb238`
 - **TS source root**: `LostCityRS/Engine-TS`
 
 ## Motivation

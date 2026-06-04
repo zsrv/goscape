@@ -245,7 +245,7 @@ re-greps these at plan-write time AND each task's controller-preflight pass
 re-grep verifies the list before implementer dispatch (per memories
 `enumerate_all_sites`, `controller_preflight`).
 
-Initial enumeration at HEAD `26539d5` (plan-author refreshes):
+Initial enumeration at HEAD `57c2212` (plan-author refreshes):
 
 - `modules/world/handler_oploc_test.go` — OpLocT/OpLocU happy-path tests.
 - `modules/world/handler_opnpc_test.go` — OpNpcT/OpNpcU happy-path tests.

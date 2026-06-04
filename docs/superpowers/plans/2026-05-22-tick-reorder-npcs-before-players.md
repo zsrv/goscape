@@ -310,7 +310,7 @@ EOF
 )" && git log --oneline -5
 ```
 
-Expected: the new HEAD commit lands cleanly, `git log --oneline -5` shows the new commit on top of `0677a70e`, `bddce590`, `e15a396f`, `100c48bc`.
+Expected: the new HEAD commit lands cleanly, `git log --oneline -5` shows the new commit on top of `9b03fd10`, `f9b4cc20`, `7fc5e8c5`, `0b20de20`.
 
 ---
 

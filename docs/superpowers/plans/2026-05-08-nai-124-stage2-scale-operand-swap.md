@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Fix the SCALE runescript opcode so it computes the TS-faithful `(a*c)/b` instead of goscape's incorrect `(a*b)/c`. This binds the bronze-dagger-vs-rat "always 3 damage" smoke residual surfaced at NAI-123 close (`df95032`).
+**Goal:** Fix the SCALE runescript opcode so it computes the TS-faithful `(a*c)/b` instead of goscape's incorrect `(a*b)/c`. This binds the bronze-dagger-vs-rat "always 3 damage" smoke residual surfaced at NAI-123 close (`5687f4e`).
 
 **Architecture:** Single-file production fix at `pkg/script/handlers_number.go:128-136`. Test updates at `pkg/script/handlers_number_test.go`: rewrite the one bug-pinning case to the smoke-trace inputs, add a TS-semantic positive-direction case, and add a `TestScaleDivideByZeroAborts` mirroring the existing `TestDivideByZeroAborts` pattern. Single bundle, single Sonnet implementer + Sonnet reviewer per `superpowers_code_reviewer_model`.
 
@@ -12,7 +12,7 @@
 
 ## Background
 
-NAI-124 Stage 1 (controller-direct, see `docs/superpowers/findings/2026-05-08-nai-124-stage1-findings.md` at `cb628d9`) audited 6 risk surfaces and refuted the spec's lead hypothesis (S1 sign-extension). The smoke-binding root cause is **S5 — SCALE operand swap** at `pkg/script/handlers_number.go:135`.
+NAI-124 Stage 1 (controller-direct, see `docs/superpowers/findings/2026-05-08-nai-124-stage1-findings.md` at `2caecdf`) audited 6 risk surfaces and refuted the spec's lead hypothesis (S1 sign-extension). The smoke-binding root cause is **S5 — SCALE operand swap** at `pkg/script/handlers_number.go:135`.
 
 **TS reference** at `LostCityRS/Engine-TS/src/engine/script/handlers/NumberOps.ts:124-127`:
 
@@ -53,7 +53,7 @@ For runescript `scale(value, max, newMax)` (left-to-right push → bottom-to-top
 
 ## Pre-flight (controller did this; implementer reads only)
 
-Re-grepped `pkg/script/handlers_number.go:128-136` and `pkg/script/handlers_number_test.go:46` against HEAD `cb628d9`. Cited shapes match exactly. No drift since Stage 1.
+Re-grepped `pkg/script/handlers_number.go:128-136` and `pkg/script/handlers_number_test.go:46` against HEAD `2caecdf`. Cited shapes match exactly. No drift since Stage 1.
 
 ---
 
@@ -215,7 +215,7 @@ Expected: ALL tests PASS. If any `pkg/script/` test that uses SCALE indirectly w
 
 Run: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./...`
 
-Expected: ALL tests PASS. Per `verify_implementer_claims`, do not accept "pre-existing failure" attributions without verification — if anything fails, report the test name and last-known-passing state at HEAD (`cb628d9`) before this plan started.
+Expected: ALL tests PASS. Per `verify_implementer_claims`, do not accept "pre-existing failure" attributions without verification — if anything fails, report the test name and last-known-passing state at HEAD (`2caecdf`) before this plan started.
 
 - [ ] **Step 5: Commit the fix**
 
@@ -234,7 +234,7 @@ combat_effective_stat. For a level-1 fresh char (\$stat_level=1):
 
 The cascade pushed %com_maxhit to ~1063 (clamped to npc_param(max_dealt)=1000),
 producing randominc(1000) hits clamped to rat HP=3 — the bronze-dagger-vs-rat
-\"always 3 damage\" smoke residual at NAI-123 close (df95032).
+\"always 3 damage\" smoke residual at NAI-123 close (5687f4e).
 
 Also corrected the divide-by-zero predicate from c==0 to b==0
 (b is the divisor under TS semantics).
@@ -259,7 +259,7 @@ GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go build ./...
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./...
 ```
 
-Expected: clean working tree (no untracked or modified files outside `.claude/` and `test_typed_nil.go`); 3 new commits ahead of `cb628d9`; build succeeds; all tests pass.
+Expected: clean working tree (no untracked or modified files outside `.claude/` and `test_typed_nil.go`); 3 new commits ahead of `2caecdf`; build succeeds; all tests pass.
 
 - [ ] **Step 2: Report a paste-ready smoke prompt for the user**
 

@@ -13,7 +13,7 @@
 // etc.) continue to access the raw Server fields — they share the tick
 // goroutine with Reload, so no concurrent access.
 //
-// Arc 12 precedent: pkg/cache/{crctable,preloaded}.go (commit a1e9da32)
+// Arc 12 precedent: pkg/cache/{crctable,preloaded}.go (commit 33b89e82)
 // applied the same atomic.Pointer build-then-swap pattern to the CRC and
 // preload snapshots.
 

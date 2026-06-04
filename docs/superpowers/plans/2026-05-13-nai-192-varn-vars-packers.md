@@ -8,8 +8,8 @@
 
 **Tech Stack:** Go 1.26+. Stdlib + `pkg/io/packet` + NAI-191 `pkg/pack` foundation.
 
-**Spec:** `docs/superpowers/specs/2026-05-13-nai-192-varn-vars-packers-design.md` (commit `957b58f`).
-**HEAD at plan-write:** `957b58f`.
+**Spec:** `docs/superpowers/specs/2026-05-13-nai-192-varn-vars-packers-design.md` (commit `e67c0c9`).
+**HEAD at plan-write:** `e67c0c9`.
 
 ---
 
@@ -25,7 +25,7 @@
 
 ## Pre-flight verification (controller, before dispatching tasks)
 
-Already verified at plan-write against HEAD `957b58f`:
+Already verified at plan-write against HEAD `e67c0c9`:
 
 | Premise | Verification |
 |---|---|
@@ -1758,7 +1758,7 @@ func TestPackVarsConfigs_RoundtripThroughObjtypeLoader(t *testing.T) {
 grep -n 'func LoadVarsTypes\|type VarsTypeConfigs\|type VarSharedType' pkg/objtype/varstype.go
 ```
 
-Expected: `func LoadVarsTypes(dir string) (*VarsTypeConfigs, error)` exists. If the shape differs from `LoadVarnTypes`, adjust the test's struct-field accesses accordingly. (At HEAD `957b58f`, `varstype.go` mirrors `varntype.go` modulo type names.)
+Expected: `func LoadVarsTypes(dir string) (*VarsTypeConfigs, error)` exists. If the shape differs from `LoadVarnTypes`, adjust the test's struct-field accesses accordingly. (At HEAD `e67c0c9`, `varstype.go` mirrors `varntype.go` modulo type names.)
 
 - [ ] **Step 7.3: Run tests to verify they fail**
 

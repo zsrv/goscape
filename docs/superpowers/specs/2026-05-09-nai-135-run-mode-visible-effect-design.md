@@ -2,7 +2,7 @@
 
 **Status:** spec
 **Date:** 2026-05-09
-**Predecessors:** NAI-117 (P_RUN/RUNENERGY handler ports — opcode-error silence) closed at `f20a3bb`. NAI-117 spec §8 anticipated this follow-up.
+**Predecessors:** NAI-117 (P_RUN/RUNENERGY handler ports — opcode-error silence) closed at `5f56afe`. NAI-117 spec §8 anticipated this follow-up.
 **Tech stack:** Go 1.26+
 
 ## 1. Goal
@@ -14,7 +14,7 @@ Port TS `Player.ts:655-712` (`updateMovement` bridge + `defaultMoveSpeed` + `upd
 3. At runenergy=0, run-mode auto-disables (player reverts to walk + UI run-toggle clears via varp sync).
 4. At runenergy<100, the one-shot `tempRun` (ctrl-held walk) auto-clears.
 
-Closes the orphaned-write divergence: `p.run = v` is set by `handlePRun` at `pkg/script/handlers_player.go:641` → `(*Player).SetRun` at `modules/world/player_script.go:348` — but `p.run` is never read in production at HEAD `948bf01`.
+Closes the orphaned-write divergence: `p.run = v` is set by `handlePRun` at `pkg/script/handlers_player.go:641` → `(*Player).SetRun` at `modules/world/player_script.go:348` — but `p.run` is never read in production at HEAD `8e36788`.
 
 ## 2. TS source — anchored
 

@@ -8,9 +8,9 @@
 
 **Tech Stack:** Go 1.26+ per `go_version.md`. TS source canonical path: `/home/owner/Code/github.com/LostCityRS/Engine-TS` per `ts_source_canonical_path.md`.
 
-**Spec:** `docs/superpowers/specs/2026-05-10-nai-147-rebuildnormal-rename-and-nai78-fidelity-design.md` (commit `0df61cb`).
+**Spec:** `docs/superpowers/specs/2026-05-10-nai-147-rebuildnormal-rename-and-nai78-fidelity-design.md` (commit `0bd795b`).
 
-**Pre-flight HEAD:** `32f4463` (NAI-146 close).
+**Pre-flight HEAD:** `c5faa24` (NAI-146 close).
 
 ---
 
@@ -136,7 +136,7 @@ The Edit's `old_string` should be the existing `\tsf := srv.scriptProvider.GetBy
 ### Step 1: Verify all references at HEAD
 
 - [ ] **Run:** `rg -nE "\bupdateMap\b" modules/world/`
-- [ ] **Expected: 19 lines** across 5 files (verified at HEAD `32f4463`):
+- [ ] **Expected: 19 lines** across 5 files (verified at HEAD `c5faa24`):
   ```
   modules/world/login_map_test.go:12, 36, 51, 74, 88
   modules/world/tick.go:471
@@ -651,7 +651,7 @@ func triggerTypeAndCategory(p *Player, srv *Server) (typeId, categoryId int, ok 
 ### Step 2: Verify T-trigger sentinels at HEAD
 
 - [ ] **Run:** `rg -nE "targetOp\w*T\s*=" modules/world/interaction.go`
-- [ ] **Expected (4 lines):** `targetOpLocT = 6`, `targetOpNpcT = 8`, `targetOpPlayerT = 10`, `targetOpObjT = 12` (verified at HEAD `32f4463`).
+- [ ] **Expected (4 lines):** `targetOpLocT = 6`, `targetOpNpcT = 8`, `targetOpPlayerT = 10`, `targetOpObjT = 12` (verified at HEAD `c5faa24`).
 - [ ] If any are missing, escalate as a deviation — TS L1086 covers all 4.
 
 ### Step 3: Write the failing tests

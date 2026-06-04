@@ -8,8 +8,8 @@
 
 **Tech Stack:** Go 1.26+. Stdlib + `pkg/io/packet` + `pkg/io/jagfile` + NAI-191/192/193 `pkg/pack` foundation + `pkg/coordgrid` (PackCoord) + `pkg/objtype` (ScriptVarType, ParamType, LoadParamTypes).
 
-**Spec:** `docs/superpowers/specs/2026-05-13-nai-194-param-packer-design.md` (commit `fa3900a`).
-**HEAD at plan-write:** `fa3900a`.
+**Spec:** `docs/superpowers/specs/2026-05-13-nai-194-param-packer-design.md` (commit `334e380`).
+**HEAD at plan-write:** `334e380`.
 
 ---
 
@@ -26,7 +26,7 @@
 
 ## Pre-flight verification (controller, before dispatching tasks)
 
-Verified at plan-write against HEAD `fa3900a`:
+Verified at plan-write against HEAD `334e380`:
 
 | Premise | Verification |
 |---|---|

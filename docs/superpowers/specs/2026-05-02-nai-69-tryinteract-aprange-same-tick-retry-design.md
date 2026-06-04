@@ -1,7 +1,7 @@
 # NAI-69 — `tryInteract` same-tick AP retry (TS L1166-1170 port)
 
 **Status:** Spec written 2026-05-02.
-**Predecessor:** NAI-68 (HEAD `95738e4`). Net deviation tally entering: 13.
+**Predecessor:** NAI-68 (HEAD `dc6afb4`). Net deviation tally entering: 13.
 **Closes:** `NAI-68-D-AP-APRANGE-REVERT-NOT-PORTED`.
 **Tech stack:** Go 1.26+. TS source canonical path: `LostCityRS/Engine-TS`.
 
@@ -186,7 +186,7 @@ the same-tick retry path; `tryInteract` returns true; tail's
 
 ## 6. Pre-flight grep targets (controller_preflight)
 
-Verified at HEAD `95738e4`:
+Verified at HEAD `dc6afb4`:
 
 - `rg "NAI-68-D-AP-APRANGE-REVERT-NOT-PORTED" pkg/ modules/` → 2 hits
   (interaction_trigger.go:470, :662). Both retire in T2.

@@ -9,7 +9,7 @@
 **Tech Stack:** Go 1.26+
 
 **Spec:** `docs/superpowers/specs/2026-05-13-nai-188-speed-cheat-design.md`
-**HEAD at plan-write:** `6af4367`
+**HEAD at plan-write:** `e5d5ff4`
 **TS source:** `LostCityRS/Engine-TS/src/network/game/client/handler/ClientCheatHandler.ts:154-167`
 
 ---
@@ -28,7 +28,7 @@ No new files.
 
 ---
 
-## Plan-author pre-flight (recorded at plan-write, HEAD `6af4367`)
+## Plan-author pre-flight (recorded at plan-write, HEAD `e5d5ff4`)
 
 Re-verified the spec's pre-flight claims against current `main`:
 

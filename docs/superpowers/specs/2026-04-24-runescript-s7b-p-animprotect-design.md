@@ -94,7 +94,7 @@ Field added to `Player` struct in `modules/world/player.go`. Placement: next to 
 animProtect int
 ```
 
-Setter in `modules/world/player_script.go` (the script-interface impl file established by S7a's commit `fdeccf5`):
+Setter in `modules/world/player_script.go` (the script-interface impl file established by S7a's commit `bfe7dbc`):
 
 ```go
 func (p *Player) SetAnimProtect(v int) { p.animProtect = v }

@@ -2,7 +2,7 @@
 
 **Date**: 2026-05-03
 **Cadence**: compressed (combined spec + plan; per `compressed_cadence.md`, ≤~15 production LOC)
-**Predecessor**: NAI-80 (smoke at HEAD `ee8e221` advanced cascade to `script_dispatch`; LOC_COORD identified as next stub-not-completed)
+**Predecessor**: NAI-80 (smoke at HEAD `7692715` advanced cascade to `script_dispatch`; LOC_COORD identified as next stub-not-completed)
 **Successor**: NAI-82 (P_ARRIVEDELAY, opcode 2068)
 
 ## 1. Problem
@@ -184,7 +184,7 @@ func TestHandleLocCoordRequiresActiveLoc(t *testing.T) {
 
 Add `"github.com/zsrv/goscape/pkg/coordgrid"` to the test file's import block.
 
-### 5.3 Pre-flight verification (confirmed against HEAD `ee8e221`)
+### 5.3 Pre-flight verification (confirmed against HEAD `7692715`)
 - `pkg/coordgrid.PackCoord(level, x, z)` exported (coordgrid.go:158).
 - `pkg/script.ScriptState.ISP` is the int-stack pointer field
   (state.go:175-177); idiom `s.ISP != 1 || s.IntStack[0] != want` is used

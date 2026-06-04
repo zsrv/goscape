@@ -20,7 +20,7 @@ if !p.delayed && p.activeScript != nil {
 }
 ```
 
-This line was introduced by **NAI-53 T3** (commit `eee564a`, 2026-05-01) under the **NAI-52 convergence** premise: "TS `this.protect` ↔ goscape `activeScript.Protect`". The convergence collapses two TS fields whose lifecycles drift:
+This line was introduced by **NAI-53 T3** (commit `df22758`, 2026-05-01) under the **NAI-52 convergence** premise: "TS `this.protect` ↔ goscape `activeScript.Protect`". The convergence collapses two TS fields whose lifecycles drift:
 
 - TS `this.protect` (Player-level bool): set in `Player.runScript` (Player.ts:2103), cleared at `runScript` return (Player.ts:2109), restored at `executeScript` suspend exit (Player.ts:2141), cleared by `Player.closeModal` (Player.ts:746). Also gates the `runScript` reentry early-return (Player.ts:2095).
 - TS `script.pointers & ScriptPointer.ProtectedActivePlayer` (script-state bitmask): added at `runScript` entry (Player.ts:2102), removed at `runScript` exit (Player.ts:2113). **Read by every `checkedHandler(ProtectedActivePlayer, ...)` handler** (e.g. `PlayerOps.ts:439` for P_TELEJUMP, `:447` for P_TELEPORT).
@@ -236,6 +236,6 @@ PRIMARY closes on smoke-bind per `cascade_theory_smoke_binding`. Adjacent residu
 - TS source: `LostCityRS/Engine-TS/src/engine/entity/Player.ts` (closeModal at L741-794; runScript at L2094-2123; executeScript at L2125-2151). `LostCityRS/Engine-TS/src/engine/script/handlers/PlayerOps.ts:439` (P_TELEJUMP `checkedHandler(ProtectedActivePlayer, ...)`).
 - Content: `LostCityRS/Content/scripts/tutorial/scripts/tutorial.rs2:296-327` (`[label,tutorial_complete]`). `LostCityRS/Content/scripts/tutorial/scripts/guides/magic_instructor.rs2:85` (`@tutorial_complete` jump). `LostCityRS/Content/scripts/interface_chat/scripts/chat.rs2:182-185` (`[label,multi2_header]`).
 - Goscape divergence anchor (pre-fix): `modules/world/player_script.go:712-794` (CloseModal); `modules/world/player_script.go:296-304` (protectedScriptActive); `modules/world/resume_dialog.go:18-27` (handleResumePauseButton); `modules/world/script.go:107-153` (resumeOrFinish).
-- NAI-53 T3 introducing the bug: commit `eee564a`, spec at `docs/superpowers/specs/2026-05-01-nai-53-closemodal-full-port-design.md`.
+- NAI-53 T3 introducing the bug: commit `df22758`, spec at `docs/superpowers/specs/2026-05-01-nai-53-closemodal-full-port-design.md`.
 - NAI-52 convergence rationale: doc-comments at `modules/world/player_script.go:268-282` (CanAccess), `:296-304` (protectedScriptActive).
-- NAI-133 refactor that renamed `s.Protect bool` → `Pointers&PtrProtectedActivePlayer`: commit `c641385`. Behavior-preserving rename; did not change the bug.
+- NAI-133 refactor that renamed `s.Protect bool` → `Pointers&PtrProtectedActivePlayer`: commit `0028f9e`. Behavior-preserving rename; did not change the bug.

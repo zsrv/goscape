@@ -8,9 +8,9 @@
 
 **Tech Stack:** Go 1.26+, Go test (table-driven matrix). TDD per `superpowers:test-driven-development`. Per `runescript_cadence` two-stage review per bundle.
 
-**Spec:** `docs/superpowers/specs/2026-05-04-nai-92-smart-pathfinding-port-design.md` (committed at `1917b9f`).
+**Spec:** `docs/superpowers/specs/2026-05-04-nai-92-smart-pathfinding-port-design.md` (committed at `ff4b612`).
 
-**Predecessor close:** NAI-91 (commit `cbdb1b5`) — closed door re-click reach gate; left Survival Expert NPC unreachable per §10 deferral, routed to NAI-92.
+**Predecessor close:** NAI-91 (commit `7eb9742`) — closed door re-click reach gate; left Survival Expert NPC unreachable per §10 deferral, routed to NAI-92.
 
 ---
 

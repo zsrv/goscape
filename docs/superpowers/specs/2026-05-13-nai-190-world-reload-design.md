@@ -5,7 +5,7 @@
 **Tech stack:** Go 1.26+
 **TS source:** `LostCityRS/Engine-TS/src/engine/World.ts:206-292` (`World.reload`), plus the `::reload` cheat callsite at `LostCityRS/Engine-TS/src/network/game/client/handler/ClientCheatHandler.ts:149-150`.
 **Predecessors:** NAI-187 (admin spawn cohort + ByName cluster), NAI-188 (::speed + tick-rate field promotion), NAI-189 (DEBUGPROC dispatch path; closes ClientCheatHandler.ts except `reload`/`rebuild`).
-**HEAD at spec-write:** `9213c52`
+**HEAD at spec-write:** `001bf4f`
 
 ## §1 Goal
 
@@ -29,7 +29,7 @@ This is the first sub-spec in a planned NAI-190 → NAI-204 arc that eventually 
 
 ## §3 Pre-flight audit
 
-Per memory `controller_preflight` and `risk_register_premise_grep`, every premise below was re-verified against HEAD `9213c52`.
+Per memory `controller_preflight` and `risk_register_premise_grep`, every premise below was re-verified against HEAD `001bf4f`.
 
 ### §3.1 TS `World.reload` body (`World.ts:206-292`)
 
@@ -39,7 +39,7 @@ The exact TS flow is captured in §4 as 11 ordered steps. Key bindings:
 - `World.start()` (TS L300) also calls `this.reload()` at bootstrap — same `clearInvs=true` default. The bootstrap call runs on empty registries; goscape's existing startup path at `modules/world/server.go:218-361` is functionally equivalent and is NOT replaced by `Reload`. Reload is a runtime path, not a bootstrap path.
 - The friends-server relay at `World.ts:2036` (`FriendsServerOpcodes.RELAY_RELOAD`) is the only `reload(false)` caller. Goscape has no inbound friends-server channel yet, so this caller is absent. We keep the `clearInvs bool` parameter rather than hardcoding `true`, with a doc-comment naming the future caller.
 
-### §3.2 goscape registry shape at HEAD `9213c52`
+### §3.2 goscape registry shape at HEAD `001bf4f`
 
 Per `modules/world/server.go:93-121`, the following fields hold registry pointers loaded once during `NewServer`:
 

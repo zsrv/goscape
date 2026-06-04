@@ -5,7 +5,7 @@
 **Tech stack:** Go 1.26+
 **TS source:** `LostCityRS/Engine-TS/src/network/game/client/handler/ClientCheatHandler.ts:59-148`
 **Predecessors:** NAI-183 (cheat infra), NAI-186 (super-mod cohort + `setvar/getvar` ByName), NAI-187 (admin spawn cohort + Loc/Npc/Component ByName cluster), NAI-188 (::speed + carryforward rewrite).
-**HEAD at spec-write:** `b82e7f3`
+**HEAD at spec-write:** `1f277ac`
 
 ## §1 Goal
 
@@ -27,7 +27,7 @@ The carryforward comment at `modules/world/handlers_game.go:370-389` is incomple
 
 ## §3 Pre-flight audit
 
-Per memory `controller_preflight` and `risk_register_premise_grep`, every premise below was re-verified against HEAD `b82e7f3`.
+Per memory `controller_preflight` and `risk_register_premise_grep`, every premise below was re-verified against HEAD `1f277ac`.
 
 ### §3.1 TS dispatch shape (ClientCheatHandler.ts:59-148)
 
@@ -71,7 +71,7 @@ if (cmd[0] === Environment.NODE_DEBUGPROC_CHAR) {
 
 Twelve TS arms; the `OBJ` / `NAMEDOBJ` pair share a body. TS lookups use `getId(name)` which returns `-1` on miss; the loop does **not** abort on `-1` — it places `-1` into the params slot and continues (TS L74-139 swallow misses silently). The try/catch is reached only on programmer errors like `null.slice()`, not on missing-name lookups.
 
-### §3.2 goscape primitives at HEAD `b82e7f3`
+### §3.2 goscape primitives at HEAD `1f277ac`
 
 | Concern | Location | Status |
 |---|---|---|

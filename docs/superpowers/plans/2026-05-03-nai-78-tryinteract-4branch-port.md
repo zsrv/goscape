@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+. Testing: standard `testing` package; existing fixture helpers `makeOpLocTriggerFixture`, `newApTriggerNpcFixture`, `newNoopScriptFile`, `buildPOpLocScript`, `s.scriptProvider.Register`.
 
-**Predecessors:** spec at `docs/superpowers/specs/2026-05-03-nai-78-tryinteract-4branch-port-design.md` (commit `b4d1656`).
+**Predecessors:** spec at `docs/superpowers/specs/2026-05-03-nai-78-tryinteract-4branch-port-design.md` (commit `7b87423`).
 
 ---
 

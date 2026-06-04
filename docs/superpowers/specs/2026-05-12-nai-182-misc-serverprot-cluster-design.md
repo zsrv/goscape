@@ -3,7 +3,7 @@
 **Date:** 2026-05-12
 **Status:** Design (standard cadence — brainstorm → spec → plan → subagent-driven TDD)
 **Tracker:** Ports 4 of 8 missing TS `ServerGameProt.ts` opcodes. Sibling cluster of 4 social opcodes (UPDATE_FRIENDLIST / UPDATE_IGNORELIST / MESSAGE_PRIVATE server-side / CHAT_FILTER_SETTINGS) deferred to a future sub-spec.
-**Predecessor:** NAI-181 (LAST_LOGIN_INFO) closed at `820301c`.
+**Predecessor:** NAI-181 (LAST_LOGIN_INFO) closed at `2c00fae`.
 **HEAD at design:** `main` (post-NAI-181 close).
 
 ## 1. Problem
@@ -21,7 +21,7 @@ This sub-spec lands the full TS-parity cluster:
 
 The 4 social opcodes (UPDATE_FRIENDLIST/IGNORELIST/MESSAGE_PRIVATE server-bound/CHAT_FILTER_SETTINGS) and the other 25 TS ClientCheatHandler cheats are explicitly out of scope (see §6 deviations).
 
-## 2. Affected sites (pre-flight verified at HEAD `820301c`)
+## 2. Affected sites (pre-flight verified at HEAD `2c00fae`)
 
 Verified at HEAD via grep + Read:
 
@@ -427,7 +427,7 @@ case "serverdrop":
 	}
 ```
 
-**Import audit at HEAD `820301c`:** `strconv` and `strings` already imported (lines 5-6). `math` is NOT imported — add it.
+**Import audit at HEAD `2c00fae`:** `strconv` and `strings` already imported (lines 5-6). `math` is NOT imported — add it.
 
 **`TestProcessShutdown_ZeroPlayersTriggersGracefulExit` clarification:** since processShutdown no longer closes `s.quit`, the test should assert (a) `s.shutdownGraceful == true` and (b) `s.quit` is still **open** (not closed). The close happens later via dskit `stoppingFn → Server.Shutdown()`.
 
@@ -500,7 +500,7 @@ Per memory `controller_preflight.md`, the controller does a 30-second grep+Read 
 
 2. **`processShutdown` and `processLogins` ordering inside the tick.** Spec places `processShutdown` at the **top** of the tick body, before `processClientsIn`. TS World.ts:419 also places `this.shutdown` check at the top. This pre-empts `processLogins` so new player joins don't graduate during a collapsing world. Test `TestProcessShutdown_RunsBeforeProcessLogins` pins this. **Implementer warning:** placing `processShutdown` between `processClientsIn` and `processLogins` would let the in-flight login go through one tick before being marked for logout, leaking a wire write to a doomed conn. Pin in plan.
 
-3. **dskit Manager graceful-exit handshake.** Verified at HEAD `820301c`: `world.go:99-107` runFn returns `fmt.Errorf("server stopped unexpectedly")` on nil-error from `Run()`. Spec adds `s.shutdownGraceful bool` and modifies runFn to return nil when that flag is set. **Implementer task:** also ensure `Server.Run()` returns nil (not `fmt.Errorf(...)`) when the tick loop exits via the `shutdownGraceful` path. Re-grep `Run() error` body before changing.
+3. **dskit Manager graceful-exit handshake.** Verified at HEAD `2c00fae`: `world.go:99-107` runFn returns `fmt.Errorf("server stopped unexpectedly")` on nil-error from `Run()`. Spec adds `s.shutdownGraceful bool` and modifies runFn to return nil when that flag is set. **Implementer task:** also ensure `Server.Run()` returns nil (not `fmt.Errorf(...)`) when the tick loop exits via the `shutdownGraceful` path. Re-grep `Run() error` body before changing.
 
 4. **`p.reconnecting==true` semantics — fresh-init clobbers state.** goscape currently re-runs the fresh-init block (invs/skills/varps reset to defaults, LOGIN trigger fired) on every `processLogins`, regardless of `p.reconnecting`. The spec's `if p.reconnecting { onReconnect(s, p); continue }` BRANCHES BEFORE fresh-init, so reconnect callers carry over whatever per-Server state existed (slot, uid, level, x/z from `p`). **But `processLogins` calls `s.initPlayerVarps(p)` and zeroes stats/invs** unconditionally TODAY. The `continue` BEFORE those statements is the correct placement — verify in the plan by reading the full `processLogins` body. Test `TestOnReconnect_*` must skip the fresh-init path: either preload state with `p.reconnecting=true` and trust the `continue` to skip clobbering, OR call `onReconnect(s, p)` directly (preferred for unit tests).
 

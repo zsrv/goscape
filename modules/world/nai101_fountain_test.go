@@ -64,7 +64,7 @@ func TestNAI101_FountainPathAround_RealCache(t *testing.T) {
 
 	// Pin the routefinder output shape (3 direction-change points) the
 	// stepOnce iteration must traverse. Bundle 0 probe captured this exact
-	// shape at HEAD `8568877` (post-NAI-100):
+	// shape at HEAD `a45c123` (post-NAI-100):
 	//   [0] (3220, 3225, 0)
 	//   [1] (3220, 3229, 0)
 	//   [2] (3219, 3230, 0)

@@ -2,7 +2,7 @@
 
 ## Motivation
 
-Three script-VM opcodes are declared in `pkg/script/opcode.go` but have no handler registered in `pkg/script/handlers.go` at HEAD `71771a8` (NAI-36 close). All three surface as `runner.go:71` runtime errors during the post-NAI-36 smoke run (`no handler for X (opcode N)`). User goal at NAI-37: silence the smoke log noise.
+Three script-VM opcodes are declared in `pkg/script/opcode.go` but have no handler registered in `pkg/script/handlers.go` at HEAD `22064f9` (NAI-36 close). All three surface as `runner.go:71` runtime errors during the post-NAI-36 smoke run (`no handler for X (opcode N)`). User goal at NAI-37: silence the smoke log noise.
 
 Smoke-surfaced stubs:
 
@@ -37,7 +37,7 @@ Post-NAI-37 behavior: all 3 opcodes execute TS-faithfully; `WorldSuspended` is f
   - `src/engine/World.ts:1238` (`enqueueScript` API)
   - `src/engine/entity/Player.ts:2125-2151` (`executeScript` — player-path WorldSuspended producer)
   - `src/engine/entity/Npc.ts:216-238` (`executeScript` — npc-path WorldSuspended producer)
-- Existing infrastructure (verified at HEAD `71771a8`):
+- Existing infrastructure (verified at HEAD `22064f9`):
   - `Execution` enum at `pkg/script/execution.go:8-17` already declares `WorldSuspended`. No enum churn.
   - `(s *Server).processPlayerQueue` at `modules/world/tick.go:226-249` — the slice-with-mid-pass-visibility queue pattern this sub-spec mirrors.
   - `(s *Server).resumeOrFinish` at `modules/world/script.go:46-64` — extension target for the player-path producer.

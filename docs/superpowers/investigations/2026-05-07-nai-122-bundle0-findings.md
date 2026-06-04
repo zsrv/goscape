@@ -209,5 +209,5 @@ LOC budget: ~5 LOC of code (+ test). This stays well within the in-scope-stretch
 ## 6. References
 
 - TS canonical: `LostCityRS/Engine-TS/src/engine/World.ts`. Lines verified: 156 (queue field), 340-376 (tick phase order), 1258-1294 (addNpc).
-- Goscape commits in scope: `9be10a2` (NAI-121 close) → `be41dc6` (NAI-122 spec) → `d06f82e` (NAI-122 plan).
+- Goscape commits in scope: `81284c7` (NAI-121 close) → `f563b8c` (NAI-122 spec) → `8cf5dd5` (NAI-122 plan).
 - Memory entries applied: `controller_preflight` (30-second grep+Read pass), `audit_subagent_fabrication` (TS-shape claim refuted), `verify_implementer_claims` (probe + TS source independently re-verified at HEAD), `dispatch_order_audit_blind_spot` (per-writer correctness ≠ wire dispatch order — generalized here to per-phase queue dispatch order).

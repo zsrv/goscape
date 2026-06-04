@@ -27,7 +27,7 @@ git rev-parse HEAD
 git status --porcelain
 ```
 
-Expected: HEAD = c980628 + the spec commit `080511a`; clean working tree. If anything else, stop and resolve.
+Expected: HEAD = b03e4b7 + the spec commit `5541a91`; clean working tree. If anything else, stop and resolve.
 
 - [ ] **Step 0.2: Confirm pre-spec grep results haven't rotted**
 
@@ -624,7 +624,7 @@ Concrete; if Bundle 2.A.1 ran, this is already done as part of Step 2.A.1.3. Oth
 - [ ] **Step 2.D.1: Skip if Bundle 2.A.1 ran**
 
 ```bash
-git log --oneline c980628..HEAD -- pkg/gamemap/load.go
+git log --oneline b03e4b7..HEAD -- pkg/gamemap/load.go
 ```
 
 If output shows a Bundle 2.A.1 commit touching `pkg/gamemap/load.go`, the citation update was bundled. Skip Bundle 2.D.
@@ -901,7 +901,7 @@ EOF
 
 ## Frozen Premises (controller-populated 2026-04-26)
 
-**HEAD:** `f5eda20` (NAI-31 plan commit). Working tree dirty only with project-irrelevant dotfiles (`.bash_profile`, `.bashrc`, `.claude/`, etc.) — pre-existing background state, not a regression.
+**HEAD:** `e1451f3` (NAI-31 plan commit). Working tree dirty only with project-irrelevant dotfiles (`.bash_profile`, `.bashrc`, `.claude/`, etc.) — pre-existing background state, not a regression.
 
 **Pre-spec premise sites confirmed at HEAD (lines unchanged):**
 - `modules/world/player.go:261` — D1 stale comment.

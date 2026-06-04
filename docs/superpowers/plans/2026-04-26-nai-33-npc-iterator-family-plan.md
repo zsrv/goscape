@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+. Existing primitives reused: `pkg/zone.Zone.NpcsSafe(true) iter.Seq[NpcLike]` (zone.go:439), `pkg/coordgrid.DistanceToSW(posX, posZ, otherX, otherZ int) int` (coordgrid.go:131), `pkg/script.WorldVars.CurrentTick() int` (state.go:41), `pkg/zone.ZoneMap.Get(level, worldX, worldZ int) *Zone` (map.go), `pkg/script.ActiveNpc.NpcType()/NpcX()/NpcZ()` (active.go:400-408). Existing helpers: `setActiveNpcSlot` (handlers_npc.go:58), `checkCoord`/`checkNotNull`/`checkHuntVis`/`checkNpcType` (handlers_player.go + handlers_npc.go).
 
-**Predecessors:** NAI-32 closed at `5169689`. Spec at `docs/superpowers/specs/2026-04-26-nai-33-npc-iterator-family-design.md` (commit `e615e3c`).
+**Predecessors:** NAI-32 closed at `a0852e0`. Spec at `docs/superpowers/specs/2026-04-26-nai-33-npc-iterator-family-design.md` (commit `5ffeee9`).
 
 **Source roots:**
 - `LostCityRS/Engine-TS/src/engine/script/handlers/NpcOps.ts:403-441` (handler bodies)

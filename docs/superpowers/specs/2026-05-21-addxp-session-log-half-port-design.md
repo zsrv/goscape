@@ -1,7 +1,7 @@
 # AddXP TS:1773-1803 session-log half — port design
 
 **Date:** 2026-05-21
-**Predecessor HEAD:** `7522b665` (AI-queue fencepost tighten close)
+**Predecessor HEAD:** `4e24174c` (AI-queue fencepost tighten close)
 **TS source:** `Engine-TS/src/engine/entity/Player.ts:1773-1803` (within `addXp`, in the level-up branch at `if (this.baseLevels[stat] > before)`)
 **Closes:** the informal English doc-comment deferral at `modules/world/player_script.go:810-811` ("Does NOT emit session-log / milestone events ... session-log infrastructure not yet ported"). **No formal `NAI-XXX-D-*` tag is retired** — the deferral was English-only.
 **Opens:** zero new pins.

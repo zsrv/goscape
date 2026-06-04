@@ -25,7 +25,7 @@ ts_source:
 
 **Cadence:** ~270 LOC handler code + ~100 LOC new methods + ~250 LOC tests = ~620 LOC across four bundles. Sits well above NAI-161's 110 LOC envelope; runs as one sub-spec with per-bundle close commits (B0 → B1 → B2 → B3) and a final NAI-162 roll-up close.
 **Tech stack:** Go 1.26+ (`go_version.md`).
-**Cascade-tail context:** missing-handler audit at HEAD `f38fc3e` reports **18 unhandled opcodes** (`missing_handler_audit.md` one-liner). This sub-spec ports 15; the 3 heavy ops (LineOfSight 1005, NpcAdd 2500, NpcHunt 2525) forward-route to NAI-163. Post-close cascade-tail: 18 → 3.
+**Cascade-tail context:** missing-handler audit at HEAD `a11e85f` reports **18 unhandled opcodes** (`missing_handler_audit.md` one-liner). This sub-spec ports 15; the 3 heavy ops (LineOfSight 1005, NpcAdd 2500, NpcHunt 2525) forward-route to NAI-163. Post-close cascade-tail: 18 → 3.
 
 ---
 
@@ -54,7 +54,7 @@ NAI-161 closed sweep #3 (3 ops, 21 → 18). The remaining 18 split sharply by bi
 
 **Bundle ordering: B0 → B1 → B2 → B3.** Each bundle has its own close commit; final NAI-162 close commit rolls them up and cites the audit recount 18 → 3.
 
-**Re-confirmed at HEAD `f38fc3e`:**
+**Re-confirmed at HEAD `a11e85f`:**
 
 | Op | Re-confirmed status |
 |---|---|

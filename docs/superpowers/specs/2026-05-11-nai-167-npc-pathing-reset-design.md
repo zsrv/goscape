@@ -34,7 +34,7 @@ protected resetPathingEntity(): void {
 
 Called from `Entity.resetEntity(refresh)` → invoked per-NPC in `World.processCleanup` (TS `World.ts:1152`).
 
-## 3. Current goscape state at HEAD `5471a99`
+## 3. Current goscape state at HEAD `cd904ac`
 
 - `n.walkDir = -1; n.runDir = -1` — ALREADY in `(*Npc).ResetMasks()` (NAI-157, `npc_masks.go:224-225`).
 - `n.lastTickX, n.lastTickZ, n.lastLevel = n.x, n.z, n.level` — at `processMovementInteraction:163`, **behind** `n.delayed || n.dead` early-return at `:159-161`. Delayed/dead NPCs miss the write.

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+ (per `go_version.md`); test runner is the in-tree `go test`; mask constants at `pkg/rsbuf/visibility.go` aliased through `modules/world/masks.go`.
 
-**Spec:** `docs/superpowers/specs/2026-05-05-nai-108-player-resetmasks-audit-design.md` (HEAD `beeb7ab`).
+**Spec:** `docs/superpowers/specs/2026-05-05-nai-108-player-resetmasks-audit-design.md` (HEAD `a11e6c0`).
 
 ---
 
@@ -29,7 +29,7 @@ No new files. Every change is local to `modules/world/`. Audit-doc deliverable a
 
 Per `controller_preflight.md`, verify each plan-codified premise against HEAD before subagent dispatch. Run from a fresh shell:
 
-- [ ] **Pre-flight 1**: `git rev-parse HEAD` → matches `beeb7ab` (or fast-forward descendant of it).
+- [ ] **Pre-flight 1**: `git rev-parse HEAD` → matches `a11e6c0` (or fast-forward descendant of it).
 - [ ] **Pre-flight 2**: `rg "func \(p \*Player\) ResetMasks" modules/world/player_masks.go` → 1 match at line 56.
 - [ ] **Pre-flight 3**: `rg "chatMessage" modules/ pkg/` → exactly 2 matches: `modules/world/player.go:196` (declaration) + `modules/world/tick.go:530` (comment reference). Zero reads/writes elsewhere.
 - [ ] **Pre-flight 4**: `rg "NAI-72-N-RESETENTITY-PARTIAL" modules/ pkg/` → exactly 1 match at `modules/world/tick.go:530-531` (comment).
@@ -818,7 +818,7 @@ EOF
 git log --oneline -7
 ```
 
-Expected: 6 NAI-108 commits (T1 test + T2 feat + T3 refactor + optional T4 test + T5 chore + T6 close) on top of the 2 NAI-108 spec commits (`ed95018` + `beeb7ab`).
+Expected: 6 NAI-108 commits (T1 test + T2 feat + T3 refactor + optional T4 test + T5 chore + T6 close) on top of the 2 NAI-108 spec commits (`dbe3ae8` + `a11e6c0`).
 
 ---
 
@@ -826,9 +826,9 @@ Expected: 6 NAI-108 commits (T1 test + T2 feat + T3 refactor + optional T4 test 
 
 Per `superpowers_code_reviewer_model.md`, dispatch a `superpowers:code-reviewer` agent on **Sonnet** (NOT Opus) to review the bundle. Prompt template:
 
-> Review NAI-108 single-bundle implementation against the spec at `docs/superpowers/specs/2026-05-05-nai-108-player-resetmasks-audit-design.md` (HEAD `beeb7ab`) and plan at `docs/superpowers/plans/2026-05-05-nai-108-player-resetmasks-audit.md`.
+> Review NAI-108 single-bundle implementation against the spec at `docs/superpowers/specs/2026-05-05-nai-108-player-resetmasks-audit-design.md` (HEAD `a11e6c0`) and plan at `docs/superpowers/plans/2026-05-05-nai-108-player-resetmasks-audit.md`.
 >
-> Bundle commits: T1 test → T2 feat → T3 refactor → T4 test (optional) → T5 chore → T6 close. Last 6-7 commits on `main` post-`beeb7ab`.
+> Bundle commits: T1 test → T2 feat → T3 refactor → T4 test (optional) → T5 chore → T6 close. Last 6-7 commits on `main` post-`a11e6c0`.
 >
 > Verification scope:
 > 1. **Trailing-clear correctness** — body of new block matches spec §4 verbatim; `p.entitymask` (NOT hardcoded `rsbuf.MaskFaceEntity`); `p.target == nil && p.faceEntity != -1` guard exact.

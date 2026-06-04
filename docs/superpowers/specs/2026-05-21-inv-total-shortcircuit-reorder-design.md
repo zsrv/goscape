@@ -1,13 +1,13 @@
 # INV_TOTAL `obj == -1` short-circuit reorder — design
 
 **Date:** 2026-05-21
-**Predecessor:** [[handlers-inv-readside-checkinvtype-wiring-close]] at HEAD `618678d9`
+**Predecessor:** [[handlers-inv-readside-checkinvtype-wiring-close]] at HEAD `48b05865`
 **Size:** XS (~4 lines of motion + 1 test)
 **Cadence:** in-session main thread, no subagent dispatch (per [[ai-queue-fencepost-tighten-close]] / [[doc-comment-sweep-close]] XS precedent)
 
 ## 1. Motivation
 
-The 12-site `checkInvType` wiring slice closed at HEAD `618678d9` surfaced (via opus whole-slice review) a TS-faithfulness drift in `handleInvTotal`: the `obj == -1` short-circuit runs **before** the registry validator, but the TS source runs the validator **first**. The drift was pre-existing in goscape, not introduced by the wiring slice; the wiring slice preserved the pre-existing ordering rather than fixing it inline (correctly — out of slice scope at the time, and resume-memo for that slice asserted the wrong TS ordering claim across spec/plan/resume-memo chain).
+The 12-site `checkInvType` wiring slice closed at HEAD `48b05865` surfaced (via opus whole-slice review) a TS-faithfulness drift in `handleInvTotal`: the `obj == -1` short-circuit runs **before** the registry validator, but the TS source runs the validator **first**. The drift was pre-existing in goscape, not introduced by the wiring slice; the wiring slice preserved the pre-existing ordering rather than fixing it inline (correctly — out of slice scope at the time, and resume-memo for that slice asserted the wrong TS ordering claim across spec/plan/resume-memo chain).
 
 This slice retires the drift with a 4-line motion + 1 test.
 
@@ -37,7 +37,7 @@ TS comment `// todo: error instead?` at `:624` confirms the TS author noted the 
 
 ## 3. Current goscape state (drift)
 
-`/home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_inv.go:26-45` at HEAD `618678d9`:
+`/home/owner/Code/github.com/zsrv/goscape/pkg/script/handlers_inv.go:26-45` at HEAD `48b05865`:
 
 ```go
 func handleInvTotal(s *ScriptState) error {

@@ -1,8 +1,8 @@
 # NAI-139 Stage 1 — tutorial-completion cascade audit (merged)
 
 **Date:** 2026-05-09
-**Spec:** `docs/superpowers/specs/2026-05-09-nai-139-tutorial-completion-cascade-design.md` @ `8182166`
-**Plan:** `docs/superpowers/plans/2026-05-09-nai-139-stage-1-cascade-audit.md` @ `8047e02`
+**Spec:** `docs/superpowers/specs/2026-05-09-nai-139-tutorial-completion-cascade-design.md` @ `9e12d14`
+**Plan:** `docs/superpowers/plans/2026-05-09-nai-139-stage-1-cascade-audit.md` @ `6338b3c`
 **Bundles:** B1 + B2 + B3 + B4 (4 parallel Sonnet `general-purpose` subagents, dispatched in single Agent block)
 **Verification:** 100% MISSING/STUB Read-verified (n=0 — no MISSING/STUB rows). 1 UNKNOWN Read-verified. 20% WIRED sampled across 4 bundles (n=11 of ~115 WIRED rows). Cross-foot per-bundle row-count within tolerance (B3/B4 over baseline due to per-interface, per-constant, and depth-1 enumeration completeness — not cross-bundle bleed).
 
@@ -117,4 +117,4 @@ Per spec §3 decision tree:
 | B3     | `docs/superpowers/findings/2026-05-09-nai-139-stage1-bundle-b3.md`   | ~41  | All WIRED                     |
 | B4     | `docs/superpowers/findings/2026-05-09-nai-139-stage1-bundle-b4.md`   | ~50  | All WIRED                     |
 
-Committed at `audit(nai-139): Stage 1 bundles B1+B2+B3+B4 returns` (`2d05bf0`).
+Committed at `audit(nai-139): Stage 1 bundles B1+B2+B3+B4 returns` (`c073f78`).

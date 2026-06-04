@@ -10,7 +10,7 @@
 
 **Authoritative task numbering:** T1, T2, T3, T4, T5, T6, T7, T8, T9. Per `[[plan_code_block_t_number_drift]]`, all in-file doc comments and commit subjects must use this numbering.
 
-**Spec:** `docs/superpowers/specs/2026-05-16-nai-209-binary-script-writer-design.md` (commit `b4792fb`).
+**Spec:** `docs/superpowers/specs/2026-05-16-nai-209-binary-script-writer-design.md` (commit `a21dce6`).
 
 ---
 

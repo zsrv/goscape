@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-05-03-nai-80-loctype-client-jagfile-pass-design.md`
 
-**Predecessor close:** `9a96b8b` (NAI-79 H4 close — Stage 2.5 routing).
+**Predecessor close:** `3cc043b` (NAI-79 H4 close — Stage 2.5 routing).
 
 ---
 
@@ -1203,7 +1203,7 @@ import (
 // after the client-jagfile pass is wired, loc ids 3014 (RS Guide door),
 // 380 (bookcase), and 350 (drawer) must all have non-empty Op[0].
 //
-// NAI-79 H4 re-smoke at HEAD 9a96b8b captured 3/3 OPLOC1 clicks gating
+// NAI-79 H4 re-smoke at HEAD 3cc043b captured 3/3 OPLOC1 clicks gating
 // at op_slot_empty for these locs because the goscape decoder never
 // loaded client/config's loc.dat entry. This test is the regression
 // guard against re-introducing that gap.
@@ -1301,7 +1301,7 @@ on a known-name loc (<DEBUGNAME>=<EXPECTED_OP0>, derived during
 plan execution) to catch silent index drift.
 
 Pre-NAI-80, all 3 locs had Op=nil and OPLOC1 clicks gated at
-op_slot_empty (NAI-79 H4 re-smoke evidence at HEAD 9a96b8b).
+op_slot_empty (NAI-79 H4 re-smoke evidence at HEAD 3cc043b).
 
 Refs: spec §7.2"
 ```
@@ -1459,17 +1459,17 @@ No type drift across tasks.
 
 # NAI-80 — Close — full-port complete + smoke handoff
 
-**Implementation HEAD:** `b2449b7` (most recent commit at close).
+**Implementation HEAD:** `d1a0684` (most recent commit at close).
 
 **Commit chain:**
-- `89e6373` T1 — struct expansion
-- `9f1d162` T2 — parseLocTypes dual-pass sig change
-- `564c9bb` T3 — Decode arms for client-blob codes
-- `da4fc24` T4 — PostDecode + parseLocTypes wiring
-- `866a0ad` T4 fixup — pin parseLocTypes→PostDecode wiring
-- `2e2e50c` T5 — real-cache cascade-blocker regression
-- `a70797d` T5 fixup — drop redundant nil-check before len()
-- `b2449b7` T5 fixup — defensive Op[0] read + skip-pattern parity
+- `f2ac101` T1 — struct expansion
+- `2e488f6` T2 — parseLocTypes dual-pass sig change
+- `1ce1d7b` T3 — Decode arms for client-blob codes
+- `dcee7da` T4 — PostDecode + parseLocTypes wiring
+- `68b7189` T4 fixup — pin parseLocTypes→PostDecode wiring
+- `2f29dd1` T5 — real-cache cascade-blocker regression
+- `c29d22e` T5 fixup — drop redundant nil-check before len()
+- `d1a0684` T5 fixup — defensive Op[0] read + skip-pattern parity
 
 **Acceptance gates met:**
 - [x] §10.1 — `go test ./pkg/objtype/...` green (T7 Step 1).
@@ -1480,7 +1480,7 @@ No type drift across tasks.
 - [x] §10.6 — Closes memory trailer (this close commit).
 
 **Smoke handoff (user-driven):**
-1. Restart goscape world server at this commit (or any commit at/after `b2449b7`).
+1. Restart goscape world server at this commit (or any commit at/after `d1a0684`).
 2. Java client login as Tutorial Island fresh char (avoid coord-based chat-suppression zones per `java_client_coord_chat_suppression.md`).
 3. Repeat the 3 OPLOC1 clicks captured in NAI-79 H4 re-smoke:
    - RS Guide door (loc 3014, DebugName=`newbie_door1`, Op[0]=`"Open"`)
@@ -1497,7 +1497,7 @@ No type drift across tasks.
 
 ---
 
-## Smoke result (2026-05-03, user-driven at HEAD `d5b3480`)
+## Smoke result (2026-05-03, user-driven at HEAD `1999b67`)
 
 **Outcome:** ✅ NAI-80 cascade-blocker silenced. All 3 OPLOC1 clicks advance past `op_slot_empty` to **script_dispatch**:
 

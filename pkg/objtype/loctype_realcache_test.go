@@ -10,7 +10,7 @@ import (
 // after the client-jagfile pass is wired, loc ids 3014 (RS Guide door),
 // 380 (bookcase), and 350 (drawer) must all have non-empty Op[0].
 //
-// NAI-79 H4 re-smoke at HEAD 9a96b8b captured 3/3 OPLOC1 clicks gating
+// NAI-79 H4 re-smoke at HEAD 3cc043b captured 3/3 OPLOC1 clicks gating
 // at op_slot_empty for these locs because the goscape decoder never
 // loaded client/config's loc.dat entry. This test is the regression
 // guard against re-introducing that gap.

@@ -261,7 +261,7 @@ File: `pkg/objtype/hunttype_test.go`.
 included a seventh test for truncated-payload parse errors, which
 required `parseHuntTypes` to recover from `packet.Packet` EOF panics
 via `defer recover()`. This was removed after discovery during
-implementation (commit `36df706`): no other loader in `pkg/objtype`
+implementation (commit `40305c9`): no other loader in `pkg/objtype`
 does panic recovery, and TS `HuntType.load` at
 `cache/config/HuntType.ts:16-22` has no equivalent. `parseHuntTypes`
 matches the straight-through shape of `parseVarpTypes` /

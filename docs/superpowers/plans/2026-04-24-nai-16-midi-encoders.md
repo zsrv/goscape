@@ -8,9 +8,9 @@
 
 **Tech Stack:** Go 1.26+, `pkg/io/packet` primitives (PJStrLF, P2, P4, PData, GetCRC, NewPacket), `internal/dskit/services` BasicService lifecycle, `os` + `path/filepath` for dir walking, hash/crc32/IEEE (transitive via `packet.GetCRC`).
 
-**Spec:** `docs/superpowers/specs/2026-04-24-nai-16-midi-encoders-design.md` (commits `a4afcc2`, `3f63f6d`).
+**Spec:** `docs/superpowers/specs/2026-04-24-nai-16-midi-encoders-design.md` (commits `98c62c1`, `2ad3510`).
 
-**Predecessor:** S7i closed at HEAD=`62550dc`. Spec on `main` adds two commits ahead of that.
+**Predecessor:** S7i closed at HEAD=`6d99fda`. Spec on `main` adds two commits ahead of that.
 
 ---
 

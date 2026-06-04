@@ -778,7 +778,7 @@ componentTypes *objtype.ComponentTypeConfigs
 - [ ] **Step 2: Wire `LoadComponentTypes` into Server bootstrap**
 
 In `modules/world/server.go`, locate the `spotanimTypes` load block
-at approximately L254 (verified at HEAD `a56494b`). Append after it:
+at approximately L254 (verified at HEAD `56315d1`). Append after it:
 
 ```go
 componentTypes, err := objtype.LoadComponentTypes(cfg.CachePath)
@@ -1174,7 +1174,7 @@ git commit --no-gpg-sign -m "feat(world): NAI-59 T5 — Player.IsComponentVisibl
 - [ ] **Step 1: Pre-flight grep for NAI-45-D1/D2 sites**
 
 Run: `rg -nE "NAI-45-D[12]" pkg/ modules/ cmd/`
-Expected at HEAD `a56494b`: exactly 2 hits — `handler_interface.go:18` and `:22`. If any other site surfaces, note it for T6 retirement; if line numbers drift, update the Step 5 edit accordingly.
+Expected at HEAD `56315d1`: exactly 2 hits — `handler_interface.go:18` and `:22`. If any other site surfaces, note it for T6 retirement; if line numbers drift, update the Step 5 edit accordingly.
 
 - [ ] **Step 2: Write failing tests for the three new gates + protect derivation**
 
@@ -1413,7 +1413,7 @@ func (s *Server) handleIfButton(p *Player, payload []byte) error {
 ```
 
 The `s.scriptProvider != nil` guard mirrors the post-NAI-51 fixup
-pattern (commit `9e55cae`); if the controller's Step 1 pre-flight finds
+pattern (commit `23ec2a2`); if the controller's Step 1 pre-flight finds
 all sibling sites omit this guard at HEAD, the implementer may drop it
 to reduce noise. Default: keep it, per `plan_sibling_site_guard_audit.md`.
 

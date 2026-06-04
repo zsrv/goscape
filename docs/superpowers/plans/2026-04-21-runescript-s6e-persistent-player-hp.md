@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go; `pkg/objtype` config constants; `modules/world` Player entity.
 
-**Spec:** [`docs/superpowers/specs/2026-04-21-runescript-s6e-persistent-player-hp-design.md`](../specs/2026-04-21-runescript-s6e-persistent-player-hp-design.md) (commit `03058fb`)
+**Spec:** [`docs/superpowers/specs/2026-04-21-runescript-s6e-persistent-player-hp-design.md`](../specs/2026-04-21-runescript-s6e-persistent-player-hp-design.md) (commit `40fb1c8`)
 
 ---
 

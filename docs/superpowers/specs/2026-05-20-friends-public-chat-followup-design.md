@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-20
 **Position:** standalone follow-up (NOT part of the slice 1-7 arc — the arc is fully closed by `[[friends-server-slice7-close]]`)
-**Predecessor:** slice 7 close (HEAD `c9515d25`; introduced `Player.session` per-login UUID v4 across world + login server; see `[[friends-server-slice7-close]]`)
+**Predecessor:** slice 7 close (HEAD `9dc8fae9`; introduced `Player.session` per-login UUID v4 across world + login server; see `[[friends-server-slice7-close]]`)
 **Schema template:** slice 6 (`[[friends-server-slice6-close]]`) — same `Repository(*sql.DB, profile)` ctor pattern, same `r.profile`-scoped INSERT, same `codes.Internal` posture on insert error
 **Closes:** `NAI-S6-D-PUBLIC-CHAT-DEFERRED` (the sole conditional deviation that was waiting on slice 7's `Player.session` UUID)
 **Opens:** none expected (TS-faithful design has no further deferrals)

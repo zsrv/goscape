@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+ (project uses generics + `iter.Seq`). Existing packages used: `pkg/rsbuf` (existing types — `Visibility`, `PlayerSource`, `NpcSource`, `Encode`, `EncodeNpc`, `Renderer`, mask-payload encoders all preserved unchanged), `pkg/coordgrid` (coord packing reused — `PackCoord`, `UnpackCoord`, `ZoneIndex`), `modules/world` (B4 wiring only). No new third-party dependencies. New files all in `pkg/rsbuf/` (B1-B3) and `modules/world/` (B4 tests).
 
-**Predecessors:** NAI-28 closed at `5e6f869`. NAI-29 spec: `docs/superpowers/specs/2026-04-25-nai-29-rsbuf-stateful-core-design.md` committed at `91db799`. Source root: `/home/owner/Code/github.com/2004scape/rsbuf` branch `225` (HEAD `1cbb2ce`).
+**Predecessors:** NAI-28 closed at `737337d`. NAI-29 spec: `docs/superpowers/specs/2026-04-25-nai-29-rsbuf-stateful-core-design.md` committed at `816086a`. Source root: `/home/owner/Code/github.com/2004scape/rsbuf` branch `225` (HEAD `1cbb2ce`).
 
 **Build/test commands** (per `CLAUDE.md`):
 - Build: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go build -trimpath ./...`

@@ -3,7 +3,7 @@
 **Status:** spec — bundled sub-spec, two parallel tasks under one plan.
 **Cadence:** standard `runescript_cadence` — brainstorm → spec → plan → subagent-driven TDD → user-launched smoke at close.
 **Tech stack:** Go 1.26+.
-**Parent:** NAI-95 — `docs/superpowers/specs/2026-05-05-nai-95-static-loc-collision-fix-design.md` (closed `cae1ad8`); user-launched smoke 2026-05-05 surfaced these residuals.
+**Parent:** NAI-95 — `docs/superpowers/specs/2026-05-05-nai-95-static-loc-collision-fix-design.md` (closed `ff662dc`); user-launched smoke 2026-05-05 surfaced these residuals.
 **TS reference:** `LostCityRS/Engine-TS` (per `ts_source_canonical_path`). Primary: `src/engine/GameMap.ts:24-26` constants, `:182-217` `loadGround` two-pass, `:220-267` `loadLocations` LINK_BELOW level adjustment, `:326-341` `changeLocCollision` layer dispatch.
 
 ---
@@ -312,7 +312,7 @@ All sites already have an `*objtype.LocType` in scope. Threading:
 | `modules/world/loc_turn.go:49` | `newLt` | add `newLt.Active` |
 | `modules/world/server.go:328` | `lt` | add `lt.Active` |
 
-Plan-author re-greps these line numbers at HEAD pre-dispatch per `controller_preflight` (NAI-95 close commit `cae1ad8` may have shifted them; the current spec captures them as of post-NAI-95).
+Plan-author re-greps these line numbers at HEAD pre-dispatch per `controller_preflight` (NAI-95 close commit `ff662dc` may have shifted them; the current spec captures them as of post-NAI-95).
 
 ### 4.3 Tests (extend `modules/world/static_loc_collision_test.go`)
 

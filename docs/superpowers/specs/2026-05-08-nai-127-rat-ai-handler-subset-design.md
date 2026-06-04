@@ -2,7 +2,7 @@
 
 **Status:** spec — draft 1
 **Date:** 2026-05-08
-**Predecessor:** NAI-126 close (`73f6a62`); cascade-bound to the Tutorial-Island giant-rat smoke surfaced at NAI-126 close (2026-05-08).
+**Predecessor:** NAI-126 close (`e3bd6cc`); cascade-bound to the Tutorial-Island giant-rat smoke surfaced at NAI-126 close (2026-05-08).
 **Cadence:** subagent-driven-development — two bundles dispatched as separate task sequences with controller pre-flight + Sonnet code-reviewer between; user-launched smoke binds Bundle 2 PRIMARY only.
 **Tech stack:** Go 1.26+.
 
@@ -12,7 +12,7 @@ Close the rat-AI cascade-tail by porting six unhandled script opcodes — NPC_FI
 
 ## §1 — Symptom and binding evidence
 
-**Smoke (NAI-126 close, `73f6a62`, 2026-05-08):**
+**Smoke (NAI-126 close, `e3bd6cc`, 2026-05-08):**
 Fresh char + bronze dagger vs Tutorial Island giant rat. Rat dies (NPC_DEL works, NAI-126 PRIMARY met). Server log emits:
 
 ```
@@ -21,7 +21,7 @@ WARN: script "[ai_queue3,newbiegiantrat]": no handler for NPC_FINDHERO (opcode 2
 
 `[ai_queue3,newbiegiantrat]` aborts; the chained `obj_add(npc_coord, npc_param(death_drop), 1, ^lootdrop_duration)` and `obj_add(npc_coord, raw_rat_meat, 1, ^lootdrop_duration)` never run, no loot drops.
 
-**Audit at HEAD (`73f6a62`)** per `missing_handler_audit`:
+**Audit at HEAD (`e3bd6cc`)** per `missing_handler_audit`:
 
 ```
 $ awk '/^var handlers = map\[Opcode\]/,/^}/' pkg/script/handlers.go | grep -oE 'Op[A-Za-z]+' | sort -u > /tmp/handled.txt
@@ -459,7 +459,7 @@ func handlePPreventLogout(s *ScriptState) error {
 
 User-launched (Java client) per `smoke_test_server_handoff` after Bundle 2 close. Fresh char + bronze dagger vs Tutorial Island giant rat at coord box outside chat-suppression zone (per `java_client_coord_chat_suppression`).
 
-| # | Item | Pre-NAI-127 (`73f6a62`) | Post-NAI-127 expected | Binding? |
+| # | Item | Pre-NAI-127 (`e3bd6cc`) | Post-NAI-127 expected | Binding? |
 |---|---|---|---|---|
 | 1 | `[ai_queue3,newbiegiantrat]` no longer aborts at pc=2 | `no handler for NPC_FINDHERO (opcode 2519)` WARN | WARN silenced | **PRIMARY** (close-binding) |
 | 2 | Rat death-loot drop visible on ground | rat dies, no loot | `npc_param(death_drop)` + `raw_rat_meat` ground-objs render | **PRIMARY** (close-binding) |

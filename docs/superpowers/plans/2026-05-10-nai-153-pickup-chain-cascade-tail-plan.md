@@ -1079,7 +1079,7 @@ chore(close): NAI-153 — pickup chain landed; cascade-tail closed
 Java-client mindrune-pickup smoke confirmed: mindrune in inventory,
 ground tile clears, no "no handler for OBJ_COUNT"/"OBJ_TAKEITEM" logs.
 
-NAI-152 B2 PRIMARY (06f4571) closed handler-crash + reach; NAI-153 T1
+NAI-152 B2 PRIMARY (0e298fd) closed handler-crash + reach; NAI-153 T1
 (performInvAdd extract) + T2 (ActiveObj surface + Obj.IsValidFor) +
 T3 (OBJ_COUNT) + T4 (OBJ_TAKEITEM) finished the cascade. Pickup chain
 fully wired through invAdd + RemoveObj.

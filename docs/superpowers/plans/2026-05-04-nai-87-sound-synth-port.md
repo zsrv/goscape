@@ -18,7 +18,7 @@ Before dispatching the implementer, the controller MUST verify (per `controller_
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./... -count=1
 ```
 
-Expected: clean (HEAD `d979ddd` post-spec). Re-grep these claims at HEAD:
+Expected: clean (HEAD `6d2f395` post-spec). Re-grep these claims at HEAD:
 
 | Claim | Verify |
 |---|---|

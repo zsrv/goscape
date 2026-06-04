@@ -4,7 +4,7 @@
 
 **Goal:** Add 1 entry log + 17 reject-site logs to `handleOpHeldU` (after reverting Stage-3 instrumentation) so that one user smoke run binds which early-return gate rejects tutorial firemaking OPHELDU events.
 
-**Architecture:** Three commits — two `git revert` of Stage-3 transients (`51e2418`, `10efece`), then one transient instrumentation commit on top. All Stage-4 instrumentation is inline in `modules/world/handler_opheld.go`; one small package-level helper (`snapshotInvListenerKeys`) keeps the listener-keys snapshot DRY across sites #9 and #12. No new tests; existing `handler_opheld_test.go` must remain green; this is throwaway debug code reverted at NAI-114 Stage 5 close.
+**Architecture:** Three commits — two `git revert` of Stage-3 transients (`9d19da3`, `6b489b3`), then one transient instrumentation commit on top. All Stage-4 instrumentation is inline in `modules/world/handler_opheld.go`; one small package-level helper (`snapshotInvListenerKeys`) keeps the listener-keys snapshot DRY across sites #9 and #12. No new tests; existing `handler_opheld_test.go` must remain green; this is throwaway debug code reverted at NAI-114 Stage 5 close.
 
 **Tech Stack:** Go 1.26+, `log/slog` stdlib (already used elsewhere in `modules/world`), `sort` stdlib.
 
@@ -15,18 +15,18 @@
 | File | Status | Responsibility |
 |------|--------|----------------|
 | `modules/world/handler_opheld.go` | Modify | Add imports `log/slog` + `sort`; add `snapshotInvListenerKeys` helper; add 1 entry log + 17 reject logs in `handleOpHeldU`. |
-| `modules/world/debug_nai114.go` | Delete (via revert) | Removed by Task 2 revert of `10efece`. |
+| `modules/world/debug_nai114.go` | Delete (via revert) | Removed by Task 2 revert of `6b489b3`. |
 | `modules/world/server.go` | Modify (via revert) | Restored to pre-Stage-3 shape by Task 2 revert. |
 
 ---
 
 ## Pre-flight (controller, not implementer)
 
-- [ ] **Verify HEAD is `9c48029`** (Stage 4 spec commit) and working tree is clean (only `.claude/` and `test_typed_nil.go` should be untracked, no modified files).
+- [ ] **Verify HEAD is `5ff210d`** (Stage 4 spec commit) and working tree is clean (only `.claude/` and `test_typed_nil.go` should be untracked, no modified files).
 
 ```bash
 git rev-parse HEAD
-# Expected: 9c48029...
+# Expected: 5ff210d...
 git status --short
 # Expected: only ?? .claude/ and ?? test_typed_nil.go
 ```
@@ -34,13 +34,13 @@ git status --short
 - [ ] **Verify revert sources exist:**
 
 ```bash
-git cat-file -t 51e2418 && git cat-file -t 10efece
+git cat-file -t 9d19da3 && git cat-file -t 6b489b3
 # Expected: commit\ncommit
 ```
 
 ---
 
-## Task 1: Revert Stage-3 inline DEBUGs (`51e2418`)
+## Task 1: Revert Stage-3 inline DEBUGs (`9d19da3`)
 
 **Files:**
 - Modify (via revert): `modules/world/handler_opheld.go`
@@ -48,7 +48,7 @@ git cat-file -t 51e2418 && git cat-file -t 10efece
 - [ ] **Step 1.1: Run the revert**
 
 ```bash
-git revert --no-gpg-sign --no-edit 51e2418
+git revert --no-gpg-sign --no-edit 9d19da3
 ```
 
 Expected: clean revert, no conflicts. Commit subject auto-generated as `Revert "chore(debug): NAI-114 Stage 3 — opheldu trigger-lookup hit-trace"`.
@@ -122,7 +122,7 @@ Expected: build clean, all PASS.
 
 ---
 
-## Task 2: Revert Stage-3 boot-time registry log (`10efece`)
+## Task 2: Revert Stage-3 boot-time registry log (`6b489b3`)
 
 **Files:**
 - Delete (via revert): `modules/world/debug_nai114.go`
@@ -131,10 +131,10 @@ Expected: build clean, all PASS.
 - [ ] **Step 2.1: Run the revert**
 
 ```bash
-git revert --no-gpg-sign --no-edit 10efece
+git revert --no-gpg-sign --no-edit 6b489b3
 ```
 
-Expected: clean revert (no conflict — `9c48029` Stage 4 spec doesn't touch these files; Task 1 revert doesn't touch them either).
+Expected: clean revert (no conflict — `5ff210d` Stage 4 spec doesn't touch these files; Task 1 revert doesn't touch them either).
 
 - [ ] **Step 2.2: Verify the revert removed `debug_nai114.go` and 3 lines from server.go**
 
@@ -166,7 +166,7 @@ GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./modules/world/...
 
 Expected: build clean, all PASS.
 
-- [ ] **Step 2.5: Confirm `90a855a` Provider.Names() accessor still present (KEEP — long-term API)**
+- [ ] **Step 2.5: Confirm `a5e78ec` Provider.Names() accessor still present (KEEP — long-term API)**
 
 ```bash
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go doc github.com/zsrv/goscape/pkg/script Provider.Names
@@ -763,7 +763,7 @@ Expected (top to bottom):
 <sha> Revert "chore(debug): NAI-114 Stage 3 — boot-time opheldu script-registry log"
 <sha> Revert "chore(debug): NAI-114 Stage 3 — opheldu trigger-lookup hit-trace"
 <sha> docs(plan): NAI-114 Stage 4 — reject-gate probe plan
-9c48029 docs(spec): NAI-114 Stage 4 — reject-gate probe design
+5ff210d docs(spec): NAI-114 Stage 4 — reject-gate probe design
 ```
 
 Per memory `smoke_test_server_handoff`, the smoke must be user-launched.
@@ -796,8 +796,8 @@ Surface this verbatim to the user:
 
 | Spec section | Plan task |
 |---|---|
-| §3 In-scope: revert `51e2418` | Task 1 |
-| §3 In-scope: revert `10efece` | Task 2 |
+| §3 In-scope: revert `9d19da3` | Task 1 |
+| §3 In-scope: revert `6b489b3` | Task 2 |
 | §3 In-scope: 1 entry log + 17 reject logs in handleOpHeldU | Task 3 (Steps 3.4-3.21) |
 | §4.1 Commit sequence | Task 1 (commit 3), Task 2 (commit 4), Task 3.24 (commit 5) |
 | §4.2 Entry log site/shape | Step 3.7 |

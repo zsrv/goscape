@@ -2,7 +2,7 @@
 
 **Status:** spec
 **Date:** 2026-05-09
-**Predecessors:** NAI-136 (runweight propagation) closed at `a96862b`. NAI-135 carryover queue (line 6423 of `nai_followups.md`) named this candidate verbatim: "run-toggle UI varp UI-binding."
+**Predecessors:** NAI-136 (runweight propagation) closed at `64687f2`. NAI-135 carryover queue (line 6423 of `nai_followups.md`) named this candidate verbatim: "run-toggle UI varp UI-binding."
 **Tech stack:** Go 1.26+
 **Cadence:** Compressed (combined spec+plan, single-dispatch implementer + final Sonnet code-reviewer per `compressed_cadence`). Bundle 0 short-circuit applied — static audit disambiguated root cause without Stage 1 instrumentation.
 
@@ -37,7 +37,7 @@ Closes the **NAI-135 SECONDARY residual**: at runenergy=0, `(*Player).updateEner
 
 **TS:** dynamic discovery — `RUN` is a runtime-resolved id, the static `0` is a placeholder overwritten at parse-time.
 
-**goscape (HEAD `a96862b`):**
+**goscape (HEAD `64687f2`):**
 - `pkg/script/active.go:7` — `const VarPlayerRun = 0` (compile-time constant, no resolution).
 - `pkg/objtype/varptype.go:30-33` — `case 5: v.ClientCode = uint16(dat.G2())` parses the field but no scan for `ClientCode==7`.
 - `pkg/objtype/varptype.go:66-87` — `parseVarpTypes` populates `VarpTypeConfigs.{ConfigNames, Configs}` only.

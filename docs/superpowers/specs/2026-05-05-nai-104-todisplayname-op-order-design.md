@@ -4,7 +4,7 @@
 **Cadence**: combined spec + plan, single end-of-impl review (per
 `compressed_cadence.md`, ≤15 production-LOC threshold; 1 production
 LOC + ~25 test LOC).
-**Predecessor**: NAI-103 (HEAD `d23e5ff` — DISPLAYNAME opcode 2016 +
+**Predecessor**: NAI-103 (HEAD `ed74624` — DISPLAYNAME opcode 2016 +
 `Player.displayName` plumbing).
 **Trigger**: NAI-103 opportunistic Tutorial Island smoke (2026-05-05).
 Primary signal ✅ — chatplayer_page WARN at pc=24 silenced. Adjacent

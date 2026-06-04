@@ -3,7 +3,7 @@
 **Date**: 2026-05-04
 **Cadence**: combined spec + plan, single end-of-impl review (per
 `compressed_cadence.md`, ≤100 production-LOC band; ~30 production LOC).
-**Predecessor**: NAI-83 (HEAD `16ff447` — LOC_ANGLE wired; cascade still
+**Predecessor**: NAI-83 (HEAD `d9bca4f` — LOC_ANGLE wired; cascade still
 pending Tutorial Island door-click smoke).
 **Pivot trigger**: user cleared Java client cache; client now freezes at
 "Map area updated since last visit, so load will take longer this time
@@ -786,7 +786,7 @@ the TS shape (`rebuildZones(): void`) and the new call site signature.
 `coordgrid.ZoneIndex(x, z, level int) int` matches existing usage at
 `player.go:620`.
 
-**Premise-freshness reverification at HEAD `e36ff11`** (per
+**Premise-freshness reverification at HEAD `bd0588d`** (per
 `controller_preflight.md`):
 - `data_map.go:62, :79` — `streamLand(p, gm, ...)` / `streamLoc(p, gm, ...)` confirmed.
 - `data_map.go:111-114` — `gm := s.gamemap; if gm == nil { return nil }` confirmed.

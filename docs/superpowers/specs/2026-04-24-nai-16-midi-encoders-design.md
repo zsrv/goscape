@@ -3,16 +3,16 @@
 - **Sub-spec**: NAI-16
 - **Date**: 2026-04-24
 - **Scope label**: C (cross-package port — `pkg/cache`, `pkg/io/protocol/game/server`, `modules/world`; ~225-380 LOC)
-- **Predecessors**: S7i (session-flags plumbing) — last on `main` as `62550dc`
+- **Predecessors**: S7i (session-flags plumbing) — last on `main` as `6d99fda`
 - **TS source root**: `LostCityRS/Engine-TS`
 
 ## Motivation
 
 S7h ported the MIDI_SONG (2064) and MIDI_JINGLE (2063) **script handlers** with TS-faithful dispatch (StringNotNull validation, active-player gate, lowMemory bail) but deferred the client-packet writes under a single deviation **S7h-D1**. `(*Player).PlaySong` and `(*Player).PlayJingle` perform TS name normalization (lowercase + spaces↔underscores — asymmetric by TS design, pinned by `TestNormalize*Name*`) and early-return on empty, but make no `p.writeOut` call. `OpMidiSong` / `OpMidiJingle` are NOT registered in `pkg/io/protocol/game/server/prot.go` — avoids dead-API wire ops pending the encoder port.
 
-**S7h close note:** the 2026-04-24 Java-client smoke confirmed `[label,music_playbyregion]` ran to completion at HEAD=`9f6be9a` with zero further stalls — the script body's music-dispatch does not semantically depend on client-side packet acknowledgment. **S7h-D1 is a safe deviation in production** (script flow completes without client audio); NAI-16 retires the deviation to restore client-side audio playback fidelity.
+**S7h close note:** the 2026-04-24 Java-client smoke confirmed `[label,music_playbyregion]` ran to completion at HEAD=`327dc6a` with zero further stalls — the script body's music-dispatch does not semantically depend on client-side packet acknowledgment. **S7h-D1 is a safe deviation in production** (script flow completes without client audio); NAI-16 retires the deviation to restore client-side audio playback fidelity.
 
-**Scope-gate finding (2026-04-24, S7i close, drive-by Item C declined inline):** the original S7h estimate of 60-120 LOC was too low. Pre-impl scope-gate at HEAD=`62550dc` discovered `pkg/cache/` contains only `crctable.go` (46 lines, RS2 archive CRC table) — zero `LoadMidi` / `LoadSound` / `LoadMusic` / `LoadJingle` symbols across the repo. No `PRELOADED` registry equivalent. BUT the data files ARE staged: `data/pack/client/{maps,songs,jingles}` are all populated. This is a code port, not an asset-bundling problem.
+**Scope-gate finding (2026-04-24, S7i close, drive-by Item C declined inline):** the original S7h estimate of 60-120 LOC was too low. Pre-impl scope-gate at HEAD=`6d99fda` discovered `pkg/cache/` contains only `crctable.go` (46 lines, RS2 archive CRC table) — zero `LoadMidi` / `LoadSound` / `LoadMusic` / `LoadJingle` symbols across the repo. No `PRELOADED` registry equivalent. BUT the data files ARE staged: `data/pack/client/{maps,songs,jingles}` are all populated. This is a code port, not an asset-bundling problem.
 
 **Hidden coupling:** `PRELOADED` is consumed by three TS sites — `Player.playSong/playJingle` (this sub-spec's target), `RebuildNormalEncoder.ts:18-19`, and `RebuildGetMapsHandler.ts:44,54`. The registry-shape coupling is addressed here (all three dirs populated); the consumer-side encoder/handler ports for `RebuildNormal` / `RebuildGetMaps` are independent follow-up work (§ Out of scope). Porting the registry to feed only music while leaving map/loc keys behind would create a half-state the `true_to_ts_gate` would flag at next-touch.
 
@@ -467,13 +467,13 @@ Every test above (1-20) maps 1:1 to a code block in the plan's task list. Plan-w
 
 **Pre-existing deviations carried forward:** S7a-D1, S7a-D2, S7b-D1, S7c-D1, S7d-D1, S7d-D2, S7d-D3, S7d-D4, S7e-D1, S7f-D1, S7f-D2, S7f-D3, S7g-D1, S7g-D2, S7g-D3.
 
-**Active count after NAI-16 close:** 16 (at HEAD=`62550dc`) − 1 (S7h-D1 retired) = **15**.
+**Active count after NAI-16 close:** 16 (at HEAD=`6d99fda`) − 1 (S7h-D1 retired) = **15**.
 
 ## Adjacent deferred work (not NAI-16)
 
 - **`cache.MakeCRCs()` relocation** — the existing `asset/handler.go:24` misplacement (`cache.MakeCRCs() // TEST - belongs in world`) is a separate cleanup. Natural target: move to the same `world.startingFn` wire-in point NAI-16 establishes. ~5 LOC.
 - **`RebuildNormalEncoder` + `RebuildGetMapsHandler` ports** — registry-side unblocked by NAI-16 at zero cost; encoder-side and handler-side are independent follow-ups. See § Out of scope.
-- **S7g `dbFind` / `dbFindRefine` dispatch refactor** — closed by drive-by Item A at S7i close (`5060b15`); no longer pending.
+- **S7g `dbFind` / `dbFindRefine` dispatch refactor** — closed by drive-by Item A at S7i close (`6021a30`); no longer pending.
 
 ## Acceptance gates
 

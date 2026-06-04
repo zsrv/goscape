@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-19
 **Slice:** 3 of 7 (friends-server bridge arc)
-**Predecessor:** slice 2 (close commit `4fee0b27`, retired `NAI-72-D-FRIENDS-SERVER-BRIDGE`)
+**Predecessor:** slice 2 (close commit `01ca9d11`, retired `NAI-72-D-FRIENDS-SERVER-BRIDGE`)
 **Closes:** `NAI-S1-D-INMEMORY-REPO`
 
 ## 0. Forward map (what ships in this slice)

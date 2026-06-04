@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26 (per `GOROOT=/home/owner/go/go1.26.3`), `pkg/script/` script-engine package, `testing` standard library.
 
-**Spec:** `docs/superpowers/specs/2026-05-21-npc-name-category-readside-validator-wiring-design.md` (HEAD `d9fc8fab`).
+**Spec:** `docs/superpowers/specs/2026-05-21-npc-name-category-readside-validator-wiring-design.md` (HEAD `7c9782b2`).
 
 **Go command prefix (per CLAUDE.md global):**
 
@@ -399,7 +399,7 @@ git commit --no-gpg-sign -m "$(cat <<'EOF'
 refactor(script): wire checkNpcType at NPC_NAME/NPC_CATEGORY read sites
 
 Closes Shape B subset (NPC_NAME / NPC_CATEGORY) of resume-memo item #1
-deferred by predecessor c8654020. Wires checkNpcType + requireConfigs at
+deferred by predecessor 7a1fcd5b. Wires checkNpcType + requireConfigs at
 handleNpcName (handlers_npc.go:239) and handleNpcCategory (:303) to
 match TS NpcOps.ts:270-272 / :68-70 (check(activeNpc.type, NpcTypeValid)).
 Converts silent sentinel fallbacks ("null" / -1 on registry miss) to
@@ -414,7 +414,7 @@ convention). Happy-path TestNpcName / TestNpcCategory / TestNpcName-
 FallsBackToDebugName unchanged.
 
 Spec: docs/superpowers/specs/2026-05-21-npc-name-category-readside-
-validator-wiring-design.md (d9fc8fab).
+validator-wiring-design.md (7c9782b2).
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF

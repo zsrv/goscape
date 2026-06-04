@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+. All `go` invocations use the project's `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache` prefix.
 
-**Spec:** `docs/superpowers/specs/2026-05-07-nai-121-npc-varn-default-seeding-design.md` (commit `2f3d421`).
+**Spec:** `docs/superpowers/specs/2026-05-07-nai-121-npc-varn-default-seeding-design.md` (commit `88b6da1`).
 
 ---
 
@@ -1652,7 +1652,7 @@ After Task 9 commit:
    GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test -count=1 ./...
    ```
    Verify ALL PASS.
-2. **Sonnet code-reviewer** dispatched with full diff context (every commit since `2f3d421` — the spec commit) per `superpowers_code_reviewer_model`. Reviewer scope: all 9 task commits, T3 + T8 deviations, R5 + R6 mitigations.
+2. **Sonnet code-reviewer** dispatched with full diff context (every commit since `88b6da1` — the spec commit) per `superpowers_code_reviewer_model`. Reviewer scope: all 9 task commits, T3 + T8 deviations, R5 + R6 mitigations.
 3. **Reviewer fixes** (if any) ship as a separate commit before Bundle 2 dispatch.
 
 ---

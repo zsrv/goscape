@@ -9,14 +9,14 @@
 **Tech Stack:** Go 1.26+, stdlib only (`os`, `path/filepath`, `bufio`, `sort`, `strconv`, `strings`, `sync`, `time`). No new external deps.
 
 **Spec:** `docs/superpowers/specs/2026-05-13-nai-191-pack-pipeline-foundation-design.md`
-**Predecessors:** NAI-190 (`a564013`) — `World.reload()` port + `::reload` cheat.
-**HEAD at plan-write:** `0aea336` (spec commit).
+**Predecessors:** NAI-190 (`6becca6`) — `World.reload()` port + `::reload` cheat.
+**HEAD at plan-write:** `60be6bc` (spec commit).
 
 ---
 
 ## §0 Pre-flight verifications (controller, not implementer)
 
-Performed at plan-write against HEAD `0aea336`. Re-verify only on contradiction.
+Performed at plan-write against HEAD `60be6bc`. Re-verify only on contradiction.
 
 1. **No existing `pkg/pack/`** — confirmed via `find pkg -name "pack*"` returns only `pkg/io/packet/` (RS2 wire packet buffer, unrelated).
 2. **Module path** — `github.com/zsrv/goscape` per `go.mod:1`; package import path `github.com/zsrv/goscape/pkg/pack`.

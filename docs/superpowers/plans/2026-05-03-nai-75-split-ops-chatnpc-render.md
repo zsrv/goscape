@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+. All changes inside `pkg/script/`.
 
-**Spec:** `docs/superpowers/specs/2026-05-03-nai-75-split-ops-chatnpc-render-design.md` (commit `fba002b`).
+**Spec:** `docs/superpowers/specs/2026-05-03-nai-75-split-ops-chatnpc-render-design.md` (commit `43de3a1`).
 
 **TS source-of-truth:** `LostCityRS/Engine-TS/src/engine/script/handlers/StringOps.ts:76-122`.
 

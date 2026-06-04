@@ -1424,7 +1424,7 @@ Expected: 12 OK / 0 ERR baseline matches the NAI-PLAYERLOADING-close memory entr
 Run: `git status`
 Expected: clean working tree.
 
-Run: `git log --oneline 7ca4e501..HEAD`
+Run: `git log --oneline 1ac34467..HEAD`
 Expected: 8 commits — refactor, fake, extract, T4 tests, T5 tests, T6 tests, T7 tests, T8 tests.
 
 - [ ] **Step 7: Write the close commit**

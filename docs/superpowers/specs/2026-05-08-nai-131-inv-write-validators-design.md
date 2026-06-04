@@ -2,7 +2,7 @@
 
 **Status:** spec
 **Date:** 2026-05-08
-**Predecessor:** NAI-130 close (`88318d3`) deferred-omissions §6 — five TS validators omitted from `handleInvAdd` per NAI-130 scope decision. Audit-first determined the same gates are missing across most goscape `INV_*` write handlers, so NAI-131 sweeps the family.
+**Predecessor:** NAI-130 close (`700756c`) deferred-omissions §6 — five TS validators omitted from `handleInvAdd` per NAI-130 scope decision. Audit-first determined the same gates are missing across most goscape `INV_*` write handlers, so NAI-131 sweeps the family.
 **Tech stack:** Go 1.26+
 **Cadence:** full (brainstorm → spec → plan → subagent-driven TDD with two-stage review).
 

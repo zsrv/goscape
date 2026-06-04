@@ -3,16 +3,16 @@
 - **Sub-spec**: NAI-23
 - **Date**: 2026-04-25
 - **Scope label**: B (logical-grouping follow-up bundle — `modules/world` + `pkg/script` + memory file; ~120 LOC production + ~330 LOC tests across 4 bundles; closes 2 open huntPlayers deferred filters (completes the NAI-8 deferred filter list); closes the NumberNotNull fidelity tracker scoped to 3 handler files; marks 3 stale memory-tracker entries Resolved; introduces 0 new deviations; net deviation count 14 → 14)
-- **Predecessors**: NAI-22 (follow-up bundle) — last on `main` as `713d801`
+- **Predecessors**: NAI-22 (follow-up bundle) — last on `main` as `d578410`
 - **TS source root**: `LostCityRS/Engine-TS`
 
 ## Motivation
 
 Four actionable items land in NAI-23:
 
-1. **Tracker hygiene (Bundle 1).** Pre-flight against HEAD `713d801` discovered three stale entries in `nai_followups.md` whose underlying work has already shipped but were never marked Resolved:
-   - **Line 786** (`Stale *Npc.typ snapshot after changetype`) — Resolved by NAI-19 Task 3 commit `116b641` ("changeTypeImpl refreshes n.typ snapshot on both paths"). Cross-referenced as resolved at line 1297-1300 of the same file but the primary entry was never updated.
-   - **Line 1272** (`Promote n.size snapshot to LoS-path reads`) — Resolved by NAI-21 Bundle 1 commit `fe60baa` ("LoS snapshot LoS-path completion"). The commit message explicitly says "closes NAI-20 deferred follow-up" but the tracker entry stayed open.
+1. **Tracker hygiene (Bundle 1).** Pre-flight against HEAD `d578410` discovered three stale entries in `nai_followups.md` whose underlying work has already shipped but were never marked Resolved:
+   - **Line 786** (`Stale *Npc.typ snapshot after changetype`) — Resolved by NAI-19 Task 3 commit `abc8d32` ("changeTypeImpl refreshes n.typ snapshot on both paths"). Cross-referenced as resolved at line 1297-1300 of the same file but the primary entry was never updated.
+   - **Line 1272** (`Promote n.size snapshot to LoS-path reads`) — Resolved by NAI-21 Bundle 1 commit `80122da` ("LoS snapshot LoS-path completion"). The commit message explicitly says "closes NAI-20 deferred follow-up" but the tracker entry stayed open.
    - **Line 244 cross-ref** (`Scope note: npc_changetype duration wiring status — now unassigned`) — primary entry at line 137 marks Resolved by NAI-16 Task 2; cross-ref still says "now unassigned." Stale by inheritance.
 
    Two of the three were caught by `controller_preflight` discipline at NAI-23 spec-write — exactly the case `spec_followup_tracker_freshness` warns about. Marking them Resolved clears the tracker for the next NAI-N spec author.
@@ -56,11 +56,11 @@ The four items cluster naturally by content type (memory-only / production filte
 #### Touch points
 
 1. `nai_followups.md:786` ("Stale `*Npc.typ` snapshot after changetype (newly observable post-NAI-18)"):
-   - Prepend the standard `**Resolved 2026-04-24 (NAI-19 Task 3, commit `116b641`)**` header followed by a one-paragraph closure description. Preserve the original deferral body under the existing `_Original deferral body (preserved for historical context):_` separator.
+   - Prepend the standard `**Resolved 2026-04-24 (NAI-19 Task 3, commit `abc8d32`)**` header followed by a one-paragraph closure description. Preserve the original deferral body under the existing `_Original deferral body (preserved for historical context):_` separator.
    - Closure description: `n.lookupType(newType)` is now lifted outside the `if reset` block in `(*Npc).changeTypeImpl` and the result is unconditionally assigned to `n.typ` (`npc_masks.go:68-69`). Both CHANGETYPE and KEEPALL paths now refresh the snapshot; `n.typ.X` reads after a changetype are no longer stale.
 
 2. `nai_followups.md:1272` ("Promote `n.size` snapshot to LoS-path reads (`inApproachDistance`, `approachEntitySize`)"):
-   - Prepend `**Resolved 2026-04-25 (NAI-21 Bundle 1, commit `fe60baa`)**` followed by closure description. Preserve original body.
+   - Prepend `**Resolved 2026-04-25 (NAI-21 Bundle 1, commit `80122da`)**` followed by closure description. Preserve original body.
    - Closure description: `(*Npc).inApproachDistance` reads `n.size` for `selfSize` (`npc_interaction.go:581`); `approachEntitySize` reads `t.size` for the `*Npc` branch (`npc_interaction.go:532`). Two regression tests landed: `TestInApproachDistanceUsesSelfSizeSnapshotNotTyp` and `TestApproachEntitySizeUsesNpcSizeSnapshotNotTyp` (dual-pin per `ts_asymmetry_dual_pin` memory).
 
 3. `nai_followups.md:244` ("Scope note: `npc_changetype` duration wiring status"):
@@ -118,7 +118,7 @@ Yes (≤15 LOC equivalent across memory file). Combined spec+plan; informal revi
 
 #### Pre-flight verification
 
-Verified at HEAD `713d801`:
+Verified at HEAD `d578410`:
 - `Player.delayed bool` exists at `modules/world/player.go:100`.
 - `Player.modalState int` exists at `modules/world/player.go:175`.
 - `modalStateMain = 0x1`, `modalStateChat = 0x2` constants at `player.go:31-32`.
@@ -211,7 +211,7 @@ In `modules/world/npc_hunt_test.go` — extend the existing CheckAfk/CheckInv pa
 
 #### Pre-flight verification
 
-Verified at HEAD `713d801`:
+Verified at HEAD `d578410`:
 - `HuntCheckNotTooStrongOutsideWilderness = 1` enum value at `pkg/objtype/hunttype.go:38`.
 - `HuntType.CheckNotTooStrong int` field at `hunttype.go:54` (defaults to `HuntCheckNotTooStrongOff`).
 - `Player.combatLevel int` field at `modules/world/player.go:121`.
@@ -304,7 +304,7 @@ In `modules/world/npc_hunt_test.go`:
 
 #### Pre-flight verification
 
-Verified at HEAD `713d801`:
+Verified at HEAD `d578410`:
 - `checkNotNull(v int, op string) error` defined at `pkg/script/handlers_player.go:~70`. Sentinel: `-1`. Returns formatted error with the opcode name.
 - 351 raw `popInt` / `PopInt` calls across 14 handler files; 19 already wrapped — only 2 of 14 files contain any wraps (handlers_npc.go: 6; handlers_player.go: 5; per the audit). Audit-pass methodology confirmed compatible with parallel implementer dispatch.
 - TS counterpart files at `Engine-TS/src/engine/script/handlers/`. Each goscape handler file maps to a same-named TS file (e.g., `handlers_inv.go` ↔ `InvOps.ts`).
@@ -478,7 +478,7 @@ Bundles 2 and 3 each warrant full Stage-1 + Stage-2 review (production-behavior 
 
 ## Deviation accounting
 
-- **Active deviation count at NAI-22 close (713d801)**: 14.
+- **Active deviation count at NAI-22 close (d578410)**: 14.
 - **Bundle 1**: 0 retired, 0 introduced.
 - **Bundle 2**: 0 retired, 0 introduced.
 - **Bundle 3**: 0 retired, 0 introduced.

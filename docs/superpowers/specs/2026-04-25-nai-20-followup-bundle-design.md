@@ -3,7 +3,7 @@
 - **Sub-spec**: NAI-20
 - **Date**: 2026-04-25
 - **Scope label**: C (cross-package follow-up bundle — `pkg/cache`, `pkg/script`, `pkg/coordgrid` (consumer-side only), `modules/world`; ~105 LOC production + ~250 LOC tests; closes 11 distinct follow-up entries across NAI-2/3/7/12/18/19)
-- **Predecessors**: NAI-19 (PATH B follow-up bundle) — last on `main` as `ce5b02d`
+- **Predecessors**: NAI-19 (PATH B follow-up bundle) — last on `main` as `02e24cd`
 - **TS source root**: `LostCityRS/Engine-TS`
 
 ## Motivation

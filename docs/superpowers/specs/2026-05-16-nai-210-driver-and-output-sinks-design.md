@@ -2,7 +2,7 @@
 
 **Status:** spec
 **Date:** 2026-05-16
-**Predecessor:** NAI-209 (`5eedafb`) — closes the binary writer pipeline
+**Predecessor:** NAI-209 (`c5beea6`) — closes the binary writer pipeline
 **TS pin:** `LostCityRS/RuneScriptTS @ b8c338801fbb72d294ff9576a58925a8d3f6de47`
 **Tech stack:** Go 1.26+ (`use-modern-go`)
 

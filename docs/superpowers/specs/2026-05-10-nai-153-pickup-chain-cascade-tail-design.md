@@ -2,7 +2,7 @@
 
 ## 1. Scope
 
-Successor to NAI-152 B2 (`06f4571`). B2 PRIMARY closed (handler + reach
+Successor to NAI-152 B2 (`0e298fd`). B2 PRIMARY closed (handler + reach
 landed); the resulting Java-client mindrune-pickup smoke surfaced two
 downstream blockers on the same pickup chain — both `[label,pickup_obj_floor]`
 and `[label,pickup_obj_table]` now crash on `OBJ_COUNT (opcode 3503) at pc=1`.
@@ -466,7 +466,7 @@ close commit with `Closes memory:` trailer per `close_commit_memory_trailer.md`.
   the smoke, NAI-115-D2 needs to surface. **Mitigation:** smoke gate
   explicitly excludes respawn from acceptance; close commit documents
   the carry-forward; route to NAI-154 if user requests respawn.
-- **R6 (low):** B2 smoke (06f4571) confirmed
+- **R6 (low):** B2 smoke (0e298fd) confirmed
   `[label,pickup_obj_floor]` AND `[label,pickup_obj_table]` both crash
   on OBJ_COUNT — content's pickup chain is wired and dispatching. If a
   content patch lands between B2 close and NAI-153 close that changes

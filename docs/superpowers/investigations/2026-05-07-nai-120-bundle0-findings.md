@@ -1,9 +1,9 @@
 # NAI-120 — Bundle 0 controller pre-flight findings
 
 **Date:** 2026-05-07
-**Spec:** `docs/superpowers/specs/2026-05-07-nai-120-combat-init-path-investigation-design.md` (commit `27203f7`)
-**Plan:** `docs/superpowers/plans/2026-05-07-nai-120-combat-init-stage1.md` (commit `e2d1803`)
-**HEAD at pre-flight:** `e2d1803` (≡ `0e8ffc5` for code-content; only docs added since NAI-119 close)
+**Spec:** `docs/superpowers/specs/2026-05-07-nai-120-combat-init-path-investigation-design.md` (commit `b020daa`)
+**Plan:** `docs/superpowers/plans/2026-05-07-nai-120-combat-init-stage1.md` (commit `50e3a7d`)
+**HEAD at pre-flight:** `50e3a7d` (≡ `de13459` for code-content; only docs added since NAI-119 close)
 
 This is the Bundle 0 deliverable per spec §4.5. Bundle 1 (Sonnet Explore audit subagent dispatch) consumes it to produce per-entry TS-source signature audit.
 
@@ -332,7 +332,7 @@ Each `%name` reference was looked up in `LostCityRS/Content/scripts/**/*.varp|.v
 
 ## 4. §9 risk register — final HEAD verification (Task 4)
 
-| Item | Status at HEAD `e2d1803` | Evidence |
+| Item | Status at HEAD `50e3a7d` | Evidence |
 |---|---|---|
 | **R1** ADD wired | ✅ | `opcode.go:434` + `handlers.go:27` |
 | **R2** BRANCH_* family wired | ✅ | Per spec write-time verification (`opcode.go:39-43,55-56` + `handlers.go:21-23` representative) |

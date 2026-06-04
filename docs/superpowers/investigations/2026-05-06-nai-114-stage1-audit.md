@@ -268,7 +268,7 @@ The binding is mechanically deterministic:
 
 ## 7. Controller HEAD-verification (post-subagent)
 
-**Verified at HEAD:** `e382a02` (Stage 1.1 commit).
+**Verified at HEAD:** `d81027b` (Stage 1.1 commit).
 
 Per `audit_subagent_fabrication.md` + `verify_implementer_claims.md`: every cited file:line, every "MISSING" claim, and the abort-path infrastructure citations were re-greped or re-read from a fresh controller pass.
 
@@ -278,7 +278,7 @@ Per `audit_subagent_fabrication.md` + `verify_implementer_claims.md`: every cite
 - **Abort path** (`pkg/script/runner.go:68-73`, `modules/world/script.go:111-122`) verified verbatim. `script.Execute` returns `fmt.Errorf("script %q: no handler for %s (opcode %d) at pc=%d", …)` with `s.Execution = Aborted`; `resumeOrFinish` logs warn and routes via `OnScriptFinishedOrAborted`.
 - **Sampled "OK" handler line numbers** (ANIM @ handlers_player.go:614, STAT @ :242, STAT_RANDOM @ :498, INV_ADD @ handlers_inv.go:294, INV_DEL @ :308, LOC_ADD @ handlers_loc.go:279, SWITCH @ handlers_array.go:52) — all verify exactly.
 - **TS MAP_LOCADDUNSAFE handler** at `Engine-TS/src/engine/script/handlers/ServerOps.ts:212-252` — verified exact range. Read confirms three-layer logic (WALL / GROUND / GROUND_DECOR), iterating `getAllLocsUnsafe()` of the coord's zone.
-- **Test sanity check:** `go test -count=1 -run TestSwitch ./pkg/script/...` → PASS at HEAD `e382a02`.
+- **Test sanity check:** `go test -count=1 -run TestSwitch ./pkg/script/...` → PASS at HEAD `d81027b`.
 
 ### Stale / corrected claims
 

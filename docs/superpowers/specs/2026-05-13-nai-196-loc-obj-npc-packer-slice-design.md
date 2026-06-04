@@ -1,7 +1,7 @@
 # NAI-196: `.loc` + `.obj` + `.npc` packer slice + TS-canonical ordering rewrite
 
 **Date**: 2026-05-13
-**Predecessor**: NAI-195 (`.enum`/`.inv`/`.mesanim`/`.struct` packer slice; closed at `ff80283`)
+**Predecessor**: NAI-195 (`.enum`/`.inv`/`.mesanim`/`.struct` packer slice; closed at `70f449a`)
 **Cohort identity**: First server+client+CRC config family — `.loc`, `.obj`, `.npc` all write to both `<serverOut>/<type>.{dat,idx}` AND the shared `<clientOut>/config` jagfile. Forcing function for retiring three accumulated ordering/jagfile deviations.
 
 ## 1. Goal

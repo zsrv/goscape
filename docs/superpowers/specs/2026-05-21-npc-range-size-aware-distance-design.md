@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-21
 **Scope:** M-shaped behavior fix at `handleNpcRange` (`pkg/script/handlers_npc.go:1114-1138`) — port TS `CoordGrid.distanceTo` semantics so size>1 NPCs compute Chebyshev distance from their nearest occupied tile rather than from origin.
-**Predecessor:** [[npc-param-unknown-param-close]] — closes the prior session arc. Working tree at HEAD `c83fc910`.
+**Predecessor:** [[npc-param-unknown-param-close]] — closes the prior session arc. Working tree at HEAD `f79412d5`.
 
 ## 1. Motivation
 

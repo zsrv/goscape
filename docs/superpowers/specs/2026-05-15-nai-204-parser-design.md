@@ -2,7 +2,7 @@
 
 ## 0. Pre-context: where this slice sits in the arc
 
-NAI-203 (closed at 771e036) shipped `pkg/pack/compiler/lexer/` — the full 58-token lexer plus a `TokenStream` with `LT/LA/Consume/Mark/Rewind` parity to antlr4ng's `CommonTokenStream`. After NAI-203, the next non-trivial step toward end-to-end `.rs2` → `script.dat/idx` compilation is the parser + AST: convert the lexer's token stream into an in-memory AST the type-checker (NAI-205) and bytecode emitter (NAI-206) can walk.
+NAI-203 (closed at 9b58200) shipped `pkg/pack/compiler/lexer/` — the full 58-token lexer plus a `TokenStream` with `LT/LA/Consume/Mark/Rewind` parity to antlr4ng's `CommonTokenStream`. After NAI-203, the next non-trivial step toward end-to-end `.rs2` → `script.dat/idx` compilation is the parser + AST: convert the lexer's token stream into an in-memory AST the type-checker (NAI-205) and bytecode emitter (NAI-206) can walk.
 
 The slice arc, unchanged from NAI-202 §12 and NAI-203 §0:
 

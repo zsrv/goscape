@@ -1512,7 +1512,7 @@ Expected: `12 OK / 0 ERR / 0 SKIP` (slice 5b touches no PackAll paths; this veri
 
 Dispatch the `feature-dev:code-reviewer` agent (foreground) with this prompt:
 
-> Whole-slice review of friends-server bridge slice 5b. Spec: `docs/superpowers/specs/2026-05-20-friends-server-bridge-slice5b-design.md`. Plan: `docs/superpowers/plans/2026-05-20-friends-server-bridge-slice5b-plan.md`. Range to review: `git log --oneline 15ddc2c3..HEAD` (all commits since the resume baseline).
+> Whole-slice review of friends-server bridge slice 5b. Spec: `docs/superpowers/specs/2026-05-20-friends-server-bridge-slice5b-design.md`. Plan: `docs/superpowers/plans/2026-05-20-friends-server-bridge-slice5b-plan.md`. Range to review: `git log --oneline 09c30067..HEAD` (all commits since the resume baseline).
 >
 > Focus on:
 > 1. Race-safety: confirm dispatcher goroutine never touches Player fields directly; all mutations go through relayActionQueue → tick drain. Spot any reads of currentTick / playerLoop / Player fields from non-tick goroutines.
@@ -1526,7 +1526,7 @@ Dispatch the `feature-dev:code-reviewer` agent (foreground) with this prompt:
 
 - [ ] **Step 4: Apply reviewer fix-ups (if any)**
 
-If the reviewer surfaces real issues, fix them in a single follow-up commit titled `world: slice 5b review fix-ups (whole-slice pass)` mirroring slice-5a's `145a857a` close pattern.
+If the reviewer surfaces real issues, fix them in a single follow-up commit titled `world: slice 5b review fix-ups (whole-slice pass)` mirroring slice-5a's `d3946e9b` close pattern.
 
 If no issues, skip to Step 5.
 

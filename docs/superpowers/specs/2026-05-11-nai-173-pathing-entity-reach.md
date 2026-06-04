@@ -4,7 +4,7 @@
 **Status:** Design
 **Tracker:** Retires `NAI-91-D-OPERABLE-CHEB-FALLBACK`
 **Predecessors:** NAI-91 (Loc shape-aware reach), NAI-152 B2 (Obj OR-chain on player; Obj-only on npc)
-**HEAD at design:** `5d16e9f` (top of main, post-NAI-172 close)
+**HEAD at design:** `9522eb1` (top of main, post-NAI-172 close)
 
 ## 1. Problem
 

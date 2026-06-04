@@ -3,7 +3,7 @@
 - **Sub-spec**: S7h
 - **Date**: 2026-04-24
 - **Scope label**: B (bundle — two sibling opcodes + login-side `lowMemory` plumbing; downstream client-packet writes deferred)
-- **Predecessors**: S7g (DB_FIND family) — last on `main` as `25bef29`
+- **Predecessors**: S7g (DB_FIND family) — last on `main` as `db1b18e`
 - **TS source root**: `LostCityRS/Engine-TS`
 
 ## Motivation
@@ -36,7 +36,7 @@ This is the same music-region-resolution script S7g just unblocked; next opcode 
 
 ## Explicitly out of scope
 
-- **PRELOADED music / CRC registry port.** goscape lacks the asset-load pipeline for `.mid` files and their CRC table (zero `rg PRELOADED` hits in-tree at HEAD=25bef29). Separate NAI-scoped sub-spec. Tracking tag in commit trailers: `NAI-16-midi-encoders`.
+- **PRELOADED music / CRC registry port.** goscape lacks the asset-load pipeline for `.mid` files and their CRC table (zero `rg PRELOADED` hits in-tree at HEAD=db1b18e). Separate NAI-scoped sub-spec. Tracking tag in commit trailers: `NAI-16-midi-encoders`.
 - **`OpMidiSong` / `OpMidiJingle` registration in `pkg/io/protocol/game/server/prot.go`.** Deliberately deferred with the encoder — declared-but-unused wire ops would trip the `dead_api_polish` review pattern. Landed together with the PRELOADED port.
 - **`reconnecting` field plumbing.** Parallel-but-independent session-flag plumbing gap (the field is declared on `player.go:165`, read at `player.go:390/399`, never written in the login flow). Not widened into S7h. Belongs in a dedicated session-flags sub-spec alongside `webClient`.
 - **`webClient` field plumbing.** Same posture as `reconnecting`; same deferred-note treatment.
@@ -283,7 +283,7 @@ func normalizeSongName(name string) string {
 // S7h-D1: the subsequent TS PRELOADED + PRELOADED_CRC lookup and
 // MidiSong(name, crc, length) write from TS is not yet ported.
 // goscape lacks the PRELOADED music registry (zero rg hits at
-// HEAD=25bef29). No client packet is sent. The
+// HEAD=db1b18e). No client packet is sent. The
 // TestPlaySongNoWriteOut absence-pin (player_script_test.go) escalates
 // this deviation when the write path is wired; retirement tracked as
 // NAI-16-midi-encoders.

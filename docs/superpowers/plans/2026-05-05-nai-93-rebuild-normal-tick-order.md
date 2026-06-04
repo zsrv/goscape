@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+ / TS reference at `LostCityRS/Engine-TS/src/engine/World.ts:992-1056` and `LostCityRS/Engine-TS/src/network/game/client/handler/ClientCheatHandler.ts:491-524` / Rust reference at `2004scape/rsbuf` branch 225 (per `rust_source_canonical_path` memory).
 
-**Spec:** `docs/superpowers/specs/2026-05-05-nai-93-rebuild-normal-tick-order-design.md` (commit `2493079`).
+**Spec:** `docs/superpowers/specs/2026-05-05-nai-93-rebuild-normal-tick-order-design.md` (commit `9888007`).
 
 ---
 

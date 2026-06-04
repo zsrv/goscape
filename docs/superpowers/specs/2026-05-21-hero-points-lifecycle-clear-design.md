@@ -1,7 +1,7 @@
 # Hero-points lifecycle clear-site sweep — spec
 
 **Status:** brainstormed 2026-05-21
-**Predecessor slice:** `[[hunt-huntvis-filter-close]]` (HEAD `74ea0fe5`)
+**Predecessor slice:** `[[hunt-huntvis-filter-close]]` (HEAD `971f2ca6`)
 **Origin:** carry-forward item #3 from predecessor — "Hero-points consumption (NAI-120 Bundle 2D)". Resume framing ("wire `HeroPoints.TopContributor()` into NPC death drop assignment") was inaccurate; brainstorming caught it. See §2.
 
 ## 1. Goal

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+ (project uses `iter.Seq` from Go 1.23+ stdlib). Existing packages: `pkg/zone`, `pkg/grid`, `pkg/coordgrid`, `modules/world`. No new third-party dependencies.
 
-**Predecessors:** NAI-27 closed at `ef9ed20`. Spec: `docs/superpowers/specs/2026-04-25-nai-28-zone-subscription-port-design.md` committed at `9d0b636`.
+**Predecessors:** NAI-27 closed at `c10cc7b`. Spec: `docs/superpowers/specs/2026-04-25-nai-28-zone-subscription-port-design.md` committed at `513830f`.
 
 **Build/test commands** (per `CLAUDE.md`):
 - Build: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go build -trimpath ./...`

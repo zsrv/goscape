@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go; `pkg/script` runtime; `modules/world/npc_masks.go` for concrete NPC output methods; pre-existing `rsbuf` NPC-info mask encoder.
 
-**Spec:** [`docs/superpowers/specs/2026-04-21-runescript-s6c-npc-mutating-ops-design.md`](../specs/2026-04-21-runescript-s6c-npc-mutating-ops-design.md) (commits `02ce2d8` + `19cb19e`)
+**Spec:** [`docs/superpowers/specs/2026-04-21-runescript-s6c-npc-mutating-ops-design.md`](../specs/2026-04-21-runescript-s6c-npc-mutating-ops-design.md) (commits `cbb6a59` + `41a511e`)
 
 ---
 

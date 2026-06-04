@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+. Touches `pkg/script` (state, helpers, handlers, new iterator file, dispatch) and `modules/world/server_varp.go` (WorldVars impl). Pure additive; no protocol-layer changes; no new dependencies.
 
-**Spec:** `docs/superpowers/specs/2026-05-10-nai-154-obj-find-family-design.md` (commit `1324502`).
+**Spec:** `docs/superpowers/specs/2026-05-10-nai-154-obj-find-family-design.md` (commit `e3aff42`).
 
 **Cadence:** Cadence B (mid-band, ~350-450 LOC) — 5 sequential T-tasks dispatched as Sonnet implementer subagents per `superpowers:subagent-driven-development`; single combined Sonnet reviewer at end (NOT per-task two-stage). Implementer runs MUST be on Sonnet per `superpowers_code_reviewer_model`. `/clear` between plan and impl per `superpowers_clear_between_spec_and_impl`.
 
@@ -36,7 +36,7 @@
 
 ## Setup
 
-- [ ] **Step S.1: Verify baseline at HEAD `ee87ed0`**
+- [ ] **Step S.1: Verify baseline at HEAD `a47e9cf`**
 
 Run:
 ```bash

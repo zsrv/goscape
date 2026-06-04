@@ -3,7 +3,7 @@
 - **Sub-spec**: S7i
 - **Date**: 2026-04-24
 - **Scope label**: A (compressed cadence — combined spec+plan; ≤25 LOC delta; no formal review gate)
-- **Predecessors**: S7h (MIDI_SONG/JINGLE + `lowMemory` plumbing) — last on `main` as `9f6be9a`
+- **Predecessors**: S7h (MIDI_SONG/JINGLE + `lowMemory` plumbing) — last on `main` as `327dc6a`
 - **TS source root**: `LostCityRS/Engine-TS`
 
 ## Motivation

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+, `math/rand/v2`, `log/slog`, `encoding/base64`. TS source canonical path: `LostCityRS/Engine-TS`.
 
-**Predecessor:** NAI-72 (HEAD `5e09063`). Spec: `docs/superpowers/specs/2026-05-02-nai-73-event-tracking-input-recording-design.md` (commit `1a081a2`).
+**Predecessor:** NAI-72 (HEAD `c33a2c2`). Spec: `docs/superpowers/specs/2026-05-02-nai-73-event-tracking-input-recording-design.md` (commit `e47a411`).
 
 **Constants** (defined once in `input_tracking.go`):
 - `inputTrackingRate = 200` — ticks between tracking sessions
@@ -16,7 +16,7 @@
 - `inputTrackingRemainingDataUploadLeeway = 16` — grace ticks for trailing client data
 - `inputTrackingJitterRange = 15` — `±15` ticks of jitter on first-scheduled start
 
-**Premises verified at HEAD `5e09063`** (per `controller_preflight.md`):
+**Premises verified at HEAD `c33a2c2`** (per `controller_preflight.md`):
 
 ```
 $ rg -n "InputTracking|p\.input\b" modules/         (no hits — subsystem absent)

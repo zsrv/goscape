@@ -2,7 +2,7 @@
 
 ## Motivation
 
-Five script-VM opcodes are declared in `pkg/script/opcode.go` but have no handler registered in `pkg/script/handlers.go` at HEAD `ecc1991`. Classic `protocol_stub_not_completed.md` shape: tests pass against the missing dispatch entries because no test exercises the script-VM dispatch path for those opcode numbers.
+Five script-VM opcodes are declared in `pkg/script/opcode.go` but have no handler registered in `pkg/script/handlers.go` at HEAD `ddfd9ac`. Classic `protocol_stub_not_completed.md` shape: tests pass against the missing dispatch entries because no test exercises the script-VM dispatch path for those opcode numbers.
 
 The named four from NAI-34 follow-up #4 (`From NAI-34 / Items deferred to future sub-specs / item 4 — "the other 4 NAI-33-deferred stubs"`):
 
@@ -30,7 +30,7 @@ Post-NAI-35 behavior: all 6 opcodes execute TS-faithfully; aggressive-NPC behavi
   - `src/engine/script/handlers/PlayerOps.ts:1215-1223` (HUNTALL)
   - `src/engine/script/handlers/PlayerOps.ts:1226-1233` (HUNTNEXT)
   - `src/engine/script/handlers/ServerOps.ts:254-374` (MAP_FINDSQUARE)
-- Existing helpers (verified at HEAD ecc1991):
+- Existing helpers (verified at HEAD ddfd9ac):
   - `paramLookup` at `pkg/script/handlers_config.go:17` (delegates type-aware push for `nc_param`, `lc_param`, `oc_param`)
   - `requireActiveNpc` at `pkg/script/handlers_npc.go:72`
   - `checkHuntVis` (referenced in state.go:64-66 doc-comments; verify exact location at plan-write)

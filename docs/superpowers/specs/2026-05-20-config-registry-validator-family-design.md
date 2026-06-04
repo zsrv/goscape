@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-20
 **Predecessor close memory:** `[[setgender-genderval-port-close]]`
-**Branch base:** `main` at `a496ad48`
+**Branch base:** `main` at `6f078e25`
 
 ## 1. Goal
 

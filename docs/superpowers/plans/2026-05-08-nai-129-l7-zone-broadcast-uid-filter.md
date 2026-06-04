@@ -568,7 +568,7 @@ After all tasks pass, emit the resume prompt for the user, asking them to:
 - [ ] **Step 6: Final close commit (after smoke confirms loot visible)**
 
 If smoke passes, write a close commit citing:
-- The two pre-fix smoke G6 lines from `6599a15` (verbatim).
+- The two pre-fix smoke G6 lines from `67256b2` (verbatim).
 - The two post-fix smoke G6 lines (same shape, plus client-visible loot).
 - A `Closes memory:` trailer per `close_commit_memory_trailer` listing any non-derivable lessons (e.g. UID-vs-slot identifier-space audit pattern, if novel).
 

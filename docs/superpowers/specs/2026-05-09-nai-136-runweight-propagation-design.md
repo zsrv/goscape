@@ -2,7 +2,7 @@
 
 **Status:** spec
 **Date:** 2026-05-09
-**Predecessors:** NAI-135 (run-mode visible-effect wiring) closed at `11d98a3`. NAI-135 carryover queue named this candidate verbatim: "weight not propagated from inventory."
+**Predecessors:** NAI-135 (run-mode visible-effect wiring) closed at `7e2b59f`. NAI-135 carryover queue named this candidate verbatim: "weight not propagated from inventory."
 **Tech stack:** Go 1.26+
 **Cadence:** Compressed (combined spec+plan, single-dispatch implementer + final Sonnet code-reviewer per `compressed_cadence`).
 
@@ -14,7 +14,7 @@ Port TS `Player.calculateRunWeight` + the `NetworkPlayer.updateInvs` runweight-t
 2. The "Weight Carried" UI reflects the current `runweight / 1000` kg, on the same tick as the inventory change.
 3. The drain branch of `(*Player).updateEnergy` (NAI-135 `modules/world/player_run.go:38`) reads a meaningful `p.runweight` instead of always-zero, restoring TS-faithful run-energy drain rates.
 
-Closes the NAI-135 PRIMARY-met / SECONDARY-residual: `p.runweight` is only ever assigned in tests at HEAD `11d98a3`. The drain-formula tests pin behavior at fixed `runweight` values, but the production path never recomputes `p.runweight` after an inventory change, so the UI shows 0 kg and drain stays at the lowest-weight rate.
+Closes the NAI-135 PRIMARY-met / SECONDARY-residual: `p.runweight` is only ever assigned in tests at HEAD `7e2b59f`. The drain-formula tests pin behavior at fixed `runweight` values, but the production path never recomputes `p.runweight` after an inventory change, so the UI shows 0 kg and drain stays at the lowest-weight rate.
 
 ## 2. TS source — anchored
 
@@ -177,7 +177,7 @@ func (p *Player) calculateRunWeight() {
 
 ### 5.3 updateInvs extension
 
-**`modules/world/player.go`** — replace the body of `updateInvs` (currently lines 778-815). Diff against HEAD `11d98a3`:
+**`modules/world/player.go`** — replace the body of `updateInvs` (currently lines 778-815). Diff against HEAD `7e2b59f`:
 
 ```go
 func (p *Player) updateInvs() {
@@ -332,7 +332,7 @@ Equip a weighted non-stackable item from inventory (e.g., bronze axe 2275g, or b
 
 - `compressed_cadence` — single combined spec+plan doc; one implementer dispatch; one Sonnet code-reviewer at end.
 - `bundle0_short_circuits_stage1_audit` — spec §5 already line-level binding to TS source; no Stage 1 audit subagent.
-- `controller_preflight` — spec §7 enumerates every premise verified at HEAD `11d98a3`; controller will re-grep before dispatch.
+- `controller_preflight` — spec §7 enumerates every premise verified at HEAD `7e2b59f`; controller will re-grep before dispatch.
 - `verify_implementer_claims` — fresh `go test ./... -count=1 -race` post-commit.
 - `defensive_gate_doc_comment_label` — D1/D2 labeled in handler doc-comments + commit body.
 - `superpowers_code_reviewer_model` — final reviewer Sonnet, never Opus.
@@ -345,8 +345,8 @@ Equip a weighted non-stackable item from inventory (e.g., bronze axe 2275g, or b
 
 ## 11. Cross-references
 
-- **Predecessor:** NAI-135 close `11d98a3`. NAI-135 shipped the `updateEnergy` drain branch that reads `p.runweight`; NAI-136 makes that read produce a meaningful value.
-- **Adjacent:** NAI-118 close `9de73a7` last touched `Player.updateInvs` (lazy-alloc fix). NAI-136 extends the same method body — the NAI-118 contract (route through `srv.invLookup.Get`) is preserved.
+- **Predecessor:** NAI-135 close `7e2b59f`. NAI-135 shipped the `updateEnergy` drain branch that reads `p.runweight`; NAI-136 makes that read produce a meaningful value.
+- **Adjacent:** NAI-118 close `14ddf45` last touched `Player.updateInvs` (lazy-alloc fix). NAI-136 extends the same method body — the NAI-118 contract (route through `srv.invLookup.Get`) is preserved.
 - **Sibling:** NAI-117 close shipped `OpUpdateRunEnergy` + `sendUpdateRunEnergy` (the exact template for §5.1).
 - **Carry-forward (NAI-137+ brainstorm queue, in priority order):**
   - NAI-135 carryover (still queued): run-toggle UI varp binding investigation.

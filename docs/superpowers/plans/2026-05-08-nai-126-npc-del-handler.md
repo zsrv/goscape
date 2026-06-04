@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+.
 
-**Spec:** `docs/superpowers/specs/2026-05-08-nai-126-npc-del-handler-design.md` (`a52ed90`).
+**Spec:** `docs/superpowers/specs/2026-05-08-nai-126-npc-del-handler-design.md` (`1ba04c8`).
 
 **Commit ordering:** Bundle 1 first (smoke-binding), then Bundle 2, then Bundle 3 — keeps cascade attribution clean per `cascade_theory_smoke_binding`.
 
@@ -29,7 +29,7 @@
 - Modify: `pkg/script/handlers_npc_test.go` (extend `mockNpc` struct + getter)
 - Modify: `pkg/script/handlers_player_test.go` (add `Respawnrate()` to `mockActiveNpc`)
 
-The 3 ActiveNpc implementers at HEAD `a5be9b6` are: `*Npc` (compile-time asserted at `npc_script.go:11`), `mockNpc` (`handlers_npc_test.go:199`), and `mockActiveNpc` (in `handlers_player_test.go`). All three must implement `Respawnrate()` or the interface compile-time assertion at `npc_script.go:11` and the package builds will fail.
+The 3 ActiveNpc implementers at HEAD `1adaf35` are: `*Npc` (compile-time asserted at `npc_script.go:11`), `mockNpc` (`handlers_npc_test.go:199`), and `mockActiveNpc` (in `handlers_player_test.go`). All three must implement `Respawnrate()` or the interface compile-time assertion at `npc_script.go:11` and the package builds will fail.
 
 - [ ] **Step 1: Add `Respawnrate() int` to the `ActiveNpc` interface**
 
@@ -430,7 +430,7 @@ git commit --no-gpg-sign -m "fix(nai-126): T1.4 — handleNpcDel handler + dispa
 **Files:**
 - Create: `pkg/objtype/paramtype_test.go`
 
-Verified absent at HEAD `a5be9b6`:
+Verified absent at HEAD `1adaf35`:
 ```bash
 ls pkg/objtype/paramtype_test.go 2>&1 | head
 ```
@@ -539,7 +539,7 @@ git commit --no-gpg-sign -m "test(nai-126): T2.1 — paramtype DefaultInt sign-e
 ### Task 2.2: Convert `DefaultInt` to `int32` (GREEN)
 
 **Files:**
-- Modify: `pkg/objtype/paramtype.go` (lines 111, 121, 183 per HEAD `a52ed90`)
+- Modify: `pkg/objtype/paramtype.go` (lines 111, 121, 183 per HEAD `1ba04c8`)
 
 - [ ] **Step 1: Re-grep to confirm line numbers at HEAD**
 
@@ -687,7 +687,7 @@ git commit --no-gpg-sign -m "refactor(nai-126): T3.1 — S1001 copy-loops → co
 **Files:**
 - Modify: `pkg/script/handlers_npc.go` (lines 932, 969-971, 1003-1005)
 
-Three minmax sites at HEAD `a52ed90`:
+Three minmax sites at HEAD `1ba04c8`:
 - Line 932: `if dx > dz { s.PushInt(dx) } else { s.PushInt(dz) }` (NPC_RANGE — max)
 - Lines 969-971: `if added > 255 { added = 255 }` (NPC_STATADD — min clamp)
 - Lines 1003-1005: `if subbed < 0 { subbed = 0 }` (NPC_STATSUB — max clamp)

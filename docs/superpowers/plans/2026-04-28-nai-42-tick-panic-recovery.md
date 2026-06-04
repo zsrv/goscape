@@ -6,7 +6,7 @@
 
 **Architecture:** Two helpers in a new file (`tick_recovery.go`): `recoverPlayer` (per-player, force-disconnects) and `recoverWorldScript` (logs only). Each wrap site uses `defer <helper>(...)` inside a per-iteration closure. Recovery action mirrors TS `World.ts:651-657` / `736-742` (set `requestLogout` + close `client.conn`).
 
-**Tech Stack:** Go 1.26+ (per `go_version.md`; use `use-modern-go` skill). TS source: `LostCityRS/Engine-TS` only per `ts_source_canonical_path.md`. HEAD baseline: `d0b897c` (NAI-42 spec commit).
+**Tech Stack:** Go 1.26+ (per `go_version.md`; use `use-modern-go` skill). TS source: `LostCityRS/Engine-TS` only per `ts_source_canonical_path.md`. HEAD baseline: `47e905c` (NAI-42 spec commit).
 
 ---
 
@@ -33,7 +33,7 @@ Spec at `docs/superpowers/specs/2026-04-28-nai-42-tick-panic-recovery-design.md`
 
 Per `controller_preflight.md`: re-grep each premise against HEAD before dispatching each task.
 
-| Check | Command | Expected at HEAD `d0b897c` |
+| Check | Command | Expected at HEAD `47e905c` |
 |-------|---------|----------------------------|
 | `Server.log` field | `rg -n '^\s+log\s+\*slog\.Logger' modules/world/server.go` | `server.go:48` |
 | `Player.requestLogout` field | `rg -n '\brequestLogout\b' modules/world/player.go` | `player.go:180` |

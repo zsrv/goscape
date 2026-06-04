@@ -3,7 +3,7 @@
 ## Motivation
 
 Three script-VM opcodes are declared in `pkg/script/opcode.go` but have no
-handler registered in `pkg/script/handlers.go` at HEAD `94a07fb` (NAI-38
+handler registered in `pkg/script/handlers.go` at HEAD `e18064d` (NAI-38
 close):
 
 - **HINT_COORD** (opcode 2027, declared at `pkg/script/opcode.go:127`) —
@@ -17,7 +17,7 @@ close):
   zero pops; calls `activePlayer.stopHint()`. TS `PlayerOps.ts:873-875`.
 
 The three opcodes are sibling stubs of HINT_NPC (opcode 2028), which
-shipped at NAI-37 T6 (commit `ac8cd4e`). NAI-37 explicitly tagged the
+shipped at NAI-37 T6 (commit `f880049`). NAI-37 explicitly tagged the
 remaining encoder branches as a deferred follow-up under tracker entry
 `NAI-37-D-HINTARROW-PARTIAL-ENCODER` (declared at NAI-37 spec:184; tagged
 at three code-tree sites — `pkg/script/handlers_player.go:842`,
@@ -27,7 +27,7 @@ handlers and the four remaining `HintArrowEncoder.ts` branches (type=2..6
 TILE, type=10 PL, type=-1 STOP).
 
 **Substrate work**: HINT_PL reads `state.activePlayer2.slot` in TS, but
-goscape has no production-wired secondary-player slot at HEAD `94a07fb`.
+goscape has no production-wired secondary-player slot at HEAD `e18064d`.
 `PtrActivePlayer2` is declared at `pkg/script/pointer.go:9` with **zero
 consumers** — no `Self2`/`ActivePlayer2` field on `ScriptState`, no
 `requireActivePlayer2` validator, no producer wiring. TS sets
@@ -73,7 +73,7 @@ ported in a future sub-spec.
     `HintArrow(-1, 0, 0, 0, 0, 0)`)
   - `src/engine/script/ScriptRunner.ts:84-87` (target-dispatch seed for
     `_activePlayer2` when self=Player AND target=Player)
-- Existing infrastructure (verified at HEAD `94a07fb`):
+- Existing infrastructure (verified at HEAD `e18064d`):
   - `OpHintArrow = Op{Opcode: 25, PayloadSize: 6}` at
     `pkg/io/protocol/game/server/prot.go:46`. PayloadSize already covers
     all 4 remaining branches; no protocol-layer change.
@@ -280,7 +280,7 @@ aren't masked by the handler-level pop/dispatch path.
 
 **C. Wire-format byte-pin tests
 (`modules/world/player_script_test.go`)** — sibling of the NAI-37 T5
-HintNpc byte-pin at e42acb6. One per (*Player) method, each pinning all
+HintNpc byte-pin at 8cd68c7. One per (*Player) method, each pinning all
 6 payload bytes against the captured wire output.
 
 | Test | Asserts |
@@ -369,4 +369,4 @@ After NAI-39 closes:
 
 ## HEAD baseline
 
-`94a07fb` (NAI-38 close).
+`e18064d` (NAI-38 close).

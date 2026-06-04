@@ -1,7 +1,7 @@
 # NAI-199: specials slice — `category.dat` + `frame_del.dat` writers
 
 **Date**: 2026-05-14
-**Predecessor**: NAI-198 (`.hunt` + `.dbtable` + `.dbrow` packer slice; closed at `5a541d1`; per-config layer 18/18 complete)
+**Predecessor**: NAI-198 (`.hunt` + `.dbtable` + `.dbrow` packer slice; closed at `fdc3f8e`; per-config layer 18/18 complete)
 **Cohort identity**: The two PackShared writers that sit OUTSIDE the per-config dispatch table (TS `tools/pack/config/PackShared.ts:340-388`). Both are server-only `.dat` outputs with no `.idx` sibling, no client-jagfile contribution, and no per-config `readConfigs(...)` plumbing. They consume already-loaded `PackFile` registries (`CategoryPack`, `AnimPack`) plus — for `frame_del` — raw `.frame` model files. Distinct dispatch shape from NAI-192..198.
 
 **Pre-context correction**: the user's dispatch note framed `frame_del` as "writes to client jag". Audit of `PackShared.ts:354-388` confirms `frame_del.dat` saves to `data/pack/server/frame_del.dat` only (no `jag.write` call). Both specials are server-only. Spec proceeds with TS-faithful server-only routing for both.

@@ -1,6 +1,6 @@
 # NAI-112 Stage 1 — Tutorial-tab-click chatbox-advance audit
 
-**Audit subagent:** Sonnet (Explore, read-only); dispatched per plan §2.2 at HEAD `ab52a7d`.
+**Audit subagent:** Sonnet (Explore, read-only); dispatched per plan §2.2 at HEAD `fbfa0c8`.
 **Controller HEAD-verification:** complete; all goscape file:line citations and TS file:line citations re-read at HEAD; binary `script.dat` independently re-extracted (Python) confirming the audit's `[tutorial,_]` LookupKey=159 claim.
 
 ---
@@ -146,7 +146,7 @@ User-launched smoke disambiguates:
 
 ## "Verified at HEAD" claims for controller spot-check
 
-Goscape (verified by controller at HEAD `ab52a7d`):
+Goscape (verified by controller at HEAD `fbfa0c8`):
 - `modules/world/handler_interface.go:138-149` — `handleTutClickSide`: `GetByTriggerSpecific(TriggerTutorial, -1, -1)`; `runScript(sf, p, nil, true, nil, nil)`; gate `tab < 0 || tab > 13`. ✅
 - `pkg/script/provider.go:145-153` — `GetByTriggerSpecific(t, -1, -1)` returns `byKey[uint32(trigger)]` (global tier; no fallback). ✅
 - `pkg/script/provider.go:100-102` — `if f.LookupKey != 0xFFFFFFFF { p.byKey[f.LookupKey] = f }`. ✅
@@ -177,7 +177,7 @@ All audit-claimed evidence verified at HEAD. The static refutation of H1-H5 stan
 
 ## Bundle 1b — runtime evidence (smoke 2026-05-06)
 
-User-launched goscape + Java client rev-225 against instrumented HEAD `e348e34`. User logged in fresh (LOGIN_RESULT_NEW_PLAYER), walked through Tutorial Island chatbox steps (Survival Expert dialog, opcode 235 RESUME_PAUSEBUTTON repeated), then clicked the inventory tab (^tab_inventory=3) when prompted by "Click on the flashing backpack icon to the …".
+User-launched goscape + Java client rev-225 against instrumented HEAD `f76c2da`. User logged in fresh (LOGIN_RESULT_NEW_PLAYER), walked through Tutorial Island chatbox steps (Survival Expert dialog, opcode 235 RESUME_PAUSEBUTTON repeated), then clicked the inventory tab (^tab_inventory=3) when prompted by "Click on the flashing backpack icon to the …".
 
 ### Server-boot byKey enumeration (excerpt — 21 global-tier registrations total)
 
@@ -239,9 +239,9 @@ Stage 2 plan should be its own audit-then-fix sub-spec, not a single-shot fix; t
 
 ---
 
-## Stage 2.1 — runtime evidence (smoke 2026-05-06 at HEAD `f0d2ab1`)
+## Stage 2.1 — runtime evidence (smoke 2026-05-06 at HEAD `3b37ffc`)
 
-User-launched smoke against the Bundle 1 instrumentation (`f0d2ab1`). Java client rev-225, fresh account (`LOGIN_RESULT_NEW_PLAYER`), walk through Survival Expert dialog to "Click on the flashing backpack icon to the …", click inventory tab.
+User-launched smoke against the Bundle 1 instrumentation (`3b37ffc`). Java client rev-225, fresh account (`LOGIN_RESULT_NEW_PLAYER`), walk through Survival Expert dialog to "Click on the flashing backpack icon to the …", click inventory tab.
 
 **Visible client behavior:** chatbox does NOT advance to "Cut down a tree"; inventory side panel does NOT display the bronze axe + tinderbox. Symptom matches NAI-110 close-smoke residual.
 
@@ -297,19 +297,19 @@ Stage 2.2 fix routes to: **Task 4c** of plan `2026-05-06-nai-112-stage2-tutorial
 
 ---
 
-## Stage 2.2 fix shipped + first final smoke (2026-05-06 at HEAD `94c879d`)
+## Stage 2.2 fix shipped + first final smoke (2026-05-06 at HEAD `b362d9b`)
 
-Stage 2.2 fix landed at `a69d44a` (TS-fidelity reorder fixup at `4ee6298`) and Bundle 3 instrumentation revert at `94c879d`.
+Stage 2.2 fix landed at `241511d` (TS-fidelity reorder fixup at `aa4fe03`) and Bundle 3 instrumentation revert at `b362d9b`.
 
-**First final smoke against `94c879d`:** symptom unchanged. Both chatbox-advance and inventory-side-panel still broken to the user. With instrumentation reverted, the trace was uninformative — TUT_CLICKSIDE arrived but no logs disambiguated whether the script ran, whether the OpenTutorial fix path was hit, or whether the inventory-side issue was downstream of TUT_OPEN re-emit.
+**First final smoke against `b362d9b`:** symptom unchanged. Both chatbox-advance and inventory-side-panel still broken to the user. With instrumentation reverted, the trace was uninformative — TUT_CLICKSIDE arrived but no logs disambiguated whether the script ran, whether the OpenTutorial fix path was hit, or whether the inventory-side issue was downstream of TUT_OPEN re-emit.
 
 Per `smoke_unchanged_means_multiple_blockers`: re-open Stage 2.1 with smoke evidence. New disambiguation: H6.c-α (client ignores duplicate `TUT_OPEN(com)`), H6.c-β (separate inventory divergence per the original spec note), H6.c-γ (fix didn't land at runtime).
 
 ---
 
-## Bundle 1.5 instrumentation + second final smoke (2026-05-06 at HEAD `3a8c85a`)
+## Bundle 1.5 instrumentation + second final smoke (2026-05-06 at HEAD `b5165d6`)
 
-Re-instrumented four sites for one disambiguation cycle: `handleTutClickSide` entry/lookup/postScript; `Player.OpenTutorial` post-writeOut; `Player.CloseTutorial` post-writeOut; `Player.IfSetTab` entry. Reverted at `7633304` after the smoke trace bound the residual.
+Re-instrumented four sites for one disambiguation cycle: `handleTutClickSide` entry/lookup/postScript; `Player.OpenTutorial` post-writeOut; `Player.CloseTutorial` post-writeOut; `Player.IfSetTab` entry. Reverted at `8eb6989` after the smoke trace bound the residual.
 
 **Second final smoke (click event at `09:46:56.611`):**
 
@@ -332,7 +332,7 @@ TUT_CLICKSIDE postScript tab=3
 
 ## Final binding (revised)
 
-**NAI-112 PRIMARY (chatbox-advance / `[tutorial,_]` branch dispatch correct, TUT_OPEN wire suppressed): H6.c — TUT_OPEN unconditional re-emit divergence.** Smoke-confirmed at HEAD `94c879d` second smoke 2026-05-06 → chatbox advances to "Cut down a tree" after inventory-tab click.
+**NAI-112 PRIMARY (chatbox-advance / `[tutorial,_]` branch dispatch correct, TUT_OPEN wire suppressed): H6.c — TUT_OPEN unconditional re-emit divergence.** Smoke-confirmed at HEAD `b362d9b` second smoke 2026-05-06 → chatbox advances to "Cut down a tree" after inventory-tab click.
 
 **NAI-112 SECONDARY (inventory side panel doesn't display): H6.c-β — separate inventory wire-sync divergence.** Surface unknown at this stage; needs its own brainstorm + instrumentation pass on the `inv_add` → UPDATE_INV* path. Routes to **NAI-113** as a fresh sub-spec — not downstream of the H6.c TUT_OPEN fix; not a cascade residual; an independent gap surfaced by the same user-visible symptom.
 

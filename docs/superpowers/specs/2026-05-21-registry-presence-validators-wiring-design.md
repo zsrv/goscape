@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-21
 **Predecessor close memory:** `[[doc-comment-sweep-close]]` (slice 2 of 4-sequential-mini-slices bundle); validator-family precedent: `[[config-registry-validator-family-close]]`
-**Branch base:** `main` at `75a1ad0b`
+**Branch base:** `main` at `b380f52c`
 
 ## 1. Goal
 
@@ -81,7 +81,7 @@ nt := s.Configs.NpcType(id)  // guaranteed non-nil
 
 ## 5. Site enumeration
 
-All line numbers verified at brainstorm time against `HEAD=75a1ad0b`. Per the predecessor `[[doc-comment-sweep-close]]` non-obvious finding #1, re-verify before commit if any in-flight edit lands first.
+All line numbers verified at brainstorm time against `HEAD=b380f52c`. Per the predecessor `[[doc-comment-sweep-close]]` non-obvious finding #1, re-verify before commit if any in-flight edit lands first.
 
 ### 5.1 NC_* + NPC_PARAM family — 9 sites in `handlers_config.go` (Task 1)
 
@@ -154,7 +154,7 @@ Documented for audit completeness. NO code change at these sites; T4 OPTIONALLY 
 
 ### 7.1 New validator unit test
 
-**`TestCheckObjType`** in `handlers_obj_test.go` — sibling-location to `checkObjType` per file-pairing convention (predecessor T1 reviewer Minor finding `1cd0e8ee` corrected validator unit tests to their def-file's paired test file).
+**`TestCheckObjType`** in `handlers_obj_test.go` — sibling-location to `checkObjType` per file-pairing convention (predecessor T1 reviewer Minor finding `fed7bf02` corrected validator unit tests to their def-file's paired test file).
 
 Mirror `TestCheckNpcType` at `handlers_npc_test.go:55` exactly: 4 sub-cases (valid id / unknown id / negative id / nil Configs).
 

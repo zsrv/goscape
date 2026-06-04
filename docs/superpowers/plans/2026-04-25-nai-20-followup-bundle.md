@@ -8,9 +8,9 @@
 
 **Tech Stack:** Go 1.26+; existing packages `pkg/cache`, `pkg/coordgrid`, `pkg/script`, `modules/world`. All `go` invocations prefixed with `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache`. All commits use `--no-gpg-sign`.
 
-**Spec:** `docs/superpowers/specs/2026-04-25-nai-20-followup-bundle-design.md` (commit `e80e8ee`).
+**Spec:** `docs/superpowers/specs/2026-04-25-nai-20-followup-bundle-design.md` (commit `154c352`).
 
-**Predecessor HEAD:** `ce5b02d` (NAI-19 closed).
+**Predecessor HEAD:** `02e24cd` (NAI-19 closed).
 
 **Plan-time TS verification (Task 5)**: TS source reads at TS Npc.ts:651-654, 657-673, 676, 751-754, 780-790, 821-829 confirm only **3 of 7 candidate sites** require rewiring; 4 sites preserve `DistanceToSW` per TS-faithful gate. See Task 5 disposition table for site-by-site decision.
 
@@ -1577,7 +1577,7 @@ After all 5 task commits land and pass:
 - [ ] **Step 1: Two-stage final whole-impl review**
 
 Dispatch fresh subagents:
-1. **Stage 1 — code quality**: `superpowers:code-reviewer` on the full diff `ce5b02d..HEAD`. Focus: dead code, unused imports, comment freshness, helper API ergonomics, test redundancy.
+1. **Stage 1 — code quality**: `superpowers:code-reviewer` on the full diff `02e24cd..HEAD`. Focus: dead code, unused imports, comment freshness, helper API ergonomics, test redundancy.
 2. **Stage 2 — TS fidelity**: `feature-dev:code-reviewer` on the full diff. Focus: each TS line ref cited in spec/plan reads correctly at HEAD; size-quirk preservation (TS subject-width-on-both-args); deviation-count invariant (16 active, unchanged).
 
 - [ ] **Step 2: Apply review polish (if any)**

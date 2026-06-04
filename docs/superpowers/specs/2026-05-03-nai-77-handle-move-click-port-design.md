@@ -3,7 +3,7 @@
 **Date:** 2026-05-03
 **Status:** Spec
 **Branch:** main
-**HEAD at spec-write:** `ed8724d` (NAI-76 close)
+**HEAD at spec-write:** `1505bfa` (NAI-76 close)
 
 ---
 
@@ -247,7 +247,7 @@ if s.cfg.WalkTriggerSetting != WalkTriggerSettingPlayerpacket {
 
 | # | Risk | Status | Mitigation |
 |---|------|--------|------------|
-| R1 | `ClearPendingAction → CloseModal(true)` semantics: TS uses immediate close (not deferred via `requestModalClose`). Goscape's `CloseModal` (player_script.go:674) IS immediate per inspection at spec-write — modalState set to None synchronously and IF_CLOSE triggers fire inline. | **VERIFIED at spec-write** (HEAD `ed8724d`) | Re-verify at plan-author + implementer-dispatch. No code change. |
+| R1 | `ClearPendingAction → CloseModal(true)` semantics: TS uses immediate close (not deferred via `requestModalClose`). Goscape's `CloseModal` (player_script.go:674) IS immediate per inspection at spec-write — modalState set to None synchronously and IF_CLOSE triggers fire inline. | **VERIFIED at spec-write** (HEAD `1505bfa`) | Re-verify at plan-author + implementer-dispatch. No code change. |
 | R2 | Wire payload between MOVE_GAMECLICK and MOVE_OPCLICK is identical (opClick comes from prot, not payload). | **VERIFIED at spec-write** via `MoveClickDecoder.ts:28`. | None. |
 | R3 | Per-tick fallback insertion phase choice: TS L635-641 sits in `World.ts` per-player tick after `pathToTarget` and before post-step interact, but only fires for players whose `pathToTarget` branch did NOT `continue`. In TS this means it runs whether or not the player has a target. Goscape's `processInteraction` is target-gated (returns early when `p.target == nil` per `interaction.go:162-166`), so embedding the fallback there would skip target-less players — that's WRONG for click-away+walk where there's no target. The fallback likely needs to be a new per-player phase in `tick.go`, called alongside or just after `processInteractions`. | OPEN | Plan-author re-reads `processInteraction` end-to-end + the tick-driver phase ordering before codifying. If natural goscape phase doesn't align with TS, open `NAI-77-D-WALKTRIGGER-FALLBACK-PHASE-CHOICE` deviation with a doc-comment cross-cite. |
 | R4 | `processWalktrigger` is a method on `*Player` and only fires under specific gates (delayed, !protectedScriptActive, etc. per `interaction.go:282`). Tests must respect these gates. | LOW | Test fixtures use the `interaction_test.go:694` template which sets up a non-delayed, non-protected player. |
@@ -258,7 +258,7 @@ if s.cfg.WalkTriggerSetting != WalkTriggerSettingPlayerpacket {
 
 ## 8. Open Questions
 
-None at spec-time. All premises grep-verified at HEAD `ed8724d`.
+None at spec-time. All premises grep-verified at HEAD `1505bfa`.
 
 ---
 
@@ -322,7 +322,7 @@ is the only candidate for opening a tracked deviation.
   cleanly into two sub-specs because their roots are in independent
   network-handler dispatch paths.
 - `controller_preflight.md` — all premises grep-verified at HEAD
-  `ed8724d` BEFORE spec-write commit, not just at plan dispatch.
+  `1505bfa` BEFORE spec-write commit, not just at plan dispatch.
 - `plan_grep_helper_patterns.md` — `ClearPendingAction` (helper) used
   rather than inlining `CloseModal(true)` directly.
 - `true_to_ts_gate.md` — full-port scope chosen over symptom-minimum;

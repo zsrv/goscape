@@ -12,7 +12,7 @@
 
 ## Spec reference
 
-`docs/superpowers/specs/2026-05-08-nai-131-inv-write-validators-design.md` (commit `d18c9d5`).
+`docs/superpowers/specs/2026-05-08-nai-131-inv-write-validators-design.md` (commit `065553f`).
 
 ## File structure
 

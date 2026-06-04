@@ -12,7 +12,7 @@
 
 ## Pre-flight Verification
 
-Confirm at HEAD `dca2ff3` (NAI-69 spec commit, parent `95738e4` NAI-68 close):
+Confirm at HEAD `7e26eb5` (NAI-69 spec commit, parent `dc6afb4` NAI-68 close):
 
 ```bash
 GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./... -count=1
@@ -974,11 +974,11 @@ Expected: PASS with `-race`.
 - [ ] **Step 2: Verify the commit chain since NAI-69 spec**
 
 ```bash
-git log --oneline 95738e4..HEAD
+git log --oneline dc6afb4..HEAD
 ```
 
 Expected: 6 commits, in order:
-1. `dca2ff3` docs(spec): NAI-69 spec
+1. `7e26eb5` docs(spec): NAI-69 spec
 2. T1 commit
 3. T2 commit
 4. T3 commit

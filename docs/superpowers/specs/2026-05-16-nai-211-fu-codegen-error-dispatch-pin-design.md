@@ -12,7 +12,7 @@ Go 1.26+. Test-only. No dependencies added.
 
 ## Motivation
 
-NAI-211 close (commit `10c4826`) identified this follow-up:
+NAI-211 close (commit `159e7f1`) identified this follow-up:
 
 > **NAI-211-FU-CODEGEN-ERROR-DISPATCH-PIN**: spec §Testing Strategy item 5
 > (`TestRun_HandlerInvokedEvenWhenPhaseErrors`) was not implemented as

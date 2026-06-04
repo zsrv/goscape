@@ -68,7 +68,7 @@ Work top-down through the tracker. A few items are coupled or need care:
   `pkg/inventory` — port those inventory primitives first, then the restock tick pass.
 - **H11/H12/H13 F2P-gates** are one coherent batch in `pkg/gamemap/load.go` (note: `bordersFreeToPlay`
   doesn't exist in goscape yet — port it from TS GameMap).
-- **H1 NPC operand gap** — mirror the shipped player fix `c58cac51`: add an operand-aware
+- **H1 NPC operand gap** — mirror the shipped player fix `42156517`: add an operand-aware
   `s.activeNpcResolved()` accessor + operand-aware `requireActiveNpc`, then swap ~35 call sites
   (full opcode list in ledger cluster J). Expect a few reactive test rounds.
 - **Arithmetic group M15–M18** (DIVIDE/MODULO/SCALE truncate-toward-zero, SIN/COS truncate-not-round) —

@@ -235,7 +235,7 @@ func makeVarPlayerType() *typ.VarPlayerType {
 func TestPointerChecker_Run_LogProcRequirement_RecursesAcrossTwoHops(t *testing.T) {
 	procTr := &trigger.TriggerType{ID: 0, Identifier: "proc"}
 	// (Adopt procWithActive on the script that directly requires ACTIVE_PLAYER if
-	// the plain procTr fixture produces extra errors — see T1 commit d355cfa6.)
+	// the plain procTr fixture produces extra errors — see T1 commit 00a320a5.)
 	procWithActive := &trigger.TriggerType{ID: 1, Identifier: "proc", Pointers: pointer.NewPointerSet(pointer.ActivePlayer)}
 
 	// leaf — body: `p_kickout` (requires ACTIVE_PLAYER); trigger DOES set it

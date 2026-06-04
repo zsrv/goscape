@@ -3,7 +3,7 @@
 **Date:** 2026-05-03
 **Tech Stack:** Go 1.26+
 **Cadence:** Compressed (spec+plan combined per `compressed_cadence.md`); root cause pinned statically before brainstorm — no Stage 1 investigation bundle.
-**Predecessor:** NAI-79 Bundle H4 close (commit `9a96b8b`) pinned 3/3 Tutorial-Island OPLOC1 clicks (door 3014, bookcase 380, drawer 350) to gate `op_slot_empty`. NAI-80 is the routed Stage 2.5 fix.
+**Predecessor:** NAI-79 Bundle H4 close (commit `3cc043b`) pinned 3/3 Tutorial-Island OPLOC1 clicks (door 3014, bookcase 380, drawer 350) to gate `op_slot_empty`. NAI-80 is the routed Stage 2.5 fix.
 
 ---
 
@@ -405,7 +405,7 @@ Implementation is a single subagent-driven-development bundle, no inter-task dep
 5. **T5 — Top-of-file comment update.** Retire "this server-only loader skips" sentence; replace with TS-source pointer + D1 follow-up note.
 6. **T6 — Real-cache regression.** Add `loctype_realcache_test.go` with `TestLoadLocTypes_RealCache_CascadeBlockerLocs` + ID-shift sanity pin.
 7. **T7 — Verification.** Full `go test ./pkg/objtype/...` clean; full `go test ./...` clean (no consumer break). Verify `go build ./...`.
-8. **T8 — Smoke handoff.** Close commit body cites `Closes memory: nai80_seed_loctype_op_empty.md` and the predecessor's H4 commit (`9a96b8b`). Hand off smoke task to user with the script in §7.3.
+8. **T8 — Smoke handoff.** Close commit body cites `Closes memory: nai80_seed_loctype_op_empty.md` and the predecessor's H4 commit (`3cc043b`). Hand off smoke task to user with the script in §7.3.
 
 Per `controller_preflight.md`: before each task dispatch, controller spends ~30s grepping the named symbols (`G1B`, `G2S`, `LoadJagfile`, `Read`, `buildMinimalJagfile`) at HEAD to confirm signature shape before writing implementer code blocks. Per `plan_helper_coverage.md`: re-grep for any test helpers that synthesize `LocType` literals (e.g., in `modules/world/*_test.go`) so new struct fields don't break existing fixtures via missing zero-value fields — tests that use `&LocType{Width: 1}` style literals continue compiling because Go zero-init handles new fields, but any literal that *expects* zero values for newly-defaulted fields (e.g., test code that asserts `lt.WallWidth == 0` after default construction) needs updating. Per `plan_enumerate_struct_literals.md`: spec mandates the implementer grep `LocType{` across `pkg/`, `modules/`, `cmd/` and report any literals that need updates before T1 lands.
 

@@ -14,7 +14,7 @@ Surfaced by NAI-117 smoke (2026-05-06): on Tutorial Island, after the Mining Ins
 
 ---
 
-## §2. Bundle 0 — controller pre-flight (verified at HEAD `f20a3bb`)
+## §2. Bundle 0 — controller pre-flight (verified at HEAD `5f56afe`)
 
 ### §2.1 Dispatch trace
 
@@ -287,7 +287,7 @@ Per `smoke_test_server_handoff`: ask user to relaunch the server with the new bi
 
 - `bundle0_short_circuits_stage1_audit` — Bundle 0 produced a binding line-level diff; Bundle 1 audit SKIPPED.
 - `compressed_cadence` — combined spec+plan, single `docs(spec): ...` commit, no formal review loop, subagent execution.
-- `controller_preflight` — Bundle 0 verified all anchor lines/symbols at HEAD `f20a3bb`.
+- `controller_preflight` — Bundle 0 verified all anchor lines/symbols at HEAD `5f56afe`.
 - `investigation_subspec_cadence` — Stage 1 collapsed into Bundle 0; Stage 2 = §4 fix; smoke is binding feature gate.
 - `dispatch_correct_reach_blocked` — frames the NAI-117 close: PRIMARY (run-mode opcode-error silence) closed; SECONDARY content outcomes (smithing items rendered) bind here.
 - `smoke_test_server_handoff` — user-launched smoke binds.

@@ -8,7 +8,7 @@
 
 **Stage 2 is NOT in this plan.** Per `superpowers_clear_between_spec_and_impl`: after Task 6 emits the Stage 2 resume prompt, the user `/clear`s and a fresh session authors the Stage 2 plan (`docs/superpowers/plans/2026-05-09-nai-139-stage-2-<short-tag>.md`) per spec §3 routing decision.
 
-**Tech Stack:** Go 1.26+ (no production code in Stage 1). Reference repos: `/home/owner/Code/github.com/LostCityRS/Content` (RuneScript content), `/home/owner/Code/github.com/LostCityRS/Engine-TS` (TS engine reference). Spec doc: `docs/superpowers/specs/2026-05-09-nai-139-tutorial-completion-cascade-design.md` at commit `8182166`.
+**Tech Stack:** Go 1.26+ (no production code in Stage 1). Reference repos: `/home/owner/Code/github.com/LostCityRS/Content` (RuneScript content), `/home/owner/Code/github.com/LostCityRS/Engine-TS` (TS engine reference). Spec doc: `docs/superpowers/specs/2026-05-09-nai-139-tutorial-completion-cascade-design.md` at commit `9e12d14`.
 
 ---
 
@@ -16,7 +16,7 @@
 
 | File | Responsibility | Status |
 |------|----------------|--------|
-| `docs/superpowers/specs/2026-05-09-nai-139-tutorial-completion-cascade-design.md` | Spec — read-only in Stage 1. | Read-only (committed at 8182166) |
+| `docs/superpowers/specs/2026-05-09-nai-139-tutorial-completion-cascade-design.md` | Spec — read-only in Stage 1. | Read-only (committed at 9e12d14) |
 | `docs/superpowers/findings/2026-05-09-nai-139-stage1-bundle-b1.md` | B1 deliverable (line-296-330 immediate ops). | Create at T2 |
 | `docs/superpowers/findings/2026-05-09-nai-139-stage1-bundle-b2.md` | B2 deliverable (~stat_reset_all subtree). | Create at T2 |
 | `docs/superpowers/findings/2026-05-09-nai-139-stage1-bundle-b3.md` | B3 deliverable (~initalltabs subtree). | Create at T2 |
@@ -38,7 +38,7 @@ No production files modified in Stage 1. No tests added.
 
 The Task 3 verification gate exists to catch these. Do not skip it.
 
-**Reference paths verified present at plan-write (HEAD = `8182166`):**
+**Reference paths verified present at plan-write (HEAD = `9e12d14`):**
 
 ```
 /home/owner/Code/github.com/LostCityRS/Content/scripts/tutorial/scripts/tutorial.rs2
@@ -68,7 +68,7 @@ Audit subagents must locate any other relevant files (other `pkg/script/handlers
 git log --oneline -3
 ```
 
-Expected top commit: `8182166 spec(nai-139): tutorial-completion cascade audit + fix design`. Second commit: `63c6829 chore(nai-111): cleanup adjacent stale doc-comment + blank line`.
+Expected top commit: `9e12d14 spec(nai-139): tutorial-completion cascade audit + fix design`. Second commit: `d2adc2d chore(nai-111): cleanup adjacent stale doc-comment + blank line`.
 
 If HEAD has drifted, abort.
 
@@ -164,7 +164,7 @@ You must:
    - MISSING = no handler found. Document the grep commands you ran proving absence.
    - UNKNOWN = handler found but you cannot tell if it's complete (e.g., complex multi-branch dispatch). Explain.
 
-4. For varp write specifically: locate the OpVarpSmall / VarPlayer write path. The runtime tutorial varp must reach the player's varp slot AND wire-emit. Cross-reference NAI-138's varp client-stream-load fix at commit 4918d37 — varp 4 (`tutorial`) and varp 173 (`option_run`) load from the same path.
+4. For varp write specifically: locate the OpVarpSmall / VarPlayer write path. The runtime tutorial varp must reach the player's varp slot AND wire-emit. Cross-reference NAI-138's varp client-stream-load fix at commit ee54c84 — varp 4 (`tutorial`) and varp 173 (`option_run`) load from the same path.
 
 5. For inv_clear / inv_add specifically: NAI-130/131/132/133/134 ported many inv ops. Verify these handlers actually clear/add for the runtime "inv", "worn", "bank" inv-type symbols. Check that the inv-type id resolution from symbol name works.
 
@@ -294,7 +294,7 @@ Surface (depth-N from `~update_all`):
     - ~update_weight_equipment — locate body, list its top-level opcodes/proc calls. Status: does the proc resolve in goscape's script cache? Are its top-level opcodes WIRED?
     - ~update_bas — same.
     - ~update_bonuses — same.
-    - ~update_weight — same. NAI-136 ported this surface (commit d0a3070). Verify the ~update_weight call lines up with NAI-136's wiring (engine-side calculateRunWeight + OpUpdateRunWeight emit).
+    - ~update_weight — same. NAI-136 ported this surface (commit 82b7dbf). Verify the ~update_weight call lines up with NAI-136's wiring (engine-side calculateRunWeight + OpUpdateRunWeight emit).
     - ~update_weapon_category — same.
     - ~player_combat_stat — same.
 
@@ -302,11 +302,11 @@ You must:
 
 1. Read appearance.rs2:95-150 with the Read tool. Confirm ~update_all proc body.
 
-2. For each opcode in the surface, locate dispatch in goscape pkg/script/handlers*.go. Cite file:line. p_finduid and p_animprotect are protect-related ops — NAI-111 (commits 127cfff + 63c6829) modified the surrounding lifecycle. Verify p_finduid resolves the active player's uid and p_animprotect sets the animation-protect flag.
+2. For each opcode in the surface, locate dispatch in goscape pkg/script/handlers*.go. Cite file:line. p_finduid and p_animprotect are protect-related ops — NAI-111 (commits 3ee0213 + d2adc2d) modified the surrounding lifecycle. Verify p_finduid resolves the active player's uid and p_animprotect sets the animation-protect flag.
 
 3. For each depth-1 proc, locate the proc definition in `LostCityRS/Content/scripts/`, Read the body, list top-level opcodes/calls, confirm each top-level opcode is WIRED in goscape. Do NOT recurse beyond depth-1 procs (avoid combinatorial blowup; Stage 2 / NAI-N+1 binds tail).
 
-4. For the ~update_weight subproc specifically: cross-reference NAI-136 close at commit d0a3070 + 80f5eb1. Verify (*Player).calculateRunWeight in modules/world/player_runweight.go is wired and that updating weight propagates correctly.
+4. For the ~update_weight subproc specifically: cross-reference NAI-136 close at commit 82b7dbf + e6b6962. Verify (*Player).calculateRunWeight in modules/world/player_runweight.go is wired and that updating weight propagates correctly.
 
 5. For the staff cheat branch (`if (staffmodlevel >= 3 & inv_getobj(worn, ^wearpos_rhand) = poisoned_dagger_p)`): verify staffmodlevel opcode exists and returns the correct value for a normal player (should be 0 for a fresh tutorial-completion player, so this branch never fires). If staffmodlevel is unwired, classify accordingly but note this branch is dormant for the smoke path.
 
@@ -458,7 +458,7 @@ Use the Write tool. Structure:
 # NAI-139 Stage 1 — tutorial-completion cascade audit (merged)
 
 **Date:** 2026-05-09
-**Spec:** docs/superpowers/specs/2026-05-09-nai-139-tutorial-completion-cascade-design.md @ 8182166
+**Spec:** docs/superpowers/specs/2026-05-09-nai-139-tutorial-completion-cascade-design.md @ 9e12d14
 **Plan:** docs/superpowers/plans/2026-05-09-nai-139-stage-1-cascade-audit.md
 **Bundles:** B1 + B2 + B3 + B4 (4 parallel Sonnet general-purpose subagents)
 **Verification:** 100% MISSING/STUB Read-verified, 20% WIRED sampled, cross-foot totals in range.
@@ -573,7 +573,7 @@ Expected: commit succeeds.
 git status
 ```
 
-Expected: nothing to commit, working tree clean (modulo the pre-existing sandbox-artifact untracked files: `.bash_profile`, `.bashrc`, `.claude/`, `.gitconfig`, `.gitmodules`, `.mcp.json`, `.profile`, `.ripgreprc`, `.vscode`, `.zprofile`, `.zshrc`, `test_typed_nil.go` — these were present at HEAD `8182166`, not introduced by Stage 1).
+Expected: nothing to commit, working tree clean (modulo the pre-existing sandbox-artifact untracked files: `.bash_profile`, `.bashrc`, `.claude/`, `.gitconfig`, `.gitmodules`, `.mcp.json`, `.profile`, `.ripgreprc`, `.vscode`, `.zprofile`, `.zshrc`, `test_typed_nil.go` — these were present at HEAD `9e12d14`, not introduced by Stage 1).
 
 If unexpected new files appear, investigate before proceeding (subagent may have accidentally written to wrong path).
 
@@ -587,10 +587,10 @@ Expected (newest at top):
 ```
 <sha>  chore(nai-139): Stage 1 audit verdict + Stage 2 routing decision
 <sha>  audit(nai-139): Stage 1 bundles B1+B2+B3+B4 returns
-8182166 spec(nai-139): tutorial-completion cascade audit + fix design
-63c6829 chore(nai-111): cleanup adjacent stale doc-comment + blank line
-127cfff fix(nai-111): Stage 2 — delete CloseModal protect over-clear (PRIMARY)
-b138b3c plan(nai-111): Stage 2 — minimal delete over-clear (compressed cadence)
+9e12d14 spec(nai-139): tutorial-completion cascade audit + fix design
+d2adc2d chore(nai-111): cleanup adjacent stale doc-comment + blank line
+3ee0213 fix(nai-111): Stage 2 — delete CloseModal protect over-clear (PRIMARY)
+1abaa50 plan(nai-111): Stage 2 — minimal delete over-clear (compressed cadence)
 ```
 
 Note: the `plan(nai-139): Stage 1 ...` plan-doc commit (this file) goes in BEFORE Task 1 starts (committed by the controller as part of plan-write). Update the expected log to include it if so.
@@ -612,7 +612,7 @@ Stage 2 dispatch for NAI-139.
 **Total blockers:** <N>
 **Estimated fix LOC:** <est>
 **Audit doc:** docs/superpowers/specs/2026-05-09-nai-139-stage-1-audit.md @ <commit sha>
-**Spec:** docs/superpowers/specs/2026-05-09-nai-139-tutorial-completion-cascade-design.md @ 8182166
+**Spec:** docs/superpowers/specs/2026-05-09-nai-139-tutorial-completion-cascade-design.md @ 9e12d14
 
 **Routing path:**
 

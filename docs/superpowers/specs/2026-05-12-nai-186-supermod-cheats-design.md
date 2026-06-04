@@ -3,7 +3,7 @@
 **Date:** 2026-05-12
 **Author:** Claude (Opus 4.7, 1M context)
 **Status:** Draft for review
-**Predecessors:** NAI-183 (super-mod outer guard + ::tele/::getcoord), NAI-184 (mod cheat cohort), NAI-185 (admin block non-spawn cheats; close commit 92aec51)
+**Predecessors:** NAI-183 (super-mod outer guard + ::tele/::getcoord), NAI-184 (mod cheat cohort), NAI-185 (admin block non-spawn cheats; close commit ecc832b)
 **Tech stack:** Go 1.26+, modules/world
 
 ## 1. Goal

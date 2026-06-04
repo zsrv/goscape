@@ -44,7 +44,7 @@ Both state-aware (`s *ScriptState, id int, op string`); both absorb `s.Configs =
 | `handleOcName` | `handlers_config.go:450-466` | `requireConfigs` → `PopInt` → `checkObjType` → `s.Configs.ObjType(id)` local var → field access — direct shape for OBJ_NAME/OBJ_PARAM |
 | `handleObjFind` | `handlers_obj.go:300-329` | `checkObjType` → downstream lookup with NO local var — direct shape for IF_SETOBJECT (id passed to delegate, not field-accessed) |
 
-### 3.3 Baseline audit-grep counts at HEAD `ead9625f`
+### 3.3 Baseline audit-grep counts at HEAD `4fd879b5`
 
 ```
 grep -c "checkNpcType(s, " pkg/script/handlers_npc.go              → 5
@@ -256,7 +256,7 @@ Before commit, grep for:
 - `gofmt -l` clean on every edited file.
 - `go test -race ./...` 0 FAIL.
 - `go test -run TestPackAll_TwelveStageSmoke` PASS.
-- Audit-grep expected post-slice (deltas vs HEAD `ead9625f`):
+- Audit-grep expected post-slice (deltas vs HEAD `4fd879b5`):
   - `grep -c "checkNpcType(s, " pkg/script/handlers_npc.go` → expect **8** (+3: NPC_TYPE, NPC_CHANGETYPE, NPC_CHANGETYPE_KEEPALL).
   - `grep -c "checkNpcType(s, " pkg/script/handlers_interface.go` → expect **1** (+1: IF_SETNPCHEAD).
   - `grep -c "checkObjType(s, " pkg/script/handlers_obj.go` → expect **4** (+2: OBJ_NAME, OBJ_PARAM).

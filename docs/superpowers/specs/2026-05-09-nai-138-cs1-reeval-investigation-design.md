@@ -2,7 +2,7 @@
 
 **Status:** spec
 **Date:** 2026-05-09
-**Predecessors:** NAI-137 (run varp clientcode-7 dynamic discovery) closed at `a169171`. PRIMARY closed TS-faithful; visual symptom (run-toggle button does not visually de-toggle when run-energy depletes to 0, despite server-correct `OpVarpSmall(173, 0)` on the wire) reframed as this sub-spec per `dispatch_correct_reach_blocked`. NAI-137 carryover queue (`nai_followups.md` line 6432) named this candidate verbatim.
+**Predecessors:** NAI-137 (run varp clientcode-7 dynamic discovery) closed at `33f3349`. PRIMARY closed TS-faithful; visual symptom (run-toggle button does not visually de-toggle when run-energy depletes to 0, despite server-correct `OpVarpSmall(173, 0)` on the wire) reframed as this sub-spec per `dispatch_correct_reach_blocked`. NAI-137 carryover queue (`nai_followups.md` line 6432) named this candidate verbatim.
 **Tech stack:** Go 1.26+
 **Cadence:** Investigation + fix (`investigation_subspec_cadence`). Bundle 0 controller pre-flight + Bundle 1 parallel Stage 1 audit (three Explore subagents) + Bundle 2 fix at indicated layer + smoke + Bundle 3 conditional templates. Single sub-spec must ship a fix at SOME layer (no "no-fix close" branch).
 
@@ -19,7 +19,7 @@ The fix layer is a function of the synthesis matrix (§5).
 
 ## 2. Background — anchored
 
-### 2.1 NAI-137 close state (HEAD `a169171`)
+### 2.1 NAI-137 close state (HEAD `33f3349`)
 
 - **Engine cutover:** `(*Player).updateEnergy` and `handlePRun` write `OpVarpSmall` to the cache-resolved run varp id (typically 173 = `option_run`, per `Content/scripts/interface_controls/configs/player_controls.varp:5-8` `clientcode=7`).
 - **TS counterpart:** `Engine-TS/src/engine/entity/Player.ts:697-699` (energy=0 reset) and `Engine-TS/src/engine/script/handlers/PlayerOps.ts:1208` (P_RUN handler) — both bare `setVar(VarPlayerType.RUN, ...)`. NAI-137 close asserted these are the ONLY engine-side `VarPlayerType.RUN` consumers; this sub-spec's Bundle 0 re-grep verifies that assertion comprehensively.
@@ -53,7 +53,7 @@ This is the load-bearing observation: **why does the click path explicitly re-em
 
 ### 2.3 NAI-137 close-commit hypothesis (now under audit)
 
-Per `a169171` commit body: "OSRS client #225 does not re-evaluate `buttontype=select` cs1 `script1op1=pushvar,option_run` binding scripts on bare varp echoes, requiring an accompanying interface-state event (the click path's `[if_button,controls:com_5]` runs `if_close` BEFORE `p_run`, providing the refresh signal)."
+Per `33f3349` commit body: "OSRS client #225 does not re-evaluate `buttontype=select` cs1 `script1op1=pushvar,option_run` binding scripts on bare varp echoes, requiring an accompanying interface-state event (the click path's `[if_button,controls:com_5]` runs `if_close` BEFORE `p_run`, providing the refresh signal)."
 
 The hypothesis attributes refresh to `if_close`. The §2.2 finding doesn't outright refute that — `if_close` is still emitted on the click path — but it adds a second plausible refresh trigger (`%v = %v` self-write) that NAI-137's close-time investigation overlooked. NAI-138 resolves which (or which combination) actually drives client cs1 re-eval.
 

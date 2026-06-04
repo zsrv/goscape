@@ -1,7 +1,7 @@
 # NAI-138 Stage 2 — Bundle β.2 binding
 
 **Date:** 2026-05-09
-**Predecessor:** smoke handoff #1 at `7a595f2`; smoke output captured by user.
+**Predecessor:** smoke handoff #1 at `933f2e1`; smoke output captured by user.
 **Plan:** `docs/superpowers/plans/2026-05-09-nai-138-stage-2-encoder-defect.md` Bundle β.2.
 
 ## Smoke output (verbatim, abbreviated)

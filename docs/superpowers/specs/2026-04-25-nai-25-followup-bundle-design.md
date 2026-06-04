@@ -3,7 +3,7 @@
 - **Sub-spec**: NAI-25
 - **Date**: 2026-04-25
 - **Scope label**: B (logical-grouping follow-up bundle — `modules/world` (1 method body + 2 docstrings + 4 new tests + 1 existing-test docstring tighten + 1 test helper) + `pkg/script/handlers_*.go` audit sweep across 13 unaudited handler files; ~35-50 LOC production + ~80-150 LOC tests across 2 bundles; resolves From-NAI-24 `Source = -1` API-surface deferral and From-NAI-23 NumberNotNull-sweep tracker; introduces 0 new deviations by default; net deviation count 14 → 14)
-- **Predecessors**: NAI-24 (follow-up bundle) — last on `main` as `20fb72a`
+- **Predecessors**: NAI-24 (follow-up bundle) — last on `main` as `b96f543`
 - **TS source root**: `LostCityRS/Engine-TS`
 
 ## Motivation
@@ -264,11 +264,11 @@ Brainstorm-time count: 84/86 (97.7%) of all TS-side NumberNotNull invocations ac
 
 #### PlayerOps.ts cross-file residue cross-check (Bundle 2 implementer responsibility)
 
-Math: PlayerOps.ts has 56 NumberNotNull; NAI-24 Bundle 1 audited **47 popInt sites** in `handlers_player.go` (per commit `85da016` audit table); the **9-site delta** lives in PlayerOps.ts opcodes that goscape dispatches from a different file (or whose TS counterpart is not a popInt-equivalent in goscape).
+Math: PlayerOps.ts has 56 NumberNotNull; NAI-24 Bundle 1 audited **47 popInt sites** in `handlers_player.go` (per commit `f2047e2` audit table); the **9-site delta** lives in PlayerOps.ts opcodes that goscape dispatches from a different file (or whose TS counterpart is not a popInt-equivalent in goscape).
 
 The Bundle 2 plan task codifies this enumeration step:
 1. Re-grep `PlayerOps.ts` for `NumberNotNull` and enumerate all 56 sites with their opcode names (`grep -n "check(.*NumberNotNull" Engine-TS/src/engine/script/handlers/PlayerOps.ts`).
-2. Cross-reference NAI-24 Bundle 1's audit table in commit `85da016` for the 47 wrapped/skipped sites.
+2. Cross-reference NAI-24 Bundle 1's audit table in commit `f2047e2` for the 47 wrapped/skipped sites.
 3. The delta opcodes (9 sites) get assigned to the correct goscape handler file via opcode-to-handler mapping: grep `pkg/script/handlers.go` for the `Opcode → handler-fn` registration table, then resolve each handler's home file via `grep -n "func handle<OpName>" pkg/script/handlers_*.go`.
 4. Each delta opcode's audit decision lands in the correct Bundle 2 file commit (handlers_dialog.go, handlers_timer.go, or — if a delta opcode maps to a handler that doesn't fit dialog/timer — that file gets the audit row instead).
 
@@ -305,7 +305,7 @@ Test naming: `TestHandle<OpName>NullRejected` (single-int handlers) or table-dri
 
 #### Audit table format (canonical artifact)
 
-Embedded in each Bundle 2 commit message (per-file commits and rollup commit). Per-file format mirrors NAI-23 Bundle 4c (commit `8ea45b0`):
+Embedded in each Bundle 2 commit message (per-file commits and rollup commit). Per-file format mirrors NAI-23 Bundle 4c (commit `7c5e812`):
 
 | Handler | popInt context | TS wraps? | Decision | Rationale (TS file:line) |
 |---------|---------------|-----------|----------|-------------------------|
@@ -393,7 +393,7 @@ Standard cadence: one polish commit absorbs minor review feedback from both bund
 
 - **`controller_preflight` discipline at task dispatch.** Per memory: 30-second grep+Read pass against HEAD before each implementer dispatch to verify file paths, line numbers, signatures, helper init state. Applied per-bundle.
 
-- **`spec_followup_tracker_freshness` discipline.** Per memory: tracker entries silently rot. Spec-write-time re-greps verified the From-NAI-24 entry assertions (zero production callers passing -1; dispatch site at `:471-479`; doc-comment at `:632-633`; interface contract at `:277-283`); the From-NAI-23 entry assertions (per-file enumeration; priority order). All assertions held at HEAD `20fb72a`.
+- **`spec_followup_tracker_freshness` discipline.** Per memory: tracker entries silently rot. Spec-write-time re-greps verified the From-NAI-24 entry assertions (zero production callers passing -1; dispatch site at `:471-479`; doc-comment at `:632-633`; interface contract at `:277-283`); the From-NAI-23 entry assertions (per-file enumeration; priority order). All assertions held at HEAD `b96f543`.
 
 ## Review structure
 

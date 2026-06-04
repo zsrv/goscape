@@ -2,7 +2,7 @@
 
 **Status:** spec — draft 1
 **Date:** 2026-05-08
-**Predecessor:** NAI-125 close (`a5be9b6`); cascade-bound to the `[proc,npc_death]` smoke surfaced by NAI-125 close (2026-05-08).
+**Predecessor:** NAI-125 close (`1adaf35`); cascade-bound to the `[proc,npc_death]` smoke surfaced by NAI-125 close (2026-05-08).
 **Cadence:** subagent-driven-development — three independent bundles dispatched as separate task sequences; one Sonnet code-reviewer pass at end; user-launched smoke binds Bundle 1 PRIMARY only.
 **Tech stack:** Go 1.26+.
 
@@ -14,12 +14,12 @@ Close the `[proc,npc_death]` cascade-tail surfaced by NAI-125 close smoke (2026-
 
 ### §1.1 — Symptom and binding evidence
 
-**Smoke (NAI-125 close, `a5be9b6`, 2026-05-08):**
+**Smoke (NAI-125 close, `1adaf35`, 2026-05-08):**
 - Tutorial Island fresh char kills giant rat (post-NAI-125 — NPC_ARRIVEDELAY now dispatched).
 - Server log emits `WARN: script "[proc,npc_death]": no handler for NPC_DEL (opcode 2510) at pc=31`.
 - Whatever ops follow `NPC_DEL` at pc≥32 in `npc_death` (loot drop / respawn timer / kill-count XP / etc.) are not running because `Execute` aborts at the first unknown opcode (`pkg/script/runner.go:55-77`).
 
-**Verification at HEAD (`a5be9b6`):**
+**Verification at HEAD (`1adaf35`):**
 
 ```
 $ rg "OpNpcDel\b" pkg/ modules/
@@ -174,7 +174,7 @@ With `uint32` storage, `int(pt.DefaultInt)` **zero-extends** — a content-set `
 
 ### §2.3 — Tests
 
-In `pkg/objtype/paramtype_test.go` — new file (verified absent at HEAD `a5be9b6`):
+In `pkg/objtype/paramtype_test.go` — new file (verified absent at HEAD `1adaf35`):
 
 1. **`TestParamType_DecodeNegativeDefault`** — feed a 4-byte payload `0xFFFFFFFF` to `Decode(code=2, ...)`; assert `pt.DefaultInt == int32(-1)` and `int(pt.DefaultInt) == -1` (sign-extended).
 2. **`TestParamType_DecodePositiveDefault`** — feed `0x00000064`; assert `pt.DefaultInt == int32(100)`.

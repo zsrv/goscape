@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26.3 (via `GOROOT=/home/owner/go/go1.26.3 /home/owner/go/go1.26.3/bin/go` per env-quirk). Strict TDD with pre-stub strategy for Go's "package must compile" reality. Subagent-driven-development with sonnet implementers + two-stage review per task.
 
-**Spec:** `docs/superpowers/specs/2026-05-21-hunt-huntvis-filter-design.md` (committed at `e3bb9b31`).
+**Spec:** `docs/superpowers/specs/2026-05-21-hunt-huntvis-filter-design.md` (committed at `851827b8`).
 
 **Dependencies:** T1 → T2 sequential (signature change). T3 independent of T1/T2 (different package). T4 sweep after T1+T2+T3. T5 close after T4.
 
@@ -1588,7 +1588,7 @@ Expected: zero hits.
 
 Run: `git log --oneline -6`
 
-Expected: T1 commit → T2 commit → T3 commit → T4 commit on top of `e3bb9b31` (spec) on top of `56517545` (predecessor HEAD).
+Expected: T1 commit → T2 commit → T3 commit → T4 commit on top of `851827b8` (spec) on top of `e7d3ba46` (predecessor HEAD).
 
 ### Step 5.2: Write memory entry
 
@@ -1596,8 +1596,8 @@ Expected: T1 commit → T2 commit → T3 commit → T4 commit on top of `e3bb9b3
 
 Write to `/home/owner/.claude/projects/-home-owner-Code-github-com-zsrv-goscape/memory/hunt_huntvis_filter_close.md` using the file frontmatter format documented in CLAUDE.md (or in the global memory instructions). The content should include:
 
-- Slice date (2026-05-21) + commit range (T1..T4 hashes + spec hash `e3bb9b31`)
-- Predecessor: `[[addxp-session-log-half-port-close]]` (HEAD `56517545`)
+- Slice date (2026-05-21) + commit range (T1..T4 hashes + spec hash `851827b8`)
+- Predecessor: `[[addxp-session-log-half-port-close]]` (HEAD `e7d3ba46`)
 - Pin retirements: NAI-33-D1 + S7f-D1 fully retired (-2 board). NAI-35-T3 framing refreshed (citation retained).
 - Audit gate finding: 4 NPC_FIND consumers (chompy_bird, rantz, quest_fluffs × 3 in 2 files), 1 NPC_FINDALL consumer (ducks) in LostCityRS/Content
 - Two prongs: iterator side (passesFilter restructure + sig change) + FindClosest side (huntvisGate helper)

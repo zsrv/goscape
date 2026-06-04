@@ -13,7 +13,7 @@ Fold a drive-by stale-comment cleanup at `pkg/script/handlers_loc.go:262-266`.
 
 ## Tech stack
 
-Go 1.26+ (per `go_version.md`). Sources of truth pinned at HEAD `fd71997`:
+Go 1.26+ (per `go_version.md`). Sources of truth pinned at HEAD `0650edd`:
 
 - TS canonical: `LostCityRS/Engine-TS/` (per `ts_source_canonical_path.md`).
 - Spec/plan combined per `compressed_cadence.md`.
@@ -83,7 +83,7 @@ if (receiver64 !== Obj.NO_RECEIVER) {
 
 ---
 
-## §2. Existing goscape state (HEAD `fd71997`)
+## §2. Existing goscape state (HEAD `0650edd`)
 
 ### Already in place
 
@@ -113,7 +113,7 @@ if (receiver64 !== Obj.NO_RECEIVER) {
 
 ### NAI-115-D2 references (the partial-close target)
 
-`rg "NAI-115-D2" pkg/ modules/` enumeration at HEAD `fd71997` (verified):
+`rg "NAI-115-D2" pkg/ modules/` enumeration at HEAD `0650edd` (verified):
 
 | File:Line | Side | Disposition after NAI-177 B0 |
 |---|---|---|
@@ -338,7 +338,7 @@ Run after writing this doc (per brainstorming skill §Spec Self-Review):
 
 - [x] No "TBD"/"TODO"/"XXX" placeholders in body text. (The `_ = p` line being REPLACED at tick.go:621 is the only TODO; that's a code state to be fixed, not a spec placeholder.)
 - [x] All file paths exist at HEAD.
-- [x] All line numbers verified at HEAD `fd71997`.
+- [x] All line numbers verified at HEAD `0650edd`.
 
 ### Internal consistency
 

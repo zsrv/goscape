@@ -1,7 +1,7 @@
 # NAI-68 — `p_op*` immediate→nextTarget reshape
 
 **Status:** Spec written 2026-05-02.
-**Predecessor:** NAI-67 (HEAD `94f6dab`). Net deviation tally entering: 13.
+**Predecessor:** NAI-67 (HEAD `bbaec8d`). Net deviation tally entering: 13.
 **Closes:** `NAI-44-D-IMMEDIATE-POP-VS-NEXTTARGET`.
 **Tech stack:** Go 1.26+. TS source canonical path: `LostCityRS/Engine-TS`.
 

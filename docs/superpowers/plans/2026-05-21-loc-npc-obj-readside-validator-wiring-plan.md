@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26.x; modifies `pkg/script/handlers_npc.go`, `pkg/script/handlers_obj.go`, `pkg/script/handlers_interface.go`, `pkg/script/handlers_obj_test.go`. Existing validators at `handlers_npc.go:88-93` (`checkNpcType`) and `handlers_obj.go:44-49` (`checkObjType`). No new helpers.
 
-**Spec:** `docs/superpowers/specs/2026-05-21-loc-npc-obj-readside-validator-wiring-design.md` (HEAD `ac8f09c0`).
+**Spec:** `docs/superpowers/specs/2026-05-21-loc-npc-obj-readside-validator-wiring-design.md` (HEAD `39753722`).
 
 ---
 
@@ -33,7 +33,7 @@ grep -cE 'unknown obj id|unknown npc id' pkg/script/handlers_npc.go pkg/script/h
 grep -nE 'no checkNotNull here \(NAI-23 Bundle 4c\)' pkg/script/handlers_interface.go
 ```
 
-Expected at HEAD `ac8f09c0`:
+Expected at HEAD `39753722`:
 - `checkNpcType(s, ` → `pkg/script/handlers_npc.go:5`, `pkg/script/handlers_interface.go:0`
 - `checkObjType(s, ` → `pkg/script/handlers_obj.go:2`, `pkg/script/handlers_interface.go:0`
 - bespoke wordings → `pkg/script/handlers_npc.go:0`, `pkg/script/handlers_obj.go:2`, `pkg/script/handlers_interface.go:0`
@@ -531,7 +531,7 @@ Zero new tests — validator-layer TestCheckNpcType / TestCheckObjType
 already cover registry-miss rejection per the registry-presence-
 validators-wiring-close precedent.
 
-Audit-grep delta vs HEAD ac8f09c0:
+Audit-grep delta vs HEAD 39753722:
 - checkNpcType(s,  in handlers_npc.go      → 5 → 8  (+3)
 - checkNpcType(s,  in handlers_interface.go → 0 → 1 (+1)
 - checkObjType(s,  in handlers_obj.go      → 2 → 4  (+2)

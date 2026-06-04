@@ -5,7 +5,7 @@
 **Tech stack:** Go 1.26+
 **TS source:** `LostCityRS/Engine-TS/tools/pack/config/VarnConfig.ts`, `tools/pack/config/VarsConfig.ts`, `tools/pack/config/PackShared.ts`, `src/cache/config/ScriptVarType.ts` (`getTypeChar`).
 **Predecessors:** NAI-191 (pack-pipeline source-side foundation — `pkg/pack/{fscache,parse,namemap,packfile,freshness,crawl}.go`).
-**HEAD at spec-write:** `e068ad7`
+**HEAD at spec-write:** `844bc77`
 
 ## §1 Goal
 
@@ -30,7 +30,7 @@ Varn and Vars are picked first because they share the smallest, simplest TS sour
 
 ## §3 Pre-flight audit
 
-Per `controller_preflight` + `risk_register_premise_grep`, every premise below was re-verified against HEAD `e068ad7`.
+Per `controller_preflight` + `risk_register_premise_grep`, every premise below was re-verified against HEAD `844bc77`.
 
 ### §3.1 TS file scope
 
@@ -57,7 +57,7 @@ This is the single most likely correctness trap in NAI-192. Plan §4 codifies it
 
 ### §3.4 `Packet.Alloc(size)` / `Packet.Save(path, length, start)`
 
-Both verified at HEAD `e068ad7`:
+Both verified at HEAD `844bc77`:
 - `Alloc(size int) *Packet` (line 73) — pool-backed.
 - `(*Packet).Save(filePath string, length int, start int) error` (line 108) — writes `Data[start:start+length]` to `filePath`, `os.MkdirAll` on the parent dir. Matches TS `Packet.save`.
 

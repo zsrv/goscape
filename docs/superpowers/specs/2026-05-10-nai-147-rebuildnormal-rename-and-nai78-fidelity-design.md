@@ -97,7 +97,7 @@ exported APIs.
 
 **T1 — Defensive-gate doc-comment labels** *(zero-behavior)*
 
-8 sites (verified at HEAD `32f4463`):
+8 sites (verified at HEAD `c5faa24`):
 - `interaction_trigger.go:79` (`fireOpTriggerNpc`)
 - `interaction_trigger.go:158` (`fireOpTriggerLoc`)
 - `interaction_trigger.go:345` (`fireApTriggerNpc`)
@@ -282,7 +282,7 @@ func (p *Player) tryInteract(allowOpScenery bool) bool {
 ```
 
 **`(*Player).CanAccess()` semantics** (R4): verified at HEAD
-`32f4463` — `player_script.go:324-335` returns false on
+`c5faa24` — `player_script.go:324-335` returns false on
 `p.delayed || (modalState & main|chat != 0) || protectedScriptActive()`.
 This matches TS `canAccess()` at `Player.ts:805-812`
 (`!this.protect && !this.busy()`, where `busy() = delayed ||
@@ -376,12 +376,12 @@ plan-author re-verifies at HEAD before task dispatch:
 
 - **R1**: re-enumerate `triggerTypeAndCategory(` call sites via
   `rg -n "triggerTypeAndCategory\(" modules/`. Verified at spec-write
-  HEAD `32f4463`: 2 production callers — `getOpTrigger`
+  HEAD `c5faa24`: 2 production callers — `getOpTrigger`
   (`interaction_trigger.go:603`) and `getApTrigger` (`:618`). Fire
   helpers do NOT call this function. Codify the exhaustive list in T3
   task block; re-grep at T3 close.
 - **R2**: confirm `defaultOp(` callers via
-  `rg -n "defaultOp\(" modules/`. Verified at HEAD `32f4463`: 1
+  `rg -n "defaultOp\(" modules/`. Verified at HEAD `c5faa24`: 1
   production caller (`interaction.go:443`) + 1 test caller
   (`interaction_test.go:1545`). T4 updates both.
 - **R3**: read TS `Player.ts:1113-1184` end-to-end, then trace each

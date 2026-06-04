@@ -8,7 +8,7 @@
 
 **Stage 2 is NOT in this plan.** Per `superpowers_clear_between_spec_and_impl`: after Task 5 emits the Stage 2 resume prompt, the user `/clear`s and a fresh session authors `2026-05-XX-nai-111-stage-2-<scenario>.md` per the §scope statement.
 
-**Tech Stack:** Go 1.26+ (no production code in Stage 1). Reference repos: `/home/owner/Code/github.com/LostCityRS/Engine-TS` (TS engine source). Spec doc: `docs/superpowers/specs/2026-05-09-nai-111-protect-lifecycle-investigation-design.md` at commit `6d66157`.
+**Tech Stack:** Go 1.26+ (no production code in Stage 1). Reference repos: `/home/owner/Code/github.com/LostCityRS/Engine-TS` (TS engine source). Spec doc: `docs/superpowers/specs/2026-05-09-nai-111-protect-lifecycle-investigation-design.md` at commit `751e5ab`.
 
 ---
 
@@ -16,7 +16,7 @@
 
 | File | Responsibility | Status |
 |------|----------------|--------|
-| `docs/superpowers/specs/2026-05-09-nai-111-protect-lifecycle-investigation-design.md` | Spec — read-only in Stage 1. | Read-only (committed at 6d66157) |
+| `docs/superpowers/specs/2026-05-09-nai-111-protect-lifecycle-investigation-design.md` | Spec — read-only in Stage 1. | Read-only (committed at 751e5ab) |
 | `docs/superpowers/findings/2026-05-09-nai-111-stage1-protect-lifecycle.md` | Stage 1 deliverable: G1 + G2 + G1×G2 drift table + G3 consumer decision table + §scope Stage 2 dispatch shape. Authored by audit subagent at T2; mutations after that step are controller-only. | Create at T2 |
 
 No production files are modified in Stage 1. No tests are added.
@@ -66,7 +66,7 @@ The Task 4 verification gate exists to catch these. Do not skip it.
 git log --oneline -3
 ```
 
-Expected: top commit `6d66157 spec(nai-111): protect-lifecycle investigation — Stage 1 audit + 2 fix scenarios`. Second commit `e2daeee chore(close): NAI-138 …`.
+Expected: top commit `751e5ab spec(nai-111): protect-lifecycle investigation — Stage 1 audit + 2 fix scenarios`. Second commit `fe001b0 chore(close): NAI-138 …`.
 
 If HEAD has drifted, abort and re-spec.
 
@@ -296,7 +296,7 @@ Use this exact section structure:
   # NAI-111 — Stage 1 findings: protect-flag lifecycle audit
 
   **Date:** 2026-05-09
-  **Spec:** docs/superpowers/specs/2026-05-09-nai-111-protect-lifecycle-investigation-design.md (6d66157)
+  **Spec:** docs/superpowers/specs/2026-05-09-nai-111-protect-lifecycle-investigation-design.md (751e5ab)
   **Cadence:** general-purpose Sonnet audit subagent per investigation_subspec_cadence.
 
   ## §G1 — TS Player.protect lifecycle
@@ -529,7 +529,7 @@ NAI-111 Stage 1 closed at <commit-sha>. Verdict: Scenario <A|B|C> —
 <one-line scenario summary>.
 
 Findings doc: docs/superpowers/findings/2026-05-09-nai-111-stage1-protect-lifecycle.md
-Spec: docs/superpowers/specs/2026-05-09-nai-111-protect-lifecycle-investigation-design.md (6d66157)
+Spec: docs/superpowers/specs/2026-05-09-nai-111-protect-lifecycle-investigation-design.md (751e5ab)
 
 Resume in a fresh session:
 

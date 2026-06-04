@@ -1,7 +1,7 @@
 # NAI-138 Stage 2 — Smoke handoff #2 (fix close gate)
 
 **Date:** 2026-05-09
-**Predecessor:** Bundle β.3 fix at `52d102d` (test cleanup follow-up to `4918d37`).
+**Predecessor:** Bundle β.3 fix at `4f05122` (test cleanup follow-up to `ee54c84`).
 **Plan:** `docs/superpowers/plans/2026-05-09-nai-138-stage-2-encoder-defect.md` "Smoke handoff #2".
 **Binding context:** `docs/superpowers/handoffs/2026-05-09-nai-138-stage-2-binding.md`.
 
@@ -46,7 +46,7 @@ grep -E "nai138\.(p_run|update_energy\.zero|write_varp)" /tmp/nai138-fix.log > /
 |---|---|
 | Button visually de-toggles at energy=0 | **PRIMARY met → close NAI-138.** Memory routing per plan §"Memory routing at Stage 2 close". |
 | Button stays stuck-on, click toggles still work | Cascade-blocker — re-open Bundle β.1 with sharper probes per spec §10 R2 (binding may have under-counted blockers). |
-| New regression (click toggles broken, login fails, etc.) | Revert `4918d37`+`52d102d`; open NAI-138 stretch with regression-pin test. |
+| New regression (click toggles broken, login fails, etc.) | Revert `ee54c84`+`4f05122`; open NAI-138 stretch with regression-pin test. |
 
 ## Stop point
 

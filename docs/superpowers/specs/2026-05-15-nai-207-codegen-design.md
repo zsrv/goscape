@@ -8,7 +8,7 @@
 `src/compiler/configuration/command/CodeGeneratorContext.ts` (120 LOC) +
 `src/runescript/command/*.ts` + `src/runescript/command/debug/*.ts` (12 handlers, 595 LOC).
 Combined: ~2174 TS LOC.
-**Predecessor:** NAI-206 (close commit `47962bf`, on `main`)
+**Predecessor:** NAI-206 (close commit `40dab9d`, on `main`)
 **Successor:** NAI-208 (pointer/flow analysis + opcode-id mapping + binary writer)
 **Tech Stack:** Go 1.26+
 
@@ -51,7 +51,7 @@ script files via the BinaryWriter.
 
 ## 2. Inputs from NAI-206
 
-The following are in place at `main` (`47962bf`):
+The following are in place at `main` (`40dab9d`):
 
 | Package | Surface |
 |---|---|

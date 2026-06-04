@@ -4,7 +4,7 @@
 **Status:** Design (combined spec + plan per `compressed_cadence.md`)
 **Tracker:** Retires `NAI-35-T3-D1` deviation at `pkg/script/npc_iterator.go:93-97`
 **Predecessor:** NAI-35 T3 (HuntAll iterator wiring; left D1 deferred pending content audit)
-**HEAD at design:** main (post-NAI-179 close `5fe99e8`)
+**HEAD at design:** main (post-NAI-179 close `530e74f`)
 
 ## 1. Problem
 

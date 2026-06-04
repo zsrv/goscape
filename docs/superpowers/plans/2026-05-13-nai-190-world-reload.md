@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-05-13-nai-190-world-reload-design.md`
 **Predecessors:** NAI-189 (DEBUGPROC dispatch; closed `ClientCheatHandler.ts` except for `reload`/`rebuild`).
-**HEAD at plan-write:** `58971bb` (spec commit).
+**HEAD at plan-write:** `0b6c109` (spec commit).
 
 ---
 
@@ -1693,7 +1693,7 @@ No issues found; plan ready for execution.
 
 ---
 
-**Plan complete.** Eleven tasks, each with RED → GREEN → COMMIT structure. Spec at `docs/superpowers/specs/2026-05-13-nai-190-world-reload-design.md`; HEAD `58971bb`.
+**Plan complete.** Eleven tasks, each with RED → GREEN → COMMIT structure. Spec at `docs/superpowers/specs/2026-05-13-nai-190-world-reload-design.md`; HEAD `0b6c109`.
 
 Per memory `execution_mode_default` and `superpowers_clear_between_spec_and_impl`, the resume prompt for the post-`/clear` implementer session is:
 

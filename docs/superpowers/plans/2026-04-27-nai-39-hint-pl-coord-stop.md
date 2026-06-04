@@ -6,7 +6,7 @@
 
 **Architecture:** Bottom-up by layer — script-state substrate first (Task 1), then `(*Player)` wire-emit methods + interface extension (Task 2), then `runScript` refactor with target dispatch (Task 3), then three handlers (Task 4), then deviation retirement (Task 5). Mirrors NAI-11's `buildNpcScriptState` shape for the player side. No production producer for `Self2` lands in this sub-spec — the new `case script.ActivePlayer:` rails are exercised only by tests, tracked under new deviation `NAI-39-D-ACTIVEPLAYER2-NO-OPPLAYER-PRODUCER`.
 
-**Tech Stack:** Go 1.26+ (per `go_version.md`; use `use-modern-go` skill). TS source: `Engine-TS` only per `ts_source_canonical_path.md`. HEAD baseline: `dc12465` (NAI-39 spec commit).
+**Tech Stack:** Go 1.26+ (per `go_version.md`; use `use-modern-go` skill). TS source: `Engine-TS` only per `ts_source_canonical_path.md`. HEAD baseline: `3fe3b47` (NAI-39 spec commit).
 
 ---
 
@@ -1232,4 +1232,4 @@ Per `superpowers:writing-plans` self-review and `plan_test_coverage_crosscheck.m
 
 ## HEAD baseline
 
-`dc12465` (NAI-39 spec).
+`3fe3b47` (NAI-39 spec).

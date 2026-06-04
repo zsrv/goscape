@@ -573,7 +573,7 @@ func normalizeSongName(name string) string {
 // S7h-D1: the subsequent TS PRELOADED + PRELOADED_CRC lookup and
 // MidiSong(name, crc, length) write from TS is not yet ported.
 // goscape lacks the PRELOADED music registry (zero rg hits at
-// HEAD=25bef29). No client packet is sent. The TestPlaySongNoWriteOut
+// HEAD=db1b18e). No client packet is sent. The TestPlaySongNoWriteOut
 // absence-pin (player_script_test.go) escalates this deviation when
 // the write path is wired; retirement tracked as NAI-16-midi-encoders.
 func (p *Player) PlaySong(name string) {
@@ -1131,7 +1131,7 @@ Expected output: **empty**. If anything shows up here, S7h-D1's "no prot.go touc
 rg -n "Player\{" modules/world/ --type go | grep -v "_test.go:.*newPlayer"
 ```
 
-For each non-`newPlayer` `Player{...}` literal, confirm the literal intent does not need `lowMemory`. Known sites from HEAD=25bef29:
+For each non-`newPlayer` `Player{...}` literal, confirm the literal intent does not need `lowMemory`. Known sites from HEAD=db1b18e:
 - `modules/world/server_test.go:359` — `&Player{slot: i}` — slot-only test, `lowMemory=false` default is fine.
 - `modules/world/server_test.go:449` — `&Player{slot: i}` — same.
 - `modules/world/server_test.go:359` and `:449` appear twice each in the probe; both are bare `{slot: i}` literals.
@@ -1146,7 +1146,7 @@ Expected: `S7a-D1, S7a-D2, S7b-D1, S7c-D1, S7d-D1, S7d-D2, S7d-D3, S7d-D4, S7e-D
 
 Expected active count after S7h close: **16** (15 carried + 1 new).
 
-No spec edit is needed unless the list drifted — the spec is already committed as `8048d91`.
+No spec edit is needed unless the list drifted — the spec is already committed as `d01d99a`.
 
 ### Step 5.8: Close commit
 

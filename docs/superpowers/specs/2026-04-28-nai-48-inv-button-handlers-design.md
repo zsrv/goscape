@@ -67,7 +67,7 @@ NAI-40-D-COMPONENT-REGISTRY-VALIDATION-SKIPPED.
 
 ---
 
-## Pre-flight (HEAD `784471c`)
+## Pre-flight (HEAD `b520408`)
 
 | Claim | Result |
 |---|---|

@@ -12,7 +12,7 @@
 
 ## File map
 
-- **Modify:** `modules/world/handlers_game.go` — restructure `handleClientCheat` body (lines 367-466 of HEAD `5a79f62`).
+- **Modify:** `modules/world/handlers_game.go` — restructure `handleClientCheat` body (lines 367-466 of HEAD `bc97189`).
 - **Modify:** `modules/world/handlers_game_test.go` — modify 6 tests (lines 509-641 region), add 3 tests, retire D2 doc-comment reference.
 
 No new files. No changes outside these two files.

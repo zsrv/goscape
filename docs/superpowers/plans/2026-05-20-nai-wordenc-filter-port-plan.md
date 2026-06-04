@@ -2819,8 +2819,8 @@ In `docs/superpowers/specs/2026-05-19-nai-182-d5-social-cluster-design.md` at li
 Edit the existing NAI-182-D5 entry's "opens" portion:
 
 ```diff
-- opens DEVIATION-NAI-182-D5-NO-WORDENC-FILTER (retires-when-wordenc-filter-ports) + DEVIATION-NAI-182-D5-NO-DEFENSIVE-IGNORELIST-LOGIN-EMIT (permanent) + DEVIATION-NAI-182-D5-CHAT-FILTER-NO-RESTORE (RETIRED post-D5 cleanup db84b615 ...)
-+ opens DEVIATION-NAI-182-D5-NO-WORDENC-FILTER (RETIRED 2026-05-20 NAI-WORDENC-FILTER slice — full pkg/wordenc/encfilter port) + DEVIATION-NAI-182-D5-NO-DEFENSIVE-IGNORELIST-LOGIN-EMIT (permanent) + DEVIATION-NAI-182-D5-CHAT-FILTER-NO-RESTORE (RETIRED post-D5 cleanup db84b615 ...)
+- opens DEVIATION-NAI-182-D5-NO-WORDENC-FILTER (retires-when-wordenc-filter-ports) + DEVIATION-NAI-182-D5-NO-DEFENSIVE-IGNORELIST-LOGIN-EMIT (permanent) + DEVIATION-NAI-182-D5-CHAT-FILTER-NO-RESTORE (RETIRED post-D5 cleanup 241213e5 ...)
++ opens DEVIATION-NAI-182-D5-NO-WORDENC-FILTER (RETIRED 2026-05-20 NAI-WORDENC-FILTER slice — full pkg/wordenc/encfilter port) + DEVIATION-NAI-182-D5-NO-DEFENSIVE-IGNORELIST-LOGIN-EMIT (permanent) + DEVIATION-NAI-182-D5-CHAT-FILTER-NO-RESTORE (RETIRED post-D5 cleanup 241213e5 ...)
 ```
 
 - [ ] **Step 3: Update the D5 close memo**
@@ -2847,7 +2847,7 @@ metadata:
 # NAI-WORDENC-FILTER — `WordEnc.filter` port close
 
 **Date:** 2026-05-20
-**Predecessor:** [[post-D5 cleanup]] (HEAD 7fed104e) on top of NAI-182-D5 close c4df7ce0
+**Predecessor:** [[post-D5 cleanup]] (HEAD a9cbab7c) on top of NAI-182-D5 close 081a08ee
 **Slice scope:** 11 commits T1..T11, new pkg/wordenc/encfilter Go package (~700 LOC + ~300 LOC tests).
 
 ## What shipped

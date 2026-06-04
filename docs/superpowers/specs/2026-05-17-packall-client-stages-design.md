@@ -7,7 +7,7 @@
 
 ## Context
 
-`pkg/pack.PackAll` (shipped at NAI-212, `f467c29..0121717`) currently runs three stages: `ClearFsCache → PackConfigs → compiler.RunServerCompiler`. TS `PackAll.ts:17-52` runs nine additional stages between/after those three, each producing a client-side artifact under `data/pack/client/...` or (for `packMaps`) `data/pack/server/maps/`. Those nine stages are tagged at `pkg/pack/pack_all.go:32` as `NAI-212-D-CLIENT-PACKERS-DEFERRED`.
+`pkg/pack.PackAll` (shipped at NAI-212, `cd3130b..5d0bfcb`) currently runs three stages: `ClearFsCache → PackConfigs → compiler.RunServerCompiler`. TS `PackAll.ts:17-52` runs nine additional stages between/after those three, each producing a client-side artifact under `data/pack/client/...` or (for `packMaps`) `data/pack/server/maps/`. Those nine stages are tagged at `pkg/pack/pack_all.go:32` as `NAI-212-D-CLIENT-PACKERS-DEFERRED`.
 
 This spec covers the entire arc in a single design rather than per-stage NAI sub-specs (per user direction). Implementation will be a single multi-task plan, dispatched subagent-driven.
 

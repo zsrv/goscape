@@ -12,7 +12,7 @@
 
 After NAI-100 correctly flagged the 4-tile Lumbridge fountain footprint with `FlagLoc` (verified by Bundle 0 probe), the user smoke on 2026-05-05 showed the player at `(3222, 3225)` stuck unable to walk around the fountain to reach the NPC at `(3219, 3230)`. The residual memory `nai_100_path_around_residual.md` enumerated three suspect hypotheses (FindPathPlain `moveNear` truncation, BFS expand limits, `TypeNormal`-vs-`FlagLoc` handling), all upstream of the BFS itself.
 
-Bundle 0 probe at HEAD `8568877` (post-NAI-100) **falsifies all three suspects** and surfaces the actual root cause downstream of the pathfinder.
+Bundle 0 probe at HEAD `a45c123` (post-NAI-100) **falsifies all three suspects** and surfaces the actual root cause downstream of the pathfinder.
 
 ## 2. Bundle 0 verdict — root cause identified
 
@@ -89,7 +89,7 @@ The smoke evidence (`waypoint_idx=2 stable`, `steps_taken=0` for 22 ticks, `repa
 
 - Client/server/gamemap nil-guard in `stepOnce` skipping `CanTravel` (defensive code at `movement.go:94-99`); player may be silently stepping into FlagLoc tiles without server-side validation.
 - An upstream re-queue site (not yet identified) restoring `waypointIndex=2` each tick despite `repathed=false` indicator.
-- Smoke binary built before NAI-100 close commit `8568877` (timing not verified).
+- Smoke binary built before NAI-100 close commit `a45c123` (timing not verified).
 
 The reverse-bug is **real per direct TS source comparison and unit semantics regardless of smoke-detail provenance**. Smoke is the binding test for "did the fix unblock the symptom" — see §8.
 

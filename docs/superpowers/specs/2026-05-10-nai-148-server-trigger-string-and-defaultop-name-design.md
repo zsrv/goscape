@@ -11,7 +11,7 @@ ts_source:
 
 **Cadence:** 15-100 LOC band per `compressed_cadence.md` — separate spec + plan docs, single combined Sonnet reviewer at end-of-impl. Subagent-driven-development per `execution_mode_default.md`.
 **Tech stack:** Go 1.26+ (`go_version.md`).
-**Closes:** `NAI-147-D-TRIGGER-NAME-NUMERIC` (deferred at NAI-147 T4 close `a2329b5`, "50+ entry name table for one debug-only chat is over-investment" — that gate has now been chosen open).
+**Closes:** `NAI-147-D-TRIGGER-NAME-NUMERIC` (deferred at NAI-147 T4 close `cdc2438`, "50+ entry name table for one debug-only chat is over-investment" — that gate has now been chosen open).
 
 ---
 
@@ -252,7 +252,7 @@ If a future user-driven smoke runs with `NodeDebug=true` and observes unexpected
 | R1 | Off-by-one in `serverTriggerNames` table — wrong name keyed to a constant.                          |  LOW       | LOW    | T1 tests pin the spread by name + fallback. Reviewer Sonnet verifies via grep against `ServerTriggerType.ts:1-162`.                                       |
 | R2 | `tsTriggerForOpFire` returns the wrong OP\* when sentinel + target type mismatch (e.g. NpcT + Player target — used by `TestDefaultOp_DebugnameTBranch_NpcTGuarded`). | LOW | LOW | §3.2's two "sentinel mismatch" rows pin TS-faithful semantics: sentinel wins over target type (matches TS `targetOp+7`-only logic). |
 | R3 | `entity` interface in `interaction.go` does not actually accept the four `*Npc/*Player/*Loc/*Obj` types via type-switch. | LOW | LOW | Existing `defaultOpDebugname` already type-switches on the same concrete types (interaction.go:482-503). Pattern already proven. |
-| R4 | `String()` method on `ServerTriggerType` shadows existing pretty-printer somewhere. | LOW | LOW | grep confirms no existing `String()` on `ServerTriggerType` at HEAD `e40f962`. Adding one only changes `%v`/`%s` rendering — no production code relies on the bare numeric in user output. |
+| R4 | `String()` method on `ServerTriggerType` shadows existing pretty-printer somewhere. | LOW | LOW | grep confirms no existing `String()` on `ServerTriggerType` at HEAD `6778b1c`. Adding one only changes `%v`/`%s` rendering — no production code relies on the bare numeric in user output. |
 
 ## §10 References
 
@@ -261,11 +261,11 @@ If a future user-driven smoke runs with `NodeDebug=true` and observes unexpected
   - `Engine-TS/src/engine/entity/Player.ts:1072-1097` — `defaultOp` body.
   - `Engine-TS/src/engine/entity/PathingEntity.ts:28,66,510-516` — `TargetOp` type, `targetOp` field, `setInteraction`.
   - `Engine-TS/src/engine/script/handlers/PlayerOps.ts:399,413,420,1005,1019,1134` — `setInteraction(..., ServerTriggerType.AP*+type, ...)` call sites confirming AP\*-namespace storage.
-- Goscape anchors at HEAD `e40f962`:
+- Goscape anchors at HEAD `6778b1c`:
   - `pkg/script/trigger.go:1-173` — `ServerTriggerType` constants.
   - `modules/world/interaction.go:36-45` — `targetOp{Loc,Npc,Player,Obj}{T,U}` sentinels.
   - `modules/world/interaction.go:90-149` — `(*Player).SetInteraction` (sets `p.targetOp = op`).
   - `modules/world/interaction.go:467-477` — `defaultOp` (NAI-147 T4).
   - `modules/world/interaction.go:482-540` — `defaultOpDebugname` (TS L1077-1090 fan-out, type-switch precedent).
   - `modules/world/interaction_default_op_debug_test.go:1-294` — full NAI-147 T4 test suite.
-- Tracker: `nai_followups.md` — `NAI-147-D-TRIGGER-NAME-NUMERIC` (currently in NAI-147 close block at git `e40f962`; `nai_followups.md` text append still pending — captured in close commit body).
+- Tracker: `nai_followups.md` — `NAI-147-D-TRIGGER-NAME-NUMERIC` (currently in NAI-147 close block at git `6778b1c`; `nai_followups.md` text append still pending — captured in close commit body).

@@ -8,8 +8,8 @@
 
 **Tech Stack:** Go 1.26+. Stdlib + `pkg/io/packet` + `pkg/io/jagfile` + NAI-191–195 `pkg/pack` foundation + `pkg/objtype` (`ScriptVarType`, `LocType`, `ObjType`, `NPCType`, `ParamTypeConfigs`, `LoadParamTypes`, `LoadLocTypes`, `LoadObjTypes(dir, ptc)`, `LoadNPCTypes`).
 
-**Spec:** `docs/superpowers/specs/2026-05-13-nai-196-loc-obj-npc-packer-slice-design.md` (commit `06276b4`).
-**HEAD at plan-write:** `06276b4`.
+**Spec:** `docs/superpowers/specs/2026-05-13-nai-196-loc-obj-npc-packer-slice-design.md` (commit `fc9db8e`).
+**HEAD at plan-write:** `fc9db8e`.
 
 ---
 
@@ -35,7 +35,7 @@
 
 ## Pre-flight verification (controller, before dispatching tasks)
 
-Verified at plan-write against HEAD `06276b4`:
+Verified at plan-write against HEAD `fc9db8e`:
 
 | Premise | Verification |
 |---|---|

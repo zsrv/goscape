@@ -568,7 +568,7 @@ Expected: conditional ✅ or fixes landed in a follow-up commit before smoke han
 
 Per `implementer_commit_content_verify`:
 ```bash
-git log --oneline 5cc1432..HEAD
+git log --oneline 1f73294..HEAD
 git show <T1-SHA> --stat
 git show <T2-SHA> --stat
 git status   # must be clean (no stray worktree leakage)

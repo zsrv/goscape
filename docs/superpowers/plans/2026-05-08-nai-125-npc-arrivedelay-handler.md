@@ -12,7 +12,7 @@
 
 ## Background
 
-The opcode constant `OpNpcArriveDelay = 2502` is reserved at `pkg/script/opcode.go:239` (and stringified at `:877-878`) but has no dispatch entry in `handlers.go:262-468`. Per `pkg/script/runner.go:65-77`, `Execute` returns `script %q: no handler for NPC_ARRIVEDELAY (opcode 2502) at pc=N` and sets `Execution = Aborted` when the runner hits the unhandled opcode. NAI-123 close smoke (`df95032`, 2026-05-07) confirmed this aborts `[proc,npc_death]` at pc=4 every NPC kill.
+The opcode constant `OpNpcArriveDelay = 2502` is reserved at `pkg/script/opcode.go:239` (and stringified at `:877-878`) but has no dispatch entry in `handlers.go:262-468`. Per `pkg/script/runner.go:65-77`, `Execute` returns `script %q: no handler for NPC_ARRIVEDELAY (opcode 2502) at pc=N` and sets `Execution = Aborted` when the runner hits the unhandled opcode. NAI-123 close smoke (`5687f4e`, 2026-05-07) confirmed this aborts `[proc,npc_death]` at pc=4 every NPC kill.
 
 **TS reference** at `Engine-TS/src/engine/script/handlers/NpcOps.ts:542-555`:
 
@@ -605,7 +605,7 @@ func handleNpcArriveDelay(s *ScriptState) error {
 
 - [ ] **Step 4.2: Register dispatch entry**
 
-Locate the alphabetic-by-name NPC mutating-ops block in `pkg/script/handlers.go:402-414` (verified at HEAD `7fc798c`):
+Locate the alphabetic-by-name NPC mutating-ops block in `pkg/script/handlers.go:402-414` (verified at HEAD `48e95ab`):
 
 ```go
 	// S6c: NPC mutating ops batch.
@@ -673,7 +673,7 @@ ok  	github.com/zsrv/goscape/pkg/script ...
 
 Run: `GOPATH=$TMPDIR/go GOCACHE=$TMPDIR/go-cache go test ./...`
 
-Expected: all packages PASS. Pre-existing modernization warnings (S1001 / minmax / rangeint per NAI-124 close memo at `nai_followups.md:6313`) are NOT introduced by this bundle — confirm any failures pre-date `7fc798c` via `git stash && go test ./... && git stash pop` if uncertain.
+Expected: all packages PASS. Pre-existing modernization warnings (S1001 / minmax / rangeint per NAI-124 close memo at `nai_followups.md:6313`) are NOT introduced by this bundle — confirm any failures pre-date `48e95ab` via `git stash && go test ./... && git stash pop` if uncertain.
 
 - [ ] **Step 4.7: Commit**
 
@@ -694,7 +694,7 @@ defensive guard (goscape defensive; TS skips this check), mirroring
 handlePArriveDelay sibling-handler convention.
 
 Closes the [proc,npc_death] WARN at pc=4 surfaced in NAI-123 close
-smoke (df95032).
+smoke (5687f4e).
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF

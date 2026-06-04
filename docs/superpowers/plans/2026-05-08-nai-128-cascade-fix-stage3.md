@@ -8,11 +8,11 @@
 
 **Tech Stack:** Go 1.26+, `log/slog`, `world.Config.NodeDebug`. No new deps.
 
-**Spec:** `docs/superpowers/specs/2026-05-08-nai-128-cascade-fix-stage3-design.md` (`a966c32`).
+**Spec:** `docs/superpowers/specs/2026-05-08-nai-128-cascade-fix-stage3-design.md` (`32b120b`).
 
 ---
 
-## Pre-flight summary (verified by controller at HEAD `7fdf963`)
+## Pre-flight summary (verified by controller at HEAD `681ba9c`)
 
 - `Npc.server *Server` back-ref exists at `modules/world/npc.go:81` (set by `Server.addNpc`). Available at G1/G2/G3 sites.
 - `worldVarsView` holds `s *Server` at `modules/world/server_varp.go:164`. Available at G6.

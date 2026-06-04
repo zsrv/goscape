@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.26+; `pkg/io/packet` (RS2 binary buffer); `pkg/io/protocol/game/server` (opcode constants); `modules/world` (Player, Server, writeVarp, updateEnergy); `pkg/script` (handlePRun, ScriptState); `log/slog` (NodeDebug-gated probes per `nodedebug_gateway_probe_pattern` memory).
 
-**Predecessor:** NAI-138 Stage 1 closed at `edf9f6c` (handoff commit). Spec §6.3 + handoff `docs/superpowers/handoffs/2026-05-09-nai-138-stage-1-binding.md`.
+**Predecessor:** NAI-138 Stage 1 closed at `d33bd78` (handoff commit). Spec §6.3 + handoff `docs/superpowers/handoffs/2026-05-09-nai-138-stage-1-binding.md`.
 
 ---
 

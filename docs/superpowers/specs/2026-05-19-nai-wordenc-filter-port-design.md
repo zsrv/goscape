@@ -1,7 +1,7 @@
 # NAI-WORDENC-FILTER — `WordEnc.filter` port
 
 **Date:** 2026-05-19
-**Predecessor:** [[post-D5 cleanup]] (HEAD `7fed104e`) on top of NAI-182-D5 close `c4df7ce0`
+**Predecessor:** [[post-D5 cleanup]] (HEAD `a9cbab7c`) on top of NAI-182-D5 close `081a08ee`
 **Retires:** `DEVIATION-NAI-182-D5-NO-WORDENC-FILTER` (sendMessagePrivate currently calls `wordpack.Pack(chat)` without an equivalent of TS `WordEnc.filter`).
 
 ## 1. Goal
@@ -16,7 +16,7 @@ After this slice, the wire bytes for inbound PMs and broadcast public-chat will 
 
 - New Go package `pkg/wordenc/encfilter/`.
 - `(*Filter).Filter(s string) string` matching TS `WordEnc.filter` algorithm.
-- `encfilter.Load(cachePath string) (*Filter, error)` reading the existing `client/wordenc` jagfile (already built by goscape's pack pipeline — verified by smoke-pack 12/0 baseline at `c4df7ce0`).
+- `encfilter.Load(cachePath string) (*Filter, error)` reading the existing `client/wordenc` jagfile (already built by goscape's pack pipeline — verified by smoke-pack 12/0 baseline at `081a08ee`).
 - `*Filter` instance held on `*Server` (loaded once at `NewServer`).
 - Two call-site changes: `sendMessagePrivate` (filter inbound PM text) and `handleMessagePublic` (unpack → filter → repack before delivery).
 - Tests: algorithmic Go-level + TS-derived golden fixtures.

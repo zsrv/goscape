@@ -4,7 +4,7 @@ import "errors"
 
 // Package-level sentinel errors for recurring config-parsing failures.
 // Promoted from inline fmt.Errorf literals per Arc 18 ERR-1 (continued
-// from Arc 22 jagfile sentinel work in 78cbd242) so callers can
+// from Arc 22 jagfile sentinel work in 45a8c3e7) so callers can
 // errors.Is against these without matching on formatted strings.
 //
 // Each sentinel covers a class of error that occurs in >2 distinct
