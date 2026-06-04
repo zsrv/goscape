@@ -23,7 +23,7 @@ func TestPlayerListAllocation(t *testing.T) {
 			l.set(pid, pl())
 		}
 		l.remove(3)
-		l.set(2047, pl()) // lastUsedIndex = 2047 → forward scan empty
+		l.set(2047, pl())              // lastUsedIndex = 2047 → forward scan empty
 		if got := l.next(); got != 3 { // EntityList.ts:29-33 wrap from indexPadding
 			t.Fatalf("next() = %d, want 3", got)
 		}
@@ -55,7 +55,7 @@ func TestPlayerListAllocation(t *testing.T) {
 		for pid := 300; pid < 400; pid++ {
 			l.set(pid, pl())
 		}
-		l.set(7, pl()) // lastUsedIndex = 7
+		l.set(7, pl())                            // lastUsedIndex = 7
 		if got := l.nextPriority(300); got != 8 { // super.next() w/ DEFAULT start (EntityList.ts:113)
 			t.Fatalf("nextPriority(300) = %d, want 8", got)
 		}
