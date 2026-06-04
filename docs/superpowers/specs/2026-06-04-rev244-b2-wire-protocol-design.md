@@ -36,7 +36,7 @@ trail. Not a full 6.4k-LOC line re-audit.
 | `ServerGameProt.ts` (58/61) | all opcodes renumbered (ctor stays `(id,length)`); removed `DATA_LAND`, `DATA_LAND_DONE`, `DATA_LOC`, `DATA_LOC_DONE` (map delivery moves to engine OnDemand — **B3**); added `IF_OPENOVERLAY` (158, 2) + `IfOpenOverlayEncoder` (+12); `MidiSongEncoder`/`MidiJingleEncoder` deltas | `pkg/io/protocol/game/server/prot.go` named `Op` vars + their emitters in `modules/world` |
 | `ServerGameZoneProt.ts` (10/10) | all 10 zone opcodes renumbered | same |
 | Handler family (~25 files, each 5-50 lines) | behavioral re-shapes; sampled `OpHeldHandler`: validation reorder, `clearPendingAction()` added to every reject path, `delayed` check moved AFTER validation, explicit per-op trigger dispatch replaces `OPHELD1 + (op-1)` arithmetic, sessionlog only for ops 1-4; decoder read-order deltas in OpHeldU/T, OpNpcU/T, OpPlayerU/T, InvButtonD (3-4 lines each) | `modules/world/handler_*.go` (shared-impl convention preserved) |
-| rsbuf `1defefb` | player `DAMAGE2 = 0x400` appended (write-ordinal 5; FACE_COORD→6, CHAT→7, SPOT_ANIM→8); **NPC mask bits ALL shift** (`DAMAGE2` inserted at `0x1`: ANIM 1→2 … FACE_COORD 64→128; write-ordinal 4, CHANGE_TYPE→5, SPOT_ANIM→6, FACE_COORD→7); caches 8→9 (player) / 7→8 (npc); `computePlayer`/`computeNpc` gain `damageTaken2`,`damageType2`; DAMAGE2 encoders reuse the Damage payload shape `(taken2, type2, currentHP, baseHP)` | `pkg/rsbuf` + `modules/world` bridge call sites |
+| rsbuf `1defefb` | player `DAMAGE2 = 0x400` appended; npc `DAMAGE2 = 0x1` fills the previously-unused `0x1` slot (**no existing bit changes** — plan-time correction: prot.rs shows 225 npc bits already started at `ANIM=0x2`; the earlier "all npc bits shift" reading of the wasm `.d.ts` was wrong). Wire order (info.rs write_blocks): player DAMAGE2 written **last** (after EXACT_MOVE); npc DAMAGE2 written **first** (before ANIM) — the "ordinal" lists are Rust-internal cache indices with no direct Go analog (caches 8→9 / 7→8 likewise). `computePlayer`/`computeNpc` gain `damageTaken2`,`damageType2`; DAMAGE2 encoders reuse the Damage payload shape `(taken2, type2, currentHP, baseHP)` | `pkg/rsbuf` + `modules/world` bridge call sites |
 | damage2 entity feed (pulled forward from B3) | `PathingEntity.ts:95-96` `hitmark2Damage/Type` fields + `:608-609` per-tick reset; `hitmarkSlot` counter; `applyDamage` even/odd alternation (`Player.ts:1870-1889`, `Npc.ts:475-493`) | `modules/world` Player + Npc forks (BOTH — shared-TS-base-class rule) |
 
 ## Structural decisions
@@ -77,11 +77,12 @@ verified against TS, never weakened.
 
 ### Slice 3 — rsbuf damage2 + entity pull-forward (independent; last)
 
-- `pkg/rsbuf`: mask renumbers (both enums), write-order tables, cache bumps,
-  DAMAGE2 encoders.
+- `pkg/rsbuf`: new mask bits (player `0x400`, npc `0x1` — no existing bit
+  changes), wire write-order insertions (player DAMAGE2 last, npc DAMAGE2
+  first), DAMAGE2 encoders.
 - Pre-change grep-audit: ALL `masks |=` / mask-constant sites in
-  `modules/world` for raw-number usage (any literal silently breaks every
-  NPC update after the shift).
+  `modules/world` for raw-number usage, and the duplicate constant sets
+  (`modules/world/masks.go` vs `pkg/rsbuf`) get a consistency pin.
 - Bridge: `ComputePlayer`/`ComputeNpc` +2 params; call sites feed the new
   entity fields.
 - Entity pull-forward: fields + reset in BOTH forks, `hitmarkSlot`,
@@ -118,8 +119,10 @@ verified against TS, never weakened.
 
 ## Risks (ordered)
 
-1. **NPC mask renumber drift** — mitigated by the pre-change grep-audit +
-   bit-value pin tests.
+1. **Mask-constant drift** — (downgraded at plan time: npc bits do NOT
+   shift, `DAMAGE2=0x1` fills a gap) the duplicate constant sets
+   (`modules/world/masks.go` vs `pkg/rsbuf`) and the new bits still get the
+   grep-audit + bit-value pin tests + a cross-package consistency pin.
 2. **Handler behavior coupling** — `clearPendingAction` on reject paths
    interacts with interaction/pathing state; per-file TS verification, no
    pattern-application across handlers.
