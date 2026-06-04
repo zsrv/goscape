@@ -538,6 +538,16 @@ Work list = the `NpcType.ts` + `ObjType.ts` hunks. Verified: NpcType new codes 9
 
 ---
 
+## Execution addendum (2026-06-04)
+
+The Task-7 gate surfaced one plan gap: the `src/cache/wordenc/WordEnc.ts` hunk
+(load from the raw jag `data/raw/wordenc`, unconditional) was in the bundle's
+file inventory but had no task. Closed during execution as Task 6b, commit
+`e4eaec54`; recorded in PORTING.md's B1 correspondence table. Also executed
+beyond the letter of the plan: the `pkg/pack/clientinterface` writer hunks
+(PackShared.ts:267-274,428-431) were pulled forward from B6 in `e4e881d8` to
+keep the component round-trip test coherent — B6 must not double-apply them.
+
 ## Self-review notes
 
 - Spec coverage: B1 = "new FileStream/GZip/PemUtil, DoublyLinkList, cache-loading rework" — FileStream T1, GZip T2, PemUtil T3, DoublyLinkList resolved as dead-at-pin (T8), cache config deltas T4-T6; the `src/cache` CrcTable/PreloadedPacks/DevThread slice is explicitly deferred with tracker rows (T8) per the consumer-coupling analysis. Packet delta covered (T8 NO-OP row).

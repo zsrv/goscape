@@ -37,7 +37,7 @@ code across revision branches.
 
 | # | Bundle | Upstream surface | Go targets |
 |---|---|---|---|
-| B1 | io/cache/util primitives | new `src/io/FileStream.ts`, `GZip.ts`, `PemUtil.ts`; `src/util/DoublyLinkList.ts`; `src/cache` loading rework (−435/+134) | `pkg/io`, `pkg/cache` |
+| B1 | io/cache/util primitives | new `src/io/FileStream.ts`, `GZip.ts`, `PemUtil.ts`; `src/util/DoublyLinkList.ts`; `src/cache` loading rework (−435/+134) incl. config decoders (SeqType/AnimFrame, Component, NpcType, ObjType) + `wordenc/WordEnc.ts` raw-path | `pkg/io`, `pkg/cache`, `pkg/objtype`, `pkg/wordenc` |
 | B2 | Wire protocol + rsbuf | `ClientGameProt.ts`/`ServerGameProt.ts` opcode renumber; the OpHeld*/OpHeldU/InvButton/OpNpc*/OpObj*/OpLoc*/OpPlayerU handler family; `@2004scape/rsbuf` `^225.1.7→^244.1.0` | `pkg/io/protocol`, `modules/world` handlers, `pkg/rsbuf` re-audit |
 | B3 | Engine core | `World.ts` (262/232), entity family (`Player.ts` 73/73, `Npc.ts`, `NetworkPlayer.ts`, `EntityList.ts`), new engine `OnDemand.ts` (+123), `InputTrackingBlob.ts` | `modules/world`, `modules/ondemand` |
 | B4 | Script runtime | `ScriptOpcode.ts` (226/206), `ServerOps.ts` +175, `DebugOps.ts` +55, `PlayerOps`/`InvOps`, `ScriptOpcodePointers` | `pkg/script` |
