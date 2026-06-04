@@ -63,7 +63,7 @@ func handleOpHeld(p *Player, payload []byte, op int) error {
 		if s.objTypes != nil && item >= 0 && item < len(s.objTypes.Configs) {
 			objType = s.objTypes.Configs[item]
 		}
-		if objType == nil || len(objType.IOp) == 0 || objType.IOp[op-1] == "" {
+		if objType == nil || len(objType.IOp) < op || objType.IOp[op-1] == "" {
 			p.ClearPendingAction()
 			return nil
 		}
@@ -395,7 +395,7 @@ func handleOpHeldU(p *Player, payload []byte) error {
 		}
 	}
 
-	// State snapshot BEFORE members gate (matches TS OpHeldUHandler.ts:48-51 ordering).
+	// State snapshot BEFORE members gate (matches TS OpHeldUHandler.ts:61-64 ordering).
 	p.lastItem = item
 	p.lastSlot = slot
 	p.lastUseItem = useItem
@@ -411,26 +411,26 @@ func handleOpHeldU(p *Player, payload []byte) error {
 	objType := s.objTypes.Configs[item]
 	useObjType := s.objTypes.Configs[useItem]
 
-	// Unconditional ClearPendingAction (TS OpHeldUHandler.ts:54).
+	// Unconditional ClearPendingAction (TS OpHeldUHandler.ts:69).
 	p.ClearPendingAction()
 	if p.faceEntity != -1 {
 		p.faceEntity = -1
 	}
 	p.masks |= p.entitymask
 
-	// Members-only gate (TS OpHeldUHandler.ts:56-59).
+	// Members-only gate (TS OpHeldUHandler.ts:73-76).
 	if (objType.Members || useObjType.Members) && !s.cfg.NodeMembers {
 		p.MessageGame("To use this item please login to a members' server.")
 		return nil
 	}
 
-	// 4-arm trigger fallback (TS OpHeldUHandler.ts:62-83); first hit wins.
+	// 4-arm trigger fallback (TS OpHeldUHandler.ts:79-100); first hit wins.
 	sf := s.scriptProvider.GetByTriggerSpecific(script.TriggerOpHeldU, objType.ConfigType.ID, -1)
 
 	if sf == nil {
 		sf = s.scriptProvider.GetByTriggerSpecific(script.TriggerOpHeldU, useObjType.ConfigType.ID, -1)
 		// Arm (b): UNCONDITIONAL swap whenever (a) misses, regardless of
-		// whether (b)'s lookup succeeded (TS OpHeldUHandler.ts:67-68).
+		// whether (b)'s lookup succeeded (TS OpHeldUHandler.ts:84-85).
 		p.lastItem, p.lastUseItem = p.lastUseItem, p.lastItem
 		p.lastSlot, p.lastUseSlot = p.lastUseSlot, p.lastSlot
 	}
@@ -442,7 +442,7 @@ func handleOpHeldU(p *Player, payload []byte) error {
 	if sf == nil && useObjType.Category != -1 {
 		sf = s.scriptProvider.GetByTriggerSpecific(script.TriggerOpHeldU, -1, useObjType.Category)
 		// Arm (d): UNCONDITIONAL swap whenever (c) misses or is skipped,
-		// regardless of whether (d)'s lookup succeeded (TS OpHeldUHandler.ts:81-82).
+		// regardless of whether (d)'s lookup succeeded (TS OpHeldUHandler.ts:98-99).
 		p.lastItem, p.lastUseItem = p.lastUseItem, p.lastItem
 		p.lastSlot, p.lastUseSlot = p.lastUseSlot, p.lastSlot
 	}

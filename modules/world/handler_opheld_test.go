@@ -238,6 +238,28 @@ func TestHandleOpHeld_IopEmpty_ClearsPendingAction(t *testing.T) {
 	}
 }
 
+// TestHandleOpHeld_IopShortSlice_Rejects pins that op≠5 rejects without panic when
+// IOp is shorter than op (e.g. IOp length 2, op=3). The TS-faithful guard
+// "len(IOp) < op" absorbs this case that the old "len(IOp) == 0" check missed.
+// TS: "(type.iop && !type.iop[op-1]) || !type.iop" — JS undefined-falsy absorption.
+func TestHandleOpHeld_IopShortSlice_Rejects(t *testing.T) {
+	s, p := setupOpHeldServer(t)
+	// IOp length 2: slots 0 and 1 only. op=3 would index IOp[2] — OOB without the fix.
+	s.objTypes.Configs[555].IOp = []string{"op1", "op2"}
+
+	p.target = p
+	p.opcalled = true
+
+	_ = handleOpHeld3(p, opHeldPayload(555, 3, 149))
+
+	if p.lastItem != -1 {
+		t.Errorf("lastItem: got %d, want -1 (short-slice IOp op=3 must reject)", p.lastItem)
+	}
+	if p.target != nil {
+		t.Error("244: short-slice IOp reject must call clearPendingAction (no panic)")
+	}
+}
+
 // TestHandleOpHeld_ShortPayload pins that <6 bytes drops.
 func TestHandleOpHeld_ShortPayload(t *testing.T) {
 	s, p := setupOpHeldServer(t)
@@ -874,9 +896,9 @@ func TestHandleOpHeldU_NoUseListener_ClearsPending(t *testing.T) {
 	}
 }
 
-// TestHandleOpHeldU_SlotMismatch_ClearsAndUnsetsMoveClick pins gate 10:
+// TestHandleOpHeldU_SlotMismatch_ClearsAndUnsetsMoveClick pins gate 6:
 // inv.HasAt(slot, obj)=false → moveClickRequest=false + ClearPendingAction.
-// TS OpHeldUHandler.ts:54-58.
+// TS OpHeldUHandler.ts:39-43.
 func TestHandleOpHeldU_SlotMismatch_ClearsAndUnsetsMoveClick(t *testing.T) {
 	_, p := setupOpHeldUServer(t)
 	// Pre-arm the sentinel state.
@@ -887,16 +909,16 @@ func TestHandleOpHeldU_SlotMismatch_ClearsAndUnsetsMoveClick(t *testing.T) {
 	_ = handleOpHeldU(p, opHeldUPayload(555, 10, 149, 777, 5, 149))
 
 	if p.moveClickRequest {
-		t.Error("moveClickRequest: want false after slot-mismatch reject (gate 10)")
+		t.Error("moveClickRequest: want false after slot-mismatch reject (gate 6)")
 	}
 	if p.target != nil {
-		t.Error("ClearPendingAction: want called (target nil) after slot-mismatch reject (gate 10)")
+		t.Error("ClearPendingAction: want called (target nil) after slot-mismatch reject (gate 6)")
 	}
 }
 
-// TestHandleOpHeldU_UseSlotMismatch_ClearsAndUnsetsMoveClick pins gate 13:
+// TestHandleOpHeldU_UseSlotMismatch_ClearsAndUnsetsMoveClick pins gate 8:
 // useInv.HasAt(useSlot, useObj)=false → moveClickRequest=false + ClearPendingAction.
-// TS OpHeldUHandler.ts:71-75.
+// TS OpHeldUHandler.ts:54-58.
 func TestHandleOpHeldU_UseSlotMismatch_ClearsAndUnsetsMoveClick(t *testing.T) {
 	_, p := setupOpHeldUServer(t)
 	// Pre-arm the sentinel state.
@@ -907,10 +929,10 @@ func TestHandleOpHeldU_UseSlotMismatch_ClearsAndUnsetsMoveClick(t *testing.T) {
 	_ = handleOpHeldU(p, opHeldUPayload(555, 3, 149, 777, 10, 149))
 
 	if p.moveClickRequest {
-		t.Error("moveClickRequest: want false after useSlot-mismatch reject (gate 13)")
+		t.Error("moveClickRequest: want false after useSlot-mismatch reject (gate 8)")
 	}
 	if p.target != nil {
-		t.Error("ClearPendingAction: want called (target nil) after useSlot-mismatch reject (gate 13)")
+		t.Error("ClearPendingAction: want called (target nil) after useSlot-mismatch reject (gate 8)")
 	}
 }
 
