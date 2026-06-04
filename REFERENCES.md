@@ -31,6 +31,37 @@ Notes:
   upstream Server meta-repo pins `@lostcityrs/runescript` past `750291c`
   (see `PORTING-LESSONS.md` §3, "Pack pipeline / byte parity").
 
+## rev-244 — Go branch `rev-244`
+
+| Repo | Role | URL | Branch | Pinned commit |
+|---|---|---|---|---|
+| Engine-TS | **primary** — authoritative translation source | https://github.com/LostCityRS/Engine-TS | `244` | `9aadcec4e9560b810b5e5eee31aadc67f3b206cd` |
+| Content | game content packed and served by the server | https://github.com/LostCityRS/Content | `244` | `e5d0282e03b383efd3b2a81e63090e703ffb5399` |
+| Client-Java | the client this server speaks to; wire-protocol cross-check | https://github.com/LostCityRS/Client-Java | `244` | `01f1608842acb12901f7e4f3df25553f641cc86e` |
+| RuneScriptKt | RuneScript compiler — **replaces RuneScriptTS in 244** (see note) | https://github.com/LostCityRS/RuneScriptKt | release tag `26` | *(record when fetched — local checkout is at tag `22`; the release-26 jar sha256 is the effective pin)* |
+
+(Commits captured 2026-06-03 from the local reference checkouts, matching the
+goscape-client `REFERENCES.md` rev-244 pins. Go branch `rev-244` is cut from
+`rev-225` at `bf073fcc`. Engine (Java) and Server — pinned at `main` for
+rev-225 — have no 244-specific checkout yet; record them here if/when a
+244-specific need arises, otherwise the rev-225 pins remain the last-known
+reference.)
+
+Notes:
+
+- **The 225→244 diff is a clean work list.** Unlike the client's Java
+  references (divergent deob lineages), the Engine-TS `225` and `244` pins
+  share history (merge-base `de5fa4db`), so
+  `git -C Engine-TS diff e1dea19f..9aadcec4` is the real server delta.
+- **Compiler swap:** 244 drops the `@lostcityrs/runescript` npm dependency.
+  `src/util/RuneScriptCompiler.ts` auto-downloads `RuneScriptCompiler.jar`
+  from RuneScriptKt releases at `ScriptProvider.COMPILER_VERSION = 26` and
+  verifies its sha256. Pack byte-parity work on rev-244 must track
+  RuneScriptKt-26 output, not RuneScriptTS.
+- **`@2004scape/rsbuf` bumps `^225.1.7` → `^244.1.0`** — `pkg/rsbuf` (the Go
+  reimplementation of that crate, see `pkg/rsbuf/doc.go`) must be re-audited
+  against the 244 crate. `@2004scape/rsmod-pathfinder` is unchanged (`^5.0.4`).
+
 ## Future revisions
 
 When porting revision *N*:
@@ -41,6 +72,7 @@ When porting revision *N*:
    `git -C Engine-TS diff e1dea19f..<rev-N commit>` — and apply the
    corresponding Go deltas on the `rev-N` branch, so the Go branch diff
    mirrors the TS revision diff.
-4. Bump the **Content** and **RuneScriptTS** pins in the same section — the
-   pack pipeline is byte-parity-checked against the cache the upstream
-   meta-repo packs, so engine, content, and compiler move together.
+4. Bump the **Content** and **compiler** pins in the same section (the
+   compiler is revision-dependent: RuneScriptTS for 225, RuneScriptKt for
+   244+) — the pack pipeline is byte-parity-checked against the cache the
+   upstream packs, so engine, content, and compiler move together.

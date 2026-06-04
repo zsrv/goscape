@@ -14,6 +14,7 @@ below.
 |---|---|
 | `main` | This docs hub: cross-revision references and porting lessons |
 | `rev-225` | The complete revision-225 server port (full history) |
+| `rev-244` | The revision-244 port, cut from `rev-225` (porting in progress) |
 
 Future revisions: branch `rev-N` from the nearest prior revision branch and
 apply the upstream delta — see the "Future revisions" recipe in
