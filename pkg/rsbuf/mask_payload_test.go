@@ -232,21 +232,60 @@ func TestDamage2Payload(t *testing.T) {
 	}
 }
 
-// TestPlayerDamage2WrittenLast pins DAMAGE2 appearing AFTER DAMAGE in the wire stream
-// (rsbuf 244 info.rs write_blocks: DAMAGE at line 374-376, DAMAGE2 at line 402-404 — last
-// after EXACT_MOVE). Uses DAMAGE + DAMAGE2 together to confirm relative order.
+// TestPlayerDamage2WrittenLast pins DAMAGE2 as STRICTLY LAST in the wire stream —
+// after EXACT_MOVE, which is the immediately-preceding writer in canonical order
+// (rsbuf 244 info.rs:362-404). Composing MaskDamage|MaskFaceCoord|MaskSpotAnim|
+// MaskExactMove|MaskDamage2 ensures a regression placing writeDamage2 between
+// FACE_COORD and CHAT (or anywhere before EXACT_MOVE) will fail the byte-exact check.
+//
+// Canonical order for this mask set (ascending bit-value):
+//
+//	DAMAGE      [bits 0x10] → p1(amt)  p1(type)  p1(curHP)  p1(baseHP)      4 bytes
+//	FACE_COORD  [bits 0x20] → p2(faceX) p2(faceZ)                            4 bytes
+//	SPOT_ANIM   [bits 0x100]→ p2(id) p4((height<<16)|delay)                  6 bytes
+//	EXACT_MOVE  [bits 0x200]→ p1(sx) p1(sz) p1(ex) p1(ez) p2(begin) p2(fin) p1(dir)  9 bytes
+//	DAMAGE2     [bits 0x400]→ p1(amt2) p1(type2) p1(curHP) p1(baseHP)        4 bytes  ← LAST
+//
+// originX=originZ=3200 → localOrigin = ((3200>>3)-6)<<3 = 3152.
+// exactStart{X,Z}=3160 → offset 8; exactEnd{X,Z}=3168 → offset 16.
 func TestPlayerDamage2WrittenLast(t *testing.T) {
 	p := &fakeSource{
-		masks:     MaskDamage | MaskDamage2,
+		masks: MaskDamage | MaskFaceCoord | MaskSpotAnim | MaskExactMove | MaskDamage2,
+		// DAMAGE
 		damageAmt: 10, damageType: 1, curHP: 40, baseHP: 50,
+		// FACE_COORD
+		faceSquareX: 0x0182, faceSquareZ: 0x0184,
+		// SPOT_ANIM
+		spotanimID: 7, spotanimHeight: 3, spotanimDelay: 4,
+		// EXACT_MOVE
+		originX: 3200, originZ: 3200,
+		exactStartX: 3160, exactStartZ: 3160,
+		exactEndX: 3168, exactEndZ: 3168,
+		exactBegin: 10, exactFinish: 20, exactDir: 3,
+		// DAMAGE2
 		damage2Amt: 5, damage2Type: 2,
 	}
 	buf := packet.NewPacket(nil)
-	writeMaskPayloads(buf, p, MaskDamage|MaskDamage2)
+	writeMaskPayloads(buf, p, MaskDamage|MaskFaceCoord|MaskSpotAnim|MaskExactMove|MaskDamage2)
 	got := bytesWritten(buf)
-	// DAMAGE first: p1(10) p1(1) p1(40) p1(50)
-	// DAMAGE2 last: p1(5) p1(2) p1(40) p1(50)  (shares curHP/baseHP)
-	want := []byte{0x0a, 0x01, 0x28, 0x32, 0x05, 0x02, 0x28, 0x32}
+
+	// DAMAGE:     p1(10)  p1(1)   p1(40)  p1(50)
+	// FACE_COORD: p2(0x0182) p2(0x0184)
+	// SPOT_ANIM:  p2(7)   p4((3<<16)|4 = 0x00030004)
+	// EXACT_MOVE: p1(8) p1(8) p1(16) p1(16) p2(10) p2(20) p1(3)
+	// DAMAGE2:    p1(5)   p1(2)   p1(40)  p1(50)           ← LAST
+	want := []byte{
+		// DAMAGE (4 bytes)
+		0x0a, 0x01, 0x28, 0x32,
+		// FACE_COORD (4 bytes)
+		0x01, 0x82, 0x01, 0x84,
+		// SPOT_ANIM (6 bytes): p2(7)=0x00,0x07; p4(0x00030004)=0x00,0x03,0x00,0x04
+		0x00, 0x07, 0x00, 0x03, 0x00, 0x04,
+		// EXACT_MOVE (9 bytes): sx=8,sz=8,ex=16,ez=16,begin=10,finish=20,dir=3
+		0x08, 0x08, 0x10, 0x10, 0x00, 0x0a, 0x00, 0x14, 0x03,
+		// DAMAGE2 (4 bytes) — strictly LAST
+		0x05, 0x02, 0x28, 0x32,
+	}
 	if len(got) != len(want) {
 		t.Fatalf("length: got %d, want %d (bytes=%#v)", len(got), len(want), got)
 	}
