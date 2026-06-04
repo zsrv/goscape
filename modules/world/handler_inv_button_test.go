@@ -18,12 +18,21 @@ func invButtonPayload(obj, slot, com int) []byte {
 	}
 }
 
-// invButtonDPayload encodes a 6-byte INV_BUTTOND payload (com:G2 slot:G2 targetSlot:G2).
+// invButtonDPayload encodes a 7-byte INV_BUTTOND payload
+// (component:G2 slot:G2 targetSlot:G2 mode:G1).
+// TS InvButtonDDecoder.ts (244): added trailing mode g1, size 6→7.
 func invButtonDPayload(com, slot, targetSlot int) []byte {
+	return invButtonDPayloadWithMode(com, slot, targetSlot, 0)
+}
+
+// invButtonDPayloadWithMode encodes a 7-byte INV_BUTTOND payload with an
+// explicit mode byte. TS InvButtonDDecoder.ts (244): mode is the 7th byte.
+func invButtonDPayloadWithMode(com, slot, targetSlot, mode int) []byte {
 	return []byte{
 		byte(com >> 8), byte(com),
 		byte(slot >> 8), byte(slot),
 		byte(targetSlot >> 8), byte(targetSlot),
+		byte(mode),
 	}
 }
 
@@ -48,10 +57,18 @@ func setupInvButtonServer(t *testing.T) (*Server, *Player) {
 
 // --- INV_BUTTON1-5 tests ---
 
-// TestHandleInvButtonDelayed pins that a delayed player causes an early drop
-// with no state mutation (mirrors TS InvButtonHandler.ts:14-17).
+// TestHandleInvButtonDelayed pins that a delayed player causes a drop after
+// passing all validation gates (mirrors TS InvButtonHandler.ts 244: delayed
+// check is AFTER component/listener/inv validation, not before).
+// In 244 the gate ordering is: component → inventoryOptions → listener → inv
+// → hasAt → THEN delayed. This test wires a valid component+inv so all prior
+// gates pass and the delayed check is the one that fires.
 func TestHandleInvButtonDelayed(t *testing.T) {
 	s, p := setupInvButtonServer(t)
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, InventoryOptions: []string{"option1", "", "", "", ""}},
+	})
+	p.tabs[0] = 149
 	s.currentTick = 5
 	p.delayed = true
 	p.delayedUntil = 10
@@ -74,6 +91,62 @@ func TestHandleInvButtonShortPayload(t *testing.T) {
 
 	if p.lastItem != -1 || p.lastSlot != -1 {
 		t.Error("state mutated on short payload")
+	}
+}
+
+// TestHandleInvButtonDShortPayload pins that payloads under 7 bytes are
+// dropped. INV_BUTTOND grew from 6 to 7 bytes in 244 (trailing mode G1).
+// A 6-byte payload must be rejected before any state change even when all
+// other conditions (component, listener, inv) are valid.
+// TS InvButtonDDecoder.ts (244).
+func TestHandleInvButtonDShortPayload(t *testing.T) {
+	s, p := setupInvButtonServer(t)
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Draggable: true},
+	})
+	p.tabs[0] = 149
+
+	// 6-byte payload is now short (244: size=7); encode component=149 so the
+	// component gate cannot mask the size rejection
+	payload6 := []byte{
+		byte(149 >> 8), byte(149),
+		byte(3 >> 8), byte(3),
+		byte(5 >> 8), byte(5),
+	}
+	_ = s.handleInvButtonD(p, payload6)
+
+	if p.lastSlot != -1 {
+		t.Error("state mutated on 6-byte payload (need 7; size gate should reject)")
+	}
+}
+
+// TestHandleInvButtonDModeByteParsed pins that a 7-byte INV_BUTTOND payload
+// is accepted (mode byte read, handler proceeds past short-payload gate).
+// TS InvButtonDDecoder.ts (244): mode=g1() added as 7th byte. The handler
+// currently has "// todo: pass message.mode to script" — mode is decoded but
+// not yet forwarded to the script.
+func TestHandleInvButtonDModeByteParsed(t *testing.T) {
+	s, p := setupInvButtonServer(t)
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Draggable: true},
+	})
+	p.tabs[0] = 149
+	sf := &script.ScriptFile{
+		Name:        "[inv_buttond,149]",
+		LookupKey:   script.LookupKeyForType(script.TriggerInvButtonD, 149),
+		Opcodes:     []script.Opcode{script.OpReturn},
+		IntOperands: []int32{0}, StringOperands: []string{""}, InstructionCount: 1,
+	}
+	s.scriptProvider.Register(sf)
+
+	// mode=2 in the trailing byte; handler accepts it and runs the script
+	_ = s.handleInvButtonD(p, invButtonDPayloadWithMode(149, 3, 5, 2))
+
+	if p.lastSlot != 3 {
+		t.Errorf("lastSlot: got %d, want 3 (7-byte payload with mode=2 must be accepted)", p.lastSlot)
+	}
+	if p.lastTargetSlot != 5 {
+		t.Errorf("lastTargetSlot: got %d, want 5", p.lastTargetSlot)
 	}
 }
 

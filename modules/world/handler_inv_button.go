@@ -6,59 +6,79 @@ import (
 )
 
 // handleInvButton is the shared implementation for INV_BUTTON1..INV_BUTTON5.
-// op is 1..5. Wire format: obj:G2 | slot:G2 | com:G2 (6 bytes).
+// op is 1..5. Wire format: obj:G2 | slot:G2 | component:G2 (6 bytes).
 //
-// Gates per TS InvButtonHandler.ts:
-//  1. delayed player → drop
-//  2. payload < 6 bytes → drop
-//  3. nil component or !IsComponentVisible → drop
-//  4. com.InventoryOptions nil or InventoryOptions[op-1]=="" → drop
-//  5. comId not in invListeners → drop
-//  6. listener's inventory unresolved → drop
-//  7. inv.HasAt(slot, obj) false → drop
+// Gates per TS InvButtonHandler.ts (244) — note delayed is checked AFTER all
+// validation guards (changed from 225 where it was first):
+//  1. payload < 6 bytes → drop
+//  2. nil component, or !InventoryOptions, or !IsComponentVisible → drop
+//  3. com.InventoryOptions[op-1] == "" → drop
+//  4. comId not in invListeners → drop
+//  5. listener's inventory unresolved, or !validSlot, or !hasAt → drop
+//  6. delayed player → drop
 //
-// On pass: set p.lastItem=obj, p.lastSlot=slot, look up
-// [inv_button<op>,<comId>] via GetByTrigger and run with
+// On pass: set p.lastItem=item, p.lastSlot=slot; dispatch trigger via
+// explicit op→TriggerInvButtonN switch (TS if/else chain); run with
 // protect = !rootLayer.Overlay (rootLayer nil → protect=true).
 func (s *Server) handleInvButton(p *Player, payload []byte, op int) error {
-	if p.delayed && s.currentTick < p.delayedUntil {
-		return nil
-	}
 	if len(payload) < 6 {
 		return nil
 	}
 	r := packet.NewPacket(payload)
-	obj := int(r.G2())
+	item := int(r.G2()) // TS InvButtonHandler.ts (244): obj renamed to item locally
 	slot := int(r.G2())
-	comId := int(r.G2())
+	comId := int(r.G2()) // TS InvButtonDecoder.ts (244): com renamed to component
 
+	// TS InvButtonHandler.ts (244):
+	// if (typeof com === 'undefined' || !com.inventoryOptions ||
+	//     !com.inventoryOptions.length || !player.isComponentVisible(com))
 	com := s.lookupComponent(comId)
-	if com == nil {
+	if com == nil || com.InventoryOptions == nil || len(com.InventoryOptions) == 0 {
 		return nil
 	}
 	if !p.IsComponentVisible(com) {
 		return nil
 	}
-	if com.InventoryOptions == nil || op-1 < 0 || op-1 >= len(com.InventoryOptions) || com.InventoryOptions[op-1] == "" {
+
+	// TS InvButtonHandler.ts (244): if (!com.inventoryOptions[op - 1])
+	if op-1 < 0 || op-1 >= len(com.InventoryOptions) || com.InventoryOptions[op-1] == "" {
 		return nil
 	}
 
+	// TS InvButtonHandler.ts (244): listener check before inv resolution
 	listener, ok := p.invListeners[comId]
 	if !ok {
 		return nil
 	}
+
+	// TS InvButtonHandler.ts (244): !inv || !inv.validSlot(slot) || !inv.hasAt(slot, item)
 	inv := resolveListenerInv(s, listener)
-	if inv == nil {
-		return nil
-	}
-	if !inv.HasAt(slot, obj) {
+	if inv == nil || !inv.HasAt(slot, item) {
 		return nil
 	}
 
-	p.lastItem = obj
+	// TS InvButtonHandler.ts (244): delayed check is AFTER all validation gates
+	if p.delayed && s.currentTick < p.delayedUntil {
+		return nil
+	}
+
+	p.lastItem = item
 	p.lastSlot = slot
 
-	trigger := script.TriggerInvButton1 + script.ServerTriggerType(op-1)
+	// TS InvButtonHandler.ts (244): explicit if/else chain (not arithmetic add)
+	var trigger script.ServerTriggerType
+	if op == 1 {
+		trigger = script.TriggerInvButton1
+	} else if op == 2 {
+		trigger = script.TriggerInvButton2
+	} else if op == 3 {
+		trigger = script.TriggerInvButton3
+	} else if op == 4 {
+		trigger = script.TriggerInvButton4
+	} else {
+		trigger = script.TriggerInvButton5
+	}
+
 	sf := s.scriptProvider.GetByTrigger(trigger, comId, -1)
 	root := s.lookupComponent(com.RootLayer)
 	protect := root == nil || !root.Overlay
@@ -66,43 +86,46 @@ func (s *Server) handleInvButton(p *Player, payload []byte, op int) error {
 	return nil
 }
 
-// handleInvButtonD is the handler for INV_BUTTOND (opcode 159, 6-byte payload).
-// Inventory drag-and-drop. Wire format: com:G2 | slot:G2 | targetSlot:G2.
+// handleInvButtonD is the handler for INV_BUTTOND (opcode 81, 7-byte payload).
+// Inventory drag-and-drop. Wire format: component:G2 | slot:G2 | targetSlot:G2 | mode:G1.
+// TS InvButtonDDecoder.ts (244): mode g1 added as 7th byte (was 6 bytes in 225).
+// The mode value is decoded but not yet forwarded to the script
+// (TS InvButtonDHandler.ts (244): "// todo: pass message.mode to script").
 //
-// Gates per TS InvButtonDHandler.ts (note: visual-revert delayed-gate is
-// AFTER inv-listener gates, matching TS):
-//  1. payload < 6 bytes → drop
-//  2. nil component or !Draggable → drop
-//  3. !IsComponentVisible → drop
-//  4. comId not in invListeners → drop
-//  5. listener's inventory unresolved → drop
-//  6. slot or targetSlot out of inv.Capacity bounds → drop
-//  7. source slot empty (inv.Get(slot)==nil) → drop
-//  8. player delayed → sendUpdateInvPartial to revert visual, then drop
+// Gates per TS InvButtonDHandler.ts (244):
+//  1. payload < 7 bytes → drop
+//  2. nil component, or !IsComponentVisible, or !Draggable → drop
+//  3. comId not in invListeners → drop
+//  4. inv unresolved, or !validSlot(slot), or !validSlot(targetSlot), or src empty → drop
+//  5. player delayed → sendUpdateInvPartial to revert visual, then drop
 //
 // On pass: set p.lastSlot, p.lastTargetSlot, look up [inv_buttond,<comId>]
 // and run with protect = !rootLayer.Overlay.
 func (s *Server) handleInvButtonD(p *Player, payload []byte) error {
-	if len(payload) < 6 {
+	if len(payload) < 7 {
 		return nil
 	}
 	r := packet.NewPacket(payload)
 	comId := int(r.G2())
 	slot := int(r.G2())
 	targetSlot := int(r.G2())
+	_ = int(r.G1()) // mode — TS InvButtonDDecoder.ts (244); todo: pass to script
 
+	// TS InvButtonDHandler.ts (244): consolidated into single guard
+	// if (typeof com === 'undefined' || !player.isComponentVisible(com) || !com.draggable)
 	com := s.lookupComponent(comId)
-	if com == nil || !com.Draggable {
-		return nil
-	}
-	if !p.IsComponentVisible(com) {
+	if com == nil || !p.IsComponentVisible(com) || !com.Draggable {
 		return nil
 	}
 
+	// TS InvButtonDHandler.ts (244): listener check before inv resolution
 	listener, ok := p.invListeners[comId]
 	if !ok {
 		return nil
 	}
+
+	// TS InvButtonDHandler.ts (244): consolidated inv+slot+source checks
+	// if (!inv || !inv.validSlot(slot) || !inv.validSlot(targetSlot) || !inv.get(slot))
 	inv := resolveListenerInv(s, listener)
 	if inv == nil {
 		return nil
@@ -115,6 +138,7 @@ func (s *Server) handleInvButtonD(p *Player, payload []byte) error {
 	}
 
 	if p.delayed && s.currentTick < p.delayedUntil {
+		// do nothing; revert the client visual — TS InvButtonDHandler.ts (244)
 		sendUpdateInvPartial(p, comId, inv, slot, targetSlot)
 		return nil
 	}
@@ -122,9 +146,10 @@ func (s *Server) handleInvButtonD(p *Player, payload []byte) error {
 	p.lastSlot = slot
 	p.lastTargetSlot = targetSlot
 
-	sf := s.scriptProvider.GetByTrigger(script.TriggerInvButtonD, comId, -1)
+	// TS InvButtonDHandler.ts (244): renamed script→dragTrigger locally
+	dragTrigger := s.scriptProvider.GetByTrigger(script.TriggerInvButtonD, comId, -1)
 	root := s.lookupComponent(com.RootLayer)
 	protect := root == nil || !root.Overlay
-	s.runScript(sf, p, nil, script.TriggerInvButtonD, protect, nil, nil)
+	s.runScript(dragTrigger, p, nil, script.TriggerInvButtonD, protect, nil, nil)
 	return nil
 }
