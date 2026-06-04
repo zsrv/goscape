@@ -76,7 +76,7 @@ func handleIfOpenMainSide(s *ScriptState) error {
 	if err := checkNotNull(main, "IF_OPENMAIN_SIDE"); err != nil {
 		return err
 	}
-	s.activePlayer().OpenMainSide(main, side)
+	s.activePlayer().OpenMainModalSide(main, side)
 	return nil
 }
 

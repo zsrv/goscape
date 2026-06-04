@@ -2,16 +2,17 @@ package world
 
 import "testing"
 
-// h-interface-1: TS Player.openMainModal (Player.ts:1928-1950),
-// openChatModal (Player.ts:1952-1972), openSideModal (Player.ts
-// :1975-1995), and openMainSideModal (Player.ts:2004-2018) write
-// `new IfClose()` eagerly per displaced slot BEFORE refreshModal
-// triggers the new-modal open packet. The "close-then-open" wire
-// sequence is what makes any client-side IF_CLOSE listener fire
-// before the new modal's open packet repaints the screen — without
-// it, the client never sees the close signal for the displaced slot.
+// h-interface-1: TS Player.openMainModal (Player.ts:1928-1950 at 225),
+// openChatModal (Player.ts:1952-1972 at 225), openSideModal (Player.ts
+// :1975-1995 at 225), and openMainSideModal→openMainModalSide
+// (Player.ts:2004-2018 at 225 / :2009-2021 at 244) write `new IfClose()`
+// eagerly per displaced slot BEFORE refreshModal triggers the new-modal
+// open packet. The "close-then-open" wire sequence is what makes any
+// client-side IF_CLOSE listener fire before the new modal's open packet
+// repaints the screen — without it, the client never sees the close
+// signal for the displaced slot.
 //
-// Goscape's pre-fix OpenMain/OpenChat/OpenSide/OpenMainSide cleared
+// Goscape's pre-fix OpenMain/OpenChat/OpenSide/OpenMainModalSide cleared
 // the displaced slot's bits but did NOT set refreshModalClose, so
 // encodeOut sent only the new IF_OPEN packet — TS-faithful clients
 // missed the close-listener wire event.
@@ -207,19 +208,20 @@ func TestOpenSide_NoDisplacement_DoesNotSetRefreshModalClose(t *testing.T) {
 	}
 }
 
-func TestOpenMainSide_DisplacesChat_SetsRefreshModalClose(t *testing.T) {
-	// TS openMainSideModal (Player.ts:2005-2010) writes IfClose only
-	// when CHAT was open. MAIN and SIDE are about to be set to new
-	// coms — TS uses |= for them with no prior-state IfClose.
+func TestOpenMainModalSide_DisplacesChat_SetsRefreshModalClose(t *testing.T) {
+	// TS openMainModalSide (Player.ts:2010-2014 at 244 9aadcec4; was
+	// openMainSideModal at 225) writes IfClose only when CHAT was open.
+	// MAIN and SIDE are about to be set to new coms — TS uses |= for
+	// them with no prior-state IfClose.
 	p, _ := newTestPlayer(t)
 	p.modalState = modalStateChat
 	p.modalChat = 900
 	p.refreshModalClose = false
 
-	p.OpenMainSide(901, 902)
+	p.OpenMainModalSide(901, 902)
 
 	if !p.refreshModalClose {
-		t.Errorf("refreshModalClose: got false, want true (TS Player.openMainSideModal:2005-2010 writes IfClose when chat was open — h-interface-1)")
+		t.Errorf("refreshModalClose: got false, want true (TS Player.openMainModalSide:2010-2014 writes IfClose when chat was open — h-interface-1)")
 	}
 	if p.modalMain != 901 || p.modalSide != 902 {
 		t.Errorf("modal slots: main=%d (want 901), side=%d (want 902)", p.modalMain, p.modalSide)
@@ -229,7 +231,7 @@ func TestOpenMainSide_DisplacesChat_SetsRefreshModalClose(t *testing.T) {
 	}
 }
 
-func TestOpenMainSide_MainSidePriorOnly_DoesNotSetRefreshModalClose(t *testing.T) {
+func TestOpenMainModalSide_MainSidePriorOnly_DoesNotSetRefreshModalClose(t *testing.T) {
 	// Pre-existing main+side replaced silently; TS gates IfClose on
 	// CHAT only — replacing main/side themselves is not a close.
 	p, _ := newTestPlayer(t)
@@ -238,7 +240,7 @@ func TestOpenMainSide_MainSidePriorOnly_DoesNotSetRefreshModalClose(t *testing.T
 	p.modalSide = 951
 	p.refreshModalClose = false
 
-	p.OpenMainSide(960, 961)
+	p.OpenMainModalSide(960, 961)
 
 	if p.refreshModalClose {
 		t.Errorf("refreshModalClose: got true, want false (TS gates IfClose on prior CHAT bit only; replacing main/side themselves is silent — h-interface-1)")

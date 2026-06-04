@@ -297,9 +297,10 @@ type ActivePlayer interface {
 	// leaving any main modal open.
 	OpenSide(com int)
 
-	// OpenMainSide opens mainCom as the main modal and sideCom as the
-	// side modal simultaneously.
-	OpenMainSide(mainCom, sideCom int)
+	// OpenMainModalSide opens mainCom as the main modal and sideCom as the
+	// side modal simultaneously. Renamed from OpenMainSide at 244 to
+	// match TS openMainSideModal→openMainModalSide rename (9aadcec4).
+	OpenMainModalSide(mainCom, sideCom int)
 
 	// OpenTutorial opens com as the tutorial-overlay component. Per TS,
 	// opening the tutorial does NOT close any other modal — the TUT bit

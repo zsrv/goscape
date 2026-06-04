@@ -90,8 +90,8 @@ func TestAddXPAppliesNodeXPRate(t *testing.T) {
 
 // TestOpenModalPreservesTutAndClearsSuspendedDialog pins M8: opening a modal
 // clears only the relevant modal bits (not the entire bitmap) so the TUT bit
-// survives, and drops a script suspended on dialog input. Mirrors TS
-// openMainModal/openChatModal/openSideModal (Player.ts:1928-1995).
+// survives. The sub-tests that checked suspended-script clearing reflect the
+// 225 contract; 244 deletes that block (see TestOpenModalSuspendedScriptSurvives).
 func TestOpenModalPreservesTutAndClearsSuspendedDialog(t *testing.T) {
 	t.Run("OpenMain_preserves_TUT_clears_chat", func(t *testing.T) {
 		p, _ := newTestPlayer(t)
@@ -112,33 +112,87 @@ func TestOpenModalPreservesTutAndClearsSuspendedDialog(t *testing.T) {
 		}
 	})
 
-	t.Run("clears_CountDialog_suspended_script", func(t *testing.T) {
-		p, _ := newTestPlayer(t)
-		p.activeScript = &script.ScriptState{Execution: script.CountDialog}
-		p.OpenChat(77)
-		if p.activeScript != nil {
-			t.Error("CountDialog-suspended activeScript not cleared by OpenChat")
-		}
-	})
-
-	t.Run("clears_PauseButton_suspended_script", func(t *testing.T) {
-		p, _ := newTestPlayer(t)
-		p.activeScript = &script.ScriptState{Execution: script.PauseButton}
-		p.OpenSide(88)
-		if p.activeScript != nil {
-			t.Error("PauseButton-suspended activeScript not cleared by OpenSide")
-		}
-	})
-
 	t.Run("preserves_non_dialog_script", func(t *testing.T) {
 		p, _ := newTestPlayer(t)
 		st := &script.ScriptState{Execution: script.Running}
 		p.activeScript = st
-		p.OpenMainSide(11, 22)
+		p.OpenMainModalSide(11, 22)
 		if p.activeScript != st {
-			t.Error("Running activeScript wrongly cleared by OpenMainSide")
+			t.Error("Running activeScript wrongly cleared by OpenMainModalSide")
 		}
 	})
+}
+
+// TestOpenModalSuspendedScriptSurvives pins the rev-244 delta: the
+// "clear old suspended scripts" block (activeScript = null when
+// COUNTDIALOG or PAUSEBUTTON) was deleted from all four modal-open
+// methods in TS 9aadcec4 (openMainModal→Player.ts:1928-1953,
+// openChat→:1967-1983, openSideModal→:1985-2001,
+// openMainModalSide→:2009-2021). 225 e1dea19f had the block at
+// Player.ts:1948-1949, :1971-1972, :1994-1995, :2019-2020.
+//
+// 244 contract: a suspended COUNTDIALOG or PAUSEBUTTON activeScript
+// survives a modal open. The script was waiting on user input from
+// the old modal; the engine no longer force-clears it when a new
+// modal opens. TDD pin: assert activeScript != nil after each Open*.
+func TestOpenModalSuspendedScriptSurvives(t *testing.T) {
+	cases := []struct {
+		name string
+		exec script.Execution
+		open func(p *Player)
+	}{
+		{
+			name: "OpenMain_CountDialog_survives",
+			exec: script.CountDialog,
+			open: func(p *Player) { p.OpenMain(100) },
+		},
+		{
+			name: "OpenMain_PauseButton_survives",
+			exec: script.PauseButton,
+			open: func(p *Player) { p.OpenMain(100) },
+		},
+		{
+			name: "OpenChat_CountDialog_survives",
+			exec: script.CountDialog,
+			open: func(p *Player) { p.OpenChat(200) },
+		},
+		{
+			name: "OpenChat_PauseButton_survives",
+			exec: script.PauseButton,
+			open: func(p *Player) { p.OpenChat(200) },
+		},
+		{
+			name: "OpenSide_CountDialog_survives",
+			exec: script.CountDialog,
+			open: func(p *Player) { p.OpenSide(300) },
+		},
+		{
+			name: "OpenSide_PauseButton_survives",
+			exec: script.PauseButton,
+			open: func(p *Player) { p.OpenSide(300) },
+		},
+		{
+			name: "OpenMainModalSide_CountDialog_survives",
+			exec: script.CountDialog,
+			open: func(p *Player) { p.OpenMainModalSide(400, 401) },
+		},
+		{
+			name: "OpenMainModalSide_PauseButton_survives",
+			exec: script.PauseButton,
+			open: func(p *Player) { p.OpenMainModalSide(400, 401) },
+		},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			p, _ := newTestPlayer(t)
+			p.activeScript = &script.ScriptState{Execution: tc.exec}
+			tc.open(p)
+			if p.activeScript == nil {
+				t.Errorf("%s: suspended script cleared; 244 wants it preserved", tc.name)
+			}
+		})
+	}
 }
 
 func TestAddXPLevelUpUnbuffedAdvancesLevels(t *testing.T) {

@@ -748,7 +748,7 @@ func (m *mockPlayer) CloseModal(bool)  { m.lastCloseModalCalls++ }
 func (m *mockPlayer) OpenMain(com int) { m.lastOpenMain = com }
 func (m *mockPlayer) OpenChat(com int) { m.lastOpenChat = com }
 func (m *mockPlayer) OpenSide(com int) { m.lastOpenSide = com }
-func (m *mockPlayer) OpenMainSide(mainCom, sideCom int) {
+func (m *mockPlayer) OpenMainModalSide(mainCom, sideCom int) {
 	m.lastOpenMainSide = struct{ main, side int }{mainCom, sideCom}
 }
 
