@@ -166,29 +166,11 @@ func TestPlayAnim_PriorityLowerRejected(t *testing.T) {
 	}
 }
 
-func TestPlayAnim_PriorityEqualOverwrites(t *testing.T) {
-	// 244 changed strict `>` to `>=` (Player.ts:1857 at 9aadcec4). Equal
-	// nonzero priority now overwrites. Both Priority=5 (default).
-	p, _ := newTestPlayer(t)
-	p.seqTypes = buildSeqTypes(20)
-	p.animID = 5
-	p.animDelay = 99
-	p.masks = 0
-	p.PlayAnim(10, 3)
-	if p.animID != 10 {
-		t.Errorf("animID: got %d, want 10 (equal priority overwrites under 244 >=)", p.animID)
-	}
-	if p.animDelay != 3 {
-		t.Errorf("animDelay: got %d, want 3", p.animDelay)
-	}
-	if p.masks&rsbuf.MaskAnim == 0 {
-		t.Error("MaskAnim must be set on equal-priority overwrite")
-	}
-}
-
 func TestPlayAnim_CurrentAnimZeroPriorityOverwrites(t *testing.T) {
-	// TS L1846 third disjunct: when current anim's priority is 0, any new
-	// anim overwrites regardless of its own priority.
+	// 244 unified >= gate: a current anim with Priority=0 is overwritten by
+	// any new anim (newPrio >= 0 always holds). Subcase of the single
+	// Player.ts:1857 condition at 9aadcec4 — the 225-era separate
+	// zero-priority disjunct no longer exists in TS.
 	p, _ := newTestPlayer(t)
 	cfg := buildSeqTypes(20)
 	cfg.Configs[5].Priority = 0

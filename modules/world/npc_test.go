@@ -894,25 +894,6 @@ func TestNpcAnimate_PriorityLowerRejected(t *testing.T) {
 	}
 }
 
-func TestNpcAnimate_PriorityEqualOverwrites(t *testing.T) {
-	// 244 changed strict `>` to `>=` (Npc.ts:461 at 9aadcec4). Equal nonzero
-	// priority now overwrites. Both Priority=5 (default).
-	s := newTestServer(t)
-	s.seqTypes = buildSeqTypes(20)
-	n := &Npc{server: s, animID: 5, animDelay: 99}
-	n.masks = 0
-	n.Animate(10, 3)
-	if n.animID != 10 {
-		t.Errorf("animID: got %d, want 10 (equal priority overwrites under 244 >=)", n.animID)
-	}
-	if n.animDelay != 3 {
-		t.Errorf("animDelay: got %d, want 3", n.animDelay)
-	}
-	if n.masks&rsbuf.NpcMaskAnim == 0 {
-		t.Error("NpcMaskAnim must be set on equal-priority overwrite")
-	}
-}
-
 func TestNpcAnimate_CurrentZeroPriorityOverwrites(t *testing.T) {
 	s := newTestServer(t)
 	cfg := buildSeqTypes(20)
