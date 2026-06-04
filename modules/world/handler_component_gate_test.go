@@ -17,19 +17,31 @@ import (
 // is visible, listener resolves, etc). The helper rewrites or relies on the
 // payload's component-id field to drive the gate-failure scenarios.
 type compGateCase struct {
-	name       string
-	handler    func(*Player, []byte) error
-	setupOk    func(t *testing.T, s *Server, p *Player) // seeds prerequisite state for happy-path
-	payloadOK  []byte
-	rootLayer  int  // RootLayer for the test component; placed at p.tabs[0] to satisfy IsComponentVisible
-	flagBits   int  // T-variant: ActionTarget bitmask. U-variant: 0.
-	isUVariant bool // U: gate Usable. T: gate ActionTarget bits.
-	comId      int  // component id referenced by payloadOK
+	name             string
+	handler          func(*Player, []byte) error
+	setupOk          func(t *testing.T, s *Server, p *Player) // seeds prerequisite state for happy-path
+	payloadOK        []byte
+	rootLayer        int  // RootLayer for the test component; placed at p.tabs[0] to satisfy IsComponentVisible
+	flagBits         int  // T-variant: ActionTarget bitmask. U-variant: 0.
+	isUVariant       bool // U: gate boolean field (Usable or Interactable). T: gate ActionTarget bits.
+	usesInteractable bool // U-variant 244: gate Interactable instead of Usable. TS OpNpcUHandler.ts:24.
+	comId            int  // component id referenced by payloadOK
+}
+
+// setUFlag sets the appropriate U-variant boolean field on ct.
+// At 225 the gate used Usable; at 244 some handlers (e.g. OpNpcU) use Interactable.
+// TS OpNpcUHandler.ts:24 (244): `!com.interactable`.
+func (c *compGateCase) setUFlag(ct *objtype.ComponentType, pass bool) {
+	if c.usesInteractable {
+		ct.Interactable = pass
+	} else {
+		ct.Usable = pass
+	}
 }
 
 // runCompGate exercises 4 scenarios per handler:
 //  1. nil component (registry empty for c.comId)
-//  2. flag fail (T: ActionTarget=0; U: Usable=false)
+//  2. flag fail (T: ActionTarget=0; U: Usable=false or Interactable=false)
 //  3. not visible (component registered but RootLayer not in any tab/modal)
 //  4. happy-path (all gates pass)
 func runCompGate(t *testing.T, c compGateCase) {
@@ -60,7 +72,7 @@ func runCompGate(t *testing.T, c compGateCase) {
 		if !c.isUVariant {
 			ct.ActionTarget = 0 // no bits set — gate's correct bit absent
 		} else {
-			ct.Usable = false
+			c.setUFlag(ct, false)
 		}
 		seedComponentTypes(t, s, map[int]*objtype.ComponentType{c.comId: ct})
 		p.tabs[0] = c.rootLayer
@@ -82,7 +94,7 @@ func runCompGate(t *testing.T, c compGateCase) {
 		if !c.isUVariant {
 			ct.ActionTarget = c.flagBits
 		} else {
-			ct.Usable = true
+			c.setUFlag(ct, true)
 		}
 		seedComponentTypes(t, s, map[int]*objtype.ComponentType{c.comId: ct})
 		// note: do NOT set p.tabs[0] — root invisible
@@ -104,7 +116,7 @@ func runCompGate(t *testing.T, c compGateCase) {
 		if !c.isUVariant {
 			ct.ActionTarget = c.flagBits
 		} else {
-			ct.Usable = true
+			c.setUFlag(ct, true)
 		}
 		seedComponentTypes(t, s, map[int]*objtype.ComponentType{c.comId: ct})
 		p.tabs[0] = c.rootLayer
@@ -221,11 +233,12 @@ func TestComponentGate_OpNpcU(t *testing.T) {
 	const useCom = 4246
 	const rootLayer = 4246
 	runCompGate(t, compGateCase{
-		name:       "OpNpcU",
-		handler:    handleOpNpcU,
-		comId:      useCom,
-		isUVariant: true,
-		rootLayer:  rootLayer,
+		name:             "OpNpcU",
+		handler:          handleOpNpcU,
+		comId:            useCom,
+		isUVariant:       true,
+		usesInteractable: true, // 244: gate changed from Usable to Interactable. TS OpNpcUHandler.ts:24.
+		rootLayer:        rootLayer,
 		payloadOK: []byte{
 			0, npcSlot,
 			useObj >> 8, useObj & 0xFF,

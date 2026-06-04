@@ -32,13 +32,26 @@ func resolveListenerInv(s *Server, listener InventoryListener) *inventory.Invent
 }
 
 // handleOpNpc is the shared implementation for OPNPC1..OPNPC5.
-// op is 1..5. Payload = p2(slot).
+// op is 1..5. Payload = p2(nid).
+//
+// Gate order per TS OpNpcHandler.ts (244):
+//  1. player.delayed → UnsetMapFlag (no clearPendingAction). TS:16-19.
+//  2. payload too short → UnsetMapFlag (goscape defensive).
+//  3. !npc || npc.delayed → UnsetMapFlag + clearPendingAction. TS:21-26.
+//  4. !hasNpc(player.pid, npc.nid) → UnsetMapFlag + clearPendingAction. TS:28-32.
+//  5. !npcType.op || !npcType.op[op-1] → UnsetMapFlag + clearPendingAction. TS:34-39.
+//     Note: at 244 the explicit `=== 'hidden'` check was removed; only falsy
+//     (null/empty-string) rejects. In goscape, "hidden" is stored verbatim as a
+//     non-empty string, so it is truthy and passes — matching 244 TS semantics.
+//
+// On success: clearPendingAction → setInteraction(ENGINE, npc, op, -1) → opcalled=true.
 func handleOpNpc(p *Player, payload []byte, op int) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
 	}
 	s := p.client.server
 
+	// Gate 1: delayed player — no clearPendingAction. TS OpNpcHandler.ts:16-19 (244).
 	if p.delayed && s.currentTick < p.delayedUntil {
 		sendUnsetMapFlag(p)
 		return nil
@@ -50,31 +63,33 @@ func handleOpNpc(p *Player, payload []byte, op int) error {
 	}
 
 	r := packet.NewPacket(payload)
-	slot := int(r.G2())
+	nid := int(r.G2())
 
-	if slot < 0 || slot >= len(s.npcs) {
+	if nid < 0 || nid >= len(s.npcs) {
 		sendUnsetMapFlag(p)
+		p.ClearPendingAction()
 		return nil
 	}
-	npc := s.npcs[slot]
-	if npc == nil || npc.dead {
+	// Gate 3: merged !npc || npc.delayed — clearPendingAction on any branch.
+	// TS OpNpcHandler.ts:21-26 (244).
+	npc := s.npcs[nid]
+	if npc == nil || npc.dead || (npc.delayed && s.currentTick < npc.delayedUntil) {
 		sendUnsetMapFlag(p)
+		p.ClearPendingAction()
 		return nil
 	}
-	if npc.delayed && s.currentTick < npc.delayedUntil {
-		sendUnsetMapFlag(p)
-		return nil
-	}
+	// Gate 4: rsbuf visibility — clearPendingAction. TS OpNpcHandler.ts:28-32 (244).
 	if !s.rsbuf.HasNpc(int32(p.slot), int32(npc.nid)) {
 		sendUnsetMapFlag(p)
+		p.ClearPendingAction()
 		return nil
 	}
 
-	// NpcType.Op[op-1] must be a non-empty, non-"hidden" string.
-	// RuneScript will later replace this with trigger-existence lookup.
-	if npc.typ == nil || len(npc.typ.Op) < op ||
-		npc.typ.Op[op-1] == "" || npc.typ.Op[op-1] == "hidden" {
+	// Gate 5: op check — only empty string (falsy) rejects; "hidden" is truthy.
+	// TS OpNpcHandler.ts:34-39 (244): `!npcType.op || !npcType.op[op-1]`.
+	if npc.typ == nil || len(npc.typ.Op) < op || npc.typ.Op[op-1] == "" {
 		sendUnsetMapFlag(p)
+		p.ClearPendingAction()
 		return nil
 	}
 
@@ -92,27 +107,25 @@ func handleOpNpc5(p *Player, payload []byte) error { return handleOpNpc(p, paylo
 
 // handleOpNpcT is the handler for OPNPCT (opcode 134, 4-byte payload).
 // Spell-on-NPC: player drags a spell icon onto an NPC.
-// Payload = (slot:G2, spellCom:G2).
+// Payload = (nid:G2, spellCom:G2).
 //
-// Gates per TS OpNpcTHandler.ts:
-//  1. delayed player → UnsetMapFlag
-//  2. payload too short → UnsetMapFlag
-//  3. spellCom: nil component or ActionTarget&NPC == 0 → UnsetMapFlag
-//  4. spellCom: !IsComponentVisible → UnsetMapFlag
-//  5. slot out of range → UnsetMapFlag
-//  6. NPC nil or dead → UnsetMapFlag
-//  7. NPC delayed → UnsetMapFlag
-//  8. NPC not rsbuf-visible → UnsetMapFlag
-//  9. NpcType nil → UnsetMapFlag  (goscape defensive; TS skips — type always valid when npc exists)
+// Gate order per TS OpNpcTHandler.ts (244):
+//  1. player.delayed → UnsetMapFlag (no clearPendingAction). TS:16-19.
+//  2. payload too short → UnsetMapFlag (goscape defensive).
+//  3. com undefined || !isVisible || (actionTarget&NPC)==0 → UnsetMapFlag
+//     + clearPendingAction. TS:21-26 (244 combined check).
+//  4. !npc || npc.delayed → UnsetMapFlag + clearPendingAction. TS:28-33.
+//  5. !hasNpc(player.pid, npc.nid) → UnsetMapFlag + clearPendingAction. TS:35-39.
 //
-// On success: ClearPendingAction → SetInteraction(Engine, npc,
-// targetOpNpcT, spellCom) → opcalled=true.
+// On success: clearPendingAction → setInteraction(ENGINE, npc,
+// targetOpNpcT, spellCom) → opcalled=true. TS:41-44.
 func handleOpNpcT(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
 	}
 	s := p.client.server
 
+	// Gate 1: delayed player — no clearPendingAction. TS OpNpcTHandler.ts:16-19 (244).
 	if p.delayed && s.currentTick < p.delayedUntil {
 		sendUnsetMapFlag(p)
 		return nil
@@ -124,38 +137,34 @@ func handleOpNpcT(p *Player, payload []byte) error {
 	}
 
 	r := packet.NewPacket(payload)
-	slot := int(r.G2())
+	nid := int(r.G2())
 	spellCom := int(r.G2())
 
+	// Gate 3: combined component check — clearPendingAction on any failure.
+	// TS OpNpcTHandler.ts:21-26 (244): undefined || !isVisible || !actionTarget.
 	com := s.lookupComponent(spellCom)
-	if com == nil || (com.ActionTarget&objtype.ComActionTargetNpc) == 0 {
+	if com == nil || !p.IsComponentVisible(com) || (com.ActionTarget&objtype.ComActionTargetNpc) == 0 {
 		sendUnsetMapFlag(p)
-		return nil
-	}
-	if !p.IsComponentVisible(com) {
-		sendUnsetMapFlag(p)
+		p.ClearPendingAction()
 		return nil
 	}
 
-	if slot < 0 || slot >= len(s.npcs) {
+	if nid < 0 || nid >= len(s.npcs) {
 		sendUnsetMapFlag(p)
+		p.ClearPendingAction()
 		return nil
 	}
-	npc := s.npcs[slot]
-	if npc == nil || npc.dead {
+	// Gate 4: merged !npc || npc.delayed — clearPendingAction. TS OpNpcTHandler.ts:28-33 (244).
+	npc := s.npcs[nid]
+	if npc == nil || npc.dead || (npc.delayed && s.currentTick < npc.delayedUntil) {
 		sendUnsetMapFlag(p)
+		p.ClearPendingAction()
 		return nil
 	}
-	if npc.delayed && s.currentTick < npc.delayedUntil {
-		sendUnsetMapFlag(p)
-		return nil
-	}
+	// Gate 5: rsbuf visibility — clearPendingAction. TS OpNpcTHandler.ts:35-39 (244).
 	if !s.rsbuf.HasNpc(int32(p.slot), int32(npc.nid)) {
 		sendUnsetMapFlag(p)
-		return nil
-	}
-	if npc.typ == nil {
-		sendUnsetMapFlag(p)
+		p.ClearPendingAction()
 		return nil
 	}
 
@@ -168,28 +177,28 @@ func handleOpNpcT(p *Player, payload []byte) error {
 // handleOpNpcU is the handler for OPNPCU (opcode 202, 8-byte payload).
 // Item-on-NPC: player drags an inventory item onto an NPC (e.g., feed
 // pet, give gift, sacrifice item).
-// Payload = (slot:G2, useObj:G2, useSlot:G2, useCom:G2).
+// Payload = (nid:G2, useObj:G2, useSlot:G2, useCom:G2).
 //
-// Gates per TS OpNpcUHandler.ts:
-//  1. delayed player → UnsetMapFlag
-//  2. payload too short → UnsetMapFlag
-//  3. useCom: nil component or !Usable → UnsetMapFlag
-//  4. useCom: !IsComponentVisible → UnsetMapFlag
-//  5. listener's inventory unresolved or slot/item mismatch → UnsetMapFlag
-//  6. NPC nil or dead → UnsetMapFlag
-//  7. NPC delayed → UnsetMapFlag
-//  8. NPC not rsbuf-visible → UnsetMapFlag
-//  9. NpcType nil → UnsetMapFlag  (goscape defensive; TS skips this check)
-//  10. members-only item on free world → MessageGame + UnsetMapFlag
+// Gate order per TS OpNpcUHandler.ts (244):
+//  1. player.delayed → UnsetMapFlag (no clearPendingAction). TS:18-21.
+//  2. payload too short → UnsetMapFlag (goscape defensive).
+//  3. com undefined || !isVisible || !interactable → UnsetMapFlag
+//     + clearPendingAction. TS:23-28 (244: usable→interactable, combined check).
+//  4. listener not found → UnsetMapFlag + clearPendingAction. TS:30-35.
+//  5. inv unresolved || !validSlot || !hasAt → UnsetMapFlag + clearPendingAction. TS:37-42.
+//  6. !npc || npc.delayed → UnsetMapFlag + clearPendingAction. TS:44-49.
+//  7. !hasNpc(player.pid, npc.nid) → UnsetMapFlag + clearPendingAction. TS:51-55.
+//  8. members-only item on free world → MessageGame + UnsetMapFlag. TS:58-61.
 //
-// On success: set p.lastUseItem=useObj, p.lastUseSlot=useSlot →
-// ClearPendingAction → SetInteraction(Engine, npc, targetOpNpcU, -1) → opcalled=true.
+// On success: clearPendingAction → lastUseItem/lastUseSlot → setInteraction(ENGINE,
+// npc, targetOpNpcU, -1) → opcalled=true. TS:57-69.
 func handleOpNpcU(p *Player, payload []byte) error {
 	if p.client == nil || p.client.server == nil {
 		return nil
 	}
 	s := p.client.server
 
+	// Gate 1: delayed player — no clearPendingAction. TS OpNpcUHandler.ts:18-21 (244).
 	if p.delayed && s.currentTick < p.delayedUntil {
 		sendUnsetMapFlag(p)
 		return nil
@@ -201,60 +210,58 @@ func handleOpNpcU(p *Player, payload []byte) error {
 	}
 
 	r := packet.NewPacket(payload)
-	slot := int(r.G2())
+	nid := int(r.G2())
 	useObj := int(r.G2())
 	useSlot := int(r.G2())
 	useCom := int(r.G2())
 
+	// Gate 3: combined component check — clearPendingAction on any failure.
+	// 244: checks com.interactable (was com.usable at 225).
+	// TS OpNpcUHandler.ts:23-28 (244).
 	com := s.lookupComponent(useCom)
-	if com == nil || !com.Usable {
+	if com == nil || !p.IsComponentVisible(com) || !com.Interactable {
 		sendUnsetMapFlag(p)
-		return nil
-	}
-	if !p.IsComponentVisible(com) {
-		sendUnsetMapFlag(p)
+		p.ClearPendingAction()
 		return nil
 	}
 
+	// Gate 4: listener check — clearPendingAction. TS OpNpcUHandler.ts:30-35 (244).
 	listener, ok := p.invListeners[useCom]
 	if !ok {
 		sendUnsetMapFlag(p)
+		p.ClearPendingAction()
 		return nil
 	}
+	// Gate 5: inv + slot + item check — clearPendingAction. TS OpNpcUHandler.ts:37-42 (244).
 	inv := resolveListenerInv(s, listener)
-	if inv == nil {
+	if inv == nil || !inv.HasAt(useSlot, useObj) {
 		sendUnsetMapFlag(p)
-		return nil
-	}
-	if !inv.HasAt(useSlot, useObj) {
-		sendUnsetMapFlag(p)
+		p.ClearPendingAction()
 		return nil
 	}
 
-	if slot < 0 || slot >= len(s.npcs) {
+	if nid < 0 || nid >= len(s.npcs) {
 		sendUnsetMapFlag(p)
+		p.ClearPendingAction()
 		return nil
 	}
-	npc := s.npcs[slot]
-	if npc == nil || npc.dead {
+	// Gate 6: merged !npc || npc.delayed — clearPendingAction. TS OpNpcUHandler.ts:44-49 (244).
+	npc := s.npcs[nid]
+	if npc == nil || npc.dead || (npc.delayed && s.currentTick < npc.delayedUntil) {
 		sendUnsetMapFlag(p)
+		p.ClearPendingAction()
 		return nil
 	}
-	if npc.delayed && s.currentTick < npc.delayedUntil {
-		sendUnsetMapFlag(p)
-		return nil
-	}
+	// Gate 7: rsbuf visibility — clearPendingAction. TS OpNpcUHandler.ts:51-55 (244).
 	if !s.rsbuf.HasNpc(int32(p.slot), int32(npc.nid)) {
 		sendUnsetMapFlag(p)
-		return nil
-	}
-	if npc.typ == nil {
-		sendUnsetMapFlag(p)
+		p.ClearPendingAction()
 		return nil
 	}
 
 	p.ClearPendingAction()
 
+	// Gate 8: members-only item on free world. TS OpNpcUHandler.ts:58-61 (244).
 	if s.objTypes != nil && useObj >= 0 && useObj < len(s.objTypes.Configs) {
 		if useObjType := s.objTypes.Configs[useObj]; useObjType != nil && useObjType.Members && !s.cfg.NodeMembers {
 			p.MessageGame("To use this item please login to a members' server.")

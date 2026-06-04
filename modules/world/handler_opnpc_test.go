@@ -107,27 +107,47 @@ func TestHandleOpNpc1DeadNpcSendsUnsetMapFlag(t *testing.T) {
 	}
 }
 
-// TestHandleOpNpc1HiddenOpSendsUnsetMapFlag verifies "hidden" Op emits UnsetMapFlag.
-func TestHandleOpNpc1HiddenOpSendsUnsetMapFlag(t *testing.T) {
-	s, _, _ := makeOpNpcFixture(t)
+// TestHandleOpNpc1HiddenOpAccepted244 pins the 244 op-gate change: at 225 the
+// gate was `Op[i]=="" || Op[i]=="hidden"`; at 244 it is simply `Op[i]==""` (the
+// explicit "hidden" comparison was removed from TS OpNpcHandler.ts:35).
+// "hidden" is a non-empty truthy string → the gate passes and interaction is set.
+// TS OpNpcHandler.ts:35 (244): `!npcType.op || !npcType.op[message.op - 1]`
+func TestHandleOpNpc1HiddenOpAccepted244(t *testing.T) {
+	s, _, npc := makeOpNpcFixture(t)
 	s.npcs[1].typ.Op[0] = "hidden"
 
-	p2, cc2 := newTestPlayer(t)
+	p2, _ := newTestPlayer(t)
 	p2.client.server = s
 	p2.client.encryptor = io2.New([4]uint32{4, 5, 6, 7})
 	p2.slot = 2
 	rsbufSeesNpc(t, s, 2, 1)
 
-	received := drainConn(t, cc2)
-	_ = handleOpNpc1(p2, p2Payload(1))
-	p2.client.flushWrite()
-	got := <-received
-
-	if len(got) == 0 {
-		t.Fatal("expected UnsetMapFlag for hidden op, got nothing")
+	if err := handleOpNpc1(p2, p2Payload(1)); err != nil {
+		t.Fatalf("handleOpNpc1: %v", err)
 	}
+	if p2.target != npc {
+		t.Error("244: 'hidden' op is truthy — gate must pass and set interaction")
+	}
+}
+
+// TestHandleOpNpc1EmptyOpClearsPendingAction pins the 244 behaviour for empty-string
+// op: rejects with UnsetMapFlag AND calls clearPendingAction (target→nil).
+// TS OpNpcHandler.ts:35-38 (244).
+func TestHandleOpNpc1EmptyOpClearsPendingAction(t *testing.T) {
+	s, _, _ := makeOpNpcFixture(t)
+	s.npcs[1].typ.Op[0] = "" // falsy empty string — op gate rejects
+
+	p2, _ := newTestPlayer(t)
+	p2.client.server = s
+	p2.client.encryptor = io2.New([4]uint32{4, 5, 6, 7})
+	p2.slot = 2
+	rsbufSeesNpc(t, s, 2, 1)
+	p2.target = p2 // sentinel: clearPendingAction will nil this
+
+	_ = handleOpNpc1(p2, p2Payload(1))
+
 	if p2.target != nil {
-		t.Error("target should remain nil for hidden op")
+		t.Error("244: empty-op reject must call clearPendingAction (target→nil)")
 	}
 }
 
@@ -180,7 +200,10 @@ func TestHandleOpNpcShortPayloadSendsUnsetMapFlag(t *testing.T) {
 	}
 }
 
-// TestHandleOpNpcDelayedPlayerRejected verifies delayed player gets UnsetMapFlag, no state change.
+// TestHandleOpNpcDelayedPlayerRejected verifies delayed player gets UnsetMapFlag,
+// no state change, and does NOT call clearPendingAction.
+// TS OpNpcHandler.ts:16-19 (244): delayed → write(UnsetMapFlag) + return false,
+// no clearPendingAction.
 func TestHandleOpNpcDelayedPlayerRejected(t *testing.T) {
 	s, _, _ := makeOpNpcFixture(t)
 
@@ -190,6 +213,7 @@ func TestHandleOpNpcDelayedPlayerRejected(t *testing.T) {
 	p2.delayed = true
 	p2.delayedUntil = 999
 	s.currentTick = 0
+	p2.target = p2 // sentinel: if clearPendingAction is called target→nil
 
 	received := drainConn(t, cc2)
 	_ = handleOpNpc1(p2, p2Payload(1))
@@ -199,8 +223,50 @@ func TestHandleOpNpcDelayedPlayerRejected(t *testing.T) {
 	if len(got) == 0 {
 		t.Fatal("expected UnsetMapFlag for delayed player, got nothing")
 	}
+	// 244: delayed player must NOT call clearPendingAction.
+	if p2.target != p2 {
+		t.Error("244: delayed-player reject must NOT call clearPendingAction (target sentinel cleared)")
+	}
+}
+
+// TestHandleOpNpc1NilNpcClearsPendingAction pins the 244 merged reject:
+// !npc || npc.delayed → UnsetMapFlag + clearPendingAction.
+// TS OpNpcHandler.ts:21-25 (244).
+func TestHandleOpNpc1NilNpcClearsPendingAction(t *testing.T) {
+	s := newTestServer(t)
+	// s.npcs[1] is nil
+
+	p, _ := newTestPlayer(t)
+	p.client.server = s
+	p.client.encryptor = io2.New([4]uint32{9, 8, 7, 6})
+	p.target = p // sentinel
+
+	_ = handleOpNpc1(p, p2Payload(1))
+
+	if p.target != nil {
+		t.Error("244: nil-npc reject must call clearPendingAction (target sentinel should be nil)")
+	}
+}
+
+// TestHandleOpNpc1NotVisibleClearsPendingAction pins the 244 rsbuf-reject change:
+// !hasNpc(player.pid, npc.nid) → UnsetMapFlag + clearPendingAction.
+// TS OpNpcHandler.ts:27-30 (244).
+func TestHandleOpNpc1NotVisibleClearsPendingAction(t *testing.T) {
+	s, _, _ := makeOpNpcFixture(t)
+
+	// Fresh player NOT subscribed to npc nid=1.
+	p2, _ := newTestPlayer(t)
+	p2.client.server = s
+	p2.client.encryptor = io2.New([4]uint32{10, 11, 12, 13})
+	p2.slot = 2
+	s.players[2] = p2
+	s.rsbuf.AddPlayer(2) // registered but NOT subscribed to npc nid=1
+	p2.target = p2       // sentinel
+
+	_ = handleOpNpc1(p2, p2Payload(1))
+
 	if p2.target != nil {
-		t.Error("target should remain nil for delayed player")
+		t.Error("244: rsbuf-invisible reject must call clearPendingAction (target sentinel should be nil)")
 	}
 }
 
@@ -262,17 +328,21 @@ func TestHandleOpNpcTSetsInteraction(t *testing.T) {
 	}
 }
 
-// TestHandleOpNpcTDelayedPlayerRejected verifies delayed → UnsetMapFlag.
+// TestHandleOpNpcTDelayedPlayerRejected verifies delayed → UnsetMapFlag, no clearPendingAction.
+// TS OpNpcTHandler.ts:16-19 (244): delayed → write(UnsetMapFlag) + return false,
+// no clearPendingAction.
 func TestHandleOpNpcTDelayedPlayerRejected(t *testing.T) {
 	s, p, _ := makeOpNpcFixture(t)
 	p.delayed = true
 	p.delayedUntil = 999
 	s.currentTick = 0
+	p.target = p // sentinel: clearPendingAction would nil this
 
 	_ = handleOpNpcT(p, p2x2Payload(1, 7777))
 
-	if p.target != nil {
-		t.Error("target should remain nil for delayed player")
+	// 244: delayed player must NOT call clearPendingAction.
+	if p.target != p {
+		t.Error("244: delayed-player reject must NOT call clearPendingAction (target sentinel cleared)")
 	}
 }
 
@@ -298,28 +368,56 @@ func TestHandleOpNpcTInvalidSlotRejected(t *testing.T) {
 	}
 }
 
-// TestHandleOpNpcTDeadNpcRejected verifies dead NPC → UnsetMapFlag.
+// TestHandleOpNpcTDeadNpcRejected verifies dead NPC → UnsetMapFlag + clearPendingAction.
+// TS OpNpcTHandler.ts:28-32 (244).
 func TestHandleOpNpcTDeadNpcRejected(t *testing.T) {
 	s, p, _ := makeOpNpcFixture(t)
 	s.npcs[1].dead = true
+	p.target = p // sentinel
 
 	_ = handleOpNpcT(p, p2x2Payload(1, 7777))
 
 	if p.target != nil {
-		t.Error("target should remain nil for dead NPC")
+		t.Error("244: dead-npc reject must call clearPendingAction (target sentinel should be nil)")
 	}
 }
 
-// TestHandleOpNpcTMissingNpcTypeRejected verifies nil typ → UnsetMapFlag.
-func TestHandleOpNpcTMissingNpcTypeRejected(t *testing.T) {
-	s, p, _ := makeOpNpcFixture(t)
-	s.npcs[1].typ = nil
+// TestHandleOpNpcTComponentClearsPendingAction pins the 244 combined component
+// check: undefined component → UnsetMapFlag + clearPendingAction.
+// TS OpNpcTHandler.ts:21-26 (244): all component sub-gates merged into one block
+// that now calls clearPendingAction on any component failure.
+func TestHandleOpNpcTComponentClearsPendingAction(t *testing.T) {
+	_, p, _ := makeOpNpcFixture(t)
+	// No component seeded → lookupComponent returns nil → gate rejects.
+	p.target = p // sentinel
 
 	_ = handleOpNpcT(p, p2x2Payload(1, 7777))
 
 	if p.target != nil {
-		t.Error("target should remain nil when NpcType is nil")
+		t.Error("244: component-fail reject must call clearPendingAction (target sentinel should be nil)")
 	}
+}
+
+// TestHandleOpNpcTNilNpcClearsPendingAction pins the 244 merged npc reject:
+// !npc || npc.delayed → UnsetMapFlag + clearPendingAction.
+// TS OpNpcTHandler.ts:28-32 (244).
+func TestHandleOpNpcTNilNpcClearsPendingAction(t *testing.T) {
+	s, p, _ := makeOpNpcFixture(t)
+	// Register a component so the component gate passes.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		7777: {RootLayer: 7777, ActionTarget: objtype.ComActionTargetNpc},
+	})
+	p.tabs[0] = 7777
+	// NPC slot 1 exists but make it nil.
+	s.npcs[1] = nil
+	p.target = p // sentinel
+
+	_ = handleOpNpcT(p, p2x2Payload(1, 7777))
+
+	if p.target != nil {
+		t.Error("244: nil-npc reject must call clearPendingAction (target sentinel should be nil)")
+	}
+
 }
 
 // p2x4NpcUPayload encodes 4 u16 values into 8 bytes big-endian.
@@ -338,12 +436,15 @@ func p2x4NpcUPayload(a, b, c, d int) []byte {
 // TestHandleOpNpcUSetsInteraction verifies a valid OpNpcU request sets
 // interaction state with targetOp=targetOpNpcU, stores useObj/useSlot
 // in p.lastUseItem/lastUseSlot, and passes -1 for com (useCom discarded).
+// 244: component gate now checks Interactable (not Usable).
+// TS OpNpcUHandler.ts:23-28 (244).
 func TestHandleOpNpcUSetsInteraction(t *testing.T) {
 	s, p, npc := makeOpNpcFixture(t)
 
 	// Seed component so the component gate passes.
+	// 244: gate checks com.interactable (TS OpNpcUHandler.ts:24), not com.usable.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: true},
 	})
 	p.tabs[0] = 149
 
@@ -378,19 +479,22 @@ func TestHandleOpNpcUSetsInteraction(t *testing.T) {
 }
 
 // TestHandleOpNpcUDelayedPlayerRejected verifies delayed → UnsetMapFlag,
-// and that lastUseItem is NOT clobbered when validation fails (leak-
-// prevention: state mutation happens only after all gates pass).
+// no clearPendingAction, and lastUseItem is NOT clobbered.
+// TS OpNpcUHandler.ts:17-20 (244): delayed → write(UnsetMapFlag) + return false,
+// no clearPendingAction.
 func TestHandleOpNpcUDelayedPlayerRejected(t *testing.T) {
 	s, p, _ := makeOpNpcFixture(t)
 	p.delayed = true
 	p.delayedUntil = 999
 	s.currentTick = 0
 	p.lastUseItem = 42 // sentinel: must stay unchanged on rejection
+	p.target = p       // sentinel: clearPendingAction would nil this; must stay p
 
 	_ = handleOpNpcU(p, p2x4NpcUPayload(1, 1511, 3, 149))
 
-	if p.target != nil {
-		t.Error("target should remain nil for delayed player")
+	// 244: delayed player must NOT call clearPendingAction.
+	if p.target != p {
+		t.Error("244: delayed-player reject must NOT call clearPendingAction (target sentinel cleared)")
 	}
 	if p.lastUseItem != 42 {
 		t.Errorf("lastUseItem leaked through rejected handler: got %d, want 42", p.lastUseItem)
@@ -413,7 +517,7 @@ func TestHandleOpNpcUInvalidSlotRejected(t *testing.T) {
 	s, p, _ := makeOpNpcFixture(t)
 	// Seed component and listener so gates pass and the NPC slot OOB gate fires.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: true},
 	})
 	p.tabs[0] = 149
 	if s.invs == nil {
@@ -431,12 +535,13 @@ func TestHandleOpNpcUInvalidSlotRejected(t *testing.T) {
 	}
 }
 
-// TestHandleOpNpcUDeadNpcRejected verifies dead NPC → UnsetMapFlag.
+// TestHandleOpNpcUDeadNpcRejected verifies dead NPC → UnsetMapFlag + clearPendingAction.
+// TS OpNpcUHandler.ts:44-48 (244).
 func TestHandleOpNpcUDeadNpcRejected(t *testing.T) {
 	s, p, _ := makeOpNpcFixture(t)
 	// Seed component and listener so gates pass and the dead-NPC gate fires.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: true},
 	})
 	p.tabs[0] = 149
 	if s.invs == nil {
@@ -447,35 +552,32 @@ func TestHandleOpNpcUDeadNpcRejected(t *testing.T) {
 	s.invs[93] = inv
 	p.invListenOnCom(93, 149, -1)
 	s.npcs[1].dead = true
+	p.target = p // sentinel
 
 	_ = handleOpNpcU(p, p2x4NpcUPayload(1, 1511, 3, 149))
 
 	if p.target != nil {
-		t.Error("target should remain nil for dead NPC")
+		t.Error("244: dead-npc reject must call clearPendingAction (target sentinel should be nil)")
 	}
 }
 
-// TestHandleOpNpcUMissingNpcTypeRejected verifies nil typ → UnsetMapFlag.
-func TestHandleOpNpcUMissingNpcTypeRejected(t *testing.T) {
+// TestHandleOpNpcUComponentInteractableClearsPendingAction pins the 244 component-gate
+// change: com.usable replaced by com.interactable, and all sub-gate failures now call
+// clearPendingAction. TS OpNpcUHandler.ts:23-27 (244).
+func TestHandleOpNpcUComponentInteractableClearsPendingAction(t *testing.T) {
 	s, p, _ := makeOpNpcFixture(t)
-	// Seed component and listener so gates pass and the nil-typ gate fires.
+	// Seed component with Interactable=false (explicitly not interactable).
+	// Gate: !com.interactable → reject + clearPendingAction.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: false},
 	})
 	p.tabs[0] = 149
-	if s.invs == nil {
-		s.invs = make(map[int]*inventory.Inventory)
-	}
-	inv := inventory.New(93, 28, inventory.StackNormal)
-	inv.Items[3] = &inventory.Item{Id: 1511, Count: 1}
-	s.invs[93] = inv
-	p.invListenOnCom(93, 149, -1)
-	s.npcs[1].typ = nil
+	p.target = p // sentinel
 
 	_ = handleOpNpcU(p, p2x4NpcUPayload(1, 1511, 3, 149))
 
 	if p.target != nil {
-		t.Error("target should remain nil when NpcType is nil")
+		t.Error("244: !interactable reject must call clearPendingAction (target sentinel should be nil)")
 	}
 }
 
@@ -485,7 +587,7 @@ func TestHandleOpNpcUMissingListenerRejected(t *testing.T) {
 	s, p, _ := makeOpNpcFixture(t)
 	// Seed component so the component gate passes; listener-missing gate fires next.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: true},
 	})
 	p.tabs[0] = 149
 	if s.invs == nil {
@@ -511,7 +613,7 @@ func TestHandleOpNpcUInvalidInvSlotRejected(t *testing.T) {
 	s, p, _ := makeOpNpcFixture(t)
 	// Seed component so the component gate passes.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: true},
 	})
 	p.tabs[0] = 149
 	if s.invs == nil {
@@ -538,7 +640,7 @@ func TestHandleOpNpcUItemMismatchRejected(t *testing.T) {
 	s, p, _ := makeOpNpcFixture(t)
 	// Seed component so the component gate passes.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: true},
 	})
 	p.tabs[0] = 149
 	if s.invs == nil {
@@ -567,7 +669,7 @@ func TestHandleOpNpcUHappyPathWithOtherPlayerInv(t *testing.T) {
 
 	// Seed component so the component gate passes.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: true},
 	})
 	p.tabs[0] = 149
 
@@ -597,7 +699,7 @@ func TestHandleOpNpcUMembersOnFreeWorldRejected(t *testing.T) {
 	s, p, _ := makeOpNpcFixture(t)
 	// Seed component so the component gate passes.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: true},
 	})
 	p.tabs[0] = 149
 	s.cfg.NodeMembers = false
@@ -628,7 +730,7 @@ func TestHandleOpNpcUMembersOnMembersWorldAllowed(t *testing.T) {
 	s, p, npc := makeOpNpcFixture(t)
 	// Seed component so the component gate passes.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: true},
 	})
 	p.tabs[0] = 149
 	s.cfg.NodeMembers = true
@@ -699,7 +801,7 @@ func TestHandleOpNpcUDelayedNpcRejected(t *testing.T) {
 	// Seed component so the component gate passes; register listener + populate inv
 	// so the delayed-npc gate fires (not the component/listener gate).
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: true},
 	})
 	p.tabs[0] = 149
 	if s.invs == nil {
@@ -772,7 +874,7 @@ func TestHandleOpNpcUNpcNotVisibleRejected(t *testing.T) {
 	s.rsbuf.AddPlayer(2)
 	// Seed component so the component gate passes; rsbuf-visibility gate fires next.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: true},
 	})
 	p2.tabs[0] = 149
 	if s.invs == nil {
