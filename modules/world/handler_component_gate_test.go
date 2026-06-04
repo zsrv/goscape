@@ -289,11 +289,12 @@ func TestComponentGate_OpLocU(t *testing.T) {
 	const useCom = 4248
 	const rootLayer = 4248
 	runCompGate(t, compGateCase{
-		name:       "OpLocU",
-		handler:    handleOpLocU,
-		comId:      useCom,
-		isUVariant: true,
-		rootLayer:  rootLayer,
+		name:             "OpLocU",
+		handler:          handleOpLocU,
+		comId:            useCom,
+		isUVariant:       true,
+		usesInteractable: true, // 244: gate uses Interactable (was Usable at 225). TS OpLocUHandler.ts:22.
+		rootLayer:        rootLayer,
 		payloadOK: []byte{
 			x >> 8, x & 0xFF,
 			z >> 8, z & 0xFF,

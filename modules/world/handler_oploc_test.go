@@ -266,13 +266,71 @@ func TestHandleOpLocRejectsEmptyOpSlot(t *testing.T) {
 	}
 }
 
-// TestHandleOpLocRejectsHiddenOpSlot pins L32: an op slot holding the
-// "hidden" keyword is blocked just like "", matching TS OpLocHandler.ts:38
-// (`op == null || op == 'hidden'`). The decoder now stores "hidden"
-// verbatim, so the gate must reject it explicitly.
+// TestHandleOpLocRejectsHiddenOpSlot — OVERTURNED at 244.
+// At 225 the check was `op == null || op == 'hidden'`; at 244 TS
+// OpLocHandler.ts:37 it is `!locType.op || !locType.op[message.op - 1]`
+// (simple falsy check). "hidden" is a non-empty string and is therefore
+// truthy, so it now PASSES the gate and the interaction is set normally.
 func TestHandleOpLocRejectsHiddenOpSlot(t *testing.T) {
-	s, p, _, cc := makeOpLocFixture(t)
+	s, p, loc, _ := makeOpLocFixture(t)
 	s.locTypes.Configs[42].Op[0] = "hidden"
+
+	if err := handleOpLoc1(p, p2x3Payload(100, 100, 42)); err != nil {
+		t.Fatalf("handleOpLoc1: %v", err)
+	}
+	// 244: "hidden" is truthy — interaction must be set, target must be loc.
+	if p.target != loc {
+		t.Errorf("target: got %v, want loc (hidden op passes at 244)", p.target)
+	}
+	if p.targetOp != 1 {
+		t.Errorf("targetOp: got %d, want 1", p.targetOp)
+	}
+}
+
+// TestHandleOpLocViewportClearsPendingAction pins the 244 delta: viewport
+// rejects now call clearPendingAction (TS OpLocHandler.ts:25).
+func TestHandleOpLocViewportClearsPendingAction(t *testing.T) {
+	_, p, _, cc := makeOpLocFixture(t) // origin = (100, 100)
+	p.targetOp = 7                     // stale pending action sentinel
+
+	received := drainConn(t, cc)
+	_ = handleOpLoc1(p, p2x3Payload(250, 100, 42)) // dx = 150 > 52
+	p.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag for out-of-viewport, got nothing")
+	}
+	if p.targetOp != -1 {
+		t.Errorf("targetOp: got %d, want -1 (clearPendingAction at 244 viewport reject)", p.targetOp)
+	}
+}
+
+// TestHandleOpLocGetLocClearsPendingAction pins the 244 delta: GetLoc nil
+// rejects now call clearPendingAction (TS OpLocHandler.ts:32).
+func TestHandleOpLocGetLocClearsPendingAction(t *testing.T) {
+	_, p, _, cc := makeOpLocFixture(t)
+	p.targetOp = 7 // stale pending action sentinel
+
+	received := drainConn(t, cc)
+	_ = handleOpLoc1(p, p2x3Payload(100, 100, 999)) // unknown locId
+	p.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag for missing loc, got nothing")
+	}
+	if p.targetOp != -1 {
+		t.Errorf("targetOp: got %d, want -1 (clearPendingAction at 244 getloc reject)", p.targetOp)
+	}
+}
+
+// TestHandleOpLocOpGateClearsPendingAction pins the 244 delta: the op-slot
+// reject now calls clearPendingAction (TS OpLocHandler.ts:39).
+func TestHandleOpLocOpGateClearsPendingAction(t *testing.T) {
+	s, p, _, cc := makeOpLocFixture(t)
+	s.locTypes.Configs[42].Op[0] = "" // empty → falsy → rejected
+	p.targetOp = 7                    // stale pending action sentinel
 
 	received := drainConn(t, cc)
 	_ = handleOpLoc1(p, p2x3Payload(100, 100, 42))
@@ -280,10 +338,10 @@ func TestHandleOpLocRejectsHiddenOpSlot(t *testing.T) {
 	got := <-received
 
 	if len(got) == 0 {
-		t.Fatal("expected UnsetMapFlag for hidden Op slot, got nothing")
+		t.Fatal("expected UnsetMapFlag for empty Op slot, got nothing")
 	}
-	if p.target != nil {
-		t.Error("target should remain nil when Op slot is hidden")
+	if p.targetOp != -1 {
+		t.Errorf("targetOp: got %d, want -1 (clearPendingAction at 244 op-gate reject)", p.targetOp)
 	}
 }
 
@@ -388,11 +446,39 @@ func TestHandleOpLocTShortPayloadRejected(t *testing.T) {
 	}
 }
 
-// TestHandleOpLocTOutOfViewportRejected verifies dx > 52 → UnsetMapFlag.
-func TestHandleOpLocTOutOfViewportRejected(t *testing.T) {
+// TestHandleOpLocTComponentClearsPendingAction pins the 244 delta: combined
+// component check now includes clearPendingAction (TS OpLocTHandler.ts:21-24).
+func TestHandleOpLocTComponentClearsPendingAction(t *testing.T) {
 	_, p, _, cc := makeOpLocFixture(t)
-	// origin is (100, 100); dx = 250-100 = 150 > 52.
+	// No component seeded → component gate fires.
+	p.targetOp = 7 // stale pending action sentinel
 
+	received := drainConn(t, cc)
+	_ = handleOpLocT(p, p2x4Payload(100, 100, 42, 7777))
+	p.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag for nil component, got nothing")
+	}
+	if p.targetOp != -1 {
+		t.Errorf("targetOp: got %d, want -1 (clearPendingAction at 244 component reject)", p.targetOp)
+	}
+}
+
+// TestHandleOpLocTOutOfViewportRejected verifies dx > 52 → UnsetMapFlag + clearPendingAction.
+// Fix: seeds the spell component so the discriminating gate is the viewport check,
+// not the component-nil gate (T8/T9 fix pattern for wrong-gate tests).
+func TestHandleOpLocTOutOfViewportRejected(t *testing.T) {
+	s, p, _, cc := makeOpLocFixture(t)
+	// Seed spellCom so the component gate passes; viewport gate is discriminating.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		7777: {RootLayer: 7777, ActionTarget: objtype.ComActionTargetLoc},
+	})
+	p.tabs[0] = 7777
+	p.targetOp = 7 // stale pending action sentinel
+
+	// origin is (100, 100); dx = 250-100 = 150 > 52.
 	received := drainConn(t, cc)
 	_ = handleOpLocT(p, p2x4Payload(250, 100, 42, 7777))
 	p.client.flushWrite()
@@ -404,47 +490,81 @@ func TestHandleOpLocTOutOfViewportRejected(t *testing.T) {
 	if p.target != nil {
 		t.Error("target should remain nil for out-of-viewport")
 	}
+	if p.targetOp != -1 {
+		t.Errorf("targetOp: got %d, want -1 (clearPendingAction at 244 viewport reject)", p.targetOp)
+	}
 }
 
-// TestHandleOpLocTMissingLocRejected verifies Server.GetLoc nil → UnsetMapFlag.
+// TestHandleOpLocTMissingLocRejected verifies Server.GetLoc nil → moveClickRequest=false +
+// clearPendingAction (no UnsetMapFlag at 244). TS OpLocTHandler.ts:37-40 (244).
+// Fix: seeds the spell component so the discriminating gate is the missing-loc check,
+// not the component-nil gate (T8/T9 fix pattern for wrong-gate tests).
 func TestHandleOpLocTMissingLocRejected(t *testing.T) {
-	_, p, _, cc := makeOpLocFixture(t)
+	s, p, _, cc := makeOpLocFixture(t)
+	// Seed spellCom so the component gate passes; missing-loc gate is discriminating.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		7777: {RootLayer: 7777, ActionTarget: objtype.ComActionTargetLoc},
+	})
+	p.tabs[0] = 7777
+	p.moveClickRequest = true // sentinel: should be set to false
+	p.targetOp = 7            // stale pending action sentinel
 
 	received := drainConn(t, cc)
 	// locId 999 is not registered in the fixture zone.
 	_ = handleOpLocT(p, p2x4Payload(100, 100, 999, 7777))
 	p.client.flushWrite()
-	got := <-received
-
-	if len(got) == 0 {
-		t.Fatal("expected UnsetMapFlag for missing loc, got nothing")
+	// 244: missing loc does NOT write UnsetMapFlag — just moveClickRequest=false + clearPendingAction.
+	// Any bytes received would be a test failure.
+	select {
+	case got := <-received:
+		if len(got) > 0 {
+			t.Errorf("244: missing loc should NOT write UnsetMapFlag, got %d bytes", len(got))
+		}
+	default:
+		// Expected: nothing written.
 	}
+
 	if p.target != nil {
 		t.Error("target should remain nil for missing loc")
 	}
+	if p.moveClickRequest {
+		t.Error("moveClickRequest: want false after missing-loc reject (TS OpLocTHandler.ts:38)")
+	}
+	if p.targetOp != -1 {
+		t.Errorf("targetOp: got %d, want -1 (clearPendingAction at 244 missing-loc reject)", p.targetOp)
+	}
 }
 
-// TestHandleOpLocTMissingLocTypeRejected verifies missing LocType → UnsetMapFlag.
+// TestHandleOpLocTMissingLocTypeRejected — OVERTURNED at 244.
+// At 225 there was a goscape-defensive locType check after GetLoc. At 244 the
+// TS OpLocTHandler.ts has no such check and goscape follows suit.
+// The handler now succeeds for a loc whose typeID has no registered LocType.
+// We seed the component so the component gate passes, and the loc is active.
 func TestHandleOpLocTMissingLocTypeRejected(t *testing.T) {
-	s, p, _, cc := makeOpLocFixture(t)
+	s, p, _, _ := makeOpLocFixture(t)
+
+	// Seed spellCom so the component gate passes.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		7777: {RootLayer: 7777, ActionTarget: objtype.ComActionTargetLoc},
+	})
+	p.tabs[0] = 7777
 
 	// Place a second loc at (100, 100) with typeID 77, but don't register
-	// LocType 77 — Configs[77] stays nil (or out-of-bounds — either way nil check fires).
+	// LocType 77 — the loctype check is gone at 244.
 	extraLoc := entitypkg.NewLoc(0, 100, 100, 1, 1, entitypkg.LifecycleForever, 77, 10, 0)
 	zn := s.zoneMap.Get(0, 100, 100)
 	zn.Locs = append(zn.Locs, extraLoc)
-	extraLoc.IsActive = true // see :200 for rationale (need to reach the loctype gate, not getloc_nil).
+	extraLoc.IsActive = true
 
-	received := drainConn(t, cc)
-	_ = handleOpLocT(p, p2x4Payload(100, 100, 77, 7777))
-	p.client.flushWrite()
-	got := <-received
-
-	if len(got) == 0 {
-		t.Fatal("expected UnsetMapFlag for missing locType, got nothing")
+	// 244: no locType check — handler must set interaction normally.
+	if err := handleOpLocT(p, p2x4Payload(100, 100, 77, 7777)); err != nil {
+		t.Fatalf("handleOpLocT: %v", err)
 	}
-	if p.target != nil {
-		t.Error("target should remain nil for missing locType")
+	if p.target != extraLoc {
+		t.Errorf("target: got %v, want extraLoc (loctype check dropped at 244)", p.target)
+	}
+	if p.targetOp != targetOpLocT {
+		t.Errorf("targetOp: got %d, want targetOpLocT (%d)", p.targetOp, targetOpLocT)
 	}
 }
 
@@ -470,7 +590,7 @@ func TestHandleOpLocUSetsInteraction(t *testing.T) {
 
 	// Seed component so the component gate passes.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: true},
 	})
 	p.tabs[0] = 149
 
@@ -553,11 +673,40 @@ func TestHandleOpLocUShortPayloadRejected(t *testing.T) {
 	}
 }
 
-// TestHandleOpLocUOutOfViewportRejected verifies dx > 52 → UnsetMapFlag.
-func TestHandleOpLocUOutOfViewportRejected(t *testing.T) {
+// TestHandleOpLocUComponentClearsPendingAction pins the 244 delta: combined
+// component check (undefined || !isVisible || !interactable) now includes
+// clearPendingAction and fires before the viewport check (TS OpLocUHandler.ts:21-26).
+func TestHandleOpLocUComponentClearsPendingAction(t *testing.T) {
 	_, p, _, cc := makeOpLocFixture(t)
-	// origin (100,100); dx = 250-100 = 150 > 52.
+	// No component seeded → component gate fires.
+	p.targetOp = 7 // stale pending action sentinel
 
+	received := drainConn(t, cc)
+	_ = handleOpLocU(p, p2x6Payload(100, 100, 42, 1511, 3, 149))
+	p.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag for nil component, got nothing")
+	}
+	if p.targetOp != -1 {
+		t.Errorf("targetOp: got %d, want -1 (clearPendingAction at 244 component reject)", p.targetOp)
+	}
+}
+
+// TestHandleOpLocUOutOfViewportRejected verifies dx > 52 → UnsetMapFlag + clearPendingAction.
+// Fix: seeds the component (Interactable) so the discriminating gate is the viewport check.
+// At 244 the component check moves before the viewport check (TS OpLocUHandler.ts:21-26).
+func TestHandleOpLocUOutOfViewportRejected(t *testing.T) {
+	s, p, _, cc := makeOpLocFixture(t)
+	// Seed component (Interactable at 244) so the component gate passes.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Interactable: true},
+	})
+	p.tabs[0] = 149
+	p.targetOp = 7 // stale pending action sentinel
+
+	// origin (100,100); dx = 250-100 = 150 > 52.
 	received := drainConn(t, cc)
 	_ = handleOpLocU(p, p2x6Payload(250, 100, 42, 1511, 3, 149))
 	p.client.flushWrite()
@@ -569,11 +718,29 @@ func TestHandleOpLocUOutOfViewportRejected(t *testing.T) {
 	if p.target != nil {
 		t.Error("target should remain nil for out-of-viewport")
 	}
+	if p.targetOp != -1 {
+		t.Errorf("targetOp: got %d, want -1 (clearPendingAction at 244 viewport reject)", p.targetOp)
+	}
 }
 
-// TestHandleOpLocUMissingLocRejected verifies Server.GetLoc nil → UnsetMapFlag.
+// TestHandleOpLocUMissingLocRejected verifies Server.GetLoc nil → UnsetMapFlag + clearPendingAction.
+// Fix: seeds component + listener + inv so the discriminating gate is the missing-loc check.
+// At 244 the loc lookup moves AFTER the inv check (TS OpLocUHandler.ts:52-57).
 func TestHandleOpLocUMissingLocRejected(t *testing.T) {
-	_, p, _, cc := makeOpLocFixture(t)
+	s, p, _, cc := makeOpLocFixture(t)
+	// Seed all prerequisites so the missing-loc gate is discriminating.
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Interactable: true},
+	})
+	p.tabs[0] = 149
+	if s.invs == nil {
+		s.invs = make(map[int]*inventory.Inventory)
+	}
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Items[3] = &inventory.Item{Id: 1511, Count: 1}
+	s.invs[93] = inv
+	p.invListenOnCom(93, 149, -1)
+	p.targetOp = 7 // stale pending action sentinel
 
 	received := drainConn(t, cc)
 	// locId 999 is not registered in fixture zone.
@@ -587,28 +754,47 @@ func TestHandleOpLocUMissingLocRejected(t *testing.T) {
 	if p.target != nil {
 		t.Error("target should remain nil for missing loc")
 	}
+	if p.targetOp != -1 {
+		t.Errorf("targetOp: got %d, want -1 (clearPendingAction at 244 missing-loc reject)", p.targetOp)
+	}
 }
 
-// TestHandleOpLocUMissingLocTypeRejected verifies missing LocType → UnsetMapFlag.
+// TestHandleOpLocUMissingLocTypeRejected — OVERTURNED at 244.
+// At 225 goscape had a defensive locType check after GetLoc. At 244 the
+// TS OpLocUHandler.ts has no such check and goscape follows suit.
+// The handler now succeeds for a loc whose typeID has no registered LocType.
+// We seed all prerequisites; the interaction must be set normally.
 func TestHandleOpLocUMissingLocTypeRejected(t *testing.T) {
-	s, p, _, cc := makeOpLocFixture(t)
+	s, p, _, _ := makeOpLocFixture(t)
+
+	// Seed component (Interactable at 244).
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Interactable: true},
+	})
+	p.tabs[0] = 149
+	if s.invs == nil {
+		s.invs = make(map[int]*inventory.Inventory)
+	}
+	inv := inventory.New(93, 28, inventory.StackNormal)
+	inv.Items[3] = &inventory.Item{Id: 1511, Count: 1}
+	s.invs[93] = inv
+	p.invListenOnCom(93, 149, -1)
 
 	// Place a loc with typeID 77 but no registered LocType.
 	extraLoc := entitypkg.NewLoc(0, 100, 100, 1, 1, entitypkg.LifecycleForever, 77, 10, 0)
 	zn := s.zoneMap.Get(0, 100, 100)
 	zn.Locs = append(zn.Locs, extraLoc)
-	extraLoc.IsActive = true // see :200 for rationale (need to reach the loctype gate, not getloc_nil).
+	extraLoc.IsActive = true
 
-	received := drainConn(t, cc)
-	_ = handleOpLocU(p, p2x6Payload(100, 100, 77, 1511, 3, 149))
-	p.client.flushWrite()
-	got := <-received
-
-	if len(got) == 0 {
-		t.Fatal("expected UnsetMapFlag for missing locType, got nothing")
+	// 244: no locType check — handler must set interaction normally.
+	if err := handleOpLocU(p, p2x6Payload(100, 100, 77, 1511, 3, 149)); err != nil {
+		t.Fatalf("handleOpLocU: %v", err)
 	}
-	if p.target != nil {
-		t.Error("target should remain nil for missing locType")
+	if p.target != extraLoc {
+		t.Errorf("target: got %v, want extraLoc (loctype check dropped at 244)", p.target)
+	}
+	if p.targetOp != targetOpLocU {
+		t.Errorf("targetOp: got %d, want targetOpLocU (%d)", p.targetOp, targetOpLocU)
 	}
 }
 
@@ -638,6 +824,30 @@ func TestHandleOpLocClearsExistingInteraction(t *testing.T) {
 	}
 }
 
+// TestHandleOpLocUListenerClearsPendingAction pins the 244 delta: listener-not-found
+// reject now calls clearPendingAction (TS OpLocUHandler.ts:38-43).
+func TestHandleOpLocUListenerClearsPendingAction(t *testing.T) {
+	s, p, _, cc := makeOpLocFixture(t)
+	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
+		149: {RootLayer: 149, Interactable: true},
+	})
+	p.tabs[0] = 149
+	// No invListenOnCom → listener-missing gate fires.
+	p.targetOp = 7 // stale pending action sentinel
+
+	received := drainConn(t, cc)
+	_ = handleOpLocU(p, p2x6Payload(100, 100, 42, 1511, 3, 149))
+	p.client.flushWrite()
+	got := <-received
+
+	if len(got) == 0 {
+		t.Fatal("expected UnsetMapFlag for missing listener, got nothing")
+	}
+	if p.targetOp != -1 {
+		t.Errorf("targetOp: got %d, want -1 (clearPendingAction at 244 listener reject)", p.targetOp)
+	}
+}
+
 // TestHandleOpLocUMissingListenerRejected verifies that a useCom with no
 // registered listener → UnsetMapFlag, no state change.
 // S6p closes S6m-D3: per TS OpLocUHandler.ts:50-66, the handler must
@@ -647,7 +857,7 @@ func TestHandleOpLocUMissingListenerRejected(t *testing.T) {
 	s, p, _, cc := makeOpLocFixture(t)
 	// Seed component so the component gate passes; listener-missing gate fires next.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: true},
 	})
 	p.tabs[0] = 149
 	// NO invListenOnCom — the map stays empty.
@@ -680,7 +890,7 @@ func TestHandleOpLocUInvalidSlotRejected(t *testing.T) {
 	s, p, _, cc := makeOpLocFixture(t)
 	// Seed component so the component gate passes; inv-slot-OOB gate fires next.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: true},
 	})
 	p.tabs[0] = 149
 	if s.invs == nil {
@@ -713,7 +923,7 @@ func TestHandleOpLocUItemMismatchRejected(t *testing.T) {
 	s, p, _, cc := makeOpLocFixture(t)
 	// Seed component so the component gate passes; item-mismatch gate fires next.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: true},
 	})
 	p.tabs[0] = 149
 	if s.invs == nil {
@@ -749,7 +959,7 @@ func TestHandleOpLocUHappyPathWithOtherPlayerInv(t *testing.T) {
 
 	// Seed component so the component gate passes.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: true},
 	})
 	p.tabs[0] = 149
 
@@ -782,7 +992,7 @@ func TestHandleOpLocUMembersOnFreeWorldRejected(t *testing.T) {
 	s, p, _, cc := makeOpLocFixture(t)
 	// Seed component so the component gate passes; members-free-world gate fires next.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: true},
 	})
 	p.tabs[0] = 149
 	s.cfg.NodeMembers = false
@@ -822,7 +1032,7 @@ func TestHandleOpLocUMembersOnFreeWorldClearsPendingAction(t *testing.T) {
 	s, p, loc, cc := makeOpLocFixture(t)
 	// Seed component so the component gate passes; members-free-world gate fires next.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: true},
 	})
 	p.tabs[0] = 149
 	s.cfg.NodeMembers = false
@@ -880,7 +1090,7 @@ func TestHandleOpLocUMembersOnMembersWorldAllowed(t *testing.T) {
 	s, p, loc, _ := makeOpLocFixture(t)
 	// Seed component so the component gate passes.
 	seedComponentTypes(t, s, map[int]*objtype.ComponentType{
-		149: {RootLayer: 149, Usable: true},
+		149: {RootLayer: 149, Interactable: true},
 	})
 	p.tabs[0] = 149
 	s.cfg.NodeMembers = true
