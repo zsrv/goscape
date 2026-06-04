@@ -73,17 +73,14 @@ func TestProcessPlayerQueue_ClearDuringExecute_244(t *testing.T) {
 	s.runScriptFn = func(f *script.ScriptFile, _ script.ActivePlayer, _ any, _ script.ServerTriggerType, _ bool, _ []int, _ []string) {
 		fired = append(fired, f.LookupKey)
 		if f.LookupKey == 0xA {
-			// Simulate CLEARQUEUE(B): remove every p.queue entry whose Script == sfB.
-			// This mirrors UnlinkQueuedScript called from inside executeScript in TS.
-			// In TS, this would also clobber this.queue.cursor; TS 244 restores it.
-			// In Go, there is no cursor — the loop's i variable is untouched by this.
-			out := p.queue[:0]
-			for _, req := range p.queue {
-				if req.Script != sfB {
-					out = append(out, req)
-				}
-			}
-			p.queue = out
+			// CLEARQUEUE(B) via the REAL production path: UnlinkQueuedScript
+			// resolves script id 1 (sfB's Register slot) through
+			// scriptProvider.GetByID and filter-rebuilds p.queue — exactly
+			// what the clearqueue script op does from inside executeScript.
+			// In TS, this would also clobber this.queue.cursor; TS 244
+			// restores it. In Go, there is no cursor — the loop's i variable
+			// is untouched by this.
+			p.UnlinkQueuedScript(1)
 		}
 	}
 
@@ -119,9 +116,10 @@ func TestProcessPlayerQueue_ClearDuringExecute_244(t *testing.T) {
 // grows, and the cursor — after being restored by TS 244 — advances into C on the
 // next iteration. So C IS visible in the SAME pass (authentic inconsistency).
 //
-// Go's `for i < len(p.queue)` re-evaluates len each iteration. When A fires and
-// appends C (p.queue = append(p.queue, C)), len grows from 1→2 (A was already
-// removed), so the loop continues to i==1 which is C. C fires in the SAME pass.
+// Go's `for i < len(p.queue)` re-evaluates len each iteration. A is spliced out
+// BEFORE it fires and i is NOT incremented after the splice, so when A's body
+// appends C the queue goes [] → [C] and the loop re-reads len at the SAME index
+// i==0, which is now C. C fires in the SAME pass.
 //
 // Result: GO MATCHES TS. The append-visibility behavior is identical.
 func TestProcessPlayerQueue_AppendDuringExecute_244(t *testing.T) {
