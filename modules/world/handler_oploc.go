@@ -89,6 +89,8 @@ func handleOpLoc(p *Player, payload []byte, op int) error {
 	// Gate 6: op slot check. TS OpLocHandler.ts:37-40 (244).
 	// Rejects if the op array is absent or the slot is empty/nil.
 	// "hidden" is truthy at 244 and is NOT rejected here (225 drop).
+	// Note: gates ALL ops — contrast with handleOpObj, which gates only
+	// op1/op4 (TS OpObjHandler.ts:36-42 "todo: validate all options").
 	if len(locType.Op) < op || locType.Op[op-1] == "" {
 		emitOpLocGate(s, p, "op_slot_empty", op, x, z, locId)
 		sendUnsetMapFlag(p)
@@ -195,7 +197,9 @@ func handleOpLocT(p *Player, payload []byte) error {
 	}
 
 	// Gate 5: loc missing — moveClickRequest=false + clearPendingAction (no UnsetMapFlag).
-	// TS OpLocTHandler.ts:36-40 (244).
+	// TS OpLocTHandler.ts:36-40 (244). Cross-family asymmetry: OpObjTHandler.ts:37-41
+	// sends UnsetMapFlag at the equivalent gate — OpLocT does NOT. Both TS-verified;
+	// do not harmonize.
 	loc := s.GetLoc(p.level, x, z, locId)
 	if loc == nil {
 		p.moveClickRequest = false
